@@ -1,0 +1,292 @@
+c
+c Created May 15, 2008 by R.Kessler
+c
+c User-cradle file for fitter.
+c This file contains the USR[INI,ANA,END] routines,
+c with some examples on how to access fit results
+c and light curve data.
+c
+c Create your own executable with
+c   > snmake.pl snlc_fit_private
+c   (produces snlc_fit_private.exe)
+c
+c You can also rename this file to any other name,
+c such as 
+c   > cp snlc_fit_private.cra  myfit.cra
+c   > snmake.pl myfit
+c   (produces myfit.exe)
+c
+c
+c In addition to the USR[INI,ANA,END] routines,
+c you can install any official routine from
+c   $SNANA_DIR/src/snana.car
+c   $SNANA_DIR/src/snlc_fit.car
+c
+c into this file so that your private version over-rides
+c the official version.
+c
+c
+c Aug 6, 2009: fix very stale code & patchy flags below (for Mosher)
+c              and also fix snmake to include genmag_SALT2.o
+c
+c Sep 24, 2009: include *SPLINE patch
+c
+c Nov 12, 2009: patch in only SNMAIN and use the library for the rest.
+c               This allows debugging snana routines here without
+c               patchy conflicts.
+c
+c Aug 1, 2011: patchy flag KCOR -> R4KCOR
+c
+c Oct  9, 2012: few minor bug-fixes
+c Oct 13, 2012: add new example MYFUN called for each fitted filter.
+c Dec 05, 2012: add dummy USRINI2
+c ---------------------------------------------
+
++NAMES,8,6000,48000.
++USE,LINUX.
++USE,SNFIT.
++USE,R4KCOR.
+
+c Patch in the main program and SNANA common blocks
+
++USE,P=*SNCOM.
++USE,P=*SNMAIN,T=EXE.
++PAM,LUN=10, T=A,C. snana.lnk
+
+
+c patch in fitter code
++USE,P=*FITCOM.
++PAM,LUN=20, T=A,C. snlc_fit.lnk
+
+c patch in user code
++USE,P=*USRCOM.
++USE,P=*USRCODE,T=EXE.
+
+
+C ###############################
++PATCH,*USRCOM.
+C ###############################
+
+c Put your private common blocks here.
++KEEP,MYCOM.
+      REAL MYFLOAT
+      COMMON / MYCOM / MYFLOAT
+
+
+C ###############################
++PATCH,*USRCODE.
+C ###############################
+
+C ===========================================
++DECK,USRINI.
+      SUBROUTINE USRINI(IERR)
+c
+c User init-routine called before SN are read.
+c -------------------------------------
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,SNFITCOM.
+ 
+      INTEGER IERR ! (O) 0 => OK
+c local var
+      INTEGER LL
+C ------------------- BEGIN ---------------------
+      IERR = 0
+      print*,'  USRINI (usrfit): hello there !!!    BOO'
+      RETURN
+      END
+
+C ===========================================
++DECK,USRINI2.
+      SUBROUTINE USRINI2(IERR)
+c
+c User init-routine called once after first SN is read.
+c -------------------------------------
+      IMPLICIT NONE
+c +CDE,SNDATCOM.
+c +CDE,SNANAFIT.
+c +CDE,SNFITCOM.
+ 
+      INTEGER IERR ! (O) 0 => OK
+C ------------------- BEGIN ---------------------
+      IERR = 0
+      print*,'  USRINI2 (usrfit): hello there !!!    BOO'
+      RETURN
+      END
+
+C ===========================================
++DECK,USRANA.
+      SUBROUTINE USRANA(IERR)
+c
+c User analysis routine for each Supernova
+c See SNLC_XXX varibales in 
+c      $SNANA_DIR/src/snana.car
+c
+c -------------------------------------
+      IMPLICIT NONE
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
++CDE,FILTCOM.
+
+c declare subroutine args
+
+      INTEGER IERR ! (O) 0 => OK
+
+c local variables
+
+      INTEGER 
+     &   CID
+     &  ,EPMIN, EPMAX, EP
+     &  ,IFILT_OBS, IFILT_RST, IFILT
+     &  ,imjd, iep, ifitcov
+
+      REAL 
+     &   RA, DECL, ZSPEC
+     &  ,T0, T0_ERR
+     &  ,MU, MU_ERR
+     &  ,MJD
+     &  ,Fluxcal
+     &  ,Fluxcal_ERR
+     &  ,Trest, Tobs
+
+      CHARACTER cflt_obs*2, cflt_rst*2, CCID*12
+
+      LOGICAL LDMP 
+
+C ------------------- BEGIN ---------------------
+
+      IERR = 0
+
+      LDMP = SNLC_CID .LT. -5
+
+      CID      = SNLC_CID   ! integer CID
+      CCID     = SNLC_CCID  ! character CID
+      RA       = SNLC8_RA
+      DECL     = SNLC8_DEC
+      ZSPEC    = SNLC_REDSHIFT
+
+c get fitted PEAKMJD (T0) and error
+      T0      = LCVAL_STORE(IPAR_PEAKMJD)
+      T0_ERR  = LCERR_STORE(IPAR_PEAKMJD)
+
+c get fitted distance moduls (MU) and error
+      MU      = LCVAL_STORE(IPAR_DLMAG)
+      MU_ERR  = LCERR_STORE(IPAR_DLMAG)
+
+c Can repeat for PHOTOZ, RV, AV, DELTA with 
+c IPAR_[PHOTOZ,RV,AV,LUMIPAR]
+c ----------
+
+c now loop over filters and epochs USED IN THE FIT !!!
+
+      IF ( LDMP ) THEN
+         print*,' '
+         print*,' ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  '
+         print*,' BEGIN USRANA TEST-DUMP for CID = ', CCID
+         print*,' NFITDATA =', NFITDATA
+      ENDIF
+
+      DO 50 ifitcov = 1, NFITDATA
+
+
+         imjd       = I4EP_FIT(ifitcov,IEP_IMJD)
+         iep        = I4EP_FIT(ifitcov,IEP_EPOCH)
+         ifilt      = I4EP_FIT(ifitcov,IEP_IFILT)
+         ifilt_obs  = I4EP_FIT(ifitcov,IEP_IFILT_OBS)
+
+         Trest        = R4EP_FIT(ifitcov,JEP_TREST)
+         Tobs         = R4EP_FIT(ifitcov,JEP_TOBS)
+         MJD          = R4EP_FIT(ifitcov,JEP_MJD)
+
+         Fluxcal      = R4EP_FIT(ifitcov,JEP_DATAFLUX)
+         Fluxcal_err  = R4EP_FIT(ifitcov,JEP_DATAFLUX_ERR)
+
+c convert filter indices to 1-character string
+
+         CFLT_OBS = FILTDEF_STRING(ifilt_obs:ifilt_obs)
+         CFLT_RST = FILTDEF_STRING(ifilt_rst:ifilt_rst)
+         
+50    CONTINUE
+
+c -------------------------------------------------
+c below is an example of how to call a function
+c for each fitted filter, such as an alternate plotting package
+
+      IF ( ERRFLAG_FIT == 0  ) THEN
+        DO ifilt    = 1, NFILTDEF_SURVEY          ! sparse filter index
+          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)  ! absolute filter index
+          if ( USE_FILT(ifilt_obs) ) then
+            CALL MYFUN(ifilt)                     ! user function
+          endif
+        END DO
+      ENDIF
+
+c --------------------------------------------
+      IF ( LDMP ) THEN
+         print*,' '
+         print*,' END OF USRANA TEST-DUMP for CID = ', CCID
+         print*,' ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  '
+         print*,' '
+      ENDIF
+
+  
+
+      RETURN
+      END
+
+C ===========================================
++DECK,USREND.
+      SUBROUTINE USREND(IERR)
+c
+c User end-routine after all analysis/fits are done. 
+c [close files, summarize statistics, global analysis, etc ...]
+c -------------------------------------
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNANAFIT.
++CDE,SNFITCOM.
+ 
+      INTEGER IERR ! (O) 0 => OK
+c local var
+      INTEGER LL
+C ------------------- BEGIN ---------------------
+      IERR = 0
+
+      print*,'  USREND (usrfit): summarize, close files, wrap up'
+      RETURN
+      END
+
+ 
+C =============================
++DECK,MYFUN.
+      SUBROUTINE MYFUN(IFILT)
+c
+c Oct 13, 2012
+c Example of user-function that depends on fitted filter.
+c
+      IMPLICIT NONE
+
+      INTEGER IFILT  ! (I) sparse filter index
+
+c local args
+
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
++CDE,FILTCOM.
+
+      INTEGER IFILT_OBS, LCID
+      CHARACTER CFILT1
+C --------------- BEGIN -------------
+
+      ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)  ! absolute filter index
+      CFILT1    = FILTDEF_STRING(ifilt_obs:ifilt_obs)
+
+      LCID = INDEX(SNLC_CCID,' ' ) - 1
+      write(6,20) SNLC_CCID(1:LCID), CFILT1
+20    format(T15,'#### Test call to MYFUN for ',A,'-',A,' #### ')
+
+      RETURN
+      END

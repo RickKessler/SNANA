@@ -1,0 +1,312 @@
+% ###########################
+%
+% snana-install Manual
+% Started May 08, 2009
+%
+% Update history:
+%
+% date            comment
+% Nov 02, 2010     include GSL 
+% Mar 01, 2012     CERNLIB update from Rodney
+% Mar 02, 2013     MINUIT_DIR and some general updating.
+% Apr     2014     (ROOT and/or CERNLIB) or neither
+%
+% Feb 19  2015     minuit is part of snana, so don't need MINUIT_DIR
+% Mar 10  2016     Fix text on how to compile w/wo HBOOK or ROOT
+% Apr 05  2019     mention python >= 2.7 requirement
+%
+% ##########################
+
+
+\documentclass[12pt]{article}
+\usepackage{epsfig}          % use epsfig commands for graphs
+\usepackage{url}
+
+\setlength{\textheight}{8.5in}
+\setlength{\textwidth}{6.8in}
+\setlength{\oddsidemargin}{-0.2in}
+\setlength{\topmargin}{+0.2in}
+%\setlength{\footheight}{0.4in}
+\setlength{\headsep}{0.0in}
+
+
+\newcommand{\fitter}{{\tt snlc\_fit}}
+\newcommand{\simu}{{\tt snlc\_sim}}
+\newcommand{\mlcs}{{\tt MLCS2k2}}
+\newcommand{\env}{environment}
+\newcommand{\snana}{{\tt SNANA}}
+\newcommand{\snanadir}{{\tt SNANA\_DIR}}
+\newcommand{\sndataroot}{{\tt SNDATA\_ROOT}}
+% \newcommand{\mndir}{{\tt MINUIT\_DIR}}
+\newcommand{\mn}{{\sc minuit}}
+
+\newcommand{\softdir}{{\tt \$SOFTDIR}}
+\newcommand{\workdir}{{\tt \$SCRATCHDIR}}
+
+\newcommand{\ROOT}{{\tt ROOT}}
+\newcommand{\HBOOK}{{\tt HBOOK}}
+\newcommand{\TEXT}{{\tt TEXT}}
+
+
+% ========================================
+\title{ \snana\ Installation Guide }
+
+\author{J.~Bernstein, S.~Jha, R.~Kessler, S~Rodney }
+
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+% -------------------------------------------------------
+%                       START
+% -------------------------------------------------------
+
+% ####################################
+   \section{Overview}
+% ####################################
+
+
+The installation of \snana\ involves two tarballs
+available from the ``SNANA Download'' button.
+First is the \snana\ software that includes all of
+the source code and a {\tt Makefile}.
+The second tarball, called ``\sndataroot,''
+contains data (\S\ref{sec:data}), 
+a simulation-output directory, 
+and many files needed to run the \snana\ programs including
+K-correction tables, model parameters,
+filter responses, primary spectra (Vega, BD17), etc.
+Environment variables 
+\${\snanadir} and  \${\sndataroot}
+must be defined to point to these areas,
+and it is convenient to define these in a login script.
+You will also need to add 
+\$\snanadir/bin and \$\snanadir/util to your path.
+It is recommended that \${\snanadir} be write-protected,
+while \$\sndataroot\ has write-access for all users.
+Once you have installed \snana, see the {\tt snana\_manual}
+for instructions on running the programs.
+
+
+To make the \snana\ binary executables,
+\begin{verbatim}  
+  cd $SNANA_DIR/src
+  make
+\end{verbatim}
+% $
+The \snana\ software is updated rather often, so it is recommended
+to create an automated script to 'wget' the current \snana\ code
+and run the make command.
+The largest program size is under 400~Mb, but this does 
+not include dynamic memory allocations.
+
+
+% ####################################  
+   \clearpage
+   \section{Linux}
+% ####################################
+
+
+To use the \snana\ package you must install the 32-bit or 64-bit
+versions of 
+{\tt CFITSIO}, {\tt GSL} and {\tt libncurses}.
+It is also recommended to install {\tt CERNLIB} and/or {\tt ROOT}
+to make light curve plots and to access the full table of
+analysis variables; however, neither of these packages is
+required starting with {\tt v10\_34b}.
+Finally, python 2.7 or higher is required.
+
+
+In the following, \softdir\ refers to the top-directory
+of your software packages,
+and \workdir\ refers to your working area or scratch disk.
+After installing the required packages and assuming you
+are using the tcsh shell, add the following in your
+login or {\snana}-setup script,
+%
+\begin{verbatim}
+  > setenv CERN_DIR     $SOFTDIR/cern      ! optional (see below)
+  > setenv ROOT_DIR     $SOFTDIR/root      ! optional (see below)
+  > setenv CFITSIO_DIR  $SOFTDIR/cfitsio 
+  > setenv GSL_DIR      $SOFTDIR/gsl
+  > setenv PATH            $CERN_DIR/bin:$PATH 
+  > setenv LD_LIBRARY_PATH $CERN_DIR/lib:$LD_LIBRARY_PATH 
+  > setenv SNANA_DIR $SOFTDIR/SNANA/snana_v10_42i 
+  > setenv PATH $SNANA_DIR/bin:$SNANA_DIR/util:$PATH
+  > python --version  (must be 2.7 or higher)
+\end{verbatim}
+%$
+and for bash make the apppropriate 'export' substitutions.
+
+
+\noindent
+Download the most recent \snana\ tarball to
+{\softdir/\snana} and do
+%
+\begin{verbatim}
+  > cd $SOFTDIR/SNANA
+  > tar xzf snana_v10_42i.tar.gz 
+  > cd snana_v10_42i/src 
+
+  > make   
+      (hold your breath ... )
+\end{verbatim}
+%
+See \S\ref{sec:hbookroot} on how to enable or disable
+compilation with \HBOOK\ and \ROOT.
+Once you have the \snana\ sofware installed,
+download the most recent {\sndataroot} tarball to 
+{\workdir}/{\sndataroot}, and do
+%
+\begin{verbatim}
+> setenv SNDATA_ROOT $SCRATCHDIR/SNDATA_ROOT
+\end{verbatim}
+%$
+Based on the selection of HBOOK or ROOT,
+the output file is selected in the namelist file with
+\begin{verbatim}
+   &SNLCINP
+       HFILE_OUT    = 'anything.his'   ! HBOOK option
+       ROOTFILE_OUT = 'anything.root'  ! ROOT  option
+\end{verbatim}
+
+% --------------------------------
+\clearpage
+\subsection{Troubleshooting}
+% --------------------------------
+
+\begin{enumerate}
+\item 	If you get errors similar to 
+\begin{verbatim}
+$SOFTDIR/cern/2004/lib/libpacklib.a(cfclos.o)(.text+0xa): 
+In function `cfclos_': : undefined reference to `rfio_close' 
+%$
+\end{verbatim}
+%
+  	then, in {\$\snanadir}/{\tt src/Makefile}, replace
+  	``-lkernlib -lpacklib''  with
+  	``-lkernlib\_noshift -lpacklib\_noshift''
+%
+  	if you have the latter with your {\tt CERNLIB} distribution. 
+	If not, then try installing the appropriate version from the 
+	{\tt CERNLIB} page. 
+%
+\item	If you have a 64-bit machine of type other than {\tt x86\_64}, 
+   	then modify the BITNESS logical test in the {\tt Makefile} so 
+   	that the  -m32 flag is used.
+\end{enumerate}
+
+
+% ###########################################
+   \clearpage
+   \section{Mac OS with Intel Processor}
+% ##########################################
+
+2014.05.27  Tested on Mac OSX v10.9 by S.Rodney.
+
+\begin{enumerate}
+\item	Make sure you have a working gfortran.\\
+ Here are three possible sources:
+  \begin{enumerate}
+    \item RECOMMENDED: {\tt http://gcc.gnu.org/wiki/GFortranBinaries} : \\
+     .dmg installer puts gfortran in {\tt /usr/local/gfortran/bin} \\
+     add that to your {\tt \$PATH} or make sure links in {\tt /usr/local/bin} exist.
+	 \item {\tt http://hpc.sourceforge.net}:\\
+      unpack a tar ball, putting binaries into /usr/local/bin
+    \item {\tt http://r.research.att.com/tools/} :\\
+      .dmg installer puts binaries in /usr/local/bin\\
+      they say "most other binaries are either incomplete or broken (do not use compilers from HPC, they won't work correctly!)."\\
+      but that may be outdated.
+   \end{enumerate}
+%
+%\item 	g95 is needed for compiling the Sussex cosmology fitter {\tt sncosmo\_mcmc}.
+%   	For example, the binary from 
+%	{\tt http://www.g95.org/downloads.shtml}.
+%
+
+\item 	Install SNANA dependencies : CFITSIO, GSL,
+    and optionally {\tt ROOT} or {\tt CERNLIB}.
+
+  There are two required dependencies for SNANA.  
+  I recommend using a package installer, such as homebrew (\url{http://brew.sh}).  
+  Then you simply need to be sure that the homebrew install location is on your PATH
+  (it defaults to /usr/local, which should be fine).
+
+\begin{verbatim}
+# update homebrew itself, including recipes
+brew update  
+
+# upgrade the libraries
+brew install gsl
+brew install cfitsio
+\end{verbatim}
+
+Before upgrading SNANA in the future you can first upgrade these libraries using: 
+
+\begin{verbatim}
+brew update
+brew upgrade gsl
+brew upgrade cfitsio
+\end{verbatim}
+
+\item OPTIONAL : install ROOT 
+
+Go to \url{http://root.cern.ch/} or pre-compiled libraries at \\
+{\tt https://root.cern.ch/content/release-53434}
+
+
+\item Be sure you have set the environment variables %% {\tt MINUIT\_DIR}, 
+      {\tt ROOT\_DIR}, {\tt CFITSIO\_DIR}, and {\tt GSL\_DIR}, 
+      following the instructions above. 
+  
+\item Build SNANA following the linux instructions above. 
+
+\end{enumerate}
+
+
+% ##########################################
+%   \clearpage
+  \section{Optional Compilation with \HBOOK\ and {\ROOT} }
+  \label{sec:hbookroot}
+
+\snana\ supports three output table formats:
+\TEXT, \HBOOK, \ROOT.~~
+\TEXT\ format requires no special libraries and is thus 
+always available.
+The \snana\ codes will compile with \HBOOK\ if 
+environment (ENV) variable  {\tt\$CERN\_DIR} is defined.
+\snana\ codes will compile with \ROOT\ if ENV {\tt\$ROOT\_DIR} 
+is defined. 
+To compile without \HBOOK\ or \ROOT, make sure that the 
+associated ENV is not defined. Do not modify any files to 
+adjust compilation with \HBOOK\ or \ROOT.
+
+
+% ##########################################
+%   \clearpage
+   \section{Data Samples in Download}
+   \label{sec:data}
+% ##########################################
+
+The downloads include SN data versions in 
+\$\sndataroot/{\tt lcmerge}.\footnote{
+``lcmerge'' refers to the merging of data and meta-data
+such as PSF, skynoise, moon, etc ...}
+Each SN data version corresponds to a published data set
+that has been converted into the format needed
+for the \snana\ light curve fitter.
+To see a summary of the available data samples,
+\begin{verbatim}
+   > cd $SNDATA_ROOT/lcmerge/
+   > ls */*.README
+\end{verbatim}
+% $
+and then ``more'' any {\tt README} file for details.
+
+
+% *******************************************************************
+    \end{document}
+% *******************************************************************
+

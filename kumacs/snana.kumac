@@ -1,0 +1,2093 @@
+* =============================================================
+* Created Feb 2013 by R.Kessler
+* Generic macros to look at light curve fits produced by snlc_fit.exe
+* Modified to work with new plotting architecture in v10_24c,
+* at least while CERNLIB still works.
+*
+* HISTORY
+* 
+* Mar 24 2013: few tweaks to work with 1 filter
+* Oct 23 2013: print sum of chi2-diag to screen in macro#fitres
+*
+* =============================================================
+
+macro help
+  mess ' snana#fitres cid=[cid] tmin=[tmin] tmax=[tmax] '
+  mess ' snana#fitres_mkplots hisfile=snlc_fit.his tmin=-40 tmax=100 '
+  mess ' snana#pdf cid=[cid] ............... plot 1-d pdfs'
+  mess ' snana#contour cid=[cid] hoff=[hoff] ... '
+  mess ' snana#cid [isn] ...... returns CID for sparse ISN index'
+  mess ' snana#resids_flux snrmin=5 tmin=-15 tmax=60 eps=0 comment=None'
+  mess ' snana#resids_error '
+  mess ' snana#getrms_SALT2 ... returns rms vs. z for x1 and c '
+  mess ' snana#chi2nearmin ..... chi2 vs. fitpar near minimum '
+return
+
+
+
+macro cid
+  ibin = [1]
+  vec/cr vcid(1500); get/cont 1501 vcid
+  vec/cr vtyp(1500); get/cont 1504 vtyp
+ 
+  cid  = vcid([ibin])
+  type = vtyp([ibin])
+
+  mess ' BIN ' [ibin] ' => CID=' [cid] '  TYPE=' [type]
+
+  v/del *
+return
+
+
+
+macro getvcid cid=0
+
+* returns vcid and vncid(1)
+* Jun 3, 2009: switch from hid=1000 to hid=1501 to get number of CIDs
+* May 20, 2012: use only hid 1600. Failed SN have CID=-9.
+* Sep 28, 2012: check if 1600 is 1D histo or ntuple.
+
+   if [cid] > 0 then
+     vec/cr vcid(1)  R [cid]
+     vec/cr vncid(1) R 1
+     EXITM
+   endif
+
+  hcid = 1600
+  hrin [hcid]
+
+  is_1dh  = $HFINO([hcid],'1DHISTO')
+  is_cwnt = $HFINO([hcid],'NTUPLE')
+
+  hcid_exist = 0 | DDDDDDDDD
+
+  if ( [is_1dh] = 1 ) then
+*        check Legacy histogram
+     vec/cr vsntmp(10000)
+     get/absc [hcid] vsntmp  | snana+fit cuts
+     sigma vncid = vsum(vsntmp/vsntmp)
+     n = vncid(1)
+     vec/cr vcid([n])
+     get/cont [hcid] vcid    | fitana cuts
+     v/del vsntmp
+  else
+*        use ntuple
+    NTOT = $HINFO([hcid],'ENTRIES')
+    htmp = 14444
+    nb   = 3*[NTOT]
+    x1   = 0.5
+    x2   = [x1] + [nb]    
+    1dhis [htmp] IPLOT [nb] [x1] [x2]
+    nt/proj [htmp] [hcid].iplot cid
+    vec/cr vcid1([nb]) ; get/cont [htmp] vcid1
+    sigma vcid2 = order(vcid1,vcid1)
+
+* figure out how many bins have zero
+    sigma vncid = vsum(vcid2/vcid2)
+    NCID        = vncid(1)
+    NZ          = [nb] - [NCID]
+
+*    mess ' NTOT = ' [NTOT]
+*    mess ' NCID, NZ = ' [NCID] [NZ]
+
+* copy non-zero part of vcid2 to vcid
+* vcid has only non-zero entries and it is ordered by CID
+
+    bin1 = [NZ]+1
+    vec/cr vcid([NCID])
+    vec/copy vcid2([bin1]:[nb]) vcid
+
+    v/del vcid1,vcid2 ; h/del [htmp]
+  endif
+
+return
+
+
+
+macro pdf_mkplots hisfile='snlc_fit.his'
+
+* shell to make ps file containing fits for all lightcurves.
+
+* get prefix of hisfile name to use for ps filename:
+
+  idot   = $INDEX([hisfile],'.')
+  N      = [idot] - 1
+  prefix = $SUBSTRING([hisfile],1,[N])
+  psfile = [prefix]_marg.ps   
+  h/file 1 [hisfile]
+  ld //
+
+  exec journal
+  fortran/file 66 [psfile]
+  metafile 66 -111
+
+  mess ' ------------------------------------------- '
+  mess ' plots will be written to ' [psfile]
+   
+   exec snana#pdf prompt=0
+
+  close 66
+  close 1
+
+  mess ' Check plots in ' [psfile]
+
+return
+
+
+macro pdf cid=0 cdir=1 prompt=1
+
+* cid  = candidate id
+* cdir = 1 => change to sdir
+* cdir = 0 => stay in current subdir
+ 
+* Jul 29, 2009: print character cid from hid 490 instead of integer cid
+* May 21, 2012: minor fixes for v10_00
+
+  opt stat; set stat 001110
+
+  title '1d P.D.F Projections'
+
+  exec snana#getvcid cid=[cid]
+  NCID = vncid(1)
+
+  topdir = $HCDIR()
+  mess ' ncid    = ' [ncid]
+  mess ' topdir  = ' [topdir]
+
+  set hwid 6
+  set mtyp 20
+  vec/cr vfitpar(500)
+  do isn = 1, [NCID]
+
+    zone 2 3
+    set tsiz .3 ;  set csiz .35
+
+     icid = vcid([isn])
+     if ( [icid] <= 0 ) goto NEXTCID
+     if ( [icid] < 1000000 ) then  
+       ccid = $format([icid],'I6.6')
+     else
+       ccid = $format([icid],'I8.8')
+     endif
+     sdir = sn[ccid]
+
+     if [cdir] = 1 then
+       cd [sdir]
+     endif
+
+     hrin 4900
+     chis = $HTITLE(4900)
+     ccid = $WORD([chis],5,1,' ')
+     get/cont 4900 vfitpar  ;  z = vfitpar(9)
+     h/del 4900
+
+     ctit = 'CID ' // [ccid] // '   Z= ' // [z]
+     title [ctit]
+
+     do ipar = 3, 9
+         h = 700 + [ipar]
+         hrin [h]
+         if ( $HEXIST([h]) = 1 ) then
+            hpl [h] pl max=1.3
+         endif
+     enddo 
+
+     NEXTCID:    
+
+     if ( [prompt] = 1 ) then
+       wait
+     endif
+
+     h/del *
+     cd [topdir]
+
+  enddo
+
+  set mtyp
+
+  zone
+  title ' '
+  v/del vfitpar
+
+return
+
+
+macro chi2nearmin ipar=6 ps=0
+
+* Created Jun 2012 by R.Kessler
+* Use with &FITINP option LPLOTCHI2=T that plots
+* chi2 vs. fitpar near the minimum.
+* ipar= fit parameter id as defined in the fitting program:
+* 3 -> PKMJD
+* 4 -> stretch
+* 6 -> color/AV
+* 8 -> distance/x0
+* 9 -> photoz
+*
+  varnameList = 'NULL NULL PKMJD stretch NULL color RV/beta dist/x0 Zphot'
+  varname     = $WORD([varnameList],[ipar],1,' ')
+
+* get list of CIDs to process
+  exec snana#getvcid cid=[cid]
+  NCID = vncid(1)
+
+  if [ps]  = 1 then
+    psfile = chi2nearmin_[varname].ps
+    exec journal
+    fortran/file 66 [psfile]
+    metafile 66 -111
+    mess ' Write plots to ' [psfile]
+  endif
+
+  htmp   = 7777
+  h2d    = 2000 + [ipar]
+  topdir = $HCDIR()
+  vec/cr vchitmp(500)  | BEWARE: 500 is hardwired and synced to HFUNMIN 
+
+  set gsiz .6
+  opt nsta; opt grid ; set hwid 6
+
+  do i = 1, [NCID]
+    cid = vcid([i])
+    ctit = 'SN ' // [cid]
+    title [ctit]
+    ccid  = $format([cid],'I6.6')
+
+    cd sn[ccid]
+    hrin 1 ;    FILTERS = $HTITLE(1) ;    h/del 1
+    mess ' Plot cid = ' [cid] '  FILTERS=' [FILTERS]  '  h2d=' [h2d]
+    NFILT = $LEN([FILTERS])
+
+    if [NFILT] <= 5 then
+      zone 2 2
+    else
+      zone 2 3
+    endif
+   
+    do ifilt = 1, [NFILT]
+       cfilt = $substring([FILTERS],[ifilt],1)
+       x1 = [ifilt] - 0.1
+       x2 = [ifilt] + 0.1
+       chis = '[h]^2!(' // [cfilt] // ') vs. [D]' // [varname]
+       hcopy [h2d].banx.([x1]:[x2]) [htmp] title=[chis]
+
+* get min/max
+       get/cont [htmp] vchitmp
+       sigma vv = vmin(vchitmp) ;  ymn = vv(1)
+       sigma vv = vmax(vchitmp) ;  ymx = vv(1)
+       ymn = [ymn] - 0.05*([ymx]-[ymn])
+       hpl [htmp] c min=[ymn] max=[ymx]
+       h/del [htmp],[h2d]
+ 
+    enddo
+    cd [topdir]
+    wait '  <CR> to continue ... '    
+  enddo  | CID loop
+
+  h/del *
+  v/del *
+
+  if [ps] = 1 then
+    close 66
+  endif
+
+return
+
+
+
+macro contour cid=0 hoff=20000
+
+  topdir = $HCDIR()
+  cid6 = $format([cid],'I6.6')
+  sdir = sn[cid6]
+  cd [sdir]
+
+  mess ' topdir is : ' [topdir]
+  mess ' subdir is : ' [sdir]
+
+  h1 = [hoff]
+  h2 = [h1] + 1
+
+  hrin [h1];  vec/cr v1(200); get/cont [h1] v1
+    cpar1 = $HTITLE([h1])
+  hrin [h2];  vec/cr v2(200); get/cont [h2] v2
+    cpar2 = $HTITLE([h2])
+  sigma vn = vsum(v1/v1) ; np = vn(1)
+
+  mess ' Plot ' [cpar2] ' vs. ' [cpar1]
+
+  opt grid
+  set lwid 8 ;set mtyp 209
+    graph [np]  v1 v2 
+  set lwid ; set mtyp 
+
+  set asiz .4
+  atit [cpar1] [cpar2]
+
+  cd [topdir]
+  v/del *
+  h/del *
+return
+
+
+macro fitres_mkplots _
+     hisfile='snlc_fit.his' tmin=-40 tmax=100 _
+     ovfit=1 pchi2=1 pkf=0 fluxscale=1.0 vscale=1 vert=1 grid=1 _
+     eps=0 nrowpage=7 magmin=19 magmax=26 cid=0
+   
+* shell to make ps file containing fits for all lightcurves.
+
+* get prefix of hisfile name to use for ps filename:
+
+  idot   = $INDEX([hisfile],'.')
+  N      = [idot] - 1
+  prefix = $SUBSTRING([hisfile],1,[N])
+  h/file 1 [hisfile]
+
+  exec journal
+
+* create global ps file unless 'eps per SN' is selected
+  if [eps] = 0 then
+*    psfile = [prefix]_fits.ps
+    psfile = [hisfile].ps   | Aug 22 2013 : match what root script does
+    fortran/file 66 [psfile]
+    metafile 66 -111
+    epsprefix=''
+  else
+    epsprefix=[prefix]
+  endif
+
+  mess ' ------------------------------------------- '
+  mess ' plots will be written to ' [psfile]
+   
+  exec snana#fitres cid=[cid] prompt=0 _
+     tmin=[tmin] tmax=[tmax] ovfit=[ovfit] pchi2=[pchi2] pkf=[pkf] _
+     fluxscale=[fluxscale] vscale=[vscale] vert=[vert] grid=[grid] _
+     epsprefix=[epsprefix] nrowpage=[nrowpage] _
+     magmin=[magmin] magmax=[magmax]
+
+  if [eps] = 0 then
+    close 66
+    mess ' Check plots in ' [psfile]
+  endif
+
+  close 1
+
+
+return
+
+
+macro fitres cid=0 tmin=-40 tmax=100 _
+    frame='obs' prompt=1 pchi2=1 iauc='NULL' ovfit=1 pkf=0 ovsim=1 _
+    eps=0 fluxscale=1.0 vscale=1 vert=1 grid=1 nrowpage=7 ovnon1a=0 _
+    epsprefix='' magmin=19  magmax=26   h17=0
+
+* --------------------------------------------
+* cid      => cand id to plot  (0=> loop over all)
+* tmin,max => refer to observer time, days since peak
+* pchi2=1  => plot chi2 map next to each lightcurve
+* ovfit=1  => overlay best-fit model
+* pkf  =1  => overlay best estimate of peak flux
+* ps   =1  => make one ps file with all SN 
+* eps  =1  => make separate eps file for each SN; 
+*             does "pict/del *"  after each SN to clear memory
+* epsprefix => use this prefix for each eps file
+* vscale=1 => vertically squeeze factor (default=1)
+* vert=0   => horizontal layout
+* grid=0   => turn off grid
+* nrowpage=7 => 7 rows (filters) per page
+* h17=1 ==> special flag for H17 plots
+* -------------------------------------------------
+*
+*
+* -----------------------------
+
+  if [cid] = ' ' then
+      mess ' Must give SN cid as argument. '
+      STOPM
+  endif
+
+
+  NFITPAR = 9
+
+* extract vectors for everything and then
+
+  if [ovnon1a] = 1 then
+    pchi2 = 0
+    ovfit = 0
+    grid  = 0
+  endif
+
+  vec/cr vtlim(2) R [tmin] [tmax]
+
+  exec snana#init_fitres_global
+ 
+  global/import SURVEY,VERSION,TOPDIR,FITFLAG
+
+  if ( [FITFLAG] = 0 ) then
+      pchi2 = 0
+      ovfit = 0
+  endif
+
+  if [fluxscale]<0 then
+    global/cr MAGMIN_PLOT [magmin]
+    global/cr MAGMAX_PLOT [magmax]
+  endif
+
+  opt ndat ;  opt dvxi ;  opt ngri
+  set xtic -0.2; set yval 0.28; set vsiz .35; set gsiz .5
+  set ylab 0.8; set ywin 0.001; set asiz .4; set xlab 1.6 ;  set xval .3
+  set xmgl 3.0; set xmgr .5;  set xsiz 22. 
+
+*  set vsiz .45 | xxxx coloq
+
+  ytmp =  24.*[vscale]
+  set ysiz [ytmp]
+
+  if [grid] = 1 then
+    opt grid
+  endif
+
+  if [pchi2] = 1 then
+      set ymgu 3.0  | leave room at top to print fit results
+      set ygti 0.3
+      global/cr CHI2DIAG_FILT 0
+  else
+      set ymgu 1.3
+      set ygti 0.3
+  endif
+  opt liny
+
+  xt = 0.80  | filter-location
+
+  
+* -----
+  if [epsprefix] <> '' then
+     eps=1
+  endif
+  if ( [eps] = 1 .and. [epsprefix] = '' ) then
+     epsprefix = 'snlc'
+  endif
+
+
+* ----------------------
+* get list of CIDs to process
+  exec snana#getvcid cid=[cid]
+  NCID = vncid(1)
+  mess ' NCID    = ' [NCID]
+
+* ----------------------
+
+  do isn = 1, [NCID]
+
+      icid = vcid([isn])
+      if ( [icid] <= 0 ) goto NEXTCID
+
+* figure out how many EXTRA plot-directories for this SN
+* (usually 0, but for psnid there can be many)
+* Also get CID strings
+
+      exec snana#init1_fitres_SN    cid=[icid]  pchi2=[pchi2]
+      global/import CID6,CCID,NSDIR_EXTRA
+
+  do idir  = 0, [NSDIR_EXTRA]
+
+**      if ( [idir] > 0 )  goto NEXTCID ; | xxxxxx
+
+      exec snana#init2_fitres_SN _
+           idir=[idir] epsprefix=[epsprefix] pchi2=[pchi2] _
+           iauc=[iauc] vscale=[vscale] nrowpage=[nrowpage] vert=[vert] _
+           h17=[h17]
+
+      global/import FILTSTRING,NFILT,MINFILT,MAXFILT,NFPAGE
+
+      nfilt_plot = 0
+      ipage      = 0
+
+      CHI2DIAG_SUM  = 0
+* ---------------------------------
+
+  do ifilt = [MINFILT], [MAXFILT]    
+     
+
+* skip this filter if there is no info
+      h = 100 + [ifilt]
+      hrin [h]
+      if ( $HEXIST([h]) = 0 )  goto NEXTFILT 
+      h/del [h]
+
+      nfilt_plot =   [nfilt_plot] + 1  | number of filters plotted
+
+      ipage = [ipage] + 1
+      if ( [ipage] > [NFPAGE] ) then
+         ipage = 1
+      endif
+
+      exec lcplot_filter _
+        ifilt=[ifilt] pchi2=[pchi2] frame=[frame] _
+        ipage=[ipage] nrowpage=[nrowpage] vert=[vert] nfilt_plot=[nfilt_plot] _
+        prompt=[prompt] ovfit=[ovfit] pkf=[pkf] fluxscale=[fluxscale] _
+        h17=[h17]
+
+        CHI2DIAG_SUM = [CHI2DIAG_SUM] + [CHI2DIAG_FILT]
+    NEXTFILT:
+
+ enddo   | end of ifilt loop
+ 
+    if [pchi2] = 1 then
+      mess '    sum[chi2-diag] on plot: ' [CHI2DIAG_SUM]
+    endif
+    cd [TOPDIR]
+
+    if [eps] = 1 then  
+      close 67
+    endif
+
+    if [prompt] = 1 then
+       wait
+    endif
+
+    NEXTCID:
+    h/del *
+
+*    if [eps] = 1 then
+       pict/del *
+*    endif
+
+    cd //pawc
+    h/del *
+
+    cd [TOPDIR]
+
+ enddo   | end  of NSDIR_EXTRA loop
+ enddo   | end of NCID loop
+
+  if [ps] = 1 then
+    mess ' '
+    mess ' Close fitres.ps file '
+    close 66
+  endif
+
+  zone
+  h/del *
+  v/del vtlim,vcid,vncid,vpkf,vpkfe,vpkmjd,vpkmjde
+  set ywin ; set xwin ;  set ymgu ;  set yhti
+  opt dvxr
+  title ' '
+
+return
+
+
+
+macro init_fitres_global
+
+* created July 25, 2012 by R.Kessler
+* Move stuff from macro fitres to clean it up.
+* Init global vectors and strings before ISN loop.
+
+* -----------------------
+* get the SURVEY & VERSION 
+  h=12; hrin [h]
+  chis     = $HTITLE([h])
+  SURVEY   = $WORD([chis],1,1,' ')
+  VERSION  = $WORD([chis],2,1,' ')
+
+* get FITFLAG from filled bin (even if merged with split_and_fit)
+  vec/cr vy(11) ; get/cont [h] vy
+  vec/cr vx(11) ; get/absc [h] vx
+  sigma vv = vsum(vx*(vy/vy))
+  FITFLAG = vv(1) ; v/del vx,vy,vv
+  h/del [h]
+
+* ----------------
+
+  vec/cr vpkmjd(100) 
+  vec/cr vpkmjde(100)
+  vec/cr vpkf(100)
+  vec/cr vpkfe(100)
+  vec/cr vndof(500)
+
+  TOPDIR = $HCDIR()
+
+  mess ' TOPDIR   = ' [TOPDIR]
+  mess ' SURVEY   = ' [SURVEY] 
+  mess ' VERSION  = ' [VERSION]
+  mess ' FITFLAG  = ' [FITFLAG]
+
+
+  global/create SURVEY       [SURVEY]
+  global/create VERSION      [VERSION]
+  global/create TOPDIR       [TOPDIR]
+  global/create FITFLAG      [FITFLAG]
+
+return
+
+macro init1_fitres_SN cid=[cid] pchi2=1
+
+* convert integer CID into string with leading zeros.
+* Also cd sn[cid6] and extract
+*  - CCID (string name, in case name is not an integer
+*  - NSDIR_EXTRA = number of extra subdirs
+
+    global/import TOPDIR,FITFLAG
+
+      if ( [cid] < 1000000 ) then
+        CID6 = $format([cid],'I6.6')
+      else
+        CID6 = $format([cid],'I8.8')
+      endif
+
+      if [FITFLAG] < 2 then
+        SDIR = SN[CID6]
+      else
+        SDIR = SN[CID6]_00
+      endif
+      cd [SDIR]
+
+* get CCID string from title of hid 3
+      hrin 3  
+      CCID = $HTITLE(3)
+*      CCID = $WORD([chis],5,1,' ')
+      h/del 3
+
+* check for extra subdirs and title for each
+    hrin 2
+    NSDIR_EXTRA =  0
+    if ( $HEXIST(2) = 1  ) then    
+        vec/cr vnsdir(5) ; get/cont 2 vnsdir
+        ntmp =  vnsdir(2) ; v/del vnsdir
+        NSDIR_EXTRA = [ntmp] - 1
+        h/del 2
+    endif
+
+      global/cr CID6 [CID6]
+      global/cr CCID [CCID]
+      global/cr NSDIR_EXTRA [NSDIR_EXTRA]
+     
+     cd [TOPDIR] 
+return
+
+
+macro init2_fitres_SN   idir=0  epsprefix='' pchi2=1 _
+           iauc='NULL' vscale=1 nrowpage=7 vert=1 h17=0
+
+* called from macro fitres to initialize inside SN loop,
+* but before subdir or filter loop
+
+  global/import SURVEY,VERSION,CID6,CCID,NSDIR_EXTRA
+
+*     mess [idir] ' NSDIR_EXTRA = ' [NSDIR_EXTRA]
+      if [NSDIR_EXTRA] = 0 then
+        SDIR = SN[CID6]
+      else
+        D2 = $format([idir],'I2.2')   
+        SDIR = SN[CID6]_[D2]
+      endif
+      cd [SDIR]
+
+      if [epsprefix] <> '' then
+        epsfile = [epsprefix]_[SDIR].eps
+        mess ' Create eps file : ' [epsfile]
+        fortran/file 67 [epsfile]
+        metafile 67 -113
+      endif
+
+
+      hrin 4900  | NDOF vs. filter
+      hrin 4910  | Peak Flux vs. filter
+      hrin 4920  | MJD(peak) - MJDOFF vs. filter
+
+      sigma vndof   = 0.0*vpkmjd
+      sigma vpkmjd  = 0.0*vpkmjd
+      sigma vpkmjde = 0.0*vpkmjd
+      sigma vpkf    = 0.0*vpkmjd
+      sigma vpkfe   = 0.0*vpkmjd
+      
+      if $HEXIST(4900) = 1  then
+         get/cont 4900 vndof ; 
+      endif
+
+      if $HEXIST(4910) > 0  then
+        get/cont 4910 vpkf    ;  get/err 4910 vpkfe
+      endif
+
+      if $HEXIST(4920) >0  then
+        get/cont 4920 vpkmjd  ;  get/err 4920 vpkmjde
+      endif
+
+
+      sigma vpktmp = vsum(vpkmjd)
+      sigma vntmp  = vsum(vpkmjd/vpkmjd) 
+      PKMJD        = vpktmp(1)/vntmp(1)
+      vec/del vpktmp,vntmp
+
+      if ( [PKMJD] < 30000 ) then
+        PKMJD  = [PKMJD] + 53000
+      endif
+*      v/del vpktmp,vntmp,vpkmjd
+
+* get text strings
+      do i = 0, 4
+        htxt = 50 + [i]
+        hrin [htxt] 
+        TXT = ''
+        VARNAME = TXT[i]_GLOBAL
+        if [i] = 0 then
+           vec/cr vntxt(5)
+           get/cont [htxt] vntxt ;  NTXT = vntxt(1) ; v/del vntxt
+           global/cr NTXT  [NTXT]
+        endif
+        if  $HEXIST([htxt]) = 1 then
+           TXT = $HTITLE([htxt])
+           [VARNAME] = [TXT]
+           h/del [htxt]
+        endif
+           global/cr [VARNAME]  [TXT]
+      enddo
+  
+      if [pchi2] = 1 then
+         ctit = [TXT0_GLOBAL]
+      else
+         ctit = 'SN ' // [CCID]
+         NTXT = 0
+         z = $WORD([TXT1_GLOBAL],6,1,' ')
+         ctit = 'SNID=' // [CCID]  // '    ' // [TXT1_GLOBAL]
+         if [h17] > 0 then
+            z = .1*int([z]*10.0+0.5)
+            ctit = 'z = ' // [z] ;  set gsiz .7 ; set ygti .2
+         endif
+      endif
+      title [ctit]
+
+*      NTXT = 3
+      ymgu = $sigma(1.0+[NTXT]*0.9)
+      set ymgu [ymgu]
+
+
+* ---------
+* page layout
+
+* get filter info. Note that FILTSTRING are exactly the 
+* filters to show; minfilt:maxfilt may include unused filters.
+
+      hrin 1
+      FILTSTRING  = $HTITLE(1)
+      vec/cr vfilt(10); get/cont 1 vfilt
+      MINFILT = vfilt(1) ; MAXFILT = vfilt(2)
+      v/del vfilt
+      NFILT = $len([FILTSTRING])
+      mess '   FILTERS: ' [FILTSTRING] _
+           '   (' [minfilt] ' to ' [maxfilt] ')'
+
+      if [nfilt] = 1 then 
+*        set ysiz 15
+      endif
+
+* set number of filters per column [nfcol]
+      maxpercol = [nrowpage]
+      nfpercol = [NFILT]
+
+      if [nfpercol] > [maxpercol] then
+         nfpercol = [maxpercol]
+      endif
+
+      ifilt_cy = [MAXFILT]
+      if [pchi2] = 0 .and. [NFILT] < [maxpercol] then
+*       just one column for light curves
+        set xsiz 15  # 11 for papers
+        NFCOL  = 1
+        zone 1   [nfpercol]
+        nfpage = [nfpercol]
+
+        if [vert] = 0 then
+           ytmp = 10 * [vscale]           
+           set xsiz 25 ; set ysiz [ytmp]
+           set xwin .6  | slight sep to see x-axis labels at edges
+*           set xval 100 ; set xmgl 2.
+           zone [nfpercol] 1
+        endif
+
+      elseif [pchi2] = 0 .and. [nfilt] >= [maxpercol] then
+*       2 light curve columns per page instead of 1 column
+        n1 = ([nfilt]+1)/2
+        n2 = $sigma(int([n1]))
+        if [n2] > [maxpercol] then
+           n2 = [maxpercol]
+        endif
+        nfpercol = [n2]
+        nfpage = 2*[nfpercol]
+        NFCOL = 2
+        zone 2 [nfpercol]  
+      else
+*       1 column for light curves, other for residuals
+        if [nfpercol] >=3 then
+          zone 2 [nfpercol]
+        else
+          zone 2 3
+        endif
+        nfpage = [nfpercol]
+        NFCOL  = 1
+      endif
+
+* --------------
+* define globals
+
+      global/cr PKMJD [PKMJD]
+      global/cr FILTSTRING   [FILTSTRING]
+      global/cr NFILT        [NFILT]
+      global/cr MINFILT      [MINFILT]
+      global/cr MAXFILT      [MAXFILT]
+      global/cr NFPAGE       [NFPAGE]
+      global/cr NFCOL        [NFCOL]
+
+      mess ' '
+      mess ' ======================================================= '
+      mess ' Show plots for CCID=' [CCID]  '   CID6=' [CID6]
+      mess '    SDIR = ' [SDIR] 
+
+return
+
+
+macro lcplot_filter ifilt=0 pchi2=1 frame=obs  _
+              ipage=1 nfilt_plot=1 nrowpage=7 vert=1 _
+              prompt=1 ovfit=1 pkf=0 fluxscale=1 h17=0
+            
+* Created July 25, 2012:
+* Moved from macro fitres to clean it up.
+
+
+   global/import SURVEY,PKMJD,NFPAGE,NFCOL
+   global/import FILTSTRING,MINFILT,NFILT,NSDIR_EXTRA
+   global/import NTXT,TXT1_GLOBAL,TXT2_GLOBAL,TXT3_GLOBAL
+
+  doerr = 1; noerr = 0
+  ov    = 1; noov  = 0
+  ov2   = 2
+  ov3   = 3
+  vstack = 1  | option to stack plots with no vertical space
+
+  tmin = vtlim(1)
+  tmax = vtlim(2)
+
+
+* plot light curve (left) and  chi2-map (right).
+
+      if [frame] = 'rest' then
+        ht  = 1100   | Trest epoch bins
+        htt = 3100   | very fine bins for model 
+        tlabel = 'T?rest!'
+      else
+        ht  = 1000   | Tobs epoch bins
+        htt = 3000   | very fine bins for model 
+        tlabel = 'T?obs!' // ' [-] ' // [PKMJD]
+        if [h17] > 0 then
+            tlabel = 'T?obs! [-] T?0!                   "#' 
+        endif
+
+      endif
+
+      if ( [ipage] = 1 .and. [nfilt_plot] > 1 ) then
+         if [prompt] = 1 then
+            wait ' <CR> to see more filters ... '
+         endif
+      endif
+
+
+      if  [vstack] > 0  then
+        set asiz .00001; set ylab 100.
+        putTlabel = 0
+        if [ipage] = [NFPAGE]  then
+           putTlabel = 1
+        endif
+        if [NFCOL] = 2 .and. [ipage] = [NFPAGE]-1  then
+           putTlabel = 1
+        endif
+        if [vert] = 0 then
+           putTlabel = 1
+        endif
+
+
+        if [putTlabel] > 0  then
+          vstack = 2
+          set yval 0.3; set ylab 0.9
+        else
+          set yval 100
+          vstack = 1
+        endif
+      endif
+
+
+      if  [vstack] = 2  then
+        set asiz .5 ; set xlab 1.5  | was 2
+        if [fluxscale] = 1 then
+           cy = 'Flux"#'
+           if [h17] > 0 then
+              cy = ' '
+           endif
+           opt dvyr
+        elseif [fluxscale] <= 0 then
+           cy = '[-] mag'
+           opt dvyi
+        else
+           cy = 'Flux ' // ' x ' // [fluxscale]
+        endif
+ 
+        if  [vert] = 0  then
+           if ( [ifilt] > [MINFILT] ) then
+              cy = ''
+              set xval 100
+           else
+              set xlab 2. ; set xval 0.3
+           endif
+        endif
+      endif
+
+      hmskrej = 1300 + [ifilt]  | mask of rejected epochs in fit
+      peakflux     = vpkf([ifilt])
+      peakflux_err = vpkfe([ifilt])
+      cfilt = $SUBSTRING([FILTSTRING],[nfilt_plot],1)
+
+
+* 1) plot data vs. Tobs
+    h  = 100 + [ifilt]    
+    exec snana#lcplot [h] [ht] [hmskrej] [doerr]  [noov] [peakflux] [fluxscale]
+    atit [tlabel] ' '
+
+
+* Dec 2011: check option to overlay non1a data and spline to verify sim.
+    if [ovnon1a] = 1 then
+      exec snana#ovnon1a _
+           survey=[SURVEY] ccid=[ccid] cfilt=[cfilt] nplot=[nfilt_plot]
+    endif
+
+
+* 2) overlay model
+
+    if ( [ovfit] > 0 ) then
+
+* overlay fit-model
+      h  = 3200 + [ifilt]
+      exec snana#lcplot [h] [htt] [hmskrej]  [doerr]  [ov] 0  [fluxscale]
+
+* overlay simulated model (for sim only)
+      h  = 3900 + [ifilt]
+      hrin [h]  
+      if ( $HEXIST([h]) = 1 .and. [ovsim] = 1 .and. pchi2 = 1 ) then
+          h/del [h]
+          exec snana#lcplot [h] [htt] [hmskrej]  [noerr]  [ov2] 0  [fluxscale]
+      endif
+
+    endif
+
+
+* draw pink horizontal line thru peakFlux estimate
+    if [pkf] > 0 then
+       set lwid 4 ; set plci 6 ; set pmci 6 ; set hcol 6
+
+         hplot/err vpkmjd([ifilt]:[ifilt]) vpkf([ifilt]:[ifilt]) _
+             vpkmjde([ifilt]:[ifilt]) vpkfe([ifilt]:[ifilt]) 1 20 .3 S
+
+**         line -10 [peakflux] +10 [peakflux]
+       set plci ; set pmci ; set hcol
+    endif
+
+*   print big filter label on plot
+
+    set chhe 0.7; set pass 3
+      if [h17] > 0 then
+         null 0 1  0 1 -as
+         set txfp -10; itx  0.90 0.75 [cfilt] ; set txfp -42
+         if [ifilt] = 3 then
+            set tang 90; itx -0.12  0.0 'Flux' ; set tang 0
+         endif
+      else
+         null [tmin] [tmax] 0 1 -as
+         itx 0.2 0.08 [cfilt] 
+      endif
+    set chhe 0.35; set pass
+
+     if [vstack] = 2  then
+        atit [tlabel] [cy]  | xxx PUT THIS BACK
+        set asiz 0.0001
+     endif
+
+* print fit results above 1st plot
+* This is done after all overlays.
+
+
+    if [ifilt] = [MINFILT] .and. [pchi2] = 1 then
+      null 0 1 0 1 -as
+      set chhe .45
+      if ( [rvsym] <> 0 ) then
+        set chhe .42
+      endif
+
+      ntmp = $sigma(min([NFILT],[nrowpage]))
+      ntmp = $sigma(max([ntmp],3))
+      y1 = $sigma(1.01 + [ntmp] * 0.036*[NTXT] )
+      y2 = $sigma(1.01 + [ntmp] * 0.022*[NTXT] )
+      y3 = $sigma(1.01 + [ntmp] * 0.008*[NTXT] )
+
+      if [nfilt] = -1 then
+        y2 = 1.11      | because ysiz set to 2/3 page
+         y1 = 1.15
+      endif
+
+      x=  -0.2
+      itx  [x] [y1] [TXT1_GLOBAL] 
+      itx  [x] [y2] [TXT2_GLOBAL] 
+      itx  [x] [y3] [TXT3_GLOBAL] 
+
+    endif
+
+    
+* 3) plot chi2 vs. T
+
+    if [pchi2] = 1 then
+      h  = 400 + [ifilt]
+      exec snana#lcplot [h] [ht] [hmskrej] [noerr] [noov] 0  [fluxscale]
+
+       if  [vstack] = 2  then
+          set asiz .5 ; set xlab 1.4
+          cy =  '[h]^2! per Epoch'
+          atit [tlabel] [cy] 
+       else
+          atit [tlabel] ' '
+       endif
+    endif
+
+
+return
+
+macro lcplot  
+
+  hid      = [1]  | hid of quantity to plot
+  ht       = [2]  | hid of Tobs
+  hmskrej  = [3]  | hid of rejected-epoch mask
+  doerr    = [4]  | 1 => plot errors too
+  ov       = [5]  | 1 => overlay on existing plot
+  pkflux   = [6]  | peakflux estimate to set ymx
+  fluxscale = [7] | scale plots by this amount
+
+* lightcurve plot
+* Nov 7, 2006: fix 'notsdss' to plot pink points for non-2.5m data
+* May 30, 2009: add pkflux argument help set ymx
+* Feb 02, 2010: add fluxscale arg
+* Mar 14, 2010: fluxscale=0  ==> plot mag
+* Jul 06, 2010: adjust ymn for extremely large flux values (see ymxtmp)
+* Nov 16, 2010: fix bug setting ymx when fluxscale <> 1
+* Sep 14, 2011: ymn = -0.04*[ymx] for chi2 plot to see chi2 points near zero
+* Dec 07, 2011: undo previous change
+* May 12, 2013: ymx >= 0.01 for chi2 plot 
+* Feb 19, 2014: set chi2 ymx after removing reject epochs; see vmskfit
+*
+  n = 2000
+  vec/cr vt([n]);   get/cont [ht] vt
+  sigma vterr = 0.0 * vt
+
+* get number of epochs available
+
+  sigma vn = vsum(vt/vt)
+  nep = vn(1)
+
+  if [hid] > 400 .and. [hid] < 500  then
+    PLOTCHI2 = 1
+  else
+    PLOTCHI2 = 0
+  endif
+
+
+* get rejected-epoch mask , and number of rejected epochs
+
+   hrin [hmskrej] 
+   if ( [hmskrej] <= 0 .or. $HEXIST([hmskrej]) = 0 ) then
+      REJECTFLAG = 0
+      nrej = 0
+      nnotsdss = 0
+      goto SKIP_REJECT
+      sigma vmskfit = vt/vt  | ones by default
+   endif
+
+     REJECTFLAG = 1
+     vec/cr vmskrej([n])
+     get/cont [hmskrej] vmskrej
+     sigma vmskfit = 1.0-vmskrej
+     sigma vvrej = vsum(vmskrej)
+     nrej = vvrej(1)
+
+* now set vmskrej = -9.9E8 instead of zero, and 1->1
+* this is so that we don't see red x's at zero when
+* there is a valid rejected point.
+  if [nrej] > 0 then
+     sigma vvtmp   = 9.9E8 * vmskfit
+     sigma vmskrej = 1.0 - vvtmp
+     v/del vvtmp
+  endif
+
+
+  SKIP_REJECT:
+* get variable to plot
+
+  hrin [hid]
+  ISFILT = $HEXIST([hid])
+
+  vec/cr vtmp([n])  R  [n]*0.0  
+  sigma vtmperr = 0.0 * vtmp
+  ctit = NULL
+  
+  if [ISFILT] > 0 then
+    get/cont [hid] vtmp
+
+    sigma vntmp = vsum(vtmp/vtmp)
+** xxx mark delete Aug 27 2017    nepfilt = vntmp(1)
+    nepfilt = [nep]
+
+    ctit =  $HTITLE([hid])
+    if [doerr] = 1 then
+       get/err [hid] vtmperr
+    endif
+
+    if [hid] < 400 .or. [hid] > 500 then
+      if [fluxscale] > 0 then
+        sigma vtmp    = [fluxscale]*vtmp
+        sigma vtmperr = [fluxscale]*vtmperr
+      else
+        sigma vtmp9 = max(1.0e-19,vtmp)
+        sigma vtmperr = vtmperr/vtmp
+        sigma vtmp = -(27.5-2.5*log10(vtmp9))
+        v/del vtmp9
+      endif
+    endif
+
+  endif
+
+
+* get ymax:
+  sigma vmx = vmax(vtmp*vmskfit)
+  sigma vmn = vmin(vtmp*vmskfit)
+  ymx = vmx(1)
+  pkscale = [pkflux]*[fluxscale]  | Nov 16, 2010
+
+
+  if [pkscale] > [ymx] then
+       ymx = [pkscale]
+  endif
+  ymx = 1.2 * [ymx]
+  ymn = 0.0
+
+* special limits for data/model ratio
+
+  if [hid] > 300 .and. [hid] < 390 then
+     ymn = 0.6
+     ymx = 1.4
+  endif
+
+* special limits for data to see neg values
+  drawzero = 0
+  if [hid] > 100 .and. [hid] < 200 then
+
+*     mess [hid] ' ymx= ' [ymx] '    pkflux = ' [pkflux]
+
+     drawzero = 1
+     ymxtmp = [ymx]/[fluxscale]
+     if [ymxtmp] < 10000  then
+        ymn = -0.2 * [ymx]
+     elseif [ymxtmp] < 20000. then
+        ymn = -0.1 * [ymx]  
+     elseif [ymxtmp] < 1.0E6 then
+        ymn = -0.05 * [ymx]  
+     else
+        ymn = -0.01*[ymx]
+     endif
+
+* negative fudge
+*        ymn = -0.5*[ymx]
+  endif
+
+* set mag-limits for mag-option 
+  if ( [fluxscale] <= 0 .and. [PLOTCHI2] = 0 ) then
+    sigma vmagmn = vmin(abs(27+vtmp))-27.2
+    sigma vmagmx = vmax(vtmp+.5)
+    ymn = vmagmn(1)
+    ymx = vmagmx(1)
+    if [ymx] < [ymn] then
+       ymx = [ymn] + 1
+    endif
+    v/del vmagmn,vmagmx
+
+
+* replace above with fixe mag limits (Oct 8 2012)
+      global/import MAGMIN_PLOT,MAGMAX_PLOT
+      ymn = -[MAGMAX_PLOT]
+      ymx = -[MAGMIN_PLOT]
+  endif
+
+* special lower limit for chi2 to see values near zero
+  if [PLOTCHI2] =  1 then
+    ymn = 0.0 | -0.04*[ymx]
+    if [ymx] < 0.01 then
+         ymx = 0.01
+    endif
+  endif
+    
+* new plot
+
+  if [ov] .eq. 0  then
+      t1 = vtlim(1)
+      t2 = vtlim(2)
+      null  [t1] [t2] [ymn] [ymx]
+
+      sym = 20
+      sz = 0.22
+      set pmci 1
+**     atit ' ' [ctit]  | removed Oct 8 2012
+      set hwid 6
+      hplot/err vt vtmp vterr vtmperr [nep] [sym] [sz]
+
+
+* draw horizontal line through zero in case there is no  vertical scale
+      if [drawzero] = 1 then
+        set dmod 3 ; set lwid 4
+        y= 0 ; line -50 [y] 200 [y]
+        set dmod
+      endif
+
+* show rejected points with red star
+* 5=> x,   29 => star
+
+      if [nrej] > 0 then  | xxx PUT THIS BACK
+**     if [nrej] > 1000 then  | xxx REMOVE THIS
+       sigma vrej = vmskrej * vtmp
+       sym = 29; set pmci 2;  sz = .3
+         hplot/err vt vrej vterr vterr [nep] [sym] [sz]
+       set pmci
+      endif
+
+  elseif ( [nep] > 0 ) then
+
+* overlay in green or blue
+
+      set lwid 5;  set dmod [ov]
+      set plci 3    | default green
+      set plci 2    | H17 --> red
+
+      if [ov] > 1 then
+       set plci 4; set lwid 2
+      endif
+      graph [nepfilt] vt vtmp 'SL'
+
+* draw error bands
+      sigma vtmp1 = vtmp + vtmperr
+      sigma vtmp2 = vtmp - vtmperr
+      set lwid 4 ; set dmod 2
+        graph [nepfilt] vt vtmp1 'SL' | xxx PUT THIS BACK
+        graph [nepfilt] vt vtmp2 'SL'
+      set dmod
+
+      set plci 1
+      set dmod; set lwid
+  endif
+
+* compute chi2 sum using only epochs NOT rejected
+* from bad-chi2 test. Print chi2/Ndof on existing plot.
+
+  if [hid] > 400 .and. [hid] < 500  then
+
+    ifilt = [hid] - 400
+    vec/cr vnfit(100); get/cont 4900 vnfit
+    nfit = vnfit([ifilt])
+
+    sigma vv = vsum(vmskfit*vtmp)
+    chi2 = vv(1)
+       global/import CHI2DIAG_FILT ;    CHI2DIAG_FILT = [chi2]
+    chi2 = $format([chi2],'F6.1')
+    ctxt = '[h]^2!?diag!/N = '  // [chi2] // '/' // [nfit] 
+
+
+    null 0 1 0 1 -as
+    set chhe 0.35
+    itx  0.2 0.7 [ctxt]
+
+    v/del vnfit
+  endif
+
+
+  if [REJECTFLAG] > 0 then
+      v/del vt,vtmp,vmskrej,vvrej
+      h/del [hmskrej]
+  else
+    v/del vt,vtmp
+  endif
+
+return
+
+
+
+macro tobsrun
+
+* Note that vector vtrun(1) = Tobs at srun is returned
+
+ srun  = [1]
+ ifilt = [2]
+ frame = [3]
+
+  vec/cr vtrun(1) R -999.9
+
+  if [srun] = 0 then
+      goto END
+  endif
+
+  vec/cr vone(1)     R 1.0
+  vec/cr vrun(2000)
+  vec/cr vtmp(2000)
+
+  h = 1200 + [ifilt];   get/cont [h] vrun
+
+  if [frame] = 'rest' then
+    h = 1100 + [ifilt];   get/cont [h] vtmp
+  else
+    h = 1000 + [ifilt];   get/cont [h] vtmp
+  endif
+
+  sigma vn=vsum(vrun/vrun)
+  nep = vn(1)
+
+  do i = 1, [nep]
+      runtmp  = vrun([i])
+      tobstmp = vtmp([i])
+      if [srun] = [runtmp] then
+         mess ' Found ' [srun] ' at Tobs = ' [tobstmp]
+         sigma vtrun = [tobstmp]*vone
+      endif   
+  enddo
+
+  v/del vrun,vtmp,vone
+
+  END:
+
+return
+
+
+
+
+macro ovnon1a survey='SDSS' ccid='BLA' cfilt='X' nplot=1
+
+* Dec 7, 2011
+* called by snana#fitres to overlay data flux and smoothed
+* flux on top of the non1a simulation. Used by the verification 
+* stage of $SNANA_DIR/util/sednon1a_prep.pl
+*
+
+  hdir = INPUTS   | symbolic link back to input directory
+  txtfile = [hdir]/[survey]-[ccid]-[cfilt].flux
+  mess ' Overlay non1a for : ' [txtfile]
+
+* bail if file does not exist
+  if ( $FEXIST([txtfile]) = 0 ) then
+    mess '   WARNING: cannot find ' [txtfile]
+    EXITM
+  endif
+
+* read arrays time, flux, fluxerr
+  vec/read qt,qf,qferr [txtfile]
+  sigma qterr = 0*qt
+
+* find how many data points there are = number of non-zero errors
+  sigma qferr = max(qferr,0.0)
+  sigma vtmp = vsum(qferr/qferr)
+  ndata = vtmp(1)
+
+  sigma vtmp = vsum(qf/qf)
+  ntot = vtmp(1)
+
+  set dmod 1
+
+* overlay the data in red; first 'ndata' points
+  sym = 24 ; sz = .3 ; set hwid 4 ; set pmci 2 ; set hcol 2
+  hplot/err qt qf vterr qferr [ndata] [sym] [sz]
+
+
+* overlay smoothed data function in green
+  set plci 3 ; set lwid 6 
+  b2 = [ntot] - [ndata]
+  b1 = [ndata] + 1
+  nb = $sigma([b2]-[b1]+1)
+  graph [nb] qt([b1]:[b2]) qf([b1]:[b2]) SL
+
+  set plci ; set pmci;  set hcol
+  v/del vtmp,qt,qterr,qf,qferr
+
+* legend
+  if [nplot] = 1 then
+       null 0 2 0 1 -as
+       set csiz .45
+       xk = 1.3 ; dyk = .16 ; yk = 1.05
+
+       set txci 2 ; set plci 2 ; set pmci 2
+       txt = [survey] // ' Data '
+       yk = [yk] - [dyk] ; key [xk] [yk] 24 [txt]
+
+       set txci 3 ; set plci 3 ; set pmci 3
+       yk = [yk] - [dyk] ; key [xk] [yk] 1 'Interp Data' .7 L
+
+       set txci 1 ; set plci 1 ; set pmci 1
+       yk = [yk] - [dyk] ; key [xk] [yk] 20 'SNANA Sim'
+
+       set txci 1 ; set plci 1
+   endif
+
+return
+
+
+macro resids_error prompt=1 hisfile='null' ps=0 type=-9
+
+* Created Nov 28, 2011: 
+* plot normalized residuals (F_data - F_model)/error
+* for each filter and vs. log10(SNR)
+* type = -9 => all types; else select specific type
+*
+* ------
+
+* get prefix of hisfile name to use for ps filename:
+
+  if [hisfile] <> 'null' then
+     h/file 1 [hisfile]
+     idot   = $INDEX([hisfile],'.')
+     N      = [idot] - 1
+     prefix = $SUBSTRING([hisfile],1,[N])
+  else
+     prefix = 'lcfit'
+  endif
+
+* -------------------
+* first get list of filters;
+* later read FILTDEF_STRING from hid=14
+
+  hid = 14
+  if $HEXIST([hid]) then
+     FILTDEF_STRING = $HTITLE([hid])
+  else
+     FILTDEF_STRING = _
+    'ugrizYJHK UBVRIXy0123456789 abcdef ACDEFGLMNOPQSTWZ hjklmnopqstvwx'
+  endif
+
+  hfilt     = 9910
+  MXFILTDEF = 80
+  x1 = 0.5 ; x2 = 0.5 + [MXFILTDEF]
+  1dhis   [hfilt] 'ntuple filters' [MXFILTDEF] [x1] [x2]
+  nt/proj [hfilt] 7799.ifiltobs usefit=1
+  vec/cr vfilt([MXFILTDEF])
+  get/cont [hfilt] vfilt
+
+* --------------
+  if [ps] = 1 then
+    psfile = [prefix]_resids.ps
+    exec journal
+    fortran/file 66 [psfile]
+    metafile 66 -111
+  endif
+
+  zone 1 2
+  opt ngrid
+  opt fit
+  set stat 001100
+  set fwid 4 ; set plci 2
+  set yhti 1.1 ; set asiz .55 ; set xlab 1.5
+  set gsiz .55
+  h1off = 8880
+
+  if [type] = -9  then
+    title ' '
+    cut 1 usefit=1
+  else
+    ctit = 'TYPE = ' // [type]
+    title [ctit]
+    cut 1 usefit=1.and.type=[type]
+  endif
+
+* loop over every possible filter and process the one(s)
+* that have entries.
+
+  do ifiltobs = 1, [MXFILTDEF]
+
+    n = vfilt([ifiltobs])
+    if [n] = 0 then
+       goto NEXT
+    endif
+   
+    cfilt = $substring([FILTDEF_STRING],[ifiltobs],1) 
+    cut 2 ifiltobs=[ifiltobs]
+
+    mess ' Process ifiltobs=' [ifiltobs] '  CFILT=' [cfilt]
+
+* start with global residual plot: show overflows, RMS and Gaussian sigma
+    h1   = [h1off] + [ifiltobs]
+    chis = [cfilt] // '-band resid, (F?data! [-] F?model!) / [s]'
+    1dhis [h1] [chis] 200 -20 20
+    opt logy ; opt stat ; set hwid 4 ; opt ngri
+    nt/proj [h1] 7799.min(max(dif/errdif,-19.99),19.99) $1.and.$2
+    hfit [h1] g q
+    atit ' '  'Entries    "#'
+
+* now show resid vs. log10(SNR)
+
+    opt liny ; opt nsta ; opt grid
+    h2a   = [h1off] + [ifiltobs] + 100  | error on mean
+    h2b   = [h1off] + [ifiltobs] + 200  | error = RMS
+    chis = [cfilt] // '-band resid vs. log?10!(SNR)'
+    profile [h2a] [chis] 15 0 3 -200 200 ' '
+    profile [h2b] [chis] 15 0 3 -200 200 'S'
+    nt/proj [h2a] 7799.(dif/errdif)%log10(max(flux/fluxerr,1.0)) $1.and.$2
+    nt/proj [h2b] 7799.(dif/errdif)%log10(max(flux/fluxerr,1.0)) $1.and.$2
+    hpl [h2b] max=5 min=-5
+    set hwid 8 ; hpl [h2a] s ; set hwid 4
+    atit ' '  'residual ([D]F/[s])    "#'
+
+    if [prompt] = 1 then 
+       wait
+    endif
+
+    cut 2 -
+
+    NEXT:
+  enddo
+
+  cut 1 -
+  h/del *
+  v/del *
+
+  if [ps] = 1 then
+    close 66
+    mess ' Check plots in ' [psfile]
+  endif
+
+return
+
+
+macro resids_flux snrmin=5 tmin=-15 tmax=60 comment='Fit Residuals' eps=0
+
+* Created Sep 17, 2008 by R.Kessler
+*
+* plot [ Flux(data)-Flux(model) ] / FLux(data) vs. Trest, 
+* and for each rest-frame filter.
+*
+* User specifies 
+*  - snrmin : min SNR
+*  - min/max rest-frame epochs relative to peak at Trest=0
+*  - eps=1 to dump to eps file.
+*
+
+  set gsiz .5
+  title [comment]
+
+  htmp = 45
+  cx   = 'T?rest! (days)'
+  cy   = '(F?data! [-] F?model!)/F?data! (SNR"G#' // [snrmin] // ')'
+
+* compute number of Trest bins ... as close to 5 days as possible
+
+  dt  = [tmax] - [tmin]
+  nbt = $sigma(int(([dt]+.001)/5.))
+
+  mess [nbt] ' Trest bins from ' [tmin] ' to ' [tmax] ' days'
+  profile [htmp] [cx] [nbt] [tmin] [tmax] -2 2 ' '
+
+  set ywin .8 ; set xtic -0.2 ; set yval .25 ; set xval .3
+  set asiz .7 ; set xlab 1.5 ; set ylab 1.0
+  set yhti 1.
+
+  set hwid 6
+  set mtyp
+  opt grid
+  opt nsta
+  opt liny
+  zone 2 3
+
+  cut 1 usefit=1.and.(flux/fluxerr)>[snrmin]
+
+  filtstring = 'ugrizYJHK+UBVRIX+0123456789'
+  set chhe .8 ; set txfp -42
+
+* UBVRI => filters indices 11-15 (updated Jul 9, 2008)
+
+  do ifiltrst = 11, 15
+
+    cut [ifiltrst] $1.and.ifiltrst=[ifiltrst]
+
+    if ( [ifiltrst]>13 ) then
+        set yhti .8
+    else
+        set yhti 100
+    endif
+
+    nt/proj [htmp] 7799.(dif/Flux)%Trest $[ifiltrst] ! ! ! prof
+    hpl [htmp] min=-.5 max=.5
+
+    cfilt = $substring([filtstring],[ifiltrst],1)
+    null 0 1 0 1 -as
+    itx 0.9 0.02 [cfilt]
+
+    his/oper/reset [htmp]
+
+    if ([ifiltrst] = 11  ) then
+      atit ' '  [cy]
+    endif
+
+    cut [ifiltrst] -
+  enddo
+
+  cut 1 -
+
+  if [eps] = 1 then
+    mess ' Dump picture to : resids.eps '
+    pict/print resids.eps
+  endif
+
+  title ' '
+  h/del *
+return
+
+
+macro getrms_SALT2
+
+  hoff   = [1]
+  nbz    = [2]
+  zmin   = [3]
+  zmax   = [4]
+
+* return rms(x1-simx1) vs. z in hoff+1  (apply cut $1.and.$3)
+* return rms(c-simc)   vs. z in hoff+2  (apply cut $2.and.$3)
+* Note that ntuple cuts 1,2,3 must be defined
+
+
+  hx1tmp = 17771
+  hctmp  = 17772
+  prof [hx1tmp] 'RMS(x1) ' [nbz] [zmin] [zmax] -2 2 S
+  prof [hctmp]  'RMS(c?fit! [-] c?sim!) ' [nbz] [zmin] [zmax] -2 2 S
+  nt/proj [hx1tmp] 7788.(x1-simx1)%z  $1.and.$3
+  nt/proj [hctmp]  7788.(c-simc)%z    $2.and.$3
+
+  vec/cr vcrms([nbz])  ; get/err [hctmp]  vcrms
+  vec/cr vx1rms([nbz]) ; get/err [hx1tmp] vx1rms
+
+  hx1 = [hoff] + 1 ; 1dhis [hx1] ' ' [nbz] [zmin] [zmax]
+  hc  = [hoff] + 2 ; 1dhis [hc]  ' ' [nbz] [zmin] [zmax]
+  put/cont [hx1] vx1rms
+  put/cont [hc]  vcrms
+
+  h/del [hctmp],[hx1tmp]
+  v/del vcrms,vx1rms
+
+return
+
+
+macro photoz_res hfdata='' hfsim0='' hfsim1='' survey='SURVEY' _
+                 nbz=10 zmin=0 zmax=1  dzoutlier=0.1 prompt=1 ps=0 _
+                 filters=''
+
+* Created Jan 30 2012 by R.Kessler
+* macro called by photoz_dataMC.pl to compare data and sim
+* for photoz precision and a few other quantities.
+*
+* hfdata = his file for fitted data
+* hfsim0 = his file for fitted sim with no intrinsic smear
+* hfsim1 = his file for fitted sim with intrinsic smear
+
+* hard-wire ymx_xxx for vertical axes
+
+  ymx_rms     = 0.08
+  ymx_outlier = 1.05
+* -------------------
+  h/file 1 [hfdata]
+  h/file 2 [hfsim0]
+  h/file 3 [hfsim1]
+  ld //
+
+  cut 1  fitprob>0.02.and.([zmin]<z<[zmax])
+  plotvar = 'photoz-z'  
+  exec snana#rms_plots 1 [nbz] [zmin] [zmax] [plotvar] [dzoutlier] 1
+  exec snana#rms_plots 2 [nbz] [zmin] [zmax] [plotvar] [dzoutlier] 0
+  exec snana#rms_plots 3 [nbz] [zmin] [zmax] [plotvar] [dzoutlier] 0
+
+  if [ps]=1 then
+    psfile = photoz_res.ps
+    exec journal
+    fortran/file 66 [psfile]
+    metafile 66 -111
+    mess ' Write plots to ' [psfile]
+  endif
+
+  set gsiz .8
+  title [survey]
+* --------------------
+* plot RMS
+
+  cz = 'redshift    "#'
+
+  opt nsta
+  opt grid
+  set asiz .5 ; set ylab 1.1 ; set yhti 1 ; set tsiz .44
+  set hwid 10 ; set lwid 8
+  set csiz .5
+  set xwin 3.
+  zone 2 1
+
+* plot truncated rms
+  null [zmin] [zmax] 0 [ymx_rms]
+  cy = 'RMS|Z?phot! [-] Z?spec!| "L# ' // [dzoutlier] // '    "#'
+  atit [cz] [cy]
+
+  hpl 11001 psl
+  set dmod 3; set pmci 4; set hcol 4; 
+     hpl 11002 psl
+  set dmod 2; set pmci 2; set hcol 2; 
+    hpl 11003 psl
+
+  set dmod;  set pmci ; set hcol
+
+* legend
+  null 0 1 0 2 -as
+
+  xk = 0.19
+  yk = 2.05 ; dyk = 0.1
+
+  yk = [yk] - [dyk] ;  set txci 1; set plci 1
+  key [xk] [yk] 1 'Data' 1.1 L
+
+  yk = [yk] - [dyk] ;  set txci 2; set plci 2 
+  key [xk] [yk] 2 'SIM(+smear)' 1.1 L
+
+  yk = [yk] - [dyk] ;  set txci 4; set plci 4
+  key [xk] [yk] 3 'SIM(no smear)' 1.1 L
+
+
+  set txci 1
+* --------------------
+* plot outlier  frac
+  cy = 'Outlier fraction, [c]?' // [dzoutlier] // '!    "#'
+  null [zmin] [zmax] 0  [ymx_outlier]
+  atit [cz] [cy]
+
+  hpl 12001 psl
+  set dmod 3; set pmci 4; set hcol 4; 
+     hpl 12002 psl
+  set dmod 2; set pmci 2; set hcol 2; 
+    hpl 12003 psl
+
+  set dmod;  set pmci ; set hcol
+
+* ---------------------------------------------
+* overlay a few data/MC distributions to check MC quality
+
+ if [prompt] = 1 then
+   wait
+ endif
+
+  zone 2 3
+  hdata = 9910
+  hsim  = 9911
+
+* redshift
+  1dhis [hdata] 'redshift' [nbz] [zmin] [zmax]
+  1dhis [hsim]  'redshift' [nbz] [zmin] [zmax]
+  nt/proj [hdata] //lun1/7788.z $1 
+  nt/proj [hsim] //lun2/7788.z $1 
+  exec overall [hdata] [hsim] pnorat=1 symsize=.2 hwid=6 pchi2=0
+     h/del *
+
+* legend in first plot
+  null 0 1 0 1 -as
+    key 0.5 0.30 20 'Data' 
+  set txci 2; set plci 2
+    key 0.5 0.10  1 'Sim'  0.7 L
+  set txci ;  set plci 
+
+* Tmin
+  1dhis [hdata] 'min T?rest!' 25 -20 5
+  1dhis [hsim]  'min T?rest!' 25 -20 5
+  nt/proj [hdata] //lun1/7788.trestmin $1 
+  nt/proj [hsim] //lun2/7788.trestmin $1 
+  exec overall [hdata] [hsim] pnorat=1 symsize=.2 hwid=6 pchi2=0
+     h/del *
+
+* SNRMAX
+  1dhis [hdata] 'log10(SNRMAX)' 25 0.5 3
+  1dhis [hsim]  'log10(SNRMAX)' 25 0.5 3
+  nt/proj [hdata] //lun1/7788.log10(snrmax) $1.and.snrmax>0
+  nt/proj [hsim]  //lun2/7788.log10(snrmax) $1.and.snrmax>0
+  exec overall [hdata] [hsim] pnorat=1 symsize=.2 hwid=6 pchi2=0
+    h/del *
+
+* SNRMAX3
+  1dhis [hdata] 'log10(SNRMAX3)' 30 0 3
+  1dhis [hsim]  'log10(SNRMAX3)' 30 0 3
+  nt/proj [hdata] //lun1/7788.log10(snrmax3) $1.and.snrmax3>0
+  nt/proj [hsim] //lun2/7788.log10(snrmax3) $1.and.snrmax3>0
+  exec overall [hdata] [hsim] pnorat=1 symsize=.2 hwid=6 pchi2=0
+     h/del *
+
+* log(Ndof)
+  1dhis [hdata] 'log10(N?dof!)' 25 0. 2.5
+  1dhis [hsim]  'log10(N?dof!)' 25 0. 2.5
+  nt/proj [hdata] //lun1/7788.log10(NDOF) $1.and.ndof>1
+  nt/proj [hsim] //lun2/7788.log10(NDOF) $1.and.ndof>1
+  exec overall [hdata] [hsim] pnorat=1 symsize=.2 hwid=6 pchi2=0
+     h/del *
+
+
+* fitprob
+  nbfp = 10
+  opt logy  
+  1dhis [hdata] 'P?fit!' [nbfp] 0 1
+  1dhis [hsim]  'P?fit!' [nbfp] 0 1
+  nt/proj [hdata] //lun1/7788.fitprob $1
+  nt/proj [hsim]  //lun2/7788.fitprob $1
+  exec overall [hdata] [hsim] pnorat=1 symsize=.2 hwid=6 pchi2=0
+     h/del *
+
+
+ if [prompt] = 1 then
+   wait
+ endif
+
+* -----------------------------------
+* overlay fitprob for each filter
+  NFILT = $LEN([filters])
+
+  do ifilt = 1, [NFILT]
+    cfilt = $substring([filters],[ifilt],1)
+    chis  = 'P?fit!(' // [cfilt] // ')' 
+    1dhis   [hdata] [chis] [nbfp] 0 1
+    1dhis   [hsim]  [chis] [nbfp] 0 1
+    cut 30  nepoch_[cfilt]>0
+    nt/proj [hdata] //lun1/7788.prob_[cfilt] $1.and.$30
+    nt/proj [hsim]  //lun2/7788.prob_[cfilt] $1.and.$30
+    exec overall [hdata] [hsim] pnorat=1 symsize=.2 hwid=6 pchi2=0
+      h/del *    
+      cut 30 -
+  enddo
+
+  
+* ----
+  if [ps] = 1 then
+    close 66
+  endif
+
+* -----
+* cleanup
+  opt liny
+  set txci ; set plci
+  h/del *
+  v/del *  
+return
+
+
+macro rms_plots
+
+* Created Feb 28, 2012 by R.Kessler
+*
+* prepare plots of RMS vs. redshift and outlier frac vs. redshift
+* using lun argument below. Cut $1 must be defined.
+* Output histgrams are
+* 10000 + lun -> 1.48*MEDIAN vs. redshift
+* 11000 + lun -> rms vs. redshift
+* 12000 + lun -> outlier fraction vs. redshift
+* 13000 + lun -> mean vs. redshift
+* 20000 + lun -> global distribution (integrated over all redshift)
+
+  lun       = [1]
+  nbz       = [2]    | number of redshift bins for RMS vs. z
+  zmin      = [3]    | min redshift for plot
+  zmax      = [4]    | max redshift
+  plotvar   = [5]    | photoz-z  or  m0_b-m0_v-c, etc ...
+  outlier   = [6]    | defines outlier region of dz or dcolor
+  errflag   = [7]    | 1 => put error bars on plot
+
+  cut 10 abs([plotvar])<[outlier]
+  cut 11 abs([plotvar])>[outlier]
+
+  vec/cr vrms([nbz])
+  vec/cr vout([nbz])
+  vec/cr voute([nbz])
+  vec/cr vn([nbz])
+    
+    h0 = 8000 + [lun]
+    h1 = 8100 + [lun]
+    h2 = 8200 + [lun]
+    h3 = 8300 + [lun]
+
+    hmed  = 10000 + [lun]  | output
+    hrms  = 11000 + [lun]  | output
+    hout  = 12000 + [lun]  | output
+    hmean = 13000 + [lun]  | output
+    htmp  = 15000 + [lun]  | temp his
+    hall  = 20000 + [lun]
+
+    cz = 'redshift    "#'
+
+    prof  [h0]    [cz] [nbz] [zmin] [zmax] -2 2 'S'
+    1dhis [h1]    [cz] [nbz] [zmin] [zmax] 
+    1dhis [h2]    [cz] [nbz] [zmin] [zmax] 
+    1dhis [h3]    [cz] [nbz] [zmin] [zmax] 
+    1dhis [hrms]  [cz] [nbz] [zmin] [zmax] 
+    1dhis [hmean] [cz] [nbz] [zmin] [zmax] 
+    1dhis [hout]  [cz] [nbz] [zmin] [zmax] 
+    1dhis [hall]  [plotvar] 1000 -1 1
+
+    nt/proj [h0]    //lun[lun]/7788.([plotvar])%z $1.and.$10
+    nt/proj [h1]    //lun[lun]/7788.z $1.and.$11
+    nt/proj [h2]    //lun[lun]/7788.z $1
+    nt/proj [h3]    //lun[lun]/7788.z $1.and.$10
+    nt/proj [hall]  //lun[lun]/7788.[plotvar] $1.and.$10
+    hcopy [h1]/[h2]/b [htmp]
+
+    get/err  [h0]   vrms ; put/cont [hrms]  vrms
+    get/cont [h0]   vout ; put/cont [hmean] vout
+    get/cont [htmp] vout ; put/cont [hout]  vout
+
+* fill hmed with median in each redshift bin
+    exec snana#fill_median [lun] [hmed] [plotvar] _
+            [nbz] [zmin] [zmax] [errflag]
+
+* use PDG prescription to get error on rms (for data only)
+    if [errflag] = 1 then
+      get/cont [h3]  vn
+      sigma vrmse = vrms/sqrt(2*vn)
+      put/err [hrms] vrmse  
+* also put errors on outlier fraction
+      get/err [htmp] voute ; put/err [hout] voute
+    endif
+
+* cleanup
+    h/del [h0],[h1],[h2],[h3],[htmp]
+    v/del vrms,vout,vn,voute
+    cut 10 -
+    cut 11 -
+return
+
+
+macro fill_median
+
+* called by rms_plots only; this is not a general macro
+* fill [hmed] with 1.48*median vs. redshift
+* Use cuts 1 and 10 
+
+  lun     = [1]  | use ntuple 7799 from this log unit
+  hmed    = [2]  | fill this histo to pass output median vs. redshift
+  plotvar = [3]
+  nbz     = [4]
+  zmin    = [5]
+  zmax    = [6]
+  errflag = [7]
+
+  zbin  = ([zmax]-[zmin])/[nbz]
+  htmp  = 5555
+  nb    = 10000
+  1dhis [htmp]  tmp [nb]  0 1
+
+
+  dbug = 0
+
+  vec/cr vmed([nbz])
+  vec/cr vmederr([nbz])
+
+  do iz = 1, [nbz]
+    z2 = [zmin] + [iz]*[zbin]
+    z1 = [z2] - [zbin]
+    cut 44 [z1]<z<[z2]
+    nt/proj [htmp] //lun[lun]/7788.abs([plotvar]) $1.and.$10.and.$44
+
+* get Number of entries and stat error
+    ntmp = $HINFO([htmp],'ENTRIES')
+
+* get integral fractions corresponding to +- 1 sigma
+    ftmp   = $sigma(1.0/sqrt(4.*[ntmp]))
+    fminus = 0.5 - [ftmp]
+    fplus  = 0.5 + [ftmp]
+
+* find median, then +- 1 sigma values
+    exec snana#inverse_integral [htmp] 0.5
+    med = invint(1) ; v/del invint
+
+    exec snana#inverse_integral [htmp] [fminus]
+    medminus = invint(1) ; v/del invint
+
+    exec snana#inverse_integral [htmp] [fplus]
+    medplus = invint(1) ; v/del invint
+
+    mederr = ([medplus] - [medminus])/2.0
+
+* now estimater error using sigma-error formula
+*    mederr = $sigma([med]/sqrt(2.*[ntmp]))  | obsolete  Apr 6 2012
+
+    vec/input vmed([iz])    [med]
+    vec/input vmederr([iz]) [mederr]
+
+* ---------- debug statements
+    if [dbug] = 1 then
+      mess ' --------------------------------------------------- '
+      txt1 = ' DUMP: frac  (-,+) = ' // [fminus]   // ' , ' // [fplus]
+      txt2 = ' DUMP: Median(-,+) = ' // [medminus] // ' , ' // [medplus]
+      txt3 = ' DUMP: Medain = ' // [med] // ' +- ' // [mederr]
+      mess [txt1]
+      mess [txt2]
+      mess [txt3]
+      wait ' xxx hit <CR> to continue ... '
+   endif
+* --------------
+
+    his/oper/reset [htmp]
+    cut 44 -
+  enddo
+  h/del [htmp]
+
+* scale by 1.48
+  sigma vmed    = 1.48*vmed
+  sigma vmederr = 1.48*vmederr
+
+* create output histogram
+  1dhis [hmed] redshift [nbz] [zmin] [zmax] 
+  put/cont  [hmed] vmed
+
+  if [errflag] = 1 then
+    put/err   [hmed] vmederr
+  endif
+
+  v/del vmed,vmederr
+
+return
+
+
+macro inverse_integral
+
+* return abscissa value when integral is 'frac' of total.
+* Frac = 0.5 -> return MEDIAN
+* Returns result in vector invint(1)
+ 
+  h    = [1]
+  frac = [2] 
+
+  nb =  10000
+  vec/cr vxtmp([nb])
+  vec/cr vytmp([nb])
+
+  get/absc [h] vxtmp
+  get/cont [h] vytmp
+  sigma vvtmp   = sumv(vytmp)/vsum(vytmp)
+  sigma vdif    = abs(vvtmp-[frac])+0.0001
+  sigma vdifmin = vmin(vdif); tmpmin=vdifmin(1)
+  sigma vratio  = ([tmpmin]*1.0001)/vdif
+  sigma vmask   = int(vratio)
+
+  sigma ovp = vmask*vxtmp; 
+  sigma vn0=vsum(vmask) ; n0 = vn0(1)
+  sigma vn1=vsum(ovp);    n1 = vn1(1)
+  res = [n1]/[n0]
+
+* store result in output vector
+  vec/cr invint(1) R [res]
+
+* remove temp vectors
+  v/del vxtmp,vytmp,vvtmp,vdif,vdifmin,vratio,vmask,vn0,vn1,ovp
+
+return

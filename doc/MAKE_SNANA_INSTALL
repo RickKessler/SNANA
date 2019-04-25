@@ -1,0 +1,5 @@
+pslatex snana_install
+pslatex snana_install
+dvips -P pdf -G0 snana_install
+ps2pdf snana_install.ps
+rm *.aux *.dvi *.log *.toc snana_install.ps

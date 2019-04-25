@@ -1,0 +1,3208 @@
+*------------------------------------------------------------------------------
+* hpl.kumac: a general-purpose enhancement of h/plot which allows arithmetic
+* expressions, on-the-fly rebinning and projections/bands, and a variety of
+* other improvements.
+*
+* Do "hpl#help" for help.
+*
+* Created by Peter Shawhan (U. of Chicago), with a little help from my friends.
+* This file may be freely distributed and modified.
+*
+* Note: This kumac file is standalone.  It contains lines such as
+* "exec binloc [item]", but in all cases these refer to other macros
+* within this same file, rather than to other kumac files.
+*
+* Mar 18, 2005: fix dumb bug for computing nzero
+*------------------------------------------------------------------------------
+
+macro plot id=0 chopt='!' out=0 min='' max='' mm='' title='' debug=0
+
+if ([id] .eq. 0) then
+  mess 'Syntax: hpl id [chopt] [ out min max title ]'
+  mess 'The first two arguments are the same as for h/plot, except that'
+  mess '"id" can be an expression and a few extra options are supported.'
+  mess 'Do hpl#help for detailed help.'
+  stopm
+endif
+
+*-- If the 'mm' option was used, copy values to 'min' and 'max'
+chpos = $INDEX([mm],',')
+if ([chpos] .gt. 0) then
+  min = $SUBSTRING([mm],1,[chpos]-1)
+  max = $SUBSTRING([mm],[chpos]+1)
+endif
+
+*-- Save some status stuff
+id_orig = [id]
+call hplopt('FILE',-1)
+origfile = $IQUEST(11)
+call hplopt('UTIT',-1)
+origutit = $IQUEST(11)
+origcdir = $HCDIR()
+
+*-- Find commas which separate items (i.e. outside parentheses) and change
+*-- them to spaces
+if ($INDEX([id],',') .gt. 0) then
+  pardepth = 0
+  do ichar = 1, $LEN([id])
+    char = $SUBSTRING([id],[ichar],1)
+    if ([char] .eq. '(') then
+      pardepth = [pardepth] + 1
+    elseif ([char] .eq. ')') then
+      pardepth = [pardepth] - 1
+    elseif ([char] .eq. ',') then
+      if ([pardepth] .eq. 0) then
+        id = $SUBSTRING([id],1,[ichar]-1)//' '//$SUBSTRING([id],[ichar]+1)
+      endif
+    endif
+  enddo
+
+  if ([pardepth] .ne. 0) then
+    mess Error: unbalanced parentheses in [id_orig]
+    stopm
+  endif
+endif
+
+*-- Loop over items (which were separated by commas; now separated by spaces)
+nitems = $WORDS([id],' ')
+do iitem = 1, [nitems]
+  item = $WORD([id],[iitem],1,' ')
+
+  *-- Check for bin range and strip it off
+  binrange = ''
+  exec binloc [item]
+  binloc = [@]
+  if ([binloc] .gt. 0) then
+    binrange = $SUBSTRING([item],[binloc])
+    item = $SUBSTRING([item],1,[binloc]-1)
+    if ([debug] .ge. 1) then
+      mess Stripping off bin range [binrange]
+    endif
+  endif
+
+  *-- Check for temporary options
+  setopt = ''
+  restopt = ''
+  if ($LEN([chopt]).ge.3) then
+
+    exec extraopt [chopt]
+    optwork = [@]
+
+    chpos = $INDEX([optwork],'|')
+    chopt = $SUBSTRING([optwork],1,[chpos]-1)
+    optwork = $SUBSTRING([optwork],[chpos]+1)
+    chpos = $INDEX([optwork],'|')
+    setopt = $SUBSTRING([optwork],1,[chpos]-1)
+    restopt = $SUBSTRING([optwork],[chpos]+1)
+
+    if ([chopt] .eq. '') then
+      chopt = '!'
+    endif
+
+  endif
+
+  *-- Prep the item
+  exec prep [item] out=[out] title=[title] debug=[debug]
+  useid = [@]
+
+  if ([useid] .eq. 0 .or. [chopt].eq.'0') goto skip_plot
+
+  if ([useid] .ne. [item]) then
+    cd //PAWC
+  endif
+
+  *-- If a min and/or max was specified, copy to a temporary histogram
+  if ([min] .ne. '' .or. [max] .ne. '') then
+    useid2 = $EXEC( getid )
+    h/copy [useid] [useid2]
+
+    if ([min] .ne. '') then
+      min [useid2] [min]
+      if ([max] .ne. '') then
+        max [useid2] [max]
+        min [useid2] [min]
+      endif
+    elseif ([max] .ne. '') then
+      max [useid2] [max]
+    endif
+
+    useid = [useid2]
+  endif
+
+  *-- If necessary, modify the bin range string
+  if ([binrange] .ne. '') then
+    exec binmod [useid] [binrange]
+    binrange = [@]
+  endif
+
+  *-- If necessary, set up the user title
+  if ([out] .eq. 0 .and. [title] .ne. '') then
+    opt utit
+    title [title] u
+  endif
+
+  *-- If necessary, set the temporary options
+  if ([setopt] .ne. '') then
+    do iword = 1, $WORDS([setopt],';')
+      setcmd = $WORD([setopt],[iword],1,';')
+      $UNQUOTE([setcmd])
+    enddo
+  endif  
+
+  *-- Plot the item
+  h/plot [useid]//[binrange] [chopt]
+
+  *-- If necessary, undo any temporary options
+  if ([restopt] .ne. '') then
+    do iword = 1, $WORDS([restopt],';')
+      restcmd = $WORD([restopt],[iword],1,';')
+      $UNQUOTE([restcmd])
+    enddo
+  endif
+
+  skip_plot:
+  if ([origutit] .eq. 0) then
+    opt htit
+  endif
+
+  *-- Delete all temporary histograms (except the one plotted, and the output)
+  protlist = [id]//' '//[useid]
+  exec freeid protect=[protlist]
+
+  cd [origcdir]
+
+enddo
+
+*-- Clean up
+
+if ([origfile] .eq. 1) then
+  opt file
+else
+  opt nfil
+endif
+
+return [useid]
+
+
+*--------------------------------------------------------------------
+macro hcopy id1=0 id2=0 title='' debug=0
+
+if ([id1] .eq. 0 .or. [id2] .eq. 0) then
+  mess 'Syntax: hcopy id1 id2 [title]'
+  mess 'The arguments are the same as for h/copy, except that'
+  mess '"id1" can be an expression.  See hpl#help for details.'
+  stopm
+endif
+
+*-- Make sure there isn't a bin range specified
+exec binloc [id1]
+if ([@] .gt. 0) then
+  mess Error: cannot specify a bin range with hcopy
+  stopm
+endif
+
+*-- Save some status stuff
+call hplopt('FILE',-1)
+origfile = $IQUEST(11)
+origcdir = $HCDIR()
+
+*-- Prep the item and store the result in id2
+exec prep [id1] [id2] title=[title] debug=[debug]
+
+*-- Delete all temporary histograms (except the input and output)
+protlist = [id1]//' '//[id2]
+exec freeid protect=[protlist]
+
+*-- Clean up
+cd [origcdir]
+if ([origfile] .eq. 1) then
+  opt file
+else
+  opt nfil
+endif
+
+return
+
+
+*--------------------------------------------------------------------
+macro hfit id=0 func=' ' chopt='!' np=0 par='hftdpr' _
+   step='hftdst' pmin='hftdmi' pmax='hftdma' errpar='hftder' _
+   out=0 min='' max='' mm='' title='' debug=0
+
+if ([id] .eq. 0 .or. [func] .eq. ' ') then
+  mess 'Syntax: hfit id func [chopt np par step pmin pmax errpar] [ out min max title ]'
+  mess 'The first 9 arguments are the same as for h/fit, except that'
+  mess '"id" can be an expression.  See hpl#help for details.'
+  mess ''
+  mess 'For a linear fit (i.e. func=''p1''), the fit is actually done with'
+  mess 'the well-known closed-form least-squares method instead of using'
+  mess 'Minuit, because sometimes Minuit underestimates the errors.'
+  mess 'To do it with Minuit, use func=''p1_minuit'' instead.'
+  mess ''
+  stopm
+endif
+
+func = $UPPER([func])
+
+*-- If the 'mm' option was used, copy values to 'min' and 'max'
+chpos = $INDEX([mm],',')
+if ([chpos] .gt. 0) then
+  min = $SUBSTRING([mm],1,[chpos]-1)
+  max = $SUBSTRING([mm],[chpos]+1)
+endif
+
+*-- Save some status stuff
+call hplopt('FILE',-1)
+origfile = $IQUEST(11)
+origcdir = $HCDIR()
+
+*-- Check for bin range and strip it off
+binrange = ''
+exec binloc [id]
+binloc = [@]
+if ([binloc] .gt. 0) then
+  binrange = $SUBSTRING([id],[binloc])
+  id = $SUBSTRING([id],1,[binloc]-1)
+  if ([debug] .ge. 1) then
+    mess Stripping off bin range [binrange]
+  endif
+endif
+
+*-- Check for temporary options
+setopt = ''
+restopt = ''
+if ($LEN([chopt]).ge.3) then
+
+  exec extraopt [chopt]
+  optwork = [@]
+
+  chpos = $INDEX([optwork],'|')
+  chopt = $SUBSTRING([optwork],1,[chpos]-1)
+  optwork = $SUBSTRING([optwork],[chpos]+1)
+  chpos = $INDEX([optwork],'|')
+  setopt = $SUBSTRING([optwork],1,[chpos]-1)
+  restopt = $SUBSTRING([optwork],[chpos]+1)
+
+  if ([chopt] .eq. '') then
+    chopt = '!'
+  endif
+
+endif
+
+*-- Prep the item
+exec prep [id] out=[out] title=[title] debug=[debug]
+useid = [@]
+
+if ([useid] .eq. 0) then
+  mess Error: [id] is not a histogram
+  goto cleanup
+endif
+
+if ([useid] .ne. [id]) then
+  cd //pawc
+endif
+
+*-- If the item is a projection, etc., or if we want to change the title,
+*--  or set min/max, then we must copy it to another histogram
+if ($INDEX([useid],'.') .ne. 0 .or. [title].ne.'' .or. [min] .ne. '' .or. [max] .ne. '') then
+  useid2 = $EXEC( getid )
+  h/copy [useid] [useid2] [title]
+  useid = [useid2]
+endif
+
+*-- Check that the thing to be fit is 1-dimensional
+if ($HINFO([useid],'YBINS') .ne. 0) then
+  mess Error: [id] is 2-dimensional
+  goto cleanup
+endif
+
+*-- Set min and max, if specified
+if ([min] .ne. '') then
+  min [useid] [min]
+  if ([max] .ne. '') then
+    max [useid] [max]
+    min [useid] [min]
+  endif
+elseif ([max] .ne. '') then
+  max [useid] [max]
+endif
+
+*-- If necessary, modify the bin range string
+if ([binrange] .ne. '') then
+  exec binmod [useid] [binrange]
+  binrange = [@]
+endif
+
+*-- If necessary, set the temporary options
+if ([setopt] .ne. '') then
+  do iword = 1, $WORDS([setopt],';')
+    setcmd = $WORD([setopt],[iword],1,';')
+    $UNQUOTE([setcmd])
+  enddo
+endif  
+
+*-- Do the fit
+if ([func] .ne. 'P1') then
+  if ([func] .eq. 'P1_MINUIT') then
+    func = 'P1'
+  endif
+
+  *-- Create default vectors to use as arguments
+  vec/cre hftdpr(35)
+  vec/cre hftdst(35)
+  vec/cre hftdmi(35)
+  vec/cre hftdma(35)
+  vec/cre hftder(35)
+
+  h/fit [useid]//[binrange] [func] [chopt] [np] [par] [step] [pmin] [pmax] [errpar]
+
+  *-- Delete default vectors
+  vec/del hftdpr,hftdst,hftdmi,hftdma,hftder
+
+else
+
+  *-- Create default vectors to use as arguments
+  vec/cre hftdpr(35)
+  vec/cre hftder(35)
+
+  *-- To do a linear fit, call a macro to get the fit params and
+  *-- errors from the closed-form solution, rather than calling Minuit.
+  *-- This is because Minuit sometimes underestimates the error on the slope.
+  exec fitlin [useid]//[binrange] [chopt] [par] [errpar]
+
+  *-- Delete default vectors
+  vec/del hftdpr,hftder
+
+endif
+
+*-- If necessary, undo any temporary options
+if ([restopt] .ne. '') then
+  do iword = 1, $WORDS([restopt],';')
+    restcmd = $WORD([restopt],[iword],1,';')
+    $UNQUOTE([restcmd])
+  enddo
+endif
+
+cleanup:
+
+*-- Delete all temporary histograms (except the one plotted, and the output)
+protlist = [id]//' '//[useid]
+exec freeid protect=[protlist]
+
+*-- Clean up
+cd [origcdir]
+if ([origfile] .eq. 1) then
+  opt file
+else
+  opt nfil
+endif
+
+return [useid]
+
+
+*--------------------------------------------------------------------
+macro fitlin id=0 chopt='' par='' errpar=''
+
+if ([id] .eq. 0) then
+  mess 'Syntax: hpl#fitlin id [ chopt par errpar ]'
+  mess 'Does a least-squares fit to a straight line using the closed-form'
+  mess 'formulae, without calling Minuit.'
+  stopm
+endif
+
+*-- Trim off the binrange, if it exists.  [id] is a simple histogram ID,
+*-- so this is easy; we don't have to call the "binloc" macro.
+binrange = ''
+binloc = $INDEX([id],'(')
+if ([binloc] .gt. 0) then
+  binrange = $SUBSTRING([id],[binloc])
+  id = $SUBSTRING([id],1,[binloc]-1)
+endif
+
+*-- Check that the histogram exists.  If not, try to read it in.
+if ($HEXIST([id]) .eq. 0) then
+  hrin [id]
+  if ($HEXIST([id]) .eq. 0) then
+    mess 'Error: histogram '//[id]//' does not exist'
+    stopm
+  endif
+endif
+
+*-- First do a linear fit with Minuit in order to set up the Zebra structure
+*-- for storing the fit params and the function with the histogram
+chopt = $UPPER([chopt])
+chopt2 = [chopt]//'Q0'
+h/fit [id]//[binrange] p1 [chopt2]
+
+*-- Get info about the histogram binning, and unpack values and errors
+xbins = $HINFO([id],'XBINS')
+xmin = $HINFO([id],'XMIN')
+xmax = $HINFO([id],'XMAX')
+vec/cre ftlvxv([xbins])
+vec/cre ftlvda([xbins])
+vec/cre ftlver([xbins])
+get/abscissa [id] ftlvxv
+get/cont [id] ftlvda
+get/err [id] ftlver
+
+*-- If there is a limited bin range, trim the vectors
+if ([binrange] .ne. '') then
+
+  *-- Trim off parentheses
+  length = $LEN([binrange])
+  xrange = $SUBSTRING([binrange],2,[length]-2)
+
+  *-- Break up low and high ends of range
+  chpos = $INDEX([xrange],':')
+  if ([chpos] .eq. 0) then
+    mess Error: invalid bin range [xrange]
+    stopm
+  endif
+  xrmin = $SUBSTRING([xrange],1,[chpos]-1)
+  xrmax = $SUBSTRING([xrange],[chpos]+1)
+
+  if ([xrmin] .eq. '') then
+    xbmin = 1
+  else
+    val = $FORMAT([xrmin],G10.5)
+    if ( $SUBSTRING([val],1,1) .eq. '$' ) then
+      mess Error: unable to parse item [xrmin] in bin range [xrange]
+      stopm
+    endif
+    if ($INDEX([xrmin],'.') .gt. 0) then
+      xbmin = ( ([xrmin]-[xmin]) * [xbins] / ([xmax]-[xmin]) ) + 1.0
+    else
+      xbmin = [xrmin]
+    endif
+  endif
+  xbmin = $FORMAT([xbmin],I)
+  if ([xbmin] .lt. 1 .or. [xbmin] .gt. [xbins]) then
+    mess Error: [xrmin] is outside the valid X range
+    stopm
+  endif
+
+  if ([xrmax] .eq. '') then
+    xbmax = [xbins]
+  else
+    val = $FORMAT([xrmax],G10.5)
+    if ( $SUBSTRING([val],1,1) .eq. '$' ) then
+      mess Error: unable to parse item [xrmax] in bin range [xrange]
+      stopm
+    endif
+    if ($INDEX([xrmax],'.') .gt. 0) then
+      xbmax = ([xrmax]-[xmin]) * [xbins] / ([xmax]-[xmin]) + 1.0
+    else
+      xbmax = [xrmax]
+    endif
+  endif
+  xbmax = $FORMAT([xbmax],I)
+  if ([xbmax] .lt. 1 .or. [xbmax] .gt. [xbins]) then
+    mess Error: [xrmax] is outside the valid X range
+    stopm
+  endif
+
+  fitbins = [xbmax] - [xbmin] + 1
+  vec/cre ftlhxv([fitbins])
+  vec/cre ftlhyv([fitbins])
+  vec/cre ftlher([fitbins])
+  vec/cre ftlhe2([fitbins])
+  vec/cre ftlhwv([fitbins])
+
+  vec/copy ftlvxv([xbmin]:[xbmax]) ftlhxv
+  vec/copy ftlvda([xbmin]:[xbmax]) ftlhyv
+  vec/copy ftlver([xbmin]:[xbmax]) ftlher
+  fxmin = [xmin] + ([xbmin]-1) * ([xmax]-[xmin]) / [xbins]
+  fxmax = [xmax] - ([xbins]-[xbmax]) * ([xmax]-[xmin]) / [xbins]
+  ndof = [xbmax] - [xbmin] - 1
+
+else
+
+  vec/cre ftlhxv([xbins])
+  vec/cre ftlhyv([xbins])
+  vec/cre ftlher([xbins])
+  vec/cre ftlhe2([xbins])
+  vec/cre ftlhwv([xbins])
+
+  vec/copy ftlvxv ftlhxv
+  vec/copy ftlvda ftlhyv
+  vec/copy ftlver ftlher
+  xbmin = 1
+  xbmax = [xbins]
+  fxmin = [xmin]
+  fxmax = [xmax]
+  ndof = [xbins] - 2
+
+endif
+
+**nzero = $sigma(vsum(del(ftlhyv)))
+
+sigma fdum = abs(1000.*ftlhyv)
+nzero = $sigma(vsum(del(fdum)))
+
+
+*-- Accumulate some sums
+*-- "xmean" is the weighted mean value of the x-coord.  We actually 
+*-- reformulate the fit in terms of w(i) = x(i) - xmean
+sigma ftlhe2 = ftlher**2
+sum1 = $sigma( vsum( 1.0 / ftlhe2 ) )
+sumx = $sigma( vsum( ftlhxv / ftlhe2 ) )
+xmean = [sumx] / [sum1]
+sigma ftlhwv = ftlhxv - [xmean]
+sumww = $sigma( vsum( ftlhwv**2 / ftlhe2 ) )
+sumwy = $sigma( vsum( ftlhwv*ftlhyv / ftlhe2 ) )
+sumyy = $sigma( vsum( ftlhyv**2 / ftlhe2 ) )
+sumy = $sigma( vsum( ftlhyv / ftlhe2 ) )
+
+*-- Now calculate the fit params
+slope = [sumwy] / [sumww]
+eslope = $sigma( sqrt( 1.0 / [sumww] ) )
+intcp = ( [sumy] / [sum1] ) - [slope] * [xmean]
+eintcp = $sigma( sqrt( ( 1.0 / [sum1] ) + ( [xmean]*[xmean] / [sumww] ) ) )
+chisq = $sigma( vsum( (ftlhyv-[intcp]-[slope]*ftlhxv)**2 / ftlhe2 ) )
+chidof = [chisq] / ( [ndof] - [nzero] )
+
+
+*-- Print the result of the fit
+if ( $INDEX([chopt],'Q') .eq. 0) then
+  mess ''
+  mess 'Result of closed-form linear least-squares fit'
+  mess '  ID =  '//[id]//'    CHOPT = '//[chopt]
+  text1 = $FORMAT([chisq],G6.5)
+  text2 = $FORMAT([chidof],G7.5)
+  mess '  chisq      = '//[text1]//' for '//[ndof]//' dof    (chisq/dof = '//[text2]//')'
+  text1 = $FORMAT([intcp],E10.4)
+  text2 = $FORMAT([eintcp],E10.4)
+  mess '  intercept  = '//[text1]//'  +/-  '//[text2]
+  text1 = $FORMAT([slope],E10.4)
+  text2 = $FORMAT([eslope],E10.4)
+  mess '  slope      = '//[text1]//'  +/-  '//[text2]
+  mess ''
+endif
+
+*-- Store the parameters in the histogram
+if ( $INDEX([chopt],'N') .eq. 0) then
+  vec/cre ftlidx(2) r [id] [chidof]
+  vec/cre ftlpar(2) r [intcp] [slope]
+  vec/cre ftlsig(2) r [eintcp] [eslope]
+  vec/cre ftllim(2) r [xbmin] [xbmax]
+
+*/////////////////////////////////////////
+* This COMIS routine packs new fit params, etc. into a histogram.
+* The structure for storing them must already exist.
+* Adapted from deck HSUPIS (case 2) in hbook.car by Peter Shawhan.
+application comis quit
+!clear
+      vector ftlidx, ftlpar, ftlsig, ftllim
+      DOUBLE PRECISION SS
+
+      COMMON/PAWC/NWPAW,IXPAWC,IHDIV,IXHIGZ,IXKU,FENC(5),LQ(1999990)
+      DIMENSION IQ(1999982),Q(1999982)
+      EQUIVALENCE (IQ(1),LQ(9))
+      EQUIVALENCE (Q(1),IQ(1))
+
+      COMMON/HCBOOK/HVERSN,IHWORK,LHBOOK,LHPLOT,LGTIT,LHWORK,
+     +LCDIR,LSDIR,LIDS,LTAB,LCID,LCONT,LSCAT,LPROX,LPROY,LSLIX,
+     +LSLIY,LBANX,LBANY,LPRX,LPRY,LFIX,LLID,LR1,LR2,LNAME,LCHAR,LINT,
+     +LREAL,LBLOK,LLBLK,LBUFM,LBUF,LTMPM,LTMP,LTMP1,LHPLIP,LHDUM(9),
+     +LHFIT,LFUNC,LHFCO,LHFNA,LCIDN
+
+      ID = ftlidx(1)
+      FITCHI = ftlidx(2)
+      IC1 = ftllim(1)
+      IC2 = ftllim(2)
+      NCX=IC2-IC1+1
+
+c The call to Hfind sets LCID, LCONT, LSCAT, NB, LPRX
+      call Hfind(ID,'FITLIN')
+
+c Lookup Zebra links
+      IF(IQ(LCONT-2).EQ.0)GO TO 100
+      LFUNC=LQ(LCONT-1)
+      IF(LFUNC.EQ.0)GO TO 100
+      IF(IQ(LFUNC-2).LT.1)GO TO 100
+      LHFIT=LQ(LFUNC-1)
+
+c Store the chi-square      
+      Q(LHFIT+6)=FITCHI
+
+c Store the fit params and errors
+      NFPAR = 2
+      NWW = 2
+      II=11
+      DO 40 I=1,NFPAR
+        SS=FTLPAR(I)
+        CALL UCOPY(SS,Q(LHFIT+II),NWW)
+        II=II+NWW
+   40 CONTINUE
+      DO 50 I=1,NFPAR
+        SS=FTLSIG(I)
+        CALL UCOPY(SS,Q(LHFIT+II),NWW)
+        II=II+NWW
+   50 CONTINUE
+
+c Store the value of the function bin-by-bin
+      DX=(Q(LPRX+2)-Q(LPRX+1))/FLOAT(IQ(LPRX))
+      DO 70 I=1,NCX
+        X=Q(LPRX+1)+0.5*DX+DX*(IC1+I-2)
+        Q(LFUNC+I+2) = FTLPAR(1) * FTLPAR(2) * X
+   70 CONTINUE
+
+100   end
+quit
+*/////////////////////////////////////////
+
+  vec/del ftlidx,ftlpar,ftlsig,ftllim
+
+endif
+
+vec/del ftlvxv,ftlvda,ftlver,ftlhxv,ftlhyv,ftlher,ftlhe2,ftlhwv
+
+*-- If vectors were specified for the fit params, fill them
+if ([par] .ne. '') then
+  vec/in [par](1:2) [intcp] [slope]
+endif
+if ([errpar] .ne. '') then
+  vec/in [errpar](1:2) [eintcp] [eslope]
+endif
+
+if ($INDEX([chopt],'0') .eq. 0) then
+  h/plot [id]
+endif
+
+return
+
+
+*--------------------------------------------------------------------
+macro binloc item
+
+length = $LEN([item])
+if ($SUBSTRING([item],[length],1) .ne. ')') then
+  exitm 0
+endif
+
+work = [item]
+
+*-- Find last open-paren
+parpos = 0
+chpos = $INDEX([work],'(')
+while ( [chpos] .ne. 0 ) do
+  parpos = [parpos] + [chpos]
+  work = $SUBSTRING([work],[chpos]+1)
+  chpos = $INDEX([work],'(')
+endwhile
+
+if ([parpos] .eq. 0) then
+  mess Error: mismatched parentheses in [item]
+  stopm
+endif
+
+if ([parpos] .eq. 1) then
+  exitm 0
+endif
+
+*-- Make sure open-paren is not preceded by a dot (indicating a BANX/Y range)
+*-- or an arithmetic operator
+char = $SUBSTRING([item],[parpos]-1,1)
+if ( $INDEX('.+-*/',[char]) .ne. 0 ) then
+  exitm 0
+endif
+
+*-- Make sure the bin range contains a colon, and does NOT contain
+*-- anything which does not belong in a bin range
+
+hascolon = 0
+length = $LEN([work])
+do ichar = 1, [length]-1
+  char = $SUBSTRING([work],[ichar],1)
+  if ( [char] .eq. ':' ) then
+    hascolon = 1
+  elseif ( $INDEX('0123456789.eE+-,',[char]) .eq. 0 ) then
+    exitm 0
+  endif
+enddo
+
+if ( [hascolon] .eq. 0 ) then
+  exitm 0
+endif
+
+return [parpos]
+
+
+*--------------------------------------------------------------------
+macro binmod hist binrange
+
+xbins = $HINFO([hist],'XBINS')
+ybins = $HINFO([hist],'YBINS')
+
+length = $LEN([binrange])
+chpos = $INDEX([binrange],',')
+if ([chpos] .gt. 0) then
+  if ([ybins] .eq. 0) then
+    mess Error: bin range [binrange] is invalid for 1-dimensional histogram
+    stopm
+  endif
+  xrange = $SUBSTRING([binrange],2,[chpos]-2)
+  yrange = $SUBSTRING([binrange],[chpos]+1,[length]-[chpos]-1)
+else
+  if ([ybins] .gt. 0) then
+    mess Error: bin range [binrange] is invalid for 2-dimensional histogram
+    stopm
+  endif
+  xrange = $SUBSTRING([binrange],2,[length]-2)
+  yrange = ''
+endif
+
+length = $LEN([xrange])
+if ([length] .gt. 0) then
+  chpos = $INDEX([xrange],':')
+  if ([chpos] .eq. 0) then
+    mess Error: cannot parse bin range [xrange]
+    stopm
+  endif
+
+  if ($SUBSTRING([xrange],[length],1) .eq. '-') then
+    xrmax = $SUBSTRING([xrange],[chpos]+1,[length]-[chpos]-1)
+    if ($INDEX([xrmax],'.') .ne. 0) then
+      xmin = $HINFO([hist],'XMIN')
+      xmax = $HINFO([hist],'XMAX')
+      xbinw = ([xmax] - [xmin]) / [xbins]
+      xrmax = [xrmax] - 0.071429*[xbinw]
+      xrange = $SUBSTRING([xrange],1,[chpos])//[xrmax]
+    else
+      xrange = $SUBSTRING([xrange],1,[length]-1)
+    endif
+  endif
+
+endif
+
+length = $LEN([yrange])
+if ([length] .gt. 0) then
+  chpos = $INDEX([yrange],':')
+  if ([chpos] .eq. 0) then
+    mess Error: cannot parse bin range [yrange]
+    stopm
+  endif
+
+  if ($SUBSTRING([yrange],[length],1) .eq. '-') then
+    yrmax = $SUBSTRING([yrange],[chpos]+1,[length]-[chpos]-1)
+    if ($INDEX([yrmax],'.') .ne. 0) then
+      ymin = $HINFO([hist],'YMIN')
+      ymax = $HINFO([hist],'YMAX')
+      ybinw = ([ymax] - [ymin]) / [ybins]
+      yrmax = [yrmax] - 0.071429*[ybinw]
+      yrange = $SUBSTRING([yrange],1,[chpos])//[yrmax]
+    else
+      yrange = $SUBSTRING([yrange],1,[length]-1)
+    endif
+  endif
+
+endif
+
+if ([ybins] .eq. 0) then
+  binrange = '('//[xrange]//')'
+else
+  binrange = '('//[xrange]//','//[yrange]//')'
+endif
+
+return [binrange]
+
+
+*--------------------------------------------------------------------
+macro pathadd oldpath addpath type='default' debug
+
+*-- Strip off any parentheses and final slashes; replace commas by plusses
+ichar = 1
+length = $LEN([addpath])
+while ([ichar] .le. [length]) do
+  char = $SUBSTRING([addpath],[ichar],1)
+  if ( $INDEX( '()', [char] ) .ne. 0 ) then
+    addpath = $SUBSTRING([addpath],1,[ichar]-1)//$SUBSTRING([addpath],[ichar]+1)
+    length = [length] - 1
+  elseif ( [char] .eq. '/' ) then
+    if ([ichar] .eq. [length]) then
+      addpath = $SUBSTRING([addpath],1,[length]-1)
+      length = [length] - 1
+    else
+      char2 = $SUBSTRING([addpath],[ichar]+1,1)
+      if ( $INDEX('+)(',[char2]) .gt. 0 ) then
+        addpath = $SUBSTRING([addpath],1,[ichar]-1)//$SUBSTRING([addpath],[ichar]+1)
+        length = [length] - 1
+      else
+        ichar = [ichar] + 1
+      endif
+    endif
+  elseif ( [char] .eq. ',' ) then
+    addpath = $SUBSTRING([addpath],1,[ichar]-1)//'+'//$SUBSTRING([addpath],[ichar]+1)
+  else
+    ichar = [ichar] + 1
+  endif
+endwhile
+
+*-- If the path is currently blank, just copy
+if ([oldpath] .eq. '') then
+  defpath = [addpath]
+  if ([debug] .ge. 1) then
+    mess Setting [type] path to [defpath]
+  endif
+  exitm [defpath]
+endif
+
+nwold = $WORDS([oldpath],'+')
+nwnew = $WORDS([addpath],'+')
+
+do iwold = 1, [nwold]
+  wold = $WORD([oldpath],[iwold],1,'+')
+
+  *-- Add a slash if necessary
+  length = $LEN([wold])
+  if ( $SUBSTRING([wold],[length],1) .ne. '/' ) then
+    wold = [wold]//'/'
+  endif
+
+  do iwnew = 1, [nwnew]
+    wnew = $WORD([addpath],[iwnew],1,'+')
+
+    pathtype = $SUBSTRING([wnew],1,6)
+    if ( $SUBSTRING([pathtype],1,1) .eq. '/' ) then
+      pathtype = $SUBSTRING([pathtype],2)
+    endif
+    if ( $SUBSTRING([pathtype],1,1) .eq. '/' ) then
+      pathtype = $SUBSTRING([pathtype],2)
+    endif
+
+    if ( $SUBSTRING([pathtype],1,3) .eq. 'LUN' .or. $SUBSTRING([pathtype],1,4) .eq. 'PAWC' ) then
+      newpath = [wnew]
+    else
+      newpath = [wold]//[wnew]
+    endif
+
+    if ([iwold] .eq. 1 .and. [iwnew] .eq. 1) then
+      defpath = [newpath]
+    else
+      defpath = [defpath]//'+'//[newpath]
+    endif
+
+  enddo
+enddo
+
+if ([debug] .ge. 1) then
+  mess Modifying [type] path to be [defpath]
+endif
+
+return [defpath]
+
+
+*--------------------------------------------------------------------
+macro extraopt chopt
+
+chopt = $UPPER([chopt])
+setopt = ''
+restopt = ''
+
+*-- Look for 'LOGY'
+chpos = $INDEX([chopt],'LOGY')
+if ([chpos] .gt. 0) then
+  choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+4)
+  chopt = [choptnew]
+  call hplopt('LOGY',-1)
+  orig = $IQUEST(11)
+  if ([orig] .eq. 0) then
+    setopt = [setopt]//';opt logy'
+    restopt = [restopt]//';opt liny'
+  endif
+endif
+
+*-- Look for 'LINY'
+chpos = $INDEX([chopt],'LINY')
+if ([chpos] .gt. 0) then
+  choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+4)
+  chopt = [choptnew]
+  call hplopt('LOGY',-1)
+  orig = $IQUEST(11)
+  if ([orig] .eq. 1) then
+    setopt = [setopt]//';opt liny'
+    restopt = [restopt]//';opt logy'
+  endif
+endif
+
+*-- Look for 'LOGZ'
+chpos = $INDEX([chopt],'LOGZ')
+if ([chpos] .gt. 0) then
+  choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+4)
+  chopt = [choptnew]
+  call hplopt('LOGZ',-1)
+  orig = $IQUEST(11)
+  if ([orig] .eq. 0) then
+    setopt = [setopt]//';opt logz'
+    restopt = [restopt]//';opt linz'
+  endif
+endif
+
+*-- Look for 'GRID'
+chpos = $INDEX([chopt],'GRID')
+if ([chpos] .gt. 0) then
+  choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+4)
+  chopt = [choptnew]
+  call hplopt('GRID',-1)
+  orig = $IQUEST(11)
+  if ([orig] .eq. 0) then
+    setopt = [setopt]//';opt grid'
+    restopt = [restopt]//';opt ngri'
+  endif
+endif
+
+*-- Look for 'SOLID' (solid histogram)
+chpos = $INDEX([chopt],'SOLID')
+if ([chpos] .gt. 0) then
+  choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+5)
+  chopt = [choptnew]
+  setopt = [setopt]//';set dmod 1'
+  restopt = [restopt]//';set dmod 0'
+endif
+
+*-- Look for 'DASH' (dashed histogram)
+chpos = $INDEX([chopt],'DASH')
+if ([chpos] .gt. 0) then
+  choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+4)
+  chopt = [choptnew]
+  setopt = [setopt]//';set dmod 2'
+  restopt = [restopt]//';set dmod 0'
+endif
+
+*-- Look for 'DOT' (dotted histogram)
+chpos = $INDEX([chopt],'DOT')
+if ([chpos] .gt. 0) then
+  choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+3)
+  chopt = [choptnew]
+  setopt = [setopt]//';set dmod 3'
+  restopt = [restopt]//';set dmod 0'
+endif
+
+*-- Look for 'BLA' (black solid border) or 'BLAF' (black filled)
+chpos = $INDEX([chopt],'BLA')
+if ([chpos] .gt. 0) then
+  if ( $SUBSTRING([chopt],[chpos]+3,1) .eq. 'F') then
+    border = '110'
+    choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+4)
+  else
+    border = ''
+    choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+3)
+  endif
+  chopt = [choptnew]
+  orighcol = $GRAFINFO('?HCOL')
+  orightyp = $GRAFINFO('?HTYP')
+  origplci = $GRAFINFO('?PLCI')
+  origfaci = $GRAFINFO('?FACI')
+  setopt = [setopt]//';set hcol '//[border]//'1'
+  restopt = [restopt]//';set hcol '//[orighcol]//';set htyp '//[orightyp]//';set plci '//[origplci]//';set faci '//[origfaci]
+endif
+
+*-- Look for 'RED' (red border) or 'REDF' (red filled)
+chpos = $INDEX([chopt],'RED')
+if ([chpos] .gt. 0) then
+  if ( $SUBSTRING([chopt],[chpos]+3,1) .eq. 'F') then
+    border = '110'
+    choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+4)
+  else
+    border = ''
+    choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+3)
+  endif
+  chopt = [choptnew]
+  orighcol = $GRAFINFO('?HCOL')
+  orightyp = $GRAFINFO('?HTYP')
+  origplci = $GRAFINFO('?PLCI')
+  origfaci = $GRAFINFO('?FACI')
+  setopt = [setopt]//';set hcol '//[border]//'2'
+  restopt = [restopt]//';set hcol '//[orighcol]//';set htyp '//[orightyp]//';set plci '//[origplci]//';set faci '//[origfaci]
+endif
+
+*-- Look for 'GRE' (green border) or 'GREF' (green filled)
+chpos = $INDEX([chopt],'GRE')
+if ([chpos] .gt. 0) then
+  if ( $SUBSTRING([chopt],[chpos]+3,1) .eq. 'F') then
+    border = '110'
+    choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+4)
+  else
+    border = ''
+    choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+3)
+  endif
+  chopt = [choptnew]
+  orighcol = $GRAFINFO('?HCOL')
+  orightyp = $GRAFINFO('?HTYP')
+  origplci = $GRAFINFO('?PLCI')
+  origfaci = $GRAFINFO('?FACI')
+  setopt = [setopt]//';set hcol '//[border]//'3'
+  restopt = [restopt]//';set hcol '//[orighcol]//';set htyp '//[orightyp]//';set plci '//[origplci]//';set faci '//[origfaci]
+endif
+
+*-- Look for 'BLU' (blue border) or 'BLUF' (blue filled)
+chpos = $INDEX([chopt],'BLU')
+if ([chpos] .gt. 0) then
+  if ( $SUBSTRING([chopt],[chpos]+3,1) .eq. 'F') then
+    border = '110'
+    choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+4)
+  else
+    border = ''
+    choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+3)
+  endif
+  chopt = [choptnew]
+  orighcol = $GRAFINFO('?HCOL')
+  orightyp = $GRAFINFO('?HTYP')
+  origplci = $GRAFINFO('?PLCI')
+  origfaci = $GRAFINFO('?FACI')
+  setopt = [setopt]//';set hcol '//[border]//'4'
+  restopt = [restopt]//';set hcol '//[orighcol]//';set htyp '//[orightyp]//';set plci '//[origplci]//';set faci '//[origfaci]
+endif
+
+*-- Look for 'YEL' (yellow border) or 'YELF' (yellow filled)
+chpos = $INDEX([chopt],'YEL')
+if ([chpos] .gt. 0) then
+  if ( $SUBSTRING([chopt],[chpos]+3,1) .eq. 'F') then
+    border = '110'
+    choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+4)
+  else
+    border = ''
+    choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+3)
+  endif
+  chopt = [choptnew]
+  orighcol = $GRAFINFO('?HCOL')
+  orightyp = $GRAFINFO('?HTYP')
+  origplci = $GRAFINFO('?PLCI')
+  origfaci = $GRAFINFO('?FACI')
+  setopt = [setopt]//';set hcol '//[border]//'5'
+  restopt = [restopt]//';set hcol '//[orighcol]//';set htyp '//[orightyp]//';set plci '//[origplci]//';set faci '//[origfaci]
+endif
+
+*-- Look for 'MAG' (magenta border) or 'MAGF' (magenta filled)
+chpos = $INDEX([chopt],'MAG')
+if ([chpos] .gt. 0) then
+  if ( $SUBSTRING([chopt],[chpos]+3,1) .eq. 'F') then
+    border = '110'
+    choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+4)
+  else
+    border = ''
+    choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+3)
+  endif
+  chopt = [choptnew]
+  orighcol = $GRAFINFO('?HCOL')
+  orightyp = $GRAFINFO('?HTYP')
+  origplci = $GRAFINFO('?PLCI')
+  origfaci = $GRAFINFO('?FACI')
+  setopt = [setopt]//';set hcol '//[border]//'6'
+  restopt = [restopt]//';set hcol '//[orighcol]//';set htyp '//[orightyp]//';set plci '//[origplci]//';set faci '//[origfaci]
+endif
+
+*-- Look for 'CYA' (cyan border) or 'CYAF' (cyan filled)
+chpos = $INDEX([chopt],'CYA')
+if ([chpos] .gt. 0) then
+  if ( $SUBSTRING([chopt],[chpos]+3,1) .eq. 'F') then
+    border = '110'
+    choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+4)
+  else
+    border = ''
+    choptnew = $SUBSTRING([chopt],1,[chpos]-1)//$SUBSTRING([chopt],[chpos]+3)
+  endif
+  chopt = [choptnew]
+  orighcol = $GRAFINFO('?HCOL')
+  orightyp = $GRAFINFO('?HTYP')
+  origplci = $GRAFINFO('?PLCI')
+  origfaci = $GRAFINFO('?FACI')
+  setopt = [setopt]//';set hcol '//[border]//'7'
+  restopt = [restopt]//';set hcol '//[orighcol]//';set htyp '//[orightyp]//';set plci '//[origplci]//';set faci '//[origfaci]
+endif
+
+*-- Remove the initial semicolons
+if ([setopt] .ne. '') then
+  setopt = $SUBSTRING([setopt],2)
+endif
+if ([restopt] .ne. '') then
+  restopt = $SUBSTRING([restopt],2)
+endif
+
+outstr = [chopt]//'|'//[setopt]//'|'//[restopt]
+
+return [outstr]
+
+
+*--------------------------------------------------------------------
+macro prep id='help' out=0 title='' defpath='' debug=0
+
+if ([id] .eq. 'help') then
+  exec help
+  stopm
+endif
+
+hist = $UPPER([id])
+curdir = $HCDIR()
+
+parscan:
+
+if ([debug] .ge. 1) then
+  if ([defpath] .eq. '') then
+    mess Prepping [hist]
+  else
+    mess Prepping [hist] with default path [defpath]
+  endif
+endif
+
+*-- Look for an arithmetic operation or a dot-operator, paying attention
+*-- to parentheses
+operpos = 0
+operprec = 0    | Oper precedence (1 for square, 2 for mult/div, 3 for add/sub)
+dotpos = 0
+pardepth = 0
+trupar0 = 1
+ntoppar = 0
+head = 1        | Indicates the beginning of an object
+divok = 0       | Next slash encountered is permitted to indicate division
+anyhid = 0      | Encountered any histogram ID so far in this top-level object
+prepath = 0
+hlength = $LEN([hist])
+
+do ichar = 1, [hlength]
+  char = $SUBSTRING([hist],[ichar],1)
+
+  if ([head] .eq. 1) then
+    *-- Decide whether the next slash we encounter indicates division
+    if ( $INDEX('0123456789',[char]) .ne. 0) then
+      anyhid = 1
+      divok = 1
+    elseif ([char] .eq. '/' .and. [anyhid] .eq. 1) then
+      divok = 1
+    else
+      divok = 0
+    endif
+    if ([debug] .ge. 2) then
+      mess ' ' Head character [char] at pos [ichar], divok=[divok], anyhid=[anyhid]
+    endif
+    head = 0
+  endif
+
+  *-- Check for parentheses, arithmetic operators, and dot-operators.
+  *-- If more than one arithmetic operator is found, we want to break the
+  *-- expression at the LAST instance of the LOWEST-precedence operator,
+  *-- in order to end up obeying the rules for operator precedence.
+
+  if ($INDEX('0123456789',[char]) .gt. 0) then
+    *-- No statement.  This is just to speed things up for ordinary histograms
+
+  elseif ([char] .eq. '(') then
+
+    if ([pardepth] .eq. 0 .and. [prepath] .eq. 0 .and. [anyhid] .eq. 0) then
+      prepath = [ichar] - 1
+    endif
+    if ([pardepth] .eq. 0) then
+      ntoppar = [ntoppar] + 1
+    endif
+    dvar = trupar[pardepth]
+    pardepth = [pardepth] + 1
+
+    *-- Evalue whether this is a "true" paren, as opposed to a paren around
+    *-- a dot-operation spec.
+    if ([ichar] .eq. 1) then
+      trupar[pardepth] = [@dvar]
+    elseif ( $SUBSTRING([hist],[ichar]-1,1) .ne. '.' ) then
+      trupar[pardepth] = [@dvar]
+    else
+      trupar[pardepth] = 0
+    endif
+
+    if ([anyhid] .eq. 0) then
+      head = 1
+    endif
+
+  elseif ([char] .eq. ')') then
+
+    dvar = trupar[pardepth]
+    if ([anyhid] .eq. 0 .and. [@dvar] .eq. 1) then
+      head = 1
+    endif
+
+    pardepth = [pardepth] - 1
+    if ([pardepth] .eq. 0 .and. [prepath] .eq. 0 .and. [anyhid] .eq. 0) then
+      if ($SUBSTRING([hist],[ichar]+1,1) .eq. '/') then
+        prepath = [ichar] + 1
+      else
+        prepath = [ichar]
+      endif
+    endif
+
+  elseif ([char] .eq. '+') then
+
+    if ([operprec].le.3 .and. [pardepth].eq.0) then
+      operpos = [ichar]
+      oper = 'add'
+      operprec = 3
+      anyhid = 0
+    endif
+    head = 1 
+
+  elseif ([char] .eq. '-' .and. [ichar] .ne. [operpos]+1) then
+
+    *-- Check if this is a leading negative sign on a number
+    if ([ichar] .eq. 1) then
+      islead = 1
+    else
+      char2 = $SUBSTRING([hist],[ichar]-1,1)
+      if ( $INDEX('(+-*/.',[char2]) .gt. 0) then
+        islead = 1
+      else
+        islead = 0
+      endif
+    endif
+
+    *-- Check if this is part of a number in scientific notation
+    scinote = 0
+    if ( $SUBSTRING([hist],[ichar]-1,1) .eq. 'E' ) then
+      char2 = $SUBSTRING([hist],[ichar]-2,1)
+      if ( $INDEX('0123456789.',[char2]) .gt. 0) then
+        scinote = 1
+      endif
+    endif
+
+    if ([islead] .eq. 0 .and. [scinote] .eq. 0) then
+      *-- Now we know this really does indicate subtraction
+      if ([operprec].le.3 .and. [pardepth].eq.0) then
+        operpos = [ichar]
+        oper = 'sub'
+        operprec = 3
+        anyhid = 0
+      endif
+      dvar = trupar[pardepth]
+      if ([dvar] .eq. 1) then
+        head = 1
+      endif
+    endif
+
+  elseif ([char] .eq. '*') then
+
+    if ( $SUBSTRING([hist],[ichar],3) .eq. '**2' ) then
+      if ([operprec].le.1 .and. [pardepth].eq.0) then
+        operpos = [ichar]
+        oper = 'square'
+        operprec = 1
+      endif
+    elseif ( $SUBSTRING([hist],[ichar]-1,3) .ne. '**2' ) then
+      *-- Now we know this really does indicate multiplication
+      if ([operprec].le.2 .and. [pardepth].eq.0) then
+        operpos = [ichar]
+        oper = 'mult'
+        operprec = 2
+        anyhid = 0
+      endif
+      head = 1 
+    endif
+
+  elseif ([char] .eq. '/') then
+
+    *-- Have to be careful not to catch the /E or /B modifiers
+    char2 = $SUBSTRING([hist],[ichar]+1,1)
+    if ([char2] .eq. 'E' .or. [char2] .eq. 'B') then
+      ismod = 1
+      if ([ichar] .lt. [hlength]-1) then
+        char3 = $SUBSTRING([hist],[ichar]+2,1)
+        if ($INDEX('+-*/)',[char3]) .eq. 0) then
+          ismod = 0
+        endif
+      endif
+    else
+      ismod = 0
+    endif
+
+    if ([ismod] .eq. 0) then
+      *-- The slash either indicates division or is part of a directory path
+      if ([divok] .eq. 1) then
+        *-- Now we know that this slash indicates division
+        if ([operprec].le.2 .and. [pardepth].eq.0) then
+          operpos = [ichar]
+          oper = 'div'
+          operprec = 2
+          anyhid = 0
+        endif
+      endif
+      head = 1 
+    endif
+
+  elseif ([char] .eq. '.') then
+    if ([pardepth] .eq. 0) then
+      *-- Check if this seems to be a dot-operation
+      char2 = $SUBSTRING([hist],[ichar]+1,1)
+      if ( $INDEX('ABCDEFGHIJKLMNOPQRSTUVWXYZ',[char2]) .gt. 0) then
+        dotpos = [ichar]
+      endif
+    endif
+  elseif ( $INDEX('ABCDEFGHIJKLMNOPQRSTUVWXYZ:,-#',[char]) .eq. 0 ) then
+    mess Error: invalid character [char] in [id]
+    stopm
+  endif
+
+enddo
+
+if ([pardepth] .ne. 0) then
+  mess Error: unbalanced parentheses in [id]
+  stopm
+endif
+
+*-- If we have a single object, we may need to break it up
+if ( [operpos] .eq. 0 .and. [dotpos] .eq. 0 ) then
+
+  *-- If the entire object is enclosed in parentheses, strip them and re-scan
+  if ([ntoppar] .eq. 1 .and. $SUBSTRING([hist],1,1).eq.'(' .and. $SUBSTRING([hist],[hlength],1).eq.')') then
+    hist = $SUBSTRING([hist],2,[hlength]-2)
+    if ([debug] .ge. 1) then
+      mess Stripping parentheses from around object
+    endif
+    goto parscan
+  endif
+
+  *-- If a prefixed path was found, strip it off, set defpath, and re-scan
+  if ( [prepath] .gt. 0 ) then
+    addpath = $SUBSTRING([hist],1,[prepath])
+    exec pathadd [defpath] [addpath] debug=[debug]
+    defpath = [@]
+    hist = $SUBSTRING([hist],[prepath]+1)
+    if ([debug] .ge. 2) then
+      mess After removing path, hist is [hist]
+    endif
+    goto parscan
+  endif
+
+endif
+
+if ([debug] .ge. 1) then
+  if ([operpos] .ne. 0) then
+    mess Found [oper] operation at position [operpos]
+  elseif ([dotpos] .ne. 0) then
+    len = 1
+    char = $SUBSTRING([hist],[dotpos]+[len]+1,1)
+    while ( $INDEX('ABCDEFGHIJKLMNOPQRSTUVWXYZ#0123456789',[char]) .gt. 0 .and. [char] .ne. '' ) do
+      len = [len] + 1
+      char = $SUBSTRING([hist],[dotpos]+[len]+1,1)
+    endwhile
+    mess Found $SUBSTRING([hist],[dotpos]+1,[len]) dot-operation at position [dotpos]
+  endif
+endif
+
+*-- If there is an arithmetic operation, handle it here
+if ([operpos] .ne. 0) then
+  exec arithop [hist] [operpos] [oper] [out] defpath=[defpath] debug=[debug]
+  outhist = [@]
+  goto prepped
+endif
+
+*-- If there is a dot-operation (projection, etc.), handle it here
+if ([dotpos] .gt. 0) then
+  exec dot_op [hist] [dotpos] defpath=[defpath] debug=[debug]
+  outhist = [@]
+  goto prepped
+endif
+
+*-- PAW seems to automatically remove repeated slashes from kumac arguments
+*-- (except at the beginning of the argument), so put them back if necessary
+if ($SUBSTRING([hist],1,3) .eq. 'LUN') then
+  hist = '//'//[hist]
+elseif ($SUBSTRING([hist],1,4) .eq. '/LUN') then
+  hist = '/'//[hist]
+elseif ($SUBSTRING([hist],1,4) .eq. 'PAWC') then
+  hist = '//'//[hist]
+elseif ($SUBSTRING([hist],1,5) .eq. '/PAWC') then
+  hist = '/'//[hist]
+endif
+
+*-- Trim off any HBOOK path
+if ($SUBSTRING([hist],1,2) .eq. '//') then
+  path = '//'
+  hist = $SUBSTRING([hist],3)
+else
+  path = [defpath]
+endif
+
+*-- Find any directories/subdirectories and add them to the path
+if ($INDEX([hist],'/') .gt. 0) then
+  char = $SUBSTRING([hist],1,1)
+  while ( $INDEX('0123456789',[char]) .eq. 0 ) do
+    chpos = $INDEX([hist],'/')
+    if ([chpos] .eq. 0) then
+      mess Error: cannot identify histogram number in [id]
+      stopm
+    endif
+    addpath = $SUBSTRING([hist],1,[chpos])
+    exec pathadd [path] [addpath] type='used' debug=[debug]
+    path = [@]
+    hist = $SUBSTRING([hist],[chpos]+1)
+    char = $SUBSTRING([hist],1,1)
+    if ([debug] .ge. 2) then
+      mess After removing path, hist is [hist]
+    endif
+  endwhile
+endif
+
+*-- Check that this is a valid histogram ID number
+if ($INDEX([hist],'.') .gt. 0) then
+  mess Error parsing histogram id [hist]
+  stopm
+endif
+
+val = $FORMAT([hist],I)
+char = $SUBSTRING([val],1,1)
+if ([char] .eq. '$') then
+  mess Error parsing histogram id [hist]
+  stopm
+endif
+
+if ( [path] .ne. '' ) then
+
+  *-- If a path was specified, get data into a temporary histogram
+  useid = $EXEC( getid )
+  tempoff = [useid] - [hist]
+
+  *-- Printing a filename would be misleading, so force it to be off
+  opt nfil
+
+  *-- Now loop over paths
+  npath = $WORDS([path],'+')
+  do ipath = 1, [npath]
+    tpath = $WORD([path],[ipath],1,'+')
+
+    *-- Trim off final slash
+    pathlen = $LEN([tpath])
+    if ( $SUBSTRING([tpath],[pathlen],1) .eq. '/' ) then
+      tpath = $SUBSTRING([tpath],1,[pathlen]-1)
+    endif
+
+    *-- PAW seems to automatically remove repeated slashes from kumac arguments
+    *-- (except at the beginning of the argument) so put them back if necessary
+
+    if ($SUBSTRING([tpath],1,3) .eq. 'LUN') then
+      tpath = '//'//[tpath]
+    elseif ($SUBSTRING([tpath],1,4) .eq. '/LUN') then
+      tpath = '/'//[tpath]
+    elseif ($SUBSTRING([tpath],1,4) .eq. 'PAWC') then
+      tpath = '//'//[tpath]
+    elseif ($SUBSTRING([tpath],1,5) .eq. '/PAWC') then
+      tpath = '/'//[item]
+    endif
+
+    cd [tpath]
+    if ($IQUEST(1) .ne. 0) then
+      mess Aborting due to unknown directory
+      cd [curdir]
+      stopm
+    endif
+
+    if ([npath] .ge. 2 .and. [debug] .ge. 2) then
+      mess ' ' Adding histogram from directory [tpath]
+    endif
+
+    if ([ipath] .eq. 2) then
+      useid2 = $EXEC( getid )
+      tempoff2 = [useid2] - [hist]
+    endif
+
+    if ([ipath] .eq. 1) then
+      hrin [hist] ! [tempoff]
+      if ( $HEXIST([useid]) .eq. 0 ) then
+        mess Error: histogram [tpath]/[hist] does not exist
+        cd [curdir]
+        stopm
+      endif
+    else
+      hrin [hist] ! [tempoff2]
+      if ( $HEXIST([useid2]) .eq. 0 ) then
+        mess Error: histogram [tpath]/[hist] does not exist
+        cd [curdir]
+        stopm
+      endif
+      h/op/add [useid] [useid2] [useid]
+      h/del [useid2]
+    endif
+
+    cd [curdir]
+
+  enddo
+
+  outhist = [useid]
+else
+  if ( $HEXIST([hist]) .eq. 0 ) then
+    hrin [hist]
+    if ( $HEXIST([hist]) .eq. 0 ) then
+      mess 'Error: histogram '//[hist]//' does not exist'
+      stopm
+    endif
+  endif
+  outhist = [hist]
+endif
+
+prepped:
+if ([out] .ne. 0) then
+
+  if ([outhist] .eq. 0) then
+    mess Error: expression does not result in a histogram
+    stopm
+  endif
+
+  if ([outhist] .ne. [out]) then
+    cd //PAWC
+    h/copy [outhist] [out] [title]
+    outhist = [out]
+  endif
+
+endif
+return [outhist]
+
+
+*--------------------------------------------------------------------
+macro getid
+*-- Find the next available temporary histogram ID and return it
+
+do itry = 1, 99
+  id = 987100 + [itry]
+  if ( $HEXIST([id]) .eq. 0 ) then
+    exitm [id]
+  endif
+enddo
+
+mess Error: out of temporary histogram IDs
+
+return 0
+
+
+*--------------------------------------------------------------------
+macro freeid protect=''
+*-- Delete all temporary histograms
+
+nmiss = 0
+do itry = 1, 99
+  id = 987100 + [itry]
+  if ( $HEXIST([id]) .eq. 0 ) then
+    nmiss = [nmiss] + 1
+    if ([nmiss] .ge. 3) then
+      exitm
+    endif
+  elseif ( $INDEX([protect],[id]) .eq. 0) then
+    h/del [id]
+  endif
+enddo
+
+return
+
+
+*--------------------------------------------------------------------
+macro arithop hist operpos oper out=0 defpath='' debug=0
+
+if ([oper] .eq. 'add') then
+  opersym = '+'
+elseif ([oper] .eq. 'sub') then
+  opersym = '-'
+elseif ([oper] .eq. 'mult') then
+  opersym = '*'
+elseif ([oper] .eq. 'div') then
+  opersym = '/'
+endif
+
+hist1 = $SUBSTRING([hist],1,[operpos]-1)
+hist2 = $SUBSTRING([hist],[operpos]+1)
+h2len = $LEN([hist2])
+tempopt = $SUBSTRING([hist2],[h2len]-1)
+operopt = ''
+if ( [tempopt] .eq. '/E' .or. [tempopt] .eq. '/B' ) then
+  operopt = $SUBSTRING([tempopt],2)
+  hist2 = $SUBSTRING([hist2],1,[h2len]-2)
+endif
+
+*-- If this is the squaring operation, handle it here
+if ([oper] .eq. 'square') then
+
+  *-- Prep the object
+  exec prep [hist1] defpath=[defpath] debug=[debug]
+  useid1 = [@]
+
+  if ([useid1] .eq. 0) then
+    mess Error: [hist1] is not a histogram
+    stopm
+  endif
+
+  *-- If the prepped object is a projection, etc., then we must copy it to
+  *-- a regular histogram before we can operate on it further
+  if ($INDEX([useid1],'.') .ne. 0) then
+    if ([debug] .ge. 1) then
+      mess Copying [useid1] to a temporary histogram for further operations
+    endif
+    useid3 = $EXEC( getid )
+    h/copy [useid1] [useid3]
+    useid1 = [useid3]
+  endif
+
+  if ([debug] .ge. 1) then
+    mess Doing square operation on [hist1]
+  endif
+
+  xbins1 = $HINFO([useid1],'XBINS')
+  ybins1 = $HINFO([useid1],'YBINS')
+
+  *-- If necessary, create a histogram to hold the result
+  if ([out] .ne. [useid1]) then
+    useid = $EXEC( getid )
+    htitle = $HTITLE([useid1])
+    ttitle = 'Squared '//[htitle]
+    xmin1 = $HINFO([useid1],'XMIN')
+    xmax1 = $HINFO([useid1],'XMAX')
+    ymin1 = $HINFO([useid1],'YMIN')
+    ymax1 = $HINFO([useid1],'YMAX')
+    if ([ybins1] .eq. 0) then
+      h/cre/1d [useid] [ttitle] [xbins1] [xmin1] [xmax1]
+    else
+      h/cre/2d [useid] [ttitle] [xbins1] [xmin1] [xmax1] [ybins1] [ymin1] [ymax1]
+    endif
+  else
+    useid = [out]
+  endif
+
+  *-- Now do the operation
+  h/op/mult [useid1] [useid1] [useid]
+
+  *-- If the input histogram has packed errors, do error propagation
+  if ([ybins1] .eq. 0) then
+    exec optbit [useid1] 9
+    flag1 = [@]
+    nbins = [xbins1]
+  else
+    exec if2derrs [useid1]
+    flag1 = [@]
+    nbins = [xbins1] * [ybins1]
+  endif
+  if ([flag1] .eq. 1) then
+    vec/cre hpltv1([nbins])
+    vec/cre hpltv2([nbins])
+    get/cont [useid1] hpltv1
+    get/err [useid1] hpltv2
+    sigma hpltv1 = 2.0 * hpltv1 * hpltv2
+    put/err [useid] hpltv1
+    vec/del hpltv1,hpltv2
+  endif
+
+  exitm [useid]
+
+endif
+
+*-- See if "hist1" is really just a real number
+if ($INDEX([hist1],'.') .gt. 0) then
+  isreal = 1
+  length = $LEN([hist1])
+  *-- If the number ends with a decimal point, just remove it
+  if ($SUBSTRING([hist1],[length],1) .eq. '.') then
+    length = [length] - 1
+    hist1 = $SUBSTRING([hist1],1,[length])
+  endif
+  do ichar = 1, [length]
+    char = $SUBSTRING([hist1],[ichar],1)
+    if ($INDEX('0123456789.E+-',[char]) .eq. 0) then
+      isreal = 0
+    endif
+  enddo
+else
+  isreal = 0
+endif  
+
+*-- If this is just scaling a histogram by a real number, handle it here
+if ([oper] .eq. 'mult' .and. [isreal] .eq. 1) then
+  val = $FORMAT([hist1],G10.5)
+  char = $SUBSTRING([val],1,1)
+  if ([char] .ne. '$') then
+    *-- Found a valid real-number, so just multiply by it
+    if ([debug] .ge. 1) then
+      mess Multiplying [hist2] by [val]
+    endif
+
+    exec prep [hist2] defpath=[defpath] debug=[debug]
+    useid2 = [@]
+
+    if ([useid2] .eq. 0) then
+      mess Error: [hist2] is not a histogram
+      stopm
+    endif
+
+    if ([useid2] .ne. [hist2]) then
+      cd //PAWC
+    endif
+
+    *-- If the prepped object is a projection, etc., then we must copy it to
+    *-- a regular histogram before we can operate on it further
+    if ($INDEX([useid2],'.') .ne. 0) then
+      if ([debug] .ge. 1) then
+        mess Copying [useid2] to a temporary histogram for further operations
+      endif
+      useid3 = $EXEC( getid )
+      h/copy [useid2] [useid3]
+      useid2 = [useid3]
+    endif
+
+    useid3 = $EXEC( getid )
+    htitle = $HTITLE([useid2])
+    ttitle = [hist1] * $UNQUOTE([htitle])
+    h/copy [useid2] [useid3] [ttitle]
+    h/op/add [useid2] [useid2] [useid3] [val] 0.0 [operopt]
+    exitm [useid3]
+  endif
+endif
+
+*-- If we get here, then this is an ordinary arithmetic operation
+
+*-- Prep these two objects
+exec prep [hist1] defpath=[defpath] debug=[debug]
+useid1 = [@]
+exec prep [hist2] defpath=[defpath] debug=[debug]
+useid2 = [@]
+
+if ([useid1] .eq. 0) then
+  mess Error: [hist1] is not a histogram
+  stopm
+endif
+if ([useid2] .eq. 0) then
+  mess Error: [hist2] is not a histogram
+  stopm
+endif
+
+*-- If a prepped object is a projection, etc., then we must copy it to
+*-- a regular histogram before we can operate on it further
+if ($INDEX([useid1],'.') .ne. 0) then
+  if ([debug] .ge. 1) then
+    mess Copying [useid1] to a temporary histogram for further operations
+  endif
+  useid3 = $EXEC( getid )
+  h/copy [useid1] [useid3]
+  useid1 = [useid3]
+endif
+if ($INDEX([useid2],'.') .ne. 0) then
+  if ([debug] .ge. 1) then
+    mess Copying [useid2] to a temporary histogram for further operations
+  endif
+  useid3 = $EXEC( getid )
+  h/copy [useid2] [useid3]
+  useid2 = [useid3]
+endif
+
+*-- Make sure the two histograms have the same number of bins
+xbins1 = $HINFO([useid1],'XBINS')
+ybins1 = $HINFO([useid1],'YBINS')
+xbins2 = $HINFO([useid2],'XBINS')
+ybins2 = $HINFO([useid2],'YBINS')
+if ( [xbins1] .ne. [xbins2] .or. [ybins1] .ne. [ybins2] ) then
+  if ( [ybins1]+[ybins2].gt.0 .and. ([ybins1].eq.0 .or. [ybins2].eq.0) ) then
+    mess Error: one histo is 1-dimensional and other is 2-dimensional
+  else
+    mess Error: histograms [hist1] and [hist2] have different number of bins
+  endif
+  stopm
+endif
+
+if ([debug] .ge. 1) then
+  mess Doing [oper] operation on [hist1] and [hist2]
+endif
+
+*-- Merge histogram titles
+exec titlemrg $HTITLE([useid1]) $HTITLE([useid2]) [opersym]
+ttitle = [@]
+
+*-- If necessary, create a histogram to hold the result
+if ([out] .ne. [useid1] .and. [out] .ne. [useid2]) then
+  useid = $EXEC( getid )
+  xmin1 = $HINFO([useid1],'XMIN')
+  xmax1 = $HINFO([useid1],'XMAX')
+  ymin1 = $HINFO([useid1],'YMIN')
+  ymax1 = $HINFO([useid1],'YMAX')
+  if ([ybins1] .eq. 0) then
+    h/cre/1d [useid] [ttitle] [xbins1] [xmin1] [xmax1]
+  else
+    h/cre/2d [useid] [ttitle] [xbins1] [xmin1] [xmax1] [ybins1] [ymin1] [ymax1]
+  endif
+else
+  useid = [out]
+endif
+
+*-- If we're dividing histograms, then use the '/E' option by default.
+if ([oper] .eq. 'div' .and. [operopt] .eq. '') then
+  operopt = 'E'
+endif
+
+*-- If we're adding histograms, and one or both of them has explicit errors,
+*-- then automatically propagate errors
+if ([oper] .eq. 'add') then
+  if ([ybins1] .eq. 0) then
+    exec optbit [useid1] 9
+    flag1 = [@]
+    exec optbit [useid2] 9
+    flag2 = [@]
+  else
+    exec if2derrs [useid1]
+    flag1 = [@]
+    exec if2derrs [useid2]
+    flag2 = [@]
+  endif
+  if ([flag1] .eq. 1 .or. [flag2] .eq. 1) then
+    operopt = 'E'
+  endif
+endif
+
+*-- Now do the operation
+if ( [operopt] .eq. 'B' ) then
+  *-- First use E option, then do again with B option. (Due to bug in HOPERA)
+  h/op/[oper] [useid1] [useid2] [useid] 1 1 E
+endif
+h/op/[oper] [useid1] [useid2] [useid] 1 1 [operopt]
+
+return [useid]
+
+
+*--------------------------------------------------------------------
+macro dot_op hist dotpos defpath='' debug=0
+
+dot_op_top:
+
+oper = $SUBSTRING([hist],[dotpos]+1)
+if ([oper] .eq. '') then
+  mess Error: missing dot-operation
+  stopm
+endif
+hist = $SUBSTRING([hist],1,[dotpos]-1)
+chpos = $INDEX([oper],'.')
+if ([chpos] .gt. 0) then
+  specs = $SUBSTRING([oper],[chpos])
+  oper = $SUBSTRING([oper],1,[chpos]-1)
+else
+  specs = ''
+endif
+
+*-- Expand short-form of operator name
+case [oper] in
+  (Z)  oper = 'ZOOM'
+  (R)  oper = 'REBIN'
+  (PX) oper = 'PROX'
+  (PY) oper = 'PROY'
+  (BX) oper = 'BANX'
+  (BY) oper = 'BANY'
+endcase
+
+opertype = $SUBSTRING([oper],1,3)
+
+case [oper] in
+  (PROX)
+  (PROY)
+  (BANX)
+  (BANY)
+  (SLIX)
+  (SLIY)
+  (ZOOM)
+  (REBIN)
+  (SQRT)
+  (STAT)
+  (*) chpos = $INDEX([oper],'#')
+      if ([chpos] .eq. 0) then
+        operbase = [oper]
+      else
+        operbase = $SUBSTRING([oper],1,[chpos]-1)
+      endif
+
+      *-- See if this is the name of a kumac file
+      ack = ''
+      exec iskumac [operbase]
+      if ([@] .eq. 1) then
+        ack = $EXEC( [operbase]#hpl_ack )
+      endif
+      if ([ack] .ne. 'dot_op') then
+        *-- This could be a spec on a dot operation
+        do ichar = [dotpos]-1, 1, -1
+          if ($SUBSTRING([hist],[ichar],1) .eq. '.') then
+            hist = [hist]//'.'//[oper]//[specs]
+            dotpos = [ichar]
+            goto dot_op_top
+          endif
+        enddo
+        mess Error: invalid dot-operation [oper]
+        stopm
+      endif
+endcase
+
+if ([specs] .ne. '') then
+  if ($SUBSTRING([specs],1,1) .ne. '.') then
+    mess Error: cannot parse operation specifics [specs]
+    stopm
+  endif
+  specs = $SUBSTRING([specs],2)
+
+  *-- Strip off parentheses, if any
+  if ($SUBSTRING([specs],1,1) .eq. '(') then
+    length = $LEN([specs])
+    if ( $SUBSTRING([specs],[length],1) .ne. ')' ) then
+      mess Error: unmatched parentheses in operation specifics [specs]
+      stopm
+    endif
+    specs = $SUBSTRING([specs],2,[length]-2)
+  endif
+
+endif
+
+exec prep [hist] defpath=[defpath] debug=[debug]
+useid = [@]
+
+if ([useid] .eq. 0) then
+  mess Error: [hist] is not a histogram
+  stopm
+endif
+
+*-- If the prepped object is a projection, etc., then we must copy it to
+*-- a regular histogram before we can operate on it further
+if ($INDEX([useid],'.') .ne. 0) then
+  if ([debug] .ge. 1) then
+    mess Copying [useid] to a temporary histogram for further operations
+  endif
+  useid2 = $EXEC( getid )
+  h/copy [useid] [useid2]
+  useid = [useid2]
+endif
+
+curdir = $HCDIR()
+cd //pawc
+
+if ( [opertype] .eq. 'PRO' ) then
+
+  if ($HINFO([useid],'YBINS') .eq. 0) then
+    mess Error: histogram [useid] is 1-dimensional
+    stopm
+  endif
+
+  *-- Check whether the projection already exists
+  if ( $HINFO([useid],'N'//[oper]) .eq. 0 ) then
+
+    *-- Projection does not exist, so we have to create it
+    useid2 = $EXEC( getid )
+    h/copy [useid] [useid2]
+    h/cre/[oper] [useid2]
+    h/proj [useid2]
+    useid3 = $EXEC( getid )
+    htitle = $HTITLE([useid2])
+    h/copy [useid2].[oper] [useid3] [oper]//' of '//[htitle]
+
+    *-- If the 2-D histogram has errors, then project them properly
+    exec if2derrs [useid]
+    if ([@] .eq. 1) then
+      if ([debug] .ge. 1) then
+        mess Also projecting errors for [useid]
+      endif
+      useid4 = $EXEC( getid )
+      h/copy [useid] [useid4]
+      nbins = $HINFO([useid4],'XBINS') * $HINFO([useid4],'YBINS')
+      vec/cre hpltv1([nbins])
+      get/err [useid4] hpltv1
+      sigma hpltv1 = hpltv1 * hpltv1
+      put/cont [useid4] hpltv1
+      h/cre/[oper] [useid4]
+      h/proj [useid4]
+      useid5 = $EXEC( getid )
+      h/copy [useid4].[oper] [useid5]
+      get/cont [useid5] hpltv1
+      sigma hpltv1 = sqrt(hpltv1)
+      put/err [useid3] hpltv1
+      vec/del hpltv1
+    endif
+
+    cd [curdir]
+    outhist = [useid3]
+
+  else
+    *-- Projection already exists, so use it
+    cd [curdir]
+    outhist = [useid].[oper]
+  endif
+
+elseif ( [opertype] .eq. 'BAN' ) then
+
+  if ($HINFO([useid],'YBINS') .eq. 0) then
+    mess Error: histogram [useid] is 1-dimensional
+    stopm
+  endif
+
+  *-- See whether a band range or a band number is specified
+  chpos = $INDEX([specs],':')
+  if ( [chpos] .gt. 0 ) then
+    *-- Band range
+
+    *-- Parse the band range.  If an endpoint is not specified, then 
+    *-- use the appropriate histogram limit.
+    banmin = $SUBSTRING([specs],1,[chpos]-1)
+    if ([banmin] .eq. '') then
+      if ([oper] .eq. 'BANX') then
+        banmin = $HINFO([useid],'YMIN')
+      else
+        banmin = $HINFO([useid],'XMIN')
+      endif
+    endif
+    val = $FORMAT([banmin],G10.5)
+    if ( $SUBSTRING([val],1,1) .eq. '$' ) then
+      mess Error: unable to parse band range [specs]
+      stopm
+    endif
+
+    banmax = $SUBSTRING([specs],[chpos]+1)
+    if ([banmax] .eq. '') then
+      if ([oper] .eq. 'BANX') then
+        banmax = $HINFO([useid],'YMAX')
+      else
+        banmax = $HINFO([useid],'XMAX')
+      endif
+    endif
+    val = $FORMAT([banmax],G10.5)
+    if ( $SUBSTRING([val],1,1) .eq. '$' ) then
+      mess Error: unable to parse band range [specs]
+      stopm
+    endif
+
+    *-- Now create the band
+    useid2 = $EXEC( getid )
+    h/copy [useid] [useid2]
+    h/cre/[oper] [useid2] [banmin] [banmax]
+    h/proj [useid2]
+    iband = $HINFO([useid2],'N'//[oper])
+    useid3 = $EXEC( getid )
+    descrip = [oper]//'('//[banmin]//'-'//[banmax]//') of '
+    htitle = $HTITLE([useid2])
+    h/copy [useid2].[oper].[iband] [useid3] [descrip]//[htitle]
+
+    *-- If the 2-D histogram has errors, then project them properly
+    exec if2derrs [useid]
+    if ([@] .eq. 1) then
+      if ([debug] .ge. 1) then
+        mess Also extracting band of errors for [useid]
+      endif
+      useid4 = $EXEC( getid )
+      h/copy [useid] [useid4]
+      nbins = $HINFO([useid4],'XBINS') * $HINFO([useid4],'YBINS')
+      vec/cre hpltv1([nbins])
+      get/err [useid4] hpltv1
+      sigma hpltv1 = hpltv1 * hpltv1
+      put/cont [useid4] hpltv1
+      h/cre/[oper] [useid4] [banmin] [banmax]
+      h/proj [useid4]
+      iband = $HINFO([useid4],'N'//[oper])
+      useid5 = $EXEC( getid )
+      h/copy [useid4].[oper].[iband] [useid5]
+      get/cont [useid5] hpltv1
+      sigma hpltv1 = sqrt(hpltv1)
+      put/err [useid3] hpltv1
+      vec/del hpltv1
+    endif
+
+    cd [curdir]
+    outhist = [useid3]
+
+  else
+    *-- Band number
+
+    iband = [specs]
+    if ([iband] .eq. '') then
+      iband = 1
+    endif
+
+    *-- Make sure the band number is valid
+    val = $FORMAT([iband],I)
+    char = $SUBSTRING([val],1,1)
+    if ([char] .eq. '$') then
+      mess Error parsing band number [iband]
+      stopm
+    endif
+
+    *-- Make sure the band already exists
+    if ( [iband] .lt. 1 .or. [iband] .gt. $HINFO([useid],'N'//[oper]) ) then
+      mess Error: band does not exist
+      mess hpl can create a band on-the-fly, e.g. [hist].[oper].(4.5:10)
+      stopm
+    endif
+
+    cd [curdir]
+    outhist = [useid].[oper].[iband]
+
+  endif
+
+elseif ( [opertype] .eq. 'SLI' ) then
+
+  if ($HINFO([useid],'YBINS') .eq. 0) then
+    mess Error: histogram [useid] is 1-dimensional
+    stopm
+  endif
+
+  isli = [specs]
+  if ([isli] .eq. '') then
+    mess Error: you must specify a slice number, e.g. [hist].[oper].2
+    stopm
+  endif
+
+  *-- Make sure the slice number is valid
+  val = $FORMAT([isli],I)
+  char = $SUBSTRING([val],1,1)
+  if ([char] .eq. '$') then
+    mess Error parsing slice number [isli]
+    stopm
+  endif
+
+  *-- Make sure the slice already exists
+  if ( [isli] .gt. $HINFO([useid],'N'//[oper]) ) then
+    mess Error: slice [isli] does not exist
+    stopm
+  endif
+
+  cd [curdir]
+  outhist = [useid].[oper].[isli]
+
+elseif ( [oper] .eq. 'SQRT' ) then
+
+  useid2 = $EXEC( getid )
+  htitle = $HTITLE([useid])
+  h/copy [useid] [useid2] 'SQRT of '//[htitle]
+
+  xbins = $HINFO([useid],'XBINS')
+  ybins = $HINFO([useid],'YBINS')
+  if ([ybins] .eq. 0) then
+    nbins = [xbins]
+    exec optbit [useid] 9
+    flag1 = [@]
+  else
+    nbins = [xbins] * [ybins]
+    exec if2derrs [useid]
+    flag1 = [@]
+  endif
+
+  vec/cre hpltv1([nbins])
+  get/cont [useid] hpltv1
+  sigma hpltv1 = sqrt(hpltv1)
+  put/cont [useid2] hpltv1
+
+  *-- If the input histogram has packed errors, do error propagation
+  if ([flag1] .eq. 1) then
+    vec/cre hpltv2([nbins])
+    get/err [useid] hpltv2
+    sigma hpltv2 = 0.5 * hpltv2 / hpltv1
+    put/err [useid2] hpltv2
+    vec/del hpltv2
+  endif
+
+  vec/del hpltv1
+
+  outhist = [useid2]
+
+elseif ( [oper] .eq. 'ZOOM' ) then
+
+  *-- Get histogram limits
+  xbins = $HINFO([useid],'XBINS')
+  xmin = $HINFO([useid],'XMIN')
+  xmax = $HINFO([useid],'XMAX')
+  ybins = $HINFO([useid],'YBINS')
+  ymin = $HINFO([useid],'YMIN')
+  ymax = $HINFO([useid],'YMAX')
+
+  *-- Break up zoom range
+  chpos = $INDEX([specs],',')
+  if ( [chpos] .gt. 0 ) then
+    if ([ybins] .eq. 0) then
+      mess Error: zoom range [specs] is invalid for 1-dimensional histogram
+      stopm
+    endif
+    yrange = $SUBSTRING([specs],[chpos]+1)
+    xrange = $SUBSTRING([specs],1,[chpos]-1)
+  else
+    if ([ybins] .gt. 0) then
+      mess Error: zoom range [specs] is invalid for 2-dimensional histogram
+      stopm
+    endif
+    xrange = [specs]
+  endif
+
+  *-- For a zoom range, the minus-sign option is ignored, so remove it
+  length = $LEN([xrange])
+  if ( $SUBSTRING([xrange],[length],1) .eq. '-' ) then
+    xrange = $SUBSTRING([xrange],1,[length]-1)
+  endif
+  length = $LEN([yrange])
+  if ( $SUBSTRING([yrange],[length],1) .eq. '-' ) then
+    yrange = $SUBSTRING([yrange],1,[length]-1)
+  endif
+
+  if ([xrange] .eq. '') then
+    xrange = ':'
+  endif
+  if ([yrange] .eq. '') then
+    yrange = ':'
+  endif
+
+  chpos = $INDEX([xrange],':')
+  if ([chpos] .eq. 0) then
+    mess Error: invalid zoom range [specs]
+    stopm
+  endif
+  xrmin = $SUBSTRING([xrange],1,[chpos]-1)
+  xrmax = $SUBSTRING([xrange],[chpos]+1)
+
+  if ([xrmin] .eq. '') then
+    xbmin = 1
+  else
+    val = $FORMAT([xrmin],G10.5)
+    if ( $SUBSTRING([val],1,1) .eq. '$' ) then
+      mess Error: unable to parse item [xrmin] in zoom range [specs]
+      stopm
+    endif
+    if ($INDEX([xrmin],'.') .gt. 0) then
+      xbmin = ( ([xrmin]-[xmin]) * [xbins] / ([xmax]-[xmin]) ) + 1.5
+    else
+      xbmin = [xrmin]
+    endif
+  endif
+  xbmin = $FORMAT([xbmin],I)
+  if ([xbmin] .lt. 1 .or. [xbmin] .gt. [xbins]) then
+    mess Error: [xrmin] is outside the valid X range
+    stopm
+  endif
+
+  if ([xrmax] .eq. '') then
+    xbmax = [xbins]
+  else
+    val = $FORMAT([xrmax],G10.5)
+    if ( $SUBSTRING([val],1,1) .eq. '$' ) then
+      mess Error: unable to parse item [xrmax] in zoom range [specs]
+      stopm
+    endif
+    if ($INDEX([xrmax],'.') .gt. 0) then
+      xbmax = ([xrmax]-[xmin]) * [xbins] / ([xmax]-[xmin]) + 0.5
+    else
+      xbmax = [xrmax]
+    endif
+  endif
+  xbmax = $FORMAT([xbmax],I)
+  if ([xbmax] .lt. 1 .or. [xbmax] .gt. [xbins]) then
+    mess Error: [xrmax] is outside the valid X range
+    stopm
+  endif
+
+  zxbins = [xbmax] - [xbmin] + 1
+  zxmin = [xmin] + ( ([xbmin]-1) * ([xmax]-[xmin]) / [xbins] )
+  zxmax = [xmax] - ( ([xbins]-[xbmax]) * ([xmax]-[xmin]) / [xbins] )
+
+  if ([ybins] .gt. 0) then
+
+    chpos = $INDEX([yrange],':')
+    if ([chpos] .eq. 0) then
+      mess Error: invalid zoom range [specs]
+      stopm
+    endif
+    yrmin = $SUBSTRING([yrange],1,[chpos]-1)
+    yrmax = $SUBSTRING([yrange],[chpos]+1)
+
+    if ([yrmin] .eq. '') then
+      ybmin = 1
+    else
+      val = $FORMAT([yrmin],G10.5)
+      if ( $SUBSTRING([val],1,1) .eq. '$' ) then
+        mess Error: unable to parse item [yrmin] in zoom range [specs]
+        stopm
+      endif
+      if ($INDEX([yrmin],'.') .gt. 0) then
+        ybmin = ( ([yrmin]-[ymin]) * [ybins] / ([ymax]-[ymin]) ) + 1
+      else
+        ybmin = [yrmin]
+      endif
+    endif
+    ybmin = $FORMAT([ybmin],I)
+    if ([ybmin] .lt. 1 .or. [ybmin] .gt. [ybins]) then
+      mess Error: [yrmin] is outside the valid Y range
+      stopm
+    endif
+
+    if ([yrmax] .eq. '') then
+      ybmax = [ybins]
+    else
+      val = $FORMAT([yrmax],G10.5)
+      if ( $SUBSTRING([val],1,1) .eq. '$' ) then
+        mess Error: unable to parse item [yrmax] in zoom range [specs]
+        stopm
+      endif
+      if ($INDEX([yrmax],'.') .gt. 0) then
+        ybmax = ([yrmax]-[ymin]) * [ybins] / ([ymax]-[ymin])
+      else
+        ybmax = [yrmax]
+      endif
+    endif
+    ybmax = $FORMAT([ybmax],I)
+    if ([ybmax] .lt. 1 .or. [ybmax] .gt. [ybins]) then
+      mess Error: [yrmax] is outside the valid Y range
+      stopm
+    endif
+
+    zybins = [ybmax] - [ybmin] + 1
+    zymin = [ymin] + ( ([ybmin]-1) * ([ymax]-[ymin]) / [ybins] )
+    zymax = [ymax] - ( ([ybins]-[ybmax]) * ([ymax]-[ymin]) / [ybins] )      
+
+  endif
+
+  *-- Create the histogram to hold the result
+  useid2 = $EXEC( getid )
+  if ([ybins] .eq. 0) then
+    htitle = $HTITLE([useid])
+    ttitle = 'ZOOM('//[xrmin]//'-'//[xrmax]//') of '//[htitle]
+    h/cre/1d [useid2] [ttitle] [zxbins] [zxmin] [zxmax]
+  else
+    htitle = $HTITLE([useid])
+    ttitle = 'ZOOM('//[xrmin]//'-'//[xrmax]//','//[yrmin]//'-'//[yrmax]//') of '//[htitle]
+    h/cre/2d [useid2] [ttitle] [zxbins] [zxmin] [zxmax] [zybins] [zymin] [zymax]
+  endif
+
+  *-- Now do the appropriate array copy
+  if ([ybins] .eq. 0) then
+
+    vec/cre hpltv1([xbins])
+    get/cont [useid] hpltv1 
+    vec/cre hpltv2([zxbins])
+    vec/copy hpltv1([xbmin]:[xbmax]) hpltv2
+    put/cont [useid2] hpltv2
+
+    *-- See if we need to do errors too
+    exec optbit [useid] 9
+    if ([@] .eq. 1) then
+      get/err [useid] hpltv1 
+      vec/copy hpltv1([xbmin]:[xbmax]) hpltv2
+      put/err [useid2] hpltv2
+    endif
+
+  else
+
+    vec/cre hpltv1([xbins],[ybins])
+    get/cont [useid] hpltv1 
+    vec/cre hpltv2([zxbins],[zybins])
+    do izybin = 1, [zybins]
+      iybin = [izybin] + [ybmin] - 1
+      vec/copy hpltv1([xbmin]:[xbmax],[iybin]) hpltv2(1:[zxbins],[izybin])
+    enddo
+    put/cont [useid2] hpltv2
+
+    *-- See if we need to do errors too
+    exec if2derrs [useid]
+    if ([@] .eq. 1) then
+      get/err [useid] hpltv1 
+      do izybin = 1, [zybins]
+        iybin = [izybin] + [ybmin] - 1
+        vec/copy hpltv1([xbmin]:[xbmax],[iybin]) hpltv2(1:[zxbins],[izybin])
+      enddo
+      put/err [useid2] hpltv2
+    endif
+
+  endif
+
+  vec/del hpltv1
+  vec/del hpltv2
+
+  outhist = [useid2]
+
+elseif ( [oper] .eq. 'REBIN') then
+
+  *-- Get histogram binning info
+  xbins = $HINFO([useid],'XBINS')
+  xmin = $HINFO([useid],'XMIN')
+  xmax = $HINFO([useid],'XMAX')
+  ybins = $HINFO([useid],'YBINS')
+  ymin = $HINFO([useid],'YMIN')
+  ymax = $HINFO([useid],'YMAX')
+
+  *-- Get the rebin parameter(s)
+  chpos = $INDEX([specs],',')
+  if ( [chpos] .gt. 0 ) then
+    if ([ybins] .eq. 0) then
+      mess Error: rebin parameter [specs] is invalid for 1-dimensional histogram
+      stopm
+    endif
+    xrebin = $SUBSTRING([specs],1,[chpos]-1)
+    yrebin = $SUBSTRING([specs],[chpos]+1)
+  else
+    if ([ybins] .gt. 0) then
+      mess Error: rebin parameter [specs] is invalid for 2-dimensional histogram
+      stopm
+    endif
+    xrebin = [specs]
+    yrebin = 1
+  endif
+
+  if ([xrebin] .eq. '') then
+    xrebin = 1
+  endif
+  if ([yrebin] .eq. '') then
+    yrebin = 1
+  endif
+
+  *-- If rebin param is negative, rebin so that there are that many bins
+  if ([xrebin] .lt. 0) then
+    xrebin = -[xbins] / [xrebin]
+  endif
+  if ([yrebin] .lt. 0) then
+    yrebin = -[ybins] / [yrebin]
+  endif
+
+  *-- Check that params are valid
+  val = $FORMAT([xrebin],I)
+  if ( $SUBSTRING([val],1,1) .eq. '$' .or. $INDEX([xrebin],'.') .gt. 0 ) then
+    mess Error: unable to parse rebinning parameter [xrebin] as an integer
+    stopm
+  endif
+  val = Mod([xbins],[xrebin])
+  if ( [val] .ne. 0 ) then
+    mess Error: Number of X bins ([xbins]) is not divisible by [xrebin]
+    stopm
+  endif
+
+  if ([ybins] .gt. 0) then
+    val = $FORMAT([yrebin],I)
+    if ( $SUBSTRING([val],1,1) .eq. '$' .or. $INDEX([yrebin],'.') .gt. 0 ) then
+      mess Error: unable to parse rebinning parameter [yrebin] as an integer
+      stopm
+    endif
+    val = Mod([ybins],[yrebin])
+    if ( [val] .ne. 0 ) then
+      mess Error: Number of Y bins ([ybins]) is not divisible by [yrebin]
+      stopm
+    endif
+  endif
+
+  *-- Create a histogram to hold the result
+  useid2 = $EXEC( getid )
+  if ([ybins] .eq. 0) then
+    rxbins = [xbins] / [xrebin]
+    h/cre/1d [useid2] $HTITLE([useid]) [rxbins] [xmin] [xmax]
+  else
+    rxbins = [xbins] / [xrebin]
+    rybins = [ybins] / [yrebin]
+    h/cre/2d [useid2] $HTITLE([useid]) [rxbins] [xmin] [xmax] [rybins] [ymin] [ymax]
+  endif
+
+  *-- Now do the appropriate array copy
+  if ([ybins] .eq. 0) then
+
+    vec/cre hpltv1([xbins])
+    get/cont [useid] hpltv1 
+    vec/cre hpltv2([xrebin])
+    vec/cre hpltv3([rxbins])
+    do irbin = 1, [rxbins]
+      ibin1 = ([irbin]-1) * [xrebin] + 1
+      ibin2 = [irbin] * [xrebin]
+      vec/copy hpltv1([ibin1]:[ibin2]) hpltv2
+      vec/in hpltv3([irbin]) $SIGMA(vsum(hpltv2))
+    enddo
+    put/cont [useid2] hpltv3
+
+    *-- See if we need to do errors too
+    exec optbit [useid] 9
+    if ([@] .eq. 1) then
+      get/err [useid] hpltv1 
+      sigma hpltv1 = hpltv1**2
+      do irbin = 1, [rxbins]
+        ibin1 = ([irbin]-1) * [xrebin] + 1
+        ibin2 = [irbin] * [xrebin]
+        vec/copy hpltv1([ibin1]:[ibin2]) hpltv2
+        vec/in hpltv3([irbin]) $SIGMA(vsum(hpltv2))
+      enddo
+      sigma hpltv3 = sqrt( hpltv3 )
+      put/err [useid2] hpltv3
+    endif
+
+  else
+
+    vec/cre hpltv1([xbins],[ybins])
+    get/cont [useid] hpltv1 
+    vec/cre hpltv2([xrebin],[yrebin])
+    vec/cre hpltv3([rxbins],[rybins])
+    do irybin = 1, [rybins]
+      iybin1 = ([irybin]-1) * [yrebin] + 1
+      iybin2 = [irybin] * [yrebin]
+      do irxbin = 1, [rxbins]
+        ixbin1 = ([irxbin]-1) * [xrebin] + 1
+        ixbin2 = [irxbin] * [xrebin]
+        do iybin = [iybin1], [iybin2]
+          itybin = [iybin] - [iybin1] + 1
+          vec/copy hpltv1([ixbin1]:[ixbin2],[iybin]) hpltv2(1:[xrebin],[itybin])
+        enddo
+        vec/in hpltv3([irxbin],[irybin]) $SIGMA(vsum(hpltv2))
+      enddo
+    enddo
+    put/cont [useid2] hpltv3
+
+    *-- See if we need to do errors too
+    exec if2derrs [useid]
+    if ([@] .eq. 1) then
+      get/err [useid] hpltv1 
+      sigma hpltv1 = hpltv1**2
+      do irybin = 1, [rybins]
+        iybin1 = ([irybin]-1) * [yrebin] + 1
+        iybin2 = [irybin] * [yrebin]
+        do irxbin = 1, [rxbins]
+          ixbin1 = ([irxbin]-1) * [xrebin] + 1
+          ixbin2 = [irxbin] * [xrebin]
+          do iybin = [iybin1], [iybin2]
+            itybin = [iybin] - [iybin1] + 1
+            vec/copy hpltv1([ixbin1]:[ixbin2],[iybin]) hpltv2(1:[xrebin],[itybin])
+          enddo
+          vec/in hpltv3([irxbin],[irybin]) $SIGMA(vsum(hpltv2))
+        enddo
+      enddo
+      sigma hpltv3 = sqrt( hpltv3 )
+      put/err [useid2] hpltv3
+    endif
+
+  endif
+
+  vec/del hpltv1,hpltv2,hpltv3
+
+  outhist = [useid2]
+
+elseif ( [oper] .eq. 'STAT' ) then
+
+  hio/pr [useid] s
+  outhist = 0
+
+elseif ( [ack] .eq. 'dot_op' ) then
+  *-- External dot-operation
+
+  outhist = $EXEC( getid )
+  exec [oper] [useid] [outhist] [specs] debug=[debug]
+  if ([@] .eq. 'quit') then
+    outhist = 0
+  endif
+
+else
+
+  mess Error: invalid dot-operation [oper]
+  stopm
+
+endif
+
+return [outhist]
+
+
+*--------------------------------------------------------------------
+macro titlemrg title1 title2 opersym
+*-- Merge histogram titles
+
+nwords1 = $WORDS([title1],' ')
+nwords2 = $WORDS([title2],' ')
+
+sdiff = 0
+iword = 1
+while ([sdiff] .eq. 0 .and. [iword] .le. [nwords1]) do
+
+  word1 = $WORD([title1],[iword],1,' ')
+  word2 = $WORD([title2],[iword],1,' ')
+  length1 = $LEN([word1])
+  length2 = $LEN([word2])
+  if ($SUBSTRING([word1],[length1],1) .eq. ',') then
+    word1 = $SUBSTRING([word1],1,[length1]-1)
+  endif
+  if ($SUBSTRING([word2],[length2],1) .eq. ',') then
+    word2 = $SUBSTRING([word2],1,[length2]-1)
+  endif
+
+  if ([word1] .ne. [word2]) then
+    sdiff = [iword]
+  endif
+  iword = [iword] + 1
+endwhile
+
+if ([sdiff] .eq. 0 .and. [nwords1] .ne. [nwords2]) then
+  sdiff = [nwords1] + 1
+endif
+
+if ([sdiff] .eq. 0) then
+  ttitle = [title1]
+else
+  ediff = 0
+  iword = [nwords1]
+  while ([ediff] .eq. 0 .and. [iword] .ge. 1) do
+
+    word1 = $WORD([title1],[iword],1,' ')
+    word2 = $WORD([title2],[iword]+[nwords2]-[nwords1],1,' ')
+    length1 = $LEN([word1])
+    length2 = $LEN([word2])
+    if ($SUBSTRING([word1],[length1],1) .eq. ',') then
+      word1 = $SUBSTRING([word1],1,[length1]-1)
+    endif
+    if ($SUBSTRING([word2],[length2],1) .eq. ',') then
+      word2 = $SUBSTRING([word2],1,[length2]-1)
+    endif
+
+    if ([word1] .ne. [word2]) then
+      ediff = [iword]
+    endif
+    iword = [iword] - 1
+  endwhile
+
+  *-- Get first common part.  If either has a comma, include it.
+  sstring = $WORD([title1],1,[sdiff]-1,' ')
+  length = $LEN([sstring])
+  if ($SUBSTRING([sstring],[length],1) .ne. ',') then
+    sstring = $WORD([title2],1,[sdiff]-1,' ')
+  endif
+  if ([sstring] .ne. '') then
+    sstring = [sstring]//' '
+  endif
+
+  *-- Get last common part
+  estring = $WORD([title1],[ediff]+1,[nwords1]-[ediff],' ')
+
+  *-- Get the difference expression.
+  *-- If there is a final comma, move it outside the parentheses
+  piece1 = $WORD([title1],[sdiff],[ediff]-[sdiff]+1,' ')
+  piece2 = $WORD([title2],[sdiff],[ediff]-[sdiff]+[nwords2]-[nwords1]+1,' ')
+  length1 = $LEN([piece1])
+  length2 = $LEN([piece2])
+  optcomma = ''
+  if ($SUBSTRING([piece1],[length1],1) .eq. ',') then
+    piece1 = $SUBSTRING([piece1],1,[length1]-1)
+    optcomma = ','
+  endif
+  if ($SUBSTRING([piece2],[length2],1) .eq. ',') then
+    piece2 = $SUBSTRING([piece2],1,[length2]-1)
+    optcomma = ','
+  endif
+
+  *-- Now combine everything
+  opstring = '('//[piece1]//')'//[opersym]//'('//[piece2]//')'//[optcomma]
+  ttitle = $UNQUOTE([sstring])//$UNQUOTE([opstring])//' '//$UNQUOTE([estring])
+
+endif
+
+return [ttitle]
+
+
+*------------------------------
+macro optbit id bit debug=0
+
+* This macro checks a histogram "status bit" from the HCBITS common block.
+* These indicate the type of histogram, whether errors are stored, various
+* "idopt" options, etc.  Meanings of the bits:
+*.           I1     HBOOK1   <--- 1-dimensional histogram
+*.           I2     HBOOK2   <--- 2-dimensional histogram
+*.           I3     HTABLE
+*.           I4     NTUPLE
+*.           I5     AUTOMATIC BINNING
+*.           I6     VARIABLE BIN SIZE HISTOGRAM
+*.           I7     HBSTAT
+*.           I8     PROFILE HISTOGRAM
+*.           I9     HBARX    <--- Errors explicitly stored for 1-D histogram
+*.           I10    HBARY
+*.           I11    HERROR
+*.           I12    HFUNC
+*.           I13    HROTAT
+*.           I14    HPRFUN
+*.           I15    HPRLOW
+*.           I16    HPRHIS
+*.           I17    HBIGBI
+*.           I18    HNORMA
+*.           I19    HSCALE
+*.           I20    HMAXIM
+*.           I21    HMINIM
+*.           I22    HINTEG
+*.           I23    H2PAGE
+*.           I24    H1EVLI
+*.           I25    HPRSTA
+*.           I26    HLOGAR
+*.           I27    HBLACK
+*.           I28    HSTAR
+*.           I29    HPRCHA
+*.           I30    HPRCON
+*.           I31    HPRERR
+
+vec/cre hpltvi(1) r [id]
+vec/cre hpltvo(32) r
+
+application comis quit
+      vector hpltvi(1)
+      vector hpltvo(32)
+      dimension ikind(32)
+      id = hpltvi(1)
+      call Hkind(id,ikind,'A')
+      do ibit = 1, 32
+        hpltvo(ibit) = Real(ikind(ibit))
+      enddo
+      end
+quit
+
+if ([debug] .eq. 1) then
+  mess Option bits for histogram ID [id]
+  vec/pr hpltvo
+endif
+
+bitval = $sigma(hpltvo([bit]))
+
+vec/del hpltvi,hpltvo
+
+return [bitval]
+
+
+*------------------------------
+macro if2derrs id
+
+* This macro returns 1 if [id] is a 2-D histogram with errors packed with it,
+* otherwise it returns 0.
+
+vec/cre hpltvi(1) r [id]
+vec/cre hpltvo(1) r
+
+* This COMIS routine checks the appropriate variable in an HBOOK common block.
+* The '!clear' directive seems to be necessary, otherwise COMIS complains
+* about multiple declaration of the common block variables when this routine
+* is executed for the second time.
+
+application comis quit
+!clear
+      vector hpltvi(1)
+      vector hpltvo(1)
+      COMMON/PAWC/NWPAW,IXPAWC,IHDIV,IXHIGZ,IXKU,FENC(5),LQ(1999990)
+      COMMON/HCBOOK/HVERSN,IHWORK,LHBOOK,LHPLOT,LGTIT,LHWORK,
+     +LCDIR,LSDIR,LIDS,LTAB,LCID,LCONT,LSCAT,LPROX,LPROY,LSLIX,
+     +LSLIY,LBANX,LBANY,LPRX,LPRY,LFIX,LLID,LR1,LR2,LNAME,LCHAR,LINT,
+     +LREAL,LBLOK,LLBLK,LBUFM,LBUF,LTMPM,LTMP,LTMP1,LHPLIP,LHDUM(9),
+     +LHFIT,LFUNC,LHFCO,LHFNA,LCIDN
+
+      id = hpltvi(1)
+      call Hfind(id,'IF2DER')
+      if (LQ(LCONT) .eq. 0) then
+        hpltvo(1) = 0.0
+      else
+        hpltvo(1) = 1.0
+      endif
+
+      end
+quit
+
+result = $sigma(hpltvo(1))
+
+vec/del hpltvi,hpltvo
+
+return [result]
+
+
+*--------------------------------------------------------------------
+macro defaultpath
+  in = [0]
+  len = $LEN([in])
+  out = $SUBSTRING([0],1,[len]-21)
+return [out]
+
+
+*--------------------------------------------------------------------
+macro iskumac search=' '
+*  if [search] is a kumac in the current path this returns 1
+*  else  0
+exec defaultpath
+path = [@]
+test = [path]$LOWER([search]).kumac
+stat = $FEXIST([test])
+
+return [stat]
+
+
+*--------------------------------------------------------------------
+macro version
+
+* Version number is the date of modification.
+* Please use 100 for the year 2000, 101 for the year 2001, etc. so that
+*  the version number increases monotonically.
+version = '990121'
+mess This is hpl version [version]
+
+return [version]
+
+
+*--------------------------------------------------------------------
+macro help topic=''
+
+if ([topic] .eq. '') then
+
+  mess ''
+  mess '============== hpl.kumac: Syntax enhancement for h/plot =============='
+  mess '            Written by Peter Shawhan, University of Chicago'
+  mess ''
+
+  mess 'Available help topics:'
+  mess '  general    General Description'
+  mess '  setup      One-time setup instructions'
+  mess '  syntax     Basic syntax'
+  mess '  expr       Expressions, and descriptions of operators'
+  mess '  oper       Same as above'
+  mess '  examples   A list of examples'
+  mess '  limit      Miscellaneous limitations'
+  mess ''
+  topic = 'quit'
+  read topic 'Enter a help topic (abbreviations are OK)'
+  if ($SUBSTRING([topic],1,1) .eq. 'q') then
+    exitm
+  endif
+
+endif
+
+if ($SUBSTRING([topic],1,1) .eq. 'g') then
+
+  mess ''
+  mess 'General Description'
+  mess '-------------------'
+  mess ''
+  mess 'The hpl kumac is intended as a general-purpose replacement for the'
+  mess 'usual h/plot command in PAW, with a variety of syntax extensions and'
+  mess 'other improvements.  You do not have to un-learn anything you already'
+  mess 'know about PAW and h/plot in order to start using hpl; in fact,'
+  mess 'anything which can be displayed with h/plot will be displayed'
+  mess 'identically if you simply replace "h/plot" by "hpl" on the command'
+  mess 'line.  In addition, hpl extends the range of things which can be'
+  mess 'easily plotted to include arithmetic expressions with histogram IDs,'
+  mess 'projections and bands which are booked and filled on-the-fly, and'
+  mess 'rebinning operations.  Expressions can be arbitrarily complex, and are'
+  mess 'evaluated using recursive syntax analysis and temporary histograms.'
+  mess 'All of this is transparent from the user''s point of view, which makes'
+  mess 'it very convenient when you are looking at ratios of histograms,'
+  mess 'projections, etc.'
+  mess ''
+  wait '--- Press RETURN for more ---'
+  mess ''
+  mess 'The hpl kumac also improves on plain PAW in various other ways.'
+  mess 'For example, it does error propagation automatically in many cases,'
+  mess 'and allows you to calculate binomial errors when dividing histograms'
+  mess 'for which one is a subset of the other.  Histogram titles are modified'
+  mess 'to describe the operation(s) which produced them.  You can provide a'
+  mess 'different histogram title for the plot, and/or set the minimum and'
+  mess 'maximum for the vertical scale, using command-line arguments.'
+  mess ''
+  mess 'Besides the main macro which is a replacement for h/plot, this kumac'
+  mess 'file also contains an "hcopy" macro as a replacement for h/copy, and'
+  mess 'an "hfit" macro as a replacement for h/fit.  These are just like'
+  mess 'the standard PAW routines except that the thing being copied or fit'
+  mess 'can be any expression understood by the hpl kumac.'
+  mess ''
+  mess 'Typing "hpl", "hcopy", or "hfit" without any arguments will show'
+  mess 'the list of possible arguments for that command.'
+  mess ''
+  mess 'See the "setup" help topic for a few one-time setup instructions.'
+  mess ''
+
+elseif ($SUBSTRING([topic],1,2) .eq. 'se') then
+
+  mess ''
+  mess 'Setup Notes'
+  mess '-----------'
+  mess ''
+  mess 'There are a few things you need to do in order for hpl to be a completely'
+  mess 'transparent replacement for h/plot.'
+  mess ''
+  mess '1. First, make sure the hpl kumac will be found by PAW no matter what'
+  mess '   directory you are in when you run PAW.  To do this, copy hpl.kumac'
+  mess '   to your standard kumacs directory (normally ~/kumacs or ~/paw).'
+  mess '   Modify your ~/.pawlogon.kumac file to make sure this directory is'
+  mess '   in the default search path, i.e. you have a line something like'
+  mess ''
+  mess '        macro/default ''.,~/kumacs'' -auto'
+  mess ''
+  wait '--- Press RETURN for more ---'
+  mess ''
+  mess '2. The steps above ensure that the hpl kumac will be found and executed'
+  mess '   when you use it interactively within PAW, but if you want to use'
+  mess '   hpl from within another kumac, you would normally have to preceed'
+  mess '   it with "exec", e.g. "exec hpl 101+102".  You can avoid this'
+  mess '   inconvenience by adding the following to your .pawlogon.kumac file:'
+  mess ''
+  mess '        alias/create hpl ''exec hpl'' c'
+  mess '        alias/create hcopy ''exec hpl#hcopy'' c'
+  mess '        alias/create hfit ''exec hpl#hfit'' c'
+  mess '        alias/translation on'
+  mess ''
+
+elseif ($SUBSTRING([topic],1,2) .eq. 'sy') then
+
+  mess ''
+  mess 'Basic syntax'
+  mess '------------'
+  mess ''
+  mess 'The basic syntax matches that of h/plot, but with additional features:'
+  mess ''
+  mess '  hpl <id> [<chopt>] [<options>]'
+  mess ''
+  mess '<id> can be anything which is understood by h/plot, or can use the'
+  mess 'advanced expression features of the hpl kumac, as described in'
+  mess '"hpl#help expr".  It can include a bin range in parentheses stuck'
+  mess 'onto the end, a complete or partial HBOOK directory path, etc.'
+  mess '(Also, both h/plot and hpl allow <id> to be a comma-separated list'
+  mess 'of items, in which case each item is plotted in a separate zone.)'
+  mess ''
+  mess 'There is one additional case handled for the bin range.  Normally,'
+  mess 'if the high end of a bin range is a real number and is exactly at a'
+  mess 'bin boundary, PAW includes the bin just to the right of it, since'
+  mess 'the value is technically within that bin.  hpl allows you to exclude'
+  mess 'this bin by adding a minus sign to the end of the bin range, e.g. if'
+  mess 'histogram 101 has 20 bins from 0.0 to 200.0, then "hpl 101(40.:160.)"'
+  mess 'plots 13 bins (40. <= X <= 170.) while "hpl 101(40.:160.-)" plots 12 bins.'
+  mess ''
+  wait '--- Press RETURN for more ---'
+  mess ''
+  mess '<chopt> can include any option understood by h/plot.  It may also'
+  mess 'contain one or more of the following additional options handled by'
+  mess 'hpl, which are in effect only for the thing currently being plotted:'
+  mess '  logy   Forces logarithmic Y scale regardless of current LOGY setting'
+  mess '  liny   Forces linear Y scale regardless of current LOGY setting'
+  mess '  logz   Forces logarithmic Z scale regardless of current LOGZ setting'
+  mess '  grid   Forces grid to be drawn regardless of current GRID setting'
+  mess '  red  blu  gre  yel  mag  cya     Draws histogram border with color'
+  mess '  redf bluf gref yelf magf cyaf    Draws histogram filled with color'
+  mess '  solid dash dot     Draws histogram with specified line type'
+  mess 'After the plot is drawn, the previous settings are restored.'
+  mess ''
+  mess 'You may separate options with commas to avoid ambiguity, if you wish,'
+  mess 'e.g. "hpl 102 p,logy,grid".'
+  mess ''
+  mess 'Note that if you plot one histogram with the "logy" option and wish to'
+  mess 'overlay a second histogram, you must specify the "logy" option for the'
+  mess 'second histogram as well.'
+  mess ''
+  wait '--- Press RETURN for more ---'
+  mess ''
+  mess '<options> can be one or more of the following:'
+  mess '  out=123    Store the thing plotted in histogram ID 123.  This can be' 
+  mess '               useful when evaluating a complex expression.  You can'
+  mess '               store the result of a complex expression in a histogram'
+  mess '               WITHOUT plotting it by doing "hcopy <expression> 123"'
+  mess '  min=0.5    Set minimum for the vertical (or Z) scale before plotting'
+  mess '  max=100    Set maximum for the vertical (or Z) scale before plotting'
+  mess '  mm=20,100  Set both minimum and maximum'
+  mess '  title=''My ratio''   Specify title for histogram being plotted'
+  mess ''
+
+elseif ($SUBSTRING([topic],1,3) .eq. 'exp' .or. $SUBSTRING([topic],1,1) .eq. 'o') then
+
+  mess ''
+  mess 'Expressions, and Descriptions of Operators'
+  mess '------------------------------------------'
+  mess ''
+  mess 'The hpl kumac understands expressions which modify and/or combine'
+  mess 'histogram IDs with the following kinds of operators, which are listed'
+  mess 'in order of precedence from highest to lowest:'
+  mess '   * "Dot operations" (PROX, BANX, REBIN, etc.)'
+  mess '   * Squaring a histogram'
+  mess '   * Multiplication or division of histograms, or scaling by a constant'
+  mess '   * Addition or subtraction of histograms'
+  mess 'Operations with the same precedence are performed left-to-right.'
+  mess 'You may use parentheses to override the usual rules of precedence.'
+  mess 'Because expressions are parsed using a recursive algorithm, there'
+  mess 'is no limit to the complexity of the expression you can form!'
+  mess ''
+  mess 'A histogram resulting from an expression is given a title which'
+  mess 'reflects the operation(s) performed.'
+  mess ''
+  wait '--- Press RETURN for more ---'
+  mess ''
+  mess '* Dot operations familiar from plain PAW'
+  mess ''
+  mess '  In the examples below, 101 is a 1-dimensional histogram, 201 is a'
+  mess '  2-dimensional histogram, and 301 and 302 can be either 1-D or 2-D.'
+  mess ''
+  mess '   201.prox       Plots the projection if it already exists,'
+  mess '                    otherwise creates it on-the-fly and plots it.'
+  mess '   201.banx       Plots the band if it already exists, otherwise'
+  mess '                    generates an error.  (i.e. identical to h/plot)'
+  mess '   201.banx.2     Plots band number 2 if it already exists,'
+  mess '                    otherwise generates an error.'
+  mess '   201.banx.(40:160)   Creates a band with the specified range,'
+  mess '                         and plots it.'
+  mess '   201.slix.3     Plots slice number 3 if it already exists,'
+  mess '                    otherwise generates an error.'
+  mess ''
+  mess 'A band range is always given in X/Y values, not bin numbers.'
+  mess 'If a range value is missing (e.g. "201.banx.(40:)"), then'
+  mess 'the appropriate histogram limit is used.'
+  mess ''
+  mess 'PX, PY, BX, BY are equivalent to PROX, PROY, BANX, BANY, respectively.'
+  mess ''
+  wait '--- Press RETURN for more ---'
+  mess ''
+  mess '* Additional dot operations handled by the hpl kumac'
+  mess ''
+  mess '   101.zoom.(2.4:8.0)       Extracts region from a 1-dimensional histo'
+  mess '   201.zoom.(2.4:8.0,4:9)   Extracts region from a 2-dimensional histo'
+  mess '   101.rebin.5    Rebin 1-D histo, combining 5 bins into one'
+  mess '   101.rebin.(5)  Same as above'
+  mess '   201.rebin.(5,2)    Rebin 2-D histo by 5 in X view and by 2 in Y view'
+  mess '   201.rebin.(-4,-5)  Rebin to end up with 4 bins in X view and 5 in Y view'
+  mess '   301.sqrt       Takes the square root bin-by-bin and plots it'
+  mess '   301.stat       Prints statistics (like hio/pr 301 s), does not plot'
+  mess ''
+  mess '   201.prox.sqrt  Does the projection, then takes the square root'
+  mess '                    (i.e. dot operations are done left-to-right)'
+  mess ''
+  mess 'A zoom range, just like a bin range for plotting, can be specified'
+  mess 'in bin numbers (integers) or as X/Y values (containing a decimal'
+  mess 'point), or a combination.  If a range value is missing, then the'
+  mess 'appropriate histogram limit is used.'
+  mess ''
+  mess 'Z and R are equivalent to ZOOM and REBIN, respectively.'
+  mess ''
+  wait '--- Press RETURN for more ---'
+  mess ''
+  mess '* External kumacs used as dot operations'
+  mess ''
+  mess 'Besides the built-in dot operations described above, the hpl kumac can use'
+  mess 'a user-written macro from some other kumac file as a dot operation, IF the'
+  mess 'macro is constructed properly.  The necessary elements are as follows:'
+  mess ''
+  mess '    macro mydot inhist outhist specs debug=0'
+  mess ''
+  mess '    *-- Here, do whatever you want to "inhist" to produce "outhist".'
+  mess '    *-- "specs" are optional specifics given by the user.  For example,'
+  mess '    *-- if the user did "hpl 301.module.(4,5a)", then [specs] is "4,5A" .'
+  mess ''
+  mess '    return'
+  mess ''
+  mess '    *--------------------------'
+  mess '    *-- This macro must also appear in the kumac file for hpl to recognize it'
+  mess '    macro hpl_ack'
+  mess '    return dot_op'
+  mess ''
+  mess 'If the above appears in a file called mydot.kumac, then it can be'
+  mess 'used as "hpl 301.mydot.(specs)" or "hpl 301.mydot#mydot.(specs)"'
+  mess ''
+  wait '--- Press RETURN for more ---'
+  mess ''
+  mess '* Squaring a histogram'
+  mess '  Valid form:  301**2'
+  mess ''
+  mess '* Multiplication or division of histograms, or scaling by a constant'
+  mess '  Valid forms:'
+  mess '   301*302    Multiplies histograms.'
+  mess '   301/302    Divides histograms, calculating errors on the result'
+  mess '                assuming independent errors on histos 301 and 302.'
+  mess '   301/302/e  Same as above.  (The /e option is the default for division.)'
+  mess '   301/302/b  Divides histograms, calculating binomial errors.'
+  mess '   2.0*301    Multiplies contents of histogram 301 by 2.0'
+  mess '                (the scale factor must include a decimal point).'
+  mess '   2.0.*301   Same as above.  The "extra" decimal point is ignored.'
+  mess '   2.0*301/e  The resulting histo has explicit errors equal to twice the'
+  mess '                square root of the number of events in the original histo.'
+  mess ''
+  mess '* Addition or subtraction of histograms'
+  mess '  Valid forms:'
+  mess '   301+302    Adds histograms.'
+  mess '   301-302    Subtracts histograms.'
+  mess '   301-302/e  Calculates errors on the result assuming independent'
+  mess '                 errors on histograms 301 and 302.'
+  mess ''
+  wait '--- Press RETURN for more ---'
+  mess ''
+  mess 'If explicit errors (i.e. other than the implicit sqrt(n)) are stored'
+  mess 'with a histogram, then they are automatically propagated correctly'
+  mess 'when doing projections/bands, rebinning, or adding histograms.  Errors'
+  mess 'are always calculated when dividing histograms; by default they are'
+  mess 'calculated assuming the histograms are independent, but if one'
+  mess 'histogram is actually a subset of the other, then the user should'
+  mess 'specify the "/B" option so that binomial errors are calculated.  Error'
+  mess 'propagation is not done when subtracting or multiplying histograms,'
+  mess 'unless the user specifies the "/E" option.'
+  mess ''
+  mess 'When multiplying a histogram by a constant, if the histogram has'
+  mess 'explicit errors stored, then the errors are scaled by the constant.'
+  mess 'If the histogram does not have explicit errors, but you want the'
+  mess 'result to have errors determined by scaling the implicit sqrt(n)'
+  mess 'errors by the constant, specify the "/E" option.'
+  mess ''
+  wait '--- Press RETURN for more ---'
+  mess ''
+  mess 'As an added convenience, HBOOK directory paths in expressions are'
+  mess '"distributive".  For example,'
+  mess '  //lun2/(301+302)     is equivalent to  //lun2/301+//lun2/302 .'
+  mess '  //lun2/abc/(301+302)        ~          //lun2/abc/301+//lun2/abc/302 .'
+  mess '  //lun2/(abc/301+302)        ~          //lun2/abc/301+//lun2/302 .'
+  mess ''
+  mess 'Note that an absolute path specification always takes precedence, so'
+  mess '  //lun2/(301+//lun3/302)     ~          //lun2/301+//lun3/302 .'
+  mess ''
+  mess 'Paths added in parentheses are also distributive.  For example:'
+  mess '  (//lun1+//lun2)/301        ~  //lun1/301+//lun2/301'
+  mess '  (//lun1+//lun2)/(301+302)  ~  //lun1/301+//lun1/302+//lun2/301+//lun2/302'
+  mess '  (//lun1+//lun2)/(abc+def)/301   ~'
+  mess '                  //lun1/abc/301+//lun1/def/301+//lun2/abc/301+//lun2/def/301'
+  mess ''
+  mess 'When paths are added in parentheses, trailing slashes are optional.'
+  mess 'Thus the following are all valid and equivalent:'
+  mess '  (//lun1+//lun2)301'
+  mess '  (//lun1+//lun2)/301'
+  mess '  (//lun1/+//lun2/)301'
+  mess '  (//lun1/+//lun2/)/301'
+  mess '  (lun1+lun2)301      <--- also OK since directories beginning with'
+  mess '                           "lun" and "pawc" are assumed to be top-level'
+
+elseif ($SUBSTRING([topic],1,3) .eq. 'exa') then
+
+  mess ''
+  mess 'Some Examples'
+  mess '-------------'
+  mess ''
+  mess 'hpl 201.prox(100:120)'
+  mess '  Performs X-projection on a 2-D histogram, and plots a limited bin range'
+  mess ''
+  mess 'hpl 101+102/103'
+  mess '  Divides histogram 102 by histogram 103, then adds result to histogram 101'
+  mess ''
+  mess 'hpl (201+202).prox'
+  mess '  Adds 2-D histograms, then performs projection on the sum'
+  mess ''
+  mess 'hpl (//lun1/1411)/(//lun2/1411)'
+  mess '  Divides histograms from two logical units, calculating errors'
+  mess '  assuming that the histograms are independent'
+  mess ''
+  mess 'hpl //lun1/1411///lun2/1411'
+  mess '  Same as above.  Harder to read, but will still be parsed correctly'
+  mess ''
+  wait '--- Press RETURN for more ---'
+  mess ''
+  mess 'hpl (101+202.proy)///lun2/103'
+  mess '  Adds 1-D histogram 101 to the Y projection of 2-D histogram 202,'
+  mess '  and divides the result by histogram //lun2/103'
+  mess ''
+  mess 'hpl 201.prox-0.2*201.banx.(40:60)'
+  mess '  Creates an X band with 40<y<60, scales it by 0.2, and subtracts it'
+  mess '  from the total X projection'
+  mess ''
+  mess 'hpl 201.zoom.(110.:158.,40.:160.).stat'
+  mess '  Selects a rectangular region of a 2-D histogram and reports the'
+  mess '  statistics for that region, without plotting anything.  This is'
+  mess '  an easy way to integrate over a region of a 2-D histogram.'
+  mess ''
+
+elseif ($SUBSTRING([topic],1,1) .eq. 'l') then
+
+  mess ''
+  mess 'Limitations'
+  mess '-----------'
+  mess ''
+  mess 'The hpl kumac does not operate properly on histograms with variable-size bins.'
+  mess 'It converts such histograms to have equally-spaced bins.'
+  mess ''
+  mess 'The hpl kumac might not work properly if you create subdirectories'
+  mess 'beneath //PAWC; at least I have never tried this.  But subdirectories'
+  mess 'in regular logical units should be OK.'
+  mess ''
+  mess 'The hpl kumac assumes that any HBOOK subdirectory name starts with a'
+  mess 'letter, not a numeral; that is how the kumac knows whether a slash'
+  mess 'indicates division or is part of a directory path.  Also, do not'
+  mess 'begin subdirectory names with LUN or PAWC, since hpl assumes those'
+  mess 'are top-level directories.'
+  mess ''
+  mess 'There is one type of expression which the hpl kumac handles'
+  mess 'differently than h/plot.  "h/plot 101+102" displays a stacked 3D'
+  mess 'histogram (a rather obscure feature), while "hpl 101+102" adds the'
+  mess 'histograms and displays the sum as a normal histogram.'
+  mess ''
+
+else
+
+  exec help
+
+endif
+
+return

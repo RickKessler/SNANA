@@ -1,0 +1,52 @@
+******************************************************
+*  JOURNAL.KUMAC
+******************************************************
+
+macro init
+
+   	set  hcol 1
+
+   	set vfon -42
+	set lfon -42
+	set cfon -42
+	set tfon -42
+	set gfon -42
+
+        set txal; set txfp -42
+ 
+        opt nfit
+        opt nbox
+        opt nsta
+        opt ndat
+        opt ngri
+        opt nfil
+return
+
+****************************************
+
+macro clear
+   	set hcol 1
+   	set vfon
+	set lfon
+	set cfon
+	set tfon
+	set gfon
+
+  	set csiz
+        set tsiz 0.38
+        set vsiz 0.35
+        set xmgl
+        set yhti
+        set gsiz
+        set ygti 1
+	set yval 0.4
+	set xtic -0.3
+	set ylab
+	set xlab
+
+        igset txfp
+        igset tang 0
+        igset chhe 0.5
+        igset txal 23
+return
+

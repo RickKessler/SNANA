@@ -1,0 +1,2 @@
+# SNANA
+Supernova Analysis package

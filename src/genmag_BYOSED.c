@@ -20,7 +20,7 @@
 
   Mar 30 2019 RK - fix hc factors in spectra
   Apr 11 2019 RK - check for intrinsic scatter models (e.g., C11, G10 ...)
-
+  Apr 18 2019 RK - if not USE_PYTHON, add dummy parNames and parVal.
  *****************************************/
 
 
@@ -64,8 +64,8 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
   //               : OPTMASK=-1 is a flag to print options.
   //               :  passed from GENMODEL_MSKOPT arg in sim-input
   //  
-  //  ARGLIST      : string of options
-  //
+  //  ARGLIST      : string of options passed from sim-input key
+  //               :  GENMODEL_ARGLIST = 'BLA BLA OPTIONS'
 
 #ifdef USE_PYTHON
   PyObject *genmod, *genclass, *pargs;
@@ -153,7 +153,10 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
 #ifdef USE_PYTHON
   NPAR = fetchParNames_BYOSED(Event_BYOSED.PARNAME);
   Event_BYOSED.NPAR = NPAR;
-  printf("\t BYOSED parameters to store in data files:\n");
+  if ( NPAR > 0 ) 
+    { printf("\t BYOSED parameters to store in data files:\n"); }
+  else
+    { printf("\t No BYOSED parameters to store in data files:\n"); }
   for(ipar=0; ipar < NPAR; ipar++ ) 
     { printf("\t\t %s \n", Event_BYOSED.PARNAME[ipar] ); }
 #endif
@@ -288,9 +291,19 @@ int fetchParNames_BYOSED(char **parNameList) {
   // each SED.  **parNameList is a list of parameter names.
   //
   // Called once during init stage.
+  //
+  // Apr 18 2019: if not USE_PYTHON, set dummy parNameList values.
 
   int NPAR,ipar;
   char fnam[] = "fetchParNames_BYOSED" ;
+
+#ifndef USE_PYTHON
+  // dummy names to test propagation of parameters
+  NPAR = 4;
+  for(ipar=0; ipar<NPAR; ipar++ ) 
+    { sprintf(parNameList[ipar], "BYOSED_TESTPAR%d", ipar );  }
+#endif
+
 #ifdef USE_PYTHON
   // python declarations here
   
@@ -332,6 +345,8 @@ void fetchParVal_BYOSED(double *parVal) {
   // data files.
   //
   // Called once per event.
+  // Apr 18 2019: if not USE_PYTHON, set dummy parVals.
+  //
 
 #ifdef USE_PYTHON  
   PyObject *parvalmeth,*pParVal,*pargs;
@@ -345,6 +360,12 @@ void fetchParVal_BYOSED(double *parVal) {
 
   NPAR = Event_BYOSED.NPAR; //fetchParNames_BYOSED(parNameList);
   parNameList = Event_BYOSED.PARNAME;
+
+#ifndef USE_PYTHON
+  // dummy values to test propagation of parameters
+  for(ipar=0; ipar < NPAR; ipar++ )  { parVal[ipar] = 10.0*(double)ipar; }
+#endif
+
   // David: need python function to return these values.
 #ifdef USE_PYTHON
   parvalmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchParVals_BYOSED_4SNANA");
@@ -507,6 +528,8 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
   // !!! Dec 12 2018: Finteg is tested against SALT2 filter-fluxes, 
   //     but Fspec is not tested.
   //
+  // Apr 23 2019: remove buggy z1 factor inside OPT_SPEC loop
+  //
 
   int    ifilt          = IFILTMAP_SEDMODEL[ifilt_obs] ;
   int    NLAMFILT       = FILTER_SEDMODEL[ifilt].NLAM ;
@@ -621,9 +644,9 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
 
       if ( OPT_SPEC && DO_SPECTROGRAPH ) { 
 	if ( LAMSED+LAMSED_STEP < LAMSED_MAX ) 
-	  { LAMSPEC_STEP = LAMSED_STEP * z1 ; } // obs-frame lamStep
+	  { LAMSPEC_STEP = LAMSED_STEP ; } // obs-frame lamStep
 	else
-	  { LAMSPEC_STEP = (LAMSED_MAX-LAMSED)*z1 ; }
+	  { LAMSPEC_STEP = (LAMSED_MAX-LAMSED) ; }
 	
 	LAMRATIO        = LAMSPEC_STEP/LAMSED_STEP ;
 	Finteg_spec    += (Fbin_forSpec * LAMRATIO );

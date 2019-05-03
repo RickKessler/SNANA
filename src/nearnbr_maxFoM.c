@@ -205,7 +205,7 @@ int main(int argc, char **argv) {
   }
   
   
-  TABLEFILE_CLOSE(INPUTS.NEARNBR_INFILE);
+  // xxx obsolete  TABLEFILE_CLOSE(INPUTS.NEARNBR_INFILE);
   fclose(FP_OUT);
   printf(" Formatted text output: %s \n", INPUTS.NEARNBR_OUTFILE);
 

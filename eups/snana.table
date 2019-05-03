@@ -1,6 +1,0 @@
-
-#setupRequired(gsl);
-#setupRequired(cfitsio);
-
-envPrepend(PATH, ${PRODUCT_DIR}/bin)
-envPrepend(PATH, ${PRODUCT_DIR}/util)

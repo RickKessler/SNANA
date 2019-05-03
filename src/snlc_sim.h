@@ -508,6 +508,7 @@ struct INPUTS {
   GENGAUSS_ASYM_DEF GENGAUSS_FALLTIME_SHIFT ;
 
   double  FIXMAG[2] ; // for observer-frame FIXMAG model
+  int     GENFRAME_FIXMAG;  // GENFRAME_OBS or GENFRAME_REST 
 
   // SIMSED parameters & ranges
   int   USE_BINARY_SIMSED;  // 1 => use binary files fof faster I/O

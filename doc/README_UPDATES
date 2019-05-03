@@ -16462,4 +16462,70 @@ GitHub issues:
    genmag_BYOSED,genmag_SALT2:
      + fix buggy 1+z factor for spectra  [caught by D.Jones]
 
+
+# ======================================================================= 
+         v10_71i (Apr 29 2019) 
+
+         ***** IMPORTANT(v10_71i) ***** 
+
+         ***** USEFUL(v10_71i) ***** 
+
+         ***** MISCELLANEOUS(v10_71i) ***** 
+
+    snlc_sim.c
+      + GENMODEL FIXMAG expanded to fixmag (obs frame) and
+        FIXMAG (rest-frame) + MU. See manual.
+      + few more fixes for SIMSED to work with GRID option.
+
+    nearnbr_apply.c
+      + add optioal argument -varName_prob <name> so that
+        Sam can provide column name.
+
+    split_and_fit.pl
+      + create DONE_STAMP after gzipping SPLIT_JOBS/ subdir
+        (instead of creating gzip file after DONE_STAMP).
+
+    combine_fitres.c:
+      + new argument T or t to specify text-only output without
+        default HBOOK file. T,t -> .TEXT/.text extension. 
+        Note that t arg can be anywhere; e.g.
+          combine_fitres.exe <f1> <f2> t
+          combine_fitres.exe <f1> t <f2> 
+          combine_fitres.exe t <f1> <f2>
+
+
+# ======================================================================= 
+         v10_71j (May 2 2019) 
+
+         ***** IMPORTANT(v10_71j) ***** 
+
+         ***** USEFUL(v10_71j) ***** 
+
+         ***** MISCELLANEOUS(v10_71j) ***** 
+
+   SALT2mu.c
+     + for NSPLITRAN option, write summary to [prefix]_summary.out 
+ 
+   snana.car
+     + fix bug with output of Bazin fit params to SNANA table,
+       and make sure PKMJDINI is output to TEXT table.
+     + completely redo MULTISEASON  logic; see manaul
+     + fix SNCID_LIST_FILE so that NVAR is not requred.
+          (fixes in RD_SNCIDLIST)
+
+   Makefile:
+     + genmag_BYOSED links only to sim; NOT to snlc_fit.
+
+   sntools_output.c[h]:
+     + increase table-comment strings from 120 -> MXPATHLEN 
+        (fixes combine_fitres crash found by Sam)
+
+   sntools_output_text.c:
+     + at end of SNTABLE_READ_EXEC_TEXT, close file and
+       reset flags.
+
+   Remove TABLEFILE_CLOSE() calls after SNTABLE_READ_EXEC().
+
+
+
 END: 

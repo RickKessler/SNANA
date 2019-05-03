@@ -195,7 +195,7 @@ void INIT_TEXTFILES(char *PREFIX) {
   // function to open list-file.
 
   char fnam[] = "INIT_TEXTFILES" ;
-  char *FMT, comment[100];
+  char *FMT, comment[200];
 
   sprintf(FILEPREFIX_TEXT,"%s", PREFIX);
 
@@ -501,7 +501,7 @@ void SNTABLE_FILL_TEXT(int IDTABLE) {
   int ITAB, NFILL, NVAR, IVAR, ICAST, OPT_FORMAT ;
 
   FILE *FP ;
-  char ROW[2000], CVAL[80], *FORMAT, *VARNAME, sep[4], comment[80] ;
+  char ROW[2000], CVAL[80], *FORMAT, *VARNAME, sep[4], comment[200] ;
   char fnam[] = "SNTABLE_FILL_TEXT" ;
 
   // ------------- BEGIN ------------
@@ -751,13 +751,16 @@ void OPEN_TEXTFILE(char *FILENAME, char *mode) {
 void CLOSE_TEXTFILE(void) {
 
   // Created Apr 2015
-  // Close open ascii file(s)
+  // Close open TEXT file(s) that were created as output.
+  // Beware: does not close TEXT files opened for reading.
   
   int itab;
   char *FNAM;
   FILE *FP;
+  char fnam[] = "CLOSE_TEXTFILE" ;
 
   // ------------- BEGIN -------------
+
   for(itab=0; itab < TABLEINFO_TEXT.NTABLE; itab++ ) {
       FP   = TABLEINFO_TEXT.FP[itab] ;
       FNAM = TABLEINFO_TEXT.FILENAME[itab] ;
@@ -900,7 +903,7 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   sprintf( SNLCPAK_OUTPUT.TEXTFILE_PREFIX, "%s", PREFIX );
 
 
-  char banner[100];
+  char banner[200];
   sprintf(banner,"%s: open text list-file with PREFIX=%s", 
 	  fnam, PREFIX);
   print_banner(banner);
@@ -1154,7 +1157,8 @@ int SNTABLE_READ_EXEC_TEXT(void) {
     NROW++ ;   
 
     ptrtok = strtok(NULL," " ); ivar=0 ;
-    while ( ptrtok != NULL && ptrtok != '\0' && ivar < NVAR_TOT) { 
+    //  xxx mark delete while ( ptrtok != NULL && ptrtok != '\0' && ivar < NVAR_TOT) { 
+    while ( ptrtok != NULL && ivar < NVAR_TOT) { 
 
       // Dec 20 2017: extract only variables on READ-list
       if ( READTABLE_POINTERS.NPTR[ivar] > 0 ) {      
@@ -1222,6 +1226,10 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   
     fclose(FP);
 
+    // May 2 2019: reset flags to allow opening another file.
+    NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
+    USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT]     = 0;
+
     return NROW ;
 
 } // end of SNTABLE_READ_EXEC_TEXT
@@ -1262,6 +1270,7 @@ int ICAST_for_textVar(char *varName) {
   // Feb 17 2016: remove GALID from ICAST_C list
   // Dec 04 2016: add VERSION to ICAST_C list
   // Aug 04 2017: allow for "CCID ROW" using strstr
+  // Apr 29 2019: allow PARNAME
 
   // 1st-key identifiers  
   if ( strcmp_ignoreCase(varName,(char*)"CID"  )  == 0 ) 
@@ -1295,6 +1304,9 @@ int ICAST_for_textVar(char *varName) {
     { return ICAST_C;}
 
   if ( strcmp_ignoreCase(varName,(char*)"VERSION" )   == 0 ) 
+    { return ICAST_C;}
+
+  if ( strcmp_ignoreCase(varName,(char*)"PARNAME" )   == 0 )  // 4.29.2019
     { return ICAST_C;}
 
   // if not a string, return float cast which really means
@@ -1445,7 +1457,7 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
   int NOBS_FITFUN, ISFIT, IFILT_REST, NOBS_REST, NOBS_SIMREST, flag ;
   int OPT_FORMAT ;
   double chi2,  FLUX_REST ;
-  char BAND[2], BAND_REST[2], sep[4], comment[100], LINE[400], CVAL[80];
+  char BAND[2], BAND_REST[2], sep[4], comment[200], LINE[400], CVAL[80];
 
   char fnam[] = "snlcpak_textLine" ;
 

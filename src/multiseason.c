@@ -38,10 +38,23 @@ void INIT_MULTISEASON(float *parList) {
   INPUTS.TGAP             = (float)parList[1] ;
   INPUTS.NREJECT_OUTLIER  = (int)parList[2] ;
 
+  if ( INPUTS.OPTMASK == 0 ) { return ; }
   if ( INPUTS.TGAP > 1.0E8 ) { return ; }
 
   sprintf(BANNER,"%s: init multi-season analysis.", fnam );
   print_banner(BANNER);
+
+  if ( INPUTS.OPTMASK == 1 ) 
+    { printf("\t Flux-activity reference is zero. \n"); }
+  else if ( INPUTS.OPTMASK == 2 ) 
+    { printf("\t Flux-activity reference is AVG-Flux per season \n"); }
+  else {
+    sprintf(c1err,"Invalid OPTMASK=%d", INPUTS.OPTMASK);
+    sprintf(c2err,"Valid MULTISEASON_OPTMASK is 1 or 2");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+    
+  fflush(stdout);
 
   
 } // end of INIT_MULTISEASON
@@ -50,10 +63,10 @@ void init_multiseason__(float *parList) { INIT_MULTISEASON(parList); }
 
 
 // ========================================================
-void GET_MULTISEASON(char *CCID, int NOBS, float *MJD_LIST, 
-		     float *FLUX_LIST, float *FLUXERR_LIST,
-		     int *REJECT, int *NSEASON, float *CHI2RED,    // (O)
-		     float *MJDMIN, float *MJDMAX, float *AVGFLUX) // (O)
+void GET_MULTISEASON(char *CCID, int NOBS, double *MJD_LIST, 
+		     double *FLUX_LIST, double *FLUXERR_LIST,
+		     int *REJECT, int *NSEASON, double *CHI2RED,      // (O)
+		     double *MJDMIN, double *MJDMAX, double *AVGFLUX) // (O)
 {     
 
   // Inputs:
@@ -72,15 +85,22 @@ void GET_MULTISEASON(char *CCID, int NOBS, float *MJD_LIST,
   //   MJDMAX:  max MJD for each season
   //   AVGFLUX: avg flux per season (chi2 is w.r.t. this flux)
   //
+  // May 1 2019: 
+  //   + convert float to double
+  //   + add new option to compare flux to season-average 
+  //     instead of zero.
 
-  int LDMP = 0 ;
+  int   OPT_FLUXREF_ZERO = ( INPUTS.OPTMASK == 1 ) ;
+  int   OPT_FLUXREF_AVG  = ( INPUTS.OPTMASK == 2 ) ;
+
   int   obs, Nobs[MXSEASON], Ndof[MXSEASON] ;
   int   *INDX_SORT, *INDX_SORT2,  *ISEASON;
-  int   Nseason, iSeason, i, isort ;
-  float MJD_LAST, XN, MJD, SNR, CHI2, SUMCHI2[MXSEASON] ;
-  float *CHI2_LIST, *chi2_list ;
+  int   Nseason, iSeason, i, isort, Ntmp ;
+  double MJD_LAST, XN, MJD, SNR, CHI2, WGT, SUMCHI2[MXSEASON] ;
+  double *CHI2_LIST, *chi2_list, FLUX, ERR, FDIF, CHI2TMP ;
+  double SUMFLUX[MXSEASON], SUMWGT[MXSEASON] ;
   int   *OBS_LIST,  *obs_list ;
-
+  int   LDMP = 0;
   char fnam[] = "GET_MULTISEASON" ;
 
   // --------------------- BEGIN --------------------
@@ -94,7 +114,9 @@ void GET_MULTISEASON(char *CCID, int NOBS, float *MJD_LIST,
     CHI2RED[i] = -9.0 ;
     MJDMIN[i]  = -9.0 ;
     MJDMAX[i]  = -9.0 ;    
-
+    
+    SUMWGT[i]  = 0.0 ;
+    SUMFLUX[i] = 0.0 ;
     SUMCHI2[i] = 0.0 ;   // local  var
     Ndof[i]    = 0 ;     // local var
     Nobs[i]    = 0 ;     // number of obs per season
@@ -102,19 +124,22 @@ void GET_MULTISEASON(char *CCID, int NOBS, float *MJD_LIST,
 
   // ---------------------------------------------
   // malloc local arrays
-  INDX_SORT  = (int*) malloc( sizeof(int) * NOBS) ;
-  INDX_SORT2 = (int*) malloc( sizeof(int) * NOBS) ;
-  ISEASON    = (int*) malloc( sizeof(int) * NOBS) ;
-  CHI2_LIST  = (float*)malloc( sizeof(float) * NOBS );
-  chi2_list  = (float*)malloc( sizeof(float) * NOBS );
+  int MEMI = NOBS * sizeof(int);
+  int MEMD = NOBS * sizeof(double);
 
-  OBS_LIST   = (int*) malloc( sizeof(int) * NOBS) ;
-  obs_list   = (int*) malloc( sizeof(int) * NOBS) ;
+  INDX_SORT  = (int   *) malloc( MEMI ) ;
+  INDX_SORT2 = (int   *) malloc( MEMI ) ;
+  ISEASON    = (int   *) malloc( MEMI ) ;
+  CHI2_LIST  = (double*) malloc( MEMD );
+  chi2_list  = (double*) malloc( MEMD );
+
+  OBS_LIST   = (int*) malloc( MEMI ) ;
+  obs_list   = (int*) malloc( MEMI ) ;
 
   // -----------------------------------------
   // first find season(s) with sorted MJD
 
-  sortFloat(NOBS, MJD_LIST, +1, INDX_SORT);
+  sortDouble(NOBS, MJD_LIST, +1, INDX_SORT);
 
   MJD_LAST = -1.0E8 ;  iSeason  = -1 ;
 
@@ -140,33 +165,54 @@ void GET_MULTISEASON(char *CCID, int NOBS, float *MJD_LIST,
     MJD_LAST = MJD ;
     ISEASON[isort]  = iSeason;
     MJDMAX[iSeason] = MJD ;
+    
+    // compute weighted avg
+    ERR   = FLUXERR_LIST[isort] ;
+    WGT   = 1.0/(ERR*ERR);
+    FLUX  = FLUX_LIST[isort];
+    SUMFLUX[iSeason] += (WGT*FLUX);
+    SUMWGT[iSeason]  += WGT ;
+    Nobs[iSeason]++ ;
 
   } // end of obs
 
   Nseason = iSeason + 1 ;
   *NSEASON = Nseason ;  // load output arg.
 
+  if ( LDMP ) { 
+    printf(" xxx -------------------------------------------- \n" ); 
+    CHI2TMP = 0.0 ;
+  }
+
+  // - - - - - - - - - -
+  // compute avg flux per season, and reset Nobs
+  for(i=0; i < Nseason; i++ ) {
+    if ( SUMWGT[i] > 0 ) { AVGFLUX[i] = SUMFLUX[i]/SUMWGT[i]; }
+
+    if ( LDMP ) 
+      { printf(" xxx AVGFLUX[%d] = %.1f \n",i,AVGFLUX[i]); fflush(stdout);}
+    
+    Nobs[i] = 0;
+  }
+
   // ------------------------------------------------------------
   // compute reduced chi2 for each season, with outlier rejection
 
-  int Ntmp ;
-  float FSUM, WSUM, FLUX, ERR, W, FDIF ;
-
+  
   for(iSeason=0; iSeason < Nseason; iSeason++ ) {
 
+    /* xxxxxxxx mark delete May 1 2019 xxxxxxxxxxxxx
     FSUM = WSUM = 0.0 ;
-
-    // find wgted average for this season
     for(obs=0; obs < NOBS; obs++ ) {
       isort = INDX_SORT[obs] ;
       if ( iSeason == ISEASON[isort] ) {
 	W     = 1.0/(FLUXERR_LIST[isort]*FLUXERR_LIST[isort]);
-	FSUM += W * FLUX_LIST[isort] ;
-	WSUM += W ;
+	FSUM += W * FLUX_LIST[isort] ;	WSUM += W ;
       }
-    } // obs
-
+    }
     AVGFLUX[iSeason] = FSUM / WSUM ;
+    xxxxxxxxxxxx */
+
 
     // build chi2_list for this season
     for(obs=0; obs < NOBS; obs++ ) {
@@ -175,20 +221,32 @@ void GET_MULTISEASON(char *CCID, int NOBS, float *MJD_LIST,
 	Nobs[iSeason]++ ;  
 	Ntmp = Nobs[iSeason] ;
 
+	MJD  = MJD_LIST[isort] ;
 	FLUX = FLUX_LIST[isort] ;
 	ERR  = FLUXERR_LIST[isort] ;
 
-	//	chi2_list[Ntmp-1] = CHI2_LIST[isort] ;
-	FDIF              = FLUX - AVGFLUX[iSeason] ;
-	chi2_list[Ntmp-1] = (FDIF*FDIF)/(ERR*ERR);
+	if ( OPT_FLUXREF_ZERO ) 
+	  { FDIF = FLUX - 0.0 ; }
+	else if ( OPT_FLUXREF_AVG ) 
+	  { FDIF = FLUX - AVGFLUX[iSeason] ; }
+
+	CHI2              = (FDIF*FDIF)/(ERR*ERR);
+	chi2_list[Ntmp-1] = CHI2 ;
 	obs_list[Ntmp-1]  = OBS_LIST[isort] ;
+
+	if ( LDMP && iSeason == 1 ) {
+	  printf(" xxx MJD=%9.3f  F=%8.1f +- %5.1f  CHI2=%5.1f \n",
+		 MJD, FLUX, ERR, CHI2); fflush(stdout);
+	  CHI2TMP += CHI2;
+	}
+
       }
     } // obs
 
     // - - - - - - - - - - - 
     // sort chi2_list (smallest to largest)
     Ntmp = Nobs[iSeason] ;
-    sortFloat(Ntmp, chi2_list, +1, INDX_SORT2);
+    sortDouble(Ntmp, chi2_list, +1, INDX_SORT2);
 
     // Now sum chi2 excluding last NREJECT_OUTLIERS
     Ntmp = Nobs[iSeason] - INPUTS.NREJECT_OUTLIER ;
@@ -201,17 +259,24 @@ void GET_MULTISEASON(char *CCID, int NOBS, float *MJD_LIST,
       REJECT[obs_list[isort]]  = 0 ; // turn off reject flag for used epochs
     }
 
-    XN = (float)Ndof[iSeason] ;
+    XN = (double)Ndof[iSeason] ;
     if ( XN > 0.001 ) 
-      { CHI2RED[iSeason] = SUMCHI2[iSeason]/ (float)Ndof[iSeason] ; }
+      { CHI2RED[iSeason] = SUMCHI2[iSeason]/ (double)Ndof[iSeason] ; }
 
   } // iSeason
 
 
 
+  if ( LDMP ) {
+    printf(" xxx CHI2TMP/Nobs(ALL) = %.1f/%d = %.1f \n",
+	   CHI2TMP, Nobs[1], CHI2TMP/(double)Nobs[1] );
+    fflush(stdout);
+  }
+
+
   // ----------------------------------
   if ( LDMP ) {
-    printf(" xxx ----------------------------------------- \n");
+    //    printf(" xxx ----------------------------------------- \n");
     printf(" xxx %s : SNID = %s  with  NOBS=%d \n", fnam, CCID, NOBS);
     for (i=0; i < Nseason; i++ ) {
       printf(" xxx Season %2d : MJD = %.3f to %.3f  "
@@ -233,10 +298,10 @@ void GET_MULTISEASON(char *CCID, int NOBS, float *MJD_LIST,
 } // end of GET_MULTISEASON
 
 
-void get_multiseason__(char *CCID, int *NOBS, float *MJD,
-		       float *FLUX,float *FLUXERR,
-                       int *REJECT, int *NSEASON, float *CHI2RED,
-                       float *MJDMIN, float *MJDMAX, float *AVGFLUX ) {
+void get_multiseason__(char *CCID, int *NOBS, double *MJD,
+		       double *FLUX, double *FLUXERR,
+                       int *REJECT, int *NSEASON, double *CHI2RED,
+                       double *MJDMIN, double *MJDMAX, double *AVGFLUX ) {
 
   GET_MULTISEASON(CCID, *NOBS, MJD, FLUX, FLUXERR,     // (I)
 		  REJECT, NSEASON, CHI2RED, MJDMIN, MJDMAX, AVGFLUX); // (O)

@@ -2126,7 +2126,7 @@ void init_Gauss2d_Overlap(void) {
   // overlap with a circle (aperture) of radius = 1.
   //
   // Oct 27 2014: switch to refactored fitres-read (SNTABLE_XXX)
-
+  // May 02 2019: remove TABLEFILE_CLOSE() call since READ_EXEC does it.
 
   char 
      TABLENAME[] = "Gass2D"
@@ -2161,9 +2161,7 @@ void init_Gauss2d_Overlap(void) {
   for ( IVAR = 0; IVAR < NVAR_Gauss2d; IVAR++ ) {
 
     sprintf(cvar,"%s", GaussVAR[IVAR] );
-    // xxx mark delete    ptr   = &HOSTLIB.Gauss2dTable[IVAR][1];
     ptr   = &HOSTLIB.Gauss2dTable[IVAR][0];
-
     istat = SNTABLE_READPREP_VARDEF(cvar, ptr, MXGauss2dTable, VBOSE );
     
     if ( istat  < 0 ) {
@@ -2176,7 +2174,7 @@ void init_Gauss2d_Overlap(void) {
 
   // Read the Gauss2d table
   HOSTLIB.NGauss2d = SNTABLE_READ_EXEC();
-  TABLEFILE_CLOSE(Gauss2dFile);
+  // xxx obsolete TABLEFILE_CLOSE(Gauss2dFile);
 
   // decode binning for easy lookup
   rmin = 1.0E9; rmax = -1.0E9 ; rlast = -999. ;  rbin = 0.0 ;

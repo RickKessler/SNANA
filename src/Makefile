@@ -1,5 +1,5 @@
 # $Source: /cvs/sdss/snana/src/Makefile,v $
-# $Revision: 1.498 $    Last Modified: $Date: 2019/04/15 13:27:33 $
+# $Revision: 1.500 $    Last Modified: $Date: 2019/05/02 20:24:47 $
 #
 #  R.Kessler    
 #
@@ -112,6 +112,9 @@
 #             (includes check on USE_BYOSED ENV)
 #
 # Apr 11 2019: fix LPY to work on Midway using miniConda
+# Apr 30 2019: 
+#   + add -lpython3.7m to LPY
+#   + genmag_BYOSED linked only to sim (not to fitter)
 #
 # ---------------------------------------------------------------------
 
@@ -142,7 +145,7 @@ CC   = cc
 #  PROFILEFLAG = -pg
 # ------------------------
 # compile default storage options for both ROOT and HBOOK ....
-USE_ROOT   = 1
+USE_ROOT    =    1
 USE_HBOOK  = 1
 USE_PYTHON = 1
 
@@ -218,7 +221,7 @@ ifndef SNANA_PYTHON_DIR
   LPY = 
 else
   IPY = -I/$(SNANA_PYTHON_DIR)/include/python3.7m
-  LPY = -L$(SNANA_PYTHON_DIR)/lib -ldl  -lutil -lrt -Wl,-rpath,$(SNANA_PYTHON_DIR)/lib
+  LPY = -L$(SNANA_PYTHON_DIR)/lib -ldl  -lutil -lrt -Wl,-rpath,$(SNANA_PYTHON_DIR)/lib -lpython3.7m
 endif
 
 
@@ -318,15 +321,14 @@ OBJ_GENMAG_FIT	=		\
 	$(OBJ)/genmag_S11DM15.o	\
 	$(OBJ)/gloes.o		\
 	$(OBJ)/genmag_SIMSED.o	\
-	$(OBJ)/genmag_SEDtools.o \
-	$(OBJ)/genmag_BYOSED.o
+	$(OBJ)/genmag_SEDtools.o
 
 OBJ_GENMAG_SIM =	\
 	$(OBJ_GENMAG_FIT) \
 	$(OBJ)/genmag_NON1ASED.o \
 	$(OBJ)/genmag_NON1AGRID.o \
-	$(OBJ)/genmag_LCLIB.o
-
+	$(OBJ)/genmag_LCLIB.o	 \
+	$(OBJ)/genmag_BYOSED.o
 
 OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools.o 	\
@@ -450,7 +452,6 @@ $(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/sntools.o
 $(OBJ)/sncosmo_mcmc.o : $(SRC)/sncosmo_mcmc.c $(SRC)/sntools.c
 	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(SRC)/sncosmo_mcmc.c ) 
 
-$(BIN)/sncosmo_mcmc.exe : $(OBJ)/sncosmo_mcmc.o $(OBJ)/sntools.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
 	$(OBJ)/sncosmo_mcmc.o  \
 	$(OBJ)/sntools.o \
@@ -502,7 +503,7 @@ $(LIB)/libsnana.a:   snana.car
 	rm -f $(TMPANA)/main.o
 	ar cr $@ $(TMPANA)/*.o
 	rm -f $(TMPANA)/*.o
-	rm -f $(TMPANA)/*.f
+# .xyz	rm -f $(TMPANA)/*.f
 
 # -------------------------------------------------
 # May 15 2008:   make libsnfit.a 
@@ -968,7 +969,6 @@ $(BIN)/merge_root.exe :  \
 $(OBJ)/filtercal_sim.o : $(SRC)/filtercal_sim.c
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/filtercal_sim.c )
 
-$(BIN)/filtercal_sim.exe : \
 	$(OBJ)/filtercal_sim.o  $(OBJ)/sntools.o
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/filtercal_sim.o  $(OBJ)/sntools.o $(LCERN)  -lm $(LGSL)
@@ -1059,7 +1059,6 @@ $(BIN)/SIMSED_check.exe : \
 $(OBJ)/atmosphere_sim.o : $(SRC)/atmosphere_sim.c 
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/atmosphere_sim.c )
 
-$(BIN)/atmosphere_sim.exe : \
 	$(OBJ)/atmosphere_sim.o  $(OBJ)/sntools.o
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/atmosphere_sim.o	\
@@ -1074,7 +1073,6 @@ $(BIN)/atmosphere_sim.exe : \
 $(OBJ)/unfold_snpar.o : $(SRC)/unfold_snpar.c
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/unfold_snpar.c )
 
-$(BIN)/unfold_snpar.exe : $(OBJ)/unfold_snpar.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/unfold_snpar.o	\
 	$(OBJ)/sntools.o 	\

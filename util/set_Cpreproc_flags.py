@@ -7,6 +7,8 @@
 #
 # Note that all input names are hard-coded here as globals.
 #
+# Apr 29 2019: replace USE_BYOSED ENV with SNANA_PYTHON_DIR
+#
 
 import os
 import sys 
@@ -18,7 +20,8 @@ INCFILE_OUTPUT = SNANA_DIR + '/src/sntools_output.h'
 INCFILE_BYOSED = SNANA_DIR + '/src/genmag_BYOSED.h'
 
 LIST_CFLAG     = [ 'USE_HBOOK' , 'USE_ROOT' , 'USE_PYTHON' ]
-LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'USE_BYOSED' ] 
+#LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'USE_BYOSED' ] 
+LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'SNANA_PYTHON_DIR' ] 
 LIST_INCFILE   = [ INCFILE_OUTPUT, INCFILE_OUTPUT, INCFILE_BYOSED ]
 NCFLAG         = len(LIST_CFLAG)
 

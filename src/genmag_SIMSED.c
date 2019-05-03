@@ -42,6 +42,10 @@
   Dec 20 2018: refactor using loops from 0 to SEDMODEL.NPAR-1
                 (instead of 1 to SEDMODEL.NPAR)
 
+  Apr 28 2019: set Lrange_SIMSED when reading "RESTLAMBDA_RANGE:" key.
+               --> affects value of T0shiftPeak, bolometric flux,
+                   and memory used to read.
+
 *************************************/
 
 #include  <stdio.h> 
@@ -519,12 +523,13 @@ void read_SIMSED_flux(char *sedFile, char *sedComment) {
 	     ,&TEMP_SEDMODEL.NLAM, TEMP_SEDMODEL.LAM, &TEMP_SEDMODEL.LAMSTEP
 	     ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR );  
 
-    int NDAY = TEMP_SEDMODEL.NDAY;
-    int NLAM = TEMP_SEDMODEL.NLAM;
-    TEMP_SEDMODEL.MINDAY = TEMP_SEDMODEL.DAY[0];
-    TEMP_SEDMODEL.MAXDAY = TEMP_SEDMODEL.DAY[NDAY-1];
-    TEMP_SEDMODEL.MINLAM = TEMP_SEDMODEL.LAM[0];
-    TEMP_SEDMODEL.MAXLAM = TEMP_SEDMODEL.LAM[NLAM-1];
+  int NDAY = TEMP_SEDMODEL.NDAY;
+  int NLAM = TEMP_SEDMODEL.NLAM;
+  TEMP_SEDMODEL.MINDAY = TEMP_SEDMODEL.DAY[0];
+  TEMP_SEDMODEL.MAXDAY = TEMP_SEDMODEL.DAY[NDAY-1];
+  TEMP_SEDMODEL.MINLAM = TEMP_SEDMODEL.LAM[0];
+  TEMP_SEDMODEL.MAXLAM = TEMP_SEDMODEL.LAM[NLAM-1];
+
 
   double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX;
   if ( UVLAM > 0.0 ) { UVLAM_EXTRAPFLUX_SEDMODEL(UVLAM, &TEMP_SEDMODEL); }
@@ -683,6 +688,9 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   // Jan 03 2019 - SEDMODEL.NSURFACE=0 to allow multiple calls.
   //             - Return function arg = NSED (for fortran calls)
   //
+  // Apr 28 2019: set Lrange_SIMSED when reading "RESTLAMBDA_RANGE:" key.
+  //
+
   char *ptrFile, c_get[80], *ptr_parval, tmpName[60] ;
   char  sedFile1[MXPATHLEN], sedFileN[MXPATHLEN] ,comment[100] ;
 
@@ -752,6 +760,9 @@ int read_SIMSED_INFO(char *PATHMODEL) {
       readdouble(fp, 1, &SEDMODEL.MINLAMFILT );
       readdouble(fp, 1, &SEDMODEL.MAXLAMFILT );
       
+      Lrange_SIMSED[0] =  SEDMODEL.MINLAMFILT ;
+      Lrange_SIMSED[1] =  SEDMODEL.MAXLAMFILT ;
+
       double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX;
       if (UVLAM > 0.0 ) { SEDMODEL.MINLAMFILT = UVLAM; }
 
@@ -793,7 +804,6 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 	readchar(fp, ptr_parval );
 	sscanf(ptr_parval, "%le", &SEDMODEL.PARVAL[NSED][ipar] );
       }
-
     }
 
   } // end of reading info file
@@ -837,6 +847,39 @@ int read_simsed_info__(char *PATHMODEL ) {
   int NSED = read_SIMSED_INFO(PATHMODEL);
   return(NSED);
 }
+
+// ===================================
+int count_SIMSED_INFO(char *PATHMODEL ) {
+
+  // Apr 28 2019
+  // return nubmer of "SED:" keys in SED.INFO file
+
+  int NSED=0;
+  FILE *fp;
+  char FILENAME[200], c_get[60] ;
+  char fnam[] = "count_SIMSED_INFO";
+
+  // ---------------- BEGIN --------------
+
+  sprintf(FILENAME, "%s/%s",PATHMODEL, INFO_SIMSED_FILENAME);
+
+  if (( fp = fopen(FILENAME,"rt")) == NULL ) {
+    sprintf(c1err,"Could not open info file:");
+    sprintf(c2err,"%s", FILENAME );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+  printf("\n Read number of SEDs  from \n  %s \n", FILENAME );
+
+
+  while( (fscanf(fp, "%s", c_get )) != EOF) {
+    if ( strcmp(c_get,"SED:")==0 ) { NSED++ ; }
+  }
+  
+  fclose(fp);
+
+  return(NSED);
+
+} // end count_SIMSED_INFO
 
 
 // **********************************************
@@ -1054,7 +1097,7 @@ void genmag_SIMSED(
 		  ,int ifilt_obs    // (I) absolute filter index
 		  ,double x0        // (I) SIMSED flux-scale
 		  ,int  NLUMIPAR    // (I) Number of lumi-params 
-		  ,int  *iflagpar   // (I) parameter flags
+		  ,int    *iflagpar // (I) parameter flags
 		  ,int    *iparmap  // (I) ipar index map
 		  ,double *lumipar  // (I/O) shape/lumi parameter(s)
 		  ,double RV_host   // (I) RV of host
@@ -1157,8 +1200,8 @@ void genmag_SIMSED(
 
   if ( LDMP_DEBUG ) {
     printf(" xxx ------- %s DEBUG DUMP ------------ \n", fnam );
-    printf(" xxx Nobs=%d  ifilt_obs=%d z=%.3f  MAXDAY_ALL=%.1f\n",
-	   Nobs, ifilt_obs, z, SEDMODEL.MAXDAY_ALL );
+    printf(" xxx Nobs=%d  ifilt_obs=%d z=%.3f  MAXDAY_ALL=%.1f  lumipar=%.1f\n",
+	   Nobs, ifilt_obs, z, SEDMODEL.MAXDAY_ALL, *lumipar );
     fflush(stdout);
   }
   

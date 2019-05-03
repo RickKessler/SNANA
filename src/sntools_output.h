@@ -89,7 +89,7 @@ int  FIRSTCALL_TABLEFILE_OPEN[MXTABLEFILETYPE];
 
 
 int  NLINE_TABLECOMMENT ;
-char LINE_TABLECOMMENT[MXLINE_TABLECOMMENT][120];
+char LINE_TABLECOMMENT[MXLINE_TABLECOMMENT][MXCHAR_FILENAME];
 
 // -------------------------------------
 // define a few things from sntools.h so that we don't have to

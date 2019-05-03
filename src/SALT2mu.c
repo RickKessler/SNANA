@@ -581,6 +581,12 @@ Default output files (can change names with "prefix" argument)
   Feb 5 2019:
    + minor refactor of ICC_FITCLASS_XXX: UNKNOWN -> OTHER, CC -> TOT
 
+  Apr 29 2019:
+   + for NSPLITRAN option, write summary to [prefix]_summary.out,
+     and use KEY format.
+
+  May 02 2019: remove TABLEFILE_CLOSE() calls since READ_EXEC closes.
+
 ******************************************************/
 
 #include <stdio.h>      
@@ -4282,7 +4288,7 @@ int read_data(char *filnam)
   fflush(stdout);
   FITINP.NSNTOT = SNTABLE_READ_EXEC();
 
-  TABLEFILE_CLOSE(filnam);  // added Jan 19 2016
+  // xxx obsolete  TABLEFILE_CLOSE(filnam);  // added Jan 19 2016
 
   if ( FITINP.NSNTOT > MAXSN) {
     sprintf(c1err,"NSNTOT = %d exceeds bound of MAXSN=%d",
@@ -6087,7 +6093,7 @@ void  read_simFile_biasCor(char *simFile) {
 
 
   // close file
-  TABLEFILE_CLOSE(simFile); 
+  // xxx obsolete  TABLEFILE_CLOSE(simFile); 
 
   t_read_biasCor[1] = time(NULL); 
 
@@ -9911,7 +9917,7 @@ void  read_simFile_CCprior(char *simFile, SIMFILE_INFO_DEF *SIMFILE_INFO) {
   SIMFILE_INFO->NROW = NROW ;
 
   // close file
-  TABLEFILE_CLOSE(simFile); 
+  // xxx obsolete   TABLEFILE_CLOSE(simFile); 
 
   // ---------------------------------------
   // set IDSAMPLE for each CCprior event
@@ -12560,7 +12566,6 @@ void SPLITRAN_SUMMARY(void) {
   //
   // Dec 2 2016: compute & print rms of sample size
 
-  // -------------- BEGIN -------------
   
   int ipar, isplit, NSPLIT, NPAR, NERR_VALID ;
   double 
@@ -12571,6 +12576,10 @@ void SPLITRAN_SUMMARY(void) {
     ,AVG_ERR[MAXPAR], RMS_ERR[MAXPAR]
     ,SUMN, SQSUMN
     ;
+  
+  char fnam[] = "SPLITRAN_SUMMARY" ;
+
+  // -------------- BEGIN -------------
 
   NSPLIT = INPUTS.NSPLITRAN ;
   NPAR   = FITINP.NFITPAR_ALL ;
@@ -12626,12 +12635,44 @@ void SPLITRAN_SUMMARY(void) {
   // ---- print results -----
   sleep(2);
   fflush(stdout);
-  
+
+  // write summary to outFile. 
+  char OUTFILE[MXPATHLEN] ;
+  FILE *fp;
+  sprintf(OUTFILE,"%s_summary.out", INPUTS.PREFIX );
+  fp = fopen(OUTFILE,"wt");
+  if ( !fp )  {
+    sprintf(c1err,"Could not open SPLITRAN summary file:");
+    sprintf(c2err,"%s", OUTFILE);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  printf("\n SPLITRAN SUMMARY is in %s \n", OUTFILE);
+
+  //.xyz
+  fprintf(fp, "# SPLITRAN SUMMARY for %d jobs (Avg sample size: %d +- %d) \n",
+	 NJOB_SPLITRAN, (int)NSNAVG, (int)NSNRMS );
+  fprintf(fp," \n");
+  fprintf(fp,"VARNAMES: ROW PARNAME AVG_VAL AVG_ERR RMS_VAL RMS_ERR \n" );
+
+  for ( ipar=1; ipar <= NPAR ; ipar++ ) {
+    if ( AVG_ERR[ipar] <= 0.0 ) { continue ; }
+    fprintf(fp, "ROW: %2d  %-10s  %8.3f  %8.3f  %8.3f %8.3f \n"
+	   ,ipar
+	   ,FITRESULT.PARNAME[ipar]
+	   ,AVG_VAL[ipar]
+	   ,AVG_ERR[ipar]
+	   ,RMS_VAL[ipar]
+	   ,RMS_ERR[ipar]
+	   );
+  }
+  fclose(fp);
+
+
+  /* xxxxxxx mark delete Apr 29 2019 xxxxxxxx
   printf("\n SPLITRAN SUMMARY for %d jobs (Avg sample size: %d +- %d) \n",
 	 NJOB_SPLITRAN, (int)NSNAVG, (int)NSNRMS );
-
   printf(" \n");
-
   printf("                   Average   Average    RMS      RMS   \n" );
   printf(" Param             Value     Error      Value    Error \n" );
   printf(" ------------------------------------------------------ \n");
@@ -12648,6 +12689,7 @@ void SPLITRAN_SUMMARY(void) {
   }
   printf(" ------------------------------------------------------ \n");
   fflush(stdout);
+  xxxxxxxxxxxxx end mark xxxxxxx */
 
 }  // end of SPLITRAN_SUMMARY
 

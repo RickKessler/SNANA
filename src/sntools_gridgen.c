@@ -48,6 +48,7 @@
 #include "fitsio.h"
 #include "sntools_grid.h"
 #include "snlc_sim.h"
+#include "genmag_SIMSED.h"
 
 // =============================
 //     GRID  functions 
@@ -87,9 +88,8 @@ void init0_GRIDsource(void) {
   // Jun 2013
   // Separated from init_GRIDsource, and fixed to work with SIMSED model.
   //
-  // Apr 22 2019:
-  //  for SIMSED model, hard-wire range to be 1 to NBIN.
-  //  Add check later that SIMSED parameter is an index going 1 to NBIN.
+  // Apr 28 2019:
+  //  Fix to work with SIMSED model using INDEX param.
 
   float GENRANGE_LOCAL[NPAR_GRIDGEN+1][2];
   float PMIN, PMAX;
@@ -138,7 +138,8 @@ void init0_GRIDsource(void) {
 
 
   IPAR = IPAR_GRIDGEN_SHAPEPAR;
-  if ( SNTYPE_GRIDGEN() == SNTYPE_GRIDGEN_NONIa ) {
+  // xxx mark delete  if ( SNTYPE_GRIDGEN() == SNTYPE_GRIDGEN_NONIa ) {
+  if ( INDEX_GENMODEL == MODEL_NON1ASED ) {
     GENRANGE_LOCAL[IPAR][0] = 1.0 ;  
     GENRANGE_LOCAL[IPAR][1] = (float)INPUTS.NON1ASED.NINDEX ;
     SNGRID_WRITE.NBIN[IPAR] = INPUTS.NON1ASED.NINDEX ;
@@ -152,9 +153,9 @@ void init0_GRIDsource(void) {
       PMAX = INPUTS.GENGAUSS_SIMSED[itmp].RANGE[1] ;
       NAME = INPUTS.PARNAME_SIMSED[itmp] ;	
     }
-    else {
-      // 4.22.2019: assume 1st and only param is index param
-      NBIN  = SNGRID_WRITE.NBIN[IPAR] ; // filled above
+    else {      
+      NBIN  = count_SIMSED_INFO(INPUTS.GENMODEL);
+      //  printf(" xxx %s: NBIN -> %d \n", fnam, NBIN);
       PMIN  = 1.0 ;
       PMAX  = (float)NBIN;
       NAME  = INPUTS.PARNAME_SIMSED[0] ;  
@@ -166,7 +167,7 @@ void init0_GRIDsource(void) {
     sprintf(SNGRID_WRITE.NAME[IPAR],  "%s", NAME );
   }
   else {
-    // mlcs, snoopy ...
+    // SNIa: mlcs, snoopy, ...
     GENRANGE_LOCAL[IPAR][0] = INPUTS.GENGAUSS_SHAPEPAR.RANGE[0] ;
     GENRANGE_LOCAL[IPAR][1] = INPUTS.GENGAUSS_SHAPEPAR.RANGE[1] ;
     sprintf(SNGRID_WRITE.NAME[IPAR], "%s", GENLC.SHAPEPAR_NAME);
@@ -190,14 +191,14 @@ void init0_GRIDsource(void) {
     if ( itmp > 0 ) {
       GENRANGE_LOCAL[IPAR][0]  = INPUTS.GENGAUSS_SIMSED[itmp].RANGE[0];
       GENRANGE_LOCAL[IPAR][1]  = INPUTS.GENGAUSS_SIMSED[itmp].RANGE[1];
-      sprintf(SNGRID_WRITE.NAME[IPAR],  "%s", INPUTS.PARNAME_SIMSED[itmp] );
+      sprintf(SNGRID_WRITE.NAME[IPAR], "%s", INPUTS.PARNAME_SIMSED[itmp] );
     }
     else {
       GENRANGE_LOCAL[IPAR][0]  = 0.0 ;
       GENRANGE_LOCAL[IPAR][1]  = 0.0 ;
       sprintf(SNGRID_WRITE.NAME[IPAR],  "noColor" );
     }
-	
+     
     // color law is optional to generate GRID
     itmp = INPUTS.IPAR_SIMSED_CL ;
     if ( itmp > 0 ) {
@@ -422,6 +423,9 @@ void init1_GRIDsource(void) {
 
   int   ifilt, ifilt_obs, NFILT, NBIN, i, i2 ;
   float LAM; 
+  char fnam[] = "init1_GRIDsource" ;
+
+  // -------------- BEGIN --------------
 
   NFILT = INPUTS.NFILTDEF_OBS;
   for ( ifilt=0; ifilt < NFILT; ifilt++ ) {
@@ -432,7 +436,8 @@ void init1_GRIDsource(void) {
   
   
   // transfer NON1A info here
-  if ( SNTYPE_GRIDGEN() == SNTYPE_GRIDGEN_NONIa ) {
+  // xxx mark delete  if ( SNTYPE_GRIDGEN() == SNTYPE_GRIDGEN_NONIa ) {
+  if (INDEX_GENMODEL == MODEL_NON1ASED  )  {
     NBIN = SNGRID_WRITE.NBIN[IPAR_GRIDGEN_SHAPEPAR] ;
     for ( i = 1; i <= NBIN; i++ ) { 
       i2  = INPUTS.NON1ASED.INDEX[i] ; // i = sparse index; i2=absolute
@@ -447,9 +452,17 @@ void init1_GRIDsource(void) {
       SNGRID_WRITE.NON1A_WGT[i]        = INPUTS.NON1ASED.WGT[i] ;
       SNGRID_WRITE.NON1A_MAGOFF[i]     = INPUTS.NON1ASED.MAGOFF[i] ;
       SNGRID_WRITE.NON1A_MAGSMEAR[i]   = INPUTS.NON1ASED.MAGSMEAR[i] ;
-      SNGRID_WRITE.NON1A_ITYPE_USER[i] = INPUTS.NON1ASED.SNTAG[i] ;  // Jan 2017
+      SNGRID_WRITE.NON1A_ITYPE_USER[i] = INPUTS.NON1ASED.SNTAG[i] ;  
     }
+
   }
+
+
+  if (INDEX_GENMODEL == MODEL_SIMSED  ) {
+    //    SNGRID_WRITE.NBIN[IPAR_GRIDGEN_SHAPEPAR] = SEDMODEL.NSURFACE ;
+  }
+
+
   return ;
 
 } // end of init1_GRIDsource(void) {
@@ -493,7 +506,6 @@ void gen_GRIDevent(int ilc) {
   SNGRID_WRITE.CURRENT_VALUE[IPAR] = logz ;
   GENLC.REDSHIFT_HELIO = GENLC.REDSHIFT_CMB ; // no coords to translate
 
-
   IPAR = IPAR_GRIDGEN_SHAPEPAR ; 
   indx = SNGRID_WRITE.PTR_VALUE[IPAR][ilc] ;   // ilum index
   GENLC.SHAPEPAR = SNGRID_WRITE.VALUE[IPAR][indx] ;
@@ -522,14 +534,16 @@ void gen_GRIDevent(int ilc) {
   }
   else if ( INDEX_GENMODEL == MODEL_SIMSED ) {  
 
+    GENLC.SIMSED_PARVAL[0]  = GENLC.SHAPEPAR ; 
+
     itmp = INPUTS.IPAR_SIMSED_SHAPE ;    
-    if ( itmp > 0 ) { GENLC.SIMSED_PARVAL[itmp]  = GENLC.SHAPEPAR ; }
+    if ( itmp >= 0 ) { GENLC.SIMSED_PARVAL[itmp]  = GENLC.SHAPEPAR ; }
 
     itmp = INPUTS.IPAR_SIMSED_COLOR ;
-    if ( itmp > 0 ) { GENLC.SIMSED_PARVAL[itmp]  = cpar ; }
+    if ( itmp >= 0 ) { GENLC.SIMSED_PARVAL[itmp]  = cpar ; }
 
     itmp = INPUTS.IPAR_SIMSED_CL ;    
-    if ( itmp > 0 ) { GENLC.SIMSED_PARVAL[itmp]  = claw ; }
+    if ( itmp >= 0 ) { GENLC.SIMSED_PARVAL[itmp]  = claw ; }
 
     // set flux scale for distance modulus.
     MU8  =  GENLC.DLMU ;
@@ -553,7 +567,6 @@ void gen_GRIDevent(int ilc) {
   NEP    = SNGRID_WRITE.NBIN[IPAR_GRIDGEN_TREST] ; // NEP per filter
   NEPTOT = NEWMJD = 0;
   NFILT  = INPUTS.NFILTDEF_OBS ;
-
 
   for ( iep = 1; iep <= NEP; iep++ ) {
 
@@ -1216,17 +1229,10 @@ void update_GRIDarrays(void) {
   // Oct 2010 R.Kessler
   // Update GRIDGEN arrays that get written out in append_GRIDfile().
   //
-  // Jun 19, 2012: fux bug checking magval overflows; use MAXMAG_GRIDGEN
 
-
-  int 
-    NFILT, ifilt, ifilt_obs, NEP, ep, jindx
-    ,NEPFILT[MXFILTINDX]
-    ,NTMP, I2MAGVAL, I2MAGERR, JINDX
-    ;
-
+  int NFILT, ifilt, ifilt_obs, NEP, ep, jindx, NTMP ; 
+  int I2MAGVAL, I2MAGERR, JINDX,  NEPFILT[MXFILTINDX] ;
   long int ilc;
-
   double magval, magerr, Trest ;
   char cfilt[2];
   char fnam[] = "update_GRIDarrays";
@@ -1237,7 +1243,6 @@ void update_GRIDarrays(void) {
   ilc    = GENLC.CID;
   NFILT  = SNGRID_WRITE.NBIN[IPAR_GRIDGEN_FILTER] ; 
   NEP    = SNGRID_WRITE.NBIN[IPAR_GRIDGEN_TREST] ; // NEP per filter
-
 
   // start with LC-begin markers
   SNGRID_WRITE.I2GRIDGEN_LCMAG[0] = MARK_GRIDGEN_LCBEGIN;
@@ -1260,11 +1265,10 @@ void update_GRIDarrays(void) {
     magerr   *= INPUTS.GENMODEL_ERRSCALE ;
     Trest     = GENLC.epoch8_obs[ep]/(1. + GENLC.REDSHIFT_CMB) ;
 
-
     /*
-    if ( fabs(Trest) < 1.0 && ifilt_obs == 4 && GENLC.NON1A_INDEX == 203 ) {
-      printf(" xxx %s: write magval(i,T=%.1f,ep=%d) = %.3f \n", 
-	     fnam, Trest, ep, magval ); fflush(stdout);
+    if ( fabs(Trest) < 0.1 && ifilt_obs == 5 ) {
+      printf(" xxx %s: write magval(z,T=%.1f,ep=%d) = %.3f  z=%.3f\n", 
+	     fnam, Trest, ep, magval, GENLC.REDSHIFT_CMB ); fflush(stdout);
       fflush(stdout);
     }
     */
@@ -1528,13 +1532,16 @@ void end_GRIDfile(void) {
 // ===================================
 int SNTYPE_GRIDGEN(void) {
 
+  int ISMODEL_NON1ASED = (INDEX_GENMODEL == MODEL_NON1ASED);
+  int ISMODEL_SIMSED   = (INDEX_GENMODEL == MODEL_SIMSED  );
+
   // Returns 1 for SNIa and 2 for non-Ia
 
-  if ( INDEX_GENMODEL == MODEL_NON1ASED ) {
+  if ( ISMODEL_NON1ASED || ISMODEL_SIMSED ) {
     return SNTYPE_GRIDGEN_NONIa ;
   }
   else {
-    return SNTYPE_GRIDGEN_Ia ;
+    return SNTYPE_GRIDGEN_Ia ;  // SALT2, snoopy, mlcs ...
   }
 
 

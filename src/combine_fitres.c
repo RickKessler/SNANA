@@ -25,7 +25,7 @@
 
  Option:
   >  combine_fitres.exe <fitres1> <fitres2> --outprefix <outprefix>
-    produces output files <outprefix>.hbook and  <outprefix>.txt
+    produces output files <outprefix>.hbook and  <outprefix>.text
 
   >  combine_fitres.exe <fitres1>  R      ! .ROOT extension 
   >  combine_fitres.exe <fitres1>  r      ! .root extension
@@ -41,6 +41,9 @@
 
   >  combine_fitres.exe <fitres1>  -mxrow 50000
 
+  >  combine_fitres.exe <fitres1> <fitres2> .. T   ! [outPrefix].TEXT
+  >  combine_fitres.exe <fitres1> <fitres2> .. t   ! [outPrefix].text
+      (create only text output; disable default hbook output)
 
  WARNINGS/NOTES:
  * If fitres files contain different SN, then first
@@ -49,68 +52,6 @@
 
 
                 HISTORY
-
- Feb 02, 2013
-   - remove legacy Row-wise ntuple option
-
-   - use new make_SNTABLE function that uses sntools_output.c;
-     NTUP_SHELL and WR_CWNTUP are commented out and marked
-     for deletion.
-
- Fev 24, 2013: END_HFILE  -> CLOSE_HFILE and add ROOTFILE calls.
-
- Apr 14, 2013: fix bug setting ccid in BREAK_CCIDSTRING(int ifile) 
-
- Apr 23, 2013: for repeat variable append '_2' instead of '2'.
-               Idem for '_3' instead of '3', etc ...
-
- May 1, 2013: 
-    - fix bug calling OPEN_ROOTFILE (was missing IERR arg)
-    - new optional args 'H' and 'R' to turn on HBOOK, ROOT optoin.
-      No table format -> default hbook format.
-
- Aug 28 2013: major overhaul to handle strings: CID, FIELD, etc ...
-
- Dec 21 2013: fix bug setting LEN_APPROX when 2nd file is much
-              smaller than 1st file.
-
- Jan 6 2014: in WRITE_SNTABLE, pad string variables (CID,GALID ...)
-	     with blanks instead of '\0' to pass as fortran arg.
-             Allows paw-logic such as cid='[cid]' that previously
-             did not work.
-        
- Mar 3, 2014: 
-    - MXSTRLEN_CID-> 20 (was 12)
-    - for ntuple/tree, add CIDint = atoi(CCID) to have integer represenation
-       --> allows making CID cuts and plots.
-
- Apr 26 2014:
-   replace file-type specific functions (HFILE_OPEN, ROOTFILE_OPEN)
-   with generic wrapper functions, TABLEFILE_xxx.
-   Only call wrapper functions in sntools_output.c, 
-   and NOT from sntools_output_[type].c
-
-   Change .his -> .hbook (same in split_and_fit.pl)
-
- Sep 13 2014:  H,R -> upper case extension .HBOOK/.ROOT.
-
- Sep 14, 2014: replace access to SNTOOLS_FITRES struct with
-               call to SNTABLE_GET_VARINFO(); because all the
-               fitres-read code is now in sntools_output_text.c 
-
-  Oct 17 2014: add extra call to SNTABLE_GET_VARINFO to fix bad bug.
-
-  Oct 27, 2014: used refactored file-reading. No more WRITE_FITRES
-                since WRITE_SNTABLE writes all table formats in one shot.
-
-  Dec 8 2014: 
-     in ADD_FITRES, skip duplicate FIELD. Logic is a bit clumsy,
-     so may need to be refactored. See new function SKIP_VARNAME().
-
-     On CID, add CCID in addition to existing CIDint.
-     --> CCID must exist in the hbook/table file.
-
-  Feb 15 2015: MXSN -> 2 million (was 1 million)
  
   Mar 31 2016: MXFILE -> 20 ( was 10)
 
@@ -123,6 +64,8 @@
     make VARNAME_1ONLY list of SNANA variables to include only once. 
     Also check for first SNANA file (IFILE_FIRST_SNANA) in case 
     first file was not made by SNANA.
+
+  Apr 29 019: option T or t for text-only (no hbook)
 
 ******************************/
 
@@ -176,8 +119,8 @@ void  freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN);
 
 #define IVARSTR_CCID  1   // CCID index for CVAR_XXX arrays
 
-
-int USEFILE_HBOOK, USEFILE_ROOT, USEFILE_TEXT ;
+// logicals to control which output files to create
+int CREATEFILE_HBOOK, CREATEFILE_ROOT, CREATEFILE_TEXT ;
 
 // cast for each variable; negative -> do not write
 // See ICAST_FITRES[D,F,I,C] parameters in sntools.h
@@ -259,15 +202,15 @@ int main(int argc, char **argv) {
   // set default output to hbook if both root and hbook are compiled
   // (specified by order of inits below)
 #ifdef USE_ROOT  
-  USEFILE_ROOT = 1 ;  USEFILE_HBOOK = 0 ;
+  CREATEFILE_ROOT = 1 ;  CREATEFILE_HBOOK = 0 ;
 #endif
 
 #ifdef USE_HBOOK
-  USEFILE_ROOT = 0 ;  USEFILE_HBOOK = 1 ;
+  CREATEFILE_ROOT = 0 ;  CREATEFILE_HBOOK = 1 ;
 #endif
 
 #ifdef USE_TEXT
-  USEFILE_TEXT = 1;
+  CREATEFILE_TEXT = 1;
 #endif
 
   PARSE_ARGV(argc,argv);
@@ -319,6 +262,10 @@ void  PARSE_ARGV(int argc, char **argv) {
       i++ ; sprintf(OUTPREFIX_COMBINE,"%s", argv[i]);
       continue ;
     }
+    if ( strcmp(argv[i],"-outPrefix") == 0 ) { // allow Fermi-spell
+      i++ ; sprintf(OUTPREFIX_COMBINE,"%s", argv[i]);
+      continue ;
+    }
 
     if ( strcmp(argv[i],"-mxrow") == 0 ) {
       i++ ; sscanf(argv[i], "%d", &MXROW_READ);
@@ -326,15 +273,21 @@ void  PARSE_ARGV(int argc, char **argv) {
     }
 
     if ( strcmp_ignoreCase(argv[i],"r") == 0 ) { 
-      USEFILE_ROOT = 1;  
-      if ( USEFILE_HBOOK == 1 ) { USEFILE_HBOOK = 0 ; }  // root on, hbook off
+      CREATEFILE_ROOT = 1;  
+      if (CREATEFILE_HBOOK==1) {CREATEFILE_HBOOK=0;}  // root on, hbook off
       if ( strcmp(argv[i],"R")==0 ) { ptrSuffix_root = SUFFIX_ROOT ; }
       continue ;
     }
 
     if ( strcmp_ignoreCase(argv[i],"h") == 0 ) { 
-      USEFILE_HBOOK = 2 ;  // turn hbook back on and leave it on
+      CREATEFILE_HBOOK = 2 ;  // turn hbook back on and leave it on
       if ( strcmp(argv[i],"H")==0) { ptrSuffix_hbook = SUFFIX_HBOOK ; }
+      continue ;
+    }
+
+    if ( strcmp_ignoreCase(argv[i],"t") == 0 ) { 
+      CREATEFILE_HBOOK = 0 ; 
+      if ( strcmp(argv[i],"T")==0) { ptrSuffix_text = SUFFIX_TEXT ; }
       continue ;
     }
 
@@ -352,7 +305,7 @@ void  PARSE_ARGV(int argc, char **argv) {
   // idiot checks for file type
 
 #ifndef USE_ROOT
-  if ( USEFILE_ROOT ) {
+  if ( CREATEFILE_ROOT ) {
     sprintf(c1err, "Cannot create output ROOT file because");
     sprintf(c2err, "'#define ROOT' is not set in sntools_output.h");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -361,7 +314,7 @@ void  PARSE_ARGV(int argc, char **argv) {
 
 
 #ifndef USE_HBOOK
-  if ( USEFILE_HBOOK ) {
+  if ( CREATEFILE_HBOOK ) {
     sprintf(c1err, "Cannot create output HBOOK file because");
     sprintf(c2err, "'#define HBOOK' is not set in sntools_output.h");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -400,8 +353,12 @@ void ADD_FITRES(int ifile) {
   // Oct 27, 2014: use refactored SNTABLE_XXX functions.
   //               Beware that READTABLE_POINTERS uses C-like index from 0.
   //
-  // Dec 1 2017: use new function SNTABLE_NEVT_APPROX_TEXT to check for .gz file.
+  // Dec 1 2017: 
+  //   + use new function SNTABLE_NEVT_APPROX_TEXT to check for .gz file.
   //
+  // May 2 2019: 
+  //   + remove redundant call to TABLEFILE_CLOSE
+
   int 
     ivar, IVARTOT, IVARSTR, ivartot, ivarstr, j
     ,isn, isn2,  ISN, ICID, ICAST, LTMP, IGNORE
@@ -544,9 +501,12 @@ void ADD_FITRES(int ifile) {
   } // end of ivar loop
 
 
-  // read everything.
+  // read everything and close file.
   NLIST = SNTABLE_READ_EXEC();
-  TABLEFILE_CLOSE(FFILE_INPUT[ifile]);
+
+  /* xxxxxxxxx mark delete May 2 2019 xxxxxxxxxxxxx
+  // xxx redundant  TABLEFILE_CLOSE(FFILE_INPUT[ifile]);
+  xxxxxxxx */
 
   if ( ifile == 1 ) { NLIST_FIRST_FITRES  = NLIST ; }
 
@@ -865,7 +825,7 @@ void WRITE_SNTABLE(void) {
   sprintf(OUTFILE[NOUT],"");
 
 #ifdef USE_HBOOK
-  if (USEFILE_HBOOK)  { 
+  if (CREATEFILE_HBOOK)  { 
     sprintf(OUTFILE[NOUT], "%s.%s", OUTPREFIX_COMBINE, ptrSuffix_hbook );  
     sprintf(openOpt,"%s new", ptrSuffix_hbook);
     IFILETYPE = TABLEFILE_OPEN(OUTFILE[NOUT],openOpt);
@@ -875,7 +835,7 @@ void WRITE_SNTABLE(void) {
 
 
 #ifdef USE_ROOT
-  if ( USEFILE_ROOT )  { 
+  if ( CREATEFILE_ROOT )  { 
     sprintf(OUTFILE[NOUT], "%s.%s", OUTPREFIX_COMBINE, ptrSuffix_root ); 
     sprintf(openOpt,"%s new", ptrSuffix_root);
     IFILETYPE = TABLEFILE_OPEN(OUTFILE[NOUT],openOpt);
@@ -885,7 +845,7 @@ void WRITE_SNTABLE(void) {
 
 
 #ifdef USE_TEXT
-  if ( USEFILE_TEXT )  { 
+  if ( CREATEFILE_TEXT )  { 
     sprintf(OUTFILE[NOUT], "%s.%s", OUTPREFIX_COMBINE, ptrSuffix_text ); 
     sprintf(openOpt,"%s new", ptrSuffix_text);
     //    IFILETYPE = TABLEFILE_OPEN(OUTPREFIX_COMBINE,openOpt);
@@ -981,7 +941,7 @@ void WRITE_SNTABLE(void) {
 	  }
 	}
 
-	if ( USEFILE_HBOOK ) 
+	if ( CREATEFILE_HBOOK ) 
 	  { remove_string_termination(ptrSTR, MXSTRLEN); }
 
       }
@@ -1006,9 +966,10 @@ void WRITE_SNTABLE(void) {
 void  ADD_SNTABLE_COMMENTS(void) {
 
   // Call STORE_TABLEFILE_COMMENT(comment)
+  // May 2 2019: [120] -> [MXPATHLEN]
 
   int ifile ;
-  char comment[120];
+  char comment[MXPATHLEN];
 
   // ------------ BEGIN ------------
   sprintf(comment,"Created by combine_fitres.exe");

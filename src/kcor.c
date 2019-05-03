@@ -128,6 +128,9 @@
    + fix wr_fits_PRIMARY(fp) for unused primary refs so that
      Astropy and fv don't choke on blank string or undefined flux.
 
+ Apr 28 2019:
+   + new debug input SN_SED_POWERLAW -> flux(SN) = (lam/5000)^POWERLAW.
+    
 ****************************************************/
 
 #include <stdio.h>   
@@ -303,6 +306,7 @@ int rd_input(void) {
 
   sprintf(INPUTS.inFile_snsed,        "NULL" );
   sprintf(INPUTS.inFile_snsed_fudge,  "NULL" );
+  INPUTS.snsed_powerlaw = -99.0;
 
   sprintf(INPUTS.inFile_spectrograph,    "NULL" );
   sprintf(INPUTS.stringOpt_spectrograph, "NULL" );
@@ -371,6 +375,10 @@ int rd_input(void) {
     if ( strcmp(c_get,"SN_SED:")==0 )  {
       readchar ( fp_input, INPUTS.inFile_snsed );
     }  
+    if ( strcmp(c_get,"SN_SED_POWERLAW:")==0 )  {
+      readdouble ( fp_input, 1, &INPUTS.snsed_powerlaw );
+    }  
+
     if ( strcmp(c_get,"SN_SED_FUDGE:")==0 )  {
       readchar ( fp_input, INPUTS.inFile_snsed_fudge );
     }  
@@ -1111,7 +1119,6 @@ void kcor_input_override(int OPT) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.DUMP_SNMAG ); 
     }
 
-
     if ( strcmp( ARGV_LIST[i], "SKIPKCOR" ) == 0 ) 
       { INPUTS.SKIPKCOR = 1; USE_ARGV_LIST[i] = 1; }
 
@@ -1125,6 +1132,10 @@ void kcor_input_override(int OPT) {
 
     if ( strcmp( ARGV_LIST[i], "SN_SED" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.inFile_snsed ); 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SN_SED_POWERLAW" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.snsed_powerlaw ); 
     }
 
     // ----------
@@ -2045,7 +2056,7 @@ int rd_filter ( int ifilt ) {
 
    // May 2014: get average lambda bin for SUMTOT (for internal check only)
    dlam = FILTER[ifilt].LAMBDA[NBIN] - FILTER[ifilt].LAMBDA[1];
-   dlam /= (float)NBIN ;
+   dlam /= (double)NBIN ;
 
    FILTER[ifilt].LAMAVG = wtsum / tsum ;
    FILTER[ifilt].SUMTOT = dlam * tsum ; // check later that filter covers SED
@@ -2217,6 +2228,7 @@ int rd_snsed ( void ) {
 
    FILE *fp;
 
+   double POWERLAW = INPUTS.snsed_powerlaw; 
    double
      day, dayoff, daymin, daymax
      ,DAYrange[2], LAMrange[2], DAYREAD[MXEP], LAMREAD[MXLAM_SN]
@@ -2300,10 +2312,14 @@ int rd_snsed ( void ) {
      day     = *(DAYREAD+iep0);
      lam     = *(LAMREAD+ilam0);
 
-     if ( flux == 0.0 ) flux = FMIN;  // avoid zero flux
+     // check debug option to force power-law SN-vs-lam flux
+     if ( POWERLAW > -90.0 ) 
+       { flux = 1.0E-10 * pow( (lam/5000.) , POWERLAW ); }
+     
+
+     if ( flux == 0.0 ) { flux = FMIN; }  // avoid zero flux
 
      // check for optional flux-fudge
-
      flux  *= GET_SNSED_FUDGE(lam);
 
      flux_converter(lam, flux, &fnu, &fcount ); // returns fnu & fcount
@@ -2313,9 +2329,9 @@ int rd_snsed ( void ) {
        { dayoff = INPUTS.TREF_EXPLODE ; }
 
      SNSED.EPOCH[iep1]             = day + dayoff ;
-     SNSED.LAMBDA[iep1][ilam1]     = lam ;   // A
+     SNSED.LAMBDA[iep1][ilam1]     = lam ;     // A
      SNSED.FLUX_WAVE[iep1][ilam1]  = flux ;    // erg/s/cm^2/A         
-     SNSED.FLUX_NU[iep1][ilam1]    = fnu  ;     // erg/s/cm^2/Hz
+     SNSED.FLUX_NU[iep1][ilam1]    = fnu  ;    // erg/s/cm^2/Hz
 
    } // end of jflux loop
 
@@ -2360,8 +2376,8 @@ int rd_snsed ( void ) {
      for ( ilam=1; ilam <= SNSED.NBIN_LAMBDA; ilam++ ) {
 
 	lam = SNSED.LAMBDA[iep][ilam] ;
-	if ( lam < LAMMIN ) continue ;
-	if ( lam > LAMMAX ) continue ;
+	if ( lam < LAMMIN ) { continue ; }
+	if ( lam > LAMMAX ) { continue ; }
 
 	// fetch info for this lambda bin
 	magflux_info( 0, ifilt, ilam, iep, 
@@ -2370,7 +2386,7 @@ int rd_snsed ( void ) {
 	trans  = filter_trans8 ( lam, ifilt, 0);
 	 
 	 if ( trans > 0.0 ) 
-	   FILTER[ifilt].SSUM_SN  += trans * wfilt ;
+	   { FILTER[ifilt].SSUM_SN  += (trans * wfilt); }
 	 
       }   // end of ilam loop
 
@@ -2475,9 +2491,7 @@ int index_primary( char *name) {
   
   for ( iprim = 1; iprim <= INPUTS.NPRIMARY ; iprim++ ) {
     cptr = INPUTS.name_PRIMARY[iprim];
-    if ( strcmp(name,cptr) == 0 ) {
-      return(iprim) ;
-    }
+    if ( strcmp(name,cptr) == 0 ) { return(iprim) ;  }
   }
 
 
@@ -2662,8 +2676,6 @@ double GET_SNSED_FUDGE(double lam) {
   char fnam[] = "GET_SNSED_FUDGE";
 
   // ------------ BEGIN -----------
-
-
 
   if ( lam == 0.0 ) {
 
@@ -3190,15 +3202,14 @@ void kcor_eval(int opt                // (I) K cor option ("E" or "N")
 	 flux_sn_obs  = snflux8 ( epoch, LAM, redshift, av ); 
 	 conv_sn_obs += flux_sn_obs * trans_obs * LAM ;
 
-	 if ( flux_sn_obs == NULLVAL ) return ;
+	 if ( flux_sn_obs == NULLVAL ) { return ; }
 
 	 // get info needed for observed mag
 	 
-	 if ( FLAG_MAGOBS == 0 ) continue ;
+	 if ( FLAG_MAGOBS == 0 ) { continue ; }
 
 	 // get observed "flux"
 	 flux_converter( LAM, flux_sn_obs, &flux, &fcount ); 
-
 
 	 // get integration weight "wflux" for this filter
 	 magflux_info( 1, ifilt_obs, ilam_sn, iepoch, 
@@ -3390,11 +3401,11 @@ double snflux8 ( double epoch, double lambda, double redshift, double av ) {
 
 
    if ( ilambda <= 1 )
-     ilam1 = 1 ;      // watch lower boundary 
+     { ilam1 = 1 ; }      // watch lower boundary 
    else if ( ilambda >= SNSED.NBIN_LAMBDA ) 
-      ilam1 = SNSED.NBIN_LAMBDA - 2 ;
+     { ilam1 = SNSED.NBIN_LAMBDA - 2 ; }
    else
-      ilam1 = ilambda - 1 ;
+     { ilam1 = ilambda - 1 ; }
 
 
    // generate flux vs. lambda triplet to use for interpolation 
@@ -3411,9 +3422,9 @@ double snflux8 ( double epoch, double lambda, double redshift, double av ) {
    */
 
    if ( a_flux[2] == 0.0 ) 
-     renorm = 1.0 ;
+     { renorm = 1.0 ; }
    else 
-     renorm = a_flux[2] ;
+     { renorm = a_flux[2] ; }
 
    a_fnorm[1] = a_flux[1]/renorm ;
    a_fnorm[2] = a_flux[2]/renorm ;
@@ -3424,25 +3435,12 @@ double snflux8 ( double epoch, double lambda, double redshift, double av ) {
 
    dum = fabs(a_lam[2] - LAMZ);  // abs -> fabs (Feb 20 2014)
    if ( dum > binsize ) {
-
      return (double)NULLVAL ;
-
-     /***
-      sprintf(c1err,"a_lam = %5.0f %5.0f %5.0f, but lambda/(1+z)=%5.0f .",
-               a_lam[1], a_lam[2], a_lam[3], LAMZ);
-
-      sprintf(c2err,"epoch = %4.1f, lambda=%6.0f, ilam=%d, redshfit = %4.2f .", 
-            epoch, lambda, ilambda, redshift );
-
-      errmsg(SEV_FATAL, 0, "snflux8", c1err, c2err);       
-     ***/
    }
+
 
    // do the interpolation 
 
-
-
-   //   flux_old = interp8 ( OPT_INTERP_SNFLUX, a_lam, a_fnorm, LAMZ );
    flux = interp_1DFUN ( OPT_INTERP_SNFLUX, LAMZ, NLAMBIN_INTERP, 
 			  &a_lam[1], &a_fnorm[1], "SNFLUX" );
    flux *= renorm ;
@@ -3737,28 +3735,14 @@ int snmag ( void ) {
 
   int ifilt, iepoch, ilam, iepoch_peak, iepoch_15day ;
 
-   double 
-     epoch
-     , epoch_peak, epoch_15day
-     , near_peak, near_15day
-     , arg
-     , lam
-     , trans
-     , flux     
-     , fluxsum_sn
-     , filtsum
-     , filtsum_check
-     , filter_check
-     , zp
-     , mag
-     , wflux, wfilt
-     , zero = 0.0
-     , LAMMIN, LAMMAX
-     , dm15, mag15
-     ;
-
-   double TPEAK = 0.0;
-   double T15DAY = 15.0;
+  double epoch, epoch_peak, epoch_15day, near_peak, near_15day ;
+  double arg, lam, trans, flux,  fluxsum_sn, filtsum ;
+  double filtsum_check, filter_check, zp, mag, wflux, wfilt ;
+  double LAMMIN, LAMMAX, LAMAVG, dm15, mag15, FTMP ;
+  double zero = 0.0 ;
+  double TPEAK  = 0.0;
+  double T15DAY = 15.0;
+  char fnam[] = "snmag";
 
   /* ------------------- BEGIN --------------------- */
 
@@ -3778,21 +3762,21 @@ int snmag ( void ) {
      filtsum = FILTER[ifilt].SSUM_SN ; 
      LAMMIN  = FILTER[ifilt].LAMBDA_MIN ;
      LAMMAX  = FILTER[ifilt].LAMBDA_MAX ;
+     LAMAVG  = FILTER[ifilt].LAMAVG;   
 
      near_peak   = 9999. ; // Trest nearest peak
      near_15day  = 9999. ; //
 
-
      for ( iepoch=1; iepoch<=SNSED.NEPOCH; iepoch++ ) {
 
-       fluxsum_sn  = 0.0;
+       fluxsum_sn     = 0.0;
        filtsum_check  = 0.0 ;
 
        for ( ilam=1; ilam  <= SNSED.NBIN_LAMBDA; ilam++ ) {
 
-	 lam = SNSED.LAMBDA[iepoch][ilam];
-	 if ( lam < LAMMIN ) continue ;
-	 if ( lam > LAMMAX ) continue ;
+	 lam = SNSED.LAMBDA[iepoch][ilam] ;
+	 if ( lam < LAMMIN ) { continue ; }
+	 if ( lam > LAMMAX ) { continue ; }
 
 	 // get info for this labmda bin
 
@@ -3801,9 +3785,16 @@ int snmag ( void ) {
 
 	 trans  = filter_trans8 ( lam, ifilt, 0 );
 
-	 if ( trans > 0.0 ) {
-	   fluxsum_sn     += trans * wflux * flux  ;
-	   filtsum_check  += trans * SNSED.LAMBDA_BINSIZE ; // for check
+	 /* xxxxxxxxxxxxxxxxx
+	 if ( iepoch==10 ) {
+	   printf(" xxx ifilt=%d  lam=%.1f  flux=%10.3le trans=%.4f \n",
+		  ifilt, lam, flux, trans); fflush(stdout);
+	 }
+	 xxxxxxxxx */
+
+	 if ( trans > 1.0E-20 ) {
+	   fluxsum_sn     += (trans * wflux * flux)  ;
+	   filtsum_check  += (trans * SNSED.LAMBDA_BINSIZE) ;
 	 }
 
        }  // end of ilam loop
@@ -3824,7 +3815,6 @@ int snmag ( void ) {
 	 { mag = 0.0; }
 
        filter_check = filtsum_check/FILTER[ifilt].SUMTOT - 1.0;
-
 
        if ( fabs(filter_check) > 0.2  ) { mag = 666.0; }
 
@@ -3878,7 +3868,7 @@ int snmag ( void ) {
      mag15 = SNSED.MAG_RST[iepoch_15day][ifilt] ;
      dm15  = mag15 - mag;
 
-     printf("SNMAG:   %-20.20s (%6s) %8.3f  %8.3f"
+     printf("SNMAG:   %-20.20s (%6s) %8.4f  %8.3f"
 	    ,FILTER[ifilt].name
 	    ,FILTER[ifilt].MAGSYSTEM_NAME
 	    ,mag, dm15
@@ -3953,8 +3943,8 @@ int primarymag ( int iprim ) {
        
 	lam = PRIMARYSED[iprim].LAMBDA[ilam] ;
 
-	if ( lam < LAMMIN ) continue ;
-	if ( lam > LAMMAX ) continue ;
+	if ( lam < LAMMIN ) { continue ; }
+	if ( lam > LAMMAX ) { continue ; }
 
 	// fetch info for this lambda bin
 	magflux_info( iprim, ifilt, ilam, 0, 
@@ -3963,8 +3953,8 @@ int primarymag ( int iprim ) {
 	trans  = filter_trans8 ( lam, ifilt, idump );
 	 
 	 if ( trans > 0.0 ) {
-	   fluxsum[ifilt]  += trans * wflux * flux ;
-	   filtsum[ifilt]  += trans * wfilt ;
+	   fluxsum[ifilt]  += (trans * wflux * flux) ;
+	   filtsum[ifilt]  += (trans * wfilt) ;
 	 }
       }   // end of ilam loop
 
@@ -4090,10 +4080,10 @@ void magflux_info(
 
   // get generic binning info 
 
-  lam1     = lam - 0.5 * dlam;
-  lam2     = lam + 0.5 * dlam;
+  lam1     = lam - 0.5 * dlam ;
+  lam2     = lam + 0.5 * dlam ;
   nu       = LIGHT_A / lam ;
-  dnu      = LIGHT_A * ( 1.0/lam1 - 1.0/lam2);
+  dnu      = LIGHT_A * (1.0/lam1 - 1.0/lam2);
 
   INDX = FILTER[ifilt].MAGSYSTEM_INDX ;
 
@@ -4101,9 +4091,9 @@ void magflux_info(
   *wfilt = dnu / ( PLANCK * nu ) ;
 
   if ( iepoch == 0 ) 
-    *flux   = PRIMARYSED[iprim].FLUX_NU[ilam];    // erg/s/cm&2/Hz
+    { *flux = PRIMARYSED[iprim].FLUX_NU[ilam]; }    // erg/s/cm&2/Hz
   else
-    *flux   = SNSED.FLUX_NU[iepoch][ilam];      // erg/s/cm^2/Hz
+    { *flux = SNSED.FLUX_NU[iepoch][ilam]; }     // erg/s/cm^2/Hz
 
 
 }  // end of magsum_weights

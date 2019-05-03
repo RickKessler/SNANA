@@ -30,4 +30,6 @@ void shift_NON1A_DAY(void);
 // global var
 #define  ISED_NON1A  1
 #define  MODELNAME_NON1ASED  "NON1ASED" 
+
 double   FLUXSCALE_NON1ASED ;
+double   RESTLAMBDA_RANGE_NON1ASED[2]; 

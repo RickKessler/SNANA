@@ -11,9 +11,10 @@
      -inFile_data   <inFile_data>
      -inFile_MLpar  <inFile_MLpar>  !formatted output of nearnbr_maxFoM.exe
      -outFile       <file>
-
-     -nchop   <nchop>   ! default=15
-     -nproc   <nproc>   ! default=all
+    
+     -varName_prob <varName>  ! default = NN_PROB_IA
+     -nchop         <nchop>   ! default = 15
+     -nproc         <nproc>   ! Num events to process; default=0=all
 
 
   Feb 7 2017: 
@@ -44,7 +45,8 @@ struct {
   char inFile_data[MXCHAR_FILENAME];
   char inFile_MLpar[MXCHAR_FILENAME];
   char outFile[MXCHAR_FILENAME];
-
+  char varName_prob[60];   // name of output colum with SNIa prob
+  
   int  NCHOP, NPROC;
   int  WFALSE;
 } INPUTS ;
@@ -150,6 +152,7 @@ void parse_args(int NARG, char **argv) {
 
   INPUTS.inFile_data[0]  = 0 ;
   INPUTS.inFile_MLpar[0] = 0 ;
+  sprintf(INPUTS.varName_prob,"NN_PROB_IA");
   sprintf(INPUTS.outFile, "out_NNresults.text" );
   INPUTS.WFALSE = 1 ;
   INPUTS.NCHOP  = 15 ;
@@ -171,6 +174,9 @@ void parse_args(int NARG, char **argv) {
 
     if ( strcmp_ignoreCase(argv[i],"-outFile") == 0 ) 
       { sscanf(argv[i+1], "%s", INPUTS.outFile) ; }
+
+    if ( strcmp_ignoreCase(argv[i],"-varName_prob") == 0 ) 
+      { sscanf(argv[i+1], "%s", INPUTS.varName_prob) ; }
 
     if ( strcmp_ignoreCase(argv[i],"-nchop") == 0 ) 
       { sscanf(argv[i+1], "%d", &INPUTS.NCHOP) ; }
@@ -392,6 +398,7 @@ void  open_outFile(void) {
 
   char BLOCK[] = "NEARNBR" ;
   char textFormat[] = "key" ;
+  char varDef[60];
   int USE4TEXT = 1; 
   //  char fnam[]  = "open_outFile";
 
@@ -416,8 +423,9 @@ void  open_outFile(void) {
   SNTABLE_ADDCOL(OUT_TABLEID, BLOCK, &NNRESULTS.NCELL,
 		 "NN_NCELL:I",  USE4TEXT );
 
+  sprintf(varDef, "%s:F", INPUTS.varName_prob);
   SNTABLE_ADDCOL(OUT_TABLEID, BLOCK, &NNRESULTS.PROB_IA,
-		 "NN_PROB_IA:F",  USE4TEXT );
+		 varDef, USE4TEXT );
 
   return;
 

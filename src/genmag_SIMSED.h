@@ -49,6 +49,7 @@ int  init_genmag_SIMSED(char *version, char *PATH_BINARY, char *SURVEY,
 
 int read_SIMSED_INFO(char *PATHMODEL );
 int read_simsed_info__(char *PATHMODEL );
+int count_SIMSED_INFO(char *PATHMODEL);
 
 void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin, 
 		      int RDFLAG_BINARY, int WRFLAG_BINARY );

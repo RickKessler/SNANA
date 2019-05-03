@@ -67,10 +67,11 @@ struct INPUTS {
   char inFile_snsed[200];        // (I) name of file with SN templates 
   char inFile_snsed_fudge[200];  // (I) name of file with SED fudges
   char inFile_PRIMARY[MXPRIMARY][200];      // file name of primary ref
-
+  
   char inFile_spectrograph[200];     // name of spectrograph table (July 2016)
   char stringOpt_spectrograph[40];   // options in () after fileName
 
+  double snsed_powerlaw ;             // override inFile_snsed (4/2019)
   char name_PRIMARY[MXPRIMARY][60];  // user-defined name of primary ref
   int  NPRIMARY ;                    // number of defined primary refs
 

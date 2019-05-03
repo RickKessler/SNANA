@@ -164,7 +164,7 @@ extern"C" {
 
 
 // globals
-#define HBOOK_MEM  1000000
+#define HBOOK_MEM  500000
 struct pawC  { float hmem[HBOOK_MEM];  } pawc_ ;
 //struct Quest { int   iquest[100]; } quest_ ;
 
@@ -1452,8 +1452,8 @@ void SNHIST_RDCONT_HBOOK(int NDIM, int ID, int NRDBIN, double *CONTENTS) {
 // --------------------------------------------------
 void MAKEDIR_HBOOK(char *CCID, int CID) {
 
-  // Oct 24 2017:  CID< 1000000 -> CID <= 999999
-  //       to avoid install script from replacing 1000000 with 500000
+  // Oct 24 2017:  CID< 500000 -> CID <= 999999
+  //       to avoid install script from replacing 500000 with 500000
   //                   
   int  NFIT, IFIT ;
   char sdir[60];

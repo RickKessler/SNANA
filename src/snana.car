@@ -882,7 +882,6 @@ c
      &  ,ISNLC_IDTEL(MXEPOCH)   ! integer telescope id      
      &  ,ISNLC_IDFIELD(MXEPOCH) ! integer field id      
      &  ,ISNLC_NFIELD_OVP       ! number of fields (>=2 for overlap)
-     &  ,ISNLC_CUTFLAG_MULTISEASON  ! 0->reject, 1->accept
      &  ,ISNLC_CUTFLAG_REQEP        ! idem
      &  ,ISNLC_CUTFLAG_PRIVATE      ! idem for private var cuts
      &  ,ISNLC_CUTFLAG_USRCUTS      ! idem for USRCUTS
@@ -975,14 +974,14 @@ c
      &  ,SNLC_TLIVE_DETECT     ! MJD(last detection) - MJD(1st detection)
 
       INTEGER 
-     &   MULTISEASON_NTOT    ! total number of seasons
-     &  ,MULTISEASON_NLC     ! total number of seasons with LC activity
-      REAL 
+     &   NSEASON_TOT     ! total number of seasons
+     &  ,NSEASON_ACTIVE  ! total number of active seasons
+
+      REAL*4
      &   MULTISEASON_CHI2RED(MXSEASON) ! borrow another 'MX' param
-     &  ,MULTISEASON_CHI2RED_SORTED(MXSEASON)
+     &  ,MULTISEASON_AVGFLUX(MXSEASON)
      &  ,MULTISEASON_MJDMIN(MXSEASON)
      &  ,MULTISEASON_MJDMAX(MXSEASON)
-     &  ,MULTISEASON_AVGFLUX(MXSEASON)
 
       CHARACTER
      &   SNLC_CCID*(MXCHAR_CCID)      ! char CID 
@@ -1049,7 +1048,7 @@ c
      &    ,ISNLC_NFILT_TRESTMIN, ISNLC_NFILT_TRESTMAX
      &    ,ISNLC_NFILT_TREST2
      &    ,ISNLC_IDTEL, ISNLC_IDFIELD, ISNLC_NFIELD_OVP
-     &    ,ISNLC_CUTFLAG_MULTISEASON, ISNLC_CUTFLAG_REQEP
+     &    ,ISNLC_CUTFLAG_REQEP
      &    ,ISNLC_CUTFLAG_PRIVATE, ISNLC_CUTFLAG_USRCUTS
      &    ,ISNLC_CUTFLAG_SIMVAR
      &    ,ISNLC_WRMASK_FLUXCOR_SNANA, ISNLC_RDMASK_FLUXCOR_SNANA
@@ -1081,12 +1080,9 @@ c pointer for calls to SNTABLE_ADDCOL.
 
 
 c - - - -- MULTI-SEASON STUFF - - - -
-      COMMON / MULTISEASONCOM /  
-     &   MULTISEASON_NTOT, MULTISEASON_NLC
-     &  ,MULTISEASON_CHI2RED, MULTISEASON_CHI2RED_SORTED
+      COMMON / MULTISEASONCOM / NSEASON_TOT, NSEASON_ACTIVE
+     &  ,MULTISEASON_CHI2RED, MULTISEASON_AVGFLUX
      &  ,MULTISEASON_MJDMIN,  MULTISEASON_MJDMAX
-     &  ,MULTISEASON_AVGFLUX
-
 
 +KEEP,SPECCOM.
 c  Apr 2019
@@ -1618,7 +1614,7 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_SNRMAX2        ! 2nd global SNRMAX cut; any filter(s)
      &  ,CUTBIT_NFIELD         ! cut on number of fields used by SN
      &  ,CUTBIT_MWEBV          ! cut on Galactic extinct (May 8 2012)
-     &  ,CUTBIT_MULTISEASON    ! multi-season activity (Oct 31 2014)
+     &  ,CUTBIT_NSEASON_ACTIVE ! Nseason with activity
      &  ,CUTBIT_REQEP          ! required epochs (to select short events)
      &  ,CUTBIT_PRIVATE        ! all private-var cuts together (Nov 3 2014)
      &  ,CUTBIT_SIMVAR         ! SIMVAR cuts
@@ -1669,7 +1665,7 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_SNRMAX2        = 26
      &  ,CUTBIT_NFIELD         = 27
      &  ,CUTBIT_MWEBV          = 28  ! May 2012
-     &  ,CUTBIT_MULTISEASON    = 29  ! multi-season activity (Oct 31 2014)
+     &  ,CUTBIT_NSEASON_ACTIVE = 29  ! May 2019
      &  ,CUTBIT_REQEP          = 30  ! required epochs (9/17/2017)
      &  ,CUTBIT_PRIVATE        = 31  ! all private-var cuts
      &  ,CUTBIT_SIMVAR        = 32  ! 
@@ -1772,7 +1768,7 @@ c define namelist cuts
      &  ,cutwin_snrmax2(2)       ! 2nd global SNRMAX cut
      &  ,cutwin_nfield(2)        ! number of fields (usually 1)
      &  ,cutwin_mwebv(2)         ! Galactic extinction
-     &  ,cutwin_cutflag_multiseason(2) ! for internal use only
+     &  ,cutwin_nseason_active(2) 
      &  ,cutwin_cutflag_reqep(2)       ! for internal use only
      &  ,cutwin_cutflag_private(2)     ! for internal use only
      &  ,cutwin_cutflag_simvar(2)      ! for internal use only
@@ -1960,7 +1956,7 @@ ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
      &   ,( cutwin_var(1,cutbit_snrmax2),       cutwin_snrmax2  )
      &   ,( cutwin_var(1,cutbit_nfield),        cutwin_nfield  )
      &   ,( cutwin_var(1,cutbit_mwebv),         cutwin_mwebv  )
-     &   ,( cutwin_var(1,cutbit_multiseason),cutwin_cutflag_multiseason)
+     &   ,( cutwin_var(1,cutbit_nseason_active),cutwin_nseason_active)
      &   ,( cutwin_var(1,cutbit_reqep),        cutwin_cutflag_reqep)
      &   ,( cutwin_var(1,cutbit_private),      cutwin_cutflag_private)
      &   ,( cutwin_var(1,cutbit_simvar),       cutwin_cutflag_simvar)
@@ -2095,12 +2091,9 @@ c Oct 2014: variables to check for multi-season transient activity
       INTEGER  
      &   MULTISEASON_OPTMASK      ! option(s) for GET_MULTISEASON
       REAL
-     &   MULTISEASON_TGAP             ! new season if time-gap > this
-     &  ,MULTISEASON_NREJECT_OUTLIER  ! number of outliers to reject per season
-     &  ,CUTWIN_MULTISEASON_CHI2RED(2,MXSEASON)
-           ! CHI2RED>10 in first 2 seasons -->  10,999999,  10,999999
-           ! CHI2RED>10 in Y1 and <5 in Y2 -->  10,99999,   0,5
-     &  ,MULTISEASON_NREQUIRE   ! Nseason with CHI2RED cut defined above
+     &   MULTISEASON_TGAP              ! new season if time-gap > this
+     &  ,MULTISEASON_NREJECT_OUTLIER   ! num outliers to reject per season
+     &  ,MULTISEASON_CHI2RED_ACTIVE    ! min chi2red for active season
 
       REAL  
      &   SIM_PRESCALE        ! pre-scale applied only to SIM
@@ -2159,10 +2152,9 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , NSIMVAR_CUTWIN, SIMVAR_CUTWIN, SIMVAR_CUTWIN_LIST
      &    , EARLYLC_STRING, REQUIRE_EPOCHS_STRING, DUMP_STRING
      &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT, DTOBS_MODEL_PLOT
-     &    , MULTISEASON_OPTMASK,MULTISEASON_TGAP
-     &    , MULTISEASON_NREJECT_OUTLIER, PHOTFLAG_DETECT
-     &    , APPLY_FLUXCOR_BUG
-     &    , CUTWIN_MULTISEASON_CHI2RED, MULTISEASON_NREQUIRE 
+     &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP
+     &    , MULTISEASON_NREJECT_OUTLIER, MULTISEASON_CHI2RED_ACTIVE
+     &    , APPLY_FLUXCOR_BUG, PHOTFLAG_DETECT
      &    , CUTWIN_ZPADU, CUTWIN_ZPNPE
 
       COMMON / SNLCINP8 /
@@ -2196,10 +2188,9 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , H0_REF, OLAM_REF, OMAT_REF, W0_REF, DWDA_REF
      &    , USE_MWCOR, DOBUG_LAMRANGE
      &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT, DTOBS_MODEL_PLOT
-     &    , MULTISEASON_OPTMASK,MULTISEASON_TGAP
-     &    , MULTISEASON_NREJECT_OUTLIER,  PHOTFLAG_DETECT
-     &    , APPLY_FLUXCOR_BUG
-     &    , CUTWIN_MULTISEASON_CHI2RED
+     &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP
+     &    , MULTISEASON_NREJECT_OUTLIER, MULTISEASON_CHI2RED_ACTIVE
+     &    , APPLY_FLUXCOR_BUG, PHOTFLAG_DETECT
 c
 c Below are cut-variables defined in SNCUTS
 c
@@ -2212,7 +2203,7 @@ c
      &   ,cutwin_ra, cutwin_dec
      &   ,cutwin_hostsep,   cutwin_Nepoch
      &   ,cutwin_snrmax,    cutwin_snrmax2, cutwin_nfield
-     &   ,cutwin_mwebv
+     &   ,cutwin_mwebv,     cutwin_nseason_active
      &   ,cutwin_Trestmin,   cutwin_Trestmax
      &   ,cutwin_TrestRange, cutwin_Trest
      &   ,cutwin_Tgapmax,  cutwin_T0gapmax
@@ -3507,23 +3498,16 @@ c default is to reject nothing (accept everything)
       USE_MWCOR = .FALSE.  ! apply MWCOR to fit-model
 
 c by default do NOT check for multiseason activity (Oct 2014)
-      MULTISEASON_TGAP        = 1.0E9 
-      MULTISEASON_NREJECT_OUTLIER = 0
-      DO i =1, MXSEASON
-        CUTWIN_MULTISEASON_CHI2RED(1,i)  = -1.0E9
-        CUTWIN_MULTISEASON_CHI2RED(2,i)  = +1.0E9
-      ENDDO
-      MULTISEASON_NREQUIRE = 0
+      MULTISEASON_TGAP               = 1.0E9 
+      MULTISEASON_NREJECT_OUTLIER    = 0
+      MULTISEASON_CHI2RED_ACTIVE     =  5.0
 
       PHOTFLAG_DETECT   = 0 
       APPLY_FLUXCOR_BUG = 1  ! keep bug until DES3YR papers published
 
-c hard-wire this CUTWIN to require ISNLC_CUTFLAG_MULTISEASON=1.
-c This flag is set in MULTISEAON using more complex logic
-c based on user-input CUTWIN_MULTISEASON_CHI2RED(2,Nseason).
-c In short, user should not set &SNLCINP CUTWIN_CUTFLAG_MULTISEASON.
-      CUTWIN_CUTFLAG_MULTISEASON(1) = 0.99  ! flag must be 1
-      CUTWIN_CUTFLAG_MULTISEASON(2) = 1.01
+
+      CUTWIN_NSEASON_ACTIVE(1) = -99.
+      CUTWIN_NSEASON_ACTIVE(2) = +99.
 
       CUTWIN_CUTFLAG_REQEP(1) = 0.99
       CUTWIN_CUTFLAG_REQEP(2) = 1.01
@@ -4769,6 +4753,14 @@ c -----------
 
          else if ( LINE_ARGS(i).EQ.'MULTISEASON_NREJECT_OUTLIER')then
             i = i + 1 ; READ(LINE_ARGS(i),*) MULTISEASON_NREJECT_OUTLIER
+
+         else if ( LINE_ARGS(i).EQ.'MULTISEASON_CHI2RED_ACTIVE')then
+            i=i+1 ; READ(LINE_ARGS(i),*) MULTISEASON_CHI2RED_ACTIVE
+
+         else if ( LINE_ARGS(i).EQ.'CUTWIN_NSEASON_ACTIVE')then
+            i=i+1 ; READ(LINE_ARGS(i),*) CUTWIN_NSEASON_ACTIVE(1)
+            i=i+1 ; READ(LINE_ARGS(i),*) CUTWIN_NSEASON_ACTIVE(2)
+
 c ----------
 
          else if ( LINE_ARGS(i) .EQ. 'LSIM_SEARCH_SPEC' ) then
@@ -9207,10 +9199,14 @@ c  * <CR>
 c  * comma 
 c     
 c Second option is the 'fitres' format with
-c 'NVAR:', 'VARNAMES:'  and  'SN:' keys.
+c 'VARNAMES:'  and  'SN:' keys.
 c Thus the fitres-output from a fitting program or from
 c sntable_dump can be used as a CID-list input to any 
 c snana program. The non-CID variables are ignored.
+c
+c May 1 2019: remove NVAR-dependence and only require VARNAMES
+c             to FITRES file format. Also fix bug reading CID
+c             from iwd+1 element, not iwd element.
 c
 c ---------------------
 
@@ -9226,7 +9222,7 @@ c ---------------------
      &  ,BADCHARS*12, C1
      &  ,NAME_forC*200
 
-      LOGICAL  ISBAD, ISFMT, FOUND_NVAR, FOUND_VARNAMES
+      LOGICAL  ISBAD, ISFMT, FOUND_VARNAMES
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
@@ -9255,19 +9251,17 @@ c start loop over words in file.
       NWD = STORE_PARSE_WORDS(LUNCID, NAME_forC, LEN ) 
 
 c ---------------------------------------------
-c check if this is a fitres-formatted file with NVAR and VARNAMES keys.
+c check if this is a fitres-formatted file with VARNAMES key
 
-      FOUND_NVAR     = .FALSE.
       FOUND_VARNAMES = .FALSE.
 
       DO 10 iwd = 1, NWD
          CALL get_PARSE_WORD_fortran(iwd,CTMP,LEN)
-         if ( CTMP .EQ. 'NVAR:'     ) FOUND_NVAR     = .TRUE.
          if ( CTMP .EQ. 'VARNAMES:' ) FOUND_VARNAMES = .TRUE.
  10   CONTINUE
-      ISFMT = ( FOUND_NVAR .and. FOUND_VARNAMES )
+      ISFMT = ( FOUND_VARNAMES )
       if ( ISFMT ) THEN
-         print*,'   Detected NVAR and VARNAMES keys. '
+         print*,'   Detected VARNAMES key --> KEY format'
       endif
 
 c -----------------------------
@@ -9279,8 +9273,7 @@ c check for formatted file
          if ( ISFMT ) THEN
             if ( CTMP .EQ. 'SN:' .or. CTMP .EQ. 'ROW:' ) THEN
                ! CID myst be string after SN/ROW key
-               CALL get_PARSE_WORD_fortran(iwd,CCID,LEN2) 
-cc xxx mark delete    CCID = fileword_list(iwd+1)(1:MXCHAR_CCID)
+               CALL get_PARSE_WORD_fortran(iwd+1,CCID,LEN2) 
                GOTO 99   ! load CID into array
             else
                GOTO 100  ! skip anything that is not a valid key
@@ -9336,7 +9329,7 @@ c abort if any CID names have invalid characters
       ENDIF
 
 c --------------------------
-      write(6,30) NWD
+      write(6,30) NCCID_LIST
  30   format(T8,'Stored ',I5,' CIDs to process' )
       CALL FLUSH(6)
 
@@ -16960,7 +16953,10 @@ c zero out the FITVAL_STORE array if fit-option is chosen
 
       MADE_LCPLOT = .FALSE.
 
-      ISNLC_CUTFLAG_MULTISEASON = 1 ! default is to accept everything.
+      NSEASON_TOT      = 0
+      NSEASON_ACTIVE    = 0
+
+
       ISNLC_CUTFLAG_REQEP    = 1
       ISNLC_CUTFLAG_PRIVATE  = 1
       ISNLC_CUTFLAG_USRCUTS  = 1
@@ -17088,7 +17084,7 @@ c hard-wire names of cut variables (maxchar = 28)
       cutvar_name(CUTBIT_NBAND_THRESH) = 'Nband thresh:'
       cutvar_name(CUTBIT_AIRMASS)      = 'Airmass:'
       cutvar_name(CUTBIT_MWEBV)        = 'MWEBV:'
-      cutvar_name(CUTBIT_MULTISEASON)  = 'MULTISEASON_CUTFLAG:'
+      cutvar_name(CUTBIT_NSEASON_ACTIVE) = 'NSEASON_ACTIVE:'
       cutvar_name(CUTBIT_REQEP)        = 'REQEP_CUTFLAG:'
       cutvar_name(CUTBIT_PRIVATE)      = 'PRIVATEVAR_CUTS:'
       cutvar_name(CUTBIT_SIMVAR)       = 'SIMVAR_CUTS:'
@@ -17384,7 +17380,9 @@ C ==================================
 
 c Created Oct 2014
 c Driver for quick analysis to check for multi-season variability.
-c
+c 
+c May 1 2019: convert GET_MULTISEASON args to double.
+
       IMPLICIT NONE
 
       INTEGER IFLAG ! (I) 
@@ -17394,8 +17392,11 @@ c
 
       INTEGER NEWMJD, EPMIN, EPMAX, EP, NOBS, isort, iSeason
       INTEGER ORDER, INDEX_SORT(MXSEASON), ITMP_REJECT(MXEPOCH)
-      REAL   TMP_MJD(MXEPOCH), TMP_FLUX(MXEPOCH), TMP_FLUXERR(MXEPOCH)
-      REAL   PARLIST(8), CHI2RED
+      REAL*8  TMP8_MJD(MXEPOCH)
+      REAL*8  TMP8_FLUX(MXEPOCH), TMP8_FLUXERR(MXEPOCH)
+      REAL*8  OUT_CHI2RED(MXSEASON), OUT_AVGFLUX(MXSEASON)
+      REAL*8  OUT_MJDMIN(MXSEASON),  OUT_MJDMAX(MXSEASON)
+      REAL   PARLIST(8), CHI2RED, CUTVAL
       CHARACTER CCID_forC*(MXCHAR_CCID)
       LOGICAL USE_TGAP, USE_MASK
 
@@ -17405,7 +17406,10 @@ c -------------------- BEGIN --------------
 
          USE_TGAP = MULTISEASON_TGAP < 1.0E8
          USE_MASK = MULTISEASON_OPTMASK > 0
-         if ( .NOT. USE_TGAP ) RETURN
+         if ( .NOT. USE_TGAP ) THEN
+            MULTISEASON_OPTMASK = 0
+            RETURN
+         endif
          if ( .NOT. USE_MASK ) MULTISEASON_OPTMASK = 1
 
 c copy user-analysis parameters to list 
@@ -17413,15 +17417,8 @@ c copy user-analysis parameters to list
          PARLIST(2) = MULTISEASON_TGAP
          PARLIST(3) = MULTISEASON_NREJECT_OUTLIER
 
-         CALL INIT_MULTISEASON(PARLIST)
-
-c count how many seasons are required to apply CHI2RED cuts
-         do iSeason = 1, MXSEASON
-            CHI2RED = CUTWIN_MULTISEASON_CHI2RED(2,iSeason) 
-            if ( CHI2RED < 0.99E9 ) then
-              MULTISEASON_NREQUIRE = MULTISEASON_NREQUIRE + 1
-           endif
-         enddo
+c call to C function in multiseason.c
+         CALL INIT_MULTISEASON(PARLIST)  
 
          RETURN
       ENDIF
@@ -17439,9 +17436,9 @@ c create local array of MJD, FLUX, FLUXERR that were selected by SNRECON
         DO 201 EP = EPMIN, EPMAX
            if ( ISNLC_SNRECON_USE(ep) == 0 ) GOTO 201
            NOBS = NOBS + 1
-           TMP_MJD(NOBS)     = SNGL( SNLC8_MJD(ep) )
-           TMP_FLUX(NOBS)    = SNLC_FLUXCAL(ep)
-           TMP_FLUXERR(NOBS) = SNLC_FLUXCAL_ERRTOT(ep)
+           TMP8_MJD(NOBS)     = SNLC8_MJD(ep)
+           TMP8_FLUX(NOBS)    = DBLE( SNLC_FLUXCAL(ep) ) 
+           TMP8_FLUXERR(NOBS) = DBLE( SNLC_FLUXCAL_ERRTOT(ep) )
  201    CONTINUE
  200  CONTINUE
 
@@ -17452,18 +17449,27 @@ c --------------
 
       CALL GET_MULTISEASON( 
      &      CCID_forC
-     &     ,NOBS, TMP_MJD, TMP_FLUX, TMP_FLUXERR ! (I)
+     &     ,NOBS, TMP8_MJD, TMP8_FLUX, TMP8_FLUXERR ! (I)
      &     ,ITMP_REJECT         ! (O) mask of reject epochs
-     &     ,MULTISEASON_NTOT    ! (O) number of seasons found
-     &     ,MULTISEASON_CHI2RED ! (O) reduced chi2 per season
-     &     ,MULTISEASON_MJDMIN  ! (O) min-MJD for each season
-     &     ,MULTISEASON_MJDMAX  ! (O) max-MJD for each season
-     &     ,MULTISEASON_AVGFLUX ! (O) avg flux for each season
+     &     ,NSEASON_TOT         ! (O) number of seasons found
+     &     ,OUT_CHI2RED         ! (O) reduced chi2 per season
+     &     ,OUT_MJDMIN          ! (O) min-MJD for each season
+     &     ,OUT_MJDMAX          ! (O) max-MJD for each season
+     &     ,OUT_AVGFLUX         ! (O) avg flux for each season
      &     )
 
-c ---------------------
-c sort reduced chi2 from largest to smallest
+c transfer to float globals
+      DO iSeason = 1, NSEASON_TOT
+         MULTISEASON_CHI2RED(iSeason) = OUT_CHI2RED(iSeason)
+         MULTISEASON_MJDMIN(iSeason)  = OUT_MJDMIN(iSeason)
+         MULTISEASON_MJDMAX(iSeason)  = OUT_MJDMAX(iSeason)
+         MULTISEASON_AVGFLUX(iSeason) = OUT_AVGFLUX(iSeason)
+      ENDDO
 
+c ---------------------
++SELF,IF=MARKDELETE.
+c xxxxxxxxxxx mark delete May 1 2019 xxxxxxxxxxxxxx
+c sort reduced chi2 from largest to smallest
       ORDER = -1
       CALL SORTFLOAT( MULTISEASON_NTOT, MULTISEASON_CHI2RED,
      &                 ORDER, INDEX_SORT ) 
@@ -17472,31 +17478,15 @@ c sort reduced chi2 from largest to smallest
          MULTISEASON_CHI2RED_SORTED(iSeason) = 
      &   MULTISEASON_CHI2RED(isort)
       ENDDO
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
++SELF.
 
-c -----------------------------------------------------
-c check chi2red cut vs season ; reject event if CHI2RED
-c is outside the CUTWIN range for any season.
-c Note that ISNLC_CUTFLAG_MULTISEASON  determines of event
-c is kept/rejected.
-
-c skip test if there is no CHI2RED cut.
-
-      IF ( MULTISEASON_NREQUIRE == 0 ) RETURN
-
-c if we don't have the right number of seasons found,
-c reject event since CHI2RED cut cannot be applied.
-      IF ( MULTISEASON_NREQUIRE .NE. MULTISEASON_NTOT ) THEN
-         ISNLC_CUTFLAG_MULTISEASON = 0
-         RETURN
-      ENDIF
-
-      DO iSeason = 1, MULTISEASON_NTOT
+c .xyz
+      CUTVAL = MULTISEASON_CHI2RED_ACTIVE
+      DO iSeason = 1, NSEASON_TOT
         CHI2RED = MULTISEASON_CHI2RED(iSeason)
-        IF ( CHI2RED < CUTWIN_MULTISEASON_CHI2RED(1,iSeason) ) THEN
-            ISNLC_CUTFLAG_MULTISEASON = 0
-        ENDIF
-        IF ( CHI2RED > CUTWIN_MULTISEASON_CHI2RED(2,iSeason) ) THEN
-            ISNLC_CUTFLAG_MULTISEASON = 0
+        IF ( CHI2RED > CUTVAL ) THEN
+           NSEASON_ACTIVE = NSEASON_ACTIVE + 1
         ENDIF
       ENDDO
 
@@ -22698,8 +22688,8 @@ c so that NEWMJD_CUTS can be evaluated correctly.
          SNLC_CUTVAR(CUTBIT_MWEBV)  = 
      &        SNLC_MWEBV               ! added May 2012
 
-         SNLC_CUTVAR(CUTBIT_MULTISEASON)  = 
-     &        float( ISNLC_CUTFLAG_MULTISEASON )   ! added Oct 31 2014
+         SNLC_CUTVAR(CUTBIT_NSEASON_ACTIVE)  = 
+     &        float(NSEASON_ACTIVE)
 
          SNLC_CUTVAR(CUTBIT_REQEP)  = 
      &        float( ISNLC_CUTFLAG_REQEP )   ! added Sep 17 2017
@@ -23987,33 +23977,6 @@ c check if we should make the plot
  10   format(T8,'SPECPLOT: pack CID=',A,' for plotting.')
       call flush(6)
 
-+SELF,IF=GARBAGE.
-c xxxxxxxxxxxxx .xyz =============
-c load dummy spectra for plot-table; remove after reading spectra
-
-      TEXPOSE_SPECTRUM(1) = 100.0 + DBLE(N_SNLC)
-      MJD_SPECTRUM(1)     = SNLC_SEARCH_PEAKMJD
-      ID_SPECTRUM(1)      = 1
-      NLAMBIN_SPECTRUM(1) = 20
-
-      TEXPOSE_SPECTRUM(2) = 200.0 + DBLE(N_SNLC)
-      MJD_SPECTRUM(2)     = SNLC_SEARCH_PEAKMJD + 2.0
-      ID_SPECTRUM(2)      = 2
-      NLAMBIN_SPECTRUM(2) = 20
-
-      NSPECTRUM   = 2
-      DO 11 ispec = 1, NSPECTRUM
-      DO 12 ilam  = 1, NLAMBIN_SPECTRUM(ispec)
-         LAM      = 4000.0 + dble(ilam)*20.
-         FLAM     = 1.0E-17 * ( dble(N_SNLC) + (LAM/10000.) )
-         LAMMIN_SPECTRUM(ilam,ispec)  = LAM
-         LAMMAX_SPECTRUM(ilam,ispec)  = LAM + 20.0
-         FLAM_SPECTRUM(ilam,ispec)    = FLAM
-         FLAMERR_SPECTRUM(ilam,ispec) = FLAM/10.
- 12   ENDDO
- 11   ENDDO
-+SELF.
-
 c load each spectrum into SPECPAK C-function util
 
       DO 100 ispec = 1, NSPECTRUM
@@ -24250,10 +24213,10 @@ c local var
 +CDE,REQEPCOM.
 
       INTEGER 
-     &   IFILT, IFILT_OBS
+     &   IFILT, IFILT_OBS, ITEXT
      &  ,LENBLOCK, LENBLOCK_L, LENLIST, LENNAME, LENV, ipar, ivar
 
-      LOGICAL LTMP
+      LOGICAL LTMP, ADDCOL_SETPKMJD
       CHARACTER varlist*1000, CTMP*60, CBLOCK*40, CBLOCK_L*40
       CHARACTER FNAM*20, VARNAME*40, CFILT*2
       EXTERNAL  SNTABLE_ADDCOL
@@ -24277,6 +24240,9 @@ c check filter list for filter-dependent columns (Feb 2017)
       IF ( NFILT_REMAP_TABLE > 0 ) THEN
          ADDCOL_FILTERS = FILTLIST_REMAP_TABLE 
       ENDIF
+
+      LTMP = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_SAVEPAR)
+      ADDCOL_SETPKMJD = ( LTMP .and. OPT_SETPKMJD > 0 ) 
 
 c - - - - - - ID variables - - - - - - 
 
@@ -24495,9 +24461,11 @@ c     &     LENBLOCK_L, 20 )
       ENDIF
 
 c - - - - -  initial PEAKMJD  - -  - 
+      ITEXT = 0                       ! default is no TEXT output ...
+      IF ( ADDCOL_SETPKMJD ) ITEXT=1  ! unless this option is set
       VARLIST = 'PKMJDINI:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_SEARCH_PEAKMJD, VARLIST,0, 
-     &                   LENBLOCK, 20 )
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_SEARCH_PEAKMJD, 
+     &           VARLIST, ITEXT, LENBLOCK, 20 )
 
 c - - - - time above threshold for REQUIRE_EPOCHS - - - - - - 
 
@@ -24516,18 +24484,17 @@ c - - - - - max flux per band (May 2016) - - - - - - - - -
 
 c - - - - - - optional fit-params from PKMJD fit (Oct 20 2014) - - - 
 
-      LTMP = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_SAVEPAR)
-      IF ( LTMP .and. OPT_SETPKMJD > 0 ) THEN
-        DO ipar = IPAR_T0, IPAR_A2
-          VARNAME = 'FIT_' // PKPARNAME(ipar)
-          LENV    = INDEX(VARNAME,' ') - 1
-          CALL TABLE_VARLIST_FILTERS(VARNAME(1:LENV),'F',SURVEY_FILTERS,
-     &           VARLIST, LENLIST)
-
-          CALL SNTABLE_ADDCOL(ID, CBLOCK, 
-     &        SNLC_SNANACALC_PEAKMJD_FITPAR(1,ipar),
-     &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
-        ENDDO
+      IF ( ADDCOL_SETPKMJD ) THEN
+         DO ipar = IPAR_T0, IPAR_A2
+            VARNAME = 'FIT_' // PKPARNAME(ipar)
+            LENV    = INDEX(VARNAME,' ') - 1
+            CALL TABLE_VARLIST_FILTERS(VARNAME(1:LENV),'F',
+     &           SURVEY_FILTERS, VARLIST, LENLIST)
+            
+            CALL SNTABLE_ADDCOL(ID, CBLOCK, 
+     &           SNLC_SNANACALC_PEAKMJD_FITPAR(1,ipar),
+     &           VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
+         ENDDO
 
 c ----------------------------
 c  PKMJD per filterxxx
@@ -24540,11 +24507,11 @@ c  PKMJD per filterxxx
 
           VARNAME   = 'PKMJD_FIT_' // cfilt(1:1) // ':F'
           CALL SNTABLE_ADDCOL(ID, CBLOCK, PKMJD_FIT(ifilt_obs),
-     &        VARNAME(1:LENNAME)//char(0), 1, LENBLOCK, 20 )
+     &        VARNAME(1:20)//char(0), 1, LENBLOCK, 20 )
 
           VARNAME   = 'PKMJD_ERR_' // cfilt(1:1) //  ':F'
           CALL SNTABLE_ADDCOL(ID, CBLOCK, PKMJD_ERR(ifilt_obs),
-     &        VARNAME(1:LENNAME)//char(0), 1, LENBLOCK, 20 )
+     &        VARNAME(1:20)//char(0), 1, LENBLOCK, 20 )
 
 222    CONTINUE
 
@@ -24573,12 +24540,12 @@ c - - - -  multi-season variability - - - -
       IF( MULTISEASON_OPTMASK > 0 ) THEN
 
 c Aug 15 2018: include NTOT and NLC in output and TEXT output
-        VARLIST = 'MULTISEASON_NTOT:I' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, MULTISEASON_NTOT, VARLIST,1,
+        VARLIST = 'NSEASON_TOT:I' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, NSEASON_TOT, VARLIST,1,
      &                   LENBLOCK, 40 )
 
-        VARLIST = 'MULTISEASON_NLC:I' // char(0)
-        CALL SNTABLE_ADDCOL(ID, CBLOCK, MULTISEASON_NLC, VARLIST,1,
+        VARLIST = 'NSEASON_ACTIVE:I' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, NSEASON_ACTIVE, VARLIST,1,
      &                   LENBLOCK, 40 )
 
         VARLIST = 'MULTISEASON_CHI2RED_1:F,' //

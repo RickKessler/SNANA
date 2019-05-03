@@ -120,7 +120,7 @@ int main(int argc, char **argv) {
   }
   else if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) {
 #ifdef SNGRIDGEN
-     init_GRIDsource(0); 
+    init_GRIDsource(0); 
 #endif
   }  
   else {
@@ -3290,6 +3290,7 @@ void parse_input_GENMODEL(FILE *fp, int *iArg ) {
   // Parse GENMODEL key.
 
   int  i = *iArg ;
+  int  jnam;
   char *GENMODEL = INPUTS.GENMODEL ;
   char ctmp[60], *NAME0, *NAME1;
   int  LDMP   = 0 ;
@@ -3321,11 +3322,16 @@ void parse_input_GENMODEL(FILE *fp, int *iArg ) {
       { readchar(fp, INPUTS.MODELPATH ); }
 
     // for FIXMAG model, read value of fixed mag
-    NAME0  = GENMODEL_NAME[MODEL_FIXMAG][0];
-    NAME1  = GENMODEL_NAME[MODEL_FIXMAG][1];
-    if ( strcmp(GENMODEL,NAME0)==0 || strcmp(GENMODEL,NAME1)==0 ) {
-      readchar(fp, ctmp );
-      parse_input_FIXMAG(ctmp);
+    for(jnam=0; jnam < MXNAME_PER_MODEL; jnam++ ) {
+      NAME0  = GENMODEL_NAME[MODEL_FIXMAG][jnam];
+      if ( strcmp(GENMODEL,NAME0)==0 ) {
+	readchar(fp, ctmp );
+	parse_input_FIXMAG(ctmp);
+	if ( strstr(GENMODEL,"mag") != NULL ) 
+	  { INPUTS.GENFRAME_FIXMAG = GENFRAME_OBS; }
+	else if ( strstr(GENMODEL,"MAG") != NULL ) 
+	  { INPUTS.GENFRAME_FIXMAG = GENFRAME_REST; }
+      }
     }
     
     // allow mlcs in place of mlcs2k2
@@ -3358,11 +3364,17 @@ void parse_input_GENMODEL(FILE *fp, int *iArg ) {
       i++ ; sscanf(ARGV_LIST[i], "%s", INPUTS.MODELPATH ); 
     }
 
-    NAME0  = GENMODEL_NAME[MODEL_FIXMAG][0];
-    NAME1  = GENMODEL_NAME[MODEL_FIXMAG][1];
-    if ( strcmp(GENMODEL,NAME0) == 0 || strcmp(GENMODEL,NAME1) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i], "%s", ctmp ); 
-      parse_input_FIXMAG(ctmp);
+    int jnam;
+    for(jnam=0; jnam < MXNAME_PER_MODEL; jnam++ ) {
+      NAME0  = GENMODEL_NAME[MODEL_FIXMAG][jnam];
+      if ( strcmp(GENMODEL,NAME0) == 0 ) {
+	i++ ; sscanf(ARGV_LIST[i], "%s", ctmp ); 
+	parse_input_FIXMAG(ctmp);	
+	if ( strstr(GENMODEL,"mag") != NULL ) 
+	  { INPUTS.GENFRAME_FIXMAG = GENFRAME_OBS; }
+	else if ( strstr(GENMODEL,"MAG") != NULL ) 
+	  { INPUTS.GENFRAME_FIXMAG = GENFRAME_REST; }
+      }
     }
 
     // allow mlcs in place of mlcs2k2
@@ -3623,6 +3635,9 @@ void read_input_SIMSED(FILE *fp, char *KEY) {
 
   // Created Feb 2018
   // parse SIMSED_XXX keys
+  //
+  // Apr 28 2019: IPAR_SIMSED_XXX -= 1 to account for earlier
+  //              refactor where IPAR starts at zero.
 
   int N;
   char ctmp[80];
@@ -3642,17 +3657,17 @@ void read_input_SIMSED(FILE *fp, char *KEY) {
 
   if ( strcmp(KEY,"SIMSED_SHAPEPAR:" ) == 0 )  { 
     read_input_SIMSED_PARAM(fp); 
-    INPUTS.IPAR_SIMSED_SHAPE = INPUTS.NPAR_SIMSED ;
+    INPUTS.IPAR_SIMSED_SHAPE = INPUTS.NPAR_SIMSED-1 ;
     return ;
   }
 
   if ( strcmp(KEY,"SIMSED_COLORPAR:" ) == 0 )  { 
     read_input_SIMSED_PARAM(fp); 
-    INPUTS.IPAR_SIMSED_COLOR = INPUTS.NPAR_SIMSED ;
+    INPUTS.IPAR_SIMSED_COLOR = INPUTS.NPAR_SIMSED-1 ;
   }
   if ( strcmp(KEY,"SIMSED_COLORLAW:" ) == 0 )  { 
     read_input_SIMSED_PARAM(fp); 
-    INPUTS.IPAR_SIMSED_CL = INPUTS.NPAR_SIMSED ;
+    INPUTS.IPAR_SIMSED_CL = INPUTS.NPAR_SIMSED-1 ;
     return ;
   }
   
@@ -5696,7 +5711,7 @@ void prep_user_input(void) {
 
   else if ( INDEX_GENMODEL == MODEL_FIXMAG ) {
     
-    GENFRAME_OPT    = GENFRAME_OBS;   
+    GENFRAME_OPT  = GENFRAME_OBS;
     INPUTS.GENGAUSS_SHAPEPAR.PEAK     =  0.0 ;
     INPUTS.GENGAUSS_SHAPEPAR.RANGE[0] = -0.01 ;  // made up numbers
     INPUTS.GENGAUSS_SHAPEPAR.RANGE[1] = +0.01 ;  // 
@@ -5710,11 +5725,20 @@ void prep_user_input(void) {
     INPUTS.MWEBV_SHIFT    = 0.0 ;
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE") ;
 
-    // set redshift to 0 for FIXMAG, but leave it for RANMAG.
-    if ( strcmp(INPUTS.MODELNAME,"FIXMAG") == 0 ) {
+
+    if ( INPUTS.GENFRAME_FIXMAG == GENFRAME_OBS ) {
+      // set redshift to 0 for obs-frame to avoid adding DLMAG
       INPUTS.GENRANGE_REDSHIFT[0] = 0.0 ;
       INPUTS.GENRANGE_REDSHIFT[1] = 0.0 ;
       INPUTS.GENSIGMA_REDSHIFT    = 0.0 ; // Apr 20 2018
+    }
+    else {
+      // abort of redshift range not specified
+      if ( INPUTS.GENRANGE_REDSHIFT[1] == 0.0 ) {
+	sprintf(c1err,"Must specify GENRANGE_REDSHIFT");
+	sprintf(c2err,"for GENMODEL: %s", INPUTS.GENMODEL);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
     }
 
     // turn off all mag offsets
@@ -5728,11 +5752,9 @@ void prep_user_input(void) {
   }
 
   else {
-
     sprintf(c1err,"%s is not a valid genmag-model", INPUTS.MODELNAME);
     sprintf(c2err,"Check GENMODEL keyword in input file.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-
   }
 
   // construct mapping between sparse filter index and obs-filter index.
@@ -7475,6 +7497,8 @@ void  set_GENMODEL_NAME(void) {
 
   sprintf(GENMODEL_NAME[MODEL_FIXMAG][0],  "%s", "FIXMAG"  );
   sprintf(GENMODEL_NAME[MODEL_FIXMAG][1],  "%s", "RANMAG"  );
+  sprintf(GENMODEL_NAME[MODEL_FIXMAG][2],  "%s", "fixmag"  );
+  sprintf(GENMODEL_NAME[MODEL_FIXMAG][3],  "%s", "ranmag"  );
 
   sprintf(GENMODEL_NAME[MODEL_NON1ASED][0], "%s", "NONIA"   );
   sprintf(GENMODEL_NAME[MODEL_NON1ASED][1], "%s", "NON1A"   );
@@ -8126,7 +8150,7 @@ void  init_genSpec(void) {
     INIT_SPECTROGRAPH_SEDMODEL(modelName, NB, L0, L1); 
   }
   else if ( INDEX_GENMODEL == MODEL_FIXMAG ) { 
-    // do nothing.
+    // do nothing for spectra
   }
   else {
     sprintf(c1err,"Spectrograph option not available for");    
@@ -9454,7 +9478,7 @@ void gen_event_driver(int ilc) {
     // and DLMAG to match that of the HOST
     // Similarly, GENLC.REDSHIFT_HOST is changed to be the true zhost
     GEN_SNHOST_DRIVER(zHOST, GENLC.PEAKMJD); 
-    
+
     // pick model params AFTER redshift/host selection (4.09.2019)
     gen_modelPar(ilc); 
 
@@ -10057,12 +10081,15 @@ void gen_modelPar(int ilc) {
   }
   else if ( ISMODEL_SIMSED ) {
     // generate all of the SIMSED params, whatever they are.
+
     gen_modelPar_SIMSED();
 
   } // end of SIMSED if-block
 
   else  if ( ISMODEL_FIXMAG ) {	  
     GENLC.NOSHAPE   = FlatRan ( 2, INPUTS.FIXMAG );  
+    if ( INPUTS.GENFRAME_FIXMAG == GENFRAME_REST ) 
+      { GENLC.NOSHAPE += GENLC.DLMU; }
   }
 
   return ;
@@ -10132,6 +10159,7 @@ void  gen_modelPar_SIMSED(void) {
   // Dec 20 2018: set ISIMSED_SEQUENTIAL instead of PARVAL[0]
   //     (part of refactor for SIMSED loops)
   //
+  // Apr 28 2019: return for GRIDGEN, after computing DLMU
 
   int     NPAR      = INPUTS.NPAR_SIMSED;
   int     NROW_COV  = INPUTS.NROW_SIMSED_COV;
@@ -10148,6 +10176,15 @@ void  gen_modelPar_SIMSED(void) {
   int LDMP_COV = 0 ;
 
   // ----------- BEGIN ------------
+
+  // use SALT2x0 parameter for SIMSED ... it just converts
+    // MU into a flux-scale.
+  ARG = -0.4 * GENLC.DLMU ;
+  GENLC.SALT2x0 = pow(TEN , ARG );
+
+#ifdef SNGRIDGEN
+  if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) { return; }
+#endif
 
   parVal = parVal_old = 0.0 ;
 
@@ -10245,10 +10282,6 @@ void  gen_modelPar_SIMSED(void) {
   if ( INPUTS.OPTMASK_SIMSED == OPTMASK_SIMSED_GRIDONLY ) 
   { ISIMSED_SEQUENTIAL  = (double)NGENLC_TOT ; } // IGEN = ISED
 
-  // use SALT2x0 parameter for SIMSED ... it just converts
-    // MU into a flux-scale.
-  ARG = -0.4 * GENLC.DLMU ;
-  GENLC.SALT2x0 = pow(TEN , ARG );
   
   return;
 
@@ -18398,7 +18431,8 @@ void gen_spectype(void) {
   // set SNTYPE 
 
   if ( INDEX_GENMODEL == MODEL_FIXMAG ) {
-    GENLC.SNTYPE   = (int)INPUTS.FIXMAG[0] ;
+    GENLC.SNTYPE   = MODEL_FIXMAG ;
+    // xxx mark delete    GENLC.SNTYPE   = (int)INPUTS.FIXMAG[0] ;
   }
   else if ( LGEN_SNIA )  { 
     GENLC.SNTYPE   = INPUTS.SNTYPE_Ia_SPEC ; 
@@ -20484,7 +20518,8 @@ void init_genmodel(void) {
   }
 
   else if ( INDEX_GENMODEL == MODEL_FIXMAG ) {
-    GENLC.SIMTYPE  = (int)INPUTS.FIXMAG[0] ;
+    GENLC.SIMTYPE  = MODEL_FIXMAG ;
+    // xxx mark delete  GENLC.SIMTYPE  = (int)INPUTS.FIXMAG[0] ;
   }
   else if ( INDEX_GENMODEL == MODEL_MLCS2k2 ) {
 
@@ -20914,9 +20949,11 @@ void init_kcor(char *kcorFile) {
    Jun 20 2017: pass FILTER_LAMSHIFT argument to set_survey_
 
    Nov 2 2017: add AB offsets to user offsets; see tmpoff_kcor
+   Apr 24 2019: for FIXMAG model, return before doing rest-frame stuff.
 
   *********/
 
+  int ISMODEL_FIXMAG = ( INDEX_GENMODEL == MODEL_FIXMAG );
   int ierrstat, ifilt, ifilt_obs, OPT ;
   float tmpoff_kcor[MXFILTINDX] ;
   float *ptr ;
@@ -20953,8 +20990,7 @@ void init_kcor(char *kcorFile) {
     ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt] ;
     ptr = &INPUTS.GENMAG_OFF_ZP[ifilt_obs] ;
 
-    if ( INDEX_GENMODEL != MODEL_FIXMAG ) {
-      // xxx mark delete if ( *ptr == 0.0 )  { *ptr = tmpoff_kcor[ifilt]; }
+    if ( !ISMODEL_FIXMAG ) {
       *ptr += tmpoff_kcor[ifilt]; // add AB off to user offset
     }
 
@@ -20975,6 +21011,7 @@ void init_kcor(char *kcorFile) {
     GENLC.IFLAG_SYNFILT_SPECTROGRAPH[ifilt] = 0 ;
   }
 
+  if ( ISMODEL_FIXMAG ) { return ; } // 4.24.2019
 
   // init MW extinction (moved from end of init_genmodel on Aug 30 2010)
   if ( GENFRAME_OPT == GENFRAME_REST )  {
@@ -21546,12 +21583,17 @@ void genmodel(
 
   else if ( INDEX_GENMODEL  == MODEL_FIXMAG ) {
 
+    GENLC.FIXMAG = GENLC.NOSHAPE ;
+
     for ( iep = 0 ; iep < NEPFILT; iep++ ) {
-      GENLC.FIXMAG    = GENLC.NOSHAPE ;
-      ptr_genmag[iep] = GENLC.NOSHAPE ;
+      ptr_genmag[iep] = GENLC.FIXMAG ;
       ptr_generr[iep] = 0.0 ;
     }
 
+    sprintf(GENLC.SNTYPE_NAME, INPUTS.MODELNAME ); 
+    GENLC.TEMPLATE_INDEX = MODEL_FIXMAG ;  //anything but zero
+
+    /* xxx mark delete April 24 2019 xxxxxxxx
     if ( strcmp(INPUTS.MODELNAME,"FIXMAG") == 0 ) {
       sprintf(GENLC.SNTYPE_NAME, "FIXMAG" ); 
       GENLC.TEMPLATE_INDEX = MODEL_FIXMAG ;  //anything but zero
@@ -21560,6 +21602,7 @@ void genmodel(
       sprintf(GENLC.SNTYPE_NAME, "RANMAG" ); 
       GENLC.TEMPLATE_INDEX = (int)INPUTS.FIXMAG[0] ;
     }
+    xxxxxxxxxxx end mark xxxxxxxxxxxxx */
 
   }
   else if ( INDEX_GENMODEL  == MODEL_MLCS2k2 ) {
@@ -24418,8 +24461,8 @@ void readme_doc_FIXMAG(int *iline ) {
   i = *iline ;
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr, "\t FIXMAG Range: %.2f to %.2f",
-	  INPUTS.FIXMAG[0], INPUTS.FIXMAG[1] );
+  sprintf(cptr, "\t %s Range: %.2f to %.2f",
+	  INPUTS.GENMODEL, INPUTS.FIXMAG[0], INPUTS.FIXMAG[1] );
 
   *iline = i;
 
@@ -25110,6 +25153,7 @@ void append_SNPHOT_TEXT(void) {
   //   + use strcat in instead of sprintf(tmpLine,"%sxx", tmpLine ...)
 
   FILE *fp;
+  int ISMODEL_FIXMAG    = ( INDEX_GENMODEL == MODEL_FIXMAG );
 
   int  NVAR_TEXT, ep, ifilt_obs, ifilt_rest, ADD_PHOTFLAG=1 ;
   int LTRIGCHECK, IFLAG, PHOTFLAG, APPEND_MAGREST ;
@@ -25125,7 +25169,9 @@ void append_SNPHOT_TEXT(void) {
 
   fp = fopen(SNDATA.SNFILE_OUTPUT, "at") ;
 
-  APPEND_MAGREST =  ( WRFLAG_BLINDTEST==0 && GENFRAME_OPT==GENFRAME_REST);
+  APPEND_MAGREST = ( WRFLAG_BLINDTEST == 0             && 
+		     GENFRAME_OPT     == GENFRAME_REST &&
+		     !ISMODEL_FIXMAG		     );
 
   // determine number of variables to write out
   NVAR_TEXT =  8;         // Mar 13 2018
@@ -25233,37 +25279,29 @@ void append_SNPHOT_TEXT(void) {
     if ( ADD_PHOTFLAG > 0  ) { 
       sprintf(tmpVal," %4d", PHOTFLAG);
       strcat(tmpLine,tmpVal);
-      // xxx mark delete   sprintf(tmpLine,"%s %4d", tmpLine, PHOTFLAG );  
     }
 
     if ( INPUTS_SEARCHEFF.NMAP_PHOTPROB > 0 )  {
       sprintf(tmpVal," %5.3f", PHOTPROB);
       strcat(tmpLine,tmpVal);
-      // xxx mark delete  sprintf(tmpLine,"%s %5.3f", tmpLine, PHOTPROB );  
     }  
 
     if ( SIMLIB_TEMPLATE.USEFLAG )  { 
       sprintf(tmpVal," %.3le %.3le", searcherr, templerr ); 
       strcat(tmpLine,tmpVal);
-      // xxx mark delete  sprintf(tmpLine,"%s %.3le %.3le ", 
-      // xxx                     tmpLine, searcherr, templerr ); 
     }
 
     sprintf(tmpVal,"  %6.3f", ZPT); strcat(tmpLine,tmpVal);
     sprintf(tmpVal,"  %5.2f", PSF); strcat(tmpLine,tmpVal);
-    // xxx mark delete sprintf(tmpLine, "%s  %6.3f ", tmpLine, ZPT);
-    // xxx mark delete sprintf(tmpLine, "%s  %5.2f ", tmpLine, PSF);
 
     if ( WRFLAG_BLINDTEST == 0 ) {
-      sprintf(tmpVal, "%8.4f ", SIM_MAGOBS ); 
+      sprintf(tmpVal, " %8.4f ", SIM_MAGOBS ); 
       strcat(tmpLine,tmpVal); 
-      // xxx mark delete sprintf(tmpLine, "%s%8.4f ",tmpLine,SIM_MAGOBS );  
     }
 
     if ( INPUTS.MAGMONITOR_SNR ) { 
       sprintf(tmpVal, " %6.1f ", SNR_MON );  
       strcat(tmpLine,tmpVal); 
-      // xxx mark delete sprintf(tmpLine, "%s %6.1f ", tmpLine, SNR_MON );  
     }
 
     if ( APPEND_MAGREST ) { 
@@ -25271,9 +25309,6 @@ void append_SNPHOT_TEXT(void) {
       ifilt_rest  = GENLC.IFILTMAP_REST1[ifilt_obs] ;
       sprintf(tmpVal," %c %.4f", FILTERSTRING[ifilt_rest], mag_rest );
       strcat(tmpLine,tmpVal) ;
-      /* 
-      sprintf(tmpLine,"%s %c %.4f", 
-      tmpLine, FILTERSTRING[ifilt_rest], mag_rest );  */
     }
 
     fprintf(fp, "%s\n", tmpLine);

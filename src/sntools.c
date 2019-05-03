@@ -3345,11 +3345,13 @@ double RMSfromSUMS(int N, double SUM, double SQSUM) {
   // Created Aug 2017
   // Compute RMS from sums
 
-  double RMS= 0.0 ;
-  double XN = (double)N;
+  double RMS = 0.0 ;
+  double XN  = (double)N;
   if ( N == 0 ) { return(RMS); }
 
-  RMS = sqrt ( SQSUM/XN - pow((SUM/XN),2.0) ) ;
+  double ARG = SQSUM/XN - pow((SUM/XN),2.0) ;
+  if ( ARG > 0.0 ) { RMS = sqrt(ARG); }
+
   return(RMS);
 
 } // end RMScalc

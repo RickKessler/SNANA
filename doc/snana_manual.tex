@@ -9531,17 +9531,26 @@ or generating fake magnitudes to overlay on images.
 Examples are as follows:
 %
 \begin{verbatim}
-   GENMODEL:  FIXMAG  20
-   GENMODEL:  FIXMAG  20:24
-   GENMODEL:  RANMAG  20:24
+   GENMODEL:  fixmag  20      # every obs mag=20
+   GENMODEL:  fixmag  20:24   # random obs mag between 20 & 24
+   GENMODEL:  ranmag  20:24   # same as above
+
+   GENMODEL:  FIXMAG  -19     # obs mag = -19 + MU
+   GENMODEL:  FIXMAG  -19:-17 # obs mag = ran(-19:-17) + MU
 \end{verbatim}
 %
 In the first case, all observer-frame magnitudes are 20.
-The 2nd and 3rd cases are identical. The observer-frame mag for 
-each event is randomly selected between 20 and 24; the same mag
-is used at all epochs, but a different random mag
+The 2nd and 3rd cases are equivalent, where the observer-frame mag 
+for each event is randomly selected between 20 and 24.
+The same mag is used at all epochs, but a different random mag
 is chosen for each event. The range of fixed-mag epochs
 is determined by the sim-input key {\tt GENRANGE\_TREST}.
+For these observer-frame models, 
+{\tt GENRANGE\_REDSHIFT} is ignored.
+
+The upper case {\tt FIXMAG} specifies rest-frame mag for which
+the distance modulus is added. 
+For this option, {\tt GENRANGE\_REDSHIFT} must be specified.
 
 
 % -----------------------------------------

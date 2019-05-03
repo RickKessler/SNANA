@@ -1,0 +1,98 @@
+\begin{thebibliography}{10}
+
+\bibitem{JRK07}
+S.~Jha, A.~G. {Riess}, and R.~P. {Kirshner}.
+\newblock {Improved Distances to Type Ia Supernovae with Multicolor Light Curve
+  Shapes: MLCS2k2}.
+\newblock {\em AJ}, 659:122, 2007.
+
+\bibitem{Guy07}
+J.~Guy et~al.
+\newblock {SALT2: Using Distant Supernovae to Improve the use of Type Ia
+  Supernovae as Distance Indicators}.
+\newblock {\em A\&A}, 466:11--21, 2007.
+
+\bibitem{Burns11}
+C.~R. Burns et~al.
+\newblock {The Carnegie Supernova Project: Light-curve Fitting with SNooPy}.
+\newblock {\em AJ}, 141:19, January 2011.
+
+\bibitem{Gold01}
+G.~Goldhaber et~al.
+\newblock {Timescale Stretch Parameterization of Type Ia Supernova B-band Light
+  Curves}.
+\newblock {\em Astrophys.\ J.}, 558:359--368, 2001.
+
+\bibitem{Hayden09}
+B.~Hayden, P.~Garnavich, and {SDSS-SN~Survey}.
+\newblock {The Rise and Fall of SDSS-II Supernovae}.
+\newblock {\em Bulletin of the American Astronomical Society}, 41:254, 2009.
+
+\bibitem{K10_challenge}
+R.~Kessler et~al.
+\newblock {Results from the Supernova Photometric Classification Challenge}.
+\newblock {\em PASP}, 122:1415--1431, December 2010.
+
+\bibitem{SNANA09}
+R.~Kessler et~al.
+\newblock {\tt SNANA}: A public software package for supernova analysis.
+\newblock {\em PASP}, 121:1028, 2009.
+
+\bibitem{Nugent2002}
+P.~Nugent et~al.
+\newblock {K-Corrections and Extinction Corrections for Type Ia Supernovae}.
+\newblock {\em PASP}, 114:803, 2002.
+
+\bibitem{MICE2015}
+J.~{Carretero} et~al.
+\newblock {An algorithm to build mock galaxy catalogues using MICE
+  simulations}.
+\newblock {\em mnras}, 447:646--670, February 2015.
+
+\bibitem{LogNormal2013}
+V.~{Marra}, M.~{Quartin}, and L.~{Amendola}.
+\newblock {Accurate weak lensing of standard candles. I. Flexible cosmological
+  fits}.
+\newblock {\em prd}, 88(6):063004, September 2013.
+
+\bibitem{Schlegel_98}
+D.~J. {Schlegel}, D.~P. {Finkbeiner}, and M.~{Davis}.
+\newblock {Maps of Dust Infrared Emission for Use in Estimation of Reddening
+  and Cosmic Microwave Background Radiation Foregrounds}.
+\newblock {\em Astrophys.\ J.}, 500:525, June 1998.
+
+\bibitem{PSNID_2011}
+M.~Sako et~al.
+\newblock {Photometric Type Ia Supernova Candidates from the Three-year SDSS-II
+  SN Survey Data}.
+\newblock {\em Astrophys.\ J.}, 738:162, September 2011.
+
+\bibitem{Sako2014}
+M.~{Sako} et~al.
+\newblock {Data Release of the SDSS-II Supernova Survey}.
+\newblock {\em arXiv:1401.3317}, 2014.
+
+\bibitem{JM11}
+J.~{Marriner} et~al.
+\newblock {A More General Model for the Intrinsic Scatter in Type Ia Supernova
+  Distance Moduli}.
+\newblock {\em Astrophys.\ J.}, 740:72, October 2011.
+
+\bibitem{BBC}
+R.~{Kessler} and D.~{Scolnic}.
+\newblock {Correcting Type Ia Supernova Distances for Selection Biases and
+  Contamination in Photometrically Identified Samples}.
+\newblock {\em apj}, 836:56, February 2017.
+
+\bibitem{Hui_06}
+L.~Hui and P.~B. Greene.
+\newblock {Correlated Fluctuations in Luminosity Distance and the Importance of
+  Peculiar Motion in Supernova Surveys}.
+\newblock {\em Phys. Rev.}, 73(12):123526, 2006.
+
+\bibitem{Goliath2001}
+M.~Goliath et~al.
+\newblock {Supernovae and the Nature of the Dark Energy}.
+\newblock {\em A\&A}, 380:6--18, 2001.
+
+\end{thebibliography}

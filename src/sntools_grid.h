@@ -45,8 +45,9 @@
 #define EXTNAME_I2LCMAG      "I2LCMAG" 
 char    EXTNAME_GRIDGEN[NPAR_GRIDGEN+1][40] ;
 
-#define SNTYPE_GRIDGEN_Ia     1
-#define SNTYPE_GRIDGEN_NONIa  2
+#define SNTYPE_GRIDGEN_Ia      1
+#define SNTYPE_GRIDGEN_NONIa   2
+#define SNTYPE_GRIDGEN_SIMSED  3
 
 #define OPT_GRIDGEN_FORMAT_TEXT 1
 #define OPT_GRIDGEN_FORMAT_FITS 2
@@ -58,7 +59,6 @@ fitsfile *fp_GRIDGEN_FITS ;
 #define NCOMMENT_GRIDGEN  8
 char COMMENT_GRIDGEN[NCOMMENT_GRIDGEN][80];
 
-// xxx mark delete char  GRIDGEN_FILE[200];   // copied from AUX_SIMFILE.GRIDGEN
 
 float GRIDGEN_I2LCPACK;   // stored I*2 value = mag(or flux) x this value
 

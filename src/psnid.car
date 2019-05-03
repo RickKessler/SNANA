@@ -94,7 +94,7 @@ c (translated from user-namelist string METHOD_NAME)
      &  ,TEMPLATES_NONIA*(MXCHAR_FILENAME)   ! idem for nonIa
      &  ,TEMPLATES_NONIA_IGNORE*(MXCHAR_FILENAME) ! list of NONIA templates to ignore
      &  ,TEMPLATES_NONIA_LIST*(MXCHAR_FILENAME)  ! select this list only
-     &  ,MODELNAME_MAGERR*60     ! name of mag-error model 
+     &  ,MODELNAME_MAGERR*60     ! name of mag-error model
 
       REAL*8
      &   AV_TAU, AV_SMEAR, AV_PRIOR_STR   ! place-holder color-prior parameter

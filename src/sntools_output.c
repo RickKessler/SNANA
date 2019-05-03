@@ -1964,8 +1964,10 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   NROW = SNTABLE_READ_EXEC();
   SNTABLE_AUTOSTORE[NF].NROW = NROW ;
 
+  /* xxx mark delete May 2 2019
   printf("    Close AUTOSTORE file \n" ) ; fflush(stdout);
   TABLEFILE_CLOSE(fileName) ; // Jan 11, 2017
+  xxxxxxxx */
 
   // ------------------------------------------
   // store string length for each CCID for faster lookup

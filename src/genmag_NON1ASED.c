@@ -80,8 +80,8 @@ void init_genmag_NON1ASED(int NON1A_INDEX, char *sedFile ) {
     NLAMPOW_SEDMODEL      = 0;
     NZBIN                 = REDSHIFT_SEDMODEL.NZBIN ;
     SEDMODEL.NSURFACE     = 1 ;  // process 1 NONIA sed at a time
-    SEDMODEL.MINLAMFILT   = MINLAM_SEDMODEL ;
-    SEDMODEL.MAXLAMFILT   = MAXLAM_SEDMODEL ;
+    SEDMODEL.MINLAMFILT   = RESTLAMBDA_RANGE_NON1ASED[0];
+    SEDMODEL.MAXLAMFILT   = RESTLAMBDA_RANGE_NON1ASED[1];
     SEDMODEL.FLUXSCALE    = FLUXSCALE_NON1ASED ;
     SEDMODEL.OPTMASK      = 
       OPTMASK_DAYLIST_SEDMODEL  +  // allow non-uniform day bins
@@ -106,7 +106,6 @@ void init_genmag_NON1ASED(int NON1A_INDEX, char *sedFile ) {
 
   Trange[0] =  -150. ;  // widen Trange Apr 2 2018 
   Trange[1] =   500. ;  
-
   Lrange[0] = SEDMODEL.MINLAMFILT ;
   Lrange[1] = SEDMODEL.MAXLAMFILT ;
 
@@ -285,6 +284,8 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
   // ------------ BEGIN ------------
 
   FLUXSCALE_NON1ASED = 1.0;
+  RESTLAMBDA_RANGE_NON1ASED[0] = MINLAM_SEDMODEL ;
+  RESTLAMBDA_RANGE_NON1ASED[1] = MAXLAM_SEDMODEL ;
 
   // first check path to NON1ASEDs
   if ( strlen(INP_NON1ASED->PATH) == 0 ) 
@@ -502,8 +503,20 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
                         
   // Created Aug 15 2016
   // Read NON1A.LIST file.
+  // Syntax:
+  //
+  // FLUX_SCALE: 1.0                # optional
+  // RESTLAMBDA_RANGE: 2000 12000   # optional
+  // NON1A: <ID1> <TYPE1> <fileName1>
+  // NON1A: <ID2> <TYPE2> <fileName2>
+  // NON1A: <ID3> <TYPE3> <fileName3>
+  // etc ...
+  // where ID=integer id for TYPE, and TYPE is a string
+  // (e.g., Ia, II, Ibc, etc)
+  //
   // Jan 19 2017: allow NON1ASED key as well as NON1A.
   // Jan 30 2017: skip comment lines
+  // Apr 28 2019: read optional FLUX_SCALE and RESTLAMBDA_RANGE keys
 
   FILE *fp;
   int NLIST, ALLNON1A, L_NON1A, L_PEC1A, index, NINDEX ;
@@ -542,12 +555,13 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
     if ( cget[0] == '#' || cget[0] == '!' || cget[0] == '%' )
       { ptrTmp = fgets(tmpLine, 80, fp) ; continue ; }
 
-    if ( strcmp(cget,"FLUX_SCALE:") == 0 ) {   // 4.22.2019
-      // need to refactor and check for FLUX_SCAL in SED.INFO file 
-      readdouble(fp, 1, &SCALE) ;
-      INP_NON1ASED->FLUXSCALE = SCALE ;
-      FLUXSCALE_NON1ASED = SCALE ;
-    } 
+    // 4.2019: check keys that are the same as in SED.INFO file ...
+    // later should just read SED.INFO file if it's there.
+    if ( strcmp(cget,"FLUX_SCALE:") == 0 ) // 
+      { readdouble(fp, 1, &FLUXSCALE_NON1ASED ); } 
+    if ( strcmp(cget,"RESTLAMBDA_RANGE:") == 0 ) 
+      { readdouble(fp, 2, RESTLAMBDA_RANGE_NON1ASED); }
+
 
     L_NON1A = ( 
 	       strcmp(cget,"NON1A:")    == 0 || 

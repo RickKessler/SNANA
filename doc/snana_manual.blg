@@ -1,0 +1,46 @@
+This is BibTeX, Version 0.99d (TeX Live 2016)
+Capacity: max_strings=100000, hash_size=100000, hash_prime=85009
+The top-level auxiliary file: snana_manual.aux
+The style file: unsrt.bst
+Database file #1: snana_manual.bib
+You've used 17 entries,
+            1791 wiz_defined-function locations,
+            571 strings with 5867 characters,
+and the built_in function-call counts, 3416 in all, are:
+= -- 294
+> -- 148
+< -- 0
++ -- 55
+- -- 38
+* -- 227
+:= -- 583
+add.period$ -- 51
+call.type$ -- 17
+change.case$ -- 17
+chr.to.int$ -- 0
+cite$ -- 17
+duplicate$ -- 152
+empty$ -- 342
+format.name$ -- 38
+if$ -- 751
+int.to.chr$ -- 0
+int.to.str$ -- 17
+missing$ -- 17
+newline$ -- 88
+num.names$ -- 17
+pop$ -- 19
+preamble$ -- 1
+purify$ -- 0
+quote$ -- 0
+skip$ -- 63
+stack$ -- 0
+substring$ -- 207
+swap$ -- 17
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 0
+warning$ -- 0
+while$ -- 33
+width$ -- 19
+write$ -- 188

@@ -3135,7 +3135,7 @@ sub DONE_CHECK_postProc {
     print PTR_MERGE2 "\n Finshed $WHATJOB jobs. \n";
     PTR_MERGE2 -> autoflush(1);
 
-    # create DONE-file for this process
+    # create local DONE-file for this process
     qx(touch $DONEFILE);
 
 } # end  of DONE_CHECK_postProc
@@ -3284,6 +3284,8 @@ sub MERGE_DRIVER {
     # Apr 17, 2019: 
     #   + echo $DONE_STATUS to $DONE_STAMP_FILE (SUCCESS or FAILURE)
     #
+    # Apr 29 2019: create DONE_STAMP after gzipping SPLIT_JOBS, 
+    #              instead of before (dumb mistake).
 
     my ($iver, $ifitopt, $IFLAG );
 
@@ -3377,14 +3379,16 @@ sub MERGE_DRIVER {
     # Feb 9 2017: check option to leave trail-mark in sim-readme
     if ( $TRAILMARK_FLAG ) { &write_TRAILMARK(); }
 
-    # create optional DONE_STAMP file (moved from merge_end Jan 2 2015)
+    # Dec 26 2014: check option to make SPLIT_JOBS.tar.gz
+    if ( $GZIP_FLAG == 4 ) { &gzip_SPLIT_JOBS(); }
+
+    # create optional global DONE_STAMP file
     if ( $DONE_STAMP_FLAG ) {  
 	qx(touch $DONE_STAMP);  
 	qx(echo $DONE_STATUS >> $DONE_STAMP);
     }
 
-    # Dec 26 2014: check option to make SPLIT_JOBS.tar.gz
-    if ( $GZIP_FLAG == 4 ) { &gzip_SPLIT_JOBS(); }
+## xxx mark delete 4.29.2019  if ( $GZIP_FLAG == 4 ) { &gzip_SPLIT_JOBS(); }
 
     return ;
 

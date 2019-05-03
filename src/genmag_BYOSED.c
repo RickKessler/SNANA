@@ -11,6 +11,16 @@
   test SNIa model training. However, this function could in 
   principle be used for SNCC or other transients.
 
+  Invoke intrinsic scatter models as follows:
+    GENMAG_SMEAR_MODELNAME: C11
+    GENMAG_SMEAR_MODELNAME: G10:[MODELPATH_SAL2]
+
+  Note that C11 model does not require extra args, but the
+  G10 model needs to be linked to a SALT2 model.
+
+  Mar 30 2019 RK - fix hc factors in spectra
+  Apr 11 2019 RK - check for intrinsic scatter models (e.g., C11, G10 ...)
+
  *****************************************/
 
 
@@ -21,27 +31,41 @@
 
 
 #include  "sntools.h"           // SNANA community tools
-#include  "genmag_SEDtools.h"
-#include  "genmag_SIMSED.h"
+#include  "sntools_genSmear.h"
 #include  "sntools_spectrograph.h"
 #include  "MWgaldust.h"
+#include  "genmag_SEDtools.h"
+#include  "genmag_SIMSED.h"
 #include  "genmag_BYOSED.h"
 
-#ifdef  USE_PYTHON
+#ifdef USE_PYTHON
 #include  <Python.h>
 //#include <numpy/arrayobject.h>
+//#include <numpy/ndarrayobject.h>
 PyObject *geninit_BYOSED;
+
+//int init_numpy(){
+//  import_array(); // PyError if not successful
+//  return 0;
+//}
+
 #endif
 
 // =========================================================
-void init_genmag_BYOSED(char *PATH_VERSION) {
+void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
 
   // Read input directory file(s) for parameters characterizing 
   // how to build your SED.
   //  
   // Inputs:
-  //  PATH_VERSION : points to model-param directory
-
+  //  PATH_VERSION : points to model-param directory;
+  //               :  passed from GENMODEL arg of sim-input
+  //  OPTMASK      : bit mask of options; interpreted by python code.
+  //               : OPTMASK=-1 is a flag to print options.
+  //               :  passed from GENMODEL_MSKOPT arg in sim-input
+  //  
+  //  ARGLIST      : string of options
+  //
 
 #ifdef USE_PYTHON
   PyObject *genmod, *genclass, *pargs;
@@ -55,7 +79,10 @@ void init_genmag_BYOSED(char *PATH_VERSION) {
 
   sprintf(BANNER, "%s", fnam);
   print_banner(BANNER);
-  printf("   path = '%s' \n",  PATH_VERSION);
+  printf("   BYOSED PATH    = '%s' \n",  PATH_VERSION);
+  printf("   BYOSED OPTMASK = %d \n",    OPTMASK );	
+  printf("   BYOSED ARGLIST = '%s' \n",  ARGLIST );	
+  fflush(stdout);
 
   // print summary of filter info
   filtdump_SEDMODEL();
@@ -99,7 +126,7 @@ void init_genmag_BYOSED(char *PATH_VERSION) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  pargs  = Py_BuildValue("(s)",PATH_VERSION);
+  pargs  = Py_BuildValue("(sis)",PATH_VERSION,OPTMASK,ARGLIST);
   geninit_BYOSED = PyEval_CallObject(genclass, pargs);
   if (geninit_BYOSED == NULL) {
     sprintf(c1err,"Could not run PyEval_CallObject module");
@@ -147,7 +174,7 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
   // Created Sep 2018
   //
   // Inputs:
-  //   EXTERNAL_ID : read next SED when this changes
+  //   EXTERNAL_ID : set NEWEVT_FLAG logical when this changes
   //   zHEL        : helio redshift
   //   MU          : distance modulus
   //   MWEBV       : E(B-V) for Milky Wat
@@ -169,6 +196,7 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
   char *cfilt = FILTER_SEDMODEL[ifilt].name ;
   double  ZP  = FILTER_SEDMODEL[ifilt].ZP ;    // ZP for flux->mag
   double x0   = pow(10.0,-0.4*MU);             // dimming from dist. mod.
+  int    NEWEVT_FLAG = 0 ;
 
   int    NLAM, o ;
   double Tobs, Trest, FLUXSUM_OBS, FspecDUM[2], magobs ; 
@@ -184,6 +212,10 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
 
   for(o=0; o < NOBS; o++ ) { MAGOBS_list[o] = 99.0 ; }
 
+  // check of this is a new event, or same event
+  // with different epoch
+  if ( EXTERNAL_ID != Event_BYOSED.LAST_EXTERNAL_ID )
+    { NEWEVT_FLAG=1; }
 
 
   /* xxx
@@ -201,18 +233,20 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
   fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, MWEBV);
   fill_TABLE_HOSTXT_SEDMODEL(RV_host, AV_host, zHEL);   // July 2016
 
-    
   for(o=0; o < NOBS; o++ ) {
     Tobs  = TOBS_list[o];
     Trest = Tobs/z1;
-    fetchSED_BYOSED(Trest, MXLAM_BYOSED,   &NLAM, LAM, SED );  
+
+    fetchSED_BYOSED(EXTERNAL_ID, NEWEVT_FLAG, Trest, 
+		    MXLAM_BYOSED, &NLAM, LAM, SED );  
     Event_BYOSED.NLAM = NLAM ;
 
     // integrate redshifted SED to get observer-frame flux in IFILT_OBS band.
     // FLUXSUM_OBS is returned (ignore FspecDUM)
-    INTEG_zSED_BYOSED(0, IFILT_OBS, zHEL, x0, RV_host, AV_host, NLAM, LAM, SED, 
+    INTEG_zSED_BYOSED(0, IFILT_OBS, Tobs, zHEL, x0,RV_host,AV_host, 
+		      NLAM, LAM, SED, 
 		      &FLUXSUM_OBS, FspecDUM ); // <= returned 
-		      
+
     
     // convert calibrated flux into true magnitude
     if ( FLUXSUM_OBS > FLUXSUM_MIN ) 
@@ -224,9 +258,12 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
     MAGERR_list[o] = 0.01;    // not used
   }
 
-  // store SED parameters so that sim can pass to data files
-  if ( EXTERNAL_ID != Event_BYOSED.LAST_EXTERNAL_ID )
-    { fetchParVal_BYOSED(Event_BYOSED.PARVAL); }
+  // for NEW EVENT, store SED parameters so that sim can 
+  // write them to data files
+  // hack
+  if ( NEWEVT_FLAG ) { 
+    fetchParVal_BYOSED(Event_BYOSED.PARVAL); 
+  }
 
   // keep track of last ID
   Event_BYOSED.LAST_EXTERNAL_ID = EXTERNAL_ID ;
@@ -252,15 +289,37 @@ int fetchParNames_BYOSED(char **parNameList) {
   //
   // Called once during init stage.
 
-  int NPAR=0;
+  int NPAR,ipar;
   char fnam[] = "fetchParNames_BYOSED" ;
-
+#ifdef USE_PYTHON
+  // python declarations here
+  
+  PyObject *parnamesmeth,*pNames,*pNPARmeth,*pNPAR,*pnamesitem;
+  PyListObject *arrNames;
+  printf("fetching parameter names from Python\n");
   // David: need your python magic to return these string names.
+  parnamesmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchParNames_BYOSED");
+  pNPARmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchNParNames_BYOSED");
+  pNames  = PyEval_CallObject(parnamesmeth, NULL);
+  pNPAR  = PyEval_CallObject(pNPARmeth, NULL);
 
-  sprintf(parNameList[NPAR],"DUMMY_PAR0" ); NPAR++;
-  sprintf(parNameList[NPAR],"DUMMY_PAR1" ); NPAR++;
-  sprintf(parNameList[NPAR],"DUMMY_PAR2" ); NPAR++;
+  NPAR = PyLong_AsLong(pNPAR);
+  arrNames = (PyListObject *)(pNames);
 
+  for(ipar=0; ipar < NPAR; ipar++ ) {
+    pnamesitem = PyList_GetItem(arrNames,ipar);
+    sprintf(parNameList[ipar],PyUnicode_AsUTF8(pnamesitem));  
+  }
+
+  Py_DECREF(arrNames);
+  Py_DECREF(pNames);
+  Py_DECREF(parnamesmeth);
+  Py_DECREF(pNPARmeth);
+  Py_DECREF(pNPAR);
+
+#endif
+
+  
   return(NPAR) ;
 
 } // fetchParNames_BYOSED
@@ -273,66 +332,108 @@ void fetchParVal_BYOSED(double *parVal) {
   // data files.
   //
   // Called once per event.
-  
-  int NPAR=0;
+
+#ifdef USE_PYTHON  
+  PyObject *parvalmeth,*pParVal,*pargs;
+#endif
+  double val;
+  char **parNameList;
+  int NPAR,ipar;
   char fnam[] = "fetchParVal_BYOSED" ;
 
   // ------------- BEGIN ------------------
 
+  NPAR = Event_BYOSED.NPAR; //fetchParNames_BYOSED(parNameList);
+  parNameList = Event_BYOSED.PARNAME;
   // David: need python function to return these values.
+#ifdef USE_PYTHON
+  parvalmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchParVals_BYOSED_4SNANA");
 
-  parVal[0] = 1.111 ; 
-  parVal[1] = 2.222 ; 
-  parVal[2] = 3.333 ; 
+  for(ipar=0; ipar < NPAR; ipar++ ) {
+    pargs  = Py_BuildValue("(s)",parNameList[ipar]);
+    pParVal  = PyEval_CallObject(parvalmeth, pargs);
+    val = PyFloat_AsDouble(pParVal);
+    parVal[ipar] = val;
+    // printf("   PARVAL    = '%d' \n",  val);
+  }
 
+  Py_DECREF(pParVal);
+  Py_DECREF(parvalmeth);
+#endif
+  
   return ;
 
 } // end fetchParVal_BYOSED
 
 // =================================================
-void fetchSED_BYOSED(double Trest, int MXLAM,
+void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
 		     int *NLAM_SED, double *LAM_SED, double *FLUX_SED) {
 
   // return rest-frame SED to calling function; 
   // Inputs:
-  //   Trest : rest frame epochs (Trest=0 at peak)
-  //   MXLAM : abort iof *NLAM > MXLAM
-  //
+  //   EXTERNAL_ID  :  SNID passed from main program
+  //   NEWEVT_FLAG  :  logical flag: True for new event
+  //   Trest        : rest frame epochs (Trest=0 at peak)
+  //   MXLAM        : abort iof *NLAM > MXLAM
+  //   
   // Output
   //  *NLAM_SED  : number of wavelenth bins for SED
   //  *LAM_SED   : array of wavelengths for SED
-  //  *FLUX_SED  : SED flux in each wave bin
+  //  *FLUX_SED  : SED flux in each wave bin (erg/s/cm^2/A)
+  //               Note that this is flux, not dF/dLam
+  //
 
   char fnam[] = "fetchSED_BYOSED" ;
 
   // ------------ BEGIN -----------
 
   *NLAM_SED = 0 ; // init output
-  
+
 #ifdef USE_PYTHON
-  PyObject *pmeth, *pargs, *pValue, *NLAM;
-  PyArrayObject *arrReturn;
+  PyObject *pmeth, *pargs, *pNLAM, *pLAM, *pFLUX, *plammeth, *pnlammeth;
+  int NLAM, ilam;
+  PyListObject *arrLAM, *arrFLUX;
+  PyObject *pylamitem, *pyfluxitem;
+  //int numpy_initialized =  init_numpy();
+  
   // python declarations here
   pmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_BYOSED");
-  pargs  = Py_BuildValue("ddi",z,Tobs,MXLAM);
-  pValue   = PyEval_CallObject(pmeth, pargs);
+  plammeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_LAM");
+  pnlammeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_NLAM");
+  pargs  = Py_BuildValue("diii",Trest,MXLAM,EXTERNAL_ID,NEWEVT_FLAG);
 
-  arrReturn = (PyArrayObject *)(pValue);
-  NLAM = PyArray_GETPTR1(arrReturn,0,0)
-    
-  for(ilam=0; ilam < NLAM; ilam++ ) {
-    // interpolate flux to Trest
-    LAM_SED[ilam]  = PyArray_GETPTR2(arrReturn,1,ilam) ;
-    FLUX_SED[ilam] = PyArray_GETPTR2(arrReturn,2,ilam);
-  }
+  pNLAM  = PyEval_CallObject(pnlammeth, NULL);
+  pLAM  = PyEval_CallObject(plammeth, NULL);
+  pFLUX   = PyEval_CallObject(pmeth, pargs);
 
   Py_DECREF(pmeth);
-  Py_DECREF(pargs);
-  Py_DECREF(pValue);
-  //Py_DECREF(pNLAM);
-  //Py_DECREF(pFLUX);
-  //Py_DECREF(pLAM);
+  Py_DECREF(plammeth);
+  Py_DECREF(pnlammeth);
   
+  NLAM = PyFloat_AsDouble(pNLAM);
+  Py_DECREF(pNLAM);
+  
+  arrLAM = (PyListObject *)(pLAM);
+  arrFLUX = (PyListObject *)(pFLUX);
+  for(ilam=0; ilam < NLAM; ilam++ ) {
+    // interpolate flux to Trest
+    pylamitem = PyList_GetItem(arrLAM,ilam);
+    pyfluxitem = PyList_GetItem(arrFLUX,ilam);
+
+    LAM_SED[ilam]  = PyFloat_AsDouble(pylamitem);
+    FLUX_SED[ilam] = PyFloat_AsDouble(pyfluxitem);
+  }
+
+  *NLAM_SED = NLAM;
+  
+  Py_DECREF(pLAM);
+  Py_DECREF(pFLUX);
+  Py_DECREF(arrLAM);
+  Py_DECREF(arrFLUX);
+  Py_DECREF(pargs);
+  //Py_DECREF(pylamitem);
+  //Py_DECREF(pyfluxitem);
+
 #endif
 
 
@@ -377,7 +478,8 @@ void fetchSED_BYOSED(double Trest, int MXLAM,
 
 
 // =====================================================
-void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double zHEL, double x0, 
+void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs, 
+		       double zHEL, double x0, 
 		       double RV_host, double AV_host,
 		       int NLAM, double *LAM, double *SED,
 		       double *Finteg, double *Fspec ) {
@@ -385,11 +487,12 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double zHEL, double x0,
   // Created Dec 2018 by R.K.
   // Return integrated obs-frame flux in filter passband 
   // Be careful with rest-frame and obs-frame
-  //s 
+  //
   // Inputs:
   //   OPT_SPEC     1 -> return obs-frame spectrum withing filter-band.
   //   ifilt_obs    filter index
   //   zHEL         helio redshift
+  //   Tobs         MJD - MJDpeak (for intrinsic scatter model)
   //   x0           flux scale from distance modulus
   //   RV_host      RV for host (optional)
   //   AV_host      AV for host
@@ -401,7 +504,8 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double zHEL, double x0,
   //   *Finteg     Integrated flux 
   //   *Fspec      obs-frame spectrum (if OPT_SPEC==1)
   //
-  // !!! Dec 12 2018: Finteg is ready, but Fspec is NOT ready !!!
+  // !!! Dec 12 2018: Finteg is tested against SALT2 filter-fluxes, 
+  //     but Fspec is not tested.
   //
 
   int    ifilt          = IFILTMAP_SEDMODEL[ifilt_obs] ;
@@ -409,6 +513,7 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double zHEL, double x0,
   int   DO_SPECTROGRAPH = ( ifilt_obs == JFILT_SPECTROGRAPH ) ;
   double meanlam_obs    = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda
   double z1             = 1.0 + zHEL ;
+  double Trest          = Tobs/z1 ;
   double meanlam_rest   = meanlam_obs/z1 ;
   double minlam_filt    = FILTER_SEDMODEL[ifilt].minlam ;
   double maxlam_filt    = FILTER_SEDMODEL[ifilt].maxlam ;
@@ -416,13 +521,16 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double zHEL, double x0,
   double minlam_SED     = LAM[0];
   double maxlam_SED     = LAM[NLAM-1];
   double hc8            = (double)hc ;
-  double MODELNORM      = lamstep_filt * 1.0E0 / hc8 ;
+  double MODELNORM_Finteg  = lamstep_filt / hc8 ;
+  double MODELNORM_Fspec   = lamstep_filt ;
 
-  int    LABORT, ilamobs, ilamsed;
+  int    LABORT, ilamobs, ilamsed, ISTAT_SMEAR ;
   double TRANS, MWXT_FRAC, HOSTXT_FRAC, FLUXSUM = 0.0 ;
-  double LAMOBS, LAMSED, LAMSED_MIN, LAMSED_MAX, LAMSED_STEP ;
+  double LAMOBS, LAMSED, LAMSED_MIN, LAMSED_MAX;
+  double LAMSED_STEP, LAMSPEC_STEP, LAMRATIO ;
   double TMPLAM[3], TMPSED[3];
-  double Fbin_forFlux, Fbin_forSpec, FTMP; 
+  double lam[MXBIN_LAMFILT_SEDMODEL], magSmear[MXBIN_LAMFILT_SEDMODEL];
+  double Fbin_forFlux, Fbin_forSpec, FTMP, arg, FSMEAR ; 
   double Finteg_filter=0.0, Finteg_spec=0.0 ;
   char *cfilt  = FILTER_SEDMODEL[ifilt].name ;
 
@@ -431,7 +539,8 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double zHEL, double x0,
 
   // ------------- BEGIN -----------
 
-  *Finteg = 0.0 ; // init output flux for filter
+  *Finteg  = 0.0 ; // init output flux for filter
+  Fspec[0] = 0.0 ;
 
   // first make sure that SED wavelength range covers filter
   if ( minlam_filt < minlam_SED*z1 || maxlam_filt>maxlam_SED*z1 ) {
@@ -441,6 +550,21 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double zHEL, double x0,
 	    ifilt, cfilt, minlam_filt, maxlam_filt);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
+  // - - - - - - -
+  // check for intrinsic scatter models in sntools_genSmear.c
+  //  (e..g, G10, C11).  Get magSmear at all wavelengths.
+  ISTAT_SMEAR = istat_genSmear(); // check for smear model
+  if ( ISTAT_SMEAR ) {
+    for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
+      LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
+      LAMSED       = LAMOBS/z1;   // rest-frame wavelength 
+      lam[ilamobs] = LAMSED ;
+      magSmear[ilamobs] = 0.0 ;
+    }
+    get_genSmear( Trest, NLAMFILT, lam, magSmear) ;
+  }
+
+  // - - - - - -
 
   LAMSED_STEP = lamstep_filt ; 
 
@@ -465,9 +589,10 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double zHEL, double x0,
 
     // check spectrum options
     if ( OPT_SPEC  && DO_SPECTROGRAPH )  {
-	// prepare sub-bins since SPECTROGRAPH bins can be large
-	LAMSED_MIN = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST[ilamobs]/z1 ; 
-	LAMSED_MAX = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST[ilamobs]/z1 ;
+      Finteg_spec = 0.0 ;
+      // prepare sub-bins since SPECTROGRAPH bins can be large
+      LAMSED_MIN = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST[ilamobs]/z1 ; 
+      LAMSED_MAX = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST[ilamobs]/z1 ;
     } // end OPT_SPEC
 
     // loop over rest-frame lambda (for SPECTROGRAPH)
@@ -483,16 +608,40 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double zHEL, double x0,
       TMPLAM[2]=LAM[ilamsed+2];  TMPSED[2]=SED[ilamsed+2];       
       FTMP = quadInterp( LAMSED, TMPLAM, TMPSED, fnam);
 
+      // check option to smear flux with intrinsic scatter (Apr 11 2019)
+      if ( ISTAT_SMEAR ) {
+	arg     =  -0.4*magSmear[ilamobs] ;
+	FSMEAR  =  pow(TEN,arg)  ;        // fraction change in flux 
+	FTMP   *=  FSMEAR;                // adjust flux for smearing
+      }
+      
       Fbin_forFlux = (FTMP * HOSTXT_FRAC*MWXT_FRAC * LAMSED*TRANS);
       Fbin_forSpec = (FTMP * HOSTXT_FRAC*MWXT_FRAC );
       Finteg_filter  +=  Fbin_forFlux ;
 
+      if ( OPT_SPEC && DO_SPECTROGRAPH ) { 
+	if ( LAMSED+LAMSED_STEP < LAMSED_MAX ) 
+	  { LAMSPEC_STEP = LAMSED_STEP * z1 ; } // obs-frame lamStep
+	else
+	  { LAMSPEC_STEP = (LAMSED_MAX-LAMSED)*z1 ; }
+	
+	LAMRATIO        = LAMSPEC_STEP/LAMSED_STEP ;
+	Finteg_spec    += (Fbin_forSpec * LAMRATIO );
+	
+      } // end OPT_SPEC
+
+
     } // end loop over LAMSED
+
+    // store spectrum
+    if ( OPT_SPEC ) { Fspec[ilamobs] = (Finteg_spec * MODELNORM_Fspec) ; }
 
   } // end ilamobs
   
 
-  *Finteg = Finteg_filter * x0 * MODELNORM ;
+  // - - - - - - - 
+  // store integrated flux in passband 
+  *Finteg = (Finteg_filter * x0 * MODELNORM_Finteg);
 
   return;
 
@@ -500,16 +649,52 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double zHEL, double x0,
 
 
 // ====================================================
-void genSpec_BYOSED(double TOBS, double z, double MWEBV,
+void genSpec_BYOSED(double Tobs, double zHEL, double MU, double MWEBV,
 		    double RV_host, double AV_host, // (I)		     
-		    double *FLUXOBS_LIST,           // (O) fluxGen per bin 
+		    double *GENFLUX_LIST,           // (O) fluxGen per bin 
 		    double *GENMAG_LIST ) {         // (O) magGen per bin
 
-  // Dec 2018
+  // March 2019
   // Return BYOSED spectrum in SPECTROGRAPH bins
   //
-  // !!! NOT READY !!!
+
+  double hc8   = (double)hc ;
+  double z1    = 1.0 + zHEL ;
+  double x0    = pow(TEN,-0.4*MU);
+  double Trest = Tobs/z1 ;
+  int NBLAM    = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
+  int NEWEVT_FLAG = 0;
+
+  int ilam ;
+  double Finteg_ignore, FTMP, MAG, ZP, LAM ;
+  char fnam[] = "genSpec_BYOSED" ;
+
   // --------- BEGIN ------------
+
+  // init entire spectum to zero.
+  for(ilam=0; ilam < NBLAM; ilam++ ) { GENFLUX_LIST[ilam] = 0.0 ; }
+
+  INTEG_zSED_BYOSED(1, JFILT_SPECTROGRAPH, Tobs, zHEL, x0, 
+		    RV_host, AV_host, 
+		    Event_BYOSED.NLAM,
+		    Event_BYOSED.LAM, 
+		    Event_BYOSED.SED, 
+		    &Finteg_ignore, GENFLUX_LIST ); // <= returned 
+
+
+  // convert generated fluxes into mags
+  for(ilam=0; ilam < NBLAM; ilam++ ) { 
+    LAM  = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
+    ZP   = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
+    FTMP = (LAM/(hc8*z1)) * GENFLUX_LIST[ilam] ;
+    if ( ZP > 0.0 && FTMP > 0.0 )   { 
+      MAG = -2.5*log10(FTMP) + ZP ;
+    }
+    else  { 
+      MAG = MAG_UNDEFINED ;  // model undefined
+    }
+    GENMAG_LIST[ilam] = MAG ;
+  } // end ilam loop over SPECTROGRAPH bins
 
 
   return ;

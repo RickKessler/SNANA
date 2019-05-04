@@ -1,49 +1,48 @@
- Process input file snlc_fit.cra 
- Will create output file: ../src/tempfit/snlc_fit.f 
+ Process input file psnid.cra 
+ Will create output file: psnid.f 
 
-   Parse file: snlc_fit.cra  (117 lines) 
+   Parse file: psnid.cra  (125 lines) 
 	 Define patchy flag  'LINUX'  
-	 Define patchy flag  'SNFIT'  
-	 Define patchy flag  'R4KCOR'  
-	 Define patchy flag  'MINUIT'  
-	 Define COM PATCH = SNCOM  in file=snlc_fit.cra 
-	 Define EXE PATCH = SNANA  in file=snlc_fit.cra 
-	 Define EXE PATCH = FITUTIL  in file=snlc_fit.cra 
+	 Define patchy flag  'PSNID'  
+	 Define COM PATCH = SNCOM  in file=psnid.cra 
+	 Define EXE PATCH = SNANA  in file=psnid.cra 
    Parse file: snana.lnk  (39329 lines) 
 	 Found defined PATCH = 'SNCOM'  in file=snana.lnk 
 	 Found defined PATCH = 'SNANA'  in file=snana.lnk 
 	 Define EXE PATCH = SNMAIN  in file=snana.lnk 
 	 Define EXE PATCH = SNUTIL  in file=snana.lnk 
 	 Define EXE PATCH = SNTABLE  in file=snana.lnk 
-	 Define EXE PATCH = CALIB  in file=snana.lnk (USEFLAG=R4KCOR)
 	 Define EXE PATCH = FITPKMJD  in file=snana.lnk 
 	 Define EXE PATCH = SPLINE  in file=snana.lnk 
 	 Found defined PATCH = 'SNMAIN'  in file=snana.lnk 
 	 Found defined PATCH = 'SNUTIL'  in file=snana.lnk 
 	 Found defined PATCH = 'SNTABLE'  in file=snana.lnk 
-	 Found defined PATCH = 'CALIB'  in file=snana.lnk 
+	 Found undefined PATCH  = 'CALIB'  in file=snana.lnk 
 	 Found defined PATCH = 'SPLINE'  in file=snana.lnk 
 	 Found defined PATCH = 'FITPKMJD'  in file=snana.lnk 
 	 Found undefined PATCH  = 'TESTFUNS'  in file=snana.lnk 
-	 Found defined PATCH = 'FITUTIL'  in file=snana.lnk 
-	 Define COM PATCH = FITCOM  in file=snlc_fit.cra 
-	 Define EXE PATCH = FITCODE  in file=snlc_fit.cra 
+	 Found undefined PATCH  = 'FITUTIL'  in file=snana.lnk 
+	 Define COM PATCH = FITCOM  in file=psnid.cra 
+	 Define EXE PATCH = PLOTPREP  in file=psnid.cra 
    Parse file: snlc_fit.lnk  (19176 lines) 
 	 Found defined PATCH = 'FITCOM'  in file=snlc_fit.lnk 
-	 Found defined PATCH = 'FITCODE'  in file=snlc_fit.lnk 
-	 Define EXE PATCH = SNTABFIT  in file=snlc_fit.lnk 
-	 Define EXE PATCH = HFUNS  in file=snlc_fit.lnk 
-	 Found defined PATCH = 'SNTABFIT'  in file=snlc_fit.lnk 
-	 Found defined PATCH = 'HFUNS'  in file=snlc_fit.lnk 
-	 Define COM PATCH = USRCOM  in file=snlc_fit.cra 
-	 Define EXE PATCH = USRCODE  in file=snlc_fit.cra 
-	 Found defined PATCH = 'USRCOM'  in file=snlc_fit.cra 
-	 Found defined PATCH = 'USRCODE'  in file=snlc_fit.cra 
+	 Found undefined PATCH  = 'FITCODE'  in file=snlc_fit.lnk 
+	 Found undefined PATCH  = 'SNTABFIT'  in file=snlc_fit.lnk 
+	 Found undefined PATCH  = 'HFUNS'  in file=snlc_fit.lnk 
+	 Define COM PATCH = PIDCOM  in file=psnid.cra 
+	 Define EXE PATCH = PIDCODE  in file=psnid.cra 
+   Parse file: psnid.lnk  (1484 lines) 
+	 Found defined PATCH = 'PIDCOM'  in file=psnid.lnk 
+	 Found defined PATCH = 'PIDCODE'  in file=psnid.lnk 
+	 Define COM PATCH = USRCOM  in file=psnid.cra 
+	 Define EXE PATCH = USRCODE  in file=psnid.cra 
+	 Found defined PATCH = 'USRCOM'  in file=psnid.cra 
+	 Found defined PATCH = 'USRCODE'  in file=psnid.cra 
 
- Open output file: ../src/tempfit/snlc_fit.f 
+ Open output file: psnid.f 
 
- Done writing 716613 fortran lines with 
-	 415  DECKs 
-	 44  KEEPs 
-	 39    defined +SELFs --> included.
-	 44  undefined +SELFs --> ignored. 
+ Done writing 310349 fortran lines with 
+	 227  DECKs 
+	 47  KEEPs 
+	 9    defined +SELFs --> included.
+	 75  undefined +SELFs --> ignored. 

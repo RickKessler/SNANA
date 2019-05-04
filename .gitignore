@@ -4,5 +4,7 @@ bin/*
 src/ypatchy.log
 src/*.f*
 src/*~
+src/temp*
+src/*.o
 util/*~
 *~

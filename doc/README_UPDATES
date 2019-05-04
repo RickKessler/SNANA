@@ -16528,4 +16528,20 @@ GitHub issues:
 
 
 
+
+# ======================================================================= 
+         v10_72 (May 4 2019) 
+
+         ***** IMPORTANT(v10_72) ***** 
+
+     Switch primary repo to git on fnal cluster.
+
+         ***** USEFUL(v10_72) ***** 
+
+         ***** MISCELLANEOUS(v10_72) ***** 
+
+    combine_fitres.c
+      + refactor indices to start at zero instead of one.
+
+
 END: 

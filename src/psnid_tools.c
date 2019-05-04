@@ -565,6 +565,7 @@ void PSNID_READ_TEMPLATES(int TYPEINDX, char *file ) {
   sprintf(TEMPLATES_FILE_PSNID[TYPEINDX], "%s", file);
   ptrFile = TEMPLATES_FILE_PSNID[TYPEINDX] ;
 
+  // open as text file just to see if it exists.
   fp = snana_openTextFile(1,PATH_TEMPLATES_PSNID,       // (I) public area
 			  ptrFile,                    // (I) filename
 			  FILE,                // (O) full filename 
@@ -577,7 +578,8 @@ void PSNID_READ_TEMPLATES(int TYPEINDX, char *file ) {
   }
   fclose(fp);
 
-  //read FITS grid and load SNGRID  in sngridtools.h
+  // Now we know it exists;
+  // read FITS grid and load SNGRID  in sngridtools.h
   fits_read_SNGRID(OPT_READ, FILE, &SNGRID_PSNID[TYPEINDX] );
   USEFLAG_TEMPLATES_PSNID[TYPEINDX] = 1 ;
     

@@ -1,0 +1,8 @@
+obj/*
+lib/*
+bin/*
+src/ypatchy.log
+src/*.f*
+src/*~
+util/*~
+*~

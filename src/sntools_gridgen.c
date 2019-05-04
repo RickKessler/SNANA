@@ -987,7 +987,7 @@ void wrhead_GRIDfile_fits(void) {
 
 
   // -------------------------------
-  // write nonIa-info table
+  // write NONIa-INFO  table
 
   if ( SNTYPE_GRIDGEN() == SNTYPE_GRIDGEN_NONIa ) {
     printf("\t create GRIDGEN table of nonIa types : \n" );
@@ -1006,7 +1006,7 @@ void wrhead_GRIDfile_fits(void) {
     tform[0] =  stringI2  ;  // GRID-index (same as shapepar)
     tform[1] =  stringI2  ;  // nonIa SNANA index (same as shapepar)
     tform[2] =  stringC16 ;  // type (II, Ib, ...) 
-    // xxx mark delete     tform[3] =  stringC20 ;  // name (i.e, "SDSS-000018")
+
     tform[3] =  stringC120 ;  // allow long name with path 
     tform[4] =  stringF4  ; // WGT    (Aug 30 2013)
     tform[5] =  stringF4  ; // MAGOFF (Aug 30 2013)
@@ -1015,12 +1015,12 @@ void wrhead_GRIDfile_fits(void) {
 
     fptr     = &SNGRID_WRITE.VALUE[ipar][1];
     for ( i=1; i <= nrow; i++ ) {
-      I2NONIA_GRID[i]        = (int)SNGRID_WRITE.VALUE[ipar][i];
-      I2NONIA_SNANA[i]       = SNGRID_WRITE.NON1A_INDEX[i] ;
-      TBLPAR_NON1A_CTYPE[i]  = SNGRID_WRITE.NON1A_CTYPE[i] ;
-      TBLPAR_NON1A_NAME[i]   = SNGRID_WRITE.NON1A_NAME[i] ;
-      TBLPAR_NON1A_WGT[i]    = SNGRID_WRITE.NON1A_WGT[i] ;
-      TBLPAR_NON1A_MAGOFF[i] = SNGRID_WRITE.NON1A_MAGOFF[i] ;
+      I2NONIA_GRID[i]          = (int)SNGRID_WRITE.VALUE[ipar][i];
+      I2NONIA_SNANA[i]         = SNGRID_WRITE.NON1A_INDEX[i] ;
+      TBLPAR_NON1A_CTYPE[i]    = SNGRID_WRITE.NON1A_CTYPE[i] ;
+      TBLPAR_NON1A_NAME[i]     = SNGRID_WRITE.NON1A_NAME[i] ;
+      TBLPAR_NON1A_WGT[i]      = SNGRID_WRITE.NON1A_WGT[i] ;
+      TBLPAR_NON1A_MAGOFF[i]   = SNGRID_WRITE.NON1A_MAGOFF[i] ;
       TBLPAR_NON1A_MAGSMEAR[i] = SNGRID_WRITE.NON1A_MAGSMEAR[i] ;
       I2NONIA_ITYPE_USER[i]    = SNGRID_WRITE.NON1A_ITYPE_USER[i] ;
     }

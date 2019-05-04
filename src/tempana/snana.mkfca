@@ -1,0 +1,79 @@
+ROUTINES = main.o prsargs.o rdsnnml.o chkbound.o chkccid.o \
+init_outfiles.o init_sntable_opt.o get_sim_lcwidth.o \
+parse_sntable_list.o snlcinp_override.o mcmcinp_override.o \
+nninp_override.o procsnnml.o rdsnignore.o prbanner.o \
+pr_snstats.o prncuts.o snana_dr.o snend.o forclose.o rejectps.o \
+iniwrfits.o updwrfits.o endwrfits.o setsnstr.o setsnpriv.o \
+setsndbl.o wrtext.o wrs2_1.o ini_wrs2.o wrs2_2.o madabort.o \
+chckline_args.o init_snvar.o hdmskchk.o nnrdinp.o nnrdpath.o \
+nntrain_end.o prnn_banner.o nnapply_end.o rdcidlist.o \
+rdmjdlist.o gtintlist.o envreplace.o get_parse_word_fortran.o \
+upcase.o locase.o rdnint.o rdnfloat.o rdndble.o rdstring.o \
+rdsnlist.o rdsrvtext.o initsurvey.o inifltreplace.o setsurvey.o \
+abtrest.o rdepig.o chkfmt.o rdverfits.o rdsurvey_fits.o \
+rdsnfits.o rdsnfits_epcuts.o rdsnfits_phot.o rdsnfits_spec.o \
+unpstr.o fitsabort.o gtinfover.o snanavers.o rdvertext.o \
+parse_sndata_text.o print_rdsn.o parse_head.o parse_hostgal.o \
+set_hostgal_prefix.o checkstring_ccid.o chkfltkey.o \
+rdfitshead_simsed.o rdfhead_byosed.o rdfhead_lclib.o \
+rdfhead_sim_hostlib.o prssimsed.o parse_modelpar_text.o \
+prssimhost.o prsparen.o rdprivfits.o prs_terse.o parse_cid.o \
+parse_survey_name.o get_idsurvey.o parse_spectrum.o cidassign.o \
+ldonecid.o prs_redshift.o zcutstat.o parse_epoch.o prs_band.o \
+parse_sim.o parse_private.o prsprvkey.o nmapriv.o getpriv.o \
+defpriv.o prs_search.o parse_filterstring.o parse_intlist.o \
+parsnmlstrlist.o cidstr.o filtreplace.o filtindx.o isbxfilt.o \
+mwebvfudge.o get_idtel.o get_idfield.o read_headkey.o \
+endmjd_proc.o move_snlc_arrays.o init_sndata.o init_cmask.o \
+init_cnames.o mwebv_fluxcor.o rdusrtags.o gtusertag.o \
+multiseason.o select_earlylc.o parse_earlylc.o \
+istat_require_epochs.o parse_require_epochs.o \
+init_header_override.o exec_header_override.o init_magcor.o \
+istat_magcor_add.o exec_magcor.o end_magcor.o rd_vpec_file.o \
+zhd.o snrecon.o set_zhelio.o set_snhost_zphot.o set_mag.o \
+set_sbmag.o parse_simvar_cuts.o eval_simvar_cuts.o \
+privatecuts.o inifudgeflux.o printmsg_fluxcor.o fudgefcal.o \
+setforce_fluxcor_snana.o setmask_fluxcor_snana.o countfields.o \
+u3band.o eraseflt.o dlmag8_ref.o dlz8_ref.o dlz8.o sntypestat.o \
+ccdnumstat.o chckheader.o checkepignore.o make_simlib_file.o \
+set_simlib_skymag.o set_simlib_zperr.o unique_cidint.o \
+compute_simlib_info.o fluxerrcalc.o append_string.o \
+check_snana_dump_forc.o areafrac.o mon_snana.o mon_hubbleref.o \
+idtelselect.o mjdselect.o get_trvar.o dmp_readme.o \
+dmp_cutfail.o dmp_snfail.o set_cutmask.o lcidselect.o \
+stringmatch.o stepfun8.o get_hostxtinct8.o dfint.o polint8.o \
+firstbin_interp.o lcutep.o lcutvar.o dmptrace.o iplotsplit.o \
+gtsimtype.o doplot_snlc.o getnlcplot.o snlcplot.o specplot.o \
+check_duplmjd.o table_snana.o tbsnvar.o tbobsvar.o \
+init_table_sim_magobs.o fill_table_sim_magobs.o \
+sim_magobs_interp.o tbsimvar.o tbcidptr.o tbvfilt.o \
+table_addcol_load.o tbstrterm.o cwndup.o initgalxt.o rdkcor.o \
+rdkini.o rdkcor_fits.o rdkfihdu.o rdkcor_fits_head.o rdkfzpt.o \
+rdkfsnsed.o rdkfkcor.o rdkfmags.o rdkffilt.o \
+icol_filter_rdkcor.o rdkprim.o rdksumm.o rdkver.o rdkdmpta.o \
+rdkdmpf.o rdkaddf.o rdkaddx.o rdkcor_abort.o rdksetgr.o \
+rdkchflt.o rdkbinch.o gtkcormw.o inixthost.o dmp_xthost.o \
+rdxtpar.o parskcor.o fmatch.o parsav.o set_lamrange.o \
+setzpoff.o magobs_shift_update.o magobs_shift_usrfun.o \
+chkdupfilt.o bracket.o nearfltobs.o nearfltrest.o get_maglc8.o \
+get_mwxt8.o inikcind.o fupdini.o get_avwarp8.o get_kcor8.o \
+kcorerr8.o kcorfun8.o get_mag8.o get_snxt8.o fillavwarp.o \
+prs1fupd.o prs2fupd.o setfupd.o fupddriv.o fupdzp.o gtfupddir.o \
+fupd1.o imap2fupd.o fupd3.o get_filtmap.o get_filtlam.o \
+ldfilttrans.o shift_filttrans.o get_filttrans.o get_primary.o \
+filtbtest.o filtbset.o chkmshift.o rdzpoff.o dmpzpoff.o \
+in2dex.o ge2dedx.o utilex.o set_pkmjd.o mnfit_pkmjd.o \
+fcnanylc.o anylcfun.o covpkflux.o interpanylc.o usrini.o \
+usrini2.o usrcuts.o usrana.o usrend.o
+
+.f.o:
+	gfortran  -c -static -fno-automatic -m64  -fsecond-underscore -g -fbounds-check  $*.f
+
+.c.o:
+	gcc    $*.c
+
+.s.o:
+	as    $*.s
+
+snana_all: $(ROUTINES)
+

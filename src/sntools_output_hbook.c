@@ -53,6 +53,9 @@
      than previous static [38MB] memory.
      See new function  malloc_READROW_HBOOK().
 
+ May 4 2019: 
+   + HBOOK_MEM -> 500,000 (was 1 million). Needed for Git & Midway.
+
 ***************************************************/
 
 
@@ -164,7 +167,8 @@ extern"C" {
 
 
 // globals
-#define HBOOK_MEM  1000000
+// xxx mark delete #define HBOOK_MEM  1000000
+#define HBOOK_MEM  500000
 struct pawC  { float hmem[HBOOK_MEM];  } pawc_ ;
 //struct Quest { int   iquest[100]; } quest_ ;
 

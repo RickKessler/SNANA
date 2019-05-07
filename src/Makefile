@@ -398,7 +398,7 @@ CLEAN_FILES =  $(FPP_EXECUTABLES) $(LIBSNANA)  $(LIBSNFIT)  $(EXECUTABLES)
 
 # --------------------------
 
-all: defineOutputFlags makeDirs $(FPP_EXECUTABLES) $(LIBSNANA)  $(LIBSNFIT)  $(EXECUTABLES)
+all: set_Cpreproc_flags makeDirs $(FPP_EXECUTABLES) $(LIBSNANA)  $(LIBSNFIT)  $(EXECUTABLES)
 
 
 install :
@@ -415,7 +415,7 @@ clean:
 # -----------------------------------
 # set define statements in sntools_output.c to pick HBOOK and/or ROOT
 # based on existance of $CERN_DIR and $ROOT_DIR.
-defineOutputFlags :
+set_Cpreproc_flags :
 	$(UTIL)/set_Cpreproc_flags.py
 
 # May 3 2019: create blank dirs that are not in Git

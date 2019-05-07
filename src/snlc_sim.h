@@ -210,8 +210,9 @@ typedef struct {
   int   LIST_ISPEC1A[MXNON1A_TYPE];   // 1 --> PEC1A (Aug 2016)
   char  LIST_NAME[MXNON1A_TYPE][MXPATHLEN];  // name of entry
   int   NLIST ;
-  int   INDEXVALID[MXNON1A_TYPE];   // index is argument
-  double FLUXSCALE;      // 4.2019
+  int    INDEXVALID[MXNON1A_TYPE];   // index is argument
+  double FLUXSCALE[MXNON1A_TYPE];       // 5.2019
+  double RESTLAMBDA_RANGE[2];           // 5.2019
 
 } INPUTS_NON1ASED_DEF ;
 

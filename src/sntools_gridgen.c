@@ -95,7 +95,7 @@ void init0_GRIDsource(void) {
   float PMIN, PMAX;
 
   int 
-    IPAR, IPAR2, i,  NFILT, NBIN
+    IPAR, IPAR2, i,  NFILT, NBIN, NINDEX
     ,indx[NPAR_GRIDGEN+1]
     ,ilcoff, ilc, ilc_last, itmp
     ,iz, ish, ic1, ic2
@@ -138,11 +138,18 @@ void init0_GRIDsource(void) {
 
 
   IPAR = IPAR_GRIDGEN_SHAPEPAR;
-  // xxx mark delete  if ( SNTYPE_GRIDGEN() == SNTYPE_GRIDGEN_NONIa ) {
+
   if ( INDEX_GENMODEL == MODEL_NON1ASED ) {
+
+    if ( INPUTS.NON1ASED.INDEX[1] > 0 ) 
+      { NINDEX = INPUTS.NON1ASED.NINDEX ; }
+    else  { 
+      NINDEX = count_NON1A_LIST(INPUTS.NON1ASED.PATH);   // 5.2019
+      printf("\t ALL-NON1A option -> count %d NON1A keys \n", NINDEX);
+    }
     GENRANGE_LOCAL[IPAR][0] = 1.0 ;  
-    GENRANGE_LOCAL[IPAR][1] = (float)INPUTS.NON1ASED.NINDEX ;
-    SNGRID_WRITE.NBIN[IPAR] = INPUTS.NON1ASED.NINDEX ;
+    GENRANGE_LOCAL[IPAR][1] = (float)NINDEX ;
+    SNGRID_WRITE.NBIN[IPAR] = NINDEX ;
     sprintf(SNGRID_WRITE.NAME[IPAR], "%s", "NONIA" );  // sparse index
   }
   else if ( INDEX_GENMODEL == MODEL_SIMSED ) {

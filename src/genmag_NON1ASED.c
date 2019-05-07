@@ -21,6 +21,10 @@
       care of late-time extrapolation. Expect no change here,
       but uses same utility as genmag_SIMSED.
 
+  May 4 2019
+    + read and apply index-dependent FLUXSCALE_NON1ASED (default SCALE=1)
+      in NON1A.LIST file.
+
 ****************************************************/
 
 #include <stdio.h>
@@ -42,37 +46,31 @@
 #define SNGRIDGEN
 
 // *************************************
-void init_genmag_NON1ASED(int NON1A_INDEX, char *sedFile ) {
+void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
 
   // Init SED for NON1ASED model.
   //
   // Inputs:
-  //   NON1A_INDEX = absolute index to store
-  //  *sedFile     = full file name
+  //   isparse      = sparse index for template
+  //   INP_NON1ASED = structure with all input information
   // 
-  // Nov 17 2016: free FINEBIN memory before allocating so that it's
-  //              available for spectrograph option.
-  //
-  // Aug 12 2017: update to work with non-uniform DAY bins using
-  //              whatever DAY array that gets read in (see OPTMASK).
-  //              Tested only with existing uniform DAY grid.
-  //      
-  // Apr 2 2018: expand Trest_range to -150 to +500 (was -30 to +100)
-  //
   // May 15 2018: 
   //  + check option to call T0shiftExplode_SEDMODEL
   //  + new default is to call T0shiftPeak_SEDMODEL, so that t=0 at peak
   //
-  int ifilt, ifilt_obs, NZBIN ;
+  // May 06 2019: refactor to pass INPUTS_NON1ASED_DEF
+  //
 
-  double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX ;
+  double UVLAM     = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX ;
+
+  int ifilt, ifilt_obs, NZBIN ;
   double Trange[2], Lrange[2] ;
   char sedcomment[40];
-  //  char fnam[] = "init_genmag_NON1ASED"  ;
+  char fnam[] = "init_genmag_NON1ASED"  ;
 
   // ------------- BEGIN -------------
 
-  if ( NON1A_INDEX == 0 ) {  // one-time inits
+  if ( isparse < 0 ) {          // one-time init
 
     // summarize filter info
     filtdump_SEDMODEL();
@@ -80,9 +78,8 @@ void init_genmag_NON1ASED(int NON1A_INDEX, char *sedFile ) {
     NLAMPOW_SEDMODEL      = 0;
     NZBIN                 = REDSHIFT_SEDMODEL.NZBIN ;
     SEDMODEL.NSURFACE     = 1 ;  // process 1 NONIA sed at a time
-    SEDMODEL.MINLAMFILT   = RESTLAMBDA_RANGE_NON1ASED[0];
-    SEDMODEL.MAXLAMFILT   = RESTLAMBDA_RANGE_NON1ASED[1];
-    SEDMODEL.FLUXSCALE    = FLUXSCALE_NON1ASED ;
+    SEDMODEL.MINLAMFILT   = INP_NON1ASED->RESTLAMBDA_RANGE[0];
+    SEDMODEL.MAXLAMFILT   = INP_NON1ASED->RESTLAMBDA_RANGE[1];
     SEDMODEL.OPTMASK      = 
       OPTMASK_DAYLIST_SEDMODEL  +  // allow non-uniform day bins
       OPTMASK_T0SHIFT_PEAKMAG      // shift T=0 to be at peakmag
@@ -102,7 +99,8 @@ void init_genmag_NON1ASED(int NON1A_INDEX, char *sedFile ) {
     return;
   }
 
-
+  int   NON1A_INDEX = INP_NON1ASED->INDEX[isparse];
+  char *sedFile     = INP_NON1ASED->SED_FILE[isparse] ;
 
   Trange[0] =  -150. ;  // widen Trange Apr 2 2018 
   Trange[1] =   500. ;  
@@ -118,18 +116,13 @@ void init_genmag_NON1ASED(int NON1A_INDEX, char *sedFile ) {
 	     ,&TEMP_SEDMODEL.NLAM, TEMP_SEDMODEL.LAM, &TEMP_SEDMODEL.LAMSTEP
 	     ,TEMP_SEDMODEL.FLUX,  TEMP_SEDMODEL.FLUXERR );
 
-
-
-  // .xyz  FLUX_SCALE_SEDMODEL(SCALE, &TEMP_SEDMODEL);
-
   if ( UVLAM > 0.0 ) { UVLAM_EXTRAPFLUX_SEDMODEL(UVLAM, &TEMP_SEDMODEL); } 
 
   SEDMODEL.LAMSTEP[0]          = TEMP_SEDMODEL.LAMSTEP ; // Nov 17 2016  
   SEDMODEL.LAMSTEP[ISED_NON1A] = TEMP_SEDMODEL.LAMSTEP ; // Nov 17 2016  
+  SEDMODEL.FLUXSCALE           = INP_NON1ASED->FLUXSCALE[NON1A_INDEX] ;
 
   // make sure that DAY=0 at peak (Oct 30 2014)
-
-
 
   int OPTMASK_EXPLODE = INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE ;
   int OPTMASK_PEAKMAG = ( SEDMODEL.OPTMASK & OPTMASK_T0SHIFT_PEAKMAG ) ;  
@@ -283,9 +276,8 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
     
   // ------------ BEGIN ------------
 
-  FLUXSCALE_NON1ASED = 1.0;
-  RESTLAMBDA_RANGE_NON1ASED[0] = MINLAM_SEDMODEL ;
-  RESTLAMBDA_RANGE_NON1ASED[1] = MAXLAM_SEDMODEL ;
+  INP_NON1ASED->RESTLAMBDA_RANGE[0] = MINLAM_SEDMODEL ;
+  INP_NON1ASED->RESTLAMBDA_RANGE[1] = MAXLAM_SEDMODEL ;
 
   // first check path to NON1ASEDs
   if ( strlen(INP_NON1ASED->PATH) == 0 ) 
@@ -304,6 +296,7 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
 
   // init NON1A variables
   for ( isp=0; isp < MXNON1A_TYPE; isp++ ) {
+    INP_NON1ASED->FLUXSCALE[isp]   = 1.0 ;
     INP_NON1ASED->INDEXVALID[isp]  = 0;
     GEN_NON1ASED->NGENWR[isp]      = 0; 
     GEN_NON1ASED->NGENTOT[isp]     = 0; 
@@ -499,6 +492,36 @@ void  getName_SED_FILE_NON1ASED(char *PATH, char *inpName, char *outName) {
 
 
 // =========================================================
+int count_NON1A_LIST(char *PATHMODEL) {
+
+  // count number of keys (i.e., templates) defined in NON1A.LIST file.
+  // Called by init_SNgrid().
+
+  int  Ncount = 0 ;
+  char listFile[MXPATHLEN], cget[200];
+  FILE *fp;
+  char fnam[] = "count_NON1A_LIST" ;
+
+  // --------------- BEGIN ----------------
+
+  sprintf(listFile, "%s/NON1A.LIST",  PATHMODEL );
+  if ( (fp = fopen(listFile, "rt"))==NULL ) { 
+    sprintf ( c1err, "Cannot open file :" );
+    sprintf ( c2err," '%s' ", listFile );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  while( (fscanf(fp, "%s", cget)) != EOF) {
+    if ( ISKEY_NON1A_LIST(cget) ) { Ncount++ ; }
+  } 
+
+  fclose(fp);
+
+  return(Ncount);
+
+} // end count_NON1A_LIST
+
+// =========================================================
 void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
                         
   // Created Aug 15 2016
@@ -516,13 +539,18 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
   //
   // Jan 19 2017: allow NON1ASED key as well as NON1A.
   // Jan 30 2017: skip comment lines
-  // Apr 28 2019: read optional FLUX_SCALE and RESTLAMBDA_RANGE keys
-
+  // Apr 28 2019: 
+  //   + read optional FLUX_SCALE and RESTLAMBDA_RANGE keys
+  //     FLUX_SCALE can repeat within NON1A.LIST file so that different
+  //     model groups have different FLUX_SCALE.
+  //
   FILE *fp;
-  int NLIST, ALLNON1A, L_NON1A, L_PEC1A, index, NINDEX ;
+  int NLIST, L_NON1A, L_PEC1A, index, NINDEX ;
   int FOUND_PEC1A=0;
-  double SCALE ;
-  char cget[80], type[20], name[MXPATHLEN], listFile[MXPATHLEN] ;
+  double SCALE = 1.0 ;
+  int    ALLNON1A_FLAG, SNTAG_ALLNON1A ;
+  double MAGOFF_ALLNON1A, MAGSMEAR_ALLNON1A;
+  char cget[80], type[20], fname[MXPATHLEN], listFile[MXPATHLEN] ;
   char tmpLine[100], *ptrTmp = tmpLine ;
   char fnam[] = "read_NON1A_LIST" ;
 
@@ -543,10 +571,15 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
   NLIST = INP_NON1ASED->NLIST = 0 ;
 
   // If the first NON1A class is zero, then use all NON1A with equal prob.
-  if ( INP_NON1ASED->INDEX[1] == 0 )  
-    { ALLNON1A = 1; INP_NON1ASED->NINDEX = 0; }
-  else
-    { ALLNON1A = 0; }
+  if ( INP_NON1ASED->INDEX[1] == 0 ) {  
+    ALLNON1A_FLAG = 1;   INP_NON1ASED->NINDEX = 0;  
+    MAGOFF_ALLNON1A   = INP_NON1ASED->MAGOFF[1];
+    MAGSMEAR_ALLNON1A = INP_NON1ASED->MAGSMEAR[1];
+    SNTAG_ALLNON1A    = INP_NON1ASED->SNTAG[1];
+  }
+  else { 
+    ALLNON1A_FLAG = 0; 
+  }
 
   while( (fscanf(fp, "%s", cget)) != EOF) {
 
@@ -558,24 +591,19 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
     // 4.2019: check keys that are the same as in SED.INFO file ...
     // later should just read SED.INFO file if it's there.
     if ( strcmp(cget,"FLUX_SCALE:") == 0 ) // 
-      { readdouble(fp, 1, &FLUXSCALE_NON1ASED ); } 
+      { readdouble(fp, 1, &SCALE ); }  // applied below
     if ( strcmp(cget,"RESTLAMBDA_RANGE:") == 0 ) 
-      { readdouble(fp, 2, RESTLAMBDA_RANGE_NON1ASED); }
+      { readdouble(fp, 2, INP_NON1ASED->RESTLAMBDA_RANGE); }
 
 
-    L_NON1A = ( 
-	       strcmp(cget,"NON1A:")    == 0 || 
-	       strcmp(cget,"NONIA:")    == 0 ||
-	       strcmp(cget,"NON1ASED:") == 0 || 
-	       strcmp(cget,"NONIASED:") == 0 
-		);    
+    L_NON1A = ISKEY_NON1A_LIST(cget) ;
     L_PEC1A = ( strcmp(cget,"PEC1A:") == 0 || strcmp(cget,"PECIA:") == 0 );
 
     if ( L_NON1A || L_PEC1A ) {
 
-      readint(fp, 1, &index );
+      readint(fp,  1, &index );
       readchar(fp, type );
-      readchar(fp, name );  ENVreplace(name,fnam,1);
+      readchar(fp, fname );  ENVreplace(fname,fnam,1);
 
       if ( index <= 0 || index >= MXNON1A_TYPE ) {
 	sprintf(c1err,"Invalid %s index = %d read from ", 
@@ -589,8 +617,9 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
 
       // store inputs bases on index rather than sparse-index
       INP_NON1ASED->INDEXVALID[index] = 1; 
+      INP_NON1ASED->FLUXSCALE[index]  = SCALE ;
       sprintf(INP_NON1ASED->LIST_TYPE[index], "%s", type );
-      sprintf(INP_NON1ASED->LIST_NAME[index], "%s", name );
+      sprintf(INP_NON1ASED->LIST_NAME[index], "%s", fname );
 
       // check for peculiar SN1A (Aug 2016)
       INP_NON1ASED->LIST_ISPEC1A[index] = 0 ;
@@ -601,11 +630,15 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
       }
 
       // check option to use all NON1A with equal prob.
-      if ( ALLNON1A == 1 ) {
+      if ( ALLNON1A_FLAG ) {
 	INP_NON1ASED->NINDEX++ ; NINDEX = INP_NON1ASED->NINDEX;
 	INP_NON1ASED->INDEX[NINDEX]     = index ; 
 	INP_NON1ASED->WGT[NINDEX]       = 1.0 ; 
 	INP_NON1ASED->KEYVAL[NINDEX][2] = 1.0 ; // 2nd key is WGT
+	INP_NON1ASED->MAGOFF[NINDEX]    = MAGOFF_ALLNON1A ;
+	INP_NON1ASED->MAGSMEAR[NINDEX]  = MAGSMEAR_ALLNON1A ;
+	INP_NON1ASED->SNTAG[NINDEX]     = SNTAG_ALLNON1A ;
+	sprintf(INP_NON1ASED->SED_FILE[NINDEX],"%s", fname ) ;
       }
 
     }
@@ -618,6 +651,13 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
 
 } // end read_NON1A_LIST
 
+int ISKEY_NON1A_LIST(char *string) {
+  if ( strcmp(string,"NON1A:")    == 0  ) { return(1); }
+  if ( strcmp(string,"NONIA:")    == 0  ) { return(1); }
+  if ( strcmp(string,"NON1ASED:") == 0  ) { return(1); }
+  if ( strcmp(string,"NONIASED:") == 0  ) { return(1); }
+  return(0);
+}
 
 // ======================================================
 void sort_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED) {
@@ -686,6 +726,7 @@ void copy_NON1ASED(int i1, int i2,
   NON1ASED2->MAGSMEAR[i2]  = NON1ASED1->MAGSMEAR[i1] ;
   NON1ASED2->SNTAG[i2]     = NON1ASED1->SNTAG[i1] ;
   NON1ASED2->ISPEC1A[i2]   = NON1ASED1->ISPEC1A[i1] ;
+  NON1ASED2->FLUXSCALE[i2] = NON1ASED1->FLUXSCALE[i1] ;
 
   return ;
 

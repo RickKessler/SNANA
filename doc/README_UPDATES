@@ -16544,4 +16544,34 @@ GitHub issues:
       + refactor indices to start at zero instead of one.
 
 
+
+# ======================================================================= 
+         v10_72b (  ) 
+
+         ***** IMPORTANT(v10_72b) ***** 
+
+         ***** USEFUL(v10_72b) ***** 
+
+         ***** MISCELLANEOUS(v10_72b) ***** 
+   
+    sntools_output_hbook.c:  HBOOK_MEM -> 500k (was 1 million)
+
+    Remove lots of obsolete files in /util :
+        SALT2train_biascorr.pl          SALT2train_incdata.pl  
+        SALT2train_run.pl               SALT2train_extcolordisp.pl 
+        SALT2train_pipeline.pl          SALT2train_translate.pl
+        TRAIN_SIM.pl                    backup_SNANA_PUBLIC.pl
+        diskUsage_byOwner.pl        lcmerge2SALT.py
+        SIMEFF_MAPGEN.pl        SNLS_simlib_gen.pl
+    and from /src, remove unfold_snpar.c
+
+    genmag_NON1ASED.c:
+      + refactor init_genmag_NON1ASED() to receive INP_NON1ASED struct
+        as argument -> easier to implement new options; e.g., 
+        FLUXSCALE[index].
+    wfit.c
+      + for MUDIF file, read and use MUREF column instead of
+        internally re-computing muref(z). Allows systematics
+        with redshift changes.
+
 END: 

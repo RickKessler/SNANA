@@ -201,6 +201,8 @@
    + remove LEGACY option to read input file without keys.
      Now it only reads FITRES-formatted options.
 
+ May 07, 2019: use MUREF column if it's there (for MUDIF option)
+
 *****************************************************************************/
 
 int compare_double_reverse (const void *, const void *);
@@ -216,7 +218,7 @@ void getname(char *basename, char *tempname, int nrun);
 
 double get_minwOM( double *w_atchimin, double *OM_atchimin );
 
-double *mu, *mu_sig, *mu_sqsig, *z, *z_sig;
+double *mu, *mu_sig, *mu_ref, *mu_sqsig, *z, *z_sig;
 int    *snnbin; // to allow for binning of SNe. default is 1. [JLM]
 
 double mu_offset ;
@@ -652,6 +654,7 @@ int main(int argc,char *argv[]){
   /* Data vectors */
   mu          = (double *)calloc(MXSN,sizeof(double));
   mu_sig      = (double *)calloc(MXSN,sizeof(double));
+  mu_ref      = (double *)calloc(MXSN,sizeof(double));
   mu_sqsig    = (double *)calloc(MXSN,sizeof(double));
 
   
@@ -758,8 +761,9 @@ int main(int argc,char *argv[]){
       for (i=0; i < NCIDLIST; i++){
 	rz       = codist(z[i], &cparref);
 	ld_cos   = (1+z[i]) *  rz * c_light / H0;
+	// xxx mark delete   muref    = ( 5.*log10(ld_cos) + 25.) ;
+	muref    = mu_ref[i]; // May 7 2019
 	mudif    = mu[i] ;
-	muref    = ( 5.*log10(ld_cos) + 25.) ;
 	mu[i]   += muref ;
 	/*
 	printf(" xxx %d: z=%.3f  MU=%.5f + %.5f = %.5f\n",
@@ -1421,6 +1425,7 @@ int main(int argc,char *argv[]){
 
   free(mu);
   free(mu_sig);
+  free(mu_ref);
   free(z);
   free(z_sig);
   free(snnbin);
@@ -1473,12 +1478,12 @@ void read_fitres(char *inFile) {
 
   char ctmp[80] ,ctmp2[80], VARLIST[200] ;
   int NVAR, IWD ;
-  int IWD_CID, IWD_Z, IWD_ZERR, IWD_MU, IWD_MUERR, IWD_TID ;
+  int IWD_CID, IWD_Z, IWD_ZERR, IWD_MU, IWD_MUERR, IWD_MUREF, IWD_TID ;
   int IWD_MUDIF, IWD_MUDIFERR ;
   int IWD_GTYPE, IWD_SNTYPE, IWD_NBIN;
 
   char CID[12];
-  double Z, ZERR, MU, MUERR, MUDIF, MUDIFERR ;
+  double Z, ZERR, MU, MUERR, MUREF, MUDIF, MUDIFERR ;
   int TID, GTYPE, STYPE, LCUT, i, NRDTOT, NBIN, ISROWKEY ;
 
   FILE *fp;
@@ -1578,6 +1583,7 @@ void read_fitres(char *inFile) {
       MUERR_INCLUDE_zERR = 1;
     }
     if ( strcmp(ctmp,"MUDIFERR") == 0 ) IWD_MUDIFERR = IWD;
+    if ( strcmp(ctmp,"MUREF")    == 0 ) IWD_MUREF    = IWD;
     
     if ( strcmp(ctmp,"IDTEL")    == 0 ) IWD_TID   = IWD;
     if ( strcmp(ctmp,"IDSURVEY") == 0 ) IWD_TID   = IWD;
@@ -1611,11 +1617,17 @@ void read_fitres(char *inFile) {
 
   IWD = 0;
   
+  
+
   while( (fscanf(fp, "%s", ctmp)) != EOF) {
 
     ISROWKEY = ( strcmp(ctmp,"SN:")==0  || strcmp(ctmp,"ROW:")==0 );
 
-    if ( ISROWKEY )  { IWD = 0; continue ; }
+    if ( ISROWKEY )  { 
+      IWD = 0; 
+      MU = MUERR = MUREF = Z = ZERR = 0.0 ;
+      continue ; 
+    }
 
     if ( IWD == IWD_CID      ) sscanf ( ctmp, "%s",  CID    );
     if ( IWD == IWD_Z        ) sscanf ( ctmp, "%le", &Z     );
@@ -1625,6 +1637,7 @@ void read_fitres(char *inFile) {
 
     if ( IWD == IWD_MUDIF    ) sscanf ( ctmp, "%le", &MU    );
     if ( IWD == IWD_MUDIFERR ) sscanf ( ctmp, "%le", &MUERR );
+    if ( IWD == IWD_MUREF    ) sscanf ( ctmp, "%le", &MUREF );
 
     if ( IWD == IWD_TID      ) sscanf ( ctmp, "%i", &TID   );
 
@@ -1680,7 +1693,7 @@ void read_fitres(char *inFile) {
 	z_sig[i]   = ZERR;
 	mu[i]      = MU ;
 	mu_sig[i]  = MUERR;
-
+	mu_ref[i]  = MUREF ; // 5.2019
 	tid[i]     = TID ;
 	if ( NBIN ) {
 	  NSNE_NBIN = NSNE_NBIN + NBIN; 

@@ -1,6 +1,7 @@
 obj/*
 lib/*
 bin/*
+kumacs/*
 src/ypatchy.log
 src/*.f*
 src/*~

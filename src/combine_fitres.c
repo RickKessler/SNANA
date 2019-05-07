@@ -65,7 +65,8 @@
     Also check for first SNANA file (IFILE_FIRST_SNANA) in case 
     first file was not made by SNANA.
 
-  Apr 29 019: option T or t for text-only (no hbook)
+  Apr 29 2019: option T or t for text-only (no hbook)
+  May 03 2019: refactor indices to start at 0 instead of 1
 
 ******************************/
 
@@ -117,7 +118,8 @@ void  freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN);
 #define MXSTRLEN_FIELD    20
 #define MXSTRLEN_VERSION  32 // photometry versoin, added Dec 2016
 
-#define IVARSTR_CCID  1   // CCID index for CVAR_XXX arrays
+// xxx mark delete #define IVARSTR_CCID  1   // CCID index for CVAR_XXX arrays
+#define IVARSTR_CCID  0   // CCID index for CVAR_XXX arrays
 
 // logicals to control which output files to create
 int CREATEFILE_HBOOK, CREATEFILE_ROOT, CREATEFILE_TEXT ;
@@ -221,7 +223,7 @@ int main(int argc, char **argv) {
 
   TABLEFILE_INIT(); // Oct 27 2014
 
-  for ( ifile = 1; ifile <= NFFILE_INPUT; ifile++ ) {
+  for ( ifile = 0; ifile < NFFILE_INPUT; ifile++ ) {
     ADD_FITRES(ifile);
   }
 
@@ -291,10 +293,13 @@ void  PARSE_ARGV(int argc, char **argv) {
       continue ;
     }
 
-    NFFILE_INPUT++ ;
+    // xxx mark delete    NFFILE_INPUT++ ;
     sprintf( FFILE_INPUT[NFFILE_INPUT], "%s", argv[i] );
     printf("  Will combine fitres file: %s \n", FFILE_INPUT[NFFILE_INPUT] );
-  }
+    NFFILE_INPUT++ ;
+
+  } // end loop over arg list
+  
 
   if ( NFFILE_INPUT <= 0 ) {
     sprintf(c1err, "Bad args. Must give fitres file(s)");
@@ -368,7 +373,7 @@ void ADD_FITRES(int ifile) {
     ,index, REPEATCID
     ,NVARALL_LAST
     ,NVARSTR_LAST
-    ,istat, isize, NEVT_APPROX, IFILETYPE
+    ,istat, isize, NEVT_APPROX, IFILETYPE, iappend
     ;
 
   struct stat statbuf;
@@ -395,8 +400,8 @@ void ADD_FITRES(int ifile) {
 
   // check if this is an SNANA file; mark first SNANA file
   if ( IFILE_FIRST_SNANA < 0 ) {
-    for ( ivar=1; ivar <= NVARALL_FILE; ivar++ ) {    
-      VARNAME = READTABLE_POINTERS.VARNAME[ivar-1] ;
+    for ( ivar=0; ivar < NVARALL_FILE; ivar++ ) {    
+      VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
       for(j=0; j < NVARNAME_1ONLY; j++ ) {
 	if ( strcmp(VARNAME,VARNAME_1ONLY[j])==0 ) 
 	  {  IFILE_FIRST_SNANA = ifile; }	
@@ -413,9 +418,9 @@ void ADD_FITRES(int ifile) {
   //
   // count how many string-variables: needed to allocate memory
   NVARSTR_FILE = 0 ;
-  for ( ivar=1; ivar <= NVARALL_FILE; ivar++ ) {    
+  for ( ivar=0; ivar < NVARALL_FILE; ivar++ ) {    
     if ( SKIP_VARNAME(ifile, ivar) ) { continue ; }
-    if ( READTABLE_POINTERS.ICAST_STORE[ivar-1] == ICAST_C ) 
+    if ( READTABLE_POINTERS.ICAST_STORE[ivar] == ICAST_C ) 
       { NVARSTR_FILE++ ; }
   }
 
@@ -426,10 +431,9 @@ void ADD_FITRES(int ifile) {
   if ( NEVT_APPROX >= MXSN-1 ) { NEVT_APPROX = MXSN-1 ; }
 
 
-  // Dec 2013: if 2nd file is much smaller, avoid too small malloc
-  if ( ifile > 1 && NEVT_APPROX < NLIST_FIRST_FITRES ) {
-    NEVT_APPROX = NLIST_FIRST_FITRES + 2 ;
-  }
+  // if 2nd file is much smaller, avoid too small malloc
+  if ( ifile > 0 && NEVT_APPROX < NLIST_FIRST_FITRES ) 
+    { NEVT_APPROX = NLIST_FIRST_FITRES + 2 ;  }
 
 
   // allocate new memory each time
@@ -439,31 +443,34 @@ void ADD_FITRES(int ifile) {
   // ----------------------------------------------------
 
   ivarstr = 0 ;
+  NVAR    = NVARALL_FITRES ;
 
-  for ( ivar=1; ivar <= NVARALL_FILE; ivar++ ) {
+  for ( ivar=0; ivar < NVARALL_FILE; ivar++ ) {
 
     // don't duplicate FIELD (Dec 8 2014)
     if ( SKIP_VARNAME(ifile, ivar) ) { continue ; }
 
     // get VARNAME and ICAST
-    VARNAME = READTABLE_POINTERS.VARNAME[ivar-1] ;
-    ICAST   = READTABLE_POINTERS.ICAST_STORE[ivar-1] ;
+    VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
+    ICAST   = READTABLE_POINTERS.ICAST_STORE[ivar] ;
 
+
+    /* xxxxxxxxxxxxxxx mark delete xxxxxxxxx
     NVARALL_FITRES++ ;
     NVAR = NVARALL_FITRES ;
+    xxxxxxxxxxxxxxxxxx  */
 
     if ( ICAST == ICAST_C ) {
       NVARSTR_FITRES++ ;   // summed over fitres files
-      ivarstr++ ;          // sum for each separate fitres file
       sprintf(VARNAME_C, "%s:C*20", VARNAME) ;  //specify char ptr
       index = SNTABLE_READPREP_VARDEF(VARNAME_C, 
-			     &FITRES_VALUES.STR_TMP[ivarstr][1], MXSN, 1 ) ;
-
+			     &FITRES_VALUES.STR_TMP[ivarstr][0], MXSN, 1 ) ;
+      ivarstr++ ;          // sum for each separate fitres file
     }
     else {     
       sprintf(VARNAME_F, "%s:F", VARNAME) ;  // specify float pointer
       index = SNTABLE_READPREP_VARDEF(VARNAME_F, 
-			     &FITRES_VALUES.FLT_TMP[ivar][1], MXSN, 1 ) ; 
+			     &FITRES_VALUES.FLT_TMP[ivar][0], MXSN, 1 ) ; 
     }
 
 
@@ -476,9 +483,10 @@ void ADD_FITRES(int ifile) {
     sprintf(ptr_CTAG, "%s", VARNAME );
 
     // use CID (1st var) in 1st file only
-    REPEATCID = ( ifile > 1 && ivar == 1 ) ;
+    REPEATCID = ( ifile > 0 && ivar == 0 ) ;
     if ( REPEATCID ) { 
       ICAST_FITRES_COMBINE[NVAR] = -1 ;  // don't write repeated CIDs
+      NVARALL_FITRES++ ;     NVAR = NVARALL_FITRES ;
       continue ;
     } 
     else { 
@@ -489,12 +497,15 @@ void ADD_FITRES(int ifile) {
     // check if this tag name already exists;
     // if so, append '_$ifile' to end of tagname
 
-    NTAG_DEJA = NMATCH_VARNAME(ptr_CTAG, NVAR-1) ;
+    NTAG_DEJA = NMATCH_VARNAME(ptr_CTAG, NVAR) ;
     if ( NTAG_DEJA > 0 ) {
+      iappend = ifile+1; // first iappend is 2
       printf("\t ADD_FITRES WARNING: VARNAME=%s already exists: ", ptr_CTAG);
-      printf("append %d \n", ifile );
-      sprintf( VARNAME_COMBINE[NVAR], "%s_%d", ptr_CTAG, ifile );
+      printf("append %d \n", iappend );
+      sprintf( VARNAME_COMBINE[NVAR], "%s_%d", ptr_CTAG, iappend );
     }
+
+    NVARALL_FITRES++ ;     NVAR = NVARALL_FITRES ;
 
     fflush(stdout);
 
@@ -508,7 +519,7 @@ void ADD_FITRES(int ifile) {
   // xxx redundant  TABLEFILE_CLOSE(FFILE_INPUT[ifile]);
   xxxxxxxx */
 
-  if ( ifile == 1 ) { NLIST_FIRST_FITRES  = NLIST ; }
+  if ( ifile == 0 ) { NLIST_FIRST_FITRES  = NLIST ; }
 
   // always fill 2nd NLIST2
   NLIST2_FITRES = NLIST ;
@@ -523,16 +534,16 @@ void ADD_FITRES(int ifile) {
   // is order 10^5.
 
 
-  for ( isn2 = 1; isn2 <= NLIST2_FITRES; isn2++ ) {
+  for ( isn2 = 0; isn2 < NLIST2_FITRES; isn2++ ) {
 
     sprintf(ccid2, "%s", FITRES_VALUES.STR_TMP[IVARSTR_CCID][isn2] );   
 
     // first find "ISN" match in first list; used to load NTUP array
 
-    if ( ifile == 1 ) { ISN = isn2; goto FOUND_ISN ; }
+    if ( ifile == 0 ) { ISN = isn2; goto FOUND_ISN ; }
 
     ISN = -9;
-    for ( isn = 1; isn <= NLIST_FIRST_FITRES ; isn++ ) {
+    for ( isn = 0; isn < NLIST_FIRST_FITRES ; isn++ ) {
 
       // checking logical is faster than checking string
       if ( USEDCID[isn] ) { continue ; }
@@ -546,7 +557,8 @@ void ADD_FITRES(int ifile) {
       }
     }
 
-    if ( ISN <= 0 ) { continue ; }
+    // xxx mark delete  if ( ISN <= 0 ) { continue ; }
+    if ( ISN <  0 ) { continue ; }
 
   FOUND_ISN:
 
@@ -558,25 +570,26 @@ void ADD_FITRES(int ifile) {
     TMPMOD = fmodf( (float)(ISN), 10000. ) ;
     if ( TMPMOD == 0.0        )    { LTMP = 1; }
     if ( ISN <= MXUPDATE      )    { LTMP = 1; }
+    if ( ISN == NLIST_FIRST_FITRES-1)    { LTMP = 1; } // 5.03.2019
     if ( ISN == NLIST_FIRST_FITRES  )    { LTMP = 1; }
 
-    if ( ifile == 1 && LTMP == 1 )
+    if ( ifile == 0 && LTMP == 1 )
       { printf("\t %s = '%12s'  ->  ISN = %6d \n", 
-	       VARNAME_COMBINE[1], ccid2, ISN ); }
+	       VARNAME_COMBINE[0], ccid2, ISN ); }
     
     if ( ISN == MXUPDATE+1 ) { printf("\t ... \n"); }
 
     ivarstr = 0;
     IVARTOT = NVARALL_LAST ;
 
-    for ( ivar=1; ivar <= NVARALL_FILE; ivar++ ) {
+    for ( ivar=0; ivar < NVARALL_FILE; ivar++ ) {
 
       // Dec 2014
       if ( SKIP_VARNAME(ifile, ivar) ) { continue ; }
 
-      VARNAME = READTABLE_POINTERS.VARNAME[ivar-1] ;
-      ICAST   = READTABLE_POINTERS.ICAST_STORE[ivar-1] ;      
-      IVARTOT++ ;
+      VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
+      ICAST   = READTABLE_POINTERS.ICAST_STORE[ivar] ;
+      // xxx mark delete  IVARTOT++ ;
 
       if ( ICAST != ICAST_C )  {   // not a string
 
@@ -590,16 +603,19 @@ void ADD_FITRES(int ifile) {
 	  FITRES_VALUES.FLT_TMP[ivar][isn2] ; 
       }
       else {
-	ivarstr++ ;
+	// xxx mark delete  ivarstr++ ;
 	IVARSTR = NVARSTR_LAST + ivarstr ;
 	IVARSTR_STORE[IVARTOT] = IVARSTR ;
 
 	sprintf(FITRES_VALUES.STR_ALL[IVARSTR][ISN],"%s", 
 		FITRES_VALUES.STR_TMP[ivarstr][isn2] ); 
+
+	ivarstr++ ;
       }
  
-    } // ivar
+      IVARTOT++ ;
 
+    } // ivar
 
   } // end of isn2 loop
 
@@ -626,7 +642,7 @@ int SKIP_VARNAME(int ifile, int ivar) {
   // don't skip 1st SNANA file.
   if ( ifile == IFILE_FIRST_SNANA ) { return(0) ; }  
 
-  VARNAME = READTABLE_POINTERS.VARNAME[ivar-1] ;
+  VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
   for(j=0; j < NVARNAME_1ONLY; j++ ) {
     if ( strcmp(VARNAME,VARNAME_1ONLY[j]) == 0 ) { return(1) ; }
   }
@@ -645,9 +661,9 @@ void freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN) {
 
   int ivar, isn ;
 
-  for ( ivar=1; ivar <= NVARTOT; ivar++ ) {
+  for ( ivar=0; ivar < NVARTOT; ivar++ ) {
 
-    if ( ivar <= NVARSTR ) {
+    if ( ivar < NVARSTR ) {
 
       for ( isn=0; isn < MAXLEN; isn++ ) 
 	{ free(FITRES_VALUES.STR_TMP[ivar][isn]) ; }
@@ -690,13 +706,13 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
   NTOT = NVARALL_FITRES + NVAR + 1 ;
   MEMF = sizeof(float*) * NTOT ;
 
-  if (ifile == 1 ) 
+  if (ifile == 0 ) 
     { FITRES_VALUES.FLT_ALL = (float**)malloc(MEMF); }
   else  
     { FITRES_VALUES.FLT_ALL = (float**)realloc(FITRES_VALUES.FLT_ALL,MEMF); }
 
   
-  for ( ivar=1; ivar <= NVAR; ivar++ ) {
+  for ( ivar=0; ivar < NVAR; ivar++ ) {
 
     MEMF = sizeof(float  ) * MAXLEN ;
     MEMD = sizeof(double ) * MAXLEN ;
@@ -744,13 +760,13 @@ void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN) {
   MEMC = NTOT * sizeof(char**);
 
 
-  if (ifile == 1 ) 
+  if (ifile == 0 ) 
     { FITRES_VALUES.STR_ALL = (char***)malloc(MEMC) ; }
   else 
     { FITRES_VALUES.STR_ALL = (char***)realloc(FITRES_VALUES.STR_ALL,MEMC); }
 
   
-  for ( ivar=1; ivar <= NVAR; ivar++ ) {
+  for ( ivar=0; ivar < NVAR; ivar++ ) {
 
     IVAR_ALL = NVARSTR_FITRES + ivar ;
 
@@ -782,7 +798,7 @@ int NMATCH_VARNAME(char *ctag , int ntlist ) {
 
   NMATCH = 0;
 
-  for ( i=1; i <= ntlist; i++ ) {
+  for ( i=0; i < ntlist; i++ ) {
     OVP    = strcmp(ctag,VARNAME_COMBINE[i]) ;
     if ( OVP == 0 )  { NMATCH++ ; }
   }
@@ -863,15 +879,16 @@ void WRITE_SNTABLE(void) {
   ADD_SNTABLE_COMMENTS() ;
 
   // check of CIDint is already there (Feb 2017)
-  int CIDint_EXISTS=0 ;
-  for ( ivar=1; ivar <= NVARALL_FITRES; ivar++ ) {
+  int CIDint_EXISTS = 0 ;
+  for ( ivar=0; ivar < NVARALL_FITRES; ivar++ ) {
     if ( strcmp(VARNAME_COMBINE[ivar],"CIDint")==0 ) { CIDint_EXISTS=1; }
   }
 
 
-  for ( ivar=1; ivar <= NVARALL_FITRES; ivar++ ) {
+  for ( ivar=0; ivar < NVARALL_FITRES; ivar++ ) {
 
     ICAST = ICAST_FITRES_COMBINE[ivar] ;
+
     if ( ICAST < 0 ) {  continue ; }
 
     if ( ICAST == ICAST_C ) {
@@ -879,7 +896,7 @@ void WRITE_SNTABLE(void) {
       MXLEN = maxlen_varString(VARNAME_COMBINE[ivar]);
 
       // include char CCID & integer CID representation for CID
-      if ( ivar == 1 ) {
+      if ( ivar == 0 ) {
 
 	sprintf(tableVar, "CCID:C*%d ", MXLEN );  
 	SNTABLE_ADDCOL(TABLEID_COMBINE, BLOCKVAR, 
@@ -912,12 +929,12 @@ void WRITE_SNTABLE(void) {
   printf("   Fill combined table with %d rows ... \n", NLIST_FIRST_FITRES );
   fflush(stdout);
 
-  for ( isn = 1; isn <= NLIST_FIRST_FITRES ; isn++ ) {
+  for ( isn = 0; isn < NLIST_FIRST_FITRES ; isn++ ) {
 
     TABLEROW_VALUES.CIDint = -999;
     sprintf(TABLEROW_VALUES.CCID,"xxx ");
 
-    for ( ivar=1; ivar <= NVARALL_FITRES; ivar++ ) {
+    for ( ivar=0; ivar < NVARALL_FITRES; ivar++ ) {
 
       ICAST = ICAST_FITRES_COMBINE[ivar] ;
       if ( ICAST < 0 ) { continue ; }
@@ -928,8 +945,7 @@ void WRITE_SNTABLE(void) {
 
 	sprintf(ptrSTR,"%s", FITRES_VALUES.STR_ALL[ivarstr][isn]);
 
-	// xyz
-	if ( ivar == 1 ) {
+	if ( ivar == 0 ) {
 	  sprintf(TABLEROW_VALUES.CCID, "%s ", ptrSTR); // Dec 8 2014
 	  CIDint = atoi(ptrSTR); 
 	  sprintf(CCIDint,"%d", CIDint);
@@ -978,7 +994,7 @@ void  ADD_SNTABLE_COMMENTS(void) {
   sprintf(comment,"Combined files:", "%s", NFFILE_INPUT);
   STORE_TABLEFILE_COMMENT(comment) ;
 
-  for(ifile=1; ifile <= NFFILE_INPUT; ifile++ ) {
+  for(ifile=0; ifile < NFFILE_INPUT; ifile++ ) {
     sprintf(comment,"\t + %s", FFILE_INPUT[ifile] );
     STORE_TABLEFILE_COMMENT(comment) ;
   }

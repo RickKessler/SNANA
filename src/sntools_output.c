@@ -889,12 +889,12 @@ void parse_TABLEVAR(char *varName_with_cast, char *varName,
     if ( *c1 == ']' ) { ENDVAR = 1; ibr1  = i; }
 
     // construct varName2 = name without cast or vector info
-    if ( ENDVAR == 0 ) 
-      {  sprintf(varName2, "%s%s", varName2, c1 ) ; }
+    if ( ENDVAR == 0 ) { strcat(varName2,c1); }
+    // xxx mark delete  {  sprintf(varName2, "%s%s", varName2, c1 ) ; }
 
     // construct string-contents of []; should be integer array size
-    if ( i > ibr0 && i < ibr1 )  
-      {   sprintf(cBRACKET, "%s%s", cBRACKET, c1 ) ;  }
+    if ( i > ibr0 && i < ibr1 )  { strcat(cBRACKET,c1); }
+    // xxx mark delete   {   sprintf(cBRACKET, "%s%s", cBRACKET, c1 ) ;  }
 
   } // end of i loop
 

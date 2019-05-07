@@ -116,6 +116,7 @@
 #   + add -lpython3.7m to LPY
 #   + genmag_BYOSED linked only to sim (not to fitter)
 #
+# May 3 2019: create blank subDirs (OBJ,LIB,BIN) that are not in Git.
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -139,13 +140,13 @@ CC   = cc
 
    DBUGFLAGS = -O1
 #   DBUGFLAGS = -O1 -Wall
-#   DBUGFLAGS = -g -fbounds-check
+   DBUGFLAGS = -g -fbounds-check
 
   PROFILEFLAG = 
 #  PROFILEFLAG = -pg
 # ------------------------
 # compile default storage options for both ROOT and HBOOK ....
-USE_ROOT    =    1
+USE_ROOT   = 1
 USE_HBOOK  = 1
 USE_PYTHON = 1
 
@@ -261,6 +262,7 @@ SRC  = ../src
 LIB  = ../lib
 TMPANA = $(SRC)/tempana
 TMPFIT = $(SRC)/tempfit
+
 
 # --------------------------------------------
 
@@ -396,7 +398,7 @@ CLEAN_FILES =  $(FPP_EXECUTABLES) $(LIBSNANA)  $(LIBSNFIT)  $(EXECUTABLES)
 
 # --------------------------
 
-all: defineOutputFlags $(FPP_EXECUTABLES) $(LIBSNANA)  $(LIBSNFIT)  $(EXECUTABLES)
+all: defineOutputFlags makeDirs $(FPP_EXECUTABLES) $(LIBSNANA)  $(LIBSNFIT)  $(EXECUTABLES)
 
 
 install :
@@ -410,6 +412,18 @@ clean:
 	rm -rf $(TMPANA)
 	rm -rf $(TMPFIT)
 
+# -----------------------------------
+# set define statements in sntools_output.c to pick HBOOK and/or ROOT
+# based on existance of $CERN_DIR and $ROOT_DIR.
+defineOutputFlags :
+	$(UTIL)/set_Cpreproc_flags.py
+
+# May 3 2019: create blank dirs that are not in Git
+makeDirs:
+	mkdir -p $(OBJ)
+	mkdir -p $(BIN)
+	mkdir -p $(LIB)	
+
 # ------------------------
 # fcasplit (April 2014)
 
@@ -420,12 +434,6 @@ $(BIN)/fcasplit : $(OBJ)/fcasplit.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
 	$(OBJ)/fcasplit.o 
 	(cd $(OBJ);  rm fcasplit.o ) 
-
-# set define statements in sntools_output.c to pick HBOOK and/or ROOT
-# based on existance of $CERN_DIR and $ROOT_DIR.
-defineOutputFlags :
-	$(UTIL)/set_Cpreproc_flags.py
-## xxx mark delete Apr 5 2019	$(UTIL)/defineOutputFlags.pl
 
 $(OBJ)/minuit.o :  minuit.F
 	(cd $(OBJ); \
@@ -452,6 +460,7 @@ $(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/sntools.o
 $(OBJ)/sncosmo_mcmc.o : $(SRC)/sncosmo_mcmc.c $(SRC)/sntools.c
 	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(SRC)/sncosmo_mcmc.c ) 
 
+$(BIN)/sncosmo_mcmc.exe : $(OBJ)/sncosmo_mcmc.o $(OBJ)/sntools.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
 	$(OBJ)/sncosmo_mcmc.o  \
 	$(OBJ)/sntools.o \
@@ -503,7 +512,7 @@ $(LIB)/libsnana.a:   snana.car
 	rm -f $(TMPANA)/main.o
 	ar cr $@ $(TMPANA)/*.o
 	rm -f $(TMPANA)/*.o
-# .xyz	rm -f $(TMPANA)/*.f
+	rm -f $(TMPANA)/*.f
 
 # -------------------------------------------------
 # May 15 2008:   make libsnfit.a 
@@ -969,6 +978,7 @@ $(BIN)/merge_root.exe :  \
 $(OBJ)/filtercal_sim.o : $(SRC)/filtercal_sim.c
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/filtercal_sim.c )
 
+$(BIN)/filtercal_sim.exe : \
 	$(OBJ)/filtercal_sim.o  $(OBJ)/sntools.o
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/filtercal_sim.o  $(OBJ)/sntools.o $(LCERN)  -lm $(LGSL)
@@ -1059,6 +1069,7 @@ $(BIN)/SIMSED_check.exe : \
 $(OBJ)/atmosphere_sim.o : $(SRC)/atmosphere_sim.c 
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/atmosphere_sim.c )
 
+$(BIN)/atmosphere_sim.exe : \
 	$(OBJ)/atmosphere_sim.o  $(OBJ)/sntools.o
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/atmosphere_sim.o	\
@@ -1073,6 +1084,7 @@ $(OBJ)/atmosphere_sim.o : $(SRC)/atmosphere_sim.c
 $(OBJ)/unfold_snpar.o : $(SRC)/unfold_snpar.c
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/unfold_snpar.c )
 
+$(BIN)/unfold_snpar.exe : $(OBJ)/unfold_snpar.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/unfold_snpar.o	\
 	$(OBJ)/sntools.o 	\

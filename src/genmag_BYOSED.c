@@ -1,4 +1,4 @@
-/*****************************************
+ /*****************************************
   Created Sep 2018
   BYOSED = Build Your Own SED
 
@@ -21,6 +21,7 @@
   Mar 30 2019 RK - fix hc factors in spectra
   Apr 11 2019 RK - check for intrinsic scatter models (e.g., C11, G10 ...)
   Apr 18 2019 RK - if not USE_PYTHON, add dummy parNames and parVal.
+
  *****************************************/
 
 
@@ -60,12 +61,14 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
   // Inputs:
   //  PATH_VERSION : points to model-param directory;
   //               :  passed from GENMODEL arg of sim-input
+  //              
   //  OPTMASK      : bit mask of options; interpreted by python code.
   //               : OPTMASK=-1 is a flag to print options.
   //               :  passed from GENMODEL_MSKOPT arg in sim-input
   //  
   //  ARGLIST      : string of options passed from sim-input key
   //               :  GENMODEL_ARGLIST = 'BLA BLA OPTIONS'
+  //
 
 #ifdef USE_PYTHON
   PyObject *genmod, *genclass, *pargs;
@@ -126,7 +129,7 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  pargs  = Py_BuildValue("(sis)",PATH_VERSION,OPTMASK,ARGLIST);
+  pargs  = Py_BuildValue("(si)",PATH_VERSION,OPTMASK);
   geninit_BYOSED = PyEval_CallObject(genclass, pargs);
   if (geninit_BYOSED == NULL) {
     sprintf(c1err,"Could not run PyEval_CallObject module");
@@ -150,7 +153,8 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
   for(ipar=0; ipar < MXPAR_BYOSED; ipar++ ) 
     { Event_BYOSED.PARNAME[ipar] = (char*) malloc(40*MEMC);  }
 
-#ifdef USE_PYTHON
+
+  
   NPAR = fetchParNames_BYOSED(Event_BYOSED.PARNAME);
   Event_BYOSED.NPAR = NPAR;
   if ( NPAR > 0 ) 
@@ -159,7 +163,7 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
     { printf("\t No BYOSED parameters to store in data files:\n"); }
   for(ipar=0; ipar < NPAR; ipar++ ) 
     { printf("\t\t %s \n", Event_BYOSED.PARNAME[ipar] ); }
-#endif
+
 
   // - - - - 
   printf("\n\t Done with %s \n", fnam);
@@ -263,7 +267,6 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
 
   // for NEW EVENT, store SED parameters so that sim can 
   // write them to data files
-  // hack
   if ( NEWEVT_FLAG ) { 
     fetchParVal_BYOSED(Event_BYOSED.PARVAL); 
   }
@@ -303,6 +306,7 @@ int fetchParNames_BYOSED(char **parNameList) {
   for(ipar=0; ipar<NPAR; ipar++ ) 
     { sprintf(parNameList[ipar], "BYOSED_TESTPAR%d", ipar );  }
 #endif
+
 
 #ifdef USE_PYTHON
   // python declarations here
@@ -368,20 +372,20 @@ void fetchParVal_BYOSED(double *parVal) {
 
   // David: need python function to return these values.
 #ifdef USE_PYTHON
-  parvalmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchParVals_BYOSED_4SNANA");
+  parvalmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchParVals_BYOSED");
 
   for(ipar=0; ipar < NPAR; ipar++ ) {
-    pargs  = Py_BuildValue("(s)",parNameList[ipar]);
+    pargs    = Py_BuildValue("(s)",parNameList[ipar]);
     pParVal  = PyEval_CallObject(parvalmeth, pargs);
     val = PyFloat_AsDouble(pParVal);
     parVal[ipar] = val;
-    // printf("   PARVAL    = '%d' \n",  val);
   }
 
   Py_DECREF(pParVal);
   Py_DECREF(parvalmeth);
 #endif
   
+
   return ;
 
 } // end fetchParVal_BYOSED
@@ -436,6 +440,7 @@ void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
   
   arrLAM = (PyListObject *)(pLAM);
   arrFLUX = (PyListObject *)(pFLUX);
+
   for(ilam=0; ilam < NLAM; ilam++ ) {
     // interpolate flux to Trest
     pylamitem = PyList_GetItem(arrLAM,ilam);

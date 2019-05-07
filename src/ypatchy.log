@@ -1,48 +1,29 @@
- Process input file psnid.cra 
- Will create output file: psnid.f 
+ Process input file kcordump.cra 
+ Will create output file: kcordump.f 
 
-   Parse file: psnid.cra  (125 lines) 
+   Parse file: kcordump.cra  (433 lines) 
 	 Define patchy flag  'LINUX'  
-	 Define patchy flag  'PSNID'  
-	 Define COM PATCH = SNCOM  in file=psnid.cra 
-	 Define EXE PATCH = SNANA  in file=psnid.cra 
+	 Define patchy flag  'R4KCOR'  
+	 Define COM PATCH = SNCOM  in file=kcordump.cra 
    Parse file: snana.lnk  (39329 lines) 
 	 Found defined PATCH = 'SNCOM'  in file=snana.lnk 
-	 Found defined PATCH = 'SNANA'  in file=snana.lnk 
-	 Define EXE PATCH = SNMAIN  in file=snana.lnk 
-	 Define EXE PATCH = SNUTIL  in file=snana.lnk 
-	 Define EXE PATCH = SNTABLE  in file=snana.lnk 
-	 Define EXE PATCH = FITPKMJD  in file=snana.lnk 
-	 Define EXE PATCH = SPLINE  in file=snana.lnk 
-	 Found defined PATCH = 'SNMAIN'  in file=snana.lnk 
-	 Found defined PATCH = 'SNUTIL'  in file=snana.lnk 
-	 Found defined PATCH = 'SNTABLE'  in file=snana.lnk 
+	 Found undefined PATCH  = 'SNANA'  in file=snana.lnk 
+	 Found undefined PATCH  = 'SNMAIN'  in file=snana.lnk 
+	 Found undefined PATCH  = 'SNUTIL'  in file=snana.lnk 
+	 Found undefined PATCH  = 'SNTABLE'  in file=snana.lnk 
 	 Found undefined PATCH  = 'CALIB'  in file=snana.lnk 
-	 Found defined PATCH = 'SPLINE'  in file=snana.lnk 
-	 Found defined PATCH = 'FITPKMJD'  in file=snana.lnk 
+	 Found undefined PATCH  = 'SPLINE'  in file=snana.lnk 
+	 Found undefined PATCH  = 'FITPKMJD'  in file=snana.lnk 
 	 Found undefined PATCH  = 'TESTFUNS'  in file=snana.lnk 
 	 Found undefined PATCH  = 'FITUTIL'  in file=snana.lnk 
-	 Define COM PATCH = FITCOM  in file=psnid.cra 
-	 Define EXE PATCH = PLOTPREP  in file=psnid.cra 
-   Parse file: snlc_fit.lnk  (19176 lines) 
-	 Found defined PATCH = 'FITCOM'  in file=snlc_fit.lnk 
-	 Found undefined PATCH  = 'FITCODE'  in file=snlc_fit.lnk 
-	 Found undefined PATCH  = 'SNTABFIT'  in file=snlc_fit.lnk 
-	 Found undefined PATCH  = 'HFUNS'  in file=snlc_fit.lnk 
-	 Define COM PATCH = PIDCOM  in file=psnid.cra 
-	 Define EXE PATCH = PIDCODE  in file=psnid.cra 
-   Parse file: psnid.lnk  (1484 lines) 
-	 Found defined PATCH = 'PIDCOM'  in file=psnid.lnk 
-	 Found defined PATCH = 'PIDCODE'  in file=psnid.lnk 
-	 Define COM PATCH = USRCOM  in file=psnid.cra 
-	 Define EXE PATCH = USRCODE  in file=psnid.cra 
-	 Found defined PATCH = 'USRCOM'  in file=psnid.cra 
-	 Found defined PATCH = 'USRCODE'  in file=psnid.cra 
+	 Define COM PATCH = KCORDUMP  in file=kcordump.cra 
+	 Define EXE PATCH = KCORDUMP  in file=kcordump.cra 
+	 Found defined PATCH = 'KCORDUMP'  in file=kcordump.cra 
 
- Open output file: psnid.f 
+ Open output file: kcordump.f 
 
- Done writing 310349 fortran lines with 
-	 227  DECKs 
-	 47  KEEPs 
-	 9    defined +SELFs --> included.
-	 75  undefined +SELFs --> ignored. 
+ Done writing 5901 fortran lines with 
+	 4  DECKs 
+	 32  KEEPs 
+	 6    defined +SELFs --> included.
+	 69  undefined +SELFs --> ignored. 

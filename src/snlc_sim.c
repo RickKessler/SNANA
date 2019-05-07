@@ -183,12 +183,11 @@ int main(int argc, char **argv) {
 
   init_genSpec();     // July 2016: prepare optional spectra
 
-  if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID  )  { 
+  if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID )  { 
     // init search efficiency
     init_SEARCHEFF(GENLC.SURVEY_NAME,INPUTS.APPLY_SEARCHEFF_OPT); 
   } 
  
-
   // create/init output sim-files
   init_simFiles(&SIMFILE_AUX);
 
@@ -1122,7 +1121,6 @@ void set_user_defaults(void) {
   INPUTS.NON1ASED.NKEY   = 2;
   INPUTS.NON1ASED.NNON1A = 0 ;
   INPUTS.NON1ASED.NPEC1A = 0 ;
-  INPUTS.NON1ASED.FLUXSCALE = 1.0 ;
   sprintf ( INPUTS.NON1ASED.KEYLIST[1], "INDEX" );
   sprintf ( INPUTS.NON1ASED.KEYLIST[2], "WGT"   );
   for ( i=0; i < MXNON1A_TYPE; i++ ) {
@@ -1132,6 +1130,7 @@ void set_user_defaults(void) {
     INPUTS.NON1ASED.MAGSMEAR[i] = NULLFLOAT ;
     INPUTS.NON1ASED.SNTAG[i]    = NULLINT ;
     INPUTS.NON1ASED.ISPEC1A[i]  = 0;
+    INPUTS.NON1ASED.FLUXSCALE[i] = 1.0 ;
   }
 
 
@@ -1745,7 +1744,7 @@ int read_input(char *input_file) {
 
     }
 
-    
+ 
     if ( uniqueMatch(c_get,"MJD_EXPLODE:")  ) {
       readdouble(fp, 1, &INPUTS.MJD_EXPLODE );
       if ( INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE < 0 ) 
@@ -6644,7 +6643,6 @@ void genmag_offsets(void) {
       + GENLC.LENSDMU                        // lensing correction
     ;
     
-
     // ------
     // apply mag-offset to each epoch-mag, unless mag is
     // set to flag value (UNDEFINED or ZEROFLUX)
@@ -10310,7 +10308,6 @@ void pick_NON1ASED(int ilc,
   int isp, MXGEN, ispgen, NINDEX, ifilt, ifilt_obs, NEW_ISPGEN  ;
   float MAGOFF, MAGOFF_USER, MAGSMEAR ;
   char *name;
-  char sedFile[MXPATHLEN];
   char fnam[] = "pick_NON1ASED";
 
   // --------  BEGIN ----------
@@ -10367,9 +10364,9 @@ void pick_NON1ASED(int ilc,
     GEN_NON1ASED->CIDRANGE[ispgen][0] = GENLC.CID;
     GEN_NON1ASED->CIDRANGE[ispgen][1] = GENLC.CID;
 
-    sprintf(sedFile, "%s", INP_NON1ASED->SED_FILE[ispgen] ) ;
 
-    init_genmag_NON1ASED( GENLC.TEMPLATE_INDEX, sedFile ); 
+    init_genmag_NON1ASED( ispgen, INP_NON1ASED);
+    // xxx mark delete 5/2019 init_genmag_NON1ASED(GENLC.TEMPLATE_INDEX,sedFile); 
 
     printf("   Changes for %s : \n", name);
     
@@ -20626,7 +20623,7 @@ void init_genmodel(void) {
     prep_NON1ASED( &INPUTS.NON1ASED, &GENLC.NON1ASED );
 
     init_genSEDMODEL();       // pass filters and primary ref
-    init_genmag_NON1ASED(0," "); // do one-time inits for SEDs
+    init_genmag_NON1ASED(-9,&INPUTS.NON1ASED); // do one-time inits for SEDs
   }
   else if ( INDEX_GENMODEL == MODEL_NON1AGRID ) {
     double FRAC_PEC1A = INPUTS.RATEPAR_PEC1A.SEASON_FRAC ;

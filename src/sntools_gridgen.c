@@ -95,7 +95,7 @@ void init0_GRIDsource(void) {
   float PMIN, PMAX;
 
   int 
-    IPAR, IPAR2, i,  NFILT, NBIN
+    IPAR, IPAR2, i,  NFILT, NBIN, NINDEX
     ,indx[NPAR_GRIDGEN+1]
     ,ilcoff, ilc, ilc_last, itmp
     ,iz, ish, ic1, ic2
@@ -138,11 +138,18 @@ void init0_GRIDsource(void) {
 
 
   IPAR = IPAR_GRIDGEN_SHAPEPAR;
-  // xxx mark delete  if ( SNTYPE_GRIDGEN() == SNTYPE_GRIDGEN_NONIa ) {
+
   if ( INDEX_GENMODEL == MODEL_NON1ASED ) {
+
+    if ( INPUTS.NON1ASED.INDEX[1] > 0 ) 
+      { NINDEX = INPUTS.NON1ASED.NINDEX ; }
+    else  { 
+      NINDEX = count_NON1A_LIST(INPUTS.NON1ASED.PATH);   // 5.2019
+      printf("\t ALL-NON1A option -> count %d NON1A keys \n", NINDEX);
+    }
     GENRANGE_LOCAL[IPAR][0] = 1.0 ;  
-    GENRANGE_LOCAL[IPAR][1] = (float)INPUTS.NON1ASED.NINDEX ;
-    SNGRID_WRITE.NBIN[IPAR] = INPUTS.NON1ASED.NINDEX ;
+    GENRANGE_LOCAL[IPAR][1] = (float)NINDEX ;
+    SNGRID_WRITE.NBIN[IPAR] = NINDEX ;
     sprintf(SNGRID_WRITE.NAME[IPAR], "%s", "NONIA" );  // sparse index
   }
   else if ( INDEX_GENMODEL == MODEL_SIMSED ) {
@@ -987,7 +994,7 @@ void wrhead_GRIDfile_fits(void) {
 
 
   // -------------------------------
-  // write nonIa-info table
+  // write NONIa-INFO  table
 
   if ( SNTYPE_GRIDGEN() == SNTYPE_GRIDGEN_NONIa ) {
     printf("\t create GRIDGEN table of nonIa types : \n" );
@@ -1006,7 +1013,7 @@ void wrhead_GRIDfile_fits(void) {
     tform[0] =  stringI2  ;  // GRID-index (same as shapepar)
     tform[1] =  stringI2  ;  // nonIa SNANA index (same as shapepar)
     tform[2] =  stringC16 ;  // type (II, Ib, ...) 
-    // xxx mark delete     tform[3] =  stringC20 ;  // name (i.e, "SDSS-000018")
+
     tform[3] =  stringC120 ;  // allow long name with path 
     tform[4] =  stringF4  ; // WGT    (Aug 30 2013)
     tform[5] =  stringF4  ; // MAGOFF (Aug 30 2013)
@@ -1015,12 +1022,12 @@ void wrhead_GRIDfile_fits(void) {
 
     fptr     = &SNGRID_WRITE.VALUE[ipar][1];
     for ( i=1; i <= nrow; i++ ) {
-      I2NONIA_GRID[i]        = (int)SNGRID_WRITE.VALUE[ipar][i];
-      I2NONIA_SNANA[i]       = SNGRID_WRITE.NON1A_INDEX[i] ;
-      TBLPAR_NON1A_CTYPE[i]  = SNGRID_WRITE.NON1A_CTYPE[i] ;
-      TBLPAR_NON1A_NAME[i]   = SNGRID_WRITE.NON1A_NAME[i] ;
-      TBLPAR_NON1A_WGT[i]    = SNGRID_WRITE.NON1A_WGT[i] ;
-      TBLPAR_NON1A_MAGOFF[i] = SNGRID_WRITE.NON1A_MAGOFF[i] ;
+      I2NONIA_GRID[i]          = (int)SNGRID_WRITE.VALUE[ipar][i];
+      I2NONIA_SNANA[i]         = SNGRID_WRITE.NON1A_INDEX[i] ;
+      TBLPAR_NON1A_CTYPE[i]    = SNGRID_WRITE.NON1A_CTYPE[i] ;
+      TBLPAR_NON1A_NAME[i]     = SNGRID_WRITE.NON1A_NAME[i] ;
+      TBLPAR_NON1A_WGT[i]      = SNGRID_WRITE.NON1A_WGT[i] ;
+      TBLPAR_NON1A_MAGOFF[i]   = SNGRID_WRITE.NON1A_MAGOFF[i] ;
       TBLPAR_NON1A_MAGSMEAR[i] = SNGRID_WRITE.NON1A_MAGSMEAR[i] ;
       I2NONIA_ITYPE_USER[i]    = SNGRID_WRITE.NON1A_ITYPE_USER[i] ;
     }

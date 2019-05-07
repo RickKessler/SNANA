@@ -686,7 +686,7 @@ c -----------
       ZRATEPRIOR_SNIA(3)  = 1.0     ! flat rate for z>1
       ZRATEPRIOR_NONIA(1) = 6.8E-5  ! Bazin et al 2009 (SNLS)
       ZRATEPRIOR_NONIA(2) = 3.6     ! follows Galaxy formation
-      ZRATEPRIOR_NONIA(3) = 2.0     ! flat rate for z>1
+      ZRATEPRIOR_NONIA(3) = 2.0     ! flat rate for z>2
 
 c - - - - - -  -
 c Mar 10 2017 RK - 

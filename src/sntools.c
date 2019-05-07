@@ -5527,7 +5527,7 @@ int rd_sedFlux(
   fpsed = open_TEXTgz(sedFile, "rt", &GZIPFLAG );
   if ( fpsed == NULL ) {
     sprintf(c1err,"Cannot open SED file: " );
-    sprintf(c2err,"  %s", sedFile);
+    sprintf(c2err,"  '%s' ", sedFile);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
@@ -9742,7 +9742,7 @@ void errmsg(
 *************************************/
 {
    char c_severe[12];  /* char string for serverity */ 
-   char cmsg[80];
+   char cmsg[200];
 
         /* ------- begin function execution ------- */
 

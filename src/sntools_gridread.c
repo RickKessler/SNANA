@@ -89,28 +89,13 @@ void fits_read_SNGRID(int OPTMASK, char *sngridFile,
   // OPTMASK bits (lsb=1)
   // bit1 : verbose mode
   //
-  // Feb 21, 2011: find tables based on their name instead of
-  //               their absolute HDU number. See EXTNAME_GRIDGEN[ipar].
-  //                
-  // July 09, 2012: pass struct SNGRID
-  // July 26, 2012: fill new element SNGRID->NONIA_ITYPE[irow]
-  // Apri 02, 2013: 
-  //     - read UNIQUE_KEY
-  //     - read FILTER_LAMAVG (2nd col of FILTER table)
   //
   // Aug 12 2016: check for PEC1A
 
   fitsfile *fp_SNGRID;
 
-  int       
-    VERBOSE
-    , IVERSION, ITYPE
-    , istat, anynul, irow
-    , colnum
-    , ipar, ifilt
-    , nwdtmp
-    , extver = 0
-    ;
+  int VERBOSE, IVERSION, ITYPE, istat, anynul, irow, colnum;
+  int ipar, ifilt, nwdtmp, extver = 0 ;
 
   short  I2TMP[NPAR_GRIDGEN+1];
   int    I4TMP[NPAR_GRIDGEN+1];
@@ -184,7 +169,7 @@ void fits_read_SNGRID(int OPTMASK, char *sngridFile,
   }
 
 
-  // read name of SN mode;
+  // read name of SN model
   sprintf(keyname, "%s", "GENMODEL" );
   fits_read_key(fp_SNGRID, TSTRING, keyname, 
 		&SNGRID->MODEL, comment, &istat );
@@ -234,7 +219,7 @@ void fits_read_SNGRID(int OPTMASK, char *sngridFile,
     { tparnam[ipar] = SNGRID->NAME[ipar] ; }
 
   // read column of physical par-names
-  colnum = 2; 
+  colnum = 2;
   fits_read_col_str(fp_SNGRID, colnum, FIRSTROW, FIRSTELEM, NROW, 
 		    CNULVAL, &tparnam[1], &anynul, &istat );
   sprintf(msg1,"read PHYS-NAME column from %s table.", extname);

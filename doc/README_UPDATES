@@ -16599,5 +16599,7 @@ GitHub issues:
     snana.car, sntools_output*.c
      + write Tobs in SPECLIST file 
      + write PKMJDINI to text table if OPT_SETPKMJD > 0
-   
+     + remove SNANA pre-proc flag around SPECPLOT so that
+       SPECTRUM plots can be made with snlc_fit as well.
+
 END: 

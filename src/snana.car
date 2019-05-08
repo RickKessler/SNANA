@@ -6183,17 +6183,18 @@ c check ERRFLAG_FIT
       CALL FLUSH(6)
       CALL USRANA(IERR)     ! call user-analysis routine
 
-c always pack the meta data 
 
 +SELF,IF=SNANA.
+c pack the meta data 
       IF ( OPT_TABLE(ITABLE_SNLCPAK) > 0  ) THEN
         CALL SNLCPLOT()       ! prepare light curves for plotting
       ENDIF
++SELF.
 
       IF ( OPT_TABLE(ITABLE_SPECPAK) > 0  ) THEN
         CALL SPECPLOT()       ! prepare spectra for plotting (Apr 2019)
       ENDIF
-+SELF.
+
 
 c Beware that SNANA table gets filled after FITRES table.
       CALL MON_SNANA(IFLAG_ANA)     ! monitor-driver
@@ -23950,7 +23951,7 @@ c set global flag.
 
 
 C ==============================
-+DECK,SPECPLOT,IF=SNANA.
++DECK,SPECPLOT.
       SUBROUTINE SPECPLOT()
 
 c Apr 2019
@@ -24002,7 +24003,7 @@ c write out spectrum to TEXT table (HBOOK,ROOT not enabled)
 
       RETURN
       END
-+SELF.
+
 
 C ==============================================
 +DECK,CHECK_DUPLMJD.

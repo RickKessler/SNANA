@@ -16586,4 +16586,18 @@ GitHub issues:
 
     Silly git test only.
 
+
+# ======================================================================= 
+         v10_72d (  ) 
+
+         ***** IMPORTANT(v10_72d) ***** 
+
+         ***** USEFUL(v10_72d) ***** 
+
+         ***** MISCELLANEOUS(v10_72d) ***** 
+
+    snana.car, sntools_output*.c
+     + write Tobs in SPECLIST file 
+     + write PKMJDINI to text table if OPT_SETPKMJD > 0
+   
 END: 

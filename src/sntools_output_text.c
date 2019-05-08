@@ -1621,8 +1621,8 @@ void SPECPAK_WRITE_HEADER_TEXT(void) {
   // Beware that VARNAMES lists are hard-coded here.
 
   FILE *FP_LIST      = PTRFILE_SPECLIST ;
-  char VARLIST_KEY[] = "CID ID NLAMBIN MJD TEXPOSE";
-  char VARLIST_CSV[] = "CID,ID,NLAMBIN,MJD,TEXPOSE";
+  char VARLIST_KEY[] = "CID ID NLAMBIN MJD TOBS TEXPOSE";
+  char VARLIST_CSV[] = "CID,ID,NLAMBIN,MJD,TOBS,TEXPOSE";
 
   FILE *FP_PLOT      =  PTRFILE_SPECPLOT ;
   char VARPLOT_KEY[] = "CID ID LAMMIN LAMMAX FLAM FLAMERR";
@@ -1680,11 +1680,12 @@ void SPECPAK_FILL_TEXT(void) {
   // fill SPEC-LIST table vs. ID
   for(ispec=0; ispec < NSPEC; ispec++ ) {
 
-    fprintf(PTRFILE_SPECLIST,"OBS: %8s  %d  %d  %.3f  %.1f \n",
+    fprintf(PTRFILE_SPECLIST,"OBS: %8s  %d  %d  %.3f %6.1f  %.1f \n",
 	    SPECPAK_OUTPUT.CCID,
 	    SPECPAK_OUTPUT.ID_LIST[ispec],
 	    SPECPAK_OUTPUT.NLAMBIN_LIST[ispec],
 	    SPECPAK_OUTPUT.MJD_LIST[ispec],
+	    SPECPAK_OUTPUT.TOBS_LIST[ispec],
 	    SPECPAK_OUTPUT.TEXPOSE_LIST[ispec] );	    
     fflush(PTRFILE_SPECLIST);
   }

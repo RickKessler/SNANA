@@ -4,7 +4,6 @@ c Program to read light curves and apply user selection
 c cuts specified in the &SNLCINP namelist.
 c Can also fit function to estimate time of peak brightness.
 c
-c HELLO
  
            MAJOR STRUCTURAL CHANGES (SURGERY)
           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1110,6 +1109,7 @@ c  Not intended for analysis.
 
       REAL*8 
      &    MJD_SPECTRUM(MXSPECTRUM) 
+     &   ,TOBS_SPECTRUM(MXSPECTRUM)
      &   ,TEXPOSE_SPECTRUM(MXSPECTRUM)
      &   ,LAMMIN_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM)
      &   ,LAMMAX_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM)
@@ -1121,7 +1121,7 @@ c  Not intended for analysis.
      &   ,VARNAMES_SPECTRUM, NLAMBIN_READ
 
       COMMON/SPECCOM8/ 
-     &    MJD_SPECTRUM, TEXPOSE_SPECTRUM
+     &    MJD_SPECTRUM, TOBS_SPECTRUM, TEXPOSE_SPECTRUM
      &   ,LAMMIN_SPECTRUM, LAMMAX_SPECTRUM
      &   ,FLAM_SPECTRUM, FLAMERR_SPECTRUM
 
@@ -11636,7 +11636,7 @@ c Note that ROW numbers are read below, and thus not passed as argument.
 
       CHARACTER FNAM*14, CCID*(MXCHAR_CCID)
       INTEGER   LENCCID, ROWMIN, ROWMAX, irow, NRDSPEC
-      REAL*8    METADATA(10)
+      REAL*8    METADATA(10), MJD
 
 c external functions
       EXTERNAL RD_SNFITSIO_SPECROWS, RD_SNFITSIO_SPECDATA
@@ -11666,10 +11666,11 @@ c loop over header rows and extra spectrum for each row.
      &        ,FLAM_SPECTRUM(1,NRDSPEC)     ! (O) idem
      &        ,FLAMERR_SPECTRUM(1,NRDSPEC) )! (O) idem
 
+         MJD = METADATA(1)
          ID_SPECTRUM(NRDSPEC)      = NRDSPEC
-         MJD_SPECTRUM(NRDSPEC)     = METADATA(1)
+         MJD_SPECTRUM(NRDSPEC)     = MJD
+         TOBS_SPECTRUM(NRDSPEC)    = MJD - SNLC_SEARCH_PEAKMJD ! 5/2019
          TEXPOSE_SPECTRUM(NRDSPEC) = METADATA(2)
-
  200  CONTINUE
 
       RETURN
@@ -14109,6 +14110,7 @@ c check header stuff
       IF ( CWD .EQ. 'SPECTRUM_MJD:' ) THEN
          READ(CWD_NEXT,*) MJD
          MJD_SPECTRUM(NSPECTRUM) = MJD
+         TOBS_SPECTRUM(NSPECTRUM) = MJD - SNLC_SEARCH_PEAKMJD ! 5/2019
       ENDIF
 
       IF ( CWD .EQ. 'SPECTRUM_TEXPOSE:' ) THEN
@@ -23985,6 +23987,7 @@ c load each spectrum into SPECPAK C-function util
      &         CCID_forC
      &       , ID_SPECTRUM(ispec)
      &       , MJD_SPECTRUM(ispec)
+     &       , TOBS_SPECTRUM(ispec)    ! May 7 2019
      &       , TEXPOSE_SPECTRUM(ispec)
      &       , NLAMBIN_SPECTRUM(ispec)
      &       , LAMMIN_SPECTRUM(1,ispec)
@@ -24463,7 +24466,7 @@ c     &     LENBLOCK_L, 20 )
 
 c - - - - -  initial PEAKMJD  - -  - 
       ITEXT = 0                       ! default is no TEXT output ...
-      IF ( ADDCOL_SETPKMJD ) ITEXT=1  ! unless this option is set
+      IF ( OPT_SETPKMJD > 0 ) ITEXT=1  ! unless this option is set
       VARLIST = 'PKMJDINI:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_SEARCH_PEAKMJD, 
      &           VARLIST, ITEXT, LENBLOCK, 20 )

@@ -3074,7 +3074,7 @@ void specpak_clear_plot__(void) {  SPECPAK_CLEAR_PLOT();  }
 
 
 // =======================================================
-void SPECPAK_DATA(char *CCID, int ID, double MJD, double Texpose,
+void SPECPAK_DATA(char *CCID, int ID, double MJD, double Tobs, double Texpose,
 		  int NLAMBIN, double *LAMMIN, double *LAMMAX, 
 		  double *FLAM, double *FLAMERR)
 {
@@ -3100,6 +3100,7 @@ void SPECPAK_DATA(char *CCID, int ID, double MJD, double Texpose,
   SPECPAK_OUTPUT.ID_LIST[NSPEC]       = ID ;
   SPECPAK_OUTPUT.NLAMBIN_LIST[NSPEC]  = NLAMBIN ;
   SPECPAK_OUTPUT.MJD_LIST[NSPEC]      = MJD;
+  SPECPAK_OUTPUT.TOBS_LIST[NSPEC]     = Tobs ;
   SPECPAK_OUTPUT.TEXPOSE_LIST[NSPEC]  = Texpose ;
 
   MEMD    = NLAMTOT * sizeof(double);
@@ -3139,10 +3140,11 @@ void SPECPAK_DATA(char *CCID, int ID, double MJD, double Texpose,
 } // end SPECPAK_DATA
 
 
-void specpak_data__(char *CCID, int *ID, double *MJD, double *Texpose, 
-		    int *NLAMBIN, double *LAMMIN, double *LAMMAX, 
+void specpak_data__(char *CCID, int *ID, double *MJD,double *Tobs,
+		    double *Texpose,int *NLAMBIN,double *LAMMIN,double *LAMMAX,
 		    double *FLAM, double *FLAMERR) {
-  SPECPAK_DATA(CCID,*ID,*MJD,*Texpose,*NLAMBIN,LAMMIN,LAMMAX,FLAM,FLAMERR);
+  SPECPAK_DATA(CCID,*ID,*MJD,*Tobs,*Texpose,
+	       *NLAMBIN,LAMMIN,LAMMAX,FLAM,FLAMERR);
 }
 
 

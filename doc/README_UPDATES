@@ -16602,4 +16602,8 @@ GitHub issues:
      + remove SNANA pre-proc flag around SPECPLOT so that
        SPECTRUM plots can be made with snlc_fit as well.
 
+   SALT2mu.c
+     + fix to work with uM0=0 (fix M0=-30) and nothing
+       else is fit either.
+
 END: 

@@ -587,6 +587,12 @@ Default output files (can change names with "prefix" argument)
 
   May 02 2019: remove TABLEFILE_CLOSE() calls since READ_EXEC closes.
 
+  May 07 2019:
+   + fix to work when all parameters are fixed;
+     If uM0=0, then set M0 fit bound to be -30 +- 0.001 so that
+     MINUIT still runs as usual. Might fix later so that fit is
+     skipped when there are no fit params.
+
 ******************************************************/
 
 #include <stdio.h>      
@@ -1840,9 +1846,13 @@ void exec_mnparm(void) {
   // too few events.
   //
   // Jun 27 2017: REFACTOR z bins
+  //
+  // May 08 2018: 
+  //   + fix to work with uM0=0 by setting M0 bound to -30+_0.001 mag.
 
   int i, iz, iMN, len, ierflag, icondn, ISFLOAT ;
   int nzbin = INPUTS.nzbin ;
+  double M0min, M0max;
   const int null=0;
   char text[100];
   char fnam[] = "exec_mnparm" ;
@@ -1865,10 +1875,15 @@ void exec_mnparm(void) {
 
     i   = iz + MXCOSPAR ;
     iMN = i + 1 ;
-    ISFLOAT = FITINP.ISFLOAT_z[iz] * INPUTS.uM0 ;
+
+    M0min=-35.0;  M0max=-25.0;
+    ISFLOAT = FITINP.ISFLOAT_z[iz] ;
+    if ( INPUTS.uM0 == 0 ) 
+      { M0min= M0_DEFAULT-0.001; M0max=M0_DEFAULT+.001; }
+    // xxx mark delete    ISFLOAT = FITINP.ISFLOAT_z[iz] * INPUTS.uM0 ;
       
-    //               val            step   min  max   float
-    set_fitPar( i, INPUTS.nommag0, 0.1,  -35., -25.,  ISFLOAT ); 
+    //               val            step   min  max     boolean
+    set_fitPar( i, INPUTS.nommag0, 0.1,   M0min,M0max,  ISFLOAT ); 
     INPUTS.izpar[i] = iz ; 
       
     sprintf(text,"m0_%2.2d",iz);

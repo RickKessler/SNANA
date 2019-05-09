@@ -140,7 +140,7 @@ CC   = cc
 
    DBUGFLAGS = -O1
 #   DBUGFLAGS = -O1 -Wall
-   DBUGFLAGS = -g -fbounds-check
+#   DBUGFLAGS = -g -fbounds-check
 
   PROFILEFLAG = 
 #  PROFILEFLAG = -pg

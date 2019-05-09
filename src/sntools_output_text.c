@@ -66,6 +66,8 @@ char FILEPREFIX_TEXT[100];
 #define TEXTMODE_rt           "rt"
 #define TEXTMODE_wt           "wt"
 
+#define MSKOPT_PARSE_WORDS_STRING 2 // must match same param in sntools.h
+
 FILE *PTRFILE_TEXT ;                   // generic ascii file pointer
 char FILENAME_TEXT[MXCHAR_FILENAME];   // name of opened text file
 int  GZIPFLAG_TEXT;                    // gzipped or not
@@ -1043,7 +1045,7 @@ int  SNTABLE_READPREP_TEXT(void) {
       FOUNDKEY = 1;
       VARLIST = (char*)malloc( MXCHAR_LINE * sizeof(char) );
       fgets(VARLIST, MXCHAR_LINE, FP );
-      NVAR = store_PARSE_WORDS(0,VARLIST);
+      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST);
       free(VARLIST);
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
@@ -1635,7 +1637,7 @@ void SPECPAK_WRITE_HEADER_TEXT(void) {
 
   // ----------- BEGIN ------------
 
-  NVAR_SPECPLOT = store_PARSE_WORDS(0,VARPLOT_KEY);
+  NVAR_SPECPLOT = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARPLOT_KEY);
 
   if ( OPT_FORMAT == OPT_FORMAT_COL ) {
     return ; // do nothing 

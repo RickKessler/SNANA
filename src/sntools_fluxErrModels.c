@@ -155,7 +155,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
 
     if ( strcmp(c_get,"VARNAMES:")==0 ) {
       fgets(LINE,100,fp);
-      NVAR = store_PARSE_WORDS(0,LINE);
+      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
       FLUXERRMAP[NMAP].NVAR = NVAR ;
       //      malloc_ROWDATA_FLUXERRMAP(+1,NVAR);
 

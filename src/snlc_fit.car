@@ -1689,7 +1689,7 @@ c not yet been filled.
          CALL TABLE_SNFIT(0)
       ENDIF
 
-      IF ( OPT_TABLE(ITABLE_SPECTRA) > 0 .and. 
+      IF ( OPT_TABLE(ITABLE_MODELSPEC) > 0 .and. 
      &     FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN    
          CALL TABLE_SNSPEC_SALT2(0)
       ENDIF
@@ -2392,7 +2392,7 @@ c check tables to fill
           CALL TABLE_SNFIT(isn)
       ENDIF
 
-      IF ( OPT_TABLE(ITABLE_SPECTRA) > 0 .and. 
+      IF ( OPT_TABLE(ITABLE_MODELSPEC) > 0 .and. 
      &     FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN    
          CALL TABLE_SNSPEC_SALT2(isn)
       ENDIF
@@ -2788,7 +2788,7 @@ c ------------
 +CDE,SNFITCOM.
 +CDE,FILTCOM.
 
-      INTEGER ifilt_obs, iwd, NWD, NFILT, ifilt, LEN
+      INTEGER ifilt_obs, iwd, NWD, NFILT, ifilt, LEN, MSKOPT
       REAL    TMIN, TMAX
       CHARACTER CFILT*(MXFILT_ALL), CFILT1*2, CWD*60
 
@@ -2810,7 +2810,8 @@ ccc   DO ifilt_obs = 1, MXFILT_OBS !!! aweful bug fixed May 2012
 c count how many FITWIN_TREST_FILTER cuts have been  specified.
       IF ( FITWIN_TREST_FILTER .EQ. ' ' ) RETURN   
 
-      NWD = STORE_PARSE_WORDS(0, FITWIN_TREST_FILTER//char(0),80 )      
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
+      NWD = STORE_PARSE_WORDS(MSKOPT, FITWIN_TREST_FILTER//char(0),80)  
 
 c make sure that number of elements is a multiple of 
 c three (filters, TMIN, TMAX)
@@ -11406,7 +11407,7 @@ c local var
 +CDE,SIMEFFCM.
 +CDE,SNANAFIT.
 
-      INTEGER   L1, L2, ivar, ipar, NWD
+      INTEGER   L1, L2, ivar, ipar, NWD, MSKOPT
       CHARACTER 
      &   VARNAMES*200, NAME*(MXCHAR_FILEWORD)
      &  ,SIMEFF_FILE_LOC*(MXCHAR_FILENAME)
@@ -11446,7 +11447,8 @@ c ---------------------------------------------
 c translate VARNAMES string into variable names and fill 
 c IPAR_SIMEFF array for faster lookups.
 
-      NWD = STORE_PARSE_WORDS ( 0, VARNAMES//char(0), 200 )
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
+      NWD = STORE_PARSE_WORDS(MSKOPT, VARNAMES//char(0), 200 )
 
       IF ( NPAR_SIMEFF .NE. NWD ) THEN
         write(c1err,601) NPAR_SIMEFF
@@ -18394,7 +18396,7 @@ c function
       EXTERNAL getSpec_band_SALT2
 c ----------------- BEGIN ------------------------
       
-      ID = IDTABLE_SPECTRA
+      ID = IDTABLE_MODELSPEC
 
 c ----------------------------------
 

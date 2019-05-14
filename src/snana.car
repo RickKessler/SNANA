@@ -2053,8 +2053,7 @@ c
      &  ,FLUXERRMODEL_OPTMASK
 
       LOGICAL 
-     &   LDMP_SNFAIL        ! (I) T => dump reason for each SN failure
-     &  ,LSIM_SEARCH_SPEC   ! (I) T => require simulated SPEC-tag
+     &   LSIM_SEARCH_SPEC   ! (I) T => require simulated SPEC-tag
      &  ,LSIM_SEARCH_ZHOST  ! (I) T => require simulated zHOST
      &  ,LTEST_INTERP  ! (I) T => calls TEST_KCOR
      &  ,LTEST_KCOR    ! (I) T => calls TEST_INTERP
@@ -2076,6 +2075,8 @@ c
      &  ,ABORT_ON_NOPKMJD    ! T=> abort if no PKMJDINI (see OPT_SETPKMJD)
      &  ,ABORT_ON_BADHEADER  ! T=> abort if missing header info(HEADMASK_CHECK)
      &  ,USE_MINOS           ! T=> use MINOS instead of MINIMIZE
+     &  ,LDMP_SNFAIL         ! T => dump reason for each SN failure
+     &  ,LDMP_SNANA_VERSION  ! T => dump SNANA version and SNANA_DIR
      &  ,LDMP_AVWARP         ! dump GET_AVWARP8 (debug only)
      &  ,LDMP_KCORFUN        ! dump KCORFUN8 (debug only)
      &  ,USESIM_SNIA         ! default True -> process simulated SNIa
@@ -2142,8 +2143,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , MAGCOR_FILE, SIM_MAGCOR_FILE,  FUDGE_HOSTNOISE_FILE
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
      &    , OPT_SETPKMJD, MJDRANGE_SETPKMJD, OPT_DEBUG
-     &    , LDMP_SNFAIL, LSIM_SEARCH_SPEC, LSIM_SEARCH_zHOST
-     &    , LDMP_AVWARP, LDMP_KCORFUN
+     &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_zHOST
+     &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
@@ -2184,7 +2185,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, NONLINEARITY_FILE
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
      &    , OPT_SETPKMJD, MJDRANGE_SETPKMJD, OPT_DEBUG
-     &    , LDMP_SNFAIL, LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST
+     &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST
+     &    , LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
@@ -3236,6 +3238,7 @@ c Nov 08, 2012
 c Parse command-line arguments and store in LINE_ARGS array. 
 c (code moved from main)
 c
+c May 2019: check option to call DUMP_SNANA_VERSION
 
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -3260,6 +3263,38 @@ C ------------------- BEGIN ---------------
         CALL GETARG(i, LINE_ARGS(i) )  ! read command-line args
         USE_LINE_ARGS(i) = .FALSE.
       ENDDO
+
+c check option to dump SNANA version and SNANA_DIR 
+c (for SNANA_CodeTests.py)
+
+      IF ( LINE_ARGS(1) .EQ. '--SNANA_VERSION' .or.
+     &     LINE_ARGS(1) .EQ. '--snana_version'  ) THEN
+         CALL DUMP_SNANA_VERSION()
+      ENDIF
+
+      RETURN
+      END
+
+C ==================================
++DECK,DUMP_SNANA_VERSION.
+      SUBROUTINE DUMP_SNANA_VERSION()
+
+c Created May 2019
+c Dump SNANA version and SNANA_DIR, then quit.
+
+      IMPLICIT NONE
+      INTEGER LL
+      CHARACTER SNANA_VERSION*40, SNANA_DIR*200
+      
+      call GET_SNANA_VERSION(SNANA_VERSION,LL)
+      LL = index(SNANA_VERSION, char(0) ) - 1
+      print*,'SNANA_VERSION: ', SNANA_VERSION(1:LL)
+      
+      CALL GETENV ( 'SNANA_DIR', SNANA_DIR )
+      LL = INDEX(SNANA_DIR,' ') - 1
+      print*,'SNANA_DIR: ', SNANA_DIR(1:LL)
+
+      CALL EXIT(0)
 
       RETURN
       END
@@ -3494,6 +3529,7 @@ c default is to reject nothing (accept everything)
 
       OPT_DEBUG           = 0
       LDMP_SNFAIL         = .FALSE.
+      LDMP_SNANA_VERSION  = .FALSE.
       LSIM_SEARCH_SPEC    = .FALSE.
       LSIM_SEARCH_ZHOST   = .FALSE.
 
@@ -3578,6 +3614,7 @@ c if not given on command line, then ask for it.
          CALL GETARG(1, LINE_ARGS(1) )  ! read command-line arg (namelist)
          nmlfile = LINE_ARGS(1)
          if ( nmlFile(1:6) .EQ. 'NOFILE' ) GOTO 400  ! Jan 5 2016
+
          goto 300
       ENDIF
 

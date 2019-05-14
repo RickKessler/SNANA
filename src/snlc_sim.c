@@ -83,6 +83,8 @@ int main(int argc, char **argv) {
   sprintf(BANNER,"Begin execution of snlc_sim.exe  " );
   print_banner(BANNER);
 
+  //  errmsg(SEV_FATAL, 0, "main", "testing CodeTest", "Remove this" ); 
+
   t_start = time(NULL);
 
   parse_commandLine_simargs(argc, argv);

@@ -24,7 +24,7 @@
 # reproduces results from the previous version, and to identify
 # cases where the new snana version gives different results.
 #
-# $SNDATA_ROOT/SNANA_TESTS/SNANA_TESTS.LIST is the top-level file
+# $SNANA_TESTS/SNANA_TESTS.LIST is the top-level file
 # containing
 #
 #   OLD_SNANA_SETUP: setup  snana v6_16
@@ -89,11 +89,15 @@
 #
 # May  07 2019: 
 #   + read task files in $TESTDIR/tasks. 
-#   + rename SNANA_TESTS.LIST -> SNANA_TESTS_FNAL.LIST since this scheme
+#   + rename SNANA_TESTS.LIST -> SNANA_CodeTests_FNAL.LIST since this scheme
 #     works only at FNAL
 #   + this minor refactor is to prepare for a full python re-write
 #     using same directories, but different LIST file that specifies
 #     batch or SSH nodes.
+#
+# May 13 2019:
+#   + remove leading blanks from grepped result string (to match python)
+#   + -29s -> -40s format for RESULTS
 #
 # =============================================
 
@@ -239,8 +243,9 @@ sub set_defaults {
 
     $SNDATA_ROOT   = $ENV{'SNDATA_ROOT'};
     $SNANA_DIR     = $ENV{'SNANA_DIR'};
+    $TESTDIR       = $ENV{'SNANA_TESTS'} ;
+#    $TESTDIR       = "/data/des41.b/data/SNDATA_ROOT/SNANA_TESTS" ;
 
-    $TESTDIR       = "${SNDATA_ROOT}/SNANA_TESTS" ;
     $TASKDIR       = "${TESTDIR}/tasks" ;
     $TESTLOGDIR    = "${TESTDIR}/logs/${CDATE}" ;
     $TESTINPUTDIR  = "${TESTDIR}/inputs" ;
@@ -284,8 +289,8 @@ sub parse_args {
 
     for ( $i = 0; $i < $NARG ; $i++ ) {
 
-	if ( $ARGV[$i] eq "HELP" ) {  print_help();  }
-	if ( $ARGV[$i] eq "help" ) {  print_help();  }
+#	if ( $ARGV[$i] eq "HELP" ) {  print_help();  }
+#	if ( $ARGV[$i] eq "help" ) {  print_help();  }
 
 	if ( $ARGV[$i] eq "--TESTDIR" ) {
 	    $TESTDIR    = "$ARGV[$i+1]" ;
@@ -341,7 +346,7 @@ sub init_stuff {
     
     # construct full name of LISTFILE and make sure it's there !
 
-    $LISTFILE = "${TESTDIR}/SNANA_TESTS_FNAL.LIST" ;
+    $LISTFILE = "${TESTDIR}/SNANA_CodeTests_FNAL.LIST" ;
     if ( !( -e $TESTDIR ) ) {
 	print " ERROR: Cannot find LISTFILE: $LISTFILE \n" ;
 	die   "  ***** ABORT *****  \n " ;
@@ -596,6 +601,7 @@ sub parse_TEST {
     @tmp = sntools::parse_line($TESTFILE, 1, $key, $OPT_ABORT ) ; 
     $TESTNAME = $tmp[0] ;
 
+
     $key = "TESTRESULT:" ;
     @tmp = sntools::parse_line($TESTFILE, 99, $key, $OPT_ABORT ) ; 
     $TESTRESULT = "$tmp[0]" ;
@@ -603,8 +609,6 @@ sub parse_TEST {
     my $key = "WORDNUM:" ;
     my @tmp = sntools::parse_line($TESTFILE, 1, $key, $OPT_ABORT ) ; 
     $WORDNUM = $tmp[0] ;
-
-
 
 } # end of parse_TEST
 
@@ -764,11 +768,13 @@ sub run_TEST {
 	# store this one-line result in the DONE file.
 	# The 'tail -1' ensures that the last instance is used.
 	$cmd_RESULT = "$TESTRESULT | tail -1" ;
-	@tmp   = qx($cdd ; $cmd_RESULT );
-	@tmp2  = split(/\s+/,$tmp[0]) ;
-	$w1    = $TEST_WORDNUM_FIRST ;
-	$w2    = $TEST_WORDNUM_LAST  ;
-	$Nwd   = scalar(@tmp2);
+	@tmp    = qx($cdd ; $cmd_RESULT );
+	$tmp[0] =~ s/^\s+// ;   # remove leading spaces  (5.13.2019)
+	$tmp[0] =~ s/\s+$// ;   # trim trailing whitespace
+	@tmp2   = split(/\s+/,$tmp[0]) ;
+	$w1     = $TEST_WORDNUM_FIRST ;
+	$w2     = $TEST_WORDNUM_LAST  ;
+	$Nwd    = scalar(@tmp2);
 
 	if ( $Nwd > 0 ) 
 	{ $TEST_RESULT_VAL = "@tmp2[$w1 .. $w2]" ; }
@@ -777,7 +783,7 @@ sub run_TEST {
 
 	$ctmp1 = "${STRING_IDTEST}" ;
 	$ctmp2 = "$TESTNAME = $TEST_RESULT_VAL" ;
-	$TEST_RESULT_STRING = sprintf("%-29s  %s  ", $ctmp1 , $ctmp2 ) ;
+	$TEST_RESULT_STRING = sprintf("%-40s  %s  ", $ctmp1 , $ctmp2 ) ;
     }
 
     # update RESULT in DONE file.
@@ -900,7 +906,7 @@ sub analyze_RESULTS {
 	@tmp_OLD = split(/\s+/,$OLD) ;    $TEST_OLD = $tmp_OLD[0];
 	@tmp_NEW = split(/\s+/,$NEW) ;    $TEST_NEW = $tmp_NEW[0];
 	$TEST = $TEST_NEW ;
-	$CTEST = sprintf("%-28s", $TEST );
+	$CTEST = sprintf("%-40s", $TEST );
 
 	if ( $TEST_OLD ne $TEST_NEW ) {
 	    print "\nERROR: line mis-match: \n";
@@ -934,11 +940,6 @@ sub analyze_RESULTS {
 
 } # end  of  analyze_RESULTS 
 
-
-sub print_help {
-    system("cat $SNDATA_ROOT/SNANA_TESTS/SNANA_TESTS.README");
-    die "\n Done. \n";
-} 
 
 
 # ==================================

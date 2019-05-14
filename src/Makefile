@@ -139,8 +139,8 @@ FFC  = gfortran
 CC   = cc
 
    DBUGFLAGS = -O1
-#   DBUGFLAGS = -O1 -Wall
-#   DBUGFLAGS = -g -fbounds-check
+#  DBUGFLAGS = -O1 -Wall
+#  DBUGFLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
   PROFILEFLAG = 
 #  PROFILEFLAG = -pg

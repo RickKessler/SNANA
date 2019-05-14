@@ -16586,4 +16586,31 @@ GitHub issues:
 
     Silly git test only.
 
+
+# ======================================================================= 
+         v10_72d (May 9 2019) 
+
+         ***** IMPORTANT(v10_72d) ***** 
+
+         ***** USEFUL(v10_72d) ***** 
+
+    SALT2mu.c: new fixpar_all option to use SALT2mu as MU-calculator
+
+         ***** MISCELLANEOUS(v10_72d) ***** 
+
+    snana.car, sntools_output*.c
+     + write Tobs in SPECLIST file 
+     + write PKMJDINI to text table if OPT_SETPKMJD > 0
+     + remove SNANA pre-proc flag around SPECPLOT so that
+       SPECTRUM plots can be made with snlc_fit as well.
+     + Internal rename ITABLE_SPECTRA -> ITABLE_MODELSPEC (for SALT2)
+        to avoid confusing with ITABLE_SPECPAK that packs spectra
+        from the data files.
+     + fix bug reading comma-separated options for SNTABLE_LIST.
+       Bug probably came with refactoring to use store_PARSE_WORDS().
+
+   SALT2mu.c
+     + fix to work with uM0=0 (fix M0=-30) and nothing
+       else is fit either.
+     + new fixpar_all option to use SALT2mu as MU-calculator                      
 END: 

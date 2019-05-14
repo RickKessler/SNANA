@@ -10155,14 +10155,15 @@ A few other miscellaneous table options are
   SNTABLE_LIST = 'SNANA+EPOCHS'          # include epoch info in SNANA table
   SNTABLE_LIST = 'SNANA+SIM_MAGOBS'      # idem, but only MJD,IFILT,SIM_MAGOBS
   SNTABLE_LIST = 'SNANA FITRES NOSIMVAR' # suppress SIM_xxx variables.
-  SNTABLE_LIST = 'SNANA FITRES SPECTRA'  # SALT2 model spectrum for each epoch
+  SNTABLE_LIST = 'SNANA FITRES MODELSPEC'# SALT2 model spectrum for each epoch
+  SNTABLE_LIST = 'SNANA FITRES SPECTRA'  # legacy key: same as MODELSPEC
   SNTABLE_LIST = 'SNANA(PS:10) FITRES'   # pre-scale SNANA table by 10
   SNTABLE_LIST = 'FITRES NOZPHOT'        # suppress ZPHOT variables
 \end{verbatim}
 %
 \begin{itemize}
 \item
-{\tt SNANA+EPOCHS} and {\tt SPECTRA} options work with 
+{\tt SNANA+EPOCHS} and {\tt MODELSPEC} options work with 
 {\tt HBOOK} and {\tt ROOT} format, but not with {\tt TEXT} format. 
 %
 \item {\tt SNANA+SIM\_MAGOBS} is a compressed table to contain
@@ -10174,11 +10175,11 @@ The {\tt NOSIMVAR} option removes all simulated truth values,
 and is useful for {\it blind} challenges. 
 %
 \item
-The {\tt SPECTRA} table works for SALT2 light-curve fits only, 
+The {\tt MODELSPEC} table works for SALT2 light-curve fits only, 
 and is filled for epochs ($\Trest$) defined by the SALT2 model: 
 includes scalars (CID,MJD,BAND,TOBS,etc) and a model spectrum
 (flux vs. wavelength).
-The {\tt SPECTRA} table may be useful for calibration 
+The {\tt MODELSPEC} table may be useful for calibration 
 corrections that require an SED. To save storage, each spectrum 
 is stored within the wavelength range defined by the passband.
 %

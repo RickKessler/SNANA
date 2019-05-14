@@ -624,7 +624,7 @@ void  init_OUTVAR_HOSTLIB(void) {
   NVAR_REQ = HOSTLIB.NVAR_REQUIRED ;
 
   // split VARLIST_ALL into individual var names
-  NVAR_STOREPAR = store_PARSE_WORDS(0,VARLIST_ALL);
+  NVAR_STOREPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST_ALL);
 
   /* xxxxxxxx mark delete Mar 20 2019 xxxxxxxxxxxxx
   ptrtok = strtok(VARLIST,",") ;
@@ -806,7 +806,7 @@ void parse_WGTMAP_HOSTLIB(FILE *fp, char *string) {
 
     
   fgets(LINE,100,fp);
-  NVAR_WGTMAP = store_PARSE_WORDS(0,LINE);
+  NVAR_WGTMAP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
   NDIM = NVAR_WGTMAP-2; NFUN=2;
   if ( NDIM < 1 ) {
     sprintf(c1err, "Invalid NDIM=%d for %s", NDIM, string);
@@ -919,7 +919,8 @@ void rdhead_HOSTLIB(FILE *fp) {
         errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
       }
 
-      NVAR = store_PARSE_WORDS(0,LINE);   HOSTLIB.NVAR_ALL = NVAR;
+      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE); 
+      HOSTLIB.NVAR_ALL = NVAR;
       if ( NVAR < HOSTLIB.NVAR_REQUIRED || NVAR > MXVAR_HOSTLIB ) {
         sprintf(c1err, "NVAR= %d  is invalid (MXVAR_HOSTLIB=%d)",
                 NVAR, MXVAR_HOSTLIB );

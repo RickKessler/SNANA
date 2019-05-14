@@ -3,7 +3,7 @@
 #
 #  R.Kessler    
 #
-#  HISTORY
+#  HISTORY 
 # -----------------------------------
 # Apr 07, 2012: add genSmear_models.c[.o]
 #
@@ -140,7 +140,7 @@ CC   = cc
 
    DBUGFLAGS = -O1
 #   DBUGFLAGS = -O1 -Wall
-   DBUGFLAGS = -g -fbounds-check
+#   DBUGFLAGS = -g -fbounds-check
 
   PROFILEFLAG = 
 #  PROFILEFLAG = -pg

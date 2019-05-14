@@ -87,6 +87,14 @@
 #
 # July 20 2016: remove kcor_his2fits().
 #
+# May  07 2019: 
+#   + read task files in $TESTDIR/tasks. 
+#   + rename SNANA_TESTS.LIST -> SNANA_TESTS_FNAL.LIST since this scheme
+#     works only at FNAL
+#   + this minor refactor is to prepare for a full python re-write
+#     using same directories, but different LIST file that specifies
+#     batch or SSH nodes.
+#
 # =============================================
 
 use FindBin qw($Bin);
@@ -107,7 +115,6 @@ sub make_LOGDIR ;
 sub runScript ;
 sub parse_TEST ;
 sub prep_TEST;
-# sub kcor_his2fits ;
 sub wait_for_TEST;
 sub run_TEST;
 sub analyze_RESULTS ;
@@ -129,7 +136,7 @@ my (@TESTLIST_NAME, $KILLJOBS_FLAG, $PROC_VERSION, @OLDNEW_KEY );
 my (@VERS_SUFFIX, $IVERSION, $SIMGEN_PREFIX, $SNTABLE_DUMP_PREFIX, $LISTFILE );
 my ($NTEST_ALL, $NTEST_SIMGEN, $NTEST_NOTSIM);
 my ($NTEST_SNTABLE, @SNTABLE_FLAG);
-my ($TESTDIR, $TESTLOGDIR, $TESTINPUTDIR );
+my ($TESTDIR, $TASKDIR, $TESTLOGDIR, $TESTINPUTDIR );
 my ($TESTJOB, @TESTINPUT,  $TESTJOB_ARGS, $TESTNAME, $TESTRESULT, $WORDNUM );
 my ($MASTER_LOGFILE, $q, $qq, $OPT_ABORT, $OPT_WARN, $OPT_QUIET );
 my ($TEST_INFILE, $TEST_LOGFILE, $TEST_DONEFILE, $TEST_ARGLIST );
@@ -226,10 +233,7 @@ sub set_defaults {
     $OPT_WARN   = 1 ; # 1=> leave warning message
     $OPT_QUIET  = 2 ; # 1=> quiet
 
-#    $scriptName    = "SNANA_tester.pl" ;
     $scriptName    = "$0" ;  # use current script for OLD and NEW versions
-
-#    $CDATE         = `date +%y%m%d_%H%M` ;
     $CDATE         = `date +%Y%m%d_%H%M` ;
     $CDATE         =~ s/\s+$// ;   # trim trailing whitespace
 
@@ -237,6 +241,7 @@ sub set_defaults {
     $SNANA_DIR     = $ENV{'SNANA_DIR'};
 
     $TESTDIR       = "${SNDATA_ROOT}/SNANA_TESTS" ;
+    $TASKDIR       = "${TESTDIR}/tasks" ;
     $TESTLOGDIR    = "${TESTDIR}/logs/${CDATE}" ;
     $TESTINPUTDIR  = "${TESTDIR}/inputs" ;
 
@@ -336,7 +341,7 @@ sub init_stuff {
     
     # construct full name of LISTFILE and make sure it's there !
 
-    $LISTFILE = "${TESTDIR}/SNANA_TESTS.LIST" ;
+    $LISTFILE = "${TESTDIR}/SNANA_TESTS_FNAL.LIST" ;
     if ( !( -e $TESTDIR ) ) {
 	print " ERROR: Cannot find LISTFILE: $LISTFILE \n" ;
 	die   "  ***** ABORT *****  \n " ;
@@ -421,7 +426,7 @@ sub sort_TESTLIST {
     $NTEST_SIMGEN = 0;
     $NTEST_NOTSIM = 0;
     $NTEST_SNTABLE = 0 ;
-#xyz
+
     for ( $i=1; $i <= $NTEST_ALL ; $i++ ) {
 	$TEST    = $TMPLIST[$i] ;
 	$prefix6 = substr($TEST,0,6);  # for SIMGEN
@@ -566,8 +571,9 @@ sub parse_TEST {
 
     my ($key, @tmp, $tmpArg );
     my $TEST     = $TESTLIST_NAME[$itest] ;
-    my $TESTFILE = "$TESTDIR/$TEST" ;
-    
+    my $TESTFILE = "$TASKDIR/$TEST" ;
+# xxx    my $TESTFILE = "$TESTDIR/$TEST" ; 
+
     $key = "TESTJOB:" ;
     @tmp = sntools::parse_line($TESTFILE, 1, $key, $OPT_ABORT ) ; 
     $TESTJOB = $tmp[0] ;

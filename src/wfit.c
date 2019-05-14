@@ -1541,7 +1541,7 @@ void read_fitres(char *inFile) {
  READ_VARLIST:
 
   fgets( VARLIST, 100, fp );
-  NVAR = store_PARSE_WORDS(0,VARLIST);
+  NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST);
 
   for(IWD = 0 ; IWD < NVAR; IWD++ ) {
 

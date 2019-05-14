@@ -347,7 +347,8 @@ int init_filter_SEDMODEL(
   // strip off last char of filtername to make filter-string list
   sprintf(cfilt1, "%c", filtname[strlen(filtname)-1] ) ;
 
-  sprintf( FILTLIST_SEDMODEL, "%s%s", FILTLIST_SEDMODEL, cfilt1 );
+  strcat(FILTLIST_SEDMODEL,cfilt1);
+  // xxx mark dele sprintf(FILTLIST_SEDMODEL,"%s%s",FILTLIST_SEDMODEL,cfilt1);
 
   hc8 = (double)hc ;
   fluxREF_sum *= (lamstep/hc8) ;  // Jan 2010: divide by hc 

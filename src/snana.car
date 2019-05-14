@@ -4,7 +4,6 @@ c Program to read light curves and apply user selection
 c cuts specified in the &SNLCINP namelist.
 c Can also fit function to estimate time of peak brightness.
 c
-c HELLO
  
            MAJOR STRUCTURAL CHANGES (SURGERY)
           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -208,10 +207,13 @@ c parameters used by snana code
      &  ,ISTAT_READAGAIN, ISTAT_SKIP
      &  ,IDTABLE_MCMC, NFIT_VERBOSE
      &  ,ITABLE_SNANA,  ITABLE_FITRES, ITABLE_SNLCPAK, ITABLE_SPECPAK
-     &  ,ITABLE_SPECTRA, MXTABLE
-     &  ,IDTABLE_SNANA, IDTABLE_FITRES, IDTABLE_SPECTRA
+     &  ,ITABLE_MODELSPEC, MXTABLE
+     &  ,IDTABLE_SNANA, IDTABLE_FITRES, IDTABLE_MODELSPEC
      &  ,IDTABLE_CIDPTR
      &  ,OPT_PARSTORE_TEXTTABLE
+     &  ,MSKOPT_PARSE_WORDS_STRING
+     &  ,MSKOPT_PARSE_WORDS_FILE
+     &  ,MSKOPT_PARSE_WORDS_IGNORECOMMA
 c
      &  ,MODEL_STRETCH
      &  ,MODEL_STRETCH2
@@ -379,15 +381,18 @@ c
      &  ,ISTAT_SKIP           = -1
 c
      &  ,ITABLE_SNANA=1, ITABLE_FITRES=2, ITABLE_SNLCPAK=3
-     &  ,ITABLE_SPECPAK=4, ITABLE_SPECTRA=5
+     &  ,ITABLE_SPECPAK=4, ITABLE_MODELSPEC=5
      &  ,MXTABLE = 10
      &  ,IDTABLE_SNANA   = 7100
      &  ,IDTABLE_FITRES  = 7788 
-     &  ,IDTABLE_SPECTRA = 8000  ! SALT2 model spectra from LC fit
+     &  ,IDTABLE_MODELSPEC = 8000  ! SALT2 model spectra from LC fit
      &  ,IDTABLE_CIDPTR  = 1600  
      &  ,IDTABLE_MCMC    = 7711
      &  ,OPT_PARSTORE_TEXTTABLE = 1  ! tag subset for TEXT table.
-c
+     &  ,MSKOPT_PARSE_WORDS_FILE    = 1   ! parse file
+     &  ,MSKOPT_PARSE_WORDS_STRING  = 2   ! for store_PARSE_WORDS: string
+     &  ,MSKOPT_PARSE_WORDS_IGNORECOMMA = 4 ! ignore comma for string
+c 
      &  ,MODEL_STRETCH    = 1
      &  ,MODEL_STRETCH2   = 2
      &  ,MODEL_MLCS2k2    = 3
@@ -1110,6 +1115,7 @@ c  Not intended for analysis.
 
       REAL*8 
      &    MJD_SPECTRUM(MXSPECTRUM) 
+     &   ,TOBS_SPECTRUM(MXSPECTRUM)
      &   ,TEXPOSE_SPECTRUM(MXSPECTRUM)
      &   ,LAMMIN_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM)
      &   ,LAMMAX_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM)
@@ -1121,7 +1127,7 @@ c  Not intended for analysis.
      &   ,VARNAMES_SPECTRUM, NLAMBIN_READ
 
       COMMON/SPECCOM8/ 
-     &    MJD_SPECTRUM, TEXPOSE_SPECTRUM
+     &    MJD_SPECTRUM, TOBS_SPECTRUM, TEXPOSE_SPECTRUM
      &   ,LAMMIN_SPECTRUM, LAMMAX_SPECTRUM
      &   ,FLAM_SPECTRUM, FLAMERR_SPECTRUM
 
@@ -2047,8 +2053,7 @@ c
      &  ,FLUXERRMODEL_OPTMASK
 
       LOGICAL 
-     &   LDMP_SNFAIL        ! (I) T => dump reason for each SN failure
-     &  ,LSIM_SEARCH_SPEC   ! (I) T => require simulated SPEC-tag
+     &   LSIM_SEARCH_SPEC   ! (I) T => require simulated SPEC-tag
      &  ,LSIM_SEARCH_ZHOST  ! (I) T => require simulated zHOST
      &  ,LTEST_INTERP  ! (I) T => calls TEST_KCOR
      &  ,LTEST_KCOR    ! (I) T => calls TEST_INTERP
@@ -2070,6 +2075,8 @@ c
      &  ,ABORT_ON_NOPKMJD    ! T=> abort if no PKMJDINI (see OPT_SETPKMJD)
      &  ,ABORT_ON_BADHEADER  ! T=> abort if missing header info(HEADMASK_CHECK)
      &  ,USE_MINOS           ! T=> use MINOS instead of MINIMIZE
+     &  ,LDMP_SNFAIL         ! T => dump reason for each SN failure
+     &  ,LDMP_SNANA_VERSION  ! T => dump SNANA version and SNANA_DIR
      &  ,LDMP_AVWARP         ! dump GET_AVWARP8 (debug only)
      &  ,LDMP_KCORFUN        ! dump KCORFUN8 (debug only)
      &  ,USESIM_SNIA         ! default True -> process simulated SNIa
@@ -2136,8 +2143,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , MAGCOR_FILE, SIM_MAGCOR_FILE,  FUDGE_HOSTNOISE_FILE
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
      &    , OPT_SETPKMJD, MJDRANGE_SETPKMJD, OPT_DEBUG
-     &    , LDMP_SNFAIL, LSIM_SEARCH_SPEC, LSIM_SEARCH_zHOST
-     &    , LDMP_AVWARP, LDMP_KCORFUN
+     &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_zHOST
+     &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
@@ -2178,7 +2185,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, NONLINEARITY_FILE
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
      &    , OPT_SETPKMJD, MJDRANGE_SETPKMJD, OPT_DEBUG
-     &    , LDMP_SNFAIL, LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST
+     &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST
+     &    , LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
@@ -3230,6 +3238,7 @@ c Nov 08, 2012
 c Parse command-line arguments and store in LINE_ARGS array. 
 c (code moved from main)
 c
+c May 2019: check option to call DUMP_SNANA_VERSION
 
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -3254,6 +3263,38 @@ C ------------------- BEGIN ---------------
         CALL GETARG(i, LINE_ARGS(i) )  ! read command-line args
         USE_LINE_ARGS(i) = .FALSE.
       ENDDO
+
+c check option to dump SNANA version and SNANA_DIR 
+c (for SNANA_CodeTests.py)
+
+      IF ( LINE_ARGS(1) .EQ. '--SNANA_VERSION' .or.
+     &     LINE_ARGS(1) .EQ. '--snana_version'  ) THEN
+         CALL DUMP_SNANA_VERSION()
+      ENDIF
+
+      RETURN
+      END
+
+C ==================================
++DECK,DUMP_SNANA_VERSION.
+      SUBROUTINE DUMP_SNANA_VERSION()
+
+c Created May 2019
+c Dump SNANA version and SNANA_DIR, then quit.
+
+      IMPLICIT NONE
+      INTEGER LL
+      CHARACTER SNANA_VERSION*40, SNANA_DIR*200
+      
+      call GET_SNANA_VERSION(SNANA_VERSION,LL)
+      LL = index(SNANA_VERSION, char(0) ) - 1
+      print*,'SNANA_VERSION: ', SNANA_VERSION(1:LL)
+      
+      CALL GETENV ( 'SNANA_DIR', SNANA_DIR )
+      LL = INDEX(SNANA_DIR,' ') - 1
+      print*,'SNANA_DIR: ', SNANA_DIR(1:LL)
+
+      CALL EXIT(0)
 
       RETURN
       END
@@ -3488,6 +3529,7 @@ c default is to reject nothing (accept everything)
 
       OPT_DEBUG           = 0
       LDMP_SNFAIL         = .FALSE.
+      LDMP_SNANA_VERSION  = .FALSE.
       LSIM_SEARCH_SPEC    = .FALSE.
       LSIM_SEARCH_ZHOST   = .FALSE.
 
@@ -3572,6 +3614,7 @@ c if not given on command line, then ask for it.
          CALL GETARG(1, LINE_ARGS(1) )  ! read command-line arg (namelist)
          nmlfile = LINE_ARGS(1)
          if ( nmlFile(1:6) .EQ. 'NOFILE' ) GOTO 400  ! Jan 5 2016
+
          goto 300
       ENDIF
 
@@ -3928,7 +3971,7 @@ c local variables
 
 +CDE,SNPAR.
 
-      INTEGER   JCOMMA, NWD, LEN
+      INTEGER   JCOMMA, NWD, LEN, MSKOPT
       CHARACTER MSG1*72, MSG2*72
 
       INTEGER  STORE_PARSE_WORDS
@@ -3939,7 +3982,8 @@ C ------------- BEGIN -----------------
       JCOMMA   = INDEX(CCID,',')
 
       LEN      = INDEX(CCID,' ' ) - 1
-      NWD      = STORE_PARSE_WORDS(0,CCID(1:LEN)//char(0),LEN)
+      MSKOPT   = MSKOPT_PARSE_WORDS_STRING
+      NWD      = STORE_PARSE_WORDS(MSKOPT,CCID(1:LEN)//char(0),LEN)
 
       IF ( JCOMMA > 0 .or. NWD > 1 ) THEN
          MSG1 = 'Invalid nml variable ' 
@@ -4036,7 +4080,6 @@ c set strings needed for the SNLCPAK_INIT functio
       LENFMT       = INDEX(TEXTFMT,' ') - 1
       TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
 
-cc xxx mark delete Apr 12 2019   IF ( NFIT_PER_SN > 0 ) THEN
       IF ( OPT_TABLE(ITABLE_SNLCPAK) > 0 ) THEN
          CALL SNLCPAK_INIT(SURVEY_forC, VER_PHOT_forC, VER_SNANA_forC,
      &        FILTERS_forC,  NFIT_PER_SN, TEXTFMT_forC,
@@ -4160,6 +4203,12 @@ c Apr 26 2017: check pre-scale option: e.g.  'SNANA(ps:100)'
 c Mar 19 2018: check nozphot option
 c Jan 29 2019: serach for last non-null char in SNTABLE_LIST to get LENTB
 c Jan 30 2019: MXTYPE -> 1000 (was 400)
+c May 09 2019: 
+c  + ITABLE_SPECTRA renamed to ITABLE_MODELSPEC (for SALT2 only)
+c       (to avoid confusion with ITABLE_SPECPAK
+c  + fix bug parsing options with comma; see new MSKOPT argument
+c    to store_PARSE_WORDS()
+c
 c -------------------
       IMPLICIT NONE
 
@@ -4168,7 +4217,7 @@ c -------------------
 
       INTEGER   
      &   itab, iwd, LENS, LENTB, LENOPT, LEN1,LEN2, NOPT, iopt, 
-     &   PS, NWD, i
+     &   PS, NWD, i, MSKOPT
 
       CHARACTER USERSTRING*60, locase_STRING*60, TBNAME*60
       CHARACTER COPT_LIST(10)*20, COPT*40, FNAM*22, C_ARG*100
@@ -4200,11 +4249,11 @@ c FITRES table only ... just as before. To get ascii table for
 c SNANA or LC, user must explicitly request it in the &SNLCINP
 c namelist, SNTABLE_LIST = 'SNANA(text:[format])' and SNANA->LCPLOT.
 
-      TEXTFORMAT_TABLE(ITABLE_SNANA)    = 'none'
-      TEXTFORMAT_TABLE(ITABLE_FITRES)   = 'key'
-      TEXTFORMAT_TABLE(ITABLE_SNLCPAK)  = 'none'
-      TEXTFORMAT_TABLE(ITABLE_SPECPAK)  = 'none' ! Apr 2019
-      TEXTFORMAT_TABLE(ITABLE_SPECTRA)  = 'none'
+      TEXTFORMAT_TABLE(ITABLE_SNANA)     = 'none'
+      TEXTFORMAT_TABLE(ITABLE_FITRES)    = 'key'
+      TEXTFORMAT_TABLE(ITABLE_SNLCPAK)   = 'none'
+      TEXTFORMAT_TABLE(ITABLE_SPECPAK)   = 'none' ! Apr 2019
+      TEXTFORMAT_TABLE(ITABLE_MODELSPEC) = 'none' 
 
       CUTMASK_SNANA_TABLE = 63  ! default is to add everything in snana table
 
@@ -4239,7 +4288,9 @@ c parse SNTABLE_LIST string
         if ( SNTABLE_LIST(i:i) .NE. ' ' ) LENTB=i  ! last non-null char
       ENDDO
       C_ARG = SNTABLE_LIST(1:LENTB) // char(0)
-      NWD   = STORE_PARSE_WORDS(0, C_ARG, MXCHAR_FILENAME) 
+
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING+MSKOPT_PARSE_WORDS_IGNORECOMMA
+      NWD   = STORE_PARSE_WORDS(MSKOPT, C_ARG, MXCHAR_FILENAME) 
 
       DO 100 iwd = 1, NWD
 
@@ -4252,7 +4303,7 @@ c the input is case-insensitive
 c split string into table name and optional option inside ().
 c STRING is of the form "tbName(copt_list)".
 
-         CALL PARSE_SNTABLE_LIST(locase_STRING, TBNAME,NOPT, COPT_LIST)
+         CALL PARSE_SNTABLE_LIST(locase_STRING, TBNAME, NOPT, COPT_LIST)
 
 c check table-names
 
@@ -4278,12 +4329,15 @@ c check table-names
             ITAB = ITABLE_SNLCPAK
             OPT_TABLE(ITAB) = 1
 
-         else if ( TBname(1:8) .EQ. 'specplot' ) then  ! Apr 2019
-            ITAB = ITABLE_SPECPAK
+         else if ( TBname(1:8) .EQ. 'specplot' ) then  
+            ITAB = ITABLE_SPECPAK  ! spectra in the data files
             OPT_TABLE(ITAB) = 1
 
-         else if ( TBname(1:7) .EQ. 'spectra' ) then
-            ITAB = ITABLE_SPECTRA
+         else if ( TBname(1:9) .EQ. 'modelspec' ) then 
+            ITAB = ITABLE_MODELSPEC  ! SALT2 model spec
+            OPT_TABLE(ITAB) = 1
+         else if ( TBname(1:7) .EQ. 'spectra' ) then 
+            ITAB = ITABLE_MODELSPEC  ! legacy key for SALT2 model spec
             OPT_TABLE(ITAB) = 1
 
          else if ( TBname(1:8) .EQ. 'nosimvar' ) then ! option, not a table
@@ -4304,31 +4358,36 @@ c check for options inside ()
             LENOPT   = index(COPT,' ') - 1
             USEOPT   = .FALSE.
 
-            MATCH    = copt(1:5) .EQ. 'text:' 
+            MATCH= ( copt(1:5) .EQ. 'text:' )
             if ( MATCH ) then
                TEXTFORMAT_TABLE(itab) = copt(6:LENOPT) // ' '
                USEOPT = .TRUE.
             endif
 
-            MATCH = copt(1:5) .EQ. 'mxlc:'
+c            MATCH= ( copt(1:8) .EQ. 'hostinfo' )
+c            if ( MATCH ) then               
+c               USEOPT = .TRUE.
+c            endif
+
+            MATCH = (copt(1:5) .EQ. 'mxlc:' )
             if ( MATCH  .and. ITAB .EQ. ITABLE_SNLCPAK) then
                read(copt(6:LENOPT),*) MXLC_PLOT
                USEOPT = .TRUE.
             endif
 
-            MATCH    = copt(1:8) .EQ. 'cutmask:'
+            MATCH = ( copt(1:8) .EQ. 'cutmask:' )
             if ( MATCH  .and. ITAB .EQ. ITABLE_SNANA ) then
                read(copt(9:LENOPT),*) CUTMASK_SNANA_TABLE
                USEOPT = .TRUE.
             endif
 
-            MATCH    = copt(1:4) .EQ. 'iauc'
+            MATCH = ( copt(1:4) .EQ. 'iauc' )
             if ( MATCH ) then
                WRTABLEFILE_IAUC = .TRUE.
                USEOPT           = .TRUE.
             endif
 
-            MATCH    = copt(1:2) .EQ. 'ps'  ! Apr 26, 2017
+            MATCH = ( copt(1:2) .EQ. 'ps' ) 
             if ( MATCH ) then
                read(copt(4:LENOPT),*) PS
                PRESCALE_TABLE(itab) = DBLE(PS)
@@ -4344,7 +4403,7 @@ c check for options inside ()
 
  200     CONTINUE
 
- 100  CONTINUE
+ 100  CONTINUE  ! end loop over table names
 
 c ------------
 c if LCPLOT is not specified, set MXLC_PLOT to zero.
@@ -4364,8 +4423,8 @@ c summarize
       ITAB = ITABLE_SPECPAK
       write(6,41) 'SPECPAK', MXLC_PLOT, TEXTFORMAT_TABLE(ITAB)
 
-      ITAB = ITABLE_SPECTRA
-      write(6,40) 'SPECTRA', OPT_TABLE(ITAB),TEXTFORMAT_TABLE(ITAB)
+      ITAB = ITABLE_MODELSPEC
+      write(6,40) 'MODELSPEC', OPT_TABLE(ITAB),TEXTFORMAT_TABLE(ITAB)
 
  40   format(T5,A8,'-table: USE=',I1,       3x, 'TEXTFORMAT=',A4 )
  41   format(T5,A8,'-table: MXLC_PLOT=',I6, 3x, 'TEXTFORMAT=',A4 )
@@ -5569,7 +5628,7 @@ C ------------- BEGIN ---------
       CALL ENVreplace(SNCID_IGNORE_FILE)
       LENFILE   = INDEX(SNCID_IGNORE_FILE,' ') - 1
       cFILE     = SNCID_IGNORE_FILE(1:LENFILE)//char(0)
-      NWD = STORE_PARSE_WORDS(LUNDAT, cFILE, LENFILE) 
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, cFILE, LENFILE) 
 
       LENCID = INDEX(CCID,' ')-1
 
@@ -6183,17 +6242,18 @@ c check ERRFLAG_FIT
       CALL FLUSH(6)
       CALL USRANA(IERR)     ! call user-analysis routine
 
-c always pack the meta data 
 
 +SELF,IF=SNANA.
+c pack the meta data 
       IF ( OPT_TABLE(ITABLE_SNLCPAK) > 0  ) THEN
         CALL SNLCPLOT()       ! prepare light curves for plotting
       ENDIF
++SELF.
 
       IF ( OPT_TABLE(ITABLE_SPECPAK) > 0  ) THEN
         CALL SPECPLOT()       ! prepare spectra for plotting (Apr 2019)
       ENDIF
-+SELF.
+
 
 c Beware that SNANA table gets filled after FITRES table.
       CALL MON_SNANA(IFLAG_ANA)     ! monitor-driver
@@ -7407,7 +7467,7 @@ c ---------------------------
 +CDE,FILTCOM.
 
       INTEGER 
-     &   LL, LL0, LL1, iwd, NWD
+     &   LL, LL0, LL1, iwd, NWD, MSKOPT
      &  ,EPMIN, EPMAX, EP, NEWMJD, NFIELD
      &  ,IFILT, IFILT_OBS, LENCID, LENSDIR, IERR, CID, NEP
 
@@ -7434,7 +7494,8 @@ C ------------- BEGIN ------------
 c parse REFORMAT_KEYS to get INSTRUMENT and MAGSYS
 
       LL  = INDEX(REFORMAT_KEYS,' ')-1
-      NWD = STORE_PARSE_WORDS(0,REFORMAT_KEYS(1:LL)//char(0),LL)
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
+      NWD = STORE_PARSE_WORDS(MSKOPT,REFORMAT_KEYS(1:LL)//char(0),LL)
       NAMEof_INSTRUMENT = 'NULL'
       NAMEof_MAGSYS     = 'NULL'
 
@@ -7470,7 +7531,6 @@ c first create subdir
 
       read( ccid, 20 , iostat = IERR ) CID
 20    format(I9)
-c xxx mark delete 20    format(I8)
 
       IF ( IERR .EQ. 0  ) THEN
          CALL CIDSTRING(CID,CCID,LENCID)
@@ -7628,7 +7688,7 @@ c ------------------------------
 +CDE,WRS2COM.
 
       INTEGER iwd, NWD, ifilt, NTMP, IFILT_OBS, IFILT_TMP(2) 
-      INTEGER LL, LL0, LL1, LL2
+      INTEGER LL, LL0, LL1, LL2, MSKOPT
       character 
      &   cwd*(MXCHAR_FILEWORD)
      &  ,cwd1*(MXCHAR_FILEWORD)
@@ -7648,7 +7708,8 @@ C -------------------- BEGIN -------------------
       CALL PRBANNER("INI_WRSALT2: Translate SNANA -> SALT2 format")
 
       LL = INDEX(REFORMAT_KEYS,' ') -1
-      NWD = STORE_PARSE_WORDS(0, REFORMAT_KEYS(1:LL)//char(0), LL )
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
+      NWD = STORE_PARSE_WORDS(MSKOPT, REFORMAT_KEYS(1:LL)//char(0),LL)
 
       NAMEof_SURVEY        = 'NULL'      
       NAMEof_INSTRUMENT    = 'NULL'
@@ -7683,7 +7744,6 @@ C -------------------- BEGIN -------------------
 
         else if ( cwd(1:LL0) .EQ. '@REPLACE' ) then
            CALL get_PARSE_WORD_fortran(iwd+2, cwd2, LL2 )
-c xxx mark delete        cwd2    = FILEWORD_LIST(iwd+2)
           NAMEof_REPLACE(1) = cwd1
           NAMEof_REPLACE(2) = cwd2
           NREPLACE    = INDEX(NAMEof_REPLACE(1), ' ' ) - 1
@@ -7907,7 +7967,6 @@ C ------------ BEGIN -------------
 c if CCID is an integer, write in I6.6 (or I8.8) format
       read( ccid, 25 , iostat = IERR ) CID
 25    format(I9)
-cc xxx mark delete 25    format(I8)
       
       IF ( IERR .EQ. 0  ) THEN
          CALL CIDSTRING(CID,CCID,LENCID)
@@ -8736,7 +8795,7 @@ c -----------------
 +CDE,NNCOM.  
 
       INTEGER   iocheck, LSTR,  LV, NVAR, NVAL, ISPLIT, N_IGNORE
-      INTEGER   jskip, j, iwd, ign, NWD
+      INTEGER   jskip, j, iwd, ign, NWD, MSKOPT
       CHARACTER 
      &   STRING*(MXCHAR_FILENAME)
      &  ,VARLIST_IGNORE(NN_MXVAR)*(MXCHAR_FILEWORD)
@@ -8839,10 +8898,11 @@ c set variable name with TRUETYPE
 
 c get list of sepmax variables to IGNORE
       N_IGNORE = 0
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
       IF ( NEARNBR_SEPMAX_IGNORE .NE. ' ' ) THEN
          LSTR      = INDEX(NEARNBR_SEPMAX_IGNORE,' ') -1 
          NAME_forC = NEARNBR_SEPMAX_IGNORE(1:LSTR)//char(0)
-         N_IGNORE = STORE_PARSE_WORDS(0,NAME_forC,LSTR)
+         N_IGNORE = STORE_PARSE_WORDS(MSKOPT,NAME_forC,LSTR)
          do jskip = 1, N_IGNORE
             CALL get_PARSE_WORD_fortran(jskip,
      &           VARLIST_IGNORE(jskip),LSTR)  ! returned
@@ -8865,7 +8925,7 @@ c variables with FITOPT option in split_and_fit.
 
       LSTR = INDEX(NEARNBR_SEPMAX_VARDEF,' ', BACK=.TRUE.) - 1
       NAME_forC = NEARNBR_SEPMAX_VARDEF(1:LSTR)//char(0)
-      NWD = STORE_PARSE_WORDS(0,NAME_forC,LSTR) 
+      NWD = STORE_PARSE_WORDS(MSKOPT,NAME_forC,LSTR) 
 c --------------------------------------------------------------
 c check which words are variables names (i.e., strings) or values;
 c check is based on first char of each word. Fill INPUT_XXX arrays.
@@ -8878,7 +8938,6 @@ c check is based on first char of each word. Fill INPUT_XXX arrays.
          INPUT_VARNAME(iwd)   = 'NULL'
 
          CALL get_PARSE_WORD_fortran(iwd,cwd,LSTR)
-cc xxx mark delete   cwd  = fileword_list(iwd) 
 
          c1   = cwd(1:1)
          j    = index('0123456789.', c1)
@@ -8888,7 +8947,6 @@ cc xxx mark delete   cwd  = fileword_list(iwd)
             NVAR = NVAR + 1
          else
             READ(cwd,*) INPUT_VALUE(iwd)
-cc xxx mark delete    READ(fileword_list(iwd),*) INPUT_VALUE(iwd)
             NVAL = NVAL + 1
          endif
 
@@ -9249,7 +9307,7 @@ c define list of forbidden characters in CID name.
  
 c start loop over words in file.
       NAME_forC = SNCID_LIST_FILE(1:LEN) // char(0)
-      NWD = STORE_PARSE_WORDS(LUNCID, NAME_forC, LEN ) 
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LEN) 
 
 c ---------------------------------------------
 c check if this is a fitres-formatted file with VARNAMES key
@@ -9400,7 +9458,7 @@ c init arrays
 
  
       NAME_ForC = SNMJD_LIST_FILE(1:LEN)//char(0)
-      NWD = STORE_PARSE_WORDS(LUNDAT, NAME_forC, LEN ) 
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LEN) 
 
       DO 100 iwd = 1, NWD-1, 2
  
@@ -9956,7 +10014,7 @@ c read name of first text file from [VERSION].LIST file
 
       LL        = INDEX(LOCALFILE,' ') - 1
       NAME_forC = LOCALFILE(1:LL)// char(0)
-      NWD = STORE_PARSE_WORDS ( LUN, NAME_forC, LL )
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LL)
 
       IF ( FREEZE_SURVEY_FILTERS ) THEN
          LRDFILT   =  .FALSE.
@@ -9973,7 +10031,6 @@ c - - - - - - - - -
         cwd  = cwdList(1)
         cwd1 = cwdList(2)
 
-cc xxx mark delete         ISKEY_SIMSED   = ( cwd(1:6) .EQ. 'SIMSED'  ) 
         ISKEY_VARLIST  = ( cwd(1:7) .EQ. 'VARLIST' ) 
         NWD_LOAD = 2
         if ( ISKEY_VARLIST ) NWD_LOAD = NVAR_TERSE+1
@@ -10254,7 +10311,7 @@ c  IDFIELD
 
       LL        = INDEX(SURVEYFILE,' ')-1
       NAME_forC = SURVEYFILE(1:LL)//char(0)
-      NWD  = STORE_PARSE_WORDS ( LUN, NAME_forC, LL )
+      NWD  = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LL)
 
       DO 110 iwd = 1, NWD-3
 
@@ -10262,14 +10319,6 @@ c  IDFIELD
          CALL get_PARSE_WORD_fortran(iwd+1, cwd_next,  LWD1 )
          CALL get_PARSE_WORD_fortran(iwd+2, cwd_next2, LWD2 )
          CALL get_PARSE_WORD_fortran(iwd+3, cwd_next3, LWD3 )
-
-c xxxxxxx mark delete xxxxxxxxxxxxxxxxxxxxxxxxx
-c         cwd       = fileword_list(iwd)
-c         cwd_next  = fileword_list(iwd+1)
-c         cwd_next2 = fileword_list(iwd+2)
-c         cwd_next3 = fileword_list(iwd+3)
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
          if ( cwd .EQ. ' ' ) goto 110
 
          if ( cwd .EQ. 'SURVEY:' ) then
@@ -10491,21 +10540,11 @@ C ------------- BEGIN ------------
 
         LF        = INDEX(FILTER_REPLACE,' ', BACK=.TRUE.) - 1
         NAME_forC = FILTER_REPLACE(1:LF) // char(0)
-        NWD = STORE_PARSE_WORDS (0, NAME_forC, LF )
+        NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,NAME_forC,LF)
         
         CALL get_PARSE_WORD_fortran(1, FILTLIST1, NF1)
         CALL get_PARSE_WORD_fortran(2, ARROW,     NFARROW)
         CALL get_PARSE_WORD_fortran(3, FILTLIST2, NF2)
-
-c xxxxxxxxxx mark delete xxxxxxxxxxxxxxx
-c        FILTLIST1 =  fileword_list(1)  
-c        ! string in between should be an arrow; see check below
-c        FILTLIST2 =  fileword_list(3)
-c
-c        ARROW     =  fileword_list(2)
-c        NF1 = index(FILTLIST1,' ') - 1
-c        NF2 = index(FILTLIST2,' ') - 1
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 c idiot checks
 
@@ -10755,7 +10794,7 @@ c Now start reading file
 
       LL = INDEX( LOCAL_FILENAME, ' ' ) - 1
       NAME_forC = LOCAL_FILENAME(1:LL)//char(0)
-      NWD = STORE_PARSE_WORDS ( LUN, NAME_forC, LL )
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LL)
 
 
       write(6,50) LOCAL_FILENAME(1:LL)
@@ -10767,13 +10806,11 @@ c Now start reading file
       DO 200 iwd = 1, NWD
 
          CALL get_PARSE_WORD_fortran(iwd,cwd,LL)
-c xxx mark delete         cwd = fileword_list(iwd)
 
          if ( cwd .EQ. 'IGNORE:' ) then
  
            NREAD_IGNORE = NREAD_IGNORE + 1
            CALL get_PARSE_WORD_fortran(iwd+1,CCID,LL1)
-cc xxx mark delete  ccid    =   fileword_list(iwd+1)(1:MXCHAR_CCID)
            if ( IVERS .GT. 1 .and. ccid .EQ. CCID_LAST ) then
              print*,'   IGNORE file already read -> SKIP re-reading. '
              return
@@ -10794,13 +10831,6 @@ cc xxx mark delete  ccid    =   fileword_list(iwd+1)(1:MXCHAR_CCID)
 
            CALL get_PARSE_WORD_fortran(iwd+3,CWD_TMP,LL3)
            cflt =  CWD_TMP(1:4)
-
-c xxxxxxxxxxxxxxx mark delete xxxxxxxxxxxxxxxxxxxxxx
-c           cwd_tmp =   fileword_list(iwd+2)
-c           read(cwd_tmp,*) MJD8
-c           cflt =      fileword_list(iwd+3)(1:4)
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
            EPOCH_IGNORE_CCID(N)  = CCID
            EPOCH_IGNORE_FILT(N)  = cflt
            EPOCH_IGNORE_MJD(N)   = MJD8
@@ -11636,7 +11666,7 @@ c Note that ROW numbers are read below, and thus not passed as argument.
 
       CHARACTER FNAM*14, CCID*(MXCHAR_CCID)
       INTEGER   LENCCID, ROWMIN, ROWMAX, irow, NRDSPEC
-      REAL*8    METADATA(10)
+      REAL*8    METADATA(10), MJD
 
 c external functions
       EXTERNAL RD_SNFITSIO_SPECROWS, RD_SNFITSIO_SPECDATA
@@ -11666,10 +11696,11 @@ c loop over header rows and extra spectrum for each row.
      &        ,FLAM_SPECTRUM(1,NRDSPEC)     ! (O) idem
      &        ,FLAMERR_SPECTRUM(1,NRDSPEC) )! (O) idem
 
+         MJD = METADATA(1)
          ID_SPECTRUM(NRDSPEC)      = NRDSPEC
-         MJD_SPECTRUM(NRDSPEC)     = METADATA(1)
+         MJD_SPECTRUM(NRDSPEC)     = MJD
+         TOBS_SPECTRUM(NRDSPEC)    = MJD - SNLC_SEARCH_PEAKMJD ! 5/2019
          TEXPOSE_SPECTRUM(NRDSPEC) = METADATA(2)
-
  200  CONTINUE
 
       RETURN
@@ -11705,7 +11736,7 @@ c -----------------------------
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER iwd, LWD, NWD, LK, LENS
+      INTEGER iwd, LWD, NWD, LK, LENS, MSKOPT
       CHARACTER  CWD*80
       LOGICAL LVAR_FLT, LVAR_FIELD, LVAR_TEL
 
@@ -11738,8 +11769,9 @@ c determine variable type from KEYNAME
       ENDIF
 
 c break up STRING into substrings 
-      LENS = INDEX(STRING,' ', BACK=.TRUE.)
-      NWD = STORE_PARSE_WORDS(0, STRING(1:LENS)//char(0), LENS)
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
+      LENS   = INDEX(STRING,' ', BACK=.TRUE.)
+      NWD    = STORE_PARSE_WORDS(MSKOPT, STRING(1:LENS)//char(0),LENS)
 
       IF  ( NWD .NE. NVAL ) THEN
         LK = INDEX(KEYNAME,' ') - 2
@@ -11766,11 +11798,6 @@ c break up STRING into substrings
       DO 100 iwd = 1, NWD
 
          CALL get_PARSE_WORD_fortran(iwd,CWD,LWD)
-
-c xxxxxxxxxx mark delete xxxxxxxxxxx
-c         CWD = fileword_list(iwd) 
-c         LWD = INDEX(CWD,' ') - 1
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
          if ( LVAR_FLT ) then
             ISNLC_IFILT_OBS(iwd) = FILTINDX_REPLACE(CWD)
@@ -12151,7 +12178,7 @@ c ??? need to close LIST file when we get to the end. ???
       LOCALFILE = SNDATA_PATH(1:LL) // '/' // SNDATA_FILE_CURRENT
       LL = INDEX(LOCALFILE,' ') - 1
       NAME_forC = LOCALFILE(1:LL) // char(0)
-      NWD = STORE_PARSE_WORDS ( LUN, NAME_forC, LL )
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LL)
 
       IF ( NWD .EQ. 0 ) THEN
           c1err = 'Zero-length file :'
@@ -14109,6 +14136,7 @@ c check header stuff
       IF ( CWD .EQ. 'SPECTRUM_MJD:' ) THEN
          READ(CWD_NEXT,*) MJD
          MJD_SPECTRUM(NSPECTRUM) = MJD
+         TOBS_SPECTRUM(NSPECTRUM) = MJD - SNLC_SEARCH_PEAKMJD ! 5/2019
       ENDIF
 
       IF ( CWD .EQ. 'SPECTRUM_TEXPOSE:' ) THEN
@@ -15378,7 +15406,7 @@ c local args
 +CDE,PRIVCOM.
 
       INTEGER J1, J2, LK, IVAR, LEN_NAME, LENZ, NMATCH, icut
-      INTEGER NWD, LWD1, LWD2, LWD3
+      INTEGER NWD, LWD1, LWD2, LWD3, MSKOPT
       CHARACTER VARNAME*60, STR*(MXCHAR_CUTNAME), CUTSTRING*30
       CHARACTER CWD1*60, CWD2*60, CWD3*60
 
@@ -15444,7 +15472,8 @@ c        skip if already found
          if ( CUTWIN(2) < .99*CUTVAL_OPEN ) GOTO 400
 
 c break up string into pieces
-         NWD = STORE_PARSE_WORDS(0,STR//' '//char(0), 60)
+         MSKOPT = MSKOPT_PARSE_WORDS_STRING
+         NWD = STORE_PARSE_WORDS(MSKOPT,STR//' '//char(0), 60)
          call get_PARSE_WORD_fortran(1,CWD1,LWD1)
 
          if ( VARNAME .EQ. CWD1 ) then
@@ -15637,7 +15666,7 @@ c  - sets PRIVATE_KEYWORD(NVAR_PRIVATE)
 +CDE,PRIVCOM.
 c +CDE,PARSECOM.
 
-      INTEGER iwd, NWD, N, LL, LEN_WD, LEN_KEY
+      INTEGER iwd, NWD, N, LL, LEN_WD, LEN_KEY, MSKOPT
       CHARACTER cwd*60, c1err*72, c2err*72
 
       INTEGER  STORE_PARSE_WORDS
@@ -15645,7 +15674,8 @@ c +CDE,PARSECOM.
 
 C ---------------- BEGIN -----------------
 
-      NWD = STORE_PARSE_WORDS(0,VARNAME_STRING//' '//char(0), 80)
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
+      NWD = STORE_PARSE_WORDS(MSKOPT,VARNAME_STRING//' '//char(0),80)
 
       DO 200 iwd = 1, NWD
 
@@ -15804,6 +15834,7 @@ c subroutine args
 c local var
 
       INTEGER iwd, NWD, ifilt_tmp, LEN, NFILT_TMP, NFILT_LAST, i
+      INTEGER MSKOPT
       CHARACTER cwd*(MXCHAR_FILEWORD), band*2
       REAL VAL
       LOGICAL LERR
@@ -15817,7 +15848,8 @@ c --------------- BEGIN ------------
       NFILT = 0
       IFILT_TMP = 0
      
-      NWD = STORE_PARSE_WORDS(0,STRING//char(0), 80)
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
+      NWD = STORE_PARSE_WORDS(MSKOPT,STRING//char(0), 80)
 
       DO i = 1, MXFILT_OBS
         IFILTDEF(i) = 0
@@ -15872,6 +15904,7 @@ c Function returns number of integers in OUTLIST array.
 c
       IMPLICIT NONE 
 
++CDE,SNPAR.
       INTEGER   MXINT
       PARAMETER (MXINT=10)
 
@@ -15880,14 +15913,15 @@ c
      
 c local arg
 
-      INTEGER iwd, NWD, LEN
+      INTEGER iwd, NWD, LEN, MSKOPT
       CHARACTER CWD*60, C1ERR*72, C2ERR*72
 C function
       INTEGER STORE_PARSE_WORDS
 
 C ---------------- BEGIN ----------------
-      LEN = INDEX(STRING_INLIST,' ') - 1
-      NWD = STORE_PARSE_WORDS(0,STRING_INLIST//char(0),LEN)
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
+      LEN    = INDEX(STRING_INLIST,' ') - 1
+      NWD    = STORE_PARSE_WORDS(MSKOPT,STRING_INLIST//char(0),LEN)
 
       IF ( NWD > MXINT ) THEN
          write(c1err,61) NWD, MXINT
@@ -15943,7 +15977,7 @@ c +CDE,PARSECOM.
 c local var
 
       CHARACTER STRLIST_LOCAL(MXLISTNML)*(NCHAR)
-      INTEGER i, j, NLIST, iwd, NWD, LL
+      INTEGER i, j, NLIST, iwd, NWD, LL, MSKOPT
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
@@ -15951,6 +15985,7 @@ c local var
 C ------------- BEGIN ------------
 
       NLIST = 0 
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
 
 c transfer input string to local string
       DO i = 1, MXLISTNML
@@ -15967,7 +16002,7 @@ c remove optional '+' symbols between strings, and substitute blank.
            endif
          ENDDO
          
-         NWD = STORE_PARSE_WORDS(0,STRLIST_LOCAL(i)//char(0),100)
+         NWD = STORE_PARSE_WORDS(MSKOPT,STRLIST_LOCAL(i)//char(0),100)
        
          DO iwd = 1, NWD
             NLIST = NLIST + 1
@@ -17204,7 +17239,6 @@ c determin MW extinction in each passband
 c store extinction in flux-fraction units.
 c FLUXFRAC = Flux(Extincted)/flux(top-of-Galaxy)
           arg = -0.4 * XTMW8
-cc xx mark delete  SNLC_MWXT_FLUXFRAC(ifilt) = 1.0 - 10.0**arg  ! <= 1.0
           SNLC_MWXT_FLUXFRAC(ifilt) = 10.0**arg  ! <= 1.0
          
       END DO  ! end of ifilt loop
@@ -17297,7 +17331,7 @@ c init all tags to zero
       print*,'  Read user tags to identify subsets. '
 
       NAME_ForC = USERTAGS_FILE(1:LEN)//char(0)
-      NWD = STORE_PARSE_WORDS(LUNDAT,NAME_forC,LEN) 
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,NAME_forC,LEN) 
 
       DO 100 iwd = 1, NWD-1
 
@@ -17467,22 +17501,6 @@ c transfer to float globals
          MULTISEASON_AVGFLUX(iSeason) = OUT_AVGFLUX(iSeason)
       ENDDO
 
-c ---------------------
-+SELF,IF=MARKDELETE.
-c xxxxxxxxxxx mark delete May 1 2019 xxxxxxxxxxxxxx
-c sort reduced chi2 from largest to smallest
-      ORDER = -1
-      CALL SORTFLOAT( MULTISEASON_NTOT, MULTISEASON_CHI2RED,
-     &                 ORDER, INDEX_SORT ) 
-      DO iSeason = 1, MULTISEASON_NTOT
-         isort = INDEX_SORT(iSeason)
-         MULTISEASON_CHI2RED_SORTED(iSeason) = 
-     &   MULTISEASON_CHI2RED(isort)
-      ENDDO
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
-+SELF.
-
-c .xyz
       CUTVAL = MULTISEASON_CHI2RED_ACTIVE
       DO iSeason = 1, NSEASON_TOT
         CHI2RED = MULTISEASON_CHI2RED(iSeason)
@@ -17693,7 +17711,7 @@ c -------------------
 +CDE,SNLCINP.
 +CDE,EARLYCOM.
 
-      INTEGER iwd, NWD, NOTUSED, L0, L1
+      INTEGER iwd, NWD, NOTUSED, L0, L1, MSKOPT
       CHARACTER 
      &   cwd0*(MXCHAR_FILEWORD),
      &   cwd1*(MXCHAR_FILEWORD), FNAM*22
@@ -17705,6 +17723,7 @@ c -------------------
 C -------------- BEGIN -----------------
 
       FNAM = 'PARSE_EARLYLC_STRING'
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
 
 c set defaults
  
@@ -17722,7 +17741,7 @@ c set defaults
       
       IF ( EARLYLC_STRING .EQ. '' ) RETURN
 
-      NWD = STORE_PARSE_WORDS(0, EARLYLC_STRING//char(0), 100)
+      NWD = STORE_PARSE_WORDS(MSKOPT, EARLYLC_STRING//char(0), 100)
 
       DO iwd = 1, NWD
          USEWD(iwd) = .FALSE.
@@ -18018,7 +18037,7 @@ c
 +CDE,SNLCINP.
 +CDE,REQEPCOM.
 
-      INTEGER ifilt, IFILT_OBS, iwd, NWD, i, L0, L1
+      INTEGER ifilt, IFILT_OBS, iwd, NWD, i, L0, L1, MSKOPT
       character FNAM*28, CFILT*2, cwd0*80, cwd1*80
       LOGICAL LEGACY, USEWD(40)
 
@@ -18030,6 +18049,7 @@ c
 C --------------- BEGIN ----------------
 
       FNAM = 'PARSE_REQUIRE_EPOCHS_STRING'
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
 
 c set defaults
       ISFRAME_REST_REQEP = .FALSE. 
@@ -18043,7 +18063,7 @@ c set defaults
 
       IF ( REQUIRE_EPOCHS_STRING .EQ. '' ) RETURN
 
-      NWD = STORE_PARSE_WORDS(0,REQUIRE_EPOCHS_STRING//char(0),100)
+      NWD = STORE_PARSE_WORDS(MSKOPT,REQUIRE_EPOCHS_STRING//char(0),100)
 
       LEGACY = ( NWD .EQ. 4 ) 
 
@@ -18083,14 +18103,12 @@ c set defaults
               ISFRAME_OBS_REQEP = .TRUE.
               do i = 1, 3
                 call get_PARSE_WORD_fortran(iwd+i, cwd1, L1)
-cc xxx mark delete       cwd1 = fileword_list(iwd+i)
                 read(cwd1,* ) TRANGE_REQEP(i); USEWD(iwd+i)=.TRUE.
               enddo
            else if ( cwd0(1:12) .EQ. 'TREST_RANGES' ) then
               USEWD(iwd) = .TRUE.;  
               ISFRAME_REST_REQEP = .TRUE.
               do i = 1, 3
-cc xxx mark delete                cwd1 = fileword_list(iwd+i)
                 call get_PARSE_WORD_fortran(iwd+i, cwd1, L1)
                 read(cwd1,* ) TRANGE_REQEP(i); USEWD(iwd+i)=.TRUE.
               enddo
@@ -18170,7 +18188,7 @@ C ------------ BEGIN -------------
 c -------------------
 c check option to list HEADER variable names that can be overwritten
       IF ( HEADER_OVERRIDE_FILE .EQ. 'LIST' ) THEN
-        NWD = STORE_PARSE_WORDS(0,cVARLIST,400)
+        NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cVARLIST,400)
         print*,' '
         print*,' Dump List of available HEADER-Override variables: '
         DO 11 iwd     = 1, NWD
@@ -18192,11 +18210,6 @@ c -------------------
       cTABLE = 'OVERRIDE' // char(0) 
       LEN2   = INDEX(cTABLE,' ') - 1
 
-c xxxxxxx mark delete (see above) xxxxxxxxxxxxx
-c      LEN3 = INDEX(VARLIST_ALL_HEADER_OVERRIDE,' ') 
-c      cVARLIST = VARLIST_ALL_HEADER_OVERRIDE(1:LEN3) // char(0)
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
       OPTMASK_STORE = 4  ! 0->4 on May 11 2017
       NROW = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST, 
      &        OPTMASK_STORE,  LEN1, LEN2, LEN3 )
@@ -18213,7 +18226,7 @@ c xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 c check which header variables exist in the user file
 
-      NVAR_ALL = STORE_PARSE_WORDS(0, cVARLIST, 400)      
+      NVAR_ALL=STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cVARLIST,400)      
       NVAR     = 0 
 
       DO 10 iwd     = 1, NVAR_ALL
@@ -18477,12 +18490,13 @@ c
 c May 22 2018: skip lines with comment field
 
       IMPLICIT NONE
++CDE,SNPAR.
 
 c inputs
       CHARACTER MAGCOR_FILE*(*), VERSION*(*)
 
 c local
-      INTEGER FOUND_ROW, LUN, NWD, LEN, LENVER, NLINE
+      INTEGER FOUND_ROW, LUN, NWD, LEN, LENVER, NLINE, MSKOPT
       LOGICAL SAME_LEN, SAME_VER, KEYMATCH
       CHARACTER LINE*200, cwd*80, VERSION_ADD*80, FNAM*22
       CHARACTER C1ERR*72, C2ERR*72
@@ -18493,6 +18507,7 @@ C --------------- BEGIN ---------------
 
       ISTAT_MAGCOR_ADD = 0 ! init function value
       FNAM   = 'ISTAT_MAGCOR_ADD'
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
       LENVER = INDEX(VERSION,' ' ) - 1
  
       NLINE=0; FOUND_ROW=0 ; LUN = 24
@@ -18518,7 +18533,7 @@ c keep reading until first ROW key is found
             CALL MADABORT(FNAM,C1ERR,C2ERR)          
          endif
 
-         NWD = STORE_PARSE_WORDS(0, LINE//char(0), 200)
+         NWD = STORE_PARSE_WORDS(MSKOPT, LINE//char(0), 200)
 
          if ( NWD < 2 ) goto 200
 
@@ -19456,7 +19471,7 @@ C --------- BEGIN ---------
       FNAM = 'PARSE_SIMVAR_CUTS'
       NTMP = 0 
       LWD = MXCHAR_CUTNAME-2
-      NWD = STORE_PARSE_WORDS(0, 
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,
      &     SIMVAR_CUTWIN_STRING(1:LWD)//char(0), LWD) 
 
       DO i = 1, NWD, 3
@@ -20035,7 +20050,7 @@ c - - - - - -
 +CDE,SNLCINP.
 
       CHARACTER NAME_forC*(MXCHAR_FILENAME), cwd*(MXCHAR_FILENAME)
-      INTEGER iwd, NWD, LENFILE
+      INTEGER iwd, NWD, LENFILE,MSKOPT
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
@@ -20044,9 +20059,10 @@ C ---------------- BEGIN --------------
 
       if ( INFILE .EQ. ''     ) RETURN
 
+      MSKOPT    = MSKOPT_PARSE_WORDS_STRING
       LENFILE   = INDEX(INFILE,' ') + 10 ! allow FORCE key after space
       NAME_forC = INFILE(1:LENFILE-1)//char(0)
-      NWD = STORE_PARSE_WORDS(0, NAME_forC, LENFILE)
+      NWD = STORE_PARSE_WORDS(MSKOPT, NAME_forC, LENFILE)
 
       IF ( NWD <= 1 ) RETURN
 
@@ -23948,7 +23964,7 @@ c set global flag.
 
 
 C ==============================
-+DECK,SPECPLOT,IF=SNANA.
++DECK,SPECPLOT.
       SUBROUTINE SPECPLOT()
 
 c Apr 2019
@@ -23985,6 +24001,7 @@ c load each spectrum into SPECPAK C-function util
      &         CCID_forC
      &       , ID_SPECTRUM(ispec)
      &       , MJD_SPECTRUM(ispec)
+     &       , TOBS_SPECTRUM(ispec)    ! May 7 2019
      &       , TEXPOSE_SPECTRUM(ispec)
      &       , NLAMBIN_SPECTRUM(ispec)
      &       , LAMMIN_SPECTRUM(1,ispec)
@@ -23999,7 +24016,7 @@ c write out spectrum to TEXT table (HBOOK,ROOT not enabled)
 
       RETURN
       END
-+SELF.
+
 
 C ==============================================
 +DECK,CHECK_DUPLMJD.
@@ -24463,7 +24480,7 @@ c     &     LENBLOCK_L, 20 )
 
 c - - - - -  initial PEAKMJD  - -  - 
       ITEXT = 0                       ! default is no TEXT output ...
-      IF ( ADDCOL_SETPKMJD ) ITEXT=1  ! unless this option is set
+      IF ( OPT_SETPKMJD > 0 ) ITEXT=1  ! unless this option is set
       VARLIST = 'PKMJDINI:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_SEARCH_PEAKMJD, 
      &           VARLIST, ITEXT, LENBLOCK, 20 )
@@ -24498,7 +24515,7 @@ c - - - - - - optional fit-params from PKMJD fit (Oct 20 2014) - - -
          ENDDO
 
 c ----------------------------
-c  PKMJD per filterxxx
+c  PKMJD per filter
 
        DO 222 ifilt  = 1, NFILTDEF_SURVEY
           ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
@@ -24673,15 +24690,6 @@ c - - - - - -  nearest nbr (Apr 2014) - - - - -
          VARLIST = 'NN_PROB_IA:F' // char(0)  ! Bayesian prob with NN cut
          CALL SNTABLE_ADDCOL(ID, CBLOCK, NN_PROB_IA, VARLIST, 1,
      &                   LENBLOCK, 20) 
-
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-c         VARLIST = 'NN_PROB_II:F' // char(0) 
-c         CALL SNTABLE_ADDCOL(ID, CBLOCK, NN_PROB_II, VARLIST, 1,
-c     &                   LENBLOCK, LENLIST)   
-c         VARLIST = 'NN_PROB_IBC:F' // char(0) 
-c         CALL SNTABLE_ADDCOL(ID, CBLOCK, NN_PROB_IBC, VARLIST, 1,
-c     &                   LENBLOCK, LENLIST)        
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
       ENDIF
 
@@ -26279,18 +26287,6 @@ c  July 2016 : read optional spectrograph information
            IFILTDEF = FILTINDX(cfilt // ' ')
            IFILTDEF_SPECTROGRAPH(i) = IFILTDEF
          end do
-
-+SELF,IF=XYZDEBUG.
-         print*,' xxx ------------------------------ '
-         print*,' xxx SPECTROGRAPH_INSTRUMENT=', 
-     &                SPECTROGRAPH_INSTRUMENT
-         print*,' xxx SPECTROGRAPH_FILTERLIST=', 
-     &                SPECTROGRAPH_FILTERLIST
-         print*,' xxx NFILTDEF_SPECTROGRAPH = ', NFILTDEF_SPECTROGRAPH
-         print*,' xxx IFILTDEF_SPECTROGRAPH = ', IFILTDEF_SPECTROGRAPH
-         CALL EXIT(EXIT_ERRCODE)
-+SELF.
-
       ENDIF
 
 c --------------------------------------------------------
@@ -26939,7 +26935,6 @@ c read lambda array.
 
       DO 100 IFILT = 1, NFILTDEF_RDKCOR
 
-cc xxx mark delete May 2017  ICOL      = 1 + IFILT
          CALL ICOL_FILTER_RDKCOR(IFILT, ICOL,CFILT) ! return ICOL,CFILT
 
          MASK      = MASKFILT_RDKCOR(ifilt)
@@ -27628,8 +27623,6 @@ C -------------- BEGIN ------------
          CFILT1 = FILTDEF_STRING(ifilt_rest:ifilt_rest)
          NFILTDEF_REST = NFILTDEF_REST + 1
 
-c         print*,' xxx ADDFILT ', CFILT1,'  ifilt_rest=',ifilt_rest
-
          if ( NFILTDEF_REST .GT. MXFILT_REST ) then
             write(c1err,966) NFILTDEF_REST
 966         format('NFILTDEF_REST = ', I3,' exceeds array bound.')
@@ -28262,7 +28255,7 @@ c local
      &   LENDIR, LENFILE, LEN, LUN, NFILT_KCOR
      &  ,NFILT_ALPHABETA, IFILT, izeta
      &  ,IFILT_REST, NRDEP, NLDEP, it, it0
-     &  ,IERROPEN, iwd, NWD, i
+     &  ,IERROPEN, iwd, NWD, i, MSKOPT
 
       REAL  
      &  alpha, beta, zeta(MXFILT_ALL)
@@ -28371,10 +28364,11 @@ c after table is printed so that we see what's going on.
 
       IF ( IERROPEN .NE. 0 ) GOTO 444
 
+      MSKOPT  = MSKOPT_PARSE_WORDS_FILE
       LENFILE = INDEX ( POLYFILE, ' ' ) - 1
       print*,'  Read ', POLYFILE(1:LENFILE)
       NAME_forC = POLYFILE(1:LENFILE)//char(0)
-      NWD = STORE_PARSE_WORDS(1, NAME_forC, LENFILE)
+      NWD = STORE_PARSE_WORDS(MSKOPT,NAME_forC,LENFILE)
 
       DO 10 iwd = 1, NWD
 
@@ -28393,7 +28387,6 @@ c after table is printed so that we see what's going on.
              do i = 0, 3
                call get_PARSE_WORD_fortran(iwd+i+1, CWDTMP, LEN)
                read(CWDTMP,* ) POLY8_BETA(i)
-cc xxx mark delete    read(fileword_list(iwd+i+1),* ) POLY8_BETA(i)
              enddo
           ENDIF
 10    CONTINUE
@@ -29974,7 +29967,7 @@ c try absolute path
       print*,' ', FILTINFO_FILE(1:L1)
 
       NAME_forC = FILTINFO_FILE(1:L1)//char(0)
-      NWD = STORE_PARSE_WORDS(LUNTMP,NAME_forC, L1)
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,NAME_forC,L1)
 
 
 c parse enough to know which type of FILTER.INFO file we have;
@@ -33302,7 +33295,7 @@ C ----------------- BEGIN ---------------
 
       LEN = INDEX(ZPOFF_FILE,' ')-1
       NAME_forC = ZPOFF_FILE(1:LEN)//char(0)
-      NWD = STORE_PARSE_WORDS(LUNTMP,NAME_forC,LEN)
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,NAME_forC,LEN)
 
       DO 100 iwd = 1, NWD, 2
 
@@ -36168,7 +36161,6 @@ c Oct 2014: check MJD range to use for PKMJD estimate
 
             FLUX      = SNLC_FLUXCAL(ep)
             FLUXERR   = SNLC_FLUXCAL_ERRTOT(ep)
-cc xxx mark delete   if ( FLUXERR .LE. 0.0 ) GOTO 201
 
 c SNR requirement makes things worse ??
             SNR = FLUX/FLUXERR

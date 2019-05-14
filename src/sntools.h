@@ -39,7 +39,7 @@
 
 #include "sndata.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_72c"                                     
+#define  SNANA_VERSION_CURRENT  "v10_72g"                                         
 
 #define LIGHT_km  2.99792458e5      // speed of light (km/s) 
 #define LIGHT_A   2.99792458e18     // speed of light (A/s) 
@@ -277,6 +277,10 @@ struct {
 #define MXCHARLINE_PARSE_WORDS 2000   // max chars per line
 #define MXWORDLINE_PARSE_WORDS  700   // max words per line
 #define MXWORDFILE_PARSE_WORDS 500000 // max words to parse in a file
+#define MSKOPT_PARSE_WORDS_FILE    1   // parse words in a file
+#define MSKOPT_PARSE_WORDS_STRING  2   // parse string
+#define MSKOPT_PARSE_WORDS_IGNORECOMMA 4   // parse blank space; ignore comma
+
 struct {
   char  FILENAME[MXPATHLEN];
   int   BUFSIZE ;

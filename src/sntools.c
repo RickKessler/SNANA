@@ -515,15 +515,23 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 
   // Read FILENAME (ascii) and store each word to be fetched later
   // with next_PARSE_WORDS.
-  // OPT = -1 --> one-time init
-  // OPT =  0 --> FILENAME is a string to parse
-  // OPT >= 1 --> read & store each word of FILENAME
-
-  // Function returns number of stored words.
+  // 
+  // OPT  = -1 --> one-time init
+  // OPT +=  1 --> parse file FILE
+  // OPT +=  2 --> FILENAME is a string to parse, parse by space or comma
+  // OPT +=  4 --> ignore comma in parsing string: space-sep only
+  //                 
+  // Function returns number of stored words separated by either
+  // space or comma.
   //
   // Jun 26 2018: free(tmpLine) --> fix awful memory leak
+  // May 09 2019: refactor to allow option for ignoring comma in strings.
 
+  int DO_STRING    = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
+  int DO_FILE      = ( (OPT & MSKOPT_PARSE_WORDS_FILE) > 0 );
+  int CHECK_COMMA  = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMA) == 0 );
   int LENF = strlen(FILENAME);
+
   int NWD, MXWD, iwdStart, GZIPFLAG, iwd;
   char LINE[MXCHARLINE_PARSE_WORDS], *pos, sepKey[4] = " ";
   FILE *fp;
@@ -531,7 +539,6 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   
   // ------------- BEGIN --------------------
 
-  
   if ( LENF == 0  ) { PARSE_WORDS.NWD = 0 ; return(0); }
 
   // if input file (or string) is the same as before,
@@ -550,13 +557,13 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
     PARSE_WORDS.FILENAME[0] = 0 ;
     NWD = 0 ;
   }
-  else if ( OPT == 0 ) {
+  else if ( DO_STRING ) {
     // FILENAME is a string to parse
    
     char *tmpLine = (char*) malloc( (LENF+10)*sizeof(char) );
-    //    sprintf(tmpLine, "%s", FILENAME);
     sprintf(tmpLine, "%s", FILENAME); // Mar 13 2019
-    if ( strchr(tmpLine,',') != NULL ) { sprintf(sepKey,","); }
+    if ( CHECK_COMMA && strchr(tmpLine,',') != NULL ) 
+      { sprintf(sepKey,","); }
 
     malloc_PARSE_WORDS() ;    MXWD = PARSE_WORDS.BUFSIZE ;
 
@@ -572,7 +579,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
     free(tmpLine);
 
   }
-  else {
+  else if ( DO_FILE ) {
     // read text file
     fp = open_TEXTgz(FILENAME,"rt", &GZIPFLAG );
     if ( !fp ) {
@@ -594,7 +601,11 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 
     fclose(fp);
   }
-
+  else {
+    sprintf(c1err,"Invalid OPT=%d with FILENAME='%s'", OPT, FILENAME);
+    sprintf(c2err,"grep MSKOPT_PARSE $SNANA_DIR/src/sntools.c");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
 
   if ( NWD >= MXWORDFILE_PARSE_WORDS ) {
@@ -3659,7 +3670,7 @@ void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP,
   double **TMPMAP2D ;  // [0:NVARTOT-1][MXROW-1]
   double *TMPVAL, *TMPVAL_LAST, *DIFVAL_LAST, DDIF, DIF;
 
-  int   ivar, NWD, ISKEY_ROW, ISKEY_STOP, EXTRA_WORD_OK ;
+  int   MSKOPT, ivar, NWD, ISKEY_ROW, ISKEY_STOP, EXTRA_WORD_OK ;
   int   LDIF1, LDIF2, ivar2, NROW_SKIP ;
   char  LINE[200], word[40], MAPNAME[100] ;
   char fnam[] = "read_GRIDMAP" ;
@@ -3688,7 +3699,7 @@ void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP,
   while ( READ_NEXTLINE ) {
     LINE[0] = 0 ;
     fgets(LINE,200,fp);  NLINE++ ;
-    NWD = store_PARSE_WORDS(0,LINE);
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
 
     // abort if we read too many lines without finding any valid row keys
     if ( NLINE > 20 && NROW_READ==0 ) {
@@ -8694,7 +8705,7 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
     if ( FOUND_VARNAMES ) {
       NKEY_LOCAL++ ;
       fgets(LINE, 100, fp ); // scoop up varnames
-      NVAR_TMP  = store_PARSE_WORDS(0,LINE);
+      NVAR_TMP  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
       NVAR_TMP -= NVAR_SKIP ;
       for ( ivar=0; ivar < NVAR_TMP; ivar++ ) {
 	IVAR = ivar+NVAR_LOCAL ;

@@ -83,6 +83,8 @@ int main(int argc, char **argv) {
   sprintf(BANNER,"Begin execution of snlc_sim.exe  " );
   print_banner(BANNER);
 
+  //  errmsg(SEV_FATAL, 0, "main", "testing CodeTest", "Remove this" ); 
+
   t_start = time(NULL);
 
   parse_commandLine_simargs(argc, argv);
@@ -26902,16 +26904,14 @@ void test_PARSE_WORDS(void) {
 
   store_PARSE_WORDS(-1,"");
 
-    
-
-  NWD = store_PARSE_WORDS(1,dumFile);
+  NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,dumFile);
 
   for(iwd=0; iwd < NWD; iwd++ ) {
     get_PARSE_WORD(0,iwd,tmpWord);
     printf(" xxx word[%2d] = '%s' \n", iwd, tmpWord);
   }
 
-  NWD = store_PARSE_WORDS(0,dumString);
+  NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,dumString);
   for(iwd=0; iwd < NWD; iwd++ ) {
     get_PARSE_WORD(0,iwd,tmpWord);
     printf(" xxx word[%2d] = '%s' \n", iwd, tmpWord);

@@ -200,6 +200,10 @@ uM0= 0 to fix M0 params to INPUTS.mag0
    = 1 to float fixed M0 in each bin
    = 2 to float M0 as knot with interpolation
 
+fixpar_all=1 --> internally set all float logicals to zero, even if
+                 they are set true in the input file
+                  (i.e., uM0=0, u1=0, u2=0, etc ...)
+
 blindflag=0  --> turn off blinding
 blindflag=1  --> apply sinusoid function to MU-vs-z   
 blindflag=2  --> DEFAULT: apply random shift ref OL,w (for data only)
@@ -586,6 +590,13 @@ Default output files (can change names with "prefix" argument)
      and use KEY format.
 
   May 02 2019: remove TABLEFILE_CLOSE() calls since READ_EXEC closes.
+
+  May 07 2019:
+   + fix to work when all parameters are fixed;
+     If uM0=0, then set M0 fit bound to be -30 +- 0.001 so that
+     MINUIT still runs as usual. Might fix later so that fit is
+     skipped when there are no fit params.
+   + new fixpar_all option to use SALT2mu as MU-calculator
 
 ******************************************************/
 
@@ -1183,15 +1194,15 @@ struct INPUTS {
   double parstep[MAXPAR];
   double parbndmin[MAXPAR]; // min par bound
   double parbndmax[MAXPAR]; // max par bound
-  int    ipar[MAXPAR]; 
-  int    izpar[MAXPAR];  // iz index or -9 
+  int    ipar[MAXPAR];      // boolean float flag for each param
+  int    izpar[MAXPAR];   // iz index or -9 
+  int    fixpar_all ;     // global flag to fix all parameters
 	       
   double blindpar[MAXPAR][2]; // blind offset = [0] * cos([1])
 
   char varname_gamma[40]; // name of variable to fit gamma HR step;
                            // e.g, "HOST_LOGMASS" or "SSFR", etc...
   int USE_GAMMA0 ;   // true if p5 is floated or fixed to non-zero value
-  //  int USE_LOGMASS ;  // true if logmass is needed
   int errmask_write; // mask of errors to write SN to output
 
   // define fixed intrinsic scatter matrix
@@ -1200,15 +1211,14 @@ struct INPUTS {
 
   double zpecerr ;     // replace obsolete pecv (Sep 9 2016)
   double lensing_zpar; // describes lensing constribution to sigma_int
-  //  double pecv ;      // pecv in units of v/c
 
   int    uave;       // flag to use avg mag from cosmology (not nommag0)
   int    uM0 ;       // flag to float the M0 (default=true)
   int    uzsim ;     // flat to cheat and use simulated zCMB (default=F)
-  double nommag0 ;   //nominal SN magnitude
+  double nommag0 ;   // nominal SN magnitude
   double H0 ;
 
-  int    FLOAT_COSPAR ;    // TRUE if any COSPAR is floated
+  int    FLOAT_COSPAR ;    // internal: TRUE if any COSPAR is floated
   double COSPAR[NCOSPAR];  // OL, Ok, w0, wa: input to dlcosmo
 
   int zpolyflag;   // z-dependent cov matrix JLM AUG 15 2012
@@ -1503,7 +1513,7 @@ void  write_blindFlag_message(FILE *fout) ;
 void  append_fitres(FILE *fp, char *CCID, int  indx);
 void  get_CCIDindx(char *CCID, int *indx) ;
 double  BLIND_OFFSET(int ipar);
-//int   ISBLIND(int ipar);
+
 int   ISBLIND_FIXPAR(int ipar);
 void  printmsg_fitStart(FILE *fp); 
 void  printmsg_repeatFit(char *msg) ;
@@ -1840,9 +1850,13 @@ void exec_mnparm(void) {
   // too few events.
   //
   // Jun 27 2017: REFACTOR z bins
+  //
+  // May 08 2018: 
+  //   + fix to work with uM0=0 by setting M0 bound to -30+_0.001 mag.
 
   int i, iz, iMN, len, ierflag, icondn, ISFLOAT ;
   int nzbin = INPUTS.nzbin ;
+  double M0min, M0max;
   const int null=0;
   char text[100];
   char fnam[] = "exec_mnparm" ;
@@ -1865,10 +1879,16 @@ void exec_mnparm(void) {
 
     i   = iz + MXCOSPAR ;
     iMN = i + 1 ;
-    ISFLOAT = FITINP.ISFLOAT_z[iz] * INPUTS.uM0 ;
+
+    M0min=-35.0;  M0max=-25.0;
+    ISFLOAT = FITINP.ISFLOAT_z[iz] ;
+
+    if ( INPUTS.uM0 == M0FITFLAG_CONSTANT ) 
+      { M0min= M0_DEFAULT-0.001; M0max=M0_DEFAULT+.001; }
+    // xxx mark delete    ISFLOAT = FITINP.ISFLOAT_z[iz] * INPUTS.uM0 ;
       
-    //               val            step   min  max   float
-    set_fitPar( i, INPUTS.nommag0, 0.1,  -35., -25.,  ISFLOAT ); 
+    //               val            step   min  max     boolean
+    set_fitPar( i, INPUTS.nommag0, 0.1,   M0min,M0max,  ISFLOAT ); 
     INPUTS.izpar[i] = iz ; 
       
     sprintf(text,"m0_%2.2d",iz);
@@ -11905,6 +11925,10 @@ int ppar(char* item) {
       { sscanf(&item[len],"%i",&INPUTS.ipar[ipar]); return(1); }
   }
 
+  // read param to fix all params (i.e., use SALT2mu as distance calculator)
+  if ( uniqueOverlap(item,"fixpar_all=") ) 
+      { sscanf(&item[11],"%i",&INPUTS.fixpar_all ); return(1); }
+  
   if ( uniqueOverlap(item,"uM0="))   
     { sscanf(&item[4],"%i",&INPUTS.uM0); return(1); }
   if ( uniqueOverlap(item,"uzsim=")) 
@@ -12883,12 +12907,28 @@ double sum_ZPOLY_COVMAT(double Z, double *polyPar) {
 // *********************************************
 void prep_input(void) {
 
+  // May 9 2019: check INPUTS.fixpar_all
+
   int i,  NFITPAR, NTMP=0 ;
   double *blindpar ;
   char usage[10];
   char fnam[] = "prep_input";
 
   // ------------ BEGIN -----------
+
+  // check option to fix all parameters and use SALT2mu 
+  // as a distance calculator
+  if ( INPUTS.fixpar_all ) {
+    printf("\n FIXPAR_ALL option -> "
+	   "Compute MU from initial values (no floated params)\n\n" );
+    fflush(stdout);
+	   
+    for (i=0; i < MAXPAR; i++)  { INPUTS.ipar[i]=0; }
+    INPUTS.uM0           = 0 ;
+    INPUTS.fitflag_sigmb = 0 ;
+    INPUTS.nzbin         = 1 ;
+    INPUTS.nlogzbin      = 0 ;
+  }
 
   // make sure that either nzbin or nlogzbin is specified, but not both
   if ( INPUTS.nzbin    > 0 ) { NTMP++; }

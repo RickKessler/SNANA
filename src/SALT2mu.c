@@ -602,6 +602,7 @@ Default output files (can change names with "prefix" argument)
 
 #include <stdio.h>      
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
@@ -1583,7 +1584,7 @@ void   get_J1DNBR_LIST(int IDSAMPLE, int J1D, int *NJ1DNBR, int *J1DNBR_LIST) ;
 double WGT_biasCor(int opt, int ievt, char *msg);
 
 //Eigenvalue routine
-void rs_(void *n, int *nm,double *err,double *w,int *matz,
+void rs_(void *n, int *nm,double *err,double *w, bool *matz,
            double *z,double *fv1,double *fv2,int *ierr);  
 
 //MINUIT function definitions
@@ -2261,8 +2262,9 @@ void check_data(void) {
   double sint[3][3]= { {0.,0.,0.}, {0.,0.,0.}, {0.,0.,0.} };
 
   int nm=3;
-//      zero=eigen values only, non-zero=eigenvalues and vectors  matz = 1;  
-  int matz=1;
+  
+  // xxx mark delete   int matz=1;
+  bool matz = true ;
   int l, m, n, ierr;  
   double err[3][3], eigval[3], eigvec[3][3], fv1[3], fv2[3];
   double serr=1.0;
@@ -5105,6 +5107,9 @@ void  set_SURVEYGROUP_biasCor(void) {
   // parse user-input surveygroup_biascor, and set SAMPLE_BIASCOR arrays.
   // If any surveys are missing from user input, append then as new
   // groups so that all surveys are included in a surveyGroup.
+  //
+  // May 14 2019: free ptrTmp[i]
+
 
   int  LDMP   = 0 ;
   int  USE_SURVEYGROUP = INPUTS.use_surveyGroup_biasCor ;
@@ -5213,6 +5218,8 @@ void  set_SURVEYGROUP_biasCor(void) {
     sprintf(c2err,"check samples." );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
+  for(i=0; i < MXNUM_SAMPLE; i++ )     { free(ptrTmp[i]); }
 
   return ;
 
@@ -5950,8 +5957,10 @@ void  read_simFile_biasCor(char *simFile) {
   // Sep 04 2017: read IDEAL params
   // Sep 11 2017: read SIM_ZCMB
   // Jun 02 2018: fix bug by requiring true Ia in loop over events.
+  // May 14,2019: if OPT_PHOTOZ is not read, init opt_photoz[i]=0
 
-  int NROW, IFILETYPE, NVAR_ORIG, icut, LEN, ivar, ivar2 ;
+  int NROW, IFILETYPE, NVAR_ORIG, icut, LEN;
+  int ivar, ivar2, ivar_opt_photoz ;
   int vbose = 1 ;  // verbose, but no abort on missing variable
   int ABORT = 3 ;
   int USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
@@ -6001,13 +6010,14 @@ void  read_simFile_biasCor(char *simFile) {
 
   // - - - - - 
   sprintf(vartmp,"OPT_PHOTOZ:I" );
-  ivar=SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.opt_photoz, LEN ,vbose);
-  if ( FOUNDKEY_OPT_PHOTOZ && ivar < 0 ) {
+  ivar_opt_photoz =
+    SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.opt_photoz, LEN ,vbose);
+  if ( FOUNDKEY_OPT_PHOTOZ && ivar_opt_photoz < 0 ) {
     sprintf(c1err,"OPT_PHOTOZ column in data, but not in biasCor.");
     sprintf(c2err,"OPT_PHOTOZ must be in both data and biasCor, or neither.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   } 
-  if ( FOUNDKEY_OPT_PHOTOZ==0 && ivar >= 0 ) {
+  if ( FOUNDKEY_OPT_PHOTOZ==0 && ivar_opt_photoz >= 0 ) {
     sprintf(c1err,"OPT_PHOTOZ column in biasCor, but not in data.");
     sprintf(c2err,"OPT_PHOTOZ must be in both data and biasCor, or neither.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -6149,6 +6159,10 @@ void  read_simFile_biasCor(char *simFile) {
     simdata_bias.FITVAL[INDEX_mB][i] += (float)mBoff_fit ;
     simdata_bias.SIMVAL[INDEX_mB][i] += (float)mBoff_fit ;
     
+    // if OPT_PHOTOZ is not defined, set opt_photoz to zero since
+    // it was not read..
+    if ( ivar_opt_photoz < 0 ) { simdata_bias.opt_photoz[i]; }
+
     // convert SURVEY/FIELD into mapID
     IDSURVEY   = simdata_bias.idsurvey[i] ;
     OPT_PHOTOZ = simdata_bias.opt_photoz[i] ;
@@ -11826,7 +11840,7 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"sigint_fix="))  { 
     s = INPUTS.sigint_fix ;
-    sscanf(&item[11],"%s",&INPUTS.sigint_fix);  remove_quote(s); 
+    sscanf(&item[11],"%s", INPUTS.sigint_fix);  remove_quote(s); 
     return(1); 
   }
 
@@ -12008,7 +12022,7 @@ int ppar(char* item) {
     { sscanf(&item[19],"%d", &INPUTS.dumpflag_nobiasCor ); return(1); }
 
   if ( uniqueOverlap(item,"snid_mucovdump=")) 
-    { sscanf(&item[15],"%s", &INPUTS.SNID_MUCOVDUMP); return(1); }
+    { sscanf(&item[15],"%s", INPUTS.SNID_MUCOVDUMP); return(1); }
     
   return(0);
   

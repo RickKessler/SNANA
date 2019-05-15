@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
@@ -389,7 +390,8 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
 
 
   int nm = MATSIZE ;
-  int matz = 1;
+  //  int matz = 1;
+  bool matz = true ;
   int l, k, m, ierr, ipar, NBAD_EIGVAL ;
   int LDMP = 0 ;
   int ABORT_ON_BADCOV, ALLOW_ZERODIAG ;
@@ -1254,7 +1256,7 @@ int  exec_cidmask(int mode, int CID) {
   double dCID = (double)CID;
   char fnam[] = "exec_cidmask" ;
 
-  // --------------- BEGIN ----------
+  // --------------- BEGIN -----------------
 
   if ( mode == 0 ) {
     NINT = (CID+1)/32 + 2 ;
@@ -1293,6 +1295,7 @@ int  exec_cidmask(int mode, int CID) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
   }
 
+  return(1);
 
 } // end exec_cidmask
 
@@ -3198,9 +3201,12 @@ FILE *openFile_PATH_SNDATA_SIM(char *mode) {
   // Open file for 
   //  + reading (mode='read')
   //  + append  (mode='append')
+  //
+  // modeArg[2] -> modeArg[4] (fix Mac issue)
+  //
 
   char fileName[MXPATHLEN], SNDATA_ROOT[MXPATHLEN] ;
-  char modeArg[2];
+  char modeArg[4];
   FILE *fp ;
 
   char fnam[] = "openFile_PATH_SNDATA_SIM" ;
@@ -7432,9 +7438,9 @@ void wr_HOSTGAL(FILE *fp) {
 
   sprintf(filtlist,"%s", SNDATA_FILTER.LIST );
 
-  fprintf(fp, "%s_NMATCH:    %ld  \n",  
+  fprintf(fp, "%s_NMATCH:    %d  \n",  
 	  PREFIX, SNDATA.HOSTGAL_NMATCH[0] );
-  fprintf(fp, "%s_NMATCH2:   %ld  \n",  
+  fprintf(fp, "%s_NMATCH2:   %d  \n",  
 	  PREFIX, SNDATA.HOSTGAL_NMATCH[1] );
 
   for(igal=0; igal < NGAL; igal++ ) {
@@ -9163,7 +9169,7 @@ double SALT2colorlaw1(double lambda, double c, double *colorPar ) {
   for ( i=0; i < nparams; i++ ) {
     tmp       = *(colorPar+5+i); 
     params[i] = tmp;
-    if ( fabsf(tmp) > 10.0 ) {
+    if ( fabs(tmp) > 10.0 ) {
       sprintf(c1err, "insane params[%d] = %f", i, tmp );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }

@@ -19,7 +19,7 @@
             -> NEARNBR_INIT2(ISPLIT)
 
   EXTERNAL_FIT (after fit)
-            -> NEARNBR_LOADVAL(VARNAME,VALUE) // call for each var
+            -> NEARNBR_LOADVAL(CCID,VARNAME,VALUE) // call for each var
             -> NEARNBR_APPLY(CCID)
             -> NEARNBR_GETRESULTS(CCID, ...)  // return results
 

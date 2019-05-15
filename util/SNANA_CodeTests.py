@@ -912,7 +912,7 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
             sys.exit()
 
         if ( NDONE < NTASK ) :
-            time.sleep(5)
+            time.sleep(10)
 
     # everything has finished.
     # Catenate the one-line summary from each DONE file

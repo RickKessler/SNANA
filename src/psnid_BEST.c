@@ -302,6 +302,7 @@
 #include "sntools.h"      // snana stuff
 #include "sntools_grid.h"
 #include "sntools_output.h"
+#include "sntools_nearnbr.h"
 #include "psnid_tools.h"
 
 
@@ -356,6 +357,8 @@ extern void get_simname_type__(char *name, int len);
 
 extern void init_table_snanavar__(int *ID_TABLE, char *BLOCK, int *IFLAG, 
 				  int len ) ;
+
+extern void init_table_simvar__(int *ID_TABLE, char *BLOCK, int len);
 
 extern int snana_nearnbr_rdinput__(void);  // Apr 16 2013 - RK
 
@@ -3945,7 +3948,7 @@ void PSNID_BEST_GET_FITFUN(char *CCID, int ind,
  
  Feb 18 2017 RK - fix another mem leak about returning BEFORE mallocs.
 
-/**********************************************************************/
+ **********************************************************************/
 {
   int i;
   int z,l,t,f, this_t=0, this_type=0, this_filt=0, this_l=0;
@@ -5799,8 +5802,7 @@ void PSNID_BEST_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) {
 
   // include SNANA-SIM variables
   if ( LSIM ) {
-    init_table_simvar__(&ID_TABLE, NAME_SIMBLOCK, 
-			strlen(NAME_SIMBLOCK) );
+    init_table_simvar__(&ID_TABLE, NAME_SIMBLOCK, strlen(NAME_SIMBLOCK) );
   }
 
 
@@ -6330,7 +6332,7 @@ void psnid_best_nearnbr(char *CCID) {
     IPAR    = USE4NN ;
     DVAL    = PSNID_BEST_RESULTS.FINAL_PARVAL[z][t][IPAR] ;
     VARNAME_PSNID  = PSNID_FITRES.VARNAMES[ivar] ;
-    NEARNBR_LOADVAL( VARNAME_PSNID, DVAL ) ; // see sntools_nearnbr.c
+    NEARNBR_LOADVAL(CCID, VARNAME_PSNID, DVAL ) ; // see sntools_nearnbr.c
   } 
 
   NEARNBR_APPLY(CCID); // do the NN analysis

@@ -232,7 +232,7 @@ void genmag_NON1ASED (
       magerr_list[epobs] = MAGERR_UNDEFINED ;
     }
     
-    if ( fabsf(Trest) < 5 && ifilt_obs < -8 ) 
+    if ( fabs(Trest) < 5 && ifilt_obs < -8 ) 
       printf(" xxxxx Trest(%s)=%6.1f  ep=%2d  FLUX=%9.3le  mag=%6.3f  \n", 
 	     cfilt, Trest, epobs, FLUX, magobs_list[epobs] );
     

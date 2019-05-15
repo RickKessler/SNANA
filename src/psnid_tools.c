@@ -257,7 +257,7 @@ void PSNID_USER_INPUT(int NVAR, double *input_array, char *input_string ) {
 
   if( LDMP ) {
 
-    printf("\n DUMP  PSNID_INPUTS struct (C code): \n", fnam ) ;
+    printf("\n %s DUMP  PSNID_INPUTS struct (C code): \n", fnam ) ;
 
     printf("\t Input nmlFile    = '%s' \n", PSNID_INPUTS.NMLFILE ) ;
   

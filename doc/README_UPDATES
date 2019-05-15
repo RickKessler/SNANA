@@ -16661,4 +16661,19 @@ GitHub issues:
        errors, and hopefully will fix the crash Justin found on
        his laptop.
        
+
+# ======================================================================= 
+         v10_72h (  ) 
+
+         ***** IMPORTANT(v10_72h) ***** 
+
+         ***** USEFUL(v10_72h) ***** 
+
+         ***** MISCELLANEOUS(v10_72h) ***** 
+
+     Run valgrind on snana.exe,snlc_sim.exe, snlc_fit.exe, SALT2mu.exe,
+     and fix a few issues. 
+     Fix compile issues found on Justin's Mac, including
+     evil seg-fault bug in function openFile_PATH_SNDATA_SIM().
+
 END: 

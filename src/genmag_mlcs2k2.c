@@ -377,8 +377,8 @@ int genmag_mlcs2k2(
        idum = 1 ;
 
        if ( ifilt == -999 
-	    && fabsf(Trest-44.50) < .01 
-	    && fabs(delta+.0726)<.001 ) {
+	    && fabs(Trest-44.50) < 0.010 
+	    && fabs(delta+.0726) < 0.001 ) {
 
 	 printf(" -------------------------------------------------- \n");
 	 printf("Trest=%f temp_date1=%6.1f temp_date2=%6.1f %d,%d\n", 

@@ -16695,4 +16695,20 @@ GitHub issues:
      Fix compile issues found on Justin's Mac, including evil
      seg-fault bug in function openFile_PATH_SNDATA_SIM().
 
+
+# ======================================================================= 
+         v10_72i (  ) 
+
+         ***** IMPORTANT(v10_72i) ***** 
+
+         ***** USEFUL(v10_72i) ***** 
+
+         ***** MISCELLANEOUS(v10_72i) ***** 
+
+   snana.car
+     + in SET+PEAKMJD(), return of fewer than 2 epochs.
+
+   On FNAL-DES cluster, switch devel setup to use EUPS (no mor UPS).
+   This doesn't change SNANA codes, but changes what it links to.
+
 END: 

@@ -35406,7 +35406,7 @@ c May 10 2016: remove PSF>2 epochs to get fluxMax (avoid crazy fluxes)
 c              See new parameter PSFMAX_forFLUXMAX
 c
 c May 17, 2019: implement new options OPTBIT_SETPKMJD_[TRIGGER,MAXFLUX2]
-c
+c May 20, 2019: return if less then 2 epochs.
 c -------------------------------------------------------------
 
       IMPLICIT NONE
@@ -35460,16 +35460,7 @@ C ---------------- BEGIN -------------
       if ( OPT_SETPKMJD <= 0 ) RETURN
       FNAM = 'SET_PEAKMJD'
 
-
-+SELF,IF=XXREMOVE.
-c xxxxxxxxxxxx mark delete xxxxxxxxxxxxx
-      LSET = SNLC_SEARCH_PEAKMJD > MJDMIN_LC
-      IF ( LSET .and.  OPT_SETPKMJD .LE. 0 ) RETURN
-      IF ( OPT_SETPKMJD < 0 ) RETURN
-c xxxxxxxxxxx end mark xxxxxxxxxxx
-+SELF.
-
-
+      if ( ISNLC_NEWMJD_STORE < 2 ) RETURN
 
 c July 12 2013: check option to use MJD at max flux (no fitting)
       USE_MJDatFLUXMAX  = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_FLUXMAX)
@@ -35846,7 +35837,7 @@ c -----------------------------------------
 800   CONTINUE
 
       SNLC_SNANAFIT_PEAKMJD = PKMJD
-      SNLC_SEARCH_PEAKMJD    = PKMJD
+      SNLC_SEARCH_PEAKMJD   = PKMJD
 
       RETURN
       END  ! end SET_PEAKMJD
@@ -35965,6 +35956,9 @@ C -------------- BEGIN ---------------
 	    print*,'   IMJDMAX        = ', IMJDMAX
 	    print*,'   EPMIN_SNRCUT   = ',(EPMIN_SNRCUT(imjd),imjd=1,20)
 	    print*,'   EPMAX_SNRCUT   = ',(EPMAX_SNRCUT(imjd),imjd=1,20)
+	    if ( LSIM_SNANA ) then
+	    	 print*,'   SIM_PEAKMJD    = ', SIM_PEAKMJD
+   	    endif
 
             write(c1err,651) EPMIN, EPMAX, ITER
  651        format('Invalid EPMIN,EPMAX = ', I4,I4,' at ITER=',I2)

@@ -11749,13 +11749,6 @@ void parse_parFile(char *parFile ) {
   printf("\n");
   fclose(fdef);
 
-  // --------------------------------------
-  /* xxxxxxx  mark delete May 15 2019 ; must go later in prep_input
-  ENVreplace(INPUTS.filename,fnam,1);
-  ENVreplace(INPUTS.simFile_biasCor,fnam,1);
-  ENVreplace(INPUTS.simFile_CCprior,fnam,1);
-  xxxxxxxxx */
-
   return ;
 
 } // end  of parse_parFile
@@ -11904,17 +11897,7 @@ int ppar(char* item) {
   
   // -------- CC prior ------------
   if ( uniqueOverlap(item,"simfile_ccprior=")  ) {
-
     parse_simfile_CCprior(&item[16]); return(1);
-
-    /* xxx mark delete May 16 2019 xxxxxxx
-    s=INPUTS.simFile_CCprior ;
-    sscanf(&item[16],"%s",s); remove_quote(s);
-    if ( IGNOREFILE(s) ) { simdata_ccprior.USE=0; return(1); }
-    simdata_ccprior.USE = 1;
-    if ( strcmp(s,"H11") == 0 ) { simdata_ccprior.USEH11 = 1; }
-    return(1);
-    xxxxxxxx end mark xxxxxx */
   }
 
   if ( uniqueOverlap(item,"maxprobcc_for_sigint=") )
@@ -13312,8 +13295,7 @@ void prep_input(void) {
   if( INPUTS.ipar[IPAR_scalePCC] == 0  && 
       fabs(INPUTS.parval[IPAR_scalePCC]) < 0.000001 )  { 
     INPUTS.nfile_CCprior = 0 ;
-    simdata_ccprior.USE  = 0 ;     
-    sprintf(INPUTS.simFile_CCprior[0],"NONE");
+    simdata_ccprior.USE  = 0 ; 
   }
 
 

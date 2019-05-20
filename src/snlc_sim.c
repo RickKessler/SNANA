@@ -10365,7 +10365,6 @@ void pick_NON1ASED(int ilc,
     GEN_NON1ASED->CIDRANGE[ispgen][0] = GENLC.CID;
     GEN_NON1ASED->CIDRANGE[ispgen][1] = GENLC.CID;
 
-
     init_genmag_NON1ASED( ispgen, INP_NON1ASED);
     // xxx mark delete 5/2019 init_genmag_NON1ASED(GENLC.TEMPLATE_INDEX,sedFile); 
 

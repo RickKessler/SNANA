@@ -16663,17 +16663,36 @@ GitHub issues:
        
 
 # ======================================================================= 
-         v10_72h (  ) 
+         v10_72h (May 20 2019) 
 
          ***** IMPORTANT(v10_72h) ***** 
 
          ***** USEFUL(v10_72h) ***** 
 
+   + OPT_SETPKMJD: new Fmax-clump  method; see manaul Sec 5.4.
+   + SALT2mu.exe:  can read comma-sep list of simfile_bias & simfile_ccprior.
+   + psnid.exe:    increase Ntemplate bound from 100 to 1000
+
          ***** MISCELLANEOUS(v10_72h) ***** 
 
-     Run valgrind on snana.exe,snlc_sim.exe, snlc_fit.exe, SALT2mu.exe,
-     and fix a few issues. 
-     Fix compile issues found on Justin's Mac, including
-     evil seg-fault bug in function openFile_PATH_SNDATA_SIM().
+     genmag_NON1ASED.c
+       + bug fix for option to select round-robin over all templates.
+
+     SALT2mu.c: 
+       + Refactor to read comma-separated list of  simfile_baiscor 
+         and simfile_CCprior. 
+
+     snana.car:
+       + new OPT_SETPKMJD option to use Fmax-clump method;
+         see manual section 5.4.
+
+     psnid_BEST.c :
+       + increase bound of 100 templates to 1000 templates.
+         Allows using PSNID on all of the K17 models.
+
+     Run valgrind on snana.exe,snlc_sim.exe, snlc_fit.exe, 
+     SALT2mu.exe, and fix a few issues. 
+     Fix compile issues found on Justin's Mac, including evil
+     seg-fault bug in function openFile_PATH_SNDATA_SIM().
 
 END: 

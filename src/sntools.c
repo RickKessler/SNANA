@@ -75,7 +75,7 @@ int uniqueOverlap (char *string,char *key ) {
 
   int lenkey = strlen(key);
   int match ;
-  char tmpString[200];
+  char tmpString[1000];
   char fnam[] = "uniqueOverlap" ;
   // ---------- BEGIN -----------
 

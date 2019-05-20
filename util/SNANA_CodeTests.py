@@ -95,7 +95,7 @@ def get_LOGDIR_REF():
     LOGDIR_REF = None
 
     # loop over subdirs; use last one in alphabetical list
-    for sdir in sdirlist:
+    for sdir in sorted(sdirlist):
         dir_name = ('%s/%s' % (LOG_TOPDIR,sdir) )
         if sdir[0:3] == 'REF' and os.path.isdir(dir_name) is True : 
             LOGDIR_REF = dir_name

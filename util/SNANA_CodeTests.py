@@ -38,6 +38,7 @@ RESULT_TASKS_FILE       = 'RESULTS_TASKS.LOG'
 RESULT_DIFF_FILE        = 'RESULTS_DIFF.LOG'
 SNANA_INFO_FILE         = 'SNANA.INFO'
 STOP_FILE               = ('%s/STOP' % (LOG_TOPDIR) )
+MEMORY                  = 2000   # Mb
 
 # ========================================================
 def parse_args():
@@ -47,6 +48,7 @@ def parse_args():
     DOTEST          =  True
     DOCOMPARE_ONLY  =  False
     DOSTOP          =  False
+    DEBUG_FLAG      =  False 
     REFTEST         = 'TEST'
     CPUNUM_REQ      = -9
     LOGDIR          = ''
@@ -70,6 +72,8 @@ def parse_args():
             DOCOMPARE_ONLY  = True
         elif ( arg.lower() == 'stop' ) :
             DOSTOP  = True
+        elif ( arg.lower() == 'debug' ) :
+            DEBUG_FLAG = True 
         iarg += 1
 
     INPUTS_USER = {
@@ -78,6 +82,7 @@ def parse_args():
         "DOTEST"          : DOTEST,
         "DOCOMPARE_ONLY"  : DOCOMPARE_ONLY,
         "DOSTOP"          : DOSTOP,
+        "DEBUG_FLAG"      : DEBUG_FLAG,
         "REFTEST"         : REFTEST,
         "CPUNUM_REQ"      : CPUNUM_REQ,
         "LOGDIR"          : LOGDIR,
@@ -238,12 +243,15 @@ def parse_listfile(INPUTS,LIST_FILE,RESULTS_INFO_REF):
 
     REF_SNANA_SETUP   = ''
     TEST_SNANA_SETUP  = ''
+    SNANA_SETUP       = ''
     SSH_NODES         = []
     BATCH_INFO        = []
+    RUN_SSH           = False
+    RUN_BATCH         = False
     NTASK             = 0 
     TASKNAME_LIST     = []
     TASKNUM_LIST      = []
-
+    
     DOREF   = INPUTS["DOREF"]
     DOTEST  = INPUTS["DOTEST"]
     REFTEST = INPUTS["REFTEST"]
@@ -276,10 +284,12 @@ def parse_listfile(INPUTS,LIST_FILE,RESULTS_INFO_REF):
             TEST_SNANA_SETUP = ' '.join(words[1:])
         elif ( words[0] == 'SSH_NODES:' ):
             SSH_NODES = words[1:]
-            NCPU = len(SSH_NODES)
+            NCPU      = len(SSH_NODES)
+            RUN_SSH   = True
         elif ( words[0] == 'BATCH_INFO:' ):
             BATCH_INFO = words[1:]
-            NCPU      = BATCH_INFO[3:3]
+            NCPU       = int(BATCH_INFO[2])
+            RUN_BATCH  = True 
         elif ( words[0] == 'TEST:' ):
             NTASK += 1
             TASKNAME = words[1]
@@ -311,14 +321,23 @@ def parse_listfile(INPUTS,LIST_FILE,RESULTS_INFO_REF):
     # determine process order so that SIMGEN_XXX jobs go first
     TASKORDER_LIST = set_task_order(TASKNAME_LIST)
 
+    # pick which snana-setup to use
+    if DOTEST is True :
+        SNANA_SETUP = TEST_SNANA_SETUP
+    else:
+        SNANA_SETUP = REF_SNANA_SETUP
+
     # parse contents of LIST_FILE and return contents in dictionary
     CONTENTS = {
         "LIST_FILE"        :   LIST_FILE,
         "REFTEST"          :   REFTEST,
         "REF_SNANA_SETUP"  :   REF_SNANA_SETUP,
         "TEST_SNANA_SETUP" :   TEST_SNANA_SETUP,
+        "SNANA_SETUP"      :   SNANA_SETUP,
         "SSH_NODES"        :   SSH_NODES,
         "BATCH_INFO"       :   BATCH_INFO, 
+        "RUN_SSH"          :   RUN_SSH,
+        "RUN_BATCH"        :   RUN_BATCH,
         "NCPU"             :   NCPU,
         "NTASK"            :   NTASK,
         "TASKNAME_LIST"    :   TASKNAME_LIST,
@@ -692,12 +711,14 @@ def make_logdir(INPUTS):
     DOREF          = INPUTS["DOREF"]
     DOCOMPARE_ONLY = INPUTS["DOCOMPARE_ONLY"]
     REFTEST        = INPUTS["REFTEST"]
-    
+    DEBUG_FLAG     = INPUTS["DEBUG_FLAG"]
+
     tnow   = datetime.datetime.now()
     TSTAMP = ('%4.4d%2.2d%2.2d-%2.2d%2.2d' % 
               (tnow.year,tnow.month,tnow.day,tnow.hour,tnow.minute) )
-
-#    TSTAMP = 'DEBUG'   # debug 
+    
+    if DEBUG_FLAG is True:
+        TSTAMP = 'DEBUG' 
 
     logDir = ( '%s_%s_%s' % (REFTEST,TSTAMP,USERNAME_TAG) )
     LOGDIR = ( '%s/%s' % (LOG_TOPDIR,logDir) )
@@ -739,24 +760,108 @@ def  make_cpufile(CPU_FILE,LIST_FILE_INFO):
     f.close()
     return
 
+# =========================================
+def submitTasks_SSH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
+
+    # launch SSH jobs
+    SCRIPTNAME     = INPUTS["SCRIPTNAME"]
+    REFTEST        = INPUTS["REFTEST"]
+    SNANA_SETUP    = LIST_FILE_INFO["SNANA_SETUP"]
+    SSH_NODES      = LIST_FILE_INFO["SSH_NODES"]
+    NCPU           = LIST_FILE_INFO["NCPU"]
+    LOGDIR         = SUBMIT_INFO["LOGDIR"]
+
+    # loop over CPUs and launch each SSH job
+
+    cmd_job0 = ("snana.exe --snana_version > %s" % SNANA_INFO_FILE)
+
+    for cpunum in range(0,NCPU) :
+
+        node        =  SSH_NODES[cpunum]
+        logfile_cpu = ('%s/CPUNUM_%3.3d.LOG' % (LOGDIR,cpunum) )
+
+        cmd_ssh     = ('ssh -x %s' % node)
+        cmd_cd      = ('cd %s' % LOGDIR)
+        cmd_job     = ('%s %s -cpunum %d  -logDir %s > %s' % 
+                       (SCRIPTNAME, REFTEST, cpunum, LOGDIR, logfile_cpu) )
+ 
+        # on first job, run snana.exe to leave version info
+        if cpunum == 0 :
+            cmd_job = cmd_job0 + ' ; ' + cmd_job
+
+        cmd = ('%s  "%s; %s ; %s" & ' % 
+               (cmd_ssh, SNANA_SETUP, cmd_cd, cmd_job) )
+
+        print (' Launch tasks for CPU %3d' % cpunum )
+#        sys.exit('\n cmd = %s \n' % cmd )
+        os.system(cmd)
+
+
+# =========================================
+def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
+    # launch batch jobs
+    SCRIPTNAME     = INPUTS["SCRIPTNAME"]
+    REFTEST        = INPUTS["REFTEST"]
+    SNANA_SETUP    = LIST_FILE_INFO["SNANA_SETUP"]
+    BATCH_INFO     = LIST_FILE_INFO["BATCH_INFO"]
+    NCPU           = LIST_FILE_INFO["NCPU"]
+    LOGDIR         = SUBMIT_INFO["LOGDIR"]
+
+    BATCH_SUBMIT_COMMAND = BATCH_INFO[0]
+    BATCH_TEMPLATE_FILE  = BATCH_INFO[1]
+
+    cmd_job0 = ("snana.exe --snana_version > %s" % SNANA_INFO_FILE)
+    for cpunum in range(0,NCPU) :
+        batch_runfile = ('RUNJOBS_CPU%3.3d.BATCH'     % (cpunum) )
+        batch_logfile = ('RUNJOBS_CPU%3.3d.BATCH-LOG' % (cpunum) )
+        BATCH_RUNFILE = ('%s/%s' % (LOGDIR,batch_runfile) )
+
+        cmd_job     = ("%s %s -cpunum %d  -logDir %s"  % 
+                       (SCRIPTNAME, REFTEST, cpunum, LOGDIR) )
+        cmd_job     = cmd_job.replace('/','\/')
+
+        # on first job, run snana.exe to leave version info
+        if cpunum == 0 :
+            cmd_job = cmd_job0 + ' ; ' + cmd_job
+
+        # construct sed command to replace strings in batch-template
+        cmd_sed  = 'sed  '
+        cmd_sed += ("-e 's/REPLACE_NAME/CodeTest_CPU%3.3d/g' " % cpunum )
+        cmd_sed += ("-e 's/REPLACE_LOGFILE/%s/g' " % batch_logfile)
+        cmd_sed += ("-e 's/REPLACE_MEM/%d/g' " % MEMORY )
+        cmd_sed += ("-e 's/REPLACE_JOB/%s/g' " % cmd_job )
+        cmd_sed += (" %s > %s" % (BATCH_TEMPLATE_FILE,BATCH_RUNFILE) )
+        os.system(cmd_sed)
+
+        # make sure batch file was created .xyz
+        if ( os.path.isfile(BATCH_RUNFILE) == False ) :
+            msg = (' ABORT: could not create BATCH_RUNFILE = \n %s' % 
+                   BATCH_RUNFILE )
+            sys.exit(msg)
+
+        # launch the job
+        cmd_submit = ('cd %s ; %s %s' % 
+                      (LOGDIR,BATCH_SUBMIT_COMMAND,batch_runfile) )
+        os.system(cmd_submit)
+        print(' Submitted %s ' % batch_runfile )
+        sys.stdout.flush()
+
+#    sys.exit('\n\n xxx Bye bye from submitTasks_BATCH' )
+
 # ===================================
 def submitTasks_driver(INPUTS,LIST_FILE_INFO):
 
     print '\n Prepare to Submit tasks '
 
     SCRIPTNAME     = INPUTS["SCRIPTNAME"]
-    DOREF          = INPUTS["DOREF"]
-    DOTEST         = INPUTS["DOTEST"]
     DOCOMPARE_ONLY = INPUTS["DOCOMPARE_ONLY"]
     REFTEST        = INPUTS["REFTEST"]
     SSH_NODES      = LIST_FILE_INFO["SSH_NODES"]
+    BATCH_INFO     = LIST_FILE_INFO["BATCH_INFO"]
+    RUN_SSH        = LIST_FILE_INFO["RUN_SSH"]
+    RUN_BATCH      = LIST_FILE_INFO["RUN_BATCH"]
     NCPU           = LIST_FILE_INFO["NCPU"]
     NTASK          = LIST_FILE_INFO["NTASK"]
-
-    if DOREF is True :
-        SNANA_SETUP = LIST_FILE_INFO["REF_SNANA_SETUP"]
-    else:
-        SNANA_SETUP = LIST_FILE_INFO["TEST_SNANA_SETUP"]
 
     # construct name of log dir under LOG_TOPDIR
     LOGDIR = make_logdir(INPUTS)
@@ -783,27 +888,11 @@ def submitTasks_driver(INPUTS,LIST_FILE_INFO):
     # below we actually do stuff.
     make_cpufile(CPU_FILE,LIST_FILE_INFO)
 
-    # loop over CPUs and launch job
-    for cpunum in range(0,NCPU) :
-        node        =  SSH_NODES[cpunum]
-        logfile_cpu = ('%s/CPUNUM_%3.3d.LOG' % (LOGDIR,cpunum) )
-        cmd_ssh     = ('ssh -x %s' % node)
-        cmd_cd      = ('cd %s' % LOGDIR)
-        cmd_job     = ('%s %s -cpunum %d  -logDir %s > %s' % 
-                       (SCRIPTNAME, REFTEST, cpunum, LOGDIR, logfile_cpu) )
- 
-        # on first job, run snana.exe to leave version info
-        if cpunum == 0 :
-            cmd_snana = ("snana.exe --snana_version > %s" % SNANA_INFO_FILE)
-        else:
-            cmd_snana = ''
+    if ( RUN_SSH ):
+        submitTasks_SSH(INPUTS, LIST_FILE_INFO, SUBMIT_INFO)
 
-        cmd = ('%s  "%s; %s ; %s ; %s" & ' % 
-               (cmd_ssh, SNANA_SETUP,cmd_cd,cmd_snana,cmd_job) )
-
-        print (' Launch tasks for CPU %3d' % cpunum )
-#        sys.exit('\n cmd = %s \n' % cmd )
-        os.system(cmd)
+    if ( RUN_BATCH ):
+        submitTasks_BATCH(INPUTS, LIST_FILE_INFO, SUBMIT_INFO)
 
     # - - - - - - - - - - - - - -
 

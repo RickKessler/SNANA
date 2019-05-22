@@ -284,6 +284,8 @@
 
   July 25 2018: define PSNID_MINOBS, and abort if too few obs.
 
+  May 20 2019: PSNID_NONIA_MXTYPES = 100 ->  1000 (for lots of KN models)
+
  ================================================================ */
 
 #include <stdio.h>
@@ -302,6 +304,7 @@
 #include "sntools.h"      // snana stuff
 #include "sntools_grid.h"
 #include "sntools_output.h"
+#include "sntools_nearnbr.h"
 #include "psnid_tools.h"
 
 
@@ -356,6 +359,8 @@ extern void get_simname_type__(char *name, int len);
 
 extern void init_table_snanavar__(int *ID_TABLE, char *BLOCK, int *IFLAG, 
 				  int len ) ;
+
+extern void init_table_simvar__(int *ID_TABLE, char *BLOCK, int len);
 
 extern int snana_nearnbr_rdinput__(void);  // Apr 16 2013 - RK
 
@@ -426,8 +431,8 @@ char PSNID_ITYPE_STRING[PSNID_NTYPES][8] =
 
 char PSNID_TYPE_NAME[PSNID_NTYPES][10];
 
-#define PSNID_NONIA_NTYPES   100
-int PSNID_NONIA_ABSINDEX[PSNID_NTYPES][PSNID_NONIA_NTYPES];
+#define PSNID_NONIA_MXTYPES   1000  //max number of templates per class
+int PSNID_NONIA_ABSINDEX[PSNID_NTYPES][PSNID_NONIA_MXTYPES];
 
 int PSNID_PARAM_MAX_INDEX[PSNID_NPARAM];
 
@@ -1137,13 +1142,13 @@ void psnid_best_split_nonia_types(int *types, int optdebug)
 /**********************************************************************/
 {
   int i, nibc=0, nii=0, npec1a=0, nignore=0, ITYPE, LTMP ;
-  int nmodel[10], nmodel_sum=0 ;
+  int nmodel[PSNID_NTYPES], nmodel_sum=0 ;
   char *CTYPE ;
   char fnam[] = "psnid_best_split_nonia_types";
 
   // ------------ BEGIN -----------------
 
-  for(i=0; i<10; i++ ) { nmodel[i]=0; }
+  for(i=0; i<PSNID_NTYPES; i++ ) { nmodel[i]=0; }
   
   for (i=1; i <= PSNID_MAXNL_NONIA; i++) {
 
@@ -3945,7 +3950,7 @@ void PSNID_BEST_GET_FITFUN(char *CCID, int ind,
  
  Feb 18 2017 RK - fix another mem leak about returning BEFORE mallocs.
 
-/**********************************************************************/
+ **********************************************************************/
 {
   int i;
   int z,l,t,f, this_t=0, this_type=0, this_filt=0, this_l=0;
@@ -5767,6 +5772,8 @@ void PSNID_BEST_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) {
   //   TEXTFORMAT --> write [TEXTFILE_PREFIX].TEXT.FITRES in this format.
   //         (TEXTFORMAT='' --> no text file)
   //   LSIM=1 --> is a simulation
+  //
+  // May 20 2019: abort if   PSNID_MAXNL_NONIA exceeds bound.
 
   char fnam[] = "PSNID_BEST_INIT_SNTABLE" ;
 
@@ -5799,22 +5806,26 @@ void PSNID_BEST_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) {
 
   // include SNANA-SIM variables
   if ( LSIM ) {
-    init_table_simvar__(&ID_TABLE, NAME_SIMBLOCK, 
-			strlen(NAME_SIMBLOCK) );
+    init_table_simvar__(&ID_TABLE, NAME_SIMBLOCK, strlen(NAME_SIMBLOCK) );
   }
-
 
   // Aug 28 2017 KLUGE:
   // call function to set PSNID_NGRID[itype] so that table-init
   // knows which types to include.
-  int nonia_types[100];
+  int nonia_types[PSNID_NONIA_MXTYPES] ;
   PSNID_MAXNL_NONIA  = 
     SNGRID_PSNID[TYPEINDX_NONIA_PSNID].NBIN[IPAR_GRIDGEN_SHAPEPAR];
-  psnid_best_split_nonia_types(nonia_types, 0 );
 
+  if ( PSNID_MAXNL_NONIA > PSNID_NONIA_MXTYPES ) {
+    sprintf(c1err,"PSNID_MAXNL_NONIA=%d exceeds bound.", PSNID_MAXNL_NONIA);
+    sprintf(c2err,"Check bound PSNID_NONIA_MXTYPES=%d",  PSNID_NONIA_MXTYPES);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
+  psnid_best_split_nonia_types(nonia_types, 0 );
   
   int DO_ADDCOL = 1; // add columns to FITRES table
-  int DO_NN = 0 ; // hard-wire until passed via &PSNIDNML
+  int DO_NN     = 0 ; // hard-wire until passed via &PSNIDNML
   psnid_best_define_TableVARNAMES(DO_ADDCOL,DO_NN);
 
   // check option to init residuals for table
@@ -6330,7 +6341,7 @@ void psnid_best_nearnbr(char *CCID) {
     IPAR    = USE4NN ;
     DVAL    = PSNID_BEST_RESULTS.FINAL_PARVAL[z][t][IPAR] ;
     VARNAME_PSNID  = PSNID_FITRES.VARNAMES[ivar] ;
-    NEARNBR_LOADVAL( VARNAME_PSNID, DVAL ) ; // see sntools_nearnbr.c
+    NEARNBR_LOADVAL(CCID, VARNAME_PSNID, DVAL ) ; // see sntools_nearnbr.c
   } 
 
   NEARNBR_APPLY(CCID); // do the NN analysis

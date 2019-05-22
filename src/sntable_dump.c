@@ -302,7 +302,7 @@ void parse_args(int NARG, char **argv) {
     }
     
     if ( strcmp_ignoreCase(argv[i],"--format" ) == 0 ) {
-      sscanf(argv[i+1], "%s", &INPUTS.FORMAT_OUTFILE );
+      sscanf(argv[i+1], "%s", INPUTS.FORMAT_OUTFILE );
       IFLAG_VARNAMES = 0;
       if ( strcmp(INPUTS.FORMAT_OUTFILE,"csv") == 0 ||
 	   strcmp(INPUTS.FORMAT_OUTFILE,"CSV") == 0 )  { 

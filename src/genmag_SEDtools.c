@@ -1372,7 +1372,7 @@ double get_flux_SEDMODEL( int ISED, int ilampow, int ifilt_obs,
 
       for(ilist=0; ilist < NDAYFIT_SLOPE; ilist++ ) {
 	printf(" xxx ilist=%d: Trest=%.2f  Fref=%le  Mref=%.3f\n",
-	       Tlist[ilist], Flist[ilist], Mlist[ilist] );
+	       ilist, Tlist[ilist], Flist[ilist], Mlist[ilist] );
       }
       printf(" xxx slope=%le  m=%.4f  flux=%le  (N_NEG=%d)\n", 
 	     slope, m, flux, N_FLUXNEG );

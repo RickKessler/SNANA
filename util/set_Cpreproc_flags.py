@@ -8,6 +8,9 @@
 # Note that all input names are hard-coded here as globals.
 #
 # Apr 29 2019: replace USE_BYOSED ENV with SNANA_PYTHON_DIR
+# May 16 2019: use relative path instead of $SNANA_DIR to allow
+#              private/debug compile without overwriting 
+#              official SNANA install.
 #
 
 import os
@@ -15,9 +18,11 @@ import sys
 
 # GLOBALS
 SNANA_DIR      = os.environ['SNANA_DIR']
-#SNANA_DIR      = '/home/s1/rkessler/snana_debug/snana'
-INCFILE_OUTPUT = SNANA_DIR + '/src/sntools_output.h'
-INCFILE_BYOSED = SNANA_DIR + '/src/genmag_BYOSED.h'
+INCFILE_OUTPUT = '../src/sntools_output.h'
+INCFILE_BYOSED = '../src/genmag_BYOSED.h'
+
+#INCFILE_OUTPUT = SNANA_DIR + '/src/sntools_output.h'
+#INCFILE_BYOSED = SNANA_DIR + '/src/genmag_BYOSED.h'
 
 LIST_CFLAG     = [ 'USE_HBOOK' , 'USE_ROOT' , 'USE_PYTHON' ]
 #LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'USE_BYOSED' ] 
@@ -86,7 +91,7 @@ def check_Cflag(iflag):
     os_cmd   = os_sed + ';' + os_mv
 
 
-    print('\n xxx os_cmd = %s'%os_cmd )
+#    print('\n xxx os_cmd = %s'%os_cmd )
     os.system(os_cmd)
 
 

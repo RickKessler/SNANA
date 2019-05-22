@@ -1431,7 +1431,7 @@ int read_input(char *input_file) {
       else {
 	// read LEGACY format of space-separated 3rd order poly
 	double zpoly[POLYORDER_ZVAR+2];
-	sscanf(tmpLine, "%le", &zpoly); 
+	sscanf(tmpLine, "%le", &zpoly[0]); 
 	readdouble(fp, POLYORDER_ZVAR, &zpoly[1] );
 	sprintf(cpoly,"%f,%f,%f,%f", zpoly[0],zpoly[1],zpoly[2],zpoly[3]);
       }
@@ -4326,7 +4326,7 @@ void sim_input_override(void) {
     }
 
     if ( strcmp( ARGV_LIST[i], "HOSTLIB_STOREPAR" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", &INPUTS.HOSTLIB_STOREPAR_LIST ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_STOREPAR_LIST ); 
     }
 
     if ( strcmp( ARGV_LIST[i], "HOSTLIB_SERSIC_SCALE" ) == 0 ) {
@@ -5325,8 +5325,8 @@ void sim_input_override(void) {
     if ( strcmp(ARGV_LIST[i], "LCLIB_CUTWIN") == 0 ) {
       N = LCLIB_CUTS.NCUTWIN ;
       i++ ; sscanf(ARGV_LIST[i] , "%s",  LCLIB_CUTS.PARNAME[N]   );
-      i++ ; sscanf(ARGV_LIST[i] , "%le", LCLIB_CUTS.CUTWIN[N][0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%le", LCLIB_CUTS.CUTWIN[N][1] );
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &LCLIB_CUTS.CUTWIN[N][0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &LCLIB_CUTS.CUTWIN[N][1] );
       LCLIB_CUTS.NCUTWIN++ ;
     }
 
@@ -6087,9 +6087,8 @@ void prep_user_input(void) {
     INPUTS.MWEBV_SIGRATIO      = 0.0 ;  // Feb 2012
 
     // turn off GALMAG bit-option
-    if ( INPUTS.HOSTLIB_MSKOPT && HOSTLIB_MSKOPT_GALMAG ) {
-      INPUTS.HOSTLIB_MSKOPT -= HOSTLIB_MSKOPT_GALMAG ;
-    }
+    if ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_GALMAG ) 
+      { INPUTS.HOSTLIB_MSKOPT -= HOSTLIB_MSKOPT_GALMAG ; }
   }
 
   // Feb 2012:
@@ -8183,7 +8182,7 @@ void  init_genSpec(void) {
   // this know is tunable, not a fixed value from mask
   double *s = &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE ;
   if ( *s != 1.0 ) {
-    printf("\t %s Texpose *= %.3f \n", tmpText, s );
+    printf("\t %s Texpose *= %.3f \n", tmpText, *s );
   }
 
   if ( (OPTMASK & SPECTROGRAPH_OPTMASK_noTEMPLATE)>0 ) { 
@@ -9189,7 +9188,7 @@ void  GENSPEC_FLAM(int imjd) {
     WARP = 1.0;
     if ( DO_WARP ) { WARP = eval_GENPOLY(LAMAVG, GENLAMPOLY_WARP, fnam); }
 
-    if ( LDMP && fabsf(LAMAVG-7000.0) < 20.0 ) {
+    if ( LDMP && fabs(LAMAVG-7000.0) < 20.0 ) {
       printf(" xxx \t LAM=%.1f  --> WARP = %8.5f \n", LAMAVG, WARP);
       fflush(stdout);
     }
@@ -10366,7 +10365,6 @@ void pick_NON1ASED(int ilc,
     GEN_NON1ASED->CIDRANGE[ispgen][0] = GENLC.CID;
     GEN_NON1ASED->CIDRANGE[ispgen][1] = GENLC.CID;
 
-
     init_genmag_NON1ASED( ispgen, INP_NON1ASED);
     // xxx mark delete 5/2019 init_genmag_NON1ASED(GENLC.TEMPLATE_INDEX,sedFile); 
 
@@ -10798,6 +10796,8 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   Dec 01 2017: add hash (#) in front of all comments.
 
+  May 14 2019: free(SIMFILE_AUX->OUTLINE)
+
   ****/
 
   int   NVAR, ivar, IDSPEC, imjd, index, FIRST ; 
@@ -10987,6 +10987,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
 
   if ( OPT_DUMP == 3 ) {
+    free(SIMFILE_AUX->OUTLINE);
     fclose(SIMFILE_AUX->FP_DUMP);
     printf(" Created %s\n", ptrFile );
     return ;
@@ -19076,7 +19077,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
     }
 
     if ( INDEX_GENMODEL == MODEL_LCLIB ) {
-      printf("\t LCLIB EVENT ID = %d \n", LCLIB_EVENT.ID);
+      printf("\t LCLIB EVENT ID = %lld \n", LCLIB_EVENT.ID);
     }
 
     printf("\t CRAZYFLUX = %9.3le\n", crazyflux);
@@ -21589,7 +21590,7 @@ void genmodel(
       ptr_generr[iep] = 0.0 ;
     }
 
-    sprintf(GENLC.SNTYPE_NAME, INPUTS.MODELNAME ); 
+    sprintf(GENLC.SNTYPE_NAME, "%s", INPUTS.MODELNAME ); 
     GENLC.TEMPLATE_INDEX = MODEL_FIXMAG ;  //anything but zero
 
     /* xxx mark delete April 24 2019 xxxxxxxx
@@ -23143,7 +23144,8 @@ void readme_doc(int iflag_readme) {
   strcat(cptr,"\n"); 
 
   // indicate which quantities were scaled by EXPOSURE_TIME  
-  if ( fabsf(xtprod-1.0) > .001 ) {
+  // xxx mark delete May 2019  if ( fabsf(xtprod-1.0) > .001 ) {
+    if ( xtprod != 1.0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"\t %s  exposure MSKOPT=%d => ", 
 	    INPUTS.GENFILTERS, INPUTS.EXPOSURE_TIME_MSKOPT );
@@ -24991,7 +24993,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   //
   // Oct 16, 2010: print GRIDGEN summary if used
   // Jun 09, 2012:  replace GRIDGEN stuff call to wr_GRIDfile(3);
-
+  // May 14, 2019: add call to wr_SIMGEN_DUMP(3,SIMFILE_AUX);
   int i, N1, N2 ;
 
   // ------------ BEGIN -------------
@@ -25036,8 +25038,9 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // close out SIMGEN_DUMP file if it exists
   if ( INPUTS.NVAR_SIMGEN_DUMP > 0 ) {
-    fclose(SIMFILE_AUX->FP_DUMP);
-    printf("  %s \n", SIMFILE_AUX->DUMP );
+    wr_SIMGEN_DUMP(3,SIMFILE_AUX);
+    // xxx mark delete    fclose(SIMFILE_AUX->FP_DUMP);
+    // xxx mark delete    printf("  %s \n", SIMFILE_AUX->DUMP );
   }
 
 
@@ -26633,7 +26636,7 @@ void DUMP_GENMAG_DRIVER(void) {
 
   float 
     *ptr_shapepar
-    ,Trest, Tmin, Tmax, lamdif, magtmp, magerrtmp, z4, shapepar
+    ,Tmin, Tmax, lamdif, magtmp, magerrtmp, z4, shapepar
     ,GENMAG[MXEPSIM][MXSHAPEPAR]
     ,GENMAGERR[MXEPSIM][MXSHAPEPAR]
     ,DM15_CALC[MXFILTINDX][MXSHAPEPAR]
@@ -26646,7 +26649,7 @@ void DUMP_GENMAG_DRIVER(void) {
 
   double 
     mag8, *ptr_genmag8, MU8, ARG8, z8
-    ,magerr8, *ptr_generr8
+    ,magerr8, *ptr_generr8, Trest8
       ;
 
   FILE *FPDMP ;
@@ -26839,7 +26842,7 @@ void DUMP_GENMAG_DRIVER(void) {
 
 
     for ( epoch=1; epoch <= GENLC.NEPOCH; epoch++ ) {
-      Trest = GENLC.epoch8_rest[epoch] ;
+      Trest8 = GENLC.epoch8_rest[epoch] ;
 
       for ( ishape=0; ishape<NSHAPEPAR; ishape++ ) {
 	magtmp    =  GENMAG[epoch][ishape] ;
@@ -26848,12 +26851,12 @@ void DUMP_GENMAG_DRIVER(void) {
 
 	NROW++ ; 
 	fprintf(FPDMP,"ROW: %8d  %s  %6.2f  %6.2f  %.3f  %.3f \n",
-		NROW, cfilt, Trest, shapepar,  magtmp, magerrtmp );
+		NROW, cfilt, Trest8, shapepar,  magtmp, magerrtmp );
 
-	if ( fabsf(Trest-0.0) < .001 ) {
+	if ( fabsf(Trest8) < .001 ) {
 	  DM15_CALC[ifilt_obs][ishape]  = -magtmp ;
 	}
-	if ( fabsf(Trest-15.0) < .001 ) {
+	if ( fabsf(Trest8-15.0) < .001 ) {
 	  DM15_CALC[ifilt_obs][ishape] +=  magtmp ;
 	  fprintf(FPDMP,"DM15_CALC[%s] = %.3f\n",
 		  cfilt, DM15_CALC[ifilt_obs][ishape] );

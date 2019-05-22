@@ -232,7 +232,7 @@ void genmag_NON1ASED (
       magerr_list[epobs] = MAGERR_UNDEFINED ;
     }
     
-    if ( fabsf(Trest) < 5 && ifilt_obs < -8 ) 
+    if ( fabs(Trest) < 5 && ifilt_obs < -8 ) 
       printf(" xxxxx Trest(%s)=%6.1f  ep=%2d  FLUX=%9.3le  mag=%6.3f  \n", 
 	     cfilt, Trest, epobs, FLUX, magobs_list[epobs] );
     
@@ -262,6 +262,7 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
   // Aug 15 2016: call read_NON1A_LIST() 
   // Feb 01 2017: check ONEFLAG to handle NGEN < N(SED)
   // Jul 29 2017: allow sum(NON1A wgt)=0 as long as sum(PEC1A wgt)>0
+  // May 16 2019: set NINDEX after read_NON1A_LIST in case it changes
 
   float FRAC_PEC1A = GEN_NON1ASED->FRAC_PEC1A ; // Ngen(pecIa)/NgenTot
   int   DO_GENGRID = ( GEN_NON1ASED->IFLAG_GEN == IFLAG_GENGRID ) ;
@@ -314,6 +315,8 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
   // Aug 15 2016:
   // sort user-input NON1A & PEC1A so that PEC1A are at end of list
   sort_NON1ASED(INP_NON1ASED);
+
+  NINDEX = INP_NON1ASED->NINDEX ; // may have changed after read_NON1A_LIST
 			 
   // ---------------------------
   // get sum of wgts to renormalize to wgt-sum = 1
@@ -324,7 +327,6 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
     WGTSUM[ISPEC1A] += wgt ;
     WGTSUM_TOT      += wgt ;
   }
-
 
   if ( WGTSUM_TOT <= 0.0 ) {
     sprintf(c1err,"Sum of NON1A+PEC1A weights = %f", WGTSUM_TOT );

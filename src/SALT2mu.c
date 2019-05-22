@@ -43,7 +43,9 @@ maxerr_abort_x1=0     ! for USESIM_x1=T, increase this to epsilon>0
 maxerr_abort_x0=0
 
  - - - - -  biasCor options - - - - - 
-simfile_biascor=name of simulated fitres file to compute mB bias vs. z
+simfile_biascor=name    ! sim fitres file to compute bias mape
+simfile_biascor=name1,name2,etc   ! idem with comma-sep list
+
 opt_biascor=<option>    ! grep MASK_BIASCOR  SALT2mu.c | grep define
 opt_biascor=112    ! as in BBC paper
 
@@ -75,9 +77,10 @@ To check sample stats for each surveyGroup and fieldGroup,
    grep IDSAMPLE  <stdout_file>
 
  - - - - -  CCprior options - - - - -  
-simfile_ccprior=name of sim fitres file to compute CC prior and
-                    flag to to a BEAMS-like fit
+simfile_ccprior=name    ! sim fitres file to compute CC prior and
+                        !  flag to to a BEAMS-like fit
 simfile_ccprior=same  --> use same file as simfile_bias
+simfile_ccprior=name1,name2,etc  ! comma-sep list
 simfile_ccprior=H11   --> no sim; use CC MU-z function from Hlozek 2011
   BEWARE: must use 5D biasCor with simfile_ccprior option;
           1D biasCor + ccprior --> abort.
@@ -598,10 +601,15 @@ Default output files (can change names with "prefix" argument)
      skipped when there are no fit params.
    + new fixpar_all option to use SALT2mu as MU-calculator
 
+ May 20 2019: 
+   + refactor biasCor to read comma-separated list of simFile_biasCor 
+   + same for CCprior.
+
 ******************************************************/
 
 #include <stdio.h>      
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
@@ -615,6 +623,9 @@ Default output files (can change names with "prefix" argument)
 
 //#define MAXPAR_MINUIT 80   // limit for MINUIT params (June 24 2017)
 #define MAXPAR_MINUIT 110  // limit for MINUIT params (Sep 10 2017)
+
+#define MXFILE_BIASCOR 10  // max number of biasCor files to read
+#define MXFILE_CCPRIOR 10  // max number of CCprior files to read
 
 // Maximum number of bins
 // Note that 5D biasCor array would take 30*20*20*5*5 = 300,000
@@ -707,7 +718,6 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define MXCUTWIN 20 // max number of CUTWIN definitions in input file.
 
 #define MXCHAR_LINE 2000 // max character per line of fitres file
-//#define MXCHAR_FILENAME 256 // max char len of file name
 
 // define ERRMASK for each type of error
 #define ERRMASK_x1         1    //  fails x1min-x1max cut
@@ -1048,7 +1058,7 @@ struct simdata_bias {
   int  NUSE ;       // number after cuts
   
   // read from simFile. Use floats to save memory
-  char **name, **field ;
+  char   **name, **field ;
   float  *z, *zerr ; 
   float  *vpec, *vpecerr ;
   float  *SNRMAX ;
@@ -1062,6 +1072,9 @@ struct simdata_bias {
   int    *SIM_NONIA_INDEX ;   // =0 for SNIa, >0 for CC
   int    *idsurvey, *idsample, *opt_photoz ;
   float  *CUTVAL[MXCUTWIN];
+
+  // need a few global IVAR logicals
+  int IVAR_VPEC, IVAR_SIM_VPEC, IVAR_OPT_PHOTO;
 
   double *muerrsq;
   int     DOFLAG_CUTWIN[MXCUTWIN]; // flag to apply each cutwin
@@ -1130,7 +1143,8 @@ struct INPUTS {
   double blindPar   ; // hard-wired to make cosine arg
 
   // optional sim-files with corrections/maps
-  char simFile_biasCor[MXCHAR_FILENAME];     // to get SNIa mB bias vs. z
+  int  nfile_biasCor;        // number of biascor files
+  char **simFile_biasCor ;   // sim info for BBC method
   int  opt_biasCor ;
   int  prescale_biasCor[2] ; // subset use [0] of [1]
   double sigint_biasCor ;     // force sigint instead of autocompute
@@ -1147,7 +1161,8 @@ struct INPUTS {
   char idsample_select[40];       // e.g., '0+3'
 
   // ----------
-  char simFile_CCprior[MXCHAR_FILENAME];  // to get CC prior, dMU vs. z
+  int  nfile_CCprior;
+  char **simFile_CCprior;    // to get CC prior, dMU vs. z
   char varname_pIa[40];
   int  typeIa_ccprior ;       // PCC=0 for this sntype
   int  simtype_Ibc[2], simtype_II[2];   // SIM_TYPE ranges for CCprior
@@ -1385,6 +1400,8 @@ void fcn(int* npar, double grad[], double* fval,
 void fitsc(int n,double *s, double *c);
 void parse_parFile(char *parFile );
 void override_parFile(int argc, char **argv);
+void parse_simfile_biasCor(char *item);
+void parse_simfile_CCprior(char *item);
 void parse_ZPOLY_COVMAT(char *item);
 void load_ZPOLY_COVMAT(int IDSURVEY, double Z ) ;
 double sum_ZPOLY_COVMAT(double Z, double *polyPar) ;
@@ -1424,11 +1441,12 @@ void   match_fieldGroup(char *SNID, char *FIELD,
 void   match_surveyGroup(char *SNID, int IDSURVEY, 
 			 char *SURVEYGROUP, char *STRINGOPT ) ;
 
-void   prepare_biasCor(char *simFile);
+void   prepare_biasCor(void);
 void   prepare_biasCor_zinterp(void) ;
 void   make_COV_FITVAL_biasCor(int ievt) ;
+void   SNTABLE_READPREP_biasCor(int ISTART, int LEN);
 
-void   prepare_CCprior(char *simFile);
+void   prepare_CCprior(void);
 
 void   fcn_AlphaBetaWGT(double alpha, double beta, int DUMPFLAG,
 			INTERPWGT_ALPHABETA *INTERPWGT, char *callFun );
@@ -1436,7 +1454,10 @@ void   fcn_AlphaBetaWGT(double alpha, double beta, int DUMPFLAG,
 void   fcn_AlphaBeta(double *xval, double z, double logmass,
 		     double *alpha, double *beta);
 
-void   read_simFile_CCprior(char *simFile, SIMFILE_INFO_DEF *SIMFILE_INFO);
+void   read_simFile_CCprior(SIMFILE_INFO_DEF *SIMFILE_INFO);
+void   prep_CCprior_misc(SIMFILE_INFO_DEF *SIMFILE_INFO);
+void   SNTABLE_READPREP_CCprior(SIMFILE_INFO_DEF *SIMFILE_INFO, 
+				int ISTART, int LEN);
 void   store_simFile_CCprior(SIMFILE_INFO_DEF *INFO_ALL, 
 			     SIMFILE_INFO_DEF *INFO_CC) ;
 int    storeBias_CCprior(int n) ;
@@ -1480,7 +1501,8 @@ void   test_zmu_solve(void);
 int   storeDataBias(int n, int dumpFlag ) ;
 int   biasMapSelect(int i) ;
 void  dumpStages_biasMapSelect(void);
-void  read_simFile_biasCor(char *simFile);
+void  read_simFile_biasCor(void);
+void  prep_biasCor_misc(void);
 void  set_MAPCELL_biasCor(int IDSAMPLE) ;
 void  store_iaib_biasCor(void) ;
 
@@ -1583,7 +1605,7 @@ void   get_J1DNBR_LIST(int IDSAMPLE, int J1D, int *NJ1DNBR, int *J1DNBR_LIST) ;
 double WGT_biasCor(int opt, int ievt, char *msg);
 
 //Eigenvalue routine
-void rs_(void *n, int *nm,double *err,double *w,int *matz,
+void rs_(void *n, int *nm,double *err,double *w, bool *matz,
            double *z,double *fv1,double *fv2,int *ierr);  
 
 //MINUIT function definitions
@@ -1704,9 +1726,9 @@ int main(int argc,char* argv[ ])
   prepare_IDSAMPLE_biasCor();
 
   // read optional sim maps 
-  prepare_biasCor(INPUTS.simFile_biasCor);
+  prepare_biasCor();
 
-  prepare_CCprior(INPUTS.simFile_CCprior);
+  prepare_CCprior();
 
   // check for user-constraint on nmax (July 2017) AFTER prepare_biasCor 
   apply_nmax_cuts();
@@ -2261,8 +2283,9 @@ void check_data(void) {
   double sint[3][3]= { {0.,0.,0.}, {0.,0.,0.}, {0.,0.,0.} };
 
   int nm=3;
-//      zero=eigen values only, non-zero=eigenvalues and vectors  matz = 1;  
-  int matz=1;
+  
+  // xxx mark delete   int matz=1;
+  bool matz = true ;
   int l, m, n, ierr;  
   double err[3][3], eigval[3], eigvec[3][3], fv1[3], fv2[3];
   double serr=1.0;
@@ -3915,7 +3938,7 @@ void set_defaults(void) {
   INPUTS.prescale_biasCor[0]   = 0;
   INPUTS.prescale_biasCor[1]   = 1;
   INPUTS.sigma_cell_biasCor    = 50.0; // flat WGT distribution in each cell
-  sprintf(INPUTS.simFile_biasCor,    "NONE");
+  INPUTS.nfile_biasCor         = 0 ;
   sprintf(INPUTS.fieldGroup_biasCor, "NONE" );
   INPUTS.use_fieldGroup_biasCor = 0 ;
 
@@ -3939,7 +3962,7 @@ void set_defaults(void) {
   INPUTS.uzsim = 0 ; // option to set z=simz (i.e., to cheat)
 
   // stuff for CC prior
-  sprintf(INPUTS.simFile_CCprior, "NONE");
+  INPUTS.nfile_CCprior  = 0 ;
   INPUTS.varname_pIa[0] = 0 ;
   INPUTS.simtype_II[0]  = 20 ;
   INPUTS.simtype_II[1]  = 29 ;
@@ -5105,6 +5128,9 @@ void  set_SURVEYGROUP_biasCor(void) {
   // parse user-input surveygroup_biascor, and set SAMPLE_BIASCOR arrays.
   // If any surveys are missing from user input, append then as new
   // groups so that all surveys are included in a surveyGroup.
+  //
+  // May 14 2019: free ptrTmp[i]
+
 
   int  LDMP   = 0 ;
   int  USE_SURVEYGROUP = INPUTS.use_surveyGroup_biasCor ;
@@ -5213,6 +5239,8 @@ void  set_SURVEYGROUP_biasCor(void) {
     sprintf(c2err,"check samples." );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
+  for(i=0; i < MXNUM_SAMPLE; i++ )     { free(ptrTmp[i]); }
 
   return ;
 
@@ -5700,7 +5728,7 @@ int get_IDSAMPLE(int IDSURVEY, int OPT_PHOTOZ,
 
 
 // =========================================================
-void prepare_biasCor(char *simFile) {
+void prepare_biasCor(void) {
 
   // Created Jan 2016
   // If simFile is not null, then prepare mB bias correction vs. z
@@ -5711,19 +5739,21 @@ void prepare_biasCor(char *simFile) {
   // Jun 2 2016: call sigInt_biasCor BEFORE makeMape_fitPar
   // Jan 16 2018: force correct value for INPUTS.fitflag_sigmb = 2 
 
-  int INDX, IDSAMPLE, SKIP ;
+  int INDX, IDSAMPLE, SKIP, ifile ;
   int  OPTMASK = INPUTS.opt_biasCor ;
+  int  nfile_biasCor = INPUTS.nfile_biasCor ;
   int  DOCOR_1DZAVG  = ( OPTMASK & MASK_BIASCOR_1DZAVG  );
   int  DOCOR_1DZWGT  = ( OPTMASK & MASK_BIASCOR_1DZWGT  );
   int  DOCOR_1D5DCUT = ( OPTMASK & MASK_BIASCOR_1D5DCUT );
   int  DOCOR_5D      = ( OPTMASK & MASK_BIASCOR_5D      );
   int  DOCOR_MUCOV   = ( OPTMASK & MASK_BIASCOR_MUCOV   );
   int  IDEAL         = ( OPTMASK & MASK_BIASCOR_COVINT ) ;
-  char txt_biasCor[40];
+  char txt_biasCor[40], *simFile ;
 
   char fnam[] = "prepare_biasCor" ;
 
   // ------------- BEGIN -------------
+
 
   simdata_bias.DOCOR_1D = 0 ;
   simdata_bias.DOCOR_5D = DOCOR_5D ;
@@ -5732,6 +5762,9 @@ void prepare_biasCor(char *simFile) {
   simdata_bias.NUSE = 0 ;
   SKIPZCUT_BIASCOR  = 0 ; // Jan 25, 2018
 
+  if ( nfile_biasCor == 0 ) { return ; }
+
+  simFile = INPUTS.simFile_biasCor[0]; 
   if ( IGNOREFILE(simFile) ) { return ; }
 
 
@@ -5788,7 +5821,8 @@ void prepare_biasCor(char *simFile) {
   }
     
   // --------------------------------
-  read_simFile_biasCor(simFile);  
+
+  read_simFile_biasCor();  
 
   if ( DOCOR_1DZAVG || DOCOR_1DZWGT ) { goto CHECK_1DCOR ; }
   
@@ -5940,7 +5974,7 @@ void prepare_biasCor(char *simFile) {
 
 
 // =============================================
-void  read_simFile_biasCor(char *simFile) {
+void  read_simFile_biasCor(void) {
 
   // Created Jan 2016
   // Read simFile and load simdata_bias struct.
@@ -5950,64 +5984,127 @@ void  read_simFile_biasCor(char *simFile) {
   // Sep 04 2017: read IDEAL params
   // Sep 11 2017: read SIM_ZCMB
   // Jun 02 2018: fix bug by requiring true Ia in loop over events.
+  // May 14,2019: if OPT_PHOTOZ is not read, init opt_photoz[i]=0
+  // May 20 2019: major refactor to read & append multiple biasCor files.
 
-  int NROW, IFILETYPE, NVAR_ORIG, icut, LEN, ivar, ivar2 ;
-  int vbose = 1 ;  // verbose, but no abort on missing variable
-  int ABORT = 3 ;
-  int USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
-  int IDEAL = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
-  int FOUND_VPEC=0, FOUND_SIM_VPEC=0;
-  double z, zerr, zpecerr;
-  char str_z[40], str_zerr[40], vartmp[60], STRINGOPT[40];
+  int NFILE = INPUTS.nfile_biasCor;
+  int NROW, ISTART, IFILETYPE, ifile, NVAR_ORIG, LEN_MALLOC ;   
+  int NEVT[MXFILE_BIASCOR], NEVT_TOT;
+  char *simFile ;
   char fnam[] = "read_simFile_biasCor" ;
 
   // --------------- BEGIN ---------------
 
   t_read_biasCor[0] = time(NULL); 
 
-  LEN = SNTABLE_NEVT(simFile,TABLENAME_FITRES);  LEN += 10;
-  simdata_bias.LEN_MALLOC = LEN ;
+  simdata_bias.IVAR_VPEC      = 0 ;
+  simdata_bias.IVAR_SIM_VPEC  = 0 ;
+  simdata_bias.IVAR_OPT_PHOTO = 0 ;
 
-  printf("\t Found %d lines in %s. \n", LEN, simFile);
-  malloc_simdata_biasCor(+1,LEN);
+  // read each file quickly to get total size of arrays to malloc
+  NEVT_TOT = 0 ;
+  for(ifile=0; ifile < NFILE; ifile++ ) {
+    simFile     = INPUTS.simFile_biasCor[ifile];
+    NEVT[ifile] = SNTABLE_NEVT(simFile,TABLENAME_FITRES);  
+    NEVT_TOT   += NEVT[ifile];
+    printf("\t Found %d events in %s. \n", NEVT[ifile], simFile);
+    fflush(stdout);
+  }
 
-  IFILETYPE = TABLEFILE_OPEN(simFile,"read");
-  NVAR_ORIG = SNTABLE_READPREP(IFILETYPE,"FITRES");
+  // malloc arrays for all sim files
+  LEN_MALLOC = NEVT_TOT + 10 ;
+  simdata_bias.LEN_MALLOC = LEN_MALLOC ;
+  malloc_simdata_biasCor(+1,LEN_MALLOC);
+
+  // loop again over each data file: read and append arrays
+  for(ifile=0; ifile < NFILE; ifile++ ) {
+    simFile     = INPUTS.simFile_biasCor[ifile];
+    IFILETYPE   = TABLEFILE_OPEN(simFile,"read");
+    NVAR_ORIG   = SNTABLE_READPREP(IFILETYPE,"FITRES");
+    ISTART      = simdata_bias.NROW;
+    SNTABLE_READPREP_biasCor(ISTART,NEVT[ifile]);
+
+    NROW = SNTABLE_READ_EXEC(); // read entire file; load arrays
+    simdata_bias.NROW += NROW ;
+  }
+
+
+  t_read_biasCor[1] = time(NULL); 
+
+  // compute a few misc. quantities
+  prep_biasCor_misc();
+
+  t_read_biasCor[2] = time(NULL); 
+
+  return ;
+} // end read_simFile_biasCor
+
+
+// ================================================================
+void SNTABLE_READPREP_biasCor(int ISTART, int LEN) {
+
+  // Created May 2019
+  // 
+  // Shell to call SNTABLE_READPREP_VARDEF(....)
+  // Inputs:
+  //   ISTART = start index to read
+  //   LEN    = approx length to read
+
+  int NROW, icut, ivar, ivar2 ;
+  int vbose = 1 ;  // verbose, but no abort on missing variable
+  int ABORT = 3 ;  
+  int USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
+  int IDEAL = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
+  double z, zerr, zpecerr;
+  char str_z[40], str_zerr[40], vartmp[60], STRINGOPT[40];
+
+  char fnam[] = "SNTABLE_READPREP_biasCor" ;
+
+  // ----------- BEGIN -------------
 
   sprintf(vartmp, "CID:C*%d  CCID:C*%d", MXCHAR_CCID, MXCHAR_CCID); 
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.name, LEN, vbose) ;
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.name[ISTART], 
+			  LEN, vbose) ;
 
   if ( USE_FIELDGROUP ) {
     sprintf(vartmp, "FIELD:C*%d", MXCHAR_CCID ); 
-    SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.field, LEN, vbose) ;
+    SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.field[ISTART], 
+			    LEN, vbose) ;
   }
 
   str_z[0] = str_zerr[0] = 0 ;
   get_zString(str_z,str_zerr,"F");
-  SNTABLE_READPREP_VARDEF(str_z,   simdata_bias.z,    LEN ,vbose);
-  SNTABLE_READPREP_VARDEF(str_zerr,simdata_bias.zerr, LEN ,vbose);
+  SNTABLE_READPREP_VARDEF(str_z, &simdata_bias.z[ISTART], 
+			  LEN ,vbose);
+  SNTABLE_READPREP_VARDEF(str_zerr, &simdata_bias.zerr[ISTART], 
+			  LEN ,vbose);
 
   sprintf(vartmp,"VPEC:F" );
-  ivar = SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.vpec, LEN ,vbose);
+  ivar = SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.vpec[ISTART], 
+				 LEN ,vbose);
   sprintf(vartmp,"VPEC_ERR:F VPECERR:F" );
-  ivar2 = SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.vpecerr, LEN ,vbose);
-  if ( ivar>0 && ivar2 > 0 ) { FOUND_VPEC=1; }
+  ivar2 = SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.vpecerr[ISTART], 
+				  LEN ,vbose);
+  if ( ivar>0 && ivar2 > 0 ) { simdata_bias.IVAR_VPEC = ivar; }
 
   sprintf(vartmp,"SIM_NONIA_INDEX:I SIM_TEMPLATE_INDEX:I" );
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.SIM_NONIA_INDEX, LEN ,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.SIM_NONIA_INDEX[ISTART], 
+			  LEN ,vbose);
 
   sprintf(vartmp,"IDSURVEY:I" );
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.idsurvey, LEN ,vbose);
-
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.idsurvey[ISTART], 
+			  LEN ,vbose);
   // - - - - - 
   sprintf(vartmp,"OPT_PHOTOZ:I" );
-  ivar=SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.opt_photoz, LEN ,vbose);
-  if ( FOUNDKEY_OPT_PHOTOZ && ivar < 0 ) {
+  simdata_bias.IVAR_OPT_PHOTO =
+    SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.opt_photoz[ISTART],  
+			    LEN ,vbose);
+  if ( FOUNDKEY_OPT_PHOTOZ && simdata_bias.IVAR_OPT_PHOTO < 0 ) {
     sprintf(c1err,"OPT_PHOTOZ column in data, but not in biasCor.");
     sprintf(c2err,"OPT_PHOTOZ must be in both data and biasCor, or neither.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   } 
-  if ( FOUNDKEY_OPT_PHOTOZ==0 && ivar >= 0 ) {
+  if ( FOUNDKEY_OPT_PHOTOZ==0 && simdata_bias.IVAR_OPT_PHOTO >= 0 ) {
     sprintf(c1err,"OPT_PHOTOZ column in biasCor, but not in data.");
     sprintf(c2err,"OPT_PHOTOZ must be in both data and biasCor, or neither.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -6015,69 +6112,87 @@ void  read_simFile_biasCor(char *simFile) {
   // - - - - - 
 
   sprintf(vartmp,"SNRMAX1:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.SNRMAX, LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.SNRMAX[ISTART],  
+			  LEN,vbose);
 
   // - - - - - mB - - - - - -
   sprintf(vartmp,"mB:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.FITVAL[INDEX_mB], LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.FITVAL[INDEX_mB][ISTART],
+			  LEN,vbose);
   sprintf(vartmp,"mBERR:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.FITERR[INDEX_mB], LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.FITERR[INDEX_mB][ISTART],
+			  LEN,vbose);
   sprintf(vartmp,"SIM_mb:F SIM_mB:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.SIMVAL[INDEX_mB], LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.SIMVAL[INDEX_mB][ISTART],
+			  LEN,vbose);
 
+  
   sprintf(vartmp,"x0:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.x0, LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.x0[ISTART], 
+			  LEN,vbose);
   sprintf(vartmp,"x0ERR:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.x0err, LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.x0err[ISTART], 
+			  LEN,vbose);
 
   // - - - - - x1 - - - - - -
   sprintf(vartmp,"x1:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.FITVAL[INDEX_x1], LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.FITVAL[INDEX_x1][ISTART], 
+			  LEN,vbose);
   sprintf(vartmp,"x1ERR:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.FITERR[INDEX_x1], LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.FITERR[INDEX_x1][ISTART], 
+			  LEN,vbose);
   sprintf(vartmp,"SIMx1:F SIM_x1:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.SIMVAL[INDEX_x1], LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.SIMVAL[INDEX_x1][ISTART], 
+			  LEN,vbose);
 
   // - - - - - c - - - - - -
   sprintf(vartmp,"c:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.FITVAL[INDEX_c], LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.FITVAL[INDEX_c][ISTART], 
+			  LEN,vbose);
   sprintf(vartmp,"cERR:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.FITERR[INDEX_c], LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.FITERR[INDEX_c][ISTART], 
+			  LEN,vbose);
   sprintf(vartmp,"SIMc:F SIM_c:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.SIMVAL[INDEX_c], LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.SIMVAL[INDEX_c][ISTART],  
+			  LEN,vbose);
  
   // - - - - covariances - -- - - - 
   sprintf(vartmp,"COVx0x1:F COV_x1_x0:F");
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.COV_x0x1, LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.COV_x0x1[ISTART],  
+			  LEN,vbose);
 
   sprintf(vartmp,"COVx0c:F COV_c_x0:F");
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.COV_x0c, LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.COV_x0c[ISTART],
+			  LEN,vbose);
 
   sprintf(vartmp,"COVx1c:F COV_x1_c:F");
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.COV_x1c, LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.COV_x1c[ISTART], 
+			  LEN,vbose);
 
   // - - - -  Generated alpha & beta - - - - -
   sprintf(vartmp,"SIMalpha:F SIM_alpha:F" ) ;
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.SIM_ALPHA, LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.SIM_ALPHA[ISTART],
+			  LEN,vbose);
 
   sprintf(vartmp,"SIMbeta:F  SIM_beta:F" ) ;
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.SIM_BETA,  LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.SIM_BETA[ISTART],
+			  LEN,vbose);
 
   // - - - - - - - - - - - - - - - - 
   // IDEAL fit params from fit where FLUX = TRUEFLUX(Sep 2017) 
   if ( IDEAL ) {
     sprintf(vartmp,"x0_IDEAL:F" ) ;
-    SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.x0_IDEAL,  
+    SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.x0_IDEAL[ISTART], 
 			    LEN, ABORT);
 
     sprintf(vartmp,"mB_IDEAL:F" );
-    SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.FITVAL_IDEAL[INDEX_mB], 
+    SNTABLE_READPREP_VARDEF(vartmp,&simdata_bias.FITVAL_IDEAL[INDEX_mB][ISTART], 
 			    LEN, ABORT);
     sprintf(vartmp,"x1_IDEAL:F" );
-    SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.FITVAL_IDEAL[INDEX_x1], 
+    SNTABLE_READPREP_VARDEF(vartmp,&simdata_bias.FITVAL_IDEAL[INDEX_x1][ISTART], 
 			    LEN, ABORT);
     sprintf(vartmp,"c_IDEAL:F" );
-    SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.FITVAL_IDEAL[INDEX_c], 
+    SNTABLE_READPREP_VARDEF(vartmp,&simdata_bias.FITVAL_IDEAL[INDEX_c][ISTART], 
 			    LEN, ABORT);
   }
 
@@ -6085,47 +6200,60 @@ void  read_simFile_biasCor(char *simFile) {
 
   // true z & MU
   sprintf(vartmp,"SIM_ZCMB:F" ) ;
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.SIM_ZCMB,  LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.SIM_ZCMB[ISTART],
+			  LEN,vbose);
 
   sprintf(vartmp,"SIM_DLMAG:F" ) ;
-  SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.SIM_DLMAG,  LEN,vbose);
+  SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.SIM_DLMAG[ISTART],
+			  LEN,vbose);
 
   // true VPEC (Aug 2017)
   sprintf(vartmp,"SIM_VPEC:F" ) ;
-  ivar = SNTABLE_READPREP_VARDEF(vartmp, simdata_bias.SIM_VPEC, LEN,vbose);
-  if ( ivar > 0 ) { FOUND_SIM_VPEC = 1; }
+  ivar = SNTABLE_READPREP_VARDEF(vartmp, &simdata_bias.SIM_VPEC[ISTART], 
+				 LEN,vbose);
+  if ( ivar > 0 ) { simdata_bias.IVAR_SIM_VPEC = ivar ; }
 
   //read CUTWIN variables to apply same cuts as for data.
   for(icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
     sprintf(vartmp, "%s:F", INPUTS.CUTWIN_NAME[icut]);
     if ( usesim_CUTWIN(vartmp) == 0 ) { continue ; }
-    ivar = SNTABLE_READPREP_VARDEF(vartmp,simdata_bias.CUTVAL[icut],LEN,vbose);
+    ivar = SNTABLE_READPREP_VARDEF(vartmp,&simdata_bias.CUTVAL[icut][ISTART], 
+				   LEN,vbose);
     simdata_bias.DOFLAG_CUTWIN[icut] = set_DOFLAG_CUTWIN(ivar,icut,0);
   }
 
-  // ==========================================
-  // ==========================================
-  // read entire file and load arrays
-  NROW = SNTABLE_READ_EXEC();
-  simdata_bias.NROW = NROW ;
-  // ==========================================
-  // ==========================================
+
+  return ;
+
+}  // end of SNTABLE_READPREP_biasCor
 
 
-  // close file
-  // xxx obsolete  TABLEFILE_CLOSE(simFile); 
+// ================================================================
+void prep_biasCor_misc(void) {
 
-  t_read_biasCor[1] = time(NULL); 
-
-  // ----------------------------
-  // prepare loop over bias cor to prepare lots of stuff:
+  // Created May 2019 
+  //    [code moved from read_simFile_biasCor]
+  // Called after reading biasCor files, set a few more variables:
+  //
   // + define mB = -2.5*log(x0), to be like the data.
   // + Set IDSAMPLE 
   // + set COV_FITVAL matrix
   // + set min/max for alpha and beta
-  
-  int i ;
+
+  int USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
+
+  int im, i, icut ;
   double mB, x0, mBoff_fit ; 
+  int   IDSURVEY, IDSAMPLE, OPT_PHOTOZ;
+  double CUTVAL_LOCAL[MXCUTWIN], a, amin, amax, b, bmin, bmax;
+  double z, zerr, zpecerr;
+  char *NAME, FIELD[MXCHAR_CCID], FIELDGROUP[100] ;
+  char SURVEY[MXCHAR_CCID], SURVEYGROUP[100], STRINGOPT[40];
+
+  char fnam[] = "prep_biasCor_misc" ;
+
+  // -------------- BEGIN -----------
+
   x0 = (double)simdata_bias.x0[0] ;
   mB = (double)simdata_bias.FITVAL[INDEX_mB][0] ;
   mBoff_fit = -2.5*log10(x0) - mB ;
@@ -6133,10 +6261,6 @@ void  read_simFile_biasCor(char *simFile) {
   printf("\t mB(sim) --> -2.5*log10(x0) = mB + %.4f \n", mBoff_fit);
   fflush(stdout);
 
-  int   IDSURVEY, IDSAMPLE, OPT_PHOTOZ;
-  double CUTVAL_LOCAL[MXCUTWIN], a, amin, amax, b, bmin, bmax;
-  char *NAME, FIELD[MXCHAR_CCID], FIELDGROUP[100] ;
-  char SURVEY[MXCHAR_CCID], SURVEYGROUP[100];
   sprintf(FIELD,"NONE");  sprintf(SURVEY,"NONE");
 
   amin = bmin =  99999.  ; // init min alpha,beta
@@ -6149,6 +6273,10 @@ void  read_simFile_biasCor(char *simFile) {
     simdata_bias.FITVAL[INDEX_mB][i] += (float)mBoff_fit ;
     simdata_bias.SIMVAL[INDEX_mB][i] += (float)mBoff_fit ;
     
+    // if OPT_PHOTOZ is not defined, set opt_photoz to zero since
+    // it was not read..
+    if ( simdata_bias.IVAR_OPT_PHOTO < 0 ) { simdata_bias.opt_photoz[i]; }
+
     // convert SURVEY/FIELD into mapID
     IDSURVEY   = simdata_bias.idsurvey[i] ;
     OPT_PHOTOZ = simdata_bias.opt_photoz[i] ;
@@ -6187,9 +6315,9 @@ void  read_simFile_biasCor(char *simFile) {
 
     // Jan 8 2018: if vpec variables are not there, set relevant 
     // values to zero to avoid crazy values.
-    if ( FOUND_VPEC == 0 ) 
+    if ( simdata_bias.IVAR_VPEC <= 0 ) 
       { simdata_bias.vpec[i] = simdata_bias.vpecerr[i] = 0.0 ; }
-    if ( FOUND_SIM_VPEC == 0 ) 
+    if ( simdata_bias.IVAR_SIM_VPEC <= 0 ) 
       { simdata_bias.SIM_VPEC[i] = 0.0 ; }
 
     // Jan 9 2018: back-compatibility code for versions before 10_56.
@@ -6212,11 +6340,9 @@ void  read_simFile_biasCor(char *simFile) {
   // print number of biasCor events vs. SURVEY/FIELD
   dump_SAMPLE_INFO("BIASCOR") ;
 
-  t_read_biasCor[2] = time(NULL); 
-
   return ;
-} // end read_simFile_biasCor
 
+} // end prep_biasCor_misc
 
 // ================================================================
 void  make_COV_FITVAL_biasCor(int ievt) {
@@ -9793,7 +9919,7 @@ double get_magoff_host(double *hostPar, int n) {
 } // end get_magoff_host
 
 // ==================================================
-void prepare_CCprior(char *simFile) {
+void prepare_CCprior(void) {
 
   // Created Jan 2016
   // If simFile is not null, then prepare CC prior for BEAMS-like
@@ -9807,16 +9933,8 @@ void prepare_CCprior(char *simFile) {
 
   // ------------- BEGIN -------------
 
-  simdata_ccprior.USE = 0 ;
+  if ( INPUTS.nfile_CCprior == 0 ) { return; }
 
-  if ( IGNOREFILE(simFile) ) { 
-    INPUTS.ipar[IPAR_scalePCC] = 0 ; // make sure scalePCC is not floated
-    return ; 
-  }
-
-  simdata_ccprior.USE = 1 ;
-
-  
   if ( simdata_bias.DOCOR_1D ) {
     sprintf(c1err,"Cannot use 1D biasCor with CC likelihood.");
     sprintf(c2err,"Either remove CC term, or use 5D biasCor.");
@@ -9834,7 +9952,7 @@ void prepare_CCprior(char *simFile) {
 
 
   // allocate memory and read simFile
-  read_simFile_CCprior(simFile, &simdata_ccprior.SIMFILE_INFO_ALL);
+  read_simFile_CCprior(&simdata_ccprior.SIMFILE_INFO_ALL);
 
   // transfer list of true CC events to another INFO_CC structure,
   // so that large-original INFO_ALL struct can be deleted from memory.
@@ -9864,88 +9982,79 @@ void prepare_CCprior(char *simFile) {
 } // end prepare_CCprior
 
 
-void  read_simFile_CCprior(char *simFile, SIMFILE_INFO_DEF *SIMFILE_INFO) {
+// =========================================
+void  read_simFile_CCprior(SIMFILE_INFO_DEF *SIMFILE_INFO) {
 
   // Created Jan 2016
-  // Read simFile and load SIMFILE_INFO struct.
+  // Read simFile(s) and load SIMFILE_INFO struct.
+  //
+  // May 2019: major refactor to read multiple CCprior files.
 
+  int  NFILE    = INPUTS.nfile_CCprior;
+  int  NEVT[MXFILE_CCPRIOR], NEVT_TOT;
+  int  IFILETYPE, NVAR_ORIG, LEN_MALLOC, NROW, ifile, ISTART ;
+  char *simFile ;
   char fnam[] = "read_simFile_CCprior" ;
-  char str_z[40], str_zerr[40], vartmp[60], STRINGOPT[40];
-  int  vbose=1;
-  int  IFILETYPE, NVAR_ORIG, LEN, NROW, icut, ivar ;
-  int  USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
 
   // -------------------- BEGIN --------------------
 
-  LEN = SNTABLE_NEVT(simFile,TABLENAME_FITRES); LEN+=10;
-  SIMFILE_INFO->LEN_MALLOC = LEN ; ;
-
-  printf("\t Found %d lines in %s. \n", LEN, simFile) ;
-  malloc_simdata_ccprior(+1, LEN, SIMFILE_INFO);
-
-  IFILETYPE = TABLEFILE_OPEN(simFile,"read");
-  NVAR_ORIG = SNTABLE_READPREP(IFILETYPE,"FITRES");
-  
-  sprintf(vartmp, "CID:C*%d  CCID:C*%d", MXCHAR_CCID, MXCHAR_CCID); 
-  SNTABLE_READPREP_VARDEF(vartmp, SIMFILE_INFO->name, LEN ,vbose) ;
-
-  if( USE_FIELDGROUP ) {
-    sprintf(vartmp, "FIELD:C*%d", MXCHAR_CCID); 
-    SNTABLE_READPREP_VARDEF(vartmp, SIMFILE_INFO->field, LEN ,vbose) ;
+  // do quick read of each file get NEVT count for each file
+  NEVT_TOT = 0 ;
+  for(ifile=0; ifile < NFILE; ifile++ ) {
+    simFile = INPUTS.simFile_CCprior[ifile];
+    NEVT[ifile] = SNTABLE_NEVT(simFile,TABLENAME_FITRES); 
+    NEVT_TOT += NEVT[ifile];
+    printf("\t Found %d events in %s. \n", NEVT[ifile], simFile) ;
   }
 
-  get_zString(str_z,str_zerr,"D");
-  SNTABLE_READPREP_VARDEF(str_z, SIMFILE_INFO->z, LEN ,vbose);
+
+  // malloc enough memory to read all files
+  LEN_MALLOC = NEVT_TOT + 10;
+  SIMFILE_INFO->LEN_MALLOC = LEN_MALLOC ; ;
+  malloc_simdata_ccprior(+1, LEN_MALLOC, SIMFILE_INFO);
+
+
+  // loop again over each file and read them
+  SIMFILE_INFO->NROW = 0 ;
+  for(ifile=0; ifile < NFILE; ifile++ ) {
+    simFile   = INPUTS.simFile_CCprior[ifile];
+    IFILETYPE = TABLEFILE_OPEN(simFile,"read");
+    NVAR_ORIG = SNTABLE_READPREP(IFILETYPE,"FITRES");
   
-  sprintf(vartmp,"c:D" );
-  SNTABLE_READPREP_VARDEF(vartmp, SIMFILE_INFO->c, LEN ,vbose);
+    ISTART = SIMFILE_INFO->NROW; // start index to load SIMFILE_INFO
+    SNTABLE_READPREP_CCprior(SIMFILE_INFO, ISTART, NEVT[ifile] );
 
-  sprintf(vartmp,"x1:D" );
-  SNTABLE_READPREP_VARDEF(vartmp, SIMFILE_INFO->x1, LEN ,vbose);
+    NROW = SNTABLE_READ_EXEC();
+    SIMFILE_INFO->NROW += NROW ;
 
-  sprintf(vartmp,"x0:D" );
-  SNTABLE_READPREP_VARDEF(vartmp, SIMFILE_INFO->x0, LEN ,vbose);
-
-  sprintf(vartmp,"SIM_DLMAG:D" );
-  SNTABLE_READPREP_VARDEF(vartmp, SIMFILE_INFO->SIM_DLMAG,LEN,vbose);
- 
-  sprintf(vartmp,"SIM_TYPE_INDEX:I" );
-  SNTABLE_READPREP_VARDEF(vartmp, SIMFILE_INFO->SIM_TYPE_INDEX,LEN,vbose);
-
-  sprintf(vartmp,"SIM_NONIA_INDEX:I SIM_TEMPLATE_INDEX:I" );
-  SNTABLE_READPREP_VARDEF(vartmp, SIMFILE_INFO->SIM_NONIA_INDEX,LEN,vbose);
-
-  sprintf(vartmp,"IDSURVEY:I" );
-  SNTABLE_READPREP_VARDEF(vartmp, SIMFILE_INFO->idsurvey,LEN,vbose);
-
-  if ( FOUNDKEY_OPT_PHOTOZ ) {
-    sprintf(vartmp,"OPT_PHOTOZ:I" );
-    SNTABLE_READPREP_VARDEF(vartmp, SIMFILE_INFO->opt_photoz,LEN,vbose);
   }
 
-  //read CUTWIN variables to apply same cuts as for data.
-  for(icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
-    sprintf(vartmp, "%s", INPUTS.CUTWIN_NAME[icut]);
-    if ( usesim_CUTWIN(vartmp) == 0 ) { continue ; }
-    ivar=SNTABLE_READPREP_VARDEF(vartmp,SIMFILE_INFO->CUTVAL[icut],LEN,vbose);
-    SIMFILE_INFO->DOFLAG_CUTWIN[icut] = set_DOFLAG_CUTWIN(ivar,icut,0);
-  }
-  
- 
-  // read entire file and load arrays
-  NROW = SNTABLE_READ_EXEC();
-  SIMFILE_INFO->NROW = NROW ;
+  // compute a few misc items (e.g., IDSAMPLE)
+  prep_CCprior_misc(SIMFILE_INFO);
 
-  // close file
-  // xxx obsolete   TABLEFILE_CLOSE(simFile); 
+  return ;
 
-  // ---------------------------------------
-  // set IDSAMPLE for each CCprior event
-  int   IDSURVEY, IDSAMPLE, OPT_PHOTOZ=0, i ;
+} // end  read_simFile_CCprior
+
+
+// ================================
+void   prep_CCprior_misc(SIMFILE_INFO_DEF *SIMFILE_INFO) {
+
+  // May 2019 [code moved from read_simFile_CCprior]
+  // Compute a few misc items.
+
+  int   IDSURVEY, IDSAMPLE, OPT_PHOTOZ=0, i, icut, NDUM ;
   double CUTVAL_LOCAL[MXCUTWIN] ;
   char *NAME, FIELD[MXCHAR_CCID], FIELDGROUP[100] ;
-  char  SURVEY[MXCHAR_CCID], SURVEYGROUP[100];
-  int   NOBIASCOR =  ( (INPUTS.opt_biasCor & MASK_BIASCOR_SAMPLE)==0 );
+  char  SURVEY[MXCHAR_CCID], SURVEYGROUP[100], STRINGOPT[40];
+
+  int  NROW      =  SIMFILE_INFO->NROW ;
+  int  NOBIASCOR = ( (INPUTS.opt_biasCor & MASK_BIASCOR_SAMPLE)==0 );
+  int  USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
+
+  char fnam[] = "prep_CCprior_misc" ;
+
+  // ----------- BEGIN ------------
 
   if ( NOBIASCOR ) {
     NSAMPLE_BIASCOR = 1;
@@ -9962,6 +10071,7 @@ void  read_simFile_CCprior(char *simFile, SIMFILE_INFO_DEF *SIMFILE_INFO) {
     if ( apply_CUTWIN(2, SIMFILE_INFO->DOFLAG_CUTWIN, CUTVAL_LOCAL) == 0 )  
       { continue  ; }
 
+    NDUM++ ;
     IDSURVEY   = SIMFILE_INFO->idsurvey[i] ;
     if ( FOUNDKEY_OPT_PHOTOZ ) 
       { OPT_PHOTOZ = SIMFILE_INFO->opt_photoz[i] ; }
@@ -9984,13 +10094,91 @@ void  read_simFile_CCprior(char *simFile, SIMFILE_INFO_DEF *SIMFILE_INFO) {
     SIMFILE_INFO->idsample[i] = IDSAMPLE ;
     SAMPLE_BIASCOR[IDSAMPLE].NCCPRIOR++ ;    
   }
+
   dump_SAMPLE_INFO("CCPRIOR");
 
   return ;
 
-} // end  read_simFile_CCprior
+} // end  prep_CCprior_misc
 
+// ===================================================
+void SNTABLE_READPREP_CCprior(SIMFILE_INFO_DEF *SIMFILE_INFO, 
+			      int ISTART, int LEN) {
 
+  // May 2019
+  // Wrapper to call SNTABLE_READPREP_VARDEF.
+
+  int  vbose=1;
+  int  icut, ivar ;
+  char vartmp[60], str_z[40], str_zerr[40] ;
+  int  USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
+  char fnam[] = "SNTABLE_READPREP_CCprior";
+
+  // ----------- BEGIN ------------
+
+  sprintf(vartmp, "CID:C*%d  CCID:C*%d", MXCHAR_CCID, MXCHAR_CCID); 
+  SNTABLE_READPREP_VARDEF(vartmp, &SIMFILE_INFO->name[ISTART], 
+			  LEN ,vbose) ;
+
+  if( USE_FIELDGROUP ) {
+    sprintf(vartmp, "FIELD:C*%d", MXCHAR_CCID); 
+    SNTABLE_READPREP_VARDEF(vartmp, &SIMFILE_INFO->field[ISTART], 
+			    LEN ,vbose) ;
+  }
+
+  get_zString(str_z,str_zerr,"D");
+  SNTABLE_READPREP_VARDEF(str_z, &SIMFILE_INFO->z[ISTART], 
+			  LEN ,vbose);
+  
+  sprintf(vartmp,"c:D" );
+  SNTABLE_READPREP_VARDEF(vartmp, &SIMFILE_INFO->c[ISTART], 
+			  LEN ,vbose);
+
+  sprintf(vartmp,"x1:D" );
+  SNTABLE_READPREP_VARDEF(vartmp, &SIMFILE_INFO->x1[ISTART], 
+			  LEN ,vbose);
+
+  sprintf(vartmp,"x0:D" );
+  SNTABLE_READPREP_VARDEF(vartmp, &SIMFILE_INFO->x0[ISTART], 
+			  LEN ,vbose);
+
+  sprintf(vartmp,"SIM_DLMAG:D" );
+  SNTABLE_READPREP_VARDEF(vartmp, &SIMFILE_INFO->SIM_DLMAG[ISTART],
+			  LEN,vbose);
+ 
+  sprintf(vartmp,"SIM_TYPE_INDEX:I" );
+  SNTABLE_READPREP_VARDEF(vartmp, &SIMFILE_INFO->SIM_TYPE_INDEX[ISTART],
+			  LEN,vbose);
+
+  sprintf(vartmp,"SIM_NONIA_INDEX:I SIM_TEMPLATE_INDEX:I" );
+  SNTABLE_READPREP_VARDEF(vartmp, &SIMFILE_INFO->SIM_NONIA_INDEX[ISTART],
+			  LEN,vbose);
+
+  sprintf(vartmp,"IDSURVEY:I" );
+  SNTABLE_READPREP_VARDEF(vartmp,&SIMFILE_INFO->idsurvey[ISTART],
+			  LEN,vbose);
+
+  if ( FOUNDKEY_OPT_PHOTOZ ) {
+    sprintf(vartmp,"OPT_PHOTOZ:I" );
+    SNTABLE_READPREP_VARDEF(vartmp, &SIMFILE_INFO->opt_photoz[ISTART],
+			    LEN,vbose);
+  }
+
+  //read CUTWIN variables to apply same cuts as for data.
+  for(icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
+    sprintf(vartmp, "%s", INPUTS.CUTWIN_NAME[icut] );
+    if ( usesim_CUTWIN(vartmp) == 0 ) { continue ; }
+    ivar = SNTABLE_READPREP_VARDEF(vartmp,&SIMFILE_INFO->CUTVAL[icut][ISTART],
+				   LEN, vbose);
+    SIMFILE_INFO->DOFLAG_CUTWIN[icut] = set_DOFLAG_CUTWIN(ivar,icut,0);
+  }
+  
+
+  return ;
+
+}  // end SNTABLE_READPREP_CCprior
+
+// ===================================================
 void  store_simFile_CCprior(SIMFILE_INFO_DEF *INFO_ALL, 
 			    SIMFILE_INFO_DEF *INFO_CC) {
 
@@ -11191,7 +11379,7 @@ void malloc_simdata_biasCor(int opt, int NROW) {
   // Created Jan 2016 by R.Kessler
   //
   // Inputs:
-  //   opt> 0 --> allocate & return number of rows in simFile
+  //   opt> 0 --> allocate 
   //   opt< 0 --> free
   // 
   //   NROW = size of array to malloc
@@ -11212,7 +11400,7 @@ void malloc_simdata_biasCor(int opt, int NROW) {
     
     simdata_bias.name =  (char**)malloc(NROW * sizeof(char*));
     for(isn=0; isn < NROW; isn++ )  {  
-      simdata_bias.name[isn] =  (char*)malloc(MXCHAR_CCID * sizeof(char));  
+      simdata_bias.name[isn] = (char*)malloc(MXCHAR_CCID * sizeof(char));  
       MEMTOT += MXCHAR_CCID; 
     }
     
@@ -11538,8 +11726,8 @@ void parse_parFile(char *parFile ) {
 
   printf("Reading SALT2mu parameter-input file '%s' : \n" ,  parFile);
 
-  char line[400];
-  while (fgets(line,400,fdef)) {
+  char line[MXCHAR_LINE];
+  while (fgets(line,MXCHAR_LINE,fdef)) {
 
     // skip blank lines and lines starting with comment char (RK 4/23/2012)
     if ( strlen(line) < 3 )       { continue ; }  
@@ -11561,12 +11749,6 @@ void parse_parFile(char *parFile ) {
   printf("\n");
   fclose(fdef);
 
-  // --------------------------------------
-  // Jun 20 2016: allow ENV for any input file
-  ENVreplace(INPUTS.filename,fnam,1);
-  ENVreplace(INPUTS.simFile_biasCor,fnam,1);
-  ENVreplace(INPUTS.simFile_CCprior,fnam,1);
-
   return ;
 
 } // end  of parse_parFile
@@ -11579,9 +11761,11 @@ void override_parFile(int argc, char **argv) {
   // Moved from MAIN
   //
   // Jan 15 2018: bug fix to work with CUTWIN; see i+=3
+  // May 15 2019: increase item & line size to allow for
+  //              comma-separated simfile_biascor
 
   int  ntmp, i, found ;
-  char item[256], line[256];
+  char item[MXCHAR_LINE], tmpLine[256];
   char fnam[] = "override_parFile";
 
   // ---------- BEGIN ------------
@@ -11605,8 +11789,8 @@ void override_parFile(int argc, char **argv) {
     //  if ( strcmp(item,"CUTWIN") == 0 ) {
     if ( !strncmp(item,"CUTWIN",6) ) {  // allow CUTWIN(option)
       // glue together 4 contiguous words into one string
-      sprintf(line,"%s %s %s %s", argv[i],argv[i+1],argv[i+2],argv[i+3] ) ;
-      found = ppar(line);
+      sprintf(tmpLine,"%s %s %s %s", argv[i],argv[i+1],argv[i+2],argv[i+3] ) ;
+      found = ppar(tmpLine);
       i += 3 ; // Jan 2018 bug fix
     }
     else {
@@ -11639,24 +11823,20 @@ int ppar(char* item) {
   // Apr 10, 2019 - replace !strcmp with uniqueOverlap function
   //                which aborts on duplicate key.
   
-  char *s ;
-  int j, ipar, len ;  char tmpString[80], key[40];
+  int j, ipar, len ;  
+  char key[40], *s;
   char fnam[] = "ppar" ;
 
   // --------- BEGIN ----------
 
   printf(" Parse '%s' \n",item);  fflush(stdout);
 
-  //  if (!strncmp(item,"prefix=",7)) 
   if ( uniqueOverlap(item,"prefix=") )
     { sscanf(&item[7],"%s",INPUTS.PREFIX); return(1); }
   
-  //  if (!strncmp(item,"errmask_write=",14)) 
   if ( uniqueOverlap(item,"errmask_write=") )
     { sscanf(&item[14],"%i", &INPUTS.errmask_write ); return(1); }
 
-
-  //  if (!strncmp(item,"file=",5)) {
   if ( uniqueOverlap(item,"file=") ) {
     s=INPUTS.filename;  
     sscanf(&item[5],"%s",s); remove_quote(s); 
@@ -11665,98 +11845,70 @@ int ppar(char* item) {
 
   // -------------------------
   // allow two different keys to define biasCor file name
-  //  if ( !strncmp(item,"simfile_bias=",13) ) { 
-  if ( uniqueOverlap(item,"simfile_bias=") ) {
-    s=INPUTS.simFile_biasCor ;  
-    sscanf(&item[13],"%s",s); remove_quote(s); 
-    return(1);
-  }
-  //  if ( !strncmp(item,"simfile_biascor=",16) ) { 
-  if ( uniqueOverlap(item,"simfile_biascor=") ) {
-    s=INPUTS.simFile_biasCor; 
-    sscanf(&item[16],"%s",s); remove_quote(s); 
-    return(1);
-  }
+  if ( uniqueOverlap(item,"simfile_bias=") ) 
+    { parse_simfile_biasCor(&item[13]);  return(1);  }
+  if ( uniqueOverlap(item,"simfile_biascor=") ) 
+    { parse_simfile_biasCor(&item[16]);  return(1); }
+
   // - - - - - - 
 
-  //  if (!strncmp(item,"prescale_biascor=",17)) 
   if ( uniqueOverlap(item,"prescale_biascor=") ) 
     { parse_prescale_biascor(&item[17]); return(1); }
  
-  //  if (!strncmp(item,"opt_biascor=",12))
   if ( uniqueOverlap(item,"opt_biascor=")  )
     { sscanf(&item[12],"%d", &INPUTS.opt_biasCor);  return(1); }
 
-  //  if (!strncmp(item,"sigmb_biascor=",14))   
   if ( uniqueOverlap(item,"sigmb_biascor=") )  // legacy name (9/2016)
     { sscanf(&item[14],"%le", &INPUTS.sigint_biasCor); return(1); }
 
-  //  if (!strncmp(item,"sigint_biascor=",15)) 
   if ( uniqueOverlap(item,"sigint_biascor=")  )
     { sscanf(&item[15],"%le", &INPUTS.sigint_biasCor); return(1); }
 
-  //  if (!strncmp(item,"snrmin_sigint_biascor=",22)) 
   if ( uniqueOverlap(item,"snrmin_sigint_biascor=")  )
     { sscanf(&item[22],"%le", &INPUTS.snrmin_sigint_biasCor); return(1); }
 
   // allow two different keys for fieldgroup_biascor
-  //  if (!strncmp(item,"fieldsplit_biascor=",19)) {  
   if ( uniqueOverlap(item,"fieldsplit_biascor=")  ) { // legacy name
     s=INPUTS.fieldGroup_biasCor ;
     sscanf(&item[19],"%s",s); remove_quote(s);
     return(1);
   }
-
-
-  //  if (!strncmp(item,"fieldgroup_biascor=",19)) { 
   if ( uniqueOverlap(item,"fieldgroup_biascor=")  ) {
     s=INPUTS.fieldGroup_biasCor ;  
     sscanf(&item[19],"%s",s); remove_quote(s);
     return(1);
   }
 
-  //  if (!strncmp(item,"surveygroup_biascor=",20)) { 
+
   if ( uniqueOverlap(item,"surveygroup_biascor=")  ) {
     s=INPUTS.surveyGroup_biasCor ; 
     sscanf(&item[20],"%s",s); remove_quote(s);
     return(1);
   }
 
-  //  if (!strncmp(item,"surveylist_nobiascor=",21)) { 
   if ( uniqueOverlap(item,"surveylist_nobiascor=")  ) {
     s=INPUTS.surveyList_noBiasCor ;
     sscanf(&item[21],"%s",s); remove_quote(s); 
     return(1);
   }
 
-  //  if (!strncmp(item,"sigma_cell_biascor=",19)) 
   if ( uniqueOverlap(item,"sigma_cell_biascor=") ) 
     { sscanf(&item[19],"%le", &INPUTS.sigma_cell_biasCor); return(1); }
   
   // -------- CC prior ------------
-  //  if (!strncmp(item,"simfile_ccprior=",16))  { 
   if ( uniqueOverlap(item,"simfile_ccprior=")  ) {
-    s=INPUTS.simFile_CCprior ;
-    sscanf(&item[16],"%s",s); remove_quote(s);
-    if ( IGNOREFILE(s) ) { simdata_ccprior.USE=0; return(1); }
-    simdata_ccprior.USE = 1;
-    if ( strcmp(s,"H11") == 0 ) { simdata_ccprior.USEH11 = 1; }
-
-    return(1);
+    parse_simfile_CCprior(&item[16]); return(1);
   }
 
-  //  if (!strncmp(item,"maxprobcc_for_sigint=",21)) 
   if ( uniqueOverlap(item,"maxprobcc_for_sigint=") )
     { sscanf(&item[21],"%le", &INPUTS.maxProbCC_for_sigint); return(1); } 
 
-  //  if (!strncmp(item,"varname_pIa=",12)) { 
   if ( uniqueOverlap(item,"varname_pIa=")  ) {
     s=INPUTS.varname_pIa ;
     sscanf(&item[12],"%s",s); remove_quote(s);
     return(1);
   }
 
-  //  if (!strncmp(item,"typeIa_ccprior=",15))  
   if ( uniqueOverlap(item,"typeIa_ccprior=") ) 
     { sscanf(&item[15],"%d", &INPUTS.typeIa_ccprior); return(1); } 
 
@@ -11826,7 +11978,7 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"sigint_fix="))  { 
     s = INPUTS.sigint_fix ;
-    sscanf(&item[11],"%s",&INPUTS.sigint_fix);  remove_quote(s); 
+    sscanf(&item[11],"%s", INPUTS.sigint_fix);  remove_quote(s); 
     return(1); 
   }
 
@@ -12008,11 +12160,81 @@ int ppar(char* item) {
     { sscanf(&item[19],"%d", &INPUTS.dumpflag_nobiasCor ); return(1); }
 
   if ( uniqueOverlap(item,"snid_mucovdump=")) 
-    { sscanf(&item[15],"%s", &INPUTS.SNID_MUCOVDUMP); return(1); }
+    { sscanf(&item[15],"%s", INPUTS.SNID_MUCOVDUMP); return(1); }
     
   return(0);
   
 } // end ppar
+
+
+// **************************************************
+void parse_simfile_biasCor(char *item) {
+
+  // Created May 15 2019
+  // parse comma-separate list of biascor files names.
+
+  int ifile;
+  int MEMC = MXCHAR_FILENAME*sizeof(char);
+  char comma[] = ",";
+  char fnam[]  = "parse_simfile_biasCor" ;
+
+  // ------------------ BEGIN -----------------
+
+  // first allocate memory for file names
+  INPUTS.simFile_biasCor = (char**)malloc( MXFILE_BIASCOR*sizeof(char*));
+  for(ifile=0; ifile < MXFILE_BIASCOR; ifile++ ) 
+    { INPUTS.simFile_biasCor[ifile] = (char*)malloc(MEMC); }
+
+  // split item string
+  splitString(item, comma, MXFILE_BIASCOR,    // inputs
+	      &INPUTS.nfile_biasCor, INPUTS.simFile_biasCor ); // outputs 
+  
+  char *f0 = INPUTS.simFile_biasCor[0];
+  if ( IGNOREFILE(f0) ) { INPUTS.nfile_biasCor = 0 ; }
+
+  return;
+
+} // parse_simfile_biasCor
+
+
+// **************************************************
+void parse_simfile_CCprior(char *item) {
+
+  // Created May 16 2019
+  // parse comma-separate list of CCprior files names.
+
+  int ifile;
+  int MEMC           = MXCHAR_FILENAME*sizeof(char);
+  char comma[] = ",";
+  char fnam[]  = "parse_simfile_CCprior" ;
+
+  // ------------------ BEGIN -----------------
+
+  // first allocate memory for file names
+  INPUTS.simFile_CCprior = (char**)malloc( MXFILE_CCPRIOR*sizeof(char*));
+  for(ifile=0; ifile < MXFILE_CCPRIOR; ifile++ ) 
+    { INPUTS.simFile_CCprior[ifile] = (char*)malloc(MEMC); }
+
+  // split item string
+  splitString(item, comma, MXFILE_BIASCOR,    // inputs
+	      &INPUTS.nfile_CCprior,
+	      INPUTS.simFile_CCprior ); // outputs  
+
+  // .xyz
+
+  char *f0 = INPUTS.simFile_CCprior[0];
+  if ( IGNOREFILE(f0) ) { 
+    INPUTS.nfile_CCprior          = 0 ;
+    INPUTS.ipar[IPAR_scalePCC]    = 0 ; // make sure scalePCC is not floated
+    return; 
+  }
+
+  simdata_ccprior.USE = 1;
+  if ( strcmp(f0,"H11") == 0 ) { simdata_ccprior.USEH11 = 1; }
+
+  return ;
+
+} // parse_simfile_CCprior
 
 
 // **************************************************
@@ -12673,7 +12895,6 @@ void SPLITRAN_SUMMARY(void) {
 
   printf("\n SPLITRAN SUMMARY is in %s \n", OUTFILE);
 
-  //.xyz
   fprintf(fp, "# SPLITRAN SUMMARY for %d jobs (Avg sample size: %d +- %d) \n",
 	 NJOB_SPLITRAN, (int)NSNAVG, (int)NSNRMS );
   fprintf(fp," \n");
@@ -12909,12 +13130,19 @@ void prep_input(void) {
 
   // May 9 2019: check INPUTS.fixpar_all
 
-  int i,  NFITPAR, NTMP=0 ;
+  int i,  NFITPAR, ifile, NTMP=0 ;
   double *blindpar ;
   char usage[10];
   char fnam[] = "prep_input";
 
   // ------------ BEGIN -----------
+
+  // substitute ENV for filenames
+  ENVreplace(INPUTS.filename,fnam,1);
+  for(ifile=0; ifile < INPUTS.nfile_biasCor; ifile++ ) 
+    { ENVreplace(INPUTS.simFile_biasCor[ifile],fnam,1); }
+  for(ifile=0; ifile < INPUTS.nfile_CCprior; ifile++ ) 
+    { ENVreplace(INPUTS.simFile_CCprior[ifile],fnam,1); }
 
   // check option to fix all parameters and use SALT2mu 
   // as a distance calculator
@@ -13024,10 +13252,7 @@ void prep_input(void) {
     printf("PRE-SCALE SIMCC by %.1f \n", INPUTS.prescale_simCC);
   }
 
-  char *f_biasCor = INPUTS.simFile_biasCor;
-  char *f_CCprior = INPUTS.simFile_CCprior;
-  int  ISFILE_BIASCOR = ( IGNOREFILE(f_biasCor)==0 );
-
+  int  ISFILE_BIASCOR = ( INPUTS.nfile_biasCor > 0 );
   // check for default biasCor option
   if ( ISFILE_BIASCOR ) {
     if ( INPUTS.opt_biasCor == 0 ) 
@@ -13045,18 +13270,17 @@ void prep_input(void) {
 
   // check for incompatible biasCor args
   if ( INPUTS.opt_biasCor > 0 && ISFILE_BIASCOR==0 ) {
-    sprintf(c1err,"opt_biascor=%d but simfile_biascor=%s .",
-	    INPUTS.opt_biasCor, f_biasCor);
+    sprintf(c1err,"opt_biascor=%d but simfile_biascor is not defined .",
+	    INPUTS.opt_biasCor);
     sprintf(c2err,"Provide simfile_biascor, or set opt_biascor=0");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   
-  // check for 'same' arg in either simfile_bias or simfile_ccprior.
-  if ( strcmp(f_biasCor,"same") == 0 ) 
-    { sprintf(f_biasCor,"%s", f_CCprior); }
-
+  /* xxxxxxxx mark delete: move "same" logic to parse_simfile_CCprior
+  // check for 'same' arg in simfile_ccprior.
   if ( strcmp(f_CCprior,"same") == 0 ) 
-    { sprintf(f_CCprior,"%s", f_biasCor); }
+    { sprintf(f_CCprior,"%s", ); }
+  xxxxx  */
 
   // if CCprior is not set then make sure to fix scalePCC and sigint
   if ( simdata_ccprior.USE == 0 ) {
@@ -13070,8 +13294,8 @@ void prep_input(void) {
   // if scalePCC=0 and is fixed, turn off CC prior
   if( INPUTS.ipar[IPAR_scalePCC] == 0  && 
       fabs(INPUTS.parval[IPAR_scalePCC]) < 0.000001 )  { 
-    simdata_ccprior.USE = 0 ; 
-    sprintf(INPUTS.simFile_CCprior,"NONE");
+    INPUTS.nfile_CCprior = 0 ;
+    simdata_ccprior.USE  = 0 ; 
   }
 
 

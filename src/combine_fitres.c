@@ -102,6 +102,9 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN);
 void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN); 
 void  freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN); 
 
+// declare functions in sntools_output_text.c
+int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
+
 // ================================
 // Global variables
 // ================================
@@ -991,7 +994,7 @@ void  ADD_SNTABLE_COMMENTS(void) {
   sprintf(comment,"Created by combine_fitres.exe");
   STORE_TABLEFILE_COMMENT(comment) ;
 
-  sprintf(comment,"Combined files:", "%s", NFFILE_INPUT);
+  sprintf(comment,"Number of combined files:", "%d", NFFILE_INPUT);
   STORE_TABLEFILE_COMMENT(comment) ;
 
   for(ifile=0; ifile < NFFILE_INPUT; ifile++ ) {

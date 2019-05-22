@@ -16661,4 +16661,61 @@ GitHub issues:
        errors, and hopefully will fix the crash Justin found on
        his laptop.
        
+
+# ======================================================================= 
+         v10_72h (May 20 2019) 
+
+         ***** IMPORTANT(v10_72h) ***** 
+
+         ***** USEFUL(v10_72h) ***** 
+
+   + OPT_SETPKMJD: new Fmax-clump  method; see manaul Sec 5.4.
+   + SALT2mu.exe:  can read comma-sep list of simfile_bias & simfile_ccprior.
+   + psnid.exe:    increase Ntemplate bound from 100 to 1000
+
+         ***** MISCELLANEOUS(v10_72h) ***** 
+
+     genmag_NON1ASED.c
+       + bug fix for option to select round-robin over all templates.
+
+     SALT2mu.c: 
+       + Refactor to read comma-separated list of  simfile_baiscor 
+         and simfile_CCprior. 
+
+     snana.car:
+       + new OPT_SETPKMJD option to use Fmax-clump method;
+         see manual section 5.4.
+
+     psnid_BEST.c :
+       + increase bound of 100 templates to 1000 templates.
+         Allows using PSNID on all of the K17 models.
+
+     Run valgrind on snana.exe,snlc_sim.exe, snlc_fit.exe, 
+     SALT2mu.exe, and fix a few issues. 
+     Fix compile issues found on Justin's Mac, including evil
+     seg-fault bug in function openFile_PATH_SNDATA_SIM().
+
+
+# ======================================================================= 
+         v10_72i (May 21 2019) 
+
+         ***** IMPORTANT(v10_72i) ***** 
+
+         ***** USEFUL(v10_72i) ***** 
+
+         ***** MISCELLANEOUS(v10_72i) ***** 
+
+   snana.car
+     + in SET_PEAKMJD(), return if fewer than 2 epochs.
+     + for Fmax-clump method, if all epochs fail SNRCUT_SETPKMJD, 
+       return instead of abort.
+     + improve Fmax-clump with SNRCUT_SETPKMJD=5 and BACKUP_SNRCUT
+       if SNRMAX<5.
+     + MXFILT_SNRMAX -> 8 (was 10) to make room for CUTWIN_TOBS
+
+   SNANA_CodeTest.py : ready for Midway2 and batch system.
+
+   On FNAL-DES cluster, switch devel setup to use EUPS (no mor UPS).
+   This doesn't change SNANA codes, but changes what it links to.
+
 END: 

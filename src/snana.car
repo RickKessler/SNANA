@@ -287,7 +287,7 @@ c
      &  ,MXFILT_ALL  = 80    ! max number of all possible filter defs
      &  ,MXFILT_REST = 20    ! max number of rest-frame filter types (was 12)
      &  ,MXFILT_KCOR = MXFILT_REST ! max number of filters used in Kcor table
-     &  ,MXFILT_SNRMAX = 10       ! no more than this many SNRMAX(filt) cuts
+     &  ,MXFILT_SNRMAX =  8       ! no more than this many SNRMAX(filt) cuts
      &  ,MNTYPE       =   1       ! min sn "type"
      &  ,MXTYPE       = 1000      ! max sn "type"
      &  ,MXZBIN_KCOR  = 100       ! max # Z-bins for KCOR tables
@@ -901,6 +901,7 @@ c
      &  ,SNLC8_MJD(MXEPOCH)  ! MJD for each epoch
      &  ,SNLC8_MJDMIN        !   min MJD among all measurements
      &  ,SNLC8_MJDMAX        !   max MJD ...
+     &  ,SNLC8_MJD_TRIGGER   ! MJD of trigger bit (see PHOTFLAG_TRIGGER)
 
       REAL 
      &   SNLC_ZHELIO        ! redshift used for final analysis 
@@ -927,9 +928,9 @@ c
      &  ,SNLC_SNRMAX_FILT(0:MXFILT_OBS)   ! max S/N per filter/SN
      &  ,SNLC_SNRMAX_SORT(MXFILT_OBS)     ! 1st, 2nd ... SNRMAX by filt
      &  ,SNLC_FLUXCALMAX(MXFILT_OBS)    ! max flux per filter/SN
-     &  ,SNLC_SNANACALC_PEAKMJD     ! SNANA-estimate of PEAKKMJD
-     &  ,SNLC_SNANACALC_PEAKMJD_FITPAR(MXFILT_OBS,NPAR_ANYLC)
-     &  ,SNLC_SNANACALC_PEAKMJD_FITERR(MXFILT_OBS,NPAR_ANYLC)
+     &  ,SNLC_SNANAFIT_PEAKMJD     ! SNANA-estimate of PEAKKMJD
+     &  ,SNLC_SNANAFIT_PEAKMJD_FITPAR(MXFILT_OBS,NPAR_ANYLC)
+     &  ,SNLC_SNANAFIT_PEAKMJD_FITERR(MXFILT_OBS,NPAR_ANYLC)
      &  ,SNLC_PHOTPROB(MXEPOCH)   ! generic 'fit probability' per epoch
      &  ,SNLC_PHOTPROB_MIN        ! min photprob for PHOTPROB>0
      &  ,SNLC_AIRMASS(MXEPOCH)
@@ -937,7 +938,8 @@ c
      &  ,SNLC_CLOUDCAM_SIG(MXEPOCH)
      &  ,SNLC_MOONDIST(MXEPOCH)    ! in deg.
      &  ,SNLC_MOONPHASE(MXEPOCH)   ! 0 - 1
-     &  ,SNLC_TREST(MXEPOCH)          !MJD-SearhMJDPEAK / (1+z)
+     &  ,SNLC_TOBS(MXEPOCH)        ! MJD-SET_PEAKMJD
+     &  ,SNLC_TREST(MXEPOCH)       !  MJD-SET_PEAKMJD)/(1+z)
      &  ,SNLC_GAIN(MXEPOCH)      ! e/AUD
      &  ,SNLC_RDNOISE(MXEPOCH)   ! read noise per pix, e-
      &  ,SNLC_PIXSIZE            ! pixel size
@@ -999,14 +1001,14 @@ c
 
       COMMON / SNLC8COM /
      &    SNLC8_RA, SNLC8_DEC
-     &  , SNLC8_MJD, SNLC8_MJDMIN, SNLC8_MJDMAX
+     &  , SNLC8_MJD, SNLC8_MJDMIN, SNLC8_MJDMAX, SNLC8_MJD_TRIGGER
 
       COMMON / SNLCCOM /
      &     SNLC_CID, SNLC_CCID,  SNLC_CASTCID, SNLC_IAUC
      &    ,SNLC_FIELD, SNLC_FIELD_OVPLIST, SNLC_FIELDLIST
-     &    ,SNLC_SNANACALC_PEAKMJD
-     &    ,SNLC_SNANACALC_PEAKMJD_FITPAR
-     &    ,SNLC_SNANACALC_PEAKMJD_FITERR
+     &    ,SNLC_SNANAFIT_PEAKMJD
+     &    ,SNLC_SNANAFIT_PEAKMJD_FITPAR
+     &    ,SNLC_SNANAFIT_PEAKMJD_FITERR
      &    ,SNLC_SEARCH_PEAKMJD
      &    ,SNLC_ZHELIO, SNLC_ZHELIO_ERR
      &    ,SNLC_ZCMB,   SNLC_ZCMB_ERR, SNLC_ZHD, SNLC_ZHD_ERR
@@ -1015,7 +1017,7 @@ c
      &    ,SNLC_VPEC, SNLC_VPEC_ERR, SNLC_ZPEC, SNLC_ZPEC_ERR
      &    ,SNLC_TRESTMIN, SNLC_TRESTMAX, SNLC_TrestRange, SNLC_TREST
      &    ,SNLC_TGAPMAX,  SNLC_T0GAPMAX
-     &    ,SNLC_Tobsmin, SNLC_Tobsmax
+     &    ,SNLC_Tobsmin, SNLC_Tobsmax, SNLC_TOBS
      &    ,SNLC_SNRMAX_FILT, SNLC_SNRMAX_SORT
      &    ,SNLC_FLUXCALMAX, SNLC_PHOTPROB, SNLC_PHOTPROB_MIN
      &    ,SNLC_CLOUDCAM_AVG, SNLC_CLOUDCAM_SIG
@@ -1631,7 +1633,7 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_MJD_MARKER     ! things above do NOT depend on epoch
      &  ,CUTBIT_PSF,  CUTBIT_ZP
      &  ,CUTBIT_MOONDIST,  CUTBIT_PHOTPROB, CUTBIT_AIRMASS
-     &  ,CUTBIT_TREST, CUTBIT_MJD
+     &  ,CUTBIT_TREST, CUTBIT_TOBS, CUTBIT_MJD
      &  ,CUTBIT_IDTEL          ! valid telescope 
      &  ,CUTBIT_NBAND_THRESH
      &  ,CUTBIT_NFILT_SNRMAX
@@ -1690,8 +1692,9 @@ c MJD-dependent cuts below
      &  ,CUTBIT_AIRMASS      = CUTBIT_MJD_MARKER + 5  ! 1=overhead
      &  ,CUTBIT_NBAND_THRESH = CUTBIT_MJD_MARKER + 6
      &  ,CUTBIT_Trest        = CUTBIT_MJD_MARKER + 7  
-     &  ,CUTBIT_MJD          = CUTBIT_MJD_MARKER + 8  
-     &  ,CUTBIT_IDTEL        = CUTBIT_MJD_MARKER + 9
+     &  ,CUTBIT_Tobs         = CUTBIT_MJD_MARKER + 8  ! 5.21.2019
+     &  ,CUTBIT_MJD          = CUTBIT_MJD_MARKER + 9  
+     &  ,CUTBIT_IDTEL        = CUTBIT_MJD_MARKER + 10
 c
      &  ,CUTBIT_OFFSET       = CUTBIT_IDTEL
      &  ,NCUTBIT             = CUTBIT_OFFSET 
@@ -1805,6 +1808,7 @@ c  Below are Epoch-dependent cuts
      &  ,cutwin_moondist(2)      ! dist betwee SN and moon, deg
      &  ,cutwin_photprob(2)
      &  ,cutwin_Trest(2)         ! window for all epochs, rest frame days
+     &  ,cutwin_Tobs(2)          ! window for all epochs, obs-frame days
      &  ,cutwin_MJD(2)           ! MJD window
      &  ,CUTWIN_MJD_EXCLUDE(2)          ! MJD window to exclude
      &  ,CUTWIN_MJD_INCLUDE(2)          ! require  MJD in this window
@@ -1955,6 +1959,7 @@ ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
      &   ,( cutwin_var(1,cutbit_Tobsmin),   cutwin_Tobsmin )
      &   ,( cutwin_var(1,cutbit_Tobsmax),   cutwin_Tobsmax )
      &   ,( cutwin_var(1,cutbit_Trest),     cutwin_Trest )
+     &   ,( cutwin_var(1,cutbit_Tobs),      cutwin_Tobs )
      &   ,( cutwin_var(1,cutbit_MJD),       cutwin_MJD   )
      &   ,( cutwin_var(1,cutbit_peakmjd),   cutwin_peakmjd )
      &   ,( cutwin_var(1,cutbit_NMJD_INCLUDE),  cutwin_NMJD_INCLUDE )
@@ -2037,8 +2042,6 @@ c
      &  ,MINUIT_PRINT_LEVEL   ! -1 -> none
      &  ,INTERP_OPT           ! (I)  interp option (see INTERP_XXX params)
      &  ,NLINE_ARGS       
-     &  ,OPT_SETPKMJD            ! bit-mask options  to determined PKMJD
-     &  ,MJDRANGE_SETPKMJD(2)    ! MJD range to use for SETPKMJD
      &  ,OPT_REFORMAT_TEXT       ! T=> re-write SNDATA files in text format
      &  ,OPT_REFORMAT_TERSE      ! T=> legacy key for text format
      &  ,OPT_REFORMAT_FITS       ! T=> re-write  in FITSformat (data only)
@@ -2049,6 +2052,7 @@ c
      &  ,JOBSPLIT_EXTERNAL(2)    ! passed by split_and_fit for text format 
      &  ,MXLC_FIT                ! stop after this many fits passing all cuts
      &  ,PHOTFLAG_DETECT         ! used to count NOBS_DETECT and TLIVE_DETECT
+     &  ,PHOTFLAG_TRIGGER        ! determine MJD(trigger) for survey
      &  ,APPLY_FLUXCOR_BUG       ! see calling sequence in SNRECON
      &  ,FLUXERRMODEL_OPTMASK
 
@@ -2107,7 +2111,14 @@ c Oct 2014: variables to check for multi-season transient activity
      &   SIM_PRESCALE        ! pre-scale applied only to SIM
      &  ,VPEC_ERR_OVERRIDE   ! override VPEC_ERR in data header (km/sec)
 
-      
+c variables to control estimate of PEAKMJD
+      INTEGER
+     &   OPT_SETPKMJD            ! bit-mask options  to determined PKMJD
+      REAL
+     &   MJDRANGE_SETPKMJD(2)    ! MJD range to use for SETPKMJD
+     &  ,SNRCUT_SETPKMJD         ! define SNR for Fmax in clump method
+     &  ,MJDWIN_SETPKMJD         ! MJD window for Fmax in clump method
+
 c define reference cosmological parameters (double precision!)
 c Aug 7, 2009: each parameter has dimension 2 for value & error
 
@@ -2142,7 +2153,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
      &    , MAGCOR_FILE, SIM_MAGCOR_FILE,  FUDGE_HOSTNOISE_FILE
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
-     &    , OPT_SETPKMJD, MJDRANGE_SETPKMJD, OPT_DEBUG
+     &    , OPT_SETPKMJD, MJDRANGE_SETPKMJD
+     &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, OPT_DEBUG
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_zHOST
      &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
@@ -2162,7 +2174,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT, DTOBS_MODEL_PLOT
      &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP
      &    , MULTISEASON_NREJECT_OUTLIER, MULTISEASON_CHI2RED_ACTIVE
-     &    , APPLY_FLUXCOR_BUG, PHOTFLAG_DETECT
+     &    , APPLY_FLUXCOR_BUG, PHOTFLAG_DETECT, PHOTFLAG_TRIGGER
      &    , CUTWIN_ZPADU, CUTWIN_ZPNPE
 
       COMMON / SNLCINP8 /
@@ -2184,7 +2196,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE
      &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, NONLINEARITY_FILE
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
-     &    , OPT_SETPKMJD, MJDRANGE_SETPKMJD, OPT_DEBUG
+     &    , OPT_SETPKMJD, MJDRANGE_SETPKMJD
+     &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, OPT_DEBUG
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST
      &    , LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
@@ -2199,7 +2212,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT, DTOBS_MODEL_PLOT
      &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP
      &    , MULTISEASON_NREJECT_OUTLIER, MULTISEASON_CHI2RED_ACTIVE
-     &    , APPLY_FLUXCOR_BUG, PHOTFLAG_DETECT
+     &    , APPLY_FLUXCOR_BUG, PHOTFLAG_DETECT, PHOTFLAG_TRIGGER
 c
 c Below are cut-variables defined in SNCUTS
 c
@@ -2214,7 +2227,7 @@ c
      &   ,cutwin_snrmax,    cutwin_snrmax2, cutwin_nfield
      &   ,cutwin_mwebv,     cutwin_nseason_active
      &   ,cutwin_Trestmin,   cutwin_Trestmax
-     &   ,cutwin_TrestRange, cutwin_Trest
+     &   ,cutwin_TrestRange, cutwin_Trest, cutwin_Tobs
      &   ,cutwin_Tgapmax,  cutwin_T0gapmax
      &   ,cutwin_Tobsmin,  cutwin_Tobsmax
      &   ,cutwin_peakmjd,  cutwin_mjd
@@ -2849,24 +2862,26 @@ c define arrays to hold MNCONT informatino for contour plots
 
 +KEEP,PKMJDCOM.
 
-c define bits for user option-mask OPT_SETPKMJD  (lsb = 1 )
-c Oct 20 2014: set LSB=0 (instead of 1) and add OPTBIT_SETPKMJD_SAVEPAR
-c
+c define bits for user option-mask OPT_SETPKMJD  (lsb = 0 )
       INTEGER 
      &   OPTBIT_SETPKMJD_ANYFUN
      &  ,OPTBIT_SETPKMJD_POLYCOR
      &  ,OPTBIT_SETPKMJD_NOABORT
-     &  ,OPTBIT_SETPKMJD_MAXFLUX
+     &  ,OPTBIT_SETPKMJD_FLUXMAX
      &  ,OPTBIT_SETPKMJD_SAVEPAR
+     &  ,OPTBIT_SETPKMJD_FLUXMAX2
+     &  ,OPTBIT_SETPKMJD_TRIGGER
      &  ,OPTBIT_SETPKMJD_DUMP
 
       PARAMETER ( 
      &  OPTBIT_SETPKMJD_ANYFUN  = 0  ! (=1) use exact function from Bazin 09
      & ,OPTBIT_SETPKMJD_POLYCOR = 1  ! (=2) include POLY cor in Bazin function
      & ,OPTBIT_SETPKMJD_NOABORT = 2  ! (=4) do not abort if can't find PKMJD 
-     & ,OPTBIT_SETPKMJD_MAXFLUX = 3  ! (=8) PEAKMJD=MJD(maxFlux) like JG
-     & ,OPTBIT_SETPKMJD_SAVEPAR = 4  ! (=16) save fit params to SNANA table
-     & ,OPTBIT_SETPKMJD_DUMP    = 7  !(=128) extra screen dump per SN/filter
+     & ,OPTBIT_SETPKMJD_FLUXMAX = 3  ! (=8) PEAKMJD=MJD(maxFlux) like JG
+     & ,OPTBIT_SETPKMJD_FLUXMAX2= 4  ! (=16) PKMJD for Fmax clump
+     & ,OPTBIT_SETPKMJD_TRIGGER = 5  ! (=32) PKMJD = MJD_TRIGGER 
+     & ,OPTBIT_SETPKMJD_SAVEPAR = 9  ! (=512) save fit params to SNANA table
+     & ,OPTBIT_SETPKMJD_DUMP    =10  !(=1024) extra screen dump per SN/filter
      &   )
 
 c Define fit params
@@ -2876,7 +2891,7 @@ c Define fit params
      &  ,IPAR_T0, IPAR_TRISE, IPAR_TFALL
      &  ,IPAR_A0, IPAR_A1, IPAR_A2
      
-      REAL PSFMAX_forFLUXMAX 
+      REAL PSFMAX_forFLUXMAX, SNRMIN_forFLUXMAX
 
       PARAMETER (
      &   IPAR_ISN    = 1
@@ -2887,7 +2902,8 @@ c Define fit params
      &  ,IPAR_A0     = 6
      &  ,IPAR_A1     = 7
      &  ,IPAR_A2     = 8
-     &  ,PSFMAX_forFLUXMAX = 2.0 ! arcSec, to avoid crazy fluxMax
+     &  ,PSFMAX_forFLUXMAX  = 2.0   ! arcSec, to avoid crazy fluxMax
+     &  ,SNRMIN_forFLUXMAX  = 3.0   ! min SNR to consider for fluxmax
      &     )
 
        CHARACTER  PKPARNAME(NPAR_ANYLC)*16 
@@ -3524,8 +3540,10 @@ c default is to reject nothing (accept everything)
       DTOBS_MODEL_PLOT = 2.0  ! 2 day binning
  
       OPT_SETPKMJD    = 0
-      MJDRANGE_SETPKMJD(1) = 10
-      MJDRANGE_SETPKMJD(2) = 999999
+      MJDRANGE_SETPKMJD(1) = 10.
+      MJDRANGE_SETPKMJD(2) = 999999.
+      SNRCUT_SETPKMJD      = 5.0  ! only for FLUXMAX2 option (Fmax-clump)
+      MJDWIN_SETPKMJD      =50.0  ! only for FLUXMAX2 option (Fmax-clump)
 
       OPT_DEBUG           = 0
       LDMP_SNFAIL         = .FALSE.
@@ -3546,6 +3564,7 @@ c by default do NOT check for multiseason activity (Oct 2014)
       MULTISEASON_CHI2RED_ACTIVE     =  5.0
 
       PHOTFLAG_DETECT   = 0 
+      PHOTFLAG_TRIGGER  = 0
       APPLY_FLUXCOR_BUG = 1  ! keep bug until DES3YR papers published
 
 
@@ -4800,6 +4819,8 @@ c to allow multiple specifications.
 
          else if ( LINE_ARGS(i) .EQ. 'PHOTFLAG_DETECT' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) PHOTFLAG_DETECT
+         else if ( LINE_ARGS(i) .EQ. 'PHOTFLAG_TRIGGER' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTFLAG_TRIGGER
 
          else if ( LINE_ARGS(i) .EQ. 'APPLY_FLUXCOR_BUG' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) APPLY_FLUXCOR_BUG
@@ -4868,6 +4889,11 @@ c ----------
          else if ( LINE_ARGS(i) .EQ. 'MJDRANGE_SETPKMJD' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) MJDRANGE_SETPKMJD(1)
             i = i + 1 ; READ(LINE_ARGS(i),*) MJDRANGE_SETPKMJD(2)
+
+         else if ( LINE_ARGS(i) .EQ. 'MJDWIN_SETPKMJD' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) MJDWIN_SETPKMJD
+         else if ( LINE_ARGS(i) .EQ. 'SNRCUT_SETPKMJD' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) SNRCUT_SETPKMJD
 
          else if ( LINE_ARGS(i) .EQ. 'DOBUG_LAMRANGE' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) DOBUG_LAMRANGE
@@ -4964,6 +4990,10 @@ c ---
          else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TREST' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TREST(1)
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TREST(2)
+
+         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TOBS' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TOBS(1)
+            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TOBS(2)
 
          else if ( LINE_ARGS(i) .EQ. 'CUTWIN_PEAKMJD' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_PEAKMJD(1)
@@ -5988,7 +6018,7 @@ c for fit, write number passing fit cuts.
       END
 
 C ======================================
-+DECK,SNANA_DR.
++DECK,SNANA_DRIVER.
       SUBROUTINE SNANA_DRIVER(ISN)
 
 c Created May 18, 2012 by R.Kessler
@@ -6081,6 +6111,7 @@ c one-time init after first event is read.
 
         CALL MON_SNANA(IFLAG_INI)     ! book 1d distributions    
 
+
 +SELF,IF=SNFIT.
         CALL FITPAR_INI2(IERR)
 +SELF.
@@ -6110,6 +6141,7 @@ c compute quantities, apply AB offsets, set cut-mask
       CALL U3BAND()        ! special U-band test
       CALL USRCUTS(IERR)   ! user code to set PASS_USRCUTS=F (Aug 2015)
       CALL SET_CUTMASK()   ! set cutmask 
+
 
 +SELF,IF=SNFIT.
 c check option to include IDEAL fit, after SNRECON (Aug 29 2017)
@@ -12078,8 +12110,8 @@ c strip off info for SPLITTING jobs among multiple CPUs.
       ENDIF
 c ----
 
-      DO 100 ifile = IJOB, N_SNFILE_VER, NJOBTOT
-         
+      DO 100 ifile = IJOB, N_SNFILE_VER, NJOBTOT        
+
          IF ( N_SNLC_FITCUTS > MXLC_FIT ) GOTO 100
 
 c  open,read,parse this event
@@ -12142,7 +12174,7 @@ c local var
      &   LNEWMJD_SAVE, LNEWMJD_NEW, LSIM_BADz
      &  ,END_MJD_VERBOSE, END_MJD_TERSE, END_PHOTOMETRY, ALLOW_SKIP
      &  ,ISKEY_SIM, ISKEY_VARLIST, ISKEY_EPOCH, ISKEY_OBS, ISKEY_MJD
-     &  ,ISKEY_SPECBIN, ISKEY_SPECTRUM, ISKEY_SPEC
+     &  ,ISKEY_SPECBIN, ISKEY_SPECTRUM, ISKEY_SPEC, ZERO_REDSHIFT_OK
 
       INTEGER 
      &   iwd, iwd2, i, NWD, NEP, NEWMJD, NZ, isnlc, cid
@@ -12406,12 +12438,15 @@ c count epochs per filter and fill ISNLC_NEPOCH_FILT(ifilt) array
 
 c add sanity check on simulated redshift (Jan 31, 2014
           
-      IF ( LSIM_SNANA .and. SIM_MODEL_INDEX .NE. MODEL_LCLIB ) THEN
+      ZERO_REDSHIFT_OK = 
+     &   (SIM_MODEL_INDEX .EQ. MODEL_LCLIB) .or.
+     &   (SIM_MODEL_INDEX .EQ. MODEL_FIXMAG )
+      IF ( LSIM_SNANA .and. .NOT. ZERO_REDSHIFT_OK ) THEN
          LSIM_BADz = ( SIM_REDSHIFT_HELIO .LE. 0.0 ) 
          IF ( LSIM_BADz ) then 
            write(c1err,641) SIM_REDSHIFT_HELIO
 641        format('Invalid SIM_REDSHIFT_HELIO=', F9.5)
-           c1err = 'Check simulation'
+           c2err = 'Check simulation'
            CALL  MADABORT(FNAM, c1err, c2err)
          ENDIF
       ENDIF
@@ -16688,6 +16723,7 @@ C ------------- BEGIN ------------
       SNLC_MOONDIST(ep1)     = SNLC_MOONDIST(ep2)
       SNLC_MOONPHASE(ep1)    = SNLC_MOONPHASE(ep2)
       SNLC_TREST(ep1)        = SNLC_TREST(ep2)
+      SNLC_TOBS(ep1)         = SNLC_TOBS(ep2)
       SNLC_GAIN(ep1)         = SNLC_GAIN(ep2)
       SNLC_RDNOISE(ep1)      = SNLC_RDNOISE(ep2)
       SNLC_XPIX(ep1)         = SNLC_XPIX(ep2)
@@ -16755,6 +16791,7 @@ c ------------- BEGIN -------------
 
       ISNLC_NEPOCH_DETECT =  0 
       SNLC_TLIVE_DETECT   = -9.0
+      SNLC8_MJD_TRIGGER   = -99.0
 
       NEPOCH_BADPHOT      =   0
       ISNLC_FAKE          =  -9
@@ -16782,7 +16819,7 @@ c ------------- BEGIN -------------
       SNLC_MWEBV         =   0.0
       SNLC_MWEBV_ERR     =   0.0
       SNLC_SEARCH_PEAKMJD    =  -9.0
-      SNLC_SNANACALC_PEAKMJD = -9.0
+      SNLC_SNANAFIT_PEAKMJD = -9.0
       ISNLC_TYPE         =  0
 
       SNLC_PHOTPROB_MIN = 1.0
@@ -16833,8 +16870,8 @@ c --------
          SNLC_FIELDLIST = 'UNKNOWN'
 
          DO ipar = 1, NPAR_ANYLC
-           SNLC_SNANACALC_PEAKMJD_FITPAR(ifilt,ipar) = -99.0
-           SNLC_SNANACALC_PEAKMJD_FITERR(ifilt,ipar) = -99.0
+           SNLC_SNANAFIT_PEAKMJD_FITPAR(ifilt,ipar) = -99.0
+           SNLC_SNANAFIT_PEAKMJD_FITERR(ifilt,ipar) = -99.0
          ENDDO
          
          SIM_TEMPLATEMAG(ifilt) = 99.0 
@@ -17126,6 +17163,7 @@ c hard-wire names of cut variables (maxchar = 28)
       cutvar_name(CUTBIT_SIMVAR)       = 'SIMVAR_CUTS:'
       cutvar_name(CUTBIT_USRCUTS)      = 'USRCUTS:'
       cutvar_name(CUTBIT_TREST)        = 'Trest:'
+      cutvar_name(CUTBIT_TOBS)         = 'Tobs:'
       cutvar_name(CUTBIT_IDTEL)        = 'Telescope:'
       cutvar_name(CUTBIT_SNRMAX)       = 'SNRmax:'
       cutvar_name(CUTBIT_SNRMAX2)      = 'SNRmax2:'
@@ -18871,6 +18909,7 @@ c  * ISNLC_NFILT_THRESH(epoch) = # filter bands above user-threshold
 c  * ISNLC_NFILT_TRESTMIN[MAX]
 c  * ISNLC_NFILT_TREST2  
 c  * SNLC_TREST(epoch)        = MJD - MJDatPEAK(search) 
+c  * SNLC_TOBS(epoch)
 c  *
 c  * SNLC_FLUXCAL_ERRCALC(ifilt,epoch,isn)  ! calc flux error 
 c  * SNHOST_ZPHOT[_ERR]
@@ -19070,6 +19109,7 @@ c = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         Tobs  = MJD8 - SNLC_SEARCH_PEAKMJD
         Trest = Tobs / z1
 
+        SNLC_TOBS(EPMIN)  = Tobs
         SNLC_TREST(EPMIN) = Trest
 
         NBAND_THRESH = 0  ! init number of filter bands above user-threshold
@@ -19079,6 +19119,7 @@ c = = = = = = = = = = = = = = = = = = = = = = = = = = = =
            ISNLC_SNRECON_USE(ep) = 0
 
            SNLC_TREST(EP) = Trest
+           SNLC_TOBS(EP)  = Tobs	
            IFILT_OBS = ISNLC_IFILT_OBS(ep)
            IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
            
@@ -19194,6 +19235,8 @@ c check MJD-exclude window to reject epochs (but keep LC)
      &            MJD8 .LE. CUTWIN_MJD_EXCLUDE(2)
                     
           LSIG = Xnsig .GE. cutwin_snrmin_filt(1,ifilt)
+     &     .and. Tobs  .GE. cutwin_Tobs(1)  
+     &     .and. Tobs  .LE. cutwin_Tobs(2)  
      &     .and. Trest .GE. cutwin_Trest(1)  
      &     .and. Trest .LE. cutwin_Trest(2)  
      &     .and. MJD8  .GE. cutwin_MJD(1)
@@ -19245,14 +19288,19 @@ c check PHOTPROB (Mar 2018)
              ISNLC_NEPOCH_PHOTPROB = ISNLC_NEPOCH_PHOTPROB + 1
           endif
 
-c check for detection in PHOTFLAG (Sep 2018)
+c check for detection bit in PHOTFLAG (set by survey)
           PHOTFLAG = ISNLC_PHOTFLAG(ep)
           if ( IAND(PHOTFLAG,PHOTFLAG_DETECT) > 0 ) then
              ISNLC_NEPOCH_DETECT = ISNLC_NEPOCH_DETECT + 1
              if ( ISNLC_NEPOCH_DETECT == 1 ) MJD8_FIRSTDETECT=MJD8
              SNLC_TLIVE_DETECT = SNGL(MJD8 - MJD8_FIRSTDETECT)
           endif
-          
+
+c check for trigger bit set by survey (5.2019)          
+          if ( IAND(PHOTFLAG,PHOTFLAG_TRIGGER) > 0 ) then
+             SNLC8_MJD_TRIGGER = MJD8
+          endif
+
 201     CONTINUE     ! come here of LSIG fails
 
 
@@ -22602,6 +22650,9 @@ c Dec 18 2017: replace cloudAVG with PSF cut. Note that cut is in ARCSEC
          SNEP_CUTVAR(CUTBIT_TREST,imjd)  = 
      &       SNLC_TREST(EPMIN)
 
+         SNEP_CUTVAR(CUTBIT_TOBS,imjd)  = 
+     &       SNLC_TOBS(EPMIN)
+
          SNEP_CUTVAR(CUTBIT_MJD,imjd)  = 
      &       SNLC8_MJD(EPMIN)
 
@@ -23747,7 +23798,7 @@ c check if we should make the plot
       LENCCID = ISNLC_LENCCID
       CCID = SNLC_CCID(1:LENCCID) // char(0)
 
-      OVMODEL_ANYFUN = (SNLC_SNANACALC_PEAKMJD > 10.0) ! show best peak-MJD fit
+      OVMODEL_ANYFUN = (SNLC_SNANAFIT_PEAKMJD > 10.0) !show best peak-MJD fit
       NFILT   = NFILTDEF_SURVEY
 
       write(6,10) SNLC_CCID(1:LENCCID)
@@ -23839,7 +23890,7 @@ c fetch model value and VCHI2 (if we fit the "ANYLC" function)
           if ( OVMODEL_ANYFUN ) then
             do ipar = 1, NPAR_ANYLC
               XVAL8(ipar) = 
-     &        SNLC_SNANACALC_PEAKMJD_FITPAR(ifilt,ipar)
+     &        SNLC_SNANAFIT_PEAKMJD_FITPAR(ifilt,ipar)
             enddo
 
             FLUX_MODEL = ANYLCFUN(MJD,XVAL8)
@@ -23893,7 +23944,7 @@ c plot smooth best-fit ANYFUN function in 2-day bins.
             Tobs  = TMIN + dT * ( float(i) - 0.5 )
             MJD   = Tobs + SNLC_SEARCH_PEAKMJD
             do ipar = 1, NPAR_ANYLC
-               XVAL8(ipar) = SNLC_SNANACALC_PEAKMJD_FITPAR(ifilt,ipar)
+               XVAL8(ipar) = SNLC_SNANAFIT_PEAKMJD_FITPAR(ifilt,ipar)
             enddo
             
             NOBS = NOBS + 1
@@ -24055,7 +24106,7 @@ cc      IF ( .NOT. ABORT_ON_DUPLMJD  ) RETURN
       N_DUPLICATE_MJD = N_DUPLICATE_MJD + 1
 
 c check if this MJD was already flagged as duplicate
-      DO i = 1, NSTORE_DUPLICATE_MJD
+      DO i = 1, min(200,NSTORE_DUPLICATE_MJD)
         IF ( MJD .EQ. DUPLICATE_MJDLIST(i) ) RETURN
       ENDDO
 
@@ -24349,7 +24400,7 @@ c Mar 2018: add info about PHOTPROB
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_PHOTPROB_MIN, VARLIST,0,
      &                   LENBLOCK, 20 )
 
-c Sep 2018: ad optonal info about detections
+c Sep 2018: add optonal info about detections
       IF ( PHOTFLAG_DETECT > 0 ) THEN
          VARLIST = 'NEPOCH_DETECT:I' // char(0)
          CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_NEPOCH_DETECT,VARLIST,0,
@@ -24510,7 +24561,7 @@ c - - - - - - optional fit-params from PKMJD fit (Oct 20 2014) - - -
      &           SURVEY_FILTERS, VARLIST, LENLIST)
             
             CALL SNTABLE_ADDCOL(ID, CBLOCK, 
-     &           SNLC_SNANACALC_PEAKMJD_FITPAR(1,ipar),
+     &           SNLC_SNANAFIT_PEAKMJD_FITPAR(1,ipar),
      &           VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
          ENDDO
 
@@ -35352,44 +35403,31 @@ C ==============================
 
 
 C ====================================
-+DECK,SET_PKMJD.
++DECK,SET_PEAKMJD.
       SUBROUTINE SET_PEAKMJD()
 
 c Created Oct 24, 2009 by R.Kessler
 c
-c If SNLC_SEARCH_PEAKMJD has not already been filled,
-c then fit light curve to estimate peak-MJD. 
+c Analyze and/or fit light curve to estimate peak-MJD. 
 c Fill SNLC_SEARCH_PEAKMJD to be used as the initial 
 c Tpeak-estimate in the light curve fit.
 c
 c This routine will not work properly for low SNR light curves.
 c The minimum SNR on a light curve must be at least 4.
 c
-c Namelist variable OPT_SETPKMJD is used for
-c  bit 0(1)   => fit Bazin et all function as-is
-c  bit 1(2)   => include POLYCOR
-c  bit 2(8)   => no fit, just set PKMJD=MJD(maxFlux)
-c  bit 7(128) => extra dump for each SN
-c
+c Namelist variable OPT_SETPKMJD determines options;
+c see OPTBIT_SETPKMJD_XXX options in global declaration.
 c
 c           HISTORY
-c
-c Feb 05, 2013: compute SNLC8_MJDMIN[MAX] here instead of in SNRECON.
-c
-c Jul 12, 2013: new option OPT_SETPKMJD=8 to use MJD at maxFlux
-c
-c Aug 05, 2013: move computation of SNLC8_MJDMIN/MAX to SNRECON
-c
-c Oct 21 2015: At end of function,  SNLC_SEARCH_PEAKMJD  = PKMJD
-c              with .NOT.LSET requirement.
 c
 c May 10 2016: remove PSF>2 epochs to get fluxMax (avoid crazy fluxes)
 c              See new parameter PSFMAX_forFLUXMAX
 c
+c May 17, 2019: implement new options OPTBIT_SETPKMJD_[TRIGGER,MAXFLUX2]
+c May 20, 2019: return if less then 2 epochs.
 c -------------------------------------------------------------
 
       IMPLICIT NONE
-
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
@@ -35398,88 +35436,116 @@ c -------------------------------------------------------------
 +CDE,PKMJDCOM.
 
       INTEGER 
-     &   NEWMJD, EPMIN, EPMAX, EP
+     &   EPMAX, EP, EP_atFLUXMAX(0:MXFILT_ALL)
      &  ,IFILT_OBS, ifilt, ifilt_snrmin 
      &  ,IFILT_OBS2, IFILT_OUTLIER, IFILT_REJECT
-     &  ,NPKMJD, IMJD
+     &  ,NPKMJD, IMJD, LUN
 
       REAL 
      &   MJD, PKMJDSUM, PKMJDAVG, PKMJDDIF, PKMJDDIF_MAX
-     &  ,PKMJD, DIF, FAC, PSFSIG1
-     &  ,WGTSUM, WGT
+     &  ,PKMJD, DIF, FAC, PSFSIG1, WGTSUM, WGT
      &  ,FLUX, FLUXERR, SNR, SNRMIN
      &  ,FLUXMAX(0:MXFILT_ALL)
      &  ,MJDatFLUXMAX(0:MXFILT_ALL)
      &  ,SNRatFLUXMAX(0:MXFILT_ALL)
-    
+         
       REAL*8  MJD8, F8, PKMJD8, PKMJD8ERR, PKFLUX8, PKFLUX8ERR
 
       LOGICAL 
      &    LSET, LDMP, LDMP_BIGDIF, LDMP_USER, NOABORT, LABORT
      &   ,USEFILT(MXFILT_ALL)
-     &   ,USE_MJDatMAXFLUX, FIRST_INIT
+     &   ,USE_MJDatFLUXMAX, USE_MJDatFLUXMAX2, USE_MJDatTRIGGER
+     &   ,FIRST_INIT, DOFIT, NOFIT
 
-      CHARACTER cfilt*8
+      CHARACTER cfilt*8, FNAM*12
 
 c define hard-wired cut-parameters
       REAL   
      &   MJDMIN_LC
      &  ,PKMJD_OUTLIER
      &  ,MAX_SNRMIN_REJECT
-     &  ,SNRMIN_atFLUXMAX
 
       PARAMETER ( 
      &   MJDMIN_LC           = 40000. ! min MJD to consider for light curve
      &  ,PKMJD_OUTLIER       = 30.0   ! reject PKMJD off by this much 
      &  ,MAX_SNRMIN_REJECT   = 2.0    ! max SNRMIN to reject filter
-     &  ,SNRMIN_atFLUXMAX    = 2.0    ! min SNR to consdider for fluxmax
      &     )
-
+      
 c function
       LOGICAL CHECK_EPOCH_IGNORE
 C ---------------- BEGIN -------------
 
-c bail if PEAKMJD is already set and we don't want to
-c run the SETPKMJD option
+      if ( OPT_SETPKMJD <= 0 ) RETURN
+      FNAM = 'SET_PEAKMJD'
 
-
-      LSET = SNLC_SEARCH_PEAKMJD .GT. MJDMIN_LC
-      IF ( LSET .and.  OPT_SETPKMJD .LE. 0 ) RETURN
-
-c 4/22/2104: check option to skip peak-MJD estimate regardles of 
-c            whether it has been set or not.
-      IF ( OPT_SETPKMJD < 0 ) RETURN
+      if ( ISNLC_NEWMJD_STORE < 2 ) RETURN
 
 c July 12 2013: check option to use MJD at max flux (no fitting)
-      USE_MJDatMAXFLUX = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_MAXFLUX)
+      USE_MJDatFLUXMAX  = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_FLUXMAX)
+      USE_MJDatFLUXMAX2 = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_FLUXMAX2)
+      USE_MJDatTRIGGER  = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_TRIGGER)
+      DOFIT = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_ANYFUN) .or. ! Bazin09
+     &        BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_POLYCOR)
+      NOFIT = (.NOT. DOFIT)
+
+      if ( USE_MJDatTRIGGER .and. PHOTFLAG_TRIGGER == 0 ) then
+        c1err = 'Must set PHOTFLAG_TRIGGER in &SNLCINP'
+	c2err = 'to set PEAKMJD = MJD_TRIGGER'
+        CALL MADABORT(FNAM, c1err, c2err)
+      endif
 
 c bail if the user CUTWIN_PEAKMJD does not contain  any observations:
       IF ( SNLC8_MJDMIN .GT. CUTWIN_PEAKMJD(2) ) RETURN
       IF ( SNLC8_MJDMAX .LT. CUTWIN_PEAKMJD(1) ) RETURN
 
-c first-time init: open separate log file to dump MNFIT stuff for each SN
-      FIRST_INIT = (NFIT_PKMJD.eq.0 .and. .not.USE_MJDatMAXFLUX)
-      IF  ( FIRST_INIT ) THEN  ! init
-        OPEN(
-     &     UNIT   =  LUNPKMJD
-     &   , FILE   =  MNFIT_PKMJD_LOGFILE
-     &   , status = 'UNKNOWN'
-     &     )
+c first-time init: 
+c  + print comments to stdout
+c  + open separate log file to dump MNFIT stuff for each SN
+      FIRST_INIT = (NFIT_PKMJD==0) 
 
-c open OUT file if set
-        IF ( SNMJD_OUT_FILE .NE. ' ' ) THEN
-        OPEN(
-     &     UNIT   =  LUNINTERP
-     &   , FILE   =  SNMJD_OUT_FILE
-     &   , status = 'UNKNOWN'
-     &       )
-          write(LUNINTERP,45) 
-          write(LUNINTERP,46) 
-45        format('NVAR: 5')
-46        format('VARNAMES:',2x,'CID', 4x,'FILT', 5x,'MJD',
-     &            10x,'FLUX      FLUXERR')
-        ENDIF
-      ENDIF  ! end of NFIT_PKMJD=0
+      IF  ( FIRST_INIT ) THEN  ! init
+         LSET = .FALSE.
+         print*,' ' 
+         if ( USE_MJDatFLUXMAX ) then
+            write(6,80) 'MJD at max flux' ; LSET=.TRUE.
+         else if ( USE_MJDatFLUXMAX2 ) then
+            write(6,80) 
+     &         'MJD at max flux in dense clump of SNR-detections.'
+            LSET=.TRUE.
+         else if ( USE_MJDatTRIGGER ) then
+            write(6,80) 'MJD_TRIGGER' ; LSET=.TRUE.
+         endif
+
+         if( DOFIT ) then
+            write(6,80) 'Bazin fit' ; LSET=.TRUE.
+         endif
+ 80      format(' SET_PEAKMJD method: ', A)
+         print*,' ' 
+         call flush(6)
+
+         if ( .not. LSET ) then
+            write(6,80) 'UNKNOWN'
+            write(c1err,86) OPT_SETPKMJD
+ 86         format('Unknown OPT_SETPKMJD=',I5,' in &SNLCINP.')
+            c2err = 'See manual for OPT_SETPKMJD'
+            CALL MADABORT(FNAM, c1err,c2err ) 
+         endif
+
+c open outfile to dump MINUIT stdout
+         if ( DOFIT ) then
+            LUN = LUNPKMJD
+            OPEN(UNIT=LUN,FILE=MNFIT_PKMJD_LOGFILE,status='UNKNOWN')
+         endif
+
+c open INTERP-OUT file if set
+         IF ( SNMJD_OUT_FILE .NE. ' ' ) THEN
+            LUN = LUNINTERP
+            OPEN(UNIT=LUN,FILE=SNMJD_OUT_FILE,status='UNKNOWN')
+            write(LUNINTERP,46) 
+ 46         format('VARNAMES:',2x,'CID', 4x,'FILT', 5x,'MJD',
+     &           10x,'FLUX      FLUXERR')
+         ENDIF
+      ENDIF  ! end of FIRST_INIT
 
     
       NFIT_PKMJD = NFIT_PKMJD  + 1
@@ -35494,25 +35560,26 @@ cc      CALL PRBANNER ( global_banner )
         write(c2err,1662) MXFILT_OBS
 1661    format('There are ', I3,' obs-filters,')
 1662    format('but SET_PEAKMJD works for up to ',I2,' filters.')
-        CALL MADABORT("SET_PEAKMJD", c1err, c2err)        
+        CALL MADABORT(FNAM, c1err, c2err)        
       ENDIF
 
 
 c initialize
 
       DO 480 IFILT_OBS = 0, MXFILT_ALL
-        FLUXMAX(IFILT_OBS)       =  0.0
-        MJDatFLUXMAX(IFILT_OBS)  = -9.0 
-        SNRatFLUXMAX(IFILT_OBS)  = -9.0 
+         EP_atFLUXMAX(IFILT_OBS)  = -9
+         FLUXMAX(IFILT_OBS)       =  0.0
+         MJDatFLUXMAX(IFILT_OBS)  = -9.0 
+         SNRatFLUXMAX(IFILT_OBS)  = -9.0 
+         
+         IF ( IFILT_OBS .EQ. 0 ) goto 480
 
-        IF ( IFILT_OBS .EQ. 0 ) goto 480
-
-        PKMJD_FIT(IFILT_OBS)     =  0.0
-        PKMJD_ERR(IFILT_OBS)     = -9.0
-        PKFLUX_FIT(IFILT_OBS)    = -9.0
-        PKFLUX_ERR(IFILT_OBS)    = -9.0
-
-        USEFILT(ifilt_obs) = .FALSE.
+         PKMJD_FIT(IFILT_OBS)     =  0.0
+         PKMJD_ERR(IFILT_OBS)     = -9.0
+         PKFLUX_FIT(IFILT_OBS)    = -9.0
+         PKFLUX_ERR(IFILT_OBS)    = -9.0
+         
+         USEFILT(ifilt_obs) = .FALSE.
  480  CONTINUE
 
 
@@ -35527,69 +35594,56 @@ c Also store MJD and SNR at this epoch.
 c The MJDatFLUXMAX is used as a starting guess
 c in the MNFIT_PKMJD fit.
 
-      DO 100 NEWMJD = 1, ISNLC_NEWMJD_STORE
- 
-        EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
-        EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
-        MJD   = SNLC8_MJD(EPMIN)
+      CALL GETEPOCH_atFLUXMAX(EP_atFLUXMAX(0) )
 
-c Oct 2014: check MJD range to use for PKMJD estimate
-        IMJD  = INT(MJD)
-        IF ( IMJD < MJDRANGE_SETPKMJD(1) ) GOTO 100
-        IF ( IMJD > MJDRANGE_SETPKMJD(2) ) GOTO 100
-        
-        DO 101 EP = EPMIN, EPMAX
+c use EP at max flux to set FLUXMAX, MJD at max, SNR at max.
+      DO 40 ifilt = 0, NFILTDEF_SURVEY
+         if ( ifilt == 0 ) then
+            ifilt_obs = 0
+         else
+            ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+         endif
+         EP        = EP_atFLUXMAX(ifilt_obs) 
 
-c  always toss bad epochs to get maxFlux
-            if ( CHECK_EPOCH_IGNORE(0,ep) ) GOTO 101
+	 if ( EP < 0 ) then
+           SNRatFLUXMAX(ifilt_obs) = 0.01
+           MJDatFLUXMAX(ifilt_obs) = 0.01
+	   goto 40
+	 endif
 
-            IFILT_OBS = ISNLC_IFILT_OBS(ep)
-            IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
+         FLUX      = SNLC_FLUXCAL(EP)
+         FLUXERR   = SNLC_FLUXCAL_ERRTOT(EP)
 
-            FLUX      = SNLC_FLUXCAL(ep)
-            FLUXERR   = SNLC_FLUXCAL_ERRTOT(ep)
-            if ( FLUXERR .LE. 0.0 ) GOTO 101
-
-            SNR = FLUX/FLUXERR
-            if ( SNR < SNRMIN_atFLUXMAX ) GOTO 101
-
-c make sure SNR passes user cut.
-            if ( SNR < CUTWIN_SNRMIN_FILT(1,ifilt) ) GOTO 101
-
-c May 2016: require sane PSF to avoid crazy-large flux in really bad conditons
-            PSFSIG1  = SNLC_PSF_SIG1(ep) ! Gauss sigma, pixels
-            IF ( PSFSIG1 > 0.0 .and. SNLC_PIXSIZE > 0.0 ) THEN
-               FAC      = SNLC_PIXSIZE * 2.355
-               PSFSIG1  = PSFSIG1 * FAC     ! --> arcsec
-               if ( PSFSIG1 > PSFMAX_forFLUXMAX  ) goto 101
-            ENDIF
-
-            if ( FLUX .GT. FLUXMAX(IFILT_OBS) ) THEN
-                FLUXMAX(IFILT_OBS)      = FLUX  ! max flux in this filter
-                MJDatFLUXMAX(ifilt_obs) = MJD
-                SNRatFLUXMAX(ifilt_obs) = SNR
-            endif
-
-            if ( FLUX .GT. FLUXMAX(0) ) THEN
-                FLUXMAX(0)      = FLUX   ! global max flux
-                MJDatFLUXMAX(0) = MJD
-                SNRatFLUXMAX(0) = SNR
-            endif
-
-101     CONTINUE
-
-100   CONTINUE
-
+         FLUXMAX(ifilt_obs)      = FLUX
+         MJDatFLUXMAX(ifilt_obs) = SNLC8_MJD(ep)
+         if ( FLUXERR > 0.0 ) then
+            SNRatFLUXMAX(ifilt_obs) = FLUX/FLUXERR
+         else
+            SNRatFLUXMAX(ifilt_obs) = 0.0
+         endif
+40     CONTINUE
 
 c -------------------------------------
-c check option to use MJD at max-flux
-      IF ( USE_MJDatMAXFLUX ) THEN
-         PKMJD = MJDatFLUXMAX(0) 
-         SNLC_SNANACALC_PEAKMJD = PKMJD 
+c check option to use MJD at max-flux or at TRIGGER
+      IF ( NOFIT ) THEN
+         IF ( USE_MJDatFLUXMAX .or. USE_MJDatFLUXMAX2) THEN
+            PKMJD  = MJDatFLUXMAX(0) 
+         ELSE IF ( USE_MJDatTRIGGER ) THEN
+            PKMJD  = SNLC8_MJD_TRIGGER
+         ELSE
+            C1err = 'Invalid NOFIT option.'
+            c2err = 'Expecting MJD-at-maxFlux or MJD-at-Trigger'
+            CALL MADABORT(FNAM, c1err, c2err)  
+         ENDIF
+
+cc not here         SNLC_SNANAFIT_PEAKMJD = PKMJD 
          SNLC_SEARCH_PEAKMJD    = PKMJD
          write(6,50) SNLC_CCID(1:ISNLC_LENCCID), PKMJD, '(at maxFlux)'
          RETURN
       ENDIF
+
+
+c --------- Below do some kind of Bazin fit -----------
 
 c --------------
 c Find valid filter with smallest SNR at epoch with max-FLux,
@@ -35608,7 +35662,7 @@ c otherwise toss the one with smallest SNR at FLUXMAX.
      &     .and. SNR .GT. 0.0  ) then
 
             SNRMIN = SNR
-            ifilt_snrmin = ifilt_obs
+            ifilt_snrmin = ifilt_obs  ! filter to reject
          endif
       ENDDO
 
@@ -35660,7 +35714,7 @@ c check option to interpolate flux
          IF ( LABORT ) then         
             C1err = 'NMJD=0 => no estimate of PKMJD !!!'
             c2err = 'Check SN ' // SNLC_CCID
-            CALL MADABORT("SET_PEAKMJD", c1err, c2err)  
+            CALL MADABORT(FNAM, c1err, c2err)  
          ELSE
             write(6,240) SNLC_CCID
  240        format(T8,'Could not estimate PKMJD for CID=',A)
@@ -35746,18 +35800,13 @@ c Finally, take PKMJD-wgted average of remaining filters.
       PKMJDAVG = PKMJDSUM/WGTSUM + MJDOFF
       PKMJD    = PKMJDAVG
 
-      write(6,50) SNLC_CCID(1:ISNLC_LENCCID), PKMJD, '(anylc fit)'
+      write(6,50) SNLC_CCID(1:ISNLC_LENCCID), PKMJD, '(Bazin fit)'
 50    format(T8,'SET_PEAKMJD(',A,') --> ', F9.3, 3x, A )
 
 c -----------------------------------------------
-c The debug dump below is for DES (griz) only
-
-      DIF = abs ( PKMJD - SNLC_SEARCH_PEAKMJD ) 
-      LDMP_BIGDIF = DIF .GT. 10.0 .and. 
-     &       SNLC_SEARCH_PEAKMJD .GT. MJDMIN_LC
 
       LDMP_USER =  BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_DUMP)
-      LDMP = LDMP_BIGDIF .OR. LDMP_USER
+      LDMP      = LDMP_USER
 
       IF ( LDMP ) THEN
         print*,'  --------------------------------------------- '
@@ -35806,8 +35855,281 @@ c The debug dump below is for DES (griz) only
 c -----------------------------------------    
 800   CONTINUE
 
-      SNLC_SNANACALC_PEAKMJD = PKMJD ! see TSTPKMJD in ntup 7100
-      SNLC_SEARCH_PEAKMJD    = PKMJD
+      SNLC_SNANAFIT_PEAKMJD = PKMJD
+      SNLC_SEARCH_PEAKMJD   = PKMJD
+
+      RETURN
+      END  ! end SET_PEAKMJD
+
+
+C =========================================
++DECK,GETEPOCH_atFLUXMAX.
+      SUBROUTINE GETEPOCH_atFLUXMAX(EP_atFLUXMAX)
+
+c Created May 17 2019 by R.Kessler
+c Find epoch index (EP) at max flux.
+c Always do brute-force search on first iteration.
+c If FLUXMAX2 option is set (Fmax in clump), do 2nd iteration 
+c over a restricted MJDWIN_SETPKMJD  region that has the most 
+c epochs with SNR > SNRCUT_SETPKMJD. The goal here is to reject
+c epoch-ranges with a few crazy outlier fluxes that can
+c introduce false PEAKMJDs. If there are no epochs passing
+c SNR > SNRCUT_SETPKMJD, then the process is repeated with
+c the USE_BACKUP_SNRCUT value of SNRMIN_forFLUXMAX ... this
+c is to ensure that we always get a PEAKMJD estimate.
+c
+c Be careful with two different MJD windows:
+c
+c 1) Local MJDSTEP_SNRCUT=10:
+c    NSNRCUT (number of SNR detection) is evaluated in each
+c    10 day window
+c 2) User input MJDWIN_SETPKMJD:
+c    This larger window is used to find max number of SNR-detections
+c    from which Fmax is evaluated. SNRCUT_SUM is the sum over
+c    NWIN_COMBINE 10-day windows.
+c
+c While only the 2nd window is used in the end, the smaller
+c 10-day window is to improve  speed of calculation.
+c
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+c+CDE,SNANAFIT.
++CDE,PKMJDCOM.
+
+      INTEGER EP_atFLUXMAX(0:MXFILT_ALL) ! (I) EP at max, total & each band
+
+      INTEGER 
+     &   NITER, ITER, EP, EPMIN, EPMAX, EPMIN2, EPMAX2
+     &  ,EPMIN_TMP, EPMAX_TMP, NEP_SNRCUT
+     &  ,IMJD, IMJDMAX, IFILT, IFILT_OBS
+     &  ,iwin_start, iwin_shift, iwin, iwin_max, NWIN_COMBINE
+     &  ,NSNRCUT_SUM, NSNRCUT_MAXSUM, NEPTOT, NERR
+
+      REAL 
+     &   MJD, MJDMIN, FLUX, FLUXERR, SNR, SNRMAX, PSFSIG1, FAC, SNRCUT
+     &  ,FLUXMAX(0:MXFILT_ALL)
+
+      LOGICAL 
+     &   USE_MJDatFLUXMAX   ! max flux, no caveats 
+     &  ,USE_MJDatFLUXMAX2  ! max flux in region with most SNR>CUT
+     &  ,USE_BACKUP_SNRCUT
+     &  ,NOTHING
+
+      REAL     MJDSTEP_SNRCUT
+      INTEGER  MXWIN_SNRCUT
+      PARAMETER (
+     &   MJDSTEP_SNRCUT  = 10.0   ! sliding step for NSNRCUT
+     &  ,MXWIN_SNRCUT    = 400    ! 400*10.0 = 4000 days > 10 years
+     &     )
+      INTEGER 
+     &     NSNRCUT(MXWIN_SNRCUT)
+     &    ,EPMIN_SNRCUT(MXWIN_SNRCUT), EPMAX_SNRCUT(MXWIN_SNRCUT)
+
+      CHARACTER FNAM*20
+c function
+      LOGICAL CHECK_EPOCH_IGNORE
+
+C -------------- BEGIN ---------------
+
+      USE_MJDatFLUXMAX  = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_FLUXMAX)
+      USE_MJDatFLUXMAX2 = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_FLUXMAX2)
+
+      FNAM   = 'GETEPOCH_atFLUXMAX'
+      NEPTOT = ISNLC_EPOCH_RANGE_NEWMJD(2,ISNLC_NEWMJD_STORE)
+      SNRCUT = 0.0
+      NITER  = 1     ! always do max flux on 1st iter
+      EPMIN2 = -9;  EPMAX2 = -9
+      SNRMAX = 0.0 
+      USE_BACKUP_SNRCUT = .FALSE.
+
+ 800  CONTINUE
+
+      IF ( USE_MJDatFLUXMAX2 ) THEN
+         NITER   = 2
+         MJDMIN  = SNGL(SNLC8_MJDMIN)
+         IMJDMAX = 0
+         NWIN_COMBINE = int(MJDWIN_SETPKMJD/MJDSTEP_SNRCUT + 0.01)
+
+         SNRCUT  = SNRCUT_SETPKMJD
+         if ( USE_BACKUP_SNRCUT ) SNRCUT = SNRMIN_forFLUXMAX
+
+         do ep = 1, MXWIN_SNRCUT
+            NSNRCUT(ep) = 0
+            EPMIN_SNRCUT(ep) = -9
+            EPMAX_SNRCUT(ep) = -9
+         enddo
+      ENDIF
+
+      DO 102 ITER = 1, NITER
+
+         DO IFILT = 0, MXFILT_ALL
+            FLUXMAX(ifilt)      = -9.0
+            EP_atFLUXMAX(ifilt) = -9
+         ENDDO
+
+         if ( ITER == 1 ) then
+            EPMIN = 1
+            EPMAX = NEPTOT
+         else
+            EPMIN = EPMIN2
+            EPMAX = EPMAX2
+         endif
+         
+         if ( EPMIN < 1 .or. EPMAX < 1 .or. 
+     &       EPMIN > NEPTOT .or. EPMAX > NEPTOT) THEN
+
+            print*,' PRE-ABORT DUMP '
+	    print*,'   NSNRCUT_MAXSUM = ', NSNRCUT_MAXSUM
+            print*,'   NEP_SNRCUT     = ', NEP_SNRCUT
+            print*,'   SNRMAX         = ', SNRMAX
+	    print*,'   IMJDMAX        = ', IMJDMAX
+	    print*,'   EPMIN_SNRCUT   = ',(EPMIN_SNRCUT(imjd),imjd=1,20)
+	    print*,'   EPMAX_SNRCUT   = ',(EPMAX_SNRCUT(imjd),imjd=1,20)
+	    if ( LSIM_SNANA ) then
+	    	 print*,'   SIM_PEAKMJD    = ', SIM_PEAKMJD
+   	    endif
+
+            write(c1err,651) EPMIN, EPMAX, ITER
+ 651        format('Invalid EPMIN,EPMAX = ', I4,I4,' at ITER=',I2)
+            write(c2err,652) NEPTOT
+ 652        format('NEPTOT=', I5)
+            CALL MADABORT(FNAM, c1err, c2err)  
+         endif
+
+         NEP_SNRCUT        = 0
+         DO 101 EP = EPMIN, EPMAX
+
+            MJD   = SNGL( SNLC8_MJD(EP) )
+            IMJD  = INT(MJD)
+            IF ( IMJD < MJDRANGE_SETPKMJD(1) ) GOTO 101
+            IF ( IMJD > MJDRANGE_SETPKMJD(2) ) GOTO 101
+
+c  always toss bad epochs to get maxFlux
+            if ( CHECK_EPOCH_IGNORE(0,ep) ) GOTO 101
+
+            IFILT_OBS = ISNLC_IFILT_OBS(ep)
+            IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
+
+            FLUX      = SNLC_FLUXCAL(ep)
+            FLUXERR   = SNLC_FLUXCAL_ERRTOT(ep)
+            if ( FLUXERR .LE. 0.0 ) GOTO 101
+
+            SNR = FLUX/FLUXERR
+            if ( SNR > SNRMAX ) SNRMAX=SNR  ! diagnostic only
+            if ( SNR < SNRMIN_forFLUXMAX ) GOTO 101
+
+c make sure SNR passes user cut.
+            if ( SNR < SNRCUT ) GOTO 101
+
+c May 2016: require sane PSF to avoid crazy-large flux in really bad conditons
+            PSFSIG1  = SNLC_PSF_SIG1(ep) ! Gauss sigma, pixels
+            IF ( PSFSIG1 > 0.0 .and. SNLC_PIXSIZE > 0.0 ) THEN
+               FAC      = SNLC_PIXSIZE * 2.355
+               PSFSIG1  = PSFSIG1 * FAC     ! --> arcsec
+               if ( PSFSIG1 > PSFMAX_forFLUXMAX  ) goto 101
+            ENDIF
+
+            if ( FLUX .GT. FLUXMAX(IFILT_OBS) ) THEN
+               EP_atFLUXMAX(IFILT_OBS) = ep
+               FLUXMAX(IFILT_OBS)      = FLUX
+            endif
+
+            if ( FLUX .GT. FLUXMAX(0) ) THEN
+               EP_atFLUXMAX(0) = ep      ! global max flux
+               FLUXMAX(0)      = FLUX
+            endif
+            
+c count number of SNR>cut epochs in sliding 10-day windows
+            IF ( USE_MJDatFLUXMAX2 .and. ITER==1 ) THEN
+               IMJD    = int((MJD - SNLC8_MJDMIN)/MJDWIN_SETPKMJD) + 1
+               IMJDMAX = IMJD
+               if ( IMJD < 1 .or. IMJD > MXWIN_SNRCUT ) then
+                  write(c1err,661) IMJD, MXWIN_SNRCUT
+ 661              format('Invalid IMJD=',I5,' (must be 1 to ',I5,')' )
+                  c2err = 'Something is really messed up.'
+                  CALL MADABORT(FNAM, c1err, c2err)  
+               endif
+               NSNRCUT(IMJD) = NSNRCUT(IMJD) + 1
+               if ( EPMIN_SNRCUT(IMJD) < 0 ) EPMIN_SNRCUT(IMJD) = EP
+               if ( EPMAX_SNRCUT(IMJD) < EP) EPMAX_SNRCUT(IMJD) = EP
+            ENDIF
+
+            NEP_SNRCUT = NEP_SNRCUT + 1
+
+ 101     CONTINUE
+         
+         NOTHING = ( ITER==1 .and. NEP_SNRCUT==0 )
+         if ( NOTHING ) then
+            if ( USE_BACKUP_SNRCUT ) then
+               return
+            else
+               USE_BACKUP_SNRCUT = .TRUE.
+               goto 800
+            endif
+         endif
+
+         IF ( USE_MJDatFLUXMAX2 .and. ITER==1 ) THEN
+c           check sliding combined windows for max NSNRCUT
+            NSNRCUT_MAXSUM = 0            
+            iwin_max = max(1,(IMJDMAX-(NWIN_COMBINE-1)) )
+            DO iwin_start = 1, iwin_max
+
+c           combine 5 10-day windows to get a 50 day window
+               NSNRCUT_SUM = 0; EPMIN_TMP = 0; EPMAX_TMP = 0 
+               do 404 iwin_shift = 0, NWIN_COMBINE-1
+	          iwin = iwin_start + iwin_shift
+                  if ( NSNRCUT(iwin) == 0 ) goto 404
+                  NSNRCUT_SUM = NSNRCUT_SUM + NSNRCUT(iwin)
+                  if ( EPMIN_TMP==0 ) EPMIN_TMP = EPMIN_SNRCUT(iwin)
+                  EPMAX_TMP = EPMAX_SNRCUT(iwin)
+ 404           continue
+
+               if ( NSNRCUT_SUM > NSNRCUT_MAXSUM ) then
+                  NSNRCUT_MAXSUM = NSNRCUT_SUM
+                  EPMIN2 = EPMIN_TMP
+                  EPMAX2 = EPMAX_TMP
+               endif
+            ENDDO
+         ENDIF
+
+ 102    CONTINUE
+
+
++SELF,IF=DEBUGONLY.
+c -----------------------
+c check that all EP indices are value
+      NERR = 0 
+      DO 200 ifilt = 0, NFILTDEF_SURVEY
+         if ( ifilt == 0 ) then
+	     ifilt_obs = 0
+	 else
+	     ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+	 endif	   
+	 EP = EP_atFLUXMAX(ifilt_obs)
+	 if ( EP < 1 .or. EP > NEPTOT ) then
+	    NERR = NERR + 1
+	    write(6,671) EP, ifilt_obs
+671         format(' ERROR: Invalid EP=',I5,' for ifilt_obs=',I3)
+	 endif
+200   CONTINUE
+
+      IF ( NERR > 0 ) then   
+         print*, ' PRE-ABORT DUMP: '
+	 print*,'   NEP_SNRCUT      = ', NEP_SNRCUT
+	 print*,'   NSNRCUT_MAXSUM  = ', NSNRCUT_MAXSUM
+	 print*,'   IMJDMAX         = ', IMJDMAX
+	 print*,'   iwin_max        = ', iwin_max
+	 print*,'   EP_atFLUXMAX    = ', (EP_atFLUXMAX(ifilt),ifilt=0,8)
+         c1err = 'Invalid EP indices; see above'
+         c2err = 'Something is really messed up.'
+         CALL MADABORT(FNAM, c1err, c2err)  
+      ENDIF
++SELF.
+
 
       RETURN
       END
@@ -35935,38 +36257,31 @@ c init each parameter
       INIBND(2,IPAR_ISN) = 9999999.
       INIVAL(IPAR_ISN)   = DBLE(SNLC_CID) 
       INISTP(IPAR_ISN)   = 0.0       ! fixed parameter
-c      PKPARNAME(IPAR_ISN)  = 'ISN' 
 
       INIBND(1,IPAR_FILT) = 0
       INIBND(2,IPAR_FILT) = 100
       INIVAL(IPAR_FILT)   = DBLE(IFILT_OBS)
       INISTP(IPAR_FILT)   = 0.0     ! fixed parameter
-c      PKPARNAME(IPAR_FILT)  = 'IFILTOBS'
 
       INIBND(1,IPAR_T0) = MJDatMAX - 50.0
       INIBND(2,IPAR_T0) = MJDatMAX + 50.0
       INIVAL(IPAR_T0)   = MJDatMAX
       INISTP(IPAR_T0)   = 2.0
-c      PKPARNAME(IPAR_T0)  = 'T0'
 
       INIBND(1,IPAR_TRISE) =  1.0
       INIBND(2,IPAR_TRISE) =  40.
       INIVAL(IPAR_TRISE)   =  5.0
       INISTP(IPAR_TRISE)   =  2.0
-c      PKPARNAME(IPAR_TRISE)  = 'Trise'
 
       INIBND(1,IPAR_TFALL) = 1.0
       INIBND(2,IPAR_TFALL) = 100.0
       INIVAL(IPAR_TFALL)   = 10.0
       INISTP(IPAR_TFALL)   = 2.0
-c      PKPARNAME(IPAR_TFALL)  = 'Tfall'
-
 
       INIBND(1,IPAR_A0) = FLUXatMAX * 0.2
       INIBND(2,IPAR_A0) = FLUXatMAX * 5.0
       INIVAL(IPAR_A0)   = FLUXatMAX * 1.2
       INISTP(IPAR_A0)   = FLUXatMAX * 0.1
-c      PKPARNAME(IPAR_A0)  = 'A0'
 
       IF ( USE_POLYCOR ) THEN
          INIVAL_TMP = 0.1
@@ -35978,7 +36293,6 @@ c      PKPARNAME(IPAR_A0)  = 'A0'
       INIBND(2,IPAR_A1)   =  20.0
       INIVAL(IPAR_A1)     =   0.0
       INISTP(IPAR_A1)     = INIVAL_TMP
-c      PKPARNAME(IPAR_A1)  =  'A1'
 
       INIBND(1,IPAR_A2)   = -20.0
       INIBND(2,IPAR_A2)   =  20.0
@@ -36031,8 +36345,8 @@ c keep track of fixed parameters
      &              , BND1, BND2, IVARBL )
 +SELF.
 
-        SNLC_SNANACALC_PEAKMJD_FITPAR(ifilt,ipar) = TMPVAL(IPAR)
-        SNLC_SNANACALC_PEAKMJD_FITERR(ifilt,ipar) = TMPERR(IPAR)
+        SNLC_SNANAFIT_PEAKMJD_FITPAR(ifilt,ipar) = TMPVAL(IPAR)
+        SNLC_SNANAFIT_PEAKMJD_FITERR(ifilt,ipar) = TMPERR(IPAR)
 
       ENDDO
 
@@ -36267,7 +36581,7 @@ c uncertainty at this epoch.
 c
 c
 c
-c Jan 9, 2012: fix bug : use IFILT in SNLC_SNANACALC_PEAKMJD_FITPAR
+c Jan 9, 2012: fix bug : use IFILT in SNLC_SNANAFIT_PEAKMJD_FITPAR
 c -------------------------------
 
       IMPLICIT NONE
@@ -36311,8 +36625,8 @@ c get reference fluxes to computer deriviates below.
 
       IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
       DO ipar = 1, NPAR_ANYLC
-        XVAL(ipar) = SNLC_SNANACALC_PEAKMJD_FITPAR(ifilt,ipar)
-        XERR(ipar) = SNLC_SNANACALC_PEAKMJD_FITERR(ifilt,ipar)
+        XVAL(ipar) = SNLC_SNANAFIT_PEAKMJD_FITPAR(ifilt,ipar)
+        XERR(ipar) = SNLC_SNANAFIT_PEAKMJD_FITERR(ifilt,ipar)
       ENDDO
       Flux1   =  ANYLCFUN ( MJD1, XVAL )
       Flux2   =  ANYLCFUN ( MJD2, XVAL )
@@ -36438,8 +36752,8 @@ c IF MJD=0, then replace with PEAKMJD (Aug 20, 2012)
         ENDIF
 
         DO ipar = 1, NPAR_ANYLC
-          XVAL(ipar) = SNLC_SNANACALC_PEAKMJD_FITPAR(ifilt,ipar)
-          XERR(ipar) = SNLC_SNANACALC_PEAKMJD_FITERR(ifilt,ipar)
+          XVAL(ipar) = SNLC_SNANAFIT_PEAKMJD_FITPAR(ifilt,ipar)
+          XERR(ipar) = SNLC_SNANAFIT_PEAKMJD_FITERR(ifilt,ipar)
         ENDDO
 
         COV     = COVPKFLUXFUN(ifilt_obs,MJD,MJD)

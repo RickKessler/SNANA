@@ -1261,12 +1261,12 @@ void wr_snfitsio_update_head(void) {
   if(SNFITSIO_SIMFLAG_SNANA==0) { NHOSTGAL=MXHOSTGAL; }
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  sprintf(parName,"HOSTGAL_NMATCH", PREFIX);
+  sprintf(parName,"%s_NMATCH", PREFIX);
   WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.HOSTGAL_NMATCH[0] ;
   wr_snfitsio_fillTable ( ptrColnum, parName, itype );  
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  sprintf(parName,"HOSTGAL_NMATCH2", PREFIX);
+  sprintf(parName,"%s_NMATCH2", PREFIX);
   WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.HOSTGAL_NMATCH[1] ;
   wr_snfitsio_fillTable ( ptrColnum, parName, itype );  
 
@@ -3557,7 +3557,7 @@ void  rd_snfitsio_specFile( int ifile ) {
     // read number of lambda bins on first file only
     sprintf(keyName, "%s", "NAXIS2" );
     fits_read_key(fp, TLONG, keyName,  &NROW, comment, &istat );
-    printf("   Read %d wavelength bins.\n", NROW );  fflush(stdout);
+    printf("   Read %ld wavelength bins.\n", NROW );  fflush(stdout);
     RDSPEC_SNFITSIO_LAMINDEX.NLAMBIN = NROW ;
   
     // malloc lam arrays
@@ -3590,7 +3590,7 @@ void  rd_snfitsio_specFile( int ifile ) {
   // read number of HEADER rows
   sprintf(keyName, "%s", "NAXIS2" );
   fits_read_key(fp, TLONG, keyName,  &NROW, comment, &istat );
-  printf("   Read %d SPECTRUM-HEADER rows.\n", NROW);  fflush(stdout);
+  printf("   Read %ld SPECTRUM-HEADER rows.\n", NROW);  fflush(stdout);
   RDSPEC_SNFITSIO_HEADER.NROW = NROW ;
   rd_snfitsio_mallocSpec(+1);
 

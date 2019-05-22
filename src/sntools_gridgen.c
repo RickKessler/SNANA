@@ -49,6 +49,7 @@
 #include "sntools_grid.h"
 #include "snlc_sim.h"
 #include "genmag_SIMSED.h"
+#include "genmag_NON1ASED.h"
 
 // =============================
 //     GRID  functions 

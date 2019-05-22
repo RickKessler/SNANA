@@ -623,6 +623,8 @@ int  readMap_SEARCHEFF_PHOTPROB(FILE *fp,  char *key) {
     return(1) ; 
   }
 
+  return(0);
+
 } // end readMap_SEARCHEFF_PHOTPROB
 
 
@@ -2084,7 +2086,7 @@ void setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
   if(NMATCH==0 )  { return; }
 
   if(NMATCH > 1 ) {
-    sprintf(c1err,"%d matches to PHOTPROB map invalid.");
+    sprintf(c1err,"%d matches to PHOTPROB map invalid.", NMATCH );
     sprintf(c2err,"FIELD='%s'  FILT='%s' ", FIELD, FILT);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }

@@ -58,6 +58,7 @@
 
 \newcommand{\env}{environment}
 \newcommand{\snana}{{\tt SNANA}}
+\newcommand{\SNANA}{{\tt SNANA}}
 \newcommand{\snanadir}{{\tt SNANA\_DIR}}
 \newcommand{\sndataroot}{{\tt SNDATA\_ROOT}}
 \newcommand{\simlib}{{\tt SIMLIB}}
@@ -5076,7 +5077,7 @@ from the SN, from a host-spectrum, from a host photo-$z$,
 or from a wrong host. And integer flag, {\tt SIM\_REDSHIFT\_FLAG},
 is written to the data files, and the intepretations can be
 found with the following grep command:
-%.xyz
+
 
 \begin{verbatim}
    grep REDSHIFT_FLAG $SNANA_DIR/src/snlc_sim.h | grep define
@@ -5841,24 +5842,77 @@ and uses the errors and $\rho_{ij}$ to determine COV.
 
 % ------------------------------------
    \clearpage
-   \subsection{Initial Fit-Parameter Estimation}
-   \label{subsec:initial_fitpar}
+   \subsection{Initial Estimate of Peak-MJD ($t_0$) }
+   \label{subsec:initial_peakmjd}
 % ------------------------------------
 
-For {\sc minuit} to converge,
-initial fit-parameters must be chosen so that the
-initial model light curve roughly overlaps the data.
-The color and shape parameter are fixed
-to an average value, and the distance modulus
-(or $x_0$ for SALT-II) is adjusted so that the model
-matches the data.
+Many light curve fitting programs rely on an approximate estimate 
+of peak-MJD ($t_0$). Several \SNANA\ options are described here
+using the {\tt \&SNLCINP} namelist variable {\tt OPT\_SETPKMJD}.
+Options are based on analyzing fluxes, and/or a light curve fit
+in each pass-band using a generic Bazin function.
+To extract $t_0$ into a TEXT-table (column {\tt PKMJDINI})
+for a non-\SNANA\ code, 
+\begin{verbatim}
+    snana.exe NOFILE \
+      VERSION_PHOTOMETRY <VERSION>   \
+      SNTABLE_LIST 'SNANA(text:key)' \
+      TABLEPREFIX_TEXT   <PREFIX>    \  
+      OPT_SETPKMJD <OPT_SETPKMJD>        > stdout.log
+\end{verbatim}
 
-The estimate of the epoch of peak brightness ($t_0$)
-is usually read from the data file from the keyword
-{\tt SEARCH\_PEAKMJD}. If this keyword is missing,
-then \snana\ will try to estimate $t_0$ by fitting
-a general function of the form 
-(see \snana\ function {\tt SET\_PEAKMJD})
+
+A summary of the {\tt \&SNLCINP} bit-mask options is as fillows
+%
+\begin{Verbatim}[frame=single]
+   OPT_SETPKMJD  = 0    #  use SEARCH_PEAKMJD value in data file
+   OPT_SETPKMJD += 1    #  Bazin fit
+   OPT_SETPKMJD += 2    #  Bazin fit with 2nd order poly (see below)
+   OPT_SETPKMJD += 4    #  do NOT abort when PKMJD cannot be found
+   OPT_SETPKMJD += 8    #  PKMJD -> MJD at max-flux (no fit)
+   OPT_SETPKMJD += 16   #  Fmax-clump method (see below)
+   OPT_SETPKMJD += 32   #  PKMJD = MJD_TRIGGER (must set PHOTFLAG bit)
+   OPT_SETPKMJD += 512  #  save fit-PKMJD params (each band) in SNANA table
+   OPT_SETPKMJD += 1024 #  DUMP info for each SN
+
+   SNRCUT_SETPKMJD  = 5    # for Fmax-clump method only (default=5)
+   MJDWIN_SETPKMJD  = 50   # for Fmax-clump method only (default=50)
+   PHOTFLAG_TRIGGER = MASK # for MJD_TRIGGER method (MASK set by survey)
+\end{Verbatim}
+
+{\tt OPT\_SETPKMJD=8} does a naive search for max flux and sets 
+$t_0$ to be the corresponding {\tt MJD}. This estimate, however,
+is subject to catastrophic errors if there is just a single outlier
+flux. To limit impact from outliers, the ``Fmax-clump'' method
+({\tt OPT\_SETPKMJD=16}) finds max flux in the densest clump of 
+SNR-detections.
+Each SNR-detection is defined by user-input {\tt SNRCUT\_SETPKMJD},
+and {\tt MJDWIN\_SETPKMJD} defines the size of the time window to 
+search for detections. The window is analyzed in sliding steps of
+10 days throughout the duration of the survey; 
+e.g., for a 1000-day survey, 96 10-day windows are analyzed,
+and each window 50 days long. The last 4 windows (97-100) 
+are skipped because they contain no additional information.
+The window containing the maximum number of SNR-detections is used 
+to determine max flux, and $t_0$ is MJD of the max flux observation.
+The CPU time for this max-flux method is ${\sim}10$~milliseconds per event.
+
+
+% .xyz
+
+{\tt OPT\_SETPKMJD=32} sets $t_0$ to the MJD when the survey
+trigger is satisfied; e.g., MJD of the 2nd detection for a 
+trigger requiring two detections. This option requires that the
+survey sets a {\tt PHOTFLAG} mask for the observation when the
+survey trigger is satified; {\tt\&SNLCINP} input {\tt PHOTFLAG\_TRIGGER}
+specifies this {\tt PHOTFLAG} trigger mask. 
+To date, no public data sets include a {\tt PHOTFLAG} trigger mask. 
+However, the simulation can include this information
+as shown in Fig.~\ref{fig:pipeline_maps}.
+
+
+\clearpage
+The Bazin fit options are baed on the SNLS CC rate paper (Bazin et al, 2008),
 %
 \begin{equation}
   f(t) =   A [1 + a_1(t-\bar{t}) + a_2(t-\bar{t})^2 ] \times
@@ -5867,56 +5921,42 @@ a general function of the form
    \label{eq:t0fun}
 \end{equation}
 %
-as suggested in the SNLS CC rate paper (Bazin et al, 2008).
-The fitted parameters for each filter are 
-$A, a_1, a_2, \bar{t}, \Tfall, \Trise$.
+where the fitted parameters are $A, a_1, a_2, \bar{t}, \Tfall, \Trise$.
+{\tt OPT\_SETPKMJD=1} sets $a_1=0$ and $a_2=0$, while
+{\tt OPT\_SETPKMJD=2} floats both $a_1$ and $a_2$.
 The time at peak is obtained by setting the derivative equal
 to zero: $t_0 = \bar{t} + \Trise \ln(\Tfall/\Trise-1)$.
-The initial $\bar{t}$ value is estimated to be the epoch
-with maximum flux. Each filter is fit independently and
+Each filter is fit independently and
 the final $t_0$ is the filter-weighted average.
 A filter's $t_0$ is dropped from the average if:
 (1) its max-flux measurement has the smallest $S/N$ 
-ratio among filters and has $S/N<10$, or
+ratio among filters and has $S/N<3$, or
 (2) its $t_0$ value is more than 30 days away from the average
 of the other filter-$t_0$ values 
 (tested only if there are 3 or more filters).
-The max-flux epoch must have $S/N > 4$ to make an estimate
-of $t_0$. 
+The max-flux epoch must have $S/N > 3$ to make an estimate of $t_0$. 
+The CPU time os ${\sim}170$~millsec per event.
 
-
-Bit-mask options via \&SNLCINP namelist variable
-{\tt OPT\_SETPKMJD} are: 
+The Bazin fit needs and initial $\bar{t}$ value, which by default
+is based on MJD of maximum flux. However, the Fmax-clump method
+can be used instead by combining bit-mask options,
+\begin{verbatim}
+   OPT_SETPKMJD = 17  # 1(Bazin) + 16(Fmax-clump)
+\end{verbatim}
 %
-\begin{Verbatim}[frame=single]
-   OPT_SETPKMJD += 1    #  fix a1 = a2 = 0 (no polynomial term)
-   OPT_SETPKMJD += 2    #  float a1 & a2
-   OPT_SETPKMJD += 4    #  do NOT abort when PKMJD cannot be found
-   OPT_SETPKMJD += 8    #  PKMJD -> MJD at max-flux (no fit)
-   OPT_SETPKMJD += 16   #  save fit-PKMJD params (each band) in SNANA table
-   OPT_SETPKMJD += 128  #  DUMP info for each SN
-\end{Verbatim}
-
-Users should compare the initial $t_0$ (from above)
+If $t_0$ canot be detemermined, \SNANA\ programs abort by default.
+To avoid aborts, {\tt OPT\_SETPKMJD += 4}.
+The Bazin fit parameters for each band can be included in output
+tables with {\tt OPT\_SETPKMJD += 512}.
+Users should compare the $t_0$ estimate ({\tt PKMJDINI} in output tables) 
 to the final $t_0$ from the light curve fit
 and check for outliers;
 outliers can be fixed by visual inspection of the light curve
 and setting the {\tt SEARCH\_PEAKMJD} keyword in the data file.
-To avoid clogging up the standard log-file,
-the {\sc minuit} output for these fits is dumped to a
-separate log-file specified by namelist variable
-{\tt MNFIT\_PKMJD\_LOGFILE}: the default filename is
-{\tt MNFIT\_PKMJD.LOG}.
 
-\bigskip
-WARNING (Jun 2010):
-The SN classifier challenge has uncovered two serious problems
-with the initial $t_0$ estimate for SNe~Ia using Eq.~\ref{eq:t0fun}.
-First, the filter-dependence of $t_0$ is not accounted for.
-Second, Eq.~\ref{eq:t0fun} can sometimes be very nonIa-like
-(even for a perfectly good fit), leading to $t_0$ estimates off
-by more than a week.
-Will need to add an option to use a more Ia-like function.
+
+
+
 
 % ---------------------------------------
    \clearpage
@@ -7095,7 +7135,7 @@ file with the matching primary reference.
 There are two methods for interpolating the SN flux 
 at a particular observation time (MJD). The first method
 is to use the generic 'any-LC' function from 
-\S\ref{subsec:initial_fitpar},
+\S\ref{subsec:initial_peakmjd},
 and the second method is to use an SN~Ia light curve model.
 For either method prepare a two-column file that lists each 
 SNID and MJD to interpolate. To interpolate all SN at a

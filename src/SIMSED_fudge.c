@@ -4340,7 +4340,6 @@ double colorFudge(double lambda, double colorVal) {
 
   ptrpar = &INPUTS.COLORFUN_PARVAL[1] ;
 
-
   if ( INDEX_COLORFUN == INDEX_SALT2colorlaw0 ) {
     colorlaw = SALT2colorlaw0 ( lambda, colorVal, ptrpar );
 
@@ -4377,6 +4376,8 @@ double colorFudge(double lambda, double colorVal) {
     errmsg(SEV_FATAL, 0, fnam, c1err, "" ); 
   }
 
+  // we should never get here, but return 0.0 just in case
+  return(0.0);
 
 } // end of colorFudge
 
@@ -4427,6 +4428,7 @@ double Btransfun(double lam) {
 
   sprintf(c1err,"Could not evaluate Btrans at lam=%f", lam);
   errmsg(SEV_FATAL, 0, fnam, c1err, "" ); 
+  return(trans);
 
 } // end of Btransfun
 
@@ -4665,11 +4667,11 @@ void sedWrite(FILE *fp_out) {
 
 
 	} else {
-	sprintf(debug1, ""); 
-	sprintf(debug2, ""); 
+	debug1[0] = 0 ;
+	debug2[0] = 0;
       } // FLAG_DEBUG_SIMSED
 
-      fprintf(fp_out,"%s %s %s \n", ctmp, ctmperr, debug1, debug2 );      
+      fprintf(fp_out,"%s %s %s %s\n", ctmp, ctmperr, debug1, debug2 );      
     }
   }
 

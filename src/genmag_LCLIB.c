@@ -696,7 +696,7 @@ void genmag_LCLIB ( int EXTERNAL_ID     // (I) external ID
     if ( ifilt_obs == -1 ) {
       char cfilt[2];
       sprintf(cfilt,"%c", LCLIB_INFO.FILTERS[ifilt] );
-      printf(" xxx -------------- ID(EXTERN,LCLIB) = %ld,%ld ----------- \n",
+      printf(" xxx -------------- ID(EXTERN,LCLIB) = %d,%d ----------- \n",
 	     EXTERNAL_ID, LCLIB_EVENT.ID );
       printf(" xxx ifilt=%d(%s)  Tobs[%2d]=%.3f -> %.3f  (TOBS_OFF=%.2f) \n",
 	     ifilt, cfilt, obs, Tobs, Tobs_shifted,  
@@ -1919,7 +1919,7 @@ void addTemplateRows_NONRECUR(void) {
     m1 = LCLIB_EVENT.LASTMAG[ifilt] ;
     MAGDIF = fabs(m0-m1) ;
     if ( MAGDIF > 0.02 ) {
-      printf(" WARNING: EVENT_ID=%d first/last mag(%c) = %.3f/%.3f "
+      printf(" WARNING: EVENT_ID=%lld first/last mag(%c) = %.3f/%.3f "
 	     "(DIF=%.3f)\n",
 	     LCLIB_EVENT.ID, LCLIB_INFO.FILTERS[ifilt], m0, m1, MAGDIF );
       NFERR++ ;
@@ -1928,7 +1928,7 @@ void addTemplateRows_NONRECUR(void) {
 
   // .xyz
   if ( NFERR > 0 ) {
-    sprintf(c1err,"Invalid NONRECUR EVENT (ID=%d)", LCLIB_EVENT.ID );
+    sprintf(c1err,"Invalid NONRECUR EVENT (ID=%lld)", LCLIB_EVENT.ID );
     sprintf(c2err,"First and Last mags do not match");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }

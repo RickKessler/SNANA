@@ -287,7 +287,7 @@ c
      &  ,MXFILT_ALL  = 80    ! max number of all possible filter defs
      &  ,MXFILT_REST = 20    ! max number of rest-frame filter types (was 12)
      &  ,MXFILT_KCOR = MXFILT_REST ! max number of filters used in Kcor table
-     &  ,MXFILT_SNRMAX = 10       ! no more than this many SNRMAX(filt) cuts
+     &  ,MXFILT_SNRMAX =  8       ! no more than this many SNRMAX(filt) cuts
      &  ,MNTYPE       =   1       ! min sn "type"
      &  ,MXTYPE       = 1000      ! max sn "type"
      &  ,MXZBIN_KCOR  = 100       ! max # Z-bins for KCOR tables
@@ -938,7 +938,8 @@ c
      &  ,SNLC_CLOUDCAM_SIG(MXEPOCH)
      &  ,SNLC_MOONDIST(MXEPOCH)    ! in deg.
      &  ,SNLC_MOONPHASE(MXEPOCH)   ! 0 - 1
-     &  ,SNLC_TREST(MXEPOCH)          !MJD-SearhMJDPEAK / (1+z)
+     &  ,SNLC_TOBS(MXEPOCH)        ! MJD-SET_PEAKMJD
+     &  ,SNLC_TREST(MXEPOCH)       !  MJD-SET_PEAKMJD)/(1+z)
      &  ,SNLC_GAIN(MXEPOCH)      ! e/AUD
      &  ,SNLC_RDNOISE(MXEPOCH)   ! read noise per pix, e-
      &  ,SNLC_PIXSIZE            ! pixel size
@@ -1016,7 +1017,7 @@ c
      &    ,SNLC_VPEC, SNLC_VPEC_ERR, SNLC_ZPEC, SNLC_ZPEC_ERR
      &    ,SNLC_TRESTMIN, SNLC_TRESTMAX, SNLC_TrestRange, SNLC_TREST
      &    ,SNLC_TGAPMAX,  SNLC_T0GAPMAX
-     &    ,SNLC_Tobsmin, SNLC_Tobsmax
+     &    ,SNLC_Tobsmin, SNLC_Tobsmax, SNLC_TOBS
      &    ,SNLC_SNRMAX_FILT, SNLC_SNRMAX_SORT
      &    ,SNLC_FLUXCALMAX, SNLC_PHOTPROB, SNLC_PHOTPROB_MIN
      &    ,SNLC_CLOUDCAM_AVG, SNLC_CLOUDCAM_SIG
@@ -1632,7 +1633,7 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_MJD_MARKER     ! things above do NOT depend on epoch
      &  ,CUTBIT_PSF,  CUTBIT_ZP
      &  ,CUTBIT_MOONDIST,  CUTBIT_PHOTPROB, CUTBIT_AIRMASS
-     &  ,CUTBIT_TREST, CUTBIT_MJD
+     &  ,CUTBIT_TREST, CUTBIT_TOBS, CUTBIT_MJD
      &  ,CUTBIT_IDTEL          ! valid telescope 
      &  ,CUTBIT_NBAND_THRESH
      &  ,CUTBIT_NFILT_SNRMAX
@@ -1691,8 +1692,9 @@ c MJD-dependent cuts below
      &  ,CUTBIT_AIRMASS      = CUTBIT_MJD_MARKER + 5  ! 1=overhead
      &  ,CUTBIT_NBAND_THRESH = CUTBIT_MJD_MARKER + 6
      &  ,CUTBIT_Trest        = CUTBIT_MJD_MARKER + 7  
-     &  ,CUTBIT_MJD          = CUTBIT_MJD_MARKER + 8  
-     &  ,CUTBIT_IDTEL        = CUTBIT_MJD_MARKER + 9
+     &  ,CUTBIT_Tobs         = CUTBIT_MJD_MARKER + 8  ! 5.21.2019
+     &  ,CUTBIT_MJD          = CUTBIT_MJD_MARKER + 9  
+     &  ,CUTBIT_IDTEL        = CUTBIT_MJD_MARKER + 10
 c
      &  ,CUTBIT_OFFSET       = CUTBIT_IDTEL
      &  ,NCUTBIT             = CUTBIT_OFFSET 
@@ -1806,6 +1808,7 @@ c  Below are Epoch-dependent cuts
      &  ,cutwin_moondist(2)      ! dist betwee SN and moon, deg
      &  ,cutwin_photprob(2)
      &  ,cutwin_Trest(2)         ! window for all epochs, rest frame days
+     &  ,cutwin_Tobs(2)          ! window for all epochs, obs-frame days
      &  ,cutwin_MJD(2)           ! MJD window
      &  ,CUTWIN_MJD_EXCLUDE(2)          ! MJD window to exclude
      &  ,CUTWIN_MJD_INCLUDE(2)          ! require  MJD in this window
@@ -1956,6 +1959,7 @@ ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
      &   ,( cutwin_var(1,cutbit_Tobsmin),   cutwin_Tobsmin )
      &   ,( cutwin_var(1,cutbit_Tobsmax),   cutwin_Tobsmax )
      &   ,( cutwin_var(1,cutbit_Trest),     cutwin_Trest )
+     &   ,( cutwin_var(1,cutbit_Tobs),      cutwin_Tobs )
      &   ,( cutwin_var(1,cutbit_MJD),       cutwin_MJD   )
      &   ,( cutwin_var(1,cutbit_peakmjd),   cutwin_peakmjd )
      &   ,( cutwin_var(1,cutbit_NMJD_INCLUDE),  cutwin_NMJD_INCLUDE )
@@ -2223,7 +2227,7 @@ c
      &   ,cutwin_snrmax,    cutwin_snrmax2, cutwin_nfield
      &   ,cutwin_mwebv,     cutwin_nseason_active
      &   ,cutwin_Trestmin,   cutwin_Trestmax
-     &   ,cutwin_TrestRange, cutwin_Trest
+     &   ,cutwin_TrestRange, cutwin_Trest, cutwin_Tobs
      &   ,cutwin_Tgapmax,  cutwin_T0gapmax
      &   ,cutwin_Tobsmin,  cutwin_Tobsmax
      &   ,cutwin_peakmjd,  cutwin_mjd
@@ -3538,8 +3542,8 @@ c default is to reject nothing (accept everything)
       OPT_SETPKMJD    = 0
       MJDRANGE_SETPKMJD(1) = 10.
       MJDRANGE_SETPKMJD(2) = 999999.
-      SNRCUT_SETPKMJD      = 3.0  ! only for FLUXMAX2 option (Fmax in clump)
-      MJDWIN_SETPKMJD      =50.0  ! only for FLUXMAX2 option (Fmax in clump)
+      SNRCUT_SETPKMJD      = 5.0  ! only for FLUXMAX2 option (Fmax-clump)
+      MJDWIN_SETPKMJD      =50.0  ! only for FLUXMAX2 option (Fmax-clump)
 
       OPT_DEBUG           = 0
       LDMP_SNFAIL         = .FALSE.
@@ -4986,6 +4990,10 @@ c ---
          else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TREST' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TREST(1)
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TREST(2)
+
+         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TOBS' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TOBS(1)
+            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TOBS(2)
 
          else if ( LINE_ARGS(i) .EQ. 'CUTWIN_PEAKMJD' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_PEAKMJD(1)
@@ -16715,6 +16723,7 @@ C ------------- BEGIN ------------
       SNLC_MOONDIST(ep1)     = SNLC_MOONDIST(ep2)
       SNLC_MOONPHASE(ep1)    = SNLC_MOONPHASE(ep2)
       SNLC_TREST(ep1)        = SNLC_TREST(ep2)
+      SNLC_TOBS(ep1)         = SNLC_TOBS(ep2)
       SNLC_GAIN(ep1)         = SNLC_GAIN(ep2)
       SNLC_RDNOISE(ep1)      = SNLC_RDNOISE(ep2)
       SNLC_XPIX(ep1)         = SNLC_XPIX(ep2)
@@ -17154,6 +17163,7 @@ c hard-wire names of cut variables (maxchar = 28)
       cutvar_name(CUTBIT_SIMVAR)       = 'SIMVAR_CUTS:'
       cutvar_name(CUTBIT_USRCUTS)      = 'USRCUTS:'
       cutvar_name(CUTBIT_TREST)        = 'Trest:'
+      cutvar_name(CUTBIT_TOBS)         = 'Tobs:'
       cutvar_name(CUTBIT_IDTEL)        = 'Telescope:'
       cutvar_name(CUTBIT_SNRMAX)       = 'SNRmax:'
       cutvar_name(CUTBIT_SNRMAX2)      = 'SNRmax2:'
@@ -18899,6 +18909,7 @@ c  * ISNLC_NFILT_THRESH(epoch) = # filter bands above user-threshold
 c  * ISNLC_NFILT_TRESTMIN[MAX]
 c  * ISNLC_NFILT_TREST2  
 c  * SNLC_TREST(epoch)        = MJD - MJDatPEAK(search) 
+c  * SNLC_TOBS(epoch)
 c  *
 c  * SNLC_FLUXCAL_ERRCALC(ifilt,epoch,isn)  ! calc flux error 
 c  * SNHOST_ZPHOT[_ERR]
@@ -19098,6 +19109,7 @@ c = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         Tobs  = MJD8 - SNLC_SEARCH_PEAKMJD
         Trest = Tobs / z1
 
+        SNLC_TOBS(EPMIN)  = Tobs
         SNLC_TREST(EPMIN) = Trest
 
         NBAND_THRESH = 0  ! init number of filter bands above user-threshold
@@ -19107,6 +19119,7 @@ c = = = = = = = = = = = = = = = = = = = = = = = = = = = =
            ISNLC_SNRECON_USE(ep) = 0
 
            SNLC_TREST(EP) = Trest
+           SNLC_TOBS(EP)  = Tobs	
            IFILT_OBS = ISNLC_IFILT_OBS(ep)
            IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
            
@@ -19222,6 +19235,8 @@ c check MJD-exclude window to reject epochs (but keep LC)
      &            MJD8 .LE. CUTWIN_MJD_EXCLUDE(2)
                     
           LSIG = Xnsig .GE. cutwin_snrmin_filt(1,ifilt)
+     &     .and. Tobs  .GE. cutwin_Tobs(1)  
+     &     .and. Tobs  .LE. cutwin_Tobs(2)  
      &     .and. Trest .GE. cutwin_Trest(1)  
      &     .and. Trest .LE. cutwin_Trest(2)  
      &     .and. MJD8  .GE. cutwin_MJD(1)
@@ -22634,6 +22649,9 @@ c Dec 18 2017: replace cloudAVG with PSF cut. Note that cut is in ARCSEC
 
          SNEP_CUTVAR(CUTBIT_TREST,imjd)  = 
      &       SNLC_TREST(EPMIN)
+
+         SNEP_CUTVAR(CUTBIT_TOBS,imjd)  = 
+     &       SNLC_TOBS(EPMIN)
 
          SNEP_CUTVAR(CUTBIT_MJD,imjd)  = 
      &       SNLC8_MJD(EPMIN)
@@ -35549,18 +35567,19 @@ cc      CALL PRBANNER ( global_banner )
 c initialize
 
       DO 480 IFILT_OBS = 0, MXFILT_ALL
-        FLUXMAX(IFILT_OBS)       =  0.0
-        MJDatFLUXMAX(IFILT_OBS)  = -9.0 
-        SNRatFLUXMAX(IFILT_OBS)  = -9.0 
+         EP_atFLUXMAX(IFILT_OBS)  = -9
+         FLUXMAX(IFILT_OBS)       =  0.0
+         MJDatFLUXMAX(IFILT_OBS)  = -9.0 
+         SNRatFLUXMAX(IFILT_OBS)  = -9.0 
+         
+         IF ( IFILT_OBS .EQ. 0 ) goto 480
 
-        IF ( IFILT_OBS .EQ. 0 ) goto 480
-
-        PKMJD_FIT(IFILT_OBS)     =  0.0
-        PKMJD_ERR(IFILT_OBS)     = -9.0
-        PKFLUX_FIT(IFILT_OBS)    = -9.0
-        PKFLUX_ERR(IFILT_OBS)    = -9.0
-
-        USEFILT(ifilt_obs) = .FALSE.
+         PKMJD_FIT(IFILT_OBS)     =  0.0
+         PKMJD_ERR(IFILT_OBS)     = -9.0
+         PKFLUX_FIT(IFILT_OBS)    = -9.0
+         PKFLUX_ERR(IFILT_OBS)    = -9.0
+         
+         USEFILT(ifilt_obs) = .FALSE.
  480  CONTINUE
 
 
@@ -35854,7 +35873,10 @@ c If FLUXMAX2 option is set (Fmax in clump), do 2nd iteration
 c over a restricted MJDWIN_SETPKMJD  region that has the most 
 c epochs with SNR > SNRCUT_SETPKMJD. The goal here is to reject
 c epoch-ranges with a few crazy outlier fluxes that can
-c introduce false PEAKMJDs.
+c introduce false PEAKMJDs. If there are no epochs passing
+c SNR > SNRCUT_SETPKMJD, then the process is repeated with
+c the USE_BACKUP_SNRCUT value of SNRMIN_forFLUXMAX ... this
+c is to ensure that we always get a PEAKMJD estimate.
 c
 c Be careful with two different MJD windows:
 c
@@ -35888,12 +35910,14 @@ c+CDE,SNANAFIT.
      &  ,NSNRCUT_SUM, NSNRCUT_MAXSUM, NEPTOT, NERR
 
       REAL 
-     &   MJD, MJDMIN, FLUX, FLUXERR, SNR, PSFSIG1, FAC, SNRCUT
+     &   MJD, MJDMIN, FLUX, FLUXERR, SNR, SNRMAX, PSFSIG1, FAC, SNRCUT
      &  ,FLUXMAX(0:MXFILT_ALL)
 
       LOGICAL 
      &   USE_MJDatFLUXMAX   ! max flux, no caveats 
      &  ,USE_MJDatFLUXMAX2  ! max flux in region with most SNR>CUT
+     &  ,USE_BACKUP_SNRCUT
+     &  ,NOTHING
 
       REAL     MJDSTEP_SNRCUT
       INTEGER  MXWIN_SNRCUT
@@ -35918,13 +35942,20 @@ C -------------- BEGIN ---------------
       NEPTOT = ISNLC_EPOCH_RANGE_NEWMJD(2,ISNLC_NEWMJD_STORE)
       SNRCUT = 0.0
       NITER  = 1     ! always do max flux on 1st iter
+      EPMIN2 = -9;  EPMAX2 = -9
+      SNRMAX = 0.0 
+      USE_BACKUP_SNRCUT = .FALSE.
+
+ 800  CONTINUE
 
       IF ( USE_MJDatFLUXMAX2 ) THEN
          NITER   = 2
          MJDMIN  = SNGL(SNLC8_MJDMIN)
          IMJDMAX = 0
-         SNRCUT  = SNRCUT_SETPKMJD
          NWIN_COMBINE = int(MJDWIN_SETPKMJD/MJDSTEP_SNRCUT + 0.01)
+
+         SNRCUT  = SNRCUT_SETPKMJD
+         if ( USE_BACKUP_SNRCUT ) SNRCUT = SNRMIN_forFLUXMAX
 
          do ep = 1, MXWIN_SNRCUT
             NSNRCUT(ep) = 0
@@ -35953,6 +35984,8 @@ C -------------- BEGIN ---------------
 
             print*,' PRE-ABORT DUMP '
 	    print*,'   NSNRCUT_MAXSUM = ', NSNRCUT_MAXSUM
+            print*,'   NEP_SNRCUT     = ', NEP_SNRCUT
+            print*,'   SNRMAX         = ', SNRMAX
 	    print*,'   IMJDMAX        = ', IMJDMAX
 	    print*,'   EPMIN_SNRCUT   = ',(EPMIN_SNRCUT(imjd),imjd=1,20)
 	    print*,'   EPMAX_SNRCUT   = ',(EPMAX_SNRCUT(imjd),imjd=1,20)
@@ -35967,7 +36000,7 @@ C -------------- BEGIN ---------------
             CALL MADABORT(FNAM, c1err, c2err)  
          endif
 
-         NEP_SNRCUT = 0
+         NEP_SNRCUT        = 0
          DO 101 EP = EPMIN, EPMAX
 
             MJD   = SNGL( SNLC8_MJD(EP) )
@@ -35986,6 +36019,7 @@ c  always toss bad epochs to get maxFlux
             if ( FLUXERR .LE. 0.0 ) GOTO 101
 
             SNR = FLUX/FLUXERR
+            if ( SNR > SNRMAX ) SNRMAX=SNR  ! diagnostic only
             if ( SNR < SNRMIN_forFLUXMAX ) GOTO 101
 
 c make sure SNR passes user cut.
@@ -36028,6 +36062,16 @@ c count number of SNR>cut epochs in sliding 10-day windows
 
  101     CONTINUE
          
+         NOTHING = ( ITER==1 .and. NEP_SNRCUT==0 )
+         if ( NOTHING ) then
+            if ( USE_BACKUP_SNRCUT ) then
+               return
+            else
+               USE_BACKUP_SNRCUT = .TRUE.
+               goto 800
+            endif
+         endif
+
          IF ( USE_MJDatFLUXMAX2 .and. ITER==1 ) THEN
 c           check sliding combined windows for max NSNRCUT
             NSNRCUT_MAXSUM = 0            

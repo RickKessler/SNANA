@@ -16697,7 +16697,7 @@ GitHub issues:
 
 
 # ======================================================================= 
-         v10_72i (  ) 
+         v10_72i (May 21 2019) 
 
          ***** IMPORTANT(v10_72i) ***** 
 
@@ -16706,7 +16706,14 @@ GitHub issues:
          ***** MISCELLANEOUS(v10_72i) ***** 
 
    snana.car
-     + in SET+PEAKMJD(), return of fewer than 2 epochs.
+     + in SET_PEAKMJD(), return if fewer than 2 epochs.
+     + for Fmax-clump method, if all epochs fail SNRCUT_SETPKMJD, 
+       return instead of abort.
+     + improve Fmax-clump with SNRCUT_SETPKMJD=5 and BACKUP_SNRCUT
+       if SNRMAX<5.
+     + MXFILT_SNRMAX -> 8 (was 10) to make room for CUTWIN_TOBS
+
+   SNANA_CodeTest.py : ready for Midway2 and batch system.
 
    On FNAL-DES cluster, switch devel setup to use EUPS (no mor UPS).
    This doesn't change SNANA codes, but changes what it links to.

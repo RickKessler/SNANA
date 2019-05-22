@@ -34,8 +34,8 @@ USERNAME         = os.environ['USER']
 USERNAME_TAG     = USERNAME[0:4]       # suffix for logdir name
 LIST_TESTS_FILE_DEFAULT = ('%s/%s' % (SNANA_TESTS_DIR,"SNANA_CodeTests.LIST"))
 CPU_FILE_DEFAULT        = 'CPU_ASSIGN.DAT'  
-RESULT_TASKS_FILE       = 'RESULTS_TASKS.LOG'
-RESULT_DIFF_FILE        = 'RESULTS_DIFF.LOG'
+RESULT_TASKS_FILE       = 'RESULTS_TASKS.DAT'
+RESULT_DIFF_FILE        = 'RESULTS_DIFF.DAT'
 SNANA_INFO_FILE         = 'SNANA.INFO'
 STOP_FILE               = ('%s/STOP' % (LOG_TOPDIR) )
 MEMORY                  = 2000   # Mb
@@ -778,7 +778,7 @@ def submitTasks_SSH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
     for cpunum in range(0,NCPU) :
 
         node        =  SSH_NODES[cpunum]
-        logfile_cpu = ('%s/CPUNUM_%3.3d.LOG' % (LOGDIR,cpunum) )
+        logfile_cpu = ('%s/RUNJOB_CPU%3.3d.LOG' % (LOGDIR,cpunum) )
 
         cmd_ssh     = ('ssh -x %s' % node)
         cmd_cd      = ('cd %s' % LOGDIR)
@@ -843,8 +843,8 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
         cmd_submit = ('cd %s ; %s %s' % 
                       (LOGDIR,BATCH_SUBMIT_COMMAND,batch_runfile) )
         os.system(cmd_submit)
-        print(' Submitted %s ' % batch_runfile )
-        sys.stdout.flush()
+#        print(' Submitted %s ' % batch_runfile )
+#        sys.stdout.flush()
 
 #    sys.exit('\n\n xxx Bye bye from submitTasks_BATCH' )
 
@@ -974,6 +974,34 @@ def compare_results(INPUTS,RESULTS_INFO_REF,RESULTS_INFO_TEST):
     return
 
 # ========================================
+def make_tarfiles(LOGDIR):
+
+    # to cleanup files, make tar files and then remove files.
+    filespec_list = []
+    tarfile_list  = []
+
+    filespec_list.append('TASK*')
+    filespec_list.append('*.LOG *.fitres *.FITRES *.M0DIF *.SPEC *.out *.OUT *.ROOT *.HBOOK *.fits *.FITS *.LIST')
+
+    tarfile_list.append('BACKUP_TASKFILES.tar')
+    tarfile_list.append('BACKUP_MISC.tar')
+    
+    NLIST = len(tarfile_list)
+
+    print(' Create tar file backups. ' )
+
+    for i in range(0,NLIST):
+        filespec  = filespec_list[i]
+        tarfile   = tarfile_list[i]
+        cmd_cd    = ('cd %s' % LOGDIR)
+        cmd_tar   = ('tar -cf %s %s >/dev/null 2>&1' % (tarfile,filespec))
+        cmd_gzip  = ('gzip %s' % tarfile)
+        cmd_rm    = ('rm %s >/dev/null 2>&1' % filespec)
+        cmd_all   = ('%s ; %s ; %s ; %s' % (cmd_cd,cmd_tar,cmd_gzip,cmd_rm) ) 
+
+        os.system(cmd_all)
+
+# ========================================
 def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
 
     t_start = time.time()
@@ -997,7 +1025,7 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
         sys.stdout.flush()
         if ( os.path.isfile(STOP_FILE) == True ) :
             cmd_cp = ('cp %s %s' % (STOP_FILE,LOGDIR) )
-            os.system(cmd_mv)
+            os.system(cmd_cp)
             sys.exit()
 
         if ( NDONE < NTASK ) :
@@ -1042,6 +1070,10 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
     if DOTEST is True :
         RESULTS_INFO_TEST = get_RESULTS_TASKS(LOGDIR)
         compare_results(INPUTS,RESULTS_INFO_REF,RESULTS_INFO_TEST)
+
+    # if no errors, tar things up
+    if ( NABORT==0 and NBLANK==0 ) :
+        make_tarfiles(LOGDIR)
 
     return               
        

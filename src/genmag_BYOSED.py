@@ -15,6 +15,7 @@ if not hasattr(sys, 'argv'):
 required_keys = ['magsmear']
 
 __mask_bit_locations__={'verbose':1,'dump':2}
+__host_param_indices=['mass','sfr','age']
 
 class genmag_BYOSED:
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST):
@@ -24,7 +25,8 @@ class genmag_BYOSED:
 				self.dump = OPTMASK & (1 << __mask_bit_locations__['dump'])>0
 				self.sn_id=None
 
-				self.PATH_VERSION = os.path.dirname(PATH_VERSION)
+				self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
+
 				self.paramfile = os.path.join(self.PATH_VERSION,'BYOSED.params')
 				if os.path.exists(self.paramfile):
 					config = configparser.ConfigParser()
@@ -103,10 +105,10 @@ class genmag_BYOSED:
 						func_data=np.array(warp_data['WARP_FUNCTION'])
 								
 						try:
-								x0,x1,y=_read_griddata(func_data)
+								x0,x1,y=_read_griddata(os.path.expandvars(func_data))
 						except:
 								try:
-										x0,x1,y=_sncosmo_read_griddata(os.path.join(self.PATH_VERSION,str(func_data)))
+										x0,x1,y=_sncosmo_read_griddata(os.path.expandvars(os.path.join(self.PATH_VERSION,str(func_data))))
 								except RuntimeError:
 										raise RuntimeError("Do not recognize format of function for %s"%warp)
 								
@@ -141,7 +143,7 @@ class genmag_BYOSED:
 
 				return list(self.wave)
 		
-		def fetchSED_BYOSED(self,trest,maxlam,external_id,new_event):
+		def fetchSED_BYOSED(self,trest,maxlam,external_id,new_event,HOST_PARAMS):
 
 				if len(self.wave)>maxlam:
 						raise RuntimeError("Your wavelength array cannot be larger than %i but is %i"%(maxlam,len(self.wave)))
@@ -283,8 +285,8 @@ def _stripcomment(line, char='#'):
 				return line[:pos]
 
 def main():
-		mySED=genmag_BYOSED('../../BYOSEDINPUT/',2,[])
-		temp=mySED.fetchSED_BYOSED(10,5000,3,0)
+		mySED=genmag_BYOSED('$WFIRST_ROOT/BYOSED_dev/BYOSEDINPUT/',2,[])
+		temp=mySED.fetchSED_BYOSED(10,5000,3,0,[1,1,1])
 
 
 if __name__=='__main__':

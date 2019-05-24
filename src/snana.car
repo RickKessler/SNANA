@@ -702,7 +702,7 @@ c SNTABLE control variables (May 2014)
      &  ,WRTABLEFILE_IAUC     ! T-> SNID -> IAUC (for writing tables)
      &  ,WRTABLEFILE_SIMVAR   ! T-> include SIM_XXX vars for simulation
      &  ,WRTABLEFILE_ZPHOT    ! T-> include ZPHOT info for PHOTOZ fit
-
+     &  ,WRTABLEFILE_HOST_TEXT! T-> add HOST info in TEXT table 
 
       INTEGER
      &   OPT_TABLE(MXTABLE)       ! option(s) for each table
@@ -728,7 +728,7 @@ c Sep 23 2017: allow user codes to add private variables to SNTABLE
      &    ,USE_TABLEFILE_TEXT, USE_TABLEFILE
      &    ,OPT_TABLE, TEXTFORMAT_TABLE
      &    ,CUTMASK_SNANA_TABLE, WRTABLEFILE_IAUC, WRTABLEFILE_SIMVAR
-     &    ,WRTABLEFILE_ZPHOT
+     &    ,WRTABLEFILE_ZPHOT, WRTABLEFILE_HOST_TEXT
 c
      &    ,NFILT_REMAP_TABLE, IFILTLIST_REMAP_TABLE
      &    ,FILTLIST_REMAP_TABLE
@@ -3620,10 +3620,11 @@ c set LTEST logicals to false.
       ABORT_ON_NOPKMJD   = .TRUE.
       ABORT_ON_BADHEADER = .TRUE.
 
-      SNTABLE_LIST         = 'DEFAULT'  ! Sep 08 2014
-      SNTABLE_FILTER_REMAP = ''
-      WRTABLEFILE_SIMVAR   = .TRUE.     ! Jul 17 2016
-      WRTABLEFILE_ZPHOT    = .TRUE.     ! Mar 19 2018
+      SNTABLE_LIST          = 'DEFAULT'  ! Sep 08 2014
+      SNTABLE_FILTER_REMAP  = ''
+      WRTABLEFILE_SIMVAR    = .TRUE.     ! Jul 17 2016
+      WRTABLEFILE_ZPHOT     = .TRUE.     ! Mar 19 2018
+      WRTABLEFILE_HOST_TEXT = .FALSE.    ! May 23 2019
 
 c ----------------------------------------
 c check command line arg for namelist file;
@@ -4228,6 +4229,8 @@ c       (to avoid confusion with ITABLE_SPECPAK
 c  + fix bug parsing options with comma; see new MSKOPT argument
 c    to store_PARSE_WORDS()
 c
+c May 23 2019: add text:host option ;see WRTABLEFILE_HOST_TEXT
+c
 c -------------------
       IMPLICIT NONE
 
@@ -4240,6 +4243,7 @@ c -------------------
 
       CHARACTER USERSTRING*60, locase_STRING*60, TBNAME*60
       CHARACTER COPT_LIST(10)*20, COPT*40, FNAM*22, C_ARG*100
+      CHARACTER cTMPOPT*60
       LOGICAL   MATCH, USEOPT, DO_SNTABLE
 
       INTEGER  STORE_PARSE_WORDS
@@ -4293,6 +4297,9 @@ c by default, SIM_XXX (truth) values are included for simulation
 
 c by default, ZPHOT[ERR] and ZPHOT-covariances are included
       WRTABLEFILE_ZPHOT  = .TRUE.
+
+c for TEXT format, exclude HOSTGAL info by default
+      WRTABLEFILE_HOST_TEXT = .FALSE.
 
 c --------------------------------------
 c bail of there is nothing to do.
@@ -4379,7 +4386,12 @@ c check for options inside ()
 
             MATCH= ( copt(1:5) .EQ. 'text:' )
             if ( MATCH ) then
-               TEXTFORMAT_TABLE(itab) = copt(6:LENOPT) // ' '
+               cTMPOPT = copt(6:LENOPT) // ' '
+               if( cTMPOPT(1:4) .EQ. 'host' ) then
+                  WRTABLEFILE_HOST_TEXT = .TRUE.
+               else
+                  TEXTFORMAT_TABLE(itab) = cTMPOPT
+               endif
                USEOPT = .TRUE.
             endif
 
@@ -4450,6 +4462,10 @@ c summarize
 
       write(6,51) 'SNANA', CUTMASK_SNANA_TABLE
 51    format(T5,A8,'-table: select CUTFLAG_SNANA & ', I3 )
+
+      if ( WRTABLEFILE_HOST_TEXT ) then
+         print*,'   Include HOSTGAL info in TEXT tables.'
+      endif
 
       if ( WRTABLEFILE_IAUC ) then
          print*,'    All tables: write CID=IAUC name instead of SNID '
@@ -24261,6 +24277,7 @@ c
 c Jan 8 2018: write zHEL[ERR] to text file
 c Mar 9 2018: add PHOTPROB info, MIN and Nepochs
 c Mar 10 2019: add HOST_OBJID with BLOCK_LL for long long int
+c May 23 2019: bug fix: book HOST_RA[DEC] as double instead of float.
 c
 c --------------------------------------------------
 
@@ -24273,7 +24290,7 @@ c local var
 
 +CDE,SNDATCOM.
 +CDE,SNANAFIT.
-+CDE,FILTCOM.
++CDE,FILTCOM.g
 +CDE,SNLCINP.
 +CDE,USRTAGCM.
 +CDE,PRIVCOM.
@@ -24439,12 +24456,14 @@ c - - - - -  Galactic extinction - - - -  -
      &                   LENBLOCK, 20 )
 
 c - - - - - - HOST GALAXY - - - - 
+      ITEXT = 0
+      if ( WRTABLEFILE_HOST_TEXT ) ITEXT=1
 
       VARLIST =  'HOST_NMATCH:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_NMATCH, VARLIST,0, 
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_NMATCH, VARLIST,ITEXT, 
      &     LENBLOCK, 20 )
       VARLIST =  'HOST_NMATCH2:I' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_NMATCH2, VARLIST,0, 
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_NMATCH2, VARLIST,ITEXT, 
      &     LENBLOCK, 20 )
 
 c      VARLIST =  'HOST_OBJID:L' // char(0)
@@ -24457,38 +24476,39 @@ c  * hbook cwnt does not support long long int.
 c  * sntable_dump extraction will write real*8 as integer.
 
       VARLIST =  'HOST_OBJID:D' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, DSNHOST_OBJID, VARLIST,0, 
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, DSNHOST_OBJID, VARLIST,ITEXT, 
      &     LENBLOCK, 20 )
 
       VARLIST =  'HOST_ZPHOT:F,HOST_ZPHOTERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZPHOT, VARLIST,0, 
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZPHOT, VARLIST,ITEXT, 
      &     LENBLOCK, 40 )
 
       VARLIST =  'HOST_ZSPEC:F,HOST_ZSPECERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZSPEC, VARLIST,0, 
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZSPEC, VARLIST,ITEXT, 
      &     LENBLOCK, 40 )
 
-      VARLIST = 'HOST_RA:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST8_RA, VARLIST,0,
+      VARLIST = 'HOST_RA:D'  // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST8_RA, VARLIST,ITEXT, 
      &     LENBLOCK, 20 )
-      VARLIST = 'HOST_DEC:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST8_DEC, VARLIST,0,
+      VARLIST = 'HOST_DEC:D'  // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST8_DEC, VARLIST,ITEXT, 
      &     LENBLOCK, 20 )
 
       VARLIST = 'HOST_ANGSEP:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ANGSEP, VARLIST,0,
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ANGSEP, VARLIST,ITEXT, 
      &     LENBLOCK, 20 )
 
       VARLIST = 'HOST_DDLR:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_DDLR, VARLIST,0,
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_DDLR, VARLIST,ITEXT, 
      &     LENBLOCK, 20 )
 
       VARLIST = 'HOST_CONFUSION:F'  // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_CONFUSION, VARLIST,0,
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_CONFUSION, VARLIST,ITEXT, 
      &     LENBLOCK, 20 )
 
+c always write LOGMASS and SFR
       VARLIST =  'HOST_LOGMASS:F,HOST_LOGMASS_ERR:F' // char(0)
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS, VARLIST, 1,
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS, VARLIST, 1, 
      &         LENBLOCK, 40 )
 
       VARLIST =  'HOST_sSFR:F,HOST_sSFR_ERR:F' // char(0)

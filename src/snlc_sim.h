@@ -819,8 +819,8 @@ struct GENLC {
   double SALT2alpha ;
   double SALT2beta ;
 
-  double SNMAGSHIFT_HOSTCOR ; // SN mag shift from host correlation
-  double GENMAG_OFF_GLOBAL  ; // INPUTS.GENMAG_OFF_GLOBAL + z-dependence
+  double SNMAGSHIFT_HOSTCOR ;   // mag shift from host correlation
+  double GENMAG_OFF_GLOBAL ;  // INPUTS.GENMAG_OFF_GLOBAL + z-dependence
 
   char  SNTYPE_NAME[80];   // 1a, 1b, 1c, II, etc ...
   char  SNTEMPLATE[80];
@@ -1053,7 +1053,6 @@ struct GENLC {
 
   int   SIMTYPE;              // always set; SNTYPE not always set
   int   SNTYPE;               // user index-tag (see 'SNTYPE' non1a key)
-  // xxx mark delete  int   NON1A_INDEX ; // NON1A index: SED, GRID, FIXMAG
   int   TEMPLATE_INDEX ;    // template index for NONA1SED, SIMSED, LCLIB
 
   GENLC_NON1ASED_DEF NON1ASED ;  // Mar 24 2016

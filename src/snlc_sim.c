@@ -6640,10 +6640,12 @@ void genmag_offsets(void) {
       + GENLC.GENMAG_OFF_GLOBAL              // user-defined global offset
       + INPUTS.GENMAG_OFF_MODEL[ifilt_obs]   // user-defined model offs
       - INPUTS.GENMAG_OFF_ZP[ifilt_obs]      // user-defined ZP offsets
-      + GENLC.SNMAGSHIFT_HOSTCOR             // host-dependence
       + GENLC.LENSDMU                        // lensing correction
     ;
     
+    // check legacy/debug option to apply global mag shift for hostCor
+    if ( INPUTS.DEBUG_FLAG == 55 ) { MAGOFF += GENLC.SNMAGSHIFT_HOSTCOR; }
+
     // ------
     // apply mag-offset to each epoch-mag, unless mag is
     // set to flag value (UNDEFINED or ZEROFLUX)
@@ -7570,6 +7572,7 @@ void  init_GENLC(void) {
   GENLC.ACCEPTFLAG_FORCE = 0 ;
   
   GENLC.CORRECT_HOSTMATCH = 1 ;  // default is correct match
+  GENLC.SNMAGSHIFT_HOSTCOR  = 0.0 ;
 
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
@@ -9596,9 +9599,10 @@ void override_modelPar_from_SNHOST(void) {
   // value from HOSTLIB, to enable SNpar-host correlations
   //
   // Mar 23 2018: allow SNMAGSHIFT or USESNPAR
+  // May 23 2019: adjust amplitude for SNMAGSHIFT_HOSTCOR
 
   int USE1, USE2 ;
-  double dm, shape, PKMJD, RV ;
+  double DM_HOSTCOR, shape, PKMJD, RV, arg ;
   //  char fnam[] = "override_modelPar_from_SNHOST" ;
 
   // ---------------- BEGIN ------------------
@@ -9610,9 +9614,8 @@ void override_modelPar_from_SNHOST(void) {
 
   // - - - - - -  load SNMAGSHIFT - - - -   
   // now check if SNMAGSHIFT is one of the hostlib variables
-  dm = modelPar_from_SNHOST(SNHOSTGAL.WGTMAP_SNMAGSHIFT,
-			    HOSTLIB_VARNAME_SNMAGSHIFT);
-  GENLC.SNMAGSHIFT_HOSTCOR = dm ;
+  DM_HOSTCOR = modelPar_from_SNHOST(SNHOSTGAL.WGTMAP_SNMAGSHIFT,
+				    HOSTLIB_VARNAME_SNMAGSHIFT);
 
   // check option to pick shape param from HOSTLIB 
   shape  = modelPar_from_SNHOST(GENLC.SHAPEPAR,GENLC.SHAPEPAR_NAME);
@@ -9644,6 +9647,19 @@ void override_modelPar_from_SNHOST(void) {
 				GENLC.SALT2x1, GENLC.SALT2c, 
 				GENLC.DLMU );   
     GENLC.SALT2mB = SALT2mBcalc(GENLC.SALT2x0) ;
+
+    // May 23 2019: adjust amplitude for SNMAGSHIFT_HOSTCOR
+    if ( DM_HOSTCOR != 0.0 ) {
+      GENLC.SNMAGSHIFT_HOSTCOR = DM_HOSTCOR ;
+      if ( INPUTS.DEBUG_FLAG == 55 ) {
+	// May 23 2019 LEGACY option: do not correct mB or x0 
+      }
+      else {	
+	arg = -0.4*DM_HOSTCOR;
+	GENLC.SALT2mB += DM_HOSTCOR;
+	GENLC.SALT2x0 *= pow(TEN,arg);
+      }
+    }
   }
 
   return ;
@@ -11583,6 +11599,11 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"MAGSMEAR_COH") ;
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.MAGSMEAR_COH ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"SNMAGSHIFT") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SNMAGSHIFT_HOSTCOR ;
   NVAR_SIMGEN_DUMP++ ;
 
   // - - - - - - - - - - - - - - - -
@@ -19687,18 +19708,19 @@ void snlc_to_SNDATA(int FLAG) {
     { SNDATA.SIM_DM15 = GENLC.DM15 ; }
 
 
-  SNDATA.SIM_SALT2x0        = GENLC.SALT2x0 ; 
-  SNDATA.SIM_SALT2x1        = GENLC.SALT2x1 ; 
-  SNDATA.SIM_SALT2c         = GENLC.SALT2c  ; 
-  SNDATA.SIM_SALT2mB        = GENLC.SALT2mB ; 
-  SNDATA.SIM_SALT2alpha     = GENLC.SALT2alpha ; 
-  SNDATA.SIM_SALT2beta      = GENLC.SALT2beta ; 
-  SNDATA.SIM_TEMPLATE_INDEX = GENLC.TEMPLATE_INDEX ; 
-  SNDATA.SIM_MAGSMEAR_COH   = GENLC.MAGSMEAR_COH ;
-  SNDATA.SIM_RISETIME_SHIFT = GENLC.RISETIME_SHIFT ;
-  SNDATA.SIM_FALLTIME_SHIFT = GENLC.FALLTIME_SHIFT ;
-  SNDATA.SIM_TRESTMIN       = GENLC.TRESTMIN ;
-  SNDATA.SIM_TRESTMAX       = GENLC.TRESTMAX ;
+  SNDATA.SIM_SALT2x0          = GENLC.SALT2x0 ; 
+  SNDATA.SIM_SALT2x1          = GENLC.SALT2x1 ; 
+  SNDATA.SIM_SALT2c           = GENLC.SALT2c  ; 
+  SNDATA.SIM_SALT2mB          = GENLC.SALT2mB ; 
+  SNDATA.SIM_SALT2alpha       = GENLC.SALT2alpha ; 
+  SNDATA.SIM_SALT2beta        = GENLC.SALT2beta ; 
+  SNDATA.SIM_TEMPLATE_INDEX   = GENLC.TEMPLATE_INDEX ; 
+  SNDATA.SIM_MAGSMEAR_COH     = GENLC.MAGSMEAR_COH ;
+  SNDATA.SIM_SNMAGSHIFT_HOSTCOR = GENLC.SNMAGSHIFT_HOSTCOR ;
+  SNDATA.SIM_RISETIME_SHIFT   = GENLC.RISETIME_SHIFT ;
+  SNDATA.SIM_FALLTIME_SHIFT   = GENLC.FALLTIME_SHIFT ;
+  SNDATA.SIM_TRESTMIN         = GENLC.TRESTMIN ;
+  SNDATA.SIM_TRESTMAX         = GENLC.TRESTMAX ;
 
   // set GALID here in case HOSTLIB_USE=0 in hostgal_to_SNDATA
   if ( SNHOSTGAL.GALID>0 ) 
@@ -21696,12 +21718,16 @@ void genmodel(
 
   else if ( INDEX_GENMODEL  == MODEL_BYOSED ) {
 
-    NPAR = 0 ;
+    double HOSTPAR_BYOSED[20];
+    HOSTPAR_BYOSED[0] = GENLC.RV ;
+    HOSTPAR_BYOSED[1] = GENLC.AV ;
+    HOSTPAR_BYOSED[2] = SNHOSTGAL.LOGMASS ;
+
     genmag_BYOSED(
 		  GENLC.CID
 		  ,z, GENLC.DLMU       // (I) helio-z and distance modulus
 		  ,mwebv               // (I) E(B-V) for Milky Way
-		  ,GENLC.RV, GENLC.AV  // (I) host RV & AV
+		  ,HOSTPAR_BYOSED      // (I) host properties
 		  ,ifilt_obs           // (I) filter index
 		  ,NEPFILT             // (I) number of epochs
 		  ,ptr_epoch           // (I) rest-frame time (days)

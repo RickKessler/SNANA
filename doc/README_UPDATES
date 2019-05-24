@@ -16718,4 +16718,38 @@ GitHub issues:
    On FNAL-DES cluster, switch devel setup to use EUPS (no mor UPS).
    This doesn't change SNANA codes, but changes what it links to.
 
+
+# ======================================================================= 
+         v10_72j (May 23 2019) 
+
+         ***** IMPORTANT(v10_72j) ***** 
+
+   SNMAGSHIFT from HOSTCOR is applied to SIM_mB and SIM_x0.
+   No impact on simulated light curves, but it affects
+   BBC biasCor correction.
+
+   HOSTPAR list passed to genmag_BYOSED.
+
+         ***** USEFUL(v10_72j) ***** 
+
+         ***** MISCELLANEOUS(v10_72j) ***** 
+
+    snana.car
+      + new SNTABLE option
+          SNTABLE_LIST = 'SNANA(text:key,text:host)'
+        to include HOSTGAL info in TEXT-tables.
+      + fix casting bug writing HOST_RA[DEC] to tables.
+   
+    snlc_sim.c :
+      + allow SNMAGSHIFT(HOSTCOR) to be in SIMGEN_DUMP list
+      + SNMAGSHIFT_HOSTCOR is now added to SALT2mB, rather than
+        added as a global mag shift. This has no effect on 
+        output light curves, but it impacts the mB-bias computed
+        in SALT2mu/BBC.  DEBUG_FLAG=55 will revert back to the
+        old way.
+      + pass HOSTPAR_LIST to genmag_BYOSED. Initial list is
+         RV, AV, LOGMASS. Note that RV,AV are impemented 
+         already with C code, so python code can start with
+         HOSTPAR_LIST[2] = LOGMASS.
+
 END: 

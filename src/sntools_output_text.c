@@ -439,6 +439,7 @@ void formatFloat_TEXT(char *VARNAME, double VAL, char *VALSTRING) {
 
   char c1[4];
   long long int IVAL8 ;
+  double ABSVAL = fabs(VAL) ;
 
   // -------------- BEGIN ------------
 
@@ -456,13 +457,12 @@ void formatFloat_TEXT(char *VARNAME, double VAL, char *VALSTRING) {
     sprintf(VALSTRING, "%.3f", VAL); // some kind of MJD
   }
 
-  else if ( strstr(VARNAME,"RA") != NULL ) {
+  else if ( strstr(VARNAME,"RA") != NULL && ABSVAL<400 ) {
     sprintf(VALSTRING, "%.6f", VAL);    
   }
-  else if ( strstr(VARNAME,"DEC") != NULL ) {
+  else if ( strstr(VARNAME,"DEC") != NULL && ABSVAL<400 ) {
     sprintf(VALSTRING, "%.6f", VAL);    
   }
-
   else if ( strcmp(c1,"z") == 0 ) {
     // probably a redshift
     sprintf(VALSTRING, "%.5f", VAL);    

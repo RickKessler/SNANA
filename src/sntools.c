@@ -6676,6 +6676,8 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
 
   Sep 08 2017:  for LCLIB model, write SNDATA.SIM_TEMPLATEMAG
 
+  May 23 2019: write SIM_MAGSHIFT_HOSTCOR
+
   **************/
 
   int 
@@ -6997,7 +6999,9 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
     }
     
     fptr = &SNDATA.SIM_MAGSMEAR_COH ; 
-    fprintf(fp, "SIM_MAGSMEAR_COH:   %6.3f  \n", *fptr ) ;      
+    fprintf(fp, "SIM_MAGSMEAR_COH:     %6.3f  \n", *fptr ) ;      
+    fptr = &SNDATA.SIM_SNMAGSHIFT_HOSTCOR ; 
+    fprintf(fp, "SIM_SNMAGSHIFT_HOSTCOR: %6.3f  \n", *fptr ) ;      
 
     // gal/SN flux-fraction
     fprintf(fp, "SIM_GALFRAC: "); NTMP = 0;

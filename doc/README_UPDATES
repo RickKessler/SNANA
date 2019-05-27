@@ -16752,4 +16752,39 @@ GitHub issues:
          already with C code, so python code can start with
          HOSTPAR_LIST[2] = LOGMASS.
 
+
+# ======================================================================= 
+         v10_73 (May 27 2019) 
+
+         ***** IMPORTANT(v10_73) ***** 
+
+  New sim default: PEAKMJD-estimate uses Fmax-clump method. See manual.
+
+         ***** USEFUL(v10_73) ***** 
+
+         ***** MISCELLANEOUS(v10_73) ***** 
+
+    SALT2mu_fit.pl
+     + untested new key  "OUTDIR_OVERRIDE: <outDir>"
+
+    snana.car
+     + MXFILT_ALL -> 100 (was 80) to match MXFILTINDX in simulation.
+     + for OPT_SETPKMJD=16 (Fmax-Clump option), re-write fortran
+       subroutine into C function (get_obs_atFLUXMAX) that is used
+       by both fitting programs and the simulation. This allows
+       leaving PEAKMJD estimate in the sim data files using the
+       same algorithm used on data, so that non-SNANA programs
+       can use PEAKMJD estimate without running snana.exe.
+
+   snlc_sim.c
+     + new function gen_peakmjd_smear() to either pick random
+       Gaussian smear, or use Fmax-clump option like the data.
+       Default is OPT_SETPKMJD=16.
+     + Beware that global GENLC.PEAKMJD_RANGauss is used to 
+       preserve random sync, but eventually should move location
+       of ran-Gauss generation to gen_peakmjd_smear() and break
+       random sync.
+     + remove obsolete input GENLIST_PEAKMJD_FILE
+     + remove obsolete functions init_peakmjdList, get_peakmjd_fromList
+
 END: 

@@ -61,6 +61,8 @@
 #    MUOPT: powzbin=3
 #    MUOPT: CUTWIN x1ERR 0 1
 #
+#
+#    OUTDIR_OVERRIDE: <TOPDIR>  ! only for summing INPDIR+
 #    OUTDIR_PREFIX:  SALT2mu    ! prefix for each output directory 
 #
 #    STRINGMATCH_IGNORE:  LOWZ  SDSS  SNLS
@@ -84,6 +86,8 @@
 #    INPDIR+:  /BLA/SDSS
 #    INPDIR+:  /BLA/SNLS
 # the SALT2mu fit results are written to  /BLA/SALT2mu_LOWZ+SDSS+SNLS .
+# If the OUTDIR_OVERRIDE key is given, this path overrides
+# /BLA/SALT2mu_LOWZ+SDSS+SNLS .
 #
 # This script can operate interactively, ssh-ing into a list of
 # nodes specified by NODELIST, or by using a batch system specified
@@ -198,6 +202,7 @@
 # Aug 25 2018: for CLEAN command, include lower-case SALT2mu*hbook
 # Jan 16 2019: for CLEAN command, make sure to exit(0)
 # Feb 04 2019: abort for interactive mode.
+# May 24 2019: new OUTDIR_OVERRIDE key to force output location
 #
 # ------------------------------------------------------
 
@@ -253,7 +258,7 @@ my ($STRINGMATCH);
 my ($VERSION_EXCLUDE,  $VERSION_EXCLUDE_STRING, $PROMPT, $SUBMIT );
 my (@SSH_NODELIST, $SSH_NNODE, $SNANA_LOGIN_SETUP );
 my ($BATCH_COMMAND, $BATCH_TEMPLATE, $BATCH_NCORE );
-my ($KILLJOBS_FLAG, $SUMMARY_FLAG, $OUTDIR_PREFIX );
+my ($KILLJOBS_FLAG, $SUMMARY_FLAG, $OUTDIR_PREFIX, $OUTDIR_OVERRIDE );
 my ($WFIT_OPT, @WFIT_INPUT, $CLEANFLAG ) ;
 # ----------------
 # misc globalas
@@ -404,7 +409,8 @@ sub initStuff {
     $WFIT_OPT      = "" ;
     @WFIT_INPUT    = () ;
 
-    $OUTDIR_PREFIX = "SALT2mu" ;
+    $OUTDIR_OVERRIDE = "" ;
+    $OUTDIR_PREFIX   = "SALT2mu" ;
 
     $FITOPT000_ONLY = 0 ;
 
@@ -489,6 +495,10 @@ sub parse_inpFile {
 	{ @INPDIR_SNFIT_LIST = @tmp ; $SUMFLAG_INPDIR = 1; }
     }
     
+    $key = "OUTDIR_OVERRIDE:" ;
+    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    if ( scalar(@tmp) > 0 ) { $OUTDIR_OVERRIDE = $tmp[0] ; }
+
     $key = "OUTDIR_PREFIX:" ;
     @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
     if ( scalar(@tmp) > 0 ) { $OUTDIR_PREFIX = $tmp[0] ; }
@@ -733,7 +743,6 @@ sub verify_INPDIR {
     ($TOPDIR,$SDIR) = &subDirName_after_lastSlash($INPDIR);
     @INPDIR_SDIR_LIST = ( @INPDIR_SDIR_LIST , $SDIR );
 
-
     # get number of split_and_fit FITOPTs from FITOPT.README
     # Note that NFITOPT_SNFIT includes 000.
 
@@ -935,22 +944,28 @@ sub makeSumDir_SALT2mu {
     # Dec 22 2017: check INPDIRFIX_SNFIT_LIST for fixed version
     # Mar 29 2019: for single directory, stop string match after
     #              entire string is checked.
+    # May 24 2019: allow user-defined OUTDIR_OVERRIDE
     #
     # -------------------------
 
     my ( $LEND, $MATCH, $i, $c1ref, $c1, $LENMATCH ) ;
     my ( $TOPDIR, $INPDIR, @tmp, $NVER_SKIP, $tmpReject, $DIRFIX );
-    my ( $jslash, $jstart_SDIR, $indx);
+    my ( $jslash, $jstart_SDIR, $indx, $OUTDIR);
     
     # -------------------- BEGIN ----------------------
 
+    if ( length($OUTDIR_OVERRIDE)>1 )  { 
+	$OUTDIR = $OUTDIR_OVERRIDE; 
+	goto MAKEDIR ;
+    }
+
+    # - - - - - - - - - 
     # find maximum substring of INPDIR that matches all INPDIRs
     $LEND = length($INPDIR_SNFIT_LIST[0]) ;
     $MATCH = 1;  $i=0 ;
 
     while ( $MATCH && $i < $LEND ) {
 	$c1ref = substr($INPDIR_SNFIT_LIST[0],$i,1);
-
 	foreach $INPDIR (@INPDIR_SNFIT_LIST) {
 	    $c1 = substr($INPDIR,$i,1);
 	    if ( $c1 ne $c1ref ) { $MATCH = 0 ; $LENMATCH = $i ; }
@@ -970,7 +985,7 @@ sub makeSumDir_SALT2mu {
 
     # ------------------------------------------------
     # construct SALT2mu subdir name from INPDIR_SNFIT names
-    my ($SDIR, $SDIR_SUM, $NDIR, $OUTDIR );
+    my ($SDIR, $SDIR_SUM, $NDIR );
     $NDIR = 0 ;
     $SDIR_SUM = "$OUTDIR_PREFIX" ; 
     foreach $INPDIR (@INPDIR_SNFIT_LIST) {
@@ -979,11 +994,12 @@ sub makeSumDir_SALT2mu {
 	else              { $SDIR_SUM = "${SDIR_SUM}+${SDIR}" ; }
 	$NDIR++ ;
     }
+    $OUTDIR  = "$TOPDIR/$SDIR_SUM" ;
 
-    $OUTDIR = "$TOPDIR/$SDIR_SUM" ;
+    # - - - - - - - - - - - - - - - - - - -     
+
+ MAKEDIR:
     $OUTDIR_SALT2mu_LIST[0] = "$OUTDIR" ;
-
-
     if ( $SUMMARY_FLAG == 0 ) {
 	if ( -d $OUTDIR ) { qx(rm -r $OUTDIR) ; }
 	print " Create $OUTDIR \n";
@@ -995,6 +1011,7 @@ sub makeSumDir_SALT2mu {
     }
 
     qx(cp $INPUT_FILE $OUTDIR);
+
     # --------------------------------------------
     # now the tricky part; find matching subdirs to sum.
     # Ignore subdirs without a match.
@@ -1211,16 +1228,6 @@ sub copy_inpFiles {
 	$f     =~  s/\s+$// ;
 
 	if ( index($f,"ORIG") > 0 ) { next; }
-
-
-# xxxxxxxxxx mark delete Jan 30 2018 xxxxxxxxxxxx	
-#	$F     = "$TOPDIR/$f" ;	
-#	if ( index($F,".gz") > 1 )  {
-#	    print "\t gunzip $f ... \n" ;
-#	    qx(gunzip $F );
-#	    $f =~ s/.gz//g ;
-#	}
-# xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 	
 	@cpList = ( @cpList , $f );
 	$NTOT_FITRES++ ;

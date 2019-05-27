@@ -174,8 +174,7 @@ int main(int argc, char **argv) {
   // init user-specified z-dependence of sim parameters
   init_zvariation();
 
-  // check optional list of PEAKMJD 
-  init_peakmjdList();
+  // xxx mark delete May 27 2019:  init_peakmjdList();
 
   // initialize model that generates magnitudes.
   init_kcor(INPUTS.KCOR_FILE);
@@ -676,7 +675,6 @@ void set_user_defaults(void) {
 
   INPUTS.GENRANGE_PEAKMAG[0] = -99990.0 ;
   INPUTS.GENRANGE_PEAKMAG[1] =  99999.0 ;
-  sprintf(INPUTS.GENLIST_PEAKMJD_FILE,"BLANK");
   INPUTS.GENRANGE_PEAKMJD[0] = 0.0 ;
   INPUTS.GENRANGE_PEAKMJD[1] = 0.0 ;
   INPUTS.MJD_EXPLODE         = 0.0 ;
@@ -684,10 +682,14 @@ void set_user_defaults(void) {
   INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX         = -9.0 ;
   INPUTS_SEDMODEL.MINSLOPE_EXTRAPMAG_LATE  = 0.0 ;
   
-  INPUTS.GENSIGMA_SEARCH_PEAKMJD    = 0.0 ;
-  INPUTS.GENRANGE_MJD[0] = 20000.0 ; // wide open 
-  INPUTS.GENRANGE_MJD[1] = 80000.0 ;
-  INPUTS.NEWMJD_DIF      = 0.007 ; // default: within 10 min => same set of obs
+  INPUTS.OPT_SETPKMJD      = OPTMASK_SETPKMJD_FLUXMAX2; // May 2019
+  INPUTS.MJDWIN_SETPKMJD   = 60.0;  // for default Fmax-clump method
+  INPUTS.SNRCUT_SETPKMJD   =  5.0;   // idem
+
+  INPUTS.GENSIGMA_PEAKMJD  = 0.0 ;
+  INPUTS.GENRANGE_MJD[0]   = 20000.0 ; // wide open 
+  INPUTS.GENRANGE_MJD[1]   = 80000.0 ;
+  INPUTS.NEWMJD_DIF  = 0.007 ; // default: same "epoch" for obs within 10'
 
   INPUTS.GENRANGE_TREST[0]   = 0.0 ;
   INPUTS.GENRANGE_TREST[1]   = 0.0 ;
@@ -1837,11 +1839,12 @@ int read_input(char *input_file) {
     if ( uniqueMatch(c_get,"GENRANGE_PEAKMJD:")  ) 
       { readdouble ( fp, 2, INPUTS.GENRANGE_PEAKMJD ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENLIST_PEAKMJD_FILE:")  )
-      { readchar ( fp, INPUTS.GENLIST_PEAKMJD_FILE ); continue ; }
-
-    if ( uniqueMatch(c_get,"GENSIGMA_SEARCH_PEAKMJD:")  ) 
-      { readfloat ( fp, 1, &INPUTS.GENSIGMA_SEARCH_PEAKMJD ); continue ; }
+    if ( uniqueMatch(c_get,"GENSIGMA_SEARCH_PEAKMJD:")  )  // legacy key
+      { readfloat ( fp, 1, &INPUTS.GENSIGMA_PEAKMJD ); continue ; }
+    if ( uniqueMatch(c_get,"GENSIGMA_PEAKMJD:")  ) 
+      { readfloat ( fp, 1, &INPUTS.GENSIGMA_PEAKMJD ); continue ; }
+    if ( uniqueMatch(c_get,"OPT_SETPKMJD:")  ) 
+      { readint ( fp, 1, &INPUTS.OPT_SETPKMJD ); continue ; }
 
     if ( uniqueMatch(c_get,"NEWMJD_DIF:")  ) 
       { readfloat ( fp, 1, &INPUTS.NEWMJD_DIF ); continue ; }
@@ -4783,12 +4786,15 @@ void sim_input_override(void) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_PEAKMJD[0] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_PEAKMJD[1] ); 
     }
-    if ( strcmp( ARGV_LIST[i], "GENSIGMA_SEARCH_PEAKMJD" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENSIGMA_SEARCH_PEAKMJD); 
-    }
 
-    if ( strcmp( ARGV_LIST[i], "GENLIST_PEAKMJD_FILE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENLIST_PEAKMJD_FILE ); 
+    if ( strcmp( ARGV_LIST[i], "GENSIGMA_SEARCH_PEAKMJD" ) == 0 ) { //legacy
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENSIGMA_PEAKMJD); 
+    }
+    if ( strcmp( ARGV_LIST[i], "GENSIGMA_PEAKMJD" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENSIGMA_PEAKMJD); 
+    }
+    if ( strcmp( ARGV_LIST[i], "OPT_SETPKMJD" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_SETPKMJD); 
     }
 
     if ( strcmp( ARGV_LIST[i], "NEWMJD_DIF" ) == 0 ) {
@@ -5450,7 +5456,7 @@ void prep_user_input(void) {
   int DOCHECK_FORMAT_MASK=1, ISRATE_LCLIB, INDEX_RATEMODEL;
 
   float tmp_F, XGEN_F ; 
-  double mu, z ;
+  double mu, z;
   char  *PTR_GENMODEL, vtmp[40]   ;
   char *input_file = INPUTS.INPUT_FILE_LIST[0] ;
   char fnam[] = "prep_user_input" ;
@@ -5573,7 +5579,7 @@ void prep_user_input(void) {
 
 
   // -----------------------------------------------
-  // load generic "LUMPIAR" variables based on model
+  // load generic "LUMIPAR" variables based on model
   // Also load INDEX_GENMODEL index
 
   GENFRAME_OPT = NULLINT ;
@@ -6132,7 +6138,7 @@ void prep_user_input(void) {
     printf("\t Found no PEC1A SEDs --> turn off DNDZ_PEC1A rate model\n");
     INPUTS.RATEPAR_PEC1A.NMODEL_ZRANGE = 0 ; 
   }
-
+  
 
   if ( ISRATE_LCLIB &&  INDEX_GENMODEL != MODEL_LCLIB ) { 
     sprintf(c1err,"Must use DNDB rate-model with GENMODEL=LCLIB.");
@@ -6160,7 +6166,6 @@ void prep_user_input(void) {
 
   
   printf("\n");
-
 
   return ;
 
@@ -6941,10 +6946,11 @@ void genperfect_override(void) {
   GENPERFECT.partype[NVAR]   = 1 ;
 
 
-  NVAR++ ;  fptr = &INPUTS.GENSIGMA_SEARCH_PEAKMJD ;
-  sprintf(GENPERFECT.parnam[NVAR], "GENSIGMA_SEARCH_PEAKMJD" ) ;
+  NVAR++ ;  fptr = &INPUTS.GENSIGMA_PEAKMJD ;
+  sprintf(GENPERFECT.parnam[NVAR], "GENSIGMA_PEAKMJD" ) ;
   GENPERFECT.parval[NVAR][0] = *fptr ;
   *fptr = 0.1 ;
+  INPUTS.OPT_SETPKMJD=0;
   GENPERFECT.parval[NVAR][1] = *fptr ;
   GENPERFECT.partype[NVAR]   = 2 ;
 
@@ -7834,10 +7840,14 @@ void init_modelSmear(void) {
   // 
   // Apr 11 2019:
   //  + adapt so that G10 model works for BYOSED
+  //
+  // May 27 2019: 
+  //  + check for call to init_obs_atFLUXMAX() to prep for 
+  //    PEAKMJD estimate
 
   double SMEAR_SCALE = (double)INPUTS.GENMAG_SMEAR_SCALE;
   int    OPT, j, USE_SALT2smear ;
-  double LAMRANGE[2], SIGCOH;
+  double LAMRANGE[2], SIGCOH,  PARLIST_SETPKMJD[10];
   char *ptrName, key[40], NAM3[8], PATHPLUSMODEL[MXPATHLEN] ;
   char MODELPATH_SALT2[MXPATHLEN];
   char fnam[] = "init_modelSmear"  ;
@@ -7875,13 +7885,12 @@ void init_modelSmear(void) {
   // check passband magsmear 
   init_genSmear_filters();
 
-
   // check model names
   init_genSmear_FLAGS(SMEAR_SCALE); // internal inits
 
   sprintf(key,"GENMAG_SMEAR_MODELNAME") ;
   ptrName = INPUTS.GENMAG_SMEAR_MODELNAME ;
-  if ( IGNOREFILE(ptrName) ) { return ; }
+  if ( IGNOREFILE(ptrName) ) { goto INIT_SETPKMJD ; }
 
   INPUTS.DO_MODELSMEAR  = 1 ;
 
@@ -8016,6 +8025,20 @@ void init_modelSmear(void) {
     // print magSmear sigma at various wavelengths
     //    dump_modelSmearSigma();
   }
+
+  
+  // May 2019: init method to estimate peakmjd for data files
+ INIT_SETPKMJD:
+  if ( INPUTS.GENSIGMA_PEAKMJD > 1.0E-9 ) // legacy Gauss smear
+    { INPUTS.OPT_SETPKMJD = 0; }  
+  if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) // do nothing for GRID
+    { INPUTS.OPT_SETPKMJD=0;  INPUTS.GENSIGMA_PEAKMJD=0.0;  }
+
+  OPT                 = INPUTS.OPT_SETPKMJD;
+  PARLIST_SETPKMJD[0] = INPUTS.MJDWIN_SETPKMJD ;
+  PARLIST_SETPKMJD[1] = INPUTS.SNRCUT_SETPKMJD ;
+  PARLIST_SETPKMJD[2] = 3.0 ;          // hard-wired SNRCUT_BACKUP
+  init_obs_atFLUXMAX(OPT,PARLIST_SETPKMJD,1);
 
   return ;
 
@@ -9484,9 +9507,6 @@ void gen_event_driver(int ilc) {
     // pick model params AFTER redshift/host selection (4.09.2019)
     gen_modelPar(ilc); 
 
-    // Sep 17 2015: check option to shift PEAKMJD to GENLIST_PEAKMJD
-    get_peakmjd_fromList();
-
     // - - - - - - - 
     // get host galaxy extinction for rest-frame models and for NON1A
     int ISREST  = ( GENFRAME_OPT   == GENFRAME_REST );
@@ -9510,9 +9530,9 @@ void gen_event_driver(int ilc) {
     if ( INPUTS.GENSIGMA_REDSHIFT >= 0.0 )
       { gen_zsmear( INPUTS.GENSIGMA_REDSHIFT ); }  
 
-    smear = GaussRan(1) * INPUTS.GENSIGMA_SEARCH_PEAKMJD;
-    GENLC.PEAKMJD_SMEAR = GENLC.PEAKMJD + smear ;
-
+    // temporarily preserve random sync by fetching GaussRan here;
+    // see new function gen_peakmjd_smear().
+    GENLC.PEAKMJD_RANGauss = GaussRan(1); 
 
     // global mag offset + z-dependence 
     GENLC.GENMAG_OFF_GLOBAL += (double)INPUTS.GENMAG_OFF_GLOBAL
@@ -11401,6 +11421,11 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"PEAKMJD_SMEAR") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.PEAKMJD_SMEAR ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"MJD0") ;
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.PEAKMJD ;
   NVAR_SIMGEN_DUMP++ ;
@@ -12067,6 +12092,76 @@ double gen_peakmjd(void) {
 
 }   // end of gen_peakmjd
 
+
+double gen_peakmjd_smear(void) {
+
+  // May 2019
+  // Determine PEAKMJD estimate for data file.
+  // Either Gaussian smear, or search for max-flux.
+
+  double PEAKMJD_SMEAR = GENLC.PEAKMJD; // default
+  double smear;
+  int    o=-9, obs_atFLUXMAX[MXFILTINDX];
+  char fnam[] = "gen_peakmjd_smear" ;
+
+  // ----------------- BEGIN -----------------
+
+  // check option of Gaussian smear.
+  // Note that PEAKMJD_RANGauss is selected earlier in gen_event_driver()
+  // in order to preserve random sync, but at some point PEAKMJD_RANGauss
+  // should be generated here.
+  if ( INPUTS.GENSIGMA_PEAKMJD > 1.0E-9 ) {
+    smear = GENLC.PEAKMJD_RANGauss * INPUTS.GENSIGMA_PEAKMJD;
+    PEAKMJD_SMEAR = GENLC.PEAKMJD + smear ;
+  }
+
+  // check option to associate MJD  with epoch at max flux.
+  // Note that get_obs_atFLUXMAX is also used by fitting
+  // programs.
+  if ( INPUTS.OPT_SETPKMJD > 0 ) {
+    int NOBS = GENLC.NOBS ;
+    get_obs_atFLUXMAX(SNDATA.CCID, NOBS, 
+		      &SNDATA.FLUXCAL[1], &SNDATA.FLUXCAL_ERRTOT[1],
+		      &SNDATA.MJD[1], &GENLC.IFILT_OBS[1],
+		      obs_atFLUXMAX ) ;
+    o = obs_atFLUXMAX[0] ;
+    /* xxx mark delete xxxxxx
+    if ( o < 0 ) {
+      int oo, ifilt_obs; char cfilt[4];
+      printf("\n PRE-ABORT DUMP: \n");
+      for(oo=1; oo <= NOBS; oo++ ) {
+	ifilt_obs = GENLC.IFILT_OBS[oo];
+	sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] ) ;
+	printf("\t MJD=%.3f  %s-FLUXCAL = %10.2f +- %9.2f \n",
+	       SNDATA.MJD[oo], cfilt,
+	       SNDATA.FLUXCAL[oo], SNDATA.FLUXCAL_ERRTOT[oo] );
+      }
+      sprintf(c1err,"Could not find obs(FluxMax) for CID=%d", GENLC.CID);
+      sprintf(c2err,"NOBS=%d, LIBID=%d, z=%.3f PEAKMJD=%.1f", 
+	      NOBS, GENLC.SIMLIB_ID, GENLC.REDSHIFT_CMB, GENLC.PEAKMJD );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      } */
+    
+    if ( o >= 0 ) 
+      { PEAKMJD_SMEAR = SNDATA.MJD[o+1] ; }
+    else
+      { PEAKMJD_SMEAR = -9.0 ; }
+
+  }
+
+  int LDMP = (GENLC.CID == -4530) ;
+  if ( LDMP ) {
+    printf(" xxx ---------------------------------------- \n");
+    printf(" xxx GENSIGMA_PEAKMJD=%.2f, RANGauss=%.3f, OPT_SETPKMJD=%d\n",
+	   INPUTS.GENSIGMA_PEAKMJD, GENLC.PEAKMJD_RANGauss, 
+	   INPUTS.OPT_SETPKMJD);
+    printf(" xxx CID=%d: PEAKMJD(true,smear)=%.1f, %.1f  (o=%d)\n",
+	   GENLC.CID, GENLC.PEAKMJD, PEAKMJD_SMEAR, o); fflush(stdout);
+  }
+
+  return(PEAKMJD_SMEAR);
+
+} // end gen_peakmjd_smear
 
 // *********************************
 double gen_redshift_cmb ( void) {
@@ -19623,7 +19718,6 @@ void snlc_to_SNDATA(int FLAG) {
   }
 
   SNDATA.NOBS                = GENLC.NOBS ; // 5/26/2011
-  SNDATA.SEARCH_PEAKMJD      = GENLC.PEAKMJD_SMEAR ; 
 
   SNDATA.REDSHIFT_FINAL      = GENLC.REDSHIFT_CMB_SMEAR ;
   SNDATA.REDSHIFT_HELIO      = GENLC.REDSHIFT_HELIO_SMEAR ;
@@ -19804,7 +19898,6 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[epoch] = GENLC.NOISE_HOSTGAL_PHOT[epoch];
 
     SNDATA.MJD[epoch]          = GENLC.MJD[epoch];
-    // xxx mark delete     SNDATA.IDCCD[epoch]        = GENLC.cc[epoch] ;
 
     SNDATA.CLOUDCAM_SIG[epoch]    = GENLC.cloudsig[epoch] ;
     SNDATA.CLOUDCAM_AVG[epoch]    = GENLC.cloudavg[epoch] ;
@@ -19883,7 +19976,6 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.MAG_ERRPLUS[epoch]  = GENLC.mag_err[epoch];
     SNDATA.MAG_ERRMINUS[epoch] = GENLC.mag_err[epoch];
 
-
     SNDATA.SIMEPOCH_WARPCOLVAL[epoch]  = GENLC.warpcolval8[epoch] ;
 
     sprintf(SNDATA.SIMEPOCH_WARPCOLNAM[epoch], "%s",
@@ -19910,7 +20002,14 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.SKY_SIG[epoch]    = SIMLIB_OBS_GEN.SKYSIG[epoch] ;
     SNDATA.SKY_SIG_T[epoch]  = 
       SIMLIB_OBS_GEN.TEMPLATE_SKYSIG[epoch] * SKYSIG_T_scale ;
-  }
+
+  } // end epoch loop
+
+
+  // May 2019: 
+  // estimate PEAKMJD after all of the FLUXCAL[ERR] are  evaluated.
+  GENLC.PEAKMJD_SMEAR   = gen_peakmjd_smear(); 
+  SNDATA.SEARCH_PEAKMJD = GENLC.PEAKMJD_SMEAR;
 
   return ;
 
@@ -21340,7 +21439,7 @@ void GENFLUX_DRIVER(void) {
 	{ GENLC.NOBS_UNDEFINED++ ; } // model is undefined 
 
     if ( L_ERRPOS ) {
-      if ( L_UNDEFINED==0 ) { 
+      if ( !L_UNDEFINED ) { 
 	GENLC.USE_EPOCH[epoch] = 1 ; 
 	GENLC.NOBS++ ;
 	GENLC.NOBS_FILTER[ifilt_obs]++ ;
@@ -21825,8 +21924,8 @@ void genmodel(
 
     // for non-recurring events, set PKMJD like any other transient
     if ( LCLIB_INFO.IFLAG_RECUR_CLASS == IFLAG_RECUR_NONRECUR ) {
-      GENLC.PEAKMJD               = INPUTS.GENRANGE_PEAKMJD[0] + TobsPeak ;
-      GENLC.PEAKMJD_SMEAR         = GENLC.PEAKMJD ;
+      GENLC.PEAKMJD  = INPUTS.GENRANGE_PEAKMJD[0] + TobsPeak ;
+      // xxx mark delete  GENLC.PEAKMJD_SMEAR         = GENLC.PEAKMJD ;
     }
 
     /*
@@ -22931,6 +23030,7 @@ void readme_doc(int iflag_readme) {
   // Jan 19 2016: remove redundant NON1A dump at beginning.
   // Feb 01 2017: call readme_doc_NON1ASED
   // Jan 16 2019: always print KCOR file (before, only printed for SNIA)
+  // May 27 2019: print PEAKMJD-estimate method
 
   char ctmp[MXPATHLEN], cfilt[2], cwd[MXPATHLEN] ;
   char *cptr;
@@ -23208,13 +23308,25 @@ void readme_doc(int iflag_readme) {
   sprintf(cptr,"\t RA       : %6.2f to %6.2f  deg\n", 
 	  INPUTS.GENRANGE_RA[0], INPUTS.GENRANGE_RA[1] );
 
+  // - - - -  PEAKMJD stuff - - - - - 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\t PEAKMJD  : %8.1f to %8.1f   \n", 
 	  INPUTS.GENRANGE_PEAKMJD[0], INPUTS.GENRANGE_PEAKMJD[1] );
 
+  if ( INPUTS.GENSIGMA_PEAKMJD > 1.0E-9 ) {
+    sprintf(ctmp,"Gauss smear, sigma=%5.2f days", INPUTS.GENSIGMA_PEAKMJD);
+  }
+  else if ( (INPUTS.OPT_SETPKMJD & OPTMASK_SETPKMJD_FLUXMAX2)>0 ) {
+    sprintf(ctmp,"Fmax-clump, MJDWIN=%.1f, SNRCUT>%.1f(3.0)",
+	    INPUTS.MJDWIN_SETPKMJD, INPUTS.SNRCUT_SETPKMJD );
+  }
+  else if ( (INPUTS.OPT_SETPKMJD & OPTMASK_SETPKMJD_FLUXMAX)>0 ) {
+    sprintf(ctmp,"naive max flux.");
+  }
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t sigma-smear(SEARCH_PEAKMJD)  : %5.2f days \n", 
-	  INPUTS.GENSIGMA_SEARCH_PEAKMJD );
+  sprintf(cptr,"\t PEAKMJD-estimate  : %s\n", ctmp);
+
+  // - - - - - - - - - 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\t Trest    : %8.2f to %8.2f  days \n", 
@@ -24589,193 +24701,6 @@ void sprintf_GENGAUSS(char *string, char *name,
 
 
 
-// ***********************************
-void init_peakmjdList(void) {
-
-  // Created Sep 17 2015
-  // Read PEAKMJDs to generate.
-
-  char fnam[] = "init_peakmjdList" ;
-  char *inFile = INPUTS.GENLIST_PEAKMJD_FILE ;
-  char c_get[80], FIELD[MXCHAR_FIELDNAME], FIELDLIST[1000];
-  FILE *fp;
-  double PEAKMJD ;
-  int NTMP, NFIELD, ilist ;
-  // ------------- BEGIN ------------
-
-  GENLIST_PEAKMJD.NSTORE =  0;
-
-  ENVreplace(inFile,fnam,1);
-
-  if ( IGNOREFILE(inFile) ) { return ; }
-
-  NTMP = nrow_read(inFile, fnam);
-
-  fp = fopen(inFile, "rt") ;
-
-  // allocate memory
-  GENLIST_PEAKMJD.PEAKMJD   = (double*)malloc( NTMP*sizeof(double) );
-  GENLIST_PEAKMJD.FIELDNAME = (char **)malloc( NTMP*sizeof(char*) );
-  for(ilist=0; ilist < NTMP; ilist++ ) {
-    GENLIST_PEAKMJD.FIELDNAME[ilist] = 
-      (char *)malloc( MXCHAR_FIELDNAME*sizeof(char) );
-  }
-
-  
-  NTMP = NFIELD = 0 ;
-  FIELDLIST[0] = 0 ;
-  while( (fscanf(fp, "%s", c_get)) != EOF) {
-    
-    if ( strcmp(c_get,"MJD:") == 0  ){
-      readdouble(fp, 1, &PEAKMJD );
-      readchar  (fp, FIELD );
-
-      if ( strstr(FIELDLIST,FIELD) == NULL ) {
-	//	printf(" xxx found new FIELD = '%s' \n", FIELD);
-	NFIELD++ ;
-	sprintf(FIELDLIST,"%s,%s", FIELDLIST, FIELD);
-      }
-
-      GENLIST_PEAKMJD.PEAKMJD[NTMP] = PEAKMJD ;
-      sprintf(GENLIST_PEAKMJD.FIELDNAME[NTMP],"%s", FIELD) ;
-      NTMP++ ;
-    }
-  } // end while
-  GENLIST_PEAKMJD.NSTORE = NTMP ;
-
-  print_banner("READ PEAKMJD LIST" ); 
-  printf("   %s: Read %d PEAKMJD+FIELD values from\n %s",
-	  fnam, NTMP, inFile);
-  printf("   Includes %d distinct FIELD names.\n", NFIELD);
-  fflush(stdout);
-  
-  fclose(fp) ;
-
-  // -----------------------------------------
-  GENLIST_PEAKMJD.GENRANGE_TREST_ORIG[0] = INPUTS.GENRANGE_TREST[0];
-  GENLIST_PEAKMJD.GENRANGE_TREST_ORIG[1] = INPUTS.GENRANGE_TREST[1];
-
-  // expand user-TREST range to account for PEAKMJD moving
-  // after SIMLIB entry is read.
-  INPUTS.GENRANGE_TREST[0] -= 20.0 ; // days
-  INPUTS.GENRANGE_TREST[1] += 20.0 ;
-
-  return ;
-
-} // end init_peakmjdList
-
-
-void get_peakmjd_fromList(void) {
-
-  // Created Sep 2015
-  // Modify GENLC.PEAKMJD to be the nearest PEAKMJD for this
-  // field in the GENLIST_PEAKMJD list.
-  // Also re-compute the Trest range and remove epochs outside
-  // the updated Trest range.
-  //
-
-  char   fnam[] = "get_peakmjd_fromList" ;
-  int    ilist ;
-  double DIF, DIFMIN, tmpPEAKMJD, PEAKMJD_ORIG, PEAKMJD_NEW ;
-  char *tmpFIELD, *FIELD ;
-
-  // ------------ BEGIN --------------
-
-  if ( GENLIST_PEAKMJD.NSTORE == 0 ) { return ; }
-
-  if ( GENLC.NEPOCH   == 0 ) { return ; }
-  if ( SNHOSTGAL.GALID < 0 ) { return ; }
-
-  PEAKMJD_ORIG    = GENLC.PEAKMJD ;
-  FIELD           = GENLC.FIELDNAME[1];
-
-  PEAKMJD_NEW = -999. ;
-  DIFMIN      = 9999999. ;
-  for(ilist=0 ; ilist < GENLIST_PEAKMJD.NSTORE; ilist++ ) {
-
-    tmpFIELD   = GENLIST_PEAKMJD.FIELDNAME[ilist];
-    tmpPEAKMJD = GENLIST_PEAKMJD.PEAKMJD[ilist];
-
-    if ( strcmp(tmpFIELD,FIELD) == 0 ) {
-      DIF = fabs(PEAKMJD_ORIG - tmpPEAKMJD);
-      if ( DIF < DIFMIN ) { 
-	DIFMIN = DIF;
-	PEAKMJD_NEW = tmpPEAKMJD ;
-      }
-    }
-  }  // end ilist
-
-  // ------------------------------------------
-  if ( PEAKMJD_NEW < 0.0 ) {
-    printf("\n PRE-ABORT DUMP: \n");
-    printf("\t GALID=%lld  LIBID=%d  NEPOCH=%d",
-	   SNHOSTGAL.GALID, GENLC.SIMLIB_ID, GENLC.NEPOCH);
-    printf("\t REDSHIFT=%.5f \n", GENLC.REDSHIFT_HELIO );
-
-    sprintf(c1err,"Cannot find PEAKMJD_NEW for");
-    sprintf(c2err,"PEAKMJD_ORIG=%.3f  FIELD=%s ", 
-	    PEAKMJD_ORIG, FIELD );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
-  }
-  
-  GENLC.PEAKMJD = PEAKMJD_NEW ;
-
-  /*
-  printf("\t xxx PEAKMJD = %.3f --> %.3f  in FIELD=%s\n", 
-  PEAKMJD_ORIG, PEAKMJD_NEW, FIELD ); */
-
-  // re-compute epoch-dependent arrays to include only the epochs
-  // in the original GENRANGE_TREST window.
-
-  int   NEP_ORIG, ep_orig, ep_new, NEP_NEWMJD ;
-  double TRESTMIN = (double)GENLIST_PEAKMJD.GENRANGE_TREST_ORIG[0];
-  double TRESTMAX = (double)GENLIST_PEAKMJD.GENRANGE_TREST_ORIG[1];
-  double DTMIN    = 9999999. ;
-  double TREST, DT, MJD, MJD_DIF, MJD_LAST, z1 ;
-
-  NEP_ORIG = GENLC.NEPOCH ;
-  z1       = ( 1. + GENLC.REDSHIFT_HELIO );
-  MJD_LAST = -9.0 ;
-  ep_new = NEP_NEWMJD = 0 ;
-
-  
-  for(ep_orig=1; ep_orig <= NEP_ORIG; ep_orig++ ) {
-    MJD = GENLC.MJD[ep_orig];
-    TREST = (MJD - PEAKMJD_NEW)/z1 ;
-    if ( TREST < TRESTMIN ) { continue ; }
-    if ( TREST > TRESTMAX ) { continue ; }
-    
-    ep_new++ ;
-    GENLC.IFILT_OBS[ep_new]     = GENLC.IFILT_OBS[ep_orig];
-    GENLC.genmag8_obs[ep_new]   = GENLC.genmag8_obs[ep_orig];
-    GENLC.MJD[ep_new]           = MJD ;
-    sprintf( GENLC.FIELDNAME[ep_new], "%s", FIELD);
-
-
-    MJD_DIF = MJD - MJD_LAST ;
-    if ( fabs(MJD_DIF) > INPUTS.NEWMJD_DIF ) {
-      NEP_NEWMJD++; 	
-      GENLC.NEWMJD = NEP_NEWMJD ;
-      GENLC.EPOCH_RANGE_NEWMJD[NEP_NEWMJD][0] = ep_new ;
-    }    
-    GENLC.EPOCH_RANGE_NEWMJD[NEP_NEWMJD][1] = ep_new ;
-
-
-    // keep track of MJD nearest peak
-    DT = MJD - PEAKMJD_NEW;
-    if ( fabs(DT) < DTMIN ) { 
-      GENLC.IEPOCH_NEARPEAK = ep_new ;
-      GENLC.DTPEAK_MIN   = DT ;
-      DTMIN = fabs(DT);
-    }
-
-    MJD_LAST = MJD ;
-  }
-  GENLC.NEPOCH = ep_new;
-
-  return ;
-
-} // end get_peakmjd_fromList
 
 // ***************************************************
 void update_accept_counters(void) {
@@ -24944,6 +24869,10 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // May 28, 2009: control output from here
   // May 24, 2011: call snfitsio_update()
   // Jan 23, 2014: remove call to append_SNDATA_MODEL();
+  //
+  // May 27, 2019: 
+  //  + call wr_SIMGEN_DUMP after snlc_to_SNDATA to allow for
+  //    things like PEAKMJD_SMEAR
 
   int  NEWMJD, CID    ;
   char fnam[] = "update_simFiles";
@@ -24969,16 +24898,17 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
     errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
   }
 
-  // always fill DUMP file even if SNDATA files are not written
-  wr_SIMGEN_DUMP(2,SIMFILE_AUX);
-
-  if ( INPUTS.FORMAT_MASK <= 0 ) { return ; }
-
 
   // init SNDATA strucure
   init_SNDATA() ; 
 
+  // load SNDATA structure
   snlc_to_SNDATA(0) ;
+
+  // always fill DUMP file even if SNDATA files are not written
+  wr_SIMGEN_DUMP(2,SIMFILE_AUX);
+
+  if ( INPUTS.FORMAT_MASK <= 0 ) { return ; }
 
   if ( WRFLAG_FITS ) { 
     WR_SNFITSIO_UPDATE(); 

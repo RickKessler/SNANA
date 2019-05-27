@@ -4738,6 +4738,42 @@ the incorrect and correct sim-inputs:
    ZVARIATION_POLY: GENPEAK_SALT2c 0.0,0.01  # ==> valid
 \end{verbatim}
 
+
+% ------------------------------------
+   \subsection{Estimating PEAKMJD}
+   \label{subsec:SETPKMJD}
+% ------------------------------------
+
+The \SNANA\ analysis \& fitting programs include options for 
+estimating {\tt PEAKMJD} from the measured fluxes
+(\S\ref{subsec:initial_peakmjd}, Fig.~\ref{fig:SETPKMJD}), 
+and these options can be applied to both data and the simulation.
+For non-\SNANA\ analysis codes, it may be useful to include
+a {\tt PEAKMJD} estimate in the simulated data files,
+and thus alleviate the need to run {\tt snana.exe} to extract
+a {\tt PEAKMJD} estimate. The {\tt PEAKMJD}-estimate options are
+
+\begin{verbatim}
+   OPT_SETPKMJD:     16    # Fmax-clump method (default)
+   OPT_SETPKMJD:     8     # naive Fmax over all epochs
+   GENSIGMA_PEAKMJD: 3.0   $ Gauss smear (days)
+\end{verbatim}
+%
+If no options are given, the default ``Fmax-clump'' method is used.
+Other {\tt OPT\_SETPKMJD} options using Bazin fits 
+(Fig.~\ref{fig:SETPKMJD})
+are implemented in the analysis codes, but are not supported 
+in the simulation.
+Backward compatibility issue: 
+if both {\tt GENSIGMA\_PEAKMJD} and {\tt OPT\_SETPKMJD} are
+defined, {\tt GENSIGMA\_PEAKMJD} is used and
+{\tt OPT\_SETPKMJD} is ignored. 
+See output README file to verify method.
+
+To check residuals with {\tt SIMGEN\_DUMP} feature,
+add variables {\tt PEAKMJD} (true value) and {\tt PEAKMJD\_SMEAR}
+(estimate).
+
 % ------------------------------------
    \subsection{Generating Efficiency Maps}
    \label{subsec:simeff_genmap}
@@ -5860,10 +5896,17 @@ for a non-\SNANA\ code,
       TABLEPREFIX_TEXT   <PREFIX>    \  
       OPT_SETPKMJD <OPT_SETPKMJD>        > stdout.log
 \end{verbatim}
-
-
-A summary of the {\tt \&SNLCINP} bit-mask options is as fillows
 %
+For simulations, plot residuals with {\tt PKMJDINI-SIM\_PKMJD}.
+
+A summary of the {\tt \&SNLCINP} bit-mask options is given in 
+Fig.~\ref{fig:SETPKMJD}.
+%
+
+\begin{figure} [hb] 
+\begin{center}
+\caption{{\tt\&SNLCINP} options to estimate {\tt PEAKMJD}}
+\label{fig:SETPKMJD}
 \begin{Verbatim}[frame=single]
    OPT_SETPKMJD  = 0    #  use SEARCH_PEAKMJD value in data file
    OPT_SETPKMJD += 1    #  Bazin fit
@@ -5876,9 +5919,11 @@ A summary of the {\tt \&SNLCINP} bit-mask options is as fillows
    OPT_SETPKMJD += 1024 #  DUMP info for each SN
 
    SNRCUT_SETPKMJD  = 5    # for Fmax-clump method only (default=5)
-   MJDWIN_SETPKMJD  = 50   # for Fmax-clump method only (default=50)
+   MJDWIN_SETPKMJD  = 60   # for Fmax-clump method only (default=60)
    PHOTFLAG_TRIGGER = MASK # for MJD_TRIGGER method (MASK set by survey)
 \end{Verbatim}
+\end{center}
+\end{figure}
 
 {\tt OPT\_SETPKMJD=8} does a naive search for max flux and sets 
 $t_0$ to be the corresponding {\tt MJD}. This estimate, however,
@@ -5895,10 +5940,10 @@ and each window 50 days long. The last 4 windows (97-100)
 are skipped because they contain no additional information.
 The window containing the maximum number of SNR-detections is used 
 to determine max flux, and $t_0$ is MJD of the max flux observation.
+If there are no \obss\ wit {\tt SNR}$>${\tt SNRCUT\_SETPKMJD},
+the process is repeated with {\tt SNRCUT\_SETPKMJD}$\to 3$.
 The CPU time for this max-flux method is ${\sim}10$~milliseconds per event.
 
-
-% .xyz
 
 {\tt OPT\_SETPKMJD=32} sets $t_0$ to the MJD when the survey
 trigger is satisfied; e.g., MJD of the 2nd detection for a 

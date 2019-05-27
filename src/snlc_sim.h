@@ -457,15 +457,18 @@ struct INPUTS {
   int   IFILTOBS_FUDGE_SNRMAX; // -1=all, or get scale from this IFILTOBS
   int   OPT_FUDGE_SNRMAX ;     // 1=adjust EXPOSURE_TIME; 2=adjust sigSKY only
 
-  char   GENLIST_PEAKMJD_FILE[200];   // list of PEAKMJD to use
   double GENRANGE_MJD[2];         // range of MJD: allows rigid end
   double GENRANGE_PEAKMJD[2];     // range of PEAKMJD to generate
-  double MJD_EXPLODE ;            // define explosion time for NON1A or SIMSED
-  double GENRANGE_PEAKMAG[2] ;    // OR among filters (Mar 2016)
-  float  GENRANGE_TREST[2];       // relative to peak, days
-  float  GENRANGE_TOBS[2];        // for GRID option
-  float  GENSIGMA_SEARCH_PEAKMJD; // smearing on SEARCH_PEAKMJD (days)
-  float  NEWMJD_DIF;              // min MJD dif to count NEW MJD
+  double MJD_EXPLODE ;          // define explosion time for NON1A or SIMSED
+  double GENRANGE_PEAKMAG[2] ;  // OR among filters (Mar 2016)
+  float  GENRANGE_TREST[2];     // relative to peak, days
+  float  GENRANGE_TOBS[2];      // for GRID option
+  float  GENSIGMA_PEAKMJD;      // option to estimate PEAKMJD for data file
+
+  int    OPT_SETPKMJD;          // opton to estimate PEAKMJD for data file
+  float  MJDWIN_SETPKMJD;
+  float  SNRCUT_SETPKMJD;
+  float  NEWMJD_DIF;            // min MJD dif to count NEW MJD
   
   int  MAGMONITOR_SNR ;   // compute SNR for this mag -> monitor
 
@@ -801,6 +804,7 @@ struct GENLC {
   int    CORRECT_HOSTMATCH ;  // 1=correct match, 0=wrong host
 
   double PEAKMJD_SMEAR  ; // smeared PEAKMJD to simulate survey fit error
+  double PEAKMJD_RANGauss ;
 
   double RESTLAM_MODEL[2]; // rest-frame wavelength range of model
 
@@ -1410,17 +1414,6 @@ struct genSEDMODEL {
 } genSEDMODEL ;
 
 
-
-// store list of PEAKMJD and FIELD read from GENLIST_PEAKMJD_FILE
-struct GENLIST_PEAKMJD {
-  int     NSTORE;
-  double *PEAKMJD ;
-  char   **FIELDNAME ;
-  //  int    
-  float  GENRANGE_TREST_ORIG[2];
-} GENLIST_PEAKMJD ;
-
-
 // store list of genpar cut-windows from GENPAR_SELECT_FILE
 struct {
   int    NSTORE ;
@@ -1605,6 +1598,7 @@ double gen_redshift_helio_OBSOLETE(double zcmb, double RA, double DEC, double vp
 void   gen_redshift_LCLIB(void);
 
 double gen_peakmjd(void);
+double gen_peakmjd_smear(void);
 void   gen_zsmear(double zerr);
 void   genshift_risefalltimes(void);
 
@@ -1626,11 +1620,6 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX);
 void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX);
 
 void update_accept_counters(void);
-
-void   init_peakmjdList(void);
-void   get_peakmjd_fromList(void);
-
-// void  init_genparSelect(void) ;
 
 void    simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX);
 double  gen_AV(void);          // generate AV from model

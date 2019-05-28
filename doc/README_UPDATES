@@ -16787,4 +16787,17 @@ GitHub issues:
      + remove obsolete input GENLIST_PEAKMJD_FILE
      + remove obsolete functions init_peakmjdList, get_peakmjd_fromList
 
+
+# ======================================================================= 
+         v10_73b (  ) 
+
+         ***** IMPORTANT(v10_73b) ***** 
+
+         ***** USEFUL(v10_73b) ***** 
+
+         ***** MISCELLANEOUS(v10_73b) ***** 
+
+    snana.car:
+      + apply CUTWIN_TOBS to epochs for Bazin fit.
+
 END: 

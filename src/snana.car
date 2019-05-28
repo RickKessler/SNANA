@@ -366,7 +366,7 @@ c
      &  ,MXLINE_ARGS      = 100
      &  ,ZEROPOINT_FLUXCAL_DEFAULT  = 27.5
      &  ,MXEPOCH_IGNORE   = 1000
-     &  ,NPAR_ANYLC       = 8    ! for MNFIT_PKMJD 
+     &  ,NPAR_ANYLC       = 10   ! for MNFIT_PKMJD 
      &  ,MXPAR_SIMSED     = 100  ! max number of SIMSED parameters
      &  ,MXPAR_LCLIB      = 40   ! should be same as in genmag_LCLIB.h
      &  ,MXLAMBIN_SNSED   = 4000 ! Jan 2017: raised from 3000
@@ -2889,29 +2889,30 @@ c define bits for user option-mask OPT_SETPKMJD  (lsb = 0 )
 c Define fit params
 
       INTEGER 
-     &   IPAR_ISN, IPAR_FILT
+     &   IPAR_ISN, IPAR_FILT, IPAR_MJDMIN, IPAR_MJDMAX
      &  ,IPAR_T0, IPAR_TRISE, IPAR_TFALL
      &  ,IPAR_A0, IPAR_A1, IPAR_A2
      
-      REAL PSFMAX_forFLUXMAX, SNRMIN_forFLUXMAX
+      REAL SNRMIN_forFLUXMAX
 
       PARAMETER (
-     &   IPAR_ISN    = 1
-     &  ,IPAR_FILT   = 2
-     &  ,IPAR_T0     = 3
-     &  ,IPAR_TRISE  = 4
-     &  ,IPAR_TFALL  = 5
-     &  ,IPAR_A0     = 6
-     &  ,IPAR_A1     = 7
-     &  ,IPAR_A2     = 8
-     &  ,PSFMAX_forFLUXMAX  = 2.0   ! arcSec, to avoid crazy fluxMax
+     &   IPAR_ISN    = 1  ! fixed param
+     &  ,IPAR_FILT   = 2  ! fixed param
+     &  ,IPAR_MJDMIN = 3  ! fixed param (May 2019)
+     &  ,IPAR_MJDMAX = 4  ! fixed param (May 2019)
+     &  ,IPAR_T0     = 5
+     &  ,IPAR_TRISE  = 6
+     &  ,IPAR_TFALL  = 7
+     &  ,IPAR_A0     = 8
+     &  ,IPAR_A1     = 9
+     &  ,IPAR_A2     = 10
      &  ,SNRMIN_forFLUXMAX  = 3.0   ! min SNR to consider for fluxmax
      &     )
 
        CHARACTER  PKPARNAME(NPAR_ANYLC)*16 
        DATA  PKPARNAME /
-     &     'ISN', 'IFILTOBS', 'T0', 'TRISE', 'TFALL' ,
-     &     'A0', 'A1', 'A2' /
+     &     'ISN', 'IFILTOBS', 'MJDMIN', 'MJDMAX', 
+     &     'T0', 'TRISE', 'TFALL','A0', 'A1', 'A2' /
 
 c -----
       REAL*8 FITERRMAT_PKMJD(NPAR_ANYLC,NPAR_ANYLC,MXFILT_ALL)
@@ -35472,7 +35473,7 @@ c -------------------------------------------------------------
          
       REAL*8  
      &   MJD8, F8, PKMJD8, PKMJD8ERR, PKFLUX8, PKFLUX8ERR
-     &  ,PARLIST(3)
+     &  ,PARLIST(3), FITWIN_MJD8(2)
 
       LOGICAL 
      &    LSET, LDMP, LDMP_BIGDIF, LDMP_USER, NOABORT, LABORT
@@ -35731,6 +35732,8 @@ c PKMJD don't have much effect
       PKMJDSUM = 0.0
       WGTSUM   = 0.0
       PKMJDDIF_MAX = 0.0
+      FITWIN_MJD8(1) = MJDatFLUXMAX(0) + CUTWIN_TOBS(1)
+      FITWIN_MJD8(2) = MJDatFLUXMAX(0) + CUTWIN_TOBS(2)
 
       DO 200 ifilt = 1, NFILTDEF_SURVEY
          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
@@ -35742,7 +35745,7 @@ c PKMJD don't have much effect
 
          USEFILT(ifilt_obs) = .TRUE.
           
-         CALL MNFIT_PKMJD(IFILT_OBS,F8,MJD8,  ! inputs
+         CALL MNFIT_PKMJD(IFILT_OBS, FITWIN_MJD8, F8, MJD8,   ! inputs
      &              PKMJD8, PKMJD8ERR, PKFLUX8, PKFLUX8ERR)   ! return args
 
 c store result for each filter.
@@ -36204,7 +36207,7 @@ c check that all EP indices are value
 
 C =========================================
 +DECK,MNFIT_PKMJD.
-      SUBROUTINE MNFIT_PKMJD(ifilt_obs,
+      SUBROUTINE MNFIT_PKMJD(ifilt_obs, FITWIN_MJD,
      &        FLUXatMAX, MJDatMAX, PKMJD,PKMJDERR, PKFLUX, PKFLUXERR )
 
 c -----------------------------------------------
@@ -36238,6 +36241,8 @@ c
 c Dec 9, 2011: keep track of min-error and  wgted error for 
 c              T0 and F0err/F0.
 c
+c May 28 2019: add FITWIN_MJD argument to restrict range of epochs fit.
+c
 c ----------------------------
 
       IMPLICIT NONE
@@ -36247,8 +36252,9 @@ c function args
       INTEGER IFILT_OBS   ! (I) SN index and obs filter to fit
 
       REAL*8
-     &   MJDatMAX   ! (I) MJD at epoch with max flux
-     &  ,FLUXatMAX  ! (I) flux at MJD with max flux
+     &   FITWIN_MJD(2) ! (I) MJD window to fit observations
+     &  ,MJDatMAX      ! (I) MJD at epoch with max flux
+     &  ,FLUXatMAX     ! (I) flux at MJD with max flux
      &  ,PKMJD      ! (O) MJD at peak of function
      &  ,PKMJDERR   ! (O) approx error on PKMJD (used for wgted avg)
      &  ,PKFLUX     ! (O) peak flux from fit
@@ -36330,6 +36336,16 @@ c init each parameter
       INIBND(2,IPAR_FILT) = 100
       INIVAL(IPAR_FILT)   = DBLE(IFILT_OBS)
       INISTP(IPAR_FILT)   = 0.0     ! fixed parameter
+
+      INIBND(1,IPAR_MJDMIN) = 0
+      INIBND(2,IPAR_MJDMIN) = 150000
+      INIVAL(IPAR_MJDMIN)   = FITWIN_MJD(1)
+      INISTP(IPAR_MJDMIN)   = 0.0     ! fixed parameter
+
+      INIBND(1,IPAR_MJDMAX) = 0
+      INIBND(2,IPAR_MJDMAX) = 150000
+      INIVAL(IPAR_MJDMAX)   = FITWIN_MJD(2)
+      INISTP(IPAR_MJDMAX)   = 0.0     ! fixed parameter
 
       INIBND(1,IPAR_T0) = MJDatMAX - 50.0
       INIBND(2,IPAR_T0) = MJDatMAX + 50.0
@@ -36482,6 +36498,8 @@ c MINUIT-callable function to return data-model CHI2
 c using the "ANY LC" model from Bazin et al.
 c See comments at top of MNFIT_PKMJD.
 c
+c May 28, 2019: Use MJDMIN/MJDMAX to restrict epoch range.
+c
 c --------------------------------------------
       IMPLICIT NONE
 
@@ -36506,7 +36524,7 @@ c local var
      &  ,NEWMJD, EPMIN, EPMAX, EP, NDOF
 
       REAL*8
-     &   FLUX, FLUXERR, MJD, SQDIF, SQERR, SNR 
+     &   MJDMIN, MJDMAX, FLUX, FLUXERR, MJD, SQDIF, SQERR, SNR 
      &  ,MODEL_FLUX, MODEL_FLUXERR
 
       REAL*8 MODEL_MAGERR
@@ -36519,6 +36537,9 @@ C --------------- BEGIN -------------
 
       ISN         = INT ( XVAL(1) + 0.0001 )
       IFILT_OBS   = INT ( XVAL(2) + 0.0001 )
+      MJDMIN      = XVAL(3)
+      MJDMAX      = XVAL(4)
+
       CHI2 = 0.0
       NDOF = 0 
 
@@ -36528,12 +36549,15 @@ C --------------- BEGIN -------------
         EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
         MJD   = SNLC8_MJD(EPMIN)
 
-        MODEL_FLUX = ANYLCFUN(MJD,XVAL)
+	if ( MJD < MJDMIN ) goto 200
+	if ( MJD > MJDMAX ) goto 200
+
+        MODEL_FLUX    = ANYLCFUN(MJD,XVAL)
         MODEL_FLUXERR = MODEL_FLUX * MODEL_MAGERR
 
         DO 201 EP = EPMIN, EPMAX
 
-            if ( CHECK_EPOCH_IGNORE(0,ep) ) GOTO 201  ! May 2016
+cc xxx no longer needed  if ( CHECK_EPOCH_IGNORE(0,ep) ) GOTO 201  ! May 2016
             if ( IFILT_OBS .NE. ISNLC_IFILT_OBS(ep) ) GOTO 201
 
             FLUX      = SNLC_FLUXCAL(ep)
@@ -36541,7 +36565,6 @@ C --------------- BEGIN -------------
 
 c SNR requirement makes things worse ??
             SNR = FLUX/FLUXERR
-cc            if ( SNR .LT. 2.0 ) GOTO 201  ! require SNR>2
             
             SQDIF = (FLUX - MODEL_FLUX)**2
             SQERR = FLUXERR*FLUXERR + MODEL_FLUXERR*MODEL_FLUXERR
@@ -36570,9 +36593,12 @@ c
 c Created Dec 5, 2009 by R.Kessler
 c Any light curve function based on Bazin et al,, 2009 (SNLS CC rate)
 c
-c
+c May 28 2019: replace hard-code XVAL-indices with IPAR_XXX
 c ------------
       IMPLICIT NONE
+
++CDE,SNPAR.
++CDE,PKMJDCOM. 
 
 c function args
 
@@ -36587,12 +36613,12 @@ c local args
 
 C ---------- BEGIN ---------
 
-      T0    = XVAL(3)
-      TRISE = XVAL(4)
-      TFALL = XVAL(5)
-      A0    = XVAL(6)
-      A1    = XVAL(7)
-      A2    = XVAL(8)
+      T0    = XVAL(IPAR_T0)
+      TRISE = XVAL(IPAR_TRISE)
+      TFALL = XVAL(IPAR_TFALL)
+      A0    = XVAL(IPAR_A0)
+      A1    = XVAL(IPAR_A1)
+      A2    = XVAL(IPAR_A2)
  
       TDIF  = MJD - T0
 

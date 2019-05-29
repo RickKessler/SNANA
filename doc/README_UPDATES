@@ -16800,4 +16800,7 @@ GitHub issues:
     snana.car:
       + apply CUTWIN_TOBS to epochs for Bazin fit.
 
+    snana_manual.pdf :
+      + improve Sec. 5.4 : Initial Estimate of PEAKMJD.
+
 END: 

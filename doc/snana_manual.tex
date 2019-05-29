@@ -5878,17 +5878,24 @@ and uses the errors and $\rho_{ij}$ to determine COV.
 
 % ------------------------------------
    \clearpage
-   \subsection{Initial Estimate of Peak-MJD ($t_0$) }
+   \newcommand{\toApprox}{\tilde{t_0}}
+   \subsection{Initial Estimate of Peak-MJD ($\toApprox$) }
    \label{subsec:initial_peakmjd}
 % ------------------------------------
 
 Many light curve fitting programs rely on an approximate estimate 
-of peak-MJD ($t_0$). Several \SNANA\ options are described here
-using the {\tt \&SNLCINP} namelist variable {\tt OPT\_SETPKMJD}.
+of peak-MJD ($\toApprox$). In particular, the \SALTII\ fitting program
+won't work without $\toApprox$. 
+{\tt \&SNLCINP} namelist variable {\tt OPT\_SETPKMJD}
+provides several \SNANA\ options to estimate $\toApprox$,
 Options are based on analyzing fluxes, and/or a light curve fit
 in each pass-band using a generic Bazin function.
-To extract $t_0$ into a TEXT-table (column {\tt PKMJDINI})
-for a non-\SNANA\ code, 
+
+The $\toApprox$ value can be determined prior to a \SALTII\ fit 
+within {\tt snlc\_fit.exe} so that only one program is run for both,
+or $\toApprox$ can be extracted into a TEXT-formatted table
+(column {\tt PKMJDINI}) for a non-\SNANA\ code as follows:
+%
 \begin{verbatim}
     snana.exe NOFILE \
       VERSION_PHOTOMETRY <VERSION>   \
@@ -5902,7 +5909,6 @@ For simulations, plot residuals with {\tt PKMJDINI-SIM\_PKMJD}.
 A summary of the {\tt \&SNLCINP} bit-mask options is given in 
 Fig.~\ref{fig:SETPKMJD}.
 %
-
 \begin{figure} [hb] 
 \begin{center}
 \caption{{\tt\&SNLCINP} options to estimate {\tt PEAKMJD}}
@@ -5921,6 +5927,7 @@ Fig.~\ref{fig:SETPKMJD}.
    SNRCUT_SETPKMJD  = 5    # for Fmax-clump method only (default=5)
    MJDWIN_SETPKMJD  = 60   # for Fmax-clump method only (default=60)
    PHOTFLAG_TRIGGER = MASK # for MJD_TRIGGER method (MASK set by survey)
+   CUTWIN_TOBS = -999,999  # After finding MJD(Fmax), apply TOBS cut for Bazin fit.
 \end{Verbatim}
 \end{center}
 \end{figure}
@@ -5945,7 +5952,7 @@ the process is repeated with {\tt SNRCUT\_SETPKMJD}$\to 3$.
 The CPU time for this max-flux method is ${\sim}10$~milliseconds per event.
 
 
-{\tt OPT\_SETPKMJD=32} sets $t_0$ to the MJD when the survey
+{\tt OPT\_SETPKMJD=32} sets $\toApprox$ to the MJD when the survey
 trigger is satisfied; e.g., MJD of the 2nd detection for a 
 trigger requiring two detections. This option requires that the
 survey sets a {\tt PHOTFLAG} mask for the observation when the
@@ -5956,7 +5963,6 @@ However, the simulation can include this information
 as shown in Fig.~\ref{fig:pipeline_maps}.
 
 
-\clearpage
 The Bazin fit options are baed on the SNLS CC rate paper (Bazin et al, 2008),
 %
 \begin{equation}
@@ -5970,36 +5976,51 @@ where the fitted parameters are $A, a_1, a_2, \bar{t}, \Tfall, \Trise$.
 {\tt OPT\_SETPKMJD=1} sets $a_1=0$ and $a_2=0$, while
 {\tt OPT\_SETPKMJD=2} floats both $a_1$ and $a_2$.
 The time at peak is obtained by setting the derivative equal
-to zero: $t_0 = \bar{t} + \Trise \ln(\Tfall/\Trise-1)$.
+to zero: $\toApprox = \bar{t} + \Trise \ln(\Tfall/\Trise-1)$.
 Each filter is fit independently and
-the final $t_0$ is the filter-weighted average.
-A filter's $t_0$ is dropped from the average if:
+the final $\toApprox$ is the filter-weighted average.
+A filter's $\toApprox$ is dropped from the average if:
 (1) its max-flux measurement has the smallest $S/N$ 
 ratio among filters and has $S/N<3$, or
-(2) its $t_0$ value is more than 30 days away from the average
-of the other filter-$t_0$ values 
+(2) its $\toApprox$ value is more than 30 days away from the average
+of the other filter-$\toApprox$ values 
 (tested only if there are 3 or more filters).
-The max-flux epoch must have $S/N > 3$ to make an estimate of $t_0$. 
+The max-flux epoch must have $S/N > 3$ to make an estimate of $\toApprox$.
 The CPU time os ${\sim}170$~millsec per event.
 
-The Bazin fit needs and initial $\bar{t}$ value, which by default
-is based on MJD of maximum flux. However, the Fmax-clump method
-can be used instead by combining bit-mask options,
+The Bazin fit needs and initial $\toApprox'$ estimate, which by default
+is the  MJD at maximum flux, {\tt MJD(Fmax)}. 
+However, the Fmax-clump method can be used instead by combining 
+bit-mask options,
 \begin{verbatim}
-   OPT_SETPKMJD = 17  # 1(Bazin) + 16(Fmax-clump)
+   OPT_SETPKMJD = 17  # 16(Fmax-clump) + 1(Bazin)
 \end{verbatim}
 %
-If $t_0$ canot be detemermined, \SNANA\ programs abort by default.
-To avoid aborts, {\tt OPT\_SETPKMJD += 4}.
+Once {\tt MJD(Fmax)} is determined, user-input {\tt CUTWIN\_TOBS} defines an 
+optional MJD-range to select \obss\ for the Bazin fit: 
+the MJD-range is 
+\begin{verbatim}
+    MJD(Fmax)+CUTWIN_TOBS(1) <  MJD <  MJD(Fmax)+CUTWIN_TOBS(2)
+\end{verbatim}
+%
+If $\toApprox$ cannot be detemermined, \SNANA\ programs abort by default.
+To avoid aborts, {\tt OPT\_SETPKMJD += 4}, or {\tt OPT\_SETPKMJD=21}
+for the example above.
 The Bazin fit parameters for each band can be included in output
 tables with {\tt OPT\_SETPKMJD += 512}.
-Users should compare the $t_0$ estimate ({\tt PKMJDINI} in output tables) 
-to the final $t_0$ from the light curve fit
-and check for outliers;
-outliers can be fixed by visual inspection of the light curve
-and setting the {\tt SEARCH\_PEAKMJD} keyword in the data file.
+Users should compare the $\toApprox$ estimate ({\tt PKMJDINI} in output tables) 
+to the final $t_0$ from a light curve fit (e.g., from \SALTII)
+and check for outlier $\toApprox$ values. 
 
-
+Outlier $\toApprox$ estimates can be identified by visual 
+inspection of the light curve, but the \SNANA\  options may
+not be sufficient to fix the outliers. The most robust solution is
+to set the {\tt SEARCH\_PEAKMJD} keyword in the data files,
+and then run \SALTII\ fits with {\tt OPT\_SETPKMJD=0}, which
+sets $\toApprox = {\tt SEARCH\_PEAKMJD}$. The advantage of this
+method is that outlier $\toApprox$ values can be manually fixed.
+For simulations, see \S\ref{subsec:SETPKMJD} on how to leave
+a $\toApprox$ estimate in the output data files.
 
 
 

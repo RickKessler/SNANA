@@ -102,7 +102,7 @@ powzbin=2.0,0.4 --> binSize propto (1+z)^2 for nzbin/2 and z<0.4, then
                     constant binsize for z>0.4. Allows small bins at low-z,
                     without too-big bins at high-z.
 
-min_per_zbin =  min number of SN in z-bin to keep z-bin (default=5)
+min_per_zbin =  min number of SN in z-bin to keep z-bin (default=1)
 
 x1min = lower limit on x1 (-6.0)
 x1max = upper limit on x1 (+6.0)
@@ -238,6 +238,7 @@ prescale_simcc=<preScale>    # pre-scale only the simulated CC
 
 NSPLITRAN=[NRAN] = number of independent sub-samples to run SALT2mu.
                   A separate fitres file is created for each sub-sample.
+JOBID_SPLITRAN=[JOBID] --> do only this splitran job, JOBID=1,2 ... NSPLITRAN
 
 iflag_duplicate=1  # 0=ignore, 1=abort, 2=merge
 
@@ -1240,7 +1241,8 @@ struct INPUTS {
 
   int  NDUMPLOG; // number of SN to dump to flog file
 
-  int NSPLITRAN ;  // number of random subsets to split jobs (RK July 2012)
+  int NSPLITRAN ;       // number of random subsets to split jobs (RK July 2012)
+  int JOBID_SPLITRAN ;  // do only this JOBID among NSPLITRAN
 
   int iflag_duplicate;
   
@@ -1738,7 +1740,11 @@ int main(int argc,char* argv[ ])
   t_end_init = time(NULL);
 
  DOFIT:
-  NJOB_SPLITRAN++ ;
+  if ( INPUTS.JOBID_SPLITRAN>0 ) 
+    { NJOB_SPLITRAN = INPUTS.JOBID_SPLITRAN; } // do only this one SPLIT job
+  else
+    { NJOB_SPLITRAN++ ; }  // keep going to do them all
+
   DOFIT_FLAG = FITFLAG_CHI2 ; 
   printmsg_fitStart(stdout);
   
@@ -1847,7 +1853,8 @@ int main(int argc,char* argv[ ])
   outFile_driver();
 
   //---------
-  if ( NJOB_SPLITRAN < INPUTS.NSPLITRAN ) { goto DOFIT ; }
+  if ( NJOB_SPLITRAN < INPUTS.NSPLITRAN  &&  INPUTS.JOBID_SPLITRAN<0 ) 
+    { goto DOFIT ; }
 
   t_end_fit = time(NULL);
 
@@ -3951,7 +3958,8 @@ void set_defaults(void) {
   // default is to blind cosmo params for data
   INPUTS.blindFlag = BLINDMASK_FIXPAR; 
 
-  INPUTS.NSPLITRAN = 1; // default is all SN in one job
+  INPUTS.NSPLITRAN      = 1; // default is all SN in one job
+  INPUTS.JOBID_SPLITRAN = -9;
 
   INPUTS.iflag_duplicate = IFLAG_DUPLICATE_ABORT ;
 
@@ -12152,6 +12160,8 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"NSPLITRAN=")) 
     { sscanf(&item[10],"%d", &INPUTS.NSPLITRAN); return(1); }
+  if ( uniqueOverlap(item,"JOBID_SPLITRAN=")) 
+    { sscanf(&item[15],"%d", &INPUTS.JOBID_SPLITRAN); return(1); }
 
   if ( uniqueOverlap(item,"iflag_duplicate=")) 
     { sscanf(&item[16],"%d", &INPUTS.iflag_duplicate ); return(1); }
@@ -12791,7 +12801,6 @@ int SPLITRAN_ACCEPT(int isn, int snid) {
 
   if ( INPUTS.NSPLITRAN <= 1 ) { return 1; }
 
-  //jj = (isn % INPUTS.NSPLITRAN) + 1 ;
   jj = (snid % INPUTS.NSPLITRAN) + 1 ;
 
   if ( jj == NJOB_SPLITRAN ) 
@@ -12912,29 +12921,6 @@ void SPLITRAN_SUMMARY(void) {
 	   );
   }
   fclose(fp);
-
-
-  /* xxxxxxx mark delete Apr 29 2019 xxxxxxxx
-  printf("\n SPLITRAN SUMMARY for %d jobs (Avg sample size: %d +- %d) \n",
-	 NJOB_SPLITRAN, (int)NSNAVG, (int)NSNRMS );
-  printf(" \n");
-  printf("                   Average   Average    RMS      RMS   \n" );
-  printf(" Param             Value     Error      Value    Error \n" );
-  printf(" ------------------------------------------------------ \n");
-
-  for ( ipar=1; ipar <= NPAR ; ipar++ ) {
-    if ( AVG_ERR[ipar] <= 0.0 ) { continue ; }
-    printf(" %-14s  %8.3f  %8.3f  %8.3f %8.3f \n"
-	   ,FITRESULT.PARNAME[ipar]
-	   ,AVG_VAL[ipar]
-	   ,AVG_ERR[ipar]
-	   ,RMS_VAL[ipar]
-	   ,RMS_ERR[ipar]
-	   );
-  }
-  printf(" ------------------------------------------------------ \n");
-  fflush(stdout);
-  xxxxxxxxxxxxx end mark xxxxxxx */
 
 }  // end of SPLITRAN_SUMMARY
 

@@ -16799,8 +16799,13 @@ GitHub issues:
 
     snana.car:
       + apply CUTWIN_TOBS to epochs for Bazin fit.
+      + fix subtle bug in LCUTEPOCH(); apply CUTWIN_TREST only
+        if OPT_SETPKMJD=0; otherwise need to wait for PKMJD
+        to be determined. Matters a lot when SEARCH_PEAKMJD
+        in data file is way off.
 
     snana_manual.pdf :
       + improve Sec. 5.4 : Initial Estimate of PEAKMJD.
 
+   
 END: 

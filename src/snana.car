@@ -23484,6 +23484,8 @@ c Return TRUE if this epoch passes epoch-cuts.
 c The input are the epoch values rather than the SN ID.
 c
 c May 2012: ZZ=1 if z<0 to avoid ZZ=0
+c May 29 2019: do NOT apply Trest cut if OPT_SETPKMJD > 0
+c
 c ------------------------------------------
 
       IMPLICIT NONE
@@ -23515,7 +23517,8 @@ C --------------- BEGIN -----------
       ENDIF
 
 c evaluate epoch cut in rest-frame
-      IF ( PKMJD .LT. 40000. ) THEN
+      IF ( PKMJD < 40000. .or. OPT_SETPKMJD > 0  ) THEN
+c       PKMJD not yet determined, so no TREST cut
          LTrest = .TRUE.
       ELSE
          Trest = (MJD - PKMJD) / ZZ

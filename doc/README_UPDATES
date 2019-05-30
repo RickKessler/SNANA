@@ -16807,5 +16807,13 @@ GitHub issues:
     snana_manual.pdf :
       + improve Sec. 5.4 : Initial Estimate of PEAKMJD.
 
-   
+    SALT2mu.c
+     + new input JOBID_SPLITRAN to process only 1 of the NSPLITRAN jobs.
+       The summary file is created if JOBID_SPLITRAN > NSPLITRAN.
+     + fix bugs re-initializing NSPLITRAN jobs. See SPLITRAN_prep_input(),
+       and bug-fix in setup_zbins_fit().
+
+    Still to do ... make SALT2mu_fit work with NSPLITRAN to distribute
+    NSPLITRAN jobs among cores.
+
 END: 

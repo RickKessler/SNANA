@@ -345,7 +345,8 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1D",  "SIM_DEC"            , itype );
     wr_snfitsio_addCol( "1E",  "SIM_MWEBV"          , itype );
     wr_snfitsio_addCol( "1E",  "SIM_PEAKMJD"        , itype );
-    wr_snfitsio_addCol( "1E",  "SIM_MAGSMEAR_COH"   , itype );      
+    wr_snfitsio_addCol( "1E",  "SIM_MAGSMEAR_COH"     , itype );      
+    wr_snfitsio_addCol( "1E",  "SIM_SNMAGSHIFT_HOSTCOR" , itype );
   
     // always write SIM_AV,RV
     wr_snfitsio_addCol( "1E", "SIM_AV"          , itype );
@@ -1536,6 +1537,10 @@ void wr_snfitsio_update_head(void) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_MAGSMEAR_COH ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_MAGSMEAR_COH", itype );
+
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SNMAGSHIFT_HOSTCOR ;
+  wr_snfitsio_fillTable ( ptrColnum, "SIM_SNMAGSHIFT_HOSTCOR", itype );
     
 
   // Ju 16 2016: always write SIM_RV & SIM_AV

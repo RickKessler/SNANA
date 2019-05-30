@@ -39,7 +39,7 @@
 
 #include "sndata.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_72i"                                           
+#define  SNANA_VERSION_CURRENT  "v10_73b"                                              
 
 #define LIGHT_km  2.99792458e5      // speed of light (km/s) 
 #define LIGHT_A   2.99792458e18     // speed of light (A/s) 
@@ -302,8 +302,17 @@ struct {
   int    *INDEX_SORT;
 } LCWIDTH ;
 
-//double *TLIST_SORTED_WIDTH, *MAGLIST_SORTED_WIDTH ;
-//int    *INDEX_SORT_WIDTH ;
+
+#define OPTMASK_SETPKMJD_FLUXMAX   8 // naive max flux
+#define OPTMASK_SETPKMJD_FLUXMAX2 16 // Fmax-clump method
+#define OPTMASK_SETPKMJD_TRIGGER  32 // return MJD_TRIGGER
+struct {
+  int    OPTMASK;
+  double SNRCUT, SNRCUT_BACKUP;
+  double MJDWIN ;
+} INPUTS_OBS_atFLUXMAX ;
+
+
 
 
 // ##############################################################
@@ -737,5 +746,14 @@ double get_lightCurveWidth(int OPTMASK, int NOBS, double *TLIST,
 void   init_lightcurvewidth__(void);
 double get_lightcurvewidth__(int *OPTMASK, int *NOBS, double *TLIST, 
 			   double *MAGLIST, int *ERRFLAG, char *FUNCALL ) ;
+
+void init_obs_atFLUXMAX(int OPTMASK, double *PARLIST, int VBOSE);
+void get_obs_atFLUXMAX(char *CCID, int NOBS, float *FLUX, float *FLUXERR, 
+		       double *MJD, int *IFILTOBS, int *EP_atFLUXMAX);
+
+void init_obs_atfluxmax__(int *OPTMASK, double *PARLIST, int *VBOSE);
+
+void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR, 
+			 double *MJD, int *IFILTOBS, int *EP_atFLUXMAX);
 
 // ============== END OF FILE =============

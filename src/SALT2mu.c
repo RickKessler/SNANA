@@ -102,7 +102,7 @@ powzbin=2.0,0.4 --> binSize propto (1+z)^2 for nzbin/2 and z<0.4, then
                     constant binsize for z>0.4. Allows small bins at low-z,
                     without too-big bins at high-z.
 
-min_per_zbin =  min number of SN in z-bin to keep z-bin (default=5)
+min_per_zbin =  min number of SN in z-bin to keep z-bin (default=1)
 
 x1min = lower limit on x1 (-6.0)
 x1max = upper limit on x1 (+6.0)
@@ -238,6 +238,9 @@ prescale_simcc=<preScale>    # pre-scale only the simulated CC
 
 NSPLITRAN=[NRAN] = number of independent sub-samples to run SALT2mu.
                   A separate fitres file is created for each sub-sample.
+JOBID_SPLITRAN=[JOBID] 
+   --> do only this splitran job, JOBID=1,2 ... NSPLITRAN
+   --> write summary file if JOBID > NSPLITRAN
 
 iflag_duplicate=1  # 0=ignore, 1=abort, 2=merge
 
@@ -604,6 +607,12 @@ Default output files (can change names with "prefix" argument)
  May 20 2019: 
    + refactor biasCor to read comma-separated list of simFile_biasCor 
    + same for CCprior.
+
+ May 29 2019:
+   + new input JOBID_SPLITRAN to process only 1 of the NSPLITRAN jobs.
+     The summary file is created if JOBID_SPLITRAN > NSPLITRAN
+   + fix bugs re-initializing NSPLITRAN jobs. See SPLITRAN_prep_input(),
+     and bug-fix in setup_zbins_fit().
 
 ******************************************************/
 
@@ -1240,7 +1249,8 @@ struct INPUTS {
 
   int  NDUMPLOG; // number of SN to dump to flog file
 
-  int NSPLITRAN ;  // number of random subsets to split jobs (RK July 2012)
+  int NSPLITRAN ;       // number of random subsets to split jobs (RK July 2012)
+  int JOBID_SPLITRAN ;  // do only this JOBID among NSPLITRAN
 
   int iflag_duplicate;
   
@@ -1440,6 +1450,7 @@ void   match_fieldGroup(char *SNID, char *FIELD,
 			char *FIELDGROUP, char *STRINGOPT ); 
 void   match_surveyGroup(char *SNID, int IDSURVEY, 
 			 char *SURVEYGROUP, char *STRINGOPT ) ;
+int    match_fitParName(char *parName);
 
 void   prepare_biasCor(void);
 void   prepare_biasCor_zinterp(void) ;
@@ -1529,7 +1540,7 @@ void  set_ERRMASK(int isn_raw, int isn_data);
 void  getComment_ERRMASK(int mask, char *comment) ;
 void  countData_per_zbin(void) ;
 int   reject_simData(int isn_raw);
-void  write_fitres(char filnam[ ]);
+void  write_fitres(char *fileName);
 void  write_fitres_misc(FILE *fout);
 void  write_blindFlag_message(FILE *fout) ;
 void  append_fitres(FILE *fp, char *CCID, int  indx);
@@ -1546,7 +1557,11 @@ void  write_MUERR_INCLUDE(FILE *fp) ;
 
 int   SPLITRAN_ACCEPT(int isn, int snid);
 void  SPLITRAN_errmask(void);
-void  SPLITRAN_SUMMARY(void);
+void  SPLITRAN_SUMMARY(void); 
+void  SPLITRAN_write_fitpar(char *fileName);
+void  SPLITRAN_read_fitpar(int isplit);
+void  SPLITRAN_prep_input(void);
+
 void  CPU_SUMMARY(void);
 
 int keep_errcode(int errcode) ;
@@ -1696,7 +1711,6 @@ int main(int argc,char* argv[ ])
   // prepare input
   prep_input();
 
-
   //  test_zmu_solve();
   //  test_muerrz(); // xxxx
 
@@ -1725,6 +1739,9 @@ int main(int argc,char* argv[ ])
   // prepare mapindex for each IDSURVEY & FIELD --> for biasCor
   prepare_IDSAMPLE_biasCor();
 
+  // check option for SPLITRAN summary
+  if ( INPUTS.JOBID_SPLITRAN > INPUTS.NSPLITRAN ) { goto DOFIT; }
+
   // read optional sim maps 
   prepare_biasCor();
 
@@ -1738,11 +1755,19 @@ int main(int argc,char* argv[ ])
   t_end_init = time(NULL);
 
  DOFIT:
-  NJOB_SPLITRAN++ ;
+
+  if ( INPUTS.JOBID_SPLITRAN>0 ) 
+    { NJOB_SPLITRAN = INPUTS.JOBID_SPLITRAN; } // do only this one SPLIT job
+  else
+    { NJOB_SPLITRAN++ ; }  // keep going to do them all
+
   DOFIT_FLAG = FITFLAG_CHI2 ; 
   printmsg_fitStart(stdout);
   
-  SPLITRAN_errmask(); // check for random sub-samples
+  if ( INPUTS.NSPLITRAN > 1 ) { 
+    SPLITRAN_errmask();     // check for random sub-samples
+    SPLITRAN_prep_input();  // re-initialize a few things (May 2019)
+  }
 
   setup_zbins_fit();
 
@@ -1754,6 +1779,10 @@ int main(int argc,char* argv[ ])
 
   // execuate minuit mnparm_ commands
   exec_mnparm(); 
+
+  // check option to fetch summary of all previous SPLITRAN jobs
+  if ( INPUTS.JOBID_SPLITRAN > INPUTS.NSPLITRAN ) 
+    {  SPLITRAN_SUMMARY(); return(0); }
 
   FITRESULT.NFIT_ITER = 0 ;
   
@@ -1847,7 +1876,8 @@ int main(int argc,char* argv[ ])
   outFile_driver();
 
   //---------
-  if ( NJOB_SPLITRAN < INPUTS.NSPLITRAN ) { goto DOFIT ; }
+  if ( NJOB_SPLITRAN < INPUTS.NSPLITRAN  &&  INPUTS.JOBID_SPLITRAN<0 ) 
+    { goto DOFIT ; }
 
   t_end_fit = time(NULL);
 
@@ -2162,10 +2192,12 @@ void setup_zbins_fit(void) {
   // Setup z-bins for fitting.
   //
   // Jun 27 2017: REFACTOR z bins
+  // May 29 2019: remove ERRMASK_MINBIN from skipfit if already set
 
   double z;
   int nzbin = INPUTS.nzbin ;
   int n, nz, izbin, NZFLOAT ;
+  char *name;
   char fnam[] = "setup_zbins_fit";
 
   // ----------- BEGIN --------
@@ -2178,13 +2210,24 @@ void setup_zbins_fit(void) {
   
   //Put data into bins and count bin population
   for (n=0; n<FITINP.NSNCUTS; ++n) {
-    z = data[n].zhd ;    
+    z     = data[n].zhd ;    
+    name  = data[n].name ;
     izbin = IBINFUN(z, &INPUTS.BININFO_z, 0, "");
     data[n].izbin = izbin;
+
+    // remove MINBIN errbit if already set (e.g., for SPLITRAN)
+    data[n].skipfit -= (data[n].skipfit & ERRMASK_MINBIN);
       
     if (izbin<0 || izbin >= nzbin) 
       { data[n].errmask |= ERRMASK_z ; }  // should be redundant
 
+    // xxxxxxxxxxxx
+    if ( strcmp(name,"7551")== 0 ) {
+      printf(" xxx CID=%s NJOB=%d z=%.3f  errmask=%d skip=%d \n",
+	     name, NJOB_SPLITRAN, z, data[n].errmask, data[n].skipfit);
+      fflush(stdout);
+    }
+    // xxxxxxxxxxxx
     
     FITINP.NZBIN_TOT[izbin]++ ;
     if ( data[n].errmask != 0 ) { continue ; }
@@ -2216,13 +2259,12 @@ void setup_zbins_fit(void) {
   printf(" --> Use %d of %d z-bins in fit.\n", NZFLOAT, nzbin );
 
   // Flag SN in z-bins with fewer thann MINBIN;
-  // i.e, Flag SN which are not in a zbin that is being used
+  // i.e, Flag SN which are not in a valid zbin
   for (n=0; n<FITINP.NSNCUTS; ++n)  {
-      izbin = data[n].izbin;
-      
-      if ( FITINP.ISFLOAT_z[izbin] == 0 )  { 
-	data[n].errmask += ERRMASK_MINBIN ; 
-	data[n].skipfit  = 1;  // Jun 23 2017
+      izbin = data[n].izbin;      
+      if ( FITINP.ISFLOAT_z[izbin] == 0 )  {  //.xyz
+	data[n].errmask |= ERRMASK_MINBIN ;  // set errmask
+	data[n].skipfit |= ERRMASK_MINBIN ;  
       }
   }
 
@@ -3951,7 +3993,8 @@ void set_defaults(void) {
   // default is to blind cosmo params for data
   INPUTS.blindFlag = BLINDMASK_FIXPAR; 
 
-  INPUTS.NSPLITRAN = 1; // default is all SN in one job
+  INPUTS.NSPLITRAN      = 1; // default is all SN in one job
+  INPUTS.JOBID_SPLITRAN = -9;
 
   INPUTS.iflag_duplicate = IFLAG_DUPLICATE_ABORT ;
 
@@ -4330,8 +4373,6 @@ int read_data(char *filnam)
 
   fflush(stdout);
   FITINP.NSNTOT = SNTABLE_READ_EXEC();
-
-  // xxx obsolete  TABLEFILE_CLOSE(filnam);  // added Jan 19 2016
 
   if ( FITINP.NSNTOT > MAXSN) {
     sprintf(c1err,"NSNTOT = %d exceeds bound of MAXSN=%d",
@@ -12152,6 +12193,8 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"NSPLITRAN=")) 
     { sscanf(&item[10],"%d", &INPUTS.NSPLITRAN); return(1); }
+  if ( uniqueOverlap(item,"JOBID_SPLITRAN=")) 
+    { sscanf(&item[15],"%d", &INPUTS.JOBID_SPLITRAN); return(1); }
 
   if ( uniqueOverlap(item,"iflag_duplicate=")) 
     { sscanf(&item[16],"%d", &INPUTS.iflag_duplicate ); return(1); }
@@ -12219,8 +12262,6 @@ void parse_simfile_CCprior(char *item) {
   splitString(item, comma, MXFILE_BIASCOR,    // inputs
 	      &INPUTS.nfile_CCprior,
 	      INPUTS.simFile_CCprior ); // outputs  
-
-  // .xyz
 
   char *f0 = INPUTS.simFile_CCprior[0];
   if ( IGNOREFILE(f0) ) { 
@@ -12754,6 +12795,33 @@ int usesim_CUTWIN(char *varName) {
 }
 
 // **************************************************
+void SPLITRAN_prep_input(void) {
+
+  // for NSPLITRAN>1, call this function before each new fit.
+
+  char fnam[] = "SPLITRAN_prep_input" ;
+
+  // ------------ BEGIN -----------
+
+  FITINP.COVINT_PARAM_FIX   = INPUTS.sigmB ; 
+  FITINP.COVINT_PARAM_LAST  = INPUTS.sigmB ; 
+  INPUTS.covint_param_step1 = INPUTS.sigmb_step1 ; // default COVINT param
+
+  if ( strlen(INPUTS.sigint_fix) > 0 ) {
+    sprintf(FITPARNAMES_DEFAULT[IPAR_COVINT_PARAM], "scale_covint"); 
+    FITINP.COVINT_PARAM_FIX    = 1.0 ; 
+    FITINP.COVINT_PARAM_LAST   = 1.0 ;
+    INPUTS.covint_param_step1  = INPUTS.scale_covint_step1 ; 
+  }
+
+  recalc_dataCov(); 
+  check_data();
+
+  return;
+
+} // end SPLITRAN_prep_input
+
+// **************************************************
 void  SPLITRAN_errmask(void) {
 
   // Created July 2012 by R.Kessler
@@ -12767,8 +12835,11 @@ void  SPLITRAN_errmask(void) {
 
     snid = data[n].snid ;
 
-    // subtract this errbit if it was set earlier
+    // subtract SPLITRAN errbit if it was set earlier
     data[n].errmask -= (ERRMASK_SPLITRAN & data[n].errmask) ;
+
+    // subtract ERRMASK_MINBIN if it was set earlier (May 2019)
+    data[n].errmask -= (ERRMASK_MINBIN & data[n].errmask);
 
     // check random-subset option
     if ( SPLITRAN_ACCEPT(n,snid) == 0 ) { 
@@ -12777,6 +12848,7 @@ void  SPLITRAN_errmask(void) {
   }
 
 } // end of SPLITRAN_errmask
+
 
 // **************************************************
 int SPLITRAN_ACCEPT(int isn, int snid) {
@@ -12791,11 +12863,12 @@ int SPLITRAN_ACCEPT(int isn, int snid) {
 
   if ( INPUTS.NSPLITRAN <= 1 ) { return 1; }
 
-  //jj = (isn % INPUTS.NSPLITRAN) + 1 ;
   jj = (snid % INPUTS.NSPLITRAN) + 1 ;
 
   if ( jj == NJOB_SPLITRAN ) 
     { return 1; }
+  else if ( INPUTS.JOBID_SPLITRAN > INPUTS.NSPLITRAN ) 
+    { return 1; } // for SPLITRAN summary only
   else
     { return 0; }
 
@@ -12813,7 +12886,7 @@ void SPLITRAN_SUMMARY(void) {
   // Dec 2 2016: compute & print rms of sample size
 
   
-  int ipar, isplit, NSPLIT, NPAR, NERR_VALID ;
+  int ipar, isplit, NSPLIT, NPAR, NERR_VALID, JOBID_SPLIT ; 
   double 
     VAL, ERR, XN, XNTMP, SQRMS, NSNAVG, NSNRMS
     ,SUMVAL1[MAXPAR], SUMERR1[MAXPAR]
@@ -12823,16 +12896,29 @@ void SPLITRAN_SUMMARY(void) {
     ,SUMN, SQSUMN
     ;
   
+  char PARNAME[40];
   char fnam[] = "SPLITRAN_SUMMARY" ;
 
   // -------------- BEGIN -------------
 
-  NSPLIT = INPUTS.NSPLITRAN ;
-  NPAR   = FITINP.NFITPAR_ALL ;
+  NSPLIT       = INPUTS.NSPLITRAN ;
+  JOBID_SPLIT  = INPUTS.JOBID_SPLITRAN;
+  NPAR         = FITINP.NFITPAR_ALL ;
 
   if ( NSPLIT <= 1 ) { return ; }
 
-  XN     = (double)NSPLIT ;
+  // check for individual JOBID instead of entire set.
+  if ( JOBID_SPLIT > 0 ) {
+    if ( JOBID_SPLIT > NSPLIT ) {
+      store_PARSE_WORDS(-1,"");
+      for(isplit=1; isplit<=NSPLIT; isplit++ )
+	{ SPLITRAN_read_fitpar(isplit); }
+    }
+    else
+      { return; }
+  }
+
+
 
   // get average sample size & RMS
   SUMN = SQSUMN = 0.0 ;
@@ -12841,6 +12927,7 @@ void SPLITRAN_SUMMARY(void) {
     SUMN   += XNTMP ;
     SQSUMN += (XNTMP*XNTMP) ;
   } 
+  XN     = (double)NSPLIT ;
   NSNAVG = SUMN/XN ;
   NSNRMS = RMSfromSUMS(NSPLIT, SUMN, SQSUMN) ;
 
@@ -12896,15 +12983,17 @@ void SPLITRAN_SUMMARY(void) {
   printf("\n SPLITRAN SUMMARY is in %s \n", OUTFILE);
 
   fprintf(fp, "# SPLITRAN SUMMARY for %d jobs (Avg sample size: %d +- %d) \n",
-	 NJOB_SPLITRAN, (int)NSNAVG, (int)NSNRMS );
+	  INPUTS.NSPLITRAN, (int)NSNAVG, (int)NSNRMS );
   fprintf(fp," \n");
   fprintf(fp,"VARNAMES: ROW PARNAME AVG_VAL AVG_ERR RMS_VAL RMS_ERR \n" );
 
   for ( ipar=1; ipar <= NPAR ; ipar++ ) {
     if ( AVG_ERR[ipar] <= 0.0 ) { continue ; }
-    fprintf(fp, "ROW: %2d  %-10s  %8.3f  %8.3f  %8.3f %8.3f \n"
+    sprintf(PARNAME, "%s", FITRESULT.PARNAME[ipar]);
+    trim_blank_spaces(PARNAME);
+    fprintf(fp, "ROW: %2d  %-20s  %8.3f  %8.3f  %8.3f %8.3f \n"
 	   ,ipar
-	   ,FITRESULT.PARNAME[ipar]
+	   ,PARNAME
 	   ,AVG_VAL[ipar]
 	   ,AVG_ERR[ipar]
 	   ,RMS_VAL[ipar]
@@ -12912,29 +13001,6 @@ void SPLITRAN_SUMMARY(void) {
 	   );
   }
   fclose(fp);
-
-
-  /* xxxxxxx mark delete Apr 29 2019 xxxxxxxx
-  printf("\n SPLITRAN SUMMARY for %d jobs (Avg sample size: %d +- %d) \n",
-	 NJOB_SPLITRAN, (int)NSNAVG, (int)NSNRMS );
-  printf(" \n");
-  printf("                   Average   Average    RMS      RMS   \n" );
-  printf(" Param             Value     Error      Value    Error \n" );
-  printf(" ------------------------------------------------------ \n");
-
-  for ( ipar=1; ipar <= NPAR ; ipar++ ) {
-    if ( AVG_ERR[ipar] <= 0.0 ) { continue ; }
-    printf(" %-14s  %8.3f  %8.3f  %8.3f %8.3f \n"
-	   ,FITRESULT.PARNAME[ipar]
-	   ,AVG_VAL[ipar]
-	   ,AVG_ERR[ipar]
-	   ,RMS_VAL[ipar]
-	   ,RMS_ERR[ipar]
-	   );
-  }
-  printf(" ------------------------------------------------------ \n");
-  fflush(stdout);
-  xxxxxxxxxxxxx end mark xxxxxxx */
 
 }  // end of SPLITRAN_SUMMARY
 
@@ -13276,12 +13342,6 @@ void prep_input(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   
-  /* xxxxxxxx mark delete: move "same" logic to parse_simfile_CCprior
-  // check for 'same' arg in simfile_ccprior.
-  if ( strcmp(f_CCprior,"same") == 0 ) 
-    { sprintf(f_CCprior,"%s", ); }
-  xxxxx  */
-
   // if CCprior is not set then make sure to fix scalePCC and sigint
   if ( simdata_ccprior.USE == 0 ) {
     INPUTS.ipar[IPAR_scalePCC] = 0 ; // do NOT float scalePCC
@@ -13724,13 +13784,17 @@ void outFile_driver(void) {
 
   // Created Nov 30 2017
   // [move code out of main]
+  // May 29 2019: call SPLITRAN_write_fitpar
 
+  int  JOBID     = INPUTS.JOBID_SPLITRAN ;
+  int  NSPLITRAN = INPUTS.NSPLITRAN ;
   char *prefix = INPUTS.PREFIX ;
-  char tmpFile1[200], tmpFile2[200];
+  char tmpFile1[200], tmpFile2[200], tmpFile3[200];
+
 
   // --------------- BEGIN -------------
 
-  if ( strlen(prefix) > 0 && IGNOREFILE(prefix) == 0 ) {
+  if ( strlen(prefix) > 0 && !IGNOREFILE(prefix)  ) {
 
     if ( INPUTS.NSPLITRAN == 1 )  { 
       sprintf(tmpFile1,"%s.fitres", prefix ); 
@@ -13739,10 +13803,18 @@ void outFile_driver(void) {
     else  { 
       sprintf(tmpFile1,"%s-SPLIT%3.3d.fitres", prefix, NJOB_SPLITRAN);
       sprintf(tmpFile2,"%s-SPLIT%3.3d.M0DIF",  prefix, NJOB_SPLITRAN);
+      sprintf(tmpFile3,"%s-SPLIT%3.3d.fitpar", prefix, NJOB_SPLITRAN);
     }
     
     write_fitres(tmpFile1);  // write result for each SN
     write_M0(tmpFile2);      // write M0 vs. redshift
+
+
+    // for single JOBID_SPLITRAN, write fitpar file so that they
+    // can be scooped up later to make summary.
+    if ( JOBID >=1 && JOBID <= NSPLITRAN ) 
+      { SPLITRAN_write_fitpar(tmpFile3); }
+
   } 
   else {
     printf("\n PREFIX not specified --> no fitres output.\n");
@@ -13858,9 +13930,157 @@ void  write_M0(char *fileName) {
 } // end write_M0
 
 
+// ******************************************
+void SPLITRAN_write_fitpar(char *fileName) {
+
+  // May 29 2019
+  // Write fit params to machine-parsable file so that they 
+  // can be read back later for summary file.
+
+  FILE *fout;
+  int n, ISFLOAT, ISM0, iz ;
+  double VAL, ERR ;
+  char tmpName[60] ;
+  char KEY[]  = "FITPAR:" ;
+  char fnam[] = "SPLITRAN_write_fitpar";
+
+  // ------------- BEGIN -------------
+
+  printf(" %s: open %s \n", fnam, fileName);
+  fout = fopen(fileName,"wt");
+
+  // write NSNFIT
+  sprintf(tmpName,"NSNFIT" );
+  VAL = (double)FITRESULT.NSNFIT;  ERR=0.0;
+  fprintf(fout,"%s  %-20s  %8.2f %8.2f \n",  KEY, tmpName, VAL, ERR );
+
+  // write sigint
+  sprintf(tmpName,"%s", FITRESULT.PARNAME[IPAR_COVINT_PARAM] );
+  VAL = FITINP.COVINT_PARAM_FIX ;    ERR = 0.0 ;
+  fprintf(fout,"%s  %-20s  %8.5f %8.5f \n",  KEY, tmpName, VAL, ERR );
+
+  for ( n=0; n < FITINP.NFITPAR_ALL ; n++ ) {
+
+    ISFLOAT = FITINP.ISFLOAT[n] ;
+    ISM0    = n >= MXCOSPAR ; // it's z-binned M0
+
+    // skip fixed cosmo params; keep fixed M0 params to 
+    // print clear message about unused z-bins
+    if ( ISM0 == 0  && ISFLOAT==0 ) { continue ; } 
+      
+    VAL = FITRESULT.PARVAL[NJOB_SPLITRAN][n] ;
+    ERR = FITRESULT.PARERR[NJOB_SPLITRAN][n] ;
+    sprintf(tmpName, "%s", FITRESULT.PARNAME[n]);
+    if ( ERR < 0.0 ) { continue ; }
+
+    if ( n >= MXCOSPAR ) { 
+      iz  = INPUTS.izpar[n] ;
+      VAL = FITRESULT.M0DIF[iz]; 
+      sprintf(tmpName,"%s-<M0avg>", FITRESULT.PARNAME[n] );
+    }
+    else {
+      VAL += BLIND_OFFSET(n); // offset cosmo params besides M0
+    }
+
+    if ( !ISFLOAT ) { VAL = -9.0 ; ERR = -9.0; }
+
+    fprintf(fout,"%s  %-20s  %8.5f %8.5f \n",
+	    KEY, tmpName, VAL, ERR );
+    
+
+  } // end loop over fit params
+  
+  fclose(fout);
+  return ;
+
+} // end SPLITRAN_write_fitpar
 
 // ******************************************
-void write_fitres(char* filnam) {
+void SPLITRAN_read_fitpar(int isplit) {
+
+  // May 29 2019
+  // Read all of the fitpar files as if this were all in one job.
+
+  FILE *fp;
+  int  iwd, NWD, ipar ;
+  double VAL, ERR;
+  char tmpFile[200], LINE[100], WORD[6][40], *PARNAME;
+  char *prefix = INPUTS.PREFIX ;
+  char fnam[] = "SPLITRAN_read_fitpar";
+
+  // --------------- BEGIN --------------
+
+  
+  sprintf(tmpFile,"%s-SPLIT%3.3d.fitpar", prefix, isplit);
+  fp = fopen(tmpFile,"rt");
+  if( !fp ) {
+    sprintf(c1err,"Could open SPLITRAN file for reading:");
+    sprintf(c2err,"%s", tmpFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+  }
+
+  printf(" Read %s \n", tmpFile); fflush(stdout);
+  
+  while(fgets(LINE,100,fp) != NULL ) {
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);    
+    if ( NWD < 4 ) { continue; }
+    iwd=0; get_PARSE_WORD(0,iwd,WORD[iwd]);
+    if ( strcmp(WORD[iwd],"FITPAR:") != 0 ) { continue; }
+
+    iwd=1; get_PARSE_WORD(0,iwd,WORD[1]);  // parName
+    iwd=2; get_PARSE_WORD(0,iwd,WORD[2]);  // VAL
+    iwd=3; get_PARSE_WORD(0,iwd,WORD[3]);  // ERR     
+    PARNAME = WORD[1];
+    sscanf(WORD[2],"%le", &VAL);
+    sscanf(WORD[3],"%le", &ERR);   
+    
+    if ( strcmp(PARNAME,"NSNFIT") == 0 ) {
+      FITRESULT.NSNFIT_SPLITRAN[isplit] = (int)VAL;
+    }
+    else if ( strcmp(PARNAME,"sigint") == 0 ) {
+      FITRESULT.PARVAL[isplit][IPAR_COVINT_PARAM] = VAL ;
+      FITRESULT.PARERR[isplit][IPAR_COVINT_PARAM] = 1.0E-8 ;
+    }
+    else {
+      ipar = match_fitParName(PARNAME);
+      FITRESULT.PARVAL[isplit][ipar] = VAL ;
+      FITRESULT.PARERR[isplit][ipar] = ERR ;      
+    }
+
+    
+  } // end while over lines in file
+
+  fclose(fp);
+
+  return;
+
+} // end SPLITRAN_read_fitpar
+
+int match_fitParName(char *parName) {
+  int  ipar = -9;
+  char *PARNAME;
+  char fnam[] = "match_fitParName";
+
+  // ------------- BEGIN -------------
+
+  if ( strstr(parName,"m0_") != NULL ) { parName[5] = 0 ; }
+
+  for(ipar=1; ipar < FITINP.NFITPAR_ALL; ipar++ ) {
+    PARNAME = FITRESULT.PARNAME[ipar] ;
+    trim_blank_spaces(PARNAME);
+    if( strcmp(parName,PARNAME)==0 ) { return(ipar); }
+  }
+
+  sprintf(c1err,"Cannot find ipar index for parName='%s'", parName);
+  sprintf(c2err,"Check valid parameter names.");
+  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+
+  return(-9);
+
+} // end match_fitParName
+
+// ******************************************
+void write_fitres(char* fileName) {
 
   // Write outout in fitres format.
   // Combine original fitres variables with those
@@ -13921,12 +14141,12 @@ void write_fitres(char* filnam) {
   // - - - - - - - - - -
   NVAR_TOT = NVAR_ORIG + NVAR_NEW ;
 
-  fout = fopen(filnam,"wt");
+  fout = fopen(fileName,"wt");
   fin  = open_TEXTgz(INPUTS.filename, "rt", &GZIPFLAG); // check for .gz file
 
   printf("\n Open output file with  errmask_write=%d : \n", 
 	 INPUTS.errmask_write );
-  printf("\t %s \n", filnam );
+  printf("\t %s \n", fileName );
 
 
   fprintf(fout,"# MU-RESIDUAL NOTE: MURES = MU-(MUMODEL+M0DIF) \n\n");
@@ -13995,9 +14215,6 @@ void write_fitres(char* filnam) {
     }
     
   }
-
-
-  
 
   double chi2sum_m0 = 0.0 ;
   int    NBIN_m0 = 0 ;

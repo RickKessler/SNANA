@@ -766,10 +766,14 @@ void  rdwgtmap_HOSTLIB(void) {
   while( (fscanf(fp, "%s", c_get)) != EOF) 
     { parse_WGTMAP_HOSTLIB(fp,c_get);  }
 
-
   fclose(fp);
 
   HOSTLIB_WGTMAP.ISTAT = 1 ;
+
+  if ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SNMAGSHIFT )
+    { printf("\t Implement SNMAGSHIFT in WGTMAP \n"); fflush(stdout); }
+  else
+    { printf("\t Ignore SNMAGSHIFT in WGTMAP \n"); fflush(stdout); }
 
 } // end of rdwgtmap_HOSTLIB
 
@@ -1842,21 +1846,6 @@ void init_HOSTLIB_WGTMAP(void) {
   NFUN = HOSTLIB_WGTMAP.GRIDMAP.NFUN ;
   NROW = HOSTLIB_WGTMAP.GRIDMAP.NROW ;
   NGAL = HOSTLIB.NGAL_STORE;
-
-  /* xxxx mark delete Mar 14 2019 xxxxxxxx
-  NVAR      = HOSTLIB_WGTMAP.NVAR ;
-  NGRID_TOT = HOSTLIB_WGTMAP.NGRID_TOT; 
-  NGAL      = HOSTLIB.NGAL_STORE; 
-  if ( NGRID_TOT > 0 ) {    
-    ID = IDGRIDMAP_HOSTLIB_WGTMAP; NFUN=2;
-    PTRFUN[0] = &HOSTLIB_WGTMAP.GRID_WGT[0] ;
-    PTRFUN[1] = &HOSTLIB_WGTMAP.GRID_SNMAGSHIFT[0] ;
-    init_interp_GRIDMAP(ID, "HOSTLIB_WGTMAP", NGRID_TOT, NVAR, NFUN, 0,
-			&HOSTLIB_WGTMAP.GRIDVAL[0],  // (I) GRID
-			PTRFUN,                      // (I) FUNCTION values
-			&HOSTLIB_WGTMAP.GRIDMAP );   // <== returned struct
-  }
-  xxxxxxx end mark xxxxxxx */
 
   // ------------------------------------------------------
   // allocate memory for wgt, snmagshift and cumulative weight-sum.

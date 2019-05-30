@@ -98,25 +98,26 @@ class genmag_BYOSED:
 				dist_dict=dict([])
 				param_dict=dict([])
 				for warp in self.warp_effects:
-						warp_data={k.upper():np.array(config.get(warp,k).split()).astype(float) if k.upper()!='WARP_FUNCTION' else config.get(warp,k) for k in config[warp]}
-						dist_dict[warp]=_skewed_normal(warp,warp_data)
-						
-						
-						func_data=np.array(warp_data['WARP_FUNCTION'])
-								
-						try:
-								x0,x1,y=_read_griddata(os.path.expandvars(func_data))
-						except:
-								try:
-										x0,x1,y=_sncosmo_read_griddata(os.path.expandvars(os.path.join(self.PATH_VERSION,str(func_data))))
-								except RuntimeError:
-										raise RuntimeError("Do not recognize format of function for %s"%warp)
-								
-								
-						
-						func_dict[warp]=RectBivariateSpline(x0,x1,y,kx=3,ky=3)
-						param_dict[warp]=dist_dict[warp]()[0]
-						
+					warp_data={k.upper():np.array(config.get(warp,k).split()).astype(float) if k.upper() not in ['SN_FUNCTION','HOST_FUNCTION'] else config.get(warp,k) for k in config[warp]}
+					print(warp_data)
+					dist_dict[warp]=_skewed_normal(warp,warp_data)
+					
+					
+					func_data=np.array(warp_data['WARP_FUNCTION'])
+							
+					try:
+							x0,x1,y=_read_griddata(os.path.expandvars(func_data))
+					except:
+							try:
+									x0,x1,y=_sncosmo_read_griddata(os.path.expandvars(os.path.join(self.PATH_VERSION,str(func_data))))
+							except RuntimeError:
+									raise RuntimeError("Do not recognize format of function for %s"%warp)
+							
+							
+					
+					func_dict[warp]=RectBivariateSpline(x0,x1,y,kx=3,ky=3)
+					param_dict[warp]=dist_dict[warp]()[0]
+					
 								
 				return(func_dict,dist_dict,param_dict)
 		
@@ -198,7 +199,7 @@ class genmag_BYOSED:
 
 		def fetchParVals_BYOSED(self,config):
 				if 'FLAGS' in config.sections():
-						return([k.upper() for k in list(config['FLAGS'].keys()) if config['FLAGS'][k]])
+						return([k.upper() for k in list(config['FLAGS'].keys()) if config['FLAGS'][k]=='True'])
 				else:
 						return([x for x in config.sections() if x not in ['MAIN','FLAGS']])
 

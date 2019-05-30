@@ -34,6 +34,323 @@
 **********************************************************
 **********************************************************/
 
+
+void init_obs_atFLUXMAX(int OPTMASK, double *PARLIST, int VBOSE) {
+
+  // May 24 2019
+  // Initialize inputs to estimate PEAKMJD for each event,
+  // using only flux and fluxerr.
+  //
+
+  char cmethod[100];
+  char fnam[] = "init_obs_atFLUXMAX" ;
+
+  // ------------- BEGIN ------------
+
+  if ( OPTMASK == 0 ) { return ; }
+
+  INPUTS_OBS_atFLUXMAX.OPTMASK        = OPTMASK ;
+  INPUTS_OBS_atFLUXMAX.MJDWIN         = PARLIST[0];
+  INPUTS_OBS_atFLUXMAX.SNRCUT         = PARLIST[1];
+  INPUTS_OBS_atFLUXMAX.SNRCUT_BACKUP  = PARLIST[2];
+
+  if ( VBOSE ) {
+    if ( (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX) > 0 )  { 
+      sprintf(cmethod,"max-flux");  
+    }
+    else if ( (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2) > 0 )  { 
+      sprintf(cmethod, "Fmax-clump [SNRCUT=%.1f(%.1f), MJDWIN=%.1f]"
+	      ,INPUTS_OBS_atFLUXMAX.SNRCUT        
+	      ,INPUTS_OBS_atFLUXMAX.SNRCUT_BACKUP
+	      ,INPUTS_OBS_atFLUXMAX.MJDWIN	      );    
+    }
+    else if ( (OPTMASK & OPTMASK_SETPKMJD_TRIGGER) > 0 )  { 
+
+    }
+
+    printf("\n %s: %s \n", fnam, cmethod);    fflush(stdout);
+
+  } // end VBOSE
+
+  return ;
+
+} // end init_obs_atFLUXMAX
+
+
+void get_obs_atFLUXMAX(char *CCID, int NOBS, 
+		       float *FLUX_LIST, float *FLUXERR_LIST,
+		       double *MJD_LIST, int *IFILTOBS_LIST, 
+		       int *OBS_atFLUXMAX) {
+
+
+  // Created May 2019
+  // Find observation index (o) at max flux.
+  // Must call init_obs_atFLUXMAX first.
+  // Always do brute-force search on first iteration.
+  // If FLUXMAX2 option is set in OPTMASK (Fmax in clump),
+  // do 2nd iteration  over a restricted MJDWIN region 
+  // that has the most observations with SNR > SNRCUT_USER. 
+  // The goal here is to reject crazy-outler observations that can
+  // introduce false PEAKMJDs. If there are no obs passing
+  // SNR > SNRCUT_USER, then the process is repeated with
+  // an SNR-cut of SNRCUT_BACJUP ... this is to ensure that we 
+  // always get a PEAKMJD estimate.
+  //
+  // Be careful with two different MJD windows:
+  // 1) Local MJDSTEP_SNRCUT=10:
+  //    NSNRCUT (number of SNR detection) is evaluated in each
+  //    10 day window
+  // 2) User input MJDWIN_USER (several x 10 days)
+  //    This larger window is used to find max number of SNR-detections
+  //    from which Fmax is evaluated. SNRCUT_SUM is the sum over
+  //    NWIN_COMBINE 10-day windows.
+  //
+  //  While only the 2nd window (MJDWIN_USER) is used in the end, 
+  //  the smaller 10-day window is to improve speed of calculation.
+  //
+  //  OPTMASK = 8  --> return naive Fmax over all observatins
+  //  OPTMASK = 16 --> use Fmax-clump method describe above.
+  //
+  // Inputs:
+  //   CCID         : SN id, for error message
+  //   NOBS         : number of observations
+  //   FLUX_LIST    : list of NOBS fluxes
+  //   FLUXERR_LIST : list of NOBS flux-uncertainties
+  //   MJD_LIST     : list of NOBS MJDs
+  //   IFILTOBS_LIST: list of NOBS absolute filter indices
+  //
+  // OUTPUT:
+  //   OBS_atFLUXMAX:  obs-index for max flux in each filter band
+  //
+
+  int    OPTMASK         = INPUTS_OBS_atFLUXMAX.OPTMASK ;
+  if ( OPTMASK == 0 ) { return ; }
+
+  double MJDWIN_USER     = INPUTS_OBS_atFLUXMAX.MJDWIN ;
+  double SNRCUT_USER     = INPUTS_OBS_atFLUXMAX.SNRCUT ;
+  double SNRCUT_BACKUP   = INPUTS_OBS_atFLUXMAX.SNRCUT_BACKUP;
+  double MJDSTEP_SNRCUT  = 10.0 ; // hard wired param
+  double MJDMIN          = MJD_LIST[0];
+  double MJDMAX          = MJD_LIST[NOBS-1];
+
+  int USE_MJDatFLUXMAX  = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX );
+  int USE_MJDatFLUXMAX2 = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2);
+  int USE_BACKUP_SNRCUT, ITER, NITER, IMJD, IMJDMAX;
+  int NOBS_SNRCUT, NSNRCUT_MAXSUM;
+  int IFILTOBS, o, omin, omax, omin2, omax2, NOTHING ;
+  int MALLOC=0 ;
+  double SNR, SNRCUT, SNRMAX, FLUXMAX[MXFILTINDX] ;
+  double MJD, FLUX, FLUXERR;
+
+  int   *NSNRCUT;      // Number of obs in each 10-day window
+  int   *oMIN_SNRCUT, *oMAX_SNRCUT ;
+  int    NWIN_COMBINE = (int)(MJDWIN_USER/MJDSTEP_SNRCUT + 0.01) ;
+  int    MXWIN_SNRCUT = (int)((MJDMAX-MJDMIN)/MJDSTEP_SNRCUT)+1 ;
+  int    MEMI         = sizeof(int) * MXWIN_SNRCUT ;
+  int    LDMP = 0; // t(strcmp(CCID,"3530")==0 ) ;
+  char fnam[] = "get_obs_atFLUXMAX" ;
+
+  // ------------ BEGIN -------------
+
+  NITER  = 1 ;         // always do max flux on 1st iter
+  omin2  = omax2 = -9 ;
+  NSNRCUT_MAXSUM = 0 ;
+  USE_BACKUP_SNRCUT = 0;
+
+ START:
+
+  if ( LDMP ) {
+    printf(" xxx ---------  START CID=%s -------------- \n",
+	   CCID ); fflush(stdout);
+  }
+
+
+  if ( USE_MJDatFLUXMAX ) {
+    // for naive fluxmax, start with lower SNRCUT_BACKUP
+    SNRCUT  = SNRCUT_BACKUP;
+    USE_BACKUP_SNRCUT = 1;
+  }
+  else if ( USE_MJDatFLUXMAX2 ) {
+    NITER   = 2 ;
+    MJDMIN  = MJD_LIST[0];
+    IMJDMAX = 0;
+    SNRCUT  = SNRCUT_USER;
+    if ( USE_BACKUP_SNRCUT ) { SNRCUT = SNRCUT_BACKUP; }
+
+    if ( MALLOC == 0 ) {
+      NSNRCUT     = (int*)malloc(MEMI);
+      oMIN_SNRCUT = (int*)malloc(MEMI);
+      oMAX_SNRCUT = (int*)malloc(MEMI);
+      MALLOC = 1; 
+    }
+    // initialize quantities in each 10-day bin
+    for(o=0; o < MXWIN_SNRCUT; o++ ) {
+      NSNRCUT[o]     =  0 ;
+      oMIN_SNRCUT[o] = oMAX_SNRCUT[o] = -9 ;
+    }
+
+  } // end if-block over USE_MJDatFLUXMAX2
+
+
+  //  - - - - - - - - - - - - -- - - - - 
+  
+  for(ITER=1; ITER <= NITER; ITER++ ) {
+
+    for(IFILTOBS=0; IFILTOBS < MXFILTINDX; IFILTOBS++ ) {
+      FLUXMAX[IFILTOBS]       = -9.0 ;
+      OBS_atFLUXMAX[IFILTOBS] = -9 ;
+    }
+
+    if ( ITER == 1 )
+      { omin = 0;  omax = NOBS-1; }
+    else 
+      { omin = omin2; omax=omax2; }
+
+    if ( omin<0 || omax<0 || omin>= NOBS || omax>= NOBS ) {
+      printf("\n PRE-ABORT DUMP: \n");
+      printf("\t NSNRCUT_MAXSUM = %d \n", NSNRCUT_MAXSUM);
+      printf("\t NSNRCUT[]      = %d, %d, %d, %d, %d ... \n",
+	     NSNRCUT[0],NSNRCUT[1],NSNRCUT[2],NSNRCUT[3],NSNRCUT[4]);
+      printf("\t NOBS_SNRCUT    = %d \n", NOBS_SNRCUT );
+      printf("\t SNRMAX         = %.2f \n", SNRMAX );
+      printf("\t IMJDMAX        = %d  \n",  IMJDMAX);      
+      sprintf(c1err,"omin, omax = %d,%d   ITER=%d", omin, omax, ITER);
+      sprintf(c2err,"CID=%s  NOBS=%d", CCID, NOBS);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
+    
+    if ( LDMP ) {
+      printf(" xxx ITER=%d : omin,omax=%3d-%3d   MJDWIN=%.1f-%.1f"
+	     " SNRCUT=%.1f \n", 
+	     ITER,omin,omax, MJD_LIST[omin], MJD_LIST[omax], SNRCUT ); 
+      fflush(stdout);
+    }
+
+    NOBS_SNRCUT=0;   SNRMAX = 0.0 ;
+    for(o = omin; o <= omax; o++ ) {
+      MJD      = MJD_LIST[o];
+      FLUX     = (double)FLUX_LIST[o];
+      FLUXERR  = (double)FLUXERR_LIST[o];
+      IFILTOBS = IFILTOBS_LIST[o];
+
+      if ( IFILTOBS < 1 || IFILTOBS >= MXFILTINDX ) {
+	sprintf(c1err,"Invalid IFILTOBS=%d for FLUX[%d]=%f", 
+		IFILTOBS, o, FLUX );
+	sprintf(c2err,"NOBS=%d", NOBS);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+
+      IMJD = (int)MJD;    
+      if ( IMJD    < 40000   ) { continue; }
+      if ( FLUXERR < 1.0E-9  ) { continue ; }
+      SNR = FLUX/FLUXERR ;
+      
+      if ( SNR > SNRMAX ) { SNRMAX = SNR; } // diagnostic 
+      if ( SNR < SNRCUT ) { continue ; }
+
+      if ( FLUX > FLUXMAX[IFILTOBS] ) { // max flux in each filter
+	FLUXMAX[IFILTOBS] = FLUX ;
+	OBS_atFLUXMAX[IFILTOBS] = o;
+      }
+
+      if ( FLUX > FLUXMAX[0] ) {  // global FLUXMAX
+	FLUXMAX[0] = FLUX ;
+	OBS_atFLUXMAX[0] = o;
+      }
+
+
+      // count number of SNR>cut epochs in sliding 10-day windows
+      if ( USE_MJDatFLUXMAX2 && ITER==1 ) {
+      
+	IMJD = (int)((MJD - MJDMIN)/MJDSTEP_SNRCUT) ;
+	IMJDMAX = IMJD ;
+	   
+	if ( IMJD < 0 || IMJD >= MXWIN_SNRCUT ) {
+	  sprintf(c1err,"Invalid IMJD=%d (must be 0 to %d)", 
+		  IMJD, MXWIN_SNRCUT-1);
+	  sprintf(c2err,"Something is really messed up.");
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+	}							  
+	NSNRCUT[IMJD]++ ;
+	if ( oMIN_SNRCUT[IMJD] < 0 ) { oMIN_SNRCUT[IMJD] = o; }
+	if ( oMAX_SNRCUT[IMJD] < o ) { oMAX_SNRCUT[IMJD] = o; }
+      } // end FmaxClump 
+
+      NOBS_SNRCUT++ ;
+      
+    } // end o-loop over observations
+
+    // =======================
+
+    if ( LDMP ) {
+      printf(" xxx ITER=%d : SNRMAX=%.2f NOBS_SNRCUT=%d \n",
+	     ITER, SNRMAX, NOBS_SNRCUT ); fflush(stdout);
+    }
+
+    // if no obs pass SNRCUT on ITER=1, try again with SNRCUT_BACKUP         
+    NOTHING = ( ITER==1 && NOBS_SNRCUT==0 ) ;
+    if ( NOTHING ) {
+      if ( USE_BACKUP_SNRCUT ) 
+	{ return; }
+      else
+	{ USE_BACKUP_SNRCUT = 1; goto START; }
+    }
+
+
+    int iwin, iwin_shift, iwin_max, iwin_start;
+    int oMIN_TMP, oMAX_TMP, NSNRCUT_SUM ;
+
+    if ( USE_MJDatFLUXMAX2 && ITER==1 ) {
+      //   check sliding combined windows for max NSNRCUT
+      NSNRCUT_MAXSUM = 0 ;
+      iwin_max = IMJDMAX - (NWIN_COMBINE-1) ;
+      if ( iwin_max < 0 ) { iwin_max = 0 ; }
+    
+      for( iwin_start = 0; iwin_start <= iwin_max; iwin_start++ ) {
+
+	// combine multiple 10-day windows to get a MJDWIN-day window
+	NSNRCUT_SUM = 0; oMIN_TMP = oMAX_TMP = -9;
+
+	for(iwin_shift = 0; iwin_shift<NWIN_COMBINE; iwin_shift++ ) {
+	  iwin = iwin_start + iwin_shift ;
+	  if ( iwin >= MXWIN_SNRCUT ) { continue; }
+	  if ( NSNRCUT[iwin] > 0 ) {
+	    NSNRCUT_SUM += NSNRCUT[iwin] ;
+	    if ( oMIN_TMP < 0 ) { oMIN_TMP = oMIN_SNRCUT[iwin]; }
+	    oMAX_TMP = oMAX_SNRCUT[iwin];
+	  }
+	}
+
+	if ( NSNRCUT_SUM > NSNRCUT_MAXSUM ) {
+	  NSNRCUT_MAXSUM = NSNRCUT_SUM ;
+	  omin2 = oMIN_TMP ;
+	  omax2 = oMAX_TMP ;
+	}
+
+      } // end loop over iwin_start
+    } 
+
+  } // end ITER loop
+
+  if ( MALLOC ) { free(NSNRCUT);  free(oMIN_SNRCUT); free(oMAX_SNRCUT);  }
+
+  return;
+
+} // end get_obs_atFLUXMAX
+
+
+void init_obs_atfluxmax__(int *OPTMASK, double *PARLIST, int *VBOSE)
+{ init_obs_atFLUXMAX(*OPTMASK, PARLIST, *VBOSE); }
+
+void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR,
+			 double *MJD, int *IFILTOBS, int *EP_atFLUXMAX) 
+{
+  get_obs_atFLUXMAX(CCID,*NOBS,FLUX,FLUXERR,MJD,IFILTOBS,EP_atFLUXMAX);
+}
+
+
+// ==============================================
 int keyMatch(char *string,char *key ) {
   if ( strcmp(string,key)==0 ) 
     { return(1); }
@@ -6676,6 +6993,8 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
 
   Sep 08 2017:  for LCLIB model, write SNDATA.SIM_TEMPLATEMAG
 
+  May 23 2019: write SIM_MAGSHIFT_HOSTCOR
+
   **************/
 
   int 
@@ -6997,7 +7316,9 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
     }
     
     fptr = &SNDATA.SIM_MAGSMEAR_COH ; 
-    fprintf(fp, "SIM_MAGSMEAR_COH:   %6.3f  \n", *fptr ) ;      
+    fprintf(fp, "SIM_MAGSMEAR_COH:     %6.3f  \n", *fptr ) ;      
+    fptr = &SNDATA.SIM_SNMAGSHIFT_HOSTCOR ; 
+    fprintf(fp, "SIM_SNMAGSHIFT_HOSTCOR: %6.3f  \n", *fptr ) ;      
 
     // gal/SN flux-fraction
     fprintf(fp, "SIM_GALFRAC: "); NTMP = 0;

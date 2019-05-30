@@ -167,26 +167,29 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
 
 // =========================================================
 void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU, 
-		   double MWEBV, double RV_host, double AV_host,
+		   double MWEBV, double *HOSTPAR_LIST,
 		   int IFILT_OBS, int NOBS, double *TOBS_list, 
 		   double *MAGOBS_list, double *MAGERR_list ) {
 
   // Created Sep 2018
   //
   // Inputs:
-  //   EXTERNAL_ID : set NEWEVT_FLAG logical when this changes
-  //   zHEL        : helio redshift
-  //   MU          : distance modulus
-  //   MWEBV       : E(B-V) for Milky Wat
-  //   IFILT_OBS   : absolute filter index
-  //   NOBS        : number of observations
-  //   TOBS_list   : list of MJD-PEAKMJD
+  //   EXTERNAL_ID  : set NEWEVT_FLAG logical when this changes
+  //   zHEL         : helio redshift
+  //   MU           : distance modulus
+  //   MWEBV        : E(B-V) for Milky Wat
+  //   HOSTPAR_LIST : RV, AV, LOGMASS, SFR ...
+  //   IFILT_OBS    : absolute filter index
+  //   NOBS         : number of observations
+  //   TOBS_list    : list of MJD-PEAKMJD
   //
   // Outputs"
   //   MAGOBS_list   : list of true mags
   //   MAGERR_list   : list of mag errors (place-holder, in case)
   //
 
+  double RV_host = HOSTPAR_LIST[0];
+  double AV_host = HOSTPAR_LIST[1];
   double FLUXSUM_MIN = 1.0E-30 ;
   double z1    = 1.0 + zHEL ;
   double *LAM  = Event_BYOSED.LAM;
@@ -238,7 +241,7 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
     Trest = Tobs/z1;
 
     fetchSED_BYOSED(EXTERNAL_ID, NEWEVT_FLAG, Trest, 
-		    MXLAM_BYOSED, &NLAM, LAM, SED );  
+		    MXLAM_BYOSED, HOSTPAR_LIST, &NLAM, LAM, SED );  
     Event_BYOSED.NLAM = NLAM ;
 
     // integrate redshifted SED to get observer-frame flux in IFILT_OBS band.
@@ -367,7 +370,7 @@ void fetchParVal_BYOSED(double *parVal) {
 
 // =================================================
 void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
-		     int *NLAM_SED, double *LAM_SED, double *FLUX_SED) {
+		     double *HOSTPAR_LIST, int *NLAM_SED, double *LAM_SED, double *FLUX_SED) {
 
   // return rest-frame SED to calling function; 
   // Inputs:
@@ -375,7 +378,8 @@ void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
   //   NEWEVT_FLAG  :  logical flag: True for new event
   //   Trest        : rest frame epochs (Trest=0 at peak)
   //   MXLAM        : abort iof *NLAM > MXLAM
-  //   
+  //   HOSTPAR_LIST : RV, AV, LOGMAS ...
+  //
   // Output
   //  *NLAM_SED  : number of wavelenth bins for SED
   //  *LAM_SED   : array of wavelengths for SED

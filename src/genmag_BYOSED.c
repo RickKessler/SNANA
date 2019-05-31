@@ -211,7 +211,7 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
 
   int    NLAM, o, ipar ;
   double Tobs, Trest, FLUXSUM_OBS, FspecDUM[2], magobs ; 
-  char pySTRING_HOSTPAR[100], dSTRING_HOSTPAR[100], ctmp[20];
+  char   pyFORMAT_STRING_HOSTPAR[100] ;;
   char fnam[] = "genmag_BYOSED" ;
 
    #ifdef USE_PYTHON
@@ -230,14 +230,16 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
 
 
   // construct hostpar string to pass to python
-  dSTRING_HOSTPAR[0] = 0 ;
+  sprintf(pyFORMAT_STRING_HOSTPAR,"diii[" );
+
   for(ipar=0; ipar < NHOSTPAR; ipar++ ) {
-    sprintf(ctmp,"%f", HOSTPAR_LIST[ipar] );
-    strcat(dSTRING_HOSTPAR,ctmp);
-    if ( ipar < NHOSTPAR-1 ) { strcat(dSTRING_HOSTPAR,","); }
+    strcat(pyFORMAT_STRING_HOSTPAR,"d");
+    if ( ipar < NHOSTPAR-1 ) 
+      { strcat(pyFORMAT_STRING_HOSTPAR,","); }
+    else
+      { strcat(pyFORMAT_STRING_HOSTPAR,"]"); }
   }
-  sprintf(pySTRING_HOSTPAR,"diii[%s]", dSTRING_HOSTPAR);
-  //  printf(" xxx pySTRING_HOSTPAR = '%s' \n", pySTRING_HOSTPAR );
+  //  printf(" xxx pySTRING_HOSTPAR = '%s' \n", pyFORMAT_STRING_HOSTPAR );
   
   /* xxx
   printf(" xxx ------------------------------------ \n" ) ;

@@ -7473,6 +7473,8 @@ void  set_GENMODEL_NAME(void) {
   // April 18 2019
   // Called from init_simvar so that MODEL_NAMEs can be used
   // parsing GENMODEL without hard-wiring names.
+  //
+  // May 31 2019: allow SALT3 or SALT2
 
   int indx, j;
 
@@ -7490,6 +7492,7 @@ void  set_GENMODEL_NAME(void) {
   sprintf(GENMODEL_NAME[MODEL_STRETCH][1], "%s", "stretch2" );
 
   sprintf(GENMODEL_NAME[MODEL_SALT2][0],   "%s", "SALT2"   );
+  sprintf(GENMODEL_NAME[MODEL_SALT2][1],   "%s", "SALT3"   ); // May 30 2019
 
   sprintf(GENMODEL_NAME[MODEL_MLCS2k2][0], "%s", "mlcs2k2" );
   sprintf(GENMODEL_NAME[MODEL_MLCS2k2][1], "%s", "mlcs"    );
@@ -9530,9 +9533,11 @@ void gen_event_driver(int ilc) {
     if ( INPUTS.GENSIGMA_REDSHIFT >= 0.0 )
       { gen_zsmear( INPUTS.GENSIGMA_REDSHIFT ); }  
 
+    /* xxx mark delete xxxxxx
     // temporarily preserve random sync by fetching GaussRan here;
     // see new function gen_peakmjd_smear().
     GENLC.PEAKMJD_RANGauss = GaussRan(1); 
+    xxxxxxx    */
 
     // global mag offset + z-dependence 
     GENLC.GENMAG_OFF_GLOBAL += (double)INPUTS.GENMAG_OFF_GLOBAL
@@ -12098,6 +12103,7 @@ double gen_peakmjd_smear(void) {
   // May 2019
   // Determine PEAKMJD estimate for data file.
   // Either Gaussian smear, or search for max-flux.
+  // May 31 2019: generate random Gaussian here.
 
   double PEAKMJD_SMEAR = GENLC.PEAKMJD; // default
   double smear;
@@ -12105,6 +12111,9 @@ double gen_peakmjd_smear(void) {
   char fnam[] = "gen_peakmjd_smear" ;
 
   // ----------------- BEGIN -----------------
+
+  // always burn Gaussian random, regardless of option.
+  GENLC.PEAKMJD_RANGauss = GaussRan(1); 
 
   // check option of Gaussian smear.
   // Note that PEAKMJD_RANGauss is selected earlier in gen_event_driver()
@@ -12124,24 +12133,7 @@ double gen_peakmjd_smear(void) {
 		      &SNDATA.FLUXCAL[1], &SNDATA.FLUXCAL_ERRTOT[1],
 		      &SNDATA.MJD[1], &GENLC.IFILT_OBS[1],
 		      obs_atFLUXMAX ) ;
-    o = obs_atFLUXMAX[0] ;
-    /* xxx mark delete xxxxxx
-    if ( o < 0 ) {
-      int oo, ifilt_obs; char cfilt[4];
-      printf("\n PRE-ABORT DUMP: \n");
-      for(oo=1; oo <= NOBS; oo++ ) {
-	ifilt_obs = GENLC.IFILT_OBS[oo];
-	sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] ) ;
-	printf("\t MJD=%.3f  %s-FLUXCAL = %10.2f +- %9.2f \n",
-	       SNDATA.MJD[oo], cfilt,
-	       SNDATA.FLUXCAL[oo], SNDATA.FLUXCAL_ERRTOT[oo] );
-      }
-      sprintf(c1err,"Could not find obs(FluxMax) for CID=%d", GENLC.CID);
-      sprintf(c2err,"NOBS=%d, LIBID=%d, z=%.3f PEAKMJD=%.1f", 
-	      NOBS, GENLC.SIMLIB_ID, GENLC.REDSHIFT_CMB, GENLC.PEAKMJD );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-      } */
-    
+    o = obs_atFLUXMAX[0] ;    
     if ( o >= 0 ) 
       { PEAKMJD_SMEAR = SNDATA.MJD[o+1] ; }
     else

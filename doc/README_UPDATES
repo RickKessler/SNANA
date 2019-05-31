@@ -16789,11 +16789,15 @@ GitHub issues:
 
 
 # ======================================================================= 
-         v10_73b (  ) 
+         v10_73b (May 31 2019) 
 
          ***** IMPORTANT(v10_73b) ***** 
 
          ***** USEFUL(v10_73b) ***** 
+
+    + SALT2mu_fit.pl:works with NSPLITRAN. 
+    + SALT3.XYZ models recognized as SALT2 (but not yet tested)
+    + Command-line options can now include comma-sep list of CID strings.
 
          ***** MISCELLANEOUS(v10_73b) ***** 
 
@@ -16822,5 +16826,16 @@ GitHub issues:
     genmag_BYOSED.c:
       + construct pyFORMAT_STRING_HOSTPAR to pass to python.
       + pass NAMES_HOSTPAR to init_genmag_BYOSED()
+
+    snlc_fit.car, snlc_sim.c:
+      + allow for SALT3 model, but use internal MODEL_SALT2 index.
+         [not tested yet on actual SALT3.[NAME]  directory]
+      + remove check on [MODEL].DEFAULT, and remove [MODEL].DEFAULT
+        files from $SNDATA_ROOT/models/*.
+
+    snlc_sim.c:
+      + GENLC.PEAKMJD_RANGauss is now set locally in gen_peakmjd_smear(),
+        and thus random sync has changed. Must cut new SNANA version here
+        and re-generate REF for SNANA_CodeTest.
 
 END: 

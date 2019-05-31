@@ -219,7 +219,7 @@ c
      &  ,MODEL_STRETCH2
      &  ,MODEL_MLCS2k2
      &  ,MODEL_SNOOPY
-     &  ,MODEL_SALT2
+     &  ,MODEL_SALT2, MODEL_SALT3
      &  ,MODEL_SIMSED
      &  ,MODEL_BYOSED
      &  ,MODEL_NON1A
@@ -398,6 +398,7 @@ c
      &  ,MODEL_MLCS2k2    = 3
      &  ,MODEL_SNOOPY     = 4
      &  ,MODEL_SALT2      = 6
+     &  ,MODEL_SALT3      = 9 ! May 31 2019
      &  ,MODEL_SIMSED     = 7
      &  ,MODEL_BYOSED     = 8 
      &  ,MODEL_NON1A      = 10
@@ -7332,7 +7333,7 @@ c abort if sim
 10    FORMAT(A,A)
 100   FORMAT(A,I3)
 12    FORMAT(A,F12.6, T40,'# deg')
-13    FORMAT(A,F7.3,  T40, '# MW E(B-V)' )
+13    FORMAT(A,F8.4,  T40, '# MW E(B-V)' )
 20    FORMAT(A,F7.4,' +- ', F7.4, T40, '# ',  A )
 21    FORMAT(A,F10.3)
 31    FORMAT(A,F7.4, T40, '# arcSec' )
@@ -21139,7 +21140,7 @@ c -----------
 101   FORMAT('LIBID: ', I8, 5x,'# cadence from ', A )
 
       WRITE(LUNOUT,102) SNLC8_RA, SNLC8_DEC, SNLC_MWEBV
-102   FORMAT('RA: ', F12.6, 8x, 'DEC:', F12.6, 5x, 'MWEBV: ',F6.3)
+102   FORMAT('RA: ', F12.6, 8x, 'DEC:', F12.6, 5x, 'MWEBV: ',F7.4)
 
       WRITE(LUNOUT,105) NOBS, PIXSIZE, 
      &       SNLC_REDSHIFT,  SNLC_SEARCH_PEAKMJD 

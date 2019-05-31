@@ -12999,7 +12999,7 @@ void SPLITRAN_SUMMARY(void) {
     if ( AVG_ERR[ipar] <= 0.0 ) { continue ; }
     sprintf(PARNAME, "%s", FITRESULT.PARNAME[ipar]);
     trim_blank_spaces(PARNAME);
-    fprintf(fp, "ROW: %2d  %-20s  %8.3f  %8.3f  %8.3f %8.3f \n"
+    fprintf(fp, "ROW: %2d  %-15s  %8.3f  %8.3f  %8.3f %8.3f \n"
 	   ,ipar
 	   ,PARNAME
 	   ,AVG_VAL[ipar]

@@ -22,7 +22,8 @@ struct {
 
 // ===========================================
 // function declarations
-void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST) ;
+void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST, 
+			char *NAMES_HOSTPAR ) ;
 
 void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU, 
 		   double MWEBV, int NHOSTPAR, double *HOSTPAR_LIST,

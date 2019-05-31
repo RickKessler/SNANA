@@ -20731,10 +20731,11 @@ void init_genmodel(void) {
 
     OPTMASK  = INPUTS.GENMODEL_MSKOPT;
     ARGLIST  = INPUTS.GENMODEL_ARGLIST;
+    char NAMES_HOSTPAR[] = "RV,AV,LOGMASS" ;
 
     // init generic part of any SEDMODEL (filter & primary ref)
     init_genSEDMODEL();
-    init_genmag_BYOSED( INPUTS.MODELPATH, OPTMASK, ARGLIST );
+    init_genmag_BYOSED( INPUTS.MODELPATH, OPTMASK, ARGLIST, NAMES_HOSTPAR );
   }
 
   else if ( INDEX_GENMODEL == MODEL_NON1ASED ) {

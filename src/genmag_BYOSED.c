@@ -53,7 +53,8 @@ PyObject *geninit_BYOSED;
 #endif
 
 // =========================================================
-void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
+void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
+			char *NAMES_HOSTPAR  ) {
 
   // Read input directory file(s) for parameters characterizing 
   // how to build your SED.
@@ -68,6 +69,8 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
   //  
   //  ARGLIST      : string of options passed from sim-input key
   //               :  GENMODEL_ARGLIST = 'BLA BLA OPTIONS'
+  //
+  // NAMES_HOSTPAR : comma-separate list of names of host params
   //
 
 #ifdef USE_PYTHON
@@ -85,6 +88,7 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
   printf("   BYOSED PATH    = '%s' \n",  PATH_VERSION);
   printf("   BYOSED OPTMASK = %d \n",    OPTMASK );	
   printf("   BYOSED ARGLIST = '%s' \n",  ARGLIST );	
+  printf("   BYOSED HOSTPAR = '%s' \n",  NAMES_HOSTPAR);
   fflush(stdout);
 
   // print summary of filter info

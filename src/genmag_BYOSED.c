@@ -253,7 +253,7 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
     Trest = Tobs/z1;
 
     fetchSED_BYOSED(EXTERNAL_ID, NEWEVT_FLAG, Trest, 
-		    MXLAM_BYOSED, HOSTPAR_LIST, &NLAM, LAM, SED, pySTRING_HOSTPAR);  
+		    MXLAM_BYOSED, HOSTPAR_LIST, &NLAM, LAM, SED, pyFORMAT_STRING_HOSTPAR);  
     Event_BYOSED.NLAM = NLAM ;
 
     // integrate redshifted SED to get observer-frame flux in IFILT_OBS band.
@@ -383,7 +383,7 @@ void fetchParVal_BYOSED(double *parVal) {
 // =================================================
 void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
 		     double *HOSTPAR_LIST, int *NLAM_SED, double *LAM_SED, double *FLUX_SED,
-		     char *pySTRING_HOSTPAR) {
+		     char *pyFORMAT_STRING_HOSTPAR) {
 
   // return rest-frame SED to calling function; 
   // Inputs:
@@ -412,12 +412,12 @@ void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
   PyListObject *arrLAM, *arrFLUX;
   PyObject *pylamitem, *pyfluxitem;
   //int numpy_initialized =  init_numpy();
-  printf("HIII %s\n",pySTRING_HOSTPAR);
+
   // python declarations here
   pmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_BYOSED");
   plammeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_LAM");
   pnlammeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_NLAM");
-  pargs  = Py_BuildValue(pySTRING_HOSTPAR,Trest,MXLAM,EXTERNAL_ID,NEWEVT_FLAG,HOSTPAR_LIST);
+  pargs  = Py_BuildValue(pyFORMAT_STRING_HOSTPAR,Trest,MXLAM,EXTERNAL_ID,NEWEVT_FLAG,HOSTPAR_LIST);
 
   pNLAM  = PyEval_CallObject(pnlammeth, NULL);
   pLAM  = PyEval_CallObject(plammeth, NULL);

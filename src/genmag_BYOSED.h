@@ -32,7 +32,8 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
 int  fetchParNames_BYOSED(char **parNameList);
 void fetchParVal_BYOSED(double *parVal);
 void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Tobs, int MXLAM, 
-		     double *HOSTPAR_LIST, int *NLAM, double *LAM, double *FLUX);
+		     double *HOSTPAR_LIST, int *NLAM, double *LAM, double *FLUX,
+		     char *pyFORMAT_STRING_HOSTPAR);
 
 void INTEG_zSED_BYOSED(int OPT_SPEC, int IFILT_OBS, double Tobs, 
 		       double zHEL, double x0,

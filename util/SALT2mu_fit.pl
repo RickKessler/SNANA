@@ -7,6 +7,7 @@
 #
 # USAGE:
 #   SALT2mu_fit.pl  <inputFile>
+#   SALT2mu_fit.pl  <inputFile>  NSPLITRAN=<n>  ! divide data into <n> subsets
 #   SALT2mu_fit.pl  <inputFile>  NOSUBMIT
 #   SALT2mu_fit.pl  <inputFile>  NOPROMPT
 #   SALT2mu_fit.pl  <inputFile>  KILL
@@ -94,6 +95,18 @@
 # by the BATCH_INFO keys. The ssh & batch keys work the same way as
 # for split_and_fit.pl and sim_SNmix.pl .
 #
+# NSPLITRAN=<n> argument operates on the native file=<file> argument 
+# in the SALT2mu-input file, and ignores the supplmental batch keys 
+# INPDIR, INPDIR+,  and MUOPT. Batch keys NODELIST, BATCH_INFO and 
+# SNANA_LOGIN_SETUP are used. If NSPLITRAN=<n> appears inside the 
+# SALT2mu-input file, this is equivalent to the command-line specifier; 
+# command-line NSPLITRAN=<n> overrides value in SALT2mu-input file. 
+# The NSPLITRAN mode creates an output sub-directory with a specific 
+# name, "OUT_SALT2mu_NSPLITRAN[n]", and can be changed using the 
+# "OUTDIR_OVERRIDE: <OUTDIR>"  key. The output file names are hard-wired 
+# with prefix=OUT_TEST. Note that for <n> split jobs, <n+1> batch jobs
+# are submitted because the n+1'th job reads back all of the previous
+# output and prepares a summary of averages and RMS in OUT_TEST_summary.out.
 #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # History:
@@ -203,6 +216,7 @@
 # Jan 16 2019: for CLEAN command, make sure to exit(0)
 # Feb 04 2019: abort for interactive mode.
 # May 24 2019: new OUTDIR_OVERRIDE key to force output location
+# May 30 2019: works with NSPLITRAN=n
 #
 # ------------------------------------------------------
 
@@ -271,8 +285,8 @@ my (@INPDIR_SDIR_LIST, $NTOT_FITRES, $NTOT_JOBS ) ;
 my (@NVERSION_FINAL, @VERSION_FINAL_LIST, @SPREFIX_LIST );
 my ($NROW_SUMDAT );
 
-my ($NCPU, @NJOB_PER_CPU, @CMD_PREFIX, @CMD_FILES, @BATCH_FILES, $NOUTFILE) ;
-my (@CMD_CONTENTS, @NCMDLINE_PER_CPU );
+my ($NCPU, @NJOB_PER_CPU, $MAXJOB_PER_CPU, $icpu_MAXJOBS, @CMD_PREFIX, @CMD_FILES);
+my (@BATCH_FILES, $NOUTFILE, @CMD_CONTENTS, @NCMDLINE_PER_CPU );
 my ($T_START, $T_END, $T_TOT);
 
 # ----------------
@@ -374,6 +388,8 @@ if ( $SUMMARY_FLAG == 0 ) {
     &wait_for_done(); 
 }
 
+if ( $NSPLITRAN>0 ) { exit(0); }
+
 &make_SUMMARY();
 &gzip_logs(); 
 
@@ -464,9 +480,15 @@ sub parse_args {
 	if ( $arg eq "NSPLITRAN" ) 
 	{ $NSPLITRAN = $nextArg ; }
 
+	if ( substr($arg,0,10) eq "NSPLITRAN=" )  { 
+	    $NSPLITRAN = substr($arg,10,3) ; 
+	    $NSPLITRAN =~ s/\s+$// ;        # trim trailing whitespace
+	}
+
 	if ( $arg eq "KICP" || $arg eq "kicp" ) 
 	{ $BATCH_TEMPLATE = "$BATCH_TEMPLATE_KICP" ; }
     }
+
 
 } # end pf parse_args
 
@@ -520,11 +542,14 @@ sub parse_inpFile {
 	$JOBNAME_FIT =~ s/\s+$// ;        # trim trailing whitespace
     }
 
-    $key = "NSPLITRAN=" ;
-    @tmp = qx(grep $key $INPUT_FILE);
-    if ( scalar(@tmp) > 0 ) { 
-	$NSPLITRAN = substr($tmp[0],10,3); 
-        $NSPLITRAN  =~ s/\s+$// ;   # trim trailing whitespace
+    # check for NSPLITRAN key unless already given on command-line override
+    if ( $NSPLITRAN < 0 ) {
+	$key = "NSPLITRAN=" ;
+	@tmp = qx(grep $key $INPUT_FILE);
+	if ( scalar(@tmp) > 0 ) { 
+	    $NSPLITRAN = substr($tmp[0],10,3); 
+	    $NSPLITRAN  =~ s/\s+$// ;   # trim trailing whitespace
+	}
     }
 
     if ( length($STRINGMATCH) == 0 ) {
@@ -873,7 +898,7 @@ sub subDirName_after_lastSlash {
 # ===================================
 sub makeDir_NSPLITRAN {
 
-    my($OUTDIR);
+    my($OUTDIR, @tmp, $file, $gzfile );
 
     # - - - - - - - - - - - - - - - - - - -
     # prepare OUTDIR
@@ -886,6 +911,26 @@ sub makeDir_NSPLITRAN {
 
     if ( -d $OUTDIR ) { qx(rm -r $OUTDIR); }
     qx(mkdir $OUTDIR);
+
+    # copy SALT2mu-input file into OUTDIR
+    qx(cp $INPUT_FILE $OUTDIR);
+
+    # copy FITRES file (file-argument)
+    @tmp    = qx(grep 'file=' $INPUT_FILE);
+    $file   = substr($tmp[0],5,500);
+    $file   = qx(echo $file);
+    $file   =~ s/\s+$// ;   # trim trailing whitespace
+    $gzfile = "${file}.gz" ;
+
+    if ( -e $file ) 
+    { qx(cp $file $OUTDIR); }
+    elsif ( -e $gzfile ) 
+    { qx(cp $gzfile $OUTDIR); }
+    else {
+	$MSGERR[0] = "Unable to find argument of" ;
+	$MSGERR[1] = "file=$file" ;
+	sntools::FATAL_ERROR(@MSGERR);
+    }
 
     return ;
 
@@ -1456,7 +1501,7 @@ sub make_COMMANDS {
     # first create command script for each node/core
     # Store script names in @CMD_FILES
 
-    $inode = 0 ;
+    $inode = 0 ; $MAXJOB_PER_CPU = $icpu_MAXJOBS = -9 ;
     for($icpu = 0; $icpu < $NCPU; $icpu++ ) {
 	$nnn               = sprintf("%3.3d", $icpu);
 	
@@ -1484,7 +1529,7 @@ sub make_COMMANDS {
     # Create SALT2mu job for every FITRES file in every dir.
     # Unitarity check is made at the end.
 
-    if ( $NSPLITRAN > 0 ) {   # .xyz
+    if ( $NSPLITRAN > 0 ) {  
 	my ($isplit);
 	$NTOT_JOBS = $NSPLITRAN + 1;  # add 1 for summary job
 	for($isplit=1; $isplit<= $NTOT_JOBS; $isplit++ )
@@ -1579,11 +1624,50 @@ sub make_COMMANDS {
 sub NSPLITRAN_prep_COMMAND {
     my ($isplit) = @_ ;
 
-        # pick CPU on round-robin basis                                                 
-    $icpu = ($isplit % $NCPU)-1 ;   # 0 to NCPU-1                                   
-    $NJOB_PER_CPU[$icpu]++ ;        # and NJOB for this CPU                         
+    # May 2019
+    # Analog of prep_COMMAND, but here prepare command for
+    # each of the individual SPLITRAN jobs using JOBID_SPLITRAN 
+    # argument to SALT2mu.exe.
 
-    print " xxx isplit=$isplit \n";
+    my ($icpu, $OUTDIR, $CMD, $LOGFILE, $ARGLIST, $OUT_PREFIX);
+    # pick CPU on round-robin basis
+    $icpu = (($isplit-1) % $NCPU) ;   # 0 to NCPU-1  
+
+
+    $OUTDIR     = "${LAUNCH_DIR}/$OUTDIR_SALT2mu_LIST[0]" ;
+    $OUT_PREFIX = "OUT_TEST" ;
+
+    $LOGFILE = sprintf("%s-SPLIT%3.3d.LOG", $OUT_PREFIX, $isplit);
+
+    # put summary job in last CPU so it's likely to finish last
+    if ( $isplit > $NSPLITRAN ) { 
+	$icpu    = $icpu_MAXJOBS ; 
+	$LOGFILE = "${OUT_PREFIX}_summary.log";
+    }
+
+    $NJOB_PER_CPU[$icpu]++ ;        # and NJOB for this CPU 
+
+    # keep track of icpu with max number of jobs; to use for summary job.
+    if ( $NJOB_PER_CPU[$icpu] >= $MAXJOB_PER_CPU ) {
+	$MAXJOB_PER_CPU = $NJOB_PER_CPU[$icpu];
+	$icpu_MAXJOBS   = $icpu ;
+    }
+
+    $ARGLIST = 
+	"NSPLITRAN=$NSPLITRAN  " . 
+	"JOBID_SPLITRAN=$isplit  " .  
+	"prefix=$OUT_PREFIX" ;
+    $CMD     = "$JOBNAME_FIT $INPUT_FILE $ARGLIST \\" ;
+
+    # cd just once
+    if ( $NJOB_PER_CPU[$icpu] == 1 ) 
+    { &add_COMMAND($icpu, "cd $OUTDIR" ) ; }
+
+    &add_COMMAND($icpu, "" ) ;
+    &add_COMMAND($icpu, "# ------------------------------------" ) ;
+    if ( $isplit > $NSPLITRAN ) { &add_COMMAND($icpu, "sleep 10"); }
+    &add_COMMAND($icpu, "$CMD");
+    &add_COMMAND($icpu, "    >& $LOGFILE " );
 
     return ;
 

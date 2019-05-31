@@ -16817,8 +16817,7 @@ GitHub issues:
      + fix bugs re-initializing NSPLITRAN jobs. See SPLITRAN_prep_input(),
        and bug-fix in setup_zbins_fit().
 
-    Still to do ... make SALT2mu_fit work with NSPLITRAN to distribute
-    NSPLITRAN jobs among cores.
+    SALT2mu_fit.pl: works with NSPLITRAN. See instructions in top of file.
 
     genmag_BYOSED.c:
       + construct pyFORMAT_STRING_HOSTPAR to pass to python.

@@ -14011,6 +14011,7 @@ void SPLITRAN_read_fitpar(int isplit) {
 
   FILE *fp;
   int  iwd, NWD, ipar ;
+  int  NTRY_OPEN=0;
   double VAL, ERR;
   char tmpFile[200], LINE[100], WORD[6][40], *PARNAME;
   char *prefix = INPUTS.PREFIX ;
@@ -14020,14 +14021,25 @@ void SPLITRAN_read_fitpar(int isplit) {
 
   
   sprintf(tmpFile,"%s-SPLIT%3.3d.fitpar", prefix, isplit);
+  printf(" Read %s \n", tmpFile); fflush(stdout);
+
+ TRY_OPEN:
   fp = fopen(tmpFile,"rt");
   if( !fp ) {
-    sprintf(c1err,"Could open SPLITRAN file for reading:");
-    sprintf(c2err,"%s", tmpFile);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+    printf("\t fitpar file not created yet ... try again in 10 sec.\n"); 
+    fflush(stdout);
+    sleep(10);
+    NTRY_OPEN++;
+    if ( NTRY_OPEN < 10 ) {
+      goto TRY_OPEN ;
+    }      
+    else {
+      sprintf(c1err,"Could open SPLITRAN file for reading:");
+      sprintf(c2err,"%s", tmpFile);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);           
+    }
   }
 
-  printf(" Read %s \n", tmpFile); fflush(stdout);
   
   while(fgets(LINE,100,fp) != NULL ) {
     NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);    

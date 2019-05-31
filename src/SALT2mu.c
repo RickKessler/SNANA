@@ -1,9 +1,14 @@
 /*******************************************
 
   TO DO: 
-   + May 2016: if input file is ROOT or HBOOK, then 
-     output is also ROOT or HBOOK.
-  
+    May 30 2019 needed refactor:
+      + data,biasCor,CC -> uniform "selection"
+      +    selectEvent(ITYPEDATA)  [was set_ERRMASK]
+           set_ERRMASK(ITYPEDATA,ERRBIT)
+      + define ERRMASK_BITS to track how many vs. cut
+      + merge SKIPFIT -> ERRMASK and remove SKIPFIT
+      + keep NSET_ERRMASK for data,biasCor,CCprior: print them all
+
 Created by J. Marriner.
 Installed into snana v8_38, January 2010.
 
@@ -630,7 +635,12 @@ Default output files (can change names with "prefix" argument)
 #include "sntools.h" 
 #include "sntools_output.h" 
 
-//#define MAXPAR_MINUIT 80   // limit for MINUIT params (June 24 2017)
+// ==============================================
+// define data types to track selection cuts
+#define EVENT_TYPE_DATA     1
+#define EVENT_TYPE_BIASCOR  2
+#define EVENT_TYPE_CCPRIOR  3
+
 #define MAXPAR_MINUIT 110  // limit for MINUIT params (Sep 10 2017)
 
 #define MXFILE_BIASCOR 10  // max number of biasCor files to read
@@ -740,6 +750,12 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define ERRMASK_SPLITRAN 256    //  not in this random sample
 #define ERRMASK_SIMPS    512    //  rejected SIM event from pre-scale
 
+#define ERRMASK_noBIASCOR 1024  //  todo: cannot compute biasCor
+#define ERRMASK_NMAXCUT   2048  //  todo: fails NMAX cut
+#define ERRMASK_DUPL      4096  //  todo: remove duplicate
+#define ERRMASK_IDSAMPLE  8192  //  todo: remove IDSAMPLE
+#define ERRMASK_MAX      10000  
+
 #define dotDashLine "-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-" 
 
 #define MAXFITITER 20             // max number of fit iterations
@@ -765,7 +781,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 // ---------------------
 double LOGTEN  ;
 
-int NSET_ERRMASK[10000]; // number set per errmask.
+int NSET_ERRMASK[ERRMASK_MAX]; // number set per errmask.
 
 int MAXSN ;
 int NJOB_SPLITRAN; // number of random split-jobs
@@ -1556,7 +1572,7 @@ void  write_M0(char *fileName);
 void  write_MUERR_INCLUDE(FILE *fp) ;
 
 int   SPLITRAN_ACCEPT(int isn, int snid);
-void  SPLITRAN_errmask(void);
+void  SPLITRAN_skipfit(void);
 void  SPLITRAN_SUMMARY(void); 
 void  SPLITRAN_write_fitpar(char *fileName);
 void  SPLITRAN_read_fitpar(int isplit);
@@ -1765,7 +1781,7 @@ int main(int argc,char* argv[ ])
   printmsg_fitStart(stdout);
   
   if ( INPUTS.NSPLITRAN > 1 ) { 
-    SPLITRAN_errmask();     // check for random sub-samples
+    SPLITRAN_skipfit();     // check for random sub-samples
     SPLITRAN_prep_input();  // re-initialize a few things (May 2019)
   }
 
@@ -2215,22 +2231,12 @@ void setup_zbins_fit(void) {
     izbin = IBINFUN(z, &INPUTS.BININFO_z, 0, "");
     data[n].izbin = izbin;
 
-    // remove MINBIN errbit if already set (e.g., for SPLITRAN)
-    data[n].skipfit -= (data[n].skipfit & ERRMASK_MINBIN);
       
     if (izbin<0 || izbin >= nzbin) 
       { data[n].errmask |= ERRMASK_z ; }  // should be redundant
 
-    // xxxxxxxxxxxx
-    if ( strcmp(name,"7551")== 0 ) {
-      printf(" xxx CID=%s NJOB=%d z=%.3f  errmask=%d skip=%d \n",
-	     name, NJOB_SPLITRAN, z, data[n].errmask, data[n].skipfit);
-      fflush(stdout);
-    }
-    // xxxxxxxxxxxx
-    
     FITINP.NZBIN_TOT[izbin]++ ;
-    if ( data[n].errmask != 0 ) { continue ; }
+    // xxx mark delete  if ( data[n].errmask != 0 ) { continue ; }
     if ( data[n].skipfit != 0 ) { continue ; } 
     FITINP.NZBIN_FIT[izbin]++ ;
 
@@ -2263,7 +2269,7 @@ void setup_zbins_fit(void) {
   for (n=0; n<FITINP.NSNCUTS; ++n)  {
       izbin = data[n].izbin;      
       if ( FITINP.ISFLOAT_z[izbin] == 0 )  {  //.xyz
-	data[n].errmask |= ERRMASK_MINBIN ;  // set errmask
+	// xxx mark delete  data[n].errmask |= ERRMASK_MINBIN ;  // set errmask
 	data[n].skipfit |= ERRMASK_MINBIN ;  
       }
   }
@@ -2916,7 +2922,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   //c flat=1 read input, flag 2=gradient, flag=3 is final value
   double M0, alpha, beta, alpha0, beta0, da_dz, db_dz, da_dm, db_dm ;
   double scalePCC, scalePCC_fitpar, nsnfit1a, afix, bfix ;
-  int i, n, errmask, nsnfit, nsnfit_truecc, idsample ;
+  int i, n, nsnfit, nsnfit_truecc, idsample ;
   int DOBIASCOR_1D, DOBIASCOR_5D, DUMPFLAG=0, dumpFlag_muerrsq=0 ;
   double chi2sum_tot, delta, sqdelta, hrms_sum;
   double muerrsq, muerrsq_last, muerrsq_raw, muerrsq_tmp, sqsigCC=0.001 ;
@@ -3040,7 +3046,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 
   for (n=0; n<FITINP.NSNCUTS; ++n)  {
 
-    errmask = data[n].errmask ;
+    // xxx mark delete    errmask = data[n].errmask ;
 
     if ( data[n].skipfit ) { continue ; }
 
@@ -3161,7 +3167,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     muerrsq_last  = data[n].muerrsq_last ;
     muerr_last    = data[n].muerr_last ;
 
-    if ( errmask == 0  && simdata_ccprior.USE == 0 ) {
+    if ( simdata_ccprior.USE == 0 ) {
       // original SALT2mu chi2 with only spec-confirmed SNIa 
       nsnfit++ ;        nsnfit1a  = (double)nsnfit ;
       hrms_sum       += sqdelta ;    
@@ -3175,10 +3181,10 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
       if ( INPUTS.fitflag_sigmb == 2 ) 
       	{ chi2sum_tot  += log(muerrsq/muerrsq_last); }
 
-    } // end of errmask==0 loop
+    } 
 
 
-    if ( errmask == 0 && simdata_ccprior.USE > 0 ) {
+    if ( simdata_ccprior.USE > 0 ) {
       // BEAMS-like chi2 = -2ln [ PIa + PCC ]
       double Prob_1a, Prob_CC, Prob_SUM, dPdmu_1a, dPdmu_CC ;
       double PTOTRAW_1a, PTOTRAW_CC, PTOT_1a, PTOT_CC, PSUM ;
@@ -3254,7 +3260,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 
 
     // check things on final pass
-    if ( errmask == 0 && *iflag==3 ) {
+    if (  *iflag==3 ) {
 	
       // Jan 26 2018: store raw muerr without intrinsic cov
       muerrsq_raw = fcn_muerrsq(name,alpha,beta, data[n].covmat_fit,
@@ -4389,7 +4395,7 @@ int read_data(char *filnam)
   }
 	    // ---------
   // initialize ERRMASK counters
-  for  ( n=0; n < 10000; n++ ) { NSET_ERRMASK[n] = 0; }
+  for  ( n=0; n < ERRMASK_MAX; n++ ) { NSET_ERRMASK[n] = 0; }
 
 
   // init IDSURVEY-dependent arrays that are filled below
@@ -7346,8 +7352,6 @@ int biasMapSelect(int ievt) {
     istage++ ; NPASS_biasMapSelect[istage]++ ;  // keep alpha
     istage++ ; NPASS_biasMapSelect[istage]++ ;  // keep beta
   }
-
-
 
   // ----------------------------
   // apply legacy window cuts
@@ -11076,7 +11080,6 @@ void set_ERRMASK(int isn_raw, int isn_data) {
 
   // ---------- BEGIN ---------
 
-
   // apply user CUTWIN options (4/24/2012)
   LCUT = 1;
   LDMP = 0;
@@ -12822,10 +12825,10 @@ void SPLITRAN_prep_input(void) {
 } // end SPLITRAN_prep_input
 
 // **************************************************
-void  SPLITRAN_errmask(void) {
+void  SPLITRAN_skipfit(void) {
 
   // Created July 2012 by R.Kessler
-  // set data[n].errmask for SPLITRAN option.
+  // set data[n].skipfit for SPLITRAN option.
 
   int n, snid ;
 
@@ -12836,18 +12839,23 @@ void  SPLITRAN_errmask(void) {
     snid = data[n].snid ;
 
     // subtract SPLITRAN errbit if it was set earlier
-    data[n].errmask -= (ERRMASK_SPLITRAN & data[n].errmask) ;
+    data[n].skipfit -= (data[n].skipfit & ERRMASK_SPLITRAN) ;
+    // xxx mark delete    data[n].errmask -= (data[n].errmask & ERRMASK_SPLITRAN) ;
 
     // subtract ERRMASK_MINBIN if it was set earlier (May 2019)
-    data[n].errmask -= (ERRMASK_MINBIN & data[n].errmask);
+    // xx mark delete    data[n].errmask -= (data[n].errmask & ERRMASK_MINBIN);
+    data[n].skipfit -= (data[n].skipfit & ERRMASK_MINBIN);
 
     // check random-subset option
     if ( SPLITRAN_ACCEPT(n,snid) == 0 ) { 
-      data[n].errmask += ERRMASK_SPLITRAN ; 
+      // xxx mark delete      data[n].errmask += ERRMASK_SPLITRAN ; 
+      data[n].skipfit += ERRMASK_SPLITRAN ; 
     }
   }
 
-} // end of SPLITRAN_errmask
+  return ;
+
+} // end of SPLITRAN_skipfit
 
 
 // **************************************************

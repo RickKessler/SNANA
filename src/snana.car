@@ -4660,6 +4660,8 @@ c Jan 25 2018:
 c   use PARSE_INTLIST to parse comma-separated lists for
 c     SNCID_LIST, SNTYPE_LIST, CCDNUM_LIST, SNTYPE_IGNORE
 c
+c May 30 2019: call PARSE_NML_STRINGLIST for SNCCID_LIST
+c
 c ----------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -4674,7 +4676,7 @@ c local var
       LOGICAL LSNIGNORE
 
 c functions
-      INTEGER PARSE_INTLIST
+      INTEGER PARSE_INTLIST, PARSE_NML_STRINGLIST
 
 C -------------- BEGIN --------------
 
@@ -4911,9 +4913,10 @@ c ----------
          else if ( LINE_ARGS(i) .EQ. 'DOBUG_LAMRANGE' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) DOBUG_LAMRANGE
 
-         else if ( LINE_ARGS(i) .EQ. 'SNCCID_LIST' ) then
-            i = i + 1 ; SNCCID_LIST(1) = LINE_ARGS(i)(1:MXCHAR_CCID)
-            SNCCID_LIST(2) = ' '
+         else if ( LINE_ARGS(i) .EQ. 'SNCCID_LIST' ) then 
+            i = i + 1 
+            CALL PARSE_SNCCID_LIST(LINE_ARGS(i)) ! May 30 2019
+c xxx mark delete  SNCCID_LIST(2) = ' '
 
          else if ( LINE_ARGS(i) .EQ. 'SNCID_LIST' ) then
             i = i + 1 ; STRING_LIST = LINE_ARGS(i)
@@ -15990,8 +15993,42 @@ ccc         print*,' xxx ', iwd, OUTLIST(iwd)
       RETURN
       END
 
+C ===========================================
++DECK,PARSE_SNCCID_LIST.
+      SUBROUTINE PARSE_SNCCID_LIST(LINE) 
+
+c Created May 30 2019
+c Parse command LINE argument and load SNCCID_LIST array
+c LINE = '2004hq,2006ab' -> SNCCID_LIST = '2004hq', '2006ab'
+c 
+c
+      IMPLICIT NONE
+
+      CHARACTER LINE*(*)
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER  MSKOPT, NWD, iwd
+      INTEGER  STORE_PARSE_WORDS
+      EXTERNAL STORE_PARSE_WORDS
+
+C --------------- BEGIN ------------
+
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
+         NWD = STORE_PARSE_WORDS(MSKOPT,STRLIST_LOCAL(i)//char(0),100)
+       
+c .xyz
+         DO iwd = 1, NWD
+            NLIST = NLIST + 1
+            CALL get_PARSE_WORD_fortran(iwd,STRLIST(NLIST),LL)
+         ENDDO
+
+      RETURN
+      END
+
 C ====================================================
-+DECK,PARSNMLSTRLIST.
++DECK,PARSE_NML_STRLIST.
       INTEGER FUNCTION PARSE_NML_STRINGLIST(STRLIST,NCHAR)
 
 c Created Mar 12 2015 by R.Kessler
@@ -16018,8 +16055,8 @@ c ------------------------------
 +CDE,SNPAR.
 c +CDE,PARSECOM.
 
-      INTEGER NCHAR
-      CHARACTER STRLIST(MXLISTNML)*(NCHAR)
+      INTEGER NCHAR   ! (I)
+      CHARACTER STRLIST(MXLISTNML)*(NCHAR) ! (I,O)
 
 c local var
 

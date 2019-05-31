@@ -16009,21 +16009,22 @@ c
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER  MSKOPT, NWD, iwd
+      INTEGER  MSKOPT, NWD, iwd, LL
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
 
 C --------------- BEGIN ------------
 
       MSKOPT = MSKOPT_PARSE_WORDS_STRING
-         NWD = STORE_PARSE_WORDS(MSKOPT,STRLIST_LOCAL(i)//char(0),100)
+      NWD    = STORE_PARSE_WORDS(MSKOPT,LINE//char(0),100)
        
 c .xyz
-         DO iwd = 1, NWD
-            NLIST = NLIST + 1
-            CALL get_PARSE_WORD_fortran(iwd,STRLIST(NLIST),LL)
-         ENDDO
-
+      DO iwd = 1, NWD
+         CALL get_PARSE_WORD_fortran(iwd,SNCCID_LIST(iwd),LL)
+c	 LL = INDEX(SNCCID_LIST(iwd),' ') - 1
+c	 print*,' xxx SNCCID = |', SNCCID_LIST(iwd)(1:LL), '|'
+      ENDDO
+      
       RETURN
       END
 

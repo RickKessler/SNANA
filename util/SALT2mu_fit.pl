@@ -335,8 +335,8 @@ my $INPDIR ;
 for($IDIR=0; $IDIR < $N_INPDIR; $IDIR++ ) 
 { &verify_INPDIR($IDIR); }
 
-# create SALT2mu output dir(s) and copy input FITRES files
-if ( $NSPLITRAN > 0 ) {
+
+if ( $NSPLITRAN > 0 ) { 
     &makeDir_NSPLITRAN();
 }
 elsif ( $SUMFLAG_INPDIR == 0  ) {  
@@ -364,6 +364,7 @@ if ( $NVERSION_MAX < 999 ) {
 
 &make_COMMANDS();  # create all commands per cpu in memory
 &write_COMMANDS(); # write them out into files
+
 
 if ( $SUBMIT == 0 ) 
 { die "\n NOSUBMIT option --> DO NOT SUBMIT JOBS \n";  }
@@ -871,8 +872,11 @@ sub subDirName_after_lastSlash {
 
 # ===================================
 sub makeDir_NSPLITRAN {
+
     my($OUTDIR);
 
+    # - - - - - - - - - - - - - - - - - - -
+    # prepare OUTDIR
     if ( length($OUTDIR_OVERRIDE)>1 ) 
     { $OUTDIR = "$OUTDIR_OVERRIDE" ; }
     else
@@ -883,7 +887,9 @@ sub makeDir_NSPLITRAN {
     if ( -d $OUTDIR ) { qx(rm -r $OUTDIR); }
     qx(mkdir $OUTDIR);
 
-} # end makeDir_NSPLITRAN 
+    return ;
+
+} # end makeDir_NSPLITRAN
 
 # ===================================
 sub makeDirs_SALT2mu {
@@ -1433,11 +1439,13 @@ sub make_COMMANDS {
     $SUBDIR = "${FITJOBS_PREFIX}_${prefix}" ;
     $FITJOBS_DIR = "$LAUNCH_DIR/$SUBDIR";
 
-
+    # - - - - - - - - - - - - - - - - - - -
+    # create sub directory for batch jobs
     if ( $NSPLITRAN > 0 ) {
-	my $OUTDIR   = "$OUTDIR_SALT2mu_LIST[0]" ;
+	my $OUTDIR = $OUTDIR_SALT2mu_LIST[0] ;
 	$FITJOBS_DIR = "${LAUNCH_DIR}/${OUTDIR}/${FITJOBS_PREFIX}" ; 
     }
+
 
     print "\n Create command-scripts in \n\t $FITJOBS_DIR \n";
 
@@ -1450,7 +1458,6 @@ sub make_COMMANDS {
 
     $inode = 0 ;
     for($icpu = 0; $icpu < $NCPU; $icpu++ ) {
-
 	$nnn               = sprintf("%3.3d", $icpu);
 	
 	if ( $SSH_NNODE  ) 
@@ -1477,11 +1484,17 @@ sub make_COMMANDS {
     # Create SALT2mu job for every FITRES file in every dir.
     # Unitarity check is made at the end.
 
+    if ( $NSPLITRAN > 0 ) {   # .xyz
+	my ($isplit);
+	$NTOT_JOBS = $NSPLITRAN + 1;  # add 1 for summary job
+	for($isplit=1; $isplit<= $NTOT_JOBS; $isplit++ )
+	{ &NSPLITRAN_prep_COMMAND($isplit); }
+	goto CHECK_NTOT_JOBS ;
+    }
+
+
     my ($NDIR, $NVER, $idir, $iver, $ifitopt );
-
-    $NTOT_JOBS = 0 ;
-
-    $icpu = 0 ;
+    $NTOT_JOBS = 0 ;    $icpu = 0 ;
     $NDIR = scalar(@OUTDIR_SALT2mu_LIST) ;
     for($idir=0 ; $idir < $NDIR; $idir++ ) {
 	$NVER   = $NVERSION_FINAL[$idir] ;
@@ -1494,8 +1507,6 @@ sub make_COMMANDS {
 
 
     # ----------------
-
-
     if ( $SUMMARY_FLAG  )  { return ; }
      
     # ---------------------------
@@ -1503,6 +1514,8 @@ sub make_COMMANDS {
     # and remove unused CMD files. This is to avoid confusion
     # with extra jobs that don't do anything but leave garbage
     # log/done files.
+
+  CHECK_NTOT_JOBS:
 
     if ( $NTOT_JOBS == 0 ) {
 
@@ -1562,7 +1575,21 @@ sub make_COMMANDS {
 }  # end of make_COMMANDS
 
 
-# ===========================
+# ========================================
+sub NSPLITRAN_prep_COMMAND {
+    my ($isplit) = @_ ;
+
+        # pick CPU on round-robin basis                                                 
+    $icpu = ($isplit % $NCPU)-1 ;   # 0 to NCPU-1                                   
+    $NJOB_PER_CPU[$icpu]++ ;        # and NJOB for this CPU                         
+
+    print " xxx isplit=$isplit \n";
+
+    return ;
+
+} # end NSPLITRAN_prep_COMMAND
+
+# ========================================
 sub prep_COMMAND {
 
     # write SALT2mu commands for input dir, version , fitopt.
@@ -1612,19 +1639,9 @@ sub prep_COMMAND {
 	$sss = sprintf("%3.3d", $IOPT_S2MU );
 
 	$SPREFIX = "SALT2mu_${FPREFIX}_MUOPT${sss}" ;
-
-	# xxxxxxxxxx mark delete Dec 21 2017 xxxxxxxxxxx
-	#if ( $ONEOPT ) { 
-	#    $SPREFIX = "SALT2mu_${FPREFIX}" ;
-	#}
-	#else { 
-	#    $SPREFIX = "SALT2mu_${FPREFIX}_MUOPT${sss}" ;
-	#}
-	# xxxxxxx end delete xxxxxxxxxxxxxxxxxxxxxx
-
 	$SPREFIX_LIST[$idir][$iver][$ifitopt][$IOPT_S2MU] = $SPREFIX ;
 
-	# check option to skip FITOPT (May 2017)
+	# check option to skip this MUOPT/FITOPT (May 2017)
 	if ( &USE_FITOPT($IOPT_S2MU,$ifitopt) == 0 ) { next; }
 
 	# pick CPU on round-robin basis

@@ -228,7 +228,6 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
 
   // construct hostpar string to pass to python
   sprintf(pyFORMAT_STRING_HOSTPAR,"diii[" );
-
   for(ipar=0; ipar < NHOSTPAR; ipar++ ) {
     strcat(pyFORMAT_STRING_HOSTPAR,"d");
     if ( ipar < NHOSTPAR-1 ) 
@@ -245,7 +244,6 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
   printf(" xxx RVMW=%3.1f  MWEBV=%.3f      RV_host=%3.1f AV=%4.2f \n", 
 	 MWXT_SEDMODEL.RV, MWEBV,   RV_host, AV_host );
   xxxx */
-
 
   
   // store table info for Galactic & host extinction

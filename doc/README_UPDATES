@@ -16816,4 +16816,7 @@ GitHub issues:
     Still to do ... make SALT2mu_fit work with NSPLITRAN to distribute
     NSPLITRAN jobs among cores.
 
+    genmag_BYOSED.c:
+      + construct pySTRING_HOSTPAR to pass to python.
+
 END: 

@@ -21818,6 +21818,7 @@ void genmodel(
   else if ( INDEX_GENMODEL  == MODEL_BYOSED ) {
 
     double HOSTPAR_BYOSED[20];
+    int NHOSTPAR = 3;
     HOSTPAR_BYOSED[0] = GENLC.RV ;
     HOSTPAR_BYOSED[1] = GENLC.AV ;
     HOSTPAR_BYOSED[2] = SNHOSTGAL.LOGMASS ;
@@ -21826,6 +21827,7 @@ void genmodel(
 		  GENLC.CID
 		  ,z, GENLC.DLMU       // (I) helio-z and distance modulus
 		  ,mwebv               // (I) E(B-V) for Milky Way
+		  ,NHOSTPAR            // (I) number of host params to pass
 		  ,HOSTPAR_BYOSED      // (I) host properties
 		  ,ifilt_obs           // (I) filter index
 		  ,NEPFILT             // (I) number of epochs

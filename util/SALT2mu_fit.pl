@@ -259,7 +259,8 @@ my ($VERSION_EXCLUDE,  $VERSION_EXCLUDE_STRING, $PROMPT, $SUBMIT );
 my (@SSH_NODELIST, $SSH_NNODE, $SNANA_LOGIN_SETUP );
 my ($BATCH_COMMAND, $BATCH_TEMPLATE, $BATCH_NCORE );
 my ($KILLJOBS_FLAG, $SUMMARY_FLAG, $OUTDIR_PREFIX, $OUTDIR_OVERRIDE );
-my ($WFIT_OPT, @WFIT_INPUT, $CLEANFLAG ) ;
+my ($WFIT_OPT, @WFIT_INPUT, $CLEANFLAG, $NSPLITRAN ) ;
+
 # ----------------
 # misc globalas
 my (@MSGERR, $N_INPDIR, $NMUOPT_SALT2mu, @NFITOPT_SNFIT);
@@ -284,6 +285,7 @@ sub parse_MUOPT ;
 sub parse_WFIT_OPT ;
 sub verify_INPDIR ;
 sub verify_CATLIST ;
+sub makeDir_NSPLITRAN ;
 sub makeDirs_SALT2mu ;
 sub makeSumDir_SALT2mu ;
 sub VERSION_STRINGMATCH_IGNORE ;
@@ -333,9 +335,11 @@ my $INPDIR ;
 for($IDIR=0; $IDIR < $N_INPDIR; $IDIR++ ) 
 { &verify_INPDIR($IDIR); }
 
-
 # create SALT2mu output dir(s) and copy input FITRES files
-if ( $SUMFLAG_INPDIR == 0  ) {  
+if ( $NSPLITRAN > 0 ) {
+    &makeDir_NSPLITRAN();
+}
+elsif ( $SUMFLAG_INPDIR == 0  ) {  
     &makeDirs_SALT2mu() ; 
     for($IDIR=0; $IDIR < $N_INPDIR; $IDIR++ ) {
 	for($IVER=0; $IVER < $NVERSION_SNFIT[$IDIR]; $IVER++ ) {	
@@ -416,6 +420,8 @@ sub initStuff {
 
     $CLEANFLAG = 0 ;
 
+    $NSPLITRAN = -9;
+
 }  # end init_stuff
 
 
@@ -453,6 +459,9 @@ sub parse_args {
 
 	if ( $arg eq "STRINGMATCH" ) 
 	{ $STRINGMATCH = $nextArg ; }
+
+	if ( $arg eq "NSPLITRAN" ) 
+	{ $NSPLITRAN = $nextArg ; }
 
 	if ( $arg eq "KICP" || $arg eq "kicp" ) 
 	{ $BATCH_TEMPLATE = "$BATCH_TEMPLATE_KICP" ; }
@@ -510,6 +519,13 @@ sub parse_inpFile {
 	$JOBNAME_FIT =~ s/\s+$// ;        # trim trailing whitespace
     }
 
+    $key = "NSPLITRAN=" ;
+    @tmp = qx(grep $key $INPUT_FILE);
+    if ( scalar(@tmp) > 0 ) { 
+	$NSPLITRAN = substr($tmp[0],10,3); 
+        $NSPLITRAN  =~ s/\s+$// ;   # trim trailing whitespace
+    }
+
     if ( length($STRINGMATCH) == 0 ) {
 	$key = "STRINGMATCH:" ;
 	@tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
@@ -542,7 +558,7 @@ sub parse_inpFile {
     @MUOPT_LIST_ORIG = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
     @MUOPT_LIST_ORIG = ( "[DEFAULT] NONE", @MUOPT_LIST_ORIG ); # 000 is first
     $NMUOPT_SALT2mu = scalar(@MUOPT_LIST_ORIG);
-
+    if( $NSPLITRAN > 0 ) { $NMUOPT_SALT2mu = 0; }
     if ( $NMUOPT_SALT2mu == 0 ) {
 	$key = "FITOPT:";  # check legacy key, May 17 2017
 	@MUOPT_LIST_ORIG = 
@@ -647,6 +663,9 @@ sub parse_inpFile {
     print " VERSION_EXCLUDE_STRING = $VERSION_EXCLUDE_STRING \n";
     print " WFIT_OPT           = $WFIT_OPT  (@WFIT_INPUT) \n";
     
+    if ( $NSPLITRAN > 0 ) 
+    { print " NSPLITRAN       = $NSPLITRAN \n"; }
+
     if ( $SSH_NNODE  ) 
     { print " $SSH_NNODE SSH NODES: @SSH_NODELIST \n"; }
     elsif ( $BATCH_NCORE ) 
@@ -793,6 +812,8 @@ sub parse_MUOPT {
     my ($MUOPT_ORIG, $MUOPT, $FITOPT, @wdlist, $wd);
     my ($j0,$j1);
 
+    if( $NSPLITRAN > 0 ) { return ; }
+
     $MUOPT_ORIG  = "$MUOPT_LIST_ORIG[$imu]" ;
     $MUOPT       = "" ;
     $FITOPT      = "ALL" ;
@@ -848,7 +869,23 @@ sub subDirName_after_lastSlash {
     
 } # subDirName_after_lastSlash
 
-# ==========================
+# ===================================
+sub makeDir_NSPLITRAN {
+    my($OUTDIR);
+
+    if ( length($OUTDIR_OVERRIDE)>1 ) 
+    { $OUTDIR = "$OUTDIR_OVERRIDE" ; }
+    else
+    { $OUTDIR = "OUT_SALT2mu_NSPLITRAN${NSPLITRAN}"; }
+
+    $OUTDIR_SALT2mu_LIST[0] = "$OUTDIR" ;
+
+    if ( -d $OUTDIR ) { qx(rm -r $OUTDIR); }
+    qx(mkdir $OUTDIR);
+
+} # end makeDir_NSPLITRAN 
+
+# ===================================
 sub makeDirs_SALT2mu {
 
     # create separate SALT2mu_$OUTDIR dir for each INPDIR.
@@ -858,7 +895,8 @@ sub makeDirs_SALT2mu {
     my ($mergeFile, $version, $NVER, $NDIR, $NVER_SKIP ) ;
 
     # -------------- BEGIN -------------
-    
+
+
     $NDIR = $NVER_SKIP = 0 ;
     foreach $INPDIR ( @INPDIR_SNFIT_LIST ) { 
 
@@ -1387,12 +1425,19 @@ sub verify_CATLIST {
 sub make_COMMANDS {
 
     my ($icpu, $inode, $node, $nnn, $cmdFile, $suffix);
-    my ($jdot, $prefix, $SCRIPT, $PREFIX, $NJOB);
+    my ($jdot, $prefix, $SCRIPT, $PREFIX, $NJOB, $SUBDIR);
 
     # construct name of FITJOBS directory using prefix if $INPUT_FILE
-    $jdot = index($INPUT_FILE,".");
+    $jdot   = index($INPUT_FILE,".");
     $prefix = substr($INPUT_FILE,0,$jdot);
-    $FITJOBS_DIR = "$LAUNCH_DIR/" . "${FITJOBS_PREFIX}_" . "$prefix" ;
+    $SUBDIR = "${FITJOBS_PREFIX}_${prefix}" ;
+    $FITJOBS_DIR = "$LAUNCH_DIR/$SUBDIR";
+
+
+    if ( $NSPLITRAN > 0 ) {
+	my $OUTDIR   = "$OUTDIR_SALT2mu_LIST[0]" ;
+	$FITJOBS_DIR = "${LAUNCH_DIR}/${OUTDIR}/${FITJOBS_PREFIX}" ; 
+    }
 
     print "\n Create command-scripts in \n\t $FITJOBS_DIR \n";
 

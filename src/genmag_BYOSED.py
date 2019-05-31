@@ -17,13 +17,14 @@ required_keys = ['magsmear']
 __mask_bit_locations__={'verbose':1,'dump':2}
 
 class genmag_BYOSED:
-		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST):
+		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,NAMES_HOSTPAR):
 			try:
 				self.verbose = OPTMASK & (1 << __mask_bit_locations__['verbose']) > 0
 
 				self.dump = OPTMASK & (1 << __mask_bit_locations__['dump'])>0
 				self.sn_id=None
 
+				self.NAMES_HOSTPAR = NAMES_HOSTPAR.split(',')
 				self.PATH_VERSION = os.path.dirname(PATH_VERSION)
 				self.paramfile = os.path.join(self.PATH_VERSION,'BYOSED.params')
 				if os.path.exists(self.paramfile):
@@ -141,7 +142,7 @@ class genmag_BYOSED:
 
 				return list(self.wave)
 		
-		def fetchSED_BYOSED(self,trest,maxlam,external_id,new_event):
+		def fetchSED_BYOSED(self,trest,maxlam,external_id,new_event,hostpars):
 
 				if len(self.wave)>maxlam:
 						raise RuntimeError("Your wavelength array cannot be larger than %i but is %i"%(maxlam,len(self.wave)))

@@ -130,7 +130,7 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  pargs  = Py_BuildValue("(sis)",PATH_VERSION,OPTMASK,ARGLIST);
+  pargs  = Py_BuildValue("(siss)",PATH_VERSION,OPTMASK,ARGLIST,NAMES_HOSTPAR);
   geninit_BYOSED = PyEval_CallObject(genclass, pargs);
   if (geninit_BYOSED == NULL) {
     sprintf(c1err,"Could not run PyEval_CallObject module");

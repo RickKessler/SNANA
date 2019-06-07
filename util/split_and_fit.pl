@@ -339,6 +339,8 @@
 #   + replace FATAL_ERROR with FATAL_ERROR_STAMP to write
 #     FAILURE in done-stamp.
 #
+# Jun 4 2019: "TOTAL_WAIT_ABORT -> 48 hr (was 24 hr)
+#
 # =======================
 
 use List::Util qw(first);
@@ -550,7 +552,7 @@ my $IFLAG_WAIT    = 0 ;
 my $IFLAG_DOMERGE = 1 ;
 my $IFLAG_DONE    = 2 ;
 my $WAIT_CHECK_DONE  = 20 ; # wait time (seconds) between checks
-my $TOTAL_WAIT_ABORT = 24 ; # abort after 24 hours
+my $TOTAL_WAIT_ABORT = 48 ; # abort after 24 hours
 my $TOTAL_WAIT       = 0  ; # initialze total wait time
 
 my (@SIM_FLAG_LIST, @SIM_SYMLINKDIR_LIST  ) ;

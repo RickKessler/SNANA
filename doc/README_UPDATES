@@ -16838,4 +16838,29 @@ GitHub issues:
         and thus random sync has changed. Must cut new SNANA version here
         and re-generate REF for SNANA_CodeTest.
 
+
+# ======================================================================= 
+         v10_73c (  ) 
+
+         ***** IMPORTANT(v10_73c) ***** 
+
+         ***** USEFUL(v10_73c) ***** 
+
+         ***** MISCELLANEOUS(v10_73c) ***** 
+
+    SALTmu.c
+     + major refactor to use same cutmask-function for data,biasCor,CCprior.
+     + bug-fix determinig sigInt for biasCor; relaxed z cut had removed 
+       global z-cut, but should have kept global z-cut and applied only
+       the internal BIASCOR-z cuts dependent on IDSAMPLE. See new 
+       CUTBIT_BIASCORz.
+     + more refactoring to read & process data,biasCor,CCprior with common tools.
+
+
+    split_and_fit.pl :
+      + TOTAL_WAIT_ABORT -> 48 hr (was 24 hr)
+
+    combine_fitres.c
+      + new argument -outfile_text <outfile>
+
 END: 

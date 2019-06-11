@@ -1640,7 +1640,7 @@ sub NSPLITRAN_prep_COMMAND {
     $icpu = (($isplit-1) % $NCPU) ;   # 0 to NCPU-1  
 
 
-    $OUTDIR     = "${LAUNCH_DIR}/$OUTDIR_SALT2mu_LIST[0]" ;
+    $OUTDIR     = "$OUTDIR_SALT2mu_LIST[0]" ;
     $OUT_PREFIX = "OUT_TEST" ;
 
     $LOGFILE = sprintf("%s-SPLIT%3.3d.LOG", $OUT_PREFIX, $isplit);
@@ -1979,7 +1979,6 @@ sub wait_for_done {
     $ALLDONE_FILE = "$FITJOBS_DIR/ALL.DONE" ;
     $CMD_WAIT = "wait_for_files.pl  $NDONE  $DONESPEC  $ALLDONE_FILE" ; 
 
-#    print " xxx CMD_WAIT =  $CMD_WAIT \n";
     system("$CMD_WAIT");
 
     # June 10 2019: check for ABORTS  
@@ -2064,13 +2063,14 @@ sub make_SUMMARY {
     print PTR_SUMLOG "\n" ;
     close PTR_SUMLOG ;
 
+    # xxxxxx mark delete Jun 11 2019 xxxxxxxxxx
     # copy summary file to outdir(s)
-    my ($OUTDIR);
-    foreach $OUTDIR ( @OUTDIR_SALT2mu_LIST ) { 
-	qx(cp $SUMMARY_LOGFILE $OUTDIR); 
-	qx(cp $SUMMARY_DATFILE $OUTDIR); 
-    }
-
+#    my ($OUTDIR);
+#    foreach $OUTDIR ( @OUTDIR_SALT2mu_LIST ) { 
+#	qx(cp $SUMMARY_LOGFILE $OUTDIR); 
+#	qx(cp $SUMMARY_DATFILE $OUTDIR); 
+#   }
+    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
     print "\n";
     print " Found $NOUTFILE of $NTOT_JOBS output fitres files. \n";

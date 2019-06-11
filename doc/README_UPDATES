@@ -16854,8 +16854,12 @@ GitHub issues:
        global z-cut, but should have kept global z-cut and applied only
        the internal BIASCOR-z cuts dependent on IDSAMPLE. See new 
        CUTBIT_BIASCORz.
-     + more refactoring to read & process data,biasCor,CCprior with common tools.
+     + more refactoring to read & process data,biasCor,CCprior with 
+       common tools.
+     + write reduced COV matrix to output fitres file
 
+    SALT2mu_fit.pl
+     + write SUCCESS to done file.
 
     split_and_fit.pl :
       + TOTAL_WAIT_ABORT -> 48 hr (was 24 hr)

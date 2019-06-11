@@ -3390,8 +3390,6 @@ sub MERGE_DRIVER {
 	qx(echo $DONE_STATUS >> $DONE_STAMP);
     }
 
-## xxx mark delete 4.29.2019  if ( $GZIP_FLAG == 4 ) { &gzip_SPLIT_JOBS(); }
-
     return ;
 
 } # end of MERGE_DRIVER

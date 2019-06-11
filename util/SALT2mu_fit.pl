@@ -1976,6 +1976,9 @@ sub wait_for_done {
 #    print " xxx CMD_WAIT =  $CMD_WAIT \n";
     system("$CMD_WAIT");
 
+    # Jun 10 2019: write SUCCESS to done file
+    my $cmd_write = "echo SUCCESS >> $ALLDONE_FILE";
+    qx($cmd_write);
 
 }  # end of wait_for_done
 

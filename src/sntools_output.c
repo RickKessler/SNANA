@@ -194,7 +194,7 @@ void TABLEFILE_INIT(void) {
   s = STRING_IDTABLE_FITRES[IFILETYPE_TEXT]  ; sprintf(s,"FITRES");
 
   // useful string for cast manipulations
-  sprintf(CCAST_TABLEVAR," CI-F---D-------L--" );
+  sprintf(CCAST_TABLEVAR," CISF---D-------L--" );
 
   // misc. for SNLCPAK & SPECPAK
 
@@ -857,12 +857,17 @@ void parse_TABLEVAR(char *varName_with_cast, char *varName,
   //  *varName_with_cast = 'ITYPE:/I' 
   //    -> varName = 'ITYPE'  and ICAST = ICAST_I
   //
+  //  *varName_with_cast = 'ITYPE:/S' 
+  //    -> varName = 'ITYPE'  and ICAST = ICAST_S
+  //
   // May 7 2014:  for fortran specifier, allow
   //     ':R' and '/R' -> float
   //     ':8' --> double
   // 
   // Jan 8 2017: if char cast has no *20, then set isize=MXCHAR_CCID
   //             to avoid parsing bug.
+  //
+  // Jun 07 2019: add S for short int
 
   int  icast, icast_tmp, vecFlag, isize ;
   int  i, ncp, ibr0, ibr1 ;
@@ -914,6 +919,9 @@ void parse_TABLEVAR(char *varName_with_cast, char *varName,
     { icast = ICAST_I ;  }
   else if ( strstr(varName_with_cast,":I") != NULL ) 
     { icast = ICAST_I ;  }
+
+  else if ( strstr(varName_with_cast,":S") != NULL ) // short int
+    { icast = ICAST_S ;  }
 
   else if ( strstr(varName_with_cast,"/L") != NULL ) 
     { icast = ICAST_L ; }
@@ -1257,6 +1265,9 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
     else if ( ICAST_STORE == ICAST_I ) 
       { READTABLE_POINTERS.PTRVAL_I[NPTR-1][ivar] = (int*)ptr ; }
 
+    else if ( ICAST_STORE == ICAST_S ) // short int 
+      { READTABLE_POINTERS.PTRVAL_S[NPTR-1][ivar] = (short int*)ptr ; }
+
     else if ( ICAST_STORE == ICAST_L ) 
       { READTABLE_POINTERS.PTRVAL_L[NPTR-1][ivar] = (long long int*)ptr ; }
 
@@ -1343,6 +1354,9 @@ void load_READTABLE_POINTER(int IROW, int IVAR, double DVAL, char *CVAL) {
     
     else if ( ICAST == ICAST_I ) 
       { READTABLE_POINTERS.PTRVAL_I[nptr][IVAR_TOT][IROW] = (int)DVAL ; }
+
+    else if ( ICAST == ICAST_S )  // short int
+      { READTABLE_POINTERS.PTRVAL_S[nptr][IVAR_TOT][IROW] = (int)DVAL ; }
     
     else if ( ICAST == ICAST_C ) 
       { sprintf(READTABLE_POINTERS.PTRVAL_C[nptr][IVAR_TOT][IROW],"%s",CVAL);}

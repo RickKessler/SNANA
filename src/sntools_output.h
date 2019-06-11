@@ -102,6 +102,7 @@ char LINE_TABLECOMMENT[MXLINE_TABLECOMMENT][MXCHAR_FILENAME];
 #define ICAST_L   16  // long long int (64 bits)
 #define ICAST_D    8  // double
 #define ICAST_F    4  // float
+#define ICAST_S    3  // 2-byte short integer 
 #define ICAST_I    2  // 4-byte integer 
 #define ICAST_C    1  // char
 #define MXCAST    20
@@ -141,9 +142,10 @@ struct READTABLE_POINTERS {
 
   // store pointer for each variable to read so that user can fill any cast
   int     NPTR[MXVAR_TABLE];          // number of pointers per var (9/2016)
-  double *PTRVAL_D[2][MXVAR_TABLE];      // index is NVARTOT
-  float  *PTRVAL_F[2][MXVAR_TABLE];      // index is NVARTOT
-  int    *PTRVAL_I[2][MXVAR_TABLE];      
+  double     *PTRVAL_D[2][MXVAR_TABLE];      // index is NVARTOT
+  float      *PTRVAL_F[2][MXVAR_TABLE];      // index is NVARTOT
+  int        *PTRVAL_I[2][MXVAR_TABLE];      
+  short int  *PTRVAL_S[2][MXVAR_TABLE];      
   long long int *PTRVAL_L[2][MXVAR_TABLE]; 
   char   **PTRVAL_C[2][MXVAR_TABLE];  // Aug 2013
   

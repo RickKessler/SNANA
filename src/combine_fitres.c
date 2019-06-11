@@ -479,12 +479,6 @@ void ADD_FITRES(int ifile) {
     VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
     ICAST   = READTABLE_POINTERS.ICAST_STORE[ivar] ;
 
-
-    /* xxxxxxxxxxxxxxx mark delete xxxxxxxxx
-    NVARALL_FITRES++ ;
-    NVAR = NVARALL_FITRES ;
-    xxxxxxxxxxxxxxxxxx  */
-
     if ( ICAST == ICAST_C ) {
       NVARSTR_FITRES++ ;   // summed over fitres files
       sprintf(VARNAME_C, "%s:C*20", VARNAME) ;  //specify char ptr

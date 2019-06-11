@@ -217,7 +217,10 @@
 # Feb 04 2019: abort for interactive mode.
 # May 24 2019: new OUTDIR_OVERRIDE key to force output location
 # May 30 2019: works with NSPLITRAN=n
-#
+# Jun 10 2019: 
+#   + count aborts and report SUCCESS or FAIL in ALL.DONE
+#   + for INPDIR+ or OUTDIR_OVERRIDE, FITJOBS/ subdir is created
+#      under OUTDIR so that everything is one place.
 # ------------------------------------------------------
 
 use IO::Handle ;
@@ -712,12 +715,13 @@ sub parse_inpFile {
 	$MSGERR[2] = "NDIR_SUM=$NDIR_SUM   NDIR_SOLO=$NDIR_SOLO" ;
 	sntools::FATAL_ERROR(@MSGERR);
     }
-    if ( $NDIR_SUM == 1 ) {
-	$MSGERR[0] = "Cannot have one INPDIR+ key." ;
-	$MSGERR[1] = "Add more INPDIR+ keys, OR ...  " ;
-	$MSGERR[2] = "switch to INPDIR key." ;
-	sntools::FATAL_ERROR(@MSGERR);
-    }
+
+#    if ( $NDIR_SUM == 1 ) {
+#	$MSGERR[0] = "Cannot have one INPDIR+ key." ;
+#	$MSGERR[1] = "Add more INPDIR+ keys, OR ...  " ;
+#	$MSGERR[2] = "switch to INPDIR key." ;
+#	sntools::FATAL_ERROR(@MSGERR);
+#   }
     
     print "\n";
 
@@ -905,7 +909,7 @@ sub makeDir_NSPLITRAN {
     if ( length($OUTDIR_OVERRIDE)>1 ) 
     { $OUTDIR = "$OUTDIR_OVERRIDE" ; }
     else
-    { $OUTDIR = "OUT_SALT2mu_NSPLITRAN${NSPLITRAN}"; }
+    { $OUTDIR = "$LAUNCH_DIR/OUT_SALT2mu_NSPLITRAN${NSPLITRAN}"; }
 
     $OUTDIR_SALT2mu_LIST[0] = "$OUTDIR" ;
 
@@ -1476,7 +1480,8 @@ sub verify_CATLIST {
 sub make_COMMANDS {
 
     my ($icpu, $inode, $node, $nnn, $cmdFile, $suffix);
-    my ($jdot, $prefix, $SCRIPT, $PREFIX, $NJOB, $SUBDIR);
+    my ($jdot, $prefix, $SCRIPT, $PREFIX, $NJOB, $SUBDIR );
+    my ( $OUTDIR, $NDIR);
 
     # construct name of FITJOBS directory using prefix if $INPUT_FILE
     $jdot   = index($INPUT_FILE,".");
@@ -1485,10 +1490,11 @@ sub make_COMMANDS {
     $FITJOBS_DIR = "$LAUNCH_DIR/$SUBDIR";
 
     # - - - - - - - - - - - - - - - - - - -
-    # create sub directory for batch jobs
-    if ( $NSPLITRAN > 0 ) {
-	my $OUTDIR = $OUTDIR_SALT2mu_LIST[0] ;
-	$FITJOBS_DIR = "${LAUNCH_DIR}/${OUTDIR}/${FITJOBS_PREFIX}" ; 
+
+    $NDIR = scalar(@OUTDIR_SALT2mu_LIST) ;
+    if ( $NDIR == 1 ) {
+	$OUTDIR = $OUTDIR_SALT2mu_LIST[0] ;
+	$FITJOBS_DIR = "${OUTDIR}/${FITJOBS_PREFIX}" ; 
     }
 
 
@@ -1965,7 +1971,7 @@ sub submit_JOBS {
 # ====================
 sub wait_for_done {
 
-    my ($NDONE, $DONESPEC, $ALLDONE_FILE, $CMD_WAIT);
+    my ($NDONE, $DONESPEC, $ALLDONE_FILE, $CMD_WAIT );
 
     $NDONE = $NCPU ;
 
@@ -1976,9 +1982,21 @@ sub wait_for_done {
 #    print " xxx CMD_WAIT =  $CMD_WAIT \n";
     system("$CMD_WAIT");
 
-    # Jun 10 2019: write SUCCESS to done file
-    my $cmd_write = "echo SUCCESS >> $ALLDONE_FILE";
-    qx($cmd_write);
+    # June 10 2019: check for ABORTS  
+    my ( $cmd, @tmp, $OUTDIR, $NABORT, $msg);
+    $NABORT = 0 ;
+    foreach $OUTDIR ( @OUTDIR_SALT2mu_LIST )  { 
+	@tmp = qx(grep ' ABORT ' $OUTDIR/*/SALT2*.LOG );
+	$NABORT += scalar(@tmp);       
+    }
+
+    if ( $NABORT > 0 )  
+    { $msg = "FAILED  ($NABORT ABORTS)"; }
+    else
+    { $msg = "SUCCESS" ; }
+
+    print " Final STATUS for DONE file: $msg \n";
+    qx(echo '$msg' >> $ALLDONE_FILE);
 
 }  # end of wait_for_done
 
@@ -2017,7 +2035,7 @@ sub make_SUMMARY {
 	"NSNFIT CHI2RED_1A " .                 # +2
 	"ALPHA ALPHA_ERR BETA BETA_ERR " .     # +4
 	"BETA1 BETA1_ERR " .                   # +2  // dbeta/dz
-	"GAMMA0 GAMMA0_ERR " .                 # +2  // magDiff across host mass
+	"GAMMA0 GAMMA0_ERR " .                 # +2  // mag-hostmass
 	"SIGINT M0AVG " .                      # +2
 	"\n";
 
@@ -2073,7 +2091,7 @@ sub write_SUMMARY_LOG {
     my ($idir,$iver,$ifitopt) = @_ ;
 
     my ($INPDIR, $OUTDIR, $VERSION, $SPREFIX, $OUTFILE, $outFile, $IOPT_S2MU );
-    my ($cVER, $nnn, $sss, @tmp, @wdlist, $FIRST, $USE);
+    my ($cVER, $nnn, $sss, @tmp, @wdlist, $FIRST, $USE, $SKIP);
     my ($chi2, $alpha, $beta, $sigmB, $M0avg );
 
     $OUTDIR  = $OUTDIR_SALT2mu_LIST[$idir] ;
@@ -2106,19 +2124,21 @@ sub write_SUMMARY_LOG {
 	$outFile = "${SPREFIX}.FITRES" ;
 	$OUTFILE = "${OUTDIR}/${VERSION}/${outFile}" ;
 	$USE     = &USE_FITOPT($IOPT_S2MU,$ifitopt);
-
+	$SKIP    = 0 ;
 	if ( -e $OUTFILE ) 
 	{ $NOUTFILE++ ; } 
 	elsif ( $USE == 1 ) { 
 	    print PTR_SUMLOG " ${VERSION}/$outFile  not  found ??? \n";
 	    PTR_SUMLOG -> autoflush(1);
-	    next; 
+	    $SKIP = 1;
 	}
 	elsif ( $USE == 0 ) {
 	    print PTR_SUMLOG " ${VERSION}/$outFile -> SKIPPED \n";
 	    PTR_SUMLOG -> autoflush(1);
-	    next; 
+	    $SKIP = 1;
 	}
+
+	if ( $SKIP ) { next; }
 
 	$sss     = sprintf("%3.3d", $IOPT_S2MU);
 
@@ -2186,6 +2206,7 @@ sub write_SUMMARY_DAT {
 	$OUTFILE = "${OUTDIR}/${VERSION}/${outFile}" ;
 	$USE     = &USE_FITOPT($IOPT_S2MU,$ifitopt);
 	if ( $USE == 0 ) { next; }
+	if ( !(-e $OUTFILE) ) { next; }
 
 	@tmp     = sntools::parse_line($OUTFILE, 2, "NSNFIT", $OPT_QUIET) ;
 	@wdlist  = split(/\s+/,$tmp[0]) ;

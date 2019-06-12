@@ -52,7 +52,8 @@ PyObject *geninit_BYOSED;
 #endif
 
 // =========================================================
-void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
+void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
+			char *NAMES_HOSTPAR  ) {
 
   // Read input directory file(s) for parameters characterizing 
   // how to build your SED.
@@ -65,6 +66,8 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
   //               :  passed from GENMODEL_MSKOPT arg in sim-input
   //  
   //  ARGLIST      : string of options
+  //
+  // NAMES_HOSTPAR : comma-separate list of names of host params
   //
 
 #ifdef USE_PYTHON
@@ -82,6 +85,7 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
   printf("   BYOSED PATH    = '%s' \n",  PATH_VERSION);
   printf("   BYOSED OPTMASK = %d \n",    OPTMASK );	
   printf("   BYOSED ARGLIST = '%s' \n",  ARGLIST );	
+  printf("   BYOSED HOSTPAR = '%s' \n",  NAMES_HOSTPAR);
   fflush(stdout);
 
   // print summary of filter info
@@ -167,7 +171,7 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST ) {
 
 // =========================================================
 void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU, 
-		   double MWEBV, double *HOSTPAR_LIST,
+		   double MWEBV, int NHOSTPAR, double *HOSTPAR_LIST,
 		   int IFILT_OBS, int NOBS, double *TOBS_list, 
 		   double *MAGOBS_list, double *MAGERR_list ) {
 
@@ -178,6 +182,7 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
   //   zHEL         : helio redshift
   //   MU           : distance modulus
   //   MWEBV        : E(B-V) for Milky Wat
+  //   NHOSTPAR     : Number of host params in HOSTPAR_LIST
   //   HOSTPAR_LIST : RV, AV, LOGMASS, SFR ...
   //   IFILT_OBS    : absolute filter index
   //   NOBS         : number of observations
@@ -201,9 +206,9 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
   double x0   = pow(10.0,-0.4*MU);             // dimming from dist. mod.
   int    NEWEVT_FLAG = 0 ;
 
-  int    NLAM, o ;
+  int    NLAM, o, ipar ;
   double Tobs, Trest, FLUXSUM_OBS, FspecDUM[2], magobs ; 
-
+  char   pyFORMAT_STRING_HOSTPAR[100] ;;
   char fnam[] = "genmag_BYOSED" ;
 
    #ifdef USE_PYTHON
@@ -221,6 +226,17 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
     { NEWEVT_FLAG=1; }
 
 
+  // construct hostpar string to pass to python
+  sprintf(pyFORMAT_STRING_HOSTPAR,"diii[" );
+  for(ipar=0; ipar < NHOSTPAR; ipar++ ) {
+    strcat(pyFORMAT_STRING_HOSTPAR,"d");
+    if ( ipar < NHOSTPAR-1 ) 
+      { strcat(pyFORMAT_STRING_HOSTPAR,","); }
+    else
+      { strcat(pyFORMAT_STRING_HOSTPAR,"]"); }
+  }
+  //  printf(" xxx pySTRING_HOSTPAR = '%s' \n", pyFORMAT_STRING_HOSTPAR );
+  
   /* xxx
   printf(" xxx ------------------------------------ \n" ) ;
   printf(" xxx %s: process z=%.3f MU=%.3f RV=%3.1f IFILT_OBS=%d(%s) \n",
@@ -229,9 +245,7 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
 	 MWXT_SEDMODEL.RV, MWEBV,   RV_host, AV_host );
   xxxx */
 
-  // make sure filter-lambda range is valid
-  // xxxx  checkLamRange_SEDMODEL(ifilt,zHEL,fnam);
-
+  
   // store table info for Galactic & host extinction
   fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, MWEBV);
   fill_TABLE_HOSTXT_SEDMODEL(RV_host, AV_host, zHEL);   // July 2016

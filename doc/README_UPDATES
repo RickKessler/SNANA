@@ -16789,11 +16789,15 @@ GitHub issues:
 
 
 # ======================================================================= 
-         v10_73b (  ) 
+         v10_73b (May 31 2019) 
 
          ***** IMPORTANT(v10_73b) ***** 
 
          ***** USEFUL(v10_73b) ***** 
+
+    + SALT2mu_fit.pl:works with NSPLITRAN. 
+    + SALT3.XYZ models recognized as SALT2 (but not yet tested)
+    + Command-line options can now include comma-sep list of CID strings.
 
          ***** MISCELLANEOUS(v10_73b) ***** 
 
@@ -16803,6 +16807,10 @@ GitHub issues:
         if OPT_SETPKMJD=0; otherwise need to wait for PKMJD
         to be determined. Matters a lot when SEARCH_PEAKMJD
         in data file is way off.
+      + accept command-line override with comma-separated list of 
+        CCID-strings: e.g.,
+          snana.exe <inFile> \
+             SNCCID_LIST 2000ca,2001cn,2001el,2000E,2002bo,1992bh
 
     snana_manual.pdf :
       + improve Sec. 5.4 : Initial Estimate of PEAKMJD.
@@ -16813,7 +16821,50 @@ GitHub issues:
      + fix bugs re-initializing NSPLITRAN jobs. See SPLITRAN_prep_input(),
        and bug-fix in setup_zbins_fit().
 
-    Still to do ... make SALT2mu_fit work with NSPLITRAN to distribute
-    NSPLITRAN jobs among cores.
+    SALT2mu_fit.pl: works with NSPLITRAN. See instructions in top of file.
+
+    genmag_BYOSED.c:
+      + construct pyFORMAT_STRING_HOSTPAR to pass to python.
+      + pass NAMES_HOSTPAR to init_genmag_BYOSED()
+
+    snlc_fit.car, snlc_sim.c:
+      + allow for SALT3 model, but use internal MODEL_SALT2 index.
+         [not tested yet on actual SALT3.[NAME]  directory]
+      + remove check on [MODEL].DEFAULT, and remove [MODEL].DEFAULT
+        files from $SNDATA_ROOT/models/*.
+
+    snlc_sim.c:
+      + GENLC.PEAKMJD_RANGauss is now set locally in gen_peakmjd_smear(),
+        and thus random sync has changed. Must cut new SNANA version here
+        and re-generate REF for SNANA_CodeTest.
+
+
+# ======================================================================= 
+         v10_73c (  ) 
+
+         ***** IMPORTANT(v10_73c) ***** 
+
+         ***** USEFUL(v10_73c) ***** 
+
+         ***** MISCELLANEOUS(v10_73c) ***** 
+
+    SALTmu.c
+     + major refactor to use same cutmask-function for data,biasCor,CCprior.
+     + bug-fix determinig sigInt for biasCor; relaxed z cut had removed 
+       global z-cut, but should have kept global z-cut and applied only
+       the internal BIASCOR-z cuts dependent on IDSAMPLE. See new 
+       CUTBIT_BIASCORz.
+     + more refactoring to read & process data,biasCor,CCprior with 
+       common tools.
+     + write reduced COV matrix to output fitres file
+
+    SALT2mu_fit.pl
+     + write SUCCESS to done file.
+
+    split_and_fit.pl :
+      + TOTAL_WAIT_ABORT -> 48 hr (was 24 hr)
+
+    combine_fitres.c
+      + new argument -outfile_text <outfile>
 
 END: 

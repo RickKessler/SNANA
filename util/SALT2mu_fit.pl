@@ -7,6 +7,7 @@
 #
 # USAGE:
 #   SALT2mu_fit.pl  <inputFile>
+#   SALT2mu_fit.pl  <inputFile>  NSPLITRAN=<n>  ! divide data into <n> subsets
 #   SALT2mu_fit.pl  <inputFile>  NOSUBMIT
 #   SALT2mu_fit.pl  <inputFile>  NOPROMPT
 #   SALT2mu_fit.pl  <inputFile>  KILL
@@ -94,6 +95,18 @@
 # by the BATCH_INFO keys. The ssh & batch keys work the same way as
 # for split_and_fit.pl and sim_SNmix.pl .
 #
+# NSPLITRAN=<n> argument operates on the native file=<file> argument 
+# in the SALT2mu-input file, and ignores the supplmental batch keys 
+# INPDIR, INPDIR+,  and MUOPT. Batch keys NODELIST, BATCH_INFO and 
+# SNANA_LOGIN_SETUP are used. If NSPLITRAN=<n> appears inside the 
+# SALT2mu-input file, this is equivalent to the command-line specifier; 
+# command-line NSPLITRAN=<n> overrides value in SALT2mu-input file. 
+# The NSPLITRAN mode creates an output sub-directory with a specific 
+# name, "OUT_SALT2mu_NSPLITRAN[n]", and can be changed using the 
+# "OUTDIR_OVERRIDE: <OUTDIR>"  key. The output file names are hard-wired 
+# with prefix=OUT_TEST. Note that for <n> split jobs, <n+1> batch jobs
+# are submitted because the n+1'th job reads back all of the previous
+# output and prepares a summary of averages and RMS in OUT_TEST_summary.out.
 #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # History:
@@ -203,7 +216,11 @@
 # Jan 16 2019: for CLEAN command, make sure to exit(0)
 # Feb 04 2019: abort for interactive mode.
 # May 24 2019: new OUTDIR_OVERRIDE key to force output location
-#
+# May 30 2019: works with NSPLITRAN=n
+# Jun 10 2019: 
+#   + count aborts and report SUCCESS or FAIL in ALL.DONE
+#   + for INPDIR+ or OUTDIR_OVERRIDE, FITJOBS/ subdir is created
+#      under OUTDIR so that everything is one place.
 # ------------------------------------------------------
 
 use IO::Handle ;
@@ -259,7 +276,8 @@ my ($VERSION_EXCLUDE,  $VERSION_EXCLUDE_STRING, $PROMPT, $SUBMIT );
 my (@SSH_NODELIST, $SSH_NNODE, $SNANA_LOGIN_SETUP );
 my ($BATCH_COMMAND, $BATCH_TEMPLATE, $BATCH_NCORE );
 my ($KILLJOBS_FLAG, $SUMMARY_FLAG, $OUTDIR_PREFIX, $OUTDIR_OVERRIDE );
-my ($WFIT_OPT, @WFIT_INPUT, $CLEANFLAG ) ;
+my ($WFIT_OPT, @WFIT_INPUT, $CLEANFLAG, $NSPLITRAN ) ;
+
 # ----------------
 # misc globalas
 my (@MSGERR, $N_INPDIR, $NMUOPT_SALT2mu, @NFITOPT_SNFIT);
@@ -270,8 +288,8 @@ my (@INPDIR_SDIR_LIST, $NTOT_FITRES, $NTOT_JOBS ) ;
 my (@NVERSION_FINAL, @VERSION_FINAL_LIST, @SPREFIX_LIST );
 my ($NROW_SUMDAT );
 
-my ($NCPU, @NJOB_PER_CPU, @CMD_PREFIX, @CMD_FILES, @BATCH_FILES, $NOUTFILE) ;
-my (@CMD_CONTENTS, @NCMDLINE_PER_CPU );
+my ($NCPU, @NJOB_PER_CPU, $MAXJOB_PER_CPU, $icpu_MAXJOBS, @CMD_PREFIX, @CMD_FILES);
+my (@BATCH_FILES, $NOUTFILE, @CMD_CONTENTS, @NCMDLINE_PER_CPU );
 my ($T_START, $T_END, $T_TOT);
 
 # ----------------
@@ -284,6 +302,7 @@ sub parse_MUOPT ;
 sub parse_WFIT_OPT ;
 sub verify_INPDIR ;
 sub verify_CATLIST ;
+sub makeDir_NSPLITRAN ;
 sub makeDirs_SALT2mu ;
 sub makeSumDir_SALT2mu ;
 sub VERSION_STRINGMATCH_IGNORE ;
@@ -334,8 +353,10 @@ for($IDIR=0; $IDIR < $N_INPDIR; $IDIR++ )
 { &verify_INPDIR($IDIR); }
 
 
-# create SALT2mu output dir(s) and copy input FITRES files
-if ( $SUMFLAG_INPDIR == 0  ) {  
+if ( $NSPLITRAN > 0 ) { 
+    &makeDir_NSPLITRAN();
+}
+elsif ( $SUMFLAG_INPDIR == 0  ) {  
     &makeDirs_SALT2mu() ; 
     for($IDIR=0; $IDIR < $N_INPDIR; $IDIR++ ) {
 	for($IVER=0; $IVER < $NVERSION_SNFIT[$IDIR]; $IVER++ ) {	
@@ -361,6 +382,7 @@ if ( $NVERSION_MAX < 999 ) {
 &make_COMMANDS();  # create all commands per cpu in memory
 &write_COMMANDS(); # write them out into files
 
+
 if ( $SUBMIT == 0 ) 
 { die "\n NOSUBMIT option --> DO NOT SUBMIT JOBS \n";  }
 
@@ -368,6 +390,8 @@ if ( $SUMMARY_FLAG == 0 ) {
     &submit_JOBS(); 
     &wait_for_done(); 
 }
+
+if ( $NSPLITRAN>0 ) { exit(0); }
 
 &make_SUMMARY();
 &gzip_logs(); 
@@ -416,6 +440,8 @@ sub initStuff {
 
     $CLEANFLAG = 0 ;
 
+    $NSPLITRAN = -9;
+
 }  # end init_stuff
 
 
@@ -454,9 +480,18 @@ sub parse_args {
 	if ( $arg eq "STRINGMATCH" ) 
 	{ $STRINGMATCH = $nextArg ; }
 
+	if ( $arg eq "NSPLITRAN" ) 
+	{ $NSPLITRAN = $nextArg ; }
+
+	if ( substr($arg,0,10) eq "NSPLITRAN=" )  { 
+	    $NSPLITRAN = substr($arg,10,3) ; 
+	    $NSPLITRAN =~ s/\s+$// ;        # trim trailing whitespace
+	}
+
 	if ( $arg eq "KICP" || $arg eq "kicp" ) 
 	{ $BATCH_TEMPLATE = "$BATCH_TEMPLATE_KICP" ; }
     }
+
 
 } # end pf parse_args
 
@@ -510,6 +545,16 @@ sub parse_inpFile {
 	$JOBNAME_FIT =~ s/\s+$// ;        # trim trailing whitespace
     }
 
+    # check for NSPLITRAN key unless already given on command-line override
+    if ( $NSPLITRAN < 0 ) {
+	$key = "NSPLITRAN=" ;
+	@tmp = qx(grep $key $INPUT_FILE);
+	if ( scalar(@tmp) > 0 ) { 
+	    $NSPLITRAN = substr($tmp[0],10,3); 
+	    $NSPLITRAN  =~ s/\s+$// ;   # trim trailing whitespace
+	}
+    }
+
     if ( length($STRINGMATCH) == 0 ) {
 	$key = "STRINGMATCH:" ;
 	@tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
@@ -542,7 +587,7 @@ sub parse_inpFile {
     @MUOPT_LIST_ORIG = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
     @MUOPT_LIST_ORIG = ( "[DEFAULT] NONE", @MUOPT_LIST_ORIG ); # 000 is first
     $NMUOPT_SALT2mu = scalar(@MUOPT_LIST_ORIG);
-
+    if( $NSPLITRAN > 0 ) { $NMUOPT_SALT2mu = 0; }
     if ( $NMUOPT_SALT2mu == 0 ) {
 	$key = "FITOPT:";  # check legacy key, May 17 2017
 	@MUOPT_LIST_ORIG = 
@@ -647,6 +692,9 @@ sub parse_inpFile {
     print " VERSION_EXCLUDE_STRING = $VERSION_EXCLUDE_STRING \n";
     print " WFIT_OPT           = $WFIT_OPT  (@WFIT_INPUT) \n";
     
+    if ( $NSPLITRAN > 0 ) 
+    { print " NSPLITRAN       = $NSPLITRAN \n"; }
+
     if ( $SSH_NNODE  ) 
     { print " $SSH_NNODE SSH NODES: @SSH_NODELIST \n"; }
     elsif ( $BATCH_NCORE ) 
@@ -667,12 +715,13 @@ sub parse_inpFile {
 	$MSGERR[2] = "NDIR_SUM=$NDIR_SUM   NDIR_SOLO=$NDIR_SOLO" ;
 	sntools::FATAL_ERROR(@MSGERR);
     }
-    if ( $NDIR_SUM == 1 ) {
-	$MSGERR[0] = "Cannot have one INPDIR+ key." ;
-	$MSGERR[1] = "Add more INPDIR+ keys, OR ...  " ;
-	$MSGERR[2] = "switch to INPDIR key." ;
-	sntools::FATAL_ERROR(@MSGERR);
-    }
+
+#    if ( $NDIR_SUM == 1 ) {
+#	$MSGERR[0] = "Cannot have one INPDIR+ key." ;
+#	$MSGERR[1] = "Add more INPDIR+ keys, OR ...  " ;
+#	$MSGERR[2] = "switch to INPDIR key." ;
+#	sntools::FATAL_ERROR(@MSGERR);
+#   }
     
     print "\n";
 
@@ -793,6 +842,8 @@ sub parse_MUOPT {
     my ($MUOPT_ORIG, $MUOPT, $FITOPT, @wdlist, $wd);
     my ($j0,$j1);
 
+    if( $NSPLITRAN > 0 ) { return ; }
+
     $MUOPT_ORIG  = "$MUOPT_LIST_ORIG[$imu]" ;
     $MUOPT       = "" ;
     $FITOPT      = "ALL" ;
@@ -848,7 +899,48 @@ sub subDirName_after_lastSlash {
     
 } # subDirName_after_lastSlash
 
-# ==========================
+# ===================================
+sub makeDir_NSPLITRAN {
+
+    my($OUTDIR, @tmp, $file, $gzfile );
+
+    # - - - - - - - - - - - - - - - - - - -
+    # prepare OUTDIR
+    if ( length($OUTDIR_OVERRIDE)>1 ) 
+    { $OUTDIR = "$OUTDIR_OVERRIDE" ; }
+    else
+    { $OUTDIR = "$LAUNCH_DIR/OUT_SALT2mu_NSPLITRAN${NSPLITRAN}"; }
+
+    $OUTDIR_SALT2mu_LIST[0] = "$OUTDIR" ;
+
+    if ( -d $OUTDIR ) { qx(rm -r $OUTDIR); }
+    qx(mkdir $OUTDIR);
+
+    # copy SALT2mu-input file into OUTDIR
+    qx(cp $INPUT_FILE $OUTDIR);
+
+    # copy FITRES file (file-argument)
+    @tmp    = qx(grep 'file=' $INPUT_FILE);
+    $file   = substr($tmp[0],5,500);
+    $file   = qx(echo $file);
+    $file   =~ s/\s+$// ;   # trim trailing whitespace
+    $gzfile = "${file}.gz" ;
+
+    if ( -e $file ) 
+    { qx(cp $file $OUTDIR); }
+    elsif ( -e $gzfile ) 
+    { qx(cp $gzfile $OUTDIR); }
+    else {
+	$MSGERR[0] = "Unable to find argument of" ;
+	$MSGERR[1] = "file=$file" ;
+	sntools::FATAL_ERROR(@MSGERR);
+    }
+
+    return ;
+
+} # end makeDir_NSPLITRAN
+
+# ===================================
 sub makeDirs_SALT2mu {
 
     # create separate SALT2mu_$OUTDIR dir for each INPDIR.
@@ -858,7 +950,8 @@ sub makeDirs_SALT2mu {
     my ($mergeFile, $version, $NVER, $NDIR, $NVER_SKIP ) ;
 
     # -------------- BEGIN -------------
-    
+
+
     $NDIR = $NVER_SKIP = 0 ;
     foreach $INPDIR ( @INPDIR_SNFIT_LIST ) { 
 
@@ -1387,12 +1480,23 @@ sub verify_CATLIST {
 sub make_COMMANDS {
 
     my ($icpu, $inode, $node, $nnn, $cmdFile, $suffix);
-    my ($jdot, $prefix, $SCRIPT, $PREFIX, $NJOB);
+    my ($jdot, $prefix, $SCRIPT, $PREFIX, $NJOB, $SUBDIR );
+    my ( $OUTDIR, $NDIR);
 
     # construct name of FITJOBS directory using prefix if $INPUT_FILE
-    $jdot = index($INPUT_FILE,".");
+    $jdot   = index($INPUT_FILE,".");
     $prefix = substr($INPUT_FILE,0,$jdot);
-    $FITJOBS_DIR = "$LAUNCH_DIR/" . "${FITJOBS_PREFIX}_" . "$prefix" ;
+    $SUBDIR = "${FITJOBS_PREFIX}_${prefix}" ;
+    $FITJOBS_DIR = "$LAUNCH_DIR/$SUBDIR";
+
+    # - - - - - - - - - - - - - - - - - - -
+
+    $NDIR = scalar(@OUTDIR_SALT2mu_LIST) ;
+    if ( $NDIR == 1 ) {
+	$OUTDIR = $OUTDIR_SALT2mu_LIST[0] ;
+	$FITJOBS_DIR = "${OUTDIR}/${FITJOBS_PREFIX}" ; 
+    }
+
 
     print "\n Create command-scripts in \n\t $FITJOBS_DIR \n";
 
@@ -1403,9 +1507,8 @@ sub make_COMMANDS {
     # first create command script for each node/core
     # Store script names in @CMD_FILES
 
-    $inode = 0 ;
+    $inode = 0 ; $MAXJOB_PER_CPU = $icpu_MAXJOBS = -9 ;
     for($icpu = 0; $icpu < $NCPU; $icpu++ ) {
-
 	$nnn               = sprintf("%3.3d", $icpu);
 	
 	if ( $SSH_NNODE  ) 
@@ -1432,11 +1535,17 @@ sub make_COMMANDS {
     # Create SALT2mu job for every FITRES file in every dir.
     # Unitarity check is made at the end.
 
+    if ( $NSPLITRAN > 0 ) {  
+	my ($isplit);
+	$NTOT_JOBS = $NSPLITRAN + 1;  # add 1 for summary job
+	for($isplit=1; $isplit<= $NTOT_JOBS; $isplit++ )
+	{ &NSPLITRAN_prep_COMMAND($isplit); }
+	goto CHECK_NTOT_JOBS ;
+    }
+
+
     my ($NDIR, $NVER, $idir, $iver, $ifitopt );
-
-    $NTOT_JOBS = 0 ;
-
-    $icpu = 0 ;
+    $NTOT_JOBS = 0 ;    $icpu = 0 ;
     $NDIR = scalar(@OUTDIR_SALT2mu_LIST) ;
     for($idir=0 ; $idir < $NDIR; $idir++ ) {
 	$NVER   = $NVERSION_FINAL[$idir] ;
@@ -1449,8 +1558,6 @@ sub make_COMMANDS {
 
 
     # ----------------
-
-
     if ( $SUMMARY_FLAG  )  { return ; }
      
     # ---------------------------
@@ -1458,6 +1565,8 @@ sub make_COMMANDS {
     # and remove unused CMD files. This is to avoid confusion
     # with extra jobs that don't do anything but leave garbage
     # log/done files.
+
+  CHECK_NTOT_JOBS:
 
     if ( $NTOT_JOBS == 0 ) {
 
@@ -1517,7 +1626,60 @@ sub make_COMMANDS {
 }  # end of make_COMMANDS
 
 
-# ===========================
+# ========================================
+sub NSPLITRAN_prep_COMMAND {
+    my ($isplit) = @_ ;
+
+    # May 2019
+    # Analog of prep_COMMAND, but here prepare command for
+    # each of the individual SPLITRAN jobs using JOBID_SPLITRAN 
+    # argument to SALT2mu.exe.
+
+    my ($icpu, $OUTDIR, $CMD, $LOGFILE, $ARGLIST, $OUT_PREFIX);
+    # pick CPU on round-robin basis
+    $icpu = (($isplit-1) % $NCPU) ;   # 0 to NCPU-1  
+
+
+    $OUTDIR     = "$OUTDIR_SALT2mu_LIST[0]" ;
+    $OUT_PREFIX = "OUT_TEST" ;
+
+    $LOGFILE = sprintf("%s-SPLIT%3.3d.LOG", $OUT_PREFIX, $isplit);
+
+    # put summary job in last CPU so it's likely to finish last
+    if ( $isplit > $NSPLITRAN ) { 
+	$icpu    = $icpu_MAXJOBS ; 
+	$LOGFILE = "${OUT_PREFIX}_summary.log";
+    }
+
+    $NJOB_PER_CPU[$icpu]++ ;        # and NJOB for this CPU 
+
+    # keep track of icpu with max number of jobs; to use for summary job.
+    if ( $NJOB_PER_CPU[$icpu] >= $MAXJOB_PER_CPU ) {
+	$MAXJOB_PER_CPU = $NJOB_PER_CPU[$icpu];
+	$icpu_MAXJOBS   = $icpu ;
+    }
+
+    $ARGLIST = 
+	"NSPLITRAN=$NSPLITRAN  " . 
+	"JOBID_SPLITRAN=$isplit  " .  
+	"prefix=$OUT_PREFIX" ;
+    $CMD     = "$JOBNAME_FIT $INPUT_FILE $ARGLIST \\" ;
+
+    # cd just once
+    if ( $NJOB_PER_CPU[$icpu] == 1 ) 
+    { &add_COMMAND($icpu, "cd $OUTDIR" ) ; }
+
+    &add_COMMAND($icpu, "" ) ;
+    &add_COMMAND($icpu, "# ------------------------------------" ) ;
+    if ( $isplit > $NSPLITRAN ) { &add_COMMAND($icpu, "sleep 10"); }
+    &add_COMMAND($icpu, "$CMD");
+    &add_COMMAND($icpu, "    >& $LOGFILE " );
+
+    return ;
+
+} # end NSPLITRAN_prep_COMMAND
+
+# ========================================
 sub prep_COMMAND {
 
     # write SALT2mu commands for input dir, version , fitopt.
@@ -1567,19 +1729,9 @@ sub prep_COMMAND {
 	$sss = sprintf("%3.3d", $IOPT_S2MU );
 
 	$SPREFIX = "SALT2mu_${FPREFIX}_MUOPT${sss}" ;
-
-	# xxxxxxxxxx mark delete Dec 21 2017 xxxxxxxxxxx
-	#if ( $ONEOPT ) { 
-	#    $SPREFIX = "SALT2mu_${FPREFIX}" ;
-	#}
-	#else { 
-	#    $SPREFIX = "SALT2mu_${FPREFIX}_MUOPT${sss}" ;
-	#}
-	# xxxxxxx end delete xxxxxxxxxxxxxxxxxxxxxx
-
 	$SPREFIX_LIST[$idir][$iver][$ifitopt][$IOPT_S2MU] = $SPREFIX ;
 
-	# check option to skip FITOPT (May 2017)
+	# check option to skip this MUOPT/FITOPT (May 2017)
 	if ( &USE_FITOPT($IOPT_S2MU,$ifitopt) == 0 ) { next; }
 
 	# pick CPU on round-robin basis
@@ -1819,7 +1971,7 @@ sub submit_JOBS {
 # ====================
 sub wait_for_done {
 
-    my ($NDONE, $DONESPEC, $ALLDONE_FILE, $CMD_WAIT);
+    my ($NDONE, $DONESPEC, $ALLDONE_FILE, $CMD_WAIT );
 
     $NDONE = $NCPU ;
 
@@ -1827,9 +1979,23 @@ sub wait_for_done {
     $ALLDONE_FILE = "$FITJOBS_DIR/ALL.DONE" ;
     $CMD_WAIT = "wait_for_files.pl  $NDONE  $DONESPEC  $ALLDONE_FILE" ; 
 
-#    print " xxx CMD_WAIT =  $CMD_WAIT \n";
     system("$CMD_WAIT");
 
+    # June 10 2019: check for ABORTS  
+    my ( $cmd, @tmp, $OUTDIR, $NABORT, $msg);
+    $NABORT = 0 ;
+    foreach $OUTDIR ( @OUTDIR_SALT2mu_LIST )  { 
+	@tmp = qx(grep ' ABORT ' $OUTDIR/*/SALT2*.LOG );
+	$NABORT += scalar(@tmp);       
+    }
+
+    if ( $NABORT > 0 )  
+    { $msg = "FAILED  ($NABORT ABORTS)"; }
+    else
+    { $msg = "SUCCESS" ; }
+
+    print " Final STATUS for DONE file: $msg \n";
+    qx(echo '$msg' >> $ALLDONE_FILE);
 
 }  # end of wait_for_done
 
@@ -1868,7 +2034,7 @@ sub make_SUMMARY {
 	"NSNFIT CHI2RED_1A " .                 # +2
 	"ALPHA ALPHA_ERR BETA BETA_ERR " .     # +4
 	"BETA1 BETA1_ERR " .                   # +2  // dbeta/dz
-	"GAMMA0 GAMMA0_ERR " .                 # +2  // magDiff across host mass
+	"GAMMA0 GAMMA0_ERR " .                 # +2  // mag-hostmass
 	"SIGINT M0AVG " .                      # +2
 	"\n";
 
@@ -1897,13 +2063,14 @@ sub make_SUMMARY {
     print PTR_SUMLOG "\n" ;
     close PTR_SUMLOG ;
 
+    # xxxxxx mark delete Jun 11 2019 xxxxxxxxxx
     # copy summary file to outdir(s)
-    my ($OUTDIR);
-    foreach $OUTDIR ( @OUTDIR_SALT2mu_LIST ) { 
-	qx(cp $SUMMARY_LOGFILE $OUTDIR); 
-	qx(cp $SUMMARY_DATFILE $OUTDIR); 
-    }
-
+#    my ($OUTDIR);
+#    foreach $OUTDIR ( @OUTDIR_SALT2mu_LIST ) { 
+#	qx(cp $SUMMARY_LOGFILE $OUTDIR); 
+#	qx(cp $SUMMARY_DATFILE $OUTDIR); 
+#   }
+    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
     print "\n";
     print " Found $NOUTFILE of $NTOT_JOBS output fitres files. \n";
@@ -1924,7 +2091,7 @@ sub write_SUMMARY_LOG {
     my ($idir,$iver,$ifitopt) = @_ ;
 
     my ($INPDIR, $OUTDIR, $VERSION, $SPREFIX, $OUTFILE, $outFile, $IOPT_S2MU );
-    my ($cVER, $nnn, $sss, @tmp, @wdlist, $FIRST, $USE);
+    my ($cVER, $nnn, $sss, @tmp, @wdlist, $FIRST, $USE, $SKIP);
     my ($chi2, $alpha, $beta, $sigmB, $M0avg );
 
     $OUTDIR  = $OUTDIR_SALT2mu_LIST[$idir] ;
@@ -1957,19 +2124,21 @@ sub write_SUMMARY_LOG {
 	$outFile = "${SPREFIX}.FITRES" ;
 	$OUTFILE = "${OUTDIR}/${VERSION}/${outFile}" ;
 	$USE     = &USE_FITOPT($IOPT_S2MU,$ifitopt);
-
+	$SKIP    = 0 ;
 	if ( -e $OUTFILE ) 
 	{ $NOUTFILE++ ; } 
 	elsif ( $USE == 1 ) { 
 	    print PTR_SUMLOG " ${VERSION}/$outFile  not  found ??? \n";
 	    PTR_SUMLOG -> autoflush(1);
-	    next; 
+	    $SKIP = 1;
 	}
 	elsif ( $USE == 0 ) {
 	    print PTR_SUMLOG " ${VERSION}/$outFile -> SKIPPED \n";
 	    PTR_SUMLOG -> autoflush(1);
-	    next; 
+	    $SKIP = 1;
 	}
+
+	if ( $SKIP ) { next; }
 
 	$sss     = sprintf("%3.3d", $IOPT_S2MU);
 
@@ -2037,6 +2206,7 @@ sub write_SUMMARY_DAT {
 	$OUTFILE = "${OUTDIR}/${VERSION}/${outFile}" ;
 	$USE     = &USE_FITOPT($IOPT_S2MU,$ifitopt);
 	if ( $USE == 0 ) { next; }
+	if ( !(-e $OUTFILE) ) { next; }
 
 	@tmp     = sntools::parse_line($OUTFILE, 2, "NSNFIT", $OPT_QUIET) ;
 	@wdlist  = split(/\s+/,$tmp[0]) ;

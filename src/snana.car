@@ -219,7 +219,7 @@ c
      &  ,MODEL_STRETCH2
      &  ,MODEL_MLCS2k2
      &  ,MODEL_SNOOPY
-     &  ,MODEL_SALT2
+     &  ,MODEL_SALT2, MODEL_SALT3
      &  ,MODEL_SIMSED
      &  ,MODEL_BYOSED
      &  ,MODEL_NON1A
@@ -398,6 +398,7 @@ c
      &  ,MODEL_MLCS2k2    = 3
      &  ,MODEL_SNOOPY     = 4
      &  ,MODEL_SALT2      = 6
+     &  ,MODEL_SALT3      = 9 ! May 31 2019
      &  ,MODEL_SIMSED     = 7
      &  ,MODEL_BYOSED     = 8 
      &  ,MODEL_NON1A      = 10
@@ -4660,6 +4661,8 @@ c Jan 25 2018:
 c   use PARSE_INTLIST to parse comma-separated lists for
 c     SNCID_LIST, SNTYPE_LIST, CCDNUM_LIST, SNTYPE_IGNORE
 c
+c May 30 2019: call PARSE_NML_STRINGLIST for SNCCID_LIST
+c
 c ----------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -4674,7 +4677,7 @@ c local var
       LOGICAL LSNIGNORE
 
 c functions
-      INTEGER PARSE_INTLIST
+      INTEGER PARSE_INTLIST, PARSE_NML_STRINGLIST
 
 C -------------- BEGIN --------------
 
@@ -4911,9 +4914,10 @@ c ----------
          else if ( LINE_ARGS(i) .EQ. 'DOBUG_LAMRANGE' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) DOBUG_LAMRANGE
 
-         else if ( LINE_ARGS(i) .EQ. 'SNCCID_LIST' ) then
-            i = i + 1 ; SNCCID_LIST(1) = LINE_ARGS(i)(1:MXCHAR_CCID)
-            SNCCID_LIST(2) = ' '
+         else if ( LINE_ARGS(i) .EQ. 'SNCCID_LIST' ) then 
+            i = i + 1 
+            CALL PARSE_SNCCID_LIST(LINE_ARGS(i)) ! May 30 2019
+c xxx mark delete  SNCCID_LIST(2) = ' '
 
          else if ( LINE_ARGS(i) .EQ. 'SNCID_LIST' ) then
             i = i + 1 ; STRING_LIST = LINE_ARGS(i)
@@ -7329,7 +7333,7 @@ c abort if sim
 10    FORMAT(A,A)
 100   FORMAT(A,I3)
 12    FORMAT(A,F12.6, T40,'# deg')
-13    FORMAT(A,F7.3,  T40, '# MW E(B-V)' )
+13    FORMAT(A,F8.4,  T40, '# MW E(B-V)' )
 20    FORMAT(A,F7.4,' +- ', F7.4, T40, '# ',  A )
 21    FORMAT(A,F10.3)
 31    FORMAT(A,F7.4, T40, '# arcSec' )
@@ -15990,8 +15994,43 @@ ccc         print*,' xxx ', iwd, OUTLIST(iwd)
       RETURN
       END
 
+C ===========================================
++DECK,PARSE_SNCCID_LIST.
+      SUBROUTINE PARSE_SNCCID_LIST(LINE) 
+
+c Created May 30 2019
+c Parse command LINE argument and load SNCCID_LIST array
+c LINE = '2004hq,2006ab' -> SNCCID_LIST = '2004hq', '2006ab'
+c 
+c
+      IMPLICIT NONE
+
+      CHARACTER LINE*(*)
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER  MSKOPT, NWD, iwd, LL
+      INTEGER  STORE_PARSE_WORDS
+      EXTERNAL STORE_PARSE_WORDS
+
+C --------------- BEGIN ------------
+
+      MSKOPT = MSKOPT_PARSE_WORDS_STRING
+      NWD    = STORE_PARSE_WORDS(MSKOPT,LINE//char(0),100)
+       
+c .xyz
+      DO iwd = 1, NWD
+         CALL get_PARSE_WORD_fortran(iwd,SNCCID_LIST(iwd),LL)
+c	 LL = INDEX(SNCCID_LIST(iwd),' ') - 1
+c	 print*,' xxx SNCCID = |', SNCCID_LIST(iwd)(1:LL), '|'
+      ENDDO
+      
+      RETURN
+      END
+
 C ====================================================
-+DECK,PARSNMLSTRLIST.
++DECK,PARSE_NML_STRLIST.
       INTEGER FUNCTION PARSE_NML_STRINGLIST(STRLIST,NCHAR)
 
 c Created Mar 12 2015 by R.Kessler
@@ -16018,8 +16057,8 @@ c ------------------------------
 +CDE,SNPAR.
 c +CDE,PARSECOM.
 
-      INTEGER NCHAR
-      CHARACTER STRLIST(MXLISTNML)*(NCHAR)
+      INTEGER NCHAR   ! (I)
+      CHARACTER STRLIST(MXLISTNML)*(NCHAR) ! (I,O)
 
 c local var
 
@@ -21101,7 +21140,7 @@ c -----------
 101   FORMAT('LIBID: ', I8, 5x,'# cadence from ', A )
 
       WRITE(LUNOUT,102) SNLC8_RA, SNLC8_DEC, SNLC_MWEBV
-102   FORMAT('RA: ', F12.6, 8x, 'DEC:', F12.6, 5x, 'MWEBV: ',F6.3)
+102   FORMAT('RA: ', F12.6, 8x, 'DEC:', F12.6, 5x, 'MWEBV: ',F7.4)
 
       WRITE(LUNOUT,105) NOBS, PIXSIZE, 
      &       SNLC_REDSHIFT,  SNLC_SEARCH_PEAKMJD 

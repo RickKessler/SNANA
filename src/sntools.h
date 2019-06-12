@@ -39,7 +39,7 @@
 
 #include "sndata.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_73b"                                              
+#define  SNANA_VERSION_CURRENT  "v10_73c"                                               
 
 #define LIGHT_km  2.99792458e5      // speed of light (km/s) 
 #define LIGHT_A   2.99792458e18     // speed of light (A/s) 
@@ -87,7 +87,8 @@
 #define MODEL_MLCS2k2  3  // MLCS2k2 (Riess, Suarab, Hubert)
 #define MODEL_SNOOPY   4  // dm15 model from C.Burns et al, 2011
 #define MODEL_S11DM15  5  // hybrid-DM15 model for psnid, Sako et al, 2011
-#define MODEL_SALT2    6  // SNLS-SALT-II model
+#define MODEL_SALT2    6  // SALT-II model
+#define MODEL_SALT3    9  // reserve index for SALT3 if needed
 #define MODEL_SIMSED   7  // set of SED sequences (e.g., sim-explosion models)
 #define MODEL_BYOSED   8  // build-your-own SED model
 #define MODEL_NON1ASED   10  // obs-frame NONIA from SED

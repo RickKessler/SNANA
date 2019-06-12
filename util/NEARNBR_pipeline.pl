@@ -696,6 +696,7 @@ sub prep_outDir {
     # create $TOPDIR_OUTPUT.
     # If it already exists, clobber it.
     # If there are no slashes, append pwd to have full path.
+    # Ju 11 2019: fix bug avoiding TOPDIR delete.
 
     if ( length($TOPDIR_OUTPUT) < 2 ) {
 	die "\n ERROR: TOPDIR_OUTPUT = '$TOPDIR_OUTPUT' \n";
@@ -711,7 +712,9 @@ sub prep_outDir {
     $ARCDIR_INPUTS = "$TOPDIR_OUTPUT/Archive_inputs" ;
     $ARCDIR_STDOUT = "$TOPDIR_OUTPUT/Archive_stdout" ;
 
-    if ( $DOSTAGE[$ISTAGE_SIMGEN_VALIDATA] == 0 ) { return ; }
+    # if skipping first stage, keep current TOPDIR_OUTPUT
+    if ( $DOSTAGE[1] == 0 ) { return ; } 
+# xxx mark delete  if ( $DOSTAGE[$ISTAGE_SIMGEN_VALIDATA] == 0 ) { return ; }
 
     if ( -d $TOPDIR_OUTPUT ) { qx(rm -r $TOPDIR_OUTPUT); }
 

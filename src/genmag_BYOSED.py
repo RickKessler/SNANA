@@ -18,15 +18,20 @@ __mask_bit_locations__={'verbose':1,'dump':2}
 __host_param_indices=['mass','sfr','age']
 
 class genmag_BYOSED:
-		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST):
+		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,NAMES_HOSTPAR):
 			try:
 				self.verbose = OPTMASK & (1 << __mask_bit_locations__['verbose']) > 0
 
 				self.dump = OPTMASK & (1 << __mask_bit_locations__['dump'])>0
 				self.sn_id=None
 
+<<<<<<< HEAD
 				self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
 
+=======
+				self.NAMES_HOSTPAR = NAMES_HOSTPAR.split(',')
+				self.PATH_VERSION = os.path.dirname(PATH_VERSION)
+>>>>>>> 01492262c07b0234a23e0b7c77935d68274a4a89
 				self.paramfile = os.path.join(self.PATH_VERSION,'BYOSED.params')
 				if os.path.exists(self.paramfile):
 					config = configparser.ConfigParser()
@@ -143,7 +148,11 @@ class genmag_BYOSED:
 
 				return list(self.wave)
 		
+<<<<<<< HEAD
 		def fetchSED_BYOSED(self,trest,maxlam,external_id,new_event,HOST_PARAMS):
+=======
+		def fetchSED_BYOSED(self,trest,maxlam,external_id,new_event,hostpars):
+>>>>>>> 01492262c07b0234a23e0b7c77935d68274a4a89
 
 				if len(self.wave)>maxlam:
 						raise RuntimeError("Your wavelength array cannot be larger than %i but is %i"%(maxlam,len(self.wave)))

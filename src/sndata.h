@@ -318,11 +318,12 @@ struct SNDATA {
   float SIM_AV, SIM_RV ;       //  host extinction parameters
   float SIM_MWRV ;             //  MilkyWay RV
   float SIM_MWEBV;             //  simulated Milky Way extinction
+  float SIM_SNMAGSHIFT_HOSTCOR;  //  mag shift from host-SN correlations
   int   SIM_NOBS_UNDEFINED ;   //  NOBS for which GENMODEL is not defined
   int   SIMOPT_MWCOLORLAW ;    //  integer option for color law
   int   SIMOPT_MWEBV ;         //  integer option to modify MWEBV_SFD
   int   SIMOPT_FLUXERR ;       //  sim-option to fludge flux errors
-  float SIM_MAGSMEAR_COH ;     // coheret part of intrinsic smear
+  float SIM_MAGSMEAR_COH ;     // coherent part of intrinsic smear
 
   float SIM_GALFRAC[MXFILTINDX];     //  effective galaxy mag under SN
   float SIM_PEAKMAG[MXFILTINDX] ;    //  peak mag in each filter

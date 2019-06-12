@@ -16718,4 +16718,110 @@ GitHub issues:
    On FNAL-DES cluster, switch devel setup to use EUPS (no mor UPS).
    This doesn't change SNANA codes, but changes what it links to.
 
+
+# ======================================================================= 
+         v10_72j (May 23 2019) 
+
+         ***** IMPORTANT(v10_72j) ***** 
+
+   SNMAGSHIFT from HOSTCOR is applied to SIM_mB and SIM_x0.
+   No impact on simulated light curves, but it affects
+   BBC biasCor correction.
+
+   HOSTPAR list passed to genmag_BYOSED.
+
+         ***** USEFUL(v10_72j) ***** 
+
+         ***** MISCELLANEOUS(v10_72j) ***** 
+
+    snana.car
+      + new SNTABLE option
+          SNTABLE_LIST = 'SNANA(text:key,text:host)'
+        to include HOSTGAL info in TEXT-tables.
+      + fix casting bug writing HOST_RA[DEC] to tables.
+   
+    snlc_sim.c :
+      + allow SNMAGSHIFT(HOSTCOR) to be in SIMGEN_DUMP list
+      + SNMAGSHIFT_HOSTCOR is now added to SALT2mB, rather than
+        added as a global mag shift. This has no effect on 
+        output light curves, but it impacts the mB-bias computed
+        in SALT2mu/BBC.  DEBUG_FLAG=55 will revert back to the
+        old way.
+      + pass HOSTPAR_LIST to genmag_BYOSED. Initial list is
+         RV, AV, LOGMASS. Note that RV,AV are impemented 
+         already with C code, so python code can start with
+         HOSTPAR_LIST[2] = LOGMASS.
+
+
+# ======================================================================= 
+         v10_73 (May 27 2019) 
+
+         ***** IMPORTANT(v10_73) ***** 
+
+  New sim default: PEAKMJD-estimate uses Fmax-clump method. See manual.
+
+         ***** USEFUL(v10_73) ***** 
+
+         ***** MISCELLANEOUS(v10_73) ***** 
+
+    SALT2mu_fit.pl
+     + untested new key  "OUTDIR_OVERRIDE: <outDir>"
+
+    snana.car
+     + MXFILT_ALL -> 100 (was 80) to match MXFILTINDX in simulation.
+     + for OPT_SETPKMJD=16 (Fmax-Clump option), re-write fortran
+       subroutine into C function (get_obs_atFLUXMAX) that is used
+       by both fitting programs and the simulation. This allows
+       leaving PEAKMJD estimate in the sim data files using the
+       same algorithm used on data, so that non-SNANA programs
+       can use PEAKMJD estimate without running snana.exe.
+
+   snlc_sim.c
+     + new function gen_peakmjd_smear() to either pick random
+       Gaussian smear, or use Fmax-clump option like the data.
+       Default is OPT_SETPKMJD=16.
+     + Beware that global GENLC.PEAKMJD_RANGauss is used to 
+       preserve random sync, but eventually should move location
+       of ran-Gauss generation to gen_peakmjd_smear() and break
+       random sync.
+     + remove obsolete input GENLIST_PEAKMJD_FILE
+     + remove obsolete functions init_peakmjdList, get_peakmjd_fromList
+
+
+# ======================================================================= 
+         v10_73b (  ) 
+
+         ***** IMPORTANT(v10_73b) ***** 
+
+         ***** USEFUL(v10_73b) ***** 
+
+         ***** MISCELLANEOUS(v10_73b) ***** 
+
+    snana.car:
+      + apply CUTWIN_TOBS to epochs for Bazin fit.
+      + fix subtle bug in LCUTEPOCH(); apply CUTWIN_TREST only
+        if OPT_SETPKMJD=0; otherwise need to wait for PKMJD
+        to be determined. Matters a lot when SEARCH_PEAKMJD
+        in data file is way off.
+      + accept command-line override with comma-separated list of 
+        CCID-strings: e.g.,
+          snana.exe <inFile> \
+             SNCCID_LIST 2000ca,2001cn,2001el,2000E,2002bo,1992bh
+
+    snana_manual.pdf :
+      + improve Sec. 5.4 : Initial Estimate of PEAKMJD.
+
+    SALT2mu.c
+     + new input JOBID_SPLITRAN to process only 1 of the NSPLITRAN jobs.
+       The summary file is created if JOBID_SPLITRAN > NSPLITRAN.
+     + fix bugs re-initializing NSPLITRAN jobs. See SPLITRAN_prep_input(),
+       and bug-fix in setup_zbins_fit().
+
+    Still to do ... make SALT2mu_fit work with NSPLITRAN to distribute
+    NSPLITRAN jobs among cores.
+
+    genmag_BYOSED.c:
+      + construct pyFORMAT_STRING_HOSTPAR to pass to python.
+      + pass NAMES_HOSTPAR to init_genmag_BYOSED()
+
 END: 

@@ -22,17 +22,19 @@ struct {
 
 // ===========================================
 // function declarations
-void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST) ;
+void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST, 
+			char *NAMES_HOSTPAR ) ;
 
 void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU, 
-		   double MWEBV, double RV_host, double AV_host,
+		   double MWEBV, int NHOSTPAR, double *HOSTPAR_LIST,
 		   int IFILT, int NOBS, double *TOBS_list, 
 		   double *MAGOBS_list, double *MAGERR_list );
 
 int  fetchParNames_BYOSED(char **parNameList);
 void fetchParVal_BYOSED(double *parVal);
 void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Tobs, int MXLAM, 
-		     int *NLAM, double *LAM, double *FLUX);
+		     double *HOSTPAR_LIST, int *NLAM, double *LAM, double *FLUX,
+		     char *pyFORMAT_STRING_HOSTPAR);
 
 void INTEG_zSED_BYOSED(int OPT_SPEC, int IFILT_OBS, double Tobs, 
 		       double zHEL, double x0,

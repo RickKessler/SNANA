@@ -106,10 +106,12 @@ struct INPUTS {
 } INPUTS ;
 
 FILE *FP_OUT;
-int  IROW_OUT;
-char NNINP_VARDEF[MXTRUETYPE][N_WFALSE][200] ;
-char VARNAME_TRUETYPE[40] ;
-char TRAIN_FILENAME[MXCHAR_FILENAME];
+int   IROW_OUT;
+char  NNINP_VARDEF[MXTRUETYPE][N_WFALSE][200] ;
+char  VARNAME_TRUETYPE[40] ;
+char  TRAIN_FILENAME[MXCHAR_FILENAME];
+float TRAIN_NON1A_SCALE;
+int   TRUETYPE_SNIa ;
 
 char msgerr1[80], msgerr2[80];
 
@@ -317,8 +319,10 @@ void  open_outFile(void) {
 
   fprintf(FP_OUT, "TRAIN_FILENAME: %s \n\n", TRAIN_FILENAME );
   fprintf(FP_OUT, "NEVTOT_TRAIN:   %d \n",   INPUTS.NEVTOT );
-  fprintf(FP_OUT, "NBIN_SEPMAX:    %d \n", INPUTS.NBIN_SEPMAX);
-  fprintf(FP_OUT, "VARNAME_TRUE:   %s\n", VARNAME_TRUETYPE); 
+  fprintf(FP_OUT, "NBIN_SEPMAX:    %d \n",   INPUTS.NBIN_SEPMAX );
+  fprintf(FP_OUT, "VARNAME_TRUE:   %s \n",   VARNAME_TRUETYPE ); 
+  fprintf(FP_OUT, "TRUETYPE_SNIa:  %d \n",   TRUETYPE_SNIa ); 
+  fprintf(FP_OUT, "TRAIN_NON1A_SCALE: %.2f \n",   TRAIN_NON1A_SCALE ); 
 
   // print min,max training range for each variable
   for(ivar=0; ivar < INPUTS.NVAR; ivar++ ) {
@@ -346,12 +350,17 @@ void  RDNN_VARNAME_TRUETYPE(void) {
 
   // Feb 07 2017
   // Read name of variable with trueType (from hist title)
-  int HID = HID_varName_trueType ;  int NB; double XMIN, XMAX;
+  int HID = HID_varName_trueType ;  
+  int NB; double XMIN, XMAX, X;
 
   sprintf(VARNAME_TRUETYPE, "unknown");
   SNHIST_RDBINS(1, HID, VARNAME_TRUETYPE, &NB, &XMIN, &XMAX);
   trim_blank_spaces(VARNAME_TRUETYPE);
   //  printf(" xxx VARNAME_TRUETYPE = '%s' \n", VARNAME_TRUETYPE);
+
+  // Jun 12 2019: read true SNIa type from content
+  SNHIST_RDCONT(1, HID, NB, &X);
+  TRUETYPE_SNIa = (int)X;
 
   return ;
 
@@ -377,7 +386,8 @@ void RDNN_TRAIN_FILENAME(void) {
   // Apr 11 2019: fix unitialized bug by setting strTmp[i][0]=0.
 
   char strTmp[NSPLIT_TITLE][MXCHAR_FILENAME];
-  int HID = HID_TRAIN_FILENAME ;  int NB,i ; double XMIN, XMAX;
+  int HID = HID_TRAIN_FILENAME ;  
+  int NB,i ; double XMIN, XMAX, X;
 
   TRAIN_FILENAME[0] = 0;
 
@@ -391,6 +401,10 @@ void RDNN_TRAIN_FILENAME(void) {
     if ( strlen(strTmp[i]) > 0 ) { strcat(TRAIN_FILENAME, strTmp[i] ); }
   }
 
+
+  // Jun 12 2019: read NONIA_SCALE from y-axis content
+  SNHIST_RDCONT(1, HID_TRAIN_FILENAME, NB, &X);
+  TRAIN_NON1A_SCALE = (float)X;
 
   return ;
 } // end RDNN_TRAIN_FILENAME

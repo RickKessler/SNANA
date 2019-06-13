@@ -18762,11 +18762,11 @@ c - - - -  - - - - - - - -
          NCELL = NCELL_TRAIN_LIST(i)        
          XCELL_TRAIN = FLOAT( NCELL_TRAIN_LIST(i) )
 
-         if ( ITYPE >= NN_ITYPE_IA(1) .and. 
-     &        ITYPE <= NN_ITYPE_IA(2) ) THEN
-              NN_PROB_IA    = NN_PROB_IA    + XCELL_TRAIN
+         if ( ITYPE == NN_ITYPE_SNIA ) THEN
+              NN_PROB_IA  = NN_PROB_IA    + XCELL_TRAIN
           endif  
 
++SELF,IF=XXXREMOVE.
          if ( ITYPE >= NN_ITYPE_II(1) .and. 
      &        ITYPE <= NN_ITYPE_II(2) ) THEN
               NN_PROB_II  = NN_PROB_II  + XCELL_TRAIN
@@ -18776,7 +18776,8 @@ c - - - -  - - - - - - - -
      &        ITYPE <= NN_ITYPE_IBC(2) ) THEN
               NN_PROB_IBC  = NN_PROB_IBC  + XCELL_TRAIN
           endif  
- 
++SELF.
+
 c          write(6,333) ITYPE, NCELL, NN_NCELL, int(NN_PROB_IA)
 333       format(' xxx ITYPE=',I3, 3x,'NCELL=',I4,'/',I4,
      &          3x,'NN_IA=',I4)
@@ -18784,8 +18785,8 @@ c          write(6,333) ITYPE, NCELL, NN_NCELL, int(NN_PROB_IA)
      
       IF( XNTOT_TRAIN > 0.0 ) THEN
          NN_PROB_IA   = NN_PROB_IA  / XNTOT_TRAIN
-         NN_PROB_II   = NN_PROB_II  / XNTOT_TRAIN
-         NN_PROB_IBC  = NN_PROB_IBC / XNTOT_TRAIN
+c         NN_PROB_II   = NN_PROB_II  / XNTOT_TRAIN
+c         NN_PROB_IBC  = NN_PROB_IBC / XNTOT_TRAIN
       ENDIF
 
       RETURN

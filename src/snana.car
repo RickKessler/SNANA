@@ -2286,26 +2286,25 @@ c check NN option and call init routines in sntools_nearnbr.c .
       LOGICAL NEARNBR_TRAIN_ODDEVEN ! odd SNID from ref; even from train
     
       INTEGER 
-     &   NN_ITYPE_FIX     ! fix NN_ITYPE for spec-confirmed sample
-     &  ,NN_ITYPE_IA(2)   ! ITYPE range for SNIa
-     &  ,NN_ITYPE_IBC(2)  ! idem for Ibc
-     &  ,NN_ITYPE_II(2)   ! idem for type II    
-
+     &   NN_ITYPE_FIX       ! fix NN_ITYPE for spec-confirmed sample
+     &  ,NN_ITYPE_SNIA      ! NN type for SNIa
 
 c results
       INTEGER 
      &   NN_ITYPE, NN_NCELL
      &  ,NNSUM_UNKNOWN, NNSUM_IA, NNSUM_NON1A 
 
-      REAL    NN_PROB_Ia, NN_PROB_II, NN_PROB_IBC
+      REAL  
+     &   NN_PROB_Ia, NN_PROB_II, NN_PROB_IBC
+     &  ,NEARNBR_TRAINFILE_NON1A_SCALE
 
       COMMON / NNCOM /
      &    NEARNBR_TRAINFILE_PATH, NEARNBR_TRAINFILE_LIST
+     &   ,NEARNBR_TRAINFILE_NON1A_SCALE
      &   ,NEARNBR_SEPMAX_VARDEF,  NEARNBR_SEPMAX_IGNORE
      &   ,NEARNBR_SEPMAX_VARNAME
      &   ,NEARNBR_TRUETYPE_VARNAME, NEARNBR_TRAIN_ODDEVEN
-     &   ,NN_ITYPE_FIX
-     &   ,NN_ITYPE_Ia, NN_ITYPE_IBC, NN_ITYPE_II
+     &   ,NN_ITYPE_FIX, NN_ITYPE_SNIa
      &   ,NNSUM_UNKNOWN, NNSUM_IA, NNSUM_NON1A
 c results
      &   ,FLAG_NEARNBR
@@ -2313,10 +2312,10 @@ c results
 
       NAMELIST / NNINP /
      &    NEARNBR_TRAINFILE_PATH, NEARNBR_TRAINFILE_LIST
+     &   ,NEARNBR_TRAINFILE_NON1A_SCALE
      &   ,NEARNBR_SEPMAX_VARDEF, NEARNBR_SEPMAX_IGNORE
      &   ,NEARNBR_TRUETYPE_VARNAME, NEARNBR_TRAIN_ODDEVEN
-     &   ,NN_ITYPE_FIX
-     &   ,NN_ITYPE_Ia, NN_ITYPE_IBC, NN_ITYPE_II
+     &   ,NN_ITYPE_FIX, NN_ITYPE_SNIa
 
 +KEEP,FITSCOM.
 
@@ -5397,6 +5396,10 @@ C -------------- BEGIN --------------
 
          else if ( LINE_ARGS(i) .EQ. 'NEARNBR_TRAINFILE_LIST' ) then
             i = i + 1 ; NEARNBR_TRAINFILE_LIST = LINE_ARGS(i)
+
+         else if (LINE_ARGS(i).EQ.'NEARNBR_TRAINFILE_NON1A_SCALE') then
+            i = i + 1 ; 
+            READ(LINE_ARGS(i),*) NEARNBR_TRAINFILE_NON1A_SCALE
 
          else if ( LINE_ARGS(i) .EQ. 'NEARNBR_SEPMAX_VARDEF' ) then
             i = i + 1 ; NEARNBR_SEPMAX_VARDEF = LINE_ARGS(i)
@@ -8835,6 +8838,10 @@ c Returns NVAR
 c   = number of variables to analyze (flag that NN option is set)
 c   = 0 -> NN option is NOT selected (flag to ignore NN option)
 c
+c Jun 12 2019:
+c   pass TRUETYPE_SNIa to NEARNBR_SET_TRUETYPE().
+c   Needed if NON1A_SCALE != 1.
+c
 c -----------------
 
       IMPLICIT NONE
@@ -8843,7 +8850,7 @@ c -----------------
 +CDE,NNCOM.  
 
       INTEGER   iocheck, LSTR,  LV, NVAR, NVAL, ISPLIT, N_IGNORE
-      INTEGER   jskip, j, iwd, ign, NWD, MSKOPT
+      INTEGER   jskip, j, iwd, ign, NWD, MSKOPT, TRUETYPE_SNIa
       CHARACTER 
      &   STRING*(MXCHAR_FILENAME)
      &  ,VARLIST_IGNORE(NN_MXVAR)*(MXCHAR_FILEWORD)
@@ -8872,14 +8879,10 @@ c init &NNINP values.
       NEARNBR_SEPMAX_IGNORE     = ' '
       NEARNBR_TRAINFILE_LIST    = ' '
       NEARNBR_TRAIN_ODDEVEN     = .FALSE.
-      NN_ITYPE_FIX = -99
+      NEARNBR_TRAINFILE_NON1A_SCALE = 1.0 
 
-      NN_ITYPE_Ia(1)  = 1
-      NN_ITYPE_Ia(2)  = 1
-      NN_ITYPE_II(1)  = 20
-      NN_ITYPE_II(2)  = 29
-      NN_ITYPE_IBC(1) = 30
-      NN_ITYPE_IBC(2) = 39
+      NN_ITYPE_FIX    = -99
+      NN_ITYPE_SNIa   = 1  
 
 c init sums for each best-type
       NNSUM_UNKNOWN=0; NNSUM_IA=0;  NNSUM_NON1A=0
@@ -8935,14 +8938,17 @@ c init TRAINFILE
 
       STRING = NEARNBR_TRAINFILE_LIST
       LSTR = INDEX(STRING,' ') - 1
-      CALL NEARNBR_SET_TRAINFILE(STRING(1:LSTR)//char(0), LSTR)
+      CALL NEARNBR_SET_TRAINFILE(STRING(1:LSTR)//char(0), 
+     &            NEARNBR_TRAINFILE_NON1A_SCALE, LSTR)
 
 c ----------------
 c set variable name with TRUETYPE
 
       STRING = NEARNBR_TRUETYPE_VARNAME
       LSTR = INDEX(STRING,' ') - 1
-      CALL NEARNBR_SET_TRUETYPE(STRING(1:LSTR)//char(0), LSTR)
+      TRUETYPE_SNIa = 1 ! beware this is hard-coded
+      CALL NEARNBR_SET_TRUETYPE(STRING(1:LSTR)//char(0), 
+     &                          TRUETYPE_SNIa, LSTR)
 
 c get list of sepmax variables to IGNORE
       N_IGNORE = 0

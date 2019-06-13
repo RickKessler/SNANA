@@ -13,8 +13,8 @@
 
             -> NEARNBR_INIT()
             -> NEARNBR_SET_TRAINPATH(trainPath)  // optional path
-            -> NEARNBR_SET_TRAINFILE(trainFile)  // called for each file
-            -> NEARNBR_SET_TRUETYPE(VARNAME_TRUETYPE)
+            -> NEARNBR_SET_TRAINFILE(trainFile,NON1A_SCALE)  // called for each file
+            -> NEARNBR_SET_TRUETYPE(VARNAME_TRUETYPE,TRUETYPE_SNIa)
             -> NEARNBR_SET_SEPMAX(VARNAME,*SEPMAX) // call for each var
             -> NEARNBR_INIT2(ISPLIT)
 
@@ -44,6 +44,10 @@
 
   Apr 11 2019: fill HID = HOFF+40 with total number of training events.
 
+  Jun 12 2019: add hook to allow for enhanced CC sample w.r.t. SNIa
+    + add NON1A_SCALE argument to NEARNBR_SET_TRAINFILE(trainFile,NON1A_SCALE)
+    + adjust computations in nearnbr_whichType() to account for NON1A_SCALE
+ 
 **********************************************/
 
 #include <stdio.h> 
@@ -104,26 +108,30 @@ void nearnbr_set_trainpath__(char *path) { NEARNBR_SET_TRAINPATH(path); }
 
 
 // ============================================
-void NEARNBR_SET_TRAINFILE(char *file) {
+void NEARNBR_SET_TRAINFILE(char *file, float NON1A_SCALE) {
   int N ;
   N =  NEARNBR_INPUTS.NTRAINFILE ;
   sprintf(NEARNBR_INPUTS.TRAINFILE_LIST[N], "%s", file);
   NEARNBR_INPUTS.NTRAINFILE++ ;
-  printf("\t Include train-file: %s\n", file);
+  NEARNBR_INPUTS.NON1A_SCALE = NON1A_SCALE ;
+  printf("\t Include train-file: %s (NON1A_SCALE=%.2f) \n", 
+	 file, NON1A_SCALE );
   fflush(stdout);
 }
-void nearnbr_set_trainfile__(char *file) { NEARNBR_SET_TRAINFILE(file); }
-
-
+void nearnbr_set_trainfile__(char *file, float *NON1A_SCALE) 
+{ NEARNBR_SET_TRAINFILE(file,*NON1A_SCALE); }
 
 
 // ============================================
-void NEARNBR_SET_TRUETYPE(char *varName) {
+void NEARNBR_SET_TRUETYPE(char *varName, int truetype_SNIa) {
   printf("\t Train-file variable with true type: %s\n", varName);
+  printf("\t %s = %d for true SNIa\n", varName, truetype_SNIa );
+  fflush(stdout);
   sprintf(NEARNBR_INPUTS.VARNAME_TRUETYPE, "%s", varName);
+  NEARNBR_INPUTS.TRUETYPE_SNIa = truetype_SNIa ;
 } 
-void nearnbr_set_truetype__(char *varName) 
-{ NEARNBR_SET_TRUETYPE(varName); }
+void nearnbr_set_truetype__(char *varName, int *truetype_SNIa) 
+{ NEARNBR_SET_TRUETYPE(varName,*truetype_SNIa); }
 
 
 
@@ -617,7 +625,7 @@ void nearnbr_read_trainLib(int ifile) {
   CDTOPDIR_OUTPUT();
 
 
-  // Apr 6 2019: check option to use only ODD CID .xyz
+  // Apr 6 2019: check option to use only ODD CID 
   int NROW_ODD;
   if ( NEARNBR_INPUTS.TRAIN_ODDEVEN )  
     { NROW_ODD = nearnbr_storeODD_trainLIB(NROW);  NROW=NROW_ODD; }
@@ -1239,7 +1247,7 @@ void nearnbr_makeHist(int ISPLIT) {
   // store fileName with training (SIM) sample (Feb 7, 2017)
   // Due to stupid limit on hbook title length (char 80),
   // write three histograms to allow up to 240 chars.
-  
+
   xmin[0]=0.0; xmax[0]=1.0; NBIN[0]=1;
 
   char strTmp[NSPLIT_TITLE][MXCHAR_TITLE+1]; 
@@ -1270,12 +1278,19 @@ void nearnbr_makeHist(int ISPLIT) {
   for(i=0; i < NSPLIT_TITLE ; i++ ) 
     { SNHIST_INIT(1, ID+i, strTmp[i], NBIN, xmin, xmax );  }
 
+  
+  // June 12 2019: fill y-axis content with NON1A_SCALE
+  xval[0]=0.5;    w = (double)NEARNBR_INPUTS.NON1A_SCALE;
+  SNHIST_FILL(1, ID, xval, w) ;
 
   // -----------------------------------------------------
-  // finally, write name of variable which stores TRUETYPE
+  // finally, write name of variable which stores TRUETYPE.
+  // June 12 2019: fill contents with true SNIa type.
   ID = HIDOFF_NEARNBR + 60 ;  
   sprintf(TITLE, "%s", NEARNBR_INPUTS.VARNAME_TRUETYPE ); 
   SNHIST_INIT(1, ID, TITLE, NBIN, xmin, xmax );  
+  xval[0] = 0.5 ;    w = (double)NEARNBR_INPUTS.TRUETYPE_SNIa ;
+  SNHIST_FILL(1, ID, xval, w);
 
   // ---------
   NEARNBR_INPUTS.FILLHIST = 1;
@@ -1484,9 +1499,10 @@ int nearnbr_whichType(int NTYPE, int *NCUTDIST,  int *TYPE_CUTPROB ) {
 
     if ( PROB > PROBMAX ) { PROBMAX=PROB; ISPARSE_PROBMAX=i; }
     
+    // .xyz REFACTOR here with CC downscale: NEARNBR_INPUTS.NON1A_SCALE
     VAR_PROB = XN*(XNTOT-XN) / XNTOT_CUBE ;
 
-    // do not allow VAR_PROB = 1; at least 1 event counts toward error
+    // do not allow VAR_PROB = 0; at least 1 event counts toward error
     if ( VAR_PROB == 0.0 ) { VAR_PROB = 1.0/(XNTOT*XNTOT) ; }
 
     SIG_PROB = sqrtf(VAR_PROB) ;

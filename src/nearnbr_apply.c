@@ -66,6 +66,8 @@ char  VARLIST_SEPMAX[1000];
 
 char  VARNAME_TRUETYPE[MXCHAR_VARNAME];
 char  TRAIN_FILENAME[MXCHAR_FILENAME] ;
+float TRAIN_NON1A_SCALE;   // June 2019
+int   TRUETYPE_SNIa;
 
 int IFILE_DATA, IFILE_SIM ;
 char msgerr1[80], msgerr2[80];
@@ -276,12 +278,21 @@ void  read_NNpar(void) {
   char c_get[MXCHAR_FILENAME];
   FILE *fp = fopen(f,"rt");
   
+  TRAIN_NON1A_SCALE = 1.0; // default value if not in file.
+  TRUETYPE_SNIa     = 1 ;
+
   while( (fscanf(fp, "%s", c_get)) != EOF) {
     if ( strcmp(c_get,"VARNAME_TRUE:") ==  0 ) 
       { readchar(fp, VARNAME_TRUETYPE ); }
 
     if ( strcmp(c_get,"TRAIN_FILENAME:") == 0 ) 
       { readchar(fp, TRAIN_FILENAME ); ENVreplace(TRAIN_FILENAME,fnam,1); }
+
+    if ( strcmp(c_get,"TRAIN_NON1A_SCALE:") == 0 ) 
+      { readfloat(fp, 1, &TRAIN_NON1A_SCALE ); }
+
+    if ( strcmp(c_get,"TRUETYPE_SNIa:") == 0 ) 
+      { readint(fp, 1, &TRUETYPE_SNIa ); }
 
   }
   fclose(fp);
@@ -314,12 +325,11 @@ void  nearnbr_apply_init(void) {
   int ivar ;
   char  *VARNAME ;
   double SEPMAX[8] ;
-
   // ------------- BEGIN -----------
 
   NEARNBR_INIT();
-  NEARNBR_SET_TRAINFILE(TRAIN_FILENAME) ;    
-  NEARNBR_SET_TRUETYPE(VARNAME_TRUETYPE) ;
+  NEARNBR_SET_TRAINFILE(TRAIN_FILENAME,TRAIN_NON1A_SCALE) ;    
+  NEARNBR_SET_TRUETYPE(VARNAME_TRUETYPE,TRUETYPE_SNIa) ; 
 
   for(ivar=0; ivar < NVAR_SEPMAX; ivar++ ) {
     VARNAME  = VARNAME_SEPMAX[ivar] ;

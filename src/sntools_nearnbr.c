@@ -13,7 +13,7 @@
 
             -> NEARNBR_INIT()
             -> NEARNBR_SET_TRAINPATH(trainPath)  // optional path
-            -> NEARNBR_SET_TRAINFILE(trainFile,NON1A_SCALE)  // called for each file
+            -> NEARNBR_SET_TRAINFILE(trainFile,SCALE_NON1A) 
             -> NEARNBR_SET_TRUETYPE(VARNAME_TRUETYPE,TRUETYPE_SNIa)
             -> NEARNBR_SET_SEPMAX(VARNAME,*SEPMAX) // call for each var
             -> NEARNBR_INIT2(ISPLIT)
@@ -45,8 +45,8 @@
   Apr 11 2019: fill HID = HOFF+40 with total number of training events.
 
   Jun 12 2019: add hook to allow for enhanced CC sample w.r.t. SNIa
-    + add NON1A_SCALE argument to NEARNBR_SET_TRAINFILE(trainFile,NON1A_SCALE)
-    + adjust computations in nearnbr_whichType() to account for NON1A_SCALE
+    + add SCALE_NON1A argument to NEARNBR_SET_TRAINFILE(trainFile,SCALE_NON1A)
+    + adjust computations in nearnbr_whichType() to account for SCALE_NON1A
 
 **********************************************/
 
@@ -108,18 +108,18 @@ void nearnbr_set_trainpath__(char *path) { NEARNBR_SET_TRAINPATH(path); }
 
 
 // ============================================
-void NEARNBR_SET_TRAINFILE(char *file, float NON1A_SCALE) {
+void NEARNBR_SET_TRAINFILE(char *file, float SCALE_NON1A) {
   int N ;
   N =  NEARNBR_INPUTS.NTRAINFILE ;
   sprintf(NEARNBR_INPUTS.TRAINFILE_LIST[N], "%s", file);
   NEARNBR_INPUTS.NTRAINFILE++ ;
-  NEARNBR_INPUTS.NON1A_SCALE = NON1A_SCALE ;
-  printf("\t Include train-file: %s (NON1A_SCALE=%.2f) \n", 
-	 file, NON1A_SCALE );
+  NEARNBR_INPUTS.SCALE_NON1A = SCALE_NON1A ;
+  printf("\t Include train-file: %s (SCALE_NON1A=%.2f) \n", 
+	 file, SCALE_NON1A );
   fflush(stdout);
 }
-void nearnbr_set_trainfile__(char *file, float *NON1A_SCALE) 
-{ NEARNBR_SET_TRAINFILE(file,*NON1A_SCALE); }
+void nearnbr_set_trainfile__(char *file, float *SCALE_NON1A) 
+{ NEARNBR_SET_TRAINFILE(file,*SCALE_NON1A); }
 
 
 // ============================================
@@ -1279,8 +1279,8 @@ void nearnbr_makeHist(int ISPLIT) {
     { SNHIST_INIT(1, ID+i, strTmp[i], NBIN, xmin, xmax );  }
 
   
-  // June 12 2019: fill y-axis content with NON1A_SCALE
-  xval[0]=0.5;    w = (double)NEARNBR_INPUTS.NON1A_SCALE;
+  // June 12 2019: fill y-axis content with SCALE_NON1A
+  xval[0]=0.5;    w = (double)NEARNBR_INPUTS.SCALE_NON1A;
   SNHIST_FILL(1, ID, xval, w) ;
 
   // -----------------------------------------------------
@@ -1472,7 +1472,7 @@ int nearnbr_whichType(int NTYPE, int *NCUTDIST,  int *TYPE_CUTPROB ) {
   //
   //
   // June 13 2019:
-  //  correcft for NON1A_SCALE to allow for larger CC sims 
+  //  correcft for SCALE_NON1A to allow for larger CC sims 
   //  without increasing SNIa sims.
   //             
 
@@ -1480,7 +1480,7 @@ int nearnbr_whichType(int NTYPE, int *NCUTDIST,  int *TYPE_CUTPROB ) {
   float PROB, PROBMAX, VAR_PROB, SIG_PROB, PROB4CUT ;
   float XN, XNTOT, XNTOT_POW2, XNTOT_POW3, XNTOT_POW4, YN ;
   float SCALE, SCALE_TYPE[NTRUETYPE_MAX];
-  float NON1A_SCALE = NEARNBR_INPUTS.NON1A_SCALE ; 
+  float SCALE_NON1A = NEARNBR_INPUTS.SCALE_NON1A ; 
   int TRUETYPE_SNIa = NEARNBR_INPUTS.TRUETYPE_SNIa ;
   char fnam[]  = "nearnbr_whichType" ;
 
@@ -1495,7 +1495,7 @@ int nearnbr_whichType(int NTYPE, int *NCUTDIST,  int *TYPE_CUTPROB ) {
     if ( TRUETYPE == TRUETYPE_SNIa ) 
       { SCALE = 1.0 ; }
     else
-      { SCALE = NON1A_SCALE; }
+      { SCALE = SCALE_NON1A; }
     SCALE_TYPE[i] = SCALE ;
     XN      = (float)NCUTDIST[i];
     XNTOT  += (XN/SCALE) ; 
@@ -1519,7 +1519,7 @@ int nearnbr_whichType(int NTYPE, int *NCUTDIST,  int *TYPE_CUTPROB ) {
     
     VAR_PROB = (XN*YN) / XNTOT_POW3 ; 
 
-    // June 2019: for true SNIa, compute variance accounting for NON1A_SCALE
+    // June 2019: for true SNIa, compute variance accounting for SCALE_NON1A
     TRUETYPE = NEARNBR_TRAINLIB.TRUETYPE_LIST[i];
     if ( TRUETYPE == TRUETYPE_SNIa ) { 
       VAR_PROB = (XN*YN) * (XN + YN/SCALE) / XNTOT_POW4;

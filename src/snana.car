@@ -2296,11 +2296,11 @@ c results
 
       REAL  
      &   NN_PROB_Ia, NN_PROB_II, NN_PROB_IBC
-     &  ,NEARNBR_TRAINFILE_NON1A_SCALE
+     &  ,NEARNBR_TRAINFILE_SCALE_NON1A
 
       COMMON / NNCOM /
      &    NEARNBR_TRAINFILE_PATH, NEARNBR_TRAINFILE_LIST
-     &   ,NEARNBR_TRAINFILE_NON1A_SCALE
+     &   ,NEARNBR_TRAINFILE_SCALE_NON1A
      &   ,NEARNBR_SEPMAX_VARDEF,  NEARNBR_SEPMAX_IGNORE
      &   ,NEARNBR_SEPMAX_VARNAME
      &   ,NEARNBR_TRUETYPE_VARNAME, NEARNBR_TRAIN_ODDEVEN
@@ -2312,7 +2312,7 @@ c results
 
       NAMELIST / NNINP /
      &    NEARNBR_TRAINFILE_PATH, NEARNBR_TRAINFILE_LIST
-     &   ,NEARNBR_TRAINFILE_NON1A_SCALE
+     &   ,NEARNBR_TRAINFILE_SCALE_NON1A
      &   ,NEARNBR_SEPMAX_VARDEF, NEARNBR_SEPMAX_IGNORE
      &   ,NEARNBR_TRUETYPE_VARNAME, NEARNBR_TRAIN_ODDEVEN
      &   ,NN_ITYPE_FIX, NN_ITYPE_SNIa
@@ -5397,9 +5397,9 @@ C -------------- BEGIN --------------
          else if ( LINE_ARGS(i) .EQ. 'NEARNBR_TRAINFILE_LIST' ) then
             i = i + 1 ; NEARNBR_TRAINFILE_LIST = LINE_ARGS(i)
 
-         else if (LINE_ARGS(i).EQ.'NEARNBR_TRAINFILE_NON1A_SCALE') then
+         else if (LINE_ARGS(i).EQ.'NEARNBR_TRAINFILE_SCALE_NON1A') then
             i = i + 1 ; 
-            READ(LINE_ARGS(i),*) NEARNBR_TRAINFILE_NON1A_SCALE
+            READ(LINE_ARGS(i),*) NEARNBR_TRAINFILE_SCALE_NON1A
 
          else if ( LINE_ARGS(i) .EQ. 'NEARNBR_SEPMAX_VARDEF' ) then
             i = i + 1 ; NEARNBR_SEPMAX_VARDEF = LINE_ARGS(i)
@@ -8840,7 +8840,7 @@ c   = 0 -> NN option is NOT selected (flag to ignore NN option)
 c
 c Jun 12 2019:
 c   pass TRUETYPE_SNIa to NEARNBR_SET_TRUETYPE().
-c   Needed if NON1A_SCALE != 1.
+c   Needed if SCALE_NON1A != 1.
 c
 c -----------------
 
@@ -8879,7 +8879,7 @@ c init &NNINP values.
       NEARNBR_SEPMAX_IGNORE     = ' '
       NEARNBR_TRAINFILE_LIST    = ' '
       NEARNBR_TRAIN_ODDEVEN     = .FALSE.
-      NEARNBR_TRAINFILE_NON1A_SCALE = 1.0 
+      NEARNBR_TRAINFILE_SCALE_NON1A = 1.0 
 
       NN_ITYPE_FIX    = -99
       NN_ITYPE_SNIa   = 1  
@@ -8939,7 +8939,7 @@ c init TRAINFILE
       STRING = NEARNBR_TRAINFILE_LIST
       LSTR = INDEX(STRING,' ') - 1
       CALL NEARNBR_SET_TRAINFILE(STRING(1:LSTR)//char(0), 
-     &            NEARNBR_TRAINFILE_NON1A_SCALE, LSTR)
+     &            NEARNBR_TRAINFILE_SCALE_NON1A, LSTR)
 
 c ----------------
 c set variable name with TRUETYPE

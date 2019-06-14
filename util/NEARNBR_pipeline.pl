@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-#
+# 
 # Created Dec 2014 by R.Kessler
 # Run nearest neighbor (NN) pipeline:
 #
@@ -99,7 +99,7 @@
 # Apr 11 2019: --truetype --> -truetype (just one dash)
 #
 # Jun 14 2019: 
-#   + read new optional key SIMTRAIN_NON1A_SCALE to enhance CC
+#   + read new optional key SIMTRAIN_SCALE_NON1A to enhance CC
 #     without increasing SNIa size. See GENOPT_GLOBAL appended.
 #     NNtrain C-code has been updated to account for SCALE_NON1A > 1.
 #
@@ -174,7 +174,7 @@ my ($INFILE_SIMGEN_Ia_TRAIN, $INFILE_SIMGEN_NONIa_TRAIN, $NGEN_UNIT_TRAIN );
 my ($ISTAGE_START, $ISTAGE_END, $VERSION_REALDATA );
 my ($SYMLINKS_FLAG, $DO_LAUNCH, @CONTENTS_SIMTRAIN, @CONTENTS_SIMDATA) ;
 my ($SCALE_NGEN_UNIT_VALIDATA, $SCALE_NGEN_UNIT_BIASCOR);
-my ($NGEN_UNIT_VALIDATA, $NGEN_UNIT_BIASCOR, $SIMTRAIN_NON1A_SCALE);
+my ($NGEN_UNIT_VALIDATA, $NGEN_UNIT_BIASCOR, $SIMTRAIN_SCALE_NON1A);
 
 my ($INPUT_WFALSE);
 my $WFALSE_VALID = "1 3 5";
@@ -544,13 +544,13 @@ sub parse_inFile_master {
 # - - - - -
 # check SCALE_NON1A[NONIA]
 
-    $KEY  = "SIMTRAIN_NON1A_SCALE:" ;
+    $KEY  = "SIMTRAIN_SCALE_NON1A:" ;
     @tmp  = sntools::parse_array($KEY,1, $OPT_QUIET, @CONTENTS_MASTER);
-    if ( scalar(@tmp) > 0  ) { $SIMTRAIN_NON1A_SCALE = "$tmp[0]" ; }
+    if ( scalar(@tmp) > 0  ) { $SIMTRAIN_SCALE_NON1A = "$tmp[0]" ; }
 
-    $KEY  = "SIMTRAIN_NONIA_SCALE:" ;
+    $KEY  = "SIMTRAIN_SCALE_NONIA:" ;
     @tmp  = sntools::parse_array($KEY,1, $OPT_QUIET, @CONTENTS_MASTER);
-    if ( scalar(@tmp) > 0  ) { $SIMTRAIN_NON1A_SCALE = "$tmp[0]" ; }
+    if ( scalar(@tmp) > 0  ) { $SIMTRAIN_SCALE_NON1A = "$tmp[0]" ; }
 
 # - - - - - - - - - - 
     $KEY  = "SCALE_NGEN_UNIT_VALIDATA:" ;
@@ -988,9 +988,9 @@ sub make_SIMGEN_MASTER {
     }
 
     # Jun 14 2019: for TRAIN, add global option to scale NON1A (.xyz
-    if ( $ISTAGE == $ISTAGE_SIMGEN_TRAIN && $SIMTRAIN_NON1A_SCALE != 1.0 ) {
+    if ( $ISTAGE == $ISTAGE_SIMGEN_TRAIN && $SIMTRAIN_SCALE_NON1A != 1.0 ) {
 	my $sigArg = "$GENOPT_GLOBAL_TRAIN " .
-	    "NGEN_SCALE_NON1A $SIMTRAIN_NON1A_SCALE " ;
+	    "NGEN_SCALE_NON1A $SIMTRAIN_SCALE_NON1A " ;
 	$SEDCMD = "$SEDCMD -e " . "'/GENOPT_GLOBAL/d'" ;
 	$SEDCMD = "$SEDCMD -e " . " '\$ i\GENOPT_GLOBAL: $sigArg'" ;
     }
@@ -1440,7 +1440,7 @@ sub run_lcfit {
 	print PTRNML "   NEARNBR_TRAINFILE_LIST = 'FITOPT000.FITRES' \n\n";
 	print PTRNML "   NEARNBR_SEPMAX_VARDEF  = \n    '$SEPMAX_VARDEF' \n\n";
 	print PTRNML "   NEARNBR_TRUETYPE_VARNAME      = 'SIM_TYPE_INDEX' \n\n";
-	print PTRNML "   NEARNBR_TRAINFILE_NON1A_SCALE = $SIMTRAIN_NON1A_SCALE \n\n" ;
+	print PTRNML "   NEARNBR_TRAINFILE_SCALE_NON1A = $SIMTRAIN_SCALE_NON1A \n\n" ;
 	print PTRNML " &END\n";
 	close PTRNML ;
     }

@@ -1,7 +1,6 @@
 /***********************************************************
   Created April 2014 by R.Kessler
 
-
   Stand-alone program to analyze output based on sntools_nearnbr.c[h]
   and do the NN training. Writes results to stdout.
 
@@ -110,7 +109,7 @@ int   IROW_OUT;
 char  NNINP_VARDEF[MXTRUETYPE][N_WFALSE][200] ;
 char  VARNAME_TRUETYPE[40] ;
 char  TRAIN_FILENAME[MXCHAR_FILENAME];
-float TRAIN_NON1A_SCALE;
+float TRAIN_SCALE_NON1A;
 int   TRUETYPE_SNIa ;
 
 char msgerr1[80], msgerr2[80];
@@ -322,7 +321,7 @@ void  open_outFile(void) {
   fprintf(FP_OUT, "NBIN_SEPMAX:    %d \n",   INPUTS.NBIN_SEPMAX );
   fprintf(FP_OUT, "VARNAME_TRUE:   %s \n",   VARNAME_TRUETYPE ); 
   fprintf(FP_OUT, "TRUETYPE_SNIa:  %d \n",   TRUETYPE_SNIa ); 
-  fprintf(FP_OUT, "TRAIN_NON1A_SCALE: %.2f \n",   TRAIN_NON1A_SCALE ); 
+  fprintf(FP_OUT, "TRAIN_SCALE_NON1A: %.2f \n",   TRAIN_SCALE_NON1A ); 
 
   // print min,max training range for each variable
   for(ivar=0; ivar < INPUTS.NVAR; ivar++ ) {
@@ -404,7 +403,7 @@ void RDNN_TRAIN_FILENAME(void) {
 
   // Jun 12 2019: read NONIA_SCALE from y-axis content
   SNHIST_RDCONT(1, HID_TRAIN_FILENAME, NB, &X);
-  TRAIN_NON1A_SCALE = (float)X;
+  TRAIN_SCALE_NON1A = (float)X;
 
   return ;
 } // end RDNN_TRAIN_FILENAME

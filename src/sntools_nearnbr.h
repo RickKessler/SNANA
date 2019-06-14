@@ -28,8 +28,8 @@ void nearnbr_init__(void);
 void NEARNBR_SET_TRAINPATH(char *path) ;
 void nearnbr_set_trainpath__(char *path);
 
-void NEARNBR_SET_TRAINFILE(char *file, float NON1A_SCALE);
-void nearnbr_set_trainfile__(char *file, float *NON1A_SCALE);
+void NEARNBR_SET_TRAINFILE(char *file, float SCALE_NON1A);
+void nearnbr_set_trainfile__(char *file, float *SCALE_NON1A);
 
 void NEARNBR_SET_TRUETYPE(char *varName, int truetype_SNIa) ;
 void nearnbr_set_truetype__(char *varName, int *truetype_SNIa);
@@ -102,7 +102,7 @@ struct NEARNBR_INPUTS {
   char   TRAINFILE_LIST[MXTRAINFILE_NEARNBR][200] ;
   int    NTRAINFILE ;
   char   VARNAME_TRUETYPE[60];
-  int    TRUETYPE_SNIa ; // used with NON1A_SCALE
+  int    TRUETYPE_SNIa ; // used with SCALE_NON1A
   int    TRAIN_ODDEVEN;  // if True, odd SNID for ref, even for TRAIN
 
   int    NVAR ;
@@ -113,7 +113,7 @@ struct NEARNBR_INPUTS {
 
   float  CUTPROB ;      // fraction of R<1 events to set tag
   float  NSIGMA_PROB ;  // required significance (sigma) of PROB > CUTPROB
-  float  NON1A_SCALE ;  // extra sim scale to enhance CC sample;
+  float  SCALE_NON1A ;  // extra sim scale to enhance CC sample;
                         // default=1 for physical CC/Ia rate-ratio
 
   int FILLHIST ;  // internally set to TRUE if multiple SEPMAX bins

@@ -5,7 +5,7 @@
       CID ITYPE, NCELL, PROB_IA
   for each event in data sample
 
-  
+
   USAGE: 
    nearnbr_apply.exe \
      -inFile_data   <inFile_data>
@@ -66,7 +66,7 @@ char  VARLIST_SEPMAX[1000];
 
 char  VARNAME_TRUETYPE[MXCHAR_VARNAME];
 char  TRAIN_FILENAME[MXCHAR_FILENAME] ;
-float TRAIN_NON1A_SCALE;   // June 2019
+float TRAIN_SCALE_NON1A;   // June 2019  
 int   TRUETYPE_SNIa;
 
 int IFILE_DATA, IFILE_SIM ;
@@ -278,7 +278,7 @@ void  read_NNpar(void) {
   char c_get[MXCHAR_FILENAME];
   FILE *fp = fopen(f,"rt");
   
-  TRAIN_NON1A_SCALE = 1.0; // default value if not in file.
+  TRAIN_SCALE_NON1A = 1.0; // default value if not in file.
   TRUETYPE_SNIa     = 1 ;
 
   while( (fscanf(fp, "%s", c_get)) != EOF) {
@@ -288,8 +288,8 @@ void  read_NNpar(void) {
     if ( strcmp(c_get,"TRAIN_FILENAME:") == 0 ) 
       { readchar(fp, TRAIN_FILENAME ); ENVreplace(TRAIN_FILENAME,fnam,1); }
 
-    if ( strcmp(c_get,"TRAIN_NON1A_SCALE:") == 0 ) 
-      { readfloat(fp, 1, &TRAIN_NON1A_SCALE ); }
+    if ( strcmp(c_get,"TRAIN_SCALE_NON1A:") == 0 ) 
+      { readfloat(fp, 1, &TRAIN_SCALE_NON1A ); }
 
     if ( strcmp(c_get,"TRUETYPE_SNIa:") == 0 ) 
       { readint(fp, 1, &TRUETYPE_SNIa ); }
@@ -328,7 +328,7 @@ void  nearnbr_apply_init(void) {
   // ------------- BEGIN -----------
 
   NEARNBR_INIT();
-  NEARNBR_SET_TRAINFILE(TRAIN_FILENAME,TRAIN_NON1A_SCALE) ;    
+  NEARNBR_SET_TRAINFILE(TRAIN_FILENAME,TRAIN_SCALE_NON1A) ;    
   NEARNBR_SET_TRUETYPE(VARNAME_TRUETYPE,TRUETYPE_SNIa) ; 
 
   for(ivar=0; ivar < NVAR_SEPMAX; ivar++ ) {

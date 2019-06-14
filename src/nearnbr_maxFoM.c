@@ -359,7 +359,7 @@ void  RDNN_VARNAME_TRUETYPE(void) {
 
   // Jun 12 2019: read true SNIa type from content
   SNHIST_RDCONT(1, HID, NB, &X);
-  TRUETYPE_SNIa = (int)X;
+  TRUETYPE_SNIa = (int)X / INPUTS.Nmerge ;
 
   return ;
 
@@ -403,7 +403,7 @@ void RDNN_TRAIN_FILENAME(void) {
 
   // Jun 12 2019: read NONIA_SCALE from y-axis content
   SNHIST_RDCONT(1, HID_TRAIN_FILENAME, NB, &X);
-  TRAIN_SCALE_NON1A = (float)X;
+  TRAIN_SCALE_NON1A = (float)X/(float)INPUTS.Nmerge ;
 
   return ;
 } // end RDNN_TRAIN_FILENAME

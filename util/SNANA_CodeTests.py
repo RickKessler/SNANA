@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 #
+# TO DO: make sure this works if TESTINPUT is not given
+#        example task: NEARNBR_MAXFOM_DES
+#
 # Created May 2019, R. Kessler
 # Regression testing on SNANA codes (replaces SNANA_tester.pl)
 #
@@ -551,9 +554,58 @@ def parse_cpufile(INPUTS,CPUNUM_REQ):
 
 
 # ==============================================
+def copy_input_files(INPUTS,PREFIX,*TESTINPUT):
+
+    # Copy first input to logdir and tack on PREFIX = TASKnnn_.
+    # If not HBOOK or ROOT file,  use 'sed' to copy with 
+    # XXX -> REF or TEST substution.
+    # If HBOOK or ROOT file, just do regular copy.
+
+
+    if ( not TESTINPUT ):
+        print (' No TESTINPUT --> no input files to copy. ')
+        return
+
+    REFTEST     = INPUTS["REFTEST"]
+    LOGDIR      = INPUTS["LOGDIR"]
+    infile_orig = TESTINPUT[0]
+    infile_copy = ('%s_%s' % (PREFIX,infile_orig) )
+    INFILE_ORIG = ('%s/%s' % (INPUT_DIR,infile_orig) )
+    INFILE_COPY = ('%s/%s' % (LOGDIR,infile_copy) )
+
+    print ('\t Copy input file %s' % (infile_orig) )
+
+    if ".HBOOK" in INFILE_ORIG or ".ROOT" in INFILE_ORIG :
+        # regular copy
+        CMD_COPY = ( 'cp %s %s' % (INFILE_ORIG, INFILE_COPY) )
+    else:
+        # sed with substitution of XXX -> REF or TEST
+        CMD_COPY = ( "sed -e 's/XXX/%s/g'  %s > %s" % 
+                     (REFTEST, INFILE_ORIG, INFILE_COPY) )
+    os.system(CMD_COPY)
+
+    # make sure INFILE_COPY is created; if not, abort
+    if ( os.path.isfile(INFILE_COPY) == False ) :
+        msg = ('\n ABORT: Unable to create input file with\n\t %s' % CMD_COPY)
+        sys.exit(msg)
+
+    # copy remaining input files (without alteration) if more than
+    # one input file is specified.
+    for ifile in range(1,len(TESTINPUT)):
+        infile_orig = TESTINPUT[ifile]
+        print ('\t Copy supplemental input file %s' % (infile_orig) )
+        INFILE_ORIG = ('%s/%s' % (INPUT_DIR,infile_orig) )
+        INFILE_COPY = ('%s/%s' % (LOGDIR,infile_orig) )
+        CMD_cp      = ('cp %s %s' % (INFILE_ORIG,INFILE_COPY) )
+        os.system(CMD_cp)
+
+    # return input file name with prefix used for task
+    return(infile_copy)
+
+# ==============================================
 def execute_task(itask,CPU_TASKLIST,INPUTS) :
 
-    # execute job, greo out result, and  create DONE file with result.
+    # execute job, grep out result, and  create DONE file with result.
 
     TASKNUM  = CPU_TASKLIST["TASKNUM"][itask]
     TASK     = CPU_TASKLIST["TASK"][itask]
@@ -594,45 +646,16 @@ def execute_task(itask,CPU_TASKLIST,INPUTS) :
     GREP_WD0      = int(CONTENTS_TASK["WORDNUM"][0])
     GREP_WD1      = int(CONTENTS_TASK["WORDNUM"][1]) + 1
 
-    # Copy first input to logdir and tack on PREFIX = TASKnnn_.
-    # If not HBOOK or ROOT file,  use 'sed' to copy with 
-    # XXX -> REF or TEST substution.
-    # If HBOOK or ROOT file, just do regular copy.
-    infile_orig = TESTINPUT[0]
-    infile_copy = ('%s_%s' % (PREFIX,infile_orig) )
-    INFILE_ORIG = ('%s/%s' % (INPUT_DIR,infile_orig) )
-    INFILE_COPY = ('%s/%s' % (LOGDIR,infile_copy) )
-
-    if ".HBOOK" in INFILE_ORIG or ".ROOT" in INFILE_ORIG :
-        # regular copy
-        CMD_COPY = ( 'cp %s %s' % (INFILE_ORIG, INFILE_COPY) )
-    else:
-        # sed with substitution of XXX -> REF or TEST
-        CMD_COPY = ( "sed -e 's/XXX/%s/g'  %s > %s" % 
-                     (REFTEST, INFILE_ORIG, INFILE_COPY) )
-    os.system(CMD_COPY)
-
-    # make sure INFILE_COPY is created; if not, abort
-    if ( os.path.isfile(INFILE_COPY) == False ) :
-        msg = ('\n ABORT: Unable to create input file with\n\t %s' % CMD_COPY)
-        sys.exit(msg)
-
-    # copy remaining input files (without alteration) if more than
-    # one input file is specified.
-    for ifile in range(1,len(TESTINPUT)):
-        infile_orig = TESTINPUT[ifile]
-        INFILE_ORIG = ('%s/%s' % (INPUT_DIR,infile_orig) )
-        INFILE_COPY = ('%s/%s' % (LOGDIR,infile_orig) )
-        CMD_cp      = ('cp %s %s' % (INFILE_ORIG,INFILE_COPY) )
-        os.system(CMD_cp)
-
+    # copy input file(s) to output log dir, and append PREFIX to input name
+    # return arg 'input_copy' includes TASK[nnn] PREFIX.
+    infile_copy = copy_input_files(INPUTS,PREFIX,*TESTINPUT)
 
     # construct job name with arguments
     if len(TESTJOB_ARGS) > 1 :
         # if TESTJOB_ARGS contains "TESTINPUT" string, substitute
         # the actual input file name that includes TASKnnn prefix
         if "TESTINPUT" in TESTJOB_ARGS:
-            TESTJOB_ARGS = TESTJOB_ARGS.replace("TESTINPUT",infile_copy)
+            TESTJOB_ARGS = TESTJOB_ARGS.replace("TESTINPUT", infile_copy)
 
         job_plus_args = ('%s %s' % (TESTJOB, TESTJOB_ARGS) )
     else:
@@ -851,7 +874,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
 # ===================================
 def submitTasks_driver(INPUTS,LIST_FILE_INFO):
 
-    print '\n Prepare to Submit tasks '
+    print('\n Prepare to Submit tasks ')
 
     SCRIPTNAME     = INPUTS["SCRIPTNAME"]
     DOCOMPARE_ONLY = INPUTS["DOCOMPARE_ONLY"]
@@ -971,7 +994,7 @@ def compare_results(INPUTS,RESULTS_INFO_REF,RESULTS_INFO_TEST):
     cmd_cat = ('cat %s' % DIFF_FILE)
     os.system(cmd_cat)
 
-    return
+    return(NTASK_FAIL)
 
 # ========================================
 def make_tarfiles(LOGDIR):
@@ -1069,10 +1092,12 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
 
     if DOTEST is True :
         RESULTS_INFO_TEST = get_RESULTS_TASKS(LOGDIR)
-        compare_results(INPUTS,RESULTS_INFO_REF,RESULTS_INFO_TEST)
+        NCOMPARE_FAIL = compare_results(INPUTS,RESULTS_INFO_REF,RESULTS_INFO_TEST)
+    else:
+        NCOMPARE_FAIL = 0   # REF cannot have compare errors
 
     # if no errors, tar things up
-    if ( NABORT==0 and NBLANK==0 ) :
+    if ( NABORT==0 and NBLANK==0 and NCOMPARE_FAIL==0 ) :
         make_tarfiles(LOGDIR)
 
     return               

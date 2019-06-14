@@ -47,7 +47,7 @@
   Jun 12 2019: add hook to allow for enhanced CC sample w.r.t. SNIa
     + add NON1A_SCALE argument to NEARNBR_SET_TRAINFILE(trainFile,NON1A_SCALE)
     + adjust computations in nearnbr_whichType() to account for NON1A_SCALE
- 
+
 **********************************************/
 
 #include <stdio.h> 
@@ -1471,39 +1471,62 @@ int nearnbr_whichType(int NTYPE, int *NCUTDIST,  int *TYPE_CUTPROB ) {
   //  (O) Function arg returns sparse TYPE index (-1 if no type)
   //
   //
+  // June 13 2019:
+  //  correcft for NON1A_SCALE to allow for larger CC sims 
+  //  without increasing SNIa sims.
+  //             
 
-  int   ISPARSE, ISPARSE_PROBMAX, NTOT, i  ;
+  int   ISPARSE, ISPARSE_PROBMAX, i, TRUETYPE  ;
   float PROB, PROBMAX, VAR_PROB, SIG_PROB, PROB4CUT ;
-  float XN, XNTOT, XNTOT_CUBE ;
-
-  //  char fnam[]  = "nearnbr_whichType" ;
+  float XN, XNTOT, XNTOT_POW2, XNTOT_POW3, XNTOT_POW4, YN ;
+  float SCALE, SCALE_TYPE[NTRUETYPE_MAX];
+  float NON1A_SCALE = NEARNBR_INPUTS.NON1A_SCALE ; 
+  int TRUETYPE_SNIa = NEARNBR_INPUTS.TRUETYPE_SNIa ;
+  char fnam[]  = "nearnbr_whichType" ;
 
   // ----------------- BEGIN ------------------
 
   *TYPE_CUTPROB = -9 ;  ISPARSE = ISPARSE_PROBMAX = -1 ;
   PROBMAX = -9.0 ;
   
-  NTOT = 0 ;
-  for(i=0; i < NTYPE; i++ ) { NTOT += NCUTDIST[i] ; }
+  XNTOT = 0.0 ;
+  for(i=0; i < NTYPE; i++ ) { 
+    TRUETYPE = NEARNBR_TRAINLIB.TRUETYPE_LIST[i];
+    if ( TRUETYPE == TRUETYPE_SNIa ) 
+      { SCALE = 1.0 ; }
+    else
+      { SCALE = NON1A_SCALE; }
+    SCALE_TYPE[i] = SCALE ;
+    XN      = (float)NCUTDIST[i];
+    XNTOT  += (XN/SCALE) ; 
+  }
 
-  if ( NTOT == 0 ) { return ISPARSE ; }
+  if ( XNTOT == 0.0 ) { return ISPARSE ; }
 
-  XNTOT      = (float)NTOT ;
-  XNTOT_CUBE = XNTOT * XNTOT * XNTOT ;
-
+  XNTOT_POW2 = XNTOT * XNTOT ;
+  XNTOT_POW3 = XNTOT * XNTOT * XNTOT ;
+  XNTOT_POW4 = XNTOT_POW3 * XNTOT ;
+  
   // find which type passes the CUTPROB cut
   for(i=0; i< NTYPE; i++ ) { 
 
-    XN   = (float)NCUTDIST[i] ;
+    // xxx mark delete  XN   = (float)NCUTDIST[i];
+    XN   = (float)NCUTDIST[i] / SCALE_TYPE[i] ;
+    YN   = XNTOT - XN ;
     PROB = XN / XNTOT ;
 
     if ( PROB > PROBMAX ) { PROBMAX=PROB; ISPARSE_PROBMAX=i; }
     
-    // .xyz REFACTOR here with CC downscale: NEARNBR_INPUTS.NON1A_SCALE
-    VAR_PROB = XN*(XNTOT-XN) / XNTOT_CUBE ;
+    VAR_PROB = (XN*YN) / XNTOT_POW3 ; 
+
+    // June 2019: for true SNIa, compute variance accounting for NON1A_SCALE
+    TRUETYPE = NEARNBR_TRAINLIB.TRUETYPE_LIST[i];
+    if ( TRUETYPE == TRUETYPE_SNIa ) { 
+      VAR_PROB = (XN*YN) * (XN + YN/SCALE) / XNTOT_POW4;
+    }
 
     // do not allow VAR_PROB = 0; at least 1 event counts toward error
-    if ( VAR_PROB == 0.0 ) { VAR_PROB = 1.0/(XNTOT*XNTOT) ; }
+    if ( VAR_PROB == 0.0 ) { VAR_PROB = 1.0/XNTOT_POW2 ; }
 
     SIG_PROB = sqrtf(VAR_PROB) ;
     PROB4CUT = PROB - (SIG_PROB * NEARNBR_INPUTS.NSIGMA_PROB) ;

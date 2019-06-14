@@ -3979,11 +3979,11 @@ For example, to simulate 3 seasons set the following:
 \bigskip
 To scale the rates,
 \begin{verbatim}
-    DNDZ_SCALE:       xx yy  # scales for Ia and NONIA
+    DNDZ_SCALE:       xx yy  # xx= SNIa-scale; yy=scale for NON1A/SIMSED
       or
-    DNDZ_SCALE_NON1A: yy     # scale NON1A rata (scaleIa=1.0)
+    DNDZ_SCALE_NON1A: yy     # scale NON1A and SIMSED rates (scaleIa=1.0)
       or
-    DNDZ_ALLSCALE:  xx       # scale rate for any model
+    DNDZ_ALLSCALE:  xx       # scale rate for all models
 \end{verbatim}
 This option is also useful for {\tt sim\_SNmix}:
 e.g., to add a large Ia-biasCor sample, 
@@ -4483,7 +4483,8 @@ of generated events:
       or
   NGENTOT_LC: 1000  ! default is zero
 
-  NGEN_SCALE: 3     ! default is 1
+  NGEN_SCALE: 3           ! scale all models: default is 1
+  NGEN_SCALE_SCALE: 3     ! scale NON1A and SIMSED models: default is 1
 \end{Verbatim}
 %
 The first key, {\tt NGEN\_LC}, specifies the number of SN generated

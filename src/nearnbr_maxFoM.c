@@ -360,7 +360,7 @@ void  RDNN_VARNAME_TRUETYPE(void) {
 
   // Jun 12 2019: read true SNIa type from content
   SNHIST_RDCONT(1, HID, NB, &X);
-  TRUETYPE_SNIa = (int)X / INPUTS.Nmerge ;
+  TRUETYPE_SNIa = (int)X ;
 
   return ;
 
@@ -404,7 +404,7 @@ void RDNN_TRAIN_FILENAME(void) {
 
   // Jun 12 2019: read NONIA_SCALE from y-axis content
   SNHIST_RDCONT(1, HID_TRAIN_FILENAME, NB, &X);
-  TRAIN_SCALE_NON1A = (float)X/(float)INPUTS.Nmerge ;
+  TRAIN_SCALE_NON1A = (float)X ;
 
   return ;
 } // end RDNN_TRAIN_FILENAME
@@ -439,7 +439,7 @@ void  RDNN_Nmerge(void) {
   }
 
   INPUTS.Nmerge = Nmerge ;  // store in global
-
+  
   fflush(stdout);
   
   return ;
@@ -450,6 +450,7 @@ void  RDNN_Nmerge(void) {
 void  RDNN_TypeList(void) {
 
   // read hid 802 and fill INPUTS.NTrueType and .TrueType array.
+  // Jun 2019: remove  /= Nmerge since it's filled only with ISPLIT=1
 
   int  HID = HID_TypeList ;
   char   CTIT[80];
@@ -465,7 +466,8 @@ void  RDNN_TypeList(void) {
   DOFLAG = 1 ; // default is to train on all TRUETYPEs
 
   for(i=0; i < NB; i++ ) {
-    TrueType           = (int)X[i]/INPUTS.Nmerge ;
+    // xxx mark delete    TrueType           = (int)X[i]/INPUTS.Nmerge ;
+    TrueType           = (int)X[i] ;
     INPUTS.TrueType[i] = TrueType ;
 
     if ( INPUTS.FLAG_VBOSE ) 
@@ -485,14 +487,15 @@ void  RDNN_TypeList(void) {
 void  RDNN_SEPMAXbins(void) {
 
   // read SEPMAX bins for each variable.
+  // Jun 2019: remove /= Nmerge since it's filled only for ISPLIT=1
 
   int HID = HID_SEPMAXbins ;
   char   CTIT[80], *ptrtok ;
   int    NB[2], NXY, ivar, isep, j, NVAR, NBSEP ;
-  double XMIN[2], XMAX[2], *CONTENTS, XNorm, SEPVAL ;
+  double XMIN[2], XMAX[2], *CONTENTS,  SEPVAL ;
 
   SNHIST_RDBINS(2, HID, CTIT, NB, XMIN, XMAX);
-  XNorm = (double)INPUTS.Nmerge ;
+  // xxx mark delete   XNorm = (double)INPUTS.Nmerge ;
 
   NBSEP              = NB[0] ; // local var
   NVAR               = NB[1] ;
@@ -535,7 +538,8 @@ void  RDNN_SEPMAXbins(void) {
   for(ivar=0; ivar < NVAR; ivar++ ) {
     for( isep=0; isep < NBSEP ; isep++ ) {
       j = ivar*NBSEP + isep;
-      SEPVAL = CONTENTS[j]/XNorm ;
+      // xxx mark delete      SEPVAL = CONTENTS[j]/XNorm ;
+      SEPVAL = CONTENTS[j] ;
       INPUTS.SEPMAX[ivar][isep] = SEPVAL ;
     }
   }
@@ -616,15 +620,17 @@ void  RDNN_UntrainedPurity(void) {
   // Apr 15 2014
   // read/store untrained purities for reference;
   // these purities are not used for any calculations.
+  //
+  // Jun 2019: remove /=Nmerge since it's filled only for ISPLIT=1
 
   int HID, NTrueType, i, NB ;
-  double XMIN, XMAX, XNorm, tmpPurity[MXTRUETYPE] ;
+  double XMIN, XMAX, tmpPurity[MXTRUETYPE] ;
   char CTIT[100];
   // ----------------- BEGIN ------------
 
   HID       =  HID_UntrainedPurity ;
   NTrueType =  INPUTS.NTrueType ;  
-  XNorm     =  (double)INPUTS.Nmerge ;  
+  // xxx mark delete  XNorm     =  (double)INPUTS.Nmerge ;  
 
   for ( i=0; i < NTrueType; i++ )  { INPUTS.UntrainedPurity[i] = -9.0 ; }
 
@@ -632,7 +638,8 @@ void  RDNN_UntrainedPurity(void) {
   SNHIST_RDCONT(1, HID, NTrueType,  tmpPurity   ) ;
 
   for ( i=0; i < NTrueType; i++ ) 
-    { INPUTS.UntrainedPurity[i] = tmpPurity[i]/XNorm ; }
+    { INPUTS.UntrainedPurity[i] = tmpPurity[i] ; }
+  // xxx mark delete    { INPUTS.UntrainedPurity[i] = tmpPurity[i]/XNorm ; }
 
   return ;
   

@@ -72,6 +72,8 @@ void  nearnbr_init_SUBSET(void) ;
 void  nearnbr_fill_SUBSET_TRAIN(char *CCID); 
 void  nearnbr_fill_SUBSET_APPLY(char *CCID); 
 void  nearnbr_makeHist(int ISPLIT) ;
+void  nearnbr_makeHist_once(void) ;
+void  nearnbr_makeHist_allJobs(void) ;
 void  nearnbr_fillHist(int ISEPMAX, int ISPARSE_TYPE) ;
 
 void  nearnbr_TRAIN_FILENAME(int ifile, char *TRAIN_FILENAME);

@@ -1140,30 +1140,42 @@ void nearnbr_makeHist(int ISPLIT) {
   // Feb 7 2017: 
   //  + include new histogram whose title contains
   //    file name with training sample. 
-
-  char   TITLE[MXCHAR_FILENAME], ctmp[100];
-  double xmin[2], xmax[2], xval[2], w ;
-  int    ivar, NVAR, ibin, NTYPE, jtype, ID, NBIN[2];
+  //
+  // Jun 14 2019: 
+  //   + split into makeHist_once() and makeHist_alljobs
   
   // --------------- BEGIN ------------
 
   if ( NN_APPLYFLAG  ) { return ; }
 
-  NVAR  = NEARNBR_INPUTS.NVAR ;
-  NTYPE = NEARNBR_TRAINLIB.NTRUETYPE ;
-
   printf("\t Create NEARNBR training histograms (ISPLIT=%d) \n", ISPLIT); 
   fflush(stdout);
 
-  if ( ISPLIT > 1 ) { goto H2DANAL ; }
+  if ( ISPLIT == 1 )  { nearnbr_makeHist_once(); }
 
-  // start with number of merged histograms
-  ID = HIDOFF_NEARNBR + 1 ;
-  sprintf(TITLE, "Number of merged files");
-  xmin[0] = 0.5 ;  xmax[0] = 1.5 ;  NBIN[0] = 1 ;  xval[0] = w = 1.0 ;
-  SNHIST_INIT(1, ID, TITLE, NBIN, xmin, xmax );
-  SNHIST_FILL(1, ID, xval, w);
+  nearnbr_makeHist_allJobs();
 
+  NEARNBR_INPUTS.FILLHIST = 1;
+
+  return ;
+
+} // end of nearnbr_makeHist
+
+
+// =====================================
+void nearnbr_makeHist_once(void) {
+
+  // Created June 14, 2019
+  // Create histograms only for 1st SPLIT job.
+
+  int NVAR  = NEARNBR_INPUTS.NVAR ;
+  int NTYPE = NEARNBR_TRAINLIB.NTRUETYPE ;
+
+  char   TITLE[MXCHAR_FILENAME], ctmp[100];
+  double xmin[2], xmax[2], xval[2], w ;
+  int    ivar, ibin, jtype, ID, NBIN[2];
+
+  // -------------- BEGIN -----------
 
   // plot TRUETYPE map between sparse & absolute indices
   ID = HIDOFF_NEARNBR + 2 ;
@@ -1214,34 +1226,6 @@ void nearnbr_makeHist(int ISPLIT) {
   }
 
 
-  // ----------------------------------------
-  // now book plots that are filled in the NEARNBR_APPLY. For each
-  // SNTYPE make 2D plot of TrainSet-TRUETYPE(train) vs. SEPBIN
-  // Assume that the list of TYPEs in the training set is the
-  // same as in the data set under analysis.
-  // Note that the Train-type (vertical axis) is a sparse TYPE index,
-  // and -1 means that there is not valid TYPE.
-
- H2DANAL:
-
-  for ( jtype=0 ; jtype < NTYPE ; jtype++ ) {
-    ID = HIDOFF_NEARNBR + 10 + jtype ;
-    sprintf(TITLE,"TrainSet-SparseTYPE vs. SEPMAX BIN for SNTYPE=%d",
-	    NEARNBR_TRAINLIB.TRUETYPE_LIST[jtype] ) ;
-    xmin[0] = -0.5 ;  xmax[0] = xmin[0] + (int)NBINTOT_SEPMAX_NEARNBR ;
-    xmin[1] = -1.5 ;  xmax[1] = xmin[1] + (int)(NTYPE+1) ;
-    NBIN[0] = NBINTOT_SEPMAX_NEARNBR ;  NBIN[1] = NTYPE+1;
-    SNHIST_INIT(2, ID, TITLE, NBIN, xmin, xmax );
-  }
-
-
-  // Apr 11 2019:
-  // store total number of training events to read/print later.
-  // This is just for information, not needed for training.
-  xmin[0]=0.0; xmax[0]=1.0; NBIN[0]=1;
-  ID = HIDOFF_NEARNBR + 40 ;  
-  sprintf(TITLE, "Number of training events");
-  SNHIST_INIT(1, ID, TITLE, NBIN, xmin, xmax );  
 
   // -------------------------------
   // store fileName with training (SIM) sample (Feb 7, 2017)
@@ -1278,7 +1262,6 @@ void nearnbr_makeHist(int ISPLIT) {
   for(i=0; i < NSPLIT_TITLE ; i++ ) 
     { SNHIST_INIT(1, ID+i, strTmp[i], NBIN, xmin, xmax );  }
 
-  
   // June 12 2019: fill y-axis content with SCALE_NON1A
   xval[0]=0.5;    w = (double)NEARNBR_INPUTS.SCALE_NON1A;
   SNHIST_FILL(1, ID, xval, w) ;
@@ -1292,13 +1275,66 @@ void nearnbr_makeHist(int ISPLIT) {
   xval[0] = 0.5 ;    w = (double)NEARNBR_INPUTS.TRUETYPE_SNIa ;
   SNHIST_FILL(1, ID, xval, w);
 
-  // ---------
-  NEARNBR_INPUTS.FILLHIST = 1;
+
+  return;
+
+} // end nearnbr_makeHist_once
+
+
+// =====================================
+void nearnbr_makeHist_allJobs(void) {
+
+  // Created June 14, 2019
+  // create histograms for all SPLIT jobs
+
+  int NVAR  = NEARNBR_INPUTS.NVAR ;
+  int NTYPE = NEARNBR_TRAINLIB.NTRUETYPE ;
+
+  char   TITLE[MXCHAR_FILENAME], ctmp[100];
+  double xmin[2], xmax[2], xval[2], w ;
+  int    ivar, ibin, jtype, ID, NBIN[2];
+
+  // -------------- BEGIN -----------
+
+  // start with number of merged histograms
+  ID = HIDOFF_NEARNBR + 1 ;
+  sprintf(TITLE, "Number of merged files");
+  xmin[0] = 0.5 ;  xmax[0] = 1.5 ;  NBIN[0] = 1 ;  xval[0] = w = 1.0 ;
+  SNHIST_INIT(1, ID, TITLE, NBIN, xmin, xmax );
+  SNHIST_FILL(1, ID, xval, w);
+
+
+  // ----------------------------------------
+  // now book plots that are filled in the NEARNBR_APPLY. For each
+  // SNTYPE make 2D plot of TrainSet-TRUETYPE(train) vs. SEPBIN
+  // Assume that the list of TYPEs in the training set is the
+  // same as in the data set under analysis.
+  // Note that the Train-type (vertical axis) is a sparse TYPE index,
+  // and -1 means that there is not valid TYPE.
+
+  for ( jtype=0 ; jtype < NTYPE ; jtype++ ) {
+    ID = HIDOFF_NEARNBR + 10 + jtype ;
+    sprintf(TITLE,"TrainSet-SparseTYPE vs. SEPMAX BIN for SNTYPE=%d",
+	    NEARNBR_TRAINLIB.TRUETYPE_LIST[jtype] ) ;
+    xmin[0] = -0.5 ;  xmax[0] = xmin[0] + (int)NBINTOT_SEPMAX_NEARNBR ;
+    xmin[1] = -1.5 ;  xmax[1] = xmin[1] + (int)(NTYPE+1) ;
+    NBIN[0] = NBINTOT_SEPMAX_NEARNBR ;  NBIN[1] = NTYPE+1;
+    SNHIST_INIT(2, ID, TITLE, NBIN, xmin, xmax );
+  }
+
+
+  // Apr 11 2019:
+  // store total number of training events to read/print later.
+  // This is just for information, not needed for training.
+  xmin[0]=0.0; xmax[0]=1.0; NBIN[0]=1;
+  ID = HIDOFF_NEARNBR + 40 ;  
+  sprintf(TITLE, "Number of training events");
+  SNHIST_INIT(1, ID, TITLE, NBIN, xmin, xmax );  
+
 
   return ;
 
-} // end of nearnbr_makeHist
-
+} // end of nearnbr_makeHist_allJobs
 
 // =====================================
 void NEARNBR_APPLY(char *CCID) {

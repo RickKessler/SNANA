@@ -1036,6 +1036,8 @@ void nearnbr_storeTrueTypes(void) {
 
   // Examine every TRUE TYPE in the training set and
   // store sparse list of each possible type.
+  //
+  // Jun 14 2019:  account for SCALE_NON1A in untrained purity calc.
 
   int NTYPE, i, TRUETYPE, MAP ;
   int TRUETYPE_LIST[MXTRUETYPE] ; 
@@ -1106,8 +1108,11 @@ void nearnbr_storeTrueTypes(void) {
   // compute/store/print untrainined purity for each type
   // These un-trained purities are for visual reference,
   // but are not used in any calculations.
-
-  double P, x1, x0 ;
+  //
+  // Jun 14 2019 : correct for SCALE_NON1A
+  // .
+  double P, xtype[50], xtot, SCALE ;
+  int TRUETYPE_SNIa = NEARNBR_INPUTS.TRUETYPE_SNIa ;
 
   for(i=0; i< NEARNBR_TRAINLIB.NTOT; i++ ) {
     TRUETYPE = NEARNBR_TRAINLIB.TRUETYPE[i] ;
@@ -1119,11 +1124,23 @@ void nearnbr_storeTrueTypes(void) {
     NEARNBR_TRAINLIB.NTOT_USE++ ;
   }
 
-  x0 = (double)NEARNBR_TRAINLIB.NTOT_USE ; 
-  for(i=0; i < NTYPE; i++ ) {
-    
-    x1 = (double)NEARNBR_TRAINLIB.NSN[i] ;
-    P  = x1/x0 ;
+
+  // count total using SCALE_NON1A
+  xtot = 0.0 ;
+  for(i=0; i < NTYPE; i++ ) {    
+    TRUETYPE = NEARNBR_TRAINLIB.TRUETYPE_LIST[i];
+    if ( TRUETYPE == TRUETYPE_SNIa ) 
+      { SCALE = 1.0; }
+    else
+      { SCALE = (double)NEARNBR_INPUTS.SCALE_NON1A; }
+
+    xtype[i] = (double)NEARNBR_TRAINLIB.NSN[i] / SCALE ;
+    xtot    += xtype[i] ;
+  }
+
+  // store and print untrained purities.
+  for(i=0; i < NTYPE; i++ ) {    
+    P  = xtype[i]/xtot ;
     NEARNBR_TRAINLIB.UNTRAINED_PURITY[i] = P ;
     printf("\t Untrained Purity (TrueType=%3d) = %6.3f \n",
 	   NEARNBR_TRAINLIB.TRUETYPE_LIST[i], P);

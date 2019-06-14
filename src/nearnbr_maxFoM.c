@@ -109,7 +109,7 @@ int   IROW_OUT;
 char  NNINP_VARDEF[MXTRUETYPE][N_WFALSE][200] ;
 char  VARNAME_TRUETYPE[40] ;
 char  TRAIN_FILENAME[MXCHAR_FILENAME];
-float TRAIN_SCALE_NON1A;
+int   TRAIN_SCALE_NON1A;
 int   TRUETYPE_SNIa ;
 
 char msgerr1[80], msgerr2[80];
@@ -322,7 +322,7 @@ void  open_outFile(void) {
   fprintf(FP_OUT, "NBIN_SEPMAX:    %d \n",   INPUTS.NBIN_SEPMAX );
   fprintf(FP_OUT, "VARNAME_TRUE:   %s \n",   VARNAME_TRUETYPE ); 
   fprintf(FP_OUT, "TRUETYPE_SNIa:  %d \n",   TRUETYPE_SNIa ); 
-  fprintf(FP_OUT, "TRAIN_SCALE_NON1A: %.2f \n",   TRAIN_SCALE_NON1A ); 
+  fprintf(FP_OUT, "TRAIN_SCALE_NON1A: %d \n",   TRAIN_SCALE_NON1A ); 
 
   // print min,max training range for each variable
   for(ivar=0; ivar < INPUTS.NVAR; ivar++ ) {
@@ -404,7 +404,7 @@ void RDNN_TRAIN_FILENAME(void) {
 
   // Jun 12 2019: read NONIA_SCALE from y-axis content
   SNHIST_RDCONT(1, HID_TRAIN_FILENAME, NB, &X);
-  TRAIN_SCALE_NON1A = (float)X ;
+  TRAIN_SCALE_NON1A = (int)X ;
 
   return ;
 } // end RDNN_TRAIN_FILENAME
@@ -655,7 +655,9 @@ void RDNN_NTRAIN(int iTypeTrue) {
   // ----------- BEGIN ----------
   
   int    HID = HIDOFF_SEPMAXresults + iTypeTrue ;
-  int    NB[2], NBTOT, NTYPE, NBSEP, iTypeTrain, isep, j, NCONTENTS ;
+  int    NB[2], NBTOT, NTYPE, NBSEP, iTypeTrain, isep, j; 
+  int    NSIMTYPE_ORIG=0, NCONTENTS_ORIG, NCONTENTS;
+  int    IS_TRUETYPE_SNIa = ( INPUTS.TrueType[iTypeTrue] == TRUETYPE_SNIa ); 
   double XMIN[2], XMAX[2], *CONTENTS ;
   char   CTIT[80] ;
 
@@ -678,23 +680,43 @@ void RDNN_NTRAIN(int iTypeTrue) {
     for(isep=0; isep < NBSEP; isep++ ) {
       
       j = (iTypeTrain+1)*NBSEP + isep;
-      NCONTENTS = (int) CONTENTS[j];
+      NCONTENTS_ORIG = (int) CONTENTS[j];
       
+      if ( IS_TRUETYPE_SNIa ) 
+	{ NCONTENTS = NCONTENTS_ORIG ; }
+      else
+	{ NCONTENTS = NCONTENTS_ORIG / TRAIN_SCALE_NON1A ; }
+
       if ( iTypeTrain >= 0 ) 
 	{ INPUTS.NTRAIN[iTypeTrue][iTypeTrain][isep] = NCONTENTS ; }
       else 
 	{ INPUTS.NFAIL[iTypeTrue][isep] = NCONTENTS;  }
 
-      if ( isep==0 ) { INPUTS.NSIMTYPE[iTypeTrue] += NCONTENTS ; }
-      
+      if ( isep==0 ) { 
+	INPUTS.NSIMTYPE[iTypeTrue] += NCONTENTS ; 
+	NSIMTYPE_ORIG += NCONTENTS_ORIG ;
+      }
+     
     } // isep
   } // iTypeTrain
   
 
   //  isep = 0 ;  dump_NTRAIN(iTypeTrue, 0, isep);    
 
-  printf(" NSIM[trueType=%d] = %6d  \n",
-	 iTypeTrue,  INPUTS.NSIMTYPE[iTypeTrue] ) ;
+
+
+  char txt1[100], txt2[100];
+  sprintf(txt1,"NSIM[iSparsType=%2d,trueType=%3d]", 
+	  iTypeTrue, INPUTS.TrueType[iTypeTrue] );
+
+  if ( IS_TRUETYPE_SNIa ) 
+    { sprintf(txt2,"%6d", INPUTS.NSIMTYPE[iTypeTrue] ); }
+  else
+    { sprintf(txt2,"%6d / %d = %6d", 
+	      NSIMTYPE_ORIG, TRAIN_SCALE_NON1A, INPUTS.NSIMTYPE[iTypeTrue] ); 
+    }
+
+  printf(" %s = %s \n", txt1, txt2 );
   fflush(stdout);
   
   return ;
@@ -803,7 +825,7 @@ void  optimizeNN(int iTypeTrue, int ifalse) {
   fprintf(FP_OUT,"%5.3f %5.3f %5.3f  %5d ",
 	  Eff_SAVE, Pur_SAVE, FoM_SAVE, isep_SAVE );
 
-  // xyz
+  
   for(ivar=0; ivar < INPUTS.NVAR; ivar++ ) 
     { fprintf(FP_OUT," %7.4f ", INPUTS.SEPMAX[ivar][isep_SAVE] );  }
 

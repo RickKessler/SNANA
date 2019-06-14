@@ -160,8 +160,9 @@ int main(int argc, char **argv) {
   open_inFile();
 
   // read histograms (from hbook or root)
-  RDNN_VARNAME_TRUETYPE();  // Jan 2017
   RDNN_Nmerge();
+  RDNN_VARNAME_TRUETYPE();  // Jan 2017
+  // xxx RDNN_Nmerge();
   RDNN_TypeList();
   RDNN_SEPMAXbins();
   RDNN_UntrainedPurity();

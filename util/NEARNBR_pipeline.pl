@@ -990,7 +990,7 @@ sub make_SIMGEN_MASTER {
     # Jun 14 2019: for TRAIN, add global option to scale NON1A (.xyz
     if ( $ISTAGE == $ISTAGE_SIMGEN_TRAIN && $SIMTRAIN_SCALE_NON1A != 1.0 ) {
 	my $sigArg = "$GENOPT_GLOBAL_TRAIN " .
-	    "NGEN_SCALE_NON1A $SIMTRAIN_SCALE_NON1A " ;
+	    "DNDZ_SCALE_NON1A $SIMTRAIN_SCALE_NON1A " ;
 	$SEDCMD = "$SEDCMD -e " . "'/GENOPT_GLOBAL/d'" ;
 	$SEDCMD = "$SEDCMD -e " . " '\$ i\GENOPT_GLOBAL: $sigArg'" ;
     }

@@ -370,6 +370,8 @@ sub setDefaults {
 
     $DO_LAUNCH =  1;
 
+    $SIMTRAIN_SCALE_NON1A = 1.0 ;
+
 } # end of sub setDefaults 
 
 # =============================================

@@ -328,8 +328,8 @@ void  nearnbr_apply_init(void) {
   // ------------- BEGIN -----------
 
   NEARNBR_INIT();
-  NEARNBR_SET_TRAINFILE(TRAIN_FILENAME,TRAIN_SCALE_NON1A) ;    
-  NEARNBR_SET_TRUETYPE(VARNAME_TRUETYPE,TRUETYPE_SNIa) ; 
+  NEARNBR_SET_TRAINFILE(TRAIN_FILENAME,  TRAIN_SCALE_NON1A) ;    
+  NEARNBR_SET_TRUETYPE(VARNAME_TRUETYPE, TRUETYPE_SNIa    ) ; 
 
   for(ivar=0; ivar < NVAR_SEPMAX; ivar++ ) {
     VARNAME  = VARNAME_SEPMAX[ivar] ;
@@ -373,6 +373,8 @@ void nearnbr_apply_exec(int ievt) {
 
   // -----------------------------------
   // convert to NN_PROB_Ia and update outFile . . . .
+
+  // .xyz ACCOUNT FOR SCALE_NON1A !!!
   int NCELL_TOT=0, NCELL_1A=0, i;
   for(i=0; i < NTYPE; i++ ) {
     NCELL_TOT += NCELL_TRAIN_LIST[i];
@@ -380,10 +382,6 @@ void nearnbr_apply_exec(int ievt) {
     if ( ITYPE_LIST[i] == ITYPE_BEST_1A ) 
       {  NCELL_1A += NCELL_TRAIN_LIST[i]; }
     
-    /* xxxxxxxx mark delete Mar 2 2017 xxxxxxxxxx
-    if ( ITYPE_LIST[i] == ITYPE_BEST ) 
-      { NCELL_BEST += NCELL_TRAIN_LIST[i]; }
-    xxxxxxxxxxxxxxxxxxxxxxxxx */
   }
 
   

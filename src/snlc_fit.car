@@ -18604,8 +18604,11 @@ C ===================================================
 +DECK,FITPAR_NEARNBR_APPLY.
       SUBROUTINE FITPAR_NEARNBR_APPLY
 
+C
 C Jun 2013
 C shell to call NEARNBR_LOADVAL and NEARNBR_APPLY
+c Can be used for both training and apply mode, but here it
+c is used only for training mode.
 c
 c Apr 23 2014: call IPAR = IPAR_PARNAME_STORE(VARNAME) 
 c              to associate each NN-sepmax variable with snana variable.
@@ -18766,18 +18769,6 @@ c - - - -  - - - - - - - -
               NN_PROB_IA  = NN_PROB_IA    + XCELL_TRAIN
           endif  
 
-+SELF,IF=XXXREMOVE.
-         if ( ITYPE >= NN_ITYPE_II(1) .and. 
-     &        ITYPE <= NN_ITYPE_II(2) ) THEN
-              NN_PROB_II  = NN_PROB_II  + XCELL_TRAIN
-          endif  
-
-         if ( ITYPE >= NN_ITYPE_IBC(1) .and. 
-     &        ITYPE <= NN_ITYPE_IBC(2) ) THEN
-              NN_PROB_IBC  = NN_PROB_IBC  + XCELL_TRAIN
-          endif  
-+SELF.
-
 c          write(6,333) ITYPE, NCELL, NN_NCELL, int(NN_PROB_IA)
 333       format(' xxx ITYPE=',I3, 3x,'NCELL=',I4,'/',I4,
      &          3x,'NN_IA=',I4)
@@ -18785,13 +18776,10 @@ c          write(6,333) ITYPE, NCELL, NN_NCELL, int(NN_PROB_IA)
      
       IF( XNTOT_TRAIN > 0.0 ) THEN
          NN_PROB_IA   = NN_PROB_IA  / XNTOT_TRAIN
-c         NN_PROB_II   = NN_PROB_II  / XNTOT_TRAIN
-c         NN_PROB_IBC  = NN_PROB_IBC / XNTOT_TRAIN
       ENDIF
 
       RETURN
       END      ! end FITPAR_NEARNBR_APPLY
-
 
 C ===============================
 +DECK,IPAR_PARNAME_STORE.

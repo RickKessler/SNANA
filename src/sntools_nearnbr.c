@@ -47,6 +47,7 @@
   Jun 12 2019: add hook to allow for enhanced CC sample w.r.t. SNIa
     + add SCALE_NON1A argument to NEARNBR_SET_TRAINFILE(trainFile,SCALE_NON1A)
     + adjust computations in nearnbr_whichType() to account for SCALE_NON1A
+    + adjust NEARNBR_GETRESULTS to account for SCALE_NON1A
 
 **********************************************/
 
@@ -735,10 +736,12 @@ void nearnbr_apply_trainLib(void) {
   printf("\t\t (needed to compute proper P_BAYES) \n");
   fflush(stdout);
 
+  /* xxxxxxx mark delete Jun 16 2019 xxxxxxxxx
   // allocate memory to store P_TRAIN for each possible type.
   NEARNBR_TRAINLIB.P_TRAIN = (float**)malloc(NTRUETYPE * sizeof(float*) ); 
   for(itype=0; itype < NTRUETYPE; itype++ ) 
     { NEARNBR_TRAINLIB.P_TRAIN[itype] =  (float*)malloc(MEMF);   }
+    xxxxxxxxxxxxxxxxxx  */
 
   // store local list of varNames before trainLib loop
   for(ivar = 0; ivar <= NVAR; ivar++ ) {
@@ -760,6 +763,9 @@ void nearnbr_apply_trainLib(void) {
       NEARNBR_LOADVAL(CCID, varNameList[ivar], d_val ) ;
     }
 
+    /* xxx mark delete Jun 16 2019 xxxxxxxxx
+       xxx P_TRAIN not used any more xxxxx
+
     NEARNBR_APPLY(CCID) ;
 
     NEARNBR_GETRESULTS(CCID, &ITYPE_BEST, &NTYPE,
@@ -776,7 +782,8 @@ void nearnbr_apply_trainLib(void) {
 	NEARNBR_TRAINLIB.P_TRAIN[itype][irow] = (float)P_TRAIN ;
       }
     }
-    
+    xxxxxxx end mark xxxxxxxxxxxxx */
+
   } // end irow loop over trainLib rows
 
 
@@ -1785,30 +1792,49 @@ void NEARNBR_GETRESULTS(char *CCID, int *ITYPE_BEST,
   //   NTYPE      = total number of true types
   //   ITYPE_LIST = list of true types
   //   NCELL_TRAIN_LIST = list of NCELL for each true type, training cuts
-  //   NCELL_FINAL_LIST = idem with NN cuts
+  //      (after dividing by SCALE_NON1A, returns nearest int, not float)
   //
   // If number of SEPMAX bins > 1, then return ITYPE = -9.
   //
-  // Feb 2016: re-write to return NCELL for each type.
-  // Jun 2016: refactor to return NCELL_FINAL_LIST.
-  //           NCELL_TRAIN_LIST = old NCELL_LIST.
+  //
+  // Juh 16 2019: correct for SCALE_NON1A
   //
 
   int  i, LDMP  ;
-  //  char fnam[] = "NEARNBR_GETRESULTS" ;
-
+  int NCELL, TRUETYPE ;
+  float XNCELL, SCALE;
+  float SCALE_NON1A   = NEARNBR_INPUTS.SCALE_NON1A ; 
+  int   TRUETYPE_SNIa = NEARNBR_INPUTS.TRUETYPE_SNIa ;
+  char fnam[] = "NEARNBR_GETRESULTS" ;
   // ----------- BEGIN --------------
 
   LDMP = 0 ; // ( NN_APPLYFLAG == 1 && NEARNBR_RESULTS_FINAL.NCELL[0]>0 ) ;
 
   if ( LDMP ) { printf(" xxx ---------------------------- \n"); }
 
+  if ( TRUETYPE_SNIa < 0 || SCALE_NON1A < 0.0 ) {
+    sprintf(c1err,"Invalid TRUETYPE_SNIa=%d and/or SCALE_NON1A=%.2f\n",
+	    TRUETYPE_SNIa, SCALE_NON1A);
+    sprintf(c2err,"Something is messed up.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
   *ITYPE_BEST  = NEARNBR_RESULTS_TRAIN.ITYPE ;
   *NTYPE       = NEARNBR_TRAINLIB.NTRUETYPE ;
 
   for(i=0; i < *NTYPE; i++ ) {
-    ITYPE_LIST[i]         = NEARNBR_TRAINLIB.TRUETYPE_LIST[i] ;
-    NCELL_TRAIN_LIST[i]   = NEARNBR_RESULTS_TRAIN.NCELL[i] ;
+    TRUETYPE              = NEARNBR_TRAINLIB.TRUETYPE_LIST[i] ;
+    NCELL                 = NEARNBR_RESULTS_TRAIN.NCELL[i] ;
+    
+    if( TRUETYPE == TRUETYPE_SNIa ) 
+      { SCALE = 1.0 ; }
+    else 
+      { SCALE = SCALE_NON1A; } // scale to enhance simCC stats in training
+
+    XNCELL = ((float)NCELL) / SCALE;
+
+    ITYPE_LIST[i]         = TRUETYPE;
+    NCELL_TRAIN_LIST[i]   = (int)(XNCELL+0.5) ; // nearest int
   }
 
 

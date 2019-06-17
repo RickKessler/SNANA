@@ -39,6 +39,12 @@
                       -tableName SNANA
      [create default outFile COMBINE_SNANA.ROOT ]
 
+
+    HISTORY
+  ~~~~~~~~~~~~~
+
+ Jun 16 2019:  call  TABLEFILE_CLOSE(f);
+
 ===================================== */
 
 #include <stdio.h>
@@ -123,7 +129,7 @@ int main(int argc, char **argv) {
     fflush(stdout);
     SNTABLE_AUTOSTORE_INIT(f, INPUTS.TABLENAME, "ALL", optMask);
     INPUTS.IFILETYPE[iFile] = SNTABLE_AUTOSTORE[iFile].IFILETYPE ;
-    //    TABLEFILE_CLOSE(f);
+    TABLEFILE_CLOSE(f); // June 16 2019
     OUTPUT.NVAR_TOT += SNTABLE_AUTOSTORE[iFile].NVAR ;
   }
 

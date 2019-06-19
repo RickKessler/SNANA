@@ -1818,6 +1818,8 @@ void init_HOSTLIB_WGTMAP(void) {
   // Jan 27 2017: fix bug mallocing GRIDMAP_HOSTLIB_WGT.FUNVAL;
   //              I8p -> I8p*2
   // 
+  // Jun 18 2019: if interp_GRIDMAP fails, print more PRE-ABORT info.
+
   int  i, NDIM, ivar, ivar_STORE, ID, NFUN, NROW, istat ;
   int  NGAL, NCHECK, NN, igal, igal_difmax, LDMPWGT, VBOSE ;
 
@@ -1825,7 +1827,7 @@ void init_HOSTLIB_WGTMAP(void) {
   int I8  = sizeof(double);
 
   double
-    VAL, WGT, WGTSUM, WGTSUM_LAST, SNMAGSHIFT
+    VAL, VALMIN, VALMAX, WGT, WGTSUM, WGTSUM_LAST, SNMAGSHIFT
     ,VAL_WGTMAP[MXVAR_HOSTLIB]
     ,ZTRUE, ZTRUE_CHECK, ZDIF, WGT_EXACT, WGT_INTERP, WDIF
     ,WDIF_SUM, SQWDIF_SUM, WDIF_AVG, WDIF_RMS, XN, WDIF_MAX, SQTMP
@@ -1833,7 +1835,7 @@ void init_HOSTLIB_WGTMAP(void) {
     ,TMPVAL[2]
     ;
 
-  char cvar[40];
+  char cvar[40], *varName ;
   char fnam[] = "init_HOSTLIB_WGTMAP" ;
 
   // --------- BEGIN -----------
@@ -1882,6 +1884,17 @@ void init_HOSTLIB_WGTMAP(void) {
 
     istat = interp_GRIDMAP(&HOSTLIB_WGTMAP.GRIDMAP, VAL_WGTMAP, TMPVAL ) ;
     if ( istat != SUCCESS ) {
+      printf("\n PRE-ABORT DUMP: \n");
+      printf("\t GALID = %lld \n", GALID);
+      for ( ivar=0; ivar < NDIM; ivar++ ) {  // WGTMAP variables
+	ivar_STORE   = HOSTLIB.IVAR_STORE[ivar];
+	varName      = HOSTLIB.VARNAME_STORE[ivar_STORE] ;
+	VAL          = HOSTLIB.VALUE_ZSORTED[ivar_STORE][igal] ;
+	VALMIN       = HOSTLIB_WGTMAP.GRIDMAP.VALMIN[ivar];
+	VALMAX       = HOSTLIB_WGTMAP.GRIDMAP.VALMAX[ivar];
+	printf("\t %s = %f  (WGTMAP range: %f to %f)\n", 
+	       varName, VAL, VALMIN, VALMAX ); fflush(stdout);
+      }
       sprintf(c1err,"Could not interpolate WGTMAP for GALID=%lld .", GALID);
       sprintf(c2err,"interp_GRIDMAP() returned istat = %d", istat);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 

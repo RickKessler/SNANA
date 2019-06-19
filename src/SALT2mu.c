@@ -12917,7 +12917,7 @@ int ppar(char* item) {
     { sscanf(&item[15],"%s", INPUTS.SNID_MUCOVDUMP); return(1); }
 
   if ( uniqueOverlap(item,"LEGACY_BUGS=")) 
-    { sscanf(&item[15],"%d", &INPUTS.LEGACY_BUGS); return(1); }
+    { sscanf(&item[12],"%d", &INPUTS.LEGACY_BUGS); return(1); }
   if ( uniqueOverlap(item,"LEGACY_READFILE=")) 
     { sscanf(&item[16],"%d", &INPUTS.LEGACY_READFILE); return(1); }
  

@@ -273,17 +273,11 @@ struct HOSTLIB_ZPHOTEFF_DEF {
 
 // define the weight  map .. 
 struct HOSTLIB_WGTMAP_DEF {
-  // xx  int   NGRID_TOT ; // total number of GRID bins
-  // xx  int   NVAR     ; // number of WGTMAP variables
 
   // GRID value vs. [ivar][igrid]
-  //xx  double **GRIDVAL ;
 
   // parameters describing each WGT
   double WGTMAX ; // max weight for entire  wgtmap
-  //xx  double GRID_WGT[MXWGT_HOSTLIB];         // weight at each GRID point
-  //xxdouble GRID_SNMAGSHIFT[MXWGT_HOSTLIB];  // mag-shift at each GRID  point
-
   char VARNAME[MXVAR_HOSTLIB][40]; 
   int  ISTAT ;    // non-ZERO => wgtmap has been read
  

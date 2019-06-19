@@ -1829,7 +1829,7 @@ void NEARNBR_GETRESULTS(char *CCID, int *ITYPE_BEST,
     if( TRUETYPE == TRUETYPE_SNIa ) 
       { SCALE = 1.0 ; }
     else 
-      { SCALE = SCALE_NON1A; } // scale to enhance simCC stats in training
+      { SCALE = SCALE_NON1A;}  // scale used to enhance simCC stats in training
 
     XNCELL = ((float)NCELL) / SCALE;
 

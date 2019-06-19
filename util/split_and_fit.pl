@@ -1333,6 +1333,10 @@ sub parse_VERSION {
     # Feb 27 2017; abort if any version has a dot.
     # Jul 18 2017: fix to work with PRIVATE_DATA_PATH
     # Mar 07 2019: abort on missing version.
+    # Jun 15 2019: 
+    #   + init @tmpVerList & @tmpPathList before call to &getVersionList;
+    #     fixes subtle bug with wild card in VERSION key.
+    #
 
     my ($key, $ver, $FOUND_VERSION_KEY, @TMPVER, $NTMP);
     my (@tmpVerList, @tmpPathList );
@@ -1356,6 +1360,7 @@ sub parse_VERSION {
 		sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR) ;	
 	    }
 
+            @tmpVerList= ();  @tmpPathList = ();
 	    &getVersionList($ver, \@tmpVerList,\@tmpPathList ); 
 #	    print " xxx '@tmpVerList'  | @tmpPathList \n";
 

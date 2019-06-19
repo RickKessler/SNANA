@@ -16886,7 +16886,7 @@
 
 
 # ======================================================================= 
-         v10_73d (  ) 
+         v10_73d (Jun 19 2019) 
 
          ***** IMPORTANT(v10_73d) ***** 
 
@@ -16902,5 +16902,28 @@
      + new input "SIMTRAIN_NON1A_SCALE: <scale>" to scale NON1A & SIMSED
        sample sizes, keeping SNIa the same. NN-train and NN-apply have
        been modified (previous SNANA version) to correct for this scale.
+
+   SALT2mu.c :
+     Finished refactoring, but still keep LEGACY switch .
+
+   split_and_fit.pl 
+     + minor fix related to parsing wild card in VERSION key.
+
+   sntools_nearnbr.c[h]
+     + remove all instances of obsolete P_TRAIN
+     + fix NEARNBR_GETRESULTS to account for SCALE_NON1A
+
+   sntable_combine.c: 
+     + fix bug closing table file after read.
+
+   snana.car:
+     + read SIM_SNMAGSHIFT_HOSTCOR from sim data files (not tested)
+     + for cut-summary, include "CUTSTAT:" key so that it's easier
+       to parse the split_and_fit logs to make a total cut-summary table.
+
+   psnid.car:
+    + make calls to new "BEST2" functions, which are blank.
+   psnit_BEST2.c :
+    + new set of blank function, to be filled in later.
 
 END: 

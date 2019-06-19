@@ -4077,7 +4077,8 @@ void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP,
 	DIF = TMPVAL[ivar] - TMPVAL_LAST[ivar];
 	if ( DIF > 0.0  && ivar < NDIM && TMPVAL_LAST[ivar]!=DUMVAL ) { 
 	  DDIF  = DIF - DIFVAL_LAST[ivar] ;
-	  LDIF1 = ( fabs(DDIF) > 1.0E-10 ) ;
+	  // xxx mark delete June 2019  LDIF1 = ( fabs(DDIF) > 1.0E-10 ) ;
+	  LDIF1 = ( fabs(DDIF/DIF) > .001 ) ; // .xyz
 	  LDIF2 = ( DIFVAL_LAST[ivar] > 0.0 ) ;
 	  if ( LDIF1 && LDIF2 ) {
 	    NBADBIN++ ;
@@ -4239,7 +4240,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
     RANGE_CHECK = (double)(NBIN-1) * VALBIN;
     RATIO       = RANGE_CHECK/RANGE ;
 
-    if ( fabs(RATIO-1.0) > 1.0E-7 ) {
+    if ( fabs(RATIO-1.0) > 1.0E-4 ) {
       printf("\n PRE-ABORT DUMP:\n");
       printf("\t VALMAX - VALMIN  = %le (%le to %le)\n", 
 	     RANGE, VALMIN, VALMAX );
@@ -4386,6 +4387,15 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
       if ( TMPVAL < TMPMIN ) { TMPVAL = TMPMIN + (TMPRANGE*1.0E-12); }
       if ( TMPVAL > TMPMAX ) { TMPVAL = TMPMAX - (TMPRANGE*1.0E-12); }	
     }
+
+    /*
+    if ( TMPVAL < TMPMIN  || TMPVAL > TMPMAX ) {
+      printf(" %s ERROR: TMPVAL=%le not between %le and %le \n",
+	     fnam, TMPVAL, TMPMIN, TMPMAX);
+      fflush(stdout);
+      return(ERROR);
+    } 
+    */
 
     if ( TMPVAL < TMPMIN ) { return(ERROR) ; }
     if ( TMPVAL > TMPMAX ) { return(ERROR) ; }

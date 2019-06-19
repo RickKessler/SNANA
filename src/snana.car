@@ -1170,6 +1170,7 @@ c simulation parameters (if FAKE=2)
      &  ,LCLIB_PARVAL(MXPAR_LCLIB)
      &  ,SIM_HOSTLIB_PARVAL(MXPAR_SIMSED) ! HOSTLIB params
      &  ,SIM_MAGSMEAR_COH
+     &  ,SIM_SNMAGSHIFT_HOSTCOR       ! usually this is gamma or gamma/2
      &  ,SIM_TEMPLATEMAG(MXFILT_ALL)  ! image-sub template, not LCLIB template
      &  ,SIM_LCWIDTH(MXFILT_ALL)      ! computed from SIM_EPFLUXCAL
 c 
@@ -1234,6 +1235,7 @@ c
      &  ,SIMLIB_FILENAME, SIMLIB_MSKOPT
      &  ,SIMOPT_MWCOLORLAW, SIMOPT_MWEBV
      &  ,SIM_EPFILTREST, SIM_EPMAGREST,  SIM_MAGSMEAR_COH
+     &  ,SIM_SNMAGSHIFT_HOSTCOR
      &  ,NEP_SIM_MODELGRID, SIM_MODELGRID_TOBS, SIM_MODELGRID_MAGOBS
 
       COMMON / SIMSEDCOM /
@@ -5933,6 +5935,8 @@ c Feb 22, 2013: fix to work for TYPE=0
 c
 c For ITYPE=-1, write string 'ALL' to be more clear about meaning.
 c
+c Jun 19 2019: incluce ROWKEY = "CUTSTAT:" to make log file parsable.
+c
       IMPLICIT NONE
 
 +CDE,SNPAR.
@@ -5948,7 +5952,7 @@ c
      &  ,NTYPE_PER_TABLE
      &  ,N, NLAST, jcolon
 
-      CHARACTER CUTNAME*28
+      CHARACTER CUTNAME*28, ROWKEY*8
 
 C ------------- BEGIN -------------
 
@@ -5965,14 +5969,16 @@ c first get list of used TYPES
 
 c print table header
 
+      ROWKEY = "CUTSTAT:"
+
       print*,'                         ', 
      &      'Number of SN passing incremental cut for'
  
       NTYPE_PER_TABLE = 6
       DO  777 I1 = 1, NTYPE, NTYPE_PER_TABLE
 
-        write(6,20) 'CUT NAME      ITYPE='
-20      format(T5,A20, $)
+        write(6,20) ROWKEY, 'CUT-NAME      ITYPE='
+20      format(A, 2x, A20, $)
 
         I2   = MIN(I1+NTYPE_PER_TABLE-1,NTYPE)
         DO i = I1, I2
@@ -6010,7 +6016,7 @@ c print line if any entry has a change in NPASSCUT
            IF ( LPRIN ) THEN            
               jcolon    = INDEX(cutvar_name(icut), ':' )
               CUTNAME   = CUTVAR_NAME(icut)(1:jcolon-1) ! remove ':'
-              write(6,20) CUTNAME  
+              write(6,20) ROWKEY, CUTNAME  
               DO i = I1, I2
                 itype = ITYPE_LIST(i)
                 write(6,28) NPASSCUT_INCREMENT(itype,icut)
@@ -15023,28 +15029,12 @@ c parse SIM_xxx parameters if CWD starts with "SIM"
 c cword(1) is the keyword; cword(2) is the value,c
 c or cword(2-6) are the five values for ugirz.
 c
-c Aug 20, 2008: for stretch model, 
-c               SIM_SHAPEPAR = STRETCH instead of STRETCH-1
-c
-c Feb 03, 2010: read "SIMSED_PARAM:  name vale"
-c Mar 02, 2010: replace NFILTDEF_SURYVEY with NFILTDEF_READ
-c               to avoid problems with BX filter.
-c
-c Nov 8, 2010: reset NPAR_SIMSED=0 when SIM_MODEL(1:6) = 'SIMSED'
-c
-c Dec 17, 2010: in addition to SIMSED_PARAM, also allow SIMSED_param
-c               and SIMSED_GRIDONLY
-c
-c Jun 20, 2011: major change using READ_HEADKEY() so that this
-c               routine can be used for both TEXT and FITS format.
-c
-c Dec 4 2013: check USESIM_SNIA and USESIM_SNCC; set ISTAT=-1
-c             if wrong true SN type.
 c
 c Apr 12 2017: check for SIM_LENSDMU
 c
 c Feb 28 2018: read LCLIB_PARVAL
 c Dec 10 2018: read BYOSED_PARVAL, and allow more than 'SIM' key to continue
+c Jun 18 2019: read SIM_SNMAGSHIFT_HOSTCOR
 c
 c --------------
 
@@ -15283,6 +15273,10 @@ c Logic here may be a bit fragile.
       KEY  = 'SIM_MAGSMEAR_COH'
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
       IF ( LTMP ) SIM_MAGSMEAR_COH = SNGL(RET8(1))
+
+      KEY  = 'SIM_SNMAGSHIFT_HOSTCOR'
+      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      IF ( LTMP ) SIM_SNMAGSHIFT_HOSTCOR = SNGL(RET8(1))
 
       KEY  = 'SIM_STRETCH'
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
@@ -16951,6 +16945,7 @@ c --------
       SIM_TEMPLATE_INDEX    = -9 
       SIM_SEARCHEFF_MASK = 0
       SIM_MAGSMEAR_COH   = 0.0 
+      SIM_SNMAGSHIFT_HOSTCOR = 0.0
 
       SIM_NGEN_LIBID = 0
       SIM_NOBS_UNDEFINED  = 0 
@@ -25286,10 +25281,16 @@ cc      ENDIF
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SHAPELAW,  VARLIST, 1,
      &                   LENBLOCK, LENLIST)
 
-      LENTMP = INDEX(SIMNAME_COLORLAW,' ') - 1   ! SIMbeta
+      LENTMP = INDEX(SIMNAME_COLORLAW,' ') - 1   ! SIM_beta
       VARLIST = SIMNAME_COLORLAW(1:LENTMP) // ':F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_COLORLAW,  VARLIST, 1,
      &                   LENBLOCK, LENLIST)
+
+c xxxxxxxxxx
+c      VARLIST = 'SIM_SNMAGSHIFT_HOSTCOR:F' // char(0)  ! SIM_gamma
+c      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SNMAGSHIFT_HOSTCOR,VARLIST,0,
+c     &                   LENBLOCK, LENLIST)
+c xxxxxxxxxx
 
       VARLIST = 'SIM_x0:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2x0,  VARLIST, 1,

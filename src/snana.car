@@ -6028,7 +6028,7 @@ c print line if any entry has a change in NPASSCUT
 c for fit, write number passing fit cuts.
 
         IF ( NFIT_ITERATION > 0 ) THEN
-            CUTNAME = 'FIT + CUTS'
+            CUTNAME = 'FIT+CUTS'
             write(6,20) CUTNAME            
             DO i = I1, I2
                itype = ITYPE_LIST(i)

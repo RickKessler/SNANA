@@ -16926,4 +16926,45 @@
    psnit_BEST2.c :
     + new set of blank function, to be filled in later.
 
+
+# ======================================================================= 
+         v10_73e (June 19 2019) 
+
+         ***** IMPORTANT(v10_73e) ***** 
+
+      Implement refactored SALT2mu/BBC code.
+
+         ***** USEFUL(v10_73e) ***** 
+
+         ***** MISCELLANEOUS(v10_73e) ***** 
+
+  SALT2mu bugs found during refactor:
+    * no z cut for biasCorsigInt calc
+     (intent was remove IDSAMPLE z cuts, but keep global z cut)
+
+    * for biasCor, use mB = -2.5*log10(x0) instead of mB in file
+       (maybe difference from truncation round-off)
+
+    * missing BAD-COV cut on biasCor and CCprior samples.
+
+   REFACTOR-LEGACY differences for SALT2/BBC ::
+              
+        test       | keep bugs  |  fix bugs  |
+    -----------------------------------------
+         (1D)      |            | 
+     dalpha/alpha  |  1.0000    |  1.0000
+     dbeta/beta    |  1.0000    |  1.0000
+     dgamma        |  0.0000    |  0.0000
+       
+         (5D)      |            |
+     dalpha/alpha  |  0.99880   |  0.99875
+     dbeta/beta    |  0.9993    |  0.99932
+     dgamma        | -0.00014   | -0.00015
+     ----------------------------------------
+
+  To restore lagcy code and bugs:  
+    LEGACY_READFILE=1
+    LEGACY_BUGS=1
+
+ 
 END: 

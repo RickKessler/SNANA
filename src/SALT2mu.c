@@ -4413,8 +4413,8 @@ void set_defaults(void) {
   INPUTS.SNID_MUCOVDUMP[0] = 0 ;
 
 #ifdef USECODE_LEGACY
-  INPUTS.LEGACY_READFILE   = 1 ; // bit0 -> read legacy 
-  INPUTS.LEGACY_BUGS       = 1 ;
+  INPUTS.LEGACY_READFILE   = 2 ; // bit0 -> read legacy ; 2=refact
+  INPUTS.LEGACY_BUGS       = 0 ;
 #endif
 
 #ifndef USECODE_LEGACY

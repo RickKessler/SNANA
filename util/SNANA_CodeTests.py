@@ -38,7 +38,7 @@ RESULT_TASKS_FILE       = 'RESULTS_TASKS.DAT'
 RESULT_DIFF_FILE        = 'RESULTS_DIFF.DAT'
 SNANA_INFO_FILE         = 'SNANA.INFO'
 STOP_FILE               = ('%s/STOP' % (LOG_TOPDIR) )
-MEMORY                  = 2000   # Mb
+MEMORY                  = 1000   # Mb
 
 # ========================================================
 def parse_args():
@@ -851,7 +851,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
 # ===================================
 def submitTasks_driver(INPUTS,LIST_FILE_INFO):
 
-    print '\n Prepare to Submit tasks '
+    print('\n Prepare to Submit tasks ')
 
     SCRIPTNAME     = INPUTS["SCRIPTNAME"]
     DOCOMPARE_ONLY = INPUTS["DOCOMPARE_ONLY"]

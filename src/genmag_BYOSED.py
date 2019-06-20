@@ -25,12 +25,11 @@ class genmag_BYOSED:
 
 			self.verbose = OPTMASK & (1 << __mask_bit_locations__['verbose']) > 0
 
-				self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
+			self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
 
-				self.NAMES_HOSTPAR = NAMES_HOSTPAR.split(',')
-				self.PATH_VERSION = os.path.dirname(PATH_VERSION)
+			self.NAMES_HOSTPAR = NAMES_HOSTPAR.split(',')
+			self.PATH_VERSION = os.path.dirname(PATH_VERSION)
 
-=======
 			self.dump = OPTMASK & (1 << __mask_bit_locations__['dump'])>0
 			self.sn_id=None
 

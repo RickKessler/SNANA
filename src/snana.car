@@ -6029,7 +6029,7 @@ c for fit, write number passing fit cuts.
 
         IF ( NFIT_ITERATION > 0 ) THEN
             CUTNAME = 'FIT+CUTS'
-            write(6,20) CUTNAME            
+            write(6,20) ROWKEY, CUTNAME            
             DO i = I1, I2
                itype = ITYPE_LIST(i)
                write(6,28) NPASSCUT_FIT(itype)

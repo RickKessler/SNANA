@@ -27,6 +27,12 @@
   >  combine_fitres.exe <fitres1> <fitres2> --outprefix <outprefix>
     produces output files <outprefix>.hbook and  <outprefix>.text
 
+  >  combine_fitres.exe <fitres1> <fitres2> --outfile_text <outfile>
+       (text outpout name is <outfile>)
+
+  >  combine_fitres.exe <fitres1> <fitres2> --outfile_text <outfile.gz>
+       (produce gzipped outfile.gz)
+
   >  combine_fitres.exe <fitres1>  R      ! .ROOT extension 
   >  combine_fitres.exe <fitres1>  r      ! .root extension
        (create root file instead of hbook file)
@@ -68,6 +74,10 @@
   Apr 29 2019: option T or t for text-only (no hbook)
   May 03 2019: refactor indices to start at 0 instead of 1
 
+  Jun 06 2019:
+    +  new argument -outfile_text <outFile>
+    +  if outFile has .gz extension, gzip it.
+
 ******************************/
 
 #include <stdio.h>
@@ -96,6 +106,7 @@ int   maxlen_varString(char *varName);
 int   SKIP_VARNAME(int file, int ivar) ;
 
 void  WRITE_SNTABLE(void); // output table in selected format
+void  outFile_text_override(char *outFile, int *GZIPFLAG);
 void  ADD_SNTABLE_COMMENTS(void) ;
 
 void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN); 
@@ -140,6 +151,7 @@ int ICAST_FITRES_COMBINE[MXVAR_TOT];
 int  NFFILE_INPUT ;   // number of input fitres files to combine
 char FFILE_INPUT[MXFFILE][2*MXPATHLEN] ;
 char OUTPREFIX_COMBINE[MXPATHLEN] = "combine_fitres" ;
+char OUTFILE_TEXT[MXPATHLEN] = "" ;
 int  MXROW_READ ;
 
 #define  NVARNAME_1ONLY 4  // NVAR to include only once
@@ -269,6 +281,16 @@ void  PARSE_ARGV(int argc, char **argv) {
     }
     if ( strcmp(argv[i],"-outPrefix") == 0 ) { // allow Fermi-spell
       i++ ; sprintf(OUTPREFIX_COMBINE,"%s", argv[i]);
+      continue ;
+    }
+
+
+    if ( strcmp(argv[i],"-outfile_text") == 0 ) { 
+      i++ ; sprintf(OUTFILE_TEXT,"%s", argv[i]);
+      continue ;
+    }
+    if ( strcmp(argv[i],"--outfile_text") == 0 ) { 
+      i++ ; sprintf(OUTFILE_TEXT,"%s", argv[i]);
       continue ;
     }
 
@@ -456,12 +478,6 @@ void ADD_FITRES(int ifile) {
     // get VARNAME and ICAST
     VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
     ICAST   = READTABLE_POINTERS.ICAST_STORE[ivar] ;
-
-
-    /* xxxxxxxxxxxxxxx mark delete xxxxxxxxx
-    NVARALL_FITRES++ ;
-    NVAR = NVARALL_FITRES ;
-    xxxxxxxxxxxxxxxxxx  */
 
     if ( ICAST == ICAST_C ) {
       NVARSTR_FITRES++ ;   // summed over fitres files
@@ -834,6 +850,7 @@ void WRITE_SNTABLE(void) {
     ,openOpt[40], CCIDint[40]
     ;
 
+  int GZIPFLAG = 0 ;
   int ivar, ivarstr, isn, IERR, ICAST, LENC, ic, CIDint ;
   int IFILETYPE, NOUT ;
 
@@ -866,6 +883,7 @@ void WRITE_SNTABLE(void) {
 #ifdef USE_TEXT
   if ( CREATEFILE_TEXT )  { 
     sprintf(OUTFILE[NOUT], "%s.%s", OUTPREFIX_COMBINE, ptrSuffix_text ); 
+    outFile_text_override(OUTFILE[NOUT],&GZIPFLAG); 
     sprintf(openOpt,"%s new", ptrSuffix_text);
     //    IFILETYPE = TABLEFILE_OPEN(OUTPREFIX_COMBINE,openOpt);
     IFILETYPE = TABLEFILE_OPEN(OUTFILE[NOUT],openOpt);
@@ -978,8 +996,44 @@ void WRITE_SNTABLE(void) {
   for(out=0; out < NOUT; out++ ) 
     { TABLEFILE_CLOSE(OUTFILE[out]);  }
 
+  // check gzip option
+  if ( GZIPFLAG )  { 
+    char cmd[200];
+    sprintf(cmd,"gzip %s", OUTFILE_TEXT);
+    system(cmd); 
+  }
+
+  return;
+
 } // end of WRITE_SNTABLE
 
+
+// ====================================================
+void outFile_text_override(char *outFile, int *GZIPFLAG) {
+
+  // June 2019
+  // if user-input OUTFILE_TEXT is set, then set 
+  //  outFile = OUTFILE_TEXT.
+  //
+  // If there is a .gz extension on OUTFILE_TEXT,
+  // remove .gz extension and set *GZIPFLAG=1.
+
+  int LEN = strlen(OUTFILE_TEXT) ;
+
+  // -------------- BEGIN -------------
+  if ( LEN <2 ) { return; }
+
+  // check for .gz extension
+
+  if ( strstr(OUTFILE_TEXT,".gz") != NULL )
+    { OUTFILE_TEXT[LEN-3] = 0;  *GZIPFLAG=1; }
+
+  sprintf(outFile,"%s", OUTFILE_TEXT);
+
+
+  return ;
+
+} // end outFile_text_override
 
 // ==================================
 void  ADD_SNTABLE_COMMENTS(void) {
@@ -1001,6 +1055,8 @@ void  ADD_SNTABLE_COMMENTS(void) {
     sprintf(comment,"\t + %s", FFILE_INPUT[ifile] );
     STORE_TABLEFILE_COMMENT(comment) ;
   }
+
+  return;
 
 } // end of WRITE_TABLE_COMMENTS
 

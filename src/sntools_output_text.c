@@ -99,10 +99,11 @@ struct TABLEINFO_TEXT {
 
   int    NFILL[MXTABLE_TEXT] ; // number of SNTABLE_FILL_TEXT calls.
 
-  int    *ICAST[MXTABLE_TEXT] ;
-  double **ptr_D[MXTABLE_TEXT] ;
-  float  **ptr_F[MXTABLE_TEXT] ;
-  int    **ptr_I[MXTABLE_TEXT] ;
+  int        *ICAST[MXTABLE_TEXT] ;
+  double    **ptr_D[MXTABLE_TEXT] ;
+  float     **ptr_F[MXTABLE_TEXT] ;
+  int       **ptr_I[MXTABLE_TEXT] ;
+  short int **ptr_S[MXTABLE_TEXT] ;
   long long int  **ptr_L[MXTABLE_TEXT] ;
   char   **ptr_C[MXTABLE_TEXT] ;
 
@@ -305,6 +306,8 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *TEXT_FORMAT) {
   int MX = MXVAR_TABLE ;
   TABLEINFO_TEXT.ICAST[NTAB] = (int*)     malloc ( MX * sizeof(int )    );  
   TABLEINFO_TEXT.ptr_I[NTAB] = (int**)    malloc ( MX * sizeof(int*)    );
+  TABLEINFO_TEXT.ptr_S[NTAB] = 
+    (short int**) malloc ( MX * sizeof(short int*)    );
   TABLEINFO_TEXT.ptr_L[NTAB] = 
     (long long int**) malloc( MX*sizeof(long long int*) );
   TABLEINFO_TEXT.ptr_F[NTAB] = (float**)  malloc ( MX * sizeof(float*)  );
@@ -395,6 +398,8 @@ void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR,
       { TABLEINFO_TEXT.ptr_F[ITAB][IVAR] = (float*)PTRVAR + ivar ; }
     else if ( ICAST == ICAST_I ) 
       { TABLEINFO_TEXT.ptr_I[ITAB][IVAR] = (int*)PTRVAR + ivar ; }    
+    else if ( ICAST == ICAST_S ) 
+      { TABLEINFO_TEXT.ptr_S[ITAB][IVAR] = (short int*)PTRVAR + ivar ; }    
     else if ( ICAST == ICAST_L ) 
       { TABLEINFO_TEXT.ptr_L[ITAB][IVAR] = (long long int*)PTRVAR+ivar;}    
     else if ( ICAST == ICAST_C )
@@ -534,6 +539,7 @@ void SNTABLE_FILL_TEXT(int IDTABLE) {
   double VAL_D ;
   float  VAL_F ;
   int    VAL_I ;
+  short int VAL_S;
 
   NVAR = TABLEINFO_TEXT.NVAR[ITAB] ; 
 
@@ -559,6 +565,10 @@ void SNTABLE_FILL_TEXT(int IDTABLE) {
     else if ( ICAST == ICAST_I ) {
       VAL_I = *TABLEINFO_TEXT.ptr_I[ITAB][IVAR] ;
       sprintf(CVAL, "%d", VAL_I );
+    }
+    else if ( ICAST == ICAST_S ) {
+      VAL_S = *TABLEINFO_TEXT.ptr_S[ITAB][IVAR] ;
+      sprintf(CVAL, "%d", VAL_S );
     }
     else if ( ICAST == ICAST_L ) {
       VAL_L = *TABLEINFO_TEXT.ptr_L[ITAB][IVAR] ;
@@ -1205,6 +1215,10 @@ int SNTABLE_READ_EXEC_TEXT(void) {
 	  else if ( ICAST == ICAST_I )  { 
 	    READTABLE_POINTERS.PTRVAL_I[nptr][ivar][isn] = 
 	      (int)DVAR[ivar] ; 
+	  }	  
+	  else if ( ICAST == ICAST_S )  { 
+	    READTABLE_POINTERS.PTRVAL_S[nptr][ivar][isn] = 
+	      (short int)DVAR[ivar] ; 
 	  }	  
 	  else if ( ICAST == ICAST_L )  { 
 	    READTABLE_POINTERS.PTRVAL_L[nptr][ivar][isn] = 

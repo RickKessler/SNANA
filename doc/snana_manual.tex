@@ -7465,6 +7465,25 @@ using the LIST option, make sure to set
 {\tt CUTWIN\_CID=0,0} to turn off the range-option.
 
 % -------------------
+\subsubsection{Selecting SNID List with Command Line Override}
+
+To select a few CID values on the command-line, 
+use a comma-separated list:
+\begin{verbatim}
+   snana.exe <myInputFile> CUTWIN_CID 0 0 SNCID_LIST 5,19,184
+      or
+   snana.exe <myInputFile> CUTWIN_CID 0 0 SNCCID_LIST 5,19,184
+      or
+   snana.exe <myInputFile> CUTWIN_CID 0 0 SNCCID_LIST 2004cx,2002cx,2005he
+\end{verbatim} 
+%
+and this syntax also works for the {\tt snlc\_fit.exe} and {\tt psnid.exe}
+programs. {\tt SNCID\_LIST} works only for integers, so it is safer
+to always use the character-string {\tt SNCCID\_LIST}, 
+and there is no need to use quotes for command-line options.
+
+
+% -------------------
 \subsubsection{Selecting Fields and Overlapping Fields}
 %
 By default all fields and overlapping fields are used.

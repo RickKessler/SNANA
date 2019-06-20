@@ -4935,7 +4935,9 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     free(TABLEVAR->IZBIN);
     free(TABLEVAR->CUTMASK);
 
-    for(i=0; i < INPUTS.NCUTWIN; i++ ) { free(TABLEVAR->CUTVAL[i]); }
+    for(i=0; i < INPUTS.NCUTWIN; i++ ) { 
+      if ( INPUTS.CUTWIN_RDFLAG[i] ) { free(TABLEVAR->CUTVAL[i]); }
+    }
 
     free(TABLEVAR->SIM_NONIA_INDEX);
     free(TABLEVAR->SIM_ZCMB);
@@ -11098,13 +11100,6 @@ void prepare_CCprior(void) {
     USE_CCPRIOR_H11 = simdata_ccprior.USEH11 ;
   }
 #endif
-
-  // xxxxxxxxxx
-  printf(" xxx %s: DOCOR_1D=%d  USEH11=%d  nfile=%d \n",
-	 fnam, DOCOR_1D, INFO_CCPRIOR.USEH11, INPUTS.nfile_CCprior );
-  fflush(stdout);
-  // xxxxxxxxxx
-
 
   if ( INPUTS.nfile_CCprior == 0 ) { return; }
 

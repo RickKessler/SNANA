@@ -28,11 +28,11 @@ void nearnbr_init__(void);
 void NEARNBR_SET_TRAINPATH(char *path) ;
 void nearnbr_set_trainpath__(char *path);
 
-void NEARNBR_SET_TRAINFILE(char *file);
-void nearnbr_set_trainfile__(char *file);
+void NEARNBR_SET_TRAINFILE(char *file, float SCALE_NON1A);
+void nearnbr_set_trainfile__(char *file, float *SCALE_NON1A);
 
-void NEARNBR_SET_TRUETYPE(char *varName) ;
-void nearnbr_set_truetype__(char *varName);
+void NEARNBR_SET_TRUETYPE(char *varName, int truetype_SNIa) ;
+void nearnbr_set_truetype__(char *varName, int *truetype_SNIa);
 
 void NEARNBR_SET_SEPMAX(char *varName, double *SEPMAX) ;
 void nearnbr_set_sepmax__(char *varName, double *SEPMAX) ;
@@ -72,6 +72,8 @@ void  nearnbr_init_SUBSET(void) ;
 void  nearnbr_fill_SUBSET_TRAIN(char *CCID); 
 void  nearnbr_fill_SUBSET_APPLY(char *CCID); 
 void  nearnbr_makeHist(int ISPLIT) ;
+void  nearnbr_makeHist_once(void) ;
+void  nearnbr_makeHist_allJobs(void) ;
 void  nearnbr_fillHist(int ISEPMAX, int ISPARSE_TYPE) ;
 
 void  nearnbr_TRAIN_FILENAME(int ifile, char *TRAIN_FILENAME);
@@ -102,6 +104,7 @@ struct NEARNBR_INPUTS {
   char   TRAINFILE_LIST[MXTRAINFILE_NEARNBR][200] ;
   int    NTRAINFILE ;
   char   VARNAME_TRUETYPE[60];
+  int    TRUETYPE_SNIa ; // used with SCALE_NON1A
   int    TRAIN_ODDEVEN;  // if True, odd SNID for ref, even for TRAIN
 
   int    NVAR ;
@@ -112,7 +115,9 @@ struct NEARNBR_INPUTS {
 
   float  CUTPROB ;      // fraction of R<1 events to set tag
   float  NSIGMA_PROB ;  // required significance (sigma) of PROB > CUTPROB
-  
+  float  SCALE_NON1A ;  // extra sim scale to enhance CC sample;
+                        // default=1 for physical CC/Ia rate-ratio
+
   int FILLHIST ;  // internally set to TRUE if multiple SEPMAX bins
 } NEARNBR_INPUTS ;
 
@@ -123,7 +128,7 @@ struct NEARNBR_TRAINLIB {
   int    *CID_VALUES;   // note this int is for sims only
   float  *FITRES_VALUES[MXVAR_NEARNBR];
   int    *TRUETYPE ;  // true TYPE for each entry in the training set
-  float  **P_TRAIN ;  // training-prob for type & each event (6/21/2016)
+  // xxx mark delete  float  **P_TRAIN; // train-prob for type & each event
   int     NTOT ; // total number of entries stored in FITRES_FILE
   int     NTOT_USE ; // number with valid TRUETYPE
 

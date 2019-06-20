@@ -1,12 +1,3 @@
-GitHub issues:
-* while maintaining 2 SNANA systems, code flows from FNAL -> Git, 
-  or other way ?
-* SNDATA_ROOT remains at snana.uchicago.edu ? Zenodo ?
-* SNANA_tester.pl runs on ssh -> batch
-* Each developer should run SNANA_tester before Git upload.
-* Current snana.uchicago.edu site, with SNDATA_ROOT & PDF docs ?
-
-
    v9_00 [Sep 3, 2010]  
 
              ***** ACTION ITEMS for ALL SNANA USERS *****
@@ -16789,11 +16780,15 @@ GitHub issues:
 
 
 # ======================================================================= 
-         v10_73b (  ) 
+         v10_73b (May 31 2019) 
 
          ***** IMPORTANT(v10_73b) ***** 
 
          ***** USEFUL(v10_73b) ***** 
+
+    + SALT2mu_fit.pl:works with NSPLITRAN. 
+    + SALT3.XYZ models recognized as SALT2 (but not yet tested)
+    + Command-line options can now include comma-sep list of CID strings.
 
          ***** MISCELLANEOUS(v10_73b) ***** 
 
@@ -16817,11 +16812,159 @@ GitHub issues:
      + fix bugs re-initializing NSPLITRAN jobs. See SPLITRAN_prep_input(),
        and bug-fix in setup_zbins_fit().
 
-    Still to do ... make SALT2mu_fit work with NSPLITRAN to distribute
-    NSPLITRAN jobs among cores.
+    SALT2mu_fit.pl: works with NSPLITRAN. See instructions in top of file.
 
     genmag_BYOSED.c:
       + construct pyFORMAT_STRING_HOSTPAR to pass to python.
       + pass NAMES_HOSTPAR to init_genmag_BYOSED()
 
+    snlc_fit.car, snlc_sim.c:
+      + allow for SALT3 model, but use internal MODEL_SALT2 index.
+         [not tested yet on actual SALT3.[NAME]  directory]
+      + remove check on [MODEL].DEFAULT, and remove [MODEL].DEFAULT
+        files from $SNDATA_ROOT/models/*.
+
+    snlc_sim.c:
+      + GENLC.PEAKMJD_RANGauss is now set locally in gen_peakmjd_smear(),
+        and thus random sync has changed. Must cut new SNANA version here
+        and re-generate REF for SNANA_CodeTest.
+
+
+# ======================================================================= 
+         v10_73c (June 13 2019) 
+
+         ***** IMPORTANT(v10_73c) ***** 
+
+         ***** USEFUL(v10_73c) ***** 
+
+   Added wfit options for Pippin-integration
+
+         ***** MISCELLANEOUS(v10_73c) ***** 
+
+    SALTmu.c
+     + major refactor to use same cutmask-function for data,biasCor,CCprior.
+     + bug-fix determinig sigInt for biasCor; relaxed z cut had removed 
+       global z-cut, but should have kept global z-cut and applied only
+       the internal BIASCOR-z cuts dependent on IDSAMPLE. See new 
+       CUTBIT_BIASCORz.
+     + more refactoring to read & process data,biasCor,CCprior with 
+       common tools.
+     + write reduced COV matrix to output fitres file
+     + For this SNANA version, leave LEGACY-code flag;
+       will implment refactored SALT2mu code next version.
+
+    SALT2mu_fit.pl
+     + count ABORTS and write SUCCESS or FAIL to ALL.DONE file.
+
+    split_and_fit.pl :
+      + TOTAL_WAIT_ABORT -> 48 hr (was 24 hr)
+
+    combine_fitres.c
+      + new argument -outfile_text <outfile>
+
+    NEARNBR_pipeline.pl
+      + fix bug deleting TOPDIR_OUTPUT for -RESTART 2
+
+    nearnbr codes:
+      + new NNINP input NEARNBR_TRAINFILE_SCALE_NON1A
+         (propagated to nearnbr_maxFoM and nearnbr_apply)
+      + Goal is to allow increasing CC component in sim-training 
+        sample, and then account for the CC-scale in the 
+        training process. The I/O is added, but still need
+        to implement.
+
+    SNANA_CodeTests.py :
+     +  works without a TESTINPUT key in task file.
+
+    wfit.c :   few outfile changes to be Pippin-friendly.
+      + input syntax for cospar outfile is
+          -cospar <fileName>  or
+          -outfile_cospar <fileName>
+      + same for resid file with key -resid or -outfile_resid
+      + -csv command writes cospar in csv format.
+      + -outfile_resid NONE --> no resid file
+
+
+# ======================================================================= 
+         v10_73d (Jun 19 2019) 
+
+         ***** IMPORTANT(v10_73d) ***** 
+
+         ***** USEFUL(v10_73d) ***** 
+
+         ***** MISCELLANEOUS(v10_73d) ***** 
+
+   snlc_sim.c
+     + apply NGEN_SCALE_NON1A and DNDZ_SCALE[1] to SIMSED models in 
+       addition to NON1A models.
+
+   NEARNBR_pipeline.pl :
+     + new input "SIMTRAIN_NON1A_SCALE: <scale>" to scale NON1A & SIMSED
+       sample sizes, keeping SNIa the same. NN-train and NN-apply have
+       been modified (previous SNANA version) to correct for this scale.
+
+   SALT2mu.c :
+     Finished refactoring, but still keep LEGACY switch .
+
+   split_and_fit.pl 
+     + minor fix related to parsing wild card in VERSION key.
+
+   sntools_nearnbr.c[h]
+     + remove all instances of obsolete P_TRAIN
+     + fix NEARNBR_GETRESULTS to account for SCALE_NON1A
+
+   sntable_combine.c: 
+     + fix bug closing table file after read.
+
+   snana.car:
+     + read SIM_SNMAGSHIFT_HOSTCOR from sim data files (not tested)
+     + for cut-summary, include "CUTSTAT:" key so that it's easier
+       to parse the split_and_fit logs to make a total cut-summary table.
+
+   psnid.car:
+    + make calls to new "BEST2" functions, which are blank.
+   psnit_BEST2.c :
+    + new set of blank function, to be filled in later.
+
+
+# ======================================================================= 
+         v10_73e (June 19 2019) 
+
+         ***** IMPORTANT(v10_73e) ***** 
+
+      Implement refactored SALT2mu/BBC code.
+
+         ***** USEFUL(v10_73e) ***** 
+
+         ***** MISCELLANEOUS(v10_73e) ***** 
+
+  SALT2mu bugs found during refactor:
+    * no z cut for biasCorsigInt calc
+     (intent was remove IDSAMPLE z cuts, but keep global z cut)
+
+    * for biasCor, use mB = -2.5*log10(x0) instead of mB in file
+       (maybe difference from truncation round-off)
+
+    * missing BAD-COV cut on biasCor and CCprior samples.
+
+   REFACTOR-LEGACY differences for SALT2/BBC ::
+              
+        test       | keep bugs  |  fix bugs  |
+    -----------------------------------------
+         (1D)      |            | 
+     dalpha/alpha  |  1.0000    |  1.0000
+     dbeta/beta    |  1.0000    |  1.0000
+     dgamma        |  0.0000    |  0.0000
+       
+         (5D)      |            |
+     dalpha/alpha  |  0.99880   |  0.99875
+     dbeta/beta    |  0.9993    |  0.99932
+     dgamma        | -0.00014   | -0.00015
+     ----------------------------------------
+
+  To restore lagcy code and bugs:  
+    LEGACY_READFILE=1
+    LEGACY_BUGS=1
+
+ 
 END: 

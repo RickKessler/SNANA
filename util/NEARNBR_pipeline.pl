@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-#
+# 
 # Created Dec 2014 by R.Kessler
 # Run nearest neighbor (NN) pipeline:
 #
@@ -98,6 +98,11 @@
 #
 # Apr 11 2019: --truetype --> -truetype (just one dash)
 #
+# Jun 14 2019: 
+#   + read new optional key SIMTRAIN_SCALE_NON1A to enhance CC
+#     without increasing SNIa size. See GENOPT_GLOBAL appended.
+#     NNtrain C-code has been updated to account for SCALE_NON1A > 1.
+#
 # -------------------------------------
 
 use List::Util qw(first);
@@ -169,14 +174,14 @@ my ($INFILE_SIMGEN_Ia_TRAIN, $INFILE_SIMGEN_NONIa_TRAIN, $NGEN_UNIT_TRAIN );
 my ($ISTAGE_START, $ISTAGE_END, $VERSION_REALDATA );
 my ($SYMLINKS_FLAG, $DO_LAUNCH, @CONTENTS_SIMTRAIN, @CONTENTS_SIMDATA) ;
 my ($SCALE_NGEN_UNIT_VALIDATA, $SCALE_NGEN_UNIT_BIASCOR);
-my ($NGEN_UNIT_VALIDATA, $NGEN_UNIT_BIASCOR);
+my ($NGEN_UNIT_VALIDATA, $NGEN_UNIT_BIASCOR, $SIMTRAIN_SCALE_NON1A);
 
 my ($INPUT_WFALSE);
 my $WFALSE_VALID = "1 3 5";
 
 my (@GENV_LIST_SIMTRAIN, @GENV_LIST_SIMDATA, @GENV_LIST_NN );
 my ($GENPREFIX_ORIG_TRAIN, $GENPREFIX_ORIG_DATA );
-my (@SIMGEN_GENPREFIX );
+my (@SIMGEN_GENPREFIX, $GENOPT_GLOBAL_TRAIN );
 my (@RANSEED, @SEPMAX_VARDEF_LIST);
 my ($NTRAIN, $NFITOPT, $NGENVER_SIMTRAIN, $NGENVER_SIMDATA);
 my ($DO_SALT2mu, $DO_BBC );
@@ -365,6 +370,8 @@ sub setDefaults {
 
     $DO_LAUNCH =  1;
 
+    $SIMTRAIN_SCALE_NON1A = 1.0 ;
+
 } # end of sub setDefaults 
 
 # =============================================
@@ -536,6 +543,17 @@ sub parse_inFile_master {
 
     print "\t VERSION_REALDATA = $VERSION_REALDATA \n";
 
+# - - - - -
+# check SCALE_NON1A[NONIA]
+
+    $KEY  = "SIMTRAIN_SCALE_NON1A:" ;
+    @tmp  = sntools::parse_array($KEY,1, $OPT_QUIET, @CONTENTS_MASTER);
+    if ( scalar(@tmp) > 0  ) { $SIMTRAIN_SCALE_NON1A = "$tmp[0]" ; }
+
+    $KEY  = "SIMTRAIN_SCALE_NONIA:" ;
+    @tmp  = sntools::parse_array($KEY,1, $OPT_QUIET, @CONTENTS_MASTER);
+    if ( scalar(@tmp) > 0  ) { $SIMTRAIN_SCALE_NON1A = "$tmp[0]" ; }
+
 # - - - - - - - - - - 
     $KEY  = "SCALE_NGEN_UNIT_VALIDATA:" ;
     @tmp  = sntools::parse_array($KEY,1, $OPT_QUIET, @CONTENTS_MASTER);
@@ -696,6 +714,7 @@ sub prep_outDir {
     # create $TOPDIR_OUTPUT.
     # If it already exists, clobber it.
     # If there are no slashes, append pwd to have full path.
+    # Ju 11 2019: fix bug avoiding TOPDIR delete.
 
     if ( length($TOPDIR_OUTPUT) < 2 ) {
 	die "\n ERROR: TOPDIR_OUTPUT = '$TOPDIR_OUTPUT' \n";
@@ -711,7 +730,9 @@ sub prep_outDir {
     $ARCDIR_INPUTS = "$TOPDIR_OUTPUT/Archive_inputs" ;
     $ARCDIR_STDOUT = "$TOPDIR_OUTPUT/Archive_stdout" ;
 
-    if ( $DOSTAGE[$ISTAGE_SIMGEN_VALIDATA] == 0 ) { return ; }
+    # if skipping first stage, keep current TOPDIR_OUTPUT
+    if ( $DOSTAGE[1] == 0 ) { return ; } 
+# xxx mark delete  if ( $DOSTAGE[$ISTAGE_SIMGEN_VALIDATA] == 0 ) { return ; }
 
     if ( -d $TOPDIR_OUTPUT ) { qx(rm -r $TOPDIR_OUTPUT); }
 
@@ -854,7 +875,13 @@ sub parse_SIMTRAIN_MASTER {
     $KEY = "NGEN_UNIT:" ;
     @tmp  = sntools::parse_array($KEY,1, $OPT_ABORT, @CONTENTS_SIMTRAIN) ;
     $NGEN_UNIT_TRAIN = $tmp[0] ; 
-    
+
+    # Jun 2019: get current GENOPT_GLOBAL in case we need to append
+    $KEY = "GENOPT_GLOBAL:" ;
+    @tmp  = sntools::parse_array($KEY,1, $OPT_QUIET, @CONTENTS_SIMTRAIN) ;
+    $GENOPT_GLOBAL_TRAIN  = "$tmp[0]" ;
+    $GENOPT_GLOBAL_TRAIN  =~ s/\s+$// ;     # trim trailing whitespace 
+
 } # end of parse_SIMTRAIN_MASTER
 
 # =======================================
@@ -927,7 +954,6 @@ sub make_SIMGEN_MASTER {
 
     $CLONE_INFILE_SIMGEN_MASTER[$ISTAGE] = "$CLOSE_INFILE_MASTER" ;
 
-# xxx mark delete    $genPrefix = "${GENPREFIX_ORIG}_${SUFFIX}";
     $genPrefix = "${SUFFIX}";
     $SIMGEN_GENPREFIX[$ISTAGE] = "$genPrefix" ;
 
@@ -952,15 +978,26 @@ sub make_SIMGEN_MASTER {
 	$SEDCMD = "$SEDCMD -e '/NGEN_UNIT/c NGEN_UNIT: $NEW_NGEN_UNIT '" ;
     }
 
+####    $INFILE_MASTER
 
     # For biasCor, remove CC and add global options
     if ( $ISTAGE == $ISTAGE_SIMGEN_BIASCOR ) {
-	my $sigArg = 
+	my $sigArg = "$GENOPT_GLOBAL_TRAIN " .
 	    "GENSIGMA_SALT2ALPHA 9000 9000  GENSIGMA_SALT2BETA 9000 9000 " ;  
 	$SEDCMD = "$SEDCMD -e " . "'/SIMGEN_INFILE_NONIa/d'" ;
+	$SEDCMD = "$SEDCMD -e " . "'/GENOPT_GLOBAL/d'" ;
 	$SEDCMD = "$SEDCMD -e " . " '\$ i\GENOPT_GLOBAL: $sigArg'" ;
     }
 
+    # Jun 14 2019: for REF & TRAIN, add global option to scale NON1A 
+    my $DOTRAIN = 
+	($ISTAGE == $ISTAGE_SIMGEN_TRAIN) || ($ISTAGE == $ISTAGE_SIMGEN_REF);
+    if ( $DOTRAIN && $SIMTRAIN_SCALE_NON1A != 1.0 ) {
+	my $sigArg = "$GENOPT_GLOBAL_TRAIN " .
+	    "DNDZ_SCALE_NON1A $SIMTRAIN_SCALE_NON1A " ;
+	$SEDCMD = "$SEDCMD -e " . "'/GENOPT_GLOBAL/d'" ;
+	$SEDCMD = "$SEDCMD -e " . " '\$ i\GENOPT_GLOBAL: $sigArg'" ;
+    }
 
     $iver = 0 ;
     foreach $GENV (@GENV_LIST) {	
@@ -1404,10 +1441,10 @@ sub run_lcfit {
 	    $ARG      = "$OUTDIR_REF/$GENV_REF" ;
 	}
 	print PTRNML "   NEARNBR_TRAINFILE_PATH = \n    '$ARG' \n\n";
-
 	print PTRNML "   NEARNBR_TRAINFILE_LIST = 'FITOPT000.FITRES' \n\n";
 	print PTRNML "   NEARNBR_SEPMAX_VARDEF  = \n    '$SEPMAX_VARDEF' \n\n";
-	print PTRNML "   NEARNBR_TRUETYPE_VARNAME  = 'SIM_TYPE_INDEX' \n\n";
+	print PTRNML "   NEARNBR_TRUETYPE_VARNAME      = 'SIM_TYPE_INDEX' \n\n";
+	print PTRNML "   NEARNBR_TRAINFILE_SCALE_NON1A = $SIMTRAIN_SCALE_NON1A \n\n" ;
 	print PTRNML " &END\n";
 	close PTRNML ;
     }

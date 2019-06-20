@@ -412,7 +412,7 @@ c define covariance matrices for SN model correlations (NOT for fit)
 
       CHARACTER 
      &   FITMODEL_PATH*(MXCHAR_PATH)          ! path for model params 
-     &  ,FITMODEL_LIST(MXMODEL_INDEX)*40         ! generic name for each model
+     &  ,FITMODEL_LIST(MXMODEL_INDEX)*40         ! generic name(s) for each model
      &  ,FITMODEL_VERSION*(MXCHAR_MODELNAME)  ! = FITMODEL_NAME 
      &  ,FILTLIST_MODEL*(MXFILT_REST*2)  ! filter string for rest-frame model
 
@@ -1323,7 +1323,7 @@ c check option to include IDEAL fit with FLUX=TRUEFLUX (no Poisson fluctuations)
 c ------------------------------------------------------
 c set FITMODEL_INDEX, FITMODEL_PATH and FITMODEL_VERSION
 
-      CALL FITMODEL_INI
+      CALL FITMODEL_INI()
 
       LEN_VERS = INDEX(FITMODEL_VERSION, ' ' ) - 1
       LEN_ROOT = INDEX(FITMODEL_PATH, ' ' ) - 1
@@ -5991,8 +5991,8 @@ c get efficiency
 
 
 C ====================================================
-+DECK,FITMODINI.
-      SUBROUTINE FITMODEL_INI
++DECK,FITMODEL_INI.
+      SUBROUTINE FITMODEL_INI()
 c
 c Created Nov 2010 by R.Kessler
 c Use namelist input FITMODEL_NAME to initialize global 
@@ -6001,6 +6001,8 @@ c   FITMODEL_PATH, FITMODEL_VERSION, FITMODEL_INDEX
 c
 c Feb 22 2017: 
 c   + allow FITMODEL_NAME to include path; see EXTRACT_MODELNAME().
+c
+c May 31 2019: check for SALT3 model.
 c
 c -----------------------------------------
       IMPLICIT NONE
@@ -6052,15 +6054,14 @@ c first  hard-wird generic name for each model
       FITMODEL_LIST(MODEL_STRETCH2) = 'stretch2'
       FITMODEL_LIST(MODEL_mlcs2k2)  = 'mlcs2k2'
       FITMODEL_LIST(MODEL_SALT2)    = 'SALT2'
+      FITMODEL_LIST(MODEL_SALT3)    = 'SALT3'
       FITMODEL_LIST(MODEL_snoopy)   = 'snoopy'
       FITMODEL_LIST(MODEL_SIMSED)   = 'SIMSED'
 
       USER_FITMODEL_NAME = FITMODEL_NAME ! transfer to local variable
 
-c Special case for backward compatibility: 
-c for mlcs, change to mlcs2k2 ...
-c remove this dumb logic if/when a new MLCS model
-c is provided by the ESSENCE group.
+c Special case for backward compatibility: for mlcs, change to mlcs2k2 ...
+c remove this dumb logic if/when a new MLCS model is provided by the ESSENCE group.
       if ( FITMODEL_NAME .EQ. 'mlcs' .or. 
      &     FITMODEL_NAME .EQ. 'MLCS' ) then
         USER_FITMODEL_NAME = FITMODEL_LIST(MODEL_mlcs2k2) 
@@ -6094,9 +6095,12 @@ c check both upper & lower case
          IF ( STRUP(1:LM) .EQ. FITMODEL_VERSION(1:LM)  .or.
      &        STRLO(1:LM) .EQ. FITMODEL_VERSION(1:LM) ) THEN
             FITMODEL_INDEX = j
-            LEN_MODELNAME = LM
+            LEN_MODELNAME  = LM
          ENDIF
 20    CONTINUE
+
+c May 31 2019 hack: if SALT3, switch to SALT2 to avoid lots of code refactoring.
+      if ( FITMODEL_INDEX == MODEL_SALT3 ) FITMODEL_INDEX=MODEL_SALT2
 
 c abort if FITMODEL_INDEX has not been found.
 
@@ -6107,6 +6111,8 @@ c abort if FITMODEL_INDEX has not been found.
         CALL MADABORT("FITMODEL_INI", c1err, c2err)
       ENDIF
 
+c xxxxxxxxx mark delete May 31 2019 xxxxxxxxxxxxxx
++SELF,IF=REMOVE.
 c Now get the full FITMODEL_VERSION:
 c = value in [MODEL].DEFAULT file or FITMODEL_VERSION
 
@@ -6136,8 +6142,11 @@ c depending on case of model
          FITMODEL_NAME    = FITMODEL_VERSION  ! as if user entered this
       ELSE
 c       do nothing
-cc xxx mark delete    FITMODEL_VERSION = USER_FITMODEL_NAME
       ENDIF
++SELF.
+c xxxxxxxxxxxxxx end mark delete xxxxxxxxxxxxx
+
+
 
 c ----------------------------
 c finally, if FITMODEL_PATH is not already set above
@@ -18595,8 +18604,11 @@ C ===================================================
 +DECK,FITPAR_NEARNBR_APPLY.
       SUBROUTINE FITPAR_NEARNBR_APPLY
 
+C
 C Jun 2013
 C shell to call NEARNBR_LOADVAL and NEARNBR_APPLY
+c Can be used for both training and apply mode, but here it
+c is used only for training mode.
 c
 c Apr 23 2014: call IPAR = IPAR_PARNAME_STORE(VARNAME) 
 c              to associate each NN-sepmax variable with snana variable.
@@ -18753,21 +18765,10 @@ c - - - -  - - - - - - - -
          NCELL = NCELL_TRAIN_LIST(i)        
          XCELL_TRAIN = FLOAT( NCELL_TRAIN_LIST(i) )
 
-         if ( ITYPE >= NN_ITYPE_IA(1) .and. 
-     &        ITYPE <= NN_ITYPE_IA(2) ) THEN
-              NN_PROB_IA    = NN_PROB_IA    + XCELL_TRAIN
+         if ( ITYPE == NN_ITYPE_SNIA ) THEN
+              NN_PROB_IA  = NN_PROB_IA    + XCELL_TRAIN
           endif  
 
-         if ( ITYPE >= NN_ITYPE_II(1) .and. 
-     &        ITYPE <= NN_ITYPE_II(2) ) THEN
-              NN_PROB_II  = NN_PROB_II  + XCELL_TRAIN
-          endif  
-
-         if ( ITYPE >= NN_ITYPE_IBC(1) .and. 
-     &        ITYPE <= NN_ITYPE_IBC(2) ) THEN
-              NN_PROB_IBC  = NN_PROB_IBC  + XCELL_TRAIN
-          endif  
- 
 c          write(6,333) ITYPE, NCELL, NN_NCELL, int(NN_PROB_IA)
 333       format(' xxx ITYPE=',I3, 3x,'NCELL=',I4,'/',I4,
      &          3x,'NN_IA=',I4)
@@ -18775,13 +18776,10 @@ c          write(6,333) ITYPE, NCELL, NN_NCELL, int(NN_PROB_IA)
      
       IF( XNTOT_TRAIN > 0.0 ) THEN
          NN_PROB_IA   = NN_PROB_IA  / XNTOT_TRAIN
-         NN_PROB_II   = NN_PROB_II  / XNTOT_TRAIN
-         NN_PROB_IBC  = NN_PROB_IBC / XNTOT_TRAIN
       ENDIF
 
       RETURN
       END      ! end FITPAR_NEARNBR_APPLY
-
 
 C ===============================
 +DECK,IPAR_PARNAME_STORE.

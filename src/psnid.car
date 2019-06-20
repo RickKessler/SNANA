@@ -45,6 +45,10 @@ c Sep 15 2017: add new &PSNIDINP inputs for
 c      DMU_NON1A_MIN, DMU_NON1A_MAX, 
 c      TMAX_START(3), TMAX_STOP(3), TMAX_STEP(3)
 c
+c Jun 19 2019: 
+c   + add calls to empty BEST2 functions in psnid_BEST2.c.
+c     Functions will be filled in over the summer by Masao.
+c
 c ---------------------------------------------------
 
 C ###############################
@@ -65,12 +69,11 @@ c define integer parameter for each  method
 c (translated from user-namelist string METHOD_NAME)
 
       INTEGER  
-     &   METHOD_BEST, METHOD_MULTINEST, METHOD_SOFT, MXITER_PSNID
+     &   METHOD_BEST, METHOD_BEST2, MXITER_PSNID
 
       PARAMETER (
      &   METHOD_BEST       = 1 ! Bayesian Evidence from SN Templates (Sako)
-     &  ,METHOD_MULTINEST  = 2 ! Brian Connolly ??
-     &  ,METHOD_SOFT       = 3 ! Rodney & Tonry ??
+     &  ,METHOD_BEsT2      = 2 ! faster code, more options (Sako)
      &  ,MXITER_PSNID      = 3 ! Sep 2017
      &      )
 
@@ -352,8 +355,11 @@ c set integer flag for this method
         CALL PSNID_BEST_INIT()
 
 c ------------
-c      ELSE IF ( METHOD_NAME .EQ. 'MULTINEST' ) THEN
-c ccccccccccc PLACE-HOLDER
+      ELSE IF ( METHOD_NAME .EQ. 'BEST2' ) THEN  ! begin June 19 2019
+
+        METHOD_PSNID = METHOD_BEST2
+        CALL PSNID_BEST2_INIT()
+
 c      ELSE IF ( METHOD_NAME .EQ. 'SOFT' ) THEN
 c ccccccccccc PLACE-HOLDER
 c ------------
@@ -413,20 +419,25 @@ c ----------- BEGIN ---------
       IERR = 0
       FNAM = 'PSNIDINI2'
 
+      OPT      = OPT_TABLE(ITABLE_FITRES)
+      FMT      = TEXTFORMAT_TABLE(ITABLE_FITRES)
+      LEN_FMT  = INDEX(FMT,' ') - 1
+      FMT_forC = FMT(1:LEN_FMT) // char(0)
+
+
 c method-specific inits.
 
       IF ( METHOD_NAME .EQ. 'BEST' ) THEN 
 
-        OPT      = OPT_TABLE(ITABLE_FITRES)
-        FMT      = TEXTFORMAT_TABLE(ITABLE_FITRES)
-        LEN_FMT  = INDEX(FMT,' ') - 1
-        FMT_forC = FMT(1:LEN_FMT) // char(0)
-
-        CALL PSNID_BEST_INIT_SNTABLE(OPT, FMT_forC, LSIM_SNANA, LEN_FMT)
+        CALL PSNID_BEST_INIT_SNTABLE(OPT,FMT_forC,LSIM_SNANA,LEN_FMT)
 
 c ------------
-c      ELSE IF ( METHOD_NAME .EQ. 'MULTINEST' ) THEN
-c ccccccccccc PLACE-HOLDER
+      ELSE IF ( METHOD_NAME .EQ. 'BEST2' ) THEN
+
+        CALL PSNID_BEST2_INIT_SNTABLE(OPT,FMT_forC,LSIM_SNANA,LEN_FMT)
+
+
+
 c      ELSE IF ( METHOD_NAME .EQ. 'SOFT' ) THEN
 c ccccccccccc PLACE-HOLDER
 c ------------
@@ -482,10 +493,11 @@ c local variables
       CHARACTER CCID*(MXCHAR_CCID), CFILT*2
 
 c functions
-      INTEGER   PSNID_BEST_DOFIT
+      INTEGER   PSNID_BEST_DOFIT, PSNID_BEST2_DOFIT
 
-      EXTERNAL  PSNID_BEST_DOFIT
-      EXTERNAL  PSNID_BEST_UPDATE_OUTPUT   
+      EXTERNAL  
+     &   PSNID_BEST_DOFIT, PSNID_BEST2_DOFIT
+     &  ,PSNID_BEST_UPDATE_OUTPUT, PSNID_BEST2_UPDATE_OUTPUT   
 
 C ------------------- BEGIN ---------------------
 
@@ -564,6 +576,15 @@ cc         XTMW8(NOBS)     = SNLC_XTMW_FLUXFRAC(ifilt)
      &                     MWEBV8, MWEBVERR8, SIM_TEMPLATE_INDEX,
      &                     LENCCID ) ;
 
+      ELSE IF ( METHOD_PSNID .EQ. METHOD_BEST2 ) THEN
+
+         ERRFLAG_FIT = PSNID_BEST2_DOFIT(CCID_forC, NOBS, 
+     &                     IFILTLIST_PSNID,
+     &                     MJD8, FLUX8, FLUXERR8, 
+     &                     Z8, ZERR8,
+     &                     MWEBV8, MWEBVERR8, SIM_TEMPLATE_INDEX,
+     &                     LENCCID ) ;
+
       ELSE
         write(C1ERR,666) METHOD_PSNID, METHOD_NAME(1:20)
 666     format('Invalid METHOD_PSNID = ', I5,'  for METHOD_NAME=',A)
@@ -576,7 +597,11 @@ c increment number with useful fit for stat summary at end
          N_SNLC_FITCUTS = N_SNLC_FITCUTS + 1
 
          IF ( METHOD_PSNID .EQ. METHOD_BEST ) THEN
-            CALL PSNID_BEST_UPDATE_OUTPUT(CCID_forC,LENCCID)  ! new
+            CALL PSNID_BEST_UPDATE_OUTPUT(CCID_forC,LENCCID) 
+
+         ELSE IF ( METHOD_PSNID .EQ. METHOD_BEST2 ) THEN
+            CALL PSNID_BEST2_UPDATE_OUTPUT(CCID_forC,LENCCID) 
+ 
          ELSE
 
          ENDIF
@@ -1255,8 +1280,10 @@ c functions
       LOGICAL  DOPLOT_SNLC
   
 c external functions (declared external Aug 17 2014)
-      EXTERNAL  MAKEDIR_OUTPUT, CDTOPDIR_OUTPUT
-      EXTERNAL  SNLCPLOT_PSNID_BEST, MONPLOT_PSNID_BEST, DOPLOT_PSNID
+      EXTERNAL  
+     &   MAKEDIR_OUTPUT, CDTOPDIR_OUTPUT
+     &  ,SNLCPLOT_PSNID_BEST,  MONPLOT_PSNID_BEST, DOPLOT_PSNID
+     &  ,SNLCPLOT_PSNID_BEST2, MONPLOT_PSNID_BEST2
 
 C ---------------- BEGIN -------------
 
@@ -1284,6 +1311,9 @@ c - - - - - - - - -
          IF ( METHOD_PSNID .EQ. METHOD_BEST ) THEN
             CALL SNLCPLOT_PSNID_BEST(iplot)  ! tables for light curve plots
             CALL MONPLOT_PSNID_BEST(iplot)   ! misc plots
+         ELSE IF ( METHOD_PSNID .EQ. METHOD_BEST2 ) THEN
+            CALL SNLCPLOT_PSNID_BEST2(iplot)  ! tables for light curve plots
+            CALL MONPLOT_PSNID_BEST2(iplot)   ! misc plots
          ELSE
 
          ENDIF
@@ -1329,6 +1359,8 @@ c if a future psnid option has a different NFIT.
 c determine how many fit-function to generate
       IF ( METHOD_PSNID .EQ. METHOD_BEST ) THEN
          NFIT = PSNID_BEST_GET_NFIT()
+      ELSE IF ( METHOD_PSNID .EQ. METHOD_BEST2 ) THEN
+         NFIT = PSNID_BEST_GET_NFIT()  ! same as for BEST method
       ELSE
 
       ENDIF
@@ -1358,8 +1390,8 @@ c at end of job.
       INTEGER ITYPE
 
 c function
-      INTEGER  PSNID_BEST_GET_BESTTYPE
-      EXTERNAL PSNID_BEST_GET_BESTTYPE
+      INTEGER  PSNID_BEST_GET_BESTTYPE, PSNID_BEST2_GET_BESTTYPE
+      EXTERNAL PSNID_BEST_GET_BESTTYPE, PSNID_BEST2_GET_BESTTYPE
 
 C ------------------- BEGIN ------------------
 
@@ -1367,7 +1399,9 @@ C ------------------- BEGIN ------------------
       IF ( METHOD_PSNID .EQ. METHOD_BEST ) THEN
         ITYPE_IA = 0
         ITYPE    = PSNID_BEST_GET_BESTTYPE()
-      ELSE
+      ELSE IF ( METHOD_PSNID .EQ. METHOD_BEST2 ) THEN
+        ITYPE_IA = 0   ! ???
+        ITYPE    = PSNID_BEST2_GET_BESTTYPE()
 
       ENDIF
 

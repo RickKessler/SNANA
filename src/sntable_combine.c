@@ -39,6 +39,12 @@
                       -tableName SNANA
      [create default outFile COMBINE_SNANA.ROOT ]
 
+
+    HISTORY
+  ~~~~~~~~~~~~~
+
+ Jun 16 2019:  call  TABLEFILE_CLOSE(f), EXCEPT for TEXT format
+
 ===================================== */
 
 #include <stdio.h>
@@ -107,7 +113,7 @@ void  sntable_combine_summary(void);
 // =========================================
 int main(int argc, char **argv) {
 
-  int iFile, optMask, irow ;
+  int iFile, optMask, irow, IFILETYPE  ;
   char *f ;
   // ------------ BEGIN ------------
 
@@ -122,8 +128,9 @@ int main(int argc, char **argv) {
     printf("\n@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@-@\n");
     fflush(stdout);
     SNTABLE_AUTOSTORE_INIT(f, INPUTS.TABLENAME, "ALL", optMask);
-    INPUTS.IFILETYPE[iFile] = SNTABLE_AUTOSTORE[iFile].IFILETYPE ;
-    //    TABLEFILE_CLOSE(f);
+    IFILETYPE = SNTABLE_AUTOSTORE[iFile].IFILETYPE ;
+    INPUTS.IFILETYPE[iFile] = IFILETYPE ;
+    if(IFILETYPE != IFILETYPE_TEXT) { TABLEFILE_CLOSE(f); } // June 16 2019
     OUTPUT.NVAR_TOT += SNTABLE_AUTOSTORE[iFile].NVAR ;
   }
 

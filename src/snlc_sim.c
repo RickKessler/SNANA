@@ -2534,7 +2534,6 @@ void  read_input_RATEPAR(FILE *fp, char *WHAT, char *KEYNAME,
     if ( strcmp(KEYNAME,"DNDZ_SCALE_NON1A:")==0 ||
 	 strcmp(KEYNAME,"DNDZ_SCALE_NONIA:")==0 )  { 
       readdouble ( fp, 1, &RATEPAR->DNDZ_SCALE[1] ); return ; 
-      // OBSOLETE  readdouble ( fp, 1, &RATEPAR->DNDZ_SCALE_NON1A ); return;
     }
   }
 
@@ -5784,7 +5783,7 @@ void prep_user_input(void) {
   
   // check options to work only for NON1A (with sim_SNmix)
 
-  if ( INPUTS.NON1A_MODELFLAG > 0 )  { 
+  if ( INPUTS.NON1A_MODELFLAG > 0 || INDEX_GENMODEL == MODEL_SIMSED ) { 
       INPUTS.NGEN_SCALE  *= INPUTS.NGEN_SCALE_NON1A ;  
 
       if ( INPUTS.GENMAG_OFF_NON1A != 0.0 )  
@@ -12660,6 +12659,8 @@ double genz_wgt(double z, RATEPAR_DEF *RATEPAR ) {
    Aug 30 2017: use global scale (DNDZ_ALLSCALE) for all models.
                 Needed for SIMSED since these models can be either
                 Ia or NON1A.
+   June 14 2019:
+     Apply DNDZ_SCALE[1] to SIMSED models in addition to NON1A models.
 
   *******/
 
@@ -12673,7 +12674,6 @@ double genz_wgt(double z, RATEPAR_DEF *RATEPAR ) {
   w = 1.0 ;
 
   // Jul 2007: check for rate-evolution models
-
   w *= SNrate_model(z, RATEPAR);  
 
   // check for user re-wgt functions
@@ -12690,7 +12690,7 @@ double genz_wgt(double z, RATEPAR_DEF *RATEPAR ) {
   w *= RATEPAR->DNDZ_ALLSCALE ;
 
   // check DNDZ scale (Apr 19 2017)
-  if ( INPUTS.NON1A_MODELFLAG > 0 )  
+  if ( INPUTS.NON1A_MODELFLAG > 0 || INDEX_GENMODEL == MODEL_SIMSED )
     { w *= RATEPAR->DNDZ_SCALE[1]; } // NON1A scale
   else
     { w *= RATEPAR->DNDZ_SCALE[0]; } // Ia scale

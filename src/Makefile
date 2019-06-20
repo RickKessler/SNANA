@@ -117,6 +117,8 @@
 #   + genmag_BYOSED linked only to sim (not to fitter)
 #
 # May 3 2019: create blank subDirs (OBJ,LIB,BIN) that are not in Git.
+# Jun 19 2019: include psnid_BEST2.c
+#
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -364,7 +366,8 @@ OBJ_PSNID	=  		\
 	$(OBJ)/psnid.o		\
 	$(OBJ_SNTOOLS_SNANA)	\
 	$(OBJ)/psnid_tools.o 	\
-	$(OBJ)/psnid_BEST.o
+	$(OBJ)/psnid_BEST.o 	\
+	$(OBJ)/psnid_BEST2.o
 
 OBJ_SIM	 = 	\
 	$(OBJ)/snlc_sim.o	\
@@ -590,6 +593,11 @@ $(OBJ)/psnid_tools.o : $(SRC)/psnid_tools.c $(SRC)/sntools.h $(SRC)/sntools_grid
 $(OBJ)/psnid_BEST.o : $(SRC)/psnid_BEST.c $(SRC)/sntools.h $(SRC)/sntools_gridread.c
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/psnid_BEST.c )
+
+
+$(OBJ)/psnid_BEST2.o : $(SRC)/psnid_BEST2.c $(SRC)/sntools.h $(SRC)/sntools_gridread.c
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/psnid_BEST2.c )
 
 
 $(OBJ)/psnid.o :  psnid.f

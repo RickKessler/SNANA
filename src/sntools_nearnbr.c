@@ -13,8 +13,8 @@
 
             -> NEARNBR_INIT()
             -> NEARNBR_SET_TRAINPATH(trainPath)  // optional path
-            -> NEARNBR_SET_TRAINFILE(trainFile)  // called for each file
-            -> NEARNBR_SET_TRUETYPE(VARNAME_TRUETYPE)
+            -> NEARNBR_SET_TRAINFILE(trainFile,SCALE_NON1A) 
+            -> NEARNBR_SET_TRUETYPE(VARNAME_TRUETYPE,TRUETYPE_SNIa)
             -> NEARNBR_SET_SEPMAX(VARNAME,*SEPMAX) // call for each var
             -> NEARNBR_INIT2(ISPLIT)
 
@@ -43,6 +43,11 @@
       where indices go from 0 to N-1 instead of 1-N.
 
   Apr 11 2019: fill HID = HOFF+40 with total number of training events.
+
+  Jun 12 2019: add hook to allow for enhanced CC sample w.r.t. SNIa
+    + add SCALE_NON1A argument to NEARNBR_SET_TRAINFILE(trainFile,SCALE_NON1A)
+    + adjust computations in nearnbr_whichType() to account for SCALE_NON1A
+    + adjust NEARNBR_GETRESULTS to account for SCALE_NON1A
 
 **********************************************/
 
@@ -104,26 +109,30 @@ void nearnbr_set_trainpath__(char *path) { NEARNBR_SET_TRAINPATH(path); }
 
 
 // ============================================
-void NEARNBR_SET_TRAINFILE(char *file) {
+void NEARNBR_SET_TRAINFILE(char *file, float SCALE_NON1A) {
   int N ;
   N =  NEARNBR_INPUTS.NTRAINFILE ;
   sprintf(NEARNBR_INPUTS.TRAINFILE_LIST[N], "%s", file);
   NEARNBR_INPUTS.NTRAINFILE++ ;
-  printf("\t Include train-file: %s\n", file);
+  NEARNBR_INPUTS.SCALE_NON1A = SCALE_NON1A ;
+  printf("\t Include train-file: %s (SCALE_NON1A=%.2f) \n", 
+	 file, SCALE_NON1A );
   fflush(stdout);
 }
-void nearnbr_set_trainfile__(char *file) { NEARNBR_SET_TRAINFILE(file); }
-
-
+void nearnbr_set_trainfile__(char *file, float *SCALE_NON1A) 
+{ NEARNBR_SET_TRAINFILE(file,*SCALE_NON1A); }
 
 
 // ============================================
-void NEARNBR_SET_TRUETYPE(char *varName) {
+void NEARNBR_SET_TRUETYPE(char *varName, int truetype_SNIa) {
   printf("\t Train-file variable with true type: %s\n", varName);
+  printf("\t %s = %d for true SNIa\n", varName, truetype_SNIa );
+  fflush(stdout);
   sprintf(NEARNBR_INPUTS.VARNAME_TRUETYPE, "%s", varName);
+  NEARNBR_INPUTS.TRUETYPE_SNIa = truetype_SNIa ;
 } 
-void nearnbr_set_truetype__(char *varName) 
-{ NEARNBR_SET_TRUETYPE(varName); }
+void nearnbr_set_truetype__(char *varName, int *truetype_SNIa) 
+{ NEARNBR_SET_TRUETYPE(varName,*truetype_SNIa); }
 
 
 
@@ -617,7 +626,7 @@ void nearnbr_read_trainLib(int ifile) {
   CDTOPDIR_OUTPUT();
 
 
-  // Apr 6 2019: check option to use only ODD CID .xyz
+  // Apr 6 2019: check option to use only ODD CID 
   int NROW_ODD;
   if ( NEARNBR_INPUTS.TRAIN_ODDEVEN )  
     { NROW_ODD = nearnbr_storeODD_trainLIB(NROW);  NROW=NROW_ODD; }
@@ -727,10 +736,12 @@ void nearnbr_apply_trainLib(void) {
   printf("\t\t (needed to compute proper P_BAYES) \n");
   fflush(stdout);
 
+  /* xxxxxxx mark delete Jun 16 2019 xxxxxxxxx
   // allocate memory to store P_TRAIN for each possible type.
   NEARNBR_TRAINLIB.P_TRAIN = (float**)malloc(NTRUETYPE * sizeof(float*) ); 
   for(itype=0; itype < NTRUETYPE; itype++ ) 
     { NEARNBR_TRAINLIB.P_TRAIN[itype] =  (float*)malloc(MEMF);   }
+    xxxxxxxxxxxxxxxxxx  */
 
   // store local list of varNames before trainLib loop
   for(ivar = 0; ivar <= NVAR; ivar++ ) {
@@ -752,6 +763,9 @@ void nearnbr_apply_trainLib(void) {
       NEARNBR_LOADVAL(CCID, varNameList[ivar], d_val ) ;
     }
 
+    /* xxx mark delete Jun 16 2019 xxxxxxxxx
+       xxx P_TRAIN not used any more xxxxx
+
     NEARNBR_APPLY(CCID) ;
 
     NEARNBR_GETRESULTS(CCID, &ITYPE_BEST, &NTYPE,
@@ -768,7 +782,8 @@ void nearnbr_apply_trainLib(void) {
 	NEARNBR_TRAINLIB.P_TRAIN[itype][irow] = (float)P_TRAIN ;
       }
     }
-    
+    xxxxxxx end mark xxxxxxxxxxxxx */
+
   } // end irow loop over trainLib rows
 
 
@@ -1028,6 +1043,8 @@ void nearnbr_storeTrueTypes(void) {
 
   // Examine every TRUE TYPE in the training set and
   // store sparse list of each possible type.
+  //
+  // Jun 14 2019:  account for SCALE_NON1A in untrained purity calc.
 
   int NTYPE, i, TRUETYPE, MAP ;
   int TRUETYPE_LIST[MXTRUETYPE] ; 
@@ -1098,8 +1115,11 @@ void nearnbr_storeTrueTypes(void) {
   // compute/store/print untrainined purity for each type
   // These un-trained purities are for visual reference,
   // but are not used in any calculations.
-
-  double P, x1, x0 ;
+  //
+  // Jun 14 2019 : correct for SCALE_NON1A
+  // .
+  double P, xtype[50], xtot, SCALE ;
+  int TRUETYPE_SNIa = NEARNBR_INPUTS.TRUETYPE_SNIa ;
 
   for(i=0; i< NEARNBR_TRAINLIB.NTOT; i++ ) {
     TRUETYPE = NEARNBR_TRAINLIB.TRUETYPE[i] ;
@@ -1111,11 +1131,23 @@ void nearnbr_storeTrueTypes(void) {
     NEARNBR_TRAINLIB.NTOT_USE++ ;
   }
 
-  x0 = (double)NEARNBR_TRAINLIB.NTOT_USE ; 
-  for(i=0; i < NTYPE; i++ ) {
-    
-    x1 = (double)NEARNBR_TRAINLIB.NSN[i] ;
-    P  = x1/x0 ;
+
+  // count total using SCALE_NON1A
+  xtot = 0.0 ;
+  for(i=0; i < NTYPE; i++ ) {    
+    TRUETYPE = NEARNBR_TRAINLIB.TRUETYPE_LIST[i];
+    if ( TRUETYPE == TRUETYPE_SNIa ) 
+      { SCALE = 1.0; }
+    else
+      { SCALE = (double)NEARNBR_INPUTS.SCALE_NON1A; }
+
+    xtype[i] = (double)NEARNBR_TRAINLIB.NSN[i] / SCALE ;
+    xtot    += xtype[i] ;
+  }
+
+  // store and print untrained purities.
+  for(i=0; i < NTYPE; i++ ) {    
+    P  = xtype[i]/xtot ;
     NEARNBR_TRAINLIB.UNTRAINED_PURITY[i] = P ;
     printf("\t Untrained Purity (TrueType=%3d) = %6.3f \n",
 	   NEARNBR_TRAINLIB.TRUETYPE_LIST[i], P);
@@ -1132,30 +1164,42 @@ void nearnbr_makeHist(int ISPLIT) {
   // Feb 7 2017: 
   //  + include new histogram whose title contains
   //    file name with training sample. 
-
-  char   TITLE[MXCHAR_FILENAME], ctmp[100];
-  double xmin[2], xmax[2], xval[2], w ;
-  int    ivar, NVAR, ibin, NTYPE, jtype, ID, NBIN[2];
+  //
+  // Jun 14 2019: 
+  //   + split into makeHist_once() and makeHist_alljobs
   
   // --------------- BEGIN ------------
 
   if ( NN_APPLYFLAG  ) { return ; }
 
-  NVAR  = NEARNBR_INPUTS.NVAR ;
-  NTYPE = NEARNBR_TRAINLIB.NTRUETYPE ;
-
   printf("\t Create NEARNBR training histograms (ISPLIT=%d) \n", ISPLIT); 
   fflush(stdout);
 
-  if ( ISPLIT > 1 ) { goto H2DANAL ; }
+  if ( ISPLIT == 1 )  { nearnbr_makeHist_once(); }
 
-  // start with number of merged histograms
-  ID = HIDOFF_NEARNBR + 1 ;
-  sprintf(TITLE, "Number of merged files");
-  xmin[0] = 0.5 ;  xmax[0] = 1.5 ;  NBIN[0] = 1 ;  xval[0] = w = 1.0 ;
-  SNHIST_INIT(1, ID, TITLE, NBIN, xmin, xmax );
-  SNHIST_FILL(1, ID, xval, w);
+  nearnbr_makeHist_allJobs();
 
+  NEARNBR_INPUTS.FILLHIST = 1;
+
+  return ;
+
+} // end of nearnbr_makeHist
+
+
+// =====================================
+void nearnbr_makeHist_once(void) {
+
+  // Created June 14, 2019
+  // Create histograms only for 1st SPLIT job.
+
+  int NVAR  = NEARNBR_INPUTS.NVAR ;
+  int NTYPE = NEARNBR_TRAINLIB.NTRUETYPE ;
+
+  char   TITLE[MXCHAR_FILENAME], ctmp[100];
+  double xmin[2], xmax[2], xval[2], w ;
+  int    ivar, ibin, jtype, ID, NBIN[2];
+
+  // -------------- BEGIN -----------
 
   // plot TRUETYPE map between sparse & absolute indices
   ID = HIDOFF_NEARNBR + 2 ;
@@ -1206,40 +1250,12 @@ void nearnbr_makeHist(int ISPLIT) {
   }
 
 
-  // ----------------------------------------
-  // now book plots that are filled in the NEARNBR_APPLY. For each
-  // SNTYPE make 2D plot of TrainSet-TRUETYPE(train) vs. SEPBIN
-  // Assume that the list of TYPEs in the training set is the
-  // same as in the data set under analysis.
-  // Note that the Train-type (vertical axis) is a sparse TYPE index,
-  // and -1 means that there is not valid TYPE.
-
- H2DANAL:
-
-  for ( jtype=0 ; jtype < NTYPE ; jtype++ ) {
-    ID = HIDOFF_NEARNBR + 10 + jtype ;
-    sprintf(TITLE,"TrainSet-SparseTYPE vs. SEPMAX BIN for SNTYPE=%d",
-	    NEARNBR_TRAINLIB.TRUETYPE_LIST[jtype] ) ;
-    xmin[0] = -0.5 ;  xmax[0] = xmin[0] + (int)NBINTOT_SEPMAX_NEARNBR ;
-    xmin[1] = -1.5 ;  xmax[1] = xmin[1] + (int)(NTYPE+1) ;
-    NBIN[0] = NBINTOT_SEPMAX_NEARNBR ;  NBIN[1] = NTYPE+1;
-    SNHIST_INIT(2, ID, TITLE, NBIN, xmin, xmax );
-  }
-
-
-  // Apr 11 2019:
-  // store total number of training events to read/print later.
-  // This is just for information, not needed for training.
-  xmin[0]=0.0; xmax[0]=1.0; NBIN[0]=1;
-  ID = HIDOFF_NEARNBR + 40 ;  
-  sprintf(TITLE, "Number of training events");
-  SNHIST_INIT(1, ID, TITLE, NBIN, xmin, xmax );  
 
   // -------------------------------
   // store fileName with training (SIM) sample (Feb 7, 2017)
   // Due to stupid limit on hbook title length (char 80),
   // write three histograms to allow up to 240 chars.
-  
+
   xmin[0]=0.0; xmax[0]=1.0; NBIN[0]=1;
 
   char strTmp[NSPLIT_TITLE][MXCHAR_TITLE+1]; 
@@ -1270,20 +1286,79 @@ void nearnbr_makeHist(int ISPLIT) {
   for(i=0; i < NSPLIT_TITLE ; i++ ) 
     { SNHIST_INIT(1, ID+i, strTmp[i], NBIN, xmin, xmax );  }
 
+  // June 12 2019: fill y-axis content with SCALE_NON1A
+  xval[0]=0.5;    w = (double)NEARNBR_INPUTS.SCALE_NON1A;
+  SNHIST_FILL(1, ID, xval, w) ;
 
   // -----------------------------------------------------
-  // finally, write name of variable which stores TRUETYPE
+  // finally, write name of variable which stores TRUETYPE.
+  // June 12 2019: fill contents with true SNIa type.
   ID = HIDOFF_NEARNBR + 60 ;  
   sprintf(TITLE, "%s", NEARNBR_INPUTS.VARNAME_TRUETYPE ); 
   SNHIST_INIT(1, ID, TITLE, NBIN, xmin, xmax );  
+  xval[0] = 0.5 ;    w = (double)NEARNBR_INPUTS.TRUETYPE_SNIa ;
+  SNHIST_FILL(1, ID, xval, w);
 
-  // ---------
-  NEARNBR_INPUTS.FILLHIST = 1;
+
+  return;
+
+} // end nearnbr_makeHist_once
+
+
+// =====================================
+void nearnbr_makeHist_allJobs(void) {
+
+  // Created June 14, 2019
+  // create histograms for all SPLIT jobs
+
+  int NVAR  = NEARNBR_INPUTS.NVAR ;
+  int NTYPE = NEARNBR_TRAINLIB.NTRUETYPE ;
+
+  char   TITLE[MXCHAR_FILENAME], ctmp[100];
+  double xmin[2], xmax[2], xval[2], w ;
+  int    ivar, ibin, jtype, ID, NBIN[2];
+
+  // -------------- BEGIN -----------
+
+  // start with number of merged histograms
+  ID = HIDOFF_NEARNBR + 1 ;
+  sprintf(TITLE, "Number of merged files");
+  xmin[0] = 0.5 ;  xmax[0] = 1.5 ;  NBIN[0] = 1 ;  xval[0] = w = 1.0 ;
+  SNHIST_INIT(1, ID, TITLE, NBIN, xmin, xmax );
+  SNHIST_FILL(1, ID, xval, w);
+
+
+  // ----------------------------------------
+  // now book plots that are filled in the NEARNBR_APPLY. For each
+  // SNTYPE make 2D plot of TrainSet-TRUETYPE(train) vs. SEPBIN
+  // Assume that the list of TYPEs in the training set is the
+  // same as in the data set under analysis.
+  // Note that the Train-type (vertical axis) is a sparse TYPE index,
+  // and -1 means that there is not valid TYPE.
+
+  for ( jtype=0 ; jtype < NTYPE ; jtype++ ) {
+    ID = HIDOFF_NEARNBR + 10 + jtype ;
+    sprintf(TITLE,"TrainSet-SparseTYPE vs. SEPMAX BIN for SNTYPE=%d",
+	    NEARNBR_TRAINLIB.TRUETYPE_LIST[jtype] ) ;
+    xmin[0] = -0.5 ;  xmax[0] = xmin[0] + (int)NBINTOT_SEPMAX_NEARNBR ;
+    xmin[1] = -1.5 ;  xmax[1] = xmin[1] + (int)(NTYPE+1) ;
+    NBIN[0] = NBINTOT_SEPMAX_NEARNBR ;  NBIN[1] = NTYPE+1;
+    SNHIST_INIT(2, ID, TITLE, NBIN, xmin, xmax );
+  }
+
+
+  // Apr 11 2019:
+  // store total number of training events to read/print later.
+  // This is just for information, not needed for training.
+  xmin[0]=0.0; xmax[0]=1.0; NBIN[0]=1;
+  ID = HIDOFF_NEARNBR + 40 ;  
+  sprintf(TITLE, "Number of training events");
+  SNHIST_INIT(1, ID, TITLE, NBIN, xmin, xmax );  
+
 
   return ;
 
-} // end of nearnbr_makeHist
-
+} // end of nearnbr_makeHist_allJobs
 
 // =====================================
 void NEARNBR_APPLY(char *CCID) {
@@ -1456,38 +1531,62 @@ int nearnbr_whichType(int NTYPE, int *NCUTDIST,  int *TYPE_CUTPROB ) {
   //  (O) Function arg returns sparse TYPE index (-1 if no type)
   //
   //
+  // June 13 2019:
+  //  correcft for SCALE_NON1A to allow for larger CC sims 
+  //  without increasing SNIa sims.
+  //             
 
-  int   ISPARSE, ISPARSE_PROBMAX, NTOT, i  ;
+  int   ISPARSE, ISPARSE_PROBMAX, i, TRUETYPE  ;
   float PROB, PROBMAX, VAR_PROB, SIG_PROB, PROB4CUT ;
-  float XN, XNTOT, XNTOT_CUBE ;
-
-  //  char fnam[]  = "nearnbr_whichType" ;
+  float XN, XNTOT, XNTOT_POW2, XNTOT_POW3, XNTOT_POW4, YN ;
+  float SCALE, SCALE_TYPE[NTRUETYPE_MAX];
+  float SCALE_NON1A = NEARNBR_INPUTS.SCALE_NON1A ; 
+  int TRUETYPE_SNIa = NEARNBR_INPUTS.TRUETYPE_SNIa ;
+  char fnam[]  = "nearnbr_whichType" ;
 
   // ----------------- BEGIN ------------------
 
   *TYPE_CUTPROB = -9 ;  ISPARSE = ISPARSE_PROBMAX = -1 ;
   PROBMAX = -9.0 ;
   
-  NTOT = 0 ;
-  for(i=0; i < NTYPE; i++ ) { NTOT += NCUTDIST[i] ; }
+  XNTOT = 0.0 ;
+  for(i=0; i < NTYPE; i++ ) { 
+    TRUETYPE = NEARNBR_TRAINLIB.TRUETYPE_LIST[i];
+    if ( TRUETYPE == TRUETYPE_SNIa ) 
+      { SCALE = 1.0 ; }
+    else
+      { SCALE = SCALE_NON1A; }
+    SCALE_TYPE[i] = SCALE ;
+    XN      = (float)NCUTDIST[i];
+    XNTOT  += (XN/SCALE) ; 
+  }
 
-  if ( NTOT == 0 ) { return ISPARSE ; }
+  if ( XNTOT == 0.0 ) { return ISPARSE ; }
 
-  XNTOT      = (float)NTOT ;
-  XNTOT_CUBE = XNTOT * XNTOT * XNTOT ;
-
+  XNTOT_POW2 = XNTOT * XNTOT ;
+  XNTOT_POW3 = XNTOT * XNTOT * XNTOT ;
+  XNTOT_POW4 = XNTOT_POW3 * XNTOT ;
+  
   // find which type passes the CUTPROB cut
   for(i=0; i< NTYPE; i++ ) { 
 
-    XN   = (float)NCUTDIST[i] ;
+    // xxx mark delete  XN   = (float)NCUTDIST[i];
+    XN   = (float)NCUTDIST[i] / SCALE_TYPE[i] ;
+    YN   = XNTOT - XN ;
     PROB = XN / XNTOT ;
 
     if ( PROB > PROBMAX ) { PROBMAX=PROB; ISPARSE_PROBMAX=i; }
     
-    VAR_PROB = XN*(XNTOT-XN) / XNTOT_CUBE ;
+    VAR_PROB = (XN*YN) / XNTOT_POW3 ; 
 
-    // do not allow VAR_PROB = 1; at least 1 event counts toward error
-    if ( VAR_PROB == 0.0 ) { VAR_PROB = 1.0/(XNTOT*XNTOT) ; }
+    // June 2019: for true SNIa, compute variance accounting for SCALE_NON1A
+    TRUETYPE = NEARNBR_TRAINLIB.TRUETYPE_LIST[i];
+    if ( TRUETYPE == TRUETYPE_SNIa ) { 
+      VAR_PROB = (XN*YN) * (XN + YN/SCALE) / XNTOT_POW4;
+    }
+
+    // do not allow VAR_PROB = 0; at least 1 event counts toward error
+    if ( VAR_PROB == 0.0 ) { VAR_PROB = 1.0/XNTOT_POW2 ; }
 
     SIG_PROB = sqrtf(VAR_PROB) ;
     PROB4CUT = PROB - (SIG_PROB * NEARNBR_INPUTS.NSIGMA_PROB) ;
@@ -1693,30 +1792,49 @@ void NEARNBR_GETRESULTS(char *CCID, int *ITYPE_BEST,
   //   NTYPE      = total number of true types
   //   ITYPE_LIST = list of true types
   //   NCELL_TRAIN_LIST = list of NCELL for each true type, training cuts
-  //   NCELL_FINAL_LIST = idem with NN cuts
+  //      (after dividing by SCALE_NON1A, returns nearest int, not float)
   //
   // If number of SEPMAX bins > 1, then return ITYPE = -9.
   //
-  // Feb 2016: re-write to return NCELL for each type.
-  // Jun 2016: refactor to return NCELL_FINAL_LIST.
-  //           NCELL_TRAIN_LIST = old NCELL_LIST.
+  //
+  // Juh 16 2019: correct for SCALE_NON1A
   //
 
   int  i, LDMP  ;
-  //  char fnam[] = "NEARNBR_GETRESULTS" ;
-
+  int NCELL, TRUETYPE ;
+  float XNCELL, SCALE;
+  float SCALE_NON1A   = NEARNBR_INPUTS.SCALE_NON1A ; 
+  int   TRUETYPE_SNIa = NEARNBR_INPUTS.TRUETYPE_SNIa ;
+  char fnam[] = "NEARNBR_GETRESULTS" ;
   // ----------- BEGIN --------------
 
   LDMP = 0 ; // ( NN_APPLYFLAG == 1 && NEARNBR_RESULTS_FINAL.NCELL[0]>0 ) ;
 
   if ( LDMP ) { printf(" xxx ---------------------------- \n"); }
 
+  if ( TRUETYPE_SNIa < 0 || SCALE_NON1A < 0.0 ) {
+    sprintf(c1err,"Invalid TRUETYPE_SNIa=%d and/or SCALE_NON1A=%.2f\n",
+	    TRUETYPE_SNIa, SCALE_NON1A);
+    sprintf(c2err,"Something is messed up.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+
   *ITYPE_BEST  = NEARNBR_RESULTS_TRAIN.ITYPE ;
   *NTYPE       = NEARNBR_TRAINLIB.NTRUETYPE ;
 
   for(i=0; i < *NTYPE; i++ ) {
-    ITYPE_LIST[i]         = NEARNBR_TRAINLIB.TRUETYPE_LIST[i] ;
-    NCELL_TRAIN_LIST[i]   = NEARNBR_RESULTS_TRAIN.NCELL[i] ;
+    TRUETYPE              = NEARNBR_TRAINLIB.TRUETYPE_LIST[i] ;
+    NCELL                 = NEARNBR_RESULTS_TRAIN.NCELL[i] ;
+    
+    if( TRUETYPE == TRUETYPE_SNIa ) 
+      { SCALE = 1.0 ; }
+    else 
+      { SCALE = SCALE_NON1A;}  // scale used to enhance simCC stats in training
+
+    XNCELL = ((float)NCELL) / SCALE;
+
+    ITYPE_LIST[i]         = TRUETYPE;
+    NCELL_TRAIN_LIST[i]   = (int)(XNCELL+0.5) ; // nearest int
   }
 
 

@@ -43,6 +43,8 @@
 
  Jan 14 2017: remove ISFILE_ROOT; move it to sntools_output.c
 
+ Jun 20 2019: fix dump-output to include comma for csv format.
+
 ***************************************************/
 
 #include "TROOT.h"
@@ -581,7 +583,6 @@ int SNTABLE_READ_EXEC_ROOT(void) {
   
   // ----------- BEGIN ----------
 
-  //  NROW_READ_ITER = 1000 ; // xxxx REMOVE .xyz xxxxx
 
   NROW_TOT = SNTABLE_NEVT_ROOT(BLANKFILE, READTABLE_POINTERS.TABLENAME) ;
   Nrow     = 0 ;
@@ -616,7 +617,10 @@ int sntable_read_exec_root(int IROW_MIN, int IROW_MAX) {
   //   Goal is to limit instantaneous memory usage.
   //  
   // Mar 11 2019: query args -> long long (intead of just long)
-
+  //
+  // Jun 20 2019: include SEPKEY for csv output format.
+  //
+  
   int NVAR_READ_TOT = READTABLE_POINTERS.NVAR_READ ;
   int FIRST = ( IROW_MIN == 0 ) ;
 
@@ -624,6 +628,7 @@ int sntable_read_exec_root(int IROW_MIN, int IROW_MAX) {
   int  LEN_SCANSTRING, IVAR_READ, IVAR_TOT ;
   char *scanString, *tmpString, *ptrVar, *treeName, *optString ;
   char BLANKFILE[] = "";
+  char   *SEPKEY = READTABLE_POINTERS.SEPKEY_DUMP ;
   char fnam[] = "sntable_read_exec_root";
   FILE *FP_DUMP ;
   // ------------ BEGIN -----------                                           
@@ -761,8 +766,10 @@ int sntable_read_exec_root(int IROW_MIN, int IROW_MAX) {
 	if ( ICAST == ICAST_C ) 
 	  { sprintf(LINE,"%s %s", LINE, tmpString); }
 	else
-	  { load_DUMPLINE(LINE,DVAL); }         
+	  { load_DUMPLINE(LINE,DVAL); }        // .xyz
       }
+
+      if ( i < Nfield-1 ) { strcat(LINE,SEPKEY); }  // June 20 2019
 
     } // end of i loop over Nfield
 

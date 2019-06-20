@@ -1,7 +1,6 @@
 /***********************************************************
   Created April 2014 by R.Kessler
 
-
   Stand-alone program to analyze output based on sntools_nearnbr.c[h]
   and do the NN training. Writes results to stdout.
 
@@ -106,10 +105,12 @@ struct INPUTS {
 } INPUTS ;
 
 FILE *FP_OUT;
-int  IROW_OUT;
-char NNINP_VARDEF[MXTRUETYPE][N_WFALSE][200] ;
-char VARNAME_TRUETYPE[40] ;
-char TRAIN_FILENAME[MXCHAR_FILENAME];
+int   IROW_OUT;
+char  NNINP_VARDEF[MXTRUETYPE][N_WFALSE][200] ;
+char  VARNAME_TRUETYPE[40] ;
+char  TRAIN_FILENAME[MXCHAR_FILENAME];
+int   TRAIN_SCALE_NON1A;
+int   TRUETYPE_SNIa ;
 
 char msgerr1[80], msgerr2[80];
 
@@ -159,8 +160,9 @@ int main(int argc, char **argv) {
   open_inFile();
 
   // read histograms (from hbook or root)
-  RDNN_VARNAME_TRUETYPE();  // Jan 2017
   RDNN_Nmerge();
+  RDNN_VARNAME_TRUETYPE();  // Jan 2017
+  // xxx RDNN_Nmerge();
   RDNN_TypeList();
   RDNN_SEPMAXbins();
   RDNN_UntrainedPurity();
@@ -317,8 +319,10 @@ void  open_outFile(void) {
 
   fprintf(FP_OUT, "TRAIN_FILENAME: %s \n\n", TRAIN_FILENAME );
   fprintf(FP_OUT, "NEVTOT_TRAIN:   %d \n",   INPUTS.NEVTOT );
-  fprintf(FP_OUT, "NBIN_SEPMAX:    %d \n", INPUTS.NBIN_SEPMAX);
-  fprintf(FP_OUT, "VARNAME_TRUE:   %s\n", VARNAME_TRUETYPE); 
+  fprintf(FP_OUT, "NBIN_SEPMAX:    %d \n",   INPUTS.NBIN_SEPMAX );
+  fprintf(FP_OUT, "VARNAME_TRUE:   %s \n",   VARNAME_TRUETYPE ); 
+  fprintf(FP_OUT, "TRUETYPE_SNIa:  %d \n",   TRUETYPE_SNIa ); 
+  fprintf(FP_OUT, "TRAIN_SCALE_NON1A: %d \n",   TRAIN_SCALE_NON1A ); 
 
   // print min,max training range for each variable
   for(ivar=0; ivar < INPUTS.NVAR; ivar++ ) {
@@ -346,12 +350,17 @@ void  RDNN_VARNAME_TRUETYPE(void) {
 
   // Feb 07 2017
   // Read name of variable with trueType (from hist title)
-  int HID = HID_varName_trueType ;  int NB; double XMIN, XMAX;
+  int HID = HID_varName_trueType ;  
+  int NB; double XMIN, XMAX, X;
 
   sprintf(VARNAME_TRUETYPE, "unknown");
   SNHIST_RDBINS(1, HID, VARNAME_TRUETYPE, &NB, &XMIN, &XMAX);
   trim_blank_spaces(VARNAME_TRUETYPE);
   //  printf(" xxx VARNAME_TRUETYPE = '%s' \n", VARNAME_TRUETYPE);
+
+  // Jun 12 2019: read true SNIa type from content
+  SNHIST_RDCONT(1, HID, NB, &X);
+  TRUETYPE_SNIa = (int)X ;
 
   return ;
 
@@ -377,7 +386,8 @@ void RDNN_TRAIN_FILENAME(void) {
   // Apr 11 2019: fix unitialized bug by setting strTmp[i][0]=0.
 
   char strTmp[NSPLIT_TITLE][MXCHAR_FILENAME];
-  int HID = HID_TRAIN_FILENAME ;  int NB,i ; double XMIN, XMAX;
+  int HID = HID_TRAIN_FILENAME ;  
+  int NB,i ; double XMIN, XMAX, X;
 
   TRAIN_FILENAME[0] = 0;
 
@@ -391,6 +401,10 @@ void RDNN_TRAIN_FILENAME(void) {
     if ( strlen(strTmp[i]) > 0 ) { strcat(TRAIN_FILENAME, strTmp[i] ); }
   }
 
+
+  // Jun 12 2019: read NONIA_SCALE from y-axis content
+  SNHIST_RDCONT(1, HID_TRAIN_FILENAME, NB, &X);
+  TRAIN_SCALE_NON1A = (int)X ;
 
   return ;
 } // end RDNN_TRAIN_FILENAME
@@ -425,7 +439,7 @@ void  RDNN_Nmerge(void) {
   }
 
   INPUTS.Nmerge = Nmerge ;  // store in global
-
+  
   fflush(stdout);
   
   return ;
@@ -436,6 +450,7 @@ void  RDNN_Nmerge(void) {
 void  RDNN_TypeList(void) {
 
   // read hid 802 and fill INPUTS.NTrueType and .TrueType array.
+  // Jun 2019: remove  /= Nmerge since it's filled only with ISPLIT=1
 
   int  HID = HID_TypeList ;
   char   CTIT[80];
@@ -451,7 +466,8 @@ void  RDNN_TypeList(void) {
   DOFLAG = 1 ; // default is to train on all TRUETYPEs
 
   for(i=0; i < NB; i++ ) {
-    TrueType           = (int)X[i]/INPUTS.Nmerge ;
+    // xxx mark delete    TrueType           = (int)X[i]/INPUTS.Nmerge ;
+    TrueType           = (int)X[i] ;
     INPUTS.TrueType[i] = TrueType ;
 
     if ( INPUTS.FLAG_VBOSE ) 
@@ -471,14 +487,15 @@ void  RDNN_TypeList(void) {
 void  RDNN_SEPMAXbins(void) {
 
   // read SEPMAX bins for each variable.
+  // Jun 2019: remove /= Nmerge since it's filled only for ISPLIT=1
 
   int HID = HID_SEPMAXbins ;
   char   CTIT[80], *ptrtok ;
   int    NB[2], NXY, ivar, isep, j, NVAR, NBSEP ;
-  double XMIN[2], XMAX[2], *CONTENTS, XNorm, SEPVAL ;
+  double XMIN[2], XMAX[2], *CONTENTS,  SEPVAL ;
 
   SNHIST_RDBINS(2, HID, CTIT, NB, XMIN, XMAX);
-  XNorm = (double)INPUTS.Nmerge ;
+  // xxx mark delete   XNorm = (double)INPUTS.Nmerge ;
 
   NBSEP              = NB[0] ; // local var
   NVAR               = NB[1] ;
@@ -521,7 +538,8 @@ void  RDNN_SEPMAXbins(void) {
   for(ivar=0; ivar < NVAR; ivar++ ) {
     for( isep=0; isep < NBSEP ; isep++ ) {
       j = ivar*NBSEP + isep;
-      SEPVAL = CONTENTS[j]/XNorm ;
+      // xxx mark delete      SEPVAL = CONTENTS[j]/XNorm ;
+      SEPVAL = CONTENTS[j] ;
       INPUTS.SEPMAX[ivar][isep] = SEPVAL ;
     }
   }
@@ -602,15 +620,17 @@ void  RDNN_UntrainedPurity(void) {
   // Apr 15 2014
   // read/store untrained purities for reference;
   // these purities are not used for any calculations.
+  //
+  // Jun 2019: remove /=Nmerge since it's filled only for ISPLIT=1
 
   int HID, NTrueType, i, NB ;
-  double XMIN, XMAX, XNorm, tmpPurity[MXTRUETYPE] ;
+  double XMIN, XMAX, tmpPurity[MXTRUETYPE] ;
   char CTIT[100];
   // ----------------- BEGIN ------------
 
   HID       =  HID_UntrainedPurity ;
   NTrueType =  INPUTS.NTrueType ;  
-  XNorm     =  (double)INPUTS.Nmerge ;  
+  // xxx mark delete  XNorm     =  (double)INPUTS.Nmerge ;  
 
   for ( i=0; i < NTrueType; i++ )  { INPUTS.UntrainedPurity[i] = -9.0 ; }
 
@@ -618,7 +638,8 @@ void  RDNN_UntrainedPurity(void) {
   SNHIST_RDCONT(1, HID, NTrueType,  tmpPurity   ) ;
 
   for ( i=0; i < NTrueType; i++ ) 
-    { INPUTS.UntrainedPurity[i] = tmpPurity[i]/XNorm ; }
+    { INPUTS.UntrainedPurity[i] = tmpPurity[i] ; }
+  // xxx mark delete    { INPUTS.UntrainedPurity[i] = tmpPurity[i]/XNorm ; }
 
   return ;
   
@@ -634,7 +655,9 @@ void RDNN_NTRAIN(int iTypeTrue) {
   // ----------- BEGIN ----------
   
   int    HID = HIDOFF_SEPMAXresults + iTypeTrue ;
-  int    NB[2], NBTOT, NTYPE, NBSEP, iTypeTrain, isep, j, NCONTENTS ;
+  int    NB[2], NBTOT, NTYPE, NBSEP, iTypeTrain, isep, j; 
+  int    NSIMTYPE_ORIG=0, NCONTENTS_ORIG, NCONTENTS;
+  int    IS_TRUETYPE_SNIa = ( INPUTS.TrueType[iTypeTrue] == TRUETYPE_SNIa ); 
   double XMIN[2], XMAX[2], *CONTENTS ;
   char   CTIT[80] ;
 
@@ -657,23 +680,43 @@ void RDNN_NTRAIN(int iTypeTrue) {
     for(isep=0; isep < NBSEP; isep++ ) {
       
       j = (iTypeTrain+1)*NBSEP + isep;
-      NCONTENTS = (int) CONTENTS[j];
+      NCONTENTS_ORIG = (int) CONTENTS[j];
       
+      if ( IS_TRUETYPE_SNIa ) 
+	{ NCONTENTS = NCONTENTS_ORIG ; }
+      else
+	{ NCONTENTS = NCONTENTS_ORIG / TRAIN_SCALE_NON1A ; }
+
       if ( iTypeTrain >= 0 ) 
 	{ INPUTS.NTRAIN[iTypeTrue][iTypeTrain][isep] = NCONTENTS ; }
       else 
 	{ INPUTS.NFAIL[iTypeTrue][isep] = NCONTENTS;  }
 
-      if ( isep==0 ) { INPUTS.NSIMTYPE[iTypeTrue] += NCONTENTS ; }
-      
+      if ( isep==0 ) { 
+	INPUTS.NSIMTYPE[iTypeTrue] += NCONTENTS ; 
+	NSIMTYPE_ORIG += NCONTENTS_ORIG ;
+      }
+     
     } // isep
   } // iTypeTrain
   
 
   //  isep = 0 ;  dump_NTRAIN(iTypeTrue, 0, isep);    
 
-  printf(" NSIM[trueType=%d] = %6d  \n",
-	 iTypeTrue,  INPUTS.NSIMTYPE[iTypeTrue] ) ;
+
+
+  char txt1[100], txt2[100];
+  sprintf(txt1,"NSIM[iSparsType=%2d,trueType=%3d]", 
+	  iTypeTrue, INPUTS.TrueType[iTypeTrue] );
+
+  if ( IS_TRUETYPE_SNIa ) 
+    { sprintf(txt2,"%6d", INPUTS.NSIMTYPE[iTypeTrue] ); }
+  else
+    { sprintf(txt2,"%6d / %d = %6d", 
+	      NSIMTYPE_ORIG, TRAIN_SCALE_NON1A, INPUTS.NSIMTYPE[iTypeTrue] ); 
+    }
+
+  printf(" %s = %s \n", txt1, txt2 );
   fflush(stdout);
   
   return ;
@@ -782,7 +825,7 @@ void  optimizeNN(int iTypeTrue, int ifalse) {
   fprintf(FP_OUT,"%5.3f %5.3f %5.3f  %5d ",
 	  Eff_SAVE, Pur_SAVE, FoM_SAVE, isep_SAVE );
 
-  // xyz
+  
   for(ivar=0; ivar < INPUTS.NVAR; ivar++ ) 
     { fprintf(FP_OUT," %7.4f ", INPUTS.SEPMAX[ivar][isep_SAVE] );  }
 

@@ -32,6 +32,9 @@
     sntable_dump.exe <tableFile>  <tableName>  NOHEADER
        (multi-column table with no header info and no 'SN:' key)
 
+    sntable_dump.exe <tableFile>  <tableName>  --o  <outFile> --format csv
+        (csv format)
+
     sntable_dump.exe <tableFile>  <tableName>  --outlier 3 4
     sntable_dump.exe <tableFile>  <tableName>  --outlier_sim 3 4
        (print 3-4 sigma outliers: '--outlier' for fit-data,
@@ -524,7 +527,7 @@ void write_headerInfo(FILE *FP) {
 
   if ( INPUTS.ISFORMAT_CSV ) { return ; }
 
-  fprintf(FP,"# Variables extracted from \n");
+  fprintf(FP,"# Variables are extracted from \n");
   fprintf(FP,"#   FILE:  %s \n", INPUTS.TABLE_FILE );
   fprintf(FP,"#   TABLE: %s \n", INPUTS.TABLE_ID   );
   fprintf(FP,"# \n" );
@@ -541,8 +544,9 @@ void write_headerInfo(FILE *FP) {
 	    SIG0*SIG0, INPUTS.OUTLIER_VARNAME_CHI2FLUX, SIG1*SIG1 );
     fprintf(FP,"# \n" );
   }
-  fprintf(FP,"# REJECT=1 --> excluded from fit.\n" );
-  fprintf(FP,"# \n" );
+
+  //  fprintf(FP,"# REJECT=1 --> excluded from fit.\n" );
+  //  fprintf(FP,"# \n" );
 
 } // end write_headerInfo
 

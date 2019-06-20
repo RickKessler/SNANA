@@ -444,7 +444,7 @@ extern"C" {
 
   int  IVAR_READTABLE_POINTER(char *varName) ;
   void load_READTABLE_POINTER(int IROW, int IVAR, double DVAL, char *CVAL) ;
-  void load_DUMPLINE(char *LINE, double DVAL ) ;
+  void load_DUMPLINE(char *LINE, double DVAL) ;
 
   int  get_ICAST_READTBLE_POINTER(char *varName);
 

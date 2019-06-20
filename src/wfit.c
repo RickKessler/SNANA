@@ -203,6 +203,14 @@
 
  May 07, 2019: use MUREF column if it's there (for MUDIF option)
 
+ Jun 13, 2019:
+   + input syntax for cospar outfile is
+     -cospar <fileName>  or
+     -outfile_cospar <fileName>
+   + same for resid file with key -resid or -outfile_resid
+   + -csv command writes cospar in csv format.
+   + -outfile_resid NONE --> no resid file
+
 *****************************************************************************/
 
 int compare_double_reverse (const void *, const void *);
@@ -225,6 +233,9 @@ double mu_offset ;
 double omm_stepsize, w_stepsize, h_stepsize;
 int    cidindex(char *cid);
 
+void write_output_cospar(void);
+void write_output_resid(void);
+void write_output_contour(void);
 
 struct CUTSELECT {
   double ZMIN ;
@@ -263,6 +274,7 @@ double sqsnrms = 0.0 ;
 
 int usebao  = 0;
 int usecmb  = 0;
+int csv_out = 0; // optional csv format for output cospar and resids
 int mudif_flag = 0 ; // Apri 2016
 int MUERR_INCLUDE_zERR;    // True if zERR already included in MUERR
 int MUERR_INCLUDE_LENS ;   // True if lensing sigma already included
@@ -525,6 +537,8 @@ int main(int argc,char *argv[]){
 	omm_prior_sig = atof(argv[++iarg]);
       } else if (strcasecmp(argv[iarg]+1,"bao")==0) { 
 	usebao=1;
+      } else if (strcasecmp(argv[iarg]+1,"csv")==0) { 
+	csv_out=1;
       } else if (strcasecmp(argv[iarg]+1, "Rcmb")==0) {
 	Rcmb_best = atof(argv[++iarg]);
       } else if (strcasecmp(argv[iarg]+1, "sigma_Rcmb")==0) {
@@ -628,19 +642,24 @@ int main(int argc,char *argv[]){
       }
 
       /* Output filenames */
-      else if (strcasecmp(argv[iarg]+1,"cospar")==0) {   
- 	strcpy(cosparfilevar, argv[++iarg]);
-      }      
-      else if (strcasecmp(argv[iarg]+1,"label")==0) {   
- 	sprintf(label_cospar,"%s", argv[++iarg]);
-      }      
-      else if (strcasecmp(argv[iarg]+1,"resid")==0) {   
-	strcpy(residfilevar,argv[++iarg]);
-      }
+      else if (strcasecmp(argv[iarg]+1,"outfile_cospar")==0) 
+ 	{ strcpy(cosparfilevar, argv[++iarg]); }      
+      else if (strcasecmp(argv[iarg]+1,"cospar")==0) 
+ 	{ strcpy(cosparfilevar, argv[++iarg]); }      
+      else if (strcasecmp(argv[iarg]+1,"label")==0) 
+ 	{ sprintf(label_cospar,"%s", argv[++iarg]); }      
 
-      else if (strcasecmp(argv[iarg]+1,"chi2grid")==0) {   
-	strcpy(chi2gridfilevar,argv[++iarg]);
-      }
+      else if (strcasecmp(argv[iarg]+1,"outfile_resid")==0)
+	{ strcpy(residfilevar,argv[++iarg]); }
+      else if (strcasecmp(argv[iarg]+1,"resid")==0) 
+	{ strcpy(residfilevar,argv[++iarg]);  }
+
+      else if (strcasecmp(argv[iarg]+1,"chi2grid")==0)  
+	{ strcpy(chi2gridfilevar,argv[++iarg]); }
+
+      else if (strcasecmp(argv[iarg]+1,"outfile_chi2grid")==0)  
+	{ strcpy(chi2gridfilevar,argv[++iarg]); }
+      
 
       else {
 	printf("Jen Bad arg: %s\n", argv[iarg]);
@@ -761,7 +780,6 @@ int main(int argc,char *argv[]){
       for (i=0; i < NCIDLIST; i++){
 	rz       = codist(z[i], &cparref);
 	ld_cos   = (1+z[i]) *  rz * c_light / H0;
-	// xxx mark delete   muref    = ( 5.*log10(ld_cos) + 25.) ;
 	muref    = mu_ref[i]; // May 7 2019
 	mudif    = mu[i] ;
 	mu[i]   += muref ;
@@ -1113,42 +1131,38 @@ int main(int argc,char *argv[]){
 	  	&mu_offset, &snchi_tmp, &chi2_final );   // return args
 
     /* Print residuals to file */
-    if ( strlen(residfilevar) == 0 ) {
-      strcpy(residfilevar, infile);
-      strcat(residfilevar, ".resid");
-    }
+    if ( !IGNOREFILE(residfilevar) ) {
+      if ( strlen(residfilevar) == 0 ) {
+	strcpy(residfilevar, infile);
+	strcat(residfilevar, ".resid");
+      }
 
-    getname(residfilevar, tempfilename1, fitnumber);
-    strcpy(residfile, tempfilename1);
+      getname(residfilevar, tempfilename1, fitnumber);
+      strcpy(residfile, tempfilename1);
 
-    printf("Write MU-residuals to %s with MU_offset=%6.3f \n",
-	   residfile, mu_offset);
-    fpresid=fopen(residfile, "w");
-  
-    if (fpresid == NULL){
-      printf("ERROR: couldn't open %s\n",residfile);
-      exit(EXIT_ERRCODE_wfit);
-    }
-
-    //    fprintf(fpresid,"#   z    mu_dif  mu_sig  tel_id  CID \n");
-    fprintf(fpresid,"z, mu_dif,  mu_sig,  tel_id,  CID \n"); // csv format
-
-
-    for (i=0; i<NCIDLIST; i++){
-
-      rz = codist(z[i], &cpar) ;
-      ld_cos = (1+z[i]) *  rz * c_light / H0;
-      mu_cos =  5.*log10(ld_cos) + 25. ;
-      mu_dif =  mu_cos - mu[i] - mu_offset ;
-      sqmusig_tmp  =  mu_sqsig[i] + sqsnrms ;
-      musig_tmp    = sqrt(sqmusig_tmp);
-
-      fprintf(fpresid,"%7.4f %7.4f %7.4f %4i  %6s \n",
-	      z[i], mu_dif, musig_tmp, tid[i], CIDLIST[i]);
-
-    }
-    fclose(fpresid);
-
+      printf("Write MU-residuals to %s with MU_offset=%6.3f \n",
+	     residfile, mu_offset);
+      fpresid=fopen(residfile, "w");
+      
+      if (fpresid == NULL){
+	printf("ERROR: couldn't open %s\n",residfile);
+	exit(EXIT_ERRCODE_wfit);
+      }
+      
+      fprintf(fpresid,"z, mu_dif,  mu_sig,  tel_id,  CID \n"); // csv format
+      for (i=0; i<NCIDLIST; i++){
+	rz     = codist(z[i], &cpar) ;
+	ld_cos = (1+z[i]) *  rz * c_light / H0;
+	mu_cos =  5.*log10(ld_cos) + 25. ;
+	mu_dif =  mu_cos - mu[i] - mu_offset ;
+	sqmusig_tmp  =  mu_sqsig[i] + sqsnrms ;
+	musig_tmp    = sqrt(sqmusig_tmp);
+	
+	fprintf(fpresid,"%7.4f %7.4f %7.4f %4i  %6s \n",
+		z[i], mu_dif, musig_tmp, tid[i], CIDLIST[i]);
+      }
+      fclose(fpresid);
+    } // end resid-write 
 
     // --------------------------------------------------
     // Sep 25, 2008: determine sigma_mu^int the same way as SALT2
@@ -1231,18 +1245,28 @@ int main(int argc,char *argv[]){
     omm_out += sin(ommrand);
 
 
-    if ( usemarg != 0 ) {
-      fprintf(fpcospar,"#  <w>    wsig_marg   <OM>    OM_sig     chi2  Ndof  sigint wran OMran label \n");
-      fprintf(fpcospar,"%8.4f %8.4f %8.3f %8.4f %8.1f "
-	      "%5d  %6.3f  %.2f %.2f  %s\n"
-	      , w_out, wsig, omm_out, omm_sig, chi2_final
-	      , Ndof, sigmu_int, wrand, ommrand, label_cospar );
+    // Jun 2019: check for csv format
+    char sep[] = "";
+    if ( csv_out ) { sprintf(sep,","); }
+
+    if ( !usemarg  ) {
+      fprintf(fpcospar,"# w%s wsig_marg%s OM%s OM_sig%s chi2%s Ndof%s "
+	      "sigint%s wran%s OMran%s label \n",
+	      sep, sep, sep, sep, sep, sep, sep, sep, sep );
+      fprintf(fpcospar,"%8.4f%s %7.4f%s %7.4f%s %7.4f%s %8.1f%s "
+	      "%5d%s %6.3f%s %.2f%s %.2f%s %s\n"
+	      , w_out,sep, wsig,sep, omm_out,sep, omm_sig,sep, chi2_final,sep
+	      , Ndof,sep, sigmu_int,sep, wrand,sep, ommrand,sep
+	      , label_cospar );
     } else {
-      fprintf(fpcospar,"#  <w>    wsig_up wsig_low    <OM>    OM_sig     chi2  Ndof  sigint wran OMran label\n");
-      fprintf(fpcospar,"%8.4f %8.4f %8.4f %8.4f %8.4f %8.1f "
-	      "%5d %6.3f  %.2f %.2f  %s\n"
-	      , w_out,wsig_upper,wsig_lower, omm_out, omm_sig, chi2_final
-	      , Ndof, sigmu_int, wrand, ommrand, label_cospar );
+      fprintf(fpcospar,"# w%s wsig_up%s wsig_low%s OM%s %OM_sig chi2%s "
+	      "Ndof%s sigint%s wran%s OMran%s label\n",
+	      sep, sep, sep, sep, sep, sep, sep, sep, sep, sep );
+      fprintf(fpcospar,"%8.4f%s %7.4f%s %7.4f%s %7.4f%s %7.4f%s %8.1f%s "
+	      "%5d%s %6.3f%s  %.2f%s %.2f%s  %s\n"
+	      , w_out,sep, wsig_upper,sep, wsig_lower,sep
+	      , omm_out,sep, omm_sig,sep, chi2_final,sep
+	      , Ndof,sep, sigmu_int,sep, wrand,sep, ommrand,sep, label_cospar);
     }
 
     fclose(fpcospar);
@@ -1416,7 +1440,7 @@ int main(int argc,char *argv[]){
 	fitnumber = fitnumber+1;
       }
     }
-  fitnumber = fitnumber+1;
+    fitnumber = fitnumber+1;
   } /* end refit while loop */
 
   /**************************************/
@@ -2478,3 +2502,27 @@ int cidindex(char *cid) {
   return -1;
 
 } // end of cidindex
+
+
+// ********************************
+void write_output_cospar(void) {
+
+  // ----------- BEGIN -------------
+  return ;
+} // end write_output_cospar
+
+// ********************************
+void write_output_resid(void) {
+
+  // ----------- BEGIN -------------
+
+  return ;
+} // end write_output_resid
+
+// ********************************
+void write_output_contour(void) {
+
+  // ----------- BEGIN -------------
+  return ;
+
+} // end write_output_contour

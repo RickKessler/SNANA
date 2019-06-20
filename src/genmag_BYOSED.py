@@ -20,21 +20,21 @@ __mask_bit_locations__={'verbose':1,'dump':2}
 
 
 class genmag_BYOSED:
-
+		print('XXX TRYING')
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
 
 			self.verbose = OPTMASK & (1 << __mask_bit_locations__['verbose']) > 0
 
 			self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
 
-			self.NAMES_HOSTPAR = NAMES_HOSTPAR.split(',')
+			self.host_param_names = HOST_PARAM_NAMES.split(',')
 			self.PATH_VERSION = os.path.dirname(PATH_VERSION)
 
 			self.dump = OPTMASK & (1 << __mask_bit_locations__['dump'])>0
 			self.sn_id=None
 
 			self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
-			self.host_param_names=HOST_PARAM_NAMES
+			#self.host_param_names=HOST_PARAM_NAMES
 
 			self.paramfile = os.path.join(self.PATH_VERSION,'BYOSED.params')
 			if os.path.exists(self.paramfile):
@@ -193,14 +193,14 @@ class genmag_BYOSED:
 						if warp in self.sn_effects.keys():
 							if self.verbose:
 								print('Phase=%.1f, %s: %.2f'%(trest,warp,self.sn_effects[warp].warp_parameter))
-							product*=self.sn_effects[warp].flux(trest_arr,self.wave,HOST_PARAMS,self.host_param_names)
+							product*=self.sn_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
 
 							if warp in self.sn_effects[warp]._param_names:
 								temp_warp_param=1.
 							else:
 								temp_warp_param=self.sn_effects[warp].warp_parameter
 						if warp in self.host_effects.keys():
-							product*=self.host_effects[warp].flux(trest_arr,self.wave,HOST_PARAMS,self.host_param_names)
+							product*=self.host_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
 							if temp_warp_param is None:
 								if warp in self.host_effects[warp]._param_names:
 									temp_warp_param=1.
@@ -218,7 +218,7 @@ class genmag_BYOSED:
 						if self.verbose:
 								print('Phase=%.1f, %s: %.2f'%(trest,'COLOR',self.sn_effects['COLOR'].warp_parameter))
 						fluxsmear*=10**(-0.4*self.sn_effects['COLOR'].warp_parameter*\
-								self.sn_effects['COLOR'].flux(trest_arr,self.wave,HOST_PARAMS).flatten())
+								self.sn_effects['COLOR'].flux(trest_arr,self.wave,hostpars).flatten())
 							  
 				return list(fluxsmear) 
 				
@@ -455,7 +455,7 @@ def main():
 		#print(test(np.array([[10,5000],[10,6000]])))
 		import matplotlib.pyplot as plt
 		#sys.exit()
-		mySED=genmag_BYOSED('$WFIRST_ROOT/BYOSED_dev/BYOSEDINPUT/',2,[],['HOST_MASS','SFR','AGE','REDSHIFT'])
+		mySED=genmag_BYOSED('$WFIRST_ROOT/BYOSED_dev/BYOSEDINPUT/',2,[],'HOST_MASS,SFR,AGE,REDSHIFT')
 		#plt.plot(mySED.wave,mySED.sedInterp(0,mySED.wave)/mySED.x0)
 		#f=mySED.sedInterp(0,mySED.wave).flatten()/mySED.x0
 		#s=mySED.sn_effects['STRETCH'].flux(0*np.ones(len(mySED.wave)),mySED.wave,[],[])

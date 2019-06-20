@@ -1374,13 +1374,24 @@ void load_DUMPLINE(char *LINE, double DVAL) {
   // *LINE is intended for a dump to ascii file.
   //
   // Mar 11 2019: use 'long long' instead of int.
- 
-  long long int LVAL = (long long int)DVAL;
 
+  long long int LVAL = (long long int)DVAL;
+  char STRVAL[40];
+
+  if ( (DVAL - (double)LVAL) == 0.0 ) 
+    { sprintf(STRVAL," %lld", LVAL ); }
+  else
+    { sprintf(STRVAL," %f", DVAL ); }
+
+  strcat(LINE,STRVAL);
+
+  /* xxxxxxxxxxxxx mark delete Jun 20 2019 xxxxxxxxxxxx
   if ( (DVAL - (double)LVAL) == 0.0 ) 
     { sprintf(LINE,"%s %lld", LINE, LVAL ); }
   else
     { sprintf(LINE,"%s %f", LINE, DVAL ); }
+  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx */
+
 
   return ;
 } // end of load_DUMPLINE

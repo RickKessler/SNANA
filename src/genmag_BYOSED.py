@@ -1,4 +1,4 @@
-import numpy as np	
+import numpy as np  
 import os,six,abc
 import optparse
 import configparser
@@ -6,7 +6,7 @@ import pandas
 import sys
 from scipy.interpolate import RectBivariateSpline,interp2d,interpn
 from ast import literal_eval
-from scipy.stats import rv_continuous,norm as normal
+from scipy.stats import rv_continuous,gaussian_kde,norm as normal
 from copy import copy
 import pickle
 
@@ -17,10 +17,10 @@ required_keys = ['magsmear']
 
 
 __mask_bit_locations__={'verbose':1,'dump':2}
-__host_param_indices__=['HOST_MASS','SFR','AGE','REDSHIFT','VELOCITY']
+
 
 class genmag_BYOSED:
-		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST):
+		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
 
 			self.verbose = OPTMASK & (1 << __mask_bit_locations__['verbose']) > 0
 
@@ -28,6 +28,7 @@ class genmag_BYOSED:
 			self.sn_id=None
 
 			self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
+			self.host_param_names=HOST_PARAM_NAMES
 
 			self.paramfile = os.path.join(self.PATH_VERSION,'BYOSED.params')
 			if os.path.exists(self.paramfile):
@@ -50,7 +51,6 @@ class genmag_BYOSED:
 
 
 			phase,wave,flux = np.loadtxt(os.path.join(self.PATH_VERSION,self.options.sed_file),unpack=True)
-
 
 
 			fluxarr = flux.reshape([len(np.unique(phase)),len(np.unique(wave))])
@@ -100,23 +100,27 @@ class genmag_BYOSED:
 
 				
 				for warp in self.warp_effects:
-					warp_data={k.upper():np.array(config.get(warp,k).split()).astype(float) if k.upper() not in ['SN_FUNCTION','HOST_FUNCTION'] else config.get(warp,k) for k in config[warp]}
-					distribution=_skewed_normal(warp,warp_data)
+					warp_data={k.upper():np.array(config.get(warp,k).split()).astype(float) if k.upper() not in ['SN_FUNCTION','HOST_FUNCTION','DIST_FILE'] else config.get(warp,k) for k in config[warp]}
+					distribution=_get_distribution(warp,warp_data,self.PATH_VERSION)
 					
 						
 					if 'SN_FUNCTION' in warp_data:
 						
 								
-				
+						if 'SN_FUNCTION_SCALE' not in warp_data:
+							scale_factor=1.
+						else:
+							scale_factor=warp_data['SN_FUNCTION_SCALE']
 						try:
-							sn_param_names,sn_function=_read_ND_grids(os.path.expandvars(os.path.join(self.PATH_VERSION,str(warp_data['SN_FUNCTION']))))
+							sn_param_names,sn_function=_read_ND_grids(os.path.expandvars(os.path.join(self.PATH_VERSION,str(warp_data['SN_FUNCTION']))),scale_factor)
 						except RuntimeError:
 							raise RuntimeError("Do not recognize format of function for %s SN Function"%warp)
-						
+						warp_parameter=distribution()[0]
+
 						sn_dict[warp]=warpModel(warp_function=sn_function,
 												param_names=sn_param_names,
-												parameters=np.zeros(len(sn_param_names)),
-												warp_parameter=distribution()[0],
+												parameters=np.array([0 if sn_param_names[i]!=warp.upper() else warp_parameter for i in range(len(sn_param_names))]),
+												warp_parameter=warp_parameter,
 												warp_distribution=distribution,
 												name=warp)
 						
@@ -126,11 +130,11 @@ class genmag_BYOSED:
 							host_param_names,host_function=_read_ND_grids(os.path.expandvars(os.path.join(self.PATH_VERSION,str(warp_data['HOST_FUNCTION']))))
 						except RuntimeError:
 							raise RuntimeError("Do not recognize format of function for %s HOST Function"%warp)
-						
+						warp_parameter=distribution()[0]
 						host_dict[warp]=warpModel(warp_function=host_function,
 												param_names=host_param_names,
-												parameters=np.zeros(len(host_param_names)),
-												warp_parameter=distribution()[0],
+												parameters=np.array([0 if host_param_names[i]!=warp.upper() else warp_parameter for i in range(len(host_param_names))]),
+												warp_parameter=warp_parameter,
 												warp_distribution=distribution,
 												name=warp)
 								
@@ -138,10 +142,10 @@ class genmag_BYOSED:
 		
 
 		#def updateWarping_Params(self):
-		#		for warp in self.warp_effects:
-		#			if warp in sn_effects.keys():
-		#				self.sn_effects[warp].update(warp_parameter
-		#		return self
+		#       for warp in self.warp_effects:
+		#           if warp in sn_effects.keys():
+		#               self.sn_effects[warp].update(warp_parameter
+		#       return self
 						
 				
 		def fetchSED_NLAM(self):
@@ -159,6 +163,7 @@ class genmag_BYOSED:
 				if self.sn_id is None:
 						self.sn_id=external_id
 				fluxsmear=self.sedInterp(trest,self.wave).flatten()
+				orig_fluxsmear=copy(fluxsmear)
 				if self.options.magsmear!=0.0:
 						fluxsmear *= 10**(0.4*(np.random.normal(0,self.options.magsmear)))
 				trest_arr=trest*np.ones(len(self.wave))
@@ -181,12 +186,20 @@ class genmag_BYOSED:
 						if warp in self.sn_effects.keys():
 							if self.verbose:
 								print('Phase=%.1f, %s: %.2f'%(trest,warp,self.sn_effects[warp].warp_parameter))
-							product*=self.sn_effects[warp].flux(trest_arr,self.wave,HOST_PARAMS)
-							temp_warp_param=self.host_effects[warp].warp_parameter
+							product*=self.sn_effects[warp].flux(trest_arr,self.wave,HOST_PARAMS,self.host_param_names)
+
+							if warp in self.sn_effects[warp]._param_names:
+								temp_warp_param=1.
+							else:
+								temp_warp_param=self.sn_effects[warp].warp_parameter
 						if warp in self.host_effects.keys():
-							product*=self.host_effects[warp].flux(trest_arr,self.wave,HOST_PARAMS)
+							product*=self.host_effects[warp].flux(trest_arr,self.wave,HOST_PARAMS,self.host_param_names)
 							if temp_warp_param is None:
-								temp_warp_param=self.host_effects[warp].warp_parameter
+								if warp in self.host_effects[warp]._param_names:
+									temp_warp_param=1.
+								else:
+									temp_warp_param=self.host_effects[warp].warp_parameter
+
 						fluxsmear+=temp_warp_param*product*self.x0
 					#except:
 						#import pdb; pdb.set_trace()
@@ -260,15 +273,19 @@ class warpModel(object):
 		self.warp_parameter=warp_parameter
 		self.warp_distribution=warp_distribution
 
+
 	def updateWarp_Param(self):
 		self.warp_parameter=self.warp_distribution()[0]
+		if self.name in self._param_names:
+			self.set(**{self.name:self.warp_parameter})
 
-	def flux(self,phase,wave,host_params):
+	def flux(self,phase,wave,host_params,host_param_names):
 		phase_wave_dict={'PHASE':phase,'WAVELENGTH':wave}
-
-		self.set(**{p:host_params[__host_param_indices__.index(p)] for p in self._param_names if p in __host_param_indices__})
+		self.set(**{p:host_params[host_param_names.index(p)] for p in self._param_names if p in host_param_names})
 		parameter_arrays=[np.ones(len(wave))*self._parameters[i] if self._param_names[i] not in ['PHASE','WAVELENGTH'] else phase_wave_dict[self._param_names[i]] for i in range(len(self._param_names))]
+
 		return(self.warp_function(np.vstack(parameter_arrays).T).flatten())
+
 
 
 
@@ -340,11 +357,27 @@ class warpModel(object):
 
 
 def _skewed_normal(name,dist_dat):
-		dist = skewed_normal(name,a=min(dist_dat['DIST_SIGMA']),b=max(dist_dat['DIST_SIGMA']))
-		sample=np.arange(min(dist_dat['DIST_SIGMA']),max(dist_dat['DIST_SIGMA']),.01)
+		a=dist_dat['DIST_PEAK']-3*dist_dat['DIST_SIGMA'][0]
+		b=dist_dat['DIST_PEAK']+3*dist_dat['DIST_SIGMA'][1]
+		dist = skewed_normal(name,a=a,b=b)
+		sample=np.arange(a,b,.01)
 		return(lambda : np.random.choice(sample,1,
 										 p=dist._pdf(sample,dist_dat['DIST_PEAK'],dist_dat['DIST_SIGMA'][0],dist_dat['DIST_SIGMA'][1])))
 		
+
+def _param_from_dist(dist_file,path):
+	dist=np.loadtxt(os.path.join(path,dist_file))
+	a=np.min(dist)-abs(np.min(dist))
+	b=np.max(dist)+abs(np.max(dist))
+	sample=np.arange(a,b,.01)
+	pdf=gaussian_kde(dist.T).pdf(np.arange(a,b,.01))
+	return(lambda : np.random.choice(sample,1,p=pdf/np.sum(pdf)))
+
+def _get_distribution(name,dist_dat,path):
+	if 'DIST_FILE' in dist_dat.keys():
+		return(_param_from_dist(dist_dat['DIST_FILE'],path))
+
+	return(_skewed_normal(name,dist_dat))
 
 def _meshgrid2(*arrs):
 	arrs = tuple(arrs)  #edit
@@ -382,7 +415,7 @@ def _generate_ND_grids(func,filename=None,colnames=None,*arrs):
 	return(gridded)
 	
 	
-def _read_ND_grids(filename):	
+def _read_ND_grids(filename,scale_factor=1.):   
 	with open(filename,'r') as f:
 		temp=f.readline()
 		
@@ -396,10 +429,10 @@ def _read_ND_grids(filename):
 	
 	dim=[len(x) for x in arrs]
 
-	theta=np.array(gridded[gridded.columns[-1]]).reshape(dim)
+	theta=np.array(gridded[gridded.columns[-1]]).reshape(dim)*scale_factor
 	
 	
-	return(list(gridded.columns)[:-1],lambda interp_array:interpn(arrs,theta,xi=interp_array,method='linear',bounds_error=True))
+	return([x.upper() for x in gridded.columns][:-1],lambda interp_array:interpn(arrs,theta,xi=interp_array,method='linear',bounds_error=False,fill_value=0))
 
 	
 	
@@ -413,11 +446,31 @@ def main():
 		#sys.exit()
 		#p,test=_read_ND_grids('salt2_m0.dat')
 		#print(test(np.array([[10,5000],[10,6000]])))
-		
+		import matplotlib.pyplot as plt
 		#sys.exit()
-		mySED=genmag_BYOSED('$WFIRST_ROOT/BYOSED_dev/BYOSEDINPUT/',2,[])
+		mySED=genmag_BYOSED('$WFIRST_ROOT/BYOSED_dev/BYOSEDINPUT/',2,[],['HOST_MASS','SFR','AGE','REDSHIFT'])
+		#plt.plot(mySED.wave,mySED.sedInterp(0,mySED.wave)/mySED.x0)
+		#f=mySED.sedInterp(0,mySED.wave).flatten()/mySED.x0
+		#s=mySED.sn_effects['STRETCH'].flux(0*np.ones(len(mySED.wave)),mySED.wave,[],[])
 
-		temp=mySED.fetchSED_BYOSED(10,5000,3,0,[2.5,1,1,.5,4.5])
+		#plt.plot(mySED.wave,f+s)
+		#plt.xlim(3400,10000)
+		#plt.show()
+		#sys.exit()
+		mySED.sn_effects['VELOCITY'].set(VELOCITY=0)
+		mySED.sn_effects['STRETCH'].warp_parameter=0
+		plt.plot(mySED.wave,mySED.fetchSED_BYOSED(0,5000,3,3,[2.5,1,1,.5]),label=0)
+
+		for p in range(3):
+			mySED.sn_effects['VELOCITY'].updateWarp_Param()
+			v=mySED.sn_effects['VELOCITY'].warp_parameter
+			mySED.sn_effects['STRETCH'].updateWarp_Param()
+			s=mySED.sn_effects['STRETCH'].warp_parameter
+			plt.plot(mySED.wave,mySED.fetchSED_BYOSED(0,5000,3,3,[2.5,1,1,.5]),label=(v,s))
+		plt.xlim(3400,10000)
+		plt.legend()
+		plt.show()
+
 
 
 if __name__=='__main__':

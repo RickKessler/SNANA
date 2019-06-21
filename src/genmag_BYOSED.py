@@ -20,7 +20,7 @@ __mask_bit_locations__={'verbose':1,'dump':2}
 
 
 class genmag_BYOSED:
-		print('XXX TRYING')
+
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
 
 			self.verbose = OPTMASK & (1 << __mask_bit_locations__['verbose']) > 0
@@ -218,7 +218,7 @@ class genmag_BYOSED:
 						if self.verbose:
 								print('Phase=%.1f, %s: %.2f'%(trest,'COLOR',self.sn_effects['COLOR'].warp_parameter))
 						fluxsmear*=10**(-0.4*self.sn_effects['COLOR'].warp_parameter*\
-								self.sn_effects['COLOR'].flux(trest_arr,self.wave,hostpars).flatten())
+								self.sn_effects['COLOR'].flux(trest_arr,self.wave,hostpars,self.host_param_names).flatten())
 							  
 				return list(fluxsmear) 
 				
@@ -456,6 +456,8 @@ def main():
 		import matplotlib.pyplot as plt
 		#sys.exit()
 		mySED=genmag_BYOSED('$WFIRST_ROOT/BYOSED_dev/BYOSEDINPUT/',2,[],'HOST_MASS,SFR,AGE,REDSHIFT')
+		mySED.fetchSED_BYOSED(0,5000,3,3,[2.5,1,1,.5])
+		sys.exit()
 		#plt.plot(mySED.wave,mySED.sedInterp(0,mySED.wave)/mySED.x0)
 		#f=mySED.sedInterp(0,mySED.wave).flatten()/mySED.x0
 		#s=mySED.sn_effects['STRETCH'].flux(0*np.ones(len(mySED.wave)),mySED.wave,[],[])
@@ -464,19 +466,34 @@ def main():
 		#plt.xlim(3400,10000)
 		#plt.show()
 		#sys.exit()
-		mySED.sn_effects['VELOCITY'].set(VELOCITY=0)
-		mySED.sn_effects['STRETCH'].warp_parameter=0
-		plt.plot(mySED.wave,mySED.fetchSED_BYOSED(0,5000,3,3,[2.5,1,1,.5]),label=0)
-
-		for p in range(3):
-			mySED.sn_effects['VELOCITY'].updateWarp_Param()
-			v=mySED.sn_effects['VELOCITY'].warp_parameter
-			mySED.sn_effects['STRETCH'].updateWarp_Param()
-			s=mySED.sn_effects['STRETCH'].warp_parameter
-			plt.plot(mySED.wave,mySED.fetchSED_BYOSED(0,5000,3,3,[2.5,1,1,.5]),label=(v,s))
-		plt.xlim(3400,10000)
-		plt.legend()
-		plt.show()
+		
+		fig,ax=plt.subplots(nrows=3,ncols=3,figsize=(15,15),sharex=True)
+		phases=np.arange(-10,31,5)
+		k=0
+		for i in range(3):
+			for j in range(3):
+				mySED.sn_effects['VELOCITY'].set(VELOCITY=0)
+				mySED.sn_effects['STRETCH'].warp_parameter=0
+				ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,[2.5,1,1,.5]),label='Hsiao',color='k',linewidth=2)
+				for p in range(3):
+					
+					mySED.sn_effects['VELOCITY'].updateWarp_Param()
+					v=mySED.sn_effects['VELOCITY'].warp_parameter
+					mySED.sn_effects['STRETCH'].updateWarp_Param()
+					s=mySED.sn_effects['STRETCH'].warp_parameter
+					ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,[2.5,1,1,.5]),label='V=%.2f,S=%.2f'%(v,s))
+				ax[i][j].legend(fontsize=14)
+				ax[i][j].annotate('Phase='+str(phases[k]),(.5,.05),fontsize=14,xycoords='axes fraction')
+				ax[i][j].set_xlim((3000,9500))
+				k+=1
+				if j==0:
+					ax[i][j].set_ylabel('Flux',fontsize=16)
+				if i==2 and j==1:
+					ax[i][j].set_xlabel('Wavelength ($\AA$)',fontsize=16)
+				ax[i][j].tick_params(axis='x', labelsize=14)
+				ax[i][j].tick_params(axis='y', labelsize=14)
+		
+		plt.savefig('/Users/jpierel/rodney/salt3_testing/velocity_stretch_byosed.pdf',format='pdf')
 
 
 

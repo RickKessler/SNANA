@@ -25,6 +25,10 @@
 #   sntable_dump.pl <inFile>  <tableID>  --v <list of variables> --o <outFile>
 #     (overwrite default outfile in ASCII/TEXT format)
 #
+#   sntable_dump.pl <inFile>  <tableID>  --v <list of variables> \
+#          --o <outFile> --format csv
+#     (write in CSV format instead of default key format)
+#
 #   sntable_dump.pl <inFile>  <tableID>  --v <list of variables> NOHEADER
 #     (out file has no header info and no 'SN:' key)
 #

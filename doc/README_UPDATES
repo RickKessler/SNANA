@@ -16967,4 +16967,21 @@
     LEGACY_BUGS=1
 
  
+
+# ======================================================================= 
+         v10_73f (  ) 
+
+         ***** IMPORTANT(v10_73f) ***** 
+
+         ***** USEFUL(v10_73f) ***** 
+
+         ***** MISCELLANEOUS(v10_73f) ***** 
+
+   sntools_output_root.c
+     + fix to include comma for csv-dump.
+
+   SALT2mu.c :
+     + fix bug freeing memory for CCPRIOR.
+     + fix bug using varname_pIa as CUTWIN arg.
+
 END: 

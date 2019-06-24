@@ -7704,10 +7704,6 @@ void  init_GENLC(void) {
     GENLC.epoch8_rest[epoch]  = NULLFLOAT ;
     GENLC.epoch8_obs_range[0] = +999999.0 ;
     GENLC.epoch8_obs_range[1] = -999999.0 ;
-    GENLC.cloudavg[epoch]     = NULLFLOAT ;
-    GENLC.cloudsig[epoch]     = NULLFLOAT ;
-    GENLC.moonphase[epoch]    = NULLFLOAT ;
-    GENLC.moondist[epoch]     = NULLFLOAT ;
 
     GENLC.flux[epoch]         = NULLFLOAT ;
     GENLC.flux_errstat[epoch] = NULLFLOAT ;
@@ -19890,11 +19886,6 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[epoch] = GENLC.NOISE_HOSTGAL_PHOT[epoch];
 
     SNDATA.MJD[epoch]          = GENLC.MJD[epoch];
-
-    SNDATA.CLOUDCAM_SIG[epoch]    = GENLC.cloudsig[epoch] ;
-    SNDATA.CLOUDCAM_AVG[epoch]    = GENLC.cloudavg[epoch] ;
-    SNDATA.MOONPHASE[epoch]       = GENLC.moonphase[epoch] ;
-    SNDATA.MOONDIST[epoch]        = GENLC.moondist[epoch] ;
 
     sprintf(SNDATA.TELESCOPE[epoch], "%s", GENLC.TELESCOPE[epoch] );
     sprintf(SNDATA.FIELDNAME[epoch], "%s", GENLC.FIELDNAME[epoch] );

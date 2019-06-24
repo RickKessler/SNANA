@@ -209,7 +209,6 @@ struct SNDATA {
   // now define stuff computed or found by this program
 
   char  IAUC_NAME[20];           // official name (SQL)
-  float AIRMASS[MXEPOCH];        // calculated from RA, DECL
 
   char FIELDNAME[MXEPOCH][20] ;    // survey field (generalize SDSS STRIPE)
 
@@ -231,7 +230,6 @@ struct SNDATA {
   int    PHOTFLAG[MXEPOCH] ;     // photometry flags (0 => OK)
   float  PHOTPROB[MXEPOCH];      // fit-prob or FoM per epoch
  
-  float SKY_AVG[MXEPOCH] ;     // sky-avg per pixel per filter/epoch
   float SKY_SIG[MXEPOCH] ;     // sky noise (ADU/pix)
   float SKY_SIG_T[MXEPOCH] ;   // template sky noise (ADU/pix)
   float PSF_SIG1[MXEPOCH] ;       // PSF sigma of inner gaussian
@@ -240,11 +238,6 @@ struct SNDATA {
   float MWEBV ;                    // MilyWay Galactic E(B-V)
   float MWEBV_ERR;                 // error on  above
   int   APPLYFLAG_MWEBV;           // T=> correct FLUXCAL
-  float CLOUDCAM_AVG[MXEPOCH] ;    // APO cloud cam average over sky
-  float CLOUDCAM_SIG[MXEPOCH] ;    //  sigma on above
-
-  float MOONPHASE[MXEPOCH] ;
-  float MOONDIST[MXEPOCH] ;
 
   int     HOSTGAL_USEMASK ;  // bits 1,2,3,4 --> MAGOBS, MAGOBSERR, SB, SBERR
   int     HOSTGAL_NMATCH[2] ; // NMATCH and NMATCH2

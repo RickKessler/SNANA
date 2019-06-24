@@ -943,11 +943,6 @@ struct GENLC {
 
   // - - - - - - - - - - - -
 
-  double  cloudavg[MXEPSIM] ;
-  double  cloudsig[MXEPSIM] ;
-  double  moonphase[MXEPSIM] ;
-  double  moondist[MXEPSIM] ;
-
   // flux and magnitudes (float-> double, Jan 2014)
   double flux[MXEPSIM] ;            // flux in ADU
   double flux_errstat[MXEPSIM] ;    // error from signal,sky,ccd,template

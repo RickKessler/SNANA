@@ -2681,7 +2681,6 @@ c prepare arguments for update_covmatrix
       EIGMIN  = 0.0001
 
 cc      print*,' xxx LDMP(1,2) = ', LDMP1, LDMP2, OPTMASK
-c .xyz
 
       call update_covmatrix(NAME, OPTMASK, NPAR, COV_UPD, EIGMIN, 
      &           IERR, LENCCID)
@@ -4003,11 +4002,9 @@ c
 c  HISTORY
 c ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 c
-c Oct 9 2014:  'R4EP_ALL(epoch,JEP_DELCHI2)=DELCHI2' is moved outside
-c              LFITDATA if-block so that we get correct DELCHI2 for
-c              epochs excluded by fit (e.g., pre-explosion epochs)
-c
 c Mar 1 2017: load R4EP(iep,JEP_MAGDIF)
+c
+c Jun 23 2019: protect I4EP_ALL array bound
 c
 c ---------------------------------------------------
       IMPLICIT NONE
@@ -4461,10 +4458,12 @@ ccc xxx mark delete Aug 29 2017 if ( iter .EQ. 1 ) then
      &        .or.  (MJD       .GT. FITWIN_MJD(2)   )
      &        .or.  (signoise_data  .LT. SIGNOISE_REJECT )
               
-              if ( LREJECT ) then
-                 I4EP_ALL(epoch,IEP_REJECT) = 1
-              else
-                 I4EP_ALL(epoch,IEP_REJECT) = 0
+              if ( epoch < MXFIT_DATA ) then
+                if ( LREJECT ) then ! .xyz
+                   I4EP_ALL(epoch,IEP_REJECT) = 1
+                else
+                   I4EP_ALL(epoch,IEP_REJECT) = 0
+                endif
               endif
 
            endif

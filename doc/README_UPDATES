@@ -16984,4 +16984,18 @@
      + fix bug freeing memory for CCPRIOR.
      + fix bug using varname_pIa as CUTWIN arg.
 
+   snana.car/snlc_fit:
+     + if OPT_SETPKMJD>0 is set, call new function 
+       SELECT_EPOCHS_CUTWIN_TREST() after SET_PEAKMJD function
+       to apply CUTWIN_TREST and reduce storage size. 
+       This avoids array bound overflow for fitting arrays.
+
+    snana.car: 
+     + remove SNLC_SNLC_SKY(epoch) array since it gets computed
+       in FLUXERRCALC, and it was read only from TEXT and not
+       from FITS format.
+     + remove obsolete arrays: 
+          SNLC_AIRMASS, SNLC_CLOUDCAM_AVG, SNLC_CLOUDCAM_SIG
+          SNLC_MOONDIST, SNLC_MOONPHASE, SNLC_FLUX, SNLC_FLUX_ERRTOT
+
 END: 

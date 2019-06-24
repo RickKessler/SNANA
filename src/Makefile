@@ -142,7 +142,7 @@ CC   = cc
 
    DBUGFLAGS = -O1
 #  DBUGFLAGS = -O1 -Wall
-  DBUGFLAGS = -g -fbounds-check  # valgrind --leak-check=full 
+#  DBUGFLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
   PROFILEFLAG = 
 #  PROFILEFLAG = -pg

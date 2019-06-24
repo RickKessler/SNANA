@@ -51,8 +51,8 @@ class genmag_BYOSED:
 					raise RuntimeError('key %s not in parameter file'%k)
 			self.options = options
 
-			self.warp_effects=self.fetchParVals_BYOSED(config)
-			
+			self.warp_effects=self.fetchParNames_CONFIG(config)
+
 			self.sn_effects,self.host_effects=self.fetchWarp_BYOSED(config)
 
 
@@ -234,7 +234,12 @@ class genmag_BYOSED:
 				else:
 					return self.host_effects[varname].warp_parameter
 
-		def fetchParVals_BYOSED(self,config):
+		def fetchParVals_BYOSED(self,varname):
+				if varname in self.sn_effects.keys():
+					return self.sn_effects[varname].warp_parameter
+				else:
+					return self.host_effects[varname].warp_parameter
+		def fetchParNames_CONFIG(self,config)
 				if 'FLAGS' in config.sections():
 						return([k.upper() for k in list(config['FLAGS'].keys()) if config['FLAGS'][k]=='True'])
 				else:
@@ -453,7 +458,8 @@ def main():
 		import matplotlib.pyplot as plt
 		#sys.exit()
 		mySED=genmag_BYOSED('$WFIRST_ROOT/BYOSED_dev/BYOSEDINPUT/',2,[],'HOST_MASS,SFR,AGE,REDSHIFT')
-		mySED.fetchSED_BYOSED(0,5000,3,3,[2.5,1,1,.5])
+
+		mySED.fetchSED_BYOSED(0,5000,3,2,[2.5,1,1,.5])
 		sys.exit()
 		#plt.plot(mySED.wave,mySED.sedInterp(0,mySED.wave)/mySED.x0)
 		#f=mySED.sedInterp(0,mySED.wave).flatten()/mySED.x0

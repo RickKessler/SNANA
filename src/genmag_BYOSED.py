@@ -223,19 +223,16 @@ class genmag_BYOSED:
 				return list(fluxsmear) 
 				
 		def fetchParNames_BYOSED(self):
-				parnames = []
-				for k in self.warping_params.keys():
-					parnames += [k]
-				return parnames
+				return self.warp_effects
 
 		def fetchNParNames_BYOSED(self):
-				parnames = []
-				for k in self.warping_params.keys():
-					parnames += [k]
-				return len(parnames)
+				return len(self.warp_effects)
 
 		def fetchParVals_BYOSED_4SNANA(self,varname):
-				return self.warping_params[varname]
+				if varname in self.sn_effects.keys():
+					return self.sn_effects[varname].warp_parameter
+				else:
+					return self.host_effects[varname].warp_parameter
 
 		def fetchParVals_BYOSED(self,config):
 				if 'FLAGS' in config.sections():

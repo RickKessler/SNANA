@@ -174,14 +174,14 @@ class genmag_BYOSED:
 				trest_arr=trest*np.ones(len(self.wave))
 
 				for warp in [x for x in self.warp_effects if x!='COLOR']:
-					try: #if True:
+					if True:
 						if external_id!=self.sn_id:
 							if warp in self.sn_effects.keys():
 								self.sn_effects[warp].updateWarp_Param()
 								if warp in self.host_effects.keys():
 									self.host_effects[warp].warp_parameter=self.sn_effects[warp].warp_parameter
-								else:
-									self.host_effects[warp].updateWarp_Param()
+							else:
+								self.host_effects[warp].updateWarp_Param()
 							self.sn_id=external_id
 							
 						
@@ -207,8 +207,8 @@ class genmag_BYOSED:
 									temp_warp_param=self.host_effects[warp].warp_parameter
 
 						fluxsmear+=temp_warp_param*product*self.x0
-					except:
-						import pdb; pdb.set_trace()
+					#except:
+					#	import pdb; pdb.set_trace()
 
 				if 'COLOR' in self.warp_effects:
 						if external_id!=self.sn_id:

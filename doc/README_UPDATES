@@ -16969,9 +16969,12 @@
  
 
 # ======================================================================= 
-         v10_73f (  ) 
+         v10_73f (Juj 25 2019) 
 
          ***** IMPORTANT(v10_73f) ***** 
+
+   + New plot tools for LC and spectra by J. Pierel (plot_snana.py)
+   + merge BYOSED stuff as well.
 
          ***** USEFUL(v10_73f) ***** 
 

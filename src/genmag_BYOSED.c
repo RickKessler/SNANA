@@ -1,4 +1,4 @@
- /*****************************************
+/*****************************************
   Created Sep 2018
   BYOSED = Build Your Own SED
 
@@ -20,7 +20,6 @@
 
   Mar 30 2019 RK - fix hc factors in spectra
   Apr 11 2019 RK - check for intrinsic scatter models (e.g., C11, G10 ...)
-  Apr 18 2019 RK - if not USE_PYTHON, add dummy parNames and parVal.
 
  *****************************************/
 
@@ -62,13 +61,11 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   // Inputs:
   //  PATH_VERSION : points to model-param directory;
   //               :  passed from GENMODEL arg of sim-input
-  //              
   //  OPTMASK      : bit mask of options; interpreted by python code.
   //               : OPTMASK=-1 is a flag to print options.
   //               :  passed from GENMODEL_MSKOPT arg in sim-input
   //  
-  //  ARGLIST      : string of options passed from sim-input key
-  //               :  GENMODEL_ARGLIST = 'BLA BLA OPTIONS'
+  //  ARGLIST      : string of options
   //
   // NAMES_HOSTPAR : comma-separate list of names of host params
   //
@@ -133,7 +130,7 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  pargs  = Py_BuildValue("(si)",PATH_VERSION,OPTMASK);
+  pargs  = Py_BuildValue("(siss)",PATH_VERSION,OPTMASK,ARGLIST,NAMES_HOSTPAR);
   geninit_BYOSED = PyEval_CallObject(genclass, pargs);
   if (geninit_BYOSED == NULL) {
     sprintf(c1err,"Could not run PyEval_CallObject module");
@@ -157,17 +154,13 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   for(ipar=0; ipar < MXPAR_BYOSED; ipar++ ) 
     { Event_BYOSED.PARNAME[ipar] = (char*) malloc(40*MEMC);  }
 
-
-  
+#ifdef USE_PYTHON
   NPAR = fetchParNames_BYOSED(Event_BYOSED.PARNAME);
   Event_BYOSED.NPAR = NPAR;
-  if ( NPAR > 0 ) 
-    { printf("\t BYOSED parameters to store in data files:\n"); }
-  else
-    { printf("\t No BYOSED parameters to store in data files:\n"); }
+  printf("\t BYOSED parameters to store in data files:\n");
   for(ipar=0; ipar < NPAR; ipar++ ) 
     { printf("\t\t %s \n", Event_BYOSED.PARNAME[ipar] ); }
-
+#endif
 
   // - - - - 
   printf("\n\t Done with %s \n", fnam);
@@ -262,7 +255,7 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
     Trest = Tobs/z1;
 
     fetchSED_BYOSED(EXTERNAL_ID, NEWEVT_FLAG, Trest, 
-		    MXLAM_BYOSED, HOSTPAR_LIST, &NLAM, LAM, SED );  
+		    MXLAM_BYOSED, HOSTPAR_LIST, &NLAM, LAM, SED, pyFORMAT_STRING_HOSTPAR);  
     Event_BYOSED.NLAM = NLAM ;
 
     // integrate redshifted SED to get observer-frame flux in IFILT_OBS band.
@@ -284,6 +277,7 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
 
   // for NEW EVENT, store SED parameters so that sim can 
   // write them to data files
+  // hack
   if ( NEWEVT_FLAG ) { 
     fetchParVal_BYOSED(Event_BYOSED.PARVAL); 
   }
@@ -311,20 +305,9 @@ int fetchParNames_BYOSED(char **parNameList) {
   // each SED.  **parNameList is a list of parameter names.
   //
   // Called once during init stage.
-  //
-  // Apr 18 2019: if not USE_PYTHON, set dummy parNameList values.
 
   int NPAR,ipar;
   char fnam[] = "fetchParNames_BYOSED" ;
-
-#ifndef USE_PYTHON
-  // dummy names to test propagation of parameters
-  NPAR = 4;
-  for(ipar=0; ipar<NPAR; ipar++ ) 
-    { sprintf(parNameList[ipar], "BYOSED_TESTPAR%d", ipar );  }
-#endif
-
-
 #ifdef USE_PYTHON
   // python declarations here
   
@@ -366,8 +349,6 @@ void fetchParVal_BYOSED(double *parVal) {
   // data files.
   //
   // Called once per event.
-  // Apr 18 2019: if not USE_PYTHON, set dummy parVals.
-  //
 
 #ifdef USE_PYTHON  
   PyObject *parvalmeth,*pParVal,*pargs;
@@ -381,35 +362,30 @@ void fetchParVal_BYOSED(double *parVal) {
 
   NPAR = Event_BYOSED.NPAR; //fetchParNames_BYOSED(parNameList);
   parNameList = Event_BYOSED.PARNAME;
-
-#ifndef USE_PYTHON
-  // dummy values to test propagation of parameters
-  for(ipar=0; ipar < NPAR; ipar++ )  { parVal[ipar] = 10.0*(double)ipar; }
-#endif
-
   // David: need python function to return these values.
 #ifdef USE_PYTHON
-  parvalmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchParVals_BYOSED");
+  parvalmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchParVals_BYOSED_4SNANA");
 
   for(ipar=0; ipar < NPAR; ipar++ ) {
-    pargs    = Py_BuildValue("(s)",parNameList[ipar]);
+    pargs  = Py_BuildValue("(s)",parNameList[ipar]);
     pParVal  = PyEval_CallObject(parvalmeth, pargs);
     val = PyFloat_AsDouble(pParVal);
     parVal[ipar] = val;
+    // printf("   PARVAL    = '%d' \n",  val);
   }
 
   Py_DECREF(pParVal);
   Py_DECREF(parvalmeth);
 #endif
   
-
   return ;
 
 } // end fetchParVal_BYOSED
 
 // =================================================
 void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
-		     double *HOSTPAR_LIST, int *NLAM_SED, double *LAM_SED, double *FLUX_SED) {
+		     double *HOSTPAR_LIST, int *NLAM_SED, double *LAM_SED, double *FLUX_SED,
+		     char *pyFORMAT_STRING_HOSTPAR) {
 
   // return rest-frame SED to calling function; 
   // Inputs:
@@ -438,12 +414,12 @@ void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
   PyListObject *arrLAM, *arrFLUX;
   PyObject *pylamitem, *pyfluxitem;
   //int numpy_initialized =  init_numpy();
-  
+
   // python declarations here
   pmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_BYOSED");
   plammeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_LAM");
   pnlammeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_NLAM");
-  pargs  = Py_BuildValue("diii",Trest,MXLAM,EXTERNAL_ID,NEWEVT_FLAG);
+  pargs  = Py_BuildValue(pyFORMAT_STRING_HOSTPAR,Trest,MXLAM,EXTERNAL_ID,NEWEVT_FLAG,HOSTPAR_LIST);
 
   pNLAM  = PyEval_CallObject(pnlammeth, NULL);
   pLAM  = PyEval_CallObject(plammeth, NULL);
@@ -458,7 +434,6 @@ void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
   
   arrLAM = (PyListObject *)(pLAM);
   arrFLUX = (PyListObject *)(pFLUX);
-
   for(ilam=0; ilam < NLAM; ilam++ ) {
     // interpolate flux to Trest
     pylamitem = PyList_GetItem(arrLAM,ilam);
@@ -550,8 +525,6 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
   //
   // !!! Dec 12 2018: Finteg is tested against SALT2 filter-fluxes, 
   //     but Fspec is not tested.
-  //
-  // Apr 23 2019: remove buggy z1 factor inside OPT_SPEC loop
   //
 
   int    ifilt          = IFILTMAP_SEDMODEL[ifilt_obs] ;
@@ -667,9 +640,9 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
 
       if ( OPT_SPEC && DO_SPECTROGRAPH ) { 
 	if ( LAMSED+LAMSED_STEP < LAMSED_MAX ) 
-	  { LAMSPEC_STEP = LAMSED_STEP ; } // obs-frame lamStep
+	  { LAMSPEC_STEP = LAMSED_STEP * z1 ; } // obs-frame lamStep
 	else
-	  { LAMSPEC_STEP = (LAMSED_MAX-LAMSED) ; }
+	  { LAMSPEC_STEP = (LAMSED_MAX-LAMSED)*z1 ; }
 	
 	LAMRATIO        = LAMSPEC_STEP/LAMSED_STEP ;
 	Finteg_spec    += (Fbin_forSpec * LAMRATIO );

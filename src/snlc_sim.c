@@ -8653,6 +8653,7 @@ void GENSPEC_TRUE(int imjd) {
   }
   else if ( INDEX_GENMODEL == MODEL_BYOSED ) {
     
+    /*
     genSpec_BYOSED(TOBS, 
 		   GENLC.REDSHIFT_HELIO,            // (I) helio redshift
 		   GENLC.DLMU,                      // (I) dist. mod.
@@ -8660,6 +8661,7 @@ void GENSPEC_TRUE(int imjd) {
 		   GENSPEC.GENFLUX_LIST[imjd],      // (O) fluxGen per bin 
 		   GENSPEC.GENMAG_LIST[imjd]        // (O) magGen per bin
 		   );		
+    */
   }
   else { 
     /*  don't abort since init_genSpec gives warning.  
@@ -20724,7 +20726,7 @@ void init_genmodel(void) {
 
     // init generic part of any SEDMODEL (filter & primary ref)
     init_genSEDMODEL();
-    init_genmag_BYOSED( INPUTS.MODELPATH, OPTMASK, ARGLIST, NAMES_HOSTPAR );
+    //  init_genmag_BYOSED( INPUTS.MODELPATH, OPTMASK, ARGLIST, NAMES_HOSTPAR );
   }
 
   else if ( INDEX_GENMODEL == MODEL_NON1ASED ) {
@@ -21813,6 +21815,7 @@ void genmodel(
     HOSTPAR_BYOSED[1] = GENLC.AV ;
     HOSTPAR_BYOSED[2] = SNHOSTGAL.LOGMASS ;
 
+    /*
     genmag_BYOSED(
 		  GENLC.CID
 		  ,z, GENLC.DLMU       // (I) helio-z and distance modulus
@@ -21825,6 +21828,7 @@ void genmodel(
 		  ,ptr_genmag        // (O) mag vs. Tobs
 		  ,ptr_generr        // (O) ideal rest mag-errs
 		  );		  
+    */
   }
 
   else if ( INDEX_GENMODEL  == MODEL_SNOOPY ) {

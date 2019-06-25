@@ -12332,7 +12332,7 @@ int prescale_reject_simData(int SIM_NONIA_INDEX) {
   // Do not use this function for biasCor or CCprior.
 
   int REJECT = 0 ;
-  float XN, XNPS ;
+  float XN, XNPS;
   char fnam[] = "prescale_reject_simData" ;
 
   // ------------- BEGIN -----------------
@@ -12340,7 +12340,8 @@ int prescale_reject_simData(int SIM_NONIA_INDEX) {
   // return accept for real data
   if ( FOUNDKEY_SIM == 0 ) { return(REJECT); }
 
-  // increment NSIMDATA counter
+  // increment NSIMDATA counter.
+  // Niotew that prescale_simData can be non-integer
   NSIMDATA++ ;
   XN    = (float)NSIMDATA ;
   XNPS  = (float)INPUTS.prescale_simData ;

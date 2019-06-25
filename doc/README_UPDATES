@@ -16983,6 +16983,8 @@
    SALT2mu.c :
      + fix bug freeing memory for CCPRIOR.
      + fix bug using varname_pIa as CUTWIN arg.
+     + fix bug setting CUTBIT_IDSAMPLE for biasCor; fixes crash
+        when biasCor includes samples that are not in the data
 
    snana.car/snlc_fit:
      + if OPT_SETPKMJD>0 is set, call new function 
@@ -16997,5 +16999,10 @@
      + remove obsolete arrays: 
           SNLC_AIRMASS, SNLC_CLOUDCAM_AVG, SNLC_CLOUDCAM_SIG
           SNLC_MOONDIST, SNLC_MOONPHASE, SNLC_FLUX, SNLC_FLUX_ERRTOT
+
+   snlc_sim.c :
+     + new sim-input key "BIASCOR_SALT2GAMMA_GRID: <min> <max>"
+       to generate randon min & max mag shifts for each event.
+       To be used later by BBC/SALt2mu in fitting for gamma.
 
 END: 

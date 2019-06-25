@@ -331,7 +331,7 @@ OBJ_GENMAG_SIM =	\
 	$(OBJ_GENMAG_FIT) \
 	$(OBJ)/genmag_NON1ASED.o \
 	$(OBJ)/genmag_NON1AGRID.o \
-	$(OBJ)/genmag_LCLIB.o	 \
+	$(OBJ)/genmag_LCLIB.o	\
 	$(OBJ)/genmag_BYOSED.o
 
 OBJ_SNTOOLS_SNANA	 = 	\

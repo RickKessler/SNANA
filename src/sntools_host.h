@@ -38,6 +38,7 @@
 #define HOSTLIB_MSKOPT_DEBUG       512 // fix a=2, b=1, rotang=0 
 #define HOSTLIB_MSKOPT_DUMP       1024 // screen-dump for each host 
 
+
 #define HOSTLIB_1DINDEX_ID 10    // ID for 1DINDEX transformations
 
 #define MXCHAR_LINE_HOSTLIB 400  // max number of chars per HOSTLIB line
@@ -284,6 +285,7 @@ struct HOSTLIB_WGTMAP_DEF {
   double *WGTSUM ;      // cumulative sum of weights over entire HOSTLIB
   double *WGT ;         // wgt for each hostlib entry
   double *SNMAGSHIFT ;  // SN mag shift at for each hostlib entry
+  int  USE_SALT2GAMMA_GRID;
 
   // define  arrays to store list of GALIDs to check wgtmap interpolation
   int      NCHECKLIST ;
@@ -459,5 +461,6 @@ void zphoterr_asym(double ZTRUE, double ZPHOTERR,
 		   GENGAUSS_ASYM_DEF *asymGaussPar );
 
 void GEN_SNHOST_ZPHOT_from_HOSTLIB(int IGAL, double *ZPHOT, double *ZPHOT_ERR); 
+double snmagshift_salt2gamma_HOSTLIB(int igal);
 
 // END

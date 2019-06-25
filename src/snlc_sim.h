@@ -501,6 +501,7 @@ struct INPUTS {
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2ALPHA ;
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2BETA ;
   double SALT2BETA_cPOLY[3];    // poly fun of c (see Mandel 2010)
+  double BIASCOR_SALT2GAMMA_GRID[2]; // gamma range for BBC-biasCor sample
 
   char   SALT2mu_FILE[200];        // read alpha,beta from here
   float  GENALPHA_SALT2 ; // legacy variable: same as GENMEAN_SALT2ALPHA

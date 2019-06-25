@@ -478,16 +478,22 @@ int LUPDGEN(int N) {
   // May 27, 2009
   // return 1 to make screen-update
   // Apr 26 2017: float -> double to handle very large N
+  // Jun 25 2019: use % instead of fmod.
 
-  double XN, XNUPD;
 
   // ------------- BEGIN ---------------
 
-  if ( N == 1   ) { return 1; }
+  if ( N == 1   ) { return(1); }
 
+  if ( (N % INPUTS.NGEN_SCREEN_UPDATE)== 0 ) { return(1); }
+
+  /* xxxxxxx mark delete Jun 25 2019 xxxxxxxx
+  double XN, XNUPD;
   XN    = (double)N ; 
   XNUPD = (double)INPUTS.NGEN_SCREEN_UPDATE ;
   if ( fmod( XN, XNUPD ) == 0 ) return 1 ;
+  xxxxxxxxxxxx */
+
 
   return 0;
 }
@@ -740,11 +746,13 @@ void set_user_defaults(void) {
   INPUTS.GENGAUSS_SALT2ALPHA.RANGE[0] =  0.001; 
   INPUTS.GENGAUSS_SALT2ALPHA.RANGE[1] =  0.40 ; 
 
-
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_SALT2BETA, zero );
   INPUTS.GENGAUSS_SALT2BETA.PEAK     =  3.20 ;
   INPUTS.GENGAUSS_SALT2BETA.RANGE[0] =  0.5 ;
   INPUTS.GENGAUSS_SALT2BETA.RANGE[1] =  9.9 ;
+
+  INPUTS.BIASCOR_SALT2GAMMA_GRID[0] = +9.0 ; // min
+  INPUTS.BIASCOR_SALT2GAMMA_GRID[1] = -9.0 ; // max
 
   INPUTS.SALT2BETA_cPOLY[0] = 0.0 ;
   INPUTS.SALT2BETA_cPOLY[1] = 0.0 ;
@@ -1909,6 +1917,9 @@ int read_input(char *input_file) {
     read_input_GENGAUSS(fp, c_get, "SALT2x1",    &INPUTS.GENGAUSS_SALT2x1    );
     read_input_GENGAUSS(fp, c_get, "SALT2ALPHA", &INPUTS.GENGAUSS_SALT2ALPHA );
     read_input_GENGAUSS(fp, c_get, "SALT2BETA",  &INPUTS.GENGAUSS_SALT2BETA  );
+
+    if ( uniqueMatch(c_get,"BIASCOR_SALT2GAMMA_GRID:")   ) 
+      { readdouble(fp, 2, INPUTS.BIASCOR_SALT2GAMMA_GRID );  continue ; }
 
     if ( uniqueMatch(c_get,"SALT2BETA_cPOLY:")   ) 
       { readdouble(fp, 3, INPUTS.SALT2BETA_cPOLY );  continue ; }
@@ -4860,6 +4871,12 @@ void sim_input_override(void) {
     sscanf_GENGAUSS(&i, "SALT2ALPHA", &INPUTS.GENGAUSS_SALT2ALPHA );
     sscanf_GENGAUSS(&i, "SALT2BETA",  &INPUTS.GENGAUSS_SALT2BETA  );
 
+    if ( strcmp ( ARGV_LIST[i], "BIASCOR_SALT2GAMMA_GRID" ) == 0 )  { 
+      i++; sscanf(ARGV_LIST[i] , "%le", &INPUTS.BIASCOR_SALT2GAMMA_GRID[0] );
+      i++; sscanf(ARGV_LIST[i] , "%le", &INPUTS.BIASCOR_SALT2GAMMA_GRID[1] );
+    }
+      
+
     if ( strcmp ( ARGV_LIST[i], "SALT2BETA_cPOLY" ) == 0 ) {
        i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.SALT2BETA_cPOLY[0] );  
        i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.SALT2BETA_cPOLY[1] );  
@@ -6647,8 +6664,6 @@ void genmag_offsets(void) {
       + GENLC.LENSDMU                        // lensing correction
     ;
     
-    // check legacy/debug option to apply global mag shift for hostCor
-    if ( INPUTS.DEBUG_FLAG == 55 ) { MAGOFF += GENLC.SNMAGSHIFT_HOSTCOR; }
 
     // ------
     // apply mag-offset to each epoch-mag, unless mag is
@@ -8638,6 +8653,7 @@ void GENSPEC_TRUE(int imjd) {
   }
   else if ( INDEX_GENMODEL == MODEL_BYOSED ) {
     
+    
     genSpec_BYOSED(TOBS, 
 		   GENLC.REDSHIFT_HELIO,            // (I) helio redshift
 		   GENLC.DLMU,                      // (I) dist. mod.
@@ -8645,6 +8661,7 @@ void GENSPEC_TRUE(int imjd) {
 		   GENSPEC.GENFLUX_LIST[imjd],      // (O) fluxGen per bin 
 		   GENSPEC.GENMAG_LIST[imjd]        // (O) magGen per bin
 		   );		
+   
   }
   else { 
     /*  don't abort since init_genSpec gives warning.  
@@ -9621,21 +9638,25 @@ void override_modelPar_from_SNHOST(void) {
   // Mar 23 2018: allow SNMAGSHIFT or USESNPAR
   // May 23 2019: adjust amplitude for SNMAGSHIFT_HOSTCOR
 
-  int USE1, USE2 ;
+  double GAMMA_GRID_MIN = INPUTS.BIASCOR_SALT2GAMMA_GRID[0];
+  double GAMMA_GRID_MAX = INPUTS.BIASCOR_SALT2GAMMA_GRID[1];
+  int USE1, USE2, USE3 ;
   double DM_HOSTCOR, shape, PKMJD, RV, arg ;
-  //  char fnam[] = "override_modelPar_from_SNHOST" ;
+  char fnam[] = "override_modelPar_from_SNHOST" ;
 
   // ---------------- BEGIN ------------------
 
   // if USESNPAR option is not set, then return PARVAL_ORIG immediately.        
   USE1   = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
   USE2   = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SNMAGSHIFT) ;
-  if ( USE1==0 && USE2==0 ) { return ; }
+  USE3   = (GAMMA_GRID_MAX > GAMMA_GRID_MIN );
+  if ( USE1==0 && USE2==0 && USE3==0 ) { return ; }
 
   // - - - - - -  load SNMAGSHIFT - - - -   
   // now check if SNMAGSHIFT is one of the hostlib variables
   DM_HOSTCOR = modelPar_from_SNHOST(SNHOSTGAL.WGTMAP_SNMAGSHIFT,
 				    HOSTLIB_VARNAME_SNMAGSHIFT);
+
 
   // check option to pick shape param from HOSTLIB 
   shape  = modelPar_from_SNHOST(GENLC.SHAPEPAR,GENLC.SHAPEPAR_NAME);
@@ -9671,14 +9692,9 @@ void override_modelPar_from_SNHOST(void) {
     // May 23 2019: adjust amplitude for SNMAGSHIFT_HOSTCOR
     if ( DM_HOSTCOR != 0.0 ) {
       GENLC.SNMAGSHIFT_HOSTCOR = DM_HOSTCOR ;
-      if ( INPUTS.DEBUG_FLAG == 55 ) {
-	// May 23 2019 LEGACY option: do not correct mB or x0 
-      }
-      else {	
-	arg = -0.4*DM_HOSTCOR;
-	GENLC.SALT2mB += DM_HOSTCOR;
-	GENLC.SALT2x0 *= pow(TEN,arg);
-      }
+      arg = -0.4*DM_HOSTCOR;
+      GENLC.SALT2mB += DM_HOSTCOR;
+      GENLC.SALT2x0 *= pow(TEN,arg);
     }
   }
 
@@ -13706,12 +13722,6 @@ void SIMLIB_findStart(void) {
   // for batch job, autom-compute NSKIP 
   if ( NJOBTOT > 0  &&  NLIBID > 100 ) { 
 
-    /* xxx mark delete Aug 19 2018 xxxxxxxxxx
-    XSKIP = (double)( (JOBID-1)*INPUTS.NGENTOT_LC  );
-    XSKIP = fmod(XSKIP, (double)NLIBID) ;
-    NSKIP_LIBID = (int)XSKIP ;
-    xxxxxxxxxxxxx */
-
     flatRan     = unix_random() ;
     XTMP        = (double)NLIBID / (double)NJOBTOT;    
     NTMP        = (int)XTMP ;
@@ -17246,8 +17256,6 @@ void init_CIDRAN(void) {
   // - - - - - - - - - - - - - - - - - - 
 
   for( i = 0; i <= NSTORE_ALL ; i++ ) {
-
-    // LDMP = ( fmod( (double)i, 4200000.0 ) == 0 && i>130000000 ) ;
 
     NPICKRAN = 0 ;
     
@@ -21807,6 +21815,7 @@ void genmodel(
     HOSTPAR_BYOSED[1] = GENLC.AV ;
     HOSTPAR_BYOSED[2] = SNHOSTGAL.LOGMASS ;
 
+    
     genmag_BYOSED(
 		  GENLC.CID
 		  ,z, GENLC.DLMU       // (I) helio-z and distance modulus
@@ -21819,6 +21828,7 @@ void genmodel(
 		  ,ptr_genmag        // (O) mag vs. Tobs
 		  ,ptr_generr        // (O) ideal rest mag-errs
 		  );		  
+    
   }
 
   else if ( INDEX_GENMODEL  == MODEL_SNOOPY ) {

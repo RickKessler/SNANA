@@ -4,7 +4,6 @@
 
   Inlcude this file in the simulation to 
 
-
   - select a host-galaxy with ZTRUE ~ ZSN and randomly selected
     based on a user-defined weight map.
 
@@ -1819,9 +1818,14 @@ void init_HOSTLIB_WGTMAP(void) {
   //              I8p -> I8p*2
   // 
   // Jun 18 2019: if interp_GRIDMAP fails, print more PRE-ABORT info.
+  // Jun 25 2019: check GAMMA_GRID option
 
   int  i, NDIM, ivar, ivar_STORE, ID, NFUN, NROW, istat ;
   int  NGAL, NCHECK, NN, igal, igal_difmax, LDMPWGT, VBOSE ;
+
+  double GAMMA_GRID_MIN = INPUTS.BIASCOR_SALT2GAMMA_GRID[0]; 
+  double GAMMA_GRID_MAX = INPUTS.BIASCOR_SALT2GAMMA_GRID[1]; 
+  int    USE_GAMMA_GRID = (GAMMA_GRID_MAX > GAMMA_GRID_MIN );  
 
   long long GALID, GALID_CHECK ;
   int I8  = sizeof(double);
@@ -1848,6 +1852,13 @@ void init_HOSTLIB_WGTMAP(void) {
   NFUN = HOSTLIB_WGTMAP.GRIDMAP.NFUN ;
   NROW = HOSTLIB_WGTMAP.GRIDMAP.NROW ;
   NGAL = HOSTLIB.NGAL_STORE;
+  HOSTLIB_WGTMAP.USE_SALT2GAMMA_GRID = USE_GAMMA_GRID;
+
+  if ( USE_GAMMA_GRID ) {
+    printf("\t Implement BIASCOR_SALT2GAMMA_GRID: %.2f to %.2f mag\n",
+	   GAMMA_GRID_MIN, GAMMA_GRID_MAX);
+    fflush(stdout);
+  }
 
   // ------------------------------------------------------
   // allocate memory for wgt, snmagshift and cumulative weight-sum.
@@ -1901,9 +1912,13 @@ void init_HOSTLIB_WGTMAP(void) {
     }
 
     WGT        = TMPVAL[0] / HOSTLIB_WGTMAP.WGTMAX ;
-    SNMAGSHIFT = TMPVAL[1] ;
+    SNMAGSHIFT = TMPVAL[1] ; 
 
+    
   WGTSUM:
+
+    if(USE_GAMMA_GRID) { SNMAGSHIFT = snmagshift_salt2gamma_HOSTLIB(igal); }
+
     // local sum
     WGTSUM = WGTSUM_LAST + WGT;
 
@@ -1989,6 +2004,31 @@ void init_HOSTLIB_WGTMAP(void) {
 
 } // end of init_HOSTLIB_WGTMAP
 
+
+// ==============================================
+double snmagshift_salt2gamma_HOSTLIB(int igal) {
+
+  // Created Jun 25 2019
+  // Randomaly assign gamma (magshift) as follows:
+  //    odd  igal --> SALT2GAMA_GRID_MIN
+  //    even igal --> SALT2GAMA_GRID_MAX
+  // Note that this function is used only to create a
+  // biasCor sample for BBC/SALT2mu.
+
+  double snmagshift = 0.0 ;
+  double GAMMA_GRID_MIN = INPUTS.BIASCOR_SALT2GAMMA_GRID[0]; 
+  double GAMMA_GRID_MAX = INPUTS.BIASCOR_SALT2GAMMA_GRID[1]; 
+
+  // -------------- BEGIN ------------
+
+  if ( (igal%2) == 1 ) 
+    { snmagshift = GAMMA_GRID_MIN ; }
+  else
+    { snmagshift = GAMMA_GRID_MAX ; }
+
+  return(snmagshift);
+
+} // end snmagshift_salt2gamma_HOSTLIB
 
 // =======================================
 void init_HOSTLIB_ZPHOTEFF(void) {
@@ -4964,7 +5004,9 @@ double modelPar_from_SNHOST(double PARVAL_ORIG, char *PARNAME) {
   //
   // Mar 23 2018: allow SNMAGSHIFT as well.
 
-  int IVAR, IGAL, USE1, USE2 ;
+  int IGAL           = SNHOSTGAL.IGAL ;
+  int USE_GAMMA_GRID = HOSTLIB_WGTMAP.USE_SALT2GAMMA_GRID;
+  int IVAR, USE1, USE2 ;
   int noABORT = 0 ;
   double PARVAL_OUT ;
   //  char fnam[] = "modelPar_from_SNHOST" ;
@@ -4972,6 +5014,14 @@ double modelPar_from_SNHOST(double PARVAL_ORIG, char *PARNAME) {
   // ----------------- BEGIN ----------------
   
   PARVAL_OUT = PARVAL_ORIG ; // default output valie 
+
+  // check for GAMMA_GRID (Jun 25 2019)
+  if ( USE_GAMMA_GRID ) {
+    if ( strcmp(PARNAME,HOSTLIB_VARNAME_SNMAGSHIFT)== 0 ) {
+      PARVAL_OUT = snmagshift_salt2gamma_HOSTLIB(IGAL); 
+      return(PARVAL_OUT);
+    }
+  }
 
   // if USESNPAR option is not set, then return PARVAL_ORIG immediately.
   USE1   = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
@@ -4985,6 +5035,7 @@ double modelPar_from_SNHOST(double PARVAL_ORIG, char *PARNAME) {
     IGAL        = SNHOSTGAL.IGAL ;
     PARVAL_OUT  = HOSTLIB.VALUE_ZSORTED[IVAR][IGAL] ;
   }
+
 
   return PARVAL_OUT ;
 

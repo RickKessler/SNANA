@@ -12105,7 +12105,8 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   //   isn        -> SN index
   //   event_type -> data, biasCor or CCprior
   //
-
+  // Jun 25 2019: fux bug setting CUTBIT_IDSAMPLE for IS_BIASCOR
+  //
   int event_type = TABLEVAR->EVENT_TYPE;
   int IS_DATA    = ( event_type == EVENT_TYPE_DATA );
   int IS_BIASCOR = ( event_type == EVENT_TYPE_BIASCOR );
@@ -12210,11 +12211,11 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   }
 
    
+  int CUT_IDSAMPLE=0;
   if ( idsample >= 0 ) {
-    if (  SAMPLE_BIASCOR[idsample].DOFLAG_SELECT == 0 ) 
-      { setbit_CUTMASK(isn, CUTBIT_IDSAMPLE, TABLEVAR ); }
+    if (  SAMPLE_BIASCOR[idsample].DOFLAG_SELECT == 0 ) { CUT_IDSAMPLE = 1;}
   }
-
+  if ( CUT_IDSAMPLE ) { setbit_CUTMASK(isn, CUTBIT_IDSAMPLE, TABLEVAR ); }
 
   
   // - - - - - - - - - - - - - - - - - 
@@ -12242,12 +12243,11 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
       { setbit_CUTMASK(isn, CUTBIT_SIMPS, TABLEVAR); }
 
   }
-  else if ( IS_BIASCOR && idsample >= 0 ) { 
+  else if ( IS_BIASCOR ) { 
     
     if ( SIM_NONIA_INDEX != 0 ) 
       { setbit_CUTMASK(isn, CUTBIT_TRUESNIa, TABLEVAR); }
-    
-    
+        
     if ( idsample < 0 )
       { setbit_CUTMASK(isn, CUTBIT_IDSAMPLE, TABLEVAR); }
 
@@ -17512,7 +17512,8 @@ void set_CUTMASK_legacy(int isn, int event_type) {
     if ( prescale_reject_simData(SIM_NONIA_INDEX) ) 
       { setbit_CUTMASK_legacy(isn, CUTBIT_SIMPS, event_type); }
   }
-  else if ( IS_BIASCOR && idsample >= 0 ) { 
+  //  else if ( IS_BIASCOR && idsample >= 0 ) { 
+  else if ( IS_BIASCOR  ) { 
 
     if ( SIM_NONIA_INDEX != 0 ) 
       { setbit_CUTMASK_legacy(isn, CUTBIT_TRUESNIa, event_type); }

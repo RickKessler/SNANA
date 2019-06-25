@@ -17008,4 +17008,17 @@
        to generate randon min & max mag shifts for each event.
        To be used later by BBC/SALt2mu in fitting for gamma.
 
+
+# ======================================================================= 
+         v10_73g (June 25 2019) 
+
+         ***** IMPORTANT(v10_73g) ***** 
+
+         ***** USEFUL(v10_73g) ***** 
+
+         ***** MISCELLANEOUS(v10_73g) ***** 
+
+   Forgot to update genmag_BYOSED.h in last version, so did it here
+   and now sim compiles properly.
+
 END: 

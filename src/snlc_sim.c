@@ -11041,7 +11041,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   if ( OPT_DUMP == 3 ) {
     free(SIMFILE_AUX->OUTLINE);
     fclose(SIMFILE_AUX->FP_DUMP);
-    printf(" Created %s\n", ptrFile );
+    printf("  %s\n", ptrFile );
     return ;
   }
 

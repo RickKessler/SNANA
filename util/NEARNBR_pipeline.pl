@@ -47,7 +47,13 @@
 #  NEARNBR_SEPMAX_VARDEF: <sepmax grid>
 #  NEARNBR_SEPMAX_VARDEF: <another sepmax grid (optional)>
 #  VERSION_REALDATA:      <photometry data version>
-
+#
+#  OPT_TUNE_HOSTEFF:  1   
+#     Special mode for tuning host efficiency. Run stage 1,2,11 only.
+#     Set EFF(zHOST)=100% for sims.
+#     Skip MLAPPLY and SALT2mu for LCFIT (stage 11).
+#     External script needed to analyze data/sim ratios and 
+#     extract EFF(zHOST).
 #  
 # NGEN_UNIT in SIMGEN-master file is for training.
 # Here is how to specifiy NGEN_UNIT for data and biasCor:
@@ -103,6 +109,7 @@
 #     without increasing SNIa size. See GENOPT_GLOBAL appended.
 #     NNtrain C-code has been updated to account for SCALE_NON1A > 1.
 #
+# Jun 25 2019: read OPT_TUNE_HOSTEFF  
 # -------------------------------------
 
 use List::Util qw(first);
@@ -175,13 +182,14 @@ my ($ISTAGE_START, $ISTAGE_END, $VERSION_REALDATA );
 my ($SYMLINKS_FLAG, $DO_LAUNCH, @CONTENTS_SIMTRAIN, @CONTENTS_SIMDATA) ;
 my ($SCALE_NGEN_UNIT_VALIDATA, $SCALE_NGEN_UNIT_BIASCOR);
 my ($NGEN_UNIT_VALIDATA, $NGEN_UNIT_BIASCOR, $SIMTRAIN_SCALE_NON1A);
+my ($OPT_TUNE_HOSTEFF);
 
 my ($INPUT_WFALSE);
 my $WFALSE_VALID = "1 3 5";
 
 my (@GENV_LIST_SIMTRAIN, @GENV_LIST_SIMDATA, @GENV_LIST_NN );
 my ($GENPREFIX_ORIG_TRAIN, $GENPREFIX_ORIG_DATA );
-my (@SIMGEN_GENPREFIX, $GENOPT_GLOBAL_TRAIN );
+my (@SIMGEN_GENPREFIX, $GENOPT_GLOBAL_DATA, $GENOPT_GLOBAL_TRAIN );
 my (@RANSEED, @SEPMAX_VARDEF_LIST);
 my ($NTRAIN, $NFITOPT, $NGENVER_SIMTRAIN, $NGENVER_SIMDATA);
 my ($DO_SALT2mu, $DO_BBC );
@@ -254,6 +262,8 @@ $ISTAGE_GLOBAL = $ISTAGE_SIMGEN_SIMDATA ;
 $ISTAGE_GLOBAL = $ISTAGE_SIMGEN_VALIDATA ;
 &run_simgen($ISTAGE_GLOBAL);
 
+if ( $OPT_TUNE_HOSTEFF ) { goto STAGE_LCFIT ; }
+
 $ISTAGE_GLOBAL = $ISTAGE_SIMGEN_REF ;
 &run_simgen($ISTAGE_GLOBAL);
 
@@ -315,6 +325,9 @@ if ( $DO_BBC ) {
 # ------------------------------------------------------------
 # run final data+sim fit on each sim since the trained SEPMAX
 # values depend on the sim.
+
+STAGE_LCFIT:
+
 $ISTAGE_GLOBAL = $ISTAGE_FINALFIT ;
 for ($itrain=0; $itrain < $NTRAIN; $itrain++ ) {  
     for($iver=0; $iver < $NGENVER_SIMTRAIN; $iver++ ) {
@@ -322,6 +335,7 @@ for ($itrain=0; $itrain < $NTRAIN; $itrain++ ) {
     }
 }
 
+if ( $OPT_TUNE_HOSTEFF ) { exit(0); }
 
 # ------------------------------------------
 if ( $DO_SALT2mu && $DO_BBC ) {
@@ -371,6 +385,8 @@ sub setDefaults {
     $DO_LAUNCH =  1;
 
     $SIMTRAIN_SCALE_NON1A = 1.0 ;
+
+    $OPT_TUNE_HOSTEFF = 0 ;
 
 } # end of sub setDefaults 
 
@@ -480,7 +496,12 @@ sub parse_inFile_master {
 
     print "\t TOPDIR_OUTPUT:  $TOPDIR_OUTPUT \n";
 
-    # ---------------
+    # ------------------------------
+    $KEY  = "OPT_TUNE_HOSTEFF:" ; 
+    @tmp  = sntools::parse_array($KEY,1, $OPT_QUIET, @CONTENTS_MASTER);
+    if ( scalar(@tmp) > 0 ) { $OPT_TUNE_HOSTEFF = "$tmp[0]" ; $NTRAIN=1 ; }
+
+    # -----------------------------
     $KEY  = "INFILE_SIMGEN_MASTER:" ;  # legacy key 
     @tmp  = sntools::parse_array($KEY,1, $OPT_QUIET, @CONTENTS_MASTER);
     if ( scalar(@tmp) > 0 ) { $INFILE_SIMTRAIN_MASTER = "$tmp[0]" ; }
@@ -524,14 +545,17 @@ sub parse_inFile_master {
     }
     print "\t WFALSE:  $INPUT_WFALSE \n" ;
 
-    $KEY  = "NEARNBR_SEPMAX_VARDEF:" ;
-    @SEPMAX_VARDEF_LIST  = 
-	sntools::parse_array($KEY, 49, $OPT_ABORT, @CONTENTS_MASTER);   
-    $NTRAIN = scalar(@SEPMAX_VARDEF_LIST);
-    for($i=0; $i < $NTRAIN; $i++ ) {
-	$SEPMAX_VARDEF_LIST[$i]  =~ s/$q//g ; # remove optional single quotes
-	print "\t SEPMAX_VARDEF_LIST[$i] = '$SEPMAX_VARDEF_LIST[$i]' \n";
+    if ( $OPT_TUNE_HOSTEFF == 0 ) {
+	$KEY  = "NEARNBR_SEPMAX_VARDEF:" ;
+	@SEPMAX_VARDEF_LIST  = 
+	    sntools::parse_array($KEY, 49, $OPT_ABORT, @CONTENTS_MASTER);   
+	$NTRAIN = scalar(@SEPMAX_VARDEF_LIST);
+	for($i=0; $i < $NTRAIN; $i++ ) {
+	    $SEPMAX_VARDEF_LIST[$i]  =~ s/$q//g ; # remove single quotes
+	    print "\t SEPMAX_VARDEF_LIST[$i] = '$SEPMAX_VARDEF_LIST[$i]' \n";
+	}
     }
+
 
     # - - - - - - - - - - - 
     $KEY  = "VERSION_DATA:" ;  # legacy key
@@ -581,6 +605,9 @@ sub parse_inFile_master {
     else
     { print "\t NGEN_UNIT(BIASCOR): $SCALE_NGEN_UNIT_BIASCOR x NGEN_UNIT(TRAIN) \n"; }
 
+    if ( $OPT_TUNE_HOSTEFF ) 
+    { print "\t OPT_TUNE_HOSTEFF: $OPT_TUNE_HOSTEFF \n"; }
+    
 # - - - - - - - - - - - - - -
 # option to turn OFF automatic symLinks for duplicate generation  
     $KEY  = "SYMLINKS_FLAG:" ;
@@ -592,6 +619,8 @@ sub parse_inFile_master {
     }
     # -------------------------------------
     print " Done parsing $INFILE_NEARNBR_MASTER. \n\n";
+
+    return ;
 
 } # end of parse_inFile_master
 
@@ -697,6 +726,7 @@ sub checkFiles {
 	sntools::FATAL_ERROR(@MSGERR);
     }
 
+    return ;
 
 } # end of checkFiles
 
@@ -833,6 +863,12 @@ sub parse_SIMDATA_MASTER {
     @tmp  = sntools::parse_array($KEY,1, $OPT_ABORT, @CONTENTS_SIMDATA) ;
     $NGEN_UNIT_DATA = $tmp[0] ; 
 
+    # Jun 2019: get current GENOPT_GLOBAL in case we need to append
+    $KEY = "GENOPT_GLOBAL:" ;
+    @tmp  = sntools::parse_array($KEY,9, $OPT_QUIET, @CONTENTS_SIMDATA) ;
+    $GENOPT_GLOBAL_DATA  = "$tmp[0]" ;
+    $GENOPT_GLOBAL_DATA  =~ s/\s+$// ;     # trim trailing whitespace 
+
 } # end  parse_SIMDATA_MASTER
 
 # =============================
@@ -878,7 +914,7 @@ sub parse_SIMTRAIN_MASTER {
 
     # Jun 2019: get current GENOPT_GLOBAL in case we need to append
     $KEY = "GENOPT_GLOBAL:" ;
-    @tmp  = sntools::parse_array($KEY,1, $OPT_QUIET, @CONTENTS_SIMTRAIN) ;
+    @tmp  = sntools::parse_array($KEY,9, $OPT_QUIET, @CONTENTS_SIMTRAIN) ;
     $GENOPT_GLOBAL_TRAIN  = "$tmp[0]" ;
     $GENOPT_GLOBAL_TRAIN  =~ s/\s+$// ;     # trim trailing whitespace 
 
@@ -998,6 +1034,15 @@ sub make_SIMGEN_MASTER {
 	$SEDCMD = "$SEDCMD -e " . "'/GENOPT_GLOBAL/d'" ;
 	$SEDCMD = "$SEDCMD -e " . " '\$ i\GENOPT_GLOBAL: $sigArg'" ;
     }
+
+    if ( $OPT_TUNE_HOSTEFF ) {
+	# take out zHOST effic file so that eff(zHOST) = 1
+	my $tmpArg = "$GENOPT_GLOBAL_DATA " .
+	    " SEARCHEFF_zHOST_FILE NONE  APPLY_SEARCHEFF_OPT 1 " ;
+        $SEDCMD = "$SEDCMD -e " . "'/GENOPT_GLOBAL/d'" ;
+        $SEDCMD = "$SEDCMD -e " . " '\$ i\GENOPT_GLOBAL: $tmpArg'" ;	
+    }
+
 
     $iver = 0 ;
     foreach $GENV (@GENV_LIST) {	
@@ -1157,7 +1202,8 @@ sub run_lcfit {
     # Apr 07 2016: treat new STRINGOPT = "BIASCOR" and "CCPRIOR"
     # Feb 08 2017: use MLAPPLY mode for split_and_fit
     # Feb 17 2019: include SIMDATA versions
-     
+    # Jun 25 2019: check OPT_TUNE_HOSTEFF
+
     my ($ISIM, $iver, $SEPMAX_VARDEF, @SEPMAX_ARRAY, $PATH );
     my ($SUFFIX, $TXTS2MU, $COMMENT, $IVERMIN, $IVERMAX );
     my ($NMLFILE, $LOGFILE, $DONEFILE, $SEDCMD, $GENV);
@@ -1181,7 +1227,6 @@ sub run_lcfit {
     my $stagePrefix = &NNstagePrefix();
     my $TXTS2MU     = "" ;
 
-    
     if ( $DOFIT_REF ) {
         $ISIM       = $ISTAGE_SIMGEN_REF ;
 # xxx	$SUFFIX     = "REF_fitSIM" ;
@@ -1245,8 +1290,10 @@ sub run_lcfit {
 	$PREFIX     = "${stagePrefix}_$SUFFIX" ;
 	$OUTDIR     = "$TOPDIR_OUTPUT/${stagePrefix}_$SUFFIX" ;
 	$NNLOG      = $NNLOG_LIST[$ITRAIN][$IVER_SIM][0] ;
-	@SEPMAX_ARRAY = &get_SEPMAX_VARDEF($NNLOG,$INPUT_WFALSE) ;
-	$SEPMAX_VARDEF = "@SEPMAX_ARRAY";
+	if ( !$OPT_TUNE_HOSTEFF ) {
+	    @SEPMAX_ARRAY = &get_SEPMAX_VARDEF($NNLOG,$INPUT_WFALSE) ;
+	    $SEPMAX_VARDEF = "@SEPMAX_ARRAY";
+	}
 	$COMMENT    = "" ;
 	$TXTS2MU    = "(DO_SALT2mu=$DO_SALT2mu)" ;
 	$IVERMIN=$IVER_SIM;  $IVERMAX=$IVER_SIM ; # VALIDATA
@@ -1254,6 +1301,7 @@ sub run_lcfit {
     else {
 	die "\n FATAL ERROR: UNKNOWN ITRAIN=$ITRAIN\n";
     }
+
 
     $NMLFILE  = "${PREFIX}.NML" ;
     $LOGFILE  = "$ARCDIR_STDOUT/${PREFIX}.STDOUT" ;
@@ -1354,7 +1402,7 @@ sub run_lcfit {
 
     
     # remove some things for REF and TRAIN, but not for FINAL fit
-    if ( !$DOFIT_FINAL ) {
+    if ( !$DOFIT_FINAL || $OPT_TUNE_HOSTEFF ) {
 	$SEDCMD  = "$SEDCMD -e /SALT2mu_INFILE:/d" ;
     } 
     if ( $DOFIT_REF || $DOFIT_TRAIN )  { 
@@ -1365,7 +1413,7 @@ sub run_lcfit {
     # ----------------------
     # special options for FINAL fit (on data and SIM)
 
-    if ( $DO_MLAPPLY ) {
+    if ( $DO_MLAPPLY &&  !$OPT_TUNE_HOSTEFF ) {
 
 	# note that loop skips NUMOPT=0
 	for($NUMOPT = 1; $NUMOPT < $NFITOPT; $NUMOPT++ ) {
@@ -1400,7 +1448,7 @@ sub run_lcfit {
     
     # ----------------------
     # misc.
-    $SEDCMD = "$SEDCMD -e '1iGZIP_FLAG:  4'" ;
+# xxx mark delete    $SEDCMD = "$SEDCMD -e '1iGZIP_FLAG:  4'" ;
     $SEDCMD = "$SEDCMD -e '1iDONE_STAMP:  $DONEFILE'" ;
 
     $SEDCMD = "$SEDCMD -e '1i#### End auto-insert ---------------- '" ;
@@ -1411,7 +1459,7 @@ sub run_lcfit {
     $SEDCMD = "$SEDCMD -e /GZIP_FLAG:/d" ;
     
     # check for SALT2mu
-    if ( $DOFIT_FINAL &&  $DO_BBC ) {
+    if ( $DOFIT_FINAL &&  $DO_BBC  && !$OPT_TUNE_HOSTEFF) {
 	$PATH = $BIASCOR_PATH[$ITRAIN][$IVER_SIM];
 	$SEDCMD = "$SEDCMD " . 
 	    " -e '/SALT2mu_INFILE:/a\ SALT2mu_BIASCOR_PATH: $PATH' " ;

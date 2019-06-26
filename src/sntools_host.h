@@ -461,6 +461,6 @@ void zphoterr_asym(double ZTRUE, double ZPHOTERR,
 		   GENGAUSS_ASYM_DEF *asymGaussPar );
 
 void GEN_SNHOST_ZPHOT_from_HOSTLIB(int IGAL, double *ZPHOT, double *ZPHOT_ERR); 
-double snmagshift_salt2gamma_HOSTLIB(int igal);
+double snmagshift_salt2gamma_HOSTLIB(int GALID);
 
 // END

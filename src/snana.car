@@ -1733,6 +1733,7 @@ c define namelist cuts
      &   SNTYPE_LIST(MXLISTNML)    ! (I) user list of types to select
      &  ,SNTYPE_IGNORE(MXLISTNML)  ! (I) types to ignore
      &  ,SNCID_LIST(MXLISTNML)     ! (I) user-list of integer CIDs
+     &  ,MXEVT_PROCESS             ! (I) max number of events to process
      &  ,CCDNUM_LIST(MXLISTNML)    ! (I) user-list of CCDNUMs (Dec 2017)
      &  ,SIM_TEMPLATE_INDEX_LIST(MXLISTNML)
      &  ,SNCID_IGNORE(MXLISTNML)   ! (I) list of CIDs to ignore
@@ -1902,7 +1903,7 @@ c
      &   ,CUTFLAG_SNANA , ERRFLAG_FIT 
      &   ,NCCID_LIST, NCCID_IGNORE, NCID_LIST, NCID_IGNORE
      &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST, SNCCID_LIST_ALL
-     &   ,SNCCID_IGNORE, SNCID_IGNORE_FILE, SNCID_IGNORE
+     &   ,SNCCID_IGNORE, SNCID_IGNORE_FILE, SNCID_IGNORE, MXEVT_PROCESS
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
      &   ,SNTEL_LIST,   IDTEL_LIST,   NIDTEL_LIST,   DOALL_SNTEL
      &   ,SNFIELD_LIST, IDFIELD_LIST, NIDFIELD_LIST, DOALL_SNFIELD
@@ -2214,7 +2215,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
 c
 c Below are cut-variables defined in SNCUTS
 c
-     &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST
+     &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST, MXEVT_PROCESS
      &   ,SNCCID_IGNORE, SNCID_IGNORE_FILE, SNCID_IGNORE
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
      &   ,SNFIELD_LIST, SNTEL_LIST
@@ -3444,7 +3445,7 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       textfile_prefix   = ' '
 
       SNCID_LIST_FILE   = ' '
-      
+      MXEVT_PROCESS      = 999888777
       SIMLIB_OUT = ''
       SIMLIB_ZPERR_LIST = ''
 
@@ -4911,7 +4912,6 @@ c ----------
          else if ( LINE_ARGS(i) .EQ. 'SNCCID_LIST' ) then 
             i = i + 1 
             CALL PARSE_SNCCID_LIST(LINE_ARGS(i)) ! May 30 2019
-c xxx mark delete  SNCCID_LIST(2) = ' '
 
          else if ( LINE_ARGS(i) .EQ. 'SNCID_LIST' ) then
             i = i + 1 ; STRING_LIST = LINE_ARGS(i)
@@ -4919,6 +4919,9 @@ c xxx mark delete  SNCCID_LIST(2) = ' '
 
          else if ( LINE_ARGS(i) .EQ. 'SNCID_LIST_FILE' ) then
             i = i + 1 ; SNCID_LIST_FILE = LINE_ARGS(i)
+
+         else if ( LINE_ARGS(i) .EQ. 'MXEVT_PROCESS' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) MXEVT_PROCESS
 
          else if ( LINE_ARGS(i) .EQ. 'SIM_TEMPLATE_INDEX_LIST' ) then
             i = i + 1 ; STRING_LIST = LINE_ARGS(i)
@@ -14294,7 +14297,7 @@ c ----------- BEGIN -------------
 
 
 C ==============================================
-+DECK,LDONECID.
++DECK,LDONE_CIDLIST.
       LOGICAL FUNCTION LDONE_CIDLIST()
 
 c Jun 2011:
@@ -14302,6 +14305,8 @@ c Returns TRUE if all CID in the list have been processed;
 c allows parsing function to stop early.
 c
 c May 18, 2012: return FALSE if interp-option is set
+c Jun 25, 2019: check MXEVT_PROCESS
+c
 c -----------
       IMPLICIT NONE
 
@@ -14314,6 +14319,11 @@ c -----------
 c ------------- BEGIN --------------
 
       LDONE_CIDLIST = .FALSE.  ! default
+
+      if ( N_SNLC .GE. MXEVT_PROCESS ) then
+         LDONE_CIDLIST = .TRUE.
+         RETURN
+      endif
 
 c if CUTWIN_CID is set then return FALSE
       if ( cutwin_cid(1) .GT. 0 ) RETURN
@@ -25256,11 +25266,10 @@ cc      ENDIF
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_COLORLAW,  VARLIST, 1,
      &                   LENBLOCK, LENLIST)
 
-c xxxxxxxxxx
-c      VARLIST = 'SIM_SNMAGSHIFT_HOSTCOR:F' // char(0)  ! SIM_gamma
-c      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SNMAGSHIFT_HOSTCOR,VARLIST,0,
-c     &                   LENBLOCK, LENLIST)
-c xxxxxxxxxx
+c Jun 25 2019: add SIM_SNMAGSHIFT_HOSTCOR, but not in TEXT file until later.
+      VARLIST = 'SIM_SNMAGSHIFT_HOSTCOR:F' // char(0)  ! related to SIM_gamma
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SNMAGSHIFT_HOSTCOR,VARLIST,0,
+     &                   LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_x0:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2x0,  VARLIST, 1,

@@ -17021,4 +17021,24 @@
    Forgot to update genmag_BYOSED.h in last version, so did it here
    and now sim compiles properly.
 
+
+# ======================================================================= 
+         v10_73h (  ) 
+
+         ***** IMPORTANT(v10_73h) ***** 
+
+         ***** USEFUL(v10_73h) ***** 
+
+    new &SNLCINP input MXEVT_PROCESS (see manual)
+
+         ***** MISCELLANEOUS(v10_73h) ***** 
+
+   snana.car:
+     new &SNLCINP input MXEVT_PROCESS will quit after reading
+     this many events.
+
+   NEARNBR_pipeline.pl
+     + new input OPT_TUNE_HOSTEFF to run only a few stages needed
+       to compare data and sim.
+
 END: 

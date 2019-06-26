@@ -523,6 +523,14 @@ void  checkAbort_noHOSTLIB(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  double GAMMA_GRID_MIN = INPUTS.BIASCOR_SALT2GAMMA_GRID[0]; 
+  double GAMMA_GRID_MAX = INPUTS.BIASCOR_SALT2GAMMA_GRID[1]; 
+  if ( GAMMA_GRID_MAX > GAMMA_GRID_MIN ) {
+    sprintf ( c1err, "Cannot use sim-input BIASCOR_SALT2GAMMA_GRID");
+    sprintf ( c2err," without defining HOSTLIB_FILE" );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
   return ;
 
 } // end checkAbort_noHOSTLIB
@@ -1917,7 +1925,7 @@ void init_HOSTLIB_WGTMAP(void) {
     
   WGTSUM:
 
-    if(USE_GAMMA_GRID) { SNMAGSHIFT = snmagshift_salt2gamma_HOSTLIB(igal); }
+    if(USE_GAMMA_GRID) { SNMAGSHIFT = snmagshift_salt2gamma_HOSTLIB(GALID); }
 
     // local sum
     WGTSUM = WGTSUM_LAST + WGT;
@@ -2006,12 +2014,12 @@ void init_HOSTLIB_WGTMAP(void) {
 
 
 // ==============================================
-double snmagshift_salt2gamma_HOSTLIB(int igal) {
+double snmagshift_salt2gamma_HOSTLIB(int GALID) {
 
   // Created Jun 25 2019
   // Randomaly assign gamma (magshift) as follows:
-  //    odd  igal --> SALT2GAMA_GRID_MIN
-  //    even igal --> SALT2GAMA_GRID_MAX
+  //    odd  GALID --> SALT2GAMA_GRID_MIN
+  //    even GALID --> SALT2GAMA_GRID_MAX
   // Note that this function is used only to create a
   // biasCor sample for BBC/SALT2mu.
 
@@ -2021,7 +2029,7 @@ double snmagshift_salt2gamma_HOSTLIB(int igal) {
 
   // -------------- BEGIN ------------
 
-  if ( (igal%2) == 1 ) 
+  if ( (GALID%2) == 1 ) 
     { snmagshift = GAMMA_GRID_MIN ; }
   else
     { snmagshift = GAMMA_GRID_MAX ; }
@@ -5004,6 +5012,7 @@ double modelPar_from_SNHOST(double PARVAL_ORIG, char *PARNAME) {
   //
   // Mar 23 2018: allow SNMAGSHIFT as well.
 
+  int GALID          = SNHOSTGAL.GALID ;
   int IGAL           = SNHOSTGAL.IGAL ;
   int USE_GAMMA_GRID = HOSTLIB_WGTMAP.USE_SALT2GAMMA_GRID;
   int IVAR, USE1, USE2 ;
@@ -5018,7 +5027,7 @@ double modelPar_from_SNHOST(double PARVAL_ORIG, char *PARNAME) {
   // check for GAMMA_GRID (Jun 25 2019)
   if ( USE_GAMMA_GRID ) {
     if ( strcmp(PARNAME,HOSTLIB_VARNAME_SNMAGSHIFT)== 0 ) {
-      PARVAL_OUT = snmagshift_salt2gamma_HOSTLIB(IGAL); 
+      PARVAL_OUT = snmagshift_salt2gamma_HOSTLIB(GALID); 
       return(PARVAL_OUT);
     }
   }

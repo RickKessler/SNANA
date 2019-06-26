@@ -637,7 +637,7 @@ def execute_task(itask,CPU_TASKLIST,INPUTS) :
 
     # run the job using os.system    
     print(' Process %s_%s ' % (PREFIX,TASK) )
-    sys.stdout.flush()
+#    sys.stdout.flush()
     TESTJOB       = CONTENTS_TASK["TESTJOB"]
     TESTJOB_ARGS  = CONTENTS_TASK["TESTJOB_ARGS"]
     TESTINPUT     = CONTENTS_TASK["TESTINPUT"]

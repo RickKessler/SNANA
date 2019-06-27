@@ -382,6 +382,21 @@ struct SNTABLEVAR_DEF {
 } HOSTLIB_OUTVAR_EXTRA ;
 
 
+// Jun 27 2019; define structed used to determine host spectrum
+#define MXSPECTEMPLATE_HOSTLIB 20  // max number of spectral templates
+#define MXBIN_SPECTEMPLATE  20000  // max number of wave bins
+struct {
+  int NTEMPLATE ;
+  int NBIN_WAVE;  // number of wavelength bins
+  int IVAR_WAVE;  // table IVAR with wavelength
+  int IVAR_TEMPLATE[MXSPECTEMPLATE_HOSTLIB];
+  char VARNAME_TEMPLATE[MXSPECTEMPLATE_HOSTLIB][28];
+
+  double *WAVE;
+  double *SPECFLUX[MXSPECTEMPLATE_HOSTLIB];
+} HOSTSPEC ;
+
+
 time_t TIME_INIT_HOSTLIB[2];
 
 // =====================================
@@ -412,14 +427,15 @@ void   init_OPTIONAL_HOSTVAR(void) ;
 void   init_REQUIRED_HOSTVAR(void) ;
 int    load_VARNAME_STORE(char *varName) ;
 void   open_HOSTLIB(FILE **fp);
-void   rdwgtmap_HOSTLIB(void);
+void   read_spectemplates_HOSTLIB(void);
+void   read_wgtmap_HOSTLIB(void);
 void   parse_WGTMAP_HOSTLIB(FILE *fp, char *string);
 void   parse_WGTMAP_HOSTLIB_LEGACY(FILE *fp, char *string);
 void   parse_Sersic_n_fixed(FILE *fp, char *string); 
-void   rdhead_HOSTLIB(FILE *fp);
+void   read_head_HOSTLIB(FILE *fp);
 void   checkAlternateVarNames(char *varName) ;
-void   rdgal_HOSTLIB(FILE *fp);
-void   rdgalRow_HOSTLIB(FILE *fp, int nval, double *values, char *field );
+void   read_gal_HOSTLIB(FILE *fp);
+void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, char *field );
 void   summary_snpar_HOSTLIB(void) ;
 void   malloc_HOSTLIB(int NGAL);
 void   sortz_HOSTLIB(void);

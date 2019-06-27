@@ -3951,6 +3951,46 @@ void splitString2(char *string, char *sep, int MXsplit,
 
 }  // end of splitString2
 
+void split2floats(char *string, char *sep, float *fval) {
+
+  // Created Jun 26 2019
+  // for *string = 'xxx[sep]yyy,
+  // returns fval[0]=xxx and fval[1]=yyy.
+  // Example:
+  //   Input string   = 1.3,4.6
+  //   Output fval[0] = 1.3
+  //   Output fval[1] = 4.6
+  //
+  // Example:
+  //   Input string   =  1.3
+  //   Output fval[0] =  1.3
+  //   Output fval[1] =  1.3
+  //
+  int Nsplit ;
+  char cnum[2][40], *cptr[2];  cptr[0]=cnum[0]; cptr[1]=cnum[1];
+  char fnam[] = "split2floats" ;
+  // ---------------- BEGIN --------------------
+
+  fval[0] = fval[1] = -9.0 ;
+
+  if ( strstr(string,sep) == NULL ) 
+    { sscanf(string, "%f", &fval[0] ); fval[1]=fval[0];  return ;  }
+  
+
+  // split the string by the sep input
+  splitString(string, sep, 2, &Nsplit, cptr);
+  if ( Nsplit != 2 ) {
+    sprintf(c1err,"Invalid Nsplit=%d (expected 2)", Nsplit);
+    sprintf(c2err,"Input string='%s'  sep='%s' ", string, sep);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+  sscanf(cnum[0], "%f", &fval[0] );
+  sscanf(cnum[1], "%f", &fval[1] );
+
+  return;
+} // end split2floats
+
 
 // ********************************************************
 void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP, 
@@ -4946,7 +4986,7 @@ double FlatRan ( int ilist, double *range ) {
 double biGaussRan(double siglo, double sighi ) {
 
   // Return random number from bifurcate gaussian
-  // with sigmas = "siglo" and "sighi" and mean = 0.0
+  // with sigmas = "siglo" and "sighi" and peak = 0.0
   //
   // Jan 2012: always pick random number to keep randoms synced.
 

@@ -171,16 +171,19 @@ void INIT_HOSTLIB(void) {
   initvar_HOSTLIB();
 
   // check to read external WEIGHT-MAP instead of the HOSTLIB WEIGHT-MAP
-  rdwgtmap_HOSTLIB();
+  read_wgtmap_HOSTLIB();
+
+  // check for spectral templates to determin host spectrum
+  read_spectemplates_HOSTLIB();
 
   // open hostlib file and  return file pointer
   open_HOSTLIB(&fp_hostlib);
 
   // read header info : NVAR, VARNAMES ...
-  rdhead_HOSTLIB(fp_hostlib);
+  read_head_HOSTLIB(fp_hostlib);
 
   // read GAL: keys
-  rdgal_HOSTLIB(fp_hostlib);
+  read_gal_HOSTLIB(fp_hostlib);
 
   // summarize SNPARams that were/weren't found
   summary_snpar_HOSTLIB();
@@ -235,7 +238,7 @@ void INIT_HOSTLIB(void) {
 // ====================================
 void initvar_HOSTLIB(void) {
 
-  // init variables used for HOSTLIB
+  // one-time init of variables used for HOSTLIB
 
   int ivar, j, igal, ifilt  ;
   //  char fnam[] = "initvar_HOSTLIB" ;
@@ -324,6 +327,7 @@ void initvar_HOSTLIB(void) {
     HOSTLIB_WGTMAP.CHECKLIST_IGAL[igal] = -9 ;
   }
 
+  return ;
 
 } // end of initvar_HOSTLIB
 
@@ -735,18 +739,18 @@ void open_HOSTLIB(FILE **fp) {
 }  // end of open_HOSTLIB
 
 // ====================================
-void  rdwgtmap_HOSTLIB(void) {
+void  read_wgtmap_HOSTLIB(void) {
 
   // Function to read OPTIONAL weight-map to over-ride
   // weight map in the HOSTLIB. If the weight map is read
   // here, then the corresponding weight-map in the HOSTLIB
   // will be ignored. Note that this function must be called
-  // before rdhead_HOSTLIB().
+  // before read_head_HOSTLIB().
 
   char 
     *ptrFile
     ,c_get[40]
-    ,fnam[] = "rdwgtmap_HOSTLIB" 
+    ,fnam[] = "read_wgtmap_HOSTLIB" 
     ;
 
   FILE *fp ;
@@ -767,7 +771,7 @@ void  rdwgtmap_HOSTLIB(void) {
 
   // if we get here, open and read WGTMAP file.
 
-  printf("\t Read WEIGHT-MAP from supplemental file: %s\n", ptrFile );
+  printf("\t Read WEIGHT-MAP from supplemental file:\n\t   %s\n", ptrFile );
   fflush(stdout);
 
   while( (fscanf(fp, "%s", c_get)) != EOF) 
@@ -782,7 +786,7 @@ void  rdwgtmap_HOSTLIB(void) {
   else
     { printf("\t Ignore SNMAGSHIFT in WGTMAP \n"); fflush(stdout); }
 
-} // end of rdwgtmap_HOSTLIB
+} // end of read_wgtmap_HOSTLIB
 
 
 // ====================================
@@ -873,7 +877,106 @@ void parse_WGTMAP_HOSTLIB(FILE *fp, char *string) {
 
 
 // ====================================
-void rdhead_HOSTLIB(FILE *fp) {
+void  read_spectemplates_HOSTLIB(void) {
+
+  FILE *fp;
+  int  NBIN_WAVE, NBIN_READ, IFILETYPE, NVAR, ivar, IVAR_WAVE, NT, MEMD ;
+  int  NVAR_WAVE=0;
+  char *ptrFile, *varName, c_get[60];  
+  char TBLNAME[] = "SPECTEMPLATES";
+  char fnam[] = "read_spectemplates_HOSTLIB";
+  
+  // --------------- BEGIN -----------------
+
+  HOSTSPEC.NTEMPLATE  = 0;
+  HOSTSPEC.NBIN_WAVE  = 0;
+
+  ptrFile = INPUTS.HOSTLIB_SPECTEMPLATE_FILE ;
+  if ( IGNOREFILE(ptrFile) )  { return ; }
+
+  printf("\n\t Read SPEC-TEMPLATEs from supplemental file:\n" );
+  fflush(stdout);
+
+  TABLEFILE_INIT();
+  NBIN_WAVE   = SNTABLE_NEVT(ptrFile,TBLNAME);
+  IFILETYPE   = TABLEFILE_OPEN(ptrFile,"read");
+  NVAR        = SNTABLE_READPREP(IFILETYPE,TBLNAME);
+  MEMD        = NBIN_WAVE * sizeof(double);
+
+  if ( NBIN_WAVE > MXBIN_SPECTEMPLATE ) {
+    sprintf(c1err,"NBIN_WAVE=%d exceeds bound of %d",
+	    NBIN_WAVE, MXBIN_SPECTEMPLATE );
+    sprintf(c2err,"Reduce NBIN_WAVE or increase MXBIN_SPECTEMPLATE");
+    errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
+  }
+
+  // example VARNAMES list to make sure that there is a wavelength column,
+  // and count how many template[nn] colummns
+  IVAR_WAVE = -9;  NT=0;
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+    varName = READTABLE_POINTERS.VARNAME[ivar];
+    if ( strstr(varName,"wave") != NULL ) { IVAR_WAVE = ivar; }
+    if ( strstr(varName,"WAVE") != NULL ) { IVAR_WAVE = ivar; }
+    if ( strstr(varName,"lam" ) != NULL ) { IVAR_WAVE = ivar; }
+    if ( strstr(varName,"LAM" ) != NULL ) { IVAR_WAVE = ivar; }
+
+    if ( IVAR_WAVE == ivar ) {
+      NVAR_WAVE++ ;
+      if ( NVAR_WAVE == 1 ) 
+	{ SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.WAVE, NBIN_WAVE, 0);  }
+    }  
+
+    if ( strstr(varName,"template") != NULL ) {
+      if ( NT < MXSPECTEMPLATE_HOSTLIB ) {
+	HOSTSPEC.IVAR_TEMPLATE[NT] = ivar;
+	sprintf(HOSTSPEC.VARNAME_TEMPLATE[NT],"%s", varName);
+	HOSTSPEC.SPECFLUX[NT] = (double*) malloc(MEMD);
+	SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.SPECFLUX[NT], NBIN_WAVE, 0);
+     }
+      NT++ ; // always increment NT
+    }
+
+  } // end ivar loop
+  
+  if ( IVAR_WAVE < 0 ) {
+    sprintf(c1err,"Could not find wavelength column");
+    sprintf(c2err,"Check VARNAMES");
+    errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
+  }
+
+  if ( NVAR_WAVE != 1 ) {
+    sprintf(c1err,"Found %d wavelength columns; expect 1", NVAR_WAVE);
+    sprintf(c2err,"Check VARNAMES");
+    errmsg(SEV_FATAL, 0, fnam, c1err,c2err);     
+  }
+
+
+  if ( NT >= MXSPECTEMPLATE_HOSTLIB ) {
+    sprintf(c1err,"NTEMPLATE=%d exceeds bound of %d", 
+	    NT, MXSPECTEMPLATE_HOSTLIB ) ;
+    sprintf(c2err,"Remove templates or increase MXSPECTEMPLATE_HOSTLIB");
+    errmsg(SEV_FATAL, 0, fnam, c1err,c2err);     
+  }
+	
+  // .xyz
+  HOSTSPEC.IVAR_WAVE = IVAR_WAVE ;
+  HOSTSPEC.NTEMPLATE = NT;
+
+  // read the entire table, and close it.
+  NBIN_READ = SNTABLE_READ_EXEC();
+
+  printf("\t Found %d spectral templates and %d wavelength bins\n",
+	 NT, NBIN_WAVE);
+  fflush(stdout);
+
+  debugexit(fnam); // xxx REMOVE
+
+  return;
+
+} // end read_spectemplates_HOSTLIB
+
+// ====================================
+void read_head_HOSTLIB(FILE *fp) {
 
   // Mar 6, 2011
   // read HOSTLIB header keys 
@@ -896,7 +999,7 @@ void rdhead_HOSTLIB(FILE *fp) {
   int NCHAR;
   char  key[40], c_get[40], c_var[40], ctmp[80], wd[20], *cptr ;
   char  LINE[MXCHAR_LINE_HOSTLIB];
-  char fnam[] = "rdhead_HOSTLIB" ;
+  char fnam[] = "read_head_HOSTLIB" ;
 
   // ------------- BEGIN ---------
 
@@ -1093,7 +1196,7 @@ void rdhead_HOSTLIB(FILE *fp) {
   for ( ivar_map=0;  ivar_map < NVAR_WGTMAP; ivar_map++ ) 
     { ivar = IVAR_HOSTLIB(HOSTLIB_WGTMAP.VARNAME[ivar_map],1);  }
 
-} // end of rdhead_HOSTLIB
+} // end of read_head_HOSTLIB
 
 
 // =====================================
@@ -1153,7 +1256,7 @@ void  parse_Sersic_n_fixed(FILE *fp, char  *string) {
 
 
 // ====================================
-void rdgal_HOSTLIB(FILE *fp) {
+void read_gal_HOSTLIB(FILE *fp) {
 
   // Mar 6, 2011
   // Read HOSTLIB by reading info following each "GAL:" key.
@@ -1162,13 +1265,13 @@ void rdgal_HOSTLIB(FILE *fp) {
   // Sep 22, 2011: apply RA+DEC cuts
   // Feb 13 2014: fix safety margin for LOGZCUT
   //
-  // Sep 16 2015: call rdgalRow_HOSTLIB() to allow reading FIELD string.
+  // Sep 16 2015: call read_galRow_HOSTLIB() to allow reading FIELD string.
   // Feb 16 2016: check how many in GALID_PRIORITY
   //
   // Dec 29 2017: time to read 416,000 galaxies 5 sec ->
 
   char c_get[40], FIELD[MXCHAR_FIELDNAME] ;
-  char fnam[] = "rdgal_HOSTLIB"  ;
+  char fnam[] = "read_gal_HOSTLIB"  ;
   
   long long GALID, GALID_MIN, GALID_MAX ;
   int  ivar_ALL, ivar_STORE, NVAR_STORE, NGAL, LRA, LRA2 ;
@@ -1210,7 +1313,7 @@ void rdgal_HOSTLIB(FILE *fp) {
 
       HOSTLIB.NGAL_READ++ ;
 
-      rdgalRow_HOSTLIB(fp, HOSTLIB.NVAR_ALL, xval, FIELD ); 
+      read_galRow_HOSTLIB(fp, HOSTLIB.NVAR_ALL, xval, FIELD ); 
 
       if ( HOSTLIB.NGAL_READ > INPUTS.HOSTLIB_MAXREAD ) 
 	{ goto DONE_RDGAL ; } 
@@ -1319,11 +1422,11 @@ void rdgal_HOSTLIB(FILE *fp) {
   
   return ;
 
-} // end of rdgal_HOSTLIB
+} // end of read_gal_HOSTLIB
 
 
 // ==========================================
-void rdgalRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES, char *FIELD ) {
+void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES, char *FIELD ) {
 
   // Created 9/16.2015
   // If there is no FIELD key, then read NVAL double from fp.
@@ -1338,7 +1441,7 @@ void rdgalRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES, char *FIELD ) {
   char WDLIST[MXVAR_HOSTLIB][40], *ptrWDLIST[MXVAR_HOSTLIB] ;
   char sepKey[] = " " ;
   char tmpField[100], tmpLine[MXCHAR_LINE_HOSTLIB], *pos ;
-  char fnam[] = "rdgalRow_HOSTLIB" ;
+  char fnam[] = "read_galRow_HOSTLIB" ;
   // ---------------- BEGIN -----------------
 
   // scoop up rest of line with fgets
@@ -1405,7 +1508,7 @@ void rdgalRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES, char *FIELD ) {
 
   return ;
 
-}  // rdgalRow_HOSTLIB
+}  // read_galRow_HOSTLIB
 
 // ==========================================
 void  summary_snpar_HOSTLIB(void) {
@@ -2274,6 +2377,7 @@ void init_Gauss2d_Overlap(void) {
   HOSTLIB.Gauss2dSigma[2] = smax ;
   HOSTLIB.NBIN_Gauss2dSigma  = Ns;
 
+  return ;
 
 } // end of init_Gauss2d_Overlap
 
@@ -2346,7 +2450,7 @@ void init_Sersic_VARNAMES(void) {
   // and j2 is the absolute 0-MXSERSIC integer key. Note that 
   // neither j1 or j2 is the physical SERSIC.n[j1] index.
   //
-  // The index-matching is done here after rdhead_HOSTLIB()
+  // The index-matching is done here after read_head_HOSTLIB()
   // so that the VARNAMES and SERSIC keys can go in any order
   // in the HOSTLIB
   //

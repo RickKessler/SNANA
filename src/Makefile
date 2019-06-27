@@ -118,6 +118,7 @@
 #
 # May 3 2019: create blank subDirs (OBJ,LIB,BIN) that are not in Git.
 # Jun 19 2019: include psnid_BEST2.c
+# Juj 27 2019: compile to inoue_igm.c (to correct spectral flux for igm)
 #
 # ---------------------------------------------------------------------
 
@@ -381,6 +382,7 @@ OBJ_SIM	 = 	\
 	$(OBJ)/sntools_gridgen.o  \
 	$(OBJ)/sntools_spectrograph.o \
 	$(OBJ)/sntools_genGauss_asym.o \
+	$(OBJ)/inoue_igm.o \
 	$(OBJ_GENMAG_SIM) 
 
 # -------
@@ -804,12 +806,20 @@ $(OBJ)/sntools_host.o : $(SRC)/sntools_host.c  $(SRC)/sntools_host.h $(SRC)/snlc
 $(OBJ)/sntools_devel.o : $(SRC)/sntools_devel.c  $(SRC)/sntools_devel.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_devel.c )
+
 # -------------------------------------------------
 # compile sntools_lensing (.o only)
 
 $(OBJ)/sntools_lensing.o : $(SRC)/sntools_lensing.c  $(SRC)/sntools_lensing.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_lensing.c )
+
+# -------------------------------------------------
+# compile inoue_igm.o 
+
+$(OBJ)/inoue_igm.o : $(SRC)/inoue_igm.c  $(SRC)/inoue_igm.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(SRC)/inoue_igm.c )
 
 # -------------------------------------------------
 # compile sntools_wronghost (.o only)

@@ -1,5 +1,6 @@
 /* =================================================
 
+
   March, 2011  R.Kessler
 
   Inlcude this file in the simulation to 
@@ -167,20 +168,25 @@ void INIT_HOSTLIB(void) {
   TIME_INIT_HOSTLIB[0]  = time(NULL);
   print_banner("INIT_HOSTLIB(): Read host-galaxy library.");
 
+  // check for spectral templates to determin host spectrum
+  read_specTemplates_HOSTLIB();
+
   // set inital values for HOSTLIB structure
   initvar_HOSTLIB();
 
   // check to read external WEIGHT-MAP instead of the HOSTLIB WEIGHT-MAP
   read_wgtmap_HOSTLIB();
 
-  // check for spectral templates to determin host spectrum
-  read_spectemplates_HOSTLIB();
-
   // open hostlib file and  return file pointer
   open_HOSTLIB(&fp_hostlib);
 
   // read header info : NVAR, VARNAMES ...
   read_head_HOSTLIB(fp_hostlib);
+
+  // check for match among spec templates and hostlib varnames (Jun 2019)
+  match_specTemplates_HOSTVAR();
+
+  //  debugexit(fnam); // xxx REMOVE
 
   // read GAL: keys
   read_gal_HOSTLIB(fp_hostlib);
@@ -241,7 +247,7 @@ void initvar_HOSTLIB(void) {
   // one-time init of variables used for HOSTLIB
 
   int ivar, j, igal, ifilt  ;
-  //  char fnam[] = "initvar_HOSTLIB" ;
+  char fnam[] = "initvar_HOSTLIB" ;
 
   // ----------- BEGIN -------------
 
@@ -343,17 +349,11 @@ void init_OPTIONAL_HOSTVAR(void) {
 
   int NVAR, j, ifilt, ifilt_obs ;
 
-  char 
-    *cptr
-    ,anam[12]
-    ,bnam[12]
-    ,wnam[12]
-    ,nnam[12]
-    ,varName[40]
-    ,fnam[] = "init_OPTIONAL_HOSTVAR" ;
+  char anam[12], bnam[12], wnam[12], nnam[12];
+  char varName[40], *cptr ;
+  char fnam[] = "init_OPTIONAL_HOSTVAR" ;
 
   // ----------- BEGIN ---------------
-
 
   NVAR = 0;
 
@@ -366,16 +366,16 @@ void init_OPTIONAL_HOSTVAR(void) {
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_RA ) ;
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
-  sprintf(cptr,"%s", HOSTLIB_VARNAME_RA_HOST ) ; // Jan 30 2015
+  sprintf(cptr,"%s", HOSTLIB_VARNAME_RA_HOST ) ;
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
-  sprintf(cptr,"%s", HOSTLIB_VARNAME_RA_GAL ) ; // Jan 30 2015
+  sprintf(cptr,"%s", HOSTLIB_VARNAME_RA_GAL ) ; 
 
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_DEC );
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
-  sprintf(cptr,"%s", HOSTLIB_VARNAME_DEC_HOST ); // Jan 20 2015
+  sprintf(cptr,"%s", HOSTLIB_VARNAME_DEC_HOST ); 
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
-  sprintf(cptr,"%s", HOSTLIB_VARNAME_DEC_GAL ); // Jan 20 2015
+  sprintf(cptr,"%s", HOSTLIB_VARNAME_DEC_GAL ); 
 
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS );
@@ -384,7 +384,7 @@ void init_OPTIONAL_HOSTVAR(void) {
   sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_ERR );
 
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
-  sprintf(cptr,"%s", HOSTLIB_VARNAME_FIELD );   // Sep 17 2015
+  sprintf(cptr,"%s", HOSTLIB_VARNAME_FIELD ); 
 
   // allow Sersic shape parameters a0, a1 ...a9 and b0, b1 ... b9
   for ( j=0; j < MXSERSIC_HOSTLIB ; j++ ) {   
@@ -450,7 +450,6 @@ void init_OPTIONAL_HOSTVAR(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-
   HOSTLIB.NVAR_OPTIONAL = NVAR ; // load global NVAR_OPTIONAL
 
 } // end of init_OPTIONAL_HOSTVAR
@@ -459,8 +458,8 @@ void init_OPTIONAL_HOSTVAR(void) {
 // ==========================================
 void init_REQUIRED_HOSTVAR(void) {
 
-  int NVAR,  LOAD ;
-  char *cptr;
+  int NVAR,  LOAD, i ;
+  char *cptr, *varName ;
   //  char fnam[] = "init_REQUIRED_HOSTVAR" ;
 
   // ----------- BEGIN -----------
@@ -474,6 +473,14 @@ void init_REQUIRED_HOSTVAR(void) {
   cptr = HOSTLIB.VARNAME_REQUIRED[NVAR] ;  NVAR++; 
   sprintf(cptr, "%s", HOSTLIB_VARNAME_ZTRUE );
   LOAD = load_VARNAME_STORE(cptr) ;
+
+  // check for required specTemplate coefficients
+  for(i = 0; i < HOSTSPEC.NTEMPLATE; i++ ) {
+    varName = HOSTSPEC.VARNAME_TEMPLATE[i];
+    cptr = HOSTLIB.VARNAME_REQUIRED[NVAR] ;  NVAR++;
+    sprintf(cptr, "%s%s", PREFIX_SPECTEMPLATE_HOSTLIB, varName );
+    LOAD = load_VARNAME_STORE(cptr) ;
+  }
 
   HOSTLIB.NVAR_REQUIRED = NVAR ;
 
@@ -637,12 +644,6 @@ void  init_OUTVAR_HOSTLIB(void) {
   // split VARLIST_ALL into individual var names
   NVAR_STOREPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST_ALL);
 
-  /* xxxxxxxx mark delete Mar 20 2019 xxxxxxxxxxxxx
-  ptrtok = strtok(VARLIST,",") ;
-  while ( ptrtok != NULL ) {
-    sprintf(varName, "%s", ptrtok ) ;
-  xxxxxxxxxxxxxxxxxxxx */
-
   for(ivar=0; ivar < NVAR_STOREPAR; ivar++ ) {
 
     get_PARSE_WORD(0,ivar,varName); // return varName
@@ -664,7 +665,7 @@ void  init_OUTVAR_HOSTLIB(void) {
     if ( LOAD > 0 ) { 
       NVAR_REQ++ ;
       sprintf(HOSTLIB.VARNAME_REQUIRED[NVAR_REQ], "%s", varName);
-      // printf("\t xxx add '%s' to  VARNAME_REQUIRED list \n", varName);
+      //printf("\t xxx add '%s' to  VARNAME_REQUIRED list \n", varName);
     }
 
 
@@ -877,19 +878,29 @@ void parse_WGTMAP_HOSTLIB(FILE *fp, char *string) {
 
 
 // ====================================
-void  read_spectemplates_HOSTLIB(void) {
+void  read_specTemplates_HOSTLIB(void) {
+
+  // Created Jun 28 2019 by R.Kessler
+  // Read supplemental file of spectral templates, used later
+  // to construct Host spectrum for each event.
+  // This read must be done before reading the HOSTLIB,
+  // so that the template names can be matched between
+  // this specTemplate file and the VARNAMES in the HOSTLIB.
 
   FILE *fp;
-  int  NBIN_WAVE, NBIN_READ, IFILETYPE, NVAR, ivar, IVAR_WAVE, NT, MEMD ;
-  int  NVAR_WAVE=0;
+  int  NBIN_WAVE, NBIN_READ, IFILETYPE, NVAR, ivar, ICOL_WAVE, NT, MEMD, NUM ;
+  int  NVAR_WAVE  = 0 ;
+  int  OPT_VARDEF = 0 ;
+  int  LEN_PREFIX = strlen(PREFIX_SPECTEMPLATE);
   char *ptrFile, *varName, c_get[60];  
   char TBLNAME[] = "SPECTEMPLATES";
-  char fnam[] = "read_spectemplates_HOSTLIB";
+  char fnam[] = "read_specTemplates_HOSTLIB";
   
   // --------------- BEGIN -----------------
 
-  HOSTSPEC.NTEMPLATE  = 0;
-  HOSTSPEC.NBIN_WAVE  = 0;
+  HOSTSPEC.NTEMPLATE  = 0 ;
+  HOSTSPEC.NBIN_WAVE  = 0 ;
+  HOSTSPEC.FLAM_SCALE = 1.0 ;
 
   ptrFile = INPUTS.HOSTLIB_SPECTEMPLATE_FILE ;
   if ( IGNOREFILE(ptrFile) )  { return ; }
@@ -897,11 +908,33 @@ void  read_spectemplates_HOSTLIB(void) {
   printf("\n\t Read SPEC-TEMPLATEs from supplemental file:\n" );
   fflush(stdout);
 
+  // - - - - - - - - - - - - - -
+  // read until VARNAMES key in case there are supplemental keys
+  if ( (fp = fopen(ptrFile, "rt")) == NULL ) {
+    sprintf(c1err,"%s", "Could not open SPEC-TEMPLATE file:" );
+    sprintf(c2err,"%s", ptrFile );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  
+
+  int STOP=0;
+  while( !STOP ) {
+    fscanf(fp, "%s", c_get);
+    if ( strcmp(c_get,"VARNAMES:") == 0 ) { STOP=1; }
+
+    if ( strcmp(c_get,"FLAM_SCALE:") == 0 ) 
+      { readdouble(fp, 1, &HOSTSPEC.FLAM_SCALE); }    
+  }
+
+  fclose(fp);
+
+  // - - - - - - - - - - - - - -
+  // now read with standard routines
   TABLEFILE_INIT();
   NBIN_WAVE   = SNTABLE_NEVT(ptrFile,TBLNAME);
   IFILETYPE   = TABLEFILE_OPEN(ptrFile,"read");
   NVAR        = SNTABLE_READPREP(IFILETYPE,TBLNAME);
-  MEMD        = NBIN_WAVE * sizeof(double);
+  MEMD        = (NBIN_WAVE+100) * sizeof(double);
 
   if ( NBIN_WAVE > MXBIN_SPECTEMPLATE ) {
     sprintf(c1err,"NBIN_WAVE=%d exceeds bound of %d",
@@ -912,33 +945,42 @@ void  read_spectemplates_HOSTLIB(void) {
 
   // example VARNAMES list to make sure that there is a wavelength column,
   // and count how many template[nn] colummns
-  IVAR_WAVE = -9;  NT=0;
+  ICOL_WAVE = -9;  NT=0;
   for(ivar=0; ivar < NVAR; ivar++ ) {
     varName = READTABLE_POINTERS.VARNAME[ivar];
-    if ( strstr(varName,"wave") != NULL ) { IVAR_WAVE = ivar; }
-    if ( strstr(varName,"WAVE") != NULL ) { IVAR_WAVE = ivar; }
-    if ( strstr(varName,"lam" ) != NULL ) { IVAR_WAVE = ivar; }
-    if ( strstr(varName,"LAM" ) != NULL ) { IVAR_WAVE = ivar; }
+    if ( strstr(varName,"wave") != NULL ) { ICOL_WAVE = ivar; }
+    if ( strstr(varName,"WAVE") != NULL ) { ICOL_WAVE = ivar; }
+    if ( strstr(varName,"lam" ) != NULL ) { ICOL_WAVE = ivar; }
+    if ( strstr(varName,"LAM" ) != NULL ) { ICOL_WAVE = ivar; }
 
-    if ( IVAR_WAVE == ivar ) {
+    if ( ICOL_WAVE == ivar ) {
       NVAR_WAVE++ ;
-      if ( NVAR_WAVE == 1 ) 
-	{ SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.WAVE, NBIN_WAVE, 0);  }
+      if ( NVAR_WAVE == 1 ) { 
+	HOSTSPEC.WAVE = (double*) malloc(MEMD);
+	SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.WAVE, NBIN_WAVE, OPT_VARDEF); 
+      }
     }  
 
-    if ( strstr(varName,"template") != NULL ) {
+    if ( strstr(varName,PREFIX_SPECTEMPLATE) != NULL ) {
       if ( NT < MXSPECTEMPLATE_HOSTLIB ) {
-	HOSTSPEC.IVAR_TEMPLATE[NT] = ivar;
+	sscanf(&varName[LEN_PREFIX], "%d",  &NUM);
+
+	HOSTSPEC.ICOL_TEMPLATE[NT] = ivar;
+	HOSTSPEC.NUM_TEMPLATE[NT]  = NUM; // store template NUM
 	sprintf(HOSTSPEC.VARNAME_TEMPLATE[NT],"%s", varName);
-	HOSTSPEC.SPECFLUX[NT] = (double*) malloc(MEMD);
-	SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.SPECFLUX[NT], NBIN_WAVE, 0);
-     }
-      NT++ ; // always increment NT
+
+	HOSTSPEC.FLAM[NT] = (double*) malloc(MEMD);
+	SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.FLAM[NT], NBIN_WAVE, OPT_VARDEF);
+      }
+      NT++ ; // always increment number of templates, NT
     }
 
   } // end ivar loop
-  
-  if ( IVAR_WAVE < 0 ) {
+
+
+  // - - - - - - - - - - - - - -
+  // abort tests
+  if ( ICOL_WAVE < 0 ) {
     sprintf(c1err,"Could not find wavelength column");
     sprintf(c2err,"Check VARNAMES");
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
@@ -950,7 +992,6 @@ void  read_spectemplates_HOSTLIB(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err);     
   }
 
-
   if ( NT >= MXSPECTEMPLATE_HOSTLIB ) {
     sprintf(c1err,"NTEMPLATE=%d exceeds bound of %d", 
 	    NT, MXSPECTEMPLATE_HOSTLIB ) ;
@@ -958,8 +999,7 @@ void  read_spectemplates_HOSTLIB(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err);     
   }
 	
-  // .xyz
-  HOSTSPEC.IVAR_WAVE = IVAR_WAVE ;
+  HOSTSPEC.ICOL_WAVE = ICOL_WAVE ;
   HOSTSPEC.NTEMPLATE = NT;
 
   // read the entire table, and close it.
@@ -969,13 +1009,87 @@ void  read_spectemplates_HOSTLIB(void) {
 	 NT, NBIN_WAVE);
   fflush(stdout);
 
-  debugexit(fnam); // xxx REMOVE
+  return;
+
+} // end read_specTemplates_HOSTLIB
+
+// ============================================
+void match_specTemplates_HOSTVAR(void) {
+
+  // Created June 2019
+  // Match specTemplate names to names in HOSTLIB (HOSTVAR).
+  // The specTemplate file has column names template00, template01, etc ...
+  // The HOSTLIB VARNAMES must have corresponding list of
+  // coeff_template00, coeff_template01, etc ...
+  //
+
+  int  NVAR_HOSTLIB = HOSTLIB.NVAR_STORE ; 
+  int  NTEMPLATE    = HOSTSPEC.NTEMPLATE ;
+  int  ivar_HOSTLIB, i, NERR=0;
+  char *VARNAME_TEMPLATE, VARNAME_HOSTLIB[40];
+  char fnam[] = "match_specTemplates_HOSTVAR";
+
+  // ----------------- BEGIN -----------------
+
+  if ( HOSTSPEC.NTEMPLATE == 0 ) { return ; }
+
+  for(i=0; i < NTEMPLATE; i++ ) {
+    VARNAME_TEMPLATE = HOSTSPEC.VARNAME_TEMPLATE[i];
+    sprintf(VARNAME_HOSTLIB, "%s%s", 
+	    PREFIX_SPECTEMPLATE_HOSTLIB, VARNAME_TEMPLATE);
+
+    ivar_HOSTLIB = IVAR_HOSTLIB(VARNAME_HOSTLIB,0);
+    if ( ivar_HOSTLIB < 0 ) {
+      printf(" ERROR: required '%s' is not in HOSTLIB' \n", VARNAME_HOSTLIB);
+      NERR++; 
+    }
+    else {
+      HOSTSPEC.IVAR_HOSTLIB[i] = ivar_HOSTLIB;
+    }
+  }
+
+
+  if ( NERR > 0 ) {
+    sprintf(c1err,"%d specTemplates have no coeff_template in HOSTLIB:", NERR );
+    sprintf(c2err,"Check specTemplate file and HOSTLIB VARNAMES");
+    errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
+  }
+
+  return ;
+
+} // end match_specTemplates_HOSTVAR
+
+// =========================================
+void checkVarName_specTemplate(char *varName) {
+
+  // Created Jun 2019
+  // ABORT if varName (from HOSTLIB VARNAMES) is an 
+  // un-used template coefficient.
+  // 
+  int icol;
+  char fnam[] = "checkVarName_specTemplate";
+
+  // --------------- BEGIN ------------
+
+  if ( HOSTSPEC.NTEMPLATE <= 0 ) { return; }
+
+  if (strstr(varName,PREFIX_SPECTEMPLATE)         == NULL ) { return ; }
+  if (strstr(varName,PREFIX_SPECTEMPLATE_HOSTLIB) == NULL ) { return ; }
+
+  // now we have varName of the form coeff_template[nn]
+  icol = ICOL_SPECTEMPLATE(varName,0); // fetch column in specTemplate file
+  
+  if ( icol < 0 ) {
+    sprintf(c1err,"Found unused '%s' in HOSTLIB", varName );
+    sprintf(c2err,"Check VARNAMES in specTemplate and HOSTLIB files.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
   return;
 
-} // end read_spectemplates_HOSTLIB
+} // end checkVarName_specTemplate
 
-// ====================================
+// ============================================
 void read_head_HOSTLIB(FILE *fp) {
 
   // Mar 6, 2011
@@ -994,7 +1108,7 @@ void read_head_HOSTLIB(FILE *fp) {
   // Mar 28 2019: use MXCHAR_LINE_HOSTLIB
 
   int MXCHAR = MXCHAR_LINE_HOSTLIB;
-  int ivar, ivar_map, IVAR_STORE, i, N, NVAR, NVAR_WGTMAP, FOUND_SNPAR;
+  int ivar, ivar_map, IVAR_STORE, i, N, NVAR, NVAR_WGTMAP, FOUND_SNPAR, icol;
   int MATCH, NVAR_STORE_SNPAR, USE, IS_SNPAR, ISTAT_VARNAMES, VBOSE ;
   int NCHAR;
   char  key[40], c_get[40], c_var[40], ctmp[80], wd[20], *cptr ;
@@ -1050,6 +1164,9 @@ void read_head_HOSTLIB(FILE *fp) {
 	get_PARSE_WORD(0,ivar,c_var);
 	checkAlternateVarNames(c_var);
 
+	// if coeff_tempalte[nn], make sure it's actually needed
+	checkVarName_specTemplate(c_var);
+
 	// load ALL array
 	sprintf( HOSTLIB.VARNAME_ALL[ivar], "%s", c_var);
 
@@ -1067,7 +1184,7 @@ void read_head_HOSTLIB(FILE *fp) {
 	      }
 	    HOSTLIB.NVAR_STORE++ ;   
 	  }
-	}   // i
+	}   // i       
 
       }  // end ivar loop
 
@@ -1122,6 +1239,7 @@ void read_head_HOSTLIB(FILE *fp) {
 
   NVAR_WGTMAP =  HOSTLIB_WGTMAP.GRIDMAP.NDIM ;
   for ( IVAR_STORE=0; IVAR_STORE < HOSTLIB.NVAR_STORE ; IVAR_STORE++ ) {
+
     sprintf(c_var,"%s", HOSTLIB.VARNAME_STORE[IVAR_STORE] );
     for ( ivar_map=0;  ivar_map < NVAR_WGTMAP; ivar_map++ ) {
       if ( strcmp(c_var,HOSTLIB_WGTMAP.VARNAME[ivar_map])==0 ) {
@@ -1152,12 +1270,12 @@ void read_head_HOSTLIB(FILE *fp) {
       fflush(stdout);
     }
     if ( MATCH == 0 ) {
-      sprintf(c1err,"Could not find required HOSTLIB var '%s' (%d)", 
+      sprintf(c1err,"Could not find required HOSTLIB var '%s' (IVAR_STORE=%d)", 
 	      c_var, IVAR_STORE );
       sprintf(c2err,"Check HOSTLIB VARNAMES,WGTMAP & HOSTLIB_STOREVAR key.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
-
+   
   } // end IVAR_STORE
   
 
@@ -1195,6 +1313,7 @@ void read_head_HOSTLIB(FILE *fp) {
   // just make sure that these WGTMAP variables are really defined.
   for ( ivar_map=0;  ivar_map < NVAR_WGTMAP; ivar_map++ ) 
     { ivar = IVAR_HOSTLIB(HOSTLIB_WGTMAP.VARNAME[ivar_map],1);  }
+
 
 } // end of read_head_HOSTLIB
 
@@ -3365,6 +3484,56 @@ int IVAR_HOSTLIB(char *varname, int ABORTFLAG) {
   }
 
 } // end of IVAR_HOSTLIB
+
+
+// ========================================
+int ICOL_SPECTEMPLATE(char *varname, int ABORTFLAG) {
+
+
+  // June 2019
+  // For input variable name return 'ICOL' column in specTemplate file.
+  // 
+  // ABORTFLAG = 1  : abort if key not found
+  // ABORTFLAG = 0  : return -9 if key nor found
+  //
+
+  int icol, NCOL, ICMP ;
+  char VARNAME_TMP[2][60];
+  char fnam[] = "ICOL_SPECTEMPLATE";
+
+  // ---------- BEGIN ----------
+
+  NCOL = HOSTSPEC.NTEMPLATE;
+  for ( icol = 0; icol < NCOL; icol++ ) {
+
+
+    sprintf(VARNAME_TMP[0],"%s", 
+	    HOSTSPEC.VARNAME_TEMPLATE[icol]);
+    sprintf(VARNAME_TMP[1],"%s%s", 
+	    PREFIX_SPECTEMPLATE_HOSTLIB, HOSTSPEC.VARNAME_TEMPLATE[icol]);
+
+    // check varname
+    ICMP = strcmp_ignoreCase(varname,VARNAME_TMP[0] ) ;
+    if ( ICMP == 0 ) { return(icol); }
+
+    // check coeff_[varname]
+    ICMP = strcmp_ignoreCase(varname,VARNAME_TMP[1] ) ;
+    if ( ICMP == 0 ) { return(icol); }
+
+  }
+
+  // if we get here, abort
+  if ( ABORTFLAG ) {
+    sprintf(c1err,"Could not find specTemplate column '%s'", varname);
+    sprintf(c2err,"Check VARNAMES keys in specTemplate file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    return(-9) ; 
+  }
+  else  { 
+    return(-9) ; 
+  }
+
+} // end of ICOL_SPECTEMPLATE
 
 // =========================================
 void GEN_SNHOST_DRIVER(double ZGEN, double PEAKMJD) {

@@ -385,15 +385,22 @@ struct SNTABLEVAR_DEF {
 // Jun 27 2019; define structed used to determine host spectrum
 #define MXSPECTEMPLATE_HOSTLIB 20  // max number of spectral templates
 #define MXBIN_SPECTEMPLATE  20000  // max number of wave bins
+#define PREFIX_SPECTEMPLATE         "template"    // e.g., template00, template01, ...
+#define PREFIX_SPECTEMPLATE_HOSTLIB "coeff_"      // extra prefix for HOSTLIB
+
 struct {
-  int NTEMPLATE ;
-  int NBIN_WAVE;  // number of wavelength bins
-  int IVAR_WAVE;  // table IVAR with wavelength
-  int IVAR_TEMPLATE[MXSPECTEMPLATE_HOSTLIB];
+  int  NTEMPLATE ;
+  int  NBIN_WAVE;  // number of wavelength bins
+  int  ICOL_WAVE;  // table column with wavelength
+  int  ICOL_TEMPLATE[MXSPECTEMPLATE_HOSTLIB]; // colum for each template
+  int  NUM_TEMPLATE[MXSPECTEMPLATE_HOSTLIB];  // number for each template
   char VARNAME_TEMPLATE[MXSPECTEMPLATE_HOSTLIB][28];
 
+  int  IVAR_HOSTLIB[MXSPECTEMPLATE_HOSTLIB]; // identified HOSTLIB ivar with coeff
+
+  double  FLAM_SCALE ;
   double *WAVE;
-  double *SPECFLUX[MXSPECTEMPLATE_HOSTLIB];
+  double *FLAM[MXSPECTEMPLATE_HOSTLIB];
 } HOSTSPEC ;
 
 
@@ -427,7 +434,9 @@ void   init_OPTIONAL_HOSTVAR(void) ;
 void   init_REQUIRED_HOSTVAR(void) ;
 int    load_VARNAME_STORE(char *varName) ;
 void   open_HOSTLIB(FILE **fp);
-void   read_spectemplates_HOSTLIB(void);
+void   read_specTemplates_HOSTLIB(void);
+void   match_specTemplates_HOSTVAR(void);
+void   checkVarName_specTemplate(char *varName);
 void   read_wgtmap_HOSTLIB(void);
 void   parse_WGTMAP_HOSTLIB(FILE *fp, char *string);
 void   parse_WGTMAP_HOSTLIB_LEGACY(FILE *fp, char *string);
@@ -461,6 +470,8 @@ void   copy_VARNAMES_zHOST_to_HOSTLIB_STOREPAR(void);
 void   readme_HOSTLIB(void);
 void   check_duplicate_GALID(void);
 int    IVAR_HOSTLIB(char *varname, int ABORTFLAG);
+int    ICOL_SPECTEMPLATE(char *varname, int ABORTFLAG) ;
+
 long long get_GALID_HOSTLIB(int igal);
 double get_ZTRUE_HOSTLIB(int igal);
 double get_GALFLUX_HOSTLIB(double a, double b);

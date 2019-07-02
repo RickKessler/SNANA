@@ -1320,7 +1320,8 @@ struct SIMLIB_FLUXERR_COR {
 
 int GENFRAME_OPT;        // one of below, based on model option
 #define GENFRAME_REST 1  // => generate in rest frame; then boost
-#define GENFRAME_OBS  2  // => generate directory in obs frame
+#define GENFRAME_OBS  2  // => generate directly in obs frame
+#define GENFRAME_HOST 3  // => used by TAKE_SPECTRUM on host instead of SN
 
 
 int INDEX_GENMODEL         ;  // index for model

@@ -17053,4 +17053,7 @@
    spectra in the simulation. Code taken and simplified from
        https://github.com/gbrammer/eazy-photoz/tree/e4a092c1e1d61c5fc4318291b451bd5d032aacb0
 
+   sntools.c: 
+     fix bug in get_obs_atFLUXMAX() so that it works with unsorted MJD_LIST
+
 END: 

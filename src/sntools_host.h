@@ -434,9 +434,6 @@ void   init_OPTIONAL_HOSTVAR(void) ;
 void   init_REQUIRED_HOSTVAR(void) ;
 int    load_VARNAME_STORE(char *varName) ;
 void   open_HOSTLIB(FILE **fp);
-void   read_specTemplates_HOSTLIB(void);
-void   match_specTemplates_HOSTVAR(void);
-void   checkVarName_specTemplate(char *varName);
 void   read_wgtmap_HOSTLIB(void);
 void   parse_WGTMAP_HOSTLIB(FILE *fp, char *string);
 void   parse_WGTMAP_HOSTLIB_LEGACY(FILE *fp, char *string);
@@ -470,7 +467,6 @@ void   copy_VARNAMES_zHOST_to_HOSTLIB_STOREPAR(void);
 void   readme_HOSTLIB(void);
 void   check_duplicate_GALID(void);
 int    IVAR_HOSTLIB(char *varname, int ABORTFLAG);
-int    ICOL_SPECTEMPLATE(char *varname, int ABORTFLAG) ;
 
 long long get_GALID_HOSTLIB(int igal);
 double get_ZTRUE_HOSTLIB(int igal);
@@ -489,5 +485,13 @@ void zphoterr_asym(double ZTRUE, double ZPHOTERR,
 
 void GEN_SNHOST_ZPHOT_from_HOSTLIB(int IGAL, double *ZPHOT, double *ZPHOT_ERR); 
 double snmagshift_salt2gamma_HOSTLIB(int GALID);
+
+// specTemplate functions
+void   read_specTemplates_HOSTLIB(void);
+void   match_specTemplates_HOSTVAR(void);
+void   checkVarName_specTemplate(char *varName);
+int    ICOL_SPECTEMPLATE(char *varname, int ABORTFLAG) ;
+void   genSpec_HOSTLIB(double zhel, double MWEBV,
+		       double *GENFLUX_LIST, double *GENMAG_LIST);
 
 // END

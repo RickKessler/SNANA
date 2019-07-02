@@ -3464,7 +3464,8 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
   // instead of at aboslute MJD (simlib) values.
   //
   // *string1 = TREST([Tmin]:[Tmax])  or
-  //            TOBS([Tmin]:[Tmax])
+  //            TOBS([Tmin]:[Tmax])   or
+  //            HOST
   //
   // *string2 = SNR_ZPOLY([a0],[a1],[a2],,,,)  or
   //            TEXPOSE_ZPOLY([a0],[a1],[a2],,,,) 
@@ -3478,6 +3479,8 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
   // Mar 23 2019: 
   //  + use parse_GENPOLY to allow arbitrary poly-order.
   //  + pass WARP_SPECTRUM_STRING
+  //
+  // June 28 2019: allow HOST argument
 
   int  N = NPEREVT_TAKE_SPECTRUM ;
   GENPOLY_DEF *GENLAMPOLY_WARP  = &INPUTS.TAKE_SPECTRUM[N].GENLAMPOLY_WARP ;
@@ -3487,6 +3490,7 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
   char string1[80], string2[80], string3[80]; 
   char *ptrSplit[4], strValues[4][20] ;
   int  NSPLIT, i, o ;
+  int  IS_HOST = 0;
   char colon[] = ":", comma[] = "," ;
   char stringTmp[80], stringOpt[200];
   char fnam[] = "parse_input_TAKE_SPECTRUM" ;
@@ -3528,7 +3532,7 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
   // read 1st arg and parse as either TREST or TOBS
   readchar(fp,string1);
   sprintf(stringTmp, "%s", string1);
-  extractStringOpt(stringTmp,stringOpt); // return stringOpt
+  extractStringOpt(stringTmp,stringOpt); // return stringOpt; 
   if ( strcmp(stringTmp,"TREST") == 0 ) {
     INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH = GENFRAME_REST ;
     sprintf(INPUTS.TAKE_SPECTRUM[N].EPOCH_FRAME,"REST");
@@ -3536,6 +3540,11 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
   else if ( strcmp(stringTmp,"TOBS") == 0 ) {
     INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH = GENFRAME_OBS ;
     sprintf(INPUTS.TAKE_SPECTRUM[N].EPOCH_FRAME,"OBS");
+  }
+  else if ( strcmp(stringTmp,"HOST") == 0 ) {
+    INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH = GENFRAME_HOST ;
+    sprintf(INPUTS.TAKE_SPECTRUM[N].EPOCH_FRAME,"HOST");
+    IS_HOST = 1;
   }
   else if ( strcmp(stringTmp,"TEMPLATE_TEXPOSE_SCALE") == 0 ) {
     sscanf(stringOpt, "%f", 
@@ -3551,21 +3560,26 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
  
 
   // get epoch range from colon-seperated values in stringOpt
-  for(i=0; i < 4; i++ ) { ptrSplit[i] = strValues[i]; }
-
-  splitString(stringOpt, colon, 4,      // inputs               
-              &NSPLIT, ptrSplit );      // outputs             
-
-  if ( NSPLIT != 2 ) {
-    sprintf(c1err, "\n   Found %d colon-separated values in '%s'", 
-	    NSPLIT, string1);
-    sprintf(c2err, "but expected %d values.", 2);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
   ptrF = INPUTS.TAKE_SPECTRUM[N].EPOCH_RANGE ;
-  sscanf( strValues[0] , "%f", &ptrF[0] );  // load TREST_RANGE or TOBS_RANGE
-  sscanf( strValues[1] , "%f", &ptrF[1] ); 
+
+  if ( IS_HOST ) {
+    ptrF[0] = ptrF[1] = 9999.0 ;  
+  }
+  else {
+    for(i=0; i < 4; i++ ) { ptrSplit[i] = strValues[i]; }
+
+    splitString(stringOpt, colon, 4,      // inputs               
+		&NSPLIT, ptrSplit );      // outputs             
+
+    if ( NSPLIT != 2 ) {
+      sprintf(c1err, "\n   Found %d colon-separated values in '%s'", 
+	      NSPLIT, string1);
+      sprintf(c2err, "but expected %d values.", 2);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }   
+    sscanf( strValues[0] , "%f", &ptrF[0] );  // load TREST_RANGE or TOBS_RANGE
+    sscanf( strValues[1] , "%f", &ptrF[1] ); 
+  }
 
 
   // -------------------------------
@@ -8288,6 +8302,7 @@ void  init_genSpec(void) {
     GENSPEC.RANGauss_NOISE_TEMPLATE[ilam] = (double*) malloc(MEMD) ;
   }
 
+  
   return ;
 
 } // end init_genSpec
@@ -8344,7 +8359,7 @@ void GENSPEC_DRIVER(void) {
 
     imjd = imjd_order[i];
 
-    GENSPEC_INIT(2,imjd); 
+    GENSPEC_INIT(2,imjd);   // 2-> event-dependent init
 
     // compute true GENMAG and FLUXGEN in each lambda bin
     GENSPEC_TRUE(imjd); 
@@ -8362,7 +8377,7 @@ void GENSPEC_DRIVER(void) {
     GENSPEC_FLAM(imjd) ;
 
     GENSPEC.NMJD_PROC++ ; // total Nspec for this event.
-    NGENSPEC_WRITE++ ; // total NSpec over all Light curve
+    NGENSPEC_WRITE++ ;    // total NSpec over all Light curve
 
   } // end imjd
   
@@ -8430,6 +8445,8 @@ double  GENSPEC_PICKMJD(int OPT_MJD, int INDX, double z,
   //
   // Aug 23 2017: fix aweful bug setting EPOCH when OPT==0
   //              Somehow it was OK for LEGACY SIMLIB routines.
+  //
+  // Juj 28 2019: return 9999 for HOST spectrum
 
   int  OPT_FRAME = INPUTS.TAKE_SPECTRUM[INDX].OPT_FRAME_EPOCH ;
   int  ILIST_RAN = ILIST_RANDOM_SPECTROGRAPH ;
@@ -8439,6 +8456,9 @@ double  GENSPEC_PICKMJD(int OPT_MJD, int INDX, double z,
 
   // ------------ BEGIN ------------
 
+  if ( OPT_FRAME == GENFRAME_HOST ) 
+    {  *TOBS = *TREST = 9999.0;  MJD = -9.0 ; return(MJD); }
+  
 
   EPOCH_RANGE[0]  = INPUTS.TAKE_SPECTRUM[INDX].EPOCH_RANGE[0] ;
   EPOCH_RANGE[1]  = INPUTS.TAKE_SPECTRUM[INDX].EPOCH_RANGE[1] ;
@@ -8446,7 +8466,6 @@ double  GENSPEC_PICKMJD(int OPT_MJD, int INDX, double z,
 
   if ( OPT_MJD == 0 ) 
     { EPOCH = 0.5 * (EPOCH_RANGE[1] + EPOCH_RANGE[0] ) ; }
-    // xxx bad bug { EPOCH = 0.5 * (EPOCH_RANGE[1] + EPOCH_RANGE[2] ) ; }
   else
     { EPOCH = FlatRan(ILIST_RAN, EPOCH_RANGE); }  // pick random epoch
 
@@ -8483,8 +8502,9 @@ void  GENSPEC_MJD_ORDER(int *imjd_order) {
   // exposure time, the spectrum closest to max must
   // be processed first in order to determine 
   // TEXPOSE(TEMPLATE) for all other epochs.
+  //
 
-  int imjd;
+  int  imjd;
   float SCALE = INPUTS.TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE ;
   char fnam[] = "GENSPEC_MJD_ORDER" ;
 
@@ -8598,26 +8618,40 @@ void GENSPEC_TRUE(int imjd) {
   //    GENSPEC.GENMAG_LIST[imjd][ilam] 
   //    GENSPEC.GENFLUX_LIST[imjd][ilam]
   //
-  // Dec 2018: call genSpec_BYOSED
+  // Dec 04 2018: call genSpec_BYOSED
+  // Jun 28 2019: call genSpec_HOST if IS_HOST is true
   //
 
-  double TOBS, TREST, GENMAG, ZP, ARG, FLUXGEN, MAGOFF ;
+  int  NBLAM      = INPUTS_SPECTRO.NBIN_LAM ;
+  int  IS_HOST    = GENSPEC.IS_HOST[imjd];
+  double TOBS     = GENSPEC.TOBS_LIST[imjd];
+  double TREST    = GENSPEC.TREST_LIST[imjd];
+
+  double GENMAG, ZP, ARG, FLUXGEN, MAGOFF ;
   int ilam;
-  int  NBLAM = INPUTS_SPECTRO.NBIN_LAM ;
   char fnam[] = "GENSPEC_TRUE" ;
 
   // --------------- BEGIN ----------------
 
-  TOBS   = GENSPEC.TOBS_LIST[imjd];
-  TREST  = GENSPEC.TREST_LIST[imjd];
+
+  if ( IS_HOST ) {    
+    genSpec_HOSTLIB(GENLC.REDSHIFT_HELIO,         // (I) helio redshift
+		    GENLC.MWEBV,                  // (I) Galactic extinction
+		    GENSPEC.GENFLUX_LIST[imjd],   // (O) fluxGen per bin 
+		    GENSPEC.GENMAG_LIST[imjd] );  // (O) magGen per bin
+    return;
+  }
+
+  // below is a SN spectrum, so check which model.
 
   if ( INDEX_GENMODEL == MODEL_SALT2 )  {
     genSpec_SALT2(GENLC.SALT2x0, GENLC.SALT2x1, GENLC.SALT2c, 
-		    GENLC.MWEBV, GENLC.RV, GENLC.AV, 
-		    GENLC.REDSHIFT_HELIO, TOBS,
-		    GENSPEC.GENFLUX_LIST[imjd], // (O) fluxGen per bin 
-		    GENSPEC.GENMAG_LIST[imjd]   // (O) magGen per bin
-		    );
+		  GENLC.MWEBV,             // Galactic
+		  GENLC.RV, GENLC.AV,      // host
+		  GENLC.REDSHIFT_HELIO, TOBS,
+		  GENSPEC.GENFLUX_LIST[imjd], // (O) fluxGen per bin 
+		  GENSPEC.GENMAG_LIST[imjd]   // (O) magGen per bin
+		  );
   }
   else if ( INDEX_GENMODEL == MODEL_FIXMAG )  {
     for(ilam=0; ilam < NBLAM; ilam++ ) {
@@ -14696,8 +14730,9 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
   // Aug 23 2017: remove NLINE_MJD argument for refactor
   // Mar 02 2019: remove LEGACY flag, and fix bug setting VAL_STORE 
   //              when NFILT==0.
+  // Jun 28 2019: update to work with HOST spectrum
 
-  int i, OPT, ifilt, ifilt_obs, OBSRAW, NOBS_ADD ;
+  int i, OPT, ifilt, ifilt_obs, OBSRAW, NOBS_ADD, OPT_FRAME, IS_HOST ;
   int NSPEC = NPEREVT_TAKE_SPECTRUM ;
   int NFILT = GENLC.NFILTDEF_SPECTROGRAPH ;  // all spectroscopic filters
   double EPOCH[2], MJD, MJD_REF;
@@ -14722,19 +14757,22 @@ void  SIMLIB_TAKE_SPECTRUM(void) {
   z = GENLC.REDSHIFT_CMB ;
   for(i=0; i < NSPEC; i++ ) {  
 
+    OPT_FRAME = INPUTS.TAKE_SPECTRUM[i].OPT_FRAME_EPOCH ;
+    IS_HOST   = (OPT_FRAME == GENFRAME_HOST);
     EPOCH[0] = INPUTS.TAKE_SPECTRUM[i].EPOCH_RANGE[0] ;
     EPOCH[1] = INPUTS.TAKE_SPECTRUM[i].EPOCH_RANGE[1] ;
 
     MJD_REF =  GENSPEC_PICKMJD( 0, i, z, &TOBS, &TREST) ; // for MJD sorting
-    //    MJD     =  GENSPEC_PICKMJD( 1, i, z, &TOBS, &TREST) ;
 
     // make sure that TREST is within valid range
-    float *ptrTcut = INPUTS.GENRANGE_TREST ;
-    if ( TREST <= ptrTcut[0] ||	 TREST >= ptrTcut[1]  ) {
-      sprintf(c1err,"Invalid TREST=%.2f in TAKE_SPECTRUM key.",TREST);
-      sprintf(c2err,"User set 'GENRANGE_TREST:  %.2f  %.2f' ", 
-	      ptrTcut[0], ptrTcut[1] );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
+    if ( !IS_HOST ) {
+      float *ptrTcut = INPUTS.GENRANGE_TREST ;
+      if ( TREST <= ptrTcut[0] ||	 TREST >= ptrTcut[1]  ) {
+	sprintf(c1err,"Invalid TREST=%.2f in TAKE_SPECTRUM key.",TREST);
+	sprintf(c2err,"User set 'GENRANGE_TREST:  %.2f  %.2f' ", 
+		ptrTcut[0], ptrTcut[1] );
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
+      }
     }
 
     // Now get exposure time
@@ -15895,6 +15933,7 @@ void store_GENSPEC(double *VAL_STORE) {
   //
   // Aug 23 2017: set VAL_STORE[0] = MJD in case MJD changes
   // Mar 01 2019: remove LEGACY flag option
+  // Jun 28 2019: store GENSPEC.IS_HOST
 
   double MJD     = VAL_STORE[0];
   double TEXPOSE = VAL_STORE[1];
@@ -15936,6 +15975,11 @@ void store_GENSPEC(double *VAL_STORE) {
   GENSPEC.TREST_LIST[imjd]        = TREST; 
   GENSPEC.TEXPOSE_LIST[imjd]      = TEXPOSE ;      
   GENSPEC.OPT_TEXPOSE_LIST[imjd]  = OPT_TEXPOSE ;
+
+  if ( MJD > 0.0 ) 
+    { GENSPEC.IS_HOST[imjd] = 0; }  // SN spectrum
+  else
+    { GENSPEC.IS_HOST[imjd] = 1; }  // HOST spectrum
 
   GENSPEC.NMJD_TOT++ ;
 
@@ -24265,9 +24309,10 @@ void  readme_doc_magSmear(int *iline) {
   int i, j, ifilt, onoff;
   char *cptr, ctmp[80] ;
   char conoff[2][4] = { "OFF" , "ON" } ;
+  char fnam[] = "readme_doc_magSmear" ;
 
+  // ----------------- BEGIN -----------------
   i = *iline ;
-
 
   // intrinsic smearing params
 
@@ -24280,7 +24325,7 @@ void  readme_doc_magSmear(int *iline) {
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"   Model 1: Coherent MAG-smearing (GENMAG_SMEAR) : %6.3f  \n", 
-	  INPUTS.GENMAG_SMEAR);
+	  INPUTS.GENMAG_SMEAR[0] );
 
 
   onoff = 0;
@@ -25323,7 +25368,7 @@ void append_SNSPEC_TEXT(void) {
 
   int FORMAT_LAMCEN = (INPUTS_SPECTRO.FORMAT_MASK & 1) ;
   int    IDSPEC, imjd, ilam, NMJD, NBLAM_TOT, NBLAM_VALID, NBLAM_WR ;
-  int    NVAR ;
+  int    NVAR, IS_HOST ;
   double L0, L1, LCEN, FLAM, FLAMERR, GENFLAM, GENMAG, GENSNR, WARP ;
   FILE *fp ;
   char tmpLine[400], varList_lam[40], varList_warp[20];
@@ -25362,13 +25407,18 @@ void append_SNSPEC_TEXT(void) {
   for(imjd=0; imjd < NMJD; imjd++ ) {
     IDSPEC = imjd + 1 ;  // start at 1
     NBLAM_VALID = GENSPEC.NBLAM_VALID[imjd] ;
+    IS_HOST     = GENSPEC.IS_HOST[imjd];
 
     if ( NBLAM_VALID == 0 ) { return; } // suppress legacy bug (Aug 23 2017)
 
     fprintf(fp,"SPECTRUM_ID:       %d  \n", IDSPEC ) ; 
-    fprintf(fp,"SPECTRUM_MJD:      %9.3f            "
-	    "# Tobs = %8.3f \n",     
-	    GENSPEC.MJD_LIST[imjd], GENSPEC.TOBS_LIST[imjd] );
+
+    fprintf(fp,"SPECTRUM_MJD:      %9.3f            ", GENSPEC.MJD_LIST[imjd] );
+    if ( IS_HOST ) 
+      { fprintf(fp, "# HOST \n"); }
+    else
+      { fprintf(fp, "# Tobs = %8.3f \n", GENSPEC.TOBS_LIST[imjd] ); }    
+
     fprintf(fp,"SPECTRUM_TEXPOSE:  %9.1f            "
 	    "# seconds\n",  
 	    GENSPEC.TEXPOSE_LIST[imjd] );

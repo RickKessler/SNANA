@@ -144,7 +144,8 @@
 #include "sntools_output.h"
 #include "sntools_genGauss_asym.h"
 #include "MWgaldust.h"
-
+#include "sntools_spectrograph.h"
+#include "genmag_SEDtools.h"
 
 // ==================================
 void INIT_HOSTLIB(void) {
@@ -1088,6 +1089,69 @@ void checkVarName_specTemplate(char *varName) {
   return;
 
 } // end checkVarName_specTemplate
+
+// =========================================================
+void genSpec_HOSTLIB(double zhel, double MWEBV,
+		     double *GENFLUX_LIST, double *GENMAG_LIST) {
+
+  // Created Jun 28 2019 by R.Kessler
+  // Return host spectrum, including Galactic extinction.
+
+  int  NBLAM      = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
+  int  IGAL       = SNHOSTGAL.IGAL ;
+  double z1       = 1.0 + zhel;
+  double znorm    = 1.0/(z1*z1);
+
+  int  ilam, ilam2, i, ivar_HOSTLIB;
+  double *FLAM, COEFF;
+  char fnam[] = "genSpec_HOSTLIB" ;
+
+  // ------------------ BEGIN --------------
+
+  // first construct total spectrum using specTemplate binning
+  FLAM = (double*) malloc( sizeof(double) * HOSTSPEC.NBIN_WAVE );
+  for(ilam=0; ilam < HOSTSPEC.NBIN_WAVE; ilam++ ) {
+    FLAM[ilam] = 0.0 ;
+    for(i=0; i < HOSTSPEC.NTEMPLATE; i++ ) {
+      ivar_HOSTLIB = HOSTSPEC.IVAR_HOSTLIB[i];
+      COEFF        = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ;
+      FLAM[ilam]  += ( COEFF * HOSTSPEC.FLAM[i][ilam] ) ; 
+    }
+    FLAM[ilam] *= HOSTSPEC.FLAM_SCALE; // global scale to get physical units
+    FLAM[ilam] *= znorm;               // z-dependence
+  }
+
+
+  // HOST FLAM is in wavelength bins defined in the specTemplate file.
+  // Here we to convert to SPECTROGRAPH bins in GENFLUX_LIST.
+  // "ilam2" is the index for SPECTROGRAPH, while ilam is for specTemplate & FLAM.
+
+  double MWXT_FRAC, LAM, LAMBIN, LAMMIN, LAMMAX ;
+
+  for(ilam2=0; ilam2 < NBLAM; ilam2++ ) { 
+    MWXT_FRAC  = SEDMODEL_TABLE_MWXT_FRAC[0][ilam2] ;
+    LAM        = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam2] ;
+    LAMMIN     = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST[ilam2] ;
+    LAMMAX     = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST[ilam2] ;
+    LAMBIN     = LAMMAX - LAMMIN ;
+
+    // loop over FLAM-template bins that overlap this SPECTROGRAPH bin
+    
+    if ( MWXT_FRAC < 1.0E-9 || MWXT_FRAC > 1.000001 ) {
+      sprintf(c1err,"Invalid MWXT_FRAC = %f for LAM=%.1f", MWXT_FRAC, LAM);
+      sprintf(c2err,"SEDMODEL_TABLE_MWXT_FRAC was probably not initialized.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    GENFLUX_LIST[ilam] = 1.0E-6;
+    GENMAG_LIST[ilam]  = 24.4;
+  }
+
+  free(FLAM);
+  return;
+
+} // end genSpec_HOSTLIB
+
 
 // ============================================
 void read_head_HOSTLIB(FILE *fp) {

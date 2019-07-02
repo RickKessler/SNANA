@@ -6110,41 +6110,6 @@ c abort if FITMODEL_INDEX has not been found.
         CALL MADABORT("FITMODEL_INI", c1err, c2err)
       ENDIF
 
-c xxxxxxxxx mark delete May 31 2019 xxxxxxxxxxxxxx
-+SELF,IF=REMOVE.
-c Now get the full FITMODEL_VERSION:
-c = value in [MODEL].DEFAULT file or FITMODEL_VERSION
-
-      MTMP = FITMODEL_LIST(FITMODEL_INDEX) ! local model name 
-      L0 = LEN_MODELNAME  ! base name
-      L1 = index(FITMODEL_VERSION,' ') - 1  ! base name + extension
-      USE_DEFAULT = L0 .EQ. L1
-
-      IF ( USE_DEFAULT  ) then  ! get default version
-
-         CALL  UPCASE(MTMP,STRUP)
-         CALL  LOCASE(MTMP,STRLO)
-
-c need to determine of suffix is  '.default' or '.DEFAULT'
-c depending on case of model
-
-         if ( MTMP(1:L0) .EQ. STRUP(1:L0) ) then
-            strdefault = 'DEFAULT'
-         else
-            strdefault = 'default'
-         endif
-   
-         tmpFile = 'models/' // MTMP(1:L0) // '/' // MTMP(1:L0) 
-     &                // '.' // strdefault
-
-         FITMODEL_VERSION = RDSTRING(1,tmpFile)
-         FITMODEL_NAME    = FITMODEL_VERSION  ! as if user entered this
-      ELSE
-c       do nothing
-      ENDIF
-+SELF.
-c xxxxxxxxxxxxxx end mark delete xxxxxxxxxxxxx
-
 
 
 c ----------------------------

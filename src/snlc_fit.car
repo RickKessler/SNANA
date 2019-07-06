@@ -4162,6 +4162,8 @@ cc         FCN_FITCHI2(ifilt)    = 0.0   ! Dec 2014
       ENDDO
          NDMPFCN(0)        = 0
 
+      FIRSTFILT = .TRUE.
+
 c ------------------------------------
 
       DO 102 ifitdata   = 1, NFITDATA_LOC
@@ -4201,7 +4203,7 @@ c compute data SNR with/without fudged error
         Trest     = Tobs / ZZ 
   
         Nfitdata_filt(ifilt) = Nfitdata_filt(ifilt) + 1
-        FIRSTFILT = ifitdata .EQ. 1
+cc        FIRSTFILT = ifitdata .EQ. 1
         LASTFILT  = Nfitdata_filt(ifilt) .EQ. NEPOCH_FIT(ifilt)
 
 c set local dump logicals = namelist flag .and. (debug option)     
@@ -4264,6 +4266,8 @@ c always print total prior-chi2
              
               CALL FLUSH(6)
          endif  ! end of DUMP
+
+         IF ( FIRSTFILT ) FIRSTFILT = .FALSE.
 
 c =====================
 c get flux (observer frame) from model
@@ -4459,7 +4463,7 @@ ccc xxx mark delete Aug 29 2017 if ( iter .EQ. 1 ) then
      &        .or.  (signoise_data  .LT. SIGNOISE_REJECT )
               
               if ( epoch < MXFIT_DATA ) then
-                if ( LREJECT ) then ! .xyz
+                if ( LREJECT ) then 
                    I4EP_ALL(epoch,IEP_REJECT) = 1
                 else
                    I4EP_ALL(epoch,IEP_REJECT) = 0
@@ -8098,6 +8102,10 @@ c Sep 25 2018:
 c   INIVAL(ipar_zphot) = middle of PHOTOZ_BOUND range, not max 
 c    [found by R.Hounsell]
 c
+c July 3 2019:
+c   bound Fmodel_scale between 0.7 and 1.3 to prevent crazy
+c   initial values.
+c
 c --------------------------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM. 
@@ -8324,6 +8332,8 @@ c open up the x0 bound for the course grid search (Feb 4, 2014)
       call flush(6)
  432  format(T10,I3, 2x, A,' bins from ', F8.3,' to ', F8.3,
      &     3x,'(binsize=',F7.3,')'  )
+      call flush(6)
+
 
       DO 57 is = 1, NSBIN
         s = SMIN + dble(is-1) * SBIN
@@ -8350,6 +8360,8 @@ c is constant, but it really depends slightly on the Fmodel_SCALE value.
 
         IF ( R4SN_FFSUM_CROSS > 0 .and. R4SN_FFSUM_MODEL > 0 ) then
            Fmodel_SCALE        = R4SN_FFSUM_CROSS/R4SN_FFSUM_MODEL
+           if ( Fmodel_scale > 1.3 ) Fmodel_scale = 1.3 ! July 2019
+           if ( Fmodel_scale < 0.7 ) Fmodel_scale = 0.7
         ELSE
            Fmodel_SCALE        = 1.0  ! June 30 2013
         ENDIF
@@ -8359,7 +8371,7 @@ c is constant, but it really depends slightly on the Fmodel_SCALE value.
         CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
 
 c ------------
-        if ( chi2 < -999999.  ) then
+        if ( chi2 < -1300.  ) then
           write(6,667) z, PARNAME_STORE(IPAR_COLOR)(1:3), 
      &                 c,s,d,chi2, Fmodel_SCALE
 667       format(' xxxx Z=',F5.3, 2x, A,'=',F6.3, 2x, 
@@ -8446,6 +8458,8 @@ c Call by FITINI_PHOTOZ to set color (IPAR=IPAR_COLOR) or
 c stretch (IPAR=IPAR_SHAPE) bins. These bins are used
 c to loop over a course grid to find an approx. global min.
 c
+c July 5 2019: min color bound -> -0.2 (was -0.3)
+c
 c ---------------------
 
       IMPLICIT NONE
@@ -8479,7 +8493,7 @@ c hard-code color range for SALT2 model (Dec 2014)
       DO_COLOR = ( IPAR == IPAR_COLOR ) 
 
       IF ( DO_SALT2 .and. DO_COLOR ) THEN
-        BND_LOCAL(1) = -0.3
+        BND_LOCAL(1) = -0.2  ! -0.3 -> -0.2 (July 3 2019)
         BND_LOCAL(2) = +0.4
 cc xxxx       BND_LOCAL(2) = +0.6 ! mark delete July 3 2017
       ENDIF

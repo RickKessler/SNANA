@@ -17023,7 +17023,7 @@
 
 
 # ======================================================================= 
-         v10_73h (  ) 
+         v10_73h (July 5 2019) 
 
          ***** IMPORTANT(v10_73h) ***** 
 
@@ -17034,8 +17034,12 @@
          ***** MISCELLANEOUS(v10_73h) ***** 
 
    snana.car:
-     new &SNLCINP input MXEVT_PROCESS will quit after reading
+    + new &SNLCINP input MXEVT_PROCESS will quit after reading
      this many events.
+
+   snlc_fit.car
+    + few photo-z fixes, mainly color bound -> -0.2 instead of -0.3
+      for course-grid estimates before fit.
 
    NEARNBR_pipeline.pl
      + new input OPT_TUNE_HOSTEFF to run only a few stages needed

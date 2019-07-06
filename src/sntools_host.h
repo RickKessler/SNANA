@@ -383,24 +383,24 @@ struct SNTABLEVAR_DEF {
 
 
 // Jun 27 2019; define structed used to determine host spectrum
-#define MXSPECTEMPLATE_HOSTLIB 20  // max number of spectral templates
-#define MXBIN_SPECTEMPLATE  20000  // max number of wave bins
-#define PREFIX_SPECTEMPLATE         "template"    // e.g., template00, template01, ...
-#define PREFIX_SPECTEMPLATE_HOSTLIB "coeff_"      // extra prefix for HOSTLIB
+#define MXSPECBASIS_HOSTLIB 20  // max number of spectral templates
+#define MXBIN_SPECBASIS  20000  // max number of wave bins
+#define PREFIX_SPECBASIS "specbasis"    // e.g., specbasis00, specbasis01, ...
+#define PREFIX_SPECBASIS_HOSTLIB "coeff_"      // extra prefix for HOSTLIB
 
 struct {
-  int  NTEMPLATE ;
+  int  NSPECBASIS ; 
   int  NBIN_WAVE;  // number of wavelength bins
   int  ICOL_WAVE;  // table column with wavelength
-  int  ICOL_TEMPLATE[MXSPECTEMPLATE_HOSTLIB]; // colum for each template
-  int  NUM_TEMPLATE[MXSPECTEMPLATE_HOSTLIB];  // number for each template
-  char VARNAME_TEMPLATE[MXSPECTEMPLATE_HOSTLIB][28];
+  int  ICOL_SPECBASIS[MXSPECBASIS_HOSTLIB]; // colum for each template
+  int  NUM_SPECBASIS[MXSPECBASIS_HOSTLIB];  // number for each template
+  char VARNAME_SPECBASIS[MXSPECBASIS_HOSTLIB][28];
 
-  int  IVAR_HOSTLIB[MXSPECTEMPLATE_HOSTLIB]; // identified HOSTLIB ivar with coeff
+  int  IVAR_HOSTLIB[MXSPECBASIS_HOSTLIB]; // identified HOSTLIB ivar with coeff
 
   double  FLAM_SCALE ;
-  double *WAVE;
-  double *FLAM[MXSPECTEMPLATE_HOSTLIB];
+  double *WAVE, *WAVE_BINSIZE ;
+  double *FLAM[MXSPECBASIS_HOSTLIB];
 } HOSTSPEC ;
 
 
@@ -486,11 +486,11 @@ void zphoterr_asym(double ZTRUE, double ZPHOTERR,
 void GEN_SNHOST_ZPHOT_from_HOSTLIB(int IGAL, double *ZPHOT, double *ZPHOT_ERR); 
 double snmagshift_salt2gamma_HOSTLIB(int GALID);
 
-// specTemplate functions
-void   read_specTemplates_HOSTLIB(void);
-void   match_specTemplates_HOSTVAR(void);
-void   checkVarName_specTemplate(char *varName);
-int    ICOL_SPECTEMPLATE(char *varname, int ABORTFLAG) ;
+// SPECBASIS functions
+void   read_specbasis_HOSTLIB(void);
+void   match_specbasis_HOSTVAR(void);
+void   checkVarName_specbasis(char *varName);
+int    ICOL_SPECBASIS(char *varname, int ABORTFLAG) ;
 void   genSpec_HOSTLIB(double zhel, double MWEBV,
 		       double *GENFLUX_LIST, double *GENMAG_LIST);
 

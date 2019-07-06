@@ -145,7 +145,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   int   *NSNRCUT;      // Number of obs in each 10-day window
   int   *oMIN_SNRCUT, *oMAX_SNRCUT ;
   int    NWIN_COMBINE, MXWIN_SNRCUT, MEMI;
-  int    LDMP = 1; // t(strcmp(CCID,"3530")==0 ) ;
+  int    LDMP = 0; // t(strcmp(CCID,"3530")==0 ) ;
   char fnam[] = "get_obs_atFLUXMAX" ;
 
   // ------------ BEGIN -------------

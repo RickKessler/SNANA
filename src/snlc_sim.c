@@ -948,7 +948,7 @@ void set_user_defaults(void) {
   sprintf(INPUTS.HOSTLIB_FILE,          "NONE" );  // input library
   sprintf(INPUTS.HOSTLIB_WGTMAP_FILE,   "NONE" );  // optional wgtmap
   sprintf(INPUTS.HOSTLIB_ZPHOTEFF_FILE, "NONE" );  // optional zphot-eff
-  sprintf(INPUTS.HOSTLIB_SPECTEMPLATE_FILE, "NONE" );  // optional host-spec templates
+  sprintf(INPUTS.HOSTLIB_SPECBASIS_FILE, "NONE" );  // optional host-spec templates
   INPUTS.HOSTLIB_STOREPAR_LIST[0] = 0 ; // optional vars -> outfile
 
   INPUTS.HOSTLIB_USE    = 0;
@@ -1322,8 +1322,8 @@ int read_input(char *input_file) {
     if ( uniqueMatch(c_get,"HOSTLIB_ZPHOTEFF_FILE:")  )
       { readchar ( fp, INPUTS.HOSTLIB_ZPHOTEFF_FILE ); continue ; }
 
-    if ( uniqueMatch(c_get,"HOSTLIB_SPECTEMPLATE_FILE:")  )
-      { readchar ( fp, INPUTS.HOSTLIB_SPECTEMPLATE_FILE ); continue ; }
+    if ( uniqueMatch(c_get,"HOSTLIB_SPECBASIS_FILE:")  )
+      { readchar ( fp, INPUTS.HOSTLIB_SPECBASIS_FILE ); continue ; }
     
     if ( uniqueMatch(c_get,"HOSTLIB_MSKOPT:")  ) {
       readint ( fp, 1, &itmp );
@@ -4297,8 +4297,8 @@ void sim_input_override(void) {
     if ( strcmp( ARGV_LIST[i], "HOSTLIB_ZPHOTEFF_FILE" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_ZPHOTEFF_FILE ); 
     }
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_SPECTEMPLATE_FILE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_SPECTEMPLATE_FILE ); 
+    if ( strcmp( ARGV_LIST[i], "HOSTLIB_SPECBASIS_FILE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_SPECBASIS_FILE ); 
     }
 
     if ( strcmp( ARGV_LIST[i], "HOSTLIB_MSKOPT" ) == 0 ) {

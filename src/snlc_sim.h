@@ -367,7 +367,7 @@ struct INPUTS {
   char HOSTLIB_FILE[MXPATHLEN]; // lib of Ztrue, Zphot, Zerr ...
   char HOSTLIB_WGTMAP_FILE[MXPATHLEN];  // optional wgtmap override
   char HOSTLIB_ZPHOTEFF_FILE[MXPATHLEN];  // optional EFF(zphot) vs. ZTRUE
-  char HOSTLIB_SPECTEMPLATE_FILE[MXPATHLEN]; // PCA spectral templates for host spec
+  char HOSTLIB_SPECBASIS_FILE[MXPATHLEN]; // spec basis vec for host spec
   int  HOSTLIB_MSKOPT ;         // user bitmask of options
   int  HOSTLIB_MAXREAD ;        // max entries to read (def= infinite)
   int  HOSTLIB_GALID_NULL ;     // value for no galaxy; default is -9

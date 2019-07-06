@@ -1,6 +1,5 @@
 /* =================================================
 
-
   March, 2011  R.Kessler
 
   Inlcude this file in the simulation to 
@@ -170,7 +169,7 @@ void INIT_HOSTLIB(void) {
   print_banner("INIT_HOSTLIB(): Read host-galaxy library.");
 
   // check for spectral templates to determin host spectrum
-  read_specTemplates_HOSTLIB();
+  read_specbasis_HOSTLIB();
 
   // set inital values for HOSTLIB structure
   initvar_HOSTLIB();
@@ -185,7 +184,7 @@ void INIT_HOSTLIB(void) {
   read_head_HOSTLIB(fp_hostlib);
 
   // check for match among spec templates and hostlib varnames (Jun 2019)
-  match_specTemplates_HOSTVAR();
+  match_specbasis_HOSTVAR();
 
   //  debugexit(fnam); // xxx REMOVE
 
@@ -475,11 +474,12 @@ void init_REQUIRED_HOSTVAR(void) {
   sprintf(cptr, "%s", HOSTLIB_VARNAME_ZTRUE );
   LOAD = load_VARNAME_STORE(cptr) ;
 
+
   // check for required specTemplate coefficients
-  for(i = 0; i < HOSTSPEC.NTEMPLATE; i++ ) {
-    varName = HOSTSPEC.VARNAME_TEMPLATE[i];
+  for(i = 0; i < HOSTSPEC.NSPECBASIS; i++ ) {
+    varName = HOSTSPEC.VARNAME_SPECBASIS[i];
     cptr = HOSTLIB.VARNAME_REQUIRED[NVAR] ;  NVAR++;
-    sprintf(cptr, "%s%s", PREFIX_SPECTEMPLATE_HOSTLIB, varName );
+    sprintf(cptr, "%s%s", PREFIX_SPECBASIS_HOSTLIB, varName );
     LOAD = load_VARNAME_STORE(cptr) ;
   }
 
@@ -879,7 +879,7 @@ void parse_WGTMAP_HOSTLIB(FILE *fp, char *string) {
 
 
 // ====================================
-void  read_specTemplates_HOSTLIB(void) {
+void  read_specbasis_HOSTLIB(void) {
 
   // Created Jun 28 2019 by R.Kessler
   // Read supplemental file of spectral templates, used later
@@ -892,18 +892,18 @@ void  read_specTemplates_HOSTLIB(void) {
   int  NBIN_WAVE, NBIN_READ, IFILETYPE, NVAR, ivar, ICOL_WAVE, NT, MEMD, NUM ;
   int  NVAR_WAVE  = 0 ;
   int  OPT_VARDEF = 0 ;
-  int  LEN_PREFIX = strlen(PREFIX_SPECTEMPLATE);
+  int  LEN_PREFIX = strlen(PREFIX_SPECBASIS);
   char *ptrFile, *varName, c_get[60];  
-  char TBLNAME[] = "SPECTEMPLATES";
-  char fnam[] = "read_specTemplates_HOSTLIB";
+  char TBLNAME[] = "SPECBASIS";
+  char fnam[] = "read_specbasis_HOSTLIB";
   
   // --------------- BEGIN -----------------
 
-  HOSTSPEC.NTEMPLATE  = 0 ;
-  HOSTSPEC.NBIN_WAVE  = 0 ;
-  HOSTSPEC.FLAM_SCALE = 1.0 ;
+  HOSTSPEC.NSPECBASIS  = 0 ;
+  HOSTSPEC.NBIN_WAVE   = 0 ;
+  HOSTSPEC.FLAM_SCALE  = 1.0 ;
 
-  ptrFile = INPUTS.HOSTLIB_SPECTEMPLATE_FILE ;
+  ptrFile = INPUTS.HOSTLIB_SPECBASIS_FILE ;
   if ( IGNOREFILE(ptrFile) )  { return ; }
 
   printf("\n\t Read SPEC-TEMPLATEs from supplemental file:\n" );
@@ -937,10 +937,10 @@ void  read_specTemplates_HOSTLIB(void) {
   NVAR        = SNTABLE_READPREP(IFILETYPE,TBLNAME);
   MEMD        = (NBIN_WAVE+100) * sizeof(double);
 
-  if ( NBIN_WAVE > MXBIN_SPECTEMPLATE ) {
+  if ( NBIN_WAVE > MXBIN_SPECBASIS ) {
     sprintf(c1err,"NBIN_WAVE=%d exceeds bound of %d",
-	    NBIN_WAVE, MXBIN_SPECTEMPLATE );
-    sprintf(c2err,"Reduce NBIN_WAVE or increase MXBIN_SPECTEMPLATE");
+	    NBIN_WAVE, MXBIN_SPECBASIS );
+    sprintf(c2err,"Reduce NBIN_WAVE or increase MXBIN_SPECBASIS");
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
   }
 
@@ -957,21 +957,22 @@ void  read_specTemplates_HOSTLIB(void) {
     if ( ICOL_WAVE == ivar ) {
       NVAR_WAVE++ ;
       if ( NVAR_WAVE == 1 ) { 
-	HOSTSPEC.WAVE = (double*) malloc(MEMD);
+	HOSTSPEC.WAVE         = (double*) malloc(MEMD);
+	HOSTSPEC.WAVE_BINSIZE = (double*) malloc(MEMD);
 	SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.WAVE, NBIN_WAVE, OPT_VARDEF); 
       }
     }  
 
-    if ( strstr(varName,PREFIX_SPECTEMPLATE) != NULL ) {
-      if ( NT < MXSPECTEMPLATE_HOSTLIB ) {
+    if ( strstr(varName,PREFIX_SPECBASIS) != NULL ) {
+      if ( NT < MXSPECBASIS_HOSTLIB ) {
 	sscanf(&varName[LEN_PREFIX], "%d",  &NUM);
 
-	HOSTSPEC.ICOL_TEMPLATE[NT] = ivar;
-	HOSTSPEC.NUM_TEMPLATE[NT]  = NUM; // store template NUM
-	sprintf(HOSTSPEC.VARNAME_TEMPLATE[NT],"%s", varName);
+	HOSTSPEC.ICOL_SPECBASIS[NT] = ivar;
+	HOSTSPEC.NUM_SPECBASIS[NT]  = NUM; // store template NUM
+	sprintf(HOSTSPEC.VARNAME_SPECBASIS[NT],"%s", varName);
 
 	HOSTSPEC.FLAM[NT] = (double*) malloc(MEMD);
-	SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.FLAM[NT], NBIN_WAVE, OPT_VARDEF);
+	SNTABLE_READPREP_VARDEF(varName,HOSTSPEC.FLAM[NT],NBIN_WAVE,OPT_VARDEF);
       }
       NT++ ; // always increment number of templates, NT
     }
@@ -993,29 +994,65 @@ void  read_specTemplates_HOSTLIB(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err);     
   }
 
-  if ( NT >= MXSPECTEMPLATE_HOSTLIB ) {
-    sprintf(c1err,"NTEMPLATE=%d exceeds bound of %d", 
-	    NT, MXSPECTEMPLATE_HOSTLIB ) ;
-    sprintf(c2err,"Remove templates or increase MXSPECTEMPLATE_HOSTLIB");
+  if ( NT >= MXSPECBASIS_HOSTLIB ) {
+    sprintf(c1err,"NSPECBASIS=%d exceeds bound of %d", 
+	    NT, MXSPECBASIS_HOSTLIB ) ;
+    sprintf(c2err,"Remove templates or increase MXSPECBASIS_HOSTLIB");
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err);     
   }
 	
   HOSTSPEC.ICOL_WAVE = ICOL_WAVE ;
-  HOSTSPEC.NTEMPLATE = NT;
+  HOSTSPEC.NSPECBASIS = NT;
 
   // read the entire table, and close it.
   NBIN_READ = SNTABLE_READ_EXEC();
 
-  printf("\t Found %d spectral templates and %d wavelength bins\n",
+
+  // Loop over wave bins and
+  // + determine WAVE_BINSIZE for each wave bin
+  // + truncate NBIN_WAVE so that lam < MAXLAM_SEDMODEL
+  double WAVE_BINSIZE, LAM, LAM_LAST, LAM_NEXT;
+  int FIRST, LAST, ilam, NBIN_KEEP=0 ;
+  for(ilam=0; ilam < NBIN_WAVE; ilam++ ) {
+
+    FIRST = ( ilam == 0 ) ;
+    LAST  = ( ilam == NBIN_WAVE-1 ) ;
+
+    LAM  = HOSTSPEC.WAVE[ilam];
+    if ( LAM > MAXLAM_SEDMODEL ) { continue; }
+
+    if ( !FIRST )  { LAM_LAST = HOSTSPEC.WAVE[ilam-1]; }
+    if ( !LAST  )  { LAM_NEXT = HOSTSPEC.WAVE[ilam+1]; }
+
+    if ( FIRST ) { LAM_LAST = LAM - (LAM_NEXT-LAM) ; }
+    if ( LAST  ) { LAM_NEXT = LAM + (LAM-LAM_LAST) ; }
+
+    WAVE_BINSIZE = (LAM_NEXT - LAM_LAST)/2.0;
+    HOSTSPEC.WAVE_BINSIZE[ilam] = WAVE_BINSIZE;
+    NBIN_KEEP++ ;
+
+    if ( (ilam < -10) ) {
+      printf(" xxx : ilam=%d: LAM[-1,0,+1] = %6.1f , %6.1f, %6.1f  "
+	     "BINSIZE=%.1f \n",
+	     ilam, LAM_LAST, LAM, LAM_NEXT, WAVE_BINSIZE);
+      fflush(stdout);
+    }
+
+  }
+
+  NBIN_WAVE = NBIN_KEEP;
+  HOSTSPEC.NBIN_WAVE  = NBIN_WAVE;
+
+  printf("\t Found %d spectral basis vectors and %d wavelength bins\n",
 	 NT, NBIN_WAVE);
   fflush(stdout);
 
   return;
 
-} // end read_specTemplates_HOSTLIB
+} // end read_specbasis_HOSTLIB
 
 // ============================================
-void match_specTemplates_HOSTVAR(void) {
+void match_specbasis_HOSTVAR(void) {
 
   // Created June 2019
   // Match specTemplate names to names in HOSTLIB (HOSTVAR).
@@ -1024,20 +1061,20 @@ void match_specTemplates_HOSTVAR(void) {
   // coeff_template00, coeff_template01, etc ...
   //
 
-  int  NVAR_HOSTLIB = HOSTLIB.NVAR_STORE ; 
-  int  NTEMPLATE    = HOSTSPEC.NTEMPLATE ;
+  int  NVAR_HOSTLIB  = HOSTLIB.NVAR_STORE ; 
+  int  NSPECBASIS    = HOSTSPEC.NSPECBASIS ;
   int  ivar_HOSTLIB, i, NERR=0;
-  char *VARNAME_TEMPLATE, VARNAME_HOSTLIB[40];
-  char fnam[] = "match_specTemplates_HOSTVAR";
+  char *VARNAME_SPECBASIS, VARNAME_HOSTLIB[40];
+  char fnam[] = "match_specbasis_HOSTVAR";
 
   // ----------------- BEGIN -----------------
 
-  if ( HOSTSPEC.NTEMPLATE == 0 ) { return ; }
+  if ( NSPECBASIS == 0 ) { return ; }
 
-  for(i=0; i < NTEMPLATE; i++ ) {
-    VARNAME_TEMPLATE = HOSTSPEC.VARNAME_TEMPLATE[i];
+  for(i=0; i < NSPECBASIS; i++ ) {
+    VARNAME_SPECBASIS = HOSTSPEC.VARNAME_SPECBASIS[i];
     sprintf(VARNAME_HOSTLIB, "%s%s", 
-	    PREFIX_SPECTEMPLATE_HOSTLIB, VARNAME_TEMPLATE);
+	    PREFIX_SPECBASIS_HOSTLIB, VARNAME_SPECBASIS);
 
     ivar_HOSTLIB = IVAR_HOSTLIB(VARNAME_HOSTLIB,0);
     if ( ivar_HOSTLIB < 0 ) {
@@ -1058,7 +1095,7 @@ void match_specTemplates_HOSTVAR(void) {
 
   return ;
 
-} // end match_specTemplates_HOSTVAR
+} // end match_specbasis_HOSTVAR
 
 // =========================================
 void checkVarName_specTemplate(char *varName) {
@@ -1072,13 +1109,13 @@ void checkVarName_specTemplate(char *varName) {
 
   // --------------- BEGIN ------------
 
-  if ( HOSTSPEC.NTEMPLATE <= 0 ) { return; }
+  if ( HOSTSPEC.NSPECBASIS <= 0 ) { return; }
 
-  if (strstr(varName,PREFIX_SPECTEMPLATE)         == NULL ) { return ; }
-  if (strstr(varName,PREFIX_SPECTEMPLATE_HOSTLIB) == NULL ) { return ; }
+  if (strstr(varName,PREFIX_SPECBASIS)         == NULL ) { return ; }
+  if (strstr(varName,PREFIX_SPECBASIS_HOSTLIB) == NULL ) { return ; }
 
   // now we have varName of the form coeff_template[nn]
-  icol = ICOL_SPECTEMPLATE(varName,0); // fetch column in specTemplate file
+  icol = ICOL_SPECBASIS(varName,0); // fetch column in specTemplate file
   
   if ( icol < 0 ) {
     sprintf(c1err,"Found unused '%s' in HOSTLIB", varName );
@@ -1097,57 +1134,98 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
   // Created Jun 28 2019 by R.Kessler
   // Return host spectrum, including Galactic extinction.
 
-  int  NBLAM      = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
-  int  IGAL       = SNHOSTGAL.IGAL ;
-  double z1       = 1.0 + zhel;
-  double znorm    = 1.0/(z1*z1);
+  int  NBLAM       = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
+  int  NBLAM_BASIS = HOSTSPEC.NBIN_WAVE; 
+  int  IGAL        = SNHOSTGAL.IGAL ;
+  double z1        = 1.0 + zhel;
+  double znorm     = 1.0/(z1*z1);
+  double hc8       = (double)hc;
 
-  int  ilam, ilam2, i, ivar_HOSTLIB;
-  double *FLAM, COEFF;
+  int  ilam, ilam_basis, ilam_last=-9, i, ivar_HOSTLIB, NSUM ;
+  double *FLAM_BASIS, FLAM_TMP, COEFF, FLUX_TMP, frac;
+  double MWXT_FRAC, LAM, LAMBIN, LAMMIN, LAMMAX, LAM_BASIS;
+  double LAMREST_MIN, LAMREST_MAX;
+  double LAMMIN_TMP, LAMMAX_TMP, LAMBIN_TMP ;
+  double ZP, FTMP, MAG;
   char fnam[] = "genSpec_HOSTLIB" ;
 
   // ------------------ BEGIN --------------
 
-  // first construct total spectrum using specTemplate binning
-  FLAM = (double*) malloc( sizeof(double) * HOSTSPEC.NBIN_WAVE );
-  for(ilam=0; ilam < HOSTSPEC.NBIN_WAVE; ilam++ ) {
-    FLAM[ilam] = 0.0 ;
-    for(i=0; i < HOSTSPEC.NTEMPLATE; i++ ) {
+  // first construct total spectrum using specbasis binning
+  FLAM_BASIS = (double*) malloc( sizeof(double) * NBLAM_BASIS );
+  for(ilam_basis=0; ilam_basis < NBLAM_BASIS; ilam_basis++ ) {
+    FLAM_BASIS[ilam_basis] = 0.0 ;
+    for(i=0; i < HOSTSPEC.NSPECBASIS; i++ ) {
       ivar_HOSTLIB = HOSTSPEC.IVAR_HOSTLIB[i];
       COEFF        = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ;
-      FLAM[ilam]  += ( COEFF * HOSTSPEC.FLAM[i][ilam] ) ; 
+      FLAM_TMP   = HOSTSPEC.FLAM[i][ilam_basis] ;
+      FLAM_BASIS[ilam_basis]  += ( COEFF * FLAM_TMP );
     }
-    FLAM[ilam] *= HOSTSPEC.FLAM_SCALE; // global scale to get physical units
-    FLAM[ilam] *= znorm;               // z-dependence
+
+    // global scale for physical units
+    FLAM_BASIS[ilam_basis] *= HOSTSPEC.FLAM_SCALE; 
+    FLAM_BASIS[ilam_basis] *= znorm;         // z-dependence
   }
 
 
   // HOST FLAM is in wavelength bins defined in the specTemplate file.
   // Here we to convert to SPECTROGRAPH bins in GENFLUX_LIST.
-  // "ilam2" is the index for SPECTROGRAPH, while ilam is for specTemplate & FLAM.
+  // "ilam" is the index for SPECTROGRAPH, while ilam_basis is for specbasis.
 
-  double MWXT_FRAC, LAM, LAMBIN, LAMMIN, LAMMAX ;
-
-  for(ilam2=0; ilam2 < NBLAM; ilam2++ ) { 
-    MWXT_FRAC  = SEDMODEL_TABLE_MWXT_FRAC[0][ilam2] ;
-    LAM        = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam2] ;
-    LAMMIN     = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST[ilam2] ;
-    LAMMAX     = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST[ilam2] ;
+  for(ilam=0; ilam < NBLAM; ilam++ ) { 
+    MWXT_FRAC  = SEDMODEL_TABLE_MWXT_FRAC[0][ilam] ;
+    LAM        = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
+    LAMMIN     = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST[ilam] ;
+    LAMMAX     = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST[ilam] ;
     LAMBIN     = LAMMAX - LAMMIN ;
 
-    // loop over FLAM-template bins that overlap this SPECTROGRAPH bin
-    
+    LAMREST_MIN = LAMMIN/z1 ;
+    LAMREST_MAX = LAMMAX/z1 ;
+
     if ( MWXT_FRAC < 1.0E-9 || MWXT_FRAC > 1.000001 ) {
       sprintf(c1err,"Invalid MWXT_FRAC = %f for LAM=%.1f", MWXT_FRAC, LAM);
       sprintf(c2err,"SEDMODEL_TABLE_MWXT_FRAC was probably not initialized.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
-    GENFLUX_LIST[ilam] = 1.0E-6;
-    GENMAG_LIST[ilam]  = 24.4;
+    // loop over specBasis bins that overlap this SPECTROGRAPH bin,
+    // and sum specBasis flux
+    FLUX_TMP = 0.0 ;    LAMMIN_TMP = -9.0 ;  
+    ilam_basis=ilam_last-2 ;  if(ilam_basis<0) {ilam_basis=0;}
+
+    while ( LAMMIN_TMP < LAMREST_MAX ) {
+      FLAM_TMP     = FLAM_BASIS[ilam_basis];
+      LAM_BASIS    = HOSTSPEC.WAVE[ilam_basis];
+      LAMBIN_TMP   = HOSTSPEC.WAVE_BINSIZE[ilam_basis];
+      ilam_basis++; ilam_last = ilam_basis;
+
+      LAMMIN_TMP   = LAM_BASIS - LAMBIN_TMP/2.0;  // lower lambda of bin
+      LAMMAX_TMP   = LAM_BASIS + LAMBIN_TMP/2.0;  // upper lambda of bin
+      if( LAMMAX_TMP < LAMREST_MIN ) { continue ; }
+      if( LAMMIN_TMP > LAMREST_MAX ) { continue ; }
+
+      // compute flux contained in this SPECTROGRAPH bin;
+      // i.e. exclude flux the leaks out of thie SPECTROGRAPh bin.
+      if ( LAMMIN_TMP < LAMREST_MIN ) { LAMMIN_TMP = LAMREST_MIN; }
+      if ( LAMMAX_TMP > LAMREST_MAX ) { LAMMAX_TMP = LAMREST_MAX; }
+      FLUX_TMP += ( FLAM_TMP * (LAMMAX_TMP-LAMMIN_TMP) );
+    }
+
+    GENFLUX_LIST[ilam] = FLUX_TMP ;  // flux in SPECTROGRAPH bin, not FLAM
+
+    // convert to mag
+    ZP    = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
+    FTMP  = (LAM/(hc8*z1)) * FLUX_TMP;
+    if ( ZP > 0.0 && FTMP > 0.0 ) 
+      { MAG = -2.5*log10(FTMP) + ZP; }
+    else
+      { MAG = MAG_UNDEFINED; }
+
+    GENMAG_LIST[ilam]  = MAG;
   }
 
-  free(FLAM);
+  free(FLAM_BASIS);
+
   return;
 
 } // end genSpec_HOSTLIB
@@ -3551,7 +3629,7 @@ int IVAR_HOSTLIB(char *varname, int ABORTFLAG) {
 
 
 // ========================================
-int ICOL_SPECTEMPLATE(char *varname, int ABORTFLAG) {
+int ICOL_SPECBASIS(char *varname, int ABORTFLAG) {
 
 
   // June 2019
@@ -3563,18 +3641,17 @@ int ICOL_SPECTEMPLATE(char *varname, int ABORTFLAG) {
 
   int icol, NCOL, ICMP ;
   char VARNAME_TMP[2][60];
-  char fnam[] = "ICOL_SPECTEMPLATE";
+  char fnam[] = "ICOL_SPECBASIS";
 
   // ---------- BEGIN ----------
 
-  NCOL = HOSTSPEC.NTEMPLATE;
+  NCOL = HOSTSPEC.NSPECBASIS ;
   for ( icol = 0; icol < NCOL; icol++ ) {
 
-
     sprintf(VARNAME_TMP[0],"%s", 
-	    HOSTSPEC.VARNAME_TEMPLATE[icol]);
+	    HOSTSPEC.VARNAME_SPECBASIS[icol]);
     sprintf(VARNAME_TMP[1],"%s%s", 
-	    PREFIX_SPECTEMPLATE_HOSTLIB, HOSTSPEC.VARNAME_TEMPLATE[icol]);
+	    PREFIX_SPECBASIS_HOSTLIB, HOSTSPEC.VARNAME_SPECBASIS[icol]);
 
     // check varname
     ICMP = strcmp_ignoreCase(varname,VARNAME_TMP[0] ) ;
@@ -3597,7 +3674,7 @@ int ICOL_SPECTEMPLATE(char *varname, int ABORTFLAG) {
     return(-9) ; 
   }
 
-} // end of ICOL_SPECTEMPLATE
+} // end of ICOL_SPECBASIS
 
 // =========================================
 void GEN_SNHOST_DRIVER(double ZGEN, double PEAKMJD) {

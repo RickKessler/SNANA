@@ -52,7 +52,7 @@ class genmag_BYOSED:
 			self.options = options
 
 			self.warp_effects=self.fetchParNames_CONFIG(config)
-		
+			import pdb; pdb.set_trace()		
 			self.sn_effects,self.host_effects=self.fetchWarp_BYOSED(config)
 
 			phase,wave,flux = np.loadtxt(os.path.join(self.PATH_VERSION,self.options.sed_file),unpack=True)

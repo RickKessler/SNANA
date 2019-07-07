@@ -111,6 +111,7 @@ class genmag_BYOSED:
 						distribution=_get_distribution(warp,warp_data,self.PATH_VERSION)
 					else:
 						distribution=None
+
 					
 						
 					if 'SN_FUNCTION' in warp_data:
@@ -129,6 +130,7 @@ class genmag_BYOSED:
 						sn_dict[warp]=warpModel(warp_function=sn_function,
 												param_names=sn_param_names,
 												parameters=np.array([0. if sn_param_names[i]!=warp.upper() else warp_parameter for i in range(len(sn_param_names))]),
+
 												warp_parameter=warp_parameter,
 												warp_distribution=distribution,
 												name=warp)
@@ -143,6 +145,7 @@ class genmag_BYOSED:
 						host_dict[warp]=warpModel(warp_function=host_function,
 												param_names=host_param_names,
 												parameters=np.array([0. if host_param_names[i]!=warp.upper() else warp_parameter for i in range(len(host_param_names))]),
+
 												warp_parameter=warp_parameter,
 												warp_distribution=distribution,
 												name=warp)
@@ -179,13 +182,14 @@ class genmag_BYOSED:
 
 				for warp in [x for x in self.warp_effects if x!='COLOR']:
 					try: #if True:
+
 						if external_id!=self.sn_id:
 							if warp in self.sn_effects.keys():
 								self.sn_effects[warp].updateWarp_Param()
 								if warp in self.host_effects.keys():
 									self.host_effects[warp].warp_parameter=self.sn_effects[warp].warp_parameter
-								else:
-									self.host_effects[warp].updateWarp_Param()
+							else:
+								self.host_effects[warp].updateWarp_Param()
 							self.sn_id=external_id
 							
 						
@@ -205,6 +209,7 @@ class genmag_BYOSED:
 						if warp in self.host_effects.keys():
 							if self.verbose:
 								print('Phase=%.1f, %s: %.2f'%(trest,warp,self.host_effects[warp].warp_parameter))
+
 							product*=self.host_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
 							if temp_warp_param is None:
 								if warp in self.host_effects[warp]._param_names:
@@ -215,6 +220,7 @@ class genmag_BYOSED:
 						fluxsmear+=temp_warp_param*product*self.x0
 					except:
 						import pdb; pdb.set_trace()
+
 
 				if 'COLOR' in self.warp_effects:
 						if external_id!=self.sn_id:
@@ -292,13 +298,13 @@ class warpModel(object):
 		if self.warp_distribution is not None:
 			self.warp_parameter=self.warp_distribution()[0]
 
+
 		if self.name in self._param_names:
 			self.set(**{self.name:self.warp_parameter})
 
 	def flux(self,phase,wave,host_params,host_param_names):
 		phase_wave_dict={'PHASE':phase,'WAVELENGTH':wave}
 		self.set(**{p:host_params[host_param_names.index(p)] for p in self._param_names if p in host_param_names})
-
 		parameter_arrays=[np.ones(len(wave))*self._parameters[i] if self._param_names[i] not in ['PHASE','WAVELENGTH'] else phase_wave_dict[self._param_names[i]] for i in range(len(self._param_names))]
 
 		return(self.warp_function(np.vstack(parameter_arrays).T).flatten())
@@ -379,6 +385,7 @@ def _skewed_normal(name,dist_dat):
 		else:
 			a=dist_dat['DIST_PEAK']-3*dist_dat['DIST_SIGMA'][0]
 			b=dist_dat['DIST_PEAK']+3*dist_dat['DIST_SIGMA'][1]
+
 		dist = skewed_normal(name,a=a,b=b)
 		sample=np.arange(a,b,.01)
 		return(lambda : np.random.choice(sample,1,
@@ -451,6 +458,7 @@ def _read_ND_grids(filename,scale_factor=1.):
 
 	theta=np.array(gridded[gridded.columns[-1]]).reshape(dim)*scale_factor
 	
+
 	return([x.upper() for x in gridded.columns][:-1],lambda interp_array:interpn(arrs,theta,xi=interp_array,method='linear',bounds_error=False,fill_value=0))
 
 	
@@ -473,6 +481,7 @@ def main():
 		#mySED.fetchSED_BYOSED(0,5000,3,2,[2.5,1,1,.5])
 
 
+
 		#plt.plot(mySED.wave,mySED.sedInterp(0,mySED.wave)/mySED.x0)
 		#f=mySED.sedInterp(0,mySED.wave).flatten()/mySED.x0
 		#s=mySED.sn_effects['STRETCH'].flux(0*np.ones(len(mySED.wave)),mySED.wave,[],[])
@@ -483,6 +492,7 @@ def main():
 		#sys.exit()
 		effect='HOST_MASS'
 		bounds=[5,20]		
+
 		fig,ax=plt.subplots(nrows=3,ncols=3,figsize=(15,15),sharex=True)
 		phases=np.arange(-10,31,5)
 		k=0
@@ -499,6 +509,7 @@ def main():
 					#mySED.sn_effects['STRETCH'].updateWarp_Param()
 					#s=mySED.sn_effects['STRETCH'].warp_parameter
 					ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,[v,1,1,.1,1]),label='Z=%.2f'%v)
+
 				ax[i][j].legend(fontsize=14)
 				ax[i][j].annotate('Phase='+str(phases[k]),(.5,.05),fontsize=14,xycoords='axes fraction')
 				ax[i][j].set_xlim((3000,9500))
@@ -511,6 +522,7 @@ def main():
 				ax[i][j].tick_params(axis='y', labelsize=14)
 		
 		plt.savefig('/Users/jpierel/rodney/salt3_testing/'+effect+'_byosed.pdf',format='pdf')
+
 
 
 

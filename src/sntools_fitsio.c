@@ -1858,6 +1858,8 @@ void wr_snfitsio_update_phot(int ep) {
   }
 
   // SKYSIG (ADU per pixel)
+
+
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SKY_SIG[ep] ;
   wr_snfitsio_fillTable ( ptrColnum, "SKY_SIG", itype );

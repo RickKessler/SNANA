@@ -122,6 +122,8 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   // OUTPUT:
   //   OBS_atFLUXMAX:  obs-index for max flux in each filter band
   //
+  // Jul 2 2019: fix bug computing MJDMIN/MAX to work with unsorted MJD_LIST.
+  //
 
   int    OPTMASK         = INPUTS_OBS_atFLUXMAX.OPTMASK ;
   if ( OPTMASK == 0 ) { return ; }
@@ -130,8 +132,6 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   double SNRCUT_USER     = INPUTS_OBS_atFLUXMAX.SNRCUT ;
   double SNRCUT_BACKUP   = INPUTS_OBS_atFLUXMAX.SNRCUT_BACKUP;
   double MJDSTEP_SNRCUT  = 10.0 ; // hard wired param
-  double MJDMIN          = MJD_LIST[0];
-  double MJDMAX          = MJD_LIST[NOBS-1];
 
   int USE_MJDatFLUXMAX  = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX );
   int USE_MJDatFLUXMAX2 = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2);
@@ -140,13 +140,11 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   int IFILTOBS, o, omin, omax, omin2, omax2, NOTHING ;
   int MALLOC=0 ;
   double SNR, SNRCUT, SNRMAX, FLUXMAX[MXFILTINDX] ;
-  double MJD, FLUX, FLUXERR;
+  double MJD, MJDMIN, MJDMAX, FLUX, FLUXERR;
 
   int   *NSNRCUT;      // Number of obs in each 10-day window
   int   *oMIN_SNRCUT, *oMAX_SNRCUT ;
-  int    NWIN_COMBINE = (int)(MJDWIN_USER/MJDSTEP_SNRCUT + 0.01) ;
-  int    MXWIN_SNRCUT = (int)((MJDMAX-MJDMIN)/MJDSTEP_SNRCUT)+1 ;
-  int    MEMI         = sizeof(int) * MXWIN_SNRCUT ;
+  int    NWIN_COMBINE, MXWIN_SNRCUT, MEMI;
   int    LDMP = 0; // t(strcmp(CCID,"3530")==0 ) ;
   char fnam[] = "get_obs_atFLUXMAX" ;
 
@@ -156,6 +154,20 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   omin2  = omax2 = -9 ;
   NSNRCUT_MAXSUM = 0 ;
   USE_BACKUP_SNRCUT = 0;
+
+  // find MJDMIN,MAX (obs may not be time-ordered)
+  MJDMIN = +999999.0 ;
+  MJDMAX = -999999.0 ;
+  for(o=0; o < NOBS; o++ ) {
+    MJD = MJD_LIST[o];
+    if ( MJD < MJDMIN ) { MJDMIN = MJD; }
+    if ( MJD > MJDMAX ) { MJDMAX = MJD; }
+  }
+
+
+  NWIN_COMBINE = (int)(MJDWIN_USER/MJDSTEP_SNRCUT + 0.01) ;
+  MXWIN_SNRCUT = (int)((MJDMAX-MJDMIN)/MJDSTEP_SNRCUT)+1 ;
+  MEMI         = sizeof(int) * MXWIN_SNRCUT ;
 
  START:
 
@@ -172,7 +184,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   }
   else if ( USE_MJDatFLUXMAX2 ) {
     NITER   = 2 ;
-    MJDMIN  = MJD_LIST[0];
+    // xxx makr delete    MJDMIN  = MJD_LIST[0];
     IMJDMAX = 0;
     SNRCUT  = SNRCUT_USER;
     if ( USE_BACKUP_SNRCUT ) { SNRCUT = SNRCUT_BACKUP; }
@@ -223,7 +235,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     if ( LDMP ) {
       printf(" xxx ITER=%d : omin,omax=%3d-%3d   MJDWIN=%.1f-%.1f"
 	     " SNRCUT=%.1f \n", 
-	     ITER,omin,omax, MJD_LIST[omin], MJD_LIST[omax], SNRCUT ); 
+	     ITER,omin,omax, MJDMIN, MJDMAX, SNRCUT ); 
       fflush(stdout);
     }
 
@@ -2825,7 +2837,6 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
   else if ( strcmp(key,"SKY_SIG") == 0 ) {
     for(i=1; i <= NVAL ; i++ ) { SNDATA.SKY_SIG[i] = parVal[i-1] ; }
   }
-
   else if ( strcmp(key,"SKY_SIG_T") == 0 ) {
     for(i=1; i <= NVAL ; i++ ) { SNDATA.SKY_SIG_T[i] = parVal[i-1] ; }
   }
@@ -3952,6 +3963,46 @@ void splitString2(char *string, char *sep, int MXsplit,
 
 }  // end of splitString2
 
+void split2floats(char *string, char *sep, float *fval) {
+
+  // Created Jun 26 2019
+  // for *string = 'xxx[sep]yyy,
+  // returns fval[0]=xxx and fval[1]=yyy.
+  // Example:
+  //   Input string   = 1.3,4.6
+  //   Output fval[0] = 1.3
+  //   Output fval[1] = 4.6
+  //
+  // Example:
+  //   Input string   =  1.3
+  //   Output fval[0] =  1.3
+  //   Output fval[1] =  1.3
+  //
+  int Nsplit ;
+  char cnum[2][40], *cptr[2];  cptr[0]=cnum[0]; cptr[1]=cnum[1];
+  char fnam[] = "split2floats" ;
+  // ---------------- BEGIN --------------------
+
+  fval[0] = fval[1] = -9.0 ;
+
+  if ( strstr(string,sep) == NULL ) 
+    { sscanf(string, "%f", &fval[0] ); fval[1]=fval[0];  return ;  }
+  
+
+  // split the string by the sep input
+  splitString(string, sep, 2, &Nsplit, cptr);
+  if ( Nsplit != 2 ) {
+    sprintf(c1err,"Invalid Nsplit=%d (expected 2)", Nsplit);
+    sprintf(c2err,"Input string='%s'  sep='%s' ", string, sep);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+  sscanf(cnum[0], "%f", &fval[0] );
+  sscanf(cnum[1], "%f", &fval[1] );
+
+  return;
+} // end split2floats
+
 
 // ********************************************************
 void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP, 
@@ -4947,7 +4998,7 @@ double FlatRan ( int ilist, double *range ) {
 double biGaussRan(double siglo, double sighi ) {
 
   // Return random number from bifurcate gaussian
-  // with sigmas = "siglo" and "sighi" and mean = 0.0
+  // with sigmas = "siglo" and "sighi" and peak = 0.0
   //
   // Jan 2012: always pick random number to keep randoms synced.
 
@@ -6892,16 +6943,10 @@ int init_SNDATA ( void ) {
     SNDATA.SEARCH_RUN[i_epoch]   = NULLINT ;
     SNDATA.TEMPLATE_RUN[i_epoch] = NULLINT ;
 
-    SNDATA.AIRMASS[i_epoch]      = NULLFLOAT ;
     SNDATA.MJD[i_epoch]          = (double)NULLFLOAT ;
 
     // xxx mark delete     SNDATA.IDCCD[i_epoch]        = NULLINT ;
     sprintf ( SNDATA.FIELDNAME[i_epoch], "NULL" );
-
-    SNDATA.MOONPHASE[i_epoch]    = NULLFLOAT ;
-    SNDATA.MOONDIST[i_epoch]     = NULLFLOAT ;
-    SNDATA.CLOUDCAM_AVG[i_epoch] = NULLFLOAT ;
-    SNDATA.CLOUDCAM_SIG[i_epoch] = NULLFLOAT ;
 
     SNDATA.IDTEL[i_epoch] = NULLINT ;
     sprintf(SNDATA.TELESCOPE[i_epoch], "BLANK" );
@@ -6919,7 +6964,6 @@ int init_SNDATA ( void ) {
     SNDATA.YPIX[i_epoch]         = NULLFLOAT ;
     SNDATA.EDGEDIST[i_epoch]     = NULLFLOAT ;
 
-    SNDATA.SKY_AVG[i_epoch]      = NULLFLOAT ;
     SNDATA.SKY_SIG[i_epoch]      = NULLFLOAT ;
     SNDATA.SKY_SIG_T[i_epoch]    = NULLFLOAT ;
     SNDATA.PSF_SIG1[i_epoch]     = NULLFLOAT ;
@@ -6927,8 +6971,6 @@ int init_SNDATA ( void ) {
     SNDATA.PSF_RATIO[i_epoch]    = NULLFLOAT ;
 
       
-    SNDATA.FLUX[i_epoch]         = NULLFLOAT ;
-    SNDATA.FLUX_ERRTOT[i_epoch]  = NULLFLOAT ;
     SNDATA.FLUXCAL[i_epoch]         = NULLFLOAT ;
     SNDATA.FLUXCAL_ERRTOT[i_epoch]  = NULLFLOAT ;
 
@@ -7582,23 +7624,20 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
       fprintf(fp,"  PROCESS_DATE: %s \n", SNDATA.DATE[EPMIN] );
 
 
+    /* xxxxxxxx mark delete Jun 23 2019 xxxxxxx
     FTMP = SNDATA.CLOUDCAM_AVG[EPMIN];
     if ( FTMP != NULLFLOAT ) {
       fprintf(fp, "  CLOUDCAM_AVG: %7.2f   ", SNDATA.CLOUDCAM_AVG[EPMIN] );
       fprintf(fp, "  CLOUDCAM_SIG: %5.2f \n", SNDATA.CLOUDCAM_SIG[EPMIN] );
     }
-
-
     FTMP = SNDATA.MOONDIST[EPMIN] ;
     if ( FTMP != NULLFLOAT ) {
       fprintf(fp, "  MOONDIST:    %7.2f deg   ", SNDATA.MOONDIST[EPMIN] );
       fprintf(fp, "  MOONPHASE:  %5.2f \n",    SNDATA.MOONPHASE[EPMIN] );
     }
-
-
     FTMP = SNDATA.AIRMASS[EPMIN] ;
     if ( FTMP != NULLFLOAT ) fprintf(fp, "  AIRMASS:  %6.3f \n", FTMP );
-   
+    xxxxxxxxx */
 
     // now write info vs. fitler-band
 
@@ -7653,9 +7692,6 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
 
     FTMP = SNDATA.SKY_SIG[EPMIN];
     if ( FTMP != NULLFLOAT ) {
-      fptr = &SNDATA.SKY_AVG[EPMIN] ;
-      istat = wr_filtband_float ( fp, "SKY_AVG:", 
-				  NFILT_EP, fptr, "ADU/pix", 2 ) ;
       fptr = &SNDATA.SKY_SIG[EPMIN] ;
       istat = wr_filtband_float ( fp, "SKY_SIG:", 
 				  NFILT_EP, fptr, "ADU/pix", 2 ) ;
@@ -7676,14 +7712,14 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
       istat = wr_filtband_float ( fp, "PSF_RATIO:", NFILT_EP, fptr, "(at origin)", 3 ) ;
     }
 
+    /* xxxxxxxxxxxx mark delete Jun 24 2019 xxxxxxxx
     // write FLUX in ADU (or uJy)
-
     fprintf(fp," \n" );
     fptr = &SNDATA.FLUX[EPMIN] ;
     istat = wr_filtband_float ( fp, "FLUX:", NFILT_EP, fptr, FLUXUNIT, 2 ) ;
     fptr = &SNDATA.FLUX_ERRTOT[EPMIN] ;
-    istat = wr_filtband_float ( fp, "FLUX_ERRTOT:", NFILT_EP, fptr, FLUXUNIT, 3 ) ;
-
+    istat = wr_filtband_float (fp,"FLUX_ERRTOT:",NFILT_EP,fptr,FLUXUNIT,3);
+    xxxxxxxxxxxxxx */
 
     // write calibrate fluxes: 
 
@@ -8576,6 +8612,7 @@ int rd_SNDATA ( void ) {
     }
 
 
+    /* xxxxxxxxx mark delete June 24 2019 xxxxxxxxxxx
     if ( strcmp(c_get,"CLOUDCAM_SIG:")==0 ) {
       if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"CLOUDCAM_SIG:");
       readfloat ( fp, 1, &SNDATA.CLOUDCAM_SIG[EPMIN] ) ;
@@ -8599,7 +8636,7 @@ int rd_SNDATA ( void ) {
       if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"AIRMASS:");
       readfloat ( fp, 1, &SNDATA.AIRMASS[EPMIN] ) ;
     }
-
+    xxxxxxxxxxxxxxxxxxxxx */
 
     // ------------------------------------
     // FILTER-DEPENDENT information
@@ -8684,12 +8721,6 @@ int rd_SNDATA ( void ) {
 
 
 	// conditions
-
-    if ( strcmp(c_get,"SKY_AVG:")==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"SKY_AVG:");
-      fptr = &SNDATA.SKY_AVG[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-    }
     if ( strcmp(c_get,"SKY_SIG:")==0  ) {
       if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"SKY_SIG:");
       fptr = &SNDATA.SKY_SIG[EPMIN];
@@ -8719,20 +8750,16 @@ int rd_SNDATA ( void ) {
 
 
 
-	// read fluxes
-
+    /* xxxxxxxxxxx mark delete Jun 24 2019 xxxxxxxxxxxx
+    // read fluxes
     sprintf(varname,"FLUX:");
     if ( strcmp(c_get,varname)==0  ) {
       if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
       fptr = &SNDATA.FLUX[EPMIN];
       readfloat ( fp, NFILT_NEWMJD, fptr );
       checkval_F(varname, NFILT_NEWMJD, fptr, -1.0E5, fluxmax );
-
       readchar(fp, FLUXUNIT );  // Oct 6, 2008
     }
-
-
-
     sprintf(varname,"FLUX_ERRTOT:");
     if ( strcmp(c_get,varname)==0  ) {
       if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
@@ -8741,8 +8768,9 @@ int rd_SNDATA ( void ) {
       checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, fluxerrmax );
     }
 
+    xxxxxxxxxxxxxx */
 
-	// read CALIBRATED fluxes
+    // read CALIBRATED fluxes
 
     sprintf(varname,"FLUXCAL:");
     if ( strcmp(c_get,varname)==0  ) {

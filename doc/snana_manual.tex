@@ -3281,8 +3281,8 @@ and {\tt SIM\_PEAKMAG}.
 \label{subsec:hostlib}
 % ------------------------------------
 
-Starting with \snana\ {v9\_30G} there is a host-galaxy
-package designed to simulate the following effects:
+The simulation includes a host-galaxy
+package designed to model the following effects:
 \begin{itemize}
 %
   \item select host galaxy based on arbitrary user-function
@@ -3378,6 +3378,8 @@ variables must be from the {\tt VARNAMES} list in Fig.~\ref{fig:hostlib},
 which describe an arbitrary dependence on host properties.
 The last two variables must be {\tt WGT} and {\tt SNMAGSHIFT},
 although any names can be used here.
+{\tt SNMAGSHIFT} is applied to the SALT2 mB and $x_0$ parameters,
+and this shift is thus included in bias corrections.
 If no weight map is given the simulation will assign
 a weight of unity to each host galaxy, with zero mag-shift.
 Starting with \snana\ version v10\_70, the ``{\tt NVAR:}''
@@ -3428,6 +3430,11 @@ A \hostlib\ should have adequate statistics to densely
 cover the redshift range and parameter space used by
 the weight map.
 
+
+% ------------------------------------
+\subsubsection{{\hostlib} Options}
+\label{sss:hostlib_options}
+% ------------------------------------
 
 The following {\hostlib} options can be set in
 the sim-input file (or via command-line override):
@@ -3645,7 +3652,11 @@ the galaxy, and compute the galaxy noise.
 \newcommand{\Rhalf}{R_{1/2}}
 \newcommand{\Sn}{{\cal S}_{n}}
 
-\noindent {\bf Notes on CPU Resources:} \\
+% ------------------------------------
+\subsubsection{Notes on CPU Resources}
+\label{sss:hostlib_CPU}
+% ------------------------------------
+
 The CPU generation time per host galaxy is dominated by the 
 noise calculation that includes a convolution of the galaxy 
 flux within a separate PSF-aperture for each epoch.  
@@ -3680,8 +3691,12 @@ is the reduced radius.
 
 
 
-\bigskip
-\noindent {\bf Ensuring Host PhotoZ in Fitting Program:} \\
+% ------------------------------------
+\subsubsection{Ensuring Host PhotoZ in Fitting Program}
+\label{sss:hostlib_photoz}
+% ------------------------------------
+
+%\noindent {\bf Ensuring Host PhotoZ in Fitting Program:} \\
 To ensure that the light-curve fitter cannot cheat when doing
 photoZ fits on simulated SNe, there is an option to replace the 
 output {\tt REDSHIFT\_FINAL} with the host-galaxy (photoZ) redshift
@@ -3691,7 +3706,12 @@ If there is no host-galaxy photo-z, {\tt GENSIGMA\_REDSHIFT}$\ge 1$
 results in undefined {\tt REDSHIFT\_FINAL}$= -9 \pm -9$.
 
 
+% ---------------------------------------
 % \clearpage
+\subsubsection{Miscellaneous}
+\label{sss:hostlob_misc}
+% ---------------------------------------
+
 \noindent {\bf HOSTLIB Variables for {\tt SIMGEN\_DUMP} file:} \\
 The {\tt SIMGEN\_DUMP} option is described in 
 \S\ref{sss:simgen_dump}. Here is an example showing
@@ -3754,12 +3774,12 @@ galaxy position can be selected with
 
 
 %\clearpage
-\noindent {\bf Anomalous Flux-Scatter on Bright Galaxies :} \\
+\subsubsection{Anomalous Flux-Scatter on Bright Galaxies}
 
-The simulation supports a model of anomalous flux-scatter
-related to subtractions near bright galaxies. 
-The true flux uncertainty is increased as a function of 
-surface brightness, while the nominal uncertainty is 
+This is a near-obsolete utility, and it is recommended to use
+{\tt FLUXERRMAP}s in \S\ref{subsec:noise_cor}.
+With this legacy model, the true flux uncertainty is increased as a 
+function of surface brightness, while the nominal uncertainty is 
 reported in the data file.
 The sim-input key word is
 %
@@ -7438,6 +7458,8 @@ a list of CIDs:
    SNCCID_IGNORE =  '4524', '8151', '7017'  ! same as above with strings
    SNCID_IGNORE_FILE = 'reject.list'        ! list of CIDs to ignore; 
                                             ! separate CIDs by space or <CR>
+
+   MXEVT_PROCESS = 20    ! stop processing after 20 events
 \end{Verbatim}
 %
 Internally all CIDs are strings. If the CIDs are integers
@@ -7460,10 +7482,13 @@ However, for a survey using integer CIDs that start at 1000,
 {\tt CUTWIN\_CID = 1,10} would discard all SNe.
 
 
-Finally, note that the logical-OR is used for 
+Note that the logical-OR is used for 
 {\tt CUTWIN\_CID} and {\tt SNCID\_LIST}. Thus when
 using the LIST option, make sure to set 
 {\tt CUTWIN\_CID=0,0} to turn off the range-option.
+
+Finally, {\tt MXEVT\_PROCESS} stops processing after this many
+events, regardless of of how the other ``{\tt CID}'' inputs are set.
 
 % -------------------
 \subsubsection{Selecting SNID List with Command Line Override}
@@ -7476,6 +7501,8 @@ use a comma-separated list:
    snana.exe <myInputFile> CUTWIN_CID 0 0 SNCCID_LIST 5,19,184
       or
    snana.exe <myInputFile> CUTWIN_CID 0 0 SNCCID_LIST 2004cx,2002cx,2005he
+     or
+   snana.exe <myInputFile> MXEVT_PROCESS 5
 \end{verbatim} 
 %
 and this syntax also works for the {\tt snlc\_fit.exe} and {\tt psnid.exe}
@@ -9118,11 +9145,8 @@ Simulation input keys  for  {\tt snlc\_sim.exe} :
 
 % ------------------------
 \clearpage
-\subsection{{\SALTII}}
+\subsection{{\SALTII} {\small (J. Guy et al., {\bf A\&A 466}, 11, 2007)} }
 \label{subsec:salt2}
-
-\noindent
-Reference: J. Guy et al., {\bf A\&A 466}, 11 (2007). 
 
 \noindent
 Simulation input keys  for {\tt snlc\_sim.exe} :
@@ -9148,15 +9172,17 @@ Simulation input keys  for {\tt snlc\_sim.exe} :
    GENPEAK_SALT2ALPHA:  0.14    ! x1 coeff
    GENSIGMA_SALT2ALPHA: 0 0.0   ! default is no alpha smearing
    GENRANGE_SALT2ALPHA: 0 0.3   ! restrict if SIGMA is non-zero
-
-   SALT2mu_FILE:  XXX.FITRES  ! use alpha,beta from this SALT2mu output
 \end{Verbatim}
+%
+and special grid keys for BBC are described in 
+\S\ref{sec:SALT2mu}.
 
-\bigskip
+
+\medskip
 \noindent
 \&{\tt FITINP} namelist variables  for {\tt snlc\_fit.exe} :
 \begin{Verbatim}[frame=single]
-   SALT2alpha     = xxx  ! used only to compute mu - muref
+   SALT2alpha     = xxx  ! used to compute approx mu-muref
    SALT2beta      = xxx  ! idem
 
    INISTP_COLOR   = xxx  ! 0 => fix color to INIVAL_COLOR; else float
@@ -9491,9 +9517,9 @@ The \NONIA\ model is specified with the following sim-input keys,
   GENMODEL: $PATH/NON1ASED.[XYZ]
 
   NON1ASED_KEYS: 5 INDEX  WGT  MAGOFF  MAGSMEAR  SNTYPE
-  NON1ASED:         2     0.2   0.0      1.2       2
-  NON1ASED:         3     0.2  -0.2      0.8       2
-  NON1ASED:         4     0.4  -0.6      0.9       3
+  NON1ASED:         2     0.2   0.0     1.2        2
+  NON1ASED:         3     0.2  -0.2     0.8        2
+  NON1ASED:         4     0.4  -0.6     0.9,0.5    3
   etc ...
 
   GENRANGE_AV:      xxx  xxx     # CCM89 V-band extinction
@@ -9565,6 +9591,8 @@ that depend on \NONIA\ type.
        and is used to simulate intrinsic brightness variations.
        The generated random value is stored in the data file
        ({\tt SIM\_MAGSMEAR\_COH} key) and in the SNTABLEs.
+       Comma-separated values specify two sigmas for bifurcated Gaussian;
+       {\tt MAGOFF} is the distribution peak, not the mean.
 %
   \item {\tt\bf SNTYPE} is a spec-confirmed typing-index that appears
        after the {\tt SNTYPE} keyword in the 
@@ -9940,14 +9968,20 @@ etc É
   \label{sec:SALT2mu}
 % -----------------------------------------
 
+\newcommand{\hostmass}{M_{\rm host}}
+
 The \snana\ program {\tt SALT2mu.exe} reads \SALTII\ fitted parameters,
-performs a global fit for $\alpha$ and $\beta$, and computes
-distance moduli.
-The program also implements the 
+performs a global fit for $\alpha,\beta,\gamma$, which are SNIa 
+standardization parameters associated with 
+stretch ($x_1$), color ($c$), and host-galaxy mass ($\hostmass$),
+respectively.
+{\tt SALT2mu.exe} also fits for distance offsets in redshift bins,
+and the output includes binned distance moduli.
+The {\tt SALT2mu} program can implement the 
 ``BEAMS with Bias Corrections'' (BBC) method in \cite{JM11,BBC},
 to produce bias-corrected distances in redshift bins.
-To include bias corrections, {\tt SALT2mu} reads fit parameters
-for the data and for a large simulation.
+To include bias corrections, {\tt SALT2mu} reads SALT2-fitted 
+parameters for the data and for a large ``biasCor'' simulation.
 %
 A sample input file is in
 \begin{verbatim}
@@ -9956,12 +9990,46 @@ A sample input file is in
 and a description of all input-file options are given at the
 top of the code in {\tt \$SNANA\_DIR/src/SALT2mu.c}.
 %$
-% -----------------------------------------
-   \subsection{\SALTII\ Training Scripts}
-   \label{sec:SALT2train}
-% -----------------------------------------
-Scripts are {\tt \&SNANA\_DIR/util/SALT2train\_*};
-more on this later after the paper is submitted.
+The ``biasCor'' sample must incude a grid of
+$\alpha,\beta,\gamma$ in order to dynamically interpolate
+the bias-correction at each fitting step. The sim-input
+keys are as follows:
+%
+\begin{verbatim}
+   GENPEAK_SALT2ALPHA:   0.14   
+   GENSIGMA_SALT2ALPHA:  1E8   1E8
+   GENRANGE_SALT2ALPHA:  0.10  0.20
+   GENGRID_SALT2ALPHA:   2
+
+   GENPEAK_SALT2BETA:   3.2 
+   GENSIGMA_SALT2BETA:  1E8  1E8 
+   GENRANGE_SALT2BETA:  2.5  3.5
+   GENGRID_SALT2BETA:   2
+
+   BIASCOR_SALT2GAMMA_GRID:  0  0.10
+\end{verbatim}
+%
+The {\tt GENGRID\_SALT2xxx} parameters define a grid-size of 2,
+and {\tt GENRANGE\_SALT2xxx} define the two grid points.
+The large {\tt GENSIGMA\_SALT2xxx} values result in a flat
+distribution, but will not generate values outside the
+{\tt GENRANGE}.
+
+If $\gamma$ were implemented the same way as for $\alpha$ and $\beta$, 
+BBC could only fit a step function with a $\hostmass$-split 
+at exactly the same value used in the biasCor sample.
+%
+To allow for an arbitrary standardation function of $\hostmass$ 
+in the BBC fit,
+the $\gamma$ parameter is treated in a different manner compared
+with $\alpha$ and $\beta$. {\tt BIASCOR\_SALT2GAMMA\_GRID} specifies
+two grid-points to randomly generate mag-offsets. This is not
+quite $\gamma$ because it has no $\hostmass$ dependence, but in the
+BBC fit these mag offsets are associated with $\gamma$ and $\hostmass$,
+where $\gamma$ is the maximum SNIa mag-splitting.
+
+
+
 
 % ##########################################
    \clearpage

@@ -185,9 +185,9 @@ typedef struct {
 
   int   INDEX[MXNON1A_TYPE];      // NON1ASED index list vs. sparse index
   float WGT[MXNON1A_TYPE];       // relative wgt for simulation
-  float MAGOFF[MXNON1A_TYPE];    // OPTIONAL magoff
-  float MAGSMEAR[MXNON1A_TYPE];  // OPTIONAL mag-smear
-  int   SNTAG[MXNON1A_TYPE];     // OPTIONAL user index-tag 
+  float MAGOFF[MXNON1A_TYPE];    // magoff
+  float MAGSMEAR[MXNON1A_TYPE][2];  // mag-smear (bifurc Gaussian)
+  int   SNTAG[MXNON1A_TYPE];     // user index-tag 
   float KEYVAL[MXNON1A_TYPE][MXNON1A_KEY]; // same as above 
   int   ISPEC1A[MXNON1A_TYPE];  // 1 --> PEC1A instead of CC (Aug 2016)
   int   NNON1A ;                // number of NON1A SED templates
@@ -320,7 +320,6 @@ struct INPUTS {
 
   int TRACE_MAIN;      // debug to trace progress through main loop
   int DEBUG_FLAG ;     // arbitrary debug usage
-  int REFAC_PICK_NON1ASED; // xxx temporary for moving pick_NON1ASED call
 
   char COMMENT[120];   // brief user comment for README file.
 
@@ -364,10 +363,11 @@ struct INPUTS {
   int  JOBID;       // command-line only, to compute SIMLIB_IDSTART
   int  NJOBTOT;     // idel, for sim_SNmix only
 
-  char HOSTLIB_FILE[MXPATHLEN]; // lib of Ztrue, Zphot, Zerr ...
   int  HOSTLIB_USE ;            // 1=> used; 0 => not used (internal)
+  char HOSTLIB_FILE[MXPATHLEN]; // lib of Ztrue, Zphot, Zerr ...
   char HOSTLIB_WGTMAP_FILE[MXPATHLEN];  // optional wgtmap override
   char HOSTLIB_ZPHOTEFF_FILE[MXPATHLEN];  // optional EFF(zphot) vs. ZTRUE
+  char HOSTLIB_SPECBASIS_FILE[MXPATHLEN]; // spec basis vec for host spec
   int  HOSTLIB_MSKOPT ;         // user bitmask of options
   int  HOSTLIB_MAXREAD ;        // max entries to read (def= infinite)
   int  HOSTLIB_GALID_NULL ;     // value for no galaxy; default is -9
@@ -501,6 +501,7 @@ struct INPUTS {
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2ALPHA ;
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2BETA ;
   double SALT2BETA_cPOLY[3];    // poly fun of c (see Mandel 2010)
+  double BIASCOR_SALT2GAMMA_GRID[2]; // gamma range for BBC-biasCor sample
 
   char   SALT2mu_FILE[200];        // read alpha,beta from here
   float  GENALPHA_SALT2 ; // legacy variable: same as GENMEAN_SALT2ALPHA
@@ -576,7 +577,7 @@ struct INPUTS {
   float SIGMACLIP_MAGSMEAR[2];  // sigma clipping for mag-smearing
 
   float  GENMAG_SMEAR_FILTER[MXFILTINDX]; // smear by filter
-  float  GENMAG_SMEAR;               // global intrinsic SN mag-smearing
+  float  GENMAG_SMEAR[2];             // intrinsic mag-smear (asymm Gauss)
   char   GENMAG_SMEAR_MODELNAME[100]; // name of specific smear-model
   char   GENMAG_SMEAR_MODELARG[200];  // optional arg after colon
   float  GENMAG_SMEAR_SCALE;          // scale magSmears (default=1)
@@ -942,11 +943,6 @@ struct GENLC {
   double SHIFT_ZPTSIMLIB[MXFILTINDX] ;   // zpt shift for EXPOSURE time
 
   // - - - - - - - - - - - -
-
-  double  cloudavg[MXEPSIM] ;
-  double  cloudsig[MXEPSIM] ;
-  double  moonphase[MXEPSIM] ;
-  double  moondist[MXEPSIM] ;
 
   // flux and magnitudes (float-> double, Jan 2014)
   double flux[MXEPSIM] ;            // flux in ADU
@@ -1324,7 +1320,8 @@ struct SIMLIB_FLUXERR_COR {
 
 int GENFRAME_OPT;        // one of below, based on model option
 #define GENFRAME_REST 1  // => generate in rest frame; then boost
-#define GENFRAME_OBS  2  // => generate directory in obs frame
+#define GENFRAME_OBS  2  // => generate directly in obs frame
+#define GENFRAME_HOST 3  // => used by TAKE_SPECTRUM on host instead of SN
 
 
 int INDEX_GENMODEL         ;  // index for model
@@ -1740,7 +1737,6 @@ void   init_DNDB_Rate(void) ; // Galactic Rate vs. l & b
 int  GENRANGE_CUT(void);
 int  GENMAG_CUT(void);
 
-void shapepar_stretch(int ifilt);
 void DUMP_GENMAG_DRIVER(void);
 
 void SIMLIB_DUMP_DRIVER(void);
@@ -1753,7 +1749,7 @@ void MJDGAP(int N, double *MJDLIST,  double MJDGAP_IGNORE,
 	    double *GAPMAX, double *GAPAVG ) ;
 
 void test_fortran(void);
-void test_boost(int ifilt);
+void test_igm(void);
 void test_ran(void);
 void test_PARSE_WORDS(void);
 void test_zcmb_dLmag_invert(void);

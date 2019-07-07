@@ -936,11 +936,13 @@ c
      &  ,SNLC_SNANAFIT_PEAKMJD_FITERR(MXFILT_OBS,NPAR_ANYLC)
      &  ,SNLC_PHOTPROB(MXEPOCH)   ! generic 'fit probability' per epoch
      &  ,SNLC_PHOTPROB_MIN        ! min photprob for PHOTPROB>0
-     &  ,SNLC_AIRMASS(MXEPOCH)
-     &  ,SNLC_CLOUDCAM_AVG(MXEPOCH)
-     &  ,SNLC_CLOUDCAM_SIG(MXEPOCH)
-     &  ,SNLC_MOONDIST(MXEPOCH)    ! in deg.
-     &  ,SNLC_MOONPHASE(MXEPOCH)   ! 0 - 1
+c xxxxxxxx mark delete June 24 2019 xxxxxx
+c     &  ,SNLC_AIRMASS(MXEPOCH)
+c     &  ,SNLC_CLOUDCAM_AVG(MXEPOCH)
+c     &  ,SNLC_CLOUDCAM_SIG(MXEPOCH)
+c     &  ,SNLC_MOONDIST(MXEPOCH)    ! in deg.
+c     &  ,SNLC_MOONPHASE(MXEPOCH)   ! 0 - 1
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
      &  ,SNLC_TOBS(MXEPOCH)        ! MJD-SET_PEAKMJD
      &  ,SNLC_TREST(MXEPOCH)       !  MJD-SET_PEAKMJD)/(1+z)
      &  ,SNLC_GAIN(MXEPOCH)      ! e/AUD
@@ -953,15 +955,12 @@ c
      &  ,SNLC_AREAFRAC(MXEPOCH)  ! area-frac contained by XPIX,YPIX
      &  ,SNLC_MWEBV              ! Milky Way Galactic E(B-V)
      &  ,SNLC_MWEBV_ERR          ! error on above
-     &  ,SNLC_SKY_AVG(MXEPOCH)   ! avg sky/pix in field, ADU
      &  ,SNLC_SKYSIG(MXEPOCH)    ! sigma on above
      &  ,SNLC_SKYSIG_T(MXEPOCH)  ! sigma on template run
      &  ,SNLC_PSF_SIG1(MXEPOCH)  ! sigma, pixels
      &  ,SNLC_PSF_SIG2(MXEPOCH)
      &  ,SNLC_PSF_RATIO(MXEPOCH)
      &  ,SNLC_AREA_NOISE(MXEPOCH)  ! Noise-equivalent area (pixels)
-     &  ,SNLC_FLUX(MXEPOCH)
-     &  ,SNLC_FLUX_ERRTOT(MXEPOCH)
      &  ,SNLC_FLUX_NSIG(MXEPOCH)   ! significance
      &  ,SNLC_FLUXCAL_OFF(MXFILT_OBS)    ! add SN light from template
      &  ,SNLC_FLUXCAL_ERRCALC(MXEPOCH)   ! calc a-la simulation
@@ -1024,18 +1023,15 @@ c
      &    ,SNLC_Tobsmin, SNLC_Tobsmax, SNLC_TOBS
      &    ,SNLC_SNRMAX_FILT, SNLC_SNRMAX_SORT
      &    ,SNLC_FLUXCALMAX, SNLC_PHOTPROB, SNLC_PHOTPROB_MIN
-     &    ,SNLC_CLOUDCAM_AVG, SNLC_CLOUDCAM_SIG
-     &    ,SNLC_MOONDIST, SNLC_MOONPHASE, SNLC_AIRMASS
      &    ,SNLC_GAIN, SNLC_RDNOISE
      &    ,SNLC_MWXT_MAG, SNLC_MWXT_FLUXFRAC, SNLC_MWXT_MAGERR
      &    ,SNLC_MWEBV, SNLC_MWEBV_ERR
      &    ,SNLC_XPIX, SNLC_YPIX, SNLC_AREAFRAC, SNLC_PIXSIZE
      &    ,SNLC_NXPIX, SNLC_NYPIX
-     &    ,SNLC_SKY_AVG,  SNLC_SKYSIG,  SNLC_SKYSIG_T
+     &    ,SNLC_SKYSIG,  SNLC_SKYSIG_T
      &    ,SNLC_PSF_SIG1, SNLC_PSF_SIG2, SNLC_PSF_RATIO
      &    ,SNLC_AREA_NOISE
 c
-     &    ,SNLC_FLUX, SNLC_FLUX_ERRTOT
      &    ,SNLC_FLUX_NSIG, SNLC_FLUXCAL_OFF
      &    ,SNLC_FLUXCAL_ERRCALC, SNLC_FLUXCAL_HOSTERRCALC
      &    ,SNLC_FLUXCAL, SNLC_FLUXCAL_ERRTOT
@@ -1638,7 +1634,7 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_OFFSET_SNRMAX  ! SNRMAX cuts in each filter     
      &  ,CUTBIT_MJD_MARKER     ! things above do NOT depend on epoch
      &  ,CUTBIT_PSF,  CUTBIT_ZP
-     &  ,CUTBIT_MOONDIST,  CUTBIT_PHOTPROB, CUTBIT_AIRMASS
+     &  ,CUTBIT_PHOTPROB
      &  ,CUTBIT_TREST, CUTBIT_TOBS, CUTBIT_MJD
      &  ,CUTBIT_IDTEL          ! valid telescope 
      &  ,CUTBIT_NBAND_THRESH
@@ -1693,14 +1689,12 @@ c SN-dependent cuts above
 c MJD-dependent cuts below
      &  ,CUTBIT_PSF          = CUTBIT_MJD_MARKER + 1  ! PSF cut
      &  ,CUTBIT_ZP           = CUTBIT_MJD_MARKER + 2  ! ZP  cut (Feb 2018)
-     &  ,CUTBIT_MOONDIST     = CUTBIT_MJD_MARKER + 3  ! degrees
-     &  ,CUTBIT_PHOTPROB     = CUTBIT_MJD_MARKER + 4  ! Oct 23 2018
-     &  ,CUTBIT_AIRMASS      = CUTBIT_MJD_MARKER + 5  ! 1=overhead
-     &  ,CUTBIT_NBAND_THRESH = CUTBIT_MJD_MARKER + 6
-     &  ,CUTBIT_Trest        = CUTBIT_MJD_MARKER + 7  
-     &  ,CUTBIT_Tobs         = CUTBIT_MJD_MARKER + 8  ! 5.21.2019
-     &  ,CUTBIT_MJD          = CUTBIT_MJD_MARKER + 9  
-     &  ,CUTBIT_IDTEL        = CUTBIT_MJD_MARKER + 10
+     &  ,CUTBIT_PHOTPROB     = CUTBIT_MJD_MARKER + 3
+     &  ,CUTBIT_NBAND_THRESH = CUTBIT_MJD_MARKER + 4
+     &  ,CUTBIT_Trest        = CUTBIT_MJD_MARKER + 5  
+     &  ,CUTBIT_Tobs         = CUTBIT_MJD_MARKER + 6  ! 5.21.2019
+     &  ,CUTBIT_MJD          = CUTBIT_MJD_MARKER + 7  
+     &  ,CUTBIT_IDTEL        = CUTBIT_MJD_MARKER + 8
 c
      &  ,CUTBIT_OFFSET       = CUTBIT_IDTEL
      &  ,NCUTBIT             = CUTBIT_OFFSET 
@@ -1739,6 +1733,7 @@ c define namelist cuts
      &   SNTYPE_LIST(MXLISTNML)    ! (I) user list of types to select
      &  ,SNTYPE_IGNORE(MXLISTNML)  ! (I) types to ignore
      &  ,SNCID_LIST(MXLISTNML)     ! (I) user-list of integer CIDs
+     &  ,MXEVT_PROCESS             ! (I) max number of events to process
      &  ,CCDNUM_LIST(MXLISTNML)    ! (I) user-list of CCDNUMs (Dec 2017)
      &  ,SIM_TEMPLATE_INDEX_LIST(MXLISTNML)
      &  ,SNCID_IGNORE(MXLISTNML)   ! (I) list of CIDs to ignore
@@ -1908,7 +1903,7 @@ c
      &   ,CUTFLAG_SNANA , ERRFLAG_FIT 
      &   ,NCCID_LIST, NCCID_IGNORE, NCID_LIST, NCID_IGNORE
      &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST, SNCCID_LIST_ALL
-     &   ,SNCCID_IGNORE, SNCID_IGNORE_FILE, SNCID_IGNORE
+     &   ,SNCCID_IGNORE, SNCID_IGNORE_FILE, SNCID_IGNORE, MXEVT_PROCESS
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
      &   ,SNTEL_LIST,   IDTEL_LIST,   NIDTEL_LIST,   DOALL_SNTEL
      &   ,SNFIELD_LIST, IDFIELD_LIST, NIDFIELD_LIST, DOALL_SNFIELD
@@ -1948,7 +1943,6 @@ ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
      &   ,( cutwin_var(1,cutbit_Nepoch),    cutwin_Nepoch )
      &   ,( cutwin_var(1,cutbit_psf),       cutwin_psf )
      &   ,( cutwin_var(1,cutbit_zp),        cutwin_zp  )
-     &   ,( cutwin_var(1,cutbit_moondist),  cutwin_moondist  )
      &   ,( cutwin_var(1,cutbit_photprob),  cutwin_photprob  )
      &   ,( cutwin_var(1,cutbit_Nband_thresh), cutwin_nband_thresh )
      &   ,( cutwin_var(1,cutbit_Nfilt_snrmax), cutwin_nfilt_snrmax )
@@ -2221,7 +2215,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
 c
 c Below are cut-variables defined in SNCUTS
 c
-     &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST
+     &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST, MXEVT_PROCESS
      &   ,SNCCID_IGNORE, SNCID_IGNORE_FILE, SNCID_IGNORE
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
      &   ,SNFIELD_LIST, SNTEL_LIST
@@ -3451,7 +3445,7 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       textfile_prefix   = ' '
 
       SNCID_LIST_FILE   = ' '
-      
+      MXEVT_PROCESS      = 999888777
       SIMLIB_OUT = ''
       SIMLIB_ZPERR_LIST = ''
 
@@ -4918,7 +4912,6 @@ c ----------
          else if ( LINE_ARGS(i) .EQ. 'SNCCID_LIST' ) then 
             i = i + 1 
             CALL PARSE_SNCCID_LIST(LINE_ARGS(i)) ! May 30 2019
-c xxx mark delete  SNCCID_LIST(2) = ' '
 
          else if ( LINE_ARGS(i) .EQ. 'SNCID_LIST' ) then
             i = i + 1 ; STRING_LIST = LINE_ARGS(i)
@@ -4926,6 +4919,9 @@ c xxx mark delete  SNCCID_LIST(2) = ' '
 
          else if ( LINE_ARGS(i) .EQ. 'SNCID_LIST_FILE' ) then
             i = i + 1 ; SNCID_LIST_FILE = LINE_ARGS(i)
+
+         else if ( LINE_ARGS(i) .EQ. 'MXEVT_PROCESS' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) MXEVT_PROCESS
 
          else if ( LINE_ARGS(i) .EQ. 'SIM_TEMPLATE_INDEX_LIST' ) then
             i = i + 1 ; STRING_LIST = LINE_ARGS(i)
@@ -6295,7 +6291,7 @@ c check ERRFLAG_FIT
 
 
 42    format(T8,'Analyze ISN=',I8, 2x,
-     &    'for ',A16,'  NMJD(stored,cuts)=', I3, ' ->', I3 )
+     &    'for ',A14,'  NMJD(stored,cuts)=', I4, ' ->', I3 )
       CALL FLUSH(6)
       CALL USRANA(IERR)     ! call user-analysis routine
 
@@ -10501,7 +10497,7 @@ c print some info to stdout
 
       if ( FORMAT_FITS ) then
         write(6,204) N_SNFILE
-204     format(T5,'Found ',I6,' SN Candidates to Process.')
+204     format(T5,'Found ',I7,' SN Candidates to Process.')
       endif
 
       print*,' '
@@ -11515,6 +11511,8 @@ c
 c Mar 03, 2018: read SIM_FLUXCAL_HOSTERR
 c Mar 18, 2018: read SIM_SNRMAG[mag], but only if it is defined.
 c
+c Jun 24 2019: read SKY_AVG (used in FLUXCERRCALC)
+c
 c -------------------------
       IMPLICIT NONE
 
@@ -11620,7 +11618,7 @@ c optional quantities (no call to CHECK_FITSABORT)
       JPAR = JPAR + 1
       NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SNLC_PSF_RATIO(1), 
      &         INDXFITS_PHOT(JPAR), 9 )
-     
+
       KEYNAME  = "SKY_SIG" // char(0)
       JPAR = JPAR + 1
       NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SNLC_SKYSIG(1), 
@@ -12389,7 +12387,7 @@ c if we found an epoch, then parse info.
             CALL PARSE_PASSBAND ( cwd, istat )
             if ( istat .LT. 0 ) LNEWMJD_SAVE = .FALSE.
 
-            CALL PARSE_EPOCH ( cwd, istat )
+            CALL PARSE_EPOCH_TEXT ( cwd, istat )
             if ( istat .LT. 0 ) LNEWMJD_SAVE = .FALSE.
          ENDIF
 
@@ -12530,8 +12528,8 @@ c determine STDOUT_UPDATE logical to dump info
      &    , ISNLC_NEWMJD_FOUND
      &    , ISNLC_NEWMJD_STORE
 
-200   format(T5,' Done Reading SNLC for CID ', A16, 
-     &       2x, 'NMJD(found,stored)=', 2I4 )
+200   format(T5,' Done Reading CID ', A16, 
+     &       2x, 'NMJD(found,stored)=', I4,1x,I4 )
 
       CALL FLUSH(6)
       RETURN
@@ -13843,6 +13841,8 @@ c now check list of variable names
 
         else if ( CTMP(1:3) .EQ. 'ZPT' ) then
           ITERSE_ZPFLUX = IVAR
+        else if ( CTMP(1:3) .EQ. 'Zpt' ) then
+          ITERSE_ZPFLUX = IVAR
         else if ( CTMP(1:2) .EQ. 'ZP' ) then
           ITERSE_ZPFLUX = IVAR
         else if ( CTMP(1:6) .EQ. 'ZPFLUX' ) then
@@ -14299,7 +14299,7 @@ c ----------- BEGIN -------------
 
 
 C ==============================================
-+DECK,LDONECID.
++DECK,LDONE_CIDLIST.
       LOGICAL FUNCTION LDONE_CIDLIST()
 
 c Jun 2011:
@@ -14307,6 +14307,8 @@ c Returns TRUE if all CID in the list have been processed;
 c allows parsing function to stop early.
 c
 c May 18, 2012: return FALSE if interp-option is set
+c Jun 25, 2019: check MXEVT_PROCESS
+c
 c -----------
       IMPLICIT NONE
 
@@ -14319,6 +14321,11 @@ c -----------
 c ------------- BEGIN --------------
 
       LDONE_CIDLIST = .FALSE.  ! default
+
+      if ( N_SNLC .GE. MXEVT_PROCESS ) then
+         LDONE_CIDLIST = .TRUE.
+         RETURN
+      endif
 
 c if CUTWIN_CID is set then return FALSE
       if ( cutwin_cid(1) .GT. 0 ) RETURN
@@ -14543,8 +14550,8 @@ c ---
 
 
 C ==============================================
-+DECK,PARSE_EPOCH.
-      SUBROUTINE PARSE_EPOCH ( cwords, istat )
++DECK,PARSE_EPOCH_TEXT.
+      SUBROUTINE PARSE_EPOCH_TEXT ( cwords, istat )
 c
 c parse epoch parameters.
 c cword(1) is the keyword; 
@@ -14658,27 +14665,6 @@ c in the parsing. If Trest fails cut, SNLC8_MJD will get over-written.
             istat = ISTAT_SKIP
             return
           endif 
-      endif
-
-      if ( cwd .EQ. 'CLOUDCAM_AVG:' ) then
-          read(cwd_next,*) SNLC_CLOUDCAM_AVG(EPMIN)
-      endif
-
-      if ( cwd .EQ. 'CLOUDCAM_SIG:' ) then
-          read(cwd_next,*) SNLC_CLOUDCAM_SIG(EPMIN)
-      endif
-
-      if ( cwd .EQ. 'MOONDIST:' ) then
-         read(cwd_next,*) tmp
-          if ( tmp .GE. 0.0 ) SNLC_MOONDIST(EPMIN)=tmp
-      endif
-
-      if ( cwd .EQ. 'MOONPHASE:' ) then
-          read(cwd_next,*) SNLC_MOONPHASE(EPMIN)
-      endif
-
-      if ( cwd .EQ. 'AIRMASS:' ) then
-          read(cwd_next,*) SNLC_AIRMASS(EPMIN)
       endif
 
 c ------------- parse FILTER-BAND info
@@ -14822,9 +14808,12 @@ c apply epoch cut.
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_YPIX(EPMIN) )
         endif
 
-        if ( cwd .EQ. 'SKY_AVG:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_SKY_AVG(EPMIN) )
-        endif
+c xxxxxxxxxx mark delete Jun 23 2019 xxxxxxxxxxxx
+c        if ( cwd .EQ. 'SKY_AVG:' ) then
+c          CALL RDNFLOAT(cwords(2),NFILT,SNLC_SKY_AVG(EPMIN) )
+c        endif
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
         if ( cwd .EQ. 'SKY_SIG:' ) then
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_SKYSIG(EPMIN) )
         endif
@@ -14842,12 +14831,15 @@ c apply epoch cut.
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_PSF_RATIO(EPMIN) )
         endif
 
++SELF,IF=XXXREMOVE.
+c xxxxxxxxx mark delete Jun 24 2019 xxxxxxxxxxxxxx
         if ( cwd .EQ. 'FLUX:' ) then
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_FLUX(EPMIN))
         endif
         if ( cwd .EQ. 'FLUX_ERRTOT:' ) then
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_FLUX_ERRTOT(EPMIN))
         endif
++SELF.
 
         if ( cwd .EQ. 'ZEROPT:' ) then
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_ZEROPT(EPMIN))
@@ -14883,7 +14875,7 @@ c check for SIM stuff.
         endif
 
       RETURN
-      END  ! end of PARSE_EPOCH
+      END  ! end of PARSE_EPOCH_TEXT
 
 
 C ==============================================
@@ -16019,7 +16011,6 @@ C --------------- BEGIN ------------
       MSKOPT = MSKOPT_PARSE_WORDS_STRING
       NWD    = STORE_PARSE_WORDS(MSKOPT,LINE//char(0),100)
        
-c .xyz
       DO iwd = 1, NWD
          CALL get_PARSE_WORD_fortran(iwd,SNCCID_LIST(iwd),LL)
 c	 LL = INDEX(SNCCID_LIST(iwd),' ') - 1
@@ -16027,7 +16018,7 @@ c	 print*,' xxx SNCCID = |', SNCCID_LIST(iwd)(1:LL), '|'
       ENDDO
       
       RETURN
-      END
+      END    ! PARSE_SNCCID_LIST
 
 C ====================================================
 +DECK,PARSE_NML_STRLIST.
@@ -16739,6 +16730,10 @@ c adjust global variables that depend on NEPSKIP or EPMAX
 C ===================================
 +DECK,MOVE_SNLC_ARRAYS.
       SUBROUTINE MOVE_SNLC_ARRAYS(ep1,ep2)
+c
+c
+c Jun 25 2019: include SIM_XXX arrays
+
       IMPLICIT NONE
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
@@ -16747,44 +16742,46 @@ C ===================================
  
 C ------------- BEGIN ------------
 
-      ISNLC_IFILT_OBS(ep1) = ISNLC_IFILT_OBS(ep2)
-      SNLC8_MJD(ep1)       = SNLC8_MJD(ep2)
-
-      ISNLC_IDTEL(ep1)     = ISNLC_IDTEL(ep2)
-      ISNLC_IDFIELD(ep1)   = ISNLC_IDFIELD(ep2)
-      SNLC_FIELD(ep1)      = SNLC_FIELD(ep2)     ! Dec 1 2016
-
-      ISNLC_PHOTFLAG(ep1)    = ISNLC_PHOTFLAG(ep2)
-      SNLC_PHOTPROB(ep1)     = SNLC_PHOTPROB(ep2)
-
-      SNLC_FLUX(ep1)           = SNLC_FLUX(ep2)
-      SNLC_FLUX_ERRTOT(ep1)    = SNLC_FLUX_ERRTOT(ep2)
+      SNLC8_MJD(ep1)           = SNLC8_MJD(ep2)
+      ISNLC_IDFIELD(ep1)       = ISNLC_IDFIELD(ep2)
+      SNLC_FIELD(ep1)          = SNLC_FIELD(ep2) 
+      ISNLC_IDTEL(ep1)         = ISNLC_IDTEL(ep2)
+      ISNLC_IFILT_OBS(ep1)     = ISNLC_IFILT_OBS(ep2)
       SNLC_FLUXCAL(ep1)        = SNLC_FLUXCAL(ep2)
       SNLC_FLUXCAL_ERRTOT(ep1) = SNLC_FLUXCAL_ERRTOT(ep2)
+      ISNLC_PHOTFLAG(ep1)      = ISNLC_PHOTFLAG(ep2)
+      SNLC_PHOTPROB(ep1)       = SNLC_PHOTPROB(ep2)
+      SNLC_PSF_SIG1(ep1)       = SNLC_PSF_SIG1(ep2)
+      SNLC_PSF_SIG2(ep1)       = SNLC_PSF_SIG2(ep2)
+      SNLC_PSF_RATIO(ep1)      = SNLC_PSF_RATIO(ep2)
+      SNLC_SKYSIG(ep1)         = SNLC_SKYSIG(ep2)
+      SNLC_SKYSIG_T(ep1)       = SNLC_SKYSIG_T(ep2)
+      SNLC_RDNOISE(ep1)        = SNLC_RDNOISE(ep2)
+      SNLC_ZEROPT(ep1)         = SNLC_ZEROPT(ep2)
+      SNLC_ZEROPT_ERR(ep1)     = SNLC_ZEROPT_ERR(ep2)
+      SNLC_GAIN(ep1)           = SNLC_GAIN(ep2)
+      SNLC_XPIX(ep1)           = SNLC_XPIX(ep2)
+      SNLC_YPIX(ep1)           = SNLC_YPIX(ep2)
 
-      SNLC_MAG(ep1)          = SNLC_MAG(ep2)
-      SNLC_MAG_ERRPLUS(ep1)  = SNLC_MAG_ERRPLUS(ep2)
-      SNLC_MAG_ERRMINUS(ep1) = SNLC_MAG_ERRMINUS(ep2)
-      SNLC_ZEROPT(ep1)       = SNLC_ZEROPT(ep2)
-      SNLC_ZEROPT_ERR(ep1)   = SNLC_ZEROPT_ERR(ep2)
+c beware that CCDNUM is read from header, and also from 
+c PHOT section of TEXT format ... but not read from PHOT-FITS file
+      ISNLC_CCDNUM(EP1)        = ISNLC_CCDNUM(EP2)
 
-      SNLC_AIRMASS(ep1)      = SNLC_AIRMASS(ep2)
-      SNLC_CLOUDCAM_AVG(ep1) = SNLC_CLOUDCAM_AVG(ep2)
-      SNLC_CLOUDCAM_SIG(ep1) = SNLC_CLOUDCAM_SIG(ep2)
-      SNLC_MOONDIST(ep1)     = SNLC_MOONDIST(ep2)
-      SNLC_MOONPHASE(ep1)    = SNLC_MOONPHASE(ep2)
-      SNLC_TREST(ep1)        = SNLC_TREST(ep2)
-      SNLC_TOBS(ep1)         = SNLC_TOBS(ep2)
-      SNLC_GAIN(ep1)         = SNLC_GAIN(ep2)
-      SNLC_RDNOISE(ep1)      = SNLC_RDNOISE(ep2)
-      SNLC_XPIX(ep1)         = SNLC_XPIX(ep2)
-      SNLC_YPIX(ep1)         = SNLC_YPIX(ep2)
-      SNLC_SKY_AVG(ep1)      = SNLC_SKY_AVG(ep2)
-      SNLC_SKYSIG(ep1)       = SNLC_SKYSIG(ep2)
-      SNLC_SKYSIG_T(ep1)     = SNLC_SKYSIG_T(ep2)
-      SNLC_PSF_SIG1(ep1)     = SNLC_PSF_SIG1(ep2)
-      SNLC_PSF_SIG2(ep1)     = SNLC_PSF_SIG2(ep2)
-      SNLC_PSF_RATIO(ep1)    = SNLC_PSF_RATIO(ep2)
+      IF ( LSIM_SNANA ) THEN
+        SIM_EPMAGOBS(EP1)          = SIM_EPMAGOBS(EP2)
+        SIM_EPFLUXCAL_HOSTERR(EP1) = SIM_EPFLUXCAL_HOSTERR(EP2)
+        SIM_EPSNRMON(EP1)          = SIM_EPSNRMON(EP2)
+      ENDIF
+
+c - - - 
+      SNLC_MAG(ep1)            = SNLC_MAG(ep2)
+      SNLC_MAG_ERRPLUS(ep1)    = SNLC_MAG_ERRPLUS(ep2)
+      SNLC_MAG_ERRMINUS(ep1)   = SNLC_MAG_ERRMINUS(ep2)
+
+c xxxxxxxx mark delete June 25 2019 xxxxxxxxxxxxxxxxxxx
+c      SNLC_TREST(ep1)          = SNLC_TREST(ep2)
+c      SNLC_TOBS(ep1)           = SNLC_TOBS(ep2)
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
       RETURN
       END    ! end MOVE_SNLC_ARRAYS
@@ -16971,17 +16968,11 @@ c      print*,' xxx NCALL,NEP_RESET=', NCALL_SNANA_DRIVER, NEP_RESET
         ISNLC_IDFIELD(iep)        =  -9
 
         SNLC8_MJD(iep)           =  -9.0
-        SNLC_MOONDIST(iep)       =  179.9
-        SNLC_MOONPHASE(iep)      =  -9.0
-        SNLC_CLOUDCAM_AVG(iep)   =  -9.0
-        SNLC_CLOUDCAM_SIG(iep)   =  -9.0
-        SNLC_AIRMASS(iep)        =  -9.0
         ISNLC_NFILT_THRESH(iep)   =  -9
 
         ISNLC_PHOTFLAG(iep)  = 0 
         SNLC_PHOTPROB(iep)   = 0.0
 
-        SNLC_SKY_AVG(iep)    = 0.0
         SNLC_SKYSIG(iep)     = 0.0
         SNLC_SKYSIG_T(iep)   = 0.0  ! Mar 2018
         SNLC_PSF_SIG1(iep)   = 0.0
@@ -16991,8 +16982,6 @@ c      print*,' xxx NCALL,NEP_RESET=', NCALL_SNANA_DRIVER, NEP_RESET
         SNLC_GAIN(iep)       = 0.0
         SNLC_RDNOISE(iep)    = 0.0
 
-        SNLC_FLUX(iep)            =  0.0
-        SNLC_FLUX_ERRTOT(iep)     =  0.0
         SNLC_FLUX_NSIG(iep)       =  0.0
         SNLC_FLUXCAL_ERRCALC(iep) =  0.0
         SNLC_FLUXCAL_HOSTERRCALC(iep) = 0.0 
@@ -17204,10 +17193,8 @@ c hard-wire names of cut variables (maxchar = 28)
       cutvar_name(CUTBIT_REDSHIFT_ERR) = 'Redshift-ERROR:'
       cutvar_name(CUTBIT_PSF)          = 'PSF:'
       cutvar_name(CUTBIT_ZP)           = 'ZP:'
-      cutvar_name(CUTBIT_MOONDIST)     = 'Moon-SN sep:'
       cutvar_name(CUTBIT_PHOTPROB)     = 'PHOTPROB:'
       cutvar_name(CUTBIT_NBAND_THRESH) = 'Nband thresh:'
-      cutvar_name(CUTBIT_AIRMASS)      = 'Airmass:'
       cutvar_name(CUTBIT_MWEBV)        = 'MWEBV:'
       cutvar_name(CUTBIT_NSEASON_ACTIVE) = 'NSEASON_ACTIVE:'
       cutvar_name(CUTBIT_REQEP)        = 'REQEP_CUTFLAG:'
@@ -18177,7 +18164,7 @@ c set defaults
             USEWD(iwd) = .FALSE.
          ENDDO
  
-         DO 44 iwd = 1, NWD
+         DO 44 iwd = 1, NWD-1
 
            call get_PARSE_WORD_fortran(iwd+0, cwd0, L0)
            call get_PARSE_WORD_fortran(iwd+1, cwd1, L1)
@@ -19110,8 +19097,11 @@ c determine redshift for Hubble diagram (Oct 2013)
       CALL REDSHIFT_HD()
 
 +SELF,IF=SNANA,SNFIT.
-c get approx peakMJD
-      CALL SET_PEAKMJD()
+c get approx peakMJD    
+      if ( OPT_SETPKMJD > 0 ) THEN
+         CALL SET_PEAKMJD()
+         CALL SELECT_EPOCHS_CUTWIN_TREST()
+      endif
 +SELF.
 
 c -----------------------------------------------
@@ -19151,7 +19141,6 @@ c Useful as initial value for fits.
 
 c fill ISNLC_NFIELD with number of fields; 
       CALL COUNTFIELDS()
-
 
 c = = = = = = = = = = = = = = = = = = = = = = = = = = = = 
 c = = = = = = = = START LOOP OVER EPOCHS = = = = = = = = 
@@ -20517,8 +20506,6 @@ C -------- BEGIN -------
           LTMP = IFILT_OBS .EQ. ISNLC_IFILT_OBS(ep)
 
           IF ( LTMP ) THEN
-            SNLC_FLUX(ep)           = -9.0
-            SNLC_FLUX_ERRTOT(ep)    = -9.0
             SNLC_FLUXCAL(ep)        = -9.0
             SNLC_FLUXCAL_ERRTOT(ep) = -9.0
             SNLC_MAG(ep)        = -9.0
@@ -21652,7 +21639,6 @@ c strip off observing conditions into local variables.
       ifilt_obs  = ISNLC_IFILT_OBS(iepoch)
       IFILT      = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
 
-      SKY_AVG_ADU   = SNLC_SKY_AVG(iepoch)  ! sky-level, ADU/pix
       SKY_SIG_ADU   = SNLC_SKYSIG(iepoch)   ! search sky-sigma, ADU/pix
       SKY_SIG2_ADU  = max(0.0,SNLC_SKYSIG_T(iepoch))   ! idem for template
       PSFSIG1       = SNLC_PSF_SIG1(iepoch)    ! Gauss sigma, pixel
@@ -21677,6 +21663,7 @@ c check a few things.
         RDNOISE_ADU  = RDNOISE_pe/GAIN     ! translate RDNOISE from e- to ADU
         SKY_AVG_ADU  = GAIN * (SKY_SIGTOT_ADU**2) ! needed to scale host noise
       ELSE
+        SKY_AVG_ADU  = 0.0
         RDNOISE_ADU  = 0.0
       ENDIF
 
@@ -22693,16 +22680,11 @@ c Dec 18 2017: replace cloudAVG with PSF cut. Note that cut is in ARCSEC
          SNEP_CUTVAR(CUTBIT_ZP,imjd) = 
      &       SNLC_ZEROPT_forCUT(EPMIN) 
 
-         SNEP_CUTVAR(CUTBIT_MOONDIST,imjd)  = 
-     &       SNLC_MOONDIST(EPMIN)
          SNEP_CUTVAR(CUTBIT_PHOTPROB,imjd)  = 
      &       SNLC_PHOTPROB(EPMIN)
 
          SNEP_CUTVAR(CUTBIT_NBAND_THRESH,imjd)  = 
      &       ISNLC_NFILT_THRESH(IMJD)
-
-         SNEP_CUTVAR(CUTBIT_AIRMASS,imjd)  = 
-     &       SNLC_AIRMASS(EPMIN)
 
          SNEP_CUTVAR(CUTBIT_TREST,imjd)  = 
      &       SNLC_TREST(EPMIN)
@@ -25286,11 +25268,10 @@ cc      ENDIF
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_COLORLAW,  VARLIST, 1,
      &                   LENBLOCK, LENLIST)
 
-c xxxxxxxxxx
-c      VARLIST = 'SIM_SNMAGSHIFT_HOSTCOR:F' // char(0)  ! SIM_gamma
-c      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SNMAGSHIFT_HOSTCOR,VARLIST,0,
-c     &                   LENBLOCK, LENLIST)
-c xxxxxxxxxx
+c Jun 25 2019: add SIM_SNMAGSHIFT_HOSTCOR, but not in TEXT file until later.
+      VARLIST = 'SIM_SNMAGSHIFT_HOSTCOR:F' // char(0)  ! related to SIM_gamma
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SNMAGSHIFT_HOSTCOR,VARLIST,0,
+     &                   LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_x0:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2x0,  VARLIST, 1,
@@ -35470,6 +35451,105 @@ C ==============================
 
 C utility to fit for the peak-MJD.
 C ==============================
+
+
+C ================================================
++DECK,SELECTEP_TREST.
+      SUBROUTINE SELECT_EPOCHS_CUTWIN_TREST()
+
+c Created Jun 23 2019
+c
+c Called if OPT_SETPKMJD>0 so that Trest cuts are applied here
+c to select smaller set of epochs. Note that if OPT_SETPKMJD>0,
+c TREST cuts CANNOT be applied in the read-stage.
+c This function greatly reduces loop sizes for fitting, and helps 
+c prevent array bound overflows if fit-epoch arrays are smaller 
+c than the total array storage.
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,SNANAFIT.
++CDE,PKMJDCOM.
+
+      REAL*8  MJD8, MJD8_LAST
+      INTEGER NMJD_STORE_NEW, NMJD_STORE_ORIG, NEWMJD
+      INTEGER EPMIN, EPMAX, ep_orig, ep_new, IMJD
+      REAL MJD, TOBS, TREST, z1, z
+      LOGICAL LPASS
+      CHARACTER FNAM*28
+
+c ------------------- BEGIN -------------------
+
+      FNAM = 'SELECT_EPOCHS_CUTWIN_TREST'  		     
+      NMJD_STORE_NEW  = 0
+      NMJD_STORE_ORIG = ISNLC_NEWMJD_STORE
+      EP_NEW          = 0 
+      MJD8_LAST       = -9.0
+
+
+      z    = SNLC_REDSHIFT
+      if ( z > 0.0 ) then
+         z1 = 1.0  + z
+      else
+         z1 = 1.0  ! in case Z = -9 is undefined; Trest -> Tobs
+      endif
+
+
+      DO 101 NEWMJD = 1, ISNLC_NEWMJD_STORE
+         EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
+         EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
+
+  	 MJD8  = SNLC8_MJD(EPMIN) 
+         MJD   = SNGL(MJD8)
+	 TOBS  = MJD - SNLC_SEARCH_PEAKMJD
+	 TREST = TOBS/z1
+         LPASS = TREST >= CUTWIN_TREST(1) .and. 
+     &           TREST <= CUTWIN_TREST(2)
+
+          IF ( LPASS ) THEN
+            NMJD_STORE_NEW = NMJD_STORE_NEW + 1
+            IMJD = NMJD_STORE_NEW
+            ISNLC_NFILT_NEWMJD(IMJD) = ISNLC_NFILT_NEWMJD(NEWMJD)
+          ENDIF
+
+	  if ( .NOT. LPASS ) goto 101
+
+	DO 102 EP_ORIG = EPMIN, EPMAX
+	
+         EP_NEW = EP_NEW + 1
+
+         MJD8  = SNLC8_MJD(EP_ORIG)
+	 if ( MJD8 > MJD8_LAST ) then
+	    if ( EP_ORIG == EPMIN ) then
+              ISNLC_EPOCH_RANGE_NEWMJD(1,IMJD) = EP_NEW
+	    endif
+              ISNLC_EPOCH_RANGE_NEWMJD(2,IMJD) = EP_NEW
+	 endif
+         MJD8_LAST = MJD8          
+
+         if ( EP_NEW > EP_ORIG ) then
+	    print*, ' '
+	    print*, ' PRE-ABORT DUMP: '
+            print*,'    EPMIN, EPMAX = ', EPMIN, EPMAX
+            print*,'    NEWMJD(ORIG,NEW) = ', NEWMJD, IMJD
+            write(c1err,61) EP_NEW, EP_ORIG
+61          format('Invalid EP_NEW=',I4, ' > EP_ORIG=',I4)
+	    c2err = 'Something is messed up.'
+            CALL MADABORT(FNAM, c1err, c2err)
+	 endif
+
+         CALL MOVE_SNLC_ARRAYS(EP_NEW,EP_ORIG)
+
+102     CONTINUE
+101     CONTINUE
+
+      ISNLC_NEWMJD_STORE = NMJD_STORE_NEW
+
+      RETURN
+      END    ! end SELECT_EPOCHS_CUTWIN_TREST
 
 
 C ====================================

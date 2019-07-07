@@ -39,7 +39,7 @@
 
 #include "sndata.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_73f"                                                  
+#define  SNANA_VERSION_CURRENT  "v10_73h"                                                    
 
 #define LIGHT_km  2.99792458e5      // speed of light (km/s) 
 #define LIGHT_A   2.99792458e18     // speed of light (A/s) 
@@ -590,6 +590,7 @@ void splitString(char *string, char *sep, int MXsplit,
 		 int *Nsplit, char **ptrSplit);
 void splitString2(char *string, char *sep, int MXsplit,
 		  int *Nsplit, char **ptrSplit) ;
+void split2floats(char *string, char *sep, float *fval) ;
 
 void remove_quote(char *string);
 void extractStringOpt ( char *string, char *stringOpt) ;

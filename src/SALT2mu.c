@@ -1,5 +1,4 @@
 /*******************************************
-
 Created by J. Marriner.
 Installed into snana v8_38, January 2010.
 
@@ -616,6 +615,8 @@ Default output files (can change names with "prefix" argument)
      Found and fixed a few inconsistencies:
        CCprior : was missing cuts on bad LC fit errors and bad COV.
        BiasCor : for sigma_int calc, global z-cut was removed.
+
+ Jun 22 2019: fix bug using varname_pIa as CUTWIN
 
 ******************************************************/
 
@@ -4859,7 +4860,8 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->vpec          = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->vpecerr       = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->snrmax        = (float *) malloc(MEMF); MEMTOT+=MEMF;
-    
+    TABLEVAR->pIa           = (float *) malloc(MEMF); MEMTOT+=MEMF; 
+
     TABLEVAR->IDSURVEY      = (short int *) malloc(MEMS); MEMTOT+=MEMS;
     TABLEVAR->IDSAMPLE      = (short int *) malloc(MEMS); MEMTOT+=MEMS;
     TABLEVAR->SNTYPE        = (short int *) malloc(MEMS); MEMTOT+=MEMS;
@@ -4870,7 +4872,6 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->ICUTWIN_GAMMA = -9 ;
     for(i=0; i < INPUTS.NCUTWIN; i++ ) 
       { MEMTOT += malloc_TABLEVAR_CUTVAL(LEN_MALLOC,i, TABLEVAR ); }
-    //   TABLEVAR->CUTVAL[i] = (float *) malloc(MEMF); MEMTOT+=MEMF; 
   
     TABLEVAR->SIM_NONIA_INDEX  = (short int *) malloc(MEMS); MEMTOT+=MEMS;
     TABLEVAR->SIM_ZCMB         = (float *) malloc(MEMF); MEMTOT+=MEMF;
@@ -4881,9 +4882,8 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->SIM_X0           = (float *) malloc(MEMF); MEMTOT+=MEMF;
     for(i=0; i<NLCPAR; i++ ) 
       { TABLEVAR->SIM_FITPAR[i] = (float *) malloc(MEMF); MEMTOT+=MEMF; } 
- 
+
     if ( IS_DATA ) {
-      TABLEVAR->pIa           = (float *) malloc(MEMF); MEMTOT+=MEMF;      
       TABLEVAR->mumodel       = (float *) malloc(MEMF); MEMTOT+=MEMF;
     }
 
@@ -4935,7 +4935,9 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     free(TABLEVAR->IZBIN);
     free(TABLEVAR->CUTMASK);
 
-    for(i=0; i < INPUTS.NCUTWIN; i++ ) { free(TABLEVAR->CUTVAL[i]); }
+    for(i=0; i < INPUTS.NCUTWIN; i++ ) { 
+      if ( INPUTS.CUTWIN_RDFLAG[i] ) { free(TABLEVAR->CUTVAL[i]); }
+    }
 
     free(TABLEVAR->SIM_NONIA_INDEX);
     free(TABLEVAR->SIM_ZCMB);
@@ -4947,8 +4949,8 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
 
     for(i=0; i<NLCPAR; i++ ) { free(TABLEVAR->SIM_FITPAR[i]); }
 
+    free(TABLEVAR->pIa);
     if ( IS_DATA ) {
-      free(TABLEVAR->pIa);
       free(TABLEVAR->mumodel);
     }
 
@@ -4973,7 +4975,6 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
 
   INPUTS.CUTWIN_RDFLAG[icut] = 0;
 
-
   if ( strcmp(CUTNAME,"x0") == 0 )
     { TABLEVAR->CUTVAL[icut] = TABLEVAR->x0; }
 
@@ -4994,6 +4995,9 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
   else if ( strcmp(CUTNAME,"zERR") == 0 )
     { TABLEVAR->CUTVAL[icut] = TABLEVAR->zhderr; }
 
+  else if ( strcmp(CUTNAME,INPUTS.varname_pIa) == 0 )
+    { TABLEVAR->CUTVAL[icut] = TABLEVAR->pIa; }
+
   // IDSURVEY and SNTYPE are int ??
 
   else {
@@ -5002,8 +5006,6 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
     if ( strcmp(CUTNAME,INPUTS.varname_gamma) == 0 ) 
       { TABLEVAR->ICUTWIN_GAMMA = icut;       }
   }
-
-
 
 
   return(MEMTOT) ;
@@ -5149,7 +5151,7 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
   int USE_FIELDGROUP  = ( INPUTS.use_fieldGroup_biasCor > 0 ) ;
   int IDEAL           = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
 
-  int  icut, ivar, ivar2, irow, id ;
+  int  icut, ivar, ivar2, irow, id, RDFLAG ;
   char vartmp[60], *cutname, str_z[40], str_zerr[40]; 
 
   char fnam[] = "SNTABLE_READPREP_TABLEVAR" ;
@@ -5302,20 +5304,21 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->COV_x1c[ISTART], 
 			  LEN, VBOSE );
 
-  if ( IS_DATA ) {
-    sprintf(vartmp,"%s:F", INPUTS.varname_pIa);
-    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->pIa[ISTART], 
-			    LEN, VBOSE );
-  }
-
+  sprintf(vartmp,"%s:F", INPUTS.varname_pIa);
+  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->pIa[ISTART], 
+			  LEN, VBOSE );
 
   //read CUTWIN variables 
   for(icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
     cutname = INPUTS.CUTWIN_NAME[icut]; 
+    RDFLAG  = INPUTS.CUTWIN_RDFLAG[icut] ;
     sprintf(vartmp, "%s:F", cutname );
     if ( !usesim_CUTWIN(vartmp)  ) { continue ; }
-    ivar = SNTABLE_READPREP_VARDEF(vartmp,&TABLEVAR->CUTVAL[icut][ISTART], 
-				   LEN, VBOSE );
+
+    if ( RDFLAG ) {
+      ivar = SNTABLE_READPREP_VARDEF(vartmp,&TABLEVAR->CUTVAL[icut][ISTART], 
+				     LEN, VBOSE );
+    }
     TABLEVAR->DOFLAG_CUTWIN[icut] = set_DOFLAG_CUTWIN(ivar,icut,IS_DATA);
 
     /* xxx mark delete (moved to malloc function)
@@ -11099,13 +11102,6 @@ void prepare_CCprior(void) {
   }
 #endif
 
-  // xxxxxxxxxx
-  printf(" xxx %s: DOCOR_1D=%d  USEH11=%d  nfile=%d \n",
-	 fnam, DOCOR_1D, INFO_CCPRIOR.USEH11, INPUTS.nfile_CCprior );
-  fflush(stdout);
-  // xxxxxxxxxx
-
-
   if ( INPUTS.nfile_CCprior == 0 ) { return; }
 
   if ( DOCOR_1D ) {
@@ -12109,7 +12105,8 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   //   isn        -> SN index
   //   event_type -> data, biasCor or CCprior
   //
-
+  // Jun 25 2019: fux bug setting CUTBIT_IDSAMPLE for IS_BIASCOR
+  //
   int event_type = TABLEVAR->EVENT_TYPE;
   int IS_DATA    = ( event_type == EVENT_TYPE_DATA );
   int IS_BIASCOR = ( event_type == EVENT_TYPE_BIASCOR );
@@ -12131,7 +12128,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
   // strip off local variables
 
-  for ( icut=0; icut < INPUTS.NCUTWIN; icut++ ) { 
+  for ( icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
     DOFLAG_CUTWIN[icut] = (int)TABLEVAR->DOFLAG_CUTWIN[icut];
     cutvar_local[icut]  = (double)TABLEVAR->CUTVAL[icut][isn] ; 
   }
@@ -12214,11 +12211,11 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   }
 
    
+  int CUT_IDSAMPLE=0;
   if ( idsample >= 0 ) {
-    if (  SAMPLE_BIASCOR[idsample].DOFLAG_SELECT == 0 ) 
-      { setbit_CUTMASK(isn, CUTBIT_IDSAMPLE, TABLEVAR ); }
+    if (  SAMPLE_BIASCOR[idsample].DOFLAG_SELECT == 0 ) { CUT_IDSAMPLE = 1;}
   }
-
+  if ( CUT_IDSAMPLE ) { setbit_CUTMASK(isn, CUTBIT_IDSAMPLE, TABLEVAR ); }
 
   
   // - - - - - - - - - - - - - - - - - 
@@ -12246,12 +12243,11 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
       { setbit_CUTMASK(isn, CUTBIT_SIMPS, TABLEVAR); }
 
   }
-  else if ( IS_BIASCOR && idsample >= 0 ) { 
+  else if ( IS_BIASCOR ) { 
     
     if ( SIM_NONIA_INDEX != 0 ) 
       { setbit_CUTMASK(isn, CUTBIT_TRUESNIa, TABLEVAR); }
-    
-    
+        
     if ( idsample < 0 )
       { setbit_CUTMASK(isn, CUTBIT_IDSAMPLE, TABLEVAR); }
 
@@ -12336,7 +12332,7 @@ int prescale_reject_simData(int SIM_NONIA_INDEX) {
   // Do not use this function for biasCor or CCprior.
 
   int REJECT = 0 ;
-  float XN, XNPS ;
+  float XN, XNPS;
   char fnam[] = "prescale_reject_simData" ;
 
   // ------------- BEGIN -----------------
@@ -12344,7 +12340,8 @@ int prescale_reject_simData(int SIM_NONIA_INDEX) {
   // return accept for real data
   if ( FOUNDKEY_SIM == 0 ) { return(REJECT); }
 
-  // increment NSIMDATA counter
+  // increment NSIMDATA counter.
+  // Niotew that prescale_simData can be non-integer
   NSIMDATA++ ;
   XN    = (float)NSIMDATA ;
   XNPS  = (float)INPUTS.prescale_simData ;
@@ -17516,7 +17513,8 @@ void set_CUTMASK_legacy(int isn, int event_type) {
     if ( prescale_reject_simData(SIM_NONIA_INDEX) ) 
       { setbit_CUTMASK_legacy(isn, CUTBIT_SIMPS, event_type); }
   }
-  else if ( IS_BIASCOR && idsample >= 0 ) { 
+  //  else if ( IS_BIASCOR && idsample >= 0 ) { 
+  else if ( IS_BIASCOR  ) { 
 
     if ( SIM_NONIA_INDEX != 0 ) 
       { setbit_CUTMASK_legacy(isn, CUTBIT_TRUESNIa, event_type); }

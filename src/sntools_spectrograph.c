@@ -878,7 +878,6 @@ void read_spectrograph_fits(char *inFile) {
     LASTBIN=LBIN; 
   }
 
-  // xxx INPUTS_SPECTRO.FORMAT_MASK = 1; // xxxx REMOVE
 
   // set global min & max
   INPUTS_SPECTRO.LAM_MIN = INPUTS_SPECTRO.LAMMIN_LIST[0] ;

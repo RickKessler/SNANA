@@ -38,6 +38,7 @@
 #define HOSTLIB_MSKOPT_DEBUG       512 // fix a=2, b=1, rotang=0 
 #define HOSTLIB_MSKOPT_DUMP       1024 // screen-dump for each host 
 
+
 #define HOSTLIB_1DINDEX_ID 10    // ID for 1DINDEX transformations
 
 #define MXCHAR_LINE_HOSTLIB 400  // max number of chars per HOSTLIB line
@@ -284,6 +285,7 @@ struct HOSTLIB_WGTMAP_DEF {
   double *WGTSUM ;      // cumulative sum of weights over entire HOSTLIB
   double *WGT ;         // wgt for each hostlib entry
   double *SNMAGSHIFT ;  // SN mag shift at for each hostlib entry
+  int  USE_SALT2GAMMA_GRID;
 
   // define  arrays to store list of GALIDs to check wgtmap interpolation
   int      NCHECKLIST ;
@@ -380,6 +382,28 @@ struct SNTABLEVAR_DEF {
 } HOSTLIB_OUTVAR_EXTRA ;
 
 
+// Jun 27 2019; define structed used to determine host spectrum
+#define MXSPECBASIS_HOSTLIB 20  // max number of spectral templates
+#define MXBIN_SPECBASIS  20000  // max number of wave bins
+#define PREFIX_SPECBASIS "specbasis"    // e.g., specbasis00, specbasis01, ...
+#define PREFIX_SPECBASIS_HOSTLIB "coeff_"      // extra prefix for HOSTLIB
+
+struct {
+  int  NSPECBASIS ; 
+  int  NBIN_WAVE;  // number of wavelength bins
+  int  ICOL_WAVE;  // table column with wavelength
+  int  ICOL_SPECBASIS[MXSPECBASIS_HOSTLIB]; // colum for each template
+  int  NUM_SPECBASIS[MXSPECBASIS_HOSTLIB];  // number for each template
+  char VARNAME_SPECBASIS[MXSPECBASIS_HOSTLIB][28];
+
+  int  IVAR_HOSTLIB[MXSPECBASIS_HOSTLIB]; // identified HOSTLIB ivar with coeff
+
+  double  FLAM_SCALE ;
+  double *WAVE, *WAVE_BINSIZE ;
+  double *FLAM[MXSPECBASIS_HOSTLIB];
+} HOSTSPEC ;
+
+
 time_t TIME_INIT_HOSTLIB[2];
 
 // =====================================
@@ -410,14 +434,14 @@ void   init_OPTIONAL_HOSTVAR(void) ;
 void   init_REQUIRED_HOSTVAR(void) ;
 int    load_VARNAME_STORE(char *varName) ;
 void   open_HOSTLIB(FILE **fp);
-void   rdwgtmap_HOSTLIB(void);
+void   read_wgtmap_HOSTLIB(void);
 void   parse_WGTMAP_HOSTLIB(FILE *fp, char *string);
 void   parse_WGTMAP_HOSTLIB_LEGACY(FILE *fp, char *string);
 void   parse_Sersic_n_fixed(FILE *fp, char *string); 
-void   rdhead_HOSTLIB(FILE *fp);
+void   read_head_HOSTLIB(FILE *fp);
 void   checkAlternateVarNames(char *varName) ;
-void   rdgal_HOSTLIB(FILE *fp);
-void   rdgalRow_HOSTLIB(FILE *fp, int nval, double *values, char *field );
+void   read_gal_HOSTLIB(FILE *fp);
+void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, char *field );
 void   summary_snpar_HOSTLIB(void) ;
 void   malloc_HOSTLIB(int NGAL);
 void   sortz_HOSTLIB(void);
@@ -443,6 +467,7 @@ void   copy_VARNAMES_zHOST_to_HOSTLIB_STOREPAR(void);
 void   readme_HOSTLIB(void);
 void   check_duplicate_GALID(void);
 int    IVAR_HOSTLIB(char *varname, int ABORTFLAG);
+
 long long get_GALID_HOSTLIB(int igal);
 double get_ZTRUE_HOSTLIB(int igal);
 double get_GALFLUX_HOSTLIB(double a, double b);
@@ -459,5 +484,14 @@ void zphoterr_asym(double ZTRUE, double ZPHOTERR,
 		   GENGAUSS_ASYM_DEF *asymGaussPar );
 
 void GEN_SNHOST_ZPHOT_from_HOSTLIB(int IGAL, double *ZPHOT, double *ZPHOT_ERR); 
+double snmagshift_salt2gamma_HOSTLIB(int GALID);
+
+// SPECBASIS functions
+void   read_specbasis_HOSTLIB(void);
+void   match_specbasis_HOSTVAR(void);
+void   checkVarName_specbasis(char *varName);
+int    ICOL_SPECBASIS(char *varname, int ABORTFLAG) ;
+void   genSpec_HOSTLIB(double zhel, double MWEBV,
+		       double *GENFLUX_LIST, double *GENMAG_LIST);
 
 // END

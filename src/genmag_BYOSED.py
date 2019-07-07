@@ -1,4 +1,4 @@
-import numpy as np  
+import numpy as np	
 import os,six,abc
 import optparse
 import configparser
@@ -52,9 +52,8 @@ class genmag_BYOSED:
 			self.options = options
 
 			self.warp_effects=self.fetchParNames_CONFIG(config)
-
+		
 			self.sn_effects,self.host_effects=self.fetchWarp_BYOSED(config)
-
 
 			phase,wave,flux = np.loadtxt(os.path.join(self.PATH_VERSION,self.options.sed_file),unpack=True)
 
@@ -68,7 +67,7 @@ class genmag_BYOSED:
 			self.wavelen = len(self.wave)
 
 			self.sedInterp=interp2d(self.phase,self.wave,self.flux.T,kind='linear',bounds_error=True)
-
+			print(self.warp_effects)
 	
 			return
 		
@@ -147,22 +146,21 @@ class genmag_BYOSED:
 												warp_parameter=warp_parameter,
 												warp_distribution=distribution,
 												name=warp)
-								
+
 				return(sn_dict,host_dict)
 		
 
 		#def updateWarping_Params(self):
-		#       for warp in self.warp_effects:
-		#           if warp in sn_effects.keys():
-		#               self.sn_effects[warp].update(warp_parameter
-		#       return self
+		#		for warp in self.warp_effects:
+		#			if warp in sn_effects.keys():
+		#				self.sn_effects[warp].update(warp_parameter
+		#		return self
 						
 				
 		def fetchSED_NLAM(self):
 				return self.wavelen
 
 		def fetchSED_LAM(self):
-
 				return list(self.wave)
 		
 
@@ -170,6 +168,7 @@ class genmag_BYOSED:
 				if len(self.wave)>maxlam:
 						raise RuntimeError("Your wavelength array cannot be larger than %i but is %i"%(maxlam,len(self.wave)))
 				#iPhase = np.where(np.abs(trest-self.phase) == np.min(np.abs(trest-self.phase)))[0][0]
+
 				if self.sn_id is None:
 						self.sn_id=external_id
 				fluxsmear=self.sedInterp(trest,self.wave).flatten()
@@ -177,8 +176,9 @@ class genmag_BYOSED:
 				if self.options.magsmear!=0.0:
 						fluxsmear *= 10**(0.4*(np.random.normal(0,self.options.magsmear)))
 				trest_arr=trest*np.ones(len(self.wave))
+
 				for warp in [x for x in self.warp_effects if x!='COLOR']:
-					if True:
+					try: #if True:
 						if external_id!=self.sn_id:
 							if warp in self.sn_effects.keys():
 								self.sn_effects[warp].updateWarp_Param()
@@ -213,8 +213,8 @@ class genmag_BYOSED:
 									temp_warp_param=self.host_effects[warp].warp_parameter
 
 						fluxsmear+=temp_warp_param*product*self.x0
-					#except:
-						#import pdb; pdb.set_trace()
+					except:
+						import pdb; pdb.set_trace()
 
 				if 'COLOR' in self.warp_effects:
 						if external_id!=self.sn_id:
@@ -228,7 +228,7 @@ class genmag_BYOSED:
 				return list(fluxsmear) 
 				
 		def fetchParNames_BYOSED(self):
-				return self.warp_effects
+				return list(self.warp_effects)
 
 		def fetchNParNames_BYOSED(self):
 				return len(self.warp_effects)
@@ -357,7 +357,7 @@ class warpModel(object):
 		parameter_lines = [self._headsummary(), 'parameters:']
 		if len(self._param_names) > 0:
 			m = max(map(len, self._param_names))
-			extralines = ['  ' + k.ljust(m) + ' = ' + repr(v)
+			extralines = ['	 ' + k.ljust(m) + ' = ' + repr(v)
 						  for k, v in zip(self._param_names, self._parameters)]
 			parameter_lines.extend(extralines)
 		return '\n'.join(parameter_lines)
@@ -400,7 +400,7 @@ def _get_distribution(name,dist_dat,path):
 	return(_skewed_normal(name,dist_dat))
 
 def _meshgrid2(*arrs):
-	arrs = tuple(arrs)  #edit
+	arrs = tuple(arrs)	#edit
 	lens = list(map(len, arrs))
 	dim = len(arrs)
 
@@ -408,7 +408,7 @@ def _meshgrid2(*arrs):
 	for s in lens:
 		sz*=s
 
-	ans = []    
+	ans = []	
 	for i, arr in enumerate(arrs):
 		slc = [1]*dim
 		slc[i] = lens[i]
@@ -435,7 +435,7 @@ def _generate_ND_grids(func,filename=None,colnames=None,*arrs):
 	return(gridded)
 	
 	
-def _read_ND_grids(filename,scale_factor=1.):   
+def _read_ND_grids(filename,scale_factor=1.):	
 	with open(filename,'r') as f:
 		temp=f.readline()
 		
@@ -471,6 +471,7 @@ def main():
 
 		#print(mySED.fetchParNames_BYOSED())
 		#mySED.fetchSED_BYOSED(0,5000,3,2,[2.5,1,1,.5])
+
 
 		#plt.plot(mySED.wave,mySED.sedInterp(0,mySED.wave)/mySED.x0)
 		#f=mySED.sedInterp(0,mySED.wave).flatten()/mySED.x0

@@ -88,7 +88,7 @@ def plot_spec(cid,bin_size,base_name):
 	if len(np.unique(sn['tobs']))>1:
 		figs=[]
 		m=0
-		for nfig in range(math.ceil(len(np.unique(sn['tobs']))/4.)):
+		for nfig in range(int(math.ceil(len(np.unique(sn['tobs']))/4.))):
 			fig,ax=plt.subplots(nrows=min(len(np.unique(sn['tobs'])),4),ncols=1,figsize=(8,8),sharex=True)
 			ax[0].set_title('SN%s'%cid[0],fontsize=16)
 			for j in range(min(len(np.unique(sn['tobs']))[m:],4)):
@@ -169,12 +169,11 @@ def plot_lc(cid,base_name):
                         [x for x in np.unique(sn['filter']) if x not in __band_order__])
 	
 	j=0
-	for nfig in range(math.ceil(rows/4.)): 
-		fig,ax=plt.subplots(nrows=min(rows,4),ncols=1,figsize=(8,8),sharex=True)
+	for nfig in range(int(math.ceil(rows/4.))): 
+		fig,ax=plt.subplots(nrows=min(len(all_bands[j:]),4),ncols=1,figsize=(8,8),sharex=True)
 		ax[0].set_title('SN%s'%cid[0],fontsize=16)
 		
 		for i in range(min(len(all_bands[j:]),4)):
-
 			temp_sn={k:sn[k][np.where(sn['filter']==all_bands[j])[0]] for k in sn.keys()}
 			chi2=np.mean(temp_sn['chi2'])
 			if chi2>0:
@@ -224,6 +223,7 @@ def main():
 	parser.add_option("-i",help='CID(s) as comma separated list',action="store",type="string",dest="CID",default="None")
 	parser.add_option("-b",help='Bin size for spectral plotting',action="store",type="float",dest='bin_size',default=0)
 	parser.add_option("-v",help='Version',action="store",type='string',dest='version',default=None)
+	parser.add_option("--silent",help="Do not print anything",action="store_true",dest="silent",default=False)
 	#parser.add_option("--help",action="store_true",dest='help',default=False)
 	(options,args)=parser.parse_args()
 	
@@ -241,6 +241,8 @@ def main():
 		num+=1
 	with PdfPages(filename) as pdf:
 		for cid in options.CID:
+			if not options.silent:
+				print("Plotting SN %s"%cid)
 			if options.spec:
 				figs=plot_spec([cid],options.bin_size,options.base_name)
 				for f in figs:
@@ -260,6 +262,8 @@ def main():
 	if not options.noclean:
 		for x in glob.glob(options.base_name+'*'):
 			os.remove(x)
+	if not options.silent:
+		print('Done.')
 
 if __name__=='__main__':
 	main()

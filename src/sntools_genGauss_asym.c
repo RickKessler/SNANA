@@ -13,7 +13,6 @@
 #include <gsl/gsl_spline.h>
 
 #include "sntools.h"
-// xxx mark delete Jun 2018 #include "snlc_sim.h" // GENGAUSS_ASYM struct defined here
 #include "sntools_genGauss_asym.h"
 #include "skewNormal.c"
 

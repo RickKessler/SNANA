@@ -122,6 +122,8 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   // OUTPUT:
   //   OBS_atFLUXMAX:  obs-index for max flux in each filter band
   //
+  // Jul 2 2019: fix bug computing MJDMIN/MAX to work with unsorted MJD_LIST.
+  //
 
   int    OPTMASK         = INPUTS_OBS_atFLUXMAX.OPTMASK ;
   if ( OPTMASK == 0 ) { return ; }
@@ -130,8 +132,6 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   double SNRCUT_USER     = INPUTS_OBS_atFLUXMAX.SNRCUT ;
   double SNRCUT_BACKUP   = INPUTS_OBS_atFLUXMAX.SNRCUT_BACKUP;
   double MJDSTEP_SNRCUT  = 10.0 ; // hard wired param
-  double MJDMIN          = MJD_LIST[0];
-  double MJDMAX          = MJD_LIST[NOBS-1];
 
   int USE_MJDatFLUXMAX  = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX );
   int USE_MJDatFLUXMAX2 = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2);
@@ -140,13 +140,11 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   int IFILTOBS, o, omin, omax, omin2, omax2, NOTHING ;
   int MALLOC=0 ;
   double SNR, SNRCUT, SNRMAX, FLUXMAX[MXFILTINDX] ;
-  double MJD, FLUX, FLUXERR;
+  double MJD, MJDMIN, MJDMAX, FLUX, FLUXERR;
 
   int   *NSNRCUT;      // Number of obs in each 10-day window
   int   *oMIN_SNRCUT, *oMAX_SNRCUT ;
-  int    NWIN_COMBINE = (int)(MJDWIN_USER/MJDSTEP_SNRCUT + 0.01) ;
-  int    MXWIN_SNRCUT = (int)((MJDMAX-MJDMIN)/MJDSTEP_SNRCUT)+1 ;
-  int    MEMI         = sizeof(int) * MXWIN_SNRCUT ;
+  int    NWIN_COMBINE, MXWIN_SNRCUT, MEMI;
   int    LDMP = 0; // t(strcmp(CCID,"3530")==0 ) ;
   char fnam[] = "get_obs_atFLUXMAX" ;
 
@@ -156,6 +154,20 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   omin2  = omax2 = -9 ;
   NSNRCUT_MAXSUM = 0 ;
   USE_BACKUP_SNRCUT = 0;
+
+  // find MJDMIN,MAX (obs may not be time-ordered)
+  MJDMIN = +999999.0 ;
+  MJDMAX = -999999.0 ;
+  for(o=0; o < NOBS; o++ ) {
+    MJD = MJD_LIST[o];
+    if ( MJD < MJDMIN ) { MJDMIN = MJD; }
+    if ( MJD > MJDMAX ) { MJDMAX = MJD; }
+  }
+
+
+  NWIN_COMBINE = (int)(MJDWIN_USER/MJDSTEP_SNRCUT + 0.01) ;
+  MXWIN_SNRCUT = (int)((MJDMAX-MJDMIN)/MJDSTEP_SNRCUT)+1 ;
+  MEMI         = sizeof(int) * MXWIN_SNRCUT ;
 
  START:
 
@@ -172,7 +184,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   }
   else if ( USE_MJDatFLUXMAX2 ) {
     NITER   = 2 ;
-    MJDMIN  = MJD_LIST[0];
+    // xxx makr delete    MJDMIN  = MJD_LIST[0];
     IMJDMAX = 0;
     SNRCUT  = SNRCUT_USER;
     if ( USE_BACKUP_SNRCUT ) { SNRCUT = SNRCUT_BACKUP; }
@@ -223,7 +235,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     if ( LDMP ) {
       printf(" xxx ITER=%d : omin,omax=%3d-%3d   MJDWIN=%.1f-%.1f"
 	     " SNRCUT=%.1f \n", 
-	     ITER,omin,omax, MJD_LIST[omin], MJD_LIST[omax], SNRCUT ); 
+	     ITER,omin,omax, MJDMIN, MJDMAX, SNRCUT ); 
       fflush(stdout);
     }
 
@@ -3951,6 +3963,46 @@ void splitString2(char *string, char *sep, int MXsplit,
 
 }  // end of splitString2
 
+void split2floats(char *string, char *sep, float *fval) {
+
+  // Created Jun 26 2019
+  // for *string = 'xxx[sep]yyy,
+  // returns fval[0]=xxx and fval[1]=yyy.
+  // Example:
+  //   Input string   = 1.3,4.6
+  //   Output fval[0] = 1.3
+  //   Output fval[1] = 4.6
+  //
+  // Example:
+  //   Input string   =  1.3
+  //   Output fval[0] =  1.3
+  //   Output fval[1] =  1.3
+  //
+  int Nsplit ;
+  char cnum[2][40], *cptr[2];  cptr[0]=cnum[0]; cptr[1]=cnum[1];
+  char fnam[] = "split2floats" ;
+  // ---------------- BEGIN --------------------
+
+  fval[0] = fval[1] = -9.0 ;
+
+  if ( strstr(string,sep) == NULL ) 
+    { sscanf(string, "%f", &fval[0] ); fval[1]=fval[0];  return ;  }
+  
+
+  // split the string by the sep input
+  splitString(string, sep, 2, &Nsplit, cptr);
+  if ( Nsplit != 2 ) {
+    sprintf(c1err,"Invalid Nsplit=%d (expected 2)", Nsplit);
+    sprintf(c2err,"Input string='%s'  sep='%s' ", string, sep);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+  sscanf(cnum[0], "%f", &fval[0] );
+  sscanf(cnum[1], "%f", &fval[1] );
+
+  return;
+} // end split2floats
+
 
 // ********************************************************
 void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP, 
@@ -4946,7 +4998,7 @@ double FlatRan ( int ilist, double *range ) {
 double biGaussRan(double siglo, double sighi ) {
 
   // Return random number from bifurcate gaussian
-  // with sigmas = "siglo" and "sighi" and mean = 0.0
+  // with sigmas = "siglo" and "sighi" and peak = 0.0
   //
   // Jan 2012: always pick random number to keep randoms synced.
 

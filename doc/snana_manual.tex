@@ -9517,9 +9517,9 @@ The \NONIA\ model is specified with the following sim-input keys,
   GENMODEL: $PATH/NON1ASED.[XYZ]
 
   NON1ASED_KEYS: 5 INDEX  WGT  MAGOFF  MAGSMEAR  SNTYPE
-  NON1ASED:         2     0.2   0.0      1.2       2
-  NON1ASED:         3     0.2  -0.2      0.8       2
-  NON1ASED:         4     0.4  -0.6      0.9       3
+  NON1ASED:         2     0.2   0.0     1.2        2
+  NON1ASED:         3     0.2  -0.2     0.8        2
+  NON1ASED:         4     0.4  -0.6     0.9,0.5    3
   etc ...
 
   GENRANGE_AV:      xxx  xxx     # CCM89 V-band extinction
@@ -9591,6 +9591,8 @@ that depend on \NONIA\ type.
        and is used to simulate intrinsic brightness variations.
        The generated random value is stored in the data file
        ({\tt SIM\_MAGSMEAR\_COH} key) and in the SNTABLEs.
+       Comma-separated values specify two sigmas for bifurcated Gaussian;
+       {\tt MAGOFF} is the distribution peak, not the mean.
 %
   \item {\tt\bf SNTYPE} is a spec-confirmed typing-index that appears
        after the {\tt SNTYPE} keyword in the 

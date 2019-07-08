@@ -17023,7 +17023,7 @@
 
 
 # ======================================================================= 
-         v10_73h (  ) 
+         v10_73h (July 5 2019) 
 
          ***** IMPORTANT(v10_73h) ***** 
 
@@ -17034,11 +17034,30 @@
          ***** MISCELLANEOUS(v10_73h) ***** 
 
    snana.car:
-     new &SNLCINP input MXEVT_PROCESS will quit after reading
+    + new &SNLCINP input MXEVT_PROCESS will quit after reading
      this many events.
+
+   snlc_fit.car
+    + few photo-z fixes, mainly color bound -> -0.2 instead of -0.3
+      for course-grid estimates before fit.
 
    NEARNBR_pipeline.pl
      + new input OPT_TUNE_HOSTEFF to run only a few stages needed
        to compare data and sim.
+
+   snlc_sim.c
+    + remove input REFAC_PICK_NON1ASED and remove assocated legacy calls.
+    + for NON1ASED MAGSMEAR colum, allow comma-separate sigmas for
+      bifurcated Gaussian.
+
+   sntools_host.c[h]:
+     + read [new] optional HOSTLIB_SPECTEMPLATE_FILE, and parse it.
+
+   New code files inoue_igm.c and inoue_igm.h  to simulate IGM effects for
+   spectra in the simulation. Code taken and simplified from
+       https://github.com/gbrammer/eazy-photoz/tree/e4a092c1e1d61c5fc4318291b451bd5d032aacb0
+
+   sntools.c: 
+     fix bug in get_obs_atFLUXMAX() so that it works with unsorted MJD_LIST
 
 END: 

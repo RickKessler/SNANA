@@ -88,7 +88,7 @@ def plot_spec(cid,bin_size,base_name):
 	if len(np.unique(sn['tobs']))>1:
 		figs=[]
 		m=0
-		for nfig in range(math.ceil(len(np.unique(sn['tobs']))/4.)):
+		for nfig in range(int(math.ceil(len(np.unique(sn['tobs']))/4.))):
 			fig,ax=plt.subplots(nrows=min(len(np.unique(sn['tobs'])),4),ncols=1,figsize=(8,8),sharex=True)
 			ax[0].set_title('SN%s'%cid[0],fontsize=16)
 			for j in range(min(len(np.unique(sn['tobs']))[m:],4)):
@@ -169,12 +169,11 @@ def plot_lc(cid,base_name):
                         [x for x in np.unique(sn['filter']) if x not in __band_order__])
 	
 	j=0
-	for nfig in range(math.ceil(rows/4.)): 
-		fig,ax=plt.subplots(nrows=min(rows,4),ncols=1,figsize=(8,8),sharex=True)
+	for nfig in range(int(math.ceil(rows/4.))): 
+		fig,ax=plt.subplots(nrows=min(len(all_bands[j:]),4),ncols=1,figsize=(8,8),sharex=True)
 		ax[0].set_title('SN%s'%cid[0],fontsize=16)
 		
 		for i in range(min(len(all_bands[j:]),4)):
-
 			temp_sn={k:sn[k][np.where(sn['filter']==all_bands[j])[0]] for k in sn.keys()}
 			chi2=np.mean(temp_sn['chi2'])
 			if chi2>0:

@@ -398,8 +398,8 @@ struct {
 
   int  IVAR_HOSTLIB[MXSPECBASIS_HOSTLIB]; // identified HOSTLIB ivar with coeff
 
-  double  FLAM_SCALE ;
-  double *WAVE, *WAVE_BINSIZE ;
+  double  FLAM_SCALE, FLAM_SCALE_POWZ1 ;
+  double *WAVE_CEN, *WAVE_MIN, *WAVE_MAX, *WAVE_BINSIZE ;
   double *FLAM[MXSPECBASIS_HOSTLIB];
 } HOSTSPEC ;
 

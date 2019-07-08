@@ -901,7 +901,8 @@ void  read_specbasis_HOSTLIB(void) {
 
   HOSTSPEC.NSPECBASIS  = 0 ;
   HOSTSPEC.NBIN_WAVE   = 0 ;
-  HOSTSPEC.FLAM_SCALE  = 1.0 ;
+  HOSTSPEC.FLAM_SCALE        = 1.0 ;
+  HOSTSPEC.FLAM_SCALE_POWZ1  = 0.0 ;
 
   ptrFile = INPUTS.HOSTLIB_SPECBASIS_FILE ;
   if ( IGNOREFILE(ptrFile) )  { return ; }
@@ -925,6 +926,9 @@ void  read_specbasis_HOSTLIB(void) {
 
     if ( strcmp(c_get,"FLAM_SCALE:") == 0 ) 
       { readdouble(fp, 1, &HOSTSPEC.FLAM_SCALE); }    
+
+    if ( strcmp(c_get,"FLAM_SCALE_POWZ1:") == 0 ) 
+      { readdouble(fp, 1, &HOSTSPEC.FLAM_SCALE_POWZ1); }    
   }
 
   fclose(fp);
@@ -957,9 +961,12 @@ void  read_specbasis_HOSTLIB(void) {
     if ( ICOL_WAVE == ivar ) {
       NVAR_WAVE++ ;
       if ( NVAR_WAVE == 1 ) { 
-	HOSTSPEC.WAVE         = (double*) malloc(MEMD);
+	HOSTSPEC.WAVE_CEN     = (double*) malloc(MEMD);
+	HOSTSPEC.WAVE_MIN     = (double*) malloc(MEMD);
+	HOSTSPEC.WAVE_MAX     = (double*) malloc(MEMD);
 	HOSTSPEC.WAVE_BINSIZE = (double*) malloc(MEMD);
-	SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.WAVE, NBIN_WAVE, OPT_VARDEF); 
+	SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.WAVE_CEN, NBIN_WAVE, 
+				OPT_VARDEF); 
       }
     }  
 
@@ -1011,23 +1018,29 @@ void  read_specbasis_HOSTLIB(void) {
   // Loop over wave bins and
   // + determine WAVE_BINSIZE for each wave bin
   // + truncate NBIN_WAVE so that lam < MAXLAM_SEDMODEL
-  double WAVE_BINSIZE, LAM, LAM_LAST, LAM_NEXT;
+  double WAVE_BINSIZE, WAVE_MIN, WAVE_MAX, LAM, LAM_LAST, LAM_NEXT;
   int FIRST, LAST, ilam, NBIN_KEEP=0 ;
   for(ilam=0; ilam < NBIN_WAVE; ilam++ ) {
 
     FIRST = ( ilam == 0 ) ;
     LAST  = ( ilam == NBIN_WAVE-1 ) ;
 
-    LAM  = HOSTSPEC.WAVE[ilam];
+    LAM  = HOSTSPEC.WAVE_CEN[ilam];
     if ( LAM > MAXLAM_SEDMODEL ) { continue; }
 
-    if ( !FIRST )  { LAM_LAST = HOSTSPEC.WAVE[ilam-1]; }
-    if ( !LAST  )  { LAM_NEXT = HOSTSPEC.WAVE[ilam+1]; }
+    if ( !FIRST )  { LAM_LAST = HOSTSPEC.WAVE_CEN[ilam-1]; }
+    if ( !LAST  )  { LAM_NEXT = HOSTSPEC.WAVE_CEN[ilam+1]; }
 
     if ( FIRST ) { LAM_LAST = LAM - (LAM_NEXT-LAM) ; }
     if ( LAST  ) { LAM_NEXT = LAM + (LAM-LAM_LAST) ; }
 
-    WAVE_BINSIZE = (LAM_NEXT - LAM_LAST)/2.0;
+    WAVE_MIN     = LAM - (LAM - LAM_LAST)/2.0;
+    WAVE_MAX     = LAM + (LAM_NEXT - LAM)/2.0;
+    WAVE_BINSIZE = WAVE_MAX - WAVE_MIN;
+    // xxx mark delete    WAVE_BINSIZE = (LAM_NEXT - LAM_LAST)/2.0;
+
+    HOSTSPEC.WAVE_MIN[ilam]     = WAVE_MIN ;
+    HOSTSPEC.WAVE_MAX[ilam]     = WAVE_MAX ;
     HOSTSPEC.WAVE_BINSIZE[ilam] = WAVE_BINSIZE;
     NBIN_KEEP++ ;
 
@@ -1133,19 +1146,24 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
 
   // Created Jun 28 2019 by R.Kessler
   // Return host spectrum, including Galactic extinction.
+  //
+  // Issues:
+  //   - fraction of galaxy in fiber or slit ? Or does ETC include this ?
+  //
 
   int  NBLAM       = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   int  NBLAM_BASIS = HOSTSPEC.NBIN_WAVE; 
   int  IGAL        = SNHOSTGAL.IGAL ;
   double z1        = 1.0 + zhel;
-  double znorm     = 1.0/(z1*z1);
+  double znorm     = pow(z1,HOSTSPEC.FLAM_SCALE_POWZ1);
   double hc8       = (double)hc;
 
   int  ilam, ilam_basis, ilam_last=-9, i, ivar_HOSTLIB, NSUM ;
+  int  ilam_near, NLAMSUM, LDMP=0;
   double *FLAM_BASIS, FLAM_TMP, COEFF, FLUX_TMP, frac;
   double MWXT_FRAC, LAM, LAMBIN, LAMMIN, LAMMAX, LAM_BASIS;
   double LAMREST_MIN, LAMREST_MAX;
-  double LAMMIN_TMP, LAMMAX_TMP, LAMBIN_TMP ;
+  double LAMMIN_TMP, LAMMAX_TMP, LAMBIN_TMP, LAMBIN_CHECK ;
   double ZP, FTMP, MAG;
   char fnam[] = "genSpec_HOSTLIB" ;
 
@@ -1179,6 +1197,8 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
     LAMMAX     = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST[ilam] ;
     LAMBIN     = LAMMAX - LAMMIN ;
 
+    LDMP = (ilam == -217);
+
     LAMREST_MIN = LAMMIN/z1 ;
     LAMREST_MAX = LAMMAX/z1 ;
 
@@ -1190,17 +1210,25 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
 
     // loop over specBasis bins that overlap this SPECTROGRAPH bin,
     // and sum specBasis flux
-    FLUX_TMP = 0.0 ;    LAMMIN_TMP = -9.0 ;  
+    FLUX_TMP = 0.0 ;    LAMMIN_TMP = -9.0 ;   LAMBIN_CHECK=0.0 ;
+    ilam_near = -9; NLAMSUM=0;
     ilam_basis=ilam_last-2 ;  if(ilam_basis<0) {ilam_basis=0;}
 
     while ( LAMMIN_TMP < LAMREST_MAX ) {
       FLAM_TMP     = FLAM_BASIS[ilam_basis];
-      LAM_BASIS    = HOSTSPEC.WAVE[ilam_basis];
+      LAM_BASIS    = HOSTSPEC.WAVE_CEN[ilam_basis];
       LAMBIN_TMP   = HOSTSPEC.WAVE_BINSIZE[ilam_basis];
+      LAMMIN_TMP   = HOSTSPEC.WAVE_MIN[ilam_basis];
+      LAMMAX_TMP   = HOSTSPEC.WAVE_MAX[ilam_basis];
+
+
+      // LAMMIN_TMP   = LAM_BASIS - LAMBIN_TMP/2.0;  // lower lambda of bin
+      // LAMMAX_TMP   = LAM_BASIS + LAMBIN_TMP/2.0;  // upper lambda of bin
       ilam_basis++; ilam_last = ilam_basis;
 
-      LAMMIN_TMP   = LAM_BASIS - LAMBIN_TMP/2.0;  // lower lambda of bin
-      LAMMAX_TMP   = LAM_BASIS + LAMBIN_TMP/2.0;  // upper lambda of bin
+
+      if ( LAM_BASIS < LAM ) { ilam_near = ilam_basis; }
+
       if( LAMMAX_TMP < LAMREST_MIN ) { continue ; }
       if( LAMMIN_TMP > LAMREST_MAX ) { continue ; }
 
@@ -1208,10 +1236,46 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
       // i.e. exclude flux the leaks out of thie SPECTROGRAPh bin.
       if ( LAMMIN_TMP < LAMREST_MIN ) { LAMMIN_TMP = LAMREST_MIN; }
       if ( LAMMAX_TMP > LAMREST_MAX ) { LAMMAX_TMP = LAMREST_MAX; }
-      FLUX_TMP += ( FLAM_TMP * (LAMMAX_TMP-LAMMIN_TMP) );
+
+      LAMBIN_CHECK += (LAMMAX_TMP - LAMMIN_TMP);
+      FLUX_TMP += ( FLAM_TMP * (LAMMAX_TMP - LAMMIN_TMP) );
+      NLAMSUM++ ;
+
+      if ( LDMP ) {
+	printf(" xxx ilam=%d ilam_basis=%2d: LAM_BASIS=%.2f to %.2f  "
+	       "FLUX=%.2le\n", 
+	       ilam, ilam_basis, LAMMIN_TMP, LAMMAX_TMP, FLUX_TMP );
+      }
+
+    }
+    
+    // if NLAMSUM==0, then no basis lambins overlap SPECTROGRAPH;
+    // in thise casem, interpolate nearest basis bins
+    if ( NLAMSUM == 0 ) {
+      FLAM_TMP     = (FLAM_BASIS[ilam_near]+FLAM_BASIS[ilam_near+1])/2.0;
+      FLUX_TMP     = FLAM_TMP * LAMBIN;
+      LAMBIN_CHECK = LAMBIN/z1 ;
     }
 
-    GENFLUX_LIST[ilam] = FLUX_TMP ;  // flux in SPECTROGRAPH bin, not FLAM
+    // check that sum over basis wave bins = SPECTROGRAPH bin size
+    // basis wave is rest frame and SPECTROGRAPH bin is obs frame;
+    // hence z1 factor needed to compare.
+
+    if ( fabs(LAMBIN_CHECK - LAMBIN/z1) > 0.001 ) {
+      printf("\n PRE-ABORT DUMP: \n");
+      printf("   SPECTROGRAPH LAM(OBS) : %.3f to %.3f  (ilam=%d)\n",
+	     LAMMIN, LAMMAX, ilam );
+      printf("   SPECTROGRAPH LAM(Rest): %.3f to %.3f \n",
+	     LAMREST_MIN, LAMREST_MAX);
+      printf("   NLAMSUM = %d \n", NLAMSUM);
+      sprintf(c1err,"Failed LAMBIN_CHECK=%.3f, but expected %.3f",
+	      LAMBIN_CHECK, LAMBIN/z1);
+      sprintf(c2err,"zhel=%.4f, MWXT_FRAC=%.3f", zhel, MWXT_FRAC );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    // store flux (not FLAM) in SPECTROGRAPH bin
+    GENFLUX_LIST[ilam] = FLUX_TMP*MWXT_FRAC ;  
 
     // convert to mag
     ZP    = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;

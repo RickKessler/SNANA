@@ -668,8 +668,9 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
 
 
 // ====================================================
-void genSpec_BYOSED(double Tobs, double zHEL, double MU, double MWEBV,
-		    double RV_host, double AV_host, // (I)		     
+void genSpec_BYOSED(double Tobs, double zHEL, double MU,
+		    double MWEBV,                   // (I) galactic 
+		    double RV_host, double AV_host, // (I) host	     
 		    double *GENFLUX_LIST,           // (O) fluxGen per bin 
 		    double *GENMAG_LIST ) {         // (O) magGen per bin
 

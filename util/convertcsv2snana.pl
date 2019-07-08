@@ -4,7 +4,6 @@
 #
 # Translate csv formatted file into a file with
 # the snana/fitres format:
-#  NVAR:  <NVAR>
 #  VARNAMES: ROW <VARNAME1> <VARNAME2> <VARNAME3> ...
 #  ROW: 1  <value1> <value2> <value3> ...
 #  ROW  2  <value1> <value2> <value3> ...
@@ -26,7 +25,7 @@
 #
 #
 # May 12 2016: fix to allow '#' in first line.
-#
+# Jun 27 2019: remove NVAR key that is obsolete.
 # ----------------------
 
 use strict ;
@@ -168,7 +167,7 @@ sub make_outFile {
     # open  OUTFILE
     open PTR_OUTFILE , "> $OUTFILE" ;
     
-    print PTR_OUTFILE "NVAR: $NVAR \n";
+# xxx mark delete Jun 2019  print PTR_OUTFILE "NVAR: $NVAR \n";
     print PTR_OUTFILE "VARNAMES: $VARNAME_ROW $VARNAMES_OUT \n";
 
     $NROW = $NLINE = 0 ;

@@ -8360,8 +8360,8 @@ c is constant, but it really depends slightly on the Fmodel_SCALE value.
 
         IF ( R4SN_FFSUM_CROSS > 0 .and. R4SN_FFSUM_MODEL > 0 ) then
            Fmodel_SCALE        = R4SN_FFSUM_CROSS/R4SN_FFSUM_MODEL
-           if ( Fmodel_scale > 1.3 ) Fmodel_scale = 1.3 ! July 2019
-           if ( Fmodel_scale < 0.7 ) Fmodel_scale = 0.7
+cc xxx mark  if ( Fmodel_scale > 1.3 ) Fmodel_scale = 1.3 ! July 2019
+cc xxx mark  if ( Fmodel_scale < 0.7 ) Fmodel_scale = 0.7
         ELSE
            Fmodel_SCALE        = 1.0  ! June 30 2013
         ENDIF

@@ -617,6 +617,7 @@ Default output files (can change names with "prefix" argument)
        BiasCor : for sigma_int calc, global z-cut was removed.
 
  Jun 22 2019: fix bug using varname_pIa as CUTWIN
+ Jul 08 2019: remove USECODE_LEGACY pre-proc flag.
 
 ******************************************************/
 
@@ -792,7 +793,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define USERFLAG_FIELDGROUP_SAMPLE   2
 #define AUTOFLAG_SURVEYGROUP_SAMPLE  3  // survey automatically added
 
-#define USECODE_LEGACY
+//#define USECODE_LEGACY
 int USE_REFACTOR, USE_LEGACY;
 
 // ---------------------

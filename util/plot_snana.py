@@ -223,6 +223,7 @@ def main():
 	parser.add_option("-i",help='CID(s) as comma separated list',action="store",type="string",dest="CID",default="None")
 	parser.add_option("-b",help='Bin size for spectral plotting',action="store",type="float",dest='bin_size',default=0)
 	parser.add_option("-v",help='Version',action="store",type='string',dest='version',default=None)
+	parser.add_option("--silent",help="Do not print anything",action="store_true",dest="silent",default=False)
 	#parser.add_option("--help",action="store_true",dest='help',default=False)
 	(options,args)=parser.parse_args()
 	
@@ -240,6 +241,8 @@ def main():
 		num+=1
 	with PdfPages(filename) as pdf:
 		for cid in options.CID:
+			if not options.silent:
+				print("Plotting SN %s"%cid)
 			if options.spec:
 				figs=plot_spec([cid],options.bin_size,options.base_name)
 				for f in figs:
@@ -259,6 +262,8 @@ def main():
 	if not options.noclean:
 		for x in glob.glob(options.base_name+'*'):
 			os.remove(x)
+	if not options.silent:
+		print('Done.')
 
 if __name__=='__main__':
 	main()

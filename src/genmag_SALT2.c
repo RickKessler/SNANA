@@ -202,7 +202,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   // -------------- BEGIN --------------
 
-
   // extrac OPTMASK options
   LEGACY_colorXTMW = ( OPTMASK & 128 ) ;
 

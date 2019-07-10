@@ -2807,6 +2807,17 @@ void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {
 } // end UVLAM_EXTRAPFLUX_SEDMODEL
 
 
+// ==================================================
+void set_UVLAM_EXTRAPFLUX_SEDMODEL(float UVLAM_MIN) {
+  char fnam[] = "set_UVLAM_EXTRAPFLUX_SEDMODEL" ;
+  // --------------- BEGIN ------------------
+  INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX = (double)UVLAM_MIN;
+  return ;
+} // end set_UVLAM_EXTRAPFLUX_SEDMODEL
+
+void set_uvlam_extrapflux_sedmodel__(float *UVLAM_MIN)
+  {  set_UVLAM_EXTRAPFLUX_SEDMODEL(*UVLAM_MIN); }
+
 
 // =========================================================
 // ============== SPECTROGRAPH FUNCTIONS ===================

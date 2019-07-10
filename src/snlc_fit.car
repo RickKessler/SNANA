@@ -575,6 +575,7 @@ c Jun 2015: FITWIN_AV -> FITWIN_COLOR
 
       REAL 
      &   RESTLAMBDA_FITRANGE(2)  ! rest-frame central lambda range (Angstroms)
+     &  ,UVLAM_EXTRAPFLUX      ! extrapolate SED model back to this lambda
      &  ,DELCHI2_REJECT        ! reject epoch at 2nd iter if chi2 >
      &  ,SIGNOISE_REJECT       ! reject epoch below this signal/noise
      &  ,TREST_REJECT(2)       ! reject epoch at 2nd iter if fails Trest
@@ -730,7 +731,8 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &  ,DOPRIOR_DLMAG              ! internal logical 
 
 
-      COMMON / FITINP / FITMODEL_NAME, RESTLAMBDA_FITRANGE
+      COMMON / FITINP / 
+     &    FITMODEL_NAME, RESTLAMBDA_FITRANGE, UVLAM_EXTRAPFLUX
      &   ,FILTLIST_FIT
      &   ,FILTLIST_DMPFCN, FILTER_FITMAGDIF, DUMB_DEBUG
      &   ,FILTLIST_FITRESTMAG, LUMIFIX_FITRESTMAG, SHAPEFIX_FITRESTMAG
@@ -798,7 +800,8 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
 
 c ------
 
-      NAMELIST / FITINP / FITMODEL_NAME, RESTLAMBDA_FITRANGE
+      NAMELIST / FITINP / 
+     &    FITMODEL_NAME, RESTLAMBDA_FITRANGE, UVLAM_EXTRAPFLUX
      &   ,FILTLIST_FIT
      &   ,FILTLIST_DMPFCN, FILTER_FITMAGDIF, DUMB_DEBUG
      &   ,FILTLIST_FITRESTMAG, LUMIFIX_FITRESTMAG, SHAPEFIX_FITRESTMAG
@@ -2890,7 +2893,9 @@ c Jan 17, 2013: for OPT_FILTER_UPDATE>0, allow init when IFLAG=0
 c               because we need the RESTLAM range 
 c
 c Jun 24 2018: pass NONE argument to INIT_GENMAG_SALT2
-
+c
+c Jul 09 2019: call set_UVLAM_EXTRAPFLUX_SEDMODEL
+c
 c ---------------------------------------------------------
 
       IMPLICIT NONE
@@ -2946,6 +2951,7 @@ c functions
      &  ,INIT_GENMAG_SIMSED
      &  ,init_redshift_sedmodel
      &  ,init_mwxt_sedmodel
+     &  ,set_UVLAM_EXTRAPFLUX_SEDMODEL
 
 C ------------------- BEGIN ---------------
 
@@ -3020,6 +3026,8 @@ c VALa = transSN, VALb = transREF8
       IF ( IFLAG .EQ. 0 ) THEN        
          OPT_FILTER_UPDATE      = OPT_FILTER_UPDATE_SAVE
       ENDIF
+
+      CALL set_UVLAM_EXTRAPFLUX_SEDMODEL(UVLAM_EXTRAPFLUX)
 
 c ----------------------------------------
 c now do general model-dependent init.
@@ -6589,6 +6597,7 @@ c init namelist defaults
 
       RESTLAMBDA_FITRANGE(1) =     0.0
       RESTLAMBDA_FITRANGE(2) = 25000.0
+      UVLAM_EXTRAPFLUX       = -9.0
 
 c set defgaults to no rejected epochs at 2nd iteration
       DELCHI2_REJECT   = 1.0E9
@@ -7439,6 +7448,9 @@ c - - - -
             i = i + 1 ; READ(LINE_ARGS(i),*) RESTLAMBDA_FITRANGE(1)
             i = i + 1 ; READ(LINE_ARGS(i),*) RESTLAMBDA_FITRANGE(2)
 
+         else if ( LINE_ARGS(i) .EQ. 'UVLAM_EXTRAPFLUX' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) UVLAM_EXTRAPFLUX
+
          else if ( LINE_ARGS(i) .EQ. 'SIMFIT_IDEAL_PRESCALE' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) SIMFIT_IDEAL_PRESCALE
 
@@ -8102,9 +8114,6 @@ c Sep 25 2018:
 c   INIVAL(ipar_zphot) = middle of PHOTOZ_BOUND range, not max 
 c    [found by R.Hounsell]
 c
-c July 3 2019:
-c   bound Fmodel_scale between 0.7 and 1.3 to prevent crazy
-c   initial values.
 c
 c --------------------------------------------
       IMPLICIT NONE
@@ -8316,9 +8325,8 @@ c open up the x0 bound for the course grid search (Feb 4, 2014)
         ZMIN  = INIBND(1,IPAR_zPHOT)
         ZMAX  = INIBND(2,IPAR_zPHOT)
       ENDIF
-      NZBIN = ISCALE_COURSEBIN_PHOTOZ * int(25.*(ZMAX-ZMIN)) + 1  ! hard-wired input
+      NZBIN = ISCALE_COURSEBIN_PHOTOZ * int(25.*(ZMAX-ZMIN)) + 1  ! hard-wired
       ZBIN  = (ZMAX - ZMIN) / DBLE(NZBIN)
-
 
       CALL SETBINS_FITINI_PHOTOZ(IPAR_COLOR,   ITER, 
      &                 NCBIN,CBIN,CMIN,CMAX)  ! output
@@ -8333,6 +8341,26 @@ c open up the x0 bound for the course grid search (Feb 4, 2014)
  432  format(T10,I3, 2x, A,' bins from ', F8.3,' to ', F8.3,
      &     3x,'(binsize=',F7.3,')'  )
       call flush(6)
+
++SELF,IF=XXXDEBUG.
+c xxxxxxxxxxxxxxx
+      print*,' '
+      print*,' xxx ============================== '
+      print*,' xxx ============================== '
+      c = -0.2; s=-1.0; z=0.947 ;  Fmodel_scale = 4.668
+      d  = GET_DIST8(Z,s,c,Fmodel_SCALE)
+      INIVAL(IPAR_COLOR)  = c
+      INIVAL(IPAR_SHAPE)  = s
+      INIVAL(IPAR_zPHOT)  = Z
+      INIVAL(IPAR_DLMAG)  = d
+
+      CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
+      print*,' '
+      print*,' xxx STOP DEBUG xxx '
+      call flush(6)
+      STOP
+c xxxxxxxxxxxxxxx
++SELF.
 
 
       DO 57 is = 1, NSBIN
@@ -8360,8 +8388,6 @@ c is constant, but it really depends slightly on the Fmodel_SCALE value.
 
         IF ( R4SN_FFSUM_CROSS > 0 .and. R4SN_FFSUM_MODEL > 0 ) then
            Fmodel_SCALE        = R4SN_FFSUM_CROSS/R4SN_FFSUM_MODEL
-cc xxx mark  if ( Fmodel_scale > 1.3 ) Fmodel_scale = 1.3 ! July 2019
-cc xxx mark  if ( Fmodel_scale < 0.7 ) Fmodel_scale = 0.7
         ELSE
            Fmodel_SCALE        = 1.0  ! June 30 2013
         ENDIF
@@ -8476,7 +8502,7 @@ c local args
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 
-      LOGICAL DO_SALT2, DO_COLOR
+      LOGICAL DO_SALT2, DO_COLOR, DO_SHAPE
       REAL*8 PARLAST, DIF, BND_LOCAL(2)
 
 C --------------- BEGIN ---------------
@@ -8491,11 +8517,11 @@ c INIBND is larger than we need.
 c hard-code color range for SALT2 model (Dec 2014)
       DO_SALT2 = ( FITMODEL_INDEX .EQ. MODEL_SALT2 )
       DO_COLOR = ( IPAR == IPAR_COLOR ) 
+      DO_SHAPE = ( IPAR == IPAR_SHAPE ) 
 
       IF ( DO_SALT2 .and. DO_COLOR ) THEN
         BND_LOCAL(1) = -0.2  ! -0.3 -> -0.2 (July 3 2019)
         BND_LOCAL(2) = +0.4
-cc xxxx       BND_LOCAL(2) = +0.6 ! mark delete July 3 2017
       ENDIF
 
 c --------------------------------------------
@@ -8534,9 +8560,9 @@ c --------------------------------------------
         ENDIF
 
         NBIN = NBIN * ISCALE_COURSEBIN_PHOTOZ
+
         PARBIN  = (PARMAX - PARMIN) / DBLE(NBIN)
       ENDIF
-
 
 
       RETURN

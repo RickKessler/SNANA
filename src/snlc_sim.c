@@ -20250,7 +20250,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     mag_SN   = (double)SNDATA.SIM_PEAKMAG[ifilt_obs] ;
     mag_dif  = mag_GAL - mag_SN ;
     if ( mag_SN < 98.0 ) {
-      // gal/SN fraction in 1" aperture  
+      // gal/SNpeak flux-fraction in 1" aperture  
       fgal  = pow(10.0,-0.4*mag_dif); 
     }
     else {

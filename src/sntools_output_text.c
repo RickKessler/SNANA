@@ -849,7 +849,7 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   NVAR++ ;
 
   sprintf(VARNAME_SNLC[NVAR], "Tobs" );          
-  sprintf(VARDEF_SNLC[NVAR],  "(MJD-PKMJD)/(1+z)");
+  sprintf(VARDEF_SNLC[NVAR],  "MJD-PKMJD");
   NVAR++ ;
 
   sprintf(VARNAME_SNLC[NVAR], "FLUXCAL" );  

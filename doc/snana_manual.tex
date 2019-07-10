@@ -6907,63 +6907,6 @@ this logic ensures that $\SIGCHISQ$ is defined
 for each filter in the last fit-iteration.
 
 
-
-% ------------------------------------
-   \subsection{Optional Redshift Sources}
-   \label{subsec:zextra}
-% ------------------------------------
-
-Some surveys may include more than one redshift source
-such as spectroscopic redshifts from an external collaborator
-(e.g., BOSS redshifts for SDSS targets),
-or photometric redshifts obtained from different methods.
-While the ``{\tt REDSHIFT\_FINAL}'' key specifies the nominal 
-redshift, optional redshifts and associated typings can
-be used with the namelist variable
-%
-\begin{Verbatim}[frame=single]
-  &SNLCINP
-     ZEXTRA_SOURCE = 'ZZZ'   
-     ...
-  &END
-\end{Verbatim}
-%
-where ``{\tt ZZZ}'' is the name of the redshift source.
-The \snana\ programs will then search each SN data file
-for the optional keywords
-%
-\begin{Verbatim}[frame=single]
-   [ZZZ]_TYPE: nnn                                     # optional
-   [ZZZ]_REDSHIFT_HELIO:  0.04592 +- 0.0002  (Helio)   # optional
-   [ZZZ]_REDSHIFT_CMB:    0.04500 +- 0.0002  (CMB)     # optional
-   [ZZZ]_END:                                          # mandatory key
-\end{Verbatim}
-%
-where ``{\tt nnn}'' is the SN type based on using the
-optional redshift. The first three keys are optional,
-meaning  that they only need to be specified in data files
-where such information exists. The ``{\tt [ZZZ]\_END:}'' 
-key is required in every data file; if this key is missing,
-the program will abort.
-Several different sets of optional redshifts
-can exist in each data file, but they must all go 
-at the end of the header (just before the first observation).
-
-
-These optional redshifts may be used only by a list of 
-valid users specified in a global file called
-%
-\begin{Verbatim}[frame=single]
-  more  $SNDATA_ROOT/[SURVEY]/[ZZZ]_USERS.LIST 
-  USER: <user1>
-  USER: <user2>
-  USER: <user3>
-  etc  ...
-\end{Verbatim}
-% $
-This file-system is not a security system, but is only
-intended to prevent accidental mis-use.
-
 % ------------------------------------
    \clearpage
    \subsection{Excluding/Downweighting Filters and Epoch Ranges}

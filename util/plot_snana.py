@@ -18,8 +18,9 @@ __band_order__=np.append(['u','b','g','r','i','z','y','j','h','k'],
 	 [x.upper() for x in ['u','b','g','r','i','z','y','j','h','k']])
 
 def read_spec(cid,base_name):
-	names=['wave','flux','fluxerr','tobs']
+	names=['wave','flux','fluxerr','tobs','mjd']
 	id_to_obs=dict([])
+	mjds=[]
 	with open(base_name+".SPECLIST.TEXT",'rb') as f:
 		dat=f.readlines()
 	for line in dat:
@@ -27,11 +28,15 @@ def read_spec(cid,base_name):
 		if len(temp)>0 and b'VARNAMES:' in temp:
 			varnames=[str(x.decode('utf-8')) for x in temp]
 		else:
-			id_to_obs[int(temp[varnames.index('CID')])]=float(temp[varnames.index('TOBS')])
+			id_to_obs[int(temp[varnames.index('ID')])]=float(temp[varnames.index('TOBS')])
+			mjds.append(float(temp[varnames.index('MJD')]))
+
 	sn={k:[] for k in names}
 
 	with open(base_name+".SPECPLOT.TEXT",'rb') as f:
 		dat=f.readlines()
+	temp_id=None
+	mjd_ind=0
 	for line in dat:
 		temp=line.split()
 		
@@ -40,10 +45,16 @@ def read_spec(cid,base_name):
 			varnames=[str(x.decode('utf-8')) for x in temp]
 		elif len(temp)>0 and b'OBS:' in temp and\
 			 str(temp[varnames.index('CID')].decode('utf-8'))in cid:
+			if temp_id is None:
+				temp_id=int(temp[varnames.index('ID')])
+			if temp_id!=int(temp[varnames.index('ID')]):	
+				mjd_ind+=1
+			temp_id=int(temp[varnames.index('ID')])
 			sn['wave'].append((float(temp[varnames.index('LAMMAX')])+float(temp[varnames.index('LAMMIN')]))/2.)
 			sn['flux'].append(float(temp[varnames.index('FLAM')]))
 			sn['fluxerr'].append(float(temp[varnames.index('FLAMERR')]))
-			sn['tobs'].append(id_to_obs[int(temp[varnames.index('CID')])])
+			sn['tobs'].append(id_to_obs[int(temp[varnames.index('ID')])])
+			sn['mjd'].append(mjds[mjd_ind])
 	sn={k:np.array(sn[k]) for k in sn.keys()}
 	return(sn)
 def read_lc(cid,base_name):
@@ -80,9 +91,9 @@ def read_lc(cid,base_name):
 		fits=[]
 	return(sn,fits,peak)
 
-def plot_spec(cid,bin_size,base_name):
+def plot_spec(cid,bin_size,base_name,noGrid):
 	sn=read_spec(cid,base_name)
-	
+
 	if len(sn['tobs'])==0:
 		return []
 	if len(np.unique(sn['tobs']))>1:
@@ -91,7 +102,7 @@ def plot_spec(cid,bin_size,base_name):
 		for nfig in range(int(math.ceil(len(np.unique(sn['tobs']))/4.))):
 			fig,ax=plt.subplots(nrows=min(len(np.unique(sn['tobs'])),4),ncols=1,figsize=(8,8),sharex=True)
 			ax[0].set_title('SN%s'%cid[0],fontsize=16)
-			for j in range(min(len(np.unique(sn['tobs']))[m:],4)):
+			for j in range(min(len(np.unique(sn['tobs'])[m:]),4)):
 				
 				temp_sn=np.where(sn['tobs']==np.unique(sn['tobs'])[m])[0]
 				if bin_size!=0:
@@ -105,23 +116,31 @@ def plot_spec(cid,bin_size,base_name):
 						binned_wave=np.append(binned_wave,np.mean(sn['wave'][temp_sn][bins==i]))
 						binned_flux=np.append(binned_flux,np.mean(sn['flux'][temp_sn][bins==i]))
 						binned_fluxerr=np.append(binned_fluxerr,np.mean(sn['fluxerr'][temp_sn][bins==i]))
-					else:
-						binned_wave=sn['wave'][temp_sn]
-						binned_flux=sn['flux'][temp_sn]
-						binned_fluxerr=sn['fluxerr'][temp_sn]
-						#sn=(sn.group_by(np.trunc(sn['wave']/bin_size))).groups.aggregate(np.mean)
+				else:
+					binned_wave=sn['wave'][temp_sn]
+					binned_flux=sn['flux'][temp_sn]
+					binned_fluxerr=sn['fluxerr'][temp_sn]
+					#sn=(sn.group_by(np.trunc(sn['wave']/bin_size))).groups.aggregate(np.mean)
 				
-				ax[j].plot(binned_wave,binned_flux,color='k',label='TOBS:%.2f'%np.unique(sn['tobs'])[j])
+				if np.unique(sn['mjd'])[j]<0:
+					spec_label='HOST'
+				else:
+					spec_label='SN:%.2f'%np.unique(sn['tobs'])[j]
+				ax[j].plot(binned_wave,binned_flux,color='k',label=spec_label)
 				ylim=ax[j].get_ylim()
 				ax[j].fill_between(binned_wave,binned_flux-binned_fluxerr,binned_flux+binned_fluxerr,
 							 color='r',alpha=.3,label=r'$1\sigma$ Error')
 				ax[j].plot([binned_wave[0],binned_wave[-1]],[0,0],'k--',alpha=.5)
 				ax[j].set_ylim(ylim)
-				ax[j].legend(fontsize=16)
+				ax[j].legend(fontsize=12)
+
 			
 				ax[j].set_ylabel('Flux',fontsize=16)
+				if not noGrid:
+					ax[j].grid()
 				m+=1
 			ax[j].set_xlabel('Observer Frame Wavelength ($\AA$)',fontsize=16)
+			
 			figs.append(fig)
 			plt.close()
 	else:
@@ -150,16 +169,18 @@ def plot_spec(cid,bin_size,base_name):
 						 color='r',alpha=.3,label=r'$1\sigma$ Error')
 		plt.plot([binned_wave[0],binned_wave[-1]],[0,0],'k--',alpha=.5)
 		plt.ylim(ylim)
-		plt.legend(fontsize=16)
+		plt.legend(fontsize=12)
 		plt.xlabel('Observer Frame Wavelength ($\AA$)',fontsize=16)
 		plt.ylabel('Flux',fontsize=16)
 		plt.title('SN%s'%cid[0],fontsize=16)
+		if not noGrid:
+			plt.grid()
 		figs=[fig]
 		plt.close()
 	#plt.savefig('SNANA_SPEC_%s.pdf'%'_'.join(cid),format='pdf',overwrite=True)
 	return(figs)
 
-def plot_lc(cid,base_name):
+def plot_lc(cid,base_name,noGrid):
 	sn,fits,peak=read_lc(cid,base_name)
 	if len(sn['time'])==0:
 		return []
@@ -178,10 +199,10 @@ def plot_lc(cid,base_name):
 			chi2=np.mean(temp_sn['chi2'])
 			if chi2>0:
 				lab=r'%s: $\chi^2$=%.1f'%(band,np.mean(temp_sn['chi2']))
-				leg_size=12
+				leg_size=10
 			else:
 				lab=all_bands[j]
-				leg_size=16
+				leg_size=12
 			j+=1
 			ax[i].errorbar(temp_sn['time'],temp_sn['flux'],yerr=temp_sn['fluxerr'],
 						  fmt='.',markersize=8,color='k',
@@ -191,8 +212,12 @@ def plot_lc(cid,base_name):
 				ax[i].plot(fit_time,fits[band](fit_time),color='r',label='Best Fit',linewidth=3)
 			ax[i].legend(fontsize=leg_size)
 			ax[i].set_ylabel('Flux',fontsize=16)
+			ax[i].set_ylim((-.1*np.max(temp_sn['flux']),1.1*np.max(temp_sn['flux'])))
+			if not noGrid:
+				ax[i].grid()
 			#i+=1
 		ax[i].set_xlabel('MJD-%.2f'%peak,fontsize=16)
+		
 		figs.append(fig)
 		plt.close()
 	#fig.text(0.5, 0.02, 'Time (Rest Frame Days)', ha='center',fontsize=16)
@@ -216,6 +241,7 @@ def plot_cmd(genversion,cid_list):
 	return(plotter,'OUT_TEMP_'+rand)
 
 def main():
+
 	parser = OptionParser()
 	parser.add_option("--spec",help='Plot only spectra',action="store_true",dest="spec",default=False)
 	parser.add_option("--lc",help='Plot only LC',action="store_true",dest="lc",default=False)
@@ -224,9 +250,13 @@ def main():
 	parser.add_option("-b",help='Bin size for spectral plotting',action="store",type="float",dest='bin_size',default=0)
 	parser.add_option("-v",help='Version',action="store",type='string',dest='version',default=None)
 	parser.add_option("--silent",help="Do not print anything",action="store_true",dest="silent",default=False)
+	parser.add_option("--nogrid",help="Do add a grid to the plots.",action="store_true",dest="noGrid",default=False)
 	#parser.add_option("--help",action="store_true",dest='help',default=False)
 	(options,args)=parser.parse_args()
-	
+
+	if len(sys.argv)==1:
+		parser.print_help(sys.stderr)
+		sys.exit()
 	if options.CID=="None":
 		raise RuntimeError("Need to define CID")
 	if options.version is None:
@@ -236,26 +266,28 @@ def main():
 	options.CID=options.CID.split(',')
 	filename=options.version+'.pdf'
 	num=0
-	while os.path.exists(filename):
+	if os.path.exists(filename):
 		filename=os.path.splitext(filename)[0]+'_'+str(num)+'.pdf'
+	while os.path.exists(filename):
 		num+=1
+		filename=os.path.splitext(filename)[0][:-1]+str(num)+'.pdf'
 	with PdfPages(filename) as pdf:
 		for cid in options.CID:
 			if not options.silent:
 				print("Plotting SN %s"%cid)
 			if options.spec:
-				figs=plot_spec([cid],options.bin_size,options.base_name)
+				figs=plot_spec([cid],options.bin_size,options.base_name,options.noGrid)
 				for f in figs:
 					pdf.savefig(f)
 			elif options.lc:
-				figs=plot_lc([cid],options.base_name)
+				figs=plot_lc([cid],options.base_name,options.noGrid)
 				for f in figs:
 					pdf.savefig(f)
 			else:
-				figs=plot_spec([cid],options.bin_size,options.base_name)
+				figs=plot_spec([cid],options.bin_size,options.base_name,options.noGrid)
 				for f in figs:
 					pdf.savefig(f)
-				figs=plot_lc([cid],options.base_name)
+				figs=plot_lc([cid],options.base_name,options.noGrid)
 				for f in figs:
 					pdf.savefig(f)
 	

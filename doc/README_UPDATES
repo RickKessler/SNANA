@@ -17085,5 +17085,7 @@
       far UV. Intended for photo-z fits to keep g-band at high-z..
       Make sure to adjust RESTLAMBDA_FITRANGE to allow smaller lambda.
 
+  manual:
+    + update photo-z section to include UVLAM_EXTRAP sub-sub-subsection.
 
 END: 

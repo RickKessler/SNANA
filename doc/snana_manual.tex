@@ -6846,8 +6846,8 @@ after the 2nd fit-iteration.
 
 % ------------------------------------
 %   \clearpage
-   \subsection{Including the log($\sigma$) Term in the $\chi^2$ }
-   \label{subsec:chi2sigma}
+   \subsubsection{Including the log($\sigma$) Term in the $\chi^2$ }
+   \label{sss:chi2sigma}
 % ------------------------------------
 
 \newcommand{\SIGLAST}{\sigma_i^{\rm last}}
@@ -6906,6 +6906,30 @@ a repeat fit-iteration with the added filter;
 this logic ensures that $\SIGCHISQ$ is defined
 for each filter in the last fit-iteration.
 
+
+% ------------------------------------
+%   \clearpage
+   \subsubsection{Avoiding Filter Drop-outs at High PhotoZ}
+   \label{sss:fit_UVLAM_EXTRAP}
+% ------------------------------------
+
+A potential problem with photo-$z$ fitting is that low-redshift events
+can result in high-redshift $\Zphot$ due to filter drop-outs.
+For example, if the $u$ and/or $g$ band are outside the SED model 
+range at high redshift, these bands are dropped and the resulting 
+$\chi^2$ is artifically small because it ignores the rest-frame UV region.
+An approximate fix is to use the same UV-extrapolation feature used
+in the simulation (\S\ref{sss:UVLAM_EXTRAP}),
+\begin{verbatim}
+   &FITINP
+      UVLAM_EXTRAPFLUX    = 500          
+      RESTLAMBDA_FITRANGE = 2000, 13000 
+\end{verbatim}
+In this example, the model flux at the bluest wavelength (at each phase)
+is  linearly extrapolated to zero flux at $\lam=500$~\AA.
+The {\tt RESTLAMBDA\_FITRANGE} should be set so that all bands
+are defined at the highest allowed $\Zphot$ set by the
+{\tt PHOTOZ\_BOUND} input.
 
 % ------------------------------------
    \clearpage

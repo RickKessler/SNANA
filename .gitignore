@@ -9,3 +9,4 @@ src/temp*
 src/*.o
 util/*~
 *~
+__pycache__/*

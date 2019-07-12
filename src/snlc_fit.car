@@ -8114,6 +8114,8 @@ c Sep 25 2018:
 c   INIVAL(ipar_zphot) = middle of PHOTOZ_BOUND range, not max 
 c    [found by R.Hounsell]
 c
+c Jul 12 2019
+c  + call PRINT_INIPAR_ZPHOT before after course minimization
 c
 c --------------------------------------------
       IMPLICIT NONE
@@ -8129,24 +8131,18 @@ c --------------------------------------------
 
 c local var
 
-      INTEGER  iz, ic, is, IPAR, LCHAR, LZ, LC, LS, LD
-
+      INTEGER  iz, ic, is, IPAR, NZBIN, NCBIN, NSBIN
       LOGICAL LZDONE, LAST_ITER, ISMODEL_SALT2
 
       REAL*8
-     &   ZHOST, ZMIN, ZMAX,  ZBIN
-     &  ,ZPHOT_LAST
+     &   ZHOST, ZMIN, ZMAX,  ZBIN, ZPHOT_LAST
      &  ,Z, Z_SAVE, D_SAVE, d
      &  ,C, CMIN, CMAX, CBIN, C_SAVE
      &  ,S, SMIN, SMAX, SBIN, S_SAVE
-     &  ,Fmodel_SCALE, Fmodel_SCALE_SAVE
-     &  ,INIBND_X0(2)
+     &  ,Fmodel_SCALE, Fmodel_SCALE_SAVE, INIBND_X0(2)
 
-      LOGICAL LDMP / .TRUE. /
+      LOGICAL LPRINT / .TRUE. /
       CHARACTER BANNER*60, CZTMP*20
-
-c  define number of Z and color bins to search for approx  min
-      INTEGER NZBIN, NCBIN, NSBIN
 
 c FCNSNLC args
 
@@ -8209,9 +8205,8 @@ c continue processing only on 1st fit iteration,
       IF ( LREPEAT_ITER  ) RETURN
       IF ( ITER > 1      ) RETURN
       
-      IF ( LDMP ) THEN
-         LCHAR = ISNLC_LENCCID
-         write(BANNER,10) SNLC_CCID(1:LCHAR)
+      IF ( LPRINT) THEN
+         write(BANNER,10) SNLC_CCID(1:ISNLC_LENCCID)
 10       format('FITINI_PHOTOZ for CID=',A )
          CALL PRBANNER ( BANNER )
       endif
@@ -8253,42 +8248,33 @@ c check cheat option (4/30/2012)
         LZDONE       = .TRUE.
       ENDIF
 
-      LZ = INDEX(CZTMP,' ') - 1
-      write(6,11) CZTMP(1:LZ), INIVAL(ipar), SNLC_CCID
-11    format(T8,'Set initial Zphot = ',A,' = ', F5.3, '  for CID=',A )
-      call flush(6)
+c xxx mark delete Jul 12 2019 xxxxxxx
+c      LZ = INDEX(CZTMP,' ') - 1
+c      write(6,11) CZTMP(1:LZ), INIVAL(ipar), SNLC_CCID
+c11    format(T8,'Set initial Zphot = ',A,' = ', F5.3, '  for CID=',A )
+c      call flush(6)
+c xxx end mark xxxxxxxx
 
-c -------------------------------------------------
-ccc xxxx      if ( LZDONE ) GOTO 888
 c -------------------------------------------------
 c if we get here, then we have just the SN with no hostZ to lean on;
 c search course grid to find min chi2.
 
       IFLAG = FCNFLAG_USER  ! to fill EP_XXX arrays in FCNSNLC
 
+
 c -----------------------------------------------------
 c call FCNSNLC with INIVAL and IFLAG = FCNFLAG_USER (last-call) 
 c to set EP_XXX arrays with initial conditions.
 c This is needed to check initial data/model normalization.
 
-c Dec 20 2012: set distance based on redshift estimate above   
-        Z       = INIVAL(IPAR_zPHOT)
-        s       = INIVAL(IPAR_SHAPE)
-        c       = INIVAL(IPAR_COLOR)
-        d       = GET_DIST8(Z,s,c,ONE8)
-        INIVAL(IPAR_DLMAG) = d
-
+c Use initial guess to get starting chi2
+      Z       = INIVAL(IPAR_zPHOT)
+      s       = INIVAL(IPAR_SHAPE)
+      c       = INIVAL(IPAR_COLOR)
+      d       = GET_DIST8(Z,s,c,ONE8);   INIVAL(IPAR_DLMAG) = d        
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2INI,INIVAL,IFLAG,USRFUN)
+      if(LPRINT) CALL PRINT_INIPAR_ZPHOT('guess',z,s,c,d,one8,chi2ini)
 
-      if ( LDMP ) then        
-        print*,'   Initial PHOTOZ = ', SNGL(INIVAL(IPAR_zPHOT))
-        write(6,56) 'BEFORE  ', chi2INI, NEPOCH_ALL(0)
-        CALL FLUSH(6)          
-      endif
-
-56    format(T4,'FCNSNLC(',A,' FITINI_PHOTOZ)  returns CHI2=',
-     &      G12.4,'/',I3)
-     
 
 c open up the x0 bound for the course grid search (Feb 4, 2014)
       IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
@@ -8296,6 +8282,11 @@ c open up the x0 bound for the course grid search (Feb 4, 2014)
          INIBND(2,IPAR_X0) = 10000.
       ENDIF
 
+c      CALL INIPAR_PHOTOZ_COURSEGRID(CHI2INI)
+
+
+c+SELF,IF=XXXREMOVE.
+c xxxxxxxx mark delete xxxxxxxxx
       IF ( ISCALE_COURSEBIN_PHOTOZ .LE. 0 ) THEN
          write(c1err,661) ISCALE_COURSEBIN_PHOTOZ
 661      format('Invalid ISCALE_COURSEBIN_PHOTOZ = ', I6)
@@ -8315,12 +8306,14 @@ c loop over redshift, color, stretch to estimate INIVAL
       IF ( LZDONE ) THEN
         ZMIN = Z_SAVE
         ZMAX = Z_SAVE       
-      ELSE IF ( LREPEAT_ITER ) THEN
-        ZPHOT_LAST = FITVAL(IPAR_zPHOT,ITER)
-        ZMIN  = ZPHOT_LAST - 0.3
-        ZMIN  = MAX ( ZMIN, 0.0 )
-        ZMAX  = ZPHOT_LAST + 0.3
-        ZMAX  = MIN ( ZMAX, INIBND(2,IPAR_zPHOT) )
+c xxxxxxxxxxxxxxxxxxxx
+c      ELSE IF ( LREPEAT_ITER ) THEN
+c        ZPHOT_LAST = FITVAL(IPAR_zPHOT,ITER)
+c        ZMIN  = ZPHOT_LAST - 0.3
+c        ZMIN  = MAX ( ZMIN, 0.0 )
+c        ZMAX  = ZPHOT_LAST + 0.3
+c       ZMAX  = MIN ( ZMAX, INIBND(2,IPAR_zPHOT) )
+c xxxxxxxxxxxxxxxxxxx
       ELSE
         ZMIN  = INIBND(1,IPAR_zPHOT)
         ZMAX  = INIBND(2,IPAR_zPHOT)
@@ -8342,26 +8335,216 @@ c loop over redshift, color, stretch to estimate INIVAL
      &     3x,'(binsize=',F7.3,')'  )
       call flush(6)
 
-+SELF,IF=XXXDEBUG.
-c xxxxxxxxxxxxxxx
-      print*,' '
-      print*,' xxx ============================== '
-      print*,' xxx ============================== '
-      c = -0.2; s=-1.0; z=0.947 ;  Fmodel_scale = 4.668
-      d  = GET_DIST8(Z,s,c,Fmodel_SCALE)
-      INIVAL(IPAR_COLOR)  = c
-      INIVAL(IPAR_SHAPE)  = s
-      INIVAL(IPAR_zPHOT)  = Z
-      INIVAL(IPAR_DLMAG)  = d
+      DO 57 is = 1, NSBIN
+        s = SMIN + dble(is-1) * SBIN
+        INIVAL(IPAR_SHAPE) = s
+
+      DO 58 iz  = 1, NZBIN
+        z  = ZMIN + dble(iz-1)*ZBIN 
+        INIVAL(IPAR_zPHOT) = Z
+
+      DO 59 ic  = 1, NCBIN
+        c       = CMIN + dble(ic-1)*CBIN 
+        d       = GET_DIST8(Z,s,c,ONE8)
+
+        INIVAL(IPAR_COLOR)  = c
+        INIVAL(IPAR_DLMAG)  = d
+
+c call function to evaluate R4SN_XXX variables needed to 
+c determine Fmodel_SCALE below.
+        CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
+
+c now compute Fmodel_SCALE to minimize chi2 as a function of 
+c x0 or MU. This is an approximation assuming that the error-squared 
+c is constant, but it really depends slightly on the Fmodel_SCALE value.
+
+        IF ( R4SN_FFSUM_CROSS > 0 .and. R4SN_FFSUM_MODEL > 0 ) then
+           Fmodel_SCALE        = R4SN_FFSUM_CROSS/R4SN_FFSUM_MODEL
+        ELSE
+           Fmodel_SCALE        = 1.0  ! June 30 2013
+        ENDIF
+
+        d                   = GET_DIST8(Z,s,c,Fmodel_SCALE)
+        INIVAL(IPAR_DLMAG)  = d
+        CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
+
+c ------------
+        if ( chi2 < -1300.  ) then
+          write(6,667) z, PARNAME_STORE(IPAR_COLOR)(1:3), 
+     &                 c,s,d,chi2, Fmodel_SCALE
+667       format(' xxxx Z=',F5.3, 2x, A,'=',F6.3, 2x, 
+     &           's=',F6.3, 2x, 'DIST=',G8.3, 2x, 'CHI2=',E10.3,
+     &           2x, 'Fscale=',G8.3 )
+          call flush(6)
+cc          STOP ! xxxxxxxx
+        endif
+c -------
+        if ( CHI2 .LT. CHI2MIN ) then
+            chi2min = chi2
+            Z_SAVE = INIVAL(IPAR_zPHOT)
+            C_SAVE = INIVAL(IPAR_COLOR)
+            S_SAVE = INIVAL(IPAR_SHAPE)
+            D_SAVE = INIVAL(IPAR_DLMAG)
+            Fmodel_SCALE_SAVE = Fmodel_SCALE
+        endif
+
+59    CONTINUE  ! color
+58    CONTINUE  ! photoz
+57    CONTINUE  ! lumipar
+
+c load inital redshift and re-run FCNSNLC to update EP_FLUX_MODEL
+
+      INIVAL(IPAR_zPHOT)   = Z_SAVE  ! save redshift
+      INIVAL(IPAR_COLOR)   = C_SAVE  ! save color
+      INIVAL(IPAR_DLMAG)   = D_SAVE  ! save distance
+      INIVAL(IPAR_SHAPE)   = S_SAVE  ! save lumi/shape param
+c xxxxxxxxxxx end mark xxxxxxxxx
+c+SELF.
+
+
+c update x0-bound for SALT2
+
+      IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
+        INIBND(1,IPAR_X0) = 0.01  * D_SAVE
+        INIBND(2,IPAR_X0) = 100.  * D_SAVE
+      ENDIF
 
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
-      print*,' '
-      print*,' xxx STOP DEBUG xxx '
-      call flush(6)
-      STOP
-c xxxxxxxxxxxxxxx
-+SELF.
 
+      if ( LPRINT ) then
+         CALL PRINT_INIPAR_ZPHOT('eval',
+     &     z_save,s_save,c_save,d_save,Fmodel_scale_save,chi2min)
+      endif
+
+      CALL FLUSH(6)
+
+888   CONTINUE
+
+
+      REDSHIFT_FIT = INIVAL(IPAR_zPHOT) 
+
+      RETURN
+      END   ! end of FITINI_PHOTOZ
+
+C =============================
++DECK,PRINT_INIPAR_ZPHOT.
+      SUBROUTINE PRINT_INIPAR_ZPHOT(string,z,s,c,x0,dscale,chi2)
+c Created July 2012
+c FITINI_PHOTOZ print utility to show
+c     initial-[string]: zPhot,s,c,x0 = [values]
+
+      IMPLICIT NONE
+      CHARACTER STRING*(*)          ! (I) descriptor
+      REAL*8 z,s,c,x0,dscale,chi2   ! (I) values to print
+
+c local var
++CDE,SNDATCOM.
++CDE,SNANAFIT. 
++CDE,SNFITCOM.
+
+      INTEGER LZ,LS,LC,LD
+
+C ----------- BEGIN --------      
+
+      LZ = INDEX(PARNAME_STORE(IPAR_zPHOT),  ' ' ) - 1
+      LS = INDEX(PARNAME_STORE(IPAR_SHAPE),  ' ' ) - 1
+      LC = INDEX(PARNAME_STORE(IPAR_COLOR),  ' ' ) - 1
+      LD = INDEX(PARNAME_STORE(IPAR_DLMAG),  ' ' ) - 1
+
+      write(6,43) STRING
+     &     ,PARNAME_STORE(IPAR_zPHOT)(1:LZ)
+     &     ,PARNAME_STORE(IPAR_SHAPE)(1:LS)
+     &     ,PARNAME_STORE(IPAR_COLOR)(1:LC)
+     &     ,PARNAME_STORE(IPAR_DLMAG)(1:LD)
+     &     ,'dScale'
+     &     ,z, s, c, x0, dscale
+
+ 43   format(T5,'initial-',A, 2x, 
+     &     5(A,1x),'= ', 3F7.3, 1x, G8.2, F6.3 )
+         
+      write(6,44) STRING, CHI2
+ 44   format(T5,'initial-',A, 2x, 'CHI2 = ',G12.4 )
+      
+      CALL FLUSH(6)
+
+      RETURN
+      END
+
+C ====================================
++DECK,INIPAR_PHOTOZ_COURSEGRID.
+      SUBROUTINE INIPAR_PHOTOZ_COURSEGRID(CHI2INI)
+
+c Created July 12 2019
+c Estimate initial photo-z parameters using course grid.
+c [Code moved from FITINI_PHOTOZ]
+
+      IMPLICIT NONE
+
+c subroutine arguments
+      REAL*8  CHI2INI ! (I) initial chi2 from guess; try doing better
+
+c local args
+
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
+
+      REAL*8 Z_SAVE, ZMIN, ZMAX, ZBIN, z
+      REAL*8 S_SAVE, SMIN, SMAX, SBIN, s
+      REAL*8 C_SAVE, CMIN, CMAX, CBIN, c
+      REAL*8 Fmodel_SCALE, Fmodel_SCALE_SAVE, d, d_SAVE
+      REAL*8 GRAD(MXFITPAR), CHI2, CHI2MIN
+      INTEGER NZBIN, NSBIN, NCBIN, iz, is, ic, IFLAG, ITER
+
+      LOGICAL LZDONE ! ??
+
+      REAL*8 GET_DIST8, USRFUN
+      EXTERNAL USRFUN
+
+C ------------- BEGIN ------------
+
+      ITER = 1
+      IFLAG = FCNFLAG_USER  ! to fill EP_XXX arrays in FCNSNLC
+
+      IF ( ISCALE_COURSEBIN_PHOTOZ .LE. 0 ) THEN
+         write(c1err,661) ISCALE_COURSEBIN_PHOTOZ
+661      format('Invalid ISCALE_COURSEBIN_PHOTOZ = ', I6)
+         c2err = 'Check  &FITINP namelist'
+         CALL MADABORT("FITINI_PARVAL", c1err, c2err)    
+      ENDIF
+
+
+      CHI2MIN = CHI2INI
+      Z_SAVE  = INIVAL(IPAR_zPHOT)
+      D_SAVE  = INIVAL(IPAR_DLMAG)  ! mu or x0 (distance par)
+      C_SAVE  = INIVAL(IPAR_COLOR)  ! AV or c
+      S_SAVE  = INIVAL(IPAR_SHAPE)   ! stretch (x1, delta...)
+
+c loop over redshift, color, stretch to estimate INIVAL
+      
+      IF ( LZDONE ) THEN
+        ZMIN = Z_SAVE
+        ZMAX = Z_SAVE       
+      ELSE
+        ZMIN  = INIBND(1,IPAR_zPHOT)
+        ZMAX  = INIBND(2,IPAR_zPHOT)
+      ENDIF
+      NZBIN = ISCALE_COURSEBIN_PHOTOZ * int(25.*(ZMAX-ZMIN)) + 1  ! hard-wired
+      ZBIN  = (ZMAX - ZMIN) / DBLE(NZBIN)
+
+      CALL SETBINS_FITINI_PHOTOZ(IPAR_COLOR,   ITER, 
+     &                 NCBIN,CBIN,CMIN,CMAX)  ! output
+      CALL SETBINS_FITINI_PHOTOZ(IPAR_SHAPE, ITER, 
+     &                 NSBIN,SBIN,SMIN,SMAX)  ! output
+
+      print*,'    Course-grid minimization for initial values: '
+      write(6,432) NZBIN, 'photoz', ZMIN, ZMAX, ZBIN
+      write(6,432) NCBIN, 'color ', CMIN, CMAX, CBIN
+      write(6,432) NSBIN, 'shape ', SMIN, SMAX, SBIN
+      call flush(6)
+ 432  format(T10,I3, 2x, A,' bins from ', F8.3,' to ', F8.3,
+     &     3x,'(binsize=',F7.3,')'  )
+      call flush(6)
 
       DO 57 is = 1, NSBIN
         s = SMIN + dble(is-1) * SBIN
@@ -8427,51 +8610,9 @@ c load inital redshift and re-run FCNSNLC to update EP_FLUX_MODEL
       INIVAL(IPAR_DLMAG)   = D_SAVE  ! save distance
       INIVAL(IPAR_SHAPE)   = S_SAVE  ! save lumi/shape param
 
-c update x0-bound for SALT2
-
-      IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
-        INIBND(1,IPAR_X0) = 0.01  * D_SAVE
-        INIBND(2,IPAR_X0) = 100.  * D_SAVE
-      ENDIF
-
-      CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
-
-      if ( LDMP ) then
-         write(6,42) CHI2MIN
-
-         LZ = INDEX(PARNAME_STORE(IPAR_zPHOT), ' ' ) - 1
-         LC = INDEX(PARNAME_STORE(IPAR_COLOR),  ' ' ) - 1
-         LS = INDEX(PARNAME_STORE(IPAR_SHAPE),' ') - 1
-         LD = INDEX(PARNAME_STORE(IPAR_DLMAG),  ' ' ) - 1
-
-         write(6,43) 
-     &      PARNAME_STORE(IPAR_zPHOT)(1:LZ),   Z_SAVE
-     &     ,PARNAME_STORE(IPAR_COLOR)(1:LC),   C_SAVE
-     &     ,PARNAME_STORE(IPAR_SHAPE)(1:LS),   S_SAVE
-     &     ,PARNAME_STORE(IPAR_DLMAG)(1:LD),   D_SAVE
-
-42       format(T7,'Adjust initial CHI2 =>',G12.4 )
-43       format(T7,'Adjust initial '
-     &         ,A,' =>',F6.3 , 2x
-     &         ,A,' =>',F6.3 , 2x
-     &         ,A,' =>',F6.3 , 2x
-     &         ,A,' =>',G8.2 
-     &          )
-         
-           write(6,45) Fmodel_SCALE_SAVE   ! Mar 26, 2012
-45         format(T20,'(Distance-scale=', F6.3,')')
-      endif
-
-
-      CALL FLUSH(6)
-
-888   CONTINUE
-
-
-      REDSHIFT_FIT = INIVAL(IPAR_zPHOT) 
 
       RETURN
-      END   ! end of FITINI_PHOTOZ
+      END
 
 C ==========================================
 +DECK,STBINZPH.

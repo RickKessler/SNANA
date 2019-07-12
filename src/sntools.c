@@ -5368,7 +5368,7 @@ double interp_1DFUN(
   // ------------- BEGIN -----------------
 
   // do binary search to quickly find which bin contains 'val'
-  IBIN = quickBinSearch(NBIN, val, VAL_LIST, abort_comment );
+  IBIN = quickBinSearch(val, NBIN,VAL_LIST, abort_comment );
 
   if ( IBIN < 0 || IBIN >= NBIN-1 ) {
     sprintf(c1err,"quickBinSearch returned invalid IBIN=%d (NBIN=%d)", 
@@ -5583,7 +5583,7 @@ double quadInterp ( double VAL, double VAL_LIST[3], double FUN_LIST[3],
 
 
 // ===================================================
-int quickBinSearch(int NBIN, double VAL, double *VAL_LIST,
+int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
 		   char *abort_comment) {
 
   // April 2011.

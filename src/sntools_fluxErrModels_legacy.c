@@ -7,7 +7,7 @@
 //  Catenate sntools_fluxErrModels.c  sntools_imageNoiseModels.c
 //  into 'legacy' models, to eventually be replaced by more
 //  general set of maps. Current code is a mess because different
-//  peices are in different places.
+//  pieces are in different places.
 //
 // **************************************************
 // **************************************************
@@ -247,10 +247,6 @@ double scale_fluxErr_DES_SMP(void) {
   return (1./SCALE) ;
     
 } // end scale_fluxErr_DES_SMP
-
-
-
-
 
 
 

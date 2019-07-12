@@ -621,7 +621,7 @@ void  init_OUTVAR_HOSTLIB(void) {
   // in the WGTMAP.
 
   int   NVAR_STOREPAR, NVAR_OUT, NVAR_REQ, LOAD, ivar, ivar2 ;
-  int   ISDUPL;
+  int   ISDUPL, USED;
   char  VARLIST_ALL[MXPATHLEN], VARLIST_LOAD[MXPATHLEN];
   char  varName[60], *varName2;
   char  fnam[] = "init_OUTVAR_HOSTLIB"     ;
@@ -634,6 +634,7 @@ void  init_OUTVAR_HOSTLIB(void) {
   // VARLIST_LOAD contains only unique variables, and is for print only
   sprintf(VARLIST_ALL, "%s", INPUTS.HOSTLIB_STOREPAR_LIST) ;
   VARLIST_LOAD[0] = 0 ; 
+
 
   // bail if nothing is specified.
   if ( strlen(VARLIST_ALL) == 0 ) { return ; }
@@ -673,6 +674,10 @@ void  init_OUTVAR_HOSTLIB(void) {
     // always store variable in OUTVAR list, along with IVAR
     sprintf(HOSTLIB_OUTVAR_EXTRA.NAME[NVAR_OUT], "%s", varName );
     HOSTLIB_OUTVAR_EXTRA.IVAR_STORE[NVAR_OUT] = IVAR_HOSTLIB(varName,1);
+
+    // set USED_IN_WGTMAP flat to zero; fill this later in read_head_HOSTLIB.
+    HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[NVAR_OUT] = 0 ;
+
     NVAR_OUT++ ;  
 
     if(NVAR_OUT > 1 ) { strcat(VARLIST_LOAD,"," ); }
@@ -788,6 +793,7 @@ void  read_wgtmap_HOSTLIB(void) {
   else
     { printf("\t Ignore SNMAGSHIFT in WGTMAP \n"); fflush(stdout); }
 
+
 } // end of read_wgtmap_HOSTLIB
 
 
@@ -854,7 +860,6 @@ void parse_WGTMAP_HOSTLIB(FILE *fp, char *string) {
   
   HOSTLIB_WGTMAP.WGTMAX = HOSTLIB_WGTMAP.GRIDMAP.FUNMAX[0];
   
-
   // update global counter
   HOSTLIB.NVAR_STORE = IVAR_STORE ;
 
@@ -901,7 +906,8 @@ void  read_specbasis_HOSTLIB(void) {
 
   HOSTSPEC.NSPECBASIS  = 0 ;
   HOSTSPEC.NBIN_WAVE   = 0 ;
-  HOSTSPEC.FLAM_SCALE  = 1.0 ;
+  HOSTSPEC.FLAM_SCALE        = 1.0 ;
+  HOSTSPEC.FLAM_SCALE_POWZ1  = 0.0 ;
 
   ptrFile = INPUTS.HOSTLIB_SPECBASIS_FILE ;
   if ( IGNOREFILE(ptrFile) )  { return ; }
@@ -925,6 +931,9 @@ void  read_specbasis_HOSTLIB(void) {
 
     if ( strcmp(c_get,"FLAM_SCALE:") == 0 ) 
       { readdouble(fp, 1, &HOSTSPEC.FLAM_SCALE); }    
+
+    if ( strcmp(c_get,"FLAM_SCALE_POWZ1:") == 0 ) 
+      { readdouble(fp, 1, &HOSTSPEC.FLAM_SCALE_POWZ1); }    
   }
 
   fclose(fp);
@@ -957,9 +966,12 @@ void  read_specbasis_HOSTLIB(void) {
     if ( ICOL_WAVE == ivar ) {
       NVAR_WAVE++ ;
       if ( NVAR_WAVE == 1 ) { 
-	HOSTSPEC.WAVE         = (double*) malloc(MEMD);
+	HOSTSPEC.WAVE_CEN     = (double*) malloc(MEMD);
+	HOSTSPEC.WAVE_MIN     = (double*) malloc(MEMD);
+	HOSTSPEC.WAVE_MAX     = (double*) malloc(MEMD);
 	HOSTSPEC.WAVE_BINSIZE = (double*) malloc(MEMD);
-	SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.WAVE, NBIN_WAVE, OPT_VARDEF); 
+	SNTABLE_READPREP_VARDEF(varName, HOSTSPEC.WAVE_CEN, NBIN_WAVE, 
+				OPT_VARDEF); 
       }
     }  
 
@@ -1011,23 +1023,29 @@ void  read_specbasis_HOSTLIB(void) {
   // Loop over wave bins and
   // + determine WAVE_BINSIZE for each wave bin
   // + truncate NBIN_WAVE so that lam < MAXLAM_SEDMODEL
-  double WAVE_BINSIZE, LAM, LAM_LAST, LAM_NEXT;
+  double WAVE_BINSIZE, WAVE_MIN, WAVE_MAX, LAM, LAM_LAST, LAM_NEXT;
   int FIRST, LAST, ilam, NBIN_KEEP=0 ;
   for(ilam=0; ilam < NBIN_WAVE; ilam++ ) {
 
     FIRST = ( ilam == 0 ) ;
     LAST  = ( ilam == NBIN_WAVE-1 ) ;
 
-    LAM  = HOSTSPEC.WAVE[ilam];
+    LAM  = HOSTSPEC.WAVE_CEN[ilam];
     if ( LAM > MAXLAM_SEDMODEL ) { continue; }
 
-    if ( !FIRST )  { LAM_LAST = HOSTSPEC.WAVE[ilam-1]; }
-    if ( !LAST  )  { LAM_NEXT = HOSTSPEC.WAVE[ilam+1]; }
+    if ( !FIRST )  { LAM_LAST = HOSTSPEC.WAVE_CEN[ilam-1]; }
+    if ( !LAST  )  { LAM_NEXT = HOSTSPEC.WAVE_CEN[ilam+1]; }
 
     if ( FIRST ) { LAM_LAST = LAM - (LAM_NEXT-LAM) ; }
     if ( LAST  ) { LAM_NEXT = LAM + (LAM-LAM_LAST) ; }
 
-    WAVE_BINSIZE = (LAM_NEXT - LAM_LAST)/2.0;
+    WAVE_MIN     = LAM - (LAM - LAM_LAST)/2.0;
+    WAVE_MAX     = LAM + (LAM_NEXT - LAM)/2.0;
+    WAVE_BINSIZE = WAVE_MAX - WAVE_MIN;
+    // xxx mark delete    WAVE_BINSIZE = (LAM_NEXT - LAM_LAST)/2.0;
+
+    HOSTSPEC.WAVE_MIN[ilam]     = WAVE_MIN ;
+    HOSTSPEC.WAVE_MAX[ilam]     = WAVE_MAX ;
     HOSTSPEC.WAVE_BINSIZE[ilam] = WAVE_BINSIZE;
     NBIN_KEEP++ ;
 
@@ -1133,19 +1151,24 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
 
   // Created Jun 28 2019 by R.Kessler
   // Return host spectrum, including Galactic extinction.
+  //
+  // Issues:
+  //   - fraction of galaxy in fiber or slit ? Or does ETC include this ?
+  //
 
   int  NBLAM       = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   int  NBLAM_BASIS = HOSTSPEC.NBIN_WAVE; 
   int  IGAL        = SNHOSTGAL.IGAL ;
   double z1        = 1.0 + zhel;
-  double znorm     = 1.0/(z1*z1);
+  double znorm     = pow(z1,HOSTSPEC.FLAM_SCALE_POWZ1);
   double hc8       = (double)hc;
 
   int  ilam, ilam_basis, ilam_last=-9, i, ivar_HOSTLIB, NSUM ;
+  int  ilam_near, NLAMSUM, LDMP=0;
   double *FLAM_BASIS, FLAM_TMP, COEFF, FLUX_TMP, frac;
   double MWXT_FRAC, LAM, LAMBIN, LAMMIN, LAMMAX, LAM_BASIS;
   double LAMREST_MIN, LAMREST_MAX;
-  double LAMMIN_TMP, LAMMAX_TMP, LAMBIN_TMP ;
+  double LAMMIN_TMP, LAMMAX_TMP, LAMBIN_TMP, LAMBIN_CHECK ;
   double ZP, FTMP, MAG;
   char fnam[] = "genSpec_HOSTLIB" ;
 
@@ -1179,6 +1202,8 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
     LAMMAX     = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST[ilam] ;
     LAMBIN     = LAMMAX - LAMMIN ;
 
+    LDMP = (ilam == -217);
+
     LAMREST_MIN = LAMMIN/z1 ;
     LAMREST_MAX = LAMMAX/z1 ;
 
@@ -1190,17 +1215,25 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
 
     // loop over specBasis bins that overlap this SPECTROGRAPH bin,
     // and sum specBasis flux
-    FLUX_TMP = 0.0 ;    LAMMIN_TMP = -9.0 ;  
+    FLUX_TMP = 0.0 ;    LAMMIN_TMP = -9.0 ;   LAMBIN_CHECK=0.0 ;
+    ilam_near = -9; NLAMSUM=0;
     ilam_basis=ilam_last-2 ;  if(ilam_basis<0) {ilam_basis=0;}
 
     while ( LAMMIN_TMP < LAMREST_MAX ) {
       FLAM_TMP     = FLAM_BASIS[ilam_basis];
-      LAM_BASIS    = HOSTSPEC.WAVE[ilam_basis];
+      LAM_BASIS    = HOSTSPEC.WAVE_CEN[ilam_basis];
       LAMBIN_TMP   = HOSTSPEC.WAVE_BINSIZE[ilam_basis];
+      LAMMIN_TMP   = HOSTSPEC.WAVE_MIN[ilam_basis];
+      LAMMAX_TMP   = HOSTSPEC.WAVE_MAX[ilam_basis];
+
+
+      // LAMMIN_TMP   = LAM_BASIS - LAMBIN_TMP/2.0;  // lower lambda of bin
+      // LAMMAX_TMP   = LAM_BASIS + LAMBIN_TMP/2.0;  // upper lambda of bin
       ilam_basis++; ilam_last = ilam_basis;
 
-      LAMMIN_TMP   = LAM_BASIS - LAMBIN_TMP/2.0;  // lower lambda of bin
-      LAMMAX_TMP   = LAM_BASIS + LAMBIN_TMP/2.0;  // upper lambda of bin
+
+      if ( LAM_BASIS < LAM ) { ilam_near = ilam_basis; }
+
       if( LAMMAX_TMP < LAMREST_MIN ) { continue ; }
       if( LAMMIN_TMP > LAMREST_MAX ) { continue ; }
 
@@ -1208,10 +1241,46 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
       // i.e. exclude flux the leaks out of thie SPECTROGRAPh bin.
       if ( LAMMIN_TMP < LAMREST_MIN ) { LAMMIN_TMP = LAMREST_MIN; }
       if ( LAMMAX_TMP > LAMREST_MAX ) { LAMMAX_TMP = LAMREST_MAX; }
-      FLUX_TMP += ( FLAM_TMP * (LAMMAX_TMP-LAMMIN_TMP) );
+
+      LAMBIN_CHECK += (LAMMAX_TMP - LAMMIN_TMP);
+      FLUX_TMP += ( FLAM_TMP * (LAMMAX_TMP - LAMMIN_TMP) );
+      NLAMSUM++ ;
+
+      if ( LDMP ) {
+	printf(" xxx ilam=%d ilam_basis=%2d: LAM_BASIS=%.2f to %.2f  "
+	       "FLUX=%.2le\n", 
+	       ilam, ilam_basis, LAMMIN_TMP, LAMMAX_TMP, FLUX_TMP );
+      }
+
+    }
+    
+    // if NLAMSUM==0, then no basis lambins overlap SPECTROGRAPH;
+    // in thise casem, interpolate nearest basis bins
+    if ( NLAMSUM == 0 ) {
+      FLAM_TMP     = (FLAM_BASIS[ilam_near]+FLAM_BASIS[ilam_near+1])/2.0;
+      FLUX_TMP     = FLAM_TMP * LAMBIN;
+      LAMBIN_CHECK = LAMBIN/z1 ;
     }
 
-    GENFLUX_LIST[ilam] = FLUX_TMP ;  // flux in SPECTROGRAPH bin, not FLAM
+    // check that sum over basis wave bins = SPECTROGRAPH bin size
+    // basis wave is rest frame and SPECTROGRAPH bin is obs frame;
+    // hence z1 factor needed to compare.
+
+    if ( fabs(LAMBIN_CHECK - LAMBIN/z1) > 0.001 ) {
+      printf("\n PRE-ABORT DUMP: \n");
+      printf("   SPECTROGRAPH LAM(OBS) : %.3f to %.3f  (ilam=%d)\n",
+	     LAMMIN, LAMMAX, ilam );
+      printf("   SPECTROGRAPH LAM(Rest): %.3f to %.3f \n",
+	     LAMREST_MIN, LAMREST_MAX);
+      printf("   NLAMSUM = %d \n", NLAMSUM);
+      sprintf(c1err,"Failed LAMBIN_CHECK=%.3f, but expected %.3f",
+	      LAMBIN_CHECK, LAMBIN/z1);
+      sprintf(c2err,"zhel=%.4f, MWXT_FRAC=%.3f", zhel, MWXT_FRAC );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    // store flux (not FLAM) in SPECTROGRAPH bin
+    GENFLUX_LIST[ilam] = FLUX_TMP*MWXT_FRAC ;  
 
     // convert to mag
     ZP    = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
@@ -1378,7 +1447,6 @@ void read_head_HOSTLIB(FILE *fp) {
   // a real VARNAME_ALL, and store which 'ALL' index
   // Also load HOSTLIB.IVAR_XXX variables.
 
-
   NVAR_WGTMAP =  HOSTLIB_WGTMAP.GRIDMAP.NDIM ;
   for ( IVAR_STORE=0; IVAR_STORE < HOSTLIB.NVAR_STORE ; IVAR_STORE++ ) {
 
@@ -1453,9 +1521,22 @@ void read_head_HOSTLIB(FILE *fp) {
 
 
   // just make sure that these WGTMAP variables are really defined.
-  for ( ivar_map=0;  ivar_map < NVAR_WGTMAP; ivar_map++ ) 
-    { ivar = IVAR_HOSTLIB(HOSTLIB_WGTMAP.VARNAME[ivar_map],1);  }
+  // Also flag user-STOREPAR [EXTRA] variables that are also in WGTMAP (7.2019)
+  int  NVAR_EXTRA  = HOSTLIB_OUTVAR_EXTRA.NOUT ;
+  char *varName_WGTMAP, *varName_EXTRA;
+  for ( ivar_map=0;  ivar_map < NVAR_WGTMAP; ivar_map++ )  { 
+    varName_WGTMAP = HOSTLIB_WGTMAP.VARNAME[ivar_map] ;
+    ivar = IVAR_HOSTLIB(varName_WGTMAP,1);  
 
+    for(ivar=0; ivar < NVAR_EXTRA; ivar++ ) {
+      varName_EXTRA = HOSTLIB_OUTVAR_EXTRA.NAME[ivar];
+      if ( strcmp(varName_EXTRA,varName_WGTMAP) == 0 ) 
+	{  HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[ivar] = 1 ; }
+
+    }
+  }
+
+  return ;
 
 } // end of read_head_HOSTLIB
 
@@ -5622,6 +5703,83 @@ void setbit_HOSTLIB_MSKOPT(int MSKOPT) {
   if ( USE <= 0 ) { INPUTS.HOSTLIB_MSKOPT += MSKOPT ; }
   return ;
 
-}  // end of set_usebit_HOSTLIB_MSKOPT
+}  // end of setbit_HOSTLIB_MSKOPT
 
 
+// =================================
+int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
+
+  // Created July 2019
+  // Inputs:
+  //   OPT = 1 --> store NAMES_HOSTPAR
+  //   OPT = 2 --> store VAL_HOSTPAR
+  //
+  // Output:
+  //    NAMES_HOSTPAR : comma-separated list of par names (filled if OPT=1)
+  //    VAL_HOSTPAR   : array of hostpar values (filled if OPT=2)
+  //
+  // Function returns number of HOSTPAR params
+
+  int  NPAR, ivar, IVAR_STORE ;
+  int  NVAR_WGTMAP = HOSTLIB_WGTMAP.GRIDMAP.NDIM ;
+  int  NVAR_EXTRA  = HOSTLIB_OUTVAR_EXTRA.NOUT ;
+  char comma[] = ",";
+  char fnam[] = "fetch_HOSTPAR_GENMODEL";
+
+  // ----------- BEGIN -----------
+
+  /* xxx
+    HOSTLIB_OUTVAR_EXTRA.IVAR_STORE[NVAR_OUT] = IVAR_HOSTLIB(varName,1);
+    NVAR_OUT++ ;  
+    if(NVAR_OUT > 1 ) { strcat(VARLIST_LOAD,"," ); }
+    strcat(VARLIST_LOAD,varName); // for stdout message.
+  */
+
+
+  if ( OPT == 1 ) {
+    // always start with RV and AV    
+    sprintf(NAMES_HOSTPAR,"RV,AV"); NPAR=2;
+
+    for ( ivar=0; ivar < NVAR_WGTMAP; ivar++ ) {  
+      strcat(NAMES_HOSTPAR,comma);
+      strcat(NAMES_HOSTPAR,HOSTLIB_WGTMAP.VARNAME[ivar]); 
+      NPAR++ ;
+
+    }
+
+    // tack on user-defined variables from sim-input HOSTLIB_STOREPAR key
+    for(ivar=0; ivar < NVAR_EXTRA; ivar++ ) {
+      if ( HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[ivar] ) { continue; }
+      strcat(NAMES_HOSTPAR,comma);
+      strcat(NAMES_HOSTPAR,HOSTLIB_OUTVAR_EXTRA.NAME[ivar]);
+      NPAR++ ;
+    }
+    // add anything used in WGTMAP or HOSTLIB_STOREPAR
+  }
+  else if ( OPT ==  2 ) {
+    VAL_HOSTPAR[0] = GENLC.RV;
+    VAL_HOSTPAR[1] = GENLC.AV;
+    NPAR=2;
+
+    for ( ivar=0; ivar < NVAR_WGTMAP; ivar++ ) {  
+      VAL_HOSTPAR[NPAR] = SNHOSTGAL.WGTMAP_VALUES[ivar] ;
+      NPAR++ ;
+    }
+
+    for(ivar=0; ivar < NVAR_EXTRA; ivar++ ) {
+      if ( HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[ivar] ) { continue; }
+      VAL_HOSTPAR[NPAR] = HOSTLIB_OUTVAR_EXTRA.VALUE[ivar];
+      NPAR++ ;
+    }
+
+  }
+  else {
+    sprintf(c1err,"Invalid OPT=%d", OPT);
+    sprintf(c2err,"Allowed OPT values, 1 or 2");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  
+
+  return(NPAR);
+
+} // end fetch_HOSTPAR_GENMODEL

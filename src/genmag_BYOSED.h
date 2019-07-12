@@ -1,14 +1,27 @@
 // Created Sep 2018
 
 // define pre-processor command to use python interface
+<<<<<<< HEAD
 #define USE_PYTHON  
 
+=======
+#define USE_PYTHON   
+>>>>>>> master
 
 // ===========================================
 // global variables
 
-#define MXLAM_BYOSED  10000 // max wave bins to define SED
-#define MXPAR_BYOSED  10     // max number of params to describe SED
+#define MXLAM_BYOSED  10000  // max wave bins to define SED
+#define MXPAR_BYOSED     10  // max number of params to describe SED
+#define MXHOSTPAR_BYOSED 20  // max number of items in NAMES_HOSTPAR
+
+// store inputs from init_genmag_BYOSED (RK - Jul 12 2019)
+struct {
+  char *PATH, *ARGLIST, *NAMES_HOSTPAR ;
+  char *NAME_ARRAY_HOSTPAR[MXHOSTPAR_BYOSED] ;
+  int  OPTMASK;
+} INPUTS_BYOSED ;
+
 
 struct {
   int NLAM;           // number of bins in SED

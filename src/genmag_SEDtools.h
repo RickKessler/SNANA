@@ -322,7 +322,7 @@ double interp_flux_SEDMODEL(int ISED, int ilampower, int ifilt_obs,
 double get_flux_SEDMODEL(int ISED, int ilampow, int ifilt_obs,
 			 double z, double Trest) ;
 
-double getFiltLam_SEDMODEL(int ifilt, int ilam);
+// xxx mark delete double getFiltLam_SEDMODEL(int ifilt, int ilam);
 
 double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
                            double z, char *funCall );
@@ -364,6 +364,7 @@ void T0shiftExplode_SEDMODEL(int OPTMASK, SEDMODEL_FLUX_DEF *SEDFLUX,
 			     int vboseFlag);
 
 void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX);
+void set_UVLAM_EXTRAPFLUX_SEDMODEL(float UVLAM_MIN);
 
 void FLUX_SCALE_SEDMODEL(double SCALE, SEDMODEL_FLUX_DEF *SEDFLUX);
 
@@ -403,5 +404,8 @@ void get_lamrange_sedmodel__(int *opt, double *lammin, double *lammax);
 
 int fetch_parinfo_sedmodel__(int *ipar,char *parname,int *NBIN,double *range); 
 void fetch_parval_sedmodel__(int *ISED, int *IPAR, double *PARVAL);
+
+void set_uvlam_extrapflux_sedmodel__(float *UVLAM);
+
 
 // end of file.

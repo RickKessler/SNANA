@@ -20,6 +20,8 @@
 
   Mar 30 2019 RK - fix hc factors in spectra
   Apr 11 2019 RK - check for intrinsic scatter models (e.g., C11, G10 ...)
+  Jul 12 2019 RK - store inputs in INPUTS_BYOSED struct, and add 
+                   internal DUMPFLAG_HOSTPAR in genmag_BYOSED().
 
  *****************************************/
 
@@ -67,15 +69,20 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   //  
   //  ARGLIST      : string of options
   //
-  // NAMES_HOSTPAR : comma-separate list of names of host params
+  // NAMES_HOSTPAR : comma-separate list of names of host parameters.
+  //                 Includes RV, AV, variables used in WGTMAP, and
+  //                 HOSTLIB_STOREPAR list from sim-input file. 
+  //                 Duplicates are automatically removed.
   //
 
 #ifdef USE_PYTHON
   PyObject *genmod, *genclass, *pargs;
 #endif
 
+  int  L, ipar, NPAR ;
   int  MEMD   = sizeof(double);
   int  MEMC   = sizeof(char);
+  char comma[] = ",";
   char fnam[] = "init_genmag_BYOSED" ;
 
   // -------------- BEGIN ------------------
@@ -88,6 +95,24 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   printf("   BYOSED HOSTPAR = '%s' \n",  NAMES_HOSTPAR);
   fflush(stdout);
 
+  // - - - - - - - - - - -
+  // store inputs in global (RK - Jul 12 2019)
+  L=strlen(PATH_VERSION)+4;  INPUTS_BYOSED.PATH    = (char*)malloc(L*MEMC);
+  L=strlen(ARGLIST)+4;       INPUTS_BYOSED.ARGLIST = (char*)malloc(L*MEMC);
+  L=strlen(NAMES_HOSTPAR)+4; INPUTS_BYOSED.NAMES_HOSTPAR=(char*)malloc(L*MEMC);
+  INPUTS_BYOSED.OPTMASK = OPTMASK;
+  sprintf(INPUTS_BYOSED.PATH,          "%s", PATH_VERSION);
+  sprintf(INPUTS_BYOSED.ARGLIST,       "%s", ARGLIST );
+  sprintf(INPUTS_BYOSED.NAMES_HOSTPAR, "%s", NAMES_HOSTPAR );
+
+  // split comma-separated HOSTPAR_NAMES and store each 
+  // name separately (for debug dumps)
+  for(ipar=0; ipar < MXHOSTPAR_BYOSED; ipar++ ) 
+    { INPUTS_BYOSED.NAME_ARRAY_HOSTPAR[ipar] = (char*)malloc(60*MEMC);  }
+  splitString(NAMES_HOSTPAR, comma, MXHOSTPAR_BYOSED, 
+	      &NPAR, INPUTS_BYOSED.NAME_ARRAY_HOSTPAR );
+  
+  // - - - - - - - - - - -
   // print summary of filter info
   filtdump_SEDMODEL();
 
@@ -147,7 +172,6 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   
   // -----------------------------------------------------
   // set SED par names and allocate arrays for parameters
-  int NPAR, ipar;
   Event_BYOSED.PARVAL  = (double*) malloc ( MXPAR_BYOSED*MEMD );
   Event_BYOSED.PARNAME = (char**)  malloc ( MXPAR_BYOSED*sizeof(char*) );
   Event_BYOSED.NPAR    = 0 ;
@@ -205,12 +229,13 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
   double  ZP  = FILTER_SEDMODEL[ifilt].ZP ;    // ZP for flux->mag
   double x0   = pow(10.0,-0.4*MU);             // dimming from dist. mod.
   int    NEWEVT_FLAG = 0 ;
+  int    DUMPFLAG_HOSTPAR = 0 ; 
 
   int    NLAM, o, ipar ;
   double Tobs, Trest, FLUXSUM_OBS, FspecDUM[2], magobs ; 
   char   pyFORMAT_STRING_HOSTPAR[100] ;;
   char fnam[] = "genmag_BYOSED" ;
-
+  printf("xxxxxxx %f \n",RV_host);
    #ifdef USE_PYTHON
   // python declarations here
   
@@ -226,6 +251,19 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
     { NEWEVT_FLAG=1; }
 
 
+  // RK - check internal flag to dump host params
+  if ( DUMPFLAG_HOSTPAR && NEWEVT_FLAG ) {
+    printf(" xxx ----------------------------------------------\n");
+    printf(" xxx %s: dump HOSTPAR_LIST for EXTERNAL_ID=%d \n",
+	   fnam, EXTERNAL_ID);
+    for(ipar=0; ipar < NHOSTPAR; ipar++ ) {
+      printf(" xxx (%2d) %-20s = %f \n", ipar,
+	     INPUTS_BYOSED.NAME_ARRAY_HOSTPAR[ipar], 
+	     HOSTPAR_LIST[ipar] );
+    }
+    fflush(stdout);
+  }
+
   // construct hostpar string to pass to python
   sprintf(pyFORMAT_STRING_HOSTPAR,"diii[" );
   for(ipar=0; ipar < NHOSTPAR; ipar++ ) {
@@ -237,13 +275,14 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
   }
   //  printf(" xxx pySTRING_HOSTPAR = '%s' \n", pyFORMAT_STRING_HOSTPAR );
   
-  /* xxx
+  
+  /*
   printf(" xxx ------------------------------------ \n" ) ;
   printf(" xxx %s: process z=%.3f MU=%.3f RV=%3.1f IFILT_OBS=%d(%s) \n",
 	 fnam, zHEL, MU, MWXT_SEDMODEL.RV, IFILT_OBS, cfilt );
   printf(" xxx RVMW=%3.1f  MWEBV=%.3f      RV_host=%3.1f AV=%4.2f \n", 
 	 MWXT_SEDMODEL.RV, MWEBV,   RV_host, AV_host );
-  xxxx */
+  */
 
   
   // store table info for Galactic & host extinction
@@ -264,7 +303,6 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
 		      NLAM, LAM, SED, 
 		      &FLUXSUM_OBS, FspecDUM ); // <= returned 
 
-    
     // convert calibrated flux into true magnitude
     if ( FLUXSUM_OBS > FLUXSUM_MIN ) 
       { magobs = ZP - 2.5*log10(FLUXSUM_OBS); }
@@ -384,7 +422,8 @@ void fetchParVal_BYOSED(double *parVal) {
 
 // =================================================
 void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
-		     double *HOSTPAR_LIST, int *NLAM_SED, double *LAM_SED, double *FLUX_SED,
+		     double *HOSTPAR_LIST, int *NLAM_SED, 
+		     double *LAM_SED, double *FLUX_SED,
 		     char *pyFORMAT_STRING_HOSTPAR) {
 
   // return rest-frame SED to calling function; 
@@ -463,7 +502,7 @@ void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
   
   NLAM = TEMP_SEDMODEL.NLAM ;    *NLAM_SED = NLAM ;
   NDAY = TEMP_SEDMODEL.NDAY ;
-  iday = quickBinSearch(NDAY, Trest, TEMP_SEDMODEL.DAY, fnam);
+  iday = quickBinSearch(Trest, NDAY,TEMP_SEDMODEL.DAY, fnam);
   if ( iday >= NDAY-2 ) { iday = NDAY-3; }
   TMPDAY[0] = TEMP_SEDMODEL.DAY[iday+0] ; 
   TMPDAY[1] = TEMP_SEDMODEL.DAY[iday+1] ; 
@@ -517,7 +556,7 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
   //   AV_host      AV for host
   //   NLAM         Number of SED bins
   //  *LAM          array of rest-frame wavelengths to define SED
-  //  *SED          array of rest-fame SED fluxes
+  //  *SED          array of rest-fame SED model fluxes
   //
   // Outputs
   //   *Finteg     Integrated flux 
@@ -525,6 +564,8 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
   //
   // !!! Dec 12 2018: Finteg is tested against SALT2 filter-fluxes, 
   //     but Fspec is not tested.
+  //
+  // Jul 12 2019 RK - few fixes to work with spectrograph.
   //
 
   int    ifilt          = IFILTMAP_SEDMODEL[ifilt_obs] ;
@@ -561,14 +602,14 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
   *Finteg  = 0.0 ; // init output flux for filter
   Fspec[0] = 0.0 ;
 
+
   // first make sure that SED wavelength range covers filter
-  if ( minlam_filt < minlam_SED*z1 || maxlam_filt>maxlam_SED*z1 ) {
-    sprintf(c1err,"Invalid obs-frame SED wave range (%.1f - %.1f), zHEL=%.3f",
-	    minlam_SED*z1, maxlam_SED*z1, zHEL );
-    sprintf(c2err,"ifilt=%d(%s) wave range is %.1f - %.1f",
-	    ifilt, cfilt, minlam_filt, maxlam_filt);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  if ( !DO_SPECTROGRAPH ) {
+    if ( minlam_filt < minlam_SED*z1 ) { return; }
+    if ( maxlam_filt > maxlam_SED*z1 ) { return; }
   }
+
+
   // - - - - - - -
   // check for intrinsic scatter models in sntools_genSmear.c
   //  (e..g, G10, C11).  Get magSmear at all wavelengths.
@@ -591,8 +632,7 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
 
     TRANS  = FILTER_SEDMODEL[ifilt].transSN[ilamobs] ;
 
-    if ( TRANS < 1.0E-12 && OPT_SPEC==0) 
-      { continue ; } // Jul 2013 - skip zeros for leakage
+    if ( TRANS < 1.0E-12 && OPT_SPEC==0)   { continue ; } 
 
     MWXT_FRAC  = SEDMODEL_TABLE_MWXT_FRAC[ifilt][ilamobs] ;
 
@@ -614,12 +654,16 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
       LAMSED_MAX = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST[ilamobs]/z1 ;
     } // end OPT_SPEC
 
+    // RK - Jul 12 2019 - make sure spectrograph bin is covered by SED model
+    if ( LAMSED_MIN < minlam_SED ) { continue; }
+    if ( LAMSED_MAX > maxlam_SED ) { continue; }
+
     // loop over rest-frame lambda (for SPECTROGRAPH)
     for(LAMSED = LAMSED_MIN; LAMSED <= LAMSED_MAX; LAMSED+=LAMSED_STEP ) {
 
       // find rest-frame bin for BYOSED ... note that non-uniform
       // bins are allowed, but non-uniform might lead to trouble elsewhere.
-      ilamsed = quickBinSearch(NLAM, LAMSED, LAM, fnam);
+      ilamsed = quickBinSearch(LAMSED, NLAM,LAM, fnam);
       if ( ilamsed >= NLAM-2 ) { ilamsed=NLAM-3; }
 
       TMPLAM[0]=LAM[ilamsed+0];  TMPSED[0]=SED[ilamsed+0]; 

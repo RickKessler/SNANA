@@ -14160,7 +14160,7 @@ c local var
 +CDE,SPECCOM.
 
       INTEGER ID,  NLAMBIN, ilam, iwd, NLAMBIN_EXPECT, NDMP
-      REAL*8  MJD, TEXPOSE
+      REAL*8  MJD, TEXPOSE, TOBS
       CHARACTER CWD*60, CWD_NEXT*60
       LOGICAL LDMP / .FALSE. /
 c      LOGICAL LDMP / .TRUE. /
@@ -14198,8 +14198,10 @@ c check header stuff
 
       IF ( CWD .EQ. 'SPECTRUM_MJD:' ) THEN
          READ(CWD_NEXT,*) MJD
-         MJD_SPECTRUM(NSPECTRUM) = MJD
-         TOBS_SPECTRUM(NSPECTRUM) = MJD - SNLC_SEARCH_PEAKMJD ! 5/2019
+         TOBS = MJD - SNLC_SEARCH_PEAKMJD
+         IF ( MJD < 0.0 ) TOBS = -9.0
+         MJD_SPECTRUM(NSPECTRUM)  = MJD
+         TOBS_SPECTRUM(NSPECTRUM) = TOBS
       ENDIF
 
       IF ( CWD .EQ. 'SPECTRUM_TEXPOSE:' ) THEN
@@ -23497,7 +23499,7 @@ c find starting bin for grid interpolation
       END
 
 C =========================================
-+DECK,LCUTEP.
++DECK,LCUTEPOCH.
       LOGICAL FUNCTION LCUTEPOCH(Z, PKMJD, MJD, IDTEL, IDFIELD)
 
 c ------------------------------------------- 

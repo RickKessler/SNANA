@@ -283,7 +283,7 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
     }
   }
 
-  printf("HI7 \t %s\n",ptrFile_final);
+
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[0], "\t %s\n", 
 	  ptrFile_final ); 
 

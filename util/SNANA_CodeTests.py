@@ -41,7 +41,7 @@ RESULT_TASKS_FILE       = 'RESULTS_TASKS.DAT'
 RESULT_DIFF_FILE        = 'RESULTS_DIFF.DAT'
 SNANA_INFO_FILE         = 'SNANA.INFO'
 STOP_FILE               = ('%s/STOP' % (LOG_TOPDIR) )
-MEMORY                  = 1000   # Mb
+MEMORY                  = 2000   # Mb
 
 # ========================================================
 def parse_args():

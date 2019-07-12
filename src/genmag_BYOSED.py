@@ -22,7 +22,6 @@ __mask_bit_locations__={'verbose':1,'dump':2}
 class genmag_BYOSED:
 
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
-
 			self.verbose = OPTMASK & (1 << __mask_bit_locations__['verbose']) > 0
 
 			self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
@@ -52,7 +51,7 @@ class genmag_BYOSED:
 			self.options = options
 
 			self.warp_effects=self.fetchParNames_CONFIG(config)
-			import pdb; pdb.set_trace()		
+
 			self.sn_effects,self.host_effects=self.fetchWarp_BYOSED(config)
 
 			phase,wave,flux = np.loadtxt(os.path.join(self.PATH_VERSION,self.options.sed_file),unpack=True)
@@ -218,8 +217,8 @@ class genmag_BYOSED:
 									temp_warp_param=self.host_effects[warp].warp_parameter
 
 						fluxsmear+=temp_warp_param*product*self.x0
-					#except:
-					#	import pdb; pdb.set_trace()
+					except:
+						import pdb; pdb.set_trace()
 
 
 				if 'COLOR' in self.warp_effects:

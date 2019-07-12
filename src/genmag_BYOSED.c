@@ -235,7 +235,7 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU,
   double Tobs, Trest, FLUXSUM_OBS, FspecDUM[2], magobs ; 
   char   pyFORMAT_STRING_HOSTPAR[100] ;;
   char fnam[] = "genmag_BYOSED" ;
-  printf("xxxxxxx %f \n",RV_host);
+
    #ifdef USE_PYTHON
   // python declarations here
   

@@ -20997,7 +20997,7 @@ void init_genSEDMODEL(void) {
   genSEDMODEL.TransSN     = (double*) malloc( MEMD );
   genSEDMODEL.TransREF    = (double*) malloc( MEMD );
 
-  printf("\n");
+
   // -----------
   sprintf(GENLC.primary,"%s", "NULL");
   get_primary__(GENLC.primary, &NLAM, 

@@ -17088,6 +17088,8 @@
     + new &FITINP input UVLAM_EXTEAPFLUX to extrapoate fit model to 
       far UV. Intended for photo-z fits to keep g-band at high-z..
       Make sure to adjust RESTLAMBDA_FITRANGE to allow smaller lambda.
+    + start refactor of FITINI_PHOTOZ to have multiple options for
+      initial-param estimates.
 
   snlc_sim.c:
     + new function GENSPEC_HOST_CONTAMINATION() to add host contam.
@@ -17096,6 +17098,9 @@
       to fetch_HOSTPAR_GENMODEL().
     + add BYOSED to list of models for which RV_host and AV_host
       are determined.
+
+  genmag_BYOSED.*
+    + merge code from Justin,D'Arcy,David.
 
   manual:
     + update photo-z section to include UVLAM_EXTRAP sub-sub-subsection.

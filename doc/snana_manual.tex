@@ -3444,6 +3444,7 @@ the sim-input file (or via command-line override):
 # optional
    HOSTLIB_WGTMAP_FILE:   xxxx        # default=none
    HOSTLIB_ZPHOTEFF_FILE: xxxx        # default=none
+   HOSTLIB_SPECBASIS_FILE: xxxx       # default=none
    HOSTLIB_MAXREAD:      10000        # default=billion
    HOSTLIB_MXINTFLUX_SNPOS: .999      # default=.99
    HOSTLIB_MSKOPT:       8            # default=0
@@ -3651,6 +3652,36 @@ the galaxy, and compute the galaxy noise.
 \clearpage
 \newcommand{\Rhalf}{R_{1/2}}
 \newcommand{\Sn}{{\cal S}_{n}}
+
+
+% ------------------------------------
+\subsubsection{Generating Host Spectra}
+\label{sss:hostlib_spectra}
+% ------------------------------------
+
+Host spectra are generated with the {\tt SPECTROGRAPH} feature,
+and with several inputs as follows:
+\begin{itemize}
+  \item {\tt HOSTLIB\_SPECBASIS\_FILE} points to a file with spectral basis
+         such as PCA. The header keys must include {\tt wavelength}, 
+         {\tt specbasis01}, {\tt specbasis02}, etc ...
+         Optional keys before the header are:
+          \vspace{-0.5cm}
+     \begin{verbatim}
+         FLAM_SCALE: 1.55E-30    # global flux norm.
+         FLAM_SCALE_POWZ1: -2    # z-norm: (1+z)^-2
+     \end{verbatim}  \vspace{-1.0cm}
+  \item {\tt HOSTLIB\_FILE} that includes columns 
+          {\tt coeff\_specbasis01}, {\tt coeff\_specbasis02}, etc..
+  \item {\tt TAKE\_SPECTRUM} key with {\tt HOST} argument as shown in 
+           \S\ref{sss:SPEC_EPOCH}.
+\end{itemize}
+%
+For a given hostlib entry, each basis spectrum ``{\tt specbasis[nn]}''
+is multiplied by {\tt coeff\_specbasis[nn]}, and all of the spec-basis
+terms are summed. The sum is multipled by {\tt FLAM\_SCALE} and
+the z-norm term. 
+
 
 % ------------------------------------
 \subsubsection{Notes on CPU Resources}
@@ -4188,6 +4219,7 @@ TAKE_SPECTRUM:  TREST(-12:-10) TEXPOSE_ZPOLY(2000,500)
 TAKE_SPECTRUM:  TOBS(-7:7)     TEXPOSE_ZPOLY(600,200,-3)
 TAKE_SPECTRUM:  TREST(0:2)     TEXPOSE_ZPOLY(1000) 
 TAKE_SPECTRUM:  TREST(10:12)   TEXPOSE_ZPOLY(1500:2500,500)
+TAKE_SPECTRUM:  HOST           TEXPOSE_ZPOLY(1200) 
 \end{Verbatim}
 %
 Each {\tt TREST} argument defines a 2-day rest-frame window from 
@@ -4210,7 +4242,9 @@ A range for a polynomial coefficient (4th example above)
 results in a randomly selected coefficient. 
 Arbitrary polynomial orders are specified with comma-separated values;
 1st value is constant term, 2nd value is linear term, etc ...
-
+Finally, the {\tt HOST} argument results in a host spectrum
+based on {\tt HOSTLIB\_FILE} and {\tt HOSTLIB\_SPECBASIS\_FILE}.
+HOST spectra have {\tt MJD = -9} in the data files.
 
 The template exposure time is defined in the \simlib\ file
 with the key {\tt TEMPLATE\_TEXPOSE\_SPECTROGRAPH}.
@@ -4231,6 +4265,10 @@ TAKE_SPECTRUM:  TOBS(-7:7)      SNR_ZPOLY(20)    SNR_LAMREST(5000:6000)
 # 3) rest-frame epoch, obs-frame SNR def
 TAKE_SPECTRUM:  TREST(-3:3)    SNR_ZPOLY(20)   SNR_LAMOBS(8000:10000)
 TAKE_SPECTRUM:  TREST(-3:3)    SNR_ZPOLY(20)   SNR_LAMOBS(13000:15000)
+
+#4) host spectrum 
+TAKE_SPECTRUM   HOST           SNR_ZPOLY(20)   SNR_LAMOBS(3000:5000)
+TAKE_SPECTRUM_HOSTFRAC:  0.1  # add 10\% of FLAM(host) to each SN spectrum
 
 TAKE_SPECTRUM:  TEMPLATE_TEXPOSE_SCALE(1.2)
 \end{Verbatim}

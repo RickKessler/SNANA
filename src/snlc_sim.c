@@ -1194,9 +1194,11 @@ void set_user_defaults_SPECTROGRAPH(void) {
   INPUTS.SPECTROGRAPH_OPTIONS.ILAM_SPIKE      = -9 ;   // lambda bin
 
   NPEREVT_TAKE_SPECTRUM =  0 ; // Mar 14 2017
-  INPUTS.TAKE_SPECTRUM_DUMPCID = -9 ;
+  INPUTS.TAKE_SPECTRUM_DUMPCID  = -9 ;
+  INPUTS.TAKE_SPECTRUM_HOSTFRAC =  0.0 ;
   INPUTS.TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE =  1.0 ;
   INPUTS.NWARP_TAKE_SPECTRUM = 0 ;
+  INPUTS.NHOST_TAKE_SPECTRUM = 0 ;
 
 } // end set_user_defaults_SPECTROGRAPH
 
@@ -2437,6 +2439,9 @@ int read_input(char *input_file) {
     if ( keyMatch(c_get,"TAKE_SPECTRUM:")  ) 
       {  parse_input_TAKE_SPECTRUM(fp,warp_spectrum_string); continue ; }
 
+    if ( keyMatch(c_get,"TAKE_SPECTRUM_HOSTFRAC:")  ) 
+      {	readfloat(fp, 1, &INPUTS.TAKE_SPECTRUM_HOSTFRAC ); continue ; }
+
     if ( keyMatch(c_get,"TAKE_SPECTRUM_DUMPCID:")  ) 
       {	readint(fp, 1, &INPUTS.TAKE_SPECTRUM_DUMPCID ); continue ; }
 
@@ -3545,6 +3550,7 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
     INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH = GENFRAME_HOST ;
     sprintf(INPUTS.TAKE_SPECTRUM[N].EPOCH_FRAME,"HOST");
     IS_HOST = 1;
+    INPUTS.NHOST_TAKE_SPECTRUM++ ;
   }
   else if ( strcmp(stringTmp,"TEMPLATE_TEXPOSE_SCALE") == 0 ) {
     sscanf(stringOpt, "%f", 
@@ -5340,6 +5346,10 @@ void sim_input_override(void) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.TAKE_SPECTRUM_DUMPCID );
     }
 
+    if ( strcmp( ARGV_LIST[i], "TAKE_SPECTRUM_HOSTFRAC" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.TAKE_SPECTRUM_HOSTFRAC );
+    }
+
 
     if ( strstr(ARGV_LIST[i],"SIMGEN_DUMP") != NULL ) 
       { parse_input_SIMGEN_DUMP(fpNull, &i, ARGV_LIST[i] ); }
@@ -5934,7 +5944,7 @@ void prep_user_input(void) {
   int DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ;  
   int DO_AVTAU = INPUTS.GENEXPTAU_AV     > 1.0E-9 ;
   int DO_AVSIG = INPUTS.GENGAUSIG_AV     > 1.0E-9 ;
-  int DO_AV    = INPUTS.GENRANGE_AV[1] - INPUTS.GENRANGE_AV[0] > 1.0E-9 ;
+  int DO_AV    = INPUTS.GENRANGE_AV[1]   > 1.0E-9 ;
   INPUTS.DO_AV = (DO_AV && DO_RV && 
 		  ( DO_AVTAU || DO_AVSIG || INPUTS.WV07_GENAV_FLAG) ) ;
 
@@ -8195,6 +8205,8 @@ void  init_genSpec(void) {
   // Created Fall 2016.
   // one-time init for generating spectra.
   // See GENSPEC_DRIVER for execution.
+  //
+  // Jul 12 2019: allow BYOSED
 
   char *modelName = GENMODEL_NAME[INDEX_GENMODEL][0] ; // generic model name
   int OPTMASK     = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
@@ -8211,7 +8223,8 @@ void  init_genSpec(void) {
 
   if ( INDEX_GENMODEL == MODEL_SALT2     ||
        INDEX_GENMODEL == MODEL_NON1ASED  ||
-       INDEX_GENMODEL == MODEL_SIMSED   ) {
+       INDEX_GENMODEL == MODEL_SIMSED    || 
+       INDEX_GENMODEL == MODEL_BYOSED         ) {
     int     NB = INPUTS_SPECTRO.NBIN_LAM ;
     double *L0 = INPUTS_SPECTRO.LAMMIN_LIST ;
     double *L1 = INPUTS_SPECTRO.LAMMAX_LIST ;
@@ -8364,6 +8377,9 @@ void GENSPEC_DRIVER(void) {
     // compute true GENMAG and FLUXGEN in each lambda bin
     GENSPEC_TRUE(imjd); 
 
+    // July 2019: option to add host contamination
+    GENSPEC_HOST_CONTAMINATION(imjd);
+
     // apply optional fudges for test or debug
     GENSPEC_FUDGES(imjd); 
 
@@ -8503,13 +8519,16 @@ void  GENSPEC_MJD_ORDER(int *imjd_order) {
   // be processed first in order to determine 
   // TEXPOSE(TEMPLATE) for all other epochs.
   //
-
+  // Always process HOST spectra first to allow for host 
+  // contamination in the SN spectra.
+  //
+  //
+ 
   int  imjd;
   float SCALE = INPUTS.TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE ;
   char fnam[] = "GENSPEC_MJD_ORDER" ;
 
   // -------------- BEGIN -------------
-
 
   if ( SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH > 0 ) {
 
@@ -8529,16 +8548,26 @@ void  GENSPEC_MJD_ORDER(int *imjd_order) {
 
     // find epoch closest to peak
     double TREST, TRESTmin=99999.0 ;
-    int ntmp, imjd_nearPeak=-9 ;
+    int ntmp, imjd_nearPeak=-9,  nhost=0, IS_HOST[MXSPEC] ;
     for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ ) {
+
+      IS_HOST[imjd] = 0;
+
+      // store hosts first (note there can be more than one host spec)
+      if ( GENSPEC.MJD_LIST[imjd] < 0.0 )  
+	{ imjd_order[nhost] = imjd;  nhost++ ; IS_HOST[imjd] = 1; }
+
       TREST = fabs(GENSPEC.TREST_LIST[imjd]) ;
       if ( TREST < TRESTmin ) { TRESTmin = TREST;  imjd_nearPeak=imjd; }
     }
 
-    // now set the output list
-    imjd_order[0] = imjd_nearPeak ;  ntmp=0 ;
+    // set nearest-peak as first SN spectrum.
+    imjd_order[nhost] = imjd_nearPeak ;  ntmp=nhost ;
+
+    // store remaining spectra
     for(imjd=0; imjd < GENSPEC.NMJD_TOT; imjd++ ) {
       if ( imjd == imjd_nearPeak ) { continue; }
+      if ( IS_HOST[imjd]         ) { continue; }
       ntmp++ ; imjd_order[ntmp] = imjd;
     }
 
@@ -8620,7 +8649,6 @@ void GENSPEC_TRUE(int imjd) {
   //
   // Dec 04 2018: call genSpec_BYOSED
   // Jun 28 2019: call genSpec_HOST if IS_HOST is true
-  //
 
   int  NBLAM      = INPUTS_SPECTRO.NBIN_LAM ;
   int  IS_HOST    = GENSPEC.IS_HOST[imjd];
@@ -8628,7 +8656,7 @@ void GENSPEC_TRUE(int imjd) {
   double TREST    = GENSPEC.TREST_LIST[imjd];
 
   double GENMAG, ZP, ARG, FLUXGEN, MAGOFF ;
-  int ilam;
+  int ilam ;
   char fnam[] = "GENSPEC_TRUE" ;
 
   // --------------- BEGIN ----------------
@@ -8726,6 +8754,49 @@ void GENSPEC_TRUE(int imjd) {
 
 } // end GENSPEC_TRUE
 
+
+// *****************************************
+void GENSPEC_HOST_CONTAMINATION(int imjd) {
+
+  // Created July11 2019
+  // Check option to add host contamination
+  int    IS_HOST  = GENSPEC.IS_HOST[imjd];
+  double HOSTFRAC = (double)INPUTS.TAKE_SPECTRUM_HOSTFRAC;
+  int    IMJD_HOST = 0;
+  int    NBLAM = INPUTS_SPECTRO.NBIN_LAM ;
+
+  int ilam;
+  double FLAM_SN, FLAM_HOST, FLAM_TOT, arg, MAGSHIFT ;
+  char fnam[] = "GENSPEC_HOST_CONTAMINATION" ;
+
+  // ------------- BEGIN --------------
+
+  if ( IS_HOST )           { return; }
+  if ( HOSTFRAC < 1.0E-8 ) { return; }
+
+  // check that imjd=0 is indeed a host spectrum to add
+  IS_HOST = GENSPEC.IS_HOST[IMJD_HOST];
+  if ( !IS_HOST ) {
+    sprintf(c1err,"IMJD=%d is not a host spectrum", IMJD_HOST);
+    sprintf(c2err,"Cannot add host contamination to SN spectrum.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  for(ilam=0; ilam < NBLAM; ilam++ ) {
+    FLAM_SN   = GENSPEC.GENFLUX_LIST[imjd][ilam];
+    FLAM_HOST = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
+    FLAM_TOT  = FLAM_SN + (FLAM_HOST*HOSTFRAC);
+    
+    GENSPEC.GENFLUX_LIST[imjd][ilam] = FLAM_TOT ;
+
+    arg      =  FLAM_TOT/FLAM_SN ;
+    MAGSHIFT = -2.5*log10(arg);
+    GENSPEC.GENMAG_LIST[imjd][ilam] += MAGSHIFT ;
+  }
+
+  return;
+
+} // end GENSPEC_HOST_CONTAMINATION
 
 // *************************************************
 void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
@@ -9578,9 +9649,10 @@ void gen_event_driver(int ilc) {
     int ISREST  = ( GENFRAME_OPT   == GENFRAME_REST );
     int ISNON1A = ( INDEX_GENMODEL == MODEL_NON1ASED  ||
 		    INDEX_GENMODEL == MODEL_NON1AGRID  );
-    int ISMISC  = ( INDEX_GENMODEL == MODEL_SALT2  ||
-		    INDEX_GENMODEL == MODEL_SIMSED ||
-		    INDEX_GENMODEL == MODEL_S11DM15 );
+    int ISMISC  = ( INDEX_GENMODEL == MODEL_SALT2   ||
+		    INDEX_GENMODEL == MODEL_SIMSED  ||
+		    INDEX_GENMODEL == MODEL_S11DM15 ||
+		    INDEX_GENMODEL == MODEL_BYOSED 	     );
 
     if ( (ISREST || ISNON1A || ISMISC) && INPUTS.DO_AV ) {
       GENLC.RV = gen_RV() ;
@@ -11439,14 +11511,16 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   // allow any variable on extra HOSTLIB_STOREVAR list
   NTMP = NVAR_SIMGEN_DUMP ; 
   for(ivar=0; ivar < HOSTLIB_OUTVAR_EXTRA.NOUT; ivar++ ) {
-    // avoid declaring a variable twice.
-    cptr = HOSTLIB_OUTVAR_EXTRA.NAME[ivar] ;
-    FOUND = 0 ;
-    for(ivar2=0; ivar2<NTMP; ivar2++ ) {
-      if ( strcmp(SIMGEN_DUMP[ivar2].VARNAME,cptr) == 0 ) { FOUND=1; }
-    }
 
+    /* xxxx mark delete July 12 2019 xxxxxxxxxx
+    // avoid declaring a variable twice.
+    cptr = HOSTLIB_OUTVAR_EXTRA.NAME[ivar] ;     FOUND = 0 ;
+    for(ivar2=0; ivar2<NTMP; ivar2++ ) 
+      { if ( strcmp(SIMGEN_DUMP[ivar2].VARNAME,cptr) == 0 ) { FOUND=1; }    }
     if ( FOUND ) { continue ; }
+    xxxxxxxx end mark delete xxxxxxxxxxx*/
+
+    if ( HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[ivar] ) { continue; } 
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
     sprintf(cptr,"%s", HOSTLIB_OUTVAR_EXTRA.NAME[ivar] );
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &HOSTLIB_OUTVAR_EXTRA.VALUE[ivar];
@@ -20789,7 +20863,8 @@ void init_genmodel(void) {
 
     OPTMASK  = INPUTS.GENMODEL_MSKOPT;
     ARGLIST  = INPUTS.GENMODEL_ARGLIST;
-    char NAMES_HOSTPAR[] = "RV,AV,LOGMASS" ;
+    int NPAR; char NAMES_HOSTPAR[200];  double VAL_HOSTPAR=0.0 ;
+    NPAR = fetch_HOSTPAR_GENMODEL(1, NAMES_HOSTPAR, &VAL_HOSTPAR);
 
     // init generic part of any SEDMODEL (filter & primary ref)
     init_genSEDMODEL();
@@ -20951,7 +21026,6 @@ void init_genSEDMODEL(void) {
   }
 
   logzdif =  log10(zmax) - log10(zmin) ;
-  // xxx mark delete  NZBIN = (int)( 100. * logzdif ) + 1 ;
   NZBIN = (int)( 50. * logzdif ) + 1 ;
   init_redshift_SEDMODEL(NZBIN, zmin, zmax);
 
@@ -21876,19 +21950,15 @@ void genmodel(
 
   else if ( INDEX_GENMODEL  == MODEL_BYOSED ) {
 
-    double HOSTPAR_BYOSED[20];
-    int NHOSTPAR = 3;
-    HOSTPAR_BYOSED[0] = GENLC.RV ;
-    HOSTPAR_BYOSED[1] = GENLC.AV ;
-    HOSTPAR_BYOSED[2] = SNHOSTGAL.LOGMASS ;
+    int NHOSTPAR; char *NAMES_HOSTPAR; double VAL_HOSTPAR[MXHOSTPAR_BYOSED];
+    NHOSTPAR = fetch_HOSTPAR_GENMODEL(2, NAMES_HOSTPAR, VAL_HOSTPAR);
 
-    
     genmag_BYOSED(
 		  GENLC.CID
 		  ,z, GENLC.DLMU       // (I) helio-z and distance modulus
 		  ,mwebv               // (I) E(B-V) for Milky Way
 		  ,NHOSTPAR            // (I) number of host params to pass
-		  ,HOSTPAR_BYOSED      // (I) host properties
+		  ,VAL_HOSTPAR         // (I) host property values
 		  ,ifilt_obs           // (I) filter index
 		  ,NEPFILT             // (I) number of epochs
 		  ,ptr_epoch           // (I) rest-frame time (days)
@@ -23907,7 +23977,7 @@ void  readme_doc_TAKE_SPECTRUM(int *iline) {
   // Mar 23 2019: use GENPOLY typedefs and write WARP info
 
   int N = NPEREVT_TAKE_SPECTRUM ;
-  int i, j , OPT_FRAME_EPOCH, OPT_TEXPOSE ;
+  int i, j , OPT_FRAME_EPOCH, OPT_TEXPOSE, IS_HOST ;
   float *ptrEP, *ptrLAM ;
   char *cptr, Tname[20], name2[20], zpolyString[100], warpString[100] ;
   GENPOLY_DEF *GENZPOLY_SNR, *GENZPOLY_TEXPOSE, *GENLAMPOLY_WARP; 
@@ -23931,16 +24001,19 @@ void  readme_doc_TAKE_SPECTRUM(int *iline) {
     GENZPOLY_TEXPOSE = &INPUTS.TAKE_SPECTRUM[j].GENZPOLY_TEXPOSE ;
     GENLAMPOLY_WARP  = &INPUTS.TAKE_SPECTRUM[j].GENLAMPOLY_WARP ;
 
+    // .xyz
     OPT_FRAME_EPOCH = INPUTS.TAKE_SPECTRUM[j].OPT_FRAME_EPOCH ;
     OPT_TEXPOSE = INPUTS.TAKE_SPECTRUM[j].OPT_TEXPOSE ;
-    Tname[0] = name2[0] = zpolyString[0] = warpString[0] = 0 ;
-
+    Tname[0] = name2[0] = zpolyString[0] = warpString[0] = IS_HOST = 0 ;
+ 
     if ( OPT_FRAME_EPOCH == GENFRAME_REST ) 
       { sprintf(Tname,"TREST"); }
-    else
+    else if ( OPT_FRAME_EPOCH == GENFRAME_OBS )
       { sprintf(Tname,"TOBS"); }
+    else if ( OPT_FRAME_EPOCH == GENFRAME_HOST )
+      { sprintf(Tname,"HOST");  IS_HOST=1; }
 
-    if ( OPT_TEXPOSE == 1 )  { 
+    if ( OPT_TEXPOSE == 1 ) { 
       sprintf(name2, "TEXPOSE" ); 
       sprintf(zpolyString,"%s", GENZPOLY_TEXPOSE->STRING) ;
     }
@@ -23954,18 +24027,16 @@ void  readme_doc_TAKE_SPECTRUM(int *iline) {
       { sprintf(warpString,"WARP:%s", GENLAMPOLY_WARP->STRING ); }
 
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"    %s = %5.1f to %5.1f  "
-	    "  %s-zPOLY:%s  %s\n",
-	    Tname, ptrEP[0], ptrEP[1],
-	    name2, zpolyString, warpString );
-
-
-    /* xxx mark delete xxxx
-    sprintf(cptr,"    %s = %5.1f to %5.1f  "
-	    "  %s zPOLY: %s \n",
-	    Tname, ptrEP[0], ptrEP[1],
-	    name2, zpolyString );
-    xxxx */
+    if ( IS_HOST ) {
+      sprintf(cptr,"    %s                      %s-zPOLY:%s  %s\n",
+	      Tname, name2, zpolyString, warpString );
+    }
+    else {
+      sprintf(cptr,"    %s = %5.1f to %5.1f  "
+	      "  %s-zPOLY:%s  %s\n",
+	      Tname, ptrEP[0], ptrEP[1],
+	      name2, zpolyString, warpString );
+    }
 
   } // end j loop over spectra
 
@@ -25363,6 +25434,7 @@ void append_SNSPEC_TEXT(void) {
   // SPECTRUM_SNR_COMPUTE:  <computed snr>
   // SPECTRUM_LAMOBS_SNR:   <lamobs range for SNR_COMPUTE>
   // SPECTRUM_NLAM:    <NLAM>
+  // SPECTRUM_HOST_CONTAM:  <frac>
   //
   // Mar 24 2019: add SIM_WARP column for mis-calibration
 
@@ -25436,6 +25508,12 @@ void append_SNSPEC_TEXT(void) {
 	    "# Number of valid wave bins\n", 
 	    NBLAM_VALID, NBLAM_TOT );
     
+    if ( INPUTS.NHOST_TAKE_SPECTRUM > 0 && !IS_HOST ) {
+      fprintf(fp,"SPECTRUM_HOSTFRAC:   %.2f               "
+	      "# host-frac flux contamination\n", 
+	      INPUTS.TAKE_SPECTRUM_HOSTFRAC );
+    }
+
     NBLAM_WR = 0 ;
 
     for(ilam=0; ilam < NBLAM_TOT; ilam++ ) {

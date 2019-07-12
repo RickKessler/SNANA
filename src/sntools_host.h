@@ -376,6 +376,7 @@ struct SNTABLEVAR_DEF {
   int    NOUT ;  // number of variables to write out
   int    IVAR_STORE[MXVAR_HOSTLIB] ;
   char   NAME[MXVAR_HOSTLIB][40];
+  int    USED_IN_WGTMAP[MXVAR_HOSTLIB]; // to avoid printing same var twice
 
   // values updated for each event
   double VALUE[MXVAR_HOSTLIB] ;   
@@ -493,5 +494,8 @@ void   checkVarName_specbasis(char *varName);
 int    ICOL_SPECBASIS(char *varname, int ABORTFLAG) ;
 void   genSpec_HOSTLIB(double zhel, double MWEBV,
 		       double *GENFLUX_LIST, double *GENMAG_LIST);
+
+// fetch_HOSTPAR function for GENMODEL (e.g., BYOSED)
+int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double *VAL_HOSTPAR);
 
 // END

@@ -621,7 +621,7 @@ void  init_OUTVAR_HOSTLIB(void) {
   // in the WGTMAP.
 
   int   NVAR_STOREPAR, NVAR_OUT, NVAR_REQ, LOAD, ivar, ivar2 ;
-  int   ISDUPL;
+  int   ISDUPL, USED;
   char  VARLIST_ALL[MXPATHLEN], VARLIST_LOAD[MXPATHLEN];
   char  varName[60], *varName2;
   char  fnam[] = "init_OUTVAR_HOSTLIB"     ;
@@ -634,6 +634,7 @@ void  init_OUTVAR_HOSTLIB(void) {
   // VARLIST_LOAD contains only unique variables, and is for print only
   sprintf(VARLIST_ALL, "%s", INPUTS.HOSTLIB_STOREPAR_LIST) ;
   VARLIST_LOAD[0] = 0 ; 
+
 
   // bail if nothing is specified.
   if ( strlen(VARLIST_ALL) == 0 ) { return ; }
@@ -673,6 +674,10 @@ void  init_OUTVAR_HOSTLIB(void) {
     // always store variable in OUTVAR list, along with IVAR
     sprintf(HOSTLIB_OUTVAR_EXTRA.NAME[NVAR_OUT], "%s", varName );
     HOSTLIB_OUTVAR_EXTRA.IVAR_STORE[NVAR_OUT] = IVAR_HOSTLIB(varName,1);
+
+    // set USED_IN_WGTMAP flat to zero; fill this later in read_head_HOSTLIB.
+    HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[NVAR_OUT] = 0 ;
+
     NVAR_OUT++ ;  
 
     if(NVAR_OUT > 1 ) { strcat(VARLIST_LOAD,"," ); }
@@ -788,6 +793,7 @@ void  read_wgtmap_HOSTLIB(void) {
   else
     { printf("\t Ignore SNMAGSHIFT in WGTMAP \n"); fflush(stdout); }
 
+
 } // end of read_wgtmap_HOSTLIB
 
 
@@ -854,7 +860,6 @@ void parse_WGTMAP_HOSTLIB(FILE *fp, char *string) {
   
   HOSTLIB_WGTMAP.WGTMAX = HOSTLIB_WGTMAP.GRIDMAP.FUNMAX[0];
   
-
   // update global counter
   HOSTLIB.NVAR_STORE = IVAR_STORE ;
 
@@ -1442,7 +1447,6 @@ void read_head_HOSTLIB(FILE *fp) {
   // a real VARNAME_ALL, and store which 'ALL' index
   // Also load HOSTLIB.IVAR_XXX variables.
 
-
   NVAR_WGTMAP =  HOSTLIB_WGTMAP.GRIDMAP.NDIM ;
   for ( IVAR_STORE=0; IVAR_STORE < HOSTLIB.NVAR_STORE ; IVAR_STORE++ ) {
 
@@ -1517,9 +1521,22 @@ void read_head_HOSTLIB(FILE *fp) {
 
 
   // just make sure that these WGTMAP variables are really defined.
-  for ( ivar_map=0;  ivar_map < NVAR_WGTMAP; ivar_map++ ) 
-    { ivar = IVAR_HOSTLIB(HOSTLIB_WGTMAP.VARNAME[ivar_map],1);  }
+  // Also flag user-STOREPAR [EXTRA] variables that are also in WGTMAP (7.2019)
+  int  NVAR_EXTRA  = HOSTLIB_OUTVAR_EXTRA.NOUT ;
+  char *varName_WGTMAP, *varName_EXTRA;
+  for ( ivar_map=0;  ivar_map < NVAR_WGTMAP; ivar_map++ )  { 
+    varName_WGTMAP = HOSTLIB_WGTMAP.VARNAME[ivar_map] ;
+    ivar = IVAR_HOSTLIB(varName_WGTMAP,1);  
 
+    for(ivar=0; ivar < NVAR_EXTRA; ivar++ ) {
+      varName_EXTRA = HOSTLIB_OUTVAR_EXTRA.NAME[ivar];
+      if ( strcmp(varName_EXTRA,varName_WGTMAP) == 0 ) 
+	{  HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[ivar] = 1 ; }
+
+    }
+  }
+
+  return ;
 
 } // end of read_head_HOSTLIB
 
@@ -5686,6 +5703,83 @@ void setbit_HOSTLIB_MSKOPT(int MSKOPT) {
   if ( USE <= 0 ) { INPUTS.HOSTLIB_MSKOPT += MSKOPT ; }
   return ;
 
-}  // end of set_usebit_HOSTLIB_MSKOPT
+}  // end of setbit_HOSTLIB_MSKOPT
 
 
+// =================================
+int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
+
+  // Created July 2019
+  // Inputs:
+  //   OPT = 1 --> store NAMES_HOSTPAR
+  //   OPT = 2 --> store VAL_HOSTPAR
+  //
+  // Output:
+  //    NAMES_HOSTPAR : comma-separated list of par names (filled if OPT=1)
+  //    VAL_HOSTPAR   : array of hostpar values (filled if OPT=2)
+  //
+  // Function returns number of HOSTPAR params
+
+  int  NPAR, ivar, IVAR_STORE ;
+  int  NVAR_WGTMAP = HOSTLIB_WGTMAP.GRIDMAP.NDIM ;
+  int  NVAR_EXTRA  = HOSTLIB_OUTVAR_EXTRA.NOUT ;
+  char comma[] = ",";
+  char fnam[] = "fetch_HOSTPAR_GENMODEL";
+
+  // ----------- BEGIN -----------
+
+  /* xxx
+    HOSTLIB_OUTVAR_EXTRA.IVAR_STORE[NVAR_OUT] = IVAR_HOSTLIB(varName,1);
+    NVAR_OUT++ ;  
+    if(NVAR_OUT > 1 ) { strcat(VARLIST_LOAD,"," ); }
+    strcat(VARLIST_LOAD,varName); // for stdout message.
+  */
+
+
+  if ( OPT == 1 ) {
+    // always start with RV and AV    
+    sprintf(NAMES_HOSTPAR,"RV,AV"); NPAR=2;
+
+    for ( ivar=0; ivar < NVAR_WGTMAP; ivar++ ) {  
+      strcat(NAMES_HOSTPAR,comma);
+      strcat(NAMES_HOSTPAR,HOSTLIB_WGTMAP.VARNAME[ivar]); 
+      NPAR++ ;
+
+    }
+
+    // tack on user-defined variables from sim-input HOSTLIB_STOREPAR key
+    for(ivar=0; ivar < NVAR_EXTRA; ivar++ ) {
+      if ( HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[ivar] ) { continue; }
+      strcat(NAMES_HOSTPAR,comma);
+      strcat(NAMES_HOSTPAR,HOSTLIB_OUTVAR_EXTRA.NAME[ivar]);
+      NPAR++ ;
+    }
+    // add anything used in WGTMAP or HOSTLIB_STOREPAR
+  }
+  else if ( OPT ==  2 ) {
+    VAL_HOSTPAR[0] = GENLC.RV;
+    VAL_HOSTPAR[1] = GENLC.AV;
+    NPAR=2;
+
+    for ( ivar=0; ivar < NVAR_WGTMAP; ivar++ ) {  
+      VAL_HOSTPAR[NPAR] = SNHOSTGAL.WGTMAP_VALUES[ivar] ;
+      NPAR++ ;
+    }
+
+    for(ivar=0; ivar < NVAR_EXTRA; ivar++ ) {
+      if ( HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[ivar] ) { continue; }
+      VAL_HOSTPAR[NPAR] = HOSTLIB_OUTVAR_EXTRA.VALUE[ivar];
+      NPAR++ ;
+    }
+
+  }
+  else {
+    sprintf(c1err,"Invalid OPT=%d", OPT);
+    sprintf(c2err,"Allowed OPT values, 1 or 2");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  
+
+  return(NPAR);
+
+} // end fetch_HOSTPAR_GENMODEL

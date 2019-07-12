@@ -1682,7 +1682,7 @@ int IFILTSTAT_SEDMODEL(int ifilt_obs, double z) {
 
 }  // end  of IFILTSTAT_SEDMODEL
 
-// ==============================================
+/* xxxxxxxxxxx xxx mark delete July 12 2019 xxxxxxxxxxxxxx
 double getFiltLam_SEDMODEL(int ifilt,int ilam) {
 
   // Created July 2016:
@@ -1693,19 +1693,17 @@ double getFiltLam_SEDMODEL(int ifilt,int ilam) {
   //
   double LAMOBS ;
   //  char fnam[] = "getFiltLam_SEDMODEL" ;
-
   // ------------- BEGIN -------------
-
   if ( ifilt >  0 )  // broadband filter
     { LAMOBS = FILTER_SEDMODEL[ifilt].lam[ilam] ; }
   else if ( ifilt == JFILT_SPECTROGRAPH )  // spectrograph
     { LAMOBS = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ; }
   else
     { LAMOBS = -9.0 ; }
-
   return(LAMOBS);
-
 } // end getFiltLam_SEDMODEL
+xxxxxxxxxxxxxxxxxxxxxxx end mark delete xxxxxxxxxxxxxxxxxx */
+
 
 // ==============================================
 void get_LAMRANGE_SEDMODEL(int opt, double *lammin, double *lammax) {
@@ -1825,7 +1823,7 @@ void get_DAYBIN_SEDMODEL(int ISED, double DAY, int *IDAY, double *FRAC) {
   }
   else {
     // find where DAY lands in SEDMODEL.DAY array
-    IDAY_LOCAL = quickBinSearch(NDAY, DAY, SEDMODEL.DAY[ISED], fnam);
+    IDAY_LOCAL = quickBinSearch(DAY, NDAY,SEDMODEL.DAY[ISED], fnam);
     DAYREF0    = SEDMODEL.DAY[ISED][IDAY_LOCAL];
     DAYREF1    = SEDMODEL.DAY[ISED][IDAY_LOCAL+1];
     DAYSTEP    = DAYREF1-DAYREF0 ;
@@ -2831,6 +2829,8 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
   // called by simulation to initialize stuff for SPECTROGRAPH.
   //
   // Nov 10 2016: fix sorting bug after sortDouble call
+  // Jul 12 2019: 
+  //  + store FILTER_SEDMODEL[IFILT].minlam/maxlam (for BYOSED)
 
   int  IFILT  = JFILT_SPECTROGRAPH ;
   int  MEMD   = NBLAM * sizeof(double);
@@ -2840,8 +2840,8 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
 
   // ---------- BEGIN ----------
 
-  sprintf(BANNER, "%s : prepare %s spectra for %s",
-          fnam, MODEL_NAME, INPUTS_SPECTRO.INSTRUMENT_NAME );
+  sprintf(BANNER, "%s : prep %s spectra for %s (NBLAM=%d)",
+          fnam, MODEL_NAME, INPUTS_SPECTRO.INSTRUMENT_NAME, NBLAM );
   print_banner(BANNER);
 
   SPECTROGRAPH_SEDMODEL.NBLAM_TOT   = NBLAM ;
@@ -2858,7 +2858,6 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
     SPECTROGRAPH_SEDMODEL.LAMMAX_LIST[ilam] = L1 ;
     SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] = LAVG ;
 
-
     // get zero point needed to get source mag in each lambin
     DUMPFLAG_ZP=0; // if( fabs(L0-8700.0) < 50.0 ) { DUMPFLAG_ZP=1; }
     SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam]
@@ -2869,9 +2868,15 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
     FILTER_SEDMODEL[IFILT].transSN[ilam]    = 1.0 ;
   }
 
+
   // store global min/max wavelength  
-  SPECTROGRAPH_SEDMODEL.LAMMIN = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST[0];
-  SPECTROGRAPH_SEDMODEL.LAMMAX = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST[NBLAM-1];
+  L0 = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST[0];
+  L1 = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST[NBLAM-1];
+  SPECTROGRAPH_SEDMODEL.LAMMIN = L0;
+  SPECTROGRAPH_SEDMODEL.LAMMAX = L1;
+
+  FILTER_SEDMODEL[IFILT].minlam =   L0;
+  FILTER_SEDMODEL[IFILT].maxlam =   L1;
 
   FILTER_SEDMODEL[IFILT].NLAM      = NBLAM ;
   IFILTMAP_SEDMODEL[IFILT]         = IFILT ;
@@ -2888,6 +2893,7 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
   // --------------------------------------------
   // sort primary mags vs. increasing wavelength, to interpolate
   // primary mag at arbitrary wavelength.
+
 
   int ifilt, isort, INDEX_SORT[MXFILTINDX] ;
   int ORDER = +1 ;
@@ -2954,6 +2960,7 @@ double getZP_SPECTROGRAPH_SEDMODEL(double LAMMIN, double LAMMAX,
 
   // Return zeropoint for spectrograph bin
   // bounded by input LAMMIN & LAMMIN.
+  //
 
   double ZP, lam0, lamCen, lamStep, fluxSum, flux, magPrimary ;
   double hc8     = (double)hc ;

@@ -23499,7 +23499,7 @@ c find starting bin for grid interpolation
       END
 
 C =========================================
-+DECK,LCUTEP.
++DECK,LCUTEPOCH.
       LOGICAL FUNCTION LCUTEPOCH(Z, PKMJD, MJD, IDTEL, IDFIELD)
 
 c ------------------------------------------- 

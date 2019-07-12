@@ -322,7 +322,7 @@ double interp_flux_SEDMODEL(int ISED, int ilampower, int ifilt_obs,
 double get_flux_SEDMODEL(int ISED, int ilampow, int ifilt_obs,
 			 double z, double Trest) ;
 
-double getFiltLam_SEDMODEL(int ifilt, int ilam);
+// xxx mark delete double getFiltLam_SEDMODEL(int ifilt, int ilam);
 
 double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
                            double z, char *funCall );

@@ -69,7 +69,10 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   //  
   //  ARGLIST      : string of options
   //
-  // NAMES_HOSTPAR : comma-separate list of names of host params
+  // NAMES_HOSTPAR : comma-separate list of names of host parameters.
+  //                 Includes RV, AV, variables used in WGTMAP, and
+  //                 HOSTLIB_STOREPAR list from sim-input file. 
+  //                 Duplicates are automatically removed.
   //
 
 #ifdef USE_PYTHON

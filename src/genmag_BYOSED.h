@@ -1,12 +1,7 @@
 // Created Sep 2018
 
 // define pre-processor command to use python interface
-<<<<<<< HEAD
-#define USE_PYTHON  
-
-=======
 #define USE_PYTHON   
->>>>>>> master
 
 // ===========================================
 // global variables

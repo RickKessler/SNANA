@@ -1,6 +1,6 @@
 // **********************************************
 // Created Feb 23 2013 by R. Kessler
-// 
+//
 // functions to write and read ascii tables.
 //
 // - - - - - - - - - - - 
@@ -65,6 +65,8 @@ char FILEPREFIX_TEXT[100];
 #define SUFFIX_SPECLIST_TEXT  "SPECLIST.TEXT" 
 #define TEXTMODE_rt           "rt"
 #define TEXTMODE_wt           "wt"
+
+#define MSKOPT_PARSE_WORDS_STRING 2 // must match same param in sntools.h
 
 FILE *PTRFILE_TEXT ;                   // generic ascii file pointer
 char FILENAME_TEXT[MXCHAR_FILENAME];   // name of opened text file
@@ -442,6 +444,7 @@ void formatFloat_TEXT(char *VARNAME, double VAL, char *VALSTRING) {
 
   char c1[4];
   long long int IVAL8 ;
+  double ABSVAL = fabs(VAL) ;
 
   // -------------- BEGIN ------------
 
@@ -459,13 +462,12 @@ void formatFloat_TEXT(char *VARNAME, double VAL, char *VALSTRING) {
     sprintf(VALSTRING, "%.3f", VAL); // some kind of MJD
   }
 
-  else if ( strstr(VARNAME,"RA") != NULL ) {
+  else if ( strstr(VARNAME,"RA") != NULL && ABSVAL<400 ) {
     sprintf(VALSTRING, "%.6f", VAL);    
   }
-  else if ( strstr(VARNAME,"DEC") != NULL ) {
+  else if ( strstr(VARNAME,"DEC") != NULL && ABSVAL<400 ) {
     sprintf(VALSTRING, "%.6f", VAL);    
   }
-
   else if ( strcmp(c1,"z") == 0 ) {
     // probably a redshift
     sprintf(VALSTRING, "%.5f", VAL);    
@@ -1053,7 +1055,7 @@ int  SNTABLE_READPREP_TEXT(void) {
       FOUNDKEY = 1;
       VARLIST = (char*)malloc( MXCHAR_LINE * sizeof(char) );
       fgets(VARLIST, MXCHAR_LINE, FP );
-      NVAR = store_PARSE_WORDS(0,VARLIST);
+      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST);
       free(VARLIST);
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
@@ -1635,8 +1637,8 @@ void SPECPAK_WRITE_HEADER_TEXT(void) {
   // Beware that VARNAMES lists are hard-coded here.
 
   FILE *FP_LIST      = PTRFILE_SPECLIST ;
-  char VARLIST_KEY[] = "CID ID NLAMBIN MJD TEXPOSE";
-  char VARLIST_CSV[] = "CID,ID,NLAMBIN,MJD,TEXPOSE";
+  char VARLIST_KEY[] = "CID ID NLAMBIN MJD TOBS TEXPOSE";
+  char VARLIST_CSV[] = "CID,ID,NLAMBIN,MJD,TOBS,TEXPOSE";
 
   FILE *FP_PLOT      =  PTRFILE_SPECPLOT ;
   char VARPLOT_KEY[] = "CID ID LAMMIN LAMMAX FLAM FLAMERR";
@@ -1649,7 +1651,7 @@ void SPECPAK_WRITE_HEADER_TEXT(void) {
 
   // ----------- BEGIN ------------
 
-  NVAR_SPECPLOT = store_PARSE_WORDS(0,VARPLOT_KEY);
+  NVAR_SPECPLOT = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARPLOT_KEY);
 
   if ( OPT_FORMAT == OPT_FORMAT_COL ) {
     return ; // do nothing 
@@ -1694,11 +1696,12 @@ void SPECPAK_FILL_TEXT(void) {
   // fill SPEC-LIST table vs. ID
   for(ispec=0; ispec < NSPEC; ispec++ ) {
 
-    fprintf(PTRFILE_SPECLIST,"OBS: %8s  %d  %d  %.3f  %.1f \n",
+    fprintf(PTRFILE_SPECLIST,"OBS: %8s  %d  %d  %.3f %6.1f  %.1f \n",
 	    SPECPAK_OUTPUT.CCID,
 	    SPECPAK_OUTPUT.ID_LIST[ispec],
 	    SPECPAK_OUTPUT.NLAMBIN_LIST[ispec],
 	    SPECPAK_OUTPUT.MJD_LIST[ispec],
+	    SPECPAK_OUTPUT.TOBS_LIST[ispec],
 	    SPECPAK_OUTPUT.TEXPOSE_LIST[ispec] );	    
     fflush(PTRFILE_SPECLIST);
   }

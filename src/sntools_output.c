@@ -3077,6 +3077,10 @@ void specpak_init__(char *SURVEY, char *VER_PHOT, char *TEXTFMT) {
 // =========================================
 void SPECPAK_CLEAR_PLOT(void) {
 
+  // May 13 2019:
+  //  + fix bug: NCALL_SPECPAK_FILL>10 --> >0 so that
+  //    allocated memory is freed. Fixes valgrind errors.
+
   char fnam[] = "SPECPAK_CLEAR_PLOT" ;
 
   //  printf(" xxx %s  NCALL=%d \n", fnam, NCALL_SPECPAK_FILL ) ;
@@ -3084,7 +3088,7 @@ void SPECPAK_CLEAR_PLOT(void) {
   SPECPAK_OUTPUT.NSPEC = 0 ;
   SPECPAK_OUTPUT.NLAMBIN_TOT = 0 ;
 
-  if ( NCALL_SPECPAK_FILL > 10 ) {
+  if ( NCALL_SPECPAK_FILL > 0 ) {
     free(SPECPAK_OUTPUT.ID    ) ;
     free(SPECPAK_OUTPUT.LAMMIN) ;
     free(SPECPAK_OUTPUT.LAMMAX) ;
@@ -3099,7 +3103,7 @@ void specpak_clear_plot__(void) {  SPECPAK_CLEAR_PLOT();  }
 
 
 // =======================================================
-void SPECPAK_DATA(char *CCID, int ID, double MJD, double Texpose,
+void SPECPAK_DATA(char *CCID, int ID, double MJD, double Tobs, double Texpose,
 		  int NLAMBIN, double *LAMMIN, double *LAMMAX, 
 		  double *FLAM, double *FLAMERR)
 {
@@ -3125,6 +3129,7 @@ void SPECPAK_DATA(char *CCID, int ID, double MJD, double Texpose,
   SPECPAK_OUTPUT.ID_LIST[NSPEC]       = ID ;
   SPECPAK_OUTPUT.NLAMBIN_LIST[NSPEC]  = NLAMBIN ;
   SPECPAK_OUTPUT.MJD_LIST[NSPEC]      = MJD;
+  SPECPAK_OUTPUT.TOBS_LIST[NSPEC]     = Tobs ;
   SPECPAK_OUTPUT.TEXPOSE_LIST[NSPEC]  = Texpose ;
 
   MEMD    = NLAMTOT * sizeof(double);
@@ -3164,10 +3169,11 @@ void SPECPAK_DATA(char *CCID, int ID, double MJD, double Texpose,
 } // end SPECPAK_DATA
 
 
-void specpak_data__(char *CCID, int *ID, double *MJD, double *Texpose, 
-		    int *NLAMBIN, double *LAMMIN, double *LAMMAX, 
+void specpak_data__(char *CCID, int *ID, double *MJD,double *Tobs,
+		    double *Texpose,int *NLAMBIN,double *LAMMIN,double *LAMMAX,
 		    double *FLAM, double *FLAMERR) {
-  SPECPAK_DATA(CCID,*ID,*MJD,*Texpose,*NLAMBIN,LAMMIN,LAMMAX,FLAM,FLAMERR);
+  SPECPAK_DATA(CCID,*ID,*MJD,*Tobs,*Texpose,
+	       *NLAMBIN,LAMMIN,LAMMAX,FLAM,FLAMERR);
 }
 
 

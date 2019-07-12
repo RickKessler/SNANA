@@ -28,7 +28,7 @@
 
 
 // define flags for software packages
-#define USE_HBOOK 
+#define USE_HBOOK
 #define USE_ROOT   
 #define USE_TEXT  // always leave this on; same logic as for HBOOK,ROOT, ...
 
@@ -275,6 +275,7 @@ struct SPECPAK_OUTPUT {
   int     ID_LIST[MXSPEC_SPECPAK];
   int     NLAMBIN_LIST[MXSPEC_SPECPAK];
   double  MJD_LIST[MXSPEC_SPECPAK];
+  double  TOBS_LIST[MXSPEC_SPECPAK]; 
   double  TEXPOSE_LIST[MXSPEC_SPECPAK];
 
   int    *ID ;
@@ -535,10 +536,11 @@ extern"C" {
   void SPECPAK_CLEAR_PLOT(void); 
   void specpak_clear_plot__(void);
 
-  void SPECPAK_DATA(char *CCID, int IDSPEC, double MJD, double Texpose, 
-		    int NLAMBIN, double *LAMMIN, double *LAMMAX,
+  void SPECPAK_DATA(char *CCID, int IDSPEC, double MJD, double Tobs, 
+		    double Texpose,int NLAMBIN,double *LAMMIN, double *LAMMAX,
 		    double *FLAM,double *FLAMERR);
-  void specpak_data__(char *CCID,int *IDSPEC, double *MJD, double *Texpose, 
+  void specpak_data__(char *CCID,int *IDSPEC, double *MJD, double *Tobs,
+		      double *Texpose, 
 		      int *NLAMBIN, double *LAMMIN, double *LAMMAX,
 		      double *FLAM,double *FLAMERR);
 

@@ -22,6 +22,10 @@ __mask_bit_locations__={'verbose':1,'dump':2}
 class genmag_BYOSED:
 
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
+			# TODO: write a print statement that warns if
+			# HOST_PARAM_NAMES is a variable that the code
+			# isn't going to do anything with
+
 			self.verbose = OPTMASK & (1 << __mask_bit_locations__['verbose']) > 0
 
 			self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))

@@ -39835,7 +39835,7 @@ c -----------------------------------
 
 c declare function args
 
-      REAL*8  FITVAL_LOC(MXFITPAR) ! (I) fit parameters
+      REAL*8  FITVAL_LOC(*)     ! (I) fit parameters
       INTEGER NDIM              ! (O) number of floated params
       REAL*8  X(*)              ! (O) array of floated params
 

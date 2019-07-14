@@ -5943,8 +5943,8 @@ c -----------------------
 +CDE,SIMEFFCM.
 
 c function args
-      INTEGER ISN             ! (I) sparse SN index
-      REAL*8  XVAL(MXFITPAR)  ! (I) current fit parameters
+      INTEGER ISN          ! (I) sparse SN index
+      REAL*8  XVAL(*)      ! (I) current fit parameters
 
 c local variables
 

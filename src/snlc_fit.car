@@ -8429,7 +8429,7 @@ c local var
 
 C ----------- BEGIN --------      
 
-      LEGACY  = (NEVAL_MCMC_PHOTOZ == 0)  ! legacy = course grid
+      LEGACY  = (NEVAL_MCMC_PHOTOZ .EQ. 0)  ! legacy = course grid
 
       LZ = INDEX(PARNAME_STORE(IPAR_zPHOT),  ' ' ) - 1
       LS = INDEX(PARNAME_STORE(IPAR_SHAPE),  ' ' ) - 1
@@ -8441,10 +8441,9 @@ C ----------- BEGIN --------
       c       = INIPAR_VAL(IPAR_COLOR)
       x0      = INIPAR_VAL(IPAR_DLMAG)      
 
-
       IF ( LEGACY ) THEN
          dscale  = INIPAR_VAL(IPAR_SPARE)  ! only for legacy
-         write(6,43) STRING
+         write(6,643) STRING
      &     ,PARNAME_STORE(IPAR_zPHOT)(1:LZ)
      &     ,PARNAME_STORE(IPAR_SHAPE)(1:LS)
      &     ,PARNAME_STORE(IPAR_COLOR)(1:LC)

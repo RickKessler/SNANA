@@ -8425,8 +8425,11 @@ c local var
 
       REAL*8  z, s, c, x0, dscale
       INTEGER LZ, LS, LC, LD
+      LOGICAL LEGACY
 
 C ----------- BEGIN --------      
+
+      LEGACY  = (NEVAL_MCMC_PHOTOZ == 0)  ! legacy = course grid
 
       LZ = INDEX(PARNAME_STORE(IPAR_zPHOT),  ' ' ) - 1
       LS = INDEX(PARNAME_STORE(IPAR_SHAPE),  ' ' ) - 1
@@ -8437,20 +8440,32 @@ C ----------- BEGIN --------
       s       = INIPAR_VAL(IPAR_SHAPE)
       c       = INIPAR_VAL(IPAR_COLOR)
       x0      = INIPAR_VAL(IPAR_DLMAG)      
-      dscale  = INIPAR_VAL(IPAR_SPARE) 
 
-      write(6,43) STRING
+
+      IF ( LEGACY ) THEN
+         dscale  = INIPAR_VAL(IPAR_SPARE)  ! only for legacy
+         write(6,43) STRING
      &     ,PARNAME_STORE(IPAR_zPHOT)(1:LZ)
      &     ,PARNAME_STORE(IPAR_SHAPE)(1:LS)
      &     ,PARNAME_STORE(IPAR_COLOR)(1:LC)
      &     ,PARNAME_STORE(IPAR_DLMAG)(1:LD)
      &     ,'dScale'
      &     ,z, s, c, x0, dscale
+643       format(T5,'initial-',A, 2x, 
+     &         5(A,1x),'= ', 3F7.3, 1x, G8.2, F6.3 )
+      ELSE
+         write(6,43) STRING
+     &     ,PARNAME_STORE(IPAR_zPHOT)(1:LZ)
+     &     ,PARNAME_STORE(IPAR_SHAPE)(1:LS)
+     &     ,PARNAME_STORE(IPAR_COLOR)(1:LC)
+     &     ,PARNAME_STORE(IPAR_DLMAG)(1:LD)
+     &     ,z, s, c, x0
+ 43      format(T5,'initial-',A, 2x, 
+     &        4(A,1x),'= ', 3F7.3, 1x, G8.2 )
 
- 43   format(T5,'initial-',A, 2x, 
-     &     5(A,1x),'= ', 3F7.3, 1x, G8.2, F6.3 )
-         
-      write(6,44) STRING, CHI2
+      ENDIF
+
+      write(6,44) STRING, CHI2         
  44   format(T5,'initial-',A, 2x, 'CHI2 = ',G12.4 )
       
       CALL FLUSH(6)
@@ -8643,6 +8658,8 @@ c local var
       REAL*8 INIVAL_SAVE(MXFITPAR)
       LOGICAL MOVE
       LOGICAL LDMP / .FALSE. /
+      CHARACTER PARNAME*20
+
 c function
       REAL*8 GET_DIST8, USRFUN, UNIX_RANDOM, FLATRAN1
       EXTERNAL USRFUN
@@ -8686,9 +8703,14 @@ c for each param, get initial start value and step size
          MCMC_STEPVAL(IPAR) = STEP
          MCMC_TRYVAL(IPAR)  = AVG
          INIVAL(IPAR)       = AVG
-         write(6,60) PARNAME_STORE(IPAR), AVG, STEP
+	 PARNAME            = PARNAME_STORE(IPAR)
+	 if ( IPAR == IPAR_DLMAG ) PARNAME = 'dmu' 
+         write(6,60) PARNAME, AVG, STEP
  60      format(T7,'Start ', A6,' value/step: ', F9.3,'/', F6.3 )
+
+
       ENDDO
+
 
       call flush(6)
 
@@ -8698,6 +8720,15 @@ c for each param, get initial start value and step size
       INIVAL(IPAR_DLMAG) = GET_DIST8(z,s,c,ONE8)
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
       CHI2_LAST = CHI2
+
+c store initial chi2min in case we don't find better
+      CHI2MIN = CHI2
+      DO i = 1, NPAR	
+         IPAR = IPAR_LIST(i)
+         INIVAL_SAVE(IPAR) = INIVAL(IPAR)
+      ENDDO
+
+c - - - - - - - - - - -
 
       DO 50 itry = 1, NEVAL_MCMC_PHOTOZ 
 
@@ -8760,6 +8791,15 @@ c     determine Fmodel_SCALE below.
 
          NTMP = NTMP + 1
          if ( NTMP == NEVAL_REDUCE_STEP  ) then
+c reduce step size, and move to current values with min chi2
+            NTMP = 0
+            DO i = 1, NPAR
+               IPAR = IPAR_LIST(i)
+               MCMC_STEPVAL(ipar) = MCMC_STEPVAL(ipar)*FRAC_STEP_REDUCE
+               MCMC_TRYVAL(ipar)  = INIVAL_SAVE(ipar)
+            ENDDO
+         endif
+
             if ( LDMP ) then
                print*,' xxx --------------------------------------- '
                write(6,665) z, s, c, Fmodel_scale
@@ -8769,15 +8809,6 @@ c     determine Fmodel_SCALE below.
  666           format('  xxx itry=',I3, 2x, 'CHI2(cur,last)=',2F6.0, 2x, 
      &              'PROB=',F6.3, 2x, 'MOVE=',L2)
             endif
-
-c reduce step size, and move to current values with min chi2
-            NTMP = 0
-            DO i = 1, NPAR
-               IPAR = IPAR_LIST(i)
-               MCMC_STEPVAL(ipar) = MCMC_STEPVAL(ipar)*FRAC_STEP_REDUCE
-               MCMC_TRYVAL(ipar)  = INIVAL_SAVE(ipar)
-            ENDDO
-         endif
 
          CHI2_LAST = CHI2
  50   CONTINUE

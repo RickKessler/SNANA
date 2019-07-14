@@ -5229,6 +5229,7 @@ double unix_random(void) {
   double   r8 = (double)i8 / (double)RAND_MAX ;  // 0 < r8 < 1 
   return(r8);
 }
+double unix_random__(void) { return( unix_random() ); }
 
 // ***********************************
 double GaussRan(int ilist) {

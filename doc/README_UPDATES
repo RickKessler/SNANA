@@ -17105,4 +17105,22 @@
   manual:
     + update photo-z section to include UVLAM_EXTRAP sub-sub-subsection.
 
+
+# ======================================================================= 
+         v10_73j (  ) 
+
+         ***** IMPORTANT(v10_73j) ***** 
+
+         ***** USEFUL(v10_73j) ***** 
+
+         ***** MISCELLANEOUS(v10_73j) ***** 
+    
+   snlc_fit.car
+     + new &FITINP input NEVAL_MCMC_PHOTOZ to replace course-grid
+       init with MCMC burn-in. Course grid and MCMC are both 
+       quick approximations before MINUIT takes over.
+       Test on DES3YR with  NEVAL_MCMC_PHOTOZ=200:
+         -> efficiency -> 99% (was 95% with course grid)
+         -> RMS(zPhot-zSpec) is 10% worse, but may be stat fluctuation.
+
 END: 

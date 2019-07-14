@@ -2608,7 +2608,7 @@ c define arrays used in fit.
       INTEGER MXFITPAR, MXFITSTORE
 
       PARAMETER ( 
-     &   MXFITPAR    =  10    ! max number of fit parameters
+     &   MXFITPAR    =  12    ! max number of fit parameters
      &  ,MXFITSTORE  =  500   ! max number of storage params 
      &     )
 

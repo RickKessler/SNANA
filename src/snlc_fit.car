@@ -8413,11 +8413,12 @@ c Created July 2012
 c FITINI_PHOTOZ print utility to show
 c     initial-[string]: zPhot,s,c,x0 = [values]
 
-      IMPLICIT NONE
-      CHARACTER STRING*(*)           ! (I) descriptor
-      REAL*8 INIPAR_VAL(20),  chi2   ! (I) values to print
-
 c local var
+
+      IMPLICIT NONE
+      CHARACTER STRING*(*)                 ! (I) descriptor
+      REAL*8 INIPAR_VAL(*),     chi2   ! (I) values to print
+
 +CDE,SNDATCOM.
 +CDE,SNANAFIT. 
 +CDE,SNFITCOM.

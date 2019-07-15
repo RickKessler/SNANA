@@ -24507,12 +24507,18 @@ c  * sntable_dump extraction will write real*8 as integer.
       CALL SNTABLE_ADDCOL(ID, CBLOCK, DSNHOST_OBJID, VARLIST,ITEXT, 
      &     LENBLOCK, 20 )
 
-      VARLIST =  'HOST_ZPHOT:F,HOST_ZPHOTERR:F' // char(0)
+      VARLIST =  'HOST_ZPHOT:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZPHOT, VARLIST,ITEXT, 
      &     LENBLOCK, 40 )
+      VARLIST =  'HOST_ZPHOTERR:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZPHOT_ERR, VARLIST,ITEXT, 
+     &     LENBLOCK, 40 )
 
-      VARLIST =  'HOST_ZSPEC:F,HOST_ZSPECERR:F' // char(0)
+      VARLIST =  'HOST_ZSPEC:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZSPEC, VARLIST,ITEXT, 
+     &     LENBLOCK, 40 )
+      VARLIST =  'HOST_ZSPECERR:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_ZSPEC_ERR, VARLIST,ITEXT, 
      &     LENBLOCK, 40 )
 
       VARLIST = 'HOST_RA:D'  // char(0)
@@ -24535,12 +24541,19 @@ c  * sntable_dump extraction will write real*8 as integer.
      &     LENBLOCK, 20 )
 
 c always write LOGMASS and SFR
-      VARLIST =  'HOST_LOGMASS:F,HOST_LOGMASS_ERR:F' // char(0)
+      VARLIST =  'HOST_LOGMASS:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS, VARLIST, 1, 
      &         LENBLOCK, 40 )
+      VARLIST =  'HOST_LOGMASS_ERR:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_LOGMASS_ERR, VARLIST, 1, 
+     &         LENBLOCK, 40 )
 
-      VARLIST =  'HOST_sSFR:F,HOST_sSFR_ERR:F' // char(0)
+
+      VARLIST =  'HOST_sSFR:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_sSFR, VARLIST, 1,
+     &         LENBLOCK, 40 )
+      VARLIST =  'HOST_sSFR_ERR:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNHOST_sSFR_ERR, VARLIST, 1,
      &         LENBLOCK, 40 )
 
       IF ( EXIST_SNHOST_MAGOBS ) THEN    ! host mags

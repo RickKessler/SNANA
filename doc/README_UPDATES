@@ -17122,5 +17122,8 @@
        Test on DES3YR with  NEVAL_MCMC_PHOTOZ=200:
          -> efficiency -> 99% (was 95% with course grid)
          -> RMS(zPhot-zSpec) is 10% worse, but may be stat fluctuation.
+ 
+   snana.car
+     + fix snana-table bug for host property errors.
 
 END: 

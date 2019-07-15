@@ -24371,6 +24371,9 @@ void readme_doc_SIMLIB(int *iline) {
   *iline = i;
 
 
+  //  int    KEEP_ENTIRE_SEASON = 
+  //    (INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_ENTIRE_SEASON );
+
 } // end of readme_doc_SIMLIB
 
 

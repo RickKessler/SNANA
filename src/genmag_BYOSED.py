@@ -18,19 +18,18 @@ required_keys = ['magsmear']
 
 __mask_bit_locations__={'verbose':1,'dump':2}
 
-
 class genmag_BYOSED:
 
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
 			# TODO: write a print statement that warns if
 			# HOST_PARAM_NAMES is a variable that the code
 			# isn't going to do anything with
-
+			print(HOST_PARAM_NAMES)
 			self.verbose = OPTMASK & (1 << __mask_bit_locations__['verbose']) > 0
 
 			self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
 
-			self.host_param_names = HOST_PARAM_NAMES.split(',')
+			self.host_param_names = [x.upper() for x in HOST_PARAM_NAMES.split(',')]
 			self.PATH_VERSION = os.path.dirname(PATH_VERSION)
 
 			self.dump = OPTMASK & (1 << __mask_bit_locations__['dump'])>0
@@ -108,18 +107,23 @@ class genmag_BYOSED:
 
 				
 				for warp in self.warp_effects:
-					warp_data={k.upper():np.array(config.get(warp,k).split()).astype(float) if k.upper() not in ['SN_FUNCTION','HOST_FUNCTION','DIST_FILE'] else config.get(warp,k) for k in config[warp]}
+					warp_data={}
+					for k in config[warp]:
+						try:
+							warp_data[k.upper()]=np.array(config.get(warp,k).split()).astype(float)
+						except:
+							warp_data[k.upper()]=config.get(warp,k)
 					
-					if 'DIST' in ' '.join(list(warp_data.keys())):
-						distribution=_get_distribution(warp,warp_data,self.PATH_VERSION)
-					else:
-						distribution=None
-
+					
 					
 						
 					if 'SN_FUNCTION' in warp_data:
+						if 'DIST' in ' '.join([x for x in warp_data.keys() if 'SN' in x or 'SCALE' in x]):
+							distribution=_get_distribution(warp,{k:warp_data[k] for k in warp_data.keys() if 'SN' in k or 'SCALE' in k},self.PATH_VERSION,'SN')
+						else:
+							raise RuntimeError("Did not supply scale distribution information for SN effect %s."%warp)
+
 						
-								
 						if 'SN_FUNCTION_SCALE' not in warp_data:
 							scale_factor=1.
 						else:
@@ -128,29 +132,44 @@ class genmag_BYOSED:
 							sn_param_names,sn_function=_read_ND_grids(os.path.expandvars(os.path.join(self.PATH_VERSION,str(warp_data['SN_FUNCTION']))),scale_factor)
 						except RuntimeError:
 							raise RuntimeError("Do not recognize format of function for %s SN Function"%warp)
-						warp_parameter=distribution()[0] if distribution is not None else 1.
+						if warp.upper() in sn_param_names and 'PARAM' not in distribution.keys():
+							raise RuntimeError("Must supply parameter distribution for SN effect %s"%warp)
+						sn_scale_parameter=distribution['SCALE']()[0]
+						warp_parameter=distribution['PARAM']()[0] if 'PARAM' in distribution.keys() else 0.
+
 
 						sn_dict[warp]=warpModel(warp_function=sn_function,
 												param_names=sn_param_names,
-												parameters=np.array([0. if sn_param_names[i]!=warp.upper() else warp_parameter for i in range(len(sn_param_names))]),
-
+												parameters=np.array([0. if sn_param_names[i]!=warp.upper() else sn_parameter for i in range(len(sn_param_names))]),
 												warp_parameter=warp_parameter,
-												warp_distribution=distribution,
+												warp_distribution=distribution['PARAM'] if 'PARAM' in distribution.keys() else None,
+												scale_parameter=sn_scale_parameter,
+												scale_distribution=distribution['SCALE'],
 												name=warp)
 						
 					if 'HOST_FUNCTION' in warp_data:
-
+						if 'DIST' in ' '.join([x for x in warp_data.keys() if 'HOST' in x or 'SCALE' in x]):
+							distribution=_get_distribution(warp,{k:warp_data[k] for k in warp_data.keys() if 'HOST' in k or 'SCALE' in k},self.PATH_VERSION,'HOST')
+						else:
+							raise RuntimeError("Did not supply scale distribution information for HOST effect %s."%warp)
 						try:
 							host_param_names,host_function=_read_ND_grids(os.path.expandvars(os.path.join(self.PATH_VERSION,str(warp_data['HOST_FUNCTION']))))
 						except RuntimeError:
 							raise RuntimeError("Do not recognize format of function for %s HOST Function"%warp)
-						warp_parameter=distribution()[0] if distribution is not None else 1.
+						
+						if warp.upper() in host_param_names and 'PARAM' not in distribution.keys() and warp.upper() not in self.host_param_names:
+							raise RuntimeError("Must supply parameter distribution for HOST effect %s"%warp)
+
+						host_scale_parameter=distribution['SCALE']()[0]
+						warp_parameter=distribution['PARAM']()[0] if 'PARAM' in distribution.keys() else 0.
 						host_dict[warp]=warpModel(warp_function=host_function,
 												param_names=host_param_names,
 												parameters=np.array([0. if host_param_names[i]!=warp.upper() else warp_parameter for i in range(len(host_param_names))]),
 
 												warp_parameter=warp_parameter,
-												warp_distribution=distribution,
+												warp_distribution=distribution['PARAM'] if 'PARAM' in distribution.keys() else None,
+												scale_parameter=host_scale_parameter,
+												scale_distribution=distribution['SCALE'],
 												name=warp)
 
 				return(sn_dict,host_dict)
@@ -183,56 +202,55 @@ class genmag_BYOSED:
 						fluxsmear *= 10**(0.4*(np.random.normal(0,self.options.magsmear)))
 				trest_arr=trest*np.ones(len(self.wave))
 
-				for warp in [x for x in self.warp_effects if x!='COLOR']:
+				for warp in [x for x in self.warp_effects]:# if x!='COLOR']:
 					try: #if True:
 
 						if external_id!=self.sn_id:
 							if warp in self.sn_effects.keys():
 								self.sn_effects[warp].updateWarp_Param()
+								self.sn_effects[warp].updateScale_Param()
 								if warp in self.host_effects.keys():
-									self.host_effects[warp].warp_parameter=self.sn_effects[warp].warp_parameter
+									self.host_effects[warp].updateWarp_Param()
+									self.host_effects[warp].scale_parameter=1.
 							else:
 								self.host_effects[warp].updateWarp_Param()
+								self.host_effects[warp].updateScale_Param()
 							self.sn_id=external_id
 							
 						
 						# not sure about the multiplication by x0 here, depends on if SNANA is messing with the 
 						# absolute magnitude somewhere else
 						product=1.
-						temp_warp_param = None
+						temp_scale_param = 1.
 						if warp in self.sn_effects.keys():
 							if self.verbose:
 								print('Phase=%.1f, %s: %.2f'%(trest,warp,self.sn_effects[warp].warp_parameter))
 							product*=self.sn_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
-
-							if warp in self.sn_effects[warp]._param_names:
-								temp_warp_param=1.
-							else:
-								temp_warp_param=self.sn_effects[warp].warp_parameter
+							temp_scale_param*=self.sn_effects[warp].scale_parameter
+							#if warp in self.sn_effects[warp]._param_names:
+							#	temp_warp_param=1.
+							#else:
+							#	temp_warp_param=self.sn_effects[warp].warp_parameter
 						if warp in self.host_effects.keys():
 							if self.verbose:
 								print('Phase=%.1f, %s: %.2f'%(trest,warp,self.host_effects[warp].warp_parameter))
 
 							product*=self.host_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
-							if temp_warp_param is None:
-								if warp in self.host_effects[warp]._param_names:
-									temp_warp_param=1.
-								else:
-									temp_warp_param=self.host_effects[warp].warp_parameter
+							temp_scale_param*=self.host_effects[warp].scale_parameter
 
-						fluxsmear+=temp_warp_param*product*self.x0
+						fluxsmear*=temp_scale_param*product
 					except:
 						import pdb; pdb.set_trace()
 
 
-				if 'COLOR' in self.warp_effects:
-						if external_id!=self.sn_id:
-								self.sn_effects['COLOR'].updateWarping_Params()
-								self.sn_id=external_id
-						if self.verbose:
-								print('Phase=%.1f, %s: %.2f'%(trest,'COLOR',self.sn_effects['COLOR'].warp_parameter))
-						fluxsmear*=10**(-0.4*self.sn_effects['COLOR'].warp_parameter*\
-								self.sn_effects['COLOR'].flux(trest_arr,self.wave,hostpars,self.host_param_names).flatten())
+				# if 'COLOR' in self.warp_effects:
+				# 		if external_id!=self.sn_id:
+				# 				self.sn_effects['COLOR'].updateWarping_Params()
+				# 				self.sn_id=external_id
+				# 		if self.verbose:
+				# 				print('Phase=%.1f, %s: %.2f'%(trest,'COLOR',self.sn_effects['COLOR'].warp_parameter))
+				# 		fluxsmear*=10**(-0.4*self.sn_effects['COLOR'].warp_parameter*\
+				# 				self.sn_effects['COLOR'].flux(trest_arr,self.wave,hostpars,self.host_param_names).flatten())
 							  
 				return list(fluxsmear) 
 				
@@ -288,27 +306,35 @@ class warpModel(object):
 	and ``_parameters`` (1-d numpy.ndarray).
 	"""
 
-	def __init__(self, warp_function,parameters,param_names,warp_parameter,warp_distribution,name):
+	def __init__(self, warp_function,parameters,param_names,warp_parameter,warp_distribution,scale_parameter,scale_distribution,name):
 		self.name = name
 		self._parameters = parameters
 		self._param_names = [x.upper() for x in param_names]
 		self.warp_function=warp_function
 		self.warp_parameter=warp_parameter
+		self.scale_parameter=scale_parameter
 		self.warp_distribution=warp_distribution
-
+		self.scale_distribution=scale_distribution
 
 	def updateWarp_Param(self):
 		if self.warp_distribution is not None:
 			self.warp_parameter=self.warp_distribution()[0]
 
+			if self.name in self._param_names:
+				self.set(**{self.name:self.warp_parameter})
+		
+		#else:
+		#	print("Cannot update warping param, no distribution.")
 
-		if self.name in self._param_names:
-			self.set(**{self.name:self.warp_parameter})
+	def updateScale_Param(self):
+		self.scale_parameter=self.scale_distribution()[0]
 
+		
 	def flux(self,phase,wave,host_params,host_param_names):
 		phase_wave_dict={'PHASE':phase,'WAVELENGTH':wave}
 		self.set(**{p:host_params[host_param_names.index(p)] for p in self._param_names if p in host_param_names})
-		parameter_arrays=[np.ones(len(wave))*self._parameters[i] if self._param_names[i] not in ['PHASE','WAVELENGTH'] else phase_wave_dict[self._param_names[i]] for i in range(len(self._param_names))]
+		parameter_arrays=[np.ones(len(wave))*self._parameters[i] if self._param_names[i] not in ['PHASE','WAVELENGTH'] 
+							else phase_wave_dict[self._param_names[i]] for i in range(len(self._param_names))]
 
 		return(self.warp_function(np.vstack(parameter_arrays).T).flatten())
 
@@ -382,17 +408,17 @@ class warpModel(object):
 
 
 
-def _skewed_normal(name,dist_dat):
-		if 'DIST_LIMITS' in dist_dat:
-			a,b=dist_dat['DIST_LIMITS']
+def _skewed_normal(name,dist_dat,dist_type):
+		if dist_type+'_DIST_LIMITS' in dist_dat:
+			a,b=dist_dat[dist_type+'_DIST_LIMITS']
 		else:
-			a=dist_dat['DIST_PEAK']-3*dist_dat['DIST_SIGMA'][0]
-			b=dist_dat['DIST_PEAK']+3*dist_dat['DIST_SIGMA'][1]
+			a=dist_dat[dist_type+'_DIST_PEAK']-3*dist_dat[dist_type+'_DIST_SIGMA'][0]
+			b=dist_dat[dist_type+'_DIST_PEAK']+3*dist_dat[dist_type+'_DIST_SIGMA'][1]
 
 		dist = skewed_normal(name,a=a,b=b)
 		sample=np.arange(a,b,.01)
 		return(lambda : np.random.choice(sample,1,
-										 p=dist._pdf(sample,dist_dat['DIST_PEAK'],dist_dat['DIST_SIGMA'][0],dist_dat['DIST_SIGMA'][1])))
+										 p=dist._pdf(sample,dist_dat[dist_type+'_DIST_PEAK'],dist_dat[dist_type+'_DIST_SIGMA'][0],dist_dat[dist_type+'_DIST_SIGMA'][1])))
 		
 
 def _param_from_dist(dist_file,path):
@@ -403,11 +429,36 @@ def _param_from_dist(dist_file,path):
 	pdf=gaussian_kde(dist.T).pdf(np.arange(a,b,.01))
 	return(lambda : np.random.choice(sample,1,p=pdf/np.sum(pdf)))
 
-def _get_distribution(name,dist_dat,path):
-	if 'DIST_FILE' in dist_dat.keys():
-		return(_param_from_dist(dist_dat['DIST_FILE'],path))
+def _get_distribution(name,dist_dat,path,sn_or_host):
+	dist_dict={}
+	if np.any(['DIST_FILE' in x for x in dist_dat.keys() if 'PARAM' in x]):
+		if sn_or_host+'_PARAM_DIST_FILE' in dist_dat.keys():
+			dist_dict['PARAM']=_param_from_dist(dist_dat[sn_or_host+'_PARAM_DIST_FILE'],path)
+		else:
+			raise RuntimeError("You may have a typo, did you mean to set 'PARAM_DIST_FILE' for %s?"%sn_or_host)
+		
+		
+	elif np.any(['PARAM' in x for x in dist_dat.keys()]):
+		try:
+			dist_dict['PARAM']=_skewed_normal(name,dist_dat,sn_or_host+'_PARAM')
+		except:
+			raise RuntimeError("You may have a typo in the variables of your %s param distribution(s)."%sn_or_host)
 
-	return(_skewed_normal(name,dist_dat))
+	if np.any(['DIST_FILE' in x for x in dist_dat.keys() if 'SCALE' in x]):
+		if 'SCALE_DIST_FILE' in dist_dat.keys():
+			dist_dict['SCALE']=_param_from_dist(dist_dat['SCALE_DIST_FILE'],path)
+		else:
+			raise RuntimeError("You may have a typo, did you mean to set 'SCALE_DIST_FILE'?")
+		
+	elif np.any(['SCALE' in x for x in dist_dat.keys()]):
+		try:
+			dist_dict['SCALE']=_skewed_normal(name,dist_dat,'SCALE')
+		except:
+			raise RuntimeError("You may have a typo in the variables of your %s scale distribution(s)."%sn_or_host)
+	else:
+		raise RuntimeError("Must supply scale distribution for every effect.")
+
+	return(dist_dict)
 
 def _meshgrid2(*arrs):
 	arrs = tuple(arrs)	#edit
@@ -495,15 +546,22 @@ def main():
 		#sys.exit()
 		effect='HOST_MASS'
 		bounds=[5,20]		
-
+		leg_sym='logM'
+		# effect='SFR'
+		# bounds=[.01,5]		
+		# leg_sym='z'
+		# effect='METALLICITY'
+		# bounds=[.01,10]		
+		# leg_sym='Z'
 		fig,ax=plt.subplots(nrows=3,ncols=3,figsize=(15,15),sharex=True)
 		phases=np.arange(-10,31,5)
 		k=0
+		base_params=[9,1,1,.001,1]
 		for i in range(3):
 			for j in range(3):
 				#mySED.sn_effects[effect].set(**{effect:0})
 				mySED.host_effects[effect].warp_parameter=0
-				ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,[9,1,1,.001,1]),label='Hsiao',color='k',linewidth=2)
+				ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,base_params),label='Hsiao',color='k',linewidth=2)
 				for p in range(3):
 					
 					mySED.host_effects[effect].updateWarp_Param()
@@ -511,7 +569,12 @@ def main():
 					print(v)
 					#mySED.sn_effects['STRETCH'].updateWarp_Param()
 					#s=mySED.sn_effects['STRETCH'].warp_parameter
-					ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,[v,1,1,.1,1]),label='Z=%.2f'%v)
+					if effect!='SFR':
+						ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,
+							[base_params[i] if mySED.host_param_names[i]!=effect else v for i in range(len(base_params))]),label='%s=%.2f'%(leg_sym,v))
+					else:
+						ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,
+							[base_params[i] if mySED.host_param_names[i]!='REDSHIFT' else v for i in range(len(base_params))]),label='%s=%.2f'%(leg_sym,v))
 
 				ax[i][j].legend(fontsize=14)
 				ax[i][j].annotate('Phase='+str(phases[k]),(.5,.05),fontsize=14,xycoords='axes fraction')

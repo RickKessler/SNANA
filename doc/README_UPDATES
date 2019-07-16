@@ -17062,9 +17062,11 @@
 
 
 # ======================================================================= 
-         v10_73i (  ) 
+         v10_73i (July 12 2019) 
 
          ***** IMPORTANT(v10_73i) ***** 
+
+     simulated host spectrum ready for testing.
 
          ***** USEFUL(v10_73i) ***** 
 
@@ -17075,15 +17077,62 @@
 
    sntools_host.c[h]:
      + ready to test genSpec_HOST()
+     + new utility fetch_HOSTPAR_GENMODEL to get names and values
+       of host params passed to BYOSED.
 
    SALT2mu.c: 
     + remove USECODE_LEGACY pre-proc flag.
 
    snlc_fit.car:
-    + in FITINI_PHOTOZ, remove constraint on Fmodel_scale.
+    + in FITINI_PHOTOZ, remove faulty constraint on Fmodel_scale.
     + new &FITINP input UVLAM_EXTEAPFLUX to extrapoate fit model to 
       far UV. Intended for photo-z fits to keep g-band at high-z..
       Make sure to adjust RESTLAMBDA_FITRANGE to allow smaller lambda.
+    + start refactor of FITINI_PHOTOZ to have multiple options for
+      initial-param estimates.
 
+  snlc_sim.c:
+    + new function GENSPEC_HOST_CONTAMINATION() to add host contam.
+      to SN spectra. See new input TAKE_SPECTRUM_HOSTFRAC: <frac>
+    + for BYOSED model, replace hard-wired HOSTPAR list with call
+      to fetch_HOSTPAR_GENMODEL().
+    + add BYOSED to list of models for which RV_host and AV_host
+      are determined.
+
+  genmag_BYOSED.*
+    + merge code from Justin,D'Arcy,David.
+
+  manual:
+    + update photo-z section to include UVLAM_EXTRAP sub-sub-subsection.
+
+
+# ======================================================================= 
+         v10_73j (  ) 
+
+         ***** IMPORTANT(v10_73j) ***** 
+
+         ***** USEFUL(v10_73j) ***** 
+
+         ***** MISCELLANEOUS(v10_73j) ***** 
+    
+   snlc_fit.car
+     + new &FITINP input NEVAL_MCMC_PHOTOZ to replace course-grid
+       init with MCMC burn-in. Course grid and MCMC are both 
+       quick approximations before MINUIT takes over.
+       Test on DES3YR with  NEVAL_MCMC_PHOTOZ=200:
+         -> efficiency -> 99% (was 95% with course grid)
+         -> RMS(zPhot-zSpec) is 10% worse, but may be stat fluctuation.
+ 
+   snana.car
+     + fix snana-table bug for host property errors.
+     + bug dumb bug reading spectra for real data (setting NVAR_SPECTRUM)
+
+   snlc_sim, sntools, snana.car:
+      Rename SIM_SNMAGSHIFT_HOSTCOR -> SIM_gammaDM to be more
+      parallel with SIM_alpha & SIM_beta. 
+
+   SALT2mu.c:
+     + start refactor for 7D biasCor. Read optional SIM_gammaDM  
+       from table, and include ig (gamma) index along with ia,ib.
 
 END: 

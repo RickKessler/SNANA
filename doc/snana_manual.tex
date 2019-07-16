@@ -3444,6 +3444,7 @@ the sim-input file (or via command-line override):
 # optional
    HOSTLIB_WGTMAP_FILE:   xxxx        # default=none
    HOSTLIB_ZPHOTEFF_FILE: xxxx        # default=none
+   HOSTLIB_SPECBASIS_FILE: xxxx       # default=none
    HOSTLIB_MAXREAD:      10000        # default=billion
    HOSTLIB_MXINTFLUX_SNPOS: .999      # default=.99
    HOSTLIB_MSKOPT:       8            # default=0
@@ -3651,6 +3652,36 @@ the galaxy, and compute the galaxy noise.
 \clearpage
 \newcommand{\Rhalf}{R_{1/2}}
 \newcommand{\Sn}{{\cal S}_{n}}
+
+
+% ------------------------------------
+\subsubsection{Generating Host Spectra}
+\label{sss:hostlib_spectra}
+% ------------------------------------
+
+Host spectra are generated with the {\tt SPECTROGRAPH} feature,
+and with several inputs as follows:
+\begin{itemize}
+  \item {\tt HOSTLIB\_SPECBASIS\_FILE} points to a file with spectral basis
+         such as PCA. The header keys must include {\tt wavelength}, 
+         {\tt specbasis01}, {\tt specbasis02}, etc ...
+         Optional keys before the header are:
+          \vspace{-0.5cm}
+     \begin{verbatim}
+         FLAM_SCALE: 1.55E-30    # global flux norm.
+         FLAM_SCALE_POWZ1: -2    # z-norm: (1+z)^-2
+     \end{verbatim}  \vspace{-1.0cm}
+  \item {\tt HOSTLIB\_FILE} that includes columns 
+          {\tt coeff\_specbasis01}, {\tt coeff\_specbasis02}, etc..
+  \item {\tt TAKE\_SPECTRUM} key with {\tt HOST} argument as shown in 
+           \S\ref{sss:SPEC_EPOCH}.
+\end{itemize}
+%
+For a given hostlib entry, each basis spectrum ``{\tt specbasis[nn]}''
+is multiplied by {\tt coeff\_specbasis[nn]}, and all of the spec-basis
+terms are summed. The sum is multipled by {\tt FLAM\_SCALE} and
+the z-norm term. 
+
 
 % ------------------------------------
 \subsubsection{Notes on CPU Resources}
@@ -4188,6 +4219,7 @@ TAKE_SPECTRUM:  TREST(-12:-10) TEXPOSE_ZPOLY(2000,500)
 TAKE_SPECTRUM:  TOBS(-7:7)     TEXPOSE_ZPOLY(600,200,-3)
 TAKE_SPECTRUM:  TREST(0:2)     TEXPOSE_ZPOLY(1000) 
 TAKE_SPECTRUM:  TREST(10:12)   TEXPOSE_ZPOLY(1500:2500,500)
+TAKE_SPECTRUM:  HOST           TEXPOSE_ZPOLY(1200) 
 \end{Verbatim}
 %
 Each {\tt TREST} argument defines a 2-day rest-frame window from 
@@ -4210,7 +4242,9 @@ A range for a polynomial coefficient (4th example above)
 results in a randomly selected coefficient. 
 Arbitrary polynomial orders are specified with comma-separated values;
 1st value is constant term, 2nd value is linear term, etc ...
-
+Finally, the {\tt HOST} argument results in a host spectrum
+based on {\tt HOSTLIB\_FILE} and {\tt HOSTLIB\_SPECBASIS\_FILE}.
+HOST spectra have {\tt MJD = -9} in the data files.
 
 The template exposure time is defined in the \simlib\ file
 with the key {\tt TEMPLATE\_TEXPOSE\_SPECTROGRAPH}.
@@ -4231,6 +4265,10 @@ TAKE_SPECTRUM:  TOBS(-7:7)      SNR_ZPOLY(20)    SNR_LAMREST(5000:6000)
 # 3) rest-frame epoch, obs-frame SNR def
 TAKE_SPECTRUM:  TREST(-3:3)    SNR_ZPOLY(20)   SNR_LAMOBS(8000:10000)
 TAKE_SPECTRUM:  TREST(-3:3)    SNR_ZPOLY(20)   SNR_LAMOBS(13000:15000)
+
+#4) host spectrum 
+TAKE_SPECTRUM   HOST           SNR_ZPOLY(20)   SNR_LAMOBS(3000:5000)
+TAKE_SPECTRUM_HOSTFRAC:  0.1  # add 10\% of FLAM(host) to each SN spectrum
 
 TAKE_SPECTRUM:  TEMPLATE_TEXPOSE_SCALE(1.2)
 \end{Verbatim}
@@ -6760,12 +6798,23 @@ more often in the undefined region.
 \newcommand{\Fdata}{F_{\rm data}^i}
 \newcommand{\Fmodel}{F_{\rm model}^i}
 
-
-To estimate initial parameters near the global-minimum $\chi^2$, 
-a multi-dimensional grid-search is made over redshift (0.025 bin-width),
-color (0.2 bin-width) and 3 bins in the shape
-parameter ($x_1$, dm15, stretch ...). The minimization over
-the distance parameter is done analytically as follows.
+For SN-only photo-$z$ fits, \minuit\ is likely to find a
+local minimum, rather than the global minimum. It is therefore
+important to provide initial parameter estimates before the
+\minuit\ stage. 
+After using the recommended {\tt OPT\_SETPKMJD=21} (Fmax-clump+BazinFit)
+to estimate {\tt PEAKMJD},
+there are two user-options for estimating initial parameters:
+\begin{verbatim}
+   &FITINP
+     ISCALE_COURSEBIN_PHOTOZ = 1   # multi-dim grid search (default)
+        ! or
+     NEVAL_MCMC_PHOTOZ       = 300 # MCMC burn-in with 300 evaluations
+\end{verbatim} 
+%
+The default opton performs a multi-dimensional grid-search over 
+redshift (0.04 bin-width), color (4 bins) and stretch/shape (3 bins).
+The distance parameter is estimated analytically as follows.
 For each grid point (photoZ, color, shape) the model fluxes
 are first evaluated using the distance
 (SALT2-$\bar{x_0}$ or distance modulus $\bar\mu$) 
@@ -6778,15 +6827,23 @@ is determined as
     = \sum_i( \Fdata\Fmodel/\sigma_i^2) / \sum_i(\Fmodel/\sigma_i)^2
 \end{equation}
 where $\sigma_i$ is the quadrature sum of data and model errors
-and '$i$' is the epoch index.\footnote{See {\tt EP\_FFSUM\_XXX} 
+and '$i$' is the epoch index.\footnote{See {\tt R4SN\_FFSUM\_XXX} 
    variables in {\tt snlc\_fit.car}.}
 The resulting $x_0$ or $\mu$ value is used to re-evaluate
-the $\chi^2$ at this grid-point.
-This approximation assumes that the model-error does
-not depend on $\dSCALE$.
-Also, prior to snana version {\tt v9\_93} the grid-search
-was over photoZ and color only.
+the $\chi^2$ at this grid-point. 
+After finding these four parameter estimates, 
+{\tt PEAKMJD} is searched in 0.5~day bins ($-2$ to $+2$ days).
 
+
+The second option (MCMC) processes all 5 parameters simultaneously.
+Initial {\tt STEP} sizes are 1/3 of the range, and every 20 evaluations
+the {\tt STEP} size is multiplied by 0.90. For each evaluation, the
+parameters are shifted by {\tt STEP}$\times(R_{01}-0.5)$,
+where $R_{01}$ is a random number betweeo 0 and 1.
+For each trial $\Zphot$, a random distance shift ({\tt dmu}) is added 
+to the cosmology-constrained distance ($-4$ to $+4$~mag).
+To ensure reproducibility, the same random seed is used to 
+initialize the random sequence for each event.
 
 Cheater option: {\tt OPT\_PHOTOZ = 16} sets initial
 photoZ to spectroscopic redshift and skips the redshift grid-search. 
@@ -6846,8 +6903,8 @@ after the 2nd fit-iteration.
 
 % ------------------------------------
 %   \clearpage
-   \subsection{Including the log($\sigma$) Term in the $\chi^2$ }
-   \label{subsec:chi2sigma}
+   \subsubsection{Including the log($\sigma$) Term in the $\chi^2$ }
+   \label{sss:chi2sigma}
 % ------------------------------------
 
 \newcommand{\SIGLAST}{\sigma_i^{\rm last}}
@@ -6906,6 +6963,30 @@ a repeat fit-iteration with the added filter;
 this logic ensures that $\SIGCHISQ$ is defined
 for each filter in the last fit-iteration.
 
+
+% ------------------------------------
+%   \clearpage
+   \subsubsection{Avoiding Filter Drop-outs at High PhotoZ}
+   \label{sss:fit_UVLAM_EXTRAP}
+% ------------------------------------
+
+A potential problem with photo-$z$ fitting is that low-redshift events
+can result in high-redshift $\Zphot$ due to filter drop-outs.
+For example, if the $u$ and/or $g$ band are outside the SED model 
+range at high redshift, these bands are dropped and the resulting 
+$\chi^2$ is artifically small because it ignores the rest-frame UV region.
+An approximate fix is to use the same UV-extrapolation feature used
+in the simulation (\S\ref{sss:UVLAM_EXTRAP}),
+\begin{verbatim}
+   &FITINP
+      UVLAM_EXTRAPFLUX    = 500          
+      RESTLAMBDA_FITRANGE = 2000, 13000 
+\end{verbatim}
+In this example, the model flux at the bluest wavelength (at each phase)
+is  linearly extrapolated to zero flux at $\lam=500$~\AA.
+The {\tt RESTLAMBDA\_FITRANGE} should be set so that all bands
+are defined at the highest allowed $\Zphot$ set by the
+{\tt PHOTOZ\_BOUND} input.
 
 % ------------------------------------
    \clearpage

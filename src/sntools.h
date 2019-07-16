@@ -39,7 +39,7 @@
 
 #include "sndata.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_73i"                                                     
+#define  SNANA_VERSION_CURRENT  "v10_73j"                                                      
 
 #define LIGHT_km  2.99792458e5      // speed of light (km/s) 
 #define LIGHT_A   2.99792458e18     // speed of light (A/s) 
@@ -574,7 +574,7 @@ double interp_1dfun__(int *opt, double *val, int *NBIN,
 		      double *VAL_LIST, double *FUN_LIST, 
 		      char *abort_comment );
 
-int quickBinSearch(int NBIN, double VAL, double *VAL_LIST, 
+int quickBinSearch(double VAL, int NBIN, double *VAL_LIST, 
 		   char *abort_comment);
 double quadInterp ( double VAL, double VAL_LIST[3], double FUN_LIST[3],
 		    char *abort_comment );
@@ -656,6 +656,7 @@ int    getRan_Poisson(double mean);
 
 // mangled functions for fortran
 void   randominit_(int *ISEED);  // calls native srandom(ISEED)
+double unix_random__(void) ;
 double flatran1_(int *ilist) ;          // for fortran
 double gaussran_(int *ilist);         // for fortran
 

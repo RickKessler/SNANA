@@ -5229,6 +5229,7 @@ double unix_random(void) {
   double   r8 = (double)i8 / (double)RAND_MAX ;  // 0 < r8 < 1 
   return(r8);
 }
+double unix_random__(void) { return( unix_random() ); }
 
 // ***********************************
 double GaussRan(int ilist) {
@@ -5368,7 +5369,7 @@ double interp_1DFUN(
   // ------------- BEGIN -----------------
 
   // do binary search to quickly find which bin contains 'val'
-  IBIN = quickBinSearch(NBIN, val, VAL_LIST, abort_comment );
+  IBIN = quickBinSearch(val, NBIN,VAL_LIST, abort_comment );
 
   if ( IBIN < 0 || IBIN >= NBIN-1 ) {
     sprintf(c1err,"quickBinSearch returned invalid IBIN=%d (NBIN=%d)", 
@@ -5583,7 +5584,7 @@ double quadInterp ( double VAL, double VAL_LIST[3], double FUN_LIST[3],
 
 
 // ===================================================
-int quickBinSearch(int NBIN, double VAL, double *VAL_LIST,
+int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
 		   char *abort_comment) {
 
   // April 2011.
@@ -7373,8 +7374,7 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
     
     fptr = &SNDATA.SIM_MAGSMEAR_COH ; 
     fprintf(fp, "SIM_MAGSMEAR_COH:     %6.3f  \n", *fptr ) ;      
-    fptr = &SNDATA.SIM_SNMAGSHIFT_HOSTCOR ; 
-    fprintf(fp, "SIM_SNMAGSHIFT_HOSTCOR: %6.3f  \n", *fptr ) ;      
+
 
     // gal/SN flux-fraction
     fprintf(fp, "SIM_GALFRAC: "); NTMP = 0;
@@ -7444,6 +7444,10 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
     if ( SNDATA.SIM_SALT2beta != NULLFLOAT ) {
       fptr = &SNDATA.SIM_SALT2beta ;
       fprintf(fp, "SIM_SALT2beta:   %7.3f   \n", *fptr ) ;
+    }
+    if ( SNDATA.SIM_SALT2gammaDM != NULLFLOAT ) {
+      fptr = &SNDATA.SIM_SALT2gammaDM ; 
+      fprintf(fp, "SIM_SALT2gammaDM: %6.3f  \n", *fptr ) ; 
     }
 
     if ( SNDATA.SIM_SALT2x0 != NULLFLOAT ) {

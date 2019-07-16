@@ -121,6 +121,7 @@ C =======================================
      &  ,IPAR_X0, IPAR_COLOR  ! for SALT2
      &  ,IPAR_MB              ! for SALT2
      &  ,IPAR_MAX
+     &  ,IPAR_SPARE
 c  Define Error flags 
 c  _FIT -> fixed redshift; _ZFIT -> photoz fit
      &  ,ERRFLAG_FITPREP_NOFILTERS    
@@ -153,6 +154,7 @@ c
      &  ,IPAR_X0              =  IPAR_DLMAG  ! for SALT2
      &  ,IPAR_ZPHOT           =  9           ! photoZ
      &  ,IPAR_MAX             =  9  ! max number of fit params  
+     &  ,IPAR_SPARE           =  IPAR_MAX + 1
 c
      &  ,ERRFLAG_FITPREP_NOFILTERS  =  1  ! no valid filters
      &  ,ERRFLAG_FITPREP_NOEPOCHS   =  2  ! no epochs in FITINI_COV
@@ -208,6 +210,7 @@ c variables used in fit.
      &  ,USESIM_FITPAR(IPAR_MAX)
      &  ,LOBS_FITMODEL, LREST_FITMODEL
      &  ,LSED_FITMODEL
+     &  ,DOFIT_PHOTOZ_MCMC_ADJUST   ! True if using MCMC init for photo-z
 
       INTEGER 
      &   FITMODEL_INDEX              ! integer index for model to fit
@@ -400,6 +403,8 @@ c
      &   ,R4SN_FFSUM_DATA     !  sum F_data**2/sigma^2
      &   ,R4SN_FFSUM_MODEL    !  sum F_model**2/sigma^2
      &   ,R4SN_FFSUM_CROSS    !  sum F_data*F_model/sigma^2
+     &   ,R4SN_FFSUM_WGT
+     &   ,R4SN_FFSUM_RATIO
 
 c define covariance matrices for SN model correlations (NOT for fit)
 
@@ -421,6 +426,7 @@ c common block
       COMMON / SNFITVAR / FITMODEL_INDEX, NSHAPEPAR
      &  ,FITMODEL_PATH, FITMODEL_LIST, FITMODEL_VERSION
      &  ,LOBS_FITMODEL, LREST_FITMODEL, LSED_FITMODEL
+     &  ,DOFIT_PHOTOZ_MCMC_ADJUST
      &  ,NFITDOF, XNFITDOF, NFILT_FIT, ISTORE_ZPULL
      &  ,RESTLAMBDA_MODEL, RESTLAMBDA_USEFIT
      &  ,NFILT_MODEL, FILTLIST_MODEL
@@ -436,6 +442,7 @@ c
      &  ,R4BAND_SNRMAX_FIT, R4BAND_SNRMAX_RAW
      &  ,R4SN_TEARLY, R4SN_TLATE, R4SN_MJDmin, R4SN_MJDmax
      &  ,R4SN_FFSUM_DATA, R4SN_FFSUM_MODEL, R4SN_FFSUM_CROSS
+     &  ,R4SN_FFSUM_WGT, R4SN_FFSUM_RATIO
 c
      &  ,PEAKMAG_OBS_MODEL,   PEAKMAG_OBS_MODEL_ERR
      &  ,PEAKMAG_REST_MODEL,  PEAKMAG_REST_MODEL_ERR
@@ -683,11 +690,12 @@ c (except for INISTP_PHOTOZ ande INIVAL_PHOTOZ)
      &  ,LDMP_PHOTOZ_DROPFILTER   ! T=> dump reason for dropped filter
 
       INTEGER 
-     &  OPT_PHOTOZ ! bit 0 (1 ) => use host-galaxy ZPRIOR; 
-                   ! bit 1 (2 ) => use spectro Z-prior
-                   ! bit 4 (16) => cheat: start with Zspec and correct filt
-     &  ,ISCALE_COURSEBIN_PHOTOZ
-
+     &   OPT_PHOTOZ  ! bit 0 (1 ) => use host-galaxy ZPRIOR; 
+                     ! bit 1 (2 ) => use spectro Z-prior
+                     ! bit 4 (16) => cheat: start with Zspec and correct filt
+     &  ,ISCALE_COURSEBIN_PHOTOZ  ! scale number of course-grid bins for init
+     &  ,NEVAL_MCMC_PHOTOZ         ! number of MCMC evaluations
+     
       REAL
      &   PHOTOZ_ITER1_LAMRANGE(2)  ! cut on obs-filter, ITER=1 only
      &  ,PHOTOZ_BOUND(2)       ! MINUIT bound for photoz fit
@@ -696,7 +704,6 @@ c (except for INISTP_PHOTOZ ande INIVAL_PHOTOZ)
      &  ,PRIOR_ZERRSCALE       ! scale hostZ-error for prior in photoZ fits
      &  ,PRIOR_MUERRSCALE      ! scale MU-error for prior in photoZ fits
      &  ,SNMAGRMS_for_PHOTOZ   ! compute PHOTOZ error from SNMAGRMS
-     &  ,ZERRMIN_PHOTOZ        ! do 4-par fit if zerr<ZERRMIN_PHOTOZ
  
 c define varibales to fudge the data errors for particular
 c TREST-range and passbands. Note that FUDGE_MAGERR_MODEL
@@ -741,8 +748,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,NEARFILT_IGNORE_REST, FILTLAM_SHIFT
      &   ,DOFIT_FILT, DOFIT_PHOTOZ, SKIP_PHOTOZ_INIT
      &   ,LDMP_PHOTOZ_DROPFILTER
-     &   ,LDMPFCN, LDMPFUN
-     &   ,LDMPFCN_PLOTCHI2, LDMPFUN_PLOTCHI2
+     &   ,LDMPFCN, LDMPFUN, LDMPFCN_PLOTCHI2, LDMPFUN_PLOTCHI2
      &   ,LFIXPAR_ALL, LFIXPAR_ADJUST, LKCOR_AVWARP, LKCOR_STRETCH
      &   ,USE_MODEL_MAGERR, DOCHI2_SIGMA, LAMREST_MODEL_SMOOTH
      &   ,CHECK_CRAZYFITERR, SIMEFF_FILE
@@ -756,7 +762,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,FITWIN_MB_ERR, FITWIN_SHAPE_ERR, FITWIN_COLOR_ERR
      &   ,FITWIN_PEAKMJD_ERRz1
      &   ,FITWIN_MB_ERRz1, FITWIN_SHAPE_ERRz1, FITWIN_COLOR_ERRz1
-     &   ,SNMAGRMS_for_PHOTOZ, ZERRMIN_PHOTOZ
+     &   ,SNMAGRMS_for_PHOTOZ
      &   ,USESIM_AV, USESIM_RV, USESIM_COLOR
      &   ,USESIM_LUMIPAR, USESIM_SHAPE
      &   ,USESIM_PEAKMJD, USESIM_DLMAG, USESIM_REDSHIFT
@@ -769,8 +775,8 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,FRACERRDIF_REPEATFIT
      &   ,OPT_COVAR, OPT_COVAR_FLUX, OPT_COVAR_MWXTERR, OPT_XTMW_ERR
      &   ,OPT_COVAR_LCFIT, OPT_SNXT, OPT_KCORERR, OPT_NEARFILT
-     &   ,OPT_LANDOLT, ZSCALE_SIMEFF
-     &   ,OPT_PHOTOZ, ISCALE_COURSEBIN_PHOTOZ, UCOR_BXB
+     &   ,OPT_LANDOLT, ZSCALE_SIMEFF, UCOR_BXB
+     &   ,OPT_PHOTOZ, ISCALE_COURSEBIN_PHOTOZ, NEVAL_MCMC_PHOTOZ
      &   ,FUDGE_COVAR, SCALE_COVAR, LANDOLT_COLOR_SHIFT
      &   ,NGRID_PDF, NSIGMA_PDF, MAX_INTEGPDF
      &   ,PRIOR_AVEXP, PRIOR_AVWGT, PRIOR_AVRES, PRIOR_MJDSIG
@@ -797,7 +803,6 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,PHOTOZ_ITER1_LAMRANGE, PHOTOZ_BOUND
      &   ,MAGLIM_VMAX, OPT_VMAX
 
-
 c ------
 
       NAMELIST / FITINP / 
@@ -823,7 +828,7 @@ c ------
      &   ,FITWIN_MB_ERR, FITWIN_SHAPE_ERR, FITWIN_COLOR_ERR
      &   ,FITWIN_PEAKMJD_ERRz1
      &   ,FITWIN_MB_ERRz1, FITWIN_SHAPE_ERRz1, FITWIN_COLOR_ERRz1
-     &   ,SNMAGRMS_for_PHOTOZ, ZERRMIN_PHOTOZ
+     &   ,SNMAGRMS_for_PHOTOZ
      &   ,TREST_REJECT, MJD_REJECT
      &   ,USESIM_AV, USESIM_RV, USESIM_COLOR
      &   ,USESIM_LUMIPAR, USESIM_SHAPE
@@ -837,8 +842,8 @@ c ------
      &   ,FRACERRDIF_REPEATFIT
      &   ,OPT_COVAR, OPT_COVAR_FLUX, OPT_COVAR_MWXTERR, OPT_XTMW_ERR
      &   ,OPT_COVAR_LCFIT, OPT_SNXT, OPT_KCORERR, OPT_NEARFILT
-     &   ,OPT_LANDOLT, ZSCALE_SIMEFF
-     &   ,OPT_PHOTOZ, ISCALE_COURSEBIN_PHOTOZ, UCOR_BXB
+     &   ,OPT_LANDOLT, ZSCALE_SIMEFF, UCOR_BXB
+     &   ,OPT_PHOTOZ, ISCALE_COURSEBIN_PHOTOZ, NEVAL_MCMC_PHOTOZ 
      &   ,FUDGE_COVAR, SCALE_COVAR, LANDOLT_COLOR_SHIFT
      &   ,NGRID_PDF, NSIGMA_PDF, MAX_INTEGPDF
      &   ,PRIOR_AVEXP, PRIOR_AVWGT, PRIOR_AVRES, PRIOR_MJDSIG
@@ -2113,6 +2118,8 @@ c init scalars
       R4SN_FFSUM_DATA   = NULLVAL
       R4SN_FFSUM_MODEL  = NULLVAL
       R4SN_FFSUM_CROSS  = NULLVAL
+      R4SN_FFSUM_WGT    = NULLVAL
+      R4SN_FFSUM_RATIO  = NULLVAL
 
 c init filter-dependent variables.
 
@@ -4013,6 +4020,9 @@ c
 c Mar 1 2017: load R4EP(iep,JEP_MAGDIF)
 c
 c Jun 23 2019: protect I4EP_ALL array bound
+c Jul 13 2019: 
+c   + compute RATIO_ERR only if LFLAG_USER=T (to reduce compute time)
+c   + apply SNR_RAW cut to compute R4SN_FFSUM_XXX
 c
 c ---------------------------------------------------
       IMPLICIT NONE
@@ -4050,7 +4060,7 @@ c local arguments
      &  ,signoise_data, signoise_model
      &  ,flux_model, flux_model_err ,flux_model_sqerr
      &  ,flux_fudge_sqerr, flux_fudge_err, flux_errtot
-     &  ,errtmp, arg, RATIO, MAGDIF, SNR_FIT, SNR_RAW
+     &  ,errtmp, arg, RATIO, RATIO_ERR, WGT, MAGDIF, SNR_FIT, SNR_RAW
      &  ,AVwarp, mag_kcor(2), mag_tmp, mag_err
      &  ,dif, sqdif, sqsig, inv_sqsig, sqsig_nofudge
      &  ,delchi2, delchi2_diag, delchi2_sigma
@@ -4067,7 +4077,7 @@ c local arguments
      &  ,LFLAG_FAST      ! speed up if possible (for pdf integration)
      &  ,LFLAG_FIT, LFLAG_PRIOR_ONLY, LFLAG_SIGMA_ONLY
      &  ,LAST, LDMPFCN_LOC, LDMPFUN_LOC, LREJECT, LFITDATA  
-     &  ,FIRSTFILT, LASTFILT, LMWCOR, LIGNORE, LTMP, LMUFIX
+     &  ,FIRSTFILT, LASTFILT, LMWCOR, LIGNORE, LTMP, LMUFIX, LPOSFLUX
 
       CHARACTER CVAR*8, star*1
       REAL*8 delchi2_off(2000)
@@ -4094,10 +4104,13 @@ C ----------- BEGIN ------------
       LFLAG_SIGMA_ONLY = IFLAG .EQ. FCNFLAG_SIGMA_ONLY
 
       LAST = LFLAG_LAST_MN .or. LFLAG_USER .or. LFLAG_USESIM
+cc      LAST = LFLAG_LAST_MN .or. LFLAG_USESIM ! xxx TEST
 
       R4SN_FFSUM_DATA  = 0.0
       R4SN_FFSUM_MODEL = 0.0 
       R4SN_FFSUM_CROSS = 0.0 
+      R4SN_FFSUM_WGT   = 0.0 
+      R4SN_FFSUM_RATIO = 0.0 
 
       IF ( LAST ) THEN
 c include rejects on last iter
@@ -4166,7 +4179,6 @@ c -------------------------------------------
          CHI2FILT_SIGMA(ifilt) = 0.0
          NFITDATA_FILT(ifilt)  = 0
          NDMPFCN(ifilt)        = 0
-cc         FCN_FITCHI2(ifilt)    = 0.0   ! Dec 2014
       ENDDO
          NDMPFCN(0)        = 0
 
@@ -4211,7 +4223,6 @@ c compute data SNR with/without fudged error
         Trest     = Tobs / ZZ 
   
         Nfitdata_filt(ifilt) = Nfitdata_filt(ifilt) + 1
-cc        FIRSTFILT = ifitdata .EQ. 1
         LASTFILT  = Nfitdata_filt(ifilt) .EQ. NEPOCH_FIT(ifilt)
 
 c set local dump logicals = namelist flag .and. (debug option)     
@@ -4420,23 +4431,22 @@ c increment SNRMAX for fitted epochs only
 
 
 c data/Model ratio
-           RATIO=0.0; SQSIG=1.0; MAGDIF=-9.0
-           if ( abs(flux_model) .GT. 1.0E-21 ) then
-              RATIO   = flux_data / flux_model
+           RATIO=0.0; RATIO_ERR=0.0; MAGDIF=-9.0
+           LPOSFLUX = ( abs(flux_model) .GT. 1.0E-21 )
+           if ( LPOSFLUX )      RATIO  = flux_data / flux_model
+           if ( RATIO > .001 )  MAGDIF = -2.5*log10(RATIO)
+
+           if ( LPOSFLUX .and. LFLAG_USER ) then ! limit calc to USER only
               sqsig = ( flux_data_errtot  / flux_data  )**2
      &              + ( flux_model_err    / flux_model )**2
+              errfrac    = dsqrt(sqsig)
+              RATIO_ERR  = abs(RATIO) * errfrac
            endif
-           errfrac = dsqrt(sqsig)
-
-           if ( RATIO > .001 ) THEN
-             MAGDIF = -2.5*log10(RATIO)  ! Mar 1 2017
-           endif
-
-           R4EP_ALL(epoch,JEP_RATIO)      = RATIO
-           R4EP_ALL(epoch,JEP_RATIO_ERR)  = abs(RATIO) * errfrac
 
            sqsig = flux_data_errtot**2 + flux_model_err**2
 
+           R4EP_ALL(epoch,JEP_RATIO)       = RATIO
+           R4EP_ALL(epoch,JEP_RATIO_ERR)   = RATIO_ERR
            R4EP_ALL(epoch,JEP_RESID)       = dif
            R4EP_ALL(epoch,JEP_RESID_ERR)   = dsqrt ( sqsig )
            R4EP_ALL(epoch,JEP_MAGDIF)      = magdif
@@ -4456,7 +4466,6 @@ c data/Model ratio
 
 c check for epochs to reject at end of 1st iteration only (note LAST=T here)
 
-ccc xxx mark delete Aug 29 2017 if ( iter .EQ. 1 ) then
             if ( FIRST_ITERATION(iter) ) then
 
               signoise_data  = flux_data  / flux_data_errtot
@@ -4492,12 +4501,17 @@ ccc xxx mark delete Aug 29 2017 if ( iter .EQ. 1 ) then
              if ( MJD .GT. R4SN_MJDmax ) R4SN_MJDmax = MJD
 
              ! sums used for initializing photoz x0/MU
-             R4SN_FFSUM_DATA   = R4SN_FFSUM_DATA  
-     &                         + (flux_data**2)*inv_sqsig
-             R4SN_FFSUM_MODEL  = R4SN_FFSUM_MODEL  
-     &                         + (flux_model**2)*inv_sqsig
-             R4SN_FFSUM_CROSS  = R4SN_FFSUM_CROSS  
-     &                         + (flux_data*flux_model)*inv_sqsig
+             if ( LFLAG_USER .and. SNR_RAW > 3.0 .and. 
+     &            ISCALE_COURSEBIN_PHOTOZ > 0 ) then
+                R4SN_FFSUM_DATA   = R4SN_FFSUM_DATA  
+     &               + (flux_data**2)*inv_sqsig
+                R4SN_FFSUM_MODEL  = R4SN_FFSUM_MODEL  
+     &               + (flux_model**2)*inv_sqsig
+                R4SN_FFSUM_CROSS  = R4SN_FFSUM_CROSS  
+     &               + (flux_data*flux_model)*inv_sqsig
+
+
+             endif
 
            endif
 
@@ -5276,7 +5290,6 @@ c note that genmag_mlcs starts at 0, so subtract 1 from index.
           SALT2c  = AVHOST
           xx1     = SALT2xx1(ITER,SALT2x1)  ! x1 used in model-err calc
           zz      = SALT2zz(ITER,ZSN)       ! z  used in model-err calc
-cc          if ( OPT_DEBUG > 0 ) zz = ZSN
 
 c translate fit-params into SALT2 language
          
@@ -5858,7 +5871,7 @@ c
 c Created Aug 13, 2009 by R.Kessler
 c
 c Return "DISTANCE" estimate based on model;
-c => DLMAG -2.5log10(SCALE) (distance modulus) for SALT2, stretch ...
+c => MUREF - 2.5log10(SCALE) (distance modulus) for mlcs, stretch ...
 c => X0*SCALE for SALT2
 c
 c Mar 24, 2012: add SCALE argument
@@ -5892,7 +5905,7 @@ C ---------- BEGIN -----------
       IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
          S2a = DBLE(SALT2alpha)
          S2b = DBLE(SALT2beta)
-         x0  = SCALE*SALT2x0calc( S2a, S2b, SHAPE, COLOR, MUREF)
+         x0  = SCALE * SALT2x0calc( S2a, S2b, SHAPE, COLOR, MUREF)
 
          if ( OPT_SALT2FIT .EQ. 0 ) then
            GET_DIST8 = x0
@@ -5929,8 +5942,8 @@ c -----------------------
 +CDE,SIMEFFCM.
 
 c function args
-      INTEGER ISN             ! (I) sparse SN index
-      REAL*8  XVAL(MXFITPAR)  ! (I) current fit parameters
+      INTEGER ISN          ! (I) sparse SN index
+      REAL*8  XVAL(*)      ! (I) current fit parameters
 
 c local variables
 
@@ -6654,7 +6667,6 @@ c to reject crazy fits
         FITWIN_MB_ERR(2)        = +1.0 
 
       SNMAGRMS_for_PHOTOZ = 0.12
-      ZERRMIN_PHOTOZ      = 0.0
 
       INISTP_PEAKMJD   = 2.0    ! 1-day bin
       INISTP_AV        = 0.2
@@ -6711,6 +6723,7 @@ c to reject crazy fits
       PHOTOZ_ITER1_LAMRANGE(2) = 26000.  ! note this is obs-frame !
  
       ISCALE_COURSEBIN_PHOTOZ = 1
+      NEVAL_MCMC_PHOTOZ       = 0
 
       MINOS_ERRMAX_BAD  = .TRUE.
       MINOS_ERR_DLMAG   = .FALSE.
@@ -6974,6 +6987,8 @@ c depending on type of fit.
          if ( LAMREST_MODEL_SMOOTH .LE. 0.0 ) then
            LAMREST_MODEL_SMOOTH = 200.  ! smooth model over this lambda range
          endif
+
+         if ( NEVAL_MCMC_PHOTOZ > 0 )  ISCALE_COURSEBIN_PHOTOZ = 0
       endif
 
 c dump namelist to std out
@@ -7356,6 +7371,9 @@ c - - - -
 
          else if ( LINE_ARGS(i) .EQ. 'ISCALE_COURSEBIN_PHOTOZ' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) ISCALE_COURSEBIN_PHOTOZ
+
+         else if ( LINE_ARGS(i) .EQ. 'NEVAL_MCMC_PHOTOZ' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) NEVAL_MCMC_PHOTOZ
 
          else if ( LINE_ARGS(i) .EQ. 'PRIOR_MJDSIG' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_MJDSIG
@@ -8064,49 +8082,6 @@ c   of 0.05 with AV=0 and LUMIPAR=0; find min CHI2.
 c
 c * if LREPEAT, set INIVAL = PHOTOZ from previous fit
 c
-c Feb 8, 2008: re-write.
-c   Set to host-photoZ if it exists.
-c   If no host-photoZ, then search on grid to find min chi2.
-c   Also check for OPT_PHOTOZ=2 => use specZ.
-c
-c 
-c Apr 01, 2009: 
-c  skip redshifts that are outside Kcor lookup range.
-c  Just avoids lots of useless warning messages.
-c
-c Jul 30, 2009: set ZMIN = INIBND(1,IPAR_zPHOT) based on
-c               reddest filter. If reddest observer-filter is
-c               redder than model limit, then ZMIN > 0.
-c
-c Aug 7, 2009: print initial Zphot for all case, instead of
-c              only the case with no host.
-c               
-c              Remove ZMIN calc from Jul 30.
-c
-c Aug 13, 2009: as Z8 is varied in loop, also adjust
-c               INIVAL(IPAR_DLMAG) using GET_DIST8 function
-c
-c Oct 09, 2009: fix dumb bug set filling LUMIPAR & COLOR args
-c               for GET_DIST8(Z,LUMIPAR,c); previous args were zero.
-c               Affects only SALT2 init.
-c
-c Nov 2, 2009: when LZDONE=T, fix photoz = Zspec but optimize color
-c              Bail out if SKIP_PHOTOZ_INIT=T
-c
-c Mar 24, 2012: 
-c   solve for Fmodel_SCALE to minimize chi2 w.r.t. x0 or MU
-c   CALL SETBINS_FITINI_PHOTOZ for stretch and color
-c
-c Jun 30 2013: protect Fmodel_SCALE from 0/0
-c              (occurs when FILTLIS_DMPFCN is set)
-c
-c Dec 5 2013: 
-c   * remove ISN argument
-c   * apply ISCALE_COURSEBIN_PHOTOZ to NZBIN,NCBIN,NSBIN
-c   * print course bins to screen.
-c
-c Feb 4 2014: open INIBND(1:2,IPAR_X0) to avoid truncation.
-c
 c Mar 17 2018:
 c  On last iteration, INIVAL += small shift to avoid crazy fit errors.
 c
@@ -8114,6 +8089,9 @@ c Sep 25 2018:
 c   INIVAL(ipar_zphot) = middle of PHOTOZ_BOUND range, not max 
 c    [found by R.Hounsell]
 c
+c Jul 12 2019
+c  + call PRINT_INIPAR_ZPHOT before after course minimization
+c  + call INIPAR_PHOTOZ_COURSEGRID(..)
 c
 c --------------------------------------------
       IMPLICIT NONE
@@ -8129,31 +8107,18 @@ c --------------------------------------------
 
 c local var
 
-      INTEGER  iz, ic, is, IPAR, LCHAR, LZ, LC, LS, LD
-
-      LOGICAL LZDONE, LAST_ITER, ISMODEL_SALT2
-
-      REAL*8
-     &   ZHOST, ZMIN, ZMAX,  ZBIN
-     &  ,ZPHOT_LAST
-     &  ,Z, Z_SAVE, D_SAVE, d
-     &  ,C, CMIN, CMAX, CBIN, C_SAVE
-     &  ,S, SMIN, SMAX, SBIN, S_SAVE
-     &  ,Fmodel_SCALE, Fmodel_SCALE_SAVE
-     &  ,INIBND_X0(2)
-
-      LOGICAL LDMP / .TRUE. /
+      INTEGER  IPAR, NZBIN, NCBIN, NSBIN
+      LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2
+      REAL*8 ZHOST, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
+      LOGICAL LPRINT / .TRUE. /
       CHARACTER BANNER*60, CZTMP*20
-
-c  define number of Z and color bins to search for approx  min
-      INTEGER NZBIN, NCBIN, NSBIN
 
 c FCNSNLC args
 
       INTEGER IFLAG
       REAL*8 
      &    GRAD(MXFITPAR)
-     &   ,CHI2INI, CHI2END, CHI2MIN, CHI2, INIVAL_SHIFT
+     &   ,CHI2GUESS, CHI2END, CHI2MIN, CHI2, INIVAL_SHIFT
 
       REAL*8 GET_DIST8, USRFUN
       EXTERNAL USRFUN
@@ -8209,9 +8174,8 @@ c continue processing only on 1st fit iteration,
       IF ( LREPEAT_ITER  ) RETURN
       IF ( ITER > 1      ) RETURN
       
-      IF ( LDMP ) THEN
-         LCHAR = ISNLC_LENCCID
-         write(BANNER,10) SNLC_CCID(1:LCHAR)
+      IF ( LPRINT) THEN
+         write(BANNER,10) SNLC_CCID(1:ISNLC_LENCCID)
 10       format('FITINI_PHOTOZ for CID=',A )
          CALL PRBANNER ( BANNER )
       endif
@@ -8240,8 +8204,6 @@ c set initial value and step size.
            LZDONE       = .TRUE.
            CZTMP        = 'Zhost'
         else
-c xxx mark delete 7/07/2018   INIVAL(IPAR) =  0.5 * Zrange_KCOR(2)   ! WAG
-c xxx mark delete 9.25.2018   INIVAL(IPAR) = PHOTOZ_BOUND(2) 
            CZTMP        = 'AVG[PHOTOZ_BOUND]'
            INIVAL(IPAR) = (PHOTOZ_BOUND(2) + PHOTOZ_BOUND(1))/2.0 
            IF( SKIP_PHOTOZ_INIT ) GOTO 888
@@ -8255,43 +8217,171 @@ c check cheat option (4/30/2012)
         LZDONE       = .TRUE.
       ENDIF
 
-      LZ = INDEX(CZTMP,' ') - 1
-      write(6,11) CZTMP(1:LZ), INIVAL(ipar), SNLC_CCID
-11    format(T8,'Set initial Zphot = ',A,' = ', F5.3, '  for CID=',A )
-      call flush(6)
+c xxx mark delete Jul 12 2019 xxxxxxx
+c      LZ = INDEX(CZTMP,' ') - 1
+c      write(6,11) CZTMP(1:LZ), INIVAL(ipar), SNLC_CCID
+c11    format(T8,'Set initial Zphot = ',A,' = ', F5.3, '  for CID=',A )
+c      call flush(6)
+c xxx end mark xxxxxxxx
 
-c -------------------------------------------------
-ccc xxxx      if ( LZDONE ) GOTO 888
 c -------------------------------------------------
 c if we get here, then we have just the SN with no hostZ to lean on;
 c search course grid to find min chi2.
 
-      IFLAG = FCNFLAG_USER  ! to fill EP_XXX arrays in FCNSNLC
+      IFLAG   = FCNFLAG_USER  ! flag for FCNSNLC
+      DOFIT_PHOTOZ_MCMC_ADJUST = 
+     &     ( NEVAL_MCMC_PHOTOZ > 0 .and. (.not. LZDONE) )
 
 c -----------------------------------------------------
 c call FCNSNLC with INIVAL and IFLAG = FCNFLAG_USER (last-call) 
 c to set EP_XXX arrays with initial conditions.
 c This is needed to check initial data/model normalization.
 
-c Dec 20 2012: set distance based on redshift estimate above   
-        Z       = INIVAL(IPAR_zPHOT)
-        s       = INIVAL(IPAR_SHAPE)
-        c       = INIVAL(IPAR_COLOR)
-        d       = GET_DIST8(Z,s,c,ONE8)
-        INIVAL(IPAR_DLMAG) = d
+c open up the x0 bound for the course grid search (Feb 4, 2014)
+      IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
+         INIBND(1,IPAR_X0) = 1.0E-15
+         INIBND(2,IPAR_X0) = 10000.
+      ENDIF
 
-      CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2INI,INIVAL,IFLAG,USRFUN)
+c Use initial guess to get starting CHI2GUESS
+      z       = INIVAL(IPAR_zPHOT)
+      s       = INIVAL(IPAR_SHAPE)
+      c       = INIVAL(IPAR_COLOR)
+      d       = GET_DIST8(Z,s,c,ONE8);   
+      INIVAL(IPAR_DLMAG) = d        
+      if ( DOFIT_PHOTOZ_MCMC_ADJUST ) then
+         INIVAL(IPAR_SPARE) = 0.0
+      else
+         INIVAL(IPAR_SPARE) = 1.0
+      endif
+      CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2GUESS,INIVAL,IFLAG,USRFUN)
+      if(LPRINT) CALL PRINT_INIPAR_ZPHOT('guess',INIVAL,CHI2GUESS)
 
-      if ( LDMP ) then        
-        print*,'   Initial PHOTOZ = ', SNGL(INIVAL(IPAR_zPHOT))
-        write(6,56) 'BEFORE  ', chi2INI, NEPOCH_ALL(0)
-        CALL FLUSH(6)          
+c - - - - - -
+      if ( DOFIT_PHOTOZ_MCMC_ADJUST ) then
+         CALL INIPAR_PHOTOZ_MCMC(CHI2GUESS)
+      else
+         CALL INIPAR_PHOTOZ_COURSEGRID(CHI2GUESS,LZDONE)
       endif
 
-56    format(T4,'FCNSNLC(',A,' FITINI_PHOTOZ)  returns CHI2=',
-     &      G12.4,'/',I3)
-     
-c loop over redshift & color to estimate INIVAL
+ 444  CONTINUE
+
+c update x0-bound for SALT2
+      IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
+         d = INIVAL(IPAR_DLMAG)
+         INIBND(1,IPAR_X0) = 0.01  * d
+         INIBND(2,IPAR_X0) = 100.  * d
+      ENDIF
+
+      CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
+
+      if(LPRINT) CALL PRINT_INIPAR_ZPHOT('eval', INIVAL, chi2)
+
+      CALL FLUSH(6)
+
+888   CONTINUE
+
+      REDSHIFT_FIT = INIVAL(IPAR_zPHOT) 
+
+      RETURN
+      END   ! end of FITINI_PHOTOZ
+
+C =============================
++DECK,PRINT_INIPAR_ZPHOT.
+      SUBROUTINE PRINT_INIPAR_ZPHOT(string,INIPAR_VAL,chi2)
+c Created July 2012
+c FITINI_PHOTOZ print utility to show
+c     initial-[string]: zPhot,s,c,x0 = [values]
+
+c local var
+
+      IMPLICIT NONE
+      CHARACTER STRING*(*)                 ! (I) descriptor
+      REAL*8 INIPAR_VAL(*),     chi2   ! (I) values to print
+
++CDE,SNDATCOM.
++CDE,SNANAFIT. 
++CDE,SNFITCOM.
+
+      REAL*8  z, s, c, x0, d
+      INTEGER LZ, LS, LC, LD, LD2
+      LOGICAL LEGACY
+      CHARACTER PARNAME_D*20
+
+C ----------- BEGIN --------      
+
+      LEGACY  = (NEVAL_MCMC_PHOTOZ .EQ. 0)  ! legacy = course grid
+      IF ( LEGACY ) THEN
+         PARNAME_D = 'dScale'  ! course grid (legacy)
+      ELSE
+         PARNAME_D = 'dmu'   ! MCMC
+      ENDIF
+
+      LZ  = INDEX(PARNAME_STORE(IPAR_zPHOT),  ' ' ) - 1
+      LS  = INDEX(PARNAME_STORE(IPAR_SHAPE),  ' ' ) - 1
+      LC  = INDEX(PARNAME_STORE(IPAR_COLOR),  ' ' ) - 1
+      LD  = INDEX(PARNAME_STORE(IPAR_DLMAG),  ' ' ) - 1
+      LD2 = INDEX(PARNAME_D,                  ' ' ) - 1
+
+      z       = INIPAR_VAL(IPAR_zPHOT)
+      s       = INIPAR_VAL(IPAR_SHAPE)
+      c       = INIPAR_VAL(IPAR_COLOR)
+      x0      = INIPAR_VAL(IPAR_DLMAG)      
+      d       = INIPAR_VAL(IPAR_SPARE) 
+
+      write(6,43) STRING
+     &     ,PARNAME_STORE(IPAR_zPHOT)(1:LZ)
+     &     ,PARNAME_STORE(IPAR_SHAPE)(1:LS)
+     &     ,PARNAME_STORE(IPAR_COLOR)(1:LC)
+     &     ,PARNAME_STORE(IPAR_DLMAG)(1:LD)
+     &     ,PARNAME_D(1:LD2)
+     &     ,z, s, c, x0, d
+
+ 43   format(T5,'initial-',A, 2x, 
+     &         5(A,1x),'= ', 3F6.3, 1x, G8.2, 1x, F6.3 )
+
+      write(6,44) STRING, CHI2         
+ 44   format(T5,'initial-',A, 2x, 'CHI2 = ',G12.4 )
+      
+      CALL FLUSH(6)
+
+      RETURN
+      END
+
+C ====================================
++DECK,INIPAR_PHOTOZ_COURSEGRID.
+      SUBROUTINE INIPAR_PHOTOZ_COURSEGRID(CHI2INI,LZFIX)
+
+c Created July 12 2019
+c Estimate initial photo-z parameters using course grid.
+c [Code moved from FITINI_PHOTOZ]
+
+      IMPLICIT NONE
+
+c subroutine arguments
+      REAL*8  CHI2INI ! (I) initial chi2 from guess; try doing better
+      LOGICAL LZFIX   ! (I) T=> fix redshift to INIVAL
+
+c local args
+
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
+
+      REAL*8 Z_SAVE, ZMIN, ZMAX, ZBIN, z
+      REAL*8 S_SAVE, SMIN, SMAX, SBIN, s
+      REAL*8 C_SAVE, CMIN, CMAX, CBIN, c
+      REAL*8 Fmodel_SCALE, Fmodel_SCALE_SAVE, d, d_SAVE
+      REAL*8 GRAD(MXFITPAR), CHI2, CHI2MIN
+      INTEGER NZBIN, NSBIN, NCBIN, iz, is, ic, IFLAG, ITER
+
+      REAL*8 GET_DIST8, USRFUN
+      EXTERNAL USRFUN
+
+C ------------- BEGIN ------------
+
+      ITER  = 1
+      IFLAG = FCNFLAG_USER  ! to fill EP_XXX arrays in FCNSNLC
 
       IF ( ISCALE_COURSEBIN_PHOTOZ .LE. 0 ) THEN
          write(c1err,661) ISCALE_COURSEBIN_PHOTOZ
@@ -8300,32 +8390,23 @@ c loop over redshift & color to estimate INIVAL
          CALL MADABORT("FITINI_PARVAL", c1err, c2err)    
       ENDIF
 
-c open up the x0 bound for the course grid search (Feb 4, 2014)
-      IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
-         INIBND(1,IPAR_X0) = 1.0E-15
-         INIBND(2,IPAR_X0) = 10000.
-      ENDIF
 
       CHI2MIN = CHI2INI
       Z_SAVE  = INIVAL(IPAR_zPHOT)
       D_SAVE  = INIVAL(IPAR_DLMAG)  ! mu or x0 (distance par)
       C_SAVE  = INIVAL(IPAR_COLOR)  ! AV or c
       S_SAVE  = INIVAL(IPAR_SHAPE)   ! stretch (x1, delta...)
+
+c loop over redshift, color, stretch to estimate INIVAL
       
-      IF ( LZDONE ) THEN
+      IF ( LZFIX ) THEN
         ZMIN = Z_SAVE
         ZMAX = Z_SAVE       
-      ELSE IF ( LREPEAT_ITER ) THEN
-        ZPHOT_LAST = FITVAL(IPAR_zPHOT,ITER)
-        ZMIN  = ZPHOT_LAST - 0.3
-        ZMIN  = MAX ( ZMIN, 0.0 )
-        ZMAX  = ZPHOT_LAST + 0.3
-        ZMAX  = MIN ( ZMAX, INIBND(2,IPAR_zPHOT) )
       ELSE
         ZMIN  = INIBND(1,IPAR_zPHOT)
         ZMAX  = INIBND(2,IPAR_zPHOT)
       ENDIF
-      NZBIN = ISCALE_COURSEBIN_PHOTOZ * int(25.*(ZMAX-ZMIN)) + 1  ! hard-wired
+      NZBIN = ISCALE_COURSEBIN_PHOTOZ * int(25.*(ZMAX-ZMIN)) + 1
       ZBIN  = (ZMAX - ZMIN) / DBLE(NZBIN)
 
       CALL SETBINS_FITINI_PHOTOZ(IPAR_COLOR,   ITER, 
@@ -8342,44 +8423,23 @@ c open up the x0 bound for the course grid search (Feb 4, 2014)
      &     3x,'(binsize=',F7.3,')'  )
       call flush(6)
 
-+SELF,IF=XXXDEBUG.
-c xxxxxxxxxxxxxxx
-      print*,' '
-      print*,' xxx ============================== '
-      print*,' xxx ============================== '
-      c = -0.2; s=-1.0; z=0.947 ;  Fmodel_scale = 4.668
-      d  = GET_DIST8(Z,s,c,Fmodel_SCALE)
-      INIVAL(IPAR_COLOR)  = c
-      INIVAL(IPAR_SHAPE)  = s
-      INIVAL(IPAR_zPHOT)  = Z
-      INIVAL(IPAR_DLMAG)  = d
-
-      CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
-      print*,' '
-      print*,' xxx STOP DEBUG xxx '
-      call flush(6)
-      STOP
-c xxxxxxxxxxxxxxx
-+SELF.
-
+      DO 55 iz  = 1, NZBIN
+        z  = ZMIN + dble(iz-1)*ZBIN 
+        INIVAL(IPAR_zPHOT) = Z
 
       DO 57 is = 1, NSBIN
         s = SMIN + dble(is-1) * SBIN
         INIVAL(IPAR_SHAPE) = s
 
-      DO 58 iz  = 1, NZBIN
-        z  = ZMIN + dble(iz-1)*ZBIN 
-        INIVAL(IPAR_zPHOT) = Z
-
       DO 59 ic  = 1, NCBIN
         c       = CMIN + dble(ic-1)*CBIN 
-        d       = GET_DIST8(Z,s,c,ONE8)
-
         INIVAL(IPAR_COLOR)  = c
+
+        d       = GET_DIST8(Z,s,c,ONE8)
         INIVAL(IPAR_DLMAG)  = d
 
 c call function to evaluate R4SN_XXX variables needed to 
-c determin Fmodel_SCALE below.
+c determine Fmodel_SCALE below.
         CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
 
 c now compute Fmodel_SCALE to minimize chi2 as a function of 
@@ -8417,8 +8477,8 @@ c -------
         endif
 
 59    CONTINUE  ! color
-58    CONTINUE  ! photoz
 57    CONTINUE  ! lumipar
+55    CONTINUE  ! photoz
 
 c load inital redshift and re-run FCNSNLC to update EP_FLUX_MODEL
 
@@ -8426,54 +8486,209 @@ c load inital redshift and re-run FCNSNLC to update EP_FLUX_MODEL
       INIVAL(IPAR_COLOR)   = C_SAVE  ! save color
       INIVAL(IPAR_DLMAG)   = D_SAVE  ! save distance
       INIVAL(IPAR_SHAPE)   = S_SAVE  ! save lumi/shape param
-
-c update x0-bound for SALT2
-
-      IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
-        INIBND(1,IPAR_X0) = 0.01  * D_SAVE
-        INIBND(2,IPAR_X0) = 100.  * D_SAVE
-      ENDIF
-
-      CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
-
-      if ( LDMP ) then
-         write(6,42) CHI2MIN
-
-         LZ = INDEX(PARNAME_STORE(IPAR_zPHOT), ' ' ) - 1
-         LC = INDEX(PARNAME_STORE(IPAR_COLOR),  ' ' ) - 1
-         LS = INDEX(PARNAME_STORE(IPAR_SHAPE),' ') - 1
-         LD = INDEX(PARNAME_STORE(IPAR_DLMAG),  ' ' ) - 1
-
-         write(6,43) 
-     &      PARNAME_STORE(IPAR_zPHOT)(1:LZ),   Z_SAVE
-     &     ,PARNAME_STORE(IPAR_COLOR)(1:LC),   C_SAVE
-     &     ,PARNAME_STORE(IPAR_SHAPE)(1:LS),   S_SAVE
-     &     ,PARNAME_STORE(IPAR_DLMAG)(1:LD),   D_SAVE
-
-42       format(T7,'Adjust initial CHI2 =>',G12.4 )
-43       format(T7,'Adjust initial '
-     &         ,A,' =>',F6.3 , 2x
-     &         ,A,' =>',F6.3 , 2x
-     &         ,A,' =>',F6.3 , 2x
-     &         ,A,' =>',G8.2 
-     &          )
-         
-           write(6,45) Fmodel_SCALE_SAVE   ! Mar 26, 2012
-45         format(T20,'(Distance-scale=', F6.3,')')
-      endif
-
-
-      CALL FLUSH(6)
-
-888   CONTINUE
-
-
-      REDSHIFT_FIT = INIVAL(IPAR_zPHOT) 
+      INIVAL(IPAR_SPARE)   = Fmodel_SCALE_SAVE
 
       RETURN
-      END   ! end of FITINI_PHOTOZ
+      END     ! end INIPAR_PHOTOZ_COURSEGRID
 
-C ==========================================
+         
+C ====================================================
++DECK,INIPAR_PHOTOZ_MCMC.
+      SUBROUTINE INIPAR_PHOTOZ_MCMC(CHI2INI)
+c Created Jul 2019
+c Estimate initial all 5 photo-z params using MCMC  method.
+c The goal is to significantly reduce init time compared with
+c the COURSEGRID method, and maybe even do a better job.
+c Works only for SALT2 model.
+c
+c   !!! BEWARE: this is experimental !!!
+c -------------------------------
+      IMPLICIT NONE
+
+c subroutine args
+      REAL*8 CHI2INI  ! (I) chi2 from guess params; goal is to beat this
+
+c local var
+
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNFITCOM.
+
+      INTEGER ISEED, NEVAL_REDUCE_STEP
+      REAL*8  FRAC_STEP_REDUCE
+      PARAMETER ( 
+     &   ISEED             = 12379
+     &  ,NEVAL_REDUCE_STEP = 20      ! reduce step size after this many tries
+     &  ,FRAC_STEP_REDUCE  = 0.90    ! STEP -> STEP* FRAC_STEP_REDUCE
+     &      )
+
+      
+      INTEGER IFLAG, NTMP, itry, NPAR, i, IPAR, IPAR_LIST(MXFITPAR)
+      REAL*8 CHI2min, DIF, AVG, STEP, VAL, ran
+      REAL*8 z,s,c,t0,d, dmu, x0cosmo, x0
+      REAL*8 CHI2, CHI2_LAST, ARG, PROB, VALMIN, VALMAX
+      REAL*8 MCMC_STEPVAL(MXFITPAR), MCMC_TRYVAL(MXFITPAR)
+      REAL*8 GRAD(MXFITPAR), BND_LOCAL(2,MXFITPAR)
+      REAL*8 INIVAL_SAVE(MXFITPAR)
+      LOGICAL MOVE
+      LOGICAL LDMP / .FALSE. /
+      CHARACTER PARNAME*20
+
+c function
+      REAL*8 GET_DIST8, USRFUN, UNIX_RANDOM, FLATRAN1
+      EXTERNAL USRFUN
+
+C ------------ BEGIN ----------
+
+      CALL SRAND(ISEED)
+      IFLAG   = FCNFLAG_USER 
+      CHI2MIN = CHI2INI
+      NTMP    = 0
+
+      write(6,30) 'Use MCMC minimization for initial values: '
+ 30   format(T7,A)  
+      write(6,31) NEVAL_MCMC_PHOTOZ, FRAC_STEP_REDUCE,NEVAL_REDUCE_STEP
+ 31   format(T7,I3,' evals, STEP*=',F4.2,' every ',I3,' evals.')
+      
+      NPAR         = 5
+      IPAR_LIST(1) = IPAR_ZPHOT
+      IPAR_LIST(2) = IPAR_SHAPE
+      IPAR_LIST(3) = IPAR_COLOR
+      IPAR_LIST(4) = IPAR_PEAKMJD
+      IPAR_LIST(5) = IPAR_DLMAG
+      
+      BND_LOCAL(1,IPAR_ZPHOT)   = INIBND(1,IPAR_ZPHOT)
+      BND_LOCAL(2,IPAR_ZPHOT)   = INIBND(2,IPAR_ZPHOT)
+      BND_LOCAL(1,IPAR_SHAPE)   = -3.0  ! x1 min
+      BND_LOCAL(2,IPAR_SHAPE)   = +3.0  ! x1 max
+      BND_LOCAL(1,IPAR_COLOR)   = -0.2  ! c min
+      BND_LOCAL(2,IPAR_COLOR  ) =  0.4  ! c max
+      BND_LOCAL(1,IPAR_PEAKMJD) = SNLC_SEARCH_PEAKMJD - 7.0
+      BND_LOCAL(2,IPAR_PEAKMJD) = SNLC_SEARCH_PEAKMJD + 7.0
+      BND_LOCAL(1,IPAR_DLMAG) = -4.0  ! MU shift w.r.t. cosmo constraint
+      BND_LOCAL(2,IPAR_DLMAG) = +4.0
+
+c for each param, get initial start value and step size
+      DO i = 1, NPAR
+         IPAR = IPAR_LIST(i)
+         DIF  = (BND_LOCAL(2,IPAR) - BND_LOCAL(1,IPAR))
+         AVG  = (BND_LOCAL(2,IPAR) + BND_LOCAL(1,IPAR))/2.0
+         STEP = DIF/3.
+         MCMC_STEPVAL(IPAR) = STEP
+         MCMC_TRYVAL(IPAR)  = AVG
+         INIVAL(IPAR)       = AVG
+	 PARNAME            = PARNAME_STORE(IPAR)
+	 if ( IPAR == IPAR_DLMAG ) PARNAME = 'dmu' 
+         write(6,60) PARNAME, AVG, STEP
+ 60      format(T7,'Start ', A6,' value/step: ', F9.3,'/', F6.3 )
+
+
+      ENDDO
+
+
+      call flush(6)
+
+      z = INIVAL(IPAR_ZPHOT); 
+      s = INIVAL(IPAR_SHAPE); 
+      c = INIVAL(IPAR_COLOR)
+      INIVAL(IPAR_DLMAG) = GET_DIST8(z,s,c,ONE8)
+      CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
+      CHI2_LAST = CHI2
+
+c store initial chi2min in case we don't find better
+      CHI2MIN = CHI2
+      DO i = 1, NPAR	
+         IPAR = IPAR_LIST(i)
+         INIVAL_SAVE(IPAR) = INIVAL(IPAR)
+      ENDDO
+      INIVAL_SAVE(IPAR_SPARE) = 0.0  ! dmu from cosmology constraint
+
+c - - - - - - - - - - -
+
+      DO 50 itry = 1, NEVAL_MCMC_PHOTOZ 
+
+         DO 51 i = 1, NPAR
+            IPAR   = IPAR_LIST(i)
+            ran    = rand()-0.5    ! between -0.5 and +0.5
+            STEP   = MCMC_STEPVAL(IPAR)
+            VAL    = MCMC_TRYVAL(IPAR) + (STEP*ran)
+            VALMIN = BND_LOCAL(1,IPAR)
+            VALMAX = BND_LOCAL(2,IPAR)
+            ! respect bounds
+            if ( VAL < VALMIN ) VAL = VALMIN + STEP/20.0
+            if ( VAL > VALMAX ) VAL = VALMAX - STEP/20.0
+            INIVAL(IPAR) = VAL
+            if ( IPAR == IPAR_DLMAG ) dmu = VAL
+ 51      CONTINUE
+
+c treat x0/mu a bit different
+         z       = INIVAL(IPAR_ZPHOT)
+         s       = INIVAL(IPAR_SHAPE) 
+         c       = INIVAL(IPAR_COLOR)
+         t0      = INIVAL(IPAR_PEAKMJD)
+         x0cosmo = GET_DIST8(z,s,c,ONE8)
+         x0      = x0cosmo * 10**(-0.4*dmu)
+         INIVAL(IPAR_DLMAG) = x0  ! overwrite dmu with x0
+
+c call function to evaluate chi2 for this INIVAL trial
+         CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
+
+         ARG  = -(CHI2-CHI2_LAST)/2.0
+         PROB = EXP(ARG)
+         IF ( PROB > 1.0 ) PROB = 1.0
+         MOVE = .FALSE.
+         if ( RAND() < PROB ) then
+            MOVE = .TRUE.
+            DO i = 1, NPAR
+               IPAR = IPAR_LIST(i)            
+               MCMC_TRYVAL(IPAR) = INIVAL(IPAR)
+            ENDDO
+         endif
+         
+         if ( CHI2 < CHI2MIN ) then
+            CHI2MIN = CHI2
+            DO i = 1, NPAR
+               IPAR = IPAR_LIST(i)
+               INIVAL_SAVE(IPAR) = INIVAL(IPAR)
+            ENDDO
+            INIVAL_SAVE(IPAR_SPARE) = dmu 
+         endif
+
+         NTMP = NTMP + 1
+         if ( NTMP == NEVAL_REDUCE_STEP  ) then
+c reduce step size, and move to current values with min chi2
+            NTMP = 0
+            DO i = 1, NPAR
+               IPAR = IPAR_LIST(i)
+               MCMC_STEPVAL(ipar) = MCMC_STEPVAL(ipar)*FRAC_STEP_REDUCE
+               MCMC_TRYVAL(ipar)  = INIVAL_SAVE(ipar)
+            ENDDO
+         endif
+
+            if ( LDMP ) then
+               print*,' xxx --------------------------------------- '
+               write(6,665) z, s, c, t0
+               write(6,666) itry, CHI2,CHI2_LAST, PROB, MOVE
+               call flush(6)
+ 665           format('  xxx z, s, c, PKMJD = ', 3F7.3, F11.3 )
+ 666           format('  xxx itry=',I3, 2x, 'CHI2(cur,last)=',2F6.0, 2x, 
+     &              'PROB=',F6.3, 2x, 'MOVE=',L2)
+            endif
+
+         CHI2_LAST = CHI2
+ 50   CONTINUE
+
+c restore INIVAL_SAVE at mon chi2 to global INIVAL
+      DO i = 1, NPAR
+         IPAR = IPAR_LIST(i)
+         INIVAL(IPAR) = INIVAL_SAVE(IPAR)      
+      ENDDO
+      INIVAL(IPAR_SPARE) = INIVAL_SAVE(IPAR_SPARE)
+
+      RETURN
+      END      ! INIPAR_PHOTOZ_MCMC
+
+C ====================================================
 +DECK,STBINZPH.
       SUBROUTINE SETBINS_FITINI_PHOTOZ(IPAR,ITER,
      &                                 NBIN,PARBIN,PARMIN,PARMAX)
@@ -8532,6 +8747,8 @@ c --------------------------------------------
         PARMAX  = INIVAL(IPAR)
         PARBIN  = 0.0
 
++SELF,IF=XXXREMOVE.
+c xxxxxxxxx mark delete Jul 2019 xxxxxxxxx
       ELSE IF ( LREPEAT_ITER ) THEN
 
         PARLAST  = FITVAL(IPAR,ITER)
@@ -8549,7 +8766,8 @@ c --------------------------------------------
 
         NBIN = NBIN * ISCALE_COURSEBIN_PHOTOZ
         PARBIN   = (PARMAX - PARMIN) / DBLE(NBIN)
-
+c xxxxxxxxxx end mark xxxxxxxxxxxx
++SELF.
       ELSE
         PARMIN  = BND_LOCAL(1)
         PARMAX  = BND_LOCAL(2)
@@ -8577,15 +8795,6 @@ c
 c Compute data/model ratio and adjust either MU or x0
 c so that initial model matches data better.
 c This is much simpler than original version.
-c
-c Aug 12, 2009 : remove photoZ init since it's already in FITINI_PHOTOZ
-c Jun 10, 2012 : adjust DLMAG if INISTP_DLMAG>0; allows fixing DLMAG
-c
-c Aug 15, 2012: print DLMAG/x0 adjustment only if IPAR_ADJUST>0.
-c               Avoids print-error if DLMAG/x0 is not adjusted.
-c               There was no harm to actual fit.
-c
-c               Remove obsolete ISN argument.
 c
 c Aug 30 2017: use function FIRST_ITERATION instead of test on ITER.
 c              --> accomodate SIMFIT_IDEAL logic
@@ -8642,6 +8851,8 @@ c functions
 
 C --------------- BEGIN -------------
 
+      if ( DOFIT_PHOTOZ_MCMC_ADJUST ) RETURN
+
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 0")
 
 c process only 1st fit iteration
@@ -8649,7 +8860,6 @@ c process only 1st fit iteration
       FIRST_ITER = FIRST_ITERATION(ITER)
 
       IF ( .NOT. FIRST_ITER ) RETURN  
-cc      IF ( ITER > 1         ) RETURN
       IF ( LFIXPAR_ALL      ) RETURN  
 
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 1")
@@ -8705,11 +8915,11 @@ c Now check PEAKMJD by testing 1/2-sigma steps
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 4")
 
       IF ( INISTP_PEAKMJD .EQ. 0.0 ) GOTO 444
+c      IF ( NEVAL_MCMC_PHOTOZ > 0   ) GOTO 444 ! xxx REMOVE
 
       CHI8MIN = CHI8INI
-cc      DO i = -4, 4
       DO i = -2, 2
-        Xsig  = 0.5 * float(i)  ! 0.5 sigma step size
+        Xsig                 = 0.5 * float(i)
         PEAKMJD_STP          = Xsig * INISTP(IPAR_PEAKMJD) 
         INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI + PEAKMJD_STP
         CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8,INIVAL,IFLAG,USRFUN)

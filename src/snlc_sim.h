@@ -299,7 +299,7 @@ typedef struct {
   GENPOLY_DEF GENZPOLY_TEXPOSE ;  // TEXPOSE =poly fun of z
   GENPOLY_DEF GENZPOLY_SNR ;      // SNR = poly fun of z
   float SNR_LAMRANGE[2];   // lam-range to define SNR
-  char  EPOCH_FRAME[8];    // either 'REST' or 'OBS'
+  char  EPOCH_FRAME[8];    // either 'REST' or 'OBS' or 'HOST'
 
   int   OPT_FRAME_EPOCH  ; // epoch is GENFRAME_REST or GENFRAME_OBS
   int   OPT_FRAME_LAMBDA ; // for SNR opt below, LAMREST or LAMOBS
@@ -320,7 +320,8 @@ struct INPUTS {
 
   int TRACE_MAIN;      // debug to trace progress through main loop
   int DEBUG_FLAG ;     // arbitrary debug usage
-
+  int OPT_DEVEL_BBC7D; // temp while doing BBC7D development 
+ 
   char COMMENT[120];   // brief user comment for README file.
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
@@ -482,7 +483,9 @@ struct INPUTS {
   TAKE_SPECTRUM_DEF         TAKE_SPECTRUM[MXPEREVT_TAKE_SPECTRUM] ;
   float                     TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE ;
   int                       TAKE_SPECTRUM_DUMPCID;
+  float                     TAKE_SPECTRUM_HOSTFRAC;
   int                       NWARP_TAKE_SPECTRUM ; // set internally
+  int                       NHOST_TAKE_SPECTRUM ; // set internally
 
   char  STRETCH_TEMPLATE_FILE[200]; 
 
@@ -823,8 +826,8 @@ struct GENLC {
   double SALT2mB;     // peak B-band mag
   double SALT2alpha ;
   double SALT2beta ;
+  double SALT2gammaDM ;       // mag shift from gamma/host correlation
 
-  double SNMAGSHIFT_HOSTCOR ;   // mag shift from host correlation
   double GENMAG_OFF_GLOBAL ;  // INPUTS.GENMAG_OFF_GLOBAL + z-dependence
 
   char  SNTYPE_NAME[80];   // 1a, 1b, 1c, II, etc ...
@@ -1636,6 +1639,7 @@ void   GENSPEC_MJD_ORDER(int *imjd_order); // order to generate spectra
 void   GENSPEC_INIT(int opt, int imjd);  // init arrays
 void   GENSPEC_OBSFLUX_INIT(int imjd, int ILAM_MIN, int ILAM_MAX) ;
 void   GENSPEC_TRUE(int imjd);  // generate true MAGs and FLUXes
+void   GENSPEC_HOST_CONTAMINATION(int imjd);
 void   GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd);
 double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX );
 void   GENSPEC_FLAM(int imjd);

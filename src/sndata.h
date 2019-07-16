@@ -311,7 +311,6 @@ struct SNDATA {
   float SIM_AV, SIM_RV ;       //  host extinction parameters
   float SIM_MWRV ;             //  MilkyWay RV
   float SIM_MWEBV;             //  simulated Milky Way extinction
-  float SIM_SNMAGSHIFT_HOSTCOR;  //  mag shift from host-SN correlations
   int   SIM_NOBS_UNDEFINED ;   //  NOBS for which GENMODEL is not defined
   int   SIMOPT_MWCOLORLAW ;    //  integer option for color law
   int   SIMOPT_MWEBV ;         //  integer option to modify MWEBV_SFD
@@ -346,6 +345,7 @@ struct SNDATA {
   float SIM_DM15 ;    
   float SIM_SALT2alpha ;
   float SIM_SALT2beta ;
+  float SIM_SALT2gammaDM;    //  mag shift from host-SN correlations
   float SIM_SALT2x0;
   float SIM_SALT2x1;
   float SIM_SALT2c;

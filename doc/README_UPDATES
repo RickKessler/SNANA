@@ -17125,5 +17125,14 @@
  
    snana.car
      + fix snana-table bug for host property errors.
+     + bug dumb bug reading spectra for real data (setting NVAR_SPECTRUM)
+
+   snlc_sim, sntools, snana.car:
+      Rename SIM_SNMAGSHIFT_HOSTCOR -> SIM_gammaDM to be more
+      parallel with SIM_alpha & SIM_beta. 
+
+   SALT2mu.c:
+     + start refactor for 7D biasCor. Read optional SIM_gammaDM  
+       from table, and include ig (gamma) index along with ia,ib.
 
 END: 

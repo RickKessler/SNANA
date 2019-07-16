@@ -1166,7 +1166,7 @@ c simulation parameters (if FAKE=2)
      &  ,LCLIB_PARVAL(MXPAR_LCLIB)
      &  ,SIM_HOSTLIB_PARVAL(MXPAR_SIMSED) ! HOSTLIB params
      &  ,SIM_MAGSMEAR_COH
-     &  ,SIM_SNMAGSHIFT_HOSTCOR       ! usually this is gamma or gamma/2
+     &  ,SIM_SALT2gammaDM             ! usually this is gamma or gamma/2
      &  ,SIM_TEMPLATEMAG(MXFILT_ALL)  ! image-sub template, not LCLIB template
      &  ,SIM_LCWIDTH(MXFILT_ALL)      ! computed from SIM_EPFLUXCAL
 c 
@@ -1231,7 +1231,7 @@ c
      &  ,SIMLIB_FILENAME, SIMLIB_MSKOPT
      &  ,SIMOPT_MWCOLORLAW, SIMOPT_MWEBV
      &  ,SIM_EPFILTREST, SIM_EPMAGREST,  SIM_MAGSMEAR_COH
-     &  ,SIM_SNMAGSHIFT_HOSTCOR
+     &  ,SIM_SALT2gammaDM
      &  ,NEP_SIM_MODELGRID, SIM_MODELGRID_TOBS, SIM_MODELGRID_MAGOBS
 
       COMMON / SIMSEDCOM /
@@ -12169,7 +12169,7 @@ c Load SNLC_XXX arrays if CID and REDSHIFT are valid.
 c
 c Jan 24 2018: initialize NWD_LOAD = NFILTDEF_SURVEY+1
 c Apr 15 2019: call PARSE_SPECTRUM
-c
+c Jul 16 2019: fix dumb bug setting NVAR_SPECTRUM for data 
 c ------------------------------------------
  
       IMPLICIT NONE
@@ -12296,8 +12296,8 @@ c - - - - - - - - -
         IF ( ISKEY_OBS      ) NWD_LOAD = NVAR_TERSE+1
         IF ( ISKEY_SPECTRUM ) NWD_LOAD = 2
 	IF ( ISKEY_SPECBIN  ) THEN ; 
-           NVAR_SPECTRUM = 4
-           if ( LSIM_SNANA ) NVAR_SPECTRUM = 7 
+           NVAR_SPECTRUM  = 5                  ! for data
+           if ( LSIM_SNANA ) NVAR_SPECTRUM = 7 ! for sim
            NWD_LOAD = NVAR_SPECTRUM
         ENDIF
 
@@ -15028,7 +15028,7 @@ c Apr 12 2017: check for SIM_LENSDMU
 c
 c Feb 28 2018: read LCLIB_PARVAL
 c Dec 10 2018: read BYOSED_PARVAL, and allow more than 'SIM' key to continue
-c Jun 18 2019: read SIM_SNMAGSHIFT_HOSTCOR
+c Jun 18 2019: read SIM_SALT2gammaDM
 c
 c --------------
 
@@ -15268,9 +15268,9 @@ c Logic here may be a bit fragile.
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
       IF ( LTMP ) SIM_MAGSMEAR_COH = SNGL(RET8(1))
 
-      KEY  = 'SIM_SNMAGSHIFT_HOSTCOR'
+      KEY  = 'SIM_SALT2gammaDM'
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SIM_SNMAGSHIFT_HOSTCOR = SNGL(RET8(1))
+      IF ( LTMP ) SIM_SALT2gammaDM = SNGL(RET8(1))
 
       KEY  = 'SIM_STRETCH'
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
@@ -16944,7 +16944,7 @@ c --------
       SIM_TEMPLATE_INDEX    = -9 
       SIM_SEARCHEFF_MASK = 0
       SIM_MAGSMEAR_COH   = 0.0 
-      SIM_SNMAGSHIFT_HOSTCOR = 0.0
+      SIM_SALT2gammaDM   = 0.0
 
       SIM_NGEN_LIBID = 0
       SIM_NOBS_UNDEFINED  = 0 
@@ -25283,9 +25283,9 @@ cc      ENDIF
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_COLORLAW,  VARLIST, 1,
      &                   LENBLOCK, LENLIST)
 
-c Jun 25 2019: add SIM_SNMAGSHIFT_HOSTCOR, but not in TEXT file until later.
-      VARLIST = 'SIM_SNMAGSHIFT_HOSTCOR:F' // char(0)  ! related to SIM_gamma
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SNMAGSHIFT_HOSTCOR,VARLIST,0,
+c Jun 25 2019: add SIM_SALT2gammaDM, but not in TEXT file until later.
+      VARLIST = 'SIM_gammaDM:F' // char(0) 
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2gammaDM, VARLIST,0,
      &                   LENBLOCK, LENLIST)
 
       VARLIST = 'SIM_x0:F' // char(0)

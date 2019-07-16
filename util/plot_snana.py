@@ -57,13 +57,14 @@ def read_spec(cid,base_name):
 			sn['mjd'].append(mjds[mjd_ind])
 	sn={k:np.array(sn[k]) for k in sn.keys()}
 	return(sn)
-def read_lc(cid,base_name):
+def read_lc(cid,base_name,plotter_choice):
 	names=['time','flux','fluxerr','filter','chi2']
 	peak=None
 	sn={k:[] for k in names} 
 	fit={k:[] for k in ['time','flux','filter']}
 	with open(base_name+".LCPLOT.TEXT",'rb') as f:
 		dat=f.readlines()
+	fitted=False
 	for line in dat:
 		temp=line.split()
 		if len(temp)>0 and b'VARNAMES:' in temp:
@@ -78,15 +79,26 @@ def read_lc(cid,base_name):
 				sn['filter'].append(str(temp[varnames.index('BAND')].decode('utf-8')))
 				sn['chi2'].append(float(temp[varnames.index('CHI2')]))
 			elif int(temp[varnames.index('DATAFLAG')])==0:
+				fitted=True
 				fit['time'].append(float(temp[varnames.index('Tobs')]))
 				fit['flux'].append(float(temp[varnames.index('FLUXCAL')]))
 				fit['filter'].append(str(temp[varnames.index('BAND')].decode('utf-8')))
-	
+	if fitted and plotter_choice=='salt2':
+		with open(base_name+".FITRES.TEXT",'rb') as f:
+			dat=f.readlines()
+		for line in dat:
+			temp=line.split()
+			if len(temp)>0 and b'VARNAMES:' in temp:
+				varnames=[str(x.decode('utf-8')) for x in temp]
+			elif len(temp)>0 and b'SN:' in temp and str(temp[varnames.index('CID')].decode('utf-8')) in cid: 
+				fit['params']={p:(float(temp[varnames.index(p)]),float(temp[varnames.index(p+'ERR')])) for p in ['x0','x1','c']}
+				break
 	sn={k:np.array(sn[k]) for k in sn.keys()}
-	fit={k:np.array(fit[k]) for k in fit.keys()}
+	fit={k:np.array(fit[k]) if k !='params' else fit['params'] for k in fit.keys()}
 	if len(fit['filter'])>0:
 		fits={k:interp1d(fit['time'][fit['filter']==k],
 					 fit['flux'][fit['filter']==k]) for k in np.unique(fit['filter'])}
+		fits['params']=fit['params']
 	else:
 		fits=[]
 	return(sn,fits,peak)
@@ -180,8 +192,8 @@ def plot_spec(cid,bin_size,base_name,noGrid):
 	#plt.savefig('SNANA_SPEC_%s.pdf'%'_'.join(cid),format='pdf',overwrite=True)
 	return(figs)
 
-def plot_lc(cid,base_name,noGrid):
-	sn,fits,peak=read_lc(cid,base_name)
+def plot_lc(cid,base_name,noGrid,plotter_choice):
+	sn,fits,peak=read_lc(cid,base_name,plotter_choice)
 	if len(sn['time'])==0:
 		return []
 	rows=int(math.ceil(len(np.unique(sn['filter']))))
@@ -205,7 +217,7 @@ def plot_lc(cid,base_name,noGrid):
 	for nfig in range(int(math.ceil(rows/4.))): 
 		fig,ax=plt.subplots(nrows=min(len(all_bands),4),ncols=1,figsize=(8,8),sharex=sharedx)
 		ax[0].set_title('SN%s'%cid[0],fontsize=16)
-		
+		fit_print=False
 		for i in range(min(len(all_bands[j:]),4)):
 			temp_sn={k:sn[k][np.where(sn['filter']==all_bands[j])[0]] for k in sn.keys()}
 			chi2=np.mean(temp_sn['chi2'])
@@ -222,6 +234,10 @@ def plot_lc(cid,base_name,noGrid):
 			if len(fits)>0:
 				fit_time=np.arange(temp_sn['time'][0],temp_sn['time'][-1],1)
 				ax[i].plot(fit_time,fits[all_bands[j]](fit_time),color='r',label='Best Fit',linewidth=3)
+				if not fit_print:
+					ax[i].annotate('\n'.join([r'$%s: %.2e\pm%.2e$'%(fit_key,fits['params'][fit_key][0],
+						fits['params'][fit_key][1]) for fit_key in fits['params'].keys()]),xy=(.02,.65),xycoords='axes fraction',fontsize=6)
+				fit_print=True
 			ax[i].legend(fontsize=leg_size)
 			ax[i].set_ylabel('Flux',fontsize=16)
 			ax[i].set_ylim((-.1*np.max(temp_sn['flux']),1.1*np.max(temp_sn['flux'])))
@@ -253,7 +269,7 @@ def plot_cmd(genversion,cid_list,nml):
 	if nml is not None:
 		cmd="snlc_fit.exe "+nml+" VERSION_PHOTOMETRY "+genversion+\
 			" SNCCID_LIST "+cid_list+\
-			" CUTWIN_CID 0 0 SNTABLE_LIST 'SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX 'OUT_TEMP_"+rand+\
+			" CUTWIN_CID 0 0 SNTABLE_LIST 'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX 'OUT_TEMP_"+rand+\
 			"' > OUT_TEMP_"+rand+".LOG"
 	else:
 		cmd="snana.exe NOFILE VERSION_PHOTOMETRY "+genversion+\
@@ -312,14 +328,14 @@ def main():
 				for f in figs:
 					pdf.savefig(f)
 			elif options.lc:
-				figs=plot_lc([cid],options.base_name,options.noGrid)
+				figs=plot_lc([cid],options.base_name,options.noGrid,plotter_choice)
 				for f in figs:
 					pdf.savefig(f)
 			else:
 				figs=plot_spec([cid],options.bin_size,options.base_name,options.noGrid)
 				for f in figs:
 					pdf.savefig(f)
-				figs=plot_lc([cid],options.base_name,options.noGrid)
+				figs=plot_lc([cid],options.base_name,options.noGrid,plotter_choice)
 				for f in figs:
 					pdf.savefig(f)
 	

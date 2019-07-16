@@ -9,7 +9,7 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-import os,glob,math,sys
+import os,glob,math,sys,textwrap
 from optparse import OptionParser
 from scipy.interpolate import interp1d
 
@@ -190,34 +190,50 @@ def plot_lc(cid,base_name,noGrid):
                         [x for x in np.unique(sn['filter']) if x not in __band_order__])
 	
 	j=0
+	minx=np.min(sn['time'])
+	maxx=np.max(sn['time'])
+	if minx<0:
+		minx=min(minx*1.1,minx-5)
+	else:
+		minx=min(minx*.9,minx-5)
+	if maxx<0:
+		maxx=max(maxx*.9,maxx+5)
+	else:
+		maxx=max(maxx*1.1,maxx+5)
+	xlims=(minx,maxx)
+	sharedx=True
 	for nfig in range(int(math.ceil(rows/4.))): 
-		fig,ax=plt.subplots(nrows=min(len(all_bands[j:]),4),ncols=1,figsize=(8,8),sharex=True)
+		fig,ax=plt.subplots(nrows=min(len(all_bands),4),ncols=1,figsize=(8,8),sharex=sharedx)
 		ax[0].set_title('SN%s'%cid[0],fontsize=16)
 		
 		for i in range(min(len(all_bands[j:]),4)):
 			temp_sn={k:sn[k][np.where(sn['filter']==all_bands[j])[0]] for k in sn.keys()}
 			chi2=np.mean(temp_sn['chi2'])
 			if chi2>0:
-				lab=r'%s: $\chi^2$=%.1f'%(band,np.mean(temp_sn['chi2']))
+				lab=r'%s: $\chi^2$=%.1f'%(all_bands[j],np.mean(temp_sn['chi2']))
 				leg_size=10
 			else:
 				lab=all_bands[j]
 				leg_size=12
-			j+=1
+			
 			ax[i].errorbar(temp_sn['time'],temp_sn['flux'],yerr=temp_sn['fluxerr'],
 						  fmt='.',markersize=8,color='k',
 						  label=lab)
 			if len(fits)>0:
 				fit_time=np.arange(temp_sn['time'][0],temp_sn['time'][-1],1)
-				ax[i].plot(fit_time,fits[band](fit_time),color='r',label='Best Fit',linewidth=3)
+				ax[i].plot(fit_time,fits[all_bands[j]](fit_time),color='r',label='Best Fit',linewidth=3)
 			ax[i].legend(fontsize=leg_size)
 			ax[i].set_ylabel('Flux',fontsize=16)
 			ax[i].set_ylim((-.1*np.max(temp_sn['flux']),1.1*np.max(temp_sn['flux'])))
 			if not noGrid:
 				ax[i].grid()
+			j+=1
 			#i+=1
+		for k in range(i+1,min(len(all_bands),4)):
+			fig.delaxes(ax[k])
+		ax[i].tick_params(axis='x',labelbottom=True,bottom=True)
 		ax[i].set_xlabel('MJD-%.2f'%peak,fontsize=16)
-		
+		ax[i].set_xlim(xlims)
 		figs.append(fig)
 		plt.close()
 	#fig.text(0.5, 0.02, 'Time (Rest Frame Days)', ha='center',fontsize=16)
@@ -226,18 +242,33 @@ def plot_lc(cid,base_name,noGrid):
 	#plt.savefig('SNANA_LC_%s.pdf'%'_'.join(cid),format='pdf',overwrite=True)
 	return(figs)
 
-def plot_cmd(genversion,cid_list):
-	if os.path.splitext(genversion)[1]=='.NML':
+def plot_cmd(genversion,cid_list,nml):
+	if nml is not None:
+		if os.path.splitext(nml)[1]!='.NML':
+			nml=os.path.splitext(nml)[0]+'.NML'
 		plotter='salt2'
 	else:
 		plotter='normal'
 	rand=str(np.random.randint(10000,100000))
-	cmd="snana.exe NOFILE VERSION_PHOTOMETRY "+genversion+\
-		" SNCCID_LIST "+cid_list+\
-		" CUTWIN_CID 0 0 SNTABLE_LIST 'SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX 'OUT_TEMP_"+rand+\
-		"' > OUT_TEMP_"+rand+".LOG"
+	if nml is not None:
+		cmd="snlc_fit.exe "+nml+" VERSION_PHOTOMETRY "+genversion+\
+			" SNCCID_LIST "+cid_list+\
+			" CUTWIN_CID 0 0 SNTABLE_LIST 'SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX 'OUT_TEMP_"+rand+\
+			"' > OUT_TEMP_"+rand+".LOG"
+	else:
+		cmd="snana.exe NOFILE VERSION_PHOTOMETRY "+genversion+\
+			" SNCCID_LIST "+cid_list+\
+			" CUTWIN_CID 0 0 SNTABLE_LIST 'SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX 'OUT_TEMP_"+rand+\
+			"' > OUT_TEMP_"+rand+".LOG"
 	
 	os.system(cmd)
+	with open('OUT_TEMP_'+rand+'.LOG','r+') as f:
+		content=f.read()
+		f.seek(0,0)
+		f.write('SNANA COMMAND:\n\n'+textwrap.fill(cmd,80)+'\n'+content)
+	if len(glob.glob('OUT_TEMP_'+rand+'*.TEXT'))==0:
+		print("There was an error in retrieving your SN")
+		sys.exit()
 	return(plotter,'OUT_TEMP_'+rand)
 
 def main():
@@ -249,6 +280,7 @@ def main():
 	parser.add_option("-i",help='CID(s) as comma separated list',action="store",type="string",dest="CID",default="None")
 	parser.add_option("-b",help='Bin size for spectral plotting',action="store",type="float",dest='bin_size',default=0)
 	parser.add_option("-v",help='Version',action="store",type='string',dest='version',default=None)
+	parser.add_option("-f",help='.NML filename',action="store",type='string',dest='nml_filename',default=None)
 	parser.add_option("--silent",help="Do not print anything",action="store_true",dest="silent",default=False)
 	parser.add_option("--nogrid",help="Do add a grid to the plots.",action="store_true",dest="noGrid",default=False)
 	#parser.add_option("--help",action="store_true",dest='help',default=False)
@@ -262,7 +294,7 @@ def main():
 	if options.version is None:
 		raise RuntimeError("Need to define genversion")
 	
-	plotter_choice,options.base_name=plot_cmd(options.version,options.CID)
+	plotter_choice,options.base_name=plot_cmd(options.version,options.CID,options.nml_filename)
 	options.CID=options.CID.split(',')
 	filename=options.version+'.pdf'
 	num=0

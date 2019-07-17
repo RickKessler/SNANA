@@ -704,7 +704,7 @@ c (except for INISTP_PHOTOZ ande INIVAL_PHOTOZ)
      &  ,PRIOR_ZERRSCALE       ! scale hostZ-error for prior in photoZ fits
      &  ,PRIOR_MUERRSCALE      ! scale MU-error for prior in photoZ fits
      &  ,SNMAGRMS_for_PHOTOZ   ! compute PHOTOZ error from SNMAGRMS
-     &  ,PARLIST_MCMC_PHOTOZ(4) ! params for MCMC burn-in
+     &  ,PARLIST_MCMC_PHOTOZ(5) ! params for MCMC burn-in
 
 c define varibales to fudge the data errors for particular
 c TREST-range and passbands. Note that FUDGE_MAGERR_MODEL
@@ -6731,6 +6731,7 @@ c to reject crazy fits
       PARLIST_MCMC_PHOTOZ(2) =  20.0  ! NEVAL before reducing step size
       PARLIST_MCMC_PHOTOZ(3) =  0.33  ! initial STEP = range * par(3)
       PARLIST_MCMC_PHOTOZ(4) =  0.90  ! step reduction factor
+      PARLIST_MCMC_PHOTOZ(5) =  1.00  ! dmu range on mu constraint
 
       MINOS_ERRMAX_BAD  = .TRUE.
       MINOS_ERR_DLMAG   = .FALSE.
@@ -7385,6 +7386,7 @@ c - - - -
             i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(2)
             i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(3)
             i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(4)
+            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(5)
 
          else if ( LINE_ARGS(i) .EQ. 'PRIOR_MJDSIG' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_MJDSIG
@@ -8532,7 +8534,7 @@ c local var
       PARAMETER ( ISEED = 12379 )
 
       INTEGER NEVAL_REDUCE_STEP
-      REAL*8  FRACRANGE_STEPINI, FRAC_STEP_REDUCE
+      REAL*8  FRACRANGE_STEPINI, FRAC_STEP_REDUCE, DMU_MAX
 
       INTEGER IFLAG, NTMP, itry, NPAR, i, IPAR, IPAR_LIST(MXFITPAR)
       REAL*8 CHI2min, DIF, AVG, STEP, VAL, ran
@@ -8556,9 +8558,11 @@ C ------------ BEGIN ----------
       CHI2MIN = CHI2INI
       NTMP    = 0
 
+cc    NEVAL_MCMC_PHOTOZ = int(PARLIST_MCMC_PHOTOZ(1)) ! already done
       NEVAL_REDUCE_STEP = int(PARLIST_MCMC_PHOTOZ(2))
       FRACRANGE_STEPINI = PARLIST_MCMC_PHOTOZ(3)
       FRAC_STEP_REDUCE  = PARLIST_MCMC_PHOTOZ(4)
+      DMU_MAX           = PARLIST_MCMC_PHOTOZ(5)
 
       IF ( STDOUT_UPDATE ) THEN
          write(6,30) 'Use MCMC minimization for initial values: '
@@ -8585,8 +8589,8 @@ C ------------ BEGIN ----------
       BND_LOCAL(2,IPAR_COLOR  ) =  0.4  ! c max
       BND_LOCAL(1,IPAR_PEAKMJD) = SNLC_SEARCH_PEAKMJD - 7.0
       BND_LOCAL(2,IPAR_PEAKMJD) = SNLC_SEARCH_PEAKMJD + 7.0
-      BND_LOCAL(1,IPAR_DLMAG) = -4.0  ! MU shift w.r.t. cosmo constraint
-      BND_LOCAL(2,IPAR_DLMAG) = +4.0
+      BND_LOCAL(1,IPAR_DLMAG) = -DMU_MAX  ! MU shift w.r.t. cosmo constraint
+      BND_LOCAL(2,IPAR_DLMAG) = +DMU_MAX
 
 c for each param, get initial start value and step size
       DO i = 1, NPAR

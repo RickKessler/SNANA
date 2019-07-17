@@ -91,7 +91,7 @@ def read_lc(cid,base_name,plotter_choice):
 			if len(temp)>0 and b'VARNAMES:' in temp:
 				varnames=[str(x.decode('utf-8')) for x in temp]
 			elif len(temp)>0 and b'SN:' in temp and str(temp[varnames.index('CID')].decode('utf-8')) in cid: 
-				fit['params']={p:(float(temp[varnames.index(p)]),float(temp[varnames.index(p+'ERR')])) for p in ['x0','x1','c']}
+				fit['params']={p:(float(temp[varnames.index(p)]),float(temp[varnames.index(p+'ERR')])) if p in ['x0','x1','c'] else float(temp[varnames.index(p)]) for p in ['x0','x1','c','NDOF','FITCHI2']}
 				break
 	sn={k:np.array(sn[k]) for k in sn.keys()}
 	fit={k:np.array(fit[k]) if k !='params' else fit['params'] for k in fit.keys()}
@@ -236,7 +236,8 @@ def plot_lc(cid,base_name,noGrid,plotter_choice):
 				ax[i].plot(fit_time,fits[all_bands[j]](fit_time),color='r',label='Best Fit',linewidth=3)
 				if not fit_print:
 					ax[i].annotate('\n'.join([r'$%s: %.2e\pm%.2e$'%(fit_key,fits['params'][fit_key][0],
-						fits['params'][fit_key][1]) for fit_key in fits['params'].keys()]),xy=(.02,.65),xycoords='axes fraction',fontsize=6)
+						fits['params'][fit_key][1]) if fit_key in ['x0','x1','c'] else '%s: %.1f'%(fit_key,fits['params'][fit_key]) 
+						for fit_key in fits['params'].keys()]),xy=(.02,.65),xycoords='axes fraction',fontsize=6)
 				fit_print=True
 			ax[i].legend(fontsize=leg_size)
 			ax[i].set_ylabel('Flux',fontsize=16)

@@ -694,8 +694,8 @@ c (except for INISTP_PHOTOZ ande INIVAL_PHOTOZ)
                      ! bit 1 (2 ) => use spectro Z-prior
                      ! bit 4 (16) => cheat: start with Zspec and correct filt
      &  ,ISCALE_COURSEBIN_PHOTOZ  ! scale number of course-grid bins for init
-     &  ,NEVAL_MCMC_PHOTOZ         ! number of MCMC evaluations
-     
+     &  ,NEVAL_MCMC_PHOTOZ
+
       REAL
      &   PHOTOZ_ITER1_LAMRANGE(2)  ! cut on obs-filter, ITER=1 only
      &  ,PHOTOZ_BOUND(2)       ! MINUIT bound for photoz fit
@@ -704,7 +704,8 @@ c (except for INISTP_PHOTOZ ande INIVAL_PHOTOZ)
      &  ,PRIOR_ZERRSCALE       ! scale hostZ-error for prior in photoZ fits
      &  ,PRIOR_MUERRSCALE      ! scale MU-error for prior in photoZ fits
      &  ,SNMAGRMS_for_PHOTOZ   ! compute PHOTOZ error from SNMAGRMS
- 
+     &  ,PARLIST_MCMC_PHOTOZ(5) ! params for MCMC burn-in
+
 c define varibales to fudge the data errors for particular
 c TREST-range and passbands. Note that FUDGE_MAGERR_MODEL
 c globally replaces the model error, while FUDGE_FITERR_MAXFRAC
@@ -776,7 +777,8 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,OPT_COVAR, OPT_COVAR_FLUX, OPT_COVAR_MWXTERR, OPT_XTMW_ERR
      &   ,OPT_COVAR_LCFIT, OPT_SNXT, OPT_KCORERR, OPT_NEARFILT
      &   ,OPT_LANDOLT, ZSCALE_SIMEFF, UCOR_BXB
-     &   ,OPT_PHOTOZ, ISCALE_COURSEBIN_PHOTOZ, NEVAL_MCMC_PHOTOZ
+     &   ,OPT_PHOTOZ, ISCALE_COURSEBIN_PHOTOZ
+     &   ,NEVAL_MCMC_PHOTOZ, PARLIST_MCMC_PHOTOZ
      &   ,FUDGE_COVAR, SCALE_COVAR, LANDOLT_COLOR_SHIFT
      &   ,NGRID_PDF, NSIGMA_PDF, MAX_INTEGPDF
      &   ,PRIOR_AVEXP, PRIOR_AVWGT, PRIOR_AVRES, PRIOR_MJDSIG
@@ -843,7 +845,8 @@ c ------
      &   ,OPT_COVAR, OPT_COVAR_FLUX, OPT_COVAR_MWXTERR, OPT_XTMW_ERR
      &   ,OPT_COVAR_LCFIT, OPT_SNXT, OPT_KCORERR, OPT_NEARFILT
      &   ,OPT_LANDOLT, ZSCALE_SIMEFF, UCOR_BXB
-     &   ,OPT_PHOTOZ, ISCALE_COURSEBIN_PHOTOZ, NEVAL_MCMC_PHOTOZ 
+     &   ,OPT_PHOTOZ, ISCALE_COURSEBIN_PHOTOZ
+     &   ,NEVAL_MCMC_PHOTOZ, PARLIST_MCMC_PHOTOZ
      &   ,FUDGE_COVAR, SCALE_COVAR, LANDOLT_COLOR_SHIFT
      &   ,NGRID_PDF, NSIGMA_PDF, MAX_INTEGPDF
      &   ,PRIOR_AVEXP, PRIOR_AVWGT, PRIOR_AVRES, PRIOR_MJDSIG
@@ -6723,7 +6726,12 @@ c to reject crazy fits
       PHOTOZ_ITER1_LAMRANGE(2) = 26000.  ! note this is obs-frame !
  
       ISCALE_COURSEBIN_PHOTOZ = 1
-      NEVAL_MCMC_PHOTOZ       = 0
+      NEVAL_MCMC_PHOTOZ      =  0
+      PARLIST_MCMC_PHOTOZ(1) =  float(NEVAL_MCMC_PHOTOZ)
+      PARLIST_MCMC_PHOTOZ(2) =  20.0  ! NEVAL before reducing step size
+      PARLIST_MCMC_PHOTOZ(3) =  0.33  ! initial STEP = range * par(3)
+      PARLIST_MCMC_PHOTOZ(4) =  0.90  ! step reduction factor
+      PARLIST_MCMC_PHOTOZ(5) =  1.00  ! dmu range on mu constraint
 
       MINOS_ERRMAX_BAD  = .TRUE.
       MINOS_ERR_DLMAG   = .FALSE.
@@ -6988,6 +6996,7 @@ c depending on type of fit.
            LAMREST_MODEL_SMOOTH = 200.  ! smooth model over this lambda range
          endif
 
+         NEVAL_MCMC_PHOTOZ = int(PARLIST_MCMC_PHOTOZ(1))
          if ( NEVAL_MCMC_PHOTOZ > 0 )  ISCALE_COURSEBIN_PHOTOZ = 0
       endif
 
@@ -7372,8 +7381,12 @@ c - - - -
          else if ( LINE_ARGS(i) .EQ. 'ISCALE_COURSEBIN_PHOTOZ' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) ISCALE_COURSEBIN_PHOTOZ
 
-         else if ( LINE_ARGS(i) .EQ. 'NEVAL_MCMC_PHOTOZ' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) NEVAL_MCMC_PHOTOZ
+         else if ( LINE_ARGS(i) .EQ. 'PARLIST_MCMC_PHOTOZ' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(1)
+            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(2)
+            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(3)
+            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(4)
+            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(5)
 
          else if ( LINE_ARGS(i) .EQ. 'PRIOR_MJDSIG' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_MJDSIG
@@ -8310,6 +8323,8 @@ c local var
 
 C ----------- BEGIN --------      
 
+      IF ( .not. STDOUT_UPDATE ) RETURN
+
       LEGACY  = (NEVAL_MCMC_PHOTOZ .EQ. 0)  ! legacy = course grid
       IF ( LEGACY ) THEN
          PARNAME_D = 'dScale'  ! course grid (legacy)
@@ -8414,14 +8429,15 @@ c loop over redshift, color, stretch to estimate INIVAL
       CALL SETBINS_FITINI_PHOTOZ(IPAR_SHAPE, ITER, 
      &                 NSBIN,SBIN,SMIN,SMAX)  ! output
 
-      print*,'    Course-grid minimization for initial values: '
-      write(6,432) NZBIN, 'photoz', ZMIN, ZMAX, ZBIN
-      write(6,432) NCBIN, 'color ', CMIN, CMAX, CBIN
-      write(6,432) NSBIN, 'shape ', SMIN, SMAX, SBIN
-      call flush(6)
- 432  format(T10,I3, 2x, A,' bins from ', F8.3,' to ', F8.3,
-     &     3x,'(binsize=',F7.3,')'  )
-      call flush(6)
+      IF ( STDOUT_UPDATE ) THEN
+         print*,'    Course-grid minimization for initial values: '
+         write(6,432) NZBIN, 'photoz', ZMIN, ZMAX, ZBIN
+         write(6,432) NCBIN, 'color ', CMIN, CMAX, CBIN
+         write(6,432) NSBIN, 'shape ', SMIN, SMAX, SBIN
+         call flush(6)
+ 432     format(T10,I3, 2x, A,' bins from ', F8.3,' to ', F8.3,
+     &        3x,'(binsize=',F7.3,')'  )
+      ENDIF
 
       DO 55 iz  = 1, NZBIN
         z  = ZMIN + dble(iz-1)*ZBIN 
@@ -8514,15 +8530,12 @@ c local var
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
 
-      INTEGER ISEED, NEVAL_REDUCE_STEP
-      REAL*8  FRAC_STEP_REDUCE
-      PARAMETER ( 
-     &   ISEED             = 12379
-     &  ,NEVAL_REDUCE_STEP = 20      ! reduce step size after this many tries
-     &  ,FRAC_STEP_REDUCE  = 0.90    ! STEP -> STEP* FRAC_STEP_REDUCE
-     &      )
+      INTEGER ISEED 
+      PARAMETER ( ISEED = 12379 )
 
-      
+      INTEGER NEVAL_REDUCE_STEP
+      REAL*8  FRACRANGE_STEPINI, FRAC_STEP_REDUCE, DMU_MAX
+
       INTEGER IFLAG, NTMP, itry, NPAR, i, IPAR, IPAR_LIST(MXFITPAR)
       REAL*8 CHI2min, DIF, AVG, STEP, VAL, ran
       REAL*8 z,s,c,t0,d, dmu, x0cosmo, x0
@@ -8545,11 +8558,22 @@ C ------------ BEGIN ----------
       CHI2MIN = CHI2INI
       NTMP    = 0
 
-      write(6,30) 'Use MCMC minimization for initial values: '
- 30   format(T7,A)  
-      write(6,31) NEVAL_MCMC_PHOTOZ, FRAC_STEP_REDUCE,NEVAL_REDUCE_STEP
- 31   format(T7,I3,' evals, STEP*=',F4.2,' every ',I3,' evals.')
-      
+cc    NEVAL_MCMC_PHOTOZ = int(PARLIST_MCMC_PHOTOZ(1)) ! already done
+      NEVAL_REDUCE_STEP = int(PARLIST_MCMC_PHOTOZ(2))
+      FRACRANGE_STEPINI = PARLIST_MCMC_PHOTOZ(3)
+      FRAC_STEP_REDUCE  = PARLIST_MCMC_PHOTOZ(4)
+      DMU_MAX           = PARLIST_MCMC_PHOTOZ(5)
+
+      IF ( STDOUT_UPDATE ) THEN
+         write(6,30) 'Use MCMC minimization for initial values: '
+ 30      format(T7,A)  
+         write(6,31) NEVAL_MCMC_PHOTOZ, FRAC_STEP_REDUCE,
+     &               NEVAL_REDUCE_STEP
+ 31      format(T7,I3,' evals, STEP*=',F4.2,' every ',I3,' evals.')
+         write(6,32) FRACRANGE_STEPINI
+ 32      format(T7,'Initial MCMC STEP = RANGE x ', F5.2 )
+      ENDIF
+
       NPAR         = 5
       IPAR_LIST(1) = IPAR_ZPHOT
       IPAR_LIST(2) = IPAR_SHAPE
@@ -8565,28 +8589,28 @@ C ------------ BEGIN ----------
       BND_LOCAL(2,IPAR_COLOR  ) =  0.4  ! c max
       BND_LOCAL(1,IPAR_PEAKMJD) = SNLC_SEARCH_PEAKMJD - 7.0
       BND_LOCAL(2,IPAR_PEAKMJD) = SNLC_SEARCH_PEAKMJD + 7.0
-      BND_LOCAL(1,IPAR_DLMAG) = -4.0  ! MU shift w.r.t. cosmo constraint
-      BND_LOCAL(2,IPAR_DLMAG) = +4.0
+      BND_LOCAL(1,IPAR_DLMAG) = -DMU_MAX  ! MU shift w.r.t. cosmo constraint
+      BND_LOCAL(2,IPAR_DLMAG) = +DMU_MAX
 
 c for each param, get initial start value and step size
       DO i = 1, NPAR
          IPAR = IPAR_LIST(i)
          DIF  = (BND_LOCAL(2,IPAR) - BND_LOCAL(1,IPAR))
          AVG  = (BND_LOCAL(2,IPAR) + BND_LOCAL(1,IPAR))/2.0
-         STEP = DIF/3.
+         STEP = DIF * FRACRANGE_STEPINI
          MCMC_STEPVAL(IPAR) = STEP
          MCMC_TRYVAL(IPAR)  = AVG
          INIVAL(IPAR)       = AVG
 	 PARNAME            = PARNAME_STORE(IPAR)
 	 if ( IPAR == IPAR_DLMAG ) PARNAME = 'dmu' 
-         write(6,60) PARNAME, AVG, STEP
- 60      format(T7,'Start ', A6,' value/step: ', F9.3,'/', F6.3 )
 
-
+         if ( STDOUT_UPDATE ) then
+            write(6,60) PARNAME, AVG, STEP
+ 60         format(T7,'Start ', A6,' value/step: ', F9.3,'/', F6.3 )
+            call flush(6)
+         endif
       ENDDO
 
-
-      call flush(6)
 
       z = INIVAL(IPAR_ZPHOT); 
       s = INIVAL(IPAR_SHAPE); 
@@ -8915,7 +8939,6 @@ c Now check PEAKMJD by testing 1/2-sigma steps
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 4")
 
       IF ( INISTP_PEAKMJD .EQ. 0.0 ) GOTO 444
-c      IF ( NEVAL_MCMC_PHOTOZ > 0   ) GOTO 444 ! xxx REMOVE
 
       CHI8MIN = CHI8INI
       DO i = -2, 2

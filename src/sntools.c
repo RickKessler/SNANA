@@ -5229,6 +5229,7 @@ double unix_random(void) {
   double   r8 = (double)i8 / (double)RAND_MAX ;  // 0 < r8 < 1 
   return(r8);
 }
+double unix_random__(void) { return( unix_random() ); }
 
 // ***********************************
 double GaussRan(int ilist) {
@@ -7373,8 +7374,7 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
     
     fptr = &SNDATA.SIM_MAGSMEAR_COH ; 
     fprintf(fp, "SIM_MAGSMEAR_COH:     %6.3f  \n", *fptr ) ;      
-    fptr = &SNDATA.SIM_SNMAGSHIFT_HOSTCOR ; 
-    fprintf(fp, "SIM_SNMAGSHIFT_HOSTCOR: %6.3f  \n", *fptr ) ;      
+
 
     // gal/SN flux-fraction
     fprintf(fp, "SIM_GALFRAC: "); NTMP = 0;
@@ -7444,6 +7444,10 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
     if ( SNDATA.SIM_SALT2beta != NULLFLOAT ) {
       fptr = &SNDATA.SIM_SALT2beta ;
       fprintf(fp, "SIM_SALT2beta:   %7.3f   \n", *fptr ) ;
+    }
+    if ( SNDATA.SIM_SALT2gammaDM != NULLFLOAT ) {
+      fptr = &SNDATA.SIM_SALT2gammaDM ; 
+      fprintf(fp, "SIM_SALT2gammaDM: %6.3f  \n", *fptr ) ; 
     }
 
     if ( SNDATA.SIM_SALT2x0 != NULLFLOAT ) {

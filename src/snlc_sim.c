@@ -597,6 +597,7 @@ void set_user_defaults(void) {
 
   INPUTS.TRACE_MAIN = 0;
   INPUTS.DEBUG_FLAG = 0 ;
+  INPUTS.OPT_DEVEL_BBC7D = 0 ;
   NLINE_RATE_INFO   = 0;
 
   // don't init zero'th input file since that is the main input file
@@ -1309,6 +1310,9 @@ int read_input(char *input_file) {
 
     if ( uniqueMatch(c_get,"DEBUG_FLAG:")  ) 
       { readint ( fp, 1, &INPUTS.DEBUG_FLAG );  continue ; }
+
+    if ( uniqueMatch(c_get,"OPT_DEVEL_BBC7D:")  ) 
+      { readint ( fp, 1, &INPUTS.OPT_DEVEL_BBC7D );  continue ; }
 
     // --- HOSTLIB stuff
     if ( uniqueMatch(c_get,"HOSTLIB_FILE:")   ) {
@@ -4245,6 +4249,9 @@ void sim_input_override(void) {
     if ( strcmp( ARGV_LIST[i], "TRACE_MAIN" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.TRACE_MAIN ); 
     }
+    if ( strcmp( ARGV_LIST[i], "OPT_DEVEL_BBC7D" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_DEVEL_BBC7D ); 
+    }
     if ( strcmp( ARGV_LIST[i], "DEBUG_FLAG" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.DEBUG_FLAG ); 
     }
@@ -6704,7 +6711,10 @@ void genmag_offsets(void) {
       - INPUTS.GENMAG_OFF_ZP[ifilt_obs]      // user-defined ZP offsets
       + GENLC.LENSDMU                        // lensing correction
     ;
-    
+
+    if ( INPUTS.OPT_DEVEL_BBC7D ) 
+      { MAGOFF += GENLC.SALT2gammaDM ;   }
+
 
     // ------
     // apply mag-offset to each epoch-mag, unless mag is
@@ -7636,7 +7646,7 @@ void  init_GENLC(void) {
   GENLC.ACCEPTFLAG_FORCE = 0 ;
   
   GENLC.CORRECT_HOSTMATCH = 1 ;  // default is correct match
-  GENLC.SNMAGSHIFT_HOSTCOR  = 0.0 ;
+  GENLC.SALT2gammaDM  = 0.0 ;
 
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
@@ -9759,7 +9769,7 @@ void override_modelPar_from_SNHOST(void) {
   // value from HOSTLIB, to enable SNpar-host correlations
   //
   // Mar 23 2018: allow SNMAGSHIFT or USESNPAR
-  // May 23 2019: adjust amplitude for SNMAGSHIFT_HOSTCOR
+  // May 23 2019: adjust amplitude for SALT2gammaDM
 
   double GAMMA_GRID_MIN = INPUTS.BIASCOR_SALT2GAMMA_GRID[0];
   double GAMMA_GRID_MAX = INPUTS.BIASCOR_SALT2GAMMA_GRID[1];
@@ -9814,10 +9824,16 @@ void override_modelPar_from_SNHOST(void) {
 
     // May 23 2019: adjust amplitude for SNMAGSHIFT_HOSTCOR
     if ( DM_HOSTCOR != 0.0 ) {
-      GENLC.SNMAGSHIFT_HOSTCOR = DM_HOSTCOR ;
-      arg = -0.4*DM_HOSTCOR;
-      GENLC.SALT2mB += DM_HOSTCOR;
-      GENLC.SALT2x0 *= pow(TEN,arg);
+      GENLC.SALT2gammaDM = DM_HOSTCOR ;
+
+      // xxxxxx temp hack until BBC7D is developed xxxxxxxxxxx
+      if ( !INPUTS.OPT_DEVEL_BBC7D ) {	
+	arg = -0.4*DM_HOSTCOR;
+	GENLC.SALT2mB += DM_HOSTCOR;
+	GENLC.SALT2x0 *= pow(TEN,arg);
+      }
+      // xxxxxxxxxxxxxxxxxxxxxx
+
     }
   }
 
@@ -11774,8 +11790,13 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"SALT2gammaDM") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2gammaDM ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"SNMAGSHIFT") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SNMAGSHIFT_HOSTCOR ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2gammaDM ;
   NVAR_SIMGEN_DUMP++ ;
 
   // - - - - - - - - - - - - - - - -
@@ -19945,9 +19966,9 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_SALT2mB          = GENLC.SALT2mB ; 
   SNDATA.SIM_SALT2alpha       = GENLC.SALT2alpha ; 
   SNDATA.SIM_SALT2beta        = GENLC.SALT2beta ; 
+  SNDATA.SIM_SALT2gammaDM     = GENLC.SALT2gammaDM ;
   SNDATA.SIM_TEMPLATE_INDEX   = GENLC.TEMPLATE_INDEX ; 
   SNDATA.SIM_MAGSMEAR_COH     = GENLC.MAGSMEAR_COH ;
-  SNDATA.SIM_SNMAGSHIFT_HOSTCOR = GENLC.SNMAGSHIFT_HOSTCOR ;
   SNDATA.SIM_RISETIME_SHIFT   = GENLC.RISETIME_SHIFT ;
   SNDATA.SIM_FALLTIME_SHIFT   = GENLC.FALLTIME_SHIFT ;
   SNDATA.SIM_TRESTMIN         = GENLC.TRESTMIN ;
@@ -24370,6 +24391,9 @@ void readme_doc_SIMLIB(int *iline) {
 
   *iline = i;
 
+
+  //  int    KEEP_ENTIRE_SEASON = 
+  //    (INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_ENTIRE_SEASON );
 
 } // end of readme_doc_SIMLIB
 

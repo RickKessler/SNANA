@@ -39,7 +39,7 @@
 
 #include "sndata.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_73i"                                                     
+#define  SNANA_VERSION_CURRENT  "v10_73j"                                                      
 
 #define LIGHT_km  2.99792458e5      // speed of light (km/s) 
 #define LIGHT_A   2.99792458e18     // speed of light (A/s) 
@@ -656,6 +656,7 @@ int    getRan_Poisson(double mean);
 
 // mangled functions for fortran
 void   randominit_(int *ISEED);  // calls native srandom(ISEED)
+double unix_random__(void) ;
 double flatran1_(int *ilist) ;          // for fortran
 double gaussran_(int *ilist);         // for fortran
 

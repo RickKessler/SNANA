@@ -548,8 +548,8 @@ def main():
 		# effect='HOST_MASS'
 		# bounds=[5,20]		
 		# leg_sym='logM'
-		effect='VELOCITY'
-		leg_sym='v'
+		effect='STRETCH'
+		leg_sym='$x_1$'
 		# effect='SFR'
 		# bounds=[.01,5]		
 		# leg_sym='z'
@@ -562,14 +562,14 @@ def main():
 		base_params=[9,1,1,.001,1]
 		for i in range(3):
 			for j in range(3):
-				if effect=='VELOCITY':
+				if effect in ['VELOCITY','STRETCH']:
 					mySED.sn_effects[effect].scale_parameter=0
 				else:
 					mySED.host_effects[effect].warp_parameter=0
 				ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,base_params),label='Hsiao',color='k',linewidth=2)
 
 				for p in range(3):
-					if effect!='VELOCITY':
+					if effect not in ['VELOCITY','STRETCH']:
 						mySED.host_effects[effect].updateWarp_Param()
 						v=np.random.uniform(bounds[0],bounds[1])#mySED.sn_effects[effect].warp_parameter
 						print(v)
@@ -582,9 +582,14 @@ def main():
 							ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,
 								[base_params[i] if mySED.host_param_names[i]!='REDSHIFT' else v for i in range(len(base_params))]),label='%s=%.2f'%(leg_sym,v))
 					else:
-						mySED.sn_effects[effect].scale_parameter=1.
-						mySED.sn_effects[effect].updateWarp_Param()
-						ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,base_params),label='%s=%.2f'%(leg_sym,mySED.sn_effects[effect].warp_parameter))
+						if effect=='VELOCITY':
+							mySED.sn_effects[effect].scale_parameter=1.
+							mySED.sn_effects[effect].updateWarp_Param()
+							v=mySED.sn_effects[effect].warp_parameter 
+						else: 
+							mySED.sn_effects[effect].updateScale_Param()
+							v=mySED.sn_effects[effect].scale_parameter
+						ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,base_params),label='%s=%.2f'%(leg_sym,v))
 
 				ax[i][j].legend(fontsize=14)
 				ax[i][j].annotate('Phase='+str(phases[k]),(.5,.05),fontsize=14,xycoords='axes fraction')

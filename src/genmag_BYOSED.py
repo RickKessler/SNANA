@@ -140,7 +140,7 @@ class genmag_BYOSED:
 
 						sn_dict[warp]=warpModel(warp_function=sn_function,
 												param_names=sn_param_names,
-												parameters=np.array([0. if sn_param_names[i]!=warp.upper() else sn_parameter for i in range(len(sn_param_names))]),
+												parameters=np.array([0. if sn_param_names[i]!=warp.upper() else warp_parameter for i in range(len(sn_param_names))]),
 												warp_parameter=warp_parameter,
 												warp_distribution=distribution['PARAM'] if 'PARAM' in distribution.keys() else None,
 												scale_parameter=sn_scale_parameter,
@@ -220,12 +220,13 @@ class genmag_BYOSED:
 						
 						# not sure about the multiplication by x0 here, depends on if SNANA is messing with the 
 						# absolute magnitude somewhere else
-						product=1.
+						product=0.
 						temp_scale_param = 1.
 						if warp in self.sn_effects.keys():
 							if self.verbose:
 								print('Phase=%.1f, %s: %.2f'%(trest,warp,self.sn_effects[warp].warp_parameter))
-							product*=self.sn_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
+							product+=self.sn_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
+
 							temp_scale_param*=self.sn_effects[warp].scale_parameter
 							#if warp in self.sn_effects[warp]._param_names:
 							#	temp_warp_param=1.
@@ -235,10 +236,10 @@ class genmag_BYOSED:
 							if self.verbose:
 								print('Phase=%.1f, %s: %.2f'%(trest,warp,self.host_effects[warp].warp_parameter))
 
-							product*=self.host_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
+							product+=self.host_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
 							temp_scale_param*=self.host_effects[warp].scale_parameter
 
-						fluxsmear*=temp_scale_param*product
+						fluxsmear*=(1.+temp_scale_param*product)
 					except:
 						import pdb; pdb.set_trace()
 
@@ -510,8 +511,8 @@ def _read_ND_grids(filename,scale_factor=1.):
 	
 	dim=[len(x) for x in arrs]
 
-	theta=np.array(gridded[gridded.columns[-1]]).reshape(dim)*scale_factor
-	
+	theta=np.array(gridded[gridded.columns[-1]]).reshape(dim)*scale_factor-1.
+
 
 	return([x.upper() for x in gridded.columns][:-1],lambda interp_array:interpn(arrs,theta,xi=interp_array,method='linear',bounds_error=False,fill_value=0))
 
@@ -544,9 +545,11 @@ def main():
 		#plt.xlim(3400,10000)
 		#plt.show()
 		#sys.exit()
-		effect='HOST_MASS'
-		bounds=[5,20]		
-		leg_sym='logM'
+		# effect='HOST_MASS'
+		# bounds=[5,20]		
+		# leg_sym='logM'
+		effect='VELOCITY'
+		leg_sym='v'
 		# effect='SFR'
 		# bounds=[.01,5]		
 		# leg_sym='z'
@@ -559,22 +562,29 @@ def main():
 		base_params=[9,1,1,.001,1]
 		for i in range(3):
 			for j in range(3):
-				#mySED.sn_effects[effect].set(**{effect:0})
-				mySED.host_effects[effect].warp_parameter=0
+				if effect=='VELOCITY':
+					mySED.sn_effects[effect].scale_parameter=0
+				else:
+					mySED.host_effects[effect].warp_parameter=0
 				ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,base_params),label='Hsiao',color='k',linewidth=2)
+
 				for p in range(3):
-					
-					mySED.host_effects[effect].updateWarp_Param()
-					v=np.random.uniform(bounds[0],bounds[1])#mySED.sn_effects[effect].warp_parameter
-					print(v)
-					#mySED.sn_effects['STRETCH'].updateWarp_Param()
-					#s=mySED.sn_effects['STRETCH'].warp_parameter
-					if effect!='SFR':
-						ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,
-							[base_params[i] if mySED.host_param_names[i]!=effect else v for i in range(len(base_params))]),label='%s=%.2f'%(leg_sym,v))
+					if effect!='VELOCITY':
+						mySED.host_effects[effect].updateWarp_Param()
+						v=np.random.uniform(bounds[0],bounds[1])#mySED.sn_effects[effect].warp_parameter
+						print(v)
+						#mySED.sn_effects['STRETCH'].updateWarp_Param()
+						#s=mySED.sn_effects['STRETCH'].warp_parameter
+						if effect!='SFR':
+							ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,
+								[base_params[i] if mySED.host_param_names[i]!=effect else v for i in range(len(base_params))]),label='%s=%.2f'%(leg_sym,v))
+						else:
+							ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,
+								[base_params[i] if mySED.host_param_names[i]!='REDSHIFT' else v for i in range(len(base_params))]),label='%s=%.2f'%(leg_sym,v))
 					else:
-						ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,
-							[base_params[i] if mySED.host_param_names[i]!='REDSHIFT' else v for i in range(len(base_params))]),label='%s=%.2f'%(leg_sym,v))
+						mySED.sn_effects[effect].scale_parameter=1.
+						mySED.sn_effects[effect].updateWarp_Param()
+						ax[i][j].plot(mySED.wave,mySED.fetchSED_BYOSED(phases[k],5000,3,3,base_params),label='%s=%.2f'%(leg_sym,mySED.sn_effects[effect].warp_parameter))
 
 				ax[i][j].legend(fontsize=14)
 				ax[i][j].annotate('Phase='+str(phases[k]),(.5,.05),fontsize=14,xycoords='axes fraction')

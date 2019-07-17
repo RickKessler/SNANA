@@ -135,8 +135,9 @@ class genmag_BYOSED:
 						if warp.upper() in sn_param_names and 'PARAM' not in distribution.keys():
 							raise RuntimeError("Must supply parameter distribution for SN effect %s"%warp)
 						sn_scale_parameter=distribution['SCALE']()[0]
-						warp_parameter=distribution['PARAM']()[0] if 'PARAM' in distribution.keys() else 0.
-
+						warp_parameter=distribution['PARAM']()[0] if 'PARAM' in distribution.keys() else None
+						if warp.upper() in sn_param_names and warp_parameter is None:
+							raise RuntimeError("Woops, you are not providing a PARAM distribution for your %s effect."%warp.upper())
 
 						sn_dict[warp]=warpModel(warp_function=sn_function,
 												param_names=sn_param_names,
@@ -161,7 +162,9 @@ class genmag_BYOSED:
 							raise RuntimeError("Must supply parameter distribution for HOST effect %s"%warp)
 
 						host_scale_parameter=distribution['SCALE']()[0]
-						warp_parameter=distribution['PARAM']()[0] if 'PARAM' in distribution.keys() else 0.
+						warp_parameter=distribution['PARAM']()[0] if 'PARAM' in distribution.keys() else None
+						if warp.upper() in host_param_names and warp_parameter is None and warp.upper() not in self.host_param_names:
+							raise RuntimeError("Woops, you are not providing a PARAM distribution for your %s effect."%warp.upper())
 						host_dict[warp]=warpModel(warp_function=host_function,
 												param_names=host_param_names,
 												parameters=np.array([0. if host_param_names[i]!=warp.upper() else warp_parameter for i in range(len(host_param_names))]),
@@ -263,9 +266,16 @@ class genmag_BYOSED:
 
 		def fetchParVals_BYOSED_4SNANA(self,varname):
 				if varname in self.sn_effects.keys():
-					return self.sn_effects[varname].warp_parameter
+					if self.sn_effects[varname].warp_parameter is not None:
+						return self.sn_effects[varname].warp_parameter
+					else:
+						return self.sn_effects[varname].scale_parameter
 				else:
-					return self.host_effects[varname].warp_parameter
+					if self.host_effects[varname].warp_parameter is not None:
+						return self.host_effects[varname].warp_parameter
+					else:
+						return self.host_effects[varname].scale_parameter
+					
 
 		def fetchParVals_BYOSED(self,varname):
 				if varname in self.sn_effects.keys():

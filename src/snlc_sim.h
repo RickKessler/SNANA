@@ -320,7 +320,8 @@ struct INPUTS {
 
   int TRACE_MAIN;      // debug to trace progress through main loop
   int DEBUG_FLAG ;     // arbitrary debug usage
-
+  int OPT_DEVEL_BBC7D; // temp while doing BBC7D development 
+ 
   char COMMENT[120];   // brief user comment for README file.
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
@@ -825,8 +826,8 @@ struct GENLC {
   double SALT2mB;     // peak B-band mag
   double SALT2alpha ;
   double SALT2beta ;
+  double SALT2gammaDM ;       // mag shift from gamma/host correlation
 
-  double SNMAGSHIFT_HOSTCOR ;   // mag shift from host correlation
   double GENMAG_OFF_GLOBAL ;  // INPUTS.GENMAG_OFF_GLOBAL + z-dependence
 
   char  SNTYPE_NAME[80];   // 1a, 1b, 1c, II, etc ...

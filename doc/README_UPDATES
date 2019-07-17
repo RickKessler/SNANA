@@ -17105,4 +17105,34 @@
   manual:
     + update photo-z section to include UVLAM_EXTRAP sub-sub-subsection.
 
+
+# ======================================================================= 
+         v10_73j (  ) 
+
+         ***** IMPORTANT(v10_73j) ***** 
+
+         ***** USEFUL(v10_73j) ***** 
+
+         ***** MISCELLANEOUS(v10_73j) ***** 
+    
+   snlc_fit.car
+     + new &FITINP input NEVAL_MCMC_PHOTOZ to replace course-grid
+       init with MCMC burn-in. Course grid and MCMC are both 
+       quick approximations before MINUIT takes over.
+       Test on DES3YR with  NEVAL_MCMC_PHOTOZ=200:
+         -> efficiency -> 99% (was 95% with course grid)
+         -> RMS(zPhot-zSpec) is 10% worse, but may be stat fluctuation.
+ 
+   snana.car
+     + fix snana-table bug for host property errors.
+     + bug dumb bug reading spectra for real data (setting NVAR_SPECTRUM)
+
+   snlc_sim, sntools, snana.car:
+      Rename SIM_SNMAGSHIFT_HOSTCOR -> SIM_gammaDM to be more
+      parallel with SIM_alpha & SIM_beta. 
+
+   SALT2mu.c:
+     + start refactor for 7D biasCor. Read optional SIM_gammaDM  
+       from table, and include ig (gamma) index along with ia,ib.
+
 END: 

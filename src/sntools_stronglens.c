@@ -31,10 +31,6 @@ void init_stronglens(char *MODEL_FILE) {
   print_banner(BANNER);
 
 
-  // expand optional ENV in file name
-  ENVreplace(MODEL_FILE, fnam, 1);
-
-
   // open input file for reading
   fp = fopen(MODEL_FILE,"rt");
 
@@ -87,11 +83,13 @@ void malloc_stronglens(int NLENS) {
   INPUTS_STRONGLENS.Nimage = (int  *) malloc(MEMI);
   INPUTS_STRONGLENS.angSep = (float**)malloc(MEMFF);
   INPUTS_STRONGLENS.phi    = (float**)malloc(MEMFF);
+  INPUTS_STRONGLENS.tdelay = (float**)malloc(MEMFF);
   
   int memf = MXIMG_STRONGLENS * sizeof(float);
   for(i=0; i < NLENS; i++ ) {
     INPUTS_STRONGLENS.angSep[i] = (float*)malloc(memf);
     INPUTS_STRONGLENS.phi[i]    = (float*)malloc(memf);
+    INPUTS_STRONGLENS.tdelay[i] = (float*)malloc(memf);
   }
 
   return ;
@@ -101,7 +99,7 @@ void malloc_stronglens(int NLENS) {
 // ==========================================
 int get_stronglens(double zSN, double *hostpar, 
 		   double *zLENS, int *blend_flag, int *Nimage, 
-		   double *mu, double *angSep, double *phi) {
+		   double *tdelay, double *mu, double *angSep, double *phi) {
 
   // Inputs:
   //   zSN       redshift of SN
@@ -111,9 +109,10 @@ int get_stronglens(double zSN, double *hostpar,
   //  zLENS       redshift of lens galaxy
   //  blend_flag  1 if blended into single LC; 0 if each image is resolved
   //  Nimage      Number of images
+  //  tdelay      list of Nimage time delays (days)
   //  mu          list of Nimage magnifications (not distance modulus)
-  //  angSep      list of Nimage angular separations from unlensed SN
-  //  phi         list of Nimage phi angle (phi=0 along RA)
+  //  angSep      list of Nimage angular separations from unlensed SN (arcsec)
+  //  phi         list of Nimage phi angle, degrees (phi=0 along RA)
   //
   // Function returns integer ID of lens galaxy. This ID is written
   // to data files, and is used to link multiple light curves to 

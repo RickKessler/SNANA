@@ -1027,6 +1027,7 @@ struct {
 
   int DOCOR_1D;
   int DOCOR_5D;
+  char STRING_PARLIST[20]; // e.g., z,x1,c,a,b
 
   // alpha,beta,z binning
   int8_t  *IA, *IB, *IG; // store alpha,beta,gamma index for each event
@@ -6623,6 +6624,15 @@ void prepare_biasCor(void) {
       { setup_CELLINFO_biasCor(IDSAMPLE); }
   }
 
+  // setup comment string for list of biasCor params
+  int NBINg = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin;
+  if ( DOCOR_1D ) 
+    { sprintf(INFO_BIASCOR.STRING_PARLIST,"z"); }
+  else if ( DOCOR_5D && NBINg == 1 ) 
+    { sprintf(INFO_BIASCOR.STRING_PARLIST,"z,x1,c,a,b"); }
+  else if ( DOCOR_5D && NBINg > 1 ) 
+    { sprintf(INFO_BIASCOR.STRING_PARLIST,"z,x1,c,logm,a,b,g"); }
+
 
   // count number of biasCor events passing cuts (after setup_BININFO calls)
 
@@ -7238,7 +7248,8 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
 
   // ----------------- BEGIN -----------------
 
-  printf("  %s of %s-bias(z,x1,c,a,b)  \n", fnam, PARNAME ); 
+  printf("  %s of %s-bias(%s)  \n", 
+	 fnam, PARNAME, INFO_BIASCOR.STRING_PARLIST);
   fflush(stdout);
 
   // malloc arrays to store info in each biasCor cell

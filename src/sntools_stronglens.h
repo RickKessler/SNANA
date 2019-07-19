@@ -3,7 +3,7 @@
 #define MXIMG_STRONGLENS 8   // max number of images per lens
 
 struct {
-  int USE_FLAG;
+  int USE_FLAG; // logical flag for simulation
   int NCALL;
 
   // contents from model file/library
@@ -12,6 +12,7 @@ struct {
   float  *zLENS;  // lens redshift
   int    *Nimage; // Number of images per lens
   float **angSep, **phi ; // angle sep (arcsec), and phi (degrees)
+  float **tdelay ;
 
 } INPUTS_STRONGLENS;
 
@@ -23,6 +24,6 @@ void malloc_stronglens(int NLENS);
 
 int get_stronglens(double zSN, double *hostpar, double *zLENS, 
 		   int *blend_flag, int *Nimage,
-		   double *mu, double *angSep, double *phi);
+		   double *tdelay, double *mu, double *angSep, double *phi);
 
 // end:

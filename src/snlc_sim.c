@@ -9869,7 +9869,7 @@ void gen_event_stronglens(void) {
 
   double zSN = GENLC.REDSHIFT_CMB;
   double zLENS, hostpar[10];
-  double mu_list[MXIMG_STRONGLENS];
+  double tdelay[MXIMG_STRONGLENS],  mu_list[MXIMG_STRONGLENS];
   double angSep_list[MXIMG_STRONGLENS], phi_list[MXIMG_STRONGLENS];
   int    IDLENS, blend_flag, Nimage;
   char fnam[] = "gen_event_stronglens";
@@ -9877,7 +9877,7 @@ void gen_event_stronglens(void) {
   // ------------- BEGIN ------------------
 
   IDLENS = get_stronglens(zSN, hostpar, &zLENS, &blend_flag,
-			  &Nimage, mu_list, angSep_list, phi_list );
+			  &Nimage, tdelay, mu_list, angSep_list, phi_list );
 
   return ;
 

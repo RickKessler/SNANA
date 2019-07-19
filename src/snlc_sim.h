@@ -582,7 +582,7 @@ struct INPUTS {
   float  GENMAG_SMEAR_FILTER[MXFILTINDX]; // smear by filter
   float  GENMAG_SMEAR[2];             // intrinsic mag-smear (asymm Gauss)
   char   GENMAG_SMEAR_MODELNAME[100]; // name of specific smear-model
-  char   GENMAG_SMEAR_MODELARG[200];  // optional arg after colon
+  char   GENMAG_SMEAR_MODELARG[MXPATHLEN];  // optional arg after colon
   float  GENMAG_SMEAR_SCALE;          // scale magSmears (default=1)
 
   int    NPAR_GENSMEAR_USRFUN ;
@@ -591,9 +591,10 @@ struct INPUTS {
   double GENSMEAR_RANGauss_FIX ;   // if >=0 then set Gauss randoms to this
   double GENSMEAR_RANFlat_FIX ;    // if >=0 then set Flat randoms to this
 
-  char   LENSING_PROBMAP_FILE[200];   // file-name of lensing prob-map
-  float  LENSING_DMUSCALE;            // scale width of DMU profile
-  float  LENSING_DSIGMADZ ;           // symmetric Gaussian model
+  char   STRONGLENS_FILE[MXPATHLEN] ; 
+  char   WEAKLENS_PROBMAP_FILE[MXPATHLEN];
+  float  WEAKLENS_DMUSCALE;            // scale width of DMU profile
+  float  WEAKLENS_DSIGMADZ ;           // symmetric Gaussian model
 
   float GENMODEL_ERRSCALE ;    // scale model-errors for intrinsic color-smear
   float GENMODEL_ERRSCALE_CORRELATION; // correlation with GENMAG_SMEAR
@@ -1577,7 +1578,7 @@ void   genperfect_override(void);
 void   gen_event_driver(int ilc);    // generate RA, DEC, Z, PEAKMJD, etc.
 void   gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
 			char *REJECT_STAGE );
-
+void   gen_event_stronglens(void);
 void   gen_filtmap(int ilc);  // generate filter-maps
 void   gen_modelPar(int ilc);     // generate stretch or delta or dm15 ...
 void   gen_modelPar_SALT2(void); 

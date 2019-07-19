@@ -375,7 +375,8 @@ OBJ_SIM	 = 	\
 	$(OBJ_SNTOOLS_SNANA)	\
 	$(OBJ)/sntools_devel.o  \
 	$(OBJ)/sntools_host.o   \
-	$(OBJ)/sntools_lensing.o  \
+	$(OBJ)/sntools_weaklens.o  \
+	$(OBJ)/sntools_stronglens.o  \
 	$(OBJ)/sntools_wronghost.o   \
 	$(OBJ)/sntools_genSmear.o  \
 	$(OBJ)/sntools_trigger.o  \
@@ -808,11 +809,18 @@ $(OBJ)/sntools_devel.o : $(SRC)/sntools_devel.c  $(SRC)/sntools_devel.h
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_devel.c )
 
 # -------------------------------------------------
-# compile sntools_lensing (.o only)
+# compile sntools_weaklens (.o only)
 
-$(OBJ)/sntools_lensing.o : $(SRC)/sntools_lensing.c  $(SRC)/sntools_lensing.h
+$(OBJ)/sntools_weaklens.o : $(SRC)/sntools_weaklens.c  $(SRC)/sntools_weaklens.h
 	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS) $(SRC)/sntools_lensing.c )
+	$(CC) $(SNCFLAGS) $(SRC)/sntools_weaklens.c )
+
+# -------------------------------------------------
+# compile sntools_stronglens (.o only)
+
+$(OBJ)/sntools_stronglens.o : $(SRC)/sntools_stronglens.c  $(SRC)/sntools_stronglens.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(SRC)/sntools_stronglens.c )
 
 # -------------------------------------------------
 # compile inoue_igm.o 

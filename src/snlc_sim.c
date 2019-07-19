@@ -47,7 +47,8 @@
 #include "snlc_sim.h"
 #include "sntools_devel.h" 
 #include "sntools_host.h"
-#include "sntools_lensing.h"
+#include "sntools_weaklens.h"
+#include "sntools_stronglens.h"
 #include "sntools_wronghost.h"
 #include "sntools_nonlinearity.h"
 #include "sntools_fluxErrModels.h"
@@ -156,9 +157,11 @@ int main(int argc, char **argv) {
   // init host-galaxy model (in sntools_host.c)
   INIT_HOSTLIB();  
 
-  // init weak lensing 
-  if ( INDEX_GENMODEL != MODEL_LCLIB ) 
-    { init_lensDMU(INPUTS.LENSING_PROBMAP_FILE, INPUTS.LENSING_DSIGMADZ ); }
+  // init weak and strong lensing 
+  if ( INDEX_GENMODEL != MODEL_LCLIB )  { 
+    init_lensDMU(INPUTS.WEAKLENS_PROBMAP_FILE, INPUTS.WEAKLENS_DSIGMADZ ); 
+    init_stronglens(INPUTS.STRONGLENS_FILE);
+  }
 
 
   // init model fudges for flux-errors (Feb 2018)
@@ -229,7 +232,7 @@ int main(int argc, char **argv) {
     if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID ) 
       { init_RANLIST(); }      // init list of random numbers for each SN    
 
-    gen_event_driver(ilc);   
+    gen_event_driver(ilc); 
 
     if ( GENLC.NEPOCH < INPUTS.CUTWIN_NEPOCH[0] ) {   // avoid NEPOCH=0
       gen_event_reject(&ilc, &SIMFILE_AUX, "NEPOCH");
@@ -856,9 +859,11 @@ void set_user_defaults(void) {
   INPUTS.GENMAG_SMEAR_SCALE = 1.0;
   sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE") ;
   sprintf(INPUTS.GENMAG_SMEAR_MODELARG,  "") ;
-  sprintf(INPUTS.LENSING_PROBMAP_FILE,   "NONE");
-  INPUTS.LENSING_DMUSCALE = 1.0 ;
-  INPUTS.LENSING_DSIGMADZ = 0.0 ;
+
+  sprintf(INPUTS.STRONGLENS_FILE,       "NONE");
+  sprintf(INPUTS.WEAKLENS_PROBMAP_FILE, "NONE");
+  INPUTS.WEAKLENS_DMUSCALE = 1.0 ;
+  INPUTS.WEAKLENS_DSIGMADZ = 0.0 ;
 
   INPUTS.NPAR_GENSMEAR_USRFUN     = 0 ;
   for (i=0; i < 100; i++ ) 
@@ -2093,14 +2098,24 @@ int read_input(char *input_file) {
       continue ; 
     }
 
+    // updated keys for strong & weak lensing (July 2019)
+    if ( uniqueMatch(c_get,"STRONGLENS_FILE:")   ) 
+      { readchar(fp, INPUTS.STRONGLENS_FILE); continue ; }
+
+    if ( uniqueMatch(c_get,"WEAKLENS_PROBMAP_FILE:")   ) 
+      { readchar(fp, INPUTS.WEAKLENS_PROBMAP_FILE); continue ; }
+    if ( uniqueMatch(c_get,"WEAKLENS_DMUSCALE:")   ) 
+      { readfloat(fp, 1, &INPUTS.WEAKLENS_DMUSCALE); continue ; }
+    if ( uniqueMatch(c_get,"WEAKLENS_DSIGMADZ:")   ) 
+      { readfloat(fp, 1, &INPUTS.WEAKLENS_DSIGMADZ); continue ; }
+
+    // legacy keys for weak lensing (May 2017)
     if ( uniqueMatch(c_get,"LENSING_PROBMAP_FILE:")   ) 
-      { readchar(fp, INPUTS.LENSING_PROBMAP_FILE); continue ; }
-
+      { readchar(fp, INPUTS.WEAKLENS_PROBMAP_FILE); continue ; }
     if ( uniqueMatch(c_get,"LENSING_DMUSCALE:")   ) 
-      { readfloat(fp, 1, &INPUTS.LENSING_DMUSCALE); continue ; }
-
+      { readfloat(fp, 1, &INPUTS.WEAKLENS_DMUSCALE); continue ; }
     if ( uniqueMatch(c_get,"LENSING_DSIGMADZ:")   ) 
-      { readfloat(fp, 1, &INPUTS.LENSING_DSIGMADZ); continue ; }
+      { readfloat(fp, 1, &INPUTS.WEAKLENS_DSIGMADZ); continue ; }
 
     int NVAL;
     char key[60], parName[60];
@@ -5069,15 +5084,24 @@ void sim_input_override(void) {
       i++ ;
     }
 
-    if ( strcmp( ARGV_LIST[i], "LENSING_PROBMAP_FILE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.LENSING_PROBMAP_FILE );
-    }
-    if ( strcmp( ARGV_LIST[i], "LENSING_DMUSCALE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.LENSING_DMUSCALE );
-    }
-    if ( strcmp( ARGV_LIST[i], "LENSING_DSIGMADZ" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.LENSING_DSIGMADZ );
-    }
+    // updated keys for strong & weak lensing (July 2019)
+    if ( strcmp( ARGV_LIST[i], "STRONGLENS_FILE" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.STRONGLENS_FILE ); }
+
+    if ( strcmp( ARGV_LIST[i], "WEAKLENS_PROBMAP_FILE" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.WEAKLENS_PROBMAP_FILE ); }
+    if ( strcmp( ARGV_LIST[i], "WEAKLENS_DMUSCALE" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.WEAKLENS_DMUSCALE ); }
+    if ( strcmp( ARGV_LIST[i], "WEAKLENS_DSIGMADZ" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.WEAKLENS_DSIGMADZ );  }
+
+    // legacy keys for weak lensing 
+    if ( strcmp( ARGV_LIST[i], "LENSING_PROBMAP_FILE" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.WEAKLENS_PROBMAP_FILE ); }
+    if ( strcmp( ARGV_LIST[i], "LENSING_DMUSCALE" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.WEAKLENS_DMUSCALE ); }
+    if ( strcmp( ARGV_LIST[i], "LENSING_DSIGMADZ" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.WEAKLENS_DSIGMADZ );  }
 
     // - - - - - - 
     // check override params for genSmear models (Mar 22 2014)
@@ -5541,7 +5565,8 @@ void prep_user_input(void) {
   ENVreplace(INPUTS.GENPAR_SELECT_FILE,fnam,1);
   ENVreplace(INPUTS.NON1AGRID_FILE,fnam,1);
   ENVreplace(INPUTS.NONLINEARITY_FILE,fnam,1);
-  ENVreplace(INPUTS.LENSING_PROBMAP_FILE,fnam,1);
+  ENVreplace(INPUTS.WEAKLENS_PROBMAP_FILE,fnam,1);
+  ENVreplace(INPUTS.STRONGLENS_FILE,fnam,1);
   ENVreplace(INPUTS.LCLIB_FILE,fnam,1);
   ENVreplace(INPUTS.MODELPATH,fnam,1);
 
@@ -9618,6 +9643,9 @@ void gen_event_driver(int ilc) {
 
     GENLC.REDSHIFT_CMB = gen_redshift_cmb();
 
+    // check for strong lens multiple images (July 2019)
+    gen_event_stronglens();
+
     // read entry from libray after generated PEAKMJD and redshift ;
     // see comment above.
     SIMLIB_READ_DRIVER();
@@ -9678,15 +9706,10 @@ void gen_event_driver(int ilc) {
     if ( INPUTS.GENSIGMA_REDSHIFT >= 0.0 )
       { gen_zsmear( INPUTS.GENSIGMA_REDSHIFT ); }  
 
-    /* xxx mark delete xxxxxx
-    // temporarily preserve random sync by fetching GaussRan here;
-    // see new function gen_peakmjd_smear().
-    GENLC.PEAKMJD_RANGauss = GaussRan(1); 
-    xxxxxxx    */
-
     // global mag offset + z-dependence 
     GENLC.GENMAG_OFF_GLOBAL += (double)INPUTS.GENMAG_OFF_GLOBAL
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENMAG_OFF_GLOBAL");
+
 
   } 
 
@@ -9742,7 +9765,6 @@ void gen_event_driver(int ilc) {
   genshift_risefalltimes();
 
   // Compute epochs relative to peak
-
   z = GENLC.REDSHIFT_HELIO ;  z1 = 1.0 + z;
   Tobs_min = 1.0E9;  Tobs_max= -1.0E-9;
   for ( iep=1; iep <= GENLC.NEPOCH ; iep++ ) {
@@ -9840,6 +9862,26 @@ void override_modelPar_from_SNHOST(void) {
   return ;
 
 } // end override_modelPar_from_HOSTLIB
+
+
+// *******************************************
+void gen_event_stronglens(void) {
+
+  double zSN = GENLC.REDSHIFT_CMB;
+  double zLENS, hostpar[10];
+  double mu_list[MXIMG_STRONGLENS];
+  double angSep_list[MXIMG_STRONGLENS], phi_list[MXIMG_STRONGLENS];
+  int    IDLENS, blend_flag, Nimage;
+  char fnam[] = "gen_event_stronglens";
+
+  // ------------- BEGIN ------------------
+
+  IDLENS = get_stronglens(zSN, hostpar, &zLENS, &blend_flag,
+			  &Nimage, mu_list, angSep_list, phi_list );
+
+  return ;
+
+} // end gen_event_stronglens
 
 // *******************************************
 void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
@@ -12594,17 +12636,17 @@ void gen_distanceMag(double zCMB, double zHEL, double *MU, double *LENSDMU) {
   else
     { ran1 = FlatRan1(2); }  // normal gen: always burn random: May 7 2017
 
-  if ( IGNOREFILE(INPUTS.LENSING_PROBMAP_FILE) ) 
+  if ( IGNOREFILE(INPUTS.WEAKLENS_PROBMAP_FILE) ) 
     { lensDMU = 0.0 ; }
   else 
     { lensDMU = gen_lensDMU(zCMB,ran1);  }
 
-  if ( INPUTS.LENSING_DSIGMADZ > 1.0E-8 ) {
-    lensDMU = zCMB * INPUTS.LENSING_DSIGMADZ * GaussRan(1) ;
+
+  if ( INPUTS.WEAKLENS_DSIGMADZ > 1.0E-8 ) {
+    lensDMU = zCMB * INPUTS.WEAKLENS_DSIGMADZ * GaussRan(1) ;
   }
 
-  lensDMU *= INPUTS.LENSING_DMUSCALE ; // user-scale
-
+  lensDMU *= INPUTS.WEAKLENS_DMUSCALE ; // user-scale
 
   // load return args
   *MU      = gen_dLmag(zCMB,zHEL);

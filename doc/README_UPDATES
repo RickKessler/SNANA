@@ -17107,7 +17107,7 @@
 
 
 # ======================================================================= 
-         v10_73j (  ) 
+         v10_73j (Jul 18 2019) 
 
          ***** IMPORTANT(v10_73j) ***** 
 
@@ -17135,4 +17135,8 @@
      + start refactor for 7D biasCor. Read optional SIM_gammaDM  
        from table, and include ig (gamma) index along with ia,ib.
 
+   New utility sntools_stronglens.c[h] with empty code-shell.
+   Called by snlc_sim, but not implemented. Later, need to implement
+   multuple light curves with different time shifts and magnifications.
+  
 END: 

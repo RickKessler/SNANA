@@ -5697,13 +5697,18 @@ void prep_user_input(void) {
   else if ( INDEX_GENMODEL == MODEL_SNOOPY  ) {
     
     GENFRAME_OPT    = GENFRAME_REST; 
-    sprintf(GENLC.DISTANCE_NAME,    "DLMAG" );
-    sprintf(GENLC.SHAPEPAR_NAME,    "DM15"  );
-    sprintf(GENLC.SHAPEPAR_GENNAME, "DM15"  );
-    sprintf(GENLC.COLORPAR_NAME,    "AV"    );
-    sprintf(GENLC.COLORPAR2_NAME,   "RV"    );
+    sprintf(GENLC.DISTANCE_NAME,    "DLMAG"    );
+    sprintf(GENLC.SHAPEPAR_NAME,    "STRETCH"  );
+    sprintf(GENLC.SHAPEPAR_GENNAME, "STRETCH"  );
+    sprintf(GENLC.COLORPAR_NAME,    "AV"       );
+    sprintf(GENLC.COLORPAR2_NAME,   "RV"       );
+    /* xxxxxx mark delete Jul 19 2019 xxxxxx
     GENLC.ptr_SHAPEPAR = &GENLC.DM15 ;
     copy_GENGAUSS_ASYM( &INPUTS.GENGAUSS_DM15, &INPUTS.GENGAUSS_SHAPEPAR );
+    xxxxxxxxxxxxxxx    */
+
+    GENLC.ptr_SHAPEPAR = &GENLC.STRETCH ;
+    copy_GENGAUSS_ASYM( &INPUTS.GENGAUSS_STRETCH, &INPUTS.GENGAUSS_SHAPEPAR );
   }
 
   else if ( INDEX_GENMODEL == MODEL_S11DM15  ) {
@@ -11752,6 +11757,12 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"DM15") ;
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.DM15 ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  // add STRETCH for B18-style snoopy model that uses stretch
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"STRETCH") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.STRETCH ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -19996,7 +20007,8 @@ void snlc_to_SNDATA(int FLAG) {
     { SNDATA.SIM_DELTA    = GENLC.DELTA ; }
 
   if ( INDEX_GENMODEL == MODEL_SNOOPY ) 
-    { SNDATA.SIM_DM15 = GENLC.DM15 ; }
+    { SNDATA.SIM_STRETCH = GENLC.STRETCH ; }
+  // xxx mark delete    { SNDATA.SIM_DM15 = GENLC.DM15 ; }
 
   if ( INDEX_GENMODEL == MODEL_S11DM15 ) 
     { SNDATA.SIM_DM15 = GENLC.DM15 ; }
@@ -20835,7 +20847,6 @@ void init_genmodel(void) {
 
   else if ( INDEX_GENMODEL == MODEL_FIXMAG ) {
     GENLC.SIMTYPE  = MODEL_FIXMAG ;
-    // xxx mark delete  GENLC.SIMTYPE  = (int)INPUTS.FIXMAG[0] ;
   }
   else if ( INDEX_GENMODEL == MODEL_MLCS2k2 ) {
 
@@ -20849,11 +20860,7 @@ void init_genmodel(void) {
   else if ( INDEX_GENMODEL == MODEL_SNOOPY ) {
 
     OPTMASK = 0;
-#ifdef SNGRIDGEN
-    NZ = GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_LOGZ];    
-    if ( NZ == 1 ) { OPTMASK = 1; }
-#endif
-    init_genmag_snoopy(GENMODEL, OPTMASK, dummy, GENLC.FILTLIST_REST );
+    init_genmag_snoopy(GENMODEL, OPTMASK, GENLC.FILTLIST_REST );
 
     get_LAMRANGE_snoopy(&GENLC.RESTLAM_MODEL[0], &GENLC.RESTLAM_MODEL[1] );
     LGEN_SNIA = 1 ;
@@ -22036,7 +22043,7 @@ void genmodel(
     ifilt_tmp = GENLC.IFILTINVMAP_REST[ifilt_rest] + 1 ;
     genmag_snoopy (
 		   ifilt_tmp             // (I) SNoopY internal filter index
-		   ,dm15                 // (I) shape parameter 
+		   ,stretch[0]           // (I) shape parameter 
 		   ,NEPFILT              // (I) number of epochs
 		   ,ptr_epoch            // (I) Trest-Tpeak (days)
 		   ,ptr_genmag           // (O) ideal rest mags

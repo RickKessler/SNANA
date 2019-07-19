@@ -1118,6 +1118,8 @@ c
 c Feb 1 2018: call ABORT_ON_CUTWIN_TREST only if OPT_PHOTO==1.
 c             Not needed for OPT_PHOTOZ=2.
 c
+c Jul 19 2019: overhaul arguments to INIT_GENMAG_SNOOPY
+c
 c -------------------------------------
       IMPLICIT NONE
 
@@ -1439,12 +1441,9 @@ c depends on which IR filters are used.
          CALL GET_LAMRANGE_snoopy(LAMRANGE8(1),LAMRANGE8(2))
          RESTLAMBDA_MODEL(1) = LAMRANGE8(1)
          RESTLAMBDA_MODEL(2) = LAMRANGE8(2)         
-
-         PARNAME_STORE(IPAR_SHAPE) = 'DM15'
-
-         OPTMASK = 0
-
-         ISTAT = INIT_GENMAG_SNOOPY(tmpName, OPTMASK, DUM8,  
+         PARNAME_STORE(IPAR_SHAPE) = 'STRETCH'
+	 OPTMASK = 0
+         ISTAT = INIT_GENMAG_SNOOPY(tmpName, OPTMASK,
      &       FILTLIST_MODEL, LEN_ROOT, len2 )  ! return args
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_FIXMAG ) THEN

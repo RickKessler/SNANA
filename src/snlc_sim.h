@@ -1844,8 +1844,7 @@ int gencovar_mlcs2k2(int matsize, int *ifilt, double *rest_epoch,
                   double *covar );
 
 
-int init_genmag_snoopy( char *modelPath, int optmask, 
-			double *snoopyArgs, char *filtlist);
+int init_genmag_snoopy( char *modelPath, int optmask, char *filtlist);
 
 int genmag_snoopy(int ifilt, double dm15, int nobs, double *rest_dates, 
 		  double *rest_mags, double *rest_magerrs );

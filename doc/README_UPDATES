@@ -17141,14 +17141,22 @@
   
 
 # ======================================================================= 
-         v10_73k (  ) 
+         v10_74 (  ) 
 
-         ***** IMPORTANT(v10_73k) ***** 
+         ***** IMPORTANT(v10_74) ***** 
 
-         ***** USEFUL(v10_73k) ***** 
+         ***** USEFUL(v10_74) ***** 
 
-   SALT2mu: new chi2max=<max> input to reject chi2-outliers (before fit)
+   SALT2mu: 
+     + new chi2max=<max> input to reject chi2-outliers (before fit)
+     + chi2_beams written to output fitres file.
 
-         ***** MISCELLANEOUS(v10_73k) ***** 
+   genmag_snoopy.c:
+    + major refactor to only read GRID (no snoopy-specific code), 
+      and to read MAG-grid instead of relFlux grid. Intended to read 
+      more recent snoopy model based on Burns 2018.
+
+         ***** MISCELLANEOUS(v10_74) ***** 
+
 
 END: 

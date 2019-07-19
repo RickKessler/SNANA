@@ -21,10 +21,11 @@ __mask_bit_locations__={'verbose':1,'dump':2}
 class genmag_BYOSED:
 
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
+			#print('LIST: ',OPTMASK)
+			#print('HOST_PARAM_NAMES: ',HOST_PARAM_NAMES)
 			# TODO: write a print statement that warns if
 			# HOST_PARAM_NAMES is a variable that the code
 			# isn't going to do anything with
-			print(HOST_PARAM_NAMES)
 			self.verbose = OPTMASK & (1 << __mask_bit_locations__['verbose']) > 0
 
 			self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
@@ -196,7 +197,7 @@ class genmag_BYOSED:
 				if len(self.wave)>maxlam:
 						raise RuntimeError("Your wavelength array cannot be larger than %i but is %i"%(maxlam,len(self.wave)))
 				#iPhase = np.where(np.abs(trest-self.phase) == np.min(np.abs(trest-self.phase)))[0][0]
-
+				#print('HOST_PARAMS: ',hostpars)
 				if self.sn_id is None:
 						self.sn_id=external_id
 				fluxsmear=self.sedInterp(trest,self.wave).flatten()

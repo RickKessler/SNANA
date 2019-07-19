@@ -116,6 +116,9 @@ CUTWIN  SNRMAX3   8  999999
 CUTWIN(NOABORT)  SIM_x1  -2 2    ! do not abort if SIM_x1 isn't there
 CUTWIN(DATAONLY) LOGMASS  5 12   ! cut on data only (not on biasCor)
 
+chi2max  = chi2-outlier cut applied before fit. Beware that initial
+           and final chi2 can differ, so allow slop in the cut.
+
 cutmask_write=[allowed errcode mask to write output fitres]
 cutmask_write=-1  -> write everything
 cutmask_write=0   -> write only selected SN used in fit (default)
@@ -618,6 +621,8 @@ Default output files (can change names with "prefix" argument)
 
  Jun 22 2019: fix bug using varname_pIa as CUTWIN
  Jul 08 2019: remove USECODE_LEGACY pre-proc flag.
+ Jul 18 2019: remove legacy code and USE_REFACOR 
+ Jul 19 2019: new chi2max input; see function applyCut_chi2()
 
 ******************************************************/
 
@@ -748,26 +753,27 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 
 // define CUTBIT for each type of cut (lsb=0)
 // (bit0->1, bit4->16, bit6->64, bit8->256, bit10->1024,  bit12 --> 4096
-#define CUTBIT_z          0    //  fails zmin - zmax cut
-#define CUTBIT_x1         1    //  fails x1min-x1max cut
-#define CUTBIT_c          2    //  fails cmin - cmax cut
-#define CUTBIT_sntype     3    //  fails sntype cut 
-#define CUTBIT_HOST       4    //  fails required host info
-#define CUTBIT_CUTWIN     5    //  fails a CUTWIN cut 
+#define CUTBIT_z          0    //  zmin - zmax cut
+#define CUTBIT_x1         1    //  x1min-x1max cut
+#define CUTBIT_c          2    //  cmin - cmax cut
+#define CUTBIT_sntype     3    //  sntype cut 
+#define CUTBIT_HOST       4    //  required host info
+#define CUTBIT_CUTWIN     5    //  user-CUTWIN 
 #define CUTBIT_BADERR     6    //  a fit param error is <=0
 #define CUTBIT_BADCOV     7    //  bad COV for a fit param
-#define CUTBIT_MINBIN     8    //  in z-bin with too few to fit 
-#define CUTBIT_SPLITRAN   9    //  not in this random sample
-#define CUTBIT_SIMPS     10    //  rejected SIM event from pre-scale 
-#define CUTBIT_BIASCOR   11    //  cannot evaluate biasCor
-#define CUTBIT_zBIASCOR  12    //  fails BIASCOR z cut
-#define CUTBIT_x1BIASCOR 13    //  fails BIASCOR x1 cut
-#define CUTBIT_cBIASCOR  14    //  fails BIASCOR c cut
+#define CUTBIT_MINBIN     8    //  z-bin with too few to fit 
+#define CUTBIT_SPLITRAN   9    //  random subsample for NSPLITRAN
+#define CUTBIT_SIMPS     10    //  SIM event from pre-scale 
+#define CUTBIT_BIASCOR   11    //  valid biasCor (data only)
+#define CUTBIT_zBIASCOR  12    //  BIASCOR z cut
+#define CUTBIT_x1BIASCOR 13    //  BIASCOR x1 cut
+#define CUTBIT_cBIASCOR  14    //  BIASCOR c cut
 #define CUTBIT_TRUESNIa  15    //  true SNIa 
 #define CUTBIT_TRUESNCC  16    //  true !SNIa (i.e., SNCC,SNIax, etc ...)
-#define CUTBIT_NMAXCUT   17    //  fails NMAX-sample cut
-#define CUTBIT_DUPL      18    //  remove duplicate 
-#define CUTBIT_IDSAMPLE  19    //  remove IDSAMPLE
+#define CUTBIT_NMAXCUT   17    //  NMAX-sample cut
+#define CUTBIT_DUPL      18    //  duplicate 
+#define CUTBIT_IDSAMPLE  19    //  IDSAMPLE
+#define CUTBIT_CHI2      20    //  chi2 outlier (data only)
 #define MXCUTBIT         25  
 
 #define dotDashLine "-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-" 
@@ -1003,6 +1009,7 @@ struct {
   double *mumodel, *M0, *mu, *muerr, *muerr_raw,  *mures, *mupull;
   double *muerr_last, *muerrsq_last, *sigCC_last, *sqsigCC_last ;
   double *muCOVscale, *muBias, *muBiasErr, *muBias_zinterp; 
+  double *chi2;
   double **fitParBias;
 
   // before fit, store bias[isn][ialpha][ibeta][igammadm]
@@ -1092,10 +1099,7 @@ struct {
 
 
 
-// Mar 11, 2011 RK- define data struct for raw data (before cuts)
-//                  Each element is allocated in rawdata_malloc().
-// July 18 2016 - double -> int for integer quantities
-
+/* xxx mark delete xxxxx
 struct rawdata {
   char   **name, **field ; 
   double *zhd,    *x0,    *x1,    *x3,    *zhel,    *vpec;
@@ -1113,7 +1117,7 @@ struct rawdata {
   int     DOFLAG_CUTWIN[MXCUTWIN]; // flag to apply each cutwin
   int     ICUTWIN_GAMMA;        // index for gamma-variable
 } rawdata ;
-
+xxxxxxxxx end mark xxxxxxxxx */
 
 int  ONE_SAMPLE_BIASCOR ;  // flag to lump all samples into one biasCor
 int  NSAMPLE_BIASCOR ;
@@ -1202,6 +1206,7 @@ struct INPUTS {
   double cmin,  cmax  ;
   double x1min, x1max ;
   double zmin,  zmax  ;
+  double chi2max;     // chi2-outlier cut (Jul 2019)
 
   int    NCUTWIN ;
   int    CUTWIN_RDFLAG[MXCUTWIN] ; // 1=> read, 0=> use existing var
@@ -1353,7 +1358,6 @@ struct {
   int NCALL_FCN ;     // number of calls to FCN function
   int NSNFIT_TRUECC;   // for sim, number of true CC
 
-  double HRMS ;        // rms residual around Hubble line
   double CHI2SUM_MIN;  // global min chi2
   double CHI2RED_ALL;  // global reduced chi2
   double CHI2SUM_1A;   // chi2 sum for Ia subset
@@ -1409,7 +1413,8 @@ time_t t_start, t_end_init, t_end_fit, t_read_biasCor[3] ;
 //Main function definitions
 void apply_blindpar(void);
 void check_duplicate_SNID(void);
-void apply_nmax_cuts(void);
+void applyCut_nmax(void);
+void applyCut_chi2(void);
 void merge_duplicates(int N, int *isnList);
 void setup_zbins_fit(void);
 void setup_BININFO_powz(void);
@@ -1780,7 +1785,7 @@ int main(int argc,char* argv[ ])
   prepare_CCprior();
 
   // check for user-constraint on nmax (July 2017) AFTER prepare_biasCor 
-  apply_nmax_cuts();
+  applyCut_nmax();
 
   /* Solve for minimum of chi-squared */
 
@@ -1797,65 +1802,62 @@ int main(int argc,char* argv[ ])
   printmsg_fitStart(stdout);
   
   if ( INPUTS.NSPLITRAN > 1 ) { 
-    SPLITRAN_cutmask();   // check for random sub-samples
+    SPLITRAN_cutmask();     // check for random sub-samples
     SPLITRAN_prep_input();  // re-initialize a few things (May 2019)
   }
 
   setup_zbins_fit();    // set z-bins for data and biasCor
 
-  // print stats for data after all cuts are applied
-  print_eventStats(EVENT_TYPE_DATA);
-
   FITRESULT.NCALL_FCN = 0 ;
   mninit_(&inf,&outf,&savef);
 
-  strcpy(text,"SALT2mu"); len = strlen(text);  mnseti_(text,len);
-  fflush(stdout);
+  strcpy(text,"SALT2mu"); len = strlen(text);  
+  mnseti_(text,len);    fflush(stdout);
 
   // execuate minuit mnparm_ commands
   exec_mnparm(); 
+
+  // use FCN call and make chi2-outlier cut (Jul 19 2019)
+  applyCut_chi2();
 
   // check option to fetch summary of all previous SPLITRAN jobs
   if ( INPUTS.JOBID_SPLITRAN > INPUTS.NSPLITRAN ) 
     {  SPLITRAN_SUMMARY(); return(0); }
 
   FITRESULT.NFIT_ITER = 0 ;
+
+  // print stats for data after ALL cuts are applied
+  print_eventStats(EVENT_TYPE_DATA);
   
   // check reasons to suppress MINUIT screen dump
-
-  int NOMNPRI = 0;
-  if ( ISDATA && INPUTS.blindFlag   ) { NOMNPRI = 1; } 
-  if ( IGNOREFILE(INPUTS.PREFIX)    ) { NOMNPRI = 1; } 
-  if ( INPUTS.cutmask_write == -9   ) { NOMNPRI = 1; } 
-  NOMNPRI = 1 ; 
+  int MNPRINT = 0 ;
+  //  if ( ISDATA && INPUTS.blindFlag   ) { MNPRINT = 1; } 
+  //  if ( IGNOREFILE(INPUTS.PREFIX)    ) { MNPRINT = 1; } 
+  //  if ( INPUTS.cutmask_write == -9   ) { MNPRINT = 1; } 
   
   // Beginning of DOFIT loop
   while ( DOFIT_FLAG != FITFLAG_DONE  ) {
 
-    if ( NOMNPRI ) 
-      { strcpy(mcom,"SET PRI -1"); } // turn off MINUIT printing
+    if ( MNPRINT ) 
+      { strcpy(mcom,"SET PRINTOUT 0"); }  // MIMUIT printing on
     else
-      { strcpy(mcom,"SET PRI 0"); }  // MIMUIT printing
+      { strcpy(mcom,"SET PRINTOUT -1"); } // turn off MINUIT printing
     
     len = strlen(mcom);
     mncomd_(fcn,mcom,&icondn,&null,len);  fflush(stdout);
 
     //Miniut MINIMIZE (find minimum chi-squared)
-    strcpy(mcom,"SIM 1000");
-    len = strlen(mcom);
+    strcpy(mcom,"SIM 1000");   len = strlen(mcom);
     mncomd_(fcn,mcom,&icondn,&null,len);  fflush(stdout);
 
-    strcpy(mcom,"MINI");
-    len = strlen(mcom);
+    strcpy(mcom,"MINI");   len = strlen(mcom);
     mncomd_(fcn,mcom,&icondn,&null,len);  fflush(stdout);
     //Minuit MINOS (compute errors)
-    strcpy(mcom,"MINO");
-    len = strlen(mcom);
+    strcpy(mcom,"MINO");   len = strlen(mcom);
     mncomd_(fcn,mcom,&icondn,&null,len);  fflush(stdout);
 
     //Final call to FCN at minimum of chi-squared
-    strcpy(mcom,"CALL FCN 3");
-    len = strlen(mcom);
+    strcpy(mcom,"CALL FCN 3");  len = strlen(mcom);
     mncomd_(fcn,mcom,&icondn,&null,len);   fflush(stdout);
 
     mnstat_(&chi2min, &fedm, &errdef,&npari,&nparx,&istat);
@@ -2344,7 +2346,7 @@ void  apply_blindpar(void) {
 
 
 // ******************************************
-void apply_nmax_cuts(void) {
+void applyCut_nmax(void) {
 
   // Created July 17 2017
   // Check user nmax constraints and set skipfit
@@ -2355,7 +2357,7 @@ void apply_nmax_cuts(void) {
   int  ntot, npersurvey[MXIDSURVEY]; // after
   int  cutmask, id, isn, ntot_iter1, nrej_iter1 ;
   int  nexclude, NREMAIN ;
-  char fnam[] = "apply_nmax_cuts" ;
+  char fnam[] = "applyCut_nmax" ;
 
   // --------------- BEGIN --------------
 
@@ -2442,8 +2444,60 @@ void apply_nmax_cuts(void) {
 
   return ;
 
-} // end apply_nmax_cuts
+} // end applyCut_nmax
 
+
+// ******************************************
+void applyCut_chi2(void) {
+
+  // Created Jul 19 2019
+  // Call FCN (fit function) to evaluate chi2 with
+  // initial params, then applhy chi2-outlier cut to data.
+  // Note that this is BEAMS chi2 when there is CC contam,
+  // and thus this is NOT the same as cutting on HR resids.
+
+  int NSN_DATA   = INFO_DATA.TABLEVAR.NSN_ALL ;
+  double chi2max = INPUTS.chi2max;
+  int len, icondn, n, cutmask;
+  const int null=0;
+  double chi2;
+  char mcom[60], *name ;
+  char fnam[] = "applyCut_chi2" ;
+
+  // ----------- BEGIN ------------
+
+  if ( chi2max > 0.99E9 ) { return; }
+
+  strcpy(mcom,"CALL FCN 1");  len = strlen(mcom);
+  mncomd_(fcn,mcom,&icondn,&null,len);   fflush(stdout);
+
+  for (n=0; n< NSN_DATA; ++n)  {
+    cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n] ; 
+    if ( cutmask ) { continue; }
+
+    chi2 = INFO_DATA.chi2[n];
+    name = INFO_DATA.TABLEVAR.name[n];
+
+    /*
+    if ( chi2 > 8.0 ) {
+      printf(" xxx %s: chi2(%8s) = %.2f \n", fnam, name, chi2);
+      fflush(stdout);
+    }
+    */
+
+    if ( chi2 > chi2max )  { 
+      printf("\t Chi2(%s) = %.2f -> reject \n", name, chi2);
+      setbit_CUTMASK(n, CUTBIT_CHI2, &INFO_DATA.TABLEVAR);       
+    }
+  }
+
+  fflush(stdout);
+
+
+  
+  return ;
+
+} // end applyCut_chi2
 
 
 // ******************************************
@@ -2811,9 +2865,9 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   double scalePCC, scalePCC_fitpar, nsnfit1a, afix, bfix ;
   int    NSN_DATA, i, n, nsnfit, nsnfit_truecc, idsample, cutmask ;
   int DOBIASCOR_1D, DOBIASCOR_5D, DUMPFLAG=0, dumpFlag_muerrsq=0 ;
-  double chi2sum_tot, hrms_sum, mures, sqmures;
+  double chi2sum_tot, mures, sqmures;
   double muerrsq, muerrsq_last, muerrsq_raw, muerrsq_tmp, sqsigCC=0.001 ;
-  double chi2, chi2_1a, chi2sum_1a, sigCC_chi2penalty=0.0 ;
+  double chi2evt_1a, chi2sum_1a, chi2evt, sigCC_chi2penalty=0.0 ;
   double mu, mb, x1, c, z, zerr, logmass, dl, mumodel, mumodel_store;
   double muBias, muBiasErr, muBias_zinterp, muCOVscale, magoff_host ;
   double muerr, muerr_raw, muerr_last, COVINT[NLCPAR][NLCPAR] ;
@@ -2923,11 +2977,9 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   chi2sum_tot = chi2sum_1a = 0.0;
   nsnfit      = nsnfit_truecc = 0 ;
   nsnfit1a = 0.0 ;
-  hrms_sum  = 0.0 ;
 
   FITRESULT.NSNFIT = 0;
   FITRESULT.NSNFIT_TRUECC = 0;
-  FITRESULT.HRMS   = 0.0;
 
   for (n=0; n< NSN_DATA; ++n)  {
 
@@ -3084,28 +3136,22 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     INFO_DATA.muerr[n]    = muerr ;
     INFO_DATA.M0[n]       = M0 ;
 
-    if ( USE_CCPRIOR == 0 ) {
+    if ( !USE_CCPRIOR  ) {
       // original SALT2mu chi2 with only spec-confirmed SNIa 
       nsnfit++ ;        nsnfit1a  = (double)nsnfit ;
-      hrms_sum       += sqmures ;    
-
-      chi2_1a       = sqmures/muerrsq ;
-      chi2          = sqmures/muerrsq ;
-      chi2sum_1a   += chi2_1a ;
-      chi2sum_tot  += chi2 ;
+      chi2evt_1a    = sqmures/muerrsq ;
+      chi2sum_1a   += chi2evt_1a ;
+      chi2evt       = chi2evt_1a ;
 
       // check option to add log(sigma) term for 5D biasCor
       if ( INPUTS.fitflag_sigmb == 2 ) 
-      	{ chi2sum_tot  += log(muerrsq/muerrsq_last); } 
-
+      	{ chi2evt  += log(muerrsq/muerrsq_last); } 
     } 
 
 
     if ( USE_CCPRIOR  ) {
       // BEAMS-like chi2 = -2ln [ PIa + PCC ]
-
       DUMPFLAG = (n == -44);
-
       nsnfit++ ;
       scalePCC    = scalePCC_fitpar ;
       PTOTRAW_CC  = 1.0 - PTOTRAW_1a ;  // CC prob 
@@ -3122,24 +3168,21 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 	{ muerrsq_update = muerrsq_last ; } //  fixed muerr for 1D biasCor
       muerr_update   = sqrt(muerrsq_update);
 
-      chi2_1a  = sqmures/( muerrsq - muBiasErr*muBiasErr)  ;
-      dPdmu_1a = ( exp(-0.5*chi2_1a) ) * (PIFAC/muerr_update) ; 
-      Prob_1a  = PTOT_1a * dPdmu_1a ;
+      chi2evt_1a = sqmures/( muerrsq - muBiasErr*muBiasErr)  ;
+      dPdmu_1a   = ( exp(-0.5*chi2evt_1a) ) * (PIFAC/muerr_update) ; 
+      Prob_1a    = PTOT_1a * dPdmu_1a ;
 
-      // for CC LH, get raw MUERR without intrinsic scatter
-      // This affects H11 option only.
       if ( USE_CCPRIOR_H11 ) {
 	dPdmu_CC = prob_CCprior_H11(n, mures, &xval[IPAR_H11], 
 				    &sqsigCC, &sigCC_chi2penalty );
       }
-      else {
+      else { // CC prob from sim
 	dPdmu_CC = prob_CCprior_sim(idsample, CCPRIOR_MUZMAP, 
 				    z, mures, DUMPFLAG );
       }
+      Prob_CC   = PTOT_CC * dPdmu_CC ;
 
-      Prob_CC  = PTOT_CC * dPdmu_CC ;
-
-      Prob_SUM  = Prob_1a + Prob_CC ;
+      Prob_SUM  = Prob_1a + Prob_CC ; // BEAMS prob
 
       // xxxxxxxxxxxxxxxxxxx
       if ( DUMPFLAG ) {
@@ -3159,39 +3202,37 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 	ProbRatio_1a = Prob_1a / Prob_SUM ;
 	ProbRatio_CC = Prob_CC / Prob_SUM ;
 	nsnfit1a   +=  ProbRatio_1a ; 
-	chi2sum_1a += (ProbRatio_1a * chi2_1a) ; 
+	chi2sum_1a += (ProbRatio_1a * chi2evt_1a) ; 
 
 	Prob_SUM    *= (0.15/PIFAC)  ;  
-	chi2sum_tot += ( -2.0*log(Prob_SUM) ) ;
-	//  chi2sum_tot += sigCC_chi2penalty ; // prevent sigCC<0 (7.17.2018)
+	chi2evt      = -2.0*log(Prob_SUM);
+	//  chi2evt += sigCC_chi2penalty ; // prevent sigCC<0 (7.17.2018)
       }
       else {
-	chi2sum_tot += 1.0E8 ;
+	chi2evt      = 1.0E8 ;
       }
 
     } // end CCprios.USE if block
 
+    chi2sum_tot      += chi2evt;
+    INFO_DATA.chi2[n] = chi2evt; // store each chi2 to allow for outlier cut
 
     // check things on final pass
-    if (  *iflag==3 ) {
-	
+    if (  *iflag==3 ) {	
+
       for(ipar=0; ipar < NLCPAR; ipar++ ) {
 	for(ipar2=0; ipar2 < NLCPAR; ipar2++ ) {	  
-	  covmat_fit[ipar][ipar2] = 
-	    INFO_DATA.TABLEVAR.covmat_fit[n][ipar][ipar2];
-
+	  covmat_fit[ipar][ipar2] = INFO_DATA.TABLEVAR.covmat_fit[n][ipar][ipar2];
 	}
       }
 
       // Jan 26 2018: store raw muerr without intrinsic cov
-      muerrsq_raw = fcn_muerrsq(name,alpha,beta, covmat_fit,
-				z,zerr, 0);
+      muerrsq_raw = fcn_muerrsq(name,alpha,beta, covmat_fit, z,zerr, 0);
 
       // check user dump with total error (Jun 19 2018)
       dumpFlag_muerrsq = ( strcmp(name,INPUTS.SNID_MUCOVDUMP) == 0 );
       if ( dumpFlag_muerrsq ) {
-	muerrsq_tmp = fcn_muerrsq(name,alpha,beta, covmat_tot,
-				  z, zerr, 1);
+	muerrsq_tmp = fcn_muerrsq(name,alpha,beta, covmat_tot, z, zerr, 1) ;
       }
       
       muerr_raw   = sqrt(muerrsq_raw);
@@ -3224,7 +3265,6 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   FITRESULT.NSNFIT_SPLITRAN[NJOB_SPLITRAN] = nsnfit ;
   
   if (*iflag==3)  { // done with fit
-    FITRESULT.HRMS       = sqrt(hrms_sum/nsnfit); 
     FITRESULT.CHI2SUM_1A = chi2sum_1a ;
     FITRESULT.CHI2RED_1A = chi2sum_1a/(double)(nsnfit1a-FITINP.NFITPAR_FLOAT) ;
     FITRESULT.NSNFIT_1A  = nsnfit1a ; 
@@ -3950,6 +3990,8 @@ void set_defaults(void) {
   INPUTS.x1max = +6.0;
   INPUTS.cmin  = -6.0; 
   INPUTS.cmax  = +6.0;
+  INPUTS.chi2max = 1.0E9 ;
+
   // ---------------------
 
   INPUTS.cutmask_write = 0;  // default -> write events used in fit
@@ -4117,6 +4159,7 @@ void init_CUTMASK(void) {
   sprintf(CUTSTRING_LIST[CUTBIT_DUPL],      "DUPLICATE" );
   sprintf(CUTSTRING_LIST[CUTBIT_NMAXCUT],   "NMAXCUT" );
   sprintf(CUTSTRING_LIST[CUTBIT_IDSAMPLE],  "IDSAMPLE" );
+  sprintf(CUTSTRING_LIST[CUTBIT_CHI2],      "CHI2" );
 
 } // end init_CUTMASK
 
@@ -4239,6 +4282,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
     INFO_DATA.muBias         = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.muBiasErr      = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.muBias_zinterp = (double*) malloc(MEMD); MEMTOT+=MEMD;
+    INFO_DATA.chi2           = (double*) malloc(MEMD); MEMTOT+=MEMD;
     f_MEMORY += (float)(MEMTOT/1.0E6) ;
 
     // fitParBias[isn][ipar] to allow passing mB,x1,c via array
@@ -6615,8 +6659,6 @@ void prepare_biasCor(void) {
   char *NAME_SAMPLE;
   char borderLine[] = 
     "@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@=@" ;
-
-  // ==> REFACTOR UP TO HERE <==
 
   for( IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ ) {
 
@@ -11963,26 +12005,31 @@ int ppar(char* item) {
   }
 
   if ( uniqueOverlap(item,"zmin=")) 
-    { sscanf(&item[5],"%lf",&INPUTS.zmin) ; return(1); }
+    { sscanf(&item[5],"%le",&INPUTS.zmin) ; return(1); }
   if ( uniqueOverlap(item,"zmax=")) 
-    { sscanf(&item[5],"%lf",&INPUTS.zmax) ; return(1); }
+    { sscanf(&item[5],"%le",&INPUTS.zmax) ; return(1); }
 
   if ( uniqueOverlap(item,"x1min=")) 
-    { sscanf(&item[6],"%lf",&INPUTS.x1min); return(1); }
+    { sscanf(&item[6],"%le",&INPUTS.x1min); return(1); }
   if ( uniqueOverlap(item,"x1max="))  
-    { sscanf(&item[6],"%lf",&INPUTS.x1max); return(1); }
+    { sscanf(&item[6],"%le",&INPUTS.x1max); return(1); }
+
+  if ( uniqueOverlap(item,"cmin="))  
+    { sscanf(&item[5],"%le",&INPUTS.cmin); return(1); }
+  if ( uniqueOverlap(item,"cmax="))  
+    { sscanf(&item[5],"%le",&INPUTS.cmax); return(1); }
+
+
+  if ( uniqueOverlap(item,"chi2max=")) 
+    { sscanf(&item[8],"%le",&INPUTS.chi2max); return(1); }
 
   if ( uniqueOverlap(item,"maxerr_abort_x0="))  
-    { sscanf(&item[16],"%lf",&INPUTS.maxerr_abort_x0); return(1); }
+    { sscanf(&item[16],"%le",&INPUTS.maxerr_abort_x0); return(1); }
   if ( uniqueOverlap(item,"maxerr_abort_x1="))  
-    { sscanf(&item[16],"%lf",&INPUTS.maxerr_abort_x1); return(1); }
+    { sscanf(&item[16],"%le",&INPUTS.maxerr_abort_x1); return(1); }
   if ( uniqueOverlap(item,"maxerr_abort_c="))  
-    { sscanf(&item[15],"%lf",&INPUTS.maxerr_abort_c); return(1); }
+    { sscanf(&item[15],"%le",&INPUTS.maxerr_abort_c); return(1); }
   
-  if ( uniqueOverlap(item,"cmin="))  
-    { sscanf(&item[5],"%lf",&INPUTS.cmin); return(1); }
-  if ( uniqueOverlap(item,"cmax="))  
-    { sscanf(&item[5],"%lf",&INPUTS.cmax); return(1); }
 
   if ( uniqueOverlap(item,"sig1="))  
     { sscanf(&item[5],"%lf",&INPUTS.sigmB);return(1); }
@@ -14183,6 +14230,7 @@ void write_fitres(char* fileName) {
   // first define the new fitres variables to add to the
   // original list  
   NVAR_NEW = 0;
+  NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"CUTMASK");
   NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"MU");
   NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"MUMODEL");  // June 2016
   NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"MUERR");
@@ -14191,13 +14239,15 @@ void write_fitres(char* fileName) {
   NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"MUPULL");
   NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"M0DIF");     // Mar 1 2018
 
-  // xxx mark delete  NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"ERRCODE");
-  NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"CUTMASK");
+  if ( INFO_CCPRIOR.USE ) { sprintf(tmpName,"CHI2_BEAMS"); }
+  else                    { sprintf(tmpName,"CHI2"); }
+  NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"%s",tmpName);  // Jul 19 2019
 
+  /* xxx mark delete Jul 19 2019 ... use already existing SIM_DLMAG
   if  ( IS_SIM  ) {
-    NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"SIM_MU"); // for back-compat.
+    NVAR_NEW++ ; sprintf(VARNAMES_NEW[NVAR_NEW],"SIM_MU"); // for back-compat.
   }
-
+  xxxxxxxx end mark xxxxxxxx */
 
   if ( NSN_BIASCOR  > 0 ) {
     NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"biasCor_mu");
@@ -14663,7 +14713,7 @@ void append_fitres(FILE *fp, char *CCID, int  indx ) {
   
   double z, zerr, mu, muerr, muerr2, mumodel, mures, pull, M0DIF ;
   double sim_mb, sim_mu, mb, mberr, s, serr, sbar,  c, cerr, cbar ;
-  double muBias, muBiasErr, fitParBias[NLCPAR], muCOVscale;
+  double muBias, muBiasErr, fitParBias[NLCPAR], muCOVscale, chi2 ;
   int IS_SIM, n, cutmask, NWR, NSN_BIASCOR, idsample ;
 
   char fnam[20] = "append_fitres" ;
@@ -14683,6 +14733,7 @@ void append_fitres(FILE *fp, char *CCID, int  indx ) {
   mures    = INFO_DATA.mures[n] ;
   pull     = INFO_DATA.mupull[n] ;
   M0DIF    = INFO_DATA.M0[n] - FITRESULT.AVEMAG0 ;
+  chi2     = INFO_DATA.chi2[n] ;
   cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n]  ;
   idsample = INFO_DATA.TABLEVAR.IDSAMPLE[n]  ;
   sim_mb   = INFO_DATA.TABLEVAR.SIM_FITPAR[INDEX_mB][n] ;
@@ -14701,19 +14752,21 @@ void append_fitres(FILE *fp, char *CCID, int  indx ) {
   if (pull > 99.999) { pull=99.999; }
   
   NWR=0;
-
-  NWR++ ; fprintf(fp, "%7.4f ", mu    );
+  NWR++ ; fprintf(fp, "%d ",    cutmask);
+  NWR++ ; fprintf(fp, "%7.4f ", mu     );
   NWR++ ; fprintf(fp, "%7.4f ", mumodel); // calculated distance from model
-  NWR++ ; fprintf(fp, "%7.4f ", muerr ); 
-  NWR++ ; fprintf(fp, "%7.4f ", muerr2); // no sigInit, no corrections
-  NWR++ ; fprintf(fp, "%7.4f ", mures );
-  NWR++ ; fprintf(fp, "%6.3f ", pull  );
-  NWR++ ; fprintf(fp, "%7.4f ", M0DIF );
-  NWR++ ; fprintf(fp, "%d ",    cutmask );
+  NWR++ ; fprintf(fp, "%7.4f ", muerr  ); 
+  NWR++ ; fprintf(fp, "%7.4f ", muerr2 ); // no sigInit, no corrections
+  NWR++ ; fprintf(fp, "%7.4f ", mures  );
+  NWR++ ; fprintf(fp, "%6.3f ", pull   );
+  NWR++ ; fprintf(fp, "%7.4f ", M0DIF  );
+  NWR++ ; fprintf(fp, "%.2f ",  chi2   );
+
+  /* xxx mark delete Jul 19 2019 xxxxxxx
   if ( IS_SIM ) {
     NWR++ ; fprintf(fp, "%7.4f ",  sim_mu ); // same as SIMDLMAG
   }
-
+  xxxxxxxx */
 
   if ( NSN_BIASCOR > 0 ) {
     NWR++ ; fprintf(fp, "%6.3f ", muBias );

@@ -17139,4 +17139,16 @@
    Called by snlc_sim, but not implemented. Later, need to implement
    multuple light curves with different time shifts and magnifications.
   
+
+# ======================================================================= 
+         v10_73k (  ) 
+
+         ***** IMPORTANT(v10_73k) ***** 
+
+         ***** USEFUL(v10_73k) ***** 
+
+   SALT2mu: new chi2max=<max> input to reject chi2-outliers (before fit)
+
+         ***** MISCELLANEOUS(v10_73k) ***** 
+
 END: 

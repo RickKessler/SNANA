@@ -20,7 +20,7 @@ void init_stronglens(char *MODEL_FILE) {
   // Initialize strong lens model.
   FILE *fp;
   char fnam[] = "init_stronglens";
-
+  char c_get[60];
   // --------------- BEGIN ---------------
 
   INPUTS_STRONGLENS.USE_FLAG = 0 ;
@@ -47,16 +47,90 @@ void init_stronglens(char *MODEL_FILE) {
 
   // estimate NLENS with upper bound; e.g., read number of lines in file,
   // or read NLENS key from library.  Then allocate memory.
-  int NLENS_APPROX = 50 ;
+  int NROWS = nrow_read(MODEL_FILE,fnam);
+  int NLENS_APPROX = 2*NROWS ;
   malloc_stronglens(NLENS_APPROX);
 
+  int STOP=0.;
+  int n_spaces = 0, i;
+  char ** indices = NULL;
+  
+  fscanf(fp,"%[^\n]",c_get);
+  char *p = strtok(c_get," ");
+  while(p){
+    indices = realloc (indices, sizeof (char*) * ++n_spaces);
+    if (indices == NULL)
+      exit (-1);
+    indices[n_spaces-1] = p;
+  
+    p = strtok (NULL, " ");
+  }
+  indices = realloc (indices, sizeof (char*) * (n_spaces+1));
+  indices[n_spaces] = 0;
+  printf("%s\n",indices[0]);
+  printf("%s\n",indices[1]);
+  //STOP = 1;
+  //char ** templine = NULL;
+  char * line = NULL;
+  size_t len = 0;
+  ssize_t read;
+  float test[n_spaces] = {0.0};
 
-  // read here ...
+  //char empty = ;
+  //int n_spaces_temp = 0;
+  //while((read = getline(&line,&len,fp)) != -1){
+  //  if(strlen(line)>=n_spaces){
+  //    for(i = 0; i<(n_spaces);++i){
+  //	//p=strtok(line," ");
+  //	printf("%s",strtok(line," "));
+  //	//p = strtok (NULL, " ");
+  //  }
+  //}
+    //n_spaces_temp=0;
+    
+    //while(p){
+    //  templine = realloc (templine, sizeof (char*) * ++n_spaces_temp);
+    //templine[n_spaces_temp-1] = p;
+    //p = strtok(NULL," ");
+    //}
+    //templine = realloc (indices, sizeof (char*) * (n_spaces+1));
+    //templine[n_spaces] = 0;
+    //for(i = 0; i<(n_spaces);++i){
+    //  printf("%s",templine[i]);
+    //}
+  //}
+  
+  while(!STOP){
+    STOP=1;
+      //if ( strcmp(c_get,"VARNAMES:") == 0 ) { ; }
+    fscanf(fp,"%[^\n]",c_get);
+    printf("%s\n",c_get);
+    if (c_get == NULL){
+      printf("%s\n","Reached end");
+      STOP = 1.;
+    } else{
+      char *p = strtok(c_get," ");
+      n_spaces = 0;
+      for(i = 0; i< (n_spaces);++i){
+	printf("%s\n",p);
+	  //templine[i] = p;
+	  //++n_spaces;
 
-
+	p = strtok (NULL, " ");
+      }
+      //for (i = 0; i < (n_spaces+1); ++i)
+      //  if (res[i] == 'IDLENS')
+	    
+      //    }
+      //printf("%s\n",templine[0]);
+    //printf("%s\n",templine[4]);
+    //printf("%s\n",p);
+    }
+  }
+  
 
   fclose(fp);
-
+  
   return ;
 
 } // end init_stronglens

@@ -302,7 +302,7 @@ int get_stronglens(double zSN, double *hostpar,
   GauRan  = GaussRan(2);   // Gaussian, sigma=1
   int numLens = 0;
   for(i=0;i<sizeof(INPUTS_STRONGLENS.IDLENS)/sizeof(INPUTS_STRONGLENS.IDLENS[0]);++i){
-    if(INPUTS_STRONGLENS.zLENS[i]>=zSN-0.05 &&INPUTS_STRONGLENS.zLENS[i]<=zSN+0.05){
+    if(INPUTS_STRONGLENS.zLENS[i]>=zSN-0.05 && INPUTS_STRONGLENS.zLENS[i]<=zSN+0.05){
       ++numLens;
     }
   }
@@ -312,7 +312,7 @@ int get_stronglens(double zSN, double *hostpar,
   const int *possible_lenses[numLens];
   j=0;
   for(i=0;i<sizeof(INPUTS_STRONGLENS.IDLENS)/sizeof(INPUTS_STRONGLENS.IDLENS[0]);++i){
-    if(INPUTS_STRONGLENS.zLENS[i]>=zSN-0.05 &&INPUTS_STRONGLENS.zLENS[i]<=zSN+0.05){
+    if(INPUTS_STRONGLENS.zLENS[i]>=zSN-0.05 && INPUTS_STRONGLENS.zLENS[i]<=zSN+0.05){
       possible_lenses[j]=i;
       ++j;
     }
@@ -320,7 +320,7 @@ int get_stronglens(double zSN, double *hostpar,
   int random_lens_index=(int)(FlatRan1(2)*(numLens-1));
   //zLENS_local = zSN * ( 0.1 + 0.8*FlatRan ) ;
   zLENS_local = INPUTS_STRONGLENS.zLENS[random_lens_index];
-  printf("%d",zLENS_local);
+  printf("%d%i%i\n",numLens,sizeof(INPUTS_STRONGLENS.IDLENS)/sizeof(INPUTS_STRONGLENS.IDLENS[0]),random_lens_index);
   //Nimage_local = (int)(FlatRan1(2) * 5.0);
   Nimage_local = INPUTS_STRONGLENS.Nimage[random_lens_index];
   Ximg = INPUTS_STRONGLENS.Ximg[random_lens_index];

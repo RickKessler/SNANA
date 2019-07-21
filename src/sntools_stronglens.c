@@ -307,7 +307,7 @@ int get_stronglens(double zSN, double *hostpar,
     }
   }
   if(numLens==0){
-    errmsg(SEV_FATAL, 0, fnam, "No Lenses in your library matching your source redshift: ", zSN );
+    errmsg(SEV_FATAL, 0, fnam, "No Lenses in your library matching your source redshift.");
   }
   const int *possible_lenses[numLens];
   j=0;
@@ -320,6 +320,7 @@ int get_stronglens(double zSN, double *hostpar,
   int random_lens_index=(int)(FlatRan1(2)*(numLens-1));
   //zLENS_local = zSN * ( 0.1 + 0.8*FlatRan ) ;
   zLENS_local = INPUTS_STRONGLENS.zLENS[random_lens_index];
+  printf("%d",zLENS_local)
   //Nimage_local = (int)(FlatRan1(2) * 5.0);
   Nimage_local = INPUTS_STRONGLENS.Nimage[random_lens_index];
   Ximg = INPUTS_STRONGLENS.Ximg[random_lens_index];
@@ -335,8 +336,8 @@ int get_stronglens(double zSN, double *hostpar,
   // load return arguments
   //IDLENS  = INPUTS_STRONGLENS.NCALL ;
   IDLENS = INPUTS_STRONGLENS.IDLENS[random_lens_index]
-  *zLENS  = zLENS_local ;
-  *Nimage = Nimage_local ;
+  //*zLENS  = zLENS_local ;
+  //*Nimage = Nimage_local ;
 
 
   int  LDMP = (IDLENS > 0 ) ;

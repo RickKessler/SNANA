@@ -20,7 +20,7 @@ void init_stronglens(char *MODEL_FILE) {
   // Initialize strong lens model.
   FILE *fp;
   char fnam[] = "init_stronglens";
-  char c_get[60];
+  char cline[200];
   // --------------- BEGIN ---------------
 
   INPUTS_STRONGLENS.USE_FLAG = 0 ;
@@ -51,30 +51,30 @@ void init_stronglens(char *MODEL_FILE) {
   int NLENS_APPROX = 2*NROWS ;
   malloc_stronglens(NLENS_APPROX);
 
-  int STOP=0.;
-  int n_spaces = 0, i;
-  char ** indices = NULL;
+  //int STOP=0.;
+  //int n_spaces = 0, i;
+  //char ** indices = NULL;
   
-  fscanf(fp,"%[^\n]",c_get);
-  char *p = strtok(c_get," ");
-  while(p){
-    indices = realloc (indices, sizeof (char*) * ++n_spaces);
-    if (indices == NULL)
-      exit (-1);
-    indices[n_spaces-1] = p;
+  //fscanf(fp,"%[^\n]",c_get);
+  //char *p = strtok(c_get," ");
+  //while(p){
+  //  indices = realloc (indices, sizeof (char*) * ++n_spaces);
+  //  if (indices == NULL)
+  //    exit (-1);
+  //  indices[n_spaces-1] = p;
   
-    p = strtok (NULL, " ");
-  }
-  indices = realloc (indices, sizeof (char*) * (n_spaces+1));
-  indices[n_spaces] = 0;
-  printf("%s\n",indices[0]);
-  printf("%s\n",indices[1]);
+  //  p = strtok (NULL, " ");
+  //}
+  //indices = realloc (indices, sizeof (char*) * (n_spaces+1));
+  //indices[n_spaces] = 0;
+  //printf("%s\n",indices[0]);
+  //printf("%s\n",indices[1]);
   //STOP = 1;
   //char ** templine = NULL;
-  char * line = NULL;
-  size_t len = 0;
-  ssize_t read;
-  float test[n_spaces] = {0.0};
+  //char * line = NULL;
+  //size_t len = 0;
+  //ssize_t read;
+  //float test[n_spaces] = {0.0};
 
   //char empty = ;
   //int n_spaces_temp = 0;
@@ -100,24 +100,24 @@ void init_stronglens(char *MODEL_FILE) {
     //}
   //}
   
-  while(!STOP){
-    STOP=1;
+  //while(!STOP){
+  //  STOP=1;
       //if ( strcmp(c_get,"VARNAMES:") == 0 ) { ; }
-    fscanf(fp,"%[^\n]",c_get);
-    printf("%s\n",c_get);
-    if (c_get == NULL){
-      printf("%s\n","Reached end");
-      STOP = 1.;
-    } else{
-      char *p = strtok(c_get," ");
-      n_spaces = 0;
-      for(i = 0; i< (n_spaces);++i){
-	printf("%s\n",p);
+  //  fscanf(fp,"%[^\n]",c_get);
+  //  printf("%s\n",c_get);
+  //  if (c_get == NULL){
+  //    printf("%s\n","Reached end");
+  //    STOP = 1.;
+  //  } else{
+  //    char *p = strtok(c_get," ");
+  //    n_spaces = 0;
+  //    for(i = 0; i< (n_spaces);++i){
+  //	printf("%s\n",p);
 	  //templine[i] = p;
 	  //++n_spaces;
 
-	p = strtok (NULL, " ");
-      }
+  //	p = strtok (NULL, " ");
+  //    }
       //for (i = 0; i < (n_spaces+1); ++i)
       //  if (res[i] == 'IDLENS')
 	    
@@ -125,10 +125,101 @@ void init_stronglens(char *MODEL_FILE) {
       //printf("%s\n",templine[0]);
     //printf("%s\n",templine[4]);
     //printf("%s\n",p);
+    //}
+  //}
+  int iwd,NWD,i,j,k,NVARS,STOP,NIMG,Nsplit,VARLINE;
+  char tmpWord[40];
+  char *cptr;
+  
+  
+  i=0;
+  NVARS=-1;
+  while(NVARS==-1 && fgets(cline, 200, fp)  != NULL ){
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cline);
+    if(NWD>1){
+      get_PARSE_WORD(0,0,tmpWord);
+      if(strcmp(tmpWord,"VARNAMES:")==0){
+	NVARS=NWD;
+	  }
     }
   }
+  if(NVARS==-1){
+    errmsg(SEV_FATAL, 0, fnam, "Error reading strong lens file, make sure you have a 'VARNAMES:' row.", c2err );
+  }
+  const char *VARLIST[NVARS];
+  while( fgets(cline, 200, fp)  != NULL ){
+    if(i>0){
+      NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cline);
+      if(NWD==NVARS){
+	STOP = 0;
+      }else{
+	STOP = 1;
+      }
+    }else{STOP = 0;}
+    
+    VARLINE=0;
+    iwd=0;
+    NIMG=-1;
+    while(iwd<NVARS && !STOP){
+      get_PARSE_WORD(0,iwd,tmpWord);
+      if(iwd==0){
+	if(strcmp(tmpWord,"VARNAMES:")==0){
+	  strcpy(VARLIST[iwd],tmpWord);
+	  VARLINE=1;
+	}else if(strcmp(tmpWord,"LENS:")!=0){
+	  STOP = 1;
+	}
+      }else{
+	if(VARLINE){
+	  VARLIST[iwd] = tmpWord;
+	}else if(strcmp(VARLIST[iwd],"LENSID")==0){
+	  INPUTS_STRONGLENS.IDLENS[i] = atoi(tmpWord);
+	}else if(strcmp(VARLIST[iwd],"NIMG")==0){
+	  INPUTS_STRONGLENS.Nimage[i] = atoi(tmpWord);
+	  NIMG = atoi(tmpWord);
+	}else if(strcmp(VARLIST[iwd],"ZLENS")==0){
+	  INPUTS_STRONGLENS.zLENS[iwd] = atof(tmpWord);
+	}else if(strcmp(VARLIST[iwd],"XIMG")==0){
+	  if(NIMG==-1){
+            errmsg(SEV_FATAL, 0, fnam, "Error reading strong lens file, make sure your NIMG and LENSID come first.", c2err );
+          }
+          splitString(tmpWord,";",NIMG,&Nsplit,cptr);
+	  for(j==0;j<Nsplit;++j){
+            INPUTS_STRONGLENS.Ximg[i][j] = atof(cptr[j]);
+	  }
+	}else if(strcmp(VARLIST[iwd],"YIMG")==0){
+	  if(NIMG==-1){
+            errmsg(SEV_FATAL, 0, fnam, "Error reading strong lens file, make sure your NIMG and LENSID come first.", c2err );
+          }
+          splitString(tmpWord,";",NIMG,&Nsplit,cptr);
+	  for(j==0;j<Nsplit;++j){
+            INPUTS_STRONGLENS.Yimg[i][j] = atof(cptr[j]);
+	  }
+	}else if(strcmp(VARLIST[iwd],"MAG")==0){
+	  if(NIMG==-1){
+            errmsg(SEV_FATAL, 0, fnam, "Error reading strong lens file, make sure your NIMG and LENSID come first.", c2err );
+          }
+          splitString(tmpWord,";",NIMG,&Nsplit,cptr);
+	  for(j==0;j<Nsplit;++j){
+            INPUTS_STRONGLENS.mu[i][j] = atof(cptr[j]);
+	  } 
+	}else if(strcmp(VARLIST[iwd],"DELAY")==0){
+	    if(NIMG==-1){
+	      errmsg(SEV_FATAL, 0, fnam, "Error reading strong lens file, make sure your NIMG and LENSID come first.", c2err );
+	    }
+	    splitString(tmpWord,";",NIMG,&Nsplit,cptr);
+	    for(j==0;j<Nsplit;++j){
+	      INPUTS_STRONGLENS.tdelay[i][j] = atof(cptr[j]);
+	    }
+	}
+      }
+	++iwd;
+	
+    }
+    ++i;
+  }
+    
   
-
   fclose(fp);
   
   return ;
@@ -140,8 +231,8 @@ void malloc_stronglens(int NLENS) {
 
   // malloc memory to hold strong lens library.
   // Access 2D angle arrays as
-  //  INPUTS_STRONGLENS.angSep[libid][image]
-  //  INPUTS_STRONGLENS.phi[libid][image]
+  //  INPUTS_STRONGLENS.Ximg[libid][image]
+  //  INPUTS_STRONGLENS.Yimg[libid][image]
   //
 
   int MEMFF = NLENS * sizeof(float*);
@@ -155,15 +246,17 @@ void malloc_stronglens(int NLENS) {
   INPUTS_STRONGLENS.IDLENS = (int  *) malloc(MEMI);
   INPUTS_STRONGLENS.zLENS  = (float*) malloc(MEMF);
   INPUTS_STRONGLENS.Nimage = (int  *) malloc(MEMI);
-  INPUTS_STRONGLENS.angSep = (float**)malloc(MEMFF);
-  INPUTS_STRONGLENS.phi    = (float**)malloc(MEMFF);
+  INPUTS_STRONGLENS.Ximg = (float**)malloc(MEMFF); //RA Offset
+  INPUTS_STRONGLENS.Yimg    = (float**)malloc(MEMFF); //RA*cos(DEC) offset
   INPUTS_STRONGLENS.tdelay = (float**)malloc(MEMFF);
-  
+  INPUTS_STRONGLENS.mu = (float**)malloc(MEMFF);
+
   int memf = MXIMG_STRONGLENS * sizeof(float);
   for(i=0; i < NLENS; i++ ) {
-    INPUTS_STRONGLENS.angSep[i] = (float*)malloc(memf);
-    INPUTS_STRONGLENS.phi[i]    = (float*)malloc(memf);
+    INPUTS_STRONGLENS.Ximg[i] = (float*)malloc(memf);
+    INPUTS_STRONGLENS.Yimg[i]    = (float*)malloc(memf);
     INPUTS_STRONGLENS.tdelay[i] = (float*)malloc(memf);
+    INPUTS_STRONGLENS.mu[i] = (float*)malloc(memf);
   }
 
   return ;
@@ -173,7 +266,7 @@ void malloc_stronglens(int NLENS) {
 // ==========================================
 int get_stronglens(double zSN, double *hostpar, 
 		   double *zLENS, int *blend_flag, int *Nimage, 
-		   double *tdelay, double *mu, double *angSep, double *phi) {
+		   double *tdelay, double *mu, double *Ximg, double *Yimg) {
 
   // Inputs:
   //   zSN       redshift of SN
@@ -185,8 +278,8 @@ int get_stronglens(double zSN, double *hostpar,
   //  Nimage      Number of images
   //  tdelay      list of Nimage time delays (days)
   //  mu          list of Nimage magnifications (not distance modulus)
-  //  angSep      list of Nimage angular separations from unlensed SN (arcsec)
-  //  phi         list of Nimage phi angle, degrees (phi=0 along RA)
+  //  Ximg      list of Nimage RA separation from center of lens (arcsec)
+  //  Yimg         list of Nimage RA*cost(DEC) separation from center of lens (arcsec)
   //
   // Function returns integer ID of lens galaxy. This ID is written
   // to data files, and is used to link multiple light curves to 
@@ -212,8 +305,8 @@ int get_stronglens(double zSN, double *hostpar,
  
   Nimage_local = (int)(FlatRan1(2) * 5.0);
   for(img=0; img < Nimage_local; img++ ) {
-    angSep[img] = fabs(GaussRan(2));
-    phi[img]    = 360.0 * FlatRan1(2);
+    Ximg[img] = fabs(GaussRan(2));
+    Yimg[img]    = 360.0 * FlatRan1(2);
     mu[img]     = 1.0 + 0.2*GaussRan(2) ;
     if ( mu[img] < .1 ) { mu[img] = 0.1; }    
   }
@@ -231,7 +324,7 @@ int get_stronglens(double zSN, double *hostpar,
     printf(" xxx output IDLENS=%d at zLENS=%.3f \n", IDLENS, zLENS);
     for(img=0 ; img < Nimage_local; img++ ) {
       printf(" xxx output image-%d: mu=%.3f  angSep=%.2f  phi=%.1f\n",
-	     img, mu[img], angSep[img], phi[img] );
+	     img, mu[img], Ximg[img], Yimg[img] );
     }
     printf(" xxx \n");    fflush(stdout);
   }

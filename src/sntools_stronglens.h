@@ -11,8 +11,10 @@ struct {
   int    *IDLENS;  // ID for each lens
   float  *zLENS;  // lens redshift
   int    *Nimage; // Number of images per lens
-  float **angSep, **phi ; // angle sep (arcsec), and phi (degrees)
-  float **tdelay ;
+  float **Ximg, **Yimg ; // angle sep (arcsec), and phi (degrees)
+  float **tdelay ; // time delay of each image (days)
+  float **mu; //magnification of each image
+  
 
 } INPUTS_STRONGLENS;
 
@@ -24,6 +26,6 @@ void malloc_stronglens(int NLENS);
 
 int get_stronglens(double zSN, double *hostpar, double *zLENS, 
 		   int *blend_flag, int *Nimage,
-		   double *tdelay, double *mu, double *angSep, double *phi);
+		   double *tdelay, double *mu, double *Ximg, double *Yimg);
 
 // end:

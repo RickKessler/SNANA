@@ -340,7 +340,7 @@ int get_stronglens(double zSN, double *hostpar,
   //*Nimage = Nimage_local ;
 
 
-  int  LDMP = (IDLENS > 0 ) ;
+  int  LDMP = 1 ;
   if ( LDMP ) {
     printf(" xxx ------ %s DUMP -------- \n", fnam );
     printf(" xxx input zSN = %.3f \n", zSN);

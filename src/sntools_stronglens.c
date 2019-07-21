@@ -162,18 +162,25 @@ void init_stronglens(char *MODEL_FILE) {
     NIMG=-1;
     while(iwd<NVARS && !STOP){
       get_PARSE_WORD(0,iwd,tmpWord);
+      printf("%i,%i,%i,%s\n",iwd,i,VARLINE,tmpWord);
       if(iwd==0){
 	if(strcmp(tmpWord,"VARNAMES:")==0){
-	  strcpy(VARLIST[iwd],tmpWord);
+	  memcpy(VARLIST[iwd],tmpWord,sizeof(tmpWord));
+	  //get_PARSE_WORD(0,iwd,VARLIST[iwd]);
+	  printf("VARLIST: %i,%s\n",iwd,VARLIST[iwd]);
+	  strcpy(tmpWord,"my_test");
+	  printf("VARLIST: %i,%s\n",iwd,VARLIST[iwd]);
 	  VARLINE=1;
 	}else if(strcmp(tmpWord,"LENS:")!=0){
 	  STOP = 1;
 	}
       }else{
+	for(k=0;k<iwd;++k){printf("testing: %i,%s\n",k,VARLIST[k]);}
 	if(VARLINE){
-	  VARLIST[iwd] = tmpWord;
+	  strcpy(VARLIST[iwd],tmpWord);
 	}else if(strcmp(VARLIST[iwd],"LENSID")==0){
 	  INPUTS_STRONGLENS.IDLENS[i] = atoi(tmpWord);
+	  //printf("%i,%i,%s\n",INPUTS_STRONGLENS.IDLENS[i],atoi(tmpWord),tmpWord);
 	}else if(strcmp(VARLIST[iwd],"NIMG")==0){
 	  INPUTS_STRONGLENS.Nimage[i] = atoi(tmpWord);
 	  NIMG = atoi(tmpWord);
@@ -216,6 +223,10 @@ void init_stronglens(char *MODEL_FILE) {
 	++iwd;
 	
     }
+    
+    //for(k=0;k<sizeof(INPUTS_STRONGLENS.IDLENS)/sizeof(INPUTS_STRONGLENS.IDLENS[0]);++k){
+    // printf("%i",INPUTS_STRONGLENS.IDLENS[k]);
+    //}
     ++i;
   }
     

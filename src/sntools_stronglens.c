@@ -285,7 +285,7 @@ int get_stronglens(double zSN, double *hostpar,
   // to data files, and is used to link multiple light curves to 
   // same lensing event.
 
-  int    IDLENS, Nimage_local=0, img;
+  int    IDLENS, Nimage_local=0, img,i,j;
   double FlatRan, GauRan, zLENS_local;
   char fnam[] = "get_stronglens" ;
 
@@ -300,19 +300,41 @@ int get_stronglens(double zSN, double *hostpar,
   // illustrate how to generate randoms
   FlatRan = FlatRan1(2);   // flat between 0 and 1
   GauRan  = GaussRan(2);   // Gaussian, sigma=1
-
-  zLENS_local = zSN * ( 0.1 + 0.8*FlatRan ) ;
- 
-  Nimage_local = (int)(FlatRan1(2) * 5.0);
-  for(img=0; img < Nimage_local; img++ ) {
-    Ximg[img] = fabs(GaussRan(2));
-    Yimg[img]    = 360.0 * FlatRan1(2);
-    mu[img]     = 1.0 + 0.2*GaussRan(2) ;
-    if ( mu[img] < .1 ) { mu[img] = 0.1; }    
+  int numLens = 0;
+  for(i=0;i<sizeof(INPUTS_STRONGLENS.IDLENS)/sizeof(INPUTS_STRONGLENS.IDLENS[0]);++i){
+    if(INPUTS_STRONGLENS.zLENS[i]>=zSN-0.05 &&INPUTS_STRONGLENS.zLENS[i]<=zSN+0.05){
+      ++numLens;
+    }
   }
+  if(numLens==0){
+    errmsg(SEV_FATAL, 0, fnam, "No Lenses in your library matching your source redshift.", sprintf("z=%d",zSN) );
+  }
+  const int *possible_lenses[numLens];
+  j=0;
+  for(i=0;i<sizeof(INPUTS_STRONGLENS.IDLENS)/sizeof(INPUTS_STRONGLENS.IDLENS[0]);++i){
+    if(INPUTS_STRONGLENS.zLENS[i]>=zSN-0.05 &&INPUTS_STRONGLENS.zLENS[i]<=zSN+0.05){
+      possible_lenses[j]=i;
+      ++j;
+    }
+  }
+  int random_lens_index=(int)(FlatRan1(2)*(numLens-1));
+  //zLENS_local = zSN * ( 0.1 + 0.8*FlatRan ) ;
+  zLENS_local = INPUTS_STRONGLENS.zLENS[random_lens_index];
+  //Nimage_local = (int)(FlatRan1(2) * 5.0);
+  Nimage_local = INPUTS_STRONGLENS.Nimage[random_lens_index];
+  Ximg = INPUTS_STRONGLENS.Ximg[random_lens_index];
+  YIMG = INPUTS_STRONGLENS.Yimg[random_lens_index];
+  mu = INPUTS_STRONGLENS.mu[random_lens_index]
+  // for(img=0; img < Nimage_local; img++ ) {
+  //   Ximg[img] = fabs(GaussRan(2));
+  //   Yimg[img]    = 360.0 * FlatRan1(2);
+  //   mu[img]     = 1.0 + 0.2*GaussRan(2) ;
+  //   if ( mu[img] < .1 ) { mu[img] = 0.1; }    
+  // }
 
   // load return arguments
-  IDLENS  = INPUTS_STRONGLENS.NCALL ;
+  //IDLENS  = INPUTS_STRONGLENS.NCALL ;
+  IDLENS = INPUTS_STRONGLENS.IDLENS[random_lens_index]
   *zLENS  = zLENS_local ;
   *Nimage = Nimage_local ;
 

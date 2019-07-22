@@ -21,6 +21,7 @@ void init_stronglens(char *MODEL_FILE) {
   FILE *fp;
   char fnam[] = "init_stronglens";
   char cline[200];
+  int MSKOPT_PARSE = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
   // --------------- BEGIN ---------------
 
   INPUTS_STRONGLENS.USE_FLAG = 0 ;
@@ -44,7 +45,6 @@ void init_stronglens(char *MODEL_FILE) {
   printf("\t Read strong lens model from\n\t %s\n", MODEL_FILE);
   fflush(stdout);
 
-
   // estimate NLENS with upper bound; e.g., read number of lines in file,
   // or read NLENS key from library.  Then allocate memory.
   int NROWS = nrow_read(MODEL_FILE,fnam);
@@ -52,19 +52,47 @@ void init_stronglens(char *MODEL_FILE) {
   malloc_stronglens(NLENS_APPROX);
 
 
+
+  sprintf(INPUTS_STRONGLENS.VARNAME_LENSID,"LENSID");
+  sprintf(INPUTS_STRONGLENS.VARNAME_zSRC,  "ZSRC"  );
+  sprintf(INPUTS_STRONGLENS.VARNAME_zLENS,  "ZLENS" );
+  sprintf(INPUTS_STRONGLENS.VARNAME_zLENS,  "NIMG"  );
+  sprintf(INPUTS_STRONGLENS.VARNAME_zLENS,  "XIMG"  );
+  /*
+  char VARNAME_zLENS[40];
+  char VARNAME_NIMG[40];
+  char VARNAME_XIMG[40];
+  char VARNAME_YIMG[40];
+  char VARNAME_MAG[40];
+  char VARNAME_DELAY[40];
+  */
+
+  INPUTS_STRONGLENS.ICOL_LENSID = -9;
+  INPUTS_STRONGLENS.ICOL_zLENS = -9;
+  INPUTS_STRONGLENS.ICOL_zSRC  = -9;
+  INPUTS_STRONGLENS.ICOL_NIMG  = -9;
+  INPUTS_STRONGLENS.ICOL_XIMG  = -9;
+
   // - - - - - - - - - - - - - - - -
   // read LENS library below.
 
-  int iwd,NWD,i,j,k,NVARS,STOP,NIMG,Nsplit,VARLINE;
+  int iwd,NWD,i,j,k,NVARS,NIMG,Nsplit ;
   char tmpWord[64];
-  char *cptr;
-  char semicolon[] = ";";
+  char *cptr[MXIMG_STRONGLENS];
+  char comma[] = ",";
   int  MEMC  = 64*sizeof(char);
+
+  
+  // allocate pointers to strip comma-separated values; e.g., Ximg, Yimg ...
+  for(k=0;k<MXIMG_STRONGLENS;++k){
+    cptr[k] = (char*)malloc(MEMC); 
+  }
+    
 
   i=0;
   NVARS=-1;
   while(NVARS==-1 && fgets(cline, 200, fp)  != NULL ){
-    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cline);
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE,cline);
     if(NWD>1){
       get_PARSE_WORD(0,0,tmpWord);
       if(strcmp(tmpWord,"VARNAMES:")==0){
@@ -84,12 +112,33 @@ void init_stronglens(char *MODEL_FILE) {
   for(k=0;k<NVARS;++k){
     get_PARSE_WORD(0,k,VARLIST[k]);
     printf(" xxx %s: found VARLIST[%d] = '%s' \n", fnam, k, VARLIST[k]);
+
+    if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_LENSID) == 0 ) 
+      { INPUTS_STRONGLENS.ICOL_LENSID = k; }
+
+    // zLENS ...
+
+    if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_zSRC) == 0 ) 
+      { INPUTS_STRONGLENS.ICOL_zSRC = k; }
+
+    if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_NIMG) == 0 ) 
+      { INPUTS_STRONGLENS.ICOL_NIMG = k; }
+
+    if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_XIMG) == 0 ) 
+      { INPUTS_STRONGLENS.ICOL_XIMG = k; }
+
+    // YIMG ...
   }
 
 
+  // to do: abort if any required ICOL_XXX < 0
+  // loop over k
+
+
   while( fgets(cline, 200, fp)  != NULL ){
-    if( i > 0 ){
-      NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cline);
+
+      NWD = store_PARSE_WORDS(MSKOPT_PARSE,cline);
+      iwd = 0;
       get_PARSE_WORD(0,iwd,tmpWord); // read first word
 
       if ( strcmp(tmpWord,"LENS:") != 0 ) { continue ; } // RK
@@ -99,26 +148,49 @@ void init_stronglens(char *MODEL_FILE) {
 	sprintf(c2err,"but expected %d strings", NVARS);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
       }
+  
+      NIMG = -9;
 
-      // here we have LENS key with correct number of words
+      while(iwd<NVARS ) {
+	get_PARSE_WORD(0,iwd,tmpWord);
 
-      if(NWD==NVARS){
-	STOP = 0;
-      }else{
-	STOP = 1;
-      }
-    }
-    else{
-      STOP = 0;
-    }
-    
-    
+	if ( iwd == INPUTS_STRONGLENS.ICOL_LENSID ) 
+	  { sscanf(tmpWord, "%d", &INPUTS_STRONGLENS.IDLENS[i]); }
+
+	else if ( iwd == INPUTS_STRONGLENS.ICOL_zLENS ) 
+	  { sscanf(tmpWord, "%f", &INPUTS_STRONGLENS.zLENS[i]); }
+
+	else if ( iwd == INPUTS_STRONGLENS.ICOL_NIMG ) {
+	  sscanf(tmpWord, "%d", &INPUTS_STRONGLENS.Nimage[i]) ; 
+	  NIMG = INPUTS_STRONGLENS.Nimage[i] ;
+	}
+
+	else if ( iwd == INPUTS_STRONGLENS.ICOL_XIMG ) 	{ 
+	  
+          splitString(tmpWord,comma,MXIMG_STRONGLENS,&Nsplit,cptr);
+	  // for Justin: abort if Nsplit != Nimage
+
+	  for(j=0; j<NIMG; ++j) {
+            sscanf(cptr[j],"%f", &INPUTS_STRONGLENS.Ximg[i][j] );
+	  }
+	 
+	}
+	
+	iwd++ ;
+      } // end loop over columns
+
+      i++; // increment library entry
+
+  } // end while over input lines 
+
+
+
+
+      /* xxxx mark delete xxxx
     iwd=0;
     NIMG=-1;
     char *cptr[12];
-    for(k=0;k<12;++k){
-      cptr[k] = (char*)malloc(MEMC); // RK memory leak !!!
-    }
+
     while(iwd<NVARS && !STOP){
       
       if(iwd==0){
@@ -128,7 +200,7 @@ void init_stronglens(char *MODEL_FILE) {
 	}
       }else{
 	get_PARSE_WORD(0,iwd,tmpWord);
-	if(strcmp(VARLIST[iwd],"LENSID")==0){
+	if(strcmp(VARLIST[iwd],INPUTS_STRONGLENS.VARNAME_LENSID)==0){
 	  INPUTS_STRONGLENS.IDLENS[i] = atoi(tmpWord);
 	}else if(strcmp(VARLIST[iwd],"NIMG")==0){
 	  INPUTS_STRONGLENS.Nimage[i] = atoi(tmpWord);
@@ -181,9 +253,9 @@ void init_stronglens(char *MODEL_FILE) {
 	++iwd;
 	
     }
-    
     ++i;
-  }
+    
+      xxxxxxxx end mark xxxxxx */
     
   
   fclose(fp);

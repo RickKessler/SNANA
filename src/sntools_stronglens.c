@@ -128,10 +128,11 @@ void init_stronglens(char *MODEL_FILE) {
     //}
   //}
   int iwd,NWD,i,j,k,NVARS,STOP,NIMG,Nsplit,VARLINE;
-  char tmpWord[40];
+  char tmpWord[64];
   char *cptr;
-  
-  
+  char semicolon[] = ";";
+  int    MEMC  = 64*sizeof(char);
+
   i=0;
   NVARS=-1;
   while(NVARS==-1 && fgets(cline, 200, fp)  != NULL ){
@@ -140,13 +141,17 @@ void init_stronglens(char *MODEL_FILE) {
       get_PARSE_WORD(0,0,tmpWord);
       if(strcmp(tmpWord,"VARNAMES:")==0){
 	NVARS=NWD;
-	  }
     }
+  }
   }
   if(NVARS==-1){
     errmsg(SEV_FATAL, 0, fnam, "Error reading strong lens file, make sure you have a 'VARNAMES:' row.", c2err );
   }
-  const char *VARLIST[NVARS];
+  const char VARLIST[NVARS][20];
+  
+  for(k=0;k<NVARS;++k){
+    get_PARSE_WORD(0,k,VARLIST[k]);
+      }
   while( fgets(cline, 200, fp)  != NULL ){
     if(i>0){
       NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cline);
@@ -157,57 +162,60 @@ void init_stronglens(char *MODEL_FILE) {
       }
     }else{STOP = 0;}
     
-    VARLINE=0;
+    
     iwd=0;
     NIMG=-1;
+    char *cptr[12];
+    for(k=0;k<12;++k){
+      cptr[k] = (char*)malloc(MEMC);
+    }
     while(iwd<NVARS && !STOP){
-      get_PARSE_WORD(0,iwd,tmpWord);
-      printf("%i,%i,%i,%s\n",iwd,i,VARLINE,tmpWord);
+      
       if(iwd==0){
-	if(strcmp(tmpWord,"VARNAMES:")==0){
-	  memcpy(VARLIST[iwd],tmpWord,sizeof(tmpWord));
-	  //get_PARSE_WORD(0,iwd,VARLIST[iwd]);
-	  printf("VARLIST: %i,%s\n",iwd,VARLIST[iwd]);
-	  strcpy(tmpWord,"my_test");
-	  printf("VARLIST: %i,%s\n",iwd,VARLIST[iwd]);
-	  VARLINE=1;
-	}else if(strcmp(tmpWord,"LENS:")!=0){
+	get_PARSE_WORD(0,iwd,tmpWord);
+	if(strcmp(tmpWord,"LENS:")!=0){
 	  STOP = 1;
 	}
       }else{
-	for(k=0;k<iwd;++k){printf("testing: %i,%s\n",k,VARLIST[k]);}
-	if(VARLINE){
-	  strcpy(VARLIST[iwd],tmpWord);
-	}else if(strcmp(VARLIST[iwd],"LENSID")==0){
+	get_PARSE_WORD(0,iwd,tmpWord);
+	if(strcmp(VARLIST[iwd],"LENSID")==0){
 	  INPUTS_STRONGLENS.IDLENS[i] = atoi(tmpWord);
-	  //printf("%i,%i,%s\n",INPUTS_STRONGLENS.IDLENS[i],atoi(tmpWord),tmpWord);
 	}else if(strcmp(VARLIST[iwd],"NIMG")==0){
 	  INPUTS_STRONGLENS.Nimage[i] = atoi(tmpWord);
 	  NIMG = atoi(tmpWord);
+	  
 	}else if(strcmp(VARLIST[iwd],"ZLENS")==0){
-	  INPUTS_STRONGLENS.zLENS[iwd] = atof(tmpWord);
-	}else if(strcmp(VARLIST[iwd],"XIMG")==0){
+	  INPUTS_STRONGLENS.zLENS[i] = atof(tmpWord);
+	}else if(strcmp(VARLIST[iwd],"ZSRC")==0){
+          INPUTS_STRONGLENS.zSRC[i] = atof(tmpWord);
+        }else if(strcmp(VARLIST[iwd],"XIMG")==0){
 	  if(NIMG==-1){
             errmsg(SEV_FATAL, 0, fnam, "Error reading strong lens file, make sure your NIMG and LENSID come first.", c2err );
           }
-          splitString(tmpWord,";",NIMG,&Nsplit,cptr);
-	  for(j==0;j<Nsplit;++j){
+	  
+	  
+	  
+	  
+          splitString(tmpWord,semicolon,NIMG,&Nsplit,cptr);
+	  for(j=0;j<NIMG;++j){
             INPUTS_STRONGLENS.Ximg[i][j] = atof(cptr[j]);
 	  }
 	}else if(strcmp(VARLIST[iwd],"YIMG")==0){
 	  if(NIMG==-1){
             errmsg(SEV_FATAL, 0, fnam, "Error reading strong lens file, make sure your NIMG and LENSID come first.", c2err );
           }
+	  
           splitString(tmpWord,";",NIMG,&Nsplit,cptr);
-	  for(j==0;j<Nsplit;++j){
+	  for(j=0;j<Nsplit;++j){
             INPUTS_STRONGLENS.Yimg[i][j] = atof(cptr[j]);
 	  }
 	}else if(strcmp(VARLIST[iwd],"MAG")==0){
 	  if(NIMG==-1){
             errmsg(SEV_FATAL, 0, fnam, "Error reading strong lens file, make sure your NIMG and LENSID come first.", c2err );
           }
+	  
           splitString(tmpWord,";",NIMG,&Nsplit,cptr);
-	  for(j==0;j<Nsplit;++j){
+	  for(j=0;j<Nsplit;++j){
             INPUTS_STRONGLENS.mu[i][j] = atof(cptr[j]);
 	  } 
 	}else if(strcmp(VARLIST[iwd],"DELAY")==0){
@@ -215,7 +223,7 @@ void init_stronglens(char *MODEL_FILE) {
 	      errmsg(SEV_FATAL, 0, fnam, "Error reading strong lens file, make sure your NIMG and LENSID come first.", c2err );
 	    }
 	    splitString(tmpWord,";",NIMG,&Nsplit,cptr);
-	    for(j==0;j<Nsplit;++j){
+	    for(j=0;j<Nsplit;++j){
 	      INPUTS_STRONGLENS.tdelay[i][j] = atof(cptr[j]);
 	    }
 	}
@@ -224,15 +232,14 @@ void init_stronglens(char *MODEL_FILE) {
 	
     }
     
-    //for(k=0;k<sizeof(INPUTS_STRONGLENS.IDLENS)/sizeof(INPUTS_STRONGLENS.IDLENS[0]);++k){
-    // printf("%i",INPUTS_STRONGLENS.IDLENS[k]);
-    //}
     ++i;
   }
     
   
   fclose(fp);
-  
+
+  INPUTS_STRONGLENS.NLENS = i-2;
+  //printf("%i\n",INPUTS_STRONGLENS.NLENS);
   return ;
 
 } // end init_stronglens
@@ -249,11 +256,12 @@ void malloc_stronglens(int NLENS) {
   int MEMFF = NLENS * sizeof(float*);
   int MEMF  = NLENS * sizeof(float);
   int MEMI  = NLENS * sizeof(int);
+    
   int i;
   char fnam[] = "malloc_stronglens";
-
+  
   // ------------ BEGIN --------------
-
+  INPUTS_STRONGLENS.NLENS = (int)malloc(sizeof(int));
   INPUTS_STRONGLENS.IDLENS = (int  *) malloc(MEMI);
   INPUTS_STRONGLENS.zLENS  = (float*) malloc(MEMF);
   INPUTS_STRONGLENS.Nimage = (int  *) malloc(MEMI);
@@ -261,6 +269,8 @@ void malloc_stronglens(int NLENS) {
   INPUTS_STRONGLENS.Yimg    = (float**)malloc(MEMFF); //RA*cos(DEC) offset
   INPUTS_STRONGLENS.tdelay = (float**)malloc(MEMFF);
   INPUTS_STRONGLENS.mu = (float**)malloc(MEMFF);
+  INPUTS_STRONGLENS.zSRC = (float*) malloc(MEMF);
+
 
   int memf = MXIMG_STRONGLENS * sizeof(float);
   for(i=0; i < NLENS; i++ ) {
@@ -312,8 +322,8 @@ int get_stronglens(double zSN, double *hostpar,
   FlatRan = FlatRan1(2);   // flat between 0 and 1
   GauRan  = GaussRan(2);   // Gaussian, sigma=1
   int numLens = 0;
-  for(i=0;i<sizeof(INPUTS_STRONGLENS.IDLENS)/sizeof(INPUTS_STRONGLENS.IDLENS[0]);++i){
-    if(INPUTS_STRONGLENS.zLENS[i]>=zSN-0.05 && INPUTS_STRONGLENS.zLENS[i]<=zSN+0.05){
+  for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
+    if(INPUTS_STRONGLENS.zSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.zSRC[i]<=zSN+0.05){
       ++numLens;
     }
   }
@@ -322,43 +332,35 @@ int get_stronglens(double zSN, double *hostpar,
   }
   const int *possible_lenses[numLens];
   j=0;
-  for(i=0;i<sizeof(INPUTS_STRONGLENS.IDLENS)/sizeof(INPUTS_STRONGLENS.IDLENS[0]);++i){
-    if(INPUTS_STRONGLENS.zLENS[i]>=zSN-0.05 && INPUTS_STRONGLENS.zLENS[i]<=zSN+0.05){
+  for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
+    if(INPUTS_STRONGLENS.zSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.zSRC[i]<=zSN+0.05){
       possible_lenses[j]=i;
       ++j;
     }
   }
   int random_lens_index=(int)(FlatRan1(2)*(numLens-1));
   //zLENS_local = zSN * ( 0.1 + 0.8*FlatRan ) ;
-  zLENS_local = INPUTS_STRONGLENS.zLENS[random_lens_index];
-  printf("%d%i%i\n",numLens,sizeof(INPUTS_STRONGLENS.IDLENS)/sizeof(INPUTS_STRONGLENS.IDLENS[0]),random_lens_index);
-  //Nimage_local = (int)(FlatRan1(2) * 5.0);
+  zLENS = INPUTS_STRONGLENS.zLENS[random_lens_index];
+  
   Nimage_local = INPUTS_STRONGLENS.Nimage[random_lens_index];
   Ximg = INPUTS_STRONGLENS.Ximg[random_lens_index];
   Yimg = INPUTS_STRONGLENS.Yimg[random_lens_index];
   mu = INPUTS_STRONGLENS.mu[random_lens_index];
-  // for(img=0; img < Nimage_local; img++ ) {
-  //   Ximg[img] = fabs(GaussRan(2));
-  //   Yimg[img]    = 360.0 * FlatRan1(2);
-  //   mu[img]     = 1.0 + 0.2*GaussRan(2) ;
-  //   if ( mu[img] < .1 ) { mu[img] = 0.1; }    
-  // }
-
+  tdelay = INPUTS_STRONGLENS.tdelay[random_lens_index];
   // load return arguments
-  //IDLENS  = INPUTS_STRONGLENS.NCALL ;
+  
   IDLENS = INPUTS_STRONGLENS.IDLENS[random_lens_index];
-  //*zLENS  = zLENS_local ;
-  //*Nimage = Nimage_local ;
+  
 
 
   int  LDMP = 1 ;
   if ( LDMP ) {
     printf(" xxx ------ %s DUMP -------- \n", fnam );
     printf(" xxx input zSN = %.3f \n", zSN);
-    printf(" xxx output IDLENS=%d at zLENS=%.3f \n", IDLENS, zLENS);
+    printf(" xxx output IDLENS=%d at zLENS=%.3f \n", IDLENS, INPUTS_STRONGLENS.zLENS[random_lens_index]);
     for(img=0 ; img < Nimage_local; img++ ) {
-      printf(" xxx output image-%d: mu=%.3f  angSep=%.2f  phi=%.1f\n",
-	     img, mu[img], Ximg[img], Yimg[img] );
+      printf(" xxx output image-%d: mu=%.3f  X-offset=%.5f  Y-offset=%.5f\n",
+	     img, INPUTS_STRONGLENS.mu[random_lens_index][img], INPUTS_STRONGLENS.Ximg[random_lens_index][img], INPUTS_STRONGLENS.Yimg[random_lens_index][img] );
     }
     printf(" xxx \n");    fflush(stdout);
   }

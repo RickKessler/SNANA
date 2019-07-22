@@ -10,6 +10,7 @@ struct {
   int NLENS;     // number of lenses in library
   int    *IDLENS;  // ID for each lens
   float  *zLENS;  // lens redshift
+  float *zSRC; //source redshift
   int    *Nimage; // Number of images per lens
   float **Ximg, **Yimg ; // angle sep (arcsec), and phi (degrees)
   float **tdelay ; // time delay of each image (days)

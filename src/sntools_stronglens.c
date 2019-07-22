@@ -20,8 +20,13 @@ void init_stronglens(char *MODEL_FILE) {
   // Initialize strong lens model.
   FILE *fp;
   char fnam[] = "init_stronglens";
-  char cline[200];
+  char cline[200],tmpWord[64];
   int MSKOPT_PARSE = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
+  int iwd,NWD,i,j,k,NVARS,NIMG,Nsplit ;
+  char *cptr[MXIMG_STRONGLENS];
+  char comma[] = ",";
+  char MISSING_VAR[] = "NONE";
+  int  MEMC  = 64*sizeof(char);
   // --------------- BEGIN ---------------
 
   INPUTS_STRONGLENS.USE_FLAG = 0 ;
@@ -54,34 +59,26 @@ void init_stronglens(char *MODEL_FILE) {
 
 
   sprintf(INPUTS_STRONGLENS.VARNAME_LENSID,"LENSID");
-  sprintf(INPUTS_STRONGLENS.VARNAME_zSRC,  "ZSRC"  );
-  sprintf(INPUTS_STRONGLENS.VARNAME_zLENS,  "ZLENS" );
-  sprintf(INPUTS_STRONGLENS.VARNAME_zLENS,  "NIMG"  );
-  sprintf(INPUTS_STRONGLENS.VARNAME_zLENS,  "XIMG"  );
-  /*
-  char VARNAME_zLENS[40];
-  char VARNAME_NIMG[40];
-  char VARNAME_XIMG[40];
-  char VARNAME_YIMG[40];
-  char VARNAME_MAG[40];
-  char VARNAME_DELAY[40];
-  */
+  sprintf(INPUTS_STRONGLENS.VARNAME_ZSRC,  "ZSRC"  );
+  sprintf(INPUTS_STRONGLENS.VARNAME_ZLENS, "ZLENS" );
+  sprintf(INPUTS_STRONGLENS.VARNAME_NIMG,  "NIMG"  );
+  sprintf(INPUTS_STRONGLENS.VARNAME_XIMG,  "XIMG"  );
+  sprintf(INPUTS_STRONGLENS.VARNAME_YIMG,  "XIMG"  );
+  sprintf(INPUTS_STRONGLENS.VARNAME_MAG,    "MAG"  );
+  sprintf(INPUTS_STRONGLENS.VARNAME_DELAY,"DELAY"  );
+  
 
   INPUTS_STRONGLENS.ICOL_LENSID = -9;
-  INPUTS_STRONGLENS.ICOL_zLENS = -9;
-  INPUTS_STRONGLENS.ICOL_zSRC  = -9;
-  INPUTS_STRONGLENS.ICOL_NIMG  = -9;
-  INPUTS_STRONGLENS.ICOL_XIMG  = -9;
+  INPUTS_STRONGLENS.ICOL_ZLENS  = -9;
+  INPUTS_STRONGLENS.ICOL_ZSRC   = -9;
+  INPUTS_STRONGLENS.ICOL_NIMG   = -9;
+  INPUTS_STRONGLENS.ICOL_XIMG   = -9;
+  INPUTS_STRONGLENS.ICOL_YIMG   = -9;
+  INPUTS_STRONGLENS.ICOL_MAG    = -9;
+  INPUTS_STRONGLENS.ICOL_DELAY  = -9;
 
   // - - - - - - - - - - - - - - - -
   // read LENS library below.
-
-  int iwd,NWD,i,j,k,NVARS,NIMG,Nsplit ;
-  char tmpWord[64];
-  char *cptr[MXIMG_STRONGLENS];
-  char comma[] = ",";
-  int  MEMC  = 64*sizeof(char);
-
   
   // allocate pointers to strip comma-separated values; e.g., Ximg, Yimg ...
   for(k=0;k<MXIMG_STRONGLENS;++k){
@@ -89,20 +86,21 @@ void init_stronglens(char *MODEL_FILE) {
   }
     
 
-  i=0;
+  
   NVARS=-1;
   while(NVARS==-1 && fgets(cline, 200, fp)  != NULL ){
     NWD = store_PARSE_WORDS(MSKOPT_PARSE,cline);
     if(NWD>1){
       get_PARSE_WORD(0,0,tmpWord);
       if(strcmp(tmpWord,"VARNAMES:")==0){
-	NVARS=NWD;
+	       NVARS=NWD;
       }
     }
   }
 
+  // make sure that we found VARNAMES
   if(NVARS == -1){
-    sprintf(c1err,"Could not find required VARNAMES key"); // RK
+    sprintf(c1err,"Could not find required VARNAMES key"); 
     sprintf(c2err,"Check %s", MODEL_FILE);
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err);
   }
@@ -116,10 +114,11 @@ void init_stronglens(char *MODEL_FILE) {
     if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_LENSID) == 0 ) 
       { INPUTS_STRONGLENS.ICOL_LENSID = k; }
 
-    // zLENS ...
+    if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_ZLENS) == 0 ) 
+      { INPUTS_STRONGLENS.ICOL_ZLENS = k; }    
 
-    if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_zSRC) == 0 ) 
-      { INPUTS_STRONGLENS.ICOL_zSRC = k; }
+    if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_ZSRC) == 0 ) 
+      { INPUTS_STRONGLENS.ICOL_ZSRC = k; }
 
     if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_NIMG) == 0 ) 
       { INPUTS_STRONGLENS.ICOL_NIMG = k; }
@@ -127,13 +126,35 @@ void init_stronglens(char *MODEL_FILE) {
     if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_XIMG) == 0 ) 
       { INPUTS_STRONGLENS.ICOL_XIMG = k; }
 
-    // YIMG ...
+    if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_YIMG) == 0 ) 
+      { INPUTS_STRONGLENS.ICOL_YIMG = k; }
+
+    if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_MAG) == 0 ) 
+      { INPUTS_STRONGLENS.ICOL_MAG = k; }
+
+    if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_DELAY) == 0 ) 
+      { INPUTS_STRONGLENS.ICOL_DELAY = k; }
+
   }
 
+  
 
-  // to do: abort if any required ICOL_XXX < 0
-  // loop over k
+  if( INPUTS_STRONGLENS.ICOL_LENSID < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_LENSID; }
+  else if( INPUTS_STRONGLENS.ICOL_ZLENS < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_ZLENS; }
+  else if( INPUTS_STRONGLENS.ICOL_ZSRC < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_ZSRC; }
+  else if( INPUTS_STRONGLENS.ICOL_NIMG < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_NIMG; }
+  else if( INPUTS_STRONGLENS.ICOL_XIMG < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_XIMG; }
+  else if( INPUTS_STRONGLENS.ICOL_YIMG < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_YIMG; }
+  else if( INPUTS_STRONGLENS.ICOL_MAG < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_MAG; } 
+  else if( INPUTS_STRONGLENS.ICOL_DELAY < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_DELAY; }
+  
+  if( strcmp(MISSING_VAR,"NONE") != 0 ){
+    sprintf(c1err,"Could not find required key: %s",MISSING_VAR); 
+    sprintf(c2err,"Check %s", MODEL_FILE);
+    errmsg(SEV_FATAL, 0, fnam, c1err,c2err);
+  }
 
+  i=0; // represents the library entry
 
   while( fgets(cline, 200, fp)  != NULL ){
 
@@ -144,123 +165,111 @@ void init_stronglens(char *MODEL_FILE) {
       if ( strcmp(tmpWord,"LENS:") != 0 ) { continue ; } // RK
 
       if ( NWD-1 != NVARS )  { // RK
-	sprintf(c1err,"Found NWD-1 strings after LENS: key");
-	sprintf(c2err,"but expected %d strings", NVARS);
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    	   sprintf(c1err,"Found NWD-1 strings after LENS: key");
+    	   sprintf(c2err,"but expected %d strings", NVARS);
+	       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
       }
   
       NIMG = -9;
 
       while(iwd<NVARS ) {
-	get_PARSE_WORD(0,iwd,tmpWord);
+      	get_PARSE_WORD(0,iwd,tmpWord);
 
-	if ( iwd == INPUTS_STRONGLENS.ICOL_LENSID ) 
-	  { sscanf(tmpWord, "%d", &INPUTS_STRONGLENS.IDLENS[i]); }
+      	if ( iwd == INPUTS_STRONGLENS.ICOL_LENSID ) 
+      	  { sscanf(tmpWord, "%d", &INPUTS_STRONGLENS.IDLENS[i]); }
 
-	else if ( iwd == INPUTS_STRONGLENS.ICOL_zLENS ) 
-	  { sscanf(tmpWord, "%f", &INPUTS_STRONGLENS.zLENS[i]); }
+      	else if ( iwd == INPUTS_STRONGLENS.ICOL_ZLENS ) 
+      	  { sscanf(tmpWord, "%f", &INPUTS_STRONGLENS.ZLENS[i]); }
 
-	else if ( iwd == INPUTS_STRONGLENS.ICOL_NIMG ) {
-	  sscanf(tmpWord, "%d", &INPUTS_STRONGLENS.Nimage[i]) ; 
-	  NIMG = INPUTS_STRONGLENS.Nimage[i] ;
-	}
+        else if ( iwd == INPUTS_STRONGLENS.ICOL_ZSRC ) 
+          { sscanf(tmpWord, "%f", &INPUTS_STRONGLENS.ZSRC[i]); }
 
-	else if ( iwd == INPUTS_STRONGLENS.ICOL_XIMG ) 	{ 
-	  
+      	else if ( iwd == INPUTS_STRONGLENS.ICOL_NIMG ) {
+      	  sscanf(tmpWord, "%d", &INPUTS_STRONGLENS.NIMG[i]) ; 
+      	  NIMG = INPUTS_STRONGLENS.NIMG[i] ;
+      	}
+
+      	else if ( iwd == INPUTS_STRONGLENS.ICOL_XIMG ) 	{ 
           splitString(tmpWord,comma,MXIMG_STRONGLENS,&Nsplit,cptr);
-	  // for Justin: abort if Nsplit != Nimage
-
-	  for(j=0; j<NIMG; ++j) {
-            sscanf(cptr[j],"%f", &INPUTS_STRONGLENS.Ximg[i][j] );
-	  }
-	 
-	}
-	
-	iwd++ ;
-      } // end loop over columns
-
-      i++; // increment library entry
-
-  } // end while over input lines 
-
-
-
-
-      /* xxxx mark delete xxxx
-    iwd=0;
-    NIMG=-1;
-    char *cptr[12];
-
-    while(iwd<NVARS && !STOP){
-      
-      if(iwd==0){
-	get_PARSE_WORD(0,iwd,tmpWord);
-	if(strcmp(tmpWord,"LENS:")!=0){
-	  STOP = 1;
-	}
-      }else{
-	get_PARSE_WORD(0,iwd,tmpWord);
-	if(strcmp(VARLIST[iwd],INPUTS_STRONGLENS.VARNAME_LENSID)==0){
-	  INPUTS_STRONGLENS.IDLENS[i] = atoi(tmpWord);
-	}else if(strcmp(VARLIST[iwd],"NIMG")==0){
-	  INPUTS_STRONGLENS.Nimage[i] = atoi(tmpWord);
-	  NIMG = atoi(tmpWord);
-	  
-	}else if(strcmp(VARLIST[iwd],"ZLENS")==0){
-	  INPUTS_STRONGLENS.zLENS[i] = atof(tmpWord);
-	}else if(strcmp(VARLIST[iwd],"ZSRC")==0){
-          INPUTS_STRONGLENS.zSRC[i] = atof(tmpWord);
-        }else if(strcmp(VARLIST[iwd],"XIMG")==0){
-	  if(NIMG==-1){
-            errmsg(SEV_FATAL, 0, fnam, "Error reading strong lens file, make sure your NIMG and LENSID come first.", c2err );
+      	  if ( Nsplit != NIMG )  { 
+             sprintf(c1err,"Found %d images but expected %d in line %d",Nsplit,NIMG,i);
+             sprintf(c2err,"of %s", MODEL_FILE);
+             errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
           }
-	  
-	  
-	  
-	  
-          splitString(tmpWord,semicolon,NIMG,&Nsplit,cptr);
-	  for(j=0;j<NIMG;++j){
-            INPUTS_STRONGLENS.Ximg[i][j] = atof(cptr[j]);
-	  }
-	}else if(strcmp(VARLIST[iwd],"YIMG")==0){
-	  if(NIMG==-1){
-            errmsg(SEV_FATAL, 0, fnam, "Error reading strong lens file, make sure your NIMG and LENSID come first.", c2err );
+
+      	  for(j=0; j<NIMG; ++j) {
+                  sscanf(cptr[j],"%f", &INPUTS_STRONGLENS.Ximg[i][j] );
+      	  }
+      	 
+      	}
+
+        else if ( iwd == INPUTS_STRONGLENS.ICOL_YIMG )  { 
+          splitString(tmpWord,comma,MXIMG_STRONGLENS,&Nsplit,cptr);
+          if ( NIMG < 0 )  { 
+             sprintf(c1err,"NIMG must come before variables with multiple images (e.g. MAG, DELAY, etc.)");
+             sprintf(c2err,"in %s", MODEL_FILE);
+             errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
           }
-	  
-          splitString(tmpWord,";",NIMG,&Nsplit,cptr);
-	  for(j=0;j<Nsplit;++j){
-            INPUTS_STRONGLENS.Yimg[i][j] = atof(cptr[j]);
-	  }
-	}else if(strcmp(VARLIST[iwd],"MAG")==0){
-	  if(NIMG==-1){
-            errmsg(SEV_FATAL, 0, fnam, "Error reading strong lens file, make sure your NIMG and LENSID come first.", c2err );
+          else if ( Nsplit != NIMG )  { 
+             sprintf(c1err,"Found %d images but expected %d in line %d",Nsplit,NIMG,i);
+             sprintf(c2err,"of %s", MODEL_FILE);
+             errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
           }
-	  
-          splitString(tmpWord,";",NIMG,&Nsplit,cptr);
-	  for(j=0;j<Nsplit;++j){
-            INPUTS_STRONGLENS.mu[i][j] = atof(cptr[j]);
-	  } 
-	}else if(strcmp(VARLIST[iwd],"DELAY")==0){
-	    if(NIMG==-1){
-	      errmsg(SEV_FATAL, 0, fnam, "Error reading strong lens file, make sure your NIMG and LENSID come first.", c2err );
-	    }
-	    splitString(tmpWord,";",NIMG,&Nsplit,cptr);
-	    for(j=0;j<Nsplit;++j){
-	      INPUTS_STRONGLENS.tdelay[i][j] = atof(cptr[j]);
-	    }
-	}
-      }
-	++iwd;
-	
-    }
-    ++i;
-    
-      xxxxxxxx end mark xxxxxx */
+
+          for(j=0; j<NIMG; ++j) {
+                  sscanf(cptr[j],"%f", &INPUTS_STRONGLENS.Yimg[i][j] );
+          }
+         
+        }
+
+        else if ( iwd == INPUTS_STRONGLENS.ICOL_MAG )  { 
+          splitString(tmpWord,comma,MXIMG_STRONGLENS,&Nsplit,cptr);
+          if ( NIMG < 0 )  { 
+             sprintf(c1err,"NIMG must come before variables with multiple images (e.g. MAG, DELAY, etc.)");
+             sprintf(c2err,"in %s", MODEL_FILE);
+             errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+          }
+          else if ( Nsplit != NIMG )  { 
+             sprintf(c1err,"Found %d images but expected %d in line %d",Nsplit,NIMG,i);
+             sprintf(c2err,"of %s", MODEL_FILE);
+             errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+          }
+
+          for(j=0; j<NIMG; ++j) {
+                  sscanf(cptr[j],"%f", &INPUTS_STRONGLENS.MAG[i][j] );
+          }
+         
+        }
+      	
+        else if ( iwd == INPUTS_STRONGLENS.ICOL_DELAY )  { 
+          splitString(tmpWord,comma,MXIMG_STRONGLENS,&Nsplit,cptr);
+          if ( NIMG < 0 )  { 
+             sprintf(c1err,"NIMG must come before variables with multiple images (e.g. MAG, DELAY, etc.)");
+             sprintf(c2err,"in %s", MODEL_FILE);
+             errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+          }
+          else if ( Nsplit != NIMG )  { 
+             sprintf(c1err,"Found %d images but expected %d in line %d",Nsplit,NIMG,i);
+             sprintf(c2err,"of %s", MODEL_FILE);
+             errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+          }
+
+          for(j=0; j<NIMG; ++j) {
+                  sscanf(cptr[j],"%f", &INPUTS_STRONGLENS.DELAY[i][j] );
+          }
+         
+        }
+      	iwd++ ;
+            } // end loop over columns
+
+          i++; // increment library entry
+
+      } // end while over input lines 
     
   
   fclose(fp);
 
-  INPUTS_STRONGLENS.NLENS = i-2;
+  INPUTS_STRONGLENS.NLENS = i-1;
   //printf("%i\n",INPUTS_STRONGLENS.NLENS);
   return ;
 
@@ -285,21 +294,21 @@ void malloc_stronglens(int NLENS) {
   // ------------ BEGIN --------------
 
   INPUTS_STRONGLENS.IDLENS = (int  *) malloc(MEMI);
-  INPUTS_STRONGLENS.zLENS  = (float*) malloc(MEMF);
-  INPUTS_STRONGLENS.Nimage = (int  *) malloc(MEMI);
-  INPUTS_STRONGLENS.Ximg   = (float**)malloc(MEMFF); //RA Offset
-  INPUTS_STRONGLENS.Yimg   = (float**)malloc(MEMFF); //RA*cos(DEC) offset
-  INPUTS_STRONGLENS.tdelay = (float**)malloc(MEMFF);
-  INPUTS_STRONGLENS.mu     = (float**)malloc(MEMFF);
-  INPUTS_STRONGLENS.zSRC   = (float*) malloc(MEMF);
+  INPUTS_STRONGLENS.ZLENS  = (float*) malloc(MEMF);
+  INPUTS_STRONGLENS.NIMG = (int  *) malloc(MEMI);
+  INPUTS_STRONGLENS.XIMG   = (float**)malloc(MEMFF); //RA Offset
+  INPUTS_STRONGLENS.YIMG   = (float**)malloc(MEMFF); //RA*cos(DEC) offset
+  INPUTS_STRONGLENS.DELAY = (float**)malloc(MEMFF);
+  INPUTS_STRONGLENS.MU     = (float**)malloc(MEMFF);
+  INPUTS_STRONGLENS.ZSRC   = (float*) malloc(MEMF);
 
 
   int memf = MXIMG_STRONGLENS * sizeof(float);
   for(i=0; i < NLENS; i++ ) {
-    INPUTS_STRONGLENS.Ximg[i]    = (float*)malloc(memf);
-    INPUTS_STRONGLENS.Yimg[i]    = (float*)malloc(memf);
-    INPUTS_STRONGLENS.tdelay[i]  = (float*)malloc(memf);
-    INPUTS_STRONGLENS.mu[i]      = (float*)malloc(memf);
+    INPUTS_STRONGLENS.XIMG[i]    = (float*)malloc(memf);
+    INPUTS_STRONGLENS.YIMG[i]    = (float*)malloc(memf);
+    INPUTS_STRONGLENS.DELAY[i]  = (float*)malloc(memf);
+    INPUTS_STRONGLENS.MU[i]      = (float*)malloc(memf);
   }
 
   return ;
@@ -308,8 +317,8 @@ void malloc_stronglens(int NLENS) {
 
 // ==========================================
 void get_stronglens(double zSN, double *hostpar, 
-		    int *IDLENS, double *zLENS, int *blend_flag, int *Nimage, 
-		    double *tdelay, double *mu, double *Ximg, double *Yimg) {
+		    int *IDLENS, double *ZLENS, int *blend_flag, int *NIMG, 
+		    double *DELAY, double *MU, double *XIMG, double *YIMG) {
 
   // Inputs:
   //   zSN       redshift of SN
@@ -317,15 +326,15 @@ void get_stronglens(double zSN, double *hostpar,
   //
   // Ouptuts:
   //  IDLENS      integer identifier for galaxy lens
-  //  zLENS       redshift of lens galaxy
+  //  ZLENS       redshift of lens galaxy
   //  blend_flag  1 if blended into single LC; 0 if each image is resolved
-  //  Nimage      Number of images
-  //  tdelay      list of Nimage time delays (days)
-  //  mu          list of Nimage magnifications (not distance modulus)
-  //  Ximg        list of Nimage X separations (arcsec)
-  //  Yimg        list of Nimage Y separations
+  //  NIMG      Number of images
+  //  DELAY      list of NIMG time delays (days)
+  //  MU          list of NIMG magnifications (not distance modulus)
+  //  XIMG        list of NIMG X separations (arcsec)
+  //  YIMG        list of NIMG Y separations (arcsec)
   //
-  int    IDLENS_local, Nimage_local=0, img,i,j;
+  int    IDLENS_local, NIMG_local=0, img,i,j;
   double FlatRan, GauRan, zLENS_local;
   char fnam[] = "get_stronglens" ;
 
@@ -335,7 +344,7 @@ void get_stronglens(double zSN, double *hostpar,
   FlatRan = FlatRan1(2);   // flat between 0 and 1
   // GauRan  = GaussRan(2);   // Gaussian, sigma=1
   
-  *Nimage = 0 ;
+  *NIMG = 0 ;
   if ( !INPUTS_STRONGLENS.USE_FLAG ) { return ; }
 
   INPUTS_STRONGLENS.NCALL++ ;
@@ -361,25 +370,25 @@ void get_stronglens(double zSN, double *hostpar,
     }
   }
 
-  int random_lens_index = (int)( FlatRan*(numLens-1) );
+  int random_lens_index = possible_lenses[ (int)( FlatRan*(numLens-1) ) ];
 
   IDLENS_local  = INPUTS_STRONGLENS.IDLENS[random_lens_index];
   zLENS_local   = (double)INPUTS_STRONGLENS.zLENS[random_lens_index];  
-  Nimage_local  = INPUTS_STRONGLENS.Nimage[random_lens_index];
+  NIMG_local    = INPUTS_STRONGLENS.NIMG[random_lens_index];
 
   
   // strip off image-dependent quantities, and recast to double
-  for(img=0 ; img < Nimage_local; img++ ) {
-    Ximg[img]   = (double)INPUTS_STRONGLENS.Ximg[random_lens_index][img]; 
-    Yimg[img]   = (double)INPUTS_STRONGLENS.Yimg[random_lens_index][img]; 
-    mu[img]     = (double)INPUTS_STRONGLENS.mu[random_lens_index][img];     
-    tdelay[img] = (double)INPUTS_STRONGLENS.tdelay[random_lens_index][img]; 
+  for(img=0 ; img < NIMG_local; img++ ) {
+    XIMG[img]   = (double)INPUTS_STRONGLENS.XIMG[random_lens_index][img]; 
+    YIMG[img]   = (double)INPUTS_STRONGLENS.YIMG[random_lens_index][img]; 
+    MU[img]     = (double)INPUTS_STRONGLENS.MU[random_lens_index][img];     
+    DELAY[img] = (double)INPUTS_STRONGLENS.DELAY[random_lens_index][img]; 
   }
 
   // load return argument scalars  
   *IDLENS = IDLENS_local;
-  *zLENS  = zLENS_local ;
-  *Nimage = Nimage_local;
+  *ZLENS  = zLENS_local ;
+  *NIMG = NIMG_local;
 
   int  LDMP = 1 ;
   if ( LDMP ) {
@@ -388,9 +397,9 @@ void get_stronglens(double zSN, double *hostpar,
     printf(" xxx output IDLENS=%d at zLENS=%.3f \n", 
 	   IDLENS_local, zLENS_local );
 
-    for(img=0 ; img < Nimage_local; img++ ) {
+    for(img=0 ; img < NIMG_local; img++ ) {
       printf(" xxx output image-%d: mu=%.3f  X,Y-offset=%.3f,%.3f\n",
-	     img, mu[img], Ximg[img], Yimg[img] );
+	     img, MU[img], XIMG[img], YIMG[img] );
     }
     printf(" xxx \n");    fflush(stdout);
   }

@@ -7,17 +7,15 @@ struct {
   int USE_FLAG; // logical flag for simulation
   int NCALL;
 
-  // Justin to do: Nimage => NIMG, Ximg,Yimg => XIMG, YIMG 
-
   // contents from model file/library
-  int NLENS;     // number of lenses in library
-  int    *IDLENS;  // ID for each lens
-  float  *zLENS;  // lens redshift
-  float  *zSRC; //source redshift
-  int    *Nimage; // Number of images per lens
-  float **Ximg, **Yimg ; // X and Y offsets, arcsec
-  float **tdelay ; // time delay of each image (days)
-  float **mu; //magnification of each image
+  int   NLENS;     // number of lenses in library
+  int   *IDLENS;  // ID for each lens
+  float *ZLENS;  // lens redshift
+  float *ZSRC; //source redshift
+  int   *NIMG; // Number of images per lens
+  float **XIMG, **YIMG ; // X and Y offsets, arcsec
+  float **DELAY ; // time delay of each image (days)
+  float **MU; //magnification of each image
   
 
   char VARNAME_LENSID[40];
@@ -29,7 +27,7 @@ struct {
   char VARNAME_MAG[40];
   char VARNAME_DELAY[40];
 
-  int ICOL_LENSID, ICOL_zSRC, ICOL_zLENS, ICOL_NIMG, ICOL_XIMG, ICOL_YIMG;
+  int ICOL_LENSID, ICOL_ZSRC, ICOL_ZLENS, ICOL_NIMG, ICOL_XIMG, ICOL_YIMG;
   int ICOL_MAG, ICOL_DELAY;
 
 } INPUTS_STRONGLENS;
@@ -40,8 +38,8 @@ struct {
 void init_stronglens(char *MODEL_FILE);
 void malloc_stronglens(int NLENS);
 
-void get_stronglens(double zSN, double *hostpar, int *IDLENS, double *zLENS, 
-		    int *blend_flag, int *Nimage,
-		    double *tdelay, double *mu, double *Ximg, double *Yimg);
+void get_stronglens(double zSN, double *hostpar, int *IDLENS, double *ZLENS, 
+		    int *blend_flag, int *NIMG,
+		    double *DELAY, double *MU, double *XIMG, double *YIMG);
 
 // end:

@@ -48,13 +48,12 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
   //
 
   FILE *fp;
-  int gzipFlag, FOUNDMAP, NTMP, NVAR, NDIM, NFUN, NROW, irow, ivar, igroup;
-  int IDMAP, NMAP, imap, OPT_EXTRAP=0 ; 
-  double TMPVAL[MXVAR_FLUXERRMAP] ;
+  int gzipFlag, FOUNDMAP, NTMP, NVAR, NDIM, NFUN, ivar, igroup;
+  int IDMAP, NMAP=0, imap, OPT_EXTRAP=0 ; 
   char PATH[MXPATHLEN], c_get[80];  
   char *fullName = FILENAME_FLUXERRMAP ;
   char *name, *fieldList, TMP_STRING[80], LINE[100];
-  char MSGERR_FILE[200], MSGERR_VARLIST[100];
+  char MSGERR_FILE[200];
   char fnam[] = "INIT_FLUXERRMODEL" ;
 
   // ------------ BEGIN --------------
@@ -273,7 +272,7 @@ void  DUMP_FLUXERRMAP(int IMAP) {
   FILE *fp;
   int  NVAR_DUMP=0, ivar, irow, OPENFLAG=0 ;
   char VARLIST[100][40];
-  char fnam[] = "DUMP_FLUXERRMAP";
+  //  char fnam[] = "DUMP_FLUXERRMAP";
 
   // ---------------- BEGIN ---------------
   
@@ -344,7 +343,7 @@ int index_sparse_FLUXERRMAP(int NMAP, char *MAPNAME) {
 
   int  imap, index_sparse = -1 ;
   int  INDEX_SPARSE, INDEX_MAX = 0 ;
-  char fnam[] = "index_sparse_FLUXERRMAP" ;
+  //  char fnam[] = "index_sparse_FLUXERRMAP" ;
 
   // ------------- BEGIN --------------
 
@@ -435,7 +434,7 @@ void printSummary_FLUXERRMAP(void) {
 
   int imap ;
   char NAME[60];
-  char fnam[] = "printSummary_FLUXERRMAP" ;
+  //  char fnam[] = "printSummary_FLUXERRMAP" ;
   char dashLine[] = 
     "------------------------------------------------"
     "---------------------------" ;
@@ -658,9 +657,7 @@ double apply_FLUXERRMODEL(int imap, double errModelVal, double fluxErr) {
   char *NAME    = FLUXERRMAP[imap].NAME ;
   int  IPAR1    = IPAR_FLUXERRMAP_ERRSCALE ;
   int  IPAR2    = IPAR_FLUXERRMAP_ERRADD ;
-
-  int    IPAR;
-  double FLUXERR_OUT ;
+  double FLUXERR_OUT=0.0 ;
   char   fnam[] = "apply_FLUXERRMODEL" ;
 
   // ------------ BEGIN ------------
@@ -694,7 +691,7 @@ void load_parList_FLUXERRMAP(int imap, double *PARLIST, double *parList) {
   int NVAR = FLUXERRMAP[imap].NVAR;
   int IVAR, ivar, EXTRAP_LO=0, EXTRAP_HI=0;
   double PARMIN, PARMAX;
-  char fnam[] = "load_parList_FLUXERRMAP" ;
+  //  char fnam[] = "load_parList_FLUXERRMAP" ;
 
   // -------------- BEGIN -------------
   
@@ -726,7 +723,7 @@ void END_FLUXERRMODEL(void) {
   int imap, N0, N1, NLO, NHI;
   double frac;
   char *NAME, *FIELD, *BAND, TMPNAME[80] ;
-  char fnam[] = "END_FLUXERRMODEL" ;
+  //  char fnam[] = "END_FLUXERRMODEL" ;
 
   // ------------- BEGIN ------------
 

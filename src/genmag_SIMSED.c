@@ -150,7 +150,6 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     ,bin1File[MXPATHLEN]  // SED binary file
     ,bin2File[MXPATHLEN]  // flux-table binary file
     ,sedcomment[40], version[60]
-    ,PATH_BINARY_LOCAL[MXPATHLEN]
     ;
 
   FILE *fpbin1, *fpbin2 ;
@@ -692,10 +691,8 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   //
 
   char *ptrFile, c_get[80], *ptr_parval, tmpName[60] ;
-  char  sedFile1[MXPATHLEN], sedFileN[MXPATHLEN] ,comment[100] ;
-
   double PARLIM[2], DIF, XN;
-  int NPAR, ipar, NSED, NBPAR, NDAY1, NDAYN, ERRFLAG, OPTFLAG ;
+  int NPAR, ipar, NSED, NBPAR, ERRFLAG, OPTFLAG ;
 
   FILE *fp;
   char fnam[] = "read_SIMSED_INFO" ;
@@ -900,7 +897,7 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
   int ised, istat, size, MXsize, ised_MXsize, NDAY ;
   char sedFile[MXPATHLEN], sedFile_gz[MXPATHLEN], comment[60] ;
   struct stat statbuf ; 
-  char fnam[] = "set_SIMSED_MXDAY";
+  //  char fnam[] = "set_SIMSED_MXDAY";
 
   // ---------------- BEGIN -----------------
 
@@ -1144,7 +1141,7 @@ void genmag_SIMSED(
   double  meanlam_obs, meanlam_rest, ZP, z1, Tobs, Trest, flux, arg, Sinterp  ;
   int ifilt, epobs, OPT_COLORLAW    ;
   int  LDMP_BADFLUX, LDMP_DEBUG, LRETURN_MAG, LRETURN_FLUX, LSEDSEQ ;
-  double AV, XT_MW, XT_HOST, Tref0, Tref1, Sref0, Sref1, slope ;
+  double AV, XT_MW, XT_HOST ;
   double magobs, magerr, tmpPar;
   char *cfilt ;
 
@@ -1403,7 +1400,7 @@ double interp_flux_SIMSED(
   int pars_baggage[INTERP_SIMSED_MAX_BAGGAGE_PARS];
   int i, j, k, ISED, num_dims, num_pars_baggage;
   int found_corner, index, ipar_model, NPAR, ipar, ipar_user ;
-  int flag, NGRIDONLY, NMATCH ;
+  int flag, NGRIDONLY, NMATCH=0 ;
 
   double Sinterp, left_min_diff, right_min_diff;
   double diff, diff0, diff1, parval, range, term;

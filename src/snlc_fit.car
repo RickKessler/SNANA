@@ -1244,7 +1244,7 @@ c check for floating RV in fit
 
       IF ( INISTP_PHOTOZ .GT. 0.0 ) THEN
         IF ( INISTP_PHOTOZ == 1 ) THEN
-	  CALL ABORT_ON_CUTWIN_TREST()  ! Feb 2014
+           CALL ABORT_ON_CUTWIN_TREST()  ! Feb 2014
         ENDIF
         PARNAME_STORE(IPAR_ZPHOT)  = 'zPHOT'
       ELSE
@@ -1442,7 +1442,7 @@ c depends on which IR filters are used.
          RESTLAMBDA_MODEL(1) = LAMRANGE8(1)
          RESTLAMBDA_MODEL(2) = LAMRANGE8(2)         
          PARNAME_STORE(IPAR_SHAPE) = 'STRETCH'
-	 OPTMASK = 0
+         OPTMASK = 0
          ISTAT = INIT_GENMAG_SNOOPY(tmpName, OPTMASK,
      &       FILTLIST_MODEL, LEN_ROOT, len2 )  ! return args
 
@@ -2076,7 +2076,7 @@ c ---------------
 
 C =====================================
 +DECK,FINI_EPVAR.
-      SUBROUTINE FITINI_EPVAR(ITER)	
+      SUBROUTINE FITINI_EPVAR(ITER)
       IMPLICIT NONE
 
 c init R4 and I4 arrays
@@ -3021,7 +3021,7 @@ c pass ifilt_obs; everything else is returned.
 c VALa = transSN, VALb = transREF8
 
          CALL GET_FILTTRANS(OPT_FILTOBS, ifilt_obs, CFILT, MAGPRIM, 
-     &                      	NLAM, lam, VALa, VALb)
+     &                      NLAM, lam, VALa, VALb)
 
          LEN1  = INDEX(cfilt,' ' ) - 1
          ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, cfilt, 
@@ -3399,7 +3399,7 @@ c set cut logical only on first iteration
                 NFILTDROP = NFILTDROP + 1  ! local counter
                 LENF = index(cfiltdrop,' ') -1 
                 cfiltdrop = cfiltdrop(1:LENF) // cfilt1(1:1)
-		LDROP = .TRUE.
+                LDROP = .TRUE.
              endif
           ENDIF
 
@@ -3417,7 +3417,7 @@ c 4/24/2011: check if a filter will be added
              ERRFLAG  = -1          ! set repeat flag
              LENF = index(cfiltadd,' ') -1 
              cfiltadd = cfiltadd(1:LENF) // cfilt1(1:1)
-	     LADD = .TRUE.
+             LADD = .TRUE.
           endif
 
 c          print*,'  xxxx ITER=', ITER,
@@ -3448,16 +3448,16 @@ c tighter (final) cuts.
       IF ( ERRFLAG .EQ. -1 ) THEN
 
         VERB = ''
-      	IF( LDROP ) THEN
-	   VERB = 'Dropped'
-	   CFILT1 = cfiltdrop
+        IF( LDROP ) THEN
+           VERB = 'Dropped'
+           CFILT1 = cfiltdrop
         ENDIF
-	IF( LADD  ) THEN
+        IF( LADD  ) THEN
            VERB = 'Added'
            CFILT1 = cfiltadd
         ENDIF
 
-	LENF = index(CFILT1,' ') - 1
+        LENF = index(CFILT1,' ') - 1
         write(6,190) VERB, CCID(1:LCID), cfilt1(1:LENF)
 190     format(T8, A, 2x, A,'-', A, 
      &             ' : retest Trest-related cuts: ', $ )
@@ -4330,12 +4330,12 @@ c if USE_FITCOV=T, then sum diagonal elements of cov matrix.
 c always evaluate simple chi2 ignoring covariance
         sqsig   = flux_data_sqerrtot + flux_model_sqerr
      &          + flux_fudge_sqerr
-	sqsig_nofudge = flux_data_sqerrtot + flux_model_sqerr
+        sqsig_nofudge = flux_data_sqerrtot + flux_model_sqerr
         inv_sqsig     = 1.0/sqsig
 
         flux_errtot = dsqrt(sqsig)
                 
-        delchi2 = sqdif * inv_sqsig         	
+        delchi2 = sqdif * inv_sqsig
 
         IF ( LFLAG_SIGMA_ONLY ) THEN
           delchi2       = 0.0
@@ -8600,8 +8600,8 @@ c for each param, get initial start value and step size
          MCMC_STEPVAL(IPAR) = STEP
          MCMC_TRYVAL(IPAR)  = AVG
          INIVAL(IPAR)       = AVG
-	 PARNAME            = PARNAME_STORE(IPAR)
-	 if ( IPAR == IPAR_DLMAG ) PARNAME = 'dmu' 
+         PARNAME            = PARNAME_STORE(IPAR)
+         if ( IPAR == IPAR_DLMAG ) PARNAME = 'dmu' 
 
          if ( STDOUT_UPDATE ) then
             write(6,60) PARNAME, AVG, STEP
@@ -8620,7 +8620,7 @@ c for each param, get initial start value and step size
 
 c store initial chi2min in case we don't find better
       CHI2MIN = CHI2
-      DO i = 1, NPAR	
+      DO i = 1, NPAR
          IPAR = IPAR_LIST(i)
          INIVAL_SAVE(IPAR) = INIVAL(IPAR)
       ENDDO
@@ -9421,7 +9421,7 @@ C -------------- BEGIN -------------
 
 C =====================================
 +DECK,FINI_COV.
-      SUBROUTINE FITINI_COV(MSKOPT, ITER, FITPAR, IERR)	
+      SUBROUTINE FITINI_COV(MSKOPT, ITER, FITPAR, IERR)
 
 c ---------------------------
 c init FITCOV arrays used in FCNSNLC and also used 
@@ -17024,7 +17024,7 @@ c open output file.
 90      format(T5,'Open MAG-interp file : ', A)
         print*,' '
 
-	WRITE(LUNINTERP,40) 'Interpolation Results at MJD_INTERP'
+        WRITE(LUNINTERP,40) 'Interpolation Results at MJD_INTERP'
         WRITE(LUNINTERP,401) NVAR_OUT
 401     FORMAT('NVAR: ', I2)
         WRITE(LUNINTERP,402)

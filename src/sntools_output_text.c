@@ -707,8 +707,7 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
 
   else if ( OPT_FORMAT == OPT_FORMAT_CSV ) {
 
-    char CSVLIST[1000], *varName, varName_noCast[80];
-    int ICAST, VECFLAG, ISIZE ;
+    char CSVLIST[1000], *varName;
     for(IVAR=0; IVAR < NVAR ; IVAR++ ) {
       varName = TABLEINFO_TEXT.VARNAME[ITAB][IVAR] ;
 
@@ -769,7 +768,7 @@ void CLOSE_TEXTFILE(void) {
   int itab;
   char *FNAM;
   FILE *FP;
-  char fnam[] = "CLOSE_TEXTFILE" ;
+  //  char fnam[] = "CLOSE_TEXTFILE" ;
 
   // ------------- BEGIN -------------
 
@@ -1119,8 +1118,8 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   // July 29 2016: abort on NVAR key with different value.
   // Dec  20 2017: use fgets to reduce read-time 
   //
-  int NROW = 0, VALID ;
-  int i, ivar, isn, ICAST, NVAR_TMP, NKEY_NVAR=0, nptr ; 
+  int NROW = 0 ;
+  int i, ivar, isn, ICAST, nptr;
 
   char ctmp[MXCHAR_FILENAME], LINE[MXCHAR_LINE], *ptrtok, cvar[100];
   char KEYNAME_ID[40];
@@ -1599,8 +1598,7 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
 void OPEN_TEXTFILE_SPECLIST(char *PREFIX) {
 
   int  GZIPFLAG;
-  int  OPT_FORMAT = SPECPAK_OUTPUT.OPT_TEXT_FORMAT ;
-  char specFile[MXCHAR_FILENAME], VARLIST[100] ;
+  char specFile[MXCHAR_FILENAME] ;
   char fnam[] = "OPEN_TEXTFILE_SPECLIST" ;
 
   // ------------- BEGIN -------------
@@ -1645,7 +1643,6 @@ void SPECPAK_WRITE_HEADER_TEXT(void) {
   char VARPLOT_CSV[] = "CID,ID,LAMMIN,LAMMAX,FLAM,FLAMERR";
 
   int  OPT_FORMAT = SPECPAK_OUTPUT.OPT_TEXT_FORMAT ;
-  int  NVAR;
 
   char fnam[] = "SPECPAK_WRITE_HEADER_TEXT" ;
 
@@ -1684,8 +1681,7 @@ void SPECPAK_FILL_TEXT(void) {
   int   NLAMBIN_TOT = SPECPAK_OUTPUT.NLAMBIN_TOT;
   int   NSPEC       = SPECPAK_OUTPUT.NSPEC;
   int   ispec, ilam;
-  char *CCID   = SPECPAK_OUTPUT.CCID ;
-  char  fnam[] = "SPECPAK_FILL_TEXT" ;
+  //  char  fnam[] = "SPECPAK_FILL_TEXT" ;
 
   // --------------- BEGIN ------------
 

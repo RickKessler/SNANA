@@ -244,7 +244,6 @@ int main(int argc,char* argv[])
   int npt_dat, npt_sim;
   double mu_sig_z;
   double z, dl;
-  double gnorm;
   double chi;
   int idum, jdum;
   double Planck_fish[8][8];
@@ -936,7 +935,7 @@ int main(int argc,char* argv[])
 
 double cmb_point(double params[NCOSPAR], double *redshift)
 {
-  double ombh2, omdmh2, g, dist, h, z;
+  double ombh2, omdmh2, dist, h, z;
   printf("cmb_point omega_m=%f \n",omega_m);
   h = (65.0/100.0);
 
@@ -1147,7 +1146,7 @@ double chainpar[4][MAXCHAIN])
   double parvar[NCOSPAR*NCOSPAR], eigvec[NCOSPAR*NCOSPAR];
   
   double logzero,maxlike,curlike,loglike,u,oldlike;
-  int numaccept,acceptnum,numpropose,mult,np;
+  int numaccept,acceptnum,numpropose,mult ;
   int i, j, ie, je;
   int nrot;
   int nprint;
@@ -1390,7 +1389,7 @@ double like(double p[NCOSPAR])
   int i, j;
   int sn_marge;
   double aprima, bprima, cprima;
-  double del, z, delz, dtest;
+  double del, z, delz ;
   int iz;
   double dl, dz;
   double sig2;
@@ -1517,10 +1516,10 @@ return(chisq);
 int readinputfile(FILE* finput)
 {
   int i;
-  int nlen;
+  int nlen, use_w0, use_wa ;
   char instring[128];
-  double in_H0, in_omegam, in_omegade, in_w0,in_wa;
-  int use_omega_de, use_w0, use_wa, use_wz, use_omega_k;
+  double in_H0 ;
+  int use_omega_de, use_omega_k;
   //! Preset defaults.  Overwrite as set in parameter file 
   //! No default for data file
   char logical;
@@ -1914,7 +1913,6 @@ double inc(double z)
 int read_fitres(char filnam[ ])
 {
   int nsn;
-  int ok;
   char vartmp[20];
 
   //Open input file
@@ -2126,7 +2124,7 @@ void ludcmp(double* a, const int n, const int ndim, int* indx,
        double* d, int* icon)
 {
   /* System generated locals */
-  int i1, i2, i3;
+  int i1=0, i2=0, i3;
 
   /* Local variables */
   int imax = 0;
@@ -2473,7 +2471,7 @@ double rombint(double f(double z),double a,double b,double tol)
 #define MAXITER 23
 #define MAXJ 5
   double g[MAXJ+2];
-  double rombint, h,gmax,error,g0,fourj,g1;
+  double rombint=0.0, h,gmax,error,g0=0, fourj,g1;
   int nint,i,k,j,jmax;
    h = 0.5*(b-a);
    gmax = h*(f(a)+f(b));

@@ -53,7 +53,7 @@ void get_lamrange_snoopy__(double *lammin, double *lammax) {
 int init_genmag_snoopy( char *VERSION, int optmask, char *filtlist) {
   /* Initialization function for the SNooPy templates */
   int  opt_fits_read ;
-  char cfilt[2], msg[100], tmpFile[400], version[60];
+  char msg[100], tmpFile[400], version[60];
   char fnam[] = "init_genmag_snoopy";
 
   // ----------- BEGIN -------------
@@ -118,7 +118,7 @@ int genmag_snoopy(int ifilt, double stretch, int nobs,
 
    /* These are the default window function paramters.  */
 
-  int  o, LDMP ;
+  int  o ;
   char fnam[] = "genmag_snoopy" ;
 
    // ----------- BEGIN -------------
@@ -148,8 +148,7 @@ int genmag_snoopy(int ifilt, double stretch, int nobs,
 // ************************************************
 void parse_snoopy_modelinfo(char *modelPath ) {
 
-  char infoFile[MXPATHLEN];
-  char c_get[80], cfilt[2]; 
+  char infoFile[MXPATHLEN], c_get[80]; 
   FILE *fp;
   char fnam[] = "parse_snoopy_modelinfo" ;
 

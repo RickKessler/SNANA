@@ -18,55 +18,22 @@
 *
 * Stolen from kerngen/obsolete
 
-#ifdef CERNLIB_HPUX
-#define CERNLIB_QMHPX
-#endif
-
-#ifdef CERNLIB_SUN
-#define CERNLIB_QMSUN
-#endif
-
-#ifdef CERNLIB_DECS
-#define CERNLIB_QMVMI
-#endif
-
-#ifdef CERNLIB_QMVAOS
-#ifdef CERNLIB_QMVMI
-#undef CERNLIB_QMVMI
-#endif
-#define CERNLIB_QMVAO
-#endif
-
-#ifdef CERNLIB_IBMRT
-#define CERNLIB_QMIRT
-#endif
-
-#ifdef CERNLIB_LINUX
-#define CERNLIB_QMLNX
-#endif
-
-#ifdef CERNLIB_SGI
-#define CERNLIB_QMSGI
-#endif
-
-#if defined(CERNLIB_VAXVMS)
-#define CERNLIB_QMVAX
-#endif
-
-
-
-
       PROGRAM FCASPLIT
 
-C CERN PROGLIB#         FCASPLIT        .VERSION KERNFOR  4.40  940929
-C ORIG. 01/10/88  JZ
+c RK - add declarations for IMPLICIT NONE
 
-C#if defined(CERNLIB_QF_APO)
-C      INTEGER*2    JARGA2, NARGSA2, PGM_$GET_ARG
-C#endif
-C#if !defined(CERNLIB_QMAMX)
+      IMPLICIT NONE
+      INTEGER JTYPE, NARADD, MLMKLN, MXLENG, MXMKLN, MXCBUF
+      INTEGER I, J, N, IFINFI, IFLLOG, IFLNH, JA, JARG, JDOP, JE, JGO
+      INTEGER JKEY, NKEYS, JPUT, JTYNX, JV, JDOT, JOPT, JTK
+      INTEGER LUNPR, JJ, NARGS, NCHFSH, NCHLN, NCUM, NIGNOR, NLINES
+      INTEGER NNA, NNAM, NNC, NOPA, NOPC, NPCSMK, NPUT, NROUT, NOPF
+      INTEGER NTCBUF, NUS, NXCBUF, NXMKLN, NLMKLN, NNF, NTEXT
+      INTEGER NCHFIN
+
+c - - - - - - - - - - - - 
       PARAMETER   (NARADD = 0)
-C#endif
+
       CHARACTER    CHIDF*8, CHIDC*8, CHIDA*8, CHIDD*4
       CHARACTER    CHIDX*7, CHIDY*6, CHOVER*(*)
       CHARACTER    CHPOF*(*), CHPOC*(*), CHPOA*(*)
@@ -80,267 +47,7 @@ C#endif
       PARAMETER   (CHIDY =   'DECK I' )
       PARAMETER   (CHIDD =         'D>, ' )
 
-C#if (!defined(CERNLIB_QMAPO10))&&(defined(CERNLIB_QF_APO))
-C      PARAMETER   (CHIDA = ';DECK  I' )
-C      PARAMETER   (CHOVER= 'OVERWRITE')
-C
-C      PARAMETER   (CHPOF =
-C     +     '-bounds_violation -info 1 -indexl -opt 3 -cpu mathlib_sr10')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.ftn')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.bin')
-C
-C      PARAMETER   (CHWHF = '/com/ftn  ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if (defined(CERNLIB_QMAPO10))&&(defined(CERNLIB_QF_APO))
-C      PARAMETER   (CHIDA = ';DECK  I' )
-C      PARAMETER   (CHOVER= 'OVERWRITE')
-C
-C      PARAMETER   (CHPOF =
-C     +     '-bounds_violation -info 1 -indexl -opt 2 -cpu a88k')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.ftn')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.bin')
-C
-C      PARAMETER   (CHWHF = '/com/ftn  ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if (!defined(CERNLIB_QMAPO10))&&(defined(CERNLIB_QF_APO77))
-C      PARAMETER   (CHIDA = ';DECK  I' )
-C      PARAMETER   (CHOVER= 'OVERWRITE')
-C
-C      PARAMETER   (CHPOF = '-c -O3 -A cpu,mathlib_sr10' //
-C     +     ' -W0,-bounds_violation -W0,-info,1 -W0,-indexl')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'f77  ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if (defined(CERNLIB_QMAPO10))&&(defined(CERNLIB_QF_APO77))
-C      PARAMETER   (CHIDA = ';DECK  I' )
-C      PARAMETER   (CHOVER= 'OVERWRITE')
-C
-C      PARAMETER   (CHPOF = '-c -O2 -A cpu,a88k' //
-C     +     ' -W0,-bounds_violation -W0,-info,1 -W0,-indexl')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'f77  ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMALT)
-C      PARAMETER   (CHIDA = '|DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-c -Og -w')
-C      PARAMETER   (CHPOC = '-c -Og')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'fortran  ')
-C      PARAMETER   (CHWHC = 'fxc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMAMX)
-C      PARAMETER   (NARADD = -1)
-C      PARAMETER   (CHIDA = '|DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-c -q -O')
-C      PARAMETER   (CHPOC = '-c')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'ftn  ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMCRY)
-C      PARAMETER   (CHIDA = '*DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = ' ')
-C      PARAMETER   (CHPOC = '-c')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'cft77 ')
-C      PARAMETER   (CHWHC = 'scc ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMCV64)
-C      PARAMETER   (CHIDA = ';DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-c -O -p8 -72')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'fc  ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMCV32)
-C      PARAMETER   (CHIDA = ';DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-c -O -fi -72')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'fc  ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if (defined(CERNLIB_QMDOS))&&(defined(CERNLIB_QF_NDP))
-C      PARAMETER   (CHIDA = ';DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-c -vm')
-C      PARAMETER   (CHPOC = '-c -n2 -n3 -OLM')
-C      PARAMETER   (CHPOA = '-c')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.obj')
-C
-C      PARAMETER   (CHWHF = 'mf486 ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = '386ASM ')
-C#endif
-C#if (defined(CERNLIB_QMDOS))&&(defined(CERNLIB_QF_F2C))
-C      PARAMETER   (CHIDA = ';DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-w -Nn802 -Nx802 -NC802')
-C      PARAMETER   (CHPOC = '-c ')
-C      PARAMETER   (CHPOA = '-c')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'f2c ')
-C      PARAMETER   (CHWHC = 'gcc  ')
-C      PARAMETER   (CHWHA = 'as ')
-C#endif
-C#if (defined(CERNLIB_QMDOS))&&(defined(CERNLIB_QF_DEC))
-C      PARAMETER   (CHIDA = ';DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-nolink')
-C      PARAMETER   (CHPOC = '-c -DWIN32')
-C      PARAMETER   (CHPOA = '-c')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.obj')
-C
-C      PARAMETER   (CHWHF = 'f77 ')
-C      PARAMETER   (CHWHC = 'claxp ')
-C      PARAMETER   (CHWHA = 'ASM ')
-C#endif
-C#if defined(CERNLIB_QMHPX)
-C      PARAMETER   (CHIDA = '|DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-c -O -w +DA1.1 +ppu')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'f77  ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMIBX)
-C      PARAMETER   (CHIDA = '*DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-c -f''opt(3)'' -f''CL(8192)'' ')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'fvs  ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMIRT)
-C      PARAMETER   (CHIDA = ';DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-c -O -qextname -qcharlen=8192')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'xlf  ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMLNX)
+
       CHARACTER    CHIDA2*8
       PARAMETER   (CHIDA2= ' #DECK I' )
       PARAMETER   (CHIDA = ';DECK  I' )
@@ -358,168 +65,21 @@ C#if defined(CERNLIB_QMLNX)
       PARAMETER   (CHWHF = 'g77  ')
       PARAMETER   (CHWHC = 'gcc  ')
       PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMNXT)
-C      PARAMETER   (CHIDA = '|DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C
-C      PARAMETER   (CHPOF = '-c -O')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C
-C      PARAMETER   (CHWHF = 'f77  ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMOS9)
-C      PARAMETER   (CHIDA = '|DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-R -E -!it -A -h')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'f77  ')
-C      PARAMETER   (CHWHC = 'xcc ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMSGI)
-C      PARAMETER   (CHIDA = '|DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-c -O')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'f77  ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMSUN)
-C      PARAMETER   (CHIDA = '|DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-c -O -w66')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'f77  ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMTMO)
-C      PARAMETER   (CHIDA = '|DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-c')
-C      PARAMETER   (CHPOC = '-c')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'f77  ')
-C      PARAMETER   (CHWHC = 'cc  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMVAX)
-C      PARAMETER   (CHIDA = ';DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '/nolist/check=noover')
-C      PARAMETER   (CHPOC = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.for')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXOBJ = '.obj')
-C
-C      PARAMETER   (CHWHF = 'fortran')
-C      PARAMETER   (CHWHC = 'cc')
-C#endif
-C#if defined(CERNLIB_QMVAX)
-C      PARAMETER   (CHPOA  = '/nolist')
-C      PARAMETER   (CHEXAS = '.mar')
-C      PARAMETER   (CHWHA  = 'macro')
-C
-C      CHARACTER    BEGRUT*9, ENDLINE*12
-C      PARAMETER   (BEGRUT = ' .TITLE  ')
-C      PARAMETER   (ENDLINE= '        .END')
-C#endif
-C#if defined(CERNLIB_QMVMI)
-C      CHARACTER    CHIDA2*8
-C      PARAMETER   (CHIDA2= ' #DECK I' )
-C      PARAMETER   (CHIDA = ';DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-c -O')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'f77  ')
-C      PARAMETER   (CHWHC = 'f77  ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
-C#if defined(CERNLIB_QMVAO)
-C      CHARACTER    CHIDA2*8
-C      PARAMETER   (CHIDA2= ' #DECK I' )
-C      PARAMETER   (CHIDA = ';DECK  I' )
-C      PARAMETER   (CHOVER= 'UNKNOWN')
-C
-C      PARAMETER   (CHPOF = '-c -O')
-C      PARAMETER   (CHPOC = '-c -O')
-C      PARAMETER   (CHPOA = ' ')
-C
-C      PARAMETER   (CHEXFOR = '.f')
-C      PARAMETER   (CHEXCC  = '.c')
-C      PARAMETER   (CHEXAS  = '.s')
-C      PARAMETER   (CHEXOBJ = '.o')
-C
-C      PARAMETER   (CHWHF = 'f77  ')
-C      PARAMETER   (CHWHC = 'cc   ')
-C      PARAMETER   (CHWHA = 'as  ')
-C#endif
+
 
       PARAMETER   (MLMKLN=100)
       PARAMETER   (MXLENG=128, MXMKLN=64)
       CHARACTER    CHHOLD*(MXLENG)
       CHARACTER    CHOPT(7)*(MXLENG)
-      DIMENSION    NCHOPT(7)
+cc xxx      DIMENSION    NCHOPT(7)
+      INTEGER      NCHOPT(7)
       EQUIVALENCE (NOPF,NCHOPT(1))
       EQUIVALENCE (NOPC,NCHOPT(2))
       EQUIVALENCE (NOPA,NCHOPT(3))
 
       CHARACTER    CHCMP(3)*(MXLENG)
-      DIMENSION    NCHCMP(3)
+cc xxxx      DIMENSION    NCHCMP(3)
+      INTEGER      NCHCMP(3)
       EQUIVALENCE (CHCMP(1),CHOPT(4)), (NCHCMP(1),NCHOPT(4))
       EQUIVALENCE (NNF,NCHCMP(1))
       EQUIVALENCE (NNC,NCHCMP(2))
@@ -532,7 +92,8 @@ C#endif
       CHARACTER    CHMKLN*(MXMKLN+4)
 
       PARAMETER   (MXCBUF=100)
-      DIMENSION    LXCBUF(MXCBUF)
+cc xxx      DIMENSION    LXCBUF(MXCBUF)
+      INTEGER      LXCBUF(MXCBUF)
       CHARACTER*80 CHCBUF(MXCBUF)
 
       CHARACTER    CHLINE*80, CHNAME*80, CHTEXT*511
@@ -544,6 +105,9 @@ C#endif
      +,              '-fo ', '-co ', '-ao '
      +,              '-f  ', '-c  ', '-a  '
      +,              '+fo ', '+co ', '+ao ' /
+
+
+C ------------- BEGIN --------------
 
       LUNPR = 6
 #if defined(CERNLIB_QMVAX)

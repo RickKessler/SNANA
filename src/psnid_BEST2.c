@@ -108,7 +108,7 @@ void PSNID_BEST2_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) {
 
 void PSNID_BEST2_UPDATE_OUTPUT(char *CCID) {
 
-  char fnam[] = "PSNID_BEST2_UPDATE_OUTPUT" ;
+  //  char fnam[] = "PSNID_BEST2_UPDATE_OUTPUT" ;
 
   // ------------ BEGIN -------------
 
@@ -150,7 +150,7 @@ int PSNID_BEST2_GET_BESTTYPE(void) {
 
 void MONPLOT_PSNID_BEST2(int iplot) {
 
-  char fnam[] = "MONPLOT_PSNID_BEST2";
+  //  char fnam[] = "MONPLOT_PSNID_BEST2";
   // ----------- BEGIN -------------
 
   return ;
@@ -160,7 +160,7 @@ void MONPLOT_PSNID_BEST2(int iplot) {
 
 void SNLCPLOT_PSNID_BEST2(int iplot) {
 
-  char fnam[] = "SNLCPLOT_PSNID_BEST2";
+  //  char fnam[] = "SNLCPLOT_PSNID_BEST2";
 
   // ----------- BEGIN -------------
 

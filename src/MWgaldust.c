@@ -225,8 +225,9 @@ void modify_MWEBV_SFD(int OPT, double RA, double DECL,
   // and may be changed !
   // Input RA and DEC may or may not be used depending on the option.
 
-  double MWEBV_INP, MWEBV_OUT, MWEBV_ERR_OUT, MWEBV_SFD98, dumXT[10] ;
-  char fnam[] = "modify_MWEBV_SFD" ;
+  double MWEBV_INP, MWEBV_OUT=0.0, MWEBV_ERR_OUT=0.0, MWEBV_SFD98=0.0 ;
+  double dumXT[10] ;
+  //  char fnam[] = "modify_MWEBV_SFD" ;
 
   // ----------- BEGIN -----------
 
@@ -329,10 +330,10 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
 
  ***/
 
-  int i, DO94, VALID ;
+  int i, DO94  ;
   double XT, x, y, a, b, fa, fb, xpow, xx, xx2, xx3 ;
   double y2, y3, y4, y5, y6, y7, y8 ;
-  char fnam[] = "GALextinct" ;
+  //  char fnam[] = "GALextinct" ;
 
   // ------------------- BEGIN --------------
 

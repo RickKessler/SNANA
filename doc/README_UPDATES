@@ -17141,7 +17141,7 @@
   
 
 # ======================================================================= 
-         v10_74 (  ) 
+         v10_74 (July 19 2019) 
 
          ***** IMPORTANT(v10_74) ***** 
 
@@ -17158,5 +17158,32 @@
 
          ***** MISCELLANEOUS(v10_74) ***** 
 
+
+# ======================================================================= 
+         v10_74b (  ) 
+
+         ***** IMPORTANT(v10_74b) ***** 
+
+         ***** USEFUL(v10_74b) ***** 
+
+    snlc_sim.c[h]:
+    Simulation has new strong lens (SL) functionality for resolved sources 
+    so that each lensed image produces a distinct light curve with time 
+    delay, magshift, angle separation. The underlying SL model is in 
+    sntools_stronglens.c[h], and is still a dummy model for testing; 
+    a realistic model is under development by J.P. using a SL library.
+    Plans for later include a blended SL option where all lensed LC 
+    are added into one LC. However, there are no plans to simulate
+    PSF-smear affects on blended photometry.
+
+    See SIM_STRONGLENS_XXX variables in data files (TEXT and FITS format).
+    These variables are NOT [yet?] read by snana analysis/fitting codes.
+
+         ***** MISCELLANEOUS(v10_74b) ***** 
+
+    All .c, .car files:  fix warnings with -Wall 
+  
+    Remvoe obsolete gloes.c[h] since genmag_snoopy only reads a 
+    GRID and does not use Burn's code.
 
 END: 

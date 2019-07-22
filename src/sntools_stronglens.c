@@ -74,7 +74,7 @@ void malloc_stronglens(int NLENS) {
   int MEMF  = NLENS * sizeof(float);
   int MEMI  = NLENS * sizeof(int);
   int i;
-  char fnam[] = "malloc_stronglens";
+  //  char fnam[] = "malloc_stronglens";
 
   // ------------ BEGIN --------------
 
@@ -125,10 +125,9 @@ int get_stronglens(double zSN, double *hostpar,
   // ---------------- BEGIN ---------------
 
   *Nimage = 0 ;
-  if ( !INPUTS_STRONGLENS.USE_FLAG ) { return; }
+  if ( !INPUTS_STRONGLENS.USE_FLAG ) { return(0); }
 
   INPUTS_STRONGLENS.NCALL++ ;
- 
 
   // illustrate how to generate randoms
   FlatRan = FlatRan1(2);   // flat between 0 and 1
@@ -138,6 +137,7 @@ int get_stronglens(double zSN, double *hostpar,
  
   Nimage_local = (int)(FlatRan1(2) * 5.0);
   for(img=0; img < Nimage_local; img++ ) {
+    tdelay[img] = 100.0 * (FlatRan1(2)-0.5) ;
     angSep[img] = fabs(GaussRan(2));
     phi[img]    = 360.0 * FlatRan1(2);
     mu[img]     = 1.0 + 0.2*GaussRan(2) ;
@@ -150,11 +150,11 @@ int get_stronglens(double zSN, double *hostpar,
   *Nimage = Nimage_local ;
 
 
-  int  LDMP = (IDLENS > 0 ) ;
+  int  LDMP = (IDLENS < 0 ) ;
   if ( LDMP ) {
     printf(" xxx ------ %s DUMP -------- \n", fnam );
     printf(" xxx input zSN = %.3f \n", zSN);
-    printf(" xxx output IDLENS=%d at zLENS=%.3f \n", IDLENS, zLENS);
+    printf(" xxx output IDLENS=%d at zLENS=%.3f \n", IDLENS, *zLENS);
     for(img=0 ; img < Nimage_local; img++ ) {
       printf(" xxx output image-%d: mu=%.3f  angSep=%.2f  phi=%.1f\n",
 	     img, mu[img], angSep[img], phi[img] );

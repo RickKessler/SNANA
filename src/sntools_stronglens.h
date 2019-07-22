@@ -10,9 +10,9 @@ struct {
   int NLENS;     // number of lenses in library
   int    *IDLENS;  // ID for each lens
   float  *zLENS;  // lens redshift
-  float *zSRC; //source redshift
+  float  *zSRC; //source redshift
   int    *Nimage; // Number of images per lens
-  float **Ximg, **Yimg ; // angle sep (arcsec), and phi (degrees)
+  float **Ximg, **Yimg ; // X and Y offsets, arcsec
   float **tdelay ; // time delay of each image (days)
   float **mu; //magnification of each image
   
@@ -25,8 +25,8 @@ struct {
 void init_stronglens(char *MODEL_FILE);
 void malloc_stronglens(int NLENS);
 
-int get_stronglens(double zSN, double *hostpar, double *zLENS, 
-		   int *blend_flag, int *Nimage,
-		   double *tdelay, double *mu, double *Ximg, double *Yimg);
+void get_stronglens(double zSN, double *hostpar, int *IDLENS, double *zLENS, 
+		    int *blend_flag, int *Nimage,
+		    double *tdelay, double *mu, double *Ximg, double *Yimg);
 
 // end:

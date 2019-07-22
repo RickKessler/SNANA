@@ -9917,8 +9917,8 @@ void gen_event_stronglens(int istage) {
   double zLENS, hostpar[10];
   double PEAKMJD, tdelay_min=1.0E9, tdelay_max=-1.0E9;
   double tdelay=0.0,  magnif=0.0, magshift=0.0;
-  double ANGSEP=0.0, PHI=0.0;
-  double cosPHI, sinPHI, cosDEC ;
+  double XIMG=0.0, YIMG=0.0;
+  double cosDEC ;
   int    NEXTLENS, IDLENS, blend_flag, img, LDMP ;
   char fnam[] = "gen_event_stronglens";
 
@@ -9926,6 +9926,17 @@ void gen_event_stronglens(int istage) {
 
   GENSL.REPEAT_FLAG  =  0 ;
   if ( !INPUTS_STRONGLENS.USE_FLAG ) { return; }
+
+  // ------------------
+  if ( INIT_FLAG == 0 ) {
+    GENSL.TDELAY_LIST   = (double*) malloc(MEMD);
+    GENSL.MAGNIF_LIST   = (double*) malloc(MEMD);
+    GENSL.MAGSHIFT_LIST = (double*) malloc(MEMD);
+    GENSL.XIMG_LIST     = (double*) malloc(MEMD);
+    GENSL.YIMG_LIST     = (double*) malloc(MEMD);
+    GENSL.INIT_FLAG     = 1;
+  }
+
 
   // -----------------------
   if ( istage == 2 ) {
@@ -9935,13 +9946,11 @@ void gen_event_stronglens(int istage) {
       GENSL.DEC_noSL   = GENLC.DEC ;
     }
 
-    ANGSEP        = GENSL.ANGSEP_LIST[IMGNUM] ; // arcSec
-    PHI           = GENSL.PHI_LIST[IMGNUM] ;   // degrees
-    cosPHI        = cos(RAD*PHI) ; 
-    sinPHI        = sin(RAD*PHI) ;
+    XIMG          = GENSL.XIMG_LIST[IMGNUM] ;   // arcSec
+    YIMG          = GENSL.YIMG_LIST[IMGNUM] ;   // arcSec
     cosDEC        = cos(RAD*GENSL.DEC_noSL) ;
-    GENLC.RA      = GENSL.RA_noSL  + (cosPHI*ANGSEP/3600.0)/cosDEC ;
-    GENLC.DEC     = GENSL.DEC_noSL + (sinPHI*ANGSEP/3600.0) ;
+    GENLC.RA      = GENSL.RA_noSL  + (XIMG/3600.0)/cosDEC ;
+    GENLC.DEC     = GENSL.DEC_noSL + (YIMG/3600.0) ;
 
     /*  this anglSep check of off by ~E-3 arcSec, so something isn't quite right
 	double ANGSEP_CHECK;
@@ -9953,35 +9962,26 @@ void gen_event_stronglens(int istage) {
 
     if ( fabs(GENLC.RA) > 400.0 || fabs(GENLC.DEC) > 400.0 ) {
       sprintf(c1err,"Insane RA,DEC = %f, %f", GENLC.RA, GENLC.DEC);
-      sprintf(c2err,"IDLENS=%d, angSep=%f arcSec, phi=%f deg", 
-	      GENSL.IDLENS, ANGSEP, PHI);
+      sprintf(c2err,"IDLENS=%d, X,Yimg=%.2f,%.2f arcSec", 
+	      GENSL.IDLENS, XIMG, YIMG );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
   
     goto DONE ;
   }
 
-  // ------------------
-  // istage=1
-  if ( INIT_FLAG == 0 ) {
-    GENSL.TDELAY_LIST   = (double*) malloc(MEMD);
-    GENSL.MAGNIF_LIST   = (double*) malloc(MEMD);
-    GENSL.MAGSHIFT_LIST = (double*) malloc(MEMD);
-    GENSL.ANGSEP_LIST   = (double*) malloc(MEMD);
-    GENSL.PHI_LIST      = (double*) malloc(MEMD);
-    GENSL.INIT_FLAG     = 1;
-  }
 
+  // istage=1
   // check if next lens is to be generated
   NEXTLENS = ( IMGNUM == NIMG-1 );
 
   if ( NEXTLENS ) {
-    IDLENS = get_stronglens(zSN, hostpar,   // <== inputs
-			    &zLENS, &blend_flag, // <== returned
-			    &GENSL.NIMG,         // <== returned
-			    GENSL.TDELAY_LIST, GENSL.MAGNIF_LIST, 
-			    GENSL.ANGSEP_LIST, GENSL.PHI_LIST );
-
+    get_stronglens(zSN, hostpar,   // <== inputs
+		   &IDLENS, &zLENS, &blend_flag, // <== returned
+		   &GENSL.NIMG,         // <== returned
+		   GENSL.TDELAY_LIST, GENSL.MAGNIF_LIST, 
+		   GENSL.XIMG_LIST, GENSL.YIMG_LIST );
+    
     GENSL.IDLENS       = IDLENS;
     GENSL.zLENS        = zLENS;
     GENSL.BLEND_FLAG   = blend_flag ;
@@ -20046,12 +20046,14 @@ void snlc_to_SNDATA(int FLAG) {
     if ( IMGNUM >= 0 ) {
       SNDATA.SIM_SL_TDELAY    = GENSL.TDELAY_LIST[IMGNUM] ;
       SNDATA.SIM_SL_MAGSHIFT  = GENSL.MAGSHIFT_LIST[IMGNUM] ;
-      SNDATA.SIM_SL_ANGSEP    = GENSL.ANGSEP_LIST[IMGNUM] ;
+      SNDATA.SIM_SL_XIMG      = GENSL.XIMG_LIST[IMGNUM] ;
+      SNDATA.SIM_SL_YIMG      = GENSL.YIMG_LIST[IMGNUM] ;
     }
     else {
       SNDATA.SIM_SL_TDELAY    = 0.0 ;
       SNDATA.SIM_SL_MAGSHIFT  = 0.0 ;
-      SNDATA.SIM_SL_ANGSEP    = 0.0 ;
+      SNDATA.SIM_SL_XIMG      = 0.0 ;
+      SNDATA.SIM_SL_YIMG      = 0.0 ;
     }
   }
 

@@ -375,7 +375,8 @@ struct SNDATA {
   int    SIM_SL_IDLENS;  // lens ID
   int    SIM_SL_NIMG;    // number of strong lens images
   int    SIM_SL_IMGNUM;  // image num [0 to NIMG-1]
-  double SIM_SL_zLENS, SIM_SL_TDELAY, SIM_SL_MAGSHIFT, SIM_SL_ANGSEP ; 
+  double SIM_SL_zLENS, SIM_SL_TDELAY, SIM_SL_MAGSHIFT;
+  double SIM_SL_XIMG, SIM_SL_YIMG ;
 
   // simulation quantities for each epoch
   float SIMEPOCH_TREST[MXEPOCH] ;       // Trest - Tpeak, days

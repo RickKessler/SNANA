@@ -7543,8 +7543,10 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
       fprintf(fp,"SIM_STRONGLENS_z:         %.3f \n", SNDATA.SIM_SL_zLENS  );
       fprintf(fp,"SIM_STRONGLENS_DELAY:     %.3f  # days \n", 
 	      SNDATA.SIM_SL_TDELAY );
-      fprintf(fp,"SIM_STRONGLENS_ANGSEP:    %.3f  # arcsec\n",
-	      SNDATA.SIM_SL_ANGSEP );
+      fprintf(fp,"SIM_STRONGLENS_XIMG:      %.3f  # arcsec\n",
+	      SNDATA.SIM_SL_XIMG );
+      fprintf(fp,"SIM_STRONGLENS_YIMG:      %.3f  # arcsec\n",
+	      SNDATA.SIM_SL_YIMG );
       fprintf(fp,"SIM_STRONGLENS_MAGSHIFT:  %.3f \n", SNDATA.SIM_SL_MAGSHIFT );
       fprintf(fp,"SIM_STRONGLENS_NIMG:      %d   \n", SNDATA.SIM_SL_NIMG    );
       fprintf(fp,"SIM_STRONGLENS_IMGNUM:    %d   \n", SNDATA.SIM_SL_IMGNUM  );

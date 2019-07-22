@@ -1089,7 +1089,7 @@ struct GENSL {
   double PEAKMJD_noSL;    // undelayed PEAKMJD
   double RA_noSL, DEC_noSL;
   double MJDMIN, MJDMAX;  // used for SIMLIB read
-  double *TDELAY_LIST, *ANGSEP_LIST, *PHI_LIST;
+  double *TDELAY_LIST, *XIMG_LIST, *YIMG_LIST;
   double *MAGNIF_LIST, *MAGSHIFT_LIST ;
 } GENSL ;
 

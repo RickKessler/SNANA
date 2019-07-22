@@ -324,7 +324,6 @@ OBJ_GENMAG_FIT	=		\
 	$(OBJ)/genmag_SALT2.o	\
 	$(OBJ)/genmag_snoopy.o	\
 	$(OBJ)/genmag_S11DM15.o	\
-	$(OBJ)/gloes.o		\
 	$(OBJ)/genmag_SIMSED.o	\
 	$(OBJ)/genmag_SEDtools.o
 
@@ -922,10 +921,6 @@ $(OBJ)/genmag_BYOSED.o : $(SRC)/genmag_BYOSED.c  $(SRC)/genmag_SEDtools.c
 $(OBJ)/genmag_snoopy.o : $(SRC)/genmag_snoopy.c  $(SRC)/genmag_snoopy.h $(SRC)/sntools.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_snoopy.c )
-$(OBJ)/gloes.o : $(SRC)/gloes.c 
-	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS) $(IGSL) $(SRC)/gloes.c )
-
 
 $(OBJ)/genmag_S11DM15.o : $(SRC)/genmag_S11DM15.c  $(SRC)/genmag_S11DM15.h $(SRC)/sntools.h
 	(cd $(OBJ); \

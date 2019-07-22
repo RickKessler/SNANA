@@ -655,7 +655,7 @@ int rd_input(void) {
     // check for adding out-of-band transmission
     // OOB: [bandList] MINLAM MAXLAM Trans/TranMax
     if ( strcmp(c_get,"FILTER_OOB:") == 0 ) {
-      char bandList[40], band[2];  double LAMRANGE[2], RATIO; int NFTMP;
+      char bandList[40];  double LAMRANGE[2], RATIO ;
       readchar(fp_input, bandList);  
       readdouble(fp_input, 2, LAMRANGE);
       readdouble(fp_input, 1, &RATIO);
@@ -813,7 +813,7 @@ void parse_OOB(char *bandList, double *LAMRANGE, double RATIO) {
 
   int NFTMP, i, ifilt ;
   char band[2];
-  char fnam[] = "parse_OOB" ;
+  //  char fnam[] = "parse_OOB" ;
 
   // -------------
 
@@ -852,7 +852,7 @@ void  parse_MAGREF(char *FILTNAME, char *TXT_MAGREF, double *MAGREF ) {
   int i, ISPLUS, ISMINUS, ISIGN, LASTCHAR ;
   double MAGREF_LOCAL, TMPNUM, XSIGN ;
   char   c1[2], cnum[40] ;
-  char fnam[] = "parse_MAGREF" ;
+  //  char fnam[] = "parse_MAGREF" ;
 
   // ------------- BEGIN ---------------
 
@@ -1584,11 +1584,10 @@ int kcor_ini(void) {
 
  ***/
  
-   FILE *fp;
    int i, istat, iprim, ikcor, MSKTMP, ifilt, ifilt_rest, ifilt_obs ;
    int OVP_OBS, OVP_REST, lenf, LREST, LX     ;
 
-   char cfilt[2], *inFile;
+   char cfilt[2] ;
    char fnam[] = "kcor_ini";
 
    /*  ----------------- BEGIN ------------------------- */
@@ -3738,11 +3737,11 @@ int snmag ( void ) {
   double epoch, epoch_peak, epoch_15day, near_peak, near_15day ;
   double arg, lam, trans, flux,  fluxsum_sn, filtsum ;
   double filtsum_check, filter_check, zp, mag, wflux, wfilt ;
-  double LAMMIN, LAMMAX, LAMAVG, dm15, mag15, FTMP ;
+  double LAMMIN, LAMMAX, LAMAVG, dm15, mag15 ;
   double zero = 0.0 ;
   double TPEAK  = 0.0;
   double T15DAY = 15.0;
-  char fnam[] = "snmag";
+  //  char fnam[] = "snmag";
 
   /* ------------------- BEGIN --------------------- */
 

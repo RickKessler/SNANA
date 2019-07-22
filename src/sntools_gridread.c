@@ -721,7 +721,7 @@ void dump_SNGRID(SNGRID_DEF *SNGRID ) {
 
   int i, NTMPL, IPAR, LEN ;
   char *NAME, dumpName[40] ;
-  char fnam[] = "dump_SNGRID" ;
+  //  char fnam[] = "dump_SNGRID" ;
 
   // --------------- BEGIN ---------------
 

@@ -579,7 +579,7 @@ int SNTABLE_READ_EXEC_ROOT(void) {
   int  NROW_TOT, Nrow, irow, IROW_MIN, IROW_MAX ;
   int  NROW_READ_ITER = 20000 ;
   char BLANKFILE[] = "";
-  char fnam[] = "SNTABLE_READ_EXEC_ROOT" ;
+  //  char fnam[] = "SNTABLE_READ_EXEC_ROOT" ;
   
   // ----------- BEGIN ----------
 

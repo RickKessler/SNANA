@@ -97,7 +97,7 @@ void GET_MULTISEASON(char *CCID, int NOBS, double *MJD_LIST,
   int   *INDX_SORT, *INDX_SORT2,  *ISEASON;
   int   Nseason, iSeason, i, isort, Ntmp ;
   double MJD_LAST, XN, MJD, SNR, CHI2, WGT, SUMCHI2[MXSEASON] ;
-  double *CHI2_LIST, *chi2_list, FLUX, ERR, FDIF, CHI2TMP ;
+  double *CHI2_LIST, *chi2_list, FLUX, ERR, FDIF=0.0, CHI2TMP ;
   double SUMFLUX[MXSEASON], SUMWGT[MXSEASON] ;
   int   *OBS_LIST,  *obs_list ;
   int   LDMP = 0;

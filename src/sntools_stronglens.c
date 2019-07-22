@@ -257,9 +257,9 @@ void malloc_stronglens(int NLENS) {
   int MEMF  = NLENS * sizeof(float);
   int MEMI  = NLENS * sizeof(int);
     
-  int i;
-  char fnam[] = "malloc_stronglens";
-  
+  int i;  
+  //  char fnam[] = "malloc_stronglens";
+
   // ------------ BEGIN --------------
   INPUTS_STRONGLENS.NLENS = (int)malloc(sizeof(int));
   INPUTS_STRONGLENS.IDLENS = (int  *) malloc(MEMI);
@@ -312,20 +312,22 @@ int get_stronglens(double zSN, double *hostpar,
 
   // ---------------- BEGIN ---------------
 
+  // always burn random
+  FlatRan = FlatRan1(2);   // flat between 0 and 1
+  // GauRan  = GaussRan(2);   // Gaussian, sigma=1
+  
   *Nimage = 0 ;
-  if ( !INPUTS_STRONGLENS.USE_FLAG ) { return; }
+  if ( !INPUTS_STRONGLENS.USE_FLAG ) { return(0); }
 
   INPUTS_STRONGLENS.NCALL++ ;
- 
 
-  // illustrate how to generate randoms
-  FlatRan = FlatRan1(2);   // flat between 0 and 1
-  GauRan  = GaussRan(2);   // Gaussian, sigma=1
+  
   int numLens = 0;
   for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
     if(INPUTS_STRONGLENS.zSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.zSRC[i]<=zSN+0.05){
       ++numLens;
     }
+
   }
   if(numLens==0){
     errmsg(SEV_FATAL, 0, fnam, "No Lenses in your library matching your source redshift."," ");
@@ -338,7 +340,7 @@ int get_stronglens(double zSN, double *hostpar,
       ++j;
     }
   }
-  int random_lens_index=(int)(FlatRan1(2)*(numLens-1));
+  int random_lens_index=(int)( FlatRan*(numLens-1) );
   //zLENS_local = zSN * ( 0.1 + 0.8*FlatRan ) ;
   zLENS = INPUTS_STRONGLENS.zLENS[random_lens_index];
   
@@ -351,13 +353,12 @@ int get_stronglens(double zSN, double *hostpar,
   
   IDLENS = INPUTS_STRONGLENS.IDLENS[random_lens_index];
   
-
-
   int  LDMP = 1 ;
   if ( LDMP ) {
     printf(" xxx ------ %s DUMP -------- \n", fnam );
     printf(" xxx input zSN = %.3f \n", zSN);
     printf(" xxx output IDLENS=%d at zLENS=%.3f \n", IDLENS, INPUTS_STRONGLENS.zLENS[random_lens_index]);
+
     for(img=0 ; img < Nimage_local; img++ ) {
       printf(" xxx output image-%d: mu=%.3f  X-offset=%.5f  Y-offset=%.5f\n",
 	     img, INPUTS_STRONGLENS.mu[random_lens_index][img], INPUTS_STRONGLENS.Ximg[random_lens_index][img], INPUTS_STRONGLENS.Yimg[random_lens_index][img] );

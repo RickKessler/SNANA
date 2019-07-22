@@ -223,11 +223,8 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
   //
 
   FILE *fp;
-  int   ifilt_obs, istat, IREQUIRE, gzipFlag ;
-  int   MEMD, imap, NMAP=0 ;
+  int   IREQUIRE, gzipFlag, imap, NMAP=0 ;
   int   FOUNDMAP_DETECT=0, FOUNDMAP_PHOTPROB=0 ;
-  double VAL, EFF ;
-
 
   char 
     file_local[MXPATHLEN]
@@ -336,9 +333,9 @@ int readMap_SEARCHEFF_DETECT  (FILE *fp,  char *key) {
   //
 
   double VAL, EFF;
-  int  IREAD, imap, NBIN, MEMD ;
-  char cfilt[MXFILTINDX], *MAPNAME;
-  char fnam[] = "readMap_SEARCHEFF_DETECT";
+  int  IREAD, imap, NBIN ;
+  char cfilt[MXFILTINDX] ;
+  //  char fnam[] = "readMap_SEARCHEFF_DETECT";
 
   // ------------ BEGIN -------------
 
@@ -401,7 +398,7 @@ int malloc_NEXTMAP_SEARCHEFF_DETECT(void) {
   // Created March 2018
   // malloc next map, and return imap index.
   int imap, MEMD ;
-  char fnam[] = "malloc_NEXTMAP_SEARCHEFF_DETECT" ;
+  //  char fnam[] = "malloc_NEXTMAP_SEARCHEFF_DETECT" ;
   // ------------- BEGIN -------------
   INPUTS_SEARCHEFF.NMAP_DETECT++ ; 
   imap  = INPUTS_SEARCHEFF.NMAP_DETECT-1;
@@ -636,7 +633,7 @@ int IVARABS_SEARCHEFF_PHOTPROB(char *VARNAME) {
 
   int ivar, IVARABS = -9;
   char *varTmp ;
-  char fnam[] = "IVARABS_SEARCHEFF_PHOTPROB" ;
+  //  char fnam[] = "IVARABS_SEARCHEFF_PHOTPROB" ;
 
   for(ivar=0; ivar < MXDEF_VARNAMES_PHOTPROB; ivar++ ) {
     varTmp = VARDEF_SEARCHEFF_PHOTPROB[ivar];
@@ -755,7 +752,7 @@ void check_SEARCHEFF_PHOTPROB(int imap) {
 
   
   // set README comment(s).
-  char fnam[] = "check_SEARCHEFF_PHOTPROB" ;
+  //  char fnam[] = "check_SEARCHEFF_PHOTPROB" ;
 
   // -------------- BEGIN ----------------
 
@@ -988,14 +985,10 @@ void  init_SEARCHEFF_SPEC(char *survey) {
   int   ID, NDIM, NFUN, N, IREQUIRE, gzipFlag, ISFIELD ;
   char  KEY_ROW[]  = "SPECEFF:";
   char  KEY_STOP[] = "" ;
-
   char  *VARNAME, *VARLIST ; 
-  char  FIELDLIST[100], MAPNAME[60] ;
-
-  int MXROW = MXROW_SEARCHEFF_SPEC;
+  char  FIELDLIST[100] ;
 
   double SPECEFF_SCALE = INPUTS_SEARCHEFF.USER_SPECEFF_SCALE ;
-  int    DO_SCALE      = ( fabs(SPECEFF_SCALE-1.0) > 0.0001 );
 
   // ------------ BEGIN --------------
 
@@ -1189,7 +1182,7 @@ void init_SEARCHEFF_zHOST(char *survey) {
   // Jul 30 2018: set NONZERO_SEARCHEFF_zHOST when reading 2-column format
 
   FILE *fp ;
-  char fnam[] = "init_SEARCHEFF_zHOST" ;
+  //  char fnam[] = "init_SEARCHEFF_zHOST" ;
 
   // --------------- BEGIN ------------
 
@@ -1280,7 +1273,7 @@ FILE *open_zHOST_FILE(int OPT) {
     else  { 
       if ( LPRINT )   { 
 	printf("\n  Optional SEARCHEFF_zHOST_FILE not specified "
-	       "-> Eff=100% \n"); 
+	       "-> Eff=1.0 \n"); 
       }
       fflush(stdout);
       return(fp) ; 
@@ -1309,9 +1302,9 @@ void read_zHOST_FILE(FILE *fp) {
 
   int  OPT_EXTRAP = 0 ;
   int  NTAB=0;
-  int  IDMAP, imap, NMAP, ivar, NVAR, NDIM, NFUN, *ivar_HOSTLIB;
+  int  IDMAP, imap, NMAP, ivar, NVAR, NDIM, NFUN ;
   int  FOUND_VARNAMES;
-  char c_get[60], *VARNAME, FIELDLIST[100] ;
+  char c_get[60], FIELDLIST[100] ;
   char *ptr_VARNAMES[MXVAR_SEARCHEFF_zHOST], *VARLIST;
   char VARNAME_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST][40];
   int  IVAR_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST];
@@ -1624,9 +1617,8 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
 
   *****/
 
-  double EFF ;
   int  LFIND1_PIPELINE, LFIND2_SPEC, LFIND3_zHOST, MASK ;
-  char fnam[]  = "gen_SEARCHEFF" ;
+  //  char fnam[]  = "gen_SEARCHEFF" ;
 
   // ----------------- BEGIN -------------
 
@@ -1713,18 +1705,16 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
   //   + Refactor and fix logic so that MJD_TRIGGER is correct
   //
 
-  int CID = SEARCHEFF_DATA.CID ;
   int NMJD_DETECT, NDETECT, imask, NOBS, MARK, DETECT_MARK ;
   int IFILTOBS, obs, OVP, obsLast, LFIND;
-  int IFILTOBS_MASK, IFILTDEF_MASK, NEXT_DETECT, DETECT_FLAG, PHOTPROB_FLAG;
+  int IFILTOBS_MASK, IFILTDEF_MASK, NEXT_DETECT, DETECT_FLAG ;
   int FOUND_TRIGGER=0;
   int OBSMARKER_DETECT[MXOBS_TRIGGER];
   double  RAN, EFF, MJD, MJD_LAST, MJD_DIF, TDIF_NEXT, SNR,MAG ;
   char CFILT[4];
-  char fnam[] = "gen_SEARCHEFF_PIPELINE";
   int LDMP  = 0 ;
-
   int LEGACY_PHOTPROB = 0 ; 
+  //  char fnam[] = "gen_SEARCHEFF_PIPELINE";
 
   // ------------- BEGIN -------------
 
@@ -1884,7 +1874,7 @@ void dumpLine_PIPELINE_PHOTPROB(void) {
   int  NDUMP  = INPUTS_SEARCHEFF.NPHOTPROB_DUMP ;
   int  i, obs, NFOUND=0;
   double PHOTPROB, PHOTPROB_LIST[MXOBS_PHOTPROB];
-  char fnam[] = "dumpLine_PIPELINE_PHOTPROB";
+  //  char fnam[] = "dumpLine_PIPELINE_PHOTPROB";
   // --------------- BEGIN --------------
 
   if ( NDUMP == 0 ) { return ; }
@@ -1929,11 +1919,9 @@ double GETEFF_PIPELINE_DETECT(int obs) {
 
   double
     MAG, SNR, MJD, EFF, FIX_EFF
-    ,EFF_atmax, EFF_atmin, VAL_atmax, VAL_atmin, VAL_tmp, VAL
+    ,EFF_atmax, EFF_atmin, VAL_atmax, VAL_atmin, VAL
     ,ZERO = 0.0
     ,ONE  = 1.0
-    ,EFF_LIST[3]  
-    ,VAL_LIST[3]  // SNR or mag
     ;
 
   int NMAP = INPUTS_SEARCHEFF.NMAP_DETECT ;
@@ -1941,8 +1929,7 @@ double GETEFF_PIPELINE_DETECT(int obs) {
   int 
     CID, ifilt_obs, NPE_SAT
     ,OPT_INTERP  = 1   // 1=linear;  2=quadratic
-    ,NBIN_INTERP = 3
-    ,NBIN_EFF, i, inear, imap, IMAP, NMAP_FOUND=0
+    ,NBIN_EFF, imap, IMAP, NMAP_FOUND=0
     ;
 
   char cfilt[4];
@@ -2133,7 +2120,7 @@ void setRan_for_PHOTPROB(void) {
 
   int  NSTORE     = OBS_PHOTPROB.NSTORE ;
   int  NMAP       = INPUTS_SEARCHEFF.NMAP_PHOTPROB ;
-  int  MEMD, istore, imap, imap1, NCORR=0, irow, irow1, NCOV, obs, obs1 ;
+  int  MEMD, istore, imap, imap1, irow, irow1, NCOV, obs, obs1 ;
   double CORR, CORR1, FLATRAN, GAURAN, GAURAN_LIST[MXOBS_PHOTPROB];
   double GAURAN_MAX = GAUSS_INTEGRAL_STORAGE.XMAX - 0.1 ;
   double COVDIAG = 1.0;  // Cov matrix has sigma=1
@@ -2281,7 +2268,7 @@ double get_PIPELINE_PHOTPROB(int istore) {
   double SBMAG     = SEARCHEFF_DATA.SBMAG[IFILTOBS] ;  
   double MJD       = SEARCHEFF_DATA.MJD[obs] ;
 
-  int    istat, ivar, ibin, LDMP ;
+  int    istat, ivar, LDMP ;
   double PHOTPROB_CDF[MXVAR_SEARCHEFF_PHOTPROB];
   double VARDATA[MXVAR_SEARCHEFF_PHOTPROB];
   char  *VARNAME, cFILT[4];
@@ -2467,7 +2454,7 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
   double  *CUTWIN_SNRMAX = INPUTS_SEARCHEFF.CUTWIN_SNRMAX_zHOST ;
   int     LFIND ;
   double  SNRMAX, RAN, EFF ;
-  char fnam[] = "gen_SEARCHEFF_zHOST" ;
+  //  char fnam[] = "gen_SEARCHEFF_zHOST" ;
 
   // ----------- BEGIN -----------
 
@@ -2523,7 +2510,7 @@ double interp_SEARCHEFF_zHOST(void) {
   // Interpolate multi-D map to get EFF(HOSTLIB properties)
 
   int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
-  int IMAP, istat, imap, NVAR, ivar, ivar_HOSTLIB, IGAL, NMATCH=0;
+  int IMAP=0, istat, imap, NVAR, ivar, ivar_HOSTLIB, IGAL, NMATCH=0;
   double VARDATA[MXVAR_SEARCHEFF_zHOST];
   double EFF = 0.0 ;
   char *field_map, *field_data, *varName ;  
@@ -2630,7 +2617,7 @@ void LOAD_PHOTPROB_CDF(int NVAR_CDF, double *VAL ) {
 
   int ivar;
   double SUM=0.0, sum=0.0, TMPVAL[MXVAR_SEARCHEFF_PHOTPROB];
-  char fnam[] = "LOAD_PHOTPROB_CDF" ;
+  //  char fnam[] = "LOAD_PHOTPROB_CDF" ;
 
   // ------------- BEGIN -------------
 
@@ -2658,7 +2645,6 @@ double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) {
   // in the PHOTPROB map 'IMAP'
   // OBS is the observation index.
 
-  int NVAR_MAP   = SEARCHEFF_PHOTPROB[IMAP].NVAR_MAP;
   double VALMIN  = SEARCHEFF_PHOTPROB[IMAP].VALMIN[IVAR] ;
   double VALMAX  = SEARCHEFF_PHOTPROB[IMAP].VALMAX[IVAR] ;
   double safety  = 1.0E-9*(VALMAX-VALMIN);
@@ -2666,7 +2652,7 @@ double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) {
   int    IFILTOBS = SEARCHEFF_DATA.IFILTOBS[OBS] ;
   double SNR      = SEARCHEFF_DATA.SNR[OBS]; 
   double SBMAG    = SEARCHEFF_DATA.SBMAG[IFILTOBS]; 
-  int    ivar, IVARABS ;
+  int    IVARABS ;
   double VAL=0.0 ;
   char *VARNAME;
   char fnam[] = "LOAD_PHOTPROB_VAR" ;

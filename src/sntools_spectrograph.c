@@ -1017,7 +1017,6 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   int OPT_INTERP=1;
   int NBT  = INPUTS_SPECTRO.NBIN_TEXPOSE ;
   double SNR, ZP_S, ZP_T, arg, SQ_S, SQ_T, Flux, FluxErr ;
-  double LAMAVG = INPUTS_SPECTRO.LAMAVG_LIST[ILAM] ;
   double Tmin   = INPUTS_SPECTRO.TEXPOSE_LIST[0] ;
   double Tmax   = INPUTS_SPECTRO.TEXPOSE_LIST[NBT-1] ;
   char fnam[] = "getSNR_spectrograph" ;

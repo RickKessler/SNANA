@@ -96,7 +96,7 @@ void init0_GRIDsource(void) {
   float PMIN, PMAX;
 
   int 
-    IPAR, IPAR2, i,  NFILT, NBIN, NINDEX
+    IPAR, IPAR2, i,  NFILT, NBIN=0, NINDEX
     ,indx[NPAR_GRIDGEN+1]
     ,ilcoff, ilc, ilc_last, itmp
     ,iz, ish, ic1, ic2
@@ -431,7 +431,7 @@ void init1_GRIDsource(void) {
 
   int   ifilt, ifilt_obs, NFILT, NBIN, i, i2 ;
   float LAM; 
-  char fnam[] = "init1_GRIDsource" ;
+  //  char fnam[] = "init1_GRIDsource" ;
 
   // -------------- BEGIN --------------
 

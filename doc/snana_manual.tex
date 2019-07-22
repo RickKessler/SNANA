@@ -2214,10 +2214,10 @@ that ensure that the derivative is zero at each node.
 
 
 % -----------------------------------
-\subsubsection{Galaxy Lensing}
-\label{sss:lensing}
+\subsubsection{Weak Gravitational Lensing}
+\label{sss:weak_lensing}
 
-The effect of lensing is simulated using a pre-computed
+The effect of weak lensing is simulated using a pre-computed
 map of lensing probability as a function of redshift and
 $\Delta\mu \equiv -2.5\log({\rm magnification})$.
 Maps are stored in \$\sndataroot/{\tt models/lensing},
@@ -2225,8 +2225,11 @@ and the lensing effect is implemented with the following
 sim-input keys:
 %
 \begin{verbatim}
-  LENSING_PROBMAP_FILE:  LENSING_PROBMAP_LogNormal+MICE.DAT
-  LENSING_DMUSCALE:      2.1     # default is 1.0
+  WEAKLENS_PROBMAP_FILE:  LENSING_PROBMAP_LogNormal+MICE.DAT
+  WEAKLENS_DMUSCALE:      2.1     # default is 1.0
+     or
+  LENSING_PROBMAP_FILE:  LENSING_PROBMAP_LogNormal+MICE.DAT # legacy key
+  LENSING_DMUSCALE:      2.1                                # legacy key
 \end{verbatim}
 %
 A MICE simulation \cite{MICE2015} is used for $z<1.4$, 
@@ -2245,6 +2248,12 @@ simulated data files, and also stored in the output tables
 created by the analysis programs.
 Users should examine and validate the distribution of
 {\tt SIM\_LENSDMU} vs. redshift.
+
+% -----------------------------------
+\subsubsection{Strong Gravitational Lensing}
+\label{sss:stronglens}
+
+Coming soon ...
 
 % ------------------------------------
    \clearpage

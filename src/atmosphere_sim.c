@@ -279,10 +279,9 @@ int FLAGTMP;
 // ******************************************
 int main(int argc, char **argv) {
 
-  int i, ifilt, ised, iz, ichange, NZ ;
-  char fnam[] = "main" ;
+  int i, ifilt, ichange;
   double *ptrchange ;
-
+  //  char fnam[] = "main" ;
   // ---------------- BEGIN ---------------
 
   sprintf(BANNER,"Begin execution of atmosphere.exe " );
@@ -366,12 +365,13 @@ int main(int argc, char **argv) {
 
   atmosphere_end();
 
+  return(0);
+
 } // end of main.
 
 
 // ******************************************
 void parse_args(int argc, char **argv) {
-  char fnam[] = "parse_args" ;
   // ---------- BEGIN --------
   sprintf( INPUTS.inputFile, "%s", argv[1] );
 } // end of parse_args
@@ -388,8 +388,8 @@ void atmoshpere_init(void) {
   INPUTS.NFILT = 0;
   INPUTS.NSED  = 0;
 
-  sprintf(INPUTS.filterDir,"");
-  sprintf(INPUTS.sedDir,"");
+  INPUTS.filterDir[0] = 0 ;
+  INPUTS.sedDir[0]    = 0 ; 
 
   INPUTS.REDSHIFT_RANGE[0] = 0.0 ;
   INPUTS.REDSHIFT_RANGE[1] = 0.0 ;
@@ -579,7 +579,7 @@ void read_atmos_change(FILE *fp, int ichange) {
   int   imod ;
   float xfac;
   char  ctype[40];
-  char  fnam[] = "read_atmos_change" ;
+  //  char  fnam[] = "read_atmos_change" ;
 
   // -------- BEGIN ----------
 
@@ -619,6 +619,7 @@ int INDEX_MODTRAN_TYPE(char *type) {
   sprintf(c2err,"Check  char MODTRAN_TYPE  for valid strings");
   errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
 
+  return(-9);
 
 } // end of INDEX_MODTRAN_TYPE
 
@@ -626,14 +627,8 @@ int INDEX_MODTRAN_TYPE(char *type) {
 // ****************************
 void  proc_input(void) {
 
-  int 
-    IDIF, NB, ilam, i
-    ,ILAM, IBIN, IMIN, IMAX, IVAL
-    ,ifilt, if0, if1
-    ;
-
+  int  NB, ilam, i, ILAM, ifilt, if0, if1    ;
   double DDIF, DBIN, DMIN, DMAX, di ;
-
   char string[4], cf0[2], cf1[2];
   char fnam[] = "proc_input";
 
@@ -714,6 +709,8 @@ int char2ifilt ( char *cfilt ) {
   sprintf(c1err,"Could not find filter index for '%s'", cfilt ) ;
   errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
 
+  return(-9);
+
 } // end of char2ifilt
 
 // ****************************
@@ -744,7 +741,7 @@ void read_filterTrans(int ifile) {
 
 
   sprintf(PATH_SNANA_FILTERS,"%s/filters", PATH_SNDATA_ROOT );
-  fp = snana_openTextFile(PATH_SNANA_FILTERS, filterFile, 
+  fp = snana_openTextFile(0, PATH_SNANA_FILTERS, filterFile, 
 			  tmpFile, &gzipFlag );
 
   if ( fp == NULL ) {
@@ -754,8 +751,6 @@ void read_filterTrans(int ifile) {
   }
 
 
-
- PRLIB:
   printf("   Read filter-trans file: %s \n", tmpFile );
 
   FILTER[ifile].LAMBDA_MIN  =  999999. ;
@@ -1053,14 +1048,14 @@ void get_SYNMAG_raw(int ised, int ichange, int ifilt, int iz) {
 
   double 
     *ptrFlux, *ptrTrans
-    ,z, mag, magxt, flux, trans
+    ,z, mag, magxt, trans
     ,TRnominal, TRchange,  lam
     ,TR_ratio
     ,atmRatio[MXLAMINT]
     ,tmpTrans[MXLAMINT]
     ;
 
-  int imod, ilam, OPT ;
+  int ilam ;
 
   char fnam[] = "get_SYNMAG_raw" ;
 
@@ -1139,7 +1134,7 @@ void get_SYNMAG_colorcor(int ised, int ichange, int ifilt, int iz) {
 
   double 
     slope, off
-    ,mag_raw, mag0, mag1, color
+    ,mag_raw, mag0=0.0, mag1=0.0, color
     ,mag_cor
     ;
 
@@ -1209,9 +1204,6 @@ double SYNMAG( double z,  double *ptrLam, double *ptrTrans,
     ;
 
   int ilam, ilamz, Lzeroflux  ;
-
-  FILE *fptmp;
-
 
   // ---------- BEGIN -------
 
@@ -1301,9 +1293,7 @@ void filter_extinct(void) {
 void rebin_all ( void ) {
 
   int ifilt, ised, NBIN, imod;
-
   double *ptrlam, *ptrfun, *ptrfun_rebin ;
-  double *ptrflux, *ptrtrans ;
 
   // ------------ BEGIN ----------
 
@@ -1366,9 +1356,6 @@ void lamrebin(
     ,LAM_MIN
     ,LAM_MAX
     ,lam_rebin
-    ,lam, fun
-    ,lamdif
-    ,lamdif_min
     ;
 
   // use double precision for interpolation function
@@ -1378,15 +1365,7 @@ void lamrebin(
     ,interp8_fun[4]
     ;
 
-  int 
-    i
-    ,ilam
-    ,ilam_rebin
-    ,ilam_near
-    ,ilam_0
-    ,ILAM_REBIN_MIN
-    ,ILAM_REBIN_MAX
-    ;
+  int ilam_rebin, ILAM_REBIN_MIN, ILAM_REBIN_MAX    ;
 
   // -------- BEGINN ------------
  
@@ -1447,8 +1426,7 @@ void AtmosCHANGE(int ichange, double *TRANS ) {
   // return total atmos trans *TRANS.
 
   double 
-    lam
-    ,TRtot_default
+     TRtot_default
     ,TRmod_default
     ,TRtot_change
     ,TRmod_change 
@@ -1456,9 +1434,9 @@ void AtmosCHANGE(int ichange, double *TRANS ) {
     ,one = 1.0 
     ;
 
-  int ilam, imod ;
+  int imod, ilam ;
 
-  char fnam[] = "AtmosCHANGE" ;
+  //  char fnam[] = "AtmosCHANGE" ;
 
   // ------------ BEGIN -----------
 
@@ -1520,12 +1498,9 @@ void get_colorcor(int ichange, int ifilt) {
     ,color[MXSEDCAL]
     ;
 
-  char ctmp[20], dmpFile[200];
   int LDMP = 0 ;
-
   FILE *fpdmp;
-
-  char c_color[12];
+  char c_color[12], dmpFile[200];
   char fnam[] = "get_colorcor";
 
   // ---------- BEGIN ----------
@@ -1709,7 +1684,7 @@ void  mkplots(void) {
   double mag, magref;
 
   int 
-    hid, hid2, hid3, hoff_change
+    hid, hid2, hoff_change
     ,hidraw, hidcor
     ,ised, ifilt, imod, ichange
     ,nblam, ilam, nbz, iz
@@ -1725,7 +1700,7 @@ void  mkplots(void) {
   float fmin4, fmax4, smin4, smax4 ;
   */
 
-  double minlam8, maxlam8, lam8, w8, magdif_raw8, magdif_cor8;
+  double minlam8, maxlam8, lam8, magdif_raw8, magdif_cor8;
   double zmin8, zmax8, z8, zhalf8;
   double t8, xt8, flux8, xfilt8, xsed8 ;
   double xmin8, xmax8, xmod8 ;

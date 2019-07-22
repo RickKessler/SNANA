@@ -434,7 +434,7 @@ c
      &  ,IFLAG_INI=1, IFLAG_ANA=2, IFLAG_END=3
      &  ,MAG_SATURATE = -7.0   ! for sim only
      &  ,CUTVAL_OPEN = 1.0E12  ! cutwin value to accept everything.
-     &	,MASK_FLUXCOR_SNANA    = 1
+     &  ,MASK_FLUXCOR_SNANA    = 1
      &  ,MASK_FLUXERRCOR_SNANA = 2
 c
      &  ,EXIT_ERRCODE_SNANA = 21
@@ -1617,7 +1617,6 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_Tgapmax,  CUTBIT_T0gapmax
      &  ,CUTBIT_Tobsmin,  CUTBIT_Tobsmax
      &  ,CUTBIT_SEARCH           ! sim only
-     &  ,CUTBIT_TEMPLATE_INDEX   ! sim only (Dec 2018)
      &  ,CUTBIT_PEAKMJD
      &  ,CUTBIT_NMJD_INCLUDE    ! Aug 11 2015
      &  ,CUTBIT_NEPOCH
@@ -1806,7 +1805,6 @@ c  Below are Epoch-dependent cuts
      &  ,cutwin_zp(2)            ! ZEROPT cut, ADU or NPE
      &  ,cutwin_zpADU(2)         ! ZEROPT cut, ADU
      &  ,cutwin_zpNPE(2)         ! ZEROPT cut, NPE
-     &  ,cutwin_moondist(2)      ! dist betwee SN and moon, deg
      &  ,cutwin_photprob(2)
      &  ,cutwin_Trest(2)         ! window for all epochs, rest frame days
      &  ,cutwin_Tobs(2)          ! window for all epochs, obs-frame days
@@ -2177,7 +2175,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , CUTWIN_ZPADU, CUTWIN_ZPNPE
 
       COMMON / SNLCINP8 /
-     &    H0_REF, OLAM_REF, OMAT_REF, W0_REF, DWDA_REF
+     &    H0_REF, OLAM_REF, OMAT_REF, ORAD_REF, W0_REF, DWDA_REF
 
       NAMELIST / SNLCINP / 
      &      VERSION_PHOTOMETRY, VERSION_REPLACE, VERSION_REFORMAT_FITS
@@ -2232,7 +2230,7 @@ c
      &   ,cutwin_peakmjd,  cutwin_mjd
 c
      &   ,cutwin_psf,       cutwin_zp,  CUTWIN_ZPADU, CUTWIN_ZPNPE
-     &   ,cutwin_moondist,  cutwin_photprob
+     &   ,cutwin_photprob
      &   ,cutwin_nband_thresh
      &   ,cutwin_nfilt_snrmax,   cutwin_nfilt_snrmax2
      &   ,cutwin_nfilt_trestmin, cutwin_nfilt_trestmax
@@ -4387,7 +4385,7 @@ c check for options inside ()
                if( cTMPOPT(1:4) .EQ. 'host' ) then
                   WRTABLEFILE_HOST_TEXT = .TRUE.
                else
-                  TEXTFORMAT_TABLE(itab) = cTMPOPT
+                  TEXTFORMAT_TABLE(itab) = cTMPOPT(1:8)
                endif
                USEOPT = .TRUE.
             endif
@@ -4672,7 +4670,7 @@ c local var
       LOGICAL LSNIGNORE
 
 c functions
-      INTEGER PARSE_INTLIST, PARSE_NML_STRINGLIST
+      INTEGER PARSE_INTLIST
 
 C -------------- BEGIN --------------
 
@@ -4729,11 +4727,11 @@ C -------------- BEGIN --------------
 
          else if ( LINE_ARGS(i) .EQ. 'REQUIRE_EPOCHS_STRING' ) then
             i = i + 1 
-            REQUIRE_EPOCHS_STRING = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
+            REQUIRE_EPOCHS_STRING = LINE_ARGS(i)(1:100)
 
          else if ( LINE_ARGS(i) .EQ. 'DUMP_STRING' ) then
             i = i + 1 
-            DUMP_STRING = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
+            DUMP_STRING = LINE_ARGS(i)(1:100)
 
          else if ( LINE_ARGS(i) .EQ. 'FILTER_UPDATE_PATH' ) then
             i = i + 1 
@@ -4914,7 +4912,7 @@ c ----------
             CALL PARSE_SNCCID_LIST(LINE_ARGS(i)) ! May 30 2019
 
          else if ( LINE_ARGS(i) .EQ. 'SNCID_LIST' ) then
-            i = i + 1 ; STRING_LIST = LINE_ARGS(i)
+            i = i + 1 ; STRING_LIST = LINE_ARGS(i)(1:60)
             NCID_LIST = PARSE_INTLIST(STRING_LIST,SNCID_LIST)
 
          else if ( LINE_ARGS(i) .EQ. 'SNCID_LIST_FILE' ) then
@@ -4924,7 +4922,7 @@ c ----------
             i = i + 1 ; READ(LINE_ARGS(i),*) MXEVT_PROCESS
 
          else if ( LINE_ARGS(i) .EQ. 'SIM_TEMPLATE_INDEX_LIST' ) then
-            i = i + 1 ; STRING_LIST = LINE_ARGS(i)
+            i = i + 1 ; STRING_LIST = LINE_ARGS(i)(1:60)
             NSIM_TEMPLATE_INDEX_LIST = 
      &          PARSE_INTLIST(STRING_LIST,SIM_TEMPLATE_INDEX_LIST)
 
@@ -4961,15 +4959,15 @@ c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_CID(2)
 
          else if ( LINE_ARGS(i) .EQ. 'SNTYPE_LIST' ) then
-            i = i + 1 ; STRING_LIST = LINE_ARGS(i)
+            i = i + 1 ; STRING_LIST = LINE_ARGS(i)(1:60)
             NSNTYPE_LIST = PARSE_INTLIST(STRING_LIST,SNTYPE_LIST)
 
          else if ( LINE_ARGS(i) .EQ. 'CCDNUM_LIST' ) then
-            i = i + 1 ; STRING_LIST = LINE_ARGS(i)
+            i = i + 1 ; STRING_LIST = LINE_ARGS(i)(1:60)
             NCCDNUM_LIST = PARSE_INTLIST(STRING_LIST,CCDNUM_LIST)
 
          else if ( LINE_ARGS(i) .EQ. 'SNTYPE_IGNORE' ) then
-            i = i + 1 ; STRING_LIST = LINE_ARGS(i)
+            i = i + 1 ; STRING_LIST = LINE_ARGS(i)(1:60)
             NSNTYPE_IGNORE = PARSE_INTLIST(STRING_LIST,SNTYPE_IGNORE)
 
          else if ( LINE_ARGS(i) .EQ. 'CUTWIN_NEPOCH' ) then
@@ -5472,7 +5470,7 @@ c local var
       INTEGER IAFILT(MXFILT_OBS)
       REAL    XAFILT(MXFILT_OBS)
 
-      INTEGER ifiltdef, NF, i, ifilt, ifiltinv, NWD, LWD, NTMP
+      INTEGER ifiltdef, NF, i, ifilt, ifiltinv
       CHARACTER cfilt*2
       REAL TMP_ZP, TMP_PRIM
       LOGICAL LDMP, LTMP
@@ -6098,7 +6096,7 @@ c ----------------------
 
       INTEGER IERR
       REAL*8  PS8
-      LOGICAL LPLOT, REJECT_PRESCALE, USE_MINOS_LOCAL
+      LOGICAL REJECT_PRESCALE, USE_MINOS_LOCAL
       CHARACTER FNAM*14
 
 c ----------------- BEGIN -------------
@@ -6113,9 +6111,9 @@ c make sure required header elements are there
          if ( REJECT_PRESCALE(N_SNLC,PS8) ) RETURN
 
 c Apr 2019: special NNtrain option to pick only EVEN CID
-	 if ( NEARNBR_TRAIN_ODDEVEN ) then
-    	     if ( MOD(SNLC_CID,2) .EQ. 1 ) RETURN
-	 endif
+         if ( NEARNBR_TRAIN_ODDEVEN ) then
+            if ( MOD(SNLC_CID,2) .EQ. 1 ) RETURN
+         endif
       endif
 
 c check option to fetch vPec from file
@@ -6277,7 +6275,7 @@ c  = -1 => decrement ITER and try again (e.g., for photoZ spike)
 c check ERRFLAG_FIT
           CALL SNANA_ERRFLAG_FIT(iter,ERRFLAG_FIT)
           if ( ERRFLAG_FIT > 0 ) REJECT_FIT = .TRUE.
-	 
+ 
 410     CONTINUE  ! end of iteration loop
 
         print*,'    Finished fitting CID = ', 
@@ -7989,8 +7987,8 @@ c -----------------------------------------------
 +CDE,PKMJDCOM.
 
       INTEGER 
-     &   iwd, EPMIN, EPMAX, EP, NEWMJD
-     &  ,IFILT, IFILT_OBS, IFILT_REPLACE, NSPEC, ispec
+     &   EPMIN, EPMAX, EP, NEWMJD
+     &  ,IFILT, IFILT_OBS, IFILT_REPLACE
      &  ,LENCID, LS, IERR, CID, ikey, L1, L2, LL, i
     
       REAL 
@@ -8007,7 +8005,6 @@ c -----------------------------------------------
      &  ,salt2_file*(MXCHAR_FILENAME)
      &  ,SURVEY_NAME_LOCAL*(MXCHAR_FILEWORD)
      &  ,SIMFILE*(MXCHAR_FILENAME)
-     &  ,DATAFILE*(MXCHAR_FILENAME)
      &  ,ctmp*60
 
 c  functions
@@ -8415,7 +8412,7 @@ c +CDE,PARSECOM.
 +CDE,EARLYCOM.
 +CDE,SPECCOM.
 
-      INTEGER icut, cid, i, ibit, itype, ipar, ifilt, LM,istat
+      INTEGER icut, i, ibit, itype, ipar, ifilt, LM,istat
       INTEGER LL, LL_SNANA, NWD
       CHARACTER ENVtemp*400, HOST*40, MACH*40, FNAM*12
 
@@ -8932,7 +8929,7 @@ c call init functions in sntools_nearnbr.c
 c -----------------------------
       IF ( NEARNBR_TRAIN_ODDEVEN ) THEN
          CALL NEARNBR_SET_ODDEVEN()  ! Apr 5 2019
-	 print*,'   ODDEVEN flag -> Select even CIDs'
+         print*,'   ODDEVEN flag -> Select even CIDs'
          call flush(6)
       ENDIF
 
@@ -9975,7 +9972,7 @@ C -------------- BEGIN -------------
 
 C ================================================
 +DECK,RDSRVTEXT.
-      SUBROUTINE RDSURVEY_TEXT ( LUN, IERR ) 
+      SUBROUTINE RDSURVEY_TEXT ( IERR ) 
 
 C
 C Jun 2011
@@ -10005,9 +10002,7 @@ C -------------------------------------
 
 c subroutine args
 
-      INTEGER 
-     &   LUN    ! (I) LUN to open and read file
-     &  ,IERR   ! (O) error flag, 0=OK
+      INTEGER  IERR   ! (O) error flag, 0=OK
 
 c local variables.
 
@@ -10016,7 +10011,7 @@ c local variables.
 +CDE,FILTCOM.
 
       INTEGER 
-     &   LL, L1, L2, iwd, iwd2, i, NWD, NWD_LOAD, LWD0, LWD1, ID
+     &   LL, L1, L2, iwd, iwd2, i, NWD, NWD_LOAD, LWD0, ID
      &  ,IFAKE, IPAR_SIMSED, IPAR_BYOSED, IPAR_LCLIB
      &  ,IPAR_SIM_HOSTLIB
 
@@ -10222,7 +10217,7 @@ c matches NPAR_SIMSED
 
 C ================================================
 +DECK,INITSURVEY.
-      SUBROUTINE INIT_SURVEY ( LUN, IERR )
+      SUBROUTINE INIT_SURVEY ( IERR )
 c
 c Created Jun 2011
 c [re-named from RDSURVEY, and read-part moved to RDSURVEY_TEXT]
@@ -10246,9 +10241,7 @@ c -------------
 
 c subroutine args
 
-      INTEGER 
-     &   LUN    ! (I) LUN to use to open files
-     &  ,IERR   ! (O) error flag, 0=OK
+      INTEGER  IERR   ! (O) error flag, 0=OK
 
 c local variables.
 
@@ -10677,7 +10670,7 @@ c local args
 +CDE,SNCUTS.
 +CDE,SNLCINP.
 
-      INTEGER ifilt, ifilt_obs, IERR
+      INTEGER ifilt, ifilt_obs
 
 c ---------------- BEGIN ------------
 
@@ -11040,7 +11033,7 @@ c get global survey info
 
       IF ( LFLAG_RDHEAD_ONLY .or. IVERS .GT. 1 ) THEN
          CALL RDSURVEY_FITS(IERR)
-         CALL INIT_SURVEY(LUNTMP,IERR)
+         CALL INIT_SURVEY(IERR)
       ENDIF
 
 c init lookup pointers for each new version
@@ -11112,7 +11105,7 @@ c local var
 +CDE,FITSCOM.
 +CDE,SPECCOM.
 
-      INTEGER ISTAT, LRET, ID, FLAG
+      INTEGER ISTAT, LRET, FLAG
       CHARACTER KEYNAME*80, KEYVAL*80, DATATYPE*20
       LOGICAL LRDFILT
 
@@ -12113,8 +12106,8 @@ c get number of files for this version (Jul 1 2014)
 c read SURVEY_NAME and FILTERS from header in first file in list
 
       IF ( LFLAG_RDHEAD_ONLY .or. IVERS .GT. 1 ) THEN
-        CALL RDSURVEY_TEXT(LUNTMP,IERR)        
-        CALL INIT_SURVEY(LUNTMP,IERR)
+        CALL RDSURVEY_TEXT(IERR)        
+        CALL INIT_SURVEY(IERR)
       ENDIF
 
       IF ( LFLAG_RDHEAD_ONLY ) RETURN
@@ -12205,7 +12198,7 @@ c local var
       INTEGER 
      &   iwd, iwd2, i, NWD, NEP, NEWMJD, NZ, isnlc, cid
      &  ,LL, LUN, INDX, IFILT, IFILT_OBS, LWD, NWD_LOAD
-     &  ,EPMIN, EPMAX, EP, ISTAT_RDSPEC
+     &  ,EPMIN, EPMAX, EP
 
 c function
       INTEGER IPLOT_JOBSPLIT
@@ -12295,7 +12288,7 @@ c - - - - - - - - -
         IF ( ISKEY_VARLIST  ) NWD_LOAD = NVAR_TERSE+1
         IF ( ISKEY_OBS      ) NWD_LOAD = NVAR_TERSE+1
         IF ( ISKEY_SPECTRUM ) NWD_LOAD = 2
-	IF ( ISKEY_SPECBIN  ) THEN ; 
+        IF ( ISKEY_SPECBIN  ) THEN ; 
            NVAR_SPECTRUM  = 5                  ! for data
            if ( LSIM_SNANA ) NVAR_SPECTRUM = 7 ! for sim
            NWD_LOAD = NVAR_SPECTRUM
@@ -12593,7 +12586,6 @@ c local var
      &   CID, IFAKE, NEWMJD, ivar, igal
      &  ,LL, L1, L2, ifilt, ifile, ITYPE
 
-      REAL    MWEBV, MWEBV_ERR
       LOGICAL USECID, LBAD, LTMP, LCHK
       LOGICAL L_SNID, L_IAUC, L_FILT, L_SEL
 
@@ -12614,7 +12606,7 @@ c start with optional SUBSURVEY string (FITS only)
         KEY    = 'SUBSURVEY'
         LTMP   = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
         IF ( LTMP .and. RETSTR(1:1) .NE. ' ' ) THEN
-           SUBSURVEY_NAME = RETSTR
+           SUBSURVEY_NAME = RETSTR(1:MXCHAR_SURVEY)
            IDSUBSURVEY    = GET_IDSURVEY(SUBSURVEY_NAME)           
         ENDIF
       ENDIF
@@ -13019,10 +13011,10 @@ c - - - - - - - -
          SNHOST_OBJID(igal) = I8TMP
 
 c xxxxxxxxxxxxxxxxx
-	 IF ( OPT_DEBUG == 888 ) THEN
+        IF ( OPT_DEBUG == 888 ) THEN
 c            SNHOST_OBJID(igal) = I8TMP*1000000000 + I8TMP
             SNHOST_OBJID(igal) = I8TMP*I8TMP*I8TMP*I8TMP
-	 ENDIF
+        ENDIF
 c xxxxxxxxxxxxxxxx
 
          DSNHOST_OBJID(igal) = DBLE( SNHOST_OBJID(igal) )
@@ -13251,7 +13243,7 @@ c
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,FITSCOM. 
-      INTEGER   ISTAT, ISTAT00, LRET, ipar, ipar_read, LENKEY
+      INTEGER   ISTAT, LRET, ipar, ipar_read, LENKEY
       CHARACTER KEYNAME*80, KEYVAL*80, c2*2, PARNAME*60
 
 c C functions
@@ -13551,8 +13543,8 @@ C ----------------- BEGIN --------------
 
       IF ( MODEL_NAME .EQ. '' ) THEN
            write(c1err,551) MODEL_CLASS
-551   	   format('Invalid MODEL_CLASS = ', I3)
-	   c2err = 'Should be either SIMSED, BYOSED, or LCLIB'
+551        format('Invalid MODEL_CLASS = ', I3)
+           c2err = 'Should be either SIMSED, BYOSED, or LCLIB'
            CALL MADABORT(FNAM, c1err, c2err)
       ENDIF
    
@@ -13930,7 +13922,7 @@ c ---------------------
 
 c local var
 
-      INTEGER LCHAR, NMJD, J, JBIT, ISTAT
+      INTEGER LCHAR, NMJD, ISTAT
       LOGICAL  USECID_LOCAL, ADDFLAG, LDUPL
 
       REAL*8  MJD8LIST(MXINTERP)
@@ -14066,10 +14058,8 @@ c subroutine args
       INTEGER ID               ! (O) IDSURVEY
 
 c local args
-      INTEGER j1, j2, i, LENSTR
-      CHARACTER 
-     &   C1ERR*80, C2ERR*80
-     &  ,LAST_SUBSURVEY*(MXCHAR_SURVEY)
+      INTEGER j1, j2, LENSTR
+      CHARACTER  C1ERR*80, C2ERR*80
 
 c function
       INTEGER GET_IDSURVEY 
@@ -14159,7 +14149,7 @@ c local var
 +CDE,SNLCINP.
 +CDE,SPECCOM.
 
-      INTEGER ID,  NLAMBIN, ilam, iwd, NLAMBIN_EXPECT, NDMP
+      INTEGER ID,  NLAMBIN, ilam, iwd, NLAMBIN_EXPECT
       REAL*8  MJD, TEXPOSE, TOBS
       CHARACTER CWD*60, CWD_NEXT*60
       LOGICAL LDMP / .FALSE. /
@@ -14186,7 +14176,7 @@ c check header stuff
          RDFLAG_SPECTRUM = .TRUE.
          READ(CWD_NEXT,*) ID
          NSPECTRUM    = NSPECTRUM + 1
-	 if ( NSPECTRUM > MXSPECTRUM ) then
+         if ( NSPECTRUM > MXSPECTRUM ) then
            write(c1err,81) MXSPECTRUM 
 81         format('NSPECTRUM exceeds bound of MXSPECTRUM=',I2 )
            c2err = 'Check MXSPECTRUM in snana.car'
@@ -14213,7 +14203,7 @@ c check header stuff
          READ(CWD_NEXT,*) NLAMBIN
          NLAMBIN_SPECTRUM(NSPECTRUM) = NLAMBIN
 
-	 if ( NLAMBIN > MXLAM_SPECTRUM ) then
+         if ( NLAMBIN > MXLAM_SPECTRUM ) then
            write(c1err,91) NLAMBIN, MXLAM_SPECTRUM
 91         format('NLAMBIN=',I5,' exceeds bound of ', 
      &            'MXLAM_SPECTRUM=',I5)
@@ -14589,7 +14579,7 @@ c local var
      &   Newmjd, ITMPN(MXFILT_OBS)
      &  ,IDTEL, IDFIELD, ITMP, EPMIN, EPMAX, ep, NFILT
      
-      REAL tmp, Z, PKMJD
+      REAL Z, PKMJD
       LOGICAL LTMP, LTMP1, LTMP2, IGNORE
 
       REAL*8  MJD8 
@@ -16015,7 +16005,7 @@ C --------------- BEGIN ------------
        
       DO iwd = 1, NWD
          CALL get_PARSE_WORD_fortran(iwd,SNCCID_LIST(iwd),LL)
-c	 LL = INDEX(SNCCID_LIST(iwd),' ') - 1
+c        LL = INDEX(SNCCID_LIST(iwd),' ') - 1
 c	 print*,' xxx SNCCID = |', SNCCID_LIST(iwd)(1:LL), '|'
       ENDDO
       
@@ -16430,7 +16420,7 @@ c function arguments
 
       INTEGER 
      &   LENKEY, LENKEY2
-     &  ,NRD, IRD, IROW, LRET, NRET, IFILT_OBS,  i
+     &  ,NRD, IRD, IROW, LRET, NRET, IFILT_OBS
 
       LOGICAL 
      &   DO_RETSTR, DO_RET8, DO_FILT, DO_ERR, ISPM
@@ -17504,8 +17494,8 @@ c May 1 2019: convert GET_MULTISEASON args to double.
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER NEWMJD, EPMIN, EPMAX, EP, NOBS, isort, iSeason
-      INTEGER ORDER, INDEX_SORT(MXSEASON), ITMP_REJECT(MXEPOCH)
+      INTEGER NEWMJD, EPMIN, EPMAX, EP, NOBS, iSeason
+      INTEGER ITMP_REJECT(MXEPOCH)
       REAL*8  TMP8_MJD(MXEPOCH)
       REAL*8  TMP8_FLUX(MXEPOCH), TMP8_FLUXERR(MXEPOCH)
       REAL*8  OUT_CHI2RED(MXSEASON), OUT_AVGFLUX(MXSEASON)
@@ -17944,10 +17934,9 @@ c
      &    NEWMJD, EPMIN, EPMAX, EP, i, NOBS(3)
 
       REAL*8 
-     &   TRANGE(3), z1
-     &  ,SNR_DETECT, MJD_FIRST, MJD_LAST, MJD, MJD_DIF
+     &   MJD_FIRST, MJD_LAST, MJD, MJD_DIF
      &  ,MJD_WIN_BEFORE(2), MJD_WIN_AFTER(2)
-     &  ,SNR, FLUX, FLUXERR
+     &  ,SNR, FLUX, FLUXERR, z1
 
       CHARACTER FNAM*24
       LOGICAL  LPASS, LTRANGE(3), LDMP
@@ -18484,8 +18473,7 @@ c ----------------------
 
       INTEGER LEN1, LEN2, LEN3, OPTMASK_STORE, ISTAT
       CHARACTER 
-     &     tmpFILE*(MXCHAR_FILENAME)
-     &    ,cFILE*(MXCHAR_FILENAME)
+     &     cFILE*(MXCHAR_FILENAME)
      &    ,cTABLE*20, cVARLIST*20, FNAM*12
 
 c functions
@@ -19004,19 +18992,17 @@ c local var
       INTEGER 
      &   newmjd, ifilt, ifilt_obs, LENLIST, INDEX_OVP
      &  ,NBAND_THRESH, NBAND_SNRMAX, NBAND_SNRMAX2
-     &  ,EPMIN, EPMAX, ep, isort, OPT, PHOTFLAG
+     &  ,EPMIN, EPMAX, ep, isort, PHOTFLAG
      &  ,ORDER, INDEX_SORT(MXFILT_OBS)  ! SORT args
 
       REAL
      &   Fluxcal, Fluxcal_err, TRUEFLUX
      &  ,Xnsig, MAG, magoff, ZP, PHOTPROB
      &  ,Tobs, z1, z, Trest, scale, arg
-     &  ,Zhost, Zhosterr, LAMOBS, LAMZ1,  SNRMAX, SBFLUX, SBMAG
+     &  ,Zhost, Zhosterr, LAMOBS, LAMZ1,  SNRMAX
 
-      REAL*8  MJD8, EBV8, EBVERR8, ZHEL8, ZCMB8
+      REAL*8  MJD8, EBV8, EBVERR8
       REAL*8  MJD8_FIRSTDETECT, MJD8_LASTALL, MJD8_LASTFILT(MXFILT_ALL)
-
-      CHARACTER EQ*4
 
       LOGICAL 
      &   LSIG, LLAM, LZ, LTEST, LXMJD, LINCMJD
@@ -19025,7 +19011,7 @@ c local var
      &  ,LFLUX, LERR, LTMP, USE4SNRMAX
 
 c function
-      REAL*8   DLMAG8_REF, zhelio_zcmb_translator
+      REAL*8   DLMAG8_REF
       EXTERNAL SORTFLOAT, modify_MWEBV_SFD
       INTEGER  ISTAT_REQUIRE_EPOCHS
 
@@ -19072,13 +19058,13 @@ c ------ compute MJDMIN/MJDMAX here before calling SET_PKMJD ------
       DO NEWMJD = 1, ISNLC_NEWMJD_STORE
         EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
         EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
-	DO EP = EPMIN, EPMAX
+        DO EP = EPMIN, EPMAX
           SNLC8_FLUXCAL(EP)        = DBLE(SNLC_FLUXCAL(ep))
           SNLC8_FLUXCAL_ERRTOT(EP) = DBLE(SNLC_FLUXCAL_ERRTOT(ep))
           MJD8  = SNLC8_MJD(EPMIN)
           IF( MJD8 .GT. SNLC8_MJDMAX ) SNLC8_MJDMAX = MJD8
           IF( MJD8 .LT. SNLC8_MJDMIN ) SNLC8_MJDMIN = MJD8
-	ENDDO
+       ENDDO
       ENDDO
 
 c Sep 21 2013: check option to modify MWEBV_SFD;
@@ -19167,7 +19153,7 @@ c = = = = = = = = = = = = = = = = = = = = = = = = = = = =
            ISNLC_SNRECON_USE(ep) = 0
 
            SNLC_TREST(EP) = Trest
-           SNLC_TOBS(EP)  = Tobs	
+           SNLC_TOBS(EP)  = Tobs
            IFILT_OBS = ISNLC_IFILT_OBS(ep)
            IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
            
@@ -19498,7 +19484,7 @@ C
 +CDE,FILTCOM.
 +CDE,SNANAFIT.
 
-      REAL FLUXCAL, FLUXCAL_ERR, MAG, SBFLUX
+      REAL FLUXCAL, FLUXCAL_ERR, MAG
 
 C --------- BEGIN ------------
 
@@ -19613,7 +19599,6 @@ c
 +CDE,SNLCINP.
 
       INTEGER i, ipar, LENTMP
-      LOGICAL LCUT
       REAL*8  VMIN, VMAX
       CHARACTER VARNAME*40, CTMP*60, VARNAME_TMP*60
 
@@ -19940,13 +19925,13 @@ c local var
      &   ERR1, ERR2a, ERR2b, ERR3, ERR_SIM, ERR_DATA
      &  ,SQERR, SQERR1, SQERR2a, SQERR2b, SQERR3, SQERRHOST, SQERRMAP
      &  ,RDNOISE_pe, FLUXCAL, FLUXADU, SNR, SNR_PROTECT, LOGSNR
-     &  ,AREA, AREA_ASEC, PSFSIG1, PSFSIG2, PSFRATIO  
+     &  ,AREA, PSFSIG1, PSFSIG2, PSFRATIO  
      &  ,GALMAG, SBMAG, SBFLUX, SNSEP, NOISEPAR(2)
      &  ,MJD, GAIN, SKYSIG, ZP, ZPDIF, PARLIST(20)
      &  ,SQTMP, Fscale, Fpe_source, Fpe_sky, GENMAG
 
       INTEGER IFILT_OBS, IFILT, GALID, OPT, NPAR, LL
-      CHARACTER cfilt*2, FNAM*20, cFIELD*32, cBAND*2, cFILE*200
+      CHARACTER cfilt*2, FNAM*20, cFIELD*32, cBAND*2
       LOGICAL DOFUDGE
 
 c function
@@ -20189,7 +20174,7 @@ C ===========================================
 +CDE,SNLCINP.
 
       INTEGER ALREADY_SET, FORCE
-      CHARACTER FNAM*24, CMASK(10)*16
+      CHARACTER FNAM*24
 
 C --------------- BEGIN ------------------
 
@@ -21304,7 +21289,6 @@ c +CDE,CTRLCOM.
 
       INTEGER ifilt, IFILTDEF, NF, iafilt(MXFILT_OBS)
       REAL xafilt(MXFILT_OBS), ZPERR
-      CHARACTER CFILT*4
 
 C -------------- BEGIN --------------
 
@@ -21328,23 +21312,6 @@ c60       format(' xxx : ZPERR(', A1,I3, ') = ', F6.3 )
       RETURN
       END   ! ene SET_SIMLIB_ZPERR
 
-C ===========================================
-+DECK,UNIQUE_CIDINT.
-      INTEGER FUNCTION UNIQUE_CIDINT(CCID)
-
-c convert each character in CCID to ascii integer,
-c and subtract offset. Then multiply all reduced
-c ascii integers together to form a unique integer
-c for this CCID.
-c
-c xxx probably don't need this if there is only one low-z sample
-c xxx and thus one simlib.
-
-      IMPLICIT NONE
-      CHARACTER CCID*(*)  ! (I)
-C ---------------- BEGIN ---------------
-      RETURN
-      END
 
 C =======================================================
 +DECK,COMPUTE_SIMLIB_INFO.
@@ -21405,8 +21372,7 @@ c local args
       REAL*8  
      &   PSF_SIG, SKYMAG, TMP_SKYMAG
      &  ,TMP_SKYSIG_PIX, TMP_SKYSIG_ASEC, TMP_SQSKYSIG_TOT
-     &  ,TMP_ZP, TMP_GAIN
-     &  ,TMP_Fsky_pix,  TMP_FSKY_ASEC, TMP_Fpe, TMP_Fpe_ERR
+     &  ,TMP_ZP, TMP_Fsky_pix,  TMP_FSKY_ASEC, TMP_Fpe
      &  ,SNR, SQSNR, NEA, MAG, MAG_MAX,  ARG, AREA_PIXEL
      &  ,SKYMAGDIF, SKYMAGDIF_MIN, SKYMAGDIF_LAST, SNR_CHECK
 
@@ -21506,7 +21472,7 @@ c check how close computed TMP_SKYMAG is to expected SKYMAG
             print*,'   FLUX = ', sngl(FLUX), ' +- ', sngl(FLUXERR)
             print*,'   LAMOBS, SKYMAG = ', sngl(LAMOBS), sngl(SKYMAG)
             print*,'   NEA  = ', sngl(NEA)
-	    print*,'   PSF  = ', sngl(PSF_FWHM_GUESS), ' FWHM '
+            print*,'   PSF  = ', sngl(PSF_FWHM_GUESS), ' FWHM '
             print*,'   SNR  = ', sngl(SNR)
             print*,'   AREA_PIXEL = ', sngl(AREA_PIXEL)
             print*,'   NLOOP = ', NLOOP
@@ -22628,16 +22594,14 @@ c local var
      &  ,NFILT, NFTMIN, NFTMAX, NFT2
 
       INTEGER*8  CUTMASK8_TMP, OVP8_SN, OVP8_ALL
-      REAL*8     PS8
 
       LOGICAL LTEST, LCUT
  
       REAL  TMP, Tmin, Tmax, ZZ, TGAPMAX, T0GAPMAX, TLIST(MXEPOCH)
-      REAL  ZP, GAIN
 
 c functions
       LOGICAL MJDSELECT, IDTELSELECT, LCIDSELECT
-      LOGICAL REJECT_PRESCALE
+
 c ---------------- BEGIN ---------------
 
       NEWMJD       = ISNLC_NEWMJD_STORE
@@ -23791,8 +23755,7 @@ c -----------------------------------------------------------
 
       LOGICAL  OVMODEL_ANYFUN, LTMP, DOPLOT_FILT(MXFILT_OBS)
       INTEGER 
-     &   LENCCID, LENTEXT
-     &  ,NEWMJD, EPMIN, EPMAX, EP
+     &   LENCCID, LENTEXT, NEWMJD, EPMIN, EPMAX, EP
      &  ,IFILT_OBS, IFILT, ipar, NBT, i, NFILT
 
       REAL*8  
@@ -24072,9 +24035,8 @@ c
 +CDE,SNLCINP.
 +CDE,SPECCOM.
 
-      INTEGER LENCCID, LENTEXT, ILAM, ispec
-      REAL*8  LAM, FLAM
-      CHARACTER  CCID_forC*(MXCHAR_CCID), TEXT_forC*80
+      INTEGER LENCCID, LENTEXT, ispec
+      CHARACTER  CCID_forC*(MXCHAR_CCID)
       LOGICAL DOPLOT_SNLC
 
 C ----------------- BEGIN ---------------
@@ -24204,7 +24166,7 @@ c local var
 
       LOGICAL   DO_FILL, LPS
       REAL*8    PS
-      INTEGER   LENNAME, LENFMT, ITAB
+      INTEGER   LENNAME, LENFMT
       CHARACTER NAME*40, TEXTFMT*20, TEXTFMT_forC*20, FNAM*12
       EXTERNAL SNTABLE_CREATE, SNTABLE_FILL
      
@@ -24871,8 +24833,8 @@ c local var
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
       INTEGER LENV, LENB, LENTMP
-      LOGICAL IGNORE
       CHARACTER CBLK*40, CNOBS*14, VARNAME*40
+      LOGICAL  IGNORE
 
       EXTERNAL SNTABLE_ADDCOL
       INTEGER  IGNOREFILE
@@ -25004,7 +24966,7 @@ c local var
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 
-      INTEGER LENV, LENB, LENTMP, IFILT, IFILT_OBS
+      INTEGER LENV, LENB, IFILT, IFILT_OBS
       LOGICAL IGNORE
       CHARACTER CBLK*40, CNOBS*20, VARNAME*40, cfilt*2
 
@@ -31913,7 +31875,7 @@ C ----------- BEGIN ----------
           endif
 
 10    CONTINUE
-	
+
       LDUMP = .false.
       if ( LDUMP ) then
           print*, ' xxxxxx FILTER_SUBDIR= ', FILTER_SUBDIR(1:20)
@@ -35498,7 +35460,7 @@ c than the total array storage.
 
 c ------------------- BEGIN -------------------
 
-      FNAM = 'SELECT_EPOCHS_CUTWIN_TREST'  		     
+      FNAM = 'SELECT_EPOCHS_CUTWIN_TREST'
       NMJD_STORE_NEW  = 0
       NMJD_STORE_ORIG = ISNLC_NEWMJD_STORE
       EP_NEW          = 0 
@@ -35517,10 +35479,10 @@ c ------------------- BEGIN -------------------
          EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
          EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
 
-  	 MJD8  = SNLC8_MJD(EPMIN) 
+         MJD8  = SNLC8_MJD(EPMIN) 
          MJD   = SNGL(MJD8)
-	 TOBS  = MJD - SNLC_SEARCH_PEAKMJD
-	 TREST = TOBS/z1
+         TOBS  = MJD - SNLC_SEARCH_PEAKMJD
+         TREST = TOBS/z1
          LPASS = TREST >= CUTWIN_TREST(1) .and. 
      &           TREST <= CUTWIN_TREST(2)
 
@@ -35530,31 +35492,31 @@ c ------------------- BEGIN -------------------
             ISNLC_NFILT_NEWMJD(IMJD) = ISNLC_NFILT_NEWMJD(NEWMJD)
           ENDIF
 
-	  if ( .NOT. LPASS ) goto 101
+          if ( .NOT. LPASS ) goto 101
 
-	DO 102 EP_ORIG = EPMIN, EPMAX
-	
+        DO 102 EP_ORIG = EPMIN, EPMAX
+
          EP_NEW = EP_NEW + 1
 
          MJD8  = SNLC8_MJD(EP_ORIG)
-	 if ( MJD8 > MJD8_LAST ) then
-	    if ( EP_ORIG == EPMIN ) then
+         if ( MJD8 > MJD8_LAST ) then
+            if ( EP_ORIG == EPMIN ) then
               ISNLC_EPOCH_RANGE_NEWMJD(1,IMJD) = EP_NEW
-	    endif
+            endif
               ISNLC_EPOCH_RANGE_NEWMJD(2,IMJD) = EP_NEW
-	 endif
+         endif
          MJD8_LAST = MJD8          
 
          if ( EP_NEW > EP_ORIG ) then
-	    print*, ' '
-	    print*, ' PRE-ABORT DUMP: '
+            print*, ' '
+            print*, ' PRE-ABORT DUMP: '
             print*,'    EPMIN, EPMAX = ', EPMIN, EPMAX
             print*,'    NEWMJD(ORIG,NEW) = ', NEWMJD, IMJD
             write(c1err,61) EP_NEW, EP_ORIG
 61          format('Invalid EP_NEW=',I4, ' > EP_ORIG=',I4)
-	    c2err = 'Something is messed up.'
+            c2err = 'Something is messed up.'
             CALL MADABORT(FNAM, c1err, c2err)
-	 endif
+         endif
 
          CALL MOVE_SNLC_ARRAYS(EP_NEW,EP_ORIG)
 
@@ -35601,15 +35563,15 @@ c -------------------------------------------------------------
 +CDE,PKMJDCOM.
 
       INTEGER 
-     &   EPMAX, EP, EPTEST
+     &   EPMAX, EP
      &  ,EP_atFLUXMAX(0:MXFILT_ALL), EPTEST_atFLUXMAX(0:MXFILT_ALL)
      &  ,IFILT_OBS, ifilt, ifilt_snrmin 
      &  ,IFILT_OBS2, IFILT_OUTLIER, IFILT_REJECT
-     &  ,NPKMJD, IMJD, LUN, VBOSE
+     &  ,NPKMJD, LUN, VBOSE
 
       REAL 
-     &   MJD, PKMJDSUM, PKMJDAVG, PKMJDDIF, PKMJDDIF_MAX
-     &  ,PKMJD, DIF, FAC, PSFSIG1, WGTSUM, WGT
+     &   PKMJDSUM, PKMJDAVG, PKMJDDIF, PKMJDDIF_MAX
+     &  ,PKMJD, DIF, WGTSUM, WGT
      &  ,FLUX, FLUXERR, SNR, SNRMIN
      &  ,FLUXMAX(0:MXFILT_ALL)
      &  ,MJDatFLUXMAX(0:MXFILT_ALL)
@@ -35620,7 +35582,7 @@ c -------------------------------------------------------------
      &  ,PARLIST(3), FITWIN_MJD8(2)
 
       LOGICAL 
-     &    LSET, LDMP, LDMP_BIGDIF, LDMP_USER, NOABORT, LABORT
+     &    LSET, LDMP, LDMP_USER, NOABORT, LABORT
      &   ,USEFILT(MXFILT_ALL)
      &   ,USE_MJDatFLUXMAX, USE_MJDatFLUXMAX2, USE_MJDatTRIGGER
      &   ,FIRST_INIT, DOFIT, NOFIT
@@ -35660,7 +35622,7 @@ c July 12 2013: check option to use MJD at max flux (no fitting)
 
       if ( USE_MJDatTRIGGER .and. PHOTFLAG_TRIGGER == 0 ) then
         c1err = 'Must set PHOTFLAG_TRIGGER in &SNLCINP'
-	c2err = 'to set PEAKMJD = MJD_TRIGGER'
+        c2err = 'to set PEAKMJD = MJD_TRIGGER'
         CALL MADABORT(FNAM, c1err, c2err)
       endif
 
@@ -35692,7 +35654,7 @@ c  + open separate log file to dump MNFIT stuff for each SN
          if( DOFIT ) then
             write(6,80) 'Bazin fit' ; LSET=.TRUE.
             METHOD = '(FluxMax+BazinFit)'
-	    if (USE_MJDatFLUXMAX2) METHOD = '(FmaxClump+BazinFit)'
+            if (USE_MJDatFLUXMAX2) METHOD = '(FmaxClump+BazinFit)'
          endif
  80      format(' SET_PEAKMJD method: ', A)
          print*,' ' 
@@ -35807,11 +35769,11 @@ c xxxxxxxxxxxxxxx TEMP DEBUG C vs. fortran xxxxxxxxxxxxxx
 c xxxxxxxxxxxx END TEMP DEBUG xxxxxxxxxxxxxxxxxxx
 +SELF.
 
-	 if ( EP < 0 ) then
+         if ( EP < 0 ) then
            SNRatFLUXMAX(ifilt_obs) = 0.01
            MJDatFLUXMAX(ifilt_obs) = 0.01
-	   goto 40
-	 endif
+           goto 40
+         endif
 
          FLUX      = SNLC_FLUXCAL(EP)
          FLUXERR   = SNLC_FLUXCAL_ERRTOT(EP)
@@ -36118,7 +36080,7 @@ c+CDE,SNANAFIT.
      &  ,NSNRCUT_SUM, NSNRCUT_MAXSUM, NEPTOT, NERR
 
       REAL 
-     &   MJD, MJDMIN, FLUX, FLUXERR, SNR, SNRMAX, PSFSIG1, FAC, SNRCUT
+     &   MJD, MJDMIN, FLUX, FLUXERR, SNR, SNRMAX, FAC, SNRCUT
      &  ,FLUXMAX(0:MXFILT_ALL)
 
       LOGICAL 
@@ -36185,27 +36147,27 @@ C -------------- BEGIN ---------------
             EPMAX = EPMAX2
          endif
 
-	 if ( OPT_DEBUG == 3 ) then
-	    write(6,700) ITER, EPMIN, EPMAX, 
+         if ( OPT_DEBUG == 3 ) then
+           write(6,700) ITER, EPMIN, EPMAX, 
      &                SNLC8_MJD(EPMIN), SNLC8_MJD(EPMAX)
 700        format(' xxx ITER=',I1,' EPMIN/MAX=',I3,'/',I3,
      &              '  MJD=',F7.1,' - ', F7.1 )
-	   call flush(6)
-	 endif
+           call flush(6)
+         endif
 
          if ( EPMIN < 1 .or. EPMAX < 1 .or. 
      &       EPMIN > NEPTOT .or. EPMAX > NEPTOT) THEN
 
             print*,' PRE-ABORT DUMP '
-	    print*,'   NSNRCUT_MAXSUM = ', NSNRCUT_MAXSUM
+            print*,'   NSNRCUT_MAXSUM = ', NSNRCUT_MAXSUM
             print*,'   NEP_SNRCUT     = ', NEP_SNRCUT
             print*,'   SNRMAX         = ', SNRMAX
-	    print*,'   IMJDMAX        = ', IMJDMAX
-	    print*,'   EPMIN_SNRCUT   = ',(EPMIN_SNRCUT(imjd),imjd=1,20)
-	    print*,'   EPMAX_SNRCUT   = ',(EPMAX_SNRCUT(imjd),imjd=1,20)
-	    if ( LSIM_SNANA ) then
-	    	 print*,'   SIM_PEAKMJD    = ', SIM_PEAKMJD
-   	    endif
+            print*,'   IMJDMAX        = ', IMJDMAX
+            print*,'   EPMIN_SNRCUT   = ',(EPMIN_SNRCUT(imjd),imjd=1,20)
+            print*,'   EPMAX_SNRCUT   = ',(EPMAX_SNRCUT(imjd),imjd=1,20)
+            if ( LSIM_SNANA ) then
+              print*,'   SIM_PEAKMJD    = ', SIM_PEAKMJD
+            endif
 
             write(c1err,651) EPMIN, EPMAX, ITER
  651        format('Invalid EPMIN,EPMAX = ', I4,I4,' at ITER=',I2)
@@ -36236,16 +36198,6 @@ cc xxx no need        if ( CHECK_EPOCH_IGNORE(0,ep) ) GOTO 101
 
 c make sure SNR passes user cut.
             if ( SNR < SNRCUT ) GOTO 101
-
-+SELF,IF=XXXREM.
-c May 2016: require sane PSF to avoid crazy-large flux in really bad conditons
-            PSFSIG1  = SNLC_PSF_SIG1(ep) ! Gauss sigma, pixels
-            IF ( PSFSIG1 > 0.0 .and. SNLC_PIXSIZE > 0.0 ) THEN
-               FAC      = SNLC_PIXSIZE * 2.355
-               PSFSIG1  = PSFSIG1 * FAC     ! --> arcsec
-               if ( PSFSIG1 > PSFMAX_forFLUXMAX  ) goto 101
-            ENDIF
-+SELF.
 
             if ( FLUX .GT. FLUXMAX(IFILT_OBS) ) THEN
                EP_atFLUXMAX(IFILT_OBS) = ep
@@ -36296,7 +36248,7 @@ c           check sliding combined windows for max NSNRCUT
 c           combine 5 10-day windows to get a 50 day window
                NSNRCUT_SUM = 0; EPMIN_TMP = 0; EPMAX_TMP = 0 
                do 404 iwin_shift = 0, NWIN_COMBINE-1
-	          iwin = iwin_start + iwin_shift
+                  iwin = iwin_start + iwin_shift
                   if ( NSNRCUT(iwin) == 0 ) goto 404
                   NSNRCUT_SUM = NSNRCUT_SUM + NSNRCUT(iwin)
                   if ( EPMIN_TMP==0 ) EPMIN_TMP = EPMIN_SNRCUT(iwin)
@@ -36320,25 +36272,25 @@ c check that all EP indices are value
       NERR = 0 
       DO 200 ifilt = 0, NFILTDEF_SURVEY
          if ( ifilt == 0 ) then
-	     ifilt_obs = 0
-	 else
-	     ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-	 endif	   
-	 EP = EP_atFLUXMAX(ifilt_obs)
-	 if ( EP < 1 .or. EP > NEPTOT ) then
-	    NERR = NERR + 1
-	    write(6,671) EP, ifilt_obs
+           ifilt_obs = 0
+         else
+           ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+         endif	   
+         EP = EP_atFLUXMAX(ifilt_obs)
+         if ( EP < 1 .or. EP > NEPTOT ) then
+            NERR = NERR + 1
+            write(6,671) EP, ifilt_obs
 671         format(' ERROR: Invalid EP=',I5,' for ifilt_obs=',I3)
-	 endif
+         endif
 200   CONTINUE
 
       IF ( NERR > 0 ) then   
          print*, ' PRE-ABORT DUMP: '
-	 print*,'   NEP_SNRCUT      = ', NEP_SNRCUT
-	 print*,'   NSNRCUT_MAXSUM  = ', NSNRCUT_MAXSUM
-	 print*,'   IMJDMAX         = ', IMJDMAX
-	 print*,'   iwin_max        = ', iwin_max
-	 print*,'   EP_atFLUXMAX    = ', (EP_atFLUXMAX(ifilt),ifilt=0,8)
+         print*,'   NEP_SNRCUT      = ', NEP_SNRCUT
+         print*,'   NSNRCUT_MAXSUM  = ', NSNRCUT_MAXSUM
+         print*,'   IMJDMAX         = ', IMJDMAX
+         print*,'   iwin_max        = ', iwin_max
+         print*,'   EP_atFLUXMAX    = ', (EP_atFLUXMAX(ifilt),ifilt=0,8)
          c1err = 'Invalid EP indices; see above'
          c2err = 'Something is really messed up.'
          CALL MADABORT(FNAM, c1err, c2err)  
@@ -36693,8 +36645,8 @@ C --------------- BEGIN -------------
         EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
         MJD   = SNLC8_MJD(EPMIN)
 
-	if ( MJD < MJDMIN ) goto 200
-	if ( MJD > MJDMAX ) goto 200
+        if ( MJD < MJDMIN ) goto 200
+        if ( MJD > MJDMAX ) goto 200
 
         MODEL_FLUX    = ANYLCFUN(MJD,XVAL)
         MODEL_FLUXERR = MODEL_FLUX * MODEL_MAGERR

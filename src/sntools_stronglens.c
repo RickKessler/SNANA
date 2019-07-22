@@ -25,7 +25,7 @@ void init_stronglens(char *MODEL_FILE) {
   int iwd,NWD,i,j,k,NVARS,NIMG,Nsplit ;
   char *cptr[MXIMG_STRONGLENS];
   char comma[] = ",";
-  char MISSING_VAR[] = "NONE";
+  char MISSING_VAR[40];
   int  MEMC  = 64*sizeof(char);
   // --------------- BEGIN ---------------
 
@@ -63,7 +63,7 @@ void init_stronglens(char *MODEL_FILE) {
   sprintf(INPUTS_STRONGLENS.VARNAME_ZLENS, "ZLENS" );
   sprintf(INPUTS_STRONGLENS.VARNAME_NIMG,  "NIMG"  );
   sprintf(INPUTS_STRONGLENS.VARNAME_XIMG,  "XIMG"  );
-  sprintf(INPUTS_STRONGLENS.VARNAME_YIMG,  "XIMG"  );
+  sprintf(INPUTS_STRONGLENS.VARNAME_YIMG,  "YIMG"  );
   sprintf(INPUTS_STRONGLENS.VARNAME_MAG,    "MAG"  );
   sprintf(INPUTS_STRONGLENS.VARNAME_DELAY,"DELAY"  );
   
@@ -93,7 +93,7 @@ void init_stronglens(char *MODEL_FILE) {
     if(NWD>1){
       get_PARSE_WORD(0,0,tmpWord);
       if(strcmp(tmpWord,"VARNAMES:")==0){
-	       NVARS=NWD;
+	       NVARS=NWD-1;
       }
     }
   }
@@ -107,7 +107,7 @@ void init_stronglens(char *MODEL_FILE) {
 
   // read and store each VARNAME
   char VARLIST[NVARS][40];   
-  for(k=0;k<NVARS;++k){
+  for(k=0;k<NVARS+1;++k){
     get_PARSE_WORD(0,k,VARLIST[k]);
     printf(" xxx %s: found VARLIST[%d] = '%s' \n", fnam, k, VARLIST[k]);
 
@@ -139,14 +139,15 @@ void init_stronglens(char *MODEL_FILE) {
 
   
 
-  if( INPUTS_STRONGLENS.ICOL_LENSID < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_LENSID; }
-  else if( INPUTS_STRONGLENS.ICOL_ZLENS < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_ZLENS; }
-  else if( INPUTS_STRONGLENS.ICOL_ZSRC < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_ZSRC; }
-  else if( INPUTS_STRONGLENS.ICOL_NIMG < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_NIMG; }
-  else if( INPUTS_STRONGLENS.ICOL_XIMG < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_XIMG; }
-  else if( INPUTS_STRONGLENS.ICOL_YIMG < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_YIMG; }
-  else if( INPUTS_STRONGLENS.ICOL_MAG < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_MAG; } 
-  else if( INPUTS_STRONGLENS.ICOL_DELAY < 0 ){ MISSING_VAR = INPUTS_STRONGLENS.VARNAME_DELAY; }
+  if( INPUTS_STRONGLENS.ICOL_LENSID < 0 ){ sprintf(MISSING_VAR,INPUTS_STRONGLENS.VARNAME_LENSID); }
+  else if( INPUTS_STRONGLENS.ICOL_ZLENS < 0 ){ sprintf(MISSING_VAR,INPUTS_STRONGLENS.VARNAME_ZLENS); }
+  else if( INPUTS_STRONGLENS.ICOL_ZSRC < 0 ){ sprintf(MISSING_VAR,INPUTS_STRONGLENS.VARNAME_ZSRC); }
+  else if( INPUTS_STRONGLENS.ICOL_NIMG < 0 ){ sprintf(MISSING_VAR,INPUTS_STRONGLENS.VARNAME_NIMG); }
+  else if( INPUTS_STRONGLENS.ICOL_XIMG < 0 ){ sprintf(MISSING_VAR,INPUTS_STRONGLENS.VARNAME_XIMG); }
+  else if( INPUTS_STRONGLENS.ICOL_YIMG < 0 ){ sprintf(MISSING_VAR,INPUTS_STRONGLENS.VARNAME_YIMG); }
+  else if( INPUTS_STRONGLENS.ICOL_MAG < 0 ){ sprintf(MISSING_VAR,INPUTS_STRONGLENS.VARNAME_MAG); } 
+  else if( INPUTS_STRONGLENS.ICOL_DELAY < 0 ){ sprintf(MISSING_VAR,INPUTS_STRONGLENS.VARNAME_DELAY); }
+  else{ sprintf(MISSING_VAR,"NONE"); }
   
   if( strcmp(MISSING_VAR,"NONE") != 0 ){
     sprintf(c1err,"Could not find required key: %s",MISSING_VAR); 
@@ -165,9 +166,9 @@ void init_stronglens(char *MODEL_FILE) {
       if ( strcmp(tmpWord,"LENS:") != 0 ) { continue ; } // RK
 
       if ( NWD-1 != NVARS )  { // RK
-    	   sprintf(c1err,"Found NWD-1 strings after LENS: key");
-    	   sprintf(c2err,"but expected %d strings", NVARS);
-	       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+	sprintf(c1err,"Found %d strings after LENS: key",NWD-1);
+    	sprintf(c2err,"but expected %d strings", NVARS);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
       }
   
       NIMG = -9;
@@ -198,7 +199,7 @@ void init_stronglens(char *MODEL_FILE) {
           }
 
       	  for(j=0; j<NIMG; ++j) {
-                  sscanf(cptr[j],"%f", &INPUTS_STRONGLENS.Ximg[i][j] );
+                  sscanf(cptr[j],"%f", &INPUTS_STRONGLENS.XIMG[i][j] );
       	  }
       	 
       	}
@@ -217,7 +218,7 @@ void init_stronglens(char *MODEL_FILE) {
           }
 
           for(j=0; j<NIMG; ++j) {
-                  sscanf(cptr[j],"%f", &INPUTS_STRONGLENS.Yimg[i][j] );
+                  sscanf(cptr[j],"%f", &INPUTS_STRONGLENS.YIMG[i][j] );
           }
          
         }
@@ -299,7 +300,7 @@ void malloc_stronglens(int NLENS) {
   INPUTS_STRONGLENS.XIMG   = (float**)malloc(MEMFF); //RA Offset
   INPUTS_STRONGLENS.YIMG   = (float**)malloc(MEMFF); //RA*cos(DEC) offset
   INPUTS_STRONGLENS.DELAY = (float**)malloc(MEMFF);
-  INPUTS_STRONGLENS.MU     = (float**)malloc(MEMFF);
+  INPUTS_STRONGLENS.MAG     = (float**)malloc(MEMFF);
   INPUTS_STRONGLENS.ZSRC   = (float*) malloc(MEMF);
 
 
@@ -308,7 +309,7 @@ void malloc_stronglens(int NLENS) {
     INPUTS_STRONGLENS.XIMG[i]    = (float*)malloc(memf);
     INPUTS_STRONGLENS.YIMG[i]    = (float*)malloc(memf);
     INPUTS_STRONGLENS.DELAY[i]  = (float*)malloc(memf);
-    INPUTS_STRONGLENS.MU[i]      = (float*)malloc(memf);
+    INPUTS_STRONGLENS.MAG[i]      = (float*)malloc(memf);
   }
 
   return ;
@@ -318,7 +319,7 @@ void malloc_stronglens(int NLENS) {
 // ==========================================
 void get_stronglens(double zSN, double *hostpar, 
 		    int *IDLENS, double *ZLENS, int *blend_flag, int *NIMG, 
-		    double *DELAY, double *MU, double *XIMG, double *YIMG) {
+		    double *DELAY, double *MAG, double *XIMG, double *YIMG) {
 
   // Inputs:
   //   zSN       redshift of SN
@@ -330,7 +331,7 @@ void get_stronglens(double zSN, double *hostpar,
   //  blend_flag  1 if blended into single LC; 0 if each image is resolved
   //  NIMG      Number of images
   //  DELAY      list of NIMG time delays (days)
-  //  MU          list of NIMG magnifications (not distance modulus)
+  //  MAG          list of NIMG magnifications 
   //  XIMG        list of NIMG X separations (arcsec)
   //  YIMG        list of NIMG Y separations (arcsec)
   //
@@ -352,19 +353,21 @@ void get_stronglens(double zSN, double *hostpar,
   
   int numLens = 0;
   for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
-    if(INPUTS_STRONGLENS.zSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.zSRC[i]<=zSN+0.05){
+    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.05){
       ++numLens;
     }
 
   }
   if(numLens==0){
-    errmsg(SEV_FATAL, 0, fnam, "No Lenses in your library matching your source redshift."," ");
+    //errmsg(SEV_FATAL, 0, fnam, "No Lenses in your library matching your source redshift."," ");
+    printf("No lenses found in library matching your source redshift %f\n",zSN);
+    return;
   }
 
   int possible_lenses[numLens];
   j=0;
   for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
-    if(INPUTS_STRONGLENS.zSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.zSRC[i]<=zSN+0.05){
+    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.05){
       possible_lenses[j]=i;
       ++j;
     }
@@ -373,7 +376,7 @@ void get_stronglens(double zSN, double *hostpar,
   int random_lens_index = possible_lenses[ (int)( FlatRan*(numLens-1) ) ];
 
   IDLENS_local  = INPUTS_STRONGLENS.IDLENS[random_lens_index];
-  zLENS_local   = (double)INPUTS_STRONGLENS.zLENS[random_lens_index];  
+  zLENS_local   = (double)INPUTS_STRONGLENS.ZLENS[random_lens_index];  
   NIMG_local    = INPUTS_STRONGLENS.NIMG[random_lens_index];
 
   
@@ -381,7 +384,7 @@ void get_stronglens(double zSN, double *hostpar,
   for(img=0 ; img < NIMG_local; img++ ) {
     XIMG[img]   = (double)INPUTS_STRONGLENS.XIMG[random_lens_index][img]; 
     YIMG[img]   = (double)INPUTS_STRONGLENS.YIMG[random_lens_index][img]; 
-    MU[img]     = (double)INPUTS_STRONGLENS.MU[random_lens_index][img];     
+    MAG[img]     = (double)INPUTS_STRONGLENS.MAG[random_lens_index][img];     
     DELAY[img] = (double)INPUTS_STRONGLENS.DELAY[random_lens_index][img]; 
   }
 
@@ -398,8 +401,8 @@ void get_stronglens(double zSN, double *hostpar,
 	   IDLENS_local, zLENS_local );
 
     for(img=0 ; img < NIMG_local; img++ ) {
-      printf(" xxx output image-%d: mu=%.3f  X,Y-offset=%.3f,%.3f\n",
-	     img, MU[img], XIMG[img], YIMG[img] );
+      printf(" xxx output image-%d: mu=%.3f  X,Y-offset=%f,%f\n",
+	     img, MAG[img], XIMG[img], YIMG[img] );
     }
     printf(" xxx \n");    fflush(stdout);
   }

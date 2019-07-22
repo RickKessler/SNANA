@@ -15,12 +15,12 @@ struct {
   int   *NIMG; // Number of images per lens
   float **XIMG, **YIMG ; // X and Y offsets, arcsec
   float **DELAY ; // time delay of each image (days)
-  float **MU; //magnification of each image
+  float **MAG; //magnification of each image
   
 
   char VARNAME_LENSID[40];
-  char VARNAME_zSRC[40];
-  char VARNAME_zLENS[40];
+  char VARNAME_ZSRC[40];
+  char VARNAME_ZLENS[40];
   char VARNAME_NIMG[40];
   char VARNAME_XIMG[40];
   char VARNAME_YIMG[40];
@@ -40,6 +40,6 @@ void malloc_stronglens(int NLENS);
 
 void get_stronglens(double zSN, double *hostpar, int *IDLENS, double *ZLENS, 
 		    int *blend_flag, int *NIMG,
-		    double *DELAY, double *MU, double *XIMG, double *YIMG);
+		    double *DELAY, double *MAG, double *XIMG, double *YIMG);
 
 // end:

@@ -786,7 +786,7 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
   int  NLAMFILT, NLAMSED, EPMIN, EPMAX, N, NZBIN, index ;
 
   double 
-    lamsed, lamobs, lampow, trans, day, z, z1, logz, logzdif
+    lamsed, lamobs, lampow, trans, day, z, z1, logzdif
     ,LOGZMIN, LOGZMAX, LOGZBIN, FLUX, tmp, mag, mutmp, x0tmp
     ,LAMOBS_MIN, LAMOBS_MAX, LAMOBS_STEP, SEDMODELNORM
     ,LAMTPOW[MXLAMPOW_SEDMODEL+1]
@@ -1061,7 +1061,7 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
   double DAYSTEP = TEMP_SEDMODEL.DAYSTEP ; 
   int    NDAY    = TEMP_SEDMODEL.NDAY ; 
 
-  int LDMP = ( fabs(TOBS)<.1 ) ;
+  //  int LDMP = ( fabs(TOBS)<.1 ) ;
   // ----------- BEGIN ------------
 
   z1 = 1.0 + z ;
@@ -1315,7 +1315,7 @@ double get_flux_SEDMODEL( int ISED, int ilampow, int ifilt_obs,
   double MINSLOPE = INPUTS_SEDMODEL.MINSLOPE_EXTRAPMAG_LATE;
 
   double XNDAY  = (double)NDAYFIT_SLOPE ;
-  double Tref0, Tref1, Fref0, Fref1, m0, m1, m, slope, arg ;
+  double Tref1, Fref1, m1, m, slope;
   double Tlist[NDAYFIT_SLOPE];
   double Flist[NDAYFIT_SLOPE];
   double Mlist[NDAYFIT_SLOPE];
@@ -1800,11 +1800,11 @@ void get_DAYBIN_SEDMODEL(int ISED, double DAY, int *IDAY, double *FRAC) {
     ( (SEDMODEL.OPTMASK & OPTMASK_DAYLIST_SEDMODEL)==0 );
   int    NDAY     = SEDMODEL.NDAY[ISED] ;
   double DAYMIN   = SEDMODEL.MINDAY[ISED] ;
-  double DAYMAX   = SEDMODEL.MAXDAY[ISED] ;
+  //  double DAYMAX   = SEDMODEL.MAXDAY[ISED] ;
   double DAYSTEP  = SEDMODEL.DAYSTEP[ISED] ;
 
   int    IDAY_LOCAL;
-  double FRAC_LOCAL, DAYREF0, DAYREF1 ;
+  double FRAC_LOCAL, DAYREF0=0.0, DAYREF1=0.0 ;
   char fnam[] = "get_DAYBIN_SEDMODEL" ;
 
   // --------------- BEGIN ------------
@@ -1907,7 +1907,7 @@ void pack_SEDBINARY(int OPT) {
   // April 30 2018
   //   + compress long list of zeros using ZEROLIST_SEDBINARY
 
-  int N, NZLEN, NZLEN_LAST, NFLUX, j, IVERSION, UPD_ZERO ;
+  int N, NZLEN, NZLEN_LAST, NFLUX, j, IVERSION ;
   double tmpFlux, FLUXSCALE_LOCAL, PADWORD ;
   char fnam[] = "pack_SEDBINARY" ;
 
@@ -2255,10 +2255,9 @@ void fill_TABLE_MWXT_SEDMODEL(double RV, double mwebv) {
 
   int  NLAMFILT, NBSPEC, ilam, I8, I8p, ifilt, ifilt_min ;
   int  OPT_COLORLAW ;
-
   double LAMOBS, AV, XT_MAG, XT_FRAC, arg    ;
 
-  char fnam[] = "fill_TABLE_MWXT_SEDMODEL";
+  //  char fnam[] = "fill_TABLE_MWXT_SEDMODEL";
   
   // ------------- BEGIN ------------------
 
@@ -2542,9 +2541,8 @@ void T0shiftExplode_SEDMODEL(int OPTMASK, SEDMODEL_FLUX_DEF *SEDFLUX,
   //
   // Jun 4 2018: fix sign error in Tshift.
   //
-  int  jflux, NDAY, NLAM, IDAY_MAX, ILAM_MAX, iday, ilam ;
+  int  jflux, NDAY, NLAM, IDAY_MAX=0, ILAM_MAX, iday, ilam ;
   double Tshift, FLUXTMP, FLUXMAX, DAY, FLUX_EXPLODE=0.0 ;
-  char comment[100];
   char fnam[] = "T0shiftExplode_SEDMODEL" ;
 
   // ---------------- BEGIN ---------------
@@ -2807,7 +2805,6 @@ void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {
 
 // ==================================================
 void set_UVLAM_EXTRAPFLUX_SEDMODEL(float UVLAM_MIN) {
-  char fnam[] = "set_UVLAM_EXTRAPFLUX_SEDMODEL" ;
   // --------------- BEGIN ------------------
   INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX = (double)UVLAM_MIN;
   return ;

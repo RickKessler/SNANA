@@ -582,7 +582,7 @@ struct INPUTS {
   float  GENMAG_SMEAR_FILTER[MXFILTINDX]; // smear by filter
   float  GENMAG_SMEAR[2];             // intrinsic mag-smear (asymm Gauss)
   char   GENMAG_SMEAR_MODELNAME[100]; // name of specific smear-model
-  char   GENMAG_SMEAR_MODELARG[200];  // optional arg after colon
+  char   GENMAG_SMEAR_MODELARG[MXPATHLEN];  // optional arg after colon
   float  GENMAG_SMEAR_SCALE;          // scale magSmears (default=1)
 
   int    NPAR_GENSMEAR_USRFUN ;
@@ -591,9 +591,10 @@ struct INPUTS {
   double GENSMEAR_RANGauss_FIX ;   // if >=0 then set Gauss randoms to this
   double GENSMEAR_RANFlat_FIX ;    // if >=0 then set Flat randoms to this
 
-  char   LENSING_PROBMAP_FILE[200];   // file-name of lensing prob-map
-  float  LENSING_DMUSCALE;            // scale width of DMU profile
-  float  LENSING_DSIGMADZ ;           // symmetric Gaussian model
+  char   STRONGLENS_FILE[MXPATHLEN] ; 
+  char   WEAKLENS_PROBMAP_FILE[MXPATHLEN];
+  float  WEAKLENS_DMUSCALE;            // scale width of DMU profile
+  float  WEAKLENS_DSIGMADZ ;           // symmetric Gaussian model
 
   float GENMODEL_ERRSCALE ;    // scale model-errors for intrinsic color-smear
   float GENMODEL_ERRSCALE_CORRELATION; // correlation with GENMAG_SMEAR
@@ -758,7 +759,6 @@ struct INPUTS {
 
 
 
-
 // define GENLC structure
 
 struct GENLC {
@@ -792,10 +792,10 @@ struct GENLC {
   int    REDSHIFT_FLAG  ;   // indicates source of redshift
 
   double DLMU;               // true distMod = 5.0 * log10(DL/10pc),
-  double LENSDMU;            // lensing DMU (Apr 2017)
+  double LENSDMU;            // weak lensing DMU (Apr 2017)
 
   double PEAKMJD;
-  int    ISOURCE_PEAKMJD;  // either RANDOM or read from SIMLIB
+  int    ISOURCE_PEAKMJD;       // either RANDOM or read from SIMLIB
   double MJD_EXPLODE ;            // explosion time for NON1A or SIMSED
 
   double REDSHIFT_RAN[MXZRAN];    // store randoms for redshift smear
@@ -1075,6 +1075,23 @@ struct GENLC {
   int   PEAKMAG_TRIGGER_FLAG; 
 
 } GENLC ;
+
+
+// strong lens structure (July 2019)
+struct GENSL {
+  int INIT_FLAG ;
+  int REPEAT_FLAG;     // T => repeat image
+  int NIMG;            // number of images to process
+  int IMGNUM;          // image-num being processed
+  int IDLENS; 
+  int BLEND_FLAG;
+  double zLENS;
+  double PEAKMJD_noSL;    // undelayed PEAKMJD
+  double RA_noSL, DEC_noSL;
+  double MJDMIN, MJDMAX;  // used for SIMLIB read
+  double *TDELAY_LIST, *XIMG_LIST, *YIMG_LIST;
+  double *MAGNIF_LIST, *MAGSHIFT_LIST ;
+} GENSL ;
 
 
 // temp structure used by NEPFILT_GENLC
@@ -1577,7 +1594,7 @@ void   genperfect_override(void);
 void   gen_event_driver(int ilc);    // generate RA, DEC, Z, PEAKMJD, etc.
 void   gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
 			char *REJECT_STAGE );
-
+void   gen_event_stronglens(int istage);
 void   gen_filtmap(int ilc);  // generate filter-maps
 void   gen_modelPar(int ilc);     // generate stretch or delta or dm15 ...
 void   gen_modelPar_SALT2(void); 
@@ -1843,8 +1860,7 @@ int gencovar_mlcs2k2(int matsize, int *ifilt, double *rest_epoch,
                   double *covar );
 
 
-int init_genmag_snoopy( char *modelPath, int optmask, 
-			double *snoopyArgs, char *filtlist);
+int init_genmag_snoopy( char *modelPath, int optmask, char *filtlist);
 
 int genmag_snoopy(int ifilt, double dm15, int nobs, double *rest_dates, 
 		  double *rest_mags, double *rest_magerrs );

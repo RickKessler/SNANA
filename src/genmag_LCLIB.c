@@ -81,7 +81,6 @@ void init_genmag_LCLIB(char *lcLibFile, char *STRING_TEMPLATE_EPOCHS,
   // Mar 26 2019: pass OPTMASK arg.
   //
 
-  int   ipar ;
   char fnam[] = "init_genmag_LCLIB" ;
 
   // -------------- BEGIN --------------
@@ -186,9 +185,9 @@ void read_GLOBAL_HEADER_LCLIB(void) {
   int NRD_ABORT = 1000 ; // abort after this many words and no FIRST_EVT
   int NRD       = 0 ;
   int FIRST_EVT = 0 ;
-  int ipar, NPAR, NFILT, ifilt ; 
+  int ipar, NPAR, NFILT; 
   FILE *fp = LCLIB_INFO.FP;
-  char c_get[60], tmpString[60], cfilt[2], comment[60] ;
+  char c_get[60], tmpString[60], comment[60] ;
   char fnam[] = "read_GLOBAL_HEADER_LCLIB" ;
 
 
@@ -408,7 +407,7 @@ void parse_TEMPLATE_EPOCHS_LCLIB(char *STRING_TEMPLATE_EPOCHS) {
   char tmpString[80];
   char *ptrSplit[MXOBS_TEMPLATE_LCLIB];
   char string_EPLIST[MXOBS_TEMPLATE_LCLIB][12];
-  char fnam[] = "parse_TEMPLATE_EPOCHS_LCLIB" ;
+  //  char fnam[] = "parse_TEMPLATE_EPOCHS_LCLIB" ;
 
   // ------------------- BEGIN --------------------
 
@@ -524,7 +523,7 @@ void set_randomStart_LCLIB(void) {
   double XEVT_START ;
   char   LINE[200];
   char KEY_SEARCH[] = "END_EVENT:" ;
-  char fnam[] = "set_randomStart_LCLIB" ;
+  //  char fnam[] = "set_randomStart_LCLIB" ;
 
   // -------------- BEGIN ---------------
 
@@ -562,10 +561,7 @@ void set_TobsRange_LCLIB(double *TobsRange) {
   //   TobsRange[0,1] = Tobs_min , Tobs_max
   //
   
-  double Tobs_min = TobsRange[0];
-  double Tobs_max = TobsRange[1];
   double Tobs_range = TobsRange[1] - TobsRange[0] ;
-
   char fnam[] = "set_TobsRange_LCLIB" ;
 
   // ---------------- BEGIN ---------------
@@ -621,9 +617,9 @@ void genmag_LCLIB ( int EXTERNAL_ID     // (I) external ID
   double AV_MW   = RV_MWDUST * mwebv ;
   double XT_MW   = GALextinct ( RV_MWDUST, AV_MW, lamFilt, 94 );
 
-  int obs, ipar, ifilt, NEXT_SIMEVENT, NEXT_LCLIBEVENT ;
-  double Tobs, Tobs_min, Tobs_shifted, mag_S ;
-  char fnam[] = "genmag_LCLIB" ;
+  int obs, ifilt, NEXT_SIMEVENT, NEXT_LCLIBEVENT ;
+  double Tobs, Tobs_shifted, mag_S ;
+  //  char fnam[] = "genmag_LCLIB" ;
 
   // ------------ BEGIN ------------
   
@@ -696,7 +692,7 @@ void genmag_LCLIB ( int EXTERNAL_ID     // (I) external ID
     if ( ifilt_obs == -1 ) {
       char cfilt[2];
       sprintf(cfilt,"%c", LCLIB_INFO.FILTERS[ifilt] );
-      printf(" xxx -------------- ID(EXTERN,LCLIB) = %d,%d ----------- \n",
+      printf(" xxx -------------- ID(EXTERN,LCLIB) = %d,%lld ----------- \n",
 	     EXTERNAL_ID, LCLIB_EVENT.ID );
       printf(" xxx ifilt=%d(%s)  Tobs[%2d]=%.3f -> %.3f  (TOBS_OFF=%.2f) \n",
 	     ifilt, cfilt, obs, Tobs, Tobs_shifted,  
@@ -733,18 +729,15 @@ void readNext_LCLIB(double RA, double DEC) {
   int IFLAG_PERIODIC = (LCLIB_INFO.IFLAG_RECUR_CLASS == IFLAG_RECUR_PERIODIC);
   int MXWD   = NFILT + NPAR + 2 ;
  
-  int START_EVENT, END_EVENT, ISROW_T, ISROW_S, NROWADD ;
-  int ipar, ifilt, row, NROW_FOUND, NROW_EXPECT, I2MAG, KEEP, REJECT ;
-  int NWD, iwd, NLINE_SKIP, Nfread, iread ;
+  int START_EVENT, END_EVENT, ISROW_T, ISROW_S ;
+  int ipar, ifilt, NROW_FOUND, NROW_EXPECT, KEEP, REJECT ;
+  int NWD, iwd, NLINE_SKIP, Nfread ;
   char  WDLIST[MXFILTINDX+MXPAR_LCLIB][100], WD0[100], WD1[100];
   char *ptrWDLIST[MXFILTINDX+MXPAR_LCLIB];
   double GalLat, GalLong ;
-  float DAY, MAG, MAGLIST[MXFILTINDX];
   char key[60], LINE[200], tmpLINE[200];
 
   int  DOFLAG_RDBIGBUF = 0 ;  // doesn't seem to help read faster
-  int  NBIGBUFREAD, EVTSIZE_GUESS, BUFSIZE;  
-  //  char CBIGBUF[2*MXROW_LCLIB] ;
   char fnam[] = "readNext_LCLIB" ;
 
   // ------------- BEGIN --------------
@@ -949,8 +942,7 @@ void read_ROW_LCLIB(int ROW, char *KEY, char **ptrWDLIST) {
 
   int NFILT  = LCLIB_INFO.NFILTERS;
   int ifilt, I2MAG ;
-  int  IFLAG_NONRECUR = (LCLIB_INFO.IFLAG_RECUR_CLASS == IFLAG_RECUR_NONRECUR);
-  FILE *fp = LCLIB_INFO.FP ;
+  //  int IFLAG_NONRECUR=(LCLIB_INFO.IFLAG_RECUR_CLASS==IFLAG_RECUR_NONRECUR);
   double DAY, MAG, MAGLIST[MXFILTINDX];
   double *ptrDAYRANGE ;
   char fnam[] = "read_ROW_LCLIB" ;
@@ -1053,7 +1045,7 @@ void read_PARVAL_LCLIB(char *LINE) {
 
   int NPAR   = LCLIB_INFO.NPAR_MODEL ;
   int MXSPLIT = MXPAR_LCLIB ;
-  int ipar, NSPLIT, L ;
+  int ipar, NSPLIT ;
   double PARVAL;
   char  tmpLine[200], sepKey[4] = " " ;
   char *ptrPARVAL[MXPAR_LCLIB], stringPARVAL[MXPAR_LCLIB][20];
@@ -1155,7 +1147,7 @@ int keep_ANGLEMATCH_LCLIB(double b, double l) {
   int KEEP=1 ;
   double b_SIM    = fabs(b);
   double b_LCLIB  = fabs(LCLIB_EVENT.GLAT);
-  char fnam[] = "keep_ANGLEMATCH_LCLIB" ;
+  //  char fnam[] = "keep_ANGLEMATCH_LCLIB" ;
 
   // ------------- BEGIN ------------
 
@@ -1203,7 +1195,7 @@ void ranPhase_PERIODIC_LCLIB(void) {
   int  MEMI2 = sizeof(short int);
   int  DMPROW, DMPROW_LAST, LDMP = 0 ;
   char star[4], CLINE[100], CLINE_LAST[100] ;
-  char fnam[] = "ranPhase_PERIODIC_LCLIB" ;
+  //  char fnam[] = "ranPhase_PERIODIC_LCLIB" ;
 
   // ----------------- BEGIN ----------------
 
@@ -1330,7 +1322,7 @@ void set_NREPEAT_LCLIB(void) {
 
   int  IFLAG_NONRECUR =(LCLIB_INFO.IFLAG_RECUR_CLASS == IFLAG_RECUR_NONRECUR);
   double XREPEAT ;
-  int  idum, LDMP ;
+  int  LDMP ;
   char fnam[] = "set_NREPEAT_LCLIB"; 
 
   // --------------- BEGIN -------------
@@ -1439,12 +1431,10 @@ void addTemplateRows_LCLIB(void) {
 void forceTemplateReset_LCLIB(void) {
 
   // reset forced template rows back into Search rows
-
-  int NROW_T      = LCLIB_EVENT.NROW_T ;
   int FIRSTROW_T  = LCLIB_EVENT.FIRSTROW_T ;
   int LASTROW_T   = LCLIB_EVENT.LASTROW_T ;
   int row;
-  char fnam[] = "forceTemplateReset_LCLIB" ;
+  //  char fnam[] = "forceTemplateReset_LCLIB" ;
 
   // ------------------- BEGIN -----------------
 
@@ -1472,11 +1462,6 @@ void forceTemplateRows_LCLIB(void) {
   // for which templates are not defined.
   // 
 
-  int IFLAG_NONRECUR = (LCLIB_INFO.IFLAG_RECUR_CLASS == IFLAG_RECUR_NONRECUR );
-  int NEP_TEMPLATE       = LCLIB_INFO.NEP_TEMPLATE ;
-  double Trange_obs      = LCLIB_EVENT.TOBS_RANGE ;
-  double Trange_template = LCLIB_INFO.EPRANGE_TEMPLATE ;
-  double Trange  = Trange_obs + Trange_template + DAYBACK_TEMPLATE_LCLIB ;  
   char fnam[] = "forceTemplateRows_LCLIB" ;
 
   // -------------- BEGIN --------------
@@ -1486,7 +1471,6 @@ void forceTemplateRows_LCLIB(void) {
   // --------------------------------------
   // --------------------------------------
 
-  int NROW           = LCLIB_EVENT.NROW ;
   int FIRSTROW_S     = LCLIB_EVENT.FIRSTROW_S ;
   int NEW_FIRSTROW_S = -1 ;
   int NEW_LASTROW_S  = LCLIB_EVENT.LASTROW_S ; // doesn't change
@@ -1885,7 +1869,7 @@ void addTemplateRows_NONRECUR(void) {
   int  NFILT        = LCLIB_INFO.NFILTERS ;
   int  NROW_T       = LCLIB_EVENT.NROW_T ;
 
-  int    ifilt, irow, irow2, ep, NROW_S, NFERR;
+  int    ifilt, irow, irow2, NROW_S, NFERR;
   int    LDMP, NROWADD, I2MAG_STORE[MXFILTINDX] ;
   double TobsRange, MAGDIF, m0, m1 ;
   double DAYMIN_TEMPLATE, DAYADD_TEMP, DAYBIN, DAYRANGE[2] ;
@@ -2375,7 +2359,7 @@ double magTemplate_LCLIB(int EXTERNAL_ID, int ifilt) {
   int LASTROW_T     = LCLIB_EVENT.LASTROW_T ;
   int Nforce_T      = LCLIB_EVENT.NforceTemplateRows ;
 
-  double Tep, fluxSum, flux, fluxAvg, arg, mag ;
+  double Tep, fluxSum=0.0, flux, fluxAvg, arg, mag ;
   int    ep, I2MAG ;
   int    LDMP = (EXTERNAL_ID < -1 );
   char fnam[] =  "magTemplate_LCLIB";
@@ -2459,7 +2443,6 @@ void store_magTemplate_LCLIB(int EXTERNAL_ID, int ifilt, double XT_MW) {
   // EXTERNAL_ID is for debug only.
 
   double mag_T ;
-  int ipar;
 
   if ( LCLIB_DEBUG.ZERO_TEMPLATE_FLUX ) {
     mag_T = MAG_ZEROFLUX ; // Dec 27 2018
@@ -2485,7 +2468,7 @@ double magInterp_LCLIB(double T, int NROW, double *DAYLIST,
   // interpolate mag at epoch T.
   
   double mag, DAY, DAYFRAC, DAYSTEP, m0, m1 ;
-  int    i2mag, row, ROW ;
+  int    row, ROW ;
   char fnam[] = "magInterp_LCLIB" ;
 
   // --------------- BEGIN ---------------

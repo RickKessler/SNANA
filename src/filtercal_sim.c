@@ -183,7 +183,7 @@ struct SED {
 int main(int argc, char **argv) {
 
   int i, ifilt, ised, iz, ioff, isig, istp, NBIN ;
-  char fnam[] = "main" ;
+  //  char fnam[] = "main" ;
 
   double *ptrlam, *ptrfun, *ptrfun_integ ;
   double *ptrflux, *ptrtrans ;
@@ -315,12 +315,13 @@ int main(int argc, char **argv) {
 
   filtercal_end();
 
+  return(0);
+
 } // end of main.
 
 
 // ******************************************
 void parse_args(int argc, char **argv) {
-  char fnam[] = "parse_args" ;
   // ---------- BEGIN --------
   sprintf( INPUTS.inputFile, "%s", argv[1] );
 } // end of parse_args
@@ -1061,9 +1062,7 @@ void MAGEVAL(int ised, int ifilt, int iz, int isig, int istp, int ioff) {
   ***/
 
 
-  int   
-    NBIN_FILTCAL, i
-    ;
+  int       NBIN_FILTCAL    ;
 
   double 
     Z
@@ -1251,7 +1250,7 @@ double  FILTCAL_POINT(
   int ilam, ILAM_MIN, ILAM_MAX;
   int LDMP;
 
-  char fnam[] = "FILTCAL_POINT" ;
+  //  char fnam[] = "FILTCAL_POINT" ;
 
   // ---------- BEGIN ------------
 
@@ -1306,7 +1305,6 @@ void  DUMP_FILTER(int ifilt, int isig, int istp, double *TRANS ) {
 
   int 
     ISIGMA, ISTEP
-    ,ifilt_tmp
     ,isigma_tmp
     ,istep_tmp
     ,i, iname
@@ -1356,8 +1354,7 @@ void  DUMP_FILTER(int ifilt, int isig, int istp, double *TRANS ) {
   // --------------
   // if we get here, do the dump
 
-  sprintf(dmpFile_ref, "filterTrans-%s-SIG0-STEP0.dat", 
-	  ptrName, ISIGMA );
+  sprintf(dmpFile_ref, "filterTrans-%s-SIG0-STEP0.dat",  ptrName );
 
   sprintf(dmpFile_cal, "filterTrans-%s-SIG%d-STEP%d.dat", 
 	  ptrName, ISIGMA, ISTEP );

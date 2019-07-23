@@ -181,11 +181,10 @@ void NEARNBR_CELLMAP_INIT(int NCHOP_PER_VAR ) {
   //
 
   int  MEMI = sizeof(int);
-  int  MEMF = sizeof(float);
   int  NCHOP_LOCAL, NVAR ;
   int  NTRAIN_TOT = NEARNBR_TRAINLIB.NTOT; 
 
-  int  NCHOP_ARRAY[MXVAR_NEARNBR], ICELL_ARRAY[MXVAR_NEARNBR];
+  int  NCHOP_ARRAY[MXVAR_NEARNBR];
   int  DOFLAG = NEARNBR_CELLMAP.DOFLAG ;
   char fnam[] = "NEARNBR_CELLMAP_INIT" ;
 
@@ -346,7 +345,7 @@ void getInfo_CELLMAP(int OPT, float *VAL_ARRAY, int *ICELL_1D ) {
   int NVAR =   NEARNBR_CELLMAP.NVAR ;
   int ivar, icell, ICELL_ARRAY[MXVAR_NEARNBR] ;
   float VAL_MIN, VAL_MAX, VAL_BIN, VAL, xi ;
-  char fnam[] = "getInfo_CELLMAP" ;
+  //  char fnam[] = "getInfo_CELLMAP" ;
 
   // --------------- BEGIN --------------
 
@@ -401,7 +400,7 @@ void realloc_NEARNBR_CELLMAP(int ICELL_1D) {
   float XNLIST, XNADD;
   int  MEM_REALLOC, NLIST;
   int  MEMI = sizeof(int);
-  char fnam[] = "realloc_NEARNBR_CELLMAP";
+  //  char fnam[] = "realloc_NEARNBR_CELLMAP";
 
   // ------------ BEGIN ------------
 
@@ -431,7 +430,7 @@ void NEARNBR_INIT2(int ISPLIT) {
   // If ISPLIT>1 then book only the 2D analysis plot
 
   int  ifile, ivar ;
-  char fnam[] = "NEARNBR_INIT2" ;
+  //  char fnam[] = "NEARNBR_INIT2" ;
 
   // ------------ BEGIN ---------------
 
@@ -686,7 +685,7 @@ int nearnbr_storeODD_trainLIB(int NROWTOT_NEW) {
 void nearnbr_TRAIN_FILENAME(int ifile, char *TRAIN_FILENAME) {
 
   char *INFILE, *PATH;
-  char fnam[] = "nearnbr_TRAIN_FILENAME" ;
+  //  char fnam[] = "nearnbr_TRAIN_FILENAME" ;
 
   // --------- BEGIN ----------
 
@@ -717,14 +716,9 @@ void nearnbr_apply_trainLib(void) {
 
   int  NROW      = NEARNBR_TRAINLIB.NTOT ;
   int  NVAR      = NEARNBR_INPUTS.NVAR;
-  int  NTRUETYPE = NEARNBR_TRAINLIB.NTRUETYPE ;
-  int  MEMF      = NROW * sizeof(float);
   char fnam[]    = "nearnbr_apply_trainLib" ;
-  
-  int  irow, ivar, itype, ITYPE_BEST, NTYPE;
-  int  ITYPE_LIST[NTRUETYPE_MAX];
-  int  NCELL_TRAIN_LIST[NTRUETYPE_MAX] ;
-  double d_val, P_TRAIN, XNTOT ;
+  int  irow, ivar ;
+  double d_val ;
   char *varNameList[MXVAR_NEARNBR], CCID[12] ;
 
   // ------------ BEGIN --------------
@@ -735,13 +729,6 @@ void nearnbr_apply_trainLib(void) {
 	 fnam);
   printf("\t\t (needed to compute proper P_BAYES) \n");
   fflush(stdout);
-
-  /* xxxxxxx mark delete Jun 16 2019 xxxxxxxxx
-  // allocate memory to store P_TRAIN for each possible type.
-  NEARNBR_TRAINLIB.P_TRAIN = (float**)malloc(NTRUETYPE * sizeof(float*) ); 
-  for(itype=0; itype < NTRUETYPE; itype++ ) 
-    { NEARNBR_TRAINLIB.P_TRAIN[itype] =  (float*)malloc(MEMF);   }
-    xxxxxxxxxxxxxxxxxx  */
 
   // store local list of varNames before trainLib loop
   for(ivar = 0; ivar <= NVAR; ivar++ ) {
@@ -1311,12 +1298,10 @@ void nearnbr_makeHist_allJobs(void) {
   // Created June 14, 2019
   // create histograms for all SPLIT jobs
 
-  int NVAR  = NEARNBR_INPUTS.NVAR ;
   int NTYPE = NEARNBR_TRAINLIB.NTRUETYPE ;
-
-  char   TITLE[MXCHAR_FILENAME], ctmp[100];
+  char   TITLE[MXCHAR_FILENAME] ;
   double xmin[2], xmax[2], xval[2], w ;
-  int    ivar, ibin, jtype, ID, NBIN[2];
+  int    jtype, ID, NBIN[2];
 
   // -------------- BEGIN -----------
 
@@ -1367,7 +1352,7 @@ void NEARNBR_APPLY(char *CCID) {
   // Called by external program.
   // Jan 12 2017: few speed-up tricks for APPLY mode; see NN_APPLYFLAG
 
-  int  ivar, itrain, LDMP, isep, i, NTRAIN_SUBSET ;
+  int itrain, isep, i, NTRAIN_SUBSET ;
   int NTYPE      = NEARNBR_TRAINLIB.NTRUETYPE ;
   char fnam[] = "NEARNBR_APPLY" ;
 
@@ -1542,7 +1527,7 @@ int nearnbr_whichType(int NTYPE, int *NCUTDIST,  int *TYPE_CUTPROB ) {
   float SCALE, SCALE_TYPE[NTRUETYPE_MAX];
   float SCALE_NON1A = NEARNBR_INPUTS.SCALE_NON1A ; 
   int TRUETYPE_SNIa = NEARNBR_INPUTS.TRUETYPE_SNIa ;
-  char fnam[]  = "nearnbr_whichType" ;
+  //  char fnam[]  = "nearnbr_whichType" ;
 
   // ----------------- BEGIN ------------------
 
@@ -1668,7 +1653,6 @@ void nearnbr_fill_SUBSET_APPLY(char *CCID) {
   int NVAR       = NEARNBR_INPUTS.NVAR ;
   int itrain, NVAR_NEAR, ivar, LDMP,  NTRAIN_SUBSET ;
   float VAL_DATA, VAL_TRAIN, SEP, SQSEP, SQRATIO, SQSEPMAX ;
-  float VAL_ARRAY[MXVAR_NEARNBR];
   char fnam[] = "nearnbr_fill_SUBSET_APPLY" ;
 
   // ------------- BEGIN -------------

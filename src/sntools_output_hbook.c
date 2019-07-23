@@ -590,8 +590,8 @@ int SNTABLE_READ_EXEC_HBOOK(void) {
   int IVAR_L[10];
   char fnam[] = "SNTABLE_READ_EXEC_HBOOK" ;
 
-  int  IVAR_READ, NVAR_READ, IVAR_TOT, IVAR_CWNT, MEMC, ep ;
-  int  ICAST_CWNT, OPT_READ, ivarcast, icast, NVARCAST;
+  int  IVAR_READ, NVAR_READ, IVAR_TOT, IVAR_CWNT, ep ;
+  int  ICAST_CWNT, OPT_READ, ivarcast ;
   int  LENB, LENC, LENV;
   char *varName, *blkName, *ptrC[MXEPOCH] ;
   void *ptrTmp ;
@@ -707,7 +707,7 @@ int SNTABLE_READ_EXEC_HBOOK(void) {
 
   
   // loop over each event (ROW) and extract CWNT values
-  int   EVT, irow, IERR, ll ;
+  int   EVT, irow, IERR ;
   NEVT = HBOOK_CWNT_INFO.NEVENT ; 
 
   for ( EVT=1; EVT <= NEVT; EVT++ ) {  // note fortran-line index
@@ -749,7 +749,7 @@ void malloc_READROW_HBOOK(int OPT) {
   int ivar, IVAR_READ, IVAR_TOT, IVAR_CWNT ;
   int NVAR_READ = READTABLE_POINTERS.NVAR_READ ;
   char *varName ;
-  char fnam[] = "malloc_READROW_HBOOK" ;
+  //  char fnam[] = "malloc_READROW_HBOOK" ;
 
   // ----------- BEGIN ------------
 
@@ -910,7 +910,7 @@ void sntable_pushRowOut_hbook(int IROW, int OPT_READ, int IFIT) {
 
   // Feb 24 2019:  check SEPKEY
 
-  char fnam[] =  "sntable_pushRowOut_hbook" ;
+  //  char fnam[] =  "sntable_pushRowOut_hbook" ;
   int NVAR_TOT  = HBOOK_CWNT_INFO.NVAR ; 
   int NVAR_DUMP = READTABLE_POINTERS.NVAR_READ ;
 

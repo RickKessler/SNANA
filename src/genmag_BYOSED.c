@@ -65,9 +65,10 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   //               :  passed from GENMODEL arg of sim-input
   //  OPTMASK      : bit mask of options; interpreted by python code.
   //               : OPTMASK=-1 is a flag to print options.
-  //               :  passed from GENMODEL_MSKOPT arg in sim-input
+  //               :  passed from sim-input GENMODEL_MSKOPT: <MSKOPT> 
   //  
-  //  ARGLIST      : string of options
+  //  ARGLIST      : string of options passed ONLY from the command-line,
+  //                   snlc_sim.exe <myInput> GENMODEL_ARGLIST 'bla bla'
   //
   // NAMES_HOSTPAR : comma-separate list of names of host parameters.
   //                 Includes RV, AV, variables used in WGTMAP, and

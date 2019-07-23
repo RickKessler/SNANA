@@ -37,6 +37,8 @@
             Should work on real data too if spectra are packed
             in SPEC.FITS files.
 
+  Jul 2019: add strong lens info.
+
 **************************************************/
 
 #include <stdio.h>
@@ -177,6 +179,7 @@ void wr_snfitsio_init_head(void) {
   // Jul 16, 2016: remove SIM_AVTAU
   // May 24, 2017: add CCDNUM
   // Dec 10, 2018: add BYOSED
+  // Jul 20, 2019: add strong lens info
 
   long  NROW = 0 ;
   int itype, ncol, istat, ivar, ipar ;
@@ -435,6 +438,16 @@ void wr_snfitsio_init_head(void) {
 	sprintf(parName,"SIM_GALFRAC_%c", FILTERSTRING[ifilt_obs] );
 	wr_snfitsio_addCol( "1E", parName, itype );
       }
+    }
+
+    // strong lens info (Julu 2019)
+    if ( SNDATA.SIM_SL_FLAG ) {
+      wr_snfitsio_addCol( "1J",  "SIM_STRONGLENS_ID"       , itype );
+      wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_z"        , itype );
+      wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_TDELAY"   , itype );
+      wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_MAGSHIFT" , itype );
+      wr_snfitsio_addCol( "1I",  "SIM_STRONGLENS_NIMG"     , itype );
+      wr_snfitsio_addCol( "1I",  "SIM_STRONGLENS_IMGNUM"   , itype );
     }
 
   } // SNFITSIO_SIMFLAG_SNANA
@@ -773,7 +786,7 @@ void wr_snfitsio_create(int itype ) {
 
   char *ptrFile, *ptrType ;
   char KEYNAME[60], PARNAME[80] ;
-  char fnam[] = "wr_snfitsio_create" ;
+  //  char fnam[] = "wr_snfitsio_create" ;
     
   // -------------- BEGIN --------------
 
@@ -1672,6 +1685,34 @@ void wr_snfitsio_update_head(void) {
       WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_GALFRAC[ifilt_obs] ;
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     }
+  }
+
+
+  // strong lens params (Jul 2019)
+  if ( SNDATA.SIM_SL_FLAG ) { 
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.SIM_SL_IDLENS ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_zLENS ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_TDELAY ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_MAGSHIFT ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SIM_SL_NIMG ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SIM_SL_IMGNUM ;
+    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
   }
 
 
@@ -2685,7 +2726,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   fitsfile *fp ;
   int istat, itype, istat_spec, hdutype, nrow, nmove = 1  ;
   char keyname[60], comment[200], *ptrFile ;
-  char fnam[] = "rd_snfitsio_open" ;
+  //  char fnam[] = "rd_snfitsio_open" ;
 
   // ------------- BEGIN -------------
 
@@ -2898,7 +2939,7 @@ void rd_snfitsio_simkeys(void) {
   fitsfile *fp ;
   int itype, istat, NPAR, ipar;
   char  keyname[60], comment[200], *cptr    ;
-  char  fnam[] = "rd_snfitsio_simkeys"  ;
+  //  char  fnam[] = "rd_snfitsio_simkeys"  ;
 
   // ------------ BEGIN ------------
 
@@ -3022,7 +3063,7 @@ void rd_snfitsio_file(int ifile) {
 
   int photflag_open=1;
   int vbose=0;
-  char fnam[] = "rd_snfitsio_file" ;
+  //  char fnam[] = "rd_snfitsio_file" ;
 
   // ----------- BEGIN --------------
 
@@ -3535,7 +3576,7 @@ void  rd_snfitsio_specFile( int ifile ) {
   long FIRSTROW=1, FIRSTELEM=1, NROW ;
   fitsfile *fp ;
   char *ptrFile, keyName[40], comment[200] ;
-  char fnam[] = "rd_snfitsio_spec" ;
+  //  char fnam[] = "rd_snfitsio_spec" ;
 
   // ------------ BEGIN -------------
 
@@ -3652,7 +3693,7 @@ void RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX)  {
   int NROW = RDSPEC_SNFITSIO_HEADER.NROW; 
   int irow;
   char *SNID_TMP;
-  char fnam[] = "RD_SNFITSIO_NSPECTRUM" ;
+  //  char fnam[] = "RD_SNFITSIO_NSPECTRUM" ;
 
   // ------------ BEGIN -------------
 
@@ -3756,7 +3797,7 @@ void  rd_snfitsio_mallocSpec(int opt) {
   int  MEMC  =   NROW * sizeof(char*);
   int  MEMSNID = 40   * sizeof(char) ;
   int irow;
-  char fnam[] = "rd_snfitsio_mallocSpec" ;
+  //  char fnam[] = "rd_snfitsio_mallocSpec" ;
 
   // ------------ BEGIN -----------
 

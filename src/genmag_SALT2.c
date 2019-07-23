@@ -1643,7 +1643,7 @@ void genmag_SALT2(
     else {
       // SED flux extrapolation
       double Trest_edge, Trest_tmp, flux_edge, flux_tmp, Tobs_tmp ;
-      double slope_flux, slope_mag ;
+      double slope_flux ;
       double nday_slope  = 3.*(double)EXTRAPFLAG_SEDFLUX ;
 
       // measure slope dTrest/dFlux using last nday_slope days of model
@@ -1656,7 +1656,6 @@ void genmag_SALT2(
       flux_tmp = Finteg;
       
       slope_flux = -(flux_tmp - flux_edge)/nday_slope ;
-      // slope_mag  = +2.5*log10(flux_tmp/flux_edge)/3.0 ; // diagnostic only
 
       // extrapolate model
       flux = modelflux_extrap( Trest, Trest_edge, 
@@ -2344,7 +2343,7 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
     ,val_atlammax
     ;
 
-  char fnam[] = "get_SALT2_ERRMAP";
+  //  char fnam[] = "get_SALT2_ERRMAP";
 
   // ------------ BEGIN --------
 
@@ -2834,7 +2833,7 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
   int ilam ;  
   double Trest, Fratio, Finteg, FTMP, GENFLUX, ZP, MAG, LAM, z1, FSCALE_ZP ;
   double hc8 = (double)hc ;
-  char fnam[] = "genSpec_SALT2" ;
+  //  char fnam[] = "genSpec_SALT2" ;
 
   // -------------- BEGIN --------------
 

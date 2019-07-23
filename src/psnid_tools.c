@@ -67,9 +67,9 @@ void PSNID_USER_INPUT(int NVAR, double *input_array, char *input_string ) {
   // Receive input values, then strip them off and load
   // PSNID_INPUTS structure in psnid_tools.h.
 
-  int ivar, i, ivar_tmp, NWD, iwd, NFILE, ifile, iwdoff, OPT, iter ;
+  int ivar, i, NWD, iwd, OPT, iter ;
   double dval ;
-  char *ptrtok, cwd[60][200], *ptrTmp ;
+  char *ptrtok, cwd[60][200] ;
   char fnam[] = "PSNID_USER_INPUT" ;
 
   int LDMP = 1 ;
@@ -360,14 +360,14 @@ void psnid_user_input__( int *NVAR, double *input_array, char *input_string){
 void PSNID_INIT_VAR(void) {
 
   // Misc. inits 
-  int ifile, ifilt, itype ;
+  int ifilt, itype ;
 
   FLAG_PSNID_INIT_VAR = 1;
 
   printf("   Init PSNID variables. \n");
   
-  sprintf(PSNID_INPUTS.CFILTLIST,"");
-  sprintf(PSNID_INPUTS.CFILTLIST_PEAKMAG_STORE,"");
+  PSNID_INPUTS.CFILTLIST[0] = 0;
+  PSNID_INPUTS.CFILTLIST_PEAKMAG_STORE[0] = 0;
   PSNID_INPUTS.NFILT  = 0 ;
   PSNID_INPUTS.WRSTAT_OUTFILE_LEGACY = 0 ;
   PSNID_INPUTS.WRSTAT_TABLE   = 0 ;
@@ -383,7 +383,7 @@ void PSNID_INIT_VAR(void) {
 
   for(itype=0 ; itype <= MXTYPEINDX_PSNID; itype++ ) {   
     USEFLAG_TEMPLATES_PSNID[itype] = 0 ;
-    sprintf(TEMPLATES_FILE_PSNID[itype], "");
+    TEMPLATES_FILE_PSNID[itype][0]=0;
   }
   
   sprintf(TEMPLATETYPE_PSNID[TYPEINDX_SNIA_PSNID],  "SNIa" );
@@ -412,7 +412,7 @@ void PSNID_INIT_FILTERS(char *filtlist_fit) {
   // which filters to use in the fit. Also check that
   // filters are valid; abort on error.
 
-  int ifilt, ifilt_obs, ITMP ;
+  int ifilt, ifilt_obs ;
   char cfilt[2], ctmp[40], *cfiltlist;
   char fnam[] = "PSNID_INIT_FILTERS" ;
 
@@ -506,7 +506,7 @@ void  PSNID_INIT_XTMW(int OPT_MWCOLORLAW) {
   double LAMAVG, RV, AV, XTMW, NXTMW ; ;
   int ifilt ;
   char cfilt[2] ;
-  char fnam[] = "PSNID_INIT_XTMW" ;
+  //  char fnam[] = "PSNID_INIT_XTMW" ;
 
   // ----------------- BEGIN ------------
 
@@ -805,7 +805,7 @@ int psnid_match_NONIA_NAME(char *name) {
 
   int i, NTMPL, TYPEINDX, IPAR ;
   char *NAME ;
-  char fnam[] = "psnid_match_NONIA_NAME" ;
+  //  char fnam[] = "psnid_match_NONIA_NAME" ;
 
   // ------------- BEGIN -------------
 
@@ -1005,7 +1005,7 @@ void psnid_dumpLine(int TYPEINDX, int IPAR, int ibin) {
 
   // dump one line summary for this IPAR and bin.
 
-  char fnam[] = "psnid_dumpLine" ;
+  //  char fnam[] = "psnid_dumpLine" ;
 
   printf("\t %-12s = %f  (ibin = %3d) \n"
 	 ,SNGRID_PSNID[TYPEINDX].NAME[IPAR]
@@ -1020,9 +1020,7 @@ void psnid_dumpLine(int TYPEINDX, int IPAR, int ibin) {
 void psnid_dumpBins_SNGRID(void)
 {
   int i;
-  char *ff;
-
-  char fnam[] = "psnid_dumpBins_SNGRID" ;
+  //  char fnam[] = "psnid_dumpBins_SNGRID" ;
 
   // --------------- BEGIN ---------------
 
@@ -1255,8 +1253,7 @@ void psnid_dumpInput_data(char *CCID, int NOBS, int *IFILTOBS,
   int i, iobs, ifiltobs;
   char cfilt[2];
 
-
-  char fnam[] = "psnid_dumpInput_data" ;
+  //  char fnam[] = "psnid_dumpInput_data" ;
 
   // --------------- BEGIN ---------------
 
@@ -2339,10 +2336,10 @@ void hunt(double xx[], int n, double x, int *jlo)
       jhi=n+1;
    } else {
       inc=1;
-      if (x >= xx[*jlo] == ascnd) {
+      if ( (x >= xx[*jlo]) == ascnd) {
          if (*jlo == n) return;
          jhi=(*jlo)+1;
-         while (x >= xx[jhi] == ascnd) {
+         while ( (x >= xx[jhi]) == ascnd) {
             *jlo=jhi;
             inc += inc;
             jhi=(*jlo)+inc;
@@ -2358,7 +2355,7 @@ void hunt(double xx[], int n, double x, int *jlo)
          }
          jhi=(*jlo);
          *jlo -= 1;
-         while (x < xx[*jlo] == ascnd) {
+         while ( (x < xx[*jlo]) == ascnd) {
             jhi=(*jlo);
             inc += inc;
             *jlo=jhi-inc;
@@ -2371,7 +2368,7 @@ void hunt(double xx[], int n, double x, int *jlo)
    }
    while (jhi-(*jlo) != 1) {
       jm=(jhi+(*jlo)) >> 1;
-      if (x > xx[jm] == ascnd)
+      if ( (x > xx[jm]) == ascnd)
          *jlo=jm;
       else
          jhi=jm;

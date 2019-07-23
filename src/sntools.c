@@ -135,15 +135,15 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 
   int USE_MJDatFLUXMAX  = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX );
   int USE_MJDatFLUXMAX2 = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2);
-  int USE_BACKUP_SNRCUT, ITER, NITER, IMJD, IMJDMAX;
-  int NOBS_SNRCUT, NSNRCUT_MAXSUM;
+  int USE_BACKUP_SNRCUT, ITER, NITER, IMJD, IMJDMAX=0 ;
+  int NOBS_SNRCUT=0, NSNRCUT_MAXSUM=0;
   int IFILTOBS, o, omin, omax, omin2, omax2, NOTHING ;
   int MALLOC=0 ;
-  double SNR, SNRCUT, SNRMAX, FLUXMAX[MXFILTINDX] ;
+  double SNR, SNRCUT=0.0, SNRMAX=0.0, FLUXMAX[MXFILTINDX] ;
   double MJD, MJDMIN, MJDMAX, FLUX, FLUXERR;
 
-  int   *NSNRCUT;      // Number of obs in each 10-day window
-  int   *oMIN_SNRCUT, *oMAX_SNRCUT ;
+  int   *NSNRCUT = NULL;      // Number of obs in each 10-day window
+  int   *oMIN_SNRCUT=NULL, *oMAX_SNRCUT=NULL ;
   int    NWIN_COMBINE, MXWIN_SNRCUT, MEMI;
   int    LDMP = 0; // t(strcmp(CCID,"3530")==0 ) ;
   char fnam[] = "get_obs_atFLUXMAX" ;
@@ -720,7 +720,7 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
 
   int nm = MATSIZE ;
   //  int matz = 1;
-  bool matz = true ;
+  bool matz  ;
   int l, k, m, ierr, ipar, NBAD_EIGVAL ;
   int LDMP = 0; // (strcmp(name,"4249392") == 0);
   int ABORT_ON_BADCOV, ALLOW_ZERODIAG ;
@@ -762,6 +762,7 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
 
   if(LDMP){ printf("\t 1. xxx %s \n", fnam); fflush(stdout); }
 
+  matz = true;
   ierr = rs(nm, &covMat[0][0], eigval, &matz, &eigvec[0][0] );
 
   if(LDMP){ printf("\t 2. xxx %s \n", fnam); fflush(stdout); }
@@ -867,7 +868,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   int CHECK_COMMA  = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMA) == 0 );
   int LENF = strlen(FILENAME);
 
-  int NWD, MXWD, iwdStart, GZIPFLAG, iwd;
+  int NWD, MXWD, iwdStart=0, GZIPFLAG, iwd;
   char LINE[MXCHARLINE_PARSE_WORDS], *pos, sepKey[4] = " ";
   FILE *fp;
   char fnam[] = "store_PARSE_WORDS" ;
@@ -980,7 +981,7 @@ void malloc_PARSE_WORDS(void) {
   int MXCHARWD  = MXCHARWORD_PARSE_WORDS ;
   int NWD       = PARSE_WORDS.NWD ;
   int iwd, WD0, WD1, BUFSIZE, IFLAG=0 ;
-  char fnam[] = "malloc_PARSE_WORDS" ;
+  //  char fnam[] = "malloc_PARSE_WORDS" ;
 
   // ------------- BEGIN ----------------
 
@@ -1068,11 +1069,10 @@ void parse_multiplier(char *inString, char *key, double *multiplier) {
   //   CC_S15*.3     CC_S15       0.3
   //   BLABLA        CC_S15       0.0
 
-  double mult_local = 1.0 ;
   int    MEMC  = 40*sizeof(char);
   int    LDMP = 0;
   int    NSPLIT ;
-  char  *splitValues[2], *cnum ;
+  char  *splitValues[2], *cnum = NULL ;
   char star[] = "*" ;
   char fnam[] = "parse_multiplier" ;
 
@@ -1315,7 +1315,7 @@ void INIT_SNANA_DUMP(char *STRING) {
   //
   // Example:
   // DUMP_STRING = 
-  //  'FUN FLUXERRCALC  FILTERS iz  CIDLIST 5001,5002 \
+  //  'FUN FLUXERRCALC  FILTERS iz  CIDLIST 5001,5002
   //      MJDRANGE 53662 53663 ABORT'
   //
   // Will trigger the dump in subroutine FLUXERRCALC for filters
@@ -1376,7 +1376,7 @@ void INIT_SNANA_DUMP(char *STRING) {
   splitString(STRING, BLANK, MXSPLIT,
 	      &Nsplit, ptrSplit) ;   // returned
 
-  char *cwd0, *cwd1, *cwd2;
+  char *cwd0=wordList[0], *cwd1=wordList[0], *cwd2=wordList[0];
   for(iwd=0; iwd < Nsplit; iwd++ ) {
     cwd0 = wordList[iwd] ;
     if ( iwd < (Nsplit-1) ) { cwd1 = wordList[iwd+1] ; }
@@ -1435,7 +1435,7 @@ int CHECK_SNANA_DUMP(char *FUNNAME, char *CCID, char *BAND, double MJD) {
   int IFLAG = 0 ;
   int NCID  = DUMP_STRING_INFO.NCID ;
   int NFILT = DUMP_STRING_INFO.NFILT ;
-  char fnam[] = "CHECK_SNANA_DUMP" ;
+  //  char fnam[] = "CHECK_SNANA_DUMP" ;
 
   // ------------ BEGIN ----------------
 
@@ -1854,7 +1854,7 @@ void FILTER_REMAP_FETCH(int IFILTOBS_ORIG,
   //   + absolute IFILTOBS_REMAP,
   //   + sparse   IFILT_REMAP indices.
 
-  char fnam[] = "FILTER_REMAP_FETCH" ;
+  //  char fnam[] = "FILTER_REMAP_FETCH" ;
 
   // ------------- BEGIN -----------
   
@@ -2581,9 +2581,9 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
   // Feb 17 2017: add SUBSURVEY
   // Mar 29 2017: allow FLT or BAND
 
-  int i, iep, igal, ifilt_obs, NVAR, USE_stringVal, LEN_stringVal ;
+  int i, iep, ifilt_obs, NVAR, USE_stringVal, LEN_stringVal ;
   int LOAD_TEL, LOAD_FLT, LOAD_FIELD;
-  char  *ptrtok, ctmp[20], *localString, PREFIX[20] ;
+  char  *ptrtok, ctmp[20], *localString ;
   char  fnam[] =  "set_SNDATA" ;
 
   // ------------ BEGIN ------------
@@ -3541,7 +3541,7 @@ FILE *openFile_PATH_SNDATA_SIM(char *mode) {
   char modeArg[4];
   FILE *fp ;
 
-  char fnam[] = "openFile_PATH_SNDATA_SIM" ;
+  //  char fnam[] = "openFile_PATH_SNDATA_SIM" ;
 
   // ------------- BEGIN --------------
 
@@ -3814,7 +3814,7 @@ void trim_blank_spaces(char *string) {
 
   int MXchar, i, FOUNDCHAR, ISCHAR, ISBLANK, ISTERM ;
   char *tmpString, c1[2] ;
-  char fnam[] = "trim_blank_spaces" ;
+  //  char fnam[] = "trim_blank_spaces" ;
 
   // -------------- BEGIN ---------
 
@@ -3937,9 +3937,9 @@ void splitString2(char *string, char *sep, int MXsplit,
   //              blank spaces.
   // ---------------                                             
 
-  int LEN, N;
-  char *localString, *token, *saveToken ;
-  char fnam[] = "splitString2" ;
+  int   N;
+  char *localString, *token ;
+  //  char fnam[] = "splitString2" ;
 
   // ------------ BEGIN ---------------
 
@@ -4048,8 +4048,8 @@ void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP,
   double **TMPMAP2D ;  // [0:NVARTOT-1][MXROW-1]
   double *TMPVAL, *TMPVAL_LAST, *DIFVAL_LAST, DDIF, DIF;
 
-  int   MSKOPT, ivar, NWD, ISKEY_ROW, ISKEY_STOP, EXTRA_WORD_OK ;
-  int   LDIF1, LDIF2, ivar2, NROW_SKIP ;
+  int   ivar, NWD, ISKEY_ROW, EXTRA_WORD_OK ;
+  int   LDIF1, LDIF2, ivar2, NROW_SKIP=0 ;
   char  LINE[200], word[40], MAPNAME[100] ;
   char fnam[] = "read_GRIDMAP" ;
  
@@ -4231,8 +4231,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
 
   int idim, ifun, i, NBIN, igrid_tmp, igrid_1d[100] ;
   double VAL, VALMIN, VALMAX, VALBIN, LASTVAL, RANGE, DIF ;
-  double FUNVAL, FUNMIN, FUNMAX;
-  double RANGE_CHECK, RATIO;
+  double FUNVAL, RANGE_CHECK, RATIO;
   char fnam[] = "init_interp_GRIDMAP" ;
 
   int I4  = sizeof(int);
@@ -4659,7 +4658,7 @@ void init_1DINDEX(int ID, int NDIM, int *NPT_PERDIM ) {
   // Feb 12 2018: refactor with indices starting at zero
   //
 
-  int i, NPT, NPT_LAST, OFFSET_LAST, OFFSET, IDTMP ;
+  int i, NPT, NPT_LAST, OFFSET_LAST, OFFSET ;
   char fnam[] = "init_1DINDEX" ;
 
   // --------- BEGIN ----------
@@ -7134,8 +7133,6 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
   if ( cid == IFLAG_DBUG ) 
     { printf(" xxxx %s : write HEADER info for  CID=%d \n", fnam, cid ); }
 
-
-  // xxx mark delete  if ( strcmp(SNDATA.SURVEY_NAME,SNDATA.SUBSURVEY_NAME) == 0 ) { 
   if ( strlen(SNDATA.SUBSURVEY_NAME) == 0 ) {
     fprintf(fp, "SURVEY: %s   \n", SNDATA.SURVEY_NAME  ); 
   }
@@ -7268,9 +7265,10 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
 
 
   // --------------------------------------------------
+  fflush(fp);
 
   if ( SNDATA.WRFLAG_BLINDTEST ) { goto START_EPOCHS ; }
-
+  
   // write SIM_XXX variables if FAKE > 0
   if ( LWRITE_SIMFLAG > 0  ) {
     fprintf(fp, "\n" );
@@ -7526,7 +7524,7 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
     }
 
 
-    // LCLIB info (Spe 8 2017)
+    // LCLIB info (Sep 8 2017)
     if ( SNDATA.NPAR_LCLIB > 0 ) {
       fprintf(fp,"\n");
       fprintf(fp,"LCLIB_NPAR: %d \n", SNDATA.NPAR_LCLIB );
@@ -7537,6 +7535,23 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
       }
     }
 
+    
+    // strong lens info (July 20 2019)
+    if ( SNDATA.SIM_SL_FLAG ) {
+      fprintf(fp,"\n");
+      fprintf(fp,"SIM_STRONGLENS_ID:        %d   \n", SNDATA.SIM_SL_IDLENS );
+      fprintf(fp,"SIM_STRONGLENS_z:         %.3f \n", SNDATA.SIM_SL_zLENS  );
+      fprintf(fp,"SIM_STRONGLENS_DELAY:     %.3f  # days \n", 
+	      SNDATA.SIM_SL_TDELAY );
+      fprintf(fp,"SIM_STRONGLENS_XIMG:      %.3f  # arcsec\n",
+	      SNDATA.SIM_SL_XIMG );
+      fprintf(fp,"SIM_STRONGLENS_YIMG:      %.3f  # arcsec\n",
+	      SNDATA.SIM_SL_YIMG );
+      fprintf(fp,"SIM_STRONGLENS_MAGSHIFT:  %.3f \n", SNDATA.SIM_SL_MAGSHIFT );
+      fprintf(fp,"SIM_STRONGLENS_NIMG:      %d   \n", SNDATA.SIM_SL_NIMG    );
+      fprintf(fp,"SIM_STRONGLENS_IMGNUM:    %d   \n", SNDATA.SIM_SL_IMGNUM  );
+    }
+    
     fprintf(fp,"\n");
 
     // Jun 2017: SUBSAMPLE_INDEX
@@ -7544,9 +7559,11 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
       fprintf(fp,"SIM_SUBSAMPLE_INDEX: %d \n", SNDATA.SUBSAMPLE_INDEX);
     }
 
+    
   } // end of FAKE > 0 if-block
 
   
+  fflush(fp);
 
  START_EPOCHS:
 

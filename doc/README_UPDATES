@@ -17107,7 +17107,7 @@
 
 
 # ======================================================================= 
-         v10_73j (  ) 
+         v10_73j (Jul 18 2019) 
 
          ***** IMPORTANT(v10_73j) ***** 
 
@@ -17134,5 +17134,56 @@
    SALT2mu.c:
      + start refactor for 7D biasCor. Read optional SIM_gammaDM  
        from table, and include ig (gamma) index along with ia,ib.
+
+   New utility sntools_stronglens.c[h] with empty code-shell.
+   Called by snlc_sim, but not implemented. Later, need to implement
+   multuple light curves with different time shifts and magnifications.
+  
+
+# ======================================================================= 
+         v10_74 (July 19 2019) 
+
+         ***** IMPORTANT(v10_74) ***** 
+
+         ***** USEFUL(v10_74) ***** 
+
+   SALT2mu: 
+     + new chi2max=<max> input to reject chi2-outliers (before fit)
+     + chi2_beams written to output fitres file.
+
+   genmag_snoopy.c:
+    + major refactor to only read GRID (no snoopy-specific code), 
+      and to read MAG-grid instead of relFlux grid. Intended to read 
+      more recent snoopy model based on Burns 2018.
+
+         ***** MISCELLANEOUS(v10_74) ***** 
+
+
+# ======================================================================= 
+         v10_74b (  ) 
+
+         ***** IMPORTANT(v10_74b) ***** 
+
+         ***** USEFUL(v10_74b) ***** 
+
+    snlc_sim.c[h]:
+    Simulation has new strong lens (SL) functionality for resolved sources 
+    so that each lensed image produces a distinct light curve with time 
+    delay, magshift, angle separation. The underlying SL model is in 
+    sntools_stronglens.c[h], and is still a dummy model for testing; 
+    a realistic model is under development by J.P. using a SL library.
+    Plans for later include a blended SL option where all lensed LC 
+    are added into one LC. However, there are no plans to simulate
+    PSF-smear affects on blended photometry.
+
+    See SIM_STRONGLENS_XXX variables in data files (TEXT and FITS format).
+    These variables are NOT [yet?] read by snana analysis/fitting codes.
+
+         ***** MISCELLANEOUS(v10_74b) ***** 
+
+    All .c, .car files:  fix warnings with -Wall 
+  
+    Remvoe obsolete gloes.c[h] since genmag_snoopy only reads a 
+    GRID and does not use Burn's code.
 
 END: 

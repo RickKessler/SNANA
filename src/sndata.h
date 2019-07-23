@@ -370,6 +370,14 @@ struct SNDATA {
   char  LCLIB_PARNAME[100][40]; // LCLIB parameter names
   float LCLIB_PARVAL[100];      // LCLIB parameter values
 
+  // strong lens info (July 20 2019)
+  int    SIM_SL_FLAG;    // strong lens flag
+  int    SIM_SL_IDLENS;  // lens ID
+  int    SIM_SL_NIMG;    // number of strong lens images
+  int    SIM_SL_IMGNUM;  // image num [0 to NIMG-1]
+  double SIM_SL_zLENS, SIM_SL_TDELAY, SIM_SL_MAGSHIFT;
+  double SIM_SL_XIMG, SIM_SL_YIMG ;
+
   // simulation quantities for each epoch
   float SIMEPOCH_TREST[MXEPOCH] ;       // Trest - Tpeak, days
   float SIMEPOCH_TOBS[MXEPOCH] ;        // Tobs - Tpeak, days

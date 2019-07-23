@@ -324,7 +324,6 @@ OBJ_GENMAG_FIT	=		\
 	$(OBJ)/genmag_SALT2.o	\
 	$(OBJ)/genmag_snoopy.o	\
 	$(OBJ)/genmag_S11DM15.o	\
-	$(OBJ)/gloes.o		\
 	$(OBJ)/genmag_SIMSED.o	\
 	$(OBJ)/genmag_SEDtools.o
 
@@ -375,7 +374,8 @@ OBJ_SIM	 = 	\
 	$(OBJ_SNTOOLS_SNANA)	\
 	$(OBJ)/sntools_devel.o  \
 	$(OBJ)/sntools_host.o   \
-	$(OBJ)/sntools_lensing.o  \
+	$(OBJ)/sntools_weaklens.o  \
+	$(OBJ)/sntools_stronglens.o  \
 	$(OBJ)/sntools_wronghost.o   \
 	$(OBJ)/sntools_genSmear.o  \
 	$(OBJ)/sntools_trigger.o  \
@@ -808,11 +808,18 @@ $(OBJ)/sntools_devel.o : $(SRC)/sntools_devel.c  $(SRC)/sntools_devel.h
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_devel.c )
 
 # -------------------------------------------------
-# compile sntools_lensing (.o only)
+# compile sntools_weaklens (.o only)
 
-$(OBJ)/sntools_lensing.o : $(SRC)/sntools_lensing.c  $(SRC)/sntools_lensing.h
+$(OBJ)/sntools_weaklens.o : $(SRC)/sntools_weaklens.c  $(SRC)/sntools_weaklens.h
 	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS) $(SRC)/sntools_lensing.c )
+	$(CC) $(SNCFLAGS) $(SRC)/sntools_weaklens.c )
+
+# -------------------------------------------------
+# compile sntools_stronglens (.o only)
+
+$(OBJ)/sntools_stronglens.o : $(SRC)/sntools_stronglens.c  $(SRC)/sntools_stronglens.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(SRC)/sntools_stronglens.c )
 
 # -------------------------------------------------
 # compile inoue_igm.o 
@@ -914,10 +921,6 @@ $(OBJ)/genmag_BYOSED.o : $(SRC)/genmag_BYOSED.c  $(SRC)/genmag_SEDtools.c
 $(OBJ)/genmag_snoopy.o : $(SRC)/genmag_snoopy.c  $(SRC)/genmag_snoopy.h $(SRC)/sntools.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_snoopy.c )
-$(OBJ)/gloes.o : $(SRC)/gloes.c 
-	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS) $(IGSL) $(SRC)/gloes.c )
-
 
 $(OBJ)/genmag_S11DM15.o : $(SRC)/genmag_S11DM15.c  $(SRC)/genmag_S11DM15.h $(SRC)/sntools.h
 	(cd $(OBJ); \

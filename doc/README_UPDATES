@@ -17179,6 +17179,14 @@
     See SIM_STRONGLENS_XXX variables in data files (TEXT and FITS format).
     These variables are NOT [yet?] read by snana analysis/fitting codes.
 
+    snlc_sim.c:
+      + new dashboard utility
+          snlc_sim.exe <inFile> DASHBOARD
+
+      + no more defaults for
+          SEARCHEFF_PIPELINE_LOGIC_FILE: 
+          SEARCHEFF_PIPELINE_EFF_FILE:
+
          ***** MISCELLANEOUS(v10_74b) ***** 
 
     All .c, .car files:  fix warnings with -Wall 

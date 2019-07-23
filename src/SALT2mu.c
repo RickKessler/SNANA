@@ -13256,6 +13256,8 @@ void prep_input(void) {
   USE_CCPRIOR      = INFO_CCPRIOR.USE; 
   USE_CCPRIOR_H11  = INFO_CCPRIOR.USEH11; 
 
+  ENVreplace("init",fnam,1); 
+
   // substitute ENV for filenames
   for(ifile=0; ifile < INPUTS.nfile_data; ifile++ ) 
     { ENVreplace(INPUTS.dataFile[ifile],fnam,1); }

@@ -176,7 +176,9 @@ void parse_args(int argc, char **argv) {
   
   check_argv();
 
+  ENVreplace("init",fnam,1);
   ENVreplace(INPUTS.INPDIR_SIMSED,fnam,1);
+
   printf("   INPDIR_SIMSED: %s \n", INPUTS.INPDIR_SIMSED );
   printf("   OUTDIR_SIMSED: %s \n", INPUTS.OUTDIR_SIMSED );
 

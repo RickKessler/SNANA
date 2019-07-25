@@ -17194,4 +17194,11 @@
     Remvoe obsolete gloes.c[h] since genmag_snoopy only reads a 
     GRID and does not use Burn's code.
 
+    snlc_sim.c
+     + abort if no rate model (DNDZ key)
+ 
+   sntools_output.c:
+     + declare FMT and ENV so that compile works when 
+       ROOT & HBOOK are not defined.
+
 END: 

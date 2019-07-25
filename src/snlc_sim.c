@@ -2608,12 +2608,6 @@ void  read_input_RATEPAR(FILE *fp, char *WHAT, char *KEYNAME,
       readdouble ( fp, 2, RATEPAR->MODEL_PARLIST[NLOCAL] ); 
       readdouble ( fp, 2, RATEPAR->MODEL_ZRANGE[NLOCAL] ); 
     }
-    /* xxxx mark delete Mar 30 2019 xxxxxxxxxx 
-    else if ( strcmp(RATEPAR->NAME,RATEMODELNAME_CCS15) == 0 ) {
-      RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_CCS15 ;
-      RATEPAR->NMODEL_ZRANGE = 1 ;
-    }
-    xxxxxxxxx */
     else if ( strstr(RATEPAR->NAME,RATEMODELNAME_CCS15) != NULL ) {
       parse_multiplier(RATEPAR->NAME,RATEMODELNAME_CCS15, &TMPVAL);
       sprintf(RATEPAR->NAME,"%s", RATEMODELNAME_CCS15); // strip off scale
@@ -7070,7 +7064,7 @@ void init_RateModel(void) {
 
   // Created Nov 26 2017
   int i;
-  //  char fnam[] = "init_RateModel" ;
+  char fnam[] = "init_RateModel" ;
 
   // -------------- BEGIN ---------------
 
@@ -7084,6 +7078,7 @@ void init_RateModel(void) {
 
   for ( i=0; i< NLINE_RATE_INFO; i++ ) 
     { printf("%s\n", LINE_RATE_INFO[i] ); }
+
 
   return ;
 
@@ -7103,6 +7098,8 @@ void init_DNDZ_Rate(void) {
   Nov 27 2017: 
     + replace 'SN per season' with 'EVENTS per season'
     + rename function init_DNDZ_Rate (was VT_redshift)
+
+  July 25 2019: abort if there is no rate model from DNDZ key.
 
   *****/
 
@@ -7234,7 +7231,7 @@ void init_DNDZ_Rate(void) {
   int  DNDZFLAG = 0;
   char ctmp_z[80], ctmp[100], ctmp_pec1a[80], *NAME;
   int  IMODEL_AB, IMODEL_PLAW, IMODEL_PLAW2, IMODEL_ZPOLY, IMODEL_FLAT ;
-  int  IMODEL_CCS15, IMODEL_MD14, IMODEL_PISN, IMODEL_TDE ;
+  int  IMODEL_CCS15, IMODEL_MD14, IMODEL_PISN, IMODEL_TDE, IMODEL_HUBBLE ;
   int  IFLAG_REWGT_ZEXP, IFLAG_REWGT_ZPOLY ;
   
   // model flags 
@@ -7244,6 +7241,7 @@ void init_DNDZ_Rate(void) {
   IMODEL_PLAW2   = ( strcmp(NAME,"POWERLAW2")  == 0 ) ;
   IMODEL_ZPOLY   = ( strcmp(NAME,"ZPOLY"    )  == 0 ) ;
   IMODEL_FLAT    = ( strcmp(NAME,"FLAT"     )  == 0 ) ;
+  IMODEL_HUBBLE  = ( strcmp(NAME,"HUBBLE"   )  == 0 ) ;
   IMODEL_CCS15   = ( strcmp(NAME,RATEMODELNAME_CCS15)  == 0 ) ;
   IMODEL_MD14    = ( strcmp(NAME,RATEMODELNAME_MD14)   ==0 );
 
@@ -7291,13 +7289,17 @@ void init_DNDZ_Rate(void) {
 	    ,INPUTS.RATEPAR.MODEL_PARLIST[iz][3] );
   }
   else if ( IMODEL_FLAT ) {
-    i++;    iz=1;
+    i++; 
     sprintf(LINE_RATE_INFO[i], "\t dN/dz = FLAT  ~  (MJDrage * dOmega) ");  
 
     // Oct 22 2015
     // there is no rate for FLAT option, so make up SNsum so that
     // sim_SNmix will work with FLAT option.
     SNsum = delMJD * (Z1-Z0) * (dOmega * (41000./(2.*TWOPI)) ) ;
+  }
+  else if ( IMODEL_HUBBLE ) {
+    i++; 
+    sprintf(LINE_RATE_INFO[i], "\t dN/dz = constant/volume (HUBBLE)  ");  
   }
   else if ( IMODEL_CCS15 ) {
     DNDZFLAG = 1;
@@ -7320,6 +7322,12 @@ void init_DNDZ_Rate(void) {
     i++; sprintf(LINE_RATE_INFO[i],
 		 "\t dN/dz = SFR(MD14,rV=%9.2le):  ", 
 		 INPUTS.RATEPAR.MODEL_PARLIST[1][0] ) ;
+    
+  }
+  else {
+    sprintf(c1err,"Unknown rate model.");
+    sprintf(c2err,"Check DNDZ key in sim-input file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
   }
 
   // -------------------------
@@ -25849,8 +25857,16 @@ void DASHBOARD_DRIVER(void) {
 	 NREAD_SIMLIB, 
 	 (int)SIMLIB_DUMP_AVGALL.MJDMIN, (int)SIMLIB_DUMP_AVGALL.MJDMAX);
 
-  printf("KCOR_FILE:              %s\n", INPUTS.KCOR_FILE);
-  printf("HOSTLIB_FILE:           %s\n", INPUTS.HOSTLIB_FILE);
+  ENVrestore(INPUTS.KCOR_FILE,fileName_orig);
+  printf("KCOR_FILE:              %s\n", fileName_orig);
+
+  ENVrestore(INPUTS.HOSTLIB_FILE,fileName_orig);
+  printf("HOSTLIB_FILE:           %s\n", fileName_orig);
+  if ( HOSTLIB.NGAL_READ > 0 ) {
+    printf("\t %d galaxies, %.2f < z < %.2f \n", 
+	   HOSTLIB.NGAL_READ, HOSTLIB.ZMIN, HOSTLIB.ZMAX );
+  }
+
   printf("HOSTLIB_WGTMAP_FILE:    %s\n", INPUTS.HOSTLIB_WGTMAP_FILE);
   printf("HOSTLIB_ZPHOTEFF_FILE:  %s\n", INPUTS.HOSTLIB_ZPHOTEFF_FILE);
   printf("HOSTLIB_SPECBASIS_FILE: %s\n", INPUTS.HOSTLIB_SPECBASIS_FILE);

@@ -1809,7 +1809,7 @@ extern void get_filtlam__(int *opt_frame, int *ifilt,
 			  float *lamavg, float *lamrms, 
 			  float *lammin, float *lammax ) ;
 
-extern void get_kcor_mwpar__(double *RV, int *OPT_MWCOLORLAW );
+extern void get_kcor_info__(int *NKCOR, double *RV, int *OPT_MWCOLORLAW );
 
 extern void   rdxtpar_(char *xtDir, int len);
 extern void   init_xthost__( int *opt );

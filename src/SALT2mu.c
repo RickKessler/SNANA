@@ -97,6 +97,8 @@ powzbin=2.0,0.4 --> binSize propto (1+z)^2 for nzbin/2 and z<0.4, then
                     constant binsize for z>0.4. Allows small bins at low-z,
                     without too-big bins at high-z.
 
+zbinuser=.01,0.012,0.1,0.2,0.3,0.4   # user-defined z-bins 
+ 
 min_per_zbin =  min number of SN in z-bin to keep z-bin (default=1)
 
 x1min = lower limit on x1 (-6.0)
@@ -623,6 +625,7 @@ Default output files (can change names with "prefix" argument)
  Jul 08 2019: remove USECODE_LEGACY pre-proc flag.
  Jul 18 2019: remove legacy code and USE_REFACOR 
  Jul 19 2019: new chi2max input; see function applyCut_chi2()
+ Jul 26 2019: new input zbinuser
 
 ******************************************************/
 
@@ -1224,6 +1227,7 @@ struct INPUTS {
   int     nlogzbin;  // number of log-spaced redshift bins
   double  powzbin ;  // fit & output zbin ~ (1+z)^powzbin
   double  znhalf ;   // z where half of nzbins are log and half are constant
+  char    zbinuser[100]; // e.g., 0.01,0.04,0.01,0.3,0.7
 
   BININFO_DEF BININFO_z ; // Aug 20 2016
   int     min_per_zbin ;
@@ -1418,8 +1422,10 @@ void applyCut_nmax(void);
 void applyCut_chi2(void);
 void merge_duplicates(int N, int *isnList);
 void setup_zbins_fit(void);
+void setup_BININFO_redshift(void); // setup BBC redshift bins
 void setup_BININFO_powz(void);
 void setup_BININFO_logz(void);
+void setup_BININFO_userz(void);
 
 void fcn(int* npar, double grad[], double* fval,
 	 double xval[], int* iflag, void *);
@@ -1767,12 +1773,8 @@ int main(int argc,char* argv[ ])
   // abort if there are any duplicate SNIDs
   check_duplicate_SNID();
 
-  //Set up z bins for data
-  if ( INPUTS.nlogzbin > 0 ) 
-    { setup_BININFO_logz(); }
-  else
-    { setup_BININFO_powz(); }
-
+  // setup BBC redshift bins.
+  setup_BININFO_redshift();
 
   // prepare mapindex for each IDSURVEY & FIELD --> for biasCor
   prepare_IDSAMPLE_biasCor();
@@ -2081,6 +2083,84 @@ void exec_mnpout_mnerrs(void) {
 
 } // end exec_mnpout_mnerrs
 
+
+// ***********************************************
+void setup_BININFO_redshift(void) {
+
+  char fnam[] = "setup_BININFO_redshift";
+
+  // ------------ BEGIN ------------
+
+  //Set up BBC z bins for data
+
+  if ( strlen(INPUTS.zbinuser) > 0 )
+    { setup_BININFO_userz(); }
+
+  else if ( INPUTS.nlogzbin > 0 ) 
+    { setup_BININFO_logz(); }
+
+  else if ( INPUTS.nzbin > 0 )
+    { setup_BININFO_powz(); }
+
+  else {
+    sprintf(c1err,"Found no BBC z-bin option.");
+    sprintf(c2err,"Check nzbin, nlogzbin, and zbinuser keys");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  
+  return ;
+
+} // end   setup_BININFO_redshift
+
+
+// ***********************************************
+void setup_BININFO_userz(void) {
+
+  // Created Jul 26 2019
+  // Parse zbinuser string and load z-bin structure
+
+  int nzbin=0, Nsplit, iz ;
+  int MEMC = 20*sizeof(char);
+  double zlo, zhi, zmin=-9.0, zmax=-9.0 ;
+  char *ptr_z[MAXBIN_z];
+  char comma[] = ",";
+  char fnam[] = "setup_BININFO_userz" ;
+
+  // --------------- BEGIN -------------
+
+  for(iz=0; iz < MAXBIN_z; iz++ ) { ptr_z[iz] = (char*)malloc(MEMC); }
+
+  splitString(INPUTS.zbinuser, comma, MAXBIN_z,    // inputs
+	      &Nsplit, ptr_z );                    // outputs
+  nzbin  = Nsplit-1 ;
+
+  if ( Nsplit <= 1 || Nsplit >= MAXBIN_z ) {
+    sprintf(c1err,"Invalid Nsplit=%d for", Nsplit);
+    sprintf(c2err,"zbinuser=%s\n", INPUTS.zbinuser);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  INPUTS.BININFO_z.nbin  = nzbin ;
+  sprintf(INPUTS.BININFO_z.varName,"redshift");
+
+  for(iz=0; iz < nzbin; iz++ ) {
+    sscanf(ptr_z[iz+0], "%le", &zlo);
+    sscanf(ptr_z[iz+1], "%le", &zhi);
+    INPUTS.BININFO_z.lo[iz]  = zlo ;
+    INPUTS.BININFO_z.hi[iz]  = zhi ;
+    INPUTS.BININFO_z.avg[iz] = 0.5 * ( zlo + zhi ) ;
+
+    if ( iz == 0       ) { zmin = zlo; }
+    if ( iz == nzbin-1 ) { zmax = zhi; }
+
+  }
+
+  INPUTS.nzbin = nzbin;
+  INPUTS.zmin  = zmin; 
+  INPUTS.zmax  = zmax;
+  return ;
+  
+} // setup_BININFO_userz
 
 // ***********************************************
 void setup_BININFO_logz(void) {
@@ -4005,7 +4085,8 @@ void set_defaults(void) {
   INPUTS.nlogzbin =  0 ;
   INPUTS.powzbin  =  0.0 ; 
   INPUTS.znhalf   = -9.0 ;
-  INPUTS.varname_z[0] = 0 ; // use default z Z zSPEC
+  INPUTS.varname_z[0]   = 0 ; // use default z Z zSPEC
+  INPUTS.zbinuser[0]    = 0 ; // comma-sep list of bin edges
 
   INPUTS.min_per_zbin = MINEVT_PER_ZBIN_DEFAULT ;
 
@@ -11975,6 +12056,8 @@ int ppar(char* item) {
     { sscanf(&item[9],"%i",&INPUTS.nlogzbin); return(1); }
   if ( uniqueOverlap(item,"powzbin=")) 
     { parse_powzbin(&item[8]); return(1); }  
+  if ( uniqueOverlap(item,"zbinuser=")) 
+    { sscanf(&item[9],"%s", INPUTS.zbinuser); return(1); }
 
   if ( uniqueOverlap(item,"blindpar")) 
     { parse_blindpar(item); return(1); }
@@ -13282,13 +13365,17 @@ void prep_input(void) {
     INPUTS.nlogzbin      = 0 ;
   }
 
-  // make sure that either nzbin or nlogzbin is specified, but not both
+  // make sure that only one method is specified for number of z bins.
   if ( INPUTS.nzbin    > 0 ) { NTMP++; }
   if ( INPUTS.nlogzbin > 0 ) { NTMP++; }
+  if ( strlen(INPUTS.zbinuser) > 0 ) { NTMP++ ; }
   if ( NTMP != 1 ) {
-    sprintf(c1err,"Error specifying nzbin=%d and nlogzbin=%d",
-	    INPUTS.nzbin, INPUTS.nlogzbin );
-    sprintf(c2err,"One of these must be specified (not both).");
+    printf("\n PRE-ABORT DUMP \n");
+    printf("\t nzbin=%d      \n",  INPUTS.nzbin);
+    printf("\t nlogzbin=%d   \n",  INPUTS.nlogzbin);
+    printf("\t zbinuser='%s' \n",  INPUTS.zbinuser);
+    sprintf(c1err,"%d inputs specify number of redshift bins.", NTMP);
+    sprintf(c2err,"Only one of these must be specified.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -13319,7 +13406,6 @@ void prep_input(void) {
     FITINP.COVINT_PARAM_LAST   = 1.0 ;
     INPUTS.covint_param_step1  = INPUTS.scale_covint_step1 ; 
   }
-
     
   printf("zmin =%f zmax =%f bins=%i \n",
 	 INPUTS.zmin, INPUTS.zmax, INPUTS.nzbin);

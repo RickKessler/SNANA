@@ -10359,7 +10359,7 @@ void gen_filtmap(int ilc) {
       GENLC.LAMDIF_REST1[ifilt_obs] = lamdif4[1];
       GENLC.LAMDIF_REST2[ifilt_obs] = lamdif4[2];
       GENLC.LAMDIF_REST3[ifilt_obs] = lamdif4[3];
-
+      
       // skip obs-filter if rest-frame filters are not defined.
       if ( ifilt_rest1 < 0 || ifilt_rest2 < 0 ) {
 	GENLC.DOFILT[ifilt_obs] = 0; 	
@@ -20627,44 +20627,10 @@ void genmag_boost(void) {
        Note that rest-frame mags are not necessarity in SDSS system.
        K-correction transforms from rest-system to SDSS mags.
 
-    Nov 30, 2006: compute extinction (x8) with get_snxt8 function.
-
-    Dec 4, 2006: use fortran NEAREST_IFILT_REST and pass option
-
-    Jun 7, 2007: take wgted average of two nearest filters
-                 Weights wgt1 and wgt2 are inversely proportional
-                 to lambda_obs/(1+z) - lambda_rest
-
-   Mar 5, 2008: if ifilt_rest2 is redder than ifilt_obs (for z ~ 0.02)
-                then do NOT get kcor8_2 to avoid fatal error. 
-                Needed to simulate LOWZ.
-
-   Jun 11, 2008: remove MWXT calculation from here and move 
-                 it to genmag_MWXT().
-
-   May 23, 2009: add istat output arg to get_avwarp8(),
-                 and increment AVwarp-overflows vs. filter
-
-   Sep 8, 2009: use new kcorfun8 function to do both AVwarp
-                and K-corrections. Eventually will do wgted
-                avg K-cor with both colors.  Get rid of lots
-                of old unecessary code.
-
-   Jan 22, 2010: 
-    if mag8[1]  or mag8[2] > is crazy, set mag_obs = 666 as a flag
-    to set flux and fluxerr = -9 in gen_observerSmear().
-
-    Remove obsolete 'istat' dependencies.
-
-   Jun 11, 2010: if Trest < 0 then set undefined mags to 99 instead
-                 of 666 so that pre-explosion epochs are written out.
-
   *****/
 
-  double 
-    AVwarp8[4], AV8, RV8, Z8, T8,  x8[10]
-    ,mag8[4], lamdif8[4], mag8_obs, kcor8
-    ;
+  double  AVwarp[4], AV, RV, z, Trest,  x[10];
+  double  mag[4], lamdif[4], mag_obs, kcor    ;
 
   int ifilt_obs, ifilt_rest1, ifilt_rest2, ifilt_rest3, epoch, NZ ;
   int ifilt_rest_tmp[4] ;   
@@ -20685,48 +20651,47 @@ void genmag_boost(void) {
 
 
   // apply extinction in rest frame mags/filters
-  AV8 = (double)GENLC.AV ;
-  RV8 = (double)GENLC.RV ;
-  Z8  = 0.0;
+  AV = (double)GENLC.AV ;
+  RV = (double)GENLC.RV ;
+  z  = 0.0;
 
   for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {  
 
-
-    T8 = GENLC.epoch8_rest[epoch]; 
-    if ( INPUTS.KCORFLAG_STRETCH == 1 ) T8 /= GENLC.STRETCH ;
+    Trest = GENLC.epoch8_rest[epoch]; 
+    if ( INPUTS.KCORFLAG_STRETCH == 1 ) { Trest /= GENLC.STRETCH ; }
 
     ifilt_obs   = GENLC.IFILT_OBS[epoch];
 
-      if ( GENLC.DOFILT[ifilt_obs] == 0 ) { continue ; }
+    if ( GENLC.DOFILT[ifilt_obs] == 0 ) { continue ; }
 
-      ifilt_rest1 = GENLC.IFILTMAP_REST1[ifilt_obs];
-      ifilt_rest2 = GENLC.IFILTMAP_REST2[ifilt_obs];
-      ifilt_rest3 = GENLC.IFILTMAP_REST3[ifilt_obs];     
+    ifilt_rest1 = GENLC.IFILTMAP_REST1[ifilt_obs];
+    ifilt_rest2 = GENLC.IFILTMAP_REST2[ifilt_obs];
+    ifilt_rest3 = GENLC.IFILTMAP_REST3[ifilt_obs];     
        
-      // start with nearest filter.
-      x8[1] = get_snxt8__( &OPT_SNXT, &ifilt_rest1, &T8, &AV8, &RV8 );
-      GENLC.genmag8_rest[epoch] += x8[1] ;
-
-      // now do 2nd nearest filter
-      x8[2] = get_snxt8__( &OPT_SNXT, &ifilt_rest2, &T8, &AV8, &RV8 );
-      GENLC.genmag8_rest2[epoch] += x8[2] ;
-
-      // 3rd nearest filter
-      x8[3] = get_snxt8__( &OPT_SNXT, &ifilt_rest3, &T8, &AV8, &RV8 );
-      GENLC.genmag8_rest3[epoch] += x8[3] ;
-
-
+    // start with nearest filter.
+    x[1] = get_snxt8__( &OPT_SNXT, &ifilt_rest1, &Trest, &AV, &RV );
+    GENLC.genmag8_rest[epoch] += x[1] ;
+    
+    // now do 2nd nearest filter
+    x[2] = get_snxt8__( &OPT_SNXT, &ifilt_rest2, &Trest, &AV, &RV );
+    GENLC.genmag8_rest2[epoch] += x[2] ;
+    
+    // 3rd nearest filter
+    x[3] = get_snxt8__( &OPT_SNXT, &ifilt_rest3, &Trest, &AV, &RV );
+    GENLC.genmag8_rest3[epoch] += x[3] ;
+    
+    
   } // end of epoch loop
 
 
  KCOR:
 
-  Z8     = GENLC.REDSHIFT_HELIO ;
+  z     = GENLC.REDSHIFT_HELIO ;
 
   for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {  
 
-    T8      = GENLC.epoch8_rest[epoch]; 
-    if ( INPUTS.KCORFLAG_STRETCH == 1 ) { T8 /= GENLC.STRETCH ; }
+    Trest     = GENLC.epoch8_rest[epoch]; 
+    if ( INPUTS.KCORFLAG_STRETCH == 1 ) { Trest /= GENLC.STRETCH ; }
 
     ifilt_obs   = GENLC.IFILT_OBS[epoch];
     if ( GENLC.DOFILT[ifilt_obs] == 0 ) { continue ; }
@@ -20735,24 +20700,24 @@ void genmag_boost(void) {
     ifilt_rest2 = GENLC.IFILTMAP_REST2[ifilt_obs] ;
     ifilt_rest3 = GENLC.IFILTMAP_REST3[ifilt_obs] ;
 
-    lamdif8[1]  = GENLC.LAMDIF_REST1[ifilt_obs];
-    lamdif8[2]  = GENLC.LAMDIF_REST2[ifilt_obs];
-    lamdif8[3]  = GENLC.LAMDIF_REST3[ifilt_obs];
+    lamdif[1]  = GENLC.LAMDIF_REST1[ifilt_obs];
+    lamdif[2]  = GENLC.LAMDIF_REST2[ifilt_obs];
+    lamdif[3]  = GENLC.LAMDIF_REST3[ifilt_obs];
 
     ifilt_rest_tmp[1] = ifilt_rest1 ;
     ifilt_rest_tmp[2] = ifilt_rest2 ;
     ifilt_rest_tmp[3] = ifilt_rest3 ;
 
-    mag8[1]  = GENLC.genmag8_rest[epoch]  ;
-    mag8[2]  = GENLC.genmag8_rest2[epoch] ;    
-    mag8[3]  = GENLC.genmag8_rest3[epoch] ;
+    mag[1]  = GENLC.genmag8_rest[epoch]  ;
+    mag[2]  = GENLC.genmag8_rest2[epoch] ;    
+    mag[3]  = GENLC.genmag8_rest3[epoch] ;
 
-    kcor8 = kcorfun8_ ( &ifilt_obs, &ifilt_rest_tmp[1], 
-			&mag8[1], &lamdif8[1],  &T8, &Z8, &AVwarp8[1] );
+    kcor = kcorfun8_ ( &ifilt_obs, &ifilt_rest_tmp[1], 
+		       &mag[1], &lamdif[1],  &Trest, &z, &AVwarp[1] );
 
-    if ( isnan( AVwarp8[2]) ) {
+    if ( isnan( AVwarp[2]) ) {
       sprintf(c1err,"AVwarp=nan for T8=%5.1f  mag8[1,2]=%6.2f,%6.2f",
-	      T8, mag8[1], mag8[2] );
+	      Trest, mag[1], mag[2] );
       sprintf(c2err,"ifilt_rest[1,2]=%d,%d (%c,%c) "
 	      ,ifilt_rest1, ifilt_rest2
 	      ,FILTERSTRING[ifilt_rest1]
@@ -20761,38 +20726,38 @@ void genmag_boost(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
-    if ( mag8[1] < -10. ) {
+    if ( mag[1] < -10. ) {
       NAVWARP_OVERFLOW[0]++ ;             // grand total
       NAVWARP_OVERFLOW[ifilt_rest1]++ ;   // filter-dependent sum
     }
 
     // add up all the contributions
 
-    mag8_obs = mag8[1] + kcor8 + GENLC.DLMU ; 
+    mag_obs = mag[1] + kcor + GENLC.DLMU ; 
 
     // Jan 22, 2010: 
     // if the spectral warping is crazy, set mag_obs to crazy value
-    if ( T8 > 0 ) {
-      if ( fabs(mag8[1]) > 90.0 ) { mag8_obs = MAG_UNDEFINED ; }
-      if ( fabs(mag8[2]) > 90.0 ) { mag8_obs = MAG_UNDEFINED ; }
+    if ( Trest > 0 ) {
+      if ( fabs(mag[1]) > 90.0 ) { mag_obs = MAG_UNDEFINED ; }
+      if ( fabs(mag[2]) > 90.0 ) { mag_obs = MAG_UNDEFINED ; }
     }
     else {
-      if ( fabs(mag8[1]) > 90.0 ) mag8_obs = 99;
-      if ( fabs(mag8[2]) > 90.0 ) mag8_obs = 99;
+      if ( fabs(mag[1]) > 90.0 ) { mag_obs = 99; }
+      if ( fabs(mag[2]) > 90.0 ) { mag_obs = 99; }
     }
 
-    if ( fabs(T8) < -90.01 ) {
+    if ( fabs(Trest) < -90.01 ) {
       printf(" BOOST: %c(%c) -> %c : Trest=%6.1f (MJD=%7.1f) iep=%d \n"
 	     ,FILTERSTRING[ifilt_rest1]
 	     ,FILTERSTRING[ifilt_rest2]
 	     ,FILTERSTRING[ifilt_obs]
-	     ,T8, GENLC.MJD[epoch], epoch ) ;
+	     ,Trest, GENLC.MJD[epoch], epoch ) ;
 
       printf("\t M%c = %6.2f(M%c) + %6.3f(kcor) + %7.3f(mu) = %7.3f \n"
 	     ,FILTERSTRING[ifilt_obs]
-	     ,mag8[1]
+	     ,mag[1]
 	     ,FILTERSTRING[ifilt_rest1]
-	     ,kcor8, GENLC.DLMU,  mag8_obs );
+	     ,kcor, GENLC.DLMU,  mag_obs );
 
     }
 
@@ -20807,15 +20772,15 @@ void genmag_boost(void) {
 	    ,FILTERSTRING[ifilt_rest2] 
 	    ) ;
 
-    GENLC.kcorval8[epoch]        = kcor8 ;
-    GENLC.warpcolval8[epoch]     = mag8[1] - mag8[2] ;
-    GENLC.AVwarp8[epoch]         = AVwarp8[2] ;
+    GENLC.kcorval8[epoch]        = kcor ;
+    GENLC.warpcolval8[epoch]     = mag[1] - mag[2] ;
+    GENLC.AVwarp8[epoch]         = AVwarp[2] ;
     GENLC.ifilt_AVwarp[epoch][0] = ifilt_rest1 ; // closest filter
     GENLC.ifilt_AVwarp[epoch][1] = ifilt_rest2 ; // 2nd closest
 
       // store true obs mag in GENLC structure
 
-    GENLC.genmag8_obs[epoch] = mag8_obs;
+    GENLC.genmag8_obs[epoch] = mag_obs;
 
     // load model mag-err for observer frame using the model-error
     // from the nearest rest-frame filter (ifilt_rest1).
@@ -21474,10 +21439,14 @@ void init_kcor(char *kcorFile) {
    Nov 2 2017: add AB offsets to user offsets; see tmpoff_kcor
    Apr 24 2019: for FIXMAG model, return before doing rest-frame stuff.
 
+   Jul 26 2019: 
+     + get_kcor_mwpar() -> get_kcor_info(), and NKCOR is returned. 
+     + for rest-frame model, abort if NKCOR==0.
+
   *********/
 
   int ISMODEL_FIXMAG = ( INDEX_GENMODEL == MODEL_FIXMAG );
-  int ierrstat, ifilt, ifilt_obs, OPT ;
+  int ierrstat, ifilt, ifilt_obs, OPT, NKCOR=0 ;
   float tmpoff_kcor[MXFILTINDX] ;
   float *ptr ;
   char   copt[40], xtDir[MXPATHLEN], cfilt[4];
@@ -21539,9 +21508,10 @@ void init_kcor(char *kcorFile) {
   // init MW extinction (moved from end of init_genmodel on Aug 30 2010)
   if ( GENFRAME_OPT == GENFRAME_REST )  {
 
-    // Sep 2013: fetch params used to compute MW extinct in kcor files.
-    //           Needed to re-compute MWXT if RV is changed.
-    get_kcor_mwpar__(&GENLC.kcor_RVMW, &GENLC.kcor_OPT_MWCOLORLAW );
+    // fetch kcor-info:
+    // Number of K-cor rables, and params used to compute MW extinct in 
+    // kcor files: needed to re-compute MWXT if RV is changed.
+    get_kcor_info__(&NKCOR, &GENLC.kcor_RVMW, &GENLC.kcor_OPT_MWCOLORLAW );
 
     double RVDIF ;
     RVDIF = fabs ( INPUTS.RV_MWCOLORLAW - GENLC.kcor_RVMW) ;
@@ -21554,6 +21524,12 @@ void init_kcor(char *kcorFile) {
       fflush(stdout);
     }
 
+    if ( NKCOR == 0 ) {
+      sprintf(c1err,"zero k-correction tables found. ");
+      sprintf(c2err,"Rest-frame model requires valid k-cor tables.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
     if ( OPT_SNXT  == OPT_SNXT_CCM89 ) {
       init_xthost__(&OPT_SNXT);
     }
@@ -21562,6 +21538,8 @@ void init_kcor(char *kcorFile) {
       sprintf(xtDir, "%s ",INPUTS.MODELPATH); // leave blank space for fortran
       rdxtpar_(xtDir, strlen(xtDir) );      
     }
+
+
 
   } // end rest-frame
 

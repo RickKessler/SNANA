@@ -12,6 +12,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import os,glob,math,sys,textwrap
 from optparse import OptionParser
 from scipy.interpolate import interp1d
+import seaborn as sns
 
 
 __band_order__=np.append(['u','b','g','r','i','z','y','j','h','k'],
@@ -103,6 +104,24 @@ def read_lc(cid,base_name,plotter_choice):
 		fits=[]
 	return(sn,fits,peak)
 
+def read_fitres(fitres_filename,param):
+	fit={}
+	with open(fitres_filename,'rb') as f:
+		dat=f.readlines()
+	for line in dat:
+		temp=line.split()
+		if len(temp)>0 and b'VARNAMES:' in temp:
+			varnames=[str(x.decode('utf-8')) for x in temp]
+		elif len(temp)>0 and b'SN:' in temp: 
+			fit[str(temp[varnames.index('CID')].decode('utf-8'))]={p:(float(temp[varnames.index(p)]),float(temp[varnames.index(p+'ERR')])) if p in ['x0','x1','c'] else float(temp[varnames.index(p)]) for p in ['x0','x1','c','NDOF','FITCHI2']}
+			if param is not None:
+				if param not in varnames:
+					raise RuntimeError("Parameter %s given for joint distribution but not found in FITRES file %s"%(param,fitres_filename))
+				fit[str(temp[varnames.index('CID')].decode('utf-8'))][param]=float(temp[varnames.index(param)])
+			
+	
+	return(fit)
+
 def plot_spec(cid,bin_size,base_name,noGrid):
 	sn=read_spec(cid,base_name)
 
@@ -147,7 +166,7 @@ def plot_spec(cid,bin_size,base_name,noGrid):
 				ax[j].legend(fontsize=12)
 
 			
-				ax[j].set_ylabel('Flux',fontsize=16)
+				ax[j].set_ylabel(r'$F_\lambda$',fontsize=16)
 				if not noGrid:
 					ax[j].grid()
 				m+=1
@@ -195,7 +214,7 @@ def plot_spec(cid,bin_size,base_name,noGrid):
 def plot_lc(cid,base_name,noGrid,plotter_choice):
 	sn,fits,peak=read_lc(cid,base_name,plotter_choice)
 	if len(sn['time'])==0:
-		return []
+		return [[],[]]
 	rows=int(math.ceil(len(np.unique(sn['filter']))))
 	figs=[]
 	all_bands=np.append([x for x in __band_order__ if x in np.unique(sn['filter'])],
@@ -234,14 +253,29 @@ def plot_lc(cid,base_name,noGrid,plotter_choice):
 			if len(fits)>0:
 				fit_time=np.arange(temp_sn['time'][0],temp_sn['time'][-1],1)
 				ax[i].plot(fit_time,fits[all_bands[j]](fit_time),color='r',label='Best Fit',linewidth=3)
+
 				if not fit_print:
-					ax[i].annotate('\n'.join([r'$%s: %.2e\pm%.2e$'%(fit_key,fits['params'][fit_key][0],
-						fits['params'][fit_key][1]) if fit_key in ['x0','x1','c'] else '%s: %.1f'%(fit_key,fits['params'][fit_key]) 
-						for fit_key in fits['params'].keys()]),xy=(.02,.65),xycoords='axes fraction',fontsize=6)
+					to_print=[]
+					for fit_key in fits['params'].keys():
+						if fit_key =='x0':
+							to_print.append(['$%s: %.2e'%(fit_key,fits['params'][fit_key][0]),'%.2e$\n'%fits['params'][fit_key][1]])
+						elif fit_key in ['x1','c']:
+							to_print.append(['$%s: %.2f'%(fit_key,fits['params'][fit_key][0]),'%.2f$\n'%fits['params'][fit_key][1]])
+						else:
+							to_print.append('%s: %.2f\n'%(fit_key,fits['params'][fit_key]))
+
+					ax[i].annotate(''.join([x[0]+r'\pm'+x[1] if isinstance(x,list) else x for x in to_print]),xy=(.02,.55),xycoords='axes fraction',fontsize=6)
 				fit_print=True
 			ax[i].legend(fontsize=leg_size)
 			ax[i].set_ylabel('Flux',fontsize=16)
-			ax[i].set_ylim((-.1*np.max(temp_sn['flux']),1.1*np.max(temp_sn['flux'])))
+			if len(fits)>0:
+				try:
+					maxFlux=max(np.max(temp_sn['flux']),np.max(fits[all_bands[j]](fit_time)))
+				except:
+					maxFlux=np.max(temp_sn['flux'])	
+			else:
+				maxFlux=np.max(temp_sn['flux'])
+			ax[i].set_ylim((-.1*np.max(temp_sn['flux']),1.1*maxFlux))
 			if not noGrid:
 				ax[i].grid()
 			j+=1
@@ -257,9 +291,10 @@ def plot_lc(cid,base_name,noGrid,plotter_choice):
 	#fig.text(0.04, .5, 'Flux', va='center', rotation='vertical',fontsize=16)
 		
 	#plt.savefig('SNANA_LC_%s.pdf'%'_'.join(cid),format='pdf',overwrite=True)
-	return(figs)
 
-def plot_cmd(genversion,cid_list,nml):
+	return(figs,fits)
+
+def plot_cmd(genversion,cid_list,nml,isdist):
 	if nml is not None:
 		if os.path.splitext(nml)[1]!='.NML':
 			nml=os.path.splitext(nml)[0]+'.NML'
@@ -268,10 +303,17 @@ def plot_cmd(genversion,cid_list,nml):
 		plotter='normal'
 	rand=str(np.random.randint(10000,100000))
 	if nml is not None:
-		cmd="snlc_fit.exe "+nml+" VERSION_PHOTOMETRY "+genversion+\
-			" SNCCID_LIST "+cid_list+\
-			" CUTWIN_CID 0 0 SNTABLE_LIST 'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX 'OUT_TEMP_"+rand+\
-			"' > OUT_TEMP_"+rand+".LOG"
+		if cid_list is not None:
+			cmd="snlc_fit.exe "+nml+" VERSION_PHOTOMETRY "+genversion+\
+				" SNCCID_LIST "+cid_list+\
+				" CUTWIN_CID 0 0 SNTABLE_LIST 'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX 'OUT_TEMP_"+rand+\
+				"' > OUT_TEMP_"+rand+".LOG"
+		elif isdist:
+			cmd="snlc_fit.exe "+nml+" VERSION_PHOTOMETRY "+genversion+" SNTABLE_LIST "+\
+				"'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX OUT_TEMP_"+rand+" > OUT_TEMP_"+rand+".LOG"
+		else:
+			cmd="snlc_fit.exe "+nml+" VERSION_PHOTOMETRY "+genversion+" MXEVT_PROCESS 5 SNTABLE_LIST "+\
+				"'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX OUT_TEMP_"+rand+" > OUT_TEMP_"+rand+".LOG"
 	else:
 		cmd="snana.exe NOFILE VERSION_PHOTOMETRY "+genversion+\
 			" SNCCID_LIST "+cid_list+\
@@ -279,70 +321,205 @@ def plot_cmd(genversion,cid_list,nml):
 			"' > OUT_TEMP_"+rand+".LOG"
 	
 	os.system(cmd)
-	with open('OUT_TEMP_'+rand+'.LOG','r+') as f:
+	with open('OUT_TEMP_'+rand+'.LOG','rb+') as f:
 		content=f.read()
 		f.seek(0,0)
-		f.write('SNANA COMMAND:\n\n'+textwrap.fill(cmd,80)+'\n'+content)
+		f.write(b'SNANA COMMAND:\n\n'+bytearray(textwrap.fill(cmd,80),encoding='utf-8')+b'\n'+content)
 	if len(glob.glob('OUT_TEMP_'+rand+'*.TEXT'))==0:
 		print("There was an error in retrieving your SN")
 		sys.exit()
-	return(plotter,'OUT_TEMP_'+rand)
+	with open("OUT_TEMP_"+rand+".FITRES.TEXT",'rb') as f:
+		all_dat=f.readlines()
+	if cid_list is None:
+		all_cids=[]
+		for line in all_dat:
+			temp=line.split()
+			if len(temp)>0 and b'VARNAMES:' in temp:
+				varnames=[str(x.decode('utf-8')) for x in temp]
+			elif len(temp)>0 and b"SN:" in temp:
+				all_cids.append(str(temp[varnames.index('CID')].decode('utf-8')))
+		all_cids=','.join(all_cids)
+	else:
+		all_cids=cid_list
+	return(plotter,'OUT_TEMP_'+rand,all_cids)
+
+def output_fit_res(fitres,filename):
+	with open(os.path.splitext(filename)[0]+'.fitres','w') as f:
+		f.write("VARNAMES: CID x0 x0err x1 x1err c cerr\n")
+		for cid in fitres.keys():
+			f.write("SN: %s %f %f %f %f %f %f\n"%(cid,
+												fitres[cid]['x0'][0],
+												fitres[cid]['x0'][1],
+												fitres[cid]['x1'][0],
+												fitres[cid]['x1'][1],
+												fitres[cid]['c'][0],
+												fitres[cid]['c'][1]))
+
+def create_dists(fitres,param,joint_type):
+
+	res={p:[] for p in ['x0','x1','c']}
+	if param is not None:
+		res[param] = []
+	for cid in fitres.keys():
+		for p in ['x0','x1','c']:
+			try:
+				res[p].append(fitres[cid][p][0])
+
+			except RuntimeError:
+				print("Skipping %s for distributions..."%cid)
+		if param is not None:
+			res[param].append(fitres[cid][param])
+	figs=[]
+	for p in ['x0','x1','c']:
+		
+		if param is not None:
+			mean_valx=np.mean(res[p])
+			mean_valy=np.mean(res[param])
+			std_valx=np.std(res[p])
+			std_valy=np.std(res[param])
+			ax = sns.jointplot(x=res[p], y=res[param], kind=joint_type)
+			fig=plt.gcf()
+			fig.set_size_inches(10, 8)
+			ax.ax_marg_x.set_xlim(mean_valx-3*std_valx, mean_valx+3*std_valx)
+			ax.ax_marg_y.set_ylim(mean_valy-3*std_valy, mean_valy+3*std_valy)
+			ax.set_axis_labels("%s Parameter"%p,"Simulated %s"%(' '.join([x[0]+x[1:].lower() for x in param.split('_')])),fontsize=16)
+			
+		else:
+			fig=plt.figure(figsize=(10,8))
+			plt.hist(res[p])
+			plt.xlabel("%s Parameter"%p,fontsize=16)
+			plt.ylabel("N SN",fontsize=16)
+		figs.append(fig)
+
+	return(figs)
+
+
+def find_files(version,cid_list):
+	cid_list=[] if cid_list is None else cid_list
+	for dirpath,dirnames,filenames in os.walk(os.environ["SNDATA_ROOT"]):
+		for dirname in dirnames:
+			
+			if dirname == version:
+				list_files={os.path.splitext(x)[0][os.path.splitext(x)[0].rfind('_SN')+3:].lstrip('0'):os.path.join(dirpath,dirname,x) for x in np.loadtxt(os.path.join(dirpath,os.path.join(dirname,version+'.LIST')),dtype=str) if os.path.splitext(x)[0][os.path.splitext(x)[0].rfind('_SN')+3:].lstrip('0') in cid_list or len(cid_list)==0}
+								
+				
+				return(list_files)
+
 
 def main():
 
 	parser = OptionParser()
-	parser.add_option("--spec",help='Plot only spectra',action="store_true",dest="spec",default=False)
-	parser.add_option("--lc",help='Plot only LC',action="store_true",dest="lc",default=False)
-	parser.add_option("--noclean",help='Leave intermediate files for debugging',action="store_true",dest="noclean",default=False)
-	parser.add_option("-i",help='CID(s) as comma separated list',action="store",type="string",dest="CID",default="None")
-	parser.add_option("-b",help='Bin size for spectral plotting',action="store",type="float",dest='bin_size',default=0)
-	parser.add_option("-v",help='Version',action="store",type='string',dest='version',default=None)
-	parser.add_option("-f",help='.NML filename',action="store",type='string',dest='nml_filename',default=None)
-	parser.add_option("--silent",help="Do not print anything",action="store_true",dest="silent",default=False)
-	parser.add_option("--nogrid",help="Do add a grid to the plots.",action="store_true",dest="noGrid",default=False)
+
+	parser.add_option("-b",help='Spectra: Bin size for spectral plotting',action="store",type="float",dest='bin_size',default=0)
+	
+	parser.add_option("--spec",help='LC and Spectra: Plot only spectra',action="store_true",dest="spec",default=False)
+	parser.add_option("--lc",help='LC and Spectra: Plot only LC',action="store_true",dest="lc",default=False)
+	parser.add_option("--nogrid",help="LC and Spectra: Do not add a grid to the plots.",action="store_true",dest="noGrid",default=False)
+	
+	parser.add_option("-f",help='LC and Distributions: .NML filename',action="store",type='string',dest='nml_filename',default=None)
+	parser.add_option("--fitres",help="LC and Distributions: Output a file containing fit results.",action="store_true",dest="res_out",default=False)
+	
+	parser.add_option("-F",help='Distributions: fitres filename, used to create distributions of SALT2 fitting parameters.',
+				action="store",type='string',dest='fitres_filename',default=None)
+	parser.add_option("-p",help='Distributions: Name of parameter to view in joint distribution with SALT2 fitting parameters',
+				action="store",type='string',dest='joint_param',default=None)
+	parser.add_option("-k",help='Distributions: Joint plot type (scatter,reg,resid,kde,hex)',action="store",type='string',dest='joint_type',default='kde')
+	parser.add_option("--dist",help="Distributions: Fit and then plot the distributions of fitting parameters.",action="store_true",dest="dist",default=False)	
+
+	parser.add_option("-i",help='All: CID(s) as comma separated list or range (1-10)',action="store",type="string",dest="CID",default="None")
+	parser.add_option("-v",help='All: Version',action="store",type='string',dest='version',default=None)
+	parser.add_option("--noclean",help='All: Leave intermediate files for debugging',action="store_true",dest="noclean",default=False)
+	parser.add_option("--silent",help="All: Do not print anything",action="store_true",dest="silent",default=False)
+	
+	
+	
 	#parser.add_option("--help",action="store_true",dest='help',default=False)
 	(options,args)=parser.parse_args()
 
 	if len(sys.argv)==1:
 		parser.print_help(sys.stderr)
 		sys.exit()
-	if options.CID=="None":
-		raise RuntimeError("Need to define CID")
 	if options.version is None:
-		raise RuntimeError("Need to define genversion")
+		if options.fitres_filename is None:
+			raise RuntimeError("Need to define genversion")
+	if options.CID=="None":
+		if options.dist or options.fitres_filename is not None:
+			print("No CID given, assuming all for distributions, then first 5 for LC/SPEC plotting...")
+		else:
+			print("No CID given, assuming first 5...")
+		options.CID=None
+		all_cid=True
+	elif '-' in options.CID:
+		options.CID = ','.join([str(i) for i in range(int(options.CID[:options.CID.find('-')]),
+													int(options.CID[options.CID.find('-')+1:])+1)])
+		all_cid=True
+	else:
+		al_cid=False
+	if options.dist is not None and options.nml_filename is None:
+		raise RuntimeError("If you use the 'dist' option, you must provide an NML filename with the -f flag.")
 	
-	plotter_choice,options.base_name=plot_cmd(options.version,options.CID,options.nml_filename)
-	options.CID=options.CID.split(',')
-	filename=options.version+'.pdf'
-	num=0
-	if os.path.exists(filename):
-		filename=os.path.splitext(filename)[0]+'_'+str(num)+'.pdf'
-	while os.path.exists(filename):
-		num+=1
-		filename=os.path.splitext(filename)[0][:-1]+str(num)+'.pdf'
-	with PdfPages(filename) as pdf:
-		for cid in options.CID:
-			if not options.silent:
-				print("Plotting SN %s"%cid)
-			if options.spec:
-				figs=plot_spec([cid],options.bin_size,options.base_name,options.noGrid)
+	if options.joint_type not in ['scatter','reg','resid','kde','hex']:
+		print("Joint plot type not recognized (see help), setting to kde")
+		options.joint_type='kde'
+	if options.fitres_filename is None:
+		plotter_choice,options.base_name,options.CID=plot_cmd(options.version,options.CID,options.nml_filename,options.dist)
+		options.CID=options.CID.split(',')
+		filename=options.version+'.pdf'
+		num=0
+		if os.path.exists(filename):
+			filename=os.path.splitext(filename)[0]+'_'+str(num)+'.pdf'
+		while os.path.exists(filename):
+			num+=1
+			filename=os.path.splitext(filename)[0][:-1]+str(num)+'.pdf'
+		if options.dist:
+			fitres=read_fitres(options.base_name+'.FITRES.TEXT',options.joint_param)
+			figs=create_dists(fitres,options.joint_param,options.joint_type)
+		else:
+			figs=[]
+		if True:
+			if all_cid:
+				options.CID=options.CID[:5]
+			with PdfPages(filename) as pdf:
 				for f in figs:
 					pdf.savefig(f)
-			elif options.lc:
-				figs=plot_lc([cid],options.base_name,options.noGrid,plotter_choice)
-				for f in figs:
-					pdf.savefig(f)
-			else:
-				figs=plot_spec([cid],options.bin_size,options.base_name,options.noGrid)
-				for f in figs:
-					pdf.savefig(f)
-				figs=plot_lc([cid],options.base_name,options.noGrid,plotter_choice)
-				for f in figs:
-					pdf.savefig(f)
-	
-	if not options.noclean:
-		for x in glob.glob(options.base_name+'*'):
-			os.remove(x)
+				for cid in options.CID:
+					if not options.silent:
+						print("Plotting SN %s"%cid)
+					if options.spec:
+						figs=plot_spec([cid],options.bin_size,options.base_name,options.noGrid)
+						for f in figs:
+							pdf.savefig(f)
+					elif options.lc:
+						figs,fits=plot_lc([cid],options.base_name,options.noGrid,plotter_choice)
+						for f in figs:
+							pdf.savefig(f)
+					else:
+						figs=plot_spec([cid],options.bin_size,options.base_name,options.noGrid)
+						for f in figs:
+							pdf.savefig(f)
+						figs,fits=plot_lc([cid],options.base_name,options.noGrid,plotter_choice)
+						for f in figs:
+							pdf.savefig(f)
+					
+		if options.res_out:
+			output_fit_res(fitres,filename)
+		if not options.noclean:
+			for x in glob.glob(options.base_name+'*'):
+				os.remove(x)
+	else:
+		print("Creating distributions from FITRES file...")
+		filename=options.version+'.pdf' if options.version is not None else os.path.splitext(options.fitres_filename)[0]+'.pdf'
+		num=0
+		if os.path.exists(filename):
+			filename=os.path.splitext(filename)[0]+'_'+str(num)+'.pdf'
+		while os.path.exists(filename):
+			num+=1
+			filename=os.path.splitext(filename)[0][:-1]+str(num)+'.pdf'
+		fitres=read_fitres(options.fitres_filename,options.joint_param,options.joint_type)
+		figs=create_dists(fitres,options.joint_param)
+		with PdfPages(filename) as pdf:
+			for f in figs:
+				pdf.savefig(f)
 	if not options.silent:
 		print('Done.')
 

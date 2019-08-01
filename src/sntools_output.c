@@ -261,8 +261,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   //
 
   int  OPEN_FLAG, TYPE_FLAG, OPT_Q, USE_CURRENT, IERR ;
-  char *ptrtok, local_STRINGOPT[80], ctmp[20] ;
-  char *FMT, ENV[40];
+  char *ptrtok, local_STRINGOPT[80], ctmp[20], *FMT, ENV[200] ;
   char fnam[] = "TABLEFILE_OPEN" ;
 
   // ---------------------- BEGIN ---------------------
@@ -1622,7 +1621,6 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
   // Jul 22 2017: if LINEKEY == "IGNORE:" then write out char BAND
   //
 
-  int  FMT_IGNORE = ( strcmp(LINEKEY_DUMP,"IGNORE:")==0 );
   int  NREAD = 0 ;
   char msg[80] ;
   char fnam[] = "SNTABLE_DUMP_VALUES" ;
@@ -1853,7 +1851,6 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   char readOpt[] = "read";
   char blankFile[] = "" ;
   void *ptrStore;
-  double DVAL;
   char fnam[] = "SNTABLE_AUTOSTORE_INIT" ;
 
   // -------------- BEGIN --------------
@@ -2134,7 +2131,7 @@ int IVAR_READTABLE_POINTER(char *varName) {
 
   int ivar, IVAR = - 9;
   char *tmp_varName;
-  char fnam[] = "IVAR_READTABLE_POINTER";
+  //  char fnam[] = "IVAR_READTABLE_POINTER";
 
   // ------------- BEGIN ------------
 
@@ -3081,7 +3078,7 @@ void SPECPAK_CLEAR_PLOT(void) {
   //  + fix bug: NCALL_SPECPAK_FILL>10 --> >0 so that
   //    allocated memory is freed. Fixes valgrind errors.
 
-  char fnam[] = "SPECPAK_CLEAR_PLOT" ;
+  //  char fnam[] = "SPECPAK_CLEAR_PLOT" ;
 
   //  printf(" xxx %s  NCALL=%d \n", fnam, NCALL_SPECPAK_FILL ) ;
 
@@ -3180,7 +3177,7 @@ void specpak_data__(char *CCID, int *ID, double *MJD,double *Tobs,
 // ========================================
 void SPECPAK_FILL(char *CCID) {
  
-  char fnam[] = "SPECPAK_FILL" ;
+  //  char fnam[] = "SPECPAK_FILL" ;
 
   // ----------- BEGIN ------------
 

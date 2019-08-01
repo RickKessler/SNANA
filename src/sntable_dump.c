@@ -227,10 +227,8 @@ void parse_args(int NARG, char **argv) {
   // Feb 2 2018: parse OBS argument
 
   int i, NVAR, IFLAG_VARNAMES ;
-  char *varName_tmp;
   char fnam[] = "parse_args" ;
 
-  
   // -------------- BEGIN -------------
 
   INPUTS.NVAR         =  0 ;
@@ -240,15 +238,16 @@ void parse_args(int NARG, char **argv) {
   INPUTS.OPT_OBS      = 0 ;
 
   sprintf(LINEKEY_DUMP, "SN:");
-  sprintf(SEPKEY_DUMP,  ""   );
+  SEPKEY_DUMP[0] = 0;
   
-  sprintf(INPUTS.TABLE_FILE,"");
-  sprintf(INPUTS.TABLE_ID,  "");
+  INPUTS.TABLE_FILE[0]     = 0;
+  INPUTS.TABLE_ID[0]       = 0;
+  INPUTS.FORMAT_OUTFILE[0] = 0;
+  INPUTS.VARLIST[0]        = 0;
   sprintf(INPUTS.OUTFILE_FITRES, "sntable_dump.fitres" );
   sprintf(INPUTS.OUTFILE_IGNORE, "sntable_dump.ignore" );
-  sprintf(INPUTS.VARLIST,"");
   sprintf(INPUTS.OUTLIER_VARNAME_CHI2FLUX, "NULL_CHI2FLUX" );
-  sprintf(INPUTS.FORMAT_OUTFILE,"");
+
   INPUTS.ISFORMAT_CSV = 0 ;
 
   IFLAG_VARNAMES   =  0 ; 
@@ -270,7 +269,7 @@ void parse_args(int NARG, char **argv) {
     if ( strcmp(argv[i],"NOHEADER" ) == 0 )  { 
       IFLAG_VARNAMES    = 0;
       INPUTS.ADD_HEADER = 0  ;   
-      sprintf(LINEKEY_DUMP, ""); 
+      LINEKEY_DUMP[0] = 0;
     }
 
     
@@ -310,8 +309,8 @@ void parse_args(int NARG, char **argv) {
       if ( strcmp(INPUTS.FORMAT_OUTFILE,"csv") == 0 ||
 	   strcmp(INPUTS.FORMAT_OUTFILE,"CSV") == 0 )  { 
 	INPUTS.ISFORMAT_CSV = 1; 
-	sprintf(LINEKEY_DUMP, ""); 
-	sprintf(SEPKEY_DUMP,  ","); 
+	LINEKEY_DUMP[0] = 0 ;
+	SEPKEY_DUMP[0]  = 0 ;
       }
     }
 
@@ -357,11 +356,9 @@ void  set_outlier_varnames(void) {
   //
   // Feb 22 2018: add more variables for OPTOBS
 
-  int  ivar, NVAR = 0 ;
-
-  int  NVAR_APPEND = 0 ;
+  int  ivar, NVAR = 0, NVAR_APPEND = 0 ;
   char VARNAMES_APPEND[MXVAR_DUMP][60];
-  char fnam[] = "set_outlier_varnames";
+  //  char fnam[] = "set_outlier_varnames";
 
   // ----------- BEGIN -------
 
@@ -467,11 +464,11 @@ void  open_fitresFile(void) {
   // Aug 4 2017: for SIMLIB table, fisrt colum is ROW, not CID.
 
   int i ;
-  char fnam[] = "open_fitresFile" ;
   char VARNAME_CID[] = "CID";
   char VARNAME_ROW[] = "ROW";
   char SEP[] = " " ;
   char *ptrVar;
+  //  char fnam[] = "open_fitresFile" ;
   // -------------- BEGIN --------------
 
   FP_OUTFILE = NULL ;
@@ -569,7 +566,7 @@ void write_IGNORE_FILE(void) {
   char VARLIST[200], CCID[32], CCID_LAST[32], CVAL[32], BAND[2];
   char *VARNAME_CHI2 = INPUTS.OUTLIER_VARNAME_CHI2FLUX ;
   char TBLNAME[] = "OUTLIERS" ; 
-  char fnam[] = "write_IGNORE_FILE" ;
+  //  char fnam[] = "write_IGNORE_FILE" ;
 
   // ---------------- BEGIN ---------------
 
@@ -584,7 +581,7 @@ void write_IGNORE_FILE(void) {
 
   // ------ open IGNORE file ------
   FP = fopen(INPUTS.OUTFILE_IGNORE, "wt") ;
-  sprintf(CCID_LAST,"");
+  CCID_LAST[0] = 0 ;
 
   write_headerInfo(FP); 
 

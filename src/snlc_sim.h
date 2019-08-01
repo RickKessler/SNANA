@@ -314,15 +314,15 @@ typedef struct {
 
 struct INPUTS {
 
+  int DASHBOARD_DUMPFLAG ;
+
   // input file list includes nominal, plus up to 2 INCLUDE files
   char INPUT_FILE_LIST[MXINPUT_FILE_SIM][MXPATHLEN]; // input file names
   int  NREAD_INPUT_FILE;  // number of input files read: 1,2 or 3
 
   int TRACE_MAIN;      // debug to trace progress through main loop
   int DEBUG_FLAG ;     // arbitrary debug usage
-  int OPT_DEVEL_BBC7D; // temp while doing BBC7D development 
- 
-  char COMMENT[120];   // brief user comment for README file.
+  int OPT_DEVEL_BBC7D; // temp while doing BBC7D development
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files
@@ -582,7 +582,7 @@ struct INPUTS {
   float  GENMAG_SMEAR_FILTER[MXFILTINDX]; // smear by filter
   float  GENMAG_SMEAR[2];             // intrinsic mag-smear (asymm Gauss)
   char   GENMAG_SMEAR_MODELNAME[100]; // name of specific smear-model
-  char   GENMAG_SMEAR_MODELARG[200];  // optional arg after colon
+  char   GENMAG_SMEAR_MODELARG[MXPATHLEN];  // optional arg after colon
   float  GENMAG_SMEAR_SCALE;          // scale magSmears (default=1)
 
   int    NPAR_GENSMEAR_USRFUN ;
@@ -591,9 +591,10 @@ struct INPUTS {
   double GENSMEAR_RANGauss_FIX ;   // if >=0 then set Gauss randoms to this
   double GENSMEAR_RANFlat_FIX ;    // if >=0 then set Flat randoms to this
 
-  char   LENSING_PROBMAP_FILE[200];   // file-name of lensing prob-map
-  float  LENSING_DMUSCALE;            // scale width of DMU profile
-  float  LENSING_DSIGMADZ ;           // symmetric Gaussian model
+  char   STRONGLENS_FILE[MXPATHLEN] ; 
+  char   WEAKLENS_PROBMAP_FILE[MXPATHLEN];
+  float  WEAKLENS_DMUSCALE;            // scale width of DMU profile
+  float  WEAKLENS_DSIGMADZ ;           // symmetric Gaussian model
 
   float GENMODEL_ERRSCALE ;    // scale model-errors for intrinsic color-smear
   float GENMODEL_ERRSCALE_CORRELATION; // correlation with GENMAG_SMEAR
@@ -758,7 +759,6 @@ struct INPUTS {
 
 
 
-
 // define GENLC structure
 
 struct GENLC {
@@ -769,9 +769,6 @@ struct GENLC {
   char primary[40];              // name of primary (AB, VEGA, BD17 ...)
 
   int  SIMLIB_USEFILT_ENTRY[MXFILTINDX];   // 1=> filter used for this entry
-
-  //xxx  char MODELPATH[MXPATHLEN]; // full path to SN model dir
-  //xxx  char MODELNAME[60];        // copied from INPUTS.GENMODEL
 
   int  SDSS_SIM ;        // 1= SDSS; 0= non-SDSS (logical)     
   int  SIMLIB_ID;        // LIB ID from simlib
@@ -792,10 +789,10 @@ struct GENLC {
   int    REDSHIFT_FLAG  ;   // indicates source of redshift
 
   double DLMU;               // true distMod = 5.0 * log10(DL/10pc),
-  double LENSDMU;            // lensing DMU (Apr 2017)
+  double LENSDMU;            // weak lensing DMU (Apr 2017)
 
   double PEAKMJD;
-  int    ISOURCE_PEAKMJD;  // either RANDOM or read from SIMLIB
+  int    ISOURCE_PEAKMJD;       // either RANDOM or read from SIMLIB
   double MJD_EXPLODE ;            // explosion time for NON1A or SIMSED
 
   double REDSHIFT_RAN[MXZRAN];    // store randoms for redshift smear
@@ -1075,6 +1072,23 @@ struct GENLC {
   int   PEAKMAG_TRIGGER_FLAG; 
 
 } GENLC ;
+
+
+// strong lens structure (July 2019)
+struct GENSL {
+  int INIT_FLAG ;
+  int REPEAT_FLAG;     // T => repeat image
+  int NIMG;            // number of images to process
+  int IMGNUM;          // image-num being processed
+  int IDLENS; 
+  int BLEND_FLAG;
+  double zLENS;
+  double PEAKMJD_noSL;    // undelayed PEAKMJD
+  double RA_noSL, DEC_noSL;
+  double MJDMIN, MJDMAX;  // used for SIMLIB read
+  double *TDELAY_LIST, *XIMG_LIST, *YIMG_LIST;
+  double *MAGNIF_LIST, *MAGSHIFT_LIST ;
+} GENSL ;
 
 
 // temp structure used by NEPFILT_GENLC
@@ -1577,7 +1591,7 @@ void   genperfect_override(void);
 void   gen_event_driver(int ilc);    // generate RA, DEC, Z, PEAKMJD, etc.
 void   gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
 			char *REJECT_STAGE );
-
+void   gen_event_stronglens(int istage);
 void   gen_filtmap(int ilc);  // generate filter-maps
 void   gen_modelPar(int ilc);     // generate stretch or delta or dm15 ...
 void   gen_modelPar_SALT2(void); 
@@ -1743,6 +1757,7 @@ int  GENMAG_CUT(void);
 
 void DUMP_GENMAG_DRIVER(void);
 
+void DASHBOARD_DRIVER(void);
 void SIMLIB_DUMP_DRIVER(void);
 void SIMLIB_DUMP_openTable(int LDMP_MJD_TEXT,int LDMP_ROOT) ;
 void SIMLIB_DUMP_makeTable(int LDMP_MJD_TEXT,int LDMP_ROOT) ;
@@ -1794,7 +1809,7 @@ extern void get_filtlam__(int *opt_frame, int *ifilt,
 			  float *lamavg, float *lamrms, 
 			  float *lammin, float *lammax ) ;
 
-extern void get_kcor_mwpar__(double *RV, int *OPT_MWCOLORLAW );
+extern void get_kcor_info__(int *NKCOR, double *RV, int *OPT_MWCOLORLAW );
 
 extern void   rdxtpar_(char *xtDir, int len);
 extern void   init_xthost__( int *opt );
@@ -1843,8 +1858,7 @@ int gencovar_mlcs2k2(int matsize, int *ifilt, double *rest_epoch,
                   double *covar );
 
 
-int init_genmag_snoopy( char *modelPath, int optmask, 
-			double *snoopyArgs, char *filtlist);
+int init_genmag_snoopy( char *modelPath, int optmask, char *filtlist);
 
 int genmag_snoopy(int ifilt, double dm15, int nobs, double *rest_dates, 
 		  double *rest_mags, double *rest_magerrs );

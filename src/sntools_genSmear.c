@@ -1119,7 +1119,7 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
   int OPT_INTERP=1;
 
   int    ilam, INODE, N, LDMP, NLAM ;
-  double lam, rCOH, r0, r1, SMEAR0, SMEAR, MINLAM, MAXLAM ;
+  double lam, rCOH, r0, r1, SMEAR0=0.0, SMEAR, MINLAM, MAXLAM ;
   double LAM_NODE[2], MAG_NODE[2];
   char   fnam[] = "get_genSmear_SALT2";
   char   comment[40];

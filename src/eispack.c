@@ -1011,10 +1011,10 @@ int bandv ( int n, int mbw, double a[], double e21, int m, double w[],
     converge, or if the R-th system of linear equations is nearly singular.
 */
 {
-  double eps2;
-  double eps3;
-  double eps4;
-  int group;
+  double eps2 = 0.0 ;
+  double eps3 = 0.0 ;
+  double eps4 = 0.0 ;
+  int group = 0;
   int i;
   int ierr;
   int ii;
@@ -1038,7 +1038,7 @@ int bandv ( int n, int mbw, double a[], double e21, int m, double w[],
   double *rv6;
   double t;
   double u;
-  double uk;
+  double uk = 0.0 ;
   double v;
   double x0;
   double x1;
@@ -2844,13 +2844,13 @@ int cinvit ( int n, double ar[], double ai[], double wr[], double wi[],
 
 */
 {
-  double eps3;
-  double growto;
+  double eps3 = 0.0 ;
+  double growto = 0.0 ;
   int i;
   int ierr;
   double ilambd;
   int its;
-  int j;
+  int j = 0 ;
   int k;
   int mp;
   double norm;
@@ -2866,7 +2866,7 @@ int cinvit ( int n, double ar[], double ai[], double wr[], double wi[],
   double ti;
   double tr;
   int uk;
-  double ukroot;
+  double ukroot = 0.0 ;
   double x;
   double y;
 
@@ -5176,7 +5176,7 @@ void cortb ( int n, int low, int igh, double ar[], double ai[], double ortr[],
   double gr;
   double h;
   int i;
-  double ii;
+  double ii = 0.0 ;
   double ir;
   int j;
   int mp;
@@ -6186,9 +6186,9 @@ int hqr ( int n, int low, int igh, double h[], double wr[], double wi[] )
   int na;
   double norm;
   bool notlas;
-  double p;
-  double q;
-  double r;
+  double p = 0.0 ;
+  double q = 0.0 ;
+  double r = 0.0 ;
   double s;
   double t;
   double tst1;
@@ -6593,11 +6593,11 @@ int hqr2 ( int n, int low, int igh, double h[], double wr[], double wi[],
   int na;
   double norm;
   bool notlas;
-  double p;
-  double q;
-  double r;
+  double p = 0.0 ;
+  double q = 0.0;
+  double r = 0.0;
   double ra;
-  double s;
+  double s = 0.0;
   double sa;
   double t;
   double ti;
@@ -6609,7 +6609,7 @@ int hqr2 ( int n, int low, int igh, double h[], double wr[], double wi[],
   double w;
   double x;
   double y;
-  double zz;
+  double zz = 0.0 ;
 
   ierr = 0;
   norm = 0.0;
@@ -9944,7 +9944,7 @@ void qzval ( int n, double a[], double b[], double alfr[], double alfi[],
   double a22i;
   double a22r;
   double a2i;
-  double an;
+  double an = 0.0 ;
   double b11;
   double b12;
   double b22;
@@ -9955,7 +9955,7 @@ void qzval ( int n, double a[], double b[], double alfr[], double alfi[],
   double d;
   double di;
   double dr;
-  double e;
+  double e = 0.0;
   double ei;
   int en;
   double epsb;
@@ -11222,7 +11222,7 @@ int ratqr ( int n, double eps1, double d[], double e[], double e2[], int m,
   int k;
   double p;
   double q;
-  double qp;
+  double qp = 0.0 ;
   double r;
   double s;
   double tot;
@@ -11697,8 +11697,8 @@ int reduc ( int n, double a[], double b[], double dl[] )
   int j;
   int k;
   int nn;
-  double x;
-  double y;
+  double x = 0.0 ;
+  double y = 0.0 ;
 
   ierr = 0;
   nn = abs ( n );
@@ -11860,8 +11860,8 @@ int reduc2 ( int n, double a[], double b[], double dl[] )
   int j;
   int k;
   int nn;
-  double x;
-  double y;
+  double x = 0.0 ;
+  double y = 0.0 ;
 
   ierr = 0;
   nn = abs ( n );
@@ -14322,10 +14322,10 @@ int tinvit ( int n, double d[], double e[], double e2[], int m, double w[],
       converge in 5 iterations.
 */
 { 
-  double eps2;
-  double eps3;
-  double eps4;
-  int group;
+  double eps2 = 0.0 ;
+  double eps3 = 0.0 ;
+  double eps4 = 0.0 ;
+  int group = 0;
   int i;
   int ierr;
   int its;
@@ -14345,11 +14345,11 @@ int tinvit ( int n, double d[], double e[], double e2[], int m, double w[],
   int s;
   int tag;
   double u;
-  double uk;
+  double uk = 0.0 ;
   double v;
   double x0;
   double x1;
-  double xu;
+  double xu = 0.0 ;
 
   ierr = 0;
 
@@ -14727,7 +14727,7 @@ int tql1 ( int n, double d[], double e[] )
 {
   double c;
   double c2;
-  double c3;
+  double c3 = 0.0 ;
   double dl1;
   double el1;
   double f;
@@ -14743,7 +14743,7 @@ int tql1 ( int n, double d[], double e[] )
   double p;
   double r;
   double s;
-  double s2;
+  double s2 = 0.0 ;
   double tst1;
   double tst2;
 
@@ -14953,7 +14953,7 @@ int tql2 ( int n, double d[], double e[], double z[] )
 {
   double c;
   double c2;
-  double c3;
+  double c3 = 0.0;
   double dl1;
   double el1;
   double f;
@@ -14972,7 +14972,7 @@ int tql2 ( int n, double d[], double e[], double z[] )
   double p;
   double r;
   double s;
-  double s2;
+  double s2 = 0.0 ;
   double t;
   double tst1;
   double tst2;
@@ -15186,8 +15186,8 @@ int tqlrat ( int n, double d[], double e2[] )
     J, if the J-th eigenvalue could not be determined after 30 iterations.
 */
 {
-  double b;
-  double c;
+  double b = 0.0 ;
+  double c = 0.0 ;
   double f;
   double g;
   double h;

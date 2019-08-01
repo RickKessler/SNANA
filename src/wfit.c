@@ -399,8 +399,8 @@ int main(int argc,char *argv[]){
     0
   };
 
-  int i, j, k, iarg, iter, *ia, itst;
-  FILE *fp, *fpcospar, *fpresid;
+  int i, j, iarg ;
+  FILE *fpcospar, *fpresid;
   char infile[2000];
   char cosparfile[1000] = "";
   char cosparfilevar[1000] = "";
@@ -410,40 +410,34 @@ int main(int argc,char *argv[]){
   char chi2gridfilevar[1000]="";
   char chi2gridfile_SN[1000]="";
   char mucovarfile[1000]="";
-  char line[2000];
   char tempfilename1[1000];
   char tempfilename2[1000];
 
   double *w_prob, *w_sort, *hvec, *omm_prob;
   double *chitmp;
   double *snprob, *extprob, *snchi, *extchi;
-
-  double a, Rcmb;
-  double w, omm, ome, ld_cos, mu_cos, coeff ;
-  int ih;
+  double w, omm, ld_cos, mu_cos, coeff ;
   int  omm_steps, w_steps, h_steps;
   double h_min, h_max, omm_max, omm_min, w_max, w_min;
   double w_sum, w_sort_1sigma;
   double snchi_min=1.e20, extchi_min=1.e20;
-  double w_probsum, w_probmax, w_mean, wsig, wsig_upper, wsig_lower;
+  double w_probsum, w_probmax, w_mean, wsig, wsig_upper=0.0, wsig_lower=0.0;
   double w_out, omm_out ;
   double Ptmp, Pmax ;
-  double omm_probsum, omm_probmax, omm_mean, omm_sig;
+  double omm_probsum, omm_mean, omm_sig;
   double delta_w, mu_dif ;
-  double w_atchimin, OM_atchimin, chi2atmin;
-  int iw_mean;
-  int imin, jmin;
+  double w_atchimin, OM_atchimin, chi2atmin=0.0;
+  int iw_mean=0;
+  int imin=0, jmin=0;
   double snprobtot=0, snprobmax, extprobtot=0, extprobmax;
 
-  double czerr, zerr=0.0, mu_sig_z;
-  float dummy, dif, mindif ;
-  double sigmu_int, sigmu_int1, sigmu_tmp, chi2tmp ;
-  double chi_approx, offset_sum, denom, norm, chi2_final;
+  double zerr=0.0, mu_sig_z;
+  float  dif, mindif ;
+  double sigmu_int=0.0, sigmu_int1=0.0, sigmu_tmp, chi2tmp ;
+  double chi_approx, chi2_final;
   double chi2tot, chi2sn ;
-  int seed;
   double wrand, ommrand;
   int Ndof;
-  int NTMP, itmp ; // temp variables to read fitres file
 
   double muoff_tmp, sqmusig_tmp, musig_tmp, snchi_tmp, extchi_tmp, chidif; 
   
@@ -465,10 +459,9 @@ int main(int argc,char *argv[]){
   /*   char snfitsname[] = "!snprob.fits"; */
   /*   char ommfitsname[] = "!extprob.fits"; */
   char snfitsname[1000], ommfitsname[1000], snfitsstr[1000], ommfitsstr[1000];
-  int bitpix = DOUBLE_IMG;
   long naxis=2;
   long fpixel[2], nelements, naxes[2];
-  int status, anynull;
+  int status;
 
   /* for option -errscale */
   int Nerrscale=0;
@@ -496,7 +489,7 @@ int main(int argc,char *argv[]){
   SIG_MUOFF   = 5.0 * log10(1. + H0SIG/H0);
   SQSIG_MUOFF = SIG_MUOFF * SIG_MUOFF ;
 
-  double az, rz ;
+  double rz ;
 
   /* 2df prior, as used by JT's wcont */
   /*   omm_prior = 0.278;      /\* omega_matter prior *\/ */
@@ -1259,9 +1252,10 @@ int main(int argc,char *argv[]){
 	      , Ndof,sep, sigmu_int,sep, wrand,sep, ommrand,sep
 	      , label_cospar );
     } else {
-      fprintf(fpcospar,"# w%s wsig_up%s wsig_low%s OM%s %OM_sig chi2%s "
+      fprintf(fpcospar,"# w%s wsig_up%s wsig_low%s OM%s OM_sig%s chi2%s "
 	      "Ndof%s sigint%s wran%s OMran%s label\n",
 	      sep, sep, sep, sep, sep, sep, sep, sep, sep, sep );
+
       fprintf(fpcospar,"%8.4f%s %7.4f%s %7.4f%s %7.4f%s %7.4f%s %8.1f%s "
 	      "%5d%s %6.3f%s  %.2f%s %.2f%s  %s\n"
 	      , w_out,sep, wsig_upper,sep, wsig_lower,sep
@@ -1502,12 +1496,12 @@ void read_fitres(char *inFile) {
 
   char ctmp[80] ,ctmp2[80], VARLIST[200] ;
   int NVAR, IWD ;
-  int IWD_CID, IWD_Z, IWD_ZERR, IWD_MU, IWD_MUERR, IWD_MUREF, IWD_TID ;
+  int IWD_CID, IWD_Z, IWD_ZERR, IWD_MU, IWD_MUERR, IWD_MUREF=-9, IWD_TID ;
   int IWD_MUDIF, IWD_MUDIFERR ;
   int IWD_GTYPE, IWD_SNTYPE, IWD_NBIN;
 
   char CID[12];
-  double Z, ZERR, MU, MUERR, MUREF, MUDIF, MUDIFERR ;
+  double Z, ZERR, MU, MUERR, MUREF ;
   int TID, GTYPE, STYPE, LCUT, i, NRDTOT, NBIN, ISROWKEY ;
 
   FILE *fp;
@@ -1771,18 +1765,10 @@ void read_mucovar(char *inFile) {
 
   *************/
 
-  char 
-    ctmp[80] 
-    ,SN[2][12]
-    ,locFile[1000]
-    ,fnam[] = "read_mucovar";
-    ;
-
+  char ctmp[80], SN[2][12], locFile[1000] ;
+  char fnam[] = "read_mucovar" ;   
   double cov;
-
-  int N, N0, N1, i, i0, i1, j;
-
-
+  int N, N0, N1, i0, i1, j;
   FILE *fp;
 
   // -------- BEGIN --------
@@ -1940,11 +1926,8 @@ void invert_mucovar(double sqmurms_add) {
   //
   // Feb 2013: replace CERNLIB's dfact,dfinv with invertMatrix based on gsl.
   //
-  int N0, N1, i0, i1, NMAX;
-  int IFAIL, JFAIL;
-  int IR[MXCOVSN];
+  int N0, N1, i0, NMAX;
   double covtmp[MXCOVSN][MXCOVSN];
-  double DET;
 
   // =================================
 
@@ -2004,17 +1987,12 @@ void get_chi2wOM (
   double OE ;
 
   double 
-    a, rz
-    ,sqmusig, sqmusiginv
-    ,Bsum, Csum, logCsum
-    ,chi_hat
-    ,dchi_hat
-    ,ld_cos
+    a, rz, sqmusig, sqmusiginv, Bsum, Csum
+    ,chi_hat, dchi_hat, ld_cos
     ,mu_cos[MXSN]
     ,tmp1, tmp2
     ,Rcmb
     ,nsig
-    ,sqsiginv
     ,dmu
     ,sqdmu
     ,covinv
@@ -2171,11 +2149,7 @@ double get_minwOM( double *w_atchimin, double *OM_atchimin ) {
 
   double wstep_tmp  = w_stepsize/10.0; // pre-Oct 2013: 0.001 ;
   double omstep_tmp = omm_stepsize/10.0; // pre-Oct 2013: 0.001 ;
-
-  int 
-    nbw, nbm
-    ,i, j, imin, jmin 
-    ; 
+  int    nbw, nbm,i, j, imin=0, jmin=0    ; 
 
   double nb_factor = 4.0; //JLM SEP24
 

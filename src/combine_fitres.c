@@ -206,8 +206,8 @@ struct ROW_VALUES {
 // =========================================
 int main(int argc, char **argv) {
 
-  int i, ifile ;
-  char fnam[] = "main" ;
+  int ifile ;
+  //  char fnam[] = "main" ;
 
   // ----------------- BEGIN --------
 
@@ -249,6 +249,8 @@ int main(int argc, char **argv) {
   printf("   Done. \n");
   fflush(stdout);
 
+  return(0);
+
 } // end of main
 
 
@@ -257,7 +259,6 @@ int main(int argc, char **argv) {
 void  PARSE_ARGV(int argc, char **argv) {
 
   int  i;
-  char ctmp[80];
   char fnam[] = "PARSE_ARGV" ;
 
   //----------- BEGIN --------------
@@ -359,8 +360,6 @@ void  PARSE_ARGV(int argc, char **argv) {
 // ==========================
 void INIT_TABLEVAR(void) {
 
-  int isn, ivar;
-
   NVAR_WRITE_COMBINED = 0 ;
 
   NVARALL_FITRES = 0 ;
@@ -390,18 +389,16 @@ void ADD_FITRES(int ifile) {
   //   + remove redundant call to TABLEFILE_CLOSE
 
   int 
-    ivar, IVARTOT, IVARSTR, ivartot, ivarstr, j
-    ,isn, isn2,  ISN, ICID, ICAST, LTMP, IGNORE
+    ivar, IVARTOT, IVARSTR, ivarstr, j
+    ,isn, isn2,  ISN, ICAST, LTMP
     ,NVARALL_FILE, NVARSTR_FILE, NVAR
     ,NTAG_DEJA, NLIST
     ,MXUPDATE = 50
     ,index, REPEATCID
     ,NVARALL_LAST
     ,NVARSTR_LAST
-    ,istat, isize, NEVT_APPROX, IFILETYPE, iappend
+    ,NEVT_APPROX, IFILETYPE, iappend
     ;
-
-  struct stat statbuf;
 
   char 
     *VARNAME, VARNAME_F[MXCHAR_VARNAME], VARNAME_C[MXCHAR_VARNAME]
@@ -709,7 +706,7 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
   // MAXLEN is an estimate of the max array length to allocate.
 
   int ivar, isn, IVAR_ALL, NTOT, MEMF, MEMD ;
-  char fnam[] = "fitres_malloc_flt" ;
+  //  char fnam[] = "fitres_malloc_flt" ;
 
   // ---------- BEGIN ------------
 
@@ -761,7 +758,7 @@ void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN) {
   // Note that NVAR >= 1 because the CID string must always
   // be there.
 
-  char fnam[] = "fitres_malloc_str" ;
+  //  char fnam[] = "fitres_malloc_str" ;
   int ivar, IVAR_ALL, isn, MEMC, NTOT ;
 
   // ---------- BEGIN ------------
@@ -844,21 +841,20 @@ void WRITE_SNTABLE(void) {
     OUTFILE[6][200] 
     ,tableVar[60]
     ,*ptrSTR
-    ,BLOCKID[]    = "ID" 
     ,BLOCKVAR[]   = "VAR"     
-    ,fnam[] = "WRITE_SNTABLE" 
     ,openOpt[40], CCIDint[40]
     ;
 
   int GZIPFLAG = 0 ;
-  int ivar, ivarstr, isn, IERR, ICAST, LENC, ic, CIDint ;
+  int ivar, ivarstr, isn, IERR, ICAST, CIDint ;
   int IFILETYPE, NOUT ;
 
+  // char  fnam[] = "WRITE_SNTABLE" ;
   // --------------- BEGIN ------------
 
   IERR = -9 ;
   NOUT = 0 ;
-  sprintf(OUTFILE[NOUT],"");
+  OUTFILE[NOUT][0] = 0 ;
 
 #ifdef USE_HBOOK
   if (CREATEFILE_HBOOK)  { 
@@ -1048,7 +1044,7 @@ void  ADD_SNTABLE_COMMENTS(void) {
   sprintf(comment,"Created by combine_fitres.exe");
   STORE_TABLEFILE_COMMENT(comment) ;
 
-  sprintf(comment,"Number of combined files:", "%d", NFFILE_INPUT);
+  sprintf(comment,"Number of combined files: %d", NFFILE_INPUT);
   STORE_TABLEFILE_COMMENT(comment) ;
 
   for(ifile=0; ifile < NFFILE_INPUT; ifile++ ) {

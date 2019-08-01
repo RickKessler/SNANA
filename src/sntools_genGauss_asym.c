@@ -113,8 +113,7 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   int NTRY, DO_SKEWSIGMA, DO_SKEWNORMAL, DO_GRID;
   int NGRID, FUNINDEX, j ;
   int USE_PEAK1=1, MXTRY = 1000, LDMP=0 ;
-  double ranval, rangeDif, RANGE[2], sigmax, ran1, ran2, PROB2 ;
-  double redCor;
+  double ranval=0.0, rangeDif, RANGE[2], sigmax, ran1, ran2, PROB2 ;
   char fnam[] = "exec_GENGAUSS_ASYM" ;
 
   // ---------- BEGIN -------------

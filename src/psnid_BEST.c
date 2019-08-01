@@ -774,16 +774,10 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
 /************************************************************************/
 {
 
-  int  i, j, k, l, p, z, ERRFLAG, iobs ;
-  int  nonia_maxnm=0, *nonia_types;
+  int  i, j, k, z, ERRFLAG, *nonia_types, *useobs, **obsflag;
   int ***minchisq_ind;
-  int *useobs, **obsflag;
   int nOutlier=0;
   double **evidence;
-  double 
-    best_z, best_shapepar, best_colorpar, best_colorlaw, 
-    best_pkmjd, best_dmu ;
-  char cfilt[2];
   char fnam[] = "PSNID_BEST_DOFIT" ;
 
   // ---------- BEGIN -------------
@@ -1141,7 +1135,7 @@ void psnid_best_split_nonia_types(int *types, int optdebug)
   
 /**********************************************************************/
 {
-  int i, nibc=0, nii=0, npec1a=0, nignore=0, ITYPE, LTMP ;
+  int i, nibc=0, nii=0, npec1a=0, nignore=0, ITYPE ;
   int nmodel[PSNID_NTYPES], nmodel_sum=0 ;
   char *CTYPE ;
   char fnam[] = "psnid_best_split_nonia_types";
@@ -1341,7 +1335,7 @@ void psnid_best_set_grid_limits(int typeindex)
  */
 /******************************************************************************/
 {
-  int this_type, tmp_maxnl, i;
+  int this_type=0, tmp_maxnl ;
   char fnam[] = "psnid_best_set_grid_limits" ;
 
   // ---------------- BEGIN ---------------
@@ -1418,9 +1412,9 @@ void psnid_best_set_grid_values(int typeindex, int *nonia_types)
   // Oct 10 2014 RK - allocate memory for test1,mag1,magerr1 and for 1->2
   // Feb 13 2017 RK - check for PEC1A
 
-  int i,j,k,m, this_type, type_count=0;
+  int i,j,k,m, this_type=0, type_count=0;
   int ind1c1, ind2c1;
-  int tmp_maxnl, this_filt;
+  int tmp_maxnl=-9 , this_filt;
   double trest1[MXEP_PSNID], mag1[MXEP_PSNID], magerr1[MXEP_PSNID];
   double trest2[MXEP_PSNID], mag2[MXEP_PSNID], magerr2[MXEP_PSNID];
   double color1, color2, redshift, logz, dmdc;
@@ -1526,7 +1520,7 @@ double psnid_best_modelErr(int TYPEINDX, double Trest, double modelErr_grid){
   //  - modelErr_grid = model error read from grid (for GRID option)
 
   int    ISIA ;
-  double MAGERR ;
+  double MAGERR=0.0 ;
   char   *modelName ;
   char   fnam[] = "psnid_best_modelErr" ;
 
@@ -1809,7 +1803,7 @@ void psnid_best_setup_searchgrid()
 
   int N ;
   double DIF;
-  char fnam[] = "psnid_best_setup_searchgrid" ;
+  //  char fnam[] = "psnid_best_setup_searchgrid" ;
   
   // --------------- BEGIN ---------------
   printf("\t Setup search grid. \n"); fflush(stdout);
@@ -1936,7 +1930,7 @@ void psnid_best_grid_compare(int itype, int zpind, int nobs,
 ***/
 /**********************************************************************/
 {
-  int i, ipass, ngood=0, thisngood=1, z, d, a, f, t, u, x, jtmp, this_z=1;
+  int i, ipass, ngood=0, thisngood=1, z, d, a, f, t, u, jtmp, this_z=1;
   int minz=1, maxz=1, zstep=1, mind=1, maxd=1, dstep=1,
     mina=1, maxa=1, astep=1, mini=1, maxi=1, minu=1, maxu=1, ustep=1;
   int thisz=0, thisu=0;
@@ -1945,13 +1939,12 @@ void psnid_best_grid_compare(int itype, int zpind, int nobs,
   double istep = 1.0;
   double *c_grid, *z_grid, *u_grid, ushift;
   double *fit_epoch, **fit_mag, **fit_magerr;
-  double dmulo=0.0;
-  double pav=0.0, pdm, pz=0.0;
+  double dmulo=0.0, pav=0.0;
   double ZPRIOR, ZPRIOR_ERR, DZ, ZSIG ;
   int    DOPRIOR_ZSPEC, DOPRIOR_ZPHOT, optDebug, NON1A_INDEX, isp;
   int    AWID, ZWID, ZRBN, ARBN, UWID, URBN, indTmp ;
 
-  char fnam[] = "psnid_best_grid_compare" ;
+  //  char fnam[] = "psnid_best_grid_compare" ;
 
   // --------------------- BEGIN ------------------
 
@@ -2524,10 +2517,10 @@ void psnid_best_calc_chisq(int nobs, int *useobs,
 
 /**********************************************************************/
 {
-  int t, f, this_t=0, count=0, countf=0, countp=0, this_filt;
+  int t, f, this_t=0, count=0, this_filt;
   int    USEMJD, NOBS_FILT[MXFILTINDX] ;
   double this_mag=30.0, this_magerr=0.0;
-  double chisq_tmp, CHISQ_FILT[MXFILTINDX];
+  double chisq_tmp=0.0, CHISQ_FILT[MXFILTINDX];
   double data_flux, data_fluxe, model_flux, model_fluxe, mjd;
   double MJDDIF_MODEL, MJDDIF_DATA, tFrac, MAGDIF, ERRDIF ;
   double SQFERR, FDIF ;
@@ -2724,7 +2717,7 @@ int psnid_best_flag_outlier(int itype, int zpind, int nobs,
 			    int *useobs, int ***ind)
 /**********************************************************************/
 {
-  int z, d, a, i, u;
+  int z, d, a, u;
   int t, f;
   int ngood=0, optDebug=0, nout=0;
   double *fit_epoch, **fit_mag, **fit_magerr;
@@ -2898,7 +2891,7 @@ void psnid_best_check_lc_quality(int itype, int z, int ***ind,
 
   int i;
   int t1=0, t2=0, t3=0, t4=0, t5=0, t6=0, lcq;
-  double *epoch, zdelay;
+  double zdelay;
   double redshift, shapepar, colorpar, colorlaw, pkmjd, dmu;
   double Tobs, Tmin, Tmax ;
 
@@ -3103,7 +3096,7 @@ void psnid_best_set_zprior_onez(double *zin, double *zinerr)
 
  ***/
 {
-  int i, n=1;
+  int i; 
 
   for (i=0; i<PSNID_NZPRIOR; i++) 
     { PSNID_BEST_RESULTS.ZPRIOR_DO[i] = 0 ; } // init (RK)
@@ -3307,7 +3300,7 @@ void psnid_best_store_fitResids(int itype, int **obsflag) {
   //
   // -------------- BEGIN -----------
 
-  int    NOBS, IFILT, IFILTOBS, obs, IS_BESTFIT, ITYPE, IPAR, REJECT ;
+  int    NOBS, IFILT, IFILTOBS, obs, IS_BESTFIT, IPAR, REJECT ;
   char  *CCID ;
   double PKMJD, TOBS, TREST, MJD, PULL, CHI2, MAG, MAG_ERR;
   double FITFLUX, FITFLUX_ERR, DATAFLUX, DATAFLUX_ERR ;
@@ -3316,7 +3309,7 @@ void psnid_best_store_fitResids(int itype, int **obsflag) {
   int    ONE = 1;
 
   char CFILT[2], CTYPE[20] ;
-  char fnam[] = "psnid_best_store_fitResids";
+  //  char fnam[] = "psnid_best_store_fitResids";
   
   // ==========================================================
   // set local pointers; start with those filled in psnid_store_data()
@@ -3445,14 +3438,14 @@ void SNLCPLOT_PSNID_BEST(int iplot) {
   //                  
  
   int  
-    itype, izprior, obs, NOBS, USE
+    itype, izprior, NOBS, USE
     , NFILT, IFILT, IFILTOBS, NFILT_USE, LDMP
     , ONE = 1
     ,*ptrIFILT, *ptrIFILTOBS, *IFILTLIST 
     ;
 
   double 
-    PKMJD, TOBS, CHI2, MJD, MAG, MAG_ERR, FITFLUX, FITFLUX_ERR
+    PKMJD, TOBS, MJD, MAG, MAG_ERR, FITFLUX, FITFLUX_ERR
     ,*ptrTOBS, *ptrMJD, *ptrFLUX, *ptrERR, *ptrREJ, *ptrCHI2, *ptrDUMERR0
     ;
 
@@ -3731,7 +3724,7 @@ void MONPLOT_PSNID_BEST(int iplot) {
   int    NDIM, NB[2], HID, i0, i1 ;
   double XMIN[2], XMAX[2], X[2], WGT ;
   char   CHTIT[80];
-  char   fnam[] = "MONPLOT_PSNID_BEST" ;
+  //  char   fnam[] = "MONPLOT_PSNID_BEST" ;
 
   // ----------- BEGIN ----------
 
@@ -3954,15 +3947,15 @@ void PSNID_BEST_GET_FITFUN(char *CCID, int ind,
 {
   int i;
   int z,l,t,f, this_t=0, this_type=0, this_filt=0, this_l=0;
-  double magout, color, ushift, this_epoch=0.0;
+  double color, ushift, this_epoch=0.0;
   double magatmp, magbtmp, dtDT, dcDC, gridErr;
   int ind1c1, ind2c1;  
   double *trest1, *mag1, *magerr1, *trest1_forHunt;
   double *trest2, *mag2, *magerr2;
-  double color1, color2, redshift, logz, TMAX;
+  double color1, color2, redshift, TMAX;
   int nepoch1=0, nepoch2=0, optDump=0;
   int itype, izprior;
-  char fnam[] = "PSNID_BEST_GET_FITFUN";
+  //  char fnam[] = "PSNID_BEST_GET_FITFUN";
 
   // ------------------- BEGIN -------------------
 
@@ -4153,7 +4146,7 @@ int psnid_bestType_cuts(int z) {
   int ITYPE_BEST_PBAYES=-9, ITYPE_BEST_CUTS = -9 ;
   int i, npt, LDMP=0 ;
   double chi2red, chi2, PBAYES, FITPROB, PBAYES_MAX=-1.0;
-  char fnam[] = "psnid_bestType_cuts" ;
+  //  char fnam[] = "psnid_bestType_cuts" ;
 
   // 816 895 are now IA, but were UNKNOWN before
 
@@ -4254,7 +4247,7 @@ void psnid_best_store_results(char *CCID, int itype, int z,
 			      int ***ind, double **evidence, int optdump)
 /**********************************************************************/
 {
-  int i,p;
+  int i ;
   double redshift, shapepar, colorpar, colorlaw, pkmjd, dmu;
 
   // ------------- BEGIN ----------------
@@ -4342,8 +4335,8 @@ void psnid_best_store_PBayes(char *CCID, int z, double **evidence, int optdump)
   // Oct 24 2013 RK - change hard-wired chir cut from 2 to 20
   //                  to allow loser FITPROB_IA_CUT. No need for CHIR cut.
 
-  int i, type, ndof;
-  double sum_evidence=0.0, chir=9999.999, chi2;
+  int i ;
+  double sum_evidence=0.0;
 
   // -------------- BEGIN --------------
 
@@ -4396,7 +4389,7 @@ void psnid_best_store_PBayes(char *CCID, int z, double **evidence, int optdump)
 void psnid_best_dump_results()
 /**********************************************************************/
 {
-  int z, t, this_type;
+  int z, t, this_type=0;
   double Z, ZERR;
   char   *CID, cprior[60];
 
@@ -4740,10 +4733,8 @@ void psnid_best_run_mcmc(char *CCID, int itype, int nobs,
 
  */
 {
-  int i, j, x, check_temp, ngood;
+  int i, j, ngood;
   int take_step=0, *no_and_yes;
-  double ***model_day, ****model_mags, ****model_magserr,
-    ****model_extinct, ****model_mwextinct;
   double *this_model_day, **this_model_mags, **this_model_magserr;
   double *z_grid, *dm_grid;
   double zmin, zmax, dmmin, dmmax;
@@ -4766,9 +4757,7 @@ void psnid_best_run_mcmc(char *CCID, int itype, int nobs,
     mcmc_dmu_bin, mcmc_mu_bin;
 
   // z vs mu histogram
-  int this_z2=0, mcmc_nz2_grid,
-    this_mu2=0, mcmc_nmu2_grid,
-    this_av2=0, mcmc_nav2_grid,
+  int mcmc_nz2_grid, mcmc_nmu2_grid, mcmc_nav2_grid,
     mcmc_z2_rebin, mcmc_mu2_rebin, mcmc_av2_rebin,
     **mcmc_zmu_hist, **mcmc_zav_hist;
   double *mcmc_z2_grid, *mcmc_mu2_grid, *mcmc_av2_grid,
@@ -4776,10 +4765,9 @@ void psnid_best_run_mcmc(char *CCID, int itype, int nobs,
   int mu_tmpi;
   double mu_first;
   char *outmcmc_zmu, *outmcmc_zav;
-  FILE *outmcmc_zmu_ptr, *outmcmc_zav_ptr;
 
   //
-  char *sntype, *outmcmc, *outmcmc_z, *outmcmc_dm, *outmcmc_av,
+  char *outmcmc, *outmcmc_z, *outmcmc_dm, *outmcmc_av,
     *outmcmc_tmax, *outmcmc_dmu, *outmcmc_mu;
   double mu;
   double zref;
@@ -4788,7 +4776,7 @@ void psnid_best_run_mcmc(char *CCID, int itype, int nobs,
   double *z_limits, *dm_limits, *av_limits, *tmax_limits,
     *dmu_limits, *mu_limits;
 
-  char fnam[] = "psnid_best_run_mcmc";
+  //  char fnam[] = "psnid_best_run_mcmc";
   
   //  char *zlab, *outpref;
   //  FILE *outmcmc_ptr, *outmcmc_z_ptr, *outmcmc_dm_ptr, *outmcmc_av_ptr,
@@ -5498,7 +5486,7 @@ void psnid_best_param_limits(int ngrid, double *xgrid, int *ygrid,
 			     double *params)
 /**********************************************************************/
 {
-  int i, j, this_p=0;
+  int i, this_p=0;
   double *cumdist, nmcmc;
   double *pval;
 
@@ -5955,12 +5943,10 @@ void psnid_best_define_TableVARNAMES(int DO_ADDCOL, int DO_NN ) {
   //               instead of TMAX
   //
 
-  int   LDMP = 0 ;
   int   ivar, ID, t, z, ISIA, IPAR, *USE4NN ;
-  int   ifilt_obs, USE,ADD2TEXT ;
+  int   ifilt_obs, USE  ;
 
   int    *IPTR ;
-  float  *FPTR ;
   double *DPTR ;
 
   char 
@@ -6207,8 +6193,7 @@ void psnid_best_define_TableRESIDS(void) {
   // Created Oct 2013
   // init light curve fit residuals for best-fit type
 
-  int ID, ITYPE, obs;
-  int    *IPTR ;
+  int ID, *IPTR ;
   float  *FPTR ;
   double *DPTR ;
   char CBLOCK[] = "RESIDS" ;
@@ -6275,7 +6260,7 @@ void psnid_best_define_TableRESIDS(void) {
 void PSNID_BEST_UPDATE_OUTPUT(char *CCID) {
 
   int itype ;
-  char fnam[] = "PSNID_BEST_UPDATE_OUTPUT" ;
+  //  char fnam[] = "PSNID_BEST_UPDATE_OUTPUT" ;
   
   // ---------------- BEGIN --------------
 
@@ -6315,16 +6300,10 @@ void PSNID_BEST_SUMMARY(void) {
 // ============================================
 void psnid_best_nearnbr(char *CCID) {
 
-
-  char  VARNAMES[PSNID_BEST_NEARNBR_NVAR][40] =
-    { "Z_Ia", "xSHAPEPAR_Ia", "COLORPAR_Ia" } ;
-
   double DVAL ;
-  int   IPAR_LIST[PSNID_BEST_NEARNBR_NVAR];
   int z, t, IPAR, ivar, NVAR, USE4NN ;
-
   char *VARNAME_PSNID;
-  char fnam[] = "psnid_best_nearnbr" ;
+  //  char fnam[] = "psnid_best_nearnbr" ;
 
   // --------------- BEGIN ----------
 

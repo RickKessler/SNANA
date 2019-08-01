@@ -1,3 +1,9 @@
+/******************
+ May 2017
+ Implement weak lensing effects on distance modulus.
+
+ ******************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -6,7 +12,7 @@
 #include <math.h>
 
 #include "sntools.h"
-#include "sntools_lensing.h"
+#include "sntools_weaklens.h"
 
 // =============================================
 void init_lensDMU(char *mapFileName, float dsigma_dz) {
@@ -24,9 +30,8 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
   FILE *FPMAP;
 
   int MEMD, NROW, irow, jj, iz, imu, gzipFlag, NZ=0, NDMU=0 ;  
-  double VALTMP[3], Prob, dmu, ztmp, z, zLAST=-9.9 ;
-  double SUM_WGT, SUM_dmu, dmu_avg;
-  double SUM_Prob, SUM_ProbMax ;
+  double VALTMP[3], Prob, dmu, ztmp, z=0.0, zLAST=-9.9 ;
+  double SUM_WGT, SUM_dmu, dmu_avg, SUM_Prob ;
 
   char PATH_DEFAULT[MXPATHLEN], MAPFILENAME[MXPATHLEN] ;
   char fnam[] = "init_lensDMU" ;

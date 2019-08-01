@@ -38,8 +38,7 @@
 #include <stdbool.h>
 
 #include "sndata.h"
-
-#define  SNANA_VERSION_CURRENT  "v10_73j"                                                      
+#define  SNANA_VERSION_CURRENT  "v10_74b"   
 
 #define LIGHT_km  2.99792458e5      // speed of light (km/s) 
 #define LIGHT_A   2.99792458e18     // speed of light (A/s) 
@@ -314,6 +313,12 @@ struct {
 } INPUTS_OBS_atFLUXMAX ;
 
 
+#define MXFILE_ENVreplace 100
+struct {
+  int   NFILE;
+  char  FILENAME_ORIG[MXFILE_ENVreplace][MXPATHLEN];
+  char  FILENAME_ENVreplace[MXFILE_ENVreplace][MXPATHLEN];
+}  ENVreplace_store;
 
 
 // ##############################################################
@@ -611,7 +616,8 @@ FILE *snana_openTextFile (int vboseFlag, char *subdir, char *filename,
 			  char *fullName, int *gzipFlag ); 
 void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
 
-int ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
+int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
+void ENVrestore(char *fileName_noENV, char *fileName_orig);
 
 // cosmology functions
 

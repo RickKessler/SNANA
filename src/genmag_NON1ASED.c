@@ -66,7 +66,7 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
   int ifilt, ifilt_obs, NZBIN ;
   double Trange[2], Lrange[2] ;
   char sedcomment[40];
-  char fnam[] = "init_genmag_NON1ASED"  ;
+  //  char fnam[] = "init_genmag_NON1ASED"  ;
 
   // ------------- BEGIN -------------
 
@@ -171,9 +171,8 @@ void genmag_NON1ASED (
 
   double  z1, ZP, meanlam_obs, Tobs, Trest ;
   double  AV_MW, XT_MW, XT_HOST, flux, FLUX ;
-  double  Tref0, Tref1, flux0, flux1, slope, arg ;
   char *cfilt;
-  char fnam[] = "genmag_NON1ASED" ;
+  //  char fnam[] = "genmag_NON1ASED" ;
 
   // --------- BEGIN ----------
 
@@ -464,8 +463,7 @@ void  getName_SED_FILE_NON1ASED(char *PATH, char *inpName, char *outName) {
 
   struct stat statbuff;
   int jstat ;
-  char tmpName[MXPATHLEN];
-  char fnam[] = "getName_SED_FILE_NON1ASED" ;
+  //  char fnam[] = "getName_SED_FILE_NON1ASED" ;
 
   // -------------- BEGIN --------------
 
@@ -550,8 +548,8 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
   int NLIST, L_NON1A, L_PEC1A, index, NINDEX ;
   int FOUND_PEC1A=0;
   double SCALE = 1.0 ;
-  int    ALLNON1A_FLAG, SNTAG_ALLNON1A ;
-  double MAGOFF_ALLNON1A, MAGSMEAR_ALLNON1A;
+  int    ALLNON1A_FLAG=0, SNTAG_ALLNON1A=0 ;
+  double MAGOFF_ALLNON1A=0.0, MAGSMEAR_ALLNON1A=0.0;
   char cget[80], type[20], fname[MXPATHLEN], listFile[MXPATHLEN] ;
   char tmpLine[100], *ptrTmp = tmpLine ;
   char fnam[] = "read_NON1A_LIST" ;

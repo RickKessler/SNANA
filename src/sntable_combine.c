@@ -177,14 +177,13 @@ int main(int argc, char **argv) {
 void  PARSE_ARGV(int argc, char **argv) {
 
   int  NARGV, i, NF, INFILE_FLAG ;
-  char ctmp[80];
 
   // ------------- BEGIN ---------------
 
   NARGV = argc ;
   INPUTS.NFILE_COMBINE = NF = 0 ;
   INFILE_FLAG=0;
-  sprintf(INPUTS.OUTFILE,"");
+  INPUTS.OUTFILE[0] = 0;
   sprintf(INPUTS.TABLENAME, "%s", TABLENAME_FITRES);
 
   for ( i = 0; i < NARGV ; i++ ) {
@@ -262,9 +261,8 @@ void openFile_combine(void) {
   //
 
   int  IFILETYPE ;
-  char openOpt[20];
-  char fnam[] = "openFile_combine" ;
-  char OUTFILE[MXCHAR_FILENAME], SUFFIX[20] ;
+  char openOpt[20], SUFFIX[20] ;
+  //  char fnam[] = "openFile_combine" ;
 
   // ----------- BEGIN -------------
 
@@ -291,14 +289,14 @@ void  sntable_combine_init(void) {
   int TABLEID ;
   int ifile, ivar, NVAR_TOT, ICAST, NFILE, NVAR ;
   char CCAST[12], VARNAME[60], FORMAT[20] ;
-  void *PTRVAR ;
+  void *PTRVAR = NULL;
 
   char BLOCK[] = "COMBINE" ;
-  char fnam[]  = "sntable_combine_init" ;
+  //  char fnam[]  = "sntable_combine_init" ;
 
   // ----------- BEGIN -----------
   
-  sprintf(FORMAT,"");
+  FORMAT[0] = 0 ;
   if ( OUTPUT.IFILETYPE == IFILETYPE_TEXT ) { sprintf(FORMAT,"key") ; }
 
   if ( strcmp(INPUTS.TABLENAME,TABLENAME_FITRES) == 0 ) 
@@ -354,7 +352,7 @@ void  sntable_combine_fill(int irow) {
   int ISTAT, iFile, NVAR, NVAR_TOT, ivar ,ICAST ;
   double DVAL;
   char CCID[MXCHAR_CCID], CVAL[40], *VARNAME ;
-  char fnam[] = "sntable_combine_fill" ;
+  //  char fnam[] = "sntable_combine_fill" ;
 
   // ------------- BEGIN ------------
   

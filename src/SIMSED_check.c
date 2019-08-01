@@ -181,7 +181,9 @@ void parse_args(int argc, char **argv) {
   
   check_argv();
 
+  ENVreplace("init",fnam,1);
   ENVreplace(INPUTS.INPDIR_SIMSED,fnam,1);
+
   printf("   INPDIR_SIMSED: %s \n", INPUTS.INPDIR_SIMSED );
   printf("   Test LAMRANGE: %.1f to %.1f A \n",
 	 INPUTS.LAMRANGE[0], INPUTS.LAMRANGE[1] );

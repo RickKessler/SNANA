@@ -358,13 +358,14 @@ def output_fit_res(fitres,filename):
 def create_dists(fitres,param,joint_type):
 
 	res={p:[] for p in ['x0','x1','c']}
+	reserr={p:[] for p in ['x0','x1','c']}
 	if param is not None:
 		res[param] = []
 	for cid in fitres.keys():
 		for p in ['x0','x1','c']:
 			try:
 				res[p].append(fitres[cid][p][0])
-
+				reserr[p].append(fitres[cid][p][1])
 			except RuntimeError:
 				print("Skipping %s for distributions..."%cid)
 		if param is not None:
@@ -379,9 +380,12 @@ def create_dists(fitres,param,joint_type):
 			std_valy=np.std(res[param])
 			ax = sns.jointplot(x=res[p], y=res[param], kind=joint_type)
 			fig=plt.gcf()
+			if joint_type in ['reg','scatter']:
+				plt.errorbar(res[p],res[param],xerr=reserr[p],fmt='.',markersize=5)
 			fig.set_size_inches(10, 8)
-			ax.ax_marg_x.set_xlim(mean_valx-3*std_valx, mean_valx+3*std_valx)
-			ax.ax_marg_y.set_ylim(mean_valy-3*std_valy, mean_valy+3*std_valy)
+			if joint_type=='kde':
+				ax.ax_marg_x.set_xlim(mean_valx-3*std_valx, mean_valx+3*std_valx)
+				ax.ax_marg_y.set_ylim(mean_valy-3*std_valy, mean_valy+3*std_valy)
 			ax.set_axis_labels("%s Parameter"%p,"Simulated %s"%(' '.join([x[0]+x[1:].lower() for x in param.split('_')])),fontsize=16)
 			
 		else:

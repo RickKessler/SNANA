@@ -13057,10 +13057,11 @@ c ---------------- BEGIN ---------------
 
       REDSHIFT_FIT = SNLC_REDSHIFT  ! start with "best" Z
 
+c .xyz add option for using HOSTGAL_PHOTOZ ...
+
+
       DOFIT_PHOTOZ_HOST   =  .FALSE.
       DOFIT_PHOTOZ_noHOST =  .FALSE.
-
-     
 c -------------------------------
       IF ( DOFIT_PHOTOZ ) THEN
 
@@ -13092,6 +13093,8 @@ c or if 1st iteration is repeated.
          ENDIF
 
       ENDIF
+
+c - - - - - - -  -
 
       if ( LSIM_SNANA .and. USESIM_REDSHIFT ) then
         REDSHIFT_FIT = SIM_REDSHIFT_HELIO

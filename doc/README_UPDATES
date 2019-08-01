@@ -17179,11 +17179,34 @@
     See SIM_STRONGLENS_XXX variables in data files (TEXT and FITS format).
     These variables are NOT [yet?] read by snana analysis/fitting codes.
 
+    snlc_sim.c:
+      + new dashboard utility
+          snlc_sim.exe <inFile> DASHBOARD
+
+      + no more defaults for
+          SEARCHEFF_PIPELINE_LOGIC_FILE: 
+          SEARCHEFF_PIPELINE_EFF_FILE:
+
          ***** MISCELLANEOUS(v10_74b) ***** 
 
     All .c, .car files:  fix warnings with -Wall 
   
-    Remvoe obsolete gloes.c[h] since genmag_snoopy only reads a 
+    Remove obsolete gloes.c[h] since genmag_snoopy only reads a 
     GRID and does not use Burn's code.
+
+    snlc_sim.c
+     + abort if no rate model (DNDZ key)
+     + in init_kcor(), abort if rest-frame model has zero k-cor tables.
+
+   sntools_output.c:
+     + declare FMT and ENV so that compile works when 
+       ROOT & HBOOK are not defined.
+
+   sntools_trigger.c:
+     - fix array overwrite in README structure.
+
+   SALT2mu.c:
+    - new input option for user redshift bins:
+         zbinuser=0.05,0.10,0.15,0.20,0.25
 
 END: 

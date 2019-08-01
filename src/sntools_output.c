@@ -261,7 +261,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   //
 
   int  OPEN_FLAG, TYPE_FLAG, OPT_Q, USE_CURRENT, IERR ;
-  char *ptrtok, local_STRINGOPT[80], ctmp[20] ;
+  char *ptrtok, local_STRINGOPT[80], ctmp[20], *FMT, ENV[200] ;
   char fnam[] = "TABLEFILE_OPEN" ;
 
   // ---------------------- BEGIN ---------------------

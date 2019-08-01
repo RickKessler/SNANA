@@ -314,15 +314,15 @@ typedef struct {
 
 struct INPUTS {
 
+  int DASHBOARD_DUMPFLAG ;
+
   // input file list includes nominal, plus up to 2 INCLUDE files
   char INPUT_FILE_LIST[MXINPUT_FILE_SIM][MXPATHLEN]; // input file names
   int  NREAD_INPUT_FILE;  // number of input files read: 1,2 or 3
 
   int TRACE_MAIN;      // debug to trace progress through main loop
   int DEBUG_FLAG ;     // arbitrary debug usage
-  int OPT_DEVEL_BBC7D; // temp while doing BBC7D development 
- 
-  char COMMENT[120];   // brief user comment for README file.
+  int OPT_DEVEL_BBC7D; // temp while doing BBC7D development
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files
@@ -769,9 +769,6 @@ struct GENLC {
   char primary[40];              // name of primary (AB, VEGA, BD17 ...)
 
   int  SIMLIB_USEFILT_ENTRY[MXFILTINDX];   // 1=> filter used for this entry
-
-  //xxx  char MODELPATH[MXPATHLEN]; // full path to SN model dir
-  //xxx  char MODELNAME[60];        // copied from INPUTS.GENMODEL
 
   int  SDSS_SIM ;        // 1= SDSS; 0= non-SDSS (logical)     
   int  SIMLIB_ID;        // LIB ID from simlib
@@ -1760,6 +1757,7 @@ int  GENMAG_CUT(void);
 
 void DUMP_GENMAG_DRIVER(void);
 
+void DASHBOARD_DRIVER(void);
 void SIMLIB_DUMP_DRIVER(void);
 void SIMLIB_DUMP_openTable(int LDMP_MJD_TEXT,int LDMP_ROOT) ;
 void SIMLIB_DUMP_makeTable(int LDMP_MJD_TEXT,int LDMP_ROOT) ;
@@ -1811,7 +1809,7 @@ extern void get_filtlam__(int *opt_frame, int *ifilt,
 			  float *lamavg, float *lamrms, 
 			  float *lammin, float *lammax ) ;
 
-extern void get_kcor_mwpar__(double *RV, int *OPT_MWCOLORLAW );
+extern void get_kcor_info__(int *NKCOR, double *RV, int *OPT_MWCOLORLAW );
 
 extern void   rdxtpar_(char *xtDir, int len);
 extern void   init_xthost__( int *opt );

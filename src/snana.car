@@ -3551,7 +3551,7 @@ c default is to reject nothing (accept everything)
       USESIM_TRUEFLUX = .FALSE.
 
       USE_SNHOST_ZPHOT = .FALSE.
-      USE_MWCOR = .FALSE.  ! apply MWCOR to fit-model
+      USE_MWCOR        = .FALSE.  ! apply MWCOR to fit-model
 
 c by default do NOT check for multiseason activity (Oct 2014)
       MULTISEASON_TGAP               = 1.0E9 
@@ -28019,20 +28019,23 @@ C -------------- BEGIN ------------
 
 C ==========================
 +DECK,GTKCORMW.
-      SUBROUTINE GET_KCOR_MWPAR(RV,OPT_COLORLAW)
+      SUBROUTINE GET_KCOR_INFO(NKCOR,RV,OPT_COLORLAW)
 
 c Created Sep 22 2013 by R.Kessler
 C fotran wrapper (for snlc_sim.c) to return RV and color 
 c law option used to generate the MWXT table in the kcor file.
 c Valid only for rest-frame models that use K-corrections.
+c
+c Rename GET_KCOR_MWPAR -> GET_KCOR_INFO, and return NKCOR.
 
       IMPLICIT NONE
 +CDE,SNPAR.
 +CDE,KCORCOM.
 
-      REAL*8  RV             ! (O)
-      INTEGER OPT_COLORLAW   ! (O)
+      REAL*8  RV                   ! (O)
+      INTEGER NKCOR, OPT_COLORLAW   ! (O)
 C -------------- BEGIN -----------
+      NKCOR        = NKCOR_STORE
       RV           = RVMW_RDKCOR
       OPT_COLORLAW = OPT_MWCOLORLAW_RDKCOR
       RETURN

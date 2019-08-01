@@ -2049,15 +2049,22 @@ int ENVreplace(char *fileName, char *callFun, int ABORTFLAG) {
   //  Return SUCCESS or ERROR
   //
 
-  int LL, i, FOUNDSLASH, SEV ;
+  int LL, i, FOUNDSLASH, SEV, NFILE; ;
   char firstChar[2], c1[2], ENVname[MXPATHLEN], suffix[MXPATHLEN] ;
   char fnam[] = "ENVreplace" ;  
   
   // ------------- BEGIN -------------
 
+  if ( strcmp(fileName,"init") == 0 || strcmp(fileName,"INIT") ==0 ) 
+    { ENVreplace_store.NFILE = 0 ; return(SUCCESS); }
+
   sprintf(firstChar,"%c", fileName[0] );
   suffix[0]=0;
   ENVname[0]=0;
+
+  NFILE = ENVreplace_store.NFILE;
+  if ( NFILE < MXFILE_ENVreplace-1 ) 
+    { sprintf(ENVreplace_store.FILENAME_ORIG[NFILE],"%s", fileName); }
 
   if ( *firstChar == '$' ) { 
 
@@ -2092,11 +2099,38 @@ int ENVreplace(char *fileName, char *callFun, int ABORTFLAG) {
     sprintf(fileName, "%s%s", getenv(ENVname), suffix);
   } 
 
+  if ( NFILE < MXFILE_ENVreplace-1 ) 
+    { sprintf(ENVreplace_store.FILENAME_ENVreplace[NFILE],"%s", fileName); }
+  ENVreplace_store.NFILE++ ;
+
   return(SUCCESS) ; 
 
 } // end of ENVreplace
 
 // void envreplace_(char *fileName) { ENVreplace(fileName); }
+
+void ENVrestore(char *fileName_ENVreplace, char *fileName_orig) {
+
+  // Created July 21, 2019
+  // return fileName_orig before ENVreplace was called.
+
+  int NFILE = ENVreplace_store.NFILE ;
+  int ifile ;
+  char *FILENAME_ENVreplace, *FILENAME_ORIG ;
+  // ------------- BEGIN -----------
+
+  sprintf(fileName_orig, "%s", fileName_ENVreplace); 
+
+  for(ifile=0; ifile < NFILE; ifile++ ) {
+    FILENAME_ENVreplace = ENVreplace_store.FILENAME_ENVreplace[ifile] ;
+    FILENAME_ORIG       = ENVreplace_store.FILENAME_ORIG[ifile];
+    if ( strcmp(fileName_ENVreplace,FILENAME_ENVreplace) == 0 ) {
+      sprintf(fileName_orig,"%s", FILENAME_ORIG );
+    }
+  }
+
+  return;
+} // end ENVrestore
 
 
 int intrac_() {  return ((int) isatty(0)); }  // needed by fortran minuit (from intrac.c)

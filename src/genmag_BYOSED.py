@@ -18,6 +18,18 @@ required_keys = ['magsmear']
 
 __mask_bit_locations__={'verbose':1,'dump':2}
 
+def print_err():
+	print("""
+                       ______
+                     /    x  \\
+                    /   --------<  ABORT Python on Fatal Error.
+                __ /  _______/
+/^^^^^^^^^^^^^^/  __/
+\________________/
+				""")
+	raise RuntimeError(e)
+
+
 class genmag_BYOSED:
 
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
@@ -26,53 +38,55 @@ class genmag_BYOSED:
 			# TODO: write a print statement that warns if
 			# HOST_PARAM_NAMES is a variable that the code
 			# isn't going to do anything with
+			try:
+				self.verbose = OPTMASK & (1 << __mask_bit_locations__['verbose']) > 0
 
-			self.verbose = OPTMASK & (1 << __mask_bit_locations__['verbose']) > 0
+				self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
 
-			self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
+				self.host_param_names = [x.upper() for x in HOST_PARAM_NAMES.split(',')]
+				self.PATH_VERSION = os.path.dirname(PATH_VERSION)
 
-			self.host_param_names = [x.upper() for x in HOST_PARAM_NAMES.split(',')]
-			self.PATH_VERSION = os.path.dirname(PATH_VERSION)
+				self.dump = OPTMASK & (1 << __mask_bit_locations__['dump'])>0
+				self.sn_id=None
 
-			self.dump = OPTMASK & (1 << __mask_bit_locations__['dump'])>0
-			self.sn_id=None
+				self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
+				#self.host_param_names=HOST_PARAM_NAMES
 
-			self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
-			#self.host_param_names=HOST_PARAM_NAMES
+				self.paramfile = os.path.join(self.PATH_VERSION,'BYOSED.params')
+				if os.path.exists(self.paramfile):
+					config = configparser.ConfigParser()
+					config.read(self.paramfile)
+				else: raise RuntimeError('param file %s not found!'%self.paramfile)
 
-			self.paramfile = os.path.join(self.PATH_VERSION,'BYOSED.params')
-			if os.path.exists(self.paramfile):
-				config = configparser.ConfigParser()
-				config.read(self.paramfile)
-			else: raise RuntimeError('param file %s not found!'%self.paramfile)
+				parser = self.add_options(usage='',config=config)
 
-			parser = self.add_options(usage='',config=config)
+				options,  args = parser.parse_args()
 
-			options,  args = parser.parse_args()
+				for k in required_keys:
+					if k not in options.__dict__.keys():
+						raise RuntimeError('key %s not in parameter file'%k)
+				self.options = options
 
-			for k in required_keys:
-				if k not in options.__dict__.keys():
-					raise RuntimeError('key %s not in parameter file'%k)
-			self.options = options
+				self.warp_effects=self.fetchParNames_CONFIG(config)
 
-			self.warp_effects=self.fetchParNames_CONFIG(config)
+				self.sn_effects,self.host_effects=self.fetchWarp_BYOSED(config)
 
-			self.sn_effects,self.host_effects=self.fetchWarp_BYOSED(config)
-
-			phase,wave,flux = np.loadtxt(os.path.join(self.PATH_VERSION,self.options.sed_file),unpack=True)
+				phase,wave,flux = np.loadtxt(os.path.join(self.PATH_VERSION,self.options.sed_file),unpack=True)
 
 
-			fluxarr = flux.reshape([len(np.unique(phase)),len(np.unique(wave))])
-			self.x0=10**(.4*19.365)
-			self.flux = fluxarr*self.x0
+				fluxarr = flux.reshape([len(np.unique(phase)),len(np.unique(wave))])
+				self.x0=10**(.4*19.365)
+				self.flux = fluxarr*self.x0
 
-			self.phase = np.unique(phase)
-			self.wave = np.unique(wave)
-			self.wavelen = len(self.wave)
+				self.phase = np.unique(phase)
+				self.wave = np.unique(wave)
+				self.wavelen = len(self.wave)
 
-			self.sedInterp=interp2d(self.phase,self.wave,self.flux.T,kind='linear',bounds_error=True)
-			print(self.warp_effects)
-	
+				self.sedInterp=interp2d(self.phase,self.wave,self.flux.T,kind='linear',bounds_error=True)
+				print(self.warp_effects)
+			except Exception as e:
+				print('Python Error :',e)
+				print_err()
 			return
 		
 		def add_options(self, parser=None, usage=None, config=None):
@@ -195,6 +209,7 @@ class genmag_BYOSED:
 		
 
 		def fetchSED_BYOSED(self,trest,maxlam,external_id,new_event,hostpars):
+			try:
 				if len(self.wave)>maxlam:
 						raise RuntimeError("Your wavelength array cannot be larger than %i but is %i"%(maxlam,len(self.wave)))
 				#iPhase = np.where(np.abs(trest-self.phase) == np.min(np.abs(trest-self.phase)))[0][0]
@@ -259,7 +274,10 @@ class genmag_BYOSED:
 				# 				self.sn_effects['COLOR'].flux(trest_arr,self.wave,hostpars,self.host_param_names).flatten())
 							  
 				return list(fluxsmear) 
-				
+			except Exception as e:
+				print('Python Error :',e)
+				print_err()
+	
 		def fetchParNames_BYOSED(self):
 				return list(self.warp_effects)
 

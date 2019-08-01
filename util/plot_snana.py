@@ -455,7 +455,7 @@ def main():
 		all_cid=True
 	else:
 		al_cid=False
-	if options.dist is not None and options.nml_filename is None:
+	if options.dist and options.nml_filename is None:
 		raise RuntimeError("If you use the 'dist' option, you must provide an NML filename with the -f flag.")
 	
 	if options.joint_type not in ['scatter','reg','resid','kde','hex']:
@@ -515,8 +515,8 @@ def main():
 		while os.path.exists(filename):
 			num+=1
 			filename=os.path.splitext(filename)[0][:-1]+str(num)+'.pdf'
-		fitres=read_fitres(options.fitres_filename,options.joint_param,options.joint_type)
-		figs=create_dists(fitres,options.joint_param)
+		fitres=read_fitres(options.fitres_filename,options.joint_param)
+		figs=create_dists(fitres,options.joint_param,options.joint_type)
 		with PdfPages(filename) as pdf:
 			for f in figs:
 				pdf.savefig(f)

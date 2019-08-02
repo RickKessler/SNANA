@@ -17160,7 +17160,7 @@
 
 
 # ======================================================================= 
-         v10_74b (  ) 
+         v10_74b (Aug 2 2019) 
 
          ***** IMPORTANT(v10_74b) ***** 
 
@@ -17208,5 +17208,7 @@
    SALT2mu.c:
     - new input option for user redshift bins:
          zbinuser=0.05,0.10,0.15,0.20,0.25
+    - add logmass dimension to some biasCor arrays, 
+       along with some 'im' loops.
 
 END: 

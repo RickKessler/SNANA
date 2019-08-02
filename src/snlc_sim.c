@@ -184,6 +184,12 @@ int main(int argc, char **argv) {
   // init user-specified z-dependence of sim parameters
   init_zvariation();
 
+  // test triger init here ...
+  if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID )  { 
+    // init search efficiency
+    init_SEARCHEFF(GENLC.SURVEY_NAME,INPUTS.APPLY_SEARCHEFF_OPT); 
+  } 
+
   DASHBOARD_DRIVER();
 
   // initialize model that generates magnitudes.
@@ -192,10 +198,12 @@ int main(int argc, char **argv) {
   init_modelSmear(); 
   init_genSpec();     // July 2016: prepare optional spectra
 
+  /*
   if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID )  { 
     // init search efficiency
     init_SEARCHEFF(GENLC.SURVEY_NAME,INPUTS.APPLY_SEARCHEFF_OPT); 
   } 
+  */
  
   // create/init output sim-files
   init_simFiles(&SIMFILE_AUX);
@@ -25855,14 +25863,23 @@ void DASHBOARD_DRIVER(void) {
   printf("WEAKLENS_PROBMAP_FILE:  %s\n", INPUTS.WEAKLENS_PROBMAP_FILE);
   printf("STRONGLENS_FILE:        %s\n", INPUTS.STRONGLENS_FILE);
 
-  printf("SEARCHEFF_PIPELINE_LOGIC_FILE: %s\n",
-	 INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE);
-  printf("SEARCHEFF_PIPELINE_EFF_FILE:   %s\n",
-	 INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE);
-  printf("SEARCHEFF_SPEC_FILE:    %s\n",  
-	 INPUTS_SEARCHEFF.USER_SPEC_FILE);
-  printf("SEARCHEFF_zHOST_FILE:   %s\n",  
-	 INPUTS_SEARCHEFF.USER_zHOST_FILE);
+  ENVrestore(INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE,fileName_orig);
+  printf("SEARCHEFF_PIPELINE_LOGIC_FILE: %s\n", fileName_orig );
+  printf("\t Logic: %s  (epoch-sep > %.3f days)\n", 
+	 SEARCHEFF_LOGIC.INPUT_STRING, INPUTS_SEARCHEFF.TIME_SINGLE_DETECT);
+
+  ENVrestore(INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE,fileName_orig);
+  printf("SEARCHEFF_PIPELINE_EFF_FILE:   %s\n", fileName_orig);
+  printf("\t NMAP_EFFDETECT=%d, NMAP_PHOTPROB=%d \n", 
+	 INPUTS_SEARCHEFF.NMAP_DETECT, INPUTS_SEARCHEFF.NMAP_PHOTPROB);
+
+  ENVrestore(INPUTS_SEARCHEFF.USER_SPEC_FILE,fileName_orig);
+  printf("SEARCHEFF_SPEC_FILE:    %s\n", fileName_orig );  
+  printf("\t NMAP_SPECEFF = %d \n", INPUTS_SEARCHEFF.NMAP_SPEC);
+
+  ENVrestore(INPUTS_SEARCHEFF.USER_zHOST_FILE,fileName_orig);
+  printf("SEARCHEFF_zHOST_FILE:   %s\n", fileName_orig );  
+  printf("\t NMAP_zHOST = %d \n", INPUTS_SEARCHEFF.NMAP_zHOST);
 
   //.xyz
   happyend();

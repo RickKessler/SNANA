@@ -30421,16 +30421,17 @@ c ABORT if there are too many iterations
      &        ,AV_LIST(i), AVDIF_LIST(i), dif_color_list(i)
      &        ,DAV_DCOLOR_LIST(i)
 180          format(T2,'AV(',I2,')=',F6.3,3x,'AVDIF=',F8.5,
-     &              3x, 'difColor=',F8.5, 3x, 'dAV/dcolor=',F6.3 )
+     &              3x, 'difColor=',F8.5, 3x, 'dAV/dcolor=',F8.3 )
 
            enddo
 
-           print*,'     AV_MIN,MAX = ', AV_MIN, AV_MAX
+           print*,'     AV_MIN,MAX = ', sngl(AV_MIN), SNGL(AV_MAX)
            print*,'     LC_COLOR_MIN,MAX = ',
-     &                  lc_color_min, lc_color_max
-           print*,'     best_color =', lc_color_best
-           print*,'     obs_color  =', obs_color
-           print*,'     dif_color  = ', dif_color
+     &                    sngl(lc_color_min), sngl(lc_color_max)
+           print*,'     best_color =', sngl(lc_color_best)
+           print*,'     obs_color  =', sngl(obs_color)
+           print*,'     dif_color  = ', sngl(dif_color),' > ',
+     &                     dif_color_converge
            print*,' '
 
             CALL FLUSH(6)

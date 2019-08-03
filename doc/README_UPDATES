@@ -17219,4 +17219,21 @@
 
    TO DO: allow salt3 prefix in filenames with SALT3 in dirName.
 
+
+# ======================================================================= 
+         v10_74c (  ) 
+
+         ***** IMPORTANT(v10_74c) ***** 
+
+         ***** USEFUL(v10_74c) ***** 
+
+         ***** MISCELLANEOUS(v10_74c) ***** 
+
+   genmag_SALT2.c[h]:
+     if model name has SALT3, read filenames with salt3 prefix.
+     NOT TESTED.
+
+   snlc_sim, snana.car, sntools_fitsio.c:
+     + fix snoopy sim to output SIM_STRETCH instead of SIM_DM15.
+
 END: 

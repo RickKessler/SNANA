@@ -7472,12 +7472,10 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
     if ( SNDATA.SIM_SALT2alpha != NULLFLOAT ) {
       fptr = &SNDATA.SIM_SALT2alpha ;
       fprintf(fp, "SIM_SALT2alpha:  %7.3f   \n", *fptr ) ;
-    }
-    if ( SNDATA.SIM_SALT2beta != NULLFLOAT ) {
+
       fptr = &SNDATA.SIM_SALT2beta ;
       fprintf(fp, "SIM_SALT2beta:   %7.3f   \n", *fptr ) ;
-    }
-    if ( SNDATA.SIM_SALT2gammaDM != NULLFLOAT ) {
+
       fptr = &SNDATA.SIM_SALT2gammaDM ; 
       fprintf(fp, "SIM_SALT2gammaDM: %6.3f  \n", *fptr ) ; 
     }

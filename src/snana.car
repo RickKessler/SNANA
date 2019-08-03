@@ -15266,21 +15266,21 @@ c Logic here may be a bit fragile.
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
       IF ( LTMP ) THEN
         SIM_SHAPEPAR     = SNGL(RET8(1))
-        SIMNAME_SHAPEPAR = 'SIMstr'
+        SIMNAME_SHAPEPAR = 'SIM_STRETCH'
       ENDIF
 
       KEY  = 'SIM_DELTA'
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
       IF ( LTMP ) THEN
         SIM_SHAPEPAR     = SNGL(RET8(1))
-        SIMNAME_SHAPEPAR = 'SIMDELTA'
+        SIMNAME_SHAPEPAR = 'SIM_DELTA'
       ENDIF
 
       KEY  = 'SIM_DM15'
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
       IF ( LTMP ) THEN
         SIM_SHAPEPAR     = SNGL(RET8(1))
-        SIMNAME_SHAPEPAR = 'SIMDM15'
+        SIMNAME_SHAPEPAR = 'SIM_DM15'
       ENDIF
 
       KEY  = 'SIM_SALT2x1'

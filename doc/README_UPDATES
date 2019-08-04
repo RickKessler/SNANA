@@ -17224,6 +17224,9 @@
          v10_74c (  ) 
 
          ***** IMPORTANT(v10_74c) ***** 
+  
+   Fix evil kcor bug related to k-corrections with AVwarp < 0. 
+   See MWgaldust.c below.
 
          ***** USEFUL(v10_74c) ***** 
 
@@ -17236,4 +17239,21 @@
    snlc_sim, snana.car, sntools_fitsio.c:
      + fix snoopy sim to output SIM_STRETCH instead of SIM_DM15.
 
+   MWgaldust.c:   
+     + in GALextinct(), fix nasty bug where it returned XT=0 
+       for AV<1E-9 ... should return XT=0 only if AV=0.
+       Bug caused all AV<0 to return same extinction as AV=0.
+       This bug has no effect for normal use of GAL-extinction,
+       but it ruins the AVwarping on spectra used in k-corrections.
+       This bug was introduced way back in 2013, v10_30, when the
+       GALextinct codes were moved and refactored. Surprisingly,
+       nobody has noticed this bug until now when we tried to
+       simulate with the snoopy model.
+
+   snana.car:
+     fix calls to GET_1DINDEX() to be compatible with Feb 2018 
+     refactor where indinces start at 0, not 1. Affects sim &
+     fits with k-correctios. Amazingly, SNANA_CodeTest shows
+     no discrepancies after fix.
+ 
 END: 

@@ -26559,6 +26559,8 @@ c
 c Feb 25 2013: fix bug, check for BX before INIT_KCOR_INDICES
 c              (333 loop)
 c 
+c Aug 4 2019: IBKCOR starts at 0 (not 1) for C function get_1DINDEX
+
 
       IMPLICIT NONE
 
@@ -26761,11 +26763,11 @@ c     get sparse filter indices
          endif
 
 c get starting 1D bin for this KCOR
-         IBKCOR(KDIM_ifiltr) = ifiltr
-         IBKCOR(KDIM_ifilto) = ifilto
-         IBKCOR(KDIM_T)      = 1
-         IBKCOR(KDIM_Z)      = 1
-         IBKCOR(KDIM_AV)     = 1
+         IBKCOR(KDIM_ifiltr) = ifiltr - 1
+         IBKCOR(KDIM_ifilto) = ifilto - 1
+         IBKCOR(KDIM_T)      = 0
+         IBKCOR(KDIM_Z)      = 0
+         IBKCOR(KDIM_AV)     = 0
          IBIN_FIRST          = GET_1DINDEX(IDMAP_KCOR,NKDIM,IBKCOR)+1
          IBIN_LAST           = IBIN_FIRST + NROW - 1
 
@@ -26803,6 +26805,8 @@ c   4 - 3+NFILTDEF_RDKCOR      :  MAGOBS(T,Z,AV)
 c   Next NFILTDEF_RDKCOR bins  :  MWXTSLP(T,Z,AV) 
 c
 c Store info only for filters that are used in a K-cor.
+c 
+c Aug 4 2019: IBLCMAG & IBMWXT starts at 0 instead of 1
 c
 c ---------------
 
@@ -26848,13 +26852,13 @@ C ----------------- BEGIN ---------------
       FIRSTROW  = 1
       FIRSTELEM = 1
 
-      IBMWXT(KDIM_T)  = 1
-      IBMWXT(KDIM_Z)  = 1
-      IBMWXT(KDIM_AV) = 1
+      IBMWXT(KDIM_T)  = 0
+      IBMWXT(KDIM_Z)  = 0
+      IBMWXT(KDIM_AV) = 0
 
-      IBLCMAG(KDIM_T)  = 1
-      IBLCMAG(KDIM_Z)  = 1
-      IBLCMAG(KDIM_AV) = 1
+      IBLCMAG(KDIM_T)  = 0
+      IBLCMAG(KDIM_Z)  = 0
+      IBLCMAG(KDIM_AV) = 0
 
       DO 200 ifilt  = 1, NFILTDEF_RDKCOR
 
@@ -26874,7 +26878,7 @@ C ----------------- BEGIN ---------------
 
         IF ( ISREST ) then
           ifiltr       = IFILTDEF_INVMAP_REST(ifilt_rest)
-          IBLCMAG(4)   = ifiltr
+          IBLCMAG(4)   = ifiltr - 1
           IBIN_FIRST   = GET_1DINDEX(IDMAP_LCMAG,N4DIM,IBLCMAG)+1
           IBIN_LAST    = IBIN_FIRST + NROW - 1
 
@@ -26912,7 +26916,7 @@ c now get MWXT cor for obs-frame filters.
 
         IF ( ISOBS .and. (.not.LBX) ) then
           ifilto       = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
-          IBMWXT(4)    = ifilto
+          IBMWXT(4)    = ifilto-1
           IBIN_FIRST   = GET_1DINDEX(IDMAP_MWXT,N4DIM,IBMWXT)+1
           IBIN_LAST    = IBIN_FIRST + NROW - 1
 
@@ -27555,7 +27559,9 @@ c abort if NBAD > 0
 C =====================================
 +DECK,RDKDMPTA.
       SUBROUTINE RDKCOR_DMPTABLE(ikcor)
-      
+   
+c Aug 4 2019: IBXXX arg for GET_1DIDEX starts at 0, not 1
+   
 c Dump entire table for kcor index IKCOR
 
       IMPLICIT NONE
@@ -27610,25 +27616,25 @@ C --------------------- BEGIN ----------------
          Z     = GRIDVAL_Z(iz)
          Trest = GRIDVAL_T(it)
 
-         IBKCOR(KDIM_T)      = it
-         IBKCOR(KDIM_Z)      = iz
-         IBKCOR(KDIM_AV)     = iav
-         IBKCOR(KDIM_ifiltr) = ifiltr
-         IBKCOR(KDIM_ifilto) = ifilto
+         IBKCOR(KDIM_T)      = it - 1
+         IBKCOR(KDIM_Z)      = iz - 1
+         IBKCOR(KDIM_AV)     = iav - 1
+         IBKCOR(KDIM_ifiltr) = ifiltr - 1
+         IBKCOR(KDIM_ifilto) = ifilto - 1
          IBIN = GET_1DINDEX(IDMAP_KCOR,NKDIM,IBKCOR)+1
          KCOR = R4KCORTABLE1D(IBIN) 
 
-         IBLCMAG(1)  = it
-         IBLCMAG(2)  = iz
-         IBLCMAG(3)  = iav
-         IBLCMAG(4)  = ifiltr
+         IBLCMAG(1)  = it - 1
+         IBLCMAG(2)  = iz - 1
+         IBLCMAG(3)  = iav - 1
+         IBLCMAG(4)  = ifiltr - 1
          IBIN = GET_1DINDEX(IDMAP_LCMAG,N4DIM,IBLCMAG)+1
          MAG  = LCMAG_TABLE1D(IBIN)
 
-         IBMWXT(1)  = it
-         IBMWXT(2)  = iz
-         IBMWXT(3)  = iav
-         IBMWXT(4)  = ifilto
+         IBMWXT(1)  = it - 1
+         IBMWXT(2)  = iz - 1
+         IBMWXT(3)  = iav - 1
+         IBMWXT(4)  = ifilto - 1
          IBIN   = GET_1DINDEX(IDMAP_MWXT,N4DIM,IBMWXT)+1
          MWXT   = MWXT_TABLE1D(IBIN)
 
@@ -30126,6 +30132,8 @@ c
 c Dec 30, 2012: define AVRANGE_LOCAL to debug new FITS convention
 c               where min,max are equivalent to HBOOK bin-centers.
 c
+c Aug 4 2019: IBINS starts at 0, not 1.
+c
 c ----------------------------------------- 
 
       IMPLICIT NONE
@@ -30149,8 +30157,8 @@ c local var
       REAL*8  
      &   obs_color, av8
      &  ,lc_mag_a, lc_mag_b
-     &  ,av_min,  lc_color_min
-     &  ,av_max,  lc_color_max
+     &  ,av_min,  lc_color_min, av_min_dump
+     &  ,av_max,  lc_color_max, av_max_dump
      &  ,av_best, lc_color_best
      &  ,dif_color, dif_av
      &  ,dav_dcolor
@@ -30245,16 +30253,26 @@ c get sparse filter indices
 
 c interpolate epoch for each color-bin
 
-        IBINS(3) = i_a
-        IBINS(4) = i_b
+        IBINS(3) = i_a - 1
+        IBINS(4) = i_b - 1
         DO iit = 0, 1
         DO iic = 0, 1
-          IBINS(1) = it + iit
-          IBINS(2) = ic + iic
+          IBINS(1) = it + iit - 1
+          IBINS(2) = ic + iic - 1
           IBTMP    = GET_1DINDEX(IDMAP_AVWARP,N4DIM,IBINS)+1
           IB(iit,iic) = IBTMP
 
           if ( IBTMP < 1 .or. IBTMP > NBINTOT_AVWARP ) then
+             print*,' '
+             print*,' PRE-ABORT DUMP: '
+             print*,'   IBINS(it,ic,ia,ib) = ', IBINS
+             print*,'   IDMAP_AVWARP = ', IDMAP_AVWARP
+             print*,'   N4DIM        = ', N4DIM
+             print*,'   z            = ', sngl(z8)
+             print*,'   epoch        = ', sngl(epoch8)
+             print*,'   mag(a,b)     = ', sngl(mag8_a), sngl(mag8_b)
+             print*,'   ifilt(a,b)   = ', ifilt_a, ifilt_b
+
              write(c1err,641) IBTMP
  641         format('Invalid IBTMP=',I8)
              write(c2err,642) NBINTOT_AVWARP
@@ -30319,6 +30337,25 @@ c Note that AV_BEST starts out at zero.
             CALL FLUSH(6)
       endif
 
+c xxxxxxxxxxxxxx
+
+      if ( abs(epoch8-0.0) < -2.0 .and. ifilt_a == 12 
+     &    .and. ifilt_b==13 ) then
+         print*,' xxx ----------------------- '
+         print*,' xxx Epoch = ', Epoch8
+         do i=1, 100
+            av8 = -6.0 + dble(i)*0.10
+            lc_mag_a = GET_MAGLC8 ( ifilt_a, epoch8, z8, av8 )
+            lc_mag_b = GET_MAGLC8 ( ifilt_b, epoch8, z8, av8 )  
+            write(6,666) av8, lc_mag_a, lc_mag_b
+ 666        format(T2,' xxx AV8=', F6.3, 3x, 'mag(a,b) = ', 2F10.3 )
+            call flush(6)
+         enddo
+      endif
+c xxxxxxxxxxxx
+
+
+
       DO 30 WHILE ( abs(dif_color) .GT. dif_color_converge ) 
 
          iter = iter + 1
@@ -30338,21 +30375,13 @@ c get color at av_min
          lc_mag_b = GET_MAGLC8 ( ifilt_b, epoch8, z8, av_min )
          lc_color_min = lc_mag_a - lc_mag_b
 
-         if ( LDMP_AVWARP ) then
-            print*,' xxxxxxx MIN  mag(a,b) = ',
-     &           sngl(lc_mag_a), sngl(lc_mag_b)
-         endif
-
 c  get color at av_max
          lc_mag_a = GET_MAGLC8 ( ifilt_a, epoch8, z8, av_max )
          lc_mag_b = GET_MAGLC8 ( ifilt_b, epoch8, z8, av_max )
          lc_color_max = lc_mag_a - lc_mag_b
 
-         if ( LDMP_AVWARP ) then
-            print*,' xxxxxxx MAX  mag(a,b) = ',
-     &           sngl(lc_mag_a), sngl(lc_mag_b)
-         endif
-
+         av_min_dump = av_min
+         av_max_dump = av_max
 
 c get color-slope wrt AV
          dif_color  = lc_color_max - lc_color_min 
@@ -30362,7 +30391,7 @@ c get color-slope wrt AV
            dav_dcolor = dif_av / dif_color
            dif_av     = (obs_color - lc_color_best) * dav_dcolor
          else
-           dav_dcolor = 1.0E8
+           dav_dcolor = 66.666  ! 1.0E8
            dif_av     = 0.0
          endif
 
@@ -30372,10 +30401,10 @@ c also determine new AV_MIN,MAX for next iteration
          AV_MIN = AV_BEST - abs(dif_av) - dif_color_converge
          AV_MAX = AV_BEST + abs(dif_av) + dif_color_converge
       
-         if ( AV_MIN .LT. AVrange_LOCAL(1) ) then
+         if ( AV_MIN < AVrange_LOCAL(1) ) then
              AV_min = AVrange_LOCAL(1)
          endif
-         if ( AV_MAX .GT. AVrange_LOCAL(2) ) then
+         if ( AV_MAX > AVrange_LOCAL(2) ) then
              AV_max = AVrange_LOCAL(2)
          endif
 
@@ -30412,8 +30441,10 @@ c ABORT if there are too many iterations
            print*,' ----------------------------------------- '
            print*,'  GET_AVWARP ERROR: Niteration = ', iter
            print*,'     Epoch=', sngl(epoch8), '  Z=',sngl(Z8)
-           print*,'     mag_a,b  = ', mag8_a, mag8_b
-           print*,'     filt_a,b = ', ifilt_a, ifilt_b 
+           print*,'     mag_a,b  = ', sngl(mag8_a), sngl(mag8_b)
+           print*,'     filt_a,b = ', ifilt_a, ifilt_b,
+     &              '   (',FILTDEF_STRING(ifilt_a:ifilt_a)
+     &                    ,FILTDEF_STRING(ifilt_b:ifilt_b),' )'
            print*,' '
 
            do i = 1, iter
@@ -30425,7 +30456,8 @@ c ABORT if there are too many iterations
 
            enddo
 
-           print*,'     AV_MIN,MAX = ', sngl(AV_MIN), SNGL(AV_MAX)
+           print*,'     AV_MIN,MAX = ', 
+     &                     sngl(AV_MIN_DUMP), SNGL(AV_MAX_DUMP)
            print*,'     LC_COLOR_MIN,MAX = ',
      &                    sngl(lc_color_min), sngl(lc_color_max)
            print*,'     best_color =', sngl(lc_color_best)
@@ -30555,6 +30587,7 @@ c    However, to avoid subtle changes w.r.t. previous versions,
 c    allow half-bin extension on AV8 (AV-warp parameter);
 c    See check on LIMIT.
 c
+c Aug 4 2019: IBKCOR stars at 0, not 1
 C-----------------------
       IMPLICIT NONE
 
@@ -30878,17 +30911,17 @@ c check that sparse indices are valid
 C Load the table
 
       NBIN = 0
-      IBKCOR(KDIM_ifiltr) = ifiltr
-      IBKCOR(KDIM_ifilto) = ifilto
+      IBKCOR(KDIM_ifiltr) = ifiltr - 1
+      IBKCOR(KDIM_ifilto) = ifilto - 1
 
       DO IZ  = 1, NBZINT
          NBINZ  = 0
-         IBKCOR(KDIM_Z) = IZCEN-IBZCEN+IZ
+         IBKCOR(KDIM_Z)  = IZCEN-IBZCEN+IZ-1
       DO IAV = 1, NBAVINT
-         IBKCOR(KDIM_AV) = IAVCEN-IBAVCEN+IAV
+         IBKCOR(KDIM_AV) = IAVCEN-IBAVCEN+IAV-1
       DO IEP = 1, NBTINT
+         IBKCOR(KDIM_T)  = ITCEN-IBTCEN+IEP-1
 
-         IBKCOR(KDIM_T) = ITCEN-IBTCEN+IEP
          KBIN = GET_1DINDEX(IDMAP_KCOR,NKDIM,IBKCOR)+1
 
          NBIN  = NBIN  + 1
@@ -30903,9 +30936,9 @@ C Load the table
          F(NBIN)   = KCOR8
 
          if ( ZSMOOTH )then
-             IBKCOR(KDIM_Z) = IZCENb-IBZCEN+IZ   ! <== note IZCENb
+             IBKCOR(KDIM_Z) = IZCENb-IBZCEN+IZ-1   ! <== note IZCENb
              KBIN = GET_1DINDEX(IDMAP_KCOR,NKDIM,IBKCOR)+1
-             IBKCOR(KDIM_Z) = IZCEN-IBZCEN+IZ  ! reset with IZCEN
+             IBKCOR(KDIM_Z) = IZCEN-IBZCEN+IZ-1  ! reset with IZCEN
 +SELF,IF=I2KCOR.
              I2KCORb = I2KCORTABLE1D(KBIN)
              KCOR8b  = DBLE(I2KCORb)/KCORPACK
@@ -31258,6 +31291,8 @@ c Aug 27, 2009: increase CRAZY mag limit from 50 to 60 to
 c               allow for wierd Kasen models.
 c
 c Sep 9, 2010: replace +CDE,SNDATCOM.  with +CDE,KCORCOM. 
+c
+c Aug 4 2019: IBINS starts at 0, not 1
 c --------------------------------
       IMPLICIT NONE
 
@@ -31382,10 +31417,10 @@ c if we get here, use linear interpolation with DFINT function
 
 c define binned grid and function values
 
-      IBINS(1) = itbin_start
-      IBINS(2) = izbin_start
-      IBINS(3) = iavbin_start
-      IBINS(4) = ifiltsp
+      IBINS(1) = itbin_start-1
+      IBINS(2) = izbin_start-1
+      IBINS(3) = iavbin_start-1
+      IBINS(4) = ifiltsp-1
 
       IF ( DOMAGLC ) THEN
         IBIN = GET_1DINDEX(IDMAP_LCMAG, N4DIM, IBINS)+1
@@ -31418,10 +31453,10 @@ c collpase z-grid if z=0
       DO izbin  = izbin_start,  izbin_end
       DO itbin  = itbin_start,  itbin_end
  
-         IBINS(1) = itbin 
-         IBINS(2) = izbin
-         IBINS(3) = iavbin
-         IBINS(4) = ifiltsp
+         IBINS(1) = itbin  - 1
+         IBINS(2) = izbin  - 1
+         IBINS(3) = iavbin - 1
+         IBINS(4) = ifiltsp - 1
 
          Ngrid = Ngrid + 1
 
@@ -31450,7 +31485,7 @@ c collpase z-grid if z=0
              print*,' GET_MAG8 ERROR: crazy MAG = ', MAG
              print*,'   ifilt      = ', ifilt, ' => charfilt = ',
      &           filtdef_string(ifilt:ifilt)
-             print*,'   Trest      = ', T8_epoch
+             print*,'   Trest      = ', T8_epoch  
              print*,'   redshift   = ', Z8
              print*,'   AVwarp     = ', AVWARP8
              print*,'   MWEBV      = ', MWEBV8,'  DOMAGLC=', DOMAGLC
@@ -31645,6 +31680,7 @@ c Fill R4AVWARPTABLE to be used by GET_AVWARP8 so that
 c it runs much faster. Motivated by need to marginalize
 c photoz fits with MLCS.
 c
+c Aug 4 2019: IBINS starts at zero, not one.
 c --------------------
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -31744,10 +31780,10 @@ c (because it's 2 filters away)
            if ( LAMDIF2/LAMDIF3 .GT. 0.0 ) goto 102
         endif
 
-        IBINS(1) = 10
-        IBINS(2) = 10
-        IBINS(3) = ifilt_nbr
-        IBINS(4) = ifilt1
+        IBINS(1) = 10-1
+        IBINS(2) = 10-1
+        IBINS(3) = ifilt_nbr-1
+        IBINS(4) = ifilt1-1
         IBIN     = GET_1DINDEX(IDMAP_AVWARP,N4DIM,IBINS)+1
         TMP      = AVWARP_TABLE1D(IBIN)
 
@@ -31770,10 +31806,10 @@ c (because it's 2 filters away)
          AVWARP8 = GET_AVWARP8(T8, Z8, mag8_a, mag8_b, 
      &        ifilt1_rest, ifilt_nbr_rest, ISTAT )
 
-         IBINS(1) = it
-         IBINS(2) = ic
-         IBINS(3) = ifilt1
-         IBINS(4) = ifilt_nbr
+         IBINS(1) = it-1
+         IBINS(2) = ic-1
+         IBINS(3) = ifilt1-1
+         IBINS(4) = ifilt_nbr-1
          IBIN     = GET_1DINDEX(IDMAP_AVWARP,N4DIM,IBINS)+1
          AVWARP_TABLE1D(IBIN) = SNGL(AVWARP8)
 
@@ -31799,8 +31835,8 @@ c now flip the color and filters
          AVWARP8 = GET_AVWARP8(T8, Z8, mag8_a, mag8_b, 
      &        ifilt1_rest, ifilt_nbr_rest, ISTAT )
 
-         IBINS(3) = ifilt_nbr
-         IBINS(4) = ifilt1
+         IBINS(3) = ifilt_nbr-1
+         IBINS(4) = ifilt1-1
          IBIN     = GET_1DINDEX(IDMAP_AVWARP,N4DIM,IBINS)+1
          AVWARP_TABLE1D(IBIN) = SNGL(AVWARP8)
 

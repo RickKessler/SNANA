@@ -776,8 +776,8 @@ int rd_input(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, "        "); 
   }
 
-  printf("\t MW Extinction slope measured at E(B-V)=%5.2f \n",
-	 MWEBV_LIST[1] );
+  printf("\t MW Extinction slope measured at E(B-V)=%5.2f, RVMW=%.3f \n",
+	 MWEBV_LIST[1], INPUTS.RV_MWCOLORLAW );
 
   printf("\t User SN LAMBDA range from %6.0f to %6.0f Angstroms \n",
 	 SNSED.LAMBDA_MIN, SNSED.LAMBDA_MAX );
@@ -2826,7 +2826,7 @@ void rebin_primary ( int  nblam_in,  double *lam_in,  double *flux_in,
       F0   = *(flux_in + ilam) ;
       F1   = *(flux_in + ilam + 1 ) ;
 
-      if ( LAM >= LAM0 && LAM <= LAM1 ) goto INTERPFLUX;
+      if ( LAM >= LAM0 && LAM <= LAM1 ) { goto INTERPFLUX; }
       ilam++ ;
     }
 
@@ -2953,13 +2953,13 @@ int kcor_grid (void) {
 		       ,&kcor, &err, &ovp, magobs        // return values
 		       );
 
-	    if ( kcor > kcormax ) kcormax = kcor ;
-	    if ( kcor < kcormin ) kcormin = kcor ;
+	    if ( kcor > kcormax ) { kcormax = kcor ; }
+	    if ( kcor < kcormin ) { kcormin = kcor ; }
 
 	    // if kcor is outside valid range, then set it to really
 	    // crazy NULLVAL so that sim & fitter know to ignore it
-	    if ( kcor > KCORMAX_VALID ) kcor = NULLVAL ;
-	    if ( kcor < KCORMIN_VALID ) kcor = NULLVAL ;
+	    if ( kcor > KCORMAX_VALID ) { kcor = NULLVAL ; }
+	    if ( kcor < KCORMIN_VALID ) { kcor = NULLVAL ; }
 
 	    // 6/08/2009: check for nan 
 	    if ( isnan(kcor) ) {
@@ -2973,12 +2973,12 @@ int kcor_grid (void) {
 	      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
 	    }
 
-	    R4KCOR_GRID.VALUE[ikcor][i_av][i_z][i_epoch]    = (float)kcor ;
+	    R4KCOR_GRID.VALUE[ikcor][i_av][i_z][i_epoch] = (float)kcor ;
 
 	    // Feb 2007: store observer mags with array of MW E(B-V)
 	    if ( FLAG_MAGOBS > 0 ) {
 	      for ( i_ebv = 0; i_ebv <= MXMWEBV; i_ebv++ ) {
-		magtmp = *(magobs + i_ebv);
+		magtmp = magobs[i_ebv];
 		if ( isnan(magtmp) ) {
 		  sprintf(c1err,"magobs=%f for i_ebv=%d z=%6.3f T=%6.2f",
 			  magtmp, i_ebv, z, epoch );
@@ -3110,7 +3110,7 @@ void kcor_eval(int opt                // (I) K cor option ("E" or "N")
    *overlap    = NULLVAL ;
 
    for ( iebv=0; iebv <= MXMWEBV; iebv++ ) {
-     *(mag_obs + iebv)    = NULLVAL ;
+     mag_obs[iebv]        = NULLVAL ;
      flux_obs[iebv]       = 0.0 ;
    }
 
@@ -3207,7 +3207,7 @@ void kcor_eval(int opt                // (I) K cor option ("E" or "N")
 	 
 	 if ( FLAG_MAGOBS == 0 ) { continue ; }
 
-	 // get observed "flux"
+	 // get obsserved "flux"
 	 flux_converter( LAM, flux_sn_obs, &flux, &fcount ); 
 
 	 // get integration weight "wflux" for this filter
@@ -3246,9 +3246,9 @@ void kcor_eval(int opt                // (I) K cor option ("E" or "N")
       zp_dif        = zp_obs - zp_rest ;
 
       if ( tmp <= zero ) 
-	kcortmp = zero  ;
+	{ kcortmp = zero  ; }
       else
-      	kcortmp = +2.5 * log10( tmp ) + zp_dif ;
+      	{ kcortmp = +2.5 * log10( tmp ) + zp_dif ; }
 
 
       *kcor_value = kcortmp ;
@@ -3274,11 +3274,11 @@ void kcor_eval(int opt                // (I) K cor option ("E" or "N")
 
    for ( iebv=0 ; iebv <= MXMWEBV; iebv++ ) {
      if ( flux_obs[iebv] <= zero ||  filtsum_obs <= zero) {
-       *(mag_obs+iebv) = 9.0 ;
+       mag_obs[iebv] = 9.0 ;
      }
      else {
        tmp = flux_obs[iebv] / filtsum_obs ;
-       *(mag_obs+iebv) = -2.5 * log10 ( tmp ) + zp_obs ;
+       mag_obs[iebv] = -2.5 * log10 ( tmp ) + zp_obs ;
      }
    }
 
@@ -3286,8 +3286,9 @@ void kcor_eval(int opt                // (I) K cor option ("E" or "N")
    // compute overlap 
    arg = conv_sn_rest * conv_sn_obs ;
    tmp = sqrt ( fabs(arg) );
-   if ( tmp > 0.0 ) *overlap = conv_sn_ovp / tmp ;
+   if ( tmp > 0.0 ) { *overlap = conv_sn_ovp / tmp ; }
 
+   return;
 
 }  // end of kcor_eval function
 
@@ -3385,7 +3386,6 @@ double snflux8 ( double epoch, double lambda, double redshift, double av ) {
       return flux;
    }
 
-
    //   if ( av == 2. && epoch == -1888. && lambda == 3000.  )   idebug = 1;   
 
    // find "ilambda" bin for this "lambda"  
@@ -3471,7 +3471,7 @@ double snflux8 ( double epoch, double lambda, double redshift, double av ) {
      flux       *= warp ;
    }
 
-   if ( idebug == 1  )  printf("  Final SN flux = %e \n", flux );
+   if ( idebug == 1  )  { printf("  Final SN flux = %e \n", flux ); }
 
    return flux;
 
@@ -5068,6 +5068,17 @@ void wr_fits_MAGS(fitsfile *fp) {
 	  sprintf(c1err,"writing MAGOBS=%f (iav,iz,iday,ifilt=%d,%d,%d,%d)", 
 		  MAGOBS, iav, iz, iday,ifilt);
 	  wr_fits_errorCheck(c1err, istat) ;
+
+
+	  // xxxxxxxxxx
+	  if ( iday==-20 && iz==4 && ifilt==2) {
+	    printf(" xxx %s: ifilt=%2d  av=%6.3f  MAGOBS=%7.3f \n", 
+		   fnam, ifilt, av, MAGOBS);
+	    fflush(stdout);
+	  }
+	  //xxxxxxxxx
+
+
 	} // ifilt
 
 	// the MWXTSLP values

@@ -328,6 +328,11 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
     - reduce/remove pow calls to save CPU
     - rename CCMextinct -> GALextinct
 
+  Aug 4 2019 RK
+   + fix subtle bug by returning XT=0 only if AV=0, and not if AV<1E-9.
+     Recall that negative AV are used for warping spectra in kcor.c.
+     This bug caused all AV<0 to have same mag as AV=0.
+
  ***/
 
   int i, DO94  ;
@@ -339,7 +344,8 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
 
   XT = 0.0 ;
 
-  if ( AV <= 1.0E-9 )  {  return XT ; }
+  // xxx mark delete 8.04.2019  if ( AV <= 1.0E-9 )  {  return XT ; }
+  if ( AV == 0.0  )  {  return XT ; }
 
   // -----------------------------------------
   // check that opt is valid

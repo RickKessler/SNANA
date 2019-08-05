@@ -143,6 +143,12 @@
 #   + write SUCCESS or FAILURE in DONE_STAMP
 #   + replace FATAL_ERROR with FATAL_ERROR_STAMP to write   
 #     FAILURE in done-stamp.  
+#
+# Aug 4 2019:
+#   sed -i 's/.gz//g' $LIST_FILE --> sed -i 's/\.gz//g' $LIST_FILE
+#   to avoid remove _gz from filename. Seems that dot is a special char
+#   that needs a backslash.
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -3688,20 +3694,6 @@ sub combine_random_simjobs {
 	if ( $DO_SIMGEN_DUMP  ) { 
 	    &move_random_SIMGEN_DUMP($IVER,$SIMDIR_RAN,$VRAN);
 	}
-# xxxxxxxxxx mark delete xxxxxxxxxxxxxx
-#	    # move DUMP file to .DUMP_TEMP 
-#	    my $tmpDumpFile = "$SIMDIR_ALL/${VRAN}.${SUFFIX_DUMP_TEMP}" ;
-#	    qx(cd $SIMDIR_RAN ; mv *.DUMP $tmpDumpFile);	    
-	    # check for MODEL-dependent DUMP files needed later
-	    # for duplicate versions
-#	    for($m=0; $m<$NGENMODEL[$IVER]; $m++ ) {
-#		if ( $IVERSION_DUPLICATE_INVERSE[$IVER][$m] > 0 ) {
-#		    my $MM = "MODEL$m" ;
-#		    qx(cd $SIMDIR_RAN ; mv *.DUMP_$MM ${tmpDumpFile}_${MM} );
-#		}
-#	    }
-# xxxxxxxxxxxxxxxxxx end mark xxxxxxxxxxxxxxxx
-
     }  # end jobid
 
 
@@ -3725,7 +3717,7 @@ sub combine_random_simjobs {
 
     # if there are duplicates, remove .gz extensions from list file
     if ( $NMODEL_DUPL_TOT > 0 ) {
-	my $sedcmd = "sed -i 's/.gz//g' $LIST_FILE" ;
+	my $sedcmd = "sed -i 's/\.gz//g' $LIST_FILE" ;
 	qx($CD ; $sedcmd);
     }
 
@@ -3863,12 +3855,6 @@ sub make_symLinks_duplicate {
     my $CLASS_REAL   = $GENMODEL_CLASS[$iverReal][$mReal] ;
 
     # make symLink for each FITS file in this model class.
-
-#    print " xxx -------------------------------- \n" ;
-#    print " xxx SIMDIR_REAL = $SIMDIR_REAL \n";
-#    print " xxx SIMDIR_LINK = $SIMDIR_LINK \n";
-#    print " xxx iverLink=$iverLink,iverReal=$iverReal m=$m \n";
-#    print " xxx filePrefix = $filePrefix \n" ;
 
     my $cjob       = &get_jobidString($jobid) ; 
     my $fReal_HEAD = "${GENPREFIX}_${CLASS_REAL}-${cjob}" . "_HEAD.FITS.gz" ; 

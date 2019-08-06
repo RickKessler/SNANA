@@ -189,6 +189,10 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
   Jun 24 2018: add argument MODEL_EXTRAP to override
                 GENMODEL_EXTRAP_LATETIME in SALT2.INFO file
 
+  Aug 02 2019:
+    set SALT2_PREFIX_FILENAME to either salt2 (default) or salt3.
+    File name prefixes thus correspond to model name.
+
 ****************************************************************/
 
 int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
@@ -241,6 +245,11 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   }
   
 
+  // Aug 02 2019: set prefix for filenames to allow salt2 or salt3 prefix
+  sprintf(SALT2_PREFIX_FILENAME,"salt2"); // default
+  if ( strstr(version,"SALT3") != NULL ) 
+    { sprintf(SALT2_PREFIX_FILENAME,"salt3"); } 
+
   // set defaults for two surfaces (nominal SALT2)
   SEDMODEL.NSURFACE   = 2 ;
   SEDMODEL.FLUXSCALE  = X0SCALE_SALT2; 
@@ -292,7 +301,8 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   for ( ised = 0 ; ised < SEDMODEL.NSURFACE ; ised++ ) {
 
-    sprintf(tmpFile, "%s/salt2_template_%d.dat", SALT2_MODELPATH, ised );
+    sprintf(tmpFile, "%s/%s_template_%d.dat", 
+	    SALT2_MODELPATH, SALT2_PREFIX_FILENAME, ised );
 
     //  printf("  Read Template file: \n\t %s \n", tmpFile);
 
@@ -728,6 +738,7 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
   char
     tmpFile[200]
     ,sedcomment[80]
+    ,*prefix = SALT2_PREFIX_FILENAME
     ,fnam[] = "read_SALT2errmaps" ;
     ;
 
@@ -737,11 +748,11 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
   fflush(stdout);
 
   // hard-wire filenames for erro maps
-  sprintf(SALT2_ERRMAP_FILES[0], "salt2_lc_relative_variance_0.dat" );
-  sprintf(SALT2_ERRMAP_FILES[1], "salt2_lc_relative_variance_1.dat" );
-  sprintf(SALT2_ERRMAP_FILES[2], "salt2_lc_relative_covariance_01.dat" );
-  sprintf(SALT2_ERRMAP_FILES[3], "salt2_lc_dispersion_scaling.dat" );
-  sprintf(SALT2_ERRMAP_FILES[4], "salt2_color_dispersion.dat"  );
+  sprintf(SALT2_ERRMAP_FILES[0], "%s_lc_relative_variance_0.dat", prefix );
+  sprintf(SALT2_ERRMAP_FILES[1], "%s_lc_relative_variance_1.dat", prefix );
+  sprintf(SALT2_ERRMAP_FILES[2], "%s_lc_relative_covariance_01.dat", prefix );
+  sprintf(SALT2_ERRMAP_FILES[3], "%s_lc_dispersion_scaling.dat", prefix );
+  sprintf(SALT2_ERRMAP_FILES[4], "%s_color_dispersion.dat",      prefix );
 
   sprintf(SALT2_ERRMAP_COMMENT[0],  "VAR0" );
   sprintf(SALT2_ERRMAP_COMMENT[1],  "VAR1" );

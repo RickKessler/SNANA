@@ -365,13 +365,10 @@ void wr_snfitsio_init_head(void) {
     }
     if ( SNDATA.SIM_MODEL_INDEX  == MODEL_MLCS2k2 ) {
       wr_snfitsio_addCol( "1E", "SIM_DELTA"       , itype );
-      //  wr_snfitsio_addCol( "1E", "SIM_AV"          , itype );
-      //  wr_snfitsio_addCol( "1E", "SIM_RV"          , itype );
     }
     if ( SNDATA.SIM_MODEL_INDEX  == MODEL_SNOOPY ) {
-      wr_snfitsio_addCol( "1E", "SIM_DM15"        , itype );
-      // wr_snfitsio_addCol( "1E", "SIM_AV"          , itype );
-      // wr_snfitsio_addCol( "1E", "SIM_RV"          , itype );
+      wr_snfitsio_addCol( "1E", "SIM_STRETCH"       , itype );
+      // xxx mark delete  wr_snfitsio_addCol( "1E", "SIM_DM15", itype );
     }
 
     
@@ -1602,8 +1599,8 @@ void wr_snfitsio_update_head(void) {
 
   if ( SNDATA.SIM_MODEL_INDEX  == MODEL_SNOOPY ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_DM15 ;
-    wr_snfitsio_fillTable ( ptrColnum, "SIM_DM15", itype );
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_STRETCH ;
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRETCH", itype );
   }
 
 

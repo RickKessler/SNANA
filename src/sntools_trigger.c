@@ -270,7 +270,7 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
     if ( IREQUIRE ) {
       sprintf(c1err,"Could not open %s", file_local);
       sprintf(c2err,"%s",
-	      "Check 'SEARCHEFF_PIPELINE_FILE:' key in sim-input file");
+	      "Check 'SEARCHEFF_PIPELINE_EFF_FILE:' key in sim-input file");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
     }
     else { 
@@ -819,8 +819,8 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
 
 
   if ( ( fp = fopen(ptrFile_final, "rt") ) == NULL ) {
-    sprintf(c1err,"Could not open detection-logic file:");
-    sprintf(c2err,"%s", logicFile);
+    sprintf(c1err,"Could not open %s", logicFile);
+    sprintf(c2err,"Check SEARCHEFF_PIPELINE_LOGIC_FILE key in sim-input");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
 

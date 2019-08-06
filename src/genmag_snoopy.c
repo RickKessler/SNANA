@@ -21,8 +21,7 @@
 
 // ============ MANGLED FORTRAN FUNCTIONS =============
 
-int init_genmag_snoopy__( char *version, int *optmask, double *snoopyArgs, 
-			  char *filtlist) {
+int init_genmag_snoopy__( char *version, int *optmask, char *filtlist) {
   int istat;
   istat = init_genmag_snoopy ( version, *optmask, filtlist) ;
   return istat;

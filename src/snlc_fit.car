@@ -1119,6 +1119,9 @@ c Feb 1 2018: call ABORT_ON_CUTWIN_TREST only if OPT_PHOTO==1.
 c             Not needed for OPT_PHOTOZ=2.
 c
 c Jul 19 2019: overhaul arguments to INIT_GENMAG_SNOOPY
+c 
+c Aug 2 2019: pass full model name (including path) to INIT_GENMAG_SNOOPY,
+c             instead of passing only the model name without path
 c
 c -------------------------------------
       IMPLICIT NONE
@@ -1139,7 +1142,7 @@ c local var
 
       INTEGER 
      &   ipar, ipar2, istat, len1, len2, len3, len4, len5, LL,j
-     &  ,LEN_VERS, LEN_ROOT
+     &  ,LEN_VERS, LEN_NAME
 
 c variables for PARSE_FILTSTRING:
       INTEGER IAFILT(MXFILT_OBS), ifiltdef, ifiltr, NF
@@ -1152,9 +1155,7 @@ c variables for PARSE_FILTSTRING:
      &  ,cfilt_rest*(MXFILT_REST)
      &  ,cfilt_undefined*(MXFILT_ALL)
      &  ,covFile*(MXCHAR_FILENAME)
-     &  ,tmpFile*(MXCHAR_FILENAME)
-     &  ,tmpDir*(MXCHAR_PATH)
-     &  ,tmpname*(MXCHAR_VERSION)
+     &  ,tmpName*(MXCHAR_FILENAME)
      &  ,ctmp*4
      &  ,chis*80
 
@@ -1339,9 +1340,11 @@ c set FITMODEL_INDEX, FITMODEL_PATH and FITMODEL_VERSION
       CALL FITMODEL_INI()
 
       LEN_VERS = INDEX(FITMODEL_VERSION, ' ' ) - 1
-      LEN_ROOT = INDEX(FITMODEL_PATH, ' ' ) - 1
-      tmpName  = FITMODEL_VERSION(1:LEN_VERS) // char(0)
+      LEN_NAME = INDEX(FITMODEL_NAME,' ') - 1
 
+cc xxx mark delete      tmpName  = FITMODEL_VERSION(1:LEN_VERS) // char(0)
+      tmpName  = FITMODEL_NAME(1:LEN_NAME) // char(0)
+      
 c set rest-frame filter ranges.
       FILTLIST_MODEL = ''
       NFILT_MODEL    = 0
@@ -1358,7 +1361,7 @@ c set rest-frame filter ranges.
          RESTLAMBDA_MODEL(1) = 3000.0
          RESTLAMBDA_MODEL(2) = 9500.0        
 
-         ISTAT = INIT_GENMAG_STRETCH2(tmpName,CFILT_REST,LEN_ROOT,LEN2)
+         ISTAT = INIT_GENMAG_STRETCH2(tmpName,CFILT_REST,LEN_NAME,LEN2)
 
          if ( FITMODEL_INDEX .EQ. MODEL_STRETCH ) then
            PARNAME_STORE(IPAR_SHAPE) = 'STRETCH'
@@ -1444,7 +1447,7 @@ c depends on which IR filters are used.
          PARNAME_STORE(IPAR_SHAPE) = 'STRETCH'
          OPTMASK = 0
          ISTAT = INIT_GENMAG_SNOOPY(tmpName, OPTMASK,
-     &       FILTLIST_MODEL, LEN_ROOT, len2 )  ! return args
+     &       FILTLIST_MODEL, LEN_NAME, len2 )  ! return args
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_FIXMAG ) THEN
 

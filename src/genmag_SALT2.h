@@ -28,9 +28,9 @@ int NCALL_DBUG_SALT2 ;
 ***********************************************/
 
 char SALT2_MODELPATH[MXPATHLEN] ;
-// xxx mark delete char ENV_SALT2_MODELPATH[20] ;
 char SALT2_INFO_FILE[20]     ;
 char SALT2_VERSION[100];  // store version passed to init_genmag_SALT2
+char SALT2_PREFIX_FILENAME[20]; // e.g., "salt2", "salt3", etc ...
 
 double RVMW_SALT2 ;
 
@@ -84,8 +84,6 @@ struct INPUT_SALT2_INFO {
   double RESTLAM_FORCEZEROFLUX[2];
 
 
-
-
 } INPUT_SALT2_INFO ;
 
 
@@ -137,7 +135,7 @@ char SALT2_ERRMAP_COMMENT[NERRMAP][40] ;
 // All tables are allocated dynamically when the size is known.
 
 
-struct SALT2_TALBE {
+struct SALT2_TABLE {
   double **COLORLAW   ;   // color law table [color][lambda]
   double **XTMW_FRAC  ;   // XTMW table [ifilt][lambda]
   double **SEDFLUX[2] ;   // SED flux vs. Trest and lambda [iday][ilam]

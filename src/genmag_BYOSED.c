@@ -449,8 +449,8 @@ void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
   *NLAM_SED = 0 ; // init output
 
 #ifdef USE_PYTHON
-  PyObject *pmeth, *pargs, *pNLAM, *pLAM, *pFLUX, *plammeth, *pnlammeth;
-  int NLAM, ilam;
+  PyObject *pmeth, *pargs, *pargs2, *pNLAM, *pLAM, *pFLUX, *plammeth, *pnlammeth;
+  int NLAM, ilam, ihost;
   PyListObject *arrLAM, *arrFLUX;
   PyObject *pylamitem, *pyfluxitem;
   //int numpy_initialized =  init_numpy();
@@ -459,7 +459,17 @@ void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
   pmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_BYOSED");
   plammeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_LAM");
   pnlammeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_NLAM");
-  pargs  = Py_BuildValue(pyFORMAT_STRING_HOSTPAR,Trest,MXLAM,EXTERNAL_ID,NEWEVT_FLAG,HOSTPAR_LIST);
+
+  pargs = PyTuple_New(5);
+  pargs2 = PyTuple_New(sizeof(HOSTPAR_LIST));
+  PyTuple_SetItem(pargs,0,PyFloat_FromDouble(Trest));
+  PyTuple_SetItem(pargs,1,PyFloat_FromDouble(MXLAM));
+  PyTuple_SetItem(pargs,2,PyFloat_FromDouble(EXTERNAL_ID));
+  PyTuple_SetItem(pargs,3,PyFloat_FromDouble(NEWEVT_FLAG));
+  for(ihost=0; ihost < sizeof(HOSTPAR_LIST); ihost++ ){
+    PyTuple_SetItem(pargs2,ihost,PyFloat_FromDouble(HOSTPAR_LIST[ihost]));
+  }
+  PyTuple_SetItem(pargs,4,pargs2);
 
   pNLAM  = PyEval_CallObject(pnlammeth, NULL);
   pLAM  = PyEval_CallObject(plammeth, NULL);
@@ -490,6 +500,7 @@ void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
   Py_DECREF(arrLAM);
   Py_DECREF(arrFLUX);
   Py_DECREF(pargs);
+  Py_DECREF(pargs2);
   //Py_DECREF(pylamitem);
   //Py_DECREF(pyfluxitem);
 

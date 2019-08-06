@@ -4647,24 +4647,22 @@ int  get_1DINDEX(int ID, int NDIM, int *indx ) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
-  // xxx mark delete  INDEX_1D = 1;
+
   INDEX_1D = 0;
 
   for ( i=0; i < NDIM; i++ ) {   
     offset   = OFFSET_1DINDEX[ID][i];
-
-    /* xxx mark delete xxxx
-    index_1d = *(indx + i -1);  // index in this dimension
-    INDEX_1D += (index_1d - 1 ) * offset ; // global 1D index
-    xxxx */
-
     index_1d =  indx[i] ;       // index in this dimension
     INDEX_1D += (index_1d ) * offset ; // global 1D index
 
+    /*
+    printf(" xxx %s: i=%d index_1d=%3d  INDEX_1D=%6d\n",
+	   fnam, i, index_1d, INDEX_1D); fflush(stdout);
+    */
+
     // make sure that index does not exceed NPT
-    // xxx mark delete     NPT =    NPT_PERDIM_1DINDEX[ID][i-1] ;
     NPT =    NPT_PERDIM_1DINDEX[ID][i] ;
-    if ( index_1d > NPT ) {
+    if ( index_1d >= NPT ) {
       sprintf(c1err,"index_1d=%d exceeds NPT=%d (ID=%d)", 
 	      index_1d, NPT, ID );
       sprintf(c2err,"for idim = %d of %d", i, NDIM) ;
@@ -4692,6 +4690,7 @@ void init_1DINDEX(int ID, int NDIM, int *NPT_PERDIM ) {
   // Feb 12 2018: refactor with indices starting at zero
   //
 
+  int LDMP = 0 ;
   int i, NPT, NPT_LAST, OFFSET_LAST, OFFSET ;
   char fnam[] = "init_1DINDEX" ;
 
@@ -4709,20 +4708,6 @@ void init_1DINDEX(int ID, int NDIM, int *NPT_PERDIM ) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
-  /* xxxx
-  if ( OFFSET_1DINDEX[ID][0] != 0 ) {
-    sprintf(c1err,"ID=%d already used: try a different ID", ID );
-    sprintf(c2err,"%s", "Used ID-LIST: ");
-    for( IDTMP=1; IDTMP <= MXMAP_1DINDEX; IDTMP++ ) {
-      if ( OFFSET_1DINDEX[IDTMP][0] == 1 ) 
-	{ sprintf(c2err,"%s %d", c2err, IDTMP ); }
-    }
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-  }
-  xxxx */ 
-
-  // xxx mark delete  OFFSET_1DINDEX[ID][0] = 1 ; // set use-flag
-
 
   for ( i=0; i < NDIM; i++ ) {
 
@@ -4731,21 +4716,23 @@ void init_1DINDEX(int ID, int NDIM, int *NPT_PERDIM ) {
     OFFSET_1DINDEX[ID][i] = OFFSET  = 0 ;
 
     if ( i > 0 ) {
-      NPT_LAST = NPT_PERDIM[i - 1];  
+      NPT_LAST    = NPT_PERDIM[i - 1];  
       OFFSET_LAST = OFFSET_1DINDEX[ID][i-1] ; 
-      OFFSET = OFFSET_LAST * NPT_LAST ;
+      OFFSET      = OFFSET_LAST * NPT_LAST ;
       OFFSET_1DINDEX[ID][i] = OFFSET;
     }
     else {
       OFFSET_1DINDEX[ID][i] = OFFSET  = 1 ;
     }
       
-    /* 
-    printf(" xxxx OFFSET_1DINDEX[ID=%d][ivar=%2d] = %7d  "
-	   "NPT[0,-1] == %3d,%3d\n", 
-	   ID, i, OFFSET, NPT, NPT_LAST );
-    */
-  }
+    
+    if ( LDMP ) {
+      printf(" xxxx OFFSET_1DINDEX[ID=%d][ivar=%2d] = %7d   "
+	     " NPT_PERDIM=%d\n",
+	     ID, i, OFFSET, NPT_PERDIM[i] );
+    }
+
+  } // end NDIM
 
 
 } // end of init_1DINDEX
@@ -7472,12 +7459,10 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
     if ( SNDATA.SIM_SALT2alpha != NULLFLOAT ) {
       fptr = &SNDATA.SIM_SALT2alpha ;
       fprintf(fp, "SIM_SALT2alpha:  %7.3f   \n", *fptr ) ;
-    }
-    if ( SNDATA.SIM_SALT2beta != NULLFLOAT ) {
+
       fptr = &SNDATA.SIM_SALT2beta ;
       fprintf(fp, "SIM_SALT2beta:   %7.3f   \n", *fptr ) ;
-    }
-    if ( SNDATA.SIM_SALT2gammaDM != NULLFLOAT ) {
+
       fptr = &SNDATA.SIM_SALT2gammaDM ; 
       fprintf(fp, "SIM_SALT2gammaDM: %6.3f  \n", *fptr ) ; 
     }

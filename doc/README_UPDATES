@@ -17256,4 +17256,8 @@
      fits with k-correctios. Amazingly, SNANA_CodeTest shows
      no discrepancies after fix.
  
+  SALT2mu.c: 
+    + remove obsolete abort trap on >200 characters for command-line
+      override.
+
 END: 

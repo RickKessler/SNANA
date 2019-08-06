@@ -11979,9 +11979,12 @@ void override_parFile(int argc, char **argv) {
   // Jan 15 2018: bug fix to work with CUTWIN; see i+=3
   // May 15 2019: increase item & line size to allow for
   //              comma-separated simfile_biascor
+  //
+  // Aug 6 2019: item[MXCHAR_LINE] -> *item, and remove obsolete
+  //             abort on more than 200 characters.
 
   int  ntmp, i, found ;
-  char item[MXCHAR_LINE], tmpLine[256];
+  char *item, tmpLine[256];
   char fnam[] = "override_parFile";
 
   // ---------- BEGIN ------------
@@ -11991,6 +11994,10 @@ void override_parFile(int argc, char **argv) {
   uniqueOverlap("INIT","SALT2mu command-line override");
 
   for (i=2; i < argc; ++i) {
+
+    item = argv[i];
+
+    /* xxxxxxxxx mark delete Aug 6 2019 xxxxxxxxxxxxx
     strncpy(item,argv[i],255);
     if (strlen(item) > 200) {
       printf("\n FATAL ERROR in %s: \n", fnam );
@@ -12000,6 +12007,8 @@ void override_parFile(int argc, char **argv) {
       fflush(stdout);
       exit(2);
     }
+    xxxxxxxxxxxx end mark xxxxxxxxxxxxx */
+
     ntmp++;
 
     //  if ( strcmp(item,"CUTWIN") == 0 ) {

@@ -154,7 +154,7 @@ void init_stronglens(char *MODEL_FILE) {
     sprintf(c2err,"Check %s", MODEL_FILE);
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err);
   }
-
+ 
   i=0; // represents the library entry
 
   while( fgets(cline, 200, fp)  != NULL ){
@@ -166,14 +166,14 @@ void init_stronglens(char *MODEL_FILE) {
       if ( strcmp(tmpWord,"LENS:") != 0 ) { continue ; } // RK
 
       if ( NWD-1 != NVARS )  { // RK
-	sprintf(c1err,"Found %d strings after LENS: key",NWD-1);
+	sprintf(c1err,"Found %i strings after LENS: key",NWD-1);
     	sprintf(c2err,"but expected %d strings", NVARS);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
       }
   
       NIMG = -9;
 
-      while(iwd<NVARS ) {
+      while(iwd<NVARS+1) {
       	get_PARSE_WORD(0,iwd,tmpWord);
 
       	if ( iwd == INPUTS_STRONGLENS.ICOL_LENSID ) 
@@ -243,7 +243,7 @@ void init_stronglens(char *MODEL_FILE) {
         }
       	
         else if ( iwd == INPUTS_STRONGLENS.ICOL_DELAY )  { 
-          splitString(tmpWord,comma,MXIMG_STRONGLENS,&Nsplit,cptr);
+	  splitString(tmpWord,comma,MXIMG_STRONGLENS,&Nsplit,cptr);
           if ( NIMG < 0 )  { 
              sprintf(c1err,"NIMG must come before variables with multiple images (e.g. MAG, DELAY, etc.)");
              sprintf(c2err,"in %s", MODEL_FILE);
@@ -401,8 +401,8 @@ void get_stronglens(double zSN, double *hostpar,
 	   IDLENS_local, zLENS_local );
 
     for(img=0 ; img < NIMG_local; img++ ) {
-      printf(" xxx output image-%d: mu=%.3f  X,Y-offset=%f,%f\n",
-	     img, MAG[img], XIMG[img], YIMG[img] );
+      printf(" xxx output image-%d: mu=%.3f deltaT=%.2f  X,Y-offset=%f,%f\n",
+	     img, MAG[img],DELAY[img], XIMG[img], YIMG[img] );
     }
     printf(" xxx \n");    fflush(stdout);
   }

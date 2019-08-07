@@ -3,6 +3,8 @@
 
   Model multiple images strong lensed images for SN.
 
+  Aug 7 2019 RK - pass DUMPFLAG argument to get_stronglens
+
  ***************************************/
 #include <stdio.h>
 #include <stdlib.h>
@@ -109,7 +111,7 @@ void init_stronglens(char *MODEL_FILE) {
   char VARLIST[NVARS][40];   
   for(k=0;k<NVARS+1;++k){
     get_PARSE_WORD(0,k,VARLIST[k]);
-    printf(" xxx %s: found VARLIST[%d] = '%s' \n", fnam, k, VARLIST[k]);
+    //  printf(" xxx %s: found VARLIST[%d] = '%s' \n", fnam, k, VARLIST[k]);
 
     if ( strcmp(VARLIST[k],INPUTS_STRONGLENS.VARNAME_LENSID) == 0 ) 
       { INPUTS_STRONGLENS.ICOL_LENSID = k; }
@@ -317,13 +319,14 @@ void malloc_stronglens(int NLENS) {
 } // end malloc_stronglens
 
 // ==========================================
-void get_stronglens(double zSN, double *hostpar, 
+void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
 		    int *IDLENS, double *ZLENS, int *blend_flag, int *NIMG, 
 		    double *DELAY, double *MAG, double *XIMG, double *YIMG) {
 
   // Inputs:
   //   zSN       redshift of SN
   //   hostpar   placeholder for host properties (future upgrade?)
+  //   DUMPFLAG  dump flag (Aug 7 2019, RK)
   //
   // Ouptuts:
   //  IDLENS      integer identifier for galaxy lens
@@ -393,8 +396,9 @@ void get_stronglens(double zSN, double *hostpar,
   *ZLENS  = zLENS_local ;
   *NIMG = NIMG_local;
 
-  int  LDMP = 1 ;
-  if ( LDMP ) {
+
+  if ( DUMPFLAG ) {
+    printf(" xxx \n");
     printf(" xxx ------ %s DUMP -------- \n", fnam );
     printf(" xxx input zSN = %.3f \n", zSN);
     printf(" xxx output IDLENS=%d at zLENS=%.3f \n", 

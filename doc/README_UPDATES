@@ -17238,6 +17238,15 @@
 
    snlc_sim, snana.car, sntools_fitsio.c:
      + fix snoopy sim to output SIM_STRETCH instead of SIM_DM15.
+     + few more strong lens fixes. 
+     + SL PROBLEM: NGENTOT_LC can clip some SL light curves for last event.
+       e.g., NGENTOT_LC=10, and at 9'th event there are 3 lensed images;
+       only 1 of 3 images is reported because ilc==11 & 12 are not
+       generated.
+
+
+   sntools_stronglens.c[h]
+     + more development.
 
    MWgaldust.c:   
      + in GALextinct(), fix nasty bug where it returned XT=0 
@@ -17256,4 +17265,8 @@
      fits with k-correctios. Amazingly, SNANA_CodeTest shows
      no discrepancies after fix.
  
+  SALT2mu.c: 
+    + remove obsolete abort trap on >200 characters for command-line
+      override.
+
 END: 

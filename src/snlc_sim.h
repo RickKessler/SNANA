@@ -790,6 +790,7 @@ struct GENLC {
 
   double DLMU;               // true distMod = 5.0 * log10(DL/10pc),
   double LENSDMU;            // weak lensing DMU (Apr 2017)
+  double SL_MAGSHIFT;        // magshift from strong lens magnification
 
   double PEAKMJD;
   int    ISOURCE_PEAKMJD;       // either RANDOM or read from SIMLIB
@@ -1056,7 +1057,6 @@ struct GENLC {
   int   TEMPLATE_INDEX ;    // template index for NONA1SED, SIMSED, LCLIB
 
   GENLC_NON1ASED_DEF NON1ASED ;  // Mar 24 2016
-  
 
   // spectro and phot tags
   int METHOD_TYPE ;    // SPEC or PHOT 
@@ -1082,7 +1082,7 @@ struct GENSL {
   int IMGNUM;          // image-num being processed
   int IDLENS; 
   int BLEND_FLAG;
-  double zLENS;
+  double zSN, zLENS;
   double PEAKMJD_noSL;    // undelayed PEAKMJD
   double RA_noSL, DEC_noSL;
   double MJDMIN, MJDMAX;  // used for SIMLIB read
@@ -1591,7 +1591,7 @@ void   genperfect_override(void);
 void   gen_event_driver(int ilc);    // generate RA, DEC, Z, PEAKMJD, etc.
 void   gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
 			char *REJECT_STAGE );
-void   gen_event_stronglens(int istage);
+void   gen_event_stronglens(int ilc, int istage);
 void   gen_filtmap(int ilc);  // generate filter-maps
 void   gen_modelPar(int ilc);     // generate stretch or delta or dm15 ...
 void   gen_modelPar_SALT2(void); 

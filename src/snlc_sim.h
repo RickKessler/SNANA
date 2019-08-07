@@ -790,6 +790,7 @@ struct GENLC {
 
   double DLMU;               // true distMod = 5.0 * log10(DL/10pc),
   double LENSDMU;            // weak lensing DMU (Apr 2017)
+  double SL_MAGSHIFT;        // magshift from strong lens magnification
 
   double PEAKMJD;
   int    ISOURCE_PEAKMJD;       // either RANDOM or read from SIMLIB
@@ -1056,7 +1057,6 @@ struct GENLC {
   int   TEMPLATE_INDEX ;    // template index for NONA1SED, SIMSED, LCLIB
 
   GENLC_NON1ASED_DEF NON1ASED ;  // Mar 24 2016
-  
 
   // spectro and phot tags
   int METHOD_TYPE ;    // SPEC or PHOT 

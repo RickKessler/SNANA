@@ -2253,7 +2253,60 @@ Users should examine and validate the distribution of
 \subsubsection{Strong Gravitational Lensing}
 \label{sss:stronglens}
 
-Coming soon ...
+\noindent NOT READY ...
+\bigskip
+
+Strong lensing is simulated by including a library of lenses with
+sim-input 
+%
+\begin{verbatim}
+      STRONGLENS_FILE:  <fileName>
+\end{verbatim}
+%
+and the library contents are as follows:
+%
+\begin{verbatim}
+RESOLVED: 1  
+VARNAMES: LENSID NIMG ZLENS ZSRC     XIMG         YIMG       MAG      DELAY
+LENS:     101    2    0.286 0.68   0.71,+0.02  -0.15,-0.02  0.1,2.2  1.8,5.2
+LENS:     102    2    0.328 0.87  -2.85,-0.12  -1.01,+0.08  0.2,2.8  2.2,6.4
+LENS:     103    3    0.966 3.39  -.2,-.3,.4   -0.1,-.2,.7  .8,.3,2.  4,2,3
+\end{verbatim}
+%
+where ...
+
+Simulated data files include {\tt SIM\_STRONGLENS\_XXX} variables, 
+where XXX includes
+\begin{verbatim}
+    ID z DELAY XIMG YIMG MAGSHIFT NIMG IMGNUM
+\end{verbatim}
+%
+For resolved light curves, each light curve has a unique CID.
+{\tt SIM\_STRONGLENS\_ID} has the same integer value for
+lensed light curves from the same event, and the redshifts
+are also the same.
+For unresolved light curves ... TBD ...
+
+The {\tt SIMGEN\_DUMP} list can include {\tt STRONGLENS\_MAGSHIFT}
+(or {\tt SL\_MAGSHIFT}).
+
+If the number of light curves from a lens exceeds {\tt NGENTOT\_LC},
+then additional light curves are generated so that all lensed
+events are included. For example, suppose {\tt NGENTOT\_LC} is 100,
+and on the 99th event there are 4 lensed events. The simulation
+will generate 102 light curves, not 100, in order to include
+all of the lensed events for the last SN.
+
+Beware of {\tt GENRANGE\_PEAKMJD} clipping events. For example,
+a common debugging feature is to set {\tt GENRANGE\_PEAKMJD} to 
+a delta function (e.g., {\tt MJD0}). 
+For strong lenses, however, the time delays will move each generated 
+{\tt PEAKMJD} away from the generated {\tt MJD0} value.
+Therefore, zero events would be generated unless some of the 
+time delays are zero. With finite range for {\tt GENRANGE\_PEAKMJD},
+keep in mind that the time delays will push events outside the
+generation range.
+
 
 % ------------------------------------
    \clearpage

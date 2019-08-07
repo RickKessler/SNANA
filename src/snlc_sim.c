@@ -483,27 +483,13 @@ void simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
 // *************************
 int LUPDGEN(int N) {
-
   // May 27, 2009
   // return 1 to make screen-update
   // Apr 26 2017: float -> double to handle very large N
   // Jun 25 2019: use % instead of fmod.
-
-
   // ------------- BEGIN ---------------
-
   if ( N == 1   ) { return(1); }
-
   if ( (N % INPUTS.NGEN_SCREEN_UPDATE)== 0 ) { return(1); }
-
-  /* xxxxxxx mark delete Jun 25 2019 xxxxxxxx
-  double XN, XNUPD;
-  XN    = (double)N ; 
-  XNUPD = (double)INPUTS.NGEN_SCREEN_UPDATE ;
-  if ( fmod( XN, XNUPD ) == 0 ) return 1 ;
-  xxxxxxxxxxxx */
-
-
   return 0;
 }
 
@@ -9682,7 +9668,7 @@ void gen_event_driver(int ilc) {
     GENLC.REDSHIFT_CMB = gen_redshift_cmb();
 
     // check for strong lens multiple images before reading SIMLIB
-    // so that MJDRANGE to read is based on all images
+    // so that SIMLIB-MJDRANGE to read is based on all images
     if ( INPUTS_STRONGLENS.USE_FLAG ) {
       gen_event_stronglens(ilc,1); 
       if ( GENSL.REPEAT_FLAG ) { return; }
@@ -9930,14 +9916,14 @@ void gen_event_stronglens(int ilc, int istage) {
   double TRESTMAX  = INPUTS.GENRANGE_TREST[1];
   int    MEMD      = MXIMG_STRONGLENS * sizeof(double);
   double RAD       = RADIAN;
-  int    LDMP      = 1 ; 
+  int    LDMP      = (ilc<10) ; 
 
   double zLENS, zSN, z1, hostpar[10];
   double PEAKMJD, tdelay_min=1.0E9, tdelay_max=-1.0E9;
   double tdelay=0.0,  magnif=0.0, magshift=0.0;
   double XIMG=0.0, YIMG=0.0;
   double cosDEC, ANGSEP_TRUE ;
-  int    NEXTLENS=0, IDLENS=0, blend_flag, img ;
+  int    NEXTLENS=0, IDLENS=0, blend_flag, img, NGEN_MIN ;
   char fnam[] = "gen_event_stronglens";
 
   // ------------- BEGIN ------------------
@@ -10032,6 +10018,15 @@ void gen_event_stronglens(int ilc, int istage) {
     GENSL.PEAKMJD_noSL = PEAKMJD ;
     GENSL.MJDMIN       = PEAKMJD + z1*TRESTMIN + tdelay_min - 0.1;
     GENSL.MJDMAX       = PEAKMJD + z1*TRESTMAX + tdelay_max + 0.1;
+
+    // check if NGEN needs to be increased to generate all of the lenses.
+    // This affects only the last event.
+    // Beware that actual number of generated events may exceed
+    // requested NGENTOT_LC by a few.
+    NGEN_MIN = ilc + GENSL.NIMG - 1 ;
+    if ( NGEN_MIN > INPUTS.NGEN && GENSL.INIT_FLAG != 777 ) 
+      { INPUTS.NGEN = NGEN_MIN; GENSL.INIT_FLAG=777; }
+
   }
 
   //  - - - - - - - - - - - - - - - -
@@ -10042,9 +10037,10 @@ void gen_event_stronglens(int ilc, int istage) {
   GENLC.PEAKMJD = PEAKMJD ;
 
   // convert magnifation to magshift
-  magnif = GENSL.MAGNIF_LIST[IMGNUM];
+  magnif   = GENSL.MAGNIF_LIST[IMGNUM];
   magshift = -2.5*log10(magnif);
   GENSL.MAGSHIFT_LIST[IMGNUM] = magshift ;
+  GENLC.SL_MAGSHIFT = magshift; // for simgen-dump
 
   // restore same SN redshift 
   zSN = GENSL.zSN;
@@ -10064,6 +10060,8 @@ void gen_event_stronglens(int ilc, int istage) {
  DONE:
 
 
+
+  // - - - - - - - - 
   if ( LDMP ) {
 
     if ( istage == 1 && IMGNUM == 0 ) {
@@ -11722,10 +11720,21 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"LENSDMU") ;
+  sprintf(cptr,"LENSDMU") ; // from weak lensing
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.LENSDMU ;
   NVAR_SIMGEN_DUMP++ ;
 
+  // strong lens magnification .xyz
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"SL_MAGSHIFT") ; // from strong lens
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SL_MAGSHIFT ;
+  NVAR_SIMGEN_DUMP++ ;
+  // ... or ...
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"STRONGLENS_MAGSHIFT") ; // from strong lens
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SL_MAGSHIFT ;
+  NVAR_SIMGEN_DUMP++ ;
+  
   // host Z stuff
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALID") ;
@@ -12515,7 +12524,6 @@ double gen_peakmjd(void) {
   }
 
   PKMJD = FlatRan (1,INPUTS.GENRANGE_PEAKMJD );
-
 
   // check for MJD-ranges to skip
   for ( i=0; i < NSKIP_RANGE ; i++ ) {

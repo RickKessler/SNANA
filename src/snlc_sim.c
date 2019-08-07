@@ -9684,8 +9684,8 @@ void gen_event_driver(int ilc) {
     // check for strong lens multiple images before reading SIMLIB
     // so that MJDRANGE to read is based on all images
     if ( INPUTS_STRONGLENS.USE_FLAG ) {
-      gen_event_stronglens(1); 
-      if ( GENSL.REPEAT_FLAG ) { GENLC.CID=GENLC.CIDOFF + ilc ; return; }
+      gen_event_stronglens(ilc,1); 
+      if ( GENSL.REPEAT_FLAG ) { return; }
     }
 
     // read entry from libray after generated PEAKMJD and redshift ;
@@ -9752,8 +9752,7 @@ void gen_event_driver(int ilc) {
     GENLC.GENMAG_OFF_GLOBAL += (double)INPUTS.GENMAG_OFF_GLOBAL
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENMAG_OFF_GLOBAL");
 
-
-    gen_event_stronglens(2);
+    gen_event_stronglens(ilc,2);
 
   } 
 
@@ -9909,13 +9908,15 @@ void override_modelPar_from_SNHOST(void) {
 
 
 // *******************************************
-void gen_event_stronglens(int istage) {
+void gen_event_stronglens(int ilc, int istage) {
 
   // Created July 2019 by R.Kessler
   // Generate multiple SL images, each with
   // time delay, magnification, angle shift.
   // 
   // Input :
+  //  ilc  :  internal LC index used to set CID
+  //
   //  istage=1 --> PEAKMJD and redshift are generated; 
   //               SIMLIB not read, and thus RA,DEC are not known.
   //
@@ -9925,25 +9926,27 @@ void gen_event_stronglens(int istage) {
   int    INIT_FLAG = GENSL.INIT_FLAG;
   int    NIMG      = GENSL.NIMG;
   int    IMGNUM    = GENSL.IMGNUM;
-  double zSN       = GENLC.REDSHIFT_CMB;
-  double z1        = 1.0+zSN;
   double TRESTMIN  = INPUTS.GENRANGE_TREST[0];
   double TRESTMAX  = INPUTS.GENRANGE_TREST[1];
   int    MEMD      = MXIMG_STRONGLENS * sizeof(double);
   double RAD       = RADIAN;
+  int    LDMP      = 1 ; 
 
-  double zLENS, hostpar[10];
+  double zLENS, zSN, z1, hostpar[10];
   double PEAKMJD, tdelay_min=1.0E9, tdelay_max=-1.0E9;
   double tdelay=0.0,  magnif=0.0, magshift=0.0;
   double XIMG=0.0, YIMG=0.0;
-  double cosDEC ;
-  int    NEXTLENS, IDLENS, blend_flag, img, LDMP ;
+  double cosDEC, ANGSEP_TRUE ;
+  int    NEXTLENS=0, IDLENS=0, blend_flag, img ;
   char fnam[] = "gen_event_stronglens";
 
   // ------------- BEGIN ------------------
 
+  
   GENSL.REPEAT_FLAG  =  0 ;
   if ( !INPUTS_STRONGLENS.USE_FLAG ) { return; }
+
+  GENLC.CID = GENLC.CIDOFF + ilc ; 
 
   // ------------------
   if ( INIT_FLAG == 0 ) {
@@ -9955,6 +9958,17 @@ void gen_event_stronglens(int istage) {
     GENSL.INIT_FLAG     = 1;
   }
 
+  if ( INPUTS.USE_SIMLIB_REDSHIFT ) {
+    sprintf(c1err,"Cannot use USE_SIMLIB_REDSHIFT option with strong lens");
+    sprintf(c2err,"Check sim-input file");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  if ( INPUTS.USE_SIMLIB_PEAKMJD ) {
+    sprintf(c1err,"Cannot use USE_SIMLIB_PEAKMJD option with strong lens");
+    sprintf(c2err,"Check sim-input file");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
 
   // -----------------------
   if ( istage == 2 ) {
@@ -9969,14 +9983,6 @@ void gen_event_stronglens(int istage) {
     cosDEC        = cos(RAD*GENSL.DEC_noSL) ;
     GENLC.RA      = GENSL.RA_noSL  + (XIMG/3600.0)/cosDEC ;
     GENLC.DEC     = GENSL.DEC_noSL + (YIMG/3600.0) ;
-
-    /*  this anglSep check of off by ~E-3 arcSec, so something isn't quite right
-	double ANGSEP_CHECK;
-    ANGSEP_CHECK = angSep(GENLC.RA, GENLC.DEC, 
-			  GENSL.RA_noSL, GENSL.DEC_noSL, (double)3600.0 );
-    printf(" xxx %s: angsep(input,check) = %f, %f \n",
-	   fnam, ANGSEP, ANGSEP_CHECK) ;
-    */
 
     if ( fabs(GENLC.RA) > 400.0 || fabs(GENLC.DEC) > 400.0 ) {
       sprintf(c1err,"Insane RA,DEC = %f, %f", GENLC.RA, GENLC.DEC);
@@ -9994,13 +10000,18 @@ void gen_event_stronglens(int istage) {
   NEXTLENS = ( IMGNUM == NIMG-1 );
 
   if ( NEXTLENS ) {
-    get_stronglens(zSN, hostpar,   // <== inputs
+
+    zSN       = GENLC.REDSHIFT_CMB;
+    z1        = 1.0 + zSN;
+
+    get_stronglens(zSN, hostpar, LDMP,  // <== inputs
 		   &IDLENS, &zLENS, &blend_flag, // <== returned
 		   &GENSL.NIMG,         // <== returned
 		   GENSL.TDELAY_LIST, GENSL.MAGNIF_LIST, 
 		   GENSL.XIMG_LIST, GENSL.YIMG_LIST );
     
     GENSL.IDLENS       = IDLENS;
+    GENSL.zSN          = zSN ;
     GENSL.zLENS        = zLENS;
     GENSL.BLEND_FLAG   = blend_flag ;
     GENSL.IMGNUM       = -1;
@@ -10021,8 +10032,6 @@ void gen_event_stronglens(int istage) {
     GENSL.PEAKMJD_noSL = PEAKMJD ;
     GENSL.MJDMIN       = PEAKMJD + z1*TRESTMIN + tdelay_min - 0.1;
     GENSL.MJDMAX       = PEAKMJD + z1*TRESTMAX + tdelay_max + 0.1;
-
-
   }
 
   //  - - - - - - - - - - - - - - - -
@@ -10037,6 +10046,10 @@ void gen_event_stronglens(int istage) {
   magshift = -2.5*log10(magnif);
   GENSL.MAGSHIFT_LIST[IMGNUM] = magshift ;
 
+  // restore same SN redshift 
+  zSN = GENSL.zSN;
+  GENLC.REDSHIFT_CMB = GENSL.zSN;
+
   // set REPEAT flag for other sim functions
   GENSL.REPEAT_FLAG  = ( GENSL.IMGNUM > 0 ) ;
 
@@ -10050,26 +10063,47 @@ void gen_event_stronglens(int istage) {
 
  DONE:
 
-  LDMP = (istage == -1 );
-  if ( LDMP ) {
-    printf(" xxx ------------ %s DUMP CID=%d ------------- \n", 
-	   fnam, GENLC.CID );
-    printf(" xxx NEXT=%d  REPEAT=%d  IMGNUM=%d of %d  zSN=%.3f \n",
-	   NEXTLENS, GENSL.REPEAT_FLAG, IMGNUM, GENSL.NIMG, zSN );
-    printf(" xxx PEAKMJD_noSL=%.2f, PEAKMJD=%.2f  TDELAY=%.2f \n",
-	   GENSL.PEAKMJD_noSL, GENLC.PEAKMJD, tdelay);
 
-    if ( NEXTLENS ) {
-      printf(" xxx tdelay[min,max] = %.2f to %.2f \n", tdelay_min, tdelay_max);
-      printf(" xxx PEAKMJD[min,max] = %.3f to %.3f \n",
-	     GENSL.MJDMIN, GENSL.MJDMAX );    
+  if ( LDMP ) {
+
+    if ( istage == 1 && IMGNUM == 0 ) {
+      printf(" xxx ========================================"
+	     "=============================== \n");
     }
+
+    printf(" xxx ------------ %s DUMP CID=%d istage=%d ------------- \n", 
+	   fnam, GENLC.CID, istage );
+    if ( istage == 1 ) {
+       printf(" xxx NEXTLENS=%d  REPEAT=%d  IMGNUM=%d of %d  zSN=%.4f \n",
+	      NEXTLENS, GENSL.REPEAT_FLAG, IMGNUM, GENSL.NIMG, zSN );
+       printf(" xxx PEAKMJD_noSL=%.2f, PEAKMJD=%.2f  TDELAY=%.2f \n",
+	      GENSL.PEAKMJD_noSL, GENLC.PEAKMJD, tdelay);
+       if ( IMGNUM == 0 ) {
+	 printf(" xxx PEAKMJD[min,max] = %.3f to %.3f \n",
+		GENSL.MJDMIN, GENSL.MJDMAX );    
+	 printf(" xxx tdelay[min,max] = %.2f to %.2f \n", 
+		tdelay_min, tdelay_max);
+       }
+    }
+    else {
+      printf(" xxx RA: %.5f -> %.5f deg ", GENSL.RA_noSL, GENLC.RA);
+      printf("   DEC: %.5f -> %.5f deg \n", GENSL.DEC_noSL, GENLC.DEC);
+
+      ANGSEP_TRUE = angSep(GENLC.RA, GENLC.DEC, 
+			   GENSL.RA_noSL, GENSL.DEC_noSL, (double)3600.0 );
+      printf(" xxx XIMG,YIMG = %.3f, %.3f  ANGSEP=%.3f arcsec \n",
+	     XIMG, YIMG, ANGSEP_TRUE );
+
+    }
+
     fflush(stdout);
   }
 
   return ;
 
 } // end gen_event_stronglens
+
+
 
 // *******************************************
 void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,

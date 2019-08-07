@@ -1082,7 +1082,7 @@ struct GENSL {
   int IMGNUM;          // image-num being processed
   int IDLENS; 
   int BLEND_FLAG;
-  double zLENS;
+  double zSN, zLENS;
   double PEAKMJD_noSL;    // undelayed PEAKMJD
   double RA_noSL, DEC_noSL;
   double MJDMIN, MJDMAX;  // used for SIMLIB read
@@ -1591,7 +1591,7 @@ void   genperfect_override(void);
 void   gen_event_driver(int ilc);    // generate RA, DEC, Z, PEAKMJD, etc.
 void   gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
 			char *REJECT_STAGE );
-void   gen_event_stronglens(int istage);
+void   gen_event_stronglens(int ilc, int istage);
 void   gen_filtmap(int ilc);  // generate filter-maps
 void   gen_modelPar(int ilc);     // generate stretch or delta or dm15 ...
 void   gen_modelPar_SALT2(void); 

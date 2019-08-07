@@ -38,7 +38,8 @@ struct {
 void init_stronglens(char *MODEL_FILE);
 void malloc_stronglens(int NLENS);
 
-void get_stronglens(double zSN, double *hostpar, int *IDLENS, double *ZLENS, 
+void get_stronglens(double zSN, double *hostpar, int LDMP, 
+		    int *IDLENS, double *ZLENS, 
 		    int *blend_flag, int *NIMG,
 		    double *DELAY, double *MAG, double *XIMG, double *YIMG);
 

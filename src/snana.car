@@ -18340,7 +18340,10 @@ C ========================================================
 
 c Created Nov 29 2016 by R.Kessler
 c Execute header override.
-
+c
+c Aug 7 2019: fix bug setting SNLC_ZCMB_ERR to zerr instead of z.
+c
+ 
       IMPLICIT NONE
     
 +CDE,SNDATCOM.
@@ -18395,8 +18398,9 @@ c brute-force check each possible header variable
           SNLC_REDSHIFT = z
         ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL_ERR' ) THEN
           zerr = sngl(DVAL)
-          SNLC_ZCMB_ERR = z ; SNLC_ZHELIO_ERR=zerr; 
-          SNLC_REDSHIFT_ERR=zerr
+          SNLC_ZCMB_ERR     = zerr    ! bugfix z 
+          SNLC_ZHELIO_ERR   = zerr
+          SNLC_REDSHIFT_ERR = zerr
 
         ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_HELIO' ) THEN
           SNLC_ZHELIO = sngl(DVAL)

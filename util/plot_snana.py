@@ -328,9 +328,10 @@ def plot_cmd(genversion,cid_list,nml,isdist):
 	if len(glob.glob('OUT_TEMP_'+rand+'*.TEXT'))==0:
 		print("There was an error in retrieving your SN")
 		sys.exit()
-	with open("OUT_TEMP_"+rand+".FITRES.TEXT",'rb') as f:
-		all_dat=f.readlines()
+
 	if cid_list is None:
+		with open("OUT_TEMP_"+rand+".FITRES.TEXT",'rb') as f:
+			all_dat=f.readlines()
 		all_cids=[]
 		for line in all_dat:
 			temp=line.split()
@@ -458,7 +459,7 @@ def main():
 													int(options.CID[options.CID.find('-')+1:])+1)])
 		all_cid=True
 	else:
-		al_cid=False
+		all_cid=False
 	if options.dist and options.nml_filename is None:
 		raise RuntimeError("If you use the 'dist' option, you must provide an NML filename with the -f flag.")
 	
@@ -480,30 +481,29 @@ def main():
 			figs=create_dists(fitres,options.joint_param,options.joint_type)
 		else:
 			figs=[]
-		if True:
-			if all_cid:
-				options.CID=options.CID[:5]
-			with PdfPages(filename) as pdf:
-				for f in figs:
-					pdf.savefig(f)
-				for cid in options.CID:
-					if not options.silent:
-						print("Plotting SN %s"%cid)
-					if options.spec:
-						figs=plot_spec([cid],options.bin_size,options.base_name,options.noGrid)
-						for f in figs:
-							pdf.savefig(f)
-					elif options.lc:
-						figs,fits=plot_lc([cid],options.base_name,options.noGrid,plotter_choice)
-						for f in figs:
-							pdf.savefig(f)
-					else:
-						figs=plot_spec([cid],options.bin_size,options.base_name,options.noGrid)
-						for f in figs:
-							pdf.savefig(f)
-						figs,fits=plot_lc([cid],options.base_name,options.noGrid,plotter_choice)
-						for f in figs:
-							pdf.savefig(f)
+		if all_cid:
+			options.CID=options.CID[:5]
+		with PdfPages(filename) as pdf:
+			for f in figs:
+				pdf.savefig(f)
+			for cid in options.CID:
+				if not options.silent:
+					print("Plotting SN %s"%cid)
+				if options.spec:
+					figs=plot_spec([cid],options.bin_size,options.base_name,options.noGrid)
+					for f in figs:
+						pdf.savefig(f)
+				elif options.lc:
+					figs,fits=plot_lc([cid],options.base_name,options.noGrid,plotter_choice)
+					for f in figs:
+						pdf.savefig(f)
+				else:
+					figs=plot_spec([cid],options.bin_size,options.base_name,options.noGrid)
+					for f in figs:
+						pdf.savefig(f)
+					figs,fits=plot_lc([cid],options.base_name,options.noGrid,plotter_choice)
+					for f in figs:
+						pdf.savefig(f)
 					
 		if options.res_out:
 			output_fit_res(fitres,filename)

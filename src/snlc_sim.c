@@ -10001,7 +10001,7 @@ void gen_event_stronglens(int ilc, int istage) {
   double tdelay=0.0,  magnif=0.0, magshift=0.0;
   double XIMG=0.0, YIMG=0.0;
   double cosDEC, ANGSEP_TRUE ;
-  int    NEXTLENS=0, IDLENS=0, blend_flag, img, NGEN_MIN ;
+  int    NEXTLENS=0, IDLENS=0, blend_flag, img, NGEN_MIN, ep ;
   char fnam[] = "gen_event_stronglens";
 
   // ------------- BEGIN ------------------
@@ -10114,14 +10114,15 @@ void gen_event_stronglens(int ilc, int istage) {
   PEAKMJD       = GENSL.PEAKMJD_noSL + tdelay;
   GENLC.PEAKMJD = PEAKMJD ;
 
-  int ep;
+  // update MJD for epoch flagged as peakMJD
   for(ep=0; ep <= GENLC.NEPOCH; ep++ ) {
     if ( GENLC.ISPEAK[ep] ) { GENLC.MJD[ep] = GENLC.PEAKMJD ; }
   }
 
-  // convert magnifation to magshift
-  if ( INPUTS.DEBUG_FLAG ) { GENSL.MAGNIF_LIST[IMGNUM] = 1.0; }
 
+  // xxxx  if ( INPUTS.DEBUG_FLAG ) { GENSL.MAGNIF_LIST[IMGNUM] = 1.0; }
+
+  // convert magnifation to magshift
   magnif   = GENSL.MAGNIF_LIST[IMGNUM];
   magshift = -2.5*log10(magnif);
   GENSL.MAGSHIFT_LIST[IMGNUM] = magshift ;

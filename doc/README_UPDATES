@@ -17221,7 +17221,7 @@
 
 
 # ======================================================================= 
-         v10_74c (  ) 
+         v10_74c (Aug 8 2019) 
 
          ***** IMPORTANT(v10_74c) ***** 
   
@@ -17229,6 +17229,8 @@
    See MWgaldust.c below.
 
          ***** USEFUL(v10_74c) ***** 
+
+   RANSYSTPAR in sim now includes w and OM; see manual Sec 4.38
 
          ***** MISCELLANEOUS(v10_74c) ***** 
 

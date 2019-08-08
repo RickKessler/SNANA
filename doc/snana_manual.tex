@@ -5735,7 +5735,7 @@ for all tables formats.
 While systematic variations are typically done in the analysis stage,
 it may be useful to simulate a large number of data-sized samples,
 each with a different random set of systematic errors applied.
-In principle one can define each set of variations in a brute-force manner:
+In principle, one can define each set of variations in a brute-force manner:
 e.g., picking random zero points offsets for each simulated version,
 and specifying ``{\tt GENOPT: GENMAG\_OFF\_ZP <list>}'' for each
 {\tt GENVERSION} (see \S\ref{sss:sim_SNmix}).
@@ -5747,44 +5747,51 @@ Here are examples of available options for the sim-input file:
 %
 \begin{Verbatim}[frame=single]
    GENFILTERS:  griz
-   RANSYSTPAR_FUDGESCALE_FLUXERR:  1.02         # scale true & measured flux-errors
-   RANSYSTPAR_FUDGESCALE_FLUXERR2: 1.04         # scale measured flux-errors
-   RANSYSTPAR_FUDGESCALE_MWEBV:    1.05         # scale MWEBV 
-   RANSYSTPAR_FUDGESHIFT_MWRV:     0.2          # shift RV
+   RANSYSTPAR_SIGSCALE_FLUXERR:  0.02     # scale true & measured flux-errors
+   RANSYSTPAR_SIGSCALE_FLUXERR2: 0.04     # scale measured flux-errors
+   RANSYSTPAR_SIGSCALE_MWEBV:    0.05     # scale MWEBV 
+   RANSYSTPAR_SIGSHIFT_MWRV:     0.2      # shift RV
+   RANSYSTPAR_SIGSHIFT_W0:           0.1  # shift w
+   RANSYSTPAR_SIGSHIFT_OMEGA_MATTER: 0.1  # shift OM
+
+   RANSYSTPAR_RANGESHIFT_W0:           -0.5 0.5   # flat shift range for w
+   RANSYSTPAR_RANGESHIFT_OMEGA_MATTER: -0.2 0.4   # flat shift range for OM
 
   # filter-dependent variants:
-   RANSYSTPAR_FILTER_LAMSHIFT:  8 10 7 6              # filter shifts, Angstromgs
-   RANSYSTPAR_GENMAG_OFF_ZP: 0.014 0.013 0.022 0.012  # random ZP off
+   RANSYSTPAR_SIGSHIFT_LAMFILT:  8 10 7 6           # filter shifts (A)
+   RANSYSTPAR_SIGSHIFT_ZP: 0.014 0.013 0.022 0.012  # random ZP off
 \end{Verbatim}
 %
-{\tt FUDGESCALE\_XXX} parameters near 1 are interpreted as fillows.
-A Gaussian sigma is defined as $\sigma={\tt FUDGESCALE\_XX}-1.0$,
-and then a random Gaussian number, $r$, is picked. The {\tt FUDGESCALE}
-used in the simulation is $1+r$.
+{\tt SIGSCALE\_XXX} parameters are interpreted as follows.
+A Gaussian sigma is defined as $\sigma={\tt SIGSCALE\_XXX}$,
+and then a random Gaussian number, $r$, is picked. 
+The {\tt FUDGESCALE} used in the simulation is $1+r$.
+The {\tt SIGSHIFT\_XXX} variables define a Gaussian sigma used
+to determine a random shift. Finally, {\tt RANGESHIFT\_XXX}
+define a random shift with uniform probability over the defined range
+of shifts.
 %
 \begin{itemize}
-  \item {\tt RANSYSTPAR\_FUDGESCALE\_FLUXERR} applies a scale to the true and measured
+  \item {\tt RANSYSTPAR\_SIGSCALE\_FLUXERR} applies a scale to the 
+        true and measured
         flux-\uncs\ to either over- or under-estimate the \uncs.
-        The Gaussian $\sigma$ is obtained by subtracting one ($\sigma=1.02-1.0=0.02$) 
-        and the random Gaussian number is added back to one.
 %
-  \item {\tt RANSYSTPAR\_FUDGESCALE\_FLUXERR2} applies a scale to the measured
+  \item {\tt RANSYSTPAR\_SIGSCALE\_FLUXERR2} applies a scale to the measured
         flux-\uncs, but NOT to the true \unc\ used to smear the fluxes. 
-        The random scale is obtained in the same way as 
-        {\tt RANSYSTPAR\_FUDGESCALE\_FLUXERR} above.
 %
- \item {\tt RANSYSTPAR\_FUDGESCALE\_MWEBV} applies a scale to Galactic extinction.
+ \item {\tt RANSYSTPAR\_SIGSCALE\_MWEBV} applies a scale to Galactic extinction.
 %
- \item {\tt RANSYSTPAR\_FUDGESHIFT\_MWRV} applies a random shift to Galactice RV.
+ \item {\tt RANSYSTPAR\_SIGSHIFT\_MWRV} applies a random shift to Galactice RV.
 % - - - - - -
-  \item {\tt RANSYSTPAR\_GENMAG\_OFF\_ZP} parameters are Gaussian sigmas,
+  \item {\tt RANSYSTPAR\_SIGSHIFT\_ZP} parameters are Gaussian sigmas,
         not ZP shifts.\footnote{{\tt GENMAG\_OFF\_ZP} key can be used 
             to explicitly define ZP shifts.}
         The simulation uses these sigmas to select a random set of ZP offsets.
         Changing {\tt RANSEED} results in a different random set of ZP offsets,
         and there is no need for the user to pick random offsets.
 %
-  \item {\tt RANSYSTPAR\_FILTER\_LAMSHIFT} applies a random shift to each filter.
+  \item {\tt RANSYSTPAR\_SIGSHIFT\_LAMFILT} applies a Gaussian-random shift
+          to each filter bandpass.
 %
 \end{itemize}
 

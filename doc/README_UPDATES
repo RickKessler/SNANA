@@ -17243,7 +17243,11 @@
        e.g., NGENTOT_LC=10, and at 9'th event there are 3 lensed images;
        only 1 of 3 images is reported because ilc==11 & 12 are not
        generated.
-
+    +  new RANSYSTPAR options for w and OM. Also, change the old
+       keyname structure from RANSYSTPAR_FUDGESCALE_XXX to 
+       RANSYSTPAR_SIGSCALE_XXX, and same for SHIFTs.
+       See updated manual section
+          4.38 Applying Systematic Errors (RANSYSTPAR)
 
    sntools_stronglens.c[h]
      + more development.
@@ -17265,6 +17269,8 @@
      fits with k-correctios. Amazingly, SNANA_CodeTest shows
      no discrepancies after fix.
  
+     Fix bug setting redshift errors for HEADER_OVERRIDE
+
   SALT2mu.c: 
     + remove obsolete abort trap on >200 characters for command-line
       override.

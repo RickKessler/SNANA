@@ -1212,14 +1212,22 @@ void set_user_defaults_RANSYSTPAR(void) {
   INPUTS.RANSYSTPAR.USE = 0 ;
 
   // coherent (all bands) scale of flux-errors
-  INPUTS.RANSYSTPAR.FUDGESCALE_FLUXERR  = 1.0 ; // true & measured 
-  INPUTS.RANSYSTPAR.FUDGESCALE_FLUXERR2 = 1.0 ; // measured only
-  INPUTS.RANSYSTPAR.FUDGESCALE_MWEBV    = 1.0 ;
-  INPUTS.RANSYSTPAR.FUDGESHIFT_MWRV     = 0.0 ;
+  INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR  = 0.0 ; // true & measured 
+  INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 = 0.0 ; // measured only
+  INPUTS.RANSYSTPAR.SIGSCALE_MWEBV    = 0.0 ;
+  INPUTS.RANSYSTPAR.SIGSHIFT_MWRV     = 0.0 ;
+
+  INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER  = 0.0 ;
+  INPUTS.RANSYSTPAR.SIGSHIFT_W0            = 0.0 ;
+
+  INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER[0]  = 0.0 ;
+  INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER[1]  = 0.0 ;
+  INPUTS.RANSYSTPAR.RANGESHIFT_W0[0]            = 0.0 ;
+  INPUTS.RANSYSTPAR.RANGESHIFT_W0[1]            = 0.0 ;
 
   for(ifilt=0; ifilt < MXFILTINDX; ifilt++ )  { 
-    INPUTS.RANSYSTPAR.GENMAG_OFF_ZP[ifilt]   = 0.0 ; 
-    INPUTS.RANSYSTPAR.FILTER_LAMSHIFT[ifilt] = 0.0 ; 
+    INPUTS.RANSYSTPAR.SIGSHIFT_ZP[ifilt]      = 0.0 ; 
+    INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT[ifilt] = 0.0 ; 
   }
 
   return ;
@@ -2993,57 +3001,92 @@ void parse_input_RANSYSTPAR(FILE *fp, int *iArg, char *KEYNAME ) {
 
   if ( i < 0 ) {
     // read from file
-    if ( strcmp(KEYNAME,"RANSYSTPAR_FUDGESCALE_FLUXERR:")==0 ) {
-      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.FUDGESCALE_FLUXERR);
+    if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSCALE_FLUXERR:")==0 ) {
+      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR);
     }
-    else if ( strcmp(KEYNAME,"RANSYSTPAR_FUDGESCALE_FLUXERR2:")==0 ) {
-      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.FUDGESCALE_FLUXERR2);
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSCALE_FLUXERR2:")==0 ) {
+      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2);
     }
-    else if ( strcmp(KEYNAME,"RANSYSTPAR_FUDGESCALE_MWEBV:")==0 ) {
-      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.FUDGESCALE_MWEBV );
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSCALE_MWEBV:")==0 ) {
+      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSCALE_MWEBV );
     }
-    else if ( strcmp(KEYNAME,"RANSYSTPAR_FUDGESHIFT_MWRV:")==0 ) {
-      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.FUDGESHIFT_MWRV );
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_MWRV:")==0 ) {
+      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSHIFT_MWRV );
+    }
+
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_OMEGA_MATTER:")==0 ) {
+      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER );
+    }
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_RANGESHIFT_OMEGA_MATTER:")==0 ) {
+      readfloat ( fp, 2, INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER );
+    }
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_W0:")==0 ) {
+      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSHIFT_W0 );
+    }
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_RANGESHIFT_W0:")==0 ) {
+      readfloat ( fp, 2, INPUTS.RANSYSTPAR.RANGESHIFT_W0 );
     }
 
     // filter-dependent params
-    else if ( strcmp(KEYNAME,"RANSYSTPAR_GENMAG_OFF_ZP:")==0 ) {
-      readfloat ( fp, NFILTDEF, INPUTS.RANSYSTPAR.GENMAG_OFF_ZP );
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_ZP:")==0 ) {
+      readfloat ( fp, NFILTDEF, INPUTS.RANSYSTPAR.SIGSHIFT_ZP );
     }
-    else if ( strcmp(KEYNAME,"RANSYSTPAR_FILTER_LAMSHIFT:")==0 ) {
-      readfloat ( fp, NFILTDEF, INPUTS.RANSYSTPAR.FILTER_LAMSHIFT );
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_LAMFILT:")==0 ) {
+      readfloat ( fp, NFILTDEF, INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT );
     }
 
   }
   else {
     // read command-line arg
-    if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_FUDGESCALE_FLUXERR") == 0 ) {
+    if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSCALE_FLUXERR") == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.RANSYSTPAR.FUDGESCALE_FLUXERR ); 
+		   &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR ); 
     }
-    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_FUDGESCALE_FLUXERR2") == 0 ) {
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSCALE_FLUXERR2") == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.RANSYSTPAR.FUDGESCALE_FLUXERR2 ); 
+		   &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 ); 
     }
-    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_FUDGESCALE_MWEBV") == 0 ) {
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSCALE_MWEBV") == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.RANSYSTPAR.FUDGESCALE_MWEBV ); 
+		   &INPUTS.RANSYSTPAR.SIGSCALE_MWEBV ); 
     }
-    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_FUDGESHIFT_MWRV") == 0 ) {
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_MWRV") == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.RANSYSTPAR.FUDGESHIFT_MWRV ); 
+		   &INPUTS.RANSYSTPAR.SIGSHIFT_MWRV ); 
     }
 
-    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_GENMAG_OFF_ZP") == 0 ) {
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_OMEGA_MATTER") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER ); 
+    }
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_RANGESHIFT_OMEGA_MATTER")==0) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER[1] ); 
+    }
+
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_W0") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.SIGSHIFT_W0 ); 
+    }
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_RANGESHIFT_W0") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.RANGESHIFT_W0[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.RANGESHIFT_W0[1] ); 
+    }
+
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_ZP") == 0 ) {
       for ( ifilt = 0; ifilt < NFILTDEF; ifilt++ ) {
 	i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		     &INPUTS.RANSYSTPAR.GENMAG_OFF_ZP[ifilt] ); 
+		     &INPUTS.RANSYSTPAR.SIGSHIFT_ZP[ifilt] ); 
       }
     }
-    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_FILTER_LAMSHIFT") == 0 ) {
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_LAMFILT") == 0 ) {
       for ( ifilt = 0; ifilt < NFILTDEF; ifilt++ ) {
 	i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		     &INPUTS.RANSYSTPAR.FILTER_LAMSHIFT[ifilt] ); 
+		     &INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT[ifilt] ); 
       }
     }
 
@@ -6542,7 +6585,7 @@ void  prep_RANSYSTPAR(void) {
   int   ifilt, ifilt_obs, NSET=0 ;
   int   NFILTDEF = INPUTS.NFILTDEF_OBS ;
   int   ILIST_RAN=1;
-  float tmp, tmpSigma ;
+  float tmp, tmpSigma, *tmpRange, Range ;
   double gmin = -3.0, gmax=+3.0; // Gaussian clip params
   char cfilt[2];
   char fnam[] = "prep_RANSYSTPAR" ;
@@ -6562,19 +6605,52 @@ void  prep_RANSYSTPAR(void) {
   printf("\t* First Sync-Syst Random : %f \n", FlatRan1(ILIST_RAN) );
 
   // Galactic extinction
-  tmpSigma = INPUTS.RANSYSTPAR.FUDGESCALE_MWEBV - 1.0 ;
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_MWEBV ;
   if ( tmpSigma != 0.0 ) {   
-    NSET=1; tmp = 1.0 + tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+    NSET++; tmp = 1.0 + tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
     INPUTS.MWEBV_SCALE = tmp;
     printf("\t FUDGESCALE_MWEBV  = %.2f \n", tmp );
   }
 
-  tmpSigma = INPUTS.RANSYSTPAR.FUDGESHIFT_MWRV ;
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_MWRV ;
   if ( tmpSigma != 0.0 ) { 
-    NSET=1; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+    NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
     INPUTS.RV_MWCOLORLAW += tmp ;
     printf("\t RV_MWCOLORLAW  = %.3f \n", INPUTS.RV_MWCOLORLAW );
   }
+
+  // cosmology params (Aug 2019)
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER ;
+  if ( tmpSigma != 0.0 ) { 
+    NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+    INPUTS.OMEGA_MATTER += tmp ;
+    printf("\t OMEGA_MATTER  = %.3f \n", INPUTS.OMEGA_MATTER );
+  }
+
+  tmpRange = INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER ;
+  if ( tmpRange[1] > tmpRange[0] ) { 
+    NSET++; Range = tmpRange[1] - tmpRange[0];
+    tmp = tmpRange[0] + Range * FlatRan1(ILIST_RAN);
+    INPUTS.OMEGA_MATTER += tmp ;
+    printf("\t OMEGA_MATTER  = %.3f \n", INPUTS.OMEGA_MATTER );
+  }
+
+
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_W0 ;
+  if ( tmpSigma != 0.0 ) { 
+    NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+    INPUTS.W0_LAMBDA += tmp ;
+    printf("\t W0_LAMBDA  = %.3f \n", INPUTS.W0_LAMBDA );
+  }
+
+  tmpRange = INPUTS.RANSYSTPAR.RANGESHIFT_W0 ;
+  if ( tmpRange[1] > tmpRange[0] ) { 
+    NSET++; Range = tmpRange[1] - tmpRange[0];
+    tmp = tmpRange[0] + Range * FlatRan1(ILIST_RAN);
+    INPUTS.W0_LAMBDA += tmp ;
+    printf("\t W0_LAMBDA  = %.3f \n", INPUTS.W0_LAMBDA );
+  }
+
 
   printf("\t* Last  Sync-Syst Random : %f "
 	 "(should be same each survey)\n", FlatRan1(ILIST_RAN) );
@@ -6596,17 +6672,17 @@ void  prep_RANSYSTPAR(void) {
   printf("\t* First Unsync-Syst Random : %f "
 	 "(should differ each survey)\n", FlatRan1(ILIST_RAN) );
 
-  // start with fluxerr fudging; only the deviation from 1 varies.
-  tmpSigma = INPUTS.RANSYSTPAR.FUDGESCALE_FLUXERR - 1.0 ;
+  // start with fluxerr fudging; SIGSCALE is sigma on fractional change
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR  ;
   if ( tmpSigma != 0.0 ) {   
-    NSET=1; tmp = 1.0 + tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+    NSET++; tmp = 1.0 + tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
     INPUTS.FUDGESCALE_FLUXERR = tmp;
     printf("\t FUDGESCALE_FLUXERR(true&measured) = %.3f \n", tmp );
     for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
       { INPUTS.FUDGESCALE_FLUXERR_FILTER[ifilt] = tmp; }
   }
 
-  tmpSigma = INPUTS.RANSYSTPAR.FUDGESCALE_FLUXERR2 - 1.0 ;
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 ;
   if ( tmpSigma != 0.0 ) {   
     NSET=1; tmp = 1.0 + tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
     INPUTS.FUDGESCALE_FLUXERR2 = tmp;
@@ -6619,7 +6695,7 @@ void  prep_RANSYSTPAR(void) {
   for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
     ifilt_obs = INPUTS.IFILTMAP_OBS[ifilt];
     sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
-    tmpSigma = INPUTS.RANSYSTPAR.GENMAG_OFF_ZP[ifilt];
+    tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_ZP[ifilt];
     if ( tmpSigma != 0.0 ) {
       NSET++ ;  tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
       INPUTS.TMPOFF_ZP[ifilt]         = tmp;
@@ -6632,7 +6708,7 @@ void  prep_RANSYSTPAR(void) {
   for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
     ifilt_obs = INPUTS.IFILTMAP_OBS[ifilt];
     sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
-    tmpSigma = INPUTS.RANSYSTPAR.FILTER_LAMSHIFT[ifilt];
+    tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT[ifilt];
     if ( tmpSigma != 0 ) {
       NSET++ ;  tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
       INPUTS.TMPOFF_LAMSHIFT[ifilt] = tmp;
@@ -9649,7 +9725,7 @@ void gen_event_driver(int ilc) {
   int    NEPMIN = (int)INPUTS.CUTWIN_NEPOCH[0];
   double z, z1, Tobs, Trest,  zHOST, Tobs_min, Tobs_max  ;
   int    ifilt, ifilt_obs, NEP, iep, USE_HOSTCOORD ;
-  //  char   fnam[] = "gen_event_driver" ;
+  char   fnam[] = "gen_event_driver" ;
 
   // -------- BEGIN ----------
 
@@ -9671,7 +9747,7 @@ void gen_event_driver(int ilc) {
     // so that SIMLIB-MJDRANGE to read is based on all images
     if ( INPUTS_STRONGLENS.USE_FLAG ) {
       gen_event_stronglens(ilc,1); 
-      if ( GENSL.REPEAT_FLAG ) { return; }
+      if ( GENSL.REPEAT_FLAG ) { goto  LOAD_TOBS ; }
     }
 
     // read entry from libray after generated PEAKMJD and redshift ;
@@ -9792,6 +9868,8 @@ void gen_event_driver(int ilc) {
 
   // pick random shift in rise & fall-times
   genshift_risefalltimes();
+
+ LOAD_TOBS:
 
   // Compute epochs relative to peak
   z = GENLC.REDSHIFT_HELIO ;  z1 = 1.0 + z;
@@ -10036,7 +10114,14 @@ void gen_event_stronglens(int ilc, int istage) {
   PEAKMJD       = GENSL.PEAKMJD_noSL + tdelay;
   GENLC.PEAKMJD = PEAKMJD ;
 
+  int ep;
+  for(ep=0; ep <= GENLC.NEPOCH; ep++ ) {
+    if ( GENLC.ISPEAK[ep] ) { GENLC.MJD[ep] = GENLC.PEAKMJD ; }
+  }
+
   // convert magnifation to magshift
+  if ( INPUTS.DEBUG_FLAG ) { GENSL.MAGNIF_LIST[IMGNUM] = 1.0; }
+
   magnif   = GENSL.MAGNIF_LIST[IMGNUM];
   magshift = -2.5*log10(magnif);
   GENSL.MAGSHIFT_LIST[IMGNUM] = magshift ;

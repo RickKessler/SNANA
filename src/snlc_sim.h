@@ -222,12 +222,28 @@ typedef struct {
 // for all parameters without user specifying each random shift externally.
 typedef struct {
   int   USE ;
+
+  /* xxx mark delete Aug 8 2019 xxxxxxx
   float GENMAG_OFF_ZP[MXFILTINDX] ;
   float FUDGESCALE_FLUXERR  ; // tweak true & measured errors
   float FUDGESCALE_FLUXERR2 ; // tweak measured errors, not true errors
   float FILTER_LAMSHIFT[MXFILTINDX] ; // filterTrans shifts, Ang
   float FUDGESCALE_MWEBV ;          // scale Galactic extinction
   float FUDGESHIFT_MWRV ;           // RV shift for MW
+  xxxxxxx */
+
+  float SIGSHIFT_ZP[MXFILTINDX];
+  float SIGSHIFT_LAMFILT[MXFILTINDX]; // filterTrans shifts, Ang 
+  float SIGSCALE_FLUXERR;    // scale true & measured errors by 1+Gran*SIG
+  float SIGSCALE_FLUXERR2;   // scale measured errors, not true errors 
+  float SIGSCALE_MWEBV;      // scale Galactic extinction by 1+Gran*SIG
+  float SIGSHIFT_MWRV;       // shift RV
+
+  float SIGSHIFT_OMEGA_MATTER ;
+  float SIGSHIFT_W0 ;
+  float RANGESHIFT_OMEGA_MATTER[2] ;
+  float RANGESHIFT_W0[2] ;
+
 } INPUTS_RANSYSTPAR_DEF ; 
 
 

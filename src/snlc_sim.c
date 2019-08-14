@@ -7786,6 +7786,8 @@ void  init_GENLC(void) {
   GENLC.TGAPMAX    = -99999. ;  // max rest-frame gap among all filters
   GENLC.T0GAPMAX   = -99999. ;  // idem, near peak
  
+  GENLC.SL_MAGSHIFT = 0.0 ;
+
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
   // for repeated strong lens images, skip init (Jul 2019)
   if ( INPUTS_STRONGLENS.USE_FLAG  && GENSL.IMGNUM < GENSL.NIMG-1 )  
@@ -19254,6 +19256,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
               errors (INPUTS.SMEARFLAG_FLUX & 2) 
 
  Mar 18 2018: compute GENLC.SNR_MON for mag = INPUTS.MAGMONITOR_SNR
+ Aug 08 2019: increase crazyflux if SL magnifation is > 1
 
   **********************************/
 
@@ -19650,8 +19653,11 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
 
   crazyflux += (10.*fluxsn_adu_errS) ;
 
-  if ( mag_smear < 0 ) 
-    { crazyflux *= pow(TEN,-0.4*mag_smear); }
+  if ( mag_smear < 0.0 ) // adjust for intrinsic smearing
+    { arg = -0.4*mag_smear; crazyflux *= pow(TEN,arg); }
+
+  if ( GENLC.SL_MAGSHIFT < 0.0 )  // adjust for strong lens magnification
+    { arg = -0.4*GENLC.SL_MAGSHIFT ;  crazyflux *= pow(TEN,arg); }
 
   if ( GENLC.FUDGE_SNRMAX_FLAG == 2 && INPUTS.FUDGE_SNRMAX > 1.0 ) 
     { crazyflux *= INPUTS.FUDGE_SNRMAX; }

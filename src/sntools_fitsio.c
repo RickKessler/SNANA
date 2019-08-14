@@ -1814,8 +1814,17 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
 
   sprintf(BANNER,"fits_write_col for %s-param: %s", 
 	  snfitsType[itype], parName );
+
+  /* xxxxxxxx mark delete .xyz xxxxxxxxxx
+  if ( strcmp(ptrForm,"1E") == 0 ) {
+    sprintf(BANNER,"fits_write_col for %s-param: %s = %f", 
+	    snfitsType[itype], parName, WR_SNFITSIO_TABLEVAL[itype].value_1E);
+  }
+  xxxxxxxxx end mark xxxxxxxxxxxx */
+
   snfitsio_errorCheck(BANNER, istat);
 
+  return ;
 
 } //  end of wr_snfitsio_fillTable
 
@@ -1824,7 +1833,7 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
 // ====================================
 void wr_snfitsio_update_phot(int ep) {
 
-  int itype, LOC ,*ptrColnum    ;
+  int itype, LOC ,*ptrColnum  ;
   int WRFULL = ( SNFITSIO_COMPACT_FLAG == 0 );
   //  char fnam[] = "wr_snfitsio_update_phot" ;
   
@@ -1917,6 +1926,7 @@ void wr_snfitsio_update_phot(int ep) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.ZEROPT[ep] ;
   wr_snfitsio_fillTable ( ptrColnum, "ZEROPT", itype );
+
 
   if ( WRFULL ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;

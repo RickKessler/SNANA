@@ -17277,4 +17277,16 @@
     + remove obsolete abort trap on >200 characters for command-line
       override.
 
+
+# ======================================================================= 
+         v10_74d (  ) 
+
+         ***** IMPORTANT(v10_74d) ***** 
+
+         ***** USEFUL(v10_74d) ***** 
+
+         ***** MISCELLANEOUS(v10_74d) ***** 
+
+   sndata.h: increase MXPATHLEN to 300 (was 200)
+
 END: 

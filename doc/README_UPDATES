@@ -17289,4 +17289,10 @@
 
    sndata.h: increase MXPATHLEN to 300 (was 200)
 
+   snlc_sim.c, sntools_fitsio.c:
+     + add abort trap if file name (aux or FITS) will be > MXPATHLEN.
+
+   snlc_sim.h:
+     + GENVERSION and GENPREFIX -> 200 max length (was 80)
+
 END: 

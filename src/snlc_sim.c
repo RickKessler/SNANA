@@ -6846,13 +6846,15 @@ void prep_simpath(void) {
   // * Use system call to create new subdir
 
   // May 2008: just create PATH_SNDATA_SIM; do NOT create subdir
-
+  // Aug 14 2019: change suffix len from 20 to 7 to better trap
+  //              too-long filename (see lensuffix)
+  //
 
   char fnam[] = "prep_simpath" ;
 
-  char tmp_path[5*MXPATHLEN] ;
+  char tmp_path[2*MXPATHLEN] ;
 
-  int lenpath, lenprefix, lenfile ;
+  int lenpath, lenprefix, lensuffix, lenfile ;
 
     // ---------- BEGIN ----------
 
@@ -6862,7 +6864,8 @@ void prep_simpath(void) {
   // check string lengths to avoid memory overwrites
   lenpath    = strlen(tmp_path);
   lenprefix  = strlen(INPUTS.GENPREFIX);
-  lenfile    = lenpath + lenprefix + 20 ; // allow file-name extensions
+  lensuffix  = 7 ;      // e.g., '.README'
+  lenfile    = lenpath + lenprefix + lensuffix ; 
 
   if ( lenprefix >= MXVERLEN ) {
     sprintf(c1err,"GENPREFIX string len = %d exceeds array bound of %d",
@@ -6873,8 +6876,8 @@ void prep_simpath(void) {
 
   if ( lenfile >= MXPATHLEN  ) {
     sprintf(c1err, "Estimated filename length= %d is too long", lenfile);
-    sprintf(c2err, "LEN(path,prefix) = %d, %d : MXPATHLEN=%d",
-	    lenpath, lenprefix, MXPATHLEN );
+    sprintf(c2err, "LEN(path,prefix,suffix) = %d, %d, %d : MXPATHLEN=%d",
+	    lenpath, lenprefix, lensuffix, MXPATHLEN );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
@@ -25286,8 +25289,9 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   //
   // Feb 12, 2014: always call snlc_to_SNDATA(1) instead of only
   //               for FITS format.
+  //
 
-  int i, isys ;
+  int i, isys, LENSTR ;
   char headFile[MXPATHLEN];
   char cmd[2*MXPATHLEN], prefix[2*MXPATHLEN];
   char fnam[] = "init_simFiles" ;
@@ -25313,9 +25317,9 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   sprintf(cmd,"mkdir -m g+wr %s", PATH_SNDATA_SIM );
   isys = system(cmd);
 
+
   // create full names for auxilliary files,
   // whether they are used or not.
-
   sprintf(prefix,"%s/%s", PATH_SNDATA_SIM, INPUTS.GENVERSION );
 
   // mandatory

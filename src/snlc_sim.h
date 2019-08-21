@@ -433,8 +433,8 @@ struct INPUTS {
   int  NSUBSAMPLE_MARK ;    // mark independent sub-samples with index
 
   char PATH_SNDATA_SIM[MXPATHLEN];
-  char GENVERSION[80];      // output version
-  char GENPREFIX[80];       // filename prefix (default=GENVERSION)
+  char GENVERSION[200];      // output version
+  char GENPREFIX[200];       // filename prefix (default=GENVERSION)
   char GENSOURCE[20];       // 'RANDOM'  or  'DATA-VERSION'
   char GENMODEL[MXPATHLEN] ; // source model name, with optional path
   char MODELPATH[MXPATHLEN]; // path to model (formerly GENLC.MODELPATH)

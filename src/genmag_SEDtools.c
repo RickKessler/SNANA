@@ -27,43 +27,6 @@
 
             HISTORY
 
- Nov 24, 2009: MAJOR CHANGE
-   Replace SEDMODEL_FLUXTABLE with array of pointers so that
-   memory is allocated based on number of SEDs and number of
-   redshift bins. 
-
-
-  Apr 24, 2010:
-   - add utility  check_sedflux_bins( ... )
-
-   - allow different TREST  & LAMBDA range for each SED;
-     use TEMP_SEDMODEL struct for init, then use SEDMODEL
-     struct during generation.
-
-
-  Jun 26, 2010
-   - add new function "double nearest_gridval_SIMSED(...)"
-
-  Sep 02, 2010: new function zero_flux_SEDMODEL() to zero entire array;
-                call it right after mallocing the flux table.
-
-  Mar 2, 2011: split trans into transSN and transREF everywhere.
-
-  May 5, 2011: For better numerical precision, major re-write in 
-                 init_flux_SEDMODEL()
-                 interp_flux_SEDMODEL()
-               See comments at top of each function.
-
-  Mar 13, 2012
-    modify get_LAMRANGE_SEDMODEL to include 'opt' to return
-    wavelength range for central filters (opt=1) or for entire
-    SED range (opt=2)
-
-  Jan 31, 2013:
-    Protect meanlam and ZP if all filter wavelengths are zero ;
-  
-  Sep 21 2013: include MWgaldust.h
-
   July 17 2016: new function  fill_TABLE_HOSTXT_SEDMODEL(...)
                 to store host galaxy extinction.
 
@@ -80,6 +43,10 @@
     + new function get_flux_SEDMODEL() to call interp_flux_SEDMODEL
       and take care of extrapolating Trest outside model range.
    
+  Aug 23 2019:
+    in interp_primaryFlux_SEDMODEL(), add lam-edge protection.
+
+
 ********************************************/
 
 #include <stdio.h> 
@@ -166,7 +133,7 @@ double interp_primaryFlux_SEDMODEL(double lam){
     ,a_flux[3]
     ;
 
-  int ilam;
+  int ilam, NLAM ;
   int NBIN_INTERP = 3;
 
   char fnam[] = "interp_primaryFlux_SEDMODEL";
@@ -176,8 +143,10 @@ double interp_primaryFlux_SEDMODEL(double lam){
   flux = 0.0;
   lamstep = PRIMARY_SEDMODEL.lamstep;
   lammin  = PRIMARY_SEDMODEL.minlam;
+  NLAM    = PRIMARY_SEDMODEL.NLAM;
 
   ilam = (int)((lam - lammin)/lamstep + 1.0E-8) ;
+  if ( ilam >= NLAM-1 ) { ilam = NLAM-2; } // edge protect, Aug 23 2019
 
   a_lam[0] = PRIMARY_SEDMODEL.lam[ilam-1] ;
   a_lam[1] = PRIMARY_SEDMODEL.lam[ilam] ;

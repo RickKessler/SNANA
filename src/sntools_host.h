@@ -78,7 +78,6 @@
                              // with MINDAYSEP_SAMEGAL option
 
 // define required keys in the HOSTLIB
-
 #define HOSTLIB_VARNAME_GALID     "GALID"  // required 
 #define HOSTLIB_VARNAME_ZTRUE     "ZTRUE"  // required
 

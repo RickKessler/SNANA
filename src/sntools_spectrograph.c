@@ -553,9 +553,13 @@ void  solve_spectrograph(void) {
       DUM1 = POWMAG[1]/SNR[1];
       BOT  = DUM0*DUM0 - DUM1*DUM1 ;
 
+      //      if ( t == 0 ) { TOP = 2.0; BOT=1.0; } // xxxx REMOVE
+
       if ( TOP <= 0.0 || BOT <= 0.0 ) {
 	printf("\n PRE-ABORT DUMP: \n");
-	printf("\t BOT=%le and TOP=%le\n", BOT, TOP);
+	printf("\t BOT = %le  and  TOP = %le\n", BOT, TOP);
+	printf("\t BOT = (%le)^2 - (%le)^2 \n", DUM0, DUM1);
+	printf("\t TOP = %le - %le \n", POWMAG[0], POWMAG[1]);
 	printf("\t SNR[0]=%le  SNR[1]=%le \n", SNR[0], SNR[1] );
 	sprintf(c1err,"Cannot solve ZP for LAM=%.1f to %.1f,  and t=%d sec",
 		LAMMIN, LAMMAX, (int)INPUTS_SPECTRO.TEXPOSE_LIST[t] );
@@ -563,7 +567,7 @@ void  solve_spectrograph(void) {
         errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
 
-      ZP   = 2.5*log10(TOP/BOT) ;  // photo-electrons
+      ZP     = 2.5*log10(TOP/BOT) ;  // photo-electrons
       F[0]   = pow(TEN, -0.4*(MAGREF[0]-ZP) );
       F[1]   = pow(TEN, -0.4*(MAGREF[1]-ZP) );
       SQSIGSKY = (F[0]/SNR[0])*(F[0]/SNR[0]) - F[0] ;

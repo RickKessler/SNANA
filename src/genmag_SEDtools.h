@@ -53,12 +53,14 @@
    + new function fetch_parVal_SEDMODEL
    + new fortran-mangles for fetch_parinfo_sedmodel__ & fetch_parval_sedmodel__
 
+ Aug 23 2019: MXBIN_LAMFILT_SEDMODEL -> 2400 (was 2000)
+
 ********************************************/
 
 // define bounds for filter and SED arrays
 #define MXSEDMODEL          8000   // max number of SED surfaces
 #define MXFILT_SEDMODEL     MXFILTINDX     // max internal filter index
-#define MXBIN_LAMFILT_SEDMODEL 2000   // length of largest filter file
+#define MXBIN_LAMFILT_SEDMODEL 2400   // length of largest filter file
 #define MXBIN_LAMSED_SEDMODEL  5000   // max # lambda bins for SED
 #define MXBIN_DAYSED_SEDMODEL   400 // max # epoch (day) bins for SED
 #define MXBIN_SED_SEDMODEL     MXBIN_LAMSED_SEDMODEL*MXBIN_DAYSED_SEDMODEL 

@@ -17294,5 +17294,7 @@
 
    snlc_sim.h:
      + GENVERSION and GENPREFIX -> 200 max length (was 80)
+    
+   genmag_SEDtools.h : MXBIN_LAMFILT_SEDMODEL -> 2400 (was 2000)
 
 END: 

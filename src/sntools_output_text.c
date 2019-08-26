@@ -44,6 +44,8 @@
 //
 // Apr 17 2019: in SNTABLE_NEVT_TEXT, rewind -> snana_rewind.
 //
+// Aug 25 2019: MXCHAR_LINE -> 2500 (was 2000)
+//
 // **********************************************
 
 char FILEPREFIX_TEXT[100];
@@ -51,7 +53,7 @@ char FILEPREFIX_TEXT[100];
 #define MXTABLE_TEXT 10 
 #define MXVAR_TEXT   MXVAR_TABLE
 #define MXEPVAR_TEXT 50   // for light curve epoch
-#define MXCHAR_LINE     2000
+#define MXCHAR_LINE  2500
 
 #define OPT_FORMAT_KEY   1
 #define OPT_FORMAT_CSV   2

@@ -542,6 +542,7 @@ void ADD_FITRES(int ifile) {
 
   printf("\n"); fflush(stdout);
 
+  printf(" 1. xxx %s:  \n", fnam ); fflush(stdout);
   // ===============================================
 
   // isn2 is current SN index; ISN is SN index from  1st file
@@ -573,7 +574,6 @@ void ADD_FITRES(int ifile) {
       }
     }
 
-    // xxx mark delete  if ( ISN <= 0 ) { continue ; }
     if ( ISN <  0 ) { continue ; }
 
   FOUND_ISN:
@@ -636,6 +636,8 @@ void ADD_FITRES(int ifile) {
   } // end of isn2 loop
 
   fflush(stdout);
+
+  printf(" 2. xxx %s:  \n", fnam ); fflush(stdout);
 
   // free temp arrays
   freeVar_TMP(ifile, NVARALL_FILE, NVARSTR_FILE, NEVT_APPROX);

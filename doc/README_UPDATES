@@ -17297,4 +17297,10 @@
     
    genmag_SEDtools.h : MXBIN_LAMFILT_SEDMODEL -> 2400 (was 2000)
 
+   genmag_SALT2.c[h]:
+     + implmement RELAX_IDIOT_CHECK_SALT2 for P18_UV2IR to avoid abort.
+
+   SALT2.c:
+     + BBC6D works with SIM_gammaDM.
+
 END: 

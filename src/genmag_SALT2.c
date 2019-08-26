@@ -193,6 +193,8 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
     set SALT2_PREFIX_FILENAME to either salt2 (default) or salt3.
     File name prefixes thus correspond to model name.
 
+ Aug 26 2019: implement RELAX_IDIOT_CHECK_SALT2 for P18 to avoid abort.
+
 ****************************************************************/
 
 int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
@@ -249,6 +251,8 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   sprintf(SALT2_PREFIX_FILENAME,"salt2"); // default
   if ( strstr(version,"SALT3") != NULL ) 
     { sprintf(SALT2_PREFIX_FILENAME,"salt3"); } 
+
+  RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
 
   // set defaults for two surfaces (nominal SALT2)
   SEDMODEL.NSURFACE   = 2 ;
@@ -564,7 +568,7 @@ void fill_SALT2_TABLE_SED(int ISED) {
   // Now an idiot check.
   // Loop over original grid (nodes) and make sure that
   // the finer grid agrees at the nodes.
-  // Start and 2nd index for  both DAY and LAM to avoid sharp rise at start
+  // Start at 2nd index for  both DAY and LAM to avoid sharp rise at start
 
   for ( IDAY_ORIG=1; IDAY_ORIG < NDAY_ORIG; IDAY_ORIG++ ) {
     for ( ILAM_ORIG=1; ILAM_ORIG < NLAM_ORIG; ILAM_ORIG++ ) {
@@ -575,10 +579,12 @@ void fill_SALT2_TABLE_SED(int ISED) {
 
       // make looser check at edge-boundary where the interpolation
       // may be a little off.
-      if ( EDGE ) 
+      if ( EDGE || RELAX_IDIOT_CHECK_SALT2 ) 
 	{ FRATIO_CHECK = 1.0E-3 ; }
       else
 	{ FRATIO_CHECK = 1.0E-6 ; }
+
+       
 
       IDAY = IDAY_ORIG * NREBIN_DAY ;
       ILAM = ILAM_ORIG * NREBIN_LAM ;
@@ -588,6 +594,8 @@ void fill_SALT2_TABLE_SED(int ISED) {
       F_interp    = SALT2_TABLE.SEDFLUX[ISED][IDAY][ILAM];
       FDIF        = F_interp - F_orig ;
       FSUM        = F_interp + F_orig ;
+
+      if ( RELAX_IDIOT_CHECK_SALT2 && F_orig < 1.0E-17 ) { continue; } 
 
       if ( FSUM > 0.0 ) 
 	{ FRATIO = FDIF / FSUM ; }

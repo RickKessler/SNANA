@@ -21,7 +21,7 @@
 #define SALT2_INTERP_SPLINE 2
 
 int NCALL_DBUG_SALT2 ; 
-
+int RELAX_IDIOT_CHECK_SALT2;
 
 /**********************************************
   Init Information

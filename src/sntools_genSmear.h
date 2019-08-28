@@ -7,7 +7,8 @@ int   istat_genSmear(void) ;
 
 void  init_genSmear_USRFUN(int NPAR, double *parList, double *LAMRANGE ) ;
 
-void   init_genSmear_SALT2(char *version, char *dispFile, double SIGCOH);
+void   init_genSmear_SALT2(char *version, char *dispFile, double SIGCOH, 
+			   double *GENRANGE_REDSHIFT);
 void   read_genSmear_SALT2disp(char *smearFile) ;
 void   read_genSmear_SALT2sigcoh(char *versionSALT2, GRIDMAP1D *SIGCOH_LAM ) ;
 void   parse_SIGCOH_SALT2(char *KEYNAME, char *KEYARG, GRIDMAP1D *SIGCOH_LAM);
@@ -139,6 +140,7 @@ struct GENSMEAR_SALT2 {
   char   FILE[200] ;  // mag smear vs. wavelength
   int    NLAM ;       // no. lambda bins defining color smearing
   double LAM[MXLAM_GENSMEAR_SALT2];   // lambda at each bin
+  double MINLAM, MAXLAM;              // min,max wavelenght
   double SIGMA[MXLAM_GENSMEAR_SALT2]; // sigma-smear value, mags
   double SIGMA_SCALE ;
 

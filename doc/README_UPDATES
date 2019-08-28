@@ -17279,9 +17279,11 @@
 
 
 # ======================================================================= 
-         v10_74d (  ) 
+         v10_74d (Aug 28 2019) 
 
          ***** IMPORTANT(v10_74d) ***** 
+
+   SALT2mu/BBC works with 6D (added mag offset dimension)
 
          ***** USEFUL(v10_74d) ***** 
 
@@ -17295,12 +17297,19 @@
    snlc_sim.h:
      + GENVERSION and GENPREFIX -> 200 max length (was 80)
     
-   genmag_SEDtools.h : MXBIN_LAMFILT_SEDMODEL -> 2400 (was 2000)
+   genmag_SEDtools.h : 
+     + MXBIN_LAMFILT_SEDMODEL -> 2400 (was 2000)
 
    genmag_SALT2.c[h]:
      + implmement RELAX_IDIOT_CHECK_SALT2 for P18_UV2IR to avoid abort.
 
    SALT2.c:
-     + BBC6D works with SIM_gammaDM.
+     + BBC6D works with SIM_gammaDM. Need to add logmass dimension next version.
+
+   snana.car:
+     + if SNCID_LIST of SNCID_LIST_FILE is given, internally set CUTWIN_CID=0,0
+
+   sntools_genSmear.c
+    + in init_genSmear_SALT2(), check zmin consistency.
 
 END: 

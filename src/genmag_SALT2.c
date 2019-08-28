@@ -254,6 +254,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
 
+
   // set defaults for two surfaces (nominal SALT2)
   SEDMODEL.NSURFACE   = 2 ;
   SEDMODEL.FLUXSCALE  = X0SCALE_SALT2; 
@@ -582,7 +583,7 @@ void fill_SALT2_TABLE_SED(int ISED) {
       if ( EDGE || RELAX_IDIOT_CHECK_SALT2 ) 
 	{ FRATIO_CHECK = 1.0E-3 ; }
       else
-	{ FRATIO_CHECK = 1.0E-6 ; }
+	{ FRATIO_CHECK = 1.0E-5 ; } // Aug 28 2019: E-6 -> E-5
 
        
 
@@ -595,7 +596,7 @@ void fill_SALT2_TABLE_SED(int ISED) {
       FDIF        = F_interp - F_orig ;
       FSUM        = F_interp + F_orig ;
 
-      if ( RELAX_IDIOT_CHECK_SALT2 && F_orig < 1.0E-17 ) { continue; } 
+      if ( RELAX_IDIOT_CHECK_SALT2 && F_orig < 1.0E-25 ) { continue; } 
 
       if ( FSUM > 0.0 ) 
 	{ FRATIO = FDIF / FSUM ; }
@@ -2053,6 +2054,9 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   // Should be used only for simulation (not for fitting mode)
   ISTAT_SMEAR = istat_genSmear();  
   if ( ISTAT_SMEAR ) {
+
+    //    printf(" xxx %s: z=%.3f ifilt_obs=%d \n", fnam, z, ifilt_obs); 
+
     int NLAMTMP = 0 ;
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
       LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;

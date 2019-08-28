@@ -3795,6 +3795,10 @@ c count entries in lists
       END DO
       NCID_IGNORE = i - 1
 
+      if ( NCID_LIST>0 .or. NCCID_LIST>0 ) then
+         CUTWIN_CID(1) = 0;  CUTWIN_CID(2) = 0
+      endif
+
       i = 1
       DO WHILE ( SNCCID_IGNORE(i) .NE. ' ' ) 
           CALL NMLCHECK_SNCCID("SNCCID_IGNORE",SNCCID_IGNORE(i))
@@ -4910,10 +4914,12 @@ c ----------
          else if ( LINE_ARGS(i) .EQ. 'SNCCID_LIST' ) then 
             i = i + 1 
             CALL PARSE_SNCCID_LIST(LINE_ARGS(i)) ! May 30 2019
+            CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
 
          else if ( LINE_ARGS(i) .EQ. 'SNCID_LIST' ) then
             i = i + 1 ; STRING_LIST = LINE_ARGS(i)(1:60)
             NCID_LIST = PARSE_INTLIST(STRING_LIST,SNCID_LIST)
+            CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
 
          else if ( LINE_ARGS(i) .EQ. 'SNCID_LIST_FILE' ) then
             i = i + 1 ; SNCID_LIST_FILE = LINE_ARGS(i)
@@ -9320,6 +9326,8 @@ c May 1 2019: remove NVAR-dependence and only require VARNAMES
 c             to FITRES file format. Also fix bug reading CID
 c             from iwd+1 element, not iwd element.
 c
+c Aug 27 2019: CUTWIN_CID -> 0,0
+c
 c ---------------------
 
       IMPLICIT NONE
@@ -9347,6 +9355,9 @@ C -------------------- BEGIN ----------------------
       CALL ENVreplace(SNCID_LIST_FILE)  ! May 2018
 
       CALL PRBANNER("RD_SNCIDLIST:")
+
+      CUTWIN_CID(1) = 0 
+      CUTWIN_CID(2) = 0
 
       LEN = INDEX(SNCID_LIST_FILE,' ') - 1
       print*,'   Read list of CIDs from '

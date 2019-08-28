@@ -710,7 +710,7 @@ void get_genSmear_CCM89(double Trest, int NLam, double *Lam,
 
 // ***********************************************
 void  init_genSmear_SALT2(char *versionSALT2, char *smearModel, 
-			  double SIGCOH) {
+			  double SIGCOH, double *GENRANGE_REDSHIFT) {
 
   // Created May 1 2014 by R.Kessler
   // General init for SALT2 intrinsic scatter.
@@ -720,6 +720,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   //   versionSALT2 = SALT2 version, including PATH
   //   smearModel = name of smear model (G10, G10Fig8, G10FUDGE ..)
   //   SIGCOH     = coherent luminosity scatter; if negative use default.
+  //   GENRANGE_REDSHIFT = zmin, zmax (to check for errors)
   //
   // Aug 26 2015: 
   //  Sort'of fix problem when MAXLAM(NODE) < MAXLAM(SED) and it fails
@@ -742,8 +743,11 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   //   construct dispFile using versionSALT2 ... needed to work
   //   for BYOSED & SALT2 models.
   //
+  // Aug 28 2019:
+  //  + add GENRANGE_REDSHIFT argument, and abort on potential gen-errors.
 
-  char dispFile[MXPATHLEN] ;
+  double zmin = GENRANGE_REDSHIFT[0];
+  char dispFile[MXPATHLEN] ;  
   char fnam[] = "init_genSmear_SALT2" ;
 
   // ----------------- BEGIN --------------
@@ -784,7 +788,6 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 
   // --------------------------------------------
   // read dispersion vs. lambda   
-  // xxx mark delete getFileName_SALT2colorDisp(dispFile) ; 
   sprintf(dispFile, "%s/salt2_color_dispersion.dat", versionSALT2);
   read_genSmear_SALT2disp(dispFile) ;
 
@@ -851,8 +854,8 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   DLAM   = GENSMEAR_SALT2.LAMSEP_NODE ; // temp variable
 
   NNODE  = 0 ;
-  MINLAM = GENSMEAR_SALT2.LAM[1] ;
-  MAXLAM = GENSMEAR_SALT2.LAM[NLAM] ;
+  MINLAM = GENSMEAR_SALT2.MINLAM ;
+  MAXLAM = GENSMEAR_SALT2.MAXLAM ;
   MAXLAM_LOOP = MAXLAM + DLAM ; // Aug 2015 ...
 
   for ( LAM = MINLAM ; LAM < MAXLAM; LAM+=DLAM ) {
@@ -885,6 +888,16 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 
   } 
   GENSMEAR_SALT2.NNODE = NNODE ;
+
+  // Aug 28 2019: make sure last node is covered by wavelength range
+  double LAMCHECK = LAM2 * (1.0+zmin);
+  if ( LAMCHECK < MAXLAM ) {
+    double zmin_suggest = MAXLAM/LAM2 - 1.0 ;
+    sprintf(c1err,"genSmear model can't handle zmin=%.3f "
+	    "(see GENRANGE_REDSHIFT)", zmin);
+    sprintf(c2err,"Suggest increasing zmin to be > %.3f\n", zmin_suggest);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;  
+  }
 
   // -------------------
 
@@ -1055,6 +1068,7 @@ void read_genSmear_SALT2disp(char *smearFile) {
   // Abort if input *smearFile  == ""
   //
   // Dec 29 2017: use open_TEXTgz() to allow for gzipped file.
+  // Aug 28 2019: fill GENSMEAR_SALT2.MINLAM[MAXLAM]
 
   char fnam[] = "read_genSmear_SALT2disp" ;
   FILE *fp ;
@@ -1085,7 +1099,8 @@ void read_genSmear_SALT2disp(char *smearFile) {
 		 ,&GENSMEAR_SALT2.LAM[1]        // returned
 		 ,&GENSMEAR_SALT2.SIGMA[1]  );  // returned
   GENSMEAR_SALT2.NLAM = NLAM;  
-
+  GENSMEAR_SALT2.MINLAM = GENSMEAR_SALT2.LAM[1];
+  GENSMEAR_SALT2.MAXLAM = GENSMEAR_SALT2.LAM[NLAM];
 
   if ( NLAM >= MXLAM_GENSMEAR_SALT2 ) {
     sprintf(c1err,"G10 NLAM=%d exceeds array bound of %d",
@@ -1133,8 +1148,8 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
   }
 
   NLAM   = GENSMEAR_SALT2.NLAM ;  
-  MINLAM = GENSMEAR_SALT2.LAM[1] ;
-  MAXLAM = GENSMEAR_SALT2.LAM[NLAM] ; 
+  MINLAM = GENSMEAR_SALT2.MINLAM ;
+  MAXLAM = GENSMEAR_SALT2.MAXLAM ;
   
 
   N      = GENSMEAR.NGEN_RANGauss;

@@ -3546,8 +3546,7 @@ void readme_HOSTLIB(void) {
   // now store WGTMAP info
 
   cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-  sprintf(cptr,"Weight MAP variables: " );
-  // xxx  NVAR = HOSTLIB_WGTMAP.NVAR; 
+  sprintf(cptr,"Weight MAP variables: " ); 
   NVAR = HOSTLIB_WGTMAP.GRIDMAP.NDIM ; 
   NROW = HOSTLIB_WGTMAP.GRIDMAP.NROW ; 
   if ( NVAR == 0 ) 

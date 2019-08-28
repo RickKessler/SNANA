@@ -8144,7 +8144,8 @@ void init_modelSmear(void) {
   }
   // ----
   else if ( USE_SALT2smear ) {
-    init_genSmear_SALT2(MODELPATH_SALT2, ptrName, SIGCOH);
+    init_genSmear_SALT2(MODELPATH_SALT2, ptrName, SIGCOH, 
+			INPUTS.GENRANGE_REDSHIFT);
   }
 
   // --------
@@ -22783,6 +22784,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
       get_filtlam__(&opt_frame, &ifilt_obs, 
 		    &lamavg4, &lamrms4, &lammin4, &lammax4 );
       lamrest = (double)lamavg4 / ( 1.0 + z );   
+      
       get_genSmear(Trest, ONE,  &lamrest, &magSmear_model);
       magSmear = magSmear_model ;
     }

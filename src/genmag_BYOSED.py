@@ -52,7 +52,13 @@ class genmag_BYOSED:
 				self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
 				#self.host_param_names=HOST_PARAM_NAMES
 
-				self.paramfile = os.path.join(self.PATH_VERSION,'BYOSED.params')
+				if os.path.exists(os.path.join(self.PATH_VERSION,'BYOSED.params')):
+					self.paramfile = os.path.join(self.PATH_VERSION,'BYOSED.params')
+				elif os.path.exists(os.path.join(self.PATH_VERSION,'byosed.params')):
+					self.paramfile = os.path.join(self.PATH_VERSION,'byosed.params')
+				else:
+					raise RuntimeError('param file %s not found!'%os.path.join(self.PATH_VERSION,'BYOSED.params'))
+
 				if os.path.exists(self.paramfile):
 					config = configparser.ConfigParser()
 					config.read(self.paramfile)

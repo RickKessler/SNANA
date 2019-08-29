@@ -5,156 +5,9 @@ c cuts specified in the &SNLCINP namelist.
 c Can also fit function to estimate time of peak brightness.
 c
  
-           MAJOR STRUCTURAL CHANGES (SURGERY)
+                     CHANGES
           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- Jan 2006: Created by R.Kessler
-
- Aug 2007: [v5_01] surgery to allow arbitray number of filters & epochs
-             (was previously hard-wired for SDSS ugriz)
-
- Oct 2007: [v5_05] remove mySQL dependence so that SNANA
-                   can go public
  
- May 2008: [v6_00] allow users to add a new survey without me
-                   adding new code. Potential new surveys to
-                   process include HST, CSP, KAIT, SUBARU, SNAP.
-                   Points to a new SNDATA_ROOT because data-file
-                   headers need a slight modification.
-                   Survey defined in $SNDATA_ROOT/SURVEY.DEF
-
- Mar 17, 2009:
-    Read optional REDSHIFT_HELIO: from data files to use for
-    light curve fit. SNLC_REDSHIFT is now used for lc fits, 
-    and SNLC_ZCMB (REDSHIFT_FINAL) is written out to the fitres 
-    file for cosmology fits.  If REDSHIFT_ZHELIO is not given, 
-    then REDSHIFT_FINAL (ZCMB) is used for the lc fit, and a 
-    warning is given. Code changes are minimal; see new variables
-    SNLS_ZHELIO and SNLC_ZCMB.
-
-
- Aug 30, 2010:
-
-   - compute host extinction exactly (OPT_OBSNXT_CCM89) in INIT_XTHOST.
-     Default OPT_SNXT = OPT_SNXT_CCM89 .
-
-   - save memory by using sparse filter indices in kcor arrays;
-     see R4KCORTABLE, LC_PHOTO_TEMPLATE and MWXT_TABLE, each
-     indexed by MXFILT_KCOR instead of MXFILT_ALL.
-     Saves 90 MB, and allows MXFILT_ALL to be much larger.
-
-   - define MXFILT_SNRMAX to limit the number of SNRMAX cuts
-     Also see NFILT_SNRMAX and IFILT_SNRMAX(1:NFILT_SNRMAX).
-
-   - save 200 MB more memory by splitting SNLC_CUTVAR into SNLC_CUTVAR
-     and SNEP_CUTVAR, where only the latter has the MXEPOCH dimension.
-
-   - Finally, after the memory redcutions,
-        MXFILT_ALL = 40  -> 80
-        MXFILT_OBS = 10  -> 50
-
-
-  Sep 9, 2010: re-organize KEEPs so that the memory hogging
-               MXSNLC-dependent arrays are isolated (SNLCCOM)
-               and not included in functions used in the simulation.
-
-  Nov 12, 2010: organize FILT_XXX arrays into FILTOBS_XXX and FILTREST_XXX
-                so that the same filter-char can be used for both rest
-                and obs-frame. For example, can define BVugriYJH for
-                snoopy/CSP rest-frame, and then also define SDSS ugri.
-                Note that a filter-char still cannot be repeated
-                with the rest-frame set, or the obs-frame filter set.
-
-
-  May 2012:  remove ISN index from SNLC_XXX arrays and increase MXSNLC
-  v10_00     See LFLAG_RDHEAD_ONLY to read header info needed for init.
-
-
-  Dec 2012:  RDKCOR_FITS to read calib/kcor file in fits format.
-  v10_20g
-
-
-  Feb 2013: begin surgery to replace CERNLIB.  
-  v10_24    Replace CWNT_XXX routines with TABLE_XXX routines
-            and put CERNLIB calls in sntools_output.c
-
-
-           INCREMENTAL CHANGES
-         ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-  Jan 12, 2013: replace CERNLIB SORTZ with internal SORTFLOAT wrapper
-                based on gsl.
-
-  Jan 26, 2013: init NMKSDIR_TOT=1 in INIT_SNVAR rather than for each SN.
-                Previous init caused psnid plots to fail if last SN was
-                rejected.
-
-  Feb 2013: RDKCOR: prepare to abort if HBOOK file is requested when
-            CERNLIB patchy flag  is turned off.
-
-  Feb 14, 2013: for NPASSCUT array, go from 0:MXTYPE intead of 1:MXTYPE
-
-  Feb 16, 2013: remove KEEP,LCPLOTCOM.
-
-  Mar 01, 2013: remove ADUSCALE and ADUSCALE_INV;
-                Define ZEROPOINT_FLUXCAL_DEFAULT = 27.5
-
-  Apr 14 2013:
-     +  remove PATCH,*HBOOKKCOR.
-     +  new &SNLCINP variable NONSURVEY_FILTERS
-
-  Jun 2013: define MXCHAR_XXX parameters.
-            MXCHAR_VERSION -> 72 (was 60) 
-
-            Define NFIT_VERBOSE to reduce printout after this many fits.
-
-  Aug 30 2013: add new &SNLCINP namelist SNCCID_PLOT to give specific
-               list of CIDs to plot. See new function DOPLOT_SNLC().
-
-  Sep 03, 2013: read optional FLUXCAL_OFF from header to correct
-                for SN light in the template.
-
-  Sep 7, 2013: H0_DEFAULT -> 70 (was 65)
-
-  Sep 17, 2013: MXTYPE -> 400 ( was 140)
-
-
-  Oct 21, 2013: new routines to read and apply Vpec:
-       RD_VPEC and REDSHIFT_HD() to compute redshift ZHD for hubble 
-       diagram. For now the only option is to read VPEC from a private 
-       file that has  'VARNAMES: CID VPEC VPEC_ERR' . Hopefully later 
-       snana can compute or interpolate Vpec corrections.
-
-
-  Nov 2013: can now read MXSNLC ascii files (3 million);
-            no longer limited by MXSNLC_FILES = 20,000.
-            Remove MXSNLC_FILES
-
-  Dec 4 2013: new &SNLCINP variables USESIM_SNIA and USESIM_SNCC
-
- 
-  Dec 5 2013: 
-      remove obsolete variables
-         SIMFIT_CHI2, SIMFIT_PROB, SIMFIT_MEAN, SIMFIT_ERR,SIMFIT_RMS
-      remove obsolete subroutine PROB_SIMFIT
-
-      Remove obsolete PAWNAME and PARNAME arrays;
-      then rename NTPARNAME -> PARNAME_STORE
-
-
-  Apr 26 2014: replace HFILE_OPEN and ROOTFILE_OPEN with TABLEFILE_OPEN().
-
-  Sep 8 2014: lots of changes to use SNTABLE_LIST
-              New data variables HOSTGAL_SPECZ[_ERR]
-
-  Oct 11 2014: MXepoch -> 1000 (from 600) to antipicate multi-season data
-
-  Nov 7 2014: remove  QBIT_SAMENITE, ISNLC_QMASK, ISNLC_IDCCD
-
-  Dec 31 2014: MXITER-> 12 (was 10)
-
-  Oct 22 2015: add ITERSE_GAIN to read GAIN for each epoch
-  Nov 20 2015: fix bug in PRIVATE_CHECK
-
   Jan 6 2017: remove ZEXTRA_SOURCE
 
   Feb 18 2017: new SNLCINP variables CUTWIN_LAMREST and CUTWIN_LAMOBS
@@ -166,6 +19,7 @@ c
                Remove obsolete ISN_FITSROW(MXSNLC) 
 
   Oct 23 2018: CUTBIT_MOONPHASE -> CUTBIT_PHOTPROB
+
 
 +PATCH,*SNCOM.
 
@@ -3244,7 +3098,7 @@ C ==========================================
 C ==========================================
 
 
-+DECK,PRSARGS.
++DECK,PARSE_SNANA_ARGS.
       SUBROUTINE PARSE_SNANA_ARGS()
 c
 c Nov 08, 2012
@@ -3279,14 +3133,22 @@ C ------------------- BEGIN ---------------
 
 c check option to dump SNANA version and SNANA_DIR 
 c (for SNANA_CodeTests.py)
+c    snana.exe --snana_version
 
       IF ( LINE_ARGS(1) .EQ. '--SNANA_VERSION' .or.
      &     LINE_ARGS(1) .EQ. '--snana_version'  ) THEN
          CALL DUMP_SNANA_VERSION()
       ENDIF
 
+c snana.exe GETINFO <VERSION_PHOTOMETRY>
+      IF ( LINE_ARGS(1) .EQ. 'GETINFO' ) THEN
+         VERSION_PHOTOMETRY(1) = LINE_ARGS(2)
+         CALL DUMP_INFO_VERSION_PHOTOMETRY()
+      ENDIF
+
       RETURN
-      END
+      END   ! end PARSE_SNANA_ARGS
+
 
 C ==================================
 +DECK,DUMP_SNANA_VERSION.
@@ -3307,6 +3169,51 @@ c Dump SNANA version and SNANA_DIR, then quit.
       LL = INDEX(SNANA_DIR,' ') - 1
       print*,'SNANA_DIR: ', SNANA_DIR(1:LL)
 
+      CALL EXIT(0)
+
+      RETURN
+      END
+
+C ======================================
++DECK,DUMP_INFO_VER_PHOT.
+      SUBROUTINE DUMP_INFO_VERSION_PHOTOMETRY()
+
+c Created Aug 29 2019
+c dump path and format for VERSION_PHOTOMETRY; then quit.
+c
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.      
+
+c local var
+      CHARACTER VERSION*(MXCHAR_FILENAME) 
+      INTEGER IERR, LEN
+C -------------- BEGIN ------------   
+
+      CALL CHECK_FORMAT(IERR)
+      CALL GETINFO_PHOTOMETRY(1)
+
+c - - - - - - - - - - - -
+      VERSION = VERSION_PHOTOMETRY(1)
+      LEN     = INDEX(VERSION,' ')-1
+      write(6,20) 'VERSION:', VERSION(1:LEN)
+
+      LEN = INDEX(SNDATA_PATH,' ') - 1
+      write(6,20) 'SNDATA_PATH:', SNDATA_PATH(1:LEN)
+
+      LEN = INDEX(SNLIST_FILE,' ') - 1
+      write(6,20) 'LIST_FILE:', SNLIST_FILE(1:LEN)
+
+ 20   format(A, 2x, A)
+c - - - - - - - - - - - -
+      if ( FORMAT_TEXT ) then
+         write(6,20) 'FORMAT:', 'TEXT'
+      else
+         write(6,20) 'FORMAT:', 'FITS'
+      endif
+
+
+      CALL FLUSH(6)
       CALL EXIT(0)
 
       RETURN

@@ -5280,10 +5280,6 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     TABLEVAR->NERR_pIa          =  0 ;
   }
 
-  if ( (ISN % 20) == 0 ) {
-    printf(" 1. xxx %s   ISN=%d \n", fnam, ISN ); fflush(stdout);
-  }
-
   // convert x0 and error to mB[err]
   x0 = TABLEVAR->x0[ISN];  x0err=TABLEVAR->x0err[ISN]; 
   mB = mBerr = -9.0; sf = 0.0 ;
@@ -5815,8 +5811,8 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
 
   // logmass
   SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[0] =   5.0 ;
-  SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[1] =  14.0 ;
-  SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS  =   4.5 ;
+  SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[1] =  15.0 ;
+  SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS  =   5.0 ;
 
   for(ipar=0; ipar<NLCPAR; ipar++ ) {
     SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_FITPAR[ipar]  
@@ -6804,7 +6800,7 @@ void prepare_biasCor(void) {
     IDSAMPLE = INFO_DATA.TABLEVAR.IDSAMPLE[n]; 
     if ( CUTMASK ) { continue ; }
 
-    DUMPFLAG = 0; // xxx REMOVE
+    DUMPFLAG = (NUSE_TOT == 5 ) ; // xxx REMOVE
     istore = storeDataBias(n,DUMPFLAG);
 
     NUSE[IDSAMPLE]++ ; NUSE_TOT++ ;
@@ -7640,6 +7636,7 @@ double WGT_biasCor(int opt, int ievt, char *msg ) {
     Dm         = (m  - CELLINFO_BIASCOR[idsample].AVG_m[J1D])/binSize_m ;
     SQD       += (Dm*Dm);
   }
+
 
   ARG      = -0.5 * (SQD/SQSIGMA_CELL);
   WGT_CELL = exp(ARG) ;
@@ -9708,8 +9705,8 @@ int get_fitParBias(char *cid,
     printf(" xxx ---------------------------------------------------- \n") ;
     if ( BADBIAS ) { printf("\t !!!!! BAD BIAS DETECTED !!!!! \n"); }
     printf(" xxx %s DUMP for CID=%s \n", fnam, cid );
-    printf(" xxx  input: z=%.4f  mb,x1,c = %.2f, %.3f, %.3f \n",
-	   z, mB, x1, c ); 
+    printf(" xxx  input: z=%.4f m=%.2f  mb,x1,c = %.2f, %.3f, %.3f \n",
+	   z, m, mB, x1, c ); 
 
     printf(" xxx \t    IZ,IM,IX1,IC=%d,%d,%d,%d   "
 	   "NBIN(z,m,x1,c)=%d,%d,%d,%d \n",

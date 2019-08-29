@@ -8456,7 +8456,7 @@ void  init_genSpec(void) {
     GENSPEC.RANGauss_NOISE_TEMPLATE[ilam] = (double*) malloc(MEMD) ;
   }
 
-  
+
   return ;
 
 } // end init_genSpec

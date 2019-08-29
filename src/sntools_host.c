@@ -155,7 +155,7 @@ void INIT_HOSTLIB(void) {
 
   int USE ;
   FILE *fp_hostlib ;
-  //  char fnam[] = "INIT_HOSTLIB" ;
+  char fnam[] = "INIT_HOSTLIB" ;
 
   // ---------------- BEGIN -------------
 
@@ -1150,7 +1150,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
   // Return host spectrum, including Galactic extinction.
   //
   // Issues:
-  //   - fraction of galaxy in fiber or slit ? Or does ETC include this ?
+  //  - fraction of galaxy in fiber or slit ? Or does ETC include this ?
   //
 
   int  NBLAM       = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;

@@ -17312,4 +17312,23 @@
    sntools_genSmear.c
     + in init_genSmear_SALT2(), check zmin consistency.
 
+
+# ======================================================================= 
+         v10_74e (  ) 
+
+         ***** IMPORTANT(v10_74e) ***** 
+
+         ***** USEFUL(v10_74e) ***** 
+
+         ***** MISCELLANEOUS(v10_74e) ***** 
+
+   SALT2mu.c
+     + implement 7th BBC dimenstion : logmass
+     + for zVARNAME, remove abort on z<0 ... user must be careful
+       to apply CUTWIN so that only postive redshifts are used.
+
+   snana.car :
+    + new utility to dump info about data versio:
+         snana.exe GETINFO <version_photometry>
+
 END: 

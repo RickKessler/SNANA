@@ -36,6 +36,7 @@
    init_genSmear_Chotard11
    init_genSmear_private
    init_genSmear_COH
+   init_genSmear_OIR
    init_genSmear_USRFUN
    etc ...
 
@@ -2338,10 +2339,128 @@ void init_genSmear_OIR(void) {
 
   // Created Aug 30 2019 by R.Kessler and D.Jones
   // Optical+IR smear model based on CfA and CSP.
+  // Very similar to Chotard11 method
   
   char fnam[] = "init_genSmear_OIR";
 
   // --------------- BEGIN ---------------
+
+  // read in covmat from file - using utilities from VCR model
+  printf("\t Init Velocity-Color-Relation model: %s\n", VCR_version );
+  fflush(stdout);
+
+  // ------------------------------------
+  // get path and filenames to parse
+  sprintf( PATH_SNDATA_ROOT, "%s", getenv("SNDATA_ROOT") );
+  path = GENSMEAR_VCR.MODELPATH ;
+  sprintf(path,"%s/models/VCR/%s", PATH_SNDATA_ROOT, VCR_version ) ;  
+  sprintf(GENSMEAR_VCR.INFO_FILE, "%s/VCR.INFO", path);
+  sprintf(GENSMEAR_VCR.VSI_FILE,  "%s/v_Si.dat", path);
+  printf("\t Read model info from :\n\t\t %s\n", path); 
+  fflush(stdout);
+
+  // -------------------------------------
+  // read VCR.INFO file 
+  read_OIR_INFO();
+
+  // sort VCR bands by wavelength
+  sort_OIR_BANDS();
+
+  // prepare covariance matrix
+  prep_OIR_COVAR();
+
+
+
+  char FILTERS_OIR[NBAND_OIR+1] = "uBgriYJH" ;
+  
+  // Fudged by Marriner to be invertible
+  // Default for 'v' band is no correlation with other bands.
+  double COVAR_reduced_EWSi[NBAND_OIR][NBAND_OIR] = 
+    {
+      {+1.000, 0.000,     0.000,     0.000,     0.000,     0.000},
+      {0.000, +1.000000, -0.118516, -0.768635, -0.908202, -0.219447},
+      {0.000, -0.118516, +1.000000, +0.570333, -0.238470, -0.888611},
+      {0.000, -0.768635, +0.570333, +1.000000, +0.530320, -0.399538},
+      {0.000, -0.908202, -0.238470, +0.530320, +1.000000, +0.490134},
+      {0.000, -0.219447, -0.888611, -0.399538, +0.490134, +1.000000}
+    } ;
+
+  double COVAR_diag_EWSi[NBAND_OIR] = 
+    { 0.5900, 0.06001, 0.040034, 0.050014, 0.040017, 0.080007  };
+
+  double COV_DIAG_FUDGE = 1.0E-9 ; // needed to be invertible
+  double COV_SCALE = 1.3 ; // to get correct filter-COV from lambda model
+
+
+  double COVAR1[NBAND_OIR* NBAND_OIR] ;
+  double COVAR2[NBAND_OIR][NBAND_OIR] ;
+
+  double CC, COVred, tmp, covscale_v ;
+  int i,j, N ;
+
+  gsl_matrix_view chk;  
+
+  //  char fnam[] = "init_genSmear_Chotard11" ;
+
+  // ------------ BEGIN -----------
+
+  GENSMEAR_OIR.USE = 1;    NUSE_GENSMEAR++ ;
+  //GENSMEAR_OIR.OPT_farUV = OPT_farUV;
+
+  printf("\t Initialize Optical+NIR model of %s correlations from Avelino+19/Jones+in prep\n", 
+	 FILTERS_OIR );
+
+
+  // translate reduced covariance into covariances
+  N = 0 ;
+  printf("\n\t Reduced UBVRI covariances: \n" );
+  for (i =0; i < NBAND_OIR; i++){
+    printf("\t  "); fflush(stdout);
+    for (j = 0; j < NBAND_OIR ; j++){      
+
+      COVred       = COVAR_reduced_EWSi[i][j] ;
+
+      CC           = COVAR_diag_EWSi[i] * COVAR_diag_EWSi[j];
+
+      if ( i == j ) { CC += COV_DIAG_FUDGE ; }
+      COVAR2[i][j] = COVred * CC ;
+
+      // fill 1D array for gsl argument below.
+      N++ ;  COVAR1[N-1] = COVAR2[i][j] * COV_SCALE ;
+
+      printf(" %7.4f ", COVred );
+    }
+    printf("\n"); fflush(stdout);
+  }
+
+  chk  = gsl_matrix_view_array ( COVAR1, NBAND_OIR, NBAND_OIR); 
+  gsl_linalg_cholesky_decomp ( &chk.matrix )  ;  
+
+  for (i =0; i < NBAND_OIR ; i++){
+    for (j = 0; j < NBAND_OIR ; j++) { 
+      if ( j >= i ) 
+	{ GENSMEAR_OIR.Cholesky[i][j] = gsl_matrix_get(&chk.matrix,i,j); }
+      else
+	{ GENSMEAR_OIR.Cholesky[i][j] = 0.0 ; }
+    }
+  }
+
+
+  // print Cholesky matrix
+  printf("\n\t Cholesky Decomp: \n" );
+  for (i =0; i < NBAND_OIR; i++){
+    printf("\t  d%c(Ran) = ", FILTERS_OIR[i] ); fflush(stdout);
+    for (j = 0; j < NBAND_OIR ; j++){
+      tmp = GENSMEAR_OIR.Cholesky[j][i] ;
+      printf("+ %7.4f*R%d ", tmp, j );
+    }    
+    printf("\n"); fflush(stdout);
+  }
+
+  //  debugexit(fnam); // DDDDDDD
+
+  GENSMEAR.NGEN_RANGauss = NBAND_OIR ;
+  GENSMEAR.NGEN_RANFlat  = 0 ;
 
   return;
 
@@ -2360,13 +2479,223 @@ void get_genSmear_OIR(double Trest, int NLam, double *Lam,
   // ---------------- BEGIN -----------------
 
   // illustrate error utility:
-  sprintf(c1err,"genSmear_OIR model not ready.");
-  sprintf(c2err,"Do some coding !");
-  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  //sprintf(c1err,"genSmear_OIR model not ready.");
+  //sprintf(c2err,"Do some coding !");
+  //errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+
+  int    ilam, i, j, IFILT ;
+  double lam, tmp, SCATTER_VALUES[NBAND_OIR] ;
+
+  //uBgriYJH filter wavelengths from https://csp.obs.carnegiescience.edu/data/filters
+  //from Swope site2 and RetroCam
+  double LAMCEN[NBAND_OIR] = 
+    { 3639.3, 4350.6, 4765.1, 6223.3, 7609.2, 10350.8, 12386.5, 16297.7} ;
+
+
+  //Matrix Multiply
+  //scatter_values = ch^T normalvector
+  for (i = 0 ; i < NBAND_OIR ; i++) {
+    SCATTER_VALUES[i] = 0.0 ;  
+    for (j = 0 ; j < NBAND_OIR ; j++){
+      //transpose cholesky matrix
+      tmp = GENSMEAR_OIR.Cholesky[j][i] ;      
+      SCATTER_VALUES[i] += tmp * GENSMEAR.RANGauss_LIST[j] ;
+    }
+  }
+
+
+  // -------------
+  for ( ilam=0; ilam < NLam; ilam++ ) {
+
+    lam = Lam[ilam];  // exact lambda
+    
+    // interpolate SCATTER values vs. wavelength
+    if( lam < LAMCEN[0] ) {
+      tmp   = SCATTER_VALUES[0] ;        // extend blueward of UV
+    }
+    else if ( lam > LAMCEN[NBAND_OIR-1] ) {      
+      tmp   = SCATTER_VALUES[NBAND_OIR-1];  // extend redward of I band
+    }
+    else {
+      IFILT = INODE_LAMBDA(lam, NBAND_OIR, LAMCEN);
+      if ( IFILT < 0 ) {
+	sprintf(c1err,"Could not find UBVRI band for lam=%7.1f", lam);
+	sprintf(c2err,"ilam = %d", ilam);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+
+      // interpolate with sin function
+      tmp = interp_SINFUN( lam, &LAMCEN[IFILT], &SCATTER_VALUES[IFILT], fnam );
+    }
+
+    magSmear[ilam] = tmp ;
+  }
 
   return;
 
 } // end get_genSmear_OIR
+
+// **********************************
+void read_OIR_INFO(void) {
+
+  // read model params from VCR.INFO file
+  //
+  FILE *fp ;
+  int  ic, ic2, NC, irowmat, iband, IFILTDEF, j ;
+  char c_get[60], band[2];
+  double LAMCEN ;
+  char *infoFile = GENSMEAR_OIR.INFO_FILE ;
+  char fnam[]    = "read_OIR_INFO";
+
+  // ------------- BEGIN ------------
+
+  if ( (fp = fopen(infoFile,"rt") ) == NULL ) {
+    sprintf(c1err,"Cannot open info file:");
+    sprintf(c2err,"%s", infoFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
+  }
+
+  for(ic=0; ic < MXCOLOR_VCR; ic++ ) {
+    GENSMEAR_OIR.COLOR_SIGMA[ic]  = NULLDOUBLE ;
+
+    for(ic2=0; ic2 < MXCOLOR_VCR; ic2++ )
+      { GENSMEAR_OIR.COLOR_CORMAT[ic][ic2] = NULLDOUBLE ; }
+  }
+
+  for(iband=0; iband < 2*MXCOLOR_VCR; iband++  )
+    { GENSMEAR_OIR.LAMCEN_BAND[iband] = -999.0 ; }
+
+  irowmat = 0; // number of matrix rows read.
+
+  while( (fscanf(fp, "%s", c_get)) != EOF ) {
+    
+    if ( strcmp(c_get,"COLOR_SIGMA_SCALE:") == 0  ) 
+      { readdouble(fp, 1, &GENSMEAR_OIR.COLOR_SIGMA_SCALE ); }
+
+    if ( strcmp(c_get,"COLOR_CORMAT:") == 0  ) {
+      readdouble(fp, NC, GENSMEAR_OIR.COLOR_CORMAT[irowmat] ); 
+      irowmat++ ;
+    }
+
+    if ( strcmp(c_get,"LAMCEN_BAND:") == 0  ) {
+      readchar(fp, band);
+      readdouble(fp, 1, &LAMCEN );
+      IFILTDEF = INTFILTER(band);
+      GENSMEAR_OIR.LAMCEN[IFILTDEF] = LAMCEN ;
+    }
+
+  } // end while
+
+
+  fflush(stdout);
+  
+  // -------------------------------------------------------
+  // sanity checks; because sane people do insane things.
+
+  if ( irowmat != NC ) {
+    sprintf(c1err,"Read %d rows of corr. matrix; expected %d rows.",
+	    irowmat, NC);
+    sprintf(c2err,"Check COLOR_CORMAT keys in VCR.INFO file.") ;
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
+  }
+
+  // -------------------------------------------------------------
+  // find mean color to use as offset so that 
+  // mean color shift is always zero. Print summary.
+  // Note that sigma is the scatter about the average linear trend,
+  // while RMS is the scatter about 0; thus RMS > sigma.
+
+  for(ic=0; ic < NC; ic++ ) {
+
+    // apply user option to multiply all of the COLOR_SMEAR terms.
+    GENSMEAR_OIR.COLOR_SIGMA[ic] *= GENSMEAR_OIR.COLOR_SIGMA_SCALE ;
+
+    parse_OIR_colorString(ic) ;
+    get_OIR_colorOffset(ic, &OFFSET, &RMS); // return OFFSET and RMS
+
+    printf("\t   %s-%s       %6.3f       %5.3f   %5.3f \n"
+	   , GENSMEAR_OIR.COLOR_BAND[ic][0]
+	   , GENSMEAR_OIR.COLOR_BAND[ic][1]
+	   , GENSMEAR_OIR.COLOR_SLOPE[ic] 
+	   , GENSMEAR_OIR.COLOR_SIGMA[ic] 
+	   , RMS
+    fflush(stdout);
+  }
+
+  return ;
+
+} // end of read_OIR_INFO
+
+// ****************************************
+void sort_OIR_BANDS(void) {
+
+  // use already filled GENSMEAR_VCR.LAMCEN[IFILTDEF] array
+  // to define the list of bands, then sort them by lambda 
+  // and fill ORDERED arrays.
+
+  int ORDER =  1; // --> increasing order
+  int NBAND, IFILTDEF, IFILTDEF_B, iband, isort, ic, NC ;
+  int IFILTDEF_LIST[MXFILTINDX];
+  int INDSORT[MXFILTINDX];
+  double LAMCEN, LAMCEN_LIST[MXFILTINDX];
+  char fnam[] = "sort_VCR_BANDS" ;
+
+  // ------------ BEGIN -------------
+
+  // loop over every possible filter index,
+  // and pick out the ones with LAMCEN > 0
+  NBAND = 0 ;
+  for( IFILTDEF=0; IFILTDEF < MXFILTINDX; IFILTDEF++ ) {
+    LAMCEN = GENSMEAR_VCR.LAMCEN[IFILTDEF] ;
+    if ( LAMCEN > 0.0 ) {
+      LAMCEN_LIST[NBAND]   = LAMCEN ;
+      IFILTDEF_LIST[NBAND] = IFILTDEF ;
+      NBAND++ ;
+    }
+  }
+  GENSMEAR_VCR.NFILTDEF = NBAND ;
+  
+  // sort by increasing wavelength
+  sortDouble(NBAND, LAMCEN_LIST, ORDER, INDSORT);
+  NC = GENSMEAR_VCR.NCOLOR ;
+  for(ic=0; ic < NC; ic++ ) { GENSMEAR_VCR.COLOR_IFILT[ic] = -9 ; }
+      
+  IFILTDEF_B = INTFILTER("B");
+
+  // store in global ORDERED arrays.
+  for(iband=0; iband < NBAND; iband++ ) {
+    isort    = INDSORT[iband];
+    LAMCEN   = LAMCEN_LIST[isort];
+    IFILTDEF = IFILTDEF_LIST[isort];
+
+    GENSMEAR_VCR.ORDERED_IFILTDEF[iband] = IFILTDEF ;
+    GENSMEAR_VCR.ORDERED_LAMCEN[iband]   = LAMCEN ;
+
+    if ( IFILTDEF == IFILTDEF_B ) { GENSMEAR_VCR.IFILT_B = iband; }
+
+    for(ic=0; ic < NC; ic++ ) {
+      if ( GENSMEAR_VCR.COLOR_IFILTDEF[ic][1] == IFILTDEF ) 
+	{  GENSMEAR_VCR.COLOR_IFILT[ic] = iband ;  }
+    }
+
+    printf("\t\t VCR_LAMCEN(%c) = %7.0f \n", FILTERSTRING[IFILTDEF], LAMCEN);
+    fflush(stdout);  
+  }
+
+
+  // make sure that each COLOR_IFILT is valid
+  for(ic=0; ic < NC; ic++ ) {
+    iband = GENSMEAR_VCR.COLOR_IFILT[ic] ;
+    if ( iband < 0 || iband >= NBAND ) {
+      sprintf(c1err,"Invalid COLOR_IFILT[%d] = %d", ic, iband);
+      sprintf(c2err,"Check VCR model bands.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     	  
+    }
+  }
+
+
+} // end of  sort_OIR_BANDS
+
 
 // *********************************************************
 int INODE_LAMBDA(double LAM, int NNODE, double *LAM_NODES) {

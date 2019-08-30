@@ -173,10 +173,12 @@ struct GENSMEAR_C11 {
   int OPT_farUV;  // see sub-models C11_0, C11_1, C11_2
 } GENSMEAR_C11 ;
 
+// ------------ OIR struct ----------------------
 
+#define NBAND_OIR 8  // uBgriYJH correlations
 struct GENSMEAR_OIR {
-
   int USE ;
+  double Cholesky[NBAND_OIR][NBAND_OIR];
 } GENSMEAR_OIR;
 
 // ------------- CCM89 struct ---------------

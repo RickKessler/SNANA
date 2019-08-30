@@ -3275,23 +3275,24 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     // check things on final pass
     if (  *iflag==3 ) {	
 
+      // Jan 26 2018: store raw muerr without intrinsic cov
       for(ipar=0; ipar < NLCPAR; ipar++ ) {
 	for(ipar2=0; ipar2 < NLCPAR; ipar2++ ) {	  
-	  covmat_fit[ipar][ipar2] = INFO_DATA.TABLEVAR.covmat_fit[n][ipar][ipar2];
+	  covmat_fit[ipar][ipar2] =
+	    (double)INFO_DATA.TABLEVAR.covmat_fit[n][ipar][ipar2];
 	}
       }
-
-      // Jan 26 2018: store raw muerr without intrinsic cov
       muerrsq_raw = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit, z,zerr, 0);
+      muerr_raw   = sqrt(muerrsq_raw);
+      INFO_DATA.muerr_raw[n] = muerr_raw;   
 
       // check user dump with total error (Jun 19 2018)
       dumpFlag_muerrsq = ( strcmp(name,INPUTS.SNID_MUCOVDUMP) == 0 );
       if ( dumpFlag_muerrsq ) {
+	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit,z,zerr,1) ;
 	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_tot,z,zerr,1) ;
       }
       
-      muerr_raw   = sqrt(muerrsq_raw);
-      INFO_DATA.muerr_raw[n] = muerr_raw;   
       if ( IS_SIM  ) {
 	if ( SIM_NONIA_INDEX > 0 ) { nsnfit_truecc++ ; } 
       }
@@ -6793,14 +6794,14 @@ void prepare_biasCor(void) {
     { printf("   * muCOVscale   at each alpha,beta \n"); }
 
 
-  int DUMPFLAG;
+  int DUMPFLAG = 0 ;
   for (n=0; n < NSN_DATA; ++n) {
 
     CUTMASK  = INFO_DATA.TABLEVAR.CUTMASK[n]; 
     IDSAMPLE = INFO_DATA.TABLEVAR.IDSAMPLE[n]; 
     if ( CUTMASK ) { continue ; }
 
-    DUMPFLAG = (NUSE_TOT == 5 ) ; // xxx REMOVE
+    //    DUMPFLAG = (NUSE_TOT == 5 ) ; // xxx REMOVE
     istore = storeDataBias(n,DUMPFLAG);
 
     NUSE[IDSAMPLE]++ ; NUSE_TOT++ ;

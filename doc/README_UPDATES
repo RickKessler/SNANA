@@ -17331,4 +17331,16 @@
     + new utility to dump info about data versio:
          snana.exe GETINFO <version_photometry>
 
+   snlc_sim.c
+     + new command-line input +HOSTMAGS to create new HOSTLIB
+       with synthetic mags
+
+   sntools_host.c: 
+    + new function rewrite_HOSTLIB_plusMags() to implement +HOSTMAGS.
+      See new manual section  4.19.3 Synthetic Host Magnitudes
+
+
+   sntools_genSmear.c[h]:
+     + add new code wrappers for OIR (optical+IR) 
+
 END: 

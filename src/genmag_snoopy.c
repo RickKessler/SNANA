@@ -15,7 +15,7 @@
 #include "fitsio.h"
 #include "sntools.h"
 #include "sntools_grid.h" 
-
+#include "sntools_genSmear.h" // Aug 30 2019
 #include "genmag_snoopy.h" 
 
 
@@ -135,6 +135,15 @@ int genmag_snoopy(int ifilt, double stretch, int nobs,
 
    gridinterp_snoopy(ifilt, stretch, nobs, Trest_list, 
 		     mag_list, magerr_list );    // <== returned
+
+   // Aug 30 2019 notes: if smear model in simulation (see istat_genSmear function)
+   //
+   // get_genSmear(double Trest_list, int NFILTER, double *Lam,
+   //		     double *magSmear) 
+   //
+   //  mag_list[i] += magSmear[i] for each band i
+   //
+   // NOT used for LC fitting.
 
    return(SUCCESS);
 

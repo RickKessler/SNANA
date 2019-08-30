@@ -158,9 +158,11 @@ double interp_primaryFlux_SEDMODEL(double lam){
 
   // idiot check
   if ( lam < a_lam[0] || lam > a_lam[2] ) {
-    sprintf(c1err,"lam=%6.1f is outside expected range of", lam);
-    sprintf(c2err,"%6.1f - %6.1f A  ilam=%d/%d", 
-	    a_lam[0], a_lam[2], ilam, PRIMARY_SEDMODEL.NLAM );
+    printf("\n PRE-ABORT DUMP\n");
+    printf("\t Expected lam-range: %6.1f - %6.1f A  ilam=%d/%d . \n",
+	   a_lam[0], a_lam[2], ilam, PRIMARY_SEDMODEL.NLAM );
+    sprintf(c1err,"lam=%6.1f is outside expected range", lam);
+    sprintf(c2err,"Check LAMBDA_RANGE key in kcor-input file."); 	    
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 

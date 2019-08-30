@@ -22,6 +22,8 @@
  GENMAG_SMEAR_MODELNAME: BIMODAL_UV  # sort'of like Milne 2015
  GENMAG_SMEAR_USRFUN:  <list of 8 params> 
 
+ GENMAG_SMEAR_MODELNAME: OIR      # Optical+IR using CSP+CfA (under development)
+
  External program must set
    NSMEARPAR_OVERRIDE = 0 
 
@@ -64,6 +66,8 @@
 
  July 29 2016: new utility exec_genSmear_override().
 
+ Aug 30 2019: RK,DJ - start adding infrastructure for OIR model.
+
 **********************************/
 
 #include <stdio.h> 
@@ -101,6 +105,7 @@ void  init_genSmear_FLAGS(double SCALE) {
   GENSMEAR_CCM89.USE      = 0 ;
   GENSMEAR_VCR.USE        = 0 ;
   GENSMEAR_BIMODAL_UV.USE = 0 ;
+  GENSMEAR_OIR.USE        = 0 ;
 
   GENSMEAR.NSET_RANGauss = 0 ;
   GENSMEAR.NSET_RANFlat  = 0 ;
@@ -175,6 +180,9 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   }
   else if ( GENSMEAR_BIMODAL_UV.USE ) {
     get_genSmear_biModalUV(Trest, NLam, Lam, magSmear) ;
+  }
+  else if ( GENSMEAR_OIR.USE ) {
+    get_genSmear_OIR(Trest, NLam, Lam, magSmear) ;
   }
   else {
     sprintf(c1err,"Unknown smear model.");
@@ -2325,6 +2333,40 @@ void get_genSmear_private(double Trest, int NLam, double *Lam,
 } // end of get_genSmear_private
 
 
+// ***************************************
+void init_genSmear_OIR(void) {
+
+  // Created Aug 30 2019 by R.Kessler and D.Jones
+  // Optical+IR smear model based on CfA and CSP.
+  
+  char fnam[] = "init_genSmear_OIR";
+
+  // --------------- BEGIN ---------------
+
+  return;
+
+} // end init_genSmear_OIR
+
+
+
+// =====================================================
+void get_genSmear_OIR(double Trest, int NLam, double *Lam, 
+		      double *magSmear) {
+
+  // Created Aug 30 2019 by R.Kessler and D.Jones
+  //
+  char fnam[] = "get_genSmear_OIR";
+
+  // ---------------- BEGIN -----------------
+
+  // illustrate error utility:
+  sprintf(c1err,"genSmear_OIR model not ready.");
+  sprintf(c2err,"Do some coding !");
+  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+
+  return;
+
+} // end get_genSmear_OIR
 
 // *********************************************************
 int INODE_LAMBDA(double LAM, int NNODE, double *LAM_NODES) {

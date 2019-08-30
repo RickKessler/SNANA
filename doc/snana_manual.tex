@@ -3748,6 +3748,24 @@ the z-norm term.
 
 
 % ------------------------------------
+\subsubsection{Synthetic Host Magnitudes}
+\label{sss:hostlib_synmag}
+% ------------------------------------
+
+Using {\tt HOSTLIB\_SPECBASIS\_FILE},
+synthetic galaxy mags are computed with the command-line option
+\begin{verbatim}
+     snlc_sim.exe <iputFile> +HOSTMAGS
+\end{verbatim}
+A new \hostlib\ file is created with the {\tt [band]\_obs} columns appended,
+and then the simulation stops execution.
+Note that {\tt +HOSTMAGS} is not read from the sim-input file, 
+and thus can be specified only as a command-line argument.
+This new \hostlib\ can be used to generate with galaxy mags to 
+compute additional Poisson noise and to model analmolous 
+flux-scatter as a function of local surface brightness.
+
+% ------------------------------------
 \subsubsection{Notes on CPU Resources}
 \label{sss:hostlib_CPU}
 % ------------------------------------

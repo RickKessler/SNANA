@@ -474,6 +474,9 @@ void formatFloat_TEXT(char *VARNAME, double VAL, char *VALSTRING) {
     // probably a redshift
     sprintf(VALSTRING, "%.5f", VAL);    
   }
+  else if ( VAL > 1.0E10 ) {
+    sprintf(VALSTRING, "%.4le", VAL);  // Aug 2019
+  }
   else if ( (VAL - IVAL8) == 0.0 ) {
     // it's really an integer
     sprintf(VALSTRING, "%lld", IVAL8);  

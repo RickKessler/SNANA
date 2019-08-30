@@ -198,13 +198,10 @@ int main(int argc, char **argv) {
   init_modelSmear(); 
   init_genSpec();     // July 2016: prepare optional spectra
 
-  /*
-  if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID )  { 
-    // init search efficiency
-    init_SEARCHEFF(GENLC.SURVEY_NAME,INPUTS.APPLY_SEARCHEFF_OPT); 
-  } 
-  */
- 
+
+  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS)>0 ) 
+    { rewrite_HOSTLIB_plusMags(); }
+
   // create/init output sim-files
   init_simFiles(&SIMFILE_AUX);
 
@@ -4358,6 +4355,11 @@ void sim_input_override(void) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_MSKOPT ); 
       setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     }
+    if ( strcmp( ARGV_LIST[i], "+HOSTMAGS" ) == 0 ) {
+      INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS ;
+      i++ ;
+      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+    }
 
     if ( strcmp( ARGV_LIST[i], "HOSTLIB_GENZPHOT_FUDGEPAR" ) == 0 ) {
       for(j=0; j<4; j++ ) {
@@ -8403,7 +8405,7 @@ void  init_genSpec(void) {
     printf("\t %s SNR *= 100 \n", tmpText );
   }
 
-  // this know is tunable, not a fixed value from mask
+  // this knob is tunable, not a fixed value from mask
   double *s = &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE ;
   if ( *s != 1.0 ) {
     printf("\t %s Texpose *= %.3f \n", tmpText, *s );
@@ -26021,7 +26023,6 @@ void DASHBOARD_DRIVER(void) {
   printf("SEARCHEFF_zHOST_FILE:   %s\n", fileName_orig );  
   printf("\t NMAP_zHOST = %d \n", INPUTS_SEARCHEFF.NMAP_zHOST);
 
-  //.xyz
   happyend();
   return;
 

@@ -19,6 +19,8 @@ void  init_genSmear_VCR(char *VCR_version, int index_SNmodel);
 void  init_genSmear_CCM89(double *LAMRANGE) ;
 void  init_genSmear_COH(void) ;
 void  init_genSmear_biModalUV(void) ;
+void  init_genSmear_OIR(void);
+
 void  init_genSmear_private(void) ;
 
 int   nval_genSmear_override(char *inputKey, char *parName);
@@ -63,6 +65,9 @@ void get_genSmear_COH(double Trest, int NLam, double *Lam,
 
 void  get_genSmear_biModalUV(double Trest, int NLam, double *Lam, 
 			    double *magSmear ) ;
+
+void  get_genSmear_OIR(double Trest, int NLam, double *Lam, 
+		       double *magSmear ) ;
 
 void  get_genSmear_private(double Trest, int NLam, double *Lam, 
 			   double *magSmear ) ;
@@ -168,6 +173,11 @@ struct GENSMEAR_C11 {
   int OPT_farUV;  // see sub-models C11_0, C11_1, C11_2
 } GENSMEAR_C11 ;
 
+
+struct GENSMEAR_OIR {
+
+  int USE ;
+} GENSMEAR_OIR;
 
 // ------------- CCM89 struct ---------------
 struct GENSMEAR_CCM89 {

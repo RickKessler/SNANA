@@ -1596,6 +1596,7 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
   fprintf(fp,"%s\n", LINE );
   fflush(fp);
 
+
 }  // end of snlcpak_textLine
 
 

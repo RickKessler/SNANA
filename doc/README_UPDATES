@@ -17330,6 +17330,10 @@
    snana.car :
     + new utility to dump info about data versio:
          snana.exe GETINFO <version_photometry>
+    + ANYLCFUN: force model flux to be <= 1.0E20 to avoid 
+       double precision overflow for chi2.
+    + for SNCCID_IGNORE_FILE, allow up to MXIGNORE_LIST=500
+       (instead of MXLISTNML=52). Beware: not tested.
 
    snlc_sim.c
      + new command-line input +HOSTMAGS to create new HOSTLIB

@@ -67,6 +67,10 @@
  July 29 2016: new utility exec_genSmear_override().
 
  Aug 30 2019: RK,DJ - start adding infrastructure for OIR model.
+ Sep 03 2019: 
+   + include genmag_SALT2[SEDtools].h
+   + after reading salt2 dispersion file, clip wavelengths outside
+     SALT2 wave range. Avoids abort at very low redshifts.
 
 **********************************/
 
@@ -81,6 +85,8 @@
 
 #include "sntools.h"
 #include "sntools_genSmear.h"
+#include "genmag_SEDtools.h"
+#include "genmag_SALT2.h"
 #include "MWgaldust.h"
 
 // ===========================================================
@@ -753,6 +759,10 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   //
   // Aug 28 2019:
   //  + add GENRANGE_REDSHIFT argument, and abort on potential gen-errors.
+  //  + add logic for last NODE bin
+
+  double SED_LAMMIN =  SALT2_TABLE.LAMMIN;
+  double SED_LAMMAX =  SALT2_TABLE.LAMMAX;
 
   double zmin = GENRANGE_REDSHIFT[0];
   char dispFile[MXPATHLEN] ;  
@@ -801,7 +811,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 
   // ----
 
-  int    NRANGEN, ilam, NLAM, NNODE ;
+  int    NRANGEN, ilam, NLAM, NNODE, LAST=0 ;
   double LAM, LAM2, MINLAM, MAXLAM, MAXLAM_LOOP, DLAM, SIG ;
   double F0, F1, FUDGE, L0;
 
@@ -814,7 +824,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   F0 = GENSMEAR_SALT2.FUDGE_dSmear_dLAM[0];
   F1 = GENSMEAR_SALT2.FUDGE_dSmear_dLAM[1];
   L0 = GENSMEAR_SALT2.FUDGE_LAMSWITCH ;
-  for(ilam=1; ilam <= NLAM; ilam++ ) {
+  for(ilam=0; ilam < NLAM; ilam++ ) {
     LAM = GENSMEAR_SALT2.LAM[ilam] ; 
     if ( LAM < L0 ) 
       { FUDGE = 1.0 + (LAM-L0)*F0 ;  }
@@ -860,39 +870,40 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // Count new random every 800 A and store SIGMAs
   GENSMEAR_SALT2.LAMSEP_NODE = 800.0 ; // lambda node separation (A)
   DLAM   = GENSMEAR_SALT2.LAMSEP_NODE ; // temp variable
-
   NNODE  = 0 ;
   MINLAM = GENSMEAR_SALT2.MINLAM ;
   MAXLAM = GENSMEAR_SALT2.MAXLAM ;
-  MAXLAM_LOOP = MAXLAM + DLAM ; // Aug 2015 ...
+  MAXLAM_LOOP = MAXLAM + DLAM ; 
 
   for ( LAM = MINLAM ; LAM < MAXLAM; LAM+=DLAM ) {
-    NRANGEN++ ;
-    NNODE++ ;
 
     LAM2 = LAM ;
     // protect bounds
     if ( LAM < MINLAM ) { LAM2 = MINLAM+0.001 ; }
-    //    if ( LAM > MAXLAM ) { LAM2 = MAXLAM-0.001 ; }
 
     SIG = interp_1DFUN( 1, LAM2
-			, GENSMEAR_SALT2.NLAM
-			,&GENSMEAR_SALT2.LAM[1] 
-			,&GENSMEAR_SALT2.SIGMA[1]
+			,GENSMEAR_SALT2.NLAM
+			,GENSMEAR_SALT2.LAM 
+			,GENSMEAR_SALT2.SIGMA
 			,fnam );    
 
     printf("\t Set LAM-node %2d at %7.1f A : SIGMA=%6.3f \n", 
-	   NNODE-1, LAM2, SIG );
+	   NNODE, LAM2, SIG );
 
-    GENSMEAR_SALT2.LAM_NODE[NNODE-1] = LAM2 ; // lambda at each node
-    GENSMEAR_SALT2.SIG_NODE[NNODE-1] = SIG  ; // sigma at each node.
+    GENSMEAR_SALT2.LAM_NODE[NNODE] = LAM2 ; // lambda at each node
+    GENSMEAR_SALT2.SIG_NODE[NNODE] = SIG  ; // sigma at each node.
 
     if ( NNODE > 80 ) {
       sprintf(c1err,"NNODE=%d is way too big. What the ?@!?", NNODE);
       sprintf(c2err,"GENSMEAR_SALT2.LAM[min,max] = %7.1f  %7.1f",
-	      GENSMEAR_SALT2.LAM[1], GENSMEAR_SALT2.LAM[NLAM] );
+	      GENSMEAR_SALT2.MINLAM, GENSMEAR_SALT2.MAXLAM );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
+
+    NNODE++ ;    NRANGEN++ ;
+
+    if ( MAXLAM-LAM < DLAM  && LAM < SED_LAMMAX && !LAST )
+      { LAST=1; DLAM = MAXLAM-LAM-.001; } // Sep 3 2019
 
   } 
   GENSMEAR_SALT2.NNODE = NNODE ;
@@ -904,7 +915,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
     sprintf(c1err,"genSmear model can't handle zmin=%.3f "
 	    "(see GENRANGE_REDSHIFT)", zmin);
     sprintf(c2err,"Suggest increasing zmin to be > %.3f\n", zmin_suggest);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;  
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
   }
 
   // -------------------
@@ -1077,10 +1088,12 @@ void read_genSmear_SALT2disp(char *smearFile) {
   //
   // Dec 29 2017: use open_TEXTgz() to allow for gzipped file.
   // Aug 28 2019: fill GENSMEAR_SALT2.MINLAM[MAXLAM]
+  // Sep 03 2019: GENSMEAR_SALT2.LAM[SIGMA] arrays start at 0, not 1
 
   char fnam[] = "read_genSmear_SALT2disp" ;
   FILE *fp ;
-  int NLAM, GZIPFLAG ;
+  int NLAM, ilam, GZIPFLAG ;
+
   // -------------- BEGIN ----------------
 
   if ( strlen(smearFile) == 0 ) {
@@ -1104,11 +1117,29 @@ void read_genSmear_SALT2disp(char *smearFile) {
   
   rd2columnFile( GENSMEAR_SALT2.FILE,  MXLAM_GENSMEAR_SALT2 // input
 		 ,&NLAM                       // returned
-		 ,&GENSMEAR_SALT2.LAM[1]        // returned
-		 ,&GENSMEAR_SALT2.SIGMA[1]  );  // returned
-  GENSMEAR_SALT2.NLAM = NLAM;  
-  GENSMEAR_SALT2.MINLAM = GENSMEAR_SALT2.LAM[1];
-  GENSMEAR_SALT2.MAXLAM = GENSMEAR_SALT2.LAM[NLAM];
+		 ,GENSMEAR_SALT2.LAM        // returned
+		 ,GENSMEAR_SALT2.SIGMA  );  // returned
+
+
+  /* xxxxxx mark delete xxxxx
+  // Sep 3 2019: clip array to respect LAMBDA bounds
+  double LAM, SIGMA;
+  int NLAM_CLIP = 0;
+  for (ilam=1; ilam <= NLAM; ilam++ ) {
+    LAM   = GENSMEAR_SALT2.LAM[ilam];
+    SIGMA = GENSMEAR_SALT2.SIGMA[ilam] ;
+    if ( LAM < INPUT_SALT2_INFO.MINLAMFILT ) { continue ; }
+    if ( LAM > INPUT_SALT2_INFO.MAXLAMFILT ) { continue ; }
+    NLAM_CLIP++ ;
+    GENSMEAR_SALT2.LAM[NLAM_CLIP]   = LAM;
+    GENSMEAR_SALT2.SIGMA[NLAM_CLIP] = SIGMA ;
+  }
+  NLAM = NLAM_CLIP;
+  xxxxxx mark delete xxxxxx */
+
+  GENSMEAR_SALT2.NLAM   = NLAM;  
+  GENSMEAR_SALT2.MINLAM = GENSMEAR_SALT2.LAM[0];
+  GENSMEAR_SALT2.MAXLAM = GENSMEAR_SALT2.LAM[NLAM-1];
 
   if ( NLAM >= MXLAM_GENSMEAR_SALT2 ) {
     sprintf(c1err,"G10 NLAM=%d exceeds array bound of %d",
@@ -1118,7 +1149,7 @@ void read_genSmear_SALT2disp(char *smearFile) {
   }
   
   printf("    Read %d SALT2-Smear values from lambda=%6.0f to %6.0f \n",
-	 NLAM, GENSMEAR_SALT2.LAM[1], GENSMEAR_SALT2.LAM[NLAM] );
+	 NLAM, GENSMEAR_SALT2.MINLAM, GENSMEAR_SALT2.MAXLAM );
 
   fflush(stdout);
 

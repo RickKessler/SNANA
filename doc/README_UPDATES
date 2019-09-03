@@ -17346,5 +17346,6 @@
 
    sntools_genSmear.c[h]:
      + add new code wrappers for OIR (optical+IR) 
+     + fix NODE logic for last bin in init_genSmear_SALT2().
 
 END: 

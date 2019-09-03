@@ -5811,9 +5811,9 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
     (INPUTS.zmax - INPUTS.zmin) / (double)INPUTS.nzbin ;
 
   // logmass
-  SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[0] =   5.0 ;
-  SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[1] =  15.0 ;
-  SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS  =   5.0 ;
+  SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[0] =   7.0 ;
+  SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[1] =  13.0 ;
+  SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS  =   1.5 ;
 
   for(ipar=0; ipar<NLCPAR; ipar++ ) {
     SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_FITPAR[ipar]  
@@ -6789,9 +6789,9 @@ void prepare_biasCor(void) {
 
   printf("\n");
   printf(" For each DATA event before fit, store \n");
-  printf("   * mb,x1,c-bias at each alpha,beta \n");
+  printf("   * mb,x1,c-bias at each alpha,beta,gammaDM \n");
   if ( DOCOR_MUCOV) 
-    { printf("   * muCOVscale   at each alpha,beta \n"); }
+    { printf("   * muCOVscale   at each alpha,beta,gammaDM \n"); }
 
 
   int DUMPFLAG = 0 ;
@@ -6801,7 +6801,7 @@ void prepare_biasCor(void) {
     IDSAMPLE = INFO_DATA.TABLEVAR.IDSAMPLE[n]; 
     if ( CUTMASK ) { continue ; }
 
-    //    DUMPFLAG = (NUSE_TOT == 5 ) ; // xxx REMOVE
+    DUMPFLAG = (NUSE_TOT == 5 ) ; // xxx REMOVE
     istore = storeDataBias(n,DUMPFLAG);
 
     NUSE[IDSAMPLE]++ ; NUSE_TOT++ ;
@@ -7605,9 +7605,9 @@ double WGT_biasCor(int opt, int ievt, char *msg ) {
 
   if ( opt == 1 ) { return(WGT); }
 
-  if ( INPUTS.sigma_cell_biasCor > 10.0 ) { return(WGT); }
+  if ( INPUTS.sigma_cell_biasCor > 10.0 ) { return(WGT); } // default
 
-  // If we get here, compute additional weight based on 3D 
+  // If we get here, compute additional weight based on 3D/4D
   // separation from wgted-avg in cell.
   double z, m, x1, c, Dz, Dm, Dx1, Dc, SQD, ARG, WGT_CELL, SQSIGMA_CELL ;
   double binSize_z, binSize_m, binSize_x1, binSize_c ;
@@ -7622,7 +7622,7 @@ double WGT_biasCor(int opt, int ievt, char *msg ) {
   binSize_z    = CELLINFO_BIASCOR[idsample].BININFO_z.binSize ;
   binSize_x1   = CELLINFO_BIASCOR[idsample].BININFO_LCFIT[INDEX_x1].binSize ;
   binSize_c    = CELLINFO_BIASCOR[idsample].BININFO_LCFIT[INDEX_c].binSize ;
-  SQSIGMA_CELL = INPUTS.sigma_cell_biasCor * INPUTS.sigma_cell_biasCor ;
+
   
   Dz  = (z  - CELLINFO_BIASCOR[idsample].AVG_z[J1D])/binSize_z ;
   Dx1 = (x1 - CELLINFO_BIASCOR[idsample].AVG_LCFIT[INDEX_x1][J1D])/binSize_x1 ;
@@ -7639,6 +7639,7 @@ double WGT_biasCor(int opt, int ievt, char *msg ) {
   }
 
 
+  SQSIGMA_CELL = INPUTS.sigma_cell_biasCor * INPUTS.sigma_cell_biasCor ;
   ARG      = -0.5 * (SQD/SQSIGMA_CELL);
   WGT_CELL = exp(ARG) ;
   WGT     *= WGT_CELL ;
@@ -9701,24 +9702,6 @@ int get_fitParBias(char *cid,
   IC  = IBINFUN(c,  &CELLINFO_BIASCOR[ID].BININFO_LCFIT[INDEX_c], 0, fnam);
   J1D = CELLINFO_BIASCOR[IDSAMPLE].MAPCELL[ia][ib][ig][IZ][IM][IX1][IC] ;
 
-  if ( LDMP ) {  
-    printf("\n") ;
-    printf(" xxx ---------------------------------------------------- \n") ;
-    if ( BADBIAS ) { printf("\t !!!!! BAD BIAS DETECTED !!!!! \n"); }
-    printf(" xxx %s DUMP for CID=%s \n", fnam, cid );
-    printf(" xxx  input: z=%.4f m=%.2f  mb,x1,c = %.2f, %.3f, %.3f \n",
-	   z, m, mB, x1, c ); 
-
-    printf(" xxx \t    IZ,IM,IX1,IC=%d,%d,%d,%d   "
-	   "NBIN(z,m,x1,c)=%d,%d,%d,%d \n",
-	   IZ, IM, IX1, IC,     NBINz, NBINm, NBINx1, NBINc );
-
-
-    printf(" xxx  IDSAMPLE=%d -> %s(%s) \n", IDSAMPLE,
-	   SAMPLE_BIASCOR[ID].NAME_SURVEYGROUP, 
-	   SAMPLE_BIASCOR[ID].NAME_FIELDGROUP );
-    fflush(stdout);
-  }
 
   if ( IZ  < 0 ) { return 0 ; }
   if ( IM  < 0 ) { return 0 ; }
@@ -9759,6 +9742,29 @@ int get_fitParBias(char *cid,
   AVG_c = CELLINFO_BIASCOR[IDSAMPLE].AVG_LCFIT[INDEX_c][J1D] ;
   if ( c >= AVG_c ) { ICMAX++ ;} else { ICMIN--; }
   if (ICMIN<0){ICMIN=0;}  if(ICMAX>=NBINc){ICMAX = NBINc-1;}
+
+
+  if ( LDMP ) {  
+    printf("\n") ;
+    printf(" xxx ---------------------------------------------------- \n") ;
+    if ( BADBIAS ) { printf("\t !!!!! BAD BIAS DETECTED !!!!! \n"); }
+    printf(" xxx %s DUMP for CID=%s \n", fnam, cid );
+    printf(" xxx  input: z=%.4f m=%.2f  mb,x1,c = %.2f, %.3f, %.3f \n",
+	   z, m, mB, x1, c ); 
+
+    printf(" xxx \t IZ,IM,IX1,IC=%d,%d,%d,%d   "
+	   "NBIN(z,m,x1,c)=%d,%d,%d,%d \n",
+	   IZ, IM, IX1, IC,     NBINz, NBINm, NBINx1, NBINc );
+
+    printf(" xxx \t min/max = %d/%d(IZ) %d/%d(IM) %d/%d(IX1) %d/%d(IC) \n",
+	   IZMIN,IZMAX, IMMIN,IMMAX, IX1MIN,IX1MAX, ICMIN,ICMAX);
+
+    printf(" xxx  IDSAMPLE=%d -> %s(%s) \n", IDSAMPLE,
+	   SAMPLE_BIASCOR[ID].NAME_SURVEYGROUP, 
+	   SAMPLE_BIASCOR[ID].NAME_FIELDGROUP );
+    fflush(stdout);
+  }
+
 
 
   // determine max possible binsize in each dimension,
@@ -9809,7 +9815,7 @@ int get_fitParBias(char *cid,
 	   BINSIZE_z, BINSIZE_m, BINSIZE_x1, BINSIZE_c ); fflush(stdout);
 
     printf(" xxx \n");
-    printf(" xxx iz,ix,ic   <z>   <x1>   <c>       "
+    printf(" xxx iz,im,ix,ic    <z>   <m>   <x1>   <c>      "
 	   "dmB    dx1    dc  Ncell WGT\n");  
     fflush(stdout);
   }
@@ -9892,9 +9898,10 @@ int get_fitParBias(char *cid,
 	  } // end ipar
 	  
 	  if ( LDMP ) {
-	    printf( " xxx %2d,%2d,%2d  %5.4f %5.2f %6.3f  ",
-		    iz, ix1, ic,  
+	    printf( " xxx %2d,%2d,%2d,%2d  %5.4f %5.2f %5.2f %6.3f  ",
+		    iz, im, ix1, ic,  
 		    CELLINFO_BIASCOR[IDSAMPLE].AVG_z[j1d],
+		    CELLINFO_BIASCOR[IDSAMPLE].AVG_m[j1d],
 		    CELLINFO_BIASCOR[IDSAMPLE].AVG_LCFIT[INDEX_x1][j1d],
 		    CELLINFO_BIASCOR[IDSAMPLE].AVG_LCFIT[INDEX_c ][j1d] ) ;
 	  

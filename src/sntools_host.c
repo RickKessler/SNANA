@@ -1799,19 +1799,21 @@ int passCuts_HOSTLIB(double *xval ) {
   if ( ZTRUE > HOSTLIB_CUTS.ZWIN[1] ) { return(0); }
 
   // RA
-  ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_RA] ;
-  RA          = xval[ivar_ALL];
-  RA2         = RA + 360.0 ; 
-  LRA   = (RA  > HOSTLIB_CUTS.RAWIN[0] && RA  < HOSTLIB_CUTS.RAWIN[1] );
-  LRA2  = (RA2 > HOSTLIB_CUTS.RAWIN[0] && RA2 < HOSTLIB_CUTS.RAWIN[1] );
-  if ( LRA == 0 && LRA2 == 0 ) { return(0) ; }
-  
-  // DEC
-  ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_DEC] ;
-  DEC         = xval[ivar_ALL];   
-  if ( DEC  < HOSTLIB_CUTS.DECWIN[0] ) { return(0) ; }
-  if ( DEC  > HOSTLIB_CUTS.DECWIN[1] ) { return(0) ; }
-  
+  if ( HOSTLIB.IVAR_RA > 0 && HOSTLIB.IVAR_DEC > 0 ) { 
+    ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_RA] ;
+    RA          = xval[ivar_ALL];
+    RA2         = RA + 360.0 ; 
+    LRA   = (RA  > HOSTLIB_CUTS.RAWIN[0] && RA  < HOSTLIB_CUTS.RAWIN[1] );
+    LRA2  = (RA2 > HOSTLIB_CUTS.RAWIN[0] && RA2 < HOSTLIB_CUTS.RAWIN[1] );
+    if ( LRA == 0 && LRA2 == 0 ) { return(0) ; }
+    
+    // DEC
+    ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_DEC] ;
+    DEC         = xval[ivar_ALL];   
+    if ( DEC  < HOSTLIB_CUTS.DECWIN[0] ) { return(0) ; }
+    if ( DEC  > HOSTLIB_CUTS.DECWIN[1] ) { return(0) ; }
+  }
+
   return(1);
 
 } // end passCuts_HOSTLIB
@@ -5835,7 +5837,7 @@ void rewrite_HOSTLIB_plusMags(void) {
     { HOSTSPEC.NWARN_INTEG_HOSTMAG[ifilt] = 0 ; }
 
   // ----------------------------
-  //  NGAL = 100 ; // xxx REMOVE
+  // NGAL = 100 ; // xxx REMOVE
 
   for(igal=0; igal < NGAL; igal++ ) {
     SNHOSTGAL.IGAL = igal;
@@ -5888,10 +5890,12 @@ void rewrite_HOSTLIB_plusMags(void) {
   char LINE[MXCHAR_LINE_HOSTLIB], VARNAMES_HOSTMAGS[200];
   char *cfilt, varname_mag[40], *ptrCR, cval[20] ;
   char FIRSTWORD[100], NEXTWORD[100], LINE_APPEND[100] ;
+  char tmpFile[MXPATHLEN], NULLPATH[] = "" ;
   FILE *FP_ORIG, *FP_NEW;
-  int  NWD_LINE;
+  int  NWD_LINE, gzipFlag;
   sprintf(HLIB_NEW,"%s+HOSTMAGS", HLIB_ORIG);
 
+  //FP_ORIG = snana_openTextFile(1, NULLPATH, HLIB_ORIG, tmpFile, &gzipFlag);
   FP_ORIG = fopen(HLIB_ORIG,"rt");
   FP_NEW  = fopen(HLIB_NEW, "wt");
   if ( !FP_ORIG ) {

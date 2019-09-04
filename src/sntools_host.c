@@ -1175,7 +1175,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
   double MWXT_FRAC, LAM, LAMBIN, LAMMIN, LAMMAX, LAM_BASIS;
   double LAMREST_MIN, LAMREST_MAX;
   double LAMMIN_TMP, LAMMAX_TMP, LAMBIN_TMP, LAMBIN_CHECK ;
-  double ZP, FTMP, MAG;
+  double ZP, FTMP, MAG, ZCHECK;
   char fnam[] = "genSpec_HOSTLIB" ;
 
   // ------------------ BEGIN --------------
@@ -1188,10 +1188,10 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 
   if ( DUMPFLAG ) {
     ivar = HOSTLIB.IVAR_GALID;
-    GALID = (long long)HOSTLIB.VALUE_UNSORTED[ivar][IGAL] ;    
+    GALID = (long long)HOSTLIB.VALUE_ZSORTED[ivar][IGAL] ;    
 
     ivar = HOSTLIB.IVAR_ZTRUE;
-    double ZCHECK = HOSTLIB.VALUE_UNSORTED[ivar][IGAL] ;    
+    ZCHECK = HOSTLIB.VALUE_ZSORTED[ivar][IGAL] ; //.xyz
     
     printf(" xxx ----------------------------------------------- \n");
     printf(" xxx %s DUMP for  GALID = %lld  (IGAL=%d, ZTRUE=%.3f)\n",
@@ -1204,7 +1204,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
     FLAM_SUM = 0.0 ;
     for(i=0; i < HOSTSPEC.NSPECBASIS; i++ ) {
       ivar_HOSTLIB = HOSTSPEC.IVAR_HOSTLIB[i];
-      COEFF        = HOSTLIB.VALUE_UNSORTED[ivar_HOSTLIB][IGAL] ;
+      COEFF        = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ; // .xyz
       FLAM_TMP     = HOSTSPEC.FLAM[i][ilam_basis] ;
       FLAM_SUM    += ( COEFF * FLAM_TMP );
 
@@ -2066,14 +2066,11 @@ void check_duplicate_GALID(void) {
   long long GALID, GALID_LAST ;
   double   *ptrGALID ;
 
-  int  *LIBINDEX_SORT
-    ,NGAL, igal, IVAR_GALID, NERR, VBOSE, isort, ORDER_SORT 
-    ;
+  int  *LIBINDEX_UNSORT ;
+  int  NGAL, igal, IVAR_GALID, NERR, VBOSE, isort, ORDER_SORT  ;
 
-  double
-    ZTRUE, ZTRUE_LAST, ZDIF, XGAL
-    ,ZTOL = 0.00001     // z-tolerance
-    ;
+  double ZTRUE, ZTRUE_LAST, ZDIF, XGAL;
+  double ZTOL = 0.00001 ;    // z-tolerance   
 
   char fnam[] = "check_duplicate_GALID" ;
 
@@ -2092,8 +2089,8 @@ void check_duplicate_GALID(void) {
 
 
   // allocate memory for sort-pointers
-  LIBINDEX_SORT = (int   *)malloc( (NGAL+1) * sizeof(int)    );
-  ptrGALID      = (double*)malloc( (NGAL+1) * sizeof(double) );
+  LIBINDEX_UNSORT = (int   *)malloc( (NGAL+1) * sizeof(int)    );
+  ptrGALID        = (double*)malloc( (NGAL+1) * sizeof(double) );
 
   // load array of double-precision GALID to be sorted
   for ( igal = 0; igal < NGAL; igal++ ) {
@@ -2103,7 +2100,7 @@ void check_duplicate_GALID(void) {
 
   ORDER_SORT = +1 ; // increasing order
   sortDouble( NGAL, ptrGALID, ORDER_SORT, 
-	      LIBINDEX_SORT );  // return array of indices
+	      LIBINDEX_UNSORT );  // return array of indices
 
   GALID_LAST  =  -9  ;
   ZTRUE_LAST  = 0.0 ;
@@ -2112,7 +2109,7 @@ void check_duplicate_GALID(void) {
   // check current and previous GALID for duplicates
   for ( igal = 0; igal < NGAL ; igal++ ) {
 
-    isort = LIBINDEX_SORT[igal] ;
+    isort = LIBINDEX_UNSORT[igal] ;
     GALID = get_GALID_HOSTLIB(isort) ;
     ZTRUE = get_ZTRUE_HOSTLIB(isort) ;
 
@@ -2140,7 +2137,7 @@ void check_duplicate_GALID(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  free(LIBINDEX_SORT);
+  free(LIBINDEX_UNSORT);
   free(ptrGALID);
 
 }   // end of check_duplicate_GALID
@@ -2156,15 +2153,12 @@ void sortz_HOSTLIB(void) {
   // Also compute ZGAPMAX, ZGAPAVG and Z_ATGAPMAZ
   //
 
-  int 
-    NGAL, igal, ival, isort, VBOSE, DOFIELD
-    ,IVAR_ZTRUE, NVAR_STORE, ORDER_SORT 
-    ,*LIBINDEX_SORT     
-    ;
+  int  NGAL, igal, ival, unsort, VBOSE, DOFIELD;
+  int  IVAR_ZTRUE, NVAR_STORE, ORDER_SORT     ;
 
-  double ZTRUE, ZLAST, ZGAP, ZSUM, *ZSORT ;
+  double ZTRUE, ZLAST, ZGAP, ZSUM, *ZSORT, VAL ;
   char *FIELD;
-  //  char fnam[] = "sortz_HOSTLIB" ;
+  char fnam[] = "sortz_HOSTLIB" ;
 
   // ------------- BEGIN -------------
 
@@ -2187,7 +2181,8 @@ void sortz_HOSTLIB(void) {
   IVAR_ZTRUE = HOSTLIB.IVAR_ZTRUE ;
 
   // allocate memory for sort-pointers
-  LIBINDEX_SORT = (int*)malloc( (NGAL+1) * sizeof(int) );
+  HOSTLIB.LIBINDEX_UNSORT  = (int*)malloc( (NGAL+1) * sizeof(int) );
+  HOSTLIB.LIBINDEX_ZSORT   = (int*)malloc( (NGAL+1) * sizeof(int) );
 
   // allocate memory for sorted values
   for ( ival=0; ival < NVAR_STORE; ival++ ) {
@@ -2214,24 +2209,27 @@ void sortz_HOSTLIB(void) {
     ZSORT[igal] = ZTRUE ;
   }
 
-  ORDER_SORT = +1 ;        // increasing order
-  sortDouble( NGAL, ZSORT, ORDER_SORT, LIBINDEX_SORT ) ;
+  ORDER_SORT = +1 ;    // increasing order
+  sortDouble( NGAL, ZSORT, ORDER_SORT, HOSTLIB.LIBINDEX_UNSORT ) ;
 
 
   HOSTLIB.SORTFLAG = 1 ;
   ZLAST = HOSTLIB.ZMIN ;
   ZSUM = 0.0 ;
 
-  // fill sorted array
+  // fill sorted array. 'igal' is the z-sorted index; 
+  // 'unsort' is the  un-sorted index matching the original HOSTLIB order.
   for ( igal = 0; igal < NGAL ; igal++ ) {
-    isort = LIBINDEX_SORT[igal]  ;
+    unsort = HOSTLIB.LIBINDEX_UNSORT[igal]  ;
+    HOSTLIB.LIBINDEX_ZSORT[unsort] = igal;
+
     for ( ival=0; ival < NVAR_STORE; ival++ ) {
-      HOSTLIB.VALUE_ZSORTED[ival][igal] = 
-	HOSTLIB.VALUE_UNSORTED[ival][isort] ;
+      VAL = HOSTLIB.VALUE_UNSORTED[ival][unsort] ; 
+      HOSTLIB.VALUE_ZSORTED[ival][igal] = VAL;
     }
 
     if ( DOFIELD ) {
-      FIELD = HOSTLIB.FIELD_UNSORTED[isort] ;
+      FIELD = HOSTLIB.FIELD_UNSORTED[unsort] ;
       sprintf(HOSTLIB.FIELD_ZSORTED[igal],"%s", FIELD);
     }
 
@@ -2252,13 +2250,14 @@ void sortz_HOSTLIB(void) {
   HOSTLIB.ZGAPAVG = ZSUM/(double)(NGAL);
 
   // free memory for the pointers and the unsorted array.
-  free(LIBINDEX_SORT);
   free(ZSORT);
+  for ( ival=0; ival < NVAR_STORE; ival++ ) 
+    { free(HOSTLIB.VALUE_UNSORTED[ival]);  }
 
   int  OPT_PLUSMAGS  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS);
   if ( !OPT_PLUSMAGS ) {
-    for ( ival=0; ival < NVAR_STORE; ival++ ) 
-      { free(HOSTLIB.VALUE_UNSORTED[ival]);  }
+    free(HOSTLIB.LIBINDEX_UNSORT);
+    free(HOSTLIB.LIBINDEX_ZSORT);
   }
 
 } // end of sortz_HOSTLIB
@@ -5835,17 +5834,28 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
 // ===================================
 void rewrite_HOSTLIB_plusMags(void) {
   
+  // If +HOSTMAGS option is given on command-line, this function
+  // is called to compute synthetic mags and re-write the HOSTLIB
+  // with [band]_obs columns. 
+  // Beware that 'igal' is a redshift-sorted index for the other 
+  // HOSTLIB functions, but here we use the original HOSTLIB order.
+  // 
+
   int NGAL     = HOSTLIB.NGAL_STORE;
   int NFILT    = GENLC.NFILTDEF_OBS; 
   int NBIN_LAM = INPUTS_SPECTRO.NBIN_LAM;
   int MEMD     = sizeof(double) * NBIN_LAM ;
 
-  int igal, ifilt, ifilt_obs, ivar, DUMPFLAG=0 ;
+  int igal_unsort, igal_zsort, ifilt, ifilt_obs, ivar, DUMPFLAG=0 ;
   long long GALID, GALID_orig ;
   double ZTRUE, MWEBV=0.0, mag, *GENFLUX_LIST, *GENMAG_LIST;
   float  **MAG_STORE;
 
   char fnam[] = "rewrite_HOSTLIB_plusMags" ;
+
+  // internal debug
+  long long GALID_DUMP = 100472 ;
+  int  NGAL_DEBUG      = -500;
 
   // ------------ BEGIN -----------
 
@@ -5868,18 +5878,20 @@ void rewrite_HOSTLIB_plusMags(void) {
     { HOSTSPEC.NWARN_INTEG_HOSTMAG[ifilt] = 0 ; }
 
   // ----------------------------
-  //  NGAL = 500 ; // xxx REMOVE
+  if ( NGAL_DEBUG > 0 ) { NGAL = NGAL_DEBUG; }
 
-  for(igal=0; igal < NGAL; igal++ ) {
-    SNHOSTGAL.IGAL = igal;
+  for(igal_unsort=0; igal_unsort < NGAL; igal_unsort++ ) {
+
+    igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
+    SNHOSTGAL.IGAL = igal_zsort; // needed by genSpec_HOSTLIB
 
     ivar  = HOSTLIB.IVAR_GALID;
-    GALID = (long long)HOSTLIB.VALUE_UNSORTED[ivar][igal] ;
+    GALID = (long long)HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
 
     ivar  = HOSTLIB.IVAR_ZTRUE ;
-    ZTRUE = HOSTLIB.VALUE_UNSORTED[ivar][igal] ;
+    ZTRUE = HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
     
-    DUMPFLAG = ( GALID == 100472 );    
+    DUMPFLAG = ( GALID == GALID_DUMP );    
 
     genSpec_HOSTLIB(ZTRUE,          // (I) helio redshift
 		    MWEBV,          // (I) Galactic extinction
@@ -5890,23 +5902,23 @@ void rewrite_HOSTLIB_plusMags(void) {
     for ( ifilt=0; ifilt < NFILT; ifilt++ ) {
       ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
       mag = integmag_hostSpec(ifilt_obs,GENFLUX_LIST,DUMPFLAG);
-      MAG_STORE[ifilt][igal] = mag;
+      MAG_STORE[ifilt][igal_unsort] = mag;
     }
 
-    if ( (igal % 5000) == 0 ) {
-      printf("\t Processing igal %8d of %8d \n", igal, NGAL);
+    if ( (igal_unsort % 5000) == 0 ) {
+      printf("\t Processing igal %8d of %8d \n", igal_unsort, NGAL);
       fflush(stdout);
     }
 
     // xxxxxxxxxxxxxxxxxxxxxxxxxxx
     if ( ZTRUE < -1.0 ) {
       printf(" xxx ------------------------------------- \n");
-      printf(" xxx igal=%2d  GALID=%8d  ZTRUE=%.5f \n", 
-	     igal, GALID, ZTRUE);
+      printf(" xxx igal_unsort=%2d  GALID=%8d  ZTRUE=%.5f \n", 
+	     igal_unsort, GALID, ZTRUE);
 
       printf("     mag(%s) = ", INPUTS.GENFILTERS);
       for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) 
-	{ printf("%7.2f", MAG_STORE[ifilt][igal] );   }
+	{ printf("%7.2f", MAG_STORE[ifilt][igal_unsort] );   }
       printf("\n"); fflush(stdout);
     } // end igal
     // xxxxxxxxxxxxxxxxxxxx
@@ -5955,7 +5967,7 @@ void rewrite_HOSTLIB_plusMags(void) {
   }
 
 
-  igal = 0;
+  igal_unsort = 0;
   while ( fgets(LINE, MXCHAR_LINE_HOSTLIB, FP_ORIG) != NULL ) {
 
     NWD_LINE = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
@@ -5968,23 +5980,24 @@ void rewrite_HOSTLIB_plusMags(void) {
       else if ( strcmp(FIRSTWORD,"GAL:") == 0 ) {
 	// make sure GALID matches
 
-	ivar  = HOSTLIB.IVAR_GALID;
-	GALID = (long long)HOSTLIB.VALUE_UNSORTED[ivar][igal] ;
+	ivar       = HOSTLIB.IVAR_GALID;
+	igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
+	GALID      = (long long)HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
 
 	get_PARSE_WORD(0, 1, NEXTWORD); // read GALID
 	sscanf(NEXTWORD, "%lld", &GALID_orig);
 	if ( GALID != GALID_orig ) {
-	  sprintf(c1err,"GALID mis-match for igal=%d", igal);
+	  sprintf(c1err,"GALID mis-match for igal_unsort=%d", igal_unsort);
 	  sprintf(c2err,"GALID(orig)=%lld, but stored GALID=%lld",
 		  GALID_orig, GALID ) ;
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
 	}
 
 	for(ifilt=0; ifilt < NFILT; ifilt++ ) {
-	  sprintf(cval, " %6.3f", MAG_STORE[ifilt][igal] );
+	  sprintf(cval, " %6.3f", MAG_STORE[ifilt][igal_unsort] );
 	  strcat(LINE_APPEND,cval);
 	}
-	igal++ ;
+	igal_unsort++ ;
       }
     }
 

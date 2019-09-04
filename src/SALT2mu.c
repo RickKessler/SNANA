@@ -2580,7 +2580,7 @@ void check_duplicate_SNID(void) {
   //
 
   int  MXSTORE = MXSTORE_DUPLICATE ;
-  int  isn, nsn, MEMD, MEMI, isort, *isortList, ORDER_SORT   ;
+  int  isn, nsn, MEMD, MEMI, unsort, *unsortList, ORDER_SORT   ;
   bool IS_SIM;
   double *zList ;
   char fnam[] = "check_duplicate_SNID" ;
@@ -2598,24 +2598,24 @@ void check_duplicate_SNID(void) {
 
   MEMD = nsn * sizeof(double) + 4 ;
   MEMI = nsn * sizeof(int)    + 4 ;
-  zList     = (double *)malloc(MEMD); // allocate integer ID list
-  isortList = (int    *)malloc(MEMI); // allocate sorted list
+  zList      = (double *)malloc(MEMD); // allocate integer ID list
+  unsortList = (int    *)malloc(MEMI); // allocate sorted list
 
   for(isn=0; isn<nsn; isn++)  
     { zList[isn] = (double)INFO_DATA.TABLEVAR.zhd[isn]; }
   
 
   ORDER_SORT = + 1 ; // increasing order
-  sortDouble( nsn, zList, ORDER_SORT, isortList ) ;
+  sortDouble( nsn, zList, ORDER_SORT, unsortList ) ;
 
-  int SAME_z, SAME_SNID, NTMP, idup, isort_last, LAST_DUPL=0 ;
+  int SAME_z, SAME_SNID, NTMP, idup, unsort_last, LAST_DUPL=0 ;
   double z, zerr, z_last, zerr_last ;
   char *snid, *snid_last ;
-  int  ISORT_DUPL[MXSTORE_DUPLICATE][MXSTORE_DUPLICATE];
+  int  UNSORT_DUPL[MXSTORE_DUPLICATE][MXSTORE_DUPLICATE];
   int  NDUPL_LIST[MXSTORE_DUPLICATE]; // how many duplicates per set
   int  NDUPL_SET ; // number of duplicate sets
 
-  isort_last = -9 ;
+  unsort_last = -9 ;
   z_last = zerr_last = -9.0 ;
   snid_last = fnam; // anything to avoid compile warning
 
@@ -2624,10 +2624,10 @@ void check_duplicate_SNID(void) {
     {  NDUPL_LIST[idup] = 0 ; }
 
   for ( isn=0; isn < nsn; isn++ ) {
-    isort = isortList[isn];
-    z      = INFO_DATA.TABLEVAR.zhd[isort];
-    zerr   = INFO_DATA.TABLEVAR.zhderr[isort];
-    snid   = INFO_DATA.TABLEVAR.name[isort];
+    unsort  = unsortList[isn];
+    z      = INFO_DATA.TABLEVAR.zhd[unsort];
+    zerr   = INFO_DATA.TABLEVAR.zhderr[unsort];
+    snid   = INFO_DATA.TABLEVAR.name[unsort];
 
     if ( isn==0 ) { goto SET_LAST; }
 
@@ -2638,11 +2638,11 @@ void check_duplicate_SNID(void) {
       if ( LAST_DUPL == 0 ) { 
 	NDUPL_SET++ ; 
 	NTMP = NDUPL_LIST[NDUPL_SET-1] ;
-	ISORT_DUPL[NDUPL_SET-1][NTMP] = isort_last ;
+	UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort_last ;
 	NDUPL_LIST[NDUPL_SET-1]++ ;
       }
       NTMP = NDUPL_LIST[NDUPL_SET-1] ;
-      if( NTMP < MXSTORE )  { ISORT_DUPL[NDUPL_SET-1][NTMP] = isort ; }
+      if( NTMP < MXSTORE )  { UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort ; }
       NDUPL_LIST[NDUPL_SET-1]++ ;
       LAST_DUPL = 1 ;
     }
@@ -2651,8 +2651,8 @@ void check_duplicate_SNID(void) {
     }
 
   SET_LAST:
-    z_last    = z;   zerr_last=zerr;   isort_last=isort ;
-    snid_last = INFO_DATA.TABLEVAR.name[isort]; 
+    z_last    = z;   zerr_last=zerr;   unsort_last=unsort ;
+    snid_last = INFO_DATA.TABLEVAR.name[unsort]; 
 
   } // end loop over isn
 
@@ -2663,10 +2663,10 @@ void check_duplicate_SNID(void) {
 
   for(idup=0; idup < NDUPL_SET ; idup++ ) {
 
-    isort = ISORT_DUPL[idup][0] ; // first duplicate has SNID and z
-    NTMP = NDUPL_LIST[idup] ;
-    snid   = INFO_DATA.TABLEVAR.name[isort]; 
-    z      = INFO_DATA.TABLEVAR.zhd[isort];      
+    unsort = UNSORT_DUPL[idup][0] ; // first duplicate has SNID and z
+    NTMP   = NDUPL_LIST[idup] ;
+    snid   = INFO_DATA.TABLEVAR.name[unsort]; 
+    z      = INFO_DATA.TABLEVAR.zhd[unsort];      
     printf("\t -> %2d with SNID=%8.8s at z=%.3f \n", 
 	   NTMP, snid, z );	   
   }
@@ -2695,7 +2695,7 @@ void check_duplicate_SNID(void) {
   else if ( iflag == IFLAG_DUPLICATE_AVG ) {
     printf(" merge duplicates.\n");
     for(idup=0; idup < NDUPL_SET ; idup++ ) 
-      { merge_duplicates(NDUPL_LIST[idup], ISORT_DUPL[idup] ); }
+      { merge_duplicates(NDUPL_LIST[idup], UNSORT_DUPL[idup] ); }
   }
   else {
     sprintf(c1err,"Invalid iflag_duplicate=%d", INPUTS.iflag_duplicate );
@@ -2705,7 +2705,7 @@ void check_duplicate_SNID(void) {
 
 
  DONE:
-  free(zList);  free(isortList);
+  free(zList);  free(unsortList);
 
   return;
 
@@ -10357,7 +10357,7 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
   double val, val_last, val1st, val2nd ;
   float  *ptrVal_f = NULL;
   short int *ptrVal_index ;
-  int    irow, isort, NVAL, NBMAX ;
+  int    irow, unsort, NVAL, NBMAX ;
   int    ISGRID, NROW;
   char fnam[] = "get_BININFO_biasCor_alphabeta" ;
 
@@ -10383,17 +10383,16 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
   }
   
 
-  int  ORDER_SORT  = +1 ; // increasing order
-  int *INDEX_SORT = (int*)malloc( NROW * sizeof(int) );
-  //  sortDouble( NROW, ptrVal, ORDER_SORT, INDEX_SORT ) ;
-  sortFloat( NROW, ptrVal_f, ORDER_SORT, INDEX_SORT ) ;
+  int  ORDER_SORT   = +1 ; // increasing order
+  int *INDEX_UNSORT = (int*)malloc( NROW * sizeof(int) );
+  sortFloat( NROW, ptrVal_f, ORDER_SORT, INDEX_UNSORT ) ;
 
   val1st = val2nd = -99999. ;
   NVAL = 0;  val_last = -99999. ;
   for ( irow=0; irow < NROW; irow++ ) {
-    isort = INDEX_SORT[irow];
-    val   = (double)ptrVal_f[isort];
-    if ( ptrVal_index[isort] != 0 ) { continue ; }
+    unsort = INDEX_UNSORT[irow];
+    val   = (double)ptrVal_f[unsort];
+    if ( ptrVal_index[unsort] != 0 ) { continue ; }
 
     if ( val > val_last ) { 
       NVAL++ ; 
@@ -10430,8 +10429,8 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
   }
   else {
     ISGRID = 0 ;  // continuous
-    isort = INDEX_SORT[0];        valmin_loc = (double)ptrVal_f[isort];
-    isort = INDEX_SORT[NROW-1];   valmax_loc = (double)ptrVal_f[isort];
+    unsort = INDEX_UNSORT[0];        valmin_loc = (double)ptrVal_f[unsort];
+    unsort = INDEX_UNSORT[NROW-1];   valmax_loc = (double)ptrVal_f[unsort];
 
     // hard-wire 3 bins; maybe later add user parameter
     valbin_loc = (valmax_loc - valmin_loc)/3.0 ;  
@@ -10446,7 +10445,7 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
   fflush(stdout);
   */
 
-  free(INDEX_SORT); // free memory
+  free(INDEX_UNSORT); // free memory
   
   // --------------------------
   // load function args

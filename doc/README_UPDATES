@@ -17314,7 +17314,7 @@
 
 
 # ======================================================================= 
-         v10_74e (  ) 
+         v10_74e (Sep 4, 2019) 
 
          ***** IMPORTANT(v10_74e) ***** 
 
@@ -17328,7 +17328,7 @@
        to apply CUTWIN so that only postive redshifts are used.
 
    snana.car :
-    + new utility to dump info about data versio:
+    + new utility to dump info about data version:
          snana.exe GETINFO <version_photometry>
     + ANYLCFUN: force model flux to be <= 1.0E20 to avoid 
        double precision overflow for chi2.
@@ -17337,12 +17337,11 @@
 
    snlc_sim.c
      + new command-line input +HOSTMAGS to create new HOSTLIB
-       with synthetic mags
+       with synthetic mags. Still testing with HST.
 
    sntools_host.c: 
     + new function rewrite_HOSTLIB_plusMags() to implement +HOSTMAGS.
       See new manual section  4.19.3 Synthetic Host Magnitudes
-
 
    sntools_genSmear.c[h]:
      + add new code wrappers for OIR (optical+IR) 

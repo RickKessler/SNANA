@@ -1079,6 +1079,7 @@ void match_specbasis_HOSTVAR(void) {
 
   int  NSPECBASIS    = HOSTSPEC.NSPECBASIS ;
   int  ivar_HOSTLIB, i, NERR=0;
+  int  LDMP = 0 ;
   char *VARNAME_SPECBASIS, VARNAME_HOSTLIB[40];
   char fnam[] = "match_specbasis_HOSTVAR";
 
@@ -1099,6 +1100,11 @@ void match_specbasis_HOSTVAR(void) {
     else {
       HOSTSPEC.IVAR_HOSTLIB[i] = ivar_HOSTLIB;
     }
+
+    if ( LDMP ) 
+      { printf(" xxx %s: ivar_HOSTLIB=%2d for '%s' \n",
+	       fnam, ivar_HOSTLIB, VARNAME_SPECBASIS);
+      }
   }
 
 
@@ -1143,7 +1149,7 @@ void checkVarName_specTemplate(char *varName) {
 } // end checkVarName_specTemplate
 
 // =========================================================
-void genSpec_HOSTLIB(double zhel, double MWEBV,
+void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 		     double *GENFLUX_LIST, double *GENMAG_LIST) {
 
   // Created Jun 28 2019 by R.Kessler
@@ -1159,12 +1165,13 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
   int  NBLAM_BASIS = HOSTSPEC.NBIN_WAVE; 
   int  IGAL        = SNHOSTGAL.IGAL ;
   double z1        = 1.0 + zhel;
-  double znorm     = pow(z1,HOSTSPEC.FLAM_SCALE_POWZ1);
+  double znorm     = pow(z1,HOSTSPEC.FLAM_SCALE_POWZ1) ;
   double hc8       = (double)hc;
 
-  int  ilam, ilam_basis, ilam_last=-9, i, ivar_HOSTLIB ;
+  long long GALID;
+  int  ilam, ilam_basis, ilam_last=-9, i, ivar_HOSTLIB, ivar ;
   int  ilam_near, NLAMSUM, LDMP=0;
-  double *FLAM_BASIS, FLAM_TMP, COEFF, FLUX_TMP;
+  double *FLAM_BASIS, FLAM_TMP, FLAM_SUM, COEFF, FLUX_TMP;
   double MWXT_FRAC, LAM, LAMBIN, LAMMIN, LAMMAX, LAM_BASIS;
   double LAMREST_MIN, LAMREST_MAX;
   double LAMMIN_TMP, LAMMAX_TMP, LAMBIN_TMP, LAMBIN_CHECK ;
@@ -1179,20 +1186,44 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  if ( DUMPFLAG ) {
+    ivar = HOSTLIB.IVAR_GALID;
+    GALID = (long long)HOSTLIB.VALUE_UNSORTED[ivar][IGAL] ;    
+
+    ivar = HOSTLIB.IVAR_ZTRUE;
+    double ZCHECK = HOSTLIB.VALUE_UNSORTED[ivar][IGAL] ;    
+    
+    printf(" xxx ----------------------------------------------- \n");
+    printf(" xxx %s DUMP for  GALID = %lld  (IGAL=%d, ZTRUE=%.3f)\n",
+	   fnam, GALID, IGAL, ZCHECK );
+  }
+
   // first construct total spectrum using specbasis binning
   FLAM_BASIS = (double*) malloc( sizeof(double) * NBLAM_BASIS );
   for(ilam_basis=0; ilam_basis < NBLAM_BASIS; ilam_basis++ ) {
-    FLAM_BASIS[ilam_basis] = 0.0 ;
+    FLAM_SUM = 0.0 ;
     for(i=0; i < HOSTSPEC.NSPECBASIS; i++ ) {
       ivar_HOSTLIB = HOSTSPEC.IVAR_HOSTLIB[i];
-      COEFF        = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ;
-      FLAM_TMP   = HOSTSPEC.FLAM[i][ilam_basis] ;
-      FLAM_BASIS[ilam_basis]  += ( COEFF * FLAM_TMP );
+      COEFF        = HOSTLIB.VALUE_UNSORTED[ivar_HOSTLIB][IGAL] ;
+      FLAM_TMP     = HOSTSPEC.FLAM[i][ilam_basis] ;
+      FLAM_SUM    += ( COEFF * FLAM_TMP );
+
+      if ( DUMPFLAG && ilam_basis==0 && COEFF > 0.0 ) {
+	printf(" xxx COEFF(%2d) = %le  (ivar_HOSTLIB=%d)\n", 
+	       i, COEFF, ivar_HOSTLIB );
+      }
     }
 
     // global scale for physical units
-    FLAM_BASIS[ilam_basis] *= HOSTSPEC.FLAM_SCALE; 
-    FLAM_BASIS[ilam_basis] *= znorm;         // z-dependence
+    FLAM_BASIS[ilam_basis] = FLAM_SUM * HOSTSPEC.FLAM_SCALE * znorm;
+
+    if ( DUMPFLAG ) {
+      LAMMIN_TMP   = HOSTSPEC.WAVE_MIN[ilam_basis];
+      LAMMAX_TMP   = HOSTSPEC.WAVE_MAX[ilam_basis];
+      printf(" xxx %7.1f - %7.1f: FLAM(RAW,NORM) = %10.3le, %10.3le\n",
+	     LAMMIN_TMP, LAMMAX_TMP, FLAM_SUM, FLAM_BASIS[ilam_basis]);
+      fflush(stdout);
+    }
   }
 
 
@@ -5837,7 +5868,7 @@ void rewrite_HOSTLIB_plusMags(void) {
     { HOSTSPEC.NWARN_INTEG_HOSTMAG[ifilt] = 0 ; }
 
   // ----------------------------
-  // NGAL = 100 ; // xxx REMOVE
+  //  NGAL = 500 ; // xxx REMOVE
 
   for(igal=0; igal < NGAL; igal++ ) {
     SNHOSTGAL.IGAL = igal;
@@ -5848,12 +5879,14 @@ void rewrite_HOSTLIB_plusMags(void) {
     ivar  = HOSTLIB.IVAR_ZTRUE ;
     ZTRUE = HOSTLIB.VALUE_UNSORTED[ivar][igal] ;
     
+    DUMPFLAG = ( GALID == 100472 );    
+
     genSpec_HOSTLIB(ZTRUE,          // (I) helio redshift
 		    MWEBV,          // (I) Galactic extinction
+		    DUMPFLAG,       // (I)
 		    GENFLUX_LIST,   // (O) fluxGen per bin 
 		    GENMAG_LIST );  // (O) magGen per bin
 
-    //    DUMPFLAG = ( GALID == 100020 );
     for ( ifilt=0; ifilt < NFILT; ifilt++ ) {
       ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
       mag = integmag_hostSpec(ifilt_obs,GENFLUX_LIST,DUMPFLAG);

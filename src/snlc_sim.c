@@ -8798,6 +8798,7 @@ void GENSPEC_TRUE(int imjd) {
 
   double GENMAG, ZP, ARG, FLUXGEN, MAGOFF ;
   int ilam ;
+  int DUMPFLAG=0;
   char fnam[] = "GENSPEC_TRUE" ;
 
   // --------------- BEGIN ----------------
@@ -8806,6 +8807,7 @@ void GENSPEC_TRUE(int imjd) {
   if ( IS_HOST ) {    
     genSpec_HOSTLIB(GENLC.REDSHIFT_HELIO,         // (I) helio redshift
 		    GENLC.MWEBV,                  // (I) Galactic extinction
+		    DUMPFLAG,                     // (I)
 		    GENSPEC.GENFLUX_LIST[imjd],   // (O) fluxGen per bin 
 		    GENSPEC.GENMAG_LIST[imjd] );  // (O) magGen per bin
     return;

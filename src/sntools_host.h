@@ -500,7 +500,7 @@ void   read_specbasis_HOSTLIB(void);
 void   match_specbasis_HOSTVAR(void);
 void   checkVarName_specbasis(char *varName);
 int    ICOL_SPECBASIS(char *varname, int ABORTFLAG) ;
-void   genSpec_HOSTLIB(double zhel, double MWEBV,
+void   genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 		       double *GENFLUX_LIST, double *GENMAG_LIST);
 
 // fetch_HOSTPAR function for GENMODEL (e.g., BYOSED)

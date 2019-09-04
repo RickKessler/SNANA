@@ -875,7 +875,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   MAXLAM = GENSMEAR_SALT2.MAXLAM ;
   MAXLAM_LOOP = MAXLAM + DLAM ; 
 
-  for ( LAM = MINLAM ; LAM < MAXLAM; LAM+=DLAM ) {
+  for ( LAM = MINLAM ; LAM <= MAXLAM; LAM+=DLAM ) {
 
     LAM2 = LAM ;
     // protect bounds

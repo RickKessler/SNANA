@@ -573,7 +573,6 @@ void ADD_FITRES(int ifile) {
       }
     }
 
-    // xxx mark delete  if ( ISN <= 0 ) { continue ; }
     if ( ISN <  0 ) { continue ; }
 
   FOUND_ISN:
@@ -636,6 +635,7 @@ void ADD_FITRES(int ifile) {
   } // end of isn2 loop
 
   fflush(stdout);
+
 
   // free temp arrays
   freeVar_TMP(ifile, NVARALL_FILE, NVARSTR_FILE, NEVT_APPROX);

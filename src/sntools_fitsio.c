@@ -77,11 +77,11 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
   // Aug 2 2016: check for SPECTROGRAPH
   // Jun 14 2017: pass Nsubsample_mark as argument
   // Mar 18 2018: check for SNRMON
+  // Aug 19 2019: check length of filename.
 
-  int  itype, ipar, OVP ;
+  int  itype, ipar, OVP, lenpath, lenfile, lentot ;
   char *ptrFile, *ptrFile2, *ptrType ;
-
-  //char fnam[] = "WR_SNFITSIO_INIT" 
+  char fnam[] = "WR_SNFITSIO_INIT"  ;
   
   // --------------- BEGIN --------------
 
@@ -132,8 +132,21 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
     ptrFile = snfitsFile[IFILE_SNFITSIO][itype] ; // short fileName
     sprintf(ptrFile, "%s_%s.FITS", prefix, ptrType );
 
+    // check length of file name (Aug 2019)
+    lenpath=strlen(path); lenfile=strlen(ptrFile);  lentot=lenpath+lenfile;
+    if ( lentot >= MXPATHLEN ) {
+      printf("\n PRE-ABORT DUMP: \n");
+      printf("   path = '%s' \n", path);
+      printf("   file = '%s' \n", ptrFile);
+      sprintf(c1err, "filename length= %d is too long", lentot);
+      sprintf(c2err, "LEN(path,file) = %d, %d : bound is MXPATHLEN=%d",
+	      lenpath, lenfile, MXPATHLEN );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
     ptrFile2 = snfitsFile_plusPath[IFILE_SNFITSIO][itype] ; // path/fileName
     sprintf(ptrFile2, "%s/%s", path, ptrFile );
+   
   }
 
   // load output argument: name of header file
@@ -783,17 +796,17 @@ void wr_snfitsio_create(int itype ) {
 
   char *ptrFile, *ptrType ;
   char KEYNAME[60], PARNAME[80] ;
-  //  char fnam[] = "wr_snfitsio_create" ;
+  char fnam[] = "wr_snfitsio_create" ;
     
   // -------------- BEGIN --------------
 
   ptrFile = snfitsFile_plusPath[IFILE_SNFITSIO][itype] ;
   ptrType = snfitsType[itype] ;
-
+	 
   // create file
   istat = 0;
   fits_create_file(&fp_snfitsFile[itype], ptrFile, &istat) ;
-  sprintf(c1err,"fits_create_file for %s", ptrType);
+  sprintf(c1err,"fits_create_file for %s (%s)", ptrType, fnam);
   snfitsio_errorCheck(c1err, istat) ;
 
   fp = fp_snfitsFile[itype];
@@ -1814,8 +1827,17 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
 
   sprintf(BANNER,"fits_write_col for %s-param: %s", 
 	  snfitsType[itype], parName );
+
+  /* xxxxxxxx mark delete .xyz xxxxxxxxxx
+  if ( strcmp(ptrForm,"1E") == 0 ) {
+    sprintf(BANNER,"fits_write_col for %s-param: %s = %f", 
+	    snfitsType[itype], parName, WR_SNFITSIO_TABLEVAL[itype].value_1E);
+  }
+  xxxxxxxxx end mark xxxxxxxxxxxx */
+
   snfitsio_errorCheck(BANNER, istat);
 
+  return ;
 
 } //  end of wr_snfitsio_fillTable
 
@@ -1824,7 +1846,7 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
 // ====================================
 void wr_snfitsio_update_phot(int ep) {
 
-  int itype, LOC ,*ptrColnum    ;
+  int itype, LOC ,*ptrColnum  ;
   int WRFULL = ( SNFITSIO_COMPACT_FLAG == 0 );
   //  char fnam[] = "wr_snfitsio_update_phot" ;
   
@@ -1917,6 +1939,7 @@ void wr_snfitsio_update_phot(int ep) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.ZEROPT[ep] ;
   wr_snfitsio_fillTable ( ptrColnum, "ZEROPT", itype );
+
 
   if ( WRFULL ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;

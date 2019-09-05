@@ -782,6 +782,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define CUTBIT_DUPL      18    //  duplicate 
 #define CUTBIT_IDSAMPLE  19    //  IDSAMPLE
 #define CUTBIT_CHI2      20    //  chi2 outlier (data only)
+#define CUTBIT_CID       21    //  for specifying a list of cids to process
 #define MXCUTBIT         25  
 
 #define dotDashLine "-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-" 
@@ -1207,9 +1208,11 @@ struct INPUTS {
   int  sntype[MXSNTYPE]; // list of sntype(s) to select
   char sntypeString[100]; // comma-separated string from input file
 
-  // CID select for data only (data can be real or sim)
-  // DJB:  char   cidFile_data[MXCHAR_FILENAME]
-  // DJB:  char  **cidList_data;
+  // CID select for data only (data can be real or sim) djb
+  char   cidFile_data[MXCHAR_FILENAME];
+  char  **cidList_data; //2d array to be allocated later
+  int   ncidList_data; //number of cids provided in listfile
+  
 
   // - - - - - - redshift bins - - - - - - 
   int     nzbin ;    // number of uniform-spaced redshift bins
@@ -1434,7 +1437,7 @@ int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
 
 void parse_sntype(char *item);
 void parse_nmax(char *item);
-// DJB: void parse_cidFile(char *item);
+void parse_cidFile_data(char *item); //djb
 void parse_prescale_biascor(char *item);
 void parse_powzbin(char *item) ;
 void parse_IDSAMPLE_SELECT(char *item);
@@ -1558,6 +1561,8 @@ void  countData_per_zbin(void) ;
 int   prescale_reject_simData(int SIM_NONIA_INDEX);
 int   prescale_reject_biasCor(int isn);
 int   outside_biasCor_grid(int isn);
+
+int selectCID_data(char *cid); //djb
 
 void  write_fitres(char *fileName);
 void  write_fitres_misc(FILE *fout);
@@ -4063,6 +4068,8 @@ void set_defaults(void) {
   sprintf(INPUTS.sntypeString,"NULL");
 
   INPUTS.nmaxString[0] = 0 ;
+  INPUTS.cidFile_data[0] = 0;
+  INPUTS.ncidList_data = 0; //djb
   INPUTS.nmax_tot = 999888777 ;
   for(isurvey=0; isurvey<MXIDSURVEY; isurvey++ ) 
     { INPUTS.nmax[isurvey] = 999888777 ; }
@@ -4224,6 +4231,7 @@ void init_CUTMASK(void) {
   sprintf(CUTSTRING_LIST[CUTBIT_NMAXCUT],   "NMAXCUT" );
   sprintf(CUTSTRING_LIST[CUTBIT_IDSAMPLE],  "IDSAMPLE" );
   sprintf(CUTSTRING_LIST[CUTBIT_CHI2],      "CHI2" );
+  sprintf(CUTSTRING_LIST[CUTBIT_CID],       "CID"  );
 
 } // end init_CUTMASK
 
@@ -11778,11 +11786,11 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     if ( REJECT )
       { setbit_CUTMASK(isn, CUTBIT_SIMPS, TABLEVAR); }
 
-    /* for DJB ... 
+
+    // djb we only want to apply the cid list for the data                 
     ACCEPT = selectCID_data(name);
     if ( !ACCEPT )
-      { setbit_CUTMASK(isn, CUTBIT_CID, TABLEVAR); }
-    */
+      { setbit_CUTMASK(isn, CUTBIT_CID, TABLEVAR); } //the mask is in tablevar
 
   }
   else if ( IS_BIASCOR ) { 
@@ -11856,7 +11864,31 @@ void setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
 
 } // end setbit_CUTMASK 
 
+int selectCID_data(char *cid){
+  // Created Sep 5 2019 by D.Brout
+  // for file= data. determines if cid is in cidlist_data
 
+  char fnam[] = "selectCID_data";
+
+  int ACCEPT = 1;
+  int i;
+
+  char *tmpCID;
+
+  // ------- BEGIN -------------
+
+  if (strlen(INPUTS.cidFile_data) == 0) { return ACCEPT; }
+
+  for (i=0;i<INPUTS.ncidList_data;i++) {
+    tmpCID = INPUTS.cidList_data[i];
+    if (strcmp(cid,tmpCID)==0) {
+      return ACCEPT;
+    }
+  }
+  ACCEPT = 0;
+
+  return ACCEPT;
+} // END selectCID_data
 
 // =============================================
 int prescale_reject_simData(int SIM_NONIA_INDEX) {
@@ -12115,6 +12147,7 @@ void override_parFile(int argc, char **argv) {
 
 // ********************************************
 int ppar(char* item) {
+  // Parses command line or input files
 
   // Dec 08, 2014 - read new zVARNAME
   // Aug 22, 2016 - call remove_quote
@@ -12309,6 +12342,10 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"idsample_select=") ) 
     {  sscanf(&item[16], "%s", INPUTS.idsample_select );  return(1); } 
+
+  if ( uniqueOverlap(item,"cid_select_file=") ) // djb
+    {  sscanf(&item[16], "%s", INPUTS.cidFile_data );  return(1); }
+
 
   if ( uniqueOverlap(item,"sntype=") )  
     { parse_sntype(&item[7]); return(1); }
@@ -12559,6 +12596,53 @@ void parse_simfile_CCprior(char *item) {
   return ;
 
 } // parse_simfile_CCprior
+
+// **************************************************                                                                                  
+void parse_cidFile_data(char *filename) {
+  // Created Sep 5 2019 - Dillon Brout        
+  // djb
+
+  char fnam[]="parse_cidFile_data";
+
+  int NCID = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,filename);
+
+  int MEMC    = NCID  * sizeof(char*);
+  int MEMC2   = MXCHAR_CCID * sizeof(char);
+
+  char *cid ;
+
+  int i;
+  int LDMP = 1;
+
+  // ------ BEGIN --------------
+
+
+  // for an array of strings this is a 2d array
+
+  INPUTS.cidList_data =  (char**)malloc(MEMC);
+
+  for(i=0; i<NCID; i++ ) { 
+    INPUTS.cidList_data[i] = (char*)malloc(MEMC2); 
+    cid = INPUTS.cidList_data[i];
+    get_PARSE_WORD(0,i,cid); // fill the list
+
+    if ( strstr(cid,",") != NULL || strstr(cid,":") != NULL || strstr(cid,"=") != NULL ) {
+      sprintf(c1err,"Invalid cid string = '%s'",cid);
+      sprintf(c2err,"Check cid_select_file %s",filename);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+
+    if (LDMP) {
+      printf ("xxx select cid = %s \n", INPUTS.cidList_data[i]); // internal dump
+    }
+  }
+
+  INPUTS.ncidList_data = NCID;
+ 
+  return ;
+
+} // END of parse_cidFile_data()
+
 
 
 // **************************************************
@@ -13734,7 +13818,7 @@ void prep_input(void) {
 
   parse_nmax(INPUTS.nmaxString);
 
-  // DJB: parse_cidFile(INPUTS.cidFile);
+  parse_cidFile_data(INPUTS.cidFile_data); // djb
 
   // check for fast lookup option if all cosmo params are fixed.
   // arg, not needed.  prep_cosmodl_lookup();

@@ -3,7 +3,7 @@
 
 #define MXSPEC                 50   // max Nspec per event   
 #define MXTEXPOSE_SPECTROGRAPH 50   // max size of TEXPOSE grid
-#define MXLAM_SPECTROGRAPH    2000  // same as MXBIN_LAMFILT_SEDMODEL
+#define MXLAM_SPECTROGRAPH    2400  // same as MXBIN_LAMFILT_SEDMODEL
 #define MXLAMSMEAR_SPECTROGRAPH 20  // max number of smeared lambda bins
 #define FITSTABLE_NAME_SPECTROGRAPH  "SPECTROGRAPH" 
 #define NCOL_noSNR 3    // Ncolumns before SNR values

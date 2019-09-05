@@ -187,6 +187,8 @@
  Aug 2017: remove SEDMODEL.FLUX_ERRFLAG and replace with SEDMODEL.OPTMASK
            NOT TESTED.
 
+ Aug 28 2019: add zRange argument to init_genSmear_SALT2()
+
 **************************************/
 
 #include <stdio.h>
@@ -3310,8 +3312,9 @@ void init_SMEARMODEL(void) {
     { init_SMEARMAG_KRW09(); }
   else if ( indx == SMEARMODEL_ID.G10 ) {
     char smearFile[200] = "" ;
+    double zRange[2] = { 0.01, 1.00 };  // Aug 28 2019
     init_genSmear_FLAGS(SMEAR_SCALE); // internal inits
-    init_genSmear_SALT2("SALT2.Guy10", "G10", sigcoh) ; 
+    init_genSmear_SALT2("SALT2.Guy10", "G10", sigcoh, zRange) ; 
     get_NRAN_genSmear(&NGAURAN, &NFLATRAN); // Jan 2014, RK
     SMEARMODEL_DEF[indx].NGAURAN  = NGAURAN ; 
     SMEARMODEL_ID.USE_genSmear = 1 ;

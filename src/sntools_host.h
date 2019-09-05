@@ -37,11 +37,11 @@
 #define HOSTLIB_MSKOPT_VERBOSE     256 // print extra info to screen
 #define HOSTLIB_MSKOPT_DEBUG       512 // fix a=2, b=1, rotang=0 
 #define HOSTLIB_MSKOPT_DUMP       1024 // screen-dump for each host 
-
+#define HOSTLIB_MSKOPT_PLUSMAGS   8192 // compute & write host mags from host spectra
 
 #define HOSTLIB_1DINDEX_ID 10    // ID for 1DINDEX transformations
 
-#define MXCHAR_LINE_HOSTLIB 400  // max number of chars per HOSTLIB line
+#define MXCHAR_LINE_HOSTLIB 600  // max number of chars per HOSTLIB line
 #define MXVAR_HOSTLIB       200  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
 #define MXWGT_HOSTLIB      5000  // max number of WGT: keys
@@ -78,7 +78,6 @@
                              // with MINDAYSEP_SAMEGAL option
 
 // define required keys in the HOSTLIB
-
 #define HOSTLIB_VARNAME_GALID     "GALID"  // required 
 #define HOSTLIB_VARNAME_ZTRUE     "ZTRUE"  // required
 
@@ -138,6 +137,8 @@ struct HOSTLIB_DEF {
   // define pointers used to malloc memory with MALLOCSIZE_HOSTLIB
   double *VALUE_ZSORTED[MXVAR_HOSTLIB];  // sorted by redshift
   double *VALUE_UNSORTED[MXVAR_HOSTLIB]; // same order as in HOSTLIB
+  int    *LIBINDEX_UNSORT;    // map between sorted and unsorted
+  int    *LIBINDEX_ZSORT;     // inverse map 
   int     SORTFLAG ; // 1=> sorted
 
   char **FIELD_UNSORTED ;
@@ -198,6 +199,11 @@ struct HOSTLIB_DEF {
   double Aperture_sinTH[NTHBIN_GALMAG+1] ;
 
 } HOSTLIB ;
+
+
+struct {
+  double ZWIN[2], RAWIN[2], DECWIN[2];
+} HOSTLIB_CUTS;
 
 
 struct SAMEHOST_DEF {
@@ -402,6 +408,9 @@ struct {
   double  FLAM_SCALE, FLAM_SCALE_POWZ1 ;
   double *WAVE_CEN, *WAVE_MIN, *WAVE_MAX, *WAVE_BINSIZE ;
   double *FLAM[MXSPECBASIS_HOSTLIB];
+
+  int NWARN_INTEG_HOSTMAG[MXFILTINDX];
+
 } HOSTSPEC ;
 
 
@@ -415,7 +424,7 @@ time_t TIME_INIT_HOSTLIB[2];
 
 void   INIT_HOSTLIB(void);  // one-time init
 void   init_SNHOSTGAL(void);  // init each event
-void   GEN_SNHOST_DRIVER(double ZGEN, double PEAKMJD);
+void   GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD);
 void   GEN_SNHOST_GALID(double ZGEN);
 void   GEN_SNHOST_POS(int IGAL);
 void   TRANSFER_SNHOST_REDSHIFT(int IGAL);
@@ -443,6 +452,7 @@ void   read_head_HOSTLIB(FILE *fp);
 void   checkAlternateVarNames(char *varName) ;
 void   read_gal_HOSTLIB(FILE *fp);
 void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, char *field );
+int    passCuts_HOSTLIB(double *xval);
 void   summary_snpar_HOSTLIB(void) ;
 void   malloc_HOSTLIB(int NGAL);
 void   sortz_HOSTLIB(void);
@@ -492,10 +502,13 @@ void   read_specbasis_HOSTLIB(void);
 void   match_specbasis_HOSTVAR(void);
 void   checkVarName_specbasis(char *varName);
 int    ICOL_SPECBASIS(char *varname, int ABORTFLAG) ;
-void   genSpec_HOSTLIB(double zhel, double MWEBV,
+void   genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 		       double *GENFLUX_LIST, double *GENMAG_LIST);
 
 // fetch_HOSTPAR function for GENMODEL (e.g., BYOSED)
 int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double *VAL_HOSTPAR);
+
+void   rewrite_HOSTLIB_plusMags(void);
+double integmag_hostSpec(int IFILT_OBS, double *GENFLUX_LIST, int DUMPFLAG);
 
 // END

@@ -33,6 +33,7 @@
   Feb 1 2017: MXDOCLINE -> 1000 (was 400)
 
   Jan 31 2019: MXTYPE -> 1000 (was 200)
+  Aug 13 2019: MXPATHLEN -> 300 (was 200)
 
 *****************************************************/
 
@@ -83,7 +84,7 @@ xxxxxxxxxxxx end mark xxxxxxxxxxxxxx */
 
 //  disk pointers defined in init_SNDATA
 
-#define MXPATHLEN 200 // max length of path of full file-name
+#define MXPATHLEN 300 // max length of path of full file-name
 #define MXVERLEN  72  // max length of VERSION name
 char PATH_SNDATA_ROOT[MXPATHLEN];        // top dir for SN data
 char PATH_SNDATA_PHOTOMETRY[MXPATHLEN];

@@ -7,7 +7,8 @@ int   istat_genSmear(void) ;
 
 void  init_genSmear_USRFUN(int NPAR, double *parList, double *LAMRANGE ) ;
 
-void   init_genSmear_SALT2(char *version, char *dispFile, double SIGCOH);
+void   init_genSmear_SALT2(char *version, char *dispFile, double SIGCOH, 
+			   double *GENRANGE_REDSHIFT);
 void   read_genSmear_SALT2disp(char *smearFile) ;
 void   read_genSmear_SALT2sigcoh(char *versionSALT2, GRIDMAP1D *SIGCOH_LAM ) ;
 void   parse_SIGCOH_SALT2(char *KEYNAME, char *KEYARG, GRIDMAP1D *SIGCOH_LAM);
@@ -18,6 +19,8 @@ void  init_genSmear_VCR(char *VCR_version, int index_SNmodel);
 void  init_genSmear_CCM89(double *LAMRANGE) ;
 void  init_genSmear_COH(void) ;
 void  init_genSmear_biModalUV(void) ;
+void  init_genSmear_OIR(void);
+
 void  init_genSmear_private(void) ;
 
 int   nval_genSmear_override(char *inputKey, char *parName);
@@ -62,6 +65,9 @@ void get_genSmear_COH(double Trest, int NLam, double *Lam,
 
 void  get_genSmear_biModalUV(double Trest, int NLam, double *Lam, 
 			    double *magSmear ) ;
+
+void  get_genSmear_OIR(double Trest, int NLam, double *Lam, 
+		       double *magSmear ) ;
 
 void  get_genSmear_private(double Trest, int NLam, double *Lam, 
 			   double *magSmear ) ;
@@ -139,6 +145,7 @@ struct GENSMEAR_SALT2 {
   char   FILE[200] ;  // mag smear vs. wavelength
   int    NLAM ;       // no. lambda bins defining color smearing
   double LAM[MXLAM_GENSMEAR_SALT2];   // lambda at each bin
+  double MINLAM, MAXLAM;              // min,max wavelenght
   double SIGMA[MXLAM_GENSMEAR_SALT2]; // sigma-smear value, mags
   double SIGMA_SCALE ;
 
@@ -166,6 +173,11 @@ struct GENSMEAR_C11 {
   int OPT_farUV;  // see sub-models C11_0, C11_1, C11_2
 } GENSMEAR_C11 ;
 
+
+struct GENSMEAR_OIR {
+
+  int USE ;
+} GENSMEAR_OIR;
 
 // ------------- CCM89 struct ---------------
 struct GENSMEAR_CCM89 {

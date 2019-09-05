@@ -198,13 +198,10 @@ int main(int argc, char **argv) {
   init_modelSmear(); 
   init_genSpec();     // July 2016: prepare optional spectra
 
-  /*
-  if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID )  { 
-    // init search efficiency
-    init_SEARCHEFF(GENLC.SURVEY_NAME,INPUTS.APPLY_SEARCHEFF_OPT); 
-  } 
-  */
- 
+
+  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS)>0 ) 
+    { rewrite_HOSTLIB_plusMags(); }
+
   // create/init output sim-files
   init_simFiles(&SIMFILE_AUX);
 
@@ -4358,6 +4355,11 @@ void sim_input_override(void) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_MSKOPT ); 
       setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     }
+    if ( strcmp( ARGV_LIST[i], "+HOSTMAGS" ) == 0 ) {
+      INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS ;
+      i++ ;
+      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+    }
 
     if ( strcmp( ARGV_LIST[i], "HOSTLIB_GENZPHOT_FUDGEPAR" ) == 0 ) {
       for(j=0; j<4; j++ ) {
@@ -6846,13 +6848,15 @@ void prep_simpath(void) {
   // * Use system call to create new subdir
 
   // May 2008: just create PATH_SNDATA_SIM; do NOT create subdir
-
+  // Aug 14 2019: change suffix len from 20 to 7 to better trap
+  //              too-long filename (see lensuffix)
+  //
 
   char fnam[] = "prep_simpath" ;
 
-  char tmp_path[5*MXPATHLEN] ;
+  char tmp_path[2*MXPATHLEN] ;
 
-  int lenpath, lenprefix, lenfile ;
+  int lenpath, lenprefix, lensuffix, lenfile ;
 
     // ---------- BEGIN ----------
 
@@ -6862,7 +6866,8 @@ void prep_simpath(void) {
   // check string lengths to avoid memory overwrites
   lenpath    = strlen(tmp_path);
   lenprefix  = strlen(INPUTS.GENPREFIX);
-  lenfile    = lenpath + lenprefix + 20 ; // allow file-name extensions
+  lensuffix  = 7 ;      // e.g., '.README'
+  lenfile    = lenpath + lenprefix + lensuffix ; 
 
   if ( lenprefix >= MXVERLEN ) {
     sprintf(c1err,"GENPREFIX string len = %d exceeds array bound of %d",
@@ -6873,8 +6878,8 @@ void prep_simpath(void) {
 
   if ( lenfile >= MXPATHLEN  ) {
     sprintf(c1err, "Estimated filename length= %d is too long", lenfile);
-    sprintf(c2err, "LEN(path,prefix) = %d, %d : MXPATHLEN=%d",
-	    lenpath, lenprefix, MXPATHLEN );
+    sprintf(c2err, "LEN(path,prefix,suffix) = %d, %d, %d : MXPATHLEN=%d",
+	    lenpath, lenprefix, lensuffix, MXPATHLEN );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
@@ -7786,6 +7791,8 @@ void  init_GENLC(void) {
   GENLC.TGAPMAX    = -99999. ;  // max rest-frame gap among all filters
   GENLC.T0GAPMAX   = -99999. ;  // idem, near peak
  
+  GENLC.SL_MAGSHIFT = 0.0 ;
+
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
   // for repeated strong lens images, skip init (Jul 2019)
   if ( INPUTS_STRONGLENS.USE_FLAG  && GENSL.IMGNUM < GENSL.NIMG-1 )  
@@ -8139,7 +8146,8 @@ void init_modelSmear(void) {
   }
   // ----
   else if ( USE_SALT2smear ) {
-    init_genSmear_SALT2(MODELPATH_SALT2, ptrName, SIGCOH);
+    init_genSmear_SALT2(MODELPATH_SALT2, ptrName, SIGCOH, 
+			INPUTS.GENRANGE_REDSHIFT);
   }
 
   // --------
@@ -8397,7 +8405,7 @@ void  init_genSpec(void) {
     printf("\t %s SNR *= 100 \n", tmpText );
   }
 
-  // this know is tunable, not a fixed value from mask
+  // this knob is tunable, not a fixed value from mask
   double *s = &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE ;
   if ( *s != 1.0 ) {
     printf("\t %s Texpose *= %.3f \n", tmpText, *s );
@@ -8450,7 +8458,7 @@ void  init_genSpec(void) {
     GENSPEC.RANGauss_NOISE_TEMPLATE[ilam] = (double*) malloc(MEMD) ;
   }
 
-  
+
   return ;
 
 } // end init_genSpec
@@ -8790,6 +8798,7 @@ void GENSPEC_TRUE(int imjd) {
 
   double GENMAG, ZP, ARG, FLUXGEN, MAGOFF ;
   int ilam ;
+  int DUMPFLAG=0;
   char fnam[] = "GENSPEC_TRUE" ;
 
   // --------------- BEGIN ----------------
@@ -8798,6 +8807,7 @@ void GENSPEC_TRUE(int imjd) {
   if ( IS_HOST ) {    
     genSpec_HOSTLIB(GENLC.REDSHIFT_HELIO,         // (I) helio redshift
 		    GENLC.MWEBV,                  // (I) Galactic extinction
+		    DUMPFLAG,                     // (I)
 		    GENSPEC.GENFLUX_LIST[imjd],   // (O) fluxGen per bin 
 		    GENSPEC.GENMAG_LIST[imjd] );  // (O) magGen per bin
     return;
@@ -10001,7 +10011,7 @@ void gen_event_stronglens(int ilc, int istage) {
   double tdelay=0.0,  magnif=0.0, magshift=0.0;
   double XIMG=0.0, YIMG=0.0;
   double cosDEC, ANGSEP_TRUE ;
-  int    NEXTLENS=0, IDLENS=0, blend_flag, img, NGEN_MIN ;
+  int    NEXTLENS=0, IDLENS=0, blend_flag, img, NGEN_MIN, ep ;
   char fnam[] = "gen_event_stronglens";
 
   // ------------- BEGIN ------------------
@@ -10114,14 +10124,15 @@ void gen_event_stronglens(int ilc, int istage) {
   PEAKMJD       = GENSL.PEAKMJD_noSL + tdelay;
   GENLC.PEAKMJD = PEAKMJD ;
 
-  int ep;
+  // update MJD for epoch flagged as peakMJD
   for(ep=0; ep <= GENLC.NEPOCH; ep++ ) {
     if ( GENLC.ISPEAK[ep] ) { GENLC.MJD[ep] = GENLC.PEAKMJD ; }
   }
 
-  // convert magnifation to magshift
-  if ( INPUTS.DEBUG_FLAG ) { GENSL.MAGNIF_LIST[IMGNUM] = 1.0; }
 
+  // xxxx  if ( INPUTS.DEBUG_FLAG ) { GENSL.MAGNIF_LIST[IMGNUM] = 1.0; }
+
+  // convert magnifation to magshift
   magnif   = GENSL.MAGNIF_LIST[IMGNUM];
   magshift = -2.5*log10(magnif);
   GENSL.MAGSHIFT_LIST[IMGNUM] = magshift ;
@@ -19253,6 +19264,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
               errors (INPUTS.SMEARFLAG_FLUX & 2) 
 
  Mar 18 2018: compute GENLC.SNR_MON for mag = INPUTS.MAGMONITOR_SNR
+ Aug 08 2019: increase crazyflux if SL magnifation is > 1
 
   **********************************/
 
@@ -19649,8 +19661,11 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
 
   crazyflux += (10.*fluxsn_adu_errS) ;
 
-  if ( mag_smear < 0 ) 
-    { crazyflux *= pow(TEN,-0.4*mag_smear); }
+  if ( mag_smear < 0.0 ) // adjust for intrinsic smearing
+    { arg = -0.4*mag_smear; crazyflux *= pow(TEN,arg); }
+
+  if ( GENLC.SL_MAGSHIFT < 0.0 )  // adjust for strong lens magnification
+    { arg = -0.4*GENLC.SL_MAGSHIFT ;  crazyflux *= pow(TEN,arg); }
 
   if ( GENLC.FUDGE_SNRMAX_FLAG == 2 && INPUTS.FUDGE_SNRMAX > 1.0 ) 
     { crazyflux *= INPUTS.FUDGE_SNRMAX; }
@@ -22773,6 +22788,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
       get_filtlam__(&opt_frame, &ifilt_obs, 
 		    &lamavg4, &lamrms4, &lammin4, &lammax4 );
       lamrest = (double)lamavg4 / ( 1.0 + z );   
+      
       get_genSmear(Trest, ONE,  &lamrest, &magSmear_model);
       magSmear = magSmear_model ;
     }
@@ -24009,7 +24025,7 @@ void readme_doc(int iflag_readme) {
   }
   
 
-
+  /* xxxxx mark delete Sep 4 2019 xxxxxxxxxxxxxx
   // write APPLY-mask
   OVP1 = (INPUTS.APPLY_SEARCHEFF_OPT & 1);
   OVP2 = (INPUTS.APPLY_SEARCHEFF_OPT & 2);
@@ -24027,6 +24043,9 @@ void readme_doc(int iflag_readme) {
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\n  APPLY_SEARCHEFF_OPT:  %d => %s \n", 
 	  INPUTS.APPLY_SEARCHEFF_OPT, ctmp);
+  xxxxxxxx end mark xxxxxxxxx */
+
+  sprintf(cptr,"\n  %s \n", COMMENT_README_TRIGGER);
 
   // print SNTYPE values for SPEC and PHOT Ia-subsets 
   // For NONIA there is only one type specified with the NONIA keys.
@@ -25279,8 +25298,9 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   //
   // Feb 12, 2014: always call snlc_to_SNDATA(1) instead of only
   //               for FITS format.
+  //
 
-  int i, isys ;
+  int i, isys, LENSTR ;
   char headFile[MXPATHLEN];
   char cmd[2*MXPATHLEN], prefix[2*MXPATHLEN];
   char fnam[] = "init_simFiles" ;
@@ -25306,9 +25326,9 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   sprintf(cmd,"mkdir -m g+wr %s", PATH_SNDATA_SIM );
   isys = system(cmd);
 
+
   // create full names for auxilliary files,
   // whether they are used or not.
-
   sprintf(prefix,"%s/%s", PATH_SNDATA_SIM, INPUTS.GENVERSION );
 
   // mandatory
@@ -26008,7 +26028,6 @@ void DASHBOARD_DRIVER(void) {
   printf("SEARCHEFF_zHOST_FILE:   %s\n", fileName_orig );  
   printf("\t NMAP_zHOST = %d \n", INPUTS_SEARCHEFF.NMAP_zHOST);
 
-  //.xyz
   happyend();
   return;
 

@@ -17347,4 +17347,21 @@
      + add new code wrappers for OIR (optical+IR) 
      + fix NODE logic for last bin in init_genSmear_SALT2().
 
+
+# ======================================================================= 
+         v10_74f (  ) 
+
+         ***** IMPORTANT(v10_74f) ***** 
+
+         ***** USEFUL(v10_74f) ***** 
+
+         ***** MISCELLANEOUS(v10_74f) ***** 
+
+   sntools_trigger.c
+    + write string COMMENT_README_TRIGGER for readme file.
+      Fix previous comment bug about zHOST usage.
+
+   SALT2mu.c:
+     + finally remove all traces of INPUTS.LEGACY_[BUGS,README].
+
 END: 

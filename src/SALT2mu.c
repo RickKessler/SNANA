@@ -626,6 +626,10 @@ Default output files (can change names with "prefix" argument)
  Jul 19 2019: new chi2max input; see function applyCut_chi2()
  Jul 26 2019: new input zbinuser
 
+ August 2019: implement 7D biasCor based on gammaDM and LOGMASS
+ 
+ Sep 4 2019: finally remove INPUTS.LEGACY_BUGS[READFILE]
+
 ******************************************************/
 
 #include <stdio.h>      
@@ -788,13 +792,6 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define FITFLAG_CHI2         1    // repeat fit with nominal chi2
 #define FITFLAG_2LOGSIGMA    2    // repeat fit with chi2 + 2log(sigma)
 
-/*
-#define ICC_FITCLASS_OTHER    0
-#define ICC_FITCLASS_IBC      1  // for CC prior
-#define ICC_FITCLASS_II       2
-#define ICC_FITCLASS_TOT      3  // all NON1A together
-#define MXCC_FITCLASS         4
-*/
 #define MAXMUBIN 20
 
 #define NCOSPAR 4  // size of cosPar array (OL,Ok,w0,wa)
@@ -1193,6 +1190,7 @@ struct INPUTS {
   double prescale_simData ;   // prescale for simData (never real data)
   double prescale_simCC ;     // e.g., 2 --> use only 1/2 of sim CC
 
+  // - - - - - -  cuts - - - - - 
   double cmin,  cmax  ;
   double x1min, x1max ;
   double zmin,  zmax  ;
@@ -1209,6 +1207,11 @@ struct INPUTS {
   int  sntype[MXSNTYPE]; // list of sntype(s) to select
   char sntypeString[100]; // comma-separated string from input file
 
+  // CID select for data only (data can be real or sim)
+  // DJB:  char   cidFile_data[MXCHAR_FILENAME]
+  // DJB:  char  **cidList_data;
+
+  // - - - - - - redshift bins - - - - - - 
   int     nzbin ;    // number of uniform-spaced redshift bins
   int     nlogzbin;  // number of log-spaced redshift bins
   double  powzbin ;  // fit & output zbin ~ (1+z)^powzbin
@@ -1220,7 +1223,7 @@ struct INPUTS {
 
   char varname_z[40]; // name of redshift variable (default = 'z Z zSPEC')
 
-  char   PREFIX[100] ;
+  // - - - - - user parameter bounds - - - - - 
   double parval[MAXPAR];
   double parstep[MAXPAR];
   double parbndmin[MAXPAR]; // min par bound
@@ -1245,7 +1248,7 @@ struct INPUTS {
 
   int    uave;       // flag to use avg mag from cosmology (not nommag0)
   int    uM0 ;       // flag to float the M0 (default=true)
-  int    uzsim ;     // flat to cheat and use simulated zCMB (default=F)
+  int    uzsim ;     // flag to cheat and use simulated zCMB (default=F)
   double nommag0 ;   // nominal SN magnitude
   double H0 ;
 
@@ -1256,17 +1259,16 @@ struct INPUTS {
 
   int  NDUMPLOG; // number of SN to dump to flog file
 
-  int NSPLITRAN ;       // number of random subsets to split jobs (RK July 2012)
+  int NSPLITRAN ;       // number of random subsets to split jobs
   int JOBID_SPLITRAN ;  // do only this JOBID among NSPLITRAN
 
   int iflag_duplicate;
+
+  char   PREFIX[100] ; // out file names = [PREFIX].extension
   
   int dumpflag_nobiasCor; // 1 --> dump info for data with no valid biasCor
 
   char SNID_MUCOVDUMP[40]; // dump MUERR info for this SNID (Jun 2018)
-
-  int LEGACY_BUGS;      // 1 -> implement pre-refactor bugs
-  int LEGACY_READFILE;	// bit0-> read legacy, bit1= read new
 
 } INPUTS ;
 
@@ -1432,6 +1434,7 @@ int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
 
 void parse_sntype(char *item);
 void parse_nmax(char *item);
+// DJB: void parse_cidFile(char *item);
 void parse_prescale_biascor(char *item);
 void parse_powzbin(char *item) ;
 void parse_IDSAMPLE_SELECT(char *item);
@@ -1736,7 +1739,6 @@ int main(int argc,char* argv[ ])
 
   // parse command-line args to override input file
   override_parFile(argc, argv);
-
 
   // check for conflicts between input variables
   conflict_check();
@@ -4544,7 +4546,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
   int long long MEMTOT=0;
   float f_MEMTOT;
   int  i, isn, MEMF_TMP1, MEMF_TMP;
-  //  char fnam[] = "malloc_TABLEVAR";
+  char fnam[] = "malloc_TABLEVAR";
 
   // ------------- BEGIN --------------
 
@@ -8867,9 +8869,6 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
     cutmask  = ptr_CUTMASK[i] ;
     cutmask -= (cutmask & CUTMASK_LIST[CUTBIT_zBIASCOR]);
 
-    if (INPUTS.LEGACY_BUGS) // re-implement bug
-      { cutmask -= (cutmask & CUTMASK_LIST[CUTBIT_z]); }
-
     if ( cutmask ) { continue; }
 
     // check option for IDSAMPLE-dependent sigint (Oct 2018)
@@ -11671,7 +11670,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
   //  int  LDMP = 0;
   int  LCUTWIN, DOFLAG_CUTWIN[MXCUTWIN], icut, outside ;
-  int  CUTMASK, REJECT ;
+  int  CUTMASK, REJECT, ACCEPT ;
   int  sntype, FOUND, SIM_NONIA_INDEX, idsample, BADERR=0, BADCOV=0 ;
   double cutvar_local[MXCUTWIN];
   double z, x0, x1, c, x0err, x1err, cerr  ;
@@ -11713,8 +11712,6 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
   LCUTWIN = apply_CUTWIN(event_type, DOFLAG_CUTWIN, cutvar_local);
   if ( LCUTWIN == 0 ) { setbit_CUTMASK(isn, CUTBIT_CUTWIN, TABLEVAR); }
-
-
 
   // -----------------------------------------
   // apply legacy cuts (RK - March 31, 2010)
@@ -11771,22 +11768,6 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     if (  SAMPLE_BIASCOR[idsample].DOFLAG_SELECT == 0 ) { CUT_IDSAMPLE = 1;}
   }
   if ( CUT_IDSAMPLE ) { setbit_CUTMASK(isn, CUTBIT_IDSAMPLE, TABLEVAR ); }
-
-  
-  // - - - - - - - - - - - - - - - - - 
-  // temp debug check with old (buggy) cut logic
-  if ( INPUTS.LEGACY_BUGS ) {
-    int CUTMASK_REMOVE = 0 ;  
-    int CUTMASK_BADERR = CUTMASK_LIST[CUTBIT_BADERR];
-    int CUTMASK_BADCOV = CUTMASK_LIST[CUTBIT_BADCOV];
-
-    if(IS_BIASCOR) { CUTMASK_REMOVE = CUTMASK_LIST[CUTBIT_z]; }
-    if(IS_CCPRIOR) { CUTMASK_REMOVE = CUTMASK_BADERR + CUTMASK_BADCOV; }
-
-    CUTMASK = TABLEVAR->CUTMASK[isn];
-    TABLEVAR->CUTMASK[isn] -= ( CUTMASK & CUTMASK_REMOVE );    
-  }
-
   
   // - - - - - - - - - - - - - - - - - - - - - - -  -
   // check cuts specific to event_type
@@ -11796,6 +11777,12 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     REJECT = prescale_reject_simData(SIM_NONIA_INDEX);
     if ( REJECT )
       { setbit_CUTMASK(isn, CUTBIT_SIMPS, TABLEVAR); }
+
+    /* for DJB ... 
+    ACCEPT = selectCID_data(name);
+    if ( !ACCEPT )
+      { setbit_CUTMASK(isn, CUTBIT_CID, TABLEVAR); }
+    */
 
   }
   else if ( IS_BIASCOR ) { 
@@ -11894,7 +11881,7 @@ int prescale_reject_simData(int SIM_NONIA_INDEX) {
   if ( FOUNDKEY_SIM == 0 ) { return(REJECT); }
 
   // increment NSIMDATA counter.
-  // Niotew that prescale_simData can be non-integer
+  // Note that prescale_simData can be non-integer
   NSIMDATA++ ;
   XN    = (float)NSIMDATA ;
   XNPS  = (float)INPUTS.prescale_simData ;
@@ -12471,11 +12458,6 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"snid_mucovdump=")) 
     { sscanf(&item[15],"%s", INPUTS.SNID_MUCOVDUMP); return(1); }
 
-  if ( uniqueOverlap(item,"LEGACY_BUGS=")) 
-    { sscanf(&item[12],"%d", &INPUTS.LEGACY_BUGS); return(1); }
-  if ( uniqueOverlap(item,"LEGACY_READFILE=")) 
-    { sscanf(&item[16],"%d", &INPUTS.LEGACY_READFILE); return(1); }
- 
   return(0);
   
 } // end ppar
@@ -13751,6 +13733,8 @@ void prep_input(void) {
   if ( INPUTS.ipar[IPAR_wa] ) { INPUTS.FLOAT_COSPAR=1; }
 
   parse_nmax(INPUTS.nmaxString);
+
+  // DJB: parse_cidFile(INPUTS.cidFile);
 
   // check for fast lookup option if all cosmo params are fixed.
   // arg, not needed.  prep_cosmodl_lookup();

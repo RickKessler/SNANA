@@ -24025,7 +24025,7 @@ void readme_doc(int iflag_readme) {
   }
   
 
-
+  /* xxxxx mark delete Sep 4 2019 xxxxxxxxxxxxxx
   // write APPLY-mask
   OVP1 = (INPUTS.APPLY_SEARCHEFF_OPT & 1);
   OVP2 = (INPUTS.APPLY_SEARCHEFF_OPT & 2);
@@ -24043,6 +24043,9 @@ void readme_doc(int iflag_readme) {
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\n  APPLY_SEARCHEFF_OPT:  %d => %s \n", 
 	  INPUTS.APPLY_SEARCHEFF_OPT, ctmp);
+  xxxxxxxx end mark xxxxxxxxx */
+
+  sprintf(cptr,"\n  %s \n", COMMENT_README_TRIGGER);
 
   // print SNTYPE values for SPEC and PHOT Ia-subsets 
   // For NONIA there is only one type specified with the NONIA keys.

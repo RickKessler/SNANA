@@ -14,6 +14,7 @@
 # Internal usage:
 #   SNANA_CodeTests.py -cpunum <num> -logDir <dir>
 #
+# Sep 4 2019: run SNANA_SETUP for batch mode (bug fix)
 #
 
 import os
@@ -833,6 +834,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
     BATCH_SUBMIT_COMMAND = BATCH_INFO[0]
     BATCH_TEMPLATE_FILE  = BATCH_INFO[1]
 
+    
     cmd_job0 = ("snana.exe --snana_version > %s" % SNANA_INFO_FILE)
     for cpunum in range(0,NCPU) :
         batch_runfile = ('RUNJOBS_CPU%3.3d.BATCH'     % (cpunum) )
@@ -852,7 +854,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
         cmd_sed += ("-e 's/REPLACE_NAME/CodeTest_CPU%3.3d/g' " % cpunum )
         cmd_sed += ("-e 's/REPLACE_LOGFILE/%s/g' " % batch_logfile)
         cmd_sed += ("-e 's/REPLACE_MEM/%d/g' " % MEMORY )
-        cmd_sed += ("-e 's/REPLACE_JOB/%s/g' " % cmd_job )
+        cmd_sed += ("-e 's/REPLACE_JOB/%s ; %s/g' " % (SNANA_SETUP,cmd_job) )
         cmd_sed += (" %s > %s" % (BATCH_TEMPLATE_FILE,BATCH_RUNFILE) )
         os.system(cmd_sed)
 
@@ -864,7 +866,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
 
         # launch the job
         cmd_submit = ('cd %s ; %s %s' % 
-                      (LOGDIR,BATCH_SUBMIT_COMMAND,batch_runfile) )
+                      (LOGDIR, BATCH_SUBMIT_COMMAND, batch_runfile) )
         os.system(cmd_submit)
 #        print(' Submitted %s ' % batch_runfile )
 #        sys.stdout.flush()

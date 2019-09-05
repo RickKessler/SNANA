@@ -91,7 +91,9 @@ class genmag_BYOSED:
 				self.sedInterp=interp2d(self.phase,self.wave,self.flux.T,kind='linear',bounds_error=True)
 				print(self.warp_effects)
 			except Exception as e:
+				exc_type, exc_obj, exc_tb = sys.exc_info()
 				print('Python Error :',e)
+				print('genmag_BYOSED.py, line number: %i'%exc_tb.tb_lineno)
 				print_err()
 			return
 		

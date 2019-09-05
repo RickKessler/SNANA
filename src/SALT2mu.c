@@ -12600,19 +12600,15 @@ void parse_simfile_CCprior(char *item) {
 // **************************************************                                                                                  
 void parse_cidFile_data(char *filename) {
   // Created Sep 5 2019 - Dillon Brout        
-  // djb
 
-  char fnam[]="parse_cidFile_data";
-
-  int NCID = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,filename);
-
-  int MEMC    = NCID  * sizeof(char*);
+  int NCID    = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,filename);
+  int MEMC    = NCID        * sizeof(char*);
   int MEMC2   = MXCHAR_CCID * sizeof(char);
 
   char *cid ;
-
   int i;
-  int LDMP = 1;
+  int LDMP = 0 ;
+  char fnam[]="parse_cidFile_data";
 
   // ------ BEGIN --------------
 
@@ -12626,14 +12622,16 @@ void parse_cidFile_data(char *filename) {
     cid = INPUTS.cidList_data[i];
     get_PARSE_WORD(0,i,cid); // fill the list
 
-    if ( strstr(cid,",") != NULL || strstr(cid,":") != NULL || strstr(cid,"=") != NULL ) {
+    if ( strstr(cid,",") != NULL || 
+	 strstr(cid,":") != NULL || 
+	 strstr(cid,"=") != NULL ) {
       sprintf(c1err,"Invalid cid string = '%s'",cid);
       sprintf(c2err,"Check cid_select_file %s",filename);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
 
     if (LDMP) {
-      printf ("xxx select cid = %s \n", INPUTS.cidList_data[i]); // internal dump
+      printf ("xxx %s: select cid = %s \n", fnam, INPUTS.cidList_data[i]);
     }
   }
 

@@ -2412,7 +2412,7 @@ void init_genSmear_OIR(void) {
   printf("\t Initialize Optical+NIR model of %s correlations from Avelino+19/Jones+in prep\n", 
 	 FILTERS_OIR );
 
-
+  printf("hiiiiiiiiiii \n");
   // translate reduced covariance into covariances
   N = 0 ;
   printf("\n\t Reduced BgriYJH covariances: \n" );
@@ -2421,15 +2421,17 @@ void init_genSmear_OIR(void) {
     for (j = 0; j < NBAND_OIR ; j++){      
 
       COVred       = GENSMEAR_OIR.COLOR_CORMAT[i][j] ;
-
+      printf("xxxxxxxxxx %7.7f\n",COVred);
+      
       CC           = GENSMEAR_OIR.COLOR_SIGMA[i] * GENSMEAR_OIR.COLOR_SIGMA[j];
-
+      printf("xxxxxxxxxx2 %7.7f\n",CC);
+      
       if ( i == j ) { CC += COV_DIAG_FUDGE ; }
       COVAR2[i][j] = COVred * CC ;
 
       // fill 1D array for gsl argument below.
       N++ ;  COVAR1[N-1] = COVAR2[i][j] * COV_SCALE ;
-
+      printf("xxxxxxxxxx3 %7.7f\n",COV_SCALE);
       printf(" %7.4f ", COVred );
     }
     printf("\n"); fflush(stdout);
@@ -2528,10 +2530,13 @@ void get_genSmear_OIR(double Trest, int NLam, double *Lam,
       }
 
       // interpolate with sin function
+      //printf("xxxxxxxxxx %d\n",&SCATTER_VALUES[IFILT]);
       tmp = interp_SINFUN( lam, &LAMCEN[IFILT], &SCATTER_VALUES[IFILT], fnam );
+
     }
 
     magSmear[ilam] = tmp ;
+
   }
 
   return;
@@ -2541,7 +2546,7 @@ void get_genSmear_OIR(double Trest, int NLam, double *Lam,
 // **********************************
 void read_OIR_INFO(void) {
 
-  // read model params from VCR.INFO file
+  // read model params from OIR.INFO file
   //
   FILE *fp ;
   int  ic, ic2, NC, irowmat, iband, IFILTDEF, j ;
@@ -2573,12 +2578,12 @@ void read_OIR_INFO(void) {
   irowmat = 0; // number of matrix rows read.
 
   while( (fscanf(fp, "%s", c_get)) != EOF ) {
-    
+    if ( c_get[0] == '#' ) { continue; }
+
     if ( strcmp(c_get,"COLOR_SIGMA_SCALE:") == 0  ) 
       { readdouble(fp, 1, &GENSMEAR_OIR.COLOR_SIGMA_SCALE ); }
 
     if ( strcmp(c_get,"COLOR_CORMAT:") == 0  ) {
-      printf("hiiiiiii %i\n",NC);
       readdouble(fp, NC, GENSMEAR_OIR.COLOR_CORMAT[irowmat] ); 
       irowmat++ ;
     }
@@ -2590,10 +2595,21 @@ void read_OIR_INFO(void) {
       GENSMEAR_OIR.LAMCEN[IFILTDEF] = LAMCEN ;
     }
 
+    if ( strcmp(c_get,"COLOR_SIGMA:") == 0  ) 
+      { readdouble(fp, NC, GENSMEAR_OIR.COLOR_SIGMA ); }
+
+    if ( strcmp(c_get,"COLOR_SIGMA_SCALE:") == 0  ) 
+      { readdouble(fp, 0, &GENSMEAR_OIR.COLOR_SIGMA_SCALE ); }
+    
+    if ( strcmp(c_get,"SIGMACOH_MB:") == 0  ) 
+      { readdouble(fp, 1, &GENSMEAR_OIR.SIGMACOH_MB); }
+
+    
   } // end while
 
 
   fflush(stdout);
+
   
   // -------------------------------------------------------
   // sanity checks; because sane people do insane things.
@@ -2601,7 +2617,7 @@ void read_OIR_INFO(void) {
   if ( irowmat != NC ) {
     sprintf(c1err,"Read %d rows of corr. matrix; expected %d rows.",
 	    irowmat, NC);
-    sprintf(c2err,"Check COLOR_CORMAT keys in VCR.INFO file.") ;
+    sprintf(c2err,"Check COLOR_CORMAT keys in OIR.INFO file.") ;
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
   }
   
@@ -2671,16 +2687,15 @@ void  prep_OIR_COVAR(void) {
 
   // ------------- BEGIN ----------
 
-  NC = GENSMEAR_OIR.NCOLOR ;
+  NC = NBAND_OIR ;
   N  = 0 ;
-
   for(ic1=0; ic1<NC; ic1++ ) {
     for(ic2=0; ic2<NC; ic2++ ) {
       rho = GENSMEAR_OIR.COLOR_CORMAT[ic1][ic2] ;
       S1  = GENSMEAR_OIR.COLOR_SIGMA[ic1] ;
       S2  = GENSMEAR_OIR.COLOR_SIGMA[ic2] ;
       COV = (S1 * S2 * rho) ;
-
+      printf("hiiiiiiiiiii8 %f\n",S1);
       N++ ;
 
     }  // ic2

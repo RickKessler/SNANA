@@ -27,6 +27,10 @@ int   nval_genSmear_override(char *inputKey, char *parName);
 void  store_genSmear_override(char *parName, int NVAL, double *tmpList);
 int   exec_genSmear_override(int ipar, char *keyName, double *val) ;
 
+void  read_OIR_INFO(void) ;    // read misc. info/parameters
+void  sort_OIR_BANDS(void);
+void  prep_OIR_COVAR(void) ;
+
 void  read_VCR_VSI(void) ;     // read v_Si distribution
 void  read_VCR_INFO(void) ;    // read misc. info/parameters
 void  prep_VCR_forSALT2(void); // inits specific to SALT2
@@ -175,10 +179,35 @@ struct GENSMEAR_C11 {
 
 // ------------ OIR struct ----------------------
 
-#define NBAND_OIR 8  // uBgriYJH correlations
+#define NBAND_OIR 7  // BgriYJH correlations
 struct GENSMEAR_OIR {
   int USE ;
   double Cholesky[NBAND_OIR][NBAND_OIR];
+
+  // path and filenames
+  char MODELPATH[MXPATHLEN] ;
+  char INFO_FILE[MXPATHLEN] ;
+
+  // inputs from OIR.INFO file
+  int      NCOLOR ;
+  char     COLOR_STRING[NBAND_OIR][8];  
+  double   COLOR_SLOPE[NBAND_OIR] ;
+  double   SIGMACOH_MB ;
+  double   COLOR_SIGMA_SCALE ; // multiplies all the COLOR_SIGMA values.
+  double   COLOR_SIGMA[NBAND_OIR] ;
+  double   COLOR_CORMAT[NBAND_OIR][NBAND_OIR] ;
+
+  double   LAMCEN_BAND[NBAND_OIR*2];  // define warp nodes
+  double   SPECSHIFT_SCALE;  // fudge-scale for spectral shifts
+
+  // define list of filters ordered by wavelength
+  int       NBAND_OIRDEF ;  // number of unique filters = size of ordered list
+  int       ORDERED_IFILTDEF[NBAND_OIR*2];  // sparse/ordered list
+  double    ORDERED_LAMCEN[NBAND_OIR*2];    // sparse/ordered list
+  int       LAMCEN[MXFILTINDX] ;  // <LAM> vs. IFILTDEF
+  int       IFILT_B ;
+
+
 } GENSMEAR_OIR;
 
 // ------------- CCM89 struct ---------------

@@ -331,7 +331,6 @@ def avgmat_Ngrid(base_output,mats,lcs,output_dir='COSMO'):
 
 
 def sysmat(base_output,fitopt='_',muopt='_',topdir='',do_each=0,sysfile='NONE',output_dir='COSMO',sysdefault=1,remove_extra=True,covlines='',topfile='NONE',errscales='NONE',subdir='*'):
-        
     import numpy as np
     import matplotlib.pyplot as plt
     import array
@@ -345,6 +344,8 @@ def sysmat(base_output,fitopt='_',muopt='_',topdir='',do_each=0,sysfile='NONE',o
     if not remove_extra: remove_extra=True
             
     if (os.path.isdir(output_dir)==False): os.mkdir(output_dir)
+    if (os.path.isdir(output_dir+'/plot_data')==False):  os.mkdir(output_dir+'/plot_data')
+
     print(len(covlines))
     #stop
     if len(covlines)>1: sysnum=len(covlines)
@@ -371,11 +372,15 @@ def sysmat(base_output,fitopt='_',muopt='_',topdir='',do_each=0,sysfile='NONE',o
 
     if not os.path.exists(topdir+'/FITJOBS/FITJOBS_SUMMARY.LOG'):
         print(topdir+'/FITJOBS/FITJOBS_SUMMARY.LOG')        
-        print('Log file not there. No M0DIF files!!! This makes me sad!!! Im done here!!')
-        return 0
+        if os.path.isfile(topdir+'/FITJOBS_SUMMARY.LOG'):
+                    log_lines=open(topdir+'/FITJOBS_SUMMARY.LOG','r').readlines()
+        else:
+            print('Log file not there. No M0DIF files!!! This makes me sad!!! Im done here!!')
+            return 0
 
     if os.path.isfile(base_output+'.list'): file_lines=open(base_output+'.list','r').readlines()
     if os.path.isfile(topdir+'/FITJOBS/FITJOBS_SUMMARY.LOG'): log_lines=open(topdir+'/FITJOBS/FITJOBS_SUMMARY.LOG','r').readlines()    
+    
     print(topdir+'/FITJOBS/FITJOBS_SUMMARY.LOG')
 
     filesize=len(file_lines) #read in number of M0DIF files
@@ -414,6 +419,7 @@ def sysmat(base_output,fitopt='_',muopt='_',topdir='',do_each=0,sysfile='NONE',o
          print('No FITOPT README in !!!'+INPDIR1[0]+'/FITOPT.README This makes me sad!!! Im done here!!')
          return 0
     if os.path.isfile(INPDIR1[0]+'/FITOPT.README'): fit_lines=open(INPDIR1[0]+'/FITOPT.README','r').readlines()
+    
 
     for xco in range(0,len(fit_lines)):
         if 'FITOPT:' in fit_lines[xco]:
@@ -641,6 +647,13 @@ def makeini (file_root, outputdir,baseoutput,base,BASE_INI_AND_BATCH,extra=0,roo
             #dataset=outputdir+'/'+baseoutput+'.dataset'
             dataset='%s_%d.dataset'%(baseoutput,datasetnum)
             #dvin_nosn_ocmb_omol.ini
+            from shutil import copyfile, copytree
+            copyfile(os.path.join(BASE_INI_AND_BATCH,'distparams.ini'),outputdir+'/distparams.ini')
+
+            try:
+                        copytree(BASE_INI_AND_BATCH+'/paramnames',outputdir+'/paramnames')
+            except:
+                        pass
             print('we are making ini files!')
             svec=['snonly_omw','omw','wwa','omol','snonly_omol','sn_omw_validation']
             gvec=['','','bao_','obao_','ocmb_','nosn_ocmb_']
@@ -676,8 +689,6 @@ def makeini (file_root, outputdir,baseoutput,base,BASE_INI_AND_BATCH,extra=0,roo
                                                 for x in content:
                                                             h.write(x)
                                                 #h.write('timeout 126000 mpirun /project/rkessler/SN/CosmoMC/v01 '+file_root+'_'+gvec[j]+svec[i]+'_'+str(int(datasetnum))+'.ini\n')
-                                                h.write('module unload openmpi\n')
-                                                h.write('module load intelmpi/5.1+intel-16.0\n')
                                                 h.write('timeout 126000 mpirun /project2/rkessler/PRODUCTS/CosmoMC/v03/CosmoMC-master/cosmomc '+file_root+'_'+gvec[j]+svec[i]+'_'+str(int(datasetnum))+'.ini\n')
                                                 h.write('if [ $? -eq 124 ]; then\n')
                                                 h.write('    sleep 120\n')
@@ -689,19 +700,21 @@ def makeini (file_root, outputdir,baseoutput,base,BASE_INI_AND_BATCH,extra=0,roo
                                                                                                 
 if __name__ == "__main__":
                                                                                                             
-             # parse input argument(s)
+  # parse input argument(s)
   covmatonly = False
   if ( len(sys.argv) < 2 ):
-          sys.exit("Must give INFILE argument\n-->ABORT")
+      sys.exit("Must give INFILE argument\n-->ABORT")
   else:
-            if sys.argv[1][0] == '-':
-                        sys.exit("Must give INFILE argument\n-->ABORT")
-            else:
-                        INFILE = sys.argv[1]
-                        print('Input file: ', INFILE)
-            try:
-                        if sys.argv[2] == '--covmatonly':
-                                    covmatonly = True
+      if sys.argv[1][0] == '-':
+          sys.exit("Must give INFILE argument\n-->ABORT")
+      else:
+          INFILE = sys.argv[1]
+          print('Input file: ', INFILE)
+          try:
+            if sys.argv[2] == '--covmatonly':
+                covmatonly = True
+          except:
+                pass
 
   print('SNDATA_ROOT = ', SNDATA_ROOT)
         
@@ -739,7 +752,7 @@ if __name__ == "__main__":
   #stop
   print(FileInfo.OUTPUTDIR)
   #DILLON: I'm editing here for giving full outputdir path not relative to cwd
-  f = open('/'.join(FileInfo.OUTPUTDIR.split('/')[:-1])+'/covopt.dict','w')
+  f = open(FileInfo.OUTPUTDIR+'/covopt.dict','w')
   if (FileInfo.MAKEINI!='NONE'):
               for d in range(len(FileInfo.COVOPT)+1):
                           makeini(FileInfo.MAKEINI,FileInfo.OUTPUTDIR,FileInfo.BASEOUTPUT,'dvin',FileInfo.COSMOMC_TEMPLATES,extra=1,rootdir=FileInfo.ROOTDIR,datasetnum=d)

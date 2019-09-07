@@ -91,10 +91,10 @@ class genmag_BYOSED:
 				self.sedInterp=interp2d(self.phase,self.wave,self.flux.T,kind='linear',bounds_error=True)
 				print(self.warp_effects)
 			
-				fluxsmear=self.fetchSED_BYOSED([0],5000,1,1,[0 for x in range(len(self.host_param_names))])
-				import pickle
-				with open('/project2/rkessler/SURVEYS/WFIRST/USERS/jpierel/byosed/fluxsmear.dat','wb') as f:
-					pickle.dump([self.wave,fluxsmear],f)
+				#fluxsmear=self.fetchSED_BYOSED([0],5000,1,1,[0 for x in range(len(self.host_param_names))])
+				#import pickle
+				#with open('/project2/rkessler/SURVEYS/WFIRST/USERS/jpierel/byosed/fluxsmear.dat','wb') as f:
+				#	pickle.dump([self.wave,fluxsmear],f)
 
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()

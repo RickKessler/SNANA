@@ -2839,7 +2839,8 @@ int prepNextFit(void) {
   //   2 --> another fit with chi2 + 2log(sigma) 
   //
   // July 5 2018: stop if input sigint_fix is set; see STOP_COVFIX
-  
+  // Sep 7 2019: STOP if INPUTS.fixpar_all is set.
+
   double redchi2, covParam ;
   double step1 = INPUTS.covint_param_step1 ;
   int STOP_TOL, STOP_MXFIT, STOP_COV0, retCode, USE_CCPRIOR ;
@@ -2865,7 +2866,7 @@ int prepNextFit(void) {
 
   // check reasons to stop fitting
   STOP_TOL    = ( fabs(redchi2-1.0) < INPUTS.redchi2_tol ) ;
-  STOP_MXFIT  = ( NFIT_ITER == MAXFITITER-1 );
+  STOP_MXFIT  = ( NFIT_ITER == MAXFITITER-1 || INPUTS.fixpar_all ) ;
   STOP_COV0   = ( NFIT_ITER > 0 && FITINP.COVINT_PARAM_FIX == 0.0)  ;
   
   // for CC prior, require at least 2 iterations
@@ -6811,7 +6812,7 @@ void prepare_biasCor(void) {
     IDSAMPLE = INFO_DATA.TABLEVAR.IDSAMPLE[n]; 
     if ( CUTMASK ) { continue ; }
 
-    DUMPFLAG = (NUSE_TOT < 2 ) ; // xxx REMOVE
+    DUMPFLAG = 0; // (NUSE_TOT < 2 ) ; // xxx REMOVE
     istore = storeDataBias(n,DUMPFLAG);
 
     NUSE[IDSAMPLE]++ ; NUSE_TOT++ ;

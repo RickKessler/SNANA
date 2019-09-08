@@ -347,7 +347,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   read_SALT2colorDisp();
 
   // abort if any ERRMAP has invalid wavelength range (Sep 2019)
-  check_lamRange_SALT2errmap(-1);
+  // maybe later:  check_lamRange_SALT2errmap(-1);
 
   // fill/calculate color-law table vs. color and rest-lambda
   fill_SALT2_TABLE_COLORLAW();
@@ -1017,7 +1017,7 @@ void read_SALT2colorDisp(void) {
   SALT2_ERRMAP[imap].LAMMIN = SALT2_ERRMAP[imap].LAM[0] ;
   SALT2_ERRMAP[imap].LAMMAX = SALT2_ERRMAP[imap].LAM[NLAM-1] ;
 
-  check_lamRange_SALT2errmap(imap);
+  // maybe later  check_lamRange_SALT2errmap(imap);
 
   fflush(stdout);
 

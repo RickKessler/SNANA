@@ -19,7 +19,7 @@
 
  May 15, 2011: increase MXBIN_LAMSED_SEDMODEL from 2100 -> 5000
 
- Jun 09, 2011: define SEDMODEL.MINLAM_ALL and SEDMODEL.MAXLAM_ALL
+ Jun 09, 2011: define SEDMODEL.LAMMIN_ALL and SEDMODEL.MAXLAM_ALL
 
  Jun 20, 2011  increase MXPAR_SEDMODEL  from 10 -> 100
 
@@ -70,8 +70,8 @@
 #define MXLAMPOW_SEDMODEL 4   // max power of lambda for pre-computed integrals
 
 
-#define MINLAM_SEDMODEL 100     // global min Lambda for reading SED model
-#define MAXLAM_SEDMODEL 30000   // global max Lambda
+#define LAMMIN_SEDMODEL 100     // global min Lambda for reading SED model
+#define LAMMAX_SEDMODEL 30000   // global max Lambda
 
 
 // define redshift bins for SEDMODEL_TABLE
@@ -113,9 +113,9 @@ struct FILTER_SEDMODEL {
   double  transREF_MAX ;     // Max transREF
   double  lamshift ;         // user-shift (A)
   double  lamstep;           // step, A
+  double  lammin, lammax ;   // min/max wavelength
   double  mean;              // mean wavelength of filter
   double  ZP;                // reference zeropoint
-  double  minlam, maxlam ;   // min/max wavelength
   char    name[20];
 } FILTER_SEDMODEL[MXFILT_SEDMODEL] ;
 
@@ -133,7 +133,7 @@ struct PRIMARY_SEDMODEL {
   double  lam[MXBIN_PRIMARY_SEDMODEL];   // wavelengths
   double  flux[MXBIN_PRIMARY_SEDMODEL];  // flux
   double  lamstep;                    // step, A
-  double  minlam, maxlam ;   // min/max wavelength
+  double  lammin, lammax ;   // min/max wavelength
   char    name[20];
 
   // information filled after filters are defined
@@ -162,19 +162,19 @@ struct SEDMODEL {
 
   char   FILENAME[MXSEDMODEL][80]; // NSURFACE of them
 
-  double MINLAMFILT;  // min-lambda for <lamfilt>/(1+z) read from file
-  double MAXLAMFILT;  // max-lambda for <lamfilt>/(1+z)
+  double RESTLAMMIN_FILTERCEN;  // min-lambda for <lamfilt>/(1+z) 
+  double RESTLAMMAX_FILTERCEN;  // max-lambda for <lamfilt>/(1+z)
 
-  double MINLAM_ALL ;  // min LAM covered by all SEDs
-  double MAXLAM_ALL ;  // max LAM covered by all SEDs
+  double LAMMIN_ALL ;  // min LAM covered by all SEDs
+  double LAMMAX_ALL ;  // max LAM covered by all SEDs
 
   // define DAY and LAM binning for each SED
   int    NDAY[MXSEDMODEL],   NLAM[MXSEDMODEL] ;
-  double MINLAM[MXSEDMODEL], MAXLAM[MXSEDMODEL], LAMSTEP[MXSEDMODEL];
-  double MINDAY[MXSEDMODEL], MAXDAY[MXSEDMODEL], DAYSTEP[MXSEDMODEL];
+  double LAMMIN[MXSEDMODEL], LAMMAX[MXSEDMODEL], LAMSTEP[MXSEDMODEL];
+  double DAYMIN[MXSEDMODEL], DAYMAX[MXSEDMODEL], DAYSTEP[MXSEDMODEL];
   double *DAY[MXSEDMODEL];  // Aug 2017 - allows non-uniform DAY bins
 
-  double MINDAY_ALL, MAXDAY_ALL; // min & max day among all SEDs
+  double DAYMIN_ALL, DAYMAX_ALL; // min & max day among all SEDs
 
   int MXDAY ; // max number of epochs to store => used to malloc (Nov 2011)
 
@@ -197,8 +197,8 @@ struct{double AV, z; } SEDMODEL_HOSTXT_LAST ;
 // because we only need to store the flux-integrals 
 typedef struct SEDMODEL_FLUX_DEF {
   int    NDAY, NLAM ;
-  double MINLAM, MAXLAM, LAMSTEP;  // based on SED
-  double MINDAY, MAXDAY, DAYSTEP;
+  double LAMMIN, LAMMAX, LAMSTEP;  // based on SED
+  double DAYMIN, DAYMAX, DAYSTEP;
 
   double *LAM ;       // lambda array
   double *DAY ;       // epoch array

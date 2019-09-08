@@ -17353,6 +17353,7 @@
 
          ***** IMPORTANT(v10_74f) ***** 
 
+
          ***** USEFUL(v10_74f) ***** 
 
          ***** MISCELLANEOUS(v10_74f) ***** 
@@ -17363,5 +17364,21 @@
 
    SALT2mu.c:
      + finally remove all traces of INPUTS.LEGACY_[BUGS,README].
+
+   genmag_SALT2mu.c 
+     + add error checking on wavelength and DAY ranges for ERRMAPs
+       covering SED ranges. For now, only check colorDispersion
+       map, otherwise WFIRST-H17 won't work.
+     + colorDisp map reads ilam=0 to NLAM-1 (intead of 1-NLAM)
+
+   genmag*.c[h]:    make variable names consistent:
+      minlam -> lammin, maxlam -> lammax, etc ...
+
+   sim_SNmix.pl
+     + replace few remaining parse_line commands with parse_array
+       so that comment lines are ignored.
+
+   sntools_host.c[h] :
+     + more fixes for host spectrum.
 
 END: 

@@ -5823,7 +5823,7 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
   // logmass
   SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[0] =   7.0 ;
   SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[1] =  13.0 ;
-  SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS  =   1.5 ;
+  SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS  =   3.0 ;
 
   for(ipar=0; ipar<NLCPAR; ipar++ ) {
     SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_FITPAR[ipar]  
@@ -6811,7 +6811,7 @@ void prepare_biasCor(void) {
     IDSAMPLE = INFO_DATA.TABLEVAR.IDSAMPLE[n]; 
     if ( CUTMASK ) { continue ; }
 
-    DUMPFLAG = (NUSE_TOT == 5 ) ; // xxx REMOVE
+    DUMPFLAG = (NUSE_TOT < 2 ) ; // xxx REMOVE
     istore = storeDataBias(n,DUMPFLAG);
 
     NUSE[IDSAMPLE]++ ; NUSE_TOT++ ;
@@ -7384,10 +7384,10 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
     fit_val  = (double)ptr_fitpar[ievt];
     sim_val  = (double)ptr_simpar[ievt];
 
-    // Aug 26 2019: apply gammadm correction to simval
+    // Aug 26 2019: apply gammadm correction to simval .xyz
     if ( ipar_LCFIT == INDEX_mB ) {
       sim_gammadm = ptr_gammadm[ievt];
-      sim_val += sim_gammadm ;  // true mB is SIM_mB + true gammadm
+      sim_val    += sim_gammadm ;  // true mB is SIM_mB + true gammadm
     }
 
     biasVal = fit_val - sim_val ; 

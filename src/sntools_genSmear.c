@@ -1120,23 +1120,6 @@ void read_genSmear_SALT2disp(char *smearFile) {
 		 ,GENSMEAR_SALT2.LAM        // returned
 		 ,GENSMEAR_SALT2.SIGMA  );  // returned
 
-
-  /* xxxxxx mark delete xxxxx
-  // Sep 3 2019: clip array to respect LAMBDA bounds
-  double LAM, SIGMA;
-  int NLAM_CLIP = 0;
-  for (ilam=1; ilam <= NLAM; ilam++ ) {
-    LAM   = GENSMEAR_SALT2.LAM[ilam];
-    SIGMA = GENSMEAR_SALT2.SIGMA[ilam] ;
-    if ( LAM < INPUT_SALT2_INFO.MINLAMFILT ) { continue ; }
-    if ( LAM > INPUT_SALT2_INFO.MAXLAMFILT ) { continue ; }
-    NLAM_CLIP++ ;
-    GENSMEAR_SALT2.LAM[NLAM_CLIP]   = LAM;
-    GENSMEAR_SALT2.SIGMA[NLAM_CLIP] = SIGMA ;
-  }
-  NLAM = NLAM_CLIP;
-  xxxxxx mark delete xxxxxx */
-
   GENSMEAR_SALT2.NLAM   = NLAM;  
   GENSMEAR_SALT2.MINLAM = GENSMEAR_SALT2.LAM[0];
   GENSMEAR_SALT2.MAXLAM = GENSMEAR_SALT2.LAM[NLAM-1];

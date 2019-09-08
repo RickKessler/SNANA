@@ -149,6 +149,9 @@
 #   to avoid remove _gz from filename. Seems that dot is a special char
 #   that needs a backslash.
 #
+# Sep 7 2019: 
+#    replace parse_line with parse_array so that comment lines are ignored.
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -794,7 +797,8 @@ sub parse_inFile_master() {
     }
 
     $key = "NODELIST:";
-    @TMPNODES = sntools::parse_line($inFile, 99, $key, $OPT_QUIET ) ;
+# xxx    @TMPNODES = sntools::parse_line($inFile, 99, $key, $OPT_QUIET ) ;
+    @TMPNODES = sntools::parse_array($key,99,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     @SSH_NODELIST = ();
     foreach $tmpLine ( @TMPNODES ) {
         @tmp = split(/\s+/,$tmpLine) ;
@@ -804,7 +808,8 @@ sub parse_inFile_master() {
     }
 
     $key = "JOBNAME_SIM:" ;
-    @tmp = sntools::parse_line($inFile, 1, $key, $OPT_QUIET ) ;
+# xxx    @tmp = sntools::parse_line($inFile, 1, $key, $OPT_QUIET ) ;
+    @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) { 
 	$JOBNAME_SIM = "$tmp[0]" ;  
 	print " JOBNAME_SIM -> $JOBNAME_SIM \n";
@@ -813,7 +818,8 @@ sub parse_inFile_master() {
     $JOBNAME_SIM_FULLPATH =~ s/\s+$// ;   # trim trailing whitespace
 
     $key = "PATH_SNDATA_SIM:" ;
-    @tmp = sntools::parse_line($inFile, 1, $key, $OPT_QUIET ) ;
+# xxxx    @tmp = sntools::parse_line($inFile, 1, $key, $OPT_QUIET ) ;
+    @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) { 
 	$PATH_SNDATA_SIM = "$tmp[0]" ;  
         $PATH_SNDATA_SIM = qx(echo $PATH_SNDATA_SIM);
@@ -861,7 +867,8 @@ sub parse_inFile_master() {
 
 
     $key = "SNANA_LOGIN_SETUP:" ;
-    @tmp = sntools::parse_line($inFile, 99, $key, $OPT_QUIET ) ;
+# xxxx    @tmp = sntools::parse_line($inFile, 99, $key, $OPT_QUIET ) ;
+    @tmp = sntools::parse_array($key,99,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) {
 	$SNANA_LOGIN_SETUP = "$tmp[0]" ;
 	print " SNANA_LOGIN_SETUP = '${SNANA_LOGIN_SETUP}' \n" ;
@@ -869,7 +876,8 @@ sub parse_inFile_master() {
 
 
     $key = "TOPDIR_SIMLOGS:" ;
-    @tmp = sntools::parse_line($inFile, 1, $key, $OPT_QUIET ) ;
+## xxxx    @tmp = sntools::parse_line($inFile, 1, $key, $OPT_QUIET ) ;
+    @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) {
 	$TOPDIR_SIMLOGS = $tmp[0] ;
 	$TOPDIR_SIMLOGS = qx(echo $TOPDIR_SIMLOGS) ; # unpack ENV, July 10 2017
@@ -1025,7 +1033,8 @@ sub parse_inFile_master() {
     }
 
     $key = "GENOPT_GLOBAL:" ;
-    @tmp = sntools::parse_line($inFile, 99, $key, $OPT_QUIET) ;
+# xxxx    @tmp = sntools::parse_line($inFile, 99, $key, $OPT_QUIET) ;
+    @tmp = sntools::parse_array($key,99,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) {
 	foreach $tmpLine ( @tmp ) {
 	    if ( index($tmpLine,"#") > 0 ) {

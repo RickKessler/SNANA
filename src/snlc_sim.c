@@ -299,7 +299,6 @@ int main(int argc, char **argv) {
     // synthetic bands.
     GENSPEC_DRIVER(); 
 
-
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("09", ilc) ; }
 
     // convert generated mags into observed fluxes

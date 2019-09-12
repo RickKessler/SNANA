@@ -17362,6 +17362,11 @@
 
     SALT2mu_fit.pl: add optional DONE_STAMP key
 
+    split_and_fit.pl:
+      slurm job names are now based on NML file name rather than
+      a generic  FITSPLIT prefix -->
+      Easier to distinguish multiple jobs for same user.
+
     sntools_host.c[h]: 
       synthetic host mags (from eazy spectra) pass HST crosscheck.
      
@@ -17394,7 +17399,6 @@
      incorrectly set to SNDATA_ROOT/SIM, or to any path in
      PATH_SNDATA_SIM.LIST file.
 
-
    genmag_SALT2.c :
      + colorDisp map reads ilam=0 to NLAM-1 (intead of 1-NLAM)
      + in get_SALT2_ERRMAP(), protect against Trest or Lam being lower 
@@ -17405,5 +17409,12 @@
        with ranges that don't cover SED range. This feature is enabled
        with kludge: snlc_sim.exe <inFile> DEBUG_FLAG 64 so that we
        don't get aborts unless we want them.
+
+   sntools.pm:
+    + add batchName argument to make_batchFile sub.
+   
+   split_and_fit.pl:
+     + use NML file name in new batchName argument.
+       Note that anything before slashes is stripped from NML filename.
 
 END: 

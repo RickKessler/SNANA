@@ -442,7 +442,6 @@ my $SNDATA_ROOT       = $ENV{'SNDATA_ROOT'};
 my $SNANA_DIR         = $ENV{'SNANA_DIR'};
 my $DEFAULT_DATA_PATH = "$SNDATA_ROOT/lcmerge" ;
 my $PATH_SNDATA_SIMDIR_DEFAULT = "$SNDATA_ROOT/SIM" ; # default simDir
-#my $PATH_SNDATA_SIMDIR         = "" ;
 my $SIMDIR_LISTFILE   = "$PATH_SNDATA_SIMDIR_DEFAULT/PATH_SNDATA_SIM.LIST";
 my (@PATH_SIMDATA_LIST, @SIMDIR_LIST_ALL);
 
@@ -1853,7 +1852,6 @@ sub get_DATADIR(@) {
 
 
     $VERTMP  = "$VERSION_LIST[$iver]";
-# xxx mark delete    $SIMDIR  = "$PATH_SNDATA_SIMDIR/${VERTMP}" ;
     $SIMDIR  = "$PATH_SIMDATA_LIST[$iver]/${VERTMP}" ;
 
     if ( length($PATH) > 0 ) {

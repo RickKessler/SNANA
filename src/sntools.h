@@ -96,7 +96,7 @@
 #define MODEL_FIXMAG     20  // constant/fixed mag (default is mag=20)
 #define MODEL_RANMAG     21  // constant/fixed mag per LC, random each event
 #define MXMODEL_INDEX    40
-
+#define PATH_SNDATA_SIM_LIST  "PATH_SNDATA_SIM.LIST"
 
 
 // keep this in sync with the fortran FILTDEF_STRING

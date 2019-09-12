@@ -203,13 +203,15 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   double Trange[2], Lrange[2]     ;
   int  ised, LEGACY_colorXTMW ;
   int  retval = 0   ;
+  int  ABORT_on_LAMRANGE_ERROR = 0;
   char BANNER[120], tmpFile[200], sedcomment[40], version[60]  ;
   char fnam[] = "init_genmag_SALT2" ;
 
   // -------------- BEGIN --------------
 
   // extrac OPTMASK options
-  LEGACY_colorXTMW = ( OPTMASK & 128 ) ;
+  ABORT_on_LAMRANGE_ERROR = ( OPTMASK &  64 ) ; // Sep 9 2019
+  LEGACY_colorXTMW        = ( OPTMASK & 128 ) ;
 
   sprintf(BANNER, "%s : Initialize %s", fnam, MODEL_VERSION );
   print_banner(BANNER);
@@ -347,7 +349,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   read_SALT2colorDisp();
 
   // abort if any ERRMAP has invalid wavelength range (Sep 2019)
-  // maybe later:  check_lamRange_SALT2errmap(-1);
+  if ( ABORT_on_LAMRANGE_ERROR ) { check_lamRange_SALT2errmap(-1); }
 
   // fill/calculate color-law table vs. color and rest-lambda
   fill_SALT2_TABLE_COLORLAW();
@@ -777,7 +779,7 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
 
   for ( imap=0; imap < NERRMAP; imap++ ) {
 
-    if ( imap >= INDEX_ERRMAP_COLORDISP ) { continue ; }
+    if ( imap >= INDEX_ERRMAP_COLORDISP ) { continue ; } // read elsewhere
 
     sprintf(tmpFile, "%s/%s", SALT2_MODELPATH, SALT2_ERRMAP_FILES[imap] );
     sprintf(sedcomment, "SALT2-%s", SALT2_ERRMAP_COMMENT[imap] );
@@ -811,11 +813,10 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    /* Put this back when H17 and P18 are fixed ...
+
     // Sep 2019: make sure wave range covers SED wave range
     check_lamRange_SALT2errmap(imap);
     check_dayRange_SALT2errmap(imap);
-    */
 
     fflush(stdout);
 
@@ -1017,7 +1018,7 @@ void read_SALT2colorDisp(void) {
   SALT2_ERRMAP[imap].LAMMIN = SALT2_ERRMAP[imap].LAM[0] ;
   SALT2_ERRMAP[imap].LAMMAX = SALT2_ERRMAP[imap].LAM[NLAM-1] ;
 
-  // maybe later  check_lamRange_SALT2errmap(imap);
+  check_lamRange_SALT2errmap(imap);
 
   fflush(stdout);
 
@@ -1276,10 +1277,14 @@ void check_lamRange_SALT2errmap(int imap) {
 
   double ERRMAP_LAMMIN, ERRMAP_LAMMAX ;
 
-  double tiny = 1.0E-4;
+  double tol     = 10.0;
+  int    DISABLE = 0 ;
   char fnam[] = "check_lamRange_SALT2errmap" ;
 
+
   // ----------- BEGIN -------------
+
+  if ( DISABLE ) { return ; }
 
   if ( imap < 0 ) {
     if ( NERRMAP_BAD_SALT2 > 0 ) {
@@ -1295,13 +1300,13 @@ void check_lamRange_SALT2errmap(int imap) {
   ERRMAP_LAMMIN = SALT2_ERRMAP[imap].LAMMIN ;
   ERRMAP_LAMMAX = SALT2_ERRMAP[imap].LAMMAX ;
 
-  if ( ERRMAP_LAMMIN-tiny > SED_LAMMIN || ERRMAP_LAMMAX+tiny < SED_LAMMAX ) {
+  if ( ERRMAP_LAMMIN-tol > SED_LAMMIN || ERRMAP_LAMMAX+tol < SED_LAMMAX ) {
     NERRMAP_BAD_SALT2++ ;
-    printf("\nERRMAP: PRE-ABORT DUMP for ERRMAP file %d: %s\n", 
+    printf("\nERRMAP: WARNING for ERRMAP file %d: %s\n", 
 	   imap, SALT2_ERRMAP_FILES[imap] );
-    printf("ERRMAP:   SED_LAMRANGE:    %.1f to %.1f A\n", 
+    printf("ERRMAP:     SED_LAMRANGE:    %.1f to %.1f A\n", 
 	   SED_LAMMIN, SED_LAMMAX);
-    printf("ERRMAP:   ERRMAP_LAMRANGE: %.1f to %.1f A "
+    printf("ERRMAP:     ERRMAP_LAMRANGE: %.1f to %.1f A "
 	   "does not cover SED_LAMRANGE\n", 
 	   ERRMAP_LAMMIN, ERRMAP_LAMMAX);       
   }
@@ -1321,19 +1326,21 @@ void check_dayRange_SALT2errmap(int imap) {
   double SED_DAYMAX    = SALT2_TABLE.DAYMAX ;
   double ERRMAP_DAYMIN = SALT2_ERRMAP[imap].DAYMIN ;
   double ERRMAP_DAYMAX = SALT2_ERRMAP[imap].DAYMAX ;
-  double tiny = 1.0E-4;
+  double tol = 1.1 ;
+  int    DISABLE = 0 ;
   char fnam[] = "check_dayRange_SALT2errmap" ;
 
   // ----------- BEGIN -------------
 
+  if ( DISABLE ) { return ; }
 
-  if ( ERRMAP_DAYMIN-tiny > SED_DAYMIN || ERRMAP_DAYMAX+tiny < SED_DAYMAX ) {
+  if ( ERRMAP_DAYMIN-tol > SED_DAYMIN || ERRMAP_DAYMAX+tol < SED_DAYMAX ) {
     NERRMAP_BAD_SALT2++ ;
-    printf("\nERRMAP: PRE-ABORT DUMP for ERRMAP file: %s\n", 
+    printf("\nERRMAP: WARNING for ERRMAP file: %s\n", 
 	   SALT2_ERRMAP_FILES[imap] );
-    printf("ERRMAP:   SED_DAYRANGE:    %.1f to %.1f days\n", 
+    printf("ERRMAP:     SED_DAYRANGE:    %.1f to %.1f days\n", 
 	   SED_DAYMIN, SED_DAYMAX);
-    printf("ERRMAP:   ERRMAP_DAYRANGE: %.1f to %.1f days "
+    printf("ERRMAP:     ERRMAP_DAYRANGE: %.1f to %.1f days "
 	   "does not cover SED_DAYRANGE\n", 
 	   ERRMAP_DAYMIN, ERRMAP_DAYMAX);       
   }
@@ -1888,8 +1895,8 @@ double SALT2magerr(double Trest, double lamRest, double z,
   char fnam[] = "SALT2magerr" ;
 
   // ---------------- BEGIN ---------------
-
-    // Make sure that Trest is within range of map.
+  
+  // Make sure that Trest is within range of map.
 
   if ( Trest > SALT2_ERRMAP[0].DAYMAX ) 
     { Trest_tmp = SALT2_ERRMAP[0].DAYMAX ; }
@@ -1901,10 +1908,10 @@ double SALT2magerr(double Trest, double lamRest, double z,
   get_SALT2_ERRMAP(Trest_tmp, lamRest, ERRMAP ) ;
 
   // strip off the goodies
-  var0     = ERRMAP[0] ;  // sigma(S0)/S0
-  var1     = ERRMAP[1] ;  // sigma(S1)/S0
-  covar01  = ERRMAP[2] ;  // 
-  errscale = ERRMAP[3] ;  // error fudge  
+  var0     = ERRMAP[INDEX_ERRMAP_VAR0] ;  // sigma(S0)/S0
+  var1     = ERRMAP[INDEX_ERRMAP_VAR1] ;  // sigma(S1)/S0
+  covar01  = ERRMAP[INDEX_ERRMAP_COVAR01] ;  // 
+  errscale = ERRMAP[INDEX_ERRMAP_SCAL] ;  // error fudge  
 
   relx1    = x1 * Finteg_ratio ;
 
@@ -2446,23 +2453,17 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
 
   Jun 2, 2011: renamed from get_SALT2modelerr to get_SALT2_ERRMAP().
 
+  Sep 9 2019: 
+    + protect iday_min and ilam_min from being negative. Negative indices
+      can occur because ERRMAPs don't always cover SED range.
+           
   ***/
 
-  int 
-    imap, jval
-    ,iday_min, iday_max
-    ,ilam_min, ilam_max
-    ,NLAM, NDAY
-    ,IND, IERR // spline args
-    ;
+  int imap, jval, iday_min, iday_max, ilam_min, ilam_max ;
+  int NLAM, NDAY, IND, IERR ;
 
-  double 
-    val, val0, val1, valdif, val_linear, val_spline, tmp
-    ,LMIN, LSTEP, LDIF
-    ,TMIN, TSTEP, TDIF
-    ,val_atlammin
-    ,val_atlammax
-    ;
+  double val, val0, val1, valdif, val_linear, val_spline, tmp;
+  double LMIN, LSTEP, LDIF, TMIN, TSTEP, TDIF, val_atlammin, val_atlammax ;
 
   //  char fnam[] = "get_SALT2_ERRMAP";
 
@@ -2484,11 +2485,13 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
     // get indices that sandwhich Trest and Lrest
 
     iday_min = (int)((Trest - TMIN)/TSTEP) ;
-    if ( iday_min >= NDAY-1 ) iday_min = NDAY - 2 ;
+    if ( iday_min >= NDAY-1 ) { iday_min = NDAY - 2 ; }
+    if ( iday_min <  0      ) { iday_min = 0; } // Sep 9 2019
     iday_max = iday_min + 1;
 
     ilam_min = (int)((Lrest - LMIN)/LSTEP) ;
-    if ( ilam_min >= NLAM-1 ) ilam_min = NLAM - 2 ;
+    if ( ilam_min >= NLAM-1 ) { ilam_min = NLAM - 2 ; }
+    if ( ilam_min <  0      ) { ilam_min = 0;         }
     ilam_max = ilam_min + 1;
 
     
@@ -2511,10 +2514,10 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
     val_atlammax  = val0 + (val1-val0) * TDIF/TSTEP ;
 
     // interpolate in lambda space
-    LDIF = Lrest - SALT2_ERRMAP[imap].LAM[ilam_min];
-    valdif = val_atlammax - val_atlammin ;
+    LDIF       = Lrest - SALT2_ERRMAP[imap].LAM[ilam_min];
+    valdif     = val_atlammax - val_atlammin ;
     val_linear = val_atlammin + (valdif * LDIF/LSTEP) ;
-    val = val_linear ;
+    val        = val_linear ;
 
     if ( INPUT_SALT2_INFO.ERRMAP_INTERP_OPT == 0 ) 
       { val = 0.0 ; }
@@ -2528,8 +2531,8 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
       // Use the sign of the linear interp because
       // the sign in storing the error-squared is lost.
 
-      if ( val_linear < 0.0 ) val = -val_spline ;
-      else                    val = +val_spline ;
+      if ( val_linear < 0.0 ) { val = -val_spline ; }
+      else                    { val = +val_spline ; }
 
       /*
       NCALL_DBUG_SALT2++ ;
@@ -2542,7 +2545,7 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
     }  // SPLINE option
 
 
-    *(ERRMAP+imap) = val ;
+    ERRMAP[imap] = val ;
     
   } // end of imap loop
 

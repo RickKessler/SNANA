@@ -40,6 +40,8 @@
 #         or
 #    BATCH_INFO:  <command>  <templateFile>  <Ncore>
 #
+#    DONE_STAMP: <fileName>  ! if not specified, default ALL.DONE is created
+#
 #    WFITMUDIF_OPT:  <wfit options for fitting M0 vs. z>
 #    WFIT_OPT:   <wfit options> MUDIF          ! wfit only MUDIF
 #    WFIT_OPT:   <wfit options> MUDIF FITRES   ! wfit both  MUDIF & FITRES
@@ -221,6 +223,12 @@
 #   + count aborts and report SUCCESS or FAIL in ALL.DONE
 #   + for INPDIR+ or OUTDIR_OVERRIDE, FITJOBS/ subdir is created
 #      under OUTDIR so that everything is one place.
+#
+# Sep 12 2019: 
+#  + add optional DONE_STAMP key to override default ALL.DONE file.
+#  + start replacing parse_line with parse_array so that comment
+#    lines are ignored.
+#
 # ------------------------------------------------------
 
 use IO::Handle ;
@@ -274,7 +282,7 @@ my ($STRINGMATCH_IGNORE,  @STRINGMATCH_IGNORE_LIST );
 my ($STRINGMATCH);
 my ($VERSION_EXCLUDE,  $VERSION_EXCLUDE_STRING, $PROMPT, $SUBMIT );
 my (@SSH_NODELIST, $SSH_NNODE, $SNANA_LOGIN_SETUP );
-my ($BATCH_COMMAND, $BATCH_TEMPLATE, $BATCH_NCORE );
+my ($BATCH_COMMAND, $BATCH_TEMPLATE, $BATCH_NCORE, $DONE_STAMP_FILE );
 my ($KILLJOBS_FLAG, $SUMMARY_FLAG, $OUTDIR_PREFIX, $OUTDIR_OVERRIDE );
 my ($WFIT_OPT, @WFIT_INPUT, $CLEANFLAG, $NSPLITRAN ) ;
 
@@ -414,8 +422,10 @@ sub initStuff {
 
     $BATCH_TEMPLATE    = "" ;
     $BATCH_NCORE       = 0  ;  # for qsub, sbatch, etc ...
+    $BATCH_COMMAND     = "" ;
     $SSH_NNODE         = 0  ;  # for ssh
     $SNANA_LOGIN_SETUP = "" ;
+    $DONE_STAMP_FILE   = "" ;
 
     $KILLJOBS_FLAG     = 0  ;
     $SUMMARY_FLAG      = 0 ;  # 0 => make summary after all jobs end
@@ -498,6 +508,8 @@ sub parse_args {
 # ==========================
 sub parse_inpFile {
 
+# Sep 12 2019: read contents of INPFILE so that comment lines are ignored
+
     my ($key, @tmp, $NDIR_SOLO, $idir, $NDIR_SUM, $tmpLine, @words, $i);
 
     $NDIR_SUM = $NDIR_SOLO = 0 ;
@@ -510,8 +522,24 @@ sub parse_inpFile {
 	sntools::FATAL_ERROR(@MSGERR);
     }
 
+# Sep 12 2019: read contents of INPFILE so that comment lines are ignored
+    my @CONTENTS_INPFILE = ();
+    sntools::loadArray_fromFile($INPUT_FILE, \@CONTENTS_INPFILE);
+
+
+    $DONE_STAMP_FILE      = ' ' ;
+    $key   = "DONE_STAMP:" ;
+# xxx   @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
+    if ( scalar(@tmp) > 0 ) {
+        $DONE_STAMP_FILE      = "$tmp[0]" ;
+        if ( -e $DONE_STAMP_FILE )  { qx(rm $DONE_STAMP_FILE) ; }
+    }
+
+
     $key = "INPDIR:";
-    @tmp = sntools::parse_line($INPUT_FILE, 2, $key, $OPT_QUIET) ;
+#xxx    @tmp = sntools::parse_line($INPUT_FILE, 2, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,2,$OPT_QUIET, @CONTENTS_INPFILE);
     $NDIR_SOLO = 0;
     foreach $tmpLine (@tmp) {	
 	@words  = split(/\s+/,$tmpLine) ;
@@ -524,22 +552,26 @@ sub parse_inpFile {
     # Nov 29 2017: check INPDIR+ key if NOT already passed via command-line.
     if ( $SUMFLAG_INPDIR == 0 ) {
 	$key = "INPDIR+:";
-	@tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+#xxx	@tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+	@tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
 	$NDIR_SUM = scalar(@tmp) ;
 	if ( $NDIR_SUM > 0 ) 
 	{ @INPDIR_SNFIT_LIST = @tmp ; $SUMFLAG_INPDIR = 1; }
     }
     
     $key = "OUTDIR_OVERRIDE:" ;
-    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+#xxx    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { $OUTDIR_OVERRIDE = $tmp[0] ; }
 
     $key = "OUTDIR_PREFIX:" ;
-    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+# xxx    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { $OUTDIR_PREFIX = $tmp[0] ; }
 
     $key = "JOBNAME:";
-    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+# xxx    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { 
 	$JOBNAME_FIT =  qx(echo $tmp[0]); # allow for ENV
 	$JOBNAME_FIT =~ s/\s+$// ;        # trim trailing whitespace
@@ -557,29 +589,34 @@ sub parse_inpFile {
 
     if ( length($STRINGMATCH) == 0 ) {
 	$key = "STRINGMATCH:" ;
-	@tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+	@tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
+# xxx	@tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
 	if ( scalar(@tmp) > 0 ) {
 	    $STRINGMATCH = $tmp[0] ; 
 	}
     }
 
     $key = "STRINGMATCH_IGNORE:";
-    @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+#xxx  @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,99,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { 
 	$STRINGMATCH_IGNORE = $tmp[0] ; 
 	@STRINGMATCH_IGNORE_LIST = split(/\s+/,$STRINGMATCH_IGNORE) ;
     }
 
     $key = "VERSION_EXCLUDE:";
-    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+# xxx @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { $VERSION_EXCLUDE = $tmp[0] ; }
 
     $key = "VERSION_EXCLUDE_STRING:";
-    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+# xxxx @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { $VERSION_EXCLUDE_STRING = $tmp[0] ; }
     
     $key = "FITOPT000_ONLY:" ;
-    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+# xxx @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { $FITOPT000_ONLY = $tmp[0] ; }
 
     # -------- 
@@ -591,7 +628,9 @@ sub parse_inpFile {
     if ( $NMUOPT_SALT2mu == 0 ) {
 	$key = "FITOPT:";  # check legacy key, May 17 2017
 	@MUOPT_LIST_ORIG = 
-	    sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+	    sntools::parse_array($key,99,$OPT_QUIET, @CONTENTS_INPFILE);
+# xxxx	    sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+
 	@MUOPT_LIST_ORIG = ( "[DEFAULT] NONE", @MUOPT_LIST_ORIG ); 
 	$NMUOPT_SALT2mu = scalar(@MUOPT_LIST_ORIG);
     }
@@ -603,14 +642,16 @@ sub parse_inpFile {
     # ----
 
     $key = "WFITMUDIF_OPT:";
-    @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+# xxx    @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,99,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { 
 	$WFIT_OPT   = "$tmp[0]" ;  
 	@WFIT_INPUT = ( "M0DIF" ) ; 
     }
 
     $key = "WFIT_OPT:";
-    @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+# xxxx    @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,99,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { 
 	$WFIT_OPT   = "$tmp[0]" ;  
 	&parse_WFIT_OPT();
@@ -621,7 +662,8 @@ sub parse_inpFile {
 
     @SSH_NODELIST = () ;
     $key = "NODELIST:" ;
-    my @TMPNODES  = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET ) ;
+# xxx my @TMPNODES  = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET);
+    my @TMPNODES=sntools::parse_array($key,99,$OPT_QUIET, @CONTENTS_INPFILE);
     foreach $tmpLine ( @TMPNODES ) {
 	@tmp = split(/\s+/,$tmpLine) ;
 	@SSH_NODELIST =  ( @SSH_NODELIST , @tmp );
@@ -631,7 +673,8 @@ sub parse_inpFile {
 
     # batch info
     $key     = "BATCH_INFO:" ;
-    @tmp     = sntools::parse_line($INPUT_FILE, 3, $key, $OPT_QUIET ) ;
+# xxx @tmp     = sntools::parse_line($INPUT_FILE, 3, $key, $OPT_QUIET ) ;
+    @tmp   = sntools::parse_array($key,3,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) {
 	@words            = split(/\s+/,$tmp[0]) ;
 	$BATCH_COMMAND  = $words[0] ;
@@ -651,7 +694,8 @@ sub parse_inpFile {
 
     $SNANA_LOGIN_SETUP = "" ;
     $key = "SNANA_LOGIN_SETUP:" ;
-    @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET ) ;
+# xxx  @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET ) ;
+    @tmp = sntools::parse_array($key,99,$OPT_QUIET, @CONTENTS_INPFILE);
     $SNANA_LOGIN_SETUP = "@tmp" ;
 
     # -----------------------------------------
@@ -1973,10 +2017,10 @@ sub wait_for_done {
 
     my ($NDONE, $DONESPEC, $ALLDONE_FILE, $CMD_WAIT );
 
-    $NDONE = $NCPU ;
-
+    $NDONE        = $NCPU ;
     $DONESPEC     = "$FITJOBS_DIR/*.DONE" ;
     $ALLDONE_FILE = "$FITJOBS_DIR/ALL.DONE" ;
+
     $CMD_WAIT = "wait_for_files.pl  $NDONE  $DONESPEC  $ALLDONE_FILE" ; 
 
     system("$CMD_WAIT");
@@ -1996,6 +2040,11 @@ sub wait_for_done {
 
     print " Final STATUS for DONE file: $msg \n";
     qx(echo '$msg' >> $ALLDONE_FILE);
+
+# Sep 12 2019: optional user-done file from DONE_STAMP key
+    if ( $DONE_STAMP_FILE ne "" ) {
+	qx(echo '$msg' >> $DONE_STAMP_FILE );
+    }
 
 }  # end of wait_for_done
 

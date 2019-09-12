@@ -406,7 +406,7 @@ struct {
   int  IVAR_HOSTLIB[MXSPECBASIS_HOSTLIB]; // identified HOSTLIB ivar with coeff
 
   double  FLAM_SCALE, FLAM_SCALE_POWZ1 ;
-  double *WAVE_CEN, *WAVE_MIN, *WAVE_MAX, *WAVE_BINSIZE ;
+  double *WAVE_CEN, *WAVE_MIN, *WAVE_MAX, *WAVE_BINSIZE ; // rest-frame
   double *FLAM_BASIS[MXSPECBASIS_HOSTLIB];
   
   int NWARN_INTEG_HOSTMAG[MXFILTINDX];
@@ -511,6 +511,6 @@ void   genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double *VAL_HOSTPAR);
 
 void   rewrite_HOSTLIB_plusMags(void);
-double integmag_hostSpec(int IFILT_OBS, int DUMPFLAG);
+double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG);
 
 // END

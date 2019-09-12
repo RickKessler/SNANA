@@ -1673,8 +1673,8 @@ void extract_MODELNAME(char *STRING, char *MODELPATH, char *MODELNAME) {
   // Created Feb 22 2016
   // For input STRING = BLA
   //    return MODELPATH='' and MODELNAME=BLA
-  // For input STRING = /project/models/SALT2/SALT2.xyz
-  //    return MODELPATH=STRING and MODELNAME=SALT2.xyz
+  // For input STRING = /project/models/SALT2/SALT2.ABC
+  //    return MODELPATH=STRING and MODELNAME=SALT2.ABC
   //
 
 
@@ -3420,6 +3420,9 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
   // Sep 19 2018: 
   //  remove local & obsolete MXDIR_CHECK and instead use global
   //  MXPATH_SNDATA_SIM. Abort if NDIR_CHECK >= MXPATH_SNDATA_SIM .
+  //
+  // Sep 12 2019: 
+  //  + abort if DATADIR corresponds to $SNDATA_ROOT/SIM or any SIM path
 
   char 
     SNDATA_ENV[20] = "SNDATA_ROOT"
@@ -3431,6 +3434,7 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
 
   int idir, ifound, NFOUND, NDIR_CHECK;
   int idirFOUND[MXPATH_SNDATA_SIM];
+  int LDMP = 0;
   FILE *fp ;
 
   // ---------- BEGIN -----------
@@ -3454,13 +3458,14 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
 
   if ( strlen(DATADIR) > 0 ) { 
     // private user dir
-    sprintf(tmpDir[idir], "%s" ,          DATADIR );
+    sprintf(tmpDir[idir], "%s" ,          DATADIR ); 
     sprintf(tmpFile[idir],"%s/%s.LIST",   tmpDir[idir], VERSION  );
     idir++ ;
 
     sprintf(tmpDir[idir], "%s/%s",        DATADIR, VERSION);
     sprintf(tmpFile[idir],"%s/%s.LIST",   tmpDir[idir], VERSION  );
     idir++ ;
+    
   }
   else {
 
@@ -3474,10 +3479,12 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
     idir++ ;
   }
 
+  /* xxxxx mark delete Sep 12 2019 (see below) xxxxxxxxxxx
   // always tack on SIM dir to check
   sprintf(tmpDir[idir],  "%s/SIM/%s" , SNDATA_ROOT,  VERSION );
   sprintf(tmpFile[idir], "%s/%s.LIST", tmpDir[idir], VERSION  );
   idir++ ;
+  xxxxxxxxxxxxx end mark xxxxxxxxxxxxxx  */
 
   // - - - - - - - - - - - - - - - - - - - - - 
   // Nov 18 2017: check for user-defined SIM-output dirs
@@ -3488,11 +3495,41 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
   for(ipath=0; ipath < MXPATH_SNDATA_SIM; ipath++ ) 
     { PATHLIST[ipath] = (char*) malloc ( MXPATHLEN * sizeof(char) ); }
   NPATH = getList_PATH_SNDATA_SIM(PATHLIST);
+
+  // tack on default SIM dir (Sep 2019)
+  int IPATH_SIM_DEFAULT = NPATH;
+  sprintf(PATHLIST[NPATH], "%s/SIM", SNDATA_ROOT, VERSION); NPATH++ ;
+
+  if ( LDMP ) 
+    { printf(" xxx DATADIR = '%s' \n", DATADIR); fflush(stdout); }
+
   for(ipath = 0 ; ipath < NPATH; ipath++ ) {
 
     if ( idir < MXPATH_SNDATA_SIM ) {
       sprintf(tmpDir[idir],  "%s/%s" , PATHLIST[ipath],  VERSION );
       sprintf(tmpFile[idir], "%s/%s.LIST", tmpDir[idir], VERSION  );
+
+      if ( LDMP) {
+	printf(" xxx check PATHLIST[%d] = '%s' \n", ipath, PATHLIST[ipath] );
+	fflush(stdout); 
+      }
+
+      // Sep 12 2019: abort if DATADIR corresponds to any SIM path
+      if ( strcmp(DATADIR,PATHLIST[ipath])== 0 ) {
+	printf("\n PRE-ABORT DUMP: \n");
+	printf("\t PRIVATE_DATA_PATH = '%s' \n", DATADIR);
+
+	if ( ipath == IPATH_SIM_DEFAULT ) {
+	  sprintf(c1err,"PRIVATE_DATA_PATH cannot be the same as");
+	  sprintf(c2err,"$SNDATA_ROOT/SIM");
+	}
+	else {
+	  sprintf(c1err,"PRIVATE_DATA_PATH cannot match any path in");
+	  sprintf(c2err,"$SNDATA_ROOT/SIM/%s", PATH_SNDATA_SIM_LIST );
+	}
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+      }
+
     }
     idir++ ;
   }
@@ -3510,7 +3547,7 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
-  // set DATADIR only if the input string has zero length
+  // set DATADIR to directory with LIST file
   NFOUND = 0 ;
 
   for(idir=0; idir < NDIR_CHECK; idir++ ) {
@@ -3582,7 +3619,7 @@ FILE *openFile_PATH_SNDATA_SIM(char *mode) {
   sprintf(SNDATA_ROOT, "%s", getenv("SNDATA_ROOT") ) ;
 
   // hard-wire name of file with list of alternate PATH_SNDATA_SIM
-  sprintf(fileName, "%s/SIM/PATH_SNDATA_SIM.LIST", SNDATA_ROOT);
+  sprintf(fileName, "%s/SIM/%s", SNDATA_ROOT, PATH_SNDATA_SIM_LIST );
   sprintf(modeArg, "%ct", mode[0] );
   fp = fopen(fileName,modeArg);
   //  printf("\n Open %s in %s-mode (%s)\n", fileName, mode, modeArg);
@@ -3629,7 +3666,7 @@ void add_PATH_SNDATA_SIM(char *PATH) {
       printf("   MXPATH_SNDATA_SIM = %d \n", MXPATH_SNDATA_SIM);
 
       sprintf(c1err,"Too many paths defined in ");
-      sprintf(c2err,"$SNDATA_ROOT/SIM/PATH_SNDATA_SIM.LIST");
+      sprintf(c2err,"$SNDATA_ROOT/SIM/%s", PATH_SNDATA_SIM_LIST);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
     }
     fp = openFile_PATH_SNDATA_SIM("append");
@@ -4162,8 +4199,7 @@ void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP,
 	DIF = TMPVAL[ivar] - TMPVAL_LAST[ivar];
 	if ( DIF > 0.0  && ivar < NDIM && TMPVAL_LAST[ivar]!=DUMVAL ) { 
 	  DDIF  = DIF - DIFVAL_LAST[ivar] ;
-	  // xxx mark delete June 2019  LDIF1 = ( fabs(DDIF) > 1.0E-10 ) ;
-	  LDIF1 = ( fabs(DDIF/DIF) > .001 ) ; // .xyz
+	  LDIF1 = ( fabs(DDIF/DIF) > .001 ) ; 
 	  LDIF2 = ( DIFVAL_LAST[ivar] > 0.0 ) ;
 	  if ( LDIF1 && LDIF2 ) {
 	    NBADBIN++ ;

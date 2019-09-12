@@ -228,7 +228,7 @@
 #  + add optional DONE_STAMP key to override default ALL.DONE file.
 #  + start replacing parse_line with parse_array so that comment
 #    lines are ignored.
-#
+# Sep 13 2019: add batchName arg to make_batchFile() 
 # ------------------------------------------------------
 
 use IO::Handle ;
@@ -1650,9 +1650,10 @@ sub make_COMMANDS {
 	else {
 	    # batch mode: create BATCH file for each CMD_FILE
 
-	    my ( $script, $batchFile, $batchLog, $JOB, $doneFile );
+	    my ( $script, $batchName, $batchFile, $batchLog, $JOB, $doneFile);
 
 	    $script    = $CMD_FILES[$icpu] ;
+	    $batchName = "${PREFIX}" ;
 	    $batchFile = "${PREFIX}.BATCH" ;
 	    $batchLog  = "${PREFIX}.LOG" ;
 	    $doneFile  = "$FITJOBS_DIR/${PREFIX}.DONE" ;
@@ -1662,7 +1663,8 @@ sub make_COMMANDS {
 	    print "\t prepare $batchFile  for $BATCH_COMMAND  ($NJOB jobs)\n";
 	   
 	    sntools::make_batchFile($BATCH_TEMPLATE, $FITJOBS_DIR,
-				    $batchFile, $batchLog, $JOBMEMORY, $JOB);
+				    $batchName, $batchFile, $batchLog, 
+				    $JOBMEMORY, $JOB);
 	}
     }  # icpu
 

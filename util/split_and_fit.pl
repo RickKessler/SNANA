@@ -340,7 +340,7 @@
 #     FAILURE in done-stamp.
 #
 # Jun 4 2019: "TOTAL_WAIT_ABORT -> 48 hr (was 24 hr)
-#
+# Sep 13 2019: add batchName arg to make_batchFile()
 # =======================
 
 use List::Util qw(first);
@@ -576,7 +576,7 @@ my ($NFITERR_TOT, $NFITERR_NaN, $DO_FITOPT000 );
 my ($VERSION_FITRES_COMBINE, $FITRES_COMBINE_FILE, $COMBINE_ALL_FLAG);
 my (@COMBINE_SUBSET_FITOPT, $NJOB_PER_BATCHFILE ); 
 my ($APPEND_FITRES_LIST, $APPEND_TABLE_LIST, $VERSION_AFTERBURNER );
-my ($OUTDIR, $nmlFile_ORIG, $nmlFile, @CONTENTS_NMLFILE );
+my ($OUTDIR, $nmlFile_ORIG, $nmlFile, $nmlFile_noPath, @CONTENTS_NMLFILE );
 
 # my (@MERGED_TEXTFILE, @MERGED_textFile); # ascii fitres file
 my (@MERGED_OUTFILE, @MERGED_outFile, @MERGED_DONEFILE );  # hbook or root
@@ -884,7 +884,7 @@ sub parse_nmlFile {
     # Apr 15, 2013: check FITOPT: keys for files to copy.
     # Dec 20, 2017: call getVersionList($ver) for VERSION+FITOPT key
     #
-    my ($key, @tmp,  @words, $vtmp, $fitopt, $tmp_fitopt );
+    my ($key, @tmp,  @words, $vtmp, $fitopt, $tmp_fitopt, $jslash );
     my ($NTMP, $FOUND_VERSION_KEY, @tmpVerList, @tmpPathList ) ;
     my ($tmpLine, $line, @TMPVER, $ver, @TMPNODES, $inFile, $idx );
 
@@ -896,6 +896,11 @@ sub parse_nmlFile {
     }
 
     $nmlFile = $nmlFile_ORIG ;
+
+    # get name of NML file without path; used for batchName
+    #.xyz
+    $jslash          = rindex($nmlFile_ORIG,"/");  # location of last slash
+    $nmlFile_noPath  = substr($nmlFile_ORIG,$jslash+1, 99);
 
     @CONTENTS_NMLFILE = ();
     sntools::loadArray_fromFile($nmlFile_ORIG, \@CONTENTS_NMLFILE);
@@ -2299,7 +2304,7 @@ sub createJobs_LCFIT(@) {
     my ($VERSION, $RFILE, $VARG,  $FARG, $SPLARG, $MXARG );
     my ($indx, $OUTFILE, @OUTARG, $DMPARG );
     my ($logFile, $doneFile, $busyFile);
-    my ($tmp_prefix, $batchFile, $batchLog, $NTMP );
+    my ($tmp_prefix, $batchName, $batchFile, $batchLog, $NTMP );
     my ($CMD_STRING, $FITJOB, $CMD, $FIRST, $KEY, @tmp, $tmp );
     my ($CMD_rmlocf, $CMD_cleanFITRES ) ;
     my ($UPDMASK_CMD, $APPENDFLAG_CMD, $WRITEFLAG_CMD, $icmd); 
@@ -2469,10 +2474,14 @@ sub createJobs_LCFIT(@) {
 	    $NBATCH_CREATE_FILE++ ; # each batch file --> one batch submission
 
 	    $prefixBatch = &get_PREFIX_BATCHFILE( $NBATCH_CREATE_FILE );
+# xxx	    $batchName = "${prefixBatch}" ;
+	    $batchName = sprintf("%s-%5.5d", 
+				 $nmlFile_noPath, $NBATCH_CREATE_FILE);
 	    $batchFile = "${prefixBatch}.BATCH" ;
 	    $batchLog  = "${prefixBatch}.BATCH-LOG" ;
 	    
-	    print PTR_SCRIPT "\n#Submit batch file number $NBATCH_CREATE_FILE\n";
+	    print PTR_SCRIPT 
+		"\n#Submit batch file number $NBATCH_CREATE_FILE\n";
 	    &batch_delayAdd($iver,$ifitopt,$isplit,$NBATCH_CREATE_FILE) ;
 	    print PTR_SCRIPT "touch $SPLIT_JOBDIR_LCFIT/$busyFile\n";
 	    print PTR_SCRIPT "$BATCH_COMMAND $batchFile \n" ;
@@ -2481,8 +2490,8 @@ sub createJobs_LCFIT(@) {
 	    #  die "\n xxx DEBUG DIE xxx\n" ;
 	    
 	    sntools::make_batchFile($BATCH_TEMPLATE, $SPLIT_JOBDIR_LCFIT, 
-				    $batchFile, $batchLog, $BATCH_MEM_LCFIT, 
-				    $CMD_STRING);
+				    $batchName, $batchFile, $batchLog, 
+				    $BATCH_MEM_LCFIT, $CMD_STRING);
 	}
     }
     else {
@@ -2890,8 +2899,8 @@ sub create_batchScript(@) {
     #   VERSION = data or sim version
     #   FFF     = FITOPTnnn
 
-    my ($script, $batchFile, $batchLog, $batchJob, $cmd, $icmd );
-    my ($node, $inode_local, $sep, $NCMD );
+    my ($script, $batchName, $batchFile, $batchLog, $batchJob );
+    my ($node, $inode_local, $sep, $NCMD, $cmd, $icmd );
 
     $NCMD = scalar(@CMD);
 
@@ -2925,6 +2934,7 @@ sub create_batchScript(@) {
     # --------------------------------------------
     
     if ( $BATCH_NCORE > 0 ) {
+	$batchName = "${PREFIX}_${VERSION}_${FFF}" ;  
 	$batchFile = "${PREFIX}_${VERSION}_${FFF}.BATCH" ;  
 	$batchLog  = "${PREFIX}_${VERSION}_${FFF}.BATCH-LOG" ;
 	$batchJob  = "" ; $icmd=0;
@@ -2935,7 +2945,8 @@ sub create_batchScript(@) {
 	}
 	print PTR_SCRIPT "$BATCH_COMMAND $batchFile \n";
 	sntools::make_batchFile($BATCH_TEMPLATE,$SPLIT_JOBDIR, 
-				$batchFile, $batchLog, $BATCH_MEM,$batchJob);
+				$batchName, $batchFile, $batchLog, 
+				$BATCH_MEM,$batchJob);
     }
     else {
 	foreach $cmd (@CMD) {  print PTR_SCRIPT "$cmd \n"; }

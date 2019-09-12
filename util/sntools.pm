@@ -800,8 +800,9 @@ sub make_batchFile(@) {
     # Same as previous make_batchFile, but without doneFile or XCMD args.
     #
     # Aug 6 2018: add "cd $batchDir" before $batchJob command
+    # Sep 12 2019: add batchName argument
 
-    my ($BATCH_TEMPLATE, $batchDir, $batchFile, $batchLog, 
+    my ($BATCH_TEMPLATE, $batchDir, $batchName, $batchFile, $batchLog, 
 	$batchMEM, $batchJOB ) = @_ ;
 
     my (@tmp, $inF, $outF, $KEY, @MSGERR );
@@ -817,7 +818,7 @@ sub make_batchFile(@) {
     $REPLACE_KEY[2] = "REPLACE_MEM" ;
     $REPLACE_KEY[3] = "REPLACE_JOB" ;    
 
-    $REPLACE_STRING[0] = "$batchFile" ;
+    $REPLACE_STRING[0] = "$batchName";    # xxx mark delete "$batchFile" ;
     $REPLACE_STRING[1] = "$batchLog" ;
     $REPLACE_STRING[2] = "$batchMEM";
     $REPLACE_STRING[3] = "cd $batchDir ; $batchJOB" ;

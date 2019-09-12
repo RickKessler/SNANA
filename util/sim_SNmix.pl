@@ -152,6 +152,7 @@
 # Sep 7 2019: 
 #    replace parse_line with parse_array so that comment lines are ignored.
 #
+# Sep 13 2019: add batchName arg to make_batchFile()   
 # ---------------------------------------------------------
 
 use strict ;
@@ -527,6 +528,7 @@ sub SUBMIT_NODES {
 	}
 	else {
 	    # use batch system (Feb 16 2013)
+	    my $batchName = "${GENPREFIX}_${str_indx}" ;
 	    my $batchFile = "${GENPREFIX}_${str_indx}.BATCH" ;
 	    my $batchLog  = "${GENPREFIX}_${str_indx}.LOG" ;
 	    my $batchMem  = "$BATCH_MEM" ;
@@ -535,7 +537,7 @@ sub SUBMIT_NODES {
 	    print "\t prepare $batchFile  for $BATCH_COMMAND \n";
 	   
 	    sntools::make_batchFile($BATCH_TEMPLATE, $LOGDIR,
-				    $batchFile, $batchLog, 
+				    $batchName, $batchFile, $batchLog, 
 				    $batchMem, $JOB);
 
 	    qx(cd $LOGDIR ; $BATCH_COMMAND $batchFile);

@@ -23,8 +23,8 @@ then for the SALT2mu input   file='mySN.fitres'
 
 Additional arguments below are optional:
 
-file = name of fitres file to analyze
-
+file = comma-sep list of fitres file names to analyze
+     
 nmax=100                 ! fit first 100 events only
 nmax=70(SDSS),200(PS1MD) ! fit 70 SDSS and 200 PS1MD
 nmax=300,200(PS1MD)      ! fit 300 total, with 200 in PS1MD sub-sample
@@ -1175,7 +1175,7 @@ struct INPUTS {
   // ----------
   int  nfile_CCprior;
   char **simFile_CCprior;    // to get CC prior, dMU vs. z
-  char varname_pIa[40];
+  char varname_pIa[100];
   int  typeIa_ccprior ;       // PCC=0 for this sntype
   int  simtype_Ibc[2], simtype_II[2];   // SIM_TYPE ranges for CCprior
   double maxProbCC_for_sigint;  // max P_CC/ProbIa to sum chi2_1a
@@ -1224,7 +1224,7 @@ struct INPUTS {
   BININFO_DEF BININFO_z ; // Aug 20 2016
   int     min_per_zbin ;
 
-  char varname_z[40]; // name of redshift variable (default = 'z Z zSPEC')
+  char varname_z[100]; // name of redshift variable (default = 'z Z zSPEC')
 
   // - - - - - user parameter bounds - - - - - 
   double parval[MAXPAR];

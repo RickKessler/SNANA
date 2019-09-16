@@ -17361,6 +17361,8 @@
        in 2 directories, which was confusing.
 
     SALT2mu_fit.pl: add optional DONE_STAMP key
+    SALT2mu.c: new input cid_select_file=[fileName] to 
+               select specific list of CIDs for data.
 
     split_and_fit.pl:
       slurm job names are now based on NML file name rather than
@@ -17378,11 +17380,15 @@
 
    SALT2mu.c:
      + finally remove all traces of INPUTS.LEGACY_[BUGS,README].
-     
+     + new input cid_select_file=[fileName] to select specific
+       list of CIDs for data; ignored for biasCor sim and for CC sim.
+  
    SALT2mu_fit.pl
     + add optional key 
           DONE_STAMP: <fileName>
     + fix parsing to ignore comment lines (un-tested)
+    + See Sep 14 2019 updates at top of source file;
+      Works with more general symbolic links, and subDir name changes.
 
    genmag*.c[h]:    make variable names consistent:
       minlam -> lammin, maxlam -> lammax, etc ...

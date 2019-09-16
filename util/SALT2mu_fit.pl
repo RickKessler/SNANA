@@ -229,6 +229,15 @@
 #  + start replacing parse_line with parse_array so that comment
 #    lines are ignored.
 # Sep 13 2019: add batchName arg to make_batchFile() 
+#
+# Sep 14 2019:
+#  + update to work with FITOPT[nnn].FITRES links that are full paths
+#    instead of only file links in same directory. Works now for both.
+#  + old FITJOBS subdir renamed to SALT2mu_FITSCRIPTS. 
+#  + if STRINGMATCH_IGNORE results in null string, set match-string to 
+#    SALT2mu_FITJOBS, which will be the name of the subDir with fit 
+#    job logs and output.
+#
 # ------------------------------------------------------
 
 use IO::Handle ;
@@ -259,10 +268,10 @@ my  $FITOPT_README     = "FITOPT.README";
 
 # work dirs
 my  $LAUNCH_DIR     = `pwd`   ; $LAUNCH_DIR  =~  s/\s+$// ;
-my  $FITJOBS_PREFIX = "FITJOBS" ;
-my  $FITJOBS_DIR;
 
-
+my  $FITSCRIPTS_PREFIX = "SALT2mu_FITSCRIPTS" ;
+my  $FITSCRIPTS_DIR;
+my  $FITJOBS_DIR       = "SALT2mu_FITJOBS" ; # default fit output
 
 my @TABLE_FORMAT_LIST    = ( "HBOOK", "ROOT" );
 my @TABLE_SUFFIX_LIST    = ( "HBOOK", "ROOT" );
@@ -562,7 +571,10 @@ sub parse_inpFile {
     $key = "OUTDIR_OVERRIDE:" ;
 #xxx    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
     @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
-    if ( scalar(@tmp) > 0 ) { $OUTDIR_OVERRIDE = $tmp[0] ; }
+    if ( scalar(@tmp) > 0 ) { 
+	$OUTDIR_OVERRIDE = qx(echo $tmp[0]); # allow for ENV
+	$OUTDIR_OVERRIDE =~ s/\s+$// ;   # trim trailing whitespace
+    }
 
     $key = "OUTDIR_PREFIX:" ;
 # xxx    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
@@ -1091,11 +1103,6 @@ sub makeSumDir_SALT2mu {
     
     # -------------------- BEGIN ----------------------
 
-    if ( length($OUTDIR_OVERRIDE)>1 )  { 
-	$OUTDIR = $OUTDIR_OVERRIDE; 
-	goto MAKEDIR ;
-    }
-
     # - - - - - - - - - 
     # find maximum substring of INPDIR that matches all INPDIRs
     $LEND = length($INPDIR_SNFIT_LIST[0]) ;
@@ -1131,11 +1138,16 @@ sub makeSumDir_SALT2mu {
 	else              { $SDIR_SUM = "${SDIR_SUM}+${SDIR}" ; }
 	$NDIR++ ;
     }
-    $OUTDIR  = "$TOPDIR/$SDIR_SUM" ;
+
+    if ( length($OUTDIR_OVERRIDE)>1 ) 
+    { $OUTDIR = $OUTDIR_OVERRIDE;   }
+    else 
+    { $OUTDIR  = "$TOPDIR/$SDIR_SUM" ; }
 
     # - - - - - - - - - - - - - - - - - - -     
 
  MAKEDIR:
+
     $OUTDIR_SALT2mu_LIST[0] = "$OUTDIR" ;
     if ( $SUMMARY_FLAG == 0 ) {
 	if ( -d $OUTDIR ) { qx(rm -r $OUTDIR) ; }
@@ -1152,8 +1164,8 @@ sub makeSumDir_SALT2mu {
     # --------------------------------------------
     # now the tricky part; find matching subdirs to sum.
     # Ignore subdirs without a match.
-    # If there is more than 1 match, abort.
-    
+    # If there is more than 1 match, abort.   
+
     print " \n";
     my ($mergeFile, $NVER, $vers, $vers4match, @VTMPLIST, @tmp, @tmpSorted );
     my (@wdlist, $version, @tmpGrep, $tmpLine );
@@ -1212,6 +1224,7 @@ sub makeSumDir_SALT2mu {
 	$NDIR++ ;
     }
 
+
     if ( $NVER_SKIP > 0 ) {
 	$MSGERR[0] = "Skipped $NVER_SKIP versions";
 	$MSGERR[1] = "check $NVERSION_MAX = $NVERSION_MAX" ;
@@ -1255,6 +1268,7 @@ sub makeSumDir_SALT2mu {
     }  # iver
 
     print "\n" ;
+    return ;
 
 } # end of makeSumDir_SALT2mu 
 
@@ -1321,6 +1335,8 @@ sub VERSION_STRINGMATCH_IGNORE {
     
 #    printf " xxx STRINGMATCH: $version -> $version_out \n";
     
+    if ( $version_out eq '' ) { $version_out = "$FITJOBS_DIR" ; }
+
     return $version_out ;
 
 } # end of VERSION_STRINGMATCH_IGNORE {
@@ -1425,7 +1441,11 @@ sub cat_inpFiles {
 
 	if ( -l $FFILE ) {
 	    my $symLink = readlink($FFILE);
-	    $FFILE      = "${INPDIR}/${VERSION_SNFIT}/$symLink" ;
+	    my $jslash = rindex($symLink,"/");  # location of last slash
+	    if ( $jslash < 0 ) # .xyz
+	    { $FFILE      = "${INPDIR}/${VERSION_SNFIT}/$symLink" ; }
+	    else
+	    { $FFILE = $symLink; }
 	}
 	if ( -e "$FFILE.gz" ) 
 	{ $FFILE = "$FFILE.gz";  $Ngzip++; }
@@ -1435,7 +1455,7 @@ sub cat_inpFiles {
 	$CATLIST = "$CATLIST" . "$FFILE " ;
 	
     }  # idir
-    
+ 
     # make sure that NVAR and VARNAMES match in each fitres file
     &verify_CATLIST($CATLIST);
 
@@ -1486,6 +1506,8 @@ sub verify_CATLIST {
     @fList = split(/\s+/,$CATLIST) ;
     $NFILE = 0 ;
 
+
+
     foreach $f (@fList) {  
        
 	@tmp  = sntools::parse_line($f, 99, "VARNAMES:", $OPT_ABORT) ;
@@ -1527,25 +1549,26 @@ sub make_COMMANDS {
     my ($jdot, $prefix, $SCRIPT, $PREFIX, $NJOB, $SUBDIR );
     my ( $OUTDIR, $NDIR);
 
-    # construct name of FITJOBS directory using prefix if $INPUT_FILE
+    # construct name of FITSCRIPTS directory using prefix if $INPUT_FILE
     $jdot   = index($INPUT_FILE,".");
     $prefix = substr($INPUT_FILE,0,$jdot);
-    $SUBDIR = "${FITJOBS_PREFIX}_${prefix}" ;
-    $FITJOBS_DIR = "$LAUNCH_DIR/$SUBDIR";
+    $SUBDIR = "${FITSCRIPTS_PREFIX}_${prefix}" ;
+    $FITSCRIPTS_DIR = "$LAUNCH_DIR/$SUBDIR";
 
     # - - - - - - - - - - - - - - - - - - -
 
     $NDIR = scalar(@OUTDIR_SALT2mu_LIST) ;
     if ( $NDIR == 1 ) {
 	$OUTDIR = $OUTDIR_SALT2mu_LIST[0] ;
-	$FITJOBS_DIR = "${OUTDIR}/${FITJOBS_PREFIX}" ; 
+	$FITSCRIPTS_DIR = "${OUTDIR}/${FITSCRIPTS_PREFIX}" ; 
     }
 
 
-    print "\n Create command-scripts in \n\t $FITJOBS_DIR \n";
+    print "\n Create command-scripts in \n\t $FITSCRIPTS_DIR \n";
 
-    if ( -d $FITJOBS_DIR ) { qx(rm -r $FITJOBS_DIR); }
-    qx(mkdir $FITJOBS_DIR) ;
+    if ( -d $FITSCRIPTS_DIR ) { qx(rm -r $FITSCRIPTS_DIR); }
+    qx(mkdir $FITSCRIPTS_DIR) ;
+
 
     # ----------------------------------------------
     # first create command script for each node/core
@@ -1562,12 +1585,12 @@ sub make_COMMANDS {
 	else
 	{ $suffix = "Interactive" ; }  
 
-	$PREFIX            =  "${FITJOBS_PREFIX}_${suffix}" ;
+	$PREFIX            =  "${FITSCRIPTS_PREFIX}_${suffix}" ;
 	$CMD_PREFIX[$icpu] =  "$PREFIX" ;
 	$cmdFile           =  "${PREFIX}.CMD" ;
 	$CMD_FILES[$icpu]  =  "${cmdFile}" ;
 
-	if ( $SUMMARY_FLAG == 0 )  { qx(touch $FITJOBS_DIR/$cmdFile ); }
+	if ( $SUMMARY_FLAG == 0 )  { qx(touch $FITSCRIPTS_DIR/$cmdFile ); }
 #	print "\t -> $cmdFile \n";
 
 	$NJOB_PER_CPU[$icpu] = 0 ;
@@ -1632,7 +1655,7 @@ sub make_COMMANDS {
 
 	# removed unused CMD files.
 	for($icpu = $NCPU; $icpu < $NCPU_ORIG; $icpu++ ) 
-	{ qx(rm $FITJOBS_DIR/$CMD_FILES[$icpu]); }
+	{ qx(rm $FITSCRIPTS_DIR/$CMD_FILES[$icpu]); }
     }
 
 
@@ -1656,13 +1679,13 @@ sub make_COMMANDS {
 	    $batchName = "${PREFIX}" ;
 	    $batchFile = "${PREFIX}.BATCH" ;
 	    $batchLog  = "${PREFIX}.LOG" ;
-	    $doneFile  = "$FITJOBS_DIR/${PREFIX}.DONE" ;
+	    $doneFile  = "$FITSCRIPTS_DIR/${PREFIX}.DONE" ;
 	    $JOB       = "source $script" ;
 	    $BATCH_FILES[$icpu]  =  "${batchFile}" ;
 
 	    print "\t prepare $batchFile  for $BATCH_COMMAND  ($NJOB jobs)\n";
 	   
-	    sntools::make_batchFile($BATCH_TEMPLATE, $FITJOBS_DIR,
+	    sntools::make_batchFile($BATCH_TEMPLATE, $FITSCRIPTS_DIR,
 				    $batchName, $batchFile, $batchLog, 
 				    $JOBMEMORY, $JOB);
 	}
@@ -1867,7 +1890,7 @@ sub write_COMMANDS {
 
     for($icpu = 0 ; $icpu < $NCPU; $icpu++ ) {
 
-	$cmdFile = "$FITJOBS_DIR/$CMD_FILES[$icpu]" ;
+	$cmdFile = "$FITSCRIPTS_DIR/$CMD_FILES[$icpu]" ;
 	open PTR_CMD , ">> $cmdFile" ;       
 
 	for($i=0; $i < $NCMDLINE_PER_CPU[$icpu]; $i++ ) {
@@ -1877,7 +1900,7 @@ sub write_COMMANDS {
 
 	# create DONE file
 	$PREFIX = "$CMD_PREFIX[$icpu]" ;
-	print PTR_CMD "\n touch $FITJOBS_DIR/${PREFIX}.DONE \n";
+	print PTR_CMD "\n touch $FITSCRIPTS_DIR/${PREFIX}.DONE \n";
 
 	close PTR_CMD ;
     }
@@ -1982,7 +2005,7 @@ sub submit_JOBS {
 
 	if ( $SSH_NNODE  ) {
 	    $node   = $SSH_NODELIST[$icpu] ;
-	    $cmd = "ssh -x $node ${qq} cd $FITJOBS_DIR ;" . 
+	    $cmd = "ssh -x $node ${qq} cd $FITSCRIPTS_DIR ;" . 
 		" source $script ${qq}" ;
 	    print " Submit SALT2mu jobs to $node . \n";
 	    system("$cmd &") ;
@@ -1990,12 +2013,12 @@ sub submit_JOBS {
 	elsif ( $BATCH_NCORE ) {
 	    my $batchFile = $BATCH_FILES[$icpu] ;
 	    print " Submit SALT2mu batch jobs with $batchFile . \n";
-	    qx(cd $FITJOBS_DIR ; $BATCH_COMMAND $batchFile);
+	    qx(cd $FITSCRIPTS_DIR ; $BATCH_COMMAND $batchFile);
 	}
 	else {
 	    # interactive
 	    print " Run interactive SALT2mu job $script. \n";
-	    system("cd $FITJOBS_DIR ; source $script");
+	    system("cd $FITSCRIPTS_DIR ; source $script");
 	}
 	   
     }  # icpu
@@ -2020,8 +2043,8 @@ sub wait_for_done {
     my ($NDONE, $DONESPEC, $ALLDONE_FILE, $CMD_WAIT );
 
     $NDONE        = $NCPU ;
-    $DONESPEC     = "$FITJOBS_DIR/*.DONE" ;
-    $ALLDONE_FILE = "$FITJOBS_DIR/ALL.DONE" ;
+    $DONESPEC     = "$FITSCRIPTS_DIR/*.DONE" ;
+    $ALLDONE_FILE = "$FITSCRIPTS_DIR/ALL.DONE" ;
 
     $CMD_WAIT = "wait_for_files.pl  $NDONE  $DONESPEC  $ALLDONE_FILE" ; 
 
@@ -2065,8 +2088,8 @@ sub make_SUMMARY {
     # Aug 25 2017: add BETA1[_ERR] to varnames list
     # Nov 30 2017: add GAMMA0[_ERR] to varnames list
     
-    my $SUMMARY_LOGFILE = "$FITJOBS_DIR/FITJOBS_SUMMARY.LOG" ;
-    my $SUMMARY_DATFILE = "$FITJOBS_DIR/FITJOBS_SUMMARY.DAT" ;
+    my $SUMMARY_LOGFILE = "$FITSCRIPTS_DIR/FITJOBS_SUMMARY.LOG" ;
+    my $SUMMARY_DATFILE = "$FITSCRIPTS_DIR/FITJOBS_SUMMARY.DAT" ;
 
     print "\n";
     print " Creating human-readable SUMMARY file \n\t $SUMMARY_LOGFILE \n";
@@ -2348,13 +2371,13 @@ sub write_SUMMARY_INPDIR {
 
 sub gzip_logs {
     my($tarFile, $prefix);
-    $tarFile = "FITLOGS.tar" ;
-    $prefix  = "FITJOBS_CPU" ; # prefix to tar up
+    $tarFile = "${FITSCRIPTS_PREFIX}.tar" ;
+    $prefix  = "${FITSCRIPTS_PREFIX}_CPU" ; # prefix to tar up
     
-    qx(cd $FITJOBS_DIR ; tar -cf $tarFile ${prefix}* );
-    qx(cd $FITJOBS_DIR ; gzip    $tarFile            );
+    qx(cd $FITSCRIPTS_DIR ; tar -cf $tarFile ${prefix}* );
+    qx(cd $FITSCRIPTS_DIR ; gzip    $tarFile            );
     sleep(1) ;
-    qx(cd $FITJOBS_DIR ; rm      ${prefix}*          );    
+    qx(cd $FITSCRIPTS_DIR ; rm      ${prefix}*          );    
 } 
 
 

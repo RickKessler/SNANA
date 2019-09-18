@@ -541,7 +541,8 @@ sub parse_inpFile {
 # xxx   @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
     @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) {
-        $DONE_STAMP_FILE      = "$tmp[0]" ;
+        $DONE_STAMP_FILE      = qx(echo "$tmp[0]") ;
+	$DONE_STAMP_FILE      =~ s/\s+$// ;   # trim trailing whitespace
         if ( -e $DONE_STAMP_FILE )  { qx(rm $DONE_STAMP_FILE) ; }
     }
 

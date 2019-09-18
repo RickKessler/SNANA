@@ -238,6 +238,8 @@
 #    SALT2mu_FITJOBS, which will be the name of the subDir with fit 
 #    job logs and output.
 #
+# Sep 18 2019: fix to work with input filename that includes full path.
+#
 # ------------------------------------------------------
 
 use IO::Handle ;
@@ -284,7 +286,7 @@ my $BATCH_TEMPLATE_KICP = '$SBATCH_TEMPLATES/SBATCH_kicp.TEMPLATE' ;
 
 # ----------------
 # global inputs read from SALT2mu input file.
-my ($INPUT_FILE, @INPDIR_SNFIT_LIST, @INPDIRFIX_SNFIT_LIST );
+my ($INPUT_FILE, $input_file, @INPDIR_SNFIT_LIST, @INPDIRFIX_SNFIT_LIST );
 my (@INPDIR_FITOPT,  @MUOPT_LIST, @MUOPT_LIST_ORIG, @MUOPT_TAGNAME);
 my (@FITOPT_LIST,  $SUMFLAG_INPDIR, $FITOPT000_ONLY );
 my ($STRINGMATCH_IGNORE,  @STRINGMATCH_IGNORE_LIST );
@@ -468,7 +470,7 @@ sub initStuff {
 # ==========================
 sub parse_args {
 
-    my ($NARG, $arg, $nextArg, $i);
+    my ($NARG, $arg, $nextArg, $i, $jslash);
     
     $NARG = scalar(@ARGV);
     if ( $NARG < 1 ) {
@@ -476,7 +478,20 @@ sub parse_args {
 	sntools::FATAL_ERROR(@MSGERR);
     }
 
+# parse name of input file. 
+# INPUT_FILE includes full path; input_file has no path.
+#
     $INPUT_FILE = $ARGV[0] ;
+    $jslash = rindex($INPUT_FILE,"/");  # location of last slash
+    if ( $jslash > 0 ) { 
+	$input_file = substr($INPUT_FILE,$jslash+1, 99);
+    }
+    else {
+	$input_file = "$INPUT_FILE" ;
+	$INPUT_FILE = "$LAUNCH_DIR/$input_file" ;
+    }
+
+
     if ( $ARGV[0] eq "CLEAN"  )  { $CLEANFLAG = 1 ; }
 
     for ( $i = 1; $i < $NARG ; $i++ ) {
@@ -1551,8 +1566,8 @@ sub make_COMMANDS {
     my ( $OUTDIR, $NDIR);
 
     # construct name of FITSCRIPTS directory using prefix if $INPUT_FILE
-    $jdot   = index($INPUT_FILE,".");
-    $prefix = substr($INPUT_FILE,0,$jdot);
+    $jdot   = index($input_file,".");
+    $prefix = substr($input_file,0,$jdot);
     $SUBDIR = "${FITSCRIPTS_PREFIX}_${prefix}" ;
     $FITSCRIPTS_DIR = "$LAUNCH_DIR/$SUBDIR";
 
@@ -1815,7 +1830,7 @@ sub prep_COMMAND {
 	$SARG    = "prefix=$SPREFIX" ;
 	$LOGFILE = "${SPREFIX}.LOG"  ;
 	$JOBNAME = "$JOBNAME_FIT" ;
-	$CMD     = "$JOBNAME ../$INPUT_FILE  $FARG $SARG $OPT_S2MU \\" ;
+	$CMD     = "$JOBNAME $INPUT_FILE  $FARG $SARG $OPT_S2MU \\" ;
 
 	$out_fitres = "${SPREFIX}.${OUTPUT_SUFFIX_fitres}" ;
 	$out_FITRES = "${SPREFIX}.FITRES";

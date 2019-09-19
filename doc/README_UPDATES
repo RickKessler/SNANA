@@ -17402,6 +17402,8 @@
 
    sntools_host.c[h] :
      + more fixes for host spectrum.
+     + MINLOGZ_HOSTLIB -> -3.0 (zmin -> 0.001 instead of 0.003)
+        for H0 studies.
 
    sntools.c:
      in getInfo_SNANA_VERSION(), abort if PRIVATE_DATA_PATH is

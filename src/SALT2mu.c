@@ -1454,6 +1454,7 @@ void parse_blindpar(char *item) ;
 
 void  prep_input(void);
 void  prep_gamma_input(void) ;
+void  prep_probcc0_input(void);
 void  prep_cosmodl_lookup(void);
 int   ppar(char* string);
 void  read_data(void);
@@ -7395,7 +7396,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
     fit_val  = (double)ptr_fitpar[ievt];
     sim_val  = (double)ptr_simpar[ievt];
 
-    // Aug 26 2019: apply gammadm correction to simval .xyz
+    // Aug 26 2019: apply gammadm correction to simval
     if ( ipar_LCFIT == INDEX_mB ) {
       sim_gammadm = ptr_gammadm[ievt];
       sim_val    += sim_gammadm ;  // true mB is SIM_mB + true gammadm
@@ -13753,7 +13754,8 @@ void prep_input(void) {
   else {
     INPUTS.ipar[IPAR_COVINT_PARAM] = 0 ;  // do not float sigint
     INPUTS.parval[IPAR_COVINT_PARAM] = INPUTS.sigmB; 
-  }
+    prep_probcc0_input();
+  } 
 
   // if scalePCC=0 and is fixed, turn off CC prior
   if( INPUTS.ipar[IPAR_scalePCC] == 0  && 
@@ -13853,6 +13855,60 @@ void prep_input(void) {
   return ;
 
 } // end of prep_input
+
+
+// **********************************************
+void prep_probcc0_input(void) {
+
+  char *str_type_list     = INPUTS_PROBCC_ZERO.str_type_list ;
+  char *str_idsurvey_list = INPUTS_PROBCC_ZERO.str_idsurvey_list ;
+  int  LEN_type_list      = strlen(str_type_list);
+  int  LEN_idsurvey_list  = strlen(str_idsurvey_list);
+  int  DO_PROBCC0, ival, nval ;
+  char *str_values[MXPROBCC_ZERO] ;
+  char comma[] = ",";
+  char fnam[]  = "prep_probcc0_input" ;
+
+  // ---------------- BEGIN ------------------
+  
+  DO_PROBCC0 = ( LEN_type_list > 0 || LEN_idsurvey_list > 0 ) ;
+  if ( DO_PROBCC0 ) {
+    for(ival=0; ival < MXPROBCC_ZERO; ival++ ) 
+      { str_values[ival] = (char*)malloc( 20 * sizeof(char) ); }
+  }
+  else {
+    return ;
+  }
+
+  /*
+#define MXPROBCC_ZERO 10
+  struct {
+    int  ntype, nidsurvey;
+  } INPUTS_PROBCC_ZERO;
+*/
+
+
+  if ( LEN_type_list > 0 ) {
+    // .xyz
+    splitString(str_type_list, comma, MXPROBCC_ZERO,    // inputs
+		&nval, str_values );                    // outputs    
+    INPUTS_PROBCC_ZERO.ntype = nval;
+  }
+
+
+  if ( LEN_idsurvey_list > 0 ) {
+    
+  }
+
+  for(ival=0; ival < MXPROBCC_ZERO; ival++ ) 
+    { free(str_values[ival]); }
+
+  debugexit(fnam);
+
+  return;
+
+} // end prep_probcc0_input
+
 
 // **********************************************
 void  prep_gamma_input(void) {

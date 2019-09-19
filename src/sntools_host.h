@@ -25,6 +25,8 @@
 
  Feb 4 2019: add DLR and d_DLR
 
+ Sep 19 2019:  MINLOGZ_HOSTLIB -> -3.0 (was -2.523) for Dan/H0
+
 ==================================================== */
 
 #define HOSTLIB_MSKOPT_USE           1 // internally set if HOSTLIB_FILE
@@ -67,7 +69,8 @@
 // hard wire logarithmic z-bins
 #define NZPTR_HOSTLIB      320     // number of Z-pointers of hash table
 #define DZPTR_HOSTLIB      0.01    // logz-binning for Z-pointers
-#define MINLOGZ_HOSTLIB   -2.523   // zmin = 0.003
+//#define MINLOGZ_HOSTLIB   -2.523   // zmin = 0.003
+#define MINLOGZ_HOSTLIB   -3.00   // zmin = 0.001
 #define MAXLOGZ_HOSTLIB    0.61    // zmax = 4.07
 
 #define NMAGPSF_HOSTLIB    9    // number of aperture mags vs. PSF to compute

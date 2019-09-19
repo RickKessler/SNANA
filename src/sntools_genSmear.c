@@ -910,7 +910,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 
   // Aug 28 2019: make sure last node is covered by wavelength range
   double LAMCHECK = LAM2 * (1.0+zmin);
-  if ( LAMCHECK < MAXLAM ) {
+  if ( LAMCHECK < MAXLAM && LAMCHECK < SED_LAMMAX ) {
     double zmin_suggest = MAXLAM/LAM2 - 1.0 ;
     sprintf(c1err,"genSmear model can't handle zmin=%.3f "
 	    "(see GENRANGE_REDSHIFT)", zmin);

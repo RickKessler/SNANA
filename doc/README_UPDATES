@@ -17360,7 +17360,10 @@
        abort message incorrectly indicated that VERSION was 
        in 2 directories, which was confusing.
 
-    SALT2mu_fit.pl: add optional DONE_STAMP key
+    SALT2mu_fit.pl: 
+       + add optional DONE_STAMP key
+       + fixed to work if input file name includes full path.
+
     SALT2mu.c: new input cid_select_file=[fileName] to 
                select specific list of CIDs for data.
 
@@ -17422,5 +17425,12 @@
    split_and_fit.pl:
      + use NML file name in new batchName argument.
        Note that anything before slashes is stripped from NML filename.
+     + for non-existing path in SIM_SNDATA_PATH.LIST, give warning.
+
+   snlc_sim.c:
+     simlib reading rewinds on end-of-file or END_OF_SIMLIB key.
+
+   combine_fitres.c
+     + abort if first column is not CID.
 
 END: 

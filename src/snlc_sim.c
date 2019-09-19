@@ -14663,9 +14663,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   //  fix to work properly when LCLIB NREPEAT=0; see NOBS_FOUND_ALL
   //    
   // Jan 3 2018: use parse_SIMLIB_IDplusNEXPOSE() to read IDEXPT & NEXPOSE
+  // Sep 17 2019: rewind on EOF so that END_OF_SIMLIB: key is optional.
 
-  int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0;
-  int APPEND_PHOTFLAG, ifilt_obs ;
+  int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0, scanStat;
+  int APPEND_PHOTFLAG, ifilt_obs, DONE_READING=0, DO_REWIND ;
   int NTRY, USEFLAG_LIBID, USEFLAG_MJD, OPTLINE, NWD, NTMP ;
   int   NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT  ;
   double PIXSIZE, TEXPOSE_S, MJD ;
@@ -14701,13 +14702,20 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
   // - - - - - - - start reading SIMLIB - - - - - - - - - 
 
-  while( (fscanf(fp_SIMLIB, "%s", c_get)) != EOF) {
+  // xxxx  while( (fscanf(fp_SIMLIB, "%s", c_get)) != EOF) {
 
-    if ( strcmp(c_get,"END_OF_SIMLIB:") == 0 ) {
+  while ( !DONE_READING ) {
 
+    scanStat = fscanf(fp_SIMLIB, "%s", c_get);
+
+    DO_REWIND = 0;
+    if ( strcmp(c_get,"END_OF_SIMLIB:") == 0 ) { DO_REWIND = 1; }
+    if ( scanStat == EOF )                     { DO_REWIND = 1; }
+
+    // xxxx    if ( strcmp(c_get,"END_OF_SIMLIB:") == 0 ) {
+    if ( DO_REWIND ) {
       // check SIMLIB after 5 passes to avoid infinite loop
       if ( SIMLIB_HEADER.NWRAP >= 5 )  { ENDSIMLIB_check(); }
-      
       if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
 	snana_rewind(fp_SIMLIB, INPUTS.SIMLIB_OPENFILE,
 		     INPUTS.SIMLIB_GZIPFLAG);
@@ -14715,7 +14723,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_HEADER.LIBID = SIMLIB_ID_REWIND ; 
 	NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID = USEFLAG_MJD = 0 ;
       }
-    }  // end simlib if-block
+    }  // end of END_IF_SIMLIB if-block
  
     if ( strcmp(c_get,"LIBID:") == 0 ) {
       readint ( fp_SIMLIB, 1, &ID );
@@ -14904,7 +14912,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
     // stop reading when we reach the end of this LIBID
     if ( strcmp(c_get, "END_LIBID:") == 0 ) { 
       if ( USEFLAG_LIBID == ACCEPT_FLAG ) 
-	{ goto DONE_READING ; }
+	{ DONE_READING = 1 ; }
+      // xxxx	{ goto DONE_READING ; }
       else
 	{ goto START ; }      // read another 
     }

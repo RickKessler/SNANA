@@ -1415,7 +1415,8 @@ sub getVersionList(@) {
     # if versions are found in user-defined PATH_SNDATA_SIM dir.
     #
     # Mar 8 2019: abort if version is found in 2 places.
-    #
+    # Sep 17 2019: for non-existing $tmpDir, give WARNING.
+
     my ($version, $verList, $pathList) = @_ ;
 
     my (@dirList,  @tmpList, $tmpDir );
@@ -1450,13 +1451,19 @@ sub getVersionList(@) {
 	$tmpDir   =~ s/\s+$// ;   # trim trailing whitespace
 	$dirList[$i]  = $tmpDir ;
 
-	@tmpList = qx(cd $tmpDir; ls -d $version 2>/dev/null ) ;
-	if ( scalar(@tmpList) > 0 ) { 
-	    @$verList = @tmpList ;  
-	    if ( $i < $nsimDir ) { $simDir = "$tmpDir" ; }
-	    $NFOUND++ ;
-	    print "  Path($version):  $tmpDir \n";
+	if ( -d $tmpDir ) {
+	    @tmpList = qx(cd $tmpDir; ls -d $version 2>/dev/null ) ;
+	    if ( scalar(@tmpList) > 0 ) { 
+		@$verList = @tmpList ;  
+		if ( $i < $nsimDir ) { $simDir = "$tmpDir" ; }
+		$NFOUND++ ;
+		print "  Path($version):  $tmpDir \n";
+	    }
 	}
+	else {
+	    print " WARNING $tmpDir does not exist !!! \n";
+	}
+
     }  # end i loop over paths to check for data files
         
     # ==============================

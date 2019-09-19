@@ -1136,6 +1136,15 @@ struct {
 } INPUTS_SAMPLE_BIASCOR ;
 
 
+#define MXPROBCC_ZERO 10
+struct {
+  char str_type_list[60];        // e.g., 119,120
+  char str_idsurvey_list[100];   // e.g., CFA3,CFA4,CSP
+
+  int  ntype, nidsurvey;
+  int  type_list[MXPROBCC_ZERO];      // integer types
+  int  idsurvey_list[MXPROBCC_ZERO];  // integer IDSURVEYs
+} INPUTS_PROBCC_ZERO;
 
 
 #define ORDER_ZPOLY_COVMAT 3   // 3rd order polynom for intrinsic scatter cov.
@@ -1177,7 +1186,6 @@ struct INPUTS {
   char **simFile_CCprior;    // to get CC prior, dMU vs. z
   char varname_pIa[100];
   int  typeIa_ccprior ;       // PCC=0 for this sntype
-  int  simtype_Ibc[2], simtype_II[2];   // SIM_TYPE ranges for CCprior
   double maxProbCC_for_sigint;  // max P_CC/ProbIa to sum chi2_1a
 
   int    fitflag_sigmb ;  // flag to fit for sigMb that gives chi2/dof=1
@@ -4044,12 +4052,14 @@ void set_defaults(void) {
   // stuff for CC prior
   INPUTS.nfile_CCprior  = 0 ;
   INPUTS.varname_pIa[0] = 0 ;
-  INPUTS.simtype_II[0]  = 20 ;
-  INPUTS.simtype_II[1]  = 29 ;
-  INPUTS.simtype_Ibc[0] = 30 ; 
-  INPUTS.simtype_Ibc[1] = 39 ; 
   INPUTS.maxProbCC_for_sigint = 0.2 ;
   INPUTS.typeIa_ccprior       = -9  ;
+
+  INPUTS_PROBCC_ZERO.ntype     = 0;
+  INPUTS_PROBCC_ZERO.nidsurvey = 0;
+  INPUTS_PROBCC_ZERO.str_type_list[0]     = 0;
+  INPUTS_PROBCC_ZERO.str_idsurvey_list[0] = 0;
+
   INPUTS.zmin = 0.02 ;
   INPUTS.zmax = 1.02 ;
   
@@ -12248,6 +12258,11 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"typeIa_ccprior=") ) 
     { sscanf(&item[15],"%d", &INPUTS.typeIa_ccprior); return(1); } 
 
+  if ( uniqueOverlap(item,"type_list_probcc0=") ) 
+    { sscanf(&item[18],"%s",INPUTS_PROBCC_ZERO.str_type_list); return(1); } 
+  if ( uniqueOverlap(item,"idsurvey_list_probcc0=") ) 
+    { sscanf(&item[22],"%s",INPUTS_PROBCC_ZERO.str_idsurvey_list); return(1);} 
+
   if ( uniqueOverlap(item,"bins="))  // obsolete, but still allowed (use nzbin)
     { sscanf(&item[5],"%i",&INPUTS.nzbin); return(1); }
   if ( uniqueOverlap(item,"nzbin=")) 
@@ -13743,8 +13758,15 @@ void prep_input(void) {
   // if scalePCC=0 and is fixed, turn off CC prior
   if( INPUTS.ipar[IPAR_scalePCC] == 0  && 
       fabs(INPUTS.parval[IPAR_scalePCC]) < 0.000001 )  { 
+
+    if ( INPUTS.nfile_CCprior > 0 ) {
+      printf("\t WARNING: scalePCC(u13,p13)=0,0 --> turn off CC prior\n");
+      fflush(stdout);
+    }
+
     INPUTS.nfile_CCprior = 0 ;
     INFO_CCPRIOR.USE = 0; 
+
   }
 
 

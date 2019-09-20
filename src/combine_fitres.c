@@ -83,6 +83,7 @@
   Sep 19 2019
    + naive trick to speed up CID-matching, but works only
      if both FITRES files have same list of CIDs. 
+   + MXSTRLEN -> MXCHAR_VARNAME (instead of 28)
 
 ******************************/
 
@@ -132,7 +133,7 @@ int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
 #define MXVAR_PERFILE  50  // max number of NTUP variables per file
 #define MXVAR_TOT  MXVAR_TABLE     // max number of combined NTUP variables
 #define INIVAL_COMBINE  -888.0
-#define MXSTRLEN         28
+#define MXSTRLEN       MXCHAR_VARNAME  // changed from 28 (Sep 20 2019)
 #define MXSTRLEN_BAND      4
 #define MXSTRLEN_CID      20
 #define MXSTRLEN_FIELD    20

@@ -17364,8 +17364,11 @@
        + add optional DONE_STAMP key
        + fixed to work if input file name includes full path.
 
-    SALT2mu.c: new input cid_select_file=[fileName] to 
-               select specific list of CIDs for data.
+    SALT2mu.c: 
+       + new input cid_select_file=[fileName] to select
+          specific list of CIDs for data.
+       + new input to force P_CC=0 and P_Ia=1 for spec-confirmed subset;
+          see type_list_probcc0 and idsurvey_list_probcc0
 
     split_and_fit.pl:
       slurm job names are now based on NML file name rather than

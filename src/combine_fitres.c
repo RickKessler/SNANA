@@ -12,6 +12,8 @@
   between different fitres outputs for the same
   set of SN.
 
+ TO DO: replace CID-matching with hash table; 
+    e.g.,  http://troydhanson.github.io/uthash/index.html
 
  Usage:
   >  combine_fitres.exe <fitres1> <fitres2> ...

@@ -1513,7 +1513,7 @@ void read_SURVEYDEF(void) {
 
   // Created Aug 19 2016 [moved frmo SALT2mu.c on July 2017]
   // Read SURVEY.DEF file and store each defined survey name in
-  // SUYRVEY_INFO.SURVEYDEF_LIST[IDSURVEY].
+  // SURVEY_INFO.SURVEYDEF_LIST[IDSURVEY].
   //
 
   char SURVEYDEF_FILE[MXPATHLEN], c_get[60], nameTmp[40];

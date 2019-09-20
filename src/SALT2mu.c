@@ -84,6 +84,16 @@ varname_pIa=name of fitres param containing Prob_Ia
 maxprobcc_for_sigint --> compute sigInt from chi2=Ndof for 
                          this Ia-like subset
 
+# to force P(SNIa)=1 and P(CC)=0 for spectroscopic-confirmed subset,
+type_list_probcc0=1,2,11 
+     (list of integer TYPE values in data header)
+idsurvey_list_probcc=5,50,51,53 
+       or
+idsurvey_list_probcc=CSP,JRK07,KAIT,CFA3
+       or
+idsurvey_list_probcc=CSP,JRK07,51,53
+   (list of survey names and/or integers from SURVEY.DEF file)
+
 - - - - - -  binning - - - - - -
 nzbin    = number of uniform z bins to use (beware: some bins may be empty)
 nlogzbin = number of log-spaced z bins (Jun 21 2018)
@@ -1138,6 +1148,7 @@ struct {
 
 #define MXPROBCC_ZERO 10
 struct {
+  bool USE ;
   char str_type_list[60];        // e.g., 119,120
   char str_idsurvey_list[100];   // e.g., CFA3,CFA4,CSP
 
@@ -1455,6 +1466,7 @@ void parse_blindpar(char *item) ;
 void  prep_input(void);
 void  prep_gamma_input(void) ;
 void  prep_probcc0_input(void);
+int   force_probcc0(int itype, int idsurvey);
 void  prep_cosmodl_lookup(void);
 int   ppar(char* string);
 void  read_data(void);
@@ -2957,7 +2969,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   double muBias, muBiasErr, muBias_zinterp, muCOVscale, gammaDM ;
   double muerr, muerr_raw, muerr_last;
   int    ipar,  ipar2, ia, ib, ig, INTERPFLAG_abg ;
-  int    sntype=0, SIM_NONIA_INDEX, IS_SIM ;
+  int    sntype=0, idsurvey=0, SIM_NONIA_INDEX, IS_SIM ;
   double omega_l, omega_k, wde, wa, cosPar[NCOSPAR] ;
   double *hostPar, logmass_cen, logmass_tau ;
   double ProbRatio_1a, ProbRatio_CC ;
@@ -3095,6 +3107,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     if ( USE_CCPRIOR ) { 
       PTOTRAW_1a  = (double)INFO_DATA.TABLEVAR.pIa[n] ; 
       sntype      = (int)INFO_DATA.TABLEVAR.SNTYPE[n] ; 
+      idsurvey    = (int)INFO_DATA.TABLEVAR.IDSURVEY[n];
     }
     muBias_zinterp = INFO_DATA.muBias_zinterp[n] ; 
     muerrsq_last   = INFO_DATA.muerrsq_last[n] ;
@@ -3231,9 +3244,12 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
       PTOT_CC     = scalePCC * PTOTRAW_CC/PSUM ;
       PTOT_1a     = PTOTRAW_1a/PSUM ;
 
+      if ( force_probcc0(sntype,idsurvey) ) 
+	{ PTOT_1a = 1.0;  PTOT_CC = 0.0 ;  } // spec-confirmed SNIa
+
       if ( sntype == INPUTS.typeIa_ccprior )
 	{ PTOT_1a=1.0;  PTOT_CC=0.0 ;  } // spec-confirmed SNIa
-      
+
       if ( INPUTS.fitflag_sigmb == 2 ) 
 	{ muerrsq_update = muerrsq ; }  // current muerr for 5D biasCor
       else
@@ -4056,8 +4072,9 @@ void set_defaults(void) {
   INPUTS.maxProbCC_for_sigint = 0.2 ;
   INPUTS.typeIa_ccprior       = -9  ;
 
-  INPUTS_PROBCC_ZERO.ntype     = 0;
-  INPUTS_PROBCC_ZERO.nidsurvey = 0;
+  INPUTS_PROBCC_ZERO.USE       = false ;
+  INPUTS_PROBCC_ZERO.ntype     = 0 ;
+  INPUTS_PROBCC_ZERO.nidsurvey = 0 ;
   INPUTS_PROBCC_ZERO.str_type_list[0]     = 0;
   INPUTS_PROBCC_ZERO.str_idsurvey_list[0] = 0;
 
@@ -13860,55 +13877,143 @@ void prep_input(void) {
 // **********************************************
 void prep_probcc0_input(void) {
 
+  // Created Sep 20 2019 by R.Kessler
+  // If using CC prior, process input strings of the form
+  //
+  //   type_list_probcc0=3,33  
+  //        (list of int TYPE values in data header)
+  //
+  //   idsurvey_list_probcc=DES,52,53 
+  //       (list of string and/or ID from SURVEY.DEF file)
+  //
+  //  The type and idsurvey lists correspond to spec-confirmed
+  //  SNIa, and thus PROBCC is forced explicitly to zero.
+  //
   char *str_type_list     = INPUTS_PROBCC_ZERO.str_type_list ;
   char *str_idsurvey_list = INPUTS_PROBCC_ZERO.str_idsurvey_list ;
   int  LEN_type_list      = strlen(str_type_list);
   int  LEN_idsurvey_list  = strlen(str_idsurvey_list);
-  int  DO_PROBCC0, ival, nval ;
-  char *str_values[MXPROBCC_ZERO] ;
-  char comma[] = ",";
+  int  DO_PROBCC0, i, itype, id, nval, NERR=0 ;
+  int  NUSE, NUSE_IDSURVEY[MXIDSURVEY];
+  char *str_values[MXPROBCC_ZERO], *surveyName ;
+  char comma[] = "," ;
   char fnam[]  = "prep_probcc0_input" ;
 
   // ---------------- BEGIN ------------------
   
   DO_PROBCC0 = ( LEN_type_list > 0 || LEN_idsurvey_list > 0 ) ;
   if ( DO_PROBCC0 ) {
-    for(ival=0; ival < MXPROBCC_ZERO; ival++ ) 
-      { str_values[ival] = (char*)malloc( 20 * sizeof(char) ); }
+    INPUTS_PROBCC_ZERO.USE = true;
+    for(i=0; i < MXPROBCC_ZERO; i++ ) 
+      { str_values[i] = (char*)malloc( 80 * sizeof(char) ); }
   }
   else {
     return ;
   }
 
-  /*
-#define MXPROBCC_ZERO 10
-  struct {
-    int  ntype, nidsurvey;
-  } INPUTS_PROBCC_ZERO;
-*/
 
-
+  // check TYPE from data header
   if ( LEN_type_list > 0 ) {
-    // .xyz
     splitString(str_type_list, comma, MXPROBCC_ZERO,    // inputs
-		&nval, str_values );                    // outputs    
-    INPUTS_PROBCC_ZERO.ntype = nval;
+		&nval, str_values ) ;                    // outputs    
+    INPUTS_PROBCC_ZERO.ntype = nval ;
+    for(i=0; i < nval; i++ ) {
+      sscanf(str_values[i],"%d", &itype);
+      INPUTS_PROBCC_ZERO.type_list[i] = itype ;
+      printf("\t Force PROB_BBC(CC) = 0 for TYPE = %d\n", itype);
+      fflush(stdout);
+    }
   }
+  
+  // .xyz
 
-
+  // check survey ID from $SNDATA_ROOT/SURVEY.DEF
   if ( LEN_idsurvey_list > 0 ) {
-    
+    splitString(str_idsurvey_list, comma, MXPROBCC_ZERO,    // inputs
+		&nval, str_values ) ;                    // outputs    
+    INPUTS_PROBCC_ZERO.nidsurvey = nval ;
+
+    for(id=0; id < MXIDSURVEY; id++ )  { NUSE_IDSURVEY[id] = 0; }
+
+    for(i=0; i < nval; i++ ) {
+      INPUTS_PROBCC_ZERO.idsurvey_list[i] = -9 ;
+
+      id = NOINT  ;
+      sscanf(str_values[i],"%d", &id);
+      if ( id == NOINT ) { 
+	// it's a survey name string, so convert back to ID
+	id = get_IDSURVEY(str_values[i]);
+      }
+
+      if ( id > 0 ) {
+	INPUTS_PROBCC_ZERO.idsurvey_list[i] = id ;
+	surveyName = SURVEY_INFO.SURVEYDEF_LIST[id];
+	NUSE_IDSURVEY[id]++ ;
+	if ( IGNOREFILE(surveyName) ) 
+	  { sprintf(surveyName,"UNKNOWN ID->ERROR"); NERR++; }
+      }
+      else {
+	surveyName = str_values[i] ;
+	strcat(surveyName," is UNKNOWN->ERROR");
+	NERR++ ;
+      }
+
+      printf("\t Force PROB_BBC(CC) = 0 for IDSURVEY = %3d (%s)\n", 
+	     id, surveyName );
+
+      NUSE=NUSE_IDSURVEY[id];
+      if( NUSE > 1 ) {
+	printf("\t\t ERROR: IDSURVEY=%d used %d times\n", id, NUSE);
+	NERR++ ;
+      }
+
+      fflush(stdout);
+    }
   }
 
-  for(ival=0; ival < MXPROBCC_ZERO; ival++ ) 
-    { free(str_values[ival]); }
+  
+  // free string memory
+  for(i=0; i < MXPROBCC_ZERO; i++ ) 
+    { free(str_values[i]); }
 
-  debugexit(fnam);
+  // abort on error
+  if ( NERR > 0 ) {
+    sprintf(c1err,"Found %d errors above.", NERR );
+    sprintf(c2err,"check inputs "
+	    "type_list_probcc0 and idsurvey_list_probcc0");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  //  debugexit(fnam);
 
   return;
 
 } // end prep_probcc0_input
 
+int force_probcc0(int itype, int id) {
+
+  int  ntype     = INPUTS_PROBCC_ZERO.ntype ; 
+  int  nidsurvey = INPUTS_PROBCC_ZERO.nidsurvey ; 
+  int  force=0, i;
+  char fnam[] = "force_probcc0";
+
+  // ------------- BEGIN ---------------
+
+  if ( !INPUTS_PROBCC_ZERO.USE ) { return(force); }  
+
+  for(i=0; i < ntype; i++ )  { 
+    if ( itype == INPUTS_PROBCC_ZERO.type_list[i] ) 
+      { return(1) ; }
+  }
+
+  for(i=0; i < nidsurvey; i++ )  { 
+    if ( id == INPUTS_PROBCC_ZERO.idsurvey_list[i] ) 
+      { return(1) ; }
+  }
+
+  return(force);
+
+} // end force_probcc0
 
 // **********************************************
 void  prep_gamma_input(void) {

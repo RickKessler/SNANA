@@ -74,7 +74,7 @@
 #define MINLOGZ_HOSTLIB   -3.00   // zmin = 0.001
 #define MAXLOGZ_HOSTLIB    0.61    // zmax = 4.07
 #define LOGZRANGE_HOSTLIB  MAXLOGZ_HOSTLIB-MINLOGZ_HOSTLIB
-#define NZPTR_HOSTLIB   (int)(LOGZRANGE_HOSTLIB/DZPTR_HOSTLIB)
+#define NZPTR_HOSTLIB      361 // (int)(LOGZRANGE_HOSTLIB/DZPTR_HOSTLIB)
 
 #define NMAGPSF_HOSTLIB    9    // number of aperture mags vs. PSF to compute
 #define DEG_ARCSEC    1./3600.  // 1 arcsec in deg.

@@ -94,6 +94,8 @@ idsurvey_list_probcc=CSP,JRK07,KAIT,CFA3
 idsurvey_list_probcc=CSP,JRK07,51,53
    (list of survey names and/or integers from SURVEY.DEF file)
 
+    grep Force <stdout>  # to verify parsing
+
 - - - - - -  binning - - - - - -
 nzbin    = number of uniform z bins to use (beware: some bins may be empty)
 nlogzbin = number of log-spaced z bins (Jun 21 2018)

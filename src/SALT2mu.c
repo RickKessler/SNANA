@@ -1148,7 +1148,7 @@ struct {
 } INPUTS_SAMPLE_BIASCOR ;
 
 
-#define MXPROBCC_ZERO 10
+#define MXPROBCC_ZERO 40
 struct {
   bool USE ;
   char str_type_list[60];        // e.g., 119,120

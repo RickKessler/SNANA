@@ -14666,7 +14666,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   // Sep 17 2019: rewind on EOF so that END_OF_SIMLIB: key is optional.
 
   int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0, scanStat;
-  int APPEND_PHOTFLAG, ifilt_obs, DONE_READING=0, DO_REWIND ;
+  int APPEND_PHOTFLAG, ifilt_obs, DONE_READING, DO_REWIND ;
   int NTRY, USEFLAG_LIBID, USEFLAG_MJD, OPTLINE, NWD, NTMP ;
   int   NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT  ;
   double PIXSIZE, TEXPOSE_S, MJD ;
@@ -14687,7 +14687,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
   init_SIMLIB_HEADER();
   NOBS_EXPECT = NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID =USEFLAG_MJD = 0 ;
-  NOBS_SKIP = SKIP_FIELD = SKIP_APPEND = APPEND_PHOTFLAG = 0 ;
+  DONE_READING = NOBS_SKIP = SKIP_FIELD = SKIP_APPEND = APPEND_PHOTFLAG = 0 ;
   SIMLIB_LIST_forSORT.MJD_LAST = -9.0 ;
   SIMLIB_TEMPLATE.NFIELD_OVP = 0;
   NTRY++ ;
@@ -14826,7 +14826,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
     if ( OPTLINE && OPTLINE_REJECT )  {    
       // MJD line in already rejected LIBID --> read rest of line 
-      fgets(cline, 100, fp_SIMLIB) ;
+      fgets(cline, 180, fp_SIMLIB) ;
       if ( SKIP_FIELD ) { NOBS_SKIP++ ; }
     }
     else if ( OPTLINE == OPTLINE_SIMLIB_S )  { 

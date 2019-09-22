@@ -2283,10 +2283,15 @@ void zptr_HOSTLIB(void) {
   // Sep 11, 2012: switch from linear to logz grid
   // Nov 20, 2015: fix syntax bug: fabsf -> fabs  for zdif
   // Dec 29, 2017: speed up; see igal_start and NPAST
+  // Sep 20, 2019: compute NZPTR from define params, and alloate IZPTR
+  //
 
-  int iz, igal, igal_start, igal_last, NTMP, NSET, NPAST ;
+  double DZPTR     = (double)DZPTR_HOSTLIB;
+  double LOGZRANGE = (double)LOGZRANGE_HOSTLIB ;
+
+  int iz, igal, igal_start, igal_last, NTMP, NSET, NPAST, NZPTR ;
   double ZTRUE, ZSAVE, LOGZ_GRID, Z_GRID, zdif, zdifmin ;
-  //  char fnam[] = "zptr_HOSTLIB" ;
+  char fnam[] = "zptr_HOSTLIB" ;
 
   // ----------- BEGIN -------------
 
@@ -2294,7 +2299,16 @@ void zptr_HOSTLIB(void) {
   HOSTLIB.MAXiz = -9;
   igal_last=1;
 
-  for ( iz = 0; iz < NZPTR_HOSTLIB ; iz++ ) {
+  NZPTR         = (int)(LOGZRANGE/DZPTR); ;
+  HOSTLIB.NZPTR = NZPTR;
+  HOSTLIB.IZPTR = (int*) malloc ( NZPTR*sizeof(int) );
+
+  /*
+  printf(" xxx %s: NZPTR=%d bins %.3f < logz < %.3f (range=%.3f)\n", 
+	 fnam, NZPTR, MAXLOGZ_HOSTLIB, MINLOGZ_HOSTLIB, LOGZRANGE);
+  */
+
+  for ( iz = 0; iz < NZPTR ; iz++ ) {
 
     HOSTLIB.IZPTR[iz] = 0 ;
 

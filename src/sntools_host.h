@@ -27,7 +27,8 @@
 
  Sep 19 2019:
    +  MINLOGZ_HOSTLIB -> -3.0 (was -2.523) for Dan/H0
-   +  NZPTR_HOSTLIB is computed from MAX/MIN LOGZ (no longer hard-wired)
+   +  NZPTR_HOSTLIB -> HOSTLIB.NZPTR is a variable (not constant param) 
+       computed from MAX/MIN LOGZ (no longer hard-wired)
 
 ==================================================== */
 
@@ -69,12 +70,10 @@
 #define MXBIN_SERSIC_bn     2000   // max bins in Sersic_bn file
  
 // hard wire logarithmic z-bins
-// xxx#define NZPTR_HOSTLIB      320     // number of Z-pointers of hash table
 #define DZPTR_HOSTLIB      0.01    // logz-binning for Z-pointers
 #define MINLOGZ_HOSTLIB   -3.00   // zmin = 0.001
 #define MAXLOGZ_HOSTLIB    0.61    // zmax = 4.07
 #define LOGZRANGE_HOSTLIB  MAXLOGZ_HOSTLIB-MINLOGZ_HOSTLIB
-#define NZPTR_HOSTLIB      361 // (int)(LOGZRANGE_HOSTLIB/DZPTR_HOSTLIB)
 
 #define NMAGPSF_HOSTLIB    9    // number of aperture mags vs. PSF to compute
 #define DEG_ARCSEC    1./3600.  // 1 arcsec in deg.
@@ -179,7 +178,9 @@ struct HOSTLIB_DEF {
   double ZGAPMAX ; // max z-gap in library
   double ZGAPAVG ; // avg z-gap in library
   double Z_ATGAPMAX[2];  //  redshift at max ZGAP (to find big holes)
-  int   IZPTR[NZPTR_HOSTLIB]; // pointers to nearest z-bin with .01 bin-size
+
+  int   NZPTR;
+  int  *IZPTR;         // pointers to nearest z-bin with .01 bin-size
   int   MINiz, MAXiz ;        // min,max valid iz arg for IZPTR
 
   int NLINE_COMMENT ;

@@ -1151,8 +1151,8 @@ struct {
 #define MXPROBCC_ZERO 40
 struct {
   bool USE ;
-  char str_type_list[60];        // e.g., 119,120
-  char str_idsurvey_list[100];   // e.g., CFA3,CFA4,CSP
+  char str_type_list[100];        // e.g., 119,120
+  char str_idsurvey_list[200];   // e.g., CFA3,CFA4,CSP
 
   int  ntype, nidsurvey;
   int  type_list[MXPROBCC_ZERO];      // integer types

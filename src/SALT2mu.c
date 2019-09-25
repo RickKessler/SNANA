@@ -1380,8 +1380,9 @@ struct {
   double CHI2SUM_1A;   // chi2 sum for Ia subset
   double CHI2RED_1A;   // reduced chi2 for Ia subset
   double NSNFIT_1A;    // number of fit SN with P(CC)/ProbTOT < epsilon
+  double NSNFIT_CC;    // estimate of CC contamination (Sep 2019)
   double ALPHA, BETA;  
-
+  
   double AVEMAG0 ; // average mag among z bins
   double SNMAG0 ;  // AVEMAG0, or user-input INPUTS.nommag0 
 
@@ -2961,7 +2962,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   //c flat=1 read input, flag 2=gradient, flag=3 is final value
   double M0, alpha, beta, gamma, alpha0, beta0, gamma0;
   double da_dz, db_dz, dg_dz, da_dm, db_dm ;
-  double scalePCC, scalePCC_fitpar, nsnfit1a;
+  double scalePCC, scalePCC_fitpar, nsnfit1a, nsnfitcc;
   int    NSN_DATA, n, nsnfit, nsnfit_truecc, idsample, cutmask ;
   int DOBIASCOR_1D, DOBIASCOR_5D, DUMPFLAG=0, dumpFlag_muerrsq=0 ;
   double chi2sum_tot, mures, sqmures;
@@ -3074,7 +3075,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   // -------------------------------
   chi2sum_tot = chi2sum_1a = 0.0;
   nsnfit      = nsnfit_truecc = 0 ;
-  nsnfit1a = 0.0 ;
+  nsnfit1a = nsnfitcc = 0.0 ;
 
   FITRESULT.NSNFIT = 0;
   FITRESULT.NSNFIT_TRUECC = 0;
@@ -3292,6 +3293,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 	ProbRatio_1a = Prob_1a / Prob_SUM ;
 	ProbRatio_CC = Prob_CC / Prob_SUM ;
 	nsnfit1a   +=  ProbRatio_1a ; 
+	nsnfitcc   +=  ProbRatio_CC ; 
 	chi2sum_1a += (ProbRatio_1a * chi2evt_1a) ; 
 
 	Prob_SUM    *= (0.15/PIFAC)  ;  
@@ -3359,6 +3361,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     FITRESULT.CHI2SUM_1A = chi2sum_1a ;
     FITRESULT.CHI2RED_1A = chi2sum_1a/(double)(nsnfit1a-FITINP.NFITPAR_FLOAT) ;
     FITRESULT.NSNFIT_1A  = nsnfit1a ; 
+    FITRESULT.NSNFIT_CC  = nsnfitcc ;  // 9.24.2019
     FITRESULT.ALPHA      = alpha ;
     FITRESULT.BETA       = beta ;
   }
@@ -15047,11 +15050,11 @@ void write_fitres_misc(FILE *fout) {
 
   // write misc info to fitres file depending on whether
   // CC prior is used.
-  // Apr 2016: write CC/tot ratio for simulation
-
+  //
+  // Sep 24 2019: write SUM_PROBIa and SUM_PROBCC
+  //
   double chi2min, chi2red, SIGINT_AVG ;
-  int    IS_SIM, NDOF, NSN, USE_CCPRIOR, NSN_BIASCOR ;
-  char   textCC[100];
+  int    IS_SIM, NDOF, NSNFIT, USE_CCPRIOR, NSN_BIASCOR ;
   BININFO_DEF  *BININFO_SIM_ALPHA, *BININFO_SIM_BETA ;
 
   // ------------- BEGIN -----------
@@ -15068,30 +15071,29 @@ void write_fitres_misc(FILE *fout) {
     chi2min = FITRESULT.CHI2SUM_1A; 
     chi2red = FITRESULT.CHI2RED_1A; 
     NDOF    = FITRESULT.NDOF;
-    NSN     = FITRESULT.NSNFIT ;
-    textCC[0] = 0 ;
+    NSNFIT  = FITRESULT.NSNFIT ;
   }
   else {
     chi2min = FITRESULT.CHI2SUM_1A ;
     chi2red = FITRESULT.CHI2RED_1A ; 
     NDOF    = (int)FITRESULT.NSNFIT_1A - FITINP.NFITPAR_FLOAT ;
-    NSN     = FITRESULT.NSNFIT ;
-    sprintf(textCC,"(for ProbCC/ProbSum < %.3f)", 
-	    INPUTS.maxProbCC_for_sigint );
+    NSNFIT  = FITRESULT.NSNFIT ;
   }
 
+  /* xxx mark delete Sep 25 2019 xxxxxxxxx
   char string_truecc[60] = "" ;
   double frac ;
   if ( IS_SIM ) {
     frac = (double)FITRESULT.NSNFIT_TRUECC/(double)FITRESULT.NSNFIT ;
     sprintf(string_truecc,"[ true CC/(Ia+CC) = %.4f) ]", frac);
   }
+  xxxxxxxxxxxxxx  */
 
   int MASK  = INPUTS.opt_biasCor ;
   int NUMD = 5 ;    // default number of biasCor dimensions
   if ( MASK > 0 ) {
     if ( MASK & MASK_BIASCOR_1DZ ) { NUMD=1; } 
-    fprintf(fout,"#  NSIM(%dD-BIASCOR) = %d   "
+    fprintf(fout,"#  NSIM(%dD-BIASCOR)   = %d   "
 	    "(N_alpha x N_beta = %d x %d) \n"
 	    ,NUMD, NSN_BIASCOR
 	    ,(*BININFO_SIM_ALPHA).nbin, (*BININFO_SIM_BETA).nbin    );
@@ -15101,9 +15103,28 @@ void write_fitres_misc(FILE *fout) {
      
   }
     
-  fprintf(fout,"#  NSNFIT   = %d    %s \n", NSN, string_truecc );
+  fprintf(fout,"#  NSNFIT        = %d \n", NSNFIT );
+
+  if ( USE_CCPRIOR ) { // write out contamination info
+    double xn1a = FITRESULT.NSNFIT_1A;
+    double xncc = FITRESULT.NSNFIT_CC;
+    double xncc_true = (double)FITRESULT.NSNFIT_TRUECC ;
+    double xnsn      = (double)FITRESULT.NSNFIT;
+    double contam = xncc/(xn1a+xncc);
+    double contam_true = xncc_true/xnsn;
+    fprintf(fout,"#  SUM_PROBIa    = %.2f \n", xn1a);
+    fprintf(fout,"#  SUM_PROBCC    = %.2f \n", xncc);
+    fprintf(fout,"#  CONTAM_DATA   = %.4f    "
+	    "# SUM_PROB ratio\n", contam);
+    if ( IS_SIM ) {
+      fprintf(fout,"#  CONTAM_TRUE   = %.4f    "  
+	      "# true NCC/(NIa+NCC) for sim-data\n", contam_true );
+    }
     
-  fprintf(fout,"#  -2log(L) = %.2f \n", FITRESULT.CHI2SUM_MIN );
+    fflush(stdout);
+  }
+
+  fprintf(fout,"#  -2log(L)     = %.2f \n", FITRESULT.CHI2SUM_MIN );
 
   fprintf(fout,"#  chi2(Ia)/dof = %.2f/%i = %.3f  \n",
 	  chi2min, NDOF, chi2red );

@@ -17438,4 +17438,22 @@
    combine_fitres.c
      + abort if first column is not CID.
 
+
+# ======================================================================= 
+         v10_74g (  ) 
+
+         ***** IMPORTANT(v10_74g) ***** 
+
+         ***** USEFUL(v10_74g) ***** 
+
+         ***** MISCELLANEOUS(v10_74g) ***** 
+
+   SALT2mu.c 
+    + in output fitres file, write SUM_PROBIa and SUM_PROBCC
+      and contamination estimate, SUM_PROBCC/(SUM_PROB1a+SUM_PROBCC).
+      For sim data, the contam estimate should be consistent with the 
+      true contamination.
+      Also include table showing contaminatoin vs. MURES, and another
+      table showing contam vs. redshift.
+
 END: 

@@ -642,6 +642,10 @@ Default output files (can change names with "prefix" argument)
  
  Sep 4 2019: finally remove INPUTS.LEGACY_BUGS[READFILE]
 
+ Sep 25-26: 
+    + write contamination info to fitres output. See new functions
+      _contam_CCprior
+
 ******************************************************/
 
 #include <stdio.h>      
@@ -1367,22 +1371,56 @@ struct {
 } FITINP ; 
 
 
+typedef struct {
+  char        COMMENT[40];
+  BININFO_DEF BININFO;
+
+  // start with SUMPROB summed over full sample
+  double      SUMPROB_TOT_IA;    
+  double      SUMPROB_TOT_CC;    
+  double      SUMPROB_TOT_RATIO; 
+
+  // now in bins. MXz is max for whatever variables ... 
+  // doesn't have to be redshift bins.
+  double      sumProb_Ia[MXz];   
+  double      sumProb_cc[MXz];   
+  double      sumProb_ratio[MXz];
+
+  // true values for sim-data only, full sample
+  int    NTRUE_TOT_IA;
+  int    NTRUE_TOT_CC;
+  double TRUE_TOT_RATIO;
+
+  // and again in bins
+  int    ntrue_Ia[MXz];
+  int    ntrue_cc[MXz];
+  double true_ratio[MXz];
+} CONTAM_INFO_DEF ;
+
+CONTAM_INFO_DEF CONTAM_MURES_BINS;
+CONTAM_INFO_DEF CONTAM_REDSHIFT_BINS;
+
+
+
 // define fit results
 struct {
   int NSNFIT ;        // Number of SN used in fit; was nsnacc
   int NSNFIT_SPLITRAN[MXSPLITRAN]; // idem in SPLITRAN sub-samples
   int NDOF ;          // Ndof in fit
   int NCALL_FCN ;     // number of calls to FCN function
-  int NSNFIT_TRUECC;   // for sim, number of true CC
 
   double CHI2SUM_MIN;  // global min chi2
   double CHI2RED_ALL;  // global reduced chi2
   double CHI2SUM_1A;   // chi2 sum for Ia subset
   double CHI2RED_1A;   // reduced chi2 for Ia subset
-  double NSNFIT_1A;    // number of fit SN with P(CC)/ProbTOT < epsilon
-  double NSNFIT_CC;    // estimate of CC contamination (Sep 2019)
-  double ALPHA, BETA;  
-  
+  double ALPHA, BETA, GAMMA;  
+
+  // xxxx mark delete when CONTAM_INFO_DEF is working xxxx
+  double NSNFIT_1A;    // Sum of PROB(Ia)
+  double NSNFIT_CC;    // Sum of PROB(CC)
+  int NSNFIT_TRUECC;   // for sim, number of true CC
+  // xxxxxxxxx end mark delete xxxxxxxxxxxx
+
   double AVEMAG0 ; // average mag among z bins
   double SNMAG0 ;  // AVEMAG0, or user-input INPUTS.nommag0 
 
@@ -1400,6 +1438,8 @@ struct {
   double SIGINT_LIST[MAXFITITER];   // JLM AUG 15 2012
 
 } FITRESULT ;
+
+
 
 int  DOFIT_FLAG;    // non-zero --> do another fit iteration
 
@@ -1508,7 +1548,6 @@ void   read_simFile_CCprior(void);
 void   store_INFO_CCPRIOR_CUTS(void);
 int    storeBias_CCprior(int n) ;
 
-
 void   setup_zbins_CCprior (TABLEVAR_DEF *TABLEVAR, BININFO_DEF *ZBIN) ;
 
 void   setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
@@ -1516,6 +1555,12 @@ void   setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 
 void   setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 			    MUZMAP_DEF *MUZMAP );
+
+void setup_contam_CCprior(void);
+void zero_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO) ;
+void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
+			double xhisto, int SIM_NONIA_INDEX) ;
+void print_contam_CCprior(FILE *fp, CONTAM_INFO_DEF *CONTAM_INFO);
 
 void  dump_DMUPDF_CCprior(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) ;
 
@@ -3076,6 +3121,8 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   chi2sum_tot = chi2sum_1a = 0.0;
   nsnfit      = nsnfit_truecc = 0 ;
   nsnfit1a = nsnfitcc = 0.0 ;
+  zero_contam_CCprior(&CONTAM_MURES_BINS);
+  zero_contam_CCprior(&CONTAM_REDSHIFT_BINS);
 
   FITRESULT.NSNFIT = 0;
   FITRESULT.NSNFIT_TRUECC = 0;
@@ -3087,7 +3134,6 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     if ( cutmask ) { continue; }
 
     // - - - - -
-
 
     INFO_DATA.mures[n]     = -999. ;
     INFO_DATA.mupull[n]    = -999. ;
@@ -3296,6 +3342,13 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 	nsnfitcc   +=  ProbRatio_CC ; 
 	chi2sum_1a += (ProbRatio_1a * chi2evt_1a) ; 
 
+	if ( *iflag == 3 ) {
+	  sum_contam_CCprior(&CONTAM_MURES_BINS, ProbRatio_1a, mures,
+			     SIM_NONIA_INDEX); 
+	  sum_contam_CCprior(&CONTAM_REDSHIFT_BINS, ProbRatio_1a, z,
+			     SIM_NONIA_INDEX); 
+	}
+
 	Prob_SUM    *= (0.15/PIFAC)  ;  
 	chi2evt      = -2.0*log(Prob_SUM);
 	//  chi2evt += sigCC_chi2penalty ; // prevent sigCC<0 (7.17.2018)
@@ -3364,6 +3417,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     FITRESULT.NSNFIT_CC  = nsnfitcc ;  // 9.24.2019
     FITRESULT.ALPHA      = alpha ;
     FITRESULT.BETA       = beta ;
+    FITRESULT.GAMMA      = gamma ;
   }
 
   *fval = chi2sum_tot;
@@ -10769,6 +10823,8 @@ void prepare_CCprior(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
   }
 
+  setup_contam_CCprior();
+
   if ( USE_CCPRIOR_H11 ) { 
     sprintf(BANNER,"%s: use CC mu-vs-z prior from Hlozek 2011", fnam);
     print_banner(BANNER);    
@@ -11346,6 +11402,214 @@ void  dump_DMUPDF_CCprior(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) {
   return ;
   
 } // end dump_DMUPDF_CCprior
+
+// =======================
+void  setup_contam_CCprior(void) {
+
+  // Sep 26 2019
+  // setup MURES bins and z bins for storing
+  // binned contamination info. 
+  // Global CONTAM_INFO structures are filled.
+
+  int nb, i;
+  double lo[MXz], hi[MXz];
+  double tmp_lo, tmp_hi, tmp_avg, tmp_binsize;
+  char fnam[] = "setup_contam_CCprior";
+
+  // -------------- BEGIN ----------------
+
+  // store with three hard-coded MURES bins
+
+  sprintf(CONTAM_MURES_BINS.BININFO.varName,"MURES");
+  nb=0;
+  lo[nb] = -4.0;  hi[nb]=-0.5; nb++ ;
+  lo[nb] = -0.5;  hi[nb]=+0.5; nb++ ;
+  lo[nb] = +0.5;  hi[nb]=+4.0; nb++ ;
+
+  for(i=0; i < nb; i++  ) {
+    tmp_lo  = lo[i]; tmp_hi=hi[i];  tmp_binsize=tmp_hi-tmp_lo;
+    tmp_avg = 0.5*(tmp_hi+tmp_lo);
+    CONTAM_MURES_BINS.BININFO.lo[i]      = tmp_lo;
+    CONTAM_MURES_BINS.BININFO.hi[i]      = tmp_hi;
+    CONTAM_MURES_BINS.BININFO.avg[i]     = tmp_avg;
+  }
+  CONTAM_MURES_BINS.BININFO.nbin    = nb;
+  CONTAM_MURES_BINS.BININFO.binSize = -9.0;  // N/A
+
+  // next store 4 redshift bins
+  sprintf(CONTAM_REDSHIFT_BINS.BININFO.varName,"REDSHIFT");
+  nb=4;
+  double zbin = (INPUTS.zmax - INPUTS.zmin) / (double)nb;
+  for(i=0; i < nb; i++  ) {
+    tmp_lo  = INPUTS.zmin + zbin*(double)i;
+    tmp_hi  = tmp_lo + zbin;
+    tmp_avg = 0.5*(tmp_lo + tmp_hi);
+
+    CONTAM_REDSHIFT_BINS.BININFO.lo[i]      = tmp_lo;
+    CONTAM_REDSHIFT_BINS.BININFO.hi[i]      = tmp_hi;
+    CONTAM_REDSHIFT_BINS.BININFO.avg[i]     = tmp_avg;
+  }
+  CONTAM_REDSHIFT_BINS.BININFO.nbin    = nb;
+  CONTAM_REDSHIFT_BINS.BININFO.binSize = zbin;
+
+  return ;
+
+} // end setup_contam_CCprior
+
+void zero_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO) {
+
+  int i;
+  int nbin = CONTAM_INFO->BININFO.nbin ;
+
+  CONTAM_INFO->SUMPROB_TOT_IA    = 0.0 ;
+  CONTAM_INFO->SUMPROB_TOT_CC    = 0.0 ;
+  CONTAM_INFO->SUMPROB_TOT_RATIO = 0.0 ;
+
+  CONTAM_INFO->NTRUE_TOT_IA    = 0;
+  CONTAM_INFO->NTRUE_TOT_CC    = 0;
+  CONTAM_INFO->TRUE_TOT_RATIO  = 0.0 ;
+
+  for(i=0; i < nbin; i++ ) {
+    CONTAM_INFO->sumProb_Ia[i] = 0.0 ;
+    CONTAM_INFO->sumProb_cc[i] = 0.0 ;
+    CONTAM_INFO->ntrue_Ia[i]   = 0 ;
+    CONTAM_INFO->ntrue_cc[i]   = 0 ;
+    CONTAM_INFO->true_ratio[i] = 0.0 ;
+  }
+
+} // end zero_contam_CCprior
+	 
+void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
+			double xhisto, int SIM_NONIA_INDEX) {
+
+  // Sep 26 2019:
+  // Increment histogram of CC contamination vs. xhisto (mures,z, etc ...)
+
+  int    ibin;
+  int    IS_SIM  =  (INFO_DATA.TABLEVAR.IS_SIM == true) ;
+  double Prob_CC = 1.0 - Prob_Ia ;
+  double sum_Ia, sum_cc, ratio ;
+  char fnam[] = "sum_contam_CCprior";
+
+  // -------------- BEGIN ----------------
+
+  // un-binned sumprob 
+  CONTAM_INFO->SUMPROB_TOT_IA   += Prob_Ia ;
+  CONTAM_INFO->SUMPROB_TOT_CC   += Prob_CC ;
+  sum_Ia = CONTAM_INFO->SUMPROB_TOT_IA;
+  sum_cc = CONTAM_INFO->SUMPROB_TOT_CC;
+  ratio  = sum_cc/(sum_Ia+sum_cc);
+  CONTAM_INFO->SUMPROB_TOT_RATIO = ratio;
+
+  
+  // repeat for binning vs. xhisto
+  ibin = IBINFUN(xhisto, &CONTAM_INFO->BININFO, 1, fnam );
+  CONTAM_INFO->sumProb_Ia[ibin] += Prob_Ia ;
+  CONTAM_INFO->sumProb_cc[ibin] += Prob_CC ;
+  sum_Ia = CONTAM_INFO->sumProb_Ia[ibin];
+  sum_cc = CONTAM_INFO->sumProb_cc[ibin];
+  ratio  = sum_cc/(sum_Ia+sum_cc); 
+  CONTAM_INFO->sumProb_ratio[ibin] = ratio;
+
+  
+  // - - - - - - SUM TRUTH for SIM DATA - - - - - 
+  // .xyz
+  if ( IS_SIM ) {    
+    if ( SIM_NONIA_INDEX == 0 ) {
+      CONTAM_INFO->NTRUE_TOT_IA++ ;
+      CONTAM_INFO->ntrue_Ia[ibin]++ ;
+    }
+    else {
+      CONTAM_INFO->NTRUE_TOT_CC++ ;
+      CONTAM_INFO->ntrue_cc[ibin]++ ;
+    }
+
+
+    sum_Ia = (double)CONTAM_INFO->NTRUE_TOT_IA;
+    sum_cc = (double)CONTAM_INFO->NTRUE_TOT_CC;
+    ratio  = sum_cc/(sum_Ia+sum_cc); 
+    CONTAM_INFO->TRUE_TOT_RATIO = ratio;
+
+    sum_Ia = (double)CONTAM_INFO->ntrue_Ia[ibin];
+    sum_cc = (double)CONTAM_INFO->ntrue_cc[ibin];
+    ratio  = sum_cc/(sum_Ia+sum_cc); 
+    CONTAM_INFO->true_ratio[ibin] = ratio;
+
+  } // end of IS_SIM
+  
+
+  return ;
+
+} // end sum_contam_CCprior
+
+void print_contam_CCprior(FILE *fp, CONTAM_INFO_DEF *CONTAM_INFO) {
+
+  // print contamination total, and table vs. variable in BININFO.
+  //
+  // E.g.
+  //   varName Range    CC/TOT(SUMPROB)     CC/TOT(NTRUE)
+  //    ALL  
+  //   -4.0 to -0.5
+  //   -0.5 to +0.5
+  //
+  int  nbin     = CONTAM_INFO->BININFO.nbin;
+  char *varName = CONTAM_INFO->BININFO.varName;
+  int   IS_SIM  =  (INFO_DATA.TABLEVAR.IS_SIM == true) ;
+  int  i;
+  double lo, hi, xnIa, xncc, ratio, true_ratio;
+  int    ntrue_cc, ntrue_Ia;
+  char cRange[40], str_contam_data[80], str_contam_true[80];
+  char fnam[] = "print_contam_CCprior";
+
+  // -------------- BEGIN --------------
+  
+  fprintf(fp,"\n# CC Contamination vs. %s \n", varName);
+
+  fprintf(fp,"#  %8s Range     CC/TOT(SUMPROB)     CC/TOT(TRUE) \n", varName);
+  fprintf(fp,"# %s \n", dashLine);
+  for(i=-1; i < nbin; i++ ) {  // -1 ==> all 
+    str_contam_data[0]  =  str_contam_true[0] = 0 ;
+
+    if ( i < 0 ) {
+      // total sum
+      sprintf(cRange, "TOTAL");
+      xncc  = CONTAM_INFO->SUMPROB_TOT_CC ;
+      xnIa  = CONTAM_INFO->SUMPROB_TOT_IA ;
+      ratio = CONTAM_INFO->SUMPROB_TOT_RATIO ;
+      ntrue_cc   = CONTAM_INFO->NTRUE_TOT_CC;
+      ntrue_Ia   = CONTAM_INFO->NTRUE_TOT_IA;
+      true_ratio = CONTAM_INFO->TRUE_TOT_RATIO ;
+    } else {
+      // specific bin of varName
+      lo = CONTAM_INFO->BININFO.lo[i] ;
+      hi = CONTAM_INFO->BININFO.hi[i] ;
+      sprintf(cRange,"%5.2f to %5.2f", lo, hi); 
+      xncc  = CONTAM_INFO->sumProb_cc[i] ;
+      xnIa  = CONTAM_INFO->sumProb_Ia[i] ;
+      ratio = CONTAM_INFO->sumProb_ratio[i] ;
+
+      ntrue_cc   = CONTAM_INFO->ntrue_cc[i];
+      ntrue_Ia   = CONTAM_INFO->ntrue_Ia[i];
+      true_ratio = CONTAM_INFO->true_ratio[i] ;
+    }
+
+    sprintf(str_contam_data,"%4.1f/%7.1f = %.3f", 
+	    xncc, xnIa+xncc, ratio);
+
+    if ( IS_SIM ) {
+      sprintf(str_contam_true,"%4d/%7d = %.3f", 
+	      ntrue_cc, ntrue_Ia+ntrue_cc, true_ratio);
+    }
+
+    fprintf(fp,"#  %14s   %s    %s\n", 
+	    cRange, str_contam_data, str_contam_true);
+
+  } // end loop over bins
+
+  fprintf(fp,"# %s \n\n", dashLine);
+  fflush(fp);
+
+} // end print_contam_CCprior
 
 // ===================================================
 void load_FITPARBIAS_CCprior(int icc, FITPARBIAS_DEF
@@ -13929,8 +14193,7 @@ void prep_probcc0_input(void) {
       fflush(stdout);
     }
   }
-  
-  // .xyz
+ 
 
   // check survey ID from $SNDATA_ROOT/SURVEY.DEF
   if ( LEN_idsurvey_list > 0 ) {
@@ -14917,6 +15180,12 @@ void write_fitres(char* fileName) {
   indx = 0;
   NWR  = 0;
   fflush(fout);
+
+  // print contamination tables if CC prior is used
+  if ( INFO_CCPRIOR.USE ) {
+    print_contam_CCprior(fout, &CONTAM_MURES_BINS);
+    print_contam_CCprior(fout, &CONTAM_REDSHIFT_BINS);
+  }
 
   // check option to NOT write each SN to have smaller file
   // with only the fit results

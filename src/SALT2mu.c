@@ -15563,7 +15563,7 @@ void append_fitres(FILE *fp, char *CCID, int  indx ) {
   NWR++ ; fprintf(fp, "%.2f ",  chi2   );
 
   if ( INFO_CCPRIOR.USE ) 
-    { NWR++; fprintf(fp,"%.3f ", INFO_DATA.probcc_beams[n]); }
+    { NWR++; fprintf(fp,"%.3e ", INFO_DATA.probcc_beams[n]); }
 
   /* xxx mark delete Jul 19 2019 xxxxxxx
   if ( IS_SIM ) {

@@ -1031,7 +1031,7 @@ struct {
   double *mumodel, *M0, *mu, *muerr, *muerr_raw,  *mures, *mupull;
   double *muerr_last, *muerrsq_last, *sigCC_last, *sqsigCC_last ;
   double *muCOVscale, *muBias, *muBiasErr, *muBias_zinterp; 
-  double *chi2;
+  double *chi2, *probcc_beams;
   double **fitParBias;
 
   // before fit, store bias[isn][ialpha][ibeta][igammadm]
@@ -3341,8 +3341,9 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 	nsnfit1a   +=  ProbRatio_1a ; 
 	nsnfitcc   +=  ProbRatio_CC ; 
 	chi2sum_1a += (ProbRatio_1a * chi2evt_1a) ; 
-
+	
 	if ( *iflag == 3 ) {
+	  INFO_DATA.probcc_beams[n] = ProbRatio_CC;
 	  sum_contam_CCprior(&CONTAM_MURES_BINS, ProbRatio_1a, mures,
 			     SIM_NONIA_INDEX); 
 	  sum_contam_CCprior(&CONTAM_REDSHIFT_BINS, ProbRatio_1a, z,
@@ -3383,9 +3384,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_tot,z,zerr,1) ;
       }
       
-      if ( IS_SIM  ) {
-	if ( SIM_NONIA_INDEX > 0 ) { nsnfit_truecc++ ; } 
-      }
+      if ( IS_SIM && SIM_NONIA_INDEX > 0 ) { nsnfit_truecc++ ; } 
 
       // store reference errors for 1/sigma term
       if ( DOFIT_FLAG == FITFLAG_CHI2 ) {
@@ -4443,6 +4442,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
     INFO_DATA.muBiasErr      = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.muBias_zinterp = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.chi2           = (double*) malloc(MEMD); MEMTOT+=MEMD;
+    INFO_DATA.probcc_beams   = (double*) malloc(MEMD); MEMTOT+=MEMD;
     f_MEMORY += (float)(MEMTOT/1.0E6) ;
 
     // fitParBias[isn][ipar] to allow passing mB,x1,c via array
@@ -8949,7 +8949,6 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
     }
   }
 
-
   // skip z-cut to ensure events with SNR>60.
   // This allows, for example, doing BBC fits only at high-z.
 
@@ -11565,7 +11564,8 @@ void print_contam_CCprior(FILE *fp, CONTAM_INFO_DEF *CONTAM_INFO) {
   
   fprintf(fp,"\n# CC Contamination vs. %s \n", varName);
 
-  fprintf(fp,"#  %8s Range     CC/TOT(SUMPROB)     CC/TOT(TRUE) \n", varName);
+  fprintf(fp,"#  %8s Range     CC/TOT(SUMPROB)         CC/TOT(TRUE) \n", 
+	  varName);
   fprintf(fp,"# %s \n", dashLine);
   for(i=-1; i < nbin; i++ ) {  // -1 ==> all 
     str_contam_data[0]  =  str_contam_true[0] = 0 ;
@@ -15016,6 +15016,9 @@ void write_fitres(char* fileName) {
   else                    { sprintf(tmpName,"CHI2"); }
   NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"%s",tmpName);  // Jul 19 2019
 
+  if ( INFO_CCPRIOR.USE ) 
+    { NVAR_NEW++;  sprintf(VARNAMES_NEW[NVAR_NEW],"PROBCC_BEAMS"); }
+
   /* xxx mark delete Jul 19 2019 ... use already existing SIM_DLMAG
   if  ( IS_SIM  ) {
     NVAR_NEW++ ; sprintf(VARNAMES_NEW[NVAR_NEW],"SIM_MU"); // for back-compat.
@@ -15506,9 +15509,10 @@ void append_fitres(FILE *fp, char *CCID, int  indx ) {
   // lookup the next index for the current CID. 
   //
   // Mar 1 2018: add M0
-  
+  // Sep 26 2019: write probcc_beams
+
   double z, zerr, mu, muerr, muerr2, mumodel, mures, pull, M0DIF ;
-  double sim_mb, sim_mu  ;
+  double sim_mb, sim_mu, probcc_beams  ;
   double muBias=0.0, muBiasErr=0.0,  muCOVscale=0.0, chi2=0.0 ;
   double fitParBias[NLCPAR] = { 0.0, 0.0, 0.0 } ;
   int IS_SIM, n, cutmask, NWR, NSN_BIASCOR, idsample ;
@@ -15544,7 +15548,6 @@ void append_fitres(FILE *fp, char *CCID, int  indx ) {
     fitParBias[INDEX_c]  = INFO_DATA.fitParBias[n][INDEX_c] ;    
     muCOVscale           = INFO_DATA.muCOVscale[n]  ;
   }
-
   
   if (pull > 99.999) { pull=99.999; }
   
@@ -15558,6 +15561,9 @@ void append_fitres(FILE *fp, char *CCID, int  indx ) {
   NWR++ ; fprintf(fp, "%6.3f ", pull   );
   NWR++ ; fprintf(fp, "%7.4f ", M0DIF  );
   NWR++ ; fprintf(fp, "%.2f ",  chi2   );
+
+  if ( INFO_CCPRIOR.USE ) 
+    { NWR++; fprintf(fp,"%.3f ", INFO_DATA.probcc_beams[n]); }
 
   /* xxx mark delete Jul 19 2019 xxxxxxx
   if ( IS_SIM ) {

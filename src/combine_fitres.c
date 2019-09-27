@@ -398,7 +398,10 @@ void ADD_FITRES(int ifile) {
   // May 2 2019: 
   //   + remove redundant call to TABLEFILE_CLOSE
   // Sep 19 2019: abort if column 0 is not a CID column
+  // Sep 24: slightly improve matching method so that it is very 
+  //         fast when both files have exactly the same CIDs.
   //
+
   int 
     ivar, IVARTOT, IVARSTR, ivarstr, j
     ,isn, isn2,  ISN, ICAST, LTMP, isn_min, isn_start
@@ -574,8 +577,16 @@ void ADD_FITRES(int ifile) {
 
     if ( ifile == 0 ) { ISN = isn2; goto FOUND_ISN ; }
 
-    ISN = -9;  isn_start=isn_min;   isn_min = -9;
+    if ( isn_min >= 0 ) { isn_start=isn_min; }
+    isn_min = ISN = -9;
+
     if ( LEGACY_SLOWFLAG ) { isn_start = 0; }
+
+    if ( isn_start < 0 || isn_start > NLIST_FIRST_FITRES ) {
+      sprintf(c1err,"Crazy isn_start = %d .", isn_start);
+      sprintf(c2err,"Check CID-matching logic in ADD_FITRES function.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
 
     for ( isn = isn_start; isn < NLIST_FIRST_FITRES ; isn++ ) {
 

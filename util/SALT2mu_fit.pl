@@ -239,6 +239,10 @@
 #    job logs and output.
 #
 # Sep 18 2019: fix to work with input filename that includes full path.
+# Sep 28 2019:
+#   +  add quotes around 2nd arg to wait_for_files.pl
+#   + new function create_done_file to ensure everything else is done
+#     before final DONE file is created.
 #
 # ------------------------------------------------------
 
@@ -309,7 +313,7 @@ my ($NROW_SUMDAT );
 
 my ($NCPU, @NJOB_PER_CPU, $MAXJOB_PER_CPU, $icpu_MAXJOBS, @CMD_PREFIX, @CMD_FILES);
 my (@BATCH_FILES, $NOUTFILE, @CMD_CONTENTS, @NCMDLINE_PER_CPU );
-my ($T_START, $T_END, $T_TOT);
+my ($T_START, $T_END, $T_TOT, $NJOB_ABORT, $ALLDONE_FILE );
 
 # ----------------
 # functions
@@ -338,6 +342,7 @@ sub add_COMMAND ;
 sub matchDump ;
 sub submit_JOBS ;
 sub wait_for_done ;
+sub create_done_file ;
 sub make_SUMMARY ;
 sub write_SUMMARY_LOG ;
 sub write_SUMMARY_DAT ;
@@ -414,6 +419,8 @@ if ( $NSPLITRAN>0 ) { exit(0); }
 
 &make_SUMMARY();
 &gzip_logs(); 
+
+&create_done_file ;
 
 exit(0);
 
@@ -551,7 +558,6 @@ sub parse_inpFile {
     sntools::loadArray_fromFile($INPUT_FILE, \@CONTENTS_INPFILE);
 
 
-    $DONE_STAMP_FILE      = ' ' ;
     $key   = "DONE_STAMP:" ;
 # xxx   @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
     @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
@@ -2056,26 +2062,54 @@ sub submit_JOBS {
 # ====================
 sub wait_for_done {
 
-    my ($NDONE, $DONESPEC, $ALLDONE_FILE, $CMD_WAIT );
+    # Sep 28 2019: $DONESPEC argument -> '$DONESPEC' (in quotes)
+
+    my ($NDONE, $DONESPEC, $CMD_WAIT );
 
     $NDONE        = $NCPU ;
     $DONESPEC     = "$FITSCRIPTS_DIR/*.DONE" ;
     $ALLDONE_FILE = "$FITSCRIPTS_DIR/ALL.DONE" ;
 
-    $CMD_WAIT = "wait_for_files.pl  $NDONE  $DONESPEC  $ALLDONE_FILE" ; 
+    $CMD_WAIT = "wait_for_files.pl  $NDONE  '$DONESPEC'  $ALLDONE_FILE" ; 
 
     system("$CMD_WAIT");
 
     # June 10 2019: check for ABORTS  
-    my ( $cmd, @tmp, $OUTDIR, $NABORT, $msg);
-    $NABORT = 0 ;
+    my ( $cmd, @tmp, $OUTDIR, $msg);
+    $NJOB_ABORT = 0 ;
     foreach $OUTDIR ( @OUTDIR_SALT2mu_LIST )  { 
 	@tmp = qx(grep ' ABORT ' $OUTDIR/*/SALT2*.LOG );
-	$NABORT += scalar(@tmp);       
+	$NJOB_ABORT += scalar(@tmp);       
     }
 
-    if ( $NABORT > 0 )  
-    { $msg = "FAILED  ($NABORT ABORTS)"; }
+# xxxxxxxx mark delete Sep 29 2019 xxxxxxxxxx
+#    if ( $NJOB_ABORT > 0 )  
+#    { $msg = "FAILED  ($NABORT ABORTS)"; }
+#    else
+#    { $msg = "SUCCESS" ; }
+#
+#    print " Final STATUS for DONE file: $msg \n";
+#    qx(echo '$msg' >> $ALLDONE_FILE);
+#
+# Sep 12 2019: optional user-done file from DONE_STAMP key
+#    if ( $DONE_STAMP_FILE ne "" ) {
+#	qx(echo '$msg' >> $DONE_STAMP_FILE );
+#    }
+# xxxxxxxxxxxxxxxxx end mark xxxxxxxxxxxxxx
+
+
+}  # end of wait_for_done
+
+sub create_done_file {
+
+    # Created Sep 29 2019:
+    # Create DONE file(s) here to ensure that everything
+    # is really finished before DONE file(s) appear.
+
+    my ( $msg );
+
+    if ( $NJOB_ABORT > 0 )  
+    { $msg = "FAILED  ($NJOB_ABORT ABORTS)"; }
     else
     { $msg = "SUCCESS" ; }
 
@@ -2087,8 +2121,7 @@ sub wait_for_done {
 	qx(echo '$msg' >> $DONE_STAMP_FILE );
     }
 
-}  # end of wait_for_done
-
+} # end create_done_file
 
 # ==========================
 sub make_SUMMARY {
@@ -2152,15 +2185,6 @@ sub make_SUMMARY {
     print PTR_SUMLOG " Total wall time: $T_TOT minutes. \n";
     print PTR_SUMLOG "\n" ;
     close PTR_SUMLOG ;
-
-    # xxxxxx mark delete Jun 11 2019 xxxxxxxxxx
-    # copy summary file to outdir(s)
-#    my ($OUTDIR);
-#    foreach $OUTDIR ( @OUTDIR_SALT2mu_LIST ) { 
-#	qx(cp $SUMMARY_LOGFILE $OUTDIR); 
-#	qx(cp $SUMMARY_DATFILE $OUTDIR); 
-#   }
-    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
     print "\n";
     print " Found $NOUTFILE of $NTOT_JOBS output fitres files. \n";

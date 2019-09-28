@@ -78,8 +78,8 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
     NLAMPOW_SEDMODEL      = 0;
     NZBIN                 = REDSHIFT_SEDMODEL.NZBIN ;
     SEDMODEL.NSURFACE     = 1 ;  // process 1 NONIA sed at a time
-    SEDMODEL.MINLAMFILT   = INP_NON1ASED->RESTLAMBDA_RANGE[0];
-    SEDMODEL.MAXLAMFILT   = INP_NON1ASED->RESTLAMBDA_RANGE[1];
+    SEDMODEL.RESTLAMMIN_FILTERCEN  = INP_NON1ASED->RESTLAMBDA_RANGE[0];
+    SEDMODEL.RESTLAMMAX_FILTERCEN  = INP_NON1ASED->RESTLAMBDA_RANGE[1];
     SEDMODEL.OPTMASK      = 
       OPTMASK_DAYLIST_SEDMODEL  +  // allow non-uniform day bins
       OPTMASK_T0SHIFT_PEAKMAG      // shift T=0 to be at peakmag
@@ -104,8 +104,8 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
 
   Trange[0] =  -150. ;  // widen Trange Apr 2 2018 
   Trange[1] =   500. ;  
-  Lrange[0] = SEDMODEL.MINLAMFILT ;
-  Lrange[1] = SEDMODEL.MAXLAMFILT ;
+  Lrange[0] = SEDMODEL.RESTLAMMIN_FILTERCEN ;
+  Lrange[1] = SEDMODEL.RESTLAMMAX_FILTERCEN ;
 
   sprintf(sedcomment,"NON1A-%3.3d", NON1A_INDEX );
 
@@ -209,7 +209,7 @@ void genmag_NON1ASED (
     magobs_list[epobs] = MAG_ZEROFLUX ;
     magerr_list[epobs] = MAGERR_UNDEFINED ;
 
-    if ( Trest < TEMP_SEDMODEL.MINDAY ) { continue ; }
+    if ( Trest < TEMP_SEDMODEL.DAYMIN ) { continue ; }
     
     // call function to handle Trest extrap if needed
     flux = get_flux_SEDMODEL(ISED_NON1A, ILAMPOW, ifilt_obs, z, Trest) ;
@@ -276,8 +276,8 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
     
   // ------------ BEGIN ------------
 
-  INP_NON1ASED->RESTLAMBDA_RANGE[0] = MINLAM_SEDMODEL ;
-  INP_NON1ASED->RESTLAMBDA_RANGE[1] = MAXLAM_SEDMODEL ;
+  INP_NON1ASED->RESTLAMBDA_RANGE[0] = LAMMIN_SEDMODEL ;
+  INP_NON1ASED->RESTLAMBDA_RANGE[1] = LAMMAX_SEDMODEL ;
 
   // first check path to NON1ASEDs
   if ( strlen(INP_NON1ASED->PATH) == 0 ) 

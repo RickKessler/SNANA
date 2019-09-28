@@ -910,7 +910,8 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 
   // Aug 28 2019: make sure last node is covered by wavelength range
   double LAMCHECK = LAM2 * (1.0+zmin);
-  if ( LAMCHECK < MAXLAM ) {
+  // xxx  if ( LAMCHECK < MAXLAM ) {  // Aug 28 2019
+  if ( LAMCHECK < MAXLAM && LAMCHECK < SED_LAMMAX ) { // Sep 19 2019
     double zmin_suggest = MAXLAM/LAM2 - 1.0 ;
     sprintf(c1err,"genSmear model can't handle zmin=%.3f "
 	    "(see GENRANGE_REDSHIFT)", zmin);
@@ -1119,23 +1120,6 @@ void read_genSmear_SALT2disp(char *smearFile) {
 		 ,&NLAM                       // returned
 		 ,GENSMEAR_SALT2.LAM        // returned
 		 ,GENSMEAR_SALT2.SIGMA  );  // returned
-
-
-  /* xxxxxx mark delete xxxxx
-  // Sep 3 2019: clip array to respect LAMBDA bounds
-  double LAM, SIGMA;
-  int NLAM_CLIP = 0;
-  for (ilam=1; ilam <= NLAM; ilam++ ) {
-    LAM   = GENSMEAR_SALT2.LAM[ilam];
-    SIGMA = GENSMEAR_SALT2.SIGMA[ilam] ;
-    if ( LAM < INPUT_SALT2_INFO.MINLAMFILT ) { continue ; }
-    if ( LAM > INPUT_SALT2_INFO.MAXLAMFILT ) { continue ; }
-    NLAM_CLIP++ ;
-    GENSMEAR_SALT2.LAM[NLAM_CLIP]   = LAM;
-    GENSMEAR_SALT2.SIGMA[NLAM_CLIP] = SIGMA ;
-  }
-  NLAM = NLAM_CLIP;
-  xxxxxx mark delete xxxxxx */
 
   GENSMEAR_SALT2.NLAM   = NLAM;  
   GENSMEAR_SALT2.MINLAM = GENSMEAR_SALT2.LAM[0];

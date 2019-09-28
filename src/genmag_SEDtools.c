@@ -70,8 +70,8 @@ int reset_SEDMODEL(void) {
   FILTLIST_SEDMODEL[0]     =  0 ;
   ISED_SEDMODEL            = -9 ; // Mar 6 2017
 
-  SEDMODEL.MINDAY_ALL = +9999999.0 ;
-  SEDMODEL.MAXDAY_ALL = -9999999.0 ;
+  SEDMODEL.DAYMIN_ALL = +9999999.0 ;
+  SEDMODEL.DAYMAX_ALL = -9999999.0 ;
 
   // set default redshift range and NZBIN
   init_redshift_SEDMODEL(NZBIN_SEDMODEL_DEFAULT, 
@@ -112,8 +112,8 @@ int init_primary_SEDMODEL(char *refname  // (I) name of primary ref
     PRIMARY_SEDMODEL.flux[ilam] = FLUXLIST[ilam];
   }
 
-  PRIMARY_SEDMODEL.minlam  = PRIMARY_SEDMODEL.lam[0] ;
-  PRIMARY_SEDMODEL.maxlam  = PRIMARY_SEDMODEL.lam[NLAM-1] ;
+  PRIMARY_SEDMODEL.lammin  = PRIMARY_SEDMODEL.lam[0] ;
+  PRIMARY_SEDMODEL.lammax  = PRIMARY_SEDMODEL.lam[NLAM-1] ;
   PRIMARY_SEDMODEL.lamstep = PRIMARY_SEDMODEL.lam[1] - PRIMARY_SEDMODEL.lam[0];
 
   sprintf(PRIMARY_SEDMODEL.name, "%s", refname);
@@ -142,7 +142,7 @@ double interp_primaryFlux_SEDMODEL(double lam){
 
   flux = 0.0;
   lamstep = PRIMARY_SEDMODEL.lamstep;
-  lammin  = PRIMARY_SEDMODEL.minlam;
+  lammin  = PRIMARY_SEDMODEL.lammin;
   NLAM    = PRIMARY_SEDMODEL.NLAM;
 
   ilam = (int)((lam - lammin)/lamstep + 1.0E-8) ;
@@ -295,10 +295,10 @@ int init_filter_SEDMODEL(
 
 
   // load FILTER structure
-  IFILTMAP_SEDMODEL[ifilt_obs]     = ifilt ;
-  FILTER_SEDMODEL[ifilt].ifilt_obs = ifilt_obs ;
+  IFILTMAP_SEDMODEL[ifilt_obs]      = ifilt ;
+  FILTER_SEDMODEL[ifilt].ifilt_obs  = ifilt_obs ;
   FILTER_SEDMODEL[ifilt].magprimary = magprimary ;
-  FILTER_SEDMODEL[ifilt].lamshift  = LAMSHIFT ;
+  FILTER_SEDMODEL[ifilt].lamshift   = LAMSHIFT ;
 
 
   if ( transSN_sum > 0.0 ) 
@@ -308,8 +308,8 @@ int init_filter_SEDMODEL(
 
   FILTER_SEDMODEL[ifilt].lamstep   =   lamstep ;
   FILTER_SEDMODEL[ifilt].NLAM      =   NLAM ;
-  FILTER_SEDMODEL[ifilt].minlam    =   FILTER_SEDMODEL[ifilt].lam[0];
-  FILTER_SEDMODEL[ifilt].maxlam    =   FILTER_SEDMODEL[ifilt].lam[NLAM-1];
+  FILTER_SEDMODEL[ifilt].lammin    =   FILTER_SEDMODEL[ifilt].lam[0];
+  FILTER_SEDMODEL[ifilt].lammax    =   FILTER_SEDMODEL[ifilt].lam[NLAM-1];
   sprintf(FILTER_SEDMODEL[ifilt].name, "%s", filtname);
 
   FILTER_SEDMODEL[ifilt].transSN_MAX   = transSN_MAX ;
@@ -319,7 +319,6 @@ int init_filter_SEDMODEL(
   sprintf(cfilt1, "%c", filtname[strlen(filtname)-1] ) ;
 
   strcat(FILTLIST_SEDMODEL,cfilt1);
-  // xxx mark dele sprintf(FILTLIST_SEDMODEL,"%s%s",FILTLIST_SEDMODEL,cfilt1);
 
   hc8 = (double)hc ;
   fluxREF_sum *= (lamstep/hc8) ;  // Jan 2010: divide by hc 
@@ -329,7 +328,6 @@ int init_filter_SEDMODEL(
   else
     { FILTER_SEDMODEL[ifilt].ZP = 0.0 ; }
 
-
   // dump filter response to text file (DEBUG only)
   if ( LDMP_FILT == 1 ) {
     sprintf(filtFile, "genmag_SEDMODEL_%s-trans.dat", 
@@ -338,9 +336,9 @@ int init_filter_SEDMODEL(
     printf("\t dump filter-trans to %s )\n", filtFile );
     
     for ( ilam=0; ilam < FILTER_SEDMODEL[ifilt].NLAM ; ilam++ ) {
-      lam   =  FILTER_SEDMODEL[ifilt].lam[ilam] ;
-      transSN =  FILTER_SEDMODEL[ifilt].transSN[ilam] ;
-      transREF =  FILTER_SEDMODEL[ifilt].transREF[ilam] ;
+      lam       =  FILTER_SEDMODEL[ifilt].lam[ilam] ;
+      transSN   =  FILTER_SEDMODEL[ifilt].transSN[ilam] ;
+      transREF  =  FILTER_SEDMODEL[ifilt].transREF[ilam] ;
       fprintf(fp_filt,"%8.2f  %8.4f %8.4f\n", lam, transSN, transREF );
     }
     fclose(fp_filt);
@@ -387,8 +385,8 @@ void filtdump_SEDMODEL(void) {
 	   ,FILTER_SEDMODEL[ifilt].name 
 	   ,FILTER_SEDMODEL[ifilt].mean - FILTER_SEDMODEL[ifilt].lamshift
 	   ,FILTER_SEDMODEL[ifilt].lamshift
-	   ,FILTER_SEDMODEL[ifilt].minlam
-	   ,FILTER_SEDMODEL[ifilt].maxlam
+	   ,FILTER_SEDMODEL[ifilt].lammin
+	   ,FILTER_SEDMODEL[ifilt].lammax
 	   ,FILTER_SEDMODEL[ifilt].lamstep
 	   ,FILTER_SEDMODEL[ifilt].magprimary
 	   ,FILTER_SEDMODEL[ifilt].ZP
@@ -747,7 +745,7 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
   // create a very fine-grained SED in lambda space ...
   // then use fast linear interp inside the integration loop.
   //
-  // Jun 9, 2011: compute SEDMODEL.MINLAM_ALL and SEDMODEL.MAXLAM_ALL
+  // Jun 9, 2011: compute SEDMODEL.LAMMIN_ALL and SEDMODEL.MAXLAM_ALL
   //
   // Mar 22 2017: F->0 if any part of filter trans is not contained by model.
   //
@@ -776,18 +774,18 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
     printf("\n");
 
     printf("  SED-epoch  range: %6.2f <= Trest <= %6.2f (<STEP>=%4.2f day)\n",
-	TEMP_SEDMODEL.MINDAY, TEMP_SEDMODEL.MAXDAY, TEMP_SEDMODEL.DAYSTEP );
+	TEMP_SEDMODEL.DAYMIN, TEMP_SEDMODEL.DAYMAX, TEMP_SEDMODEL.DAYSTEP );
     
     printf("  SED-lambda range: %5.0f <= LAM <= %5.0f (<STEP>=%4.0f A) \n",
-	TEMP_SEDMODEL.MINLAM, TEMP_SEDMODEL.MAXLAM, TEMP_SEDMODEL.LAMSTEP );
+	TEMP_SEDMODEL.LAMMIN, TEMP_SEDMODEL.LAMMAX, TEMP_SEDMODEL.LAMSTEP );
 
     printf("  FILTER-lambda range: %5.0f <= LAM <= %5.0f  \n",
-	   SEDMODEL.MINLAMFILT, SEDMODEL.MAXLAMFILT );
+	   SEDMODEL.RESTLAMMIN_FILTERCEN, SEDMODEL.RESTLAMMAX_FILTERCEN );
 
-    if ( TEMP_SEDMODEL.MINDAY < SEDMODEL.MINDAY_ALL ) 
-      { SEDMODEL.MINDAY_ALL = TEMP_SEDMODEL.MINDAY ; }
-    if ( TEMP_SEDMODEL.MAXDAY > SEDMODEL.MAXDAY_ALL ) 
-      { SEDMODEL.MAXDAY_ALL = TEMP_SEDMODEL.MAXDAY ; }
+    if ( TEMP_SEDMODEL.DAYMIN < SEDMODEL.DAYMIN_ALL ) 
+      { SEDMODEL.DAYMIN_ALL = TEMP_SEDMODEL.DAYMIN ; }
+    if ( TEMP_SEDMODEL.DAYMAX > SEDMODEL.DAYMAX_ALL ) 
+      { SEDMODEL.DAYMAX_ALL = TEMP_SEDMODEL.DAYMAX ; }
 
     return ;
   }
@@ -802,29 +800,29 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
 
   // compute misc. stuff
   N = TEMP_SEDMODEL.NLAM ;
-  TEMP_SEDMODEL.MINLAM  = TEMP_SEDMODEL.LAM[0] ;
-  TEMP_SEDMODEL.MAXLAM  = TEMP_SEDMODEL.LAM[N-1] ;
+  TEMP_SEDMODEL.LAMMIN  = TEMP_SEDMODEL.LAM[0] ;
+  TEMP_SEDMODEL.LAMMAX  = TEMP_SEDMODEL.LAM[N-1] ;
 
   N = TEMP_SEDMODEL.NDAY ;
-  TEMP_SEDMODEL.MINDAY  = TEMP_SEDMODEL.DAY[0] ;
-  TEMP_SEDMODEL.MAXDAY  = TEMP_SEDMODEL.DAY[N-1] ;
+  TEMP_SEDMODEL.DAYMIN  = TEMP_SEDMODEL.DAY[0] ;
+  TEMP_SEDMODEL.DAYMAX  = TEMP_SEDMODEL.DAY[N-1] ;
   
-  if ( TEMP_SEDMODEL.MINDAY < SEDMODEL.MINDAY_ALL ) 
-    { SEDMODEL.MINDAY_ALL = TEMP_SEDMODEL.MINDAY ; }
-  if ( TEMP_SEDMODEL.MAXDAY > SEDMODEL.MAXDAY_ALL ) 
-    { SEDMODEL.MAXDAY_ALL = TEMP_SEDMODEL.MAXDAY ; }
+  if ( TEMP_SEDMODEL.DAYMIN < SEDMODEL.DAYMIN_ALL ) 
+    { SEDMODEL.DAYMIN_ALL = TEMP_SEDMODEL.DAYMIN ; }
+  if ( TEMP_SEDMODEL.DAYMAX > SEDMODEL.DAYMAX_ALL ) 
+    { SEDMODEL.DAYMAX_ALL = TEMP_SEDMODEL.DAYMAX ; }
 
 
   // store binning info for this "ised" (TEMP_SEDMODEL -> SEDMODEL)
   // This is needlessly repeated for each filter, but it's OK.
   SEDMODEL.NDAY[ised]    = TEMP_SEDMODEL.NDAY ;
-  SEDMODEL.MINDAY[ised]  = TEMP_SEDMODEL.MINDAY  ;
-  SEDMODEL.MAXDAY[ised]  = TEMP_SEDMODEL.MAXDAY ;
+  SEDMODEL.DAYMIN[ised]  = TEMP_SEDMODEL.DAYMIN  ;
+  SEDMODEL.DAYMAX[ised]  = TEMP_SEDMODEL.DAYMAX ;
   SEDMODEL.DAYSTEP[ised] = TEMP_SEDMODEL.DAYSTEP ;
 
   SEDMODEL.NLAM[ised]    = TEMP_SEDMODEL.NLAM ;
-  SEDMODEL.MINLAM[ised]  = TEMP_SEDMODEL.MINLAM ;
-  SEDMODEL.MAXLAM[ised]  = TEMP_SEDMODEL.MAXLAM ;
+  SEDMODEL.LAMMIN[ised]  = TEMP_SEDMODEL.LAMMIN ;
+  SEDMODEL.LAMMAX[ised]  = TEMP_SEDMODEL.LAMMAX ;
   SEDMODEL.LAMSTEP[ised] = TEMP_SEDMODEL.LAMSTEP ;
 
   // Aug 12 2017 : 
@@ -839,14 +837,14 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
   // keep track of min and max LAM valid for ALL SEDs ...
   // needed for the IFILTSTAT_SEDMODEL function.
   if ( ised == 1 ) {
-    SEDMODEL.MINLAM_ALL =  0.0  ;      // init
-    SEDMODEL.MAXLAM_ALL =  9999999. ;  // init
+    SEDMODEL.LAMMIN_ALL =  0.0  ;      // init
+    SEDMODEL.LAMMAX_ALL =  9999999. ;  // init
   }
-  if ( TEMP_SEDMODEL.MINLAM > SEDMODEL.MINLAM_ALL ) 
-    {  SEDMODEL.MINLAM_ALL = TEMP_SEDMODEL.MINLAM ; }
+  if ( TEMP_SEDMODEL.LAMMIN > SEDMODEL.LAMMIN_ALL ) 
+    {  SEDMODEL.LAMMIN_ALL = TEMP_SEDMODEL.LAMMIN ; }
 
-  if ( TEMP_SEDMODEL.MAXLAM < SEDMODEL.MAXLAM_ALL ) 
-    {  SEDMODEL.MAXLAM_ALL = TEMP_SEDMODEL.MAXLAM ; }
+  if ( TEMP_SEDMODEL.LAMMAX < SEDMODEL.LAMMAX_ALL ) 
+    {  SEDMODEL.LAMMAX_ALL = TEMP_SEDMODEL.LAMMAX ; }
 
   
   // local variables.
@@ -919,8 +917,8 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
   EPMAX = TEMP_SEDMODEL.NDAY - 1 ;
 
   LAMOBS_STEP = FILTER_SEDMODEL[ifilt].lamstep ;
-  LAMOBS_MIN  = FILTER_SEDMODEL[ifilt].minlam ;
-  LAMOBS_MAX  = FILTER_SEDMODEL[ifilt].maxlam ;
+  LAMOBS_MIN  = FILTER_SEDMODEL[ifilt].lammin ;
+  LAMOBS_MAX  = FILTER_SEDMODEL[ifilt].lammax ;
 
   hc8 = (double)hc;
   SEDMODELNORM = SEDMODEL.FLUXSCALE * LAMOBS_STEP / hc8 ;
@@ -934,8 +932,8 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
 
     // Mar 22 2017: 
     // bail if any part of filter trans it outside of model range
-    if ( LAMOBS_MIN/z1 < SEDMODEL.MINLAM[ised] ) { continue ; }
-    if ( LAMOBS_MAX/z1 > SEDMODEL.MAXLAM[ised] ) { continue ; }
+    if ( LAMOBS_MIN/z1 < SEDMODEL.LAMMIN[ised] ) { continue ; }
+    if ( LAMOBS_MAX/z1 > SEDMODEL.LAMMAX[ised] ) { continue ; }
 
     // normalization for integrals
     for ( ilamfilt=0; ilamfilt < NLAMFILT; ilamfilt++ ) {
@@ -945,8 +943,8 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
       lamsed = lamobs/z1 ;
 
       // bail of lamsed is outside SED range
-      if ( lamsed < SEDMODEL.MINLAM[ised] ) { continue ; }
-      if ( lamsed > SEDMODEL.MAXLAM[ised] ) { continue ; }
+      if ( lamsed < SEDMODEL.LAMMIN[ised] ) { continue ; }
+      if ( lamsed > SEDMODEL.LAMMAX[ised] ) { continue ; }
       
       if ( trans <= 0.0 ) { continue ; }
   
@@ -1027,8 +1025,8 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
   int    NLAMSED = TEMP_SEDMODEL.N_FINEBIN ;
   char   fnam[] = "getFluxLam_SEDMODEL" ;
 
-  double DAYMIN  = TEMP_SEDMODEL.MINDAY ;
-  double DAYMAX  = TEMP_SEDMODEL.MAXDAY ;
+  double DAYMIN  = TEMP_SEDMODEL.DAYMIN ;
+  double DAYMAX  = TEMP_SEDMODEL.DAYMAX ;
   double DAYSTEP = TEMP_SEDMODEL.DAYSTEP ; 
   int    NDAY    = TEMP_SEDMODEL.NDAY ; 
 
@@ -1038,8 +1036,8 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
   z1 = 1.0 + z ;
   LAMSED = LAMOBS / z1 ;
   
-  if ( LAMSED < SEDMODEL.MINLAM[ISED] ) { return(FLUX); }
-  if ( LAMSED > SEDMODEL.MAXLAM[ISED] ) { return(FLUX); }
+  if ( LAMSED < SEDMODEL.LAMMIN[ISED] ) { return(FLUX); }
+  if ( LAMSED > SEDMODEL.LAMMAX[ISED] ) { return(FLUX); }
 
   ONEDAY = ( NDAY == 1 ) ;
 
@@ -1071,7 +1069,7 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
   }
 
   // get ilamsed that bounds observer-lamobs
-  LAMDIF    = LAMSED - SEDMODEL.MINLAM[ISED] ;
+  LAMDIF    = LAMSED - SEDMODEL.LAMMIN[ISED] ;
   ilamsed   = (int)(LAMDIF/TEMP_SEDMODEL.FINEBIN_LAMSTEP) ;
   if ( ilamsed > NLAMSED - 1 ) { ilamsed = NLAMSED - 1 ; }
   LAMDIF2 = LAMSED - TEMP_SEDMODEL.FINEBIN_LAM[ilamsed] ;
@@ -1080,7 +1078,7 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
   if ( FRAC_INTERP_LAM < -1.0E-8 || FRAC_INTERP_LAM > 1.000000001 ) {
     printf("\n PRE-ABORT DUMP: \n");
     printf("\t LAMDIF  = %.2f - %.2f = %.2f \n",
-	   LAMSED, SEDMODEL.MINLAM[ISED], LAMDIF );
+	   LAMSED, SEDMODEL.LAMMIN[ISED], LAMDIF );
     printf("\t ilamsed = (int) %.2f / %.3f  = %d \n", 
 	   LAMDIF, TEMP_SEDMODEL.FINEBIN_LAMSTEP, ilamsed);
     printf("\t LAMDIF2 = %.2f - %.2f = %.2f \n",
@@ -1281,8 +1279,8 @@ double get_flux_SEDMODEL( int ISED, int ilampow, int ifilt_obs,
 
 #define NDAYFIT_SLOPE 6
 
-  double MINDAY   = SEDMODEL.MINDAY[ISED] ;
-  double MAXDAY   = SEDMODEL.MAXDAY[ISED] ;
+  double MINDAY   = SEDMODEL.DAYMIN[ISED] ;
+  double MAXDAY   = SEDMODEL.DAYMAX[ISED] ;
   double MINSLOPE = INPUTS_SEDMODEL.MINSLOPE_EXTRAPMAG_LATE;
 
   double XNDAY  = (double)NDAYFIT_SLOPE ;
@@ -1449,8 +1447,8 @@ double interp_flux_SEDMODEL(
   }
 
   // find nearest SED-epoch bins that sandwhich Trest
-  DAYMIN  = SEDMODEL.MINDAY[ISED] ;
-  DAYMAX  = SEDMODEL.MAXDAY[ISED] ;
+  DAYMIN  = SEDMODEL.DAYMIN[ISED] ;
+  DAYMAX  = SEDMODEL.DAYMAX[ISED] ;
   DAYSTEP = SEDMODEL.DAYSTEP[ISED] ;
 
 
@@ -1460,10 +1458,10 @@ double interp_flux_SEDMODEL(
 
   // if filter trans is not contained in model wavelength range,
   // return undefined flux
-  LAMOBS_MIN  = FILTER_SEDMODEL[ifilt].minlam ;
-  LAMOBS_MAX  = FILTER_SEDMODEL[ifilt].maxlam ;
-  if ( LAMOBS_MIN/z1 < SEDMODEL.MINLAM[ISED] ) { return(FLUX_UNDEFINED) ; }
-  if ( LAMOBS_MAX/z1 > SEDMODEL.MAXLAM[ISED] ) { return(FLUX_UNDEFINED) ; }
+  LAMOBS_MIN  = FILTER_SEDMODEL[ifilt].lammin ;
+  LAMOBS_MAX  = FILTER_SEDMODEL[ifilt].lammax ;
+  if ( LAMOBS_MIN/z1 < SEDMODEL.LAMMIN[ISED] ) { return(FLUX_UNDEFINED) ; }
+  if ( LAMOBS_MAX/z1 > SEDMODEL.LAMMAX[ISED] ) { return(FLUX_UNDEFINED) ; }
 
   if ( ifilt_obs == -3 ) {
     printf(" xxx ifilt_obs=%d  Trest=%6.2f  "
@@ -1636,16 +1634,16 @@ int IFILTSTAT_SEDMODEL(int ifilt_obs, double z) {
   z1 = 1. + z;
   ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ;
   LMEAN = FILTER_SEDMODEL[ifilt].mean / z1 ;
-  LMIN  = FILTER_SEDMODEL[ifilt].minlam / z1 ;
-  LMAX  = FILTER_SEDMODEL[ifilt].maxlam / z1 ;
+  LMIN  = FILTER_SEDMODEL[ifilt].lammin / z1 ;
+  LMAX  = FILTER_SEDMODEL[ifilt].lammax / z1 ;
 
   //make sure filter-mean is in range
-  if ( LMEAN < SEDMODEL.MINLAMFILT ) { return 0 ; }
-  if ( LMEAN > SEDMODEL.MAXLAMFILT ) { return 0 ; }
+  if ( LMEAN < SEDMODEL.RESTLAMMIN_FILTERCEN ) { return 0 ; }
+  if ( LMEAN > SEDMODEL.RESTLAMMAX_FILTERCEN ) { return 0 ; }
 
   // make sure that entire filter-lambda range is covered by SED.
-  if ( LMIN  < SEDMODEL.MINLAM_ALL  ) { return 0 ; }
-  if ( LMAX  > SEDMODEL.MAXLAM_ALL  ) { return 0 ; }
+  if ( LMIN  < SEDMODEL.LAMMIN_ALL  ) { return 0 ; }
+  if ( LMAX  > SEDMODEL.LAMMAX_ALL  ) { return 0 ; }
 
   // if we get here, then this filter is OK
   return 1 ;
@@ -1653,50 +1651,32 @@ int IFILTSTAT_SEDMODEL(int ifilt_obs, double z) {
 
 }  // end  of IFILTSTAT_SEDMODEL
 
-/* xxxxxxxxxxx xxx mark delete July 12 2019 xxxxxxxxxxxxxx
-double getFiltLam_SEDMODEL(int ifilt,int ilam) {
-
-  // Created July 2016:
-  // Return wavelegth for this 'ifilt' and 'ilam'.
-  // If ifilt=0, check SPECTROGRAPH array.
-  //
-  // xxxx probably obsolete xxxx
-  //
-  double LAMOBS ;
-  //  char fnam[] = "getFiltLam_SEDMODEL" ;
-  // ------------- BEGIN -------------
-  if ( ifilt >  0 )  // broadband filter
-    { LAMOBS = FILTER_SEDMODEL[ifilt].lam[ilam] ; }
-  else if ( ifilt == JFILT_SPECTROGRAPH )  // spectrograph
-    { LAMOBS = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ; }
-  else
-    { LAMOBS = -9.0 ; }
-  return(LAMOBS);
-} // end getFiltLam_SEDMODEL
-xxxxxxxxxxxxxxxxxxxxxxx end mark delete xxxxxxxxxxxxxxxxxx */
 
 
 // ==============================================
 void get_LAMRANGE_SEDMODEL(int opt, double *lammin, double *lammax) {
-  // this function is used by external programs
+  // this function is used by external programs to 
+  // return LAMRANGE of filter-center.
   // opt=1 -> return range of central filter
   // opt=2 -> return wider range of SED
   
   char fnam[] = "get_LAMRANGE_SEDMODEL" ;
 
   if ( opt == 1 ) {
-    *lammin = SEDMODEL.MINLAMFILT ;
-    *lammax = SEDMODEL.MAXLAMFILT ;
+    *lammin = SEDMODEL.RESTLAMMIN_FILTERCEN ;
+    *lammax = SEDMODEL.RESTLAMMAX_FILTERCEN ;
   }
   else if ( opt == 2 ) {
-    *lammin = SEDMODEL.MINLAM_ALL ;
-    *lammax = SEDMODEL.MAXLAM_ALL ;
+    *lammin = SEDMODEL.LAMMIN_ALL ;
+    *lammax = SEDMODEL.LAMMAX_ALL ;
   }
   else {
     sprintf(c1err, "Invalid opt = %d", opt );
     sprintf(c2err, "Cannot set wavelength range.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
+  return;
 
 } // end of get_LAMRANGE_SEDMODEL
 
@@ -1723,11 +1703,11 @@ void  checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) {
   
   z1 = 1.0 + z ;
 
-  LAMREST_MIN  = FILTER_SEDMODEL[ifilt].minlam / z1 ;
-  LAMREST_MAX  = FILTER_SEDMODEL[ifilt].maxlam / z1 ;
+  LAMREST_MIN  = FILTER_SEDMODEL[ifilt].lammin / z1 ;
+  LAMREST_MAX  = FILTER_SEDMODEL[ifilt].lammax / z1 ;
 
-  LAMFAIL_LO   = (LAMREST_MIN < SEDMODEL.MINLAM_ALL ) ;
-  LAMFAIL_HI   = (LAMREST_MAX > SEDMODEL.MAXLAM_ALL ) ;
+  LAMFAIL_LO   = (LAMREST_MIN < SEDMODEL.LAMMIN_ALL ) ;
+  LAMFAIL_HI   = (LAMREST_MAX > SEDMODEL.LAMMAX_ALL ) ;
 
   if ( LAMFAIL_LO == 0 && LAMFAIL_HI == 0 ) { return ; }
 
@@ -1736,14 +1716,14 @@ void  checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) {
 
   printf("\n PRE-ABORT DUMP:\n" );
 
-  printf("  Calling function '%s' passed ifilt=%d('%s') and z=%le \n", 
+  printf("  Calling function '%s' passed ifilt=%d('%s') and z=%.4f \n", 
 	 callFun, ifilt, cfilt, z);
 
   printf("  Rest-frame Lambda-Range (LAMREST_MIN/MAX)  = %f to %f \n",
 	 LAMREST_MIN, LAMREST_MAX) ;
 
   printf("  SED Lambda-Range: %f to %f \n",
-	 SEDMODEL.MINLAM_ALL, SEDMODEL.MAXLAM_ALL );
+	 SEDMODEL.LAMMIN_ALL, SEDMODEL.LAMMAX_ALL );
 
   printf("  LAMFAIL_LO/HI = %d, %d \n", LAMFAIL_LO, LAMFAIL_HI);
 
@@ -1770,8 +1750,8 @@ void get_DAYBIN_SEDMODEL(int ISED, double DAY, int *IDAY, double *FRAC) {
   int    USE_DAYSTEP = 
     ( (SEDMODEL.OPTMASK & OPTMASK_DAYLIST_SEDMODEL)==0 );
   int    NDAY     = SEDMODEL.NDAY[ISED] ;
-  double DAYMIN   = SEDMODEL.MINDAY[ISED] ;
-  //  double DAYMAX   = SEDMODEL.MAXDAY[ISED] ;
+  double DAYMIN   = SEDMODEL.DAYMIN[ISED] ;
+  //  double DAYMAX   = SEDMODEL.DAYMAX[ISED] ;
   double DAYSTEP  = SEDMODEL.DAYSTEP[ISED] ;
 
   int    IDAY_LOCAL;
@@ -2625,43 +2605,43 @@ void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {
   //  UVLAM_EXTRAPFLUX:  <UVLAM>
   //
   // Note that SEDFLUX structure is modified.
-  // Extrapolted flux is linear starting at MINLAM_ORIG,
-  // and going down to zero ad MINLAM_NEW.
+  // Extrapolted flux is linear starting at LAMMIN_ORIG,
+  // and going down to zero ad LAMMIN_NEW.
   //
-  // If flux=0 at MINLAM_ORIG, then find smallest MINLAM with non-zero
+  // If flux=0 at LAMMIN_ORIG, then find smallest MINLAM with non-zero
   // flux and extrapolate flux from this MINLAM.
   //
 
   int NDAY           = SEDFLUX->NDAY;
   int NLAM_ORIG      = SEDFLUX->NLAM;
-  double MINLAM_ORIG = SEDFLUX->LAM[0];
+  double LAMMIN_ORIG = SEDFLUX->LAM[0];
   double LAMSTEP     = SEDFLUX->LAMSTEP;
 
   int    NLAM_NEW   = NLAM_ORIG ;
-  double MINLAM_NEW = MINLAM_ORIG ;
+  double LAMMIN_NEW = LAMMIN_ORIG ;
 
-  double FLUXTMP, *FLUXORIG, LAM_ADD, LAM_EXTRAP, LAM, MINLAM_TMP ;
-  double *MINLAM_LIST ;  // minLam for each DAY
+  double FLUXTMP, *FLUXORIG, LAM_ADD, LAM_EXTRAP, LAM, LAMMIN_TMP ;
+  double *LAMMIN_LIST ;  // minLam for each DAY
 
   int NBTOT_ORIG = NLAM_ORIG * NDAY;
-  int NLAM_ADD, NBTOT_NEW, *IMINLAM_LIST, ILAM_TMP;
+  int NLAM_ADD, NBTOT_NEW, *ILAMMIN_LIST, ILAM_TMP;
   int iday, ilam_new, ilam_orig, jflux_orig, jflux_new ;
   char fnam[] = "UVLAM_EXTRAPFLUX_SEDMODEL" ;
 
   // -------------- BEGIN ---------------
 
   if ( UVLAM < 0.0         ) { return ; }
-  if ( UVLAM > MINLAM_ORIG ) { return ; }
+  if ( UVLAM > LAMMIN_ORIG ) { return ; }
 
-  // figure out new MINLAM on original LAMSTEP grid
-  while ( MINLAM_NEW > UVLAM ) {  MINLAM_NEW -= LAMSTEP ;  NLAM_NEW++ ; }
+  // figure out new LAMMIN on original LAMSTEP grid
+  while ( LAMMIN_NEW > UVLAM ) { LAMMIN_NEW -= LAMSTEP ;  NLAM_NEW++ ; }
 
   NLAM_ADD  = NLAM_NEW - NLAM_ORIG; // number of LAM bins to add
   NBTOT_NEW = NLAM_NEW * NDAY ;
-  LAM_ADD   = MINLAM_ORIG - MINLAM_NEW;
+  LAM_ADD   = LAMMIN_ORIG - LAMMIN_NEW;
 
   printf("    Extrap UVLAM: %.1f -> %.1f A  (NLAM=%d->%d) \n",
-	 MINLAM_ORIG, MINLAM_NEW,  NLAM_ORIG, NLAM_NEW);
+	 LAMMIN_ORIG, LAMMIN_NEW,  NLAM_ORIG, NLAM_NEW);
   fflush(stdout);
 
   // make sure extended lambda range does not exceed bound.
@@ -2681,8 +2661,8 @@ void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {
   }
 
   // allocate storage for minLam 
-  MINLAM_LIST  = (double*) malloc( NDAY * sizeof(double) );
-  IMINLAM_LIST = (int   *) malloc( NDAY * sizeof(int) );
+  LAMMIN_LIST  = (double*) malloc( NDAY * sizeof(double) );
+  ILAMMIN_LIST = (int   *) malloc( NDAY * sizeof(int) );
   
   
   // to make room for UV wavelengths, push current fluxes 
@@ -2690,7 +2670,7 @@ void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {
 
   for(iday=0; iday < NDAY; iday++ ) {
 
-    MINLAM_TMP = 1.0E12;  ILAM_TMP=-9;
+    LAMMIN_TMP = 1.0E12;  ILAM_TMP=-9;
 
     for(ilam_orig=0; ilam_orig<NLAM_ORIG ; ilam_orig++ ) {
       jflux_orig    = NLAM_ORIG*iday + ilam_orig ;
@@ -2702,8 +2682,8 @@ void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {
 
       // keep track of minLam with non-zerp flux
       LAM = SEDFLUX->LAM[ilam_orig];
-      if ( FLUXTMP > 1.0E-12 && LAM < MINLAM_TMP ) 
-	{ MINLAM_TMP = LAM; ILAM_TMP=ilam_orig; }
+      if ( FLUXTMP > 1.0E-12 && LAM < LAMMIN_TMP ) 
+	{ LAMMIN_TMP = LAM; ILAM_TMP=ilam_orig; }
 
       if ( jflux_new >= NBTOT_NEW ) {
 	sprintf(c1err, "jflux_new=%d exceeds bound NBTOT_NEW=%d",
@@ -2715,16 +2695,16 @@ void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {
     } // end ilam
 
     if ( ILAM_TMP < 0 ) {
-      MINLAM_LIST[iday]  = MINLAM_ORIG ;
-      IMINLAM_LIST[iday] = 0 ;
+      LAMMIN_LIST[iday]  = LAMMIN_ORIG ;
+      ILAMMIN_LIST[iday] = 0 ;
     } else {
-      MINLAM_LIST[iday]  = MINLAM_TMP ;
-      IMINLAM_LIST[iday] = ILAM_TMP;
+      LAMMIN_LIST[iday]  = LAMMIN_TMP ;
+      ILAMMIN_LIST[iday] = ILAM_TMP;
     }
 
     /*
     printf(" xxx iday=%2d: MINLAM=%.1f  (ilam=%d) \n",
-    iday, MINLAM_LIST[iday], IMINLAM_LIST[iday] ); */
+    iday, LAMMIN_LIST[iday], ILAMMIN_LIST[iday] ); */
 
   } // end iday
 
@@ -2732,7 +2712,7 @@ void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {
   // update entire wavelength array
   SEDFLUX->NLAM   = NLAM_NEW ;
   for(ilam_new=0; ilam_new<NLAM_NEW ; ilam_new++ ) {
-    SEDFLUX->LAM[ilam_new] = MINLAM_NEW + LAMSTEP*(double)(ilam_new);
+    SEDFLUX->LAM[ilam_new] = LAMMIN_NEW + LAMSTEP*(double)(ilam_new);
   }
 
 
@@ -2744,15 +2724,15 @@ void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {
 
   for(iday=0; iday < NDAY; iday++ ) {
 
-    MINLAM_TMP  = MINLAM_LIST[iday] ;
-    NLAM_EXTRAP = NLAM_ADD + IMINLAM_LIST[iday];
-    LAM_EXTRAP  = MINLAM_TMP - MINLAM_NEW;
+    LAMMIN_TMP  = LAMMIN_LIST[iday] ;
+    NLAM_EXTRAP = NLAM_ADD + ILAMMIN_LIST[iday];
+    LAM_EXTRAP  = LAMMIN_TMP - LAMMIN_NEW;
 
     /* xxxxxxxxx DEBUG ONLY xxxxx
     if ( UVLAM < 499.99999 ) { 
       NLAM_EXTRAP = NLAM_ADD; 
       LAM_EXTRAP  = LAM_ADD ;
-      MINLAM_TMP  = MINLAM_ORIG ;
+      LAMMIN_TMP  = LAMMIN_ORIG ;
     } // xxx REMOVE
     xxxxxxxxxxxxxxxxxxxxxxxxxx */
 
@@ -2763,12 +2743,12 @@ void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {
     for(ilam_new=0; ilam_new<NLAM_EXTRAP ; ilam_new++ ) {
       jflux_new = NLAM_NEW*iday + ilam_new ;
       LAM       = SEDFLUX->LAM[ilam_new];
-      SEDFLUX->FLUX[jflux_new] = FLUXEDGE * (LAM-MINLAM_NEW)/LAM_EXTRAP ;
+      SEDFLUX->FLUX[jflux_new] = FLUXEDGE * (LAM-LAMMIN_NEW)/LAM_EXTRAP ;
     }
   }
 
 
-  free(FLUXORIG);  free(MINLAM_LIST);  free(IMINLAM_LIST);
+  free(FLUXORIG);  free(LAMMIN_LIST);  free(ILAMMIN_LIST);
   return ;
 
 } // end UVLAM_EXTRAPFLUX_SEDMODEL
@@ -2798,7 +2778,7 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
   //
   // Nov 10 2016: fix sorting bug after sortDouble call
   // Jul 12 2019: 
-  //  + store FILTER_SEDMODEL[IFILT].minlam/maxlam (for BYOSED)
+  //  + store FILTER_SEDMODEL[IFILT].lammin/lammax (for BYOSED)
 
   int  IFILT  = JFILT_SPECTROGRAPH ;
   int  MEMD   = NBLAM * sizeof(double);
@@ -2827,7 +2807,7 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
     SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] = LAVG ;
 
     // get zero point needed to get source mag in each lambin
-    DUMPFLAG_ZP=0; // if( fabs(L0-8700.0) < 50.0 ) { DUMPFLAG_ZP=1; }
+    DUMPFLAG_ZP = 0; // ( fabs(L0-4210.0) < 2.0 ) ;
     SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam]
       = getZP_SPECTROGRAPH_SEDMODEL(L0,L1,DUMPFLAG_ZP);
 
@@ -2843,8 +2823,8 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
   SPECTROGRAPH_SEDMODEL.LAMMIN = L0;
   SPECTROGRAPH_SEDMODEL.LAMMAX = L1;
 
-  FILTER_SEDMODEL[IFILT].minlam =   L0;
-  FILTER_SEDMODEL[IFILT].maxlam =   L1;
+  FILTER_SEDMODEL[IFILT].lammin =   L0;
+  FILTER_SEDMODEL[IFILT].lammax =   L1;
 
   FILTER_SEDMODEL[IFILT].NLAM      = NBLAM ;
   IFILTMAP_SEDMODEL[IFILT]         = IFILT ;
@@ -2960,11 +2940,11 @@ double getZP_SPECTROGRAPH_SEDMODEL(double LAMMIN, double LAMMAX,
       { lamStep = (LAMMAX-lam0) ; }
 
     lamCen   = lam0 + lamStep/2.0 ;
-    flux     = interp_primaryFlux_SEDMODEL(lamCen) ;
+    flux     = interp_primaryFlux_SEDMODEL(lamCen) ; 
     fluxSum += (flux * lamCen * lamStep/hc8); 
 
     if ( LDMP ) {
-      printf(" xxx lam0=%.1f  lamStep=%4.1f  lamCen=%.1f flux=%10.3le\n",
+      printf(" xxx lam0=%.2f  lamStep=%4.2f  lamCen=%.2f flux=%10.3le\n",
 	     lam0, lamStep, lamCen, flux); fflush(stdout);
     }
     NLOOP++ ;

@@ -25,6 +25,11 @@
 
  Feb 4 2019: add DLR and d_DLR
 
+ Sep 19 2019:
+   +  MINLOGZ_HOSTLIB -> -3.0 (was -2.523) for Dan/H0
+   +  NZPTR_HOSTLIB -> HOSTLIB.NZPTR is a variable (not constant param) 
+       computed from MAX/MIN LOGZ (no longer hard-wired)
+
 ==================================================== */
 
 #define HOSTLIB_MSKOPT_USE           1 // internally set if HOSTLIB_FILE
@@ -65,10 +70,10 @@
 #define MXBIN_SERSIC_bn     2000   // max bins in Sersic_bn file
  
 // hard wire logarithmic z-bins
-#define NZPTR_HOSTLIB      320     // number of Z-pointers of hash table
 #define DZPTR_HOSTLIB      0.01    // logz-binning for Z-pointers
-#define MINLOGZ_HOSTLIB   -2.523   // zmin = 0.003
+#define MINLOGZ_HOSTLIB   -3.00   // zmin = 0.001
 #define MAXLOGZ_HOSTLIB    0.61    // zmax = 4.07
+#define LOGZRANGE_HOSTLIB  MAXLOGZ_HOSTLIB-MINLOGZ_HOSTLIB
 
 #define NMAGPSF_HOSTLIB    9    // number of aperture mags vs. PSF to compute
 #define DEG_ARCSEC    1./3600.  // 1 arcsec in deg.
@@ -173,7 +178,9 @@ struct HOSTLIB_DEF {
   double ZGAPMAX ; // max z-gap in library
   double ZGAPAVG ; // avg z-gap in library
   double Z_ATGAPMAX[2];  //  redshift at max ZGAP (to find big holes)
-  int   IZPTR[NZPTR_HOSTLIB]; // pointers to nearest z-bin with .01 bin-size
+
+  int   NZPTR;
+  int  *IZPTR;         // pointers to nearest z-bin with .01 bin-size
   int   MINiz, MAXiz ;        // min,max valid iz arg for IZPTR
 
   int NLINE_COMMENT ;
@@ -406,10 +413,12 @@ struct {
   int  IVAR_HOSTLIB[MXSPECBASIS_HOSTLIB]; // identified HOSTLIB ivar with coeff
 
   double  FLAM_SCALE, FLAM_SCALE_POWZ1 ;
-  double *WAVE_CEN, *WAVE_MIN, *WAVE_MAX, *WAVE_BINSIZE ;
-  double *FLAM[MXSPECBASIS_HOSTLIB];
-
+  double *WAVE_CEN, *WAVE_MIN, *WAVE_MAX, *WAVE_BINSIZE ; // rest-frame
+  double *FLAM_BASIS[MXSPECBASIS_HOSTLIB];
+  
   int NWARN_INTEG_HOSTMAG[MXFILTINDX];
+
+  double *FLAM_EVT; // updated each event.
 
 } HOSTSPEC ;
 
@@ -509,6 +518,6 @@ void   genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double *VAL_HOSTPAR);
 
 void   rewrite_HOSTLIB_plusMags(void);
-double integmag_hostSpec(int IFILT_OBS, double *GENFLUX_LIST, int DUMPFLAG);
+double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG);
 
 // END

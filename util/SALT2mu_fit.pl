@@ -1724,6 +1724,7 @@ sub make_COMMANDS {
 	}
     }  # icpu
 
+    return ;
 
 }  # end of make_COMMANDS
 
@@ -1918,6 +1919,8 @@ sub add_COMMAND {
 
 # =======================================
 sub write_COMMANDS {
+
+    if ( $SUMMARY_FLAG ) { return ; }
 
     my($icpu, $cmdFile, $i, $CMD, $PREFIX );
 

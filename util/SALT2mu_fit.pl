@@ -1682,7 +1682,7 @@ sub make_COMMANDS {
 	my $NCPU_ORIG = $NCPU ;
 	$NCPU = $NTOT_JOBS ;
 
-	if ( $SUMMARY_FLAG  )  { return ; }
+	if ( $SUMMARY_FLAG )  { return ; }
 
 	print "\n\t";
 	print "$NCPU_ORIG CPUs is too many for $NTOT_JOBS jobs: ";
@@ -1690,7 +1690,7 @@ sub make_COMMANDS {
 
 	# removed unused CMD files.
 	for($icpu = $NCPU; $icpu < $NCPU_ORIG; $icpu++ ) {
-	    my $cmd_file = $FITSCRIPTS_DIR/$CMD_FILES[$icpu] ;
+	    my $cmd_file = "$FITSCRIPTS_DIR/$CMD_FILES[$icpu]" ;
 	    if ( -e $cmd_file ) { qx(rm $cmd_file); }
 	}
     }

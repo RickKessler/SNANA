@@ -31,8 +31,9 @@ def print_err():
 
 
 class genmag_BYOSED:
-
+		print('what')
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
+			print('hello')
 			#print('LIST: ',OPTMASK)
 			#print('HOST_PARAM_NAMES: ',HOST_PARAM_NAMES)
 			# TODO: write a print statement that warns if
@@ -581,11 +582,14 @@ def main():
 		#plt.xlim(3400,10000)
 		#plt.show()
 		#sys.exit()
+		effect='VELOCITY'
+		bounds=[-20,-5]
+		leg_sym='V'
 		# effect='HOST_MASS'
 		# bounds=[5,20]		
 		# leg_sym='logM'
-		effect='STRETCH'
-		leg_sym='$x_1$'
+		#effect='STRETCH'
+		#leg_sym='$x_1$'
 		# effect='SFR'
 		# bounds=[.01,5]		
 		# leg_sym='z'

@@ -17443,6 +17443,9 @@
          v10_74g (  ) 
 
          ***** IMPORTANT(v10_74g) ***** 
+       SALT2mu_fit:
+          monitor and summary tasks are launched as background job,
+          so that terminal control is returned.
 
          ***** USEFUL(v10_74g) ***** 
 
@@ -17455,5 +17458,26 @@
       true contamination.
       Also include table showing contaminatoin vs. MURES, and another
       table showing contam vs. redshift.
+
+    + add new fitres-output column PROBCC_BEAMS.
+
+    + u13=2 replaces scalePCC fit param with scaleP1a as in Eq 4 of H11.
+      Avoids negative contamination when using CC prior with 1a-only sample.
+      For nominal Ia+CC mix in sim-data, alpha, beta, and contamination
+      are idential with u13=1 and u13=2. For Ia-only sim-data and using
+      CCprior, alpha and beta are the same, while CONTAM goes from
+      small negative (-0.004) to small positive (+0.0008).
+       
+   SALT2mu_fit.pl :
+     + subtle fix to ensure that final DONE file is created after
+       everything else is finished. Previously, final DONE file
+       was created before SUMMARY file and before gzipping.
+     + monitor and summary are now launched as background job,
+       so that terminal control is returned.
+
+   sim_SNmix.pl:
+     for RANSEED_CHANGE option, fix bug so that LIST file has
+     SNIa before NONIaMODEL ... needed by fitting codes to get 
+     correct SIM_xxx names in output FITRES file.
 
 END: 

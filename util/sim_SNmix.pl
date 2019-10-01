@@ -152,7 +152,16 @@
 # Sep 7 2019: 
 #    replace parse_line with parse_array so that comment lines are ignored.
 #
-# Sep 13 2019: add batchName arg to make_batchFile()   
+# Sep 13 2019: add batchName arg to make_batchFile()
+#
+# Sep 30 2019: 
+#   + for RANSEED_CHANGE option, fix LIST file to order SNIa before
+#     NONIaMODEL, so that fitting code output has correct SIM_xxx
+#     names for SNIa model. Previously this ordering worked only
+#     for RANSEED_REPEAT, but not for RANSEED_CHANGE.
+#   + fix subtle bug checking DONE_STAMP ... only affects
+#     warning about missing DONE_STAMP before launching.
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -795,7 +804,7 @@ sub parse_inFile_master() {
 	$DONE_STAMP      = "$tmp[0]" ;
 	$DONE_STAMP_FLAG = 1 ;
 	print " DONE_STAMP  = $DONE_STAMP \n"; 
-	if ( -e $DONE_STAMP )  { qx(rm $DONE_STAMP) ; }
+#	if ( -e $DONE_STAMP )  { qx(rm $DONE_STAMP) ; }
     }
 
     $key = "NODELIST:";
@@ -2287,7 +2296,8 @@ sub make_logDir {
     }
 
 
-    if ( $EXIST_LOGDIR ) { qx(rm -r $LOGDIR); }
+    if ( $EXIST_DONE   ) { qx(rm $DONE_STAMP) ; }
+    if ( $EXIST_LOGDIR ) { qx(rm -r $LOGDIR)  ; }
 
     $cmd = "mkdir -p $LOGDIR ";
     print " Create log directory : $LOGDIR \n";
@@ -2847,6 +2857,9 @@ sub printSummary {
 # ===============================================
 sub make_AUXFILE_LIST {
 
+    # Sep 30 2019:
+    #  list *SNIa* before *NONIaMODEL* ... matters for RANSEED_CHANGE.
+
     my($iver,$jobid) = @_;
 
     my ($NLISTFILE, $i, @tmp, $prefix, $cmd, $L, $headFiles);
@@ -2882,10 +2895,20 @@ sub make_AUXFILE_LIST {
 
     }
     else {
-	# FITS format
-	$headFiles = "${GENPREFIX}*HEAD.FITS" ;
-	$cmd = "ls ${headFiles} >> $LISTFILE_FINAL";
-	system("cd $SIMGEN_FINALDIR ; $cmd 2>/dev/null");
+	# FITS format SNIa, then NONIaMODEL  .xyz
+
+	if ( $DOGEN_SNIa ) {
+	    $headFiles = "${GENPREFIX}*SNIa*HEAD.FITS" ;
+	    $cmd = "ls ${headFiles} >> $LISTFILE_FINAL";
+	    system("cd $SIMGEN_FINALDIR ; $cmd 2>/dev/null");
+	}
+
+	if ( $DOGEN_NONIa ) {
+	    $headFiles = "${GENPREFIX}*NONIaMODEL*HEAD.FITS" ;
+	    $cmd = "ls ${headFiles} >> $LISTFILE_FINAL";
+	    system("cd $SIMGEN_FINALDIR ; $cmd 2>/dev/null");
+	}
+
 	print "\t Finished Generating $NSIMTOT_GEN SNe. \n";
 	print "\t Wrote $NSIMTOT_WR passing trigger and cuts.\n";
     }

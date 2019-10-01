@@ -17226,7 +17226,6 @@ void init_zvariation(void) {
 
   NPAR_ZVAR_TOT = 0 ;
 
-
   // allow any GENPREFIX to modify population params.
 
   for (i=0; i < NPREFIX_GENGAUSS; i++ ) {

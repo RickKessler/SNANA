@@ -587,8 +587,8 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
   double z1             = 1.0 + zHEL ;
   double Trest          = Tobs/z1 ;
   double meanlam_rest   = meanlam_obs/z1 ;
-  double minlam_filt    = FILTER_SEDMODEL[ifilt].minlam ;
-  double maxlam_filt    = FILTER_SEDMODEL[ifilt].maxlam ;
+  double minlam_filt    = FILTER_SEDMODEL[ifilt].lammin ;
+  double maxlam_filt    = FILTER_SEDMODEL[ifilt].lammax ;
   double lamstep_filt   = FILTER_SEDMODEL[ifilt].lamstep ;
   double minlam_SED     = LAM[0];
   double maxlam_SED     = LAM[NLAM-1];

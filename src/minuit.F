@@ -166,6 +166,7 @@ C
       DATA JSYSRD,JSYSWR,JSYSSA/5,6,7/
 C                                 . . . . . . . . . . initialize minuit
       WRITE (JSYSWR,'(1X,75(1H*))')
+      CALL FLUSH(6)
       CALL MNINIT (JSYSRD,JSYSWR,JSYSSA)
 C                                      . . . . initialize new data block
   100 CONTINUE
@@ -173,6 +174,7 @@ C                                      . . . . initialize new data block
       NBLOCK = NBLOCK + 1
       WRITE (ISYSWR,'(26X,A,I4)')  'MINUIT DATA BLOCK NO.',NBLOCK
       WRITE (ISYSWR,'(1X,75(1H*))')
+      CALL FLUSH(6)
 C               . . . . . . . . . . .   set parameter lists to undefined
       CALL MNCLER
 C                                             . . . . . . . . read title
@@ -214,7 +216,7 @@ C                              . . . . . . verify FCN not time-dependent
      +         ' F =',E22.14,' FOR SECOND CALL.'/)
       NFCN = 3
   300 FVAL3 = 2.0*AMIN+1.0
-C                                   . . . . . . . . . . . read commands
+C             
       CALL MNREAD(FCN,3,IFLGUT,FUTIL)
       IF (IFLGUT .EQ. 2)  GO TO 500
       IF (IFLGUT .EQ. 3)  GO TO 600
@@ -225,6 +227,7 @@ C                                   . . . . . . . . . . . read commands
       IF (INDEX(CWORD,'RET') .EQ. 0)  GO TO 100
       CWHYXT = 'AND RETURNS TO USER PROGRAM.    '
       WRITE (ISYSWR,'(A,A)')  ' ..........MINUIT TERMINATED ',CWHYXT
+      CALL FLUSH(6)
       RETURN
 C                                           . . . . . . stop conditions
   500 CONTINUE
@@ -236,6 +239,7 @@ C                                           . . . . . . stop conditions
   700 CONTINUE
       CWHYXT = ': FATAL ERROR IN PARAMETER DEFINITIONS. '
   800 WRITE (ISYSWR,'(A,A)')  ' ..........MINUIT TERMINATED ',CWHYXT
+      CALL FLUSH(6)
       STOP
 C
 C  ......................entry to set unit numbers  - - - - - - - - - -
@@ -374,6 +378,7 @@ C
       NFCN = NFCN + 1
       AMIN = FNEW
       EDM = BIGEDM
+      CALL FLUSH(6)
       RETURN
       END
 *
@@ -960,6 +965,7 @@ C                fill FCNB to prepare first row, and find column zero
          CHLN = ' '
          WRITE (ISYSWR,'(12X,A,A)') CHLN(1:IXZERO),'X=0'
       ENDIF
+      CALL FLUSH(6)
 C                 loop over rows
       DO 280 IY= 1, NY
       UNEXT = U(KE2) - BWIDY
@@ -1019,10 +1025,12 @@ C                 finished.  reset input values
       U(KE1) = XSAV
       U(KE2) = YSAV
       IERRF = 0
+      CALL FLUSH(6)
       RETURN
  1350 WRITE (ISYSWR,1351)
  1351 FORMAT (' INVALID PARAMETER NUMBER(S) REQUESTED.  IGNORED.' /)
       IERRF = 1
+      CALL FLUSH(6)
       RETURN
       END
 *
@@ -1230,7 +1238,8 @@ C               crack the command . . . . . . . . . . . . . . . .
 C
       CALL MNEXCM(FCN,COMAND(1:LNC),PLIST,LLIST,IERR,FUTIL)
       ICONDN = IERR
-  900 RETURN
+  900 CALL FLUSH(6)  
+      RETURN
       END
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
@@ -1399,6 +1408,7 @@ C           The minimum
             ENDIF
          ENDIF
       ENDIF
+      CALL FLUSH(6)
 C
 C           Find the first four points using MNMNOT
 C              ........................ first two points
@@ -1607,7 +1617,8 @@ C                                     Error returns
       U(KE2) = U2MIN
       IERRF = 0
       CSTATU = 'FAILED'
- 2000 CONTINUE
+ 2000 CALL FLUSH(6)
+      CONTINUE
       CFROM = CHERE
       NFCNFR = NFCNCO
       RETURN
@@ -1765,6 +1776,7 @@ C                      . . . .  we have come to a numeric field
          WRITE (ISYSWR,511) NREQ,MXP
   511 FORMAT (/' MINUIT WARNING IN MNCRCK: '/ ' COMMAND HAS INPUT',I5,
      + ' NUMERIC FIELDS, BUT MINUIT CAN ACCEPT ONLY',I3)
+          CALL FLUSH(6)
          GO TO 900
       ENDIF
       IF (CELMNT(IFLD) .EQ. CNULL)  THEN
@@ -13265,6 +13277,7 @@ C             Either print warning or put in buffer
         IF (LWARN) THEN
           WRITE (ISYSWR,'(A,A/A,A)') ' MINUIT WARNING IN ',CORG,
      +              ' ============== ',CMES
+          CALL FLUSH(6)
           RETURN
         ENDIF
       ELSE

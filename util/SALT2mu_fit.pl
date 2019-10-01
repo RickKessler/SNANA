@@ -40,6 +40,8 @@
 #         or
 #    BATCH_INFO:  <command>  <templateFile>  <Ncore>
 #
+#    DONE_STAMP: <fileName>  ! if not specified, default ALL.DONE is created
+#
 #    WFITMUDIF_OPT:  <wfit options for fitting M0 vs. z>
 #    WFIT_OPT:   <wfit options> MUDIF          ! wfit only MUDIF
 #    WFIT_OPT:   <wfit options> MUDIF FITRES   ! wfit both  MUDIF & FITRES
@@ -221,6 +223,27 @@
 #   + count aborts and report SUCCESS or FAIL in ALL.DONE
 #   + for INPDIR+ or OUTDIR_OVERRIDE, FITJOBS/ subdir is created
 #      under OUTDIR so that everything is one place.
+#
+# Sep 12 2019: 
+#  + add optional DONE_STAMP key to override default ALL.DONE file.
+#  + start replacing parse_line with parse_array so that comment
+#    lines are ignored.
+# Sep 13 2019: add batchName arg to make_batchFile() 
+#
+# Sep 14 2019:
+#  + update to work with FITOPT[nnn].FITRES links that are full paths
+#    instead of only file links in same directory. Works now for both.
+#  + old FITJOBS subdir renamed to SALT2mu_FITSCRIPTS. 
+#  + if STRINGMATCH_IGNORE results in null string, set match-string to 
+#    SALT2mu_FITJOBS, which will be the name of the subDir with fit 
+#    job logs and output.
+#
+# Sep 18 2019: fix to work with input filename that includes full path.
+# Sep 28 2019:
+#   +  add quotes around 2nd arg to wait_for_files.pl
+#   + new function create_done_file to ensure everything else is done
+#     before final DONE file is created.
+#
 # ------------------------------------------------------
 
 use IO::Handle ;
@@ -251,10 +274,10 @@ my  $FITOPT_README     = "FITOPT.README";
 
 # work dirs
 my  $LAUNCH_DIR     = `pwd`   ; $LAUNCH_DIR  =~  s/\s+$// ;
-my  $FITJOBS_PREFIX = "FITJOBS" ;
-my  $FITJOBS_DIR;
 
-
+my  $FITSCRIPTS_PREFIX = "SALT2mu_FITSCRIPTS" ;
+my  $FITSCRIPTS_DIR;
+my  $FITJOBS_DIR       = "SALT2mu_FITJOBS" ; # default fit output
 
 my @TABLE_FORMAT_LIST    = ( "HBOOK", "ROOT" );
 my @TABLE_SUFFIX_LIST    = ( "HBOOK", "ROOT" );
@@ -267,14 +290,14 @@ my $BATCH_TEMPLATE_KICP = '$SBATCH_TEMPLATES/SBATCH_kicp.TEMPLATE' ;
 
 # ----------------
 # global inputs read from SALT2mu input file.
-my ($INPUT_FILE, @INPDIR_SNFIT_LIST, @INPDIRFIX_SNFIT_LIST );
+my ($INPUT_FILE, $input_file, @INPDIR_SNFIT_LIST, @INPDIRFIX_SNFIT_LIST );
 my (@INPDIR_FITOPT,  @MUOPT_LIST, @MUOPT_LIST_ORIG, @MUOPT_TAGNAME);
 my (@FITOPT_LIST,  $SUMFLAG_INPDIR, $FITOPT000_ONLY );
 my ($STRINGMATCH_IGNORE,  @STRINGMATCH_IGNORE_LIST );
 my ($STRINGMATCH);
 my ($VERSION_EXCLUDE,  $VERSION_EXCLUDE_STRING, $PROMPT, $SUBMIT );
 my (@SSH_NODELIST, $SSH_NNODE, $SNANA_LOGIN_SETUP );
-my ($BATCH_COMMAND, $BATCH_TEMPLATE, $BATCH_NCORE );
+my ($BATCH_COMMAND, $BATCH_TEMPLATE, $BATCH_NCORE, $DONE_STAMP_FILE );
 my ($KILLJOBS_FLAG, $SUMMARY_FLAG, $OUTDIR_PREFIX, $OUTDIR_OVERRIDE );
 my ($WFIT_OPT, @WFIT_INPUT, $CLEANFLAG, $NSPLITRAN ) ;
 
@@ -290,7 +313,7 @@ my ($NROW_SUMDAT );
 
 my ($NCPU, @NJOB_PER_CPU, $MAXJOB_PER_CPU, $icpu_MAXJOBS, @CMD_PREFIX, @CMD_FILES);
 my (@BATCH_FILES, $NOUTFILE, @CMD_CONTENTS, @NCMDLINE_PER_CPU );
-my ($T_START, $T_END, $T_TOT);
+my ($T_START, $T_END, $T_TOT, $NJOB_ABORT, $ALLDONE_FILE );
 
 # ----------------
 # functions
@@ -319,6 +342,7 @@ sub add_COMMAND ;
 sub matchDump ;
 sub submit_JOBS ;
 sub wait_for_done ;
+sub create_done_file ;
 sub make_SUMMARY ;
 sub write_SUMMARY_LOG ;
 sub write_SUMMARY_DAT ;
@@ -396,6 +420,8 @@ if ( $NSPLITRAN>0 ) { exit(0); }
 &make_SUMMARY();
 &gzip_logs(); 
 
+&create_done_file ;
+
 exit(0);
 
 # =================== END MAIN =====================
@@ -414,8 +440,10 @@ sub initStuff {
 
     $BATCH_TEMPLATE    = "" ;
     $BATCH_NCORE       = 0  ;  # for qsub, sbatch, etc ...
+    $BATCH_COMMAND     = "" ;
     $SSH_NNODE         = 0  ;  # for ssh
     $SNANA_LOGIN_SETUP = "" ;
+    $DONE_STAMP_FILE   = "" ;
 
     $KILLJOBS_FLAG     = 0  ;
     $SUMMARY_FLAG      = 0 ;  # 0 => make summary after all jobs end
@@ -449,7 +477,7 @@ sub initStuff {
 # ==========================
 sub parse_args {
 
-    my ($NARG, $arg, $nextArg, $i);
+    my ($NARG, $arg, $nextArg, $i, $jslash);
     
     $NARG = scalar(@ARGV);
     if ( $NARG < 1 ) {
@@ -457,7 +485,20 @@ sub parse_args {
 	sntools::FATAL_ERROR(@MSGERR);
     }
 
+# parse name of input file. 
+# INPUT_FILE includes full path; input_file has no path.
+#
     $INPUT_FILE = $ARGV[0] ;
+    $jslash = rindex($INPUT_FILE,"/");  # location of last slash
+    if ( $jslash > 0 ) { 
+	$input_file = substr($INPUT_FILE,$jslash+1, 99);
+    }
+    else {
+	$input_file = "$INPUT_FILE" ;
+	$INPUT_FILE = "$LAUNCH_DIR/$input_file" ;
+    }
+
+
     if ( $ARGV[0] eq "CLEAN"  )  { $CLEANFLAG = 1 ; }
 
     for ( $i = 1; $i < $NARG ; $i++ ) {
@@ -498,6 +539,8 @@ sub parse_args {
 # ==========================
 sub parse_inpFile {
 
+# Sep 12 2019: read contents of INPFILE so that comment lines are ignored
+
     my ($key, @tmp, $NDIR_SOLO, $idir, $NDIR_SUM, $tmpLine, @words, $i);
 
     $NDIR_SUM = $NDIR_SOLO = 0 ;
@@ -510,8 +553,24 @@ sub parse_inpFile {
 	sntools::FATAL_ERROR(@MSGERR);
     }
 
+# Sep 12 2019: read contents of INPFILE so that comment lines are ignored
+    my @CONTENTS_INPFILE = ();
+    sntools::loadArray_fromFile($INPUT_FILE, \@CONTENTS_INPFILE);
+
+
+    $key   = "DONE_STAMP:" ;
+# xxx   @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
+    if ( scalar(@tmp) > 0 ) {
+        $DONE_STAMP_FILE      = qx(echo "$tmp[0]") ;
+	$DONE_STAMP_FILE      =~ s/\s+$// ;   # trim trailing whitespace
+        if ( -e $DONE_STAMP_FILE )  { qx(rm $DONE_STAMP_FILE) ; }
+    }
+
+
     $key = "INPDIR:";
-    @tmp = sntools::parse_line($INPUT_FILE, 2, $key, $OPT_QUIET) ;
+#xxx    @tmp = sntools::parse_line($INPUT_FILE, 2, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,2,$OPT_QUIET, @CONTENTS_INPFILE);
     $NDIR_SOLO = 0;
     foreach $tmpLine (@tmp) {	
 	@words  = split(/\s+/,$tmpLine) ;
@@ -524,22 +583,29 @@ sub parse_inpFile {
     # Nov 29 2017: check INPDIR+ key if NOT already passed via command-line.
     if ( $SUMFLAG_INPDIR == 0 ) {
 	$key = "INPDIR+:";
-	@tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+#xxx	@tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+	@tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
 	$NDIR_SUM = scalar(@tmp) ;
 	if ( $NDIR_SUM > 0 ) 
 	{ @INPDIR_SNFIT_LIST = @tmp ; $SUMFLAG_INPDIR = 1; }
     }
     
     $key = "OUTDIR_OVERRIDE:" ;
-    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
-    if ( scalar(@tmp) > 0 ) { $OUTDIR_OVERRIDE = $tmp[0] ; }
+#xxx    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
+    if ( scalar(@tmp) > 0 ) { 
+	$OUTDIR_OVERRIDE = qx(echo $tmp[0]); # allow for ENV
+	$OUTDIR_OVERRIDE =~ s/\s+$// ;   # trim trailing whitespace
+    }
 
     $key = "OUTDIR_PREFIX:" ;
-    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+# xxx    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { $OUTDIR_PREFIX = $tmp[0] ; }
 
     $key = "JOBNAME:";
-    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+# xxx    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { 
 	$JOBNAME_FIT =  qx(echo $tmp[0]); # allow for ENV
 	$JOBNAME_FIT =~ s/\s+$// ;        # trim trailing whitespace
@@ -557,29 +623,34 @@ sub parse_inpFile {
 
     if ( length($STRINGMATCH) == 0 ) {
 	$key = "STRINGMATCH:" ;
-	@tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+	@tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
+# xxx	@tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
 	if ( scalar(@tmp) > 0 ) {
 	    $STRINGMATCH = $tmp[0] ; 
 	}
     }
 
     $key = "STRINGMATCH_IGNORE:";
-    @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+#xxx  @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,99,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { 
 	$STRINGMATCH_IGNORE = $tmp[0] ; 
 	@STRINGMATCH_IGNORE_LIST = split(/\s+/,$STRINGMATCH_IGNORE) ;
     }
 
     $key = "VERSION_EXCLUDE:";
-    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+# xxx @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { $VERSION_EXCLUDE = $tmp[0] ; }
 
     $key = "VERSION_EXCLUDE_STRING:";
-    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+# xxxx @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { $VERSION_EXCLUDE_STRING = $tmp[0] ; }
     
     $key = "FITOPT000_ONLY:" ;
-    @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+# xxx @tmp = sntools::parse_line($INPUT_FILE, 1, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,1,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { $FITOPT000_ONLY = $tmp[0] ; }
 
     # -------- 
@@ -591,7 +662,9 @@ sub parse_inpFile {
     if ( $NMUOPT_SALT2mu == 0 ) {
 	$key = "FITOPT:";  # check legacy key, May 17 2017
 	@MUOPT_LIST_ORIG = 
-	    sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+	    sntools::parse_array($key,99,$OPT_QUIET, @CONTENTS_INPFILE);
+# xxxx	    sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+
 	@MUOPT_LIST_ORIG = ( "[DEFAULT] NONE", @MUOPT_LIST_ORIG ); 
 	$NMUOPT_SALT2mu = scalar(@MUOPT_LIST_ORIG);
     }
@@ -603,14 +676,16 @@ sub parse_inpFile {
     # ----
 
     $key = "WFITMUDIF_OPT:";
-    @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+# xxx    @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,99,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { 
 	$WFIT_OPT   = "$tmp[0]" ;  
 	@WFIT_INPUT = ( "M0DIF" ) ; 
     }
 
     $key = "WFIT_OPT:";
-    @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+# xxxx    @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET) ;
+    @tmp   = sntools::parse_array($key,99,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) { 
 	$WFIT_OPT   = "$tmp[0]" ;  
 	&parse_WFIT_OPT();
@@ -621,7 +696,8 @@ sub parse_inpFile {
 
     @SSH_NODELIST = () ;
     $key = "NODELIST:" ;
-    my @TMPNODES  = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET ) ;
+# xxx my @TMPNODES  = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET);
+    my @TMPNODES=sntools::parse_array($key,99,$OPT_QUIET, @CONTENTS_INPFILE);
     foreach $tmpLine ( @TMPNODES ) {
 	@tmp = split(/\s+/,$tmpLine) ;
 	@SSH_NODELIST =  ( @SSH_NODELIST , @tmp );
@@ -631,7 +707,8 @@ sub parse_inpFile {
 
     # batch info
     $key     = "BATCH_INFO:" ;
-    @tmp     = sntools::parse_line($INPUT_FILE, 3, $key, $OPT_QUIET ) ;
+# xxx @tmp     = sntools::parse_line($INPUT_FILE, 3, $key, $OPT_QUIET ) ;
+    @tmp   = sntools::parse_array($key,3,$OPT_QUIET, @CONTENTS_INPFILE);
     if ( scalar(@tmp) > 0 ) {
 	@words            = split(/\s+/,$tmp[0]) ;
 	$BATCH_COMMAND  = $words[0] ;
@@ -651,7 +728,8 @@ sub parse_inpFile {
 
     $SNANA_LOGIN_SETUP = "" ;
     $key = "SNANA_LOGIN_SETUP:" ;
-    @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET ) ;
+# xxx  @tmp = sntools::parse_line($INPUT_FILE, 99, $key, $OPT_QUIET ) ;
+    @tmp = sntools::parse_array($key,99,$OPT_QUIET, @CONTENTS_INPFILE);
     $SNANA_LOGIN_SETUP = "@tmp" ;
 
     # -----------------------------------------
@@ -1047,11 +1125,6 @@ sub makeSumDir_SALT2mu {
     
     # -------------------- BEGIN ----------------------
 
-    if ( length($OUTDIR_OVERRIDE)>1 )  { 
-	$OUTDIR = $OUTDIR_OVERRIDE; 
-	goto MAKEDIR ;
-    }
-
     # - - - - - - - - - 
     # find maximum substring of INPDIR that matches all INPDIRs
     $LEND = length($INPDIR_SNFIT_LIST[0]) ;
@@ -1087,11 +1160,16 @@ sub makeSumDir_SALT2mu {
 	else              { $SDIR_SUM = "${SDIR_SUM}+${SDIR}" ; }
 	$NDIR++ ;
     }
-    $OUTDIR  = "$TOPDIR/$SDIR_SUM" ;
+
+    if ( length($OUTDIR_OVERRIDE)>1 ) 
+    { $OUTDIR = $OUTDIR_OVERRIDE;   }
+    else 
+    { $OUTDIR  = "$TOPDIR/$SDIR_SUM" ; }
 
     # - - - - - - - - - - - - - - - - - - -     
 
  MAKEDIR:
+
     $OUTDIR_SALT2mu_LIST[0] = "$OUTDIR" ;
     if ( $SUMMARY_FLAG == 0 ) {
 	if ( -d $OUTDIR ) { qx(rm -r $OUTDIR) ; }
@@ -1108,8 +1186,8 @@ sub makeSumDir_SALT2mu {
     # --------------------------------------------
     # now the tricky part; find matching subdirs to sum.
     # Ignore subdirs without a match.
-    # If there is more than 1 match, abort.
-    
+    # If there is more than 1 match, abort.   
+
     print " \n";
     my ($mergeFile, $NVER, $vers, $vers4match, @VTMPLIST, @tmp, @tmpSorted );
     my (@wdlist, $version, @tmpGrep, $tmpLine );
@@ -1168,6 +1246,7 @@ sub makeSumDir_SALT2mu {
 	$NDIR++ ;
     }
 
+
     if ( $NVER_SKIP > 0 ) {
 	$MSGERR[0] = "Skipped $NVER_SKIP versions";
 	$MSGERR[1] = "check $NVERSION_MAX = $NVERSION_MAX" ;
@@ -1211,6 +1290,7 @@ sub makeSumDir_SALT2mu {
     }  # iver
 
     print "\n" ;
+    return ;
 
 } # end of makeSumDir_SALT2mu 
 
@@ -1277,6 +1357,8 @@ sub VERSION_STRINGMATCH_IGNORE {
     
 #    printf " xxx STRINGMATCH: $version -> $version_out \n";
     
+    if ( $version_out eq '' ) { $version_out = "$FITJOBS_DIR" ; }
+
     return $version_out ;
 
 } # end of VERSION_STRINGMATCH_IGNORE {
@@ -1381,7 +1463,11 @@ sub cat_inpFiles {
 
 	if ( -l $FFILE ) {
 	    my $symLink = readlink($FFILE);
-	    $FFILE      = "${INPDIR}/${VERSION_SNFIT}/$symLink" ;
+	    my $jslash = rindex($symLink,"/");  # location of last slash
+	    if ( $jslash < 0 ) # .xyz
+	    { $FFILE      = "${INPDIR}/${VERSION_SNFIT}/$symLink" ; }
+	    else
+	    { $FFILE = $symLink; }
 	}
 	if ( -e "$FFILE.gz" ) 
 	{ $FFILE = "$FFILE.gz";  $Ngzip++; }
@@ -1391,7 +1477,7 @@ sub cat_inpFiles {
 	$CATLIST = "$CATLIST" . "$FFILE " ;
 	
     }  # idir
-    
+ 
     # make sure that NVAR and VARNAMES match in each fitres file
     &verify_CATLIST($CATLIST);
 
@@ -1442,6 +1528,8 @@ sub verify_CATLIST {
     @fList = split(/\s+/,$CATLIST) ;
     $NFILE = 0 ;
 
+
+
     foreach $f (@fList) {  
        
 	@tmp  = sntools::parse_line($f, 99, "VARNAMES:", $OPT_ABORT) ;
@@ -1483,25 +1571,26 @@ sub make_COMMANDS {
     my ($jdot, $prefix, $SCRIPT, $PREFIX, $NJOB, $SUBDIR );
     my ( $OUTDIR, $NDIR);
 
-    # construct name of FITJOBS directory using prefix if $INPUT_FILE
-    $jdot   = index($INPUT_FILE,".");
-    $prefix = substr($INPUT_FILE,0,$jdot);
-    $SUBDIR = "${FITJOBS_PREFIX}_${prefix}" ;
-    $FITJOBS_DIR = "$LAUNCH_DIR/$SUBDIR";
+    # construct name of FITSCRIPTS directory using prefix if $INPUT_FILE
+    $jdot   = index($input_file,".");
+    $prefix = substr($input_file,0,$jdot);
+    $SUBDIR = "${FITSCRIPTS_PREFIX}_${prefix}" ;
+    $FITSCRIPTS_DIR = "$LAUNCH_DIR/$SUBDIR";
 
     # - - - - - - - - - - - - - - - - - - -
 
     $NDIR = scalar(@OUTDIR_SALT2mu_LIST) ;
     if ( $NDIR == 1 ) {
 	$OUTDIR = $OUTDIR_SALT2mu_LIST[0] ;
-	$FITJOBS_DIR = "${OUTDIR}/${FITJOBS_PREFIX}" ; 
+	$FITSCRIPTS_DIR = "${OUTDIR}/${FITSCRIPTS_PREFIX}" ; 
     }
 
 
-    print "\n Create command-scripts in \n\t $FITJOBS_DIR \n";
+    print "\n Create command-scripts in \n\t $FITSCRIPTS_DIR \n";
 
-    if ( -d $FITJOBS_DIR ) { qx(rm -r $FITJOBS_DIR); }
-    qx(mkdir $FITJOBS_DIR) ;
+    if ( -d $FITSCRIPTS_DIR ) { qx(rm -r $FITSCRIPTS_DIR); }
+    qx(mkdir $FITSCRIPTS_DIR) ;
+
 
     # ----------------------------------------------
     # first create command script for each node/core
@@ -1518,12 +1607,12 @@ sub make_COMMANDS {
 	else
 	{ $suffix = "Interactive" ; }  
 
-	$PREFIX            =  "${FITJOBS_PREFIX}_${suffix}" ;
+	$PREFIX            =  "${FITSCRIPTS_PREFIX}_${suffix}" ;
 	$CMD_PREFIX[$icpu] =  "$PREFIX" ;
 	$cmdFile           =  "${PREFIX}.CMD" ;
 	$CMD_FILES[$icpu]  =  "${cmdFile}" ;
 
-	if ( $SUMMARY_FLAG == 0 )  { qx(touch $FITJOBS_DIR/$cmdFile ); }
+	if ( $SUMMARY_FLAG == 0 )  { qx(touch $FITSCRIPTS_DIR/$cmdFile ); }
 #	print "\t -> $cmdFile \n";
 
 	$NJOB_PER_CPU[$icpu] = 0 ;
@@ -1588,7 +1677,7 @@ sub make_COMMANDS {
 
 	# removed unused CMD files.
 	for($icpu = $NCPU; $icpu < $NCPU_ORIG; $icpu++ ) 
-	{ qx(rm $FITJOBS_DIR/$CMD_FILES[$icpu]); }
+	{ qx(rm $FITSCRIPTS_DIR/$CMD_FILES[$icpu]); }
     }
 
 
@@ -1606,19 +1695,21 @@ sub make_COMMANDS {
 	else {
 	    # batch mode: create BATCH file for each CMD_FILE
 
-	    my ( $script, $batchFile, $batchLog, $JOB, $doneFile );
+	    my ( $script, $batchName, $batchFile, $batchLog, $JOB, $doneFile);
 
 	    $script    = $CMD_FILES[$icpu] ;
+	    $batchName = "${PREFIX}" ;
 	    $batchFile = "${PREFIX}.BATCH" ;
 	    $batchLog  = "${PREFIX}.LOG" ;
-	    $doneFile  = "$FITJOBS_DIR/${PREFIX}.DONE" ;
+	    $doneFile  = "$FITSCRIPTS_DIR/${PREFIX}.DONE" ;
 	    $JOB       = "source $script" ;
 	    $BATCH_FILES[$icpu]  =  "${batchFile}" ;
 
 	    print "\t prepare $batchFile  for $BATCH_COMMAND  ($NJOB jobs)\n";
 	   
-	    sntools::make_batchFile($BATCH_TEMPLATE, $FITJOBS_DIR,
-				    $batchFile, $batchLog, $JOBMEMORY, $JOB);
+	    sntools::make_batchFile($BATCH_TEMPLATE, $FITSCRIPTS_DIR,
+				    $batchName, $batchFile, $batchLog, 
+				    $JOBMEMORY, $JOB);
 	}
     }  # icpu
 
@@ -1745,7 +1836,7 @@ sub prep_COMMAND {
 	$SARG    = "prefix=$SPREFIX" ;
 	$LOGFILE = "${SPREFIX}.LOG"  ;
 	$JOBNAME = "$JOBNAME_FIT" ;
-	$CMD     = "$JOBNAME ../$INPUT_FILE  $FARG $SARG $OPT_S2MU \\" ;
+	$CMD     = "$JOBNAME $INPUT_FILE  $FARG $SARG $OPT_S2MU \\" ;
 
 	$out_fitres = "${SPREFIX}.${OUTPUT_SUFFIX_fitres}" ;
 	$out_FITRES = "${SPREFIX}.FITRES";
@@ -1821,7 +1912,7 @@ sub write_COMMANDS {
 
     for($icpu = 0 ; $icpu < $NCPU; $icpu++ ) {
 
-	$cmdFile = "$FITJOBS_DIR/$CMD_FILES[$icpu]" ;
+	$cmdFile = "$FITSCRIPTS_DIR/$CMD_FILES[$icpu]" ;
 	open PTR_CMD , ">> $cmdFile" ;       
 
 	for($i=0; $i < $NCMDLINE_PER_CPU[$icpu]; $i++ ) {
@@ -1831,7 +1922,7 @@ sub write_COMMANDS {
 
 	# create DONE file
 	$PREFIX = "$CMD_PREFIX[$icpu]" ;
-	print PTR_CMD "\n touch $FITJOBS_DIR/${PREFIX}.DONE \n";
+	print PTR_CMD "\n touch $FITSCRIPTS_DIR/${PREFIX}.DONE \n";
 
 	close PTR_CMD ;
     }
@@ -1936,7 +2027,7 @@ sub submit_JOBS {
 
 	if ( $SSH_NNODE  ) {
 	    $node   = $SSH_NODELIST[$icpu] ;
-	    $cmd = "ssh -x $node ${qq} cd $FITJOBS_DIR ;" . 
+	    $cmd = "ssh -x $node ${qq} cd $FITSCRIPTS_DIR ;" . 
 		" source $script ${qq}" ;
 	    print " Submit SALT2mu jobs to $node . \n";
 	    system("$cmd &") ;
@@ -1944,12 +2035,12 @@ sub submit_JOBS {
 	elsif ( $BATCH_NCORE ) {
 	    my $batchFile = $BATCH_FILES[$icpu] ;
 	    print " Submit SALT2mu batch jobs with $batchFile . \n";
-	    qx(cd $FITJOBS_DIR ; $BATCH_COMMAND $batchFile);
+	    qx(cd $FITSCRIPTS_DIR ; $BATCH_COMMAND $batchFile);
 	}
 	else {
 	    # interactive
 	    print " Run interactive SALT2mu job $script. \n";
-	    system("cd $FITJOBS_DIR ; source $script");
+	    system("cd $FITSCRIPTS_DIR ; source $script");
 	}
 	   
     }  # icpu
@@ -1971,34 +2062,66 @@ sub submit_JOBS {
 # ====================
 sub wait_for_done {
 
-    my ($NDONE, $DONESPEC, $ALLDONE_FILE, $CMD_WAIT );
+    # Sep 28 2019: $DONESPEC argument -> '$DONESPEC' (in quotes)
 
-    $NDONE = $NCPU ;
+    my ($NDONE, $DONESPEC, $CMD_WAIT );
 
-    $DONESPEC     = "$FITJOBS_DIR/*.DONE" ;
-    $ALLDONE_FILE = "$FITJOBS_DIR/ALL.DONE" ;
-    $CMD_WAIT = "wait_for_files.pl  $NDONE  $DONESPEC  $ALLDONE_FILE" ; 
+    $NDONE        = $NCPU ;
+    $DONESPEC     = "$FITSCRIPTS_DIR/*.DONE" ;
+    $ALLDONE_FILE = "$FITSCRIPTS_DIR/ALL.DONE" ;
+
+    $CMD_WAIT = "wait_for_files.pl  $NDONE  '$DONESPEC'  $ALLDONE_FILE" ; 
 
     system("$CMD_WAIT");
 
     # June 10 2019: check for ABORTS  
-    my ( $cmd, @tmp, $OUTDIR, $NABORT, $msg);
-    $NABORT = 0 ;
+    my ( $cmd, @tmp, $OUTDIR, $msg);
+    $NJOB_ABORT = 0 ;
     foreach $OUTDIR ( @OUTDIR_SALT2mu_LIST )  { 
 	@tmp = qx(grep ' ABORT ' $OUTDIR/*/SALT2*.LOG );
-	$NABORT += scalar(@tmp);       
+	$NJOB_ABORT += scalar(@tmp);       
     }
 
-    if ( $NABORT > 0 )  
-    { $msg = "FAILED  ($NABORT ABORTS)"; }
+# xxxxxxxx mark delete Sep 29 2019 xxxxxxxxxx
+#    if ( $NJOB_ABORT > 0 )  
+#    { $msg = "FAILED  ($NABORT ABORTS)"; }
+#    else
+#    { $msg = "SUCCESS" ; }
+#
+#    print " Final STATUS for DONE file: $msg \n";
+#    qx(echo '$msg' >> $ALLDONE_FILE);
+#
+# Sep 12 2019: optional user-done file from DONE_STAMP key
+#    if ( $DONE_STAMP_FILE ne "" ) {
+#	qx(echo '$msg' >> $DONE_STAMP_FILE );
+#    }
+# xxxxxxxxxxxxxxxxx end mark xxxxxxxxxxxxxx
+
+
+}  # end of wait_for_done
+
+sub create_done_file {
+
+    # Created Sep 29 2019:
+    # Create DONE file(s) here to ensure that everything
+    # is really finished before DONE file(s) appear.
+
+    my ( $msg );
+
+    if ( $NJOB_ABORT > 0 )  
+    { $msg = "FAILED  ($NJOB_ABORT ABORTS)"; }
     else
     { $msg = "SUCCESS" ; }
 
     print " Final STATUS for DONE file: $msg \n";
     qx(echo '$msg' >> $ALLDONE_FILE);
 
-}  # end of wait_for_done
+# Sep 12 2019: optional user-done file from DONE_STAMP key
+    if ( $DONE_STAMP_FILE ne "" ) {
+	qx(echo '$msg' >> $DONE_STAMP_FILE );
+    }
 
+} # end create_done_file
 
 # ==========================
 sub make_SUMMARY {
@@ -2014,8 +2137,8 @@ sub make_SUMMARY {
     # Aug 25 2017: add BETA1[_ERR] to varnames list
     # Nov 30 2017: add GAMMA0[_ERR] to varnames list
     
-    my $SUMMARY_LOGFILE = "$FITJOBS_DIR/FITJOBS_SUMMARY.LOG" ;
-    my $SUMMARY_DATFILE = "$FITJOBS_DIR/FITJOBS_SUMMARY.DAT" ;
+    my $SUMMARY_LOGFILE = "$FITSCRIPTS_DIR/FITJOBS_SUMMARY.LOG" ;
+    my $SUMMARY_DATFILE = "$FITSCRIPTS_DIR/FITJOBS_SUMMARY.DAT" ;
 
     print "\n";
     print " Creating human-readable SUMMARY file \n\t $SUMMARY_LOGFILE \n";
@@ -2062,15 +2185,6 @@ sub make_SUMMARY {
     print PTR_SUMLOG " Total wall time: $T_TOT minutes. \n";
     print PTR_SUMLOG "\n" ;
     close PTR_SUMLOG ;
-
-    # xxxxxx mark delete Jun 11 2019 xxxxxxxxxx
-    # copy summary file to outdir(s)
-#    my ($OUTDIR);
-#    foreach $OUTDIR ( @OUTDIR_SALT2mu_LIST ) { 
-#	qx(cp $SUMMARY_LOGFILE $OUTDIR); 
-#	qx(cp $SUMMARY_DATFILE $OUTDIR); 
-#   }
-    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
     print "\n";
     print " Found $NOUTFILE of $NTOT_JOBS output fitres files. \n";
@@ -2297,13 +2411,13 @@ sub write_SUMMARY_INPDIR {
 
 sub gzip_logs {
     my($tarFile, $prefix);
-    $tarFile = "FITLOGS.tar" ;
-    $prefix  = "FITJOBS_CPU" ; # prefix to tar up
+    $tarFile = "${FITSCRIPTS_PREFIX}.tar" ;
+    $prefix  = "${FITSCRIPTS_PREFIX}_CPU" ; # prefix to tar up
     
-    qx(cd $FITJOBS_DIR ; tar -cf $tarFile ${prefix}* );
-    qx(cd $FITJOBS_DIR ; gzip    $tarFile            );
+    qx(cd $FITSCRIPTS_DIR ; tar -cf $tarFile ${prefix}* );
+    qx(cd $FITSCRIPTS_DIR ; gzip    $tarFile            );
     sleep(1) ;
-    qx(cd $FITJOBS_DIR ; rm      ${prefix}*          );    
+    qx(cd $FITSCRIPTS_DIR ; rm      ${prefix}*          );    
 } 
 
 

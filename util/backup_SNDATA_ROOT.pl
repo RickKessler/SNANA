@@ -172,8 +172,8 @@ sub get_tarList {
 
     $NOBJTAR = 0 ;
     $NOBJTAR++ ;  $tarList[$NOBJTAR] = "-X $EXCLUDE_FILE" ;
-    $NOBJTAR++ ;  $tarList[$NOBJTAR] = "SIM/README" ;
-    $NOBJTAR++ ;  $tarList[$NOBJTAR] = "AAA_README" ;
+#    $NOBJTAR++ ;  $tarList[$NOBJTAR] = "SIM/README" ;
+#    $NOBJTAR++ ;  $tarList[$NOBJTAR] = "AAA_README" ;
     $NOBJTAR++ ;  $tarList[$NOBJTAR] = "standards" ;
     $NOBJTAR++ ;  $tarList[$NOBJTAR] = "filters" ;
     $NOBJTAR++ ;  $tarList[$NOBJTAR] = "simlib" ;
@@ -181,7 +181,7 @@ sub get_tarList {
     $NOBJTAR++ ;  $tarList[$NOBJTAR] = "sample_input_files" ;
     $NOBJTAR++ ;  $tarList[$NOBJTAR] = "SURVEY.DEF" ;
     $NOBJTAR++ ;  $tarList[$NOBJTAR] = "SNANA_TESTS" ;
-    $NOBJTAR++ ;  $tarList[$NOBJTAR] = "INTERNAL" ;  # Aug 24 2012
+#    $NOBJTAR++ ;  $tarList[$NOBJTAR] = "INTERNAL" ;  # Aug 24 2012
 
     # include the big directories below unless in TESTMODE
     if ( $TESTMODE == 0 ) {

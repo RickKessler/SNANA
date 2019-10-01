@@ -12,6 +12,8 @@
   between different fitres outputs for the same
   set of SN.
 
+ TO DO: replace CID-matching with hash table; 
+    e.g.,  http://troydhanson.github.io/uthash/index.html
 
  Usage:
   >  combine_fitres.exe <fitres1> <fitres2> ...
@@ -78,6 +80,11 @@
     +  new argument -outfile_text <outFile>
     +  if outFile has .gz extension, gzip it.
 
+  Sep 19 2019
+   + naive trick to speed up CID-matching, but works only
+     if both FITRES files have same list of CIDs. 
+   + MXSTRLEN -> MXCHAR_VARNAME (instead of 28)
+
 ******************************/
 
 #include <stdio.h>
@@ -126,13 +133,12 @@ int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
 #define MXVAR_PERFILE  50  // max number of NTUP variables per file
 #define MXVAR_TOT  MXVAR_TABLE     // max number of combined NTUP variables
 #define INIVAL_COMBINE  -888.0
-#define MXSTRLEN         28
+#define MXSTRLEN       MXCHAR_VARNAME  // changed from 28 (Sep 20 2019)
 #define MXSTRLEN_BAND      4
 #define MXSTRLEN_CID      20
 #define MXSTRLEN_FIELD    20
 #define MXSTRLEN_VERSION  32 // photometry versoin, added Dec 2016
 
-// xxx mark delete #define IVARSTR_CCID  1   // CCID index for CVAR_XXX arrays
 #define IVARSTR_CCID  0   // CCID index for CVAR_XXX arrays
 
 // logicals to control which output files to create
@@ -153,6 +159,7 @@ char FFILE_INPUT[MXFFILE][2*MXPATHLEN] ;
 char OUTPREFIX_COMBINE[MXPATHLEN] = "combine_fitres" ;
 char OUTFILE_TEXT[MXPATHLEN] = "" ;
 int  MXROW_READ ;
+int  LEGACY_SLOWFLAG; // use origial slow matching
 
 #define  NVARNAME_1ONLY 4  // NVAR to include only once
 char VARNAME_1ONLY[NVARNAME_1ONLY][20] = 
@@ -267,6 +274,7 @@ void  PARSE_ARGV(int argc, char **argv) {
 
   NFFILE_INPUT = 0;
   MXROW_READ   = 1000000000 ;
+  LEGACY_SLOWFLAG = 0;
 
   for ( i = 1; i < NARGV_LIST ; i++ ) {
     
@@ -319,7 +327,9 @@ void  PARSE_ARGV(int argc, char **argv) {
       continue ;
     }
 
-    // xxx mark delete    NFFILE_INPUT++ ;
+    if ( strcmp_ignoreCase(argv[i],"slow") == 0 ) 
+      { LEGACY_SLOWFLAG = 1; continue ; }
+
     sprintf( FFILE_INPUT[NFFILE_INPUT], "%s", argv[i] );
     printf("  Will combine fitres file: %s \n", FFILE_INPUT[NFFILE_INPUT] );
     NFFILE_INPUT++ ;
@@ -387,16 +397,17 @@ void ADD_FITRES(int ifile) {
   //
   // May 2 2019: 
   //   + remove redundant call to TABLEFILE_CLOSE
+  // Sep 19 2019: abort if column 0 is not a CID column
+  // Sep 24: slightly improve matching method so that it is very 
+  //         fast when both files have exactly the same CIDs.
+  //
 
   int 
     ivar, IVARTOT, IVARSTR, ivarstr, j
-    ,isn, isn2,  ISN, ICAST, LTMP
-    ,NVARALL_FILE, NVARSTR_FILE, NVAR
-    ,NTAG_DEJA, NLIST
+    ,isn, isn2,  ISN, ICAST, LTMP, isn_min, isn_start
+    ,NVARALL_FILE, NVARSTR_FILE, NVAR, NTAG_DEJA, NLIST
     ,MXUPDATE = 50
-    ,index, REPEATCID
-    ,NVARALL_LAST
-    ,NVARSTR_LAST
+    ,index, REPEATCID, NVARALL_LAST, NVARSTR_LAST
     ,NEVT_APPROX, IFILETYPE, iappend
     ;
 
@@ -476,6 +487,13 @@ void ADD_FITRES(int ifile) {
     VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
     ICAST   = READTABLE_POINTERS.ICAST_STORE[ivar] ;
 
+    // Sep 19 2019: make sure first column is CID
+    if ( ivar == IVARSTR_CCID && strstr(VARNAME,"CID") == NULL ) {
+      sprintf(c1err,"First column is %s, but should be CID", VARNAME);
+      sprintf(c2err,"Check %s", FFILE_INPUT[ifile] );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
+    }
+ 
     if ( ICAST == ICAST_C ) {
       NVARSTR_FITRES++ ;   // summed over fitres files
       sprintf(VARNAME_C, "%s:C*20", VARNAME) ;  //specify char ptr
@@ -499,7 +517,7 @@ void ADD_FITRES(int ifile) {
     sprintf(ptr_CTAG, "%s", VARNAME );
 
     // use CID (1st var) in 1st file only
-    REPEATCID = ( ifile > 0 && ivar == 0 ) ;
+    REPEATCID = ( ifile > 0 && ivar == IVARSTR_CCID ) ;
     if ( REPEATCID ) { 
       ICAST_FITRES_COMBINE[NVAR] = -1 ;  // don't write repeated CIDs
       NVARALL_FITRES++ ;     NVAR = NVARALL_FITRES ;
@@ -531,10 +549,6 @@ void ADD_FITRES(int ifile) {
   // read everything and close file.
   NLIST = SNTABLE_READ_EXEC();
 
-  /* xxxxxxxxx mark delete May 2 2019 xxxxxxxxxxxxx
-  // xxx redundant  TABLEFILE_CLOSE(FFILE_INPUT[ifile]);
-  xxxxxxxx */
-
   if ( ifile == 0 ) { NLIST_FIRST_FITRES  = NLIST ; }
 
   // always fill 2nd NLIST2
@@ -549,6 +563,11 @@ void ADD_FITRES(int ifile) {
   // between two lists ... CPU becomes noticable when N_SN 
   // is order 10^5.
 
+  if ( ifile > 0 ) 
+    { printf("\t begin CID matching ... \n"); fflush(stdout); }
+
+  long long NLOOP_TOT=0;
+  isn_min = isn_start = 0;
 
   for ( isn2 = 0; isn2 < NLIST2_FITRES; isn2++ ) {
 
@@ -558,11 +577,24 @@ void ADD_FITRES(int ifile) {
 
     if ( ifile == 0 ) { ISN = isn2; goto FOUND_ISN ; }
 
-    ISN = -9;
-    for ( isn = 0; isn < NLIST_FIRST_FITRES ; isn++ ) {
+    if ( isn_min >= 0 ) { isn_start=isn_min; }
+    isn_min = ISN = -9;
 
+    if ( LEGACY_SLOWFLAG ) { isn_start = 0; }
+
+    if ( isn_start < 0 || isn_start > NLIST_FIRST_FITRES ) {
+      sprintf(c1err,"Crazy isn_start = %d .", isn_start);
+      sprintf(c2err,"Check CID-matching logic in ADD_FITRES function.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    for ( isn = isn_start; isn < NLIST_FIRST_FITRES ; isn++ ) {
+
+      NLOOP_TOT++ ;
       // checking logical is faster than checking string
       if ( USEDCID[isn] ) { continue ; }
+
+      if ( isn_min < 0 ) { isn_min = isn; }
 
       sprintf(ccid,"%s", FITRES_VALUES.STR_ALL[IVARSTR_CCID][isn] );
 
@@ -581,16 +613,16 @@ void ADD_FITRES(int ifile) {
 
     // check for screen-update
 
-    float TMPMOD ;
-    TMPMOD = fmodf( (float)(ISN), 10000. ) ;
+    int TMPMOD = (ISN % 10000);
     if ( TMPMOD == 0.0        )    { LTMP = 1; }
     if ( ISN <= MXUPDATE      )    { LTMP = 1; }
     if ( ISN == NLIST_FIRST_FITRES-1)    { LTMP = 1; } // 5.03.2019
     if ( ISN == NLIST_FIRST_FITRES  )    { LTMP = 1; }
 
-    if ( ifile == 0 && LTMP == 1 )
-      { printf("\t %s = '%12s'  ->  ISN = %6d \n", 
-	       VARNAME_COMBINE[0], ccid2, ISN ); }
+    if ( ifile <= 1 && LTMP == 1 ) {
+      printf("\t %s = '%12s'  ->  ISN = %6d  (isn_start=%d) \n", 
+	     VARNAME_COMBINE[0], ccid2, ISN, isn_start );  fflush(stdout);
+    }
     
     if ( ISN == MXUPDATE+1 ) { printf("\t ... \n"); }
 
@@ -604,7 +636,6 @@ void ADD_FITRES(int ifile) {
 
       VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
       ICAST   = READTABLE_POINTERS.ICAST_STORE[ivar] ;
-      // xxx mark delete  IVARTOT++ ;
 
       if ( ICAST != ICAST_C )  {   // not a string
 
@@ -618,7 +649,6 @@ void ADD_FITRES(int ifile) {
 	  FITRES_VALUES.FLT_TMP[ivar][isn2] ; 
       }
       else {
-	// xxx mark delete  ivarstr++ ;
 	IVARSTR = NVARSTR_LAST + ivarstr ;
 	IVARSTR_STORE[IVARTOT] = IVARSTR ;
 
@@ -633,6 +663,8 @@ void ADD_FITRES(int ifile) {
     } // ivar
 
   } // end of isn2 loop
+
+  if ( ifile>0 )  { printf("\t (NLOOP_TOT = %lld)\n", NLOOP_TOT); }
 
   fflush(stdout);
 

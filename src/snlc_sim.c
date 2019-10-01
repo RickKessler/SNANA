@@ -299,7 +299,6 @@ int main(int argc, char **argv) {
     // synthetic bands.
     GENSPEC_DRIVER(); 
 
-
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("09", ilc) ; }
 
     // convert generated mags into observed fluxes
@@ -14664,9 +14663,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   //  fix to work properly when LCLIB NREPEAT=0; see NOBS_FOUND_ALL
   //    
   // Jan 3 2018: use parse_SIMLIB_IDplusNEXPOSE() to read IDEXPT & NEXPOSE
+  // Sep 17 2019: rewind on EOF so that END_OF_SIMLIB: key is optional.
 
-  int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0;
-  int APPEND_PHOTFLAG, ifilt_obs ;
+  int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0, scanStat;
+  int APPEND_PHOTFLAG, ifilt_obs, DONE_READING, DO_REWIND ;
   int NTRY, USEFLAG_LIBID, USEFLAG_MJD, OPTLINE, NWD, NTMP ;
   int   NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT  ;
   double PIXSIZE, TEXPOSE_S, MJD ;
@@ -14687,7 +14687,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
   init_SIMLIB_HEADER();
   NOBS_EXPECT = NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID =USEFLAG_MJD = 0 ;
-  NOBS_SKIP = SKIP_FIELD = SKIP_APPEND = APPEND_PHOTFLAG = 0 ;
+  DONE_READING = NOBS_SKIP = SKIP_FIELD = SKIP_APPEND = APPEND_PHOTFLAG = 0 ;
   SIMLIB_LIST_forSORT.MJD_LAST = -9.0 ;
   SIMLIB_TEMPLATE.NFIELD_OVP = 0;
   NTRY++ ;
@@ -14702,13 +14702,20 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
   // - - - - - - - start reading SIMLIB - - - - - - - - - 
 
-  while( (fscanf(fp_SIMLIB, "%s", c_get)) != EOF) {
+  // xxxx  while( (fscanf(fp_SIMLIB, "%s", c_get)) != EOF) {
 
-    if ( strcmp(c_get,"END_OF_SIMLIB:") == 0 ) {
+  while ( !DONE_READING ) {
 
+    scanStat = fscanf(fp_SIMLIB, "%s", c_get);
+
+    DO_REWIND = 0;
+    if ( strcmp(c_get,"END_OF_SIMLIB:") == 0 ) { DO_REWIND = 1; }
+    if ( scanStat == EOF )                     { DO_REWIND = 1; }
+
+    // xxxx    if ( strcmp(c_get,"END_OF_SIMLIB:") == 0 ) {
+    if ( DO_REWIND ) {
       // check SIMLIB after 5 passes to avoid infinite loop
       if ( SIMLIB_HEADER.NWRAP >= 5 )  { ENDSIMLIB_check(); }
-      
       if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
 	snana_rewind(fp_SIMLIB, INPUTS.SIMLIB_OPENFILE,
 		     INPUTS.SIMLIB_GZIPFLAG);
@@ -14716,7 +14723,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_HEADER.LIBID = SIMLIB_ID_REWIND ; 
 	NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID = USEFLAG_MJD = 0 ;
       }
-    }  // end simlib if-block
+    }  // end of END_IF_SIMLIB if-block
  
     if ( strcmp(c_get,"LIBID:") == 0 ) {
       readint ( fp_SIMLIB, 1, &ID );
@@ -14819,7 +14826,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
     if ( OPTLINE && OPTLINE_REJECT )  {    
       // MJD line in already rejected LIBID --> read rest of line 
-      fgets(cline, 100, fp_SIMLIB) ;
+      fgets(cline, 180, fp_SIMLIB) ;
       if ( SKIP_FIELD ) { NOBS_SKIP++ ; }
     }
     else if ( OPTLINE == OPTLINE_SIMLIB_S )  { 
@@ -14905,7 +14912,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
     // stop reading when we reach the end of this LIBID
     if ( strcmp(c_get, "END_LIBID:") == 0 ) { 
       if ( USEFLAG_LIBID == ACCEPT_FLAG ) 
-	{ goto DONE_READING ; }
+	{ DONE_READING = 1 ; }
+      // xxxx	{ goto DONE_READING ; }
       else
 	{ goto START ; }      // read another 
     }
@@ -21198,7 +21206,8 @@ void init_genmodel(void) {
     // model-specific init
     OPTMASK = 0; 
     if ( INPUTS.LEGACY_colorXTMW_SALT2 ) { OPTMASK += 128 ; }
-
+    if ( INPUTS.DEBUG_FLAG == 64 )       { OPTMASK +=  64 ; } // ABORT on bad lamRange
+ 
     istat = init_genmag_SALT2(GENMODEL, GENMODEL_EXTRAP, OPTMASK) ;
 
     get_LAMRANGE_SEDMODEL(1,&GENLC.RESTLAM_MODEL[0],&GENLC.RESTLAM_MODEL[1] );

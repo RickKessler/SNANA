@@ -2558,7 +2558,8 @@ int rd_primary ( int INDX, char *subdir ) {
      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
    }
 
-   printf("\n\n  ***** READ %s SED (INDX=%d) ***** \n", refName, INDX );
+   printf("\n\n  ***** READ PRIMARY %s SED (INDX=%d) ***** \n", 
+	  refName, INDX );
  
    sprintf(SNPATH, "%s/%s", PATH_SNDATA_ROOT, subdir );
    fp = snana_openTextFile (0,SNPATH, sedFile, fullName, &gzipFlag );
@@ -2648,6 +2649,12 @@ int rd_primary ( int INDX, char *subdir ) {
      flam       = PRIMARYSED[INDX].FLUX_WAVE[ilam];
      flux_converter(lambda, flam, &fnu, &fcount ); // returns fnu & fcount
      PRIMARYSED[INDX].FLUX_NU[ilam]    = fnu;
+
+     if ( ilam==1 ) {
+       printf("\t Flam(%s,LAM=%.1f) = %le \n", refName, lambda, flam);
+       fflush(stdout);
+     }
+
    }
 
 

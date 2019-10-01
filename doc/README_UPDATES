@@ -17349,12 +17349,35 @@
 
 
 # ======================================================================= 
-         v10_74f (  ) 
+         v10_74f (Sep 23, 2019 ) 
 
          ***** IMPORTANT(v10_74f) ***** 
 
          ***** USEFUL(v10_74f) ***** 
 
+    snlc_fit.exe: if PRIVATE_DATA_PATH matches any sim-dir,
+       code aborts with more clear message. Previously the
+       abort message incorrectly indicated that VERSION was 
+       in 2 directories, which was confusing.
+
+    SALT2mu_fit.pl: 
+       + add optional DONE_STAMP key
+       + fixed to work if input file name includes full path.
+
+    SALT2mu.c: 
+       + new input cid_select_file=[fileName] to select
+          specific list of CIDs for data.
+       + new input to force P_CC=0 and P_Ia=1 for spec-confirmed subset;
+          see type_list_probcc0 and idsurvey_list_probcc0
+
+    split_and_fit.pl:
+      slurm job names are now based on NML file name rather than
+      a generic  FITSPLIT prefix -->
+      Easier to distinguish multiple jobs for same user.
+
+    sntools_host.c[h]: 
+      synthetic host mags (from eazy spectra) pass HST crosscheck.
+     
          ***** MISCELLANEOUS(v10_74f) ***** 
 
    sntools_trigger.c
@@ -17363,5 +17386,74 @@
 
    SALT2mu.c:
      + finally remove all traces of INPUTS.LEGACY_[BUGS,README].
+     + new input cid_select_file=[fileName] to select specific
+       list of CIDs for data; ignored for biasCor sim and for CC sim.
+  
+   SALT2mu_fit.pl
+    + add optional key 
+          DONE_STAMP: <fileName>
+    + fix parsing to ignore comment lines (un-tested)
+    + See Sep 14 2019 updates at top of source file;
+      Works with more general symbolic links, and subDir name changes.
+
+   genmag*.c[h]:    make variable names consistent:
+      minlam -> lammin, maxlam -> lammax, etc ...
+
+   sim_SNmix.pl
+     + replace few remaining parse_line commands with parse_array
+       so that comment lines are ignored.
+
+   sntools_host.c[h] :
+     + more fixes for host spectrum.
+     + MINLOGZ_HOSTLIB -> -3.0 (zmin -> 0.001 instead of 0.003)
+        for H0 studies.
+
+   sntools.c:
+     in getInfo_SNANA_VERSION(), abort if PRIVATE_DATA_PATH is
+     incorrectly set to SNDATA_ROOT/SIM, or to any path in
+     PATH_SNDATA_SIM.LIST file.
+
+   genmag_SALT2.c :
+     + colorDisp map reads ilam=0 to NLAM-1 (intead of 1-NLAM)
+     + in get_SALT2_ERRMAP(), protect against Trest or Lam being lower 
+       than ERRMAP min since ERRMAPs don't always cover SED range.
+       Note that max range was aleady protected.
+       Amazingly, SNANA_CodeTest shows no changes.
+     + init_genmag_SALT2(), OPTMASK & 64 enables aborting on ERRMAPs
+       with ranges that don't cover SED range. This feature is enabled
+       with kludge: snlc_sim.exe <inFile> DEBUG_FLAG 64 so that we
+       don't get aborts unless we want them.
+
+   sntools.pm:
+    + add batchName argument to make_batchFile sub.
+   
+   split_and_fit.pl:
+     + use NML file name in new batchName argument.
+       Note that anything before slashes is stripped from NML filename.
+     + for non-existing path in SIM_SNDATA_PATH.LIST, give warning.
+
+   snlc_sim.c:
+     simlib reading rewinds on end-of-file or END_OF_SIMLIB key.
+
+   combine_fitres.c
+     + abort if first column is not CID.
+
+
+# ======================================================================= 
+         v10_74g (  ) 
+
+         ***** IMPORTANT(v10_74g) ***** 
+
+         ***** USEFUL(v10_74g) ***** 
+
+         ***** MISCELLANEOUS(v10_74g) ***** 
+
+   SALT2mu.c 
+    + in output fitres file, write SUM_PROBIa and SUM_PROBCC
+      and contamination estimate, SUM_PROBCC/(SUM_PROB1a+SUM_PROBCC).
+      For sim data, the contam estimate should be consistent with the 
+      true contamination.
+      Also include table showing contaminatoin vs. MURES, and another
+      table showing contam vs. redshift.
 
 END: 

@@ -91,9 +91,18 @@ class genmag_BYOSED:
 
 				self.sedInterp=interp2d(self.phase,self.wave,self.flux.T,kind='linear',bounds_error=True)
 				print(self.warp_effects)
+			
+				#fluxsmear=self.fetchSED_BYOSED([0],5000,1,1,[0 for x in range(len(self.host_param_names))])
+				#import pickle
+				#with open('/project2/rkessler/SURVEYS/WFIRST/USERS/jpierel/byosed/fluxsmear.dat','wb') as f:
+				#	pickle.dump([self.wave,fluxsmear],f)
+
 			except Exception as e:
+				exc_type, exc_obj, exc_tb = sys.exc_info()
 				print('Python Error :',e)
+				print('genmag_BYOSED.py, line number: %i'%exc_tb.tb_lineno)
 				print_err()
+
 			return
 		
 		def add_options(self, parser=None, usage=None, config=None):
@@ -197,7 +206,7 @@ class genmag_BYOSED:
 												scale_parameter=host_scale_parameter,
 												scale_distribution=distribution['SCALE'],
 												name=warp)
-
+				
 				return(sn_dict,host_dict)
 		
 
@@ -225,6 +234,7 @@ class genmag_BYOSED:
 						self.sn_id=external_id
 				fluxsmear=self.sedInterp(trest,self.wave).flatten()
 				orig_fluxsmear=copy(fluxsmear)
+				
 				if self.options.magsmear!=0.0:
 						fluxsmear *= 10**(0.4*(np.random.normal(0,self.options.magsmear)))
 				trest_arr=trest*np.ones(len(self.wave))
@@ -279,7 +289,9 @@ class genmag_BYOSED:
 				# 				print('Phase=%.1f, %s: %.2f'%(trest,'COLOR',self.sn_effects['COLOR'].warp_parameter))
 				# 		fluxsmear*=10**(-0.4*self.sn_effects['COLOR'].warp_parameter*\
 				# 				self.sn_effects['COLOR'].flux(trest_arr,self.wave,hostpars,self.host_param_names).flatten())
-							  
+				
+				
+				
 				return list(fluxsmear) 
 			except Exception as e:
 				print('Python Error :',e)

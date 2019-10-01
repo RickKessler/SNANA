@@ -176,7 +176,8 @@ p9  = Omega_L (0.73)
 p10 = Omega_k (0.0)
 p11 = w (-1.0)
 p12 = wa (0.0)
-p13 = scalePCC (if using CC prior in BEAMS-like chi2)
+p13 = scalePCC  if u13=1 (CC prior in BEAMS-like chi2)
+p13 = scalePIa  if u13=2 (see A in Eq 4 of https://arxiv.org/abs/1111.5328)
 p14 = sigint   (if using CC prior in BEAMS) DOES NOT WORK !!!
 p15 = alphaHost (dalpha/dlogMhost)
 p16 = betaHost  (dbeta/dlogMhost)
@@ -190,12 +191,12 @@ p20 = H11sigcc0
 p21 = H11sigcc1  (added July 9 2018)
 p22 = H11sigcc2  (added July 9 2018)
 
-u1 = if true, vary parameter 1 (1=True)
-u2 = if true, vary parameter 2 (1=True)
-u3 = if true, vary parameter 3 (1=True)
+u1 = 1  if true, vary parameter 1 (1=True)
+u2 = 2  if true, vary parameter 2 (1=True)
+u3 = 1  if true, vary parameter 3 (1=True)
 .
 .
-.
+u13 = 1 or 2 (see p13 comments above)
 u15=1 --> alphaHost = dalpha/dlogmass
 u16=1 --> betaHost  = dbeta /dlogmass
 u15=2 --> alphaHost = alpha shift about logmass_cen
@@ -645,6 +646,9 @@ Default output files (can change names with "prefix" argument)
  Sep 25-26: 
     + write contamination info to fitres output. See new functions
       _contam_CCprior
+
+ Sep 29 2019: u13=2 --> scalePCC is switched to scalePIa as in Eq 4 of H11.
+                (https://arxiv.org/abs/1111.5328)
 
 ******************************************************/
 
@@ -3007,12 +3011,12 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   //c flat=1 read input, flag 2=gradient, flag=3 is final value
   double M0, alpha, beta, gamma, alpha0, beta0, gamma0;
   double da_dz, db_dz, dg_dz, da_dm, db_dm ;
-  double scalePCC, scalePCC_fitpar, nsnfit1a, nsnfitcc;
+  double scalePCC, scalePIa, scalePROB_fitpar, nsnfitIa, nsnfitcc;
   int    NSN_DATA, n, nsnfit, nsnfit_truecc, idsample, cutmask ;
   int DOBIASCOR_1D, DOBIASCOR_5D, DUMPFLAG=0, dumpFlag_muerrsq=0 ;
   double chi2sum_tot, mures, sqmures;
   double muerrsq, muerrsq_last, muerrsq_raw, muerrsq_tmp, sqsigCC=0.001 ;
-  double chi2evt_1a, chi2sum_1a, chi2evt, sigCC_chi2penalty=0.0 ;
+  double chi2evt_Ia, chi2sum_Ia, chi2evt, sigCC_chi2penalty=0.0 ;
   double mu, mb, x1, c, z, zerr, logmass, dl, mumodel, mumodel_store;
   double muBias, muBiasErr, muBias_zinterp, muCOVscale, gammaDM ;
   double muerr, muerr_raw, muerr_last;
@@ -3020,7 +3024,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   int    sntype=0, idsurvey=0, SIM_NONIA_INDEX, IS_SIM ;
   double omega_l, omega_k, wde, wa, cosPar[NCOSPAR] ;
   double *hostPar, logmass_cen, logmass_tau ;
-  double ProbRatio_1a, ProbRatio_CC ;
+  double ProbRatio_Ia, ProbRatio_CC ;
   double covmat_tot[NLCPAR][NLCPAR], covmat_fit[NLCPAR][NLCPAR] ;
   char   *name ;
   MUZMAP_DEF  *CCPRIOR_MUZMAP ;
@@ -3031,8 +3035,8 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   double   MUCOVSCALE_ALPHABETA[MXa][MXb][MXg]; // (I) muCOVscale at each a,b
   double   *fitParBias;
 
-  double Prob_1a, Prob_CC, Prob_SUM, dPdmu_1a, dPdmu_CC ;
-  double PTOTRAW_1a=0.0, PTOTRAW_CC, PTOT_1a, PTOT_CC, PSUM ;
+  double Prob_Ia, Prob_CC, Prob_SUM, dPdmu_Ia, dPdmu_CC ;
+  double PTOTRAW_Ia=0.0, PTOTRAW_CC, PTOT_Ia, PTOT_CC, PSUM ;
   double muerrsq_update, muerr_update ;
 
   char fnam[]= "fcn";
@@ -3055,7 +3059,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   omega_k      = xval[10] ;
   wde          = xval[11] ;
   wa           = xval[12] ;
-  scalePCC_fitpar  = xval[13] ;
+  scalePROB_fitpar  = xval[13] ;
   hostPar      = &xval[IPAR_GAMMA0];
   da_dm        = xval[15];  // added Apr 2 2018
   db_dm        = xval[16];  // idem
@@ -3090,7 +3094,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   if ( USE_CCPRIOR  ) {   
     // load CCPRIOR_MUZMAP
     fcn_ccprior_muzmap(xval, USE_CCPRIOR_H11, CCPRIOR_MUZMAP);   
-    ProbRatio_1a = ProbRatio_CC = 0.0 ;
+    ProbRatio_Ia = ProbRatio_CC = 0.0 ;
   }
 
 
@@ -3118,9 +3122,9 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 
 
   // -------------------------------
-  chi2sum_tot = chi2sum_1a = 0.0;
+  chi2sum_tot = chi2sum_Ia = 0.0;
   nsnfit      = nsnfit_truecc = 0 ;
-  nsnfit1a = nsnfitcc = 0.0 ;
+  nsnfitIa = nsnfitcc = 0.0 ;
   zero_contam_CCprior(&CONTAM_MURES_BINS);
   zero_contam_CCprior(&CONTAM_REDSHIFT_BINS);
 
@@ -3154,7 +3158,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     IS_SIM          = (INFO_DATA.TABLEVAR.IS_SIM == true);
     
     if ( USE_CCPRIOR ) { 
-      PTOTRAW_1a  = (double)INFO_DATA.TABLEVAR.pIa[n] ; 
+      PTOTRAW_Ia  = (double)INFO_DATA.TABLEVAR.pIa[n] ; 
       sntype      = (int)INFO_DATA.TABLEVAR.SNTYPE[n] ; 
       idsurvey    = (int)INFO_DATA.TABLEVAR.IDSURVEY[n];
     }
@@ -3272,10 +3276,10 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 
     if ( !USE_CCPRIOR  ) {
       // original SALT2mu chi2 with only spec-confirmed SNIa 
-      nsnfit++ ;        nsnfit1a  = (double)nsnfit ;
-      chi2evt_1a    = sqmures/muerrsq ;
-      chi2sum_1a   += chi2evt_1a ;
-      chi2evt       = chi2evt_1a ;
+      nsnfit++ ;        nsnfitIa  = (double)nsnfit ;
+      chi2evt_Ia    = sqmures/muerrsq ;
+      chi2sum_Ia   += chi2evt_Ia ;
+      chi2evt       = chi2evt_Ia ;
 
       // check option to add log(sigma) term for 5D biasCor
       if ( INPUTS.fitflag_sigmb == 2 ) 
@@ -3287,17 +3291,23 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
       // BEAMS-like chi2 = -2ln [ PIa + PCC ]
       DUMPFLAG = (n == -44);
       nsnfit++ ;
-      scalePCC    = scalePCC_fitpar ;
-      PTOTRAW_CC  = 1.0 - PTOTRAW_1a ;  // CC prob 
-      PSUM        = PTOTRAW_1a + scalePCC*PTOTRAW_CC ;
-      PTOT_CC     = scalePCC * PTOTRAW_CC/PSUM ;
-      PTOT_1a     = PTOTRAW_1a/PSUM ;
+
+      if ( INPUTS.ipar[IPAR_scalePCC] <= 1 ) {
+	scalePCC    = scalePROB_fitpar ;
+	PTOTRAW_CC  = 1.0 - PTOTRAW_Ia ;  // CC prob 
+	PSUM        = PTOTRAW_Ia + scalePCC*PTOTRAW_CC ;
+	PTOT_CC     = scalePCC * PTOTRAW_CC/PSUM ;
+	PTOT_Ia     = PTOTRAW_Ia/PSUM ;
+      }
+      else {
+	// u13=2 --> Use H11, Eq4  Bayes factor (Sep 30 2019)
+	scalePIa = scalePROB_fitpar;
+	PTOT_Ia  = (PTOTRAW_Ia * scalePIa)/(1.0 + (scalePIa-1.0)*PTOTRAW_Ia);
+	PTOT_CC  = 1.0 - PTOT_Ia ;
+      }
 
       if ( force_probcc0(sntype,idsurvey) ) 
-	{ PTOT_1a = 1.0;  PTOT_CC = 0.0 ;  } // spec-confirmed SNIa
-
-      if ( sntype == INPUTS.typeIa_ccprior )
-	{ PTOT_1a=1.0;  PTOT_CC=0.0 ;  } // spec-confirmed SNIa
+	{ PTOT_Ia = 1.0;  PTOT_CC = 0.0 ;  } // spec-confirmed SNIa
 
       if ( INPUTS.fitflag_sigmb == 2 ) 
 	{ muerrsq_update = muerrsq ; }  // current muerr for 5D biasCor
@@ -3305,9 +3315,9 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 	{ muerrsq_update = muerrsq_last ; } //  fixed muerr for 1D biasCor
       muerr_update   = sqrt(muerrsq_update);
 
-      chi2evt_1a = sqmures/( muerrsq - muBiasErr*muBiasErr)  ;
-      dPdmu_1a   = ( exp(-0.5*chi2evt_1a) ) * (PIFAC/muerr_update) ; 
-      Prob_1a    = PTOT_1a * dPdmu_1a ;
+      chi2evt_Ia = sqmures/( muerrsq - muBiasErr*muBiasErr)  ;
+      dPdmu_Ia   = ( exp(-0.5*chi2evt_Ia) ) * (PIFAC/muerr_update) ; 
+      Prob_Ia    = PTOT_Ia * dPdmu_Ia ;
 
       if ( USE_CCPRIOR_H11 ) {
 	dPdmu_CC = prob_CCprior_H11(n, mures, &xval[IPAR_H11], 
@@ -3319,7 +3329,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
       }
       Prob_CC   = PTOT_CC * dPdmu_CC ;
 
-      Prob_SUM  = Prob_1a + Prob_CC ; // BEAMS prob
+      Prob_SUM  = Prob_Ia + Prob_CC ; // BEAMS prob
 
       // xxxxxxxxxxxxxxxxxxx
       if ( DUMPFLAG ) {
@@ -3328,7 +3338,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 	printf(" xxx dPdmu_CC=%le \n", dPdmu_CC);
 	printf(" xxx PTOT_CC = scale*PTOTRAW/PSUM  = %le*%le/%le = %le\n",
 	       scalePCC, PTOTRAW_CC, PSUM, PTOT_CC );
-	printf(" xxx Prob(1a,CC) = %le, %le \n", Prob_1a, Prob_CC);
+	printf(" xxx Prob(Ia,CC) = %le, %le \n", Prob_Ia, Prob_CC);
 	debugexit(fnam);
       }
       // xxxxxxxxxxxxxxxxxxx
@@ -3336,17 +3346,17 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
       
       // sum total chi2 that includes Ia + CC
       if ( Prob_SUM > 0.0 ) {
-	ProbRatio_1a = Prob_1a / Prob_SUM ;
+	ProbRatio_Ia = Prob_Ia / Prob_SUM ;
 	ProbRatio_CC = Prob_CC / Prob_SUM ;
-	nsnfit1a   +=  ProbRatio_1a ; 
+	nsnfitIa   +=  ProbRatio_Ia ; 
 	nsnfitcc   +=  ProbRatio_CC ; 
-	chi2sum_1a += (ProbRatio_1a * chi2evt_1a) ; 
+	chi2sum_Ia += (ProbRatio_Ia * chi2evt_Ia) ; 
 	
 	if ( *iflag == 3 ) {
 	  INFO_DATA.probcc_beams[n] = ProbRatio_CC;
-	  sum_contam_CCprior(&CONTAM_MURES_BINS, ProbRatio_1a, mures,
+	  sum_contam_CCprior(&CONTAM_MURES_BINS, ProbRatio_Ia, mures,
 			     SIM_NONIA_INDEX); 
-	  sum_contam_CCprior(&CONTAM_REDSHIFT_BINS, ProbRatio_1a, z,
+	  sum_contam_CCprior(&CONTAM_REDSHIFT_BINS, ProbRatio_Ia, z,
 			     SIM_NONIA_INDEX); 
 	}
 
@@ -3410,9 +3420,9 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   FITRESULT.NSNFIT_SPLITRAN[NJOB_SPLITRAN] = nsnfit ;
   
   if (*iflag==3)  { // done with fit
-    FITRESULT.CHI2SUM_1A = chi2sum_1a ;
-    FITRESULT.CHI2RED_1A = chi2sum_1a/(double)(nsnfit1a-FITINP.NFITPAR_FLOAT) ;
-    FITRESULT.NSNFIT_1A  = nsnfit1a ; 
+    FITRESULT.CHI2SUM_1A = chi2sum_Ia ;
+    FITRESULT.CHI2RED_1A = chi2sum_Ia/(double)(nsnfitIa-FITINP.NFITPAR_FLOAT) ;
+    FITRESULT.NSNFIT_1A  = nsnfitIa ; 
     FITRESULT.NSNFIT_CC  = nsnfitcc ;  // 9.24.2019
     FITRESULT.ALPHA      = alpha ;
     FITRESULT.BETA       = beta ;
@@ -14033,7 +14043,6 @@ void prep_input(void) {
   }
   
   // if CCprior is not set then make sure to fix scalePCC and sigint
-
   if ( !USE_CCPRIOR  ) {
     INPUTS.ipar[IPAR_scalePCC] = 0 ; // do NOT float scalePCC 
   }
@@ -14041,6 +14050,9 @@ void prep_input(void) {
     INPUTS.ipar[IPAR_COVINT_PARAM] = 0 ;  // do not float sigint
     INPUTS.parval[IPAR_COVINT_PARAM] = INPUTS.sigmB; 
     prep_probcc0_input();
+
+    if ( INPUTS.ipar[IPAR_scalePCC] == 2 ) 
+      { sprintf(FITPARNAMES_DEFAULT[IPAR_scalePCC], "scalePIa"); }
   } 
 
   // if scalePCC=0 and is fixed, turn off CC prior
@@ -14062,7 +14074,9 @@ void prep_input(void) {
   // then float everything. Otherwise stick with user choices.
   if ( USE_CCPRIOR_H11 ) {
     int ipar, IPAR;
-    INPUTS.ipar[IPAR_scalePCC] = 1 ; // Jun 18 2018
+    if ( !INPUTS.ipar[IPAR_scalePCC] )
+      { INPUTS.ipar[IPAR_scalePCC] = 1; }
+
     if ( NPAR_H11_USER == 0 ) {
       // use all of the default H11 parameters
       for(ipar=0; ipar < NPAR_H11_TOT; ipar++ ) 
@@ -14267,6 +14281,10 @@ int force_probcc0(int itype, int id) {
 
   // ------------- BEGIN ---------------
 
+  // check legacy option ...
+  if ( itype == INPUTS.typeIa_ccprior ) { return(1); }
+
+  // now check newer option.
   if ( !INPUTS_PROBCC_ZERO.USE ) { return(force); }  
 
   for(i=0; i < ntype; i++ )  { 

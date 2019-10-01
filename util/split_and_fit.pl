@@ -141,8 +141,6 @@
 #  split_and_fit.pl <inputFile> NOSUBMIT  # same
 #  split_and_fit.pl <inputFile> 1         # 1 second delay between job-submits
 #  split_and_fit.pl <inputFile> TRAILMARK # leave note in sim-README (not for data)
-#  split_and_fit.pl <inputFile> kicp   # force kicp queue
-#  split_and_fit.pl <inputFile> KICP   # idem
 #
 #  split_and_fit.pl CLEAN            # cleanup all sub-directories
 #  split_and_fit.pl CLEAN NOPROMPT   # idem, but no user-authorization

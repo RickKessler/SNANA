@@ -223,15 +223,6 @@ typedef struct {
 typedef struct {
   int   USE ;
 
-  /* xxx mark delete Aug 8 2019 xxxxxxx
-  float GENMAG_OFF_ZP[MXFILTINDX] ;
-  float FUDGESCALE_FLUXERR  ; // tweak true & measured errors
-  float FUDGESCALE_FLUXERR2 ; // tweak measured errors, not true errors
-  float FILTER_LAMSHIFT[MXFILTINDX] ; // filterTrans shifts, Ang
-  float FUDGESCALE_MWEBV ;          // scale Galactic extinction
-  float FUDGESHIFT_MWRV ;           // RV shift for MW
-  xxxxxxx */
-
   float SIGSHIFT_ZP[MXFILTINDX];
   float SIGSHIFT_LAMFILT[MXFILTINDX]; // filterTrans shifts, Ang 
   float SIGSCALE_FLUXERR;    // scale true & measured errors by 1+Gran*SIG

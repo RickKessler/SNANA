@@ -17440,12 +17440,15 @@
 
 
 # ======================================================================= 
-         v10_74g (  ) 
+         v10_74g (Oct 7 2019) 
 
          ***** IMPORTANT(v10_74g) ***** 
        SALT2mu_fit:
           monitor and summary tasks are launched as background job,
           so that terminal control is returned.
+
+       combine_fitres.exe
+          Uses hash table for CID matching --> much faster for large files.
 
          ***** USEFUL(v10_74g) ***** 
 
@@ -17479,5 +17482,13 @@
      for RANSEED_CHANGE option, fix bug so that LIST file has
      SNIa before NONIaMODEL ... needed by fitting codes to get 
      correct SIM_xxx names in output FITRES file.
+
+   combine_fitres.c:
+     + use hash table for cid matching using uthash.h from  
+          http://troydhanson.github.io/uthash/index.html 
+       It's way way faster for large (e.g., biasCor) files. 
+       To revert back to original slow matching method,
+          combine_fitres.exe <argList>  -matchflag 1
+       Beware of significant refactor.
 
 END: 

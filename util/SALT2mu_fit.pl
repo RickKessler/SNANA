@@ -247,6 +247,8 @@
 #     return unix control. No more "hanging" until it's done,
 #     and no more need to pipe stdout to get back control.
 #
+# Oct 4 2019: if OUTDIR_OVERRIDE has no slash, append LAUNCH_DIR
+#
 # ------------------------------------------------------
 
 use IO::Handle ;
@@ -622,6 +624,11 @@ sub parse_inpFile {
     if ( scalar(@tmp) > 0 ) { 
 	$OUTDIR_OVERRIDE = qx(echo $tmp[0]); # allow for ENV
 	$OUTDIR_OVERRIDE =~ s/\s+$// ;   # trim trailing whitespace
+
+	if ( index($OUTDIR_OVERRIDE,'/') <= 0 ) 
+	{ $OUTDIR_OVERRIDE = "$LAUNCH_DIR/$OUTDIR_OVERRIDE"; }
+
+	print " OUTDIR_OVERRIDE: $OUTDIR_OVERRIDE \n";
     }
 
     $key = "OUTDIR_PREFIX:" ;
@@ -1176,6 +1183,7 @@ sub makeSumDir_SALT2mu {
     { $OUTDIR = $OUTDIR_OVERRIDE;   }
     else 
     { $OUTDIR  = "$TOPDIR/$SDIR_SUM" ; }
+
 
     # - - - - - - - - - - - - - - - - - - -     
 

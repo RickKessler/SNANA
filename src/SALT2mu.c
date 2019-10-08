@@ -11512,7 +11512,8 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
 
   
   // repeat for binning vs. xhisto
-  ibin = IBINFUN(xhisto, &CONTAM_INFO->BININFO, 1, fnam );
+  // xxx mark delete  ibin = IBINFUN(xhisto, &CONTAM_INFO->BININFO, 1, fnam );
+  ibin = IBINFUN(xhisto, &CONTAM_INFO->BININFO, 2, fnam );
   CONTAM_INFO->sumProb_Ia[ibin] += Prob_Ia ;
   CONTAM_INFO->sumProb_cc[ibin] += Prob_CC ;
   sum_Ia = CONTAM_INFO->sumProb_Ia[ibin];
@@ -11522,7 +11523,6 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
 
   
   // - - - - - - SUM TRUTH for SIM DATA - - - - - 
-  // .xyz
   if ( IS_SIM ) {    
     if ( SIM_NONIA_INDEX == 0 ) {
       CONTAM_INFO->NTRUE_TOT_IA++ ;

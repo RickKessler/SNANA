@@ -625,7 +625,7 @@ sub parse_inpFile {
 	$OUTDIR_OVERRIDE = qx(echo $tmp[0]); # allow for ENV
 	$OUTDIR_OVERRIDE =~ s/\s+$// ;   # trim trailing whitespace
 
-	if ( index($OUTDIR_OVERRIDE,'/') <= 0 ) 
+	if ( index($OUTDIR_OVERRIDE,'/') < 0 ) 
 	{ $OUTDIR_OVERRIDE = "$LAUNCH_DIR/$OUTDIR_OVERRIDE"; }
 
 	print " OUTDIR_OVERRIDE: $OUTDIR_OVERRIDE \n";

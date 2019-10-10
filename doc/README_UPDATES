@@ -17491,4 +17491,19 @@
           combine_fitres.exe <argList>  -matchflag 1
        Beware of significant refactor.
 
+
+# ======================================================================= 
+         v10_74h (  ) 
+
+         ***** IMPORTANT(v10_74h) ***** 
+
+         ***** USEFUL(v10_74h) ***** 
+
+         ***** MISCELLANEOUS(v10_74h) ***** 
+
+   snlc_fit.car: 
+     + MXFIT_DATA=1000 -> 1500. Program size = 314 MB -> 335 MB.
+     + abort if photo-z fit and USE_SNHOST_ZPHOT=T. This combo
+       causes something crazy in 2nd iteration of photo-z fit.
+
 END: 

@@ -225,7 +225,7 @@ ifndef SNANA_PYTHON_DIR
   LPY = 
 else
   IPY = -I/$(SNANA_PYTHON_DIR)/include/python3.7m
-  LPY = -L$(SNANA_PYTHON_DIR)/lib -ldl  -lutil -Wl,-rpath,$(SNANA_PYTHON_DIR)/lib -lpython3.7m
+  LPY = -L$(SNANA_PYTHON_DIR)/lib -ldl  -lutil -Wl,-rpath,$(SNANA_PYTHON_DIR)/lib -python3.7m
 endif
 
 
@@ -1111,7 +1111,7 @@ $(BIN)/unfold_snpar.exe : $(OBJ)/unfold_snpar.o  $(OBJ)/sntools.o $(OBJ)/sntools
 	$(OBJ)/unfold_snpar.o	\
 	$(OBJ)/sntools.o 	\
 	$(OBJ_OUTPUT)		\
-	$(LCERN) $(LROOT)  -lm $(LGSL)
+	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB) 
 	(cd $(OBJ); rm unfold_snpar.o )
 
 ####################  END ##########################################

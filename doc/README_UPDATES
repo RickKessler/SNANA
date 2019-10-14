@@ -17508,7 +17508,17 @@
 
    SALT2mu.c:
      + new option force_pIa=xx.yy to force same pIa for each event.
+     + in M0DIF file, write warnings for MUDIFERR=0
+     + fix bug using cutmask_write=-1
+
    SALT2mu_fit.pl
      + batch name is now based on name of input file [untested->BEWARE]
+
+   snlc_sim.c, sndata.h
+     + new parameter MXLEN_VERSION_PREFIX 52 to prevent GENPREFIX
+       exceeding FITS key bound. Note that FITS header keys have
+       80 char bound that includes key name and quotes. E.g.,
+          PHOTFILE = 'TEST_PHOT.FITS'
+       counts as 27 characters, not 14.
 
 END: 

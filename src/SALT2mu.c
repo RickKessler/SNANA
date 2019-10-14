@@ -132,6 +132,7 @@ CUTWIN(DATAONLY) LOGMASS  5 12   ! cut on data only (not on biasCor)
 
 chi2max  = chi2-outlier cut applied before fit. Beware that initial
            and final chi2 can differ, so allow slop in the cut.
+           = -2log10(ProbIa_BEAMS + ProbCC_BEAMS); see Eq 6 of BBC paper
 
 cutmask_write=[allowed errcode mask to write output fitres]
 cutmask_write=-1  -> write everything
@@ -657,6 +658,8 @@ Default output files (can change names with "prefix" argument)
       it's easier to parse with python.
    +  if MUDIFERR=0, write MUDIFERR_ZERO = 666. Also write
       WARNING lines in FITRES and M0DIF files (for MUDIFERR=0)
+   + fix bug implementing cutmask_write
+   + if cutmask_write!=0, add WARNING message to FITRES file.
 
 ******************************************************/
 
@@ -1668,7 +1671,7 @@ void  print_eventStats(int event_type);
 void  outFile_driver(void);
 void  write_M0(char *fileName);
 void  write_MUERR_INCLUDE(FILE *fp) ;
-void  write_NWARN(FILE *fp) ;
+void  write_NWARN(FILE *fp, int FLAG) ;
 
 int   SPLITRAN_ACCEPT(int isn, int snid);
 void  SPLITRAN_cutmask(void);
@@ -3346,7 +3349,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
       }
       Prob_CC   = PTOT_CC * dPdmu_CC ;
 
-      Prob_SUM  = Prob_Ia + Prob_CC ; // BEAMS prob
+      Prob_SUM  = Prob_Ia + Prob_CC ; // BEAMS prob in Eq. 6 of BBC paper
 
       // xxxxxxxxxxxxxxxxxxx
       if ( DUMPFLAG ) {
@@ -14803,7 +14806,7 @@ void  write_M0(char *fileName) {
   // write blindFlag info (Mar 1 2017)
   if ( INPUTS.blindFlag > 0 && ISDATA ) { write_blindFlag_message(fp); }
 
-  write_NWARN(fp);
+  write_NWARN(fp,0);
   write_MUERR_INCLUDE(fp);
 
   NVAR=8 ;
@@ -15102,7 +15105,7 @@ void write_fitres(char* fileName) {
 
   fprintf(fout,"# MU-RESIDUAL NOTE: MURES = MU-(MUMODEL+M0DIF) \n\n");
 
-  write_NWARN(fout);
+  write_NWARN(fout,1);
   write_MUERR_INCLUDE(fout);
 
   if ( INPUTS.cutmask_write != -9 ) { 
@@ -15276,7 +15279,7 @@ void write_fitres(char* fileName) {
 
     cutmask = INFO_DATA.TABLEVAR.CUTMASK[indx]; 
 
-    if ( cutmask ) { continue ; } // May 2016
+    // xxx mark delete 10.14.2019  if ( cutmask ) { continue ; } // May 2016
 
     // check which cutmask to allow (RK, May 2012)
     if ( keep_cutmask(cutmask) == 1 ) { 
@@ -15302,9 +15305,18 @@ void write_fitres(char* fileName) {
 } // end of write_fitres
 
 // ===============================================
-void write_NWARN(FILE *fp) {
+void write_NWARN(FILE *fp, int FLAG) {
+
+  // FLAG=0 --> MUDIF file (1 row per z bin)
+  // FLAG=1 --> FITRES file (1 row per SN)
 
   // ------------- BEGIN -------------
+
+  if ( FLAG == 1 && INPUTS.cutmask_write != 0 ) {
+    fprintf(fp,"# WARNING(MINOR): cutmask_write=%d "
+	    "(grep CUTBIT SALT2mu.c | grep define) \n", INPUTS.cutmask_write );
+    fflush(fp);
+  }
 
   if ( NWARN_MUDIFERR_EMPTY > 0 ) {
     fprintf(fp,"# WARNING(MINOR): %d z bins excluded --> MUDIFFERR = %.0f\n", 
@@ -15832,13 +15844,16 @@ int keep_cutmask(int cutmask) {
   //
 
   int ovp;
+  int cutmask_write = INPUTS.cutmask_write ;
   //  char fnam[] = "keep_cutmask" ;
 
   // ---------------- BEGIN -------------
 
   // -1 is the same as allowing all bits.
-  if (INPUTS.cutmask_write == -1 ) { return 1 ; }
+  if (cutmask_write == -1 )                { return 1 ; }
+  if (cutmask_write == 0 && cutmask == 0 ) { return 1 ; }
 
+  // check specific cut bits to keep
   ovp = ( INPUTS.cutmask_write & cutmask );
   
   if ( (cutmask - ovp) > 0 ) 

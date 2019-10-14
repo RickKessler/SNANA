@@ -7056,7 +7056,7 @@ for each filter in the last fit-iteration.
 % ------------------------------------
 %   \clearpage
    \subsubsection{Avoiding Filter Drop-outs at High PhotoZ}
-   \label{sss:fit_UVLAM_EXTRAP}
+   \label{sss:avoid_filter_dropouts}
 % ------------------------------------
 
 A potential problem with photo-$z$ fitting is that low-redshift events
@@ -7076,6 +7076,23 @@ is  linearly extrapolated to zero flux at $\lam=500$~\AA.
 The {\tt RESTLAMBDA\_FITRANGE} should be set so that all bands
 are defined at the highest allowed $\Zphot$ set by the
 {\tt PHOTOZ\_BOUND} input.
+
+
+% ------------------------------------
+   \subsubsection{4-Parameter Fit Using Host Galaxy Photo-$z$ }
+   \label{sss:zphot_host}
+% ------------------------------------
+
+To run a 4-parameter light curve fit with the host-galaxy photo-$z$
+(instead of \spec\ redshift), run {\tt snlc\_fit.exe} with
+\begin{verbatim}
+   &SNLCINP
+      USE_SNHOST_ZPHOT = T
+\end{verbatim}
+Note that this will {\it not} perform a 5-parameter photo-$z$ fit, 
+but instead uses the already determined host-galaxy photo-$z$
+as a fixed redshift in the fit. If any photo-$z$ fit flags are set
+with {\tt USE\_SNHOST\_ZPHOT=T}, the code will abort.
 
 % ------------------------------------
    \clearpage

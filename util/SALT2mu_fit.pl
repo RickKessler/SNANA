@@ -321,7 +321,7 @@ my (@NVERSION_FINAL, @VERSION_FINAL_LIST, @SPREFIX_LIST );
 my ($NROW_SUMDAT );
 
 my ($NCPU, @NJOB_PER_CPU, $MAXJOB_PER_CPU, $icpu_MAXJOBS);
-my (@CMD_PREFIX, @CMD_FILES);
+my (@CMD_PREFIX, @BATCH_NAME, @CMD_FILES);
 my (@BATCH_FILES, $NOUTFILE, @CMD_CONTENTS, @NCMDLINE_PER_CPU );
 my ($T_START, $T_END, $T_TOT, $NJOB_ABORT, $ALLDONE_FILE );
 
@@ -1631,6 +1631,8 @@ sub make_COMMANDS {
 	$cmdFile           =  "${PREFIX}.CMD" ;
 	$CMD_FILES[$icpu]  =  "${cmdFile}" ;
 
+	$BATCH_NAME[$icpu] =  "${input_file}-${suffix}";
+
 	if ( $SUBMIT_FLAG )  { qx(touch $FITSCRIPTS_DIR/$cmdFile ); }
 #	print "\t -> $cmdFile \n";
 
@@ -1722,7 +1724,8 @@ sub make_COMMANDS {
 	    my ( $script, $batchName, $batchFile, $batchLog, $JOB, $doneFile);
 
 	    $script    = $CMD_FILES[$icpu] ;
-	    $batchName = "${PREFIX}" ;
+# xxx mark delete Oct 13 2019  $batchName = "${PREFIX}" ;
+	    $batchName = "$BATCH_NAME[$icpu]";
 	    $batchFile = "${PREFIX}.BATCH" ;
 	    $batchLog  = "${PREFIX}.LOG" ;
 	    $doneFile  = "$FITSCRIPTS_DIR/${PREFIX}.DONE" ;

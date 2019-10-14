@@ -291,7 +291,8 @@ SNANA_EXECUTABLES	=		\
 	$(BIN)/SIMSED_extractSpec.exe	\
 	$(BIN)/SIMSED_check.exe		\
 	$(BIN)/SIMSED_rebin.exe		\
-	$(BIN)/simlib_coadd.exe
+	$(BIN)/simlib_coadd.exe		\
+	$(BIN)/unfold_snpar.exe
 
 # ----------------------
 # check for executables that depend explicitly on output format

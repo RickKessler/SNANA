@@ -106,9 +106,6 @@ int main(int argc, char **argv) {
   // read user input file for directions
   if ( get_user_input() != SUCCESS ) { madend(1) ; }
 
-  //  DASHBOARD_DRIVER();
-
-
   // init random number generator, and store first random.
   if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID  ) 
     { init_simRandoms();  }

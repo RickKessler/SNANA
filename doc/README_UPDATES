@@ -17506,4 +17506,9 @@
      + abort if photo-z fit and USE_SNHOST_ZPHOT=T. This combo
        causes something crazy in 2nd iteration of photo-z fit.
 
+   SALT2mu.c:
+     + new option force_pIa=xx.yy to force same pIa for each event.
+   SALT2mu_fit.pl
+     + batch name is now based on name of input file [untested->BEWARE]
+
 END: 

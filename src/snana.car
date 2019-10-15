@@ -20913,7 +20913,9 @@ c
 c OPT_FLAG = 1 --> open simlib file and write header
 c OPT_FLAG = 2 --> add next LIBID
 c OPT_FLAG = 3 --> close file
-
+c
+c Oct 15 2019: fix format for SKYSIG : 6.2f -> 7.2f
+c
       IMPLICIT NONE
 
       INTEGER OPT_FLAG ! 1=> init file, 2=> add simlib entry
@@ -21079,15 +21081,6 @@ c --------
            IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
            BAND      = FILTDEF_STRING(ifilt_obs:ifilt_obs)
 
-+SELF,IF=XXXDEL.
-c Hack for GW150914 efficiency study.
-c if no PSF info, use PSF,SKY,ZP from last valid epoch for this band.
-           if ( SNLC_PSF_SIG1(ep) <= 0.000001 ) then
-              EP = LASTEP(IFILT_OBS)
-           else
-              LASTEP(IFILT_OBS) = iep 
-           endif
-+SELF.
            if ( EP < 0 ) goto 301  ! nothing valid to print
 
            GAIN      = SNLC_GAIN(ep)
@@ -21125,7 +21118,7 @@ c Mainly for low-z sample which has no meta data.
 120        format('S: ', 
      &            F9.3, I4, 2x, A2, 2x,      ! MJD, ID, BAND
      &            F5.2, 2x, F6.2, 2x,        ! GAIN, RDNOISE
-     &            F6.2, 2x, 3(F6.2),2x,      ! SKYSIG, PSF info
+     &            F7.2, 1x, 3(F6.2),2x,      ! SKYSIG, PSF info
      &            F6.3, 2x, F5.3, 2x, F4.1   ! ZP, ZPERR, MAG
      &                )
 

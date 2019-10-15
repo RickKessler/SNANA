@@ -391,7 +391,8 @@ void wr_snfitsio_init_head(void) {
       // wr_snfitsio_addCol( "1E", "SIM_RV"            , itype );
     }
 
-    if ( SNDATA.SIM_MODEL_INDEX == MODEL_SIMSED && SNFITSIO_SIMFLAG_MODELPAR ) {
+    if ( SNDATA.SIM_MODEL_INDEX == MODEL_SIMSED && 
+	 SNFITSIO_SIMFLAG_MODELPAR ) {
       wr_snfitsio_addCol( "1E", "SIMSED_SALT2x0"  , itype );
       for ( ipar=0; ipar < SNDATA.NPAR_SIMSED; ipar++ ) {
 	sprintf(parName,"%s", SNDATA.SIMSED_KEYWORD[ipar] );
@@ -464,8 +465,10 @@ void wr_snfitsio_init_head(void) {
 
 
   // June 2017
-  sprintf(parName,"%s", "SIM_SUBSAMPLE_INDEX" );
-  wr_snfitsio_addCol( "1I", parName, itype );
+  if ( SNFITSIO_SIMFLAG_SNANA ) {
+    sprintf(parName,"%s", "SIM_SUBSAMPLE_INDEX" );
+    wr_snfitsio_addCol( "1I", parName, itype );
+  }
 
   // ----------------------
   // create header table. 
@@ -1731,7 +1734,6 @@ void wr_snfitsio_update_head(void) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SUBSAMPLE_INDEX ;
   wr_snfitsio_fillTable ( ptrColnum, parName, itype );
-  //  }
 
   // make sure that required keys exist.
   check_required_headkeys();

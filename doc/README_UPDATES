@@ -17521,4 +17521,7 @@
           PHOTFILE = 'TEST_PHOT.FITS'
        counts as 27 characters, not 14.
 
+   snana.car
+     + fix SKYSIG format for make-simlib option.
+
 END: 

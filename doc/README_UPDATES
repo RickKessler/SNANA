@@ -17440,12 +17440,15 @@
 
 
 # ======================================================================= 
-         v10_74g (  ) 
+         v10_74g (Oct 7 2019) 
 
          ***** IMPORTANT(v10_74g) ***** 
        SALT2mu_fit:
           monitor and summary tasks are launched as background job,
           so that terminal control is returned.
+
+       combine_fitres.exe
+          Uses hash table for CID matching --> much faster for large files.
 
          ***** USEFUL(v10_74g) ***** 
 
@@ -17479,5 +17482,43 @@
      for RANSEED_CHANGE option, fix bug so that LIST file has
      SNIa before NONIaMODEL ... needed by fitting codes to get 
      correct SIM_xxx names in output FITRES file.
+
+   combine_fitres.c:
+     + use hash table for cid matching using uthash.h from  
+          http://troydhanson.github.io/uthash/index.html 
+       It's way way faster for large (e.g., biasCor) files. 
+       To revert back to original slow matching method,
+          combine_fitres.exe <argList>  -matchflag 1
+       Beware of significant refactor.
+
+
+# ======================================================================= 
+         v10_74h (  ) 
+
+         ***** IMPORTANT(v10_74h) ***** 
+
+         ***** USEFUL(v10_74h) ***** 
+
+         ***** MISCELLANEOUS(v10_74h) ***** 
+
+   snlc_fit.car: 
+     + MXFIT_DATA=1000 -> 1500. Program size = 314 MB -> 335 MB.
+     + abort if photo-z fit and USE_SNHOST_ZPHOT=T. This combo
+       causes something crazy in 2nd iteration of photo-z fit.
+
+   SALT2mu.c:
+     + new option force_pIa=xx.yy to force same pIa for each event.
+     + in M0DIF file, write warnings for MUDIFERR=0
+     + fix bug using cutmask_write=-1
+
+   SALT2mu_fit.pl
+     + batch name is now based on name of input file [untested->BEWARE]
+
+   snlc_sim.c, sndata.h
+     + new parameter MXLEN_VERSION_PREFIX 52 to prevent GENPREFIX
+       exceeding FITS key bound. Note that FITS header keys have
+       80 char bound that includes key name and quotes. E.g.,
+          PHOTFILE = 'TEST_PHOT.FITS'
+       counts as 27 characters, not 14.
 
 END: 

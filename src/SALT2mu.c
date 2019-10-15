@@ -80,6 +80,7 @@ simfile_ccprior=H11   --> no sim; use CC MU-z function from Hlozek 2011
           1D biasCor + ccprior --> abort.
 
 varname_pIa=name of fitres param containing Prob_Ia
+force_pIa=forced value of Prob_Ia for every event
 
 maxprobcc_for_sigint --> compute sigInt from chi2=Ndof for 
                          this Ia-like subset
@@ -131,6 +132,7 @@ CUTWIN(DATAONLY) LOGMASS  5 12   ! cut on data only (not on biasCor)
 
 chi2max  = chi2-outlier cut applied before fit. Beware that initial
            and final chi2 can differ, so allow slop in the cut.
+           = -2log10(ProbIa_BEAMS + ProbCC_BEAMS); see Eq 6 of BBC paper
 
 cutmask_write=[allowed errcode mask to write output fitres]
 cutmask_write=-1  -> write everything
@@ -650,6 +652,15 @@ Default output files (can change names with "prefix" argument)
  Sep 29 2019: u13=2 --> scalePCC is switched to scalePIa as in Eq 4 of H11.
                 (https://arxiv.org/abs/1111.5328)
 
+ Oct 13 2019:
+   +  new option force_pIa=xx.yy
+   +  in write_MUERR_INCLUDE(), include hash for comment line so that
+      it's easier to parse with python.
+   +  if MUDIFERR=0, write MUDIFERR_ZERO = 666. Also write
+      WARNING lines in FITRES and M0DIF files (for MUDIFERR=0)
+   + fix bug implementing cutmask_write
+   + if cutmask_write!=0, add WARNING message to FITRES file.
+
 ******************************************************/
 
 #include <stdio.h>      
@@ -727,6 +738,12 @@ char STRING_EVENT_TYPE[MXEVENT_TYPE][12] =
 #define IFLAG_DUPLICATE_ABORT  1
 #define IFLAG_DUPLICATE_AVG    2  // use weighted avg of SALT2 fit par.
 #define MXSTORE_DUPLICATE     20  // always abort if more than this many
+
+#define MUDIFERR_EMPTY 999.0   // if no events in bin, set error to 999
+#define MUDIFERR_ZERO  666.0   // if MUDIFFERR=0, set to 666
+int NWARN_MUDIFERR_ZERO ;
+int NWARN_MUDIFERR_EMPTY ;
+
 
 char PATH_SNDATA_ROOT[MXPATHLEN];
 
@@ -837,6 +854,7 @@ int  *NALL_CUTMASK_POINTER[MXEVENT_TYPE];
 int  *NPASS_CUTMASK_POINTER[MXEVENT_TYPE];
 int  *NREJECT_CUTMASK_POINTER[MXEVENT_TYPE];
 int  NWARN_CUTMASK[MXEVENT_TYPE]; // refactor test warnings
+
 
 int MAXSN ;
 int NJOB_SPLITRAN; // number of random split-jobs
@@ -1205,7 +1223,8 @@ struct INPUTS {
   // ----------
   int  nfile_CCprior;
   char **simFile_CCprior;    // to get CC prior, dMU vs. z
-  char varname_pIa[100];
+  char   varname_pIa[100];
+  double force_pIa;
   int  typeIa_ccprior ;       // PCC=0 for this sntype
   double maxProbCC_for_sigint;  // max P_CC/ProbIa to sum chi2_1a
 
@@ -1652,6 +1671,7 @@ void  print_eventStats(int event_type);
 void  outFile_driver(void);
 void  write_M0(char *fileName);
 void  write_MUERR_INCLUDE(FILE *fp) ;
+void  write_NWARN(FILE *fp, int FLAG) ;
 
 int   SPLITRAN_ACCEPT(int isn, int snid);
 void  SPLITRAN_cutmask(void);
@@ -3329,7 +3349,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
       }
       Prob_CC   = PTOT_CC * dPdmu_CC ;
 
-      Prob_SUM  = Prob_Ia + Prob_CC ; // BEAMS prob
+      Prob_SUM  = Prob_Ia + Prob_CC ; // BEAMS prob in Eq. 6 of BBC paper
 
       // xxxxxxxxxxxxxxxxxxx
       if ( DUMPFLAG ) {
@@ -4137,6 +4157,7 @@ void set_defaults(void) {
   // stuff for CC prior
   INPUTS.nfile_CCprior  = 0 ;
   INPUTS.varname_pIa[0] = 0 ;
+  INPUTS.force_pIa      = -9.0;
   INPUTS.maxProbCC_for_sigint = 0.2 ;
   INPUTS.typeIa_ccprior       = -9  ;
 
@@ -4364,7 +4385,6 @@ void read_data(void) {
 
    sprintf(BANNER,"%s", fnam);
    print_banner(BANNER);   
-
 
    // read each file quickly to get total size of arrays to malloc
    NEVT_TOT = 0 ;
@@ -5484,6 +5504,9 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
       TABLEVAR->zhd[ISN]     = TABLEVAR->SIM_ZCMB[ISN];
       TABLEVAR->zhderr[ISN]  = 1.0E-7;
     }
+
+    if ( INPUTS.force_pIa >= 0.0 ) 
+      { TABLEVAR->pIa[ISN] = INPUTS.force_pIa; } 
 
     // check option for z-dependent intrinsic COVMAT
     load_ZPOLY_COVMAT(IDSURVEY,zhd);
@@ -11512,7 +11535,8 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
 
   
   // repeat for binning vs. xhisto
-  ibin = IBINFUN(xhisto, &CONTAM_INFO->BININFO, 1, fnam );
+  // xxx mark delete  ibin = IBINFUN(xhisto, &CONTAM_INFO->BININFO, 1, fnam );
+  ibin = IBINFUN(xhisto, &CONTAM_INFO->BININFO, 2, fnam );
   CONTAM_INFO->sumProb_Ia[ibin] += Prob_Ia ;
   CONTAM_INFO->sumProb_cc[ibin] += Prob_CC ;
   sum_Ia = CONTAM_INFO->sumProb_Ia[ibin];
@@ -11522,7 +11546,6 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
 
   
   // - - - - - - SUM TRUTH for SIM DATA - - - - - 
-  // .xyz
   if ( IS_SIM ) {    
     if ( SIM_NONIA_INDEX == 0 ) {
       CONTAM_INFO->NTRUE_TOT_IA++ ;
@@ -12551,6 +12574,9 @@ int ppar(char* item) {
     sscanf(&item[12],"%s",s); remove_quote(s);
     return(1);
   }
+
+  if ( uniqueOverlap(item,"force_pIa=")  ) 
+    { sscanf(&item[10],"%le", &INPUTS.force_pIa); return(1);  }
 
   if ( uniqueOverlap(item,"typeIa_ccprior=") ) 
     { sscanf(&item[15],"%d", &INPUTS.typeIa_ccprior); return(1); } 
@@ -14070,6 +14096,10 @@ void prep_input(void) {
   }
 
 
+  if ( INPUTS.force_pIa >= 0.0 ) 
+    { printf(" force_pIa = %.3f \n", INPUTS.force_pIa ); }
+
+
   // if there is no user-defined selection of fit params,
   // then float everything. Otherwise stick with user choices.
   if ( USE_CCPRIOR_H11 ) {
@@ -14733,6 +14763,7 @@ void  write_M0(char *fileName) {
   // Jun 27 2017: REFACTOR z bins
   // Mar 26 2018: write MUREF column (NVAR->8)
   //
+  // Oct 13 2019: check bad bins to write MUDIFERR_ZERO[EMPTY]
 
   int iz, NVAR, irow, NFIT ;
   double z, zMIN, zMAX, VAL, ERR, dl, MUREF;
@@ -14775,6 +14806,7 @@ void  write_M0(char *fileName) {
   // write blindFlag info (Mar 1 2017)
   if ( INPUTS.blindFlag > 0 && ISDATA ) { write_blindFlag_message(fp); }
 
+  write_NWARN(fp,0);
   write_MUERR_INCLUDE(fp);
 
   NVAR=8 ;
@@ -14800,14 +14832,19 @@ void  write_M0(char *fileName) {
 
     dl    = cosmodl_forFit(z, INPUTS.COSPAR) ;
     MUREF = 5.0*log10(dl) + 25.0 ;
-    //    MUREF = 33.33 ;
     NFIT = FITINP.NZBIN_FIT[iz] ;
 
+    /* xxx mark delete Oct 13 2019 xxxxxxxxxxx
     if ( VAL == 0.0 && ERR == 0.0 )
-      { ERR = 999.0 ; }
+      { ERR = MUDIFERR_EMPTY ; }
+
+    if ( ERR == 0.0 )
+      { ERR = MUDIFERR_ZERO ; }
+
     if ( FITINP.ISFLOAT_z[iz] == 0 )
-      { VAL=0.0 ; ERR=999.0;  }
-    
+      { VAL=0.0 ; ERR=MUDIFERR_EMPTY;  }
+    xxxxxxx  */
+
     fprintf(fp, "ROW:     "
 	    "%2d  %7.4f %7.4f %7.4f  "
 	    "%9.4f %9.4f  %.4f %4d\n",
@@ -15068,6 +15105,7 @@ void write_fitres(char* fileName) {
 
   fprintf(fout,"# MU-RESIDUAL NOTE: MURES = MU-(MUMODEL+M0DIF) \n\n");
 
+  write_NWARN(fout,1);
   write_MUERR_INCLUDE(fout);
 
   if ( INPUTS.cutmask_write != -9 ) { 
@@ -15241,7 +15279,7 @@ void write_fitres(char* fileName) {
 
     cutmask = INFO_DATA.TABLEVAR.CUTMASK[indx]; 
 
-    if ( cutmask ) { continue ; } // May 2016
+    // xxx mark delete 10.14.2019  if ( cutmask ) { continue ; } // May 2016
 
     // check which cutmask to allow (RK, May 2012)
     if ( keep_cutmask(cutmask) == 1 ) { 
@@ -15266,6 +15304,36 @@ void write_fitres(char* fileName) {
 
 } // end of write_fitres
 
+// ===============================================
+void write_NWARN(FILE *fp, int FLAG) {
+
+  // FLAG=0 --> MUDIF file (1 row per z bin)
+  // FLAG=1 --> FITRES file (1 row per SN)
+
+  // ------------- BEGIN -------------
+
+  if ( FLAG == 1 && INPUTS.cutmask_write != 0 ) {
+    fprintf(fp,"# WARNING(MINOR): cutmask_write=%d "
+	    "(grep CUTBIT SALT2mu.c | grep define) \n", INPUTS.cutmask_write );
+    fflush(fp);
+  }
+
+  if ( NWARN_MUDIFERR_EMPTY > 0 ) {
+    fprintf(fp,"# WARNING(MINOR): %d z bins excluded --> MUDIFFERR = %.0f\n", 
+	    NWARN_MUDIFERR_EMPTY, MUDIFERR_EMPTY );
+    fflush(fp);
+  }
+
+
+  if ( NWARN_MUDIFERR_ZERO > 0 ) {
+    fprintf(fp,"# WARNING(SEVERE): %d z bins have MUDIFFERR = 0 --> %.0f\n", 
+	    NWARN_MUDIFERR_ZERO, MUDIFERR_ZERO );
+    fflush(fp);
+  }
+
+  return ;
+
+} // end write_NWARN
 
 // ===============================================
 void write_MUERR_INCLUDE(FILE *fp) {
@@ -15275,6 +15343,8 @@ void write_MUERR_INCLUDE(FILE *fp) {
   // so that cosmology fitting program knows if/what
   // is already included in MUERR. Should help avoid
   // double-counting MUERR contributions.
+  //
+  // Oct 13 2019: write hash to make comment field
 
   int USE=0;
   double tmpErr;
@@ -15282,19 +15352,17 @@ void write_MUERR_INCLUDE(FILE *fp) {
 
   // --------------- BEGIN ----------------
 
-  fprintf(fp,"\n");
-
-  fprintf(fp, "MUERR_INCLUDE: zERR \n" );  USE=1;
+  fprintf(fp, "# MUERR_INCLUDE: zERR \n" );  USE=1;
 
   tmpErr = INPUTS.zpecerr ;
   if ( tmpErr > 0.0 ) {
-    fprintf(fp, "MUERR_INCLUDE: zPECERR=%.4f \n", tmpErr );
+    fprintf(fp, "# MUERR_INCLUDE: zPECERR=%.4f \n", tmpErr );
     USE=1;
   }
 
   tmpErr = INPUTS.lensing_zpar;
   if ( tmpErr > 0.0 ) {
-    fprintf(fp, "MUERR_INCLUDE: SIGMA_LENS=%4f*z \n", tmpErr );
+    fprintf(fp, "# MUERR_INCLUDE: SIGMA_LENS=%4f*z \n", tmpErr );
     USE=1;
   }
 
@@ -15674,9 +15742,14 @@ void  M0dif_calc(void) {
   // Note that iz-index is sparse index from 0 to NZUSE-1
   //
   // Jun 27 2017: REFACTOR z bins
+  // Oct 13 2019: if MUDIFERR=0, set to 999 or 666 and increment NWARN
 
   int iz, n;
   double VAL, ERR;
+
+  // --------------- BEGIN --------------
+  NWARN_MUDIFERR_ZERO   = 0 ;
+  NWARN_MUDIFERR_EMPTY  = 0 ;
 
   for ( n=MXCOSPAR ; n < FITINP.NFITPAR_ALL ; n++ ) {
 
@@ -15688,8 +15761,15 @@ void  M0dif_calc(void) {
     VAL += BLIND_OFFSET(n);
 
     iz  = INPUTS.izpar[n] ; 
+
+    if ( FITINP.ISFLOAT_z[iz] == 0 )
+      { VAL=0.0 ; ERR=MUDIFERR_EMPTY;  NWARN_MUDIFERR_EMPTY++; }
+    else if ( ERR < 1.0E-12 )
+      { ERR = MUDIFERR_ZERO ; NWARN_MUDIFERR_ZERO++; }
+
     FITRESULT.M0DIF[iz] = VAL ;
     FITRESULT.M0ERR[iz] = ERR ;
+
   }
 
 } // end M0dif_calc
@@ -15764,13 +15844,16 @@ int keep_cutmask(int cutmask) {
   //
 
   int ovp;
+  int cutmask_write = INPUTS.cutmask_write ;
   //  char fnam[] = "keep_cutmask" ;
 
   // ---------------- BEGIN -------------
 
   // -1 is the same as allowing all bits.
-  if (INPUTS.cutmask_write == -1 ) { return 1 ; }
+  if (cutmask_write == -1 )                { return 1 ; }
+  if (cutmask_write == 0 && cutmask == 0 ) { return 1 ; }
 
+  // check specific cut bits to keep
   ovp = ( INPUTS.cutmask_write & cutmask );
   
   if ( (cutmask - ovp) > 0 ) 

@@ -247,6 +247,8 @@
 #     return unix control. No more "hanging" until it's done,
 #     and no more need to pipe stdout to get back control.
 #
+# Oct 4 2019: if OUTDIR_OVERRIDE has no slash, append LAUNCH_DIR
+#
 # ------------------------------------------------------
 
 use IO::Handle ;
@@ -319,7 +321,7 @@ my (@NVERSION_FINAL, @VERSION_FINAL_LIST, @SPREFIX_LIST );
 my ($NROW_SUMDAT );
 
 my ($NCPU, @NJOB_PER_CPU, $MAXJOB_PER_CPU, $icpu_MAXJOBS);
-my (@CMD_PREFIX, @CMD_FILES);
+my (@CMD_PREFIX, @BATCH_NAME, @CMD_FILES);
 my (@BATCH_FILES, $NOUTFILE, @CMD_CONTENTS, @NCMDLINE_PER_CPU );
 my ($T_START, $T_END, $T_TOT, $NJOB_ABORT, $ALLDONE_FILE );
 
@@ -622,6 +624,11 @@ sub parse_inpFile {
     if ( scalar(@tmp) > 0 ) { 
 	$OUTDIR_OVERRIDE = qx(echo $tmp[0]); # allow for ENV
 	$OUTDIR_OVERRIDE =~ s/\s+$// ;   # trim trailing whitespace
+
+	if ( index($OUTDIR_OVERRIDE,'/') < 0 ) 
+	{ $OUTDIR_OVERRIDE = "$LAUNCH_DIR/$OUTDIR_OVERRIDE"; }
+
+	print " OUTDIR_OVERRIDE: $OUTDIR_OVERRIDE \n";
     }
 
     $key = "OUTDIR_PREFIX:" ;
@@ -1177,6 +1184,7 @@ sub makeSumDir_SALT2mu {
     else 
     { $OUTDIR  = "$TOPDIR/$SDIR_SUM" ; }
 
+
     # - - - - - - - - - - - - - - - - - - -     
 
  MAKEDIR:
@@ -1623,6 +1631,8 @@ sub make_COMMANDS {
 	$cmdFile           =  "${PREFIX}.CMD" ;
 	$CMD_FILES[$icpu]  =  "${cmdFile}" ;
 
+	$BATCH_NAME[$icpu] =  "${input_file}-${suffix}";
+
 	if ( $SUBMIT_FLAG )  { qx(touch $FITSCRIPTS_DIR/$cmdFile ); }
 #	print "\t -> $cmdFile \n";
 
@@ -1714,7 +1724,8 @@ sub make_COMMANDS {
 	    my ( $script, $batchName, $batchFile, $batchLog, $JOB, $doneFile);
 
 	    $script    = $CMD_FILES[$icpu] ;
-	    $batchName = "${PREFIX}" ;
+# xxx mark delete Oct 13 2019  $batchName = "${PREFIX}" ;
+	    $batchName = "$BATCH_NAME[$icpu]";
 	    $batchFile = "${PREFIX}.BATCH" ;
 	    $batchLog  = "${PREFIX}.LOG" ;
 	    $doneFile  = "$FITSCRIPTS_DIR/${PREFIX}.DONE" ;

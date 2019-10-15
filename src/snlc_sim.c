@@ -106,9 +106,6 @@ int main(int argc, char **argv) {
   // read user input file for directions
   if ( get_user_input() != SUCCESS ) { madend(1) ; }
 
-  //  DASHBOARD_DRIVER();
-
-
   // init random number generator, and store first random.
   if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID  ) 
     { init_simRandoms();  }
@@ -6868,9 +6865,9 @@ void prep_simpath(void) {
   lensuffix  = 7 ;      // e.g., '.README'
   lenfile    = lenpath + lenprefix + lensuffix ; 
 
-  if ( lenprefix >= MXVERLEN ) {
+  if ( lenprefix >= MXLEN_VERSION_PREFIX ) {
     sprintf(c1err,"GENPREFIX string len = %d exceeds array bound of %d",
-	    lenprefix, MXVERLEN);
+	    lenprefix, MXLEN_VERSION_PREFIX);
     sprintf(c2err,"See input GENPREFIX: %s", INPUTS.GENPREFIX);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }

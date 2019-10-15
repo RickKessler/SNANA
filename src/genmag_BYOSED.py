@@ -27,13 +27,11 @@ def print_err():
 /^^^^^^^^^^^^^^/  __/
 \________________/
 				""")
-	raise RuntimeError(e)
+	raise RuntimeError
 
 
 class genmag_BYOSED:
-		print('what')
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
-			print('hello')
 			#print('LIST: ',OPTMASK)
 			#print('HOST_PARAM_NAMES: ',HOST_PARAM_NAMES)
 			# TODO: write a print statement that warns if
@@ -83,6 +81,10 @@ class genmag_BYOSED:
 
 				fluxarr = flux.reshape([len(np.unique(phase)),len(np.unique(wave))])
 				self.x0=10**(.4*19.365)
+				if self.options.magsmear!=0.0:
+					self.magsmear = np.random.normal(0,self.options.magsmear)
+				else:
+					self.magsmear = 0.0
 				self.flux = fluxarr*self.x0
 
 				self.phase = np.unique(phase)
@@ -151,7 +153,7 @@ class genmag_BYOSED:
 
 				if 'SN_FUNCTION' in warp_data:
 					if 'DIST' in ' '.join([x for x in warp_data.keys() if 'SN' in x or 'SCALE' in x]):
-						distribution=get_distribution(warp,{k:warp_data[k] for k in warp_data.keys() if 'SN' in k or 'SCALE' in k},self.PATH_VERSION,'SN')
+						distribution=_get_distribution(warp,{k:warp_data[k] for k in warp_data.keys() if 'SN' in k or 'SCALE' in k},self.PATH_VERSION,'SN')
 					else:
 						raise RuntimeError("Did not supply scale distribution information for SN effect %s."%warp)
 
@@ -161,7 +163,7 @@ class genmag_BYOSED:
 					else:
 						scale_factor=warp_data['SN_FUNCTION_SCALE']
 					try:
-						sn_param_names,sn_function=read_ND_grids(os.path.expandvars(os.path.join(self.PATH_VERSION,str(warp_data['SN_FUNCTION']))),scale_factor)
+						sn_param_names,sn_function=_read_ND_grids(os.path.expandvars(os.path.join(self.PATH_VERSION,str(warp_data['SN_FUNCTION']))),scale_factor)
 					except RuntimeError:
 						raise RuntimeError("Do not recognize format of function for %s SN Function"%warp)
 					if warp.upper() in sn_param_names and 'PARAM' not in distribution.keys():
@@ -182,11 +184,11 @@ class genmag_BYOSED:
 
 				if 'HOST_FUNCTION' in warp_data:
 					if 'DIST' in ' '.join([x for x in warp_data.keys() if 'HOST' in x or 'SCALE' in x]):
-						distribution=get_distribution(warp,{k:warp_data[k] for k in warp_data.keys() if 'HOST' in k or 'SCALE' in k},self.PATH_VERSION,'HOST')
+						distribution=_get_distribution(warp,{k:warp_data[k] for k in warp_data.keys() if 'HOST' in k or 'SCALE' in k},self.PATH_VERSION,'HOST')
 					else:
 						raise RuntimeError("Did not supply scale distribution information for HOST effect %s."%warp)
 					try:
-						host_param_names,host_function=read_ND_grids(os.path.expandvars(os.path.join(self.PATH_VERSION,str(warp_data['HOST_FUNCTION']))))
+						host_param_names,host_function=_read_ND_grids(os.path.expandvars(os.path.join(self.PATH_VERSION,str(warp_data['HOST_FUNCTION']))))
 					except RuntimeError:
 						raise RuntimeError("Do not recognize format of function for %s HOST Function"%warp)
 
@@ -233,8 +235,11 @@ class genmag_BYOSED:
 				self.sn_id=external_id
 			fluxsmear=self.sedInterp(trest,self.wave).flatten()
 			orig_fluxsmear=copy(fluxsmear)
-			if self.options.magsmear!=0.0:
-				fluxsmear *= 10**(0.4*(np.random.normal(0,self.options.magsmear)))
+			if self.options.magsmear!=0.0 and (self.sn_id!=external_id or self.magsmear is None):
+				self.magsmear=np.random.normal(0,self.options.magsmear)
+			else:
+				self.magsmear=0.0
+			fluxsmear *= 10**(-0.4*(self.magsmear))
 
 			trest_arr=trest*np.ones(len(self.wave))
 
@@ -295,12 +300,14 @@ class genmag_BYOSED:
 			
 	
 		def fetchParNames_BYOSED(self):
-				return list(self.warp_effects)
+				return list(np.append(self.warp_effects,['lum']))
 
 		def fetchNParNames_BYOSED(self):
-				return len(self.warp_effects)
+				return len(self.warp_effects)+1
 
 		def fetchParVals_BYOSED_4SNANA(self,varname):
+				if varname=='lum':
+					return self.x0*(10**(-0.4*self.magsmear))
 				if varname in self.sn_effects.keys():
 					if self.sn_effects[varname].warp_parameter is not None:
 						return self.sn_effects[varname].warp_parameter
@@ -346,7 +353,7 @@ class skewed_normal(rv_continuous):
 		def _argcheck(self,*args):
 				return True
 
-class warpModel(object):
+class WarpModel(object):
 	"""Base class for anything with parameters.
 
 	Derived classes must have properties ``_param_names`` (list of str)
@@ -579,7 +586,8 @@ def main():
 		mySED=genmag_BYOSED('$WFIRST_ROOT/BYOSED_dev/BYOSEDINPUT/',2,[],'HOST_MASS,SFR,AGE,REDSHIFT,METALLICITY')
 
 		#print(mySED.fetchParNames_BYOSED())
-		#mySED.fetchSED_BYOSED(0,5000,3,2,[2.5,1,1,.5])
+		mySED.fetchSED_BYOSED(0,5000,3,2,[2.5,1,1,.5])
+		sys.exit()
 
 
 

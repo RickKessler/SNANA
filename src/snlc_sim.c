@@ -11656,6 +11656,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   // Mar 01 2017: allow AV & RV for SIMSED model.
   // Mar 14 2017: tack on TAKE_SPECTRUM info
   // mar 28 2017: add IDSURVEY
+  // Oct 16 2019: move MAGSMEAR_COH after SKIP1 
 
   int i, ifilt, ifilt_obs, ifilt_rest, ipar, imap, ivar, NTMP ;
   char *cptr ;
@@ -12158,11 +12159,6 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
 
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"MAGSMEAR_COH") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.MAGSMEAR_COH ;
-  NVAR_SIMGEN_DUMP++ ;
-
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"SALT2gammaDM") ;
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2gammaDM ;
   NVAR_SIMGEN_DUMP++ ;
@@ -12200,6 +12196,11 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
 
  SKIP1:
   
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"MAGSMEAR_COH") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.MAGSMEAR_COH ;
+  NVAR_SIMGEN_DUMP++ ;
+
   // typings
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GENTYPE") ;

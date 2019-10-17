@@ -1360,8 +1360,9 @@ char FITPARNAMES_DEFAULT[MXCOSPAR][20] = {
 
 
 // define alpha & beta bound for fit and for biasCor extrapolation
-double FITPARBOUND_ALPHA[2] = { 0.02, 0.30 } ;
-double FITPARBOUND_BETA[2]  = { 1.00, 6.00 } ;
+double FITPARBOUND_ALPHA[2] = {  0.02, 0.30 } ;
+double FITPARBOUND_BETA[2]  = {  1.00, 6.00 } ;
+double FITPARBOUND_GAMMA[2] = { -0.50, 0.50 } ;
 
 int IPAR_ALPHA0, IPAR_BETA0, IPAR_GAMMA0, IPAR_GAMMA1;
 int IPAR_LOGMASS_CEN, IPAR_LOGMASS_TAU ;
@@ -4257,13 +4258,15 @@ void set_defaults(void) {
   double a1 = FITPARBOUND_ALPHA[1];
   double b0 = FITPARBOUND_BETA[0];
   double b1 = FITPARBOUND_BETA[1];
+  double g0 = FITPARBOUND_GAMMA[0];
+  double g1 = FITPARBOUND_GAMMA[1];
 
   //         ipar  val   step   bnd0  bnd1 float
   set_fitPar(  1,  0.13, 0.01,  a0,   a1,    1 ); // alpha
   set_fitPar(  2,  3.20, 0.30,  b0,   b1,    1 ); // beta
   set_fitPar(  3,  0.0,  0.02, -0.50, 0.50,  0 ); // dAlpha/dz
   set_fitPar(  4,  0.0,  0.10, -3.00, 3.00,  0 ); // dBeta/dz
-  set_fitPar(  5,  0.0,  0.01, -0.1,  0.50,  0 ); // gamma0
+  set_fitPar(  5,  0.0,  0.01,  g0,   g1,    0 ); // gamma0
   set_fitPar(  6,  0.0,  0.01, -2.00, 2.00,  0 ); // gamma1
   set_fitPar(  7, 10.0,  0.10,  9.00,11.00,  0 ); // logmass_cen
   set_fitPar(  8,  0.02, 0.01,  0.001,1.00,  0 ); // logmass_tau

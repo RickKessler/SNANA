@@ -1,6 +1,7 @@
 // sntools_genSmear.h
 //
 // Mar 30 2018: MXLAM_GENSMEAR_SALT2 --> 4000 (was 1000)
+// Oct 18 2019: add COV model
 
 void  init_genSmear_FLAGS(double SCALE); // set flags to zero
 int   istat_genSmear(void) ;
@@ -20,6 +21,7 @@ void  init_genSmear_CCM89(double *LAMRANGE) ;
 void  init_genSmear_COH(void) ;
 void  init_genSmear_biModalUV(void) ;
 void  init_genSmear_OIR(void);
+void  init_genSmear_COV(int OPTMASK, char *covFileName);
 
 void  init_genSmear_private(void) ;
 
@@ -69,6 +71,9 @@ void  get_genSmear_biModalUV(double Trest, int NLam, double *Lam,
 void  get_genSmear_OIR(double Trest, int NLam, double *Lam, 
 		       double *magSmear ) ;
 
+void  get_genSmear_COV(double Trest, int NLam, double *Lam, 
+		       double *magSmear ) ;
+
 void  get_genSmear_private(double Trest, int NLam, double *Lam, 
 			   double *magSmear ) ;
 
@@ -84,7 +89,7 @@ void genSmear_nodes(int NBAND, double *LAMCEN,
 
 // ============= GLOBALS ================
 
-#define MXRAN_GENSMEAR  100  // same as MXFILTINDX
+#define MXRAN_GENSMEAR  500  // 100->500 Oct 18 2019
 
 // define central wavelength for commonly used Bessell filters 
 #define LAMCEN_FILT_v   2500.0
@@ -175,9 +180,14 @@ struct GENSMEAR_C11 {
 
 
 struct GENSMEAR_OIR {
-
   int USE ;
 } GENSMEAR_OIR;
+
+struct GENSMEAR_COV {
+  int USE ;
+  int OPTMASK;
+} GENSMEAR_COV;
+
 
 // ------------- CCM89 struct ---------------
 struct GENSMEAR_CCM89 {

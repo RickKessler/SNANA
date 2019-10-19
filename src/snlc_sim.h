@@ -983,8 +983,8 @@ struct GENLC {
   // GENSMEAR refers to intrinsic scatter models
   double  MAGSMEAR_COH;              // coherent part of scatter
   double  GENSMEAR_RANGauss_FILTER[MXFILTINDX+1]  ;  // filter smear
-  double  GENSMEAR_RANGauss_MODEL[MXFILTINDX+1]  ;   // model smear
-  double  GENSMEAR_RANFlat_MODEL[MXFILTINDX+1]  ;    //  model smear
+  double *GENSMEAR_RANGauss_MODEL  ;   // model smear
+  double *GENSMEAR_RANFlat_MODEL  ;    // model smear
   int     NRANGauss_GENSMEAR ;  
   int     NRANFlat_GENSMEAR ;  
 

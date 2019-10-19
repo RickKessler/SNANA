@@ -2057,7 +2057,6 @@ int read_input(char *input_file) {
       split2floats(ctmp, comma, INPUTS.GENMAG_SMEAR );
       continue ;
     }
-    //xxx mark delete   readfloat ( fp, 1, &INPUTS.GENMAG_SMEAR ); continue ; }
 
 
     if ( uniqueMatch(c_get,"GENMAG_SMEAR_USRFUN:")  ) { 
@@ -3317,13 +3316,14 @@ int parse_input_KEY_PLUS_FILTER(FILE *fp, int *iArg,
 void parse_GENMAG_SMEAR_MODELNAME(void) {
 
   // Split GENMAG_SMEAR_MODELSTRING by colon;
-  // store right side of colin in MODELARG.
+  // store right side of colin in GENMAG_SMEAR_MODELARG.
 
   int  MEMC = MXCHAR_FILENAME * sizeof(char) ;
   char colon[] = ":" ;
   int  NSPLIT ;
   char *inString, *ptrSplit[2];
   char fnam[] = "parse_GENMAG_SMEAR_MODELNAME" ;
+
   // -------------- BEGIN -----------------
 
   inString    = (char*) malloc(MEMC);
@@ -8039,7 +8039,7 @@ void init_modelSmear(void) {
 
   double GENMODEL_ERRSCALE = (double)INPUTS.GENMODEL_ERRSCALE ;
   double SMEAR_SCALE       = (double)INPUTS.GENMAG_SMEAR_SCALE;
-  int    OPT, j, USE_SALT2smear ;
+  int    OPT, j, USE_SALT2smear, MEMD, NRANGauss=0, NRANFlat=0 ;
   double LAMRANGE[2], SIGCOH,  PARLIST_SETPKMJD[10];
   char *ptrName, key[40], NAM3[8]; 
   char MODELPATH_SALT2[MXPATHLEN];
@@ -8049,7 +8049,6 @@ void init_modelSmear(void) {
 
   GENLC.NRANGauss_GENSMEAR = 0 ;
   GENLC.NRANFlat_GENSMEAR  = 0 ;
-
 
   sprintf(BANNER,"%s: init intrinsic SN smearing with model=%s",
 	  fnam, INPUTS.GENMAG_SMEAR_MODELNAME);
@@ -8082,7 +8081,7 @@ void init_modelSmear(void) {
 
   sprintf(key,"GENMAG_SMEAR_MODELNAME") ;
   ptrName = INPUTS.GENMAG_SMEAR_MODELNAME ;
-  if ( IGNOREFILE(ptrName) ) { goto INIT_SETPKMJD ; }
+  if ( IGNOREFILE(ptrName) ) { goto SKIP_GENSMEAR ; }
 
   INPUTS.DO_MODELSMEAR  = 1 ;
 
@@ -8113,15 +8112,14 @@ void init_modelSmear(void) {
     if ( strstr(ptrName,"G10FUDGE") != NULL ) 
       {   SIGCOH  = INPUTS.GENMAG_SMEAR_USRFUN[0] ; }
     
-    if ( INDEX_GENMODEL==MODEL_SALT2 ) 
+    if ( INDEX_GENMODEL == MODEL_SALT2 ) 
       { sprintf(MODELPATH_SALT2,"%s", INPUTS.MODELPATH ); }
-    else
+    else if ( INDEX_GENMODEL == MODEL_BYOSED ) 
       { sprintf(MODELPATH_SALT2,"%s",INPUTS.GENMAG_SMEAR_MODELARG);} //BYOSED
     
     /*
     printf(" xxx MODELNAME='%s' USE=%d  SIGCOH=%f \n",
 	   ptrName, USE_SALT2smear, SIGCOH);  debugexit(fnam);   */
-
   }
   else {
     // just guess with safety margin.
@@ -8178,6 +8176,12 @@ void init_modelSmear(void) {
   else if ( strcmp(ptrName,"BIMODAL_UV") == 0 ) 
     {  init_genSmear_biModalUV() ; }
 
+  else if ( strcmp(ptrName,"OIR") == 0 ) 
+    {  init_genSmear_OIR() ; }
+
+  else if ( strcmp(ptrName,"COV") == 0 ) 
+    {  init_genSmear_COV(0,INPUTS.GENMAG_SMEAR_MODELARG) ; }
+
   else if ( strcmp(ptrName,"PRIVATE") == 0 ) 
     {  init_genSmear_private() ; }
 
@@ -8190,24 +8194,27 @@ void init_modelSmear(void) {
 
   // fetch & store number of randoms to generate for each SN.
 
-  int *NG = &GENLC.NRANGauss_GENSMEAR ;
-  int *NF = &GENLC.NRANFlat_GENSMEAR ;
+  get_NRAN_genSmear(&GENLC.NRANGauss_GENSMEAR,&GENLC.NRANFlat_GENSMEAR);
+  NRANGauss = GENLC.NRANGauss_GENSMEAR;
+  NRANFlat  = GENLC.NRANFlat_GENSMEAR ;
 
-  get_NRAN_genSmear(NG, NF); // returns NG and NF    
-
-  if ( *NG > MXFILTINDX ) {
-    sprintf(c1err, "NRANGauss=%d exceeds bound of %d", *NG, MXFILTINDX);
+  if ( NRANGauss >= MXRAN_GENSMEAR ) {
+    sprintf(c1err, "NRANGauss=%d exceeds bound of %d", 
+	    NRANGauss, MXRAN_GENSMEAR);
     sprintf(c2err, "Check %s and its parameters.", ptrName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
-  if ( *NF > MXFILTINDX ) {
-    sprintf(c1err, "NRANFlat=%d exceeds bound of %d", *NF, MXFILTINDX);
+  if ( NRANFlat >= MXRAN_GENSMEAR ) {
+    sprintf(c1err, "NRANFlat=%d exceeds bound of %d", 
+	    NRANFlat, MXRAN_GENSMEAR );
     sprintf(c2err, "Check %s and its parameters.", ptrName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
-  
-  printf("   Number of %s Gaussian  randoms per SN: %d \n",  ptrName, *NG);
-  printf("   Number of %s Flat(0-1) randoms per SN: %d \n",  ptrName, *NF);
+
+  printf("   Number of %s Gaussian  randoms per SN: %d \n",  
+	 ptrName, NRANGauss);
+  printf("   Number of %s Flat(0-1) randoms per SN: %d \n",  
+	 ptrName, NRANFlat);
   printf("   MagSmear scale: %.3f \n", SMEAR_SCALE);
   fflush(stdout);
 
@@ -8219,9 +8226,18 @@ void init_modelSmear(void) {
     //    dump_modelSmearSigma();
   }
 
+ SKIP_GENSMEAR:
   
+  // alloate memory to store randoms
+  MEMD = (NRANGauss + MXFILTINDX + 1) * sizeof(double);
+  GENLC.GENSMEAR_RANGauss_MODEL = (double*) malloc(MEMD);
+
+  MEMD = (NRANFlat + MXFILTINDX + 1) * sizeof(double);
+  GENLC.GENSMEAR_RANFlat_MODEL = (double*) malloc(MEMD);
+
+
   // May 2019: init method to estimate peakmjd for data files
- INIT_SETPKMJD:
+
   if ( INPUTS.GENSIGMA_PEAKMJD > 1.0E-9 ) // legacy Gauss smear
     { INPUTS.OPT_SETPKMJD = 0; }  
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) // do nothing for GRID
@@ -11212,7 +11228,7 @@ void genran_modelSmear(void) {
   // -----------------------------------
   // pass randoms to genSmear function
   int NRAN ;
-  NRAN = GENLC.NRANGauss_GENSMEAR ;
+  NRAN = GENLC.NRANGauss_GENSMEAR ;  //.xyz
   SETRANGauss_genSmear(NRAN, &GENLC.GENSMEAR_RANGauss_MODEL[1] );
 
   NRAN = GENLC.NRANFlat_GENSMEAR ;
@@ -14911,7 +14927,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
     if ( strcmp(c_get, "END_LIBID:") == 0 ) { 
       if ( USEFLAG_LIBID == ACCEPT_FLAG ) 
 	{ DONE_READING = 1 ; }
-      // xxxx	{ goto DONE_READING ; }
       else
 	{ goto START ; }      // read another 
     }

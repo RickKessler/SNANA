@@ -17510,6 +17510,8 @@
      + new option force_pIa=xx.yy to force same pIa for each event.
      + in M0DIF file, write warnings for MUDIFERR=0
      + fix bug using cutmask_write=-1
+     + scalePPC bound -> -0.5 to +0.5 (was -0.1 to +0.5)
+     + add user input keys for logmass_min, logmass_max, nbin_logmass
 
    SALT2mu_fit.pl
      + batch name is now based on name of input file [untested->BEWARE]
@@ -17523,5 +17525,15 @@
 
    snana.car
      + fix SKYSIG format for make-simlib option.
+
+   split_and_fit.pl
+    + new FAST10 & FAST100 option to pre-scale sims by 10, 100
+        split_and_fit.pl MYBIGJOB.NML FAST10
+        split_and_fit.pl MYBIGJOB.NML FAST100
+      Note that real data are not pre-scaled.
+
+   sntools_genSmear.c, snlc_sim.c:
+     start new intrinsic scatter model "COV" to specify 
+     covariance in wave x phase bins.
 
 END: 

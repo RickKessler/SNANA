@@ -23,6 +23,7 @@
  GENMAG_SMEAR_USRFUN:  <list of 8 params> 
 
  GENMAG_SMEAR_MODELNAME: OIR      # Optical+IR using CSP+CfA (under development)
+ GENMAG_SMEAR_MODELNAME: COV      # cov(wave x phase), Oct 2019
 
  External program must set
    NSMEARPAR_OVERRIDE = 0 
@@ -72,6 +73,8 @@
    + after reading salt2 dispersion file, clip wavelengths outside
      SALT2 wave range. Avoids abort at very low redshifts.
 
+ Oct 18 2019: begin COV model
+
 **********************************/
 
 #include <stdio.h> 
@@ -112,9 +115,9 @@ void  init_genSmear_FLAGS(double SCALE) {
   GENSMEAR_VCR.USE        = 0 ;
   GENSMEAR_BIMODAL_UV.USE = 0 ;
   GENSMEAR_OIR.USE        = 0 ;
-
-  GENSMEAR.NSET_RANGauss = 0 ;
-  GENSMEAR.NSET_RANFlat  = 0 ;
+  GENSMEAR_COV.USE        = 0 ;
+  GENSMEAR.NSET_RANGauss  = 0 ;
+  GENSMEAR.NSET_RANFlat   = 0 ;
 
   GENSMEAR.SCALE = SCALE ; // Oct 9 2018
 
@@ -189,6 +192,9 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   }
   else if ( GENSMEAR_OIR.USE ) {
     get_genSmear_OIR(Trest, NLam, Lam, magSmear) ;
+  }
+  else if ( GENSMEAR_COV.USE ) {
+    get_genSmear_COV(Trest, NLam, Lam, magSmear) ;
   }
   else {
     sprintf(c1err,"Unknown smear model.");
@@ -2358,6 +2364,8 @@ void init_genSmear_OIR(void) {
 
   // --------------- BEGIN ---------------
 
+  GENSMEAR_OIR.USE = 1;  NUSE_GENSMEAR++;
+  printf(" xxx hello from %s \n", fnam);
   return;
 
 } // end init_genSmear_OIR
@@ -2382,6 +2390,50 @@ void get_genSmear_OIR(double Trest, int NLam, double *Lam,
   return;
 
 } // end get_genSmear_OIR
+
+
+// ***************************************
+void init_genSmear_COV(int OPTMASK, char *covFileName) {
+
+  // Created Oct 18 2019 by R.Kessler.
+  // Covariance model in wavelength x phase bins.
+  // Initial model is from Sugar/Pierre-Francoise Leget.
+  
+  char fnam[] = "init_genSmear_COV";
+
+  // --------------- BEGIN ---------------
+
+  GENSMEAR_COV.USE  = 1;  NUSE_GENSMEAR++;
+  GENSMEAR_COV.OPTMASK = OPTMASK;
+
+  //  printf_banner("
+  printf(" xxx hello from %s \n", fnam);
+
+  //  GENSMEAR.NGEN_RANGauss = NBAND_C11 ;
+  //  GENSMEAR.NGEN_RANFlat  = 0 ;
+
+  return;
+
+} // end init_genSmear_COV
+
+
+// =====================================================
+void get_genSmear_COV(double Trest, int NLam, double *Lam, 
+		      double *magSmear) {
+
+  // Created Oct 18 2019 by R.Kessler.
+  //
+  char fnam[] = "get_genSmear_COV";
+
+  // ---------------- BEGIN -----------------
+
+  printf(" xxx hello from %s:  Trest=%.2f days, NLAM=%d \n", 
+	 fnam, Trest, NLam );
+  
+  return;
+
+} // end get_genSmear_COV
+
 
 // *********************************************************
 int INODE_LAMBDA(double LAM, int NNODE, double *LAM_NODES) {

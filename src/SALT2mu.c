@@ -118,6 +118,10 @@ x1max = upper limit on x1 (+6.0)
 cmin  = lower limit on color (-6.0)
 cmax  = upper limit on color (+6.0)
 
+logmass_min = low cut on logmass (-20)
+logmass_min = hi  cut on logmass (+20)
+nbin_logmass = number of logmass bins for BBC7D
+
 sntype = list of types to select. Examples are
     sntype=120
     sntype=120,105
@@ -661,7 +665,11 @@ Default output files (can change names with "prefix" argument)
    + fix bug implementing cutmask_write
    + if cutmask_write!=0, add WARNING message to FITRES file.
 
-******************************************************/
+ Oct 18 2019:
+   + add user input keys for logmass_min, logmass_max, nbin_logmass
+     Used only for 7D correction.
+
+ ******************************************************/
 
 #include <stdio.h>      
 #include <stdlib.h>
@@ -698,12 +706,12 @@ char STRING_EVENT_TYPE[MXEVENT_TYPE][12] =
 // So instead we define a linear array of 50,000 to take less memory,
 // especially if we need to raise some of the MAXBIN_ later.
 #define MAXBIN_z              85  // 50->85 on 9/11/2017
-#define MAXBIN_LOGMASS         6  // Aug 2019
+#define MAXBIN_LOGMASS        10  // Aug 2019
 #define MAXBIN_BIASCOR_FITPAR 50  // for biasCor map variables x1,c
 #define MAXBIN_BIASCOR_ALPHA   2  // for biasCor map
 #define MAXBIN_BIASCOR_BETA    2  // for biasCor map
 #define MAXBIN_BIASCOR_GAMMADM 2  // for biasCor map
-#define MAXBIN_BIASCOR_1D  100000  // max on total 5D bins for {a,b,z,x1,c}
+#define MAXBIN_BIASCOR_1D  200000  // max on total 5D bins for {a,b,z,x1,c}
 #define MINPERCELL_BIASCOR    10  // min per cell for RMS and mBslope corr
 
 // shorter names for local declarations
@@ -801,25 +809,26 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define CUTBIT_z          0    //  zmin - zmax cut
 #define CUTBIT_x1         1    //  x1min-x1max cut
 #define CUTBIT_c          2    //  cmin - cmax cut
-#define CUTBIT_sntype     3    //  sntype cut 
-#define CUTBIT_HOST       4    //  required host info
-#define CUTBIT_CUTWIN     5    //  user-CUTWIN 
-#define CUTBIT_BADERR     6    //  a fit param error is <=0
-#define CUTBIT_BADCOV     7    //  bad COV for a fit param
-#define CUTBIT_MINBIN     8    //  z-bin with too few to fit 
-#define CUTBIT_SPLITRAN   9    //  random subsample for NSPLITRAN
-#define CUTBIT_SIMPS     10    //  SIM event from pre-scale 
-#define CUTBIT_BIASCOR   11    //  valid biasCor (data only)
-#define CUTBIT_zBIASCOR  12    //  BIASCOR z cut
-#define CUTBIT_x1BIASCOR 13    //  BIASCOR x1 cut
-#define CUTBIT_cBIASCOR  14    //  BIASCOR c cut
-#define CUTBIT_TRUESNIa  15    //  true SNIa 
-#define CUTBIT_TRUESNCC  16    //  true !SNIa (i.e., SNCC,SNIax, etc ...)
-#define CUTBIT_NMAXCUT   17    //  NMAX-sample cut
-#define CUTBIT_DUPL      18    //  duplicate 
-#define CUTBIT_IDSAMPLE  19    //  IDSAMPLE
-#define CUTBIT_CHI2      20    //  chi2 outlier (data only)
-#define CUTBIT_CID       21    //  for specifying a list of cids to process
+#define CUTBIT_logmass    3    //  logmass cut
+#define CUTBIT_sntype     4    //  sntype cut 
+#define CUTBIT_HOST       5    //  required host info
+#define CUTBIT_CUTWIN     6    //  user-CUTWIN 
+#define CUTBIT_BADERR     7    //  a fit param error is <=0
+#define CUTBIT_BADCOV     8    //  bad COV for a fit param
+#define CUTBIT_MINBIN     9    //  z-bin with too few to fit 
+#define CUTBIT_SPLITRAN  10    //  random subsample for NSPLITRAN
+#define CUTBIT_SIMPS     11    //  SIM event from pre-scale 
+#define CUTBIT_BIASCOR   12    //  valid biasCor (data only)
+#define CUTBIT_zBIASCOR  13    //  BIASCOR z cut
+#define CUTBIT_x1BIASCOR 14    //  BIASCOR x1 cut
+#define CUTBIT_cBIASCOR  15    //  BIASCOR c cut
+#define CUTBIT_TRUESNIa  16    //  true SNIa 
+#define CUTBIT_TRUESNCC  17    //  true !SNIa (i.e., SNCC,SNIax, etc ...)
+#define CUTBIT_NMAXCUT   18    //  NMAX-sample cut
+#define CUTBIT_DUPL      19    //  duplicate 
+#define CUTBIT_IDSAMPLE  20    //  IDSAMPLE
+#define CUTBIT_CHI2      21    //  chi2 outlier (data only)
+#define CUTBIT_CID       22    //  for specifying a list of cids to process
 #define MXCUTBIT         25  
 
 #define dotDashLine "-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-" 
@@ -1243,6 +1252,8 @@ struct INPUTS {
   double cmin,  cmax  ;
   double x1min, x1max ;
   double zmin,  zmax  ;
+  double logmass_min, logmass_max ;
+  int    nbin_logmass;
   double chi2max;     // chi2-outlier cut (Jul 2019)
 
   int    NCUTWIN ;
@@ -4171,12 +4182,18 @@ void set_defaults(void) {
   INPUTS.zmin = 0.02 ;
   INPUTS.zmax = 1.02 ;
   
+
   // ---------------------
   // keep obsolete input parameters (4/24/2012 RK)
   INPUTS.x1min = -6.0;
   INPUTS.x1max = +6.0;
   INPUTS.cmin  = -6.0; 
   INPUTS.cmax  = +6.0;
+
+  INPUTS.logmass_min  = -20.0 ;
+  INPUTS.logmass_max  =  20.0 ;
+  INPUTS.nbin_logmass =  1 ; 
+
   INPUTS.chi2max = 1.0E9 ;
 
   // ---------------------
@@ -4334,6 +4351,7 @@ void init_CUTMASK(void) {
   sprintf(CUTSTRING_LIST[CUTBIT_z],         "z"  );
   sprintf(CUTSTRING_LIST[CUTBIT_x1],        "x1" );
   sprintf(CUTSTRING_LIST[CUTBIT_c],         "c"  );
+  sprintf(CUTSTRING_LIST[CUTBIT_logmass],   "logmass"  );
   sprintf(CUTSTRING_LIST[CUTBIT_MINBIN],    "min per zbin");
   sprintf(CUTSTRING_LIST[CUTBIT_CUTWIN],    "CUTWIN");
   sprintf(CUTSTRING_LIST[CUTBIT_sntype],    "sntype");
@@ -5933,21 +5951,23 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
   // Created Aug 2016
   // Decode STRINGOPT and set biasCor binSize for z,x1,c
 
-  int ipar;
+  int ipar, nb;
+  double dif;
   char fnam[] = "set_BINSIZE_SAMPLE_biasCor" ;
 
   // ------------- BEGIN -----------
   
   // first set defaults
+  dif = INPUTS.zmax - INPUTS.zmin; nb=INPUTS.nzbin;
   SAMPLE_BIASCOR[IDSAMPLE].RANGE_REDSHIFT[0] = INPUTS.zmin ;
   SAMPLE_BIASCOR[IDSAMPLE].RANGE_REDSHIFT[1] = INPUTS.zmax ;
-  SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_REDSHIFT  = 
-    (INPUTS.zmax - INPUTS.zmin) / (double)INPUTS.nzbin ;
+  SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_REDSHIFT  = dif / (double)nb ;
 
-  // logmass
-  SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[0] =   7.0 ;
-  SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[1] =  13.0 ;
-  SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS  =   3.0 ;
+  // logmass 
+  dif = INPUTS.logmass_max - INPUTS.logmass_min; nb=INPUTS.nbin_logmass ;
+  SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[0] =  INPUTS.logmass_min ;
+  SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[1] =  INPUTS.logmass_max ;
+  SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS  =  dif / (double)nb ;
 
   for(ipar=0; ipar<NLCPAR; ipar++ ) {
     SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_FITPAR[ipar]  
@@ -8022,7 +8042,6 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   double *SQMUERR,   *SQMURMS ;
   double *SUM_PULL,  *SUM_SQPULL ;
   char   *name ;
-  // MAXBIN_BIASCOR_1D
 
   float    *ptr_MUCOVSCALE;
   BIASCORLIST_DEF     BIASCORLIST ;
@@ -10390,7 +10409,7 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
     VAL_MAX = SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[1];
     VAL_BIN = SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS ;
     
-    int    NBINg       = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
+    int NBINg = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
     if ( NBINg <= 1 ) { VAL_MIN = -20.0; VAL_MAX=+20.0; VAL_BIN=40.0; }
 
     sprintf(NAME,"m");
@@ -12015,7 +12034,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   int  CUTMASK, REJECT, ACCEPT ;
   int  sntype, FOUND, SIM_NONIA_INDEX, idsample, BADERR=0, BADCOV=0 ;
   double cutvar_local[MXCUTWIN];
-  double z, x0, x1, c, x0err, x1err, cerr  ;
+  double z, x0, x1, c, logmass, x0err, x1err, cerr  ;
   double COV_x0x1, COV_x0c, COV_x1c,  mBerr ;
   char   *name ;
   char fnam[]=  "set_CUTMASK";
@@ -12037,7 +12056,8 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   z         =  (double)TABLEVAR->zhd[isn];
   x0        =  (double)TABLEVAR->x0[isn];  
   x1        =  (double)TABLEVAR->fitpar[INDEX_x1][isn] ;
-  c         =  (double)TABLEVAR->fitpar[INDEX_c ][isn] ;   
+  c         =  (double)TABLEVAR->fitpar[INDEX_c ][isn] ;  
+  logmass    =  (double)TABLEVAR->logmass[isn];
   x0err     =  (double)TABLEVAR->x0err[isn] ;
   mBerr     =  (double)TABLEVAR->fitpar_err[INDEX_mB][isn] ;
   x1err     =  (double)TABLEVAR->fitpar_err[INDEX_x1][isn] ;
@@ -12056,18 +12076,20 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   if ( LCUTWIN == 0 ) { setbit_CUTMASK(isn, CUTBIT_CUTWIN, TABLEVAR); }
 
   // -----------------------------------------
-  // apply legacy cuts (RK - March 31, 2010)
+  // apply legacy cuts 
   // These cuts are redundant with above LCUTWIN to allow older inputs.
 
   if ( (z < INPUTS.zmin) || ( z > INPUTS.zmax)) 
     { setbit_CUTMASK(isn, CUTBIT_z, TABLEVAR);  }
 
-  if ( (x1<INPUTS.x1min) || (x1>INPUTS.x1max)) 
+  if ( (x1 < INPUTS.x1min) || (x1 > INPUTS.x1max)) 
     { setbit_CUTMASK(isn, CUTBIT_x1, TABLEVAR); }
 
-  if ( (c<INPUTS.cmin) || (c>INPUTS.cmax) ) 
+  if ( (c < INPUTS.cmin) || ( c > INPUTS.cmax) ) 
     { setbit_CUTMASK(isn, CUTBIT_c, TABLEVAR); }
 
+  if ( (logmass<INPUTS.logmass_min) || (logmass>INPUTS.logmass_max) ) 
+    { setbit_CUTMASK(isn, CUTBIT_logmass, TABLEVAR); }
 
   if ( x0err <= INPUTS.maxerr_abort_x0 ) { BADERR=1; }
   if ( x1err <= INPUTS.maxerr_abort_x1 ) { BADERR=1; }
@@ -12635,6 +12657,13 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"cmax="))  
     { sscanf(&item[5],"%le",&INPUTS.cmax); return(1); }
 
+
+  if ( uniqueOverlap(item,"logmass_min="))  
+    { sscanf(&item[12],"%le",&INPUTS.logmass_min); return(1); }
+  if ( uniqueOverlap(item,"logmass_max="))  
+    { sscanf(&item[12],"%le",&INPUTS.logmass_max); return(1); }
+  if ( uniqueOverlap(item,"nbin_logmass="))  
+    { sscanf(&item[13],"%d",&INPUTS.nbin_logmass); return(1); }
 
   if ( uniqueOverlap(item,"chi2max=")) 
     { sscanf(&item[8],"%le",&INPUTS.chi2max); return(1); }
@@ -14008,8 +14037,11 @@ void prep_input(void) {
     { printf("SN selection sntype= %s\n", INPUTS.sntypeString); }
 
 
-  printf("x1min=%f x1max=%f \n", INPUTS.x1min, INPUTS.x1max);
-  printf("cmin =%f cmax =%f \n", INPUTS.cmin, INPUTS.cmax);
+  printf("x1min/x1max = %.3f / %.3f \n", INPUTS.x1min, INPUTS.x1max);
+  printf("cmin/cmax   = %.3f / %.3f \n", 
+	 INPUTS.cmin, INPUTS.cmax);
+  printf("logmass_min/max = %.3f/%.3f \n", 
+	 INPUTS.logmass_min, INPUTS.logmass_max);
   printf("H0=%f \n", INPUTS.H0);
   printf("Nominal M0=%f \n", INPUTS.nommag0);
   printf("zpecerr = %.4f \n", INPUTS.zpecerr );

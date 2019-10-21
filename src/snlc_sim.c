@@ -8179,8 +8179,8 @@ void init_modelSmear(void) {
   else if ( strcmp(ptrName,"OIR") == 0 ) 
     {  init_genSmear_OIR() ; }
 
-  else if ( strcmp(ptrName,"COV") == 0 ) 
-    {  init_genSmear_COV(0,INPUTS.GENMAG_SMEAR_MODELARG) ; }
+  else if ( strstr(ptrName,"COVSED.") != NULL ) 
+    {  init_genSmear_COVSED(ptrName,0); }
 
   else if ( strcmp(ptrName,"PRIVATE") == 0 ) 
     {  init_genSmear_private() ; }

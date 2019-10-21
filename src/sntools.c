@@ -3732,7 +3732,6 @@ int  getList_PATH_SNDATA_SIM(char **pathList) {
 void arrayStat(int N, double *array, double *AVG, double *RMS) {
 
   // For input *array return *AVG and *RMS
-  // Nov 23 2013: fix aweful bug computing rms; set *AVG and *RMS
 
   int i;
   double XN, avg, sqsum, rms, tmpdif ;
@@ -3774,7 +3773,7 @@ double RMSfromSUMS(int N, double SUM, double SQSUM) {
 
   return(RMS);
 
-} // end RMScalc
+} // end RMSfromSUMS
 
 // =============================================
 void remove_quote(char *string) {
@@ -5380,17 +5379,14 @@ double interp_SINFUN(double VAL, double *VALREF, double *FUNREF,
   FUN_MEAN = ( FUNREF[1] + FUNREF[0] ) * 0.5 ;
   FUN_DIF  = ( FUNREF[1] - FUNREF[0] );
   
-  // mark delete Aug 30 2016: ARG = 3.14159265*(VAL - VAL_MEAN)/VAL_DIF ;
   ARG = PI * (VAL - VAL_MEAN)/VAL_DIF ;
-
   S   = sin(ARG);
   FUN = FUN_MEAN + ( 0.5 * FUN_DIF * S ) ;
 
   return FUN ;
 
-} // interp_SIN
+} // end interp_SINFUN
 
-// double sinApprox(double arg) { } // end
 
 // **************************************************************
 double interp_1DFUN(
@@ -5657,8 +5653,8 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
 
   LDMP = 0 ; // ( fabs(VAL-7000.) < 0.01 );
 
-  MINVAL = *(VAL_LIST + 0 ) ;
-  MAXVAL = *(VAL_LIST + NBIN - 1);
+  MINVAL = VAL_LIST[0] ;
+  MAXVAL = VAL_LIST[NBIN-1];
 
   if ( VAL < MINVAL || VAL > MAXVAL )  {
     sprintf(c1err,"VAL = %le outside '%s' range",  
@@ -5694,8 +5690,8 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
     ibin2 = ibin + ISTEP;
     if ( ibin2 >= NBIN-1 ) { ibin2 = NBIN-1 ; }
 
-    VAL1 = *(VAL_LIST + ibin1) ;
-    VAL2 = *(VAL_LIST + ibin2) ;
+    VAL1 = VAL_LIST[ibin1] ;
+    VAL2 = VAL_LIST[ibin2] ;
     NITER++ ;
 
     // abort if NITER gets larger than NBIN

@@ -82,6 +82,7 @@
 #include <stdlib.h>   // includes exit(),atof()
 #include <unistd.h>
 #include <math.h>     // log10, pow, ceil, floor
+#include "fitsio.h"
 
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_matrix.h>
@@ -91,6 +92,7 @@
 #include "genmag_SEDtools.h"
 #include "genmag_SALT2.h"
 #include "MWgaldust.h"
+#include "sntools_fitsio.h"
 
 // ===========================================================
 //
@@ -115,11 +117,20 @@ void  init_genSmear_FLAGS(double SCALE) {
   GENSMEAR_VCR.USE        = 0 ;
   GENSMEAR_BIMODAL_UV.USE = 0 ;
   GENSMEAR_OIR.USE        = 0 ;
-  GENSMEAR_COV.USE        = 0 ;
+  GENSMEAR_COVSED.USE     = 0 ;
   GENSMEAR.NSET_RANGauss  = 0 ;
   GENSMEAR.NSET_RANFlat   = 0 ;
+  GENSMEAR.SCALE          = SCALE ; // Oct 9 2018
 
-  GENSMEAR.SCALE = SCALE ; // Oct 9 2018
+  // hard-wire wavelengths to monitor COVARIANCE between 
+  // 2 arbitrary wavelengths
+  GENSMEAR.SUMSMEAR_CHECK[0]   =  0.0 ;
+  GENSMEAR.SUMSMEAR_CHECK[1]   =  0.0 ;
+  GENSMEAR.SQSUMSMEAR_CHECK[0] =  0.0 ;
+  GENSMEAR.SQSUMSMEAR_CHECK[1] =  0.0 ;
+  GENSMEAR.SUMCROSS            =  0.0 ;
+  GENSMEAR.NCHECK              =  0 ;
+
 
   // abort on unitialized NSMEARPAR_OVERRIDE
   if ( NSMEARPAR_OVERRIDE < 0 || NSMEARPAR_OVERRIDE >= MXSMEARPAR_OVERRIDE ) {
@@ -193,8 +204,8 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   else if ( GENSMEAR_OIR.USE ) {
     get_genSmear_OIR(Trest, NLam, Lam, magSmear) ;
   }
-  else if ( GENSMEAR_COV.USE ) {
-    get_genSmear_COV(Trest, NLam, Lam, magSmear) ;
+  else if ( GENSMEAR_COVSED.USE ) {
+    get_genSmear_COVSED(Trest, NLam, Lam, magSmear) ;
   }
   else {
     sprintf(c1err,"Unknown smear model.");
@@ -213,6 +224,88 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   return ;
 
 } // end of get_genSmear
+
+
+// ***********************************
+void init_genSmear_COVLAM_debug(double *lam, double COVMAT[2][2]) {
+
+  // Inputs
+  //   lam[0], lam[1] = two wavelengths to monitor COV
+  //   COVMAT = expected 2x2 COV matrix 
+  //
+  // Simply print expected RMS and reduced covar,
+  // to be compared during generation with empirical 
+  // values.
+  // 
+  double SIG0 = sqrt( COVMAT[0][0] );
+  double SIG1 = sqrt( COVMAT[1][1] );
+  double RHO  = COVMAT[0][1] / (SIG0*SIG1);
+  char fnam[] = "init_genSmear_COVLAM_debug" ;
+
+  // ----------- BEGIN ---------
+
+  printf("\n");
+  printf(" %s: Expected RMS(lam=%.0f) = %.5f \n", fnam, lam[0], SIG0 );
+  printf(" %s: Expected RMS(lam=%.0f) = %.5f \n", fnam, lam[1], SIG1 );
+  printf(" %s: Expected Reduced Covar = %.5f \n", fnam, RHO );
+  printf("\n");
+  fflush(stdout);
+
+  return ;
+
+} // end init_genSmear_COVLAM_debug
+
+
+void update_genSmear_COVLAM_debug(double *magSmear) {
+
+  // Inputs:
+  //  magSmear[0], magSmear[1] = magSmear values for each wavelength.
+
+  double m0 = magSmear[0];
+  double m1 = magSmear[1];
+  double mtmp, XN, SUM, SQSUM, MEAN[2], RMS[2], COV_01, RHO ;
+  int i, N;
+  char fnam[] = "update_genSmear_COVLAM_debug" ;
+
+  // ----------- BEGIN -------
+
+  for(i=0; i < 2; i++ ) {
+    mtmp = magSmear[i];
+    GENSMEAR.SUMSMEAR_CHECK[i]   +=  mtmp;
+    GENSMEAR.SQSUMSMEAR_CHECK[i] += (mtmp*mtmp);    
+  }
+  GENSMEAR.SUMCROSS += (magSmear[0]*magSmear[1]);
+  GENSMEAR.NCHECK++ ;
+
+  if ( (GENSMEAR.NCHECK % 100) == 0 ) {
+    N     = GENSMEAR.NCHECK;
+    XN    = (double)N;
+
+    for(i=0; i < 2; i++ ) {
+      SUM      = GENSMEAR.SUMSMEAR_CHECK[i];
+      SQSUM    = GENSMEAR.SQSUMSMEAR_CHECK[i];
+      MEAN[i]  = SUM/XN;
+      RMS[i]   = RMSfromSUMS(N, SUM, SQSUM);
+    }
+
+    COV_01 = 
+      GENSMEAR.SUMCROSS + 
+      GENSMEAR.SUMSMEAR_CHECK[0]*MEAN[1] +
+      GENSMEAR.SUMSMEAR_CHECK[1]*MEAN[0] +
+      MEAN[0]*MEAN[1] 
+      ;
+    COV_01 /= XN;
+    RHO = COV_01/(RMS[0]*RMS[1]);
+
+    printf(" COV_debug: N=%4d  <smear>=%6.3f/%6.3f  "
+	   "RMS=%.4f/%.4f  RHO=%5.3f\n",
+	   N, MEAN[0], MEAN[1], RMS[0], RMS[1], RHO );
+    fflush(stdout);
+  }
+
+  return ;
+
+} // end  update_genSmear_COVLAM_debug
 
 
 // *********************************************
@@ -1412,6 +1505,7 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
   GENSMEAR.NGEN_RANGauss = NBAND_C11 ;
   GENSMEAR.NGEN_RANFlat  = 0 ;
 
+  return;
 
 } // end of   init_genSmear_Chotard11
 
@@ -1469,7 +1563,9 @@ void get_genSmear_Chotard11(double Trest, int NLam, double *Lam,
     magSmear[ilam] = tmp ;
   }
 
-  
+
+  return ;
+
 } // end of get_genSmear_Chotard11
 
 
@@ -2393,46 +2489,398 @@ void get_genSmear_OIR(double Trest, int NLam, double *Lam,
 
 
 // ***************************************
-void init_genSmear_COV(int OPTMASK, char *covFileName) {
+void init_genSmear_COVSED(char *version, int OPTMASK) {
 
   // Created Oct 18 2019 by R.Kessler.
   // Covariance model in wavelength x phase bins.
   // Initial model is from Sugar/Pierre-Francoise Leget.
   
-  char fnam[] = "init_genSmear_COV";
+  gsl_matrix_view chk;  
+  double COV_DIAG_FUDGE = 1.0E-9 ; // needed to be invertible
+  char *covFileName = (char*)malloc(MXPATHLEN*sizeof(char) ) ;
+  char *ptrPATH = GENSMEAR_COVSED.MODEL_PATH;
+  char *ptrVERS = GENSMEAR_COVSED.VERSION;
+  char *ptrFILE = GENSMEAR_COVSED.COVSED_FILE ;
+  char fnam[] = "init_genSmear_COVSED" ;
 
   // --------------- BEGIN ---------------
 
-  GENSMEAR_COV.USE  = 1;  NUSE_GENSMEAR++;
-  GENSMEAR_COV.OPTMASK = OPTMASK;
+  GENSMEAR_COVSED.USE  = 1;  NUSE_GENSMEAR++;
+  GENSMEAR_COVSED.OPTMASK = OPTMASK;
 
-  //  printf_banner("
-  printf(" xxx hello from %s \n", fnam);
+  printf("\t %s \n", fnam);
 
-  //  GENSMEAR.NGEN_RANGauss = NBAND_C11 ;
-  //  GENSMEAR.NGEN_RANFlat  = 0 ;
+  // separate input version into path and version
+  ENVreplace(version, fnam, 1);
+  extract_MODELNAME(version,
+		    ptrPATH, ptrVERS);  // <== returned
+
+  if ( strlen(ptrPATH) == 0 ) {
+    // default path
+    sprintf(ptrPATH,"%s/models/COVSED/%s", 
+	    getenv("SNDATA_ROOT"), ptrVERS);
+  }
+
+  printf("   model path: %s\n",     ptrPATH);
+  printf("   model version: %s \n", ptrVERS);
+
+  parse_COVSED_INFO_FILE();
+
+  // read contents of FITS file (cov matrix, wave bins ...)
+  readFits_genSmear_COVSED(ptrFILE);
+
+  // - - - - - - - - - - - 
+  // prepare Cholesky decomp for correlated random in each WAVE bin
+
+  int NBIN = GENSMEAR_COVSED.NBIN_WAVExEPOCH ;
+  int i,j, jj;
+
+  // fudge diagonal COV to ensure positive-definite
+  for (i =0; i < NBIN ; i++){
+    jj = NBIN*i + i;
+    GENSMEAR_COVSED.COVMAT1D[jj] += COV_DIAG_FUDGE;
+  }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Check option to monitor COV at two wavelengths
+  // Make this check before any gsl calls modify COVMAT1D
+
+  double *LAMPAIR   = GENSMEAR_COVSED.LAMPAIR_DEBUG;
+  double  COVMAT[2][2] ; 
+  double *WAVE_LIST = GENSMEAR_COVSED.WAVE;
+  int    NBIN_WAVE  = GENSMEAR_COVSED.NBIN_WAVE;
+  int i0, i1 ;
+  if ( LAMPAIR[0] > 0.0 ) {
+    i0 = quickBinSearch(LAMPAIR[0], NBIN_WAVE, WAVE_LIST, fnam);
+    i1 = quickBinSearch(LAMPAIR[1], NBIN_WAVE, WAVE_LIST, fnam);
+    LAMPAIR[0] = WAVE_LIST[i0] ; // snap to nearest bin
+    LAMPAIR[1] = WAVE_LIST[i1] ; // snap to nearest bin
+    COVMAT[0][0] = GENSMEAR_COVSED.COVMAT1D[NBIN*i0+i0] ;
+    COVMAT[1][1] = GENSMEAR_COVSED.COVMAT1D[NBIN*i1+i1] ;
+    COVMAT[0][1] = GENSMEAR_COVSED.COVMAT1D[NBIN*i0+i1] ;
+    COVMAT[1][0] = GENSMEAR_COVSED.COVMAT1D[NBIN*i1+i0] ;
+    init_genSmear_COVLAM_debug(LAMPAIR,COVMAT);
+  }
+
+  
+  printf("\t Prepare Cholesky decomp. \n"); fflush(stdout);
+  chk  = gsl_matrix_view_array ( GENSMEAR_COVSED.COVMAT1D, NBIN, NBIN);
+  gsl_linalg_cholesky_decomp(&chk.matrix) ;
+
+  // load cholesly matrix
+  GENSMEAR_COVSED.Cholesky = (double**) malloc(NBIN*sizeof(double*));
+  for (i =0; i < NBIN ; i++){    
+    GENSMEAR_COVSED.Cholesky[i] = (double*) malloc(NBIN*sizeof(double));
+    for (j = 0; j < NBIN ; j++) { 
+      if ( j >= i ) 
+	{ GENSMEAR_COVSED.Cholesky[i][j] = gsl_matrix_get(&chk.matrix,i,j); }
+      else
+	{ GENSMEAR_COVSED.Cholesky[i][j] = 0.0 ; }
+    }
+  }
+
+  // allocate array to use in gen_magSmear_COV
+  GENSMEAR_COVSED.SCATTER_VALUES = (double*) malloc(NBIN*sizeof(double) );
+
+  GENSMEAR.NGEN_RANGauss = NBIN;
+  GENSMEAR.NGEN_RANFlat  = 0 ;
+
+  // free original COVMAT from memory
+  free(GENSMEAR_COVSED.COVMAT1D);
+
+  //  gsl_matrix_free(&chk.matrix);
+  //  debugexit(fnam);
+  
 
   return;
 
-} // end init_genSmear_COV
+} // end init_genSmear_COVSED
 
 
 // =====================================================
-void get_genSmear_COV(double Trest, int NLam, double *Lam, 
-		      double *magSmear) {
+void parse_COVSED_INFO_FILE(void) {
+
+  char *ptrPATH    = GENSMEAR_COVSED.MODEL_PATH;
+  char info_file[] = "COVSED.INFO";
+  char *INFO_FILE  = (char*) malloc ( MXPATHLEN * sizeof(char) );
+  char c_get[80], covsed_file[100];
+  FILE *fp;
+  char fnam[] = "parse_COVSED_INFO_FILE";
+
+  // ----------- BEGIN ---------
+  printf("   Read %s\n", info_file);
+  sprintf(INFO_FILE, "%s/%s", ptrPATH, info_file);
+
+
+  GENSMEAR_COVSED.COVSED_FILE[0]   = 0;
+  GENSMEAR_COVSED.REBIN_LAM        = 1;
+  GENSMEAR_COVSED.LAMPAIR_DEBUG[0] = -999.0;
+  GENSMEAR_COVSED.LAMPAIR_DEBUG[1] = -999.0;
+
+  if ( (fp = fopen(INFO_FILE, "rt")) == NULL ) { 
+      sprintf(c1err,"Cannot open required info File " );
+      sprintf(c2err,"%s", INFO_FILE);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;    
+  }
+  
+
+  while ( (fscanf(fp, "%s", c_get)) != EOF ) {
+
+    if ( strcmp(c_get,"COVSED_FILE:") == 0 )  { 
+      readchar(fp, covsed_file);
+      sprintf(GENSMEAR_COVSED.COVSED_FILE, "%s/%s", ptrPATH, covsed_file);
+      printf("\t COVSED_FILE: %s \n", covsed_file);
+    }
+            
+    if ( strcmp(c_get,"REBIN_LAM:") == 0 ) { 
+      readint(fp, 1, &GENSMEAR_COVSED.REBIN_LAM); 
+      printf("\t REBIN_LAM: %d \n", GENSMEAR_COVSED.REBIN_LAM);
+    }
+
+    if ( strcmp(c_get,"LAMPAIR_DEBUG:") == 0 ) { 
+      double *ptrPair = GENSMEAR_COVSED.LAMPAIR_DEBUG ;
+      readdouble(fp, 2, ptrPair);
+      printf("\t LAMPAIR_DEBUG: %.1f and %.1f \n", 
+	     ptrPair[0], ptrPair[1] );
+    }
+
+  }
+  
+  fflush(stdout);
+  fclose(fp);
+  return ;
+
+} // end parse_COVSED_INFO_FILE
+
+
+// =====================================================
+void readFits_genSmear_COVSED(char *fileName) {
+
+  // Created Oct 2019
+  // for genSmear-COV model, read COV matrix from FITS fileName,
+  // and store in structure.
+
+  fitsfile *fp;
+  long NCOLUMN; 
+  int  icol, hdutype, lenstr, nmove=1, istat=0, NBIN ;
+  int  NBIN_WAVE, NBIN_EPOCH, NBIN_COVMAT ;
+  int  ICOL_WAVE, ICOL_EPOCH, ICOL_COVMAT;
+  char keyname[40], comment[200], TTYPE[60], TFORM[60], tform[60] ;
+  char fnam[] = "readFits_genSmear_COVSED" ;
+
+  // -------------- BEGIN -------------
+
+  printf("   %s: \n", fnam);
+
+  // open file
+  fits_open_file(&fp, fileName, READONLY, &istat );
+  sprintf(c1err,"Open %s", fileName);
+  snfitsio_errorCheck(c1err, istat);
+
+  // move to table
+  fits_movrel_hdu( fp, nmove, &hdutype, &istat );
+  sprintf(c1err,"move to table" ) ;
+  snfitsio_errorCheck(c1err, istat);
+
+  sprintf(keyname, "TFIELDS" );
+  fits_read_key(fp, TLONG, keyname,  &NCOLUMN, comment, &istat );
+  sprintf(c1err, "read %s key", keyname);
+  snfitsio_errorCheck(c1err, istat); 
+  //  printf("\t Found %d columns \n", NCOLUMN); fflush(stdout);
+
+  NBIN_WAVE = NBIN_EPOCH = NBIN_COVMAT = 0;
+  ICOL_WAVE = ICOL_EPOCH = ICOL_COVMAT = -9;
+
+  for ( icol = 1; icol <= NCOLUMN; icol++ ) {
+
+    istat = 0 ;
+    sprintf(keyname,"TTYPE%d", icol );
+    fits_read_key(fp, TSTRING, keyname, TTYPE, comment, &istat );
+    sprintf(c1err, "read %s key", keyname);
+    snfitsio_errorCheck(c1err, istat);
+
+    istat = 0 ;
+    sprintf(keyname,"TFORM%d", icol );
+    fits_read_key(fp, TSTRING, keyname, TFORM, comment, &istat );
+    sprintf(c1err, "read %s key", keyname);
+    snfitsio_errorCheck(c1err, istat);
+
+    sprintf(tform, "%s", TFORM);
+    lenstr = strlen(tform); tform[lenstr-1] = 0 ;
+    sscanf(tform, "%d", &NBIN );
+
+    if ( strstr(TTYPE,"WAVELEN") != NULL ) 
+      { NBIN_WAVE = NBIN ;  ICOL_WAVE = icol;  }
+    else if ( strstr(TTYPE,"EPOCH") != NULL ) 
+      { NBIN_EPOCH = NBIN ; ICOL_EPOCH = icol;   }
+    else if ( strstr(TTYPE,"MATRIX") != NULL )
+      { NBIN_COVMAT = NBIN; ICOL_COVMAT = icol; }
+
+    printf("\t Column %d:   TTYPE=%s   TFORM=%s  NBIN=%d\n",
+	   icol, TTYPE, TFORM, NBIN ); fflush(stdout);
+  }
+
+
+  // - - - - - - - - - - - - - 
+  // sanity checks
+  sprintf(c1err,"Problem reading FITS file");
+  if ( NBIN_WAVE <= 0 ) {
+    sprintf(c2err,"NBIN_WAVE = %d", NBIN_WAVE);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+  if ( NBIN_COVMAT <= 0 ) {
+    sprintf(c2err,"NBIN_COVMAT = %d", NBIN_COVMAT);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  if ( NBIN_EPOCH <= 0 ) {
+    NBIN_EPOCH = 1 ;  // maybe change later
+  }
+
+  int NBIN_TOT = NBIN_WAVE * NBIN_EPOCH;
+  if ( NBIN_TOT*NBIN_TOT != NBIN_COVMAT ) {
+    sprintf(c1err,"NBIN_TOT = %d(WAVE) x %d(EPOCH) = %d",
+	    NBIN_WAVE, NBIN_EPOCH, NBIN_TOT);
+    sprintf(c2err,"but expected NBIN_TOT = sqrt(NBIN_COVMAT) = %d",
+	    (int)sqrt((double)NBIN_COVMAT) );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  // malloc memory to store contents
+  int MEMD1 = sizeof(double);
+
+  GENSMEAR_COVSED.NBIN_WAVE   = NBIN_WAVE;
+  GENSMEAR_COVSED.NBIN_EPOCH  = NBIN_EPOCH ;
+  GENSMEAR_COVSED.NBIN_COVMAT = NBIN_COVMAT ;
+  GENSMEAR_COVSED.NBIN_WAVExEPOCH = NBIN_WAVE * NBIN_EPOCH;
+
+  GENSMEAR_COVSED.WAVE     = (double*) malloc ( MEMD1 * NBIN_WAVE    );
+  GENSMEAR_COVSED.EPOCH    = (double*) malloc ( MEMD1 * NBIN_EPOCH   );
+  GENSMEAR_COVSED.COVMAT1D = (double*) malloc ( MEMD1 * NBIN_COVMAT  );
+
+
+  long FIRSTROW=1, FIRSTELEM=1, NREAD;
+  int  anynul;
+
+  // read wave column
+  NREAD = NBIN_WAVE;  istat=0;
+  fits_read_col_dbl(fp, ICOL_WAVE, FIRSTROW, FIRSTELEM, NREAD, NULL_1D,
+		    GENSMEAR_COVSED.WAVE, &anynul, &istat);
+  snfitsio_errorCheck("read WAVE bins", istat);
+  
+  // read covmat into 1D array
+  NREAD = NBIN_COVMAT;  istat=0;
+  fits_read_col_dbl(fp, ICOL_COVMAT, FIRSTROW, FIRSTELEM, NREAD, NULL_1D,
+		    GENSMEAR_COVSED.COVMAT1D, &anynul, &istat);
+  snfitsio_errorCheck("read COVMAT1D", istat);
+
+
+  // - - - - - - - - - - - - - 
+  // print summary
+
+  printf("\t Read %d Wave bins: %.1f  to %.1f A \n",
+	 NBIN_WAVE, GENSMEAR_COVSED.WAVE[0], GENSMEAR_COVSED.WAVE[NBIN_WAVE-1]);
+
+  int iwave, jcov;
+  double WAVE, COV, WAVE_LAST = -9.0 ;
+  printf("\t Read %d COVMAT values: \n", NBIN_COVMAT); fflush(stdout);
+  for(iwave=0; iwave < NBIN_WAVE; iwave++ ) {
+    jcov = iwave*NBIN_WAVE + iwave;
+    WAVE = GENSMEAR_COVSED.WAVE[iwave];
+    COV  = GENSMEAR_COVSED.COVMAT1D[jcov];
+    if ( (WAVE - WAVE_LAST) > 500.0 ) {
+      printf("\t\t WAVE[%4d] = %6.0f : sqrt[ DIAG ] = %6.3f \n", 
+	     iwave, WAVE, sqrt(COV) );      
+      WAVE_LAST = WAVE ;
+    }
+  }
+
+  fflush(stdout);
+  fits_close_file(fp, &istat);
+
+  return ;
+
+} // end readFits_genSmear_COVSED
+
+
+// =====================================================
+void get_genSmear_COVSED(double Trest, int NWAVE, double *WAVE, 
+			 double *magSmear) {
 
   // Created Oct 18 2019 by R.Kessler.
   //
-  char fnam[] = "get_genSmear_COV";
+
+  int    NBIN_WAVE      = GENSMEAR_COVSED.NBIN_WAVE;
+  double WAVE_MIN       = GENSMEAR_COVSED.WAVE[0];
+  double WAVE_MAX       = GENSMEAR_COVSED.WAVE[NBIN_WAVE-1];
+  double *LAMPAIR_DEBUG = GENSMEAR_COVSED.LAMPAIR_DEBUG ;
+
+  int    ISPEAK     = (fabs(Trest)<0.001);
+  int    DEBUG      = ISPEAK && (LAMPAIR_DEBUG[0]>0.0) ;
+  int    NDEBUG_STORE = 0 ;
+  int  i,j, iwave;
+  double tmp, ran, tmpWave, magSmear_debug[2];
+  char fnam[] = "get_genSmear_COVSED";
 
   // ---------------- BEGIN -----------------
 
-  printf(" xxx hello from %s:  Trest=%.2f days, NLAM=%d \n", 
-	 fnam, Trest, NLam );
-  
+  //Matrix Multiply
+  //scatter_values = ch^T normalvector
+  for (i = 0 ; i < NBIN_WAVE ; i++) {    
+    GENSMEAR_COVSED.SCATTER_VALUES[i] = 0.0 ;  
+    for (j = 0 ; j < NBIN_WAVE ; j++){
+      //transpose cholesky matrix
+
+      /*
+      tmp = GENSMEAR_COVSED.Cholesky[j][i] ;  
+      ran = GENSMEAR.RANGauss_LIST[j] ;
+      GENSMEAR_COVSED.SCATTER_VALUES[i] += (tmp * ran);
+      */
+      GENSMEAR_COVSED.SCATTER_VALUES[i] += 
+	(GENSMEAR_COVSED.Cholesky[j][i] * GENSMEAR.RANGauss_LIST[j]) ;
+    }
+  }
+
+
+  // -------------
+  for ( iwave=0; iwave < NWAVE; iwave++ ) {
+
+    tmpWave = WAVE[iwave];  // exact lambda
+    
+    // interpolate SCATTER values to current tmpWave
+
+    if( tmpWave <= WAVE_MIN ) {
+      tmp   = GENSMEAR_COVSED.SCATTER_VALUES[0] ; // extend blueward 
+    }
+    else if ( tmpWave >= WAVE_MAX ) {      
+      tmp   = GENSMEAR_COVSED.SCATTER_VALUES[NBIN_WAVE-1];  // extend redward
+    }
+    else {
+      // interpolate
+      tmp = interp_1DFUN(1,tmpWave, NBIN_WAVE, GENSMEAR_COVSED.WAVE, 
+			 GENSMEAR_COVSED.SCATTER_VALUES, fnam);
+    }
+
+    // -------
+   
+    if ( DEBUG ) {
+      double wdif0 = fabs(tmpWave-LAMPAIR_DEBUG[0]);
+      double wdif1 = fabs(tmpWave-LAMPAIR_DEBUG[1]);
+      if ( wdif0 < 5.0 && NDEBUG_STORE==0 )
+	{ magSmear_debug[0] = tmp; NDEBUG_STORE++ ; }
+      if ( wdif1 < 5.0 && NDEBUG_STORE==1 )
+	{ magSmear_debug[1] = tmp; NDEBUG_STORE++ ; }
+    }
+    
+    magSmear[iwave] = tmp ;
+  }
+
+  if ( NDEBUG_STORE == 2 ) 
+    { update_genSmear_COVLAM_debug(magSmear_debug); }
+
   return;
 
-} // end get_genSmear_COV
+} // end get_genSmear_COVSED
 
 
 // *********************************************************

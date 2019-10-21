@@ -1,7 +1,7 @@
 // sntools_genSmear.h
 //
 // Mar 30 2018: MXLAM_GENSMEAR_SALT2 --> 4000 (was 1000)
-// Oct 18 2019: add COV model
+// Oct 18 2019: add COVSED model
 
 void  init_genSmear_FLAGS(double SCALE); // set flags to zero
 int   istat_genSmear(void) ;
@@ -21,7 +21,9 @@ void  init_genSmear_CCM89(double *LAMRANGE) ;
 void  init_genSmear_COH(void) ;
 void  init_genSmear_biModalUV(void) ;
 void  init_genSmear_OIR(void);
-void  init_genSmear_COV(int OPTMASK, char *covFileName);
+void  init_genSmear_COVSED(char *COVSED_version, int OPTMASK);
+void  parse_COVSED_INFO_FILE(void);
+void  readFits_genSmear_COVSED(char *covFileName);
 
 void  init_genSmear_private(void) ;
 
@@ -44,6 +46,9 @@ void  SETRANFlat_genSmear(int NRAN, double *ranList );
 void  SETSNPAR_genSmear(double shape, double color, double redshift) ;
 
 void get_genSmear(double Trest, int NLam, double *Lam, double *magSmear) ;
+
+void init_genSmear_COVLAM_debug(double *lam, double COVMAT[2][2] );
+void update_genSmear_COVLAM_debug(double *magSmear);
 
 void  get_genSmear_USRFUN(double Trest, int NLam, double *Lam, 
 			  double *magSmear ) ;
@@ -71,8 +76,8 @@ void  get_genSmear_biModalUV(double Trest, int NLam, double *Lam,
 void  get_genSmear_OIR(double Trest, int NLam, double *Lam, 
 		       double *magSmear ) ;
 
-void  get_genSmear_COV(double Trest, int NLam, double *Lam, 
-		       double *magSmear ) ;
+void  get_genSmear_COVSED(double Trest, int NLam, double *Lam, 
+			  double *magSmear ) ;
 
 void  get_genSmear_private(double Trest, int NLam, double *Lam, 
 			   double *magSmear ) ;
@@ -115,6 +120,10 @@ struct GENSMEAR {
   double ZPOW[10];  // store powers of redshift for faster calculations.
 
   double SCALE ; // global scale to all mag-smearing (Oct 9 2018)
+
+  // debug option to check scatter at 'CHECK' wavelength
+  double SUMSMEAR_CHECK[2], SQSUMSMEAR_CHECK[2], SUMCROSS;
+  int    NCHECK;
 
 } GENSMEAR ;
 
@@ -183,10 +192,26 @@ struct GENSMEAR_OIR {
   int USE ;
 } GENSMEAR_OIR;
 
-struct GENSMEAR_COV {
+struct GENSMEAR_COVSED {
   int USE ;
-  int OPTMASK;
-} GENSMEAR_COV;
+  int OPTMASK ;
+
+  char    MODEL_PATH[MXPATHLEN], VERSION[80] ;
+  char    COVSED_FILE[MXPATHLEN];
+  int     REBIN_LAM;
+  double  LAMPAIR_DEBUG[2];
+
+  // COVSED and binning read from FITS file
+  int     NBIN_WAVE, NBIN_EPOCH, NBIN_WAVExEPOCH, NBIN_COVMAT ;
+  double  *WAVE, *EPOCH, *COVMAT1D ;
+
+  // matrix used to generate correlated randoms
+  double **Cholesky;
+
+  // magSmear scatter values for each event.
+  double *SCATTER_VALUES; 
+
+} GENSMEAR_COVSED;
 
 
 // ------------- CCM89 struct ---------------

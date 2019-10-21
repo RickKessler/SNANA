@@ -118,8 +118,8 @@ x1max = upper limit on x1 (+6.0)
 cmin  = lower limit on color (-6.0)
 cmax  = upper limit on color (+6.0)
 
-logmass_min = low cut on logmass (-20)
-logmass_min = hi  cut on logmass (+20)
+logmass_min = min cut on logmass (-20)
+logmass_max = max  cut on logmass (+20)
 nbin_logmass = number of logmass bins for BBC7D
 
 sntype = list of types to select. Examples are

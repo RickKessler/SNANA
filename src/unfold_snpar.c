@@ -356,7 +356,7 @@ void rd_input(void) {
 
   INPUTS.N_ITERATION      = 1;
   INPUTS.DOMIGRATION_FLAG = 1 ;  // default = 1
-  INPUTS.MIGBIN_RADIUS    = 5.0 ;
+  INPUTS.MIGBIN_RADIUS    = 100.0 ;
   INPUTS.NMIGPLOT         = 0 ;
 
   INPUTS.NPAR = 2; // fixed for now ... 
@@ -373,7 +373,7 @@ void rd_input(void) {
 
   for ( itype=0 ; itype < MAXTYPE; itype++ ) {
     INPUTS.NREAD_RANGE[itype][0] = 0 ;
-    INPUTS.NREAD_RANGE[itype][1] = 9999999 ;
+    INPUTS.NREAD_RANGE[itype][1] = 90111222 ;
     INPUTS.USETYPE[itype] = 0;
 
     INPUTS.PARNAME[IPAR_Z][itype][0] = 0 ;
@@ -1233,8 +1233,7 @@ void PSIM_ADD (int IZ, int IBIN1, int IBIN2) {
     XFIT = MIGRATION_TABLE[IZ][IBIN1][IBIN2].NSIMFIT_NEAR[imig];
     PSIM = XFIT / XGEN ;      
 
-    // note that indices are fitted (not generated)
-    // ibin[1,2] are LC-fitted bins
+    // extract fitted indices
     iz      = MIGRATION_TABLE[IZ][IBIN1][IBIN2].IBINZ_NEAR[imig] ;
     ibin1   = MIGRATION_TABLE[IZ][IBIN1][IBIN2].IBIN1_NEAR[imig] ;
     ibin2   = MIGRATION_TABLE[IZ][IBIN1][IBIN2].IBIN2_NEAR[imig] ;
@@ -1285,7 +1284,7 @@ void UNFOLD_ADD (int IZ, int IBIN1, int IBIN2) {
 
   int iz, ibin1, ibin2, INDEX, index, NMIGBIN, imig, i ,IFLAG_DUMP ;
   double PSIM, P0, PSIM_WGT, EFFSIM ;
-  double XDATA, XGEN, XFIT, XACC, PROB_MIG, PRODUCT    ;
+  double XDATA, XGEN, XFIT, XTMP, XACC, PROB_MIG, PRODUCT    ;
   char fnam[] = "UNFOLD_ADD";
 
   // --------------- BEGIN ----------------
@@ -1330,11 +1329,11 @@ void UNFOLD_ADD (int IZ, int IBIN1, int IBIN2) {
 
     index   = INDEXMAP[iz][ibin1][ibin2] ; 
     XDATA   = TABLE[ITYPE_DATA].ENTRIES[index] ;
-    if ( XDATA <= 0.0 ) continue ;
+    if ( XDATA <= 0.0 ) { continue ; }
 
     if ( IFLAG_DUMP ) { DMP_UNFOLD(IZ, IBIN1, IBIN2, imig); }
 
-    XFIT = MIGRATION_TABLE[iz][IBIN1][IBIN2].NSIMFIT_NEAR[imig];
+    XFIT = MIGRATION_TABLE[IZ][IBIN1][IBIN2].NSIMFIT_NEAR[imig];
     PSIM = XFIT / XGEN ;      
 
     if ( INPUTS.DOMIGRATION_FLAG  )
@@ -1348,7 +1347,6 @@ void UNFOLD_ADD (int IZ, int IBIN1, int IBIN2) {
       sprintf(c2err,"IBIN1=%d  IBIN2=%d", IBIN1, IBIN2 );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
-
     
     // See Eq. 3 of D'Agonstini NIM A 362, 487 (1995)
     PROB_MIG = (PSIM * P0 / PSIM_WGT) ;  // P(C_i | E_j)
@@ -1361,9 +1359,10 @@ void UNFOLD_ADD (int IZ, int IBIN1, int IBIN2) {
 
   } // end of imig loop
 
+
   if ( !INPUTS.DOMIGRATION_FLAG  ) {
     XDATA = TABLE[ITYPE_DATA].ENTRIES[INDEX] ;
-    P_UNFOLD[ibin1][ibin2] += XDATA / EFFSIM ;
+    P_UNFOLD[ibin1][ibin2] += (XDATA / EFFSIM) ;
   }
 
 

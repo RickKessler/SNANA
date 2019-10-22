@@ -17536,12 +17536,8 @@
      + add new intrinsic scatter model "COVSED" to specify 
        covariance in wave x phase bins. Start with SUGAR.
      + some refactoring of utilities to generate randoms for genSmear.
-
-   Makefile
-     + change -O1 to -O2 to speed up sim with COVSED model;
-       probably vectorizes the Cholesky stuff. G10 and C11
-       sim speeds are un-changed. Not clear if snlc_fit speed
-       is changed.
-       -O3 doesn't help, so leave at -O2.
-
+     + new repeat_genSmear() function to generate new set of 
+       magSmear only when needed. G10 smear model is almost
+       x2 faster, and COVSED is more than x2 faster.
+       
 END: 

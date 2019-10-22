@@ -2158,16 +2158,14 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   // evaluate optional smearing from function
   // Should be used only for simulation (not for fitting mode)
   ISTAT_GENSMEAR = istat_genSmear();  
-  if ( (ISTAT_GENSMEAR & MASK_GENSMEAR_NEW)>0 ) {
-
+  if ( ISTAT_GENSMEAR  ) {
     //  printf(" xxx %s: z=%.3f ifilt_obs=%d \n", fnam, z, ifilt_obs); 
-
     int NLAMTMP = 0 ;
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
       LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
       LAMSED       = LAMOBS/z1;   // rest-frame wavelength
       lam[ilamobs] = LAMSED ; 
-      magSmear[ilamobs] = 0.0 ;
+      // xxx mark delete  magSmear[ilamobs] = 0.0 ;
 
       // protect undefined red end for low-z (July 2016)
       if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }       
@@ -2287,7 +2285,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	FTMP = FSED[0] + FDIF * FRAC_INTERP_DAY ; 
 	
 	// check option to smear SALT2 flux with intrinsic scatter
-	if ( (ISTAT_GENSMEAR & MASK_GENSMEAR_APPLY) > 0 ) {
+	if ( ISTAT_GENSMEAR ) {
 	  arg     =  -0.4*magSmear[ilamobs] ; 
 	  FSMEAR  =  pow(TEN,arg)  ;        // fraction change in flux
 	  FTMP   *=  FSMEAR;                // adjust flux for smearing

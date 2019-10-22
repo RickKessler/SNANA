@@ -845,7 +845,7 @@ void set_user_defaults(void) {
   INPUTS.GENMAG_SMEAR_SCALE = 1.0;
   sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE") ;
   INPUTS.GENMAG_SMEAR_MODELARG[0] = 0;
-  INPUTS.GENMAG_SMEAR_MSKOPT = 32 ;
+  INPUTS.GENMAG_SMEAR_MSKOPT      = 0 ;
 
   sprintf(INPUTS.STRONGLENS_FILE,       "NONE");
   sprintf(INPUTS.WEAKLENS_PROBMAP_FILE, "NONE");
@@ -11211,7 +11211,6 @@ void genran_modelSmear(void) {
     rtot =  rho * GENLC.GENSMEAR_RANGauss_FILTER[0] +  RHO * rr8 ; 
     GENLC.GENSMEAR_RANGauss_FILTER[ifilt]  = rtot ;      
   }
-
 
   load_genSmear_randoms(GENLC.CID, rmin, rmax, INPUTS.GENSMEAR_RANGauss_FIX);
 
@@ -22739,7 +22738,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
 
   // -------------- BEGIN ------------
 
-  if ( INPUTS.DO_MODELSMEAR  == 0 ) 
+  if ( !INPUTS.DO_MODELSMEAR  ) 
     { return ; }
 
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) 

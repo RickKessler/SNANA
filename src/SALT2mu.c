@@ -226,11 +226,11 @@ fixpar_all=1 --> internally set all float logicals to zero, even if
                   (i.e., uM0=0, u1=0, u2=0, etc ...)
 
 blindflag=0  --> turn off blinding
-blindflag=1  --> apply sinusoid function to MU-vs-z   
-blindflag=2  --> DEFAULT: apply random shift ref OL,w (for data only)
+blindflag=1  --> add cos(10*z)  to MUDIF(z)
+blindflag=2  --> DEFAULT: apply random shift to ref OL,w0 (for data only)
 blindflag=66 --> 2+64: apply blindflag=2 option to sim & real data
 
-With default blindflag=2, user can set blinding parameters with
+With default blindflag=1, user can set blinding parameters with
   blindpar9=.1,4522   --> OL -> OL + 0.1*cos(4522)  
   blindpar11=.1,207   --> w  ->  w + 0.1*cos(207) 
   [defaults are 0.06,23434 for OL and 0.2,8432 for w]
@@ -688,6 +688,8 @@ Default output files (can change names with "prefix" argument)
 // ==============================================
 // define data types to track selection cuts
 
+#define BBC_VERSION 2
+
 #define EVENT_TYPE_DATA     1
 #define EVENT_TYPE_BIASCOR  2
 #define EVENT_TYPE_CCPRIOR  3
@@ -914,7 +916,7 @@ typedef struct {
   float *SIM_ZCMB, *SIM_VPEC, *SIM_MU ;
 
   // scalar flags & counters computed from above
-  bool   IS_SIM ;
+  bool   IS_DATA, IS_SIM ;
   int    DOFLAG_CUTWIN[MXCUTWIN]; // flag to apply each cutwin
   int    ICUTWIN_GAMMA;           // CUTVAL index for gamma-variable
   int    IVAR_VPEC, IVAR_SIM_VPEC, IVAR_OPT_PHOTOZ ; // logicals
@@ -1208,8 +1210,11 @@ struct INPUTS {
 
   double maxerr_abort_c, maxerr_abort_x1, maxerr_abort_x0;
 
+
   int    blindFlag  ; // suppress cosmo param printout for data
-  double blindPar   ; // hard-wired to make cosine arg
+  double blind_cosinem0  ;       // M0DF -> M0DIF + cos(z*blind_cosinem0)
+  double blind_cosinePar[MAXPAR][2]; // blind offset = [0] * cos([1])
+  char   blindString[MAXPAR][60];
 
   // optional sim-files with corrections/maps
   int  nfile_biasCor;        // number of biascor files
@@ -1292,9 +1297,7 @@ struct INPUTS {
   double parbndmax[MAXPAR]; // max par bound
   int    ipar[MAXPAR];      // boolean float flag for each param
   int    izpar[MAXPAR];   // iz index or -9 
-  int    fixpar_all ;     // global flag to fix all parameters
-	       
-  double blindpar[MAXPAR][2]; // blind offset = [0] * cos([1])
+  int    fixpar_all ;     // global flag to fix all parameters	      
 
   char varname_gamma[40]; // name of variable to fit gamma HR step;
                            // e.g, "HOST_LOGMASS" or "SSFR", etc...
@@ -1362,7 +1365,7 @@ char FITPARNAMES_DEFAULT[MXCOSPAR][20] = {
   "blank" ,
   "alpha0      ", "beta0       ", "alpha1      ","beta1       ",
   "gamma0      ", "gamma1      ", "logmass_cen ","logmass_tau ",
-  "Omega_L     ", "Omega_k     ", "w           ","wa          ",
+  "Omega_L     ", "Omega_k     ", "w0          ","wa          ",
   "scalePCC    ", "sigint      ", "alphaHost   ","betaHost    ",
   "H11mucc0    ", "H11mucc1    ", "H11mucc2    ",
   "H11sigcc0   ", "H11sigcc1   ", "H11sigcc2   ",
@@ -1478,7 +1481,7 @@ struct {
 
 int  DOFIT_FLAG;    // non-zero --> do another fit iteration
 
-int ISDATA;                // T if no SIM keys are found
+int ISDATA_REAL;           // T if no SIM keys are found -> real data
 int FOUNDKEY_SNTYPE = 0 ;  // T -> found sntype key in fitres file
 int FOUNDKEY_SIM    = 0 ;  // T -> is simulation (formerly 'simok')
 int FOUNDKEY_SIMx0  = 0 ;  // T -> is SALT2 (formerly 'simx0')
@@ -1544,6 +1547,7 @@ void parse_blindpar(char *item) ;
 void  prep_input(void);
 void  prep_gamma_input(void) ;
 void  prep_probcc0_input(void);
+void  prep_load_COSPAR(void);
 int   force_probcc0(int itype, int idsurvey);
 void  prep_cosmodl_lookup(void);
 int   ppar(char* string);
@@ -1670,6 +1674,8 @@ int selectCID_data(char *cid); //djb
 
 void  write_fitres(char *fileName);
 void  write_fitres_misc(FILE *fout);
+void  write_version_info(FILE *fp) ;
+void  prep_blindVal_strings(void);
 void  write_blindFlag_message(FILE *fout) ;
 void  append_fitres(FILE *fp, char *CCID, int  indx);
 void  get_CCIDindx(char *CCID, int *indx) ;
@@ -1866,9 +1872,6 @@ int main(int argc,char* argv[ ])
   read_data(); 
   compute_more_INFO_DATA();  
 
-  // apply parameter blinding (after we know if DATA are real or sim)
-  apply_blindpar();
-
   // abort if there are any duplicate SNIDs
   check_duplicate_SNID();
 
@@ -1933,7 +1936,7 @@ int main(int argc,char* argv[ ])
   
   // check reasons to suppress MINUIT screen dump
   int MNPRINT = 0 ;
-  //  if ( ISDATA && INPUTS.blindFlag   ) { MNPRINT = 1; } 
+  //  if ( ISDATA_REAL && INPUTS.blindFlag   ) { MNPRINT = 1; } 
   //  if ( IGNOREFILE(INPUTS.PREFIX)    ) { MNPRINT = 1; } 
   //  if ( INPUTS.cutmask_write == -9   ) { MNPRINT = 1; } 
   
@@ -2044,15 +2047,18 @@ void exec_mnparm(void) {
   //
   // May 08 2018: 
   //   + fix to work with uM0=0 by setting M0 bound to -30+_0.001 mag.
+  //
+  // Oct 22 2019: beware that mnparm_ prints blinded params.
 
   int i, iz, iMN, iMN_tmp, len, ierflag, icondn, ISFLOAT ;
   int nzbin = INPUTS.nzbin ;
   double M0min, M0max;
   const int null=0;
   char text[100];
-  //  char fnam[] = "exec_mnparm" ;
+  char fnam[] = "exec_mnparm" ;
 
   // -------------- BEGIN --------------
+
 
   //Setup cosmology parameters for Minuit
   for (i=0; i<MXCOSPAR; i++ )    {
@@ -2063,7 +2069,6 @@ void exec_mnparm(void) {
 	    &INPUTS.parbndmin[i], &INPUTS.parbndmax[i], &ierflag, len);
     sprintf(FITRESULT.PARNAME[i],"%s", FITPARNAMES_DEFAULT[i] );
   }
-
 
   //Setup M0(z) paramters for Minuit
   for (iz=0; iz<nzbin; iz++ )    {
@@ -2503,7 +2508,7 @@ void  apply_blindpar(void) {
   
   int  ipar ;
   double *blindpar ;
-  //  char fnam[] = "apply_blindpar" ;
+  char fnam[] = "apply_blindpar" ;
 
   // -------------- BEGIN ---------------
   
@@ -2512,13 +2517,22 @@ void  apply_blindpar(void) {
   printf("\n");
   for(ipar=0; ipar < MAXPAR; ipar++ ) {
     if ( ISBLIND_FIXPAR(ipar) ) {
-      blindpar             = INPUTS.blindpar[ipar];
+      blindpar             = INPUTS.blind_cosinePar[ipar];
       INPUTS.parval[ipar] += (blindpar[0] * cos(blindpar[1]) ) ;
       printf("  BLIND FIXPAR: %s += %8.4f * cos(%f) \n",
 	     FITPARNAMES_DEFAULT[ipar], blindpar[0], blindpar[1] );
       fflush(stdout);
     }
   }
+
+  // re-load INPUTS.COSPAR (bugfix, Oct 22 2019)
+  printf(" xxx %s: 1. COSPAR(OL,w0) = %f, %f \n",
+	 fnam, INPUTS.COSPAR[0], INPUTS.COSPAR[2]); fflush(stdout);
+
+  prep_load_COSPAR();
+
+  printf(" xxx %s: 2. COSPAR(OL,w0) = %f, %f \n",
+	 fnam, INPUTS.COSPAR[0], INPUTS.COSPAR[2]); fflush(stdout);
 
   return ;
 
@@ -4320,11 +4334,11 @@ void set_defaults(void) {
 
 
   // === set blind-par values to be used if blindflag=2 (Aug 2017)
-  INPUTS.blindpar[IPAR_OL][0] = 0.06; 
-  INPUTS.blindpar[IPAR_OL][1] = 23434. ;
+  INPUTS.blind_cosinePar[IPAR_OL][0] = 0.06; 
+  INPUTS.blind_cosinePar[IPAR_OL][1] = 23434. ;
 
-  INPUTS.blindpar[IPAR_w0][0] = 0.20 ; 
-  INPUTS.blindpar[IPAR_w0][1] = 8432. ;
+  INPUTS.blind_cosinePar[IPAR_w0][0] = 0.20 ; 
+  INPUTS.blind_cosinePar[IPAR_w0][1] = 8430. ;
 
   sprintf(INPUTS.varname_gamma,"HOST_LOGMASS");
   INPUTS.USE_GAMMA0  = 0 ;
@@ -4384,8 +4398,9 @@ void set_fitPar(int ipar, double val, double step,
   INPUTS.ipar[ipar]      = use ;
   INPUTS.izpar[ipar]     = -9; // init
 
-  INPUTS.blindpar[ipar][0] = 0.0 ;
-  INPUTS.blindpar[ipar][1] = 0.0 ;
+  INPUTS.blind_cosinePar[ipar][0] = 0.0 ;
+  INPUTS.blind_cosinePar[ipar][1] = 0.0 ;
+  sprintf(INPUTS.blindString[ipar], "UNDEFINED");
 
 }
 
@@ -4433,6 +4448,8 @@ void read_data(void) {
     INFO_DATA.TABLEVAR.NSN_ALL += NROW ;
   }
 
+  // apply parameter blinding (after we know if DATA are real or sim)
+  apply_blindpar();
 
   // store VARNAMES_ORIG
   for(ivar=0; ivar < NVAR_ORIG; ivar++ ) {
@@ -5121,6 +5138,7 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->NSN_PASSCUTS      = 0;
     TABLEVAR->NSN_REJECT        = 0;
     TABLEVAR->IS_SIM            = false ;
+    TABLEVAR->IS_DATA           = false ;
     TABLEVAR->IVAR_VPEC         = -9 ;
     TABLEVAR->IVAR_SIM_VPEC     = -9 ;
     TABLEVAR->IVAR_OPT_PHOTOZ   = -9 ;
@@ -5290,11 +5308,12 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
   sprintf(vartmp,"SIM_NONIA_INDEX:S SIM_TEMPLATE_INDEX:S" );
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_NONIA_INDEX[ISTART], 
 				 LEN, VBOSE );
-  FOUNDKEY_SIM=0; // xxx temporary
+  FOUNDKEY_SIM=0;
+
   if ( ivar >=0 ) 
     { TABLEVAR->IS_SIM = true ;   FOUNDKEY_SIM=1;  }
   else
-    { return ; }
+    { TABLEVAR->IS_DATA = true;   return ; }
 
 
   sprintf(vartmp,"SIMx0:F SIM_x0:F" );
@@ -5505,6 +5524,11 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   // - - - - - - - 
   // Stuff for data only,
   if ( IS_DATA && zhd > 0 ) {
+
+    // check if data is real data or sim data
+    ISDATA_REAL = 0;
+    if ( TABLEVAR->IS_DATA == true ) { ISDATA_REAL = 1; }
+
     // if user-input zpecerr > 0, subtract out original zpecerr and 
     // add user input zpecerr:
     // zhd = (1+zcmb)*(1+zpec) -1 = zcmb + zpec + zcmb*zpec
@@ -9447,7 +9471,7 @@ void calc_zM0_data(void) {
   double *ptr_zM0;
   char *name ;
   char fnam[] = "calc_zM0_data" ;
-  int  LDMP=0 ;
+  int  LDMP   = 0 ;
   // --------- BEGIN -------------
   
   NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ; 
@@ -9493,11 +9517,17 @@ void calc_zM0_data(void) {
   double muAvg, zM0, zAvg, cosPar[10];
 
   // load reference cosmology params
-  cosPar[0] = INPUTS.parval[IPAR_OL] ;   // OL
+  cosPar[0] = INPUTS.parval[IPAR_OL] ;  // OL
   cosPar[1] = INPUTS.parval[IPAR_Ok] ;  // Ok
   cosPar[2] = INPUTS.parval[IPAR_w0] ;  // w0
   cosPar[3] = INPUTS.parval[IPAR_wa] ;  // wa
 
+  if ( LDMP ) {
+    printf(" xxx -------------------------------------- \n");
+    printf(" xxx %s: ref OL,Ok,w0,wa = %.3f, %.3f, %.3f, %.3f \n",
+	   fnam, cosPar[0], cosPar[1], cosPar[2], cosPar[3] );
+    fflush(stdout);
+  }
 
   for(iz=0; iz < NBINz; iz++ ) {
     WGT = SUM_WGT[iz] ;
@@ -13171,8 +13201,8 @@ void parse_blindpar(char *item) {
   splitString(item_local, comma, MXARG,    // inputs
 	      &NARG, ptrArg );            // outputs
 
-  sscanf(ptrArg[0], "%le", &INPUTS.blindpar[ipar][0] ); 
-  sscanf(ptrArg[1], "%le", &INPUTS.blindpar[ipar][1] ); 
+  sscanf(ptrArg[0], "%le", &INPUTS.blind_cosinePar[ipar][0] ); 
+  sscanf(ptrArg[1], "%le", &INPUTS.blind_cosinePar[ipar][1] ); 
 
   /* xxx
   printf(" xxx %s: blindpar[%d] = %f, %f \n", fnam, ipar, 
@@ -14194,10 +14224,8 @@ void prep_input(void) {
     }
   }
 
-  INPUTS.COSPAR[0] = INPUTS.parval[IPAR_OL] ;
-  INPUTS.COSPAR[1] = INPUTS.parval[IPAR_Ok] ;
-  INPUTS.COSPAR[2] = INPUTS.parval[IPAR_w0] ;
-  INPUTS.COSPAR[3] = INPUTS.parval[IPAR_wa] ;
+  prep_load_COSPAR();
+
   INPUTS.FLOAT_COSPAR=0;
   if ( INPUTS.ipar[IPAR_OL] ) { INPUTS.FLOAT_COSPAR=1; }
   if ( INPUTS.ipar[IPAR_Ok] ) { INPUTS.FLOAT_COSPAR=1; }
@@ -14221,6 +14249,13 @@ void prep_input(void) {
 
 } // end of prep_input
 
+
+void prep_load_COSPAR(void) {
+  INPUTS.COSPAR[0] = INPUTS.parval[IPAR_OL] ;
+  INPUTS.COSPAR[1] = INPUTS.parval[IPAR_Ok] ;
+  INPUTS.COSPAR[2] = INPUTS.parval[IPAR_w0] ;
+  INPUTS.COSPAR[3] = INPUTS.parval[IPAR_wa] ;
+}
 
 // **********************************************
 void prep_probcc0_input(void) {
@@ -14764,6 +14799,7 @@ void outFile_driver(void) {
       sprintf(tmpFile3,"%s-SPLIT%3.3d.fitpar", prefix, NJOB_SPLITRAN);
     }
     
+    prep_blindVal_strings();
     write_fitres(tmpFile1);  // write result for each SN
     write_M0(tmpFile2);      // write M0 vs. redshift
 
@@ -14784,6 +14820,17 @@ void outFile_driver(void) {
 } // end outFile_driver
 
 // ******************************************
+void write_version_info(FILE *fp) {
+
+  fprintf(fp,"# SNANA_VERSION: %s \n", SNANA_VERSION_CURRENT);
+  fprintf(fp,"# BBC_VERSION:   %d \n", BBC_VERSION);
+  fprintf(fp,"\n");
+  fflush(fp);
+
+} // end write_version_info
+
+
+// ******************************************
 void  write_M0(char *fileName) {
 
   // write M0 vs. z to fitres-formatted file.
@@ -14802,14 +14849,13 @@ void  write_M0(char *fileName) {
 
   int iz, NVAR, irow, NFIT ;
   double z, zMIN, zMAX, VAL, ERR, dl, MUREF;
+  char *tmpName, strval_OL[80], strval_w0[80];
   FILE *fp;
   char fnam[] = "write_M0" ;
 
   // ---------- BEGIN -----------
 
   if ( INPUTS.cutmask_write == -9 ) { return ; } // July 2016
-
-  //  if ( simdata_ccprior.USE == 0 ) { return ; }
 
   calc_zM0_data(); // fill FITRESULT.zM0[iz]
 
@@ -14823,23 +14869,43 @@ void  write_M0(char *fileName) {
 
   printf("\n Write MUDIF vs. redshift to %s\n" , fileName); 
 
-  double OL = FITRESULT.PARVAL[NJOB_SPLITRAN][9] ;
-  double w0 = FITRESULT.PARVAL[NJOB_SPLITRAN][11] ;
-  fprintf(fp,"# Reference cosmology params for MUDIF: \n");
-  fprintf(fp,"#   Omega_DE(ref):  %.3f \n", OL );
-  fprintf(fp,"#   w_DE(ref):      %.3f \n", w0 );
+  // - - - - 
+  write_version_info(fp);
 
-  fprintf(fp,"#   alpha(fit):   %.4f +- %0.4f \n",
+  fprintf(fp,"# Reference cosmology params for MUDIF: \n");
+
+  if ( (INPUTS.blindFlag & BLINDMASK_FIXPAR)>0 ) {
+    sprintf(strval_OL, "%s", INPUTS.blindString[IPAR_OL] );
+    sprintf(strval_w0, "%s", INPUTS.blindString[IPAR_w0] );
+  }
+  else {
+    sprintf(strval_OL, "%.3f", FITRESULT.PARVAL[NJOB_SPLITRAN][IPAR_OL]) ;
+    sprintf(strval_w0, "%.3f", FITRESULT.PARVAL[NJOB_SPLITRAN][IPAR_w0]) ;
+  }
+
+
+  tmpName = FITRESULT.PARNAME[IPAR_OL];
+  fprintf(fp,"#   REF %10s:  %s \n", tmpName, strval_OL );
+
+  tmpName = FITRESULT.PARNAME[IPAR_w0];
+  fprintf(fp,"#   REF %10s:  %s \n", tmpName, strval_w0 );
+
+  tmpName = FITRESULT.PARNAME[IPAR_ALPHA0];
+  fprintf(fp,"#   FIT %10s:  %.4f +- %0.4f \n", tmpName,
 	  FITRESULT.PARVAL[NJOB_SPLITRAN][IPAR_ALPHA0],
 	  FITRESULT.PARERR[NJOB_SPLITRAN][IPAR_ALPHA0]  );
-  fprintf(fp,"#   beta(fit):    %.4f +- %0.4f \n",
+
+  tmpName = FITRESULT.PARNAME[IPAR_BETA0];
+  fprintf(fp,"#   FIT %10s:  %.4f +- %0.4f \n", tmpName,
 	  FITRESULT.PARVAL[NJOB_SPLITRAN][IPAR_BETA0],
 	  FITRESULT.PARERR[NJOB_SPLITRAN][IPAR_BETA0]  );
 
   fprintf(fp,"# \n");
+  fflush(fp);
 
   // write blindFlag info (Mar 1 2017)
-  if ( INPUTS.blindFlag > 0 && ISDATA ) { write_blindFlag_message(fp); }
+  if ( INPUTS.blindFlag > 0 && ISDATA_REAL ) 
+    { write_blindFlag_message(fp); }
 
   write_NWARN(fp,0);
   write_MUERR_INCLUDE(fp);
@@ -15088,7 +15154,7 @@ void write_fitres(char* fileName) {
   IS_SIM      =  (INFO_DATA.TABLEVAR.IS_SIM == true) ;
   NSN_DATA    =  INFO_DATA.TABLEVAR.NSN_ALL;
   NSN_BIASCOR =  INFO_BIASCOR.TABLEVAR.NSN_ALL;
-  
+
 
   // first define the new fitres variables to add to the
   // original list  
@@ -15128,7 +15194,7 @@ void write_fitres(char* fileName) {
   // - - - - - - - - - -
   NVAR_TOT = NVAR_ORIG + NVAR_NEW ;
 
-  fout = fopen(fileName,"wt");
+
 
   // WARNING: need to refactor to read multiple input files XXXX
   fin  = open_TEXTgz(INPUTS.dataFile[0], "rt", &GZIPFLAG); // check for .gz file
@@ -15137,9 +15203,14 @@ void write_fitres(char* fileName) {
 	 INPUTS.cutmask_write );
   printf("\t %s \n", fileName );
 
+  // - - - - - - - -  -
+  fout = fopen(fileName,"wt");
+  write_version_info(fout);
 
-  fprintf(fout,"# MU-RESIDUAL NOTE: MURES = MU-(MUMODEL+M0DIF) \n\n");
+  if ( INPUTS.blindFlag > 0 && ISDATA_REAL ) 
+    { write_blindFlag_message(fout); }  
 
+  fprintf(fout,"# MU-RESIDUAL NOTE: MURES = MU-(MUMODEL+M0DIF) \n");
   write_NWARN(fout,1);
   write_MUERR_INCLUDE(fout);
 
@@ -15259,7 +15330,6 @@ void write_fitres(char* fileName) {
 	  chi2sum_m0, NBIN_m0-1);
 
   // ----------
-  if ( INPUTS.blindFlag > 0 && ISDATA ) { write_blindFlag_message(fout); }
 
   if ( INPUTS.uave)
     { FITRESULT.SNMAG0 = FITRESULT.AVEMAG0; }
@@ -15407,27 +15477,68 @@ void write_MUERR_INCLUDE(FILE *fp) {
 
 } // end write_MUERR_INCLUDE
 
+// =====================================
+void prep_blindVal_strings(void) {
+
+  // Created Oct 22 2019
+  // For each blinded param, create string of the form
+  //   A + Bcos(C)
+  //
+  // so that the same blind-val can be written in
+  // several different places.
+
+  int ipar;
+  double *blindpar, parval_orig; ;
+  char *s;
+  char fnam[] = "prep_blindVal_strings" ;
+
+  // --------- BEGIN ---------
+
+  if ( (INPUTS.blindFlag & BLINDMASK_FIXPAR) == 0 ) { return; }
+
+  for(ipar=0; ipar < MAXPAR; ipar++ ) {
+    blindpar = INPUTS.blind_cosinePar[ipar];
+    if ( blindpar[0] == 0.0 ) { continue; }
+    s           = INPUTS.blindString[ipar] ;
+    parval_orig = INPUTS.parval[ipar] - blindpar[0]*cos(blindpar[1]);
+    sprintf(s, "%8.4f + %6.4f*cos(%f)", 
+	    parval_orig, blindpar[0], blindpar[1] );     
+  }
+
+  return;
+
+} // end prep_blindVal_strings
+
 // ===============================================
 void write_blindFlag_message(FILE *fout) {
   int  blindFlag = INPUTS.blindFlag ;
   int  ipar;
   double *blindpar, parval_orig ;
   // ----------- BEGIN --------------
+
+  if ( !blindFlag ) { return; }
+
   fprintf(fout,"#\n");
   fprintf(fout,"#  *** WARNING: RESULTS ARE BLINDED *** \n");
 
   if ( (blindFlag & BLINDMASK_MUz)>0 ) {
     fprintf(fout,"#  m0_## values have blind offset = cos( z * %.3f ) \n",
-	    INPUTS.blindPar ); 
+	    INPUTS.blind_cosinem0 ); 
   }
   else {
     for(ipar=0; ipar < MAXPAR; ipar++ ) {
-      blindpar = INPUTS.blindpar[ipar];
+      blindpar = INPUTS.blind_cosinePar[ipar];
       if ( blindpar[0] != 0.0 ) {
+
+	fprintf(fout,"#     %s = %s \n",
+		FITRESULT.PARNAME[ipar], INPUTS.blindString[ipar] );
+
+	/* xxxxxx mark delete xxxxxx
 	parval_orig = INPUTS.parval[ipar] - blindpar[0]*cos(blindpar[1]);
 	fprintf(fout,"#     %s = %8.4f + %5.2f*cos(%f) \n",
 		FITRESULT.PARNAME[ipar], parval_orig,
 		blindpar[0], blindpar[1] ); fflush(stdout);
+	xxxxxx end mark xxxxx */
       }
     }
   }
@@ -15545,10 +15656,10 @@ int ISBLIND_FIXPAR(int ipar) {
 
 
   // continue for DATA or if special flag is set to blind sim.
-  DATAFLAG = ( ISDATA || ( blindFlag & BLINDMASK_SIM)>0 );
+  DATAFLAG = ( ISDATA_REAL || ( blindFlag & BLINDMASK_SIM)>0 );
   if ( DATAFLAG == 0 ) { return(NOTBLIND); }
 
-  if ( INPUTS.blindpar[ipar][0] != 0.0 ) 
+  if ( INPUTS.blind_cosinePar[ipar][0] != 0.0 ) 
     { return(BLIND); } 
   else 
     { return(NOTBLIND); } 
@@ -15568,8 +15679,7 @@ double BLIND_OFFSET(int ipar) {
   double zero = 0.0 ;
   // ---------------------
   // never blind for sims or if blindflag is turned off
-  if ( FOUNDKEY_SIM )           
-    { return zero ; }
+  // xxx mark delete  if ( FOUNDKEY_SIM )     { return zero ; }
 
   // bail of MU-vs-z blinding is NOT set
   if ( (INPUTS.blindFlag & BLINDMASK_MUz)== 0 ) 
@@ -15583,8 +15693,8 @@ double BLIND_OFFSET(int ipar) {
   int iz ;
   iz  = INPUTS.izpar[ipar];
   z   = INPUTS.BININFO_z.lo[iz] ;  
-  INPUTS.blindPar = 10.0 ;
-  arg = z * INPUTS.blindPar ;
+  INPUTS.blind_cosinem0 = 10.0 ;
+  arg = z * INPUTS.blind_cosinem0 ;
   off = cos(arg) ;
   return(off);
 

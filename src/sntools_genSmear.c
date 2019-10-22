@@ -3,7 +3,7 @@
 
  models of intrinsic brightness variation as a function of wavelength.
  The init functions depend on the model, but there is just one 
- function to evaluate the smear. Flags to set in the sim-input file:
+ function to evaluate the smear. Flags to set in the sim-input 
 
  GENMAG_SMEAR_MODELNAME: G10      # SALT2 model disp and SIGCOH
  GENMAG_SMEAR_MODELNAME: Guy10    # idem
@@ -73,8 +73,9 @@
      SALT2 wave range. Avoids abort at very low redshifts.
 
  Oct 18 2019: begin COV model
- Oct 21 2019: significant refactor to prepare for speed improvements
-              using repeat_genSmear().
+ Oct 21 2019: 
+   + significant refactor for speed improvements using repeat_genSmear().
+     BEWARE to check repeat_genSmear for Trest-dependent smear models.
 
 **********************************/
 
@@ -103,14 +104,15 @@
 
 int  istat_genSmear(void) {
 
+  return(GENSMEAR.NUSE);
+
+  /* xxx mark delete 
   int MASK = 0 ;
-
   if ( GENSMEAR.NUSE == 0 ) { return(MASK); }
-
   MASK += MASK_GENSMEAR_APPLY ;
   MASK += MASK_GENSMEAR_NEW   ;
-
   return(MASK) ;
+  xxxxxx */
 }
 
 void  init_genSmear_FLAGS(int MSKOPT, double SCALE) {
@@ -204,6 +206,7 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
   int  NRANGauss = GENSMEAR.NGEN_RANGauss ;
   int  NRANFlat  = GENSMEAR.NGEN_RANFlat ;
   int  ILIST_RAN = 2 ; // list to use for genSmear randoms  
+  int  LDMP = 0 ;
 
   int iran;
   char fnam[] = "load_genSmear_randoms" ;
@@ -224,7 +227,17 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
   for ( iran=0; iran < NRANFlat; iran++ ) 
     {  GENSMEAR.RANFlat_LIST[iran]  = FlatRan1(ILIST_RAN);  } 
   
-  if ( RANFIX > -99.0 ) {
+  if ( LDMP ) {
+    double GFIRST = GENSMEAR.RANGauss_LIST[0];
+    double GLAST  = GENSMEAR.RANGauss_LIST[NRANGauss-1];
+    double FFIRST = GENSMEAR.RANFlat_LIST[0];
+    double FLAST  = GENSMEAR.RANFlat_LIST[NRANFlat-1];
+    printf(" xxx load_ran: CID=%d  First/Last = %f/%f(G), %f/%f(F) \n",
+	   CID, GFIRST,GLAST, FFIRST,FLAST);  fflush(stdout);
+  }
+
+
+  if ( RANFIX > -99.0 ) { 
     for(iran=0; iran < NRANGauss; iran++ ) {                 
       GENSMEAR.RANGauss_LIST[iran] = RANFIX ;
     }
@@ -253,7 +266,7 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   //
   // Oct 9 2018: check option to scale the magSmear values
   // Oct 21 2019: add CID argument
-  // 
+  //
 
   int ilam;
   char fnam[] = "get_genSmear" ;
@@ -261,8 +274,6 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   // -------------- BEGIN -----------
 
   GENSMEAR.NCALL++ ;
-
-  GENSMEAR.MAGSMEAR_COH = 0.0 ; // Jun 14 2016
 
   if ( repeat_genSmear(Trest,NLam,Lam) ) {  goto SET_LAST; }
 
@@ -273,6 +284,7 @@ void get_genSmear(double Trest, int NLam, double *Lam,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  GENSMEAR.MAGSMEAR_COH = 0.0 ;
   for(ilam=0; ilam < NLam; ilam++ ) { magSmear[ilam] = 0.0 ; }
 
   if ( GENSMEAR_USRFUN.USE ) {
@@ -317,6 +329,7 @@ void get_genSmear(double Trest, int NLam, double *Lam,
     for(ilam=0; ilam < NLam; ilam++ ) 
       { magSmear[ilam] *= GENSMEAR.SCALE; }
   }
+
 
  SET_LAST:
   GENSMEAR.CID_LAST    = GENSMEAR.CID ;

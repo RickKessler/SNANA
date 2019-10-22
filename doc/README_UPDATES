@@ -17535,6 +17535,7 @@
    sntools_genSmear.c, snlc_sim.c:
      + add new intrinsic scatter model "COVSED" to specify 
        covariance in wave x phase bins. Start with SUGAR.
+     + some refactoring of utilities to generate randoms for genSmear.
 
    Makefile
      + change -O1 to -O2 to speed up sim with COVSED model;

@@ -3,7 +3,10 @@
 // Mar 30 2018: MXLAM_GENSMEAR_SALT2 --> 4000 (was 1000)
 // Oct 18 2019: add COVSED model
 
-void  init_genSmear_FLAGS(double SCALE); // set flags to zero
+#define MASK_GENSMEAR_APPLY 1 // apply genSmear, old or new
+#define MASK_GENSMEAR_NEW   2 // re-compute genSmear
+
+void  init_genSmear_FLAGS(int MSKOPT, double SCALE); // set flags to zero
 int   istat_genSmear(void) ;
 
 void  init_genSmear_USRFUN(int NPAR, double *parList, double *LAMRANGE ) ;
@@ -41,11 +44,14 @@ void  parse_VCR_colorString(int ic);
 
 void  get_NRAN_genSmear(int *NRANGauss, int *NRANFlat); // returns NRANxxx
 
-void  SETRANGauss_genSmear(int NRAN, double *ranList );
-void  SETRANFlat_genSmear(int NRAN, double *ranList );
+// void  SETRANGauss_genSmear(int NRAN, double *ranList );
+// void  SETRANFlat_genSmear(int NRAN, double *ranList );
 void  SETSNPAR_genSmear(double shape, double color, double redshift) ;
 
-void get_genSmear(double Trest, int NLam, double *Lam, double *magSmear) ;
+void get_genSmear(double Trest, int NLam, double *Lam,
+		  double *magSmear) ;
+int  repeat_genSmear(double Trest, int NLam, double *Lam);
+void load_genSmear_randoms(int CID, double rmin, double rmax, double RANFIX);
 
 void init_genSmear_COVLAM_debug(double *lam, double COVMAT[2][2] );
 void update_genSmear_COVLAM_debug(double *magSmear);
@@ -104,26 +110,36 @@ void genSmear_nodes(int NBAND, double *LAMCEN,
 #define LAMCEN_FILT_R   6545.0
 #define LAMCEN_FILT_I   8045.0
 
-double MAGSMEAR_COH;   // coherent part of scatter only, for SNTABLE
-
 
 struct GENSMEAR {
+  int    NUSE;   // number of used models with init_genSmear_XXX call
+  int    NCALL;  // number of calls to get_genSmear
+
   int    NGEN_RANGauss ;
   int    NGEN_RANFlat ;
   int    NSET_RANGauss ;
   int    NSET_RANFlat ;
-  double RANGauss_LIST[MXRAN_GENSMEAR] ;
-  double RANFlat_LIST[MXRAN_GENSMEAR] ;
+  double *RANGauss_LIST; // [MXRAN_GENSMEAR] ;  //.xyz malloc ??
+  double *RANFlat_LIST; // [MXRAN_GENSMEAR] ;
+  int    CID; // CID for each set of randoms
 
   double SHAPE, COLOR ; // allows more complex magSmear models
   double REDSHIFT ;       // allows for redshift evolution (Jan 2014)
   double ZPOW[10];  // store powers of redshift for faster calculations.
 
   double SCALE ; // global scale to all mag-smearing (Oct 9 2018)
+  int    MSKOPT ; // generic opt-mask
 
   // debug option to check scatter at 'CHECK' wavelength
   double SUMSMEAR_CHECK[2], SQSUMSMEAR_CHECK[2], SUMCROSS;
   int    NCHECK;
+
+  double MAGSMEAR_COH;   // coherent part of scatter only, for SNTABLE
+
+  // keep track of last values to check of magSmear needs
+  // to be re-computed
+  int    CID_LAST, NLAM_LAST;
+  double TREST_LAST, LAMMIN_LAST, LAMMAX_LAST;
 
 } GENSMEAR ;
 
@@ -304,10 +320,6 @@ struct GENSMEAR_BIMODAL_UV {
 struct GENSMEAR_PRIVATE {
   int USE ;
 } GENSMEAR_PRIVATE ;
-
-
-int NUSE_GENSMEAR ;
-int NCALL_GENSMEAR ;
 
 
 // --------------------------------------------------------------------

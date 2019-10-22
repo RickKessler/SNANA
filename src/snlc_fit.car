@@ -2252,7 +2252,7 @@ c Jan 2016: fit iteration again if cov matrix has not converged
      &     (.not. LREPEAT_ITER)      ! not already repeating
 
       IF ( DO_REFIT ) THEN
-         write(6,46) MNSTAT_COV, CID
+         write(6,46) MNSTAT_COV, CCID
 46       format(T5,'Bad COV matrix (MNSTAT_COV=',I2,') ' 
      &              '-> repeat fit for CID=',A12 )
          ERRFLAG = ERRFLAG_REPEAT_ITER  ! -1

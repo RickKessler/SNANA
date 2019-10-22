@@ -845,6 +845,7 @@ void set_user_defaults(void) {
   INPUTS.GENMAG_SMEAR_SCALE = 1.0;
   sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE") ;
   INPUTS.GENMAG_SMEAR_MODELARG[0] = 0;
+  INPUTS.GENMAG_SMEAR_MSKOPT = 32 ;
 
   sprintf(INPUTS.STRONGLENS_FILE,       "NONE");
   sprintf(INPUTS.WEAKLENS_PROBMAP_FILE, "NONE");
@@ -2075,6 +2076,9 @@ int read_input(char *input_file) {
 
     if ( uniqueMatch(c_get,"GENMAG_SMEAR_SCALE:")   ) 
       { readfloat(fp, 1, &INPUTS.GENMAG_SMEAR_SCALE ); continue ; }
+
+    if ( uniqueMatch(c_get,"GENMAG_SMEAR_MSKOPT:")   ) 
+      { readint(fp, 1, &INPUTS.GENMAG_SMEAR_MSKOPT ); continue ; }
 
     if ( uniqueMatch(c_get,"GENMAG_SMEAR_MODELNAME:")   ) {
       modelName = INPUTS.GENMAG_SMEAR_MODELNAME  ;
@@ -5090,6 +5094,9 @@ void sim_input_override(void) {
     if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_SCALE" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i], "%f", &INPUTS.GENMAG_SMEAR_SCALE);
     }
+    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_MSKOPT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i], "%d", &INPUTS.GENMAG_SMEAR_MSKOPT );
+    }
 
     if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_MODELNAME" ) == 0 ) {
       modelName = INPUTS.GENMAG_SMEAR_MODELNAME ;
@@ -8039,6 +8046,7 @@ void init_modelSmear(void) {
 
   double GENMODEL_ERRSCALE = (double)INPUTS.GENMODEL_ERRSCALE ;
   double SMEAR_SCALE       = (double)INPUTS.GENMAG_SMEAR_SCALE;
+  int    SMEAR_MSKOPT      = INPUTS.GENMAG_SMEAR_MSKOPT ;
   int    OPT, j, USE_SALT2smear, MEMD, NRANGauss=0, NRANFlat=0 ;
   double LAMRANGE[2], SIGCOH,  PARLIST_SETPKMJD[10];
   char *ptrName, key[40], NAM3[8]; 
@@ -8047,8 +8055,10 @@ void init_modelSmear(void) {
 
   // --------- BEGIN ----------
 
+  /* xxx
   GENLC.NRANGauss_GENSMEAR = 0 ;
   GENLC.NRANFlat_GENSMEAR  = 0 ;
+  xxxx */
 
   sprintf(BANNER,"%s: init intrinsic SN smearing with model=%s",
 	  fnam, INPUTS.GENMAG_SMEAR_MODELNAME);
@@ -8077,11 +8087,17 @@ void init_modelSmear(void) {
   init_genSmear_filters();
 
   // check model names
-  init_genSmear_FLAGS(SMEAR_SCALE); // internal inits
+  init_genSmear_FLAGS(SMEAR_MSKOPT,SMEAR_SCALE); // internal inits
 
   sprintf(key,"GENMAG_SMEAR_MODELNAME") ;
   ptrName = INPUTS.GENMAG_SMEAR_MODELNAME ;
-  if ( IGNOREFILE(ptrName) ) { goto SKIP_GENSMEAR ; }
+  if ( IGNOREFILE(ptrName) ) { 
+
+    // .xyz init un-used randoms to preserve randon synch for SNANA_tester
+    init_genSmear_randoms(MXFILTINDX-1,MXFILTINDX-1); // .xyz obsolete
+
+    goto SKIP_GENSMEAR ; 
+  }
 
   INPUTS.DO_MODELSMEAR  = 1 ;
 
@@ -8194,6 +8210,7 @@ void init_modelSmear(void) {
 
   // fetch & store number of randoms to generate for each SN.
 
+  /* xxxx mark delete Oct 21 2019 xxxxxxx
   get_NRAN_genSmear(&GENLC.NRANGauss_GENSMEAR,&GENLC.NRANFlat_GENSMEAR);
   NRANGauss = GENLC.NRANGauss_GENSMEAR;
   NRANFlat  = GENLC.NRANFlat_GENSMEAR ;
@@ -8215,8 +8232,11 @@ void init_modelSmear(void) {
 	 ptrName, NRANGauss);
   printf("   Number of %s Flat(0-1) randoms per SN: %d \n",  
 	 ptrName, NRANFlat);
-  printf("   MagSmear scale: %.3f \n", SMEAR_SCALE);
   fflush(stdout);
+
+  xxxxx end mark xxxxxxxxx  */
+
+  printf("   MagSmear scale: %.3f \n", SMEAR_SCALE);
 
   // -------------------------------
   if ( INPUTS.DO_MODELSMEAR  == 0 ) 
@@ -8228,13 +8248,14 @@ void init_modelSmear(void) {
 
  SKIP_GENSMEAR:
   
+  /* xxx mark delete Oct 21 2019 xxxxxxxx
   // alloate memory to store randoms
   MEMD = (NRANGauss + MXFILTINDX + 1) * sizeof(double);
   GENLC.GENSMEAR_RANGauss_MODEL = (double*) malloc(MEMD);
 
   MEMD = (NRANFlat + MXFILTINDX + 1) * sizeof(double);
   GENLC.GENSMEAR_RANFlat_MODEL = (double*) malloc(MEMD);
-
+  xxxxxxxxx end mark xxxxxxxxx */
 
   // May 2019: init method to estimate peakmjd for data files
 
@@ -8294,7 +8315,7 @@ void dump_modelSmearSigma(void) {
   for(igen=0; igen < NRANGEN; igen++ ) {
     init_RANLIST();      // init list of random numbers 
     genran_modelSmear(); // load randoms for genSmear
-    get_genSmear(TREST, NLAM, LAMARRAY, MAGARRAY); // return MAGARRAY
+    get_genSmear(TREST,NLAM,LAMARRAY,MAGARRAY); // return MAGARRAY
 
 
     for(ilam=0; ilam < NLAM; ilam++ ) 
@@ -10919,7 +10940,6 @@ void pick_NON1ASED(int ilc,
     GEN_NON1ASED->CIDRANGE[ispgen][1] = GENLC.CID;
 
     init_genmag_NON1ASED( ispgen, INP_NON1ASED);
-    // xxx mark delete 5/2019 init_genmag_NON1ASED(GENLC.TEMPLATE_INDEX,sedFile); 
 
     printf("   Changes for %s : \n", name);
     
@@ -11136,10 +11156,10 @@ void genran_modelSmear(void) {
   // Mar 24 2016: for GENGRID, return after all randoms are initalized to zero.
   // Jul 20 2019: return for repeat strong lens
  
-  int ifilt ;
+  int    ifilt, iran, NRANGauss, NRANFlat ;
   int    ILIST_RAN = 2 ; // list to use for genSmear randoms
   double rr8, rho, RHO, rmax, rmin, rtot, RANFIX ;
-  //  char fnam[] = "genran_modelSmear" ;
+  char fnam[] = "genran_modelSmear" ;
 
   // -------------- BEGIN --------
 
@@ -11149,8 +11169,8 @@ void genran_modelSmear(void) {
 
   for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ )  {  
     GENLC.GENSMEAR_RANGauss_FILTER[ifilt] = 0.0 ;  
-    GENLC.GENSMEAR_RANGauss_MODEL[ifilt]  = 0.0 ;  
-    GENLC.GENSMEAR_RANFlat_MODEL[ifilt]   = 0.0 ;  
+    // xxx mark delete    GENLC.GENSMEAR_RANGauss_MODEL[ifilt]  = 0.0 ;  
+    // xxx mark delete    GENLC.GENSMEAR_RANFlat_MODEL[ifilt]   = 0.0 ;  
   }
 
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) { return ; }
@@ -11193,15 +11213,21 @@ void genran_modelSmear(void) {
   }
 
 
+  load_genSmear_randoms(GENLC.CID, rmin, rmax, INPUTS.GENSMEAR_RANGauss_FIX);
 
+  /* xxx mark delete Oct 21 2019 xxxxxxxx
   // generate Guassian randoms for intrinsic scatter [genSmear] model
-  for ( ifilt=1; ifilt < MXFILTINDX; ifilt++ ) {
-    GENLC.GENSMEAR_RANGauss_MODEL[ifilt] = GaussRanClip(ILIST_RAN,rmin,rmax);
+  NRANGauss = GENLC.NRANGauss_GENSMEAR;
+  if ( NRANGauss < MXFILTINDX-1 ) { NRANGauss = MXFILTINDX-1; }
+  for(iran=1; iran <= NRANGauss; iran++ ) {
+    GENLC.GENSMEAR_RANGauss_MODEL[iran] = GaussRanClip(ILIST_RAN,rmin,rmax);
   }
 
-  // repeat for 0-1 [flat] randoms (Jan 2014 - changes random sync)
-  for ( ifilt=1; ifilt < MXFILTINDX; ifilt++ ) 
-    {  GENLC.GENSMEAR_RANFlat_MODEL[ifilt]  = FlatRan1(ILIST_RAN);  }
+  // repeat for 0-1 [flat] randoms
+  NRANFlat  = GENLC.NRANFlat_GENSMEAR;
+  if ( NRANFlat < MXFILTINDX-1 ) { NRANFlat = MXFILTINDX-1; }
+  for ( iran=1; iran < NRANFlat; iran++ ) 
+    {  GENLC.GENSMEAR_RANFlat_MODEL[iran]  = FlatRan1(ILIST_RAN);  }
 
 
   // check option to fix genSmear randoms for debugging
@@ -11215,7 +11241,7 @@ void genran_modelSmear(void) {
       GENLC.GENSMEAR_RANGauss_MODEL[ifilt]  = RANFIX ;
     }
   }
-
+  xxxxx end mark xxxxxx */
 
   // set randoms for instrinsic scatter matrix (July 2011)
   GENLC.COVMAT_SCATTER_GRAN[0] =  GaussRan(1);
@@ -11225,6 +11251,7 @@ void genran_modelSmear(void) {
 		       GENLC.COVMAT_SCATTER );       // <== output
   
 
+  /* xxxxxxxxxx mark delete Oct 21 2019 xxxxxxxxxxxxx
   // -----------------------------------
   // pass randoms to genSmear function
   int NRAN ;
@@ -11233,6 +11260,7 @@ void genran_modelSmear(void) {
 
   NRAN = GENLC.NRANFlat_GENSMEAR ;
   SETRANFlat_genSmear(NRAN, &GENLC.GENSMEAR_RANFlat_MODEL[1] );
+  xxxxxxxxxxxxxxx end mark xxxxxxxxx*/
 
   // -----------------------------------
   // pass SN parameters to genSmear function
@@ -22854,7 +22882,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
   } // ep loop
 
   if ( istat_genSmear() > 0 ) 
-    { GENLC.MAGSMEAR_COH = MAGSMEAR_COH ; } // see sntools_genSmear.c
+    { GENLC.MAGSMEAR_COH = GENSMEAR.MAGSMEAR_COH ; } // see sntools_genSmear.c
 
   return ;
 

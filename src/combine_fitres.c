@@ -446,7 +446,7 @@ void ADD_FITRES(int ifile) {
   //
   // May 2 2019: 
   //   + remove redundant call to TABLEFILE_CLOSE
-  // Sep 19 2019: abort if column 0 is not a CID column
+  // Sep 19 2019: abort if column 0 is not a valid column
   // Sep 24: slightly improve matching method so that it is very 
   //         fast when both files have exactly the same CIDs.
   //
@@ -537,8 +537,9 @@ void ADD_FITRES(int ifile) {
     ICAST   = READTABLE_POINTERS.ICAST_STORE[ivar] ;
 
     // Sep 19 2019: make sure first column is CID
-    if ( ivar == IVARSTR_CCID && strstr(VARNAME,"CID") == NULL ) {
-      sprintf(c1err,"First column is %s, but should be CID", VARNAME);
+    // xxx mark delete if ( ivar == IVARSTR_CCID && strstr(VARNAME,"CID") == NULL ) {
+    if ( ICAST_for_textVar(VARNAME) != ICAST_C ) {
+      sprintf(c1err,"Unrecognized first column: %s", VARNAME);
       sprintf(c2err,"Check %s", INPUTS.FFILE[ifile] );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
     }

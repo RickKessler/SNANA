@@ -2507,15 +2507,22 @@ void  apply_blindpar(void) {
   // Apply optional FIXPAR blinding to fixed parametes OL,w, etc.
   
   int  ipar ;
+  int  LDMP=0;
   double *blindpar ;
   char fnam[] = "apply_blindpar" ;
 
   // -------------- BEGIN ---------------
-  
+
   if ( (INPUTS.blindFlag & BLINDMASK_FIXPAR)== 0 ) { return ; }
   
-  printf("\n");
+  if ( LDMP ) {
+    printf(" xxx %s: blindFlag=%d ISDATAREAL=%d blindpar(LAM)=%f\n", 
+	   fnam, INPUTS.blindFlag, ISDATA_REAL, 
+	   INPUTS.blind_cosinePar[IPAR_OL][0] ); fflush(stdout);
+  }
+
   for(ipar=0; ipar < MAXPAR; ipar++ ) {
+
     if ( ISBLIND_FIXPAR(ipar) ) {
       blindpar             = INPUTS.blind_cosinePar[ipar];
       INPUTS.parval[ipar] += (blindpar[0] * cos(blindpar[1]) ) ;
@@ -2526,13 +2533,18 @@ void  apply_blindpar(void) {
   }
 
   // re-load INPUTS.COSPAR (bugfix, Oct 22 2019)
-  printf(" xxx %s: 1. COSPAR(OL,w0) = %f, %f \n",
-	 fnam, INPUTS.COSPAR[0], INPUTS.COSPAR[2]); fflush(stdout);
+  if ( LDMP ) {
+    printf(" xxx %s: 1. COSPAR(OL,w0) = %f, %f \n",
+	   fnam, INPUTS.COSPAR[0], INPUTS.COSPAR[2]); fflush(stdout);
+  }
 
+  // set INPUTS.COSPAR with blinded cosmo params
   prep_load_COSPAR();
 
-  printf(" xxx %s: 2. COSPAR(OL,w0) = %f, %f \n",
-	 fnam, INPUTS.COSPAR[0], INPUTS.COSPAR[2]); fflush(stdout);
+  if ( LDMP ) {
+    printf(" xxx %s: 2. COSPAR(OL,w0) = %f, %f \n",
+	   fnam, INPUTS.COSPAR[0], INPUTS.COSPAR[2]); fflush(stdout);
+  }
 
   return ;
 
@@ -4334,6 +4346,7 @@ void set_defaults(void) {
 
 
   // === set blind-par values to be used if blindflag=2 (Aug 2017)
+  ISDATA_REAL = 1;
   INPUTS.blind_cosinePar[IPAR_OL][0] = 0.06; 
   INPUTS.blind_cosinePar[IPAR_OL][1] = 23434. ;
 
@@ -5126,7 +5139,7 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
   int  icut, ivar, ivar2, irow, id, RDFLAG ;
   char vartmp[60], *cutname, str_z[40], str_zerr[40]; 
 
-  //  char fnam[] = "SNTABLE_READPREP_TABLEVAR" ;
+  char fnam[] = "SNTABLE_READPREP_TABLEVAR" ;
 
   // ----------- BEGIN -------------
 
@@ -5311,10 +5324,15 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
   FOUNDKEY_SIM=0;
 
   if ( ivar >=0 ) 
-    { TABLEVAR->IS_SIM = true ;   FOUNDKEY_SIM=1;  }
+    { TABLEVAR->IS_SIM = true ;   FOUNDKEY_SIM=1; }
   else
     { TABLEVAR->IS_DATA = true;   return ; }
 
+  // here and below is for simulated data 
+
+  // note that IS_DATA refers to datafile= argument, and can be
+  // real data or simulated data. ISDATA_REAL is false for sim data.
+  if ( IS_DATA ) { ISDATA_REAL = 0 ; }  // not real data 
 
   sprintf(vartmp,"SIMx0:F SIM_x0:F" );
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_X0[ISTART], 
@@ -5524,10 +5542,6 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   // - - - - - - - 
   // Stuff for data only,
   if ( IS_DATA && zhd > 0 ) {
-
-    // check if data is real data or sim data
-    ISDATA_REAL = 0;
-    if ( TABLEVAR->IS_DATA == true ) { ISDATA_REAL = 1; }
 
     // if user-input zpecerr > 0, subtract out original zpecerr and 
     // add user input zpecerr:
@@ -15653,7 +15667,6 @@ int ISBLIND_FIXPAR(int ipar) {
   // first check if blindFlag is set for FIXPAR option
   if ( (blindFlag & BLINDMASK_FIXPAR)==0 ) 
     { return(NOTBLIND); } 
-
 
   // continue for DATA or if special flag is set to blind sim.
   DATAFLAG = ( ISDATA_REAL || ( blindFlag & BLINDMASK_SIM)>0 );

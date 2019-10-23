@@ -538,10 +538,12 @@ void ADD_FITRES(int ifile) {
 
     // Sep 19 2019: make sure first column is CID
     // xxx mark delete if ( ivar == IVARSTR_CCID && strstr(VARNAME,"CID") == NULL ) {
-    if ( ICAST_for_textVar(VARNAME) != ICAST_C ) {
-      sprintf(c1err,"Unrecognized first column: %s", VARNAME);
-      sprintf(c2err,"Check %s", INPUTS.FFILE[ifile] );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
+    if ( ivar == IVARSTR_CCID ) {
+      if ( ICAST_for_textVar(VARNAME) != ICAST_C ) {
+	sprintf(c1err,"Unrecognized first column: %s", VARNAME);
+	sprintf(c2err,"Check %s", INPUTS.FFILE[ifile] );
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
+      }
     }
  
     if ( ICAST == ICAST_C ) {

@@ -3417,7 +3417,8 @@ void parse_input_GENMODEL(FILE *fp, int *iArg ) {
 		      INPUTS.MODELPATH, INPUTS.MODELNAME); // returned
 
     // check for NONIA model to help parsing below
-    INPUTS.NON1A_MODELFLAG = get_NON1A_MODELFLAG(INPUTS.GENMODEL);
+    INPUTS.NON1A_MODELFLAG = get_NON1A_MODELFLAG(INPUTS.MODELNAME);
+
     if ( INPUTS.NON1A_MODELFLAG == MODEL_NON1AGRID ) 
       { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.NON1AGRID_FILE );  }
 
@@ -4191,10 +4192,6 @@ int get_NON1A_MODELFLAG(char *GENMODEL) {
 
   // ------------- BEGIN -------------
 
-  /* xxxx mark delete Apr 18 2019 xxxxxxx
-  //  if ( strcmp(GENMODEL,"LCLIB" ) == 0 )  { return(MODEL_LCLIB); }
-  xxxx end mark xxxxxx*/
-
   if ( strstr(GENMODEL,"NON") == NULL )  { return -9 ; }
 
   // copy GENMODEL into local var to make sure GENMODEL isn't modified.
@@ -4320,13 +4317,6 @@ void sim_input_override(void) {
       i++ ; sscanf(ARGV_LIST[i] , "%s",  INPUT_ZVARIATION[N].PARNAME );
       i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp );
       parse_GENPOLY(ctmp, &INPUT_ZVARIATION[N].POLY, fnam );
-
-      /* xxxx mark delete Apr 10 2019 xxxxxxxxx
-      for(j=0; j <= POLYORDER_ZVAR; j++ ) {
-	i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUT_ZVARIATION[N].ZPOLY[j] );
-      }
-      xxxxxxxxxxxxxxxxxx */
-
     }  // ZVARIATION_POLY
 
 
@@ -10619,7 +10609,7 @@ void gen_modelPar(int ilc) {
   double ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   double shape;
   GENGAUSS_ASYM_DEF GENGAUSS_ZVAR ;
-  //  char fnam[] = "gen_modelPar";
+  char fnam[] = "gen_modelPar";
 
   //------------ BEGIN function ------------
 
@@ -10631,7 +10621,7 @@ void gen_modelPar(int ilc) {
   // ---------------------------------------
   // evaluate shape with z-dependence on population, 
 
-  if ( !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0 ) {
+  if ( !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0 ) { // probably SNIa
 
     char *snam = GENLC.SHAPEPAR_GENNAME ;
     GENGAUSS_ZVAR = 
@@ -10644,7 +10634,6 @@ void gen_modelPar(int ilc) {
     GENLC.SHAPEPAR      = shape ; 
     *GENLC.ptr_SHAPEPAR = shape ; // load model-spefic shape variables 
   }
-
 
   if ( ISMODEL_SALT2 ) {
     gen_modelPar_SALT2();
@@ -10664,7 +10653,7 @@ void gen_modelPar(int ilc) {
     if ( INPUTS.GENFRAME_FIXMAG == GENFRAME_REST ) 
       { GENLC.NOSHAPE += GENLC.DLMU; }
   }
-
+  
   return ;
 
 }  // end of gen_modelPar
@@ -17226,7 +17215,7 @@ void init_zvariation(void) {
   // Jul 19 2017: add GENMAG_OFF_GLOBAL to update list
   // Jul 24 2017: update error reporting of NZBIN exceeding boung.
 
-  char *ptrZfile, *ptrparname, *ptrPar;
+  char *ptrZfile, *ptrparname, *ptrPar, *ptrPoly;
   char GENPREFIX[60], c_get[60], method[20], parName[60], cpoly[60] ;
 
 #define NPREFIX_GENGAUSS 15
@@ -17418,6 +17407,7 @@ void init_zvariation(void) {
 
   for ( i=0; i < NPAR_ZVAR_USR; i++ ) {
     ptrparname = INPUT_ZVARIATION[i].PARNAME;
+    ptrPoly    = INPUT_ZVARIATION[i].POLY.STRING ;
     FLAG       = INPUT_ZVARIATION[i].FLAG ;
     NZ         = INPUT_ZVARIATION[i].NZBIN;
     ZMIN       = INPUT_ZVARIATION[i].ZBIN_VALUE[0];
@@ -17435,8 +17425,10 @@ void init_zvariation(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, "" ); 
     }
 
-    printf("\t Init Z-variation (zvar) for '%s' (method = %s)\n", 
-	   ptrparname, method );
+    printf("   %s for %s(%s)   method=%s\n", 
+	   fnam, ptrparname, ptrPoly, method );
+
+    // xxx 
 
     // ========== IDIOT CHECKS ===============
 
@@ -17579,13 +17571,14 @@ double get_zvariation(double z, char *parname) {
   // this is to catch cases where a parname is passed that
   // would never get used.
 
+
   MATCH = 0;
   if ( NGENLC_WRITE < 3 ) {
     for ( ipar=0; ipar < MXPAR_ZVAR; ipar++ ) 
       { if ( strcmp(parname,PARDEF_ZVAR[ipar]) == 0 ) MATCH=1; }
 
     if ( MATCH == 0 ) {
-      sprintf(c1err,"Undefined parname = '%s' at Z=%f", parname, z );
+      sprintf(c1err,"Undefined parname = '%s' at z=%f", parname, z );
       sprintf(c2err,"Check file: '%s'", INPUT_ZVARIATION_FILE );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
@@ -17608,16 +17601,6 @@ double get_zvariation(double z, char *parname) {
 
   if ( FLAG == FLAG_ZPOLY_ZVAR ) {
     shift = eval_GENPOLY(z,&INPUT_ZVARIATION[ipar].POLY,fnam);
-
-    /************* mark delete Apr 10 2019 xxxxxxxxxx
-    zpow = 1.0 ;
-    for ( i=0; i <= POLYORDER_ZVAR ; i++ ) {  // polynomial function
-      tmp = INPUT_ZVARIATION[ipar].ZPOLY[i] ;
-      shift += (tmp * zpow) ;
-      zpow *= z ; // avoid using slow pow function for powers of z    
-    }
-    xxxxxxxx end mark xxxxxxxxxxxxx*/
-
   }
   else if ( FLAG == FLAG_ZBINS_ZVAR ) {  // linear interpolate ZBINS
 

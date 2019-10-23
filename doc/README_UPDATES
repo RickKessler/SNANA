@@ -17497,7 +17497,13 @@
 
          ***** IMPORTANT(v10_74h) ***** 
 
+   + fix blinding in SALT2mu, and add explanation in manual Sec 10.2
+   + new intrinsic scatter model for sim: COVSED based on SUGAR model.
+
          ***** USEFUL(v10_74h) ***** 
+
+   + split_and_fit has new FAST10 & FAST100 option to pre-scale 
+     sim data by 10 & 100.
 
          ***** MISCELLANEOUS(v10_74h) ***** 
 
@@ -17507,11 +17513,12 @@
        causes something crazy in 2nd iteration of photo-z fit.
 
    SALT2mu.c:
-     + new option force_pIa=xx.yy to force same pIa for each event.
+     + new option to force_pIa=xx.yy to force same pIa for each event.
      + in M0DIF file, write warnings for MUDIFERR=0
      + fix bug using cutmask_write=-1
      + scalePPC bound -> -0.5 to +0.5 (was -0.1 to +0.5)
      + add user input keys for logmass_min, logmass_max, nbin_logmass
+     + fix blinding.
 
    SALT2mu_fit.pl
      + batch name is now based on name of input file [untested->BEWARE]
@@ -17532,6 +17539,9 @@
         split_and_fit.pl MYBIGJOB.NML FAST100
       Note that real data are not pre-scaled.
 
+   snlc_sim.c:
+     + fix bug parsing GENMODEL on command line.
+
    sntools_genSmear.c, snlc_sim.c:
      + add new intrinsic scatter model "COVSED" to specify 
        covariance in wave x phase bins. Start with SUGAR.
@@ -17539,5 +17549,5 @@
      + new repeat_genSmear() function to generate new set of 
        magSmear only when needed. G10 smear model is almost
        x2 faster, and COVSED is more than x2 faster.
-       
+   
 END: 

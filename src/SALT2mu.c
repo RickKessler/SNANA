@@ -2510,14 +2510,15 @@ void  apply_blindpar(void) {
   // Apply optional FIXPAR blinding to fixed parametes OL,w, etc.
   
   int  ipar ;
-  int  LDMP=0;
+  int  LDMP = 0 ;
   double *blindpar ;
   char fnam[] = "apply_blindpar" ;
 
   // -------------- BEGIN ---------------
 
-  if ( (INPUTS.blindFlag & BLINDMASK_FIXPAR)== 0 ) { return ; }
+  if ( (INPUTS.blindFlag & BLINDMASK_FIXPAR) == 0 ) { return ; }
   
+
   if ( LDMP ) {
     printf(" xxx %s: blindFlag=%d ISDATAREAL=%d blindpar(LAM)=%f\n", 
 	   fnam, INPUTS.blindFlag, ISDATA_REAL, 
@@ -5335,8 +5336,13 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
 
   // note that IS_DATA refers to datafile= argument, and can be
   // real data or simulated data. ISDATA_REAL is false for sim data.
-  if ( IS_DATA ) { ISDATA_REAL = 0 ; }  // not real data 
+  if ( IS_DATA ) { 
+    ISDATA_REAL = 0 ;   // not real data 
 
+    // if the 64 blind-sim bit isn't set by user, set blindFlag=0
+    if ( (INPUTS.blindFlag & BLINDMASK_SIM)==0 ) { INPUTS.blindFlag=0; }
+  }
+  
   sprintf(vartmp,"SIMx0:F SIM_x0:F" );
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_X0[ISTART], 
 			  LEN, VBOSE);
@@ -15635,19 +15641,10 @@ void write_fitres_misc(FILE *fout) {
     NSNFIT  = FITRESULT.NSNFIT ;
   }
 
-  /* xxx mark delete Sep 25 2019 xxxxxxxxx
-  char string_truecc[60] = "" ;
-  double frac ;
-  if ( IS_SIM ) {
-    frac = (double)FITRESULT.NSNFIT_TRUECC/(double)FITRESULT.NSNFIT ;
-    sprintf(string_truecc,"[ true CC/(Ia+CC) = %.4f) ]", frac);
-  }
-  xxxxxxxxxxxxxx  */
-
   int MASK  = INPUTS.opt_biasCor ;
-  int NUMD = 5 ;    // default number of biasCor dimensions
+  int NUMD =  INFO_BIASCOR.NDIM ;    // default number of biasCor dimensions
   if ( MASK > 0 ) {
-    if ( MASK & MASK_BIASCOR_1DZ ) { NUMD=1; } 
+    // xxx mark delete    if ( MASK & MASK_BIASCOR_1DZ ) { NUMD=1; } 
     fprintf(fout,"#  NSIM(%dD-BIASCOR)   = %d   "
 	    "(N_alpha x N_beta = %d x %d) \n"
 	    ,NUMD, NSN_BIASCOR

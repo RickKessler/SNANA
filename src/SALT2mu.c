@@ -668,6 +668,7 @@ Default output files (can change names with "prefix" argument)
  Oct 18 2019:
    + add user input keys for logmass_min, logmass_max, nbin_logmass
      Used only for 7D correction.
+ Oct 24 2019: scalePCC bound -> 15 (was 5)
 
  ******************************************************/
 
@@ -4317,7 +4318,7 @@ void set_defaults(void) {
   set_fitPar( 10,  0.0,  0.05, -2.00, 5.00,  0 ); // Omega_k
   set_fitPar( 11, -1.0,  0.1,  -3.00, 1.00,  0 ); // w0
   set_fitPar( 12,  0.0,  0.5,  -8.00, 8.00,  0 ); // wa
-  set_fitPar( 13,  1.0,  0.05, -0.10, 5.00,  0 ); // scale_PCC
+  set_fitPar( 13,  1.0,  0.05, -0.10,15.00,  0 ); // scale_PCC
   set_fitPar( 14,  0.1,  0.01,  0.02, 0.50,  0 ); // sigint
   set_fitPar( 15,  0.0,  0.02, -0.50, 0.50,  0 ); // dAlpha/dlogMhost
   set_fitPar( 16,  0.0,  0.10, -3.00, 3.00,  0 ); // dBeta/dlogMhost
@@ -7000,7 +7001,8 @@ void prepare_biasCor(void) {
     if ( istore == 0 )  { 
       NSKIP_TOT++; NSKIP[IDSAMPLE]++ ;     
       setbit_CUTMASK(n, CUTBIT_BIASCOR, &INFO_DATA.TABLEVAR); 
-      if(INPUTS.dumpflag_nobiasCor) {storeDataBias(n,1);} 
+      if( INPUTS.dumpflag_nobiasCor && NSKIP_TOT<10 ) 
+	{ storeDataBias(n,1); } 
       
     }    
   }

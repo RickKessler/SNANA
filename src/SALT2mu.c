@@ -669,7 +669,9 @@ Default output files (can change names with "prefix" argument)
    + add user input keys for logmass_min, logmass_max, nbin_logmass
      Used only for 7D correction.
  Oct 22 2019: bix blinding options.
- Oct 24 2019: scalePCC bound -> 15 (was 5)
+ Oct 24 2019: 
+    + scalePCC bound -> 15 (was 5)
+    + clean up stdout messaging in prepare_biasCor(1D,5D,6D,7D)
 
  ******************************************************/
 
@@ -1082,8 +1084,7 @@ struct {
 struct {
   TABLEVAR_DEF TABLEVAR;
 
-  int DOCOR_1D;
-  int DOCOR_5D;
+  int  NDIM;     // number of dimensions for biasCor e.g., 1, 5, 7
   char STRING_PARLIST[20]; // e.g., z,x1,c,a,b
 
   // alpha,beta,z binning
@@ -6787,27 +6788,31 @@ void prepare_biasCor(void) {
   //
   // Jun 2 2016: call sigInt_biasCor BEFORE makeMape_fitPar
   // Jan 16 2018: force correct value for INPUTS.fitflag_sigmb = 2 
+  //
+  // Oct 24 2019: 
+  //  + refactor to define NDIM_BIASCOR and global INFO_BIASCOR.NDIM.
+  //    Print more sensible messages with appropriate 1D,5D,6D,7D.
+  //
 
-  int INDX, IDSAMPLE, SKIP, NSN_DATA, CUTMASK, ievt ;
+  int INDX, IDSAMPLE, SKIP, NSN_DATA, CUTMASK, ievt, NBINg=0 ;
   int  OPTMASK    = INPUTS.opt_biasCor ;
   int  EVENT_TYPE = EVENT_TYPE_BIASCOR;
   int  nfile_biasCor = INPUTS.nfile_biasCor ;
   int  DOCOR_1DZAVG  = ( OPTMASK & MASK_BIASCOR_1DZAVG  );
   int  DOCOR_1DZWGT  = ( OPTMASK & MASK_BIASCOR_1DZWGT  );
   int  DOCOR_1D5DCUT = ( OPTMASK & MASK_BIASCOR_1D5DCUT );
-  int  DOCOR_5D      = ( OPTMASK & MASK_BIASCOR_5D      );
   int  DOCOR_MUCOV   = ( OPTMASK & MASK_BIASCOR_MUCOV   );
+  int  DOCOR_5D      = ( OPTMASK & MASK_BIASCOR_5D      );
   int  DOCOR_1D      = ( DOCOR_1DZAVG || DOCOR_1DZWGT || DOCOR_1D5DCUT);
   int  IDEAL         = ( OPTMASK & MASK_BIASCOR_COVINT ) ;
   char txt_biasCor[40]  ;
-
+  
+  int NDIM_BIASCOR=0;
   char fnam[] = "prepare_biasCor" ;
 
   // ------------- BEGIN -------------
-
-
-  INFO_BIASCOR.DOCOR_1D = DOCOR_1D ;
-  INFO_BIASCOR.DOCOR_5D = DOCOR_5D ;
+  
+  INFO_BIASCOR.NDIM = 0;
   INFO_BIASCOR.TABLEVAR.NSN_ALL       = 0 ;
   INFO_BIASCOR.TABLEVAR.NSN_PASSCUTS  = 0 ;
   INFO_BIASCOR.TABLEVAR.NSN_REJECT    = 0 ;
@@ -6816,19 +6821,48 @@ void prepare_biasCor(void) {
 
   if ( nfile_biasCor == 0 ) { return ; }
 
+  print_banner(fnam);
+
+  // read biasCor file
+  read_simFile_biasCor();
+
+  // setup 5D bins 
+  if ( DOCOR_5D ) {
+    for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ ) 
+      { setup_CELLINFO_biasCor(IDSAMPLE); }
+  }
+
+
   if ( DOCOR_5D ) {  
+    NDIM_BIASCOR = 5;  
+    sprintf(INFO_BIASCOR.STRING_PARLIST,"z,x1,c,a,b");
+
+    // if there are >= 2 gammaDM bins, automatically swith to 7D if there
+    // are >= 2 logMass bins, or switch to 6D if there is just one logmass bin.
+    NBINg = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin;
+    if ( NBINg > 1 && INPUTS.nbin_logmass == 1 ) { 
+      NDIM_BIASCOR = 6; 
+      sprintf(INFO_BIASCOR.STRING_PARLIST,"z,x1,c,a,b,g");  
+    }
+    if ( NBINg > 1 && INPUTS.nbin_logmass > 1 ) { 
+      NDIM_BIASCOR = 7; 
+      sprintf(INFO_BIASCOR.STRING_PARLIST,"z,m,x1,c,a,b,g");  
+    }
+
     if ( DOCOR_MUCOV ) 
-      { sprintf(txt_biasCor,"5D+MUCOV"); }
+      { sprintf(txt_biasCor,"%dD+MUCOV", NDIM_BIASCOR, txt_biasCor); }
     else
-      { sprintf(txt_biasCor,"5D"); }
+      { sprintf(txt_biasCor,"%dD", NDIM_BIASCOR); }
   }
   else {
+    NDIM_BIASCOR = 1; 
+    sprintf(INFO_BIASCOR.STRING_PARLIST,"z");
     if ( DOCOR_1DZAVG )   
-      { sprintf(txt_biasCor,"mu-z (WGT=1)") ; }
+      { sprintf(txt_biasCor,"1D (WGT=1)") ; }
     else if ( DOCOR_1DZWGT ) 
-      { sprintf(txt_biasCor,"mu-z (WGT=1/COV)"); }
+      { sprintf(txt_biasCor,"1D (WGT=1/COV)"); }
     else if ( DOCOR_1D5DCUT ) 
-      { sprintf(txt_biasCor,"mu-z (WGT=1/COV,5DCUT)"); }
+      { sprintf(txt_biasCor,"1D (WGT=1/COV,5DCUT)"); }
     else {
       sprintf(c1err,"Invalid opt_biascor=%d", OPTMASK );
       sprintf(c2err,"grep MASK_BIASCOR  SALT2mu.c | grep define ");
@@ -6842,9 +6876,8 @@ void prepare_biasCor(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   
-  sprintf(BANNER,"%s: read sim to interpolate %s biasCor", 
-	  fnam, txt_biasCor);
-  print_banner(BANNER);
+  printf("\n\t Use simulaton to interpolate %s biasCor\n", 
+	 txt_biasCor);
   printf("\t\t (opt_biascor=%d, sigma_cell=%.2f)\n", 
 	 OPTMASK, INPUTS.sigma_cell_biasCor);
   fflush(stdout);
@@ -6853,12 +6886,11 @@ void prepare_biasCor(void) {
   int PS0 = INPUTS.prescale_biasCor[0];
   int PS1 = INPUTS.prescale_biasCor[1];
   if ( PS1 > 1 ) {
-    printf("\t Apply pre-scale: select subset %d of %d \n",
-	   PS0, PS1);  
+    printf("\t Apply pre-scale: select subset %d of %d \n", PS0, PS1);  
   }
 
   // Jan 16 2018: force correct option for log(sigma) term in chi2
-  if ( DOCOR_5D ) 
+  if ( NDIM_BIASCOR >=5  ) 
     { INPUTS.fitflag_sigmb = 2 ; } // include log(sigma) term
   else
     { INPUTS.fitflag_sigmb = 1 ; } // ignore log(sigma) term
@@ -6873,24 +6905,27 @@ void prepare_biasCor(void) {
     FITINP.COVINT_PARAM_LAST   = 1.0 ;
     INPUTS.covint_param_step1  = INPUTS.scale_covint_step1 ;
   }
-    
+  
+  /* xxxxxxxx mark delete xxxx  
   // --------------------------------
-
-  read_simFile_biasCor();
+  mark delete read_simFile_biasCor();
 
   if ( DOCOR_5D ) {
     for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ ) 
       { setup_CELLINFO_biasCor(IDSAMPLE); }
   }
 
+
   // setup comment string for list of biasCor params
-  int NBINg = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin;
+
   if ( DOCOR_1D ) 
     { sprintf(INFO_BIASCOR.STRING_PARLIST,"z"); }
   else if ( DOCOR_5D && NBINg == 1 ) 
     { sprintf(INFO_BIASCOR.STRING_PARLIST,"z,x1,c,a,b"); }
-  else if ( DOCOR_5D && NBINg > 1 )
-    { sprintf(INFO_BIASCOR.STRING_PARLIST,"z,m,x1,c,a,b,g"); }
+  else if ( DOCOR_5D && NBINg > 1 ) { 
+    sprintf(INFO_BIASCOR.STRING_PARLIST,"z,m,x1,c,a,b,g"); 
+  }
+  xxxx mark delete xxxxxx */
 
 
   // count number of biasCor events passing cuts (after setup_BININFO calls)
@@ -7011,8 +7046,9 @@ void prepare_biasCor(void) {
 
   for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR; IDSAMPLE++ ) {
     if ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_SELECT == 0 ) { continue; }
-    printf("  Rejected %d (of %d) DATA events with no 5D biasCor (%s). \n",
-	   NSKIP[IDSAMPLE], NUSE[IDSAMPLE], SAMPLE_BIASCOR[IDSAMPLE].NAME );
+    printf("  Rejected %d (of %d) DATA events with no %dD biasCor (%s).\n",
+	   NSKIP[IDSAMPLE], NUSE[IDSAMPLE], 
+	   NDIM_BIASCOR, SAMPLE_BIASCOR[IDSAMPLE].NAME );
   }
   printf("\n");
   fflush(stdout);
@@ -7031,10 +7067,12 @@ void prepare_biasCor(void) {
   // check option for JLA-like correction
  CHECK_1DCOR:
   
-  if ( INFO_BIASCOR.DOCOR_1D ) {
+  if ( NDIM_BIASCOR == 1 ) {
     INPUTS.opt_biasCor |= MASK_BIASCOR_1DZ ; // set OR-bit (AVG or WGT)
     prepare_biasCor_zinterp();  
   }
+
+  INFO_BIASCOR.NDIM = NDIM_BIASCOR ;
 
   return ;
 
@@ -7049,14 +7087,12 @@ void  read_simFile_biasCor(void) {
 
 
   int NFILE      = INPUTS.nfile_biasCor;
-  //  int EVENT_TYPE = EVENT_TYPE_BIASCOR;
   int NROW, ISTART, IFILETYPE, ifile, NVAR_ORIG, LEN_MALLOC ;   
   int NEVT[MXFILE_BIASCOR], NEVT_TOT;
   char *simFile ;
   //  char fnam[] = "read_simFile_biasCor" ;
 
   // --------------- BEGIN ---------------
-
 
   t_read_biasCor[0] = time(NULL); 
 
@@ -7407,7 +7443,7 @@ void set_MAPCELL_biasCor(int IDSAMPLE) {
   // July 31 2019: add logmass dimension [im]
 
   int ID = IDSAMPLE;
-  int ia, ib, ig, iz, im, ix1, ic, NCELL, ipar;
+  int ia, ib, ig, iz, im, ix1, ic, NCELL, ipar, NDIM ;
   char fnam[] = "set_MAPCELL_biasCor" ;
 
   // -------------- BEGIN ----------------------------
@@ -7459,7 +7495,9 @@ void set_MAPCELL_biasCor(int IDSAMPLE) {
 
   CELLINFO_BIASCOR[IDSAMPLE].NCELL = NCELL ;
 
-  printf("  %s : malloc for %d  5D-cells for biasCor \n", fnam, NCELL );
+  if  ( NBINg <= 1 ) { NDIM=5; } else { NDIM=7; }
+
+  printf("  %s : malloc for %d  %dD-cells for biasCor \n", fnam, NCELL, NDIM );
   fflush(stdout);
 
   // malloc other CELLINFO arrays
@@ -10906,19 +10944,19 @@ void prepare_CCprior(void) {
   //
   // Jun 20 2018: abort on 1D biasCor.
   
-  int  EVENT_TYPE = EVENT_TYPE_CCPRIOR ;
-  int  NSAMPLE   = NSAMPLE_BIASCOR ;
-  int idsample, DOCOR_1D, USE_CCPRIOR_H11 ;
+  int  EVENT_TYPE   = EVENT_TYPE_CCPRIOR ;
+  int  NSAMPLE      = NSAMPLE_BIASCOR ;
+  int  NDIM_BIASCOR = INFO_BIASCOR.NDIM ;
+  int idsample, USE_CCPRIOR_H11 ;
   char fnam[] = "prepare_CCprior" ;
 
   // ------------- BEGIN -------------
 
-  DOCOR_1D        = INFO_BIASCOR.DOCOR_1D;
   USE_CCPRIOR_H11 = INFO_CCPRIOR.USEH11;
 
   if ( INPUTS.nfile_CCprior == 0 ) { return; }
-
-  if ( DOCOR_1D ) {
+  
+  if ( NDIM_BIASCOR == 1 ) {
     sprintf(c1err,"Cannot use 1D biasCor with CC likelihood.");
     sprintf(c2err,"Either remove CC term, or use 5D biasCor.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
@@ -11196,19 +11234,16 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 #define DMUMAX_CCPRIOR  +4.0  // add buffer bin to allow for interp
 #define DMUBIN_CCPRIOR   0.5  
 
-  int NBINa, NBINb, ia, ib;
-  double SUMa=0.0, SUMb=0.0 ;
-    
-  int    nbin_dmu ;
-  double dmu, dmulo, dmuhi ;
-  //  char fnam[] = "setup_MUZMAP_CCprior" ;
+  int NBINa, NBINb, ia, ib, nbin_dmu ;
+  double SUMa=0.0, SUMb=0.0, dmu, dmulo, dmuhi ;
 
   int NSN_BIASCOR = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
   BININFO_DEF *BININFO_SIM_ALPHA = &INFO_BIASCOR.BININFO_SIM_ALPHA;
   BININFO_DEF *BININFO_SIM_BETA  = &INFO_BIASCOR.BININFO_SIM_BETA ;
 
-  // ------------ BEGIN -------------
+  char fnam[] = "setup_MUZMAP_CCprior" ;
 
+  // ------------ BEGIN -------------
     
   nbin_dmu = 0;
   for ( dmu  = DMUMIN_CCPRIOR; dmu < DMUMAX_CCPRIOR-DMUBIN_CCPRIOR+.0001; 
@@ -11227,11 +11262,10 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   MUZMAP->beta  = INPUTS.parval[IPAR_BETA0] ;
   MUZMAP->M0    = INPUTS.nommag0 ;
 
-
   MUZMAP->cosPar[0] = INPUTS.parval[IPAR_OL] ;   // OL
   MUZMAP->cosPar[1] = INPUTS.parval[IPAR_Ok] ;   // Ok
-  MUZMAP->cosPar[2] = INPUTS.parval[IPAR_w0] ;  // w0
-  MUZMAP->cosPar[3] = INPUTS.parval[IPAR_wa] ;  // wa
+  MUZMAP->cosPar[2] = INPUTS.parval[IPAR_w0] ;   // w0
+  MUZMAP->cosPar[3] = INPUTS.parval[IPAR_wa] ;   // wa
     
   // if there is a biasCor map, set alpha,beta to the average
   // since that should be a better estimate in case user input
@@ -11294,6 +11328,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 
   // muBias declarations
   int USE_BIASCOR  = ( INFO_BIASCOR.TABLEVAR.NSN_ALL > 0 ) ;
+  int NDIM_BIASCOR = INFO_BIASCOR.NDIM ;
   BIASCORLIST_DEF     BIASCORLIST ;
   INTERPWGT_AlphaBetaGammaDM INTERPWGT ;
   FITPARBIAS_DEF   FITPARBIAS_TMP[MXa][MXb][MXg] ; 
@@ -11345,7 +11380,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   gDM  = MUZMAP->gammadm;
   M0   = MUZMAP->M0 ;
 
-  if ( INFO_BIASCOR.DOCOR_5D ) 
+  if ( NDIM_BIASCOR >= 5 ) 
     { get_INTERPWGT_abg(a,b,gDM, 0, &INTERPWGT,fnam ); } // returns INTERPWGT
    
   for(icc=0; icc < TABLEVAR->NSN_ALL ; icc++ ) {  
@@ -11380,7 +11415,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
       // the right 2D structure definition for get_muBias
       load_FITPARBIAS_CCprior(icc,FITPARBIAS_TMP);
 
-      if ( INFO_BIASCOR.DOCOR_5D) {
+      if ( NDIM_BIASCOR >= 5 ) {
 	get_muBias(name, &BIASCORLIST,     // (I) misc inputs
 		   FITPARBIAS_TMP,         // (I) bias vs. ia,ib
 		   MUCOVSCALE_TMP,         // (I) muCOVscale vs. ia,ib
@@ -11390,7 +11425,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 		   &muBiasErr,     // (O) stat-error on above
 		   &muCOVscale );  // (O) scale bias on muCOV (not used below)
       }
-      else if ( INFO_BIASCOR.DOCOR_1D ) {
+      else if ( NDIM_BIASCOR == 1 ) {
 	debugexit("CCPRIOR does NOT WORK WITH BBC-1D");  // Jun 19 2018
 	// muBias   =  ?? 	
       }
@@ -11431,8 +11466,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   
   // Normalize each DMU distribution to get PDF in each class,iz bin.
   // If the stats are too low then leave flat/default PDF.
-  double S1TMP, S2TMP;   int NTMP ;
-  
+  double S1TMP, S2TMP;   int NTMP ;  
 
   for(iz=0; iz < NZBIN; iz++ ) {
 

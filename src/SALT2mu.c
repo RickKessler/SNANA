@@ -668,6 +668,7 @@ Default output files (can change names with "prefix" argument)
  Oct 18 2019:
    + add user input keys for logmass_min, logmass_max, nbin_logmass
      Used only for 7D correction.
+ Oct 22 2019: bix blinding options.
  Oct 24 2019: scalePCC bound -> 15 (was 5)
 
  ******************************************************/

@@ -1044,7 +1044,6 @@ sub parse_inFile_master() {
     }
 
     $key = "GENOPT_GLOBAL:" ;
-# xxxx    @tmp = sntools::parse_line($inFile, 99, $key, $OPT_QUIET) ;
     @tmp = sntools::parse_array($key,99,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) {
 	foreach $tmpLine ( @tmp ) {

@@ -673,10 +673,7 @@ int match_CID_orig(int ifile, int isn2) {
   
   return(-9); 
 
-
   //  if ( ifile>0 )  { printf("\t (NLOOP_TOT = %lld)\n", NLOOP_TOT); }
-
-  return;
 
 } // end if match_CID_orig
 

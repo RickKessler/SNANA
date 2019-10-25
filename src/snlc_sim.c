@@ -8780,6 +8780,7 @@ void GENSPEC_INIT(int OPT, int imjd) {
     GENSPEC.OBSFLUXERR_LIST[imjd][ilam]       =  0.0 ;
     GENSPEC.OBSFLUXERRSQ_LIST[imjd][ilam]     =  0.0 ;
 
+    GENSPEC.GENFLAM_LIST[imjd][ilam]          =  0.0 ; // true dF/dlam
     GENSPEC.FLAM_LIST[imjd][ilam]             =  0.0 ; // dF/dlam
     GENSPEC.FLAMERR_LIST[imjd][ilam]          =  0.0 ; // error on above
     GENSPEC.FLAMWARP_LIST[imjd][ilam]         =  1.0 ;
@@ -9334,7 +9335,8 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
   //   + GENSPEC.OBSFLUXERRSQ_LIST 
   //
   // Jan 17 2018: use ILIST_RANDOM_SPECTROGRAPH
-  //
+  // Oct 25 2019: fix bug setting GRAN_T if there is no template.
+  // 
 
   int OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
   int onlyTNOISE = ( OPTMASK & SPECTROGRAPH_OPTMASK_onlyTNOISE ) ;
@@ -9397,8 +9399,11 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
       { tmp_RanFlux_S = tmp_RanFlux_T = 0.0 ; }
     else {
 
+      GRAN_S = GRAN_T = 0.0 ;
       if ( GENSPEC.NMJD_PROC==0 && tmp_GenFluxErr_T > 0.0 ) 
-	{ GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] = GaussRan(ILIST_RAN);}
+	{ GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] = GaussRan(ILIST_RAN); }
+      else 
+	{ GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] = 0.0 ; }
 
       GRAN_S = GaussRan(ILIST_RAN);
       GRAN_T = GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] ;

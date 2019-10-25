@@ -149,10 +149,10 @@ c
      &  ,MXTBIN_KCOR  = 150       ! max # Epochs for KCOR tables
      &  ,MXAVBIN_KCOR = 100       ! max # AV bins for KCOR tables
      &  ,MXCBIN_AVWARP = 100      ! max color index for AVWARP table
-     &  ,MXTABLE1D_KCOR   = 8 000 000  ! max number of KCOR bins
-     &  ,MXTABLE1D_AVWARP = 1 000 000  ! max number of bins for AVWARP table
-     &  ,MXTABLE1D_LCMAG  = 2 000 000  ! idem for LCMAG  table
-     &  ,MXTABLE1D_MWXT   = 2 000 000  ! idem for MWXT table
+     &  ,MXTABLE1D_KCOR   = 10 000 000  ! max number of KCOR bins
+     &  ,MXTABLE1D_AVWARP =  1 000 000  ! max number of bins for AVWARP table
+     &  ,MXTABLE1D_LCMAG  =  2 000 000  ! idem for LCMAG  table
+     &  ,MXTABLE1D_MWXT   =  2 000 000  ! idem for MWXT table
      &  ,KCORPACK      = 1000.  ! store KCOR * KCORPACK as I*2
      &  ,XTMW_FRACERR  = 0.16   ! error on MW Xtinc is 16% of XTMW
 c

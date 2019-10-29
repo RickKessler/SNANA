@@ -1421,7 +1421,6 @@ sub parse_GENOPT_GLOBAL {
 	    $GENOPT_GLOBAL = "$GENOPT_GLOBAL  $tmpLine" ;
 	}
     }
-    print " GENOPT_GLOBAL  = '$GENOPT_GLOBAL' \n" ;    
 
     # check for FORMAT_MASK here, then later check master-input
     # file for <FORMAT_MASK: MASK>
@@ -1433,7 +1432,18 @@ sub parse_GENOPT_GLOBAL {
     # same for GENPREFIX
     @values = sntools::parse_value_after_key("GENPREFIX",$GENOPT_GLOBAL);
     $NVAL = scalar(@values);
-    if ( $NVAL == 1 ) {	$GENPREFIX = $values[0]; }
+    if ( $NVAL == 1 ) {	
+	$GENPREFIX = $values[0]; 
+	# remove GENPREFIX from GENOPT_GLOBAL because a modified
+	# GENPREFIX will be automatically added to account for each core.
+	print "\t (remove GENPREFIX $GENPREFIX from GENOPT_GLOBAL) \n";
+	$GENOPT_GLOBAL =~ s/GENPREFIX//g ;
+	$GENOPT_GLOBAL =~ s/$GENPREFIX//g ;
+
+    }
+
+    # print at end of function in case some parts are removed.
+    print " GENOPT_GLOBAL  = '$GENOPT_GLOBAL' \n" ;    
 
 } # end parse_GENOPT_GLOBAL
 

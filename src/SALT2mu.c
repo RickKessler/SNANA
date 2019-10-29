@@ -1213,7 +1213,6 @@ struct INPUTS {
 
   double maxerr_abort_c, maxerr_abort_x1, maxerr_abort_x0;
 
-
   int    blindFlag  ; // suppress cosmo param printout for data
   double blind_cosinem0  ;       // M0DF -> M0DIF + cos(z*blind_cosinem0)
   double blind_cosinePar[MAXPAR][2]; // blind offset = [0] * cos([1])
@@ -3075,7 +3074,8 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   double da_dz, db_dz, dg_dz, da_dm, db_dm ;
   double scalePCC, scalePIa, scalePROB_fitpar, nsnfitIa, nsnfitcc;
   int    NSN_DATA, n, nsnfit, nsnfit_truecc, idsample, cutmask ;
-  int DOBIASCOR_1D, DOBIASCOR_5D, DUMPFLAG=0, dumpFlag_muerrsq=0 ;
+  int    NDIM_BIASCOR; // xxx mark delete DOBIASCOR_1D, DOBIASCOR_5D
+  int    DUMPFLAG=0, dumpFlag_muerrsq=0 ;
   double chi2sum_tot, mures, sqmures;
   double muerrsq, muerrsq_last, muerrsq_raw, muerrsq_tmp, sqsigCC=0.001 ;
   double chi2evt_Ia, chi2sum_Ia, chi2evt, sigCC_chi2penalty=0.0 ;
@@ -3126,9 +3126,13 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   da_dm        = xval[15];  // added Apr 2 2018
   db_dm        = xval[16];  // idem
 
+  NDIM_BIASCOR = INFO_BIASCOR.NDIM;
+
+  /* xxx mark delete 
   DOBIASCOR_1D = ( INPUTS.opt_biasCor & MASK_BIASCOR_1DZ );
   DOBIASCOR_5D = ( INPUTS.opt_biasCor & MASK_BIASCOR_5D  );
-	
+  xxxxxxxxx */
+
   // load cosPar array to pass to functions below (RK Jan 2016)
   cosPar[0] = omega_l ;
   cosPar[1] = omega_k ;
@@ -3293,7 +3297,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     BIASCORLIST.FITPAR[INDEX_c]  = c ;
     muBias = muBiasErr = 0.0 ;  muCOVscale=1.0 ; 
 
-    if ( DOBIASCOR_5D ) {
+    if ( NDIM_BIASCOR >= 5 ) {
       get_muBias(name, &BIASCORLIST,      // (I) misc inputs
 		 FITPARBIAS_ALPHABETA,    // (I) bias at each a,b,g
 		 MUCOVSCALE_ALPHABETA,    // (I) muCOVscale at each a,b
@@ -3303,7 +3307,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 		 &muBiasErr,     // (O) stat-error on above
 		 &muCOVscale );  // (O) scale bias on muCOV     
     }
-    else if ( DOBIASCOR_1D ) {
+    else if ( NDIM_BIASCOR == 1 ) {
       muBias  = muBias_zinterp ; 
     }
        
@@ -3799,8 +3803,8 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
   // ------------------------------
   if ( SUMWGT < 1.0E-9 ) {
     printf("\n PRE-ABORT DUMP: \n");
-    printf("\t Alpha  =%.3f   Alpha_interp=%.3f \n",    alpha, a_interp);
-    printf("\t Beta   =%.3f   Beta_interp=%.3f  \n",    beta,  b_interp);
+    printf("\t Alpha  =%.3f   Alpha_interp=%.3f \n",    alpha,   a_interp);
+    printf("\t Beta   =%.3f   Beta_interp=%.3f  \n",    beta,    b_interp);
     printf("\t Gammadm=%.3f   Gammadm_interp=%.3f  \n", gammadm, g_interp);
 
     for(ia=0; ia < MXa; ia++ ) {
@@ -6938,12 +6942,12 @@ void prepare_biasCor(void) {
 
   for(ievt=0; ievt < INFO_BIASCOR.TABLEVAR.NSN_ALL; ievt++ ) 
     { compute_more_TABLEVAR(ievt, &INFO_BIASCOR.TABLEVAR ); }
-  if ( DOCOR_5D ) { store_iaib_biasCor(); }
+  if ( NDIM_BIASCOR >=5 ) { store_iaib_biasCor(); }
   
 
   print_eventStats(EVENT_TYPE);
 
-  if ( DOCOR_1DZAVG || DOCOR_1DZWGT ) { goto CHECK_1DCOR ; }
+  if ( NDIM_BIASCOR == 1 ) { goto CHECK_1DCOR ; }
 
   // make sparse list for faster looping below (Dec 21 2017)
   makeSparseList_biasCor();
@@ -7615,8 +7619,8 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
 
     // Aug 26 2019: apply gammadm correction to simval
     if ( ipar_LCFIT == INDEX_mB ) {
-      sim_gammadm = ptr_gammadm[ievt];
-      sim_val    += sim_gammadm ;  // true mB is SIM_mB + true gammadm
+      sim_gammadm = ptr_gammadm[ievt];  // from biasCor table
+      sim_val    += sim_gammadm ;       // true mB is SIM_mB + true gammadm
     }
 
     biasVal = fit_val - sim_val ; 
@@ -8870,7 +8874,7 @@ void init_COVINT_biasCor(void) {
   // - - - - - - - - - - - - - - - - - - - - - - - - - 
   // If we get here, compute full COV matrix in bins of 
   // IDSAMPLE,z,a,b
-  //   COV(x,y) = sum[(x-xtrue)*(x-ytrue) ] / N
+  //   COV(x,y) = sum[(x-xtrue)*(y-ytrue) ] / N
 
 
   int NBIASCOR_IDEAL=0, NBIASCOR_CUTS=0 ;
@@ -10885,7 +10889,7 @@ double get_gammadm_host(double z, double logmass, double *hostPar) {
   gamma      = gamma0 + z*gamma1 ;
   arg        = -( logmass - logmass_cen ) / logmass_tau ;
   FermiFun   = 1.0/(1.0 + exp(arg)) ; 
-  magoff     = gamma*(  FermiFun - 0.5 ) ;
+  magoff     = gamma * (  FermiFun - 0.5 ) ;
 
   magoff -= INFO_BIASCOR.GAMMADM_OFFSET ;
 

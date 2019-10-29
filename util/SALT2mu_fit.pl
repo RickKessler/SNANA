@@ -65,7 +65,7 @@
 #    MUOPT: CUTWIN x1ERR 0 1
 #
 #
-#    OUTDIR_OVERRIDE: <TOPDIR>  ! only for summing INPDIR+
+#    OUTDIR_OVERRIDE: <TOPDIR>  
 #    OUTDIR_PREFIX:  SALT2mu    ! prefix for each output directory 
 #
 #    STRINGMATCH_IGNORE:  LOWZ  SDSS  SNLS
@@ -248,6 +248,7 @@
 #     and no more need to pipe stdout to get back control.
 #
 # Oct 4 2019: if OUTDIR_OVERRIDE has no slash, append LAUNCH_DIR
+# Oct 25 2019: OUTDIR_OVERRIDE works for INPDIR too 
 #
 # ------------------------------------------------------
 
@@ -998,7 +999,7 @@ sub subDirName_after_lastSlash {
 # ===================================
 sub makeDir_NSPLITRAN {
 
-    my($OUTDIR, @tmp, $file, $gzfile );
+    my($OUTDIR, @tmp, $datafile, $gzdatafile, $jeq );
 
     # - - - - - - - - - - - - - - - - - - -
     # prepare OUTDIR
@@ -1016,19 +1017,21 @@ sub makeDir_NSPLITRAN {
     qx(cp $INPUT_FILE $OUTDIR);
 
     # copy FITRES file (file-argument)
-    @tmp    = qx(grep 'file=' $INPUT_FILE);
-    $file   = substr($tmp[0],5,500);
-    $file   = qx(echo $file);
-    $file   =~ s/\s+$// ;   # trim trailing whitespace
-    $gzfile = "${file}.gz" ;
+    # BEWARE that key is either datafile=  or  file=
+    @tmp        = qx(grep 'file=' $INPUT_FILE);
+    $jeq        = index($tmp[0],'=');  # find location of equal sign
+    $datafile   = substr($tmp[0],$jeq+1,500);
+    $datafile   = qx(echo $datafile);
+    $datafile   =~ s/\s+$// ;   # trim trailing whitespace
+    $gzdatafile = "${datafile}.gz" ;
 
-    if ( -e $file ) 
-    { qx(cp $file $OUTDIR); }
-    elsif ( -e $gzfile ) 
-    { qx(cp $gzfile $OUTDIR); }
+    if ( -e $datafile ) 
+    { qx(cp $datafile $OUTDIR); }
+    elsif ( -e $gzdatafile ) 
+    { qx(cp $gzdatafile $OUTDIR); }
     else {
 	$MSGERR[0] = "Unable to find argument of" ;
-	$MSGERR[1] = "file=$file" ;
+	$MSGERR[1] = "$tmp[0]" ;
 	sntools::FATAL_ERROR(@MSGERR);
     }
 
@@ -1047,12 +1050,15 @@ sub makeDirs_SALT2mu {
 
     # -------------- BEGIN -------------
 
-
     $NDIR = $NVER_SKIP = 0 ;
     foreach $INPDIR ( @INPDIR_SNFIT_LIST ) { 
 
-	$jslash = rindex($INPDIR,"/");  # location of last slash
-	$TOPDIR = substr($INPDIR,0, $jslash);
+	if ( length($OUTDIR_OVERRIDE) > 1 ) 
+	{ $TOPDIR = "$OUTDIR_OVERRIDE" ; }
+	else {
+	    $jslash = rindex($INPDIR,"/");  # location of last slash
+	    $TOPDIR = substr($INPDIR,0, $jslash);
+	}
 
 	$SDIR   = $INPDIR_SDIR_LIST[$NDIR] ;	   
 	$NEWDIR = "$TOPDIR/${OUTDIR_PREFIX}_$SDIR" ;
@@ -1061,7 +1067,7 @@ sub makeDirs_SALT2mu {
 	if ( $SUBMIT_FLAG  ) {
 	    if ( -e $NEWDIR ) { qx(rm -r $NEWDIR) ; }
 	    if($SUBMIT_FLAG) { print " create $NEWDIR \n" ; }
-	    @tmp = qx(mkdir $NEWDIR  2>&1 );
+	    @tmp = qx(mkdir -p $NEWDIR  2>&1 );
 	    if ( scalar(@tmp)>0 )  { die "\n @tmp\n ABORT \n"; }
 	}
 	else {
@@ -1595,6 +1601,9 @@ sub make_COMMANDS {
     $prefix = substr($input_file,0,$jdot);
     $SUBDIR = "${FITSCRIPTS_PREFIX}_${prefix}" ;
     $FITSCRIPTS_DIR = "$LAUNCH_DIR/$SUBDIR";
+    
+    if ( length($OUTDIR_OVERRIDE) > 1 ) 
+    { $FITSCRIPTS_DIR = "${OUTDIR_OVERRIDE}/${FITSCRIPTS_PREFIX}"; }
 
     # - - - - - - - - - - - - - - - - - - -
 
@@ -1860,7 +1869,7 @@ sub prep_COMMAND {
 
 	if ( $SUMMARY_FLAG  ) { next ; }
 
-	$FARG    = "file=$FFF";
+	$FARG    = "datafile=$FFF";
 	$SARG    = "prefix=$SPREFIX" ;
 	$LOGFILE = "${SPREFIX}.LOG"  ;
 	$JOBNAME = "$JOBNAME_FIT" ;

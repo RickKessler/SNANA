@@ -10011,14 +10011,18 @@ FILE *snana_openTextFile (int vboseFlag, char *SNPATH, char *fileName,
 int INTFILTER ( char *cfilt ) {
 
   // returns absolute filter index  for string *cfilt
+  // Oct 29 2019: use last char if cfilt to work with arbitrary string
+
+  int len = strlen(cfilt);
   int ifilt, itmp;
-  char ctmp[2];
+  char ctmp[2], cfilt1[2];
   //---------- BEGIN ----------------
 
-  ifilt = 0;
+  sprintf(cfilt1, "%c", cfilt[len-1]);
+  ifilt = 0 ;
   for ( itmp=0; itmp < MXFILTINDX; itmp++ ) {
     sprintf(ctmp,"%c", FILTERSTRING[itmp] );
-    if (strcmp(ctmp,cfilt) == 0 ) { ifilt = itmp; return ifilt ; }
+    if (strcmp(ctmp,cfilt1) == 0 ) { ifilt = itmp; return ifilt ; }
   }
 
   return ifilt;

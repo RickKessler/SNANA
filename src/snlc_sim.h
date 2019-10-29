@@ -1688,6 +1688,7 @@ void   init_genmodel(void);      // init above
 void   init_genSpec(void);        // one-time init for SPECTROGRAPH
 void   init_genSEDMODEL(void); // generic init for SEDMODEL
 void   init_kcor(char *kcorFile);
+void   init_kcor_refactor(void);
 void   init_covar_mlcs2k2(void);    // init GENLC.COVAR array
 void   init_zvariation(void);      // z-dependent sim parameters
 void   init_hostNoise(void) ;

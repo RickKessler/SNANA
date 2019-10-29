@@ -1941,6 +1941,7 @@ c
      &  ,USESIM_SNIA         ! default True -> process simulated SNIa
      &  ,USESIM_SNCC         ! default True -> process simulated SNCC
      &  ,USESIM_TRUEFLUX     ! SNLC_FLUXCAL -> SIM_FLUXCAL 
+     &  ,RESTORE_DES3YR      ! restore code from DES3YR
 
 c LC plot info
 
@@ -2013,6 +2014,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
+     &    , RESTORE_DES3YR
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -2056,6 +2058,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
+     &    , RESTORE_DES3YR
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -3460,6 +3463,8 @@ c default is to reject nothing (accept everything)
       USESIM_SNCC   = .TRUE.
       USESIM_TRUEFLUX = .FALSE.
 
+      RESTORE_DES3YR = .FALSE.
+
       USE_SNHOST_ZPHOT = .FALSE.
       USE_MWCOR        = .FALSE.  ! apply MWCOR to fit-model
 
@@ -4794,6 +4799,9 @@ c ----------
             i = i + 1 ; READ(LINE_ARGS(i),*) USESIM_SNCC
          else if ( LINE_ARGS(i) .EQ. 'USESIM_TRUEFLUX' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) USESIM_TRUEFLUX
+
+         else if ( LINE_ARGS(i) .EQ. 'RESTORE_DES3YR' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) RESTORE_DES3YR
 
          else if ( LINE_ARGS(i) .EQ. 'USE_MWCOR' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) USE_MWCOR
@@ -23428,8 +23436,11 @@ C --------------- BEGIN -----------
          ZZ    = 1.0
       ENDIF
 
+      LTMP = ( PKMJD < 40000. .or. OPT_SETPKMJD > 0  )
+      IF ( RESTORE_DES3YR ) LTMP = ( PKMJD < 40000. )
+
 c evaluate epoch cut in rest-frame
-      IF ( PKMJD < 40000. .or. OPT_SETPKMJD > 0  ) THEN
+      IF ( LTMP ) THEN
 c       PKMJD not yet determined, so no TREST cut
          LTrest = .TRUE.
       ELSE
@@ -26442,7 +26453,7 @@ c -----------------------------
       END
 
 C =======================================
-+DECK,RDKFSNSED.
++DECK,RDKCOR_FITS_SNSED.
       SUBROUTINE RDKCOR_FITS_SNSED(LUN)
 
 c Read template SN SED vs. epoch i.e., Hsiao 2007 
@@ -26481,7 +26492,7 @@ C ----------------- BEGIN ---------------
 
 
 C ========================================
-+DECK,RDKFKCOR.
++DECK,RDKCOR_FITS_KCOR.
       SUBROUTINE RDKCOR_FITS_KCOR(LUN)
 
 

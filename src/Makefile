@@ -345,6 +345,7 @@ OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools_fluxErrModels_legacy.o	\
 	$(OBJ)/sntools_fitsio.o	 \
 	$(OBJ)/sntools_gridread.o \
+	$(OBJ)/sntools_kcor.o \
 	$(OBJ)/sntools_nearnbr.o \
 	$(OBJ)/sntools_output.o  \
 	$(OBJ)/minuit.o		\
@@ -786,6 +787,11 @@ $(OBJ)/sntools_fitsio.o : $(SRC)/sntools_fitsio.c $(SRC)/sntools_fitsio.h $(SRC)
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_fitsio.c )
 	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_fitsio.o
 
+$(OBJ)/sntools_kcor.o : $(SRC)/sntools_kcor.c $(SRC)/sntools_kcor.h $(SRC)/sndata.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_kcor.c )
+	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_kcor.o
+
 
 $(OBJ)/sntools_gridgen.o : $(SRC)/sntools_gridgen.c $(SRC)/sntools_grid.h $(SRC)/sndata.h
 	(cd $(OBJ); \
@@ -949,7 +955,7 @@ $(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c $(SRC)/sntools_gridgen.c \
 	 $(SRC)/sntools_fitsio.c $(SRC)/sntools_host.c \
 	$(SRC)/sntools_wronghost.c  $(SRC)/sntools_host.h \
 	$(SRC)/sntools_genSmear.c $(SRC)/SNcadenceFoM.c  \
-	$(SRC)/snlc_sim.h $(SRC)/sndata.h
+	$(SRC)/snlc_sim.h $(SRC)/sndata.h $(SRC)/sntools_kcor.c
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(IPY) $(SRC)/snlc_sim.c )
 
 $(BIN)/snlc_sim.exe : $(OBJ_SIM)  $(LIB)/libsnana.a

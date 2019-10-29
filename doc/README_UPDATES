@@ -17550,4 +17550,64 @@
        magSmear only when needed. G10 smear model is almost
        x2 faster, and COVSED is more than x2 faster.
    
+
+# ======================================================================= 
+         v10_74i (  ) 
+
+
+         ***** IMPORTANT(v10_74i) ***** 
+
+    sim_SNmix.pl  : 
+       ABORT on obsolete keys (H0 and ZRANGE)
+
+    snana.exe/snlc_fit.exe : 
+        &SNLCINP argument RESTORE_DES3YR=T to select all DEDS3YR-LOWZ
+
+    SALT2mu_fit.pl: 
+        OUTDIR_OVERRIDE works for 'INPDIR:' as well as INPDIR+:
+
+         ***** USEFUL(v10_74i) ***** 
+
+
+         ***** MISCELLANEOUS(v10_74i) ***** 
+
+    SALT2mu.c:
+     + better stdout messaing in prepare_biasCor to make more 
+       clear if 1D, 5D, 6D, 7D
+ 
+     + combine_fitres.c: fix trivial bug
+
+     + snana.car: MXTABLE1D_KCOR = 8M -> 10M (for SNOOPY model)
+       size(snana.exe,snlc_fit.exe) increase by 5M,8M, respectively.
+
+   sim_SNmix.pl
+    + Abort on obsolete 'H0:' key in master file. 
+    + Abort on 'ZRANGE:' key in master file, with instructions
+      to replace with GENOPT_GLOBAL:  GENRANGE_REDSHIFT <zmin> <zmax>
+
+    + FORMAT_MASK and GENPREFIX can be specified as part of
+        GENOPT_GLOBAL: FORMAT_MASK <mask> GENPREFIX <prefix>
+
+   + Why? H0 is completely obsolete and should be removed to avoid confusion.
+     ZRANGE doesn't match the GENRANGE_REDSHIFT key-name in sim-input file,
+     which can also cause confusion.
+     'FORMAT_MASK:' and 'GENPREFIX:' keys remain valid in both simgen-input 
+     and simgen-master file, and the same syntax applies for both files. 
+     The goal here is to slowly transition to defining all global sim 
+     options with GENOPT_GLOBAL
+
+   + to do later: allow NGEN_UNIT to be in GENOPT_GLOBAL argument.
+
+   + subtle bug fix related to RANSEED_CHANGE option.
+
+   snlc_sim.c
+     + in GENSPEC_LAMSMEAR(), fix bug setting GRAN_T=0 if there is
+       no template noise. Fixes valgrind errors found by D.Jones.
+ 
+  snana.exe/snlc_fit.exe :
+    + LCUTEPOCH fix back in May 2019 results in 3 LOWZ SN lost
+      from DES3YR analysis. To recover these, use new restore argument,
+         snlc_fit.exe <inFile>  RESTORE_DES3YR T
+      or add RESTORE_DES3YR=T to &SNLCINP namelist.
+
 END: 

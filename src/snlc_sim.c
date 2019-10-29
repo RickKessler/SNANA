@@ -55,6 +55,7 @@
 #include "sntools_fluxErrModels_legacy.h"
 #include "sntools_genSmear.h"
 #include "sntools_fitsio.h"
+#include "sntools_kcor.h"
 #include "sntools_trigger.h" 
 #include "sntools_grid.h"
 #include "sntools_spectrograph.h"
@@ -191,6 +192,9 @@ int main(int argc, char **argv) {
 
   // initialize model that generates magnitudes.
   init_kcor(INPUTS.KCOR_FILE);
+
+  if ( INPUTS.DEBUG_FLAG == 555 ) { init_kcor_refactor(); }
+
   init_genmodel();
   init_modelSmear(); 
   init_genSpec();     // July 2016: prepare optional spectra
@@ -901,20 +905,20 @@ void set_user_defaults(void) {
   GENPERFECT.NVAR = 0;
 
   INPUTS.PATH_SNDATA_SIM[0] = 0 ;
-  sprintf(INPUTS.GENVERSION,      "%s", "BLANK" );  
-  sprintf(INPUTS.GENPREFIX,       "%s", "BLANK" );
-  sprintf(INPUTS.GENSOURCE,       "%s", "RANDOM" );
-  sprintf(INPUTS.GENMODEL,        "%s", "BLANK" );
+  sprintf(INPUTS.GENVERSION,      "BLANK" );  
+  sprintf(INPUTS.GENPREFIX,       "BLANK" );
+  sprintf(INPUTS.GENSOURCE,       "RANDOM" );
+  sprintf(INPUTS.GENMODEL,        "BLANK" );
   INPUTS.GENMODEL_EXTRAP_LATETIME[0] = 0 ;
-  sprintf(INPUTS.KCOR_FILE,   "%s",  "BLANK" );
+  sprintf(INPUTS.KCOR_FILE, "NONE" );
 
-  sprintf(INPUTS.GENSNXT, "%s", "CCM89" );
+  sprintf(INPUTS.GENSNXT, "CCM89" );
   OPT_SNXT = OPT_SNXT_CCM89;
 
   GENLC.IFLAG_GENSOURCE = 0;
 
-  sprintf(INPUTS.SIMLIB_FILE,      "%s", "BLANK" );
-  sprintf(INPUTS.SIMLIB_FIELDLIST, "%s", "ALL" );
+  sprintf(INPUTS.SIMLIB_FILE,      "BLANK" );
+  sprintf(INPUTS.SIMLIB_FIELDLIST, "ALL" );
   INPUTS.SIMLIB_FIELDSKIP_FLAG = 1 ; //-->count skipped fields in NGENTOT
 
   INPUTS.SIMLIB_IDSTART  =  0 ;
@@ -21677,7 +21681,7 @@ void init_kcor(char *kcorFile) {
     get_filtlam__(&OPT, &ifilt_obs
 		  ,&INPUTS.LAMAVG_OBS[ifilt_obs]
 		  ,&INPUTS.LAMRMS_OBS[ifilt_obs]   
-		  ,&INPUTS.LAMMIN_OBS[ifilt_obs]   
+		  ,&INPUTS.LAMMIN_OBS[ifilt_obs]  
 		  ,&INPUTS.LAMMAX_OBS[ifilt_obs]   
 		  );
   }  // end ifilt loop
@@ -21756,7 +21760,26 @@ void init_kcor(char *kcorFile) {
   return ;
 
 } // end of init_kcor
- 
+
+// ********************************** 
+void init_kcor_refactor(void) {
+
+  // Oct 2019
+  // Begin translating fortran kcor-read codes into C.
+  // Call functions in sntools_kcor.c[h]
+
+  char fnam[] = "init_kcor_refactor" ;
+
+  // ------------ BEGIN -------------
+
+  KCOR_INFO.NCALL_READ = 0;
+
+  READ_KCOR_DRIVER(INPUTS.KCOR_FILE, SIMLIB_GLOBAL_HEADER.FILTERS );
+
+
+  return ;
+
+} // end init_kcor_refactor
 
 // *********************************************
 int gen_TRIGGER_PEAKMAG_SPEC(void) {

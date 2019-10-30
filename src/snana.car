@@ -26619,7 +26619,9 @@ c define new rest-filter only if not already defined.
 c if obs filter is not part of the survey, just skip it;
 c allows defining filter sub-sets of a survey without having 
 c to change the Kcor file.
-          IF ( IFILT .GT. NFILTDEF_SURVEY ) GOTO 100
+
+c xxx this line does nothing since IFILT isn't set
+c xxx mark delete Oct 29 2019  IF ( IFILT .GT. NFILTDEF_SURVEY ) GOTO 100
 
           if ( EXIST_BXFILT_OBS .and. RDKCOR_STANDALONE ) goto 100
 

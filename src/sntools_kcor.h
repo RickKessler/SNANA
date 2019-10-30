@@ -1,6 +1,12 @@
 
+// Created Oct 2019 by R.Kessler
+
 #define MXPRIMARY_KCOR 6
-#define MXFILT_KCOR    MXFILTINDX
+
+#define MXFILT_KCOR       MXFILTINDX
+#define MXFILT_REST_KCOR  20
+#define MXFILT_OBS_KCOR   62
+
 #define MXTABLE_KCOR   100   // max numver of kcor tables
 
 #define MXLAMBIN_FILT  4000  // max wave bins for filter trans
@@ -9,6 +15,12 @@
 #define MXTBIN_KCOR  150
 #define MXZBIN_KCOR  100
 #define MXAVBIN_KCOR 100
+
+#define MASK_FRAME_REST 1
+#define MASK_FRAME_OBS  2
+
+#define OPT_FRAME_REST 0
+#define OPT_FRAME_OBS  1
 
 int KCOR_VERBOSE_FLAG;
 
@@ -19,6 +31,14 @@ typedef struct {
   double *GRIDVAL ;           // value at each bin
 } KCOR_BININFO_DEF ;
 
+typedef struct {
+  int  NFILTDEF ;
+  int  IFILTDEF[MXFILT_KCOR];    // vs. sparse index
+  int  IFILTDEF_INV[MXFILT_KCOR]; // vs. absolute index
+  char FILTERSTRING[MXFILT_KCOR];
+} KCOR_FILTERMAP_DEF ;
+
+
 struct KCOR_INFO {
 
   char FILENAME[MXPATHLEN] ;
@@ -27,20 +47,29 @@ struct KCOR_INFO {
   char FILTERS_SURVEY[MXFILT_KCOR]; // filter list read from SIMLIB file
 
   // header info
-  int   VERSION, NPRIMARY, NFILTDEF, NFLAMSHIFT, NKCOR ;
+  int   VERSION, NFLAMSHIFT;
 
+  int   NPRIMARY;
   char  *PRIMARY_NAME[MXPRIMARY_KCOR] ;
   int    PRIMARY_INDX[MXFILT_KCOR];
   double PRIMARY_MAG[MXFILT_KCOR];    // native mag
   double PRIMARY_ZPOFF[MXFILT_KCOR];  // mag(native) - mag(synth)
   double SNPHOT_ZPOFF[MXFILT_KCOR];   // apply to photometry (from ZPOFF.DAT)
 
+  int   NFILTDEF;
   char *FILTER_NAME[MXFILT_KCOR] ;
   int   IFILTDEF[MXFILT_KCOR] ; 
   int   MASK_FRAME_FILTER[MXFILT_KCOR]; // bits 0,1 --> rest, obs
+  int   MASK_EXIST_BXFILT; // logical for BX existing for rest/obs frame
 
+  KCOR_FILTERMAP_DEF FILTERMAP_REST ;
+  KCOR_FILTERMAP_DEF FILTERMAP_OBS  ;
+
+  int   NKCOR, NKCOR_STORE;
   char *KCOR_STRING[MXTABLE_KCOR] ;
   bool  EXIST_KCOR[MXFILT_KCOR][MXFILT_KCOR]; // for each [rest][obs] combo
+  int   IFILTMAP_KCOR[2][MXTABLE_KCOR];
+
   bool  ISLAMSHIFT[MXFILT_KCOR] ;
   double RVMW;
   int    OPT_MWCOLORLAW ;
@@ -61,7 +90,6 @@ struct KCOR_INFO {
 
   // misc init info
   int NCALL_READ ;
-  int NKCOR_STORE ;
   bool STANDALONE;
 
 } KCOR_INFO ;
@@ -85,3 +113,5 @@ void read_kcor_binInfo(char *VARNAME, char *VARSYM, int MXBIN,
 
 void parse_KCOR_STRING(char *STRING, 
 		       char *strKcor, char *cfilt_rest, char *cfilt_obs);
+int ISBXFILT_KCOR(char *cfilt);
+void addFilter_kcor(int ifiltdef, KCOR_FILTERMAP_DEF *MAP);

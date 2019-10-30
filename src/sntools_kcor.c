@@ -22,6 +22,7 @@
 #include "sntools_spectrograph.h"
 #include "MWgaldust.h"
 
+
 // ======================================
 void READ_KCOR_DRIVER(char *kcorFile, char *FILTERS_SURVEY) {
 
@@ -80,6 +81,7 @@ void read_kcor_init(void) {
   }
 
   KCOR_INFO.NCALL_READ++ ;
+  KCOR_INFO.NKCOR             = 0 ;
   KCOR_INFO.NKCOR_STORE       = 0 ;
   KCOR_INFO.NFILTDEF          = 0 ;
   KCOR_INFO.NPRIMARY          = 0 ;
@@ -87,16 +89,26 @@ void read_kcor_init(void) {
   KCOR_INFO.RVMW              = RV_MWDUST ;
   KCOR_INFO.OPT_MWCOLORLAW    = OPT_MWCOLORLAW_ODON94 ;
   KCOR_INFO.STANDALONE        = false ;
+  KCOR_INFO.MASK_EXIST_BXFILT = 0 ;
 
   for(i=0; i < MXFILT_KCOR; i++ ) {
     KCOR_INFO.IFILTDEF[i]   = -9 ;
     KCOR_INFO.ISLAMSHIFT[i] = false;
+    KCOR_INFO.MASK_FRAME_FILTER[i] = 0 ;
 
     for(i2=0; i2 < MXFILT_KCOR; i2++ ) 
       { KCOR_INFO.EXIST_KCOR[i][i2] = false ; }
   }
 
+  for(i=0; i < MXTABLE_KCOR; i++ ) {
+    KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][i] = -9; 
+    KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][i]  = -9;
+  }
+
   KCOR_VERBOSE_FLAG = 1;
+
+  addFilter_kcor(0, &KCOR_INFO.FILTERMAP_REST); // zero map
+  addFilter_kcor(0, &KCOR_INFO.FILTERMAP_OBS ); // zero map
 
   return ;
 
@@ -512,8 +524,11 @@ void read_kcor_tables(void) {
   // is defined as an OBS filter. 
 
   fitsfile *FP  = KCOR_INFO.FP ;
-  int NKCOR = KCOR_INFO.NKCOR;
+  int NKCOR         = KCOR_INFO.NKCOR;
+  int NFILTDEF_KCOR = KCOR_INFO.NFILTDEF;
+
   int k, hdutype, istat=0, ifilt_rest, ifilt_obs, len ;
+  int IFILTDEF, ifilt, LBX0, LBX1;
   char *STRING, strKcor[8], cfilt_rest[40], cfilt_obs[40];
   char cband_rest[2], cband_obs[2];
   char fnam[] = "read_kcor_tables" ;
@@ -540,19 +555,160 @@ void read_kcor_tables(void) {
 
     len = strlen(cfilt_rest); sprintf(cband_rest,"%c", cfilt_rest[len-1]);
     len = strlen(cfilt_obs ); sprintf(cband_obs, "%c", cfilt_obs[len-1]);
-    /*
-    if ( strchr(KCOR_INFO.FILTERS_SURVEY,cband_obs) == NULL ) 
+    
+    if ( strchr(KCOR_INFO.FILTERS_SURVEY,cband_obs[0]) == NULL ) 
       { continue; }
 
     KCOR_INFO.EXIST_KCOR[ifilt_rest][ifilt_obs] = true ;
+    
+    // set mask for rest frame and/or observer frame
+    for(ifilt=0; ifilt < NFILTDEF_KCOR; ifilt++ ) {
+      IFILTDEF = KCOR_INFO.IFILTDEF[ifilt];
+
+      if ( ifilt_rest == IFILTDEF ) 
+	{ KCOR_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_REST ; }
+
+      if ( ifilt_obs == IFILTDEF ) 
+	{ KCOR_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_OBS ; }
+    } // end ifilt
+
+    LBX0 = ISBXFILT_KCOR(cfilt_rest);
+    if ( LBX0 ) { KCOR_INFO.MASK_EXIST_BXFILT |= MASK_FRAME_REST; }
+
+    LBX1 = ISBXFILT_KCOR(cfilt_obs);
+    if ( LBX1 ) { KCOR_INFO.MASK_EXIST_BXFILT |= MASK_FRAME_OBS; }
+
+    /* can't remember purpose of STANDALONE mode ... fix later 
+         IF ( RDKCOR_STANDALONE .and. 
+     &         IFILTDEF_INVMAP_SURVEY(ifilt_obs) .LE. 0 ) THEN
+            NFILTDEF_SURVEY = NFILTDEF_SURVEY + 1
+            IFILTDEF_MAP_SURVEY(NFILTDEF_SURVEY) = IFILT_OBS
+            IFILTDEF_INVMAP_SURVEY(ifilt_obs)    = NFILTDEF_SURVEY   
+         ENDIF
     */
+
+    // abort on undefined filter
+
+    if ( ifilt_rest <= 0 || ifilt_obs <= 0 ) {
+      sprintf(c1err,"Undefined %s: IFILTDEF(REST,OBS)=%d,%d",
+	      strKcor, ifilt_rest, ifilt_obs);
+      sprintf(c2err,"Check filters in Kcor file.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    // define new rest-filter only if not already defined.
+    addFilter_kcor(ifilt_rest, &KCOR_INFO.FILTERMAP_REST);
+    addFilter_kcor(ifilt_obs,  &KCOR_INFO.FILTERMAP_OBS );
+
+	 /*
+c if obs filter is not part of the survey, just skip it;
+c allows defining filter sub-sets of a survey without having 
+c to change the Kcor file.
+          IF ( IFILT .GT. NFILTDEF_SURVEY ) GOTO 100
+
+          if ( EXIST_BXFILT_OBS .and. RDKCOR_STANDALONE ) goto 100
+
+c increment number of KCOR tables to read.
+          NKCOR_STORE                   = NKCOR_STORE + 1
+          IFILT2_RDKCOR(OPT_FILTREST,NKCOR_STORE) = ifilt_rest
+          IFILT2_RDKCOR(OPT_FILTOBS,NKCOR_STORE)  = ifilt_obs
+
+          IKCOR_RDKCOR(NKCOR_STORE)     = ikcor  ! store orig. column
+    */
+
+    //    KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][i] = -9; 
+    //    KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][i]  = -9;
 
     //.xyz
 
   } // end k loop over KCOR tables
 
+
+  /* xxxxxxx
+  // pass dump flags
+  addFilter_kcor(777, &KCOR_INFO.FILTERMAP_REST);
+  addFilter_kcor(777, &KCOR_INFO.FILTERMAP_OBS );
+  xxxxxx */
+
+  // sanity check on number of rest,obs filters
+  int NFILT_REST = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
+  int NFILT_OBS  = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
+  if ( NFILT_REST >= MXFILT_REST_KCOR ) {
+    sprintf(c1err,"NFILT_REST = %d exceeds bound of %d.",
+	    NFILT_REST, MXFILT_REST_KCOR);
+    sprintf(c2err,"Check kcor input file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  if ( NFILT_OBS >= MXFILT_OBS_KCOR ) {
+    sprintf(c1err,"NFILT_OBS = %d exceeds bound of %d.",
+	    NFILT_OBS, MXFILT_OBS_KCOR);
+    sprintf(c2err,"Check kcor input file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+
   return ;
 } // end read_kcor_tables
+
+// ===========================
+int ISBXFILT_KCOR(char *cfilt) {
+  // return true if BX is part of filter name
+  if ( strstr(cfilt,"BX") != NULL ) { return(1); }
+  return(0);
+} // end ISBXFILT_KCOR
+
+// ===========================================
+void addFilter_kcor(int ifiltdef, KCOR_FILTERMAP_DEF *MAP ) {
+
+  int ifilt, NF;
+  char cfilt1[2] ;
+  char fnam[] = "addFilter_kcor" ;
+
+  // --------- BEGIN -----------
+
+  if ( ifiltdef == 0 ) {
+    // zero map, then return
+    MAP->NFILTDEF = 0;
+    MAP->FILTERSTRING[0] =  0 ;
+    for(ifilt=0; ifilt < MXFILT_KCOR; ifilt++ ) {
+      MAP->IFILTDEF[ifilt]     = -9 ; 
+      MAP->IFILTDEF_INV[ifilt] = -9 ;
+    }
+    return ;
+  }
+
+
+  if ( ifiltdef == 777 ) {
+    // dump map, then return
+    int IFILTDEF ;
+    NF = MAP->NFILTDEF;
+    printf("\n");
+    printf("\t xxx %s dump: \n", fnam);
+    printf("\t xxx FILTERSTRING = '%s' \n", MAP->FILTERSTRING);
+    for(ifilt=0; ifilt < NF; ifilt++ ) {
+      IFILTDEF = MAP->IFILTDEF[ifilt];
+      sprintf(cfilt1, "%c", FILTERSTRING[IFILTDEF] );
+      printf("\t xxx IFILTDEF[%2d,%s] = %d \n",
+	     ifilt, cfilt1, IFILTDEF); fflush(stdout);
+    }
+    return ;
+  }
+
+  // return if this filter is already defined
+  if ( MAP->IFILTDEF_INV[ifiltdef] >= 0 ) { return; }
+
+  NF = MAP->NFILTDEF ;
+  sprintf(cfilt1, "%c", FILTERSTRING[ifiltdef] );
+
+  MAP->IFILTDEF_INV[ifiltdef] = NF;
+  MAP->IFILTDEF[NF]           = ifiltdef;
+  strcat(MAP->FILTERSTRING,cfilt1);
+  MAP->NFILTDEF++ ;
+
+  return ;
+
+} // end  addFilter_kcor
+
 
 // ==============================
 void parse_KCOR_STRING(char *STRING, 

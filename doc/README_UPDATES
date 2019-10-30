@@ -17554,7 +17554,6 @@
 # ======================================================================= 
          v10_74i (  ) 
 
-
          ***** IMPORTANT(v10_74i) ***** 
 
     sim_SNmix.pl  : 
@@ -17609,5 +17608,7 @@
       from DES3YR analysis. To recover these, use new restore argument,
          snlc_fit.exe <inFile>  RESTORE_DES3YR T
       or add RESTORE_DES3YR=T to &SNLCINP namelist.
+
+   sntools_kcor.c[h]: begin refactor to translate fortran kcor-read to C.
 
 END: 

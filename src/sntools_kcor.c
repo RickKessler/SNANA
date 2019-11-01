@@ -34,7 +34,7 @@ void READ_KCOR_DRIVER(char *kcorFile, char *FILTERS_SURVEY) {
   sprintf(BANNER,"%s: read calib/filters/kcor", fnam );
   print_banner(BANNER);
 
-  sprintf(KCOR_INFO.FILENAME, "%s", kcorFile);
+  sprintf(KCOR_INFO.FILENAME, "%s", kcorFile) ;
   sprintf(KCOR_INFO.FILTERS_SURVEY, "%s", FILTERS_SURVEY);
 
   read_kcor_init();
@@ -110,6 +110,8 @@ void read_kcor_init(void) {
   addFilter_kcor(0, &KCOR_INFO.FILTERMAP_REST); // zero map
   addFilter_kcor(0, &KCOR_INFO.FILTERMAP_OBS ); // zero map
 
+  IFILTDEF_BESS_BX = INTFILTER("X");
+ 
   return ;
 
 } // end read_kcor_init
@@ -527,6 +529,7 @@ void read_kcor_tables(void) {
   int NKCOR         = KCOR_INFO.NKCOR;
   int NFILTDEF_KCOR = KCOR_INFO.NFILTDEF;
 
+  int NKCOR_STORE = 0 ;
   int k, hdutype, istat=0, ifilt_rest, ifilt_obs, len ;
   int IFILTDEF, ifilt, LBX0, LBX1;
   char *STRING, strKcor[8], cfilt_rest[40], cfilt_obs[40];
@@ -600,35 +603,17 @@ void read_kcor_tables(void) {
     addFilter_kcor(ifilt_rest, &KCOR_INFO.FILTERMAP_REST);
     addFilter_kcor(ifilt_obs,  &KCOR_INFO.FILTERMAP_OBS );
 
-	 /*
-c if obs filter is not part of the survey, just skip it;
-c allows defining filter sub-sets of a survey without having 
-c to change the Kcor file.
-          IF ( IFILT .GT. NFILTDEF_SURVEY ) GOTO 100
+    // ??? if ( EXIST_BXFILT_OBS .and. RDKCOR_STANDALONE ) { continue; }   
 
-          if ( EXIST_BXFILT_OBS .and. RDKCOR_STANDALONE ) goto 100
+    KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][NKCOR_STORE] = ifilt_rest; 
+    KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][NKCOR_STORE]  = ifilt_obs ;
+    KCOR_INFO.k_index[NKCOR_STORE] = k;
+    NKCOR_STORE++; 
+    KCOR_INFO.NKCOR_STORE = NKCOR_STORE ;
 
-c increment number of KCOR tables to read.
-          NKCOR_STORE                   = NKCOR_STORE + 1
-          IFILT2_RDKCOR(OPT_FILTREST,NKCOR_STORE) = ifilt_rest
-          IFILT2_RDKCOR(OPT_FILTOBS,NKCOR_STORE)  = ifilt_obs
-
-          IKCOR_RDKCOR(NKCOR_STORE)     = ikcor  ! store orig. column
-    */
-
-    //    KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][i] = -9; 
-    //    KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][i]  = -9;
-
-    //.xyz
 
   } // end k loop over KCOR tables
 
-
-  /* xxxxxxx
-  // pass dump flags
-  addFilter_kcor(777, &KCOR_INFO.FILTERMAP_REST);
-  addFilter_kcor(777, &KCOR_INFO.FILTERMAP_OBS );
-  xxxxxx */
 
   // sanity check on number of rest,obs filters
   int NFILT_REST = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
@@ -647,7 +632,108 @@ c increment number of KCOR tables to read.
   }
 
 
+  // ------------------------------------------------------
+  // BX check:
+  // loop over defined filters (from header) ; if undefined rest-frame 
+  // X filter exists, then add it to the rest-frame list. This allows 
+  // Landolt option in fitting program without having to explicitly
+  // define a K-correction wit the X filter.
+  // Beware to set BX before INIT_KCOR_INDICES !!!
+
+  char *NAME;
+  for(ifilt=0; ifilt < NFILTDEF_KCOR ; ifilt++ ) {
+    NAME     = KCOR_INFO.FILTER_NAME[ifilt];
+    if ( !ISBXFILT_KCOR(NAME) ) { continue; } // ensure 'BX', not BLABLA-X 
+    addFilter_kcor(IFILTDEF, &KCOR_INFO.FILTERMAP_REST);
+    KCOR_INFO.MASK_EXIST_BXFILT        |= MASK_FRAME_REST ; 
+    KCOR_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_REST ;
+  }
+
+  /* xxxxxxx
+  // pass dump flags
+  addFilter_kcor(777, &KCOR_INFO.FILTERMAP_REST);
+  addFilter_kcor(777, &KCOR_INFO.FILTERMAP_OBS );
+  xxxxxx */
+
+
+/* .xyz
+
+
+c init multi-dimensional array to store KCOR tables
+      CALL INIT_KCOR_INDICES
+
+c =============================
+c if user has specified any MAGOBS_SHIFT_PRIMARY, MAGOBS_SHIFT_ZP,
+c (and same for REST) for a non-existant filter, then ABORT ...
+c 
+      CALL  RDKCOR_CHECK_MAGSHIFTS
+
+
+c Loop again over Kcors that have been flagged for reading/storage.
+c i.e,, ignore those for which the obs-frame filter is not defined.
+
+      NROW      = NTBIN_KCOR * NZbin_KCOR * NAVbin_KCOR
+      NBIN_TOT  = NROW * NFILTDEF_REST * NFILTDEF_SURVEY
+      ISTAT     = 0
+      FIRSTROW  = 1
+      FIRSTELEM = 1
+
+      R4CRAZY = 9999.9
+      DO ibin = 1, NBIN_TOT
+        R4KCORTABLE1D(ibin)  = R4CRAZY  ! init to crazy value
+      ENDDO
+
+      DO 200 i      = 1, NKCOR_STORE
+         ifilt_obs  = IFILT2_RDKCOR(OPT_FILTOBS,i)
+         ifilt_rest = IFILT2_RDKCOR(OPT_FILTREST,i)
+         ikcor      = IKCOR_RDKCOR(i)
+         icol       = ikcor + 3  ! skip T,Z,AV columns
+
+         STRKCOR = KCORINFO_STRING_RDKCOR(ikcor)
+         CALL RDKCOR_CHECK_IFILT(ifilt_rest,ifilt_obs,STRKCOR)
+
+c     get sparse filter indices
+         ifiltr = IFILTDEF_INVMAP_REST(ifilt_rest)
+         ifilto = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
+
+         if ( ifilto .LE. 0 ) then
+            c1err = 'Invalid obs-filter for'
+            c2err = STRKCOR  
+            CALL MADABORT(FNAM,C1ERR,C2ERR)   
+         endif
+
+c get starting 1D bin for this KCOR
+         IBKCOR(KDIM_ifiltr) = ifiltr - 1
+         IBKCOR(KDIM_ifilto) = ifilto - 1
+         IBKCOR(KDIM_T)      = 0
+         IBKCOR(KDIM_Z)      = 0
+         IBKCOR(KDIM_AV)     = 0
+         IBIN_FIRST          = GET_1DINDEX(IDMAP_KCOR,NKDIM,IBKCOR)+1
+         IBIN_LAST           = IBIN_FIRST + NROW - 1
+
+c read table from fits file.
+         CALL FTGCVe(LUN, ICOL, firstrow, firstelem, 
+     &      NROW, nullf_rdkcor, 
+     &      R4KCORTABLE1D(IBIN_FIRST),     ! return arg
+     &      anyf_rdkcor, istat)            ! return arg
+
+         CALL RDKCOR_ABORT(FNAM, STRKCOR, ISTAT) ! error check
+
+c apply user mag-shifts
+         DO ibin = IBIN_FIRST, IBIN_LAST
+            R4KCORTABLE1D(ibin) 
+     &         = R4KCORTABLE1D(ibin) 
+     &         - MAGREST_SHIFT_PRIMARY_FILT(ifilt_rest)
+     &         + MAGOBS_SHIFT_PRIMARY_FILT(ifilt_obs)
+         ENDDO
+
+200   CONTINUE
+
+
+  */
+
   return ;
+
 } // end read_kcor_tables
 
 // ===========================

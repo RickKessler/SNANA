@@ -3340,7 +3340,6 @@ void parse_GENMAG_SMEAR_MODELNAME(void) {
 
   sprintf(inString,"%s", INPUTS.GENMAG_SMEAR_MODELNAME);
 
-
   splitString(inString, colon, 2,      // inputs               
 	      &NSPLIT, ptrSplit );      // outputs             
   
@@ -8122,11 +8121,15 @@ void init_modelSmear(void) {
     if ( strstr(ptrName,"G10FUDGE") != NULL ) 
       {   SIGCOH  = INPUTS.GENMAG_SMEAR_USRFUN[0] ; }
     
-    if ( INDEX_GENMODEL == MODEL_SALT2 ) 
-      { sprintf(MODELPATH_SALT2,"%s", INPUTS.MODELPATH ); }
-    else if ( INDEX_GENMODEL == MODEL_BYOSED ) 
-      { sprintf(MODELPATH_SALT2,"%s",INPUTS.GENMAG_SMEAR_MODELARG);} //BYOSED
-    
+
+    if ( INDEX_GENMODEL == MODEL_SALT2 ) { 
+      sprintf(MODELPATH_SALT2,"%s", INPUTS.MODELPATH ); 
+    }
+    else if ( INDEX_GENMODEL == MODEL_BYOSED ) {
+      sprintf(MODELPATH_SALT2,"%s", INPUTS.GENMAG_SMEAR_MODELARG); //BYOSED
+      SIGCOH = 0.10; // hard-wired, Oct 31 2019 
+    }
+
     /*
     printf(" xxx MODELNAME='%s' USE=%d  SIGCOH=%f \n",
 	   ptrName, USE_SALT2smear, SIGCOH);  debugexit(fnam);   */

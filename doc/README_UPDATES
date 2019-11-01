@@ -17552,7 +17552,7 @@
    
 
 # ======================================================================= 
-         v10_74i (  ) 
+         v10_74i (Oct 30, 2019) 
 
          ***** IMPORTANT(v10_74i) ***** 
 
@@ -17610,5 +17610,23 @@
       or add RESTORE_DES3YR=T to &SNLCINP namelist.
 
    sntools_kcor.c[h]: begin refactor to translate fortran kcor-read to C.
+
+
+# ======================================================================= 
+         v10_74j (  ) 
+
+         ***** IMPORTANT(v10_74j) ***** 
+
+         ***** USEFUL(v10_74j) ***** 
+
+         ***** MISCELLANEOUS(v10_74j) ***** 
+  
+    sntools_output.c
+      + better error message if NPTFIT is missing for outlier/obs dump.
+
+    snlc_fit.car: 
+      + add FLUXERRCALC_SIM to FITRES+RESIDUAL table (after ERRTEST)
+    sntable_dump.pl
+      + include FLUXERRCALC_SIM for outlier/obs option.
 
 END: 

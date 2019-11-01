@@ -23,6 +23,7 @@
 #define OPT_FRAME_OBS  1
 
 int KCOR_VERBOSE_FLAG;
+int IFILTDEF_BESS_BX;
 
 typedef struct {
   char VARNAME[40];
@@ -69,6 +70,7 @@ struct KCOR_INFO {
   char *KCOR_STRING[MXTABLE_KCOR] ;
   bool  EXIST_KCOR[MXFILT_KCOR][MXFILT_KCOR]; // for each [rest][obs] combo
   int   IFILTMAP_KCOR[2][MXTABLE_KCOR];
+  int   k_index[MXTABLE_KCOR];
 
   bool  ISLAMSHIFT[MXFILT_KCOR] ;
   double RVMW;
@@ -91,6 +93,7 @@ struct KCOR_INFO {
   // misc init info
   int NCALL_READ ;
   bool STANDALONE;
+
 
 } KCOR_INFO ;
 

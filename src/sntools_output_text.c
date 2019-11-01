@@ -46,6 +46,12 @@
 //
 // Aug 25 2019: MXCHAR_LINE -> 2500 (was 2000)
 //
+// Oct 30 2019: begin adding optional ERRCALC column, but got
+//    stuck passing flag to INIT_TEXTFILES. Also realized that
+//    for fluxError maps we need more variables (PSF,SKY ..)
+//    so better to use EPOCH table from ROOT or HBOOK file.
+//    Bottom line is no change.
+//
 // **********************************************
 
 char FILEPREFIX_TEXT[100];
@@ -109,8 +115,9 @@ struct TABLEINFO_TEXT {
   long long int  **ptr_L[MXTABLE_TEXT] ;
   char   **ptr_C[MXTABLE_TEXT] ;
 
-} TABLEINFO_TEXT ;
+  bool WRITE_ERRCALC;
 
+} TABLEINFO_TEXT ;
 
 
 // -----------------------------
@@ -681,6 +688,7 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
   IDTABLE    = TABLEINFO_TEXT.IDTABLE[ITAB] ;
   FP         = TABLEINFO_TEXT.FP[ITAB] ; 
 
+
   if ( NVAR >= MXVAR_TEXT ) {
     sprintf(MSGERR1, "NVAR=%d exceeds bound of MXVAR_TEXT=%d",
 	    NVAR, MXVAR_TEXT);
@@ -864,6 +872,7 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   sprintf(VARDEF_SNLC[NVAR],  "error on calibrated flux");
   NVAR++ ;
 
+
   sprintf(VARNAME_SNLC[NVAR], "DATAFLAG" );      
   sprintf(VARDEF_SNLC[NVAR],  "1=>data, 0=>fit, -1=>data rejected in fit");
   NVAR++ ;
@@ -882,6 +891,15 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   NVAR++ ;
 
   NVAR_LCPLOT_REQ = NVAR ; // required
+
+  // - - - - - -
+
+  /*
+  // optional if ERRCALC is requested
+  sprintf(VARNAME_SNLC[NVAR], "ERRCALC" );     
+  sprintf(VARDEF_SNLC[NVAR],  "optional calculated error");
+  NVAR++ ;
+  */
 
   // below are optional if using rest-frame model
   sprintf(VARNAME_SNLC[NVAR], "BAND_REST" );     
@@ -1354,6 +1372,8 @@ void SNLCPAK_FILL_TEXT(void) {
 
   // --------------- BEGIN ------------
 
+  TABLEINFO_TEXT.WRITE_ERRCALC = false ; // xxxx REMOVE
+
   PREFIX = SNLCPAK_OUTPUT.TEXTFILE_PREFIX ;
   CCID   = SNLCPAK_OUTPUT.CCID ;
  
@@ -1366,6 +1386,7 @@ void SNLCPAK_FILL_TEXT(void) {
   // update list file
   fprintf(PTRFILE_LCLIST, "SN: %s  %d \n", CCID, IFIT );
   fflush(PTRFILE_LCLIST);
+
 
   // Aug 4 2015: write header on first call to make sure that
   //             all variables are defined.
@@ -1476,7 +1497,7 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
 
   int NOBS_FITFUN, ISFIT, IFILT_REST, NOBS_REST, NOBS_SIMREST, flag ;
   int OPT_FORMAT ;
-  double chi2,  FLUX_REST ;
+  double chi2,  FLUX_REST, ERRCALC ;
   char BAND[2], BAND_REST[2], sep[4], comment[200], LINE[400], CVAL[80];
 
   char fnam[] = "snlcpak_textLine" ;
@@ -1491,8 +1512,8 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
   else
     { chi2 = SNLCPAK_OUTPUT.EPDATA[SNLCPAK_EPFLAG_CHI2][obs] ; }
 
-
   sprintf(BAND,"%c", SNLCPAK_OUTPUT.SURVEY_FILTERS[ifilt] );
+
 
   // get value-separate string for specified format.
   OPT_FORMAT = SNLCPAK_OUTPUT.OPT_TEXT_FORMAT ;
@@ -1519,6 +1540,13 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
 
   sprintf(CVAL,"%s %11.4le", sep, SNLCPAK_OUTPUT.EPDATA_ERR[FLAG][obs] );
   strcat(LINE,CVAL);
+
+  /*
+  if ( TABLEINFO_TEXT.WRITE_ERRCALC == true ) {
+    sprintf(CVAL,"%s %11.4le", sep, ERRCALC );
+    strcat(LINE,CVAL);
+  }
+  */
 
   sprintf(CVAL,"%s %2d",   sep, OUTFLAG );
   strcat(LINE,CVAL);

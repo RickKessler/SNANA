@@ -2165,7 +2165,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
       LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
       LAMSED       = LAMOBS/z1;   // rest-frame wavelength
       lam[ilamobs] = LAMSED ; 
-      // xxx mark delete  magSmear[ilamobs] = 0.0 ;
 
       // protect undefined red end for low-z (July 2016)
       if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }       

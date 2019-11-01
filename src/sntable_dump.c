@@ -191,7 +191,8 @@ int main(int argc, char **argv) {
     SNTABLE_DUMP_VARNAMES(TFILE,TID);  
   }
   else if ( INPUTS.OUTLIER_NSIGMA[0] >= 0.0 ) {
-    // dump fit-outliers to ascii/fitres file
+    // dump fit-outliers for each epoch to ascii/fitres file
+    // Must set SNTABLE_LIST = 'FITRES+RESIDUALS'
     NDUMP = SNTABLE_DUMP_OUTLIERS(TFILE, TID, NVAR, TLIST, 
 				  INPUTS.OUTLIER_NSIGMA, FP_OUTFILE,
 				  LINEKEY_DUMP, SEPKEY_DUMP );
@@ -355,10 +356,11 @@ void  set_outlier_varnames(void) {
   // for the OUTLIER option, set a hard-wired list of variables
   //
   // Feb 22 2018: add more variables for OPTOBS
+  // Nov 01 2019: add FLUXERRCALC_SIM for 'OBS' option
 
   int  ivar, NVAR = 0, NVAR_APPEND = 0 ;
   char VARNAMES_APPEND[MXVAR_DUMP][60];
-  //  char fnam[] = "set_outlier_varnames";
+  char fnam[] = "set_outlier_varnames";
 
   // ----------- BEGIN -------
 
@@ -445,8 +447,10 @@ void  set_outlier_varnames(void) {
 
   if ( INPUTS.OPT_OBS ) {
     sprintf(INPUTS.VARNAMES[NVAR], "FLUXCAL_DATA_ERR" );  NVAR++ ;
-    sprintf(INPUTS.VARNAMES[NVAR], "SBFLUXCAL" );     NVAR++ ;
-    sprintf(INPUTS.VARNAMES[NVAR], "ERRTEST"   );     NVAR++ ;
+    sprintf(INPUTS.VARNAMES[NVAR], "SBFLUXCAL" );         NVAR++ ;
+    sprintf(INPUTS.VARNAMES[NVAR], "ERRTEST"   );         NVAR++ ;
+    sprintf(INPUTS.VARNAMES[NVAR], "FLUXERRCALC_SIM" );   NVAR++ ;
+
   }
 
   INPUTS.NVAR = NVAR ;

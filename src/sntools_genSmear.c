@@ -103,16 +103,7 @@
 // ===========================================================
 
 int  istat_genSmear(void) {
-
   return(GENSMEAR.NUSE);
-
-  /* xxx mark delete 
-  int MASK = 0 ;
-  if ( GENSMEAR.NUSE == 0 ) { return(MASK); }
-  MASK += MASK_GENSMEAR_APPLY ;
-  MASK += MASK_GENSMEAR_NEW   ;
-  return(MASK) ;
-  xxxxxx */
 }
 
 void  init_genSmear_FLAGS(int MSKOPT, double SCALE) {
@@ -3018,19 +3009,25 @@ void get_genSmear_COVSED(double Trest, int NWAVE, double *WAVE,
     }
 
     // -------
-   
+
     if ( DEBUG ) {
       double wdif0 = fabs(tmpWave-LAMPAIR_DEBUG[0]);
       double wdif1 = fabs(tmpWave-LAMPAIR_DEBUG[1]);
       if ( wdif0 < 5.0 && NDEBUG_STORE==0 )
-	{ magSmear_debug[0] = tmp; NDEBUG_STORE++ ; }
+	{ magSmear_debug[0] = tmp;  NDEBUG_STORE++ ; }
       if ( wdif1 < 5.0 && NDEBUG_STORE==1 )
-	{ magSmear_debug[1] = tmp; NDEBUG_STORE++ ; }
+	{ magSmear_debug[1] = tmp;  NDEBUG_STORE++ ; }
     }
     
     magSmear[iwave] = tmp ;
   }
 
+
+  /*
+  printf(" xxx %s: DEBUG=%d Trest=%.3f  LAMPAIR=%.1f\n", 
+	 fnam, DEBUG, Trest, LAMPAIR_DEBUG[0] ); fflush(stdout);
+  */
+ 
   if ( NDEBUG_STORE == 2 ) 
     { update_genSmear_COVLAM_debug(magSmear_debug); }
 

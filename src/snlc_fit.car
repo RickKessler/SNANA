@@ -279,7 +279,8 @@ c variable indices for R4EP_
      &  ,JEP_FPKRAT, JEP_FPKRATERR
      &  ,JEP_PSF, JEP_NEA, JEP_SKYSIG, JEP_SKYSIG_T
      &  ,JEP_ZP, JEP_ZPERR, JEP_GAIN, JEP_XPIX, JEP_YPIX, JEP_AREAFRAC
-     &  ,JEP_SKYFLUXCAL, JEP_SBFLUXCAL, JEP_ERRTEST, JEP_PHOTPROB
+     &  ,JEP_SKYFLUXCAL, JEP_SBFLUXCAL, JEP_ERRTEST, JEP_ERRCALC
+     &  ,JEP_PHOTPROB
      &  ,JEP_SIM_MAGREST, JEP_SIM_FLUXREST
      &  ,JEP_SIM_FLUXCAL, JEP_SIM_DELCHI2
 
@@ -338,12 +339,13 @@ c for R4EP_XXX
      &  ,JEP_AREAFRAC      = 41
      &  ,JEP_SKYFLUXCAL    = 42
      &  ,JEP_SBFLUXCAL     = 43
-     &  ,JEP_ERRTEST       = 44
-     &  ,JEP_PHOTPROB      = 45
-     &  ,JEP_SIM_MAGREST   = 46
-     &  ,JEP_SIM_FLUXREST  = 47
-     &  ,JEP_SIM_FLUXCAL   = 48  ! for LSIM_MAGOBS = T
-     &  ,JEP_SIM_DELCHI2   = 49  ! chi2 from data-sim flux diff
+     &  ,JEP_ERRTEST       = 44  ! ERRCALC/FLUXCAL_ERR
+     &  ,JEP_ERRCALC       = 45  ! calculated error
+     &  ,JEP_PHOTPROB      = 46
+     &  ,JEP_SIM_MAGREST   = 47
+     &  ,JEP_SIM_FLUXREST  = 48
+     &  ,JEP_SIM_FLUXCAL   = 49  ! for LSIM_MAGOBS = T
+     &  ,JEP_SIM_DELCHI2   = 50  ! chi2 from data-sim flux diff
      &     )
 
 c EP_XXX refers to "IMJD" variables stored at end of fit.
@@ -10073,6 +10075,7 @@ c set error on MilkyWay Galactic extinction
             ERR_TMP = -9.0 
          ENDIF
          R4EP_ALL(ep,JEP_ERRTEST) = ERR_TMP
+         R4EP_ALL(ep,JEP_ERRCALC) = ERR_CALC
 
 
 102   CONTINUE   ! end of EPMIN,EPMAX loop
@@ -18431,6 +18434,10 @@ c extra 'observing' variables
 
         VARNAME = 'ERRTEST(NPTFIT):F' // char(0)  ! calc/true error ratio
         CALL SNTABLE_ADDCOL(ID,CBLK, R4EP_FIT(1,JEP_ERRTEST), 
+     &        VARNAME, 0, LENB,LENV)
+
+        VARNAME = 'FLUXERRCALC_SIM(NPTFIT):F' // char(0)  ! calc error
+        CALL SNTABLE_ADDCOL(ID,CBLK, R4EP_FIT(1,JEP_ERRCALC), 
      &        VARNAME, 0, LENB,LENV)
 
         VARNAME = 'PHOTPROB(NPTFIT):F' // char(0)  ! Dec 17, 2014

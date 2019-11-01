@@ -4225,7 +4225,7 @@ void set_defaults(void) {
   INPUTS.cmax  = +6.0;
 
   INPUTS.logmass_min  = -20.0 ;
-  INPUTS.logmass_max  =  20.0 ;
+  INPUTS.logmass_max  = +20.0 ;
   INPUTS.nbin_logmass =  1 ; 
 
   INPUTS.chi2max = 1.0E9 ;
@@ -10504,8 +10504,10 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
     VAL_MAX = SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[1];
     VAL_BIN = SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS ;
     
+    /* xxx mark delete to allow logMass bins without gDM bins
     int NBINg = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
     if ( NBINg <= 1 ) { VAL_MIN = -20.0; VAL_MAX=+20.0; VAL_BIN=40.0; }
+    xxxxxxxxxx end mark xxxxxxxxx */
 
     sprintf(NAME,"m");
   }

@@ -93,6 +93,7 @@ c
      &  ,SNLCPAK_EPFLAG_FLUXSIM  ! SIM flux per epoch
      &  ,SNLCPAK_EPFLAG_FLUXREST ! rest-frame flux per epoch (optional)
      &  ,SNLCPAK_EPFLAG_SIMFLUXREST ! idem for sim truth
+     &  ,SNLCPAK_EPFLAG_ERRCALC    ! FLUX-ERROR calculated from PSF,ZP,SKY
      &  ,SNLCPAK_BANDFLAG_PKFLUX   ! peak flux vs. filter
      &  ,SNLCPAK_BANDFLAG_PKMJD    ! peak MJD  vs. filter
      &  ,SNLCPAK_BANDFLAG_NDOF     ! Ndof vs. filter
@@ -281,14 +282,15 @@ c
      &  ,SNLCPAK_EPFLAG_FLUXSIM     = 5    ! epoch-dependent
      &  ,SNLCPAK_EPFLAG_FLUXREST    = 6
      &  ,SNLCPAK_EPFLAG_SIMFLUXREST = 7
+     &  ,SNLCPAK_EPFLAG_ERRCALC     = 8
      &  ,SNLCPAK_BANDFLAG_NDOF    = 100
      &  ,SNLCPAK_BANDFLAG_PKFLUX  = 101  ! filter-dependent 
      &  ,SNLCPAK_BANDFLAG_PKMJD   = 102
      &  ,SNLCPAK_BANDFLAG_CHI2    = 103
 c
      &  ,IFLAG_INI=1, IFLAG_ANA=2, IFLAG_END=3
-     &  ,MAG_SATURATE = -7.0   ! for sim only
-     &  ,CUTVAL_OPEN = 1.0E12  ! cutwin value to accept everything.
+     &  ,MAG_SATURATE = -7.0    ! for sim only
+     &  ,CUTVAL_OPEN  = 1.0E12  ! cutwin value to accept everything.
      &  ,MASK_FLUXCOR_SNANA    = 1
      &  ,MASK_FLUXERRCOR_SNANA = 2
 c
@@ -558,7 +560,8 @@ c SNTABLE control variables (May 2014)
      &  ,WRTABLEFILE_IAUC     ! T-> SNID -> IAUC (for writing tables)
      &  ,WRTABLEFILE_SIMVAR   ! T-> include SIM_XXX vars for simulation
      &  ,WRTABLEFILE_ZPHOT    ! T-> include ZPHOT info for PHOTOZ fit
-     &  ,WRTABLEFILE_HOST_TEXT! T-> add HOST info in TEXT table 
+     &  ,WRTABLEFILE_HOST_TEXT! T-> add HOST info in SNNA TEXT table 
+     &  ,WRTABLEFILE_ERRCALC_TEXT! T-> add ERRCALC info in LCPLOT TEXT table 
 
       INTEGER
      &   OPT_TABLE(MXTABLE)       ! option(s) for each table
@@ -585,6 +588,7 @@ c Sep 23 2017: allow user codes to add private variables to SNTABLE
      &    ,OPT_TABLE, TEXTFORMAT_TABLE
      &    ,CUTMASK_SNANA_TABLE, WRTABLEFILE_IAUC, WRTABLEFILE_SIMVAR
      &    ,WRTABLEFILE_ZPHOT, WRTABLEFILE_HOST_TEXT
+     &    ,WRTABLEFILE_ERRCALC_TEXT 
 c
      &    ,NFILT_REMAP_TABLE, IFILTLIST_REMAP_TABLE
      &    ,FILTLIST_REMAP_TABLE
@@ -3535,6 +3539,7 @@ c set LTEST logicals to false.
       WRTABLEFILE_SIMVAR    = .TRUE.     ! Jul 17 2016
       WRTABLEFILE_ZPHOT     = .TRUE.     ! Mar 19 2018
       WRTABLEFILE_HOST_TEXT = .FALSE.    ! May 23 2019
+      WRTABLEFILE_ERRCALC_TEXT = .FALSE. ! Oct 30 2019
 
 c ----------------------------------------
 c check command line arg for namelist file;
@@ -4146,7 +4151,8 @@ c       (to avoid confusion with ITABLE_SPECPAK
 c  + fix bug parsing options with comma; see new MSKOPT argument
 c    to store_PARSE_WORDS()
 c
-c May 23 2019: add text:host option ;see WRTABLEFILE_HOST_TEXT
+c May 23 2019: add text:host    option ; see WRTABLEFILE_HOST_TEXT
+c Oct 30 2019: add text:errcalc option ; see WRTABLEFILE_ERRCALC_TEXT
 c
 c -------------------
       IMPLICIT NONE
@@ -4305,17 +4311,14 @@ c check for options inside ()
             if ( MATCH ) then
                cTMPOPT = copt(6:LENOPT) // ' '
                if( cTMPOPT(1:4) .EQ. 'host' ) then
-                  WRTABLEFILE_HOST_TEXT = .TRUE.
+                  WRTABLEFILE_HOST_TEXT = .TRUE.  ! for SNANA table  
+               else if ( cTMPOPT(1:7) .EQ. 'errcalc' ) then
+                  WRTABLEFILE_ERRCALC_TEXT = .TRUE.  ! for LCPLOT table
                else
-                  TEXTFORMAT_TABLE(itab) = cTMPOPT(1:8)
+                  TEXTFORMAT_TABLE(itab) = cTMPOPT(1:8) ! format
                endif
                USEOPT = .TRUE.
             endif
-
-c            MATCH= ( copt(1:8) .EQ. 'hostinfo' )
-c            if ( MATCH ) then               
-c               USEOPT = .TRUE.
-c            endif
 
             MATCH = (copt(1:5) .EQ. 'mxlc:' )
             if ( MATCH  .and. ITAB .EQ. ITABLE_SNLCPAK) then
@@ -23711,6 +23714,7 @@ c SNLCPAK arrays
      &  ,VFLUX_ERR(MXEP_SNLCPAK)
      &  ,VCHI2(MXEP_SNLCPAK)
      &  ,VREJECT(MXEP_SNLCPAK)
+     &  ,VERRCALC(MXEP_SNLCPAK)
      &  ,VDUMERR(MXEP_SNLCPAK)  ! all zeros
 c
      &  ,VBAND_NDOF(MXFILT_OBS)
@@ -23822,6 +23826,7 @@ c -----------------------------
           VTOBS(NOBS)     = TOBS
           VFLUX(NOBS)     = SNLC_FLUXCAL(ep)
           VFLUX_ERR(NOBS) = SNLC_FLUXCAL_ERRTOT(ep)
+          VERRCALC(NOBS)  = SNLC_FLUXCAL_ERRCALC(ep)
 
           VFILTOBS(NOBS)  = IFILT_OBS
           VREJECT(NOBS)   = DBLE( 1 - ISNLC_SNRECON_USE(ep) )
@@ -23871,6 +23876,13 @@ c store data-FITFUN chi2
         CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VCHI2, VDUMERR, 
      &     VFILTOBS, SNLCPAK_EPFLAG_CHI2, LENCCID)
       ENDIF
+
+c xxxx Not needed or finished; use OBS option in sntable_dump
+c      if ( WRTABLEFILE_ERRCALC_TEXT ) then  
+c        CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VDUMERR,VERRCALC,
+c     &     VFILTOBS, SNLCPAK_EPFLAG_ERRCALC, LENCCID)
+c      endif
+c xxxxx 
 
 c ------------------------------------------
       IF ( .NOT. OVMODEL_ANYFUN ) GOTO 500
@@ -23946,7 +23958,7 @@ c store filter-dependent quantities.
      &   IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_PKFLUX, LENCCID)
 
 c --------------------------------------------------
-c fill output structure with above; here is goes to a disk file.
+c fill output structure with above; here iy goes to a disk file.
 
  500  CONTINUE
 
@@ -27676,7 +27688,7 @@ C -------------- BEGIN ------------
 
 
 C ===========================================
-+DECK,RDKADDX.
++DECK,RDKCOR_ADDX.
       SUBROUTINE RDKCOR_ADDX_REST(cfilt)
 
 c Dec 2012 [code moved from RDKCOR_HBOOK]

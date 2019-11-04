@@ -32,6 +32,7 @@ def print_err():
 
 class genmag_BYOSED:
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
+			#print(PATH_VERSION)
 			#print('LIST: ',OPTMASK)
 			#print('HOST_PARAM_NAMES: ',HOST_PARAM_NAMES)
 			# TODO: write a print statement that warns if
@@ -66,7 +67,7 @@ class genmag_BYOSED:
 				parser = self.add_options(usage='',config=config)
 
 				options,  args = parser.parse_args()
-
+				
 				for k in required_keys:
 					if k not in options.__dict__.keys():
 						raise RuntimeError('key %s not in parameter file'%k)
@@ -80,11 +81,16 @@ class genmag_BYOSED:
 
 
 				fluxarr = flux.reshape([len(np.unique(phase)),len(np.unique(wave))])
-				self.x0=10**(.4*19.365)
+				self.norm =float(config['MAIN']['NORM']) if 'NORM' in config['MAIN'].keys() else -19.365
+				
+				#self.x0=10**(.4*19.365)
+				self.x0=10**(-.4*self.norm)
+				
 				if self.options.magsmear!=0.0:
 					self.magsmear = np.random.normal(0,self.options.magsmear)
 				else:
 					self.magsmear = 0.0
+				self.magoff=self.options.magoff
 				self.flux = fluxarr*self.x0
 
 				self.phase = np.unique(phase)
@@ -120,7 +126,10 @@ class genmag_BYOSED:
 								  type="float",help='mag offset (default=%default)')
 				parser.add_option('--sed_file',default=config.get('MAIN','SED_FILE'),
 								  type='str',help='Name of sed file')
-				
+				#parser.add_option('--norm',default=config.get('MAIN','NORM'),
+				#				  type='float',help='Normalization of SED')
+				#parser.add_option('--absMag',default=config.get('MAIN','ABSMAG'),
+				#				  type='float',help='Absolute Magnitude of SN')
 				
 				return parser
 				
@@ -235,10 +244,13 @@ class genmag_BYOSED:
 				self.sn_id=external_id
 			fluxsmear=self.sedInterp(trest,self.wave).flatten()
 			orig_fluxsmear=copy(fluxsmear)
+			
 			if self.options.magsmear!=0.0 and (self.sn_id!=external_id or self.magsmear is None):
 				self.magsmear=np.random.normal(0,self.options.magsmear)
 			else:
 				self.magsmear=0.0
+			if self.sn_id!=external_id:
+				fluxsmear *= 10**(-0.4*self.magoff)
 			fluxsmear *= 10**(-0.4*(self.magsmear))
 
 			trest_arr=trest*np.ones(len(self.wave))
@@ -583,10 +595,10 @@ def main():
 		#print(test(np.array([[10,5000],[10,6000]])))
 		import matplotlib.pyplot as plt
 		#sys.exit()
-		mySED=genmag_BYOSED('$WFIRST_ROOT/BYOSED_dev/BYOSEDINPUT/',2,[],'HOST_MASS,SFR,AGE,REDSHIFT,METALLICITY')
-
+		mySED=genmag_BYOSED('$WFIRST_ROOT/SALT3/examples/wfirst/byosed/',2,[],'HOST_MASS,SFR,AGE,REDSHIFT,METALLICITY')
+		#print(np.where(mySED.wave==10000)[0][0])
 		#print(mySED.fetchParNames_BYOSED())
-		mySED.fetchSED_BYOSED(0,5000,3,2,[2.5,1,1,.5])
+		print(mySED.fetchSED_BYOSED(0,5000,3,2,[2.5,1,1,.5])[np.where(mySED.wave==10000)[0][0]])
 		sys.exit()
 
 

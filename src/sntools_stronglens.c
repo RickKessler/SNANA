@@ -356,10 +356,11 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   
   int numLens = 0;
   for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
-    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.05){
+    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.25 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.25){
       ++numLens;
+    }else{
+      printf("%i,%f,%f\n",i,zSN,INPUTS_STRONGLENS.ZSRC[i]);
     }
-
   }
   if(numLens==0){
     //errmsg(SEV_FATAL, 0, fnam, "No Lenses in your library matching your source redshift."," ");
@@ -370,10 +371,11 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   int possible_lenses[numLens];
   j=0;
   for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
-    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.05){
+    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.25 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.25){
       possible_lenses[j]=i;
       ++j;
     }
+    
   }
 
   int random_lens_index = possible_lenses[ (int)( FlatRan*(numLens-1) ) ];

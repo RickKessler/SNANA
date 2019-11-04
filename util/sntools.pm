@@ -27,6 +27,7 @@ use strict ;
 # declare utilities
 sub parse_line(@) ;
 sub parse_array(@);
+sub parse_value_after_key(@);
 sub loadArray_fromFile(@) ;
 sub loadArray_excludeLines(@) ;
 sub Killjobs(@) ;
@@ -225,6 +226,30 @@ sub parse_array(@) {
     return @tmp_all ;    
 
 }  # end of parse_array
+
+sub parse_value_after_key(@) {
+
+    # Created Oct 25 2019
+    # for inString = "KEY1 VAL1 KEY2 VAL2 KEY3 VAL3"
+    # and key = KEY2, function returns VAL2.
+    # Note that multiple values are returned if 
+    # key appears multiple times.
+
+    my($KEY,$INPUT_STRING) = @_ ;
+
+    my @valueList = ();
+    my ($indx, @INDX, @WDLIST, $value );
+    @WDLIST   = split(/\s+/,$INPUT_STRING) ;
+    @INDX = grep{$WDLIST[$_] eq $KEY} 0 .. $#WDLIST ;	
+
+    foreach $indx (@INDX) {
+	$value = $WDLIST[$indx+1] ;
+	@valueList = (@valueList, $value);
+    }
+
+    return(@valueList);
+
+} # end sub parse_value_after_key
 
 # ===============================================
 sub loadArray_fromFile(@) {

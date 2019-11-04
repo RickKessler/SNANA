@@ -611,6 +611,7 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
 
   // ------------- BEGIN -----------
 
+
   *Finteg  = 0.0 ; // init output flux for filter
   Fspec[0] = 0.0 ;
 
@@ -626,13 +627,19 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
   // check for intrinsic scatter models in sntools_genSmear.c
   //  (e..g, G10, C11).  Get magSmear at all wavelengths.
   ISTAT_SMEAR = istat_genSmear(); // check for smear model
+
   if ( ISTAT_SMEAR ) {
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
       LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
       LAMSED       = LAMOBS/z1;   // rest-frame wavelength 
       lam[ilamobs] = LAMSED ;
-      magSmear[ilamobs] = 0.0 ;
+      //  xxxx removed Oct 31 2019 by RK magSmear[ilamobs] = 0.0 ;
     }
+
+    /*
+    printf(" xxx %s:  Trest=%.3f  ifilt_obs=%d \n", 
+	   fnam,  Trest, ifilt_obs); fflush(stdout);
+    */
     get_genSmear( Trest, NLAMFILT, lam, magSmear) ;
   }
 

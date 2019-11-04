@@ -214,7 +214,6 @@ void genmag_NON1ASED (
     // call function to handle Trest extrap if needed
     flux = get_flux_SEDMODEL(ISED_NON1A, ILAMPOW, ifilt_obs, z, Trest) ;
 	  
-    // xxx mark delete    FLUX = flux * x0 ;
     FLUX = flux * pow(TEN,-0.4*mu);
 
     if ( flux == FLUX_UNDEFINED ) {

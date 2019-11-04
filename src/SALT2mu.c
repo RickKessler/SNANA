@@ -118,6 +118,10 @@ x1max = upper limit on x1 (+6.0)
 cmin  = lower limit on color (-6.0)
 cmax  = upper limit on color (+6.0)
 
+logmass_min = min cut on logmass (-20)
+logmass_max = max  cut on logmass (+20)
+nbin_logmass = number of logmass bins for BBC7D
+
 sntype = list of types to select. Examples are
     sntype=120
     sntype=120,105
@@ -222,11 +226,11 @@ fixpar_all=1 --> internally set all float logicals to zero, even if
                   (i.e., uM0=0, u1=0, u2=0, etc ...)
 
 blindflag=0  --> turn off blinding
-blindflag=1  --> apply sinusoid function to MU-vs-z   
-blindflag=2  --> DEFAULT: apply random shift ref OL,w (for data only)
+blindflag=1  --> add cos(10*z)  to MUDIF(z)
+blindflag=2  --> DEFAULT: apply random shift to ref OL,w0 (for data only)
 blindflag=66 --> 2+64: apply blindflag=2 option to sim & real data
 
-With default blindflag=2, user can set blinding parameters with
+With default blindflag=1, user can set blinding parameters with
   blindpar9=.1,4522   --> OL -> OL + 0.1*cos(4522)  
   blindpar11=.1,207   --> w  ->  w + 0.1*cos(207) 
   [defaults are 0.06,23434 for OL and 0.2,8432 for w]
@@ -661,7 +665,15 @@ Default output files (can change names with "prefix" argument)
    + fix bug implementing cutmask_write
    + if cutmask_write!=0, add WARNING message to FITRES file.
 
-******************************************************/
+ Oct 18 2019:
+   + add user input keys for logmass_min, logmass_max, nbin_logmass
+     Used only for 7D correction.
+ Oct 22 2019: bix blinding options.
+ Oct 24 2019: 
+    + scalePCC bound -> 15 (was 5)
+    + clean up stdout messaging in prepare_biasCor(1D,5D,6D,7D)
+
+ ******************************************************/
 
 #include <stdio.h>      
 #include <stdlib.h>
@@ -679,6 +691,8 @@ Default output files (can change names with "prefix" argument)
 
 // ==============================================
 // define data types to track selection cuts
+
+#define BBC_VERSION 2
 
 #define EVENT_TYPE_DATA     1
 #define EVENT_TYPE_BIASCOR  2
@@ -698,12 +712,12 @@ char STRING_EVENT_TYPE[MXEVENT_TYPE][12] =
 // So instead we define a linear array of 50,000 to take less memory,
 // especially if we need to raise some of the MAXBIN_ later.
 #define MAXBIN_z              85  // 50->85 on 9/11/2017
-#define MAXBIN_LOGMASS         6  // Aug 2019
+#define MAXBIN_LOGMASS        10  // Aug 2019
 #define MAXBIN_BIASCOR_FITPAR 50  // for biasCor map variables x1,c
 #define MAXBIN_BIASCOR_ALPHA   2  // for biasCor map
 #define MAXBIN_BIASCOR_BETA    2  // for biasCor map
 #define MAXBIN_BIASCOR_GAMMADM 2  // for biasCor map
-#define MAXBIN_BIASCOR_1D  100000  // max on total 5D bins for {a,b,z,x1,c}
+#define MAXBIN_BIASCOR_1D  200000  // max on total 5D bins for {a,b,z,x1,c}
 #define MINPERCELL_BIASCOR    10  // min per cell for RMS and mBslope corr
 
 // shorter names for local declarations
@@ -801,25 +815,26 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define CUTBIT_z          0    //  zmin - zmax cut
 #define CUTBIT_x1         1    //  x1min-x1max cut
 #define CUTBIT_c          2    //  cmin - cmax cut
-#define CUTBIT_sntype     3    //  sntype cut 
-#define CUTBIT_HOST       4    //  required host info
-#define CUTBIT_CUTWIN     5    //  user-CUTWIN 
-#define CUTBIT_BADERR     6    //  a fit param error is <=0
-#define CUTBIT_BADCOV     7    //  bad COV for a fit param
-#define CUTBIT_MINBIN     8    //  z-bin with too few to fit 
-#define CUTBIT_SPLITRAN   9    //  random subsample for NSPLITRAN
-#define CUTBIT_SIMPS     10    //  SIM event from pre-scale 
-#define CUTBIT_BIASCOR   11    //  valid biasCor (data only)
-#define CUTBIT_zBIASCOR  12    //  BIASCOR z cut
-#define CUTBIT_x1BIASCOR 13    //  BIASCOR x1 cut
-#define CUTBIT_cBIASCOR  14    //  BIASCOR c cut
-#define CUTBIT_TRUESNIa  15    //  true SNIa 
-#define CUTBIT_TRUESNCC  16    //  true !SNIa (i.e., SNCC,SNIax, etc ...)
-#define CUTBIT_NMAXCUT   17    //  NMAX-sample cut
-#define CUTBIT_DUPL      18    //  duplicate 
-#define CUTBIT_IDSAMPLE  19    //  IDSAMPLE
-#define CUTBIT_CHI2      20    //  chi2 outlier (data only)
-#define CUTBIT_CID       21    //  for specifying a list of cids to process
+#define CUTBIT_logmass    3    //  logmass cut
+#define CUTBIT_sntype     4    //  sntype cut 
+#define CUTBIT_HOST       5    //  required host info
+#define CUTBIT_CUTWIN     6    //  user-CUTWIN 
+#define CUTBIT_BADERR     7    //  a fit param error is <=0
+#define CUTBIT_BADCOV     8    //  bad COV for a fit param
+#define CUTBIT_MINBIN     9    //  z-bin with too few to fit 
+#define CUTBIT_SPLITRAN  10    //  random subsample for NSPLITRAN
+#define CUTBIT_SIMPS     11    //  SIM event from pre-scale 
+#define CUTBIT_BIASCOR   12    //  valid biasCor (data only)
+#define CUTBIT_zBIASCOR  13    //  BIASCOR z cut
+#define CUTBIT_x1BIASCOR 14    //  BIASCOR x1 cut
+#define CUTBIT_cBIASCOR  15    //  BIASCOR c cut
+#define CUTBIT_TRUESNIa  16    //  true SNIa 
+#define CUTBIT_TRUESNCC  17    //  true !SNIa (i.e., SNCC,SNIax, etc ...)
+#define CUTBIT_NMAXCUT   18    //  NMAX-sample cut
+#define CUTBIT_DUPL      19    //  duplicate 
+#define CUTBIT_IDSAMPLE  20    //  IDSAMPLE
+#define CUTBIT_CHI2      21    //  chi2 outlier (data only)
+#define CUTBIT_CID       22    //  for specifying a list of cids to process
 #define MXCUTBIT         25  
 
 #define dotDashLine "-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-" 
@@ -905,7 +920,7 @@ typedef struct {
   float *SIM_ZCMB, *SIM_VPEC, *SIM_MU ;
 
   // scalar flags & counters computed from above
-  bool   IS_SIM ;
+  bool   IS_DATA, IS_SIM ;
   int    DOFLAG_CUTWIN[MXCUTWIN]; // flag to apply each cutwin
   int    ICUTWIN_GAMMA;           // CUTVAL index for gamma-variable
   int    IVAR_VPEC, IVAR_SIM_VPEC, IVAR_OPT_PHOTOZ ; // logicals
@@ -1069,8 +1084,7 @@ struct {
 struct {
   TABLEVAR_DEF TABLEVAR;
 
-  int DOCOR_1D;
-  int DOCOR_5D;
+  int  NDIM;     // number of dimensions for biasCor e.g., 1, 5, 7
   char STRING_PARLIST[20]; // e.g., z,x1,c,a,b
 
   // alpha,beta,z binning
@@ -1200,7 +1214,9 @@ struct INPUTS {
   double maxerr_abort_c, maxerr_abort_x1, maxerr_abort_x0;
 
   int    blindFlag  ; // suppress cosmo param printout for data
-  double blindPar   ; // hard-wired to make cosine arg
+  double blind_cosinem0  ;       // M0DF -> M0DIF + cos(z*blind_cosinem0)
+  double blind_cosinePar[MAXPAR][2]; // blind offset = [0] * cos([1])
+  char   blindString[MAXPAR][60];
 
   // optional sim-files with corrections/maps
   int  nfile_biasCor;        // number of biascor files
@@ -1243,6 +1259,8 @@ struct INPUTS {
   double cmin,  cmax  ;
   double x1min, x1max ;
   double zmin,  zmax  ;
+  double logmass_min, logmass_max ;
+  int    nbin_logmass;
   double chi2max;     // chi2-outlier cut (Jul 2019)
 
   int    NCUTWIN ;
@@ -1281,9 +1299,7 @@ struct INPUTS {
   double parbndmax[MAXPAR]; // max par bound
   int    ipar[MAXPAR];      // boolean float flag for each param
   int    izpar[MAXPAR];   // iz index or -9 
-  int    fixpar_all ;     // global flag to fix all parameters
-	       
-  double blindpar[MAXPAR][2]; // blind offset = [0] * cos([1])
+  int    fixpar_all ;     // global flag to fix all parameters	      
 
   char varname_gamma[40]; // name of variable to fit gamma HR step;
                            // e.g, "HOST_LOGMASS" or "SSFR", etc...
@@ -1351,7 +1367,7 @@ char FITPARNAMES_DEFAULT[MXCOSPAR][20] = {
   "blank" ,
   "alpha0      ", "beta0       ", "alpha1      ","beta1       ",
   "gamma0      ", "gamma1      ", "logmass_cen ","logmass_tau ",
-  "Omega_L     ", "Omega_k     ", "w           ","wa          ",
+  "Omega_L     ", "Omega_k     ", "w0          ","wa          ",
   "scalePCC    ", "sigint      ", "alphaHost   ","betaHost    ",
   "H11mucc0    ", "H11mucc1    ", "H11mucc2    ",
   "H11sigcc0   ", "H11sigcc1   ", "H11sigcc2   ",
@@ -1360,8 +1376,9 @@ char FITPARNAMES_DEFAULT[MXCOSPAR][20] = {
 
 
 // define alpha & beta bound for fit and for biasCor extrapolation
-double FITPARBOUND_ALPHA[2] = { 0.02, 0.30 } ;
-double FITPARBOUND_BETA[2]  = { 1.00, 6.00 } ;
+double FITPARBOUND_ALPHA[2] = {  0.02, 0.30 } ;
+double FITPARBOUND_BETA[2]  = {  1.00, 6.00 } ;
+double FITPARBOUND_GAMMA[2] = { -0.50, 0.50 } ;
 
 int IPAR_ALPHA0, IPAR_BETA0, IPAR_GAMMA0, IPAR_GAMMA1;
 int IPAR_LOGMASS_CEN, IPAR_LOGMASS_TAU ;
@@ -1466,7 +1483,7 @@ struct {
 
 int  DOFIT_FLAG;    // non-zero --> do another fit iteration
 
-int ISDATA;                // T if no SIM keys are found
+int ISDATA_REAL;           // T if no SIM keys are found -> real data
 int FOUNDKEY_SNTYPE = 0 ;  // T -> found sntype key in fitres file
 int FOUNDKEY_SIM    = 0 ;  // T -> is simulation (formerly 'simok')
 int FOUNDKEY_SIMx0  = 0 ;  // T -> is SALT2 (formerly 'simx0')
@@ -1532,6 +1549,7 @@ void parse_blindpar(char *item) ;
 void  prep_input(void);
 void  prep_gamma_input(void) ;
 void  prep_probcc0_input(void);
+void  prep_load_COSPAR(void);
 int   force_probcc0(int itype, int idsurvey);
 void  prep_cosmodl_lookup(void);
 int   ppar(char* string);
@@ -1658,6 +1676,8 @@ int selectCID_data(char *cid); //djb
 
 void  write_fitres(char *fileName);
 void  write_fitres_misc(FILE *fout);
+void  write_version_info(FILE *fp) ;
+void  prep_blindVal_strings(void);
 void  write_blindFlag_message(FILE *fout) ;
 void  append_fitres(FILE *fp, char *CCID, int  indx);
 void  get_CCIDindx(char *CCID, int *indx) ;
@@ -1854,9 +1874,6 @@ int main(int argc,char* argv[ ])
   read_data(); 
   compute_more_INFO_DATA();  
 
-  // apply parameter blinding (after we know if DATA are real or sim)
-  apply_blindpar();
-
   // abort if there are any duplicate SNIDs
   check_duplicate_SNID();
 
@@ -1921,7 +1938,7 @@ int main(int argc,char* argv[ ])
   
   // check reasons to suppress MINUIT screen dump
   int MNPRINT = 0 ;
-  //  if ( ISDATA && INPUTS.blindFlag   ) { MNPRINT = 1; } 
+  //  if ( ISDATA_REAL && INPUTS.blindFlag   ) { MNPRINT = 1; } 
   //  if ( IGNOREFILE(INPUTS.PREFIX)    ) { MNPRINT = 1; } 
   //  if ( INPUTS.cutmask_write == -9   ) { MNPRINT = 1; } 
   
@@ -2032,15 +2049,18 @@ void exec_mnparm(void) {
   //
   // May 08 2018: 
   //   + fix to work with uM0=0 by setting M0 bound to -30+_0.001 mag.
+  //
+  // Oct 22 2019: beware that mnparm_ prints blinded params.
 
   int i, iz, iMN, iMN_tmp, len, ierflag, icondn, ISFLOAT ;
   int nzbin = INPUTS.nzbin ;
   double M0min, M0max;
   const int null=0;
   char text[100];
-  //  char fnam[] = "exec_mnparm" ;
+  char fnam[] = "exec_mnparm" ;
 
   // -------------- BEGIN --------------
+
 
   //Setup cosmology parameters for Minuit
   for (i=0; i<MXCOSPAR; i++ )    {
@@ -2051,7 +2071,6 @@ void exec_mnparm(void) {
 	    &INPUTS.parbndmin[i], &INPUTS.parbndmax[i], &ierflag, len);
     sprintf(FITRESULT.PARNAME[i],"%s", FITPARNAMES_DEFAULT[i] );
   }
-
 
   //Setup M0(z) paramters for Minuit
   for (iz=0; iz<nzbin; iz++ )    {
@@ -2490,22 +2509,44 @@ void  apply_blindpar(void) {
   // Apply optional FIXPAR blinding to fixed parametes OL,w, etc.
   
   int  ipar ;
+  int  LDMP = 0 ;
   double *blindpar ;
-  //  char fnam[] = "apply_blindpar" ;
+  char fnam[] = "apply_blindpar" ;
 
   // -------------- BEGIN ---------------
+
+  if ( (INPUTS.blindFlag & BLINDMASK_FIXPAR) == 0 ) { return ; }
   
-  if ( (INPUTS.blindFlag & BLINDMASK_FIXPAR)== 0 ) { return ; }
-  
-  printf("\n");
+
+  if ( LDMP ) {
+    printf(" xxx %s: blindFlag=%d ISDATAREAL=%d blindpar(LAM)=%f\n", 
+	   fnam, INPUTS.blindFlag, ISDATA_REAL, 
+	   INPUTS.blind_cosinePar[IPAR_OL][0] ); fflush(stdout);
+  }
+
   for(ipar=0; ipar < MAXPAR; ipar++ ) {
+
     if ( ISBLIND_FIXPAR(ipar) ) {
-      blindpar             = INPUTS.blindpar[ipar];
+      blindpar             = INPUTS.blind_cosinePar[ipar];
       INPUTS.parval[ipar] += (blindpar[0] * cos(blindpar[1]) ) ;
       printf("  BLIND FIXPAR: %s += %8.4f * cos(%f) \n",
 	     FITPARNAMES_DEFAULT[ipar], blindpar[0], blindpar[1] );
       fflush(stdout);
     }
+  }
+
+  // re-load INPUTS.COSPAR (bugfix, Oct 22 2019)
+  if ( LDMP ) {
+    printf(" xxx %s: 1. COSPAR(OL,w0) = %f, %f \n",
+	   fnam, INPUTS.COSPAR[0], INPUTS.COSPAR[2]); fflush(stdout);
+  }
+
+  // set INPUTS.COSPAR with blinded cosmo params
+  prep_load_COSPAR();
+
+  if ( LDMP ) {
+    printf(" xxx %s: 2. COSPAR(OL,w0) = %f, %f \n",
+	   fnam, INPUTS.COSPAR[0], INPUTS.COSPAR[2]); fflush(stdout);
   }
 
   return ;
@@ -3033,7 +3074,8 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   double da_dz, db_dz, dg_dz, da_dm, db_dm ;
   double scalePCC, scalePIa, scalePROB_fitpar, nsnfitIa, nsnfitcc;
   int    NSN_DATA, n, nsnfit, nsnfit_truecc, idsample, cutmask ;
-  int DOBIASCOR_1D, DOBIASCOR_5D, DUMPFLAG=0, dumpFlag_muerrsq=0 ;
+  int    NDIM_BIASCOR; // xxx mark delete DOBIASCOR_1D, DOBIASCOR_5D
+  int    DUMPFLAG=0, dumpFlag_muerrsq=0 ;
   double chi2sum_tot, mures, sqmures;
   double muerrsq, muerrsq_last, muerrsq_raw, muerrsq_tmp, sqsigCC=0.001 ;
   double chi2evt_Ia, chi2sum_Ia, chi2evt, sigCC_chi2penalty=0.0 ;
@@ -3084,9 +3126,13 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   da_dm        = xval[15];  // added Apr 2 2018
   db_dm        = xval[16];  // idem
 
+  NDIM_BIASCOR = INFO_BIASCOR.NDIM;
+
+  /* xxx mark delete 
   DOBIASCOR_1D = ( INPUTS.opt_biasCor & MASK_BIASCOR_1DZ );
   DOBIASCOR_5D = ( INPUTS.opt_biasCor & MASK_BIASCOR_5D  );
-	
+  xxxxxxxxx */
+
   // load cosPar array to pass to functions below (RK Jan 2016)
   cosPar[0] = omega_l ;
   cosPar[1] = omega_k ;
@@ -3251,7 +3297,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     BIASCORLIST.FITPAR[INDEX_c]  = c ;
     muBias = muBiasErr = 0.0 ;  muCOVscale=1.0 ; 
 
-    if ( DOBIASCOR_5D ) {
+    if ( NDIM_BIASCOR >= 5 ) {
       get_muBias(name, &BIASCORLIST,      // (I) misc inputs
 		 FITPARBIAS_ALPHABETA,    // (I) bias at each a,b,g
 		 MUCOVSCALE_ALPHABETA,    // (I) muCOVscale at each a,b
@@ -3261,7 +3307,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 		 &muBiasErr,     // (O) stat-error on above
 		 &muCOVscale );  // (O) scale bias on muCOV     
     }
-    else if ( DOBIASCOR_1D ) {
+    else if ( NDIM_BIASCOR == 1 ) {
       muBias  = muBias_zinterp ; 
     }
        
@@ -3757,8 +3803,8 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
   // ------------------------------
   if ( SUMWGT < 1.0E-9 ) {
     printf("\n PRE-ABORT DUMP: \n");
-    printf("\t Alpha  =%.3f   Alpha_interp=%.3f \n",    alpha, a_interp);
-    printf("\t Beta   =%.3f   Beta_interp=%.3f  \n",    beta,  b_interp);
+    printf("\t Alpha  =%.3f   Alpha_interp=%.3f \n",    alpha,   a_interp);
+    printf("\t Beta   =%.3f   Beta_interp=%.3f  \n",    beta,    b_interp);
     printf("\t Gammadm=%.3f   Gammadm_interp=%.3f  \n", gammadm, g_interp);
 
     for(ia=0; ia < MXa; ia++ ) {
@@ -4170,12 +4216,18 @@ void set_defaults(void) {
   INPUTS.zmin = 0.02 ;
   INPUTS.zmax = 1.02 ;
   
+
   // ---------------------
   // keep obsolete input parameters (4/24/2012 RK)
   INPUTS.x1min = -6.0;
   INPUTS.x1max = +6.0;
   INPUTS.cmin  = -6.0; 
   INPUTS.cmax  = +6.0;
+
+  INPUTS.logmass_min  = -20.0 ;
+  INPUTS.logmass_max  = +20.0 ;
+  INPUTS.nbin_logmass =  1 ; 
+
   INPUTS.chi2max = 1.0E9 ;
 
   // ---------------------
@@ -4257,13 +4309,15 @@ void set_defaults(void) {
   double a1 = FITPARBOUND_ALPHA[1];
   double b0 = FITPARBOUND_BETA[0];
   double b1 = FITPARBOUND_BETA[1];
+  double g0 = FITPARBOUND_GAMMA[0];
+  double g1 = FITPARBOUND_GAMMA[1];
 
   //         ipar  val   step   bnd0  bnd1 float
   set_fitPar(  1,  0.13, 0.01,  a0,   a1,    1 ); // alpha
   set_fitPar(  2,  3.20, 0.30,  b0,   b1,    1 ); // beta
   set_fitPar(  3,  0.0,  0.02, -0.50, 0.50,  0 ); // dAlpha/dz
   set_fitPar(  4,  0.0,  0.10, -3.00, 3.00,  0 ); // dBeta/dz
-  set_fitPar(  5,  0.0,  0.01, -0.1,  0.50,  0 ); // gamma0
+  set_fitPar(  5,  0.0,  0.01,  g0,   g1,    0 ); // gamma0
   set_fitPar(  6,  0.0,  0.01, -2.00, 2.00,  0 ); // gamma1
   set_fitPar(  7, 10.0,  0.10,  9.00,11.00,  0 ); // logmass_cen
   set_fitPar(  8,  0.02, 0.01,  0.001,1.00,  0 ); // logmass_tau
@@ -4271,7 +4325,7 @@ void set_defaults(void) {
   set_fitPar( 10,  0.0,  0.05, -2.00, 5.00,  0 ); // Omega_k
   set_fitPar( 11, -1.0,  0.1,  -3.00, 1.00,  0 ); // w0
   set_fitPar( 12,  0.0,  0.5,  -8.00, 8.00,  0 ); // wa
-  set_fitPar( 13,  1.0,  0.05, -0.10, 5.00,  0 ); // scale_PCC
+  set_fitPar( 13,  1.0,  0.05, -0.10,15.00,  0 ); // scale_PCC
   set_fitPar( 14,  0.1,  0.01,  0.02, 0.50,  0 ); // sigint
   set_fitPar( 15,  0.0,  0.02, -0.50, 0.50,  0 ); // dAlpha/dlogMhost
   set_fitPar( 16,  0.0,  0.10, -3.00, 3.00,  0 ); // dBeta/dlogMhost
@@ -4300,11 +4354,12 @@ void set_defaults(void) {
 
 
   // === set blind-par values to be used if blindflag=2 (Aug 2017)
-  INPUTS.blindpar[IPAR_OL][0] = 0.06; 
-  INPUTS.blindpar[IPAR_OL][1] = 23434. ;
+  ISDATA_REAL = 1;
+  INPUTS.blind_cosinePar[IPAR_OL][0] = 0.06; 
+  INPUTS.blind_cosinePar[IPAR_OL][1] = 23434. ;
 
-  INPUTS.blindpar[IPAR_w0][0] = 0.20 ; 
-  INPUTS.blindpar[IPAR_w0][1] = 8432. ;
+  INPUTS.blind_cosinePar[IPAR_w0][0] = 0.20 ; 
+  INPUTS.blind_cosinePar[IPAR_w0][1] = 8430. ;
 
   sprintf(INPUTS.varname_gamma,"HOST_LOGMASS");
   INPUTS.USE_GAMMA0  = 0 ;
@@ -4331,6 +4386,7 @@ void init_CUTMASK(void) {
   sprintf(CUTSTRING_LIST[CUTBIT_z],         "z"  );
   sprintf(CUTSTRING_LIST[CUTBIT_x1],        "x1" );
   sprintf(CUTSTRING_LIST[CUTBIT_c],         "c"  );
+  sprintf(CUTSTRING_LIST[CUTBIT_logmass],   "logmass"  );
   sprintf(CUTSTRING_LIST[CUTBIT_MINBIN],    "min per zbin");
   sprintf(CUTSTRING_LIST[CUTBIT_CUTWIN],    "CUTWIN");
   sprintf(CUTSTRING_LIST[CUTBIT_sntype],    "sntype");
@@ -4363,8 +4419,9 @@ void set_fitPar(int ipar, double val, double step,
   INPUTS.ipar[ipar]      = use ;
   INPUTS.izpar[ipar]     = -9; // init
 
-  INPUTS.blindpar[ipar][0] = 0.0 ;
-  INPUTS.blindpar[ipar][1] = 0.0 ;
+  INPUTS.blind_cosinePar[ipar][0] = 0.0 ;
+  INPUTS.blind_cosinePar[ipar][1] = 0.0 ;
+  sprintf(INPUTS.blindString[ipar], "UNDEFINED");
 
 }
 
@@ -4412,6 +4469,8 @@ void read_data(void) {
     INFO_DATA.TABLEVAR.NSN_ALL += NROW ;
   }
 
+  // apply parameter blinding (after we know if DATA are real or sim)
+  apply_blindpar();
 
   // store VARNAMES_ORIG
   for(ivar=0; ivar < NVAR_ORIG; ivar++ ) {
@@ -5088,7 +5147,7 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
   int  icut, ivar, ivar2, irow, id, RDFLAG ;
   char vartmp[60], *cutname, str_z[40], str_zerr[40]; 
 
-  //  char fnam[] = "SNTABLE_READPREP_TABLEVAR" ;
+  char fnam[] = "SNTABLE_READPREP_TABLEVAR" ;
 
   // ----------- BEGIN -------------
 
@@ -5100,6 +5159,7 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->NSN_PASSCUTS      = 0;
     TABLEVAR->NSN_REJECT        = 0;
     TABLEVAR->IS_SIM            = false ;
+    TABLEVAR->IS_DATA           = false ;
     TABLEVAR->IVAR_VPEC         = -9 ;
     TABLEVAR->IVAR_SIM_VPEC     = -9 ;
     TABLEVAR->IVAR_OPT_PHOTOZ   = -9 ;
@@ -5269,13 +5329,24 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
   sprintf(vartmp,"SIM_NONIA_INDEX:S SIM_TEMPLATE_INDEX:S" );
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_NONIA_INDEX[ISTART], 
 				 LEN, VBOSE );
-  FOUNDKEY_SIM=0; // xxx temporary
+  FOUNDKEY_SIM=0;
+
   if ( ivar >=0 ) 
-    { TABLEVAR->IS_SIM = true ;   FOUNDKEY_SIM=1;  }
+    { TABLEVAR->IS_SIM = true ;   FOUNDKEY_SIM=1; }
   else
-    { return ; }
+    { TABLEVAR->IS_DATA = true;   return ; }
 
+  // here and below is for simulated data 
 
+  // note that IS_DATA refers to datafile= argument, and can be
+  // real data or simulated data. ISDATA_REAL is false for sim data.
+  if ( IS_DATA ) { 
+    ISDATA_REAL = 0 ;   // not real data 
+
+    // if the 64 blind-sim bit isn't set by user, set blindFlag=0
+    if ( (INPUTS.blindFlag & BLINDMASK_SIM)==0 ) { INPUTS.blindFlag=0; }
+  }
+  
   sprintf(vartmp,"SIMx0:F SIM_x0:F" );
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_X0[ISTART], 
 			  LEN, VBOSE);
@@ -5484,6 +5555,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   // - - - - - - - 
   // Stuff for data only,
   if ( IS_DATA && zhd > 0 ) {
+
     // if user-input zpecerr > 0, subtract out original zpecerr and 
     // add user input zpecerr:
     // zhd = (1+zcmb)*(1+zpec) -1 = zcmb + zpec + zcmb*zpec
@@ -5930,21 +6002,23 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
   // Created Aug 2016
   // Decode STRINGOPT and set biasCor binSize for z,x1,c
 
-  int ipar;
+  int ipar, nb;
+  double dif;
   char fnam[] = "set_BINSIZE_SAMPLE_biasCor" ;
 
   // ------------- BEGIN -----------
   
   // first set defaults
+  dif = INPUTS.zmax - INPUTS.zmin; nb=INPUTS.nzbin;
   SAMPLE_BIASCOR[IDSAMPLE].RANGE_REDSHIFT[0] = INPUTS.zmin ;
   SAMPLE_BIASCOR[IDSAMPLE].RANGE_REDSHIFT[1] = INPUTS.zmax ;
-  SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_REDSHIFT  = 
-    (INPUTS.zmax - INPUTS.zmin) / (double)INPUTS.nzbin ;
+  SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_REDSHIFT  = dif / (double)nb ;
 
-  // logmass
-  SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[0] =   7.0 ;
-  SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[1] =  13.0 ;
-  SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS  =   3.0 ;
+  // logmass 
+  dif = INPUTS.logmass_max - INPUTS.logmass_min; nb=INPUTS.nbin_logmass ;
+  SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[0] =  INPUTS.logmass_min ;
+  SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[1] =  INPUTS.logmass_max ;
+  SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS  =  dif / (double)nb ;
 
   for(ipar=0; ipar<NLCPAR; ipar++ ) {
     SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_FITPAR[ipar]  
@@ -6724,27 +6798,31 @@ void prepare_biasCor(void) {
   //
   // Jun 2 2016: call sigInt_biasCor BEFORE makeMape_fitPar
   // Jan 16 2018: force correct value for INPUTS.fitflag_sigmb = 2 
+  //
+  // Oct 24 2019: 
+  //  + refactor to define NDIM_BIASCOR and global INFO_BIASCOR.NDIM.
+  //    Print more sensible messages with appropriate 1D,5D,6D,7D.
+  //
 
-  int INDX, IDSAMPLE, SKIP, NSN_DATA, CUTMASK, ievt ;
+  int INDX, IDSAMPLE, SKIP, NSN_DATA, CUTMASK, ievt, NBINg=0 ;
   int  OPTMASK    = INPUTS.opt_biasCor ;
   int  EVENT_TYPE = EVENT_TYPE_BIASCOR;
   int  nfile_biasCor = INPUTS.nfile_biasCor ;
   int  DOCOR_1DZAVG  = ( OPTMASK & MASK_BIASCOR_1DZAVG  );
   int  DOCOR_1DZWGT  = ( OPTMASK & MASK_BIASCOR_1DZWGT  );
   int  DOCOR_1D5DCUT = ( OPTMASK & MASK_BIASCOR_1D5DCUT );
-  int  DOCOR_5D      = ( OPTMASK & MASK_BIASCOR_5D      );
   int  DOCOR_MUCOV   = ( OPTMASK & MASK_BIASCOR_MUCOV   );
+  int  DOCOR_5D      = ( OPTMASK & MASK_BIASCOR_5D      );
   int  DOCOR_1D      = ( DOCOR_1DZAVG || DOCOR_1DZWGT || DOCOR_1D5DCUT);
   int  IDEAL         = ( OPTMASK & MASK_BIASCOR_COVINT ) ;
   char txt_biasCor[40]  ;
-
+  
+  int NDIM_BIASCOR=0;
   char fnam[] = "prepare_biasCor" ;
 
   // ------------- BEGIN -------------
-
-
-  INFO_BIASCOR.DOCOR_1D = DOCOR_1D ;
-  INFO_BIASCOR.DOCOR_5D = DOCOR_5D ;
+  
+  INFO_BIASCOR.NDIM = 0;
   INFO_BIASCOR.TABLEVAR.NSN_ALL       = 0 ;
   INFO_BIASCOR.TABLEVAR.NSN_PASSCUTS  = 0 ;
   INFO_BIASCOR.TABLEVAR.NSN_REJECT    = 0 ;
@@ -6753,19 +6831,48 @@ void prepare_biasCor(void) {
 
   if ( nfile_biasCor == 0 ) { return ; }
 
+  print_banner(fnam);
+
+  // read biasCor file
+  read_simFile_biasCor();
+
+  // setup 5D bins 
+  if ( DOCOR_5D ) {
+    for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ ) 
+      { setup_CELLINFO_biasCor(IDSAMPLE); }
+  }
+
+
   if ( DOCOR_5D ) {  
+    NDIM_BIASCOR = 5;  
+    sprintf(INFO_BIASCOR.STRING_PARLIST,"z,x1,c,a,b");
+
+    // if there are >= 2 gammaDM bins, automatically swith to 7D if there
+    // are >= 2 logMass bins, or switch to 6D if there is just one logmass bin.
+    NBINg = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin;
+    if ( NBINg > 1 && INPUTS.nbin_logmass == 1 ) { 
+      NDIM_BIASCOR = 6; 
+      sprintf(INFO_BIASCOR.STRING_PARLIST,"z,x1,c,a,b,g");  
+    }
+    if ( NBINg > 1 && INPUTS.nbin_logmass > 1 ) { 
+      NDIM_BIASCOR = 7; 
+      sprintf(INFO_BIASCOR.STRING_PARLIST,"z,m,x1,c,a,b,g");  
+    }
+
     if ( DOCOR_MUCOV ) 
-      { sprintf(txt_biasCor,"5D+MUCOV"); }
+      { sprintf(txt_biasCor,"%dD+MUCOV", NDIM_BIASCOR, txt_biasCor); }
     else
-      { sprintf(txt_biasCor,"5D"); }
+      { sprintf(txt_biasCor,"%dD", NDIM_BIASCOR); }
   }
   else {
+    NDIM_BIASCOR = 1; 
+    sprintf(INFO_BIASCOR.STRING_PARLIST,"z");
     if ( DOCOR_1DZAVG )   
-      { sprintf(txt_biasCor,"mu-z (WGT=1)") ; }
+      { sprintf(txt_biasCor,"1D (WGT=1)") ; }
     else if ( DOCOR_1DZWGT ) 
-      { sprintf(txt_biasCor,"mu-z (WGT=1/COV)"); }
+      { sprintf(txt_biasCor,"1D (WGT=1/COV)"); }
     else if ( DOCOR_1D5DCUT ) 
-      { sprintf(txt_biasCor,"mu-z (WGT=1/COV,5DCUT)"); }
+      { sprintf(txt_biasCor,"1D (WGT=1/COV,5DCUT)"); }
     else {
       sprintf(c1err,"Invalid opt_biascor=%d", OPTMASK );
       sprintf(c2err,"grep MASK_BIASCOR  SALT2mu.c | grep define ");
@@ -6779,9 +6886,8 @@ void prepare_biasCor(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   
-  sprintf(BANNER,"%s: read sim to interpolate %s biasCor", 
-	  fnam, txt_biasCor);
-  print_banner(BANNER);
+  printf("\n\t Use simulaton to interpolate %s biasCor\n", 
+	 txt_biasCor);
   printf("\t\t (opt_biascor=%d, sigma_cell=%.2f)\n", 
 	 OPTMASK, INPUTS.sigma_cell_biasCor);
   fflush(stdout);
@@ -6790,12 +6896,11 @@ void prepare_biasCor(void) {
   int PS0 = INPUTS.prescale_biasCor[0];
   int PS1 = INPUTS.prescale_biasCor[1];
   if ( PS1 > 1 ) {
-    printf("\t Apply pre-scale: select subset %d of %d \n",
-	   PS0, PS1);  
+    printf("\t Apply pre-scale: select subset %d of %d \n", PS0, PS1);  
   }
 
   // Jan 16 2018: force correct option for log(sigma) term in chi2
-  if ( DOCOR_5D ) 
+  if ( NDIM_BIASCOR >=5  ) 
     { INPUTS.fitflag_sigmb = 2 ; } // include log(sigma) term
   else
     { INPUTS.fitflag_sigmb = 1 ; } // ignore log(sigma) term
@@ -6810,36 +6915,39 @@ void prepare_biasCor(void) {
     FITINP.COVINT_PARAM_LAST   = 1.0 ;
     INPUTS.covint_param_step1  = INPUTS.scale_covint_step1 ;
   }
-    
+  
+  /* xxxxxxxx mark delete xxxx  
   // --------------------------------
-
-  read_simFile_biasCor();
+  mark delete read_simFile_biasCor();
 
   if ( DOCOR_5D ) {
     for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ ) 
       { setup_CELLINFO_biasCor(IDSAMPLE); }
   }
 
+
   // setup comment string for list of biasCor params
-  int NBINg = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin;
+
   if ( DOCOR_1D ) 
     { sprintf(INFO_BIASCOR.STRING_PARLIST,"z"); }
   else if ( DOCOR_5D && NBINg == 1 ) 
     { sprintf(INFO_BIASCOR.STRING_PARLIST,"z,x1,c,a,b"); }
-  else if ( DOCOR_5D && NBINg > 1 )
-    { sprintf(INFO_BIASCOR.STRING_PARLIST,"z,m,x1,c,a,b,g"); }
+  else if ( DOCOR_5D && NBINg > 1 ) { 
+    sprintf(INFO_BIASCOR.STRING_PARLIST,"z,m,x1,c,a,b,g"); 
+  }
+  xxxx mark delete xxxxxx */
 
 
   // count number of biasCor events passing cuts (after setup_BININFO calls)
 
   for(ievt=0; ievt < INFO_BIASCOR.TABLEVAR.NSN_ALL; ievt++ ) 
     { compute_more_TABLEVAR(ievt, &INFO_BIASCOR.TABLEVAR ); }
-  if ( DOCOR_5D ) { store_iaib_biasCor(); }
+  if ( NDIM_BIASCOR >=5 ) { store_iaib_biasCor(); }
   
 
   print_eventStats(EVENT_TYPE);
 
-  if ( DOCOR_1DZAVG || DOCOR_1DZWGT ) { goto CHECK_1DCOR ; }
+  if ( NDIM_BIASCOR == 1 ) { goto CHECK_1DCOR ; }
 
   // make sparse list for faster looping below (Dec 21 2017)
   makeSparseList_biasCor();
@@ -6939,7 +7047,8 @@ void prepare_biasCor(void) {
     if ( istore == 0 )  { 
       NSKIP_TOT++; NSKIP[IDSAMPLE]++ ;     
       setbit_CUTMASK(n, CUTBIT_BIASCOR, &INFO_DATA.TABLEVAR); 
-      if(INPUTS.dumpflag_nobiasCor) {storeDataBias(n,1);} 
+      if( INPUTS.dumpflag_nobiasCor && NSKIP_TOT<10 ) 
+	{ storeDataBias(n,1); } 
       
     }    
   }
@@ -6947,8 +7056,9 @@ void prepare_biasCor(void) {
 
   for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR; IDSAMPLE++ ) {
     if ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_SELECT == 0 ) { continue; }
-    printf("  Rejected %d (of %d) DATA events with no 5D biasCor (%s). \n",
-	   NSKIP[IDSAMPLE], NUSE[IDSAMPLE], SAMPLE_BIASCOR[IDSAMPLE].NAME );
+    printf("  Rejected %d (of %d) DATA events with no %dD biasCor (%s).\n",
+	   NSKIP[IDSAMPLE], NUSE[IDSAMPLE], 
+	   NDIM_BIASCOR, SAMPLE_BIASCOR[IDSAMPLE].NAME );
   }
   printf("\n");
   fflush(stdout);
@@ -6967,10 +7077,12 @@ void prepare_biasCor(void) {
   // check option for JLA-like correction
  CHECK_1DCOR:
   
-  if ( INFO_BIASCOR.DOCOR_1D ) {
+  if ( NDIM_BIASCOR == 1 ) {
     INPUTS.opt_biasCor |= MASK_BIASCOR_1DZ ; // set OR-bit (AVG or WGT)
     prepare_biasCor_zinterp();  
   }
+
+  INFO_BIASCOR.NDIM = NDIM_BIASCOR ;
 
   return ;
 
@@ -6985,14 +7097,12 @@ void  read_simFile_biasCor(void) {
 
 
   int NFILE      = INPUTS.nfile_biasCor;
-  //  int EVENT_TYPE = EVENT_TYPE_BIASCOR;
   int NROW, ISTART, IFILETYPE, ifile, NVAR_ORIG, LEN_MALLOC ;   
   int NEVT[MXFILE_BIASCOR], NEVT_TOT;
   char *simFile ;
   //  char fnam[] = "read_simFile_biasCor" ;
 
   // --------------- BEGIN ---------------
-
 
   t_read_biasCor[0] = time(NULL); 
 
@@ -7343,7 +7453,7 @@ void set_MAPCELL_biasCor(int IDSAMPLE) {
   // July 31 2019: add logmass dimension [im]
 
   int ID = IDSAMPLE;
-  int ia, ib, ig, iz, im, ix1, ic, NCELL, ipar;
+  int ia, ib, ig, iz, im, ix1, ic, NCELL, ipar, NDIM ;
   char fnam[] = "set_MAPCELL_biasCor" ;
 
   // -------------- BEGIN ----------------------------
@@ -7395,7 +7505,9 @@ void set_MAPCELL_biasCor(int IDSAMPLE) {
 
   CELLINFO_BIASCOR[IDSAMPLE].NCELL = NCELL ;
 
-  printf("  %s : malloc for %d  5D-cells for biasCor \n", fnam, NCELL );
+  if  ( NBINg <= 1 ) { NDIM=5; } else { NDIM=7; }
+
+  printf("  %s : malloc for %d  %dD-cells for biasCor \n", fnam, NCELL, NDIM );
   fflush(stdout);
 
   // malloc other CELLINFO arrays
@@ -7507,8 +7619,8 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
 
     // Aug 26 2019: apply gammadm correction to simval
     if ( ipar_LCFIT == INDEX_mB ) {
-      sim_gammadm = ptr_gammadm[ievt];
-      sim_val    += sim_gammadm ;  // true mB is SIM_mB + true gammadm
+      sim_gammadm = ptr_gammadm[ievt];  // from biasCor table
+      sim_val    += sim_gammadm ;       // true mB is SIM_mB + true gammadm
     }
 
     biasVal = fit_val - sim_val ; 
@@ -8019,7 +8131,6 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   double *SQMUERR,   *SQMURMS ;
   double *SUM_PULL,  *SUM_SQPULL ;
   char   *name ;
-  // MAXBIN_BIASCOR_1D
 
   float    *ptr_MUCOVSCALE;
   BIASCORLIST_DEF     BIASCORLIST ;
@@ -8763,7 +8874,7 @@ void init_COVINT_biasCor(void) {
   // - - - - - - - - - - - - - - - - - - - - - - - - - 
   // If we get here, compute full COV matrix in bins of 
   // IDSAMPLE,z,a,b
-  //   COV(x,y) = sum[(x-xtrue)*(x-ytrue) ] / N
+  //   COV(x,y) = sum[(x-xtrue)*(y-ytrue) ] / N
 
 
   int NBIASCOR_IDEAL=0, NBIASCOR_CUTS=0 ;
@@ -9425,7 +9536,7 @@ void calc_zM0_data(void) {
   double *ptr_zM0;
   char *name ;
   char fnam[] = "calc_zM0_data" ;
-  int  LDMP=0 ;
+  int  LDMP   = 0 ;
   // --------- BEGIN -------------
   
   NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ; 
@@ -9471,11 +9582,17 @@ void calc_zM0_data(void) {
   double muAvg, zM0, zAvg, cosPar[10];
 
   // load reference cosmology params
-  cosPar[0] = INPUTS.parval[IPAR_OL] ;   // OL
+  cosPar[0] = INPUTS.parval[IPAR_OL] ;  // OL
   cosPar[1] = INPUTS.parval[IPAR_Ok] ;  // Ok
   cosPar[2] = INPUTS.parval[IPAR_w0] ;  // w0
   cosPar[3] = INPUTS.parval[IPAR_wa] ;  // wa
 
+  if ( LDMP ) {
+    printf(" xxx -------------------------------------- \n");
+    printf(" xxx %s: ref OL,Ok,w0,wa = %.3f, %.3f, %.3f, %.3f \n",
+	   fnam, cosPar[0], cosPar[1], cosPar[2], cosPar[3] );
+    fflush(stdout);
+  }
 
   for(iz=0; iz < NBINz; iz++ ) {
     WGT = SUM_WGT[iz] ;
@@ -10387,8 +10504,10 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
     VAL_MAX = SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[1];
     VAL_BIN = SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS ;
     
-    int    NBINg       = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
+    /* xxx mark delete to allow logMass bins without gDM bins
+    int NBINg = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
     if ( NBINg <= 1 ) { VAL_MIN = -20.0; VAL_MAX=+20.0; VAL_BIN=40.0; }
+    xxxxxxxxxx end mark xxxxxxxxx */
 
     sprintf(NAME,"m");
   }
@@ -10772,7 +10891,7 @@ double get_gammadm_host(double z, double logmass, double *hostPar) {
   gamma      = gamma0 + z*gamma1 ;
   arg        = -( logmass - logmass_cen ) / logmass_tau ;
   FermiFun   = 1.0/(1.0 + exp(arg)) ; 
-  magoff     = gamma*(  FermiFun - 0.5 ) ;
+  magoff     = gamma * (  FermiFun - 0.5 ) ;
 
   magoff -= INFO_BIASCOR.GAMMADM_OFFSET ;
 
@@ -10837,19 +10956,19 @@ void prepare_CCprior(void) {
   //
   // Jun 20 2018: abort on 1D biasCor.
   
-  int  EVENT_TYPE = EVENT_TYPE_CCPRIOR ;
-  int  NSAMPLE   = NSAMPLE_BIASCOR ;
-  int idsample, DOCOR_1D, USE_CCPRIOR_H11 ;
+  int  EVENT_TYPE   = EVENT_TYPE_CCPRIOR ;
+  int  NSAMPLE      = NSAMPLE_BIASCOR ;
+  int  NDIM_BIASCOR = INFO_BIASCOR.NDIM ;
+  int idsample, USE_CCPRIOR_H11 ;
   char fnam[] = "prepare_CCprior" ;
 
   // ------------- BEGIN -------------
 
-  DOCOR_1D        = INFO_BIASCOR.DOCOR_1D;
   USE_CCPRIOR_H11 = INFO_CCPRIOR.USEH11;
 
   if ( INPUTS.nfile_CCprior == 0 ) { return; }
-
-  if ( DOCOR_1D ) {
+  
+  if ( NDIM_BIASCOR == 1 ) {
     sprintf(c1err,"Cannot use 1D biasCor with CC likelihood.");
     sprintf(c2err,"Either remove CC term, or use 5D biasCor.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
@@ -11127,19 +11246,16 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 #define DMUMAX_CCPRIOR  +4.0  // add buffer bin to allow for interp
 #define DMUBIN_CCPRIOR   0.5  
 
-  int NBINa, NBINb, ia, ib;
-  double SUMa=0.0, SUMb=0.0 ;
-    
-  int    nbin_dmu ;
-  double dmu, dmulo, dmuhi ;
-  //  char fnam[] = "setup_MUZMAP_CCprior" ;
+  int NBINa, NBINb, ia, ib, nbin_dmu ;
+  double SUMa=0.0, SUMb=0.0, dmu, dmulo, dmuhi ;
 
   int NSN_BIASCOR = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
   BININFO_DEF *BININFO_SIM_ALPHA = &INFO_BIASCOR.BININFO_SIM_ALPHA;
   BININFO_DEF *BININFO_SIM_BETA  = &INFO_BIASCOR.BININFO_SIM_BETA ;
 
-  // ------------ BEGIN -------------
+  char fnam[] = "setup_MUZMAP_CCprior" ;
 
+  // ------------ BEGIN -------------
     
   nbin_dmu = 0;
   for ( dmu  = DMUMIN_CCPRIOR; dmu < DMUMAX_CCPRIOR-DMUBIN_CCPRIOR+.0001; 
@@ -11158,11 +11274,10 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   MUZMAP->beta  = INPUTS.parval[IPAR_BETA0] ;
   MUZMAP->M0    = INPUTS.nommag0 ;
 
-
   MUZMAP->cosPar[0] = INPUTS.parval[IPAR_OL] ;   // OL
   MUZMAP->cosPar[1] = INPUTS.parval[IPAR_Ok] ;   // Ok
-  MUZMAP->cosPar[2] = INPUTS.parval[IPAR_w0] ;  // w0
-  MUZMAP->cosPar[3] = INPUTS.parval[IPAR_wa] ;  // wa
+  MUZMAP->cosPar[2] = INPUTS.parval[IPAR_w0] ;   // w0
+  MUZMAP->cosPar[3] = INPUTS.parval[IPAR_wa] ;   // wa
     
   // if there is a biasCor map, set alpha,beta to the average
   // since that should be a better estimate in case user input
@@ -11225,6 +11340,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 
   // muBias declarations
   int USE_BIASCOR  = ( INFO_BIASCOR.TABLEVAR.NSN_ALL > 0 ) ;
+  int NDIM_BIASCOR = INFO_BIASCOR.NDIM ;
   BIASCORLIST_DEF     BIASCORLIST ;
   INTERPWGT_AlphaBetaGammaDM INTERPWGT ;
   FITPARBIAS_DEF   FITPARBIAS_TMP[MXa][MXb][MXg] ; 
@@ -11276,7 +11392,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   gDM  = MUZMAP->gammadm;
   M0   = MUZMAP->M0 ;
 
-  if ( INFO_BIASCOR.DOCOR_5D ) 
+  if ( NDIM_BIASCOR >= 5 ) 
     { get_INTERPWGT_abg(a,b,gDM, 0, &INTERPWGT,fnam ); } // returns INTERPWGT
    
   for(icc=0; icc < TABLEVAR->NSN_ALL ; icc++ ) {  
@@ -11311,7 +11427,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
       // the right 2D structure definition for get_muBias
       load_FITPARBIAS_CCprior(icc,FITPARBIAS_TMP);
 
-      if ( INFO_BIASCOR.DOCOR_5D) {
+      if ( NDIM_BIASCOR >= 5 ) {
 	get_muBias(name, &BIASCORLIST,     // (I) misc inputs
 		   FITPARBIAS_TMP,         // (I) bias vs. ia,ib
 		   MUCOVSCALE_TMP,         // (I) muCOVscale vs. ia,ib
@@ -11321,7 +11437,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 		   &muBiasErr,     // (O) stat-error on above
 		   &muCOVscale );  // (O) scale bias on muCOV (not used below)
       }
-      else if ( INFO_BIASCOR.DOCOR_1D ) {
+      else if ( NDIM_BIASCOR == 1 ) {
 	debugexit("CCPRIOR does NOT WORK WITH BBC-1D");  // Jun 19 2018
 	// muBias   =  ?? 	
       }
@@ -11362,8 +11478,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   
   // Normalize each DMU distribution to get PDF in each class,iz bin.
   // If the stats are too low then leave flat/default PDF.
-  double S1TMP, S2TMP;   int NTMP ;
-  
+  double S1TMP, S2TMP;   int NTMP ;  
 
   for(iz=0; iz < NZBIN; iz++ ) {
 
@@ -12012,7 +12127,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   int  CUTMASK, REJECT, ACCEPT ;
   int  sntype, FOUND, SIM_NONIA_INDEX, idsample, BADERR=0, BADCOV=0 ;
   double cutvar_local[MXCUTWIN];
-  double z, x0, x1, c, x0err, x1err, cerr  ;
+  double z, x0, x1, c, logmass, x0err, x1err, cerr  ;
   double COV_x0x1, COV_x0c, COV_x1c,  mBerr ;
   char   *name ;
   char fnam[]=  "set_CUTMASK";
@@ -12034,7 +12149,8 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   z         =  (double)TABLEVAR->zhd[isn];
   x0        =  (double)TABLEVAR->x0[isn];  
   x1        =  (double)TABLEVAR->fitpar[INDEX_x1][isn] ;
-  c         =  (double)TABLEVAR->fitpar[INDEX_c ][isn] ;   
+  c         =  (double)TABLEVAR->fitpar[INDEX_c ][isn] ;  
+  logmass    =  (double)TABLEVAR->logmass[isn];
   x0err     =  (double)TABLEVAR->x0err[isn] ;
   mBerr     =  (double)TABLEVAR->fitpar_err[INDEX_mB][isn] ;
   x1err     =  (double)TABLEVAR->fitpar_err[INDEX_x1][isn] ;
@@ -12053,18 +12169,20 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   if ( LCUTWIN == 0 ) { setbit_CUTMASK(isn, CUTBIT_CUTWIN, TABLEVAR); }
 
   // -----------------------------------------
-  // apply legacy cuts (RK - March 31, 2010)
+  // apply legacy cuts 
   // These cuts are redundant with above LCUTWIN to allow older inputs.
 
   if ( (z < INPUTS.zmin) || ( z > INPUTS.zmax)) 
     { setbit_CUTMASK(isn, CUTBIT_z, TABLEVAR);  }
 
-  if ( (x1<INPUTS.x1min) || (x1>INPUTS.x1max)) 
+  if ( (x1 < INPUTS.x1min) || (x1 > INPUTS.x1max)) 
     { setbit_CUTMASK(isn, CUTBIT_x1, TABLEVAR); }
 
-  if ( (c<INPUTS.cmin) || (c>INPUTS.cmax) ) 
+  if ( (c < INPUTS.cmin) || ( c > INPUTS.cmax) ) 
     { setbit_CUTMASK(isn, CUTBIT_c, TABLEVAR); }
 
+  if ( (logmass<INPUTS.logmass_min) || (logmass>INPUTS.logmass_max) ) 
+    { setbit_CUTMASK(isn, CUTBIT_logmass, TABLEVAR); }
 
   if ( x0err <= INPUTS.maxerr_abort_x0 ) { BADERR=1; }
   if ( x1err <= INPUTS.maxerr_abort_x1 ) { BADERR=1; }
@@ -12633,6 +12751,13 @@ int ppar(char* item) {
     { sscanf(&item[5],"%le",&INPUTS.cmax); return(1); }
 
 
+  if ( uniqueOverlap(item,"logmass_min="))  
+    { sscanf(&item[12],"%le",&INPUTS.logmass_min); return(1); }
+  if ( uniqueOverlap(item,"logmass_max="))  
+    { sscanf(&item[12],"%le",&INPUTS.logmass_max); return(1); }
+  if ( uniqueOverlap(item,"nbin_logmass="))  
+    { sscanf(&item[13],"%d",&INPUTS.nbin_logmass); return(1); }
+
   if ( uniqueOverlap(item,"chi2max=")) 
     { sscanf(&item[8],"%le",&INPUTS.chi2max); return(1); }
 
@@ -13139,8 +13264,8 @@ void parse_blindpar(char *item) {
   splitString(item_local, comma, MXARG,    // inputs
 	      &NARG, ptrArg );            // outputs
 
-  sscanf(ptrArg[0], "%le", &INPUTS.blindpar[ipar][0] ); 
-  sscanf(ptrArg[1], "%le", &INPUTS.blindpar[ipar][1] ); 
+  sscanf(ptrArg[0], "%le", &INPUTS.blind_cosinePar[ipar][0] ); 
+  sscanf(ptrArg[1], "%le", &INPUTS.blind_cosinePar[ipar][1] ); 
 
   /* xxx
   printf(" xxx %s: blindpar[%d] = %f, %f \n", fnam, ipar, 
@@ -14005,8 +14130,11 @@ void prep_input(void) {
     { printf("SN selection sntype= %s\n", INPUTS.sntypeString); }
 
 
-  printf("x1min=%f x1max=%f \n", INPUTS.x1min, INPUTS.x1max);
-  printf("cmin =%f cmax =%f \n", INPUTS.cmin, INPUTS.cmax);
+  printf("x1min/x1max = %.3f / %.3f \n", INPUTS.x1min, INPUTS.x1max);
+  printf("cmin/cmax   = %.3f / %.3f \n", 
+	 INPUTS.cmin, INPUTS.cmax);
+  printf("logmass_min/max = %.3f/%.3f \n", 
+	 INPUTS.logmass_min, INPUTS.logmass_max);
   printf("H0=%f \n", INPUTS.H0);
   printf("Nominal M0=%f \n", INPUTS.nommag0);
   printf("zpecerr = %.4f \n", INPUTS.zpecerr );
@@ -14159,10 +14287,8 @@ void prep_input(void) {
     }
   }
 
-  INPUTS.COSPAR[0] = INPUTS.parval[IPAR_OL] ;
-  INPUTS.COSPAR[1] = INPUTS.parval[IPAR_Ok] ;
-  INPUTS.COSPAR[2] = INPUTS.parval[IPAR_w0] ;
-  INPUTS.COSPAR[3] = INPUTS.parval[IPAR_wa] ;
+  prep_load_COSPAR();
+
   INPUTS.FLOAT_COSPAR=0;
   if ( INPUTS.ipar[IPAR_OL] ) { INPUTS.FLOAT_COSPAR=1; }
   if ( INPUTS.ipar[IPAR_Ok] ) { INPUTS.FLOAT_COSPAR=1; }
@@ -14186,6 +14312,13 @@ void prep_input(void) {
 
 } // end of prep_input
 
+
+void prep_load_COSPAR(void) {
+  INPUTS.COSPAR[0] = INPUTS.parval[IPAR_OL] ;
+  INPUTS.COSPAR[1] = INPUTS.parval[IPAR_Ok] ;
+  INPUTS.COSPAR[2] = INPUTS.parval[IPAR_w0] ;
+  INPUTS.COSPAR[3] = INPUTS.parval[IPAR_wa] ;
+}
 
 // **********************************************
 void prep_probcc0_input(void) {
@@ -14729,6 +14862,7 @@ void outFile_driver(void) {
       sprintf(tmpFile3,"%s-SPLIT%3.3d.fitpar", prefix, NJOB_SPLITRAN);
     }
     
+    prep_blindVal_strings();
     write_fitres(tmpFile1);  // write result for each SN
     write_M0(tmpFile2);      // write M0 vs. redshift
 
@@ -14749,6 +14883,17 @@ void outFile_driver(void) {
 } // end outFile_driver
 
 // ******************************************
+void write_version_info(FILE *fp) {
+
+  fprintf(fp,"# SNANA_VERSION: %s \n", SNANA_VERSION_CURRENT);
+  fprintf(fp,"# BBC_VERSION:   %d \n", BBC_VERSION);
+  fprintf(fp,"\n");
+  fflush(fp);
+
+} // end write_version_info
+
+
+// ******************************************
 void  write_M0(char *fileName) {
 
   // write M0 vs. z to fitres-formatted file.
@@ -14767,14 +14912,13 @@ void  write_M0(char *fileName) {
 
   int iz, NVAR, irow, NFIT ;
   double z, zMIN, zMAX, VAL, ERR, dl, MUREF;
+  char *tmpName, strval_OL[80], strval_w0[80];
   FILE *fp;
   char fnam[] = "write_M0" ;
 
   // ---------- BEGIN -----------
 
   if ( INPUTS.cutmask_write == -9 ) { return ; } // July 2016
-
-  //  if ( simdata_ccprior.USE == 0 ) { return ; }
 
   calc_zM0_data(); // fill FITRESULT.zM0[iz]
 
@@ -14788,23 +14932,43 @@ void  write_M0(char *fileName) {
 
   printf("\n Write MUDIF vs. redshift to %s\n" , fileName); 
 
-  double OL = FITRESULT.PARVAL[NJOB_SPLITRAN][9] ;
-  double w0 = FITRESULT.PARVAL[NJOB_SPLITRAN][11] ;
-  fprintf(fp,"# Reference cosmology params for MUDIF: \n");
-  fprintf(fp,"#   Omega_DE(ref):  %.3f \n", OL );
-  fprintf(fp,"#   w_DE(ref):      %.3f \n", w0 );
+  // - - - - 
+  write_version_info(fp);
 
-  fprintf(fp,"#   alpha(fit):   %.4f +- %0.4f \n",
+  fprintf(fp,"# Reference cosmology params for MUDIF: \n");
+
+  if ( (INPUTS.blindFlag & BLINDMASK_FIXPAR)>0 ) {
+    sprintf(strval_OL, "%s", INPUTS.blindString[IPAR_OL] );
+    sprintf(strval_w0, "%s", INPUTS.blindString[IPAR_w0] );
+  }
+  else {
+    sprintf(strval_OL, "%.3f", FITRESULT.PARVAL[NJOB_SPLITRAN][IPAR_OL]) ;
+    sprintf(strval_w0, "%.3f", FITRESULT.PARVAL[NJOB_SPLITRAN][IPAR_w0]) ;
+  }
+
+
+  tmpName = FITRESULT.PARNAME[IPAR_OL];
+  fprintf(fp,"#   REF %10s:  %s \n", tmpName, strval_OL );
+
+  tmpName = FITRESULT.PARNAME[IPAR_w0];
+  fprintf(fp,"#   REF %10s:  %s \n", tmpName, strval_w0 );
+
+  tmpName = FITRESULT.PARNAME[IPAR_ALPHA0];
+  fprintf(fp,"#   FIT %10s:  %.4f +- %0.4f \n", tmpName,
 	  FITRESULT.PARVAL[NJOB_SPLITRAN][IPAR_ALPHA0],
 	  FITRESULT.PARERR[NJOB_SPLITRAN][IPAR_ALPHA0]  );
-  fprintf(fp,"#   beta(fit):    %.4f +- %0.4f \n",
+
+  tmpName = FITRESULT.PARNAME[IPAR_BETA0];
+  fprintf(fp,"#   FIT %10s:  %.4f +- %0.4f \n", tmpName,
 	  FITRESULT.PARVAL[NJOB_SPLITRAN][IPAR_BETA0],
 	  FITRESULT.PARERR[NJOB_SPLITRAN][IPAR_BETA0]  );
 
   fprintf(fp,"# \n");
+  fflush(fp);
 
   // write blindFlag info (Mar 1 2017)
-  if ( INPUTS.blindFlag > 0 && ISDATA ) { write_blindFlag_message(fp); }
+  if ( INPUTS.blindFlag > 0 && ISDATA_REAL ) 
+    { write_blindFlag_message(fp); }
 
   write_NWARN(fp,0);
   write_MUERR_INCLUDE(fp);
@@ -15053,7 +15217,7 @@ void write_fitres(char* fileName) {
   IS_SIM      =  (INFO_DATA.TABLEVAR.IS_SIM == true) ;
   NSN_DATA    =  INFO_DATA.TABLEVAR.NSN_ALL;
   NSN_BIASCOR =  INFO_BIASCOR.TABLEVAR.NSN_ALL;
-  
+
 
   // first define the new fitres variables to add to the
   // original list  
@@ -15093,7 +15257,7 @@ void write_fitres(char* fileName) {
   // - - - - - - - - - -
   NVAR_TOT = NVAR_ORIG + NVAR_NEW ;
 
-  fout = fopen(fileName,"wt");
+
 
   // WARNING: need to refactor to read multiple input files XXXX
   fin  = open_TEXTgz(INPUTS.dataFile[0], "rt", &GZIPFLAG); // check for .gz file
@@ -15102,9 +15266,14 @@ void write_fitres(char* fileName) {
 	 INPUTS.cutmask_write );
   printf("\t %s \n", fileName );
 
+  // - - - - - - - -  -
+  fout = fopen(fileName,"wt");
+  write_version_info(fout);
 
-  fprintf(fout,"# MU-RESIDUAL NOTE: MURES = MU-(MUMODEL+M0DIF) \n\n");
+  if ( INPUTS.blindFlag > 0 && ISDATA_REAL ) 
+    { write_blindFlag_message(fout); }  
 
+  fprintf(fout,"# MU-RESIDUAL NOTE: MURES = MU-(MUMODEL+M0DIF) \n");
   write_NWARN(fout,1);
   write_MUERR_INCLUDE(fout);
 
@@ -15224,7 +15393,6 @@ void write_fitres(char* fileName) {
 	  chi2sum_m0, NBIN_m0-1);
 
   // ----------
-  if ( INPUTS.blindFlag > 0 && ISDATA ) { write_blindFlag_message(fout); }
 
   if ( INPUTS.uave)
     { FITRESULT.SNMAG0 = FITRESULT.AVEMAG0; }
@@ -15372,27 +15540,68 @@ void write_MUERR_INCLUDE(FILE *fp) {
 
 } // end write_MUERR_INCLUDE
 
+// =====================================
+void prep_blindVal_strings(void) {
+
+  // Created Oct 22 2019
+  // For each blinded param, create string of the form
+  //   A + Bcos(C)
+  //
+  // so that the same blind-val can be written in
+  // several different places.
+
+  int ipar;
+  double *blindpar, parval_orig; ;
+  char *s;
+  char fnam[] = "prep_blindVal_strings" ;
+
+  // --------- BEGIN ---------
+
+  if ( (INPUTS.blindFlag & BLINDMASK_FIXPAR) == 0 ) { return; }
+
+  for(ipar=0; ipar < MAXPAR; ipar++ ) {
+    blindpar = INPUTS.blind_cosinePar[ipar];
+    if ( blindpar[0] == 0.0 ) { continue; }
+    s           = INPUTS.blindString[ipar] ;
+    parval_orig = INPUTS.parval[ipar] - blindpar[0]*cos(blindpar[1]);
+    sprintf(s, "%8.4f + %6.4f*cos(%f)", 
+	    parval_orig, blindpar[0], blindpar[1] );     
+  }
+
+  return;
+
+} // end prep_blindVal_strings
+
 // ===============================================
 void write_blindFlag_message(FILE *fout) {
   int  blindFlag = INPUTS.blindFlag ;
   int  ipar;
   double *blindpar, parval_orig ;
   // ----------- BEGIN --------------
+
+  if ( !blindFlag ) { return; }
+
   fprintf(fout,"#\n");
   fprintf(fout,"#  *** WARNING: RESULTS ARE BLINDED *** \n");
 
   if ( (blindFlag & BLINDMASK_MUz)>0 ) {
     fprintf(fout,"#  m0_## values have blind offset = cos( z * %.3f ) \n",
-	    INPUTS.blindPar ); 
+	    INPUTS.blind_cosinem0 ); 
   }
   else {
     for(ipar=0; ipar < MAXPAR; ipar++ ) {
-      blindpar = INPUTS.blindpar[ipar];
+      blindpar = INPUTS.blind_cosinePar[ipar];
       if ( blindpar[0] != 0.0 ) {
+
+	fprintf(fout,"#     %s = %s \n",
+		FITRESULT.PARNAME[ipar], INPUTS.blindString[ipar] );
+
+	/* xxxxxx mark delete xxxxxx
 	parval_orig = INPUTS.parval[ipar] - blindpar[0]*cos(blindpar[1]);
 	fprintf(fout,"#     %s = %8.4f + %5.2f*cos(%f) \n",
 		FITRESULT.PARNAME[ipar], parval_orig,
 		blindpar[0], blindpar[1] ); fflush(stdout);
+	xxxxxx end mark xxxxx */
       }
     }
   }
@@ -15438,19 +15647,10 @@ void write_fitres_misc(FILE *fout) {
     NSNFIT  = FITRESULT.NSNFIT ;
   }
 
-  /* xxx mark delete Sep 25 2019 xxxxxxxxx
-  char string_truecc[60] = "" ;
-  double frac ;
-  if ( IS_SIM ) {
-    frac = (double)FITRESULT.NSNFIT_TRUECC/(double)FITRESULT.NSNFIT ;
-    sprintf(string_truecc,"[ true CC/(Ia+CC) = %.4f) ]", frac);
-  }
-  xxxxxxxxxxxxxx  */
-
   int MASK  = INPUTS.opt_biasCor ;
-  int NUMD = 5 ;    // default number of biasCor dimensions
+  int NUMD =  INFO_BIASCOR.NDIM ;    // default number of biasCor dimensions
   if ( MASK > 0 ) {
-    if ( MASK & MASK_BIASCOR_1DZ ) { NUMD=1; } 
+    // xxx mark delete    if ( MASK & MASK_BIASCOR_1DZ ) { NUMD=1; } 
     fprintf(fout,"#  NSIM(%dD-BIASCOR)   = %d   "
 	    "(N_alpha x N_beta = %d x %d) \n"
 	    ,NUMD, NSN_BIASCOR
@@ -15508,12 +15708,11 @@ int ISBLIND_FIXPAR(int ipar) {
   if ( (blindFlag & BLINDMASK_FIXPAR)==0 ) 
     { return(NOTBLIND); } 
 
-
   // continue for DATA or if special flag is set to blind sim.
-  DATAFLAG = ( ISDATA || ( blindFlag & BLINDMASK_SIM)>0 );
+  DATAFLAG = ( ISDATA_REAL || ( blindFlag & BLINDMASK_SIM)>0 );
   if ( DATAFLAG == 0 ) { return(NOTBLIND); }
 
-  if ( INPUTS.blindpar[ipar][0] != 0.0 ) 
+  if ( INPUTS.blind_cosinePar[ipar][0] != 0.0 ) 
     { return(BLIND); } 
   else 
     { return(NOTBLIND); } 
@@ -15533,8 +15732,7 @@ double BLIND_OFFSET(int ipar) {
   double zero = 0.0 ;
   // ---------------------
   // never blind for sims or if blindflag is turned off
-  if ( FOUNDKEY_SIM )           
-    { return zero ; }
+  // xxx mark delete  if ( FOUNDKEY_SIM )     { return zero ; }
 
   // bail of MU-vs-z blinding is NOT set
   if ( (INPUTS.blindFlag & BLINDMASK_MUz)== 0 ) 
@@ -15548,8 +15746,8 @@ double BLIND_OFFSET(int ipar) {
   int iz ;
   iz  = INPUTS.izpar[ipar];
   z   = INPUTS.BININFO_z.lo[iz] ;  
-  INPUTS.blindPar = 10.0 ;
-  arg = z * INPUTS.blindPar ;
+  INPUTS.blind_cosinem0 = 10.0 ;
+  arg = z * INPUTS.blind_cosinem0 ;
   off = cos(arg) ;
   return(off);
 

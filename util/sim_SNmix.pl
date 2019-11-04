@@ -66,6 +66,10 @@
 #
 # ENDLIST_GENVERSOIN:  (must end list of GENVERSIONs with this key)
 #
+#   GENPREFIX:      [recommend SURVEY_NAME]
+#   FORMAT_MASK:    [MASK]    # can also be GENOPT_GLOBAL arg
+#   GENOPT_GLOBAL:  [global command-line arg list for snlc_sim.exe]
+# 
 #   DONE_STAMP:   /home/bla/BLABLA.DONE  # global "all-done" stamp
 #   RESET_CIDOFF: 2   # unique CID in every GENVERSION (if RANCID is set)
 #   CIDRAN_MIN:   100000   # e.g., random CIDs > 100000
@@ -162,6 +166,16 @@
 #   + fix subtle bug checking DONE_STAMP ... only affects
 #     warning about missing DONE_STAMP before launching.
 #
+# Oct 25 2019:
+#  Refactor to read things from GENOPT_GLOBAL 
+#  (e..g, INCLUDE_FILE, FORMAT_MASK, GENPREFIX, NGENTOT_LC, ...).
+#  Abort if H0 key is in master file ... give warning about ZRANGE key.
+#
+# Oct 29 2019:
+#   for RANSEED_CHANGE, turn off option to avoid duplicate jobs,
+#   and if RESET_CIDOFF=2, then set RESET_CIDOFF=1 so that 
+#   unique CIDs are for each Ia/NONIa set, not for all sets.
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -213,6 +227,8 @@ sub printSummary ;
 sub cleanup ;
 sub parse_INFILE_Ia ;
 sub parse_INFILE_NONIa ;
+sub parse_GENOPT_GLOBAL ;
+sub parse_GENOPT ;
 sub parse_GENVERSION ;
 sub parse_RANSEED ;
 sub parse_FORMAT_MASK ;
@@ -220,6 +236,7 @@ sub check_FORMAT_MASK ;
 sub check_SIMGEN_DUMP ;
 sub get_jobidString ;
 sub PROCESS_GENOPT_LINE ;
+sub read_GENOPT_STRING ;
 
 sub combine_random_simjobs ;
 sub move_random_SIMGEN_DUMP ;
@@ -291,7 +308,7 @@ my (@GENMODEL_NGENTOT  );
 my ($NSIMTOT_GEN, $NSIMTOT_WR, $NSIMTOT_SPEC);
 my (@NSIM_GEN, @NSIM_WR, @NSIM_SPEC);
 my ($NSIMARG, @SIMARG_LIST, $SIMARG_ALL);
-my ($SIMARG_ZRANGE, $SIMARG_FORMAT);
+my ($SIMARG_FORMAT);
 my (@SIMARG_RANSEED, $SAMEFLAG_RANSEED );
 my ($FORMAT_MASK, $WRFLAG_FITS, $WRFLAG_TEXT, $WRFLAG_CIDRAN);
 my ($NGEN_UNIT_VAL, $NGEN_UNIT_NAME );
@@ -751,7 +768,7 @@ sub parse_inFile_master() {
     my $NARG2 = 2;
     my ($key, @wdlist, $model,$imodel,$jtmp, $m, $iver, $ijob, $NTMP);
     my ($tmpFile1, $tmpFile2, @TMPNODES, $tmpLine, @tmp, $tmp);
-    my ($H0, @ZRANGE, @CONTENTS_EXCLUDE_GENVERSION );
+    my (@CONTENTS_EXCLUDE_GENVERSION );
 
     $NSIMTYPE = 0 ;
 
@@ -767,7 +784,7 @@ sub parse_inFile_master() {
 				    \@CONTENTS_EXCLUDE_GENVERSION );
 
 
-    $GENPREFIX           = ''  ;
+    $GENPREFIX                = "MIX" ;
     @SIMGEN_INFILE_GLOBAL     = () ;
     $INPUT_FILE_INCLUDE_Ia    = "" ;
     $INPUT_FILE_INCLUDE_NONIa = "" ;
@@ -1006,33 +1023,41 @@ sub parse_inFile_master() {
     else 
     { $OPT_PARSE = $OPT_ABORT ; } 
 
-    $SIMARG_ZRANGE  = "" ;
     $SIMARG_FORMAT  = "" ;
     $SIMARG_RANSEED[0] = "" ;
 
     $key = "ZRANGE:" ; 
-    $SIMARG_ZRANGE = "" ;
     @tmp = sntools::parse_array($key,2,$OPT_QUIET,@CONTENTS_INFILE_MASTER );
     if ( scalar(@tmp) > 0 ) {
-	$ZRANGE[0] = $tmp[0];
-	$ZRANGE[1] = $tmp[1];
-	$SIMARG_ZRANGE  = "GENRANGE_REDSHIFT $ZRANGE[0] $ZRANGE[1]";
-	print " ZRANGE  = @ZRANGE \n" ;
+	$MSGERR[0] = "$key  key is obsolete." ;
+	$MSGERR[1] = "Remove 'ZRANGE' key from simgen-master file";
+	$MSGERR[2] = "and instead define global redshift range with";
+	$MSGERR[3] = "  GENOPT_GLOBAL: GENRANGE_REDSHIFT $tmp[0] $tmp[1]";
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);	
     }
 
+# xxxxxx mark delete Oct 28 2019 xxxxxxxxx
+#    if ( scalar(@tmp) > 0 ) {
+#	my(@ZRANGE);	$ZRANGE[0] = $tmp[0];	$ZRANGE[1] = $tmp[1];
+#	$SIMARG_ZRANGE  = "GENRANGE_REDSHIFT $ZRANGE[0] $ZRANGE[1]";	
+#   }
+# xxxxxxxxx end mark xxxxxxxxxx
 
+    $key = "H0:" ; 
+    @tmp = sntools::parse_array($key,2,$OPT_QUIET,@CONTENTS_INFILE_MASTER );
+    if ( scalar(@tmp) > 0 ) {
+	$MSGERR[0] = "$key  key is obsolete." ;
+	$MSGERR[1] = "Remove this key from simgen-master file";
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);	
+    }
+
+    &parse_GENOPT_GLOBAL();
     &parse_GENVERSION();
     &parse_RANSEED();
     &parse_FORMAT_MASK();  
     &check_FORMAT_MASK();
 
     # --------------
-
-    $key = "GENPREFIX:";
-    @tmp = sntools::parse_array($key,1,$OPT_ABORT,@CONTENTS_INFILE_MASTER);
-    $GENPREFIX = $tmp[0];
-    print " GENPREFIX            = $GENPREFIX  \n" ;
-
 
     $key = "NGEN_UNIT:";
     $NGEN_UNIT_VAL = -9.0 ;
@@ -1043,19 +1068,33 @@ sub parse_inFile_master() {
 	print " NGEN_UNIT  = $NGEN_UNIT_VAL  $NGEN_UNIT_NAME \n" ;
     }
 
-    $key = "GENOPT_GLOBAL:" ;
-# xxxx    @tmp = sntools::parse_line($inFile, 99, $key, $OPT_QUIET) ;
-    @tmp = sntools::parse_array($key,99,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
+    $key = "GENPREFIX:";
+    @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) {
-	foreach $tmpLine ( @tmp ) {
-	    if ( index($tmpLine,"#") > 0 ) {
-		die "\n ERROR: comment not allowed after GENOPT_GLOBAL key\n" .
-		    "   Invalid line: '$tmpLine' \n";
-	    }
-	    $GENOPT_GLOBAL = "$GENOPT_GLOBAL  $tmpLine" ;
+	if ( "$GENPREFIX" ne "MIX" ) {
+	    $MSGERR[0] = "GENPREFIX defined twice: $GENPREFIX and $tmp[0]" ;
+	    $MSGERR[1] = "Only one GENPREFIX declaration allowed in master-input.";
+	    sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);	    
 	}
+	$GENPREFIX = $tmp[0]; 
     }
-    print " GENOPT_GLOBAL  = '$GENOPT_GLOBAL' \n" ;    
+    print " GENPREFIX = $GENPREFIX  \n" ;
+
+# xxxxx mark delete Oct 25 2019 xxxxxxxxxxx
+#    $key = "GENOPT_GLOBAL:" ;
+#    @tmp = sntools::parse_array($key,99,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
+#    if ( scalar(@tmp) > 0 ) {
+#	foreach $tmpLine ( @tmp ) {
+#	    if ( index($tmpLine,"#") > 0 ) {
+#		die "\n ERROR: comment not allowed after GENOPT_GLOBAL key\n" .
+#		    "   Invalid line: '$tmpLine' \n";
+#	    }
+#	    $GENOPT_GLOBAL = "$GENOPT_GLOBAL  $tmpLine" ;
+#	}
+#   }
+#  print " GENOPT_GLOBAL  = '$GENOPT_GLOBAL' \n" ;    
+# xxxxxxxx end mark xxxxxxxxxx
+
 
     $key = "CLEANUP_FLAG:";
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
@@ -1366,6 +1405,48 @@ sub syncVerify_GENPAR {
 } # end of syncVerify
 
 
+# =====================================
+sub parse_GENOPT_GLOBAL {
+
+    my ($key, @tmp, $tmpLine, @values, $NVAL);
+
+    $key = "GENOPT_GLOBAL:" ;
+    @tmp = sntools::parse_array($key,99,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
+    if ( scalar(@tmp) > 0 ) {
+	foreach $tmpLine ( @tmp ) {
+	    if ( index($tmpLine,"#") > 0 ) {
+		die "\n ERROR: comment not allowed after GENOPT_GLOBAL key\n" .
+		    "   Invalid line: '$tmpLine' \n";
+	    }
+	    $GENOPT_GLOBAL = "$GENOPT_GLOBAL  $tmpLine" ;
+	}
+    }
+
+    # check for FORMAT_MASK here, then later check master-input
+    # file for <FORMAT_MASK: MASK>
+
+    @values = sntools::parse_value_after_key("FORMAT_MASK",$GENOPT_GLOBAL);
+    $NVAL = scalar(@values);
+    if ( $NVAL == 1 ) {	$FORMAT_MASK = $values[0]; }
+
+    # same for GENPREFIX
+    @values = sntools::parse_value_after_key("GENPREFIX",$GENOPT_GLOBAL);
+    $NVAL = scalar(@values);
+    if ( $NVAL == 1 ) {	
+	$GENPREFIX = $values[0]; 
+	# remove GENPREFIX from GENOPT_GLOBAL because a modified
+	# GENPREFIX will be automatically added to account for each core.
+	print "\t (remove GENPREFIX $GENPREFIX from GENOPT_GLOBAL) \n";
+	$GENOPT_GLOBAL =~ s/GENPREFIX//g ;
+	$GENOPT_GLOBAL =~ s/$GENPREFIX//g ;
+
+    }
+
+    # print at end of function in case some parts are removed.
+    print " GENOPT_GLOBAL  = '$GENOPT_GLOBAL' \n" ;    
+
+} # end parse_GENOPT_GLOBAL
+
 # =========================================
 sub parse_GENVERSION {
 
@@ -1477,11 +1558,20 @@ sub parse_GENVERSION {
   PROCESS_GENOPT:
 
     for ( $iv=1; $iv <= $NGENVERSION; $iv++ ) {
-	for($opt=0; $opt< $NGENOPT[$iv]; $opt++ ) {	    
+	for($opt=0; $opt< $NGENOPT[$iv]; $opt++ ) {  
 	    $tmpLine = "$GENOPT_LINES[$iv][$opt]" ;
 	    $tmpLine =~ s/\s+$// ;   # trim trailing whitespace
 	    &PROCESS_GENOPT_LINE($iv,$tmpLine);	    
 	}  
+
+	# append GENOPT_GLOBAL
+	for($m=0; $m < $NGENMODEL[$iver]; $m++ ) {
+	    my $GENOPT_TMP  = "$GENVERSION_GENOPT[$iv][$m] $GENOPT_GLOBAL";
+	    $GENVERSION_GENOPT[$iv][$m] = "$GENOPT_TMP";
+	}
+	
+	# read few things 
+	&read_GENOPT_STRING($iv);
     }  
 
 
@@ -1528,6 +1618,8 @@ sub parse_GENVERSION {
 # ======================================
 sub PROCESS_GENOPT_LINE {
     my ($iver,$tmpLine) = @_ ;
+    
+    # catenate GENOPT argument for each sub-model.
 
 #    print " xxx iver=$iver  tmpLine='$tmpLine' \n";
     my (@wdlist, $KEY, $VAL, $key, $keyArg, $tmpArg, $NWD, $m );
@@ -1594,19 +1686,53 @@ sub PROCESS_GENOPT_LINE {
 	    $GENVERSION_GENOPT[$iver][$m] = "$GENOPT $tmpArg" ;
 	}
     }
-    
 
+# xxxxxxx mark delete Oct 25 2019 xxxxxxxx
     # Jan 2018: check for include in the GENOPT so that it
     #    can be copied to /misc later 
-    my ($indx, @INDX, @WDLIST );
-    @WDLIST   = split(/\s+/,$tmpArg) ;
-    @INDX = grep{$WDLIST[$_] eq "INPUT_FILE_INCLUDE"} 0 .. $#WDLIST ;	
-    if ( scalar(@INDX) > 0  ) {
-	$indx = $INDX[0];
-	$GENOPT_FILE_INCLUDE[$iver] = $WDLIST[$indx+1] ;
-    }
-	 
+#    my ($indx, @INDX, @WDLIST );
+#    @WDLIST   = split(/\s+/,$tmpArg) ;
+#    @INDX = grep{$WDLIST[$_] eq "INPUT_FILE_INCLUDE"} 0 .. $#WDLIST ;	
+#    if ( scalar(@INDX) > 0  ) {
+#	$indx = $INDX[0];
+#	$GENOPT_FILE_INCLUDE[$iver] = $WDLIST[$indx+1] ;
+#    }
+# xxxxxxxxx mark delete xxxxxxxxxxxxxx
+
+    
+    return ;
+
 } # end PROCESS_GENOPT_LINE
+
+
+# ==================================
+sub read_GENOPT_STRING{
+
+    # Created Oct 2019
+    # check for a few optional items in GENOPT strings.
+
+    my($iver) = @_ ;
+
+    my ($m, $GENOPT, $val, @values, $INC);
+    
+    for($m=0; $m < $NGENMODEL[$iver]; $m++ ) {
+
+	$GENOPT = "$GENVERSION_GENOPT[$iver][$m]" ;
+
+	# parse for INCLUDE files (to copy)
+	@values=sntools::parse_value_after_key("INPUT_FILE_INCLUDE",$GENOPT);
+	# only add a new INCLUDE file to list
+	foreach $val (@values) {
+	    $INC  = "$GENOPT_FILE_INCLUDE[$iver]" ;
+	    if(index($INC,$val)<0) {$GENOPT_FILE_INCLUDE[$iver]="$INC $val";}
+	}
+ 	
+    }
+   
+
+    return;
+
+}   # end read_GENOPT_STRING
 
 # ======================================
 sub store_SIMGEN_INFILE(@) {
@@ -1767,7 +1893,8 @@ sub parse_RANSEED {
 	@wdlist = split(/\s+/,$tmp[0]) ;
 	$NRANJOB_SIMGEN = $wdlist[0] ;
 	$RANSEED_FIRST  = $wdlist[1] ;  # first RANSEED given by user
-
+	$DOSKIP_DUPLICATE_SIMJOBS = 0;  # Oct 29, 2019
+	if ( $RESET_CIDOFF == 2 ) { $RESET_CIDOFF = 1; }
 	for ( $ijob = 1; $ijob <= $NRANJOB_SIMGEN ; $ijob++ ) {
 	    $RANSEED = $RANSEED_FIRST + 10000*$ijob + $ijob*$ijob + 13;;
 	    $SIMARG_RANSEED[$ijob] = "RANSEED $RANSEED" ; 
@@ -1826,29 +1953,35 @@ sub strip_GENOPT {
 
 # ========================================
 sub parse_FORMAT_MASK {
-
+    
     # Nov 22 2017: code moved from parse_inFile_master
+    # Oct 24 2019: no longer check include file, and return if already set
 
-    my ($key, @tmp);
+    my ($key, @tmp) ;
     my $OPT_PARSE  = $OPT_QUIET ;
 
-    $key = "FORMAT_MASK:";
+    $key = "FORMAT_MASK:" ;
     @tmp = sntools::parse_array($key,1,$OPT_PARSE,@CONTENTS_INFILE_MASTER );
-    $FORMAT_MASK = $tmp[0];
     if ( scalar(@tmp) > 0  ) {
-	$SIMARG_FORMAT = "FORMAT_MASK  $FORMAT_MASK" ;
+	
+	if ( $FORMAT_MASK > 0 ) {
+	    $MSGERR[0] = "FORMAT_MASK set twice ($FORMAT_MASK and $tmp[0])";
+	    $MSGERR[1] = "FORMAT_MASK must be set once and only once";
+	    $MSGERR[2] = "in simgen-master file.";
+	    sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);	    
+	}
+	else {
+	    $FORMAT_MASK = $tmp[0] ;
+	    $SIMARG_FORMAT = "FORMAT_MASK $FORMAT_MASK" ;
+	}	
+    }
+    elsif ( $FORMAT_MASK > 0 ) {
+	# do nothing if already read from GENOPT_GLOBAL 
     }
     else {
-	# read format mask from sim-include file (may not exist)
-	@tmp=sntools::parse_array($key,1,$OPT_PARSE,@CONTENTS_INFILE_INCLUDE);
-	if ( scalar(@tmp) > 0 ) {
-	    $FORMAT_MASK = $tmp[0];
-	} 
-	else {  
-	    # read format mask from sim-input file
-	    @tmp = sntools::parse_array($key,1,$OPT_ABORT,@CONTENTS_INFILE_SIMGEN);
-	    $FORMAT_MASK = $tmp[0];
-	}
+	# read format mask from sim-input file
+	@tmp = sntools::parse_array($key,1,$OPT_ABORT,@CONTENTS_INFILE_SIMGEN);
+	$FORMAT_MASK = $tmp[0] ;	
     }
 
 } # end parse_FORMAT_MASK
@@ -1964,7 +2097,7 @@ sub get_jobidString {
 # ====================================
 sub set_jobFileNames {
 
-    my($iver,$jobid) = @_;
+    my($iver,$jobid) = @_ ;
     my ($LDMP);
 
     # set global file names for this jobid
@@ -2012,7 +2145,7 @@ sub create_version {
 
     my ($iver) = @_ ;
 
-    my ($m, $cmdcp, $cmdclear, $cmd2, $cmd3, @FINC_LIST, $finc);
+    my ($m, $cmdcp, $cmdclear, $cmd2, $cmd3, @FINC_LIST, @FINC_GENOPT, $finc);
 
     $cmdclear = "rm -r $SIMGEN_FINALDIR" ;
     $cmd2 = "mkdir $SIMGEN_FINALDIR" ;
@@ -2041,10 +2174,11 @@ sub create_version {
     }
 
 
-
     # check all source of include file
+    @FINC_GENOPT = split(/\s+/,$GENOPT_FILE_INCLUDE[$iver] ) ;
     @FINC_LIST = ( $INPUT_FILE_INCLUDE_Ia,  $INPUT_FILE_INCLUDE_NONIa,
-		   $GENOPT_FILE_INCLUDE[$iver] );
+		   @FINC_GENOPT );
+
     foreach $finc (@FINC_LIST ) {
 	$finc =~ s/\n/ /;  # remove <CR>
 	if ( $finc ne '' ) {
@@ -2370,9 +2504,9 @@ sub get_normalization_model {
 
     my $SIMARG_GENOPT  = "$GENVERSION_GENOPT[$iver][$m] " ;
     my $SIMARG0   = "$SIMGEN_INFILE[$iver][$m]" ;
-    my $SIMARG1   = "$ARG_VERS $ARG_NGEN $SIMARG_ZRANGE" ;
+    my $SIMARG1   = "$ARG_VERS $ARG_NGEN " ;
     my $SIMARGS   = "$SIMARG0 $SIMARG1 " . 
-	"$SIMARG_GENOPT $GENOPT_GLOBAL " .
+	"$SIMARG_GENOPT " .   # xxx mark delete $GENOPT_GLOBAL " .
 	"SIMLIB_MAXRANSTART 0" ;
 
     my $normLogFile  = "$LOGDIR/SIMnorm_${GENVERSION}_${MODEL_CLASS}.LOG" ;
@@ -2545,17 +2679,35 @@ sub get_NGEN {
 
     
     # Jul 25 2017: check for NGENTOT_LC override in GENOPT list
-    my (@INDX, $GENOPT, @GENOPT_LIST, $indx);
-    $key2 = "NGENTOT_LC";
+    my ( $NVAL, @values, $GENOPT);
+    $key2   = "NGENTOT_LC";
     $GENOPT = "$GENVERSION_GENOPT[$iver][$m]" ;
-    @GENOPT_LIST = split(' ',$GENOPT);
-    @INDX =  grep { $GENOPT_LIST[$_] eq $key2 } 0 .. $#GENOPT_LIST ;
-    
-    if ( scalar(@INDX) > 0  ) {
-	$indx = $INDX[0];
-	$N = $GENOPT_LIST[$indx+1];
+    @values = sntools::parse_value_after_key($key2,$GENOPT);
+    $NVAL = scalar(@values) ;
+    if ( $NVAL == 1 ) {
+	$N = $values[0] ;
 	print "   Will use $key2 $N  from GENOPT override.\n";
     }
+    elsif ( $NVAL > 1 ) {
+	$MSGERR[0] = 
+	    "Found two NGENTOT_LC override values: $values[0] and $values[1]";
+	$MSGERR[1] = "but only one allowed";
+	$MSGERR[2] = "iver=$iver, $m=$m"; 
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);
+    }
+
+# xxxxxxxxxx mark delete Oct 25 2019 xxxxxxxxxxxxxxxx
+#    my (@INDX, $GENOPT, @GENOPT_LIST, $indx);
+#    $key2 = "NGENTOT_LC";
+#    $GENOPT = "$GENVERSION_GENOPT[$iver][$m]" ;
+#    @GENOPT_LIST = split(' ',$GENOPT);
+#    @INDX =  grep { $GENOPT_LIST[$_] eq $key2 } 0 .. $#GENOPT_LIST ;    
+#    if ( scalar(@INDX) > 0  ) {
+#	$indx = $INDX[0];
+#	$N = $GENOPT_LIST[$indx+1];
+#	print "   Will use $key2 $N  from GENOPT override.\n";
+#   }
+# xxxxxxxxxxxx end mark xxxxxxxxx
 
     return $N ;
 
@@ -2656,18 +2808,19 @@ sub simgen {
     $SIMARG_LIST[$NSIMARG]  = "GENVERSION  ${VERSION_TEMP}" ;
     $NSIMARG++ ;
     $SIMARG_LIST[$NSIMARG]  = "GENPREFIX  ${GENPREFIX_LOCAL}" ;
-    $NSIMARG++ ;
-    $SIMARG_LIST[$NSIMARG]  = "$SIMARG_FORMAT" ;
 
     $NSIMARG++ ;
     $SIMARG_LIST[$NSIMARG]  = "$SIMARG_RANSEED[$jobid]" ;
 
     $NSIMARG++ ;
-    $SIMARG_LIST[$NSIMARG]  = "$SIMARG_ZRANGE";
-    $NSIMARG++ ;
-    $SIMARG_LIST[$NSIMARG]  = "CLEARPROMPT 0";
-    $NSIMARG++ ;
-    $SIMARG_LIST[$NSIMARG]  = "$GENOPT_GLOBAL" ;
+    $SIMARG_LIST[$NSIMARG]  = "$SIMARG_FORMAT" ;
+
+# xxx mark delete     $NSIMARG++ ;
+# xxx mark delete    $SIMARG_LIST[$NSIMARG]  = "$SIMARG_ZRANGE";
+
+# xxx mark delete     $NSIMARG++ ;
+# xxx mark delete  $SIMARG_LIST[$NSIMARG]  = "$GENOPT_GLOBAL" ; 
+
     $NSIMARG++ ;
     $SIMARG_LIST[$NSIMARG]  = "$TMP_GENOPT" ;
 

@@ -17493,11 +17493,17 @@
 
 
 # ======================================================================= 
-         v10_74h (  ) 
+         v10_74h (Oct 24 2019) 
 
          ***** IMPORTANT(v10_74h) ***** 
 
+   + fix blinding in SALT2mu, and add explanation in manual Sec 10.2
+   + new intrinsic scatter model for sim: COVSED based on SUGAR model.
+
          ***** USEFUL(v10_74h) ***** 
+
+   + split_and_fit has new FAST10 & FAST100 option to pre-scale 
+     sim data by 10 & 100.
 
          ***** MISCELLANEOUS(v10_74h) ***** 
 
@@ -17507,9 +17513,12 @@
        causes something crazy in 2nd iteration of photo-z fit.
 
    SALT2mu.c:
-     + new option force_pIa=xx.yy to force same pIa for each event.
+     + new option to force_pIa=xx.yy to force same pIa for each event.
      + in M0DIF file, write warnings for MUDIFERR=0
      + fix bug using cutmask_write=-1
+     + scalePPC bound -> -0.5 to +0.5 (was -0.1 to +0.5)
+     + add user input keys for logmass_min, logmass_max, nbin_logmass
+     + fix blinding.
 
    SALT2mu_fit.pl
      + batch name is now based on name of input file [untested->BEWARE]
@@ -17520,5 +17529,104 @@
        80 char bound that includes key name and quotes. E.g.,
           PHOTFILE = 'TEST_PHOT.FITS'
        counts as 27 characters, not 14.
+
+   snana.car
+     + fix SKYSIG format for make-simlib option.
+
+   split_and_fit.pl
+    + new FAST10 & FAST100 option to pre-scale sims by 10, 100
+        split_and_fit.pl MYBIGJOB.NML FAST10
+        split_and_fit.pl MYBIGJOB.NML FAST100
+      Note that real data are not pre-scaled.
+
+   snlc_sim.c:
+     + fix bug parsing GENMODEL on command line.
+
+   sntools_genSmear.c, snlc_sim.c:
+     + add new intrinsic scatter model "COVSED" to specify 
+       covariance in wave x phase bins. Start with SUGAR.
+     + some refactoring of utilities to generate randoms for genSmear.
+     + new repeat_genSmear() function to generate new set of 
+       magSmear only when needed. G10 smear model is almost
+       x2 faster, and COVSED is more than x2 faster.
+   
+
+# ======================================================================= 
+         v10_74i (Oct 30, 2019) 
+
+         ***** IMPORTANT(v10_74i) ***** 
+
+    sim_SNmix.pl  : 
+       ABORT on obsolete keys (H0 and ZRANGE)
+
+    snana.exe/snlc_fit.exe : 
+        &SNLCINP argument RESTORE_DES3YR=T to select all DEDS3YR-LOWZ
+
+    SALT2mu_fit.pl: 
+        OUTDIR_OVERRIDE works for 'INPDIR:' as well as INPDIR+:
+
+         ***** USEFUL(v10_74i) ***** 
+
+
+         ***** MISCELLANEOUS(v10_74i) ***** 
+
+    SALT2mu.c:
+     + better stdout messaing in prepare_biasCor to make more 
+       clear if 1D, 5D, 6D, 7D
+ 
+     + combine_fitres.c: fix trivial bug
+
+     + snana.car: MXTABLE1D_KCOR = 8M -> 10M (for SNOOPY model)
+       size(snana.exe,snlc_fit.exe) increase by 5M,8M, respectively.
+
+   sim_SNmix.pl
+    + Abort on obsolete 'H0:' key in master file. 
+    + Abort on 'ZRANGE:' key in master file, with instructions
+      to replace with GENOPT_GLOBAL:  GENRANGE_REDSHIFT <zmin> <zmax>
+
+    + FORMAT_MASK and GENPREFIX can be specified as part of
+        GENOPT_GLOBAL: FORMAT_MASK <mask> GENPREFIX <prefix>
+
+   + Why? H0 is completely obsolete and should be removed to avoid confusion.
+     ZRANGE doesn't match the GENRANGE_REDSHIFT key-name in sim-input file,
+     which can also cause confusion.
+     'FORMAT_MASK:' and 'GENPREFIX:' keys remain valid in both simgen-input 
+     and simgen-master file, and the same syntax applies for both files. 
+     The goal here is to slowly transition to defining all global sim 
+     options with GENOPT_GLOBAL
+
+   + to do later: allow NGEN_UNIT to be in GENOPT_GLOBAL argument.
+
+   + subtle bug fix related to RANSEED_CHANGE option.
+
+   snlc_sim.c
+     + in GENSPEC_LAMSMEAR(), fix bug setting GRAN_T=0 if there is
+       no template noise. Fixes valgrind errors found by D.Jones.
+ 
+  snana.exe/snlc_fit.exe :
+    + LCUTEPOCH fix back in May 2019 results in 3 LOWZ SN lost
+      from DES3YR analysis. To recover these, use new restore argument,
+         snlc_fit.exe <inFile>  RESTORE_DES3YR T
+      or add RESTORE_DES3YR=T to &SNLCINP namelist.
+
+   sntools_kcor.c[h]: begin refactor to translate fortran kcor-read to C.
+
+
+# ======================================================================= 
+         v10_74j (  ) 
+
+         ***** IMPORTANT(v10_74j) ***** 
+
+         ***** USEFUL(v10_74j) ***** 
+
+         ***** MISCELLANEOUS(v10_74j) ***** 
+  
+    sntools_output.c
+      + better error message if NPTFIT is missing for outlier/obs dump.
+
+    snlc_fit.car: 
+      + add FLUXERRCALC_SIM to FITRES+RESIDUAL table (after ERRTEST)
+    sntable_dump.pl
+      + include FLUXERRCALC_SIM for outlier/obs option.
 
 END: 

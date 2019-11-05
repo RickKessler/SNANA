@@ -36,6 +36,7 @@ void READ_KCOR_DRIVER(char *kcorFile, char *FILTERS_SURVEY) {
 
   sprintf(KCOR_INFO.FILENAME, "%s", kcorFile) ;
   sprintf(KCOR_INFO.FILTERS_SURVEY, "%s", FILTERS_SURVEY);
+  KCOR_INFO.NFILTDEF_SURVEY = strlen(FILTERS_SURVEY);
 
   read_kcor_init();
 
@@ -649,6 +650,7 @@ void read_kcor_tables(void) {
     KCOR_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_REST ;
   }
 
+
   /* xxxxxxx
   // pass dump flags
   addFilter_kcor(777, &KCOR_INFO.FILTERMAP_REST);
@@ -656,12 +658,13 @@ void read_kcor_tables(void) {
   xxxxxx */
 
 
+
+
+  // init multi-dimensional array to store KCOR tables
+  init_kcor_indices();
+
+
 /* .xyz
-
-
-c init multi-dimensional array to store KCOR tables
-      CALL INIT_KCOR_INDICES
-
 c =============================
 c if user has specified any MAGOBS_SHIFT_PRIMARY, MAGOBS_SHIFT_ZP,
 c (and same for REST) for a non-existant filter, then ABORT ...
@@ -877,6 +880,113 @@ void parse_KCOR_STRING(char *STRING,
 
   return ;
 } // end parse_KCOR_STRING
+
+
+// ======================================
+void init_kcor_indices(void) {
+
+  // Init index maps for KCOR-related tables:
+  //   KCOR, AVWARP, LCMAP and MWXT.
+  // These tables are multi-dimensional, but we use a
+  // 1-d table allocation to save memory. This routine
+  // prepares index-mappings from the multi-dimensional
+  // space to the 1-d space.
+
+  int  NBIN_T          = KCOR_INFO.BININFO_T.NBIN ;
+  int  NBIN_z          = KCOR_INFO.BININFO_z.NBIN ;
+  int  NBIN_AV         = KCOR_INFO.BININFO_AV.NBIN ;
+  int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
+  int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
+  int  NFILTDEF_SURVEY = KCOR_INFO.NFILTDEF_SURVEY ;
+  int  i;
+  char fnam[] = "init_kcor_indices";
+
+  // -------------- BEGIN ----------------
+
+  if ( KCOR_INFO.NKCOR_STORE == 0 ) { return; }
+
+ 
+  sprintf(KCOR_INFO.MAPINFO_KCOR.NAME, "KCOR");
+  KCOR_INFO.MAPINFO_KCOR.IDMAP             = IDMAP_KCOR_TABLE ;
+  KCOR_INFO.MAPINFO_KCOR.NDIM              = NKDIM_KCOR;
+  KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_T]      = NBIN_T ;
+  KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_z]      = NBIN_z ;
+  KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_AV]     = NBIN_AV ;
+  KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_IFILTr] = NFILTDEF_REST ;
+  KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_IFILTo] = NFILTDEF_OBS ;
+  get_MAPINFO_KCOR("NBINTOT", &KCOR_INFO.MAPINFO_KCOR);
+
+  sprintf(KCOR_INFO.MAPINFO_AVWARP.NAME, "AVWARP");
+  KCOR_INFO.MAPINFO_AVWARP.IDMAP             = IDMAP_KCOR_AVWARP ;
+  KCOR_INFO.MAPINFO_AVWARP.NDIM              = N4DIM_KCOR;
+  KCOR_INFO.MAPINFO_AVWARP.NBIN[0]           = NBIN_T ;
+  KCOR_INFO.MAPINFO_AVWARP.NBIN[1]           = MXCBIN_AVWARP ;
+  KCOR_INFO.MAPINFO_AVWARP.NBIN[2]           = NFILTDEF_REST ;
+  KCOR_INFO.MAPINFO_AVWARP.NBIN[3]           = NFILTDEF_REST ;
+  get_MAPINFO_KCOR("NBINTOT", &KCOR_INFO.MAPINFO_AVWARP);
+
+  sprintf(KCOR_INFO.MAPINFO_LCMAG.NAME, "LCMAG");
+  KCOR_INFO.MAPINFO_LCMAG.IDMAP             = IDMAP_KCOR_LCMAG ;
+  KCOR_INFO.MAPINFO_LCMAG.NDIM              = N4DIM_KCOR;
+  KCOR_INFO.MAPINFO_LCMAG.NBIN[0]           = NBIN_T ;
+  KCOR_INFO.MAPINFO_LCMAG.NBIN[1]           = NBIN_z ;
+  KCOR_INFO.MAPINFO_LCMAG.NBIN[2]           = NBIN_AV ;
+  KCOR_INFO.MAPINFO_LCMAG.NBIN[3]           = NFILTDEF_REST ;
+  get_MAPINFO_KCOR("NBINTOT", &KCOR_INFO.MAPINFO_LCMAG);
+  
+  sprintf(KCOR_INFO.MAPINFO_MWXT.NAME, "MWXT");
+  KCOR_INFO.MAPINFO_MWXT.IDMAP             = IDMAP_KCOR_MWXT ;
+  KCOR_INFO.MAPINFO_MWXT.NDIM              = N4DIM_KCOR;
+  KCOR_INFO.MAPINFO_MWXT.NBIN[0]           = NBIN_T ;
+  KCOR_INFO.MAPINFO_MWXT.NBIN[1]           = NBIN_z ;
+  KCOR_INFO.MAPINFO_MWXT.NBIN[2]           = NBIN_AV ;
+  KCOR_INFO.MAPINFO_MWXT.NBIN[3]           = NFILTDEF_SURVEY ;
+  get_MAPINFO_KCOR("NBINTOT", &KCOR_INFO.MAPINFO_MWXT);
+  
+
+  // clear map IDs since RDKCOR can be called multiple times.
+  clear_1DINDEX(IDMAP_KCOR_TABLE);
+  clear_1DINDEX(IDMAP_KCOR_AVWARP);
+  clear_1DINDEX(IDMAP_KCOR_LCMAG);
+  clear_1DINDEX(IDMAP_KCOR_MWXT);
+
+  // init multi-dimensional index maps
+  init_1DINDEX(IDMAP_KCOR_TABLE,  NKDIM_KCOR, KCOR_INFO.MAPINFO_KCOR.NBIN);
+  init_1DINDEX(IDMAP_KCOR_AVWARP, N4DIM_KCOR, KCOR_INFO.MAPINFO_AVWARP.NBIN);
+  init_1DINDEX(IDMAP_KCOR_LCMAG,  N4DIM_KCOR, KCOR_INFO.MAPINFO_LCMAG.NBIN);
+  init_1DINDEX(IDMAP_KCOR_MWXT,   N4DIM_KCOR, KCOR_INFO.MAPINFO_MWXT.NBIN);
+
+  return ;
+
+} // end init_kcor_indices
+
+// ===============================================
+void get_MAPINFO_KCOR(char *what, KCOR_MAPINFO_DEF *MAPINFO) {
+  int i, NDIM, NBIN ;
+  char string_NBIN[40];
+  // ------------- BEGIN ------------
+  if ( strcmp(what,"NBINTOT") == 0 ) {
+    NDIM = MAPINFO->NDIM;
+    MAPINFO->NBINTOT = 1;
+    string_NBIN[0] = 0;
+    for(i=0; i < NDIM; i++ ) { 
+      NBIN = MAPINFO->NBIN[i] ;
+      MAPINFO->NBINTOT *= NBIN ; 
+      if ( i == 0 ) 
+	{ sprintf(string_NBIN,"%d", NBIN); }
+      else
+	{ sprintf(string_NBIN,"%s x %d", string_NBIN, NBIN); }
+    }
+    
+    printf("\t NBINMAP(%-6s) = %s = %d \n",
+	   MAPINFO->NAME, string_NBIN, MAPINFO->NBINTOT );
+    fflush(stdout);
+  }
+
+  return ;
+
+} // end get_MAPINFO_KCOR
+
 
 // =============================
 void read_kcor_mags(void) {

@@ -17629,4 +17629,7 @@
     sntable_dump.pl
       + include FLUXERRCALC_SIM for outlier/obs option.
 
+    sntools_genSmear.c[h]: 
+     + finally merge Sep 12 merge request, and do a little cleanup.
+
 END: 

@@ -1366,7 +1366,10 @@ c logical flags for CWNT
      &   ,SNHOST8_DEC(MXSNHOST)
 
 c quantites which do not depend on which host
-      INTEGER*4  SNHOST_NMATCH, SNHOST_NMATCH2  ! number of host matches
+      INTEGER*4 
+     &    SNHOST_NMATCH   ! number of host matches, e.g., d_DLR<4
+     &   ,SNHOST_NMATCH2  ! number of host matches, e.g., d_DLR<7
+
       REAL
      &   SNHOST_SBFLUXCAL_ERR(MXFILT_ALL)
      &  ,SNHOST_SBMAG(MXFILT_ALL)        ! surface brightness mag/asec^2

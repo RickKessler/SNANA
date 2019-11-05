@@ -2610,11 +2610,26 @@ void init_genSmear_OIR(void) {
   char *OIR_version = "OIR.J19";
   char *path ;
   
+  char FILTERS_OIR[NBAND_OIR+1] = "BgriYJH" ;
+  
+  double COV_DIAG_FUDGE = 1.0E-9 ; // needed to be invertible
+  double COV_SCALE = 1.3 ; // to get correct filter-COV from lambda model
+  double COVAR1[NBAND_OIR* NBAND_OIR] ;
+  double COVAR2[NBAND_OIR][NBAND_OIR] ;
+
+  double CC, COVred, tmp, covscale_v ;
+  int i,j, N ;
+  int LDMPCOV = 1; // RK - Nov 5 2019
+  gsl_matrix_view chk;  
+
   // --------------- BEGIN ---------------
+
+  GENSMEAR_OIR.USE = 1;    GENSMEAR.NUSE++ ;
 
   // read in covmat from file - using utilities from VCR model
   printf("\t Init OIR smear model: %s\n", OIR_version );
   fflush(stdout);
+
 
   // ------------------------------------
   // get path and filenames to parse
@@ -2635,71 +2650,34 @@ void init_genSmear_OIR(void) {
   // prepare covariance matrix
   prep_OIR_COVAR();
 
-
-
-  char FILTERS_OIR[NBAND_OIR+1] = "BgriYJH" ;
-  
-  // Fudged by Marriner to be invertible
-  // Default for 'v' band is no correlation with other bands.
-  /* double COVAR_reduced_EWSi[NBAND_OIR][NBAND_OIR] = 
-    {
-      {+1.000, 0.000,     0.000,     0.000,     0.000,     0.000},
-      {0.000, +1.000000, -0.118516, -0.768635, -0.908202, -0.219447},
-      {0.000, -0.118516, +1.000000, +0.570333, -0.238470, -0.888611},
-      {0.000, -0.768635, +0.570333, +1.000000, +0.530320, -0.399538},
-      {0.000, -0.908202, -0.238470, +0.530320, +1.000000, +0.490134},
-      {0.000, -0.219447, -0.888611, -0.399538, +0.490134, +1.000000}
-    } ;
-
-  double COVAR_diag_EWSi[NBAND_OIR] = 
-    { 0.5900, 0.06001, 0.040034, 0.050014, 0.040017, 0.080007  };
-  */
-
-  double COV_DIAG_FUDGE = 1.0E-9 ; // needed to be invertible
-  double COV_SCALE = 1.3 ; // to get correct filter-COV from lambda model
-
-
-  double COVAR1[NBAND_OIR* NBAND_OIR] ;
-  double COVAR2[NBAND_OIR][NBAND_OIR] ;
-
-  double CC, COVred, tmp, covscale_v ;
-  int i,j, N ;
-
-  gsl_matrix_view chk;  
-
-  //  char fnam[] = "init_genSmear_Chotard11" ;
-
-  // ------------ BEGIN -----------
-
-  GENSMEAR_OIR.USE = 1;    NUSE_GENSMEAR++ ;
-  //GENSMEAR_OIR.OPT_farUV = OPT_farUV;
-
-  printf("\t Initialize Optical+NIR model of %s correlations from Avelino+19/Jones+in prep\n", 
+  printf("\t Initialize OIR model of %s correlations (A19) \n", 
 	 FILTERS_OIR );
 
-  printf("hiiiiiiiiiii \n");
   // translate reduced covariance into covariances
   N = 0 ;
-  printf("\n\t Reduced BgriYJH covariances: \n" );
+
+  if ( LDMPCOV ) 
+    {  printf("\n\t xxx COVred(BgriYJH): \n" ); fflush(stdout); }
+
   for (i =0; i < NBAND_OIR; i++){
-    printf("\t  "); fflush(stdout);
+
+    if ( LDMPCOV )  { printf("\t xxx "); fflush(stdout); }
     for (j = 0; j < NBAND_OIR ; j++){      
 
       COVred       = GENSMEAR_OIR.COLOR_CORMAT[i][j] ;
-      printf("xxxxxxxxxx %7.7f\n",COVred);
+      if ( LDMPCOV ) { printf(" %7.4f\n",COVred); }
       
       CC           = GENSMEAR_OIR.COLOR_SIGMA[i] * GENSMEAR_OIR.COLOR_SIGMA[j];
-      printf("xxxxxxxxxx2 %7.7f\n",CC);
+      //      printf("xxxxxxxxxx2 %7.7f\n",CC);
       
       if ( i == j ) { CC += COV_DIAG_FUDGE ; }
       COVAR2[i][j] = COVred * CC ;
 
       // fill 1D array for gsl argument below.
       N++ ;  COVAR1[N-1] = COVAR2[i][j] * COV_SCALE ;
-      printf("xxxxxxxxxx3 %7.7f\n",COV_SCALE);
-      printf(" %7.4f ", COVred );
+
     }
-    printf("\n"); fflush(stdout);
+    if ( LDMPCOV ) { printf("\n"); fflush(stdout); fflush(stdout); }
   }
 
   chk  = gsl_matrix_view_array ( COVAR1, NBAND_OIR, NBAND_OIR); 

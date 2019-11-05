@@ -12,15 +12,29 @@
 #define MXLAMBIN_FILT  4000  // max wave bins for filter trans
 #define MXLAMBIN_PRIM  4000  // max wave bins for primary
 
-#define MXTBIN_KCOR  150
-#define MXZBIN_KCOR  100
-#define MXAVBIN_KCOR 100
+#define MXTBIN_KCOR   150
+#define MXZBIN_KCOR   100
+#define MXAVBIN_KCOR  100
+#define MXCBIN_AVWARP 100  // max color index for AVWARP table
 
 #define MASK_FRAME_REST 1
 #define MASK_FRAME_OBS  2
 
 #define OPT_FRAME_REST 0
 #define OPT_FRAME_OBS  1
+
+#define KDIM_T        0
+#define KDIM_z        1  
+#define KDIM_AV       2
+#define KDIM_IFILTr   3
+#define KDIM_IFILTo   4
+#define NKDIM_KCOR    5
+#define N4DIM_KCOR    4
+
+#define IDMAP_KCOR_TABLE   15
+#define IDMAP_KCOR_AVWARP  16
+#define IDMAP_KCOR_LCMAG   17
+#define IDMAP_KCOR_MWXT    18
 
 int KCOR_VERBOSE_FLAG;
 int IFILTDEF_BESS_BX;
@@ -31,6 +45,14 @@ typedef struct {
   double BINSIZE, RANGE[2] ;  // binsize and min/max range
   double *GRIDVAL ;           // value at each bin
 } KCOR_BININFO_DEF ;
+
+typedef struct {
+  char NAME[40];
+  int IDMAP ;
+  int NBINTOT ;
+  int NBIN[NKDIM_KCOR];
+  int NDIM ;
+} KCOR_MAPINFO_DEF ;
 
 typedef struct {
   int  NFILTDEF ;
@@ -46,6 +68,7 @@ struct KCOR_INFO {
   fitsfile *FP ;
 
   char FILTERS_SURVEY[MXFILT_KCOR]; // filter list read from SIMLIB file
+  int  NFILTDEF_SURVEY ;
 
   // header info
   int   VERSION, NFLAMSHIFT;
@@ -80,6 +103,11 @@ struct KCOR_INFO {
   KCOR_BININFO_DEF BININFO_T;
   KCOR_BININFO_DEF BININFO_z;
   KCOR_BININFO_DEF BININFO_AV ;
+
+  KCOR_MAPINFO_DEF MAPINFO_KCOR ;
+  KCOR_MAPINFO_DEF MAPINFO_AVWARP ;
+  KCOR_MAPINFO_DEF MAPINFO_LCMAG ;
+  KCOR_MAPINFO_DEF MAPINFO_MWXT ;
 
   double zRANGE_LOOKUP[2] ;
 
@@ -118,3 +146,8 @@ void parse_KCOR_STRING(char *STRING,
 		       char *strKcor, char *cfilt_rest, char *cfilt_obs);
 int ISBXFILT_KCOR(char *cfilt);
 void addFilter_kcor(int ifiltdef, KCOR_FILTERMAP_DEF *MAP);
+void init_kcor_indices(void);
+void get_MAPINFO_KCOR(char *what, KCOR_MAPINFO_DEF *MAPINFO); 
+
+// end
+

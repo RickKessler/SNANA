@@ -3107,6 +3107,12 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 
   FITRESULT.NCALL_FCN++ ;
 
+  // Nov 2019, bail on inf or nan.
+  for(ipar=1; ipar<=5; ipar++ ) {
+    if ( isnan(xval[ipar]) ) { *fval = 1.0E14; return; }
+    if ( isinf(xval[ipar]) ) { *fval = 1.0E14; return; }
+  }
+
   //Set input cosmology parameters
 
   alpha0       = xval[1] ;

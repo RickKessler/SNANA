@@ -17632,4 +17632,7 @@
     sntools_genSmear.c[h]: 
      + finally merge Sep 12 merge request, and do a little cleanup.
 
+    SALT2mu.c
+      + if float param is NaN or inf, return with chi2=1E14
+
 END: 

@@ -25,6 +25,11 @@
 
  Feb 4 2019: add DLR and d_DLR
 
+ Sep 19 2019:
+   +  MINLOGZ_HOSTLIB -> -3.0 (was -2.523) for Dan/H0
+   +  NZPTR_HOSTLIB -> HOSTLIB.NZPTR is a variable (not constant param) 
+       computed from MAX/MIN LOGZ (no longer hard-wired)
+
 ==================================================== */
 
 #define HOSTLIB_MSKOPT_USE           1 // internally set if HOSTLIB_FILE
@@ -37,11 +42,11 @@
 #define HOSTLIB_MSKOPT_VERBOSE     256 // print extra info to screen
 #define HOSTLIB_MSKOPT_DEBUG       512 // fix a=2, b=1, rotang=0 
 #define HOSTLIB_MSKOPT_DUMP       1024 // screen-dump for each host 
-
+#define HOSTLIB_MSKOPT_PLUSMAGS   8192 // compute & write host mags from host spectra
 
 #define HOSTLIB_1DINDEX_ID 10    // ID for 1DINDEX transformations
 
-#define MXCHAR_LINE_HOSTLIB 400  // max number of chars per HOSTLIB line
+#define MXCHAR_LINE_HOSTLIB 600  // max number of chars per HOSTLIB line
 #define MXVAR_HOSTLIB       200  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
 #define MXWGT_HOSTLIB      5000  // max number of WGT: keys
@@ -65,10 +70,10 @@
 #define MXBIN_SERSIC_bn     2000   // max bins in Sersic_bn file
  
 // hard wire logarithmic z-bins
-#define NZPTR_HOSTLIB      320     // number of Z-pointers of hash table
 #define DZPTR_HOSTLIB      0.01    // logz-binning for Z-pointers
-#define MINLOGZ_HOSTLIB   -2.523   // zmin = 0.003
+#define MINLOGZ_HOSTLIB   -3.00   // zmin = 0.001
 #define MAXLOGZ_HOSTLIB    0.61    // zmax = 4.07
+#define LOGZRANGE_HOSTLIB  MAXLOGZ_HOSTLIB-MINLOGZ_HOSTLIB
 
 #define NMAGPSF_HOSTLIB    9    // number of aperture mags vs. PSF to compute
 #define DEG_ARCSEC    1./3600.  // 1 arcsec in deg.
@@ -78,7 +83,6 @@
                              // with MINDAYSEP_SAMEGAL option
 
 // define required keys in the HOSTLIB
-
 #define HOSTLIB_VARNAME_GALID     "GALID"  // required 
 #define HOSTLIB_VARNAME_ZTRUE     "ZTRUE"  // required
 
@@ -138,6 +142,8 @@ struct HOSTLIB_DEF {
   // define pointers used to malloc memory with MALLOCSIZE_HOSTLIB
   double *VALUE_ZSORTED[MXVAR_HOSTLIB];  // sorted by redshift
   double *VALUE_UNSORTED[MXVAR_HOSTLIB]; // same order as in HOSTLIB
+  int    *LIBINDEX_UNSORT;    // map between sorted and unsorted
+  int    *LIBINDEX_ZSORT;     // inverse map 
   int     SORTFLAG ; // 1=> sorted
 
   char **FIELD_UNSORTED ;
@@ -172,7 +178,9 @@ struct HOSTLIB_DEF {
   double ZGAPMAX ; // max z-gap in library
   double ZGAPAVG ; // avg z-gap in library
   double Z_ATGAPMAX[2];  //  redshift at max ZGAP (to find big holes)
-  int   IZPTR[NZPTR_HOSTLIB]; // pointers to nearest z-bin with .01 bin-size
+
+  int   NZPTR;
+  int  *IZPTR;         // pointers to nearest z-bin with .01 bin-size
   int   MINiz, MAXiz ;        // min,max valid iz arg for IZPTR
 
   int NLINE_COMMENT ;
@@ -198,6 +206,11 @@ struct HOSTLIB_DEF {
   double Aperture_sinTH[NTHBIN_GALMAG+1] ;
 
 } HOSTLIB ;
+
+
+struct {
+  double ZWIN[2], RAWIN[2], DECWIN[2];
+} HOSTLIB_CUTS;
 
 
 struct SAMEHOST_DEF {
@@ -400,8 +413,13 @@ struct {
   int  IVAR_HOSTLIB[MXSPECBASIS_HOSTLIB]; // identified HOSTLIB ivar with coeff
 
   double  FLAM_SCALE, FLAM_SCALE_POWZ1 ;
-  double *WAVE_CEN, *WAVE_MIN, *WAVE_MAX, *WAVE_BINSIZE ;
-  double *FLAM[MXSPECBASIS_HOSTLIB];
+  double *WAVE_CEN, *WAVE_MIN, *WAVE_MAX, *WAVE_BINSIZE ; // rest-frame
+  double *FLAM_BASIS[MXSPECBASIS_HOSTLIB];
+  
+  int NWARN_INTEG_HOSTMAG[MXFILTINDX];
+
+  double *FLAM_EVT; // updated each event.
+
 } HOSTSPEC ;
 
 
@@ -415,7 +433,7 @@ time_t TIME_INIT_HOSTLIB[2];
 
 void   INIT_HOSTLIB(void);  // one-time init
 void   init_SNHOSTGAL(void);  // init each event
-void   GEN_SNHOST_DRIVER(double ZGEN, double PEAKMJD);
+void   GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD);
 void   GEN_SNHOST_GALID(double ZGEN);
 void   GEN_SNHOST_POS(int IGAL);
 void   TRANSFER_SNHOST_REDSHIFT(int IGAL);
@@ -443,6 +461,7 @@ void   read_head_HOSTLIB(FILE *fp);
 void   checkAlternateVarNames(char *varName) ;
 void   read_gal_HOSTLIB(FILE *fp);
 void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, char *field );
+int    passCuts_HOSTLIB(double *xval);
 void   summary_snpar_HOSTLIB(void) ;
 void   malloc_HOSTLIB(int NGAL);
 void   sortz_HOSTLIB(void);
@@ -492,10 +511,13 @@ void   read_specbasis_HOSTLIB(void);
 void   match_specbasis_HOSTVAR(void);
 void   checkVarName_specbasis(char *varName);
 int    ICOL_SPECBASIS(char *varname, int ABORTFLAG) ;
-void   genSpec_HOSTLIB(double zhel, double MWEBV,
+void   genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 		       double *GENFLUX_LIST, double *GENMAG_LIST);
 
 // fetch_HOSTPAR function for GENMODEL (e.g., BYOSED)
 int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double *VAL_HOSTPAR);
+
+void   rewrite_HOSTLIB_plusMags(void);
+double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG);
 
 // END

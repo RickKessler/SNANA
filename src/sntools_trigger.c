@@ -81,7 +81,7 @@ void init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF ) {
     SURVEN:   
        name of survey
     APPLYMASK_SEARCHEFF: 
-       argument of sim-input APPLY_SEARCHEFF_OPT (only for error checkig)
+       argument of sim-input APPLY_SEARCHEFF_OPT (only for error checking)
 
 
    June 18, 2008: 
@@ -148,6 +148,7 @@ void init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF ) {
   // Mar 2018: check that user SEARCHEFF mask is possible
   check_APPLYMASK_SEARCHEFF(SURVEY,APPLYMASK_SEARCHEFF);
 
+
 }  // end of init_SEARCHEFF
 
 
@@ -161,6 +162,7 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   // Abort if APPLYMASK_SEARCHEFF_USER is impossible to obtain.
   //
   // July 6 2018: fix bug related to "ZERO" option for spec efficiency.
+  // Sep 4 2019: write COMMENT_README_TRIGGER
 
   int  APPLYMASK_ALLOWED, OVP ;
   int  IFLAG_SPEC_EFFZERO = INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO;
@@ -199,6 +201,41 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
 	    APPLYMASK_ALLOWED);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
+
+
+  // - - - - - - 
+  // Sep 4 2019: prepare README comment for trigger.
+
+  sprintf(COMMENT_README_TRIGGER,"APPLY_SEARCHEFF_OPT=%d --> ",
+	  APPLYMASK_SEARCHEFF_USER);
+
+  int REQ_PIPE, REQ_SPEC, REQ_zHOST, NUSE=0;
+  char ctmp[100], clist[100], cplus[] = "+" ;
+  REQ_PIPE  = (APPLYMASK_SEARCHEFF_USER & APPLYMASK_SEARCHEFF_PIPELINE );
+  REQ_SPEC  = (APPLYMASK_SEARCHEFF_USER & APPLYMASK_SEARCHEFF_SPEC );
+  REQ_zHOST = (APPLYMASK_SEARCHEFF_USER & APPLYMASK_SEARCHEFF_zHOST );
+
+  ctmp[0] = clist[0] = 0; 
+  if ( REQ_PIPE ) 
+    { strcat(clist,"PIPELINE"); NUSE++; }
+
+  if ( REQ_SPEC ) {
+    if ( NUSE >0 ) { strcat(clist,cplus); }
+    strcat(clist,"SPEC");  NUSE++ ;
+  }
+  if ( REQ_zHOST ) { 
+    if ( NUSE > 0 ) { strcat(clist,cplus); }
+    strcat(clist,"zHOST");   NUSE++ ;
+  }
+
+  if ( NUSE > 0 ) 
+    { sprintf(ctmp,"Require EFF(%s)", clist); }
+  else
+    { sprintf(ctmp,"No trigger requirements"); }
+
+  strcat(COMMENT_README_TRIGGER,ctmp);
+
+  
   return ;
 
 } // end  check_APPLYMASK_SEARCHEFF

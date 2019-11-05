@@ -191,8 +191,9 @@ int NCALL_SPECPAK_FILL ; // number of calls to SPECPAK_FILL
 #define SNLCPAK_EPFLAG_FLUXSIM     5  // simulated flux (May 20 2016)
 #define SNLCPAK_EPFLAG_FLUXREST    6  // k-corrected rest-frame fluxes
 #define SNLCPAK_EPFLAG_SIMFLUXREST 7  // simulated rest-flux
+//#define SNLCPAK_EPFLAG_ERRCALC     8  // calcuated error
 
-#define MXFLAG_SNLCPAK_EPOCH       8
+#define MXFLAG_SNLCPAK_EPOCH       8  
 
 // define flags for filter info (one entry per filter)
 #define SNLCPAK_BANDFLAG_NDOF      100

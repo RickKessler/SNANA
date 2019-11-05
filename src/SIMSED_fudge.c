@@ -1,5 +1,10 @@
 /**************************************
+ Oct 21 2019:
+  !! CODE IS BROKEN BECAUSE SETRANGauss_genSmear calls are removed !!
+
+
  Created July 2, 2010 by R.Kessler
+
 
  The two main types of SIMSED fudges are
  1. Apply arbitrary color law to a set of explosion model SEDs.
@@ -186,6 +191,8 @@
 
  Aug 2017: remove SEDMODEL.FLUX_ERRFLAG and replace with SEDMODEL.OPTMASK
            NOT TESTED.
+
+ Aug 28 2019: add zRange argument to init_genSmear_SALT2()
 
 **************************************/
 
@@ -2327,12 +2334,12 @@ void sedRead(int ised) {
              ,TEMP_SEDMODEL.FLUX, TEMP_SEDMODEL.FLUXERR );
   
   N = TEMP_SEDMODEL.NDAY ;
-  TEMP_SEDMODEL.MINDAY  = TEMP_SEDMODEL.DAY[0] ;
-  TEMP_SEDMODEL.MAXDAY  = TEMP_SEDMODEL.DAY[N-1] ;
+  TEMP_SEDMODEL.DAYMIN  = TEMP_SEDMODEL.DAY[0] ;
+  TEMP_SEDMODEL.DAYMAX  = TEMP_SEDMODEL.DAY[N-1] ;
 
   N = TEMP_SEDMODEL.NLAM ;
-  TEMP_SEDMODEL.MINLAM  = TEMP_SEDMODEL.LAM[0] ;
-  TEMP_SEDMODEL.MAXLAM  = TEMP_SEDMODEL.LAM[N-1] ;
+  TEMP_SEDMODEL.LAMMIN  = TEMP_SEDMODEL.LAM[0] ;
+  TEMP_SEDMODEL.LAMMAX  = TEMP_SEDMODEL.LAM[N-1] ;
 
 
 } // end of sedRead
@@ -2629,6 +2636,7 @@ void sedFudge_smear(int ised, int ismear) {
 
   init_RANLIST();
 
+  /* xxx mark delete Oct 21 2019 xxxxxxxx
   NGAURAN = SMEARMODEL_DEF[indx].NGAURAN ;
   for ( iran=1; iran <= NGAURAN; iran++ ) 
     { GAURANLIST_SMEARMODEL[iran] = GaussRan(1);  }
@@ -2644,7 +2652,7 @@ void sedFudge_smear(int ised, int ismear) {
     SETRANGauss_genSmear(NGAURAN,  &GAURANLIST_SMEARMODEL[1]  );
     SETRANFlat_genSmear (NFLATRAN, &FLATRANLIST_SMEARMODEL[1] );
   }
-
+  xxxxxxxx end mark xxxxxxxx */
 
   for ( iday = 0; iday < TEMP_SEDMODEL.NDAY; iday++ ) {
     for ( ilam = 0; ilam < TEMP_SEDMODEL.NLAM; ilam++ ) {
@@ -3310,14 +3318,15 @@ void init_SMEARMODEL(void) {
     { init_SMEARMAG_KRW09(); }
   else if ( indx == SMEARMODEL_ID.G10 ) {
     char smearFile[200] = "" ;
-    init_genSmear_FLAGS(SMEAR_SCALE); // internal inits
-    init_genSmear_SALT2("SALT2.Guy10", "G10", sigcoh) ; 
+    double zRange[2] = { 0.01, 1.00 };  // Aug 28 2019
+    init_genSmear_FLAGS(0,SMEAR_SCALE); // internal inits
+    init_genSmear_SALT2("SALT2.Guy10", "G10", sigcoh, zRange) ; 
     get_NRAN_genSmear(&NGAURAN, &NFLATRAN); // Jan 2014, RK
     SMEARMODEL_DEF[indx].NGAURAN  = NGAURAN ; 
     SMEARMODEL_ID.USE_genSmear = 1 ;
   }
   else if ( indx == SMEARMODEL_ID.C11 ) {
-    init_genSmear_FLAGS(SMEAR_SCALE); // internal inits
+    init_genSmear_FLAGS(0,SMEAR_SCALE); // internal inits
     OPT     = (int)INPUTS.SMEARMODEL_PARVAL[1] ;
     init_genSmear_Chotard11(OPT) ;
     get_NRAN_genSmear(&NGAURAN, &NFLATRAN); // Jan 2014, RK
@@ -3325,7 +3334,7 @@ void init_SMEARMODEL(void) {
     SMEARMODEL_ID.USE_genSmear = 1 ;
   }
   else if ( indx == SMEARMODEL_ID.VCR ) {
-    init_genSmear_FLAGS(SMEAR_SCALE); // internal inits
+    init_genSmear_FLAGS(0,SMEAR_SCALE); // internal inits
     init_genSmear_VCR("VCR", MODEL_SALT2) ;
     get_NRAN_genSmear(&NGAURAN, &NFLATRAN); 
     SMEARMODEL_DEF[indx].NGAURAN   = NGAURAN ; 
@@ -4240,8 +4249,8 @@ double stretchFlux(double str, int iday, int ilam ) {
   // will have to interpolate since daystr does not fall on a grid point
 
   DAYSTEP  = TEMP_SEDMODEL.DAYSTEP ;
-  DAYMIN   = TEMP_SEDMODEL.MINDAY ;
-  DAYMAX   = TEMP_SEDMODEL.MAXDAY - TEMP_SEDMODEL.DAYSTEP - 0.001 ;
+  DAYMIN   = TEMP_SEDMODEL.DAYMIN ;
+  DAYMAX   = TEMP_SEDMODEL.DAYMAX - TEMP_SEDMODEL.DAYSTEP - 0.001 ;
   NDAY     = TEMP_SEDMODEL.NDAY ;
 
   if ( daystr < DAYMIN ) {

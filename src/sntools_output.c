@@ -1101,13 +1101,13 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
   // defined VARNAME, and call sntable_readprep_vardef1() with the 
   // single valid variable name.
   //
-  // Function returns absolute IVAR index.
   //
   // Inputs:
   //   - ptr : pointer to store
   //   - mxlen = max length of input ptr
   //   - optMask: bit0 -> print for each var, bit1 -> abort on missing var
   //
+  // Function returns absolute IVAR index.
 
   int  istat, ISTAT,  NVAR_TOT, NVAR_FOUND, FLAG_VBOSE, FLAG_ABORT ;
   char VARLIST_LOCAL[MXCHAR_VARLIST], VARLIST_FOUND[MXCHAR_VARLIST];
@@ -1619,7 +1619,7 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
   // Dec 8 2014: change VBOSE from 1 to 3 to that it aborts on missing var.
   //
   // Jul 22 2017: if LINEKEY == "IGNORE:" then write out char BAND
-  //
+  // Oct 31 2019: give better error message if NPTFIT is missing.
 
   int  NREAD = 0 ;
   char msg[80] ;
@@ -1635,10 +1635,28 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
   int    VBOSE = 3 ; // 1-->print each var; 2--> abort in missing var
   double DDUMMY ;
   char   CDUMMY[80], *ptrVar;
+  char varName_NPTFIT[] = "NPTFIT";
   char stringOpt[] = "read";
 
   IFILETYPE = TABLEFILE_OPEN(FILENAME, stringOpt); // open file to read
   NVAR_TOT  = SNTABLE_READPREP(IFILETYPE,TABLENAME); // read varList
+
+  // Oct 2019: 
+  //   Abort if OUTLIER flag is set but NPTFIT isn't defined in table.
+  //   Code below aborts anyway if NPTFIT is missing, but generic
+  //   'missing variable' error message is cryptic. Here the error 
+  //   message explains what to do and how to set SNTABLE_LIST.
+  
+  if ( OUTLIER_INFO.USEFLAG ) {
+    ivar = IVAR_READTABLE_POINTER(varName_NPTFIT) ;
+    if ( ivar < 0 ) {
+      sprintf(MSGERR1,"Cannot extract obs/outiers "
+	      "because %s is missing.", varName_NPTFIT);
+      sprintf(MSGERR2,"Try SNTABLE_LIST = 'FITRES+RESIDUALS' ");
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
+    }
+  }
+
 
   // store each variable to read and dump
   for(ivar=0; ivar < NVAR; ivar++ ) {   
@@ -1692,7 +1710,6 @@ int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME,
 
   // --------------- BEGIN -------------
 
-  
   sprintf(msg,"Dump Outliers from Table = '%s'", TABLENAME);
   TABLEFILE_INIT_VERIFY(fnam, msg) ;
 
@@ -2802,11 +2819,6 @@ void SNLCPAK_DATA(char *CCID, int NOBS, double *MJD, double *TOBS,
   if ( FLAG  == SNLCPAK_EPFLAG_FLUXDATA )  
     { SNLCPAK_OUTPUT.NLCPAK++ ;  }
 
-  /* xxx
-  if ( FLAG  == SNLCPAK_EPFLAG_FLUXSIM ) 
-    { SNLCPAK_OUTPUT.SIMFLAG = 1 ;   }
-  xxx */
-
   sprintf(comment,"%s(FLAG=%d)", fnam, FLAG);
   SNLCPAK_CHECK(CCID,comment);
 
@@ -2907,8 +2919,6 @@ void SNLCPAK_FILL(char *CCID) {
 void snlcpak_fill__(char *CCID) {
   SNLCPAK_FILL(CCID);
 }
-
-
 
 // ====================================
 void SNLCPAK_FILL_PREP() {

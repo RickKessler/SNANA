@@ -222,12 +222,19 @@ typedef struct {
 // for all parameters without user specifying each random shift externally.
 typedef struct {
   int   USE ;
-  float GENMAG_OFF_ZP[MXFILTINDX] ;
-  float FUDGESCALE_FLUXERR  ; // tweak true & measured errors
-  float FUDGESCALE_FLUXERR2 ; // tweak measured errors, not true errors
-  float FILTER_LAMSHIFT[MXFILTINDX] ; // filterTrans shifts, Ang
-  float FUDGESCALE_MWEBV ;          // scale Galactic extinction
-  float FUDGESHIFT_MWRV ;           // RV shift for MW
+
+  float SIGSHIFT_ZP[MXFILTINDX];
+  float SIGSHIFT_LAMFILT[MXFILTINDX]; // filterTrans shifts, Ang 
+  float SIGSCALE_FLUXERR;    // scale true & measured errors by 1+Gran*SIG
+  float SIGSCALE_FLUXERR2;   // scale measured errors, not true errors 
+  float SIGSCALE_MWEBV;      // scale Galactic extinction by 1+Gran*SIG
+  float SIGSHIFT_MWRV;       // shift RV
+
+  float SIGSHIFT_OMEGA_MATTER ;
+  float SIGSHIFT_W0 ;
+  float RANGESHIFT_OMEGA_MATTER[2] ;
+  float RANGESHIFT_W0[2] ;
+
 } INPUTS_RANSYSTPAR_DEF ; 
 
 
@@ -417,8 +424,8 @@ struct INPUTS {
   int  NSUBSAMPLE_MARK ;    // mark independent sub-samples with index
 
   char PATH_SNDATA_SIM[MXPATHLEN];
-  char GENVERSION[80];      // output version
-  char GENPREFIX[80];       // filename prefix (default=GENVERSION)
+  char GENVERSION[200];      // output version
+  char GENPREFIX[200];       // filename prefix (default=GENVERSION)
   char GENSOURCE[20];       // 'RANDOM'  or  'DATA-VERSION'
   char GENMODEL[MXPATHLEN] ; // source model name, with optional path
   char MODELPATH[MXPATHLEN]; // path to model (formerly GENLC.MODELPATH)
@@ -427,7 +434,7 @@ struct INPUTS {
   char GENSNXT[20] ;        // SN hostgal extinction: CCM89 or SJPAR
   int  GENMODEL_MSKOPT;     // bit-mask of model options
   char GENMODEL_ARGLIST[400] ;
-			
+  int  GENMAG_SMEAR_MSKOPT;   // bit-mask of GENSMEAR options
   unsigned int ISEED;         // random seed
  
   int    RANLIST_START_GENSMEAR;  // to pick different genSmear randoms
@@ -976,10 +983,14 @@ struct GENLC {
   // GENSMEAR refers to intrinsic scatter models
   double  MAGSMEAR_COH;              // coherent part of scatter
   double  GENSMEAR_RANGauss_FILTER[MXFILTINDX+1]  ;  // filter smear
-  double  GENSMEAR_RANGauss_MODEL[MXFILTINDX+1]  ;   // model smear
-  double  GENSMEAR_RANFlat_MODEL[MXFILTINDX+1]  ;    //  model smear
+
+  /* xxx mark delet Oct 21 2019 xxxxxxxxx
+     double *GENSMEAR_RANGauss_MODEL  ;   // model smear
+  double *GENSMEAR_RANFlat_MODEL  ;    // model smear
+
   int     NRANGauss_GENSMEAR ;  
   int     NRANFlat_GENSMEAR ;  
+  xxxxxxxxxx end mark xxxxxxxxxx */
 
   double  SPECEFF_RAN[MXFILTINDX+1]  ;  
   double  magsmear8[MXEPSIM];        // actual intrinsic mag-smear
@@ -1677,6 +1688,7 @@ void   init_genmodel(void);      // init above
 void   init_genSpec(void);        // one-time init for SPECTROGRAPH
 void   init_genSEDMODEL(void); // generic init for SEDMODEL
 void   init_kcor(char *kcorFile);
+void   init_kcor_refactor(void);
 void   init_covar_mlcs2k2(void);    // init GENLC.COVAR array
 void   init_zvariation(void);      // z-dependent sim parameters
 void   init_hostNoise(void) ;

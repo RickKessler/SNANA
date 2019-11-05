@@ -225,8 +225,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   // set extreme ranges to read anything
   Trange_SIMSED[0] = -500. ; 
   Trange_SIMSED[1] = 1500. ;
-  Lrange_SIMSED[0] =  MINLAM_SEDMODEL ;
-  Lrange_SIMSED[1] =  MAXLAM_SEDMODEL ;
+  Lrange_SIMSED[0] =  LAMMIN_SEDMODEL ;
+  Lrange_SIMSED[1] =  LAMMAX_SEDMODEL ;
 
   // -------------------------------------------------
   // check for binary file to read SEDs much quicker.
@@ -370,10 +370,10 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     }
 
     printf("\t Trest: %6.2f to %6.2f     LAMBDA: %5.0f to %5.0f A \n"
-	   ,TEMP_SEDMODEL.MINDAY
-	   ,TEMP_SEDMODEL.MAXDAY
-	   ,TEMP_SEDMODEL.MINLAM
-	   ,TEMP_SEDMODEL.MAXLAM
+	   ,TEMP_SEDMODEL.DAYMIN
+	   ,TEMP_SEDMODEL.DAYMAX
+	   ,TEMP_SEDMODEL.LAMMIN
+	   ,TEMP_SEDMODEL.LAMMAX
 	   );
     
     fflush(stdout) ;
@@ -413,7 +413,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   // ===========================================
   printf("\n");
   printf(" Global DAY range: %.2f to %.2f \n",
-	 SEDMODEL.MINDAY_ALL, SEDMODEL.MAXDAY_ALL);
+	 SEDMODEL.DAYMIN_ALL, SEDMODEL.DAYMAX_ALL);
 
   printf("  %s : Done. \n", fnam );
   fflush(stdout);
@@ -524,10 +524,10 @@ void read_SIMSED_flux(char *sedFile, char *sedComment) {
 
   int NDAY = TEMP_SEDMODEL.NDAY;
   int NLAM = TEMP_SEDMODEL.NLAM;
-  TEMP_SEDMODEL.MINDAY = TEMP_SEDMODEL.DAY[0];
-  TEMP_SEDMODEL.MAXDAY = TEMP_SEDMODEL.DAY[NDAY-1];
-  TEMP_SEDMODEL.MINLAM = TEMP_SEDMODEL.LAM[0];
-  TEMP_SEDMODEL.MAXLAM = TEMP_SEDMODEL.LAM[NLAM-1];
+  TEMP_SEDMODEL.DAYMIN = TEMP_SEDMODEL.DAY[0];
+  TEMP_SEDMODEL.DAYMAX = TEMP_SEDMODEL.DAY[NDAY-1];
+  TEMP_SEDMODEL.LAMMIN = TEMP_SEDMODEL.LAM[0];
+  TEMP_SEDMODEL.LAMMAX = TEMP_SEDMODEL.LAM[NLAM-1];
 
 
   double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX;
@@ -754,14 +754,14 @@ int read_SIMSED_INFO(char *PATHMODEL) {
     
 
     if ( strcmp(c_get,"RESTLAMBDA_RANGE:") == 0 ) {
-      readdouble(fp, 1, &SEDMODEL.MINLAMFILT );
-      readdouble(fp, 1, &SEDMODEL.MAXLAMFILT );
+      readdouble(fp, 1, &SEDMODEL.RESTLAMMIN_FILTERCEN );
+      readdouble(fp, 1, &SEDMODEL.RESTLAMMAX_FILTERCEN );
       
-      Lrange_SIMSED[0] =  SEDMODEL.MINLAMFILT ;
-      Lrange_SIMSED[1] =  SEDMODEL.MAXLAMFILT ;
+      Lrange_SIMSED[0] =  SEDMODEL.RESTLAMMIN_FILTERCEN ;
+      Lrange_SIMSED[1] =  SEDMODEL.RESTLAMMAX_FILTERCEN ;
 
       double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX;
-      if (UVLAM > 0.0 ) { SEDMODEL.MINLAMFILT = UVLAM; }
+      if (UVLAM > 0.0 ) { SEDMODEL.RESTLAMMIN_FILTERCEN = UVLAM; }
 
     }
 
@@ -1197,8 +1197,8 @@ void genmag_SIMSED(
 
   if ( LDMP_DEBUG ) {
     printf(" xxx ------- %s DEBUG DUMP ------------ \n", fnam );
-    printf(" xxx Nobs=%d  ifilt_obs=%d z=%.3f  MAXDAY_ALL=%.1f  lumipar=%.1f\n",
-	   Nobs, ifilt_obs, z, SEDMODEL.MAXDAY_ALL, *lumipar );
+    printf(" xxx Nobs=%d  ifilt_obs=%d z=%.3f  DAYMAX_ALL=%.1f  lumipar=%.1f\n",
+	   Nobs, ifilt_obs, z, SEDMODEL.DAYMAX_ALL, *lumipar );
     fflush(stdout);
   }
   
@@ -1226,7 +1226,7 @@ void genmag_SIMSED(
       printf(" xxx Trest=%8.2f  x0=%9.3le   Sinterp=%9.3le  "
 	     " ISED=%d  DAYMAX=%.1f \n",
 	     Trest, x0,  Sinterp,
-	     ISED_SEDMODEL, SEDMODEL.MAXDAY[ISED_SEDMODEL]  );
+	     ISED_SEDMODEL, SEDMODEL.DAYMAX[ISED_SEDMODEL]  );
       fflush(stdout);
       
     }

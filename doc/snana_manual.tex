@@ -426,6 +426,8 @@ are given by
 %
 where $m_{1,2}$ are the two mag-reference values,
 and ${\rm SNR}_{1,2}$ are the corresponding SNR.
+Beware that there is no solution if
+$m_2-m_1 < 2.5\log_{10}({\rm SNR}_1/{\rm SNR}_2)$.
 %
 To account for exposure-time ($\Texpose$) dependence, 
 $\SNRlam$ can be defined for multiple $\Texpose$ values.
@@ -1821,7 +1823,9 @@ A few of the output variables must be converted for the
    sigma_SIM   = ERRTEST * FLUXCAL_DATA_ERR
    PSF(arcSec) = PSF(sig,pixels) * 2.35 * PIXSIZE
 \end{verbatim}
-
+%
+BEWARE that full epoch information is available {\it only}
+with FITS format (not with TEXT format).
 
 % - - - - - - - - - - - - - - - - - - - - - - - 
 \clearpage
@@ -3744,6 +3748,24 @@ is multiplied by {\tt coeff\_specbasis[nn]}, and all of the spec-basis
 terms are summed. The sum is multipled by {\tt FLAM\_SCALE} and
 the z-norm term. 
 
+
+% ------------------------------------
+\subsubsection{Synthetic Host Magnitudes}
+\label{sss:hostlib_synmag}
+% ------------------------------------
+
+Using {\tt HOSTLIB\_SPECBASIS\_FILE},
+synthetic galaxy mags are computed with the command-line option
+\begin{verbatim}
+     snlc_sim.exe <iputFile> +HOSTMAGS
+\end{verbatim}
+A new \hostlib\ file is created with the {\tt [band]\_obs} columns appended,
+and then the simulation stops execution.
+Note that {\tt +HOSTMAGS} is not read from the sim-input file, 
+and thus can be specified only as a command-line argument.
+This new \hostlib\ can be used to generate with galaxy mags to 
+compute additional Poisson noise and to model analmolous 
+flux-scatter as a function of local surface brightness.
 
 % ------------------------------------
 \subsubsection{Notes on CPU Resources}
@@ -5735,7 +5757,7 @@ for all tables formats.
 While systematic variations are typically done in the analysis stage,
 it may be useful to simulate a large number of data-sized samples,
 each with a different random set of systematic errors applied.
-In principle one can define each set of variations in a brute-force manner:
+In principle, one can define each set of variations in a brute-force manner:
 e.g., picking random zero points offsets for each simulated version,
 and specifying ``{\tt GENOPT: GENMAG\_OFF\_ZP <list>}'' for each
 {\tt GENVERSION} (see \S\ref{sss:sim_SNmix}).
@@ -5747,44 +5769,51 @@ Here are examples of available options for the sim-input file:
 %
 \begin{Verbatim}[frame=single]
    GENFILTERS:  griz
-   RANSYSTPAR_FUDGESCALE_FLUXERR:  1.02         # scale true & measured flux-errors
-   RANSYSTPAR_FUDGESCALE_FLUXERR2: 1.04         # scale measured flux-errors
-   RANSYSTPAR_FUDGESCALE_MWEBV:    1.05         # scale MWEBV 
-   RANSYSTPAR_FUDGESHIFT_MWRV:     0.2          # shift RV
+   RANSYSTPAR_SIGSCALE_FLUXERR:  0.02     # scale true & measured flux-errors
+   RANSYSTPAR_SIGSCALE_FLUXERR2: 0.04     # scale measured flux-errors
+   RANSYSTPAR_SIGSCALE_MWEBV:    0.05     # scale MWEBV 
+   RANSYSTPAR_SIGSHIFT_MWRV:     0.2      # shift RV
+   RANSYSTPAR_SIGSHIFT_W0:           0.1  # shift w
+   RANSYSTPAR_SIGSHIFT_OMEGA_MATTER: 0.1  # shift OM
+
+   RANSYSTPAR_RANGESHIFT_W0:           -0.5 0.5   # flat shift range for w
+   RANSYSTPAR_RANGESHIFT_OMEGA_MATTER: -0.2 0.4   # flat shift range for OM
 
   # filter-dependent variants:
-   RANSYSTPAR_FILTER_LAMSHIFT:  8 10 7 6              # filter shifts, Angstromgs
-   RANSYSTPAR_GENMAG_OFF_ZP: 0.014 0.013 0.022 0.012  # random ZP off
+   RANSYSTPAR_SIGSHIFT_LAMFILT:  8 10 7 6           # filter shifts (A)
+   RANSYSTPAR_SIGSHIFT_ZP: 0.014 0.013 0.022 0.012  # random ZP off
 \end{Verbatim}
 %
-{\tt FUDGESCALE\_XXX} parameters near 1 are interpreted as fillows.
-A Gaussian sigma is defined as $\sigma={\tt FUDGESCALE\_XX}-1.0$,
-and then a random Gaussian number, $r$, is picked. The {\tt FUDGESCALE}
-used in the simulation is $1+r$.
+{\tt SIGSCALE\_XXX} parameters are interpreted as follows.
+A Gaussian sigma is defined as $\sigma={\tt SIGSCALE\_XXX}$,
+and then a random Gaussian number, $r$, is picked. 
+The {\tt FUDGESCALE} used in the simulation is $1+r$.
+The {\tt SIGSHIFT\_XXX} variables define a Gaussian sigma used
+to determine a random shift. Finally, {\tt RANGESHIFT\_XXX}
+define a random shift with uniform probability over the defined range
+of shifts.
 %
 \begin{itemize}
-  \item {\tt RANSYSTPAR\_FUDGESCALE\_FLUXERR} applies a scale to the true and measured
+  \item {\tt RANSYSTPAR\_SIGSCALE\_FLUXERR} applies a scale to the 
+        true and measured
         flux-\uncs\ to either over- or under-estimate the \uncs.
-        The Gaussian $\sigma$ is obtained by subtracting one ($\sigma=1.02-1.0=0.02$) 
-        and the random Gaussian number is added back to one.
 %
-  \item {\tt RANSYSTPAR\_FUDGESCALE\_FLUXERR2} applies a scale to the measured
+  \item {\tt RANSYSTPAR\_SIGSCALE\_FLUXERR2} applies a scale to the measured
         flux-\uncs, but NOT to the true \unc\ used to smear the fluxes. 
-        The random scale is obtained in the same way as 
-        {\tt RANSYSTPAR\_FUDGESCALE\_FLUXERR} above.
 %
- \item {\tt RANSYSTPAR\_FUDGESCALE\_MWEBV} applies a scale to Galactic extinction.
+ \item {\tt RANSYSTPAR\_SIGSCALE\_MWEBV} applies a scale to Galactic extinction.
 %
- \item {\tt RANSYSTPAR\_FUDGESHIFT\_MWRV} applies a random shift to Galactice RV.
+ \item {\tt RANSYSTPAR\_SIGSHIFT\_MWRV} applies a random shift to Galactice RV.
 % - - - - - -
-  \item {\tt RANSYSTPAR\_GENMAG\_OFF\_ZP} parameters are Gaussian sigmas,
+  \item {\tt RANSYSTPAR\_SIGSHIFT\_ZP} parameters are Gaussian sigmas,
         not ZP shifts.\footnote{{\tt GENMAG\_OFF\_ZP} key can be used 
             to explicitly define ZP shifts.}
         The simulation uses these sigmas to select a random set of ZP offsets.
         Changing {\tt RANSEED} results in a different random set of ZP offsets,
         and there is no need for the user to pick random offsets.
 %
-  \item {\tt RANSYSTPAR\_FILTER\_LAMSHIFT} applies a random shift to each filter.
+  \item {\tt RANSYSTPAR\_SIGSHIFT\_LAMFILT} applies a Gaussian-random shift
+          to each filter bandpass.
 %
 \end{itemize}
 
@@ -7029,7 +7058,7 @@ for each filter in the last fit-iteration.
 % ------------------------------------
 %   \clearpage
    \subsubsection{Avoiding Filter Drop-outs at High PhotoZ}
-   \label{sss:fit_UVLAM_EXTRAP}
+   \label{sss:avoid_filter_dropouts}
 % ------------------------------------
 
 A potential problem with photo-$z$ fitting is that low-redshift events
@@ -7049,6 +7078,23 @@ is  linearly extrapolated to zero flux at $\lam=500$~\AA.
 The {\tt RESTLAMBDA\_FITRANGE} should be set so that all bands
 are defined at the highest allowed $\Zphot$ set by the
 {\tt PHOTOZ\_BOUND} input.
+
+
+% ------------------------------------
+   \subsubsection{4-Parameter Fit Using Host Galaxy Photo-$z$ }
+   \label{sss:zphot_host}
+% ------------------------------------
+
+To run a 4-parameter light curve fit with the host-galaxy photo-$z$
+(instead of \spec\ redshift), run {\tt snlc\_fit.exe} with
+\begin{verbatim}
+   &SNLCINP
+      USE_SNHOST_ZPHOT = T
+\end{verbatim}
+Note that this will {\it not} perform a 5-parameter photo-$z$ fit, 
+but instead uses the already determined host-galaxy photo-$z$
+as a fixed redshift in the fit. If any photo-$z$ fit flags are set
+with {\tt USE\_SNHOST\_ZPHOT=T}, the code will abort.
 
 % ------------------------------------
    \clearpage
@@ -7531,11 +7577,10 @@ a list of CIDs:
 %
 \begin{Verbatim}[frame=single]
    CUTWIN_CID    =   700, 2000       ! CID integer-range to process
-
       or
    SNCID_LIST    =   5944,   10550   ! integer list of SN to process
+      or
    SNCCID_LIST   =  '5944', '10550'  ! same as above, using strings
-   CUTWIN_CID    =   0,0             ! turn off range to process list
       or
    SNCID_LIST_FILE = 'myCIDs.list'   ! file with list of CIDs to process;
                                      ! separated by space or <CR>
@@ -7568,10 +7613,9 @@ However, for a survey using integer CIDs that start at 1000,
 {\tt CUTWIN\_CID = 1,10} would discard all SNe.
 
 
-Note that the logical-OR is used for 
-{\tt CUTWIN\_CID} and {\tt SNCID\_LIST}. Thus when
-using the LIST option, make sure to set 
-{\tt CUTWIN\_CID=0,0} to turn off the range-option.
+Using any of the ``{\tt \_LIST}'' options (e.g., {\tt SNCID\_LIST}),
+the analysis codes internally set {\tt CUTWIN\_CID=0,0}
+so that only the list CIDs are processed.
 
 Finally, {\tt MXEVT\_PROCESS} stops processing after this many
 events, regardless of of how the other ``{\tt CID}'' inputs are set.
@@ -7582,11 +7626,11 @@ events, regardless of of how the other ``{\tt CID}'' inputs are set.
 To select a few CID values on the command-line, 
 use a comma-separated list:
 \begin{verbatim}
-   snana.exe <myInputFile> CUTWIN_CID 0 0 SNCID_LIST 5,19,184
+   snana.exe <myInputFile>  SNCID_LIST 5,19,184
       or
-   snana.exe <myInputFile> CUTWIN_CID 0 0 SNCCID_LIST 5,19,184
+   snana.exe <myInputFile>  SNCCID_LIST 5,19,184
       or
-   snana.exe <myInputFile> CUTWIN_CID 0 0 SNCCID_LIST 2004cx,2002cx,2005he
+   snana.exe <myInputFile>  SNCCID_LIST 2004cx,2002cx,2005he
      or
    snana.exe <myInputFile> MXEVT_PROCESS 5
 \end{verbatim} 
@@ -10115,7 +10159,91 @@ BBC fit these mag offsets are associated with $\gamma$ and $\hostmass$,
 where $\gamma$ is the maximum SNIa mag-splitting.
 
 
+% -----------------------------------------
+  \clearpage
+  \subsection{Blinding BBC Output from {\tt SALT2mu.exe} }
+  \label{sec:BBC_blind}
+% -----------------------------------------
 
+There are two methods for blinding results in the BBC output:
+1) totally blind, and 2) blurry.
+For the totally blind method,
+\begin{equation}  
+   {\rm MUDIF} \to {\rm MUDIF} + \cos(10z)
+\end{equation}
+where the cosine argument is ten $\times$ redshift.
+The {\tt MUDIF} ($\mu$-offsets) are $O(1)$ and viewing these
+values provides no information about the true residuals; 
+hence ``totally blind.''
+The disadvantage is that the cosmology fitting program, 
+which reads the BBC output, 
+must subtract $\cos(10z)$ from each blinded $\mu$.
+Also, the cosmology-fitting program must have its own
+blinding applied to the fitted cosmology parameters.
+
+
+The blurry method adds unknown offsets to the reference
+cosmology parameters ($\OL,w_0$),
+%
+\begin{eqnarray}
+   \OL^{\rm ref}  & \to & \OL^{\rm input} +  A_L\cos(B_L) \\
+    w_0^{\rm ref} & \to & w_0^{\rm input} +  A_w\cos(B_w)
+\end{eqnarray}
+%
+where $A_{L,w}$ and $B_{L,w}$ are arbitrary.
+The cosmology fitting program need not modify any of the 
+BBC outputs since all of the BBC outputs are correct.
+$A_{L,w}$ and $B_{L,w}$ can be modified separately for each user, 
+or each analysis iteration, 
+and there is no need to pass these blinding parameters to other 
+colleagues or programs. However, the same blinding params must
+be used for systematic comparisons of the Hubble diagram.
+The blinding strategy is that the user does not know 
+the reference-cosmology parameters, and therefore
+the output $\mu$-residuals ({\tt MUDIF}) are offsets from
+an unknown cosmological model.
+However, if $A_{L,w}$ are not too large, the $\mu$-residuals 
+might still be somewhat close to zero. In this case, human inspection
+of the $\mu$-residuals provides some information; 
+hence we call this method ``blurry.''
+
+By default, {\tt SALT2mu.exe} will blind real data with the blurry
+method, and not apply blinding to simulated data.
+The following {\tt SALT2mu.exe} inputs control blinding:
+\begin{verbatim}
+   p9=0.7    # input Omega_L -> ref cosmology for MUDIF
+   p11=-1.0  # input w0      -> ref cosmology for MUDIF
+
+   blindflag=1           # totally blind, MUDIF += cos(10z)
+   blindflag=2           # blurry method (DEFAULT)
+   blindpar9=0.1,4400    # A_L,B_L: OL_ref = p9  + 0.10 * cos(4400)
+   blindpar11=0.2,3300   # A_w,B_w: w0_ref = p11 + 0.20 * cos(3300)
+  
+  # add 64 to blind simulated data
+   blindflag=65  # 1+64 -> same as blindflag = 1 for real data
+   blindflag=66  # 2+64 -> same as blindflag = 2 for real data
+\end{verbatim}
+%
+It is highly recommended to practice blinding on simulated
+data before processing real data. Another useful feature
+is to generate simulations without the {\tt SIM\_XXX}
+truth values, which checks if the analysis codes are mistakenly
+using some {\tt SIM\_XXX} values.
+This sim option is invoked by adding 8 to {\tt FORMAT\_MASK}. 
+For example, ''{\tt FORMAT\_MASK: 10}'' (2+8) produces text formatted
+data files that look like real data,
+and ''{\tt FORMAT\_MASK: 40}'' (2+32) produces FITS-formmated
+data files that look like real data. If the simulated data has no
+{\tt SIM\_XXX} keys, the default BBC output is blinded
+with the blurry method.
+
+The output BBC tables include comment fields specifying
+{\tt SNANA\_VERSION},  {\tt BBC\_VERSION},
+and a summary of the blinding parameters. 
+For cosmology-fitting, the parsing/translation module
+should keep track of the integer BBC version to maintain 
+backward compatibility in case of future modifications.
+If the {BBC\_VERSION} key is not included, set {\tt BBC\_VERSION=1}.
 
 % ##########################################
    \clearpage

@@ -1,10 +1,9 @@
 /********************************
  Created April 2012 by R.Kessler
 
-
  models of intrinsic brightness variation as a function of wavelength.
  The init functions depend on the model, but there is just one 
- function to evaluate the smear. Flags to set in the sim-input file:
+ function to evaluate the smear. Flags to set in the sim-input 
 
  GENMAG_SMEAR_MODELNAME: G10      # SALT2 model disp and SIGCOH
  GENMAG_SMEAR_MODELNAME: Guy10    # idem
@@ -21,6 +20,9 @@
  GENMAG_SMEAR_MODELNAME: VCR      # Velocit-Color Relation (MFK14)
  GENMAG_SMEAR_MODELNAME: BIMODAL_UV  # sort'of like Milne 2015
  GENMAG_SMEAR_USRFUN:  <list of 8 params> 
+
+ GENMAG_SMEAR_MODELNAME: OIR    # Optical+IR using CSP+CfA (under development)
+ GENMAG_SMEAR_MODELNAME: [path]/COVSED.[version] # cov(wave x phase), Oct 2019
 
  External program must set
    NSMEARPAR_OVERRIDE = 0 
@@ -64,6 +66,17 @@
 
  July 29 2016: new utility exec_genSmear_override().
 
+ Aug 30 2019: RK,DJ - start adding infrastructure for OIR model.
+ Sep 03 2019: 
+   + include genmag_SALT2[SEDtools].h
+   + after reading salt2 dispersion file, clip wavelengths outside
+     SALT2 wave range. Avoids abort at very low redshifts.
+
+ Oct 18 2019: begin COV model
+ Oct 21 2019: 
+   + significant refactor for speed improvements using repeat_genSmear().
+     BEWARE to check repeat_genSmear for Trest-dependent smear models.
+
 **********************************/
 
 #include <stdio.h> 
@@ -71,13 +84,17 @@
 #include <stdlib.h>   // includes exit(),atof()
 #include <unistd.h>
 #include <math.h>     // log10, pow, ceil, floor
+#include "fitsio.h"
 
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_matrix.h>
 
 #include "sntools.h"
 #include "sntools_genSmear.h"
+#include "genmag_SEDtools.h"
+#include "genmag_SALT2.h"
 #include "MWgaldust.h"
+#include "sntools_fitsio.h"
 
 // ===========================================================
 //
@@ -86,27 +103,43 @@
 // ===========================================================
 
 int  istat_genSmear(void) {
-  return  NUSE_GENSMEAR ;
+  return(GENSMEAR.NUSE);
 }
 
-void  init_genSmear_FLAGS(double SCALE) {
+void  init_genSmear_FLAGS(int MSKOPT, double SCALE) {
 
   char fnam[] = "init_genSmear_FLAGS" ;
 
-  NUSE_GENSMEAR           = 0 ; // number of GENSMEAR init calls
-  NCALL_GENSMEAR          = 0 ; // number of get_genSmear calls.
+  GENSMEAR.NUSE           = 0 ; // number of GENSMEAR init calls
+  GENSMEAR.NCALL          = 0 ; // number of get_genSmear calls.
   GENSMEAR_USRFUN.USE     = 0 ;
   GENSMEAR_SALT2.USE      = 0 ;
   GENSMEAR_C11.USE        = 0 ;
   GENSMEAR_CCM89.USE      = 0 ;
   GENSMEAR_VCR.USE        = 0 ;
   GENSMEAR_BIMODAL_UV.USE = 0 ;
+  GENSMEAR_OIR.USE        = 0 ;
+  GENSMEAR_COVSED.USE     = 0 ;
+  GENSMEAR.NSET_RANGauss  = 0 ;
+  GENSMEAR.NSET_RANFlat   = 0 ;
+  GENSMEAR.SCALE          = SCALE ; // Oct 9 2018
+  GENSMEAR.MSKOPT         = MSKOPT ; // Oct 2019
 
-  GENSMEAR.NSET_RANGauss = 0 ;
-  GENSMEAR.NSET_RANFlat  = 0 ;
+  // hard-wire wavelengths to monitor COVARIANCE between 
+  // 2 arbitrary wavelengths
+  GENSMEAR.SUMSMEAR_CHECK[0]   =  0.0 ;
+  GENSMEAR.SUMSMEAR_CHECK[1]   =  0.0 ;
+  GENSMEAR.SQSUMSMEAR_CHECK[0] =  0.0 ;
+  GENSMEAR.SQSUMSMEAR_CHECK[1] =  0.0 ;
+  GENSMEAR.SUMCROSS            =  0.0 ;
+  GENSMEAR.NCHECK              =  0 ;
 
-  GENSMEAR.SCALE = SCALE ; // Oct 9 2018
-
+  GENSMEAR.CID_LAST    = -9;
+  GENSMEAR.TREST_LAST  = 99999. ;
+  GENSMEAR.NLAM_LAST   = -9 ;
+  GENSMEAR.LAMMIN_LAST = -9.0 ;
+  GENSMEAR.LAMMAX_LAST = -9.0 ;
+    
   // abort on unitialized NSMEARPAR_OVERRIDE
   if ( NSMEARPAR_OVERRIDE < 0 || NSMEARPAR_OVERRIDE >= MXSMEARPAR_OVERRIDE ) {
     sprintf(c1err,"Unitialized NSMEARPAR_OVERRIDE=%d", NSMEARPAR_OVERRIDE);
@@ -116,6 +149,94 @@ void  init_genSmear_FLAGS(double SCALE) {
 
 }  // end of init_genSmear_FLAGS
 
+// *******************************************************
+void init_genSmear_randoms(int NRANGauss, int NRANFlat) {
+
+  // Created Oct 21 2019
+  // Store number of Gauss and Flat randoms, and
+  // malloc memory to hold Gauss and flat randoms for each event.
+
+  int MEMD;
+  char fnam[] = "init_genSmear_randoms";
+
+  // ------------ BEGIN --------------
+
+  GENSMEAR.NGEN_RANGauss = NRANGauss ;
+  GENSMEAR.NGEN_RANFlat  = NRANFlat  ;
+
+  MEMD = (NRANGauss + MXFILTINDX + 1) * sizeof(double);
+  GENSMEAR.RANGauss_LIST = (double*) malloc(MEMD);
+
+  MEMD = (NRANFlat + MXFILTINDX + 1) * sizeof(double);
+  GENSMEAR.RANFlat_LIST = (double*) malloc(MEMD);
+
+  printf("   Number of Gaussian  randoms per SN: %d \n", 
+         NRANGauss);
+  printf("   Number of Flat(0-1) randoms per SN: %d \n", 
+         NRANFlat);  
+
+  fflush(stdout);
+
+  return;
+} // end init_genSmear_randoms
+
+
+void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
+
+  // Created Oct 21 2019
+  // load Gauss and Flat randoms into global GENSMEAR struct.
+  // Note that at least MXFILTINDX randoms are stored to 
+  // preserve random synch ... may change this later.
+  //
+  // Inputs:
+  //    CID to track new event.
+  //    gmin = min Gauran to clip Gaussian
+  //    gmax = max Gauran to clip Gaussian
+  //    RANFIX is a user option to fix random Gaussians for debug
+
+  int  NRANGauss = GENSMEAR.NGEN_RANGauss ;
+  int  NRANFlat  = GENSMEAR.NGEN_RANFlat ;
+  int  ILIST_RAN = 2 ; // list to use for genSmear randoms  
+  int  LDMP = 0 ;
+
+  int iran;
+  char fnam[] = "load_genSmear_randoms" ;
+
+  // ------------- BEGIN ------------
+
+  GENSMEAR.CID = CID;
+
+  // generate Guassian randoms for intrinsic scatter [genSmear] model
+  if ( NRANGauss < MXFILTINDX-1 ) { NRANGauss = MXFILTINDX-1; } 
+  for(iran=0; iran < NRANGauss; iran++ ) {                 
+    GENSMEAR.RANGauss_LIST[iran] = GaussRanClip(ILIST_RAN,gmin,gmax); 
+  }
+
+ 
+  // repeat for 0-1 [flat] randoms
+  if ( NRANFlat < MXFILTINDX-1 ) { NRANFlat = MXFILTINDX-1; }
+  for ( iran=0; iran < NRANFlat; iran++ ) 
+    {  GENSMEAR.RANFlat_LIST[iran]  = FlatRan1(ILIST_RAN);  } 
+  
+  if ( LDMP ) {
+    double GFIRST = GENSMEAR.RANGauss_LIST[0];
+    double GLAST  = GENSMEAR.RANGauss_LIST[NRANGauss-1];
+    double FFIRST = GENSMEAR.RANFlat_LIST[0];
+    double FLAST  = GENSMEAR.RANFlat_LIST[NRANFlat-1];
+    printf(" xxx load_ran: CID=%d  First/Last = %f/%f(G), %f/%f(F) \n",
+	   CID, GFIRST,GLAST, FFIRST,FLAST);  fflush(stdout);
+  }
+
+
+  if ( RANFIX > -99.0 ) { 
+    for(iran=0; iran < NRANGauss; iran++ ) {                 
+      GENSMEAR.RANGauss_LIST[iran] = RANFIX ;
+    }
+  }
+
+  return;
+
+} // end load_genSmear_randoms
 
 // ********************************
 void get_genSmear(double Trest, int NLam, double *Lam, 
@@ -135,22 +256,27 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   //
   //
   // Oct 9 2018: check option to scale the magSmear values
+  // Oct 21 2019: add CID argument
   //
-  //
+
+  int ilam;
   char fnam[] = "get_genSmear" ;
 
   // -------------- BEGIN -----------
 
-  NCALL_GENSMEAR++ ;
+  GENSMEAR.NCALL++ ;
 
-  MAGSMEAR_COH = 0.0 ; // Jun 14 2016
+  if ( repeat_genSmear(Trest,NLam,Lam) ) {  goto SET_LAST; }
 
   // abort if more than one model has been initialized.
-  if ( NUSE_GENSMEAR > 1 ) {
-    sprintf(c1err,"%d GENSMEAR models initilialized", NUSE_GENSMEAR);
+  if ( GENSMEAR.NUSE > 1 ) {
+    sprintf(c1err,"%d GENSMEAR models initilialized", GENSMEAR.NUSE);
     sprintf(c2err,"but only one model allowed.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
+  GENSMEAR.MAGSMEAR_COH = 0.0 ;
+  for(ilam=0; ilam < NLam; ilam++ ) { magSmear[ilam] = 0.0 ; }
 
   if ( GENSMEAR_USRFUN.USE ) {
     get_genSmear_USRFUN(Trest, NLam, Lam, magSmear) ;
@@ -176,6 +302,12 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   else if ( GENSMEAR_BIMODAL_UV.USE ) {
     get_genSmear_biModalUV(Trest, NLam, Lam, magSmear) ;
   }
+  else if ( GENSMEAR_OIR.USE ) {
+    get_genSmear_OIR(Trest, NLam, Lam, magSmear) ;
+  }
+  else if ( GENSMEAR_COVSED.USE ) {
+    get_genSmear_COVSED(Trest, NLam, Lam, magSmear) ;
+  }
   else {
     sprintf(c1err,"Unknown smear model.");
     sprintf(c2err,"Check GENMAG_SMEAR_MODELNAME key.");
@@ -184,15 +316,148 @@ void get_genSmear(double Trest, int NLam, double *Lam,
 
 
   // Oct 9 2018: check option to scale the smearing
-  int ilam ;
   if ( fabs(GENSMEAR.SCALE-1.0) > 1.0E-5 ) {
     for(ilam=0; ilam < NLam; ilam++ ) 
       { magSmear[ilam] *= GENSMEAR.SCALE; }
   }
 
+
+ SET_LAST:
+  GENSMEAR.CID_LAST    = GENSMEAR.CID ;
+  GENSMEAR.TREST_LAST  = Trest;
+  GENSMEAR.NLAM_LAST   = NLam ;
+  GENSMEAR.LAMMIN_LAST = Lam[0]; 
+  GENSMEAR.LAMMAX_LAST = Lam[NLam-1];
+
   return ;
 
 } // end of get_genSmear
+
+
+// ********************************************************
+int repeat_genSmear(double Trest, int NLam, double *Lam) {
+  
+  // Created Oct 21 2019
+  // Return 0 --> get_genSmear returns new set of magSmear values
+  // Return 1 --> get_genSmear returns same magSmear values
+  //
+  // If sim-input key
+  //   GENMAG_SMEAR_MSKOPT:  32
+  // then always return NEW (no repeats).
+  //
+
+  int REPEAT  = 1;
+  int NEW     = 0;
+  int LDMP    = 0 ;
+  double LAMMIN = Lam[0];
+  double LAMMAX = Lam[NLam-1];
+  char fnam[] = "repeat_genSmear";
+
+  // ------------ BEGIN ------------
+
+  if ( (GENSMEAR.MSKOPT & 32 )>0 ) { return(NEW); }
+
+  if ( LDMP ) {
+    printf(" xxx ---------------------------------- \n");
+    printf(" xxx CID(%d,%d)  Trest(%.2f,%.2f) \n",
+	   GENSMEAR.CID, GENSMEAR.CID_LAST,  Trest, GENSMEAR.TREST_LAST ) ;
+    printf(" xxx LAMMIN(%.1f,%.1f)  LAMMAX(%.1f,%.1f) \n"
+	   ,LAMMIN, GENSMEAR.LAMMIN_LAST
+	   ,LAMMAX, GENSMEAR.LAMMAX_LAST );
+    fflush(stdout);
+  }
+  
+  if ( GENSMEAR.CID != GENSMEAR.CID_LAST    ) { return(NEW); }
+  if ( LAMMIN       != GENSMEAR.LAMMIN_LAST ) { return(NEW); }
+  if ( LAMMAX       != GENSMEAR.LAMMAX_LAST ) { return(NEW); }
+
+  if ( LDMP ) { printf(" xxx REPEAT \n"); fflush(stdout); }
+
+  return(REPEAT);
+
+} // end repeat_genSmear
+
+
+// ***********************************
+void init_genSmear_COVLAM_debug(double *lam, double COVMAT[2][2]) {
+
+  // Inputs
+  //   lam[0], lam[1] = two wavelengths to monitor COV
+  //   COVMAT = expected 2x2 COV matrix 
+  //
+  // Simply print expected RMS and reduced covar,
+  // to be compared during generation with empirical 
+  // values.
+  // 
+  double SIG0 = sqrt( COVMAT[0][0] );
+  double SIG1 = sqrt( COVMAT[1][1] );
+  double RHO  = COVMAT[0][1] / (SIG0*SIG1);
+  char fnam[] = "init_genSmear_COVLAM_debug" ;
+
+  // ----------- BEGIN ---------
+
+  printf("\n");
+  printf(" %s: Expected RMS(lam=%.0f) = %.5f \n", fnam, lam[0], SIG0 );
+  printf(" %s: Expected RMS(lam=%.0f) = %.5f \n", fnam, lam[1], SIG1 );
+  printf(" %s: Expected Reduced Covar = %.5f \n", fnam, RHO );
+  printf("\n");
+  fflush(stdout);
+
+  return ;
+
+} // end init_genSmear_COVLAM_debug
+
+
+void update_genSmear_COVLAM_debug(double *magSmear) {
+
+  // Inputs:
+  //  magSmear[0], magSmear[1] = magSmear values for each wavelength.
+
+  double m0 = magSmear[0];
+  double m1 = magSmear[1];
+  double mtmp, XN, SUM, SQSUM, MEAN[2], RMS[2], COV_01, RHO ;
+  int i, N;
+  char fnam[] = "update_genSmear_COVLAM_debug" ;
+
+  // ----------- BEGIN -------
+
+  for(i=0; i < 2; i++ ) {
+    mtmp = magSmear[i];
+    GENSMEAR.SUMSMEAR_CHECK[i]   +=  mtmp;
+    GENSMEAR.SQSUMSMEAR_CHECK[i] += (mtmp*mtmp);    
+  }
+  GENSMEAR.SUMCROSS += (magSmear[0]*magSmear[1]);
+  GENSMEAR.NCHECK++ ;
+
+  if ( (GENSMEAR.NCHECK % 100) == 0 ) {
+    N     = GENSMEAR.NCHECK;
+    XN    = (double)N;
+
+    for(i=0; i < 2; i++ ) {
+      SUM      = GENSMEAR.SUMSMEAR_CHECK[i];
+      SQSUM    = GENSMEAR.SQSUMSMEAR_CHECK[i];
+      MEAN[i]  = SUM/XN;
+      RMS[i]   = RMSfromSUMS(N, SUM, SQSUM);
+    }
+
+    COV_01 = 
+      GENSMEAR.SUMCROSS + 
+      GENSMEAR.SUMSMEAR_CHECK[0]*MEAN[1] +
+      GENSMEAR.SUMSMEAR_CHECK[1]*MEAN[0] +
+      MEAN[0]*MEAN[1] 
+      ;
+    COV_01 /= XN;
+    RHO = COV_01/(RMS[0]*RMS[1]);
+
+    printf(" COV_debug: N=%4d  <smear>=%6.3f/%6.3f  "
+	   "RMS=%.4f/%.4f  RHO=%5.3f\n",
+	   N, MEAN[0], MEAN[1], RMS[0], RMS[1], RHO );
+    fflush(stdout);
+  }
+
+  return ;
+
+} // end  update_genSmear_COVLAM_debug
 
 
 // *********************************************
@@ -238,7 +503,7 @@ void init_genSmear_USRFUN(int NPAR, double *parList, double *LAMRANGE) {
 
 
   // load global struct
-  GENSMEAR_USRFUN.USE   = 1 ;   NUSE_GENSMEAR++ ;
+  GENSMEAR_USRFUN.USE   = 1 ;  GENSMEAR.NUSE++ ;
 
   i = -1 ;
   
@@ -279,9 +544,7 @@ void init_genSmear_USRFUN(int NPAR, double *parList, double *LAMRANGE) {
   NRANGEN++ ;
 
   // store NRANGEN in global struct
-  GENSMEAR.NGEN_RANGauss = NRANGEN ;
-  GENSMEAR.NGEN_RANFlat  = 0 ;
-
+  init_genSmear_randoms(NRANGEN,0);
 
   sprintf(BANNER,"%s", fnam);
   print_banner(BANNER);
@@ -319,6 +582,9 @@ void get_NRAN_genSmear(int *NRANGauss, int *NRANFlat) {
   *NRANFlat  = GENSMEAR.NGEN_RANFlat ;
 } 
 
+
+
+/* xxx mark delete Oct 21 2019 xxxxxxxx
 void SETRANGauss_genSmear(int NRAN, double *ranList) {
 
   // Created Mar 6, 2012 by R.Kessler
@@ -335,7 +601,7 @@ void SETRANGauss_genSmear(int NRAN, double *ranList) {
 
   // --------------- BEGIN ------------
 
-  if ( NUSE_GENSMEAR == 0  ) { return ; }
+  if ( GENSMEAR.NUSE == 0  ) { return ; }
 
   if( NRAN != GENSMEAR.NGEN_RANGauss ) {
     sprintf(c1err,"passed NRAN=%d, but require NGEN_RANGauss=%d",
@@ -349,7 +615,7 @@ void SETRANGauss_genSmear(int NRAN, double *ranList) {
   // store randoms; official list starts at 1.
   cList[0] = 0 ;
   for ( i=0 ; i < NRAN; i++ ) 
-    { r   = ranList[i];  GENSMEAR.RANGauss_LIST[i] = r ;  }
+    { r   = ranList[i];  GENSMEAR.RANGauss_LIST[i] = r ; }
 
   //  printf(" %2d xxx genSmear randoms = %s \n", GENSMEAR.NSETRAN, cList );
 
@@ -372,7 +638,7 @@ void SETRANFlat_genSmear(int NRAN, double *ranList) {
 
   // --------------- BEGIN ------------
 
-  if ( NUSE_GENSMEAR == 0  ) { return ; }
+  if ( GENSMEAR.NUSE == 0  ) { return ; }
 
   if( NRAN != GENSMEAR.NGEN_RANFlat ) {
     sprintf(c1err,"passed NRAN=%d, but require NGEN_RANFlat=%d",
@@ -391,6 +657,8 @@ void SETRANFlat_genSmear(int NRAN, double *ranList) {
   //  printf(" %2d xxx genSmear randoms = %s \n", GENSMEAR.NSETRAN, cList );
 
 }  // end of SETRANFlat_genSmear
+xxxxxxxxxxx end mark xxxxxxxxxx */
+
 
 
 void SETSNPAR_genSmear(double shape, double color, double redshift) {
@@ -578,7 +846,7 @@ void init_genSmear_CCM89(double *LAMRANGE) {
 
   // --------- BEGIN ------------
 
-  GENSMEAR_CCM89.USE  = 1 ;  NUSE_GENSMEAR++ ;
+  GENSMEAR_CCM89.USE  = 1 ;  GENSMEAR.NUSE++ ;
 
   GENSMEAR_CCM89.SIGCOH = 0.09 ;
 
@@ -612,9 +880,7 @@ void init_genSmear_CCM89(double *LAMRANGE) {
 	 NLAM, LAMRANGE[0], LAMRANGE[1]);
 
   // allocate Gaussian random numbers for SIGCOH(1) and random RV(2).
-  GENSMEAR.NGEN_RANGauss = 2;
-  GENSMEAR.NGEN_RANFlat  = 0;
-
+  init_genSmear_randoms(2,0);
 
 } // end of init_genSmear_CCM89
 
@@ -710,7 +976,7 @@ void get_genSmear_CCM89(double Trest, int NLam, double *Lam,
 
 // ***********************************************
 void  init_genSmear_SALT2(char *versionSALT2, char *smearModel, 
-			  double SIGCOH) {
+			  double SIGCOH, double *GENRANGE_REDSHIFT) {
 
   // Created May 1 2014 by R.Kessler
   // General init for SALT2 intrinsic scatter.
@@ -720,6 +986,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   //   versionSALT2 = SALT2 version, including PATH
   //   smearModel = name of smear model (G10, G10Fig8, G10FUDGE ..)
   //   SIGCOH     = coherent luminosity scatter; if negative use default.
+  //   GENRANGE_REDSHIFT = zmin, zmax (to check for errors)
   //
   // Aug 26 2015: 
   //  Sort'of fix problem when MAXLAM(NODE) < MAXLAM(SED) and it fails
@@ -742,14 +1009,20 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   //   construct dispFile using versionSALT2 ... needed to work
   //   for BYOSED & SALT2 models.
   //
+  // Aug 28 2019:
+  //  + add GENRANGE_REDSHIFT argument, and abort on potential gen-errors.
+  //  + add logic for last NODE bin
 
-  char dispFile[MXPATHLEN] ;
+  double SED_LAMMIN =  SALT2_TABLE.LAMMIN;
+  double SED_LAMMAX =  SALT2_TABLE.LAMMAX;
+
+  double zmin = GENRANGE_REDSHIFT[0];
+  char dispFile[MXPATHLEN] ;  
   char fnam[] = "init_genSmear_SALT2" ;
 
   // ----------------- BEGIN --------------
 
-  GENSMEAR_SALT2.USE  = 1 ;  
-  NUSE_GENSMEAR++ ;
+  GENSMEAR_SALT2.USE  = 1 ;    GENSMEAR.NUSE++ ;
   GENSMEAR_SALT2.SIGCOH          = 0.0 ;
 
   // note that SIGCOH=-8 is a flag that user passed SIGMA_COH
@@ -784,13 +1057,12 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 
   // --------------------------------------------
   // read dispersion vs. lambda   
-  // xxx mark delete getFileName_SALT2colorDisp(dispFile) ; 
   sprintf(dispFile, "%s/salt2_color_dispersion.dat", versionSALT2);
   read_genSmear_SALT2disp(dispFile) ;
 
   // ----
 
-  int    NRANGEN, ilam, NLAM, NNODE ;
+  int    NRANGEN, ilam, NLAM, NNODE, LAST=0 ;
   double LAM, LAM2, MINLAM, MAXLAM, MAXLAM_LOOP, DLAM, SIG ;
   double F0, F1, FUDGE, L0;
 
@@ -803,7 +1075,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   F0 = GENSMEAR_SALT2.FUDGE_dSmear_dLAM[0];
   F1 = GENSMEAR_SALT2.FUDGE_dSmear_dLAM[1];
   L0 = GENSMEAR_SALT2.FUDGE_LAMSWITCH ;
-  for(ilam=1; ilam <= NLAM; ilam++ ) {
+  for(ilam=0; ilam < NLAM; ilam++ ) {
     LAM = GENSMEAR_SALT2.LAM[ilam] ; 
     if ( LAM < L0 ) 
       { FUDGE = 1.0 + (LAM-L0)*F0 ;  }
@@ -849,53 +1121,62 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // Count new random every 800 A and store SIGMAs
   GENSMEAR_SALT2.LAMSEP_NODE = 800.0 ; // lambda node separation (A)
   DLAM   = GENSMEAR_SALT2.LAMSEP_NODE ; // temp variable
-
   NNODE  = 0 ;
-  MINLAM = GENSMEAR_SALT2.LAM[1] ;
-  MAXLAM = GENSMEAR_SALT2.LAM[NLAM] ;
-  MAXLAM_LOOP = MAXLAM + DLAM ; // Aug 2015 ...
+  MINLAM = GENSMEAR_SALT2.MINLAM ;
+  MAXLAM = GENSMEAR_SALT2.MAXLAM ;
+  MAXLAM_LOOP = MAXLAM + DLAM ; 
 
-  for ( LAM = MINLAM ; LAM < MAXLAM; LAM+=DLAM ) {
-    NRANGEN++ ;
-    NNODE++ ;
+  for ( LAM = MINLAM ; LAM <= MAXLAM; LAM+=DLAM ) {
 
     LAM2 = LAM ;
     // protect bounds
     if ( LAM < MINLAM ) { LAM2 = MINLAM+0.001 ; }
-    //    if ( LAM > MAXLAM ) { LAM2 = MAXLAM-0.001 ; }
 
     SIG = interp_1DFUN( 1, LAM2
-			, GENSMEAR_SALT2.NLAM
-			,&GENSMEAR_SALT2.LAM[1] 
-			,&GENSMEAR_SALT2.SIGMA[1]
+			,GENSMEAR_SALT2.NLAM
+			,GENSMEAR_SALT2.LAM 
+			,GENSMEAR_SALT2.SIGMA
 			,fnam );    
 
     printf("\t Set LAM-node %2d at %7.1f A : SIGMA=%6.3f \n", 
-	   NNODE-1, LAM2, SIG );
+	   NNODE, LAM2, SIG );
 
-    GENSMEAR_SALT2.LAM_NODE[NNODE-1] = LAM2 ; // lambda at each node
-    GENSMEAR_SALT2.SIG_NODE[NNODE-1] = SIG  ; // sigma at each node.
+    GENSMEAR_SALT2.LAM_NODE[NNODE] = LAM2 ; // lambda at each node
+    GENSMEAR_SALT2.SIG_NODE[NNODE] = SIG  ; // sigma at each node.
 
     if ( NNODE > 80 ) {
       sprintf(c1err,"NNODE=%d is way too big. What the ?@!?", NNODE);
       sprintf(c2err,"GENSMEAR_SALT2.LAM[min,max] = %7.1f  %7.1f",
-	      GENSMEAR_SALT2.LAM[1], GENSMEAR_SALT2.LAM[NLAM] );
+	      GENSMEAR_SALT2.MINLAM, GENSMEAR_SALT2.MAXLAM );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
+
+    NNODE++ ;    NRANGEN++ ;
+
+    if ( MAXLAM-LAM < DLAM  && LAM < SED_LAMMAX && !LAST )
+      { LAST=1; DLAM = MAXLAM-LAM-.001; } // Sep 3 2019
 
   } 
   GENSMEAR_SALT2.NNODE = NNODE ;
 
+  // Aug 28 2019: make sure last node is covered by wavelength range
+  double LAMCHECK = LAM2 * (1.0+zmin);
+  if ( LAMCHECK < MAXLAM && LAMCHECK < SED_LAMMAX ) { // Sep 19 2019
+    double zmin_suggest = MAXLAM/LAM2 - 1.0 ;
+    sprintf(c1err,"genSmear model can't handle zmin=%.3f "
+	    "(see GENRANGE_REDSHIFT)", zmin);
+    sprintf(c2err,"Suggest increasing zmin to be > %.3f\n", zmin_suggest);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
+  }
+
   // -------------------
 
   // store number of randoms in global.
-  GENSMEAR.NGEN_RANGauss = NRANGEN;
-  GENSMEAR.NGEN_RANFlat  = 0 ;
-
+  init_genSmear_randoms(NRANGEN,0);
 
   return ;
 
-} // end of void  init_genSmear_SALT2
+} // end of init_genSmear_SALT2
 
 
 // ********************************************
@@ -1055,10 +1336,13 @@ void read_genSmear_SALT2disp(char *smearFile) {
   // Abort if input *smearFile  == ""
   //
   // Dec 29 2017: use open_TEXTgz() to allow for gzipped file.
+  // Aug 28 2019: fill GENSMEAR_SALT2.MINLAM[MAXLAM]
+  // Sep 03 2019: GENSMEAR_SALT2.LAM[SIGMA] arrays start at 0, not 1
 
   char fnam[] = "read_genSmear_SALT2disp" ;
   FILE *fp ;
-  int NLAM, GZIPFLAG ;
+  int NLAM, ilam, GZIPFLAG ;
+
   // -------------- BEGIN ----------------
 
   if ( strlen(smearFile) == 0 ) {
@@ -1082,10 +1366,12 @@ void read_genSmear_SALT2disp(char *smearFile) {
   
   rd2columnFile( GENSMEAR_SALT2.FILE,  MXLAM_GENSMEAR_SALT2 // input
 		 ,&NLAM                       // returned
-		 ,&GENSMEAR_SALT2.LAM[1]        // returned
-		 ,&GENSMEAR_SALT2.SIGMA[1]  );  // returned
-  GENSMEAR_SALT2.NLAM = NLAM;  
+		 ,GENSMEAR_SALT2.LAM        // returned
+		 ,GENSMEAR_SALT2.SIGMA  );  // returned
 
+  GENSMEAR_SALT2.NLAM   = NLAM;  
+  GENSMEAR_SALT2.MINLAM = GENSMEAR_SALT2.LAM[0];
+  GENSMEAR_SALT2.MAXLAM = GENSMEAR_SALT2.LAM[NLAM-1];
 
   if ( NLAM >= MXLAM_GENSMEAR_SALT2 ) {
     sprintf(c1err,"G10 NLAM=%d exceeds array bound of %d",
@@ -1095,7 +1381,7 @@ void read_genSmear_SALT2disp(char *smearFile) {
   }
   
   printf("    Read %d SALT2-Smear values from lambda=%6.0f to %6.0f \n",
-	 NLAM, GENSMEAR_SALT2.LAM[1], GENSMEAR_SALT2.LAM[NLAM] );
+	 NLAM, GENSMEAR_SALT2.MINLAM, GENSMEAR_SALT2.MAXLAM );
 
   fflush(stdout);
 
@@ -1133,8 +1419,8 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
   }
 
   NLAM   = GENSMEAR_SALT2.NLAM ;  
-  MINLAM = GENSMEAR_SALT2.LAM[1] ;
-  MAXLAM = GENSMEAR_SALT2.LAM[NLAM] ; 
+  MINLAM = GENSMEAR_SALT2.MINLAM ;
+  MAXLAM = GENSMEAR_SALT2.MAXLAM ;
   
 
   N      = GENSMEAR.NGEN_RANGauss;
@@ -1142,7 +1428,7 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
 
   if ( NBCOH == 1 ) {
     SMEAR0 = rCOH * ptrSIGCOH[0];
-    MAGSMEAR_COH = SMEAR0; // load global for SNTABLE (Jun 14 2016)
+    GENSMEAR.MAGSMEAR_COH = SMEAR0; // load global for SNTABLE (Jun 14 2016)
   }
 
 
@@ -1153,7 +1439,7 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
 				   ptrLAMCOH, ptrSIGCOH, fnam) ; 
     }
 
-    magSmear[ilam] = SMEAR0  ;
+    magSmear[ilam] = SMEAR0 ;
     if ( lam <= MINLAM ) { continue ; }
     if ( lam >= MAXLAM ) { continue ; }
 
@@ -1295,7 +1581,7 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
 
   // ------------ BEGIN -----------
 
-  GENSMEAR_C11.USE = 1;    NUSE_GENSMEAR++ ;
+  GENSMEAR_C11.USE = 1;    GENSMEAR.NUSE++ ;
   GENSMEAR_C11.OPT_farUV = OPT_farUV;
 
   printf("\t Initialize Chotard11/SNF model of %s correlations\n", 
@@ -1365,9 +1651,9 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
 
   //  debugexit(fnam); // DDDDDDD
 
-  GENSMEAR.NGEN_RANGauss = NBAND_C11 ;
-  GENSMEAR.NGEN_RANFlat  = 0 ;
+  init_genSmear_randoms(NBAND_C11,0);
 
+  return;
 
 } // end of   init_genSmear_Chotard11
 
@@ -1425,7 +1711,9 @@ void get_genSmear_Chotard11(double Trest, int NLam, double *Lam,
     magSmear[ilam] = tmp ;
   }
 
-  
+
+  return ;
+
 } // end of get_genSmear_Chotard11
 
 
@@ -1448,8 +1736,7 @@ void init_genSmear_VCR(char *VCR_version, int index_SNmodel) {
 
   // ---------- BEGIN -------------
 
-  GENSMEAR_VCR.USE = 1; 
-  NUSE_GENSMEAR++ ;
+  GENSMEAR_VCR.USE = 1;   GENSMEAR.NUSE++ ;
 
   printf("\t Init Velocity-Color-Relation model: %s\n", VCR_version );
   fflush(stdout);
@@ -1482,10 +1769,10 @@ void init_genSmear_VCR(char *VCR_version, int index_SNmodel) {
   
   // ----------------------------
   // store number of randoms to generate.
-  GENSMEAR.NGEN_RANGauss = 1 ;                     // sigmacoh_MB
-  GENSMEAR.NGEN_RANGauss += GENSMEAR_VCR.NCOLOR ;  // each color
 
-  GENSMEAR.NGEN_RANFlat  = 1 ;   // to pick v_Si
+  int NRANGauss = GENSMEAR_VCR.NCOLOR + 1; // each color + sigma_Coh
+  int NRANFlat  = 1 ;  // pick v_Si
+  init_genSmear_randoms(NRANGauss,NRANFlat);
 
 } // end of init_genSmear_VCR
 
@@ -2115,15 +2402,14 @@ void get_genSmear_VCR(double Trest, int NLam, double *Lam,
 // ***************************************
 void init_genSmear_COH(void) {
 
-  GENSMEAR_COH.USE = 1;    NUSE_GENSMEAR++ ;
+  GENSMEAR_COH.USE = 1;    GENSMEAR.NUSE++ ;
   GENSMEAR_COH.MAGSIGMA = 0.13 ; // hard-wired
 
   printf("\t Coherent MAGSMEAR SIGMA = %.3f \n", 
 	 GENSMEAR_COH.MAGSIGMA ); fflush(stdout);
 
   // set number of Gaussian randoms neede per SN
-  GENSMEAR.NGEN_RANGauss = 1 ;
-  GENSMEAR.NGEN_RANFlat  = 0 ;
+  init_genSmear_randoms(1,0);
 
 }
 
@@ -2135,9 +2421,10 @@ void get_genSmear_COH(double Trest, int NLam, double *Lam,
   double SIG ;
 
   SIG      = GENSMEAR_COH.MAGSIGMA ;
-  MAGSMEAR_COH = SIG*GENSMEAR.RANGauss_LIST[0] ;
+  GENSMEAR.MAGSMEAR_COH = SIG*GENSMEAR.RANGauss_LIST[0] ;
 
-  for ( ilam=0; ilam < NLam; ilam++ )  { magSmear[ilam] = MAGSMEAR_COH ; }
+  for ( ilam=0; ilam < NLam; ilam++ )  
+    { magSmear[ilam] = GENSMEAR.MAGSMEAR_COH ; }
 
 } // end of get_genSmear_COH
 
@@ -2160,7 +2447,7 @@ void init_genSmear_biModalUV(void) {
   //  char fnam[] = "init_genSmear_biModalUV" ;
   // ------------ BEGIN ------------
 
-  GENSMEAR_BIMODAL_UV.USE = 1;  NUSE_GENSMEAR++ ;
+  GENSMEAR_BIMODAL_UV.USE = 1;  GENSMEAR.NUSE++ ;
 
   GENSMEAR_BIMODAL_UV.LAMU_MIN   = LAMU_MIN ; // U-shift falls to
   GENSMEAR_BIMODAL_UV.LAMU_MAX   = LAMU_MAX ; // zero at MIN,MAX  
@@ -2168,8 +2455,10 @@ void init_genSmear_biModalUV(void) {
   GENSMEAR_BIMODAL_UV.MAGU_SIGMA = 0.04 ; // relative sigma on MAGU_SPLIT
   GENSMEAR_BIMODAL_UV.SIGMACOH   = 0.08 ; // coherent part
 
-  GENSMEAR.NGEN_RANGauss = 2; // sigmaCOH and sigmaUV
-  GENSMEAR.NGEN_RANFlat  = 1; // pick + or - mag shift
+  int NGEN_RANGauss = 2; // sigmaCOH and sigmaUV
+  int NGEN_RANFlat  = 1; // pick + or - mag shift
+
+  init_genSmear_randoms(NGEN_RANGauss,NGEN_RANFlat);
 
   // July 29 2016: check for GENMAG_SMEARPAR_OVERRIDE
   int ipar ;
@@ -2293,11 +2582,10 @@ void get_genSmear_biModalUV(double Trest, int NLam, double *Lam,
 // ***************************************
 void init_genSmear_private(void) {
 
-  GENSMEAR_PRIVATE.USE = 1;  NUSE_GENSMEAR++ ;
+  GENSMEAR_PRIVATE.USE = 1;  GENSMEAR.NUSE++ ;
 
   // set number of Gaussian randoms neede per SN
-  GENSMEAR.NGEN_RANGauss = 1 ;
-  GENSMEAR.NGEN_RANFlat  = 1 ;
+  init_genSmear_randoms(1,1);
 }
 
 void get_genSmear_private(double Trest, int NLam, double *Lam, 
@@ -2309,6 +2597,443 @@ void get_genSmear_private(double Trest, int NLam, double *Lam,
   for ( ilam=0; ilam < NLam; ilam++ )  { magSmear[ilam] = 0.0 ; }
 } // end of get_genSmear_private
 
+
+// ***************************************
+void init_genSmear_OIR(void) {
+
+  // Created Aug 30 2019 by R.Kessler and D.Jones
+  // Optical+IR smear model based on CfA and CSP.
+  
+  char fnam[] = "init_genSmear_OIR";
+
+  // --------------- BEGIN ---------------
+
+  GENSMEAR_OIR.USE = 1;  GENSMEAR.NUSE++;
+  printf(" xxx hello from %s \n", fnam);
+  return;
+
+} // end init_genSmear_OIR
+
+
+
+// =====================================================
+void get_genSmear_OIR(double Trest, int NLam, double *Lam, 
+		      double *magSmear) {
+
+  // Created Aug 30 2019 by R.Kessler and D.Jones
+  //
+  char fnam[] = "get_genSmear_OIR";
+
+  // ---------------- BEGIN -----------------
+
+  // illustrate error utility:
+  sprintf(c1err,"genSmear_OIR model not ready.");
+  sprintf(c2err,"Do some coding !");
+  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+
+  return;
+
+} // end get_genSmear_OIR
+
+
+// ***************************************
+void init_genSmear_COVSED(char *version, int OPTMASK) {
+
+  // Created Oct 18 2019 by R.Kessler.
+  // Covariance model in wavelength x phase bins.
+  // Initial model is from Sugar/Pierre-Francoise Leget.
+  
+  gsl_matrix_view chk;  
+  double COV_DIAG_FUDGE = 1.0E-9 ; // needed to be invertible
+  char *covFileName = (char*)malloc(MXPATHLEN*sizeof(char) ) ;
+  char *ptrPATH = GENSMEAR_COVSED.MODEL_PATH;
+  char *ptrVERS = GENSMEAR_COVSED.VERSION;
+  char *ptrFILE = GENSMEAR_COVSED.COVSED_FILE ;
+  char fnam[] = "init_genSmear_COVSED" ;
+
+  // --------------- BEGIN ---------------
+
+  GENSMEAR_COVSED.USE  = 1;  GENSMEAR.NUSE++;
+  GENSMEAR_COVSED.OPTMASK = OPTMASK;
+
+  printf("\t %s \n", fnam);
+
+  // separate input version into path and version
+  ENVreplace(version, fnam, 1);
+  extract_MODELNAME(version,
+		    ptrPATH, ptrVERS);  // <== returned
+
+  if ( strlen(ptrPATH) == 0 ) {
+    // default path
+    sprintf(ptrPATH,"%s/models/COVSED/%s", 
+	    getenv("SNDATA_ROOT"), ptrVERS);
+  }
+
+  printf("   model path: %s\n",     ptrPATH);
+  printf("   model version: %s \n", ptrVERS);
+
+  parse_COVSED_INFO_FILE();
+
+  // read contents of FITS file (cov matrix, wave bins ...)
+  readFits_genSmear_COVSED(ptrFILE);
+
+  // - - - - - - - - - - - 
+  // prepare Cholesky decomp for correlated random in each WAVE bin
+
+  int NBIN = GENSMEAR_COVSED.NBIN_WAVExEPOCH ;
+  int i,j, jj;
+
+  // fudge diagonal COV to ensure positive-definite
+  for (i =0; i < NBIN ; i++){
+    jj = NBIN*i + i;
+    GENSMEAR_COVSED.COVMAT1D[jj] += COV_DIAG_FUDGE;
+  }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - -
+  // Check option to monitor COV at two wavelengths
+  // Make this check before any gsl calls modify COVMAT1D
+
+  double *LAMPAIR   = GENSMEAR_COVSED.LAMPAIR_DEBUG;
+  double  COVMAT[2][2] ; 
+  double *WAVE_LIST = GENSMEAR_COVSED.WAVE;
+  int    NBIN_WAVE  = GENSMEAR_COVSED.NBIN_WAVE;
+  int i0, i1 ;
+  if ( LAMPAIR[0] > 0.0 ) {
+    i0 = quickBinSearch(LAMPAIR[0], NBIN_WAVE, WAVE_LIST, fnam);
+    i1 = quickBinSearch(LAMPAIR[1], NBIN_WAVE, WAVE_LIST, fnam);
+    LAMPAIR[0] = WAVE_LIST[i0] ; // snap to nearest bin
+    LAMPAIR[1] = WAVE_LIST[i1] ; // snap to nearest bin
+    COVMAT[0][0] = GENSMEAR_COVSED.COVMAT1D[NBIN*i0+i0] ;
+    COVMAT[1][1] = GENSMEAR_COVSED.COVMAT1D[NBIN*i1+i1] ;
+    COVMAT[0][1] = GENSMEAR_COVSED.COVMAT1D[NBIN*i0+i1] ;
+    COVMAT[1][0] = GENSMEAR_COVSED.COVMAT1D[NBIN*i1+i0] ;
+    init_genSmear_COVLAM_debug(LAMPAIR,COVMAT);
+  }
+
+  
+  printf("\t Prepare Cholesky decomp. \n"); fflush(stdout);
+  chk  = gsl_matrix_view_array ( GENSMEAR_COVSED.COVMAT1D, NBIN, NBIN);
+  gsl_linalg_cholesky_decomp(&chk.matrix) ;
+
+  // load cholesly matrix
+  GENSMEAR_COVSED.Cholesky = (double**) malloc(NBIN*sizeof(double*));
+  for (i =0; i < NBIN ; i++){    
+    GENSMEAR_COVSED.Cholesky[i] = (double*) malloc(NBIN*sizeof(double));
+    for (j = 0; j < NBIN ; j++) { 
+      if ( j >= i ) 
+	{ GENSMEAR_COVSED.Cholesky[i][j] = gsl_matrix_get(&chk.matrix,i,j); }
+      else
+	{ GENSMEAR_COVSED.Cholesky[i][j] = 0.0 ; }
+    }
+  }
+
+  // allocate array to use in gen_magSmear_COV
+  GENSMEAR_COVSED.SCATTER_VALUES = (double*) malloc(NBIN*sizeof(double) );
+
+  init_genSmear_randoms(NBIN,0);
+
+  // free original COVMAT from memory
+  free(GENSMEAR_COVSED.COVMAT1D);
+
+  //  gsl_matrix_free(&chk.matrix);
+  //  debugexit(fnam);
+  
+
+  return;
+
+} // end init_genSmear_COVSED
+
+
+// =====================================================
+void parse_COVSED_INFO_FILE(void) {
+
+  char *ptrPATH    = GENSMEAR_COVSED.MODEL_PATH;
+  char info_file[] = "COVSED.INFO";
+  char *INFO_FILE  = (char*) malloc ( MXPATHLEN * sizeof(char) );
+  char c_get[80], covsed_file[100];
+  FILE *fp;
+  char fnam[] = "parse_COVSED_INFO_FILE";
+
+  // ----------- BEGIN ---------
+  printf("   Read %s\n", info_file);
+  sprintf(INFO_FILE, "%s/%s", ptrPATH, info_file);
+
+
+  GENSMEAR_COVSED.COVSED_FILE[0]   = 0;
+  GENSMEAR_COVSED.REBIN_LAM        = 1;
+  GENSMEAR_COVSED.LAMPAIR_DEBUG[0] = -999.0;
+  GENSMEAR_COVSED.LAMPAIR_DEBUG[1] = -999.0;
+
+  if ( (fp = fopen(INFO_FILE, "rt")) == NULL ) { 
+      sprintf(c1err,"Cannot open required info File " );
+      sprintf(c2err,"%s", INFO_FILE);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;    
+  }
+  
+
+  while ( (fscanf(fp, "%s", c_get)) != EOF ) {
+
+    if ( strcmp(c_get,"COVSED_FILE:") == 0 )  { 
+      readchar(fp, covsed_file);
+      sprintf(GENSMEAR_COVSED.COVSED_FILE, "%s/%s", ptrPATH, covsed_file);
+      printf("\t COVSED_FILE: %s \n", covsed_file);
+    }
+            
+    if ( strcmp(c_get,"REBIN_LAM:") == 0 ) { 
+      readint(fp, 1, &GENSMEAR_COVSED.REBIN_LAM); 
+      printf("\t REBIN_LAM: %d \n", GENSMEAR_COVSED.REBIN_LAM);
+    }
+
+    if ( strcmp(c_get,"LAMPAIR_DEBUG:") == 0 ) { 
+      double *ptrPair = GENSMEAR_COVSED.LAMPAIR_DEBUG ;
+      readdouble(fp, 2, ptrPair);
+      printf("\t LAMPAIR_DEBUG: %.1f and %.1f \n", 
+	     ptrPair[0], ptrPair[1] );
+    }
+
+  }
+  
+  fflush(stdout);
+  fclose(fp);
+  return ;
+
+} // end parse_COVSED_INFO_FILE
+
+
+// =====================================================
+void readFits_genSmear_COVSED(char *fileName) {
+
+  // Created Oct 2019
+  // for genSmear-COV model, read COV matrix from FITS fileName,
+  // and store in structure.
+
+  fitsfile *fp;
+  long NCOLUMN; 
+  int  icol, hdutype, lenstr, nmove=1, istat=0, NBIN ;
+  int  NBIN_WAVE, NBIN_EPOCH, NBIN_COVMAT ;
+  int  ICOL_WAVE, ICOL_EPOCH, ICOL_COVMAT;
+  char keyname[40], comment[200], TTYPE[60], TFORM[60], tform[60] ;
+  char fnam[] = "readFits_genSmear_COVSED" ;
+
+  // -------------- BEGIN -------------
+
+  printf("   %s: \n", fnam);
+
+  // open file
+  fits_open_file(&fp, fileName, READONLY, &istat );
+  sprintf(c1err,"Open %s", fileName);
+  snfitsio_errorCheck(c1err, istat);
+
+  // move to table
+  fits_movrel_hdu( fp, nmove, &hdutype, &istat );
+  sprintf(c1err,"move to table" ) ;
+  snfitsio_errorCheck(c1err, istat);
+
+  sprintf(keyname, "TFIELDS" );
+  fits_read_key(fp, TLONG, keyname,  &NCOLUMN, comment, &istat );
+  sprintf(c1err, "read %s key", keyname);
+  snfitsio_errorCheck(c1err, istat); 
+  //  printf("\t Found %d columns \n", NCOLUMN); fflush(stdout);
+
+  NBIN_WAVE = NBIN_EPOCH = NBIN_COVMAT = 0;
+  ICOL_WAVE = ICOL_EPOCH = ICOL_COVMAT = -9;
+
+  for ( icol = 1; icol <= NCOLUMN; icol++ ) {
+
+    istat = 0 ;
+    sprintf(keyname,"TTYPE%d", icol );
+    fits_read_key(fp, TSTRING, keyname, TTYPE, comment, &istat );
+    sprintf(c1err, "read %s key", keyname);
+    snfitsio_errorCheck(c1err, istat);
+
+    istat = 0 ;
+    sprintf(keyname,"TFORM%d", icol );
+    fits_read_key(fp, TSTRING, keyname, TFORM, comment, &istat );
+    sprintf(c1err, "read %s key", keyname);
+    snfitsio_errorCheck(c1err, istat);
+
+    sprintf(tform, "%s", TFORM);
+    lenstr = strlen(tform); tform[lenstr-1] = 0 ;
+    sscanf(tform, "%d", &NBIN );
+
+    if ( strstr(TTYPE,"WAVELEN") != NULL ) 
+      { NBIN_WAVE = NBIN ;  ICOL_WAVE = icol;  }
+    else if ( strstr(TTYPE,"EPOCH") != NULL ) 
+      { NBIN_EPOCH = NBIN ; ICOL_EPOCH = icol;   }
+    else if ( strstr(TTYPE,"MATRIX") != NULL )
+      { NBIN_COVMAT = NBIN; ICOL_COVMAT = icol; }
+
+    printf("\t Column %d:   TTYPE=%s   TFORM=%s  NBIN=%d\n",
+	   icol, TTYPE, TFORM, NBIN ); fflush(stdout);
+  }
+
+
+  // - - - - - - - - - - - - - 
+  // sanity checks
+  sprintf(c1err,"Problem reading FITS file");
+  if ( NBIN_WAVE <= 0 ) {
+    sprintf(c2err,"NBIN_WAVE = %d", NBIN_WAVE);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+  if ( NBIN_COVMAT <= 0 ) {
+    sprintf(c2err,"NBIN_COVMAT = %d", NBIN_COVMAT);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  if ( NBIN_EPOCH <= 0 ) {
+    NBIN_EPOCH = 1 ;  // maybe change later
+  }
+
+  int NBIN_TOT = NBIN_WAVE * NBIN_EPOCH;
+  if ( NBIN_TOT*NBIN_TOT != NBIN_COVMAT ) {
+    sprintf(c1err,"NBIN_TOT = %d(WAVE) x %d(EPOCH) = %d",
+	    NBIN_WAVE, NBIN_EPOCH, NBIN_TOT);
+    sprintf(c2err,"but expected NBIN_TOT = sqrt(NBIN_COVMAT) = %d",
+	    (int)sqrt((double)NBIN_COVMAT) );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  // malloc memory to store contents
+  int MEMD1 = sizeof(double);
+
+  GENSMEAR_COVSED.NBIN_WAVE   = NBIN_WAVE;
+  GENSMEAR_COVSED.NBIN_EPOCH  = NBIN_EPOCH ;
+  GENSMEAR_COVSED.NBIN_COVMAT = NBIN_COVMAT ;
+  GENSMEAR_COVSED.NBIN_WAVExEPOCH = NBIN_WAVE * NBIN_EPOCH;
+
+  GENSMEAR_COVSED.WAVE     = (double*) malloc ( MEMD1 * NBIN_WAVE    );
+  GENSMEAR_COVSED.EPOCH    = (double*) malloc ( MEMD1 * NBIN_EPOCH   );
+  GENSMEAR_COVSED.COVMAT1D = (double*) malloc ( MEMD1 * NBIN_COVMAT  );
+
+
+  long FIRSTROW=1, FIRSTELEM=1, NREAD;
+  int  anynul;
+
+  // read wave column
+  NREAD = NBIN_WAVE;  istat=0;
+  fits_read_col_dbl(fp, ICOL_WAVE, FIRSTROW, FIRSTELEM, NREAD, NULL_1D,
+		    GENSMEAR_COVSED.WAVE, &anynul, &istat);
+  snfitsio_errorCheck("read WAVE bins", istat);
+  
+  // read covmat into 1D array
+  NREAD = NBIN_COVMAT;  istat=0;
+  fits_read_col_dbl(fp, ICOL_COVMAT, FIRSTROW, FIRSTELEM, NREAD, NULL_1D,
+		    GENSMEAR_COVSED.COVMAT1D, &anynul, &istat);
+  snfitsio_errorCheck("read COVMAT1D", istat);
+
+
+  // - - - - - - - - - - - - - 
+  // print summary
+
+  printf("\t Read %d Wave bins: %.1f  to %.1f A \n",
+	 NBIN_WAVE, GENSMEAR_COVSED.WAVE[0], GENSMEAR_COVSED.WAVE[NBIN_WAVE-1]);
+
+  int iwave, jcov;
+  double WAVE, COV, WAVE_LAST = -9.0 ;
+  printf("\t Read %d COVMAT values: \n", NBIN_COVMAT); fflush(stdout);
+  for(iwave=0; iwave < NBIN_WAVE; iwave++ ) {
+    jcov = iwave*NBIN_WAVE + iwave;
+    WAVE = GENSMEAR_COVSED.WAVE[iwave];
+    COV  = GENSMEAR_COVSED.COVMAT1D[jcov];
+    if ( (WAVE - WAVE_LAST) > 500.0 ) {
+      printf("\t\t WAVE[%4d] = %6.0f : sqrt[ DIAG ] = %6.3f \n", 
+	     iwave, WAVE, sqrt(COV) );      
+      WAVE_LAST = WAVE ;
+    }
+  }
+
+  fflush(stdout);
+  fits_close_file(fp, &istat);
+
+  return ;
+
+} // end readFits_genSmear_COVSED
+
+
+// =====================================================
+void get_genSmear_COVSED(double Trest, int NWAVE, double *WAVE, 
+			 double *magSmear) {
+
+  // Created Oct 18 2019 by R.Kessler.
+  //
+
+  int    NBIN_WAVE      = GENSMEAR_COVSED.NBIN_WAVE;
+  double WAVE_MIN       = GENSMEAR_COVSED.WAVE[0];
+  double WAVE_MAX       = GENSMEAR_COVSED.WAVE[NBIN_WAVE-1];
+  double *LAMPAIR_DEBUG = GENSMEAR_COVSED.LAMPAIR_DEBUG ;
+
+  int    ISPEAK     = (fabs(Trest)<0.001);
+  int    DEBUG      = ISPEAK && (LAMPAIR_DEBUG[0]>0.0) ;
+  int    NDEBUG_STORE = 0 ;
+  int  i,j, iwave;
+  double tmp, ran, tmpWave, magSmear_debug[2];
+  char fnam[] = "get_genSmear_COVSED";
+
+  // ---------------- BEGIN -----------------
+
+  //Matrix Multiply
+  //scatter_values = ch^T normalvector
+  for (i = 0 ; i < NBIN_WAVE ; i++) {    
+    GENSMEAR_COVSED.SCATTER_VALUES[i] = 0.0 ;  
+    for (j = 0 ; j < NBIN_WAVE ; j++){
+      //transpose cholesky matrix
+
+      /*
+      tmp = GENSMEAR_COVSED.Cholesky[j][i] ;  
+      ran = GENSMEAR.RANGauss_LIST[j] ;
+      GENSMEAR_COVSED.SCATTER_VALUES[i] += (tmp * ran);
+      */
+      GENSMEAR_COVSED.SCATTER_VALUES[i] += 
+	(GENSMEAR_COVSED.Cholesky[j][i] * GENSMEAR.RANGauss_LIST[j]) ;
+    }
+  }
+
+
+  // -------------
+  for ( iwave=0; iwave < NWAVE; iwave++ ) {
+
+    tmpWave = WAVE[iwave];  // exact lambda
+    
+    // interpolate SCATTER values to current tmpWave
+
+    if( tmpWave <= WAVE_MIN ) {
+      tmp   = GENSMEAR_COVSED.SCATTER_VALUES[0] ; // extend blueward 
+    }
+    else if ( tmpWave >= WAVE_MAX ) {      
+      tmp   = GENSMEAR_COVSED.SCATTER_VALUES[NBIN_WAVE-1];  // extend redward
+    }
+    else {
+      // interpolate
+      tmp = interp_1DFUN(1,tmpWave, NBIN_WAVE, GENSMEAR_COVSED.WAVE, 
+			 GENSMEAR_COVSED.SCATTER_VALUES, fnam);
+    }
+
+    // -------
+
+    if ( DEBUG ) {
+      double wdif0 = fabs(tmpWave-LAMPAIR_DEBUG[0]);
+      double wdif1 = fabs(tmpWave-LAMPAIR_DEBUG[1]);
+      if ( wdif0 < 5.0 && NDEBUG_STORE==0 )
+	{ magSmear_debug[0] = tmp;  NDEBUG_STORE++ ; }
+      if ( wdif1 < 5.0 && NDEBUG_STORE==1 )
+	{ magSmear_debug[1] = tmp;  NDEBUG_STORE++ ; }
+    }
+    
+    magSmear[iwave] = tmp ;
+  }
+
+
+  /*
+  printf(" xxx %s: DEBUG=%d Trest=%.3f  LAMPAIR=%.1f\n", 
+	 fnam, DEBUG, Trest, LAMPAIR_DEBUG[0] ); fflush(stdout);
+  */
+ 
+  if ( NDEBUG_STORE == 2 ) 
+    { update_genSmear_COVLAM_debug(magSmear_debug); }
+
+  return;
+
+} // end get_genSmear_COVSED
 
 
 // *********************************************************

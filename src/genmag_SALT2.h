@@ -21,7 +21,7 @@
 #define SALT2_INTERP_SPLINE 2
 
 int NCALL_DBUG_SALT2 ; 
-
+int RELAX_IDIOT_CHECK_SALT2;
 
 /**********************************************
   Init Information
@@ -43,8 +43,8 @@ double RVMW_SALT2 ;
 
 struct SALT2_ERRMAP {
   int     NDAY, NLAM;
-  double  MINLAM, MAXLAM, LAMSTEP;
-  double  MINDAY, MAXDAY, DAYSTEP;
+  double  LAMMIN, LAMMAX, LAMSTEP;
+  double  DAYMIN, DAYMAX, DAYSTEP;
 
   double  LAM[MXBIN_LAMSED_SEDMODEL];    // lambda array
   double  DAY[MXBIN_DAYSED_SEDMODEL];    // epoch array
@@ -58,8 +58,8 @@ struct SALT2_ERRMAP {
 
 
 struct INPUT_SALT2_INFO {
-  double MINLAMFILT ;
-  double MAXLAMFILT ;
+  double RESTLAMMIN_FILTERCEN ;    // RESTLAMBDA_RANGE key
+  double RESTLAMMAX_FILTERCEN ;
   int    COLORLAW_VERSION;
   int    NCOLORLAW_PARAMS ;
   double COLORLAW_PARAMS[MXCOLORPAR] ;
@@ -129,6 +129,7 @@ int    ifiltB_SALT2;
 // define filenames that contain model-error information
 char SALT2_ERRMAP_FILES[NERRMAP][60] ;
 char SALT2_ERRMAP_COMMENT[NERRMAP][40] ;
+int  NERRMAP_BAD_SALT2;
 
 // 4/30/2011: define SALT2 tables on same lambda grid as SED templates
 // These table-lookups are used to speed the integrations.
@@ -198,13 +199,15 @@ double SALT2mBcalc(double x0);
 double SALT2magerr(double Trest, double lamRest,  double z,
 		   double x1, double Finteg_ratio, int  LDMP );
 
-double SALT2colorDisp(double lam);
+double SALT2colorDisp(double lam, char *callFun);
 
 void getFileName_SALT2colorDisp(char *fileName) ;
 void read_SALT2_INFO_FILE(void);
 void read_SALT2errmaps(double Trange[2], double Lrange[2] );
 void read_SALT2colorDisp(void);
 
+void check_lamRange_SALT2errmap(int imap);
+void check_dayRange_SALT2errmap(int imap);
 
 void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP );
 

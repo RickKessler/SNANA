@@ -85,7 +85,9 @@ xxxxxxxxxxxx end mark xxxxxxxxxxxxxx */
 //  disk pointers defined in init_SNDATA
 
 #define MXPATHLEN 300 // max length of path of full file-name
-#define MXVERLEN  72  // max length of VERSION name
+#define MXLEN_VERSION         72  // max length of VERSION name
+#define MXLEN_VERSION_PREFIX  52  // max length of prefix in data or sim version
+
 char PATH_SNDATA_ROOT[MXPATHLEN];        // top dir for SN data
 char PATH_SNDATA_PHOTOMETRY[MXPATHLEN];
 char PATH_SNDATA_LCMERGE[MXPATHLEN];
@@ -113,9 +115,9 @@ char FLUXUNIT[8] ; // default flux unit is raw ADU
 
 struct VERSION
 {
-  int   N_SNLC;                   // Number of SN in SNDATA struct
-  char  NAME[MXVERLEN];           // name of version
-  char  PREFIX[MXVERLEN];         // filename prefix
+  int   N_SNLC;                            // Number of SN in SNDATA struct
+  char  NAME[2*MXLEN_VERSION];             // name of version
+  char  PREFIX[2*MXLEN_VERSION_PREFIX];    // filename prefix
 
   int  N_SNFILE;           // number of SN files ( >= N_SNLC)
   char SNLIST_FILE[MXPATHLEN];   // full name of SN list file

@@ -139,10 +139,10 @@
 #  split_and_fit.pl <inputFile> NOPROMPT  # do NOT check multiple jobs
 #  split_and_fit.pl <inputFile> NOLAUNCH  # prepare, but do NOT launch 
 #  split_and_fit.pl <inputFile> NOSUBMIT  # same
+#  split_and_fit.pl <inputFile> FAST10    # SIM_PRESCALE=10
+#  split_and_fit.pl <inputFile> FAST100   # SIM_PRESCALE=100
 #  split_and_fit.pl <inputFile> 1         # 1 second delay between job-submits
 #  split_and_fit.pl <inputFile> TRAILMARK # leave note in sim-README (not for data)
-#  split_and_fit.pl <inputFile> kicp   # force kicp queue
-#  split_and_fit.pl <inputFile> KICP   # idem
 #
 #  split_and_fit.pl CLEAN            # cleanup all sub-directories
 #  split_and_fit.pl CLEAN NOPROMPT   # idem, but no user-authorization
@@ -340,6 +340,8 @@
 #     FAILURE in done-stamp.
 #
 # Jun 4 2019: "TOTAL_WAIT_ABORT -> 48 hr (was 24 hr)
+# Sep 13 2019: add batchName arg to make_batchFile()
+# Oct 17 2019: new FAST10 & FAST100 option to pre-scale sims by 10,100
 #
 # =======================
 
@@ -442,7 +444,6 @@ my $SNDATA_ROOT       = $ENV{'SNDATA_ROOT'};
 my $SNANA_DIR         = $ENV{'SNANA_DIR'};
 my $DEFAULT_DATA_PATH = "$SNDATA_ROOT/lcmerge" ;
 my $PATH_SNDATA_SIMDIR_DEFAULT = "$SNDATA_ROOT/SIM" ; # default simDir
-#my $PATH_SNDATA_SIMDIR         = "" ;
 my $SIMDIR_LISTFILE   = "$PATH_SNDATA_SIMDIR_DEFAULT/PATH_SNDATA_SIM.LIST";
 my (@PATH_SIMDATA_LIST, @SIMDIR_LIST_ALL);
 
@@ -539,6 +540,7 @@ my ($KILLJOBS_FLAG, $CLEANMASK, $PSNID_SUMLOG );
 my ($MERGE_FLAG, $MERGE_LOGDIR, $MERGELOG, $MERGELOG2, $noMERGE_FLAG);
 my ($HRECOVER_FLAG, $HRECOVER_PREFIX, $HRECOVER_FITOPT);
 my ($PROMPT_FLAG, $LAUNCH_FLAG, $TRAILMARK_FLAG, $DONE_STAMP_FLAG );
+my ($SIM_PRESCALE);
 my ($NVERSION, $NVERSION_SIM, $NVERSION_DATA,  @DATADIR_LIST);
 my (@DONELIST_LCFIT, $NDONE_LCFIT, $NDONE_LINK, @NSN_MERGED, @CMD_LCFIT_ARRAY ) ;
 my ($NGRACE, $NGRACE_TOTAL, $MSGWARN, $NABORT, $NABORT_TOTAL );
@@ -577,7 +579,7 @@ my ($NFITERR_TOT, $NFITERR_NaN, $DO_FITOPT000 );
 my ($VERSION_FITRES_COMBINE, $FITRES_COMBINE_FILE, $COMBINE_ALL_FLAG);
 my (@COMBINE_SUBSET_FITOPT, $NJOB_PER_BATCHFILE ); 
 my ($APPEND_FITRES_LIST, $APPEND_TABLE_LIST, $VERSION_AFTERBURNER );
-my ($OUTDIR, $nmlFile_ORIG, $nmlFile, @CONTENTS_NMLFILE );
+my ($OUTDIR, $nmlFile_ORIG, $nmlFile, $nmlFile_noPath, @CONTENTS_NMLFILE );
 
 # my (@MERGED_TEXTFILE, @MERGED_textFile); # ascii fitres file
 my (@MERGED_OUTFILE, @MERGED_outFile, @MERGED_DONEFILE );  # hbook or root
@@ -722,6 +724,9 @@ print "\n See output in $OUTDIR \n";
 
 &merge_submit();
 
+if ( $SIM_PRESCALE > 1 ) 
+{ print "\n\n\t REMEMEBER: SIM_PRESCALE = $SIM_PRESCALE \n"; }
+
 exit(0);
 
 # ===================================
@@ -748,6 +753,8 @@ sub init_stuff {
     $PROMPT_FLAG   = 1;  # user prompt; e.g., for multiple jobs
     $LAUNCH_FLAG   = 1;  # flag to actually launch jobs
     $TRAILMARK_FLAG = 0; # default is no TRAILMARK in sim-readme
+
+    $SIM_PRESCALE  = 1;
 
     $KILLJOBS_FLAG = 0 ;
     $CLEANMASK     = 0 ;
@@ -865,6 +872,8 @@ sub parse_arg() {
         if ( $arg eq "NOLAUNCH"  )  { $LAUNCH_FLAG    = 0 ; }
         if ( $arg eq "NOSUBMIT"  )  { $LAUNCH_FLAG    = 0 ; }
         if ( $arg eq "TRAILMARK" )  { $TRAILMARK_FLAG = 1 ; }
+        if ( $arg eq "FAST10"    )  { $SIM_PRESCALE   = 10  ; }
+        if ( $arg eq "FAST100"   )  { $SIM_PRESCALE   = 100 ; }
 
 	if ( $arg eq "-DATE_SUBMIT" ) { $CDATE_SUBMIT = $argNext ; }
 
@@ -885,7 +894,7 @@ sub parse_nmlFile {
     # Apr 15, 2013: check FITOPT: keys for files to copy.
     # Dec 20, 2017: call getVersionList($ver) for VERSION+FITOPT key
     #
-    my ($key, @tmp,  @words, $vtmp, $fitopt, $tmp_fitopt );
+    my ($key, @tmp,  @words, $vtmp, $fitopt, $tmp_fitopt, $jslash );
     my ($NTMP, $FOUND_VERSION_KEY, @tmpVerList, @tmpPathList ) ;
     my ($tmpLine, $line, @TMPVER, $ver, @TMPNODES, $inFile, $idx );
 
@@ -897,6 +906,11 @@ sub parse_nmlFile {
     }
 
     $nmlFile = $nmlFile_ORIG ;
+
+    # get name of NML file without path; used for batchName
+    #.xyz
+    $jslash          = rindex($nmlFile_ORIG,"/");  # location of last slash
+    $nmlFile_noPath  = substr($nmlFile_ORIG,$jslash+1, 99);
 
     @CONTENTS_NMLFILE = ();
     sntools::loadArray_fromFile($nmlFile_ORIG, \@CONTENTS_NMLFILE);
@@ -1411,7 +1425,8 @@ sub getVersionList(@) {
     # if versions are found in user-defined PATH_SNDATA_SIM dir.
     #
     # Mar 8 2019: abort if version is found in 2 places.
-    #
+    # Sep 17 2019: for non-existing $tmpDir, give WARNING.
+
     my ($version, $verList, $pathList) = @_ ;
 
     my (@dirList,  @tmpList, $tmpDir );
@@ -1446,13 +1461,19 @@ sub getVersionList(@) {
 	$tmpDir   =~ s/\s+$// ;   # trim trailing whitespace
 	$dirList[$i]  = $tmpDir ;
 
-	@tmpList = qx(cd $tmpDir; ls -d $version 2>/dev/null ) ;
-	if ( scalar(@tmpList) > 0 ) { 
-	    @$verList = @tmpList ;  
-	    if ( $i < $nsimDir ) { $simDir = "$tmpDir" ; }
-	    $NFOUND++ ;
-	    print "  Path($version):  $tmpDir \n";
+	if ( -d $tmpDir ) {
+	    @tmpList = qx(cd $tmpDir; ls -d $version 2>/dev/null ) ;
+	    if ( scalar(@tmpList) > 0 ) { 
+		@$verList = @tmpList ;  
+		if ( $i < $nsimDir ) { $simDir = "$tmpDir" ; }
+		$NFOUND++ ;
+		print "  Path($version):  $tmpDir \n";
+	    }
 	}
+	else {
+	    print " WARNING $tmpDir does not exist !!! \n";
+	}
+
     }  # end i loop over paths to check for data files
         
     # ==============================
@@ -1853,7 +1874,6 @@ sub get_DATADIR(@) {
 
 
     $VERTMP  = "$VERSION_LIST[$iver]";
-# xxx mark delete    $SIMDIR  = "$PATH_SNDATA_SIMDIR/${VERTMP}" ;
     $SIMDIR  = "$PATH_SIMDATA_LIST[$iver]/${VERTMP}" ;
 
     if ( length($PATH) > 0 ) {
@@ -2298,10 +2318,10 @@ sub createJobs_LCFIT(@) {
 
     my ($prefixJob,  $prefixBatch, $SPLITnn, $script, $FITOPT, $FITOPT_VER, $FORMAT);
     my ($FITOPT_LINK, $IFITOPT_LINK, $SIM_FLAG );
-    my ($VERSION, $RFILE, $VARG,  $FARG, $SPLARG, $MXARG );
+    my ($VERSION, $RFILE, $VARG,  $FARG, $SPLITARG, $MXARG, $PSARG );
     my ($indx, $OUTFILE, @OUTARG, $DMPARG );
     my ($logFile, $doneFile, $busyFile);
-    my ($tmp_prefix, $batchFile, $batchLog, $NTMP );
+    my ($tmp_prefix, $batchName, $batchFile, $batchLog, $NTMP );
     my ($CMD_STRING, $FITJOB, $CMD, $FIRST, $KEY, @tmp, $tmp );
     my ($CMD_rmlocf, $CMD_cleanFITRES ) ;
     my ($UPDMASK_CMD, $APPENDFLAG_CMD, $WRITEFLAG_CMD, $icmd); 
@@ -2370,16 +2390,20 @@ sub createJobs_LCFIT(@) {
     # Jul 23 2013: check for lightcurve text-dump option
     $DMPARG = "" ;
 
-    $SPLARG = "" ;
+    $SPLITARG = "" ;
     if ( $FORMAT eq "FITS" || $OPT_SPLIT == 0 ) 
-    { $SPLARG = "JOBSPLIT $isplit $NSPLIT" ; }
+    { $SPLITARG = "JOBSPLIT $isplit $NSPLIT" ; }
     else
-    { $SPLARG = "JOBSPLIT_EXTERNAL $isplit $NSPLIT" ; }
+    { $SPLITARG = "JOBSPLIT_EXTERNAL $isplit $NSPLIT" ; }
     
     $MXARG = "";
     if ( $MXLC_PLOT eq "" ) 
     { $MXARG = "MXLC_PLOT $MXLC_PLOT_DEFAULT" ; }
     
+
+    # check FAST100 option to pre-scale sims by 100
+    $PSARG = "";
+    if ( $SIM_PRESCALE > 1 ) { $PSARG = "SIM_PRESCALE $SIM_PRESCALE"; }
 
     $logFile  = "${prefixJob}.${SUFFIX_LOG}" ;
     $doneFile = "${prefixJob}.${SUFFIX_DONE}" ;
@@ -2406,7 +2430,7 @@ sub createJobs_LCFIT(@) {
 
     $FITJOB = 
 	"$JOBNAME_LCFIT " . 
-	"$nmlFile $VARG @OUTARG $DMPARG $SPLARG $MXARG " ;
+	"$nmlFile $VARG @OUTARG $DMPARG $SPLITARG $MXARG $PSARG" ;
     if ( $FITOPT     ne "NONE" ) { $FITJOB = "$FITJOB  $FITOPT" ;     }
     if ( $FITOPT_VER ne ""     ) { $FITJOB = "$FITJOB  $FITOPT_VER" ; }
 
@@ -2471,10 +2495,14 @@ sub createJobs_LCFIT(@) {
 	    $NBATCH_CREATE_FILE++ ; # each batch file --> one batch submission
 
 	    $prefixBatch = &get_PREFIX_BATCHFILE( $NBATCH_CREATE_FILE );
+# xxx	    $batchName = "${prefixBatch}" ;
+	    $batchName = sprintf("%s-%5.5d", 
+				 $nmlFile_noPath, $NBATCH_CREATE_FILE);
 	    $batchFile = "${prefixBatch}.BATCH" ;
 	    $batchLog  = "${prefixBatch}.BATCH-LOG" ;
 	    
-	    print PTR_SCRIPT "\n#Submit batch file number $NBATCH_CREATE_FILE\n";
+	    print PTR_SCRIPT 
+		"\n#Submit batch file number $NBATCH_CREATE_FILE\n";
 	    &batch_delayAdd($iver,$ifitopt,$isplit,$NBATCH_CREATE_FILE) ;
 	    print PTR_SCRIPT "touch $SPLIT_JOBDIR_LCFIT/$busyFile\n";
 	    print PTR_SCRIPT "$BATCH_COMMAND $batchFile \n" ;
@@ -2483,8 +2511,8 @@ sub createJobs_LCFIT(@) {
 	    #  die "\n xxx DEBUG DIE xxx\n" ;
 	    
 	    sntools::make_batchFile($BATCH_TEMPLATE, $SPLIT_JOBDIR_LCFIT, 
-				    $batchFile, $batchLog, $BATCH_MEM_LCFIT, 
-				    $CMD_STRING);
+				    $batchName, $batchFile, $batchLog, 
+				    $BATCH_MEM_LCFIT, $CMD_STRING);
 	}
     }
     else {
@@ -2892,8 +2920,8 @@ sub create_batchScript(@) {
     #   VERSION = data or sim version
     #   FFF     = FITOPTnnn
 
-    my ($script, $batchFile, $batchLog, $batchJob, $cmd, $icmd );
-    my ($node, $inode_local, $sep, $NCMD );
+    my ($script, $batchName, $batchFile, $batchLog, $batchJob );
+    my ($node, $inode_local, $sep, $NCMD, $cmd, $icmd );
 
     $NCMD = scalar(@CMD);
 
@@ -2927,6 +2955,7 @@ sub create_batchScript(@) {
     # --------------------------------------------
     
     if ( $BATCH_NCORE > 0 ) {
+	$batchName = "${PREFIX}_${VERSION}_${FFF}" ;  
 	$batchFile = "${PREFIX}_${VERSION}_${FFF}.BATCH" ;  
 	$batchLog  = "${PREFIX}_${VERSION}_${FFF}.BATCH-LOG" ;
 	$batchJob  = "" ; $icmd=0;
@@ -2937,7 +2966,8 @@ sub create_batchScript(@) {
 	}
 	print PTR_SCRIPT "$BATCH_COMMAND $batchFile \n";
 	sntools::make_batchFile($BATCH_TEMPLATE,$SPLIT_JOBDIR, 
-				$batchFile, $batchLog, $BATCH_MEM,$batchJob);
+				$batchName, $batchFile, $batchLog, 
+				$BATCH_MEM,$batchJob);
     }
     else {
 	foreach $cmd (@CMD) {  print PTR_SCRIPT "$cmd \n"; }

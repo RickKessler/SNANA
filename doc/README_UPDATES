@@ -17314,7 +17314,7 @@
 
 
 # ======================================================================= 
-         v10_74e (  ) 
+         v10_74e (Sep 4, 2019) 
 
          ***** IMPORTANT(v10_74e) ***** 
 
@@ -17328,19 +17328,305 @@
        to apply CUTWIN so that only postive redshifts are used.
 
    snana.car :
-    + new utility to dump info about data versio:
+    + new utility to dump info about data version:
          snana.exe GETINFO <version_photometry>
+    + ANYLCFUN: force model flux to be <= 1.0E20 to avoid 
+       double precision overflow for chi2.
+    + for SNCCID_IGNORE_FILE, allow up to MXIGNORE_LIST=500
+       (instead of MXLISTNML=52). Beware: not tested.
 
    snlc_sim.c
      + new command-line input +HOSTMAGS to create new HOSTLIB
-       with synthetic mags
+       with synthetic mags. Still testing with HST.
 
    sntools_host.c: 
     + new function rewrite_HOSTLIB_plusMags() to implement +HOSTMAGS.
       See new manual section  4.19.3 Synthetic Host Magnitudes
 
-
    sntools_genSmear.c[h]:
      + add new code wrappers for OIR (optical+IR) 
+     + fix NODE logic for last bin in init_genSmear_SALT2().
+
+
+# ======================================================================= 
+         v10_74f (Sep 23, 2019 ) 
+
+         ***** IMPORTANT(v10_74f) ***** 
+
+         ***** USEFUL(v10_74f) ***** 
+
+    snlc_fit.exe: if PRIVATE_DATA_PATH matches any sim-dir,
+       code aborts with more clear message. Previously the
+       abort message incorrectly indicated that VERSION was 
+       in 2 directories, which was confusing.
+
+    SALT2mu_fit.pl: 
+       + add optional DONE_STAMP key
+       + fixed to work if input file name includes full path.
+
+    SALT2mu.c: 
+       + new input cid_select_file=[fileName] to select
+          specific list of CIDs for data.
+       + new input to force P_CC=0 and P_Ia=1 for spec-confirmed subset;
+          see type_list_probcc0 and idsurvey_list_probcc0
+
+    split_and_fit.pl:
+      slurm job names are now based on NML file name rather than
+      a generic  FITSPLIT prefix -->
+      Easier to distinguish multiple jobs for same user.
+
+    sntools_host.c[h]: 
+      synthetic host mags (from eazy spectra) pass HST crosscheck.
+     
+         ***** MISCELLANEOUS(v10_74f) ***** 
+
+   sntools_trigger.c
+    + write string COMMENT_README_TRIGGER for readme file.
+      Fix previous comment bug about zHOST usage.
+
+   SALT2mu.c:
+     + finally remove all traces of INPUTS.LEGACY_[BUGS,README].
+     + new input cid_select_file=[fileName] to select specific
+       list of CIDs for data; ignored for biasCor sim and for CC sim.
+  
+   SALT2mu_fit.pl
+    + add optional key 
+          DONE_STAMP: <fileName>
+    + fix parsing to ignore comment lines (un-tested)
+    + See Sep 14 2019 updates at top of source file;
+      Works with more general symbolic links, and subDir name changes.
+
+   genmag*.c[h]:    make variable names consistent:
+      minlam -> lammin, maxlam -> lammax, etc ...
+
+   sim_SNmix.pl
+     + replace few remaining parse_line commands with parse_array
+       so that comment lines are ignored.
+
+   sntools_host.c[h] :
+     + more fixes for host spectrum.
+     + MINLOGZ_HOSTLIB -> -3.0 (zmin -> 0.001 instead of 0.003)
+        for H0 studies.
+
+   sntools.c:
+     in getInfo_SNANA_VERSION(), abort if PRIVATE_DATA_PATH is
+     incorrectly set to SNDATA_ROOT/SIM, or to any path in
+     PATH_SNDATA_SIM.LIST file.
+
+   genmag_SALT2.c :
+     + colorDisp map reads ilam=0 to NLAM-1 (intead of 1-NLAM)
+     + in get_SALT2_ERRMAP(), protect against Trest or Lam being lower 
+       than ERRMAP min since ERRMAPs don't always cover SED range.
+       Note that max range was aleady protected.
+       Amazingly, SNANA_CodeTest shows no changes.
+     + init_genmag_SALT2(), OPTMASK & 64 enables aborting on ERRMAPs
+       with ranges that don't cover SED range. This feature is enabled
+       with kludge: snlc_sim.exe <inFile> DEBUG_FLAG 64 so that we
+       don't get aborts unless we want them.
+
+   sntools.pm:
+    + add batchName argument to make_batchFile sub.
+   
+   split_and_fit.pl:
+     + use NML file name in new batchName argument.
+       Note that anything before slashes is stripped from NML filename.
+     + for non-existing path in SIM_SNDATA_PATH.LIST, give warning.
+
+   snlc_sim.c:
+     simlib reading rewinds on end-of-file or END_OF_SIMLIB key.
+
+   combine_fitres.c
+     + abort if first column is not CID.
+
+
+# ======================================================================= 
+         v10_74g (Oct 7 2019) 
+
+         ***** IMPORTANT(v10_74g) ***** 
+       SALT2mu_fit:
+          monitor and summary tasks are launched as background job,
+          so that terminal control is returned.
+
+       combine_fitres.exe
+          Uses hash table for CID matching --> much faster for large files.
+
+         ***** USEFUL(v10_74g) ***** 
+
+         ***** MISCELLANEOUS(v10_74g) ***** 
+
+   SALT2mu.c 
+    + in output fitres file, write SUM_PROBIa and SUM_PROBCC
+      and contamination estimate, SUM_PROBCC/(SUM_PROB1a+SUM_PROBCC).
+      For sim data, the contam estimate should be consistent with the 
+      true contamination.
+      Also include table showing contaminatoin vs. MURES, and another
+      table showing contam vs. redshift.
+
+    + add new fitres-output column PROBCC_BEAMS.
+
+    + u13=2 replaces scalePCC fit param with scaleP1a as in Eq 4 of H11.
+      Avoids negative contamination when using CC prior with 1a-only sample.
+      For nominal Ia+CC mix in sim-data, alpha, beta, and contamination
+      are idential with u13=1 and u13=2. For Ia-only sim-data and using
+      CCprior, alpha and beta are the same, while CONTAM goes from
+      small negative (-0.004) to small positive (+0.0008).
+       
+   SALT2mu_fit.pl :
+     + subtle fix to ensure that final DONE file is created after
+       everything else is finished. Previously, final DONE file
+       was created before SUMMARY file and before gzipping.
+     + monitor and summary are now launched as background job,
+       so that terminal control is returned.
+
+   sim_SNmix.pl:
+     for RANSEED_CHANGE option, fix bug so that LIST file has
+     SNIa before NONIaMODEL ... needed by fitting codes to get 
+     correct SIM_xxx names in output FITRES file.
+
+   combine_fitres.c:
+     + use hash table for cid matching using uthash.h from  
+          http://troydhanson.github.io/uthash/index.html 
+       It's way way faster for large (e.g., biasCor) files. 
+       To revert back to original slow matching method,
+          combine_fitres.exe <argList>  -matchflag 1
+       Beware of significant refactor.
+
+
+# ======================================================================= 
+         v10_74h (Oct 24 2019) 
+
+         ***** IMPORTANT(v10_74h) ***** 
+
+   + fix blinding in SALT2mu, and add explanation in manual Sec 10.2
+   + new intrinsic scatter model for sim: COVSED based on SUGAR model.
+
+         ***** USEFUL(v10_74h) ***** 
+
+   + split_and_fit has new FAST10 & FAST100 option to pre-scale 
+     sim data by 10 & 100.
+
+         ***** MISCELLANEOUS(v10_74h) ***** 
+
+   snlc_fit.car: 
+     + MXFIT_DATA=1000 -> 1500. Program size = 314 MB -> 335 MB.
+     + abort if photo-z fit and USE_SNHOST_ZPHOT=T. This combo
+       causes something crazy in 2nd iteration of photo-z fit.
+
+   SALT2mu.c:
+     + new option to force_pIa=xx.yy to force same pIa for each event.
+     + in M0DIF file, write warnings for MUDIFERR=0
+     + fix bug using cutmask_write=-1
+     + scalePPC bound -> -0.5 to +0.5 (was -0.1 to +0.5)
+     + add user input keys for logmass_min, logmass_max, nbin_logmass
+     + fix blinding.
+
+   SALT2mu_fit.pl
+     + batch name is now based on name of input file [untested->BEWARE]
+
+   snlc_sim.c, sndata.h
+     + new parameter MXLEN_VERSION_PREFIX 52 to prevent GENPREFIX
+       exceeding FITS key bound. Note that FITS header keys have
+       80 char bound that includes key name and quotes. E.g.,
+          PHOTFILE = 'TEST_PHOT.FITS'
+       counts as 27 characters, not 14.
+
+   snana.car
+     + fix SKYSIG format for make-simlib option.
+
+   split_and_fit.pl
+    + new FAST10 & FAST100 option to pre-scale sims by 10, 100
+        split_and_fit.pl MYBIGJOB.NML FAST10
+        split_and_fit.pl MYBIGJOB.NML FAST100
+      Note that real data are not pre-scaled.
+
+   snlc_sim.c:
+     + fix bug parsing GENMODEL on command line.
+
+   sntools_genSmear.c, snlc_sim.c:
+     + add new intrinsic scatter model "COVSED" to specify 
+       covariance in wave x phase bins. Start with SUGAR.
+     + some refactoring of utilities to generate randoms for genSmear.
+     + new repeat_genSmear() function to generate new set of 
+       magSmear only when needed. G10 smear model is almost
+       x2 faster, and COVSED is more than x2 faster.
+   
+
+# ======================================================================= 
+         v10_74i (Oct 30, 2019) 
+
+         ***** IMPORTANT(v10_74i) ***** 
+
+    sim_SNmix.pl  : 
+       ABORT on obsolete keys (H0 and ZRANGE)
+
+    snana.exe/snlc_fit.exe : 
+        &SNLCINP argument RESTORE_DES3YR=T to select all DEDS3YR-LOWZ
+
+    SALT2mu_fit.pl: 
+        OUTDIR_OVERRIDE works for 'INPDIR:' as well as INPDIR+:
+
+         ***** USEFUL(v10_74i) ***** 
+
+
+         ***** MISCELLANEOUS(v10_74i) ***** 
+
+    SALT2mu.c:
+     + better stdout messaing in prepare_biasCor to make more 
+       clear if 1D, 5D, 6D, 7D
+ 
+     + combine_fitres.c: fix trivial bug
+
+     + snana.car: MXTABLE1D_KCOR = 8M -> 10M (for SNOOPY model)
+       size(snana.exe,snlc_fit.exe) increase by 5M,8M, respectively.
+
+   sim_SNmix.pl
+    + Abort on obsolete 'H0:' key in master file. 
+    + Abort on 'ZRANGE:' key in master file, with instructions
+      to replace with GENOPT_GLOBAL:  GENRANGE_REDSHIFT <zmin> <zmax>
+
+    + FORMAT_MASK and GENPREFIX can be specified as part of
+        GENOPT_GLOBAL: FORMAT_MASK <mask> GENPREFIX <prefix>
+
+   + Why? H0 is completely obsolete and should be removed to avoid confusion.
+     ZRANGE doesn't match the GENRANGE_REDSHIFT key-name in sim-input file,
+     which can also cause confusion.
+     'FORMAT_MASK:' and 'GENPREFIX:' keys remain valid in both simgen-input 
+     and simgen-master file, and the same syntax applies for both files. 
+     The goal here is to slowly transition to defining all global sim 
+     options with GENOPT_GLOBAL
+
+   + to do later: allow NGEN_UNIT to be in GENOPT_GLOBAL argument.
+
+   + subtle bug fix related to RANSEED_CHANGE option.
+
+   snlc_sim.c
+     + in GENSPEC_LAMSMEAR(), fix bug setting GRAN_T=0 if there is
+       no template noise. Fixes valgrind errors found by D.Jones.
+ 
+  snana.exe/snlc_fit.exe :
+    + LCUTEPOCH fix back in May 2019 results in 3 LOWZ SN lost
+      from DES3YR analysis. To recover these, use new restore argument,
+         snlc_fit.exe <inFile>  RESTORE_DES3YR T
+      or add RESTORE_DES3YR=T to &SNLCINP namelist.
+
+   sntools_kcor.c[h]: begin refactor to translate fortran kcor-read to C.
+
+
+# ======================================================================= 
+         v10_74j (  ) 
+
+         ***** IMPORTANT(v10_74j) ***** 
+
+         ***** USEFUL(v10_74j) ***** 
+
+         ***** MISCELLANEOUS(v10_74j) ***** 
+  
+    sntools_output.c
+      + better error message if NPTFIT is missing for outlier/obs dump.
+
+    snlc_fit.car: 
+      + add FLUXERRCALC_SIM to FITRES+RESIDUAL table (after ERRTEST)
+    sntable_dump.pl
+      + include FLUXERRCALC_SIM for outlier/obs option.
 
 END: 

@@ -203,13 +203,15 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   double Trange[2], Lrange[2]     ;
   int  ised, LEGACY_colorXTMW ;
   int  retval = 0   ;
+  int  ABORT_on_LAMRANGE_ERROR = 0;
   char BANNER[120], tmpFile[200], sedcomment[40], version[60]  ;
   char fnam[] = "init_genmag_SALT2" ;
 
   // -------------- BEGIN --------------
 
   // extrac OPTMASK options
-  LEGACY_colorXTMW = ( OPTMASK & 128 ) ;
+  ABORT_on_LAMRANGE_ERROR = ( OPTMASK &  64 ) ; // Sep 9 2019
+  LEGACY_colorXTMW        = ( OPTMASK & 128 ) ;
 
   sprintf(BANNER, "%s : Initialize %s", fnam, MODEL_VERSION );
   print_banner(BANNER);
@@ -291,8 +293,8 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   // set extreme ranges to read anything
   Trange[0] = -20. ;
   Trange[1] = 200. ;
-  Lrange[0] = MINLAM_SEDMODEL ;
-  Lrange[1] = MAXLAM_SEDMODEL ;
+  Lrange[0] = LAMMIN_SEDMODEL ;
+  Lrange[1] = LAMMAX_SEDMODEL ;
 
   SEDMODEL_MWEBV_LAST     = -999.   ;
   SEDMODEL_HOSTXT_LAST.AV = -999.   ;
@@ -346,6 +348,9 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   // Read color-dispersion vs. wavelength
   read_SALT2colorDisp();
 
+  // abort if any ERRMAP has invalid wavelength range (Sep 2019)
+  if ( ABORT_on_LAMRANGE_ERROR ) { check_lamRange_SALT2errmap(-1); }
+
   // fill/calculate color-law table vs. color and rest-lambda
   fill_SALT2_TABLE_COLORLAW();
 
@@ -387,7 +392,7 @@ void fill_SALT2_TABLE_SED(int ISED) {
   // here and store finer-binned SEDs so that faster linear-
   // interpolation can be used inside the integration loops.
   //
-  // Jun 9, 2011: load SEDMODEL.MINLAM[ISED] and SEDMODEL.MAXLAM[ISED]
+  // Jun 9, 2011: load SEDMODEL.LAMMIN[ISED] and SEDMODEL.LAMMAX[ISED]
   // Dec 30, 2013: add PRE-ABORT dump when FRATIO is too large.
   // Jul 30, 2016: call check_uniform_bins( ... )
   
@@ -444,8 +449,8 @@ void fill_SALT2_TABLE_SED(int ISED) {
 
   if ( ISED == 0 ) {
     // load SEDMODEL struct for IFILTSTAT function
-    SEDMODEL.MINLAM_ALL = TEMP_SEDMODEL.LAM[0] ;
-    SEDMODEL.MAXLAM_ALL = TEMP_SEDMODEL.LAM[NLAM_ORIG-1] ;
+    SEDMODEL.LAMMIN_ALL = TEMP_SEDMODEL.LAM[0] ;
+    SEDMODEL.LAMMAX_ALL = TEMP_SEDMODEL.LAM[NLAM_ORIG-1] ;
 
     SALT2_TABLE.NDAY    = NDAY_TABLE ;
     SALT2_TABLE.DAYSTEP = TEMP_SEDMODEL.DAYSTEP/(double)(NREBIN_DAY) ;
@@ -756,6 +761,8 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
   printf("\n Read SALT2 ERROR MAPS: \n");
   fflush(stdout);
 
+  NERRMAP_BAD_SALT2 = 0 ;
+
   // hard-wire filenames for erro maps
   sprintf(SALT2_ERRMAP_FILES[0], "%s_lc_relative_variance_0.dat", prefix );
   sprintf(SALT2_ERRMAP_FILES[1], "%s_lc_relative_variance_1.dat", prefix );
@@ -772,7 +779,7 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
 
   for ( imap=0; imap < NERRMAP; imap++ ) {
 
-    if ( imap >= INDEX_ERRMAP_COLORDISP ) { continue ; }
+    if ( imap >= INDEX_ERRMAP_COLORDISP ) { continue ; } // read elsewhere
 
     sprintf(tmpFile, "%s/%s", SALT2_MODELPATH, SALT2_ERRMAP_FILES[imap] );
     sprintf(sedcomment, "SALT2-%s", SALT2_ERRMAP_COMMENT[imap] );
@@ -791,12 +798,12 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
 	       );
 
     NLAM = SALT2_ERRMAP[imap].NLAM ;
-    SALT2_ERRMAP[imap].MINLAM  = SALT2_ERRMAP[imap].LAM[0] ;
-    SALT2_ERRMAP[imap].MAXLAM  = SALT2_ERRMAP[imap].LAM[NLAM-1] ;
+    SALT2_ERRMAP[imap].LAMMIN  = SALT2_ERRMAP[imap].LAM[0] ;
+    SALT2_ERRMAP[imap].LAMMAX  = SALT2_ERRMAP[imap].LAM[NLAM-1] ;
 
     NDAY = SALT2_ERRMAP[imap].NDAY ;
-    SALT2_ERRMAP[imap].MINDAY  = SALT2_ERRMAP[imap].DAY[0] ;
-    SALT2_ERRMAP[imap].MAXDAY  = SALT2_ERRMAP[imap].DAY[NDAY-1] ;
+    SALT2_ERRMAP[imap].DAYMIN  = SALT2_ERRMAP[imap].DAY[0] ;
+    SALT2_ERRMAP[imap].DAYMAX  = SALT2_ERRMAP[imap].DAY[NDAY-1] ;
 
     NBTOT = NLAM*NDAY ;
     if ( NBTOT >= MXBIN_VAR_SALT2 ) {
@@ -805,6 +812,11 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
       sprintf(c2err,"See '%s'", tmpFile);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
+
+
+    // Sep 2019: make sure wave range covers SED wave range
+    check_lamRange_SALT2errmap(imap);
+    check_dayRange_SALT2errmap(imap);
 
     fflush(stdout);
 
@@ -854,10 +866,10 @@ void init_SALT2interp_ERRMAP(void) {
       ispline = SALT2_TABLE.INDEX_SPLINE[1] + imap + 1 ; 
       SALT2_ERRMAP[imap].INDEX_SPLINE = ispline ; 
 
-      SALT2_SPLINE_ARGS.DAYLIM[0] = SALT2_ERRMAP[imap].MINDAY ;
-      SALT2_SPLINE_ARGS.DAYLIM[1] = SALT2_ERRMAP[imap].MAXDAY ;
-      SALT2_SPLINE_ARGS.LAMLIM[0] = SALT2_ERRMAP[imap].MINLAM ;
-      SALT2_SPLINE_ARGS.LAMLIM[1] = SALT2_ERRMAP[imap].MAXLAM ;
+      SALT2_SPLINE_ARGS.DAYLIM[0] = SALT2_ERRMAP[imap].DAYMIN ;
+      SALT2_SPLINE_ARGS.DAYLIM[1] = SALT2_ERRMAP[imap].DAYMAX ;
+      SALT2_SPLINE_ARGS.LAMLIM[0] = SALT2_ERRMAP[imap].LAMMIN ;
+      SALT2_SPLINE_ARGS.LAMLIM[1] = SALT2_ERRMAP[imap].LAMMAX ;
 
       // for spline, use every other day and every other lambda bin
       N2DBIN = 0;
@@ -919,6 +931,11 @@ void read_SALT2colorDisp(void) {
   // this map using a 3rd-order polynomial fit.
   // This hard-wire allows reading older SALT2 models
   // without needing to update the color-dispersion map.
+  //
+  // Sep 6, 2019: 
+  //   + start ERRMAP at ilam index=0 (not 1)
+  //   + call check_lamRange_SALT2errmap(imap);
+  //
 
   int imap, NLAM, ilam, MXBIN ;
   char tmpFile[MXPATHLEN];
@@ -939,8 +956,8 @@ void read_SALT2colorDisp(void) {
 
   imap = INDEX_ERRMAP_COLORDISP ;
   SALT2_ERRMAP[imap].NLAM   = 0 ;  // init to nothing
-  SALT2_ERRMAP[imap].MINLAM = 0.0 ;
-  SALT2_ERRMAP[imap].MAXLAM = 0.0 ;
+  SALT2_ERRMAP[imap].LAMMIN = 0.0 ;
+  SALT2_ERRMAP[imap].LAMMAX = 0.0 ;
 
   if ( INPUT_SALT2_INFO.ERRMAP_KCOR_OPT == 0 ) {
     printf("\n  Ignore color-dispersion (KCOR) errors. \n" );
@@ -957,8 +974,8 @@ void read_SALT2colorDisp(void) {
 
   rd2columnFile( tmpFile, MXBIN
 		,&SALT2_ERRMAP[imap].NLAM
-		,&SALT2_ERRMAP[imap].LAM[1]
-		,&SALT2_ERRMAP[imap].VALUE[1]
+		,SALT2_ERRMAP[imap].LAM
+		,SALT2_ERRMAP[imap].VALUE
 		);
 
   NLAM = SALT2_ERRMAP[imap].NLAM ;
@@ -976,9 +993,9 @@ void read_SALT2colorDisp(void) {
     NLAM = SALT2_TABLE.NLAMSED;
     SALT2_ERRMAP[imap].NLAM =  NLAM ;
 
-    for ( ilam=1; ilam <= NLAM; ilam++ ) {
+    for ( ilam=0; ilam < NLAM; ilam++ ) {
 
-      lam = SALT2_TABLE.LAMSED[ilam-1];
+      lam = SALT2_TABLE.LAMSED[ilam];
 
       if      ( lam < 4400.0 ) {  ptrPoly = G07POLY_UB   ; }
       else if ( lam < 5500.0 ) {  ptrPoly = G07POLY_NULL ; }
@@ -998,9 +1015,10 @@ void read_SALT2colorDisp(void) {
     printf("  Model is pre-G10 => hard-wire G07 color disp. \n");
   }
 
-  SALT2_ERRMAP[imap].MINLAM = SALT2_ERRMAP[imap].LAM[1] ;
-  SALT2_ERRMAP[imap].MAXLAM = SALT2_ERRMAP[imap].LAM[NLAM] ;
+  SALT2_ERRMAP[imap].LAMMIN = SALT2_ERRMAP[imap].LAM[0] ;
+  SALT2_ERRMAP[imap].LAMMAX = SALT2_ERRMAP[imap].LAM[NLAM-1] ;
 
+  check_lamRange_SALT2errmap(imap);
 
   fflush(stdout);
 
@@ -1050,8 +1068,8 @@ void read_SALT2_INFO_FILE(void) {
 
   // init info variables to reasonable  default values
 
-  INPUT_SALT2_INFO.MINLAMFILT        = 2900. ; // Angstroms
-  INPUT_SALT2_INFO.MAXLAMFILT        = 7000. ;
+  INPUT_SALT2_INFO.RESTLAMMIN_FILTERCEN   = 2900. ; // Angstroms
+  INPUT_SALT2_INFO.RESTLAMMAX_FILTERCEN   = 7000. ;
   INPUT_SALT2_INFO.MAGERR_FLOOR      = 0.005 ; 
   for ( i=0; i< 3; i++ ) {
     INPUT_SALT2_INFO.MAGERR_LAMOBS[i]  = 0.00 ;
@@ -1085,10 +1103,11 @@ void read_SALT2_INFO_FILE(void) {
   while( (fscanf(fp, "%s", c_get)) != EOF) {
 
     if ( strcmp(c_get, "RESTLAMBDA_RANGE:") == 0 ) {
-      readdouble(fp, 1, &INPUT_SALT2_INFO.MINLAMFILT );
-      readdouble(fp, 1, &INPUT_SALT2_INFO.MAXLAMFILT );
+      readdouble(fp, 1, &INPUT_SALT2_INFO.RESTLAMMIN_FILTERCEN );
+      readdouble(fp, 1, &INPUT_SALT2_INFO.RESTLAMMAX_FILTERCEN );
 
-      if ( UVLAM > 0.0 ) { INPUT_SALT2_INFO.MINLAMFILT = UVLAM + 700.; }
+      if ( UVLAM > 0.0 )
+	{ INPUT_SALT2_INFO.RESTLAMMIN_FILTERCEN = UVLAM + 700.; }
     }
 
 
@@ -1152,15 +1171,15 @@ void read_SALT2_INFO_FILE(void) {
 
 
   // transfer filter-lambda range to SEDMODEL struct
-  SEDMODEL.MINLAMFILT = INPUT_SALT2_INFO.MINLAMFILT ;
-  SEDMODEL.MAXLAMFILT = INPUT_SALT2_INFO.MAXLAMFILT ;
+  SEDMODEL.RESTLAMMIN_FILTERCEN = INPUT_SALT2_INFO.RESTLAMMIN_FILTERCEN ;
+  SEDMODEL.RESTLAMMAX_FILTERCEN = INPUT_SALT2_INFO.RESTLAMMAX_FILTERCEN ;
 
   // print INFO to screen
 
   printf("\n  SALT2.INFO \n");
   printf("\t RESTLAMBDA_RANGE:  %6.0f - %6.0f A\n"
-	 ,INPUT_SALT2_INFO.MINLAMFILT
-	 ,INPUT_SALT2_INFO.MAXLAMFILT );
+	 ,INPUT_SALT2_INFO.RESTLAMMIN_FILTERCEN
+	 ,INPUT_SALT2_INFO.RESTLAMMAX_FILTERCEN );
 
   printf("\t Global MAG OFFSET:  %6.3f mag  \n", 
 	 INPUT_SALT2_INFO.MAG_OFFSET ); 
@@ -1243,6 +1262,92 @@ void read_SALT2_INFO_FILE(void) {
   printf("\n");    fflush(stdout);
 
 } // end of read_SALT2_INFO_FILE
+
+
+// =========================================
+void check_lamRange_SALT2errmap(int imap) {
+
+  // Sep 6 2019
+  // If imap>=0, print ERROR message if ERRMAP wave range
+  // does not cover SED wave range. Also increment NERRMAP_BAD_SALT2.
+  // If imap < 0 && NERRMAP_BAD_SALT2>0, abort.
+
+  double SED_LAMMIN = SALT2_TABLE.LAMMIN ;
+  double SED_LAMMAX = SALT2_TABLE.LAMMAX ;
+
+  double ERRMAP_LAMMIN, ERRMAP_LAMMAX ;
+
+  double tol     = 10.0;
+  int    DISABLE = 0 ;
+  char fnam[] = "check_lamRange_SALT2errmap" ;
+
+
+  // ----------- BEGIN -------------
+
+  if ( DISABLE ) { return ; }
+
+  if ( imap < 0 ) {
+    if ( NERRMAP_BAD_SALT2 > 0 ) {
+      sprintf(c1err,"%d ERRMAPs have invalid wavelength range.",
+	      NERRMAP_BAD_SALT2 );
+      sprintf(c2err,"grep stdout for 'ERRMAP:'  to see all errors.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+    else
+      { return ; }
+  }
+
+  ERRMAP_LAMMIN = SALT2_ERRMAP[imap].LAMMIN ;
+  ERRMAP_LAMMAX = SALT2_ERRMAP[imap].LAMMAX ;
+
+  if ( ERRMAP_LAMMIN-tol > SED_LAMMIN || ERRMAP_LAMMAX+tol < SED_LAMMAX ) {
+    NERRMAP_BAD_SALT2++ ;
+    printf("\nERRMAP: WARNING for ERRMAP file %d: %s\n", 
+	   imap, SALT2_ERRMAP_FILES[imap] );
+    printf("ERRMAP:     SED_LAMRANGE:    %.1f to %.1f A\n", 
+	   SED_LAMMIN, SED_LAMMAX);
+    printf("ERRMAP:     ERRMAP_LAMRANGE: %.1f to %.1f A "
+	   "does not cover SED_LAMRANGE\n", 
+	   ERRMAP_LAMMIN, ERRMAP_LAMMAX);       
+  }
+
+  return;
+
+} // end check_lamRange_SALT2errmap
+
+// =========================================
+void check_dayRange_SALT2errmap(int imap) {
+
+  // Sep 6 2019
+  // Give error warning if ERRMAP[imap] day-range does not
+  // cover SED day range, and increment NERRMAP_BAD_SALT2.
+
+  double SED_DAYMIN    = SALT2_TABLE.DAYMIN ;
+  double SED_DAYMAX    = SALT2_TABLE.DAYMAX ;
+  double ERRMAP_DAYMIN = SALT2_ERRMAP[imap].DAYMIN ;
+  double ERRMAP_DAYMAX = SALT2_ERRMAP[imap].DAYMAX ;
+  double tol = 1.1 ;
+  int    DISABLE = 0 ;
+  char fnam[] = "check_dayRange_SALT2errmap" ;
+
+  // ----------- BEGIN -------------
+
+  if ( DISABLE ) { return ; }
+
+  if ( ERRMAP_DAYMIN-tol > SED_DAYMIN || ERRMAP_DAYMAX+tol < SED_DAYMAX ) {
+    NERRMAP_BAD_SALT2++ ;
+    printf("\nERRMAP: WARNING for ERRMAP file: %s\n", 
+	   SALT2_ERRMAP_FILES[imap] );
+    printf("ERRMAP:     SED_DAYRANGE:    %.1f to %.1f days\n", 
+	   SED_DAYMIN, SED_DAYMAX);
+    printf("ERRMAP:     ERRMAP_DAYRANGE: %.1f to %.1f days "
+	   "does not cover SED_DAYRANGE\n", 
+	   ERRMAP_DAYMIN, ERRMAP_DAYMAX);       
+  }
+  
+  return;
+
+} // end check_dayRange_SALT2errmap
 
 
 // ==========================================================
@@ -1787,26 +1892,26 @@ double SALT2magerr(double Trest, double lamRest, double z,
     ,ONE = 1.0
     ;
 
-  //  char fnam[] = "SALT2magerr" ;
+  char fnam[] = "SALT2magerr" ;
 
   // ---------------- BEGIN ---------------
+  
+  // Make sure that Trest is within range of map.
 
-    // Make sure that Trest is within range of map.
-
-  if ( Trest > SALT2_ERRMAP[0].MAXDAY ) 
-    { Trest_tmp = SALT2_ERRMAP[0].MAXDAY ; }
-  else if ( Trest < SALT2_ERRMAP[0].MINDAY ) 
-    { Trest_tmp = SALT2_ERRMAP[0].MINDAY ; }
+  if ( Trest > SALT2_ERRMAP[0].DAYMAX ) 
+    { Trest_tmp = SALT2_ERRMAP[0].DAYMAX ; }
+  else if ( Trest < SALT2_ERRMAP[0].DAYMIN ) 
+    { Trest_tmp = SALT2_ERRMAP[0].DAYMIN ; }
   else
     { Trest_tmp = Trest ; }
 
   get_SALT2_ERRMAP(Trest_tmp, lamRest, ERRMAP ) ;
 
   // strip off the goodies
-  var0     = ERRMAP[0] ;  // sigma(S0)/S0
-  var1     = ERRMAP[1] ;  // sigma(S1)/S0
-  covar01  = ERRMAP[2] ;  // 
-  errscale = ERRMAP[3] ;  // error fudge  
+  var0     = ERRMAP[INDEX_ERRMAP_VAR0] ;  // sigma(S0)/S0
+  var1     = ERRMAP[INDEX_ERRMAP_VAR1] ;  // sigma(S1)/S0
+  covar01  = ERRMAP[INDEX_ERRMAP_COVAR01] ;  // 
+  errscale = ERRMAP[INDEX_ERRMAP_SCAL] ;  // error fudge  
 
   relx1    = x1 * Finteg_ratio ;
 
@@ -1816,7 +1921,7 @@ double SALT2magerr(double Trest, double lamRest, double z,
   if ( vartot < 0 ) { vartot = 0.01*0.01 ; }  // Jul 9 2013: follow JG 
   
   fracerr_snake = errscale * sqrt(vartot)/fabs(ONE + relx1) ;   
-  fracerr_kcor  = SALT2colorDisp(lamRest); 
+  fracerr_kcor  = SALT2colorDisp(lamRest,fnam); 
 
   // get total fractional  error.
   fracerr_TOT = sqrt( pow(fracerr_snake,2.0) + pow(fracerr_kcor,2.0) ) ;
@@ -1972,7 +2077,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
     ,IDAY, NDAY, nday, iday, ised, ic
-    ,ISTAT_SMEAR, LABORT, LDMP
+    ,ISTAT_GENSMEAR, LABORT, LDMP
     ;
 
   double
@@ -2052,17 +2157,14 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
   // evaluate optional smearing from function
   // Should be used only for simulation (not for fitting mode)
-  ISTAT_SMEAR = istat_genSmear();  
-  if ( ISTAT_SMEAR ) {
-
-    //    printf(" xxx %s: z=%.3f ifilt_obs=%d \n", fnam, z, ifilt_obs); 
-
+  ISTAT_GENSMEAR = istat_genSmear();  
+  if ( ISTAT_GENSMEAR  ) {
+    //  printf(" xxx %s: z=%.3f ifilt_obs=%d \n", fnam, z, ifilt_obs); 
     int NLAMTMP = 0 ;
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
       LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
       LAMSED       = LAMOBS/z1;   // rest-frame wavelength
       lam[ilamobs] = LAMSED ; 
-      magSmear[ilamobs] = 0.0 ;
 
       // protect undefined red end for low-z (July 2016)
       if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }       
@@ -2182,7 +2284,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	FTMP = FSED[0] + FDIF * FRAC_INTERP_DAY ; 
 	
 	// check option to smear SALT2 flux with intrinsic scatter
-	if ( ISTAT_SMEAR ) {
+	if ( ISTAT_GENSMEAR ) {
 	  arg     =  -0.4*magSmear[ilamobs] ; 
 	  FSMEAR  =  pow(TEN,arg)  ;        // fraction change in flux
 	  FTMP   *=  FSMEAR;                // adjust flux for smearing
@@ -2348,23 +2450,17 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
 
   Jun 2, 2011: renamed from get_SALT2modelerr to get_SALT2_ERRMAP().
 
+  Sep 9 2019: 
+    + protect iday_min and ilam_min from being negative. Negative indices
+      can occur because ERRMAPs don't always cover SED range.
+           
   ***/
 
-  int 
-    imap, jval
-    ,iday_min, iday_max
-    ,ilam_min, ilam_max
-    ,NLAM, NDAY
-    ,IND, IERR // spline args
-    ;
+  int imap, jval, iday_min, iday_max, ilam_min, ilam_max ;
+  int NLAM, NDAY, IND, IERR ;
 
-  double 
-    val, val0, val1, valdif, val_linear, val_spline, tmp
-    ,LMIN, LSTEP, LDIF
-    ,TMIN, TSTEP, TDIF
-    ,val_atlammin
-    ,val_atlammax
-    ;
+  double val, val0, val1, valdif, val_linear, val_spline, tmp;
+  double LMIN, LSTEP, LDIF, TMIN, TSTEP, TDIF, val_atlammin, val_atlammax ;
 
   //  char fnam[] = "get_SALT2_ERRMAP";
 
@@ -2374,10 +2470,10 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
 
     if ( imap >= INDEX_ERRMAP_COLORDISP ) { continue ; }
 
-    LMIN  = SALT2_ERRMAP[imap].MINLAM ;
+    LMIN  = SALT2_ERRMAP[imap].LAMMIN ;
     LSTEP = SALT2_ERRMAP[imap].LAMSTEP ;
 
-    TMIN  = SALT2_ERRMAP[imap].MINDAY ;
+    TMIN  = SALT2_ERRMAP[imap].DAYMIN ;
     TSTEP = SALT2_ERRMAP[imap].DAYSTEP ;
 
     NLAM  = SALT2_ERRMAP[imap].NLAM ;
@@ -2386,11 +2482,13 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
     // get indices that sandwhich Trest and Lrest
 
     iday_min = (int)((Trest - TMIN)/TSTEP) ;
-    if ( iday_min >= NDAY-1 ) iday_min = NDAY - 2 ;
+    if ( iday_min >= NDAY-1 ) { iday_min = NDAY - 2 ; }
+    if ( iday_min <  0      ) { iday_min = 0; } // Sep 9 2019
     iday_max = iday_min + 1;
 
     ilam_min = (int)((Lrest - LMIN)/LSTEP) ;
-    if ( ilam_min >= NLAM-1 ) ilam_min = NLAM - 2 ;
+    if ( ilam_min >= NLAM-1 ) { ilam_min = NLAM - 2 ; }
+    if ( ilam_min <  0      ) { ilam_min = 0;         }
     ilam_max = ilam_min + 1;
 
     
@@ -2413,10 +2511,10 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
     val_atlammax  = val0 + (val1-val0) * TDIF/TSTEP ;
 
     // interpolate in lambda space
-    LDIF = Lrest - SALT2_ERRMAP[imap].LAM[ilam_min];
-    valdif = val_atlammax - val_atlammin ;
+    LDIF       = Lrest - SALT2_ERRMAP[imap].LAM[ilam_min];
+    valdif     = val_atlammax - val_atlammin ;
     val_linear = val_atlammin + (valdif * LDIF/LSTEP) ;
-    val = val_linear ;
+    val        = val_linear ;
 
     if ( INPUT_SALT2_INFO.ERRMAP_INTERP_OPT == 0 ) 
       { val = 0.0 ; }
@@ -2430,8 +2528,8 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
       // Use the sign of the linear interp because
       // the sign in storing the error-squared is lost.
 
-      if ( val_linear < 0.0 ) val = -val_spline ;
-      else                    val = +val_spline ;
+      if ( val_linear < 0.0 ) { val = -val_spline ; }
+      else                    { val = +val_spline ; }
 
       /*
       NCALL_DBUG_SALT2++ ;
@@ -2444,7 +2542,7 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
     }  // SPLINE option
 
 
-    *(ERRMAP+imap) = val ;
+    ERRMAP[imap] = val ;
     
   } // end of imap loop
 
@@ -2474,10 +2572,8 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
   //
   //  July 2016: add new inputs args RV_host & AV_host
 
-  int 
-    icovar, irow, icol, ifilt_obs, ifilt_row, ifilt_col, ifilt 
-    ,ISDIAG, LDMP
-    ;
+  int  icovar, irow, icol, ifilt_obs, ifilt_row, ifilt_col, ifilt ;
+  int ISDIAG, LDMP ;
 
   double 
     COV_TMP,  COV_DIAG
@@ -2490,6 +2586,8 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
     ;
 
     char *cfilt, cdum0[40], cdum1[40];
+
+    char fnam[] = "gencovar_SALT2" ;
 
   // -------------- BEGIN -----------------
   
@@ -2521,13 +2619,12 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
 	ifilt         = IFILTMAP_SEDMODEL[ifilt_row] ;
 	meanlam_obs   = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda
 	meanlam_rest  = meanlam_obs * invZ1 ; 
-	cDisp[ifilt_row] = SALT2colorDisp(meanlam_rest);    
+	cDisp[ifilt_row] = SALT2colorDisp(meanlam_rest,fnam);    
       }
 
       // set covariances only for same passband.
       if ( ifilt_col == ifilt_row ) 
 	{ COV_TMP = FAC * pow(cDisp[ifilt_row],2.0);  }
-
 
       // check for local dump option
       LDMP  = (COV_TMP != 0.0 || ISDIAG) && 
@@ -2547,10 +2644,10 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
 
 
 	// make sure that Trest is within the map range
-	if ( Trest > SALT2_ERRMAP[0].MAXDAY ) 
-	  { Trest_tmp = SALT2_ERRMAP[0].MAXDAY ; }
-	else if ( Trest < SALT2_ERRMAP[0].MINDAY ) 
-	  { Trest_tmp = SALT2_ERRMAP[0].MINDAY ; }
+	if ( Trest > SALT2_ERRMAP[0].DAYMAX ) 
+	  { Trest_tmp = SALT2_ERRMAP[0].DAYMAX ; }
+	else if ( Trest < SALT2_ERRMAP[0].DAYMIN ) 
+	  { Trest_tmp = SALT2_ERRMAP[0].DAYMIN ; }
 	else
 	  { Trest_tmp = Trest ; }
 
@@ -2600,7 +2697,7 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
 } // end of gencovar_SALT2
 
 // ***********************************************
-double SALT2colorDisp(double lam) {
+double SALT2colorDisp(double lam, char *callFun) {
 
   // Mar 2011
   // Return color dispersion for input rest-wavelength "lam".
@@ -2610,7 +2707,7 @@ double SALT2colorDisp(double lam) {
   // before calling this function.
 
   int imap, NLAM ;
-  double cDisp, MINLAM, MAXLAM ;
+  double cDisp, LAMMIN, LAMMAX ;
   double *mapLam, *mapDisp ;
   char fnam[] = "SALT2colorDisp" ;
 
@@ -2619,22 +2716,24 @@ double SALT2colorDisp(double lam) {
   // strip off goodies into local variables
   imap    = INDEX_ERRMAP_COLORDISP ;
   NLAM    = SALT2_ERRMAP[imap].NLAM ;
-  MINLAM  = SALT2_ERRMAP[imap].MINLAM ;
-  MAXLAM  = SALT2_ERRMAP[imap].MAXLAM ;
-  mapLam  = &SALT2_ERRMAP[imap].LAM[1] ;
-  mapDisp = &SALT2_ERRMAP[imap].VALUE[1] ;
+  LAMMIN  = SALT2_ERRMAP[imap].LAMMIN ;
+  LAMMAX  = SALT2_ERRMAP[imap].LAMMAX ;
+  mapLam  = SALT2_ERRMAP[imap].LAM ;
+  mapDisp = SALT2_ERRMAP[imap].VALUE ;
 
   if ( NLAM <= 0 ) { cDisp = 0.0 ; return cDisp ; }
 
   // first some sanity checks
-  if ( lam < MINLAM || lam > MAXLAM ) {  
-    sprintf(c1err,"lam=%7.1f outside lookup range", lam);
-    sprintf(c2err,"Valid range is %7.1f to %7.1f A ", MINLAM, MAXLAM);
+  if ( lam < LAMMIN || lam > LAMMAX ) {  
+    sprintf(c1err,"lam=%f outside lookup range (called from %s)", 
+	    lam, callFun );
+    sprintf(c2err,"Valid range is %7.1f to %7.1f A ", LAMMIN, LAMMAX);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
   if ( NLAM <= 1 ) {
-    sprintf(c1err,"Cannot do map-lookup with %d lambda bins.", NLAM);
+    sprintf(c1err,"Cannot do map-lookup with %d lambda bins (callFun=%s).", 
+	    NLAM, callFun);
     sprintf(c2err,"Check %s",  SALT2_ERRMAP_FILES[imap] );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -2676,15 +2775,8 @@ void errorSummary_SALT2(void) {
   // summarize errors and CL(lambda) in a list vs. lambda.
 
   int NLAM, ilam, imap, LLAM ;
-
-  double 
-    LAMLIST[100]
-    ,lam,  Trest
-    ,ERRMAP[NERRMAP]
-    ,var0, var1, covar01, errscale, S0fracErr    
-    ,colorCor, c, colorDisp
-    ;
-
+  double LAMLIST[100], lam, Trest, ERRMAP[NERRMAP] ;
+  double var0, var1, covar01, errscale, S0fracErr, colorCor, c, colorDisp ;   
   char cCor[20];
   //  char fnam[] = "errorSummary_SALT2" ;
 
@@ -2742,13 +2834,13 @@ void errorSummary_SALT2(void) {
 	   
     // color dispersion
     imap = INDEX_ERRMAP_COLORDISP ;
-    if ( lam >= SALT2_ERRMAP[imap].MINLAM &&
-	 lam <= SALT2_ERRMAP[imap].MAXLAM ) {
+    if ( lam >= SALT2_ERRMAP[imap].LAMMIN &&
+	 lam <= SALT2_ERRMAP[imap].LAMMAX ) {
       
       colorDisp = interp_1DFUN(OPT_INTERP_LINEAR, lam
 			    ,SALT2_ERRMAP[imap].NLAM
-			    ,&SALT2_ERRMAP[imap].LAM[1]
-			    ,&SALT2_ERRMAP[imap].VALUE[1]
+			    ,SALT2_ERRMAP[imap].LAM
+			    ,SALT2_ERRMAP[imap].VALUE
 			    ,"colorDispSummary" );      
     }
     else

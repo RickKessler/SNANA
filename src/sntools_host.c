@@ -891,7 +891,8 @@ void  read_specbasis_HOSTLIB(void) {
   // this specTemplate file and the VARNAMES in the HOSTLIB.
 
   FILE *fp;
-  int  NBIN_WAVE, NBIN_READ, IFILETYPE, NVAR, ivar, ICOL_WAVE, NT, MEMD, NUM ;
+  int  NBIN_WAVE, NBIN_READ, IFILETYPE;
+  int  NVAR, ivar, ICOL_WAVE, NT, MEMD, NUM ;
   int  NVAR_WAVE  = 0 ;
   int  OPT_VARDEF = 0 ;
   int  LEN_PREFIX = strlen(PREFIX_SPECBASIS);
@@ -972,6 +973,7 @@ void  read_specbasis_HOSTLIB(void) {
       }
     }  
 
+   
     if ( strstr(varName,PREFIX_SPECBASIS) != NULL ) {
       if ( NT < MXSPECBASIS_HOSTLIB ) {
 	sscanf(&varName[LEN_PREFIX], "%d",  &NUM);
@@ -980,14 +982,18 @@ void  read_specbasis_HOSTLIB(void) {
 	HOSTSPEC.NUM_SPECBASIS[NT]  = NUM; // store template NUM
 	sprintf(HOSTSPEC.VARNAME_SPECBASIS[NT],"%s", varName);
 
-	HOSTSPEC.FLAM[NT] = (double*) malloc(MEMD);
-	SNTABLE_READPREP_VARDEF(varName,HOSTSPEC.FLAM[NT],NBIN_WAVE,OPT_VARDEF);
+	HOSTSPEC.FLAM_BASIS[NT] = (double*) malloc(MEMD);
+	SNTABLE_READPREP_VARDEF(varName,HOSTSPEC.FLAM_BASIS[NT],
+				NBIN_WAVE, OPT_VARDEF);
       }
       NT++ ; // always increment number of templates, NT
     }
+   
 
   } // end ivar loop
 
+
+  HOSTSPEC.FLAM_EVT = (double*) malloc(MEMD);
 
   // - - - - - - - - - - - - - -
   // abort tests
@@ -1020,16 +1026,16 @@ void  read_specbasis_HOSTLIB(void) {
   // Loop over wave bins and
   // + determine WAVE_BINSIZE for each wave bin
   // + truncate NBIN_WAVE so that lam < MAXLAM_SEDMODEL
-  double WAVE_BINSIZE, WAVE_MIN, WAVE_MAX, LAM;
+  double WAVE_BINSIZE, WAVE_MIN, WAVE_MAX, LAM, UNIT;
   double LAM_LAST=0.0, LAM_NEXT=0.0;
-  int FIRST, LAST, ilam, NBIN_KEEP=0 ;
+  int FIRST, LAST, i, ilam, NBIN_KEEP=0 ;
   for(ilam=0; ilam < NBIN_WAVE; ilam++ ) {
 
     FIRST = ( ilam == 0 ) ;
     LAST  = ( ilam == NBIN_WAVE-1 ) ;
 
     LAM  = HOSTSPEC.WAVE_CEN[ilam];
-    if ( LAM > MAXLAM_SEDMODEL ) { continue; }
+    if ( LAM > LAMMAX_SEDMODEL ) { continue; }
 
     if ( !FIRST )  { LAM_LAST = HOSTSPEC.WAVE_CEN[ilam-1]; }
     if ( !LAST  )  { LAM_NEXT = HOSTSPEC.WAVE_CEN[ilam+1]; }
@@ -1040,11 +1046,11 @@ void  read_specbasis_HOSTLIB(void) {
     WAVE_MIN     = LAM - (LAM - LAM_LAST)/2.0;
     WAVE_MAX     = LAM + (LAM_NEXT - LAM)/2.0;
     WAVE_BINSIZE = WAVE_MAX - WAVE_MIN;
-    // xxx mark delete    WAVE_BINSIZE = (LAM_NEXT - LAM_LAST)/2.0;
 
     HOSTSPEC.WAVE_MIN[ilam]     = WAVE_MIN ;
     HOSTSPEC.WAVE_MAX[ilam]     = WAVE_MAX ;
     HOSTSPEC.WAVE_BINSIZE[ilam] = WAVE_BINSIZE;
+
     NBIN_KEEP++ ;
 
     if ( (ilam < -10) ) {
@@ -1054,7 +1060,7 @@ void  read_specbasis_HOSTLIB(void) {
       fflush(stdout);
     }
 
-  }
+  } // end ilam loop
 
   NBIN_WAVE = NBIN_KEEP;
   HOSTSPEC.NBIN_WAVE  = NBIN_WAVE;
@@ -1079,6 +1085,7 @@ void match_specbasis_HOSTVAR(void) {
 
   int  NSPECBASIS    = HOSTSPEC.NSPECBASIS ;
   int  ivar_HOSTLIB, i, NERR=0;
+  int  LDMP = 0 ;
   char *VARNAME_SPECBASIS, VARNAME_HOSTLIB[40];
   char fnam[] = "match_specbasis_HOSTVAR";
 
@@ -1099,6 +1106,11 @@ void match_specbasis_HOSTVAR(void) {
     else {
       HOSTSPEC.IVAR_HOSTLIB[i] = ivar_HOSTLIB;
     }
+
+    if ( LDMP ) 
+      { printf(" xxx %s: ivar_HOSTLIB=%2d for '%s' \n",
+	       fnam, ivar_HOSTLIB, VARNAME_SPECBASIS);
+      }
   }
 
 
@@ -1143,7 +1155,7 @@ void checkVarName_specTemplate(char *varName) {
 } // end checkVarName_specTemplate
 
 // =========================================================
-void genSpec_HOSTLIB(double zhel, double MWEBV,
+void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 		     double *GENFLUX_LIST, double *GENMAG_LIST) {
 
   // Created Jun 28 2019 by R.Kessler
@@ -1155,20 +1167,27 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
   //  - fraction of galaxy in fiber or slit ? Or does ETC include this ?
   //
 
-  int  NBLAM       = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
+  int      NBLAM_SPECTRO   = INPUTS_SPECTRO.NBIN_LAM;
+  double  *LAMAVG_SPECTRO  = INPUTS_SPECTRO.LAMAVG_LIST;
+  double  *ZP_SPECTRO      = SPECTROGRAPH_SEDMODEL.ZP_LIST;
+  double   LAMMIN_SPECTRO  = LAMAVG_SPECTRO[0];
+  double   LAMMAX_SPECTRO  = LAMAVG_SPECTRO[NBLAM_SPECTRO-1];
+
   int  NBLAM_BASIS = HOSTSPEC.NBIN_WAVE; 
   int  IGAL        = SNHOSTGAL.IGAL ;
   double z1        = 1.0 + zhel;
-  double znorm     = pow(z1,HOSTSPEC.FLAM_SCALE_POWZ1);
+  double znorm     = pow(z1,HOSTSPEC.FLAM_SCALE_POWZ1) ;
   double hc8       = (double)hc;
 
-  int  ilam, ilam_basis, ilam_last=-9, i, ivar_HOSTLIB ;
+  long long GALID;
+  int  ilam, ilam_basis, ilam_last=-9, i, ivar_HOSTLIB, ivar ;
   int  ilam_near, NLAMSUM, LDMP=0;
-  double *FLAM_BASIS, FLAM_TMP, COEFF, FLUX_TMP;
-  double MWXT_FRAC, LAM, LAMBIN, LAMMIN, LAMMAX, LAM_BASIS;
-  double LAMREST_MIN, LAMREST_MAX;
+  double FLAM_TMP, FLAM_SUM, COEFF, FLUX_TMP;
+  double MWXT_FRAC, LAMOBS, LAMOBS_LAST=0.0;
+  double LAMOBS_BIN, LAMOBS_MIN, LAMOBS_MAX, LAM_BASIS;
+  double LAMREST_MIN, LAMREST_MAX ;
   double LAMMIN_TMP, LAMMAX_TMP, LAMBIN_TMP, LAMBIN_CHECK ;
-  double ZP, FTMP, MAG;
+  double ZP, FTMP, MAG, FLUX, ZCHECK;
   char fnam[] = "genSpec_HOSTLIB" ;
 
   // ------------------ BEGIN --------------
@@ -1179,80 +1198,126 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  // first construct total spectrum using specbasis binning
-  FLAM_BASIS = (double*) malloc( sizeof(double) * NBLAM_BASIS );
+  if ( DUMPFLAG ) {
+    ivar = HOSTLIB.IVAR_GALID;
+    GALID = (long long)HOSTLIB.VALUE_ZSORTED[ivar][IGAL] ;    
+
+    ivar = HOSTLIB.IVAR_ZTRUE;
+    ZCHECK = HOSTLIB.VALUE_ZSORTED[ivar][IGAL] ; 
+    
+    printf(" xxx ----------------------------------------------- \n");
+    printf(" xxx %s DUMP for  GALID = %lld  (IGAL=%d, ZTRUE=%.4f)\n",
+	   fnam, GALID, IGAL, ZCHECK );
+  }
+
+  // first construct total rest-frame spectrum using specbasis binning
+
   for(ilam_basis=0; ilam_basis < NBLAM_BASIS; ilam_basis++ ) {
-    FLAM_BASIS[ilam_basis] = 0.0 ;
+    FLAM_SUM = 0.0 ;
+    LAM_BASIS    = HOSTSPEC.WAVE_CEN[ilam_basis];
     for(i=0; i < HOSTSPEC.NSPECBASIS; i++ ) {
       ivar_HOSTLIB = HOSTSPEC.IVAR_HOSTLIB[i];
-      COEFF        = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ;
-      FLAM_TMP   = HOSTSPEC.FLAM[i][ilam_basis] ;
-      FLAM_BASIS[ilam_basis]  += ( COEFF * FLAM_TMP );
+      COEFF        = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ; 
+      FLAM_TMP     = HOSTSPEC.FLAM_BASIS[i][ilam_basis] ;
+      FLAM_SUM    += ( COEFF * FLAM_TMP );
+
+      if ( DUMPFLAG && ilam_basis == 0 && COEFF > 0.0 ) {
+	printf(" xxx COEFF(%2d) = %le  (ivar_HOSTLIB=%d)\n", 
+	       i, COEFF, ivar_HOSTLIB );
+      }
     }
 
     // global scale for physical units
-    FLAM_BASIS[ilam_basis] *= HOSTSPEC.FLAM_SCALE; 
-    FLAM_BASIS[ilam_basis] *= znorm;         // z-dependence
-  }
+    HOSTSPEC.FLAM_EVT[ilam_basis] = (FLAM_SUM * HOSTSPEC.FLAM_SCALE * znorm);
+
+    /* xxxxxxxxxxxxxxxx 
+    LAMOBS  = z1*HOSTSPEC.WAVE_CEN[ilam_basis]; // obs frame
+       // ZP is no good here because ZP is in SPECTROGRAPH bins,
+       // not in HOSTSPEC bins.
+    if ( DUMPFLAG ) {
+      if ( LAMOBS > LAMMIN_SPECTRO && 
+	   LAMOBS < LAMMAX_SPECTRO && LAMOBS-LAMOBS_LAST > 20.0 ) {
+	
+	LAMOBS_MIN   = z1*HOSTSPEC.WAVE_MIN[ilam_basis];
+	LAMOBS_MAX   = z1*HOSTSPEC.WAVE_MAX[ilam_basis];
+	LAMOBS_BIN   = z1*HOSTSPEC.WAVE_BINSIZE[ilam_basis];
+	FLAM_TMP     = FLAM_BASIS[ilam_basis] ;
+	ZP = interp_1DFUN(OPT_INTERP_LINEAR, LAMOBS, NBLAM_SPECTRO,
+			  LAMAVG_SPECTRO, ZP_SPECTRO, fnam); // ZP NOT RIGHT
+
+	FLUX    = FLAM_TMP * LAMOBS_BIN * LAMOBS/(hc8*z1);
+	MAG     = ZP - 2.5*log10(FLUX);
+	
+	printf(" xxx %7.1f - %7.1f: FLAM(RAW,NORM) = %10.3le, %10.3le   "
+	       "MAG=%5.2f (ZP=%5.2f) \n",
+	       LAMOBS_MIN, LAMOBS_MAX, FLAM_SUM, FLAM_TMP, MAG, ZP );
+	fflush(stdout);        LAMOBS_LAST = LAMOBS ;
+      }
+
+    } // end DUMPFLAG
+    xxxxxxxxxxxxxxxx */    
+
+  } // end ilam_basis
 
 
+  // ---------------
   // HOST FLAM is in wavelength bins defined in the specTemplate file.
   // Here we to convert to SPECTROGRAPH bins in GENFLUX_LIST.
   // "ilam" is the index for SPECTROGRAPH, while ilam_basis is for specbasis.
 
-  for(ilam=0; ilam < NBLAM; ilam++ ) { 
+  for(ilam=0; ilam < NBLAM_SPECTRO; ilam++ ) { 
     if ( MWEBV > 1.0E-9 ) 
       { MWXT_FRAC  = SEDMODEL_TABLE_MWXT_FRAC[0][ilam] ; }
     else
       { MWXT_FRAC  = 1.0 ; }
 
-    LAM        = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
-    LAMMIN     = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST[ilam] ;
-    LAMMAX     = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST[ilam] ;
-    LAMBIN     = LAMMAX - LAMMIN ;
+    GENFLUX_LIST[ilam] = 0.0;
+    GENMAG_LIST[ilam]  = MAG_UNDEFINED ;
+
+    LAMOBS      = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
+    LAMOBS_MIN  = SPECTROGRAPH_SEDMODEL.LAMMIN_LIST[ilam] ;
+    LAMOBS_MAX  = SPECTROGRAPH_SEDMODEL.LAMMAX_LIST[ilam] ;
+    LAMOBS_BIN  = LAMOBS_MAX - LAMOBS_MIN ;
 
     LDMP = (ilam == -217);
 
-    LAMREST_MIN = LAMMIN/z1 ;
-    LAMREST_MAX = LAMMAX/z1 ;
+    LAMREST_MIN = LAMOBS_MIN/z1 ;
+    LAMREST_MAX = LAMOBS_MAX/z1 ;
 
     if ( MWXT_FRAC < 1.0E-9 || MWXT_FRAC > 1.000001 ) {
-      sprintf(c1err,"Invalid MWXT_FRAC = %f for LAM=%.1f", MWXT_FRAC, LAM);
+      sprintf(c1err,"Invalid MWXT_FRAC = %f for LAMOBS=%.1f", 
+	      MWXT_FRAC, LAMOBS );
       sprintf(c2err,"SEDMODEL_TABLE_MWXT_FRAC was probably not initialized.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
     // loop over specBasis bins that overlap this SPECTROGRAPH bin,
     // and sum specBasis flux
-    FLUX_TMP = 0.0 ;    LAMMIN_TMP = -9.0 ;   LAMBIN_CHECK=0.0 ;
+    FLUX_TMP  = 0.0 ;    LAMMIN_TMP = -9.0 ;   LAMBIN_CHECK=0.0 ;
     ilam_near = -9; NLAMSUM=0;
-    ilam_basis=ilam_last-2 ;  if(ilam_basis<0) {ilam_basis=0;}
+    ilam_basis = ilam_last-2 ;  if(ilam_basis<0) {ilam_basis=0;}
 
     while ( LAMMIN_TMP < LAMREST_MAX ) {
-      FLAM_TMP     = FLAM_BASIS[ilam_basis];
+      FLAM_TMP     = HOSTSPEC.FLAM_EVT[ilam_basis];
       LAM_BASIS    = HOSTSPEC.WAVE_CEN[ilam_basis];
       LAMBIN_TMP   = HOSTSPEC.WAVE_BINSIZE[ilam_basis];
       LAMMIN_TMP   = HOSTSPEC.WAVE_MIN[ilam_basis];
       LAMMAX_TMP   = HOSTSPEC.WAVE_MAX[ilam_basis];
 
-
-      // LAMMIN_TMP   = LAM_BASIS - LAMBIN_TMP/2.0;  // lower lambda of bin
-      // LAMMAX_TMP   = LAM_BASIS + LAMBIN_TMP/2.0;  // upper lambda of bin
       ilam_basis++; ilam_last = ilam_basis;
 
-
-      if ( LAM_BASIS < LAM ) { ilam_near = ilam_basis; }
+      if ( LAM_BASIS < LAMOBS/z1 ) { ilam_near = ilam_basis; }
 
       if( LAMMAX_TMP < LAMREST_MIN ) { continue ; }
       if( LAMMIN_TMP > LAMREST_MAX ) { continue ; }
 
       // compute flux contained in this SPECTROGRAPH bin;
-      // i.e. exclude flux the leaks out of thie SPECTROGRAPh bin.
+      // i.e. exclude flux that leaks out of thie SPECTROGRAPh bin.
       if ( LAMMIN_TMP < LAMREST_MIN ) { LAMMIN_TMP = LAMREST_MIN; }
       if ( LAMMAX_TMP > LAMREST_MAX ) { LAMMAX_TMP = LAMREST_MAX; }
 
       LAMBIN_CHECK += (LAMMAX_TMP - LAMMIN_TMP);
-      FLUX_TMP += ( FLAM_TMP * (LAMMAX_TMP - LAMMIN_TMP) );
+      FLUX_TMP     += ( FLAM_TMP * (LAMMAX_TMP - LAMMIN_TMP)*z1 );
       NLAMSUM++ ;
 
       if ( LDMP ) {
@@ -1261,48 +1326,49 @@ void genSpec_HOSTLIB(double zhel, double MWEBV,
 	       ilam, ilam_basis, LAMMIN_TMP, LAMMAX_TMP, FLUX_TMP );
       }
 
-    }
+    } // end while loop over rest-frame wavelength
     
     // if NLAMSUM==0, then no basis lambins overlap SPECTROGRAPH;
-    // in thise casem, interpolate nearest basis bins
+    // in thise case, average over nearest basis bins
     if ( NLAMSUM == 0 ) {
-      FLAM_TMP     = (FLAM_BASIS[ilam_near]+FLAM_BASIS[ilam_near+1])/2.0;
-      FLUX_TMP     = FLAM_TMP * LAMBIN;
-      LAMBIN_CHECK = LAMBIN/z1 ;
+      double FLAM0 = HOSTSPEC.FLAM_EVT[ilam_near];
+      double FLAM1 = HOSTSPEC.FLAM_EVT[ilam_near+1];
+      FLAM_TMP     = (FLAM0+FLAM1)/2.0;
+      FLUX_TMP     = FLAM_TMP * LAMOBS_BIN;
+      LAMBIN_CHECK = LAMOBS_BIN/z1 ;
     }
 
-    // check that sum over basis wave bins = SPECTROGRAPH bin size
-    // basis wave is rest frame and SPECTROGRAPH bin is obs frame;
+    // check that sum over basis wave bins = SPECTROGRAPH bin size.
+    // Basis wave is rest frame and SPECTROGRAPH bin is obs frame;
     // hence z1 factor needed to compare.
 
-    if ( fabs(LAMBIN_CHECK - LAMBIN/z1) > 0.001 ) {
+    if ( fabs(LAMBIN_CHECK - LAMOBS_BIN/z1) > 0.001 ) {
       printf("\n PRE-ABORT DUMP: \n");
       printf("   SPECTROGRAPH LAM(OBS) : %.3f to %.3f  (ilam=%d)\n",
-	     LAMMIN, LAMMAX, ilam );
+	     LAMOBS_MIN, LAMOBS_MAX, ilam );
       printf("   SPECTROGRAPH LAM(Rest): %.3f to %.3f \n",
 	     LAMREST_MIN, LAMREST_MAX);
       printf("   NLAMSUM = %d \n", NLAMSUM);
       sprintf(c1err,"Failed LAMBIN_CHECK=%.3f, but expected %.3f",
-	      LAMBIN_CHECK, LAMBIN/z1);
+	      LAMBIN_CHECK, LAMOBS_BIN/z1);
       sprintf(c2err,"zhel=%.4f, MWXT_FRAC=%.3f", zhel, MWXT_FRAC );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
     // store flux (not FLAM) in SPECTROGRAPH bin
-    GENFLUX_LIST[ilam] = FLUX_TMP*MWXT_FRAC ;  
+    GENFLUX_LIST[ilam] = FLUX_TMP * MWXT_FRAC ;  
 
     // convert to mag
     ZP    = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
-    FTMP  = (LAM/(hc8*z1)) * FLUX_TMP;
+    FTMP  = (LAMOBS/(hc8*z1)) * FLUX_TMP;
     if ( ZP > 0.0 && FTMP > 0.0 ) 
       { MAG = -2.5*log10(FTMP) + ZP; }
     else
       { MAG = MAG_UNDEFINED; }
 
     GENMAG_LIST[ilam]  = MAG;
-  }
 
-  free(FLAM_BASIS);
+  } // end ilam loop
 
   return;
 
@@ -1671,31 +1737,6 @@ void read_gal_HOSTLIB(FILE *fp) {
 
       if ( passCuts_HOSTLIB(xval) == 0 ) { continue; }
 
-      /* xxxxxxxxxxxx mark delete xxxxxxxxxxx
-      // apply redshift cut before storing entry
-      ivar_STORE  = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZTRUE,1);
-      ivar_ALL    = HOSTLIB.IVAR_ALL[ivar_STORE] ; // column in file
-      ZTRUE       = xval[ivar_ALL];
-
-      if ( ZTRUE < ZCUT[0]  ) { continue ; }
-      if ( ZTRUE > ZCUT[1]  ) { continue ; }
-
-      // apply RA+DEC cuts if RA and DEC are defined (Sep 22, 2011)
-      if ( HOSTLIB.IVAR_RA > 0 && HOSTLIB.IVAR_DEC > 0 ) {
-	ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_RA] ;
-	RA          = xval[ivar_ALL];
-	RA2         = RA + 360.0 ; 
-	LRA         = (RA  > RAWIN[0] && RA  < RAWIN[1] );
-	LRA2        = (RA2 > RAWIN[0] && RA2 < RAWIN[1] );
-	if ( LRA == 0 && LRA2 == 0 ) { continue ; }
-	
-	ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_DEC] ;
-	DEC         = xval[ivar_ALL];
-	if ( DEC  < DECWIN[0] ) { continue ; }
-	if ( DEC  > DECWIN[1] ) { continue ; }
-      }
-      xxxxxxxxxx end mark xxxxxxxxxx */
-
       // count how many priority entries (for print summary below)
       if ( GALID_MIN < GALID_MAX ) {
 	ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_GALID] ;
@@ -1799,19 +1840,21 @@ int passCuts_HOSTLIB(double *xval ) {
   if ( ZTRUE > HOSTLIB_CUTS.ZWIN[1] ) { return(0); }
 
   // RA
-  ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_RA] ;
-  RA          = xval[ivar_ALL];
-  RA2         = RA + 360.0 ; 
-  LRA   = (RA  > HOSTLIB_CUTS.RAWIN[0] && RA  < HOSTLIB_CUTS.RAWIN[1] );
-  LRA2  = (RA2 > HOSTLIB_CUTS.RAWIN[0] && RA2 < HOSTLIB_CUTS.RAWIN[1] );
-  if ( LRA == 0 && LRA2 == 0 ) { return(0) ; }
-  
-  // DEC
-  ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_DEC] ;
-  DEC         = xval[ivar_ALL];   
-  if ( DEC  < HOSTLIB_CUTS.DECWIN[0] ) { return(0) ; }
-  if ( DEC  > HOSTLIB_CUTS.DECWIN[1] ) { return(0) ; }
-  
+  if ( HOSTLIB.IVAR_RA > 0 && HOSTLIB.IVAR_DEC > 0 ) { 
+    ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_RA] ;
+    RA          = xval[ivar_ALL];
+    RA2         = RA + 360.0 ; 
+    LRA   = (RA  > HOSTLIB_CUTS.RAWIN[0] && RA  < HOSTLIB_CUTS.RAWIN[1] );
+    LRA2  = (RA2 > HOSTLIB_CUTS.RAWIN[0] && RA2 < HOSTLIB_CUTS.RAWIN[1] );
+    if ( LRA == 0 && LRA2 == 0 ) { return(0) ; }
+    
+    // DEC
+    ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_DEC] ;
+    DEC         = xval[ivar_ALL];   
+    if ( DEC  < HOSTLIB_CUTS.DECWIN[0] ) { return(0) ; }
+    if ( DEC  > HOSTLIB_CUTS.DECWIN[1] ) { return(0) ; }
+  }
+
   return(1);
 
 } // end passCuts_HOSTLIB
@@ -2033,14 +2076,11 @@ void check_duplicate_GALID(void) {
   long long GALID, GALID_LAST ;
   double   *ptrGALID ;
 
-  int  *LIBINDEX_SORT
-    ,NGAL, igal, IVAR_GALID, NERR, VBOSE, isort, ORDER_SORT 
-    ;
+  int  *LIBINDEX_UNSORT ;
+  int  NGAL, igal, IVAR_GALID, NERR, VBOSE, isort, ORDER_SORT  ;
 
-  double
-    ZTRUE, ZTRUE_LAST, ZDIF, XGAL
-    ,ZTOL = 0.00001     // z-tolerance
-    ;
+  double ZTRUE, ZTRUE_LAST, ZDIF, XGAL;
+  double ZTOL = 0.00001 ;    // z-tolerance   
 
   char fnam[] = "check_duplicate_GALID" ;
 
@@ -2059,8 +2099,8 @@ void check_duplicate_GALID(void) {
 
 
   // allocate memory for sort-pointers
-  LIBINDEX_SORT = (int   *)malloc( (NGAL+1) * sizeof(int)    );
-  ptrGALID      = (double*)malloc( (NGAL+1) * sizeof(double) );
+  LIBINDEX_UNSORT = (int   *)malloc( (NGAL+1) * sizeof(int)    );
+  ptrGALID        = (double*)malloc( (NGAL+1) * sizeof(double) );
 
   // load array of double-precision GALID to be sorted
   for ( igal = 0; igal < NGAL; igal++ ) {
@@ -2070,7 +2110,7 @@ void check_duplicate_GALID(void) {
 
   ORDER_SORT = +1 ; // increasing order
   sortDouble( NGAL, ptrGALID, ORDER_SORT, 
-	      LIBINDEX_SORT );  // return array of indices
+	      LIBINDEX_UNSORT );  // return array of indices
 
   GALID_LAST  =  -9  ;
   ZTRUE_LAST  = 0.0 ;
@@ -2079,7 +2119,7 @@ void check_duplicate_GALID(void) {
   // check current and previous GALID for duplicates
   for ( igal = 0; igal < NGAL ; igal++ ) {
 
-    isort = LIBINDEX_SORT[igal] ;
+    isort = LIBINDEX_UNSORT[igal] ;
     GALID = get_GALID_HOSTLIB(isort) ;
     ZTRUE = get_ZTRUE_HOSTLIB(isort) ;
 
@@ -2107,7 +2147,7 @@ void check_duplicate_GALID(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  free(LIBINDEX_SORT);
+  free(LIBINDEX_UNSORT);
   free(ptrGALID);
 
 }   // end of check_duplicate_GALID
@@ -2123,15 +2163,12 @@ void sortz_HOSTLIB(void) {
   // Also compute ZGAPMAX, ZGAPAVG and Z_ATGAPMAZ
   //
 
-  int 
-    NGAL, igal, ival, isort, VBOSE, DOFIELD
-    ,IVAR_ZTRUE, NVAR_STORE, ORDER_SORT 
-    ,*LIBINDEX_SORT     
-    ;
+  int  NGAL, igal, ival, unsort, VBOSE, DOFIELD;
+  int  IVAR_ZTRUE, NVAR_STORE, ORDER_SORT     ;
 
-  double ZTRUE, ZLAST, ZGAP, ZSUM, *ZSORT ;
+  double ZTRUE, ZLAST, ZGAP, ZSUM, *ZSORT, VAL ;
   char *FIELD;
-  //  char fnam[] = "sortz_HOSTLIB" ;
+  char fnam[] = "sortz_HOSTLIB" ;
 
   // ------------- BEGIN -------------
 
@@ -2154,7 +2191,8 @@ void sortz_HOSTLIB(void) {
   IVAR_ZTRUE = HOSTLIB.IVAR_ZTRUE ;
 
   // allocate memory for sort-pointers
-  LIBINDEX_SORT = (int*)malloc( (NGAL+1) * sizeof(int) );
+  HOSTLIB.LIBINDEX_UNSORT  = (int*)malloc( (NGAL+1) * sizeof(int) );
+  HOSTLIB.LIBINDEX_ZSORT   = (int*)malloc( (NGAL+1) * sizeof(int) );
 
   // allocate memory for sorted values
   for ( ival=0; ival < NVAR_STORE; ival++ ) {
@@ -2181,24 +2219,27 @@ void sortz_HOSTLIB(void) {
     ZSORT[igal] = ZTRUE ;
   }
 
-  ORDER_SORT = +1 ;        // increasing order
-  sortDouble( NGAL, ZSORT, ORDER_SORT, LIBINDEX_SORT ) ;
+  ORDER_SORT = +1 ;    // increasing order
+  sortDouble( NGAL, ZSORT, ORDER_SORT, HOSTLIB.LIBINDEX_UNSORT ) ;
 
 
   HOSTLIB.SORTFLAG = 1 ;
   ZLAST = HOSTLIB.ZMIN ;
   ZSUM = 0.0 ;
 
-  // fill sorted array
+  // fill sorted array. 'igal' is the z-sorted index; 
+  // 'unsort' is the  un-sorted index matching the original HOSTLIB order.
   for ( igal = 0; igal < NGAL ; igal++ ) {
-    isort = LIBINDEX_SORT[igal]  ;
+    unsort = HOSTLIB.LIBINDEX_UNSORT[igal]  ;
+    HOSTLIB.LIBINDEX_ZSORT[unsort] = igal;
+
     for ( ival=0; ival < NVAR_STORE; ival++ ) {
-      HOSTLIB.VALUE_ZSORTED[ival][igal] = 
-	HOSTLIB.VALUE_UNSORTED[ival][isort] ;
+      VAL = HOSTLIB.VALUE_UNSORTED[ival][unsort] ; 
+      HOSTLIB.VALUE_ZSORTED[ival][igal] = VAL;
     }
 
     if ( DOFIELD ) {
-      FIELD = HOSTLIB.FIELD_UNSORTED[isort] ;
+      FIELD = HOSTLIB.FIELD_UNSORTED[unsort] ;
       sprintf(HOSTLIB.FIELD_ZSORTED[igal],"%s", FIELD);
     }
 
@@ -2219,13 +2260,14 @@ void sortz_HOSTLIB(void) {
   HOSTLIB.ZGAPAVG = ZSUM/(double)(NGAL);
 
   // free memory for the pointers and the unsorted array.
-  free(LIBINDEX_SORT);
   free(ZSORT);
+  for ( ival=0; ival < NVAR_STORE; ival++ ) 
+    { free(HOSTLIB.VALUE_UNSORTED[ival]);  }
 
   int  OPT_PLUSMAGS  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS);
   if ( !OPT_PLUSMAGS ) {
-    for ( ival=0; ival < NVAR_STORE; ival++ ) 
-      { free(HOSTLIB.VALUE_UNSORTED[ival]);  }
+    free(HOSTLIB.LIBINDEX_UNSORT);
+    free(HOSTLIB.LIBINDEX_ZSORT);
   }
 
 } // end of sortz_HOSTLIB
@@ -2241,10 +2283,15 @@ void zptr_HOSTLIB(void) {
   // Sep 11, 2012: switch from linear to logz grid
   // Nov 20, 2015: fix syntax bug: fabsf -> fabs  for zdif
   // Dec 29, 2017: speed up; see igal_start and NPAST
+  // Sep 20, 2019: compute NZPTR from define params, and alloate IZPTR
+  //
 
-  int iz, igal, igal_start, igal_last, NTMP, NSET, NPAST ;
+  double DZPTR     = (double)DZPTR_HOSTLIB;
+  double LOGZRANGE = (double)LOGZRANGE_HOSTLIB ;
+
+  int iz, igal, igal_start, igal_last, NTMP, NSET, NPAST, NZPTR ;
   double ZTRUE, ZSAVE, LOGZ_GRID, Z_GRID, zdif, zdifmin ;
-  //  char fnam[] = "zptr_HOSTLIB" ;
+  char fnam[] = "zptr_HOSTLIB" ;
 
   // ----------- BEGIN -------------
 
@@ -2252,7 +2299,16 @@ void zptr_HOSTLIB(void) {
   HOSTLIB.MAXiz = -9;
   igal_last=1;
 
-  for ( iz = 0; iz < NZPTR_HOSTLIB ; iz++ ) {
+  NZPTR         = (int)(LOGZRANGE/DZPTR); ;
+  HOSTLIB.NZPTR = NZPTR;
+  HOSTLIB.IZPTR = (int*) malloc ( NZPTR*sizeof(int) );
+
+  /*
+  printf(" xxx %s: NZPTR=%d bins %.3f < logz < %.3f (range=%.3f)\n", 
+	 fnam, NZPTR, MAXLOGZ_HOSTLIB, MINLOGZ_HOSTLIB, LOGZRANGE);
+  */
+
+  for ( iz = 0; iz < NZPTR ; iz++ ) {
 
     HOSTLIB.IZPTR[iz] = 0 ;
 
@@ -3259,7 +3315,6 @@ void init_Sersic_integrals(int j) {
   SERSIC_TABLE.INTEG_CUM[j][0] = 0.0 ; 
 
 
-  // xxx mark delete  xj    =  (double)j - 1.0 ;
   xj    =  (double)j  ;
   inv_n = SERSIC_TABLE.INVINDEX_MIN + SERSIC_TABLE.INVINDEX_BIN * xj;
   SERSIC_TABLE.inv_n[j]  = inv_n ;
@@ -5194,7 +5249,6 @@ void GEN_SNHOST_GALMAG(int IGAL) {
 
   double psfsig, arg, SB_MAG, SB_FLUX, AREA ;
 
-  //  psfsig  = 0.6 ; // arcsec xxx mark delete May 5 2017
   psfsig  = INPUTS.HOSTLIB_SBRADIUS/2.0; 
   AREA    = 3.14159*(4.0*psfsig*psfsig) ; // effective noise-equiv area
 
@@ -5743,14 +5797,6 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
 
   // ----------- BEGIN -----------
 
-  /* xxx
-    HOSTLIB_OUTVAR_EXTRA.IVAR_STORE[NVAR_OUT] = IVAR_HOSTLIB(varName,1);
-    NVAR_OUT++ ;  
-    if(NVAR_OUT > 1 ) { strcat(VARLIST_LOAD,"," ); }
-    strcat(VARLIST_LOAD,varName); // for stdout message.
-  */
-
-
   if ( OPT == 1 ) {
     // always start with RV and AV    
     sprintf(NAMES_HOSTPAR,"RV,AV"); NPAR=2;
@@ -5802,17 +5848,28 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
 // ===================================
 void rewrite_HOSTLIB_plusMags(void) {
   
-  int NGAL     = HOSTLIB.NGAL_STORE;
-  int NFILT    = GENLC.NFILTDEF_OBS; 
-  int NBIN_LAM = INPUTS_SPECTRO.NBIN_LAM;
+  // If +HOSTMAGS option is given on command-line, this function
+  // is called to compute synthetic mags and re-write the HOSTLIB
+  // with [band]_obs columns. 
+  // Beware that 'igal' is a redshift-sorted index for the other 
+  // HOSTLIB functions, but here we use the original HOSTLIB order.
+  // 
+
+  int NGAL     = HOSTLIB.NGAL_STORE ;
+  int NFILT    = NFILT_SEDMODEL ; 
+  int NBIN_LAM = INPUTS_SPECTRO.NBIN_LAM ;
   int MEMD     = sizeof(double) * NBIN_LAM ;
 
-  int igal, ifilt, ifilt_obs, ivar, DUMPFLAG=0 ;
+  int igal_unsort, igal_zsort, ifilt, ifilt_obs, ivar, DUMPFLAG=0 ;
   long long GALID, GALID_orig ;
   double ZTRUE, MWEBV=0.0, mag, *GENFLUX_LIST, *GENMAG_LIST;
-  float  **MAG_STORE;
+  float  **MAG_STORE ;
 
   char fnam[] = "rewrite_HOSTLIB_plusMags" ;
+
+  // internal debug
+  long long GALID_DUMP = 205925 ;
+  int  NGAL_DEBUG      = -500;
 
   // ------------ BEGIN -----------
 
@@ -5827,51 +5884,60 @@ void rewrite_HOSTLIB_plusMags(void) {
   GENFLUX_LIST = (double*) malloc(MEMD);
   GENMAG_LIST  = (double*) malloc(MEMD);
 
-  MAG_STORE = (float**) malloc( NFILT*sizeof(float*) );
-  for(ifilt=0; ifilt < NFILT; ifilt++ ) 
+  MAG_STORE = (float**) malloc( (NFILT+1)*sizeof(float*) );
+  for(ifilt=0; ifilt <= NFILT; ifilt++ ) 
     { MAG_STORE[ifilt] = (float*) malloc(NGAL*sizeof(float)) ; }
 
-  for(ifilt=0; ifilt < NFILT; ifilt++ ) 
+  for(ifilt=0; ifilt <= NFILT; ifilt++ ) 
     { HOSTSPEC.NWARN_INTEG_HOSTMAG[ifilt] = 0 ; }
 
   // ----------------------------
-  //  NGAL = 100 ; // xxx REMOVE
+  if ( NGAL_DEBUG > 0 ) { NGAL = NGAL_DEBUG; }
 
-  for(igal=0; igal < NGAL; igal++ ) {
-    SNHOSTGAL.IGAL = igal;
+  for(igal_unsort=0; igal_unsort < NGAL; igal_unsort++ ) {
+
+    igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
+    SNHOSTGAL.IGAL = igal_zsort; // needed by genSpec_HOSTLIB
 
     ivar  = HOSTLIB.IVAR_GALID;
-    GALID = (long long)HOSTLIB.VALUE_UNSORTED[ivar][igal] ;
+    GALID = (long long)HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
 
     ivar  = HOSTLIB.IVAR_ZTRUE ;
-    ZTRUE = HOSTLIB.VALUE_UNSORTED[ivar][igal] ;
+    ZTRUE = HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
     
+    DUMPFLAG = ( GALID == GALID_DUMP );    
+
     genSpec_HOSTLIB(ZTRUE,          // (I) helio redshift
 		    MWEBV,          // (I) Galactic extinction
+		    DUMPFLAG,       // (I) dump flag
 		    GENFLUX_LIST,   // (O) fluxGen per bin 
 		    GENMAG_LIST );  // (O) magGen per bin
 
-    //    DUMPFLAG = ( GALID == 100020 );
-    for ( ifilt=0; ifilt < NFILT; ifilt++ ) {
-      ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
-      mag = integmag_hostSpec(ifilt_obs,GENFLUX_LIST,DUMPFLAG);
-      MAG_STORE[ifilt][igal] = mag;
+    // ignore GENFLUX_LIST & GENMAG_LIST returned by genSpec_HOSTLIB.
+    // Instead, integmag_hostSpec below uses global HOSTSPEC.FLAM_EVT 
+    // that is loaded in genSpec_HOSTLIB.
+
+    for ( ifilt=1; ifilt <= NFILT; ifilt++ ) {
+      // xxxx      ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
+      ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
+      mag       = integmag_hostSpec(ifilt_obs,ZTRUE,DUMPFLAG);
+      MAG_STORE[ifilt][igal_unsort] = mag;
     }
 
-    if ( (igal % 5000) == 0 ) {
-      printf("\t Processing igal %8d of %8d \n", igal, NGAL);
+    if ( (igal_unsort % 5000) == 0 ) {
+      printf("\t Processing igal %8d of %8d \n", igal_unsort, NGAL);
       fflush(stdout);
     }
 
     // xxxxxxxxxxxxxxxxxxxxxxxxxxx
     if ( ZTRUE < -1.0 ) {
       printf(" xxx ------------------------------------- \n");
-      printf(" xxx igal=%2d  GALID=%8d  ZTRUE=%.5f \n", 
-	     igal, GALID, ZTRUE);
+      printf(" xxx igal_unsort=%2d  GALID=%8d  ZTRUE=%.5f \n", 
+	     igal_unsort, GALID, ZTRUE);
 
       printf("     mag(%s) = ", INPUTS.GENFILTERS);
-      for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) 
-	{ printf("%7.2f", MAG_STORE[ifilt][igal] );   }
+      for ( ifilt=1; ifilt <= NFILT; ifilt++ ) 
+	{ printf("%7.2f", MAG_STORE[ifilt][igal_unsort] );   }
       printf("\n"); fflush(stdout);
     } // end igal
     // xxxxxxxxxxxxxxxxxxxx
@@ -5888,10 +5954,12 @@ void rewrite_HOSTLIB_plusMags(void) {
   char LINE[MXCHAR_LINE_HOSTLIB], VARNAMES_HOSTMAGS[200];
   char *cfilt, varname_mag[40], *ptrCR, cval[20] ;
   char FIRSTWORD[100], NEXTWORD[100], LINE_APPEND[100] ;
+  char tmpFile[MXPATHLEN], NULLPATH[] = "" ;
   FILE *FP_ORIG, *FP_NEW;
-  int  NWD_LINE;
+  int  NWD_LINE, gzipFlag, L;
   sprintf(HLIB_NEW,"%s+HOSTMAGS", HLIB_ORIG);
 
+  //FP_ORIG = snana_openTextFile(1, NULLPATH, HLIB_ORIG, tmpFile, &gzipFlag);
   FP_ORIG = fopen(HLIB_ORIG,"rt");
   FP_NEW  = fopen(HLIB_NEW, "wt");
   if ( !FP_ORIG ) {
@@ -5912,13 +5980,14 @@ void rewrite_HOSTLIB_plusMags(void) {
 
   // create additional varnames of mags to append to VARNAMES list
   VARNAMES_HOSTMAGS[0] = 0;
-  for(ifilt=0; ifilt < NFILT; ifilt++ ) {
-    sprintf(varname_mag," %c_obs", INPUTS.GENFILTERS[ifilt] );
+  for(ifilt=1; ifilt <= NFILT; ifilt++ ) {
+    cfilt = FILTER_SEDMODEL[ifilt].name;     L = strlen(cfilt);
+    sprintf(varname_mag," %c_obs", cfilt[L-1] );
     strcat(VARNAMES_HOSTMAGS,varname_mag);
   }
 
 
-  igal = 0;
+  igal_unsort = 0;
   while ( fgets(LINE, MXCHAR_LINE_HOSTLIB, FP_ORIG) != NULL ) {
 
     NWD_LINE = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
@@ -5931,23 +6000,24 @@ void rewrite_HOSTLIB_plusMags(void) {
       else if ( strcmp(FIRSTWORD,"GAL:") == 0 ) {
 	// make sure GALID matches
 
-	ivar  = HOSTLIB.IVAR_GALID;
-	GALID = (long long)HOSTLIB.VALUE_UNSORTED[ivar][igal] ;
+	ivar       = HOSTLIB.IVAR_GALID;
+	igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
+	GALID      = (long long)HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
 
 	get_PARSE_WORD(0, 1, NEXTWORD); // read GALID
 	sscanf(NEXTWORD, "%lld", &GALID_orig);
 	if ( GALID != GALID_orig ) {
-	  sprintf(c1err,"GALID mis-match for igal=%d", igal);
+	  sprintf(c1err,"GALID mis-match for igal_unsort=%d", igal_unsort);
 	  sprintf(c2err,"GALID(orig)=%lld, but stored GALID=%lld",
 		  GALID_orig, GALID ) ;
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
 	}
 
-	for(ifilt=0; ifilt < NFILT; ifilt++ ) {
-	  sprintf(cval, " %6.3f", MAG_STORE[ifilt][igal] );
+	for(ifilt=1; ifilt <= NFILT; ifilt++ ) {
+	  sprintf(cval, " %6.3f", MAG_STORE[ifilt][igal_unsort] );
 	  strcat(LINE_APPEND,cval);
 	}
-	igal++ ;
+	igal_unsort++ ;
       }
     }
 
@@ -5959,7 +6029,7 @@ void rewrite_HOSTLIB_plusMags(void) {
 
   // -----------------------
   free(GENFLUX_LIST); free(GENMAG_LIST);
-  for(ifilt=0; ifilt < NFILT; ifilt++ )  { free(MAG_STORE[ifilt]); }
+  for(ifilt=0; ifilt <= NFILT; ifilt++ )  { free(MAG_STORE[ifilt]); }
   free(MAG_STORE);
 
   exit(0);
@@ -5970,12 +6040,16 @@ void rewrite_HOSTLIB_plusMags(void) {
 
 
 // ======================================
-double integmag_hostSpec(int IFILT_OBS, double *GENFLUX_LIST, int DUMPFLAG) {
+double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG) {
 
-  int      NBLAM_SPECTRO   = INPUTS_SPECTRO.NBIN_LAM;
-  double  *LAMAVG_SPECTRO  = INPUTS_SPECTRO.LAMAVG_LIST;
-  double   LAMMIN_SPECTRO  = LAMAVG_SPECTRO[0];
-  double   LAMMAX_SPECTRO  = LAMAVG_SPECTRO[NBLAM_SPECTRO-1];
+  // Sep 2019
+  // integrate global HOSTSPEC.FLAM_EVT over IFILT_OBS bandpass
+  // and return synthetic mag for filter IFILT_OBS.
+
+  int     NBLAM_BASIS   = HOSTSPEC.NBIN_WAVE ;
+  double *LAMCEN_BASIS  = HOSTSPEC.WAVE_CEN ;
+  double  LAMMIN_BASIS  = HOSTSPEC.WAVE_MIN[0] ;
+  double  LAMMAX_BASIS  = HOSTSPEC.WAVE_MAX[NBLAM_BASIS-1] ;
 
   int    IFILT         = IFILTMAP_SEDMODEL[IFILT_OBS];
   int    NBLAM_FILT    = FILTER_SEDMODEL[IFILT].NLAM ;
@@ -5983,12 +6057,13 @@ double integmag_hostSpec(int IFILT_OBS, double *GENFLUX_LIST, int DUMPFLAG) {
   double ZP_FILT       = FILTER_SEDMODEL[IFILT].ZP ;
   char  *cfilt         = FILTER_SEDMODEL[IFILT].name ;
   double hc8           = (double)hc;
+  double z1            = 1.0 + z;
 
-  double TRANS, LAM, FLUX, FSUM=0.0, mag=0.0 ;
+  double TRANS, LAMOBS, LAMREST, FLAM, FLUX, FSUM=0.0, mag=0.0 ;
   double SUMTRANS_TOT=0.0, SUMTRANS_UNDEFINED=0.0 ;
-  int ilamobs, NBLAM_UNDEFINED=0;
-  char comment[100];
-  char fnam[] = "integmag_hostSpec" ;
+  int    ilamobs, NBLAM_UNDEFINED=0;
+  char   comment[100];
+  char   fnam[] = "integmag_hostSpec" ;
 
   // -------------- BEGIN -------------
 
@@ -5996,29 +6071,30 @@ double integmag_hostSpec(int IFILT_OBS, double *GENFLUX_LIST, int DUMPFLAG) {
 
   for ( ilamobs=0; ilamobs < NBLAM_FILT; ilamobs++ ) {
 
-    LAM     = FILTER_SEDMODEL[IFILT].lam[ilamobs] ;
+    LAMOBS  = FILTER_SEDMODEL[IFILT].lam[ilamobs] ;
+    LAMREST = LAMOBS/z1;
     TRANS   = FILTER_SEDMODEL[IFILT].transSN[ilamobs] ;
     SUMTRANS_TOT += TRANS;
 
-    // interpolate GENFLUX_LIST to get FLUX at LAM
-    if ( LAM >= LAMMIN_SPECTRO && LAM <= LAMMAX_SPECTRO ) {
-      FLUX = interp_1DFUN(OPT_INTERP_LINEAR, LAM, 
-			  NBLAM_SPECTRO,LAMAVG_SPECTRO,GENFLUX_LIST,comment);
+    if ( LAMOBS >= LAMMIN_BASIS  &&  LAMOBS <= LAMMAX_BASIS ) {
+      // interpolate to get FLAM
+      FLAM = interp_1DFUN(OPT_INTERP_LINEAR, LAMREST, NBLAM_BASIS, LAMCEN_BASIS,
+			  HOSTSPEC.FLAM_EVT, comment );   
     }
     else {
-      FLUX = 0.0 ;   
+      FLAM  = 0.0 ;   
       NBLAM_UNDEFINED++ ;     
       SUMTRANS_UNDEFINED += TRANS;
     }
 
-    FSUM += (FLUX * TRANS * LAM);
+    FSUM += (FLAM * LAMSTEP_FILT * TRANS * LAMOBS) ;
 
   } // end ilamobs 
 
 
   // - - - - - - - - - - - - - - - -
   // apply normalization factors
-  FSUM *= ( LAMSTEP_FILT / hc8 ) ;
+  FSUM /= hc8 ;
 
   // - - - - - - - - - - - - - - 
   double FRAC_UNDEFINED = SUMTRANS_UNDEFINED/SUMTRANS_TOT ;
@@ -6032,7 +6108,7 @@ double integmag_hostSpec(int IFILT_OBS, double *GENFLUX_LIST, int DUMPFLAG) {
   }
 
   if ( DUMPFLAG ) {
-    printf(" xxx %s: IFILT=%d  FSUM(%s)=%le  ZP=%.3f  mag=%.3f\n", 
+    printf(" xxx %s: FSUM(%d:%s)=%10.3le  ZP=%.3f  mag=%.3f\n", 
 	   fnam, IFILT, cfilt, FSUM, ZP_FILT, mag );
     fflush(stdout);
   }
@@ -6046,8 +6122,7 @@ double integmag_hostSpec(int IFILT_OBS, double *GENFLUX_LIST, int DUMPFLAG) {
 	     fnam, cfilt, FRAC_UNDEFINED);
       fflush(stdout);
     }
-  }
-  
+  }  
 
   return(mag) ;
 

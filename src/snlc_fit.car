@@ -201,7 +201,8 @@ c Jul 22 2017: reduce MXFIT_DATA<1000 so that char BAND can
 c              be added to RESIDUAL part of FITRES table.
 
       INTEGER MXFIT_DATA
-      PARAMETER ( MXFIT_DATA = MXEPOCH/2 )
+      PARAMETER ( MXFIT_DATA = 1500 )
+c xxx mark delete  PARAMETER ( MXFIT_DATA = MXEPOCH/2 )
 
 c variables used in fit.
 
@@ -278,7 +279,8 @@ c variable indices for R4EP_
      &  ,JEP_FPKRAT, JEP_FPKRATERR
      &  ,JEP_PSF, JEP_NEA, JEP_SKYSIG, JEP_SKYSIG_T
      &  ,JEP_ZP, JEP_ZPERR, JEP_GAIN, JEP_XPIX, JEP_YPIX, JEP_AREAFRAC
-     &  ,JEP_SKYFLUXCAL, JEP_SBFLUXCAL, JEP_ERRTEST, JEP_PHOTPROB
+     &  ,JEP_SKYFLUXCAL, JEP_SBFLUXCAL, JEP_ERRTEST, JEP_ERRCALC
+     &  ,JEP_PHOTPROB
      &  ,JEP_SIM_MAGREST, JEP_SIM_FLUXREST
      &  ,JEP_SIM_FLUXCAL, JEP_SIM_DELCHI2
 
@@ -337,12 +339,13 @@ c for R4EP_XXX
      &  ,JEP_AREAFRAC      = 41
      &  ,JEP_SKYFLUXCAL    = 42
      &  ,JEP_SBFLUXCAL     = 43
-     &  ,JEP_ERRTEST       = 44
-     &  ,JEP_PHOTPROB      = 45
-     &  ,JEP_SIM_MAGREST   = 46
-     &  ,JEP_SIM_FLUXREST  = 47
-     &  ,JEP_SIM_FLUXCAL   = 48  ! for LSIM_MAGOBS = T
-     &  ,JEP_SIM_DELCHI2   = 49  ! chi2 from data-sim flux diff
+     &  ,JEP_ERRTEST       = 44  ! ERRCALC/FLUXCAL_ERR
+     &  ,JEP_ERRCALC       = 45  ! calculated error
+     &  ,JEP_PHOTPROB      = 46
+     &  ,JEP_SIM_MAGREST   = 47
+     &  ,JEP_SIM_FLUXREST  = 48
+     &  ,JEP_SIM_FLUXCAL   = 49  ! for LSIM_MAGOBS = T
+     &  ,JEP_SIM_DELCHI2   = 50  ! chi2 from data-sim flux diff
      &     )
 
 c EP_XXX refers to "IMJD" variables stored at end of fit.
@@ -2251,7 +2254,7 @@ c Jan 2016: fit iteration again if cov matrix has not converged
      &     (.not. LREPEAT_ITER)      ! not already repeating
 
       IF ( DO_REFIT ) THEN
-         write(6,46) MNSTAT_COV, CID
+         write(6,46) MNSTAT_COV, CCID
 46       format(T5,'Bad COV matrix (MNSTAT_COV=',I2,') ' 
      &              '-> repeat fit for CID=',A12 )
          ERRFLAG = ERRFLAG_REPEAT_ITER  ! -1
@@ -8083,7 +8086,7 @@ c (exception for option that fixes parameters)
 
 
 C ==========================================
-+DECK,FINI_PHOTOZ.
++DECK,FITINI_PHOTOZ.
       SUBROUTINE FITINI_PHOTOZ ( iter )
 c
 c Created Jul 11,2006 by R.Kessler
@@ -8107,6 +8110,8 @@ c
 c Jul 12 2019
 c  + call PRINT_INIPAR_ZPHOT before after course minimization
 c  + call INIPAR_PHOTOZ_COURSEGRID(..)
+c
+c Oct 10 2019: abort if USE_SNHOST_ZPHOT=T
 c
 c --------------------------------------------
       IMPLICIT NONE
@@ -8135,10 +8140,17 @@ c FCNSNLC args
      &    GRAD(MXFITPAR)
      &   ,CHI2GUESS, CHI2END, CHI2MIN, CHI2, INIVAL_SHIFT
 
+      CHARACTER FNAM*14
       REAL*8 GET_DIST8, USRFUN
       EXTERNAL USRFUN
 
 C --------------- BEGIN -----------------
+
+      IF ( USE_SNHOST_ZPHOT .and. OPT_DEBUG .ne. 444 ) THEN
+         c1err = '&SNLCINP input USE_SNHOST_ZPHOT=T'
+         c2err = 'not allowed with photo-z fits'
+         CALL MADABORT('FITINI_PHOTOZ', c1err, c2err)    
+      ENDIF
 
       IF ( LFIXPAR_ALL  ) RETURN  
       IF ( LSIM_SNANA .and. USESIM_REDSHIFT ) RETURN
@@ -10063,6 +10075,7 @@ c set error on MilkyWay Galactic extinction
             ERR_TMP = -9.0 
          ENDIF
          R4EP_ALL(ep,JEP_ERRTEST) = ERR_TMP
+         R4EP_ALL(ep,JEP_ERRCALC) = ERR_CALC
 
 
 102   CONTINUE   ! end of EPMIN,EPMAX loop
@@ -13103,9 +13116,15 @@ c - - - - - - -  -
         REDSHIFT_FIT = SIM_REDSHIFT_HELIO
       endif
 
+c xxxxxxxxxxxxxxxxxxxxx
+c      write(6,61) iter, REDSHIFT_FIT, DOFIT_PHOTOZ_HOST
+c61    format(' xxx iter=',I2,'  zFIT=',F8.4,'  DO_PHOTOZ_HOST=',L1)
+c      call flush(6)
+c xxxxxxxxxxxxxxxxxxxxx
 
       RETURN
-      END
+      END   ! end SET_REDSHIFT_FIT
+
 C ========================================
 +DECK,PHZSTORE.
       SUBROUTINE PHOTOZ_STORE(NPAR)
@@ -18415,6 +18434,10 @@ c extra 'observing' variables
 
         VARNAME = 'ERRTEST(NPTFIT):F' // char(0)  ! calc/true error ratio
         CALL SNTABLE_ADDCOL(ID,CBLK, R4EP_FIT(1,JEP_ERRTEST), 
+     &        VARNAME, 0, LENB,LENV)
+
+        VARNAME = 'FLUXERRCALC_SIM(NPTFIT):F' // char(0)  ! calc error
+        CALL SNTABLE_ADDCOL(ID,CBLK, R4EP_FIT(1,JEP_ERRCALC), 
      &        VARNAME, 0, LENB,LENV)
 
         VARNAME = 'PHOTPROB(NPTFIT):F' // char(0)  ! Dec 17, 2014

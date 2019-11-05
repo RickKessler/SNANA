@@ -121,15 +121,15 @@ int main(int argc, char **argv) {
     sprintf(comment,"(%d of %d)", ised, SEDMODEL.NSURFACE);
     read_SIMSED_flux(SEDFILE,comment);
     
-    if ( TEMP_SEDMODEL.MINLAM < INPUTS.LAMRANGE[0] ) 
-      { TEMP_SEDMODEL.MINLAM  = INPUTS.LAMRANGE[0] ; }
+    if ( TEMP_SEDMODEL.LAMMIN < INPUTS.LAMRANGE[0] ) 
+      { TEMP_SEDMODEL.LAMMIN  = INPUTS.LAMRANGE[0] ; }
 
-    if ( TEMP_SEDMODEL.MAXLAM > INPUTS.LAMRANGE[1] ) 
-      { TEMP_SEDMODEL.MAXLAM  = INPUTS.LAMRANGE[1] ; }
+    if ( TEMP_SEDMODEL.LAMMAX > INPUTS.LAMRANGE[1] ) 
+      { TEMP_SEDMODEL.LAMMAX  = INPUTS.LAMRANGE[1] ; }
 
     printf("\t %.1f < DAY < %.1f     %.1f < LAM < %.1f \n",
-	   TEMP_SEDMODEL.MINDAY, TEMP_SEDMODEL.MAXDAY,
-	   TEMP_SEDMODEL.MINLAM, TEMP_SEDMODEL.MAXLAM );
+	   TEMP_SEDMODEL.DAYMIN, TEMP_SEDMODEL.DAYMAX,
+	   TEMP_SEDMODEL.LAMMIN, TEMP_SEDMODEL.LAMMAX );
 
     SIMSED_check_DRIVER(ised);
   } 
@@ -237,7 +237,7 @@ void define_boxFilters(void) {
   // ----------- BEGIN ----------
 
   // start by definine box filters
-  LAMRANGE = (TEMP_SEDMODEL.MAXLAM - TEMP_SEDMODEL.MINLAM) ;
+  LAMRANGE = (TEMP_SEDMODEL.LAMMAX - TEMP_SEDMODEL.LAMMIN) ;
   xtmp     = LAMRANGE/BOXFILT_WIDTH_APPROX ; ;
   NBOXFILT = (int)(xtmp+0.5);
   LAMBIN   = LAMRANGE/(double)NBOXFILT ;
@@ -253,7 +253,7 @@ void define_boxFilters(void) {
 
   for(ifilt=0; ifilt < NBOXFILT; ifilt++ ) {
     xi = (double)ifilt ;
-    LAMRANGE_BOXFILT[ifilt][0] = TEMP_SEDMODEL.MINLAM + LAMBIN*xi;
+    LAMRANGE_BOXFILT[ifilt][0] = TEMP_SEDMODEL.LAMMIN + LAMBIN*xi;
     LAMRANGE_BOXFILT[ifilt][1] = LAMRANGE_BOXFILT[ifilt][0] + LAMBIN ;
   }
 
@@ -271,7 +271,7 @@ void  load_FLUX_BOXFILT(void) {
 
   int NDAY = TEMP_SEDMODEL.NDAY; 
   int NLAM = TEMP_SEDMODEL.NLAM; 
-  double LAMMIN = TEMP_SEDMODEL.MINLAM ;
+  double LAMMIN = TEMP_SEDMODEL.LAMMIN ;
   double LAMBIN = LAMBIN_BOXFILT ;
 
   double FLUXTMP, FLUXMAX[MXBOXFILT], LAM ;

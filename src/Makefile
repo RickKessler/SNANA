@@ -118,7 +118,9 @@
 #
 # May 3 2019: create blank subDirs (OBJ,LIB,BIN) that are not in Git.
 # Jun 19 2019: include psnid_BEST2.c
-# Juj 27 2019: compile to inoue_igm.c (to correct spectral flux for igm)
+# Jul 27 2019: compile to inoue_igm.c (to correct spectral flux for igm)
+# Oct 22 2019: compile with -O2 to speed sim with genSmear Cholesky stuff.
+#               (-O3 doesn't help)
 #
 # ---------------------------------------------------------------------
 
@@ -141,9 +143,10 @@ endif
 FFC  = gfortran
 CC   = cc
 
-   DBUGFLAGS = -O1
-#  DBUGFLAGS = -O1 -Wall
-#  DBUGFLAGS = -g -fbounds-check  # valgrind --leak-check=full 
+EXTRA_FLAGS = -O1   # -ftree-vectorize -ftree-vectorizer-verbose=2
+
+# EXTRA_FLAGS = -O2 -Wall
+# EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
   PROFILEFLAG = 
 #  PROFILEFLAG = -pg
@@ -233,12 +236,12 @@ endif
 # --------------------------------------------
 # set compile flags.
 ifeq ($(BITNESS),i686)
-   SNFFLAGS  = -c -static -fno-automatic -fsecond-underscore $(DBUGFLAGS)
-   SNCFLAGS  = -c -static -m64 $(DBUGFLAGS)
+   SNFFLAGS  = -c -static -fno-automatic -fsecond-underscore $(EXTRA_FLAGS)
+   SNCFLAGS  = -c -static -m64 $(EXTRA_FLAGS)
    SNLDFLAGS = -m64 -lg2c -lpthread $(PROFILEFLAG)
 else
-   SNFFLAGS  = -c -static -fno-automatic -m64  -fsecond-underscore $(DBUGFLAGS)
-   SNCFLAGS  = -c -static -m64 $(DBUGFLAGS)
+   SNFFLAGS  = -c -static -fno-automatic -m64  -fsecond-underscore $(EXTRA_FLAGS)
+   SNCFLAGS  = -c -static -m64 $(EXTRA_FLAGS)
    SNLDFLAGS = -m64 -lpthread $(PROFILEFLAG)
 endif
 
@@ -291,7 +294,8 @@ SNANA_EXECUTABLES	=		\
 	$(BIN)/SIMSED_extractSpec.exe	\
 	$(BIN)/SIMSED_check.exe		\
 	$(BIN)/SIMSED_rebin.exe		\
-	$(BIN)/simlib_coadd.exe
+	$(BIN)/simlib_coadd.exe		\
+	$(BIN)/unfold_snpar.exe
 
 # ----------------------
 # check for executables that depend explicitly on output format
@@ -341,6 +345,7 @@ OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools_fluxErrModels_legacy.o	\
 	$(OBJ)/sntools_fitsio.o	 \
 	$(OBJ)/sntools_gridread.o \
+	$(OBJ)/sntools_kcor.o \
 	$(OBJ)/sntools_nearnbr.o \
 	$(OBJ)/sntools_output.o  \
 	$(OBJ)/minuit.o		\
@@ -749,7 +754,7 @@ $(OBJ)/sntools.o : $(SRC)/sntools.c $(SRC)/sntools.h $(SRC)/sndata.h
 
 $(OBJ)/sntools_genSmear.o : $(SRC)/sntools_genSmear.c $(SRC)/sntools_genSmear.h $(SRC)/sntools.h
 	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS) $(IGSL) $(SRC)/sntools_genSmear.c )
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/sntools_genSmear.c )
 	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_genSmear.o
 
 # -------------------------------------------------
@@ -781,6 +786,11 @@ $(OBJ)/sntools_fitsio.o : $(SRC)/sntools_fitsio.c $(SRC)/sntools_fitsio.h $(SRC)
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_fitsio.c )
 	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_fitsio.o
+
+$(OBJ)/sntools_kcor.o : $(SRC)/sntools_kcor.c $(SRC)/sntools_kcor.h $(SRC)/sndata.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_kcor.c )
+	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_kcor.o
 
 
 $(OBJ)/sntools_gridgen.o : $(SRC)/sntools_gridgen.c $(SRC)/sntools_grid.h $(SRC)/sndata.h
@@ -941,8 +951,11 @@ $(OBJ)/genmag_LCLIB.o : $(SRC)/genmag_LCLIB.c  $(SRC)/sntools.h
 # -------------------------------------------------
 # Generic Lightcurve simulator 
 
-$(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c $(SRC)/sntools_gridgen.c  $(SRC)/sntools_fitsio.c $(SRC)/sntools_host.c $(SRC)/sntools_wronghost.c  $(SRC)/sntools_host.h \
-	$(SRC)/snlc_sim.h $(SRC)/SNcadenceFoM.c $(SRC)/sndata.h
+$(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c $(SRC)/sntools_gridgen.c \
+	 $(SRC)/sntools_fitsio.c $(SRC)/sntools_host.c \
+	$(SRC)/sntools_wronghost.c  $(SRC)/sntools_host.h \
+	$(SRC)/sntools_genSmear.c $(SRC)/SNcadenceFoM.c  \
+	$(SRC)/snlc_sim.h $(SRC)/sndata.h $(SRC)/sntools_kcor.c
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(IPY) $(SRC)/snlc_sim.c )
 
 $(BIN)/snlc_sim.exe : $(OBJ_SIM)  $(LIB)/libsnana.a
@@ -1009,7 +1022,7 @@ $(BIN)/filtercal_sim.exe : \
 # SIMSED_fudge
 
 $(OBJ)/SIMSED_fudge.o : $(SRC)/SIMSED_fudge.c $(SRC)/genmag_SIMSED.c 
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/SIMSED_fudge.c )
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/SIMSED_fudge.c )
 
 $(BIN)/SIMSED_fudge.exe : \
 	$(OBJ)/SIMSED_fudge.o  $(OBJ)/sntools.o  $(OBJ)/sntools_genSmear.o \
@@ -1023,9 +1036,8 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(OBJ)/sntools_genSmear.o \
 	$(OBJ)/MWgaldust.o \
 	$(LIB)/libsnana.a  \
-	-lm $(LGSL) $(LCERN)
+	-lm $(LCFITSIO) $(LGSL) $(LCERN)
 	(cd $(OBJ); rm SIMSED_fudge.o )
-
 
 # -------------
 # SIMSED_extractSpec
@@ -1110,7 +1122,7 @@ $(BIN)/unfold_snpar.exe : $(OBJ)/unfold_snpar.o  $(OBJ)/sntools.o $(OBJ)/sntools
 	$(OBJ)/unfold_snpar.o	\
 	$(OBJ)/sntools.o 	\
 	$(OBJ_OUTPUT)		\
-	$(LCERN) $(LROOT)  -lm $(LGSL)
+	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB) 
 	(cd $(OBJ); rm unfold_snpar.o )
 
 ####################  END ##########################################

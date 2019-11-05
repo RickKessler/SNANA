@@ -1823,7 +1823,9 @@ A few of the output variables must be converted for the
    sigma_SIM   = ERRTEST * FLUXCAL_DATA_ERR
    PSF(arcSec) = PSF(sig,pixels) * 2.35 * PIXSIZE
 \end{verbatim}
-
+%
+BEWARE that full epoch information is available {\it only}
+with FITS format (not with TEXT format).
 
 % - - - - - - - - - - - - - - - - - - - - - - - 
 \clearpage
@@ -7056,7 +7058,7 @@ for each filter in the last fit-iteration.
 % ------------------------------------
 %   \clearpage
    \subsubsection{Avoiding Filter Drop-outs at High PhotoZ}
-   \label{sss:fit_UVLAM_EXTRAP}
+   \label{sss:avoid_filter_dropouts}
 % ------------------------------------
 
 A potential problem with photo-$z$ fitting is that low-redshift events
@@ -7076,6 +7078,23 @@ is  linearly extrapolated to zero flux at $\lam=500$~\AA.
 The {\tt RESTLAMBDA\_FITRANGE} should be set so that all bands
 are defined at the highest allowed $\Zphot$ set by the
 {\tt PHOTOZ\_BOUND} input.
+
+
+% ------------------------------------
+   \subsubsection{4-Parameter Fit Using Host Galaxy Photo-$z$ }
+   \label{sss:zphot_host}
+% ------------------------------------
+
+To run a 4-parameter light curve fit with the host-galaxy photo-$z$
+(instead of \spec\ redshift), run {\tt snlc\_fit.exe} with
+\begin{verbatim}
+   &SNLCINP
+      USE_SNHOST_ZPHOT = T
+\end{verbatim}
+Note that this will {\it not} perform a 5-parameter photo-$z$ fit, 
+but instead uses the already determined host-galaxy photo-$z$
+as a fixed redshift in the fit. If any photo-$z$ fit flags are set
+with {\tt USE\_SNHOST\_ZPHOT=T}, the code will abort.
 
 % ------------------------------------
    \clearpage
@@ -10140,7 +10159,91 @@ BBC fit these mag offsets are associated with $\gamma$ and $\hostmass$,
 where $\gamma$ is the maximum SNIa mag-splitting.
 
 
+% -----------------------------------------
+  \clearpage
+  \subsection{Blinding BBC Output from {\tt SALT2mu.exe} }
+  \label{sec:BBC_blind}
+% -----------------------------------------
 
+There are two methods for blinding results in the BBC output:
+1) totally blind, and 2) blurry.
+For the totally blind method,
+\begin{equation}  
+   {\rm MUDIF} \to {\rm MUDIF} + \cos(10z)
+\end{equation}
+where the cosine argument is ten $\times$ redshift.
+The {\tt MUDIF} ($\mu$-offsets) are $O(1)$ and viewing these
+values provides no information about the true residuals; 
+hence ``totally blind.''
+The disadvantage is that the cosmology fitting program, 
+which reads the BBC output, 
+must subtract $\cos(10z)$ from each blinded $\mu$.
+Also, the cosmology-fitting program must have its own
+blinding applied to the fitted cosmology parameters.
+
+
+The blurry method adds unknown offsets to the reference
+cosmology parameters ($\OL,w_0$),
+%
+\begin{eqnarray}
+   \OL^{\rm ref}  & \to & \OL^{\rm input} +  A_L\cos(B_L) \\
+    w_0^{\rm ref} & \to & w_0^{\rm input} +  A_w\cos(B_w)
+\end{eqnarray}
+%
+where $A_{L,w}$ and $B_{L,w}$ are arbitrary.
+The cosmology fitting program need not modify any of the 
+BBC outputs since all of the BBC outputs are correct.
+$A_{L,w}$ and $B_{L,w}$ can be modified separately for each user, 
+or each analysis iteration, 
+and there is no need to pass these blinding parameters to other 
+colleagues or programs. However, the same blinding params must
+be used for systematic comparisons of the Hubble diagram.
+The blinding strategy is that the user does not know 
+the reference-cosmology parameters, and therefore
+the output $\mu$-residuals ({\tt MUDIF}) are offsets from
+an unknown cosmological model.
+However, if $A_{L,w}$ are not too large, the $\mu$-residuals 
+might still be somewhat close to zero. In this case, human inspection
+of the $\mu$-residuals provides some information; 
+hence we call this method ``blurry.''
+
+By default, {\tt SALT2mu.exe} will blind real data with the blurry
+method, and not apply blinding to simulated data.
+The following {\tt SALT2mu.exe} inputs control blinding:
+\begin{verbatim}
+   p9=0.7    # input Omega_L -> ref cosmology for MUDIF
+   p11=-1.0  # input w0      -> ref cosmology for MUDIF
+
+   blindflag=1           # totally blind, MUDIF += cos(10z)
+   blindflag=2           # blurry method (DEFAULT)
+   blindpar9=0.1,4400    # A_L,B_L: OL_ref = p9  + 0.10 * cos(4400)
+   blindpar11=0.2,3300   # A_w,B_w: w0_ref = p11 + 0.20 * cos(3300)
+  
+  # add 64 to blind simulated data
+   blindflag=65  # 1+64 -> same as blindflag = 1 for real data
+   blindflag=66  # 2+64 -> same as blindflag = 2 for real data
+\end{verbatim}
+%
+It is highly recommended to practice blinding on simulated
+data before processing real data. Another useful feature
+is to generate simulations without the {\tt SIM\_XXX}
+truth values, which checks if the analysis codes are mistakenly
+using some {\tt SIM\_XXX} values.
+This sim option is invoked by adding 8 to {\tt FORMAT\_MASK}. 
+For example, ''{\tt FORMAT\_MASK: 10}'' (2+8) produces text formatted
+data files that look like real data,
+and ''{\tt FORMAT\_MASK: 40}'' (2+32) produces FITS-formmated
+data files that look like real data. If the simulated data has no
+{\tt SIM\_XXX} keys, the default BBC output is blinded
+with the blurry method.
+
+The output BBC tables include comment fields specifying
+{\tt SNANA\_VERSION},  {\tt BBC\_VERSION},
+and a summary of the blinding parameters. 
+For cosmology-fitting, the parsing/translation module
+should keep track of the integer BBC version to maintain 
+backward compatibility in case of future modifications.
+If the {BBC\_VERSION} key is not included, set {\tt BBC\_VERSION=1}.
 
 % ##########################################
    \clearpage

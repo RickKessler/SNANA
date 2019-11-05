@@ -55,6 +55,7 @@
 #include "sntools_fluxErrModels_legacy.h"
 #include "sntools_genSmear.h"
 #include "sntools_fitsio.h"
+#include "sntools_kcor.h"
 #include "sntools_trigger.h" 
 #include "sntools_grid.h"
 #include "sntools_spectrograph.h"
@@ -105,9 +106,6 @@ int main(int argc, char **argv) {
 
   // read user input file for directions
   if ( get_user_input() != SUCCESS ) { madend(1) ; }
-
-  //  DASHBOARD_DRIVER();
-
 
   // init random number generator, and store first random.
   if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID  ) 
@@ -194,6 +192,9 @@ int main(int argc, char **argv) {
 
   // initialize model that generates magnitudes.
   init_kcor(INPUTS.KCOR_FILE);
+
+  if ( INPUTS.DEBUG_FLAG == 555 ) { init_kcor_refactor(); }
+
   init_genmodel();
   init_modelSmear(); 
   init_genSpec();     // July 2016: prepare optional spectra
@@ -298,7 +299,6 @@ int main(int argc, char **argv) {
     // is computed from requested SNR; TEXPOSE is then used for
     // synthetic bands.
     GENSPEC_DRIVER(); 
-
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("09", ilc) ; }
 
@@ -849,6 +849,7 @@ void set_user_defaults(void) {
   INPUTS.GENMAG_SMEAR_SCALE = 1.0;
   sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE") ;
   INPUTS.GENMAG_SMEAR_MODELARG[0] = 0;
+  INPUTS.GENMAG_SMEAR_MSKOPT      = 0 ;
 
   sprintf(INPUTS.STRONGLENS_FILE,       "NONE");
   sprintf(INPUTS.WEAKLENS_PROBMAP_FILE, "NONE");
@@ -904,20 +905,20 @@ void set_user_defaults(void) {
   GENPERFECT.NVAR = 0;
 
   INPUTS.PATH_SNDATA_SIM[0] = 0 ;
-  sprintf(INPUTS.GENVERSION,      "%s", "BLANK" );  
-  sprintf(INPUTS.GENPREFIX,       "%s", "BLANK" );
-  sprintf(INPUTS.GENSOURCE,       "%s", "RANDOM" );
-  sprintf(INPUTS.GENMODEL,        "%s", "BLANK" );
+  sprintf(INPUTS.GENVERSION,      "BLANK" );  
+  sprintf(INPUTS.GENPREFIX,       "BLANK" );
+  sprintf(INPUTS.GENSOURCE,       "RANDOM" );
+  sprintf(INPUTS.GENMODEL,        "BLANK" );
   INPUTS.GENMODEL_EXTRAP_LATETIME[0] = 0 ;
-  sprintf(INPUTS.KCOR_FILE,   "%s",  "BLANK" );
+  sprintf(INPUTS.KCOR_FILE, "NONE" );
 
-  sprintf(INPUTS.GENSNXT, "%s", "CCM89" );
+  sprintf(INPUTS.GENSNXT, "CCM89" );
   OPT_SNXT = OPT_SNXT_CCM89;
 
   GENLC.IFLAG_GENSOURCE = 0;
 
-  sprintf(INPUTS.SIMLIB_FILE,      "%s", "BLANK" );
-  sprintf(INPUTS.SIMLIB_FIELDLIST, "%s", "ALL" );
+  sprintf(INPUTS.SIMLIB_FILE,      "BLANK" );
+  sprintf(INPUTS.SIMLIB_FIELDLIST, "ALL" );
   INPUTS.SIMLIB_FIELDSKIP_FLAG = 1 ; //-->count skipped fields in NGENTOT
 
   INPUTS.SIMLIB_IDSTART  =  0 ;
@@ -2061,7 +2062,6 @@ int read_input(char *input_file) {
       split2floats(ctmp, comma, INPUTS.GENMAG_SMEAR );
       continue ;
     }
-    //xxx mark delete   readfloat ( fp, 1, &INPUTS.GENMAG_SMEAR ); continue ; }
 
 
     if ( uniqueMatch(c_get,"GENMAG_SMEAR_USRFUN:")  ) { 
@@ -2080,6 +2080,9 @@ int read_input(char *input_file) {
 
     if ( uniqueMatch(c_get,"GENMAG_SMEAR_SCALE:")   ) 
       { readfloat(fp, 1, &INPUTS.GENMAG_SMEAR_SCALE ); continue ; }
+
+    if ( uniqueMatch(c_get,"GENMAG_SMEAR_MSKOPT:")   ) 
+      { readint(fp, 1, &INPUTS.GENMAG_SMEAR_MSKOPT ); continue ; }
 
     if ( uniqueMatch(c_get,"GENMAG_SMEAR_MODELNAME:")   ) {
       modelName = INPUTS.GENMAG_SMEAR_MODELNAME  ;
@@ -3321,13 +3324,14 @@ int parse_input_KEY_PLUS_FILTER(FILE *fp, int *iArg,
 void parse_GENMAG_SMEAR_MODELNAME(void) {
 
   // Split GENMAG_SMEAR_MODELSTRING by colon;
-  // store right side of colin in MODELARG.
+  // store right side of colin in GENMAG_SMEAR_MODELARG.
 
   int  MEMC = MXCHAR_FILENAME * sizeof(char) ;
   char colon[] = ":" ;
   int  NSPLIT ;
   char *inString, *ptrSplit[2];
   char fnam[] = "parse_GENMAG_SMEAR_MODELNAME" ;
+
   // -------------- BEGIN -----------------
 
   inString    = (char*) malloc(MEMC);
@@ -3335,7 +3339,6 @@ void parse_GENMAG_SMEAR_MODELNAME(void) {
   ptrSplit[1] = (char*) malloc(MEMC);
 
   sprintf(inString,"%s", INPUTS.GENMAG_SMEAR_MODELNAME);
-
 
   splitString(inString, colon, 2,      // inputs               
 	      &NSPLIT, ptrSplit );      // outputs             
@@ -3417,7 +3420,8 @@ void parse_input_GENMODEL(FILE *fp, int *iArg ) {
 		      INPUTS.MODELPATH, INPUTS.MODELNAME); // returned
 
     // check for NONIA model to help parsing below
-    INPUTS.NON1A_MODELFLAG = get_NON1A_MODELFLAG(INPUTS.GENMODEL);
+    INPUTS.NON1A_MODELFLAG = get_NON1A_MODELFLAG(INPUTS.MODELNAME);
+
     if ( INPUTS.NON1A_MODELFLAG == MODEL_NON1AGRID ) 
       { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.NON1AGRID_FILE );  }
 
@@ -4191,10 +4195,6 @@ int get_NON1A_MODELFLAG(char *GENMODEL) {
 
   // ------------- BEGIN -------------
 
-  /* xxxx mark delete Apr 18 2019 xxxxxxx
-  //  if ( strcmp(GENMODEL,"LCLIB" ) == 0 )  { return(MODEL_LCLIB); }
-  xxxx end mark xxxxxx*/
-
   if ( strstr(GENMODEL,"NON") == NULL )  { return -9 ; }
 
   // copy GENMODEL into local var to make sure GENMODEL isn't modified.
@@ -4320,13 +4320,6 @@ void sim_input_override(void) {
       i++ ; sscanf(ARGV_LIST[i] , "%s",  INPUT_ZVARIATION[N].PARNAME );
       i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp );
       parse_GENPOLY(ctmp, &INPUT_ZVARIATION[N].POLY, fnam );
-
-      /* xxxx mark delete Apr 10 2019 xxxxxxxxx
-      for(j=0; j <= POLYORDER_ZVAR; j++ ) {
-	i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUT_ZVARIATION[N].ZPOLY[j] );
-      }
-      xxxxxxxxxxxxxxxxxx */
-
     }  // ZVARIATION_POLY
 
 
@@ -5093,6 +5086,9 @@ void sim_input_override(void) {
 
     if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_SCALE" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i], "%f", &INPUTS.GENMAG_SMEAR_SCALE);
+    }
+    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_MSKOPT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i], "%d", &INPUTS.GENMAG_SMEAR_MSKOPT );
     }
 
     if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_MODELNAME" ) == 0 ) {
@@ -6869,9 +6865,9 @@ void prep_simpath(void) {
   lensuffix  = 7 ;      // e.g., '.README'
   lenfile    = lenpath + lenprefix + lensuffix ; 
 
-  if ( lenprefix >= MXVERLEN ) {
+  if ( lenprefix >= MXLEN_VERSION_PREFIX ) {
     sprintf(c1err,"GENPREFIX string len = %d exceeds array bound of %d",
-	    lenprefix, MXVERLEN);
+	    lenprefix, MXLEN_VERSION_PREFIX);
     sprintf(c2err,"See input GENPREFIX: %s", INPUTS.GENPREFIX);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
@@ -8043,7 +8039,8 @@ void init_modelSmear(void) {
 
   double GENMODEL_ERRSCALE = (double)INPUTS.GENMODEL_ERRSCALE ;
   double SMEAR_SCALE       = (double)INPUTS.GENMAG_SMEAR_SCALE;
-  int    OPT, j, USE_SALT2smear ;
+  int    SMEAR_MSKOPT      = INPUTS.GENMAG_SMEAR_MSKOPT ;
+  int    OPT, j, USE_SALT2smear, MEMD, NRANGauss=0, NRANFlat=0 ;
   double LAMRANGE[2], SIGCOH,  PARLIST_SETPKMJD[10];
   char *ptrName, key[40], NAM3[8]; 
   char MODELPATH_SALT2[MXPATHLEN];
@@ -8051,9 +8048,10 @@ void init_modelSmear(void) {
 
   // --------- BEGIN ----------
 
+  /* xxx
   GENLC.NRANGauss_GENSMEAR = 0 ;
   GENLC.NRANFlat_GENSMEAR  = 0 ;
-
+  xxxx */
 
   sprintf(BANNER,"%s: init intrinsic SN smearing with model=%s",
 	  fnam, INPUTS.GENMAG_SMEAR_MODELNAME);
@@ -8082,11 +8080,17 @@ void init_modelSmear(void) {
   init_genSmear_filters();
 
   // check model names
-  init_genSmear_FLAGS(SMEAR_SCALE); // internal inits
+  init_genSmear_FLAGS(SMEAR_MSKOPT,SMEAR_SCALE); // internal inits
 
   sprintf(key,"GENMAG_SMEAR_MODELNAME") ;
   ptrName = INPUTS.GENMAG_SMEAR_MODELNAME ;
-  if ( IGNOREFILE(ptrName) ) { goto INIT_SETPKMJD ; }
+  if ( IGNOREFILE(ptrName) ) { 
+
+    // .xyz init un-used randoms to preserve randon synch for SNANA_tester
+    init_genSmear_randoms(MXFILTINDX-1,MXFILTINDX-1); // .xyz obsolete
+
+    goto SKIP_GENSMEAR ; 
+  }
 
   INPUTS.DO_MODELSMEAR  = 1 ;
 
@@ -8117,15 +8121,18 @@ void init_modelSmear(void) {
     if ( strstr(ptrName,"G10FUDGE") != NULL ) 
       {   SIGCOH  = INPUTS.GENMAG_SMEAR_USRFUN[0] ; }
     
-    if ( INDEX_GENMODEL==MODEL_SALT2 ) 
-      { sprintf(MODELPATH_SALT2,"%s", INPUTS.MODELPATH ); }
-    else
-      { sprintf(MODELPATH_SALT2,"%s",INPUTS.GENMAG_SMEAR_MODELARG);} //BYOSED
-    
+
+    if ( INDEX_GENMODEL == MODEL_SALT2 ) { 
+      sprintf(MODELPATH_SALT2,"%s", INPUTS.MODELPATH ); 
+    }
+    else if ( INDEX_GENMODEL == MODEL_BYOSED ) {
+      sprintf(MODELPATH_SALT2,"%s", INPUTS.GENMAG_SMEAR_MODELARG); //BYOSED
+      SIGCOH = 0.10; // hard-wired, Oct 31 2019 
+    }
+
     /*
     printf(" xxx MODELNAME='%s' USE=%d  SIGCOH=%f \n",
 	   ptrName, USE_SALT2smear, SIGCOH);  debugexit(fnam);   */
-
   }
   else {
     // just guess with safety margin.
@@ -8182,6 +8189,12 @@ void init_modelSmear(void) {
   else if ( strcmp(ptrName,"BIMODAL_UV") == 0 ) 
     {  init_genSmear_biModalUV() ; }
 
+  else if ( strcmp(ptrName,"OIR") == 0 ) 
+    {  init_genSmear_OIR() ; }
+
+  else if ( strstr(ptrName,"COVSED.") != NULL ) 
+    {  init_genSmear_COVSED(ptrName,0); }
+
   else if ( strcmp(ptrName,"PRIVATE") == 0 ) 
     {  init_genSmear_private() ; }
 
@@ -8194,26 +8207,33 @@ void init_modelSmear(void) {
 
   // fetch & store number of randoms to generate for each SN.
 
-  int *NG = &GENLC.NRANGauss_GENSMEAR ;
-  int *NF = &GENLC.NRANFlat_GENSMEAR ;
+  /* xxxx mark delete Oct 21 2019 xxxxxxx
+  get_NRAN_genSmear(&GENLC.NRANGauss_GENSMEAR,&GENLC.NRANFlat_GENSMEAR);
+  NRANGauss = GENLC.NRANGauss_GENSMEAR;
+  NRANFlat  = GENLC.NRANFlat_GENSMEAR ;
 
-  get_NRAN_genSmear(NG, NF); // returns NG and NF    
-
-  if ( *NG > MXFILTINDX ) {
-    sprintf(c1err, "NRANGauss=%d exceeds bound of %d", *NG, MXFILTINDX);
+  if ( NRANGauss >= MXRAN_GENSMEAR ) {
+    sprintf(c1err, "NRANGauss=%d exceeds bound of %d", 
+	    NRANGauss, MXRAN_GENSMEAR);
     sprintf(c2err, "Check %s and its parameters.", ptrName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
-  if ( *NF > MXFILTINDX ) {
-    sprintf(c1err, "NRANFlat=%d exceeds bound of %d", *NF, MXFILTINDX);
+  if ( NRANFlat >= MXRAN_GENSMEAR ) {
+    sprintf(c1err, "NRANFlat=%d exceeds bound of %d", 
+	    NRANFlat, MXRAN_GENSMEAR );
     sprintf(c2err, "Check %s and its parameters.", ptrName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
-  
-  printf("   Number of %s Gaussian  randoms per SN: %d \n",  ptrName, *NG);
-  printf("   Number of %s Flat(0-1) randoms per SN: %d \n",  ptrName, *NF);
-  printf("   MagSmear scale: %.3f \n", SMEAR_SCALE);
+
+  printf("   Number of %s Gaussian  randoms per SN: %d \n",  
+	 ptrName, NRANGauss);
+  printf("   Number of %s Flat(0-1) randoms per SN: %d \n",  
+	 ptrName, NRANFlat);
   fflush(stdout);
+
+  xxxxx end mark xxxxxxxxx  */
+
+  printf("   MagSmear scale: %.3f \n", SMEAR_SCALE);
 
   // -------------------------------
   if ( INPUTS.DO_MODELSMEAR  == 0 ) 
@@ -8223,9 +8243,19 @@ void init_modelSmear(void) {
     //    dump_modelSmearSigma();
   }
 
+ SKIP_GENSMEAR:
   
+  /* xxx mark delete Oct 21 2019 xxxxxxxx
+  // alloate memory to store randoms
+  MEMD = (NRANGauss + MXFILTINDX + 1) * sizeof(double);
+  GENLC.GENSMEAR_RANGauss_MODEL = (double*) malloc(MEMD);
+
+  MEMD = (NRANFlat + MXFILTINDX + 1) * sizeof(double);
+  GENLC.GENSMEAR_RANFlat_MODEL = (double*) malloc(MEMD);
+  xxxxxxxxx end mark xxxxxxxxx */
+
   // May 2019: init method to estimate peakmjd for data files
- INIT_SETPKMJD:
+
   if ( INPUTS.GENSIGMA_PEAKMJD > 1.0E-9 ) // legacy Gauss smear
     { INPUTS.OPT_SETPKMJD = 0; }  
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) // do nothing for GRID
@@ -8282,7 +8312,7 @@ void dump_modelSmearSigma(void) {
   for(igen=0; igen < NRANGEN; igen++ ) {
     init_RANLIST();      // init list of random numbers 
     genran_modelSmear(); // load randoms for genSmear
-    get_genSmear(TREST, NLAM, LAMARRAY, MAGARRAY); // return MAGARRAY
+    get_genSmear(TREST,NLAM,LAMARRAY,MAGARRAY); // return MAGARRAY
 
 
     for(ilam=0; ilam < NLAM; ilam++ ) 
@@ -8757,6 +8787,7 @@ void GENSPEC_INIT(int OPT, int imjd) {
     GENSPEC.OBSFLUXERR_LIST[imjd][ilam]       =  0.0 ;
     GENSPEC.OBSFLUXERRSQ_LIST[imjd][ilam]     =  0.0 ;
 
+    GENSPEC.GENFLAM_LIST[imjd][ilam]          =  0.0 ; // true dF/dlam
     GENSPEC.FLAM_LIST[imjd][ilam]             =  0.0 ; // dF/dlam
     GENSPEC.FLAMERR_LIST[imjd][ilam]          =  0.0 ; // error on above
     GENSPEC.FLAMWARP_LIST[imjd][ilam]         =  1.0 ;
@@ -8798,6 +8829,7 @@ void GENSPEC_TRUE(int imjd) {
 
   double GENMAG, ZP, ARG, FLUXGEN, MAGOFF ;
   int ilam ;
+  int DUMPFLAG=0;
   char fnam[] = "GENSPEC_TRUE" ;
 
   // --------------- BEGIN ----------------
@@ -8806,6 +8838,7 @@ void GENSPEC_TRUE(int imjd) {
   if ( IS_HOST ) {    
     genSpec_HOSTLIB(GENLC.REDSHIFT_HELIO,         // (I) helio redshift
 		    GENLC.MWEBV,                  // (I) Galactic extinction
+		    DUMPFLAG,                     // (I)
 		    GENSPEC.GENFLUX_LIST[imjd],   // (O) fluxGen per bin 
 		    GENSPEC.GENMAG_LIST[imjd] );  // (O) magGen per bin
     return;
@@ -9309,7 +9342,8 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
   //   + GENSPEC.OBSFLUXERRSQ_LIST 
   //
   // Jan 17 2018: use ILIST_RANDOM_SPECTROGRAPH
-  //
+  // Oct 25 2019: fix bug setting GRAN_T if there is no template.
+  // 
 
   int OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
   int onlyTNOISE = ( OPTMASK & SPECTROGRAPH_OPTMASK_onlyTNOISE ) ;
@@ -9372,8 +9406,11 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
       { tmp_RanFlux_S = tmp_RanFlux_T = 0.0 ; }
     else {
 
+      GRAN_S = GRAN_T = 0.0 ;
       if ( GENSPEC.NMJD_PROC==0 && tmp_GenFluxErr_T > 0.0 ) 
-	{ GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] = GaussRan(ILIST_RAN);}
+	{ GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] = GaussRan(ILIST_RAN); }
+      else 
+	{ GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] = 0.0 ; }
 
       GRAN_S = GaussRan(ILIST_RAN);
       GRAN_T = GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] ;
@@ -10584,7 +10621,7 @@ void gen_modelPar(int ilc) {
   double ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   double shape;
   GENGAUSS_ASYM_DEF GENGAUSS_ZVAR ;
-  //  char fnam[] = "gen_modelPar";
+  char fnam[] = "gen_modelPar";
 
   //------------ BEGIN function ------------
 
@@ -10596,7 +10633,7 @@ void gen_modelPar(int ilc) {
   // ---------------------------------------
   // evaluate shape with z-dependence on population, 
 
-  if ( !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0 ) {
+  if ( !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0 ) { // probably SNIa
 
     char *snam = GENLC.SHAPEPAR_GENNAME ;
     GENGAUSS_ZVAR = 
@@ -10609,7 +10646,6 @@ void gen_modelPar(int ilc) {
     GENLC.SHAPEPAR      = shape ; 
     *GENLC.ptr_SHAPEPAR = shape ; // load model-spefic shape variables 
   }
-
 
   if ( ISMODEL_SALT2 ) {
     gen_modelPar_SALT2();
@@ -10629,7 +10665,7 @@ void gen_modelPar(int ilc) {
     if ( INPUTS.GENFRAME_FIXMAG == GENFRAME_REST ) 
       { GENLC.NOSHAPE += GENLC.DLMU; }
   }
-
+  
   return ;
 
 }  // end of gen_modelPar
@@ -10905,7 +10941,6 @@ void pick_NON1ASED(int ilc,
     GEN_NON1ASED->CIDRANGE[ispgen][1] = GENLC.CID;
 
     init_genmag_NON1ASED( ispgen, INP_NON1ASED);
-    // xxx mark delete 5/2019 init_genmag_NON1ASED(GENLC.TEMPLATE_INDEX,sedFile); 
 
     printf("   Changes for %s : \n", name);
     
@@ -11122,10 +11157,10 @@ void genran_modelSmear(void) {
   // Mar 24 2016: for GENGRID, return after all randoms are initalized to zero.
   // Jul 20 2019: return for repeat strong lens
  
-  int ifilt ;
+  int    ifilt, iran, NRANGauss, NRANFlat ;
   int    ILIST_RAN = 2 ; // list to use for genSmear randoms
   double rr8, rho, RHO, rmax, rmin, rtot, RANFIX ;
-  //  char fnam[] = "genran_modelSmear" ;
+  char fnam[] = "genran_modelSmear" ;
 
   // -------------- BEGIN --------
 
@@ -11135,8 +11170,8 @@ void genran_modelSmear(void) {
 
   for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ )  {  
     GENLC.GENSMEAR_RANGauss_FILTER[ifilt] = 0.0 ;  
-    GENLC.GENSMEAR_RANGauss_MODEL[ifilt]  = 0.0 ;  
-    GENLC.GENSMEAR_RANFlat_MODEL[ifilt]   = 0.0 ;  
+    // xxx mark delete    GENLC.GENSMEAR_RANGauss_MODEL[ifilt]  = 0.0 ;  
+    // xxx mark delete    GENLC.GENSMEAR_RANFlat_MODEL[ifilt]   = 0.0 ;  
   }
 
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) { return ; }
@@ -11178,16 +11213,21 @@ void genran_modelSmear(void) {
     GENLC.GENSMEAR_RANGauss_FILTER[ifilt]  = rtot ;      
   }
 
+  load_genSmear_randoms(GENLC.CID, rmin, rmax, INPUTS.GENSMEAR_RANGauss_FIX);
 
-
+  /* xxx mark delete Oct 21 2019 xxxxxxxx
   // generate Guassian randoms for intrinsic scatter [genSmear] model
-  for ( ifilt=1; ifilt < MXFILTINDX; ifilt++ ) {
-    GENLC.GENSMEAR_RANGauss_MODEL[ifilt] = GaussRanClip(ILIST_RAN,rmin,rmax);
+  NRANGauss = GENLC.NRANGauss_GENSMEAR;
+  if ( NRANGauss < MXFILTINDX-1 ) { NRANGauss = MXFILTINDX-1; }
+  for(iran=1; iran <= NRANGauss; iran++ ) {
+    GENLC.GENSMEAR_RANGauss_MODEL[iran] = GaussRanClip(ILIST_RAN,rmin,rmax);
   }
 
-  // repeat for 0-1 [flat] randoms (Jan 2014 - changes random sync)
-  for ( ifilt=1; ifilt < MXFILTINDX; ifilt++ ) 
-    {  GENLC.GENSMEAR_RANFlat_MODEL[ifilt]  = FlatRan1(ILIST_RAN);  }
+  // repeat for 0-1 [flat] randoms
+  NRANFlat  = GENLC.NRANFlat_GENSMEAR;
+  if ( NRANFlat < MXFILTINDX-1 ) { NRANFlat = MXFILTINDX-1; }
+  for ( iran=1; iran < NRANFlat; iran++ ) 
+    {  GENLC.GENSMEAR_RANFlat_MODEL[iran]  = FlatRan1(ILIST_RAN);  }
 
 
   // check option to fix genSmear randoms for debugging
@@ -11201,7 +11241,7 @@ void genran_modelSmear(void) {
       GENLC.GENSMEAR_RANGauss_MODEL[ifilt]  = RANFIX ;
     }
   }
-
+  xxxxx end mark xxxxxx */
 
   // set randoms for instrinsic scatter matrix (July 2011)
   GENLC.COVMAT_SCATTER_GRAN[0] =  GaussRan(1);
@@ -11211,14 +11251,16 @@ void genran_modelSmear(void) {
 		       GENLC.COVMAT_SCATTER );       // <== output
   
 
+  /* xxxxxxxxxx mark delete Oct 21 2019 xxxxxxxxxxxxx
   // -----------------------------------
   // pass randoms to genSmear function
   int NRAN ;
-  NRAN = GENLC.NRANGauss_GENSMEAR ;
+  NRAN = GENLC.NRANGauss_GENSMEAR ;  //.xyz
   SETRANGauss_genSmear(NRAN, &GENLC.GENSMEAR_RANGauss_MODEL[1] );
 
   NRAN = GENLC.NRANFlat_GENSMEAR ;
   SETRANFlat_genSmear(NRAN, &GENLC.GENSMEAR_RANFlat_MODEL[1] );
+  xxxxxxxxxxxxxxx end mark xxxxxxxxx*/
 
   // -----------------------------------
   // pass SN parameters to genSmear function
@@ -11658,6 +11700,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   // Mar 01 2017: allow AV & RV for SIMSED model.
   // Mar 14 2017: tack on TAKE_SPECTRUM info
   // mar 28 2017: add IDSURVEY
+  // Oct 16 2019: move MAGSMEAR_COH after SKIP1 
 
   int i, ifilt, ifilt_obs, ifilt_rest, ipar, imap, ivar, NTMP ;
   char *cptr ;
@@ -12160,11 +12203,6 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
 
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"MAGSMEAR_COH") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.MAGSMEAR_COH ;
-  NVAR_SIMGEN_DUMP++ ;
-
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"SALT2gammaDM") ;
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2gammaDM ;
   NVAR_SIMGEN_DUMP++ ;
@@ -12202,6 +12240,11 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
 
  SKIP1:
   
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"MAGSMEAR_COH") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.MAGSMEAR_COH ;
+  NVAR_SIMGEN_DUMP++ ;
+
   // typings
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GENTYPE") ;
@@ -14662,9 +14705,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   //  fix to work properly when LCLIB NREPEAT=0; see NOBS_FOUND_ALL
   //    
   // Jan 3 2018: use parse_SIMLIB_IDplusNEXPOSE() to read IDEXPT & NEXPOSE
+  // Sep 17 2019: rewind on EOF so that END_OF_SIMLIB: key is optional.
 
-  int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0;
-  int APPEND_PHOTFLAG, ifilt_obs ;
+  int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0, scanStat;
+  int APPEND_PHOTFLAG, ifilt_obs, DONE_READING, DO_REWIND ;
   int NTRY, USEFLAG_LIBID, USEFLAG_MJD, OPTLINE, NWD, NTMP ;
   int   NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT  ;
   double PIXSIZE, TEXPOSE_S, MJD ;
@@ -14685,7 +14729,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
   init_SIMLIB_HEADER();
   NOBS_EXPECT = NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID =USEFLAG_MJD = 0 ;
-  NOBS_SKIP = SKIP_FIELD = SKIP_APPEND = APPEND_PHOTFLAG = 0 ;
+  DONE_READING = NOBS_SKIP = SKIP_FIELD = SKIP_APPEND = APPEND_PHOTFLAG = 0 ;
   SIMLIB_LIST_forSORT.MJD_LAST = -9.0 ;
   SIMLIB_TEMPLATE.NFIELD_OVP = 0;
   NTRY++ ;
@@ -14700,13 +14744,20 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
   // - - - - - - - start reading SIMLIB - - - - - - - - - 
 
-  while( (fscanf(fp_SIMLIB, "%s", c_get)) != EOF) {
+  // xxxx  while( (fscanf(fp_SIMLIB, "%s", c_get)) != EOF) {
 
-    if ( strcmp(c_get,"END_OF_SIMLIB:") == 0 ) {
+  while ( !DONE_READING ) {
 
+    scanStat = fscanf(fp_SIMLIB, "%s", c_get);
+
+    DO_REWIND = 0;
+    if ( strcmp(c_get,"END_OF_SIMLIB:") == 0 ) { DO_REWIND = 1; }
+    if ( scanStat == EOF )                     { DO_REWIND = 1; }
+
+    // xxxx    if ( strcmp(c_get,"END_OF_SIMLIB:") == 0 ) {
+    if ( DO_REWIND ) {
       // check SIMLIB after 5 passes to avoid infinite loop
       if ( SIMLIB_HEADER.NWRAP >= 5 )  { ENDSIMLIB_check(); }
-      
       if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
 	snana_rewind(fp_SIMLIB, INPUTS.SIMLIB_OPENFILE,
 		     INPUTS.SIMLIB_GZIPFLAG);
@@ -14714,7 +14765,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	SIMLIB_HEADER.LIBID = SIMLIB_ID_REWIND ; 
 	NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID = USEFLAG_MJD = 0 ;
       }
-    }  // end simlib if-block
+    }  // end of END_IF_SIMLIB if-block
  
     if ( strcmp(c_get,"LIBID:") == 0 ) {
       readint ( fp_SIMLIB, 1, &ID );
@@ -14817,7 +14868,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
     if ( OPTLINE && OPTLINE_REJECT )  {    
       // MJD line in already rejected LIBID --> read rest of line 
-      fgets(cline, 100, fp_SIMLIB) ;
+      fgets(cline, 180, fp_SIMLIB) ;
       if ( SKIP_FIELD ) { NOBS_SKIP++ ; }
     }
     else if ( OPTLINE == OPTLINE_SIMLIB_S )  { 
@@ -14903,7 +14954,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
     // stop reading when we reach the end of this LIBID
     if ( strcmp(c_get, "END_LIBID:") == 0 ) { 
       if ( USEFLAG_LIBID == ACCEPT_FLAG ) 
-	{ goto DONE_READING ; }
+	{ DONE_READING = 1 ; }
       else
 	{ goto START ; }      // read another 
     }
@@ -17176,7 +17227,7 @@ void init_zvariation(void) {
   // Jul 19 2017: add GENMAG_OFF_GLOBAL to update list
   // Jul 24 2017: update error reporting of NZBIN exceeding boung.
 
-  char *ptrZfile, *ptrparname, *ptrPar;
+  char *ptrZfile, *ptrparname, *ptrPar, *ptrPoly;
   char GENPREFIX[60], c_get[60], method[20], parName[60], cpoly[60] ;
 
 #define NPREFIX_GENGAUSS 15
@@ -17215,7 +17266,6 @@ void init_zvariation(void) {
   // hard-wire list of valid parameter names
 
   NPAR_ZVAR_TOT = 0 ;
-
 
   // allow any GENPREFIX to modify population params.
 
@@ -17369,6 +17419,7 @@ void init_zvariation(void) {
 
   for ( i=0; i < NPAR_ZVAR_USR; i++ ) {
     ptrparname = INPUT_ZVARIATION[i].PARNAME;
+    ptrPoly    = INPUT_ZVARIATION[i].POLY.STRING ;
     FLAG       = INPUT_ZVARIATION[i].FLAG ;
     NZ         = INPUT_ZVARIATION[i].NZBIN;
     ZMIN       = INPUT_ZVARIATION[i].ZBIN_VALUE[0];
@@ -17386,8 +17437,10 @@ void init_zvariation(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, "" ); 
     }
 
-    printf("\t Init Z-variation (zvar) for '%s' (method = %s)\n", 
-	   ptrparname, method );
+    printf("   %s for %s(%s)   method=%s\n", 
+	   fnam, ptrparname, ptrPoly, method );
+
+    // xxx 
 
     // ========== IDIOT CHECKS ===============
 
@@ -17530,13 +17583,14 @@ double get_zvariation(double z, char *parname) {
   // this is to catch cases where a parname is passed that
   // would never get used.
 
+
   MATCH = 0;
   if ( NGENLC_WRITE < 3 ) {
     for ( ipar=0; ipar < MXPAR_ZVAR; ipar++ ) 
       { if ( strcmp(parname,PARDEF_ZVAR[ipar]) == 0 ) MATCH=1; }
 
     if ( MATCH == 0 ) {
-      sprintf(c1err,"Undefined parname = '%s' at Z=%f", parname, z );
+      sprintf(c1err,"Undefined parname = '%s' at z=%f", parname, z );
       sprintf(c2err,"Check file: '%s'", INPUT_ZVARIATION_FILE );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
@@ -17559,16 +17613,6 @@ double get_zvariation(double z, char *parname) {
 
   if ( FLAG == FLAG_ZPOLY_ZVAR ) {
     shift = eval_GENPOLY(z,&INPUT_ZVARIATION[ipar].POLY,fnam);
-
-    /************* mark delete Apr 10 2019 xxxxxxxxxx
-    zpow = 1.0 ;
-    for ( i=0; i <= POLYORDER_ZVAR ; i++ ) {  // polynomial function
-      tmp = INPUT_ZVARIATION[ipar].ZPOLY[i] ;
-      shift += (tmp * zpow) ;
-      zpow *= z ; // avoid using slow pow function for powers of z    
-    }
-    xxxxxxxx end mark xxxxxxxxxxxxx*/
-
   }
   else if ( FLAG == FLAG_ZBINS_ZVAR ) {  // linear interpolate ZBINS
 
@@ -21196,7 +21240,8 @@ void init_genmodel(void) {
     // model-specific init
     OPTMASK = 0; 
     if ( INPUTS.LEGACY_colorXTMW_SALT2 ) { OPTMASK += 128 ; }
-
+    if ( INPUTS.DEBUG_FLAG == 64 )       { OPTMASK +=  64 ; } // ABORT on bad lamRange
+ 
     istat = init_genmag_SALT2(GENMODEL, GENMODEL_EXTRAP, OPTMASK) ;
 
     get_LAMRANGE_SEDMODEL(1,&GENLC.RESTLAM_MODEL[0],&GENLC.RESTLAM_MODEL[1] );
@@ -21639,7 +21684,7 @@ void init_kcor(char *kcorFile) {
     get_filtlam__(&OPT, &ifilt_obs
 		  ,&INPUTS.LAMAVG_OBS[ifilt_obs]
 		  ,&INPUTS.LAMRMS_OBS[ifilt_obs]   
-		  ,&INPUTS.LAMMIN_OBS[ifilt_obs]   
+		  ,&INPUTS.LAMMIN_OBS[ifilt_obs]  
 		  ,&INPUTS.LAMMAX_OBS[ifilt_obs]   
 		  );
   }  // end ifilt loop
@@ -21718,7 +21763,26 @@ void init_kcor(char *kcorFile) {
   return ;
 
 } // end of init_kcor
- 
+
+// ********************************** 
+void init_kcor_refactor(void) {
+
+  // Oct 2019
+  // Begin translating fortran kcor-read codes into C.
+  // Call functions in sntools_kcor.c[h]
+
+  char fnam[] = "init_kcor_refactor" ;
+
+  // ------------ BEGIN -------------
+
+  KCOR_INFO.NCALL_READ = 0;
+
+  READ_KCOR_DRIVER(INPUTS.KCOR_FILE, SIMLIB_GLOBAL_HEADER.FILTERS );
+
+
+  return ;
+
+} // end init_kcor_refactor
 
 // *********************************************
 int gen_TRIGGER_PEAKMAG_SPEC(void) {
@@ -22688,7 +22752,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
 
   // -------------- BEGIN ------------
 
-  if ( INPUTS.DO_MODELSMEAR  == 0 ) 
+  if ( !INPUTS.DO_MODELSMEAR  ) 
     { return ; }
 
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) 
@@ -22831,7 +22895,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
   } // ep loop
 
   if ( istat_genSmear() > 0 ) 
-    { GENLC.MAGSMEAR_COH = MAGSMEAR_COH ; } // see sntools_genSmear.c
+    { GENLC.MAGSMEAR_COH = GENSMEAR.MAGSMEAR_COH ; } // see sntools_genSmear.c
 
   return ;
 
@@ -24023,7 +24087,7 @@ void readme_doc(int iflag_readme) {
   }
   
 
-
+  /* xxxxx mark delete Sep 4 2019 xxxxxxxxxxxxxx
   // write APPLY-mask
   OVP1 = (INPUTS.APPLY_SEARCHEFF_OPT & 1);
   OVP2 = (INPUTS.APPLY_SEARCHEFF_OPT & 2);
@@ -24041,6 +24105,9 @@ void readme_doc(int iflag_readme) {
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\n  APPLY_SEARCHEFF_OPT:  %d => %s \n", 
 	  INPUTS.APPLY_SEARCHEFF_OPT, ctmp);
+  xxxxxxxx end mark xxxxxxxxx */
+
+  sprintf(cptr,"\n  %s \n", COMMENT_README_TRIGGER);
 
   // print SNTYPE values for SPEC and PHOT Ia-subsets 
   // For NONIA there is only one type specified with the NONIA keys.

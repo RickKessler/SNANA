@@ -27,6 +27,7 @@ use strict ;
 # declare utilities
 sub parse_line(@) ;
 sub parse_array(@);
+sub parse_value_after_key(@);
 sub loadArray_fromFile(@) ;
 sub loadArray_excludeLines(@) ;
 sub Killjobs(@) ;
@@ -225,6 +226,30 @@ sub parse_array(@) {
     return @tmp_all ;    
 
 }  # end of parse_array
+
+sub parse_value_after_key(@) {
+
+    # Created Oct 25 2019
+    # for inString = "KEY1 VAL1 KEY2 VAL2 KEY3 VAL3"
+    # and key = KEY2, function returns VAL2.
+    # Note that multiple values are returned if 
+    # key appears multiple times.
+
+    my($KEY,$INPUT_STRING) = @_ ;
+
+    my @valueList = ();
+    my ($indx, @INDX, @WDLIST, $value );
+    @WDLIST   = split(/\s+/,$INPUT_STRING) ;
+    @INDX = grep{$WDLIST[$_] eq $KEY} 0 .. $#WDLIST ;	
+
+    foreach $indx (@INDX) {
+	$value = $WDLIST[$indx+1] ;
+	@valueList = (@valueList, $value);
+    }
+
+    return(@valueList);
+
+} # end sub parse_value_after_key
 
 # ===============================================
 sub loadArray_fromFile(@) {
@@ -800,8 +825,9 @@ sub make_batchFile(@) {
     # Same as previous make_batchFile, but without doneFile or XCMD args.
     #
     # Aug 6 2018: add "cd $batchDir" before $batchJob command
+    # Sep 12 2019: add batchName argument
 
-    my ($BATCH_TEMPLATE, $batchDir, $batchFile, $batchLog, 
+    my ($BATCH_TEMPLATE, $batchDir, $batchName, $batchFile, $batchLog, 
 	$batchMEM, $batchJOB ) = @_ ;
 
     my (@tmp, $inF, $outF, $KEY, @MSGERR );
@@ -817,7 +843,7 @@ sub make_batchFile(@) {
     $REPLACE_KEY[2] = "REPLACE_MEM" ;
     $REPLACE_KEY[3] = "REPLACE_JOB" ;    
 
-    $REPLACE_STRING[0] = "$batchFile" ;
+    $REPLACE_STRING[0] = "$batchName";    # xxx mark delete "$batchFile" ;
     $REPLACE_STRING[1] = "$batchLog" ;
     $REPLACE_STRING[2] = "$batchMEM";
     $REPLACE_STRING[3] = "cd $batchDir ; $batchJOB" ;

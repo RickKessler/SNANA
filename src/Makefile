@@ -228,7 +228,7 @@ ifndef SNANA_PYTHON_DIR
   LPY = 
 else
   IPY = -I/$(SNANA_PYTHON_DIR)/include/python3.7m
-  LPY = -L$(SNANA_PYTHON_DIR)/lib -ldl  -lutil -Wl,-rpath,$(SNANA_PYTHON_DIR)/lib -python3.7m
+  LPY = -L$(SNANA_PYTHON_DIR)/lib -ldl  -lutil -Wl,-rpath,$(SNANA_PYTHON_DIR)/lib -lpython3.7m
 endif
 
 

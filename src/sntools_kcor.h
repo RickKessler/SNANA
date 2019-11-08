@@ -64,11 +64,17 @@ typedef struct {
 
 struct KCOR_INFO {
 
+  // info passed to driver
   char FILENAME[MXPATHLEN] ;
   fitsfile *FP ;
 
   char FILTERS_SURVEY[MXFILT_KCOR]; // filter list read from SIMLIB file
   int  NFILTDEF_SURVEY ;
+  
+  double MAGREST_SHIFT_PRIMARY[MXFILT_KCOR];
+  double MAGOBS_SHIFT_PRIMARY[MXFILT_KCOR];
+
+  // - - - - info read from FITS file - - - - - - 
 
   // header info
   int   VERSION, NFLAMSHIFT;
@@ -90,7 +96,8 @@ struct KCOR_INFO {
   KCOR_FILTERMAP_DEF FILTERMAP_OBS  ;
 
   int   NKCOR, NKCOR_STORE;
-  char *KCOR_STRING[MXTABLE_KCOR] ;
+  char *STRING_KCORLINE[MXTABLE_KCOR] ; // full FITS line with KCOR info
+  char *STRING_KCORSYM[MXTABLE_KCOR];   // just K_xy part
   bool  EXIST_KCOR[MXFILT_KCOR][MXFILT_KCOR]; // for each [rest][obs] combo
   int   IFILTMAP_KCOR[2][MXTABLE_KCOR];
   int   k_index[MXTABLE_KCOR];
@@ -111,7 +118,8 @@ struct KCOR_INFO {
 
   double zRANGE_LOOKUP[2] ;
 
-  float *FLUX_SNSED; // use float to save memory
+  float *KCORTABLE1D_F;     // use float to save memory
+  float *FLUX_SNSED_F;      // use float to save memory
 
   char SPECTROGRAPH_INSTRUMENT[60];
   char SPECTROGRAPH_FILTERLIST[MXFILT_KCOR];
@@ -128,7 +136,9 @@ struct KCOR_INFO {
 
 // declare functions
 
-void READ_KCOR_DRIVER(char *kcorFile, char *FILTERS_SURVEY );
+void READ_KCOR_DRIVER(char *kcorFile, char *FILTERS_SURVEY, 
+		      double *MAGREST_SHIFT_PRIMARY, 
+		      double *MAGPBS_SHIFT_PRIMARY );
 void read_kcor_init(void);
 void read_kcor_open(void);
 void read_kcor_head(void);

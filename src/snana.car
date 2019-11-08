@@ -26748,9 +26748,16 @@ c apply user mag-shifts
      &         = R4KCORTABLE1D(ibin) 
      &         - MAGREST_SHIFT_PRIMARY_FILT(ifilt_rest)
      &         + MAGOBS_SHIFT_PRIMARY_FILT(ifilt_obs)
-         ENDDO
+         ENDDO 
 
 200   CONTINUE
+
+c xxxxxxxxxxxx
+c      DO ibin = 1, NBIN_TOT
+c        write(6,690) ibin-1, R4KCORTABLE1D(ibin) 
+c690     format(' xxx KCORTABLE1D(',I7,') = ', F10.5 );   call flush(6)
+c      ENDDO
+c xxxxxxxxx
 
 
       RETURN
@@ -33264,7 +33271,7 @@ C ------------ BEGIN ------------
 
 
 C ==========================================
-+DECK,CHKMSHIFT.
++DECK,CHECK_MAGSHIFTS.
       SUBROUTINE RDKCOR_CHECK_MAGSHIFTS
 
 C Nov 13, 2010

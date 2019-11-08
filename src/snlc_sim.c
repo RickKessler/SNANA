@@ -203,6 +203,9 @@ int main(int argc, char **argv) {
   if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS)>0 ) 
     { rewrite_HOSTLIB_plusMags(); }
 
+  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSNBR)>0 ) 
+    { rewrite_HOSTLIB_plusNbr(); }
+
   // create/init output sim-files
   init_simFiles(&SIMFILE_AUX);
 
@@ -4350,6 +4353,12 @@ void sim_input_override(void) {
     }
     if ( strcmp( ARGV_LIST[i], "+HOSTMAGS" ) == 0 ) {
       INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS ;
+      i++ ;
+      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+    }
+
+    if ( strcmp( ARGV_LIST[i], "+HOSTNBR" ) == 0 ) {
+      INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSNBR ;
       i++ ;
       setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     }
@@ -10039,7 +10048,7 @@ void gen_event_stronglens(int ilc, int istage) {
   double TRESTMAX  = INPUTS.GENRANGE_TREST[1];
   int    MEMD      = MXIMG_STRONGLENS * sizeof(double);
   double RAD       = RADIAN;
-  int    LDMP      = (ilc<10) ; 
+  int    LDMP      = (ilc<4) ; 
 
   double zLENS, zSN, z1, hostpar[10];
   double PEAKMJD, tdelay_min=1.0E9, tdelay_max=-1.0E9;
@@ -10054,6 +10063,12 @@ void gen_event_stronglens(int ilc, int istage) {
   
   GENSL.REPEAT_FLAG  =  0 ;
   if ( !INPUTS_STRONGLENS.USE_FLAG ) { return; }
+
+  if ( WRFLAG_CIDRAN ) {
+    sprintf(c1err,"Cannot use CIDRAN option with strong lens model.");
+    sprintf(c2err,"Remove %d from FORMAT_MASK", WRMASK_CIDRAN );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
 
   GENLC.CID = GENLC.CIDOFF + ilc ; 
 
@@ -21771,14 +21786,18 @@ void init_kcor_refactor(void) {
   // Begin translating fortran kcor-read codes into C.
   // Call functions in sntools_kcor.c[h]
 
+  int    ifilt;
+  double MAGOBS_SHIFT[MXFILTINDX], MAGREST_SHIFT[MXFILTINDX];
   char fnam[] = "init_kcor_refactor" ;
 
   // ------------ BEGIN -------------
 
-  KCOR_INFO.NCALL_READ = 0;
+  KCOR_INFO.NCALL_READ = 0 ;
+  for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
+    { MAGOBS_SHIFT[ifilt] = MAGREST_SHIFT[ifilt] = 0.0 ; }
 
-  READ_KCOR_DRIVER(INPUTS.KCOR_FILE, SIMLIB_GLOBAL_HEADER.FILTERS );
-
+  READ_KCOR_DRIVER(INPUTS.KCOR_FILE, SIMLIB_GLOBAL_HEADER.FILTERS,
+		   MAGREST_SHIFT, MAGOBS_SHIFT );
 
   return ;
 

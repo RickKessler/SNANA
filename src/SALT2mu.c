@@ -712,7 +712,7 @@ char STRING_EVENT_TYPE[MXEVENT_TYPE][12] =
 // So instead we define a linear array of 50,000 to take less memory,
 // especially if we need to raise some of the MAXBIN_ later.
 #define MAXBIN_z              85  // 50->85 on 9/11/2017
-#define MAXBIN_LOGMASS        10  // Aug 2019
+#define MAXBIN_LOGMASS        25  // Aug 2019
 #define MAXBIN_BIASCOR_FITPAR 50  // for biasCor map variables x1,c
 #define MAXBIN_BIASCOR_ALPHA   2  // for biasCor map
 #define MAXBIN_BIASCOR_BETA    2  // for biasCor map
@@ -6860,6 +6860,12 @@ void prepare_biasCor(void) {
       NDIM_BIASCOR = 6; 
       sprintf(INFO_BIASCOR.STRING_PARLIST,"z,x1,c,a,b,g");  
     }
+
+    if ( NBINg == 1 && INPUTS.nbin_logmass > 1 ) { 
+      NDIM_BIASCOR = 6; 
+      sprintf(INFO_BIASCOR.STRING_PARLIST,"z,m,x1,c,a,b");  
+    }
+
     if ( NBINg > 1 && INPUTS.nbin_logmass > 1 ) { 
       NDIM_BIASCOR = 7; 
       sprintf(INFO_BIASCOR.STRING_PARLIST,"z,m,x1,c,a,b,g");  
@@ -6922,27 +6928,6 @@ void prepare_biasCor(void) {
     INPUTS.covint_param_step1  = INPUTS.scale_covint_step1 ;
   }
   
-  /* xxxxxxxx mark delete xxxx  
-  // --------------------------------
-  mark delete read_simFile_biasCor();
-
-  if ( DOCOR_5D ) {
-    for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ ) 
-      { setup_CELLINFO_biasCor(IDSAMPLE); }
-  }
-
-
-  // setup comment string for list of biasCor params
-
-  if ( DOCOR_1D ) 
-    { sprintf(INFO_BIASCOR.STRING_PARLIST,"z"); }
-  else if ( DOCOR_5D && NBINg == 1 ) 
-    { sprintf(INFO_BIASCOR.STRING_PARLIST,"z,x1,c,a,b"); }
-  else if ( DOCOR_5D && NBINg > 1 ) { 
-    sprintf(INFO_BIASCOR.STRING_PARLIST,"z,m,x1,c,a,b,g"); 
-  }
-  xxxx mark delete xxxxxx */
-
 
   // count number of biasCor events passing cuts (after setup_BININFO calls)
 
@@ -10509,13 +10494,7 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
     VAL_MIN = SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[0];
     VAL_MAX = SAMPLE_BIASCOR[IDSAMPLE].RANGE_LOGMASS[1];
     VAL_BIN = SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_LOGMASS ;
-    
-    /* xxx mark delete to allow logMass bins without gDM bins
-    int NBINg = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
-    if ( NBINg <= 1 ) { VAL_MIN = -20.0; VAL_MAX=+20.0; VAL_BIN=40.0; }
-    xxxxxxxxxx end mark xxxxxxxxx */
-
-    sprintf(NAME,"m");
+        sprintf(NAME,"m");
   }
   else if ( ipar_LCFIT == 100*INDEX_x1 ) {
     // get info for SIMalpha binning

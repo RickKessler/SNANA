@@ -1751,7 +1751,6 @@ void read_gal_HOSTLIB(FILE *fp) {
       // check to allocate more storage/memory
       malloc_HOSTLIB(NGAL);    
 
-
       // strip off variables to store
       for ( ivar_STORE=0; ivar_STORE < NVAR_STORE; ivar_STORE++ ) {
 	ivar_ALL = HOSTLIB.IVAR_ALL[ivar_STORE] ;  // column in file
@@ -1831,6 +1830,10 @@ int passCuts_HOSTLIB(double *xval ) {
 
   // if computing host mags, do not apply cuts
   if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS)>0 ) 
+    { return(1); }
+
+  // ditto for HOST neighbors
+  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSNBR)>0 ) 
     { return(1); }
 
   // REDSHIFT
@@ -2265,7 +2268,8 @@ void sortz_HOSTLIB(void) {
     { free(HOSTLIB.VALUE_UNSORTED[ival]);  }
 
   int  OPT_PLUSMAGS  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS);
-  if ( !OPT_PLUSMAGS ) {
+  int  OPT_PLUSNBR   = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSNBR);
+  if ( !(OPT_PLUSMAGS || OPT_PLUSNBR) ) {
     free(HOSTLIB.LIBINDEX_UNSORT);
     free(HOSTLIB.LIBINDEX_ZSORT);
   }
@@ -5846,6 +5850,128 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
 } // end fetch_HOSTPAR_GENMODEL
 
 // ===================================
+void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
+
+  // generic utility to rewrite HOSTLIB using information
+  // Passed here vias HOSTLIB_APPEND.
+  // 
+
+  char *SUFFIX   = HOSTLIB_APPEND->FILENAME_SUFFIX; // or new HOSTLIB
+  char *COMMENT  = HOSTLIB_APPEND->COMMENT;
+  char *VARNAMES = HOSTLIB_APPEND->VARNAMES_APPEND ;
+
+  FILE *FP_ORIG, *FP_NEW;
+  char *HLIB_ORIG = INPUTS.HOSTLIB_FILE,  HLIB_NEW[MXPATHLEN];
+  char fnam[] = "rewrite_HOSTLIB" ;
+
+  // -------------- BEGIN --------------
+
+  // open original and new file to append
+
+  sprintf(HLIB_NEW,"%s%s", HLIB_ORIG, SUFFIX ); 
+
+  FP_ORIG = fopen(HLIB_ORIG,"rt");
+  FP_NEW  = fopen(HLIB_NEW, "wt");
+  if ( !FP_ORIG ) {
+    sprintf(c1err,"Could not open original HOSTLIB_FILE");
+    sprintf(c2err,"'%s' ", HLIB_ORIG);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  if ( !FP_NEW ) {
+    sprintf(c1err,"Could not open new HOSTLIB_FILE");
+    sprintf(c2err,"'%s' ", HLIB_NEW);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  printf("\n");
+  printf("  Created '%s' \n", HLIB_NEW);
+
+  fprintf(FP_NEW,"# %s\n\n", COMMENT);
+
+  // - - - - - - - - - - - - - - - - - 
+  // read each original line
+
+  long long GALID, GALID_orig ;
+  int   igal_unsort, igal_zsort, ivar, NWD_LINE;
+  char *LINE, *LINE_APPEND, *FIRSTWORD, *NEXTWORD, *ptrCR ;
+
+  LINE         = (char*) malloc ( sizeof(char) * MXCHAR_LINE_HOSTLIB );
+  LINE_APPEND  = (char*) malloc ( sizeof(char) * 100 );
+  FIRSTWORD    = (char*) malloc ( sizeof(char) * 100 );
+  NEXTWORD     = (char*) malloc ( sizeof(char) * 100 );
+
+  igal_unsort = 0;
+  while ( fgets(LINE, MXCHAR_LINE_HOSTLIB, FP_ORIG) != NULL ) {
+
+    NWD_LINE = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
+    LINE_APPEND[0] = 0 ;
+
+    if ( NWD_LINE > 2 ) {
+      get_PARSE_WORD(0, 0, FIRSTWORD);
+      if ( strcmp(FIRSTWORD,"VARNAMES:") == 0 ) 
+	{ sprintf(LINE_APPEND,"%s", VARNAMES); }
+
+      else if ( strcmp(FIRSTWORD,"GAL:") == 0 ) {
+
+	// make sure GALID matches
+	ivar       = HOSTLIB.IVAR_GALID;
+	igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
+	GALID      = (long long)HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
+
+	get_PARSE_WORD(0, 1, NEXTWORD); // read GALID
+	sscanf(NEXTWORD, "%lld", &GALID_orig);
+	if ( GALID != GALID_orig ) {
+	  sprintf(c1err,"GALID mis-match for igal_unsort=%d", igal_unsort);
+	  sprintf(c2err,"GALID(orig)=%lld, but stored GALID=%lld",
+		  GALID_orig, GALID ) ;
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+	}
+
+	sprintf(LINE_APPEND, HOSTLIB_APPEND->LINE_APPEND[igal_unsort]);
+
+	/* xxx
+	for(ifilt=1; ifilt <= NFILT; ifilt++ ) {
+	  sprintf(cval, " %6.3f", MAG_STORE[ifilt][igal_unsort] );
+	  strcat(LINE_APPEND,cval);
+	}
+	xxxxxxx */
+
+	igal_unsort++ ;
+      }
+    }
+
+    ptrCR = strchr(LINE,'\n'); if(ptrCR){*ptrCR=' ';} // remove <CR>
+    fprintf(FP_NEW,"%s %s\n", LINE, LINE_APPEND);
+  }
+
+
+  fclose(FP_ORIG); fclose(FP_NEW);
+
+  return ;
+
+} // end rewrite_HOSTLIB
+
+// =======================================
+void malloc_HOSTLIB_APPEND(int NGAL, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
+
+  int i;
+  char fnam[] = "malloc_HOSTLIB_APPEND" ;
+
+  // ---------------- BEGIN ---------------
+
+  HOSTLIB_APPEND->NLINE_APPEND = NGAL;
+  HOSTLIB_APPEND->LINE_APPEND = (char**) malloc( NGAL*sizeof(char*) );
+
+  for(i=0; i < NGAL; i++ ) {
+    HOSTLIB_APPEND->LINE_APPEND[i] = (char*) malloc( 100*sizeof(char*) );
+    sprintf(HOSTLIB_APPEND->LINE_APPEND[i],"NULL_APPEND");
+  }
+
+  return;
+
+} // end malloc_HOSTLIB_APPEND
+
+// ===================================
 void rewrite_HOSTLIB_plusMags(void) {
   
   // If +HOSTMAGS option is given on command-line, this function
@@ -5863,8 +5989,10 @@ void rewrite_HOSTLIB_plusMags(void) {
   int igal_unsort, igal_zsort, ifilt, ifilt_obs, ivar, DUMPFLAG=0 ;
   long long GALID, GALID_orig ;
   double ZTRUE, MWEBV=0.0, mag, *GENFLUX_LIST, *GENMAG_LIST;
-  float  **MAG_STORE ;
+  float  *MAG_STORE ;
 
+  HOSTLIB_APPEND_DEF HOSTLIB_APPEND ;
+  char cval[20], LINE_APPEND[100] ;
   char fnam[] = "rewrite_HOSTLIB_plusMags" ;
 
   // internal debug
@@ -5884,14 +6012,15 @@ void rewrite_HOSTLIB_plusMags(void) {
   GENFLUX_LIST = (double*) malloc(MEMD);
   GENMAG_LIST  = (double*) malloc(MEMD);
 
-  MAG_STORE = (float**) malloc( (NFILT+1)*sizeof(float*) );
-  for(ifilt=0; ifilt <= NFILT; ifilt++ ) 
-    { MAG_STORE[ifilt] = (float*) malloc(NGAL*sizeof(float)) ; }
+  MAG_STORE = (float*) malloc( (NFILT+1)*sizeof(float) );
 
   for(ifilt=0; ifilt <= NFILT; ifilt++ ) 
     { HOSTSPEC.NWARN_INTEG_HOSTMAG[ifilt] = 0 ; }
 
-  // ----------------------------
+
+  malloc_HOSTLIB_APPEND(NGAL, &HOSTLIB_APPEND);
+
+  // ----------------------------  
   if ( NGAL_DEBUG > 0 ) { NGAL = NGAL_DEBUG; }
 
   for(igal_unsort=0; igal_unsort < NGAL; igal_unsort++ ) {
@@ -5917,12 +6046,15 @@ void rewrite_HOSTLIB_plusMags(void) {
     // Instead, integmag_hostSpec below uses global HOSTSPEC.FLAM_EVT 
     // that is loaded in genSpec_HOSTLIB.
 
+    LINE_APPEND[0] = 0;
     for ( ifilt=1; ifilt <= NFILT; ifilt++ ) {
-      // xxxx      ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
       ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
       mag       = integmag_hostSpec(ifilt_obs,ZTRUE,DUMPFLAG);
-      MAG_STORE[ifilt][igal_unsort] = mag;
+      MAG_STORE[ifilt] = mag;
+      sprintf(cval, " %6.3f", MAG_STORE[ifilt] );
+      strcat(LINE_APPEND,cval);
     }
+    sprintf(HOSTLIB_APPEND.LINE_APPEND[igal_unsort],"%s", LINE_APPEND);
 
     if ( (igal_unsort % 5000) == 0 ) {
       printf("\t Processing igal %8d of %8d \n", igal_unsort, NGAL);
@@ -5937,7 +6069,7 @@ void rewrite_HOSTLIB_plusMags(void) {
 
       printf("     mag(%s) = ", INPUTS.GENFILTERS);
       for ( ifilt=1; ifilt <= NFILT; ifilt++ ) 
-	{ printf("%7.2f", MAG_STORE[ifilt][igal_unsort] );   }
+	{ printf("%7.2f", MAG_STORE[ifilt] );   }
       printf("\n"); fflush(stdout);
     } // end igal
     // xxxxxxxxxxxxxxxxxxxx
@@ -5945,19 +6077,41 @@ void rewrite_HOSTLIB_plusMags(void) {
   } // end igal
 
 
+  // ------------------------
+  // set HOSTLIB_APPEND struct, then rewrite hostlib.
+
+  int L ;
+  char VARNAMES_HOSTMAGS[200], varname_mag[40], *cfilt;
+  // create additional varnames of mags to append to VARNAMES list
+  VARNAMES_HOSTMAGS[0] = 0;
+  for(ifilt=1; ifilt <= NFILT; ifilt++ ) {
+    cfilt = FILTER_SEDMODEL[ifilt].name;     L = strlen(cfilt);
+    sprintf(varname_mag," %c_obs", cfilt[L-1] );
+    strcat(VARNAMES_HOSTMAGS,varname_mag);
+  }
+
+  sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX,"+HOSTMAGS");
+
+  sprintf(HOSTLIB_APPEND.COMMENT, // comment for top of new HOSTLIB
+	  "Append synthetic host mags computed from host spectra.");
+
+  sprintf(HOSTLIB_APPEND.VARNAMES_APPEND,"%s", VARNAMES_HOSTMAGS);
+
+  rewrite_HOSTLIB(&HOSTLIB_APPEND);
+
+  /* xxxxxxxxxxxxx mark delete Nov 7 2019 xxxxxxxxxxxx
   // --------------------------------------------------------
   // create new HOSTLIB with host mags appended to varnames.
   // Read original hostlib and copy each line so that format
-  // is not changed; then append host mags.
-
+  // is not changed; then append host mags
   char *HLIB_ORIG = INPUTS.HOSTLIB_FILE,  HLIB_NEW[MXPATHLEN];
-  char LINE[MXCHAR_LINE_HOSTLIB], VARNAMES_HOSTMAGS[200];
-  char *cfilt, varname_mag[40], *ptrCR, cval[20] ;
-  char FIRSTWORD[100], NEXTWORD[100], LINE_APPEND[100] ;
+  char LINE[MXCHAR_LINE_HOSTLIB] ;
+  char *ptrCR ;
+  char FIRSTWORD[100], NEXTWORD[100] ;
   char tmpFile[MXPATHLEN], NULLPATH[] = "" ;
   FILE *FP_ORIG, *FP_NEW;
-  int  NWD_LINE, gzipFlag, L;
-  sprintf(HLIB_NEW,"%s+HOSTMAGS", HLIB_ORIG);
+  int  NWD_LINE, gzipFlag ;
+  sprintf(HLIB_NEW,"%s+HOSTMAGS_OLD", HLIB_ORIG);
 
   //FP_ORIG = snana_openTextFile(1, NULLPATH, HLIB_ORIG, tmpFile, &gzipFlag);
   FP_ORIG = fopen(HLIB_ORIG,"rt");
@@ -5977,15 +6131,6 @@ void rewrite_HOSTLIB_plusMags(void) {
   printf("  Created '%s' with synthetic host mags\n", HLIB_NEW);
   fprintf(FP_NEW,
 	  "# Append synthetic host mags computed from host spectra.\n\n");
-
-  // create additional varnames of mags to append to VARNAMES list
-  VARNAMES_HOSTMAGS[0] = 0;
-  for(ifilt=1; ifilt <= NFILT; ifilt++ ) {
-    cfilt = FILTER_SEDMODEL[ifilt].name;     L = strlen(cfilt);
-    sprintf(varname_mag," %c_obs", cfilt[L-1] );
-    strcat(VARNAMES_HOSTMAGS,varname_mag);
-  }
-
 
   igal_unsort = 0;
   while ( fgets(LINE, MXCHAR_LINE_HOSTLIB, FP_ORIG) != NULL ) {
@@ -6026,11 +6171,10 @@ void rewrite_HOSTLIB_plusMags(void) {
   }
 
   fclose(FP_ORIG);   fclose(FP_NEW);
+  xxxxxxxxxxxx end mark xxxxxxxxxxxxx  */
 
-  // -----------------------
-  free(GENFLUX_LIST); free(GENMAG_LIST);
-  for(ifilt=0; ifilt <= NFILT; ifilt++ )  { free(MAG_STORE[ifilt]); }
-  free(MAG_STORE);
+  // ------------------------------------
+  free(GENFLUX_LIST); free(GENMAG_LIST); free(MAG_STORE);
 
   exit(0);
 
@@ -6128,3 +6272,113 @@ double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG) {
 
 } // end integmag_hostSpec
 
+
+// ===================================
+void rewrite_HOSTLIB_plusNbr(void) {
+
+  // Created Nov 2019 by R.Kessler
+  // Re-write HOSTLIB with list of nearby IGALs.
+  //
+  // Beware that 'igal' is a redshift-sorted index for the other 
+  // HOSTLIB functions, but here we use the original HOSTLIB order.
+
+
+  double SEPMAX_NBR = 10.0; // arcSeconds
+
+  int  NGAL        = HOSTLIB.NGAL_STORE;
+  int  IVAR_GALID  = HOSTLIB.IVAR_GALID;
+  int  IVAR_RA     = HOSTLIB.IVAR_RA ;
+  int  IVAR_DEC    = HOSTLIB.IVAR_DEC ;
+
+  long long GALID, GALID_NBR ;
+  int   DUMPFLAG, igal_unsort, igal_zsort, igal2_unsort, igal2_zsort ;
+  int   NNBR;
+  HOSTLIB_APPEND_DEF HOSTLIB_APPEND;
+  double RA_GAL, DEC_GAL, RA_NBR, DEC_NBR, SEP_NBR;
+  char  *LINE_APPEND, cval[20] ;
+
+  // internal debug
+  long long GALID_DUMP = 0; // 205925 ;
+  int  NGAL_DEBUG      = -500;
+
+  char fnam[] = "rewrite_HOSTLIB_plusNbr" ;
+
+  // --------------- BEGIN ---------------
+
+  print_banner(fnam);
+
+  if ( IVAR_RA < 0 || IVAR_DEC < 0 ) {
+    sprintf(c1err,"Must include galaxy coords to find neighbors.");
+    sprintf(c2err,"Check VARNAMES in HOSTLIB");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  
+  printf("\t NGAL[READ,STORE] = %d, %d \n", 
+	 HOSTLIB.NGAL_READ, HOSTLIB.NGAL_STORE);
+
+
+  malloc_HOSTLIB_APPEND(NGAL, &HOSTLIB_APPEND);
+
+  LINE_APPEND = (char*) malloc (MXCHAR_LINE_HOSTLIB * sizeof(char) ) ;
+
+
+  // ----------------------------
+  if ( NGAL_DEBUG > 0 ) { NGAL = NGAL_DEBUG; }
+
+  for(igal_unsort=0; igal_unsort < NGAL; igal_unsort++ ) {
+
+    igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
+
+    GALID = (long long)HOSTLIB.VALUE_ZSORTED[IVAR_GALID][igal_zsort] ;
+    DUMPFLAG = ( GALID == GALID_DUMP );    
+
+    RA_GAL   = HOSTLIB.VALUE_ZSORTED[IVAR_RA][igal_zsort] ;  // deg
+    DEC_GAL  = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][igal_zsort] ; 
+
+    // brute force search for neighbors
+    sprintf(LINE_APPEND,"NO_NBR");  NNBR=0;
+    for(igal2_unsort=0; igal2_unsort < NGAL; igal2_unsort++ ) {
+      if ( igal2_unsort == igal_unsort ) { continue; }
+      if ( strlen(LINE_APPEND) > MXCHAR_LINE_HOSTLIB - 20 ) { continue; }
+      igal2_zsort = HOSTLIB.LIBINDEX_ZSORT[igal2_unsort];
+      RA_NBR   = HOSTLIB.VALUE_ZSORTED[IVAR_RA][igal2_zsort] ;  
+      DEC_NBR  = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][igal2_zsort] ; 
+      if ( fabs(DEC_NBR-DEC_GAL) > SEPMAX_NBR ) { continue ; }
+
+      SEP_NBR = angSep(RA_GAL, DEC_GAL, RA_NBR, DEC_NBR,  (double)3600.);
+      if ( SEP_NBR > SEPMAX_NBR ) { continue ; }
+      GALID_NBR = (long long)HOSTLIB.VALUE_ZSORTED[IVAR_GALID][igal2_zsort] ;
+
+      if ( NNBR == 0 ) 
+	{ sprintf(cval,"%d",igal2_unsort); LINE_APPEND[0]=0; }
+      else
+	{ sprintf(cval,",%d", igal2_unsort); }
+      strcat(LINE_APPEND,cval);  NNBR++ ;
+    }
+
+    sprintf(HOSTLIB_APPEND.LINE_APPEND[igal_unsort],"%s", LINE_APPEND);
+
+    if ( (igal_unsort % 1000) == 0 ) {
+      printf("\t Processing igal %8d of %8d \n", igal_unsort, NGAL);
+      fflush(stdout);
+    }
+
+  } // end igal_unsort loop over all galaxies
+
+  // - - - - - - - - - - - - 
+
+  sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX,"+HOSTNBR");
+
+  sprintf(HOSTLIB_APPEND.COMMENT, // comment for top of new HOSTLIB
+	  "Append host neighbors." );
+
+  sprintf(HOSTLIB_APPEND.VARNAMES_APPEND, "NBR_IGAL_LIST" );
+
+  rewrite_HOSTLIB(&HOSTLIB_APPEND);
+
+  exit(0);
+
+  return ;
+
+} // end rewrite_HOSTLIB_plusNbr

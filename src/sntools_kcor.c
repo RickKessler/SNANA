@@ -24,8 +24,11 @@
 
 
 // ======================================
-void READ_KCOR_DRIVER(char *kcorFile, char *FILTERS_SURVEY) {
+void READ_KCOR_DRIVER(char *kcorFile, char *FILTERS_SURVEY,
+		      double *MAGREST_SHIFT_PRIMARY,
+                      double *MAGOBS_SHIFT_PRIMARY ) {
 
+  int ifilt;
   char BANNER[100];
   char fnam[] = "READ_KCOR_DRIVER" ;
 
@@ -34,10 +37,17 @@ void READ_KCOR_DRIVER(char *kcorFile, char *FILTERS_SURVEY) {
   sprintf(BANNER,"%s: read calib/filters/kcor", fnam );
   print_banner(BANNER);
 
+  // - - - - - - - 
+  // store passed info in global struct
   sprintf(KCOR_INFO.FILENAME, "%s", kcorFile) ;
   sprintf(KCOR_INFO.FILTERS_SURVEY, "%s", FILTERS_SURVEY);
   KCOR_INFO.NFILTDEF_SURVEY = strlen(FILTERS_SURVEY);
+  for(ifilt=0; ifilt < MXFILT_KCOR; ifilt++ ) {
+    KCOR_INFO.MAGREST_SHIFT_PRIMARY[ifilt] = MAGREST_SHIFT_PRIMARY[ifilt];
+    KCOR_INFO.MAGOBS_SHIFT_PRIMARY[ifilt]  = MAGOBS_SHIFT_PRIMARY[ifilt];
+  }
 
+  // - - - - - - 
   read_kcor_init();
 
   read_kcor_open();
@@ -161,6 +171,7 @@ void read_kcor_head(void) {
   char KEYWORD[40], comment[100], tmpStr[100], cfilt[2] ;
   int  NUMPRINT =  14;
   int  MEMC     = 80*sizeof(char); // for malloc
+  int  memc     =  8*sizeof(char); // for malloc
 
   int *IPTR; double *DPTR; float *FPTR; char *SPTR;
   char fnam[] = "read_kcor_head" ;
@@ -273,8 +284,8 @@ void read_kcor_head(void) {
   // kcor strings that define rest- and obs-frame bands
   for(i=0; i < NKCOR; i++ ) {
     sprintf(KEYWORD,"KCOR%3.3d", i+1);
-    KCOR_INFO.KCOR_STRING[i] = (char*)malloc(MEMC);
-    SPTR = KCOR_INFO.KCOR_STRING[i];
+    KCOR_INFO.STRING_KCORLINE[i] = (char*)malloc(MEMC);
+    SPTR = KCOR_INFO.STRING_KCORLINE[i];
     fits_read_key(FP, TSTRING, KEYWORD, SPTR, comment, &istat);
 
     sprintf(c1err,"can't read %s", KEYWORD);
@@ -506,13 +517,13 @@ void read_kcor_snsed(void) {
   // --------- BEGIN ----------
   printf("   %s \n", fnam); fflush(stdout);
 
-  KCOR_INFO.FLUX_SNSED = (float*) malloc(MEMF);
+  KCOR_INFO.FLUX_SNSED_F = (float*) malloc(MEMF);
 
   fits_movrel_hdu(FP, 1, &hdutype, &istat);
   snfitsio_errorCheck("Cannot move to SNSED table", istat);
 
   fits_read_col_flt(FP, ICOL, FIRSTROW, FIRSTELEM, NROW,
-		    NULL_1E, KCOR_INFO.FLUX_SNSED, &anynul, &istat )  ;      
+		    NULL_1E, KCOR_INFO.FLUX_SNSED_F, &anynul, &istat )  ;      
   snfitsio_errorCheck("Read FLUX_SNSED", istat);
 
   return ;
@@ -531,9 +542,9 @@ void read_kcor_tables(void) {
   int NFILTDEF_KCOR = KCOR_INFO.NFILTDEF;
 
   int NKCOR_STORE = 0 ;
-  int k, hdutype, istat=0, ifilt_rest, ifilt_obs, len ;
+  int k, i, i2, icol, hdutype, istat=0, anynul, ifilt_rest, ifilt_obs, len ;
   int IFILTDEF, ifilt, LBX0, LBX1;
-  char *STRING, strKcor[8], cfilt_rest[40], cfilt_obs[40];
+  char *STRING_KLINE, *STRING_KSYM, cfilt_rest[40], cfilt_obs[40];
   char cband_rest[2], cband_obs[2];
   char fnam[] = "read_kcor_tables" ;
 
@@ -548,9 +559,11 @@ void read_kcor_tables(void) {
 
   for(k=0; k < NKCOR; k++ ) {
 
-    STRING = KCOR_INFO.KCOR_STRING[k] ;
+    KCOR_INFO.STRING_KCORSYM[k] = (char*)malloc(8*sizeof(char) ); 
+    STRING_KLINE = KCOR_INFO.STRING_KCORLINE[k] ;
+    STRING_KSYM  = KCOR_INFO.STRING_KCORSYM[k] ; // e.g., K_xy
 
-    parse_KCOR_STRING(STRING, strKcor, cfilt_rest, cfilt_obs);
+    parse_KCOR_STRING(STRING_KLINE, STRING_KSYM, cfilt_rest, cfilt_obs);
     ifilt_rest = INTFILTER(cfilt_rest);
     ifilt_obs  = INTFILTER(cfilt_obs);
 
@@ -595,7 +608,7 @@ void read_kcor_tables(void) {
 
     if ( ifilt_rest <= 0 || ifilt_obs <= 0 ) {
       sprintf(c1err,"Undefined %s: IFILTDEF(REST,OBS)=%d,%d",
-	      strKcor, ifilt_rest, ifilt_obs);
+	      STRING_KSYM, ifilt_rest, ifilt_obs);
       sprintf(c2err,"Check filters in Kcor file.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
@@ -657,83 +670,89 @@ void read_kcor_tables(void) {
   addFilter_kcor(777, &KCOR_INFO.FILTERMAP_OBS );
   xxxxxx */
 
-
-
-
   // init multi-dimensional array to store KCOR tables
   init_kcor_indices();
 
 
-/* .xyz
+  /* 
 c =============================
 c if user has specified any MAGOBS_SHIFT_PRIMARY, MAGOBS_SHIFT_ZP,
 c (and same for REST) for a non-existant filter, then ABORT ...
 c 
+c   WARNING: this check stays in snana.car because it's
+c            based on user input to &SNLCINP
+
       CALL  RDKCOR_CHECK_MAGSHIFTS
-
-
-c Loop again over Kcors that have been flagged for reading/storage.
-c i.e,, ignore those for which the obs-frame filter is not defined.
-
-      NROW      = NTBIN_KCOR * NZbin_KCOR * NAVbin_KCOR
-      NBIN_TOT  = NROW * NFILTDEF_REST * NFILTDEF_SURVEY
-      ISTAT     = 0
-      FIRSTROW  = 1
-      FIRSTELEM = 1
-
-      R4CRAZY = 9999.9
-      DO ibin = 1, NBIN_TOT
-        R4KCORTABLE1D(ibin)  = R4CRAZY  ! init to crazy value
-      ENDDO
-
-      DO 200 i      = 1, NKCOR_STORE
-         ifilt_obs  = IFILT2_RDKCOR(OPT_FILTOBS,i)
-         ifilt_rest = IFILT2_RDKCOR(OPT_FILTREST,i)
-         ikcor      = IKCOR_RDKCOR(i)
-         icol       = ikcor + 3  ! skip T,Z,AV columns
-
-         STRKCOR = KCORINFO_STRING_RDKCOR(ikcor)
-         CALL RDKCOR_CHECK_IFILT(ifilt_rest,ifilt_obs,STRKCOR)
-
-c     get sparse filter indices
-         ifiltr = IFILTDEF_INVMAP_REST(ifilt_rest)
-         ifilto = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
-
-         if ( ifilto .LE. 0 ) then
-            c1err = 'Invalid obs-filter for'
-            c2err = STRKCOR  
-            CALL MADABORT(FNAM,C1ERR,C2ERR)   
-         endif
-
-c get starting 1D bin for this KCOR
-         IBKCOR(KDIM_ifiltr) = ifiltr - 1
-         IBKCOR(KDIM_ifilto) = ifilto - 1
-         IBKCOR(KDIM_T)      = 0
-         IBKCOR(KDIM_Z)      = 0
-         IBKCOR(KDIM_AV)     = 0
-         IBIN_FIRST          = GET_1DINDEX(IDMAP_KCOR,NKDIM,IBKCOR)+1
-         IBIN_LAST           = IBIN_FIRST + NROW - 1
-
-c read table from fits file.
-         CALL FTGCVe(LUN, ICOL, firstrow, firstelem, 
-     &      NROW, nullf_rdkcor, 
-     &      R4KCORTABLE1D(IBIN_FIRST),     ! return arg
-     &      anyf_rdkcor, istat)            ! return arg
-
-         CALL RDKCOR_ABORT(FNAM, STRKCOR, ISTAT) ! error check
-
-c apply user mag-shifts
-         DO ibin = IBIN_FIRST, IBIN_LAST
-            R4KCORTABLE1D(ibin) 
-     &         = R4KCORTABLE1D(ibin) 
-     &         - MAGREST_SHIFT_PRIMARY_FILT(ifilt_rest)
-     &         + MAGOBS_SHIFT_PRIMARY_FILT(ifilt_obs)
-         ENDDO
-
-200   CONTINUE
-
-
   */
+
+  // read the actual KCOR table(s)
+  long FIRSTROW = 1, FIRSTELEM=1 ;
+  int NBINTOT = KCOR_INFO.MAPINFO_KCOR.NBINTOT;
+  int NBT     = KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_T];
+  int NBz     = KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_z];
+  int NBAV    = KCOR_INFO.MAPINFO_KCOR.NBIN[KDIM_AV];
+  int NROW    = NBT * NBz * NBAV;
+
+  int ifilto, ifiltr, IBKCOR[NKDIM_KCOR], IBIN_FIRST, IBIN_LAST;;
+  double KCOR_SHIFT;
+
+  int MEMF    = NBINTOT * sizeof(float);
+  KCOR_INFO.KCORTABLE1D_F = (float*) malloc(MEMF);
+  for(k=0; k < NBINTOT; k++ ) { KCOR_INFO.KCORTABLE1D_F[k] = 9999.9; }
+
+  // loop over kcor tables
+  for(i=0; i < NKCOR_STORE; i++ ) {
+    ifilt_obs  = KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][i];
+    ifilt_rest = KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_REST][i];
+    k          = KCOR_INFO.k_index[i]; // original index in FITS file
+    icol       = k + 4; // skip T,z,AV columns
+    STRING_KLINE = KCOR_INFO.STRING_KCORLINE[k] ; 
+    STRING_KSYM  = KCOR_INFO.STRING_KCORSYM[k] ; 
+
+    // xxxx probably obsolete; mark delete xxxxxxxxxxxx
+    //    STRKCOR = KCORINFO_STRING_RDKCOR(ikcor)
+    // CALL RDKCOR_CHECK_IFILT(ifilt_rest,ifilt_obs,STRKCOR) 
+    // xxxxxxxxxxxxx end mark xxxxxxxxxxxx
+    
+    //     get sparse filter indices
+    ifilto = KCOR_INFO.FILTERMAP_OBS.IFILTDEF_INV[ifilt_obs]; 
+    ifiltr = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[ifilt_rest];
+
+    if ( ifilto < 0 ) {
+      sprintf(c1err, "Unknown sparse index for ifilt_obs=%d", ifilt_obs);
+      sprintf(c2err, "Check '%s' ", STRING_KSYM);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    if ( ifiltr < 0 ) {
+      sprintf(c1err,"Unknown sparse index for ifilt_rest=%d", ifilt_rest);
+      sprintf(c2err,"Check '%s' ", STRING_KSYM);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    IBKCOR[KDIM_IFILTr] = ifiltr ;
+    IBKCOR[KDIM_IFILTo] = ifilto ;	  
+    IBKCOR[KDIM_T]      = 0 ;     
+    IBKCOR[KDIM_z]      = 0 ;
+    IBKCOR[KDIM_AV]     = 0 ;    
+    IBIN_FIRST  = get_1DINDEX(IDMAP_KCOR_TABLE, NKDIM_KCOR, IBKCOR);
+    IBIN_LAST   = IBIN_FIRST + NROW - 1 ;
+
+    fits_read_col_flt(FP, icol, FIRSTROW, FIRSTELEM, NROW,
+		      NULL_1E, &KCOR_INFO.KCORTABLE1D_F[IBIN_FIRST], 
+		      &anynul, &istat )  ;      
+    snfitsio_errorCheck("Read KCOR TABLE", istat);
+
+    // apply user-defined parimary mag shifts  (e.g., systematic tests)
+    KCOR_SHIFT = 
+      KCOR_INFO.MAGOBS_SHIFT_PRIMARY[ifilt_obs] -
+      KCOR_INFO.MAGREST_SHIFT_PRIMARY[ifilt_rest] ;
+
+    for(i2=IBIN_FIRST; i2 <= IBIN_LAST; i2++ ) 
+      { KCOR_INFO.KCORTABLE1D_F[i2] += (float)KCOR_SHIFT;  }
+
+  } // end i-loop to NKCOR_STORE
+
+  // .xyz
 
   return ;
 
@@ -748,6 +767,10 @@ int ISBXFILT_KCOR(char *cfilt) {
 
 // ===========================================
 void addFilter_kcor(int ifiltdef, KCOR_FILTERMAP_DEF *MAP ) {
+
+  // ifiltdev = 0     --> zero map, return
+  // ifiltdef = 777   --> dump map
+  // ifiltdef = 1 - N --> load map
 
   int ifilt, NF;
   char cfilt1[2] ;

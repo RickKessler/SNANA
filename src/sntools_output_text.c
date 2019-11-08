@@ -115,8 +115,6 @@ struct TABLEINFO_TEXT {
   long long int  **ptr_L[MXTABLE_TEXT] ;
   char   **ptr_C[MXTABLE_TEXT] ;
 
-  bool WRITE_ERRCALC;
-
 } TABLEINFO_TEXT ;
 
 
@@ -1372,8 +1370,6 @@ void SNLCPAK_FILL_TEXT(void) {
 
   // --------------- BEGIN ------------
 
-  TABLEINFO_TEXT.WRITE_ERRCALC = false ; // xxxx REMOVE
-
   PREFIX = SNLCPAK_OUTPUT.TEXTFILE_PREFIX ;
   CCID   = SNLCPAK_OUTPUT.CCID ;
  
@@ -1540,13 +1536,6 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
 
   sprintf(CVAL,"%s %11.4le", sep, SNLCPAK_OUTPUT.EPDATA_ERR[FLAG][obs] );
   strcat(LINE,CVAL);
-
-  /*
-  if ( TABLEINFO_TEXT.WRITE_ERRCALC == true ) {
-    sprintf(CVAL,"%s %11.4le", sep, ERRCALC );
-    strcat(LINE,CVAL);
-  }
-  */
 
   sprintf(CVAL,"%s %2d",   sep, OUTFLAG );
   strcat(LINE,CVAL);

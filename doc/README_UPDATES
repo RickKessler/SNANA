@@ -17617,6 +17617,8 @@
 
          ***** IMPORTANT(v10_74j) ***** 
 
+    for SALT3, remove x1*M1/M0 term in error; see ISMODEL_SALT3.
+
          ***** USEFUL(v10_74j) ***** 
 
          ***** MISCELLANEOUS(v10_74j) ***** 
@@ -17634,5 +17636,16 @@
 
     SALT2mu.c
       + if float param is NaN or inf, return with chi2=1E14
+      + MXBIN_LOGMASS -> 25 (was 10)
+
+    sntable_dump.c:
+       + add FLUXERRCALC_SIM to outlier dump, and fix overwrite bug.
+
+    snlc_sim.c :
+      + abort if stronglens model us used with random CID.
+        See gen_event_stronglens().
+
+    genmag_SALT2.c:
+       + for SALT3, remove x1*M1/M0 term in error; see ISMODEL_SALT3.
 
 END: 

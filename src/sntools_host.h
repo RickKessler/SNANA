@@ -43,6 +43,7 @@
 #define HOSTLIB_MSKOPT_DEBUG       512 // fix a=2, b=1, rotang=0 
 #define HOSTLIB_MSKOPT_DUMP       1024 // screen-dump for each host 
 #define HOSTLIB_MSKOPT_PLUSMAGS   8192 // compute & write host mags from host spectra
+#define HOSTLIB_MSKOPT_PLUSNBR 16384  // append list of neighbors to HOSTLIB
 
 #define HOSTLIB_1DINDEX_ID 10    // ID for 1DINDEX transformations
 
@@ -423,6 +424,14 @@ struct {
 } HOSTSPEC ;
 
 
+typedef struct {
+  char VARNAMES_APPEND[100];
+  char COMMENT[100];
+  char FILENAME_SUFFIX[40];
+  int  NLINE_APPEND;
+  char **LINE_APPEND ;
+} HOSTLIB_APPEND_DEF ;
+
 time_t TIME_INIT_HOSTLIB[2];
 
 // =====================================
@@ -517,6 +526,9 @@ void   genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 // fetch_HOSTPAR function for GENMODEL (e.g., BYOSED)
 int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double *VAL_HOSTPAR);
 
+void   rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
+void   malloc_HOSTLIB_APPEND(int NGAL, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
+void   rewrite_HOSTLIB_plusNbr(void) ;
 void   rewrite_HOSTLIB_plusMags(void);
 double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG);
 

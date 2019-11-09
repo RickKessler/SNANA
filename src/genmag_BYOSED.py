@@ -236,26 +236,31 @@ class genmag_BYOSED:
 		
 
 		def fetchSED_BYOSED(self,trest,maxlam=5000,external_id=1,new_event=1,hostpars=''):
-			if len(self.wave)>maxlam:
-				raise RuntimeError("Your wavelength array cannot be larger than %i but is %i"%(maxlam,len(self.wave)))
-			#iPhase = np.where(np.abs(trest-self.phase) == np.min(np.abs(trest-self.phase)))[0][0]
-			#print('HOST_PARAMS: ',hostpars)
-			if self.sn_id is None:
-				self.sn_id=external_id
-			fluxsmear=self.sedInterp(trest,self.wave).flatten()
-			orig_fluxsmear=copy(fluxsmear)
+			try:
+				if len(self.wave)>maxlam:
+					raise RuntimeError("Your wavelength array cannot be larger than %i but is %i"%(maxlam,len(self.wave)))
+				#iPhase = np.where(np.abs(trest-self.phase) == np.min(np.abs(trest-self.phase)))[0][0]
+				#print('HOST_PARAMS: ',hostpars)
+				if self.sn_id is None:
+					self.sn_id=external_id
+				fluxsmear=self.sedInterp(trest,self.wave).flatten()
+				orig_fluxsmear=copy(fluxsmear)
 			
-			if self.options.magsmear!=0.0 and (self.sn_id!=external_id or self.magsmear is None):
-				self.magsmear=np.random.normal(0,self.options.magsmear)
-			else:
-				self.magsmear=0.0
-			if self.sn_id!=external_id:
-				fluxsmear *= 10**(-0.4*self.magoff)
-			fluxsmear *= 10**(-0.4*(self.magsmear))
+				if self.options.magsmear!=0.0 and (self.sn_id!=external_id or self.magsmear is None):
+					self.magsmear=np.random.normal(0,self.options.magsmear)
+				else:
+					self.magsmear=0.0
+				if self.sn_id!=external_id:
+					fluxsmear *= 10**(-0.4*self.magoff)
+				fluxsmear *= 10**(-0.4*(self.magsmear))
 
-			trest_arr=trest*np.ones(len(self.wave))
+				trest_arr=trest*np.ones(len(self.wave))
 
-			overall_product=np.zeros(len(self.wave))
+				overall_product=np.zeros(len(self.wave))
+			except Exception as e:
+				print('Python Error :',e)
+				print_err()
+
 			for warp in [x for x in self.warp_effects]:# if x!='COLOR']:
 				try: #if True:
 

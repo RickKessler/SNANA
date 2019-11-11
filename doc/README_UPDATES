@@ -17618,6 +17618,7 @@
          ***** IMPORTANT(v10_74j) ***** 
 
     for SALT3, remove x1*M1/M0 term in error; see ISMODEL_SALT3.
+    See +HOSTNBR option in manual.
 
          ***** USEFUL(v10_74j) ***** 
 
@@ -17648,5 +17649,11 @@
 
     genmag_SALT2.c:
        + for SALT3, remove x1*M1/M0 term in error; see ISMODEL_SALT3.
+
+    sntools_host.c[h]:
+      + more development for +HOSTNBR option
+      + start adding code to parse and use NBR_LIST column that was
+        created by +HOSTNBR option.
+
 
 END: 

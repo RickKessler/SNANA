@@ -1393,6 +1393,7 @@ void read_head_HOSTLIB(FILE *fp) {
   // Dec 20 2018: use snana_rewind to allow for gzipped library
   // Mar 15 2019: ignore NVAR key, and parse entire line after VARNAMES
   // Mar 28 2019: use MXCHAR_LINE_HOSTLIB
+  // Nov 11 2019: set HOSTLIB.IVAR_NBR_LIST
 
   int MXCHAR = MXCHAR_LINE_HOSTLIB;
   int ivar, ivar_map, IVAR_STORE, i, N, NVAR, NVAR_WGTMAP, FOUND_SNPAR;
@@ -1580,6 +1581,7 @@ void read_head_HOSTLIB(FILE *fp) {
   HOSTLIB.IVAR_LOGMASS_ERR = IVAR_HOSTLIB(HOSTLIB_VARNAME_LOGMASS_ERR,0);
   HOSTLIB.IVAR_ANGLE       = IVAR_HOSTLIB(HOSTLIB_VARNAME_ANGLE,0) ;   
   HOSTLIB.IVAR_FIELD       = IVAR_HOSTLIB(HOSTLIB_VARNAME_FIELD,0) ;   
+  HOSTLIB.IVAR_NBR_LIST    = IVAR_HOSTLIB(HOSTLIB_VARNAME_NBR_LIST,0) ; 
 
   // Jan 2015: Optional RA & DEC have multiple allowed keys
   int IVAR_RA[3], IVAR_DEC[3] ;
@@ -1687,12 +1689,13 @@ void read_gal_HOSTLIB(FILE *fp) {
   // Feb 16 2016: check how many in GALID_PRIORITY
   //
   // Dec 29 2017: time to read 416,000 galaxies 5 sec ->
+  // Nov 11 2019: check NBR_LIST
 
-  char c_get[40], FIELD[MXCHAR_FIELDNAME] ;
+  char c_get[40], FIELD[MXCHAR_FIELDNAME], NBR_LIST[MXCHAR_NBR_LIST] ;
   char fnam[] = "read_gal_HOSTLIB"  ;
   
   long long GALID, GALID_MIN, GALID_MAX ;
-  int  ivar_ALL, ivar_STORE, NVAR_STORE, NGAL;
+  int  ivar_ALL, ivar_STORE, NVAR_STORE, NGAL, NGAL_READ, MEMC ;
   int  NPRIORITY;
 
   double xval[MXVAR_HOSTLIB], val, ZTMP, LOGZCUT[2], DLOGZ_SAFETY ;
@@ -1729,9 +1732,10 @@ void read_gal_HOSTLIB(FILE *fp) {
 
     if ( strcmp(c_get,"GAL:") == 0 ) {
 
-      HOSTLIB.NGAL_READ++ ; // beware this if fortran-like index
+      NGAL_READ = HOSTLIB.NGAL_READ; // C-like index
+      HOSTLIB.NGAL_READ++ ;          // fortran-like index
 
-      read_galRow_HOSTLIB(fp, HOSTLIB.NVAR_ALL, xval, FIELD ); 
+      read_galRow_HOSTLIB(fp, HOSTLIB.NVAR_ALL, xval, FIELD, NBR_LIST ); 
 
       if ( HOSTLIB.NGAL_READ > INPUTS.HOSTLIB_MAXREAD ) 
 	{ goto DONE_RDGAL ; } 
@@ -1750,7 +1754,7 @@ void read_gal_HOSTLIB(FILE *fp) {
       NGAL = HOSTLIB.NGAL_STORE ;   HOSTLIB.NGAL_STORE++ ;   
 
       // check to allocate more storage/memory
-      malloc_HOSTLIB(NGAL);    
+      malloc_HOSTLIB(NGAL,NGAL_READ);    
 
       // strip off variables to store
       for ( ivar_STORE=0; ivar_STORE < NVAR_STORE; ivar_STORE++ ) {
@@ -1774,8 +1778,25 @@ void read_gal_HOSTLIB(FILE *fp) {
 	sprintf(HOSTLIB.FIELD_UNSORTED[NGAL],"%s", FIELD);
       }
 
+
+      // Nov 11 2019: store optional NBR_LIST string 
+      ivar_STORE = HOSTLIB.IVAR_NBR_LIST ;
+      if ( ivar_STORE > 0  ) {
+	ivar_ALL   = HOSTLIB.IVAR_ALL[ivar_STORE];
+	MEMC = strlen(NBR_LIST) * sizeof(char);
+	HOSTLIB.NBR_UNSORTED[NGAL] = (char*) malloc(MEMC);
+	sprintf(HOSTLIB.NBR_UNSORTED[NGAL],"%s", NBR_LIST);
+
+	// xxxxxxxx .xyz
+	if ( NGAL < 20 ) {
+	  printf(" xxx %s: NGAL=%2d: GALID=%lld  NBR_LIST = '%s' \n", 
+		 GALID, NBR_LIST); fflush(stdout);
+	}
+	//xxxxxxxxxxxx
+      }
+
       // store NGAL index vs. absolute READ index (for HOSTNBR)
-      HOSTLIB.LIBINDEX_READ[HOSTLIB.NGAL_READ-1] = NGAL ;
+      HOSTLIB.LIBINDEX_READ[NGAL_READ] = NGAL ;
 
     }
   } // end of while-fscanf
@@ -1867,7 +1888,8 @@ int passCuts_HOSTLIB(double *xval ) {
 } // end passCuts_HOSTLIB
 
 // ==========================================
-void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES, char *FIELD ) {
+void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES, 
+			 char *FIELD, char *NBR_LIST ) {
 
   // Created 9/16.2015
   // If there is no FIELD key, then read NVAL double from fp.
@@ -1875,13 +1897,14 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES, char *FIELD ) {
   //
   // Dec 29 2017: use fgets for faster read.
   // Mar 28 2019: use MXCHAR_LINE_HOSTLIB
+  // Nov 11 2019: check for NBR_LIST (string), analogous to FIELD check
 
   int MXCHAR = MXCHAR_LINE_HOSTLIB;
   int MXWD = NVAL;
-  int ival_FIELD, ival, NWD=0, len, NCHAR ;
+  int ival_FIELD, ival_NBR_LIST, ival, NWD=0, len, NCHAR ;
   char WDLIST[MXVAR_HOSTLIB][40], *ptrWDLIST[MXVAR_HOSTLIB] ;
   char sepKey[] = " " ;
-  char tmpField[100], tmpLine[MXCHAR_LINE_HOSTLIB], *pos ;
+  char tmpWORD[200], tmpLine[MXCHAR_LINE_HOSTLIB], *pos ;
   char fnam[] = "read_galRow_HOSTLIB" ;
   // ---------------- BEGIN -----------------
 
@@ -1917,28 +1940,43 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES, char *FIELD ) {
   }
 
 
-  sprintf(FIELD,"NULL");
-  if ( HOSTLIB.IVAR_FIELD < 0 ) 
-    { ival_FIELD = -9; }
-  else  
+  sprintf(FIELD,"NULL"); ival_FIELD = -9;
+  if ( HOSTLIB.IVAR_FIELD > 0 ) 
     { ival_FIELD = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_FIELD] ;  }
 
+  sprintf(NBR_LIST,"NULL"); ival_NBR_LIST = -9;
+  if ( HOSTLIB.IVAR_NBR_LIST > 0 ) 
+    { ival_NBR_LIST = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_NBR_LIST] ;  }
+
+
   for(ival=0; ival < NVAL; ival++ ) {
-    if ( ival != ival_FIELD )  { 
-      sscanf(WDLIST[ival], "%le", &VALUES[ival] ); 
-    }
-    else { 
-      sprintf(tmpField, "%s", WDLIST[ival] );
-      len = strlen(tmpField);
+    if ( ival == ival_FIELD )  { 
+      sprintf(tmpWORD, "%s", WDLIST[ival] );      len = strlen(tmpWORD);
       if ( len > MXCHAR_FIELDNAME ) {
 	sprintf(c1err,"strlen(FIELD=%s) = %d exceeds storage array of %d",
-		tmpField, len, MXCHAR_FIELDNAME);
+		tmpWORD, len, MXCHAR_FIELDNAME);
 	sprintf(c2err,"Check HOSTLIB or increase MXCHAR_FIELDNAME");
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
-      sscanf(WDLIST[ival], "%s", FIELD ); 
+      sscanf(tmpWORD, "%s", FIELD ); 
     }
-  }
+
+    else if ( ival == ival_NBR_LIST )  { 
+      sprintf(tmpWORD, "%s", WDLIST[ival] );      len = strlen(tmpWORD);
+      if ( len > MXCHAR_NBR_LIST ) {
+	sprintf(c1err,"strlen(NBR_LIST=%s) = %d exceeds storage array of %d",
+		tmpWORD, len, MXCHAR_NBR_LIST);
+	sprintf(c2err,"Check HOSTLIB or increase MXCHAR_NBR_LIST");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      sscanf(tmpWORD, "%s", NBR_LIST ); 
+    }
+
+    else {
+      sscanf(WDLIST[ival], "%le", &VALUES[ival] ); 
+    }
+
+  } // end ival loop
 
   
   /*
@@ -1996,26 +2034,31 @@ void  summary_snpar_HOSTLIB(void) {
 } // end of   summary_snpar_HOSTLIB
 
 // ==================================
-void malloc_HOSTLIB(int NGAL) {
+void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
 
   // Mar 2011
   // allocate memory with malloc or extend memory with realloc
   // The value of NGAL determines if/when to allocate more memory.
   //
+  // Nov 2019: 
+  //  + add NGAL_READ argument to malloc HOSTLIB.LIBINDEX_READ
+  //  + check IVAR_NBR_LIST
 
   double XNTOT, XNUPD;
-  int ivar, I8, I8p, I4, DOFIELD, igal ;
+  int ivar, I8, I8p, I4, DO_FIELD, DO_NBR, igal ;
   int LDMP = 0 ;
-  
+  char fnam[] = "malloc_HOSTLIB";
+
   // ------------- BEGIN ----------
 
   I8  = sizeof(double);
   I8p = sizeof(double*);
   I4  = sizeof(int);
 
-  DOFIELD = ( HOSTLIB.IVAR_FIELD > 0 );
+  DO_FIELD    = ( HOSTLIB.IVAR_FIELD    > 0 );
+  DO_NBR      = ( HOSTLIB.IVAR_NBR_LIST > 0 );
 
-  if ( NGAL == 0 ) {
+  if ( NGAL_READ == 0 ) {
     if  ( LDMP ) 
       { printf("\t xxx Initial malloc for HOSTLIB ... \n"); fflush(stdout); }
 
@@ -2025,7 +2068,10 @@ void malloc_HOSTLIB(int NGAL) {
       HOSTLIB.VALUE_UNSORTED[ivar] = (double *)malloc(HOSTLIB.MALLOCSIZE_D);
     }
 
-    if ( DOFIELD ) {
+    HOSTLIB.MALLOCSIZE_I += (I4 * MALLOCSIZE_HOSTLIB) ;
+    HOSTLIB.LIBINDEX_READ = (int *)malloc(HOSTLIB.MALLOCSIZE_I);
+
+    if ( DO_FIELD ) {
       HOSTLIB.FIELD_UNSORTED = 
 	(char**)malloc( MALLOCSIZE_HOSTLIB*sizeof(char*) );
       for(igal=0; igal < MALLOCSIZE_HOSTLIB; igal++ ) {
@@ -2034,21 +2080,29 @@ void malloc_HOSTLIB(int NGAL) {
       }  
     }
 
-    HOSTLIB.MALLOCSIZE_I += (I4 * MALLOCSIZE_HOSTLIB) ;
-    HOSTLIB.LIBINDEX_READ = (int *)malloc(HOSTLIB.MALLOCSIZE_I);
+    if ( DO_NBR ) {
+      HOSTLIB.NBR_UNSORTED = 
+	(char**)malloc( MALLOCSIZE_HOSTLIB*sizeof(char*) );
+      // do NOT malloc string length here; malloc later
+      // when length of string is known.
+    }
 
     return ;
   }
 
 
+  /* xxx mark deletew
   // check when to extend memory
   XNTOT = (double)NGAL ;
   XNUPD = (double)MALLOCSIZE_HOSTLIB ;
   if ( fmod(XNTOT,XNUPD) == 0.0 ) {
+  */
+
+  if ( (NGAL_STORE % MALLOCSIZE_HOSTLIB) == 0 ) {
 
     if  ( LDMP )  { 
-      printf("\t xxx Extend HOSTLIB malloc at NGAL=%d \n", NGAL);  
-      fflush(stdout); 
+      printf("\t xxx Extend HOSTLIB malloc at NGAL_STORE=%d \n", 
+	     NGAL_STORE);        fflush(stdout); 
     }
     
     HOSTLIB.MALLOCSIZE_D += (I8*MALLOCSIZE_HOSTLIB) ;
@@ -2057,20 +2111,33 @@ void malloc_HOSTLIB(int NGAL) {
 	(double *)realloc(HOSTLIB.VALUE_UNSORTED[ivar], HOSTLIB.MALLOCSIZE_D);
     }
 
-    if ( DOFIELD ) {
+    if ( DO_FIELD ) {
       HOSTLIB.FIELD_UNSORTED = 
 	(char**)realloc( HOSTLIB.FIELD_UNSORTED, MALLOCSIZE_HOSTLIB );
-      for(igal=NGAL; igal < NGAL+MALLOCSIZE_HOSTLIB; igal++ ) {
+      for(igal=NGAL_STORE; igal < NGAL_STORE+MALLOCSIZE_HOSTLIB; igal++ ) {
 	HOSTLIB.FIELD_UNSORTED[igal] = 
 	  (char*)malloc( MXCHAR_FIELDNAME *sizeof(char) );
       }  
     }
 
+    if ( DO_NBR ) {
+      HOSTLIB.NBR_UNSORTED = 
+	(char**)realloc( HOSTLIB.NBR_UNSORTED, MALLOCSIZE_HOSTLIB );
+      // do NOT malloc size of each string
+    }
+
+  } // end if block
+
+  // separate check for READ index
+  if ( (NGAL_READ % MALLOCSIZE_HOSTLIB) == 0 ) {
     HOSTLIB.MALLOCSIZE_I += (I4 * MALLOCSIZE_HOSTLIB) ;
     HOSTLIB.LIBINDEX_READ = 
       (int *)realloc(HOSTLIB.LIBINDEX_READ,HOSTLIB.MALLOCSIZE_I);
-
-  } // end fmod
+    /*
+    printf(" 2. xxx %s: HOSTLIB.MALLOCSIZE_I = %d \n", 
+	   fnam, HOSTLIB.MALLOCSIZE_I); fflush(stdout);
+    */
+  }
   
 } // end of malloc_HOSTLIB
 
@@ -6437,7 +6504,7 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
 #define MXNNBR_STORE 100         // max number of neighbors to track
   double SEPNBR_MAX      = HOSTLIB_NBR.SEPNBR_MAX ;
   int    NNBR_WRITE_MAX  = HOSTLIB_NBR.NNBR_WRITE_MAX ;
-  int    MXCHAR_NBR_LIST = HOSTLIB_NBR.MXCHAR_NBR_LIST ;
+  //  int    MXCHAR_NBR_LIST = HOSTLIB_NBR.MXCHAR_NBR_LIST ;
 
   double ASEC_PER_DEG  = 3600.0 ;
 
@@ -6464,15 +6531,6 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   DEC_GAL      = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][igal_zsort] ; 
   GALID        = (long long)HOSTLIB.VALUE_ZSORTED[IVAR_GALID][igal_zsort] ;
   
-  // set stdout dump for a few events so that igal_unsiort <-> GALID
-  // can be visually checked when appended HOSTLIB is read back.
-  LSTDOUT = (igal_unsort < 3 || igal_unsort > NGAL-3);
-
-  if ( LSTDOUT ) {
-    printf("# ---------------------------------------------------- \n");
-    printf(" Crosscheck dump for igal_read=%d, GALID=%lld \n",
-	   igal_unsort, GALID); fflush(stdout);
-  }
 
   if ( LDMP ) {
     printf("\n xxx ---------- %s DUMP ---------------- \n", fnam);
@@ -6588,10 +6646,10 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
     GALID_NBR   = GALID_LIST[isort];
 
     if ( i > NNBR_WRITE_MAX ) 
-      { TRUNCATE=1; continue; }
+      { TRUNCATE = 1 ; continue; }
 
     if ( strlen(LINE_APPEND) > MXCHAR_NBR_LIST) 
-      { TRUNCATE=1; continue; }
+      { TRUNCATE = 1 ; continue; }
 
     if ( LDMP ) {
       printf("\t xxx SEP(%2d) = %8.2f  IGAL=%d \n", isort, SEP_NBR, IGAL);
@@ -6613,7 +6671,15 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
 
   } // end i loop over NBR
 
-  if ( LSTDOUT ) {
+
+  // set stdout dump for a few events so that igal_unsiort <-> GALID
+  // can be visually checked when appended HOSTLIB is read back.
+  LSTDOUT = (igal_unsort < 10 || igal_unsort > NGAL-10);
+  if ( LSTDOUT  && strlen(LINE_STDOUT) > 0 ) {
+    printf("# ---------------------------------------------------- \n");
+    printf(" Crosscheck dump for igal_read=%d, GALID=%lld \n",
+	   igal_unsort, GALID); fflush(stdout);
+    
     printf("\t READ  NBR list: %s\n", LINE_APPEND );
     printf("\t GALID NBR list: %s\n", LINE_STDOUT );
     fflush(stdout);
@@ -6650,6 +6716,7 @@ void  monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
     HOSTLIB_NBR.NGAL_TRUNCATE = 0 ;
   }
   else {
+    printf("\n");
     for(nnbr=0; nnbr <= HOSTLIB_NBR.NNBR_WRITE_MAX; nnbr++ ) {
       NGAL_TMP = HOSTLIB_NBR.NGAL_PER_NNBR[nnbr];
       frac     = (float)NGAL_TMP / (float)NGAL;

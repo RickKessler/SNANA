@@ -100,6 +100,7 @@
 #define HOSTLIB_VARNAME_DEC_GAL      "DEC_GAL" 
 #define HOSTLIB_VARNAME_ANGLE        "a_rot"    // rotation angle
 #define HOSTLIB_VARNAME_FIELD        "FIELD" 
+#define HOSTLIB_VARNAME_NBR_LIST     "NBR_LIST" // Nov 2019
 #define HOSTLIB_MAGOBS_SUFFIX        "_obs"     // key = [filt]$SUFFIX
 #define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
 
@@ -150,6 +151,9 @@ struct HOSTLIB_DEF {
   char **FIELD_UNSORTED ;
   char **FIELD_ZSORTED ;
 
+  char **NBR_UNSORTED ; // from NBR_LIST column, Nov 11 2019
+  char **NBR_ZSORTED ;
+
   int *LIBINDEX_READ; // map between read index (no cuts) and unsorted
 
   int MALLOCSIZE_D, MALLOCSIZE_I ;
@@ -165,6 +169,7 @@ struct HOSTLIB_DEF {
   int IVAR_DEC ; 
   int IVAR_ANGLE ;  // rot angle of a-axis w.r.t. RA
   int IVAR_FIELD ;                  // optional FIELD key (Sep 16 2015)
+  int IVAR_NBR_LIST;              // NBR_LIST column added by +HOSTNBR arg
   int IVAR_a[MXSERSIC_HOSTLIB];   // semi-major  half-light
   int IVAR_b[MXSERSIC_HOSTLIB];   // semi-minor 
   int IVAR_w[MXSERSIC_HOSTLIB];   // weight
@@ -211,12 +216,12 @@ struct HOSTLIB_DEF {
 } HOSTLIB ;
 
 
-struct {
+#define MXCHAR_NBR_LIST 100
 
+struct {
   // optional command-line inputs
-  double SEPNBR_MAX;    // optional command-line input (default=10 arcsec)
+  double SEPNBR_MAX;     // optional command-line input (default=10 arcsec)
   int    NNBR_WRITE_MAX;  // idem for how many NBRs to write (default=10)
-  int    MXCHAR_NBR_LIST; // max string length to write out for NBR_LIST
 
   // internal arrays for +HOSTNBR command-line option
   int    NNBR_MAX; // actual max of NNBR
@@ -493,10 +498,11 @@ void   parse_Sersic_n_fixed(FILE *fp, char *string);
 void   read_head_HOSTLIB(FILE *fp);
 void   checkAlternateVarNames(char *varName) ;
 void   read_gal_HOSTLIB(FILE *fp);
-void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, char *field );
+void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, 
+			   char *field, char *nbr_list  );
 int    passCuts_HOSTLIB(double *xval);
 void   summary_snpar_HOSTLIB(void) ;
-void   malloc_HOSTLIB(int NGAL);
+void   malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ);
 void   sortz_HOSTLIB(void);
 void   zptr_HOSTLIB(void);
 void   init_HOSTLIB_WGTMAP(void);

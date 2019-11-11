@@ -256,7 +256,8 @@ void initvar_HOSTLIB(void) {
   HOSTLIB.NGAL_STORE   = 0 ;
   HOSTLIB.NVAR_ALL     = 0 ; 
   HOSTLIB.NVAR_STORE   = 0 ; 
-  HOSTLIB.MALLOCSIZE   = 0 ;
+  HOSTLIB.MALLOCSIZE_D = 0 ;
+  HOSTLIB.MALLOCSIZE_I = 0 ;
 
   HOSTLIB.NVAR_SNPAR   = 0 ;
   HOSTLIB.VARSTRING_SNPAR[0] = 0 ;
@@ -1728,7 +1729,7 @@ void read_gal_HOSTLIB(FILE *fp) {
 
     if ( strcmp(c_get,"GAL:") == 0 ) {
 
-      HOSTLIB.NGAL_READ++ ;
+      HOSTLIB.NGAL_READ++ ; // beware this if fortran-like index
 
       read_galRow_HOSTLIB(fp, HOSTLIB.NVAR_ALL, xval, FIELD ); 
 
@@ -1746,7 +1747,7 @@ void read_gal_HOSTLIB(FILE *fp) {
 
 
       // store this galaxy
-      NGAL = HOSTLIB.NGAL_STORE ;   HOSTLIB.NGAL_STORE++ ;      
+      NGAL = HOSTLIB.NGAL_STORE ;   HOSTLIB.NGAL_STORE++ ;   
 
       // check to allocate more storage/memory
       malloc_HOSTLIB(NGAL);    
@@ -1772,6 +1773,9 @@ void read_gal_HOSTLIB(FILE *fp) {
 	ivar_ALL   = HOSTLIB.IVAR_ALL[ivar_STORE];
 	sprintf(HOSTLIB.FIELD_UNSORTED[NGAL],"%s", FIELD);
       }
+
+      // store NGAL index vs. absolute READ index (for HOSTNBR)
+      HOSTLIB.LIBINDEX_READ[HOSTLIB.NGAL_READ-1] = NGAL ;
 
     }
   } // end of while-fscanf
@@ -1998,8 +2002,6 @@ void malloc_HOSTLIB(int NGAL) {
   // allocate memory with malloc or extend memory with realloc
   // The value of NGAL determines if/when to allocate more memory.
   //
-  // Sep 8, 2012: fix aweful bug, malloc -> realloc for HOSTLIB.USED
-
 
   double XNTOT, XNUPD;
   int ivar, I8, I8p, I4, DOFIELD, igal ;
@@ -2017,10 +2019,10 @@ void malloc_HOSTLIB(int NGAL) {
     if  ( LDMP ) 
       { printf("\t xxx Initial malloc for HOSTLIB ... \n"); fflush(stdout); }
 
-    HOSTLIB.MALLOCSIZE += (I8 * MALLOCSIZE_HOSTLIB) ;
+    HOSTLIB.MALLOCSIZE_D += (I8 * MALLOCSIZE_HOSTLIB) ;
     // allocate memory for each variable to store
     for ( ivar = 0; ivar < HOSTLIB.NVAR_STORE; ivar++ ) {
-      HOSTLIB.VALUE_UNSORTED[ivar] = (double *)malloc(HOSTLIB.MALLOCSIZE);
+      HOSTLIB.VALUE_UNSORTED[ivar] = (double *)malloc(HOSTLIB.MALLOCSIZE_D);
     }
 
     if ( DOFIELD ) {
@@ -2031,6 +2033,9 @@ void malloc_HOSTLIB(int NGAL) {
 	  (char*)malloc( MXCHAR_FIELDNAME *sizeof(char) );
       }  
     }
+
+    HOSTLIB.MALLOCSIZE_I += (I4 * MALLOCSIZE_HOSTLIB) ;
+    HOSTLIB.LIBINDEX_READ = (int *)malloc(HOSTLIB.MALLOCSIZE_I);
 
     return ;
   }
@@ -2046,10 +2051,10 @@ void malloc_HOSTLIB(int NGAL) {
       fflush(stdout); 
     }
     
-    HOSTLIB.MALLOCSIZE += (I8*MALLOCSIZE_HOSTLIB) ;
+    HOSTLIB.MALLOCSIZE_D += (I8*MALLOCSIZE_HOSTLIB) ;
     for ( ivar = 0; ivar < HOSTLIB.NVAR_STORE; ivar++ ) {
       HOSTLIB.VALUE_UNSORTED[ivar] =
-	(double *)realloc(HOSTLIB.VALUE_UNSORTED[ivar], HOSTLIB.MALLOCSIZE);
+	(double *)realloc(HOSTLIB.VALUE_UNSORTED[ivar], HOSTLIB.MALLOCSIZE_D);
     }
 
     if ( DOFIELD ) {
@@ -2060,6 +2065,10 @@ void malloc_HOSTLIB(int NGAL) {
 	  (char*)malloc( MXCHAR_FIELDNAME *sizeof(char) );
       }  
     }
+
+    HOSTLIB.MALLOCSIZE_I += (I4 * MALLOCSIZE_HOSTLIB) ;
+    HOSTLIB.LIBINDEX_READ = 
+      (int *)realloc(HOSTLIB.LIBINDEX_READ,HOSTLIB.MALLOCSIZE_I);
 
   } // end fmod
   
@@ -2428,9 +2437,9 @@ void init_HOSTLIB_WGTMAP(void) {
   // Note we need double-precision here.
   // Here the  memory is allocated for each GALID.
 
-  HOSTLIB_WGTMAP.WGT        = (double *)malloc(2*HOSTLIB.MALLOCSIZE+I8);
-  HOSTLIB_WGTMAP.WGTSUM     = (double *)malloc(2*HOSTLIB.MALLOCSIZE+I8);
-  HOSTLIB_WGTMAP.SNMAGSHIFT = (double *)malloc(2*HOSTLIB.MALLOCSIZE+I8);
+  HOSTLIB_WGTMAP.WGT        = (double *)malloc(2*HOSTLIB.MALLOCSIZE_D+I8);
+  HOSTLIB_WGTMAP.WGTSUM     = (double *)malloc(2*HOSTLIB.MALLOCSIZE_D+I8);
+  HOSTLIB_WGTMAP.SNMAGSHIFT = (double *)malloc(2*HOSTLIB.MALLOCSIZE_D+I8);
   WGTSUM_LAST = 0.0 ;
 
   for ( igal=0; igal < NGAL; igal++ ) {
@@ -5858,6 +5867,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
   char *SUFFIX   = HOSTLIB_APPEND->FILENAME_SUFFIX; // or new HOSTLIB
   char *COMMENT  = HOSTLIB_APPEND->COMMENT;
+  char *COMMENT2 = HOSTLIB_APPEND->COMMENT2;
   char *VARNAMES = HOSTLIB_APPEND->VARNAMES_APPEND ;
 
   FILE *FP_ORIG, *FP_NEW;
@@ -5886,7 +5896,8 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   printf("\n");
   printf("  Created '%s' \n", HLIB_NEW);
 
-  fprintf(FP_NEW,"# %s\n\n", COMMENT);
+  fprintf(FP_NEW,"# %s\n", COMMENT);
+  fprintf(FP_NEW,"# %s\n", COMMENT2);
 
   // - - - - - - - - - - - - - - - - - 
   // read each original line
@@ -6094,6 +6105,7 @@ void rewrite_HOSTLIB_plusMags(void) {
 
   sprintf(HOSTLIB_APPEND.COMMENT, // comment for top of new HOSTLIB
 	  "Append synthetic host mags computed from host spectra.");
+  sprintf(HOSTLIB_APPEND.COMMENT2, "");
 
   sprintf(HOSTLIB_APPEND.VARNAMES_APPEND,"%s", VARNAMES_HOSTMAGS);
 
@@ -6282,24 +6294,19 @@ void rewrite_HOSTLIB_plusNbr(void) {
   // Beware that 'igal' is a redshift-sorted index for the other 
   // HOSTLIB functions, but here we use the original HOSTLIB order.
 
-
-  double SEPMAX_NBR = 10.0; // arcSeconds
-
   int  NGAL        = HOSTLIB.NGAL_STORE;
-  int  IVAR_GALID  = HOSTLIB.IVAR_GALID;
   int  IVAR_RA     = HOSTLIB.IVAR_RA ;
   int  IVAR_DEC    = HOSTLIB.IVAR_DEC ;
+  int  MEMD        = NGAL * sizeof(double);
+  int  MEMI        = NGAL * sizeof(int);
 
-  long long GALID, GALID_NBR ;
-  int   DUMPFLAG, igal_unsort, igal_zsort, igal2_unsort, igal2_zsort ;
-  int   NNBR;
+  int   igal_unsort, igal_zsort, igal_DECsort, isort ;
+
   HOSTLIB_APPEND_DEF HOSTLIB_APPEND;
-  double RA_GAL, DEC_GAL, RA_NBR, DEC_NBR, SEP_NBR;
-  char  *LINE_APPEND, cval[20] ;
+  char  *LINE_APPEND ;
 
   // internal debug
-  long long GALID_DUMP = 0; // 205925 ;
-  int  NGAL_DEBUG      = -500;
+  int  NGAL_DEBUG  = -500;
 
   char fnam[] = "rewrite_HOSTLIB_plusNbr" ;
 
@@ -6312,57 +6319,49 @@ void rewrite_HOSTLIB_plusNbr(void) {
     sprintf(c2err,"Check VARNAMES in HOSTLIB");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-
   
   printf("\t NGAL[READ,STORE] = %d, %d \n", 
 	 HOSTLIB.NGAL_READ, HOSTLIB.NGAL_STORE);
 
-
   malloc_HOSTLIB_APPEND(NGAL, &HOSTLIB_APPEND);
 
   LINE_APPEND = (char*) malloc (MXCHAR_LINE_HOSTLIB * sizeof(char) ) ;
+  HOSTLIB_NBR.SKY_SORTED_DEC          = (double*) malloc(MEMD) ;
+  HOSTLIB_NBR.SKY_SORTED_RA           = (double*) malloc(MEMD) ;
+  HOSTLIB_NBR.SKY_SORTED_IGAL_zsort   = (int*) malloc(MEMI) ;
+  HOSTLIB_NBR.SKY_SORTED_IGAL_DECsort = (int*) malloc(MEMI) ;
+  HOSTLIB_NBR.GALID_atNNBR_MAX = -9 ;
+  HOSTLIB_NBR.NNBR_MAX         =  0 ;
 
+  // sort by DEC to improve NBR-matching speed
+  int  ORDER_SORT = +1 ;
+  double *ptrDEC = HOSTLIB.VALUE_ZSORTED[IVAR_DEC] ; 
+  double *ptrRA  = HOSTLIB.VALUE_ZSORTED[IVAR_RA] ; 
+  sortDouble( NGAL, ptrDEC, ORDER_SORT, HOSTLIB_NBR.SKY_SORTED_IGAL_DECsort);
+  
 
+  // load new lists of RA & DEC sorted by DEC
+  
+  for(igal_DECsort=0; igal_DECsort < NGAL; igal_DECsort++ ) {
+    igal_zsort = HOSTLIB_NBR.SKY_SORTED_IGAL_DECsort[igal_DECsort];
+    HOSTLIB_NBR.SKY_SORTED_DEC[igal_DECsort]      = ptrDEC[igal_zsort] ;
+    HOSTLIB_NBR.SKY_SORTED_RA[igal_DECsort]       = ptrRA[igal_zsort] ;
+    HOSTLIB_NBR.SKY_SORTED_IGAL_zsort[igal_zsort] = igal_DECsort ;
+    if ( igal_DECsort < -5 || igal_DECsort > NGAL+5 ) {
+      printf(" xxx igal_DECsort=%d  igal_zsort=%6d,  DEC = %9.5f \n",
+	     igal_DECsort, igal_zsort, ptrDEC[igal_zsort] ); fflush(stdout);
+    }
+  }
+  
   // ----------------------------
   if ( NGAL_DEBUG > 0 ) { NGAL = NGAL_DEBUG; }
 
   for(igal_unsort=0; igal_unsort < NGAL; igal_unsort++ ) {
 
-    igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
-
-    GALID = (long long)HOSTLIB.VALUE_ZSORTED[IVAR_GALID][igal_zsort] ;
-    DUMPFLAG = ( GALID == GALID_DUMP );    
-
-    RA_GAL   = HOSTLIB.VALUE_ZSORTED[IVAR_RA][igal_zsort] ;  // deg
-    DEC_GAL  = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][igal_zsort] ; 
-
-    // brute force search for neighbors
-    sprintf(LINE_APPEND,"NO_NBR");  NNBR=0;
-    for(igal2_unsort=0; igal2_unsort < NGAL; igal2_unsort++ ) {
-      if ( igal2_unsort == igal_unsort ) { continue; }
-      if ( strlen(LINE_APPEND) > MXCHAR_LINE_HOSTLIB - 20 ) { continue; }
-      igal2_zsort = HOSTLIB.LIBINDEX_ZSORT[igal2_unsort];
-      RA_NBR   = HOSTLIB.VALUE_ZSORTED[IVAR_RA][igal2_zsort] ;  
-      DEC_NBR  = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][igal2_zsort] ; 
-      if ( fabs(DEC_NBR-DEC_GAL) > SEPMAX_NBR ) { continue ; }
-
-      SEP_NBR = angSep(RA_GAL, DEC_GAL, RA_NBR, DEC_NBR,  (double)3600.);
-      if ( SEP_NBR > SEPMAX_NBR ) { continue ; }
-      GALID_NBR = (long long)HOSTLIB.VALUE_ZSORTED[IVAR_GALID][igal2_zsort] ;
-
-      if ( NNBR == 0 ) 
-	{ sprintf(cval,"%d",igal2_unsort); LINE_APPEND[0]=0; }
-      else
-	{ sprintf(cval,",%d", igal2_unsort); }
-      strcat(LINE_APPEND,cval);  NNBR++ ;
-    }
+    // search for neighbors and fill line to append
+    get_LINE_APPEND_HOSTLIB_plusNbr(igal_unsort, LINE_APPEND);
 
     sprintf(HOSTLIB_APPEND.LINE_APPEND[igal_unsort],"%s", LINE_APPEND);
-
-    if ( (igal_unsort % 1000) == 0 ) {
-      printf("\t Processing igal %8d of %8d \n", igal_unsort, NGAL);
-      fflush(stdout);
-    }
 
   } // end igal_unsort loop over all galaxies
 
@@ -6371,7 +6370,14 @@ void rewrite_HOSTLIB_plusNbr(void) {
   sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX,"+HOSTNBR");
 
   sprintf(HOSTLIB_APPEND.COMMENT, // comment for top of new HOSTLIB
-	  "Append host neighbors." );
+	  "Append up to %d host neighbors within %.1f'' radius.",
+	  HOSTLIB_NBR.NNBR_WRITE_MAX, HOSTLIB_NBR.SEPNBR_MAX );
+
+  sprintf(HOSTLIB_APPEND.COMMENT2, 
+	  "snlc_sim.exe %s +HOSTNBR  "
+	  "SEPNBR_MAX %.1f  NNBR_WRITE_MAX %d",
+	  INPUTS.INPUT_FILE_LIST[0], 
+	  HOSTLIB_NBR.NNBR_WRITE_MAX, HOSTLIB_NBR.SEPNBR_MAX );
 
   sprintf(HOSTLIB_APPEND.VARNAMES_APPEND, "NBR_IGAL_LIST" );
 
@@ -6382,3 +6388,201 @@ void rewrite_HOSTLIB_plusNbr(void) {
   return ;
 
 } // end rewrite_HOSTLIB_plusNbr
+
+
+// ==============================
+void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
+
+  // hard-wire parameters ... maybe later, accept sim-input arguments
+#define MXNNBR_STORE 100         // max number of neighbors to track
+  //#define MXNNBR_WRITE 10          // max number of neighbors to write
+  //#define SEPMAX_NBR   10.0        // NBR-match radius, arcSeconds
+
+  int    NNBR_WRITE_MAX = HOSTLIB_NBR.NNBR_WRITE_MAX ;
+  double SEPNBR_MAX     = HOSTLIB_NBR.SEPNBR_MAX ;
+
+  double ASEC_PER_DEG  = 3600.0 ;
+
+  int  NGAL        = HOSTLIB.NGAL_STORE;
+  int  IVAR_GALID  = HOSTLIB.IVAR_GALID;
+  int  IVAR_RA     = HOSTLIB.IVAR_RA ;
+  int  IVAR_DEC    = HOSTLIB.IVAR_DEC ;
+  int  LDMP        = (igal_unsort < -3);
+
+  double SEP_NBR_LIST[MXNNBR_STORE];
+  int    IGAL_LIST[MXNNBR_STORE];
+  long long GALID, GALID_NBR, GALID_LIST[MXNNBR_STORE] ;
+  double RA_GAL, DEC_GAL, RA_NBR, DEC_NBR, SEP_NBR, SEP_DEC;
+  int  igal_zsort, igal2_unsort, igal2_zsort, igal_DECsort ;
+  int  NNBR, NTRY, j, ISORT_CHANGE, isort, NPASS_DEC, LSTDOUT ;
+  char cval[20], cval2[20], LINE_STDOUT[200];;
+  char fnam[] = "get_LINE_APPEND_HOSTLIB_plusNbr";
+
+  // ------------ BEGIN -----------
+
+  igal_zsort   = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
+  igal_DECsort = HOSTLIB_NBR.SKY_SORTED_IGAL_zsort[igal_zsort];
+  RA_GAL       = HOSTLIB.VALUE_ZSORTED[IVAR_RA][igal_zsort] ;  
+  DEC_GAL      = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][igal_zsort] ; 
+  GALID        = (long long)HOSTLIB.VALUE_ZSORTED[IVAR_GALID][igal_zsort] ;
+  
+  // set stdout dump for a few events so that igal_unsiort <-> GALID
+  // can be visually checked when appended HOSTLIB is read back.
+  LSTDOUT = (igal_unsort < 3 || igal_unsort > NGAL-3);
+
+  if ( LSTDOUT ) {
+    printf("# ---------------------------------------------------- \n");
+    printf(" Crosscheck dump for igal_read=%d, GALID=%lld \n",
+	   igal_unsort, GALID); fflush(stdout);
+  }
+
+  if ( LDMP ) {
+    printf("\n xxx ---------- %s DUMP ---------------- \n", fnam);
+    printf(" xxx Input igal_unsort=%d  \n", igal_unsort);
+    printf(" xxx recover igal_zsort=%d,  igal_DECsort=%d \n", 
+	   igal_zsort, igal_DECsort );
+    fflush(stdout);
+  }
+
+
+  sprintf(LINE_APPEND,"NO_NBR");
+  NNBR = NTRY = 0 ; NPASS_DEC = 1;  ISORT_CHANGE=1;
+
+  while ( NPASS_DEC > 0 ) {
+    NPASS_DEC = 0;
+
+    for(j = -1; j <=1; j+=2 ) { // try both directions
+
+      NTRY++ ;
+      isort = igal_DECsort + j*ISORT_CHANGE;
+
+      if ( isort < 0  || isort >= NGAL ) { continue; }
+      igal2_zsort   = HOSTLIB_NBR.SKY_SORTED_IGAL_DECsort[isort];
+      igal2_unsort  = HOSTLIB.LIBINDEX_UNSORT[igal2_zsort];
+
+      RA_NBR      = HOSTLIB_NBR.SKY_SORTED_RA[isort] ;  
+      DEC_NBR     = HOSTLIB_NBR.SKY_SORTED_DEC[isort] ;  
+      SEP_DEC     = fabs(DEC_NBR - DEC_GAL)*ASEC_PER_DEG;
+
+      /*      
+      if ( SEP_DEC < 1.0E8 ) {
+	printf("\t zzz igal2_zsort=%d  DEC_GAL/NBR=%f/%f  SEP=%.2f\n", 
+	       igal_zsort, DEC_GAL, DEC_NBR, SEP_DEC );
+      }
+      */
+
+      if ( SEP_DEC > SEPNBR_MAX ) { continue ; }
+      NPASS_DEC++ ;
+
+      /*
+      if ( LDMP ) {
+	printf("\t j=%2d, isort=%6d  igal2=%6d NPASS=%d  dDEC=%f\n",
+	       j, isort, igal2_unsort, NPASS_DEC, SEP_DEC); fflush(stdout);
+      }
+      */
+
+      SEP_NBR = angSep(RA_GAL, DEC_GAL, RA_NBR, DEC_NBR, ASEC_PER_DEG);
+      if ( SEP_NBR > SEPNBR_MAX ) { continue ; }
+      GALID_NBR = (long long)HOSTLIB.VALUE_ZSORTED[IVAR_GALID][igal2_zsort] ;
+      
+      SEP_NBR_LIST[NNBR] = SEP_NBR;
+      IGAL_LIST[NNBR]    = igal2_unsort;
+      GALID_LIST[NNBR]   = GALID_NBR;
+      NNBR++ ;
+      if ( NNBR > HOSTLIB_NBR.NNBR_MAX ) { 
+	HOSTLIB_NBR.NNBR_MAX = NNBR; 
+	HOSTLIB_NBR.GALID_atNNBR_MAX = GALID;
+      }
+
+    } // end j loop over smaller/larger DEC
+
+    ISORT_CHANGE++ ;
+  } // end while
+
+
+  /* xxxxx mark delete xxxx
+  // - - - - - -
+  for(igal2_unsort=0; igal2_unsort < NGAL; igal2_unsort++ ) {
+    if ( igal2_unsort == igal_unsort ) { continue; }
+    if ( strlen(LINE_APPEND) > MXCHAR_LINE_HOSTLIB - 20 ) { continue; }
+
+    igal2_zsort = HOSTLIB.LIBINDEX_ZSORT[igal2_unsort];
+    RA_NBR      = HOSTLIB.VALUE_ZSORTED[IVAR_RA][igal2_zsort] ;  
+    DEC_NBR     = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][igal2_zsort] ; 
+    if ( fabs(DEC_NBR-DEC_GAL) > SEPMAX_NBR ) { continue ; }
+    
+    SEP_NBR = angSep(RA_GAL, DEC_GAL, RA_NBR, DEC_NBR,  (double)3600.);
+    if ( SEP_NBR > SEPMAX_NBR ) { continue ; }
+    GALID_NBR = (long long)HOSTLIB.VALUE_ZSORTED[IVAR_GALID][igal2_zsort] ;
+    
+    SEP_NBR_LIST[NNBR] = SEP_NBR;
+    IGAL_LIST[NNBR]    = igal2_unsort;
+    NNBR++ ;
+
+    if ( NNBR > MXNNBR ) {
+      sprintf(c1err,"NNBR=%d exceeds bound of MXNNBR", NNBR);
+      sprintf(c2err,"Check SEPMAX_NBR = %.2f arcSec and HOSTLIB density.",
+	      SEPMAX_NBR );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+  }
+  xxxx */
+
+  // - - - - - - - - - - - - - - - - - - 
+  // sort SEP_NBR_LIST inascending order
+  int ORDER_SORT = +1 ;    // increasing order
+  int UNSORT[MXNNBR_STORE];
+  int i, IGAL;
+
+
+  if ( LDMP ) { 
+    printf("\n xxx %s DUMP igal_unsort=%d  NNBR=%d   NTRY=%d\n", 
+	   fnam, igal_unsort, NNBR, NTRY );
+  }
+
+  sortDouble( NNBR, SEP_NBR_LIST, ORDER_SORT, UNSORT ) ;
+  for(i=0; i < NNBR; i++ ) {
+    isort       = UNSORT[i];
+    SEP_NBR     = SEP_NBR_LIST[isort];
+    IGAL        = IGAL_LIST[isort];
+    GALID_NBR   = GALID_LIST[isort];
+
+    if ( i >= NNBR_WRITE_MAX      ) { continue; }
+    if ( strlen(LINE_APPEND) > 80 ) { continue; }
+
+    if ( LDMP ) {
+      printf("\t xxx SEP(%2d) = %8.2f  IGAL=%d \n", isort, SEP_NBR, IGAL);
+      fflush(stdout);
+    }
+
+    if ( i == 0 )  { 
+      sprintf(cval, "%d",   IGAL     ); LINE_APPEND[0]=0; 
+      sprintf(cval2,"%lld", GALID_NBR); LINE_STDOUT[0]=0; 
+    }
+    else   { 
+      sprintf(cval, ",%d",   IGAL); 
+      sprintf(cval2,",%lld", GALID_NBR); 
+    }
+
+    // maybe need flag for missing NBR ???
+    strcat(LINE_APPEND,cval); 
+    strcat(LINE_STDOUT,cval2); 
+
+  } // end i loop over NBR
+
+  if ( LSTDOUT ) {
+    printf("\t READ  NBR list: %s\n", LINE_APPEND );
+    printf("\t GALID NBR list: %s\n", LINE_STDOUT );
+    fflush(stdout);
+  }
+
+  if ( (igal_unsort % 5000) == 0 ) {
+    NNBR = HOSTLIB_NBR.NNBR_MAX ; GALID=HOSTLIB_NBR.GALID_atNNBR_MAX;
+    printf("\t Processing igal %8d of %8d  (NNBR_MAX=%2d for GALID=%lld)\n", 
+	   igal_unsort, NGAL, NNBR, GALID );
+    fflush(stdout);
+  }
+
+  return ;
+
+} // end get_LINE_APPEND_HOSTLIB_plusNbr

@@ -17628,6 +17628,7 @@
 
     snlc_fit.car: 
       + add FLUXERRCALC_SIM to FITRES+RESIDUAL table (after ERRTEST)
+      + protect table abort when there are no non-PKMJD covariances.
     sntable_dump.pl
       + include FLUXERRCALC_SIM for outlier/obs option.
 

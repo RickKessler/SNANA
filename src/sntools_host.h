@@ -143,14 +143,16 @@ struct HOSTLIB_DEF {
   // define pointers used to malloc memory with MALLOCSIZE_HOSTLIB
   double *VALUE_ZSORTED[MXVAR_HOSTLIB];  // sorted by redshift
   double *VALUE_UNSORTED[MXVAR_HOSTLIB]; // same order as in HOSTLIB
-  int    *LIBINDEX_UNSORT;    // map between sorted and unsorted
+  int    *LIBINDEX_UNSORT;    // map between z-sorted and unsorted (w/cuts)
   int    *LIBINDEX_ZSORT;     // inverse map 
   int     SORTFLAG ; // 1=> sorted
 
   char **FIELD_UNSORTED ;
   char **FIELD_ZSORTED ;
 
-  int MALLOCSIZE ;
+  int *LIBINDEX_READ; // map between read index (no cuts) and unsorted
+
+  int MALLOCSIZE_D, MALLOCSIZE_I ;
 
   // pointers to stored variables
   int IVAR_GALID ;
@@ -208,6 +210,20 @@ struct HOSTLIB_DEF {
 
 } HOSTLIB ;
 
+
+struct {
+
+  // optional command-line inputs
+  double SEPNBR_MAX;    // optional command-line input (default=10 arcsec)
+  int    NNBR_WRITE_MAX;  // idem for how many NBRs to write (default=10)
+
+  // internal arrays for +HOSTNBR command-line option
+  int    NNBR_MAX; // actual max of NNBR
+  double *SKY_SORTED_DEC, *SKY_SORTED_RA ; 
+  int    *SKY_SORTED_IGAL_zsort;
+  int    *SKY_SORTED_IGAL_DECsort;
+  long long GALID_atNNBR_MAX;  
+} HOSTLIB_NBR ;
 
 struct {
   double ZWIN[2], RAWIN[2], DECWIN[2];
@@ -427,6 +443,7 @@ struct {
 typedef struct {
   char VARNAMES_APPEND[100];
   char COMMENT[100];
+  char COMMENT2[100];
   char FILENAME_SUFFIX[40];
   int  NLINE_APPEND;
   char **LINE_APPEND ;
@@ -529,6 +546,7 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double *VAL_HOSTPAR);
 void   rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
 void   malloc_HOSTLIB_APPEND(int NGAL, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
 void   rewrite_HOSTLIB_plusNbr(void) ;
+void   get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND);
 void   rewrite_HOSTLIB_plusMags(void);
 double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG);
 

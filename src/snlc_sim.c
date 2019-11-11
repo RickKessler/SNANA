@@ -970,6 +970,9 @@ void set_user_defaults(void) {
   }
   INPUTS.USE_HOSTLIB_GENZPHOT = 0 ; // logical flag
 
+  HOSTLIB_NBR.SEPNBR_MAX     = 10.0; // +HOSTNBR keeps neighbors within 10''
+  HOSTLIB_NBR.NNBR_WRITE_MAX = 10;   // write up to 10 NBRs
+
   // Nov 23 2015
   // define polynom function of ztrue for zSN-zGAL tolerance.
   // Default is close to what we had before, which is quite big
@@ -4362,6 +4365,11 @@ void sim_input_override(void) {
       i++ ;
       setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     }
+    if ( strcmp( ARGV_LIST[i], "SEPNBR_MAX" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%le", &HOSTLIB_NBR.SEPNBR_MAX ); }
+    if ( strcmp( ARGV_LIST[i], "NNBR_WRITE_MAX" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%d", &HOSTLIB_NBR.NNBR_WRITE_MAX ); }
+    
 
     if ( strcmp( ARGV_LIST[i], "HOSTLIB_GENZPHOT_FUDGEPAR" ) == 0 ) {
       for(j=0; j<4; j++ ) {

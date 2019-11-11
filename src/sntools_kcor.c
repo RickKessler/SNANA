@@ -752,8 +752,6 @@ c            based on user input to &SNLCINP
 
   } // end i-loop to NKCOR_STORE
 
-  // .xyz
-
   return ;
 
 } // end read_kcor_tables
@@ -927,7 +925,6 @@ void init_kcor_indices(void) {
   // -------------- BEGIN ----------------
 
   if ( KCOR_INFO.NKCOR_STORE == 0 ) { return; }
-
  
   sprintf(KCOR_INFO.MAPINFO_KCOR.NAME, "KCOR");
   KCOR_INFO.MAPINFO_KCOR.IDMAP             = IDMAP_KCOR_TABLE ;
@@ -1013,9 +1010,47 @@ void get_MAPINFO_KCOR(char *what, KCOR_MAPINFO_DEF *MAPINFO) {
 
 // =============================
 void read_kcor_mags(void) {
+
+
+  // Read LCMAG table for each rest-filter,
+  // and read MWXT-slope for each obs-filter.
+  //The columns for this table are
+  //	 1-3: T,Z,AV
+  //	 4  : 3+NFILTDEF_RDKCOR      :  MAGOBS(T,Z,AV)
+  //	 Next NFILTDEF_RDKCOR bins  :  MWXTSLP(T,Z,AV)
+  //
+  // Store info only for filters that are used in a K-cor.
+
+  fitsfile *FP         = KCOR_INFO.FP ;
+  int  NBIN_T          = KCOR_INFO.BININFO_T.NBIN ;
+  int  NBIN_z          = KCOR_INFO.BININFO_z.NBIN ;
+  int  NBIN_AV         = KCOR_INFO.BININFO_AV.NBIN ;
+  int  NFILTDEF_KCOR   = KCOR_INFO.NFILTDEF;
+
+  int istat=0, hdutype, IBLCMAG[N4DIM_KCOR], IBMWXT[N4DIM_KCOR];
+  int IBIN_FIRST, IBIN_LAST, ibin, ifilt ;
+  long long FIRSTROW=1, FIRSTELEM=1, NROW;
   char fnam[] = "read_kcor_mags" ;
+
   // --------- BEGIN ----------
-  printf(" xxx %s: Hello \n", fnam); fflush(stdout);
+  printf("   %s \n", fnam); fflush(stdout);
+
+  fits_movrel_hdu(FP, 1, &hdutype, &istat);
+  snfitsio_errorCheck("Cannot move to MAG table", istat);
+
+  if ( KCOR_INFO.NKCOR_STORE == 0 ) { return; }
+
+  NROW = NBIN_T * NBIN_z * NBIN_AV;
+  for(ibin=0; ibin < N4DIM_KCOR; ibin++ ) 
+    { IBLCMAG[ibin] = IBMWXT[ibin] = 0 ;  }
+
+
+  for (ifilt=0; ifilt < NFILTDEF_KCOR; ifilt++ ) {
+
+  }
+
+  // .xyz
+
   return ;
 } // end read_kcor_mags
 

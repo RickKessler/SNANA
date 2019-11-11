@@ -1707,7 +1707,8 @@ void extract_MODELNAME(char *STRING, char *MODELPATH, char *MODELNAME) {
 
   return ;
 
-} // end extractPath
+} // end extract_MODELNAME
+
 void extract_modelname__(char *STRING, char *MODELPATH, char *MODELNAME) {
   extract_MODELNAME(STRING, MODELPATH, MODELNAME);
 }

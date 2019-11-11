@@ -5865,20 +5865,23 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // Passed here vias HOSTLIB_APPEND.
   // 
 
-  char *SUFFIX   = HOSTLIB_APPEND->FILENAME_SUFFIX; // or new HOSTLIB
-  char *COMMENT  = HOSTLIB_APPEND->COMMENT;
-  char *COMMENT2 = HOSTLIB_APPEND->COMMENT2;
-  char *VARNAMES = HOSTLIB_APPEND->VARNAMES_APPEND ;
+  char *SUFFIX       = HOSTLIB_APPEND->FILENAME_SUFFIX; // or new HOSTLIB
+  int  NLINE_COMMENT = HOSTLIB_APPEND->NLINE_COMMENT;
+  char *VARNAMES     = HOSTLIB_APPEND->VARNAMES_APPEND ;
 
   FILE *FP_ORIG, *FP_NEW;
-  char *HLIB_ORIG = INPUTS.HOSTLIB_FILE,  HLIB_NEW[MXPATHLEN];
+  char *HLIB_ORIG = INPUTS.HOSTLIB_FILE;
+  char  HLIB_TMP[MXPATHLEN], HLIB_NEW[100], DUMPATH[MXPATHLEN];
   char fnam[] = "rewrite_HOSTLIB" ;
 
   // -------------- BEGIN --------------
 
-  // open original and new file to append
+  // create name of new hostlib file
+  sprintf(HLIB_TMP,"%s%s", HLIB_ORIG, SUFFIX ); 
 
-  sprintf(HLIB_NEW,"%s%s", HLIB_ORIG, SUFFIX ); 
+  // remove path from HLIB_NEW to ensure that new file is created
+  // locally and not in somebody else's directory.
+  extract_MODELNAME(HLIB_TMP, DUMPATH, HLIB_NEW);
 
   FP_ORIG = fopen(HLIB_ORIG,"rt");
   FP_NEW  = fopen(HLIB_NEW, "wt");
@@ -5896,8 +5899,15 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   printf("\n");
   printf("  Created '%s' \n", HLIB_NEW);
 
-  fprintf(FP_NEW,"# %s\n", COMMENT);
-  fprintf(FP_NEW,"# %s\n", COMMENT2);
+  int iline;
+  for(iline=0; iline < NLINE_COMMENT; iline++ ) 
+    { fprintf(FP_NEW,"# %s\n", HOSTLIB_APPEND->COMMENT[iline] ); }
+
+  fprintf(FP_NEW,"# \n");
+  fprintf(FP_NEW,"# Below are original HOSTLIB comments and table\n");
+  fprintf(FP_NEW,"# with NBR_LIST column appended.\n");
+  fprintf(FP_NEW,"# - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+  fprintf(FP_NEW,"# \n");
 
   // - - - - - - - - - - - - - - - - - 
   // read each original line
@@ -5965,6 +5975,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 // =======================================
 void malloc_HOSTLIB_APPEND(int NGAL, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
+  // malloc and init
   int i;
   char fnam[] = "malloc_HOSTLIB_APPEND" ;
 
@@ -5978,9 +5989,26 @@ void malloc_HOSTLIB_APPEND(int NGAL, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
     sprintf(HOSTLIB_APPEND->LINE_APPEND[i],"NULL_APPEND");
   }
 
+  HOSTLIB_APPEND->NLINE_COMMENT = 0;
+
   return;
 
 } // end malloc_HOSTLIB_APPEND
+
+// =========================================
+void addComment_HOSTLIB_APPEND(char *COMMENT, 
+			       HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
+
+  int NL   = HOSTLIB_APPEND->NLINE_COMMENT;
+  int MEMC = 120 * sizeof(char);
+  
+  HOSTLIB_APPEND->COMMENT[NL] = (char*) malloc(MEMC);
+  sprintf(HOSTLIB_APPEND->COMMENT[NL],"%s", COMMENT);
+  HOSTLIB_APPEND->NLINE_COMMENT++ ;
+
+  return;
+
+}  // end add_HOSTLIB_APPEND_COMMENT
 
 // ===================================
 void rewrite_HOSTLIB_plusMags(void) {
@@ -6008,7 +6036,7 @@ void rewrite_HOSTLIB_plusMags(void) {
 
   // internal debug
   long long GALID_DUMP = 205925 ;
-  int  NGAL_DEBUG      = -500;
+  int  NGAL_DEBUG      = -500; 
 
   // ------------ BEGIN -----------
 
@@ -6067,7 +6095,7 @@ void rewrite_HOSTLIB_plusMags(void) {
     }
     sprintf(HOSTLIB_APPEND.LINE_APPEND[igal_unsort],"%s", LINE_APPEND);
 
-    if ( (igal_unsort % 5000) == 0 ) {
+    if ( (igal_unsort % 10000) == 0 ) {
       printf("\t Processing igal %8d of %8d \n", igal_unsort, NGAL);
       fflush(stdout);
     }
@@ -6091,8 +6119,8 @@ void rewrite_HOSTLIB_plusMags(void) {
   // ------------------------
   // set HOSTLIB_APPEND struct, then rewrite hostlib.
 
-  int L ;
-  char VARNAMES_HOSTMAGS[200], varname_mag[40], *cfilt;
+  int L  ;
+  char VARNAMES_HOSTMAGS[200], varname_mag[40], *cfilt, msg[80];
   // create additional varnames of mags to append to VARNAMES list
   VARNAMES_HOSTMAGS[0] = 0;
   for(ifilt=1; ifilt <= NFILT; ifilt++ ) {
@@ -6102,13 +6130,13 @@ void rewrite_HOSTLIB_plusMags(void) {
   }
 
   sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX,"+HOSTMAGS");
-
-  sprintf(HOSTLIB_APPEND.COMMENT, // comment for top of new HOSTLIB
-	  "Append synthetic host mags computed from host spectra.");
-  sprintf(HOSTLIB_APPEND.COMMENT2, "");
-
   sprintf(HOSTLIB_APPEND.VARNAMES_APPEND,"%s", VARNAMES_HOSTMAGS);
 
+  // construct comment lines for top of new HOSTLIB
+  sprintf(msg,"Append synthetic host mags computed from host spectra.");
+  addComment_HOSTLIB_APPEND(msg,&HOSTLIB_APPEND);
+				   
+  // execute re-write
   rewrite_HOSTLIB(&HOSTLIB_APPEND);
 
   /* xxxxxxxxxxxxx mark delete Nov 7 2019 xxxxxxxxxxxx
@@ -6303,11 +6331,12 @@ void rewrite_HOSTLIB_plusNbr(void) {
   int   igal_unsort, igal_zsort, igal_DECsort, isort ;
 
   HOSTLIB_APPEND_DEF HOSTLIB_APPEND;
-  char  *LINE_APPEND ;
+  char  *LINE_APPEND, MSG[100] ;
 
   // internal debug
   int  NGAL_DEBUG  = -500;
 
+  char *INPUT_FILE = INPUTS.INPUT_FILE_LIST[0];
   char fnam[] = "rewrite_HOSTLIB_plusNbr" ;
 
   // --------------- BEGIN ---------------
@@ -6341,7 +6370,6 @@ void rewrite_HOSTLIB_plusNbr(void) {
   
 
   // load new lists of RA & DEC sorted by DEC
-  
   for(igal_DECsort=0; igal_DECsort < NGAL; igal_DECsort++ ) {
     igal_zsort = HOSTLIB_NBR.SKY_SORTED_IGAL_DECsort[igal_DECsort];
     HOSTLIB_NBR.SKY_SORTED_DEC[igal_DECsort]      = ptrDEC[igal_zsort] ;
@@ -6356,6 +6384,10 @@ void rewrite_HOSTLIB_plusNbr(void) {
   // ----------------------------
   if ( NGAL_DEBUG > 0 ) { NGAL = NGAL_DEBUG; }
 
+  // init diagnistic counters (filled in get_LINE_APPEND_HOSTLIB_plusNbr)
+  monitor_HOSTLIB_plusNbr(0,&HOSTLIB_APPEND); 
+
+  // loop over all galaxies and prepare string to append.
   for(igal_unsort=0; igal_unsort < NGAL; igal_unsort++ ) {
 
     // search for neighbors and fill line to append
@@ -6365,22 +6397,30 @@ void rewrite_HOSTLIB_plusNbr(void) {
 
   } // end igal_unsort loop over all galaxies
 
+
   // - - - - - - - - - - - - 
 
-  sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX,"+HOSTNBR");
+  sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX, "+HOSTNBR");
+  sprintf(HOSTLIB_APPEND.VARNAMES_APPEND, "NBR_LIST" );
 
-  sprintf(HOSTLIB_APPEND.COMMENT, // comment for top of new HOSTLIB
-	  "Append up to %d host neighbors within %.1f'' radius.",
+
+  // construct message strings for top of new HOSTLIB
+  sprintf(MSG, "Append up to %d host neighbors within %.1f'' radius.",
 	  HOSTLIB_NBR.NNBR_WRITE_MAX, HOSTLIB_NBR.SEPNBR_MAX );
+  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
+ 
+  sprintf(MSG, "snlc_sim.exe %s +HOSTNBR  SEPNBR_MAX %.1f  NNBR_WRITE_MAX %d",
+	  INPUT_FILE, HOSTLIB_NBR.NNBR_WRITE_MAX, HOSTLIB_NBR.SEPNBR_MAX );
+  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
 
-  sprintf(HOSTLIB_APPEND.COMMENT2, 
-	  "snlc_sim.exe %s +HOSTNBR  "
-	  "SEPNBR_MAX %.1f  NNBR_WRITE_MAX %d",
-	  INPUTS.INPUT_FILE_LIST[0], 
-	  HOSTLIB_NBR.NNBR_WRITE_MAX, HOSTLIB_NBR.SEPNBR_MAX );
+  sprintf(MSG,"Added column NBR_LIST = "
+	  "comma-sep list of row numbers (not GALID)" );
+  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
 
-  sprintf(HOSTLIB_APPEND.VARNAMES_APPEND, "NBR_IGAL_LIST" );
+  // write out monitor info
+  monitor_HOSTLIB_plusNbr(1,&HOSTLIB_APPEND);
 
+  // exectute re-write
   rewrite_HOSTLIB(&HOSTLIB_APPEND);
 
   exit(0);
@@ -6393,13 +6433,11 @@ void rewrite_HOSTLIB_plusNbr(void) {
 // ==============================
 void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
 
-  // hard-wire parameters ... maybe later, accept sim-input arguments
-#define MXNNBR_STORE 100         // max number of neighbors to track
-  //#define MXNNBR_WRITE 10          // max number of neighbors to write
-  //#define SEPMAX_NBR   10.0        // NBR-match radius, arcSeconds
 
-  int    NNBR_WRITE_MAX = HOSTLIB_NBR.NNBR_WRITE_MAX ;
-  double SEPNBR_MAX     = HOSTLIB_NBR.SEPNBR_MAX ;
+#define MXNNBR_STORE 100         // max number of neighbors to track
+  double SEPNBR_MAX      = HOSTLIB_NBR.SEPNBR_MAX ;
+  int    NNBR_WRITE_MAX  = HOSTLIB_NBR.NNBR_WRITE_MAX ;
+  int    MXCHAR_NBR_LIST = HOSTLIB_NBR.MXCHAR_NBR_LIST ;
 
   double ASEC_PER_DEG  = 3600.0 ;
 
@@ -6445,7 +6483,8 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   }
 
 
-  sprintf(LINE_APPEND,"NO_NBR");
+  sprintf(LINE_APPEND,"-1");
+  LINE_STDOUT[0] = 0 ;
   NNBR = NTRY = 0 ; NPASS_DEC = 1;  ISORT_CHANGE=1;
 
   while ( NPASS_DEC > 0 ) {
@@ -6500,6 +6539,7 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   } // end while
 
 
+
   /* xxxxx mark delete xxxx
   // - - - - - -
   for(igal2_unsort=0; igal2_unsort < NGAL; igal2_unsort++ ) {
@@ -6532,7 +6572,7 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   // sort SEP_NBR_LIST inascending order
   int ORDER_SORT = +1 ;    // increasing order
   int UNSORT[MXNNBR_STORE];
-  int i, IGAL;
+  int i, IGAL, TRUNCATE=0;
 
 
   if ( LDMP ) { 
@@ -6547,8 +6587,11 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
     IGAL        = IGAL_LIST[isort];
     GALID_NBR   = GALID_LIST[isort];
 
-    if ( i >= NNBR_WRITE_MAX      ) { continue; }
-    if ( strlen(LINE_APPEND) > 80 ) { continue; }
+    if ( i > NNBR_WRITE_MAX ) 
+      { TRUNCATE=1; continue; }
+
+    if ( strlen(LINE_APPEND) > MXCHAR_NBR_LIST) 
+      { TRUNCATE=1; continue; }
 
     if ( LDMP ) {
       printf("\t xxx SEP(%2d) = %8.2f  IGAL=%d \n", isort, SEP_NBR, IGAL);
@@ -6576,13 +6619,53 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
     fflush(stdout);
   }
 
-  if ( (igal_unsort % 5000) == 0 ) {
+  if ( (igal_unsort % 10000) == 0 ) {
     NNBR = HOSTLIB_NBR.NNBR_MAX ; GALID=HOSTLIB_NBR.GALID_atNNBR_MAX;
     printf("\t Processing igal %8d of %8d  (NNBR_MAX=%2d for GALID=%lld)\n", 
 	   igal_unsort, NGAL, NNBR, GALID );
     fflush(stdout);
   }
 
+  if ( NNBR < 100 ) { HOSTLIB_NBR.NGAL_PER_NNBR[NNBR]++ ; }
+  if ( TRUNCATE   ) { HOSTLIB_NBR.NGAL_TRUNCATE++ ; }
+
   return ;
 
 } // end get_LINE_APPEND_HOSTLIB_plusNbr
+
+// =========================================
+void  monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
+
+  // OPT=0 --> init
+  // OPT=1 --> write info to stdout and to addComment
+
+  int NGAL        = HOSTLIB.NGAL_STORE;
+  int nnbr, NGAL_TMP;
+  float frac;
+  char MSG[100];
+  // ------------ BEGIN -------------
+
+  if ( OPT == 0 ) {
+    for(nnbr=0; nnbr < 100; nnbr++ ) { HOSTLIB_NBR.NGAL_PER_NNBR[nnbr]=0; }
+    HOSTLIB_NBR.NGAL_TRUNCATE = 0 ;
+  }
+  else {
+    for(nnbr=0; nnbr <= HOSTLIB_NBR.NNBR_WRITE_MAX; nnbr++ ) {
+      NGAL_TMP = HOSTLIB_NBR.NGAL_PER_NNBR[nnbr];
+      frac     = (float)NGAL_TMP / (float)NGAL;
+      sprintf(MSG, "\t HOSTLIB fraction with %2d NBR: %8.3f %% ",
+	     nnbr, 100.0*frac ); 
+      printf("%s\n", MSG); fflush(stdout);
+      addComment_HOSTLIB_APPEND(MSG,HOSTLIB_APPEND);
+    }
+
+    frac = (float)HOSTLIB_NBR.NGAL_TRUNCATE / (float)NGAL ;
+    sprintf(MSG,"\t Truncated fraction with > %d NBR: %8.3f %% ",
+	   HOSTLIB_NBR.NNBR_WRITE_MAX, 100.*frac); 
+    printf("%s\n", MSG); fflush(stdout);
+    addComment_HOSTLIB_APPEND(MSG,HOSTLIB_APPEND);
+  }
+
+  return ;
+
+} // end monitor_HOSTLIB_plusNbr

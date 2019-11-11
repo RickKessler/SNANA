@@ -216,6 +216,7 @@ struct {
   // optional command-line inputs
   double SEPNBR_MAX;    // optional command-line input (default=10 arcsec)
   int    NNBR_WRITE_MAX;  // idem for how many NBRs to write (default=10)
+  int    MXCHAR_NBR_LIST; // max string length to write out for NBR_LIST
 
   // internal arrays for +HOSTNBR command-line option
   int    NNBR_MAX; // actual max of NNBR
@@ -223,6 +224,11 @@ struct {
   int    *SKY_SORTED_IGAL_zsort;
   int    *SKY_SORTED_IGAL_DECsort;
   long long GALID_atNNBR_MAX;  
+
+  // internal diagnostics for stdout dump
+  int NGAL_PER_NNBR[100] ; // store histogram of NNBR distribution
+  int NGAL_TRUNCATE;       // NGAL cliiped by NNBR_WRITE_MAX or MXCHAR
+
 } HOSTLIB_NBR ;
 
 struct {
@@ -442,8 +448,9 @@ struct {
 
 typedef struct {
   char VARNAMES_APPEND[100];
-  char COMMENT[100];
-  char COMMENT2[100];
+
+  int  NLINE_COMMENT ;
+  char *COMMENT[50];
   char FILENAME_SUFFIX[40];
   int  NLINE_APPEND;
   char **LINE_APPEND ;
@@ -545,9 +552,13 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double *VAL_HOSTPAR);
 
 void   rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
 void   malloc_HOSTLIB_APPEND(int NGAL, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
+void   addComment_HOSTLIB_APPEND(char *COMMENT,
+				 HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
 void   rewrite_HOSTLIB_plusNbr(void) ;
 void   get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND);
 void   rewrite_HOSTLIB_plusMags(void);
+void   monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
+
 double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG);
 
 // END

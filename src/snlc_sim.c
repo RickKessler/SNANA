@@ -970,8 +970,9 @@ void set_user_defaults(void) {
   }
   INPUTS.USE_HOSTLIB_GENZPHOT = 0 ; // logical flag
 
-  HOSTLIB_NBR.SEPNBR_MAX     = 10.0; // +HOSTNBR keeps neighbors within 10''
-  HOSTLIB_NBR.NNBR_WRITE_MAX = 10;   // write up to 10 NBRs
+  HOSTLIB_NBR.SEPNBR_MAX      = 10.0; // +HOSTNBR keeps neighbors within 10''
+  HOSTLIB_NBR.NNBR_WRITE_MAX  = 10;   // write up to 10 NBRs
+  HOSTLIB_NBR.MXCHAR_NBR_LIST = 80;   // max string-length of list
 
   // Nov 23 2015
   // define polynom function of ztrue for zSN-zGAL tolerance.

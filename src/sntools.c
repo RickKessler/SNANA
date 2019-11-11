@@ -1012,7 +1012,6 @@ void malloc_PARSE_WORDS(void) {
   }
 
   
-
   for(iwd=WD0; iwd < WD1; iwd++ ) {
     PARSE_WORDS.WDLIST[iwd]  = (char*) malloc( MXCHARWD*sizeof(char) );
     PARSE_WORDS.WDLIST[iwd][0] = 0 ;

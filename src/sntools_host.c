@@ -255,9 +255,10 @@ void initvar_HOSTLIB(void) {
   HOSTLIB.NGAL_READ    = 0 ;
   HOSTLIB.NGAL_STORE   = 0 ;
   HOSTLIB.NVAR_ALL     = 0 ; 
-  HOSTLIB.NVAR_STORE   = 0 ; 
-  HOSTLIB.MALLOCSIZE_D = 0 ;
-  HOSTLIB.MALLOCSIZE_I = 0 ;
+  HOSTLIB.NVAR_STORE    = 0 ; 
+  HOSTLIB.MALLOCSIZE_D  = 0 ;
+  HOSTLIB.MALLOCSIZE_I  = 0 ;
+  HOSTLIB.MALLOCSIZE_Cp = 0 ;
 
   HOSTLIB.NVAR_SNPAR   = 0 ;
   HOSTLIB.VARSTRING_SNPAR[0] = 0 ;
@@ -377,6 +378,9 @@ void init_OPTIONAL_HOSTVAR(void) {
   sprintf(cptr,"%s", HOSTLIB_VARNAME_DEC_HOST ); 
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_DEC_GAL ); 
+
+  NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
+  sprintf(cptr,"%s", HOSTLIB_VARNAME_NBR_LIST ); 
 
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS );
@@ -1582,7 +1586,7 @@ void read_head_HOSTLIB(FILE *fp) {
   HOSTLIB.IVAR_ANGLE       = IVAR_HOSTLIB(HOSTLIB_VARNAME_ANGLE,0) ;   
   HOSTLIB.IVAR_FIELD       = IVAR_HOSTLIB(HOSTLIB_VARNAME_FIELD,0) ;   
   HOSTLIB.IVAR_NBR_LIST    = IVAR_HOSTLIB(HOSTLIB_VARNAME_NBR_LIST,0) ; 
-
+  
   // Jan 2015: Optional RA & DEC have multiple allowed keys
   int IVAR_RA[3], IVAR_DEC[3] ;
   IVAR_RA[0]   = IVAR_HOSTLIB(HOSTLIB_VARNAME_RA,0);
@@ -1778,21 +1782,20 @@ void read_gal_HOSTLIB(FILE *fp) {
 	sprintf(HOSTLIB.FIELD_UNSORTED[NGAL],"%s", FIELD);
       }
 
+      if ( NGAL < -3 ) {
+	ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_GALID] ;
+	GALID       = (long long)xval[ivar_ALL];
+	printf(" xxx %s: NGAL=%2d: GALID=%lld  NBR_LIST = '%s' \n", 
+	       fnam, NGAL, GALID, NBR_LIST); fflush(stdout);
+      }
 
       // Nov 11 2019: store optional NBR_LIST string 
       ivar_STORE = HOSTLIB.IVAR_NBR_LIST ;
       if ( ivar_STORE > 0  ) {
 	ivar_ALL   = HOSTLIB.IVAR_ALL[ivar_STORE];
-	MEMC = strlen(NBR_LIST) * sizeof(char);
+	MEMC       = strlen(NBR_LIST) * sizeof(char) + 2 ;
 	HOSTLIB.NBR_UNSORTED[NGAL] = (char*) malloc(MEMC);
 	sprintf(HOSTLIB.NBR_UNSORTED[NGAL],"%s", NBR_LIST);
-
-	// xxxxxxxx .xyz
-	if ( NGAL < 20 ) {
-	  printf(" xxx %s: NGAL=%2d: GALID=%lld  NBR_LIST = '%s' \n", 
-		 GALID, NBR_LIST); fflush(stdout);
-	}
-	//xxxxxxxxxxxx
       }
 
       // store NGAL index vs. absolute READ index (for HOSTNBR)
@@ -2045,46 +2048,48 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
   //  + check IVAR_NBR_LIST
 
   double XNTOT, XNUPD;
-  int ivar, I8, I8p, I4, DO_FIELD, DO_NBR, igal ;
+  int ivar, I8, I8p, I4, ICp, MEMC, DO_FIELD, DO_NBR, igal ;
   int LDMP = 0 ;
   char fnam[] = "malloc_HOSTLIB";
 
   // ------------- BEGIN ----------
 
-  I8  = sizeof(double);
-  I8p = sizeof(double*);
-  I4  = sizeof(int);
+  I8   = sizeof(double);
+  I8p  = sizeof(double*);
+  I4   = sizeof(int);
+  ICp  = sizeof(char*);
 
   DO_FIELD    = ( HOSTLIB.IVAR_FIELD    > 0 );
   DO_NBR      = ( HOSTLIB.IVAR_NBR_LIST > 0 );
 
-  if ( NGAL_READ == 0 ) {
-    if  ( LDMP ) 
-      { printf("\t xxx Initial malloc for HOSTLIB ... \n"); fflush(stdout); }
+  if ( NGAL_STORE == 0 ) {
 
-    HOSTLIB.MALLOCSIZE_D += (I8 * MALLOCSIZE_HOSTLIB) ;
+    if  ( LDMP ) 
+      { printf(" xxx Initial malloc for HOSTLIB ... \n"); fflush(stdout); }
+
+    HOSTLIB.MALLOCSIZE_D  += (I8  * MALLOCSIZE_HOSTLIB) ;
+    HOSTLIB.MALLOCSIZE_I  += (I4  * MALLOCSIZE_HOSTLIB) ;
+    HOSTLIB.MALLOCSIZE_Cp += (ICp * MALLOCSIZE_HOSTLIB) ;
+
     // allocate memory for each variable to store
     for ( ivar = 0; ivar < HOSTLIB.NVAR_STORE; ivar++ ) {
-      HOSTLIB.VALUE_UNSORTED[ivar] = (double *)malloc(HOSTLIB.MALLOCSIZE_D);
+      HOSTLIB.VALUE_UNSORTED[ivar] = (double*)malloc(HOSTLIB.MALLOCSIZE_D);
     }
 
-    HOSTLIB.MALLOCSIZE_I += (I4 * MALLOCSIZE_HOSTLIB) ;
     HOSTLIB.LIBINDEX_READ = (int *)malloc(HOSTLIB.MALLOCSIZE_I);
 
     if ( DO_FIELD ) {
-      HOSTLIB.FIELD_UNSORTED = 
-	(char**)malloc( MALLOCSIZE_HOSTLIB*sizeof(char*) );
-      for(igal=0; igal < MALLOCSIZE_HOSTLIB; igal++ ) {
-	HOSTLIB.FIELD_UNSORTED[igal] = 
-	  (char*)malloc( MXCHAR_FIELDNAME *sizeof(char) );
-      }  
+      HOSTLIB.FIELD_UNSORTED = (char**)malloc( HOSTLIB.MALLOCSIZE_Cp );
+      MEMC = MXCHAR_FIELDNAME *sizeof(char) ;
+      for(igal=0; igal < MALLOCSIZE_HOSTLIB; igal++ )
+	{ HOSTLIB.FIELD_UNSORTED[igal] = (char*)malloc( MEMC );  }  
     }
 
     if ( DO_NBR ) {
-      HOSTLIB.NBR_UNSORTED = 
-	(char**)malloc( MALLOCSIZE_HOSTLIB*sizeof(char*) );
+      HOSTLIB.NBR_UNSORTED = (char**)malloc(HOSTLIB.MALLOCSIZE_Cp);
       // do NOT malloc string length here; malloc later
       // when length of string is known.
+
     }
 
     return ;
@@ -2098,45 +2103,45 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
   if ( fmod(XNTOT,XNUPD) == 0.0 ) {
   */
 
+  // --------------------------------------------------
+
   if ( (NGAL_STORE % MALLOCSIZE_HOSTLIB) == 0 ) {
+    
+    HOSTLIB.MALLOCSIZE_D  += (I8  * MALLOCSIZE_HOSTLIB) ;
+    HOSTLIB.MALLOCSIZE_Cp += (ICp * MALLOCSIZE_HOSTLIB) ;
 
     if  ( LDMP )  { 
       printf("\t xxx Extend HOSTLIB malloc at NGAL_STORE=%d \n", 
-	     NGAL_STORE);        fflush(stdout); 
+	     NGAL_STORE);    fflush(stdout); 
     }
-    
-    HOSTLIB.MALLOCSIZE_D += (I8*MALLOCSIZE_HOSTLIB) ;
+
     for ( ivar = 0; ivar < HOSTLIB.NVAR_STORE; ivar++ ) {
       HOSTLIB.VALUE_UNSORTED[ivar] =
-	(double *)realloc(HOSTLIB.VALUE_UNSORTED[ivar], HOSTLIB.MALLOCSIZE_D);
+	(double*)realloc(HOSTLIB.VALUE_UNSORTED[ivar], HOSTLIB.MALLOCSIZE_D);
     }
 
     if ( DO_FIELD ) {
       HOSTLIB.FIELD_UNSORTED = 
-	(char**)realloc( HOSTLIB.FIELD_UNSORTED, MALLOCSIZE_HOSTLIB );
-      for(igal=NGAL_STORE; igal < NGAL_STORE+MALLOCSIZE_HOSTLIB; igal++ ) {
-	HOSTLIB.FIELD_UNSORTED[igal] = 
-	  (char*)malloc( MXCHAR_FIELDNAME *sizeof(char) );
-      }  
+	(char**)realloc( HOSTLIB.FIELD_UNSORTED, HOSTLIB.MALLOCSIZE_Cp );
+      MEMC = MXCHAR_FIELDNAME *sizeof(char) ;
+      for(igal=NGAL_STORE; igal < NGAL_STORE+MALLOCSIZE_HOSTLIB; igal++ ) 
+	{ HOSTLIB.FIELD_UNSORTED[igal] = (char*)malloc( MEMC ); }
     }
 
     if ( DO_NBR ) {
       HOSTLIB.NBR_UNSORTED = 
-	(char**)realloc( HOSTLIB.NBR_UNSORTED, MALLOCSIZE_HOSTLIB );
+	(char**)realloc( HOSTLIB.NBR_UNSORTED, HOSTLIB.MALLOCSIZE_Cp );
       // do NOT malloc size of each string
     }
 
   } // end if block
 
+  // - - - - - - - - - - -
   // separate check for READ index
   if ( (NGAL_READ % MALLOCSIZE_HOSTLIB) == 0 ) {
-    HOSTLIB.MALLOCSIZE_I += (I4 * MALLOCSIZE_HOSTLIB) ;
+    HOSTLIB.MALLOCSIZE_I  += (I4  * MALLOCSIZE_HOSTLIB) ;
     HOSTLIB.LIBINDEX_READ = 
-      (int *)realloc(HOSTLIB.LIBINDEX_READ,HOSTLIB.MALLOCSIZE_I);
-    /*
-    printf(" 2. xxx %s: HOSTLIB.MALLOCSIZE_I = %d \n", 
-	   fnam, HOSTLIB.MALLOCSIZE_I); fflush(stdout);
-    */
+      (int *)realloc(HOSTLIB.LIBINDEX_READ, HOSTLIB.MALLOCSIZE_I);
   }
   
 } // end of malloc_HOSTLIB

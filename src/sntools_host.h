@@ -56,7 +56,7 @@
 #define MXCOMMENT_HOSTLIB  40    // max number of lines for README file
 #define MXGauss2dTable     200   // max length of Gauss2d table
 #define NVAR_Gauss2d       3     // Number of variables in Gauss2d table
-#define MXBIN_ZPHOTEFF      100  // 
+#define MXBIN_ZPHOTEFF     100   // 
 
 #define NSERSIC_TABLE        50    // number of integral tables
 #define SERSIC_INDEX_MIN   0.15
@@ -151,12 +151,12 @@ struct HOSTLIB_DEF {
   char **FIELD_UNSORTED ;
   char **FIELD_ZSORTED ;
 
-  char **NBR_UNSORTED ; // from NBR_LIST column, Nov 11 2019
+  char **NBR_UNSORTED ; // read from NBR_LIST column, Nov 11 2019
   char **NBR_ZSORTED ;
 
   int *LIBINDEX_READ; // map between read index (no cuts) and unsorted
 
-  int MALLOCSIZE_D, MALLOCSIZE_I ;
+  int MALLOCSIZE_D, MALLOCSIZE_I, MALLOCSIZE_Cp ;
 
   // pointers to stored variables
   int IVAR_GALID ;

@@ -91,6 +91,7 @@ struct KCOR_INFO {
   int   IFILTDEF[MXFILT_KCOR] ; 
   int   MASK_FRAME_FILTER[MXFILT_KCOR]; // bits 0,1 --> rest, obs
   int   MASK_EXIST_BXFILT; // logical for BX existing for rest/obs frame
+  bool  IS_SURVEY_FILTER[MXFILT_KCOR];
 
   KCOR_FILTERMAP_DEF FILTERMAP_REST ;
   KCOR_FILTERMAP_DEF FILTERMAP_OBS  ;
@@ -119,6 +120,9 @@ struct KCOR_INFO {
   double zRANGE_LOOKUP[2] ;
 
   float *KCORTABLE1D_F;     // use float to save memory
+  float *LCMAG_TABLE1D_F ;
+  float *AVWARP_TABLE1D_F ;
+  float *MWXT_TABLE1D_F ;
   float *FLUX_SNSED_F;      // use float to save memory
 
   char SPECTROGRAPH_INSTRUMENT[60];

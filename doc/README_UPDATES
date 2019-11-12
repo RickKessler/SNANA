@@ -17655,5 +17655,14 @@
       + start adding code to parse and use NBR_LIST column that was
         created by +HOSTNBR option.
 
+   sim_SNmix.pl:
+     + fix error trapping for failed jobs.
+
+   split_and_fit.pl:
+     + abort if APPEND_TABLE_TEXT is defined without also defining
+       either HFILE_OUT or ROOTFILE_OUT.
+
+   snana.car:
+     + MXCCID_LIST -> 20k (was 10k)
 
 END: 

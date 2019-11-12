@@ -106,6 +106,7 @@ void read_kcor_init(void) {
     KCOR_INFO.IFILTDEF[i]   = -9 ;
     KCOR_INFO.ISLAMSHIFT[i] = false;
     KCOR_INFO.MASK_FRAME_FILTER[i] = 0 ;
+    KCOR_INFO.IS_SURVEY_FILTER[i]  = false ;
 
     for(i2=0; i2 < MXFILT_KCOR; i2++ ) 
       { KCOR_INFO.EXIST_KCOR[i][i2] = false ; }
@@ -230,6 +231,10 @@ void read_kcor_head(void) {
     IFILTDEF = INTFILTER(cfilt) ;
     KCOR_INFO.IFILTDEF[i] = IFILTDEF ;
 	    
+    // if this is not a survey filter, mark IGNORE
+    if ( strchr(KCOR_INFO.FILTERS_SURVEY,cfilt[0]) == NULL )  
+      { KCOR_INFO.IS_SURVEY_FILTER[i] = true;    }
+
   }  // end NFILTDEF loop
 
   int NFLAMSHIFT = KCOR_INFO.NFLAMSHIFT ;
@@ -545,7 +550,7 @@ void read_kcor_tables(void) {
   int k, i, i2, icol, hdutype, istat=0, anynul, ifilt_rest, ifilt_obs, len ;
   int IFILTDEF, ifilt, LBX0, LBX1;
   char *STRING_KLINE, *STRING_KSYM, cfilt_rest[40], cfilt_obs[40];
-  char cband_rest[2], cband_obs[2];
+  char cband_rest[2], cband_obs[2], *FILTER_NAME ;
   char fnam[] = "read_kcor_tables" ;
 
   // --------- BEGIN ----------
@@ -573,20 +578,32 @@ void read_kcor_tables(void) {
     len = strlen(cfilt_rest); sprintf(cband_rest,"%c", cfilt_rest[len-1]);
     len = strlen(cfilt_obs ); sprintf(cband_obs, "%c", cfilt_obs[len-1]);
     
-    if ( strchr(KCOR_INFO.FILTERS_SURVEY,cband_obs[0]) == NULL ) 
+    if ( strchr(KCOR_INFO.FILTERS_SURVEY,cband_obs[0]) == NULL )  
       { continue; }
 
     KCOR_INFO.EXIST_KCOR[ifilt_rest][ifilt_obs] = true ;
     
     // set mask for rest frame and/or observer frame
     for(ifilt=0; ifilt < NFILTDEF_KCOR; ifilt++ ) {
-      IFILTDEF = KCOR_INFO.IFILTDEF[ifilt];
+      IFILTDEF    = KCOR_INFO.IFILTDEF[ifilt];
+      FILTER_NAME = KCOR_INFO.FILTER_NAME[ifilt];
 
-      if ( ifilt_rest == IFILTDEF ) 
+      // xxxx mark delete      if ( ifilt_rest == IFILTDEF ) 
+      if ( strcmp(FILTER_NAME,cfilt_rest) == 0 )
 	{ KCOR_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_REST ; }
 
-      if ( ifilt_obs == IFILTDEF ) 
+      // xxx mark delete       if ( ifilt_obs == IFILTDEF ) 
+      if ( strcmp(FILTER_NAME,cfilt_obs) == 0 )
 	{ KCOR_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_OBS ; }
+
+      /*
+      if ( IFILTDEF == ifilt_rest || IFILTDEF== ifilt_obs) {
+	printf(" xxx check K(%s->%s), ifilt[rest,obs]=%d,%d  IFILTDEF=%2d"
+	       " MASK[%d]=%d \n",
+	       cfilt_rest, cfilt_obs, ifilt_rest, ifilt_obs, IFILTDEF,
+	       ifilt,KCOR_INFO.MASK_FRAME_FILTER[ifilt] );
+	       } */
+
     } // end ifilt
 
     LBX0 = ISBXFILT_KCOR(cfilt_rest);
@@ -1026,10 +1043,23 @@ void read_kcor_mags(void) {
   int  NBIN_z          = KCOR_INFO.BININFO_z.NBIN ;
   int  NBIN_AV         = KCOR_INFO.BININFO_AV.NBIN ;
   int  NFILTDEF_KCOR   = KCOR_INFO.NFILTDEF;
+  int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
+  int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
 
-  int istat=0, hdutype, IBLCMAG[N4DIM_KCOR], IBMWXT[N4DIM_KCOR];
-  int IBIN_FIRST, IBIN_LAST, ibin, ifilt ;
+  int  NBINTOT_LCMAG   = NBIN_T * NBIN_z * NBIN_AV * NFILTDEF_REST;
+  int  MEMF_LCMAG      = NBINTOT_LCMAG * sizeof(float);
+  KCOR_INFO.LCMAG_TABLE1D_F = (float*)malloc(MEMF_LCMAG);
+
+  int  NBINTOT_MWXT    = NBIN_T * NBIN_z * NBIN_AV * NFILTDEF_OBS;
+  int  MEMF_MWXT       = NBINTOT_MWXT * sizeof(float);
+  KCOR_INFO.MWXT_TABLE1D_F = (float*)malloc(MEMF_MWXT);
+
+  int istat=0, hdutype, anynul, ifilt, ifiltr, ifilto, IFILTDEF ;
+  int MASK, ISREST, ISOBS, ICOL_LCMAG, ICOL_MWXT;
+  int IBLCMAG[N4DIM_KCOR], IBMWXT[N4DIM_KCOR];
+  int IBIN_FIRST, IBIN_LAST, ibin, LBX;
   long long FIRSTROW=1, FIRSTELEM=1, NROW;
+  char *CFILT ;
   char fnam[] = "read_kcor_mags" ;
 
   // --------- BEGIN ----------
@@ -1045,9 +1075,74 @@ void read_kcor_mags(void) {
     { IBLCMAG[ibin] = IBMWXT[ibin] = 0 ;  }
 
 
+
   for (ifilt=0; ifilt < NFILTDEF_KCOR; ifilt++ ) {
 
-  }
+    MASK   = KCOR_INFO.MASK_FRAME_FILTER[ifilt] ;
+    ISREST = ( MASK & MASK_FRAME_REST);
+    ISOBS  = ( MASK & MASK_FRAME_OBS);
+
+    /*
+    printf("\t xxx %s: ifilt=%d MASK=%d for '%s' \n",
+	   fnam, ifilt, MASK, KCOR_INFO.FILTER_NAME[ifilt] );
+    */
+
+    if ( ! ( ISREST || ISOBS ) )  { continue ; }
+
+    IFILTDEF = KCOR_INFO.IFILTDEF[ifilt] ;
+    CFILT    = KCOR_INFO.FILTER_NAME[ifilt];
+    ICOL_LCMAG   = 4 + ifilt;  // skip T,z,AV columns
+    ICOL_MWXT    = ICOL_LCMAG + NFILTDEF_KCOR ;
+
+    if ( ISREST ) {
+      ifiltr = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[IFILTDEF];
+      IBLCMAG[KDIM_IFILTr] = ifiltr;
+      IBIN_FIRST = get_1DINDEX(IDMAP_KCOR_LCMAG, N4DIM_KCOR, IBLCMAG);
+      IBIN_LAST  = IBIN_FIRST + NROW - 1;
+
+      //      IBIN_FIRST = -66;
+      if ( IBIN_FIRST < 0 ) {
+	sprintf(c1err,"Invalid IBIN_FIRST(LCMAG) = %d", IBIN_FIRST);
+	sprintf(c2err,"for REST-filter = %s (ifiltr=%d, IFILTDEF=%d)",
+		CFILT, ifiltr, IFILTDEF);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      fits_read_col_flt(FP, ICOL_LCMAG, FIRSTROW, FIRSTELEM, NROW,
+			NULL_1E, KCOR_INFO.LCMAG_TABLE1D_F, &anynul, &istat );
+      sprintf(c1err,"read LCMAG(%s)", CFILT);
+      snfitsio_errorCheck(c1err, istat);
+
+      // apply user mag-shifts
+      for(ibin=IBIN_FIRST; ibin<=IBIN_LAST; ibin++ ) {
+	KCOR_INFO.LCMAG_TABLE1D_F[ibin] += 
+	  ( KCOR_INFO.MAGREST_SHIFT_PRIMARY[IFILTDEF] - 19.6);	  
+      }
+    } // end ISREST
+    
+    // now get MWXT cor for obs-frame filters.
+    LBX = ISBXFILT_KCOR(CFILT) ;
+
+    if ( ISOBS && !LBX ) {
+      ifilto = KCOR_INFO.FILTERMAP_OBS.IFILTDEF_INV[IFILTDEF];
+      IBMWXT[KDIM_IFILTr] = ifilto-1; // note index here is 3, not 4
+      IBIN_FIRST = get_1DINDEX(IDMAP_KCOR_MWXT, N4DIM_KCOR, IBMWXT);
+      IBIN_LAST  = IBIN_FIRST + NROW - 1;
+      
+      //      IBIN_FIRST = -66;
+      if ( IBIN_FIRST < 0 ) {
+	sprintf(c1err,"Invalid IBIN_FIRST(MWXT) = %d", IBIN_FIRST);
+	sprintf(c2err,"for OBS-filter = %s (ifilto=%d, IFILTDEF=%d)",
+		CFILT, ifilto, IFILTDEF);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      fits_read_col_flt(FP, ICOL_MWXT, FIRSTROW, FIRSTELEM, NROW,
+			NULL_1E, KCOR_INFO.MWXT_TABLE1D_F, &anynul, &istat );
+      sprintf(c1err,"read MWXT-slope(%s)", CFILT);
+      snfitsio_errorCheck(c1err, istat);
+
+    } // end ISOBS    
+
+  } // end ifilt loop
 
   // .xyz
 

@@ -1793,7 +1793,7 @@ void read_gal_HOSTLIB(FILE *fp) {
       ivar_STORE = HOSTLIB.IVAR_NBR_LIST ;
       if ( ivar_STORE > 0  ) {
 	ivar_ALL   = HOSTLIB.IVAR_ALL[ivar_STORE];
-	MEMC       = strlen(NBR_LIST) * sizeof(char) + 2 ;
+	MEMC       = strlen(NBR_LIST) * sizeof(char) ;
 	HOSTLIB.NBR_UNSORTED[NGAL] = (char*) malloc(MEMC);
 	sprintf(HOSTLIB.NBR_UNSORTED[NGAL],"%s", NBR_LIST);
       }
@@ -2246,12 +2246,13 @@ void sortz_HOSTLIB(void) {
   //
   // Also compute ZGAPMAX, ZGAPAVG and Z_ATGAPMAZ
   //
+  // Nov 11 2019: check NBR_LIST
 
-  int  NGAL, igal, ival, unsort, VBOSE, DOFIELD;
-  int  IVAR_ZTRUE, NVAR_STORE, ORDER_SORT     ;
+  int  NGAL, igal, ival, unsort, VBOSE, DO_FIELD, DO_NBR;
+  int  IVAR_ZTRUE, NVAR_STORE, ORDER_SORT, MEMC  ;
 
   double ZTRUE, ZLAST, ZGAP, ZSUM, *ZSORT, VAL ;
-  char *FIELD;
+  char *ptr_UNSORT ;
   char fnam[] = "sortz_HOSTLIB" ;
 
   // ------------- BEGIN -------------
@@ -2268,7 +2269,9 @@ void sortz_HOSTLIB(void) {
     fflush(stdout); 
   }
 
-  DOFIELD = ( HOSTLIB.IVAR_FIELD > 0 ) ;
+
+  DO_FIELD = ( HOSTLIB.IVAR_FIELD    > 0 ) ;
+  DO_NBR   = ( HOSTLIB.IVAR_NBR_LIST > 0 ) ;
 
   NGAL = HOSTLIB.NGAL_STORE ;
   NVAR_STORE = HOSTLIB.NVAR_STORE ;
@@ -2284,13 +2287,15 @@ void sortz_HOSTLIB(void) {
       (double*)malloc( (NGAL+1) * sizeof(double) ) ;
   }
 
-  if ( DOFIELD  ) {
-    HOSTLIB.FIELD_ZSORTED = 
-      (char**)malloc( (NGAL+1) * sizeof(char*) ) ;
-    for ( igal=0; igal <= NGAL; igal++ ) {
-      HOSTLIB.FIELD_ZSORTED[igal] = 
-	(char*)malloc( MXCHAR_FIELDNAME * sizeof(char) ) ; 
-    }
+  if ( DO_FIELD  ) {
+    HOSTLIB.FIELD_ZSORTED = (char**)malloc( (NGAL+1) * sizeof(char*) ) ;
+    MEMC = MXCHAR_FIELDNAME * sizeof(char) ;
+    for ( igal=0; igal <= NGAL; igal++ ) 
+      { HOSTLIB.FIELD_ZSORTED[igal] = (char*)malloc(MEMC) ; }
+  }
+
+  if ( DO_NBR ) {
+    HOSTLIB.NBR_ZSORTED = (char**)malloc( (NGAL+1) * sizeof(char*) ) ;
   }
 
 
@@ -2322,9 +2327,19 @@ void sortz_HOSTLIB(void) {
       HOSTLIB.VALUE_ZSORTED[ival][igal] = VAL;
     }
 
-    if ( DOFIELD ) {
-      FIELD = HOSTLIB.FIELD_UNSORTED[unsort] ;
-      sprintf(HOSTLIB.FIELD_ZSORTED[igal],"%s", FIELD);
+    if ( DO_FIELD ) {
+      ptr_UNSORT = HOSTLIB.FIELD_UNSORTED[unsort];
+      sprintf(HOSTLIB.FIELD_ZSORTED[igal],"%s", ptr_UNSORT);
+      free(HOSTLIB.FIELD_UNSORTED[unsort]); // Nov 11 2019
+    }
+    
+    if ( DO_NBR ) {  // Nov 11 2019 
+      ptr_UNSORT = HOSTLIB.NBR_UNSORTED[unsort];
+      MEMC = strlen(ptr_UNSORT) * sizeof(char);
+      if ( MEMC == 0 ) { MEMC = 2; }
+      HOSTLIB.NBR_ZSORTED[igal] = (char*)malloc(MEMC) ; 
+      sprintf(HOSTLIB.NBR_ZSORTED[igal], "%s", ptr_UNSORT);
+      free(HOSTLIB.NBR_UNSORTED[unsort]); 
     }
 
     // update redshift variables

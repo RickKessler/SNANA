@@ -124,7 +124,7 @@ c
      &  ,MXITER        = 12         ! max # fit iterations
      &  ,NFIT_VERBOSE  = 500        ! Number of fits for verbose printouts
      &  ,MXSNLC        = 4000000    ! max number of SNe (fits format)
-     &  ,MXCCID_LIST   = 10000      ! max size of SNCCID_LIST_ALL 
+     &  ,MXCCID_LIST   = 20000      ! max size of SNCCID_LIST_ALL 
      &  ,MXIGNORE_LIST = 500        ! max size of IGNORE_LIST
      &  ,MXCID       = 299 999 999  ! max CID = 300 million -1 (9 digits)
      &  ,MXCID_CHECK =  99 999 999  ! MXCID to check duplicates
@@ -795,13 +795,6 @@ c
      &  ,SNLC_SNANAFIT_PEAKMJD_FITERR(MXFILT_OBS,NPAR_ANYLC)
      &  ,SNLC_PHOTPROB(MXEPOCH)   ! generic 'fit probability' per epoch
      &  ,SNLC_PHOTPROB_MIN        ! min photprob for PHOTPROB>0
-c xxxxxxxx mark delete June 24 2019 xxxxxx
-c     &  ,SNLC_AIRMASS(MXEPOCH)
-c     &  ,SNLC_CLOUDCAM_AVG(MXEPOCH)
-c     &  ,SNLC_CLOUDCAM_SIG(MXEPOCH)
-c     &  ,SNLC_MOONDIST(MXEPOCH)    ! in deg.
-c     &  ,SNLC_MOONPHASE(MXEPOCH)   ! 0 - 1
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
      &  ,SNLC_TOBS(MXEPOCH)        ! MJD-SET_PEAKMJD
      &  ,SNLC_TREST(MXEPOCH)       !  MJD-SET_PEAKMJD)/(1+z)
      &  ,SNLC_GAIN(MXEPOCH)      ! e/AUD

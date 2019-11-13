@@ -977,10 +977,9 @@ void init_kcor_indices(void) {
   KCOR_INFO.MAPINFO_MWXT.NBIN[0]           = NBIN_T ;
   KCOR_INFO.MAPINFO_MWXT.NBIN[1]           = NBIN_z ;
   KCOR_INFO.MAPINFO_MWXT.NBIN[2]           = NBIN_AV ;
-  KCOR_INFO.MAPINFO_MWXT.NBIN[3]           = NFILTDEF_SURVEY ;
+  KCOR_INFO.MAPINFO_MWXT.NBIN[3]           = NFILTDEF_OBS ;
   get_MAPINFO_KCOR("NBINTOT", &KCOR_INFO.MAPINFO_MWXT);
   
-
   // clear map IDs since RDKCOR can be called multiple times.
   clear_1DINDEX(IDMAP_KCOR_TABLE);
   clear_1DINDEX(IDMAP_KCOR_AVWARP);
@@ -1074,8 +1073,6 @@ void read_kcor_mags(void) {
   for(ibin=0; ibin < N4DIM_KCOR; ibin++ ) 
     { IBLCMAG[ibin] = IBMWXT[ibin] = 0 ;  }
 
-
-
   for (ifilt=0; ifilt < NFILTDEF_KCOR; ifilt++ ) {
 
     MASK   = KCOR_INFO.MASK_FRAME_FILTER[ifilt] ;
@@ -1096,19 +1093,21 @@ void read_kcor_mags(void) {
 
     if ( ISREST ) {
       ifiltr = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[IFILTDEF];
-      IBLCMAG[KDIM_IFILTr] = ifiltr;
-      IBIN_FIRST = get_1DINDEX(IDMAP_KCOR_LCMAG, N4DIM_KCOR, IBLCMAG);
+      IBLCMAG[KDIM_IFILTr] = ifiltr ;
+      IBIN_FIRST = get_1DINDEX(IDMAP_KCOR_LCMAG, N4DIM_KCOR, IBLCMAG) ;
       IBIN_LAST  = IBIN_FIRST + NROW - 1;
 
       //      IBIN_FIRST = -66;
-      if ( IBIN_FIRST < 0 ) {
-	sprintf(c1err,"Invalid IBIN_FIRST(LCMAG) = %d", IBIN_FIRST);
+      if ( IBIN_FIRST < 0  || IBIN_LAST >= NBINTOT_LCMAG ) {
+	sprintf(c1err,"Invalid IBIN_FIRST,LAST(LCMAG) = %d,%d", 
+		IBIN_FIRST, IBIN_LAST );
 	sprintf(c2err,"for REST-filter = %s (ifiltr=%d, IFILTDEF=%d)",
 		CFILT, ifiltr, IFILTDEF);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       fits_read_col_flt(FP, ICOL_LCMAG, FIRSTROW, FIRSTELEM, NROW,
-			NULL_1E, KCOR_INFO.LCMAG_TABLE1D_F, &anynul, &istat );
+			NULL_1E, &KCOR_INFO.LCMAG_TABLE1D_F[IBIN_FIRST], 
+			&anynul, &istat );
       sprintf(c1err,"read LCMAG(%s)", CFILT);
       snfitsio_errorCheck(c1err, istat);
 
@@ -1122,21 +1121,23 @@ void read_kcor_mags(void) {
     // now get MWXT cor for obs-frame filters.
     LBX = ISBXFILT_KCOR(CFILT) ;
 
-    if ( ISOBS && !LBX ) {
+    if ( ISOBS  && !LBX ) {
       ifilto = KCOR_INFO.FILTERMAP_OBS.IFILTDEF_INV[IFILTDEF];
-      IBMWXT[KDIM_IFILTr] = ifilto-1; // note index here is 3, not 4
-      IBIN_FIRST = get_1DINDEX(IDMAP_KCOR_MWXT, N4DIM_KCOR, IBMWXT);
+      IBMWXT[KDIM_IFILTr] = ifilto ; // note index here is 3, not 4
+      IBIN_FIRST = get_1DINDEX(IDMAP_KCOR_MWXT, N4DIM_KCOR, IBMWXT) ;
       IBIN_LAST  = IBIN_FIRST + NROW - 1;
       
       //      IBIN_FIRST = -66;
-      if ( IBIN_FIRST < 0 ) {
-	sprintf(c1err,"Invalid IBIN_FIRST(MWXT) = %d", IBIN_FIRST);
+      if ( IBIN_FIRST < 0 || IBIN_LAST > NBINTOT_MWXT ) {
+	sprintf(c1err,"Invalid IBIN_FIRST,LAST(MWXT) = %d,%d", 
+		IBIN_FIRST, IBIN_LAST );
 	sprintf(c2err,"for OBS-filter = %s (ifilto=%d, IFILTDEF=%d)",
 		CFILT, ifilto, IFILTDEF);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       fits_read_col_flt(FP, ICOL_MWXT, FIRSTROW, FIRSTELEM, NROW,
-			NULL_1E, KCOR_INFO.MWXT_TABLE1D_F, &anynul, &istat );
+			NULL_1E, &KCOR_INFO.MWXT_TABLE1D_F[IBIN_FIRST],
+			&anynul, &istat );
       sprintf(c1err,"read MWXT-slope(%s)", CFILT);
       snfitsio_errorCheck(c1err, istat);
 
@@ -1144,16 +1145,34 @@ void read_kcor_mags(void) {
 
   } // end ifilt loop
 
-  // .xyz
+
+  /*xxxxxx dump entire table to compare with original fortran
+  for(ibin=0; ibin < NBINTOT_LCMAG; ibin++ ) {
+    printf(" CHECK LCMAG_TABLE1D[%6d] = %8.4f\n", 
+	   ibin+1, KCOR_INFO.LCMAG_TABLE1D_F[ibin]); fflush(stdout);
+  }
+
+  for(ibin=0; ibin < NBINTOT_MWXT; ibin++ ) {
+    printf(" CHECK MWXT_TABLE1D[%6d] = %8.4f\n", 
+	   ibin+1, KCOR_INFO.MWXT_TABLE1D_F[ibin]); fflush(stdout);
+  }
+  xxxxxxxx */
 
   return ;
+
 } // end read_kcor_mags
 
 // =============================
 void read_kcor_filters(void) {
+
   char fnam[] = "read_kcor_filters" ;
+
   // --------- BEGIN ----------
-  printf(" xxx %s: Hello \n", fnam); fflush(stdout);
+
+  printf("   %s \n", fnam); fflush(stdout);
+
+  // .xyz
+
   return ;
 } // end read_kcor_filters
 

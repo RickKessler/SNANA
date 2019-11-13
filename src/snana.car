@@ -4,7 +4,7 @@ c Program to read light curves and apply user selection
 c cuts specified in the &SNLCINP namelist.
 c Can also fit function to estimate time of peak brightness.
 c
- 
+c
 
                      CHANGES
           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -9479,11 +9479,14 @@ c --- error checking
 
 c abort if we exceed array bound
          IF ( N_INTERP_MJDLIST .GT. MXINTERP ) THEN
+            print*,' '
+            print*,' PRE-ABORT DUMP: '
+            print*,'   SNMJD_LIST_FILE = ', SNMJD_LIST_FILE
             write(c1err,161) CCID, MJD8
 161         format('N_INTERP_MJDLIST exceeds bound at CID=',A8, 2x,
      &          'MJD=',F9.3)
-            write(c2err,162) MXINTERP, SNMJD_LIST_FILE
-162         format('Check MXINTERP=',I5,'  and listFile=', A60)
+            write(c2err,162) MXINTERP
+162         format('Check MXINTERP=',I5,' and SNMJD_LIST_FILE above.')
 
            CALL  MADABORT("RD_SNMJDLIST", C1ERR, C2ERR)
       ENDIF
@@ -16659,6 +16662,7 @@ C ===================================
 c
 c
 c Jun 25 2019: include SIM_XXX arrays
+c Nov 12 2019: check LSIM_MAGOBS to set SIM_EPMAGOBS(ep)
 
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -16693,8 +16697,11 @@ c beware that CCDNUM is read from header, and also from
 c PHOT section of TEXT format ... but not read from PHOT-FITS file
       ISNLC_CCDNUM(EP1)        = ISNLC_CCDNUM(EP2)
 
-      IF ( LSIM_SNANA ) THEN
+      IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
         SIM_EPMAGOBS(EP1)          = SIM_EPMAGOBS(EP2)
+      ENDIF
+
+      IF ( LSIM_SNANA ) THEN
         SIM_EPFLUXCAL_HOSTERR(EP1) = SIM_EPFLUXCAL_HOSTERR(EP2)
         SIM_EPSNRMON(EP1)          = SIM_EPSNRMON(EP2)
       ENDIF
@@ -26789,11 +26796,9 @@ c ---------------
      &  ,ifiltr, ifilto
      &  ,IBLCMAG(N4DIM)
      &  ,IBMWXT(N4DIM)
-     &  ,IBIN_FIRST, IBIN_LAST, ibin
+     &  ,IBIN_FIRST, IBIN_LAST, ibin, NBTOT
 
       LOGICAL LBX, ISREST, ISOBS, USE
-
-
       CHARACTER   FNAM*18, ERRMSG*60, CFILT*40 
 
 c functions
@@ -26901,6 +26906,22 @@ c read table from fits file.
 
 
 200   CONTINUE
+
+
+c - - - - - -
++SELF,IF=DUMP_ENTIRE_TABLE.
+      NBTOT = NROW * NFILTDEF_REST
+      DO ibin = 1, NBTOT
+         write(6,661) ibin, LCMAG_TABLE1D(ibin)
+661      format(' CHECK LCMAG_TABLE1D[',I6,'] = ', F8.4)
+      ENDDO
+
+      NBTOT = NROW * NFILTDEF_SURVEY
+      DO ibin = 1, NBTOT
+         write(6,662) ibin, MWXT_TABLE1D(ibin)
+662      format(' CHECK MWXT_TABLE1D[',I6,'] = ', F8.4)
+      ENDDO
++SELF.
 
       RETURN
       END  ! end RDKCOR_FITS_MAGS

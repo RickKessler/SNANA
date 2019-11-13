@@ -340,6 +340,16 @@ struct HOSTLIB_WGTMAP_DEF {
 
 } HOSTLIB_WGTMAP ;
 
+typedef struct {
+  // Sersic profiles for this host
+  double  INDEX ; // Sersic 'n' used to get SN pos
+  double  a[MXSERSIC_HOSTLIB]  ;
+  double  b[MXSERSIC_HOSTLIB]  ;
+  double  n[MXSERSIC_HOSTLIB]  ;
+  double  w[MXSERSIC_HOSTLIB]  ;
+  double  wsum[MXSERSIC_HOSTLIB] ;
+  double  bn[MXSERSIC_HOSTLIB] ;
+} SERSIC_DEF ;
 
 
 // define structure to hold information for one event ...
@@ -359,6 +369,8 @@ struct SNHOSTGAL {
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
   double ZSPEC, ZSPEC_ERR ;     // = zSN or z of wrong host
   double PEAKMJD ;
+
+  SERSIC_DEF SERSIC ; // Nov 2019
 
   // Sersic profiles for this host
   double  SERSIC_INDEX ; // Sersic 'n' used to get SN pos

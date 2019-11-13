@@ -3362,8 +3362,7 @@ void get_Sersic_info(int IGAL) {
   wsum_last = 0.0 ;
   for ( j=0; j < NDEF; j++ ) {
     WGT = SNHOSTGAL.SERSIC_w[j] ;
-    // xxx bug SNHOSTGAL.SERSIC_wsum[j] = WGT + SNHOSTGAL.SERSIC_w[j-1] ;
-    SNHOSTGAL.SERSIC_wsum[j] = WGT + wsum_last; // bug fix
+    SNHOSTGAL.SERSIC_wsum[j] = WGT + wsum_last; 
     wsum_last = SNHOSTGAL.SERSIC_wsum[j] ; 
   }
 
@@ -4877,8 +4876,8 @@ void GEN_SNHOST_POS(int IGAL) {
   //              host galaxy RA,DEC are not given.
   //
   
-  int  LSN2GAL, LDEBUG, IVAR_RA, IVAR_DEC, IVAR_ANGLE;
-  int j, JPROF, k_table, NBIN    ;
+  int  LSN2GAL, LDEBUG, IVAR_RA, IVAR_DEC, IVAR_ANGLE ;
+  int  j, JPROF, k_table, NBIN ;
 
   double 
     RA_GAL, DEC_GAL
@@ -5047,7 +5046,6 @@ void GEN_SNHOST_POS(int IGAL) {
     DEC_GAL  = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL] ; // degrees
     
     // compute absolute SN position relative to center of host
-    // (Nov 2015 - correct for 1/cos(DEC))
     DCOS = cos(DEC_GAL*RAD) ;
     DTMP                 = DEG_ARCSEC * SNHOSTGAL.RA_SNGALSEP_ASEC / DCOS ;
     SNHOSTGAL.RA_SN_DEG  = RA_GAL  + DTMP ;

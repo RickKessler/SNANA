@@ -20778,10 +20778,13 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
     SNDATA.HOSTGAL_SPECZ[0]          = SNHOSTGAL.ZSPEC ;
     SNDATA.HOSTGAL_SPECZ_ERR[0]      = SNHOSTGAL.ZSPEC_ERR ;
+
+    // since HOSTLIB coordinates may be quite different than true SN coords,
+    // use GAL-SN difference to determine final host coords.
     SNDATA.HOSTGAL_RA[0]     = SNDATA.RA + 
-      (SNHOSTGAL.RA_GAL_DEG-SNHOSTGAL.RA_SN_DEG);
+      (SNHOSTGAL.RA_GAL_DEG - SNHOSTGAL.RA_SN_DEG);
     SNDATA.HOSTGAL_DEC[0]    = SNDATA.DEC + 
-      (SNHOSTGAL.DEC_GAL_DEG-SNHOSTGAL.DEC_SN_DEG);
+      (SNHOSTGAL.DEC_GAL_DEG - SNHOSTGAL.DEC_SN_DEG);
     SNDATA.HOSTGAL_SNSEP[0]          = SNHOSTGAL.SNSEP ;
     SNDATA.HOSTGAL_DDLR[0]           = SNHOSTGAL.DDLR ;
     SNDATA.HOSTGAL_LOGMASS[0]        = SNHOSTGAL.LOGMASS ;

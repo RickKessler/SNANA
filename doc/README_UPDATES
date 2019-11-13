@@ -17664,5 +17664,6 @@
 
    snana.car:
      + MXCCID_LIST -> 20k (was 10k)
+     + fix bug in MOVE_SNLC_ARRAYS() to check for fakes.
 
 END: 

@@ -17941,6 +17941,10 @@ c Mar 19 2018:
 c   + call function SKIPTABLE_FITPAR(VARNAME)
 c   + write OPT_PHOTOZ to table if ZPHOT info is suppressed.
 c
+c Nov 11 2019:
+c  Protect adding non-PKMJD covariance columns if there aren't any
+c  when stretch and color are both fixed instead of floated.
+
 c --------------
 
       IMPLICIT NONE
@@ -18110,11 +18114,12 @@ c add PKMJD-covariances
 
 c add other [non-PKMJD] covariances and include in optional text table.
 c Make sure to skip the comma after the PKMJD-covariance list.
-      USE4TEXT = 1
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, TBL_COV(NCOV_TBL_PKMJD+1), 
+      IF ( LENLIST > LENPKMJD ) THEN
+        USE4TEXT = 1
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, TBL_COV(NCOV_TBL_PKMJD+1), 
      &        VARLIST(LENPKMJD+2:LENLIST)//char(0), 
      &        USE4TEXT, LENBLOCK, LENLIST-LENPKMJD )
-
+      ENDIF
 c - - - - - -   PHOTOZ - - - - - 
 
       LENLIST = LEN(VARLIST)

@@ -4,7 +4,7 @@ c Program to read light curves and apply user selection
 c cuts specified in the &SNLCINP namelist.
 c Can also fit function to estimate time of peak brightness.
 c
- 
+c
 
                      CHANGES
           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -124,7 +124,7 @@ c
      &  ,MXITER        = 12         ! max # fit iterations
      &  ,NFIT_VERBOSE  = 500        ! Number of fits for verbose printouts
      &  ,MXSNLC        = 4000000    ! max number of SNe (fits format)
-     &  ,MXCCID_LIST   = 10000      ! max size of SNCCID_LIST_ALL 
+     &  ,MXCCID_LIST   = 20000      ! max size of SNCCID_LIST_ALL 
      &  ,MXIGNORE_LIST = 500        ! max size of IGNORE_LIST
      &  ,MXCID       = 299 999 999  ! max CID = 300 million -1 (9 digits)
      &  ,MXCID_CHECK =  99 999 999  ! MXCID to check duplicates
@@ -795,13 +795,6 @@ c
      &  ,SNLC_SNANAFIT_PEAKMJD_FITERR(MXFILT_OBS,NPAR_ANYLC)
      &  ,SNLC_PHOTPROB(MXEPOCH)   ! generic 'fit probability' per epoch
      &  ,SNLC_PHOTPROB_MIN        ! min photprob for PHOTPROB>0
-c xxxxxxxx mark delete June 24 2019 xxxxxx
-c     &  ,SNLC_AIRMASS(MXEPOCH)
-c     &  ,SNLC_CLOUDCAM_AVG(MXEPOCH)
-c     &  ,SNLC_CLOUDCAM_SIG(MXEPOCH)
-c     &  ,SNLC_MOONDIST(MXEPOCH)    ! in deg.
-c     &  ,SNLC_MOONPHASE(MXEPOCH)   ! 0 - 1
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
      &  ,SNLC_TOBS(MXEPOCH)        ! MJD-SET_PEAKMJD
      &  ,SNLC_TREST(MXEPOCH)       !  MJD-SET_PEAKMJD)/(1+z)
      &  ,SNLC_GAIN(MXEPOCH)      ! e/AUD
@@ -1366,7 +1359,10 @@ c logical flags for CWNT
      &   ,SNHOST8_DEC(MXSNHOST)
 
 c quantites which do not depend on which host
-      INTEGER*4  SNHOST_NMATCH, SNHOST_NMATCH2  ! number of host matches
+      INTEGER*4 
+     &    SNHOST_NMATCH   ! number of host matches, e.g., d_DLR<4
+     &   ,SNHOST_NMATCH2  ! number of host matches, e.g., d_DLR<7
+
       REAL
      &   SNHOST_SBFLUXCAL_ERR(MXFILT_ALL)
      &  ,SNHOST_SBMAG(MXFILT_ALL)        ! surface brightness mag/asec^2
@@ -9483,11 +9479,14 @@ c --- error checking
 
 c abort if we exceed array bound
          IF ( N_INTERP_MJDLIST .GT. MXINTERP ) THEN
+            print*,' '
+            print*,' PRE-ABORT DUMP: '
+            print*,'   SNMJD_LIST_FILE = ', SNMJD_LIST_FILE
             write(c1err,161) CCID, MJD8
 161         format('N_INTERP_MJDLIST exceeds bound at CID=',A8, 2x,
      &          'MJD=',F9.3)
-            write(c2err,162) MXINTERP, SNMJD_LIST_FILE
-162         format('Check MXINTERP=',I5,'  and listFile=', A60)
+            write(c2err,162) MXINTERP
+162         format('Check MXINTERP=',I5,' and SNMJD_LIST_FILE above.')
 
            CALL  MADABORT("RD_SNMJDLIST", C1ERR, C2ERR)
       ENDIF
@@ -16663,6 +16662,7 @@ C ===================================
 c
 c
 c Jun 25 2019: include SIM_XXX arrays
+c Nov 12 2019: check LSIM_MAGOBS to set SIM_EPMAGOBS(ep)
 
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -16697,8 +16697,11 @@ c beware that CCDNUM is read from header, and also from
 c PHOT section of TEXT format ... but not read from PHOT-FITS file
       ISNLC_CCDNUM(EP1)        = ISNLC_CCDNUM(EP2)
 
-      IF ( LSIM_SNANA ) THEN
+      IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
         SIM_EPMAGOBS(EP1)          = SIM_EPMAGOBS(EP2)
+      ENDIF
+
+      IF ( LSIM_SNANA ) THEN
         SIM_EPFLUXCAL_HOSTERR(EP1) = SIM_EPFLUXCAL_HOSTERR(EP2)
         SIM_EPSNRMON(EP1)          = SIM_EPSNRMON(EP2)
       ENDIF
@@ -26745,9 +26748,16 @@ c apply user mag-shifts
      &         = R4KCORTABLE1D(ibin) 
      &         - MAGREST_SHIFT_PRIMARY_FILT(ifilt_rest)
      &         + MAGOBS_SHIFT_PRIMARY_FILT(ifilt_obs)
-         ENDDO
+         ENDDO 
 
 200   CONTINUE
+
+c xxxxxxxxxxxx
+c      DO ibin = 1, NBIN_TOT
+c        write(6,690) ibin-1, R4KCORTABLE1D(ibin) 
+c690     format(' xxx KCORTABLE1D(',I7,') = ', F10.5 );   call flush(6)
+c      ENDDO
+c xxxxxxxxx
 
 
       RETURN
@@ -26786,11 +26796,9 @@ c ---------------
      &  ,ifiltr, ifilto
      &  ,IBLCMAG(N4DIM)
      &  ,IBMWXT(N4DIM)
-     &  ,IBIN_FIRST, IBIN_LAST, ibin
+     &  ,IBIN_FIRST, IBIN_LAST, ibin, NBTOT
 
       LOGICAL LBX, ISREST, ISOBS, USE
-
-
       CHARACTER   FNAM*18, ERRMSG*60, CFILT*40 
 
 c functions
@@ -26898,6 +26906,22 @@ c read table from fits file.
 
 
 200   CONTINUE
+
+
+c - - - - - -
++SELF,IF=DUMP_ENTIRE_TABLE.
+      NBTOT = NROW * NFILTDEF_REST
+      DO ibin = 1, NBTOT
+         write(6,661) ibin, LCMAG_TABLE1D(ibin)
+661      format(' CHECK LCMAG_TABLE1D[',I6,'] = ', F8.4)
+      ENDDO
+
+      NBTOT = NROW * NFILTDEF_SURVEY
+      DO ibin = 1, NBTOT
+         write(6,662) ibin, MWXT_TABLE1D(ibin)
+662      format(' CHECK MWXT_TABLE1D[',I6,'] = ', F8.4)
+      ENDDO
++SELF.
 
       RETURN
       END  ! end RDKCOR_FITS_MAGS
@@ -33261,7 +33285,7 @@ C ------------ BEGIN ------------
 
 
 C ==========================================
-+DECK,CHKMSHIFT.
++DECK,CHECK_MAGSHIFTS.
       SUBROUTINE RDKCOR_CHECK_MAGSHIFTS
 
 C Nov 13, 2010

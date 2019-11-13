@@ -195,6 +195,8 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
 
  Aug 26 2019: implement RELAX_IDIOT_CHECK_SALT2 for P18 to avoid abort.
 
+ Nov 7 2019: for SALT3, remove x1*M1/M0 term in error; see ISMODEL_SALT3.
+
 ****************************************************************/
 
 int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
@@ -250,9 +252,9 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   
 
   // Aug 02 2019: set prefix for filenames to allow salt2 or salt3 prefix
-  sprintf(SALT2_PREFIX_FILENAME,"salt2"); // default
+  ISMODEL_SALT3=0; sprintf(SALT2_PREFIX_FILENAME,"salt2"); // default
   if ( strstr(version,"SALT3") != NULL ) 
-    { sprintf(SALT2_PREFIX_FILENAME,"salt3"); } 
+    { sprintf(SALT2_PREFIX_FILENAME,"salt3");  ISMODEL_SALT3=1; } 
 
   RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
 
@@ -1877,7 +1879,10 @@ double SALT2magerr(double Trest, double lamRest, double z,
   //                     Finteg[1] / Finteg[0]
   //
   //   - LDMP : dump-and-exit flag
-
+  //
+  // Nov 7 2019: for SALT3 (retraining), set relx1=0. We don't understand
+  //             the origin of this term, so scrap it for SALT3.
+  // 
   double 
      ERRMAP[NERRMAP]
     ,Trest_tmp
@@ -1914,6 +1919,7 @@ double SALT2magerr(double Trest, double lamRest, double z,
   errscale = ERRMAP[INDEX_ERRMAP_SCAL] ;  // error fudge  
 
   relx1    = x1 * Finteg_ratio ;
+  if ( ISMODEL_SALT3 ) { relx1 = 0.0 ; } 
 
   // compute fractional error as in  Guy's ModelRelativeError function
   vartot  = var0 + var1*x1*x1 + (2.0 * x1* covar01) ;

@@ -1012,7 +1012,6 @@ void malloc_PARSE_WORDS(void) {
   }
 
   
-
   for(iwd=WD0; iwd < WD1; iwd++ ) {
     PARSE_WORDS.WDLIST[iwd]  = (char*) malloc( MXCHARWD*sizeof(char) );
     PARSE_WORDS.WDLIST[iwd][0] = 0 ;
@@ -1707,7 +1706,8 @@ void extract_MODELNAME(char *STRING, char *MODELPATH, char *MODELNAME) {
 
   return ;
 
-} // end extractPath
+} // end extract_MODELNAME
+
 void extract_modelname__(char *STRING, char *MODELPATH, char *MODELNAME) {
   extract_MODELNAME(STRING, MODELPATH, MODELNAME);
 }

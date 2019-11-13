@@ -43,6 +43,7 @@
 #define HOSTLIB_MSKOPT_DEBUG       512 // fix a=2, b=1, rotang=0 
 #define HOSTLIB_MSKOPT_DUMP       1024 // screen-dump for each host 
 #define HOSTLIB_MSKOPT_PLUSMAGS   8192 // compute & write host mags from host spectra
+#define HOSTLIB_MSKOPT_PLUSNBR 16384  // append list of neighbors to HOSTLIB
 
 #define HOSTLIB_1DINDEX_ID 10    // ID for 1DINDEX transformations
 
@@ -55,7 +56,7 @@
 #define MXCOMMENT_HOSTLIB  40    // max number of lines for README file
 #define MXGauss2dTable     200   // max length of Gauss2d table
 #define NVAR_Gauss2d       3     // Number of variables in Gauss2d table
-#define MXBIN_ZPHOTEFF      100  // 
+#define MXBIN_ZPHOTEFF     100   // 
 
 #define NSERSIC_TABLE        50    // number of integral tables
 #define SERSIC_INDEX_MIN   0.15
@@ -99,6 +100,7 @@
 #define HOSTLIB_VARNAME_DEC_GAL      "DEC_GAL" 
 #define HOSTLIB_VARNAME_ANGLE        "a_rot"    // rotation angle
 #define HOSTLIB_VARNAME_FIELD        "FIELD" 
+#define HOSTLIB_VARNAME_NBR_LIST     "NBR_LIST" // Nov 2019
 #define HOSTLIB_MAGOBS_SUFFIX        "_obs"     // key = [filt]$SUFFIX
 #define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
 
@@ -142,14 +144,19 @@ struct HOSTLIB_DEF {
   // define pointers used to malloc memory with MALLOCSIZE_HOSTLIB
   double *VALUE_ZSORTED[MXVAR_HOSTLIB];  // sorted by redshift
   double *VALUE_UNSORTED[MXVAR_HOSTLIB]; // same order as in HOSTLIB
-  int    *LIBINDEX_UNSORT;    // map between sorted and unsorted
+  int    *LIBINDEX_UNSORT;    // map between z-sorted and unsorted (w/cuts)
   int    *LIBINDEX_ZSORT;     // inverse map 
   int     SORTFLAG ; // 1=> sorted
 
   char **FIELD_UNSORTED ;
   char **FIELD_ZSORTED ;
 
-  int MALLOCSIZE ;
+  char **NBR_UNSORTED ; // read from NBR_LIST column, Nov 11 2019
+  char **NBR_ZSORTED ;
+
+  int *LIBINDEX_READ; // map between read index (no cuts) and unsorted
+
+  int MALLOCSIZE_D, MALLOCSIZE_I, MALLOCSIZE_Cp ;
 
   // pointers to stored variables
   int IVAR_GALID ;
@@ -162,6 +169,7 @@ struct HOSTLIB_DEF {
   int IVAR_DEC ; 
   int IVAR_ANGLE ;  // rot angle of a-axis w.r.t. RA
   int IVAR_FIELD ;                  // optional FIELD key (Sep 16 2015)
+  int IVAR_NBR_LIST;              // NBR_LIST column added by +HOSTNBR arg
   int IVAR_a[MXSERSIC_HOSTLIB];   // semi-major  half-light
   int IVAR_b[MXSERSIC_HOSTLIB];   // semi-minor 
   int IVAR_w[MXSERSIC_HOSTLIB];   // weight
@@ -207,6 +215,26 @@ struct HOSTLIB_DEF {
 
 } HOSTLIB ;
 
+
+#define MXCHAR_NBR_LIST 100
+
+struct {
+  // optional command-line inputs
+  double SEPNBR_MAX;     // optional command-line input (default=10 arcsec)
+  int    NNBR_WRITE_MAX;  // idem for how many NBRs to write (default=10)
+
+  // internal arrays for +HOSTNBR command-line option
+  int    NNBR_MAX; // actual max of NNBR
+  double *SKY_SORTED_DEC, *SKY_SORTED_RA ; 
+  int    *SKY_SORTED_IGAL_zsort;
+  int    *SKY_SORTED_IGAL_DECsort;
+  long long GALID_atNNBR_MAX;  
+
+  // internal diagnostics for stdout dump
+  int NGAL_PER_NNBR[100] ; // store histogram of NNBR distribution
+  int NGAL_TRUNCATE;       // NGAL cliiped by NNBR_WRITE_MAX or MXCHAR
+
+} HOSTLIB_NBR ;
 
 struct {
   double ZWIN[2], RAWIN[2], DECWIN[2];
@@ -312,6 +340,16 @@ struct HOSTLIB_WGTMAP_DEF {
 
 } HOSTLIB_WGTMAP ;
 
+typedef struct {
+  // Sersic profiles for this host
+  double  INDEX ; // Sersic 'n' used to get SN pos
+  double  a[MXSERSIC_HOSTLIB]  ;
+  double  b[MXSERSIC_HOSTLIB]  ;
+  double  n[MXSERSIC_HOSTLIB]  ;
+  double  w[MXSERSIC_HOSTLIB]  ;
+  double  wsum[MXSERSIC_HOSTLIB] ;
+  double  bn[MXSERSIC_HOSTLIB] ;
+} SERSIC_DEF ;
 
 
 // define structure to hold information for one event ...
@@ -331,6 +369,8 @@ struct SNHOSTGAL {
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
   double ZSPEC, ZSPEC_ERR ;     // = zSN or z of wrong host
   double PEAKMJD ;
+
+  SERSIC_DEF SERSIC ; // Nov 2019
 
   // Sersic profiles for this host
   double  SERSIC_INDEX ; // Sersic 'n' used to get SN pos
@@ -423,6 +463,16 @@ struct {
 } HOSTSPEC ;
 
 
+typedef struct {
+  char VARNAMES_APPEND[100];
+
+  int  NLINE_COMMENT ;
+  char *COMMENT[50];
+  char FILENAME_SUFFIX[40];
+  int  NLINE_APPEND;
+  char **LINE_APPEND ;
+} HOSTLIB_APPEND_DEF ;
+
 time_t TIME_INIT_HOSTLIB[2];
 
 // =====================================
@@ -460,10 +510,11 @@ void   parse_Sersic_n_fixed(FILE *fp, char *string);
 void   read_head_HOSTLIB(FILE *fp);
 void   checkAlternateVarNames(char *varName) ;
 void   read_gal_HOSTLIB(FILE *fp);
-void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, char *field );
+void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, 
+			   char *field, char *nbr_list  );
 int    passCuts_HOSTLIB(double *xval);
 void   summary_snpar_HOSTLIB(void) ;
-void   malloc_HOSTLIB(int NGAL);
+void   malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ);
 void   sortz_HOSTLIB(void);
 void   zptr_HOSTLIB(void);
 void   init_HOSTLIB_WGTMAP(void);
@@ -517,7 +568,15 @@ void   genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 // fetch_HOSTPAR function for GENMODEL (e.g., BYOSED)
 int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double *VAL_HOSTPAR);
 
+void   rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
+void   malloc_HOSTLIB_APPEND(int NGAL, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
+void   addComment_HOSTLIB_APPEND(char *COMMENT,
+				 HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
+void   rewrite_HOSTLIB_plusNbr(void) ;
+void   get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND);
 void   rewrite_HOSTLIB_plusMags(void);
+void   monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
+
 double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG);
 
 // END

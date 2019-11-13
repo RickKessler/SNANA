@@ -176,6 +176,10 @@
 #   and if RESET_CIDOFF=2, then set RESET_CIDOFF=1 so that 
 #   unique CIDs are for each Ia/NONIa set, not for all sets.
 #
+# Nov 12 2019:
+#   ABORT if normalization job fails; see $normLog -->
+#   fixes infinite loop bug when QUIT key isn't in $normLog.
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -672,6 +676,9 @@ sub init_SIMGEN() {
 
     $DOSKIP_DUPLICATE_SIMJOBS = 1; 
     $NMODEL_DUPL_TOT = 0 ;
+
+    $NABORT = 0 ;
+
     return ;
 
 }   # end of init_SIMGEN
@@ -1079,22 +1086,6 @@ sub parse_inFile_master() {
 	$GENPREFIX = $tmp[0]; 
     }
     print " GENPREFIX = $GENPREFIX  \n" ;
-
-# xxxxx mark delete Oct 25 2019 xxxxxxxxxxx
-#    $key = "GENOPT_GLOBAL:" ;
-#    @tmp = sntools::parse_array($key,99,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
-#    if ( scalar(@tmp) > 0 ) {
-#	foreach $tmpLine ( @tmp ) {
-#	    if ( index($tmpLine,"#") > 0 ) {
-#		die "\n ERROR: comment not allowed after GENOPT_GLOBAL key\n" .
-#		    "   Invalid line: '$tmpLine' \n";
-#	    }
-#	    $GENOPT_GLOBAL = "$GENOPT_GLOBAL  $tmpLine" ;
-#	}
-#   }
-#  print " GENOPT_GLOBAL  = '$GENOPT_GLOBAL' \n" ;    
-# xxxxxxxx end mark xxxxxxxxxx
-
 
     $key = "CLEANUP_FLAG:";
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
@@ -2487,11 +2478,13 @@ sub get_normalization {
 
 sub get_normalization_model {
 
+    # Nov 12 2019: abort if normalization job fails
+
     # iver = GENVERSION index, $m is model index
     my($iver,$m) = @_;
 
     my(@reqLine, $cmdNorm, $APPEND_NORM, @line, @wdlist, $NPER_SEASON );
-    my($NGEN, $NGEN6);
+    my($NGEN, $NGEN6, $NTMP);
     
     my $MODEL_CLASS  = "$GENMODEL_CLASS[$iver][$m]" ;
     my $MODEL_NAME   = "$GENMODEL_NAME[$iver][$m]" ; 
@@ -2509,7 +2502,8 @@ sub get_normalization_model {
 	"$SIMARG_GENOPT " .   # xxx mark delete $GENOPT_GLOBAL " .
 	"SIMLIB_MAXRANSTART 0" ;
 
-    my $normLogFile  = "$LOGDIR/SIMnorm_${GENVERSION}_${MODEL_CLASS}.LOG" ;
+    my $normLog  = "SIMnorm_${GENVERSION}_${MODEL_CLASS}.LOG" ;
+    my $NORMLOG  = "$LOGDIR/$normLog" ;
 
     print "  Norm-STATUS($GENVERSION) = $STATUS_NORMALIZATION[$iver] \n";
     $| = 1;  # flush stdout
@@ -2517,32 +2511,38 @@ sub get_normalization_model {
     # norm-log file may already exist if jobs are split among nodes.
     # Be careful that log file may exist but not be finished,
     # so sleep 2 extra seconds to make sure that log file is finished.
-    if ( -e $normLogFile ) {
-	print "\t Norm-log file already exists:\n\t $normLogFile . \n";
-
+    if ( -e $NORMLOG ) {
+	print "\t Norm-log file already exists:\n\t $normLog . \n";
+	$NTMP = 0;
 	# normLog exists, but make sure the FATAL line is there to
 	# make sure it's really done
-      CHECKDONE_NORM:
-	@reqLine = qx(grep QUIT $normLogFile);
-	if ( scalar(@reqLine) == 0 ) { sleep 1; goto CHECKDONE_NORM; }
+      CHECKDONE_NORM:	
+	@reqLine = qx(grep QUIT $NORMLOG);
+	if ( scalar(@reqLine) == 0 && $NTMP < 3)  
+	{ sleep 1; $NTMP++; goto CHECKDONE_NORM;  }
 
 	$cmdNorm = "sleep 1" ;
 	$APPEND_NORM = 0 ;
     }
     else {     
-	$cmdNorm  = "$JOBNAME_SIM $SIMARGS > $normLogFile" ;
+	$cmdNorm  = "$JOBNAME_SIM $SIMARGS > $NORMLOG" ;
 	$APPEND_NORM = 1 ;
     }
-
-   
+ 
     print "   Get $MODEL_CLASS normalization ... " ;
     qx($cmdNorm) ;
-    @line = qx { grep "per season ="  $normLogFile }  ;
+    @line = qx { grep "per season ="  $NORMLOG }  ;
+    if ( scalar(@line) == 0 ) {       
+	$MSGERR[0] = "!!! SIMnorm job failed to get normalization !!! ";
+	$MSGERR[1] = "See $normLog";
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR) ;
+    }
+
     @wdlist = split(/\s+/,$line[0]) ;
     $NPER_SEASON = $wdlist[7] ;
     print "NGENTOT_LC($MODEL_CLASS)/season = $NPER_SEASON \n";
     $| = 1;  # flush stdout
-    if ( $APPEND_NORM ) { &append_normLog($normLogFile); }
+    if ( $APPEND_NORM ) { &append_normLog($NORMLOG); }
  
 
     # determine number to generate for SNIa model
@@ -2865,10 +2865,13 @@ sub simgen {
     $key = " ABORT " ;
     @tmp = sntools::parse_line($logFile, 0, $key, $OPT_QUIET) ;
     if ( scalar(@tmp) > 0 ) { 
-	$JOBABORT_FLAG = 1 ;
+	$JOBABORT_FLAG = 1 ;	$NABORT++ ;
+#	print "\n xxx found ABORT in $logFile \n\n";
 	goto LAST_NGEN ; 
     }
-    else { $JOBABORT_FLAG = 0 ; }
+    else { 
+	$JOBABORT_FLAG = 0 ; 
+    }
 
     # increment number of SN generated and written out
     $key = "Wrote" ;

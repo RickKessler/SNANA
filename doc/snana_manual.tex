@@ -3750,7 +3750,7 @@ the z-norm term.
 
 
 % ------------------------------------
-\subsubsection{Synthetic Host Magnitudes}
+\subsubsection{Synthetic Host Magnitudes ({\tt +HOSTMAGS})}
 \label{sss:hostlib_synmag}
 % ------------------------------------
 
@@ -3766,6 +3766,46 @@ and thus can be specified only as a command-line argument.
 This new \hostlib\ can be used to generate with galaxy mags to 
 compute additional Poisson noise and to model analmolous 
 flux-scatter as a function of local surface brightness.
+
+% ------------------------------------
+\subsubsection{Generate List of Host Neighbors ({\tt +HOSTNBR})}
+\label{sss:hostlib_NBR}
+% ------------------------------------
+
+To simulate the effect of matching SN to the wrong galaxy with the
+DLR method,
+a list of true galaxy neighbors is needed for each \hostlib\ entry. 
+For any \hostlib\ that includes sky coordinates, a supplemental 
+column with a comma-separated
+list of neighbors can be created with
+%
+\begin{verbatim}
+   snlc_sim.exe <iputFile> +HOSTNBR
+           or
+   snlc_sim.exe <iputFile> +HOSTNBR   SEPNBR_MAX 10.0  NNBR_WRITE_MAX 10
+\end{verbatim}
+%
+The optional arguments are 
+1) {\tt SEPNBR\_MAX}, the maximum angular separation between galaxies
+  (default: $10^{\prime\prime}$), and
+2) {\tt NNBR\_WRITE\_MAX}, the max number of neighbors to include
+  (default: 10).
+These commands work only on the command line, and do not work
+as sim-input keys. A new \hostlib\ is created with {\tt +HOSTNBR}
+extension, and the simulation quits without generating events.
+If Sersic profiles are included, running the simulation again with the 
+newly-created \hostlib\ results in computing DLR for the true galaxy and
+each neighbor galaxy, and ordering the galaxy matches by DLR, 
+even of the smallest DLR is the wrong match.
+{\it (TO DO: define tag for true match)}
+
+To find the galaxy neighbors quickly when using the output \hostlib\ 
+in a simulation,
+the galaxy identifiers are \hostlib\ row numbers rather than {\tt GALID}.
+To allow for easy verification, the {\tt +HOSTNBR} option includes a 
+screen-dump for several entries,
+where the dump includes both row number and {\tt GALID}.
+
 
 % ------------------------------------
 \subsubsection{Notes on CPU Resources}

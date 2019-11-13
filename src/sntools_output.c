@@ -3302,7 +3302,7 @@ int ISFILE_TEXT(char *fileName) {
 
   if ( (fp = fopen(fileName,"rt")) == NULL ) {
     sprintf(MSGERR1, "Could not open TEXT FILE = ");
-    sprintf(MSGERR2, "%s", fileName);    
+    sprintf(MSGERR2, "'%s'", fileName);    
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 

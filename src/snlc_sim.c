@@ -203,6 +203,9 @@ int main(int argc, char **argv) {
   if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS)>0 ) 
     { rewrite_HOSTLIB_plusMags(); }
 
+  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSNBR)>0 ) 
+    { rewrite_HOSTLIB_plusNbr(); }
+
   // create/init output sim-files
   init_simFiles(&SIMFILE_AUX);
 
@@ -966,6 +969,10 @@ void set_user_defaults(void) {
     INPUTS.HOSTLIB_GENZPHOT_BIAS[i]     =  0.0 ; 
   }
   INPUTS.USE_HOSTLIB_GENZPHOT = 0 ; // logical flag
+
+  HOSTLIB_NBR.SEPNBR_MAX      = 10.0; // +HOSTNBR keeps neighbors within 10''
+  HOSTLIB_NBR.NNBR_WRITE_MAX  = 10;   // write up to 10 NBRs
+  //  HOSTLIB_NBR.MXCHAR_NBR_LIST = 80;   // max string-length of list
 
   // Nov 23 2015
   // define polynom function of ztrue for zSN-zGAL tolerance.
@@ -4353,6 +4360,17 @@ void sim_input_override(void) {
       i++ ;
       setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     }
+
+    if ( strcmp( ARGV_LIST[i], "+HOSTNBR" ) == 0 ) {
+      INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSNBR ;
+      i++ ;
+      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+    }
+    if ( strcmp( ARGV_LIST[i], "SEPNBR_MAX" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%le", &HOSTLIB_NBR.SEPNBR_MAX ); }
+    if ( strcmp( ARGV_LIST[i], "NNBR_WRITE_MAX" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%d", &HOSTLIB_NBR.NNBR_WRITE_MAX ); }
+    
 
     if ( strcmp( ARGV_LIST[i], "HOSTLIB_GENZPHOT_FUDGEPAR" ) == 0 ) {
       for(j=0; j<4; j++ ) {
@@ -10039,7 +10057,7 @@ void gen_event_stronglens(int ilc, int istage) {
   double TRESTMAX  = INPUTS.GENRANGE_TREST[1];
   int    MEMD      = MXIMG_STRONGLENS * sizeof(double);
   double RAD       = RADIAN;
-  int    LDMP      = (ilc<10) ; 
+  int    LDMP      = (ilc<4) ; 
 
   double zLENS, zSN, z1, hostpar[10];
   double PEAKMJD, tdelay_min=1.0E9, tdelay_max=-1.0E9;
@@ -10054,6 +10072,12 @@ void gen_event_stronglens(int ilc, int istage) {
   
   GENSL.REPEAT_FLAG  =  0 ;
   if ( !INPUTS_STRONGLENS.USE_FLAG ) { return; }
+
+  if ( WRFLAG_CIDRAN ) {
+    sprintf(c1err,"Cannot use CIDRAN option with strong lens model.");
+    sprintf(c2err,"Remove %d from FORMAT_MASK", WRMASK_CIDRAN );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
 
   GENLC.CID = GENLC.CIDOFF + ilc ; 
 
@@ -20754,10 +20778,13 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
     SNDATA.HOSTGAL_SPECZ[0]          = SNHOSTGAL.ZSPEC ;
     SNDATA.HOSTGAL_SPECZ_ERR[0]      = SNHOSTGAL.ZSPEC_ERR ;
+
+    // since HOSTLIB coordinates may be quite different than true SN coords,
+    // use GAL-SN difference to determine final host coords.
     SNDATA.HOSTGAL_RA[0]     = SNDATA.RA + 
-      (SNHOSTGAL.RA_GAL_DEG-SNHOSTGAL.RA_SN_DEG);
+      (SNHOSTGAL.RA_GAL_DEG - SNHOSTGAL.RA_SN_DEG);
     SNDATA.HOSTGAL_DEC[0]    = SNDATA.DEC + 
-      (SNHOSTGAL.DEC_GAL_DEG-SNHOSTGAL.DEC_SN_DEG);
+      (SNHOSTGAL.DEC_GAL_DEG - SNHOSTGAL.DEC_SN_DEG);
     SNDATA.HOSTGAL_SNSEP[0]          = SNHOSTGAL.SNSEP ;
     SNDATA.HOSTGAL_DDLR[0]           = SNHOSTGAL.DDLR ;
     SNDATA.HOSTGAL_LOGMASS[0]        = SNHOSTGAL.LOGMASS ;
@@ -21771,14 +21798,18 @@ void init_kcor_refactor(void) {
   // Begin translating fortran kcor-read codes into C.
   // Call functions in sntools_kcor.c[h]
 
+  int    ifilt;
+  double MAGOBS_SHIFT[MXFILTINDX], MAGREST_SHIFT[MXFILTINDX];
   char fnam[] = "init_kcor_refactor" ;
 
   // ------------ BEGIN -------------
 
-  KCOR_INFO.NCALL_READ = 0;
+  KCOR_INFO.NCALL_READ = 0 ;
+  for(ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
+    { MAGOBS_SHIFT[ifilt] = MAGREST_SHIFT[ifilt] = 0.0 ; }
 
-  READ_KCOR_DRIVER(INPUTS.KCOR_FILE, SIMLIB_GLOBAL_HEADER.FILTERS );
-
+  READ_KCOR_DRIVER(INPUTS.KCOR_FILE, SIMLIB_GLOBAL_HEADER.FILTERS,
+		   MAGREST_SHIFT, MAGOBS_SHIFT );
 
   return ;
 

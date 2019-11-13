@@ -95,6 +95,11 @@
   +  allow CID as first varname in --v list.
   +  new option  "--format csv"  
 
+ Nov 6 2019: 
+    + add FLUXERRCALC_SIM to outlier table
+    + increase MXVAR_DUMP 20 -> 40
+    + abort trap if NVAR > MXVAR_DUMP.
+
 ********************************************/
 
 #include <stdio.h>
@@ -112,7 +117,7 @@
 char msgerr1[80], msgerr2[80];
 
 
-#define MXVAR_DUMP 20
+#define MXVAR_DUMP 40 
 
 struct INPUTS {
   char TABLE_FILE[200];
@@ -450,7 +455,14 @@ void  set_outlier_varnames(void) {
     sprintf(INPUTS.VARNAMES[NVAR], "SBFLUXCAL" );         NVAR++ ;
     sprintf(INPUTS.VARNAMES[NVAR], "ERRTEST"   );         NVAR++ ;
     sprintf(INPUTS.VARNAMES[NVAR], "FLUXERRCALC_SIM" );   NVAR++ ;
+  }
 
+  if ( NVAR >= MXVAR_DUMP ) {
+    sprintf(msgerr1,"NVAR=%d exceeds bound of MXVAR_DUMP=%d",
+	    NVAR, MXVAR_DUMP );
+    sprintf(msgerr2,"Check MXVAR_DUMP in sntable_dump.c");
+    errmsg(SEV_FATAL, 0, fnam, msgerr1, msgerr2 );
+    
   }
 
   INPUTS.NVAR = NVAR ;

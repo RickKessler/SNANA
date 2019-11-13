@@ -22,6 +22,7 @@
 
 int NCALL_DBUG_SALT2 ; 
 int RELAX_IDIOT_CHECK_SALT2;
+int ISMODEL_SALT3 ;
 
 /**********************************************
   Init Information

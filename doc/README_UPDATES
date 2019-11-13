@@ -17617,6 +17617,9 @@
 
          ***** IMPORTANT(v10_74j) ***** 
 
+    for SALT3, remove x1*M1/M0 term in error; see ISMODEL_SALT3.
+    See +HOSTNBR option in manual.
+
          ***** USEFUL(v10_74j) ***** 
 
          ***** MISCELLANEOUS(v10_74j) ***** 
@@ -17626,7 +17629,41 @@
 
     snlc_fit.car: 
       + add FLUXERRCALC_SIM to FITRES+RESIDUAL table (after ERRTEST)
+      + protect table abort when there are no non-PKMJD covariances.
     sntable_dump.pl
       + include FLUXERRCALC_SIM for outlier/obs option.
+
+    sntools_genSmear.c[h]: 
+     + finally merge Sep 12 merge request, and do a little cleanup.
+
+    SALT2mu.c
+      + if float param is NaN or inf, return with chi2=1E14
+      + MXBIN_LOGMASS -> 25 (was 10)
+
+    sntable_dump.c:
+       + add FLUXERRCALC_SIM to outlier dump, and fix overwrite bug.
+
+    snlc_sim.c :
+      + abort if stronglens model us used with random CID.
+        See gen_event_stronglens().
+
+    genmag_SALT2.c:
+       + for SALT3, remove x1*M1/M0 term in error; see ISMODEL_SALT3.
+
+    sntools_host.c[h]:
+      + more development for +HOSTNBR option
+      + start adding code to parse and use NBR_LIST column that was
+        created by +HOSTNBR option.
+
+   sim_SNmix.pl:
+     + fix error trapping for failed jobs.
+
+   split_and_fit.pl:
+     + abort if APPEND_TABLE_TEXT is defined without also defining
+       either HFILE_OUT or ROOTFILE_OUT.
+
+   snana.car:
+     + MXCCID_LIST -> 20k (was 10k)
+     + fix bug in MOVE_SNLC_ARRAYS() to check for fakes.
 
 END: 

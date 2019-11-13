@@ -58,7 +58,7 @@ def read_spec(cid,base_name):
 			sn['mjd'].append(mjds[mjd_ind])
 	sn={k:np.array(sn[k]) for k in sn.keys()}
 	return(sn)
-def read_lc(cid,base_name,plotter_choice):
+def read_lc(cid,base_name,plotter_choice,tmin,tmax,filter_list):
 	names=['time','flux','fluxerr','filter','chi2']
 	peak=None
 	sn={k:[] for k in names} 
@@ -71,6 +71,11 @@ def read_lc(cid,base_name,plotter_choice):
 		if len(temp)>0 and b'VARNAMES:' in temp:
 			varnames=[str(x.decode('utf-8')) for x in temp]
 		elif len(temp)>0 and b'OBS:' in temp and str(temp[varnames.index('CID')].decode('utf-8')) in cid:
+			if float(temp[varnames.index('Tobs')])<tmin or float(temp[varnames.index('Tobs')])>tmax:
+				continue
+			
+			if filter_list is not None and str(temp[varnames.index('BAND')].decode('utf-8')) not in filter_list:
+				continue
 			if int(temp[varnames.index('DATAFLAG')])==1:
 				if peak is None:
 					peak=float(temp[varnames.index('MJD')])-float(temp[varnames.index('Tobs')])
@@ -94,12 +99,17 @@ def read_lc(cid,base_name,plotter_choice):
 			elif len(temp)>0 and b'SN:' in temp and str(temp[varnames.index('CID')].decode('utf-8')) in cid: 
 				fit['params']={p:(float(temp[varnames.index(p)]),float(temp[varnames.index(p+'ERR')])) if p in ['x0','x1','c'] else float(temp[varnames.index(p)]) for p in ['x0','x1','c','NDOF','FITCHI2']}
 				break
+	
 	sn={k:np.array(sn[k]) for k in sn.keys()}
 	fit={k:np.array(fit[k]) if k !='params' else fit['params'] for k in fit.keys()}
 	if len(fit['filter'])>0:
 		fits={k:interp1d(fit['time'][fit['filter']==k],
 					 fit['flux'][fit['filter']==k]) for k in np.unique(fit['filter'])}
-		fits['params']=fit['params']
+		if 'params' in fit.keys():
+			fits['params']=fit['params']
+		else:
+			fits['params']={}
+		fits['trange']={k:[np.min(fit['time'][fit['filter']==k]),np.max(fit['time'][fit['filter']==k])] for k in np.unique(fit['filter'])}
 	else:
 		fits=[]
 	return(sn,fits,peak)
@@ -211,14 +221,20 @@ def plot_spec(cid,bin_size,base_name,noGrid):
 	#plt.savefig('SNANA_SPEC_%s.pdf'%'_'.join(cid),format='pdf',overwrite=True)
 	return(figs)
 
-def plot_lc(cid,base_name,noGrid,plotter_choice):
-	sn,fits,peak=read_lc(cid,base_name,plotter_choice)
+def plot_lc(cid,base_name,noGrid,plotter_choice,tmin,tmax,filter_list,plot_all):
+	if tmin is None:
+		tmin=-np.inf
+	if tmax is None:
+		tmax=np.inf
+		
+	sn,fits,peak=read_lc(cid,base_name,plotter_choice,tmin,tmax,filter_list)
+	
 	if len(sn['time'])==0:
 		return [[],[]]
 	rows=int(math.ceil(len(np.unique(sn['filter']))))
 	figs=[]
 	all_bands=np.append([x for x in __band_order__ if x in np.unique(sn['filter'])],
-                        [x for x in np.unique(sn['filter']) if x not in __band_order__])
+						[x for x in np.unique(sn['filter']) if x not in __band_order__])
 	
 	j=0
 	minx=np.min(sn['time'])
@@ -251,7 +267,10 @@ def plot_lc(cid,base_name,noGrid,plotter_choice):
 						  fmt='.',markersize=8,color='k',
 						  label=lab)
 			if len(fits)>0:
-				fit_time=np.arange(temp_sn['time'][0],temp_sn['time'][-1],1)
+				if not plot_all:
+					fit_time=np.arange(temp_sn['time'][0],temp_sn['time'][-1],1)
+				else:
+					fit_time=np.arange(fits['trange'][all_bands[j]][0],fits['trange'][all_bands[j]][1],1)
 				ax[i].plot(fit_time,fits[all_bands[j]](fit_time),color='r',label='Best Fit',linewidth=3)
 
 				if not fit_print:
@@ -294,14 +313,27 @@ def plot_lc(cid,base_name,noGrid,plotter_choice):
 
 	return(figs,fits)
 
-def plot_cmd(genversion,cid_list,nml,isdist):
+def plot_cmd(genversion,cid_list,nml,isdist,private):
+	plotter='normal'
 	if nml is not None:
-		if os.path.splitext(nml)[1]!='.NML':
+		if os.path.splitext(nml)[1].upper()!='.NML':
 			nml=os.path.splitext(nml)[0]+'.NML'
-		plotter='salt2'
-	else:
-		plotter='normal'
+		with open(nml,'r') as f:
+			p=f.readlines()
+	
+		for line in p:
+			if 'FITMODEL_NAME' in line:
+				if 'SALT2' in line:
+					plotter='salt2'
+				
+		
 	rand=str(np.random.randint(10000,100000))
+	if private is not None:
+		private_path=" PRIVATE_DATA_PATH %s"%private
+	else:
+		private_path=""
+	genversion+=private_path
+	
 	if nml is not None:
 		if cid_list is not None:
 			cmd="snlc_fit.exe "+nml+" VERSION_PHOTOMETRY "+genversion+\
@@ -411,28 +443,37 @@ def find_files(version,cid_list):
 				return(list_files)
 
 
+
+
+
 def main():
 
 	parser = OptionParser()
 
-	parser.add_option("-b",help='Spectra: Bin size for spectral plotting',action="store",type="float",dest='bin_size',default=0)
-	
+	parser.add_option("-B",help='Spectra: Bin size for spectral plotting',action="store",type="float",dest='bin_size',default=0)
+
 	parser.add_option("--spec",help='LC and Spectra: Plot only spectra',action="store_true",dest="spec",default=False)
 	parser.add_option("--lc",help='LC and Spectra: Plot only LC',action="store_true",dest="lc",default=False)
 	parser.add_option("--nogrid",help="LC and Spectra: Do not add a grid to the plots.",action="store_true",dest="noGrid",default=False)
 	
+	parser.add_option("-a",help="LC: tmin for lc plotting (Phase).",action="store",dest="tmin",type='float',default=None)
+	parser.add_option("-b",help="LC: tmax for lc plotting (Phase).",action="store",dest="tmax",type='float',default=None)
+	parser.add_option("-t",help="LC: comma separated list of filters to plot (default all)",action="store",dest='filt_list',type="string",default=None)
+	parser.add_option("--plotAll",help="LC: plots full model range if fitting (default data range)",action="store_true",dest='plot_all',default=False)
+
 	parser.add_option("-f",help='LC and Distributions: .NML filename',action="store",type='string',dest='nml_filename',default=None)
 	parser.add_option("--fitres",help="LC and Distributions: Output a file containing fit results.",action="store_true",dest="res_out",default=False)
 	
 	parser.add_option("-F",help='Distributions: fitres filename, used to create distributions of SALT2 fitting parameters.',
 				action="store",type='string',dest='fitres_filename',default=None)
-	parser.add_option("-p",help='Distributions: Name of parameter to view in joint distribution with SALT2 fitting parameters',
+	parser.add_option("-s",help='Distributions: Name of parameter to view in joint distribution with SALT2 fitting parameters',
 				action="store",type='string',dest='joint_param',default=None)
 	parser.add_option("-k",help='Distributions: Joint plot type (scatter,reg,resid,kde,hex)',action="store",type='string',dest='joint_type',default='kde')
 	parser.add_option("--dist",help="Distributions: Fit and then plot the distributions of fitting parameters.",action="store_true",dest="dist",default=False)	
 
 	parser.add_option("-i",help='All: CID(s) as comma separated list or range (1-10)',action="store",type="string",dest="CID",default="None")
 	parser.add_option("-v",help='All: Version',action="store",type='string',dest='version',default=None)
+	parser.add_option("-p",help='All: Private Data Path',action="store",type='string',dest='private_path',default=None)
 	parser.add_option("--noclean",help='All: Leave intermediate files for debugging',action="store_true",dest="noclean",default=False)
 	parser.add_option("--silent",help="All: Do not print anything",action="store_true",dest="silent",default=False)
 	
@@ -467,8 +508,10 @@ def main():
 		print("Joint plot type not recognized (see help), setting to kde")
 		options.joint_type='kde'
 	if options.fitres_filename is None:
-		plotter_choice,options.base_name,options.CID=plot_cmd(options.version,options.CID,options.nml_filename,options.dist)
+		plotter_choice,options.base_name,options.CID=plot_cmd(options.version,options.CID,options.nml_filename,options.dist,options.private_path)
 		options.CID=options.CID.split(',')
+		if options.filt_list is not None:
+			options.filt_list=options.filt_list.split(',')
 		filename=options.version+'.pdf'
 		num=0
 		if os.path.exists(filename):
@@ -494,14 +537,14 @@ def main():
 					for f in figs:
 						pdf.savefig(f)
 				elif options.lc:
-					figs,fits=plot_lc([cid],options.base_name,options.noGrid,plotter_choice)
+					figs,fits=plot_lc([cid],options.base_name,options.noGrid,plotter_choice,options.tmin,options.tmax,options.filt_list,options.plot_all)
 					for f in figs:
 						pdf.savefig(f)
 				else:
 					figs=plot_spec([cid],options.bin_size,options.base_name,options.noGrid)
 					for f in figs:
 						pdf.savefig(f)
-					figs,fits=plot_lc([cid],options.base_name,options.noGrid,plotter_choice)
+					figs,fits=plot_lc([cid],options.base_name,options.noGrid,plotter_choice,options.tmin,options.tmax,options.filt_list,options.plot_all)
 					for f in figs:
 						pdf.savefig(f)
 					

@@ -397,8 +397,9 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     # - - - - - start constructino of 'sed' command - - - - - - -
     sedcmd = "sed "
     
-    # replace SURVEY
-    sedAdd  = "-e 's/%s/ %s(%s)/g' " % (SURVEY,SOUT,SURVEY) 
+    # replace SURVEY ... only first occurance !
+    sedAdd  = "-e '0,/%s/s/%s/ %s(%s)/' " % (SURVEY,SURVEY,SOUT,SURVEY)
+# xxx mark delete    sedAdd  = "-e 's/%s/ %s(%s)/g' " % (SURVEY,SOUT,SURVEY) 
     sedcmd += sedAdd
     
     # Replace global filter string.

@@ -60,53 +60,6 @@
           HISTORY
   ------------------------
 
-  Jul 5, 2011
-    replace  get_GALWGT_HOSTLIB() with utility function
-    interp_GRIDMAP(). Replace most WGTMAP init with
-    call to init_interp_GRIDMAP().
-
-
- Sep 22, 2011:
-   Select Host galaxies based on RA and DECL;
-   see INPUTS.HOSTLIB_GENRANGE_RA[2] and _DECL[2].
-
- May 22, 2012: for gen-filters that are not defined in the HOSTLIB,
-               set MAGOBS=99 to avoid seg fault (see GEN_SNHOST_GALMAG)
-
- Sep 09, 2012: add lots of fflush(stdout) calls after printf().
-
- Sep 14, 2012: implement new FIXRAN_RADIUS and FIXRAN_PHI options
-
- Dec 17, 2012: in GEN_SNHOST_GALMAG(int IGAL) store total host mag
-               in  SNHOSTGAL.GALMAG[ifilt_obs][i=0]
-
- Feb 12, 2013: alway read/store host mags so that they are
-               written out, even if gal-noise option is not set.
-
- Feb 22, 2013: add include statements to compile this module instead
-               of including it in the simulation.
-
- Feb 11 2014:  call init_OUTVAR_HOSTLIB()
-
- Jan 29 2015: allow RA or RA_GAL or RA_HOST, and same for DEC.
-              --> distinguish RA_GAL and RA_SN in SIMGEN-DUMP file
-                  and in SNANA tables.
-
-  Feb 5 2015: int GALID -> long long GALID in many places.
-
-  Mar 4 2015: fix aweful index bug set FGAL_TOT in
-              double get_GALFLUX_HOSTLIB(..)
-
-  Jun 24 2015: fix check on R/Re at F/FTOT=0.5 to interpolate R/Re 
-               instead of using closest integral bin to 0.5.
-
-
-  July 2015: allow re-using host if MJD is separated from previous use.
-             See  USEHOST_GALID(int IGAL)
-             See INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL ;
-
-  Aug 18 2015: new routine init_HOSTLIB_ZPHOTEFF to read eff vs. ZTRUE
-               to find host photoz. Implemented in  GEN_SNHOST_ZPHOT().
 
   Jan 14 2017: include "sntools_output.h"
     
@@ -126,6 +79,13 @@
       redshift is computed correctly later in gen_zsmear().
 
     + account for VPEC when SN coords are transferred to host.
+
+ Nov 18 2019:
+   + fix problems generating SN position near galaxy.
+     1) fix bug computing SN coords from ANGLE and reduced_R
+     2) pick random ANGLE weighted by DLR^2 (no longer random over 0:2PI)
+        (see new function GEN_SNHOST_ANGLE)
+     WARNING: still need to visually verify 2D profile
 
 =========================================================== */
 
@@ -4049,9 +4009,6 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   fixran = INPUTS.HOSTLIB_FIXRAN_RADIUS ;
   if ( fixran > -1.0E-9 ) { SNHOSTGAL.FlatRan1_radius[1] = fixran ; }
 
-  fixran = INPUTS.HOSTLIB_FIXRAN_PHI   ;
-  if ( fixran > -1.0E-9 ) { SNHOSTGAL.FlatRan1_phi = fixran ; }
-
   // ------------------------------------------------
   // init SNHOSTGAL values
 
@@ -4947,8 +4904,9 @@ void GEN_SNHOST_POS(int IGAL) {
   // Feb 04 2019: compute DLR, DDLR, and make it work even if
   //              host galaxy RA,DEC are not given.
   //
-  // Nov 15 2019: fix aweful bug for local a,b coords in ellipse frame.
-
+  // Nov 15 2019: 
+  //   + fix aweful bug for local a,b coords in ellipse frame.
+  //   + call  GEN_SNHOST_ANGLE(IGAL,&phi);
 
   // strip off user options passed via sim-input file
   int LSN2GAL = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
@@ -4980,35 +4938,13 @@ void GEN_SNHOST_POS(int IGAL) {
   // bail out if there are no galaxy shape parameters
   if ( SERSIC_PROFILE.NDEF == 0 ) { return ; }
 
-
-  /* xxxx mark delete Nov 15 2019 xxxxxxx
-  // check test-option from sim-input file to fix the gal size
-  double FIXANG = INPUTS.HOSTLIB_FIXSERSIC[3];
-  if ( FIXANG > -999.0 ) { 
-    //SNHOSTGAL.SERSIC.a[JPROF] = 2.0 ;
-    //SNHOSTGAL.SERSIC.b[JPROF] = 1.0 ;
-    HOSTLIB.VALUE_ZSORTED[IVAR_ANGLE][IGAL] = FIXANG ; // a_rot angle, deg
-    //    phi       = 3.0*PI/4.0;
-    //    reduced_R = 1.0 ;
-  } 
-  xxxxxxxx end mark xxxxxxxxx */
-
+  // strip off random numbers to randomly generate a host-location
+  Ran0  = SNHOSTGAL.FlatRan1_radius[0] ;
+  Ran1  = SNHOSTGAL.FlatRan1_radius[1] ;
 
   // extract info for each Sersic term
   get_Sersic_info(IGAL, &SNHOSTGAL.SERSIC) ;    
 
-  // strip off indices
-  IVAR_RA     = HOSTLIB.IVAR_RA ;
-  IVAR_DEC    = HOSTLIB.IVAR_DEC ;
-  IVAR_ANGLE  = HOSTLIB.IVAR_ANGLE ;
-  RAD         = RADIAN ;
-
-  // strip off random numbers to randomly generate a host-location
-  Ran0  = SNHOSTGAL.FlatRan1_radius[0] ;
-  Ran1  = SNHOSTGAL.FlatRan1_radius[1] ;
-  phi   = SNHOSTGAL.FlatRan1_phi * TWOPI ; //azimuth angle rel. to major axis
-
-  // Pick reduced radius (r=R/Rhalf),
   // Start by randonly picking (Ran0) which Sersic profile 
   // based on the WGT of each profile.
 
@@ -5027,8 +4963,22 @@ void GEN_SNHOST_POS(int IGAL) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  // get integral-table index for this Sersic_n
+  a_half   = SNHOSTGAL.SERSIC.a[JPROF]; // half-light radius, major axis
+  b_half   = SNHOSTGAL.SERSIC.b[JPROF]; // half-light radius, minor axis
   n        = SNHOSTGAL.SERSIC.n[JPROF]; 
+  a_rot    = SNHOSTGAL.SERSIC.a_rot ;
+
+  // strip off indices
+  IVAR_RA     = HOSTLIB.IVAR_RA ;
+  IVAR_DEC    = HOSTLIB.IVAR_DEC ;
+  IVAR_ANGLE  = HOSTLIB.IVAR_ANGLE ;
+  RAD         = RADIAN ;
+
+  GEN_SNHOST_ANGLE(a_half, b_half, &phi); // return phi angle
+
+  // Pick reduced radius (r=R/Rhalf),
+
+  // get integral-table index for this Sersic_n
   inv_n    = 1.0/n ; 
   dif      = (inv_n - SERSIC_TABLE.INVINDEX_MIN) ;
   bin      = SERSIC_TABLE.INVINDEX_BIN ;
@@ -5079,9 +5029,7 @@ void GEN_SNHOST_POS(int IGAL) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  a_half   = SNHOSTGAL.SERSIC.a[JPROF]; // half-light radius, major axis
-  b_half   = SNHOSTGAL.SERSIC.b[JPROF]; // half-light radius, minor axis
-  a_rot    = SNHOSTGAL.SERSIC.a_rot ;
+
   cphi     = cos(phi);  sphi = sin(phi);
 
   // Feb 4 2019: 
@@ -5171,6 +5119,82 @@ void GEN_SNHOST_POS(int IGAL) {
 
 
 } // end of GEN_SNHOST_POS
+
+
+// ================================================
+void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
+
+  // Created Nov 18 2019
+  // pick random ANGLE around ellipse.
+  // [Fixes bug of random ANGLE between 0 and TWPI]
+  //
+  // Inputs: a, b = major and minor axis sizes
+  // Ouptut: ANGLE (radians)
+  //
+  // Method 0: integrate r(ANGLE) and invert ... but I can't do the
+  //   integral numerically.
+  //
+  // Method 1: pick random angle [0:2PI] and weight by DLR ...
+  //   might be slow from cosine calculation each time, 
+  //   or from many repeats with high eccentricities.
+  //
+  // Method 2: pick random point inside rectangle containing ellipse,
+  //   and use rejection method to pick point inside ellipse. Then 
+  //   tan(ANGLE)=  y/x. Should be ~3/4 efficient for any eccentricity.
+  //  
+  // Method 0 is optimal if there is an analytic form for the
+  // integral. Here we go with method 2.
+
+  double asq    = a*a;
+  double bsq    = b*b;
+  int    ilist  = 1 ;
+  int    LEGACY = 0 ;
+  int    LDMP   = 0 ;
+  double RAD    = RADIAN ;
+  double fixran, phi, FlatRan_x, FlatRan_y, x, y, SUM ;
+  char fnam[] = "GEN_SNHOST_ANGLE";
+
+  // ------------------- BEGIN ---------------
+
+  // check option to fix angle
+  fixran = INPUTS.HOSTLIB_FIXRAN_PHI   ;
+  if ( fixran > -1.0E-9 ) 
+    { SNHOSTGAL.FlatRan1_phi = fixran ; LEGACY=1; }
+
+  if ( LEGACY || INPUTS.RESTORE_HOSTLIB_BUGS ) 
+    { *ANGLE  = (SNHOSTGAL.FlatRan1_phi * TWOPI) ; return; }
+
+
+  if ( LDMP ) {  printf(" xxx ------------------------------- \n"); }
+  
+ PICK:
+
+  // pick random point inside a rectangle containing ellipse
+  FlatRan_x = FlatRan1(ilist) ;
+  FlatRan_y = FlatRan1(ilist) ;
+  x         = a * (2.0*FlatRan_x - 1.0); // -a to +a
+  y         = b * (2.0*FlatRan_y - 1.0); // -b to +b
+
+  // if not inside ellipse, try again.
+  SUM = (x*x/asq) + (y*y/bsq);
+
+  if ( LDMP ) {
+    printf(" xxx %s: x=%f, y=%f, SUM=%f \n", 
+	   fnam, x, y, SUM); fflush(stdout);
+  }
+
+  if ( SUM > 1.0 ) { goto PICK; }
+
+  if ( x == 0.000 ) { x = 1.0E-20; }
+  phi  = atan2(y,x); 
+  phi += PI;  // convert to 0 to 2PI range
+
+  // load return ANGLE arg, and ignore radial component.
+  *ANGLE = phi;
+
+  return ;
+
+} // end GEN_SNHOST_ANGLE
 
 
 // ========================================
@@ -6082,8 +6106,8 @@ void DEBUG_1LINEDUMP_SNHOST(void) {
 
   printf(" %d  %6.4f %6.4f %4.2f  %7.4f %7.4f %5.3f %6.2f  %f %f \n"    
 	 , 222222    // for easy grep
-	 , SNHOSTGAL.SERSIC.a[1]
-	 , SNHOSTGAL.SERSIC.b[1]
+	 , SNHOSTGAL.SERSIC.a[0]
+	 , SNHOSTGAL.SERSIC.b[0]
 	 , SNHOSTGAL.SERSIC.INDEX
 	 , SNHOSTGAL.RA_SNGALSEP_ASEC 
 	 , SNHOSTGAL.DEC_SNGALSEP_ASEC

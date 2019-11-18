@@ -507,6 +507,7 @@ void   init_SNHOSTGAL(void);  // init each event
 void   GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD);
 void   GEN_SNHOST_GALID(double ZGEN);
 void   GEN_SNHOST_POS(int IGAL);
+void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE);
 void   GEN_SNHOST_NBR(int IGAL);
 void   GEN_SNHOST_DDLR(int i_nbr);
 void   SORT_SNHOST_byDDLR(void);

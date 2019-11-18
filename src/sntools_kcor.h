@@ -56,9 +56,10 @@ typedef struct {
 
 typedef struct {
   int  NFILTDEF ;
-  int  IFILTDEF[MXFILT_KCOR];    // vs. sparse index
+  int  IFILTDEF[MXFILT_KCOR];     // vs. sparse index
   int  IFILTDEF_INV[MXFILT_KCOR]; // vs. absolute index
-  char FILTERSTRING[MXFILT_KCOR];
+  char FILTERSTRING[MXFILT_KCOR]; // list of single-char bands
+  char *FILTER_NAME[MXFILT_KCOR]; // full name of each filter, vs. sparse indx
 } KCOR_FILTERMAP_DEF ;
 
 
@@ -158,10 +159,11 @@ void read_kcor_binInfo(char *VARNAME, char *VARSYM, int MXBIN,
 
 void parse_KCOR_STRING(char *STRING, 
 		       char *strKcor, char *cfilt_rest, char *cfilt_obs);
-int ISBXFILT_KCOR(char *cfilt);
-void addFilter_kcor(int ifiltdef, KCOR_FILTERMAP_DEF *MAP);
+int  ISBXFILT_KCOR(char *cfilt);
+void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP);
 void init_kcor_indices(void);
 void get_MAPINFO_KCOR(char *what, KCOR_MAPINFO_DEF *MAPINFO); 
+void filter_match_kcor(char *NAME, int *IFILT_REST, int *IFILT_OBS);
 
 // end
 

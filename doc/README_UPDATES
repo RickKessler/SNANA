@@ -17617,8 +17617,10 @@
 
          ***** IMPORTANT(v10_74j) ***** 
 
+    snlc_fit.exe aborts on obsolete CUTWIN_NBAND_THRESH
     for SALT3, remove x1*M1/M0 term in error; see ISMODEL_SALT3.
     See +HOSTNBR option in manual.
+    Bug fix setting SN positon near galaxy
 
          ***** USEFUL(v10_74j) ***** 
 
@@ -17653,7 +17655,14 @@
     sntools_host.c[h]:
       + more development for +HOSTNBR option
       + start adding code to parse and use NBR_LIST column that was
-        created by +HOSTNBR option.
+        created by +HOSTNBR option. Writes up to two sets of 
+        HOSTGAL with "DEBUG_FLAG 2". DDLR calculation is a dummy
+        calc that needs to be fixed.
+     + fix bug setting SN position in GEN_SNHOST_POS().
+       Bug related to interpreting angle w.r.t. major axis.
+       Expecting another bug fix for getting random angle.
+       Restore host bug(s) with
+          snlc_sim.exe <myInput> DEBUG_FLAG 3
 
    sim_SNmix.pl:
      + fix error trapping for failed jobs.
@@ -17665,5 +17674,9 @@
    snana.car:
      + MXCCID_LIST -> 20k (was 10k)
      + fix bug in MOVE_SNLC_ARRAYS() to check for fakes.
+     + new &SNLCINP input CUTWIN_ERRTEST to cut on ERRCALC/ERRTRUE
+
+   combine_dataVersions.py:
+     + bug fix writing AB_SED and BD17_SED
 
 END: 

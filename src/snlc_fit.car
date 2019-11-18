@@ -1627,7 +1627,7 @@ c rest-frame init
          IF( NKCOR_STORE .EQ. 0 ) THEN
            c1err = 'Cannot fit rest-frame model ' 
      &          // FITMODEL_NAME(1:40)
-           c2err = 'with no K-cor tables. Check HFILE_KCOR.'
+           c2err = 'with no K-cor tables. Check KCOR_FILE.'
            CALL MADABORT("FITPAR_INI", c1err, c2err)
          ENDIF
 
@@ -10069,11 +10069,16 @@ c set error on MilkyWay Galactic extinction
 
          ERR_TRUE  = SNLC_FLUXCAL_ERRTOT(ep)  
          ERR_CALC  = SNLC_FLUXCAL_ERRCALC(ep)
-         if ( ERR_CALC > 0.0 .and. ERR_TRUE > 0.0 ) THEN        
-            ERR_TMP = ERR_CALC/ERR_TRUE
-         else
-            ERR_TMP = -9.0 
-         ENDIF
+	 ERR_TMP   = SNLC_FLUXCAL_ERRTEST(ep)
+
+c xxxxxxxxxxx mark delete Nov 15 2019 xxxxxxxxxxx
+c         if ( ERR_CALC > 0.0 .and. ERR_TRUE > 0.0 ) THEN        
+c            ERR_TMP = ERR_CALC/ERR_TRUE
+c         else
+c            ERR_TMP = -9.0 
+c         ENDIF
+c xxxxxxxxxxxxx end mark xxxxxxxxxxxxxxxx
+
          R4EP_ALL(ep,JEP_ERRTEST) = ERR_TMP
          R4EP_ALL(ep,JEP_ERRCALC) = ERR_CALC
 
@@ -15346,7 +15351,6 @@ c -------------------------------------------------
 c re-read KCOR file to include FILTLIST_FITRESTMAG
 c (user must make sure that FILTLIST_FITRESTMAG is in the kcor file)
 
-cc      CALL RDKCOR(HFILE_KCOR,IERR)
       CALL RDKCOR(KCOR_FILE,IERR)
 
       CALL CDTOPDIR_OUTPUT  ! back to topdir
@@ -15361,7 +15365,7 @@ c Abort if any filter is missing.
          IF ( .NOT. LFILTDEF_OBS(ifiltdef)  ) THEN
            c1err = 'FILTLIST_FITRESTMAG = ' // cfilt // 
      &            ' is not in kcor file.'
-           c2err = 'Check ' // HFILE_KCOR
+           c2err = 'Check ' // KCOR_FILE
            CALL MADABORT("FITRESTMAG_INI", c1err, c2err )
          ENDIF
 200   CONTINUE

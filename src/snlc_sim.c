@@ -595,6 +595,7 @@ void set_user_defaults(void) {
 
   INPUTS.TRACE_MAIN = 0;
   INPUTS.DEBUG_FLAG = 0 ;
+  INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
   INPUTS.OPT_DEVEL_BBC7D = 0 ;
   NLINE_RATE_INFO   = 0;
 
@@ -970,8 +971,9 @@ void set_user_defaults(void) {
   }
   INPUTS.USE_HOSTLIB_GENZPHOT = 0 ; // logical flag
 
-  HOSTLIB_NBR.SEPNBR_MAX      = 10.0; // +HOSTNBR keeps neighbors within 10''
-  HOSTLIB_NBR.NNBR_WRITE_MAX  = 10;   // write up to 10 NBRs
+  
+  HOSTLIB_NBR_WRITE.SEPNBR_MAX = 10.0; // +HOSTNBR keeps neighbors within 10''
+  HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX  = 10;   // write up to 10 NBRs
   //  HOSTLIB_NBR.MXCHAR_NBR_LIST = 80;   // max string-length of list
 
   // Nov 23 2015
@@ -985,6 +987,10 @@ void set_user_defaults(void) {
   INPUTS.HOSTLIB_GALID_FORCE   = -9;
   INPUTS.HOSTLIB_FIXRAN_RADIUS = -9;
   INPUTS.HOSTLIB_FIXRAN_PHI    = -9;
+  INPUTS.HOSTLIB_FIXSERSIC[0]  =  0.0 ; // a
+  INPUTS.HOSTLIB_FIXSERSIC[1]  =  0.0 ; // b
+  INPUTS.HOSTLIB_FIXSERSIC[2]  = -9.0 ; // n
+  INPUTS.HOSTLIB_FIXSERSIC[3]  = -999.0 ; // a_rot, deg
 
   INPUTS.FLUXERRMODEL_OPTMASK=0 ;
   sprintf(INPUTS.FLUXERRMODEL_FILE,          "NONE" ); 
@@ -1412,6 +1418,9 @@ int read_input(char *input_file) {
     
     if ( uniqueMatch(c_get,"HOSTLIB_FIXRAN_PHI:")  )
       { readdouble( fp, 1, &INPUTS.HOSTLIB_FIXRAN_PHI); continue ; }
+
+    if ( uniqueMatch(c_get,"HOSTLIB_FIXSERSIC:")  )
+      { readdouble( fp, 4, INPUTS.HOSTLIB_FIXSERSIC); continue ; }
    
     if ( uniqueMatch(c_get,"FLUXERRMODEL_FILE:")   )
       { readchar ( fp, INPUTS.FLUXERRMODEL_FILE ); continue ; }
@@ -4367,9 +4376,9 @@ void sim_input_override(void) {
       setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     }
     if ( strcmp( ARGV_LIST[i], "SEPNBR_MAX" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &HOSTLIB_NBR.SEPNBR_MAX ); }
+      { i++ ; sscanf(ARGV_LIST[i] , "%le", &HOSTLIB_NBR_WRITE.SEPNBR_MAX); }
     if ( strcmp( ARGV_LIST[i], "NNBR_WRITE_MAX" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%d", &HOSTLIB_NBR.NNBR_WRITE_MAX ); }
+      { i++ ; sscanf(ARGV_LIST[i] , "%d", &HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX);}
     
 
     if ( strcmp( ARGV_LIST[i], "HOSTLIB_GENZPHOT_FUDGEPAR" ) == 0 ) {
@@ -4450,6 +4459,12 @@ void sim_input_override(void) {
     }
     if ( strcmp( ARGV_LIST[i], "HOSTLIB_FIXRAN_PHI" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXRAN_PHI ); 
+    }
+    if ( strcmp( ARGV_LIST[i], "HOSTLIB_FIXSERSIC" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[1] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[2] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[3] ); 
     }
 
     if ( strcmp( ARGV_LIST[i], "FLUXERRMODEL_FILE" ) == 0 ) {
@@ -6300,7 +6315,11 @@ void prep_user_input(void) {
     }
   }
 
-  
+  if ( INPUTS.DEBUG_FLAG == 3 ) {
+    INPUTS.RESTORE_HOSTLIB_BUGS = true ;
+    printf("\t Restore bugs for DES3YR analysis.\n");
+  }
+
   printf("\n");
 
   return ;
@@ -10189,8 +10208,6 @@ void gen_event_stronglens(int ilc, int istage) {
   }
 
 
-  // xxxx  if ( INPUTS.DEBUG_FLAG ) { GENSL.MAGNIF_LIST[IMGNUM] = 1.0; }
-
   // convert magnifation to magshift
   magnif   = GENSL.MAGNIF_LIST[IMGNUM];
   magshift = -2.5*log10(magnif);
@@ -12871,7 +12888,7 @@ void gen_redshift_LCLIB(void) {
   granz = GaussRanClip(1, (double)-3.0, (double)+3.0) ;
   ZERR  = INPUTS.GENSIGMA_REDSHIFT ;
   SNHOSTGAL.ZSPEC             = ZHEL_TRUE ;
-  SNHOSTGAL.ZSPEC_ERR         = ZERR;
+  SNHOSTGAL.ZSPEC_ERR         = ZERR ;
   GENLC.TEMPLATE_INDEX        = LCLIB_EVENT.ID ; 
   GENLC.REDSHIFT_HOST         = ZHEL_TRUE ;
   GENLC.REDSHIFT_CMB_SMEAR    = ZCMB_TRUE + ZERR*granz ; 
@@ -20449,7 +20466,7 @@ void snlc_to_SNDATA(int FLAG) {
     { SNDATA.HOSTGAL_NMATCH[0]=1 ; SNDATA.HOSTGAL_NMATCH[1]=1 ; }
   SNDATA.HOSTGAL_OBJID[0]   = SNHOSTGAL.GALID ;
 
-  // st HOSTLIB variables
+  // set HOSTLIB variables
   ifilt_obs=0 ;  hostgal_to_SNDATA(FLAG,ifilt_obs);
 
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
@@ -20723,8 +20740,10 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   // Dec 17, 2012: fill HOSTGAL_NFILT_MAGOBS and others with ifilt_obs=0
   // Feb 12, 2014: fill SNDATA.SIM_HOSTGAL_xxx, and add IFLAG arg
   // Jun 02, 2018: load zphot info for LCLIB
+  //
 
-  int    NPAR, ipar, OVP, ifilt ;
+  int    DEBUG_NEW = ( INPUTS.DEBUG_FLAG == 2 );
+  int    NPAR, ipar, OVP, ifilt, NMATCH, m ;
   double psfsig, mag_GAL, mag_SN, mag_dif, fgal ;
   char  *name ;
   //  char fnam[] = "hostgal_to_SNDATA" ;
@@ -20768,27 +20787,59 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   }  // end IFLAG==1
 
 
+  NMATCH = SNHOSTGAL.NNBR ;
+  if ( NMATCH > MXHOSTGAL ) { NMATCH = MXHOSTGAL; }
 
   if ( ifilt_obs == 0 ) {
-    if ( SNHOSTGAL.GALID>0 ) 
-      { SNDATA.HOSTGAL_NMATCH[0]=1 ; SNDATA.HOSTGAL_NMATCH[1]=1 ; }
-    SNDATA.HOSTGAL_OBJID[0]          = SNHOSTGAL.GALID ;
-    SNDATA.HOSTGAL_PHOTOZ[0]         = SNHOSTGAL.ZPHOT ;
-    SNDATA.HOSTGAL_PHOTOZ_ERR[0]     = SNHOSTGAL.ZPHOT_ERR ;
 
-    SNDATA.HOSTGAL_SPECZ[0]          = SNHOSTGAL.ZSPEC ;
-    SNDATA.HOSTGAL_SPECZ_ERR[0]      = SNHOSTGAL.ZSPEC_ERR ;
+    if ( DEBUG_NEW ) {
+      // NEW(Nov 2019): test multiple host matches with NBR_LIST in HOSTLIB
+      SNDATA.HOSTGAL_NMATCH[0] = SNDATA.HOSTGAL_NMATCH[1] = NMATCH ;
+      for(m=0; m < NMATCH; m++ ) {
+	SNDATA.HOSTGAL_OBJID[m]      = SNHOSTGAL_DDLR_SORT[m].GALID;
+	SNDATA.HOSTGAL_PHOTOZ[m]     = SNHOSTGAL_DDLR_SORT[m].ZPHOT;
+	SNDATA.HOSTGAL_PHOTOZ_ERR[m] = SNHOSTGAL_DDLR_SORT[m].ZPHOT_ERR;
 
-    // since HOSTLIB coordinates may be quite different than true SN coords,
-    // use GAL-SN difference to determine final host coords.
-    SNDATA.HOSTGAL_RA[0]     = SNDATA.RA + 
-      (SNHOSTGAL.RA_GAL_DEG - SNHOSTGAL.RA_SN_DEG);
-    SNDATA.HOSTGAL_DEC[0]    = SNDATA.DEC + 
-      (SNHOSTGAL.DEC_GAL_DEG - SNHOSTGAL.DEC_SN_DEG);
-    SNDATA.HOSTGAL_SNSEP[0]          = SNHOSTGAL.SNSEP ;
-    SNDATA.HOSTGAL_DDLR[0]           = SNHOSTGAL.DDLR ;
-    SNDATA.HOSTGAL_LOGMASS[0]        = SNHOSTGAL.LOGMASS ;
-    SNDATA.HOSTGAL_LOGMASS_ERR[0]    = SNHOSTGAL.LOGMASS_ERR ;
+	if ( SNHOSTGAL_DDLR_SORT[m].TRUE_MATCH == true ) {
+	  SNDATA.HOSTGAL_SPECZ[m]      = SNHOSTGAL.ZSPEC ;
+	  SNDATA.HOSTGAL_SPECZ_ERR[m]  = SNHOSTGAL.ZSPEC_ERR ;
+	}
+	else {
+	  SNDATA.HOSTGAL_SPECZ[m]      = SNHOSTGAL_DDLR_SORT[m].ZSPEC;
+	  SNDATA.HOSTGAL_SPECZ_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].ZSPEC_ERR;
+	}
+
+	SNDATA.HOSTGAL_RA[m]          = SNHOSTGAL_DDLR_SORT[m].RA ;
+	SNDATA.HOSTGAL_DEC[m]         = SNHOSTGAL_DDLR_SORT[m].DEC ;
+	SNDATA.HOSTGAL_DDLR[m]        = SNHOSTGAL_DDLR_SORT[m].DDLR ;
+	SNDATA.HOSTGAL_SNSEP[m]       = SNHOSTGAL_DDLR_SORT[m].SNSEP ;
+	SNDATA.HOSTGAL_LOGMASS[m]     = SNHOSTGAL_DDLR_SORT[m].LOGMASS ;
+	SNDATA.HOSTGAL_LOGMASS_ERR[m] = SNHOSTGAL_DDLR_SORT[m].LOGMASS_ERR ;
+      }
+    }
+    else {
+      // default before +HOSTNBR 
+      if ( SNHOSTGAL.GALID>0 ) 
+	{ SNDATA.HOSTGAL_NMATCH[0]=1 ; SNDATA.HOSTGAL_NMATCH[1]=1 ; }
+      SNDATA.HOSTGAL_OBJID[0]          = SNHOSTGAL.GALID ;
+      SNDATA.HOSTGAL_PHOTOZ[0]         = SNHOSTGAL.ZPHOT ;
+      SNDATA.HOSTGAL_PHOTOZ_ERR[0]     = SNHOSTGAL.ZPHOT_ERR ;
+      
+      SNDATA.HOSTGAL_SPECZ[0]          = SNHOSTGAL.ZSPEC ;
+      SNDATA.HOSTGAL_SPECZ_ERR[0]      = SNHOSTGAL.ZSPEC_ERR ;
+      
+      // since HOSTLIB coordinates may be quite different than true SN coords,
+      // use GAL-SN difference to determine final host coords.
+      SNDATA.HOSTGAL_RA[0]     = SNDATA.RA + 
+	(SNHOSTGAL.RA_GAL_DEG - SNHOSTGAL.RA_SN_DEG);
+      SNDATA.HOSTGAL_DEC[0]    = SNDATA.DEC + 
+	(SNHOSTGAL.DEC_GAL_DEG - SNHOSTGAL.DEC_SN_DEG);
+      SNDATA.HOSTGAL_SNSEP[0]          = SNHOSTGAL.SNSEP ;
+      SNDATA.HOSTGAL_DDLR[0]           = SNHOSTGAL.DDLR ;
+      SNDATA.HOSTGAL_LOGMASS[0]        = SNHOSTGAL.LOGMASS ;
+      SNDATA.HOSTGAL_LOGMASS_ERR[0]    = SNHOSTGAL.LOGMASS_ERR ;
+      
+    } // end DEBUG_FLAG
 
     NPAR = SNDATA.NPAR_SIM_HOSTLIB ;
     for(ipar=0; ipar < NPAR ; ipar++ ) {
@@ -20802,17 +20853,22 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
   // transfer total host mag (Feb 2013)
 
-  SNDATA.HOSTGAL_MAG[0][ifilt] = (float)SNHOSTGAL.GALMAG[ifilt_obs][0] ;
+  SNDATA.HOSTGAL_MAG[0][ifilt] = (float)SNHOSTGAL.GALMAG[ifilt_obs][0]; 
   SNDATA.HOSTGAL_USEMASK |= 1 ; // flag to write host mag
+
+  if ( DEBUG_NEW ) {
+    for(m=0; m < NMATCH; m++ ) {
+      SNDATA.HOSTGAL_MAG[m][ifilt] = 
+	(float)SNHOSTGAL_DDLR_SORT[m].MAG[ifilt_obs] ;
+    }
+  }
 
   SNDATA.HOSTGAL_SB_FLUX[ifilt] = (float)SNHOSTGAL.SB_FLUX[ifilt_obs];
   SNDATA.HOSTGAL_SB_MAG[ifilt]  = (float)SNHOSTGAL.SB_MAG[ifilt_obs];
 
-  OVP = INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_PHOT ;
+  OVP = (INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_PHOT) ;
   if ( OVP > 0 ) {
-
     SNDATA.HOSTGAL_USEMASK |= 4 ; // flag to write surface brightness
-
     psfsig   = 1./2.355 ;     // typical PSF in arcsec
     mag_GAL  = interp_GALMAG_HOSTLIB(ifilt_obs,psfsig );
     mag_SN   = (double)SNDATA.SIM_PEAKMAG[ifilt_obs] ;

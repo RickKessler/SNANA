@@ -733,7 +733,7 @@ c analysis-related variables.
      &  ,ISNLC_NFILT_TRESTMIN     ! Nfilt passing TRESTMIN cut
      &  ,ISNLC_NFILT_TRESTMAX     ! idem for TRESTMAX
      &  ,ISNLC_NFILT_TREST2       ! Nfilt passing CUTWIN_TREST2 cut
-     &  ,ISNLC_NFILT_THRESH(MXEPOCH)
+cc xxx    &  ,ISNLC_NFILT_THRESH(MXEPOCH)
      &  ,ISNLC_NEPOCH_FOUND  ! actual number of epochs found
      &  ,ISNLC_NEPOCH_STORE  ! number of epochs stored in memory
      &  ,ISNLC_NEPOCH_USE       ! used after PHOTMASK cuts
@@ -819,6 +819,7 @@ c
      &  ,SNLC_FLUXCAL_HOSTERRCALC(MXEPOCH)   ! idem for host error
      &  ,SNLC_FLUXCAL(MXEPOCH)
      &  ,SNLC_FLUXCAL_ERRTOT(MXEPOCH)
+     &  ,SNLC_FLUXCAL_ERRTEST(MXEPOCH)   ! ERRCALC/ERRTRUE (Nov 2019
      &  ,SNLC_MAG(MXEPOCH)
      &  ,SNLC_MAG_ERRPLUS(MXEPOCH)
      &  ,SNLC_MAG_ERRMINUS(MXEPOCH)
@@ -894,7 +895,7 @@ c
 
       COMMON / ISNCOM /      
      &     ISNLC_VERSION, ISNLC_SNRECON_USE, ISNLC_PHOTFLAG
-     &    ,ISNLC_NFILT_THRESH, ISNLC_TYPE
+     &    ,ISNLC_TYPE
      &    ,ISNLC_ABSO_INDEX, ISNLC_IFILE,ISNLC_LENCCID,ISNLC_LENIAUC
      &    ,ISNLC_NFILT_NEWMJD, ISNLC_IFILT_OBS
      &    ,ISNLC_NEWMJD_HEAD, ISNLC_NEWMJD_FOUND, ISNLC_NEWMJD_STORE
@@ -1490,8 +1491,9 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_PSF,  CUTBIT_ZP
      &  ,CUTBIT_PHOTPROB
      &  ,CUTBIT_TREST, CUTBIT_TOBS, CUTBIT_MJD
-     &  ,CUTBIT_IDTEL          ! valid telescope 
-     &  ,CUTBIT_NBAND_THRESH
+cc xxx     &  ,CUTBIT_IDTEL          ! valid telescope 
+     &  ,CUTBIT_ERRTEST          ! epoch cut on ERRCALC/ERRTRUE
+cc xxx     &  ,CUTBIT_NBAND_THRESH
      &  ,CUTBIT_NFILT_SNRMAX
      &  ,CUTBIT_NFILT_SNRMAX2
      &  ,CUTBIT_NFILT_TRESTMIN
@@ -1544,13 +1546,14 @@ c MJD-dependent cuts below
      &  ,CUTBIT_PSF          = CUTBIT_MJD_MARKER + 1  ! PSF cut
      &  ,CUTBIT_ZP           = CUTBIT_MJD_MARKER + 2  ! ZP  cut (Feb 2018)
      &  ,CUTBIT_PHOTPROB     = CUTBIT_MJD_MARKER + 3
-     &  ,CUTBIT_NBAND_THRESH = CUTBIT_MJD_MARKER + 4
-     &  ,CUTBIT_Trest        = CUTBIT_MJD_MARKER + 5  
-     &  ,CUTBIT_Tobs         = CUTBIT_MJD_MARKER + 6  ! 5.21.2019
-     &  ,CUTBIT_MJD          = CUTBIT_MJD_MARKER + 7  
-     &  ,CUTBIT_IDTEL        = CUTBIT_MJD_MARKER + 8
+cc xxx mark delete     &  ,CUTBIT_NBAND_THRESH = CUTBIT_MJD_MARKER + 4
+     &  ,CUTBIT_Trest        = CUTBIT_MJD_MARKER + 4
+     &  ,CUTBIT_Tobs         = CUTBIT_MJD_MARKER + 5
+     &  ,CUTBIT_MJD          = CUTBIT_MJD_MARKER + 6  
+     &  ,CUTBIT_ERRTEST      = CUTBIT_MJD_MARKER + 7
+cc xxx mark delete     &  ,CUTBIT_IDTEL        = CUTBIT_MJD_MARKER + 8
 c
-     &  ,CUTBIT_OFFSET       = CUTBIT_IDTEL
+     &  ,CUTBIT_OFFSET       = CUTBIT_ERRTEST
      &  ,NCUTBIT             = CUTBIT_OFFSET 
      &      )
 
@@ -1662,6 +1665,7 @@ c  Below are Epoch-dependent cuts
      &  ,cutwin_zpADU(2)         ! ZEROPT cut, ADU
      &  ,cutwin_zpNPE(2)         ! ZEROPT cut, NPE
      &  ,cutwin_photprob(2)
+     &  ,cutwin_errtest(2)       ! cut on ERRCALC/ERRTRUE
      &  ,cutwin_Trest(2)         ! window for all epochs, rest frame days
      &  ,cutwin_Tobs(2)          ! window for all epochs, obs-frame days
      &  ,cutwin_MJD(2)           ! MJD window
@@ -1799,7 +1803,8 @@ ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
      &   ,( cutwin_var(1,cutbit_psf),       cutwin_psf )
      &   ,( cutwin_var(1,cutbit_zp),        cutwin_zp  )
      &   ,( cutwin_var(1,cutbit_photprob),  cutwin_photprob  )
-     &   ,( cutwin_var(1,cutbit_Nband_thresh), cutwin_nband_thresh )
+     &   ,( cutwin_var(1,cutbit_errtest),   cutwin_errtest   )
+cc     &   ,( cutwin_var(1,cutbit_Nband_thresh), cutwin_nband_thresh )
      &   ,( cutwin_var(1,cutbit_Nfilt_snrmax), cutwin_nfilt_snrmax )
      &   ,( cutwin_var(1,cutbit_Nfilt_snrmax2),cutwin_nfilt_snrmax2 )
      &   ,( cutwin_var(1,cutbit_Nfilt_trestmin),cutwin_nfilt_trestmin)
@@ -1848,7 +1853,6 @@ c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
      &  ,SNTABLE_LIST     ! list of SNTABLEs to create
      &  ,SNTABLE_FILTER_REMAP ! remap filters in tables
      &  ,KCOR_FILE            ! fits-formatted KCOR tables
-     &  ,hfile_kcor           ! OBSOLETE input -> abort
      &  ,EPOCH_IGNORE_FILE    ! file with epochs to ignor
      &  ,SNMJD_LIST_FILE      ! list of "CID MJD" to process
      &  ,SNMJD_OUT_FILE       ! MJD_LIST out file
@@ -2003,7 +2007,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, NONLINEARITY_FILE
      &    , hfile_out, rootfile_out, textfile_prefix
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP
-     &    , hfile_kcor, KCOR_FILE, ZPOFF_FILE, USERTAGS_FILE
+     &    , KCOR_FILE, ZPOFF_FILE, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
      &    , MAGCOR_FILE, SIM_MAGCOR_FILE,  FUDGE_HOSTNOISE_FILE
@@ -2047,7 +2051,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , hfile_out, rootfile_out, textfile_prefix
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP
-     &    , hfile_kcor, KCOR_FILE, ZPOFF_FILE, USERTAGS_FILE
+     &    , KCOR_FILE, ZPOFF_FILE, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE
      &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, NONLINEARITY_FILE
@@ -2090,7 +2094,7 @@ c
      &   ,cutwin_peakmjd,  cutwin_mjd
 c
      &   ,cutwin_psf,       cutwin_zp,  CUTWIN_ZPADU, CUTWIN_ZPNPE
-     &   ,cutwin_photprob
+     &   ,cutwin_photprob,  cutwin_errtest
      &   ,cutwin_nband_thresh
      &   ,cutwin_nfilt_snrmax,   cutwin_nfilt_snrmax2
      &   ,cutwin_nfilt_trestmin, cutwin_nfilt_trestmax
@@ -3234,10 +3238,6 @@ C ==================================
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 
-c May 2011: when reading &SNLCINP add END=902 call to flag
-c           non-existant namelist.
-c
-c Mar 2015: use new integer function PARSE_NML_STRINGLIST
 c
 c Jan 5 2016: if NMLFILE = 'NOFILE', then skip reading file
 c             and jump to SNLCINP_OVERRIDE. Allows running snana
@@ -3337,6 +3337,9 @@ c set namelist defaults
       CUTWIN_LAMOBS(1)       =  2000.
       CUTWIN_LAMOBS(2)       = 25000.
 
+      CUTWIN_NBAND_THRESH(1) = -9.0 !  obsolete as of Nov 15 2019
+      CUTWIN_NBAND_THRESH(2) = -9.0
+
       do ifilt = 1, MXFILT_OBS
          CUTWIN_SNRMIN_FILT(1,ifilt) = -CUTVAL_OPEN
          CUTWIN_SNRMIN_FILT(2,ifilt) = +CUTVAL_OPEN
@@ -3348,7 +3351,6 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
 
       EPOCH_IGNORE_FILE = 'DEFAULT' 
 
-      HFILE_KCOR  = 'NULL' 
       KCOR_FILE   = 'NULL'
 
       hfile_out         = ' '
@@ -3597,14 +3599,6 @@ c check for namelist over-rides from command line.
       CALL SNLCINP_OVERRIDE(IERR)
         IF ( IERR .NE. 0 ) RETURN
 
-c ----------------------------------
-c allow legacy HFILE_KCOR
-
-      IF (    HFILE_KCOR(1:4) .NE. 'NULL' 
-     &  .and. HFILE_KCOR      .NE. ' ')  THEN
-          KCOR_FILE = HFILE_KCOR  ! set new variable (Dec 2012)
-      ENDIF
-
 c check for cut on simulated search eff;
 c if set, then require SEARCHEFF_MASK = 3 =>
 c bits 1 & 2 are set.
@@ -3820,6 +3814,12 @@ c If interactive, replace invalid pwd/ with a valid './' path.
          PRIVATE_DATA_PATH = '.'
       ENDIF
 
+c Nov 15 2019: abort on obsolete key
+      IF ( CUTWIN_NBAND_THRESH(1) > -1.0 ) then
+         C1ERR = 'Remove obsolete CUTWIN_NBAND_THRESH from &SNLCINP.'
+         C2ERR = 'Sorry for the inconvenience.'
+         CALL MADABORT(FNAM, C1ERR, C2ERR)
+      ENDIF
 
 C #################################################
 
@@ -4698,9 +4698,6 @@ c to allow multiple specifications.
          else if ( LINE_ARGS(i) .EQ. 'INTERP_OPT' ) then
             i = i + 1 ;  READ(LINE_ARGS(i),*) INTERP_OPT
 
-         else if ( LINE_ARGS(i) .EQ. 'HFILE_KCOR' ) then
-            i = i + 1 ; HFILE_KCOR = LINE_ARGS(i)
-
          else if ( LINE_ARGS(i) .EQ. 'KCOR_FILE' ) then
             i = i + 1 ; KCOR_FILE = LINE_ARGS(i)
 
@@ -5043,6 +5040,10 @@ c - - - - - - - -
          else if ( LINE_ARGS(i) .EQ. 'CUTWIN_ZPNPE' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPNPE(1)
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPNPE(2)
+
+         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_ERRTEST' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ERRTEST(1)
+            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ERRTEST(2)
 
 c ------------
          else if ( LINE_ARGS(i) .EQ. 'MAGOBS_SHIFT_PRIMARY' ) then
@@ -8591,11 +8592,13 @@ c init HIDKCOR array to 0
          CUTWIN_VAR(2,ibit) = +CUTVAL_OPEN
       ENDDO    
          CUTWIN_VAR(1,CUTBIT_NMJD_INCLUDE) = 0.99
-         
-         CUTWIN_ZPADU(1) = -CUTVAL_OPEN
-         CUTWIN_ZPADU(2) = +CUTVAL_OPEN
-         CUTWIN_ZPNPE(1) = -CUTVAL_OPEN
-         CUTWIN_ZPNPE(2) = +CUTVAL_OPEN
+              
+c xxxxxx mark delete Nov 2019 (redundant) xxxxxxxx
+c         CUTWIN_ZPADU(1) = -CUTVAL_OPEN
+c         CUTWIN_ZPADU(2) = +CUTVAL_OPEN
+c         CUTWIN_ZPNPE(1) = -CUTVAL_OPEN
+c         CUTWIN_ZPNPE(2) = +CUTVAL_OPEN
+c xxxxxxxxxxxxxx
 
       NEPOCH_IGNORE =  0
       EPOCH_IGNORE_LASTFILE = ''
@@ -16699,6 +16702,7 @@ c PHOT section of TEXT format ... but not read from PHOT-FITS file
 
       IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
         SIM_EPMAGOBS(EP1)          = SIM_EPMAGOBS(EP2)
+        SIM_EPFLUXCAL(EP1)         = SIM_EPFLUXCAL(EP2)
       ENDIF
 
       IF ( LSIM_SNANA ) THEN
@@ -16710,11 +16714,6 @@ c - - -
       SNLC_MAG(ep1)            = SNLC_MAG(ep2)
       SNLC_MAG_ERRPLUS(ep1)    = SNLC_MAG_ERRPLUS(ep2)
       SNLC_MAG_ERRMINUS(ep1)   = SNLC_MAG_ERRMINUS(ep2)
-
-c xxxxxxxx mark delete June 25 2019 xxxxxxxxxxxxxxxxxxx
-c      SNLC_TREST(ep1)          = SNLC_TREST(ep2)
-c      SNLC_TOBS(ep1)           = SNLC_TOBS(ep2)
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
       RETURN
       END    ! end MOVE_SNLC_ARRAYS
@@ -16901,7 +16900,6 @@ c      print*,' xxx NCALL,NEP_RESET=', NCALL_SNANA_DRIVER, NEP_RESET
         ISNLC_IDFIELD(iep)        =  -9
 
         SNLC8_MJD(iep)           =  -9.0
-        ISNLC_NFILT_THRESH(iep)   =  -9
 
         ISNLC_PHOTFLAG(iep)  = 0 
         SNLC_PHOTPROB(iep)   = 0.0
@@ -16917,6 +16915,7 @@ c      print*,' xxx NCALL,NEP_RESET=', NCALL_SNANA_DRIVER, NEP_RESET
 
         SNLC_FLUX_NSIG(iep)       =  0.0
         SNLC_FLUXCAL_ERRCALC(iep) =  0.0
+        SNLC_FLUXCAL_ERRTEST(iep) = -9.0
         SNLC_FLUXCAL_HOSTERRCALC(iep) = 0.0 
         SNLC_FLUXCAL(iep)         =  0.0
         SNLC_FLUXCAL_ERRTOT(iep)  = -9.0  ! Oct 8 2014
@@ -17127,7 +17126,7 @@ c hard-wire names of cut variables (maxchar = 28)
       cutvar_name(CUTBIT_PSF)          = 'PSF:'
       cutvar_name(CUTBIT_ZP)           = 'ZP:'
       cutvar_name(CUTBIT_PHOTPROB)     = 'PHOTPROB:'
-      cutvar_name(CUTBIT_NBAND_THRESH) = 'Nband thresh:'
+cc xxx      cutvar_name(CUTBIT_NBAND_THRESH) = 'Nband thresh:'
       cutvar_name(CUTBIT_MWEBV)        = 'MWEBV:'
       cutvar_name(CUTBIT_NSEASON_ACTIVE) = 'NSEASON_ACTIVE:'
       cutvar_name(CUTBIT_REQEP)        = 'REQEP_CUTFLAG:'
@@ -17136,7 +17135,8 @@ c hard-wire names of cut variables (maxchar = 28)
       cutvar_name(CUTBIT_USRCUTS)      = 'USRCUTS:'
       cutvar_name(CUTBIT_TREST)        = 'Trest:'
       cutvar_name(CUTBIT_TOBS)         = 'Tobs:'
-      cutvar_name(CUTBIT_IDTEL)        = 'Telescope:'
+      cutvar_name(CUTBIT_ERRTEST)      = 'ERR(CALC)/ERR(TRUE):'
+cc xxx mark delete      cutvar_name(CUTBIT_IDTEL)        = 'Telescope:'
       cutvar_name(CUTBIT_SNRMAX)       = 'SNRmax:'
       cutvar_name(CUTBIT_SNRMAX2)      = 'SNRmax2:'
       cutvar_name(CUTBIT_NFILT_SNRMAX) = 'NFILT_SNRmax:'
@@ -18879,7 +18879,6 @@ c useful variables for analysis.
 c
 c Includes:
 c
-c  * ISNLC_NFILT_THRESH(epoch) = # filter bands above user-threshold
 c  * ISNLC_NFILT_TRESTMIN[MAX]
 c  * ISNLC_NFILT_TREST2  
 c  * SNLC_TREST(epoch)        = MJD - MJDatPEAK(search) 
@@ -18936,7 +18935,7 @@ c local var
 
       INTEGER 
      &   newmjd, ifilt, ifilt_obs, LENLIST, INDEX_OVP
-     &  ,NBAND_THRESH, NBAND_SNRMAX, NBAND_SNRMAX2
+     &  ,NBAND_SNRMAX, NBAND_SNRMAX2
      &  ,EPMIN, EPMAX, ep, isort, PHOTFLAG
      &  ,ORDER, INDEX_SORT(MXFILT_OBS)  ! SORT args
 
@@ -19091,8 +19090,6 @@ c = = = = = = = = = = = = = = = = = = = = = = = = = = = =
         SNLC_TOBS(EPMIN)  = Tobs
         SNLC_TREST(EPMIN) = Trest
 
-        NBAND_THRESH = 0  ! init number of filter bands above user-threshold
-
         DO 201 EP = EPMIN, EPMAX
 
            ISNLC_SNRECON_USE(ep) = 0
@@ -19240,7 +19237,6 @@ c set use-flag for this epoch
      &         MAX ( SNLC_FLUXCALMAX(ifilt), Fluxcal )
 
           EXIST_FILT(ifilt) = .TRUE.
-          NBAND_THRESH      = NBAND_THRESH + 1
           ISNLC_NEPOCH_USE  = ISNLC_NEPOCH_USE + 1
 
 c track number of filters that pass SNRMAX cut
@@ -19282,12 +19278,6 @@ c check for trigger bit set by survey (5.2019)
 
 201     CONTINUE     ! come here of LSIG fails
 
-
-c store result in global array to be used for selection cut
-c Note that the index is NEWMJD since this is the number of
-c passbands above threshold at this NEWMJD.
-
-        ISNLC_NFILT_THRESH(NEWMJD) = NBAND_THRESH
           
 200   CONTINUE  ! NEWMJD
 
@@ -21473,12 +21463,6 @@ c   The calibrated FLUXCAL and its error are passed as arguments
 c   to allow using fitted quantities that may work better for 
 c   low SNR.
 c
-c Mar 6, 2012: compute SNLC_SKYFLUXCAL(iepoch)  in FLUXCAL/Pixel
-c              to directly compare to SNLC_HOST_SBFLUX.
-c
-c Mar 7, 2012: include HOST SBFLUX in calculation (if it exists)
-c              Hard-wire SDSS pixel size to convert SBFLUX from
-c              per arcsec^2 to per pixel.
 c
 c Sep 21 2017: 
 c  + implement CHECK_SNANA_DUMP
@@ -21487,6 +21471,8 @@ c  + allow calc for any format (previously skipped TERSE)
 c
 c Mar 2 2018:
 c  + REAL -> REAL*8
+c
+c Nov 15 2019: load SNLC_FLUXCAL_ERRTEST = ERRCALC/ERRTRUE
 c
 c --------------------------------------------
       IMPLICIT NONE
@@ -21515,7 +21501,7 @@ c local var
      &  ,SBFLUXCAL, SBFLUXCAL_ERR, SBFLUXADU
      &  ,FLUXADU, FLUXADU_ERR
      &  ,ZP,  ZPERR, ZPSCALE, ZPDIF
-     &  ,SQ1, SQRD,  SQERR_HOST, HOST_SKY_RATIO, ERRCALC
+     &  ,SQ1, SQRD,  SQERR_HOST, HOST_SKY_RATIO, ERRCALC, ERRTRUE
      &  ,SKYFLUX_ERR_PHOTO
      &  ,SKYFLUX_ERR_CALC 
      &  ,PIXSIZE
@@ -21532,6 +21518,7 @@ c function
 
 C ------------- BEGIN --------------
 
+      ERRCALC = -9.0 
       SNLC_FLUXCAL_ERRCALC(iepoch)     = -9.0
       FNAM = 'FLUXERRCALC'
 
@@ -21557,6 +21544,7 @@ c strip off observing conditions into local variables.
       SBFLUXCAL     = SNHOST_SBFLUXCAL(ifilt)
       SBFLUXCAL_ERR = SNHOST_SBFLUXCAL_ERR(ifilt)
       PIXSIZE       = SNLC_PIXSIZE
+      ERRTRUE       = SNLC_FLUXCAL_ERRTOT(iepoch)
 
       SKY_SIGTOT_ADU = SQRT(SKY_SIG_ADU**2 + SKY_SIG2_ADU**2)
 
@@ -21665,8 +21653,14 @@ c now combine calculated sky error and signal poisson noise
 c for best estimate of flux error. This is what the simulation does.
 
       SQSUM = SQERR_SKY + SQERR_SIGNAL + SQERR_ZP
-      SNLC_FLUXCAL_ERRCALC(iepoch)     = SQRT(SQSUM)/ZPSCALE
+      ERRCALC                          = SQRT(SQSUM)/ZPSCALE
+      SNLC_FLUXCAL_ERRCALC(iepoch)     = ERRCALC
       SNLC_FLUXCAL_HOSTERRCALC(iepoch) = SQRT(SQERR_HOST)/ZPSCALE
+
+      IF ( ERRCALC > 0.0 .and. ERRTRUE > 0.0 ) THEN
+        SNLC_FLUXCAL_ERRTEST(iepoch)  = ERRCALC/ERRTRUE
+      ENDIF
+
 c ------------------------------------
 c Get photometry sky-error by subracting
 c photo-stat signal error from total error
@@ -21680,7 +21674,6 @@ c photo-stat signal error from total error
          SKYFLUX_ERR_PHOTO = -9.0
       ENDIF
 
-      ERRCALC = SNLC_FLUXCAL_ERRCALC(iepoch)
 c --------------------------
 c check for DUMP
 
@@ -21724,8 +21717,7 @@ cc    IF ( SIM_LIBID .EQ. 121 .and. ifilt_obs.EQ.5 ) DUMPFLAG=2 ! XXX REMOVE
 60      format(T2,' XXX SKYERR_ADU(PHOTO,CALC) =',F10.3,F10.3 )
 
 
-        write(6,61) SNLC_FLUXCAL_ERRTOT(iepoch)
-     &             ,SNLC_FLUXCAL_ERRCALC(iepoch)
+        write(6,61) ERRTRUE, ERRCALC
 61      format(T3,'XXX FLUXCAL_ERR(PHOTO,CALC)=',F10.3,F10.3 )
         print*,'   '
 
@@ -22376,7 +22368,8 @@ c IDEBUG = 1 : general info for users
 c IDEBUG = 2 : include detailed cut-masks for development
 c
 c Aug 2007: make special note when telescope is not found.
-c
+c Nov 2019: remove telescope logic and CUTBIT_IDTEL
+
       IMPLICIT NONE
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
@@ -22388,7 +22381,7 @@ c local var
 
       INTEGER  cid, ibit, ii, EPMIN
       character ccid*(MXCHAR_CCID)
-      LOGICAL LCUT, LTEST, NOTEL
+      LOGICAL LCUT, LTEST
 
 C ------------------- BEGIN --------------
 
@@ -22407,8 +22400,6 @@ c write MJD-cutmask in hex format
 
 c list failed bits for epoch-dependent cuts only
 
-      NOTEL   = .FALSE.
-
       DO ibit = CUTBIT_MJD_MARKER+1, NCUTBIT
 
         LTEST = BTEST ( CUTMASK8_MJD_ALL,        ibit-1 ) 
@@ -22424,15 +22415,14 @@ c list failed bits for epoch-dependent cuts only
 30         format(T5,'NEWMJD ',I2,1x,'(MJD=',F9.3,')',2x,
      &         'Failed CUTBIT ', I3, ' : ', A  )
 
-           if ( ibit.EQ. CUTBIT_IDTEL ) NOTEL = .TRUE.
+cc xxx mark delete      if ( ibit.EQ. CUTBIT_IDTEL ) NOTEL = .TRUE.
         endif
 
       ENDDO
 
       RETURN
-      END
-
-
+      END  ! end DMP_CUTFAIL
+  
 C =============================================
 +DECK,DMP_SNFAIL.
       SUBROUTINE DMP_SNFAIL()
@@ -22587,8 +22577,13 @@ c Dec 18 2017: replace cloudAVG with PSF cut. Note that cut is in ARCSEC
          SNEP_CUTVAR(CUTBIT_PHOTPROB,imjd)  = 
      &       SNLC_PHOTPROB(EPMIN)
 
-         SNEP_CUTVAR(CUTBIT_NBAND_THRESH,imjd)  = 
-     &       ISNLC_NFILT_THRESH(IMJD)
+         SNEP_CUTVAR(CUTBIT_ERRTEST,imjd)  =   ! Nov 2019
+     &       SNLC_FLUXCAL_ERRTEST(EPMIN)
+
+c xxxxxxx mark delete Nov 2019 xxxxxx
+c         SNEP_CUTVAR(CUTBIT_NBAND_THRESH,imjd)  = 
+c     &       ISNLC_NFILT_THRESH(IMJD)
+c xxxxxxxxxxxxxxxxxxxxxxxx
 
          SNEP_CUTVAR(CUTBIT_TREST,imjd)  = 
      &       SNLC_TREST(EPMIN)
@@ -22622,12 +22617,14 @@ c Evaluate cutmask for each epoch
           LCUT = tmp .GE. cutwin_var(1,icut) .and.
      &           tmp .LE. cutwin_var(2,icut)
 
+c xxxxxxxx mark delete Nov 15 2019 xxxxxxxxx
 c special cut for telescope (Aug 2007)
-         if ( icut .EQ. CUTBIT_IDTEL ) then
-            IDTEL = ISNLC_IDTEL(EPMIN)
-            LCUT  = IDTELSELECT(IDTEL)
-            if ( LCUT ) NMJD_IDTEL = NMJD_IDTEL + 1
-         endif
+c         if ( icut .EQ. CUTBIT_IDTEL ) then
+c            IDTEL = ISNLC_IDTEL(EPMIN)
+c            LCUT  = IDTELSELECT(IDTEL)
+c            if ( LCUT ) NMJD_IDTEL = NMJD_IDTEL + 1
+c         endif
+c xxxxxxxxxx end mark xxxxxxxxxxxxxxxxx
 
 c set cut-bit if cut is satisfied
           if ( LCUT ) then
@@ -27920,7 +27917,7 @@ c get sparse indices
 
 c make sure that we don't exceed KCOR filter-index bound
 
-      c2err = 'Check HFILE_KCOR or KCOR_FILE. '
+      c2err = 'Check KCOR_FILE. '
       if ( ifiltr .GT. MXFILT_KCOR ) then
          write(c1err,1660) ifiltr, 'rest', ' ', MXFILT_KCOR
          CALL MADABORT(FNAM, c1err, c2err)
@@ -28667,7 +28664,7 @@ cc      print*,' xxxxx  obs  j, j1 j2 = ',  j, j1, j2
       END
 
 C ================================
-+DECK,FMATCH.
++DECK,FILTMATCH.
       SUBROUTINE FILTMATCH(cfilt, ifilt_rest, ifilt_obs )
 C
 C Nov 2010:

@@ -673,6 +673,8 @@ Default output files (can change names with "prefix" argument)
     + scalePCC bound -> 15 (was 5)
     + clean up stdout messaging in prepare_biasCor(1D,5D,6D,7D)
 
+ Nov 14 2019: MAXBIN_BIASCOR_1D -> 500k (was 200k)
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -717,7 +719,7 @@ char STRING_EVENT_TYPE[MXEVENT_TYPE][12] =
 #define MAXBIN_BIASCOR_ALPHA   2  // for biasCor map
 #define MAXBIN_BIASCOR_BETA    2  // for biasCor map
 #define MAXBIN_BIASCOR_GAMMADM 2  // for biasCor map
-#define MAXBIN_BIASCOR_1D  200000  // max on total 5D bins for {a,b,z,x1,c}
+#define MAXBIN_BIASCOR_1D  500000  // max on total 5D bins for {a,b,z,x1,c}
 #define MINPERCELL_BIASCOR    10  // min per cell for RMS and mBslope corr
 
 // shorter names for local declarations

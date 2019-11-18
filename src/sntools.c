@@ -7872,14 +7872,19 @@ void wr_HOSTGAL(FILE *fp) {
   // May 16,2013 - write no more than 10 per line to avoid lines that
   //               are too long.
   // Dec 18 2015 - write specz
+  // Nov 13 2019 - fix to work with NGAL>1
 
-  int ifilt, ifilt_obs, NTMP, igal, NGAL=1 ;
+  int ifilt, ifilt_obs, NTMP, igal, NGAL ;
   char PREFIX[20] = "HOSTGAL";
   char filtlist[MXFILTINDX], ctmp[100] ;
   
   // --------------- BEGIN --------------
 
+  
   sprintf(filtlist,"%s", SNDATA_FILTER.LIST );
+
+  NGAL = SNDATA.HOSTGAL_NMATCH[0];
+  if ( NGAL > MXHOSTGAL ) { NGAL = MXHOSTGAL ; }
 
   fprintf(fp, "%s_NMATCH:    %d  \n",  
 	  PREFIX, SNDATA.HOSTGAL_NMATCH[0] );
@@ -7887,6 +7892,9 @@ void wr_HOSTGAL(FILE *fp) {
 	  PREFIX, SNDATA.HOSTGAL_NMATCH[1] );
 
   for(igal=0; igal < NGAL; igal++ ) {
+
+    if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d", igal+1); }
+
     fprintf(fp, "%s_OBJID:    %lld  \n",  
 	    PREFIX, SNDATA.HOSTGAL_OBJID[igal] );
 
@@ -7948,6 +7956,8 @@ void wr_HOSTGAL(FILE *fp) {
       }
       fprintf(fp,"# %s\n", filtlist) ;
     }
+    
+    fprintf(fp,"\n");
 
   } // end igal loop
 

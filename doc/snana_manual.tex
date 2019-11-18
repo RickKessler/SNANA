@@ -3528,6 +3528,7 @@ the sim-input file (or via command-line override):
    HOSTLIB_GALID_FORCE:    ####       # forced GALID 
    HOSTLIB_FIXRAN_RADIUS:  #.##       # fix radial random number (0-1)
    HOSTLIB_FIXRAN_PHI:     #.##       # fix phi random number (0-1)
+   HOSTLIB_FIXSERSIC:  a b n a_rot    # a,b in arcsec, a_rot in deg
 \end{Verbatim}
 Only the {\tt HOSTLIB\_FILE} key is required, while the
 other keys are optional. Ideally all surveys would use
@@ -3914,7 +3915,7 @@ a {\it spectroscopic} galaxy redshift, and it sets the 4-bit of
 To verify the ``{\tt a\_rot}'' convention, it is useful to fix the
 radius and angle to known values and visually inspect the location
 on a real image with the HOSTLIB galaxies. A relative
-galaxy position can be selected with
+galaxy position and Sersic profile can be selected with
 \begin{itemize}
   \item {\tt HOSTLIB\_FIXRAN\_PHI} is a random number ($0<r<1$) 
         that fixes the azimuthal angle to $r\times 360$:
@@ -3925,6 +3926,10 @@ galaxy position can be selected with
   \item {\tt HOSTLIB\_FIXRAN\_RADIUS} is a random number ($0<r<1$)
          where the reduced radius contains a fraction  
          `$r$' of the total flux.
+%
+ \item {\tt HOSTLIB\_FIXSERSIC} fixes the Sersic parameters
+       $a,b,n$, and also the galaxy major axis angle ({\tt a\_rot})
+       w.r.t. Right Ascension.
 \end{itemize}
 
 

@@ -398,7 +398,7 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     sedcmd = "sed "
     
     # replace SURVEY ... only first occurance !
-    sedAdd  = "-e '0,/%s/s/%s/ %s(%s)/' " % (SURVEY,SURVEY,SOUT,SURVEY)
+    sedAdd  = "-e '0,/SURVEY:/s/%s/ %s(%s)/' " % (SURVEY,SOUT,SURVEY)
 # xxx mark delete    sedAdd  = "-e 's/%s/ %s(%s)/g' " % (SURVEY,SOUT,SURVEY) 
     sedcmd += sedAdd
     

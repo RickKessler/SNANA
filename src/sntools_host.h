@@ -112,6 +112,10 @@
 #define FILENAME_Gauss2d    "$SNDATA_ROOT/simlib/Gauss2dIntegrals.dat" 
 #define FILENAME_Sersic_bn  "$SNDATA_ROOT/simlib/Sersic_bn.dat" 
 
+int NCALL_GEN_SNHOST_DRIVER ;
+
+#define MXTMPWORD_HOSTLIB 100
+char *TMPWORD_HOSTLIB[MXTMPWORD_HOSTLIB]; // used for splitString
 
 struct HOSTLIB_DEF {
   char FILENAME[MXPATHLEN] ; // full file name of HOSTLIB
@@ -217,6 +221,7 @@ struct HOSTLIB_DEF {
 
 
 #define MXCHAR_NBR_LIST 100
+#define MXNBR_LIST       50
 
 struct {
   // optional command-line inputs
@@ -234,7 +239,8 @@ struct {
   int NGAL_PER_NNBR[100] ; // store histogram of NNBR distribution
   int NGAL_TRUNCATE;       // NGAL cliiped by NNBR_WRITE_MAX or MXCHAR
 
-} HOSTLIB_NBR ;
+} HOSTLIB_NBR_WRITE ;
+
 
 struct {
   double ZWIN[2], RAWIN[2], DECWIN[2];
@@ -340,16 +346,36 @@ struct HOSTLIB_WGTMAP_DEF {
 
 } HOSTLIB_WGTMAP ;
 
-typedef struct {
+
+
+typedef struct { 
   // Sersic profiles for this host
-  double  INDEX ; // Sersic 'n' used to get SN pos
+  double  INDEX ; // Sersic 'n' 
   double  a[MXSERSIC_HOSTLIB]  ;
   double  b[MXSERSIC_HOSTLIB]  ;
   double  n[MXSERSIC_HOSTLIB]  ;
   double  w[MXSERSIC_HOSTLIB]  ;
   double  wsum[MXSERSIC_HOSTLIB] ;
   double  bn[MXSERSIC_HOSTLIB] ;
-} SERSIC_DEF ;
+
+  double a_rot; // rot angle (deg) w.r.t. RA
+} SERSIC_DEF ; // created Nov 2019
+
+
+// SNHOSTGAL below contains information about TRUE host;
+// here we define information for each nerby galaxy that
+// is sorted by DDRL
+typedef struct {
+  long long GALID ;
+  double ZPHOT, ZPHOT_ERR ;     // photoZ of host
+  double ZSPEC, ZSPEC_ERR ;     // ZTRUE
+  double RA, DEC, SNSEP, DLR, DDLR, LOGMASS, LOGMASS_ERR ;
+  double MAG[MXFILTINDX]; 
+  bool   TRUE_MATCH ;
+} SNHOSTGAL_DDLR_SORT_DEF ;
+
+SNHOSTGAL_DDLR_SORT_DEF SNHOSTGAL_DDLR_SORT[MXNBR_LIST] ;
+
 
 
 // define structure to hold information for one event ...
@@ -360,7 +386,6 @@ struct SNHOSTGAL {
   int   IGAL_SELECT_RANGE[2] ; // range to select random IGAL
 
   long long GALID ;   // Galaxy ID from library
-  //  int    GALID ; 
 
   // redshift info
   double ZGEN  ;     // saved ZSN passed to driver
@@ -370,16 +395,12 @@ struct SNHOSTGAL {
   double ZSPEC, ZSPEC_ERR ;     // = zSN or z of wrong host
   double PEAKMJD ;
 
-  SERSIC_DEF SERSIC ; // Nov 2019
+  int    NNBR;    // number of nearby galaxies
+  int    IGAL_NBR_LIST[MXNBR_LIST];   // IGAL list of neighbors
+  double DDLR_NBR_LIST[MXNBR_LIST];   // DDLR per NBR
+  double SNSEP_NBR_LIST[MXNBR_LIST];
 
-  // Sersic profiles for this host
-  double  SERSIC_INDEX ; // Sersic 'n' used to get SN pos
-  double  SERSIC_a[MXSERSIC_HOSTLIB]  ;
-  double  SERSIC_b[MXSERSIC_HOSTLIB]  ;
-  double  SERSIC_n[MXSERSIC_HOSTLIB]  ;
-  double  SERSIC_w[MXSERSIC_HOSTLIB]  ;
-  double  SERSIC_wsum[MXSERSIC_HOSTLIB] ;
-  double  SERSIC_bn[MXSERSIC_HOSTLIB] ;
+  SERSIC_DEF SERSIC ; // Nov 2019
 
   // coordinate info
 
@@ -486,6 +507,10 @@ void   init_SNHOSTGAL(void);  // init each event
 void   GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD);
 void   GEN_SNHOST_GALID(double ZGEN);
 void   GEN_SNHOST_POS(int IGAL);
+void   GEN_SNHOST_NBR(int IGAL);
+void   GEN_SNHOST_DDLR(int i_nbr);
+void   SORT_SNHOST_byDDLR(void);
+
 void   TRANSFER_SNHOST_REDSHIFT(int IGAL);
 void   GEN_SNHOST_GALMAG(int IGAL);
 void   GEN_SNHOST_ZPHOT(int IGAL);
@@ -528,7 +553,7 @@ void   init_Sersic_HOSTLIB(void);
 void   init_Sersic_integrals(int j);
 void   read_Sersic_bn(void);
 void   Sersic_names(int j, char *a, char *b, char *w, char *n);
-void   get_Sersic_info(int IGAL) ;
+void   get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) ;
 void   test_Sersic_interp(void);
 double get_Sersic_bn(double n);
 void   init_OUTVAR_HOSTLIB(void) ;
@@ -541,6 +566,7 @@ int    IVAR_HOSTLIB(char *varname, int ABORTFLAG);
 
 long long get_GALID_HOSTLIB(int igal);
 double get_ZTRUE_HOSTLIB(int igal);
+double get_VALUE_HOSTLIB(int ivar, int igal);
 double get_GALFLUX_HOSTLIB(double a, double b);
 
 double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSF ); 

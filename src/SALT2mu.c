@@ -66,6 +66,7 @@ surveygroup_biascor='CFA3+CSP(zbin=.02),SDSS(zbin=.04),PS1MD'
 
 idsample_select=2+3                ! fit only IDSAMPLE = 2 and 3
 surveylist_nobiascor='HST,LOWZ'    ! no biasCor for these surveys
+interp_biascor_logmass=1           ! allows turning OFF logmass interpolation
 
 To check sample stats for each surveyGroup and fieldGroup,
    grep IDSAMPLE  <stdout_file>
@@ -1238,6 +1239,7 @@ struct INPUTS {
   char surveyList_noBiasCor[120]; // list of surveys fit, but skip biasCor
   char idsample_select[40];       // e.g., '0+3'
 
+  int interp_biascor_logmass;
   // ----------
   int  nfile_CCprior;
   char **simFile_CCprior;    // to get CC prior, dMU vs. z
@@ -4193,6 +4195,8 @@ void set_defaults(void) {
 
   sprintf(INPUTS.surveyList_noBiasCor, "NONE" );
   INPUTS.idsample_select[0] = 0 ;
+
+  INPUTS.interp_biascor_logmass=1; // default is to do biasCor interp
 
   // default is to blind cosmo params for data
   INPUTS.blindFlag = BLINDMASK_FIXPAR; 
@@ -9865,6 +9869,8 @@ int get_fitParBias(char *cid,
   //
   // Apr 18 2017: enhance dump output.
   //
+  // Nov 18 2019: check option to interpolate biasCor vs. logMass.
+  //
   // -----------------------------------------
   // strip BIASCORLIST inputs into local variables
   double z   = BIASCORLIST->z ;
@@ -9971,7 +9977,8 @@ int get_fitParBias(char *cid,
   AVG_m = CELLINFO_BIASCOR[IDSAMPLE].AVG_m[J1D] ;
   if ( m >= AVG_m ) { IMMAX++ ; } else { IMMIN--; }
   if (IMMIN<0){IMMIN=0;}  if(IMMAX>=NBINm){IMMAX = NBINm-1;}
-
+  if ( !INPUTS.interp_biascor_logmass ) { IMMIN = IMMAX = IM; }
+  
   AVG_x1 = CELLINFO_BIASCOR[IDSAMPLE].AVG_LCFIT[INDEX_x1][J1D] ;
   if ( x1 >= AVG_x1 ) { IX1MAX++; } else { IX1MIN--; }
   if (IX1MIN<0){IX1MIN=0;}  if(IX1MAX>=NBINx1){IX1MAX = NBINx1-1;}
@@ -10092,8 +10099,12 @@ int get_fitParBias(char *cid,
 	  dif = z - CELLINFO_BIASCOR[ID].AVG_z[j1d] ;
 	  Dz  = fabs(dif/BINSIZE_z) ;
 
-	  dif = m - CELLINFO_BIASCOR[ID].AVG_m[j1d] ;
-	  Dm  = fabs(dif/BINSIZE_m) ;
+	  if ( INPUTS.interp_biascor_logmass ) {
+	    dif = m - CELLINFO_BIASCOR[ID].AVG_m[j1d] ;
+	    Dm  = fabs(dif/BINSIZE_m) ;
+	  }
+	  else
+	    { Dm = 0.0 ; }
 	  
 	  dif = x1 - CELLINFO_BIASCOR[ID].AVG_LCFIT[INDEX_x1][j1d] ;
 	  Dx1 = fabs(dif/BINSIZE_x1);
@@ -10101,7 +10112,7 @@ int get_fitParBias(char *cid,
 	  dif = c - CELLINFO_BIASCOR[ID].AVG_LCFIT[INDEX_c][j1d] ;
 	  Dc  = fabs(dif/BINSIZE_c);
 	  
-	  WGT   = (1.0 - Dz) * (1.0 - Dx1) * (1.0 - Dc) * ( 1.0 - Dm); 
+	  WGT = (1.0 - Dz) * (1.0 - Dx1) * (1.0 - Dc) * ( 1.0 - Dm); 
 	  
 	  // prepare DEBUG_LISTs in case of abort
 	  DEBUG_LIST_DIF[0][NCELL_INTERP_USE]  = Dz;
@@ -12662,6 +12673,9 @@ int ppar(char* item) {
     sscanf(&item[21],"%s",s); remove_quote(s); 
     return(1);
   }
+
+  if ( uniqueOverlap(item,"interp_biascor_logmass=")  )
+    { sscanf(&item[22],"%d",INPUTS.interp_biascor_logmass);  return(1); }
 
   if ( uniqueOverlap(item,"sigma_cell_biascor=") ) 
     { sscanf(&item[19],"%le", &INPUTS.sigma_cell_biasCor); return(1); }

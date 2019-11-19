@@ -17679,4 +17679,18 @@
    combine_dataVersions.py:
      + bug fix writing AB_SED and BD17_SED
 
+
+# ======================================================================= 
+         v10_74k (  ) 
+
+         ***** IMPORTANT(v10_74k) ***** 
+
+         ***** USEFUL(v10_74k) ***** 
+
+         ***** MISCELLANEOUS(v10_74k) ***** 
+
+   SALT2mu.c
+     + new option interp_biascor_logmass=0 to to turn off interpolation
+       along logmass dimension.
+
 END: 

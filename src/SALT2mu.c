@@ -12675,7 +12675,7 @@ int ppar(char* item) {
   }
 
   if ( uniqueOverlap(item,"interp_biascor_logmass=")  )
-    { sscanf(&item[22],"%d",INPUTS.interp_biascor_logmass);  return(1); }
+    { sscanf(&item[23],"%d", &INPUTS.interp_biascor_logmass);  return(1); }
 
   if ( uniqueOverlap(item,"sigma_cell_biascor=") ) 
     { sscanf(&item[19],"%le", &INPUTS.sigma_cell_biasCor); return(1); }

@@ -10071,17 +10071,8 @@ c set error on MilkyWay Galactic extinction
          ERR_CALC  = SNLC_FLUXCAL_ERRCALC(ep)
 	 ERR_TMP   = SNLC_FLUXCAL_ERRTEST(ep)
 
-c xxxxxxxxxxx mark delete Nov 15 2019 xxxxxxxxxxx
-c         if ( ERR_CALC > 0.0 .and. ERR_TRUE > 0.0 ) THEN        
-c            ERR_TMP = ERR_CALC/ERR_TRUE
-c         else
-c            ERR_TMP = -9.0 
-c         ENDIF
-c xxxxxxxxxxxxx end mark xxxxxxxxxxxxxxxx
-
          R4EP_ALL(ep,JEP_ERRTEST) = ERR_TMP
          R4EP_ALL(ep,JEP_ERRCALC) = ERR_CALC
-
 
 102   CONTINUE   ! end of EPMIN,EPMAX loop
 101   CONTINUE   ! end of IMJD loop

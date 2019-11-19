@@ -409,7 +409,6 @@ c control variables and counters.
      &  ,NACCEPT_TYPE          ! # SN with valid TYPE
      &  ,NACCEPT_Z             ! idem with valid redshift
      &  ,NACCEPT_ZERR          ! idem with valid redshift error
-     &  ,NMJD_IDTEL            ! # MJDs with valid telescope id 
      &  ,APPLY_HEADER_CUTMASK  ! mask of applied header cuts
 c
      &  ,JTIME_START
@@ -521,7 +520,7 @@ c global survey info
      &    ,SURVEY_FIELDNAME, SURVEY_IDFIELD, NFIELD_SURVEY
      &    ,ISJOB_SNANA, ISJOB_PSNID, ZEROPOINT_FLUXCAL
      &    ,NACCEPT_CUT, NACCEPT_CID, NACCEPT_TYPE
-     &    ,NACCEPT_Z, NACCEPT_ZERR, NMJD_IDTEL
+     &    ,NACCEPT_Z, NACCEPT_ZERR
      &    ,DO_FIT, DO_FLUXERRCALC, NVAR_NEARNBR 
      &    ,NSTORE_MAGCOR, NUSE_MAGCOR, SIGN_MAGCOR, FORCEMASK_FLUXCOR
      &    ,LSIM_SNANA, LSIM_MAGOBS, APPLY_HEADER_CUTMASK
@@ -886,7 +885,8 @@ c
      &    ,SNLC_AREA_NOISE
 c
      &    ,SNLC_FLUX_NSIG, SNLC_FLUXCAL_OFF
-     &    ,SNLC_FLUXCAL_ERRCALC, SNLC_FLUXCAL_HOSTERRCALC
+     &    ,SNLC_FLUXCAL_ERRCALC, SNLC_FLUXCAL_ERRTEST
+     &    ,SNLC_FLUXCAL_HOSTERRCALC
      &    ,SNLC_FLUXCAL, SNLC_FLUXCAL_ERRTOT
      &    ,SNLC_MAG, SNLC_MAG_ERRPLUS, SNLC_MAG_ERRMINUS
      &    ,SNLC_ZEROPT, SNLC_ZEROPT_ERR, SNLC_ZEROPT_forCUT
@@ -5738,20 +5738,6 @@ c check for valid CCDNUM
       ENDIF
 +SELF.
 
-
-c check if there are any valid telescopes
-c to quickly alert this stupid mistake.
-
-      if ( NMJD_IDTEL .LE. 0 ) then 
-         print*,' '
-         print*,' WARNING-TEL: ',
-     &       'NEVER FOUND A VALID TELESCOPE IN ANY SN ?!?!?! '
-         print*,' WARNING-TEL: Check namelist variable SNTEL_LIST = ', 
-     &        SNTEL_LIST(1)
-         print*,' '
-      endif
-
-
 c print fit-cut stats
       if ( N_SNLC_FIT .GT. 0 ) then
         write(6,49) N_SNLC_FITCUTS
@@ -8537,8 +8523,7 @@ c - - - - -
 
       LSIM_SNANA   = .FALSE.  ! snana sim  
       LSIM_MAGOBS  = .FALSE.  
-     
-      NMJD_IDTEL   = 0
+    
 
       NACCEPT_Z    = 0
       NACCEPT_ZERR = 0
@@ -22616,15 +22601,6 @@ c Evaluate cutmask for each epoch
           tmp = snep_cutvar(icut,imjd)
           LCUT = tmp .GE. cutwin_var(1,icut) .and.
      &           tmp .LE. cutwin_var(2,icut)
-
-c xxxxxxxx mark delete Nov 15 2019 xxxxxxxxx
-c special cut for telescope (Aug 2007)
-c         if ( icut .EQ. CUTBIT_IDTEL ) then
-c            IDTEL = ISNLC_IDTEL(EPMIN)
-c            LCUT  = IDTELSELECT(IDTEL)
-c            if ( LCUT ) NMJD_IDTEL = NMJD_IDTEL + 1
-c         endif
-c xxxxxxxxxx end mark xxxxxxxxxxxxxxxxx
 
 c set cut-bit if cut is satisfied
           if ( LCUT ) then

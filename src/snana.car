@@ -27151,7 +27151,7 @@ C ========================================
 
 C
 C Dec 2012: read primary SED
-C
+C Nov 2019: abort if 2 or more primary references
 
       IMPLICIT NONE
 
@@ -27161,7 +27161,7 @@ C
 +CDE,FILTCOM.
 +CDE,SNLCINP.
 
-      INTEGER IFILT, ICOL, MASK, LP
+      INTEGER IFILT, ICOL, MASK, LP, IPRIM_FIRST, IPRIM_2ND, NERR_PRIM
       INTEGER FIRSTROW, FIRSTELEM, ISTAT
       CHARACTER ERRMSG*60, FNAM*24
 
@@ -27177,11 +27177,17 @@ c -------
 c determine IPRIM of observer filter
 
       IPRIM_REF_RDKCOR = -9
-
+      IPRIM_FIRST      = -9 ; IPRIM_2ND = -9
+      NERR_PRIM        =  0 
       DO ifilt = 1, NFILTDEF_RDKCOR
          MASK = MASKFILT_RDKCOR(ifilt)
          if ( BTEST(MASK,OPT_FILTOBS-1) ) then           
            IPRIM_REF_RDKCOR = INDX_PRIMARY_RDKCOR(ifilt)
+	   if ( IPRIM_FIRST < 0 ) IPRIM_FIRST = IPRIM_REF_RDKCOR
+	   if ( IPRIM_FIRST .NE. IPRIM_REF_RDKCOR ) then
+	      NERR_PRIM = NERR_PRIM + 1
+	      IPRIM_2ND = IPRIM_REF_RDKCOR
+	   endif
          endif
       ENDDO
 
@@ -27189,6 +27195,16 @@ c determine IPRIM of observer filter
       IF ( IPRIM_REF_RDKCOR < 0 ) THEN
          C1ERR = 'Could not find primary reference. '
          C2ERR = 'Something is messed up. '
+         CALL MADABORT(FNAM,C1ERR,C2ERR)
+      ENDIF
+
+      IF ( NERR_PRIM > 0 ) THEN
+         print*,' ' 
+         print*,' PRE-ABORT DUMP: '
+         print*,'   Found Primary ', PRIMARY_NAME_RDKCOR(IPRIM_FIRST)
+         print*,'   Found Primary ', PRIMARY_NAME_RDKCOR(IPRIM_2nd)
+         C1ERR = 'More than 1 PRIMARY ref not allowed.' 
+	 C2ERR = 'Check kcor file and above list of primary refs.'
          CALL MADABORT(FNAM,C1ERR,C2ERR)
       ENDIF
 

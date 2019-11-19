@@ -17150,7 +17150,7 @@ c write results to output file.
      &       FLUXOBS_INTERP(ifilt_obs), FLUXERROBS_INTERP(ifilt_obs),
      &       TOBS, TREST
        
-405        format('SN: ', 
+405        format('INTERP: ', 
      &          A, 1x, A1, 1x, F9.3,   ! CCID, BAND, MJD8
      &          2x, 2F7.3,               ! MAG MAGERR
      &          2x, 2G10.4,              ! FLUX FLUXERR

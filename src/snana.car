@@ -35678,6 +35678,7 @@ c open outfile to dump MINUIT stdout
          endif
 
 c open INTERP-OUT file if set
++SELF,IF=SNANA.
          IF ( SNMJD_OUT_FILE .NE. ' ' ) THEN
             LUN = LUNINTERP
             OPEN(UNIT=LUN,FILE=SNMJD_OUT_FILE,status='UNKNOWN')
@@ -35685,8 +35686,9 @@ c open INTERP-OUT file if set
  46         format('VARNAMES:',2x,'CID', 4x,'FILT', 5x,'MJD',
      &           10x,'FLUX      FLUXERR')
          ENDIF
-      ENDIF  ! end of FIRST_INIT
++SELF.
 
+      ENDIF  ! end of FIRST_INIT
     
       NFIT_PKMJD = NFIT_PKMJD  + 1
 
@@ -35842,7 +35844,9 @@ c store result for each filter.
            NPKMJD = NPKMJD + 1
 
 c check option to interpolate flux
++SELF,IF=SNANA.
            CALL SNMJD_INTERP_ANYLC(ifilt_obs)
++SELF.
 
 200   CONTINUE
 
@@ -36661,7 +36665,7 @@ c IF MJD=0, then replace with PEAKMJD (Aug 20, 2012)
         IF ( LUN .GT. 0 ) THEN
            write(LUN,70) SNLC_CCID(1:12), 
      &       cfilt, MJD, FLUX, FLUXERR
-70         format('INTERP:',4x, A, 2x,A, 3x, F9.3, 2x, G12.4, G12.4)
+70         format('INTERP:',2x, A, 2x,A, 3x, F9.3, 2x, G12.4, G12.4)
         ENDIF
 
 200   CONTINUE

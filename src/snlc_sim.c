@@ -19804,10 +19804,10 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
     }
     if ( INDEX_GENMODEL  == MODEL_SIMSED ) {
       printf("\t SIMSED PARAMS %s,%s = %f, %f  (x0=%le)\n"
+	     ,INPUTS.PARNAME_SIMSED[0]
 	     ,INPUTS.PARNAME_SIMSED[1]
-	     ,INPUTS.PARNAME_SIMSED[2]
-	     ,GENLC.SIMSED_PARVAL[1]
-	     ,GENLC.SIMSED_PARVAL[2], GENLC.SALT2x0 );
+	     ,GENLC.SIMSED_PARVAL[0]
+	     ,GENLC.SIMSED_PARVAL[1], GENLC.SALT2x0 );
     }
 
     if ( INDEX_GENMODEL == MODEL_LCLIB ) {

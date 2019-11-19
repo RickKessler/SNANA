@@ -682,10 +682,10 @@ c parameters parsed from EARLYLC_STRING:
 
 +KEEP,INTERPCM.
 
-c arrays for interpolation (Revised May 2012)
+c arrays for interpolation
 
       INTEGER MXINTERP
-      PARAMETER ( MXINTERP = 100)
+      PARAMETER ( MXINTERP = 1000) ! ->1000 Nov 19 2019 (was 100)
 
       INTEGER*4 
      &   N_INTERP_MJDLIST        ! # SN MJDs to interpolate

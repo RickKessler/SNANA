@@ -13,6 +13,7 @@
 
  ---------------------------------------------------------
 
+
   Fast Lightcurve simulator (LCSIM). 
   There are no images and no photometry !
   Survey conditions (PSF,SKY,ZPT) are used to calculate
@@ -19348,6 +19349,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
 
  Mar 18 2018: compute GENLC.SNR_MON for mag = INPUTS.MAGMONITOR_SNR
  Aug 08 2019: increase crazyflux if SL magnifation is > 1
+ Nov 21 2019: crazyflux *= scale_fluxErr
 
   **********************************/
 
@@ -19742,7 +19744,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   else
     { crazyflux = 1.0E14 ; } // for LCLIB (July 2018)
 
-  crazyflux += (10.*fluxsn_adu_errS) ;
+  crazyflux += (10.*fluxsn_adu_errS * scale_fluxErr) ;
 
   if ( mag_smear < 0.0 ) // adjust for intrinsic smearing
     { arg = -0.4*mag_smear; crazyflux *= pow(TEN,arg); }
@@ -19781,11 +19783,12 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
     printf("\t ERR_CAL = %f \n", ERR_CAL );
     printf("\t SKYerr_pe(srun,trun) = %f, %f \n",
 	  sqrt(sqskyerr_pe), sqrt(template_sqskyerr_pe) );
+    printf("\t scale_fluxErr = %f \n", scale_fluxErr );
     printf("\t CCDerr_pe(srun,trun) = %f, %f \n",
 	  sqrt(sqccderr_pe), sqrt(template_sqccderr_pe) );
     printf("\t err_pe(flux,host,image) = %f, %f, %f \n",
 	   sqrt(fluxsn_pe), sqrt(fluxgal_pe), sqrt(sqImageNoise_pe) );
-
+    printf("\t GALID=%lld   SBmag=%f \n", GALID, SBmag );
     printf("\t HOSTNOISE(FLUXCAL,pe) = %f, %f \n",
 	   HOSTNOISE_FLUXCAL, HOSTNOISE_pe);
 

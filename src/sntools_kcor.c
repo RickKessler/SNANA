@@ -232,9 +232,9 @@ void read_kcor_head(void) {
     IFILTDEF = INTFILTER(cfilt) ;
     KCOR_INFO.IFILTDEF[i] = IFILTDEF ;
 	    
-    // if this is not a survey filter, mark IGNORE
-    if ( strchr(KCOR_INFO.FILTERS_SURVEY,cfilt[0]) == NULL )  
-      { KCOR_INFO.IS_SURVEY_FILTER[i] = true;    }
+    // mark survey filters
+    if ( strchr(KCOR_INFO.FILTERS_SURVEY,cfilt[0]) != NULL )  
+      { KCOR_INFO.IS_SURVEY_FILTER[IFILTDEF] = true;  }
 
   }  // end NFILTDEF loop
 
@@ -543,7 +543,7 @@ void read_kcor_tables(void) {
   // If there are no K-cor tables, then any SURVEY filter
   // is defined as an OBS filter. 
 
-  fitsfile *FP  = KCOR_INFO.FP ;
+  fitsfile *FP      = KCOR_INFO.FP ;
   int NKCOR         = KCOR_INFO.NKCOR;
   int NFILTDEF_KCOR = KCOR_INFO.NFILTDEF;
 
@@ -595,14 +595,6 @@ void read_kcor_tables(void) {
       if ( strcmp(FILTER_NAME,cfilt_obs) == 0 )
 	{ KCOR_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_OBS ; }
 
-      /*
-      if ( IFILTDEF == ifilt_rest || IFILTDEF== ifilt_obs) {
-	printf(" xxx check K(%s->%s), ifilt[rest,obs]=%d,%d  IFILTDEF=%2d"
-	       " MASK[%d]=%d \n",
-	       cfilt_rest, cfilt_obs, ifilt_rest, ifilt_obs, IFILTDEF,
-	       ifilt,KCOR_INFO.MASK_FRAME_FILTER[ifilt] );
-	       } */
-
     } // end ifilt
 
     LBX0 = ISBXFILT_KCOR(cfilt_rest);
@@ -629,9 +621,9 @@ void read_kcor_tables(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
-    // define new rest-filter only if not already defined.
-    addFilter_kcor(ifilt_rest, FILTER_NAME, &KCOR_INFO.FILTERMAP_REST);
-    addFilter_kcor(ifilt_obs,  FILTER_NAME, &KCOR_INFO.FILTERMAP_OBS );
+    // define new filter only if not already defined.
+    addFilter_kcor(ifilt_rest, cfilt_rest, &KCOR_INFO.FILTERMAP_REST);
+    addFilter_kcor(ifilt_obs,  cfilt_obs,  &KCOR_INFO.FILTERMAP_OBS );
 
     // ??? if ( EXIST_BXFILT_OBS .and. RDKCOR_STANDALONE ) { continue; }   
 
@@ -640,7 +632,6 @@ void read_kcor_tables(void) {
     KCOR_INFO.k_index[NKCOR_STORE] = k;
     NKCOR_STORE++; 
     KCOR_INFO.NKCOR_STORE = NKCOR_STORE ;
-
 
   } // end k loop over KCOR tables
 
@@ -670,11 +661,12 @@ void read_kcor_tables(void) {
   // define a K-correction wit the X filter.
   // Beware to set BX before INIT_KCOR_INDICES !!!
 
-  char *NAME;
+
   for(ifilt=0; ifilt < NFILTDEF_KCOR ; ifilt++ ) {
-    NAME     = KCOR_INFO.FILTER_NAME[ifilt];
-    if ( !ISBXFILT_KCOR(NAME) ) { continue; } // ensure 'BX', not BLABLA-X 
-    addFilter_kcor(IFILTDEF, NAME, &KCOR_INFO.FILTERMAP_REST);
+    FILTER_NAME  = KCOR_INFO.FILTER_NAME[ifilt];
+    IFILTDEF = KCOR_INFO.IFILTDEF[ifilt];
+    if(!ISBXFILT_KCOR(FILTER_NAME)) { continue; } // ensure 'BX', not BLABLA-X 
+    addFilter_kcor(IFILTDEF, FILTER_NAME, &KCOR_INFO.FILTERMAP_REST);
     KCOR_INFO.MASK_EXIST_BXFILT        |= MASK_FRAME_REST ; 
     KCOR_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_REST ;
   }
@@ -797,12 +789,16 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
   if ( ifiltdef == 0 ) {
     // zero map, then return
     MAP->NFILTDEF = 0;
-    MAP->FILTERSTRING[0] =  0 ;
+    MAP->FILTERSTRING[0] =  0 ; 
     for(ifilt=0; ifilt < MXFILT_KCOR; ifilt++ ) {
-      MAP->IFILTDEF[ifilt]     = -9 ; 
-      MAP->IFILTDEF_INV[ifilt] = -9 ;
-      MAP->FILTER_NAME[ifilt] = (char*)malloc(40*sizeof(char) ) ;
+      MAP->IFILTDEF[ifilt]       = -9 ; 
+      MAP->IFILTDEF_INV[ifilt]   = -9 ;
+      MAP->FILTER_NAME[ifilt]    = (char*)malloc(40*sizeof(char) ) ;
       MAP->FILTER_NAME[ifilt][0] = 0;
+      MAP->NDEFINE[ifilt] = 0 ;
+      MAP->PRIMARY_MAG[ifilt]   = 99.0 ;
+      MAP->PRIMARY_ZPOFF[ifilt] = 99.0 ;
+      MAP->NBIN_LAM[ifilt]  =  0 ;
     }
     return ;
   }
@@ -818,8 +814,10 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
     for(ifilt=0; ifilt < NF; ifilt++ ) {
       IFILTDEF = MAP->IFILTDEF[ifilt];
       sprintf(cfilt1, "%c", FILTERSTRING[IFILTDEF] );
-      printf("\t xxx IFILTDEF[%2d,%s] = %d \n",
-	     ifilt, cfilt1, IFILTDEF); fflush(stdout);
+      printf("\t xxx IFILTDEF[%2d,%s] = %d  (%s)  PRIM_MAG=%.3f\n",
+	     ifilt, cfilt1, IFILTDEF, MAP->FILTER_NAME[ifilt],
+	     MAP->PRIMARY_MAG[ifilt] ); 
+      fflush(stdout);
     }
     return ;
   }
@@ -834,8 +832,32 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
   MAP->IFILTDEF[NF]           = ifiltdef;
   strcat(MAP->FILTERSTRING,cfilt1);
   sprintf(MAP->FILTER_NAME[NF], "%s", NAME);
-
+  MAP->NDEFINE[NF]++ ;
+  
   MAP->NFILTDEF++ ;
+
+
+  // find original filter-kcor index needed to get primary mag & zpoff
+  int k, kfilt=-9, NFILTDEF_KCOR = KCOR_INFO.NFILTDEF ;
+  for(k=0; k < NFILTDEF_KCOR; k++ ) {
+    if ( KCOR_INFO.IFILTDEF[k] == ifiltdef ) { kfilt = k; }
+  }
+
+  if ( kfilt < 0 ) {
+    sprintf(c1err,"Could not find kfilt for ifiltdef=%d (%s)", 
+	    ifiltdef, NAME);
+    sprintf(c2err,"Probably a code bug.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  
+  MAP->PRIMARY_MAG[NF]  = 
+    KCOR_INFO.PRIMARY_MAG[kfilt] +
+    KCOR_INFO.MAGREST_SHIFT_PRIMARY[ifiltdef] ;
+
+  MAP->PRIMARY_ZPOFF[NF] = 
+    KCOR_INFO.PRIMARY_ZPOFF[kfilt] + 
+    KCOR_INFO.MAGREST_SHIFT_PRIMARY[ifiltdef] ;
 
   return ;
 
@@ -1177,10 +1199,16 @@ void read_kcor_filters(void) {
   float *ARRAY_LAM      = (float*)malloc(MEMF);
   float *ARRAY_TRANS    = (float*)malloc(MEMF);
 
+  int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
+  int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
+
   int istat=0, hdutype, anynul, ICOL, NMATCH_OBS, ifilt ;
-  int MASK, IFILTDEF, IFILT_REST, IFILT_OBS;
+  int MASK, IFILTDEF, IFILT_REST, IFILT_OBS, ifilt_sparse;
   long long FIRSTROW=1, FIRSTELEM=1, NROW;
   char FILTERLIST_READ[MXFILTINDX], *FILTER_NAME, FILTER_BAND[2];
+  
+  char FRAME_REST[] = "REST" ;
+  char FRAME_OBS[]  = "OBS" ;
   char fnam[] = "read_kcor_filters" ;
 
   // --------- BEGIN ----------
@@ -1202,7 +1230,6 @@ void read_kcor_filters(void) {
   NMATCH_OBS = 0 ;
   FILTERLIST_READ[0] = 0 ;
 
-  // .xyz
   for(ifilt=0; ifilt < NFILTDEF_KCOR; ifilt++ ) {
 
     ICOL        = 2 + ifilt;
@@ -1217,21 +1244,32 @@ void read_kcor_filters(void) {
     sprintf(c1err,"read %s filter trans", FILTER_NAME );
     snfitsio_errorCheck(c1err,istat);
 
-    // match filter name to get IFILT_REST & IFILT_OBS
+    // match filter name to get absolute filter indices IFILT_REST & IFILT_OBS
     filter_match_kcor(FILTER_NAME, &IFILT_REST, &IFILT_OBS);
+
+    /*
+    printf(" xxx C: %s -> IFILT[REST,OBS] = %d, %d \n",
+	   FILTER_NAME, IFILT_REST, IFILT_OBS ); fflush(stdout);
+    */
+
+    if ( IFILT_REST >= 0 ) {
+      check_duplicate_filter(FRAME_REST, IFILT_REST, FILTER_NAME );
+
+      loadFilterTrans_kcor(IFILT_REST, NBL, ARRAY_LAM, ARRAY_TRANS,
+			   &KCOR_INFO.FILTERMAP_REST );
+	     
+      // .xyz      
+      
+    } // end IFILT_REST
+
+
+    // load filter trans ...
 
   } // end ifilt loop
 
+
   /*
       DO 100 IFILT = 1, NFILTDEF_RDKCOR
-
-c ------------------------------------------------
-c match CFILT to get IFILT_REST & IFILT_OBS
-         CALL FILTMATCH(cfilt, IFILT_REST, IFILT_OBS )
-
-c for rest-filters, just load filter transmissions.
-c The arrays were set in RDKCOR_FITS_KCOR.
-
          IF ( IFILT_REST > 0 ) THEN
             
 c check if duplicate IFILT_REST (abort later to see all duplicates)
@@ -1340,7 +1378,7 @@ void filter_match_kcor(char *NAME, int *IFILT_REST, int *IFILT_OBS) {
   int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
   int  IFILTDEF        = INTFILTER(NAME);
   int  ifilt, IFILTDEF_SURVEY;
-  char *NAME_TMP, cband[2];
+  char *NAME_REST, *NAME_OBS, cband[2];
   char fnam[] = "filter_match_kcor" ;
 
   // ---------- BEGIN -----------
@@ -1349,104 +1387,127 @@ void filter_match_kcor(char *NAME, int *IFILT_REST, int *IFILT_OBS) {
 
 
   for(ifilt=0; ifilt < NFILTDEF_REST; ifilt++ ) {
-    NAME_TMP = KCOR_INFO.FILTERMAP_REST.FILTER_NAME[ifilt];
-    if ( strcmp(NAME,NAME_TMP) == 0 ) 
-      { *IFILT_REST = IFILTDEF ; }
+    NAME_REST = KCOR_INFO.FILTERMAP_REST.FILTER_NAME[ifilt];
+    if ( strcmp(NAME,NAME_REST) == 0 )  { *IFILT_REST = IFILTDEF ; }
   }
 
 
-  // continue only if this obs-frame filter is defined.
+  // continue only if this obs-frame filter is a survey filter
   if ( !KCOR_INFO.IS_SURVEY_FILTER[IFILTDEF] ) { return; }
 
-  // if this is not a rest-frame filter, the it MUST
+  // if this is not a rest-frame filter, then it MUST
   // be an obs-frame filter.  
-  if ( *IFILT_REST < 0 ) { *IFILT_OBS = IFILTDEF;  return ;  }
+
+  if ( *IFILT_REST < 0 ) {  *IFILT_OBS = IFILTDEF; return ;    }
 
 
   // this is a rest-frame filter, but check if this is also 
   // an obs-frame filter
 
-  // xxx ARG: need to check full names of SURVEY FILTERS ?!?!?!?
-
-  for(ifilt=0; ifilt < KCOR_INFO.NFILTDEF_SURVEY; ifilt++ ) {
-
-
+  for(ifilt=0; ifilt < NFILTDEF_OBS; ifilt++ ) {
+    NAME_OBS  = KCOR_INFO.FILTERMAP_OBS.FILTER_NAME[ifilt] ;
+    if ( strcmp(NAME_OBS,NAME) == 0 ) { *IFILT_OBS = IFILTDEF ; }
   }
-
-/*
-      DO 10 ifilt  = 1, NFILTDEF_SURVEY
-         ifilt_tmp = IFILTDEF_MAP_SURVEY(ifilt)
-         cfilt_tmp = FILTOBS_NAME(ifilt_tmp)  
-
-         len_tmp = index(cfilt_tmp,' ') - 1
-         if ( LEN .NE. LEN_TMP ) goto 10
-         if ( cfilt(1:len) .EQ. cfilt_tmp(1:len) ) then
-            IFILT_OBS = IFILT_INDX
-         endif
-10    CONTINUE
-
-  xxx */
 
   return ;
 
 } // end filter_match_kcor
 
-/* xxxx DELETE THIS AFTER FINISHED C-fun
-C ================================
-+DECK,FMATCH.
-      SUBROUTINE FILTMATCH(cfilt, ifilt_rest, ifilt_obs )
-C
-C ------------- BEGIN -------------
 
-      IFILT_OBS  =  -9
-      IFILT_REST =  -9
-      IFILT_INDX =   FILTINDX(cfilt)
-      LEN = index(cfilt,' ') - 1
+// ==============================================
+void check_duplicate_filter(char *FRAME, int IFILTDEF, char *FILTER_NAME ) {
 
-C start with rest-frame filters
-      DO 20 ifilt  = 1, NFILTDEF_REST
-         ifilt_tmp = IFILTDEF_MAP_REST(ifilt)
-         cfilt_tmp = FILTREST_NAME(ifilt_tmp)
-         len_tmp   = index(cfilt_tmp,' ') - 1
-         if ( len_tmp .NE. len) goto 20
-         if ( cfilt(1:len) .EQ. cfilt_tmp(1:len) ) then
-            IFILT_REST = IFILT_INDX
-         endif
-20    CONTINUE
+  int  ifilt, NDEFINE=0 ;
+  char fnam[] = "check_duplicate_filter" ;
 
+  // --------- BEGIN ------------
 
-c continue only if this obs-frame filter is defined.
-      LOBS = IFILTDEF_INVMAP_SURVEY(ifilt_indx) .GT. 0
-      IF ( .NOT. LOBS ) RETURN
+  
+  if ( strcmp(FRAME,"REST") == 0 ) {
+    ifilt   = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[IFILTDEF];
+    NDEFINE = KCOR_INFO.FILTERMAP_REST.NDEFINE[ifilt];
+  }
+  else if ( strcmp(FRAME,"OBS") == 0 ) {
+    ifilt   = KCOR_INFO.FILTERMAP_OBS.IFILTDEF_INV[IFILTDEF];
+    NDEFINE = KCOR_INFO.FILTERMAP_OBS.NDEFINE[ifilt];
+  }
 
-c if this is not a rest-frame filter, the it MUST
-c be an obs-frame filter.
+  if ( NDEFINE > 1 ) {
+    sprintf(c1err,"NDEFINE=%d -> duplicate filter '%s' (%d) ",
+	    NDEFINE, FILTER_NAME, IFILTDEF);
+    sprintf(c2err,"Check kcor-input");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
-      IF ( IFILT_REST .LT. 0  ) THEN
-         IFILT_OBS = IFILT_INDX
-         RETURN
-      ENDIF
+  return ;
 
-C this is a rest-frame filter, but check if this is also 
-c an obs-frame filter
-
-      DO 10 ifilt  = 1, NFILTDEF_SURVEY
-         ifilt_tmp = IFILTDEF_MAP_SURVEY(ifilt)
-         cfilt_tmp = FILTOBS_NAME(ifilt_tmp)  
-
-         len_tmp = index(cfilt_tmp,' ') - 1
-         if ( LEN .NE. LEN_TMP ) goto 10
-         if ( cfilt(1:len) .EQ. cfilt_tmp(1:len) ) then
-            IFILT_OBS = IFILT_INDX
-         endif
-10    CONTINUE
+} // end check_duplicate_filter
 
 
-      RETURN
-      END
-xxx */
+// =====================================
+void loadFilterTrans_kcor(int IFILTDEF, int NBL, 
+			  float *ARRAY_LAM, float *ARRAY_TRANS,
+			  KCOR_FILTERMAP_DEF *MAP) {
 
-// =============================
+  //
+  // store filter trans info in MAP structure.
+  // Note that storage is float, but calculations (rms, mean, ...)
+  // are done with double precision.
+  //
+  // Inputs:
+  //   IFILTDEF     : absolute filter index
+  //   NBL          : number of lambda bins
+  //   ARRAY_LAM    : lambda array to store
+  //   ARRAY_TRANS  : transmmission array to store
+  //
+
+  int MEMF  = NBL * sizeof(float);
+  int ifilt = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[IFILTDEF];
+  int ilam;
+  double LAM, TRANS, MEAN, SQRMS;
+  double TMAX=0.0, SUM0=0.0, SUM1=0.0, SUM2=0.0 ;
+  char fnam[] = "loadFilterTrans_kcor" ;
+
+  // ---------------- BEGIN ---------------
+
+  MAP->LAM[ifilt]      = (float*)malloc(MEMF);
+  MAP->TRANS[ifilt]    = (float*)malloc(MEMF);
+  
+  for(ilam=0; ilam < NBL; ilam++ ) {
+
+    LAM   = (double)ARRAY_LAM[ilam];
+    TRANS = (double)ARRAY_TRANS[ilam];
+    if ( TRANS > TMAX ) { TMAX = TRANS; }
+
+    SUM0 += TRANS;
+    SUM1 += (TRANS * LAM);
+    SUM2 += (TRANS * LAM * LAM);
+
+    MAP->LAM[ifilt][ilam]   = (float)LAM ;
+    MAP->TRANS[ifilt][ilam] = (float)TRANS ;
+
+  } // end ilam
+
+  MEAN  = SUM1/SUM0;
+  SQRMS = SUM2/SUM0 - MEAN*MEAN;
+
+  // load extra info about transmission function
+  MAP->NBIN_LAM[ifilt]  = NBL  ;
+  MAP->TRANS_MAX[ifilt] = TMAX;    // max trans
+  MAP->LAMMEAN[ifilt]   = MEAN ;   // mean wavelength
+  MAP->LAMRMS[ifilt]    = sqrt(SQRMS) ; // RMS wavelength
+
+  /*
+  printf(" xxx C: IFILTDEF=%d  PRIMARY(MAG,ZPOFF) = %.3f, %.3f \n",
+	 IFILTDEF, MAP->PRIMARY_MAG[ifilt], MAP->PRIMARY_ZPOFF[ifilt] );
+  fflush(stdout);
+  */
+
+  return ;
+
+} // end loadFilterTrans_kcor
+
+// =====================================
 void read_kcor_primarysed(void) {
   char fnam[] = "read_kcor_primarysed" ;
   // --------- BEGIN ----------

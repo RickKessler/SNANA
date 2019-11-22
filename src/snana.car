@@ -26995,6 +26995,9 @@ c ------------------------------------------------
 c match CFILT to get IFILT_REST & IFILT_OBS
          CALL FILTMATCH(cfilt, IFILT_REST, IFILT_OBS )
 
+c         write(6,2600) cfilt, IFILT_REST, IFILT_OBS ! xxx REMOVE
+c2600     format(' xxx F: ', A12, 3x, ' IFILT[REST,OBS] = ', 2I4 )
+
 c for rest-filters, just load filter transmissions.
 c The arrays were set in RDKCOR_FITS_KCOR.
 
@@ -27015,6 +27018,14 @@ c store primary mag and ZP offset
             FILTREST_ZPOFF_PRIMARY(ifilt_rest) = 
      &         ZPOFF_PRIMARY_RDKCOR(ifilt) +
      &         MAGREST_SHIFT_PRIMARY_FILT(ifilt_rest) 
+
+c xxxxxxxxxxxxxxxxxxxx
+c           write(6,2700) 
+c     &        IFILT_REST, FILTREST_MAG_PRIMARY(ifilt_rest),
+c     &        FILTREST_ZPOFF_PRIMARY(ifilt_rest)
+c2700       format(' xxx F: IFILT_REST=', I2, 3x, 
+c     &          'PRIMARY(MAG,ZPOFF)=', 2F9.3 )
+c xxxxxxxxxxxxxxxxxxxx
 
          ENDIF
 

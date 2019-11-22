@@ -54,12 +54,26 @@ typedef struct {
   int NDIM ;
 } KCOR_MAPINFO_DEF ;
 
+
 typedef struct {
-  int  NFILTDEF ;
+
+  // filled by addFilter_kcor
+  int  NFILTDEF;
   int  IFILTDEF[MXFILT_KCOR];     // vs. sparse index
   int  IFILTDEF_INV[MXFILT_KCOR]; // vs. absolute index
+  int  NDEFINE[MXFILT_KCOR];      // Number of times IFILTDEF is defined
   char FILTERSTRING[MXFILT_KCOR]; // list of single-char bands
   char *FILTER_NAME[MXFILT_KCOR]; // full name of each filter, vs. sparse indx
+
+  double PRIMARY_MAG[MXFILT_KCOR];
+  double PRIMARY_ZPOFF[MXFILT_KCOR];
+
+  // below is filled by loadFilterTrans_kcor
+  int    NBIN_LAM[MXFILT_KCOR];
+  double TRANS_MAX[MXFILT_KCOR];
+  double LAMMEAN[MXFILT_KCOR], LAMRMS[MXFILT_KCOR];
+  float *LAM[MXFILT_KCOR], *TRANS[MXFILT_KCOR];
+
 } KCOR_FILTERMAP_DEF ;
 
 
@@ -164,6 +178,10 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP);
 void init_kcor_indices(void);
 void get_MAPINFO_KCOR(char *what, KCOR_MAPINFO_DEF *MAPINFO); 
 void filter_match_kcor(char *NAME, int *IFILT_REST, int *IFILT_OBS);
+void check_duplicate_filter(char *FRAME, int IFILTDEF, char *FILTER_NAME );
 
+void loadFilterTrans_kcor(int IFILTDEF, int NBL, 
+			  float *ARRAY_LAM, float *ARRAY_TRANS,
+			  KCOR_FILTERMAP_DEF *MAP);
 // end
 

@@ -2767,6 +2767,8 @@ void  sscanf_RATEPAR(int *i, char *WHAT, RATEPAR_DEF *RATEPAR) {
   // June 18 2018:
   //  + fix bug and set RATEPAR->INDEX_MODEL for POWERLAW, POWERLAW2.
   //
+  // Nov 2019: fix bug, set INDEX_MODEL for ZPOLY on command line.
+  //
 
   int iLoc = *i;
   int j, FOUND, NLOCAL=0;
@@ -2862,6 +2864,7 @@ void  sscanf_RATEPAR(int *i, char *WHAT, RATEPAR_DEF *RATEPAR) {
 		    &RATEPAR->MODEL_PARLIST[1][0] ); 
   }
   else if ( strcmp(RATEPAR->NAME,"ZPOLY") == 0 ) {
+    RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_ZPOLY ;
     RATEPAR->NMODEL_ZRANGE = 1 ;
     for(j=0; j<4; j++ ) {
       iLoc++ ; sscanf(ARGV_LIST[iLoc] , "%le", 

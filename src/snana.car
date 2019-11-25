@@ -21076,6 +21076,9 @@ c first loop through and count NOBS
            NOBS = NOBS + 1
 21     CONTINUE
 25    CONTINUE
+
+      IF ( NOBS < CUTWIN_NEPOCH(1) ) RETURN  
+
 c -----------
       PIXSIZE = SNLC_PIXSIZE
       if ( PIXSIZE < 0.0 ) PIXSIZE = PIXSIZE_GUESS

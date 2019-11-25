@@ -7412,8 +7412,8 @@ In the following example of a two-column input file,
  ALL    53640.0
 \end{verbatim}
 %
-one epoch is interpolated for SN 1, 
-two epochs are interpolated for SN 2,
+one epoch (MJD 53616) is interpolated for SNID=1, 
+two epochs (53610,53626) are interpolated for SNID=2,
 and one epoch (53640) is interpolated for all SNe.
 Specify input and output files with the
 following {\tt \&SNLCINP} namelist variables,
@@ -7440,7 +7440,6 @@ The {\tt \&SNLCINP} namelist parameters are
 %
 \begin{Verbatim}[frame=single]
      OPT_SETPKMJD = 1  # fit with any-LC function 
-     OPT_LCPLOT   = 1  # make plots for PAW > snana#fitres .
 \end{Verbatim}
 %
 Filters can be ignored, for example, setting
@@ -9883,8 +9882,20 @@ For this option, {\tt GENRANGE\_REDSHIFT} must be specified.
 
 
 % -----------------------------------------
+\subsection{{\simlib}: Read True Mags from \simlib\ File}
+\label{subsec:MODEL_SIMLIB}
+% -----------------------------------------
+
+This model option does not compute true magnitudes, but instead
+reads the true magnitudes from the last column of the \simlib\ file.
+An example use of this feature is to simulate mags of
+``fake'' SN overlaid on images. The redshift, peakMJD, and GALID
+are automatically read from the \simlib\ headers, and the
+original GALID is used to model host noise.
+
+% -----------------------------------------
 \subsection{{\LCLIB}: Galactic Transients}
-\label{subsec:LCLIB}
+\label{subsec:MODEL_LCLIB}
 % -----------------------------------------
 
 \subsubsection{Overview}
@@ -11350,12 +11361,20 @@ for additional options.
 Ideally, a \simlib\ is created from a library of
 \obss\ containing PSF, sky-noise and zero-point.
 However, there may be cases where it is useful to
-create a \simlib\ directly from a data sample.
+create a \simlib\ directly from a data sample. 
+Two examples are 1) low-z sample which has no meta-data 
+to construct a \simlib\ file, and 2) simulating fake SN
+that have already been overlaid on images.
+
 The {\tt snana.exe} program can create such a
-\simlib\ via the {\tt \&SNLCINP} input key
+\simlib\ via the {\tt \&SNLCINP} input key(s)
 %
 \begin{verbatim}
     SIMLIB_OUT = 'mydata.simlib'
+
+  ! for sims, or fake data with SIM_MAGOBS :
+    OPT_SIMLIB_OUT = 1    ! write SIM_MAGOBS in last SIMLIB column, all obs
+    OPT_SIMLIB_OUT = 2    ! idem, but only when true flux > 0
 \end{verbatim}
 %
 If the light curve data include meta data (PSF,SKY,ZP)
@@ -11396,6 +11415,13 @@ from the header using the following sim-input keys
   USE_SIMLIB_REDSHIFT: 1  # use redshift in header (if there)
 \end{verbatim}
 
+
+The {\tt OPT\_SIMLIB\_OUT} feature writes the true (simulated) mags in the
+last column of the \simlib\ file.
+Beware that overlapping fields are not treated properly, 
+so it is recommended to also set {\tt CUTWIN\_NFIELD = 1,1}.
+The ``{\simlib}'' model feature in the simulation (\S\ref{subsec:MODEL_SIMLIB}) 
+reads these mags.
 
 % --------------------------------------
   \clearpage

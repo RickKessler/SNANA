@@ -17686,11 +17686,32 @@
          ***** IMPORTANT(v10_74k) ***** 
 
          ***** USEFUL(v10_74k) ***** 
+ 
+   + new &SNLCINP OPT_SIMLIB_OUT to write SIM_MAGOBS in MAG column
+   + new 'SIMLIB' model for sim to read true mag from last SIMLIB column
 
          ***** MISCELLANEOUS(v10_74k) ***** 
 
    SALT2mu.c
      + new option interp_biascor_logmass=0 to to turn off interpolation
        along logmass dimension.
+  
+   snana.car:
+      + MXINTERP -> 1000 (was 100)
+      + for interp option using SNMJD_LIST_FILE, suppress output
+        from Bazin fit if doing SALT2 fit. snana.exe gives Bazin fit
+        interp, while snlc_fit.exe gives SALT2 fit interp.
+      + abort on 2 or more primary refs  (subr RDKCOR_FITS_PRIMARYSED)
+      + OPT_SIMLIB_OUT; see manual 12.3.3 Creating a SIMLIB from Data
+     
+   snlc_sim.c 
+     + crazyflux *= scale_fluxerr to allow for much larger scatter.
+     + new 'SIMLIB' model to read true mag from last SIMLIB column;
+       initial use is to simulate fakes,
+       see manaul Section 9.8 SIMLIB: Read True Mags from SIMLIB File
+
+
+   sntools_spectrograph.c
+     + abort if any spectrograph-table SNR values are zero.
 
 END: 

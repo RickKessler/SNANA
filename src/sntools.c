@@ -167,7 +167,17 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 
   NWIN_COMBINE = (int)(MJDWIN_USER/MJDSTEP_SNRCUT + 0.01) ;
   MXWIN_SNRCUT = (int)((MJDMAX-MJDMIN)/MJDSTEP_SNRCUT)+1 ;
-  MEMI         = sizeof(int) * MXWIN_SNRCUT ;
+
+  if ( NWIN_COMBINE < 0 ) {  }
+
+  if ( MXWIN_SNRCUT < 0 ) {
+    sprintf(c1err,"Crazy MXWIN_SNRCUT = %d",  MXWIN_SNRCUT);
+    sprintf(c2err,"MJDMIN/MAX=%.2f/%.2f  MJDSTEP_SNRCUT=%.2f  NOBS=%d",
+	    MJDMIN, MJDMAX, MJDSTEP_SNRCUT, NOBS);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  MEMI  = sizeof(int) * MXWIN_SNRCUT ;
 
  START:
 
@@ -217,6 +227,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
       { omin = 0;  omax = NOBS-1; }
     else 
       { omin = omin2; omax=omax2; }
+
 
     if ( omin<0 || omax<0 || omin>= NOBS || omax>= NOBS ) {
       printf("\n PRE-ABORT DUMP: \n");

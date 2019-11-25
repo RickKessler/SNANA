@@ -790,6 +790,7 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
     // zero map, then return
     MAP->NFILTDEF = 0;
     MAP->FILTERSTRING[0] =  0 ; 
+    MAP->NFILT_DUPLICATE =  0 ;
     for(ifilt=0; ifilt < MXFILT_KCOR; ifilt++ ) {
       MAP->IFILTDEF[ifilt]       = -9 ; 
       MAP->IFILTDEF_INV[ifilt]   = -9 ;
@@ -823,7 +824,7 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
   }
 
   // return if this filter is already defined
-  if ( MAP->IFILTDEF_INV[ifiltdef] >= 0 ) { return; }
+  // xxx mark delete  if ( MAP->IFILTDEF_INV[ifiltdef] >= 0 ) { return; }
 
   NF = MAP->NFILTDEF ;
   sprintf(cfilt1, "%c", FILTERSTRING[ifiltdef] );
@@ -832,8 +833,7 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
   MAP->IFILTDEF[NF]           = ifiltdef;
   strcat(MAP->FILTERSTRING,cfilt1);
   sprintf(MAP->FILTER_NAME[NF], "%s", NAME);
-  MAP->NDEFINE[NF]++ ;
-  
+
   MAP->NFILTDEF++ ;
 
 
@@ -1252,115 +1252,39 @@ void read_kcor_filters(void) {
 	   FILTER_NAME, IFILT_REST, IFILT_OBS ); fflush(stdout);
     */
 
-    if ( IFILT_REST >= 0 ) {
+    if ( IFILT_REST > 0 ) {
       check_duplicate_filter(FRAME_REST, IFILT_REST, FILTER_NAME );
-
       loadFilterTrans_kcor(IFILT_REST, NBL, ARRAY_LAM, ARRAY_TRANS,
-			   &KCOR_INFO.FILTERMAP_REST );
-	     
-      // .xyz      
-      
+			   &KCOR_INFO.FILTERMAP_REST );	     
     } // end IFILT_REST
 
-
-    // load filter trans ...
+    if ( IFILT_OBS > 0 ) {
+      NMATCH_OBS++ ;
+      check_duplicate_filter(FRAME_OBS, IFILT_OBS, FILTER_NAME );
+      loadFilterTrans_kcor(IFILT_OBS, NBL, ARRAY_LAM, ARRAY_TRANS,
+			   &KCOR_INFO.FILTERMAP_OBS );	
+      // SHIFT_FILTTRANS function obsolete since lam shifts are in fit code
+      // ?? FILTOBS_ZPOFF_SNPHOT(ifilt_obs) = ZPOFF_SNPHOT_RDKCOR(ifilt)
+    }
 
   } // end ifilt loop
 
 
-  /*
-      DO 100 IFILT = 1, NFILTDEF_RDKCOR
-         IF ( IFILT_REST > 0 ) THEN
-            
-c check if duplicate IFILT_REST (abort later to see all duplicates)
-            CALL CHECK_DUPLICATE_FILTER('REST', CFILT, IFILT_REST)
+  if ( NMATCH_OBS == 0 ) {
+    printf("\n");
+    printf(" PRE-ABORT DUMP \n");
+    printf("\t Obs filters in kcor file: '%s' \n", 
+	   KCOR_INFO.FILTERMAP_OBS.FILTERSTRING );
+    printf("\t SURVEY_FILTERS: '%s' \n", KCOR_INFO.FILTERS_SURVEY);
 
-            LFILTDEF_REST(IFILT_REST) = .TRUE.
-            CALL LOAD_FILTTRANS(OPT_FILTREST, ifiltdef,
-     &                      NLBIN_SNSED, ARRAY_LAM, ARRAY_TRANS)           
+    sprintf(c1err,"Observer filters do not match any SURVEY_FILTERS.");
+    sprintf(c2err, "see PRE-ABORT dump above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
-c store primary mag and ZP offset
-            FILTREST_MAG_PRIMARY(ifilt_rest) = 
-     &         MAG_PRIMARY_RDKCOR(ifilt) +
-     &         MAGREST_SHIFT_PRIMARY_FILT(ifilt_rest)
 
-            FILTREST_ZPOFF_PRIMARY(ifilt_rest) = 
-     &         ZPOFF_PRIMARY_RDKCOR(ifilt) +
-     &         MAGREST_SHIFT_PRIMARY_FILT(ifilt_rest) 
-
-         ENDIF
-
-c for obs filters, LOAD_FILTTRANS and increment arrays.
-c OBS arrays are set here (instead of in RDKCOR_FITS_KCOR)
-c to include obs-filters that are not defined in a KCOR.
-
-         IF ( IFILT_OBS > 0 ) THEN
-            NMATCH_OBS = NMATCH_OBS + 1
-
-c check if duplicate IFILT_OBS (abort later to see all duplicates)
-            CALL CHECK_DUPLICATE_FILTER('OBS', CFILT, IFILT_OBS)
-
-C set BX logical for obs-frame
-            LBX   = ISBXFILT(ifilt_obs, cfilt, 'OBS')
-
-            LFILTDEF_OBS(IFILT_OBS) = .TRUE.
-            NFILTOBS_RDKCOR = NFILTOBS_RDKCOR + 1
-            IFILTOBS_RDKCOR(NFILTOBS_RDKCOR) = IFILT_OBS
-            MASKFILT_RDKCOR(ifilt) = IBSET(MASK,1)
-            FILTOBS_NAME(ifilt_obs)  = cfilt
-
-            LAMSHIFT = FILTER_LAMSHIFT_FILT(IFILTDEF) 
-            CALL SHIFT_FILTTRANS(IFILT_OBS, LAMSHIFT, NLBIN_SNSED, 
-     &                ARRAY_LAM, ARRAY_TRANS)  ! <= modified
-
-c store transmission vs. lambda
-            CALL LOAD_FILTTRANS(OPT_FILTOBS, ifiltdef,
-     &                      NLBIN_SNSED, ARRAY_LAM, ARRAY_TRANS)
-
-c load primary mag
-            FILTOBS_MAG_PRIMARY(ifilt_obs) = 
-     &         MAG_PRIMARY_RDKCOR(ifilt) +
-     &         MAGOBS_SHIFT_PRIMARY_FILT(ifilt_obs) ! user shift of primary 
-
-c load filter zeropoint, and apply same shift as above
-            FILTOBS_ZPOFF_PRIMARY(ifilt_obs) = 
-     &         ZPOFF_PRIMARY_RDKCOR(ifilt) +
-     &         MAGOBS_SHIFT_PRIMARY_FILT(ifilt_obs)   ! user shift of primary
-
-c load ZPOFF (AB offsets) separately since they can
-c be over-written later.
-           FILTOBS_ZPOFF_SNPHOT(ifilt_obs) = ZPOFF_SNPHOT_RDKCOR(ifilt)
-
-         ENDIF
-
-100   CONTINUE  ! ifilt
-
-c --------------
-c Abort if duplicate filters were detected (May 2012)
-
-      IF ( NFILT_DUPLICATE_RDKCOR .GT.  0 ) THEN
-          write(c1err,631) NFILT_DUPLICATE_RDKCOR
-631       format('Found ',I2,' duplicate filter definitions.')
-          c2err = 'See ERROR messages above.'
-          CALL MADABORT(FNAM, C1ERR, C2ERR)
-      ENDIF
-
-     
-c Mar 13 2013: abort if there are no observer-frame matches
-
-      IF ( NMATCH_OBS .EQ. 0 ) THEN
-        print*,' '
-        print*,' PRE-ABORT DUMP '
-        print*,' KCOR filters:   ', FILTLIST_RDKCOR(1:NFILTDEF_RDKCOR)
-        print*,' SURVEY_FITLERS: ', SURVEY_FILTERS(1:NFILTDEF_SURVEY)
-
-        c1err = 'KCOR filters do not match any SURVEY_FILTERS.'
-        c2err = 'see PRE-ABORT dump above.'
-        CALL MADABORT(FNAM,C1ERR,C2ERR)
-      ENDIF
-
-  */
-
+  // abort if any duplicate filters were found
+  check_duplicate_filter(0, -1, 0 );
 
   return ;
 } // end read_kcor_filters
@@ -1417,34 +1341,55 @@ void filter_match_kcor(char *NAME, int *IFILT_REST, int *IFILT_OBS) {
 // ==============================================
 void check_duplicate_filter(char *FRAME, int IFILTDEF, char *FILTER_NAME ) {
 
-  int  ifilt, NDEFINE=0 ;
+  // IFILTDEF > 0 -> give warning if dupliate
+  // IFILTDEF < 0 -> abort with summary of duplicates
+
+  int  NDEFINE=0 ;
   char fnam[] = "check_duplicate_filter" ;
 
   // --------- BEGIN ------------
 
+
+  if ( IFILTDEF > 0 ) {
+    if ( strcmp(FRAME,"REST") == 0 )  { 
+      KCOR_INFO.FILTERMAP_REST.NDEFINE[IFILTDEF]++ ;
+      NDEFINE = KCOR_INFO.FILTERMAP_REST.NDEFINE[IFILTDEF];  
+      if ( NDEFINE == 2 ) { KCOR_INFO.FILTERMAP_REST.NFILT_DUPLICATE++; }
+
+    }
+    else if ( strcmp(FRAME,"OBS") == 0 ) { 
+      KCOR_INFO.FILTERMAP_OBS.NDEFINE[IFILTDEF]++ ;
+      NDEFINE = KCOR_INFO.FILTERMAP_OBS.NDEFINE[IFILTDEF]; 
+      if ( NDEFINE == 2 ) { KCOR_INFO.FILTERMAP_OBS.NFILT_DUPLICATE++; }
+    }
   
-  if ( strcmp(FRAME,"REST") == 0 ) {
-    ifilt   = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[IFILTDEF];
-    NDEFINE = KCOR_INFO.FILTERMAP_REST.NDEFINE[ifilt];
-  }
-  else if ( strcmp(FRAME,"OBS") == 0 ) {
-    ifilt   = KCOR_INFO.FILTERMAP_OBS.IFILTDEF_INV[IFILTDEF];
-    NDEFINE = KCOR_INFO.FILTERMAP_OBS.NDEFINE[ifilt];
+    // give warning on duplicate, but do not abort (yet).
+    if ( NDEFINE > 1 ) {
+      sprintf(c1err,"NDEFINE=%d -> duplicate %s filter '%s' (%d) ",
+	      NDEFINE, FRAME, FILTER_NAME, IFILTDEF);
+      sprintf(c2err,"Check kcor-input");
+      errmsg(SEV_WARN, 0, fnam, c1err, c2err); 
+    }
+  }   
+  else if ( IFILTDEF < 0 ) {
+    // check final summary  
+    int NDUP_REST = KCOR_INFO.FILTERMAP_REST.NFILT_DUPLICATE ;
+    int NDUP_OBS  = KCOR_INFO.FILTERMAP_OBS.NFILT_DUPLICATE ;
+    if ( NDUP_REST > 0 || NDUP_OBS > 0 ) {
+      sprintf(c1err,"%d/%d duplicate REST/OBS filters", 
+	      NDUP_REST, NDUP_OBS);
+      sprintf(c2err,"Check duplicate warnings above.");
+      errmsg(SEV_WARN, 0, fnam, c1err, c2err); 
+    }
   }
 
-  if ( NDEFINE > 1 ) {
-    sprintf(c1err,"NDEFINE=%d -> duplicate filter '%s' (%d) ",
-	    NDEFINE, FILTER_NAME, IFILTDEF);
-    sprintf(c2err,"Check kcor-input");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
 
   return ;
 
 } // end check_duplicate_filter
 
 
-// =====================================
+// ======================================================
 void loadFilterTrans_kcor(int IFILTDEF, int NBL, 
 			  float *ARRAY_LAM, float *ARRAY_TRANS,
 			  KCOR_FILTERMAP_DEF *MAP) {
@@ -1509,10 +1454,16 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
 
 // =====================================
 void read_kcor_primarysed(void) {
+
   char fnam[] = "read_kcor_primarysed" ;
+
   // --------- BEGIN ----------
+
   printf(" xxx %s: Hello \n", fnam); fflush(stdout);
+
+  // .xyz
   return ;
+
 } // end read_kcor_primarysed
 
 

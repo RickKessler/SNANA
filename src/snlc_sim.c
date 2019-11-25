@@ -247,6 +247,8 @@ int main(int argc, char **argv) {
 
     if ( GENLC.NEPOCH < INPUTS.CUTWIN_NEPOCH[0] ) {   // avoid NEPOCH=0
       gen_event_reject(&ilc, &SIMFILE_AUX, "NEPOCH");
+      //      printf(" xxx main: NEPOCH=%d, LIBID=%d \n",
+      //	     GENLC.NEPOCH, SIMLIB_HEADER.LIBID); fflush(stdout);
       goto GENEFF;
     }
 
@@ -943,6 +945,7 @@ void set_user_defaults(void) {
   INPUTS.USE_SIMLIB_REDSHIFT = 0;  // use 'REDSHIFT: <z>' in header
   INPUTS.USE_SIMLIB_DISTANCE = 0;  // use 'DISTANCE: <d(Mpc)>' in header
   INPUTS.USE_SIMLIB_PEAKMJD  = 0;  // use 'PEAKMJD: <t0>'  in header
+  INPUTS.USE_SIMLIB_MAGOBS   = 0;
 
   INPUTS.SIMLIB_MSKOPT = 0 ;
   GENLC.SIMLIB_IDLOCK  = -9;
@@ -1565,6 +1568,11 @@ int read_input(char *input_file) {
     }
     if ( uniqueMatch(c_get,"USE_SIMLIB_PEAKMJD:")   )  { 
       readint ( fp, 1, &INPUTS.USE_SIMLIB_PEAKMJD ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      continue ;
+    }
+    if ( uniqueMatch(c_get,"USE_SIMLIB_MAGOBS:")   )  { 
+      readint ( fp, 1, &INPUTS.USE_SIMLIB_MAGOBS ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
       continue ;
     }
@@ -4562,6 +4570,10 @@ void sim_input_override(void) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_PEAKMJD ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
     }
+    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_MAGOBS" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_MAGOBS ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+    }
 
     if ( strcmp( ARGV_LIST[i], "SIMLIB_MSKOPT" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_MSKOPT );       
@@ -5892,7 +5904,7 @@ void prep_user_input(void) {
       INPUTS.GENSIGMA_REDSHIFT    = 0.0 ; // Apr 20 2018
     }
     else {
-      // abort of redshift range not specified
+      // abort if redshift range not specified
       if ( INPUTS.GENRANGE_REDSHIFT[1] == 0.0 ) {
 	sprintf(c1err,"Must specify GENRANGE_REDSHIFT");
 	sprintf(c2err,"for GENMODEL: %s", INPUTS.GENMODEL);
@@ -5910,6 +5922,14 @@ void prep_user_input(void) {
     }
   }
 
+  else if ( INDEX_GENMODEL == MODEL_SIMLIB ) {
+    // Nov 2019
+    GENFRAME_OPT    = GENFRAME_OBS ; 
+
+    INPUTS.HOSTLIB_DZTOL[0] = 0.05;
+    INPUTS.HOSTLIB_DZTOL[1] = 0.0;
+    INPUTS.HOSTLIB_DZTOL[2] = 0.0;
+  }
   else {
     sprintf(c1err,"%s is not a valid genmag-model", INPUTS.MODELNAME);
     sprintf(c2err,"Check GENMODEL keyword in input file.");
@@ -7725,6 +7745,8 @@ void  set_GENMODEL_NAME(void) {
   sprintf(GENMODEL_NAME[MODEL_FIXMAG][1],  "%s", "RANMAG"  );
   sprintf(GENMODEL_NAME[MODEL_FIXMAG][2],  "%s", "fixmag"  );
   sprintf(GENMODEL_NAME[MODEL_FIXMAG][3],  "%s", "ranmag"  );
+
+  sprintf(GENMODEL_NAME[MODEL_SIMLIB][0],  "%s", "SIMLIB"  );
 
   sprintf(GENMODEL_NAME[MODEL_NON1ASED][0], "%s", "NONIA"   );
   sprintf(GENMODEL_NAME[MODEL_NON1ASED][1], "%s", "NON1A"   );
@@ -9839,7 +9861,7 @@ void gen_event_driver(int ilc) {
     // read entry from libray after generated PEAKMJD and redshift ;
     // see comment above.
     SIMLIB_READ_DRIVER();
-    
+
     GENLC.CID   = GENLC.CIDOFF + ilc ; 
     if ( GENLC.NEPOCH < NEPMIN ) { return ; }
 
@@ -12685,11 +12707,13 @@ double gen_peakmjd(void) {
   //              key is set.
   //
 
-  double PKMJD, MJD[2];
+  double PKMJD=-9.0 , MJD[2];
   int    NSKIP_RANGE, NSKIP_MJD, i ;
   char   fnam[] = "gen_peakmjd" ;
 
   // ------------- BEGIN --------------
+
+  if ( INDEX_GENMODEL == MODEL_SIMLIB ) { return(PKMJD); }
 
   if ( GENLC.ISOURCE_PEAKMJD == ISOURCE_PEAKMJD_SIMLIB ) 
     { return(GENLC.PEAKMJD); }
@@ -12796,12 +12820,15 @@ double gen_redshift_cmb ( void) {
 
   double zmin = INPUTS.GENRANGE_REDSHIFT[0];
   double zmax = INPUTS.GENRANGE_REDSHIFT[1];
-  double zcmb ; 
-  //  char fnam[] = "gen_redshift_cmb" ;
+  double zcmb = -9.0 ; 
+  char fnam[] = "gen_redshift_cmb" ;
 
   // --------------- BEGIN ------------
+
+  if ( INDEX_GENMODEL == MODEL_SIMLIB ) { return(zcmb); }
+  
   // check for delta-function in redshift
-  if ( INPUTS.GENRANGE_REDSHIFT[0] == INPUTS.GENRANGE_REDSHIFT[1] ) {
+  if ( zmin == zmax ) {
     zcmb = INPUTS.GENRANGE_REDSHIFT[0] ; 
   }
   else {
@@ -12812,7 +12839,7 @@ double gen_redshift_cmb ( void) {
 
   return(zcmb);
 
-}  // end of gen_redsfhit_cmb
+}  // end of gen_redshiftt_cmb
 
 
 
@@ -13146,10 +13173,12 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
     set ZGENWGT_MAX=1 if 
       (USE_FLAT || USE_SIMLIB_DISTANCE || USE_SIMLIB_REDSHIFT)
 
+ Nov 24 2019: if zmin == zmax, return immediately
+
   *****************/
 
-  double z, zran, z_atmax, dz, H0, OM, OL, W0, w, wgt ;
-  double wran1, zrange[2] ;
+  double z, zran, z_atmax, dz, H0, OM, OL, W0, w, wgt, wran1 ;
+  double zrange[2] = { zmin, zmax } ;
   int iz, NZ, ISFLAT, ISPOLY, ilist, NEWZRANGE, FIRST ;
   char fnam[] = "genz_hubble" ;
 
@@ -13162,8 +13191,7 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  zrange[0] = zmin ;
-  zrange[1] = zmax ;
+  if ( zmin == zmax ) { return(zmin); }
 
   H0   = INPUTS.H0 / ( 1.0E6 * PC_km) ;
   OM   = INPUTS.OMEGA_MATTER ;
@@ -14690,9 +14718,11 @@ void SIMLIB_READ_DRIVER(void) {
   // (i.e., untangle spagetti code). This refactor allows reading
   // from traditional TEXT file, and also from a binary file such
   // as ROOT or FITS.
+  //
+  // Nov 22 2019: init REPEAT=0
 
-  int  REPEAT ;
-  //  char fnam[] = "SIMLIB_READ_DRIVER" ;
+  int  REPEAT = 0 ;
+  char fnam[] = "SIMLIB_READ_DRIVER" ;
 
   // ------------------ BEGIN ------------------
 
@@ -14704,10 +14734,12 @@ void SIMLIB_READ_DRIVER(void) {
   GENLC.NGEN_SIMLIB_ID++ ;
   REPEAT = USE_SAME_SIMLIB_ID(2);
 
+
   if ( REPEAT == 0 ) {  // process next cadence
 
     // read next cadence from SIMLIB/Cadence file (any format)
     SIMLIB_readNextCadence_TEXT(); 
+
 
     // expand SPECTROGRAPH keys (MJD,TEXPOSE) to include 
     // each synthetic band as if they were in the SIMLIB file
@@ -14769,8 +14801,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH = 0 ;
   NWD=0;
 
-
  START:
+
 
   init_SIMLIB_HEADER();
   NOBS_EXPECT = NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID =USEFLAG_MJD = 0 ;
@@ -14789,8 +14821,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
   // - - - - - - - start reading SIMLIB - - - - - - - - - 
 
-  // xxxx  while( (fscanf(fp_SIMLIB, "%s", c_get)) != EOF) {
-
   while ( !DONE_READING ) {
 
     scanStat = fscanf(fp_SIMLIB, "%s", c_get);
@@ -14799,7 +14829,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
     if ( strcmp(c_get,"END_OF_SIMLIB:") == 0 ) { DO_REWIND = 1; }
     if ( scanStat == EOF )                     { DO_REWIND = 1; }
 
-    // xxxx    if ( strcmp(c_get,"END_OF_SIMLIB:") == 0 ) {
     if ( DO_REWIND ) {
       // check SIMLIB after 5 passes to avoid infinite loop
       if ( SIMLIB_HEADER.NWRAP >= 5 )  { ENDSIMLIB_check(); }
@@ -14849,7 +14878,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
     // read optional header keys for FAKEID option
     if ( strcmp(c_get,"GALID:") == 0 )  
-      { readint ( fp_SIMLIB, 1, &SIMLIB_HEADER.GALID ); }
+      { readlong ( fp_SIMLIB, 1, &SIMLIB_HEADER.GALID ); }
     if ( strcmp(c_get,"FAKEID:") == 0 )  
       { readint ( fp_SIMLIB, 1, &SIMLIB_HEADER.FAKEID ); }
 
@@ -16593,7 +16622,6 @@ void init_SIMLIB_HEADER(void) {
   sprintf(SIMLIB_HEADER.TELESCOPE,  "%s", SIMLIB_GLOBAL_HEADER.TELESCOPE) ;
   SIMLIB_HEADER.PIXSIZE  = SIMLIB_GLOBAL_HEADER.PIXSIZE ;
 
-
   return ;
 
 } // end init_SIMLIB_HEADER
@@ -16654,8 +16682,12 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   //
   // Jan 4 2018: read optional DISTANCE key, and convert to zCMB
 
+  int  USE_MODEL_SIMLIB = (INDEX_GENMODEL == MODEL_SIMLIB);
+  int  RDFLAG_REDSHIFT  = (INPUTS.USE_SIMLIB_REDSHIFT || USE_MODEL_SIMLIB);
+  int  RDFLAG_PEAKMJD   = (INPUTS.USE_SIMLIB_PEAKMJD  || USE_MODEL_SIMLIB);
+  int  RDFLAG_DISTANCE  = (INPUTS.USE_SIMLIB_DISTANCE || USE_MODEL_SIMLIB);
+  int  LTMP ;
   double TMPVAL, TMPRANGE[2], dist, MU ;
-  int    LTMP ;
 
   //  char fnam[] = "parse_SIMLIB_GENRANGES" ;
 
@@ -16673,13 +16705,15 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   // ------------ READ GENRANGEs ---------------------
   // -------------------------------------------------
 
+
   // check for redshift value or range 
   LTMP = 0 ;
-  if ( strcmp(KEY,"REDSHIFT:")==0 && INPUTS.USE_SIMLIB_REDSHIFT ) {
+  if ( strcmp(KEY,"REDSHIFT:")==0 && RDFLAG_REDSHIFT ) {
     readdouble ( fp_SIMLIB, 1, &TMPVAL );
     TMPRANGE[0] = TMPRANGE[1] = TMPVAL;  LTMP=1;
   }
-  if ( strcmp(KEY,"DISTANCE:")==0 && INPUTS.USE_SIMLIB_DISTANCE ) {
+
+  if ( strcmp(KEY,"DISTANCE:")==0 && RDFLAG_DISTANCE ) {
     readdouble ( fp_SIMLIB, 1, &dist );  // Lumi-distance (D_L), Mpc (Jan 2018)
     MU = 5.0*log10(dist/1.0E-5);  // 10pc = 1.0E-5 Mpc
     double H0 = INPUTS.H0 / ( 1.0E6 * PC_km) ;
@@ -16689,9 +16723,11 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
     TMPVAL = zcmb_dLmag_invert(H0, OM, OL, w0, MU); // returns zCMB
     TMPRANGE[0] = TMPRANGE[1] = TMPVAL;  LTMP=1;
   }
+
   if ( strcmp(KEY,"GENRANGE_REDSHIFT:")==0 ) {
     readdouble ( fp_SIMLIB, 2, TMPRANGE );  LTMP=1;
   }
+
   if ( LTMP ) {
     SIMLIB_HEADER.GENRANGE_REDSHIFT[0] = TMPRANGE[0] ;
     SIMLIB_HEADER.GENRANGE_REDSHIFT[1] = TMPRANGE[1] ;
@@ -16700,7 +16736,7 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
 
   // check for optional PEAKMJD value or range in SIMLIB; 
   LTMP=0;
-  if ( strcmp(KEY,"PEAKMJD:")==0  && INPUTS.USE_SIMLIB_PEAKMJD )  { 
+  if ( strcmp(KEY,"PEAKMJD:")==0  && RDFLAG_PEAKMJD )  { 
     readdouble ( fp_SIMLIB, 1, &TMPVAL ); 
     TMPRANGE[0] = TMPRANGE[1] = TMPVAL;  LTMP=1;
   }
@@ -16826,10 +16862,10 @@ int regen_SIMLIB_GENRANGES(void) {
   }
 
   //check redshift update 
-  double *ZWIN = SIMLIB_HEADER.GENRANGE_REDSHIFT ;
-  if(LTRACE) {printf(" xxx %s: 1 ZWIN=%f,%f\n", fnam,ZWIN[0],ZWIN[1] ); }
-  if ( ZWIN[0] > 1.0E-5 ) {
-    tmpVal = genz_hubble( ZWIN[0], ZWIN[1], &INPUTS.RATEPAR );
+  double *zWIN = SIMLIB_HEADER.GENRANGE_REDSHIFT ;
+  if(LTRACE) {printf(" xxx %s: 1 zWIN=%f,%f\n", fnam,zWIN[0],zWIN[1] ); }
+  if ( zWIN[0] > 1.0E-5 ) {
+    tmpVal = genz_hubble( zWIN[0], zWIN[1], &INPUTS.RATEPAR );
     if(LTRACE) {printf(" xxx %s: 1b ZGEN=%f\n", fnam,tmpVal ); }
     if ( tmpVal < INPUTS.GENRANGE_REDSHIFT[0] ) { return(REJECT); }
     if ( tmpVal > INPUTS.GENRANGE_REDSHIFT[1] ) { return(REJECT); }
@@ -19358,7 +19394,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
 
   // define args stripped from GENLC structure
 
-  int ifilt_obs, ifilt, ifield, LDMP=0, GALID, OVP ;
+  int ifilt_obs, ifilt, ifield, GALID, OVP ;
 
   double 
     genmag, genmag_T
@@ -19395,6 +19431,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
     ;
 
   double scale_fluxErr = 1.0 ;
+  int LDMP = 0 ;
   char field[MXCHAR_FIELDNAME], band[4];
   char fnam[] = "gen_smearFlux" ;
 
@@ -21293,6 +21330,10 @@ void init_genmodel(void) {
   else if ( INDEX_GENMODEL == MODEL_FIXMAG ) {
     GENLC.SIMTYPE  = MODEL_FIXMAG ;
   }
+  else if ( INDEX_GENMODEL == MODEL_SIMLIB ) {
+
+    printf("\n Read SIM_MAGOBS from SIMLIB file. \n");
+  }
   else if ( INDEX_GENMODEL == MODEL_MLCS2k2 ) {
 
     scale_covar_flt = 1.0;  // 5/02/2009: scale error at mag-smear stage
@@ -21643,6 +21684,7 @@ void check_model_default(int index_model ) {
   if ( index_model == MODEL_NON1ASED  ) return ;
   if ( index_model == MODEL_NON1AGRID ) return ;
   if ( index_model == MODEL_FIXMAG    ) return ;
+  if ( index_model == MODEL_SIMLIB    ) return ;
   if ( index_model == MODEL_LCLIB     ) return ;
   if ( index_model == MODEL_BYOSED    ) return ;
 
@@ -21728,6 +21770,7 @@ void init_kcor(char *kcorFile) {
   *********/
 
   int ISMODEL_FIXMAG = ( INDEX_GENMODEL == MODEL_FIXMAG );
+  int ISMODEL_SIMLIB = ( INDEX_GENMODEL == MODEL_SIMLIB );
   int ierrstat, ifilt, ifilt_obs, OPT, NKCOR=0 ;
   float tmpoff_kcor[MXFILTINDX] ;
   float *ptr ;
@@ -21786,6 +21829,7 @@ void init_kcor(char *kcorFile) {
   }
 
   if ( ISMODEL_FIXMAG ) { return ; } // 4.24.2019
+  if ( ISMODEL_SIMLIB ) { return ; } // 11.22.2019
 
   // init MW extinction (moved from end of init_genmodel on Aug 30 2010)
   if ( GENFRAME_OPT == GENFRAME_REST )  {
@@ -22094,8 +22138,8 @@ void GENFLUX_DRIVER(void) {
 
   int epoch, istat, ifilt_obs, L_ERRPOS, L_UNDEFINED, L_SATURATE ;
   int VBOSE_SMEAR = 0;
-  double genmag, obsmag;
-  //  char fnam[] = "GENFLUX_DRIVER" ;
+  double genmag, obsmag, fluxerr ;
+  char fnam[] = "GENFLUX_DRIVER" ;
 
   // -------------- BEGIN ---------------
 
@@ -22115,7 +22159,8 @@ void GENFLUX_DRIVER(void) {
 
     obsmag      = GENLC.mag[epoch];
     genmag      = GENLC.genmag8_obs[epoch] ;
-    L_ERRPOS    = (GENLC.flux_errstat[epoch] > 0 );
+    fluxerr     = GENLC.flux_errstat[epoch];
+    L_ERRPOS    = (fluxerr > 0 );
     L_UNDEFINED = (genmag == MAG_UNDEFINED) ; // model undefined
     L_SATURATE  = (obsmag == MAG_SATURATE ) ;    
 
@@ -22387,27 +22432,18 @@ void genmodel(
   }
 
   else if ( INDEX_GENMODEL  == MODEL_FIXMAG ) {
-
     GENLC.FIXMAG = GENLC.NOSHAPE ;
-
     for ( iep = 0 ; iep < NEPFILT; iep++ ) {
       ptr_genmag[iep] = GENLC.FIXMAG ;
       ptr_generr[iep] = 0.0 ;
     }
-
     sprintf(GENLC.SNTYPE_NAME, "%s", INPUTS.MODELNAME ); 
     GENLC.TEMPLATE_INDEX = MODEL_FIXMAG ;  //anything but zero
+  }
+  else if ( INDEX_GENMODEL == MODEL_SIMLIB ) {
 
-    /* xxx mark delete April 24 2019 xxxxxxxx
-    if ( strcmp(INPUTS.MODELNAME,"FIXMAG") == 0 ) {
-      sprintf(GENLC.SNTYPE_NAME, "FIXMAG" ); 
-      GENLC.TEMPLATE_INDEX = MODEL_FIXMAG ;  //anything but zero
-    }
-    else {
-      sprintf(GENLC.SNTYPE_NAME, "RANMAG" ); 
-      GENLC.TEMPLATE_INDEX = (int)INPUTS.FIXMAG[0] ;
-    }
-    xxxxxxxxxxx end mark xxxxxxxxxxxxx */
+    // gen mags are already loaded since ptr_genmag points to 
+    // GENFILT.genmag8_obs
 
   }
   else if ( INDEX_GENMODEL  == MODEL_MLCS2k2 ) {
@@ -22445,7 +22481,6 @@ void genmodel(
     S2c  = GENLC.SALT2c  + GENLC.COVMAT_SCATTER[2] ;
     tmp  = -0.4 * GENLC.COVMAT_SCATTER[0] ;
     S2x0 = GENLC.SALT2x0 * pow(10.0,tmp);
-
 
     genmag_SALT2 (
 		  OPTMASK         // (I) bit-mask options
@@ -22889,7 +22924,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     GENLC.MAGSMEAR_COH = magSmear ;  // store global
 
     for ( iep = 1; iep <= NEPFILT; iep++ )   { 
-      *(ptr_genmag+iep-1)                   += magSmear ;
+      ptr_genmag[iep-1]                     += magSmear ;
       GENFILT.genmag8_smear[ifilt_obs][iep] += magSmear ;
     }
   }
@@ -22922,8 +22957,8 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
   for ( iep=1; iep <= NEPFILT; iep++ ) {
 
     smearsig_model = 0.0 ;
-    Tep   = *(ptr_epoch + iep - 1); // rest or obs.
-    Trest = Tep / Z1 ;  // Z1=1 (rest) or 1+z (obs)
+    Tep   = ptr_epoch[iep - 1] ; // rest or obs.
+    Trest = Tep / Z1 ;          // Z1=1 (rest) or 1+z (obs)
      
     if ( USE_GENMODEL_ERRSCALE  ) 
       { smearsig_model = genSmear_ERRSCALE(ptr_generr,iep, NEPFILT ); }

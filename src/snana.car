@@ -428,8 +428,8 @@ c
       LOGICAL 
      &   DO_FIT
      &  ,DO_FLUXERRCALC    ! T => compute error from PSF,SKY & ZPT  
-     &  ,LSIM_SNANA        ! simulated with SNANA
-     &  ,LSIM_MAGOBS       ! data-like, but with SIM_MAGOBS
+     &  ,LSIM_SNANA    ! simulated with SNANA
+     &  ,LSIM_MAGOBS   ! data-like, but with SIM_MAGOBS (e.g. fakes on images)
      &  ,ISJOB_SNANA          ! =T for snana.exe only.
      &  ,ISJOB_PSNID
      &  ,REFORMAT_SAVE_BADEPOCHS  ! set if bit2 is set on any OPT_REFORMAT
@@ -1442,11 +1442,11 @@ c           in user-input HEADER_OVERRIDE_FILE
 c define hard-wired list of valid over-rides
       CHARACTER VARLIST_ALL_HEADER_OVERRIDE*400
       PARAMETER ( VARLIST_ALL_HEADER_OVERRIDE = 
-     &   'HOSTGAL_LOGMASS,HOSTGAL_LOGMASS_ERR,' // 
+     &   'HOSTGAL_OBJID,HOSTGAL_LOGMASS,HOSTGAL_LOGMASS_ERR,' // 
      &   'HOSTGAL_sSFR,HOSTGAL_sSFR_ERR,' // 
      &   'HOSTGAL_PHOTOZ,HOSTGAL_PHOTOZ_ERR,' // 
      &   'VPEC,VPEC_ERR,REDSHIFT_FINAL,REDSHIFT_FINAL_ERR,' //
-     &   'PKMJDINI,PEAKMJDINI,' //
+     &   'PEAKMJD,PKMJDINI,PEAKMJDINI,' //
      &   'MWEBV,MWEBV_ERR '      )
       
       INTEGER MXVAR_HEADER_OVERRIDE
@@ -1914,6 +1914,7 @@ c
      &  ,PHOTFLAG_TRIGGER        ! determine MJD(trigger) for survey
      &  ,APPLY_FLUXCOR_BUG       ! see calling sequence in SNRECON
      &  ,FLUXERRMODEL_OPTMASK
+     &  ,OPT_SIMLIB_OUT          ! bit mask of SIMLIB_OUT options
 
       LOGICAL 
      &   LSIM_SEARCH_SPEC   ! (I) T => require simulated SPEC-tag
@@ -2003,8 +2004,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPTSIM_LCWIDTH, OPT_REFORMAT_TERSE, OPT_REFORMAT_TEXT
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
-     &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE
-     &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, NONLINEARITY_FILE
+     &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE, NONLINEARITY_FILE
+     &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, OPT_SIMLIB_OUT
      &    , hfile_out, rootfile_out, textfile_prefix
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP
      &    , KCOR_FILE, ZPOFF_FILE, USERTAGS_FILE
@@ -2053,8 +2054,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP
      &    , KCOR_FILE, ZPOFF_FILE, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
-     &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE
-     &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, NONLINEARITY_FILE
+     &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE, NONLINEARITY_FILE
+     &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, OPT_SIMLIB_OUT
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
      &    , OPT_SETPKMJD
      &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, OPT_DEBUG
@@ -3361,6 +3362,7 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       MXEVT_PROCESS      = 999888777
       SIMLIB_OUT = ''
       SIMLIB_ZPERR_LIST = ''
+      OPT_SIMLIB_OUT    = 1
 
       NONLINEARITY_FILE = ''
 
@@ -4854,6 +4856,9 @@ c ----------
 
          else if ( LINE_ARGS(i) .EQ. 'SIMLIB_ZPERR_LIST' ) then
             i = i + 1 ; SIMLIB_ZPERR_LIST = LINE_ARGS(i)
+
+         else if ( LINE_ARGS(i) .EQ. 'OPT_SIMLIB_OUT' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_SIMLIB_OUT
 
          else if ( LINE_ARGS(i) .EQ. 'NONLINEARITY_FILE' ) then
             i = i + 1 ; NONLINEARITY_FILE = LINE_ARGS(i)
@@ -18268,7 +18273,7 @@ c Created Nov 29 2016 by R.Kessler
 c Execute header override.
 c
 c Aug 7 2019: fix bug setting SNLC_ZCMB_ERR to zerr instead of z.
-c
+c Nov 22 2019: check for HOSTGAL_OBJID
  
       IMPLICIT NONE
     
@@ -18308,7 +18313,7 @@ C ------------ BEGIN ------------
           CALL SNTABLE_AUTOSTORE_READ(CCID_IAUC,cVARNAME,ISTAT,
      &               DVAL,cDUM,     MXCHAR_CCID, LENV, 20)
         ENDIF
-
+        
         IF ( ISTAT .NE. 0 ) GOTO 100
 
 c brute-force check each possible header variable 
@@ -18333,6 +18338,8 @@ c brute-force check each possible header variable
         ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_HELIO_ERR' ) THEN
           SNLC_ZHELIO_ERR = sngl(DVAL)
 
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_OBJID' ) THEN
+          SNHOST_OBJID(1) = sngl(DVAL)   ! Nov 22 2019
         ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_LOGMASS' ) THEN
           SNHOST_LOGMASS(1) = sngl(DVAL)
         ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_LOGMASS_ERR' ) THEN
@@ -18353,6 +18360,8 @@ c brute-force check each possible header variable
         ELSE IF ( VARNAME(1:LENV) .EQ. 'MWEBV_ERR' ) THEN
           SNLC_MWEBV_ERR = sngl(DVAL)
 
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'PEAKMJD' ) THEN ! Nov 24 2019
+          SNLC_SEARCH_PEAKMJD = sngl(DVAL) 
         ELSE IF ( VARNAME(1:LENV) .EQ. 'PKMJDINI' ) THEN
           SNLC_SEARCH_PEAKMJD = sngl(DVAL)
         ELSE IF ( VARNAME(1:LENV) .EQ. 'PEAKMJDINI' ) THEN  ! same
@@ -20903,8 +20912,14 @@ c OPT_FLAG = 1 --> open simlib file and write header
 c OPT_FLAG = 2 --> add next LIBID
 c OPT_FLAG = 3 --> close file
 c
-c Oct 15 2019: fix format for SKYSIG : 6.2f -> 7.2f
+c  OPT_SIMLIB_OUT & 1 -> write SIM_MAGOBS for all obs, 
+c                        even for true flux = 0 and mag=99.
+c  OPT_SIMLIB_OUT & 2 -> write SIM_MAGOBS only for true flux > 0
 c
+c
+c Oct 15, 2019: fix format for SKYSIG : 6.2f -> 7.2f
+c Nov 22, 2019: adapt to work on fakes and sims, and write MAG column.
+
       IMPLICIT NONE
 
       INTEGER OPT_FLAG ! 1=> init file, 2=> add simlib entry
@@ -20919,14 +20934,30 @@ c +CDE,KCORCOM,IF=R4KCOR,I2KCOR.
       REAL*8  MJD, GAIN, RDNOISE, SKYSIG, PSF1, PSF2, PSFRAT
       REAL*8  ZP, ZPERR, MAG, FLUX, FLUXERR, PIXSIZE, LAMOBS
       INTEGER LIBID, IFILT, IFILT_OBS, LASTEP(MXFILT_OBS)
-      INTEGER LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP,i
+      INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP,i
+      LOGICAL IS_REAL_DATA, WRALL_SIM_MAGOBS, WRSET_SIM_MAGOBS
+      LOGICAL WR_SIM_MAGOBS
       CHARACTER BAND*4, FNAM*20, SEDCMD*200
+      CHARACTER cMAG*10, cNCUTS*12, STR_OLD*40, STR_NEW*60
 
 C ------------------ BEGIN ------------------
 
       IF( SIMLIB_OUT .EQ. '' ) RETURN
 
       FNAM = 'MAKE_SIMLIB_FILE'
+      IS_REAL_DATA = ( .NOT. (LSIM_SNANA .or. LSIM_MAGOBS) )
+
+c check option to write ALL SIM_MAGOBS, even for SIM_MAGOBS=99 where
+c no fake or sim event was generated and there is zero flux.
+      WRALL_SIM_MAGOBS = 
+     &    BTEST(OPT_SIMLIB_OUT,0) .and. (.not.IS_REAL_DATA)
+
+c check option to write SIM_MAGOBS  only for true flux > 0
+      WRSET_SIM_MAGOBS = 
+     &    BTEST(OPT_SIMLIB_OUT,1) .and. (.not.IS_REAL_DATA)
+      WR_SIM_MAGOBS = WRALL_SIM_MAGOBS .or.  WRSET_SIM_MAGOBS
+
+c -------------------------------------------
 
       IF ( OPT_FLAG == 1 ) THEN
 
@@ -20954,31 +20985,35 @@ C ------------------ BEGIN ------------------
      &        , STATUS = 'UNKNOWN'
      &           )
 
+        WRITE(LUNOUT,11) 
+     &       'Created from snana.exe using SIMLIB_OUT option.'
+        WRITE(LUNOUT,11) 
+     &       'VERSION_PHOTOMETRY: ' // VERSION_PHOTOMETRY(1)(1:60)
+        if ( WR_SIM_MAGOBS ) then
+           WRITE(LUNOUT,11)
+     &        'SIM_MAGOBS are copied to MAG column.'   
+        endif
+        WRITE(LUNOUT,11) ' ' 
+
         LEN1 = INDEX(SURVEY_NAME,' ') - 1
         LEN2 = INDEX(SURVEY_FILTERS,' ') - 1
         WRITE(LUNOUT,10) 'SURVEY:      ',  SURVEY_NAME(1:LEN1)        
         WRITE(LUNOUT,10) 'FILTERS:     ',  SURVEY_FILTERS(1:LEN2)
-        WRITE(LUNOUT,10) 'PSF_UNIT:    ',  'ARCSEC_FWHM'
-        WRITE(LUNOUT,10) 'SKYSIG_UNIT: ', 'ADU_PER_SQARCSEC'
-10      FORMAT(A, 3x, A)  ! KEY VAL
+10      FORMAT(A, 1x, A)  ! KEY VAL
+11      FORMAT('# ', A)
 
-        CALL SET_SIMLIB_SKYMAG()
+        if ( IS_REAL_DATA ) then   
+          WRITE(LUNOUT,10) 'PSF_UNIT:    ',  'ARCSEC_FWHM'
+          WRITE(LUNOUT,10) 'SKYSIG_UNIT: ',  'ADU_PER_SQARCSEC'  
+          CALL SET_SIMLIB_SKYMAG()
+          CALL SET_SIMLIB_ZPERR()
+       endif
 
-        if ( ISGROUND ) then
-           write(LUNOUT,11) 'GROUND'
-        else
-           write(LUNOUT,11) 'SPACE'
-        endif
-11      format(/, '# Assume instrument parameters for ', A)
-        DO i = 1, NLIST_SKY
-           write(LUNOUT,12) SKYLAM_LIST(i), SKYMAG_LIST(i)
-12         format('# Assume SKYMAG(',F7.0,') = ', F5.2,' mag/asec^2')
-        ENDDO
+        WRITE(LUNOUT,10) 'NLIBID:     ',  'NLIBID_REPLACE'
 
-        CALL SET_SIMLIB_ZPERR()
+        WRITE(LUNOUT, '(/,A,/)' ) 'BEGIN LIBGEN' 
+cc90      FORMAT(/, 'BEGIN LIBGEN',/  )
 
-        WRITE(LUNOUT,90) 
-90      FORMAT(/, 'BEGIN LIBGEN',/  )
         CALL FLUSH(LUNOUT)
         CALL FLUSH(6)
 
@@ -20989,6 +21024,20 @@ C ------------------ BEGIN ------------------
          write(LUNOUT,400) 
 400      format(/, 'END_OF_SIMLIB: ', / )
          close(UNIT = LUNOUT)
+
+c replace N_SNLC_CUTS with comment giving number of SIMLIB entries
+         write(cNCUTS,'(I6,2x)') N_SNLC_CUTS
+	 STR_OLD = 'NLIBID_REPLACE '
+	 STR_NEW = cNCUTS
+	 LEN0    = index(STR_OLD,' ') - 1
+	 LEN1    = 8    ! for cNCUT
+         LEN2    = INDEX(SIMLIB_OUT,' ') - 1
+	 write(SEDCMD,505) 
+     &       STR_OLD(1:LEN0), STR_NEW(1:LEN1), SIMLIB_OUT(1:LEN2)
+c	 print*,' xxx SEDCMD = ', SEDCMD
+         CALL SYSTEM(SEDCMD)
+
+505      FORMAT('sed -i ', "'s/", A, '/',A, "/g1'", 2x, A)
 
 c is SUBSURVEY_LIST is not blank, use system 'sed' command
 c to insert its comma-separate list at top of SIMLIB file.
@@ -21012,19 +21061,21 @@ C ------------- OPT_FLAG=2 below -------------------------
          LASTEP(IFILT_OBS) = -9
       ENDDO
 
+
 c ----------
 c first loop through and count NOBS
       NOBS = 0
-      DO 200 NEWMJD = 1, ISNLC_NEWMJD_STORE
+      DO 25 NEWMJD = 1, ISNLC_NEWMJD_STORE
         EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
         EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
-        DO 201 IEP = EPMIN, EPMAX
-           EP = IEP
-           IFILT_OBS = ISNLC_IFILT_OBS(ep)
+        DO 21 EP = EPMIN, EPMAX
+           if ( WR_SIM_MAGOBS ) then
+              MAG = SIM_EPMAGOBS(ep)
+              if ( WRSET_SIM_MAGOBS .and. MAG > 98.0 ) goto 21
+           endif
            NOBS = NOBS + 1
-201     CONTINUE
-200   CONTINUE
-
+21     CONTINUE
+25    CONTINUE
 c -----------
       PIXSIZE = SNLC_PIXSIZE
       if ( PIXSIZE < 0.0 ) PIXSIZE = PIXSIZE_GUESS
@@ -21034,23 +21085,29 @@ c -----------
  
       LIBID = SNLC_CID      ! UNIQUE_CIDINT(SNLC_CCID)
       WRITE(LUNOUT,101) LIBID, SNLC_CCID
-101   FORMAT('LIBID: ', I8, 5x,'# cadence from ', A )
+ 101  FORMAT('LIBID: ', I8, 5x, '# cadence from SNID=', A )
 
-      WRITE(LUNOUT,102) SNLC8_RA, SNLC8_DEC, SNLC_MWEBV
-102   FORMAT('RA: ', F12.6, 8x, 'DEC:', F12.6, 5x, 'MWEBV: ',F7.4)
+      WRITE(LUNOUT,103) SNLC8_RA, SNLC8_DEC, SNLC_MWEBV
+ 103  FORMAT('RA: ', F12.6, 8x, 'DEC:', F12.6, 5x, 'MWEBV: ',F7.4)
 
       WRITE(LUNOUT,105) NOBS, PIXSIZE, 
      &       SNLC_REDSHIFT,  SNLC_SEARCH_PEAKMJD 
-105   FORMAT('NOBS: ', I4, 5x, 'PIXSIZE: ', F6.3, 5x,
+ 105  FORMAT('NOBS: ', I4, 5x, 'PIXSIZE: ', F6.3, 5x,
      &       'REDSHIFT: 'F8.5, 5x, 'PEAKMJD: ', F9.3 )
 
-      WRITE(LUNOUT,106) SUBSURVEY_NAME
-106   FORMAT('SUBSURVEY: ', A )
+      WRITE(LUNOUT,10) 'SUBSURVEY:', SUBSURVEY_NAME
 
-      WRITE(LUNOUT,110)
+c Nov 23 2019: add more info for simulated data
+      IF ( WR_SIM_MAGOBS  ) THEN
+         write(LUNOUT,"('GALID: ',I9)" ) SNHOST_OBJID(1)
+         write(LUNOUT,"('FIELD: ',A )" ) SNLC_FIELDLIST ! includes overlaps
+      ENDIF
+
+
+c write column header
+      WRITE(LUNOUT,110) 
 110   FORMAT(/,'#  MJD     IDUM  BAND  GAIN RDNOISE  SKYSIG    ', 
-     &         'PSF1 PSF2 PSFRAT    ZP   ZPERR ' )
-
+     &         'PSF1 PSF2 PSFRAT    ZP  ZPERR   MAG' )
 
       DO IFILT_OBS = 1, MXFILT_OBS
          LASTEP(IFILT_OBS) = -9
@@ -21080,7 +21137,13 @@ c --------
            PSFRAT    = SNLC_PSF_RATIO(ep) 
            ZP        = SNLC_ZEROPT(ep)
            ZPERR     = SNLC_ZEROPT_ERR(ep)
-           MAG       = 99.0 
+
+           cMAG      = '99'
+           if ( WR_SIM_MAGOBS ) then
+              MAG = SIM_EPMAGOBS(ep)
+              if ( WRSET_SIM_MAGOBS .and. MAG > 98.0 ) goto 301
+              write(cMAG,"(F8.4)") MAG
+           endif
 
            IF ( PSF1 < 1.0E-5 .and. SKYSIG > 1.0E-5 ) GOTO 301
 
@@ -21102,13 +21165,13 @@ c Mainly for low-z sample which has no meta data.
      &        MJD, EP, BAND,    ! EP is a dummy ID
      &        GAIN, RDNOISE, 
      &        SKYSIG, PSF1, PSF2, PSFRAT,
-     &        ZP, ZPERR, MAG
+     &        ZP, ZPERR, cMAG
 
 120        format('S: ', 
      &            F9.3, I4, 2x, A2, 2x,      ! MJD, ID, BAND
-     &            F5.2, 2x, F6.2, 2x,        ! GAIN, RDNOISE
+     &            F5.2, 2x, F5.2, 2x,        ! GAIN, RDNOISE
      &            F7.2, 1x, 3(F6.2),2x,      ! SKYSIG, PSF info
-     &            F6.3, 2x, F5.3, 2x, F4.1   ! ZP, ZPERR, MAG
+     &            F6.3, 1x, F5.3, 1x, A      ! ZP, ZPERR, MAG
      &                )
 
 301   CONTINUE
@@ -21178,6 +21241,19 @@ C -------------- BEGIN --------------
          write(6,50) SKYLAM_LIST(i), SKYMAG_LIST(i)
 50       format(T10, 'Set SKYMAG(',F7.0,' A) = ', F5.2, ' / asec^2'  ) 
       ENDDO
+
+c - - - - - - 
+c Write info to SIMLIB file
+      if ( ISGROUND ) then
+         write(LUNOUT,11) 'GROUND'
+      else
+         write(LUNOUT,11) 'SPACE'
+      endif
+11      format(/, '# Assume instrument parameters for ', A)
+        DO i = 1, NLIST_SKY
+           write(LUNOUT,12) SKYLAM_LIST(i), SKYMAG_LIST(i)
+12         format('# Assume SKYMAG(',F7.0,') = ', F5.2,' mag/asec^2')
+        ENDDO
 
       RETURN
       END     ! end SET_SIMLIB_SKYMAG

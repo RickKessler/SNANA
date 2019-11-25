@@ -357,10 +357,11 @@ struct INPUTS {
   float  SIMLIB_CADENCEFOM_ANGSEP; // controls calc of cadence FoM
   double SIMLIB_CADENCEFOM_PARLIST[10] ; // optional *parList for SNcadenceFoM
 
-  int  USE_SIMLIB_GENOPT ;    // use all optional gen-keys in simlib header
+  int  USE_SIMLIB_GENOPT ;    // use some optional gen-keys in simlib header
   int  USE_SIMLIB_REDSHIFT ;  // 1 => use redshift in LIB (if it's there)
   int  USE_SIMLIB_DISTANCE ;  // 1 => use distance in LIB (if it's there)
   int  USE_SIMLIB_PEAKMJD ;   // idem for optional PEAKMJD
+  int  USE_SIMLIB_MAGOBS ;    // use MAGOBS column instead of SN model
   int  SIMLIB_MSKOPT ;        // special SIMLIB options (see manaul)
 
   // ---- end simlib inputs -----
@@ -1225,7 +1226,8 @@ struct SIMLIB_HEADER {
 
   // optional stuff 
   double MWEBV, PIXSIZE ; 
-  int    FAKEID, GALID, CCDNUM ; 
+  int    FAKEID, CCDNUM ; 
+  long long GALID; 
 
   // these header keys can be changed anywhere in the simlib entry
   char FIELD[60], TELESCOPE[60] ; // July 2016

@@ -61,7 +61,8 @@ typedef struct {
   int  NFILTDEF;
   int  IFILTDEF[MXFILT_KCOR];     // vs. sparse index
   int  IFILTDEF_INV[MXFILT_KCOR]; // vs. absolute index
-  int  NDEFINE[MXFILT_KCOR];      // Number of times IFILTDEF is defined
+  int  NDEFINE[MXFILT_KCOR];      // Number of times each IFILTDEF is defined
+  int  NFILT_DUPLICATE;           // number of bands with duplicates
   char FILTERSTRING[MXFILT_KCOR]; // list of single-char bands
   char *FILTER_NAME[MXFILT_KCOR]; // full name of each filter, vs. sparse indx
 

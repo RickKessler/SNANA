@@ -1046,6 +1046,7 @@ c
      &  ,SIM_EPFILTREST(MXEPOCH)
      &  ,SIMLIB_MSKOPT        ! SIMLIB option mask (Dec 2015)
      &  ,NEP_SIM_MODELGRID
+     &  ,NEP_SIM_MAGOBS          ! number of sim epochs with MAGOBS < 99
 
       INTEGER*8  SIM_HOSTLIB_GALID
 
@@ -1077,7 +1078,7 @@ c
      &  ,SIM_GENTYPE, SIMNAME_TYPE, SIM_LCWIDTH
      &  ,SIM_SEARCHEFF_MASK, SIM_LIBID, SIM_NGEN_LIBID
      &  ,SIM_NOBS_UNDEFINED, SIM_NSUBSAMPLE_MARK, SIM_SUBSAMPLE_INDEX
-     &  ,SIM_PEAKMAG, SIM_EPMAGOBS, SIM_EPFLUXCAL
+     &  ,SIM_PEAKMAG, SIM_EPMAGOBS, SIM_EPFLUXCAL, NEP_SIM_MAGOBS
      &  ,SIM_EPSNRMON, SIM_EPFLUXCAL_HOSTERR
      &  ,SIMNAME_SHAPEPAR,  SIMNAME_SHAPELAW
      &  ,SIMNAME_COLORPAR,  SIMNAME_COLORLAW, SIMNAME_SNRMON
@@ -18935,7 +18936,7 @@ c local var
 
       REAL
      &   Fluxcal, Fluxcal_err, TRUEFLUX
-     &  ,Xnsig, MAG, magoff, ZP, PHOTPROB
+     &  ,Xnsig, MAG, SIM_MAG, magoff, ZP, PHOTPROB
      &  ,Tobs, z1, z, Trest, scale, arg
      &  ,Zhost, Zhosterr, LAMOBS, LAMZ1,  SNRMAX
 
@@ -19064,6 +19065,7 @@ c Useful as initial value for fits.
       NBAND_SNRMAX  = 0
       NBAND_SNRMAX2 = 0
       MJD8_LASTALL  = -9.0
+      NEP_SIM_MAGOBS =  0
 
 c fill ISNLC_NFIELD with number of fields; 
       CALL COUNTFIELDS()
@@ -19130,13 +19132,20 @@ c Jan 3 2018: skip saturated mags
             CALL EXEC_FUDGE_FLUXCAL(ep)  ! flux and fluxerr fudges
           endif
 
-c convert sim-mag to SIM_FLUXCAL (Mar 2015)
+c convert sim-mag to SIM_FLUXCA
           IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
-             ZP    = ZEROPOINT_FLUXCAL_DEFAULT
-             ARG   = 0.4*(ZP - SIM_EPMAGOBS(ep))
-             TRUEFLUX = 10.0**(ARG)
-             SIM_EPFLUXCAL(ep) = TRUEFLUX
+             ZP        = ZEROPOINT_FLUXCAL_DEFAULT
+	     SIM_MAG   = SIM_EPMAGOBS(ep)
+	     if ( SIM_MAG < 90.0 ) then
+	       NEP_SIM_MAGOBS = NEP_SIM_MAGOBS + 1 ! Nov 25 2019
+               ARG            = 0.4*(ZP - SIM_MAG)
+               TRUEFLUX       = 10.0**(ARG)
+             else               
+	       TRUEFLUX = 0.0
+             endif	 
+             SIM_EPFLUXCAL(ep) = TRUEFLUX	
              IF ( USESIM_TRUEFLUX ) SNLC_FLUXCAL(ep)=TRUEFLUX
+
           ENDIF
  
 +SELF,IF=SNANA,SNFIT.
@@ -19476,7 +19485,7 @@ c Parse &SNLCINP input SIMVAR_CUTWIN_STRING
       EXTERNAL STORE_PARSE_WORDS
 
 C --------- BEGIN ---------
-      IF ( .NOT. LSIM_SNANA)              RETURN
+      IF ( .NOT. (LSIM_SNANA .or. LSIM_MAGOBS) )  RETURN
       IF ( SIMVAR_CUTWIN_STRING .EQ. '' ) RETURN
 
       FNAM = 'PARSE_SIMVAR_CUTS'
@@ -19522,6 +19531,8 @@ c Created Dec 2018
 c Evaluate PASS_SIMCUTS based on user-input SIMVAR_CUTWIN_STRING
 c Check hard-coded SIM_xxx names, and also check SIMSED_xxx names.
 c
+c Nov 25 2019: check NEP_SIM_MAGOBS = number os SIM_MAGOBS < 99
+
       IMPLICIT NONE
 
 +CDE,SNDATCOM.
@@ -19554,6 +19565,11 @@ C --------------- BEGIN ------------
          else if ( VARNAME .EQ. 'SIM_x1' ) then
             if ( SIM_SHAPEPAR < VMIN ) PASS_SIMCUTS = .FALSE.
             if ( SIM_SHAPEPAR > VMAX ) PASS_SIMCUTS = .FALSE.     
+
+         else if ( VARNAME .EQ. 'NEP_SIM_MAGOBS' ) then
+	    print*,' xxx NEP_SIM_MAGOBS = ', NEP_SIM_MAGOBS
+            if ( NEP_SIM_MAGOBS < int(VMIN) ) PASS_SIMCUTS = .FALSE.
+            if ( NEP_SIM_MAGOBS > int(VMAX) ) PASS_SIMCUTS = .FALSE.     
          endif
      
 c check SIMSED variables
@@ -21077,7 +21093,7 @@ c first loop through and count NOBS
 21     CONTINUE
 25    CONTINUE
 
-      IF ( NOBS < CUTWIN_NEPOCH(1) ) RETURN  
+ccc xxx mark delete      IF ( NOBS < CUTWIN_NEPOCH(1) ) RETURN  
 
 c -----------
       PIXSIZE = SNLC_PIXSIZE

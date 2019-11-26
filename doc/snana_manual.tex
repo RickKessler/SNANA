@@ -8228,6 +8228,9 @@ To apply cuts on generated (true) parameters,
        SIMVAR_CUTWIN_STRING = 'SIM_c -0.1 0.1 SIM_REDSHIFT_CMB .1 .2'
        !  and/or
        SIM_TEMPLATE_INDEX_LIST = 202,203
+       ! and/or
+       SIMVAR_CUTWIN_STRING = 'NEP_SIM_MAGOBS 3 9999' ! >=3 obs with trueFlux>0
+
 \end{verbatim}
 %
 The first option requires the true SALT2-color (for SALT2 model only)
@@ -8235,6 +8238,7 @@ and true redshift (for any model) to satisfy
 the above cut-windows.  Also works on {\tt SIM\_x1}.
 The second option is for {\tt NON1ASED}, {\tt SIMSED}, and {\tt LCLIB}
 models; it selects a user-defined list of template indices.
+Third option required min number of observations with true flux$>0$/
 
 
 % -----------------------------------

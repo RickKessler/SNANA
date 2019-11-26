@@ -3255,8 +3255,12 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
   // Sep 9, 2012: abort if sersic index is outside valid range.
   // Nov 13 2019: pass SERSIC typedef as argument
 
-  int IVAR_ANGLE  = HOSTLIB.IVAR_ANGLE ;
-  double FIXANG   = INPUTS.HOSTLIB_FIXSERSIC[3];
+  int IVAR_ANGLE   = HOSTLIB.IVAR_ANGLE ;
+  double FIXa      = INPUTS.HOSTLIB_FIXSERSIC[0] ;
+  double FIXb      = INPUTS.HOSTLIB_FIXSERSIC[1] ;
+  double FIXn      = INPUTS.HOSTLIB_FIXSERSIC[2] ;
+  double FIXANG    = INPUTS.HOSTLIB_FIXSERSIC[3];
+
   int j, NDEF, NWGT, j_nowgt, IVAR_a, IVAR_b, IVAR_w, IVAR_n ;
   double WGT, WGTSUM, WTOT, n, wsum_last ;
   char fnam[] = "get_Sersic_info" ;
@@ -3281,12 +3285,12 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
     SERSIC->b[j]  = HOSTLIB.VALUE_ZSORTED[IVAR_b][IGAL] ; 
     SERSIC->n[j]  = n ;
     SERSIC->bn[j] = get_Sersic_bn(n);
+    SERSIC->a_rot =  HOSTLIB.VALUE_ZSORTED[IVAR_ANGLE][IGAL] ; 
 
-    if ( INPUTS.HOSTLIB_FIXSERSIC[0] > 1.0E-4 ) {
-      SERSIC->a[j] = INPUTS.HOSTLIB_FIXSERSIC[0];
-      SERSIC->b[j] = INPUTS.HOSTLIB_FIXSERSIC[1];
-      SERSIC->n[j] = INPUTS.HOSTLIB_FIXSERSIC[2];
-    }
+    if ( FIXa   >    0.0) { SERSIC->a[j]  = FIXa; }
+    if ( FIXb   >    0.0) { SERSIC->b[j]  = FIXb; }
+    if ( FIXn   > -998.0) { SERSIC->n[j]  = FIXn; }
+    if ( FIXANG > -998.0) { SERSIC->a_rot = FIXANG; }
 
     // apply user-scale on size (Mar 28 2018)
     SERSIC->a[j] *= INPUTS.HOSTLIB_SERSIC_SCALE ;
@@ -3353,10 +3357,6 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
     sprintf(c2err,"%s", "Check values of w1, w2 ...");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
-
-  // lastly, a_rot
-  SERSIC->a_rot =  HOSTLIB.VALUE_ZSORTED[IVAR_ANGLE][IGAL] ; 
-  if ( FIXANG > -998.0 ) { SERSIC->a_rot = FIXANG; }
 
 
   return ;
@@ -3733,7 +3733,7 @@ void readme_HOSTLIB(void) {
   }
 
   fixab = INPUTS.HOSTLIB_FIXSERSIC ;
-  if ( fixab[0] > 0.000001 ) {
+  if ( fixab[0] > 0.000001 || fixab[1]>0.0001 || fixab[2]>-998.0 ) {
     cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
     sprintf(cptr, "\t DEBUG OPT -> "
 	    "Fix Sersic a,b,n = %.2f,%.2f,%.2f  a_rot=%.1f deg \n", 
@@ -5667,7 +5667,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   //
   // May 5 2017: use user-input INPUTS.HOSTLIB_SBRADIUS
   //
-
+  // Nov 25 2019: protect dm for GALFRAC=0
   double 
      x_SN, y_SN
     ,xgal, ygal, MAGOBS, MAGOBS_LIB, PSF, FGAL, dF
@@ -5675,7 +5675,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     ,THmin, THmax, THbin, TH
     ,dRdTH, Jac
     ,GALFRAC_SUM[NMAGPSF_HOSTLIB+1]       // summed over Sersic profile
-    ,sigFrac, RcenFrac
+    ,sigFrac, RcenFrac, GALFRAC
     ,GaussOvp[NMAGPSF_HOSTLIB+1] 
     ,AV, LAMOBS_AVG, MWXT[MXFILTINDX]
     ,RVMW = 3.1
@@ -5804,18 +5804,22 @@ void GEN_SNHOST_GALMAG(int IGAL) {
 
     if ( GALFRAC_SUM[i] > 1.000 )  { GALFRAC_SUM[i] = 1.000 ; }
 
+    GALFRAC = GALFRAC_SUM[i] ;
     // load global arrays
-    SNHOSTGAL.GALFRAC[i]  = GALFRAC_SUM[i] ;
+    SNHOSTGAL.GALFRAC[i]  = GALFRAC ;
 
     if ( i == 0 ) 
       {  dm = 0.0 ; }
+    else if ( GALFRAC == 0.0 ) {
+      dm = 30.0 ;
+    }
     else { 
-      dm = -2.5*log10( GALFRAC_SUM[i] );  // aperture mag  - total galmag
+      dm = -2.5*log10( GALFRAC );  // aperture mag  - total galmag
     }
 
     /*
-    printf(" GGG xxx GALID=%d GALFRAC[%d]=%f   R=%6.3f arcsec \n", 
-	   SNHOSTGAL.GALID, i, GALFRAC_SUM[i], HOSTLIB.Aperture_Radius[i] );
+    printf(" GGG xxx GALID=%d GALFRAC[%d]=%f   R=%6.3f asec  dm=%.3f\n", 
+	   SNHOSTGAL.GALID, i, GALFRAC, HOSTLIB.Aperture_Radius[i], dm );
     */
 
     for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {

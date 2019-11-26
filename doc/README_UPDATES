@@ -17703,13 +17703,15 @@
         interp, while snlc_fit.exe gives SALT2 fit interp.
       + abort on 2 or more primary refs  (subr RDKCOR_FITS_PRIMARYSED)
       + OPT_SIMLIB_OUT; see manual 12.3.3 Creating a SIMLIB from Data
-     
+      + New &SNLCINP  SIMVAR_CUTWIN_STRING = 'NEP_SIM_MAGOBS 4 9999'
+        to require min number of epochs with true flux > 0
+ 
    snlc_sim.c 
      + crazyflux *= scale_fluxerr to allow for much larger scatter.
      + new 'SIMLIB' model to read true mag from last SIMLIB column;
        initial use is to simulate fakes,
        see manaul Section 9.8 SIMLIB: Read True Mags from SIMLIB File
-
+    
 
    sntools_spectrograph.c
      + abort if any spectrograph-table SNR values are zero.

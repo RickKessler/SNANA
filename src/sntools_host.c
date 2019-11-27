@@ -60,53 +60,6 @@
           HISTORY
   ------------------------
 
-  Jul 5, 2011
-    replace  get_GALWGT_HOSTLIB() with utility function
-    interp_GRIDMAP(). Replace most WGTMAP init with
-    call to init_interp_GRIDMAP().
-
-
- Sep 22, 2011:
-   Select Host galaxies based on RA and DECL;
-   see INPUTS.HOSTLIB_GENRANGE_RA[2] and _DECL[2].
-
- May 22, 2012: for gen-filters that are not defined in the HOSTLIB,
-               set MAGOBS=99 to avoid seg fault (see GEN_SNHOST_GALMAG)
-
- Sep 09, 2012: add lots of fflush(stdout) calls after printf().
-
- Sep 14, 2012: implement new FIXRAN_RADIUS and FIXRAN_PHI options
-
- Dec 17, 2012: in GEN_SNHOST_GALMAG(int IGAL) store total host mag
-               in  SNHOSTGAL.GALMAG[ifilt_obs][i=0]
-
- Feb 12, 2013: alway read/store host mags so that they are
-               written out, even if gal-noise option is not set.
-
- Feb 22, 2013: add include statements to compile this module instead
-               of including it in the simulation.
-
- Feb 11 2014:  call init_OUTVAR_HOSTLIB()
-
- Jan 29 2015: allow RA or RA_GAL or RA_HOST, and same for DEC.
-              --> distinguish RA_GAL and RA_SN in SIMGEN-DUMP file
-                  and in SNANA tables.
-
-  Feb 5 2015: int GALID -> long long GALID in many places.
-
-  Mar 4 2015: fix aweful index bug set FGAL_TOT in
-              double get_GALFLUX_HOSTLIB(..)
-
-  Jun 24 2015: fix check on R/Re at F/FTOT=0.5 to interpolate R/Re 
-               instead of using closest integral bin to 0.5.
-
-
-  July 2015: allow re-using host if MJD is separated from previous use.
-             See  USEHOST_GALID(int IGAL)
-             See INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL ;
-
-  Aug 18 2015: new routine init_HOSTLIB_ZPHOTEFF to read eff vs. ZTRUE
-               to find host photoz. Implemented in  GEN_SNHOST_ZPHOT().
 
   Jan 14 2017: include "sntools_output.h"
     
@@ -126,6 +79,13 @@
       redshift is computed correctly later in gen_zsmear().
 
     + account for VPEC when SN coords are transferred to host.
+
+ Nov 18 2019:
+   + fix problems generating SN position near galaxy.
+     1) fix bug computing SN coords from ANGLE and reduced_R
+     2) pick random ANGLE weighted by DLR^2 (no longer random over 0:2PI)
+        (see new function GEN_SNHOST_ANGLE)
+     WARNING: still need to visually verify 2D profile
 
 =========================================================== */
 
@@ -251,6 +211,8 @@ void initvar_HOSTLIB(void) {
 
   // ----------- BEGIN -------------
 
+  NCALL_GEN_SNHOST_DRIVER = 0 ;
+
   HOSTLIB.SORTFLAG     = 0 ;
   HOSTLIB.NGAL_READ    = 0 ;
   HOSTLIB.NGAL_STORE   = 0 ;
@@ -331,9 +293,12 @@ void initvar_HOSTLIB(void) {
     sprintf(HOSTLIB_WGTMAP.VARNAME[ivar], "%s", NULLSTRING );
   }
 
-  for ( igal = 0; igal < MXCHECK_WGTMAP ; igal++ ) {
-    HOSTLIB_WGTMAP.CHECKLIST_IGAL[igal] = -9 ;
-  }
+  for ( igal = 0; igal < MXCHECK_WGTMAP ; igal++ ) 
+    { HOSTLIB_WGTMAP.CHECKLIST_IGAL[igal] = -9 ;  }
+   
+  // malloc temp string pointers for splitString function
+  for(ivar=0; ivar < MXTMPWORD_HOSTLIB; ivar++ ) 
+    { TMPWORD_HOSTLIB[ivar] = (char*)malloc( 40*sizeof(char) ); }
 
   return ;
 
@@ -1645,7 +1610,7 @@ void  checkAlternateVarNames(char *varName) {
   if ( strcmp(varName,"LOGMASS_OBS_ERR") == 0 ) 
     { sprintf(varName,"%s", HOSTLIB_VARNAME_LOGMASS_ERR); }
 
-} // end of 	checkAlternateVarNames
+} // end of   checkAlternateVarNames
 
 // ====================================
 void  parse_Sersic_n_fixed(FILE *fp, char  *string) {
@@ -1731,10 +1696,11 @@ void read_gal_HOSTLIB(FILE *fp) {
 
   NGAL = -9;
 
-
   while( (fscanf(fp, "%s", c_get)) != EOF) {
 
     if ( strcmp(c_get,"GAL:") == 0 ) {
+
+      malloc_HOSTLIB(HOSTLIB.NGAL_STORE,HOSTLIB.NGAL_READ);
 
       NGAL_READ = HOSTLIB.NGAL_READ; // C-like index
       HOSTLIB.NGAL_READ++ ;          // fortran-like index
@@ -1753,12 +1719,10 @@ void read_gal_HOSTLIB(FILE *fp) {
 	if ( GALID >= GALID_MIN && GALID <= GALID_MAX ) { NPRIORITY++ ; }
       }
 
-
       // store this galaxy
       NGAL = HOSTLIB.NGAL_STORE ;   HOSTLIB.NGAL_STORE++ ;   
 
-      // check to allocate more storage/memory
-      malloc_HOSTLIB(NGAL,NGAL_READ);    
+      // xxx mark delete  if(NGAL>0) { malloc_HOSTLIB(NGAL,NGAL_READ); }
 
       // strip off variables to store
       for ( ivar_STORE=0; ivar_STORE < NVAR_STORE; ivar_STORE++ ) {
@@ -1812,8 +1776,8 @@ void read_gal_HOSTLIB(FILE *fp) {
   HOSTLIB.ZMIN = HOSTLIB.VALMIN[ivar_STORE];
   HOSTLIB.ZMAX = HOSTLIB.VALMAX[ivar_STORE];
 
-  printf("\t Stored %d galaxies from HOSTLIB. \n",
-	 HOSTLIB.NGAL_STORE );
+  printf("\t Stored %d galaxies from HOSTLIB (from %d total). \n",
+	 HOSTLIB.NGAL_STORE, HOSTLIB.NGAL_READ );
 
   if ( NPRIORITY > 0 ) {
     printf("\t   --> %d galaxies have priority "
@@ -2077,6 +2041,8 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
     }
 
     HOSTLIB.LIBINDEX_READ = (int *)malloc(HOSTLIB.MALLOCSIZE_I);
+    for(igal=0; igal < MALLOCSIZE_HOSTLIB; igal++ ) 
+      { HOSTLIB.LIBINDEX_READ[igal] = -9; }
 
     if ( DO_FIELD ) {
       HOSTLIB.FIELD_UNSORTED = (char**)malloc( HOSTLIB.MALLOCSIZE_Cp );
@@ -2095,13 +2061,6 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
     return ;
   }
 
-
-  /* xxx mark deletew
-  // check when to extend memory
-  XNTOT = (double)NGAL ;
-  XNUPD = (double)MALLOCSIZE_HOSTLIB ;
-  if ( fmod(XNTOT,XNUPD) == 0.0 ) {
-  */
 
   // --------------------------------------------------
 
@@ -2140,8 +2099,20 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
   // separate check for READ index
   if ( (NGAL_READ % MALLOCSIZE_HOSTLIB) == 0 ) {
     HOSTLIB.MALLOCSIZE_I  += (I4  * MALLOCSIZE_HOSTLIB) ;
+
+    /* xxxxxx mark delete xxxxxxxxxx
+    printf(" xxx ------------------------------------ \n");
+    printf(" xxx %s: HOSTLIB.MALLOCSIZE_I/4 = %d\n", 
+	   fnam,HOSTLIB.MALLOCSIZE_I/4);
+    printf(" xxx %s: MALLOCSIZE_HOSTLIB     = %d\n", 
+	   fnam, MALLOCSIZE_HOSTLIB);
+    printf(" xxx %s: NGAL_READ = %d \n", fnam, NGAL_READ);
+    xxxxxxxxxxxxx */
+
     HOSTLIB.LIBINDEX_READ = 
       (int *)realloc(HOSTLIB.LIBINDEX_READ, HOSTLIB.MALLOCSIZE_I);
+    for(igal=NGAL_READ; igal < NGAL_READ+MALLOCSIZE_HOSTLIB; igal++ ) 
+      { HOSTLIB.LIBINDEX_READ[igal] = -9; }
   }
   
 } // end of malloc_HOSTLIB
@@ -2311,7 +2282,6 @@ void sortz_HOSTLIB(void) {
   ORDER_SORT = +1 ;    // increasing order
   sortDouble( NGAL, ZSORT, ORDER_SORT, HOSTLIB.LIBINDEX_UNSORT ) ;
 
-
   HOSTLIB.SORTFLAG = 1 ;
   ZLAST = HOSTLIB.ZMIN ;
   ZSUM = 0.0 ;
@@ -2367,7 +2337,7 @@ void sortz_HOSTLIB(void) {
   int  OPT_PLUSNBR   = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSNBR);
   if ( !(OPT_PLUSMAGS || OPT_PLUSNBR) ) {
     free(HOSTLIB.LIBINDEX_UNSORT);
-    free(HOSTLIB.LIBINDEX_ZSORT);
+    // mark delete Nov 13 2019    free(HOSTLIB.LIBINDEX_ZSORT);
   }
 
 } // end of sortz_HOSTLIB
@@ -2942,7 +2912,7 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSF ) {
   //  ifilt_obs = absolute obs-filter index
   //  PSF       = sigma(PSF) in arcsec
 
-  int NPSF ;
+  int NPSF, i ;
   double GALMAG, PSFmin, PSFmax ;
   double *PTRGRID_GALMAG, *PTRGRID_PSF ;
   char fnam[] = "interp_GALMAG_HOSTLIB" ;
@@ -2970,6 +2940,7 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSF ) {
   PTRGRID_GALMAG  = &SNHOSTGAL.GALMAG[ifilt_obs][1] ;
 
   GALMAG = interp_1DFUN (1,PSF,NPSF, PTRGRID_PSF, PTRGRID_GALMAG, "GALMAG");
+
 
   return(GALMAG) ;
 
@@ -3167,7 +3138,7 @@ void init_Sersic_HOSTLIB(void) {
   SERSIC_TABLE.INVINDEX_MAX = 1.0/SERSIC_INDEX_MIN ; // max 1/n ==> 1/n_min 
 
   dif  = SERSIC_TABLE.INVINDEX_MAX - SERSIC_TABLE.INVINDEX_MIN ;
-  SERSIC_TABLE.INVINDEX_BIN = dif / ((double)NBIN - 1.0 ) ; // ??
+  SERSIC_TABLE.INVINDEX_BIN = dif / ((double)NBIN - 1.0 ) ; 
 
 
   // read b_n(n) from ascii file (Jun 2015)
@@ -3273,15 +3244,22 @@ void test_Sersic_interp(void) {
 
 
 // ==================================
-void get_Sersic_info(int IGAL) {
+void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
 
   // Fill SERSIC info a, b, n(and bn), w, wsum.
+  // Also fill a_rot = rotation angle w.r.t. RA.
   // Require at least NDEF-1 weights to be defined;
   // the last weight is simply 1 = sum(other wgts).
   // If NDEF=1 then no weights are required.
   //
   // Sep 9, 2012: abort if sersic index is outside valid range.
-  //
+  // Nov 13 2019: pass SERSIC typedef as argument
+
+  int IVAR_ANGLE   = HOSTLIB.IVAR_ANGLE ;
+  double FIXa      = INPUTS.HOSTLIB_FIXSERSIC[0] ;
+  double FIXb      = INPUTS.HOSTLIB_FIXSERSIC[1] ;
+  double FIXn      = INPUTS.HOSTLIB_FIXSERSIC[2] ;
+  double FIXANG    = INPUTS.HOSTLIB_FIXSERSIC[3];
 
   int j, NDEF, NWGT, j_nowgt, IVAR_a, IVAR_b, IVAR_w, IVAR_n ;
   double WGT, WGTSUM, WTOT, n, wsum_last ;
@@ -3290,8 +3268,8 @@ void get_Sersic_info(int IGAL) {
   // -------------- BEGIN -------------
 
   NDEF = SERSIC_PROFILE.NDEF; 
-  SNHOSTGAL.SERSIC_w[0]    = 0.0 ;
-  SNHOSTGAL.SERSIC_wsum[0] = 0.0 ;
+  SERSIC->w[0]    = 0.0 ;
+  SERSIC->wsum[0] = 0.0 ;
 
   for ( j=0; j < NDEF; j++ ) {
     IVAR_a = SERSIC_PROFILE.IVAR_a[j] ;
@@ -3303,15 +3281,21 @@ void get_Sersic_info(int IGAL) {
     else
       { n = SERSIC_PROFILE.FIXn[j] ; }
 
-    SNHOSTGAL.SERSIC_a[j]  = HOSTLIB.VALUE_ZSORTED[IVAR_a][IGAL] ; 
-    SNHOSTGAL.SERSIC_b[j]  = HOSTLIB.VALUE_ZSORTED[IVAR_b][IGAL] ; 
-    SNHOSTGAL.SERSIC_n[j]  = n ;
-    SNHOSTGAL.SERSIC_bn[j] = get_Sersic_bn(n);
+    SERSIC->a[j]  = HOSTLIB.VALUE_ZSORTED[IVAR_a][IGAL] ; 
+    SERSIC->b[j]  = HOSTLIB.VALUE_ZSORTED[IVAR_b][IGAL] ; 
+    SERSIC->n[j]  = n ;
+    SERSIC->bn[j] = get_Sersic_bn(n);
+    SERSIC->a_rot =  HOSTLIB.VALUE_ZSORTED[IVAR_ANGLE][IGAL] ; 
+
+    if ( FIXa   >    0.0) { SERSIC->a[j]  = FIXa; }
+    if ( FIXb   >    0.0) { SERSIC->b[j]  = FIXb; }
+    if ( FIXn   > -998.0) { SERSIC->n[j]  = FIXn; }
+    if ( FIXANG > -998.0) { SERSIC->a_rot = FIXANG; }
 
     // apply user-scale on size (Mar 28 2018)
-    SNHOSTGAL.SERSIC_a[j] *= INPUTS.HOSTLIB_SERSIC_SCALE ;
-    SNHOSTGAL.SERSIC_b[j] *= INPUTS.HOSTLIB_SERSIC_SCALE ;
-
+    SERSIC->a[j] *= INPUTS.HOSTLIB_SERSIC_SCALE ;
+    SERSIC->b[j] *= INPUTS.HOSTLIB_SERSIC_SCALE ;
+    
     if ( n < SERSIC_INDEX_MIN || n > SERSIC_INDEX_MAX ) {
       sprintf(c1err,"Sersic index=%f outside valid range (%5.2f-%5.2f)",
 	      n, SERSIC_INDEX_MIN, SERSIC_INDEX_MAX ) ;
@@ -3331,20 +3315,20 @@ void get_Sersic_info(int IGAL) {
       NWGT++ ;
       WGT     = HOSTLIB.VALUE_ZSORTED[IVAR_w][IGAL] ;
       WGTSUM += WGT;
-      SNHOSTGAL.SERSIC_w[j]  = WGT ;
+      SERSIC->w[j]  = WGT ;
     }
     else { j_nowgt = j ; }
   }
 
 
   if ( NWGT == NDEF-1 ) {
-    SNHOSTGAL.SERSIC_w[j_nowgt]  = 1.0 - WGTSUM ;
+    SERSIC->w[j_nowgt]  = 1.0 - WGTSUM ;
   }
 
   // check debug option for fixed weight with 2 profiles
   if ( NDEF == 2 && DEBUG_WGTFLUX2 > 0.00001 ) {
-    SNHOSTGAL.SERSIC_w[0]  = 1.0 - DEBUG_WGTFLUX2 ;
-    SNHOSTGAL.SERSIC_w[1]  = DEBUG_WGTFLUX2 ;
+    SERSIC->w[0]  = 1.0 - DEBUG_WGTFLUX2 ;
+    SERSIC->w[1]  = DEBUG_WGTFLUX2 ;
     goto WGTSUM ;
   }
 
@@ -3361,18 +3345,21 @@ void get_Sersic_info(int IGAL) {
   // fill cumulative WGTFLUX_SUM array
   wsum_last = 0.0 ;
   for ( j=0; j < NDEF; j++ ) {
-    WGT = SNHOSTGAL.SERSIC_w[j] ;
-    SNHOSTGAL.SERSIC_wsum[j] = WGT + wsum_last; 
-    wsum_last = SNHOSTGAL.SERSIC_wsum[j] ; 
+    WGT = SERSIC->w[j] ;
+    SERSIC->wsum[j] = WGT + wsum_last; 
+    wsum_last = SERSIC->wsum[j] ; 
   }
 
   // finally check that sum of weights are one
-  WTOT = SNHOSTGAL.SERSIC_wsum[NDEF-1] ;
+  WTOT = SERSIC->wsum[NDEF-1] ;
   if ( fabs(WTOT-1.0) > 0.0001 ) {
     sprintf(c1err,"Sum of Sersic weights = %f", WTOT);
     sprintf(c2err,"%s", "Check values of w1, w2 ...");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
+
+
+  return ;
 
 } // end of get_Sersic_info
 
@@ -3524,6 +3511,7 @@ void init_Sersic_integrals(int j) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
+  return ;
 
 } // end of init_Sersic_integrals
 
@@ -3653,7 +3641,7 @@ void readme_HOSTLIB(void) {
 
   int    NTMP, ivar, NVAR, NROW, LSN2GAL, LGALMAG, j, igal ;
   long long GALID ;
-  double RAD, WGT, fixran ;
+  double RAD, WGT, fixran, *fixab ;
   char *cptr,  copt[40],  ctmp[20], ZNAME[40] ;
   char fnam[] = "readme_HOSTLIB" ;
 
@@ -3728,20 +3716,28 @@ void readme_HOSTLIB(void) {
       sprintf(c2err ,"%s", "but RA and/or DEC are missing from HOSTLIB.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
-   
-    fixran = INPUTS.HOSTLIB_FIXRAN_RADIUS ;
-    if ( fixran > -0.0000001 && fixran < 1.000001 ) {  
-      cptr = HOSTLIB.COMMENT[NTMP];  NTMP++ ; 
-      sprintf(cptr, "\t DEBUG OPT -> "
-	      "Fix random number for reduced radius to %5.3f", fixran);       
-    }
+  }
 
-    fixran = INPUTS.HOSTLIB_FIXRAN_PHI ;
-    if ( fixran > -0.0000001 && fixran < 1.000001 ) {
-      cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
-      sprintf(cptr, "\t DEBUG OPT -> "
-	      "Fix random number for rotation angle to %5.3f", fixran );       
-    }
+  fixran = INPUTS.HOSTLIB_FIXRAN_RADIUS ;
+  if ( fixran > -0.0000001 && fixran < 1.000001 ) {  
+    cptr = HOSTLIB.COMMENT[NTMP];  NTMP++ ; 
+    sprintf(cptr, "\t DEBUG OPT -> "
+	    "Fix random number for reduced radius to %5.3f", fixran);       
+  }
+  
+  fixran = INPUTS.HOSTLIB_FIXRAN_PHI ;
+  if ( fixran > -0.0000001 && fixran < 1.000001 ) {
+    cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
+    sprintf(cptr, "\t DEBUG OPT -> "
+	    "Fix random number for rotation angle to %5.3f", fixran );       
+  }
+
+  fixab = INPUTS.HOSTLIB_FIXSERSIC ;
+  if ( fixab[0] > 0.000001 || fixab[1]>0.0001 || fixab[2]>-998.0 ) {
+    cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
+    sprintf(cptr, "\t DEBUG OPT -> "
+	    "Fix Sersic a,b,n = %.2f,%.2f,%.2f  a_rot=%.1f deg \n", 
+	    fixab[0], fixab[1], fixab[2], fixab[3] );
   }
 
   // check for analytica ZPHOT model
@@ -3795,7 +3791,7 @@ void readme_HOSTLIB(void) {
     cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
     sprintf(cptr, "GALMAG %s interp-grid for PSFSIG(asec) = ",
 	    HOSTLIB.filterList );
-    for ( j=1; j <= NMAGPSF_HOSTLIB; j++ ) { // ??
+    for ( j=1; j <= NMAGPSF_HOSTLIB; j++ ) { 
       sprintf(ctmp, "%4.3f ", HOSTLIB.Aperture_PSFSIG[j] );
       strcat(cptr,ctmp);
       //  sprintf(cptr, "%s%4.3f ", cptr, HOSTLIB.Aperture_PSFSIG[j] );
@@ -3849,6 +3845,28 @@ double get_ZTRUE_HOSTLIB(int igal) {
   return ZTRUE ;
 }
 
+
+// ================================
+double get_VALUE_HOSTLIB(int ivar, int igal) {
+  // Created Nov 2019
+  // Returns VALUE for index ivar, from redshift-sorted galaxy list
+  double VALUE;
+  char fnam[] = "get_VALUE_HOSTLIB";
+  // -------------- BEGIN ---------------
+  VALUE = -9.0 ;
+  if ( HOSTLIB.SORTFLAG == 0 ) {
+    sprintf(c1err,"Cannot return sorted VALUE(ivar,igal=%d)", ivar, igal);
+    sprintf(c2err,"until HOSTLIB is redshift-sorted.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  if ( ivar >= 0 )  { VALUE = HOSTLIB.VALUE_ZSORTED[ivar][igal] ; }
+
+  return(VALUE) ;
+
+} // end get_VALUE_HOSTLIB
+
+
 // ========================================
 long long get_GALID_HOSTLIB(int igal) {
   // Returns GALID from redshift-sorted galaxy list
@@ -3873,7 +3891,6 @@ long long get_GALID_HOSTLIB(int igal) {
 
 // ========================================
 int IVAR_HOSTLIB(char *varname, int ABORTFLAG) {
-
 
   // Mar 14, 2011
   // For input variable name return 'IVAR' index
@@ -3979,6 +3996,8 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
 
   // ------------ BEGIN -----------
 
+  NCALL_GEN_SNHOST_DRIVER++ ;
+
   // always burn random numbers to stay synced.
   ilist = 1 ; 
   SNHOSTGAL.FlatRan1_GALID     = FlatRan1(ilist) ; // random GAL in smal z-bin
@@ -3990,9 +4009,6 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   // check option to fix randoms (Sep 14, 2012)
   fixran = INPUTS.HOSTLIB_FIXRAN_RADIUS ;
   if ( fixran > -1.0E-9 ) { SNHOSTGAL.FlatRan1_radius[1] = fixran ; }
-
-  fixran = INPUTS.HOSTLIB_FIXRAN_PHI   ;
-  if ( fixran > -1.0E-9 ) { SNHOSTGAL.FlatRan1_phi = fixran ; }
 
   // ------------------------------------------------
   // init SNHOSTGAL values
@@ -4026,10 +4042,23 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   // generate SN position at galaxy
   GEN_SNHOST_POS(IGAL);
 
-  // check of redshift needs to be updated (Apr 8 2019)
+  if ( INPUTS.DEBUG_FLAG == 2 ) {
+    // check for neighbors
+    GEN_SNHOST_NBR(IGAL);
+    
+    // determine DLR and ordered list
+    for(ilist=0; ilist < SNHOSTGAL.NNBR; ilist++ ) 
+      { GEN_SNHOST_DDLR(ilist); }
+    
+    // sort by DDLR
+    SORT_SNHOST_byDDLR();
+
+  } // end DEBUG_FLAG
+
+  // check if redshift needs to be updated (Apr 8 2019)
   TRANSFER_SNHOST_REDSHIFT(IGAL);
 
-  // host-mag withing SN aperture
+  // host-mag within SN aperture
   GEN_SNHOST_GALMAG(IGAL);
 
   // load user-specified variables for output file
@@ -4055,7 +4084,7 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
 void GEN_SNHOST_GALID(double ZGEN) {
   
   // Mar 2011
-  // Select weighted hostlib entry for redshift \simeq ZGEN(SN)
+  // Select weighted hostlib entry for heliocentric redshift ZGEN(SN)
   // Fills
   // * SNHOSTGAL.IGAL
   // * SNHOSTGAL.GALID
@@ -4075,6 +4104,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // Dec 18 2015: if we have intentional wrong host, do NOT move SN redshift
   //              to match that of HOST. See GENLC.CORRECT_HOSTMATCH .
   //
+  // Nov 23 2019: for MODEL_SIMLIB, force GALID to value in SIMLIB header.
 
   int 
     IZ_CEN, iz_cen, IGAL_SELECT
@@ -4090,7 +4120,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   // ---------- BEGIN ------------
 
-
+  
   IGAL_SELECT = -9 ; 
 
   // compute zSN-zGAL tolerance for this ZGEN = zSN
@@ -4098,7 +4128,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
     +     INPUTS.HOSTLIB_DZTOL[1]*(ZGEN)
     +     INPUTS.HOSTLIB_DZTOL[2]*(ZGEN*ZGEN) ;
 
-
+  
   // find start zbin 
   LOGZGEN = log10(ZGEN);
 
@@ -4183,6 +4213,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   NSKIP_WGT   = NSKIP_USED = NGAL_CHECK = 0 ;
   GALID_FORCE = INPUTS.HOSTLIB_GALID_FORCE ;
+  if ( INDEX_GENMODEL == MODEL_SIMLIB ) { GALID_FORCE = SIMLIB_HEADER.GALID; }
 
   // ---------------------------------------------------------
   // Feb 16 2016
@@ -4264,6 +4295,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   GALID  = get_GALID_HOSTLIB(IGAL_SELECT);
   ZTRUE  = get_ZTRUE_HOSTLIB(IGAL_SELECT);  // helio z
 
+ LOAD_SNHOSTGAL:
   GENLC.REDSHIFT_HOST  = ZTRUE ; // Jan 2016
   SNHOSTGAL.IGAL       = IGAL_SELECT ;
   SNHOSTGAL.GALID      = GALID ;
@@ -4289,7 +4321,6 @@ void GEN_SNHOST_GALID(double ZGEN) {
 } // end of GEN_SNHOST_GALID
 
 
-
 // ===============================
 void init_SNHOSTGAL(void) {
 
@@ -4309,14 +4340,14 @@ void init_SNHOSTGAL(void) {
   SNHOSTGAL.LOGMASS     = -9.0 ;
   SNHOSTGAL.LOGMASS_ERR = -9.0 ;  
 
-  SNHOSTGAL.a_SNGALSEP_ASEC   = -999.0 ;
-  SNHOSTGAL.b_SNGALSEP_ASEC   = -999.0 ;
-  SNHOSTGAL.RA_SNGALSEP_ASEC  = -999.0 ;
-  SNHOSTGAL.DEC_SNGALSEP_ASEC = -999.0 ;
-  SNHOSTGAL.RA_GAL_DEG        = -999.0 ;
-  SNHOSTGAL.DEC_GAL_DEG       = -999.0 ;
-  SNHOSTGAL.RA_SN_DEG         = -999.0 ;
-  SNHOSTGAL.DEC_SN_DEG        = -999.0 ;
+  SNHOSTGAL.a_SNGALSEP_ASEC   = HOSTLIB_SNPAR_UNDEFINED ;
+  SNHOSTGAL.b_SNGALSEP_ASEC   = HOSTLIB_SNPAR_UNDEFINED ;
+  SNHOSTGAL.RA_SNGALSEP_ASEC  = HOSTLIB_SNPAR_UNDEFINED ;
+  SNHOSTGAL.DEC_SNGALSEP_ASEC = HOSTLIB_SNPAR_UNDEFINED ;
+  SNHOSTGAL.RA_GAL_DEG        = HOSTLIB_SNPAR_UNDEFINED ;
+  SNHOSTGAL.DEC_GAL_DEG       = HOSTLIB_SNPAR_UNDEFINED ;
+  SNHOSTGAL.RA_SN_DEG         = HOSTLIB_SNPAR_UNDEFINED ;
+  SNHOSTGAL.DEC_SN_DEG        = HOSTLIB_SNPAR_UNDEFINED ;
 
   // always init GALMAG quantities to garbage
   int i, ifilt ;
@@ -4875,74 +4906,97 @@ void GEN_SNHOST_POS(int IGAL) {
   // Feb 04 2019: compute DLR, DDLR, and make it work even if
   //              host galaxy RA,DEC are not given.
   //
-  
-  int  LSN2GAL, LDEBUG, IVAR_RA, IVAR_DEC, IVAR_ANGLE ;
+  // Nov 15 2019: 
+  //   + fix aweful bug for local a,b coords in ellipse frame.
+  //   + call  GEN_SNHOST_ANGLE(IGAL,&phi);
+
+  // strip off user options passed via sim-input file
+  int LSN2GAL = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
+
+  int IVAR_RA     = HOSTLIB.IVAR_RA ;
+  int IVAR_DEC    = HOSTLIB.IVAR_DEC ;
+  int IVAR_ANGLE  = HOSTLIB.IVAR_ANGLE ;
+  double RAD       = RADIAN ;
+
   int  j, JPROF, k_table, NBIN ;
 
   double 
-    RA_GAL, DEC_GAL
-    ,phi, cphi, sphi, RAD, crot, srot
+    RA_GAL, DEC_GAL, RA_SN, DEC_SN
+    ,phi, cphi, sphi, crot, srot, top, bottom
     ,reduced_logR0, reduced_logR1, reduced_logR, reduced_R
     ,Ran0, Ran1, WGT, RanInteg, dif, bin, fbin
-    ,a, b, a_half, b_half, ang, n, inv_n, DTMP, DCOS, SNSEP, DLR    
+    ,a, b, a_half, b_half, a_rot, n, inv_n, DTMP, COSDEC, SNSEP, DLR    
     ,*ptr, *ptr_r, *ptr_integ0, *ptr_integ1
     ;
 
+  int  DEBUG_MODE_SIMLIB = 0 ;
   char fnam[] = "GEN_SNHOST_POS" ;
 
   // -------------- BEGIN -------------
 
   SNHOSTGAL.phi               =  0.0 ;
-  SNHOSTGAL.reduced_R         = -999. ;
-  SNHOSTGAL.SERSIC_INDEX      = -999. ;
-  SNHOSTGAL.RA_SNGALSEP_ASEC  = -999. ;
-  SNHOSTGAL.DEC_SNGALSEP_ASEC = -999. ;
-  SNHOSTGAL.SNSEP             = -999. ;
-  SNHOSTGAL.DLR               = -999. ;
-  SNHOSTGAL.DDLR              = -999. ;
+  SNHOSTGAL.reduced_R         = HOSTLIB_SNPAR_UNDEFINED ;
+  SNHOSTGAL.SERSIC.INDEX      = HOSTLIB_SNPAR_UNDEFINED ;
+  SNHOSTGAL.RA_SNGALSEP_ASEC  = HOSTLIB_SNPAR_UNDEFINED ;
+  SNHOSTGAL.DEC_SNGALSEP_ASEC = HOSTLIB_SNPAR_UNDEFINED ;
+  SNHOSTGAL.SNSEP             = HOSTLIB_SNPAR_UNDEFINED ;
+  SNHOSTGAL.DLR               = HOSTLIB_SNPAR_UNDEFINED ;
+  SNHOSTGAL.DDLR              = HOSTLIB_SNPAR_UNDEFINED ;
 
   // bail out if there are no galaxy shape parameters
   if ( SERSIC_PROFILE.NDEF == 0 ) { return ; }
 
   // extract info for each Sersic term
-  get_Sersic_info(IGAL) ;    
+  get_Sersic_info(IGAL, &SNHOSTGAL.SERSIC) ;    
 
-  // strip off user options passed via sim-input file
-  LSN2GAL = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
-  LDEBUG  = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_DEBUG ) ;
+  a_rot  = SNHOSTGAL.SERSIC.a_rot ;
+  crot   = cos(a_rot*RAD);
+  srot   = sin(a_rot*RAD); 
 
-  // strip off indices
-  IVAR_RA     = HOSTLIB.IVAR_RA ;
-  IVAR_DEC    = HOSTLIB.IVAR_DEC ;
-  IVAR_ANGLE  = HOSTLIB.IVAR_ANGLE ;
-  RAD         = RADIAN ;
+
+  // for SIMLIB model, use already defined RA,DEC in SIMLIB header
+  if ( INDEX_GENMODEL == MODEL_SIMLIB && !DEBUG_MODE_SIMLIB ) {
+    SIMLIB_SNHOST_POS(IGAL, &SNHOSTGAL.SERSIC, 0 );
+    DLR = 99999.0 ;
+    goto SNSEP_CALC ;
+  }
+
 
   // strip off random numbers to randomly generate a host-location
   Ran0  = SNHOSTGAL.FlatRan1_radius[0] ;
   Ran1  = SNHOSTGAL.FlatRan1_radius[1] ;
-  phi   = SNHOSTGAL.FlatRan1_phi * TWOPI ; //azimuth angle rel. to major axis
 
-  // Pick reduced radius (r=R/Rhalf),
   // Start by randonly picking (Ran0) which Sersic profile 
   // based on the WGT of each profile.
 
   JPROF = -9;
   for ( j=0; j < SERSIC_PROFILE.NDEF; j++ ) {
-    WGT = SNHOSTGAL.SERSIC_wsum[j];
+    WGT = SNHOSTGAL.SERSIC.wsum[j];
     if ( WGT >= Ran0 && JPROF < 0 ) { JPROF = j ; }
   }
 
   // bail if we cannot pick a Sersic profile.
   if ( JPROF < 0 ) {
-    ptr = SNHOSTGAL.SERSIC_wsum ; 
+    ptr = SNHOSTGAL.SERSIC.wsum ; 
     sprintf(c1err,"Could not find random Sersic profile for Ran0=%f", Ran0);
     sprintf(c2err,"SERSIC_wsum = %f %f %f %f",
 	    ptr[0], ptr[1], ptr[2], ptr[3] );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  a_half   = SNHOSTGAL.SERSIC.a[JPROF]; // half-light radius, major axis
+  b_half   = SNHOSTGAL.SERSIC.b[JPROF]; // half-light radius, minor axis
+  n        = SNHOSTGAL.SERSIC.n[JPROF]; 
+  a_rot    = SNHOSTGAL.SERSIC.a_rot ;   // w.r.t RA, degrees
+  crot = cos(a_rot*RAD);  srot = sin(a_rot*RAD); 
+
+
+  GEN_SNHOST_ANGLE(a_half, b_half, &phi); // return phi angle
+  cphi = cos(phi);  sphi = sin(phi);
+
+  // Pick reduced radius (r=R/Rhalf),
+
   // get integral-table index for this Sersic_n
-  n        = SNHOSTGAL.SERSIC_n[JPROF]; 
   inv_n    = 1.0/n ; 
   dif      = (inv_n - SERSIC_TABLE.INVINDEX_MIN) ;
   bin      = SERSIC_TABLE.INVINDEX_BIN ;
@@ -4983,58 +5037,44 @@ void GEN_SNHOST_POS(int IGAL) {
 	 reduced_R0, reduced_R1, JPROF, reduced_R, phi/RAD, RanInteg );
   */
 
-
-  // check test-option from sim-input file to fix the gal size
-  if ( LDEBUG ) { 
-    //    SNHOSTGAL.SERSIC_a[JPROF] = 2.0 ;
-    //    SNHOSTGAL.SERSIC_b[JPROF] = 1.0 ;
-    HOSTLIB.VALUE_ZSORTED[IVAR_ANGLE][IGAL] = 0.0 ; // a_rot angle
-    // phi = 0.0 ; // along major axis only
-    //  reduced_R = 0.0 ; // 
-  } 
-
-
   // get major and minor half-light axes (arcsec) for this 
   // Sersic profile and this galaxy
 
   if ( HOSTLIB.IVAR_ANGLE < 0 ) {
-    sprintf(c1err,"Missing required %s in hostlib", 
-	    HOSTLIB_VARNAME_ANGLE);
+    sprintf(c1err,"Missing required %s in hostlib", HOSTLIB_VARNAME_ANGLE);
     sprintf(c2err,"Needed to choose position near host.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  a_half   = SNHOSTGAL.SERSIC_a[JPROF]; // half-light radius, major axis
-  b_half   = SNHOSTGAL.SERSIC_b[JPROF]; // half-light radius, minor axis
-  ang      = HOSTLIB.VALUE_ZSORTED[IVAR_ANGLE][IGAL] ; // a_rot angle
-  cphi = cos(phi);  sphi = sin(phi);
-
   // Feb 4 2019: 
   // get DLR, distance to half-light ellipse, in direction of SN
   // See Eq 3.7 in Gupta hostmatching thesis
-  double top, bottom;
-  top    = a_half * b_half;
+  top    = a_half * b_half ;
   bottom = sqrt(a_half*a_half*sphi*sphi + b_half*b_half*cphi*cphi ) ; 
-  DLR    = top/bottom ;
+  DLR    = top / bottom ;
 
-  // get coords (arcsec) in ellipse-frame
-  a = reduced_R * a_half * cphi ;
-  b = reduced_R * b_half * sphi ;
+  // get SN coords (arcsec) in ellipse-frame
+  a = reduced_R * (DLR * cphi) ;   // bug fix, Nov 15 2019
+  b = reduced_R * (DLR * sphi) ;
 
-  SNHOSTGAL.a_SNGALSEP_ASEC  = a ;
-  SNHOSTGAL.b_SNGALSEP_ASEC  = b ;
-  SNHOSTGAL.phi              = phi ;
-  SNHOSTGAL.reduced_R        = reduced_R ;
-  SNHOSTGAL.SERSIC_INDEX     = n ;
-  SNHOSTGAL.DLR              = DLR ;
+  if ( INPUTS.RESTORE_HOSTLIB_BUGS == true ) { // Nov 15 2019
+    a = reduced_R * (a_half * cphi) ;  // restore bug
+    b = reduced_R * (b_half * sphi) ;  // idem
+  }
+
+  SNHOSTGAL.a_SNGALSEP_ASEC  =  a ;
+  SNHOSTGAL.b_SNGALSEP_ASEC  =  b ;
+  SNHOSTGAL.phi              =  phi ;
+  SNHOSTGAL.reduced_R        =  reduced_R ;
+  SNHOSTGAL.SERSIC.INDEX     =  n ;
+  SNHOSTGAL.DLR              =  DLR ;
 
   // now rotate coords based on major axis rotation angle w.r.t. RA
 
-  crot = cos(ang*RAD);
-  srot = sin(ang*RAD);
-
-  SNHOSTGAL.RA_SNGALSEP_ASEC  = a * crot + b * srot ;
-  SNHOSTGAL.DEC_SNGALSEP_ASEC = b * crot - a * srot ;
+  // note that RA_SNGALSEP is angular sep, which is not the 
+  // same as RA-difference.
+  SNHOSTGAL.RA_SNGALSEP_ASEC  = (a * crot  +  b * srot) ;
+  SNHOSTGAL.DEC_SNGALSEP_ASEC = (b * crot  -  a * srot) ;
   
   // ----------------------------------------------------
   // Determine Galaxy and SN coords
@@ -5046,9 +5086,9 @@ void GEN_SNHOST_POS(int IGAL) {
     DEC_GAL  = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL] ; // degrees
     
     // compute absolute SN position relative to center of host
-    DCOS = cos(DEC_GAL*RAD) ;
-    DTMP                 = DEG_ARCSEC * SNHOSTGAL.RA_SNGALSEP_ASEC / DCOS ;
-    SNHOSTGAL.RA_SN_DEG  = RA_GAL  + DTMP ;
+    COSDEC               = cos(DEC_GAL*RAD) ;
+    DTMP                 = DEG_ARCSEC * SNHOSTGAL.RA_SNGALSEP_ASEC/COSDEC;
+    SNHOSTGAL.RA_SN_DEG  = RA_GAL + DTMP ;
     
     DTMP                 = DEG_ARCSEC * SNHOSTGAL.DEC_SNGALSEP_ASEC ;
     SNHOSTGAL.DEC_SN_DEG = DEC_GAL + DTMP ;
@@ -5060,8 +5100,8 @@ void GEN_SNHOST_POS(int IGAL) {
     SNHOSTGAL.RA_SN_DEG   = GENLC.RA ; // SN coord already selected
     SNHOSTGAL.DEC_SN_DEG  = GENLC.DEC ;
 
-    DCOS    = cos(SNHOSTGAL.DEC_SN_DEG*RAD) ; 
-    DTMP    = DEG_ARCSEC * SNHOSTGAL.RA_SNGALSEP_ASEC / DCOS ;
+    COSDEC  = cos(SNHOSTGAL.DEC_SN_DEG*RAD) ; 
+    DTMP    = DEG_ARCSEC * SNHOSTGAL.RA_SNGALSEP_ASEC / COSDEC ;
     RA_GAL  = SNHOSTGAL.RA_SN_DEG  - DTMP ;
 
     DTMP    = DEG_ARCSEC * SNHOSTGAL.DEC_SNGALSEP_ASEC ;
@@ -5072,9 +5112,11 @@ void GEN_SNHOST_POS(int IGAL) {
   SNHOSTGAL.RA_GAL_DEG  = RA_GAL ;
   SNHOSTGAL.DEC_GAL_DEG = DEC_GAL ;
 
+ SNSEP_CALC:
+
   // compute SN-host separation in arcsec.
   SNSEP = angSep(SNHOSTGAL.RA_GAL_DEG, SNHOSTGAL.DEC_GAL_DEG,
-		 SNHOSTGAL.RA_SN_DEG, SNHOSTGAL.DEC_SN_DEG,
+		 SNHOSTGAL.RA_SN_DEG,  SNHOSTGAL.DEC_SN_DEG,
 		 (double)3600.);
 
   SNHOSTGAL.SNSEP = SNSEP ;
@@ -5091,9 +5133,447 @@ void GEN_SNHOST_POS(int IGAL) {
     gen_MWEBV(); // compute MWEBV with SN coords (was skipped in snlc_sim)
   }
 
+  // debug mode for SIMLIB model. Use forward-modeled RA,DEC as if
+  // they were read from SIMLIB header ... then compare reverse-computed
+  // a,b separations with those computed above.
+  if ( INDEX_GENMODEL == MODEL_SIMLIB && DEBUG_MODE_SIMLIB ) {
+    SIMLIB_HEADER.RA  = SNHOSTGAL.RA_SN_DEG ;
+    SIMLIB_HEADER.DEC = SNHOSTGAL.DEC_SN_DEG ;
+    SIMLIB_SNHOST_POS(IGAL, &SNHOSTGAL.SERSIC, 1 );
+  }
+
+  return ;
 
 } // end of GEN_SNHOST_POS
 
+
+// ================================================
+void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
+
+  // Created Nov 18 2019
+  // pick random ANGLE around ellipse.
+  // [Fixes bug of random ANGLE between 0 and TWPI]
+  //
+  // Inputs: a, b = major and minor axis sizes
+  // Ouptut: ANGLE (radians)
+  //
+  // Method 0: integrate r(ANGLE) and invert ... but I can't do the
+  //   integral numerically.
+  //
+  // Method 1: pick random angle [0:2PI] and weight by DLR ...
+  //   might be slow from cosine calculation each time, 
+  //   or from many repeats with high eccentricities.
+  //
+  // Method 2: pick random point inside rectangle containing ellipse,
+  //   and use rejection method to pick point inside ellipse. Then 
+  //   tan(ANGLE)=  y/x. Should be ~3/4 efficient for any eccentricity.
+  //  
+  // Method 0 is optimal if there is an analytic form for the
+  // integral. Here we go with method 2.
+
+  double asq    = a*a;
+  double bsq    = b*b;
+  int    ilist  = 1 ;
+  int    LEGACY = 0 ;
+  int    LDMP   = 0 ;
+  double RAD    = RADIAN ;
+  double fixran, phi, FlatRan_x, FlatRan_y, x, y, SUM ;
+  char fnam[] = "GEN_SNHOST_ANGLE";
+
+  // ------------------- BEGIN ---------------
+
+  // check option to fix angle
+  fixran = INPUTS.HOSTLIB_FIXRAN_PHI   ;
+  if ( fixran > -1.0E-9 ) 
+    { SNHOSTGAL.FlatRan1_phi = fixran ; LEGACY=1; }
+
+  if ( LEGACY || INPUTS.RESTORE_HOSTLIB_BUGS ) 
+    { *ANGLE  = (SNHOSTGAL.FlatRan1_phi * TWOPI) ; return; }
+
+
+  if ( LDMP ) {  printf(" xxx ------------------------------- \n"); }
+  
+ PICK:
+
+  // pick random point inside a rectangle containing ellipse
+  FlatRan_x = FlatRan1(ilist) ;
+  FlatRan_y = FlatRan1(ilist) ;
+  x         = a * (2.0*FlatRan_x - 1.0); // -a to +a
+  y         = b * (2.0*FlatRan_y - 1.0); // -b to +b
+
+  // if not inside ellipse, try again.
+  SUM = (x*x/asq) + (y*y/bsq);
+
+  if ( LDMP ) {
+    printf(" xxx %s: x=%f, y=%f, SUM=%f \n", 
+	   fnam, x, y, SUM); fflush(stdout);
+  }
+
+  if ( SUM > 1.0 ) { goto PICK; }
+
+  if ( x == 0.000 ) { x = 1.0E-20; }
+  phi  = atan2(y,x); 
+  phi += PI;  // convert to 0 to 2PI range
+
+  // load return ANGLE arg, and ignore radial component.
+  *ANGLE = phi;
+
+  return ;
+
+} // end GEN_SNHOST_ANGLE
+
+
+// ========================================
+void GEN_SNHOST_NBR(int IGAL) {
+
+  // Created Nov 2019 by R. Kessler
+  // If NBR_LIST column exists, parse it and convert row numbers
+  // to SNHOSTGAL.IGAL_NBR_LIST
+  
+  int  LDMP = 0; // ( NCALL_GEN_SNHOST_DRIVER < 20 );
+  int  i, ii, NNBR_READ, NNBR_STORE, rowNum, IGAL_STORE, IGAL_ZSORT ;
+  int  ROWNUM_LIST[MXNBR_LIST];
+  long long GALID ;
+  char NBR_LIST[MXCHAR_NBR_LIST] ;
+  char NO_NBR[] = "-1" ;
+  char comma[]  = ",";
+  char fnam[] = "GEN_SNHOST_NBR";
+
+  // ---------------- BEGIN ----------------
+
+  SNHOSTGAL.NNBR = 1; // true host sets default at 1
+  SNHOSTGAL.IGAL_NBR_LIST[0] = IGAL;
+
+  // bail if there is no NBR list
+  if ( HOSTLIB.IVAR_NBR_LIST < 0 ) { return ; }
+
+  sprintf(NBR_LIST, "%s", HOSTLIB.NBR_ZSORTED[IGAL] );
+  GALID      = get_GALID_HOSTLIB(IGAL);
+
+  // bail if this GAL has no NBR
+  if ( strcmp(NBR_LIST,NO_NBR) == 0 ) { return ; }
+
+  if ( LDMP ) {
+    printf(" xxx ----------------------------------------- \n");
+    printf(" xxx %s: parse NBR_LIST for GALID=%lld: \n", fnam, GALID ); 
+  }
+
+  // parse comma-sep list of HOSTLIB row numbers
+  splitString2(NBR_LIST, comma, MXNBR_LIST , &NNBR_READ, &TMPWORD_HOSTLIB[1]);
+
+  NNBR_READ++;    // include true host
+  NNBR_STORE = 1; // start counter on stored neighbors
+
+  ROWNUM_LIST[0] = -9;
+  for(i=1; i < NNBR_READ; i++ ) {
+    sscanf(TMPWORD_HOSTLIB[i], "%d", &rowNum);
+
+    // rowNum here is NGAL_READ before cuts. Use two layers of
+    // indexing to get the desired z-sorted IGAL
+    IGAL_STORE = HOSTLIB.LIBINDEX_READ[rowNum];
+    if ( IGAL_STORE < 0 ) { continue; } // neighbor was cut from sample
+
+    IGAL_ZSORT = HOSTLIB.LIBINDEX_ZSORT[IGAL_STORE];  // <== crash
+    GALID      = get_GALID_HOSTLIB(IGAL_ZSORT);
+
+    ii = NNBR_STORE; NNBR_STORE++ ;
+    SNHOSTGAL.IGAL_NBR_LIST[ii] = IGAL_ZSORT;
+
+    ROWNUM_LIST[ii] = rowNum; // for dump
+    if( LDMP == 6 ) {
+      printf("\t xxx rowNum(%d) = %d  --> GALID = %lld\n", i, rowNum, GALID); 
+      fflush(stdout);
+    }
+
+  }
+  
+  SNHOSTGAL.NNBR = NNBR_STORE ;
+
+
+  if ( LDMP ) {
+    int  IVAR_RA     = HOSTLIB.IVAR_RA ;
+    int  IVAR_DEC    = HOSTLIB.IVAR_DEC ;
+    double RA_NBR, DEC_NBR, RA_REF, DEC_REF;
+    RA_REF  = HOSTLIB.VALUE_ZSORTED[IVAR_RA][IGAL] ;  
+    DEC_REF = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL] ;  
+    for(i=0; i < NNBR_STORE; i++ ) {
+      IGAL_ZSORT = SNHOSTGAL.IGAL_NBR_LIST[i];
+      GALID      = get_GALID_HOSTLIB(IGAL_ZSORT);
+      RA_NBR     = HOSTLIB.VALUE_ZSORTED[IVAR_RA][IGAL_ZSORT] ;  
+      DEC_NBR    = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL_ZSORT] ; 
+      printf(" xxx %2d : IGAL=%6d  ROW=%6d  GALID=%8lld  "
+	     "Del(RA,DEC)=%7.4f,%7.4f \n",
+	     i, IGAL_ZSORT, ROWNUM_LIST[i], GALID, 
+	     RA_NBR-RA_REF, DEC_NBR-DEC_REF);
+      fflush(stdout);
+    }
+  } // end LDMP
+
+  return;
+
+} // end GEN_SNHOST_NBR
+
+
+// ==================================
+void GEN_SNHOST_DDLR(int i_nbr) {
+
+  // Created Nov 2019 by R.Kessler
+  // determine DLR for galaxy with sparse neighbor index i_nbr.
+  // Note that i_nbr=0 corresponds to the true host for which
+  // the SN was previously overlaid.
+  //
+  // TO DO: 
+  //  - if no host coords, compute DLR only for i_nbr=0
+  //  - replace dummy DLR calc with proper calc
+  //  - what is a,b for multi-component Sersic profile ?
+
+  int IVAR_RA     = HOSTLIB.IVAR_RA ;
+  int IVAR_DEC    = HOSTLIB.IVAR_DEC ;
+  int IVAR_ANGLE  = HOSTLIB.IVAR_ANGLE ;
+  double RAD      = RADIAN ;
+  double ASEC_PER_DEG = 3600.0 ;
+  double RA_SN    = SNHOSTGAL.RA_SN_DEG;  // deg
+  double DEC_SN   = SNHOSTGAL.DEC_SN_DEG;
+  
+  double RA_GAL, DEC_GAL, DLR, DDLR ;
+  double SNSEP, top, bottom, a_rot, a_half, b_half ;
+  int    IGAL, JPROF ;
+  SERSIC_DEF SERSIC;
+  char fnam[] = "GEN_SNHOST_DDLR" ;
+
+  // -------------- BEGIN ------------
+
+  SNHOSTGAL.DDLR_NBR_LIST[i_nbr]  = 0.0 ;
+  SNHOSTGAL.SNSEP_NBR_LIST[i_nbr] = 0.0 ;
+
+  // bail out if there are no galaxy shape parameters
+  if ( SERSIC_PROFILE.NDEF == 0 ) { return ; }
+  
+  // get IGAL index to access full info.
+  IGAL = SNHOSTGAL.IGAL_NBR_LIST[i_nbr] ;
+
+  if ( IVAR_RA >= 0 ) {
+    RA_GAL   = HOSTLIB.VALUE_ZSORTED[IVAR_RA][IGAL] ;   // deg
+    DEC_GAL  = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL] ; 
+  }
+  else {
+    if ( i_nbr > 0 ) { return ; }
+  }
+  // fetch Sersic profile info for this IGAL neighbor
+  get_Sersic_info(IGAL, &SERSIC) ; 
+
+  // compute SN-galaxy separation in arcsec.
+  SNSEP = angSep(RA_GAL,DEC_GAL,  RA_SN,DEC_SN,  ASEC_PER_DEG);
+
+  JPROF    = 0;     // what about multi-component profile ??
+  a_half   = SERSIC.a[JPROF]; // half-light radius, major axis
+  b_half   = SERSIC.b[JPROF]; // half-light radius, minor axis
+  a_rot    = SERSIC.a_rot ;   // rot angle (deg) w.r.t. RA
+
+  // for DLR calc, move to frame where RA=DEC=0 for galaxy center
+  // so that RA,DEC can be treated as cartesian coordinates.
+
+  double VEC_aHALF[2], VEC_SN[2], DOTPROD, LEN_SN ;  
+  double cosTH, sqcos, sqsin;
+
+  VEC_aHALF[0] = +a_half * cos(RAD*a_rot) ;
+  VEC_aHALF[1] = -a_half * sin(RAD*a_rot) ;
+  VEC_SN[0]    = RA_SN  - RA_GAL  ;
+  VEC_SN[1]    = DEC_SN - DEC_GAL ; // i.e., DEC=0 for galaxy center
+  LEN_SN       = sqrt( VEC_SN[0]*VEC_SN[0] + VEC_SN[1]*VEC_SN[1] ) ;
+
+  DOTPROD = VEC_aHALF[0]*VEC_SN[0] + VEC_aHALF[1]*VEC_SN[1];
+  cosTH   = DOTPROD/(LEN_SN*a_half);
+
+  if ( fabs(cosTH) > 1.0000 ) {
+    sprintf(c1err,"Invalid cosTH = %f", cosTH);
+    sprintf(c1err,"LEN_SN = %f, a_half=%f, DOT=%f \n",
+	    LEN_SN, a_half, DOTPROD);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  sqcos  = cosTH*cosTH;   sqsin = 1.0 - sqcos;
+  top    = ( a_half * b_half ) ;
+  bottom = sqrt(a_half*a_half*sqsin + b_half*b_half*sqcos ) ;   
+  DLR    = top/bottom; 
+
+  //  DLR  = sqrt(a_half*b_half); // xxxx dummy calc; FIX LATER 
+  DDLR = SNSEP/DLR ;
+
+  // store in global to be analyzed later
+  SNHOSTGAL.DDLR_NBR_LIST[i_nbr]  = DDLR;
+  SNHOSTGAL.SNSEP_NBR_LIST[i_nbr] = SNSEP ;
+
+  return ;
+
+} // end GEN_SNHOST_DDLR
+
+// =======================================================
+void SIMLIB_SNHOST_POS(int IGAL, SERSIC_DEF *SERSIC, int DEBUG_MODE) {
+
+  // For SIMLIB model (using MAG column of SIMLIB file),
+  // load RA and DEC coordinates in SNHOSTGAL struct,
+  // and compute coordinates in a,b frame that is rotated 
+  // w.r.t. RA,DEC frame.
+  //
+  // DEBUG_MODE > 0 --> compare a_sep,b_sep with already computed values.
+
+  int IVAR_RA     = HOSTLIB.IVAR_RA ;
+  int IVAR_DEC    = HOSTLIB.IVAR_DEC ;
+  double RAD      = RADIAN ;
+  double a_rot    = SERSIC->a_rot;
+  double crot     = cos(RAD*a_rot);
+  double srot     = sin(RAD*a_rot);
+  double RA_GAL, DEC_GAL, RA_SN, DEC_SN, RA_SEP, DEC_SEP, COSDEC;
+  double a_sep, b_sep;
+  char fnam[] = "SIMLIB_SNHOST_POS";
+
+  // ------------- BEGIN ------------
+
+  RA_GAL   = HOSTLIB.VALUE_ZSORTED[IVAR_RA][IGAL] ; 
+  DEC_GAL  = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL] ;
+  COSDEC   = cos(DEC_GAL*RAD);
+
+  RA_SN    = SIMLIB_HEADER.RA;
+  DEC_SN   = SIMLIB_HEADER.DEC;
+  RA_SEP   = 3600.0 * (RA_SN - RA_GAL) * COSDEC ; // angSep, not RA-diff
+  DEC_SEP  = 3600.0 * (DEC_SN - DEC_GAL) ;
+
+  SNHOSTGAL.RA_GAL_DEG    = RA_GAL; 
+  SNHOSTGAL.DEC_GAL_DEG   = DEC_GAL; 
+  SNHOSTGAL.RA_SN_DEG     = RA_SN; 
+  SNHOSTGAL.DEC_SN_DEG    = DEC_SN; 
+  
+  SNHOSTGAL.RA_SNGALSEP_ASEC  = RA_SEP ;
+  SNHOSTGAL.DEC_SNGALSEP_ASEC = DEC_SEP ;
+  
+  // compute SN-GAL separations along a & b axes: needed for GALMAG calc.
+  a_sep = RA_SEP  * crot - DEC_SEP * srot ; // .xyz
+  b_sep = DEC_SEP * crot + RA_SEP  * srot ; // .xyz
+
+  if ( DEBUG_MODE == 0 ) {
+      SNHOSTGAL.a_SNGALSEP_ASEC = a_sep ;
+      SNHOSTGAL.b_SNGALSEP_ASEC = b_sep ;
+  }
+  else {
+    long long GALID = get_GALID_HOSTLIB(IGAL);
+    printf(" xxx ------------------------------------------------ \n" ) ;
+    printf(" xxx %s  DEBUB  DUMP for GALID = %lld\n", fnam, GALID );
+    printf(" xxx RA,DEC = %.3f, %.3f \n", RA_GAL, DEC_GAL);
+    printf(" xxx Sersic a, b = %.3f, %.3f   a_rot=%.1f deg \n", 
+	   SERSIC->a[0], SERSIC->b[0], a_rot );
+    printf(" xxx SEP(RA,DEC): %8.4f , %8.4f \n", RA_SEP, DEC_SEP);
+    printf(" xxx original-fwd a,b = %8.4f , %8.4f \n", 
+	   SNHOSTGAL.a_SNGALSEP_ASEC, SNHOSTGAL.b_SNGALSEP_ASEC);
+    printf(" xxx SIMLIB-test  a,b = %8.4f , %8.4f \n", a_sep, b_sep);
+
+    printf(" xxx difference   a,b = %8.4f , %8.4f   (DEC=%7.2f)\n",
+	   a_sep - SNHOSTGAL.a_SNGALSEP_ASEC, 
+	   b_sep - SNHOSTGAL.b_SNGALSEP_ASEC, DEC_GAL );
+    fflush(stdout);
+  }
+ 
+  return ;
+
+} // end SIMLIB_SNHOST_POS
+
+// =================================
+void SORT_SNHOST_byDDLR(void) {
+
+  // created Nov 2019
+  // Sort galaxy NBRs by DDLR, and load global structure
+  // SNHOSTGAL_DDLR_SORT[i], where i=0 has smallest DDLR.
+
+  int  NNBR       = SNHOSTGAL.NNBR;
+  int  ORDER_SORT = +1 ;     // increasing order
+  int  LDMP = 0 ;
+
+  int  INDEX_UNSORT[MXNBR_LIST], i, unsort, IGAL, IVAR, ifilt, ifilt_obs ;
+  long long GALID;
+  double DDLR, SNSEP, MAG ;
+  char fnam[] = "SORT_SNHOST_byDDLR" ;
+
+  // ------------- BEGIN ---------------
+
+  // sort by DDLR
+  sortDouble( NNBR, SNHOSTGAL.DDLR_NBR_LIST, ORDER_SORT, INDEX_UNSORT ) ;
+
+  //  LDMP = ( INDEX_SORT[0] > 0 ) ;
+
+  if ( LDMP ) 
+    { printf(" xxx ----------------------------- \n"); }
+
+  // load info sorted by DDLR
+  for(i=0; i < NNBR; i++ ) {
+    unsort = INDEX_UNSORT[i];
+    IGAL   = SNHOSTGAL.IGAL_NBR_LIST[unsort] ;
+    DDLR   = SNHOSTGAL.DDLR_NBR_LIST[unsort] ;
+    SNSEP  = SNHOSTGAL.SNSEP_NBR_LIST[unsort] ;
+
+    // load logical for true host
+    SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = false ;
+    if ( unsort == 0 ) // first element of unsorted array is true host
+      { SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = true ; }
+
+    // load global struct
+    SNHOSTGAL_DDLR_SORT[i].DDLR  = DDLR ;
+    SNHOSTGAL_DDLR_SORT[i].SNSEP = SNSEP ;
+    SNHOSTGAL_DDLR_SORT[i].GALID = get_GALID_HOSTLIB(IGAL);
+
+    // if HOSTLIB coords don't match the SN, then use GAL-SN difference
+    // to determine final host coords near SN. This feature allows using
+    // HOSTLIB with any set of coordinates, even coords well outside
+    // SN fields.
+    SNHOSTGAL_DDLR_SORT[i].RA  = GENLC.RA; // SN coord is default
+    IVAR = HOSTLIB.IVAR_RA; 
+    if ( IVAR > 0 ) { // if we have Gal coords, shift by GAL-SN difference
+      SNHOSTGAL_DDLR_SORT[i].RA += 
+	( get_VALUE_HOSTLIB(IVAR,IGAL) - SNHOSTGAL.RA_SN_DEG );
+    }
+
+    SNHOSTGAL_DDLR_SORT[i].DEC = GENLC.DEC;
+    IVAR = HOSTLIB.IVAR_DEC; 
+    if ( IVAR > 0 ) {
+      SNHOSTGAL_DDLR_SORT[i].DEC += 
+	( get_VALUE_HOSTLIB(IVAR,IGAL) - SNHOSTGAL.DEC_SN_DEG );
+    }
+
+    IVAR = HOSTLIB.IVAR_ZTRUE ;
+    SNHOSTGAL_DDLR_SORT[i].ZSPEC = get_VALUE_HOSTLIB(IVAR,IGAL);
+    SNHOSTGAL_DDLR_SORT[i].ZSPEC_ERR = 0.0005; // any small value
+
+    if ( HOSTLIB.IVAR_ZPHOT > 0 ) {
+      IVAR = HOSTLIB.IVAR_ZPHOT; 
+      SNHOSTGAL_DDLR_SORT[i].ZPHOT     = get_VALUE_HOSTLIB(IVAR,IGAL); 
+      IVAR = HOSTLIB.IVAR_ZPHOT_ERR ; 
+      SNHOSTGAL_DDLR_SORT[i].ZPHOT_ERR = get_VALUE_HOSTLIB(IVAR,IGAL);
+    }
+    else {
+      SNHOSTGAL_DDLR_SORT[i].ZPHOT     = -9.0 ;
+      SNHOSTGAL_DDLR_SORT[i].ZPHOT_ERR = -9.0 ;
+    }
+
+    IVAR = HOSTLIB.IVAR_LOGMASS; 
+    SNHOSTGAL_DDLR_SORT[i].LOGMASS     = get_VALUE_HOSTLIB(IVAR,IGAL);
+    IVAR = HOSTLIB.IVAR_LOGMASS_ERR; 
+    SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR = get_VALUE_HOSTLIB(IVAR,IGAL);
+			      
+    for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+      ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
+      IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
+      MAG       = get_VALUE_HOSTLIB(IVAR,IGAL) ;
+      SNHOSTGAL_DDLR_SORT[i].MAG[ifilt_obs] = MAG ; 
+    }
+
+    if ( LDMP ) {
+      printf("\t xxx %s: i=%d unsort=%d  DDLR=%6.2f  SEP=%8.1f\n",
+	     fnam, i, unsort, DDLR, SNSEP ); fflush(stdout);
+    }
+  }
+  
+  return ;
+
+} // SORT_SNHOST_byDDLR
 
 // =================================
 void TRANSFER_SNHOST_REDSHIFT(IGAL) {
@@ -5187,7 +5667,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   //
   // May 5 2017: use user-input INPUTS.HOSTLIB_SBRADIUS
   //
-
+  // Nov 25 2019: protect dm for GALFRAC=0
   double 
      x_SN, y_SN
     ,xgal, ygal, MAGOBS, MAGOBS_LIB, PSF, FGAL, dF
@@ -5195,7 +5675,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     ,THmin, THmax, THbin, TH
     ,dRdTH, Jac
     ,GALFRAC_SUM[NMAGPSF_HOSTLIB+1]       // summed over Sersic profile
-    ,sigFrac, RcenFrac
+    ,sigFrac, RcenFrac, GALFRAC
     ,GaussOvp[NMAGPSF_HOSTLIB+1] 
     ,AV, LAMOBS_AVG, MWXT[MXFILTINDX]
     ,RVMW = 3.1
@@ -5203,14 +5683,13 @@ void GEN_SNHOST_GALMAG(int IGAL) {
 
   float lamavg4, lamrms4, lammin4, lammax4  ;
   int ifilt, ifilt_obs, i, IVAR, jbinTH, opt_frame    ;
-  //  char fnam[] = "GEN_SNHOST_GALMAG" ;
+  char fnam[] = "GEN_SNHOST_GALMAG" ;
 
   // ------------ BEGIN -------------
 
 
-  for ( i=0; i <= NMAGPSF_HOSTLIB ; i++ ) {
-    GALFRAC_SUM[i]   =  0.0 ;     // local 
-  }
+  for ( i=0; i <= NMAGPSF_HOSTLIB ; i++ ) { GALFRAC_SUM[i] =  0.0 ; }
+  
 
   // compute MilkyWay Galactic extinction in each filter using
   // extinction at mean wavelength
@@ -5231,13 +5710,13 @@ void GEN_SNHOST_GALMAG(int IGAL) {
       MAGOBS     = MAGOBS_LIB + MWXT[ifilt_obs] ; // dim  with Gal extinction
       SNHOSTGAL.GALMAG_TOT[ifilt_obs] = MAGOBS ;
 
-      /* xxx
+      /*
       printf(" xxx ------------------------ \n");
       printf(" xxx %s: load ifilt_obs=%d IGAL=%d, IVAR=%d \n",
 	     fnam, ifilt_obs, IGAL, IVAR );
       printf(" xxx %s: MWXT=%.3f   MAGOBS=%.3f -> %.3f \n" ,
 	     fnam, MWXT[ifilt_obs], MAGOBS_LIB, MAGOBS);
-      xxxx */
+      */
 
     }
   }
@@ -5255,6 +5734,13 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   x_SN = SNHOSTGAL.a_SNGALSEP_ASEC  ; 
   y_SN = SNHOSTGAL.b_SNGALSEP_ASEC  ;
 
+  if ( x_SN == HOSTLIB_SNPAR_UNDEFINED || y_SN == HOSTLIB_SNPAR_UNDEFINED ) {
+    sprintf(c1err,"Undefined SNGALSEP");
+    sprintf(c2err,"SNGALSEP(a,b) = %f,%f arcSec", x_SN, y_SN);	
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
+  }
+
+
   // max radius (w.r.t. SN) to integrate is twice the 
   // aperture radius,  or 2 x (2*PSFMAX).
   Rmin  = 0.0 ;
@@ -5266,6 +5752,15 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   THbin = HOSTLIB.Aperture_THbin ;
 
   dRdTH = Rbin * THbin ;
+
+  /* xxxxxx
+  long long GALID  = get_GALID_HOSTLIB(IGAL);
+  int j=0;
+  printf(" xxx %s:  GALID=%lld   a,b(%d) = %.3f , %.3f \n",
+	 fnam, GALID, j, SNHOSTGAL.SERSIC.a[j], SNHOSTGAL.SERSIC.b[j] );
+  fflush(stdout);
+  xxxxxxxxxx */
+
 
   // start integration loop in polar coords around the SN.
   for ( R = Rmin; R < Rmax; R += Rbin ) {
@@ -5309,18 +5804,22 @@ void GEN_SNHOST_GALMAG(int IGAL) {
 
     if ( GALFRAC_SUM[i] > 1.000 )  { GALFRAC_SUM[i] = 1.000 ; }
 
+    GALFRAC = GALFRAC_SUM[i] ;
     // load global arrays
-    SNHOSTGAL.GALFRAC[i]  = GALFRAC_SUM[i] ;
+    SNHOSTGAL.GALFRAC[i]  = GALFRAC ;
 
     if ( i == 0 ) 
       {  dm = 0.0 ; }
+    else if ( GALFRAC == 0.0 ) {
+      dm = 30.0 ;
+    }
     else { 
-      dm = -2.5*log10( GALFRAC_SUM[i] );  // aperture mag  - total galmag
+      dm = -2.5*log10( GALFRAC );  // aperture mag  - total galmag
     }
 
     /*
-    printf(" GGG xxx GALID=%d GALFRAC[%d]=%f   R=%6.3f arcsec \n", 
-	   SNHOSTGAL.GALID, i, GALFRAC_SUM[i], HOSTLIB.Aperture_Radius[i] );
+    printf(" GGG xxx GALID=%d GALFRAC[%d]=%f   R=%6.3f asec  dm=%.3f\n", 
+	   SNHOSTGAL.GALID, i, GALFRAC, HOSTLIB.Aperture_Radius[i], dm );
     */
 
     for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
@@ -5524,14 +6023,11 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
   //             Bug affects only the host-noise contribution.
   //
 
-  int  j, NBIN ;
+  int    j, NBIN ;
+  double a, b, w, n, bn, rexp, sqsum,  arg ;
+  double reduced_R, xx, yy, FSUM_PROFILE, F, FGAL_TOT    ;
 
-  double 
-    a, b, w, n, bn, rexp, sqsum,  arg
-    ,reduced_R, xx, yy, FSUM_PROFILE, F, FGAL_TOT
-    ;
-
-  //  char fnam[] = "get_GALFLUX_HOSTLIB" ;
+  char fnam[] = "get_GALFLUX_HOSTLIB" ;
 
   // ---------------- BEGIN ---------------
 
@@ -5541,11 +6037,11 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
   for ( j=0; j < SERSIC_PROFILE.NDEF; j++ ) {
     
     // strip off info for this galaxy component.
-    a   = SNHOSTGAL.SERSIC_a[j] ;
-    b   = SNHOSTGAL.SERSIC_b[j] ;
-    n   = SNHOSTGAL.SERSIC_n[j] ;
-    w   = SNHOSTGAL.SERSIC_w[j] ;
-    bn  = SNHOSTGAL.SERSIC_bn[j] ;
+    a   = SNHOSTGAL.SERSIC.a[j] ;
+    b   = SNHOSTGAL.SERSIC.b[j] ;
+    n   = SNHOSTGAL.SERSIC.n[j] ;
+    w   = SNHOSTGAL.SERSIC.w[j] ;
+    bn  = SNHOSTGAL.SERSIC.bn[j] ;
     rexp = 1./n ;
 
     // Flux normalization = total flux over galaxy.
@@ -5721,9 +6217,9 @@ void DEBUG_1LINEDUMP_SNHOST(void) {
 
   printf(" %d  %6.4f %6.4f %4.2f  %7.4f %7.4f %5.3f %6.2f  %f %f \n"    
 	 , 222222    // for easy grep
-	 , SNHOSTGAL.SERSIC_a[1]
-	 , SNHOSTGAL.SERSIC_b[1]
-	 , SNHOSTGAL.SERSIC_INDEX
+	 , SNHOSTGAL.SERSIC.a[0]
+	 , SNHOSTGAL.SERSIC.b[0]
+	 , SNHOSTGAL.SERSIC.INDEX
 	 , SNHOSTGAL.RA_SNGALSEP_ASEC 
 	 , SNHOSTGAL.DEC_SNGALSEP_ASEC
 	 , SNHOSTGAL.reduced_R
@@ -5787,14 +6283,22 @@ void DUMP_SNHOST(void) {
     printf("\t => SNSEP=%.3f arcsec, DLR=%.3f  arcsec, d_DLR=%.3f \n", 
 	   SNHOSTGAL.SNSEP, SNHOSTGAL.DLR, SNHOSTGAL.DDLR );
 
+    if ( INDEX_GENMODEL == MODEL_SIMLIB ) {
+      printf("\t => SIMLIB HEADER PARAMS: \n");
+      printf("\t   LIBID=%d  GALID=%lld, RA=%.4f  DEC=%.4f  z=%.4f\n",
+	     SIMLIB_HEADER.LIBID, SIMLIB_HEADER.GALID,
+	     SIMLIB_HEADER.RA, SIMLIB_HEADER.DEC,
+	     SIMLIB_HEADER.GENRANGE_REDSHIFT[0] );
+    }
+
     fflush(stdout);
 
     for ( j=0; j < SERSIC_PROFILE.NDEF; j++ ) {
-      a  =  SNHOSTGAL.SERSIC_a[j] ;
-      b  =  SNHOSTGAL.SERSIC_b[j] ;
-      w  =  SNHOSTGAL.SERSIC_w[j] ;
-      n  =  SNHOSTGAL.SERSIC_n[j] ;
-      bn =  SNHOSTGAL.SERSIC_bn[j] ;
+      a  =  SNHOSTGAL.SERSIC.a[j] ;
+      b  =  SNHOSTGAL.SERSIC.b[j] ;
+      w  =  SNHOSTGAL.SERSIC.w[j] ;
+      n  =  SNHOSTGAL.SERSIC.n[j] ;
+      bn =  SNHOSTGAL.SERSIC.bn[j] ;
       printf("\t => Sersic a_half=%7.4f  b_half=%7.4f  "
 	     " n=%5.2f (bn=%5.3f)  wgt=%5.3f \n",
 	     a,b, n, bn, w );
@@ -6224,80 +6728,6 @@ void rewrite_HOSTLIB_plusMags(void) {
   // execute re-write
   rewrite_HOSTLIB(&HOSTLIB_APPEND);
 
-  /* xxxxxxxxxxxxx mark delete Nov 7 2019 xxxxxxxxxxxx
-  // --------------------------------------------------------
-  // create new HOSTLIB with host mags appended to varnames.
-  // Read original hostlib and copy each line so that format
-  // is not changed; then append host mags
-  char *HLIB_ORIG = INPUTS.HOSTLIB_FILE,  HLIB_NEW[MXPATHLEN];
-  char LINE[MXCHAR_LINE_HOSTLIB] ;
-  char *ptrCR ;
-  char FIRSTWORD[100], NEXTWORD[100] ;
-  char tmpFile[MXPATHLEN], NULLPATH[] = "" ;
-  FILE *FP_ORIG, *FP_NEW;
-  int  NWD_LINE, gzipFlag ;
-  sprintf(HLIB_NEW,"%s+HOSTMAGS_OLD", HLIB_ORIG);
-
-  //FP_ORIG = snana_openTextFile(1, NULLPATH, HLIB_ORIG, tmpFile, &gzipFlag);
-  FP_ORIG = fopen(HLIB_ORIG,"rt");
-  FP_NEW  = fopen(HLIB_NEW, "wt");
-  if ( !FP_ORIG ) {
-    sprintf(c1err,"Could not open original HOSTLIB_FILE");
-    sprintf(c2err,"'%s' ", HLIB_ORIG);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-  if ( !FP_NEW ) {
-    sprintf(c1err,"Could not open new HOSTLIB_FILE");
-    sprintf(c2err,"'%s' ", HLIB_NEW);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
-  printf("\n");
-  printf("  Created '%s' with synthetic host mags\n", HLIB_NEW);
-  fprintf(FP_NEW,
-	  "# Append synthetic host mags computed from host spectra.\n\n");
-
-  igal_unsort = 0;
-  while ( fgets(LINE, MXCHAR_LINE_HOSTLIB, FP_ORIG) != NULL ) {
-
-    NWD_LINE = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
-    LINE_APPEND[0] = 0;
-
-    if ( NWD_LINE > 2 ) {
-      get_PARSE_WORD(0, 0, FIRSTWORD);
-      if ( strcmp(FIRSTWORD,"VARNAMES:") == 0 ) 
-	{ sprintf(LINE_APPEND,"%s", VARNAMES_HOSTMAGS); }
-      else if ( strcmp(FIRSTWORD,"GAL:") == 0 ) {
-	// make sure GALID matches
-
-	ivar       = HOSTLIB.IVAR_GALID;
-	igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
-	GALID      = (long long)HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
-
-	get_PARSE_WORD(0, 1, NEXTWORD); // read GALID
-	sscanf(NEXTWORD, "%lld", &GALID_orig);
-	if ( GALID != GALID_orig ) {
-	  sprintf(c1err,"GALID mis-match for igal_unsort=%d", igal_unsort);
-	  sprintf(c2err,"GALID(orig)=%lld, but stored GALID=%lld",
-		  GALID_orig, GALID ) ;
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-	}
-
-	for(ifilt=1; ifilt <= NFILT; ifilt++ ) {
-	  sprintf(cval, " %6.3f", MAG_STORE[ifilt][igal_unsort] );
-	  strcat(LINE_APPEND,cval);
-	}
-	igal_unsort++ ;
-      }
-    }
-
-    ptrCR = strchr(LINE,'\n'); if(ptrCR){*ptrCR=' ';} // remove <CR>
-    fprintf(FP_NEW,"%s %s\n", LINE, LINE_APPEND);
-  }
-
-  fclose(FP_ORIG);   fclose(FP_NEW);
-  xxxxxxxxxxxx end mark xxxxxxxxxxxxx  */
-
   // ------------------------------------
   free(GENFLUX_LIST); free(GENMAG_LIST); free(MAG_STORE);
 
@@ -6440,26 +6870,27 @@ void rewrite_HOSTLIB_plusNbr(void) {
   malloc_HOSTLIB_APPEND(NGAL, &HOSTLIB_APPEND);
 
   LINE_APPEND = (char*) malloc (MXCHAR_LINE_HOSTLIB * sizeof(char) ) ;
-  HOSTLIB_NBR.SKY_SORTED_DEC          = (double*) malloc(MEMD) ;
-  HOSTLIB_NBR.SKY_SORTED_RA           = (double*) malloc(MEMD) ;
-  HOSTLIB_NBR.SKY_SORTED_IGAL_zsort   = (int*) malloc(MEMI) ;
-  HOSTLIB_NBR.SKY_SORTED_IGAL_DECsort = (int*) malloc(MEMI) ;
-  HOSTLIB_NBR.GALID_atNNBR_MAX = -9 ;
-  HOSTLIB_NBR.NNBR_MAX         =  0 ;
+  HOSTLIB_NBR_WRITE.SKY_SORTED_DEC          = (double*) malloc(MEMD) ;
+  HOSTLIB_NBR_WRITE.SKY_SORTED_RA           = (double*) malloc(MEMD) ;
+  HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_zsort   = (int*) malloc(MEMI) ;
+  HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_DECsort = (int*) malloc(MEMI) ;
+  HOSTLIB_NBR_WRITE.GALID_atNNBR_MAX = -9 ;
+  HOSTLIB_NBR_WRITE.NNBR_MAX         =  0 ;
 
   // sort by DEC to improve NBR-matching speed
   int  ORDER_SORT = +1 ;
   double *ptrDEC = HOSTLIB.VALUE_ZSORTED[IVAR_DEC] ; 
   double *ptrRA  = HOSTLIB.VALUE_ZSORTED[IVAR_RA] ; 
-  sortDouble( NGAL, ptrDEC, ORDER_SORT, HOSTLIB_NBR.SKY_SORTED_IGAL_DECsort);
+  sortDouble( NGAL, ptrDEC, ORDER_SORT, 
+	      HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_DECsort);
   
 
   // load new lists of RA & DEC sorted by DEC
   for(igal_DECsort=0; igal_DECsort < NGAL; igal_DECsort++ ) {
-    igal_zsort = HOSTLIB_NBR.SKY_SORTED_IGAL_DECsort[igal_DECsort];
-    HOSTLIB_NBR.SKY_SORTED_DEC[igal_DECsort]      = ptrDEC[igal_zsort] ;
-    HOSTLIB_NBR.SKY_SORTED_RA[igal_DECsort]       = ptrRA[igal_zsort] ;
-    HOSTLIB_NBR.SKY_SORTED_IGAL_zsort[igal_zsort] = igal_DECsort ;
+    igal_zsort = HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_DECsort[igal_DECsort];
+    HOSTLIB_NBR_WRITE.SKY_SORTED_DEC[igal_DECsort]      = ptrDEC[igal_zsort] ;
+    HOSTLIB_NBR_WRITE.SKY_SORTED_RA[igal_DECsort]       = ptrRA[igal_zsort] ;
+    HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_zsort[igal_zsort] = igal_DECsort ;
     if ( igal_DECsort < -5 || igal_DECsort > NGAL+5 ) {
       printf(" xxx igal_DECsort=%d  igal_zsort=%6d,  DEC = %9.5f \n",
 	     igal_DECsort, igal_zsort, ptrDEC[igal_zsort] ); fflush(stdout);
@@ -6491,11 +6922,12 @@ void rewrite_HOSTLIB_plusNbr(void) {
 
   // construct message strings for top of new HOSTLIB
   sprintf(MSG, "Append up to %d host neighbors within %.1f'' radius.",
-	  HOSTLIB_NBR.NNBR_WRITE_MAX, HOSTLIB_NBR.SEPNBR_MAX );
+	  HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX, HOSTLIB_NBR_WRITE.SEPNBR_MAX );
   addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
  
   sprintf(MSG, "snlc_sim.exe %s +HOSTNBR  SEPNBR_MAX %.1f  NNBR_WRITE_MAX %d",
-	  INPUT_FILE, HOSTLIB_NBR.NNBR_WRITE_MAX, HOSTLIB_NBR.SEPNBR_MAX );
+	  INPUT_FILE, HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX, 
+	  HOSTLIB_NBR_WRITE.SEPNBR_MAX );
   addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
 
   sprintf(MSG,"Added column NBR_LIST = "
@@ -6520,8 +6952,8 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
 
 
 #define MXNNBR_STORE 100         // max number of neighbors to track
-  double SEPNBR_MAX      = HOSTLIB_NBR.SEPNBR_MAX ;
-  int    NNBR_WRITE_MAX  = HOSTLIB_NBR.NNBR_WRITE_MAX ;
+  double SEPNBR_MAX      = HOSTLIB_NBR_WRITE.SEPNBR_MAX ;
+  int    NNBR_WRITE_MAX  = HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX ;
   //  int    MXCHAR_NBR_LIST = HOSTLIB_NBR.MXCHAR_NBR_LIST ;
 
   double ASEC_PER_DEG  = 3600.0 ;
@@ -6544,7 +6976,7 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   // ------------ BEGIN -----------
 
   igal_zsort   = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
-  igal_DECsort = HOSTLIB_NBR.SKY_SORTED_IGAL_zsort[igal_zsort];
+  igal_DECsort = HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_zsort[igal_zsort];
   RA_GAL       = HOSTLIB.VALUE_ZSORTED[IVAR_RA][igal_zsort] ;  
   DEC_GAL      = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][igal_zsort] ; 
   GALID        = (long long)HOSTLIB.VALUE_ZSORTED[IVAR_GALID][igal_zsort] ;
@@ -6572,11 +7004,11 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
       isort = igal_DECsort + j*ISORT_CHANGE;
 
       if ( isort < 0  || isort >= NGAL ) { continue; }
-      igal2_zsort   = HOSTLIB_NBR.SKY_SORTED_IGAL_DECsort[isort];
+      igal2_zsort   = HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_DECsort[isort];
       igal2_unsort  = HOSTLIB.LIBINDEX_UNSORT[igal2_zsort];
 
-      RA_NBR      = HOSTLIB_NBR.SKY_SORTED_RA[isort] ;  
-      DEC_NBR     = HOSTLIB_NBR.SKY_SORTED_DEC[isort] ;  
+      RA_NBR      = HOSTLIB_NBR_WRITE.SKY_SORTED_RA[isort] ;  
+      DEC_NBR     = HOSTLIB_NBR_WRITE.SKY_SORTED_DEC[isort] ;  
       SEP_DEC     = fabs(DEC_NBR - DEC_GAL)*ASEC_PER_DEG;
 
       /*      
@@ -6604,9 +7036,9 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
       IGAL_LIST[NNBR]    = igal2_unsort;
       GALID_LIST[NNBR]   = GALID_NBR;
       NNBR++ ;
-      if ( NNBR > HOSTLIB_NBR.NNBR_MAX ) { 
-	HOSTLIB_NBR.NNBR_MAX = NNBR; 
-	HOSTLIB_NBR.GALID_atNNBR_MAX = GALID;
+      if ( NNBR > HOSTLIB_NBR_WRITE.NNBR_MAX ) { 
+	HOSTLIB_NBR_WRITE.NNBR_MAX = NNBR; 
+	HOSTLIB_NBR_WRITE.GALID_atNNBR_MAX = GALID;
       }
 
     } // end j loop over smaller/larger DEC
@@ -6614,35 +7046,6 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
     ISORT_CHANGE++ ;
   } // end while
 
-
-
-  /* xxxxx mark delete xxxx
-  // - - - - - -
-  for(igal2_unsort=0; igal2_unsort < NGAL; igal2_unsort++ ) {
-    if ( igal2_unsort == igal_unsort ) { continue; }
-    if ( strlen(LINE_APPEND) > MXCHAR_LINE_HOSTLIB - 20 ) { continue; }
-
-    igal2_zsort = HOSTLIB.LIBINDEX_ZSORT[igal2_unsort];
-    RA_NBR      = HOSTLIB.VALUE_ZSORTED[IVAR_RA][igal2_zsort] ;  
-    DEC_NBR     = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][igal2_zsort] ; 
-    if ( fabs(DEC_NBR-DEC_GAL) > SEPMAX_NBR ) { continue ; }
-    
-    SEP_NBR = angSep(RA_GAL, DEC_GAL, RA_NBR, DEC_NBR,  (double)3600.);
-    if ( SEP_NBR > SEPMAX_NBR ) { continue ; }
-    GALID_NBR = (long long)HOSTLIB.VALUE_ZSORTED[IVAR_GALID][igal2_zsort] ;
-    
-    SEP_NBR_LIST[NNBR] = SEP_NBR;
-    IGAL_LIST[NNBR]    = igal2_unsort;
-    NNBR++ ;
-
-    if ( NNBR > MXNNBR ) {
-      sprintf(c1err,"NNBR=%d exceeds bound of MXNNBR", NNBR);
-      sprintf(c2err,"Check SEPMAX_NBR = %.2f arcSec and HOSTLIB density.",
-	      SEPMAX_NBR );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-  }
-  xxxx */
 
   // - - - - - - - - - - - - - - - - - - 
   // sort SEP_NBR_LIST inascending order
@@ -6704,14 +7107,15 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   }
 
   if ( (igal_unsort % 10000) == 0 ) {
-    NNBR = HOSTLIB_NBR.NNBR_MAX ; GALID=HOSTLIB_NBR.GALID_atNNBR_MAX;
+    NNBR  = HOSTLIB_NBR_WRITE.NNBR_MAX ; 
+    GALID = HOSTLIB_NBR_WRITE.GALID_atNNBR_MAX;
     printf("\t Processing igal %8d of %8d  (NNBR_MAX=%2d for GALID=%lld)\n", 
 	   igal_unsort, NGAL, NNBR, GALID );
     fflush(stdout);
   }
 
-  if ( NNBR < 100 ) { HOSTLIB_NBR.NGAL_PER_NNBR[NNBR]++ ; }
-  if ( TRUNCATE   ) { HOSTLIB_NBR.NGAL_TRUNCATE++ ; }
+  if ( NNBR < 100 ) { HOSTLIB_NBR_WRITE.NGAL_PER_NNBR[NNBR]++ ; }
+  if ( TRUNCATE   ) { HOSTLIB_NBR_WRITE.NGAL_TRUNCATE++ ; }
 
   return ;
 
@@ -6730,13 +7134,14 @@ void  monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // ------------ BEGIN -------------
 
   if ( OPT == 0 ) {
-    for(nnbr=0; nnbr < 100; nnbr++ ) { HOSTLIB_NBR.NGAL_PER_NNBR[nnbr]=0; }
-    HOSTLIB_NBR.NGAL_TRUNCATE = 0 ;
+    for(nnbr=0; nnbr < 100; nnbr++ ) 
+      { HOSTLIB_NBR_WRITE.NGAL_PER_NNBR[nnbr]=0; }
+    HOSTLIB_NBR_WRITE.NGAL_TRUNCATE = 0 ;
   }
   else {
     printf("\n");
-    for(nnbr=0; nnbr <= HOSTLIB_NBR.NNBR_WRITE_MAX; nnbr++ ) {
-      NGAL_TMP = HOSTLIB_NBR.NGAL_PER_NNBR[nnbr];
+    for(nnbr=0; nnbr <= HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX; nnbr++ ) {
+      NGAL_TMP = HOSTLIB_NBR_WRITE.NGAL_PER_NNBR[nnbr];
       frac     = (float)NGAL_TMP / (float)NGAL;
       sprintf(MSG, "\t HOSTLIB fraction with %2d NBR: %8.3f %% ",
 	     nnbr, 100.0*frac ); 
@@ -6744,9 +7149,9 @@ void  monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
       addComment_HOSTLIB_APPEND(MSG,HOSTLIB_APPEND);
     }
 
-    frac = (float)HOSTLIB_NBR.NGAL_TRUNCATE / (float)NGAL ;
+    frac = (float)HOSTLIB_NBR_WRITE.NGAL_TRUNCATE / (float)NGAL ;
     sprintf(MSG,"\t Truncated fraction with > %d NBR: %8.3f %% ",
-	   HOSTLIB_NBR.NNBR_WRITE_MAX, 100.*frac); 
+	   HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX, 100.*frac); 
     printf("%s\n", MSG); fflush(stdout);
     addComment_HOSTLIB_APPEND(MSG,HOSTLIB_APPEND);
   }

@@ -12,6 +12,7 @@
 
 int  SPECTROGRAPH_USEFLAG ;
 int  NERR_SNR_SPECTROGRAPH ;
+int  NERR_BADSNR_SPECTROGRAPH ;
 
 struct {
 
@@ -116,7 +117,7 @@ void get_FILTERtrans_spectrograph(double *LMIN, double *LMAX, int MXLAM,
 double getSNR_spectrograph(int ilam, double Texpose_S, double Texpose_T, 
 			   double genMag,  double *ERRFRAC_T );
 
-int check_SNR_SPECTROGRAPH(int l, int t);
+void check_SNR_SPECTROGRAPH(int l, int t);
 
 // === END === 
 

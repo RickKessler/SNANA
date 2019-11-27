@@ -1627,7 +1627,7 @@ c rest-frame init
          IF( NKCOR_STORE .EQ. 0 ) THEN
            c1err = 'Cannot fit rest-frame model ' 
      &          // FITMODEL_NAME(1:40)
-           c2err = 'with no K-cor tables. Check HFILE_KCOR.'
+           c2err = 'with no K-cor tables. Check KCOR_FILE.'
            CALL MADABORT("FITPAR_INI", c1err, c2err)
          ENDIF
 
@@ -10069,14 +10069,10 @@ c set error on MilkyWay Galactic extinction
 
          ERR_TRUE  = SNLC_FLUXCAL_ERRTOT(ep)  
          ERR_CALC  = SNLC_FLUXCAL_ERRCALC(ep)
-         if ( ERR_CALC > 0.0 .and. ERR_TRUE > 0.0 ) THEN        
-            ERR_TMP = ERR_CALC/ERR_TRUE
-         else
-            ERR_TMP = -9.0 
-         ENDIF
+	 ERR_TMP   = SNLC_FLUXCAL_ERRTEST(ep)
+
          R4EP_ALL(ep,JEP_ERRTEST) = ERR_TMP
          R4EP_ALL(ep,JEP_ERRCALC) = ERR_CALC
-
 
 102   CONTINUE   ! end of EPMIN,EPMAX loop
 101   CONTINUE   ! end of IMJD loop
@@ -15346,7 +15342,6 @@ c -------------------------------------------------
 c re-read KCOR file to include FILTLIST_FITRESTMAG
 c (user must make sure that FILTLIST_FITRESTMAG is in the kcor file)
 
-cc      CALL RDKCOR(HFILE_KCOR,IERR)
       CALL RDKCOR(KCOR_FILE,IERR)
 
       CALL CDTOPDIR_OUTPUT  ! back to topdir
@@ -15361,7 +15356,7 @@ c Abort if any filter is missing.
          IF ( .NOT. LFILTDEF_OBS(ifiltdef)  ) THEN
            c1err = 'FILTLIST_FITRESTMAG = ' // cfilt // 
      &            ' is not in kcor file.'
-           c2err = 'Check ' // HFILE_KCOR
+           c2err = 'Check ' // KCOR_FILE
            CALL MADABORT("FITRESTMAG_INI", c1err, c2err )
          ENDIF
 200   CONTINUE
@@ -16969,6 +16964,7 @@ c Aug 15, 2012: protect printing info for undefined IFILT_OBS.
 c
 c Jul 31 2015: write fitres [column] format to make it easier to parse.
 c
+c Nov 19 2019: remove NVAR key
 c ------------
 
       IMPLICIT NONE
@@ -17050,8 +17046,8 @@ c open output file.
         print*,' '
 
         WRITE(LUNINTERP,40) 'Interpolation Results at MJD_INTERP'
-        WRITE(LUNINTERP,401) NVAR_OUT
-401     FORMAT('NVAR: ', I2)
+cc xxx mark delete         WRITE(LUNINTERP,401) NVAR_OUT
+cc xxx 401     FORMAT('NVAR: ', I2)
         WRITE(LUNINTERP,402)
 402     FORMAT('VARNAMES: CID BAND MJD_INTERP MAG MAGERR '
      &                   'FLUX FLUXERR TOBS TREST' )
@@ -17154,11 +17150,11 @@ c write results to output file.
      &       FLUXOBS_INTERP(ifilt_obs), FLUXERROBS_INTERP(ifilt_obs),
      &       TOBS, TREST
        
-405        format('SN: ', 
+405        format('INTERP: ', 
      &          A, 1x, A1, 1x, F9.3,   ! CCID, BAND, MJD8
      &          2x, 2F7.3,               ! MAG MAGERR
      &          2x, 2G10.4,              ! FLUX FLUXERR
-     &          2F6.2                ! TOBS TREST
+     &          2F7.2                    ! TOBS TREST
      &             )
 
 1400    CONTINUE

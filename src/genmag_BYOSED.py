@@ -1,10 +1,10 @@
 import numpy as np	
-import os,six,abc
+import os,six,abc,math
 import optparse
 import configparser
 import pandas
 import sys
-from scipy.interpolate import RectBivariateSpline,interp2d,interpn
+from scipy.interpolate import RectBivariateSpline,interp1d,interp2d,interpn
 from ast import literal_eval
 from scipy.stats import rv_continuous,gaussian_kde,norm as normal
 from copy import copy
@@ -17,6 +17,10 @@ required_keys = ['magsmear']
 
 
 __mask_bit_locations__={'verbose':1,'dump':2}
+
+__HC_ERG_AA__ = 1.986445824171758e-08
+
+__MODEL_BANDFLUX_SPACING = 5.0
 
 def print_err():
 	print("""
@@ -91,15 +95,33 @@ class genmag_BYOSED:
 				else:
 					self.magsmear = 0.0
 				self.magoff=self.options.magoff
-				self.flux = fluxarr*self.x0
+				
+				self.flux = fluxarr*self.x0*10**(-0.4*self.magoff)
 
 				self.phase = np.unique(phase)
 				self.wave = np.unique(wave)
 				self.wavelen = len(self.wave)
 
 				self.sedInterp=interp2d(self.phase,self.wave,self.flux.T,kind='linear',bounds_error=True)
-				print(self.warp_effects)
-			
+				
+				self.B_Band = self.options.bBand
+				self.noRescale = True if 'NORESCALE' in config['MAIN'].keys() and config['MAIN']['NORESCALE'].upper()=='TRUE' else False
+				try:
+					self.B_wave,self.B_trans = np.loadtxt(self.B_Band,unpack=True)
+				except:
+					print("Issue with B band file provided, switching to default...")
+					self.B_Band = os.path.join(os.environ['SNDATA_ROOT'],'filters','Bessell90','Bessell90_K09','Bessell90_B.dat')
+					self.B_wave,self.B_trans = np.loadtxt(self.B_Band,unpack=True)
+				trans_func=interp1d(self.B_wave,self.B_trans)
+				self.B_int_wave = self.wave[np.where(np.logical_and(self.wave>=self.B_wave.min(),self.wave<=self.B_wave.max()))[0]]
+				self.B_int_dwave = self.wave[1]-self.wave[0]
+				self.B_wave_inds=np.array([np.where(self.wave==x)[0][0] for x in self.B_int_wave])
+				
+				self.B_int_trans=trans_func(self.B_int_wave)
+				
+				self.mB = self.calc_mB(self.sedInterp(0,self.B_int_wave).flatten())
+				self.effect_mB=None
+				
 				#fluxsmear=self.fetchSED_BYOSED([0],5000,1,1,[0 for x in range(len(self.host_param_names))])
 				#import pickle
 				#with open('/project2/rkessler/SURVEYS/WFIRST/USERS/jpierel/byosed/fluxsmear.dat','wb') as f:
@@ -126,6 +148,10 @@ class genmag_BYOSED:
 								  type="float",help='mag offset (default=%default)')
 				parser.add_option('--sed_file',default=config.get('MAIN','SED_FILE'),
 								  type='str',help='Name of sed file')
+				parser.add_option('--bBand',help='Location of B band wave/trans file',
+								  default=os.path.join(os.environ['SNDATA_ROOT'],'filters','Bessell90','Bessell90_K09','Bessell90_B.dat'),
+								  type='str')
+				
 				#parser.add_option('--norm',default=config.get('MAIN','NORM'),
 				#				  type='float',help='Normalization of SED')
 				#parser.add_option('--absMag',default=config.get('MAIN','ABSMAG'),
@@ -156,8 +182,11 @@ class genmag_BYOSED:
 						warp_data[k.upper()]=np.array(config.get(warp,k).split()).astype(float)
 					except:
 						warp_data[k.upper()]=config.get(warp,k)
-
-
+				if 'SCALE_TYPE' not in warp_data.keys():
+					warp_data['SCALE_TYPE']='inner'
+				elif warp_data['SCALE_TYPE'] not in ['inner','outer']:
+					raise RuntimeError("Do not recognize variable SCALE_TYPE, should be 'inner' or 'outer'")
+					
 
 
 				if 'SN_FUNCTION' in warp_data:
@@ -189,6 +218,7 @@ class genmag_BYOSED:
 											warp_distribution=distribution['PARAM'] if 'PARAM' in distribution.keys() else None,
 											scale_parameter=sn_scale_parameter,
 											scale_distribution=distribution['SCALE'],
+											scale_type=warp_data['SCALE_TYPE'],
 											name=warp)
 
 				if 'HOST_FUNCTION' in warp_data:
@@ -216,6 +246,7 @@ class genmag_BYOSED:
 											  warp_distribution=distribution['PARAM'] if 'PARAM' in distribution.keys() else None,
 											  scale_parameter=host_scale_parameter,
 											  scale_distribution=distribution['SCALE'],
+											  scale_type=warp_data['SCALE_TYPE'],
 											  name=warp)
 
 			return(sn_dict,host_dict)
@@ -250,21 +281,25 @@ class genmag_BYOSED:
 					self.magsmear=np.random.normal(0,self.options.magsmear)
 				else:
 					self.magsmear=0.0
-				if self.sn_id!=external_id:
-					fluxsmear *= 10**(-0.4*self.magoff)
+				#if self.sn_id!=external_id:
+				#	fluxsmear *= 10**(-0.4*self.magoff)
 				fluxsmear *= 10**(-0.4*(self.magsmear))
 
 				trest_arr=trest*np.ones(len(self.wave))
 
-				overall_product=np.zeros(len(self.wave))
+				inner_product=np.zeros(len(self.wave))
 			except Exception as e:
 				print('Python Error :',e)
 				print_err()
-
+ 			
+			
+			outer_product=np.zeros(len(self.wave))
 			for warp in [x for x in self.warp_effects]:# if x!='COLOR']:
 				try: #if True:
-
 					if external_id!=self.sn_id:
+						if not self.noRescale:
+							self.effect_mB=None
+							self.mB=self.calc_mB(self.sedInterp(0,self.B_int_wave).flatten()*10**(-0.4*(self.magsmear+self.magoff)))
 						if warp in self.sn_effects.keys():
 							self.sn_effects[warp].updateWarp_Param()
 							self.sn_effects[warp].updateScale_Param()
@@ -280,7 +315,10 @@ class genmag_BYOSED:
 					# not sure about the multiplication by x0 here, depends on if SNANA is messing with the
 					# absolute magnitude somewhere else
 					product=np.ones(len(self.wave))
-					temp_scale_param = 1.
+					temp_scale_param = 0
+					temp_outer_product=np.ones(len(self.wave))
+					outer_scale_param=0
+
 					if warp in self.sn_effects.keys():
 						if self.verbose:
 							if self.sn_effects[warp].warp_parameter is not None:
@@ -288,9 +326,20 @@ class genmag_BYOSED:
 							else:
 								print('Phase=%.1f, %s: %.2f'%(trest,warp,self.sn_effects[warp].scale_parameter))
 
-						product*=self.sn_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
-
-						temp_scale_param*=self.sn_effects[warp].scale_parameter
+						if self.sn_effects[warp].scale_type=='inner':
+							product*=self.sn_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
+							if temp_scale_param ==0:
+								temp_scale_param = self.sn_effects[warp].scale_parameter
+							else:
+								temp_scale_param*=self.sn_effects[warp].scale_parameter
+							
+						else:
+							temp_outer_product*=self.sn_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
+							if outer_scale_param ==0:
+								outer_scale_param = self.sn_effects[warp].scale_parameter
+							else:
+								outer_scale_param*=self.sn_effects[warp].scale_parameter
+							
 
 					#if warp in self.sn_effects[warp]._param_names:
 					#	temp_warp_param=1.
@@ -302,20 +351,38 @@ class genmag_BYOSED:
 								print('Phase=%.1f, %s: %.2f'%(trest,warp,self.host_effects[warp].warp_parameter))
 							else:
 								print('Phase=%.1f, %s: %.2f'%(trest,warp,self.host_effects[warp].scale_parameter))
+						if self.host_effects[warp].scale_type=='inner':
+							product*=self.host_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
+							temp_scale_param*=self.host_effects[warp].scale_parameter
+						else:
+							temp_outer_product*=self.host_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
+							outer_scale_param*=self.host_effects[warp].scale_parameter
 
-						product*=self.host_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
-						temp_scale_param*=self.host_effects[warp].scale_parameter
-
-					overall_product+=product*temp_scale_param
+					inner_product+=product*temp_scale_param
+					outer_product+=temp_outer_product*outer_scale_param
+					
 				except Exception as e:
 					print('Python Error :',e)
 					print_err()
 			
-			fluxsmear*=(1.+overall_product)
 			
+
+			if self.noRescale is False and self.effect_mB is None:
+				self.effect_mB=self.mB
+				self.effect_mB=self.calc_mB(np.array(self.fetchSED_BYOSED(0,maxlam=maxlam,external_id=external_id,new_event=external_id,hostpars=hostpars))[self.B_wave_inds])
+			
+
+			fluxsmear*=((1.+inner_product)*10**(-0.4*outer_product))
+
+			if not self.noRescale:
+				fluxsmear*=(self.mB/self.effect_mB)
+
+
 			return list(fluxsmear)
 			
-	
+		def calc_mB(self,flux):
+			return(np.sum(self.B_int_wave *self.B_int_trans* flux) *self.B_int_dwave / __HC_ERG_AA__)
+		
 		def fetchParNames_BYOSED(self):
 				return list(np.append(self.warp_effects,['lum']))
 
@@ -377,7 +444,8 @@ class WarpModel(object):
 	and ``_parameters`` (1-d numpy.ndarray).
 	"""
 
-	def __init__(self, warp_function,parameters,param_names,warp_parameter,warp_distribution,scale_parameter,scale_distribution,name):
+	def __init__(self, warp_function,parameters,param_names,warp_parameter,warp_distribution,
+				 scale_parameter,scale_distribution,scale_type,name):
 		self.name = name
 		self._parameters = parameters
 		self._param_names = [x.upper() for x in param_names]
@@ -386,6 +454,7 @@ class WarpModel(object):
 		self.scale_parameter=scale_parameter
 		self.warp_distribution=warp_distribution
 		self.scale_distribution=scale_distribution
+		self.scale_type=scale_type
 
 	def updateWarp_Param(self):
 		if self.warp_distribution is not None:
@@ -531,6 +600,17 @@ def _get_distribution(name,dist_dat,path,sn_or_host):
 
 	return(dist_dict)
 
+def _integration_grid(low, high, target_spacing):
+    """Divide the range between `start` and `stop` into uniform bins
+    with spacing less than or equal to `target_spacing` and return the
+    bin midpoints and the actual spacing."""
+
+    range_diff = high - low
+    spacing = range_diff / int(math.ceil(range_diff / target_spacing))
+    grid = np.arange(low + 0.5 * spacing, high, spacing)
+
+    return grid, spacing
+
 def _meshgrid2(*arrs):
 	arrs = tuple(arrs)	#edit
 	lens = list(map(len, arrs))
@@ -601,9 +681,10 @@ def main():
 		import matplotlib.pyplot as plt
 		#sys.exit()
 		mySED=genmag_BYOSED('$WFIRST_ROOT/SALT3/examples/wfirst/byosed/',2,[],'HOST_MASS,SFR,AGE,REDSHIFT,METALLICITY')
+		#mySED.sn_effects['COLOR'].scale_parameter=.2
 		#print(np.where(mySED.wave==10000)[0][0])
 		#print(mySED.fetchParNames_BYOSED())
-		print(mySED.fetchSED_BYOSED(0,5000,3,2,[2.5,1,1,.5])[np.where(mySED.wave==10000)[0][0]])
+		print(np.sum(mySED.fetchSED_BYOSED(10,5000,3,2,[2.5,1,1,.5])))
 		sys.exit()
 
 

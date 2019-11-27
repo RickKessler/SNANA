@@ -392,7 +392,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   }
   
   // load return argument scalars  
-  *IDLENS = (int)(FlatRan*100000) ; //IDLENS_local;
+  *IDLENS = (int)(FlatRan*10000000) ; //IDLENS_local;
   *ZLENS  = zLENS_local ;
   *NIMG = NIMG_local;
 

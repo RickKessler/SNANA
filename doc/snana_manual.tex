@@ -3528,6 +3528,7 @@ the sim-input file (or via command-line override):
    HOSTLIB_GALID_FORCE:    ####       # forced GALID 
    HOSTLIB_FIXRAN_RADIUS:  #.##       # fix radial random number (0-1)
    HOSTLIB_FIXRAN_PHI:     #.##       # fix phi random number (0-1)
+   HOSTLIB_FIXSERSIC:  a b n a_rot    # a,b in arcsec, a_rot in deg
 \end{Verbatim}
 Only the {\tt HOSTLIB\_FILE} key is required, while the
 other keys are optional. Ideally all surveys would use
@@ -3914,7 +3915,7 @@ a {\it spectroscopic} galaxy redshift, and it sets the 4-bit of
 To verify the ``{\tt a\_rot}'' convention, it is useful to fix the
 radius and angle to known values and visually inspect the location
 on a real image with the HOSTLIB galaxies. A relative
-galaxy position can be selected with
+galaxy position and Sersic profile can be selected with
 \begin{itemize}
   \item {\tt HOSTLIB\_FIXRAN\_PHI} is a random number ($0<r<1$) 
         that fixes the azimuthal angle to $r\times 360$:
@@ -3925,6 +3926,10 @@ galaxy position can be selected with
   \item {\tt HOSTLIB\_FIXRAN\_RADIUS} is a random number ($0<r<1$)
          where the reduced radius contains a fraction  
          `$r$' of the total flux.
+%
+ \item {\tt HOSTLIB\_FIXSERSIC} fixes the Sersic parameters
+       $a,b,n$, and also the galaxy major axis angle ({\tt a\_rot})
+       w.r.t. Right Ascension.
 \end{itemize}
 
 
@@ -7407,8 +7412,8 @@ In the following example of a two-column input file,
  ALL    53640.0
 \end{verbatim}
 %
-one epoch is interpolated for SN 1, 
-two epochs are interpolated for SN 2,
+one epoch (MJD 53616) is interpolated for SNID=1, 
+two epochs (53610,53626) are interpolated for SNID=2,
 and one epoch (53640) is interpolated for all SNe.
 Specify input and output files with the
 following {\tt \&SNLCINP} namelist variables,
@@ -7435,7 +7440,6 @@ The {\tt \&SNLCINP} namelist parameters are
 %
 \begin{Verbatim}[frame=single]
      OPT_SETPKMJD = 1  # fit with any-LC function 
-     OPT_LCPLOT   = 1  # make plots for PAW > snana#fitres .
 \end{Verbatim}
 %
 Filters can be ignored, for example, setting
@@ -8224,6 +8228,9 @@ To apply cuts on generated (true) parameters,
        SIMVAR_CUTWIN_STRING = 'SIM_c -0.1 0.1 SIM_REDSHIFT_CMB .1 .2'
        !  and/or
        SIM_TEMPLATE_INDEX_LIST = 202,203
+       ! and/or
+       SIMVAR_CUTWIN_STRING = 'NEP_SIM_MAGOBS 3 9999' ! >=3 obs with trueFlux>0
+
 \end{verbatim}
 %
 The first option requires the true SALT2-color (for SALT2 model only)
@@ -8231,6 +8238,7 @@ and true redshift (for any model) to satisfy
 the above cut-windows.  Also works on {\tt SIM\_x1}.
 The second option is for {\tt NON1ASED}, {\tt SIMSED}, and {\tt LCLIB}
 models; it selects a user-defined list of template indices.
+Third option required min number of observations with true flux$>0$/
 
 
 % -----------------------------------
@@ -9878,8 +9886,20 @@ For this option, {\tt GENRANGE\_REDSHIFT} must be specified.
 
 
 % -----------------------------------------
+\subsection{{\simlib}: Read True Mags from \simlib\ File}
+\label{subsec:MODEL_SIMLIB}
+% -----------------------------------------
+
+This model option does not compute true magnitudes, but instead
+reads the true magnitudes from the last column of the \simlib\ file.
+An example use of this feature is to simulate mags of
+``fake'' SN overlaid on images. The redshift, peakMJD, and GALID
+are automatically read from the \simlib\ headers, and the
+original GALID is used to model host noise.
+
+% -----------------------------------------
 \subsection{{\LCLIB}: Galactic Transients}
-\label{subsec:LCLIB}
+\label{subsec:MODEL_LCLIB}
 % -----------------------------------------
 
 \subsubsection{Overview}
@@ -11345,12 +11365,20 @@ for additional options.
 Ideally, a \simlib\ is created from a library of
 \obss\ containing PSF, sky-noise and zero-point.
 However, there may be cases where it is useful to
-create a \simlib\ directly from a data sample.
+create a \simlib\ directly from a data sample. 
+Two examples are 1) low-z sample which has no meta-data 
+to construct a \simlib\ file, and 2) simulating fake SN
+that have already been overlaid on images.
+
 The {\tt snana.exe} program can create such a
-\simlib\ via the {\tt \&SNLCINP} input key
+\simlib\ via the {\tt \&SNLCINP} input key(s)
 %
 \begin{verbatim}
     SIMLIB_OUT = 'mydata.simlib'
+
+  ! for sims, or fake data with SIM_MAGOBS :
+    OPT_SIMLIB_OUT = 1    ! write SIM_MAGOBS in last SIMLIB column, all obs
+    OPT_SIMLIB_OUT = 2    ! idem, but only when true flux > 0
 \end{verbatim}
 %
 If the light curve data include meta data (PSF,SKY,ZP)
@@ -11391,6 +11419,13 @@ from the header using the following sim-input keys
   USE_SIMLIB_REDSHIFT: 1  # use redshift in header (if there)
 \end{verbatim}
 
+
+The {\tt OPT\_SIMLIB\_OUT} feature writes the true (simulated) mags in the
+last column of the \simlib\ file.
+Beware that overlapping fields are not treated properly, 
+so it is recommended to also set {\tt CUTWIN\_NFIELD = 1,1}.
+The ``{\simlib}'' model feature in the simulation (\S\ref{subsec:MODEL_SIMLIB}) 
+reads these mags.
 
 % --------------------------------------
   \clearpage

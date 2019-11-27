@@ -38,7 +38,7 @@
 #include <stdbool.h>
 
 #include "sndata.h"
-#define  SNANA_VERSION_CURRENT  "v10_74j"           
+#define  SNANA_VERSION_CURRENT  "v10_74k"            
 
 #define LIGHT_km  2.99792458e5      // speed of light (km/s) 
 #define LIGHT_A   2.99792458e18     // speed of light (A/s) 
@@ -95,6 +95,7 @@
 #define MODEL_LCLIB      12  // light curve library (July 2017)
 #define MODEL_FIXMAG     20  // constant/fixed mag (default is mag=20)
 #define MODEL_RANMAG     21  // constant/fixed mag per LC, random each event
+#define MODEL_SIMLIB     22  // use MAGOBS column of SIMLIB
 #define MXMODEL_INDEX    40
 #define PATH_SNDATA_SIM_LIST  "PATH_SNDATA_SIM.LIST"
 

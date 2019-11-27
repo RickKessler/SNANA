@@ -358,12 +358,13 @@ void filtdump_SEDMODEL(void) {
   char *name;
   char dashLine[] = 
     "----------------------------------------------------------------------" ;
+  char fnam[] = "filtdump_SEDMODEL";
 
   // --------- BEGIN ----
 
   name  = PRIMARY_SEDMODEL.name ;
-  printf("   Read primary ref '%s' with %d lambda bins \n",
-	 name, PRIMARY_SEDMODEL.NLAM );
+  printf("   %s: Read primary ref '%s' with %d lambda bins \n",
+	 fnam, name, PRIMARY_SEDMODEL.NLAM );
 
   printf("\n");
   printf(

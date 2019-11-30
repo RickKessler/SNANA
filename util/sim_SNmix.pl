@@ -1080,7 +1080,8 @@ sub parse_inFile_master() {
     if ( scalar(@tmp) > 0 ) {
 	if ( "$GENPREFIX" ne "MIX" ) {
 	    $MSGERR[0] = "GENPREFIX defined twice: $GENPREFIX and $tmp[0]" ;
-	    $MSGERR[1] = "Only one GENPREFIX declaration allowed in master-input.";
+	    $MSGERR[1] = "Only one GENPREFIX declaration allowed in " . 
+		"master-input.";
 	    sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);	    
 	}
 	$GENPREFIX = $tmp[0]; 

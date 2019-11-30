@@ -5929,6 +5929,8 @@ void prep_user_input(void) {
     INPUTS.HOSTLIB_DZTOL[0] = 0.05;
     INPUTS.HOSTLIB_DZTOL[1] = 0.0;
     INPUTS.HOSTLIB_DZTOL[2] = 0.0;
+
+    GENLC.ptr_SHAPEPAR = &GENLC.SALT2x1 ; 
   }
   else {
     sprintf(c1err,"%s is not a valid genmag-model", INPUTS.MODELNAME);
@@ -7956,7 +7958,8 @@ void  init_GENLC(void) {
   */
 
 
-  GENLC.MAGSMEAR_COH = 0.0 ;
+  GENLC.MAGSMEAR_COH[0] = 0.0 ;
+  GENLC.MAGSMEAR_COH[1] = 0.0 ;
      
   for ( epoch = 0; epoch < NEP_RESET; epoch++ ) {
     GENLC.IFILT_OBS[epoch] = NULLINT ;
@@ -8099,6 +8102,8 @@ void init_modelSmear(void) {
   // May 27 2019: 
   //  + check for call to init_obs_atFLUXMAX() to prep for 
   //    PEAKMJD estimate
+  //
+  // Nov 30 2019: pass SMEAR_MODELNAME to init_genmag_COH
 
   double GENMODEL_ERRSCALE = (double)INPUTS.GENMODEL_ERRSCALE ;
   double SMEAR_SCALE       = (double)INPUTS.GENMAG_SMEAR_SCALE;
@@ -8246,8 +8251,8 @@ void init_modelSmear(void) {
   else if ( strcmp(ptrName,"CCM89") == 0 )   // modify color law with CCM89
     {  init_genSmear_CCM89(LAMRANGE) ; }
 
-  else if ( strcmp(ptrName,"COH") == 0 ) 
-    {  init_genSmear_COH() ; }
+  else if ( strstr(ptrName,"COH") != NULL ) 
+    {  init_genSmear_COH(ptrName) ; }
 
   else if ( strcmp(ptrName,"BIMODAL_UV") == 0 ) 
     {  init_genSmear_biModalUV() ; }
@@ -8931,7 +8936,9 @@ void GENSPEC_TRUE(int imjd) {
   }
   else  if ( INDEX_GENMODEL  == MODEL_NON1ASED ) {    
     // works with NON1ASED, but NOT with NON1AGRID
-    MAGOFF = GENLC.GENMAG_OFF_GLOBAL + GENLC.MAGSMEAR_COH ;
+    MAGOFF = 
+      GENLC.GENMAG_OFF_GLOBAL + GENLC.MAGSMEAR_COH[0] + GENLC.MAGSMEAR_COH[1];
+
     getSpec_SEDMODEL(ISED_NON1A,
 		     GENLC.MWEBV, GENLC.RV, GENLC.AV, // (I)		     
 		     GENLC.REDSHIFT_HELIO,            // (I) redshift
@@ -10679,10 +10686,13 @@ void gen_modelPar(int ilc) {
 
   Apr 09 2019: change function name, gen_shapepar() -> gen_modelPar().
 
+  Nov 25 2019: for SIMLIB model, set SALT2x1[c]
+
   **********/
   int ISMODEL_SALT2     = ( INDEX_GENMODEL == MODEL_SALT2  );
   int ISMODEL_SIMSED    = ( INDEX_GENMODEL == MODEL_SIMSED );
   int ISMODEL_FIXMAG    = ( INDEX_GENMODEL == MODEL_FIXMAG );
+  int ISMODEL_SIMLIB    = ( INDEX_GENMODEL == MODEL_SIMLIB );
   int ISMODEL_NON1ASED  = ( INDEX_GENMODEL == MODEL_NON1ASED );
 
   double ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
@@ -10731,6 +10741,14 @@ void gen_modelPar(int ilc) {
     GENLC.NOSHAPE   = FlatRan ( 2, INPUTS.FIXMAG );  
     if ( INPUTS.GENFRAME_FIXMAG == GENFRAME_REST ) 
       { GENLC.NOSHAPE += GENLC.DLMU; }
+  }
+  else if ( ISMODEL_SIMLIB ) {
+
+    // this is a fragile hack to link SALT2 params with SIMLIB model.
+    // Purpose is to allow cutting on SALT2x1[c] in SIMLIB header.
+    shape               = SIMLIB_HEADER.GENGAUSS_SALT2x1.RANGE[0] ;
+    GENLC.SHAPEPAR      = shape ; 
+    *GENLC.ptr_SHAPEPAR = shape ; 
   }
   
   return ;
@@ -12309,7 +12327,12 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"MAGSMEAR_COH") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.MAGSMEAR_COH ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.MAGSMEAR_COH[0] ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"MAGSMEAR_COH2") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.MAGSMEAR_COH[1] ;
   NVAR_SIMGEN_DUMP++ ;
 
   // typings
@@ -13856,11 +13879,7 @@ void SIMLIB_INIT_DRIVER(void) {
 
   SIMLIB_prepGlobalHeader();        
 
-  //  SIMLIB_openLegacy(); // xxx mark delete 
-
   SIMLIB_findStart();    // find first LIBID to start reading
-
-  //  debugexit(fnam);
 
 } // end SIMLIB_INIT
 
@@ -14740,7 +14759,6 @@ void SIMLIB_READ_DRIVER(void) {
     // read next cadence from SIMLIB/Cadence file (any format)
     SIMLIB_readNextCadence_TEXT(); 
 
-
     // expand SPECTROGRAPH keys (MJD,TEXPOSE) to include 
     // each synthetic band as if they were in the SIMLIB file
     SIMLIB_addCadence_SPECTROGRAPH(); 
@@ -14784,11 +14802,12 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   // Jan 3 2018: use parse_SIMLIB_IDplusNEXPOSE() to read IDEXPT & NEXPOSE
   // Sep 17 2019: rewind on EOF so that END_OF_SIMLIB: key is optional.
 
+  int ISMODEL_SIMLIB =  (INDEX_GENMODEL == MODEL_SIMLIB);
   int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0, scanStat;
   int APPEND_PHOTFLAG, ifilt_obs, DONE_READING, DO_REWIND ;
   int NTRY, USEFLAG_LIBID, USEFLAG_MJD, OPTLINE, NWD, NTMP ;
-  int   NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT  ;
-  double PIXSIZE, TEXPOSE_S, MJD ;
+  int   NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT, NMAG_notZeroFlux;
+  double PIXSIZE, TEXPOSE_S, MJD, MAG ;
   char c_get[80], ctmp[80], *BAND, cline[200] ;
   char *FIELD = SIMLIB_HEADER.FIELD;
   char *TEL   = SIMLIB_HEADER.TELESCOPE ;
@@ -14807,6 +14826,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   init_SIMLIB_HEADER();
   NOBS_EXPECT = NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID =USEFLAG_MJD = 0 ;
   DONE_READING = NOBS_SKIP = SKIP_FIELD = SKIP_APPEND = APPEND_PHOTFLAG = 0 ;
+  NMAG_notZeroFlux = 0 ;
   SIMLIB_LIST_forSORT.MJD_LAST = -9.0 ;
   SIMLIB_TEMPLATE.NFIELD_OVP = 0;
   NTRY++ ;
@@ -14966,6 +14986,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.ZPTSIG[ISTORE]   );  
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.MAG[ISTORE]      );
 
+      // check MAG column for SIMLIB model (Nov 2019)
+      MAG = SIMLIB_OBS_RAW.MAG[ISTORE];
+      if ( MAG < MAG_ZEROFLUX-0.001 ) { NMAG_notZeroFlux++ ; }
+
       // convert filter-char to integer		   
       BAND      = SIMLIB_OBS_RAW.BAND[ISTORE] ;
       ifilt_obs = INTFILTER(BAND);
@@ -15036,10 +15060,11 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   } // end while loop with fscanf
 
  DONE_READING:
-
+  
   /*
-  printf(" xxx %s  NOBS(EXPECT,FOUND,SKIP) = %d,%d,%d   FIELD=%s \n",
-	 fnam, NOBS_EXPECT, NOBS_FOUND, NOBS_SKIP, FIELD );
+  printf(" xxx %s  NOBS(EXPECT,FOUND,SKIP,not0) = %d,%d,%d,%d   FIELD=%s \n",
+	 fnam, NOBS_EXPECT, NOBS_FOUND, NOBS_SKIP, NMAG_notZeroFlux,
+	 FIELD );
   */
 
   if ( INPUTS.SIMLIB_FIELDSKIP_FLAG==0 && ( NOBS_EXPECT==NOBS_SKIP) ) 
@@ -15058,6 +15083,13 @@ void  SIMLIB_readNextCadence_TEXT(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
   }
 
+
+  if ( ISMODEL_SIMLIB  && NMAG_notZeroFlux==0 ) {
+    sprintf(c1err,"All MAG=%.1f (i.e., FLUX=0) for LIBID=%d .",
+	    MAG_ZEROFLUX, SIMLIB_HEADER.LIBID);
+    sprintf(c2err,"For SIMLIB model, some valid MAG values are required.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
+  }
 
   return ;
 
@@ -15094,6 +15126,8 @@ int keep_SIMLIB_HEADER(void) {
   // Return ACCEPT_FLAG if SIMLIB_HEADER values pass cuts.
   // Return REJECT_FLAG if SIMLIB_HEADER fails cuts, or REWIND flag is set
   //
+  // Nov 28 9 2019: few checks for SIMLIB model.
+
 
   int  ID      = SIMLIB_HEADER.LIBID ;
   int  NOBS    = SIMLIB_HEADER.NOBS ;
@@ -15101,6 +15135,12 @@ int keep_SIMLIB_HEADER(void) {
   int  NSKIP   = INPUTS.NSKIP_SIMLIB ;
   int  NWRAP   = SIMLIB_HEADER.NWRAP ;
   double  zCMB = GENLC.REDSHIFT_CMB ;
+  int  ISMODEL_SIMLIB = ( INDEX_GENMODEL == MODEL_SIMLIB );
+  double z_min     = SIMLIB_HEADER.GENRANGE_REDSHIFT[0];
+  double z_max     = SIMLIB_HEADER.GENRANGE_REDSHIFT[1];
+  double pkmjd_min = SIMLIB_HEADER.GENGAUSS_PEAKMJD.RANGE[0];
+  double pkmjd_max = SIMLIB_HEADER.GENGAUSS_PEAKMJD.RANGE[1];
+
   int  iskip, icheck ;
   double *ptrGen ;
   char fnam[] = "keep_SIMLIB_HEADER" ;
@@ -15111,6 +15151,21 @@ int keep_SIMLIB_HEADER(void) {
   if(LTRACE) {
     printf(" xxx %s: ----------- ID=%d ------------ \n", 
 	   fnam, GENLC.SIMLIB_ID );
+  }
+
+  // for SIMLIB model, make sure required REDSHIFT and PEAKMJD
+  // are in the header.
+  if ( ISMODEL_SIMLIB ) {
+    if ( pkmjd_min < 1000.0 ) {
+      sprintf(c1err,"Missing 'PEAKMJD:' key in SIMLIB header.");
+      sprintf(c2err,"PEAKMJD key is required for SIMLIB model.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
+    }
+    if ( z_min < 0 ) {
+      sprintf(c1err,"Missing  'REDSHIFT:' key in SIMLIB header.");
+      sprintf(c2err,"REDSHIFT key needed is required for SIMLIB model.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
+    }
   }
 
   if(LTRACE) {printf(" xxx %s: 0  IDLOCK=%d \n", fnam, IDLOCK);}
@@ -15581,6 +15636,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     // compute a few things from OBS_RAW
     if ( INPUTS.SMEARFLAG_ZEROPT == 0 ) { ZPT[1] = 0.0 ; }
     if ( MAG < 5.0 || MAG > 50 ) { MAG = MAG_UNDEFINED ; }
+    if ( MAG < MAG_ZEROFLUX    ) { SIMLIB_HEADER.NOBS_SIM_MAGOBS++ ; }
     sprintf(cfilt,  "%c", FILTERSTRING[IFILT_OBS] ) ;
 
     ifilt     = GENLC.IFILTINVMAP_SIMLIB[IFILT_OBS] ;
@@ -16595,7 +16651,8 @@ void init_SIMLIB_HEADER(void) {
 
   SIMLIB_HEADER.REGEN_FLAG  = 0 ;
   SIMLIB_HEADER.NOBS        = NULLINT ;
-  SIMLIB_HEADER.NOBS_APPEND = 0 ;
+  SIMLIB_HEADER.NOBS_APPEND     = 0 ;
+  SIMLIB_HEADER.NOBS_SIM_MAGOBS = 0 ; // Nov 2019
   SIMLIB_HEADER.RA          = 9999. ;
   SIMLIB_HEADER.DEC         = 9999. ;
   SIMLIB_HEADER.FAKEID      = NULLINT ;
@@ -16760,13 +16817,21 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
 
 
   // check for SALT2c range & sigma
-  if ( strcmp(KEY,"GENRANGE_SALT2c:") == 0 ) {
-    readdouble ( fp_SIMLIB, 2, TMPRANGE );
+  LTMP=0;
+  if ( strcmp(KEY,"SALT2c:") == 0 ) {
+    readdouble ( fp_SIMLIB, 1, &TMPVAL);
+    TMPRANGE[0] = TMPRANGE[1] = TMPVAL ; LTMP=1;    
+  }
+  else if ( strcmp(KEY,"GENRANGE_SALT2c:") == 0 ) {
+    readdouble ( fp_SIMLIB, 2, TMPRANGE ); LTMP=1 ;
+  }
+  if ( LTMP ) {
     SIMLIB_HEADER.GENGAUSS_SALT2c.PEAK     = 0.5*(TMPRANGE[0]+TMPRANGE[1]);
     SIMLIB_HEADER.GENGAUSS_SALT2c.RANGE[0] = TMPRANGE[0] ;
     SIMLIB_HEADER.GENGAUSS_SALT2c.RANGE[1] = TMPRANGE[1] ;
     SIMLIB_HEADER.REGEN_FLAG = 1;
   }
+
   if ( strcmp(KEY,"GENSIGMA_SALT2c:") == 0 ) {
     readdouble ( fp_SIMLIB, 1, &TMPVAL ); 
     SIMLIB_HEADER.GENGAUSS_SALT2c.SIGMA[0] = TMPVAL ;
@@ -16774,13 +16839,21 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   } 
 
   // check for SALT2x1 range & sigma
-  if ( strcmp(KEY,"GENRANGE_SALT2x1:")==0 ) {
-    readdouble ( fp_SIMLIB, 2, TMPRANGE );   
+  LTMP=0;
+  if ( strcmp(KEY,"SALT2x1:")==0 ) {
+    readdouble ( fp_SIMLIB, 1, &TMPVAL );   
+    TMPRANGE[0] = TMPRANGE[1] = TMPVAL ; LTMP=1;  
+  }
+  else if ( strcmp(KEY,"GENRANGE_SALT2x1:")==0 ) {
+    readdouble ( fp_SIMLIB, 2, TMPRANGE );   LTMP=1;
+  }
+  if ( LTMP ) {
     SIMLIB_HEADER.GENGAUSS_SALT2x1.PEAK     = 0.5*(TMPRANGE[0]+TMPRANGE[1]);
     SIMLIB_HEADER.GENGAUSS_SALT2x1.RANGE[0] = TMPRANGE[0] ;
     SIMLIB_HEADER.GENGAUSS_SALT2x1.RANGE[1] = TMPRANGE[1] ;
     SIMLIB_HEADER.REGEN_FLAG = 1;
   }
+
   if ( strcmp(KEY,"GENSIGMA_SALT2x1:") == 0 ) {
     readdouble ( fp_SIMLIB, 1, &TMPVAL ); 
     SIMLIB_HEADER.GENGAUSS_SALT2x1.SIGMA[0] = TMPVAL ;
@@ -20498,7 +20571,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_SALT2beta        = GENLC.SALT2beta ; 
   SNDATA.SIM_SALT2gammaDM     = GENLC.SALT2gammaDM ;
   SNDATA.SIM_TEMPLATE_INDEX   = GENLC.TEMPLATE_INDEX ; 
-  SNDATA.SIM_MAGSMEAR_COH     = GENLC.MAGSMEAR_COH ;
+  SNDATA.SIM_MAGSMEAR_COH     = GENLC.MAGSMEAR_COH[0] ;
   SNDATA.SIM_RISETIME_SHIFT   = GENLC.RISETIME_SHIFT ;
   SNDATA.SIM_FALLTIME_SHIFT   = GENLC.FALLTIME_SHIFT ;
   SNDATA.SIM_TRESTMIN         = GENLC.TRESTMIN ;
@@ -22292,7 +22365,7 @@ void genmodel(
   char fnam[] = "genmodel" ;
 
   // -------- BEGIN ---------
-
+ 
   // create temp structure with epoch-list for this filter
   NEPFILT = NEPFILT_GENLC(1,ifilt_obs);
 
@@ -22444,6 +22517,17 @@ void genmodel(
 
     // gen mags are already loaded since ptr_genmag points to 
     // GENFILT.genmag8_obs
+
+    /*
+    printf(" xxx %s: %d \n", SIMLIB_HEADER.NOBS_SIM_MAGOBS);
+
+    if ( SIMLIB_HEADER.NOBS_SIM_MAGOBS == 0 ) {
+      sprintf(c1err,"All SIMLIB SIM_MAGOBS=%.1f --> all true flux = 0", 
+	      MAG_ZEROFLUX);
+      sprintf(c2err,"Probably have wrong SIMLIB");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+    */
 
   }
   else if ( INDEX_GENMODEL  == MODEL_MLCS2k2 ) {
@@ -22620,7 +22704,7 @@ void genmodel(
 		   ,ptr_epoch           // (I) Trest-Tpeak (days)
 		   ,ptr_genmag          // (O) obs mags
 		   ,ptr_generr          // (O) obs mag-errs
-		   ,&GENLC.MAGSMEAR_COH // (O) store random magSmear
+		   ,&GENLC.MAGSMEAR_COH[0] // (O) store random magSmear
 		      );
 
     GENLC.TEMPLATE_INDEX = fetchInfo_NON1AGRID("NON1A_INDEX");
@@ -22921,7 +23005,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     ran_COH = GENLC.GENSMEAR_RANGauss_FILTER[0] ; // retrieve random #
 
     magSmear = INPUTS.GENMAG_SMEAR[0] * ran_COH ;
-    GENLC.MAGSMEAR_COH = magSmear ;  // store global
+    GENLC.MAGSMEAR_COH[0] = magSmear ;  // store global
 
     for ( iep = 1; iep <= NEPFILT; iep++ )   { 
       ptr_genmag[iep-1]                     += magSmear ;
@@ -23022,8 +23106,10 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
 
   } // ep loop
 
-  if ( istat_genSmear() > 0 ) 
-    { GENLC.MAGSMEAR_COH = GENSMEAR.MAGSMEAR_COH ; } // see sntools_genSmear.c
+  if ( istat_genSmear() > 0 ) {
+    GENLC.MAGSMEAR_COH[0] = GENSMEAR.MAGSMEAR_COH[0];
+    GENLC.MAGSMEAR_COH[1] = GENSMEAR.MAGSMEAR_COH[1]; // optional 2nd term
+  } 
 
   return ;
 

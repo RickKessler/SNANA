@@ -16,7 +16,9 @@
 
  GENMAG_SMEAR_MODELNAME: CCM89    # modify color law with CCM89  
  GENMAG_SMEAR_MODELNAME: PRIVATE  
- GENMAG_SMEAR_MODELNAME: COH      # SIGCOH=.13  (Feb 2014)
+ GENMAG_SMEAR_MODELNAME: COH           # SIGCOH=.13  (Feb 2014)
+ GENMAG_SMEAR_MODELNAME: COH(0.12)     # SIGCOH=.12  (Nov 2019)
+ GENMAG_SMEAR_MODELNAME: COH(0.9+0.2)  # 2 sigma-scat terms (Nov 2019)
  GENMAG_SMEAR_MODELNAME: VCR      # Velocit-Color Relation (MFK14)
  GENMAG_SMEAR_MODELNAME: BIMODAL_UV  # sort'of like Milne 2015
  GENMAG_SMEAR_USRFUN:  <list of 8 params> 
@@ -241,6 +243,7 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
   return;
 
 } // end load_genSmear_randoms
+
 
 // ********************************
 void get_genSmear(double Trest, int NLam, double *Lam, 
@@ -2417,6 +2420,8 @@ void init_genSmear_COH(char *stringArg) {
   //     --> sigma = 0.55 and sigma=0.11 (2 variations),
   //         and stored separate MAGSMEAR_COH values.
   //
+  // The two scatter values can be output to SIMGEN_DUMP using
+  // MAGSMEAR_COH and MAGSMEAR_COH2.
   //
   // Nov 30 2019: major refactor/update, and pass stringArg input
   //
@@ -2499,10 +2504,13 @@ void get_genSmear_COH(double Trest, int NLam, double *Lam,
     MAGSMEAR = SIG*GENSMEAR.RANGauss_LIST[isig] ;
     GENSMEAR.MAGSMEAR_COH[isig] = MAGSMEAR;
     SUM_MAGSMEAR += MAGSMEAR ; // note linear sum, not in quadrature
-    //    printf(" xxx %s: MAGSMEAR[%d] = %f \n", fnam, isig, MAGSMEAR);
   }
 
-  
+  /*
+  printf(" xxx %s: SUM_MAGSMEAR = %f  (NLAM=%d) \n",
+	 fnam, SUM_MAGSMEAR, NLam ); fflush(stdout);
+  */
+
   for ( ilam=0; ilam < NLam; ilam++ )  
     { magSmear[ilam] = SUM_MAGSMEAR ; }
 

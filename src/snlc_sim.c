@@ -2116,7 +2116,6 @@ int read_input(char *input_file) {
 	{ readdouble ( fp, 1, &INPUTS.GENMAG_SMEAR_USRFUN[0] );  }
 
       if ( strstr(modelName,":")!= NULL)  { parse_GENMAG_SMEAR_MODELNAME(); }
-
       continue ; 
     }
 
@@ -3352,7 +3351,7 @@ int parse_input_KEY_PLUS_FILTER(FILE *fp, int *iArg,
 void parse_GENMAG_SMEAR_MODELNAME(void) {
 
   // Split GENMAG_SMEAR_MODELSTRING by colon;
-  // store right side of colin in GENMAG_SMEAR_MODELARG.
+  // store right side of colon in GENMAG_SMEAR_MODELARG.
 
   int  MEMC = MXCHAR_FILENAME * sizeof(char) ;
   char colon[] = ":" ;
@@ -3365,6 +3364,7 @@ void parse_GENMAG_SMEAR_MODELNAME(void) {
   inString    = (char*) malloc(MEMC);
   ptrSplit[0] = (char*) malloc(MEMC);
   ptrSplit[1] = (char*) malloc(MEMC);
+
 
   sprintf(inString,"%s", INPUTS.GENMAG_SMEAR_MODELNAME);
 
@@ -5608,14 +5608,16 @@ void prep_user_input(void) {
   Sep 05 2018: set INPUTS.NON1ASED.PATH
   Oct 04 2018: set INPUTS.USE_HOSTLIB_GENZPHOT
   Feb 15 2019: turn off INPUTS.GENMAG_SMEAR_MODELNAME for SIMSED model.
+  Dec 01 2019: allow COH scatter model for NON1ASED and SIMSED models.
 
   *******************/
 
   int ifilt, ifilt_obs, IBLANK,i, j, indx, lentmp, NGEN, OPT, NTMP  ;
   int DOCHECK_FORMAT_MASK=1, ISRATE_LCLIB, INDEX_RATEMODEL;
+  int USE_SMEAR_MODELNAME, ISCOH_SMEAR;
 
   float tmp_F, XGEN_F ; 
-  char  *PTR_GENMODEL, vtmp[40]   ;
+  char  *PTR_GENMODEL, *PTR_SMEAR_MODELNAME, vtmp[40]   ;
   char *input_file = INPUTS.INPUT_FILE_LIST[0] ;
   char fnam[] = "prep_user_input" ;
 
@@ -5744,6 +5746,12 @@ void prep_user_input(void) {
   GENFRAME_OPT = NULLINT ;
   GENLC.ptr_SHAPEPAR = &GENLC.NOSHAPE ;  // default
 
+  PTR_SMEAR_MODELNAME = INPUTS.GENMAG_SMEAR_MODELNAME ;
+  USE_SMEAR_MODELNAME = !IGNOREFILE(PTR_SMEAR_MODELNAME);
+  ISCOH_SMEAR         = ( strstr(PTR_SMEAR_MODELNAME,"COH") != NULL );
+
+  // - - - - - -  - - - 
+
   if ( INDEX_GENMODEL  == MODEL_STRETCH ) {
     
     GENFRAME_OPT    = GENFRAME_REST ;
@@ -5817,11 +5825,17 @@ void prep_user_input(void) {
   }
   else if ( INDEX_GENMODEL == MODEL_SIMSED ) {
    
+    // allow only COH model for intrinsic scatter
+    if ( USE_SMEAR_MODELNAME && !ISCOH_SMEAR ) {
+      sprintf(c1err,"Invalid GENMAG_SMEAR_MODELNAME: %s",PTR_SMEAR_MODELNAME);
+      sprintf(c2err,"Only COH and COH([sig]) allowed with NON1ASED");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
     GENFRAME_OPT   = GENFRAME_OBS;
     INPUTS.GENGAUSS_SHAPEPAR.RANGE[0] = -1.0 ; // anything non-zero
     INPUTS.GENGAUSS_SHAPEPAR.RANGE[1] = +1.0 ;
     prep_user_SIMSED(); // Feb 26 2018
-    sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"NONE"); // no SNIa scatter model
   }
 
   else if ( INDEX_GENMODEL == MODEL_BYOSED ) {
@@ -5832,7 +5846,14 @@ void prep_user_input(void) {
 
   else  if ( INDEX_GENMODEL  == MODEL_NON1ASED ) {    
     GENFRAME_OPT    = GENFRAME_OBS ;
-    sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"NONE"); // no SNIa scatter model
+
+    // allow only COH model for intrinsic scatter
+    if ( USE_SMEAR_MODELNAME && !ISCOH_SMEAR ) {
+      sprintf(c1err,"Invalid GENMAG_SMEAR_MODELNAME: %s",PTR_SMEAR_MODELNAME);
+      sprintf(c2err,"Only COH and COH([sig]) allowed with NON1ASED");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
     if( strlen(INPUTS.MODELPATH) > 0 ) 
       { sprintf(INPUTS.NON1ASED.PATH, "%s", INPUTS.MODELPATH);   }
   }
@@ -8116,11 +8137,6 @@ void init_modelSmear(void) {
 
   // --------- BEGIN ----------
 
-  /* xxx
-  GENLC.NRANGauss_GENSMEAR = 0 ;
-  GENLC.NRANFlat_GENSMEAR  = 0 ;
-  xxxx */
-
   sprintf(BANNER,"%s: init intrinsic SN smearing with model=%s",
 	  fnam, INPUTS.GENMAG_SMEAR_MODELNAME);
   print_banner(BANNER);
@@ -8150,8 +8166,9 @@ void init_modelSmear(void) {
   // check model names
   init_genSmear_FLAGS(SMEAR_MSKOPT,SMEAR_SCALE); // internal inits
 
-  sprintf(key,"GENMAG_SMEAR_MODELNAME") ;
+
   ptrName = INPUTS.GENMAG_SMEAR_MODELNAME ;
+
   if ( IGNOREFILE(ptrName) ) { 
 
     // .xyz init un-used randoms to preserve randon synch for SNANA_tester
@@ -8162,6 +8179,7 @@ void init_modelSmear(void) {
 
   INPUTS.DO_MODELSMEAR  = 1 ;
 
+    sprintf(key,"GENMAG_SMEAR_MODELNAME") ;
   if ( GENMODEL_ERRSCALE > 1.0E-9 ) {
     printf("\n PRE-ABORT DUMP: \n");
     printf("  %s = %s \n" , key, ptrName);
@@ -8272,34 +8290,6 @@ void init_modelSmear(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-
-  // fetch & store number of randoms to generate for each SN.
-
-  /* xxxx mark delete Oct 21 2019 xxxxxxx
-  get_NRAN_genSmear(&GENLC.NRANGauss_GENSMEAR,&GENLC.NRANFlat_GENSMEAR);
-  NRANGauss = GENLC.NRANGauss_GENSMEAR;
-  NRANFlat  = GENLC.NRANFlat_GENSMEAR ;
-
-  if ( NRANGauss >= MXRAN_GENSMEAR ) {
-    sprintf(c1err, "NRANGauss=%d exceeds bound of %d", 
-	    NRANGauss, MXRAN_GENSMEAR);
-    sprintf(c2err, "Check %s and its parameters.", ptrName);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-  if ( NRANFlat >= MXRAN_GENSMEAR ) {
-    sprintf(c1err, "NRANFlat=%d exceeds bound of %d", 
-	    NRANFlat, MXRAN_GENSMEAR );
-    sprintf(c2err, "Check %s and its parameters.", ptrName);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  printf("   Number of %s Gaussian  randoms per SN: %d \n",  
-	 ptrName, NRANGauss);
-  printf("   Number of %s Flat(0-1) randoms per SN: %d \n",  
-	 ptrName, NRANFlat);
-  fflush(stdout);
-
-  xxxxx end mark xxxxxxxxx  */
 
   printf("   MagSmear scale: %.3f \n", SMEAR_SCALE);
 
@@ -12353,6 +12343,11 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"NON1A_INDEX") ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"NONIA_INDEX") ;
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
   NVAR_SIMGEN_DUMP++ ;
 
@@ -22952,7 +22947,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
 
   double 
     ran_COH, ran_FILT
-    ,magSmear, magSmear_model
+    ,magSmear=0.0, magSmear_model
     ,smearsig, smearsig_fix, smearsig_model
     ,Tep, Tpeak, Trest, lamrest, Z1
     ;
@@ -23051,7 +23046,6 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     smearsig = sqrt( pow(smearsig_model,2.) + pow(smearsig_fix,2.) );      
     magSmear = smearsig * ran_FILT ;  // apply filter-dependent random smear
 
-
     // model-dependent smearing; note that get_genSmear returns
     // a randomly generated magSmear rather than a sigma-smear.
     // Also, this magSmear over-writes previous magSmear since 
@@ -23078,17 +23072,19 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     }
     // xxxxxxxxxxxxxx */
 
+
     // insanity check:
     if ( fabs(magSmear) > 30.0 ) {
-
-      printf("\n xxx smearsig(model,fix,tot) = %f , %f , %f \n", 
-	     smearsig_model, smearsig_fix, smearsig );
-      
+      printf("\n xxx ---------------------------------------- \n");
+      printf(" xxx smearsig(model,fix,tot) = %.3f,%.3f,%.3f  magSmear=%f\n", 
+	     smearsig_model, smearsig_fix, smearsig, magSmear );
+      printf(" xxx lamrest = %.1f   Trest=%.2f\n", lamrest, Trest);
+      printf(" xxx USE_GENSMEAR_MODEL = %d \n", USE_GENSMEAR_MODEL );
       sprintf(c1err,"magSmear = %f is for filt=%s T=%6.1f", 
 	      magSmear, cfilt, Tep );
       sprintf(c2err,"magsig(model)=%4.1f  GaussRan=%5.3f  errscale=%4.2f", 
 	      smearsig, ran_FILT, INPUTS.GENMODEL_ERRSCALE );
-      errmsg(SEV_WARN, 0, fnam, c1err, c2err ); 
+      errmsg(SEV_WARN, 0, fnam, c1err, c2err );
     }
 
     // Aug 15, 2009: clip mag-smear at +- 3 mag to avoid catastrophe

@@ -985,7 +985,7 @@ struct GENLC {
   double RANGauss_NOISE_TEMPLATE[MXFIELD_OVP_SIMLIB][MXFILTINDX];  // template noise per filter and field-overlap
 
   // GENSMEAR refers to intrinsic scatter models
-  double  MAGSMEAR_COH;              // coherent part of scatter
+  double  MAGSMEAR_COH[2];              // coherent part of scatter
   double  GENSMEAR_RANGauss_FILTER[MXFILTINDX+1]  ;  // filter smear
 
   /* xxx mark delet Oct 21 2019 xxxxxxxxx
@@ -1222,6 +1222,7 @@ struct SIMLIB_HEADER {
   char   SUBSURVEY_NAME[40]; // optional sub-survey (e..g, LOWZ_COMBINED) 
   int    NOBS, LIBID, NWRAP ;  
   int    NOBS_APPEND ;  // these obs are not MJD-sorted (Jan 2018)
+  int    NOBS_SIM_MAGOBS; // NOBS with SIM_MAGOBS<99
   double RA, DEC ; 
 
   // optional stuff 

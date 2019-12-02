@@ -4106,16 +4106,11 @@ void GEN_SNHOST_GALID(double ZGEN) {
   //
   // Nov 23 2019: for MODEL_SIMLIB, force GALID to value in SIMLIB header.
 
-  int 
-    IZ_CEN, iz_cen, IGAL_SELECT
-    ,igal_start, igal_end, igal, LDMP
-    ,NSKIP_WGT, NSKIP_USED, NGAL_CHECK, MATCH; 
-    ;
-
+  int  IZ_CEN, iz_cen, IGAL_SELECT, igal_start, igal_end, igal, LDMP;
+  int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, MATCH; 
   long long GALID_FORCE, GALID ;
   double  ZTRUE, LOGZGEN ,WGT_start, WGT_end, WGT_dif, WGT_select, WGT ;
   double  ztol, dztol, z, z_start, z_end ;
-
   char fnam[] = "GEN_SNHOST_GALID" ;
 
   // ---------- BEGIN ------------
@@ -4213,7 +4208,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   NSKIP_WGT   = NSKIP_USED = NGAL_CHECK = 0 ;
   GALID_FORCE = INPUTS.HOSTLIB_GALID_FORCE ;
-  if ( INDEX_GENMODEL == MODEL_SIMLIB ) { GALID_FORCE = SIMLIB_HEADER.GALID; }
+  if ( INDEX_GENMODEL == MODEL_SIMLIB && SIMLIB_HEADER.GALID>0) 
+    { GALID_FORCE = SIMLIB_HEADER.GALID; }
 
   // ---------------------------------------------------------
   // Feb 16 2016

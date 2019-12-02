@@ -184,13 +184,13 @@ void read_kcor_head(void) {
   sprintf(KEYWORD,"VERSION");  IPTR = &KCOR_INFO.VERSION;
   fits_read_key(FP, TINT, KEYWORD, IPTR, comment, &istat);
   snfitsio_errorCheck("can't read VERSION", istat);
-  printf("\t Read %-*s  = %d  (kcor.exe version) \n", 
+  printf("\t\t Read %-*s  = %d  (kcor.exe version) \n", 
 	 NUMPRINT, KEYWORD, *IPTR);
 
   sprintf(KEYWORD,"NPRIM");  IPTR = &KCOR_INFO.NPRIMARY;
   fits_read_key(FP, TINT, KEYWORD, IPTR, comment, &istat);
   snfitsio_errorCheck("can't read NPRIM", istat);
-  printf("\t Read %-*s  = %d  primary refs \n", 
+  printf("\t\t Read %-*s  = %d  primary refs \n", 
 	 NUMPRINT, KEYWORD, *IPTR );
 
   // read name of each primary
@@ -204,14 +204,14 @@ void read_kcor_head(void) {
 
     sprintf(c1err,"can't read %s", KEYWORD);
     snfitsio_errorCheck(c1err, istat);
-    printf("\t Read %-*s  = %s \n", NUMPRINT, KEYWORD, SPTR );
+    printf("\t\t Read %-*s  = %s \n", NUMPRINT, KEYWORD, SPTR );
   }
 
   // read NFILTERS
   sprintf(KEYWORD,"NFILTERS");  IPTR = &KCOR_INFO.NFILTDEF;
   fits_read_key(FP, TINT, KEYWORD, IPTR, comment, &istat);
   snfitsio_errorCheck("can't read NFILTERS", istat);
-  printf("\t Read %-*s  = %d  filters \n", NUMPRINT, KEYWORD, *IPTR );
+  printf("\t\t Read %-*s  = %d  filters \n", NUMPRINT, KEYWORD, *IPTR );
   
   // read name of each filter
   for(i=0; i < KCOR_INFO.NFILTDEF; i++ ) {
@@ -222,7 +222,7 @@ void read_kcor_head(void) {
 
     sprintf(c1err,"can't read %s", KEYWORD);
     snfitsio_errorCheck(c1err, istat);
-    // printf("\t Read %-*s  = '%s' \n", NUMPRINT, KEYWORD, SPTR );
+    // printf("\t\t Read %-*s  = '%s' \n", NUMPRINT, KEYWORD, SPTR );
 
     if ( SPTR[0] == '*' ) { KCOR_INFO.ISLAMSHIFT[i] = true; }
 
@@ -264,20 +264,20 @@ void read_kcor_head(void) {
   sprintf(KEYWORD,"RV");  DPTR = &KCOR_INFO.RVMW ;
   fits_read_key(FP, TDOUBLE, KEYWORD, DPTR, comment, &istat);
   if ( istat == 0 ) 
-    { printf("\t Read %-*s  = %4.2f \n",   NUMPRINT, KEYWORD, *DPTR ); }
+    { printf("\t\t Read %-*s  = %4.2f \n",   NUMPRINT, KEYWORD, *DPTR ); }
   istat = 0 ;
 
   sprintf(KEYWORD,"OPT_MWCOLORLAW");  IPTR = &KCOR_INFO.OPT_MWCOLORLAW ;
   fits_read_key(FP, TINT, KEYWORD, IPTR, comment, &istat);
   if ( istat == 0 ) 
-    { printf("\t Read %-*s  = %d \n",   NUMPRINT, KEYWORD, *IPTR ); }
+    { printf("\t\t Read %-*s  = %d \n",   NUMPRINT, KEYWORD, *IPTR ); }
   istat = 0 ;
   
   // read number of KCOR tables
   sprintf(KEYWORD,"NKCOR");  IPTR = &KCOR_INFO.NKCOR ;
   fits_read_key(FP, TINT, KEYWORD, IPTR, comment, &istat);
   snfitsio_errorCheck("can't read NKCOR", istat);
-  printf("\t Read %-*s  = %d  K-COR tables \n", NUMPRINT, KEYWORD, *IPTR );
+  printf("\t\t Read %-*s  = %d  K-COR tables \n", NUMPRINT, KEYWORD, *IPTR );
   
   int NKCOR = KCOR_INFO.NKCOR;
   if ( NKCOR > MXTABLE_KCOR ) {
@@ -321,7 +321,7 @@ void read_kcor_head(void) {
   SPTR = KCOR_INFO.SPECTROGRAPH_INSTRUMENT ;
   fits_read_key(FP, TSTRING, KEYWORD, SPTR, comment, &istat1 );
   if ( istat1 == 0 ) { 
-    printf("\t Read SPECTROGRAPH INSTRUMENT = %s \n", SPTR); 
+    printf("\t\t Read SPECTROGRAPH INSTRUMENT = %s \n", SPTR); 
 
     sprintf(KEYWORD, "SPECTROGRAPH_FILTERLIST");
     SPTR = KCOR_INFO.SPECTROGRAPH_FILTERLIST ;
@@ -388,7 +388,7 @@ void read_kcor_binInfo(char *VARNAME, char *VARSYM, int MXBIN,
   sprintf(c1err,"can't read %s", KEYWORD);
   snfitsio_errorCheck(c1err, istat);
 
-  printf("\t Read %4d %-10s bins (%.2f to %.2f)\n",
+  printf("\t\t Read %4d %-10s bins (%.2f to %.2f)\n",
 	 NBIN, VARNAME, BININFO->RANGE[0], BININFO->RANGE[1]);
   fflush(stdout);
 
@@ -799,6 +799,7 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
       MAP->NDEFINE[ifilt] = 0 ;
       MAP->PRIMARY_MAG[ifilt]   = 99.0 ;
       MAP->PRIMARY_ZPOFF[ifilt] = 99.0 ;
+      MAP->PRIMARY_KINDX[ifilt] = -9 ;
       MAP->NBIN_LAM[ifilt]  =  0 ;
     }
     return ;
@@ -850,7 +851,9 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  
+  // store index of primary to read later
+  MAP->PRIMARY_KINDX[NF] = KCOR_INFO.PRIMARY_INDX[kfilt] ;
+
   MAP->PRIMARY_MAG[NF]  = 
     KCOR_INFO.PRIMARY_MAG[kfilt] +
     KCOR_INFO.MAGREST_SHIFT_PRIMARY[ifiltdef] ;
@@ -1041,7 +1044,7 @@ void get_MAPINFO_KCOR(char *what, KCOR_MAPINFO_DEF *MAPINFO) {
 	{ sprintf(string_NBIN,"%s x %d", string_NBIN, NBIN); }
     }
     
-    printf("\t NBINMAP(%-6s) = %s = %d \n",
+    printf("\t\t NBINMAP(%-6s) = %s = %d \n",
 	   MAPINFO->NAME, string_NBIN, MAPINFO->NBINTOT );
     fflush(stdout);
   }
@@ -1455,13 +1458,97 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
 // =====================================
 void read_kcor_primarysed(void) {
 
+  fitsfile *FP          = KCOR_INFO.FP ;
+  int  NFILTDEF_OBS     = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
+  int  NBL              = KCOR_INFO.BININFO_LAM.NBIN; // from SED
+  int istat=0, hdutype, anynul, ifilt;
+  int KINDX, KINDX_FIRST=-9, KINDX_2ND=-9, NERR_PRIM=0 ;
+  char *NAME ;
   char fnam[] = "read_kcor_primarysed" ;
 
   // --------- BEGIN ----------
 
-  printf(" xxx %s: Hello \n", fnam); fflush(stdout);
+  printf("   %s \n", fnam); fflush(stdout);
+
+  fits_movrel_hdu(FP, 1, &hdutype, &istat);
+  snfitsio_errorCheck("Cannot move to PRIMARYSED table", istat);
+
+  for(ifilt=0; ifilt < NFILTDEF_OBS; ifilt++ ) {
+    KINDX = KCOR_INFO.FILTERMAP_OBS.PRIMARY_KINDX[ifilt];
+    if ( KINDX_FIRST < 0 ) { KINDX_FIRST = KINDX; }
+    if ( KINDX != KINDX_FIRST ) { NERR_PRIM++ ; KINDX_2ND=KINDX; } 
+  }
+
+  if ( KINDX < 0 ) {
+    sprintf(c1err,"Could not find primary reference");
+    sprintf(c2err,"Something is messed up.");
+    errmsg(SEV_WARN, 0, fnam, c1err, c2err); 
+  }
+
+  if ( NERR_PRIM > 0 ) {
+    printf("\n");
+    printf(" PRE-ABORT DUMP: \n");
+    printf("   Found Primary %s\n", KCOR_INFO.PRIMARY_NAME[KINDX_FIRST] );
+    printf("   Found Primary %s\n", KCOR_INFO.PRIMARY_NAME[KINDX_2ND] );
+    sprintf(c1err, "More than one PRIMARY ref not allowed");
+    sprintf(c2err, "Check kcor file and above list of primary refs.");
+    errmsg(SEV_WARN, 0, fnam, c1err, c2err); 
+  }
+
+  
+  NAME = KCOR_INFO.PRIMARY_NAME[KINDX];
+  printf("\t\t Primary Reference: %s\n", NAME);
+
+  int       MEMF = NBL * sizeof(float); 
+  int       ICOL ;
+  long long FIRSTROW=1, FIRSTELEM=1;
+  float  *ptr_f;
+
+  // read lambda array
+  KCOR_INFO.FILTERMAP_OBS.NBIN_LAM_PRIMARY = NBL;
+  KCOR_INFO.FILTERMAP_OBS.PRIMARY_LAM  = (float*) malloc(MEMF);
+  KCOR_INFO.FILTERMAP_OBS.PRIMARY_FLUX = (float*) malloc(MEMF);
+
+  // read wavelength array (should be same as array for SN SED)
+  ICOL=1;    ptr_f =  KCOR_INFO.FILTERMAP_OBS.PRIMARY_LAM ;
+  fits_read_col_flt(FP, ICOL, FIRSTROW, FIRSTELEM, NBL,
+		    NULL_1E, ptr_f, &anynul, &istat );
+  sprintf(c1err,"read lam array for primary = '%s'", NAME);
+  snfitsio_errorCheck(c1err, istat);
+
+  // read primary flux array
+  ICOL=1+KINDX;    ptr_f =  KCOR_INFO.FILTERMAP_OBS.PRIMARY_FLUX ;
+  fits_read_col_flt(FP, ICOL, FIRSTROW, FIRSTELEM, NBL,
+		    NULL_1E, ptr_f, &anynul, &istat );
+  sprintf(c1err,"read flux array for primary = '%s'", NAME);
+  snfitsio_errorCheck(c1err, istat);
+
 
   // .xyz
+  /*   
+c read lambda array.
+       ICOL      = 1
+       CALL FTGCVe(LUN, ICOL, firstrow, firstelem, 
+     &       NLAMBIN_PRIMARY, nullf_rdkcor, 
+     &       PRIMARY_LAM,                   ! return arg
+     &       anyf_rdkcor, istat)            ! return arg
+
+      ERRMSG = 'LAMBDA-' // PRIMARY_NAME(1:LP)
+      CALL RDKCOR_ABORT(FNAM, ERRMSG, ISTAT) ! error check
+
+c read flux array
+
+       ICOL      = 1 + IPRIM_REF_RDKCOR
+       CALL FTGCVe(LUN, ICOL, firstrow, firstelem, 
+     &       NLAMBIN_PRIMARY, nullf_rdkcor, 
+     &       PRIMARY_FLUX,                   ! return arg
+     &       anyf_rdkcor, istat)            ! return arg
+
+      ERRMSG = 'FLUX-' // PRIMARY_NAME(1:LP)
+      CALL RDKCOR_ABORT(FNAM, ERRMSG, ISTAT) ! error check
+
+   */
+
   return ;
 
 } // end read_kcor_primarysed

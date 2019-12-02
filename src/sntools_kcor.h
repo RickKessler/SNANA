@@ -68,6 +68,9 @@ typedef struct {
 
   double PRIMARY_MAG[MXFILT_KCOR];
   double PRIMARY_ZPOFF[MXFILT_KCOR];
+  int    PRIMARY_KINDX[MXFILT_KCOR];  // index to KCOR_INFO.PRIMARY_XXX[]
+  int    NBIN_LAM_PRIMARY ;
+  float *PRIMARY_LAM, *PRIMARY_FLUX;
 
   // below is filled by loadFilterTrans_kcor
   int    NBIN_LAM[MXFILT_KCOR];

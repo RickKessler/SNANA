@@ -364,6 +364,10 @@ int repeat_genSmear(double Trest, int NLam, double *Lam) {
 
   // ------------ BEGIN ------------
 
+  // for 1 lam bin, it's central filter wavelength,
+  // so always re-calculate.
+  if ( NLam == 1 ) { return(NEW); }
+
   if ( (GENSMEAR.MSKOPT & 32 )>0 ) { return(NEW); }
 
   if ( LDMP ) {

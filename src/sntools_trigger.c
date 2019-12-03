@@ -1336,6 +1336,8 @@ void read_zHOST_FILE(FILE *fp) {
   // March 2019:
   // Read zHOST effic file with arbitrary dependence on HOSTLIB properties.
   // If using FIELDLIST, each map must start with a new VARNAMES key 
+  // 
+  // Dec 3 2019: fix bug by setting KEY_STOP = ""
 
   int  OPT_EXTRAP = 0 ;
   int  NTAB=0;
@@ -1346,7 +1348,8 @@ void read_zHOST_FILE(FILE *fp) {
   char VARNAME_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST][40];
   int  IVAR_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST];
   char KEY_ROW[]   = "HOSTEFF:" ;
-  char KEY_STOP[]  = "BLANKLINE" ;
+  char KEY_STOP[]  = "" ;
+  // xxx mark delete  char KEY_STOP[]  = "BLANKLINE" ;
   char fnam[] = "read_zHOST_FILE" ;
 
   // ------------ BEGIN ----------

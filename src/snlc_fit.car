@@ -16965,6 +16965,8 @@ c
 c Jul 31 2015: write fitres [column] format to make it easier to parse.
 c
 c Nov 19 2019: remove NVAR key
+c Dec 04 2019: remove obsolete IFILTOBS_RST to avoid negative index
+c
 c ------------
 
       IMPLICIT NONE
@@ -16989,7 +16991,6 @@ c local args
      &   LTMP, imjd, NMJD, ipar, NVAR_OUT
      &  ,CID, CID_TMP
      &  ,IFILT, IFILT_OBS, IFILT_RST
-     &  ,IFILTOBS_RST(MXFILT_ALL)
 
       REAL*8  
      &   MJD8, MJD8_LAST, MJD8LIST(MXINTERP)
@@ -17075,16 +17076,11 @@ c search MJD(s) for this SN:
 c avoid repeating an MJD ... mainly to avoid multiple PEAKMJD entries.
         IF ( MJD8 .EQ. MJD8_LAST ) GOTO 200
 
-        do ifilt_obs = 1, MXFILT_ALL
-          IFILTOBS_RST(ifilt_obs) = 0
-        enddo
 
 c get observer mags,flux,kcor at this MJD
-c Also get local mapping IFILTOBS_RST.
 
         DO IFILT = 1, NFILTDEF_SURVEY      
           ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-          ifilt_rst = IFILT_REST_MAP(ifilt)
 
           if ( USE_FILT(ifilt_obs) ) then
 
@@ -17097,34 +17093,9 @@ c Also get local mapping IFILTOBS_RST.
              MAGERROBS_INTERP(ifilt_obs)  = MAG8ERR
              KCOR_INTERP(ifilt_obs)       = KCOR8
 
-             IFILTOBS_RST(ifilt_rst) = ifilt_obs
-
           endif
         ENDDO
 
-
-c get rest-mags at this MJD
-
-        DO  ifilt = 1, NFILTDEF_REST
-            IFILT_RST = IFILTDEF_MAP_REST(ifilt) 
-            ifilt_obs = IFILTOBS_RST(ifilt_rst)
-
-           CALL MODELMAG_CALC(ifilt_rst, 'REST', MJD8,
-     &           FLUX8, FLUX8ERR, MAG8, MAG8ERR, KCOR8 ) ! return args
-            MAGRST_INTERP(ifilt_rst)    = MAG8 + PEAKMAG_AT_10PC
-            MAGERRRST_INTERP(ifilt_rst) = MAG8ERR
-
-           if ( IFILT_OBS .GT. 0 ) then
-c            get rest-mag assuming a fixed cosmology
-             CALL MODELMAG_CALC(ifilt_obs, 'REST2', MJD8,
-     &           FLUX8, FLUX8ERR, MAG8, MAG8ERR, KCOR8 ) ! return args
-           else
-             MAG8    = 99. - PEAKMAG_AT_10PC
-             MAG8ERR = 9.
-           endif
-            MAGRST2_INTERP(ifilt_rst)    = MAG8 + PEAKMAG_AT_10PC
-            MAGERRRST2_INTERP(ifilt_rst) = MAG8ERR
-        ENDDO
 
 c -------------------------
 c write results to output file.
@@ -17138,7 +17109,6 @@ c write results to output file.
 40      format('# ', A)
         DO 1400 IFILT = 1, NFILTDEF_SURVEY      
           ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-          ifilt_rst = IFILT_REST_MAP(ifilt)
           BAND      = FILTDEF_STRING(ifilt_obs:ifilt_obs)
           if ( .not. USE_FILT(ifilt_obs) ) GOTO 1400
 

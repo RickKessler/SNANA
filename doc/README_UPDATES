@@ -17681,15 +17681,17 @@
 
 
 # ======================================================================= 
-         v10_74k (  ) 
+         v10_74k (Dec 6 2019) 
 
          ***** IMPORTANT(v10_74k) ***** 
 
          ***** USEFUL(v10_74k) ***** 
  
    + new &SNLCINP OPT_SIMLIB_OUT to write SIM_MAGOBS in MAG column
+       (1st use: simulate fakes for DES)
    + new 'SIMLIB' model for sim to read true mag from last SIMLIB column
-
+       (1st use: simulate fakes for DES)
+     
          ***** MISCELLANEOUS(v10_74k) ***** 
 
    SALT2mu.c
@@ -17713,10 +17715,18 @@
        see manaul Section 9.8 SIMLIB: Read True Mags from SIMLIB File
 
    sntools_genSmear.c[h]
-     + update COH model to pass 1 or 2 sigma values with COH(0.11) or COH(0.11+.05)
+     + update COH model to pass 1 or 2 sigma values with 
+        COH(0.11) or COH(0.11+.05)
            
    sntools_spectrograph.c
      + abort if any spectrograph-table SNR values are zero.
 
+   sntools_trigger.c
+     + fix bug reading maps from zHOST file.
+
+   sim_SNmix.pl
+     + new input key LOGDIR: <dirName>
+
+   snlc_fit.car: in DMP_SNMJD_INTERP(), remove obsolete IFILTOBS_RST.
 
 END: 

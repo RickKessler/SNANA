@@ -2812,7 +2812,7 @@ void check_duplicate_SNID(void) {
     NTMP   = NDUPL_LIST[idup] ;
     snid   = INFO_DATA.TABLEVAR.name[unsort]; 
     z      = INFO_DATA.TABLEVAR.zhd[unsort];      
-    printf("\t -> %2d with SNID=%8.8s at z=%.3f \n", 
+    printf("\t -> %2d with SNID=%8.8s at z=%.5f \n", 
 	   NTMP, snid, z );	   
   }
 

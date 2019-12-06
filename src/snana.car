@@ -9960,7 +9960,7 @@ c local variables.
      &  ,ISKEY_VARLIST
 
       INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PgARSE_WORDS
+      EXTERNAL STORE_PARSE_WORDS
 
 C ------------- BEGIN ----------------
 
@@ -12095,6 +12095,8 @@ c
 c Jan 24 2018: initialize NWD_LOAD = NFILTDEF_SURVEY+1
 c Apr 15 2019: call PARSE_SPECTRUM
 c Jul 16 2019: fix dumb bug setting NVAR_SPECTRUM for data 
+c Dec 05 2019: abort if 'OBS:' found but 'NOBS:' wasn't found.
+c
 c ------------------------------------------
  
       IMPLICIT NONE
@@ -12269,6 +12271,12 @@ c this is really a NEWMJD
 
          if ( ISKEY_MJD ) then
 
+             if ( ISNLC_NEWMJD_HEAD == 0 ) then
+	       c1err = 'Found OBS: key, but no NOBS: key.'
+	       c2err = 'Check NOBS: key for CID = ' // SNLC_CCID
+               CALL MADABORT(FNAM,c1err, c2err)
+	     endif
+
              if ( LFLAG_RDHEAD_ONLY ) RETURN
 
              if ( ISKEY_EPOCH ) then
@@ -12293,7 +12301,6 @@ c make sure header info is valid before processing epochs
              endif
 
              if ( LNEWMJD_NEW ) then
-
                write(c1err,60) ISNLC_NEWMJD_FOUND
 60             format('Found NEWMJD=',I3,' before finishing last MJD')
                write(c2err,61) SNLC_CCID
@@ -12728,7 +12735,6 @@ c return if there are no observations
          endif
 
       ENDIF
-
 
       KEY  = 'NEPOCH'
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )

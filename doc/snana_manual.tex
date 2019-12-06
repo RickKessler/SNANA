@@ -2881,12 +2881,6 @@ Finally, recall from \S\ref{subsec:sim_sntype}
 that the unconfirmed SNTYPE in the data header is 
 100 plus the spec-confirmed SNTYPE.
 
-Specifying ``NONE'' for the zHOST filename results in a 100\%
-zHOST \eff. To specify zero \eff\ requires a zHOST file 
-explcitly setting the efficiencies to zero: an example is here,
-\begin{verbatim}
-     $SNDATA_ROOT/models/searcheff/SEARCHEFF_zHOST_ZERO.DAT
-\end{verbatim}
 
 %\clearpage
 Below are a few examples of sim-input settings.
@@ -2918,13 +2912,30 @@ To simulate and select events with \spec\ host redshift,
    SEARCHEFF_zHOST_FILE:  SEARCHEFF_zHOST.DAT
 \end{Verbatim}
 
+{\bf zHOST VALIDATION:}
+to validate the zHOST efficiency, include {\tt SIM\_EFFMASK} in the
+variable list for the {\tt SIMGEN\_DUMP} option (\S\ref{sss:simgen_dump}), 
+and use command-line override  ``{\tt APPLY\_SEARCHEFF\_OPT 1}.'' 
+The simulated zHOST efficiency is defined to be
+\begin{verbatim}
+                          N[SIM_EFFMASK=5]
+    EFF(zHOST) = ------------------------------------- ,
+                 N[SIM_EFFMASK=1] + N[SIM_EFFMASK=5] 
+\end{verbatim}
+and note that spectroscopically-confirmed events ({\tt SIM\_EFFMASK=3})
+are ignored here.
+{\tt EFF(zHOST)} can be defined as a function of the {\tt HOSTLIB}
+property(s) and compared against the expected efficiency defined
+in the file argument of {\tt SEARCHEFF\_zHOST\_FILE}.
+
+
 \bigskip\noindent
-Lastly we recommend putting measured \eff\ files in 
-the public area \\ {\tt \$SNDATA\_ROOT/models/searcheff}.
+Lastly, for published results we recommend putting measured \eff\ 
+files in the public area \\ {\tt \$SNDATA\_ROOT/models/searcheff}.
 
 
 % ------------------------------------
-%   \clearpage
+  \clearpage
    \subsubsection{Determining $\simeffspec$}
    \label{sssec:simeffspec}
 % ------------------------------------

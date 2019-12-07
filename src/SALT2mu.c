@@ -5365,10 +5365,10 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
   sprintf(vartmp,"SIMmB:F SIM_mB:F" );
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_mB][ISTART], 
 			  LEN, VBOSE);
-  sprintf(vartmp,"SIMx1:F SIM_x1:F" );
+  sprintf(vartmp,"SIMx1:F SIM_x1:F SIM_SALT2x1:" );
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_x1][ISTART], 
 			  LEN, VBOSE);
-  sprintf(vartmp,"SIMc:F SIM_c:F" );
+  sprintf(vartmp,"SIMc:F SIM_c:F SIM_SALT2c:F" );
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_c][ISTART], 
 			  LEN, VBOSE);
 

@@ -15985,10 +15985,11 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
   //   NPARz_write : number of zM0 params to include
   //
   // Jun 2019: pass fp to allow writing to file or stdout.
+  // Dec 9 2019: avoid truncating FITRESULTS.PARNAME to 10 chars.
 
   int num, iMN, jMN, i, j, NZwr ;
   double emat[MAXPAR][MAXPAR], terr[MAXPAR], corr ;
-  char *name_i, msg[100];
+  char tmpName[40], msg[100];
 
   // --------- BEGIN ----------
 
@@ -16007,12 +16008,12 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
     {
       i  = FITINP.IPARMAP_MN[iMN]  ;
       if ( i - MXCOSPAR >= NPARz_write ) { continue; }
-      name_i = FITRESULT.PARNAME[i];
-      name_i[10] = 0; // force truncation of name
+      sprintf(tmpName, "%s", FITRESULT.PARNAME[i] );
+      tmpName[10] = 0;    // force truncation of name
       terr[iMN] = sqrt(emat[iMN][iMN]);
 
       //      fprintf(fp,"%2i ",iMN+1); 
-      fprintf(fp,"# %-10.10s ",name_i); 
+      fprintf(fp,"# %-10.10s ", tmpName ); 
 
       for (jMN=0; jMN <= iMN; ++jMN)	{
 	j  = FITINP.IPARMAP_MN[jMN]  ;

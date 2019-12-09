@@ -46,6 +46,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
   //  + NVAR key is obsolete (see warn_MNVAR_KEY)
   //  + read OPT_EXTRAP key from map file, and pass to read_GRIDMAP().
   //
+  // Dec 9 2019: abort if map file cannot be opened.
 
   FILE *fp;
   int gzipFlag, FOUNDMAP, NTMP, NVAR, NDIM, NFUN, ivar, igroup;
@@ -68,6 +69,12 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
 
   sprintf(PATH, "%s/simlib", PATH_SNDATA_ROOT);
   fp = snana_openTextFile(1,PATH, fileName, fullName, &gzipFlag);
+
+  if ( !fp ) {
+    sprintf(c1err,"Cannot open FLUXERRMODEL_FILE");
+    sprintf(c2err,"'%s'", fullName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
 
   sprintf(MSGERR_FILE,"check FLUXERRMODEL_FILE: '%s'", fullName);
   FOUNDMAP=0;

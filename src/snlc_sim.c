@@ -192,9 +192,8 @@ int main(int argc, char **argv) {
   DASHBOARD_DRIVER();
 
   // initialize model that generates magnitudes.
-  init_kcor(INPUTS.KCOR_FILE);
-
-  if ( INPUTS.DEBUG_FLAG == 555 ) { init_kcor_refactor(); }
+  if ( INPUTS.USE_KCOR_LEGACY   ) { init_kcor_legacy(INPUTS.KCOR_FILE); }
+  if ( INPUTS.USE_KCOR_REFACTOR ) { init_kcor_refactor(); }
 
   init_genmodel();
   init_modelSmear(); 
@@ -593,6 +592,9 @@ void set_user_defaults(void) {
   double zero = 0.0 ;
   //  char fnam[] = "set_user_defaults" ;
   // --------------- BEGIN ---------------
+
+  INPUTS.USE_KCOR_REFACTOR = 0 ;
+  INPUTS.USE_KCOR_LEGACY   = 1 ;
 
   INPUTS.DASHBOARD_DUMPFLAG = 0;
 
@@ -1326,6 +1328,9 @@ int read_input(char *input_file) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
     }
+
+    if ( uniqueMatch(c_get,"USE_KCOR_REFACTOR:") ) 
+      { readint ( fp, 1, &INPUTS.USE_KCOR_REFACTOR ); continue; }
 
     if ( uniqueMatch(c_get,"TRACE_MAIN:") ) 
       { readint ( fp, 1, &INPUTS.TRACE_MAIN ); continue; }
@@ -4308,6 +4313,10 @@ void sim_input_override(void) {
     }
 
 
+    if ( strcmp( ARGV_LIST[i], "USE_KCOR_REFACTOR" ) == 0 ) {  
+      i++; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_KCOR_REFACTOR ); 
+    }
+
     if ( strcmp( ARGV_LIST[i], "TRACE_MAIN" ) == 0 ) 
       {  i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.TRACE_MAIN );  }
 
@@ -5622,6 +5631,8 @@ void prep_user_input(void) {
   char fnam[] = "prep_user_input" ;
 
   // ---------- BEGIN ----------
+
+  if ( INPUTS.USE_KCOR_REFACTOR == 2 )  { INPUTS.USE_KCOR_LEGACY = 0 ; }
 
   // Feb 2015: replace ENV names in inputs
   ENVreplace(INPUTS.KCOR_FILE,fnam,1);  
@@ -21807,7 +21818,7 @@ void check_model_default(int index_model ) {
 } // end of check_model_default
 
 // ******************************
-void init_kcor(char *kcorFile) {
+void init_kcor_legacy(char *kcorFile) {
 
   /********
    Created May 18, 2008 by R.Kessler
@@ -21843,7 +21854,7 @@ void init_kcor(char *kcorFile) {
   float tmpoff_kcor[MXFILTINDX] ;
   float *ptr ;
   char   copt[40], xtDir[MXPATHLEN], cfilt[4];
-  char fnam[] = "init_kcor" ;
+  char fnam[] = "init_kcor_legacy" ;
 
   // -------------- BEGIN --------------
 
@@ -21873,11 +21884,9 @@ void init_kcor(char *kcorFile) {
 
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt] ;
-    ptr = &INPUTS.GENMAG_OFF_ZP[ifilt_obs] ;
 
-    if ( !ISMODEL_FIXMAG ) {
-      *ptr += tmpoff_kcor[ifilt]; // add AB off to user offset
-    }
+    if ( !ISMODEL_FIXMAG ) 
+      { INPUTS.GENMAG_OFF_ZP[ifilt_obs]  += tmpoff_kcor[ifilt];  }
 
     // get mean and RMS of filter-wavelength 
     OPT = GENFRAME_OBS ;
@@ -21963,7 +21972,7 @@ void init_kcor(char *kcorFile) {
 
   return ;
 
-} // end of init_kcor
+} // end of init_kcor_legacy
 
 // ********************************** 
 void init_kcor_refactor(void) {
@@ -21972,8 +21981,10 @@ void init_kcor_refactor(void) {
   // Begin translating fortran kcor-read codes into C.
   // Call functions in sntools_kcor.c[h]
 
-  int    ifilt;
+  int ISMODEL_FIXMAG    = ( INDEX_GENMODEL == MODEL_FIXMAG );
+  int    ifilt, ifilt_obs, NBIN, NFILTDEF ;
   double MAGOBS_SHIFT[MXFILTINDX], MAGREST_SHIFT[MXFILTINDX];
+  double ZPOFF;
   char fnam[] = "init_kcor_refactor" ;
 
   // ------------ BEGIN -------------
@@ -21984,6 +21995,33 @@ void init_kcor_refactor(void) {
 
   READ_KCOR_DRIVER(INPUTS.KCOR_FILE, SIMLIB_GLOBAL_HEADER.FILTERS,
 		   MAGREST_SHIFT, MAGOBS_SHIFT );
+
+
+  NFILTDEF = KCOR_INFO.FILTERMAP_OBS.NFILTDEF;
+
+  for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
+    ifilt_obs = KCOR_INFO.FILTERMAP_OBS.IFILTDEF[ifilt];
+
+    if ( !ISMODEL_FIXMAG ) {
+      // ZPOFF.DAT means filter system isn't right; here we simulate
+      // incorrect mag system so that data and sim are corrected the
+      // same way with offsets in ZPOFF.DAT file (which are stored
+      // in kcor file(
+      ZPOFF     = KCOR_INFO.FILTERMAP_OBS.PRIMARY_ZPOFF_FILE[ifilt];
+      INPUTS.GENMAG_OFF_ZP[ifilt_obs]  += ZPOFF ;
+    }
+    
+    NBIN = KCOR_INFO.FILTERMAP_OBS.NBIN_LAM[ifilt];
+    INPUTS.LAMAVG_OBS[ifilt_obs] = KCOR_INFO.FILTERMAP_OBS.LAMMEAN[ifilt];
+    INPUTS.LAMRMS_OBS[ifilt_obs] = KCOR_INFO.FILTERMAP_OBS.LAMRMS[ifilt];
+    INPUTS.LAMMIN_OBS[ifilt_obs] = 
+      (double)KCOR_INFO.FILTERMAP_OBS.LAM[ifilt][0];
+    INPUTS.LAMMAX_OBS[ifilt_obs] = 
+      (double)KCOR_INFO.FILTERMAP_OBS.LAM[ifilt][NBIN-1];
+
+  }
+
+  debugexit(fnam);
 
   return ;
 

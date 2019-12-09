@@ -39,7 +39,6 @@
 
 time_t t_start, t_end;
 
-
 #define  MXINPUT_FILE_SIM   3       // 1 input file + 2 includes
 #define  MXCID_SIM  299999999   // max sim CID and max number of SN
 #define  MXEPSIM_PERFILT  500       // 
@@ -320,6 +319,9 @@ typedef struct {
 // define user INPUTS
 
 struct INPUTS {
+
+  int USE_KCOR_REFACTOR; //1-> run both legacy and new; 2-> new only
+  int USE_KCOR_LEGACY;   //use legacy fortran code to read & apply 
 
   int DASHBOARD_DUMPFLAG ;
 
@@ -1693,7 +1695,7 @@ void   init_simRandoms(void);    // init stuff for randoms
 void   init_genmodel(void);      // init above
 void   init_genSpec(void);        // one-time init for SPECTROGRAPH
 void   init_genSEDMODEL(void); // generic init for SEDMODEL
-void   init_kcor(char *kcorFile);
+void   init_kcor_legacy(char *kcorFile);
 void   init_kcor_refactor(void);
 void   init_covar_mlcs2k2(void);    // init GENLC.COVAR array
 void   init_zvariation(void);      // z-dependent sim parameters

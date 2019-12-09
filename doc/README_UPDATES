@@ -17707,7 +17707,9 @@
       + OPT_SIMLIB_OUT; see manual 12.3.3 Creating a SIMLIB from Data
       + New &SNLCINP  SIMVAR_CUTWIN_STRING = 'NEP_SIM_MAGOBS 4 9999'
         to require min number of epochs with true flux > 0
- 
+      + in output table, SIM_x1 -> SIM_SALT2x1 and SIM_c -> SIM_SALT2c
+         (beware that SALT2mu needs update too)
+
    snlc_sim.c 
      + crazyflux *= scale_fluxerr to allow for much larger scatter.
      + new 'SIMLIB' model to read true mag from last SIMLIB column;
@@ -17729,4 +17731,22 @@
 
    snlc_fit.car: in DMP_SNMJD_INTERP(), remove obsolete IFILTOBS_RST.
 
+
+# ======================================================================= 
+         v10_74l (  ) 
+
+         ***** IMPORTANT(v10_74l) ***** 
+
+         ***** USEFUL(v10_74l) ***** 
+
+         ***** MISCELLANEOUS(v10_74l) ***** 
+
+   SALT2mu.c
+    + read SIM_SALT2x1[c]
+
+   snana.car
+    + remove obsolete input ZPOFF_FILE and all usage. ZPOFF are
+      read by kcor routine, not read by analysis codes.
+    + remove obsolete WRSALT2_1
+   
 END: 

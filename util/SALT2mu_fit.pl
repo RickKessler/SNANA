@@ -249,6 +249,7 @@
 #
 # Oct 4 2019: if OUTDIR_OVERRIDE has no slash, append LAUNCH_DIR
 # Oct 25 2019: OUTDIR_OVERRIDE works for INPDIR too 
+# Dec 09 2019: fix bug in makeDir_NSPLITRAN();  check SUMMARY_FLAG
 #
 # ------------------------------------------------------
 
@@ -1009,6 +1010,12 @@ sub makeDir_NSPLITRAN {
     { $OUTDIR = "$LAUNCH_DIR/OUT_SALT2mu_NSPLITRAN${NSPLITRAN}"; }
 
     $OUTDIR_SALT2mu_LIST[0] = "$OUTDIR" ;
+
+    $FITSCRIPTS_DIR = "${OUTDIR}/$FITSCRIPTS_PREFIX";
+
+    if ( $SUMMARY_FLAG ) { return ; }
+
+    # - - - - - below is run to submit - - - - - -
 
     if ( -d $OUTDIR ) { qx(rm -r $OUTDIR); }
     qx(mkdir $OUTDIR);

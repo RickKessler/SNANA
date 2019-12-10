@@ -1444,7 +1444,7 @@ c define hard-wired list of valid over-rides
       CHARACTER VARLIST_ALL_HEADER_OVERRIDE*400
       PARAMETER ( VARLIST_ALL_HEADER_OVERRIDE = 
      &   'HOSTGAL_OBJID,HOSTGAL_LOGMASS,HOSTGAL_LOGMASS_ERR,' // 
-     &   'HOSTGAL_sSFR,HOSTGAL_sSFR_ERR,' // 
+     &   'HOSTGAL_sSFR,HOSTGAL_sSFR_ERR,HOSTGAL_DDLR,' // 
      &   'HOSTGAL_PHOTOZ,HOSTGAL_PHOTOZ_ERR,' // 
      &   'VPEC,VPEC_ERR,REDSHIFT_FINAL,REDSHIFT_FINAL_ERR,' //
      &   'SIM_SALT2x1,SIM_SALT2c,SIM_x1,SIM_c,'      //
@@ -18139,6 +18139,9 @@ c brute-force check each possible header variable
           SNHOST_LOGMASS(1) = sngl(DVAL)
         ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_LOGMASS_ERR' ) THEN
           SNHOST_LOGMASS_ERR(1) = sngl(DVAL)
+
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_DDLR' ) THEN
+          SNHOST_DDLR(1) = sngl(DVAL)   ! Dec 10, 2019
 
         ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_sSFR' ) THEN
           SNHOST_sSFR(1) = sngl(DVAL)

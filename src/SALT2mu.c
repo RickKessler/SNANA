@@ -4489,9 +4489,18 @@ void read_data(void) {
     sprintf(VARNAMES_ORIG[ivar], "%s", READTABLE_POINTERS.VARNAME[ivar] );
   }
 
-  for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL; isn++ ) 
-    { compute_more_TABLEVAR(isn, &INFO_DATA.TABLEVAR ); }
-  
+  int NPASS=0;
+  for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL; isn++ ) { 
+    compute_more_TABLEVAR(isn, &INFO_DATA.TABLEVAR ); 
+    if ( INFO_DATA.TABLEVAR.CUTMASK[isn] == 0 ) { NPASS++ ; }
+  }
+  if ( NPASS == 0 ) {
+    sprintf(c1err,"All DATA events fail cuts");
+    sprintf(c2err,"Check cut-windows in SALT2mu input file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+  }
+
+
   return;
 
 } // end read_data 

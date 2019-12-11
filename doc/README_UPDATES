@@ -17742,11 +17742,16 @@
          ***** MISCELLANEOUS(v10_74l) ***** 
 
    SALT2mu.c
-    + read SIM_SALT2x1[c]
+    + read SIM_SALT2x1[c] or SIM_x1[c]
+    + abort if all data events fail cuts.
+    + fix 1D5DCUT option (apply 1Dcor, but require 5Dcor exists)
 
    snana.car
     + remove obsolete input ZPOFF_FILE and all usage. ZPOFF are
       read by kcor routine, not read by analysis codes.
     + remove obsolete WRSALT2_1
-   
+    + allow HOSTGAL_DDLR in HEADER_OVERRIDE_FILE
+    + for abort on too many primarys, move abort to RDKCOR_SUMMARY
+      so we can examine RDKCOR dump when we get this abort.
+
 END: 

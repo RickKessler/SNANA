@@ -675,6 +675,8 @@ Default output files (can change names with "prefix" argument)
     + clean up stdout messaging in prepare_biasCor(1D,5D,6D,7D)
 
  Nov 14 2019: MAXBIN_BIASCOR_1D -> 500k (was 200k)
+ Dec 11 2019: fix few bugs so that 1D5DCUT option works
+             (i.e., apply 1D biasCor, but require 5D biasCor exists)
 
  ******************************************************/
 
@@ -6824,10 +6826,12 @@ void prepare_biasCor(void) {
   //  + refactor to define NDIM_BIASCOR and global INFO_BIASCOR.NDIM.
   //    Print more sensible messages with appropriate 1D,5D,6D,7D.
   //
+  // Dec 11 2019: fix to work with DOCOR_1D5DCUT
+  //
 
   int INDX, IDSAMPLE, SKIP, NSN_DATA, CUTMASK, ievt, NBINg=0 ;
-  int  OPTMASK    = INPUTS.opt_biasCor ;
-  int  EVENT_TYPE = EVENT_TYPE_BIASCOR;
+  int  OPTMASK       = INPUTS.opt_biasCor ;
+  int  EVENT_TYPE    = EVENT_TYPE_BIASCOR;
   int  nfile_biasCor = INPUTS.nfile_biasCor ;
   int  DOCOR_1DZAVG  = ( OPTMASK & MASK_BIASCOR_1DZAVG  );
   int  DOCOR_1DZWGT  = ( OPTMASK & MASK_BIASCOR_1DZWGT  );
@@ -6858,7 +6862,7 @@ void prepare_biasCor(void) {
   read_simFile_biasCor();
 
   // setup 5D bins 
-  if ( DOCOR_5D ) {
+  if ( DOCOR_5D || DOCOR_1D5DCUT ) {
     for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ ) 
       { setup_CELLINFO_biasCor(IDSAMPLE); }
   }
@@ -6953,7 +6957,8 @@ void prepare_biasCor(void) {
 
   print_eventStats(EVENT_TYPE);
 
-  if ( NDIM_BIASCOR == 1 ) { goto CHECK_1DCOR ; }
+  //  if ( NDIM_BIASCOR == 1 ) { goto CHECK_1DCOR ; }
+  if ( NDIM_BIASCOR == 1 && !DOCOR_1D5DCUT ) { goto CHECK_1DCOR ; }
 
   // make sparse list for faster looping below (Dec 21 2017)
   makeSparseList_biasCor();
@@ -7049,6 +7054,7 @@ void prepare_biasCor(void) {
     DUMPFLAG = 0; // (NUSE_TOT < 2 ) ; // xxx REMOVE
     istore = storeDataBias(n,DUMPFLAG);
 
+    
     NUSE[IDSAMPLE]++ ; NUSE_TOT++ ;
     if ( istore == 0 )  { 
       NSKIP_TOT++; NSKIP[IDSAMPLE]++ ;     
@@ -9004,8 +9010,12 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   //   case they can take too much memory for local.
   //
   // Jul 16 2019: add gamma (ig) dimension
-
+  // Dec 11 2019: 
+  //   + abort if muErrsq < 0 or if NUSE exceeds bound.
+  //   + return immediately of 1D+5DCUT is set.
+  //
   int  DO_SIGINT_SAMPLE = ( INPUTS.opt_biasCor & MASK_BIASCOR_SIGINT_SAMPLE ) ;
+  int  DOCOR_1D5DCUT    = ( INPUTS.opt_biasCor & MASK_BIASCOR_1D5DCUT );
   int  NROW_TOT, NROW_malloc, i, istat_cov, NCOVFIX, ia, ib, ig, MEMD, cutmask ;
   int  LDMP = 0 ;
 
@@ -9021,9 +9031,12 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   float  *ptr_SNRMAX;
   double SIGINT_AVG, SIGINT_ABGRID[MXa][MXb][MXg] ; 
 
+  char *NAME;
   char fnam[]   = "init_sigInt_biasCor_SNRCUT" ;
 
   // ------------------- BEGIN -------------------
+
+  if ( DOCOR_1D5DCUT ) { return ; }
 
   printf("\n");
 
@@ -9064,14 +9077,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
     printf(" %s for all IDSAMPLEs combined: \n", fnam);
   }
   else {
-    /* xxxxxxxxxxxxxx mark delete xxxxxxxx
-    // IDSAMPLE>0 and one sigInt -> set sigInt = sigInt[IDSAMPLE=0]
-    for(ia=0; ia < NBINa; ia++ ) {
-      for(ib=0; ib < NBINb; ib++ ) {
-	SIGINT_ABGRID[ia][ib] = simdata_bias.SIGINT_ABGRID[0][ia][ib] ; 
-      } // end ib
-    } // end ia
-    xxxxxxxxxxxxxxxx */
+    // do nothing
   } 
 
   fflush(stdout) ;
@@ -9080,12 +9086,19 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   // quick pass with SNR cut to estimate size for malloc  
   NROW_malloc = 0 ;
   for(i=0; i < NROW_TOT; i++ ) {
-    if ( ptr_CUTMASK[i] ) { continue; }
+
+    // apply selection without BIASCOR-z cut (but keep global z cut)
+    cutmask  = ptr_CUTMASK[i] ;
+    cutmask -= (cutmask & CUTMASK_LIST[CUTBIT_zBIASCOR]);
+    if ( cutmask ) { continue; }
+
     SNRMAX = (double)(ptr_SNRMAX[i]) ;
     if ( SNRMAX < INPUTS.snrmin_sigint_biasCor) { continue ; }
     NROW_malloc++ ;
   }
 
+
+  NROW_malloc += 100; // safety margin
   MEMD = NROW_malloc * sizeof(double) ;
   for(ia=0; ia < NBINa; ia++ ) {
     for(ib=0; ib < NBINb; ib++ ) {
@@ -9122,18 +9135,25 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
     
 
     NSNRCUT++ ;
-
+    NAME   = INFO_BIASCOR.TABLEVAR.name[i] ;
     muDif  = muresid_biasCor(i); 
 
     // compute error with no intrinsic scatter (just use data COVFIT)
     muErrsq = muerrsq_biasCor(i, USEMASK_BIASCOR_COVFIT, &istat_cov) ;
 
+    if ( muErrsq < 0.0 ) {
+      sprintf(c1err,"Invalid muErrsq[%d] = %f < 0  SNID=%s",
+	      i, muErrsq, NAME );
+      sprintf(c2err,"muDif=%le ", muDif);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);   
+    }
+
     if ( isnan(muErrsq) || isnan(muDif) ) {
-      sprintf(c1err,"isnan trap for SNID = %s (irow=%d)", 
-	      INFO_BIASCOR.TABLEVAR.name[i], i );
+      sprintf(c1err,"isnan trap for SNID = %s (irow=%d)", NAME, i);
       sprintf(c2err,"muErrsq=%le, muDif=%le ", muErrsq, muDif);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);   
     }
+
 
     if ( istat_cov < 0 ) { NCOVFIX++ ; }    
 
@@ -9150,8 +9170,17 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
     MUERRSQ[ia][ib][ig][NTMP] = muErrsq ;
     NUSE[ia][ib][ig]++ ;
 
-  } // end loop over biasCor sample
+    // xxxxxxxx
 
+    if ( NUSE[ia][ib][ig] >= NROW_malloc ) {
+      sprintf(c1err,"NUSE[ia,ib,ig=%d,%d,%d] = %d exceeds malloc size",
+	      ia, ib, ig, NUSE[ia][ib][ig] );
+      sprintf(c2err,"NROW_malloc = %d", NROW_malloc);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+    }
+    // xxxxxxxxxx
+
+  } // end loop over biasCor sample
 
 
   // -------------------------------------------------
@@ -9195,7 +9224,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 
 	sigInt = sqrt(SQRMS - muErrsq) ;  // approx sigInt
 	
-	if ( LDMP && ia==0 && ib==0 ) {
+	if ( LDMP ) {
 	  printf(" xxx ia,ib,ig=%d,%d,%d  N = %d \n", ia,ib,ig, (int)XN );
 	  printf(" xxx --> RMS(mu)=%.4f  muErr=%.4f  muOff=%.4f  sigInt=%.4f\n",
 		 sqrt(SQRMS), sqrt(muErrsq),  muOff, sigInt );        
@@ -9219,6 +9248,12 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 	    muDif     = MUDIF[ia][ib][ig][i] - muOff ;
 	    muErrsq   = MUERRSQ[ia][ib][ig][i] ;  
 	    pull      = muDif/sqrt(muErrsq + sqsigTmp);
+	    if ( isnan(pull) ) {
+	      sprintf(c1err,"crazy pull = %f  ia,ib,ig=%d,%d,%d",
+		      pull, ia, ib, ig );
+	      sprintf(c2err,"i=%d  muDif=%f muErrsq = %f", i, muDif, muErrsq);
+	      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+	    }
 	    sumdif   += pull ;
 	    sumdifsq += (pull*pull);
 	  }
@@ -9229,7 +9264,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 	  sigInt_store[NBIN_SIGINT]  = sigTmp ;
 	  
        
-	  if ( LDMP && ia == -1 && ib==0  ) {
+	  if ( LDMP ) {
 	    printf("\t xxx ia,ib,ig=%d,%d,%d : "
 		   "sigTmp(%d)=%.3f --> RMS(pull)=%.3f \n",
 		   ia, ib, ig, NBIN_SIGINT, sigInt_store[NBIN_SIGINT], 
@@ -9243,8 +9278,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 	}  // end sigTmp loop
 	
       
-      // interpolate sigInt vs. rmsPull at rmsPull=1
-
+	// interpolate sigInt vs. rmsPull at rmsPull=1
 	sigInt = interp_1DFUN(OPT_INTERP, ONE, NBIN_SIGINT,
 			      rmsPull_store, sigInt_store, fnam);
 	

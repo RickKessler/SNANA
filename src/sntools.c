@@ -5734,6 +5734,8 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
 
 
   // if we get here, then something is really wrong.
+  printf("\n PRE-ABORT DUMP: \n");
+  printf("\t MINVAL=%f  MAXVAL=%f  NBIN=%d\n", MINVAL, MAXVAL, NBIN);
   sprintf(c1err,"Something is REALLY messed up:");
   sprintf(c2err,"Could not find '%s' bin for VAL=%le", abort_comment, VAL );
   errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 

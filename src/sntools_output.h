@@ -24,6 +24,9 @@
  May 11 2017: declare IVAR_READTABLE_POINTER
 
  Apr 4 2019: preproc flags HBOOK,ROOT,TEXT -> USE_[HBOOK,ROOT,TEXT]
+ 
+ Dec 11 2019: replace lots of [40] with [MXCHAR_VARNAME]
+
 *******************************************/
 
 

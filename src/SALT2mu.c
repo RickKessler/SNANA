@@ -675,8 +675,10 @@ Default output files (can change names with "prefix" argument)
     + clean up stdout messaging in prepare_biasCor(1D,5D,6D,7D)
 
  Nov 14 2019: MAXBIN_BIASCOR_1D -> 500k (was 200k)
- Dec 11 2019: fix few bugs so that 1D5DCUT option works
-             (i.e., apply 1D biasCor, but require 5D biasCor exists)
+ Dec 11 2019: 
+     + fix few bugs so that 1D5DCUT option works
+       (i.e., apply 1D biasCor, but require 5D biasCor exists)
+     + abort if length(varname_gamma) > MXCHAR_VARNAME =  60
 
  ******************************************************/
 
@@ -814,6 +816,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define MXCUTWIN 20 // max number of CUTWIN definitions in input file.
 
 #define MXCHAR_LINE 2000 // max character per line of fitres file
+
 
 // define CUTBIT for each type of cut (lsb=0)
 // (bit0->1, bit4->16, bit6->64, bit8->256, bit10->1024,  bit12 --> 4096
@@ -1271,7 +1274,7 @@ struct INPUTS {
 
   int    NCUTWIN ;
   int    CUTWIN_RDFLAG[MXCUTWIN] ; // 1=> read, 0=> use existing var
-  char   CUTWIN_NAME[MXCUTWIN][20];
+  char   CUTWIN_NAME[MXCUTWIN][MXCHAR_VARNAME];
   double CUTWIN_RANGE[MXCUTWIN][2];
   int    CUTWIN_ABORTFLAG[MXCUTWIN] ;  // 1=> abort if var does not exist
   int    CUTWIN_DATAONLY[MXCUTWIN] ;   // 1=> cut on data only (not biasCor)
@@ -1307,7 +1310,7 @@ struct INPUTS {
   int    izpar[MAXPAR];   // iz index or -9 
   int    fixpar_all ;     // global flag to fix all parameters	      
 
-  char varname_gamma[40]; // name of variable to fit gamma HR step;
+  char varname_gamma[MXCHAR_VARNAME]; // name of variable to fit gamma HR step;
                            // e.g, "HOST_LOGMASS" or "SSFR", etc...
   int USE_GAMMA0 ;   // true if p5 is floated or fixed to non-zero value
   int cutmask_write; // mask of errors to write SN to output
@@ -1341,7 +1344,7 @@ struct INPUTS {
   
   int dumpflag_nobiasCor; // 1 --> dump info for data with no valid biasCor
 
-  char SNID_MUCOVDUMP[40]; // dump MUERR info for this SNID (Jun 2018)
+  char SNID_MUCOVDUMP[MXCHAR_VARNAME]; // dump MUERR info for this SNID (Jun 2018)
 
 } INPUTS ;
 
@@ -1418,7 +1421,7 @@ struct {
 
 
 typedef struct {
-  char        COMMENT[40];
+  char        COMMENT[MXCHAR_VARNAME];
   BININFO_DEF BININFO;
 
   // start with SUMPROB summed over full sample
@@ -1474,7 +1477,7 @@ struct {
   double M0ERR[MXz]; // error on above
   double zM0[MXz];   // wgted-average z (not from fit)
 
-  char   PARNAME[MAXPAR][40];
+  char   PARNAME[MAXPAR][MXCHAR_VARNAME];
   double PARVAL[MXSPLITRAN+1][MAXPAR];
   double PARERR[MXSPLITRAN+1][MAXPAR];
 
@@ -1499,8 +1502,8 @@ int FOUNDKEY_OPT_PHOTOZ = 0 ;
 int NVAR_ORIG ; // NVAR from original ntuple
 int NVAR_NEW  ; // NVAR added from SALTmu
 int NVAR_TOT  ; // sum of above
-char VARNAMES_NEW[MAXPAR*10][40] ;
-char VARNAMES_ORIG[100][40] ;
+char VARNAMES_NEW[MAXPAR*10][MXCHAR_VARNAME] ;
+char VARNAMES_ORIG[100][MXCHAR_VARNAME] ;
 
 time_t t_start, t_end_init, t_end_fit, t_read_biasCor[3] ;
 
@@ -2146,7 +2149,7 @@ void exec_mnpout_mnerrs(void) {
   double PARVAL, PARERR, bnd1, bnd2, eplus,eminus,eparab, globcc;
   int    ipar, iMN, iv ;
   int    LEN_VARNAME = 10 ;
-  char text[100], format[80], cPARVAL[40] ;
+  char text[100], format[80], cPARVAL[MXCHAR_VARNAME] ;
   //  char fnam[] = "exec_mnpout_mnerrs" ;
 
   // -------------- BEGIN ----------------
@@ -5168,7 +5171,7 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
   int IDEAL           = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
 
   int  icut, ivar, ivar2, irow, id, RDFLAG ;
-  char vartmp[60], *cutname, str_z[40], str_zerr[40]; 
+  char vartmp[MXCHAR_VARNAME], *cutname, str_z[MXCHAR_VARNAME], str_zerr[MXCHAR_VARNAME]; 
 
   char fnam[] = "SNTABLE_READPREP_TABLEVAR" ;
 
@@ -5341,10 +5344,6 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
     }
     TABLEVAR->DOFLAG_CUTWIN[icut] = set_DOFLAG_CUTWIN(ivar,icut,IS_DATA);
 
-    /* xxx mark delete (moved to malloc function)
-    if ( strcmp(cutname,INPUTS.varname_gamma) == 0 ) 
-	{ TABLEVAR->ICUTWIN_GAMMA = icut ; }
-    xxxxxx */
   }
 
 
@@ -12647,7 +12646,7 @@ int ppar(char* item) {
   //                which aborts on duplicate key.
   
   int  ipar, len ;  
-  char key[40], *s;
+  char key[MXCHAR_VARNAME], *s;
   char fnam[] = "ppar" ;
 
   // --------- BEGIN ----------
@@ -12770,10 +12769,13 @@ int ppar(char* item) {
     return(1);
   }
 
-  if ( uniqueOverlap(item,"varname_gamma=")) {
+
+  // xxx mark delete   sprintf(key,"varname_gamma=");
+  if ( uniqueOverlap(item,"varname_gamma=") ) {
     s=INPUTS.varname_gamma;  sscanf(&item[14],"%s",s); remove_quote(s); 
     return(1);
   }
+
   if ( uniqueOverlap(item,"varname_z=")) { 
     s=INPUTS.varname_z ;  sscanf(&item[10],"%s",s); remove_quote(s); 
     return(1);
@@ -13164,10 +13166,10 @@ void parse_nmax(char *item) {
 
 #define MXARG_nmax 20
   int  i, NARG, nmax, ID ;
-  char stringArg[MXARG_nmax][40];
+  char stringArg[MXARG_nmax][MXCHAR_VARNAME];
   char *ptrArg[MXARG_nmax];
   char comma[] = "," ;
-  char survey[60], tmpString[40] ;
+  char survey[60], tmpString[MXCHAR_VARNAME] ;
   char fnam[] = "parse_nmax" ;
 
   // ------------- BEGIN ---------------
@@ -13782,7 +13784,7 @@ void SPLITRAN_SUMMARY(void) {
     ,SUMN, SQSUMN
     ;
   
-  char PARNAME[40];
+  char PARNAME[MXCHAR_VARNAME];
   char fnam[] = "SPLITRAN_SUMMARY" ;
 
   // -------------- BEGIN -------------
@@ -15143,7 +15145,7 @@ void SPLITRAN_read_fitpar(int isplit) {
   int  iwd, NWD, ipar ;
   int  NTRY_OPEN=0;
   double VAL, ERR;
-  char tmpFile[200], LINE[100], WORD[6][40], *PARNAME;
+  char tmpFile[200], LINE[100], WORD[6][MXCHAR_VARNAME], *PARNAME;
   char *prefix = INPUTS.PREFIX ;
   char fnam[] = "SPLITRAN_read_fitpar";
 
@@ -15235,7 +15237,7 @@ void write_fitres(char* fileName) {
   // Write outout in fitres format.
   // Combine original fitres variables with those
   // calculated here in SALT2mu.
-  // Jun 2012: increase line-string lenght from 400 to MXCHAR_LINE
+  // Jun 2012: increase line-string length from 400 to MXCHAR_LINE
   // Jul 2013: write averge M0 to fitres file (avemag0)
   // Apr 2016: for SIM, write true CC/tot ratio of fitted events.
   // Jul 2016: if cutmask_write=-9, do NOT write the SN lines
@@ -15250,7 +15252,7 @@ void write_fitres(char* fileName) {
   int idsample, IS_SIM, NSN_DATA, NSN_BIASCOR ;
   char 
      line[MXCHAR_LINE], tmpLine[MXCHAR_LINE] 
-    ,tmpName[60], ztxt[60], KEY[40], CCID[40]
+    ,tmpName[60], ztxt[60], KEY[MXCHAR_VARNAME], CCID[40]
     ,*ptrtok, *ptrCR
     ;
 
@@ -16032,7 +16034,7 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
 
   int num, iMN, jMN, i, j, NZwr ;
   double emat[MAXPAR][MAXPAR], terr[MAXPAR], corr ;
-  char tmpName[40], msg[100];
+  char tmpName[MXCHAR_VARNAME], msg[100];
 
   // --------- BEGIN ----------
 

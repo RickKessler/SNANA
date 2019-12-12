@@ -294,7 +294,7 @@ struct {
 struct {
   int  NLIST;
   char SOURCE_of_STRING[200];
-  char STRING[MXLIST_STRING_UNIQUE][60];  
+  char STRING[MXLIST_STRING_UNIQUE][100];  
 } STRING_UNIQUE ;
 
 struct {

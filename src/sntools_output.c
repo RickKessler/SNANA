@@ -1164,7 +1164,7 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
 
   // Oct 2014
   // do the dirty work described in SNTABLE_READPREP_VARDEF.
-  // find place of *varname and store *ptr for reading
+  // Find place of *varname and store *ptr for reading
   // Returns index of *varname if *varname exists;
   // returns -1 otherwise. 
   //
@@ -1189,7 +1189,7 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
 
   int ivar, i, NVAR_TOT, NVAR_READ, VECFLAG, ISIZE, NPTR, MATCH ;
   int ICAST_STORE ;
-  char varName[60], *varTmp ;
+  char varName[MXCHAR_VARNAME*2], *varTmp ;
   char fnam[] = "sntable_readprep_vardef1" ;
 
   // ---------------- BEGIN ---------------
@@ -1212,6 +1212,15 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
 
   parse_TABLEVAR(varName_withCast,                    // (I)
 		 varName,  &ICAST_STORE, &VECFLAG, &ISIZE);  // (O)
+
+  if ( strlen(varName) > MXCHAR_VARNAME ) {
+    printf("\n PRE-ABORT DUMP: \n");
+    printf("\t varName = '%s' \n", varName);
+    sprintf(MSGERR1,"len(varName) = %d exceeds bound of MXCHAR_VARNAME=%d .",
+	    strlen(varName), MXCHAR_VARNAME);
+    sprintf(MSGERR2,"Try shorter name.");
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
 
   sprintf(varName_noCast, "%s", varName); // load output arg.
 

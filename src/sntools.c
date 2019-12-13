@@ -5417,7 +5417,8 @@ double interp_1DFUN(
   // 
   // NBIN=3   => do the old interp8   functionality
   // NBIN > 3 => do the old lamInterp functionality
-
+  //
+  // Dec 13 2019: return min val immediately if NBIN==1
 
   int  IBIN, ibin0, ibin2 ;
   double 
@@ -5431,6 +5432,8 @@ double interp_1DFUN(
 
   // ------------- BEGIN -----------------
 
+  if ( NBIN==1 ) { return(VAL_LIST[0]) ; }
+
   // do binary search to quickly find which bin contains 'val'
   IBIN = quickBinSearch(val, NBIN,VAL_LIST, abort_comment );
 
@@ -5443,10 +5446,10 @@ double interp_1DFUN(
 
 
   if ( OPT == OPT_INTERP_LINEAR ) {
-    val0 = *(VAL_LIST + IBIN ) ;
-    val1 = *(VAL_LIST + IBIN + 1) ;
-    fun0 = *(FUN_LIST + IBIN ) ;
-    fun1 = *(FUN_LIST + IBIN + 1) ;
+    val0 = VAL_LIST[IBIN] ;
+    val1 = VAL_LIST[IBIN + 1] ;
+    fun0 = FUN_LIST[IBIN ] ;
+    fun1 = FUN_LIST[IBIN + 1] ;
     frac = (val - val0)/(val1-val0) ;
     fun  = fun0 + frac*(fun1-fun0);
     return fun ;
@@ -5655,6 +5658,7 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
   // *(VAL_LIST+IBIN) contains VAL.
   // Use binary search to quickly find IBIN when NBIN is very large.
   //
+  // Dec 13 2019: return(0) immediately of NBIN=1
 
   char fnam[] = "quickBinSearch" ;
   int  LDMP, NITER, ibin_min, ibin_max, ibin, ibin1, ibin2, ISTEP ;
@@ -5678,6 +5682,8 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
   NITER    = 0;  // for efficiency testing only
   ibin_min = 0; 
   ibin_max = NBIN-1 ;
+  
+  if ( NBIN ==  1 ) { return(0); } 
 
  NEXTSTEP:
 

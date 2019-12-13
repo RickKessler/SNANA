@@ -11104,6 +11104,21 @@ to whatever the simulation generates.
 % --------------------------------------
 
 % --------------------------------------
+  \subsubsection{{\tt DASHBOARD} Utility}
+  \label{sss:sim_dashboard}
+% --------------------------------------
+
+There are well over a dozen possible input files to the simulation,
+and keeping track can be difficult, especially with include files
+and command-line overrides. A brief summary of every input file
+can be displayed with
+\begin{verbatim}
+   snlc_sim.exe mysim.input DASHBOARD
+\end{verbatim}
+which will print a file summary and then quit. 
+Higher-level pipelines can use this feature to better summarize the inputs.
+
+% --------------------------------------
   \subsubsection{Simulate Ia/non-Ia mix: {\SNmix}}
   \label{sss:sim_SNmix}
 % --------------------------------------

@@ -20928,8 +20928,9 @@ c Nov 23 2019: add more info for simulated data
       IF ( WR_SIM_MAGOBS  ) THEN
          write(LUNOUT,"('GALID: ',I9)" ) SNHOST_OBJID(1)
          write(LUNOUT,"('FIELD: ',A )" ) SNLC_FIELDLIST ! includes overlaps
-         write(LUNOUT,"('SALT2x1: ',F6.3,5x,'SALT2c: ',F6.3)" )
-     &          SIM_SHAPEPAR, SIM_COLORPAR 
+
+c         write(LUNOUT,"('SALT2x1: ',F6.3,5x,'SALT2c: ',F6.3)" )
+c     &          SIM_SHAPEPAR, SIM_COLORPAR 
       ENDIF
 
 

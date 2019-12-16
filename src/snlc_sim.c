@@ -15507,6 +15507,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // Mar 11 2018: fix PIXSIZE for FWHM_ARCSEC units
   // Mar 15 2018: MAG -> MAG_UNDEFINED
   // Jul 11 2018: fix bug by setting PIXSIZE outside UNIT if-block
+  // Dec 16 2019: if MAG = MAG_ZEROFLUX, then skip undefined mag-check.
 
   int NOBS_RAW    = SIMLIB_HEADER.NOBS ;
   int NEW_CADENCE = (REPEAT_CADENCE == 0 ) ;
@@ -15641,7 +15642,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
     // compute a few things from OBS_RAW
     if ( INPUTS.SMEARFLAG_ZEROPT == 0 ) { ZPT[1] = 0.0 ; }
-    if ( MAG < 5.0 || MAG > 50 ) { MAG = MAG_UNDEFINED ; }
+    if ( MAG != MAG_ZEROFLUX ) 
+      { if ( MAG < 5.0 || MAG > 50 ) { MAG = MAG_UNDEFINED ; } }
     if ( MAG < MAG_ZEROFLUX    ) { SIMLIB_HEADER.NOBS_SIM_MAGOBS++ ; }
     sprintf(cfilt,  "%c", FILTERSTRING[IFILT_OBS] ) ;
 
@@ -26289,7 +26291,7 @@ void DASHBOARD_DRIVER(void) {
 
   print_banner(fnam);
 
-  printf("GENMODEL:  %s \n", INPUTS.GENMODEL);
+  printf("GENMODEL:        %s \n", INPUTS.GENMODEL);
 
   // ------- SIMLIB -------
 
@@ -26327,16 +26329,20 @@ void DASHBOARD_DRIVER(void) {
 
   ENVrestore(INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE,fileName_orig);
   printf("SEARCHEFF_PIPELINE_EFF_FILE:   %s\n", fileName_orig);
-  printf("\t NMAP_EFFDETECT=%d, NMAP_PHOTPROB=%d \n", 
-	 INPUTS_SEARCHEFF.NMAP_DETECT, INPUTS_SEARCHEFF.NMAP_PHOTPROB);
+  if ( INPUTS_SEARCHEFF.NMAP_DETECT > 0 ) {
+    printf("\t NMAP_EFFDETECT=%d, NMAP_PHOTPROB=%d \n", 
+	   INPUTS_SEARCHEFF.NMAP_DETECT, INPUTS_SEARCHEFF.NMAP_PHOTPROB);
+  }
 
   ENVrestore(INPUTS_SEARCHEFF.USER_SPEC_FILE,fileName_orig);
   printf("SEARCHEFF_SPEC_FILE:    %s\n", fileName_orig );  
-  printf("\t NMAP_SPECEFF = %d \n", INPUTS_SEARCHEFF.NMAP_SPEC);
+  if ( INPUTS_SEARCHEFF.NMAP_SPEC > 0 ) 
+    { printf("\t NMAP_SPECEFF = %d \n", INPUTS_SEARCHEFF.NMAP_SPEC); }
 
   ENVrestore(INPUTS_SEARCHEFF.USER_zHOST_FILE,fileName_orig);
   printf("SEARCHEFF_zHOST_FILE:   %s\n", fileName_orig );  
-  printf("\t NMAP_zHOST = %d \n", INPUTS_SEARCHEFF.NMAP_zHOST);
+  if ( INPUTS_SEARCHEFF.NMAP_zHOST > 0 ) 
+    { printf("\t NMAP_zHOST = %d \n", INPUTS_SEARCHEFF.NMAP_zHOST); }
 
   happyend();
   return;
@@ -26447,7 +26453,7 @@ void SIMLIB_DUMP_DRIVER(void) {
   if ( INPUTS.SIMLIB_DUMP & 4 ) { LDMP_ROOT  = 1; }
 #endif
 
-  print_banner("SIMLIB_DUMP");
+  if ( INPUTS.DASHBOARD_DUMPFLAG == 0 ) { print_banner("SIMLIB_DUMP"); }
 
   /*
   printf("\t size of SIMLIB_DUMP struct: %6.2f MB \n",

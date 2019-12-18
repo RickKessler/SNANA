@@ -8001,12 +8001,64 @@ c get fluxes in native system (i.e., undo AB offsets)
       END  ! end of WRSALT2_2
 
 
-C ===========================================
+C ============================
 +DECK,MADABORT.
+      SUBROUTINE MADABORT(funname,c1err,c2err)
+      IMPLICIT NONE
++CDE,SNPAR.
++CDE,CTRLCOM.
+      character funname*(*)          ! name of function calling MADABORT
+      character c1err*(*), c2err*(*) ! two error messages
+      INTEGER ISEV_FATAL, IPROMPT, LENF, LEN1, LEN2
+      PARAMETER ( ISEV_FATAL = 4, IPROMPT=0 )
+      LOGICAL LEGACY_ABORT
+
+      EXTERNAL ERRMSG
+      INTEGER  LENSTR
+c ----------------- BEGIN --------------
+
+      LEGACY_ABORT = .FALSE.
+
+      IF ( LEGACY_ABORT ) then
+         CALL MADABORT_LEGACY(funname,c1err,c2err)
+      ELSE
+         LENF = LENSTR(funname)
+         LEN1 = LENSTR(c1err)
+         LEN2 = LENSTR(c2err)
+         call errmsg(ISEV_FATAL, IPROMPT, 
+     &       funname(1:LENF)//char(0), 
+     &       c1err(1:LEN1)//char(0),
+     &       c2err(1:LEN2)//char(0),
+     &          LENF, LEN1, LEN2 )
+      ENDIF
+
+      RETURN
+      END
+
+C =============================
++DECK,LENSTR.
+      INTEGER FUNCTION LENSTR(string)
+c Created Dec 17 2019
+c STRING = 'Hi, what is this.' --> LENSTR = 17
+c 
+      IMPLICIT NONE
+      CHARACTER STRING*(*)
+      INTEGER LENTOT, LEN, i
+C ---------- BEGIN -------------
+      LENTOT = index(string,' ', back = .TRUE. ) - 1
+      DO i = 1, LENTOT
+        IF ( STRING(i:i) .NE. ' ' ) LEN=i
+      ENDDO
+      LENSTR = LEN
+      RETURN
+      END
+
+C ===========================================
++DECK,MADABORT_LEGACY.
 c
 c Jan 2019: replace STOP with EXIT for well-defined return code.
 c
-      SUBROUTINE MADABORT(funname,c1err,c2err)
+      SUBROUTINE MADABORT_LEGACY(funname,c1err,c2err)
       IMPLICIT NONE
 +CDE,SNPAR.
 +CDE,CTRLCOM.
@@ -8038,7 +8090,7 @@ c      STOP
       CALL EXIT(EXIT_ERRCODE)
 
       RETURN
-      END
+      END  ! end MADABORT_LEGACY
 
 
 C ======================================
@@ -19886,12 +19938,13 @@ c - - - - - -
       CHARACTER NAME_forC*(MXCHAR_FILENAME), cwd*(MXCHAR_FILENAME)
       INTEGER iwd, NWD, LENFILE,MSKOPT
 
-      INTEGER  STORE_PARSE_WORDS
+      INTEGER  STORE_PARSE_WORDS, IGNOREFILE
       EXTERNAL STORE_PARSE_WORDS
 
 C ---------------- BEGIN --------------
 
-      if ( INFILE .EQ. ''     ) RETURN
+      if ( INFILE .EQ. ''  ) RETURN
+cc      if ( IGNOREFILE(INFILE,) > 0 ) RETURN
 
       MSKOPT    = MSKOPT_PARSE_WORDS_STRING
       LENFILE   = INDEX(INFILE,' ') + 10 ! allow FORCE key after space

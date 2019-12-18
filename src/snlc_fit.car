@@ -3059,7 +3059,8 @@ c TMP_FITMODEL has the special end-string char(0) need for C functions.
 
 c turn on covariance model by default, 
 c unless user specifically sets OPT_COVAR=0
-        IF ( OPT_COVAR_FLUX .EQ. -9 ) OPT_COVAR_FLUX = 1
+        IF ( OPT_COVAR_FLUX .EQ. -9 ) OPT_COVAR_FLUX    = 1
+        if ( .not. USE_MODEL_MAGERR ) OPT_COVAR_FLUX    = 0 
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SIMSED ) THEN
 
@@ -6937,10 +6938,10 @@ c check legacy nml variables.
       IF ( OPT_XTMW_ERR > -8 ) THEN
          OPT_COVAR_MWXTERR = OPT_XTMW_ERR   ! Sep 22, 2013
       ENDIF
-
       IF ( OPT_COVAR > -98 ) THEN
          OPT_COVAR_FLUX = OPT_COVAR   ! Nov 9 2018
       ENDIF
+
 c ------------------
 c check option to turn off all priors.
       IF ( OPT_PRIOR .LE. 0 ) THEN
@@ -17995,14 +17996,6 @@ c now the fitted error.
          LENLIST  = INDEX(VARLIST,' ') - 1
          CALL SNTABLE_ADDCOL(ID, CBLOCK, LCERR_STORE(ipar), 
      &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
-
-c xxxxxxxxxxxxx
-c May 23 2018: error-diff for last 2 iterations
-c         VARLIST  = VARNAME(1:LENNAME) // 'FRACERRDIF:F' 
-c         LENLIST  = INDEX(VARLIST,' ') - 1
-c         CALL SNTABLE_ADDCOL(ID, CBLOCK, LCFRACERRDIF_STORE(ipar), 
-c     &        VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
-c xxxxxxxxxxxxx
 
  380  CONTINUE
 

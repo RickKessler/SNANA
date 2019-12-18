@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
   //  test_igm(); // xxxx
 
   // read user input file for directions
-  if ( get_user_input() != SUCCESS ) { madend(1) ; }
+  get_user_input();
 
   // init random number generator, and store first random.
   if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID  ) 
@@ -496,7 +496,7 @@ int LUPDGEN(int N) {
 }
 
 // ******************************************
-int get_user_input(void) {
+void get_user_input(void) {
 
   /**********
 
@@ -576,8 +576,7 @@ int get_user_input(void) {
   // make a few checks, compute a few flags and print user input to screen
   // -------------------------------------------
 
-  
-  return SUCCESS;
+  return;
 
 }  // end of get_user_input
 
@@ -10484,6 +10483,8 @@ void gen_MWEBV(void) {
 
   // - - - - - - - - - - - - - - - - - 
   // Jul 21 2018: checking option to compute MWEBV-FLUXCOR for each band.
+  //   Used to correct output fluxes for MWEBV (e..g, for public challenge)
+
   if ( INPUTS.APPLYFLAG_MWEBV ) {
 
     int ifilt, ifilt_obs ;

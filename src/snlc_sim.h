@@ -1553,7 +1553,7 @@ int    check_SIMLIB_GENRANGE(double *GENRANGE_ORIG, double *GENRANGE_NEW);
 
 void   ENDSIMLIB_check(void);
 
-int    get_user_input(void);       // top function to get user inputs
+void   get_user_input(void);       // top function to get user inputs
 void   set_user_defaults(void);    // set INPUTS.xxx defaults
 void   set_user_defaults_SPECTROGRAPH(void);  
 void   set_user_defaults_RANSYSTPAR(void);  

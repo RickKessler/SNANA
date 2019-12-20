@@ -141,7 +141,7 @@ c
      &  ,MXLISTNML   = 52    ! max list size for some NML lists    
      &  ,MXFILT_OBS  = 62    ! max number of used observer filters
      &  ,MXFILT_ALL  = 100   ! max number of all possible filter defs
-     &  ,MXFILT_REST = 20    ! max number of rest-frame filter types (was 12)
+     &  ,MXFILT_REST = 40    ! max number of rest-frame filter types (was 12)
      &  ,MXFILT_KCOR = MXFILT_REST ! max number of filters used in Kcor table
      &  ,MXFILT_SNRMAX =  8       ! no more than this many SNRMAX(filt) cuts
      &  ,MNTYPE       =   1       ! min sn "type"
@@ -3966,6 +3966,8 @@ c
 c Dec 10 2017: if NFILT_REMAP_TABLE>0, pass REMAP list of filters
 c              to SNLCPAK_INIT
 c
+c Dec 19 2019: pass SIMFLAG to SNLCPAK_INIT.
+c
 c ------------------------------------------------------
 
       IMPLICIT NONE
@@ -3975,7 +3977,7 @@ c ------------------------------------------------------
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER LENFILE,  IFILETYPE
+      INTEGER LENFILE,  IFILETYPE, SIMFLAG
 
       CHARACTER 
      &   FNAM*16
@@ -4025,8 +4027,10 @@ c set strings needed for the SNLCPAK_INIT functio
       TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
 
       IF ( OPT_TABLE(ITABLE_SNLCPAK) > 0 ) THEN
+         SIMFLAG = 0
+         IF ( LSIM_SNANA .or. LSIM_MAGOBS ) SIMFLAG=1
          CALL SNLCPAK_INIT(SURVEY_forC, VER_PHOT_forC, VER_SNANA_forC,
-     &        FILTERS_forC,  NFIT_PER_SN, TEXTFMT_forC,
+     &        FILTERS_forC, SIMFLAG, NFIT_PER_SN, TEXTFMT_forC,
      &        LENSRVY, LENV1, LENV2, LENFILT, LENFMT )
       ENDIF
 
@@ -23812,13 +23816,6 @@ c store data-FITFUN chi2
      &     VFILTOBS, SNLCPAK_EPFLAG_CHI2, LENCCID)
       ENDIF
 
-c xxxx Not needed or finished; use OBS option in sntable_dump
-c      if ( WRTABLEFILE_ERRCALC_TEXT ) then  
-c        CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VDUMERR,VERRCALC,
-c     &     VFILTOBS, SNLCPAK_EPFLAG_ERRCALC, LENCCID)
-c      endif
-c xxxxx 
-
 c ------------------------------------------
       IF ( .NOT. OVMODEL_ANYFUN ) GOTO 500
 c ------------------------------------------
@@ -27854,7 +27851,7 @@ c error checking
       END
 
 C ==================================
-+DECK,RDKCHFLT.
++DECK,RDKCOR_CHECK_IFILT.
       SUBROUTINE RDKCOR_CHECK_IFILT(ifilt_rest,ifilt_obs, stringKcor)
 
 c Dec 2012
@@ -27913,12 +27910,13 @@ c make sure that we don't exceed KCOR filter-index bound
             print*,' ABORT-INFO: obs-filter = ', 
      &               CFILT(1:20), ifiltdef
          ENDDO
-         write(c1err,1660) ifilto, 'obs', 
-     &   SURVEY_FILTERS(1:NFILTDEF_SURVEY), MXFILT_KCOR
+         write(c1err,1660) ifilto, 'obs',
+     &      SURVEY_FILTERS(1:NFILTDEF_SURVEY)
+         write(c2err,1661) MXFILT_KCOR
          CALL MADABORT(FNAM, c1err, c2err)
       endif
-1660    format(I4,2x,A,'-frame filters (',A,')', 
-     &          ' exceeds MXFILT_KCOR=',I3,' ' )
+1660    format('ifilto=',I4, 2x, A,'-frame filters (',A,')' )
+1661    format('Exceeds MXFILT_KCOR = ', I3)
 
 c check that sparse indices are valid
 

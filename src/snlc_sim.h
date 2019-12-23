@@ -1047,6 +1047,7 @@ struct GENLC {
   float mag[MXEPSIM] ;       // observed mag
   float mag_err[MXEPSIM] ;   // error onabove
 
+  int ISOBS[MXEPSIM];       // flags observed epochs
   int ISPEAK[MXEPSIM];      // labels extra epochs that store peakmags.
   int IEPOCH_PEAK[MXFILTINDX] ; // identifies peak epoch vs. filter
   int IEPOCH_SNRMAX;            // epoch with SNRMAX (Jun 2018)
@@ -1716,7 +1717,8 @@ void   cp_zvariation(char *outFile_zvar);
 void   genmag_boost(void);
 void   genmag_MWXT_fromKcor(void);   // apply MW extinct for rest-frame models
 
-void   LOAD_SEARCHEFF_DATA(); // Jan 2014
+void   LOAD_SEARCHEFF_DATA(void);
+void   LOAD_SEARCHEFF_DATA_LEGACY(void); 
 
 void   gen_spectype(void);
 

@@ -1746,7 +1746,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
   //
 
   int NMJD_DETECT, NDETECT, imask, NOBS, MARK, DETECT_MARK ;
-  int IFILTOBS, obs, OVP, obsLast, LFIND;
+  int IFILTOBS, obs, OVP, obsLast, LFIND, FIRST=0;
   int IFILTOBS_MASK, IFILTDEF_MASK, NEXT_DETECT, DETECT_FLAG ;
   int FOUND_TRIGGER=0;
   int OBSMARKER_DETECT[MXOBS_TRIGGER];
@@ -1787,7 +1787,10 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
 
     if ( MAG == MAG_UNDEFINED ) { continue ; }
 
-    if ( obs == 0 ) { obsLast=obs; MJD_LAST= MJD; continue; }
+    if ( !FIRST ) { 
+      FIRST=1; obsLast=obs; MJD_LAST= MJD; continue; 
+    }
+    // xxx mark del if ( obs == 0 ) { obsLast=obs; MJD_LAST= MJD; continue; }
 	
 
     MJD_DIF     = fabs(MJD-MJD_LAST);
@@ -1878,7 +1881,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
 
 
   // check on photprob
-  if ( OBS_PHOTPROB.NSTORE > 0  && LEGACY_PHOTPROB==0 ) {
+  if ( OBS_PHOTPROB.NSTORE > 0  && !LEGACY_PHOTPROB ) {
     int istore;
     setRan_for_PHOTPROB();
     for(istore=0; istore < OBS_PHOTPROB.NSTORE ; istore++ ) {

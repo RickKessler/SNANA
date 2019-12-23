@@ -10010,12 +10010,14 @@ c Also subtract index offsets
 
         ENDIF
 
+         R4EP_ALL(ep,JEP_SIM_FLUXCAL) = 0.0
          IF ( LSIM_MAGOBS .or. LSIM_SNANA ) THEN
             ARG   = 0.4*(ZEROPOINT_FLUXCAL_DEFAULT - SIM_EPMAGOBS(ep))
             FLUX_SIM = 10.0**(ARG)
             SQDIF    = (FLUX_SIM - FLUX_DATA)**2
             SQERR    = FLUXERR_DATA*FLUXERR_DATA
 
+cc	    print*,' xxxx ', ep, FLUX_SIM
             R4EP_ALL(ep,JEP_SIM_FLUXCAL) = FLUX_SIM
             IF ( FLUXERR_DATA > 0 ) THEN
                R4EP_ALL(ep,JEP_SIM_DELCHI2) = SQDIF/SQERR
@@ -17562,7 +17564,7 @@ c store data-FITFUN chi2
       CALL SNLCPAK_DATA(CCID, NOBS, VMJD,VTOBS, VCHI2, VDUMERR, 
      &     VFILTOBS, SNLCPAK_EPFLAG_CHI2, LENCCID)
 
-      IF ( LSIM_SNANA) THEN
+      IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
 c      pack generated SIM fluxes (May 20 2016)
         CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, 
      &     VSIMFLUXOBS, VZERO,   ! VZERO = zero error for each true flux 

@@ -395,8 +395,8 @@ void  set_outlier_varnames(void) {
   NVAR++ ;
 
   if ( INPUTS.OPT_OBS ) {
-    sprintf(INPUTS.VARNAMES[NVAR],"%s", "zHD" );   
-    NVAR++ ;
+    sprintf(INPUTS.VARNAMES[NVAR],"%s", "zHD"     );    NVAR++ ;
+    sprintf(INPUTS.VARNAMES[NVAR],"%s", "FITPROB" );    NVAR++ ;
   }
 
   // append extra user variables here

@@ -17733,7 +17733,7 @@
 
 
 # ======================================================================= 
-         v10_74l (  ) 
+         v10_74l (Dec 23 2019) 
 
          ***** IMPORTANT(v10_74l) ***** 
 
@@ -17757,14 +17757,27 @@
    
    sntools_output.h: 
     + replace hard-coded [40] with [MXCHAR_VARNAME] in many places.
-
+   sntools_output_text.c
+    + for sims, write SIM_FLUXCAL to LCPLOT file.
+ 
    sntools.c[h]:
      update madend for better use in pipelines.
 
    snana.car:
-      MADABORT calls C function errmsg so that fortran and C 
-      codes use same abort call.
-    
+     + MADABORT calls C function errmsg so that fortran and C 
+       codes use same abort call.
+     + MXFILT_KCOR -> 40 (was 20). For Raisin/SNoopy.
+
    snlc_fit.car
-      if USE_MODEL_MAGERR=F, then turn off SALT2 covariance model.
+     + if USE_MODEL_MAGERR=F, then turn off SALT2 covariance model.
+
+   sntable_dump.c
+     For OBS option, include FLUXCAL_MODEL
+
+   snlc_sim.c
+    + define and set GENLC.ISOBS[ep] to avoid checking multiple
+      logicals for each epoch.
+    + refactor LOAD_SEARCHEFF_DATA and note that random sync is changed.
+      Recover legacy code with "DEBUG_FLAG 55"
+
 END: 

@@ -224,7 +224,6 @@ struct  SNLCPAK_OUTPUT {
 
   // set user-passed variables that change with each SN
   char CCID[40];
-  // xxx mark delete  char CCID_LAST[40];  // last CCID to know when it changes
 
   int  NTEXT ;         // number of text strings
   int  MXTEXT ;        // to init text in tree
@@ -499,10 +498,12 @@ extern"C" {
   // SNLCPAK functions
 
   void SNLCPAK_INIT(char *SURVEY, char *VERSION_PHOT, char *VERSION_SNANA,
-		    char *SURVEY_FILTERS, int NFIT, char *TEXT_FORMAT );
+		    char *SURVEY_FILTERS, int SIMFLAG, 
+		    int NFIT, char *TEXT_FORMAT );
 
   void snlcpak_init__(char *SURVEY, char *VERSION_PHOT, char *VERSION_SNANA,
-		      char *SURVEY_FILTERS, int *NFIT, char *TEXTFMT ); 
+		      char *SURVEY_FILTERS, int *SIMFLAG, 
+		      int *NFIT, char *TEXTFMT ); 
 
   void SNLCPAK_NFIT_PER_SN  (int  NFIT_PER_SN);
   void snlcpak_nfit_per_sn__(int *NFIT_PER_SN);

@@ -675,6 +675,10 @@ Default output files (can change names with "prefix" argument)
     + clean up stdout messaging in prepare_biasCor(1D,5D,6D,7D)
 
  Nov 14 2019: MAXBIN_BIASCOR_1D -> 500k (was 200k)
+ Dec 11 2019: 
+     + fix few bugs so that 1D5DCUT option works
+       (i.e., apply 1D biasCor, but require 5D biasCor exists)
+     + abort if length(varname_gamma) > MXCHAR_VARNAME =  60
 
  ******************************************************/
 
@@ -812,6 +816,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define MXCUTWIN 20 // max number of CUTWIN definitions in input file.
 
 #define MXCHAR_LINE 2000 // max character per line of fitres file
+
 
 // define CUTBIT for each type of cut (lsb=0)
 // (bit0->1, bit4->16, bit6->64, bit8->256, bit10->1024,  bit12 --> 4096
@@ -1269,7 +1274,7 @@ struct INPUTS {
 
   int    NCUTWIN ;
   int    CUTWIN_RDFLAG[MXCUTWIN] ; // 1=> read, 0=> use existing var
-  char   CUTWIN_NAME[MXCUTWIN][20];
+  char   CUTWIN_NAME[MXCUTWIN][MXCHAR_VARNAME];
   double CUTWIN_RANGE[MXCUTWIN][2];
   int    CUTWIN_ABORTFLAG[MXCUTWIN] ;  // 1=> abort if var does not exist
   int    CUTWIN_DATAONLY[MXCUTWIN] ;   // 1=> cut on data only (not biasCor)
@@ -1305,7 +1310,7 @@ struct INPUTS {
   int    izpar[MAXPAR];   // iz index or -9 
   int    fixpar_all ;     // global flag to fix all parameters	      
 
-  char varname_gamma[40]; // name of variable to fit gamma HR step;
+  char varname_gamma[MXCHAR_VARNAME]; // name of variable to fit gamma HR step;
                            // e.g, "HOST_LOGMASS" or "SSFR", etc...
   int USE_GAMMA0 ;   // true if p5 is floated or fixed to non-zero value
   int cutmask_write; // mask of errors to write SN to output
@@ -1339,7 +1344,7 @@ struct INPUTS {
   
   int dumpflag_nobiasCor; // 1 --> dump info for data with no valid biasCor
 
-  char SNID_MUCOVDUMP[40]; // dump MUERR info for this SNID (Jun 2018)
+  char SNID_MUCOVDUMP[MXCHAR_VARNAME]; // dump MUERR info for this SNID (Jun 2018)
 
 } INPUTS ;
 
@@ -1416,7 +1421,7 @@ struct {
 
 
 typedef struct {
-  char        COMMENT[40];
+  char        COMMENT[MXCHAR_VARNAME];
   BININFO_DEF BININFO;
 
   // start with SUMPROB summed over full sample
@@ -1472,7 +1477,7 @@ struct {
   double M0ERR[MXz]; // error on above
   double zM0[MXz];   // wgted-average z (not from fit)
 
-  char   PARNAME[MAXPAR][40];
+  char   PARNAME[MAXPAR][MXCHAR_VARNAME];
   double PARVAL[MXSPLITRAN+1][MAXPAR];
   double PARERR[MXSPLITRAN+1][MAXPAR];
 
@@ -1497,8 +1502,8 @@ int FOUNDKEY_OPT_PHOTOZ = 0 ;
 int NVAR_ORIG ; // NVAR from original ntuple
 int NVAR_NEW  ; // NVAR added from SALTmu
 int NVAR_TOT  ; // sum of above
-char VARNAMES_NEW[MAXPAR*10][40] ;
-char VARNAMES_ORIG[100][40] ;
+char VARNAMES_NEW[MAXPAR*10][MXCHAR_VARNAME] ;
+char VARNAMES_ORIG[100][MXCHAR_VARNAME] ;
 
 time_t t_start, t_end_init, t_end_fit, t_read_biasCor[3] ;
 
@@ -2144,7 +2149,7 @@ void exec_mnpout_mnerrs(void) {
   double PARVAL, PARERR, bnd1, bnd2, eplus,eminus,eparab, globcc;
   int    ipar, iMN, iv ;
   int    LEN_VARNAME = 10 ;
-  char text[100], format[80], cPARVAL[40] ;
+  char text[100], format[80], cPARVAL[MXCHAR_VARNAME] ;
   //  char fnam[] = "exec_mnpout_mnerrs" ;
 
   // -------------- BEGIN ----------------
@@ -2812,7 +2817,7 @@ void check_duplicate_SNID(void) {
     NTMP   = NDUPL_LIST[idup] ;
     snid   = INFO_DATA.TABLEVAR.name[unsort]; 
     z      = INFO_DATA.TABLEVAR.zhd[unsort];      
-    printf("\t -> %2d with SNID=%8.8s at z=%.3f \n", 
+    printf("\t -> %2d with SNID=%8.8s at z=%.5f \n", 
 	   NTMP, snid, z );	   
   }
 
@@ -4489,9 +4494,18 @@ void read_data(void) {
     sprintf(VARNAMES_ORIG[ivar], "%s", READTABLE_POINTERS.VARNAME[ivar] );
   }
 
-  for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL; isn++ ) 
-    { compute_more_TABLEVAR(isn, &INFO_DATA.TABLEVAR ); }
-  
+  int NPASS=0;
+  for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL; isn++ ) { 
+    compute_more_TABLEVAR(isn, &INFO_DATA.TABLEVAR ); 
+    if ( INFO_DATA.TABLEVAR.CUTMASK[isn] == 0 ) { NPASS++ ; }
+  }
+  if ( NPASS == 0 ) {
+    sprintf(c1err,"All DATA events fail cuts");
+    sprintf(c2err,"Check cut-windows in SALT2mu input file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+  }
+
+
   return;
 
 } // end read_data 
@@ -5157,7 +5171,7 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
   int IDEAL           = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
 
   int  icut, ivar, ivar2, irow, id, RDFLAG ;
-  char vartmp[60], *cutname, str_z[40], str_zerr[40]; 
+  char vartmp[MXCHAR_VARNAME], *cutname, str_z[MXCHAR_VARNAME], str_zerr[MXCHAR_VARNAME]; 
 
   char fnam[] = "SNTABLE_READPREP_TABLEVAR" ;
 
@@ -5330,10 +5344,6 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
     }
     TABLEVAR->DOFLAG_CUTWIN[icut] = set_DOFLAG_CUTWIN(ivar,icut,IS_DATA);
 
-    /* xxx mark delete (moved to malloc function)
-    if ( strcmp(cutname,INPUTS.varname_gamma) == 0 ) 
-	{ TABLEVAR->ICUTWIN_GAMMA = icut ; }
-    xxxxxx */
   }
 
 
@@ -5365,10 +5375,10 @@ void SNTABLE_READPREP_TABLEVAR(int ISTART, int LEN, TABLEVAR_DEF *TABLEVAR) {
   sprintf(vartmp,"SIMmB:F SIM_mB:F" );
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_mB][ISTART], 
 			  LEN, VBOSE);
-  sprintf(vartmp,"SIMx1:F SIM_x1:F" );
+  sprintf(vartmp,"SIMx1:F SIM_x1:F SIM_SALT2x1:F" );
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_x1][ISTART], 
 			  LEN, VBOSE);
-  sprintf(vartmp,"SIMc:F SIM_c:F" );
+  sprintf(vartmp,"SIMc:F SIM_c:F SIM_SALT2c:F" );
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_c][ISTART], 
 			  LEN, VBOSE);
 
@@ -6815,10 +6825,12 @@ void prepare_biasCor(void) {
   //  + refactor to define NDIM_BIASCOR and global INFO_BIASCOR.NDIM.
   //    Print more sensible messages with appropriate 1D,5D,6D,7D.
   //
+  // Dec 11 2019: fix to work with DOCOR_1D5DCUT
+  //
 
   int INDX, IDSAMPLE, SKIP, NSN_DATA, CUTMASK, ievt, NBINg=0 ;
-  int  OPTMASK    = INPUTS.opt_biasCor ;
-  int  EVENT_TYPE = EVENT_TYPE_BIASCOR;
+  int  OPTMASK       = INPUTS.opt_biasCor ;
+  int  EVENT_TYPE    = EVENT_TYPE_BIASCOR;
   int  nfile_biasCor = INPUTS.nfile_biasCor ;
   int  DOCOR_1DZAVG  = ( OPTMASK & MASK_BIASCOR_1DZAVG  );
   int  DOCOR_1DZWGT  = ( OPTMASK & MASK_BIASCOR_1DZWGT  );
@@ -6849,7 +6861,7 @@ void prepare_biasCor(void) {
   read_simFile_biasCor();
 
   // setup 5D bins 
-  if ( DOCOR_5D ) {
+  if ( DOCOR_5D || DOCOR_1D5DCUT ) {
     for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR ; IDSAMPLE++ ) 
       { setup_CELLINFO_biasCor(IDSAMPLE); }
   }
@@ -6944,7 +6956,8 @@ void prepare_biasCor(void) {
 
   print_eventStats(EVENT_TYPE);
 
-  if ( NDIM_BIASCOR == 1 ) { goto CHECK_1DCOR ; }
+  //  if ( NDIM_BIASCOR == 1 ) { goto CHECK_1DCOR ; }
+  if ( NDIM_BIASCOR == 1 && !DOCOR_1D5DCUT ) { goto CHECK_1DCOR ; }
 
   // make sparse list for faster looping below (Dec 21 2017)
   makeSparseList_biasCor();
@@ -7040,6 +7053,7 @@ void prepare_biasCor(void) {
     DUMPFLAG = 0; // (NUSE_TOT < 2 ) ; // xxx REMOVE
     istore = storeDataBias(n,DUMPFLAG);
 
+    
     NUSE[IDSAMPLE]++ ; NUSE_TOT++ ;
     if ( istore == 0 )  { 
       NSKIP_TOT++; NSKIP[IDSAMPLE]++ ;     
@@ -8995,8 +9009,12 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   //   case they can take too much memory for local.
   //
   // Jul 16 2019: add gamma (ig) dimension
-
+  // Dec 11 2019: 
+  //   + abort if muErrsq < 0 or if NUSE exceeds bound.
+  //   + return immediately of 1D+5DCUT is set.
+  //
   int  DO_SIGINT_SAMPLE = ( INPUTS.opt_biasCor & MASK_BIASCOR_SIGINT_SAMPLE ) ;
+  int  DOCOR_1D5DCUT    = ( INPUTS.opt_biasCor & MASK_BIASCOR_1D5DCUT );
   int  NROW_TOT, NROW_malloc, i, istat_cov, NCOVFIX, ia, ib, ig, MEMD, cutmask ;
   int  LDMP = 0 ;
 
@@ -9012,9 +9030,12 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   float  *ptr_SNRMAX;
   double SIGINT_AVG, SIGINT_ABGRID[MXa][MXb][MXg] ; 
 
+  char *NAME;
   char fnam[]   = "init_sigInt_biasCor_SNRCUT" ;
 
   // ------------------- BEGIN -------------------
+
+  if ( DOCOR_1D5DCUT ) { return ; }
 
   printf("\n");
 
@@ -9055,14 +9076,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
     printf(" %s for all IDSAMPLEs combined: \n", fnam);
   }
   else {
-    /* xxxxxxxxxxxxxx mark delete xxxxxxxx
-    // IDSAMPLE>0 and one sigInt -> set sigInt = sigInt[IDSAMPLE=0]
-    for(ia=0; ia < NBINa; ia++ ) {
-      for(ib=0; ib < NBINb; ib++ ) {
-	SIGINT_ABGRID[ia][ib] = simdata_bias.SIGINT_ABGRID[0][ia][ib] ; 
-      } // end ib
-    } // end ia
-    xxxxxxxxxxxxxxxx */
+    // do nothing
   } 
 
   fflush(stdout) ;
@@ -9071,12 +9085,19 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   // quick pass with SNR cut to estimate size for malloc  
   NROW_malloc = 0 ;
   for(i=0; i < NROW_TOT; i++ ) {
-    if ( ptr_CUTMASK[i] ) { continue; }
+
+    // apply selection without BIASCOR-z cut (but keep global z cut)
+    cutmask  = ptr_CUTMASK[i] ;
+    cutmask -= (cutmask & CUTMASK_LIST[CUTBIT_zBIASCOR]);
+    if ( cutmask ) { continue; }
+
     SNRMAX = (double)(ptr_SNRMAX[i]) ;
     if ( SNRMAX < INPUTS.snrmin_sigint_biasCor) { continue ; }
     NROW_malloc++ ;
   }
 
+
+  NROW_malloc += 100; // safety margin
   MEMD = NROW_malloc * sizeof(double) ;
   for(ia=0; ia < NBINa; ia++ ) {
     for(ib=0; ib < NBINb; ib++ ) {
@@ -9113,18 +9134,25 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
     
 
     NSNRCUT++ ;
-
+    NAME   = INFO_BIASCOR.TABLEVAR.name[i] ;
     muDif  = muresid_biasCor(i); 
 
     // compute error with no intrinsic scatter (just use data COVFIT)
     muErrsq = muerrsq_biasCor(i, USEMASK_BIASCOR_COVFIT, &istat_cov) ;
 
+    if ( muErrsq < 0.0 ) {
+      sprintf(c1err,"Invalid muErrsq[%d] = %f < 0  SNID=%s",
+	      i, muErrsq, NAME );
+      sprintf(c2err,"muDif=%le ", muDif);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);   
+    }
+
     if ( isnan(muErrsq) || isnan(muDif) ) {
-      sprintf(c1err,"isnan trap for SNID = %s (irow=%d)", 
-	      INFO_BIASCOR.TABLEVAR.name[i], i );
+      sprintf(c1err,"isnan trap for SNID = %s (irow=%d)", NAME, i);
       sprintf(c2err,"muErrsq=%le, muDif=%le ", muErrsq, muDif);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);   
     }
+
 
     if ( istat_cov < 0 ) { NCOVFIX++ ; }    
 
@@ -9141,8 +9169,17 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
     MUERRSQ[ia][ib][ig][NTMP] = muErrsq ;
     NUSE[ia][ib][ig]++ ;
 
-  } // end loop over biasCor sample
+    // xxxxxxxx
 
+    if ( NUSE[ia][ib][ig] >= NROW_malloc ) {
+      sprintf(c1err,"NUSE[ia,ib,ig=%d,%d,%d] = %d exceeds malloc size",
+	      ia, ib, ig, NUSE[ia][ib][ig] );
+      sprintf(c2err,"NROW_malloc = %d", NROW_malloc);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+    }
+    // xxxxxxxxxx
+
+  } // end loop over biasCor sample
 
 
   // -------------------------------------------------
@@ -9186,7 +9223,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 
 	sigInt = sqrt(SQRMS - muErrsq) ;  // approx sigInt
 	
-	if ( LDMP && ia==0 && ib==0 ) {
+	if ( LDMP ) {
 	  printf(" xxx ia,ib,ig=%d,%d,%d  N = %d \n", ia,ib,ig, (int)XN );
 	  printf(" xxx --> RMS(mu)=%.4f  muErr=%.4f  muOff=%.4f  sigInt=%.4f\n",
 		 sqrt(SQRMS), sqrt(muErrsq),  muOff, sigInt );        
@@ -9210,6 +9247,12 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 	    muDif     = MUDIF[ia][ib][ig][i] - muOff ;
 	    muErrsq   = MUERRSQ[ia][ib][ig][i] ;  
 	    pull      = muDif/sqrt(muErrsq + sqsigTmp);
+	    if ( isnan(pull) ) {
+	      sprintf(c1err,"crazy pull = %f  ia,ib,ig=%d,%d,%d",
+		      pull, ia, ib, ig );
+	      sprintf(c2err,"i=%d  muDif=%f muErrsq = %f", i, muDif, muErrsq);
+	      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+	    }
 	    sumdif   += pull ;
 	    sumdifsq += (pull*pull);
 	  }
@@ -9220,7 +9263,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 	  sigInt_store[NBIN_SIGINT]  = sigTmp ;
 	  
        
-	  if ( LDMP && ia == -1 && ib==0  ) {
+	  if ( LDMP ) {
 	    printf("\t xxx ia,ib,ig=%d,%d,%d : "
 		   "sigTmp(%d)=%.3f --> RMS(pull)=%.3f \n",
 		   ia, ib, ig, NBIN_SIGINT, sigInt_store[NBIN_SIGINT], 
@@ -9234,8 +9277,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 	}  // end sigTmp loop
 	
       
-      // interpolate sigInt vs. rmsPull at rmsPull=1
-
+	// interpolate sigInt vs. rmsPull at rmsPull=1
 	sigInt = interp_1DFUN(OPT_INTERP, ONE, NBIN_SIGINT,
 			      rmsPull_store, sigInt_store, fnam);
 	
@@ -12604,7 +12646,7 @@ int ppar(char* item) {
   //                which aborts on duplicate key.
   
   int  ipar, len ;  
-  char key[40], *s;
+  char key[MXCHAR_VARNAME], *s;
   char fnam[] = "ppar" ;
 
   // --------- BEGIN ----------
@@ -12727,10 +12769,13 @@ int ppar(char* item) {
     return(1);
   }
 
-  if ( uniqueOverlap(item,"varname_gamma=")) {
+
+  // xxx mark delete   sprintf(key,"varname_gamma=");
+  if ( uniqueOverlap(item,"varname_gamma=") ) {
     s=INPUTS.varname_gamma;  sscanf(&item[14],"%s",s); remove_quote(s); 
     return(1);
   }
+
   if ( uniqueOverlap(item,"varname_z=")) { 
     s=INPUTS.varname_z ;  sscanf(&item[10],"%s",s); remove_quote(s); 
     return(1);
@@ -13121,10 +13166,10 @@ void parse_nmax(char *item) {
 
 #define MXARG_nmax 20
   int  i, NARG, nmax, ID ;
-  char stringArg[MXARG_nmax][40];
+  char stringArg[MXARG_nmax][MXCHAR_VARNAME];
   char *ptrArg[MXARG_nmax];
   char comma[] = "," ;
-  char survey[60], tmpString[40] ;
+  char survey[60], tmpString[MXCHAR_VARNAME] ;
   char fnam[] = "parse_nmax" ;
 
   // ------------- BEGIN ---------------
@@ -13739,7 +13784,7 @@ void SPLITRAN_SUMMARY(void) {
     ,SUMN, SQSUMN
     ;
   
-  char PARNAME[40];
+  char PARNAME[MXCHAR_VARNAME];
   char fnam[] = "SPLITRAN_SUMMARY" ;
 
   // -------------- BEGIN -------------
@@ -15100,7 +15145,7 @@ void SPLITRAN_read_fitpar(int isplit) {
   int  iwd, NWD, ipar ;
   int  NTRY_OPEN=0;
   double VAL, ERR;
-  char tmpFile[200], LINE[100], WORD[6][40], *PARNAME;
+  char tmpFile[200], LINE[100], WORD[6][MXCHAR_VARNAME], *PARNAME;
   char *prefix = INPUTS.PREFIX ;
   char fnam[] = "SPLITRAN_read_fitpar";
 
@@ -15192,7 +15237,7 @@ void write_fitres(char* fileName) {
   // Write outout in fitres format.
   // Combine original fitres variables with those
   // calculated here in SALT2mu.
-  // Jun 2012: increase line-string lenght from 400 to MXCHAR_LINE
+  // Jun 2012: increase line-string length from 400 to MXCHAR_LINE
   // Jul 2013: write averge M0 to fitres file (avemag0)
   // Apr 2016: for SIM, write true CC/tot ratio of fitted events.
   // Jul 2016: if cutmask_write=-9, do NOT write the SN lines
@@ -15207,7 +15252,7 @@ void write_fitres(char* fileName) {
   int idsample, IS_SIM, NSN_DATA, NSN_BIASCOR ;
   char 
      line[MXCHAR_LINE], tmpLine[MXCHAR_LINE] 
-    ,tmpName[60], ztxt[60], KEY[40], CCID[40]
+    ,tmpName[60], ztxt[60], KEY[MXCHAR_VARNAME], CCID[40]
     ,*ptrtok, *ptrCR
     ;
 
@@ -15985,10 +16030,11 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
   //   NPARz_write : number of zM0 params to include
   //
   // Jun 2019: pass fp to allow writing to file or stdout.
+  // Dec 9 2019: avoid truncating FITRESULTS.PARNAME to 10 chars.
 
   int num, iMN, jMN, i, j, NZwr ;
   double emat[MAXPAR][MAXPAR], terr[MAXPAR], corr ;
-  char *name_i, msg[100];
+  char tmpName[MXCHAR_VARNAME], msg[100];
 
   // --------- BEGIN ----------
 
@@ -16007,12 +16053,12 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
     {
       i  = FITINP.IPARMAP_MN[iMN]  ;
       if ( i - MXCOSPAR >= NPARz_write ) { continue; }
-      name_i = FITRESULT.PARNAME[i];
-      name_i[10] = 0; // force truncation of name
+      sprintf(tmpName, "%s", FITRESULT.PARNAME[i] );
+      tmpName[10] = 0;    // force truncation of name
       terr[iMN] = sqrt(emat[iMN][iMN]);
 
       //      fprintf(fp,"%2i ",iMN+1); 
-      fprintf(fp,"# %-10.10s ",name_i); 
+      fprintf(fp,"# %-10.10s ", tmpName ); 
 
       for (jMN=0; jMN <= iMN; ++jMN)	{
 	j  = FITINP.IPARMAP_MN[jMN]  ;

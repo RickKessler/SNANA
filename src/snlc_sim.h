@@ -39,7 +39,6 @@
 
 time_t t_start, t_end;
 
-
 #define  MXINPUT_FILE_SIM   3       // 1 input file + 2 includes
 #define  MXCID_SIM  299999999   // max sim CID and max number of SN
 #define  MXEPSIM_PERFILT  500       // 
@@ -320,6 +319,9 @@ typedef struct {
 // define user INPUTS
 
 struct INPUTS {
+
+  int USE_KCOR_REFACTOR; //1-> run both legacy and new; 2-> new only
+  int USE_KCOR_LEGACY;   //use legacy fortran code to read & apply 
 
   int DASHBOARD_DUMPFLAG ;
 
@@ -1045,6 +1047,7 @@ struct GENLC {
   float mag[MXEPSIM] ;       // observed mag
   float mag_err[MXEPSIM] ;   // error onabove
 
+  int ISOBS[MXEPSIM];       // flags observed epochs
   int ISPEAK[MXEPSIM];      // labels extra epochs that store peakmags.
   int IEPOCH_PEAK[MXFILTINDX] ; // identifies peak epoch vs. filter
   int IEPOCH_SNRMAX;            // epoch with SNRMAX (Jun 2018)
@@ -1551,7 +1554,7 @@ int    check_SIMLIB_GENRANGE(double *GENRANGE_ORIG, double *GENRANGE_NEW);
 
 void   ENDSIMLIB_check(void);
 
-int    get_user_input(void);       // top function to get user inputs
+void   get_user_input(void);       // top function to get user inputs
 void   set_user_defaults(void);    // set INPUTS.xxx defaults
 void   set_user_defaults_SPECTROGRAPH(void);  
 void   set_user_defaults_RANSYSTPAR(void);  
@@ -1693,7 +1696,7 @@ void   init_simRandoms(void);    // init stuff for randoms
 void   init_genmodel(void);      // init above
 void   init_genSpec(void);        // one-time init for SPECTROGRAPH
 void   init_genSEDMODEL(void); // generic init for SEDMODEL
-void   init_kcor(char *kcorFile);
+void   init_kcor_legacy(char *kcorFile);
 void   init_kcor_refactor(void);
 void   init_covar_mlcs2k2(void);    // init GENLC.COVAR array
 void   init_zvariation(void);      // z-dependent sim parameters
@@ -1714,7 +1717,8 @@ void   cp_zvariation(char *outFile_zvar);
 void   genmag_boost(void);
 void   genmag_MWXT_fromKcor(void);   // apply MW extinct for rest-frame models
 
-void   LOAD_SEARCHEFF_DATA(); // Jan 2014
+void   LOAD_SEARCHEFF_DATA(void);
+void   LOAD_SEARCHEFF_DATA_LEGACY(void); 
 
 void   gen_spectype(void);
 

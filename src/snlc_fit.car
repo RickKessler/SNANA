@@ -3059,7 +3059,8 @@ c TMP_FITMODEL has the special end-string char(0) need for C functions.
 
 c turn on covariance model by default, 
 c unless user specifically sets OPT_COVAR=0
-        IF ( OPT_COVAR_FLUX .EQ. -9 ) OPT_COVAR_FLUX = 1
+        IF ( OPT_COVAR_FLUX .EQ. -9 ) OPT_COVAR_FLUX    = 1
+        if ( .not. USE_MODEL_MAGERR ) OPT_COVAR_FLUX    = 0 
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SIMSED ) THEN
 
@@ -6937,10 +6938,10 @@ c check legacy nml variables.
       IF ( OPT_XTMW_ERR > -8 ) THEN
          OPT_COVAR_MWXTERR = OPT_XTMW_ERR   ! Sep 22, 2013
       ENDIF
-
       IF ( OPT_COVAR > -98 ) THEN
          OPT_COVAR_FLUX = OPT_COVAR   ! Nov 9 2018
       ENDIF
+
 c ------------------
 c check option to turn off all priors.
       IF ( OPT_PRIOR .LE. 0 ) THEN
@@ -10009,12 +10010,14 @@ c Also subtract index offsets
 
         ENDIF
 
+         R4EP_ALL(ep,JEP_SIM_FLUXCAL) = 0.0
          IF ( LSIM_MAGOBS .or. LSIM_SNANA ) THEN
             ARG   = 0.4*(ZEROPOINT_FLUXCAL_DEFAULT - SIM_EPMAGOBS(ep))
             FLUX_SIM = 10.0**(ARG)
             SQDIF    = (FLUX_SIM - FLUX_DATA)**2
             SQERR    = FLUXERR_DATA*FLUXERR_DATA
 
+cc	    print*,' xxxx ', ep, FLUX_SIM
             R4EP_ALL(ep,JEP_SIM_FLUXCAL) = FLUX_SIM
             IF ( FLUXERR_DATA > 0 ) THEN
                R4EP_ALL(ep,JEP_SIM_DELCHI2) = SQDIF/SQERR
@@ -16965,6 +16968,8 @@ c
 c Jul 31 2015: write fitres [column] format to make it easier to parse.
 c
 c Nov 19 2019: remove NVAR key
+c Dec 04 2019: remove obsolete IFILTOBS_RST to avoid negative index
+c
 c ------------
 
       IMPLICIT NONE
@@ -16989,7 +16994,6 @@ c local args
      &   LTMP, imjd, NMJD, ipar, NVAR_OUT
      &  ,CID, CID_TMP
      &  ,IFILT, IFILT_OBS, IFILT_RST
-     &  ,IFILTOBS_RST(MXFILT_ALL)
 
       REAL*8  
      &   MJD8, MJD8_LAST, MJD8LIST(MXINTERP)
@@ -17075,16 +17079,11 @@ c search MJD(s) for this SN:
 c avoid repeating an MJD ... mainly to avoid multiple PEAKMJD entries.
         IF ( MJD8 .EQ. MJD8_LAST ) GOTO 200
 
-        do ifilt_obs = 1, MXFILT_ALL
-          IFILTOBS_RST(ifilt_obs) = 0
-        enddo
 
 c get observer mags,flux,kcor at this MJD
-c Also get local mapping IFILTOBS_RST.
 
         DO IFILT = 1, NFILTDEF_SURVEY      
           ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-          ifilt_rst = IFILT_REST_MAP(ifilt)
 
           if ( USE_FILT(ifilt_obs) ) then
 
@@ -17097,34 +17096,9 @@ c Also get local mapping IFILTOBS_RST.
              MAGERROBS_INTERP(ifilt_obs)  = MAG8ERR
              KCOR_INTERP(ifilt_obs)       = KCOR8
 
-             IFILTOBS_RST(ifilt_rst) = ifilt_obs
-
           endif
         ENDDO
 
-
-c get rest-mags at this MJD
-
-        DO  ifilt = 1, NFILTDEF_REST
-            IFILT_RST = IFILTDEF_MAP_REST(ifilt) 
-            ifilt_obs = IFILTOBS_RST(ifilt_rst)
-
-           CALL MODELMAG_CALC(ifilt_rst, 'REST', MJD8,
-     &           FLUX8, FLUX8ERR, MAG8, MAG8ERR, KCOR8 ) ! return args
-            MAGRST_INTERP(ifilt_rst)    = MAG8 + PEAKMAG_AT_10PC
-            MAGERRRST_INTERP(ifilt_rst) = MAG8ERR
-
-           if ( IFILT_OBS .GT. 0 ) then
-c            get rest-mag assuming a fixed cosmology
-             CALL MODELMAG_CALC(ifilt_obs, 'REST2', MJD8,
-     &           FLUX8, FLUX8ERR, MAG8, MAG8ERR, KCOR8 ) ! return args
-           else
-             MAG8    = 99. - PEAKMAG_AT_10PC
-             MAG8ERR = 9.
-           endif
-            MAGRST2_INTERP(ifilt_rst)    = MAG8 + PEAKMAG_AT_10PC
-            MAGERRRST2_INTERP(ifilt_rst) = MAG8ERR
-        ENDDO
 
 c -------------------------
 c write results to output file.
@@ -17138,7 +17112,6 @@ c write results to output file.
 40      format('# ', A)
         DO 1400 IFILT = 1, NFILTDEF_SURVEY      
           ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-          ifilt_rst = IFILT_REST_MAP(ifilt)
           BAND      = FILTDEF_STRING(ifilt_obs:ifilt_obs)
           if ( .not. USE_FILT(ifilt_obs) ) GOTO 1400
 
@@ -17591,7 +17564,7 @@ c store data-FITFUN chi2
       CALL SNLCPAK_DATA(CCID, NOBS, VMJD,VTOBS, VCHI2, VDUMERR, 
      &     VFILTOBS, SNLCPAK_EPFLAG_CHI2, LENCCID)
 
-      IF ( LSIM_SNANA) THEN
+      IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
 c      pack generated SIM fluxes (May 20 2016)
         CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, 
      &     VSIMFLUXOBS, VZERO,   ! VZERO = zero error for each true flux 
@@ -18025,14 +17998,6 @@ c now the fitted error.
          LENLIST  = INDEX(VARLIST,' ') - 1
          CALL SNTABLE_ADDCOL(ID, CBLOCK, LCERR_STORE(ipar), 
      &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
-
-c xxxxxxxxxxxxx
-c May 23 2018: error-diff for last 2 iterations
-c         VARLIST  = VARNAME(1:LENNAME) // 'FRACERRDIF:F' 
-c         LENLIST  = INDEX(VARLIST,' ') - 1
-c         CALL SNTABLE_ADDCOL(ID, CBLOCK, LCFRACERRDIF_STORE(ipar), 
-c     &        VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
-c xxxxxxxxxxxxx
 
  380  CONTINUE
 

@@ -56,6 +56,7 @@ typedef struct {
 
 
 typedef struct {
+  int  OPT_FRAME; // indicates REST or OBS
 
   // filled by addFilter_kcor
   int  NFILTDEF;
@@ -67,7 +68,8 @@ typedef struct {
   char *FILTER_NAME[MXFILT_KCOR]; // full name of each filter, vs. sparse indx
 
   double PRIMARY_MAG[MXFILT_KCOR];
-  double PRIMARY_ZPOFF[MXFILT_KCOR];
+  double PRIMARY_ZPOFF_SYN[MXFILT_KCOR]; // from synthetic vs. native
+  double PRIMARY_ZPOFF_FILE[MXFILT_KCOR]; // from ZPOFF.DAT file
   int    PRIMARY_KINDX[MXFILT_KCOR];  // index to KCOR_INFO.PRIMARY_XXX[]
   int    NBIN_LAM_PRIMARY ;
   float *PRIMARY_LAM, *PRIMARY_FLUX;
@@ -101,9 +103,9 @@ struct KCOR_INFO {
   int   NPRIMARY;
   char  *PRIMARY_NAME[MXPRIMARY_KCOR] ;
   int    PRIMARY_INDX[MXFILT_KCOR];
-  double PRIMARY_MAG[MXFILT_KCOR];    // native mag
-  double PRIMARY_ZPOFF[MXFILT_KCOR];  // mag(native) - mag(synth)
-  double SNPHOT_ZPOFF[MXFILT_KCOR];   // apply to photometry (from ZPOFF.DAT)
+  double PRIMARY_MAG[MXFILT_KCOR];          // native mag
+  double PRIMARY_ZPOFF_SYN[MXFILT_KCOR];    // mag(native) - mag(synth)
+  double PRIMARY_ZPOFF_FILE[MXFILT_KCOR];   // from ZPOFF.DAT
 
   int   NFILTDEF;
   char *FILTER_NAME[MXFILT_KCOR] ;

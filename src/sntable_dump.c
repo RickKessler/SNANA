@@ -100,6 +100,8 @@
     + increase MXVAR_DUMP 20 -> 40
     + abort trap if NVAR > MXVAR_DUMP.
 
+ Dec 28 2019: for OBS option, include FLUXCAL_MODEL
+
 ********************************************/
 
 #include <stdio.h>
@@ -393,8 +395,8 @@ void  set_outlier_varnames(void) {
   NVAR++ ;
 
   if ( INPUTS.OPT_OBS ) {
-    sprintf(INPUTS.VARNAMES[NVAR],"%s", "zHD" );   
-    NVAR++ ;
+    sprintf(INPUTS.VARNAMES[NVAR],"%s", "zHD"     );    NVAR++ ;
+    sprintf(INPUTS.VARNAMES[NVAR],"%s", "FITPROB" );    NVAR++ ;
   }
 
   // append extra user variables here
@@ -451,6 +453,7 @@ void  set_outlier_varnames(void) {
   NVAR++ ;
 
   if ( INPUTS.OPT_OBS ) {
+    sprintf(INPUTS.VARNAMES[NVAR], "FLUXCAL_MODEL" ); NVAR++ ; // Dec 18 2019
     sprintf(INPUTS.VARNAMES[NVAR], "FLUXCAL_DATA_ERR" );  NVAR++ ;
     sprintf(INPUTS.VARNAMES[NVAR], "SBFLUXCAL" );         NVAR++ ;
     sprintf(INPUTS.VARNAMES[NVAR], "ERRTEST"   );         NVAR++ ;

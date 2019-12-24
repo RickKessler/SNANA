@@ -201,6 +201,11 @@ void TABLEFILE_INIT(void) {
   SNLCPAK_USE_HBOOK = SNLCPAK_USE_ROOT = SNLCPAK_USE_TEXT = 0 ;  
   SPECPAK_USE_HBOOK = SPECPAK_USE_ROOT = SPECPAK_USE_TEXT = 0 ;
 
+  sprintf(SNLCPAK_OUTPUT.SURVEY,             "NULL" );
+  sprintf(SNLCPAK_OUTPUT.VERSION_PHOTOMETRY, "NULL" );
+  sprintf(SNLCPAK_OUTPUT.VERSION_SNANA,      "NULL" );
+  sprintf(SNLCPAK_OUTPUT.SURVEY_FILTERS,     "NULL" );
+  sprintf(SNLCPAK_OUTPUT.TEXT_FORMAT,        "" );
 
 #ifdef USE_TEXT
   FILEPREFIX_TEXT[0] = 0 ;
@@ -1164,7 +1169,7 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
 
   // Oct 2014
   // do the dirty work described in SNTABLE_READPREP_VARDEF.
-  // find place of *varname and store *ptr for reading
+  // Find place of *varname and store *ptr for reading
   // Returns index of *varname if *varname exists;
   // returns -1 otherwise. 
   //
@@ -1189,7 +1194,7 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
 
   int ivar, i, NVAR_TOT, NVAR_READ, VECFLAG, ISIZE, NPTR, MATCH ;
   int ICAST_STORE ;
-  char varName[60], *varTmp ;
+  char varName[MXCHAR_VARNAME*2], *varTmp ;
   char fnam[] = "sntable_readprep_vardef1" ;
 
   // ---------------- BEGIN ---------------
@@ -1212,6 +1217,15 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
 
   parse_TABLEVAR(varName_withCast,                    // (I)
 		 varName,  &ICAST_STORE, &VECFLAG, &ISIZE);  // (O)
+
+  if ( strlen(varName) > MXCHAR_VARNAME ) {
+    printf("\n PRE-ABORT DUMP: \n");
+    printf("\t varName = '%s' \n", varName);
+    sprintf(MSGERR1,"len(varName) = %d exceeds bound of MXCHAR_VARNAME=%d .",
+	    strlen(varName), MXCHAR_VARNAME);
+    sprintf(MSGERR2,"Try shorter name.");
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
 
   sprintf(varName_noCast, "%s", varName); // load output arg.
 
@@ -2591,12 +2605,14 @@ void cdtopdir_output__ (void) {
 // ==========================================
 
 void SNLCPAK_INIT(char *SURVEY, char *VERSION_PHOT, char *VERSION_SNANA,
-		  char *SURVEY_FILTERS, int NFIT_PER_SN, char *TEXT_FORMAT) {
+		  char *SURVEY_FILTERS, int SIMFLAG, 
+		  int NFIT_PER_SN, char *TEXT_FORMAT) {
 
   // One-time global init called before opening output file.
   // NFIT = Number of fits per SN
   //
   // Sep 7 2014: add TEXT_FORMAT (used only if TEXT option is selected)
+  // Dec 19 2019: pass SIMFLAG argument.
 
   char BANNER[100];
   char fnam[] = "SNLCPAK_INIT" ;
@@ -2626,6 +2642,7 @@ void SNLCPAK_INIT(char *SURVEY, char *VERSION_PHOT, char *VERSION_SNANA,
   sprintf(SNLCPAK_OUTPUT.TEXT_FORMAT,        "%s", TEXT_FORMAT    );
 
   SNLCPAK_OUTPUT.NFILTDEF_SURVEY = strlen(SNLCPAK_OUTPUT.SURVEY_FILTERS) ;
+  SNLCPAK_OUTPUT.SIMFLAG = SIMFLAG ;
 
   // store max possible fits per SN (can be fewer)
   SNLCPAK_OUTPUT.NFIT_PER_SN = NFIT_PER_SN ;
@@ -2646,9 +2663,10 @@ void SNLCPAK_INIT(char *SURVEY, char *VERSION_PHOT, char *VERSION_SNANA,
 }  // end of SNLCPAK_INIT
 
 void snlcpak_init__(char *SURVEY, char *VER_PHOT, char *VER_SNANA,
-		    char *SURVEY_FILTERS, int *NFIT_PER_SN, char *TEXTFMT) {
+		    char *SURVEY_FILTERS, int *SIMFLAG, 
+		    int *NFIT_PER_SN, char *TEXTFMT) {
   SNLCPAK_INIT(SURVEY, VER_PHOT, VER_SNANA, SURVEY_FILTERS, 
-	       *NFIT_PER_SN, TEXTFMT );
+	       *SIMFLAG, *NFIT_PER_SN, TEXTFMT );
 }
 
 
@@ -2817,7 +2835,7 @@ void SNLCPAK_DATA(char *CCID, int NOBS, double *MJD, double *TOBS,
   // increment plot-counter for FLUX-DATA since this is the
   // only required FLAG
   if ( FLAG  == SNLCPAK_EPFLAG_FLUXDATA )  
-    { SNLCPAK_OUTPUT.NLCPAK++ ;  }
+    { SNLCPAK_OUTPUT.NLCPAK++ ; }
 
   sprintf(comment,"%s(FLAG=%d)", fnam, FLAG);
   SNLCPAK_CHECK(CCID,comment);
@@ -2838,8 +2856,8 @@ void SNLCPAK_DATA(char *CCID, int NOBS, double *MJD, double *TOBS,
   if ( FLAG < MXFLAG_SNLCPAK_EPOCH ) {
 
     // allocate memory
-    MEMD = NOBS * sizeof(double);
-    MEMI = NOBS * sizeof(int) ;  
+    MEMD = (NOBS+10) * sizeof(double);
+    MEMI = (NOBS+10) * sizeof(int) ;  
     SNLCPAK_OUTPUT.TOBS[FLAG]            = (double*)malloc(MEMD) ;
     SNLCPAK_OUTPUT.MJD[FLAG]             = (double*)malloc(MEMD) ;
     SNLCPAK_OUTPUT.EPDATA[FLAG]          = (double*)malloc(MEMD) ;

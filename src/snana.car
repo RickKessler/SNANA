@@ -141,7 +141,7 @@ c
      &  ,MXLISTNML   = 52    ! max list size for some NML lists    
      &  ,MXFILT_OBS  = 62    ! max number of used observer filters
      &  ,MXFILT_ALL  = 100   ! max number of all possible filter defs
-     &  ,MXFILT_REST = 20    ! max number of rest-frame filter types (was 12)
+     &  ,MXFILT_REST = 40    ! max number of rest-frame filter types (was 12)
      &  ,MXFILT_KCOR = MXFILT_REST ! max number of filters used in Kcor table
      &  ,MXFILT_SNRMAX =  8       ! no more than this many SNRMAX(filt) cuts
      &  ,MNTYPE       =   1       ! min sn "type"
@@ -1278,6 +1278,8 @@ c for reading and parsing.
      &  ,NFILT_DUPLICATE_RDKCOR        ! keep count of duplicate filters
      &  ,IKCOR_RDKCOR(MXKCOR)          ! ikcor vs. istore           
      &  ,IPRIM_REF_RDKCOR              ! index for primary  ref.
+     &  ,NERR_PRIM_RDKCOR              ! number of invalude PRIMARY errors
+     &  ,IPRIM_FIRST2_RDKCOR(2)        ! for error message
 
       REAL 
      &   MAG_PRIMARY_RDKCOR(MXFILT_ALL)    ! native mags
@@ -1303,7 +1305,7 @@ c for reading and parsing.
      &  ,IFILTOBS_RDKCOR,  NFILTOBS_RDKCOR
      &  ,IFILT2_RDKCOR
      &  ,NFILT_DUPLICATE_RDKCOR, IKCOR_RDKCOR, MASKFILT_RDKCOR
-     &  ,IPRIM_REF_RDKCOR
+     &  ,IPRIM_REF_RDKCOR, NERR_PRIM_RDKCOR, IPRIM_FIRST2_RDKCOR
 c
      &  ,MAG_PRIMARY_RDKCOR
      &  ,ZPOFF_PRIMARY_RDKCOR
@@ -1444,10 +1446,10 @@ c define hard-wired list of valid over-rides
       CHARACTER VARLIST_ALL_HEADER_OVERRIDE*400
       PARAMETER ( VARLIST_ALL_HEADER_OVERRIDE = 
      &   'HOSTGAL_OBJID,HOSTGAL_LOGMASS,HOSTGAL_LOGMASS_ERR,' // 
-     &   'HOSTGAL_sSFR,HOSTGAL_sSFR_ERR,' // 
+     &   'HOSTGAL_sSFR,HOSTGAL_sSFR_ERR,HOSTGAL_DDLR,' // 
      &   'HOSTGAL_PHOTOZ,HOSTGAL_PHOTOZ_ERR,' // 
      &   'VPEC,VPEC_ERR,REDSHIFT_FINAL,REDSHIFT_FINAL_ERR,' //
-     &   'SIM_SALT2x1,SIM_SALT2c,'      //
+     &   'SIM_SALT2x1,SIM_SALT2c,SIM_x1,SIM_c,'      //
      &   'PEAKMJD,PKMJDINI,PEAKMJDINI,' //
      &   'MWEBV,MWEBV_ERR '      )
       
@@ -1859,7 +1861,7 @@ c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
      &  ,SNMJD_LIST_FILE      ! list of "CID MJD" to process
      &  ,SNMJD_OUT_FILE       ! MJD_LIST out file
      &  ,MNFIT_PKMJD_LOGFILE  ! separate log for PKMJD fits
-     &  ,ZPOFF_FILE           ! AB (ZP) off for obs-frame mags
+cc     &  ,ZPOFF_FILE           ! AB (ZP) off for obs-frame mags
      &  ,USERTAGS_FILE        ! optional int user tag per SN
      &  ,VPEC_FILE            ! pec. velocity corrections
      &  ,HEADER_OVERRIDE_FILE ! header-var overrides
@@ -2010,7 +2012,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, OPT_SIMLIB_OUT
      &    , hfile_out, rootfile_out, textfile_prefix
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP
-     &    , KCOR_FILE, ZPOFF_FILE, USERTAGS_FILE
+     &    , KCOR_FILE, USERTAGS_FILE  ! ZPOFF_FILE, 
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
      &    , MAGCOR_FILE, SIM_MAGCOR_FILE,  FUDGE_HOSTNOISE_FILE
@@ -2054,7 +2056,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , hfile_out, rootfile_out, textfile_prefix
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP
-     &    , KCOR_FILE, ZPOFF_FILE, USERTAGS_FILE
+     &    , KCOR_FILE, USERTAGS_FILE  ! , ZPOFF_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE, NONLINEARITY_FILE
      &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, OPT_SIMLIB_OUT
@@ -3964,6 +3966,8 @@ c
 c Dec 10 2017: if NFILT_REMAP_TABLE>0, pass REMAP list of filters
 c              to SNLCPAK_INIT
 c
+c Dec 19 2019: pass SIMFLAG to SNLCPAK_INIT.
+c
 c ------------------------------------------------------
 
       IMPLICIT NONE
@@ -3973,7 +3977,7 @@ c ------------------------------------------------------
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER LENFILE,  IFILETYPE
+      INTEGER LENFILE,  IFILETYPE, SIMFLAG
 
       CHARACTER 
      &   FNAM*16
@@ -4023,8 +4027,10 @@ c set strings needed for the SNLCPAK_INIT functio
       TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
 
       IF ( OPT_TABLE(ITABLE_SNLCPAK) > 0 ) THEN
+         SIMFLAG = 0
+         IF ( LSIM_SNANA .or. LSIM_MAGOBS ) SIMFLAG=1
          CALL SNLCPAK_INIT(SURVEY_forC, VER_PHOT_forC, VER_SNANA_forC,
-     &        FILTERS_forC,  NFIT_PER_SN, TEXTFMT_forC,
+     &        FILTERS_forC, SIMFLAG, NFIT_PER_SN, TEXTFMT_forC,
      &        LENSRVY, LENV1, LENV2, LENFILT, LENFMT )
       ENDIF
 
@@ -4672,8 +4678,8 @@ C -------------- BEGIN --------------
          else if ( LINE_ARGS(i) .EQ. 'FILTLIST_LAMSHIFT' ) then
             i = i + 1 ; FILTLIST_LAMSHIFT = LINE_ARGS(i)(1:MXFILT_ALL)
 
-         else if ( LINE_ARGS(i) .EQ. 'ZPOFF_FILE' ) then
-            i = i + 1 ; ZPOFF_FILE = LINE_ARGS(i)
+cc         else if ( LINE_ARGS(i) .EQ. 'ZPOFF_FILE' ) then
+cc            i = i + 1 ; ZPOFF_FILE = LINE_ARGS(i)
 
          else if ( LINE_ARGS(i) .EQ. 'USERTAGS_FILE' ) then
             i = i + 1 ; USERTAGS_FILE = LINE_ARGS(i)
@@ -6111,7 +6117,7 @@ c check dump-option for SN that fail cuts.
       ENDIF
 
        IF ( OPT_REFORMAT_TEXT  .GT. 0 ) CALL WRTEXT()
-       IF ( OPT_REFORMAT_SALT2 .EQ. 1 ) CALL WRSALT2_1()
+cc       IF ( OPT_REFORMAT_SALT2 .EQ. 1 ) CALL WRSALT2_1()
        IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) CALL WRSALT2_2()
        IF ( OPT_REFORMAT_FITS  .GT. 0 ) CALL UPD_WRFITS()
 
@@ -7416,214 +7422,6 @@ c evaluate NOBS in case there are NEWMJDs with no valid fluxes.
       END     ! end WRTEXT
 
 
-C =========================================
-+DECK,WRS2_1.
-      SUBROUTINE WRSALT2_1()
-c
-c Created Jun 24, 2010 by R.Kessler
-c Re-write SN data files into original SALT2 format;
-c i.e, one file per passband plus a 'lightfile' with header info.
-c Used by J. Guy's SALT2 'snfit' and 'pcafit' programs
-c (version 2.2.2 and lower).
-c Mainly used for SDSS data, and for simulations.
-c
-c See &SNLCINP namelist variables
-c  OPT_REFORMAT_SALT2 = 1
-c  OPT_REFORMAT_KEYS  = '@INSTRUMENT <instrument>  @MAGSYS <magsys>'
-c
-c so that arbitray keys can be specified.
-c 
-c ---------------------------
-      IMPLICIT NONE
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-
-      INTEGER 
-     &   LL, LL0, LL1, iwd, NWD, MSKOPT
-     &  ,EPMIN, EPMAX, EP, NEWMJD, NFIELD
-     &  ,IFILT, IFILT_OBS, LENCID, LENSDIR, IERR, CID, NEP
-
-      REAL PEAKMJD, MJD, FLUX, FLUXERR, ZP, ZPOFF, arg, Fscale
-
-      LOGICAL LSDSS
-
-      CHARACTER 
-     &   cfilt1*1, sdir*20, ccid*(MXCHAR_CCID), cmkdir*40
-     &  ,tmpfile*(MXCHAR_FILENAME)
-     &  ,cwd*(MXCHAR_FILEWORD)
-     &  ,cwdnext*(MXCHAR_FILEWORD)
-     &  ,NAMEof_INSTRUMENT*(MXCHAR_FILEWORD)
-     &  ,NAMEof_MAGSYS*(MXCHAR_FILEWORD)
-
-      INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PARSE_WORDS
-
-C ------------- BEGIN ------------
-
-      IF( OPT_REFORMAT_SALT2 .NE. 1 ) RETURN
-      CCID   = SNLC_CCID
-
-c parse REFORMAT_KEYS to get INSTRUMENT and MAGSYS
-
-      LL  = INDEX(REFORMAT_KEYS,' ')-1
-      MSKOPT = MSKOPT_PARSE_WORDS_STRING
-      NWD = STORE_PARSE_WORDS(MSKOPT,REFORMAT_KEYS(1:LL)//char(0),LL)
-      NAMEof_INSTRUMENT = 'NULL'
-      NAMEof_MAGSYS     = 'NULL'
-
-      DO iwd = 1, NWD
-
-        CALL get_PARSE_WORD_fortran(iwd, cwd,     LL0)
-        CALL get_PARSE_WORD_fortran(iwd, cwdnext, LL1)
-
-        if ( cwd(1:LL0) .EQ. '@INSTRUMENT' ) then
-          NAMEof_INSTRUMENT = cwdnext
-        endif
-
-        if ( cwd(1:LL0) .EQ. '@MAGSYS' ) then
-          NAMEof_MAGSYS = cwdnext
-        endif
-      ENDDO
-
-c make sure that required keys are specified.
-
-      if ( NAMEof_INSTRUMENT .EQ. 'NULL' ) then
-        c1err = 'MUST specify @INSTRUMENT <instrument> in '
-        c2err = '&SNLCINP namelist string REFORMAT_KEYS'
-        CALL  MADABORT("WRSALT2_1", C1ERR, C2ERR)
-      endif
-      if ( NAMEof_MAGSYS .EQ. 'NULL' ) then
-        c1err = 'MUST specify @MAGSYS <magsys> in '
-        c2err = '&SNLCINP namelist string REFORMAT_KEYS'
-        CALL  MADABORT("WRSALT2_1", C1ERR, C2ERR)
-      endif
-
-      
-c first create subdir
-
-      read( ccid, 20 , iostat = IERR ) CID
-20    format(I9)
-
-      IF ( IERR .EQ. 0  ) THEN
-         CALL CIDSTRING(CID,CCID,LENCID)
-      ENDIF
-
-      LENCID = INDEX(CCID,' ') - 1
-      SDIR   = 'sn' // CCID(1:LENCID)
-      LENSDIR = INDEX(SDIR,' ') - 1
-  
-      CMKDIR = 'mkdir -p  ' // SDIR(1:LENSDIR)
-      call system(CMKDIR)
-
-c ===============================
-c start with the lightfile
-
-      TMPFILE = SDIR(1:LENSDIR) // '/lightfile'
-      OPEN(   UNIT   = LUNDAT 
-     &      , FILE   = TMPFILE
-     &      , STATUS = 'UNKNOWN'
-     &           )
-
-      LSDSS = SURVEY_NAME(1:4) .EQ. 'SDSS' 
-      NFIELD = ISNLC_NFIELD_OVP
-
-c survey and SNID info
-      WRITE(LUNDAT,10) 'SET',        SURVEY_NAME
-      WRITE(LUNDAT,10) 'NAME',       SDIR(1:LENSDIR)
-      WRITE(LUNDAT,10) 'IAUCNAME',   SNLC_IAUC
-
-
-c info for Galactic extinction
-      WRITE(LUNDAT,12) 'RA',     SNLC8_RA
-      WRITE(LUNDAT,12) 'DEC',    SNLC8_DEC
-      WRITE(LUNDAT,12) 'MWEBV',  SNLC_MWEBV
-
-c write redshift info
-      WRITE(LUNDAT,12) 'Redshift',     SNLC_ZCMB
-      WRITE(LUNDAT,12) 'Redshift_err', SNLC_ZCMB_ERR
-      WRITE(LUNDAT,12) 'z_cmb',        SNLC_ZCMB
-
-      IF ( SNLC_ZHELIO .GT. 0.0 ) then
-        WRITE(LUNDAT,12) 'z_heliocentric', SNLC_ZHELIO
-      ENDIF
-
-c peakMJD info
-      IF ( LSIM_SNANA ) THEN
-          PEAKMJD = SIM_PEAKMJD
-          cwd = '  '
-      ELSE
-          PEAKMJD = SNLC_SEARCH_PEAKMJD
-          cwd = '(approx ... need to fit)'
-      ENDIF
-      WRITE(LUNDAT,22) 'PEAKMJD', PEAKMJD, cwd
-
-c 
-      CLOSE ( UNIT = LUNDAT )
-
-10    FORMAT(A, T15, A)
-12    FORMAT(A, T15, F10.6)
-22    FORMAT(A, T15, F12.6, 5x, A )
-
-c =========================
-c Now loop over the filters
-
-      DO 300 ifilt = 1, NFILTDEF_SURVEY
-
-         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-         cfilt1    = FILTDEF_STRING(ifilt_obs:ifilt_obs)
-         NEP       = ISNLC_NEPOCH_FILT(ifilt)
-         IF ( NEP .LE. 0 ) goto 300
-
-         TMPFILE = SDIR(1:LENSDIR) // 
-     &       '/lc2fit_' // cfilt1(1:1) // '.dat'
-         OPEN(   UNIT   = LUNDAT 
-     &         , FILE   = TMPFILE
-     &         , STATUS = 'UNKNOWN'
-     &           )
-
-        WRITE(LUNDAT,310) '@BAND ', cfilt1
-        WRITE(LUNDAT,310) '@INSTRUMENT ', NAMEof_INSTRUMENT
-        WRITE(LUNDAT,310) '@MAGSYS ',     NAMEof_MAGSYS
-
-        WRITE(LUNDAT,311) 'Date : '
-        WRITE(LUNDAT,311) 'Flux : '
-        WRITE(LUNDAT,311) 'Fluxerr : '
-        WRITE(LUNDAT,311) 'ZP : '
-        WRITE(LUNDAT,311) 'end'
-
-        DO 301 NEWMJD = 1, ISNLC_NEWMJD_STORE
-          EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
-          EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
-
-          DO 302 EP = EPMIN, EPMAX
-            if ( IFILT_OBS .NE. ISNLC_IFILT_OBS(ep) ) GOTO 302
-            if ( SNLC_FLUXCAL_ERRTOT(EP) .LT. 0.0  ) GOTO 302
-            ZPOFF   = MAGOBS_SHIFT_ZP_FILT(ifilt_obs)
-            ZP      = 2.5*11. + ZPOFF
-            arg     = 0.4*ZPOFF
-            Fscale  = 10.0**ARG
-            MJD     = SNLC8_MJD(EP)
-
-c get fluxes in native system (i.e., undo AB offsets)
-            Flux    = Fscale * SNLC_FLUXCAL(EP)
-            Fluxerr = Fscale * SNLC_FLUXCAL_ERRTOT(EP)
-            WRITE(LUNDAT,330) MJD, FLUX, FLUXERR, ZP
-
-302       CONTINUE  ! EP
-301     CONTINUE  ! NEWMJD
-            CLOSE(UNIT=LUNDAT)
-300   CONTINUE
-
-
-310   FORMAT(A,A)
-311   FORMAT('#',A)
-330   FORMAT(F9.3, 2x, 2G12.6, 2x, F7.3 )
-
-      RETURN
-      END    ! end WRSALT2_1
-
 
 C ====================================
 +DECK,INI_WRS2.
@@ -8207,12 +8005,64 @@ c get fluxes in native system (i.e., undo AB offsets)
       END  ! end of WRSALT2_2
 
 
-C ===========================================
+C ============================
 +DECK,MADABORT.
+      SUBROUTINE MADABORT(funname,c1err,c2err)
+      IMPLICIT NONE
++CDE,SNPAR.
++CDE,CTRLCOM.
+      character funname*(*)          ! name of function calling MADABORT
+      character c1err*(*), c2err*(*) ! two error messages
+      INTEGER ISEV_FATAL, IPROMPT, LENF, LEN1, LEN2
+      PARAMETER ( ISEV_FATAL = 4, IPROMPT=0 )
+      LOGICAL LEGACY_ABORT
+
+      EXTERNAL ERRMSG
+      INTEGER  LENSTR
+c ----------------- BEGIN --------------
+
+      LEGACY_ABORT = .FALSE.
+
+      IF ( LEGACY_ABORT ) then
+         CALL MADABORT_LEGACY(funname,c1err,c2err)
+      ELSE
+         LENF = LENSTR(funname)
+         LEN1 = LENSTR(c1err)
+         LEN2 = LENSTR(c2err)
+         call errmsg(ISEV_FATAL, IPROMPT, 
+     &       funname(1:LENF)//char(0), 
+     &       c1err(1:LEN1)//char(0),
+     &       c2err(1:LEN2)//char(0),
+     &          LENF, LEN1, LEN2 )
+      ENDIF
+
+      RETURN
+      END
+
+C =============================
++DECK,LENSTR.
+      INTEGER FUNCTION LENSTR(string)
+c Created Dec 17 2019
+c STRING = 'Hi, what is this.' --> LENSTR = 17
+c 
+      IMPLICIT NONE
+      CHARACTER STRING*(*)
+      INTEGER LENTOT, LEN, i
+C ---------- BEGIN -------------
+      LENTOT = index(string,' ', back = .TRUE. ) - 1
+      DO i = 1, LENTOT
+        IF ( STRING(i:i) .NE. ' ' ) LEN=i
+      ENDDO
+      LENSTR = LEN
+      RETURN
+      END
+
+C ===========================================
++DECK,MADABORT_LEGACY.
 c
 c Jan 2019: replace STOP with EXIT for well-defined return code.
 c
-      SUBROUTINE MADABORT(funname,c1err,c2err)
+      SUBROUTINE MADABORT_LEGACY(funname,c1err,c2err)
       IMPLICIT NONE
 +CDE,SNPAR.
 +CDE,CTRLCOM.
@@ -8244,7 +8094,7 @@ c      STOP
       CALL EXIT(EXIT_ERRCODE)
 
       RETURN
-      END
+      END  ! end MADABORT_LEGACY
 
 
 C ======================================
@@ -8585,17 +8435,10 @@ c init HIDKCOR array to 0
       ENDDO    
          CUTWIN_VAR(1,CUTBIT_NMJD_INCLUDE) = 0.99
               
-c xxxxxx mark delete Nov 2019 (redundant) xxxxxxxx
-c         CUTWIN_ZPADU(1) = -CUTVAL_OPEN
-c         CUTWIN_ZPADU(2) = +CUTVAL_OPEN
-c         CUTWIN_ZPNPE(1) = -CUTVAL_OPEN
-c         CUTWIN_ZPNPE(2) = +CUTVAL_OPEN
-c xxxxxxxxxxxxxx
-
       NEPOCH_IGNORE =  0
       EPOCH_IGNORE_LASTFILE = ''
 
-      ZPOFF_FILE    = 'NULL'  ! NULL => use offsets in hid 292
+cc      ZPOFF_FILE    = 'NULL'  ! NULL => use offsets in hid 292
       USERTAGS_FILE = ''
       VPEC_FILE            = ''
       HEADER_OVERRIDE_FILE = ''
@@ -9960,7 +9803,7 @@ c local variables.
      &  ,ISKEY_VARLIST
 
       INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PgARSE_WORDS
+      EXTERNAL STORE_PARSE_WORDS
 
 C ------------- BEGIN ----------------
 
@@ -12095,6 +11938,8 @@ c
 c Jan 24 2018: initialize NWD_LOAD = NFILTDEF_SURVEY+1
 c Apr 15 2019: call PARSE_SPECTRUM
 c Jul 16 2019: fix dumb bug setting NVAR_SPECTRUM for data 
+c Dec 05 2019: abort if 'OBS:' found but 'NOBS:' wasn't found.
+c
 c ------------------------------------------
  
       IMPLICIT NONE
@@ -12269,6 +12114,12 @@ c this is really a NEWMJD
 
          if ( ISKEY_MJD ) then
 
+             if ( ISNLC_NEWMJD_HEAD == 0 ) then
+	       c1err = 'Found OBS: key, but no NOBS: key.'
+	       c2err = 'Check NOBS: key for CID = ' // SNLC_CCID
+               CALL MADABORT(FNAM,c1err, c2err)
+	     endif
+
              if ( LFLAG_RDHEAD_ONLY ) RETURN
 
              if ( ISKEY_EPOCH ) then
@@ -12293,7 +12144,6 @@ c make sure header info is valid before processing epochs
              endif
 
              if ( LNEWMJD_NEW ) then
-
                write(c1err,60) ISNLC_NEWMJD_FOUND
 60             format('Found NEWMJD=',I3,' before finishing last MJD')
                write(c2err,61) SNLC_CCID
@@ -12728,7 +12578,6 @@ c return if there are no observations
          endif
 
       ENDIF
-
 
       KEY  = 'NEPOCH'
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
@@ -15145,8 +14994,8 @@ c model parameters
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
       IF ( LTMP ) THEN
         SIM_COLORPAR = SNGL(RET8(1))
-cc xxx mark delete        SIMNAME_COLORPAR = 'SIM_c'
-        SIMNAME_COLORPAR = 'SIM_SALT2c' ! Nov 2019
+        SIMNAME_COLORPAR = 'SIM_c'
+cc xxx mark delete     SIMNAME_COLORPAR = 'SIM_SALT2c' ! Nov 2019
         SIMNAME_COLORLAW = 'SIM_beta'
       ENDIF
 
@@ -15220,8 +15069,8 @@ c Logic here may be a bit fragile.
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
       IF ( LTMP ) THEN
         SIM_SHAPEPAR     = SNGL(RET8(1))
-cc xxx mark delete        SIMNAME_SHAPEPAR = 'SIM_x1'
-        SIMNAME_SHAPEPAR = 'SIM_SALT2x1'  ! Nov 2019
+        SIMNAME_SHAPEPAR = 'SIM_x1'
+cc xxx mark delete Dec 8 2019  SIMNAME_SHAPEPAR = 'SIM_SALT2x1'  ! Nov 2019
       ENDIF
 
 c filter-dependent keys
@@ -18349,6 +18198,9 @@ c brute-force check each possible header variable
         ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_LOGMASS_ERR' ) THEN
           SNHOST_LOGMASS_ERR(1) = sngl(DVAL)
 
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_DDLR' ) THEN
+          SNHOST_DDLR(1) = sngl(DVAL)   ! Dec 10, 2019
+
         ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_sSFR' ) THEN
           SNHOST_sSFR(1) = sngl(DVAL)
         ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_sSFR_ERR' ) THEN
@@ -18366,7 +18218,12 @@ c brute-force check each possible header variable
 
         ELSE IF ( VARNAME(1:LENV) .EQ. 'SIM_SALT2x1' ) THEN ! Nov 24 2019
           SIM_SHAPEPAR = sngl(DVAL) 
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'SIM_x1' ) THEN
+          SIM_SHAPEPAR = sngl(DVAL) 
+
         ELSE IF ( VARNAME(1:LENV) .EQ. 'SIM_SALT2c' ) THEN ! Nov 24 2019
+          SIM_COLORPAR = sngl(DVAL) 
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'SIM_c' ) THEN ! Nov 24 2019
           SIM_COLORPAR = sngl(DVAL) 
 
         ELSE IF ( VARNAME(1:LENV) .EQ. 'PEAKMJD' ) THEN ! Nov 24 2019
@@ -20085,12 +19942,13 @@ c - - - - - -
       CHARACTER NAME_forC*(MXCHAR_FILENAME), cwd*(MXCHAR_FILENAME)
       INTEGER iwd, NWD, LENFILE,MSKOPT
 
-      INTEGER  STORE_PARSE_WORDS
+      INTEGER  STORE_PARSE_WORDS, IGNOREFILE
       EXTERNAL STORE_PARSE_WORDS
 
 C ---------------- BEGIN --------------
 
-      if ( INFILE .EQ. ''     ) RETURN
+      if ( INFILE .EQ. ''  ) RETURN
+cc      if ( IGNOREFILE(INFILE,) > 0 ) RETURN
 
       MSKOPT    = MSKOPT_PARSE_WORDS_STRING
       LENFILE   = INDEX(INFILE,' ') + 10 ! allow FORCE key after space
@@ -21127,8 +20985,9 @@ c Nov 23 2019: add more info for simulated data
       IF ( WR_SIM_MAGOBS  ) THEN
          write(LUNOUT,"('GALID: ',I9)" ) SNHOST_OBJID(1)
          write(LUNOUT,"('FIELD: ',A )" ) SNLC_FIELDLIST ! includes overlaps
-         write(LUNOUT,"('SALT2x1: ',F6.3,5x,'SALT2c: ',F6.3)" )
-     &          SIM_SHAPEPAR, SIM_COLORPAR 
+
+c         write(LUNOUT,"('SALT2x1: ',F6.3,5x,'SALT2c: ',F6.3)" )
+c     &          SIM_SHAPEPAR, SIM_COLORPAR 
       ENDIF
 
 
@@ -23956,13 +23815,6 @@ c store data-FITFUN chi2
         CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VCHI2, VDUMERR, 
      &     VFILTOBS, SNLCPAK_EPFLAG_CHI2, LENCCID)
       ENDIF
-
-c xxxx Not needed or finished; use OBS option in sntable_dump
-c      if ( WRTABLEFILE_ERRCALC_TEXT ) then  
-c        CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VDUMERR,VERRCALC,
-c     &     VFILTOBS, SNLCPAK_EPFLAG_ERRCALC, LENCCID)
-c      endif
-c xxxxx 
 
 c ------------------------------------------
       IF ( .NOT. OVMODEL_ANYFUN ) GOTO 500
@@ -27276,7 +27128,7 @@ C Nov 2019: abort if 2 or more primary references
 +CDE,FILTCOM.
 +CDE,SNLCINP.
 
-      INTEGER IFILT, ICOL, MASK, LP, IPRIM_FIRST, IPRIM_2ND, NERR_PRIM
+      INTEGER IFILT, ICOL, MASK, LP, IPRIM1, IPRIM2
       INTEGER FIRSTROW, FIRSTELEM, ISTAT
       CHARACTER ERRMSG*60, FNAM*24
 
@@ -27292,16 +27144,20 @@ c -------
 c determine IPRIM of observer filter
 
       IPRIM_REF_RDKCOR = -9
-      IPRIM_FIRST      = -9 ; IPRIM_2ND = -9
-      NERR_PRIM        =  0 
+
+      NERR_PRIM_RDKCOR = 0 
+      IPRIM_FIRST2_RDKCOR(1) = -9; IPRIM_FIRST2_RDKCOR(2) = -9; 
+
       DO ifilt = 1, NFILTDEF_RDKCOR
          MASK = MASKFILT_RDKCOR(ifilt)
          if ( BTEST(MASK,OPT_FILTOBS-1) ) then           
            IPRIM_REF_RDKCOR = INDX_PRIMARY_RDKCOR(ifilt)
-	   if ( IPRIM_FIRST < 0 ) IPRIM_FIRST = IPRIM_REF_RDKCOR
-	   if ( IPRIM_FIRST .NE. IPRIM_REF_RDKCOR ) then
-	      NERR_PRIM = NERR_PRIM + 1
-	      IPRIM_2ND = IPRIM_REF_RDKCOR
+	   if ( IPRIM_FIRST2_RDKCOR(1) < 0 ) then
+              IPRIM_FIRST2_RDKCOR(1) = IPRIM_REF_RDKCOR
+           endif
+	   if ( IPRIM_FIRST2_RDKCOR(1) .NE. IPRIM_REF_RDKCOR ) then
+	      NERR_PRIM_RDKCOR = NERR_PRIM_RDKCOR + 1
+	      IPRIM_FIRST2_RDKCOR(2) = IPRIM_REF_RDKCOR
 	   endif
          endif
       ENDDO
@@ -27313,15 +27169,20 @@ c determine IPRIM of observer filter
          CALL MADABORT(FNAM,C1ERR,C2ERR)
       ENDIF
 
-      IF ( NERR_PRIM > 0 ) THEN
++SELF,IF=MARKDELETE.
+c xxxxx mark delete xxxxxx
+      IF ( NERR_PRIM_RDKCOR > 10 ) THEN
+         IPRIM1 = IPRIM_FIRST2_RDKCOR(1)
+         IPRIM2 = IPRIM_FIRST2_RDKCOR(2)
          print*,' ' 
          print*,' PRE-ABORT DUMP: '
-         print*,'   Found Primary ', PRIMARY_NAME_RDKCOR(IPRIM_FIRST)
-         print*,'   Found Primary ', PRIMARY_NAME_RDKCOR(IPRIM_2nd)
+         print*,'   Found Primary ', PRIMARY_NAME_RDKCOR(IPRIM1)
+         print*,'   Found Primary ', PRIMARY_NAME_RDKCOR(IPRIM2)
          C1ERR = 'More than 1 PRIMARY ref not allowed.' 
 	 C2ERR = 'Check kcor file and above list of primary refs.'
          CALL MADABORT(FNAM,C1ERR,C2ERR)
       ENDIF
++SELF.
 
       PRIMARY_NAME = PRIMARY_NAME_RDKCOR(IPRIM_REF_RDKCOR)
       LP = INDEX(PRIMARY_NAME, ' ') - 1
@@ -27373,22 +27234,21 @@ c read flux array
 C ============================
 +DECK,RDKSUMM.
       SUBROUTINE RDKCOR_SUMMARY
-
       IMPLICIT NONE
-
 +CDE,SNPAR.
 +CDE,KCORCOM.
 +CDE,FILTCOM.
 
       INTEGER 
      &   ifilt_tmp, ifiltdef, ifilt, i, L1, L2
-     &  ,ifilt_rest, ifilt_obs
+     &  ,ifilt_rest, ifilt_obs, IPRIM1, IPRIM2
 
-      REAL BINFRAC, KCORSIZE
-      CHARACTER CFILT*40
-
+      REAL  BINFRAC, KCORSIZE
+      CHARACTER CFILT*40, FNAM*16, C1ERR*80, C2ERR*80
 
 C ----------------- BEGIN ---------------
+
+      FNAM = 'RDKCOR_SUMMARY'
 
       print*,'        ---------------------- '
       print*,'        !!! RDKCOR_SUMMARY !!! '
@@ -27570,6 +27430,19 @@ c ------------------------------------
       CALL FLUSH(6)
 
 c -----------
+c check too many PRIMARY error after dump to help see the problem.
+
+      IF ( NERR_PRIM_RDKCOR > 0 ) THEN
+         IPRIM1 = IPRIM_FIRST2_RDKCOR(1)
+         IPRIM2 = IPRIM_FIRST2_RDKCOR(2)
+         print*,' ' 
+         print*,' PRE-ABORT DUMP: '
+         print*,'   Found Primary ', PRIMARY_NAME_RDKCOR(IPRIM1)
+         print*,'   Found Primary ', PRIMARY_NAME_RDKCOR(IPRIM2)
+         C1ERR = 'More than 1 PRIMARY ref not allowed.' 
+	 C2ERR = 'Check kcor file and above list of primary refs.'
+         CALL MADABORT(FNAM,C1ERR,C2ERR)
+      ENDIF
 
 c      CALL RDKCOR_DMPTABLE(5)
 
@@ -27978,7 +27851,7 @@ c error checking
       END
 
 C ==================================
-+DECK,RDKCHFLT.
++DECK,RDKCOR_CHECK_IFILT.
       SUBROUTINE RDKCOR_CHECK_IFILT(ifilt_rest,ifilt_obs, stringKcor)
 
 c Dec 2012
@@ -28037,12 +27910,13 @@ c make sure that we don't exceed KCOR filter-index bound
             print*,' ABORT-INFO: obs-filter = ', 
      &               CFILT(1:20), ifiltdef
          ENDDO
-         write(c1err,1660) ifilto, 'obs', 
-     &   SURVEY_FILTERS(1:NFILTDEF_SURVEY), MXFILT_KCOR
+         write(c1err,1660) ifilto, 'obs',
+     &      SURVEY_FILTERS(1:NFILTDEF_SURVEY)
+         write(c2err,1661) MXFILT_KCOR
          CALL MADABORT(FNAM, c1err, c2err)
       endif
-1660    format(I4,2x,A,'-frame filters (',A,')', 
-     &          ' exceeds MXFILT_KCOR=',I3,' ' )
+1660    format('ifilto=',I4, 2x, A,'-frame filters (',A,')' )
+1661    format('Exceeds MXFILT_KCOR = ', I3)
 
 c check that sparse indices are valid
 
@@ -29181,6 +29055,9 @@ c -------------
       INTEGER IFILT, IFILT_OBS, jlen
       LOGICAL DO_ZPOFF
 
++SELF,IF=MARKDELETE.
+
+c xxxxx mark delete Dec 7 2019 xxxxxxxxxxxxxx
 c -----------------------------------------------
 c set legacy SDSS_web2001 AB offsets if ZPOFF file has not
 c been specified in the KCOR file (as hid 252 or 292), 
@@ -29203,6 +29080,8 @@ c that do not have the SDSS AB offsets included.
          LRDZPOFF = .TRUE.
          CALL RD_ZPOFF(ZPOFF_FILE, FILTOBS_ZPOFF_SNPHOT)  ! return ZPOFF
       ENDIF
+c xxxxxxxxxx end mark xxxxxxxxxxx
++SELF.
 
 c update ZP-shift for each filter (i.e., add to user-shift)
       DO ifilt  = 1, NFILTDEF_SURVEY
@@ -32336,6 +32215,9 @@ c+CDE,PARSECOM.
 
 C --------------- BEGIN -------------
 
++SELF,IF=MARKDELETE.
+
+c xxxxxxxxx mark delete Dec 7 2019 xxxxxxxxx
 c check if ZPOFF.DAT file exists.
       LDIR = INDEX(FDIR,' ') - 1
       ZPOFF_FILE = FDIR(1:LDIR) // '/' // 'ZPOFF.DAT'
@@ -32349,6 +32231,14 @@ c check if ZPOFF.DAT file exists.
             ZPOFF_UPD(ifilt_obs) = 0.0
          ENDDO
       ENDIF
+c xxxxxxxxxxxx
++SELF.
+
+
+       DO ifilt  = 1, NFILTDEF_SURVEY
+          ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+          ZPOFF_UPD(ifilt_obs) = 0.0
+       ENDDO
 
 c update ZP-shift for each filter (i.e., add to user-shift)
       DO ifilt  = 1, NFILTDEF_SURVEY
@@ -33468,8 +33358,10 @@ c rest-frame ZP shift
       RETURN
       END
 C ==========================================
-+DECK,RDZPOFF.
++DECK,RDZPOFF,IF=MARKDELETE.
       SUBROUTINE RD_ZPOFF(ZPOFF_FILE, ZPOFF_VALUES )
+c
+c xxxxxxx mark this subroutine for delete Dec 7 2019 xxxxxxxxxxxx
 c
 c Created July 17, 2011 by R.Kessler
 c Read ZPOFF_FILE and return ZPOFF_VALUES(ifilt_obs)
@@ -33517,9 +33409,12 @@ C ----------------- BEGIN ---------------
 
       RETURN
       END
+c xxxxxxxxxxx end mark xxxxxxxxxxxx
++SELF.
+
 
 C ==========================================
-+DECK,DMPZPOFF.
++DECK,DMP_ZPOFF.
       SUBROUTINE DMP_ZPOFF
 
 c --------------------------
@@ -33545,12 +33440,18 @@ c -------------------------
 C ------------------ BEGIN ------------
 
       print*,' '
+
++SELF,IF=MARKDELETE.
+c xxxxxxx mark delete Dec 7 2019 xxxxxxxxxxxxx
       IF ( ZPOFF_FILE(1:4) .EQ. 'NULL' ) then
          write(6,20) 'KCOR file'
       ELSE
         jlen = INDEX(ZPOFF_FILE,' ') - 1
         write(6,21) ZPOFF_FILE(1:jlen)
       ENDIF
++SELF.
+
+         write(6,20) 'KCOR file'  ! Dec 7 2019 (pull out of IF block)
 
 20    format(T5,'Zeropoint offsets (ZPOFF) from : ', A)
 21    format(T5,'Zeropoint offsets (ZPOFF) from : ' /, T8, A)
@@ -33571,7 +33472,7 @@ C ------------------ BEGIN ------------
       CALL FLUSH(6)
 
       RETURN
-      END
+      END  ! end of DMP_ZPOFF
 
 C =======================
 +PATCH,*SPLINE.

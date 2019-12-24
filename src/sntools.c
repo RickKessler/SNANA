@@ -5417,7 +5417,8 @@ double interp_1DFUN(
   // 
   // NBIN=3   => do the old interp8   functionality
   // NBIN > 3 => do the old lamInterp functionality
-
+  //
+  // Dec 13 2019: return min val immediately if NBIN==1
 
   int  IBIN, ibin0, ibin2 ;
   double 
@@ -5431,6 +5432,8 @@ double interp_1DFUN(
 
   // ------------- BEGIN -----------------
 
+  if ( NBIN==1 ) { return(VAL_LIST[0]) ; }
+
   // do binary search to quickly find which bin contains 'val'
   IBIN = quickBinSearch(val, NBIN,VAL_LIST, abort_comment );
 
@@ -5443,10 +5446,10 @@ double interp_1DFUN(
 
 
   if ( OPT == OPT_INTERP_LINEAR ) {
-    val0 = *(VAL_LIST + IBIN ) ;
-    val1 = *(VAL_LIST + IBIN + 1) ;
-    fun0 = *(FUN_LIST + IBIN ) ;
-    fun1 = *(FUN_LIST + IBIN + 1) ;
+    val0 = VAL_LIST[IBIN] ;
+    val1 = VAL_LIST[IBIN + 1] ;
+    fun0 = FUN_LIST[IBIN ] ;
+    fun1 = FUN_LIST[IBIN + 1] ;
     frac = (val - val0)/(val1-val0) ;
     fun  = fun0 + frac*(fun1-fun0);
     return fun ;
@@ -5655,6 +5658,7 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
   // *(VAL_LIST+IBIN) contains VAL.
   // Use binary search to quickly find IBIN when NBIN is very large.
   //
+  // Dec 13 2019: return(0) immediately of NBIN=1
 
   char fnam[] = "quickBinSearch" ;
   int  LDMP, NITER, ibin_min, ibin_max, ibin, ibin1, ibin2, ISTEP ;
@@ -5678,6 +5682,8 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
   NITER    = 0;  // for efficiency testing only
   ibin_min = 0; 
   ibin_max = NBIN-1 ;
+  
+  if ( NBIN ==  1 ) { return(0); } 
 
  NEXTSTEP:
 
@@ -5734,6 +5740,8 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
 
 
   // if we get here, then something is really wrong.
+  printf("\n PRE-ABORT DUMP: \n");
+  printf("\t MINVAL=%f  MAXVAL=%f  NBIN=%d\n", MINVAL, MAXVAL, NBIN);
   sprintf(c1err,"Something is REALLY messed up:");
   sprintf(c2err,"Could not find '%s' bin for VAL=%le", abort_comment, VAL );
   errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
@@ -10132,6 +10140,7 @@ void check_argv(void) {
   // make sure that there are no unused command-line args
 
   int NBAD, i ;
+  char fnam[] = "check_argv";
 
   // ----------- BEGIN ---------
 
@@ -10146,7 +10155,9 @@ void check_argv(void) {
     }
   }
 
-  if ( NBAD > 0 )  madend(1);
+  if ( NBAD > 0 ) {
+    errmsg(SEV_FATAL, 0, fnam, "Invalid command line arg(s)", "" );
+  }
 
 } // end check_argv
 
@@ -10204,7 +10215,7 @@ void tabs_ABORT(int NTAB, char *fileName, char *callFun) {
 void errmsg(
        int isev            /* (I) severity flag */
       ,int iprompt         /* (I) 1=>prompt user to continue */
-      ,char *fnam          /* (I) name of function calling ktrigerr */
+      ,char *fnam          /* (I) name of function calling errmsg */
       ,char *msg1          /* (I) message to print           */
       ,char *msg2          /* (I) 2nd msg to print ("" => no 2nd msg) */
           ) 
@@ -10216,10 +10227,12 @@ void errmsg(
       Print error message(s), and count no. of errors.
       Abort program if isevere == SEV_ABORT
         
+   Dec 17 2019: re-structure a bit to prep for fortran use
+
 *************************************/
 {
-   char c_severe[12];  /* char string for serverity */ 
-   char cmsg[200];
+  char c_severe[40];  // char string for serverity 
+  char cmsg[200];
 
         /* ------- begin function execution ------- */
 
@@ -10228,28 +10241,34 @@ void errmsg(
         case SEV_INFO  : sprintf(c_severe,"INFO");     break;
         case SEV_WARN  : sprintf(c_severe,"WARNING");  break;
         case SEV_ERROR : sprintf(c_severe,"ERROR");    break;
-        case SEV_FATAL : sprintf(c_severe,"FATAL");    break;
+        case SEV_FATAL : sprintf(c_severe,"FATAL ERROR ABORT");  break;
      }
 
- /* print SEVERITY, FUNCTION name, and 1st message. */
+   if ( isev == SEV_FATAL ) {  madend(0); }
+
+   /* xxxxx mark delete 
+   // print SEVERITY, FUNCTION name, and 1st message. 
    sprintf(cmsg, "%s[%s]: \n\t %s", c_severe, fnam, msg1 );
    printf("\n %s \n", cmsg );
+   xxxxxxxx */
 
-  /* write error message to file if global flag is set. */
+   // print severity and name of function
+   printf(" %s called by %s\n", c_severe, fnam);
 
+   // print each message
+   if( strlen(msg1) > 0 ) { printf("   %s\n", msg1 ); }
+   if( strlen(msg2) > 0 ) { printf("   %s\n", msg2 ); }
 
- /* print 2nd message if non-null */
+   printf("\n");   fflush(stdout);
 
-   if( strlen(msg2) > 0 ) { printf("\t %s", msg2 ); }
-
-   printf("\n");
-
-   if ( isev == SEV_FATAL ) { madend(1); }
-
-   fflush(stdout);
+   if( isev == SEV_FATAL ) { exit(EXIT_ERRCODE); }
+   
+   return ;
 
 }   /* end of function "errmsg" */
 
+void errmsg_( int *isev,int *iprompt, char *fnam, char *msg1, char *msg2 ) 
+{  errmsg(*isev, *iprompt, fnam, msg1, msg2); }
 
 
 
@@ -10272,11 +10291,9 @@ void madend(int flag) {
    printf("\n");   
    fflush(stdout);
 
-   //   if ( flag == 1 ) { exit(1); }
    if ( flag == 1 ) { exit(EXIT_ERRCODE); }
 
-}    //  end of "madend"  
-
+}    //  end of madend  
 
 
 // ************************************************

@@ -17780,4 +17780,17 @@
     + refactor LOAD_SEARCHEFF_DATA and note that random sync is changed.
       Recover legacy code with "DEBUG_FLAG 55"
 
+
+# ======================================================================= 
+         v10_74m (  ) 
+
+         ***** IMPORTANT(v10_74m) ***** 
+
+         ***** USEFUL(v10_74m) ***** 
+
+         ***** MISCELLANEOUS(v10_74m) ***** 
+
+   snlc_sim.c
+     + in genmag_boost, fix bug checking unused AV.
+
 END: 

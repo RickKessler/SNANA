@@ -315,6 +315,27 @@ typedef struct {
 
 } TAKE_SPECTRUM_DEF;
 
+
+typedef struct {
+  double SIG_SN[MXEPSIM] ;
+  double SIG_SKY[MXEPSIM] ;
+  double SIG_TEMPLATE[MXEPSIM] ; //corr noise from TEMPLATE_SKY[CCD]SIG
+  double SIG_CCD[MXEPSIM];
+  double SIG_HOSTGAL_PHOT[MXEPSIM] ;  // galaxy shot noise 
+  double SIG_HOSTGAL_IMAGE[MXEPSIM] ; // anomalous noise from HOSTNOISE_FILE
+
+  double NEA[MXFILTINDX];      // effective area for sky noise
+  double PSF_NEA[MXFILTINDX];  // effective PSF = sqrt[ AREA/(4*PI) ]
+
+  double SIG_CALC[MXEPSIM] ;      // naive calca
+  double SNR_CALC[MXEPSIM] ;      // used for trigger effic (Aug 24 2014)
+  double SNR_MON_CALC[MXEPSIM];   // calc SNR for MAGMONITOR_SNR input
+
+  double SIG_FINAL[MXEPSIM] ;         // includes fluxerr corrections
+  double SNR_FINAL[MXEPSIM] ;   
+  double SNR_MON_FINAL[MXEPSIM];   // calc SNR for MAGMONITOR_SNR input
+} OBSNOISE_DEF ;
+
 // -------------------------------------
 // define user INPUTS
 
@@ -772,6 +793,7 @@ struct INPUTS {
 
 
 
+
 // define GENLC structure
 
 struct GENLC {
@@ -966,6 +988,10 @@ struct GENLC {
   double trueSNR[MXEPSIM];          // true/generated SNR
   int    npe_above_sat[MXEPSIM];    // nphotoelectrons above saturation
 
+  OBSNOISE_DEF OBSNOISE;     // Dec 27 2019 - refactor for noise cov.
+
+  // xxxx -----------------------------------------------------
+  // xxxxx legacy arrays to remove after implementing OBSNOISE
   // noise contributions (in photoelectrons)
   double NOISE_SN[MXEPSIM] ;
   double NOISE_SKY[MXEPSIM] ;
@@ -980,6 +1006,7 @@ struct GENLC {
 
   double SNR_CALC[MXEPSIM] ;    // used for trigger effic (Aug 24 2014)
   double SNR_MON[MXEPSIM];      // calculated SNR for MAGMONITOR_SNR input
+  //xxx ----------------------- end legacy ------------
 
   // Gaussian randoms for broadband measurement noise
   double RANGauss_NOISE_SEARCH[MXEPSIM];   // search noise, per epoch
@@ -989,14 +1016,6 @@ struct GENLC {
   // GENSMEAR refers to intrinsic scatter models
   double  MAGSMEAR_COH[2];              // coherent part of scatter
   double  GENSMEAR_RANGauss_FILTER[MXFILTINDX+1]  ;  // filter smear
-
-  /* xxx mark delet Oct 21 2019 xxxxxxxxx
-     double *GENSMEAR_RANGauss_MODEL  ;   // model smear
-  double *GENSMEAR_RANFlat_MODEL  ;    // model smear
-
-  int     NRANGauss_GENSMEAR ;  
-  int     NRANFlat_GENSMEAR ;  
-  xxxxxxxxxx end mark xxxxxxxxxx */
 
   double  SPECEFF_RAN[MXFILTINDX+1]  ;  
   double  magsmear8[MXEPSIM];        // actual intrinsic mag-smear

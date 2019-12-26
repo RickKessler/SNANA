@@ -19662,11 +19662,6 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   // bail on bad input or non-existant peak epoch
   int SKIPIT = 0;
 
-  /* xxxxxxxx mark delete Dec 22 2019 xxxxxxx
-  if ( GENLC.ISPEAK[epoch]      )  { SKIPIT = 1 ; }
-  if ( GENLC.ISTEMPLATE[epoch]  )  { SKIPIT = 1 ; }
-  xxxxxxxx */
-
   if ( !GENLC.ISOBS[epoch]  )      { SKIPIT = 1 ; }
   if ( zpt     < 10.0   )          { SKIPIT = 1 ; }
   if ( psfsig1 < 0.0001 )          { SKIPIT = 1 ; }
@@ -20274,7 +20269,6 @@ int gen_smearMag ( int epoch, int VBOSE) {
   GENLC.mag_err[epoch]  = mag_err ;
 
   if ( GENLC.npe_above_sat[epoch] > 0 ) {
-    //    GENLC.genmag8_obs[epoch]  = MAG_SATURATE ; // xxx delete Sep 3 2018
     GENLC.mag[epoch]                   = MAG_SATURATE ;
     GENLC.mag_err[epoch]               = 5.0 ;
   }
@@ -21119,6 +21113,8 @@ void genmag_boost(void) {
        Note that rest-frame mags are not necessarity in SDSS system.
        K-correction transforms from rest-system to SDSS mags.
 
+     Dec 27 2019: skip AV part if AV < 1E-9 rather than if AV==0.
+
   *****/
 
   double  AVwarp[4], AV, RV, z, Trest,  x[10];
@@ -21133,7 +21129,7 @@ void genmag_boost(void) {
 
   // do NOT apply extinction if AV=0
 
-  if ( GENLC.AV  == 0.0 ) { goto KCOR ; }
+  if ( GENLC.AV  < 1.0E-9 ) { goto KCOR ; }
 
 #ifdef SNGRIDGEN
   // skip boost for SNOOPY model with just 1 logz-bin
@@ -22317,7 +22313,7 @@ void GENMAG_DRIVER(void) {
   // Mar 2016: apply filter-dependent MAGOFF and load peakMag per band
   genmag_offsets();
  
-
+  
   // estimate light-curve Width in each band (Aug 17 2017)
   compute_lightCurveWidths();
 
@@ -22345,16 +22341,14 @@ void GENFLUX_DRIVER(void) {
 
   // -------------- BEGIN ---------------
 
+  // struct FLUXSMEAR.ERRCALC  
+  // 1. loop over epochs to compute FLUXERR_CALC and SNR_CALC; store
+  // 2. add error fudges to get FLUXERR_CALC_FINAL; check for covariance
+  // 3. use errors to compute flux shifts
+
   genran_obsNoise();   // randoms for instrumental noise
 
   for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {
-
-    /* xxxxxx mark delete Dec 22 2019 xxxxxxxxxx
-    ifilt_obs = GENLC.IFILT_OBS[epoch] ;
-    if ( GENLC.DOFILT[ifilt_obs] == 0 ) { continue ; }
-    if (   GENLC.ISPEAK[epoch]      ) { continue; }
-    if (   GENLC.ISTEMPLATE[epoch]  ) { continue; }
-    xxxxxxxxxxx    */
 
     if( !GENLC.ISOBS[epoch] ) { continue; }
 
@@ -22364,9 +22358,9 @@ void GENFLUX_DRIVER(void) {
     istat =  gen_smearFlux ( epoch, VBOSE_SMEAR );
     istat =  gen_smearMag  ( epoch, VBOSE_SMEAR );
 
-    obsmag      = GENLC.mag[epoch];
-    genmag      = GENLC.genmag8_obs[epoch] ;
-    fluxerr     = GENLC.flux_errstat[epoch];
+    obsmag       = GENLC.mag[epoch];
+    genmag       = GENLC.genmag8_obs[epoch] ;
+    fluxerr      = GENLC.flux_errstat[epoch];
     IS_ERRPOS    = (fluxerr > 0 );
     IS_UNDEFINED = (genmag == MAG_UNDEFINED) ; // model undefined
     IS_SATURATE  = (obsmag == MAG_SATURATE ) ;    

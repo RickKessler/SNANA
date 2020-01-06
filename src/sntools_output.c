@@ -353,7 +353,8 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   // check for fatal errors -> abort
 
   if ( OPEN_FLAG == 0 ) {
-    printf("\n PRE-ABORT DUMP for file=\n %s\n", FILENAME);
+    print_preAbort_banner(fnam);
+    printf("  file=\n %s\n", FILENAME);
     sprintf(MSGERR1,"Must specify 'new' or 'read' i STRINGOPT.");
     sprintf(MSGERR2,"Check STRINGTOP ='%s' argument.", STRINGOPT);
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
@@ -361,14 +362,16 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
 
   // abort if we still do not know the file type.
   if ( TYPE_FLAG == 0 ) {   
-    printf("\n PRE-ABORT DUMP for file=\n %s\n", FILENAME);
+    print_preAbort_banner(fnam);
+    printf("  file=\n %s\n", FILENAME);
     sprintf(MSGERR1,"Unknown table-file type");
     sprintf(MSGERR2,"STRINGOPT = '%s' ", STRINGOPT);
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);     
   }
 
   if ( USE_CURRENT ) {
-    printf("\n PRE-ABORT DUMP for file=\n %s\n", FILENAME);
+    print_preAbort_banner(fnam);
+    printf("   file=\n %s\n", FILENAME);
     sprintf(MSGERR1,"%s %s file alread used.",
 	    STRING_TABLEFILE_OPENFLAG[OPEN_FLAG],
 	    STRING_TABLEFILE_TYPE[TYPE_FLAG] );
@@ -773,8 +776,7 @@ void parse_ADDCOL_VARLIST(char *VARLIST,
     if ( NVAR == 0 ) { ICAST_FIRST = ICAST ; }
 
     if ( ICAST != ICAST_FIRST ) {
-      printf("\n# =========================================== \n");
-      printf(" PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf(" Invalid VARLIST = '%s' (ICAST_FIRST=%d  ICAST=%d) \n", 
 	     VARLIST, ICAST_FIRST, ICAST );
 
@@ -1219,7 +1221,7 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
 		 varName,  &ICAST_STORE, &VECFLAG, &ISIZE);  // (O)
 
   if ( strlen(varName) > MXCHAR_VARNAME ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("\t varName = '%s' \n", varName);
     sprintf(MSGERR1,"len(varName) = %d exceeds bound of MXCHAR_VARNAME=%d .",
 	    strlen(varName), MXCHAR_VARNAME);
@@ -1530,9 +1532,9 @@ void TABLEFILE_notOpen_ABORT(char *FUNNAME, char *comment) {
 
   // Sep 2014
   // abort because no table files are open.
+  char fnam[] = "TABLEFILE_notOpen_ABORT" ;
 
-  printf("\n\n\n");
-  printf(" PRE-ABORT DUMP: \n");
+  print_preAbort_banner(fnam);
   printf("\t Check &SNLCINP namelist variables \n");
   printf("\t HFILE_OUT, ROOTFILE_OUT, TEXTFILE_PREFIX \n" );
 
@@ -1553,8 +1555,7 @@ void TABLEFILE_notCompiled_ABORT(char*FILENAME, char*FORMAT, char *ENV) {
 
   char fnam[] = "TABLEFILE_notCompiled_ABORT" ;
   
-  printf("\n\n\n");
-  printf(" PRE-ABORT DUMP: \n");
+  print_preAbort_banner(fnam);
   printf("   Cannot open %s out-file \n\t '%s' \n", 
 	 FORMAT, FILENAME);
   printf("   because code is not compiled with %s.\n", 

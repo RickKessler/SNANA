@@ -186,8 +186,7 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
 
 
   if ( OVP != APPLYMASK_SEARCHEFF_USER) {
-
-    printf("\n PRE-ABORT DUMP \n");
+    print_preAbort_banner(fnam);
     printf("\t APPLY_SEARCHEFF_OPT += %d --> detection pipeline.\n",
 	   APPLYMASK_SEARCHEFF_PIPELINE);
     printf("\t APPLY_SEARCHEFF_OPT += %d --> SPEC confirmed.\n",
@@ -546,7 +545,8 @@ int  readMap_SEARCHEFF_PHOTPROB(FILE *fp,  char *key) {
       readchar(fp, VARNAME);
       IVARABS = IVARABS_SEARCHEFF_PHOTPROB(VARNAME);
       if ( IVARABS < 0 ) {
-	printf("\n PRE-ABORT DUMP of VALID PHOTPROB MAP VARIABLES: \n");
+	print_preAbort_banner(fnam);
+	printf("   VALID PHOTPROB MAP VARIABLES: \n");
 	for(ivar=0; ivar < MXDEF_VARNAMES_PHOTPROB; ivar++ ) {
 	  printf("\t %s \n", VARDEF_SEARCHEFF_PHOTPROB[ivar]);
 	}

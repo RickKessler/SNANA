@@ -680,6 +680,8 @@ Default output files (can change names with "prefix" argument)
        (i.e., apply 1D biasCor, but require 5D biasCor exists)
      + abort if length(varname_gamma) > MXCHAR_VARNAME =  60
 
+ Jan 6 2020: use print_preAbort_banner(fnam)
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -3817,7 +3819,7 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
 
   // ------------------------------
   if ( SUMWGT < 1.0E-9 ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("\t Alpha  =%.3f   Alpha_interp=%.3f \n",    alpha,   a_interp);
     printf("\t Beta   =%.3f   Beta_interp=%.3f  \n",    beta,    b_interp);
     printf("\t Gammadm=%.3f   Gammadm_interp=%.3f  \n", gammadm, g_interp);
@@ -4144,7 +4146,7 @@ double zerr_adjust(double z, double zerr, double vpecerr, char *name) {
   // allow tolerance on difference to allow for
   // precision truncation on FITRES file.
   if ( z1*zpecerr > zerr+zdif_tol ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("    z1*zpecerr = %f * %f = %f \n", z1, zpecerr, z1*zpecerr);
     printf("    zerr = %f \n", zerr);
     sprintf(c1err,"Cannot subtract zpecerr from zerr for SNID=%s", name );
@@ -4156,7 +4158,7 @@ double zerr_adjust(double z, double zerr, double vpecerr, char *name) {
   sqarg    = (sqzerr1 - sqzerr2 + sqzerr3 );
 
   if ( sqarg < 0.0 ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("   sqzerr[1,2,3] = %le, %le, %le \n",
 	   sqzerr1, sqzerr2, sqzerr3 );
     printf("   user zpecerr = %f \n", INPUTS.zpecerr);
@@ -5940,7 +5942,7 @@ void prepare_IDSAMPLE_biasCor(void) {
 
       N = NSAMPLE_BIASCOR ;
       if ( N >= MXNUM_SAMPLE ) {
-	printf("\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);
 	dump_SAMPLE_INFO(EVENT_TYPE_DATA);
 	sprintf(c1err,"NSAMPLE_BIASCOR=%d exceeds bound.", N);
 	sprintf(c2err,"Check IDSURVEY and FIELDGROUP ");
@@ -5954,7 +5956,7 @@ void prepare_IDSAMPLE_biasCor(void) {
 			    FIELDGROUP, SURVEYGROUP, DUMPFLAG );
 
     if ( IDSAMPLE < 0 ) {
-      printf("\n PRE-ABORT DUMP in %s: \n", fnam);
+      print_preAbort_banner(fnam);
       printf("   Current SURVEYGROUP = '%s' \n", SURVEYGROUP );
       printf("   Current FIELDGROUP  = '%s' \n", FIELDGROUP  );
       dump_SAMPLE_INFO(EVENT_TYPE_DATA);
@@ -6642,7 +6644,7 @@ void match_fieldGroup(char *SNID, char *FIELD,
 
   // abort on ambiguous match
   if ( NMATCH_TOT > 1  && NFIELD_OVP==1 ) {
-    printf("\n PRE-ABORT DUMP \n");
+    print_preAbort_banner(fnam);
     printf("  fieldgroup_biasCor = '%s' \n", INPUTS.fieldGroup_biasCor);
     for(igroup=0; igroup < NFIELDGROUP ; igroup++ ) {
       FTMP1 = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[igroup] ;
@@ -6695,7 +6697,7 @@ void match_surveyGroup(char *SNID, int IDSURVEY,
   
   // abort on ambiguous match
   if ( NMATCH_TOT != 1 ) {
-    printf("\n PRE-ABORT DUMP \n");
+    print_preAbort_banner(fnam);
     printf("  NSURVEYGROUP = %d \n", NSURVEYGROUP );
     printf("  surveygroup_biasCor = '%s' \n", INPUTS.surveyGroup_biasCor);
     for(igroup=0; igroup < NSURVEYGROUP ; igroup++ ) {
@@ -6744,7 +6746,7 @@ int get_IDSAMPLE(int IDSURVEY, int OPT_PHOTOZ,
   /* xxx maybe add this back later if FIELDGROUP survey is identified
   // abort on invalid option to check both FIELDGROUP & SURVEYGROUP
   if ( CHECK_FIELDGROUP && CHECK_SURVEYGROUP ) { 
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("  Input IDSURVEY    = %d (%s) \n", IDSURVEY, SURVEYDEF );
     printf("  Input FIELDGROUP  = %s \n", FIELDGROUP );
     printf("  Input SURVEYGROUP = %s \n", SURVEYGROUP );
@@ -6782,7 +6784,7 @@ int get_IDSAMPLE(int IDSURVEY, int OPT_PHOTOZ,
 
     // abort if both match
     if ( MATCH_FIELDGROUP && MATCH_SURVEYGROUP ) { 
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf("  Input IDSURVEY    = %d (%s) \n",  IDSURVEY, SURVEYDEF );
       printf("  Input FIELDGROUP  = %s \n",  FIELDGROUP );
       printf("  Input SURVEYGROUP = %s \n",  SURVEYGROUP );
@@ -10248,8 +10250,7 @@ int get_fitParBias(char *cid,
   // make sure that SUMWGT > 0 
   if ( SUM_WGT <= 1.0E-9 ) {
     int icell ;
-    printf("\n PRE-ABORT DUMP: \n");
-
+    print_preAbort_banner(fnam);
     printf("  IZMIN/MAX=%d/%d   IMMIN/MAX=%d,%d  "
 	   "IX1MIN/MAX=%d/%d   ICMIN/MAX=%d/%d\n",	   
 	   IZMIN,IZMAX,  IMMIN, IMMAX, IX1MIN,IX1MAX,   ICMIN, ICMAX);
@@ -10858,7 +10859,7 @@ void get_muBias(char *NAME,
 
   // check for NaN on SQERR
   if ( isnan(SQERR) ) {
-    printf("\n PRE-ABORT DUMP in %s : \n", fnam );
+    print_preAbort_banner(fnam);
     for(ipar=0; ipar < NLCPAR; ipar++ )  { 
       printf("\t %2s = %.3f: bias = %.3f +- %.3f \n",
 	     BIASCOR_NAME_LCFIT[ipar], BIASCORLIST->FITPAR[ipar],
@@ -10874,15 +10875,13 @@ void get_muBias(char *NAME,
   // ---------------------------------
 
   if ( fabs(muBias_local) > 5.0 ) {
-    printf(" xxx ------------------------------- \n");
-    printf(" xxx PRE-ABORT DUMP: \n");
+
+    print_preAbort_banner(fnam);
     printf(" xxx alpha=%f  beta=%f \n", alpha, beta);
 
     for(ipar=0; ipar < NLCPAR; ipar++ ) {
       printf(" xxx bias(%2s) = %7.3f +- %.3f  \n"
-	     ,BIASCOR_NAME_LCFIT[ipar]
-	     ,biasVal[ipar], biasErr[ipar]
-	     );
+	     ,BIASCOR_NAME_LCFIT[ipar],biasVal[ipar], biasErr[ipar]  );
     }
 
     sprintf(c1err,"Crazy muBias=%f for CID = %s",  muBias_local, NAME);
@@ -14123,7 +14122,7 @@ void prep_input(void) {
   if ( INPUTS.nlogzbin > 0 ) { NTMP++; }
   if ( strlen(INPUTS.zbinuser) > 0 ) { NTMP++ ; }
   if ( NTMP != 1 ) {
-    printf("\n PRE-ABORT DUMP \n");
+    print_preAbort_banner(fnam);
     printf("\t nzbin=%d      \n",  INPUTS.nzbin);
     printf("\t nlogzbin=%d   \n",  INPUTS.nlogzbin);
     printf("\t zbinuser='%s' \n",  INPUTS.zbinuser);
@@ -14819,7 +14818,7 @@ double next_covFitPar(double redchi2, double parval_orig, double parval_step) {
   }
 
   if ( parval_next > 100. ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     if ( NFIT_ITER > 0 ) {
       printf("\t slope = %f/%f = %f \n", num, denom, slope);
       printf("\t SIGINT_LIST[iter=%d,%d] = %f, %f \n",

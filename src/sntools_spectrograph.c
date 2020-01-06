@@ -206,7 +206,7 @@ void read_spectrograph_text(char *inFile) {
     if ( strcmp(c_get,"SPECBIN:") == 0 ) {
 
       if ( NKEY_FOUND < NKEY_REQ_SPECTROGRAPH ) { 
-	printf("\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);
 	for(ikey=0; ikey < NKEY_REQ_SPECTROGRAPH; ikey++ ) {
 	  printf("   Required header key:  '%s'   (FOUND=%d) \n", 
 		 KEYREQ_LIST[ikey], KEYFLAG_FOUND[ikey] );
@@ -566,7 +566,7 @@ void  solve_spectrograph(void) {
       //      if ( t == 0 ) { TOP = 2.0; BOT=1.0; } // xxxx REMOVE
 
       if ( TOP <= 0.0 || BOT <= 0.0 ) {
-	printf("\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);
 	printf("\t BOT = %le  and  TOP = %le\n", BOT, TOP);
 	printf("\t BOT = (%le)^2 - (%le)^2 \n", DUM0, DUM1);
 	printf("\t TOP = %le - %le \n", POWMAG[0], POWMAG[1]);
@@ -593,7 +593,7 @@ void  solve_spectrograph(void) {
       }
 
       if ( check[0] > 0.001  ||  check[1] > 0.001 ) {
-	printf("\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);
 	printf("   SNR0(input/check) = %f/%f = %f \n",
 	       SNR[0], SNR_check[0], SNR[0]/SNR_check[0] );
 	printf("   SNR1(input/check) = %f/%f = %f \n",

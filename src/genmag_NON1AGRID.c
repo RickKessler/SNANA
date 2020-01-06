@@ -277,7 +277,7 @@ double  magInterp_NON1AGRID(int ifilt, int NON1A_INDEX, double z, double Trest) 
       DT /= BINSIZE_Trest ; // normalize distance to 0-1
 
       if ( fabs(Dz) > 1.0001 || fabs(DT) > 1.0001 ) {
-	printf("\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);
 	printf("\t ifilt=%d  NON1A_INDEX=%d  z=%.4f  Trest=%.1f \n",
 	       ifilt,  NON1A_INDEX, z, Trest) ;
 	printf("\t EPGRID=%d  ep=%d  IZGRID=%d  iz=%d \n", 

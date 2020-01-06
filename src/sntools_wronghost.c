@@ -290,7 +290,7 @@ double gen_zHOST(int CID, double zSN, int *hostMatch) {
  SEARCH2_ZTRUE:
   
   if ( iz_start == -9 || iz_end == -9 ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("\t user gen zMIN/zMAX = %f/%f \n", 
 	   WRONGHOST.USER_zMIN,WRONGHOST.USER_zMAX) ;
     printf("\t WrongHost map ZMIN/ZMAX = %f/%f \n",

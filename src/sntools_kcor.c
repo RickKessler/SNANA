@@ -1294,13 +1294,12 @@ void read_kcor_filters(void) {
 
 
   if ( NMATCH_OBS == 0 ) {
-    printf("\n");
-    printf(" PRE-ABORT DUMP \n");
+    print_preAbort_banner(fnam);
     printf("\t Obs filters in kcor file: '%s' \n", 
 	   KCOR_INFO.FILTERMAP_OBS.FILTERSTRING );
     printf("\t SURVEY_FILTERS: '%s' \n", KCOR_INFO.FILTERS_SURVEY);
 
-    sprintf(c1err,"Observer filters do not match any SURVEY_FILTERS.");
+    sprintf(c1err, "Observer filters do not match any SURVEY_FILTERS.");
     sprintf(c2err, "see PRE-ABORT dump above.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -1512,8 +1511,7 @@ void read_kcor_primarysed(void) {
   }
 
   if ( NERR_PRIM > 0 ) {
-    printf("\n");
-    printf(" PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("   Found Primary %s\n", KCOR_INFO.PRIMARY_NAME[KINDX_FIRST] );
     printf("   Found Primary %s\n", KCOR_INFO.PRIMARY_NAME[KINDX_2ND] );
     sprintf(c1err, "More than one PRIMARY ref not allowed");

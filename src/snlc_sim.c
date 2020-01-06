@@ -6098,7 +6098,7 @@ void prep_user_input(void) {
 		  ( DO_AVTAU || DO_AVSIG || INPUTS.WV07_GENAV_FLAG) ) ;
 
   if ( INPUTS.DO_AV==0 && DO_AV ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("\t GENPEAK_RV   = %f \n", INPUTS.GENGAUSS_RV.PEAK );
     printf("\t GENEXPTAU_AV = %f \n", INPUTS.GENEXPTAU_AV );
     printf("\t GENGAUSIG_AV = %f \n", INPUTS.GENGAUSIG_AV );
@@ -8195,7 +8195,7 @@ void init_modelSmear(void) {
 
     sprintf(key,"GENMAG_SMEAR_MODELNAME") ;
   if ( GENMODEL_ERRSCALE > 1.0E-9 ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("  %s = %s \n" , key, ptrName);
     printf("  GENMODEL_ERRSCALE = %le \n", GENMODEL_ERRSCALE );
     sprintf(c1err, "Cannot set %s and GENMODEL_ERRSCALE.", key);
@@ -8597,7 +8597,7 @@ void GENSPEC_DRIVER(void) {
 
   NMJD = GENSPEC.NMJD_TOT  ;
   if ( NPEREVT_TAKE_SPECTRUM > 0 && NPEREVT_TAKE_SPECTRUM != NMJD ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("  NPEREVT_TAKE_SPECTRUM = %d \n", NPEREVT_TAKE_SPECTRUM );
     printf("  NMJD_TOT = %d \n", NMJD);
     sprintf(c1err,"Cannot mix TAKE_SPECTRUM keys in sim-input file");
@@ -9227,11 +9227,12 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
 
     NITER++;
     if ( NITER >= MAXITER ) {
-      printf("\n PRE-ABORT DUMP (CID=%d): \n", GENLC.CID);
+      print_preAbort_banner(fnam);
       printf("\t SNR_MIN(%d sec)=%.1f \n", (int)TEXPOSE_MIN, SNR_MIN ) ;
       printf("\t SNR_MAX(%d sec)=%.1f \n", (int)TEXPOSE_MAX, SNR_MAX ) ;
 
-      sprintf(c1err,"Could not converge after NITER=%d", NITER);
+      sprintf(c1err,"Could not converge after NITER=%d (CID=%d)", 
+	      NITER, GENLC.CID );
       sprintf(c2err,"SNR_REQUEST=%.1f  z=%.3f  TOBS=%.2f",
 	      SNR_REQUEST, z, TOBS);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
@@ -15915,7 +15916,7 @@ void get_SPECTROGRAPH_ZPTPSFSKY(int OBSRAW, int ifilt,
 
 
   if ( ZSUM == 0.0 ) {
-    printf("\n PRE-ABORT DUMP \n");
+    print_preAbort_banner(fnam);
     printf("   for SYN_FILTER='%c' (ifilt_obs=%d)\n",
 	   FILTERSTRING[ifilt_obs], ifilt_obs ) ; 
     printf("   LAMRANGE = %.1f to %.1f  at  MJD=%.3f \n",
@@ -16921,7 +16922,7 @@ void  ABORT_SIMLIB_FILTER(int isort) {
 
   sprintf(cfilt,  "%c", FILTERSTRING[IFILT_OBS] ) ;
 
-  printf("\n PRE-ABORT DUMP: \n" );
+  print_preAbort_banner(fnam);
   printf("   isort=%d  OBSRAW= %d of %d \n", isort, OBSRAW, NOBS_RAW );
   printf("   LIBID=%d  MJD=%9.3f  OPTLINE=%d\n", 
 	 GENLC.SIMLIB_ID, MJD, OPTLINE ) ;
@@ -17551,7 +17552,7 @@ void update_PARDEF_ZVAR(char *parName) {
   if ( NPAR_ZVAR_TOT >= MXPAR_ZVAR ) {
 
     int ipar ;
-    printf("\n PRE-ABORT DUMP: \n") ;
+    print_preAbort_banner(fnam);
     for(ipar=1; ipar < NPAR_ZVAR_TOT; ipar++ ) {
       printf("\t ZVARIATION param %2d: '%s' \n", 
 	     ipar, PARDEF_ZVAR[ipar] );
@@ -19959,9 +19960,9 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   
   if ( fluxObs_adu > crazyflux || fluxObs_adu < -xt*1.0E9 ) {
 
-    printf("\n\n PRE-ABORT COMMENTS for CID=%d: \n", GENLC.CID );
-    printf("\t LIBID = %d   MJD=%f  zHel=%6.4f  MU=%7.3f \n",
-	   GENLC.SIMLIB_ID, mjd,
+    print_preAbort_banner(fnam);   
+    printf("\t CID=%d  LIBID = %d   MJD=%f  zHel=%6.4f  MU=%7.3f \n",
+	   GENLC.CID, GENLC.SIMLIB_ID, mjd,
 	   GENLC.REDSHIFT_HELIO, GENLC.DLMU );
 
     Trest = GENLC.epoch8_rest[epoch]; 
@@ -19988,7 +19989,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
 	   HOSTNOISE_FLUXCAL, HOSTNOISE_pe);
 
     printf("\t zptsig=%f   \n",  zptsig);
-    printf("\t GEN(AV,RV) = %7.3f , %7.3f  SHAPEPAR=%7.3f  (c=%7.3f)\n", 
+    printf("\t GEN(AV,RV) = %7.3f , %7.3f    SHAPEPAR=%7.3f   c=%7.3f\n", 
 	   GENLC.AV, GENLC.RV, GENLC.SHAPEPAR, GENLC.SALT2c );
     printf("\t Gauss random number: %f \n", 
 	   GENLC.GENSMEAR_RANGauss_FILTER[0] );
@@ -20042,7 +20043,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   if ( sqsum < 1.0E-9 ) { sqsum = 1.01E-9 ; }
 
   if ( sqsum < 1.0E-9 ) {
-    printf(" \n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("   sqerr1=%f  sqerr2=%f  sqerr_ran=%f\n",	   
 	   sqerr1, sqerr2, sqerr_ran);
     printf("   GAURAN(Search,Template) = %f, %f \n",
@@ -20509,7 +20510,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.WRFLAG_BLINDTEST = WRFLAG_BLINDTEST;
 
   if ( GENLC.NEPOCH >= MXEPOCH ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("\t LIBID=%d  z=%.3f  PEAKMJD=%.3f\n", 
 	   GENLC.SIMLIB_ID, GENLC.REDSHIFT_CMB, GENLC.PEAKMJD );
 
@@ -20777,7 +20778,7 @@ void snlc_to_SNDATA(int FLAG) {
     double diff = SNDATA.MJD[epoch] - SEARCHEFF_DATA.MJD[epoch-1] ;
     if ( diff != 0.0 ) {
       sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf("   SNDATA.MJD[%d]=%.4f   SEARCHEFF_DATA.MJD[%d]=%.4f\n",
 	     epoch, SNDATA.MJD[epoch], 
 	     epoch-1, SEARCHEFF_DATA.MJD[epoch-1] );
@@ -22666,7 +22667,7 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
   double  MJD       = SIMLIB_OBS_GEN.MJD[epoch] ;
   double  SKYSIG    = SIMLIB_OBS_GEN.SKYSIG[epoch] ;
   double  PSFSIG1   = SIMLIB_OBS_GEN.PSFSIG1[epoch] ; // pixels
-  double  ZP        = SIMLIB_OBS_GEN.ZPTADU[epoch] ;
+  double  ZPADU     = SIMLIB_OBS_GEN.ZPTADU[epoch] ;
   double  PIXSIZE   = SIMLIB_OBS_GEN.PIXSIZE[epoch];
 
   double Npe_over_FLUXCAL   = FLUXNOISE->Npe_over_FLUXCAL;
@@ -22731,7 +22732,7 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
     ERRPARLIST[IPAR_FLUXERRMAP_MJD]    = MJD;
     ERRPARLIST[IPAR_FLUXERRMAP_PSF]    = PSF_FWHM;  // FWHM, arcsec
     ERRPARLIST[IPAR_FLUXERRMAP_SKYSIG] = SKYSIG;    // ADU/pixel
-    ERRPARLIST[IPAR_FLUXERRMAP_ZP]     = ZP;        // observed ZP, ADU
+    ERRPARLIST[IPAR_FLUXERRMAP_ZP]     = ZPADU;     // observed ZP, ADU
     ERRPARLIST[IPAR_FLUXERRMAP_LOGSNR] = LOGSNR ;
     ERRPARLIST[IPAR_FLUXERRMAP_SBMAG]  = SBmag ;
     ERRPARLIST[IPAR_FLUXERRMAP_GALMAG] = GALMAG_NEA ;
@@ -22820,7 +22821,7 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
 
   // @@@@@@@@@@@@@@@@@ LEGACY ERROR SCALE @@@@@@@@@@@@@@@@@@@@@@@@@
   if ( INPUTS.FUDGEOPT_FLUXERR > 0 ) {
-    Scale   = scale_fluxErrModel_legacy(BAND,FIELD,MJD,ZP,SKYSIG,PSFSIG1);
+    Scale   = scale_fluxErrModel_legacy(BAND,FIELD,MJD,ZPADU,SKYSIG,PSFSIG1);
     sqScale = Scale * Scale ;
     SQSIG_FINAL_DATA *= sqScale ;      // scale reported error only
   }  // @@@@@@@@@@@@@@@@@ LEGACY ERROR SCALE @@@@@@@@@@@@@@@@@@@@@@@@@
@@ -22922,7 +22923,7 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   FLUXNOISE->SQSIG_RAN        = sqerr_ran ;
 
   // check for really crazy flux values
-  check_crazyFlux(fluxObs, epoch, FLUXNOISE);
+  // xxx see below  check_crazyFlux(fluxObs, epoch, FLUXNOISE);
 
 
   // check option to ignore source & host error in reported error
@@ -22989,6 +22990,8 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   GENLC.fluxerr_data[epoch] = FLUXNOISE->SIG_FINAL_DATA * NADU_over_Npe;
 
 
+  GENLC.flux[epoch]  *= 1.0E12; // xxx REMOVE
+
   // store true SNR without fluctuations
   GENLC.trueSNR[epoch] =  fluxTrue/FLUXNOISE->SIG_FINAL_TRUE;
 
@@ -23005,7 +23008,6 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
     { GENLC.SNRMAX_GLOBAL = SNR_CALC;  GENLC.IEPOCH_SNRMAX = epoch;  }
 
   
-
   if ( vbose ) {
     double flux         = GENLC.flux[epoch];
     double fluxerr_true = GENLC.fluxerr_true[epoch];
@@ -23025,8 +23027,11 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
     fflush(stdout);
 	   
   }
+
+  // check for really crazy flux values
+  check_crazyFlux(epoch, FLUXNOISE);
   
-  if ( epoch == 7 ) 
+  if ( epoch == -7 ) 
     { dumpEpoch_fluxNoise_apply(fnam,epoch,FLUXNOISE); }
 
   return ;
@@ -23036,11 +23041,20 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
 
 
 // ********************************************
-void  check_crazyFlux(double fluxObs, int epoch, FLUXNOISE_DEF *FLUXNOISE) {
+void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
 
-  // abort if flux is way too large (i.e., crazy)
+  // Jan 2020
+  // Abort if flux (in ADU) is way too large (i.e., crazy)
+  //   [part of GENFLUX_DRIVER refactor] 
 
-  
+  int     ifilt_obs    = FLUXNOISE->IFILT_OBS;  
+  double  ZPADU        = SIMLIB_OBS_GEN.ZPTADU[ep] ;
+  double  zsn          = GENLC.REDSHIFT_HELIO ;
+  double  flux         =  GENLC.flux[ep];         // ADU
+  double  fluxerr      =  GENLC.fluxerr_true[ep]; // ADU
+  double  mag_smear    =  GENLC.magsmear8[ep];
+
+  double arg, pow_arg, xt, crazyFlux, crazyFlux_neg ;
   char fnam[] = "check_crazyFlux" ;
 
   // ----------- BEGIN -----------
@@ -23049,100 +23063,53 @@ void  check_crazyFlux(double fluxObs, int epoch, FLUXNOISE_DEF *FLUXNOISE) {
   // account for exposure time (xt) and SIMLIB zeropoint (zptfac)
   // Also add 10 sigma of noise to allow for fluctuations.
 
-  /* xxxx
-  arg        = 0.4 * ( zpt - 31.0 );  
-  zptfac     = pow(10.0,arg);  
+  xt = INPUTS.EXPOSURE_TIME_FILTER[ifilt_obs] ;
+  if ( xt < 1.0 ) { xt = 1.0 ; }
+
+  arg        = 0.4 * ( ZPADU - 31.0 );  
+  pow_arg     = pow(10.0,arg);  
   if ( zsn > 1.0E-9 ) 
-    { crazyflux  = 2.*(1.E4 * zptfac * xt) / (zsn*zsn) ; }
+    { crazyFlux  = (2.E4 * pow_arg * xt) / (zsn*zsn) ; }
   else
-    { crazyflux = 1.0E14 ; } // for LCLIB (July 2018)
+    { crazyFlux = 1.0E14 ; } // for LCLIB (July 2018)
 
-  crazyflux += (10.*fluxsn_adu_errS * scale_fluxErr) ;
+  crazyFlux += (10.*fluxerr);
 
-  if ( mag_smear < 0.0 ) // adjust for intrinsic smearing
-    { arg = -0.4*mag_smear; crazyflux *= pow(TEN,arg); }
 
-  if ( GENLC.SL_MAGSHIFT < 0.0 )  // adjust for strong lens magnification
-    { arg = -0.4*GENLC.SL_MAGSHIFT ;  crazyflux *= pow(TEN,arg); }
-
-  if ( GENLC.FUDGE_SNRMAX_FLAG == 2 && INPUTS.FUDGE_SNRMAX > 1.0 ) 
-    { crazyflux *= INPUTS.FUDGE_SNRMAX; }
-
-  if ( INDEX_GENMODEL == MODEL_SIMSED ) 
-    { crazyflux *= 10.0; }    // allow for really bright objects (Aug 2017)
-
-  if ( INDEX_GENMODEL == MODEL_LCLIB ) 
-    { crazyflux *= 100.0; }  
-
-  
-  if ( fluxObs_adu > crazyflux || fluxObs_adu < -xt*1.0E9 ) {
-
-    printf("\n\n PRE-ABORT COMMENTS for CID=%d: \n", GENLC.CID );
-    printf("\t LIBID = %d   MJD=%f  zHel=%6.4f  MU=%7.3f \n",
-	   GENLC.SIMLIB_ID, mjd,
-	   GENLC.REDSHIFT_HELIO, GENLC.DLMU );
-
-    Trest = GENLC.epoch8_rest[epoch]; 
-    Tobs  = Trest * ( 1.0 + GENLC.REDSHIFT_HELIO );
-    printf("\t Trest=%6.2f  Tobs=%.2f  genmag(%c)=%6.1f  \n", 
-	   Trest, Tobs, FILTERSTRING[ifilt_obs], genmag );
-     
-    printf("\t ccdgain=%6.2f \n",  ccdgain ); 
-    printf("\t zpt(srun) = %f   zptfac=%f \n", 
-	   zpt, zptfac );
-    printf("\t GAURAN(photostat)=%f  magsmear=%6.2f\n", 
-	   GAURAN_Search, mag_smear  );
-    printf("\t sqerr[1,2] = %9.3le , %9.3le \n", sqerr1, sqerr2 );
-    printf("\t ERR_CAL = %f \n", ERR_CAL );
-    printf("\t SKYerr_pe(srun,trun) = %f, %f \n",
-	  sqrt(sqskyerr_pe), sqrt(template_sqskyerr_pe) );
-    printf("\t scale_fluxErr = %f \n", scale_fluxErr );
-    printf("\t CCDerr_pe(srun,trun) = %f, %f \n",
-	  sqrt(sqccderr_pe), sqrt(template_sqccderr_pe) );
-    printf("\t err_pe(flux,host,image) = %f, %f, %f \n",
-	   sqrt(fluxsn_pe), sqrt(fluxgal_pe), sqrt(sqImageNoise_pe) );
-    printf("\t GALID=%lld   SBmag=%f \n", GALID, SBmag );
-    printf("\t HOSTNOISE(FLUXCAL,pe) = %f, %f \n",
-	   HOSTNOISE_FLUXCAL, HOSTNOISE_pe);
-
-    printf("\t zptsig=%f   \n",  zptsig);
-    printf("\t GEN(AV,RV) = %7.3f , %7.3f  SHAPEPAR=%7.3f  (c=%7.3f)\n", 
-	   GENLC.AV, GENLC.RV, GENLC.SHAPEPAR, GENLC.SALT2c );
-    printf("\t Gauss random number: %f \n", 
-	   GENLC.GENSMEAR_RANGauss_FILTER[0] );
-
-    if ( GENFRAME_OPT  == GENFRAME_REST ) {
-      printf("\t Kcor  %s = %le   AVwarp=%7.3f\n"
-	     , GENLC.kcornam[epoch]
-	     , GENLC.kcorval8[epoch] 
-	     , GENLC.AVwarp8[epoch] 
-	     );
-    }
-    if ( INDEX_GENMODEL  == MODEL_SIMSED ) {
-      printf("\t SIMSED PARAMS %s,%s = %f, %f  (x0=%le)\n"
-	     ,INPUTS.PARNAME_SIMSED[0]
-	     ,INPUTS.PARNAME_SIMSED[1]
-	     ,GENLC.SIMSED_PARVAL[0]
-	     ,GENLC.SIMSED_PARVAL[1], GENLC.SALT2x0 );
-    }
-
-    if ( INDEX_GENMODEL == MODEL_LCLIB ) {
-      printf("\t LCLIB EVENT ID = %lld \n", LCLIB_EVENT.ID);
-    }
-
-    printf("\t CRAZYFLUX = %9.3le\n", crazyflux);
-
-    sprintf(c1err, "Too large %c(%d)-flux = %9.3le  fluxsn_adu=%9.3le", 
-	    FILTERSTRING[ifilt_obs], ifilt_obs, fluxObs_adu, fluxsn_adu );
-    sprintf(c2err, "fluxsn_adu_errS=%9.3le  fluxsn_adu_errSZ=%9.3le ", 
-	    fluxsn_adu_errS, fluxsn_adu_errSZ );
-
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-    // errmsg(SEV_WARN, 0, fnam, c1err, c2err) ; 
-
+  if ( mag_smear < 0.0 )  { // adjust for intrinsic smearing
+    arg        = -0.4*mag_smear;  pow_arg = pow(TEN,arg); 
+    crazyFlux *= pow_arg; 
   }
 
-*/
+
+  if ( GENLC.SL_MAGSHIFT < 0.0 ) { // adjust for strong lens magnification
+    arg = -0.4*GENLC.SL_MAGSHIFT ;  pow_arg = pow(TEN,arg); 
+    crazyFlux *= pow_arg; 
+  }
+
+
+
+  if ( GENLC.FUDGE_SNRMAX_FLAG == 2 && INPUTS.FUDGE_SNRMAX > 1.0 ) 
+    { crazyFlux *= INPUTS.FUDGE_SNRMAX; }
+
+  if ( INDEX_GENMODEL == MODEL_SIMSED ) 
+    { crazyFlux *= 10.0; }    // allow for really bright objects (Aug 2017)
+
+  if ( INDEX_GENMODEL == MODEL_LCLIB ) 
+    { crazyFlux *= 100.0; }  
+
+
+  // determine NEGATIVE crazy flux 
+  crazyFlux_neg = -xt*1.0E9;
+
+  // - - - - - - - - - - - - - 
+  if ( flux > crazyFlux || flux < crazyFlux_neg ) {
+    print_preAbort_banner(fnam);
+    dumpEpoch_fluxNoise_apply(fnam, ep, FLUXNOISE);
+    sprintf(c1err, "flux=%le exceeds CRAZYFLUX=%le", flux, crazyFlux);
+    sprintf(c2err, "See dumpEpoch details");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
 
   return ;
 
@@ -23206,12 +23173,31 @@ void dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE) {
   printf(" xxx GEN(AV,RV) = %7.3f , %7.3f  SHAPEPAR=%7.3f  (c=%7.3f)\n", 
 	 GENLC.AV, GENLC.RV, GENLC.SHAPEPAR, GENLC.SALT2c );
 
-  printf(" xxx FLUXNPE(obs,true) = %f, %f   +_  %f, %f\n", 
-	 flux_data, flux_true, fluxerr_data, fluxerr_true);
+  if ( GENFRAME_OPT  == GENFRAME_REST ) {
+    printf(" xxx Kcor  %s = %le   AVwarp=%7.3f\n",
+	   GENLC.kcornam[ep], GENLC.kcorval8[ep], GENLC.AVwarp8[ep] );
+  }
+  else if ( INDEX_GENMODEL  == MODEL_SIMSED ) {
+      printf(" xxx SIMSED PARAMS %s,%s = %f, %f  (x0=%le)\n"
+	     ,INPUTS.PARNAME_SIMSED[0]
+	     ,INPUTS.PARNAME_SIMSED[1]
+	     ,GENLC.SIMSED_PARVAL[0]
+	     ,GENLC.SIMSED_PARVAL[1], GENLC.SALT2x0 );
+  }
 
-  printf(" xxx FLUXCAL(obs,true) = %f, %f  +_ %f, %f\n", 
-	 flux_data/Npe_over_FLUXCAL, flux_true/Npe_over_FLUXCAL,
-	 fluxerr_data/Npe_over_FLUXCAL, fluxerr_true/Npe_over_FLUXCAL);
+  else if ( INDEX_GENMODEL == MODEL_LCLIB ) {
+    printf(" xxx LCLIB EVENT ID = %lld \n", LCLIB_EVENT.ID);
+  }
+
+  printf(" xxx \n");    fflush(stdout);
+  // - - - - - - - - - - - -  
+  printf(" xxx FLUXNPE(obs ) = %le +_  %le\n",  flux_data, fluxerr_data );
+  printf(" xxx FLUXNPE(true) = %le +_  %le\n",  flux_true, fluxerr_true );
+
+  printf(" xxx FLUXCAL(obs ) = %le, +_ %le \n", 
+	 flux_data/Npe_over_FLUXCAL,  fluxerr_data/Npe_over_FLUXCAL );
+  printf(" xxx FLUXCAL(true) = %le, +_ %le \n", 
+	 flux_true/Npe_over_FLUXCAL,  fluxerr_true/Npe_over_FLUXCAL );
 
   printf(" xxx SKYSIG(S,T) = %.3f, %.3f ADU/pix   PSFSIG = %.3f pixels \n",
 	 SIMLIB_OBS_GEN.SKYSIG[ep], SIMLIB_OBS_GEN.TEMPLATE_SKYSIG[ep],
@@ -23225,7 +23211,7 @@ void dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE) {
 	 GENLC.RANGauss_NOISE_TEMPLATE[0][ifilt_obs],
 	 GENLC.RANGauss_NOISE_ZP[ep] ) ;
 
-  printf(" xxx SIG_pe(SRC,TSRC, SKY,TSKY) = %.2f, %.2f  %.2f, %.2f \n",
+  printf(" xxx SIG_pe(SRC,TSRC, SKY,TSKY) = %.2f,%.2f   %.2f,%.2f \n",
 	 sqrt(FLUXNOISE->SQSIG_SRC), sqrt(FLUXNOISE->SQSIG_TSRC),
 	 sqrt(FLUXNOISE->SQSIG_SKY), sqrt(FLUXNOISE->SQSIG_TSKY) );
 
@@ -23237,9 +23223,7 @@ void dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE) {
 	 FLUXNOISE->SIG_CALC, FLUXNOISE->SIG_FINAL_TRUE,
 	 FLUXNOISE->SIG_FINAL_DATA);
 
-  //.xyz
-  printf("\n");
-  fflush(stdout);
+  printf(" xxx\n");  fflush(stdout);
 
   return ;
 
@@ -24426,7 +24410,7 @@ void INIT_COVMAT_SCATTER( void )
   // - print the above
   //
 
-  char fname[28] = "INIT_COVMAT_SCATTER" ;
+  char fnam[28] = "INIT_COVMAT_SCATTER" ;
   int m, n, LDMP, i,j ;
   double epsilon = 0.00000000001; //tolerance level for differences
   double xsig, xred, xx;
@@ -24449,7 +24433,7 @@ void INIT_COVMAT_SCATTER( void )
     sprintf(c1err,"COVMAT_SCATTER not defined for GENMODEL=%s",
 	    INPUTS.MODELNAME );
     sprintf(c2err,"%s", "Remove COVMAT_SCATTER* keys");
-    errmsg( SEV_FATAL,0 , fname, c1err, c2err);
+    errmsg( SEV_FATAL,0 , fnam, c1err, c2err);
   }
 
 
@@ -24466,10 +24450,10 @@ void INIT_COVMAT_SCATTER( void )
       float t2 = fabs(INPUTS.COVMAT_SCATTER_SQRT[m][n]);
       float t3 = fabs(INPUTS.COVMAT_SCATTER_REDUCED[m][n]);
       if( (t1>0) && (t2>0)  )
-	{ errmsg( SEV_FATAL,0 , fname, c1err, c2err); }
+	{ errmsg( SEV_FATAL,0 , fnam, c1err, c2err); }
 
       if ( (t1>0) && (t3>0)  ) 
-	{ errmsg( SEV_FATAL,0 , fname, c1err, c2err ); }
+	{ errmsg( SEV_FATAL,0 , fnam, c1err, c2err ); }
     }
   }
   
@@ -24479,7 +24463,7 @@ void INIT_COVMAT_SCATTER( void )
   for (m = 0 ; m < 3 ; m++){
     sprintf(c2err, "INPUTS.COVMAT_SCATTER[%d][%d]", m , m);
     if (INPUTS.COVMAT_SCATTER[m][m] < -epsilon ) 
-      { errmsg( SEV_FATAL,0 , fname, c1err , c2err); }
+      { errmsg( SEV_FATAL,0 , fnam, c1err , c2err); }
   }
 
   //If values are given in terms of sqrt or reduced
@@ -24536,7 +24520,7 @@ void INIT_COVMAT_SCATTER( void )
       Lnm   = fabs(INPUTS.COVMAT_SCATTER[n][m]) > epsilon ;
 
       if ( Ldiff && Lmn && Lnm ) 
-	{  errmsg( SEV_FATAL,0 , fname, c1err, c2err);  }
+	{  errmsg( SEV_FATAL,0 , fnam, c1err, c2err);  }
 
     }
   }    	
@@ -24566,7 +24550,7 @@ void INIT_COVMAT_SCATTER( void )
   //Have INPUTS.COVMAT_SCATTER completely. 
 
   //Check that submatrices have non-singular dets
-  strcpy(c1err,"Submatrices are not positive definite for the combination ");
+  strcpy(c1err,"Submatrices are not pos-definite for combination ");
 
   for (m =0; m < 3 ; m++){
     n = m + 1; 
@@ -24581,8 +24565,9 @@ void INIT_COVMAT_SCATTER( void )
     sprintf(c2err, "%d\t%d", m , n);
     
     if (diff < 0) {
-      printf("PRE-ABORT DUMP \n\t %d \t %d \t %g\n", m, n , diff);
-      errmsg( SEV_FATAL,0 , fname, c1err, c2err);
+      print_preAbort_banner(fnam);
+      printf("\t m=%d    n=%d    diff=%le\n", m, n , diff);
+      errmsg( SEV_FATAL,0 , fnam, c1err, c2err);
     }
   }
 

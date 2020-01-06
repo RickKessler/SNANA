@@ -9317,8 +9317,7 @@ c --- error checking
 
 c abort if we exceed array bound
          IF ( N_INTERP_MJDLIST .GT. MXINTERP ) THEN
-            print*,' '
-            print*,' PRE-ABORT DUMP: '
+            CALL PRINT_PREABORT_BANNER("RD_SNMJDLIST"//char(0), 40)
             print*,'   SNMJD_LIST_FILE = ', SNMJD_LIST_FILE
             write(c1err,161) CCID, MJD8
 161         format('N_INTERP_MJDLIST exceeds bound at CID=',A8, 2x,
@@ -9426,7 +9425,7 @@ C -------------- BEGIN -------------
 
       LTOT    = INDEX(STRING,' ' ) - 1
       IF (LTOT <= 0 ) THEN
-        print*,' PRE-ABORT DUMP: '
+        CALL PRINT_PREABORT_BANNER(FNAM(1:10)//char(0), 40)
         print*,' STRING=', STRING
         write(c1err,31) LTOT
         c2err = 'STRING could be too long or zero length'
@@ -9966,8 +9965,7 @@ c if we finish the header (i.e., LOBS=T) but have not found the
 c required DATA keys, then abort.
 
       IF ( .not. LDONE_DATA ) then
-        print*,' '
-        print*,' PRE-ABORT DUMP for SNDATA_FILE_CURRENT  '
+        CALL PRINT_PREABORT_BANNER("RDSURVEY_TEXT"//char(0), 40)
         print*,' FOUND SURVEY:  key : ', L_SURVEY
         print*,' FOUND FILTERS: key : ', L_FILTERS
         c1err = 'Found 1st epoch before finding required header info.'
@@ -11601,8 +11599,7 @@ c break up STRING into substrings
 
       IF  ( NWD .NE. NVAL ) THEN
         LK = INDEX(KEYNAME,' ') - 2
-
-        print*,' PRE-ABORT DUMP: '
+        CALL PRINT_PREABORT_BANNER("UNPACK_SNFITSIO_STR"//char(0),40)
         print*,'   NWD, NVAL = ', NWD, NVAL
         print*,'   SNLC_CCID = ', SNLC_CCID
         print*,'   KEYNAME   = ', KEYNAME(1:LK)
@@ -11737,8 +11734,7 @@ C ----------------- BEGIN --------------
 
       L1 = INDEX(PATH,char(0)) - 1
       IF ( L1 > MXCHAR_PATH ) then
-         print*,' ' 
-         print*,' PRE-ABORT DUMP: '
+         CALL PRINT_PREABORT_BANNER("GETINFO_PHOTOMETRY"//char(0),40)
          print*,' SNDATA_PATH = ', PATH(1:L1)
          write(c1err,61) 'SNDATA_PATH', L1, MXCHAR_PATH
          write(c2err,62)
@@ -11754,8 +11750,7 @@ C ----------------- BEGIN --------------
 
       L2 = INDEX(LIST_FILE,char(0)) - 1
       IF ( L2 > MXCHAR_FILENAME ) then
-         print*,' ' 
-         print*,' PRE-ABORT DUMP: '
+         CALL PRINT_PREABORT_BANNER("GETINFO_PHOTOMETRY"//char(0),40)
          print*,' LIST_FILE = ', LIST_FILE(1:L2)
 
          write(c1err,161) 'LIST_FILE', L2, MXCHAR_FILENAME
@@ -11767,10 +11762,8 @@ C ----------------- BEGIN --------------
 
       L3 = INDEX(README_FILE,char(0)) - 1
       IF ( L3 > MXCHAR_FILENAME ) then
-         print*,' ' 
-         print*,' PRE-ABORT DUMP: '
+         CALL PRINT_PREABORT_BANNER("GETINFO_PHOTOMETRY"//char(0),40)
          print*,' README_FILE = ', README_FILE(1:L3)
-
          write(c1err,161) 'README_FILE', L3, MXCHAR_FILENAME
          write(c2err,62)
          CALL MADABORT('GETINFO_PHOTOMETRY', C1err, C2err)
@@ -12985,9 +12978,8 @@ C ---------------- BEGIN ----------------
 c check if sparse index is valid.
 c Apr 2013: better error messaging.
 
-         if ( ifilt .LE. 0 ) then           
-            
-            print*,' PRE-ABORT DUMP: '
+         if ( ifilt .LE. 0 ) then                      
+            CALL PRINT_PREABORT_BANNER("PARSE_HEAD"//char(0),40)
             print*,' FILTERS  defined in 1st data file:'
             print*,'      ', SURVEY_FILTERS(1:NFILTDEF_SURVEY)
             print*,' FILTERS  defined for ' 
@@ -19859,8 +19851,7 @@ c bail if nothing to do
      &      + SQERRHOST + SQERRMAP
 
       IF ( SQERR .LE. 0.0 ) THEN
-         print*,' ' 
-         print*,' PRE_ABORT DUMP: '
+         CALL PRINT_PREABORT_BANNER(FNAM(1:18)//char(0),40)
          print*,'   ERR1(from data file): ',          sngl(ERR1)
          print*,'   ERR2a(user-fluxcal fudge): ',     sngl(ERR2a)
          print*,'   ERR2b(user-fluxcal fudge/pix): ', sngl(ERR2b)
@@ -19889,7 +19880,7 @@ c check GET_NONLIN option in sntools_nonlinearity.c
       IF ( DOFUDGE_NONLIN ) THEN
 
         if ( GAIN < 0.01 .or. SKYSIG < 0.0001 .or. ZP < 0.01 ) then
-           print*, ' PRE-ABORT DUMP: '
+           CALL PRINT_PREABORT_BANNER(FNAM(1:18)//char(0),40)
            print*,'    BAND    = ', CFILT
            print*,'    GAIN    = ', sngl(GAIN), ' e-/pix'
            print*,'    ZP      = ', sngl(ZP),'  (ADU->MAG)'
@@ -21343,8 +21334,7 @@ c check how close computed TMP_SKYMAG is to expected SKYMAG
          endif
 
          IF ( NLOOP > MXLOOP ) THEN
-            print*,' '
-            print*,' PRE-ABORT DUMP: '
+            CALL PRINT_PREABORT_BANNER(FNAM(1:18)//char(0),40)
             print*,'   FLUX = ', sngl(FLUX), ' +- ', sngl(FLUXERR)
             print*,'   LAMOBS, SKYMAG = ', sngl(LAMOBS), sngl(SKYMAG)
             print*,'   NEA  = ', sngl(NEA)
@@ -25970,8 +25960,8 @@ C ------------- BEGIN --------------
       CALL FTMRHD(LUN, NMOVE, HDUTYPE, ISTAT)
 
       IF ( ISTAT .NE. 0 ) THEN
-         print*, ' ' 
-         print*, ' PRE-ABORT DUMP: ISTAT=', ISTAT
+         CALL PRINT_PREABORT_BANNER("RDKCOR_FITS_NEXTHDU"//char(0),40)
+         print*, ' FTMRHD ISTAT=', ISTAT
          write(C1ERR,61) LUN
 61       format('Error moving to next HDU: LUN=',I4);
          C2ERR = 'called from ' // FNAM(1:40)
@@ -27044,8 +27034,7 @@ c Abort if duplicate filters were detected (May 2012)
 c Mar 13 2013: abort if there are no observer-frame matches
 
       IF ( NMATCH_OBS .EQ. 0 ) THEN
-        print*,' '
-        print*,' PRE-ABORT DUMP '
+        CALL PRINT_PREABORT_BANNER(FNAM(1:20)//char(0),40)
         print*,' KCOR filters:   ', FILTLIST_RDKCOR(1:NFILTDEF_RDKCOR)
         print*,' SURVEY_FITLERS: ', SURVEY_FILTERS(1:NFILTDEF_SURVEY)
 
@@ -27168,21 +27157,6 @@ c determine IPRIM of observer filter
          C2ERR = 'Something is messed up. '
          CALL MADABORT(FNAM,C1ERR,C2ERR)
       ENDIF
-
-+SELF,IF=MARKDELETE.
-c xxxxx mark delete xxxxxx
-      IF ( NERR_PRIM_RDKCOR > 10 ) THEN
-         IPRIM1 = IPRIM_FIRST2_RDKCOR(1)
-         IPRIM2 = IPRIM_FIRST2_RDKCOR(2)
-         print*,' ' 
-         print*,' PRE-ABORT DUMP: '
-         print*,'   Found Primary ', PRIMARY_NAME_RDKCOR(IPRIM1)
-         print*,'   Found Primary ', PRIMARY_NAME_RDKCOR(IPRIM2)
-         C1ERR = 'More than 1 PRIMARY ref not allowed.' 
-	 C2ERR = 'Check kcor file and above list of primary refs.'
-         CALL MADABORT(FNAM,C1ERR,C2ERR)
-      ENDIF
-+SELF.
 
       PRIMARY_NAME = PRIMARY_NAME_RDKCOR(IPRIM_REF_RDKCOR)
       LP = INDEX(PRIMARY_NAME, ' ') - 1
@@ -27435,8 +27409,7 @@ c check too many PRIMARY error after dump to help see the problem.
       IF ( NERR_PRIM_RDKCOR > 0 ) THEN
          IPRIM1 = IPRIM_FIRST2_RDKCOR(1)
          IPRIM2 = IPRIM_FIRST2_RDKCOR(2)
-         print*,' ' 
-         print*,' PRE-ABORT DUMP: '
+         CALL PRINT_PREABORT_BANNER(FNAM(1:15)//char(0),40)
          print*,'   Found Primary ', PRIMARY_NAME_RDKCOR(IPRIM1)
          print*,'   Found Primary ', PRIMARY_NAME_RDKCOR(IPRIM2)
          C1ERR = 'More than 1 PRIMARY ref not allowed.' 
@@ -30230,8 +30203,7 @@ c interpolate epoch for each color-bin
           IB(iit,iic) = IBTMP
 
           if ( IBTMP < 1 .or. IBTMP > NBINTOT_AVWARP ) then
-             print*,' '
-             print*,' PRE-ABORT DUMP: '
+             CALL PRINT_PREABORT_BANNER("GET_AVWARP8"//char(0),40)
              print*,'   IBINS(it,ic,ia,ib) = ', IBINS
              print*,'   IDMAP_AVWARP = ', IDMAP_AVWARP
              print*,'   N4DIM        = ', N4DIM
@@ -32890,8 +32862,7 @@ c check expected number of bins to load, and abort if exceeds bound
            cfilt = FILTREST_NAME(ifiltdef)
         endif
       
-        print*,' '
-        print*,' PRE-ABORT DUMP: '
+        CALL PRINT_PREABORT_BANNER(FNAM(1:16)//char(0),40)
         print*,'   IFILTDEF, OPT   = ', IFILTDEF, OPT
         print*,'   NLAM, NLAM_LOAD = ', NLAM, NLAM_LOAD
         print*,'   ilam_min, ilam_max = ', ilam_min, ilam_max
@@ -35537,8 +35508,7 @@ c ------------------- BEGIN -------------------
          MJD8_LAST = MJD8          
 
          if ( EP_NEW > EP_ORIG ) then
-            print*, ' '
-            print*, ' PRE-ABORT DUMP: '
+            CALL PRINT_PREABORT_BANNER(FNAM//char(0),40)
             print*,'    EPMIN, EPMAX = ', EPMIN, EPMAX
             print*,'    NEWMJD(ORIG,NEW) = ', NEWMJD, IMJD
             write(c1err,61) EP_NEW, EP_ORIG

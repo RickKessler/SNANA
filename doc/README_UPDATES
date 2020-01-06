@@ -17790,6 +17790,11 @@
 
          ***** MISCELLANEOUS(v10_74m) ***** 
 
+   sntools.c:
+     + new utility print_preAbort_banner(fnam) to standardize
+       header for pre-abort dumps. Goal is for higher-level
+       pipelines (e.g., Pippin) to find pre-abort contents.
+
    snlc_sim.c
      + in genmag_boost, fix bug checking unused AV.
      + as part of refactor, fix bug in gen_smearFlux() related to

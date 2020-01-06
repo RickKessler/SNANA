@@ -467,6 +467,8 @@ void  prompt(char *msg) ;
 void  madend(int flag);           // indicates bad end of program
 void  happyend(void) ;    // happy end of program
 void  parse_err ( char *infile, int NEWMJD, char *keyword );
+void  print_preAbort_banner(char *fnam);
+void  print_preabort_banner__(char *fnam);
 
 void  warn_oldInputs(char *varName_old, char *varName_new);
 void  warn_oldinputs__(char *varName_old, char* varName_new) ;

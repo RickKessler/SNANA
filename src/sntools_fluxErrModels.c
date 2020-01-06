@@ -438,7 +438,8 @@ int IVARLIST_FLUXERRMAP(char *varName) {
       { return(IVAR); }
   }
 
-  printf("\n PRE-ABORT DUMP: Valid variables for FLUXERRMAP: \n");
+  print_preAbort_banner(fnam);
+  printf("  Valid variables for FLUXERRMAP: \n");
   for(IVAR=0; IVAR < MXVAR_FLUXERRMAP; IVAR++ ) 
     { printf("\t %s \n", VARNAMES_FLUXERRMAP[IVAR] );  }
   

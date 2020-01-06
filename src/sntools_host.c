@@ -1313,7 +1313,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
     // hence z1 factor needed to compare.
 
     if ( fabs(LAMBIN_CHECK - LAMOBS_BIN/z1) > 0.001 ) {
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf("   SPECTROGRAPH LAM(OBS) : %.3f to %.3f  (ilam=%d)\n",
 	     LAMOBS_MIN, LAMOBS_MAX, ilam );
       printf("   SPECTROGRAPH LAM(Rest): %.3f to %.3f \n",
@@ -1396,7 +1396,7 @@ void read_head_HOSTLIB(FILE *fp) {
       fgets(LINE,MXCHAR,fp);  NCHAR = strlen(LINE);
 
       if (NCHAR >= MXCHAR-5 ) {
-	printf("\n PRE-ABORT DUMP\n");
+	print_preAbort_banner(fnam);
 	printf(" LINE = '%s'  (LEN=%d) \n", LINE, NCHAR );
 	sprintf(c1err,"LINE likely exceeds bound of %d", MXCHAR);
 	sprintf(c2err,"Shorten VARNAMES LINE, "
@@ -1880,7 +1880,7 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
 
   NCHAR = strlen(tmpLine);
   if ( NCHAR >= MXCHAR-5 ) {
-    printf("\n PRE-ABORT DUMP\n");
+    print_preAbort_banner(fnam);
     printf(" LINE = '%s' (LEN=%d) \n", tmpLine, NCHAR );
     sprintf(c1err,"LINE likely exceeds bound of %d", MXCHAR);
     sprintf(c2err,"Shorten HOSTLIB lines, or increase MXCHAR_LINE_HOSTLIB");
@@ -1897,7 +1897,7 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
   // abort if too few columns, but allow extra columns
   // (e..g, comment or catenated files with extra columns)
   if ( NWD < NVAL ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("\t NGAL_READ = %d \n",  HOSTLIB.NGAL_READ );
     printf("\t LINE = '%s %s %s  ... ' \n", 
 	   WDLIST[0], WDLIST[1], WDLIST[2] );
@@ -2524,7 +2524,7 @@ void init_HOSTLIB_WGTMAP(void) {
 
     istat = interp_GRIDMAP(&HOSTLIB_WGTMAP.GRIDMAP, VAL_WGTMAP, TMPVAL ) ;
     if ( istat != SUCCESS ) {
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf("\t GALID = %lld \n", GALID);
       for ( ivar=0; ivar < NDIM; ivar++ ) {  // WGTMAP variables
 	ivar_STORE   = HOSTLIB.IVAR_STORE[ivar];
@@ -4271,7 +4271,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
     if ( INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL < 9999 ) 
       { SNHOSTGAL.IGAL = IGAL_SELECT ; return ; }
 
-    printf("\n PRE-ABORT DUMP: \n") ;
+    print_preAbort_banner(fnam);
     printf("\t NSKIP_WGT  = %d/%d \n", NSKIP_WGT,  NGAL_CHECK );
     printf("\t NSKIP_USED = %d/%d \n", NSKIP_USED, NGAL_CHECK );
     printf("\t igal(start-end) = %d - %d\n", igal_start, igal_end);
@@ -4299,7 +4299,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   SNHOSTGAL.ZDIF       = ZGEN - ZTRUE ; // zSN - zGAL (helio)
 
   if ( fabs(SNHOSTGAL.ZDIF) > dztol ) {
-    printf("\n\n ---------- %s PRE-ABORT DUMP ---------- \n", fnam);
+    print_preAbort_banner(fnam);
     printf("\t CID=%d  ZGEN(SN,GAL) = %.4f, %.4f \n",
 	   GENLC.CID, ZGEN, ZTRUE );
     printf("\t igal(start,end) = %6d, %6d   --> IGAL=%d \n",
@@ -4458,7 +4458,7 @@ int USEHOST_GALID(int IGAL) {
 
   NUSE = SAMEHOST.NUSE[IGAL] ;
   if ( NUSE >= MXUSE_SAMEGAL ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("\t IGAL=%d   PEAKMJD = %f  BLOCKSUM=%d \n", 
 	   IGAL, SNHOSTGAL.PEAKMJD, BLOCKSUM );
     for ( use=0; use < NUSE_PRIOR; use++ )  {
@@ -5968,7 +5968,8 @@ double Gauss2d_Overlap(double offset, double sig) {
        IBIN2_TABLE > HOSTLIB.NGauss2d        
        ) {
 
-    printf("\n PRE-ABORT DUMP: (offset=%f, sig=%f) \n", offset, sig);
+    print_preAbort_banner(fnam);
+    printf("\t offset=%f, sig=%f) \n", offset, sig);
     printf("\t rmin=%.3f rbin=%.3f  ibin_r=%d \n",
 	   rmin, rbin, ibin_r);
     printf("\t smin=%.3f sbin=%.3f  ibin_s=%d \n",

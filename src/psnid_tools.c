@@ -886,7 +886,7 @@ void get_template_lc(int TYPEINDX, int iz, int ic1, int ic2,
   long int MXPTR;
   MXPTR     =  SNGRID_PSNID[TYPEINDX].SIZEOF_GRIDGEN/4 ;
   if ( IPTROFF < 0 || IPTROFF > MXPTR ) {
-    printf("\n\n PRE-ABORT INFO: \n");
+    print_preAbort_banner(fnam);
     printf("\t iz=%d  ic1=%d  ic2=%d  ishape=%d -> ILC=%d \n", 
            iz, ic1, ic2, ishape, ILC );     
     sprintf(c1err,"Invalid IPTROFF = %d for %s-GRID",

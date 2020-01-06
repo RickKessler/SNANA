@@ -17792,5 +17792,12 @@
 
    snlc_sim.c
      + in genmag_boost, fix bug checking unused AV.
+     + as part of refactor, fix bug in gen_smearFlux() related to
+       FLUXERRMODEL_MAP; scale template error for applying noise
+       to match scaling applied to reported error.
+     + for call to get_FLUXERRMODEL() in function gen_smearFlux, 
+       include template error in passed FLUXCALERR_in.
+       Note very small changes when using FLUXERRMODEL_MAP.
+
 
 END: 

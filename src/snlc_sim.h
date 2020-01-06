@@ -3,19 +3,6 @@
 
   HISTORY
 
- May 8 2014:
-  -  remove obsolete UNCONFIRMED_SPECZ_FRACPOLY[3] ; 
-     (now read by map, see SEARCHEFF_zHOST in sntools_trigger.c[h]
-
- Aug 20, 2014: new typedef struct SIMFILE_AUX
-               Remove fp_LIST, fp_README, fp_IGNORE, fp_DUMP
-               Reove struct AUX_SIMFILES.
-
- Aug 27, 2014: add MXFIELD_OVP_SIMLIB and add FIELD info to 
-               SIMLIB_TEMPLATE struct to handle field-overlaps.
-           
- Apr 22 2015: add WRONGHOST_XXX params to INPUTS struct.
- Dec 28 2015: increase MXOBS_SIMLIB -> 5000 (was 2000)
 
  Feb 23 2016: add INPUTS.GENGAUPEAK_AV
  Apr 14 2016: SIMLIB_MXGEN_LIBID-> 1000 (was 10,000)
@@ -317,24 +304,34 @@ typedef struct {
 
 
 typedef struct {
-  double SIG_SN[MXEPSIM] ;
-  double SIG_SKY[MXEPSIM] ;
-  double SIG_TEMPLATE[MXEPSIM] ; //corr noise from TEMPLATE_SKY[CCD]SIG
-  double SIG_CCD[MXEPSIM];
-  double SIG_HOSTGAL_PHOT[MXEPSIM] ;  // galaxy shot noise 
-  double SIG_HOSTGAL_IMAGE[MXEPSIM] ; // anomalous noise from HOSTNOISE_FILE
+  // all SQSIG are in p.e.
+  double SQSIG_SRC;       // source noise = Npe
+  double SQSIG_SKY;       // sky+CCD noise
+  double SQSIG_ZP ;        // ZP error
+  double SQSIG_TSRC;      // template source noise 
+  double SQSIG_TSKY ;     // corrsky_ccd  noise from template
+  double SQSIG_HOST_PHOT ;  // galaxy shot noise 
+  double SQSIG_HOST_IMAGE ; // anomalous noise from HOSTNOISE_FILE->obsolete
+  double SQSIG_RAN ;        // error shift due to Poisson noise
 
-  double NEA[MXFILTINDX];      // effective area for sky noise
-  double PSF_NEA[MXFILTINDX];  // effective PSF = sqrt[ AREA/(4*PI) ]
+  double SQSIG_CALC, SIG_CALC; // calculated without fudges
+  double SNR_CALC ;      // used for trigger effic (Aug 24 2014)
+  double SNR_CALC_MON ;   // calc SNR for MAGMONITOR_SNR input
 
-  double SIG_CALC[MXEPSIM] ;      // naive calca
-  double SNR_CALC[MXEPSIM] ;      // used for trigger effic (Aug 24 2014)
-  double SNR_MON_CALC[MXEPSIM];   // calc SNR for MAGMONITOR_SNR input
+  // FINAL includes fluxerr corrections
+  double SQSIG_FINAL_TRUE, SIG_FINAL_TRUE ; // true error 
+  double SQSIG_FINAL_DATA, SIG_FINAL_DATA ; // error reported in data file
+  double SQSIG_FINAL_TSKY, SIG_FINAL_TSKY ; // template error
 
-  double SIG_FINAL[MXEPSIM] ;         // includes fluxerr corrections
-  double SNR_FINAL[MXEPSIM] ;   
-  double SNR_MON_FINAL[MXEPSIM];   // calc SNR for MAGMONITOR_SNR input
-} OBSNOISE_DEF ;
+  double SNR_FINAL_TRUE, SNR_FINAL_DATA ;   
+  double SNR_FINAL_MON ;   // calc SNR for MAGMONITOR_SNR input
+
+  // misc.
+  double Npe_over_FLUXCAL, NADU_over_Npe, NEA, GALMAG_NEA ;
+  char BAND[2];
+  int  IFILT_OBS;
+
+} FLUXNOISE_DEF ;
 
 // -------------------------------------
 // define user INPUTS
@@ -352,7 +349,8 @@ struct INPUTS {
 
   int  TRACE_MAIN;            // debug to trace progress through main loop
   int  DEBUG_FLAG ;           // arbitrary debug usage
-  bool RESTORE_HOSTLIB_BUGS ; // set if DEBUG_FLAG==3
+  bool RESTORE_HOSTLIB_BUGS ;      // set if DEBUG_FLAG==3
+  bool RESTORE_FLUXERR_BUGS ;      // set if DEBUG_FLAG==3
 
   int OPT_DEVEL_BBC7D; // temp while doing BBC7D development
 
@@ -982,13 +980,15 @@ struct GENLC {
 
   // flux and magnitudes (float-> double, Jan 2014)
   double flux[MXEPSIM] ;            // flux in ADU
-  double flux_errstat[MXEPSIM] ;    // error from signal,sky,ccd,template
-  double flux_errtot[MXEPSIM]  ;    // includes ZP-smear error 
+  double fluxerr_true[MXEPSIM];     // true error
+  double fluxerr_data[MXEPSIM];     // reported error in data file 
+  double flux_errstat[MXEPSIM] ;    // slated obsolete ...
+  double flux_errtot[MXEPSIM]  ;    // slated obsolete includes ZP-smear error 
   double template_err[MXEPSIM];     // correlated template error
   double trueSNR[MXEPSIM];          // true/generated SNR
   int    npe_above_sat[MXEPSIM];    // nphotoelectrons above saturation
 
-  OBSNOISE_DEF OBSNOISE;     // Dec 27 2019 - refactor for noise cov.
+  FLUXNOISE_DEF *FLUXNOISE;    // Dec 27 2019 - refactor for noise cov.
 
   // xxxx -----------------------------------------------------
   // xxxxx legacy arrays to remove after implementing OBSNOISE
@@ -1644,7 +1644,6 @@ void pick_NON1ASED(int ilc,
 // ----------
 
 void   genran_modelSmear(void); // gen randoms for mag-smearing per filter.
-void   genran_obsNoise(void);   // gen randoms for instrument noise
 double gen_redshift_cmb(void);   // gen ran z from dN/dz
 double gen_redshift_helio(void);   // translate zCMB -> zHEL + vPEC
 double gen_redshift_helio_OBSOLETE(double zcmb, double RA, double DEC, double vpec) ;
@@ -1686,6 +1685,15 @@ int    gen_TRIGGER_zHOST(void);        // evaluate zHOST trigger early
 
 void   GENMAG_DRIVER(void);    // driver to generate true mags
 void   GENFLUX_DRIVER(void);   // driver to generate observed fluxes
+void   GENFLUX_DRIVER_LEGACY(void);   // driver to generate observed fluxes
+void   set_GENFLUX_FLAGS(int ep);
+void   gen_fluxNoise_randoms(void);
+void   gen_fluxNoise_calc(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
+void   gen_fluxNoise_fudge_diag(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
+void   gen_fluxNoise_apply(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
+void   dumpLine_fluxNoise(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE);
+void   dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE);
+void   check_crazyFlux(double fluxObs, int ep, FLUXNOISE_DEF *FLUXNOISE);
 
 void   GENSPEC_DRIVER(void);    // driver to generate all spectra for event
 void   GENSPEC_MJD_ORDER(int *imjd_order); // order to generate spectra

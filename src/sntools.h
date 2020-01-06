@@ -74,6 +74,8 @@
 
 #define NULLTYPE    0   // SN type with no TYPE in data base.
 
+#define INDEX_NOTSATURATE 0
+#define INDEX_SATURATE    1
 #define FLUXCALERR_SATURATE 1.0E8
 #define MAG_SATURATE   -7.0   // saturated mag
 #define MAG_ZEROFLUX   99.0   // expect flux=0 (e.g., pre-explosion)

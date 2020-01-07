@@ -680,7 +680,9 @@ Default output files (can change names with "prefix" argument)
        (i.e., apply 1D biasCor, but require 5D biasCor exists)
      + abort if length(varname_gamma) > MXCHAR_VARNAME =  60
 
- Jan 6 2020: use print_preAbort_banner(fnam)
+ Jan 6 2020:
+   +  use print_preAbort_banner(fnam)
+   +  add ABORT logic in sort_IDSAMPLE.
 
  ******************************************************/
 
@@ -864,7 +866,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define USERFLAG_SURVEYGROUP_SAMPLE  1  // bookkeeping for biasCor IDSAMPLE
 #define USERFLAG_FIELDGROUP_SAMPLE   2
 #define AUTOFLAG_SURVEYGROUP_SAMPLE  3  // survey automatically added
-
+#define USERFLAG_IGNORE_SAMPLE       6  // ignore this sample
 
 // ---------------------
 double LOGTEN  ;
@@ -5917,7 +5919,7 @@ void prepare_IDSAMPLE_biasCor(void) {
 
     DUMPFLAG = 0 ;
     IDSAMPLE = get_IDSAMPLE(IDSURVEY, OPT_PHOTOZ, 
-			    FIELDGROUP, SURVEYGROUP ,DUMPFLAG);
+			    FIELDGROUP, SURVEYGROUP, DUMPFLAG);
 
     if ( IDSAMPLE < 0 ) {
       // store new SURVEY/FIELDGROUP entry
@@ -6334,10 +6336,10 @@ void sort_IDSAMPLE_biasCor(void) {
   //
 
   int NSAMPLE = NSAMPLE_BIASCOR ;
-  int ID, IDSURVEY, NSORT=0  ;
+  int ID, ID2, IDSURVEY, NSORT=0  ;
   int NCOPY[MXNUM_SAMPLE], IDMAP_SORT[MXNUM_SAMPLE];
   int igrp, NGRP_USR,  FLAG ; 
-  char *s1, *s2, *NAME ;
+  char *s0, *s1, *s2, *NAME ;
   SAMPLE_INFO_DEF *SAMPLE_BIASCOR_TEMP ;
   int LDMP = 0 ;
   char fnam[] = "sort_IDSAMPLE_biasCor" ;
@@ -6346,11 +6348,52 @@ void sort_IDSAMPLE_biasCor(void) {
   SAMPLE_BIASCOR_TEMP = 
     (SAMPLE_INFO_DEF*) malloc ( NSAMPLE * sizeof(SAMPLE_INFO_DEF));
   
-  // copy pre-sorted struct into temp struct
+
+  // Jan 2020: abort if some SURVEY events are part of a FIELDGROUP,
+  //           and some events are not.
+  //   e..g, if DES and DES(C3+X3) are defined, ABORT.
+  bool ISGRP0, ISGRP2, SMATCH ;
+  char *f0, *f2;
   for(ID=0; ID < NSAMPLE; ID++ ) {
-    copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR[ID], &SAMPLE_BIASCOR_TEMP[ID]);
-    NCOPY[ID] = 0; 
+    for(ID2=0; ID2<NSAMPLE; ID2++ ) {
+      if ( ID == ID2 ) { continue ; } // .xyz
+      f0     = SAMPLE_BIASCOR[ID].NAME_FIELDGROUP ;
+      f2     = SAMPLE_BIASCOR[ID2].NAME_FIELDGROUP ;
+      s0     = SAMPLE_BIASCOR[ID].NAME_SURVEYGROUP ;  
+      s2     = SAMPLE_BIASCOR[ID2].NAME_SURVEYGROUP ;  
+      SMATCH = strcmp(s0,s2) == 0 ;
+      ISGRP0 = !IGNOREFILE(f0);      ISGRP2 = !IGNOREFILE(f2);
+
+      if ( !ISGRP0 && ISGRP2 && SMATCH ) {
+	sprintf(c1err,"Found %s events NOT in FIELDGROUP", s0);
+        sprintf(c2err,"Define all fields in fieldgroup_biascor key.");
+        errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+
+      }
+
+      /*
+      printf(" xxx ------------------------------ \n");
+      printf(" xxx %s: %d,%d\n", fnam, ID, ID2 );
+      printf(" xxx    SURVEYGROUP = '%s' and %s' \n",  s0, s2);
+      printf(" xxx    FIELDGROUP  = %s(%d) and %s(%d) \n", 
+	     f0,ISGRP0, f2,ISGRP2 );
+      printf(" xxx    IFLAG_ORIGIN -> %d \n", 
+      SAMPLE_BIASCOR[ID].IFLAG_ORIGIN ); */
+
+    }
   }
+
+
+  // copy pre-sorted struct into temp struct
+  ID2 = 0;
+  for(ID=0; ID < NSAMPLE; ID++ ) {
+    if ( SAMPLE_BIASCOR[ID].IFLAG_ORIGIN == USERFLAG_IGNORE_SAMPLE ) 
+      { continue; }       
+    copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR[ID], &SAMPLE_BIASCOR_TEMP[ID2]);
+    NCOPY[ID2] = 0; 
+    ID2++ ;
+  }
+  NSAMPLE_BIASCOR = NSAMPLE = ID2;
 
 
   if ( LDMP ) {
@@ -6405,7 +6448,6 @@ void sort_IDSAMPLE_biasCor(void) {
   // add auto-generated survey groups, 
   //  in order given in SURVEY.DEF file
 
-
   for(IDSURVEY=0; IDSURVEY < MXIDSURVEY; IDSURVEY++ ) {
 
     // check only those surveys which are auto-generated
@@ -6421,6 +6463,7 @@ void sort_IDSAMPLE_biasCor(void) {
 
       s2   = SAMPLE_BIASCOR_TEMP[ID].NAME_SURVEYGROUP ;
       NAME = SAMPLE_BIASCOR_TEMP[ID].NAME ;
+
       if ( strcmp(s1,s2) == 0 ) {
 	copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR_TEMP[ID], 
 			      &SAMPLE_BIASCOR[NSORT]);

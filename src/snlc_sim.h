@@ -18,6 +18,7 @@
      + MXREAD_SIMLIB      -> 100000 (was 12000)
 
  Jul 30 2018: define input_file_include2
+ Jan 06 2020: genmag8 -> genmag, same for epoch8 & peakmag8
 
 ********************************************/
 
@@ -982,8 +983,8 @@ struct GENLC {
   double flux[MXEPSIM] ;            // flux in ADU
   double fluxerr_true[MXEPSIM];     // true error
   double fluxerr_data[MXEPSIM];     // reported error in data file 
-  double flux_errstat[MXEPSIM] ;    // slated obsolete ...
-  double flux_errtot[MXEPSIM]  ;    // slated obsolete includes ZP-smear error 
+  // xxx mark delete  double flux_errstat[MXEPSIM] ;
+  // xxx mark delete  double flux_errtot[MXEPSIM];   
   double template_err[MXEPSIM];     // correlated template error
   double trueSNR[MXEPSIM];          // true/generated SNR
   int    npe_above_sat[MXEPSIM];    // nphotoelectrons above saturation
@@ -1029,25 +1030,25 @@ struct GENLC {
   char    COVMAT_SCATTER_NAME[3][40]; // name of each scatter term
 
   // - - - - -
-  double  epoch8_obs_range[2];   // min and max epoch, all bands
-  double  epoch8_obs[MXEPSIM];       // observer epoch = MJD - PEAKMJD
-  double  epoch8_rest[MXEPSIM];      // rest epoch relative to peak, days
-  double  genmag8_obs[MXEPSIM] ;     // generated obs  magnitude
-  double  generr8_obs[MXEPSIM] ;     // obs mag err from model
-  double  peakmag8_obs[MXFILTINDX] ;          
-  double  genmag8_obs_template[MXFILTINDX]; // for LCLIB model (stars)
+  double  epoch_obs_range[2];   // min and max epoch, all bands
+  double  epoch_obs[MXEPSIM];       // observer epoch = MJD - PEAKMJD
+  double  epoch_rest[MXEPSIM];      // rest epoch relative to peak, days
+  double  genmag_obs[MXEPSIM] ;     // generated obs  magnitude
+  double  generr_obs[MXEPSIM] ;     // obs mag err from model
+  double  peakmag_obs[MXFILTINDX] ;          
+  double  genmag_obs_template[MXFILTINDX]; // for LCLIB model (stars)
 
-  double  genmag8_rest[MXEPSIM] ;    // idem, rest frame
-  double  generr8_rest[MXEPSIM] ;    // idem, rest frame
-  double  peakmag8_rest[MXFILTINDX] ;          
+  double  genmag_rest[MXEPSIM] ;    // idem, rest frame
+  double  generr_rest[MXEPSIM] ;    // idem, rest frame
+  double  peakmag_rest[MXFILTINDX] ;          
 
-  double  genmag8_rest2[MXEPSIM] ;    // 2nd nearest rest-frame mag.
-  double  generr8_rest2[MXEPSIM] ;    // 2nd nearest rest-frame mag.
-  double  peakmag8_rest2[MXFILTINDX] ;          
+  double  genmag_rest2[MXEPSIM] ;    // 2nd nearest rest-frame mag.
+  double  generr_rest2[MXEPSIM] ;    // 2nd nearest rest-frame mag.
+  double  peakmag_rest2[MXFILTINDX] ;          
 
-  double  genmag8_rest3[MXEPSIM] ;    // 2nd nearest rest-frame mag.
-  double  generr8_rest3[MXEPSIM] ;    // 2nd nearest rest-frame mag.
-  double  peakmag8_rest3[MXFILTINDX] ;          
+  double  genmag_rest3[MXEPSIM] ;    // 2nd nearest rest-frame mag.
+  double  generr_rest3[MXEPSIM] ;    // 2nd nearest rest-frame mag.
+  double  peakmag_rest3[MXFILTINDX] ;          
 
   int     NWIDTH_SIMGEN_DUMP;
   double  WIDTH[MXFILTINDX];  // generated LC width per band (for monitor)
@@ -1131,19 +1132,19 @@ struct GENSL {
 // temp structure used by NEPFILT_GENLC
 struct GENFILT {
   // 5 MB as of Aug 10 2017
-  double Trest8[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double Tobs8[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag8_obs[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag8_smear[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double Trest[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double Tobs[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double genmag_obs[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double genmag_smear[MXFILTINDX][MXEPSIM_PERFILT] ;
 
-  double genmag8_rest[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag8_rest2[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag8_rest3[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double genmag_rest[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double genmag_rest2[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double genmag_rest3[MXFILTINDX][MXEPSIM_PERFILT] ;
 
-  double generr8_obs[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr8_rest[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr8_rest2[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr8_rest3[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double generr_obs[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double generr_rest[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double generr_rest2[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double generr_rest3[MXFILTINDX][MXEPSIM_PERFILT] ;
 } GENFILT ;
 
 

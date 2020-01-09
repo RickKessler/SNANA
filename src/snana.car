@@ -19002,7 +19002,8 @@ c convert sim-mag to SIM_FLUXCA
              endif	 
              SIM_EPFLUXCAL(ep) = TRUEFLUX	
              IF ( USESIM_TRUEFLUX ) SNLC_FLUXCAL(ep)=TRUEFLUX
-
+          ELSE
+             SIM_EPFLUXCAL(ep) = -9.0
           ENDIF
  
 +SELF,IF=SNANA,SNFIT.

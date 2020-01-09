@@ -865,7 +865,7 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   NVAR++ ;
 
 
-  if ( SNLCPAK_OUTPUT.SIMFLAG ) {
+  if ( SNLCPAK_OUTPUT.SIMFLAG ) {  // Dec 2019
     sprintf(VARNAME_SNLC[NVAR], "SIM_FLUXCAL" );  
     sprintf(VARDEF_SNLC[NVAR],  "true flux"   );
     NVAR++ ;

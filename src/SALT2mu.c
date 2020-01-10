@@ -684,6 +684,9 @@ Default output files (can change names with "prefix" argument)
    +  use print_preAbort_banner(fnam)
    +  add ABORT logic in sort_IDSAMPLE.
 
+ Jan 09 2020:
+   + fix write_fitres to loop over all input data files, not just first one.
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -15286,19 +15289,20 @@ void write_fitres(char* fileName) {
   // Jun 27 2017: REFACTOR z bins
   // Mar 01 2018: add M0 to output
   // Jun 10 2019: call printCOVINT 
+  // Jan 09 2019: fix to loop over each datafile instead of only the first.
 
   double VAL, ERR, PULL ;
-  FILE  *fout, *fin;
+  FILE  *fout, *finp;
 
   int n, ivar, indx, NCUT, icut, cutmask, NWR, ISFLOAT, iz, GZIPFLAG ;
-  int idsample, IS_SIM, NSN_DATA, NSN_BIASCOR ;
+  int idsample, IS_SIM, NSN_DATA, NSN_BIASCOR, ifile ;
   char 
      line[MXCHAR_LINE], tmpLine[MXCHAR_LINE] 
     ,tmpName[60], ztxt[60], KEY[MXCHAR_VARNAME], CCID[40]
     ,*ptrtok, *ptrCR
     ;
 
-  //  char fnam[] = "write_fitres" ;
+  char fnam[] = "write_fitres" ;
 
   // ------------------ BEGIN ----------------
 
@@ -15344,11 +15348,6 @@ void write_fitres(char* fileName) {
 
   // - - - - - - - - - -
   NVAR_TOT = NVAR_ORIG + NVAR_NEW ;
-
-
-
-  // WARNING: need to refactor to read multiple input files XXXX
-  fin  = open_TEXTgz(INPUTS.dataFile[0], "rt", &GZIPFLAG); // check for .gz file
 
   printf("\n Open output file with  cutmask_write=%d : \n", 
 	 INPUTS.cutmask_write );
@@ -15511,47 +15510,53 @@ void write_fitres(char* fileName) {
     return ;
   }
 
-  while ( fgets (line, MXCHAR_LINE, fin) !=NULL  ) {
+  // - - - - - - - -
+  // re-read each data file
+  for(ifile=0; ifile < INPUTS.nfile_data; ifile++ ) {
+    finp  = open_TEXTgz(INPUTS.dataFile[ifile], "rt", &GZIPFLAG); 
 
-    if ( line[0] == ' '   ) { continue ; }
-    if ( strlen(line) < 3 ) { continue ; }
+    while ( fgets (line, MXCHAR_LINE, finp) !=NULL  ) {
 
-    // break tmpline into blank-separated strings
-    sprintf(tmpLine,"%s", line);
-    ptrtok = strtok(tmpLine," ");
-    sscanf ( ptrtok, "%s", KEY );
-    ptrtok = strtok(NULL, " ");
-    sscanf ( ptrtok, "%s", CCID );
-    //    ptrtok = strtok(NULL, " ");
-
-    if ( strcmp(KEY,"SN:") != 0 ) { continue ; }
-
-    // remove <CR> from end of line (requested by Rahul)
-    ptrCR = strchr(line,'\n');
-    if (ptrCR) {*ptrCR = ' ';}
-
-    // get index for data[] array
-    get_CCIDindx(CCID, &indx) ;
-
-    cutmask = INFO_DATA.TABLEVAR.CUTMASK[indx]; 
-
-    // xxx mark delete 10.14.2019  if ( cutmask ) { continue ; } // May 2016
-
-    // check which cutmask to allow (RK, May 2012)
-    if ( keep_cutmask(cutmask) == 1 ) { 
-
-      // Print SN line from input fiters file
-      fprintf(fout, "%s ", line);
-
-      // append variables computed by SALT2mu
-      append_fitres(fout, CCID, indx);      
-      fprintf(fout,"\n");  fflush(fout);
-      NWR++ ;
-    }
-
-  }  // fgets
+      if ( line[0] == ' '   ) { continue ; }
+      if ( strlen(line) < 3 ) { continue ; }
+      
+      // break tmpline into blank-separated strings
+      sprintf(tmpLine,"%s", line);
+      ptrtok = strtok(tmpLine," ");
+      sscanf ( ptrtok, "%s", KEY );
+      ptrtok = strtok(NULL, " ");
+      sscanf ( ptrtok, "%s", CCID );
+      //    ptrtok = strtok(NULL, " ");
+      
+      if ( strcmp(KEY,"SN:") != 0 ) { continue ; }
+      
+      // remove <CR> from end of line (requested by Rahul)
+      ptrCR = strchr(line,'\n');
+      if (ptrCR) {*ptrCR = ' ';}
+      
+      // get index for data[] array
+      get_CCIDindx(CCID, &indx) ;
+      
+      cutmask = INFO_DATA.TABLEVAR.CUTMASK[indx]; 
+      
+      // check which cutmask to allow (RK, May 2012)
+      if ( keep_cutmask(cutmask) == 1 ) { 
+	
+	// Print SN line from input fiters file
+	fprintf(fout, "%s ", line);
+	
+	// append variables computed by SALT2mu
+	append_fitres(fout, CCID, indx);      
+	fprintf(fout,"\n");  fflush(fout);
+	NWR++ ;
+      }
+      
+    }  // end reading line with fgets
+    fclose(finp);   
+  } // end ifile
 
   fclose(fout);
+
   printf(" Wrote %d SN  (%d/%d used in fit) \n", 
 	 NWR, FITRESULT.NSNFIT , NSN_DATA );
   fflush(stdout);

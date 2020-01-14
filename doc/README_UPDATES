@@ -17681,15 +17681,17 @@
 
 
 # ======================================================================= 
-         v10_74k (  ) 
+         v10_74k (Dec 6 2019) 
 
          ***** IMPORTANT(v10_74k) ***** 
 
          ***** USEFUL(v10_74k) ***** 
  
    + new &SNLCINP OPT_SIMLIB_OUT to write SIM_MAGOBS in MAG column
+       (1st use: simulate fakes for DES)
    + new 'SIMLIB' model for sim to read true mag from last SIMLIB column
-
+       (1st use: simulate fakes for DES)
+     
          ***** MISCELLANEOUS(v10_74k) ***** 
 
    SALT2mu.c
@@ -17705,7 +17707,9 @@
       + OPT_SIMLIB_OUT; see manual 12.3.3 Creating a SIMLIB from Data
       + New &SNLCINP  SIMVAR_CUTWIN_STRING = 'NEP_SIM_MAGOBS 4 9999'
         to require min number of epochs with true flux > 0
- 
+      + in output table, SIM_x1 -> SIM_SALT2x1 and SIM_c -> SIM_SALT2c
+         (beware that SALT2mu needs update too)
+
    snlc_sim.c 
      + crazyflux *= scale_fluxerr to allow for much larger scatter.
      + new 'SIMLIB' model to read true mag from last SIMLIB column;
@@ -17713,10 +17717,103 @@
        see manaul Section 9.8 SIMLIB: Read True Mags from SIMLIB File
 
    sntools_genSmear.c[h]
-     + update COH model to pass 1 or 2 sigma values with COH(0.11) or COH(0.11+.05)
+     + update COH model to pass 1 or 2 sigma values with 
+        COH(0.11) or COH(0.11+.05)
            
    sntools_spectrograph.c
      + abort if any spectrograph-table SNR values are zero.
 
+   sntools_trigger.c
+     + fix bug reading maps from zHOST file.
 
+   sim_SNmix.pl
+     + new input key LOGDIR: <dirName>
+
+   snlc_fit.car: in DMP_SNMJD_INTERP(), remove obsolete IFILTOBS_RST.
+
+
+# ======================================================================= 
+         v10_74l (Dec 23 2019) 
+
+         ***** IMPORTANT(v10_74l) ***** 
+
+         ***** USEFUL(v10_74l) ***** 
+
+         ***** MISCELLANEOUS(v10_74l) ***** 
+
+   SALT2mu.c
+    + read SIM_SALT2x1[c] or SIM_x1[c]
+    + abort if all data events fail cuts.
+    + fix 1D5DCUT option (apply 1Dcor, but require 5Dcor exists)
+    + use MXCHAR_VARNAME to declare variable names.
+
+   snana.car
+    + remove obsolete input ZPOFF_FILE and all usage. ZPOFF are
+      read by kcor routine, not read by analysis codes.
+    + remove obsolete WRSALT2_1
+    + allow HOSTGAL_DDLR in HEADER_OVERRIDE_FILE
+    + for abort on too many primarys, move abort to RDKCOR_SUMMARY
+      so we can examine RDKCOR dump when we get this abort.
+   
+   sntools_output.h: 
+    + replace hard-coded [40] with [MXCHAR_VARNAME] in many places.
+   sntools_output_text.c
+    + for sims, write SIM_FLUXCAL to LCPLOT file.
+ 
+   sntools.c[h]:
+     update madend for better use in pipelines.
+
+   snana.car:
+     + MADABORT calls C function errmsg so that fortran and C 
+       codes use same abort call.
+     + MXFILT_KCOR -> 40 (was 20). For Raisin/SNoopy.
+
+   snlc_fit.car
+     + if USE_MODEL_MAGERR=F, then turn off SALT2 covariance model.
+
+   sntable_dump.c
+     For OBS option, include FLUXCAL_MODEL
+
+   snlc_sim.c
+    + define and set GENLC.ISOBS[ep] to avoid checking multiple
+      logicals for each epoch.
+    + refactor LOAD_SEARCHEFF_DATA and note that random sync is changed.
+      Recover legacy code with "DEBUG_FLAG 55"
+
+
+# ======================================================================= 
+         v10_74m (Jan 08 2020) 
+
+         ***** IMPORTANT(v10_74m) ***** 
+
+   snlc_sim refactor resulted in 2 subtle bug-fixes for FLUXERRMODEL_MAP
+
+         ***** USEFUL(v10_74m) ***** 
+
+         ***** MISCELLANEOUS(v10_74m) ***** 
+
+   sntools.c:
+     + new utility print_preAbort_banner(fnam) to standardize
+       header for pre-abort dumps. Goal is for higher-level
+       pipelines (e.g., Pippin) to find pre-abort contents.
+
+   snlc_sim.c
+     + in genmag_boost, fix bug checking unused AV.
+     + as part of refactor, fix bug in gen_smearFlux() related to
+       FLUXERRMODEL_MAP; scale template error for applying noise
+       to match scaling applied to reported error.
+     + for call to get_FLUXERRMODEL() in function gen_smearFlux, 
+       include template error in passed FLUXCALERR_in (another bug fix).
+       Note very small changes when using FLUXERRMODEL_MAP.
+     + rename genmag8 -> genmag, epoch8->epoch, etc ...
+
+   SALT2mu.c:
+    + in sort_IDSAMPLE, add abort trap if fieldgroup key does 
+      not include all fields. Avoids ambiguity of undefined
+      fields being exluded or part of survey.
+
+   psnid:
+     + pass SIM_EPFLUXCAL to SNLCPAK to be compatible with previous
+       update for snana & snlc_fit.
+   
 END: 

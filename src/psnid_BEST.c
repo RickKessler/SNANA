@@ -331,16 +331,16 @@ void psnid_best_update_output__(char *CCID) {
 }
 
 
-int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILTOBS, 
-		     double *MJD, double *FLUX, double *FLUXERR, 
+int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILTOBS, double *MJD,
+		     double *FLUXDATA, double *FLUXERR, double *FLUXSIM,
 		     double *REDSHIFT, double *REDSHIFT_ERR, 
 		     double MWEBV, double MWEBVERR, int SIM_NON1A_INDEX);
-int psnid_best_dofit__(char *CCID, int *NOBS, int *IFILTOBS, 
-		       double *MJD, double *FLUX, double *FLUXERR, 
+int psnid_best_dofit__(char *CCID, int *NOBS, int *IFILTOBS, double *MJD,
+		       double *FLUXDATA, double *FLUXERR, double *FLUXSIM,
 		       double *REDSHIFT, double *REDSHIFT_ERR, 
 		       double *MWEBV, double *MWEBVERR, int *SIM_NON1A_INDEX) 
 {
-  return PSNID_BEST_DOFIT(CCID, *NOBS, IFILTOBS, MJD, FLUX, FLUXERR, 
+  return PSNID_BEST_DOFIT(CCID, *NOBS, IFILTOBS,MJD,FLUXDATA,FLUXERR,FLUXSIM,
 			  REDSHIFT, REDSHIFT_ERR, *MWEBV, *MWEBVERR,
 			  *SIM_NON1A_INDEX );
 }
@@ -742,7 +742,8 @@ int  doplot_psnid__(int *iplot) ;
 
 /************************************************************************/
 int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT, 
-		     double *MJD, double *FLUX, double *FLUXERR, 
+		     double *MJD, double *FLUXDATA, double *FLUXERR, 
+		     double *FLUXSIM,
 		     double *REDSHIFT, double *REDSHIFT_ERR, 
 		     double MWEBV, double MWEBVERR, int SIM_NON1A_INDEX)
 /*
@@ -754,7 +755,8 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
    NOBS               = total number of observations (filter-epochs)
    IFILT[iobs]        = filter index for each filter-epoch  (0..N-1)
    MJD[iobs]          = MJD for each obs
-   FLUX,FLUXERR[iobs] = calibrated flux and error (SNANA "fluxcal" units)
+   FLUXDATA,FLUXERR[iobs] = calibrated flux and error (SNANA "fluxcal" units)
+   FLUXSIM            = true sim flux (added Jan 2020)
    REDSHIFT           = redshift prior
    REDSHIFT_ERR       = redshift prior error
    MWEBV,MWEBVERR     = Milky Way E(B-V)
@@ -769,6 +771,7 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
     sparse index that goes from 0 to NFILT-1.
     "IFILTOBS" should be used only for absolute filter indices.
 
+  Jan 2020: pass FLUXSIM
 
  */
 /************************************************************************/
@@ -798,7 +801,7 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
   // Feb 8 2013: RK store light curve info for use in other functions
   //             such as dumping or plotting.
   psnid_store_data(CCID, NOBS, IFILT, MJD,
-		   FLUX, FLUXERR, 
+		   FLUXDATA, FLUXERR, FLUXSIM,
 		   REDSHIFT, REDSHIFT_ERR,
 		   MWEBV, MWEBVERR, SIM_NON1A_INDEX );
   
@@ -914,11 +917,11 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
 
     // flag early and late epochs
     for (j=0; j<=NOBS; j++) { useobs[j] = 1 ; }  // use all points by default
-    psnid_best_flag_epochs(NOBS, IFILT, MJD, FLUX, FLUXERR, useobs);
+    psnid_best_flag_epochs(NOBS, IFILT, MJD, FLUXDATA, FLUXERR, useobs);
 
     //////////////////////////////////////////////////////////////////
     /////                      GRID SEARCH                       /////
-    psnid_best_grid_compare(i, z, NOBS, IFILT, MJD, FLUX, FLUXERR,
+    psnid_best_grid_compare(i, z, NOBS, IFILT, MJD, FLUXDATA, FLUXERR,
 			    useobs, minchisq_ind, evidence);
 
     // Outlier Rejection
@@ -928,11 +931,11 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
       //    "    = 0  (pre/post max)
       //    "    = 2  (chi2 outlier)
       nOutlier = psnid_best_flag_outlier(i, z, NOBS, IFILT,
-					 MJD, FLUX, FLUXERR,
+					 MJD, FLUXDATA, FLUXERR,
 					 useobs, minchisq_ind);
       // then refit if any point is flagged
       if ( nOutlier > 0 ) {
-	psnid_best_grid_compare(i, z, NOBS, IFILT, MJD, FLUX, FLUXERR,
+	psnid_best_grid_compare(i, z, NOBS, IFILT, MJD, FLUXDATA, FLUXERR,
 				useobs, minchisq_ind, evidence);
       }
     }
@@ -942,7 +945,7 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
     }
 
     psnid_best_check_lc_quality(i, z, minchisq_ind,
-    				NOBS, MJD, FLUX, FLUXERR);
+    				NOBS, MJD, FLUXDATA, FLUXERR);
     psnid_best_store_results(CCID, i, z, minchisq_ind, evidence, 0);
     //////////////////////////////////////////////////////////////////
     
@@ -953,7 +956,7 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
       
       psnid_best_init_mcmc();
       
-      psnid_best_run_mcmc(CCID, i, NOBS, IFILT, MJD, FLUX, FLUXERR,
+      psnid_best_run_mcmc(CCID, i, NOBS, IFILT, MJD, FLUXDATA, FLUXERR,
 			  useobs, MWEBV, MWEBVERR, z,
 			  PSNID_BEST_RESULTS.ZPRIOR[z],
 			  PSNID_BEST_RESULTS.ZPRIOR_ERR[z]);
@@ -3339,8 +3342,8 @@ void psnid_best_store_fitResids(int itype, int **obsflag) {
     IFILT         = DATA_PSNID_DOFIT.IFILT[obs] ;
     IFILTOBS      = DATA_PSNID_DOFIT.IFILTOBS[obs] ;
     sprintf(CFILT,"%c", FILTERSTRING[IFILTOBS] );  // for comments
-    DATAFLUX      = DATA_PSNID_DOFIT.FLUX[obs] ;
-    DATAFLUX_ERR  = DATA_PSNID_DOFIT.FLUX_ERR[obs] ;
+    DATAFLUX      = DATA_PSNID_DOFIT.FLUXDATA[obs] ;
+    DATAFLUX_ERR  = DATA_PSNID_DOFIT.FLUXERR[obs] ;
     REJECT        = 0 ;
 
     PSNID_BEST_GET_FITFUN(CCID, itype, 
@@ -3436,7 +3439,9 @@ void SNLCPLOT_PSNID_BEST(int iplot) {
   //
   // Oct 23, 2013 RK - major overhaul using RESIDS_PSNID_DOFIT struct.
   //                  
- 
+  // Jan 08 2020: pass simulated FLUXSIM (true flux) to SNLCPAK.
+  //
+
   int  
     itype, izprior, NOBS, USE
     , NFILT, IFILT, IFILTOBS, NFILT_USE, LDMP
@@ -3446,7 +3451,8 @@ void SNLCPLOT_PSNID_BEST(int iplot) {
 
   double 
     PKMJD, TOBS, MJD, MAG, MAG_ERR, FITFLUX, FITFLUX_ERR
-    ,*ptrTOBS, *ptrMJD, *ptrFLUX, *ptrERR, *ptrREJ, *ptrCHI2, *ptrDUMERR0
+    ,*ptrTOBS, *ptrMJD, *ptrFLUXDATA, *ptrFLUXSIM, *ptrFLUXERR
+    ,*ptrREJ, *ptrCHI2, *ptrDUMERR0
     ;
 
   char  *CCID ;
@@ -3582,19 +3588,20 @@ void SNLCPLOT_PSNID_BEST(int iplot) {
   // -------------------------------------------------
   // get pointers to light curve data and fit resids
 
-  CCID        = DATA_PSNID_DOFIT.CCID ;
-  NOBS        = DATA_PSNID_DOFIT.NOBS ;
-  ptrMJD      = DATA_PSNID_DOFIT.MJD ;
-  ptrFLUX     = DATA_PSNID_DOFIT.FLUX ;
-  ptrERR      = DATA_PSNID_DOFIT.FLUX_ERR ;
-  ptrIFILTOBS = DATA_PSNID_DOFIT.IFILTOBS ;
-  ptrDUMERR0  = DATA_PSNID_DOFIT.DUMERR0 ;
+  CCID          = DATA_PSNID_DOFIT.CCID ;
+  NOBS          = DATA_PSNID_DOFIT.NOBS ;
+  ptrMJD        = DATA_PSNID_DOFIT.MJD ;
+  ptrFLUXDATA   = DATA_PSNID_DOFIT.FLUXDATA ;
+  ptrFLUXERR    = DATA_PSNID_DOFIT.FLUXERR ;
+  ptrFLUXSIM    = DATA_PSNID_DOFIT.FLUXSIM ;
+  ptrIFILTOBS   = DATA_PSNID_DOFIT.IFILTOBS ;
+  ptrDUMERR0    = DATA_PSNID_DOFIT.DUMERR0 ;
 
   ptrTOBS     = RESIDS_PSNID_DOFIT[itype].TOBS ;
   ptrREJ      = RESIDS_PSNID_DOFIT[itype].REJECT ;
   ptrCHI2     = RESIDS_PSNID_DOFIT[itype].CHI2 ;
 
-  SNLCPAK_DATA(CCID, NOBS, ptrMJD,ptrTOBS, ptrFLUX, ptrERR, ptrIFILTOBS,
+  SNLCPAK_DATA(CCID, NOBS, ptrMJD,ptrTOBS, ptrFLUXDATA, ptrFLUXERR, ptrIFILTOBS,
 	       SNLCPAK_EPFLAG_FLUXDATA  ) ;
 
   SNLCPAK_DATA(CCID, NOBS, ptrMJD, ptrTOBS, ptrREJ,  ptrDUMERR0, ptrIFILTOBS,
@@ -3602,6 +3609,12 @@ void SNLCPLOT_PSNID_BEST(int iplot) {
 
   SNLCPAK_DATA(CCID, NOBS, ptrMJD, ptrTOBS, ptrCHI2, ptrDUMERR0, ptrIFILTOBS,
 	       SNLCPAK_EPFLAG_CHI2  ) ;
+
+  if ( PSNID_INPUTS.LSIM ) {
+    // pass true sim fluxes, Jan 2020
+    SNLCPAK_DATA(CCID, NOBS, ptrMJD,ptrTOBS,ptrFLUXSIM,ptrFLUXERR,ptrIFILTOBS,
+	       SNLCPAK_EPFLAG_FLUXSIM  ) ;
+  }
 
   // pak filter-dependent quantities
   IFILTLIST = PSNID_INPUTS.IFILTLIST ;
@@ -3649,8 +3662,8 @@ void SNLCPLOT_PSNID_BEST(int iplot) {
   // set local pointers
   ptrMJD      = FITFUN_PSNID_DOFIT.MJD ;
   ptrTOBS     = FITFUN_PSNID_DOFIT.TOBS ;
-  ptrFLUX     = FITFUN_PSNID_DOFIT.FLUX ;
-  ptrERR      = FITFUN_PSNID_DOFIT.FLUX_ERR ;
+  ptrFLUXDATA = FITFUN_PSNID_DOFIT.FLUX ;
+  ptrFLUXERR  = FITFUN_PSNID_DOFIT.FLUX_ERR ;
   ptrIFILT    = FITFUN_PSNID_DOFIT.IFILT ;
   ptrIFILTOBS = FITFUN_PSNID_DOFIT.IFILTOBS ;
 
@@ -3678,20 +3691,20 @@ void SNLCPLOT_PSNID_BEST(int iplot) {
       psnid_pogson2fluxcal(MAG, MAG_ERR, &FITFLUX, &FITFLUX_ERR);
     
       // load arrays
-      ptrMJD[NOBS]      = MJD ;
-      ptrTOBS[NOBS]     = TOBS ;
-      ptrFLUX[NOBS]     = FITFLUX ;
-      ptrERR[NOBS]      = FITFLUX_ERR ;
-      ptrIFILTOBS[NOBS] = IFILTOBS ;
-      ptrIFILT[NOBS]    = IFILT ;
+      ptrMJD[NOBS]        = MJD ;
+      ptrTOBS[NOBS]       = TOBS ;
+      ptrFLUXDATA[NOBS]   = FITFLUX ;
+      ptrFLUXERR[NOBS]    = FITFLUX_ERR ;
+      ptrIFILTOBS[NOBS]   = IFILTOBS ;
+      ptrIFILT[NOBS]      = IFILT ;
       NOBS++ ;
       
     }  // i (Tobs loop)
   } // IFILT
     
 
-  SNLCPAK_DATA(CCID, NOBS, ptrMJD, ptrTOBS, ptrFLUX, ptrERR, ptrIFILTOBS,
-	       SNLCPAK_EPFLAG_FITFUN  ) ;
+  SNLCPAK_DATA(CCID, NOBS, ptrMJD, ptrTOBS, ptrFLUXDATA, ptrFLUXERR, 
+	       ptrIFILTOBS, SNLCPAK_EPFLAG_FITFUN  ) ;
 
   // free
   free(FITFUN_PSNID_DOFIT.MJD) ;

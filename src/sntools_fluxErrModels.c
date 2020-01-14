@@ -46,6 +46,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
   //  + NVAR key is obsolete (see warn_MNVAR_KEY)
   //  + read OPT_EXTRAP key from map file, and pass to read_GRIDMAP().
   //
+  // Dec 9 2019: abort if map file cannot be opened.
 
   FILE *fp;
   int gzipFlag, FOUNDMAP, NTMP, NVAR, NDIM, NFUN, ivar, igroup;
@@ -68,6 +69,12 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
 
   sprintf(PATH, "%s/simlib", PATH_SNDATA_ROOT);
   fp = snana_openTextFile(1,PATH, fileName, fullName, &gzipFlag);
+
+  if ( !fp ) {
+    sprintf(c1err,"Cannot open FLUXERRMODEL_FILE");
+    sprintf(c2err,"'%s'", fullName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
 
   sprintf(MSGERR_FILE,"check FLUXERRMODEL_FILE: '%s'", fullName);
   FOUNDMAP=0;
@@ -180,54 +187,6 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
       FOUNDMAP=0 ;
 
     }  // end VARNAMES
-
-    /* xxxxxxxxxxxxxxx mark delete Mar 16 2019 xxxxxxxx
-    if ( strcmp(c_get,"ROW:")==0 ) {
-      irow = FLUXERRMAP[NMAP].NROW;
-      readdouble( fp, NVAR, TMPVAL );
-      if ( irow < MXROW_FLUXERRMAP ) {
-	for(ivar=0; ivar < NVAR; ivar++ ) 
-	  { TMP_ROWDATA_FLUXERRMAP[ivar][irow] = TMPVAL[ivar]; }
-      }
-      FLUXERRMAP[NMAP].NROW++ ;
-    }
-    xxxxxxxxxx end mark xxxxxxxx*/
-
-
-    /* xxxxxxxxxxxxxx mark delete xxxxxxxxxxxxxxxxxx
-    if ( strcmp(c_get,"ENDMAP:")==0 ) {
-
-      NROW = FLUXERRMAP[NMAP].NROW ;
-      if ( NROW >= MXROW_FLUXERRMAP ) {
-	sprintf(c1err,"NROW=%d exceeds bound (MXROW=%d)",
-		NROW, MXROW_FLUXERRMAP);
-	sprintf(c2err,"Check MAPNAME='%s'  BAND='%s'  FIELD='%s' "
-		,FLUXERRMAP[NMAP].NAME 
-		,FLUXERRMAP[NMAP].BANDLIST
-		,FLUXERRMAP[NMAP].FIELDLIST );
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-      }
-
-      sprintf(TMP_STRING,"%s(%s-%s)",
-	      FLUXERRMAP[NMAP].NAME,
-	      FLUXERRMAP[NMAP].FIELDLIST,
-	      FLUXERRMAP[NMAP].BANDLIST );
-
-      IDMAP = IDGRIDMAP_FLUXERRMODEL_OFFSET + NMAP ;
-      NROW  = FLUXERRMAP[NMAP].NROW ;
-      
-      init_interp_GRIDMAP(IDMAP, TMP_STRING, NROW, NVAR-1, NFUN, 0,
-			  TMP_ROWDATA_FLUXERRMAP, 
-			  &TMP_ROWDATA_FLUXERRMAP[NVAR-1], 
-			  &FLUXERRMAP[NMAP].MAP );  // <== output
-      			  
-      if ( (OPTMASK & MASK_DUMP_FLUXERRMAP)>0 )
-	{ DUMP_FLUXERRMAP(NMAP); }
-
-      FOUNDMAP=0 ;
-      malloc_ROWDATA_FLUXERRMAP(-1,NVAR);
-    }
-    xxxxxxxxxxx end mark xxxxxxxxxxxxxxx */
 
   }
   // done reading
@@ -479,7 +438,8 @@ int IVARLIST_FLUXERRMAP(char *varName) {
       { return(IVAR); }
   }
 
-  printf("\n PRE-ABORT DUMP: Valid variables for FLUXERRMAP: \n");
+  print_preAbort_banner(fnam);
+  printf("  Valid variables for FLUXERRMAP: \n");
   for(IVAR=0; IVAR < MXVAR_FLUXERRMAP; IVAR++ ) 
     { printf("\t %s \n", VARNAMES_FLUXERRMAP[IVAR] );  }
   

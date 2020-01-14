@@ -549,7 +549,8 @@ void nearnbr_read_trainLib(int ifile) {
   // leave table file open
   
   if ( NROW == 0 ) {
-    printf("\n PRE-ABORT DUMP: \n INFILE_FULL = '%s' \n", INFILE_FULL);	   
+    print_preAbort_banner(fnam);
+    printf("  INFILE_FULL = '%s' \n", INFILE_FULL);	   
     sprintf(c1err,"Could not find training table");
     sprintf(c2err,"Bad table or non-existing input file (above)");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
@@ -953,7 +954,7 @@ void NEARNBR_LOADVAL(char *ccid, char *varName, double d_val ) {
     }
 
     if ( ISP < 0 ) {
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       for ( isp=0 ; isp < NTYPE ; isp++ ) {
 	ITYPE_TMP = NEARNBR_TRAINLIB.TRUETYPE_LIST[isp] ;
 	printf("\t Available %s = %d \n", varName, ITYPE_TMP); 
@@ -984,7 +985,7 @@ void NEARNBR_LOADVAL(char *ccid, char *varName, double d_val ) {
 
   if ( IVAR < 0 ) {
 
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     for ( ivar=0; ivar < NVAR ; ivar++ ) {
       printf("\t Valid NN varName: '%s' \n", 
 	     NEARNBR_INPUTS.VARNAMES[ivar]);
@@ -1484,8 +1485,7 @@ void nearnbr_preAnal_verify(void) {
 
   // make sure that number of loaded variables matches expectation
   if ( NEARNBR_STORE.NVAL_LOAD != NEARNBR_INPUTS.NVAR ) {
-
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     for ( ivar=0; ivar < NEARNBR_INPUTS.NVAR ; ivar++ ) {
       printf("\t ivar=%d : %-16s  = %f (loaded %d times) \n"
 	     ,ivar

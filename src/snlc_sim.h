@@ -3,19 +3,6 @@
 
   HISTORY
 
- May 8 2014:
-  -  remove obsolete UNCONFIRMED_SPECZ_FRACPOLY[3] ; 
-     (now read by map, see SEARCHEFF_zHOST in sntools_trigger.c[h]
-
- Aug 20, 2014: new typedef struct SIMFILE_AUX
-               Remove fp_LIST, fp_README, fp_IGNORE, fp_DUMP
-               Reove struct AUX_SIMFILES.
-
- Aug 27, 2014: add MXFIELD_OVP_SIMLIB and add FIELD info to 
-               SIMLIB_TEMPLATE struct to handle field-overlaps.
-           
- Apr 22 2015: add WRONGHOST_XXX params to INPUTS struct.
- Dec 28 2015: increase MXOBS_SIMLIB -> 5000 (was 2000)
 
  Feb 23 2016: add INPUTS.GENGAUPEAK_AV
  Apr 14 2016: SIMLIB_MXGEN_LIBID-> 1000 (was 10,000)
@@ -31,6 +18,7 @@
      + MXREAD_SIMLIB      -> 100000 (was 12000)
 
  Jul 30 2018: define input_file_include2
+ Jan 06 2020: genmag8 -> genmag, same for epoch8 & peakmag8
 
 ********************************************/
 
@@ -38,7 +26,6 @@
 // ************ GLOBAL VARIABLES *************
 
 time_t t_start, t_end;
-
 
 #define  MXINPUT_FILE_SIM   3       // 1 input file + 2 includes
 #define  MXCID_SIM  299999999   // max sim CID and max number of SN
@@ -316,10 +303,44 @@ typedef struct {
 
 } TAKE_SPECTRUM_DEF;
 
+
+typedef struct {
+  // all SQSIG are in p.e.
+  double SQSIG_SRC;       // source noise = Npe
+  double SQSIG_SKY;       // sky+CCD noise
+  double SQSIG_ZP ;        // ZP error
+  double SQSIG_TSRC;      // template source noise 
+  double SQSIG_TSKY ;     // corrsky_ccd  noise from template
+  double SQSIG_HOST_PHOT ;  // galaxy shot noise 
+  double SQSIG_HOST_IMAGE ; // anomalous noise from HOSTNOISE_FILE->obsolete
+  double SQSIG_RAN ;        // error shift due to Poisson noise
+
+  double SQSIG_CALC, SIG_CALC; // calculated without fudges
+  double SNR_CALC ;      // used for trigger effic (Aug 24 2014)
+  double SNR_CALC_MON ;   // calc SNR for MAGMONITOR_SNR input
+
+  // FINAL includes fluxerr corrections
+  double SQSIG_FINAL_TRUE, SIG_FINAL_TRUE ; // true error 
+  double SQSIG_FINAL_DATA, SIG_FINAL_DATA ; // error reported in data file
+  double SQSIG_FINAL_TSKY, SIG_FINAL_TSKY ; // template error
+
+  double SNR_FINAL_TRUE, SNR_FINAL_DATA ;   
+  double SNR_FINAL_MON ;   // calc SNR for MAGMONITOR_SNR input
+
+  // misc.
+  double Npe_over_FLUXCAL, NADU_over_Npe, NEA, GALMAG_NEA ;
+  char BAND[2];
+  int  IFILT_OBS;
+
+} FLUXNOISE_DEF ;
+
 // -------------------------------------
 // define user INPUTS
 
 struct INPUTS {
+
+  int USE_KCOR_REFACTOR; //1-> run both legacy and new; 2-> new only
+  int USE_KCOR_LEGACY;   //use legacy fortran code to read & apply 
 
   int DASHBOARD_DUMPFLAG ;
 
@@ -329,7 +350,8 @@ struct INPUTS {
 
   int  TRACE_MAIN;            // debug to trace progress through main loop
   int  DEBUG_FLAG ;           // arbitrary debug usage
-  bool RESTORE_HOSTLIB_BUGS ; // set if DEBUG_FLAG==3
+  bool RESTORE_HOSTLIB_BUGS ;      // set if DEBUG_FLAG==3
+  bool RESTORE_FLUXERR_BUGS ;      // set if DEBUG_FLAG==3
 
   int OPT_DEVEL_BBC7D; // temp while doing BBC7D development
 
@@ -770,6 +792,7 @@ struct INPUTS {
 
 
 
+
 // define GENLC structure
 
 struct GENLC {
@@ -958,12 +981,18 @@ struct GENLC {
 
   // flux and magnitudes (float-> double, Jan 2014)
   double flux[MXEPSIM] ;            // flux in ADU
-  double flux_errstat[MXEPSIM] ;    // error from signal,sky,ccd,template
-  double flux_errtot[MXEPSIM]  ;    // includes ZP-smear error 
+  double fluxerr_true[MXEPSIM];     // true error
+  double fluxerr_data[MXEPSIM];     // reported error in data file 
+  // xxx mark delete  double flux_errstat[MXEPSIM] ;
+  // xxx mark delete  double flux_errtot[MXEPSIM];   
   double template_err[MXEPSIM];     // correlated template error
   double trueSNR[MXEPSIM];          // true/generated SNR
   int    npe_above_sat[MXEPSIM];    // nphotoelectrons above saturation
 
+  FLUXNOISE_DEF *FLUXNOISE;    // Dec 27 2019 - refactor for noise cov.
+
+  // xxxx -----------------------------------------------------
+  // xxxxx legacy arrays to remove after implementing OBSNOISE
   // noise contributions (in photoelectrons)
   double NOISE_SN[MXEPSIM] ;
   double NOISE_SKY[MXEPSIM] ;
@@ -978,6 +1007,7 @@ struct GENLC {
 
   double SNR_CALC[MXEPSIM] ;    // used for trigger effic (Aug 24 2014)
   double SNR_MON[MXEPSIM];      // calculated SNR for MAGMONITOR_SNR input
+  //xxx ----------------------- end legacy ------------
 
   // Gaussian randoms for broadband measurement noise
   double RANGauss_NOISE_SEARCH[MXEPSIM];   // search noise, per epoch
@@ -987,14 +1017,6 @@ struct GENLC {
   // GENSMEAR refers to intrinsic scatter models
   double  MAGSMEAR_COH[2];              // coherent part of scatter
   double  GENSMEAR_RANGauss_FILTER[MXFILTINDX+1]  ;  // filter smear
-
-  /* xxx mark delet Oct 21 2019 xxxxxxxxx
-     double *GENSMEAR_RANGauss_MODEL  ;   // model smear
-  double *GENSMEAR_RANFlat_MODEL  ;    // model smear
-
-  int     NRANGauss_GENSMEAR ;  
-  int     NRANFlat_GENSMEAR ;  
-  xxxxxxxxxx end mark xxxxxxxxxx */
 
   double  SPECEFF_RAN[MXFILTINDX+1]  ;  
   double  magsmear8[MXEPSIM];        // actual intrinsic mag-smear
@@ -1008,25 +1030,25 @@ struct GENLC {
   char    COVMAT_SCATTER_NAME[3][40]; // name of each scatter term
 
   // - - - - -
-  double  epoch8_obs_range[2];   // min and max epoch, all bands
-  double  epoch8_obs[MXEPSIM];       // observer epoch = MJD - PEAKMJD
-  double  epoch8_rest[MXEPSIM];      // rest epoch relative to peak, days
-  double  genmag8_obs[MXEPSIM] ;     // generated obs  magnitude
-  double  generr8_obs[MXEPSIM] ;     // obs mag err from model
-  double  peakmag8_obs[MXFILTINDX] ;          
-  double  genmag8_obs_template[MXFILTINDX]; // for LCLIB model (stars)
+  double  epoch_obs_range[2];   // min and max epoch, all bands
+  double  epoch_obs[MXEPSIM];       // observer epoch = MJD - PEAKMJD
+  double  epoch_rest[MXEPSIM];      // rest epoch relative to peak, days
+  double  genmag_obs[MXEPSIM] ;     // generated obs  magnitude
+  double  generr_obs[MXEPSIM] ;     // obs mag err from model
+  double  peakmag_obs[MXFILTINDX] ;          
+  double  genmag_obs_template[MXFILTINDX]; // for LCLIB model (stars)
 
-  double  genmag8_rest[MXEPSIM] ;    // idem, rest frame
-  double  generr8_rest[MXEPSIM] ;    // idem, rest frame
-  double  peakmag8_rest[MXFILTINDX] ;          
+  double  genmag_rest[MXEPSIM] ;    // idem, rest frame
+  double  generr_rest[MXEPSIM] ;    // idem, rest frame
+  double  peakmag_rest[MXFILTINDX] ;          
 
-  double  genmag8_rest2[MXEPSIM] ;    // 2nd nearest rest-frame mag.
-  double  generr8_rest2[MXEPSIM] ;    // 2nd nearest rest-frame mag.
-  double  peakmag8_rest2[MXFILTINDX] ;          
+  double  genmag_rest2[MXEPSIM] ;    // 2nd nearest rest-frame mag.
+  double  generr_rest2[MXEPSIM] ;    // 2nd nearest rest-frame mag.
+  double  peakmag_rest2[MXFILTINDX] ;          
 
-  double  genmag8_rest3[MXEPSIM] ;    // 2nd nearest rest-frame mag.
-  double  generr8_rest3[MXEPSIM] ;    // 2nd nearest rest-frame mag.
-  double  peakmag8_rest3[MXFILTINDX] ;          
+  double  genmag_rest3[MXEPSIM] ;    // 2nd nearest rest-frame mag.
+  double  generr_rest3[MXEPSIM] ;    // 2nd nearest rest-frame mag.
+  double  peakmag_rest3[MXFILTINDX] ;          
 
   int     NWIDTH_SIMGEN_DUMP;
   double  WIDTH[MXFILTINDX];  // generated LC width per band (for monitor)
@@ -1045,6 +1067,7 @@ struct GENLC {
   float mag[MXEPSIM] ;       // observed mag
   float mag_err[MXEPSIM] ;   // error onabove
 
+  int ISOBS[MXEPSIM];       // flags observed epochs
   int ISPEAK[MXEPSIM];      // labels extra epochs that store peakmags.
   int IEPOCH_PEAK[MXFILTINDX] ; // identifies peak epoch vs. filter
   int IEPOCH_SNRMAX;            // epoch with SNRMAX (Jun 2018)
@@ -1109,19 +1132,19 @@ struct GENSL {
 // temp structure used by NEPFILT_GENLC
 struct GENFILT {
   // 5 MB as of Aug 10 2017
-  double Trest8[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double Tobs8[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag8_obs[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag8_smear[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double Trest[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double Tobs[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double genmag_obs[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double genmag_smear[MXFILTINDX][MXEPSIM_PERFILT] ;
 
-  double genmag8_rest[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag8_rest2[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double genmag8_rest3[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double genmag_rest[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double genmag_rest2[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double genmag_rest3[MXFILTINDX][MXEPSIM_PERFILT] ;
 
-  double generr8_obs[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr8_rest[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr8_rest2[MXFILTINDX][MXEPSIM_PERFILT] ;
-  double generr8_rest3[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double generr_obs[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double generr_rest[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double generr_rest2[MXFILTINDX][MXEPSIM_PERFILT] ;
+  double generr_rest3[MXFILTINDX][MXEPSIM_PERFILT] ;
 } GENFILT ;
 
 
@@ -1551,7 +1574,7 @@ int    check_SIMLIB_GENRANGE(double *GENRANGE_ORIG, double *GENRANGE_NEW);
 
 void   ENDSIMLIB_check(void);
 
-int    get_user_input(void);       // top function to get user inputs
+void   get_user_input(void);       // top function to get user inputs
 void   set_user_defaults(void);    // set INPUTS.xxx defaults
 void   set_user_defaults_SPECTROGRAPH(void);  
 void   set_user_defaults_RANSYSTPAR(void);  
@@ -1622,7 +1645,6 @@ void pick_NON1ASED(int ilc,
 // ----------
 
 void   genran_modelSmear(void); // gen randoms for mag-smearing per filter.
-void   genran_obsNoise(void);   // gen randoms for instrument noise
 double gen_redshift_cmb(void);   // gen ran z from dN/dz
 double gen_redshift_helio(void);   // translate zCMB -> zHEL + vPEC
 double gen_redshift_helio_OBSOLETE(double zcmb, double RA, double DEC, double vpec) ;
@@ -1664,6 +1686,15 @@ int    gen_TRIGGER_zHOST(void);        // evaluate zHOST trigger early
 
 void   GENMAG_DRIVER(void);    // driver to generate true mags
 void   GENFLUX_DRIVER(void);   // driver to generate observed fluxes
+void   GENFLUX_DRIVER_LEGACY(void);   // driver to generate observed fluxes
+void   set_GENFLUX_FLAGS(int ep);
+void   gen_fluxNoise_randoms(void);
+void   gen_fluxNoise_calc(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
+void   gen_fluxNoise_fudge_diag(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
+void   gen_fluxNoise_apply(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
+void   dumpLine_fluxNoise(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE);
+void   dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE);
+void   check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE);
 
 void   GENSPEC_DRIVER(void);    // driver to generate all spectra for event
 void   GENSPEC_MJD_ORDER(int *imjd_order); // order to generate spectra
@@ -1693,7 +1724,7 @@ void   init_simRandoms(void);    // init stuff for randoms
 void   init_genmodel(void);      // init above
 void   init_genSpec(void);        // one-time init for SPECTROGRAPH
 void   init_genSEDMODEL(void); // generic init for SEDMODEL
-void   init_kcor(char *kcorFile);
+void   init_kcor_legacy(char *kcorFile);
 void   init_kcor_refactor(void);
 void   init_covar_mlcs2k2(void);    // init GENLC.COVAR array
 void   init_zvariation(void);      // z-dependent sim parameters
@@ -1714,7 +1745,8 @@ void   cp_zvariation(char *outFile_zvar);
 void   genmag_boost(void);
 void   genmag_MWXT_fromKcor(void);   // apply MW extinct for rest-frame models
 
-void   LOAD_SEARCHEFF_DATA(); // Jan 2014
+void   LOAD_SEARCHEFF_DATA(void);
+void   LOAD_SEARCHEFF_DATA_LEGACY(void); 
 
 void   gen_spectype(void);
 

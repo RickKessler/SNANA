@@ -64,13 +64,21 @@ void READ_KCOR_DRIVER(char *kcorFile, char *FILTERS_SURVEY,
 
   read_kcor_filters();
 
+  // pass dump flags
+  int DO_DUMP = KCOR_VERBOSE_FLAG ;
+  if ( DO_DUMP ) {
+    addFilter_kcor(777, "", &KCOR_INFO.FILTERMAP_REST);
+    addFilter_kcor(777, "", &KCOR_INFO.FILTERMAP_OBS );
+    printf("\n\n");
+  }
+
   read_kcor_primarysed();
   //   CALL RDKCOR_SUMMARY(KCORFILE,IERR)
 
 
   int istat = 0 ;
   fits_close_file(KCOR_INFO.FP, &istat); 
-  debugexit(fnam);
+  //  debugexit(fnam);
 
   return ;
 
@@ -118,10 +126,12 @@ void read_kcor_init(void) {
     KCOR_INFO.IFILTMAP_KCOR[OPT_FRAME_OBS][i]  = -9;
   }
 
-  KCOR_VERBOSE_FLAG = 1;
+  KCOR_VERBOSE_FLAG = 1 ;
 
   addFilter_kcor(0, BLANK, &KCOR_INFO.FILTERMAP_REST); // zero map
   addFilter_kcor(0, BLANK, &KCOR_INFO.FILTERMAP_OBS ); // zero map
+  KCOR_INFO.FILTERMAP_REST.OPT_FRAME = OPT_FRAME_REST ;
+  KCOR_INFO.FILTERMAP_OBS.OPT_FRAME  = OPT_FRAME_OBS  ;
 
   IFILTDEF_BESS_BX = INTFILTER("X");
  
@@ -427,11 +437,11 @@ void read_kcor_zpoff(void) {
   char **NAME_PRIM, *tmpName ;
   char fnam[] = "read_kcor_zpoff" ;
 
-  int ICOL_FILTER_NAME    = 1 ;
-  int ICOL_PRIMARY_NAME   = 2 ;
-  int ICOL_PRIMARY_MAG    = 3 ;
-  int ICOL_PRIMARY_ZPOFF  = 4 ;
-  int ICOL_SNPHOT_ZPOFF   = 5 ;
+  int ICOL_FILTER_NAME        = 1 ;
+  int ICOL_PRIMARY_NAME       = 2 ;
+  int ICOL_PRIMARY_MAG        = 3 ;
+  int ICOL_PRIMARY_ZPOFF_SYN  = 4 ;
+  int ICOL_PRIMARY_ZPOFF_FILE = 5 ;
 
   long FIRSTROW, NROW, FIRSTELEM = 1;
   
@@ -478,31 +488,35 @@ void read_kcor_zpoff(void) {
 		    NULL_1D, KCOR_INFO.PRIMARY_MAG, &anynul, &istat )  ;      
   snfitsio_errorCheck("Read PRIMARY_MAG", istat);
 
-  fits_read_col_dbl(FP, ICOL_PRIMARY_ZPOFF, FIRSTROW, FIRSTELEM, NROW,
-		    NULL_1D, KCOR_INFO.PRIMARY_ZPOFF, &anynul, &istat )  ;      
+  fits_read_col_dbl(FP, ICOL_PRIMARY_ZPOFF_SYN, FIRSTROW, FIRSTELEM, NROW,
+		    NULL_1D, KCOR_INFO.PRIMARY_ZPOFF_SYN, &anynul, &istat );
   snfitsio_errorCheck("Read PRIMARY_ZPOFF", istat);
 
-  fits_read_col_dbl(FP, ICOL_SNPHOT_ZPOFF, FIRSTROW, FIRSTELEM, NROW,
-		    NULL_1D, KCOR_INFO.SNPHOT_ZPOFF, &anynul, &istat )  ;      
-  snfitsio_errorCheck("Read SNPHOT_ZPOFF", istat);
+  // read optional ZPOFF from ZPOFF.DAT file in filter subDir.
+  // This is typoically a post-publication hack to get mags
+  // back on the desired system.
+  fits_read_col_dbl(FP, ICOL_PRIMARY_ZPOFF_FILE, FIRSTROW, FIRSTELEM, NROW,
+		    NULL_1D, KCOR_INFO.PRIMARY_ZPOFF_FILE, &anynul, &istat );  
+  snfitsio_errorCheck("Read PRIMARY_ZPOFF_FILE", istat);
 
-  if ( KCOR_VERBOSE_FLAG == 22 ) {
+  if ( KCOR_VERBOSE_FLAG  ) {
     printf("\n");
-    printf("  %s DUMP: \n\n", fnam);
-    printf("                    Prim.   Prim.   Prim.    Filter \n");
-    printf("  Filter            name    Mag     ZPTOFF   ZPTOFF \n");
-    printf(" ----------------------------------------------------- \n");
+    printf(" xxx  %s DUMP: \n", fnam);
+    printf(" xxx                   Prim.   Prim.   Prim.    Filter \n");
+    printf(" xxx Filter            name    Mag     ZPOFF    ZPOFF \n");
+    printf(" xxx ----------------------------------------------------- \n");
     for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
 
       iprim = KCOR_INFO.PRIMARY_INDX[ifilt];
-      printf(" %-14s %6s(%d)  %6.3f  %7.4f  %7.4f \n",
+      printf(" xxx %-14s %6s(%d)  %6.3f  %7.4f  %7.4f \n",
 	     KCOR_INFO.FILTER_NAME[ifilt],
 	     KCOR_INFO.PRIMARY_NAME[iprim], KCOR_INFO.PRIMARY_INDX[ifilt],
 	     KCOR_INFO.PRIMARY_MAG[ifilt],
-	     KCOR_INFO.PRIMARY_ZPOFF[ifilt],
-	     KCOR_INFO.SNPHOT_ZPOFF[ifilt] );
+	     KCOR_INFO.PRIMARY_ZPOFF_SYN[ifilt],
+	     KCOR_INFO.PRIMARY_ZPOFF_FILE[ifilt] );
 	     
     }
+    printf("\n");
   } // end verbose
 
   return ;
@@ -603,6 +617,7 @@ void read_kcor_tables(void) {
     LBX1 = ISBXFILT_KCOR(cfilt_obs);
     if ( LBX1 ) { KCOR_INFO.MASK_EXIST_BXFILT |= MASK_FRAME_OBS; }
 
+
     /* can't remember purpose of STANDALONE mode ... fix later 
          IF ( RDKCOR_STANDALONE .and. 
      &         IFILTDEF_INVMAP_SURVEY(ifilt_obs) .LE. 0 ) THEN
@@ -671,12 +686,6 @@ void read_kcor_tables(void) {
     KCOR_INFO.MASK_FRAME_FILTER[ifilt] |= MASK_FRAME_REST ;
   }
 
-
-  /* xxxxxxx
-  // pass dump flags
-  addFilter_kcor(777, "", &KCOR_INFO.FILTERMAP_REST);
-  addFilter_kcor(777, "", &KCOR_INFO.FILTERMAP_OBS );
-  xxxxxx */
 
   // init multi-dimensional array to store KCOR tables
   init_kcor_indices();
@@ -780,6 +789,7 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
   //
   // NAME = full name of filter
 
+  int OPT_FRAME = MAP->OPT_FRAME; // indicates REST or OBS
   int ifilt, NF;
   char cfilt1[2] ;
   char fnam[] = "addFilter_kcor" ;
@@ -798,7 +808,8 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
       MAP->FILTER_NAME[ifilt][0] = 0;
       MAP->NDEFINE[ifilt] = 0 ;
       MAP->PRIMARY_MAG[ifilt]   = 99.0 ;
-      MAP->PRIMARY_ZPOFF[ifilt] = 99.0 ;
+      MAP->PRIMARY_ZPOFF_SYN[ifilt]  =  0.0 ;  // required
+      MAP->PRIMARY_ZPOFF_FILE[ifilt] =  0.0 ;  // optional
       MAP->PRIMARY_KINDX[ifilt] = -9 ;
       MAP->NBIN_LAM[ifilt]  =  0 ;
     }
@@ -808,7 +819,7 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
 
   if ( ifiltdef == 777 ) {
     // dump map, then return
-    int IFILTDEF ;
+    int IFILTDEF, NBL ;
     NF = MAP->NFILTDEF;
     printf("\n");
     printf("\t xxx %s dump: \n", fnam);
@@ -816,16 +827,16 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
     for(ifilt=0; ifilt < NF; ifilt++ ) {
       IFILTDEF = MAP->IFILTDEF[ifilt];
       sprintf(cfilt1, "%c", FILTERSTRING[IFILTDEF] );
-      printf("\t xxx IFILTDEF[%2d,%s] = %d  (%s)  PRIM_MAG=%.3f\n",
+      printf("\t xxx IFILTDEF[%2d,%s] = %2d  (%s)  PRIM_MAG=%.3f NBL=%d\n",
 	     ifilt, cfilt1, IFILTDEF, MAP->FILTER_NAME[ifilt],
-	     MAP->PRIMARY_MAG[ifilt] ); 
+	     MAP->PRIMARY_MAG[ifilt], MAP->NBIN_LAM[ifilt]  ); 
       fflush(stdout);
     }
     return ;
   }
 
   // return if this filter is already defined
-  // xxx mark delete  if ( MAP->IFILTDEF_INV[ifiltdef] >= 0 ) { return; }
+  if ( MAP->IFILTDEF_INV[ifiltdef] >= 0 ) { return; }
 
   NF = MAP->NFILTDEF ;
   sprintf(cfilt1, "%c", FILTERSTRING[ifiltdef] );
@@ -838,7 +849,7 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
   MAP->NFILTDEF++ ;
 
 
-  // find original filter-kcor index needed to get primary mag & zpoff
+  // find original filter index from header to get primary mag & zpoff
   int k, kfilt=-9, NFILTDEF_KCOR = KCOR_INFO.NFILTDEF ;
   for(k=0; k < NFILTDEF_KCOR; k++ ) {
     if ( KCOR_INFO.IFILTDEF[k] == ifiltdef ) { kfilt = k; }
@@ -854,13 +865,20 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
   // store index of primary to read later
   MAP->PRIMARY_KINDX[NF] = KCOR_INFO.PRIMARY_INDX[kfilt] ;
 
-  MAP->PRIMARY_MAG[NF]  = 
-    KCOR_INFO.PRIMARY_MAG[kfilt] +
-    KCOR_INFO.MAGREST_SHIFT_PRIMARY[ifiltdef] ;
+  double *ptr_SHIFT;
+  if ( OPT_FRAME == OPT_FRAME_REST ) 
+    { ptr_SHIFT = KCOR_INFO.MAGREST_SHIFT_PRIMARY; }
+  else
+    { ptr_SHIFT = KCOR_INFO.MAGOBS_SHIFT_PRIMARY; }
 
-  MAP->PRIMARY_ZPOFF[NF] = 
-    KCOR_INFO.PRIMARY_ZPOFF[kfilt] + 
-    KCOR_INFO.MAGREST_SHIFT_PRIMARY[ifiltdef] ;
+  MAP->PRIMARY_MAG[NF]  = 
+    KCOR_INFO.PRIMARY_MAG[kfilt] + ptr_SHIFT[ifiltdef] ;
+
+  MAP->PRIMARY_ZPOFF_SYN[NF] = 
+    KCOR_INFO.PRIMARY_ZPOFF_SYN[kfilt] + ptr_SHIFT[ifiltdef] ;
+
+  MAP->PRIMARY_ZPOFF_FILE[NF] = 
+    KCOR_INFO.PRIMARY_ZPOFF_FILE[kfilt];
 
   return ;
 
@@ -1263,9 +1281,11 @@ void read_kcor_filters(void) {
 
     if ( IFILT_OBS > 0 ) {
       NMATCH_OBS++ ;
+      addFilter_kcor(IFILT_OBS, FILTER_NAME, &KCOR_INFO.FILTERMAP_OBS) ;
       check_duplicate_filter(FRAME_OBS, IFILT_OBS, FILTER_NAME );
       loadFilterTrans_kcor(IFILT_OBS, NBL, ARRAY_LAM, ARRAY_TRANS,
 			   &KCOR_INFO.FILTERMAP_OBS );	
+
       // SHIFT_FILTTRANS function obsolete since lam shifts are in fit code
       // ?? FILTOBS_ZPOFF_SNPHOT(ifilt_obs) = ZPOFF_SNPHOT_RDKCOR(ifilt)
     }
@@ -1274,13 +1294,12 @@ void read_kcor_filters(void) {
 
 
   if ( NMATCH_OBS == 0 ) {
-    printf("\n");
-    printf(" PRE-ABORT DUMP \n");
+    print_preAbort_banner(fnam);
     printf("\t Obs filters in kcor file: '%s' \n", 
 	   KCOR_INFO.FILTERMAP_OBS.FILTERSTRING );
     printf("\t SURVEY_FILTERS: '%s' \n", KCOR_INFO.FILTERS_SURVEY);
 
-    sprintf(c1err,"Observer filters do not match any SURVEY_FILTERS.");
+    sprintf(c1err, "Observer filters do not match any SURVEY_FILTERS.");
     sprintf(c2err, "see PRE-ABORT dump above.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -1409,14 +1428,19 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
   //   ARRAY_TRANS  : transmmission array to store
   //
 
+  int OPT_FRAME = MAP->OPT_FRAME ;
   int MEMF  = NBL * sizeof(float);
-  int ifilt = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[IFILTDEF];
-  int ilam;
+  int ilam, ifilt ;
   double LAM, TRANS, MEAN, SQRMS;
   double TMAX=0.0, SUM0=0.0, SUM1=0.0, SUM2=0.0 ;
   char fnam[] = "loadFilterTrans_kcor" ;
 
   // ---------------- BEGIN ---------------
+
+  if ( OPT_FRAME == OPT_FRAME_REST ) 
+    { ifilt = KCOR_INFO.FILTERMAP_REST.IFILTDEF_INV[IFILTDEF]; }
+  else
+    { ifilt = KCOR_INFO.FILTERMAP_OBS.IFILTDEF_INV[IFILTDEF]; }
 
   MAP->LAM[ifilt]      = (float*)malloc(MEMF);
   MAP->TRANS[ifilt]    = (float*)malloc(MEMF);
@@ -1445,11 +1469,12 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
   MAP->LAMMEAN[ifilt]   = MEAN ;   // mean wavelength
   MAP->LAMRMS[ifilt]    = sqrt(SQRMS) ; // RMS wavelength
 
-  /*
-  printf(" xxx C: IFILTDEF=%d  PRIMARY(MAG,ZPOFF) = %.3f, %.3f \n",
-	 IFILTDEF, MAP->PRIMARY_MAG[ifilt], MAP->PRIMARY_ZPOFF[ifilt] );
+  
+  printf(" xxx C: IFILTDEF=%2d  PRIMARY(MAG,ZPOFF) = %.3f, %.3f  (NBL=%d)\n",
+	 IFILTDEF, MAP->PRIMARY_MAG[ifilt], 
+	 MAP->PRIMARY_ZPOFF_SYN[ifilt], NBL );
   fflush(stdout);
-  */
+  
 
   return ;
 
@@ -1486,8 +1511,7 @@ void read_kcor_primarysed(void) {
   }
 
   if ( NERR_PRIM > 0 ) {
-    printf("\n");
-    printf(" PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("   Found Primary %s\n", KCOR_INFO.PRIMARY_NAME[KINDX_FIRST] );
     printf("   Found Primary %s\n", KCOR_INFO.PRIMARY_NAME[KINDX_2ND] );
     sprintf(c1err, "More than one PRIMARY ref not allowed");

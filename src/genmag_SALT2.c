@@ -612,8 +612,7 @@ void fill_SALT2_TABLE_SED(int ISED) {
 
 	    
       if ( fabs(FRATIO) > FRATIO_CHECK ) {
-       
-	printf("\n\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);
 	printf("  FRATIO = FDIF/FSUM = %f  (FRATIO_CHECK=%le)\n", 
 	       FRATIO, FRATIO_CHECK);
 	printf("  IDAY=%4d  IDAY_ORIG=%4d  \n", IDAY, IDAY_ORIG);
@@ -2241,7 +2240,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
       if ( LABORT ) {
 	mean = FILTER_SEDMODEL[ifilt].mean ;
-	printf("\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);
 	printf("\t LAMOBS = %7.2f  LAMDIF=%7.2f\n",  LAMOBS, LAMDIF);
 	printf("\t LAMSED = LAMOBS/(1+z) = %7.2f \n", LAMSED );
 	printf("\t LAMSTEP=%4.1f  LAMMIN=%6.1f \n", 

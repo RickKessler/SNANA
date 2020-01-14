@@ -52,6 +52,8 @@
 //    so better to use EPOCH table from ROOT or HBOOK file.
 //    Bottom line is no change.
 //
+// Dec 19 2019: for sims, write SIM_FLUXCAL column to LCPLOT file.
+//
 // **********************************************
 
 char FILEPREFIX_TEXT[100];
@@ -353,7 +355,7 @@ void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR,
   TBNAME = TABLEINFO_TEXT.TBNAME[ITAB] ;
 
   if ( ITAB < 0 ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("   VARLIST_ORIG = '%s' \n", ADDCOL_VARDEF->VARLIST_ORIG);
     printf("   NVAR = %d \n", ADDCOL_VARDEF->NVAR );
     sprintf(MSGERR1, "Could not find text table with ");
@@ -382,7 +384,7 @@ void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR,
     // check varlist bound
     LENV = strlen(varList) + strlen(VARNAME) + 1 ;
     if ( LENV >= MXCHAR_LINE ) {
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf(" varList = '%s' \n", varList);
       printf(" VARNAME to add: '%s' \n", VARNAME);
       sprintf(MSGERR1, "len(VARLIST)=%d exceeds bound of %d",
@@ -861,6 +863,13 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   sprintf(VARNAME_SNLC[NVAR], "Tobs" );          
   sprintf(VARDEF_SNLC[NVAR],  "MJD-PKMJD");
   NVAR++ ;
+
+
+  if ( SNLCPAK_OUTPUT.SIMFLAG ) {  // Dec 2019
+    sprintf(VARNAME_SNLC[NVAR], "SIM_FLUXCAL" );  
+    sprintf(VARDEF_SNLC[NVAR],  "true flux"   );
+    NVAR++ ;
+  }
 
   sprintf(VARNAME_SNLC[NVAR], "FLUXCAL" );  
   sprintf(VARDEF_SNLC[NVAR],  "calibrated flux");
@@ -1490,18 +1499,22 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
   //  obs     : epoch/obs index
   //  ifilt   : sparse filter index
   //  OUTFLAG : 1->data, 0->best-fit, -1->rejected data
+  //
+  // Dec 19 2019: write SIM_FLUXCAL for sim
 
-  int NOBS_FITFUN, ISFIT, IFILT_REST, NOBS_REST, NOBS_SIMREST, flag ;
+  int ISFIT       = ( FLAG == SNLCPAK_EPFLAG_FITFUN    ) ;
+  int ISDATA      = ( FLAG == SNLCPAK_EPFLAG_FLUXDATA  ) ;
+  int NOBS_FITFUN = SNLCPAK_OUTPUT.NOBS[SNLCPAK_EPFLAG_FITFUN];
+
+  int IFILT_REST, NOBS_REST, NOBS_SIMREST, flag ;
   int OPT_FORMAT ;
-  double chi2,  FLUX_REST, ERRCALC ;
+  double chi2,  FLUX_REST, ERRCALC, SIM_FLUXCAL ;
   char BAND[2], BAND_REST[2], sep[4], comment[200], LINE[400], CVAL[80];
 
   char fnam[] = "snlcpak_textLine" ;
 
   // ------------ BEGIN --------------
 
-  ISFIT       = ( FLAG == SNLCPAK_EPFLAG_FITFUN    ) ;
-  NOBS_FITFUN = SNLCPAK_OUTPUT.NOBS[SNLCPAK_EPFLAG_FITFUN];
 
   if ( NOBS_FITFUN == 0 || ISFIT ) 
     { chi2 = 0.0 ; }
@@ -1530,6 +1543,16 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
 
   sprintf(CVAL,"%s %7.2f", sep, SNLCPAK_OUTPUT.TOBS[FLAG][obs] );
   strcat(LINE,CVAL);
+
+  
+  if ( SNLCPAK_OUTPUT.SIMFLAG ) {
+    int EPFLAG_SIM = SNLCPAK_EPFLAG_FLUXSIM ;
+    SIM_FLUXCAL = 0.0 ;
+    if ( ISDATA ) { SIM_FLUXCAL = SNLCPAK_OUTPUT.EPDATA[EPFLAG_SIM][obs]; }
+    sprintf(CVAL,"%s %11.4le", sep, SIM_FLUXCAL );
+    strcat(LINE,CVAL);    
+  }
+
 
   sprintf(CVAL,"%s %11.4le", sep, SNLCPAK_OUTPUT.EPDATA[FLAG][obs] );
   strcat(LINE,CVAL);

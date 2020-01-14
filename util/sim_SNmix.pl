@@ -81,6 +81,14 @@
 #   DOSKIP_DUPLICATE_SIMJOBS: 0  # no duplicate check; brute-force all jobs
 #                                # (default is on)
 #
+#  TOPDIR_OVERRIDE: <dirName> # logs->[TOPDIR_OVERRIDE]/SIMLOGS_[GENPREFIX]
+#                             #   (default is current pwd)
+#
+#  LOGDIR: <dirName>          # write logs to [LOGDIR] or [pwd]/[LOGDIR]
+#                             #  (default is [pwd]/SIMLOGS_[GENPREFIX]
+#
+# - - - - - - - - - - - - - - - - - - - - - - 
+#
 # HISTORY
 #
 #
@@ -180,6 +188,7 @@
 #   ABORT if normalization job fails; see $normLog -->
 #   fixes infinite loop bug when QUIT key isn't in $normLog.
 #
+# Dec 4 2019: new input key  LOGDIR: <dirName>
 # ---------------------------------------------------------
 
 use strict ;
@@ -273,7 +282,7 @@ my (@GENVERSION_NAME, $VERSION_TEMP, $VERSION_FINAL, @BATCH_MEM );
 my ($SIMGEN_TEMPDIR, $SIMGEN_FINALDIR, $SIMGEN_MISCDIR, $MISC_SDIR  );
 my ($READMEFILE_FINAL, $LISTFILE_FINAL, $IGNOREFILE_FINAL, $DUMPFILE_FINAL);
 my ($READMEFILE_TEMP, $DUMPFILE_TEMP, $DONE_STAMP, $DONE_STAMP_FLAG );
-my ($LOGDIR, $TOPDIR_SIMLOGS, $Nsec5 );
+my ($LOGDIR, $TOPDIR_SIMLOGS,  $Nsec5 );
 my (@NSIM_GEN, @NSIM_WR, @NSIM_SPEC);
 my (@VERSION_JOBLIST_FINAL, @VERSION_JOBLIST_TEMP);
 my (@STATUS_NORMALIZATION, @TOTAL_STRING );
@@ -557,7 +566,7 @@ sub SUBMIT_NODES {
 	    system("$cmd &") ;
 	}
 	else {
-	    # use batch system (Feb 16 2013)
+	    # use batch system
 	    my $batchName = "${GENPREFIX}_${str_indx}" ;
 	    my $batchFile = "${GENPREFIX}_${str_indx}.BATCH" ;
 	    my $batchLog  = "${GENPREFIX}_${str_indx}.LOG" ;
@@ -645,6 +654,7 @@ sub init_SIMGEN() {
     $currentDir = `pwd`; 
     $currentDir =~ s/\s+$// ; 
 
+    $LOGDIR         = "" ;
     $TOPDIR_SIMLOGS = "$currentDir"; 
 
     $INODE_GLOBAL = 0 ;
@@ -902,7 +912,6 @@ sub parse_inFile_master() {
 
 
     $key = "SNANA_LOGIN_SETUP:" ;
-# xxxx    @tmp = sntools::parse_line($inFile, 99, $key, $OPT_QUIET ) ;
     @tmp = sntools::parse_array($key,99,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) {
 	$SNANA_LOGIN_SETUP = "$tmp[0]" ;
@@ -911,13 +920,21 @@ sub parse_inFile_master() {
 
 
     $key = "TOPDIR_SIMLOGS:" ;
-## xxxx    @tmp = sntools::parse_line($inFile, 1, $key, $OPT_QUIET ) ;
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) {
 	$TOPDIR_SIMLOGS = $tmp[0] ;
-	$TOPDIR_SIMLOGS = qx(echo $TOPDIR_SIMLOGS) ; # unpack ENV, July 10 2017
+	$TOPDIR_SIMLOGS = qx(echo $TOPDIR_SIMLOGS) ; # unpack ENV
 	$TOPDIR_SIMLOGS =~ s/\s+$// ;   # trim trailing whitespace  
 	print " TOPDIR_SIMLOGS = '${TOPDIR_SIMLOGS}' \n" ;
+    }
+
+    $key = "LOGDIR:" ;
+    @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
+    if ( scalar(@tmp) > 0 ) {
+	$LOGDIR = $tmp[0] ;
+	$LOGDIR = qx(echo $LOGDIR) ; # unpack ENV
+	$LOGDIR =~ s/\s+$// ;        # trim trailing whitespace  
+	print " LOGDIR = '${LOGDIR}' \n" ;
     }
 
     $SNANA_MODELPATH  = "" ;
@@ -2391,7 +2408,13 @@ sub make_logDir {
     my ($cmd, $response);
 
     # always set name of log dir
-    $LOGDIR       = "$TOPDIR_SIMLOGS/SIMLOGS_$GENPREFIX" ;
+    if ( $LOGDIR eq "" ) 
+    { $LOGDIR       = "$TOPDIR_SIMLOGS/SIMLOGS_$GENPREFIX" ; }
+    else {
+	# if there are no slashes, then glue current pwd
+	my $jslash  = rindex($LOGDIR,"/");  # location of last slash
+	$LOGDIR = "$currentDir/$LOGDIR" ;
+    }
 
     # if no done-stamp is specified, define a generic default stamp
     if ( $DONE_STAMP_FLAG == 0 ) {

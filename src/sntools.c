@@ -230,7 +230,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 
 
     if ( omin<0 || omax<0 || omin>= NOBS || omax>= NOBS ) {
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf("\t NSNRCUT_MAXSUM = %d \n", NSNRCUT_MAXSUM);
       printf("\t NSNRCUT[]      = %d, %d, %d, %d, %d ... \n",
 	     NSNRCUT[0],NSNRCUT[1],NSNRCUT[2],NSNRCUT[3],NSNRCUT[4]);
@@ -791,7 +791,7 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
 
   // check option to abort
   if ( ABORT_ON_BADCOV ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     for(l=0; l < MATSIZE; l++ ) {
       printf("\t par%d: Eigval=%f  EigVec=%f\n", 
 	     l, eigval[l], eigvec[l][l] );
@@ -1822,8 +1822,8 @@ void FILTER_REMAP_INIT(char *remapString, char *VALID_FILTERLIST,
       }
       // abort if original filter is not in the VALID_FILTERLIST      
       if ( strstr(VALID_FILTERLIST,band) == NULL ) {
-	printf("\n PRE-ABORT DUMP:\n Defined bands: '%s'\n", 
-	       VALID_FILTERLIST );
+	print_preAbort_banner(fnam);
+	printf("  Defined bands: '%s'\n", VALID_FILTERLIST );
 	sprintf(c1err,"Invalid filter=%s is not defined ", band);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
       }
@@ -3163,8 +3163,7 @@ double get_SIMEFFMAP(int OPTMASK, int NVAR, double *GRIDVALS) {
   istat = interp_GRIDMAP(&SIMEFF_GRIDMAP, TMPVAL_LIST, &EFF ); // return EFF
 
   if ( istat != SUCCESS ) {
-    printf("\n PRE-ABORT DUMP \n" );
-    
+    print_preAbort_banner(fnam);    
     for ( ivar=1; ivar <= SIMEFFMAP.NGENVAR; ivar++ ) {
       printf("\t %-12s = %f\n", 
 	     SIMEFFMAP.VARNAME[ivar], *(GRIDVALS+ivar-1) );
@@ -3527,7 +3526,7 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
 
       // Sep 12 2019: abort if DATADIR corresponds to any SIM path
       if ( strcmp(DATADIR,PATHLIST[ipath])== 0 ) {
-	printf("\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);    
 	printf("\t PRIVATE_DATA_PATH = '%s' \n", DATADIR);
 
 	if ( ipath == IPATH_SIM_DEFAULT ) {
@@ -3572,8 +3571,7 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
 
 
   if ( NFOUND == 0 ) {
-    printf("\n\n PRE-ABORT DUMP: \n");
-
+    print_preAbort_banner(fnam);    
     for(idir=0; idir < NDIR_CHECK; idir++ ) {
       printf("   data not in '%s' \n", tmpDir[idir] );
     }	   
@@ -3583,7 +3581,7 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
   }
 
   if ( NFOUND > 1 ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);    
     for(ifound=0; ifound < NFOUND; ifound++ ) {
       idir = idirFOUND[ifound];
       printf("   Found %s \n", tmpDir[idir] );
@@ -3672,7 +3670,7 @@ void add_PATH_SNDATA_SIM(char *PATH) {
   // if PATH does not already exist, append it to list file
   if ( EXIST == 0 ) {
     if ( NPATH_DEJA >= MXPATH_SNDATA_SIM ) {
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);    
       printf("   NPATH_DEJA = %d (includes /lcmerge and /SIM) \n", NPATH_DEJA);
       printf("   MXPATH_SNDATA_SIM = %d \n", MXPATH_SNDATA_SIM);
 
@@ -3979,7 +3977,7 @@ void splitString(char *string, char *sep, int MXsplit,
   }
 
   if ( N > MXsplit ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);  
     printf("  string to split: '%s' \n", string);
     printf("  split separator: '%s' \n", sep);
     sprintf(c1err,"Nsplit = %d ", N );
@@ -4238,7 +4236,7 @@ void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP,
       // 4.2019: abort if too many rows have invalid key
       NROW_SKIP++ ;
       if ( NROW_SKIP >= 10 ) { 
-	printf("\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);  
 	printf("   Last line read: %s\n", LINE);
 	sprintf(c1err,"Read %d rows without valid row-key, "
 		"stop-key, or blank line.", NROW_SKIP );
@@ -4371,7 +4369,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
     RATIO       = RANGE_CHECK/RANGE ;
 
     if ( fabs(RATIO-1.0) > 1.0E-4 ) {
-      printf("\n PRE-ABORT DUMP:\n");
+      print_preAbort_banner(fnam);
       printf("\t VALMAX - VALMIN  = %le (%le to %le)\n", 
 	     RANGE, VALMIN, VALMAX );
       printf("\t (NBIN-1)*BINSIZE = %le (%d x %le) \n",
@@ -4421,8 +4419,8 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
       igrid_tmp = get_1DINDEX(ID, NDIM, &igrid_1d[0] ) ; 
 
       if ( igrid_tmp < 0 || igrid_tmp >= MAPSIZE ) {
-
-	printf("\n PRE-ABORT DUMP for MAPNAME=%s: \n", MAPNAME );
+	print_preAbort_banner(fnam);
+	printf("   MAPNAME=%s: \n", MAPNAME );
 	for ( idim=0; idim < NDIM; idim++ ) {  
 	  VAL    = GRIDMAP_INPUT[idim][i] ;
 	  VALMIN = gridmap->VALMIN[idim] ;
@@ -5417,7 +5415,8 @@ double interp_1DFUN(
   // 
   // NBIN=3   => do the old interp8   functionality
   // NBIN > 3 => do the old lamInterp functionality
-
+  //
+  // Dec 13 2019: return min val immediately if NBIN==1
 
   int  IBIN, ibin0, ibin2 ;
   double 
@@ -5431,6 +5430,8 @@ double interp_1DFUN(
 
   // ------------- BEGIN -----------------
 
+  if ( NBIN==1 ) { return(VAL_LIST[0]) ; }
+
   // do binary search to quickly find which bin contains 'val'
   IBIN = quickBinSearch(val, NBIN,VAL_LIST, abort_comment );
 
@@ -5443,10 +5444,10 @@ double interp_1DFUN(
 
 
   if ( OPT == OPT_INTERP_LINEAR ) {
-    val0 = *(VAL_LIST + IBIN ) ;
-    val1 = *(VAL_LIST + IBIN + 1) ;
-    fun0 = *(FUN_LIST + IBIN ) ;
-    fun1 = *(FUN_LIST + IBIN + 1) ;
+    val0 = VAL_LIST[IBIN] ;
+    val1 = VAL_LIST[IBIN + 1] ;
+    fun0 = FUN_LIST[IBIN ] ;
+    fun1 = FUN_LIST[IBIN + 1] ;
     frac = (val - val0)/(val1-val0) ;
     fun  = fun0 + frac*(fun1-fun0);
     return fun ;
@@ -5655,6 +5656,7 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
   // *(VAL_LIST+IBIN) contains VAL.
   // Use binary search to quickly find IBIN when NBIN is very large.
   //
+  // Dec 13 2019: return(0) immediately of NBIN=1
 
   char fnam[] = "quickBinSearch" ;
   int  LDMP, NITER, ibin_min, ibin_max, ibin, ibin1, ibin2, ISTEP ;
@@ -5678,6 +5680,8 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
   NITER    = 0;  // for efficiency testing only
   ibin_min = 0; 
   ibin_max = NBIN-1 ;
+  
+  if ( NBIN ==  1 ) { return(0); } 
 
  NEXTSTEP:
 
@@ -5707,7 +5711,7 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
 
     // abort if NITER gets larger than NBIN
     if ( NITER > NBIN ) {
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf("\t ibin1=%d     ibin2=%d  (ISTEP=%d) \n", 
 	     ibin1,  ibin2, ISTEP );
       printf("\t VAL1/VAL2 =%6.0f/%6.0f A\n", VAL1,  VAL2);
@@ -5734,6 +5738,8 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
 
 
   // if we get here, then something is really wrong.
+  print_preAbort_banner(fnam);
+  printf("\t MINVAL=%f  MAXVAL=%f  NBIN=%d\n", MINVAL, MAXVAL, NBIN);
   sprintf(c1err,"Something is REALLY messed up:");
   sprintf(c2err,"Could not find '%s' bin for VAL=%le", abort_comment, VAL );
   errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
@@ -6113,7 +6119,7 @@ int rd_sedFlux(
       // make sure that lambdas repeat exactly
       lam_expect = LAM_LIST[ilam] ;
       if ( lam != lam_expect && OKBOUND_LAM ) {
-	printf("\n PRE-ABORT info: \n");
+	print_preAbort_banner(fnam);
 	printf("\t DAYrange = %7.2f to %7.2f  (NBIN=%d) \n", 
 	       DAYrange[0], DAYrange[1], *NDAY  );
 	printf("\t LAMrange = %7.1f to %7.1f  (NBIN=%d) \n", 
@@ -9226,7 +9232,8 @@ void check_uniform_bins(int NBIN,double *VAL_ARRAY, char *comment_forAbort) {
     DIF = VAL - VAL_LAST ;
 
     if ( i > 1 && DIF != DIF_LAST ) {
-      printf("\n %s PRE-ABORT DUMP for %s: \n", fnam, comment_forAbort);
+      print_preAbort_banner(fnam);
+      printf(" abort comment: %s \n", comment_forAbort);
       for(j=i-2; j < i+3; j++ ) {
 	if ( j<0 || j >= NBIN ) { continue ; }
 	printf("\t VAL_ARRAY[%d] = %f  (DIF=%f) \n", 
@@ -9922,7 +9929,7 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int *GZIPFLAG ) {
     //    printf(" xxx istat=%3d for '%s' \n", istat_unzip, unzipFile);
 
     if ( istat_gzip==0 && istat_unzip==0 ) {
-      printf("\n PRE-ABORT DUMP \n");
+      print_preAbort_banner(fnam);
       printf("  Found %s \n", gzipFile );
       printf("  Found %s \n", unzipFile );
       sprintf(c1err, "Found gzipped and unzipped file."); 
@@ -10132,6 +10139,7 @@ void check_argv(void) {
   // make sure that there are no unused command-line args
 
   int NBAD, i ;
+  char fnam[] = "check_argv";
 
   // ----------- BEGIN ---------
 
@@ -10146,7 +10154,9 @@ void check_argv(void) {
     }
   }
 
-  if ( NBAD > 0 )  madend(1);
+  if ( NBAD > 0 ) {
+    errmsg(SEV_FATAL, 0, fnam, "Invalid command line arg(s)", "" );
+  }
 
 } // end check_argv
 
@@ -10204,7 +10214,7 @@ void tabs_ABORT(int NTAB, char *fileName, char *callFun) {
 void errmsg(
        int isev            /* (I) severity flag */
       ,int iprompt         /* (I) 1=>prompt user to continue */
-      ,char *fnam          /* (I) name of function calling ktrigerr */
+      ,char *fnam          /* (I) name of function calling errmsg */
       ,char *msg1          /* (I) message to print           */
       ,char *msg2          /* (I) 2nd msg to print ("" => no 2nd msg) */
           ) 
@@ -10216,10 +10226,12 @@ void errmsg(
       Print error message(s), and count no. of errors.
       Abort program if isevere == SEV_ABORT
         
+   Dec 17 2019: re-structure a bit to prep for fortran use
+
 *************************************/
 {
-   char c_severe[12];  /* char string for serverity */ 
-   char cmsg[200];
+  char c_severe[40];  // char string for serverity 
+  char cmsg[200];
 
         /* ------- begin function execution ------- */
 
@@ -10228,28 +10240,34 @@ void errmsg(
         case SEV_INFO  : sprintf(c_severe,"INFO");     break;
         case SEV_WARN  : sprintf(c_severe,"WARNING");  break;
         case SEV_ERROR : sprintf(c_severe,"ERROR");    break;
-        case SEV_FATAL : sprintf(c_severe,"FATAL");    break;
+        case SEV_FATAL : sprintf(c_severe,"FATAL ERROR ABORT");  break;
      }
 
- /* print SEVERITY, FUNCTION name, and 1st message. */
+   if ( isev == SEV_FATAL ) {  madend(0); }
+
+   /* xxxxx mark delete 
+   // print SEVERITY, FUNCTION name, and 1st message. 
    sprintf(cmsg, "%s[%s]: \n\t %s", c_severe, fnam, msg1 );
    printf("\n %s \n", cmsg );
+   xxxxxxxx */
 
-  /* write error message to file if global flag is set. */
+   // print severity and name of function
+   printf(" %s called by %s\n", c_severe, fnam);
 
+   // print each message
+   if( strlen(msg1) > 0 ) { printf("   %s\n", msg1 ); }
+   if( strlen(msg2) > 0 ) { printf("   %s\n", msg2 ); }
 
- /* print 2nd message if non-null */
+   printf("\n");   fflush(stdout);
 
-   if( strlen(msg2) > 0 ) { printf("\t %s", msg2 ); }
-
-   printf("\n");
-
-   if ( isev == SEV_FATAL ) { madend(1); }
-
-   fflush(stdout);
+   if( isev == SEV_FATAL ) { exit(EXIT_ERRCODE); }
+   
+   return ;
 
 }   /* end of function "errmsg" */
 
+void errmsg_( int *isev,int *iprompt, char *fnam, char *msg1, char *msg2 ) 
+{  errmsg(*isev, *iprompt, fnam, msg1, msg2); }
 
 
 
@@ -10272,22 +10290,29 @@ void madend(int flag) {
    printf("\n");   
    fflush(stdout);
 
-   //   if ( flag == 1 ) { exit(1); }
    if ( flag == 1 ) { exit(EXIT_ERRCODE); }
 
-}    //  end of "madend"  
-
+}    //  end of madend  
 
 
 // ************************************************
 void happyend(void) {
-
    fflush(stdout);
    printf("\n Program stopping gracefully. Bye. \n");
    exit(0);
-
 }
 
+
+void  print_preAbort_banner(char *fnam) {  
+  printf("\n\n");
+  printf("# ================================================ \n");
+  printf("  PRE-ABORT DUMP from function %s : \n", fnam); 
+  fflush(stdout);
+}
+
+void  print_preabort_banner__(char *fnam) 
+{  print_preAbort_banner(fnam); }
+ 
 
 // ************************************************
 void readint(FILE *fp, int nint, int *list)   

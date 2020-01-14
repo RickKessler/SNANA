@@ -910,7 +910,6 @@ sub parse_nmlFile {
     $nmlFile = $nmlFile_ORIG ;
 
     # get name of NML file without path; used for batchName
-    #.xyz
     $jslash          = rindex($nmlFile_ORIG,"/");  # location of last slash
     $nmlFile_noPath  = substr($nmlFile_ORIG,$jslash+1, 99);
 

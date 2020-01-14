@@ -266,7 +266,8 @@ class genmag_BYOSED:
 				return list(self.wave)
 		
 
-		def fetchSED_BYOSED(self,trest,maxlam=5000,external_id=1,new_event=1,hostpars=''):
+		def fetchSED_BYOSED(self,trest,maxlam=5000,external_id=1,new_event=1,hostpars='',mB_calc=False):
+			
 			try:
 				if len(self.wave)>maxlam:
 					raise RuntimeError("Your wavelength array cannot be larger than %i but is %i"%(maxlam,len(self.wave)))
@@ -274,9 +275,17 @@ class genmag_BYOSED:
 				#print('HOST_PARAMS: ',hostpars)
 				if self.sn_id is None:
 					self.sn_id=external_id
+					newSN=False
+
+				elif external_id!=self.sn_id:
+					newSN=True
+					
+				else:
+					newSN=False
+				self.sn_id=external_id
 				fluxsmear=self.sedInterp(trest,self.wave).flatten()
 				orig_fluxsmear=copy(fluxsmear)
-			
+
 				if self.options.magsmear!=0.0 and (self.sn_id!=external_id or self.magsmear is None):
 					self.magsmear=np.random.normal(0,self.options.magsmear)
 				else:
@@ -294,9 +303,13 @@ class genmag_BYOSED:
  			
 			
 			outer_product=np.zeros(len(self.wave))
+
 			for warp in [x for x in self.warp_effects]:# if x!='COLOR']:
+				if mB_calc and self.sn_effects[warp].scale_type!='outer':
+					continue
 				try: #if True:
-					if external_id!=self.sn_id:
+					
+					if newSN:
 						if not self.noRescale:
 							self.effect_mB=None
 							self.mB=self.calc_mB(self.sedInterp(0,self.B_int_wave).flatten()*10**(-0.4*(self.magsmear+self.magoff)))
@@ -306,11 +319,22 @@ class genmag_BYOSED:
 							if warp in self.host_effects.keys():
 								self.host_effects[warp].updateWarp_Param()
 								self.host_effects[warp].scale_parameter=1.
+						
 						else:
 							self.host_effects[warp].updateWarp_Param()
 							self.host_effects[warp].updateScale_Param()
-						self.sn_id=external_id
+						
 
+						#try:
+							
+						#	existing=np.loadtxt('color.dat').reshape(-1,2)
+						#	existing=np.append(existing,[hostpars[(self.host_param_names).index('ZCMB')],
+                                                         #   self.sn_effects[warp].scale_parameter]).reshape(-1,2)
+							
+						#	np.savetxt('color.dat',existing)
+						#except:
+						#	np.savetxt('color.dat',np.array([hostpars[(self.host_param_names).index('ZCMB')],
+														#	 self.sn_effects[warp].scale_parameter]).reshape(-1,2))
 
 					# not sure about the multiplication by x0 here, depends on if SNANA is messing with the
 					# absolute magnitude somewhere else
@@ -327,6 +351,7 @@ class genmag_BYOSED:
 								print('Phase=%.1f, %s: %.2f'%(trest,warp,self.sn_effects[warp].scale_parameter))
 
 						if self.sn_effects[warp].scale_type=='inner':
+
 							product*=self.sn_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
 							if temp_scale_param ==0:
 								temp_scale_param = self.sn_effects[warp].scale_parameter
@@ -334,6 +359,7 @@ class genmag_BYOSED:
 								temp_scale_param*=self.sn_effects[warp].scale_parameter
 							
 						else:
+
 							temp_outer_product*=self.sn_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
 							if outer_scale_param ==0:
 								outer_scale_param = self.sn_effects[warp].scale_parameter
@@ -357,7 +383,7 @@ class genmag_BYOSED:
 						else:
 							temp_outer_product*=self.host_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
 							outer_scale_param*=self.host_effects[warp].scale_parameter
-
+					
 					inner_product+=product*temp_scale_param
 					outer_product+=temp_outer_product*outer_scale_param
 					
@@ -369,11 +395,11 @@ class genmag_BYOSED:
 
 			if self.noRescale is False and self.effect_mB is None:
 				self.effect_mB=self.mB
-				self.effect_mB=self.calc_mB(np.array(self.fetchSED_BYOSED(0,maxlam=maxlam,external_id=external_id,new_event=external_id,hostpars=hostpars))[self.B_wave_inds])
+				self.effect_mB=self.calc_mB(np.array(self.fetchSED_BYOSED(0,maxlam=maxlam,external_id=external_id,new_event=external_id,hostpars=hostpars,mB_calc=True))[self.B_wave_inds])
 			
 
-			fluxsmear*=((1.+inner_product)*10**(-0.4*outer_product))
-
+			fluxsmear*=((1+inner_product)*10**(-0.4*outer_product))
+			
 			if not self.noRescale:
 				fluxsmear*=(self.mB/self.effect_mB)
 
@@ -396,6 +422,7 @@ class genmag_BYOSED:
 					if self.sn_effects[varname].warp_parameter is not None:
 						return self.sn_effects[varname].warp_parameter
 					else:
+
 						return self.sn_effects[varname].scale_parameter
 				else:
 					if self.host_effects[varname].warp_parameter is not None:
@@ -554,9 +581,9 @@ def _skewed_normal(name,dist_dat,dist_type):
 		else:
 			a=dist_dat[dist_type+'_DIST_PEAK']-3*dist_dat[dist_type+'_DIST_SIGMA'][0]
 			b=dist_dat[dist_type+'_DIST_PEAK']+3*dist_dat[dist_type+'_DIST_SIGMA'][1]
-
+		
 		dist = skewed_normal(name,a=a,b=b)
-		sample=np.arange(a,b,.01)
+		sample=np.arange(a,b,.0001)
 		return(lambda : np.random.choice(sample,1,
 										 p=dist._pdf(sample,dist_dat[dist_type+'_DIST_PEAK'],dist_dat[dist_type+'_DIST_SIGMA'][0],dist_dat[dist_type+'_DIST_SIGMA'][1])))
 		
@@ -565,8 +592,8 @@ def _param_from_dist(dist_file,path):
 	dist=np.loadtxt(os.path.join(path,dist_file))
 	a=np.min(dist)-abs(np.min(dist))
 	b=np.max(dist)+abs(np.max(dist))
-	sample=np.arange(a,b,.01)
-	pdf=gaussian_kde(dist.T).pdf(np.arange(a,b,.01))
+	sample=np.arange(a,b,1e-7)
+	pdf=gaussian_kde(dist.T).pdf(np.arange(a,b,1e-7))
 	return(lambda : np.random.choice(sample,1,p=pdf/np.sum(pdf)))
 
 def _get_distribution(name,dist_dat,path,sn_or_host):
@@ -680,11 +707,28 @@ def main():
 		#print(test(np.array([[10,5000],[10,6000]])))
 		import matplotlib.pyplot as plt
 		#sys.exit()
-		mySED=genmag_BYOSED('$WFIRST_ROOT/SALT3/examples/wfirst/byosed/',2,[],'HOST_MASS,SFR,AGE,REDSHIFT,METALLICITY')
-		#mySED.sn_effects['COLOR'].scale_parameter=.2
+		mySED=genmag_BYOSED('$WFIRST_ROOT/SALT3/examples/wfirst/byosed/',2,[],'HOST_MASS,SFR,AGE,ZCMB,METALLICITY')
+		mySED.sn_id=1
+		'''
+		hist=[]
+		hist2=[]
+		for i in range(40000):
+			mySED.sn_effects['STRETCH'].updateScale_Param()
+			mySED.sn_effects['COLOR'].updateScale_Param()
+			hist.append(mySED.sn_effects['STRETCH'].scale_parameter)
+			hist2.append(mySED.sn_effects['COLOR'].scale_parameter)
+		plt.hist(hist,bins=100)
+		plt.savefig('test.pdf',format='pdf',overwrite=True)
+		plt.clf()
+		plt.hist(hist2,bins=100)
+		plt.savefig('test2.pdf',format='pdf',overwrite=True)
+		sys.exit()
+		'''
+		#mySED.sn_effects['STRETCH'].scale_parameter=.4
+		#mySED.sn_effects['COLOR'].scale_parameter=.1
 		#print(np.where(mySED.wave==10000)[0][0])
 		#print(mySED.fetchParNames_BYOSED())
-		print(np.sum(mySED.fetchSED_BYOSED(10,5000,3,2,[2.5,1,1,.5])))
+		print([np.sum(mySED.fetchSED_BYOSED(p,5000,p,2,[2.5,1,1,.5])) for p in [-5,0,10,15]])
 		sys.exit()
 
 

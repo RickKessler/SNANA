@@ -2737,10 +2737,7 @@ void load_TEMP_SEDFUDGE_SMEAR(int iday, int ilam, int ismear) {
   
   // abort on crazy mag shift that give large fluxes
   if ( -magshift > MAGSMEAR_ABORT ) {
-    printf("\n");
-    printf(" ============================================= \n");
-    printf(" PRE-ABORT DUMP of randoms: \n");
-    
+    print_preAbort_banner(fnam);    
     int NGAURAN = SMEARMODEL_DEF[indx].NGAURAN ;
     int NFLATRAN = SMEARMODEL_DEF[indx].NFLATRAN ;
     for ( i=1; i <= NGAURAN; i++ ) 

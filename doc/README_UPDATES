@@ -17780,4 +17780,40 @@
     + refactor LOAD_SEARCHEFF_DATA and note that random sync is changed.
       Recover legacy code with "DEBUG_FLAG 55"
 
+
+# ======================================================================= 
+         v10_74m (Jan 08 2020) 
+
+         ***** IMPORTANT(v10_74m) ***** 
+
+   snlc_sim refactor resulted in 2 subtle bug-fixes for FLUXERRMODEL_MAP
+
+         ***** USEFUL(v10_74m) ***** 
+
+         ***** MISCELLANEOUS(v10_74m) ***** 
+
+   sntools.c:
+     + new utility print_preAbort_banner(fnam) to standardize
+       header for pre-abort dumps. Goal is for higher-level
+       pipelines (e.g., Pippin) to find pre-abort contents.
+
+   snlc_sim.c
+     + in genmag_boost, fix bug checking unused AV.
+     + as part of refactor, fix bug in gen_smearFlux() related to
+       FLUXERRMODEL_MAP; scale template error for applying noise
+       to match scaling applied to reported error.
+     + for call to get_FLUXERRMODEL() in function gen_smearFlux, 
+       include template error in passed FLUXCALERR_in (another bug fix).
+       Note very small changes when using FLUXERRMODEL_MAP.
+     + rename genmag8 -> genmag, epoch8->epoch, etc ...
+
+   SALT2mu.c:
+    + in sort_IDSAMPLE, add abort trap if fieldgroup key does 
+      not include all fields. Avoids ambiguity of undefined
+      fields being exluded or part of survey.
+
+   psnid:
+     + pass SIM_EPFLUXCAL to SNLCPAK to be compatible with previous
+       update for snana & snlc_fit.
+   
 END: 

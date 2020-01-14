@@ -355,7 +355,7 @@ void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR,
   TBNAME = TABLEINFO_TEXT.TBNAME[ITAB] ;
 
   if ( ITAB < 0 ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("   VARLIST_ORIG = '%s' \n", ADDCOL_VARDEF->VARLIST_ORIG);
     printf("   NVAR = %d \n", ADDCOL_VARDEF->NVAR );
     sprintf(MSGERR1, "Could not find text table with ");
@@ -384,7 +384,7 @@ void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR,
     // check varlist bound
     LENV = strlen(varList) + strlen(VARNAME) + 1 ;
     if ( LENV >= MXCHAR_LINE ) {
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf(" varList = '%s' \n", varList);
       printf(" VARNAME to add: '%s' \n", VARNAME);
       sprintf(MSGERR1, "len(VARLIST)=%d exceeds bound of %d",
@@ -865,7 +865,7 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   NVAR++ ;
 
 
-  if ( SNLCPAK_OUTPUT.SIMFLAG ) {
+  if ( SNLCPAK_OUTPUT.SIMFLAG ) {  // Dec 2019
     sprintf(VARNAME_SNLC[NVAR], "SIM_FLUXCAL" );  
     sprintf(VARDEF_SNLC[NVAR],  "true flux"   );
     NVAR++ ;

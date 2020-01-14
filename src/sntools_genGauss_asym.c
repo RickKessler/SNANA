@@ -153,7 +153,7 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
 
   // abort on crazy NGRID value
   if ( NGRID < 0 || NGRID > 100 ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("\t peak = %f \n", peak);
     printf("\t range(lo,hi) = %f, %f \n", lo, hi );
     printf("\t sigma(lo,hi) = %f, %f \n", siglo, sighi );
@@ -209,7 +209,7 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   GENVAL:
     NTRY++ ;
     if ( NTRY > MXTRY ) {
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       dump_GENGAUSS_ASYM(genGauss);
       printf(" DO_SKEW[SIGMA,NORMAL] = %d, %d \n", 
 	     DO_SKEWSIGMA, DO_SKEWNORMAL);

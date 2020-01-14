@@ -5638,10 +5638,9 @@ c
      &    .and. SHAPE(1)     .LT. PRIOR_SHAPE_RANGE(2) 
      &    .and. abs(AVHOST)  .LT. 10.0 ) then
 
+	   CALL PRINT_PREABORT_BANNER("USRFUN"//CHAR(0), 40)
            cfilt = filtdef_string(ifilt_obs:ifilt_obs) 
-
-           print*,' '
-           print*,' PRE-ABORT DUMP for ', cfilt,' : '
+           print*,' Filter = ', cfilt,' : '
            print*,' MAG(LANDOLT)-MAG(BESSELL) = ',
      &         MAG_OBS_TMP(ifilt_obs), ' - ',
      &         MAG_BESSELL_OBS(ifilt_obs), ' = ', DIF
@@ -19083,8 +19082,7 @@ c      check FITRESTMAG variables
             CALL MADABORT(FNAM, c1err, c2err )  
          endif
       ELSE
-         print*,' '
-         print*,' PRE-ABORT DUMP: '
+	 CALL PRINT_PREABORT_BANNER(FNAM//CHAR(0), 40)
          print*,'   LENPAR, LENLOC, ISERR = ', LENPAR, LENLOC, ISERR
          print*,'   VARNAME = ', VARNAME(1:20)
          print*,'   VARNAME(LENPAR-3:LENPAR) = ',

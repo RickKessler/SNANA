@@ -135,7 +135,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
     // check length of file name (Aug 2019)
     lenpath=strlen(path); lenfile=strlen(ptrFile);  lentot=lenpath+lenfile;
     if ( lentot >= MXPATHLEN ) {
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf("   path = '%s' \n", path);
       printf("   file = '%s' \n", ptrFile);
       sprintf(c1err, "filename length= %d is too long", lentot);

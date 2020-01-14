@@ -284,7 +284,6 @@ void gridinterp_snoopy(int ifilt, double shape,
     }
     */
 
-
     // get gridFlux2 at the 4 corners bounding Trest,dm15
     for ( im=0; im <=1; im++ ) {    // dm15 edges
       IPTRLC      = IPTRLC_OFF[im] + ioff + index_Trest;

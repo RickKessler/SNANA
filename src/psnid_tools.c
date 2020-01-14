@@ -886,7 +886,7 @@ void get_template_lc(int TYPEINDX, int iz, int ic1, int ic2,
   long int MXPTR;
   MXPTR     =  SNGRID_PSNID[TYPEINDX].SIZEOF_GRIDGEN/4 ;
   if ( IPTROFF < 0 || IPTROFF > MXPTR ) {
-    printf("\n\n PRE-ABORT INFO: \n");
+    print_preAbort_banner(fnam);
     printf("\t iz=%d  ic1=%d  ic2=%d  ishape=%d -> ILC=%d \n", 
            iz, ic1, ic2, ishape, ILC );     
     sprintf(c1err,"Invalid IPTROFF = %d for %s-GRID",
@@ -1180,7 +1180,8 @@ void psnid_dumpBins_SNGRID(void)
 
 /************************************************************************/
 void psnid_store_data(char *CCID, int NOBS, int *IFILT,
-		      double *MJD, double *FLUX, double *FLUX_ERR, 
+		      double *MJD, double *FLUXDATA, double *FLUXERR, 
+		      double *FLUXSIM, 
 		      double *REDSHIFT, double *REDSHIFT_ERR,
 		      double MWEBV, double MWEBV_ERR, int SIM_NON1A_INDEX)
 /*************************************************************************/
@@ -1196,8 +1197,9 @@ void psnid_store_data(char *CCID, int NOBS, int *IFILT,
   // allocate memory; but free current memory if already allocated.
   if ( DATA_PSNID_DOFIT.NOBS > 0 ) {
     free(DATA_PSNID_DOFIT.MJD) ;
-    free(DATA_PSNID_DOFIT.FLUX) ;
-    free(DATA_PSNID_DOFIT.FLUX_ERR) ;
+    free(DATA_PSNID_DOFIT.FLUXDATA) ;
+    free(DATA_PSNID_DOFIT.FLUXERR) ;
+    free(DATA_PSNID_DOFIT.FLUXSIM) ;
     free(DATA_PSNID_DOFIT.DUMERR0) ;
     free(DATA_PSNID_DOFIT.IFILT) ;
     free(DATA_PSNID_DOFIT.IFILTOBS) ;
@@ -1206,8 +1208,9 @@ void psnid_store_data(char *CCID, int NOBS, int *IFILT,
   MEM_D = NOBS * sizeof(double);
   MEM_I = NOBS * sizeof(int); 
   DATA_PSNID_DOFIT.MJD       = (double*)malloc(MEM_D) ;
-  DATA_PSNID_DOFIT.FLUX      = (double*)malloc(MEM_D) ;
-  DATA_PSNID_DOFIT.FLUX_ERR  = (double*)malloc(MEM_D) ;
+  DATA_PSNID_DOFIT.FLUXDATA  = (double*)malloc(MEM_D) ;
+  DATA_PSNID_DOFIT.FLUXERR   = (double*)malloc(MEM_D) ;
+  DATA_PSNID_DOFIT.FLUXSIM   = (double*)malloc(MEM_D) ;
   DATA_PSNID_DOFIT.DUMERR0   = (double*)malloc(MEM_D) ;
   DATA_PSNID_DOFIT.IFILT     = (int   *)malloc(MEM_I) ;
   DATA_PSNID_DOFIT.IFILTOBS  = (int   *)malloc(MEM_I) ;
@@ -1228,8 +1231,9 @@ void psnid_store_data(char *CCID, int NOBS, int *IFILT,
 
   for(obs=0; obs < NOBS; obs++ ) {
     DATA_PSNID_DOFIT.MJD[obs]       = MJD[obs] ;
-    DATA_PSNID_DOFIT.FLUX[obs]      = FLUX[obs] ;
-    DATA_PSNID_DOFIT.FLUX_ERR[obs]  = FLUX_ERR[obs] ;
+    DATA_PSNID_DOFIT.FLUXDATA[obs]  = FLUXDATA[obs] ;
+    DATA_PSNID_DOFIT.FLUXERR[obs]   = FLUXERR[obs] ;
+    DATA_PSNID_DOFIT.FLUXSIM[obs]   = FLUXSIM[obs] ;
     DATA_PSNID_DOFIT.DUMERR0[obs]   = 0.0 ;
     DATA_PSNID_DOFIT.IFILT[obs]     = IFILT[obs] ;
     DATA_PSNID_DOFIT.IFILTOBS[obs]  = 

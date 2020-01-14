@@ -571,7 +571,7 @@ void set_TobsRange_LCLIB(double *TobsRange) {
   LCLIB_EVENT.TOBS_RANGE = Tobs_range;
 
   if ( Tobs_range > LCLIB_INFO.TOBS_RANGE_MAX ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("\t TOBS_MIN,MAX = %.1f , %.1f \n",
 	   LCLIB_EVENT.TOBS_MIN, LCLIB_EVENT.TOBS_MAX );
     printf("\t TOBS_RANGE = %.1f \n", LCLIB_EVENT.TOBS_RANGE);
@@ -990,7 +990,7 @@ void read_ROW_LCLIB(int ROW, char *KEY, char **ptrWDLIST) {
   LCLIB_EVENT.DAY[ROW] = DAY ;
 
   if ( ROW > 0  &&  DAY < LCLIB_EVENT.DAY[ROW-1] ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("\t ROW = %d \n", ROW);
     printf("\t Previous DAY = %f\n", LCLIB_EVENT.DAY[ROW-1] );
     sprintf(c1err,"Invalid DAY=%f because previous day is larger", DAY);    
@@ -1062,7 +1062,7 @@ void read_PARVAL_LCLIB(char *LINE) {
 
   splitString2(tmpLine, sepKey, MXSPLIT, &NSPLIT, ptrPARVAL);
   if ( NSPLIT != NPAR ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     //    printf("\t PARVAL line = '%s' \n", tmpLine);
     printf("\t sepKey = '%s' \n", sepKey );
     for(ipar=0; ipar<NSPLIT; ipar++ ) {
@@ -1509,7 +1509,8 @@ void forceTemplateRows_LCLIB(void) {
     NEW_LASTROW_T-- ;  NBACK_ITER++ ;
 
     if ( NEW_LASTROW_T < 1 ) {
-      printf("\n PRE-ABORT DUMP (NREAD=%d) \n", NREAD );
+      print_preAbort_banner(fnam);
+      printf("\t NREAD=%d \n", NREAD );
       printf("\t NEW_FIRSTROW_S=%d --> NEW First DAY_S=%.3f \n",
 	     NEW_FIRSTROW_S, LCLIB_EVENT.DAY[NEW_FIRSTROW_S] );
       printf("\t DAY_RANDOM = %.2f \n", LCLIB_EVENT.DAY_RANDOM);
@@ -1812,7 +1813,7 @@ void  addTemplateRows_PERIODIC(void) {
     DAY_S = DAYFIRST_S + (DAY_T-DAYFIRST_T) - ((float)NCYCLE_S)*NDAY_S ;
 
     if ( DAY_S < DAYFIRST_S || DAY_S > DAYLAST_S ) {
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf("\t DAYRANGE(S) = %8.2f to %8.2f \n", DAYFIRST_S, DAYLAST_S);
       printf("\t DAYRANGE(T) = %8.2f to %8.2f \n", DAYFIRST_T, DAYLAST_T);
       printf("\t irow=%d  IROW=%d \n", irow, IROW);
@@ -1966,7 +1967,7 @@ void addTemplateRows_NONRECUR(void) {
   for (irow=1; irow < NROW_S; irow++ ) {
     if ( LCLIB_EVENT.DAY[irow] <= LCLIB_EVENT.DAY[irow-1] ) {
 
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       for (irow2=0; irow2 < NROW_S; irow2++ ) 
 	{ printf("\t DAY[%2d] = %.2f \n", irow2, LCLIB_EVENT.DAY[irow2] ); }
 
@@ -2038,7 +2039,7 @@ void addTemplateReset_NONRECUR(void) {
   }
 
   if ( NROW_ORIG < 0 ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("\t NROW_ORIG=%d  NROWADD=%d  NROW=%d  NROW_S=%d \n",
 	   NROW_ORIG, NROWADD, LCLIB_EVENT.NROW, LCLIB_EVENT.NROW_S);
     printf("\t ROW_S[FIRST,LAST] = %d, %d \n", 

@@ -429,7 +429,7 @@ void  RDNN_Nmerge(void) {
     {  printf(" Read HID %d : \n\t Nmerge = %d \n", HID, Nmerge ); }
 
   if ( Nmerge <= 0 || Nmerge > 9999 ) {
-    printf("\t PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("   NB=%d  XMIN=%f  XMAX=%f\n", NB, XMIN, XMAX);
     printf("   CTIT = '%s' \n", CTIT);
     

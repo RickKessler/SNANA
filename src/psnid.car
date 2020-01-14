@@ -461,7 +461,7 @@ c
 c Apr  2, 2013: add XTMW8 argument to PSNID_BEST_DOFIT
 c Aug 23, 2015: add MJD cut to select epochs for fit
 c Mar 10, 2017: pass SIM_NON1a to PSNID_BEST_DOFIT
-c
+c Jan 08, 2020: pass FLUXSIM
 c -------------------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -483,8 +483,9 @@ c local variables
 
       REAL*8
      &   MJD8(MXEPOCH)
-     &  ,FLUX8(MXEPOCH)
+     &  ,FLUXDATA8(MXEPOCH)
      &  ,FLUXERR8(MXEPOCH)
+     &  ,FLUXSIM8(MXEPOCH)
      &  ,XTMW8(MXEPOCH)
      &  ,Z8(3), ZERR8(3)
      &  ,MWEBV8, MWEBVERR8
@@ -540,8 +541,9 @@ c MJD cut (Aug 23 2015)
 
          NOBS            = NOBS + 1
          MJD8(NOBS)      = SNLC8_MJD(ep)
-         FLUX8(NOBS)     = SNLC_FLUXCAL(ep)
-         FLUXERR8(NOBS)  = SNLC_FLUXCAL_ERRTOT(ep)
+         FLUXDATA8(NOBS) = DBLE( SNLC_FLUXCAL(ep) )
+         FLUXERR8(NOBS)  = DBLE ( SNLC_FLUXCAL_ERRTOT(ep) )
+         FLUXSIM8(NOBS)  = DBLE ( SIM_EPFLUXCAL(ep) )  ! Jan 2020
 cc         XTMW8(NOBS)     = SNLC_XTMW_FLUXFRAC(ifilt)
 
          IFILTLIST_PSNID(NOBS) = IFILTINV_PSNID(IFILT_OBS)  
@@ -552,7 +554,7 @@ cc         XTMW8(NOBS)     = SNLC_XTMW_FLUXFRAC(ifilt)
             write(6,60) SNLC_CCID(1:LENCCID)
      &         ,IFILTLIST_PSNID(NOBS), CFILT
      &         ,MJD8(NOBS)
-     &         ,FLUX8(NOBS)
+     &         ,FLUXDATA8(NOBS)
      &         ,FLUXERR8(NOBS)
 60          format(' Call PSNID_BEST_DOFIT(',A,'):', 2x,
      &          'IFILT=',I1,'(',A1,')', 2x,
@@ -571,7 +573,8 @@ cc         XTMW8(NOBS)     = SNLC_XTMW_FLUXFRAC(ifilt)
 
          ERRFLAG_FIT = PSNID_BEST_DOFIT(CCID_forC, NOBS, 
      &                     IFILTLIST_PSNID,
-     &                     MJD8, FLUX8, FLUXERR8, 
+     &                     MJD8, FLUXDATA8, FLUXERR8,
+     &                     FLUXSIM8,      ! Jan 2020
      &                     Z8, ZERR8,
      &                     MWEBV8, MWEBVERR8, SIM_TEMPLATE_INDEX,
      &                     LENCCID ) ;
@@ -580,7 +583,7 @@ cc         XTMW8(NOBS)     = SNLC_XTMW_FLUXFRAC(ifilt)
 
          ERRFLAG_FIT = PSNID_BEST2_DOFIT(CCID_forC, NOBS, 
      &                     IFILTLIST_PSNID,
-     &                     MJD8, FLUX8, FLUXERR8, 
+     &                     MJD8, FLUXDATA8, FLUXERR8, 
      &                     Z8, ZERR8,
      &                     MWEBV8, MWEBVERR8, SIM_TEMPLATE_INDEX,
      &                     LENCCID ) ;

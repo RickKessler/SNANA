@@ -361,6 +361,7 @@ extern"C" {
   void  set_FILTERSTRING(char *FILTERSTRING); // defined in sntools.c
   void  errmsg ( int isev, int iprompt, char *fnam, char *msg1, char *msg2 );
   void  print_banner ( const char *banner ) ;
+  void  print_preAbort_banner(char *fnam);
   void  trim_blank_spaces(char *string) ;
   int   strcmp_ignoreCase(char *str1, char *str2) ;
 

@@ -2254,6 +2254,7 @@ void invertMatrix(int N, int n, double *Matrix ) {
   int s;
   int i1, i2, J ;
   
+  // -------------- BEGIN ---------------
   // Define all the used matrices
   gsl_matrix * m         = gsl_matrix_alloc (n, n);
   gsl_matrix * inverse   = gsl_matrix_alloc (n, n);

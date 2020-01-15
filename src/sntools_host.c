@@ -87,6 +87,9 @@
         (see new function GEN_SNHOST_ANGLE)
      WARNING: still need to visually verify 2D profile
 
+ Jan 14 2020: 
+   + in GEN_SNHOST_DDLR(), a & b are wgted avg among Sersic terms.
+
 =========================================================== */
 
 #include <stdio.h>
@@ -245,8 +248,8 @@ void initvar_HOSTLIB(void) {
 
   HOSTLIB.NLINE_COMMENT = 0;
 
-  SERSIC_PROFILE.NFIX   = 0;
-  SERSIC_PROFILE.NDEF   = 0 ; 
+  SERSIC_PROFILE.NFIX    = 0;
+  SERSIC_PROFILE.NPROF   = 0 ; 
 
   SERSIC_TABLE.NBIN_reduced   = 0 ;
   SERSIC_TABLE.TABLEMEMORY    = 0 ;
@@ -1722,8 +1725,6 @@ void read_gal_HOSTLIB(FILE *fp) {
       // store this galaxy
       NGAL = HOSTLIB.NGAL_STORE ;   HOSTLIB.NGAL_STORE++ ;   
 
-      // xxx mark delete  if(NGAL>0) { malloc_HOSTLIB(NGAL,NGAL_READ); }
-
       // strip off variables to store
       for ( ivar_STORE=0; ivar_STORE < NVAR_STORE; ivar_STORE++ ) {
 	ivar_ALL = HOSTLIB.IVAR_ALL[ivar_STORE] ;  // column in file
@@ -2010,6 +2011,8 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
   // Nov 2019: 
   //  + add NGAL_READ argument to malloc HOSTLIB.LIBINDEX_READ
   //  + check IVAR_NBR_LIST
+  //
+  // Jan 15 2020:  bug fix: check NGAL_READ==0, not NGAL_STORE==0.
 
   double XNTOT, XNUPD;
   int ivar, I8, I8p, I4, ICp, MEMC, DO_FIELD, DO_NBR, igal ;
@@ -2026,7 +2029,9 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
   DO_FIELD    = ( HOSTLIB.IVAR_FIELD    > 0 );
   DO_NBR      = ( HOSTLIB.IVAR_NBR_LIST > 0 );
 
-  if ( NGAL_STORE == 0 ) {
+  // xxx remove bug Jan 2020   if ( NGAL_STORE == 0 ) {
+
+  if ( NGAL_READ == 0 ) {
 
     if  ( LDMP ) 
       { printf(" xxx Initial malloc for HOSTLIB ... \n"); fflush(stdout); }
@@ -2063,9 +2068,9 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
 
 
   // --------------------------------------------------
-
-  if ( (NGAL_STORE % MALLOCSIZE_HOSTLIB) == 0 ) {
-    
+  int UPD = ( (NGAL_STORE % MALLOCSIZE_HOSTLIB) == 0 );
+  // xxx remove bug, Jan 15 2020:  if ( UPD  ) {    
+  if ( UPD && NGAL_STORE > 0 ) {    
     HOSTLIB.MALLOCSIZE_D  += (I8  * MALLOCSIZE_HOSTLIB) ;
     HOSTLIB.MALLOCSIZE_Cp += (ICp * MALLOCSIZE_HOSTLIB) ;
 
@@ -2727,7 +2732,7 @@ void init_GALMAG_HOSTLIB(void) {
   
   
   // make sure we have a galaxy profile 
-  if ( SERSIC_PROFILE.NDEF <= 0 ) {
+  if ( SERSIC_PROFILE.NPROF <= 0 ) {
     sprintf(c1err,"%s", "Galaxy (Sersic) profile NOT defined" );
     sprintf(c2err,"%s", "==> cannot compute galaxy mag at SN position.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -2965,7 +2970,7 @@ void init_Sersic_VARNAMES(void) {
   //  SERSIC.IVAR_a[j1] = HOSTLIB.IVAR_a[j2] ;
   //  SERSIC.IVAR_b[j1] = HOSTLIB.IVAR_b[j2] ;
   //
-  // where j1 is the sparse SERSIC-array index (1-SERSIC.NDEF)
+  // where j1 is the sparse SERSIC-array index (1-SERSIC.NPROF)
   // and j2 is the absolute 0-MXSERSIC integer key. Note that 
   // neither j1 or j2 is the physical SERSIC.n[j1] index.
   //
@@ -2975,7 +2980,7 @@ void init_Sersic_VARNAMES(void) {
   //
 
   int 
-    NDEF, NFIX, j, ifix, NFIX_MATCH, NERR
+    NPROF, NFIX, j, ifix, NFIX_MATCH, NERR
     , IVAR_a, IVAR_b, IVAR_w, IVAR_n    
     ;
 
@@ -2985,7 +2990,7 @@ void init_Sersic_VARNAMES(void) {
 
   // ----------- BEGIN ------------
 
-  NDEF = 0;
+  NPROF = 0;
 
   // check which VARNAMES correspond to Sersic profiles,
   // and store list. Search all possible profile names
@@ -3015,21 +3020,21 @@ void init_Sersic_VARNAMES(void) {
 
     // load sersic list if both a & b are specified.
     if ( IVAR_a > 0 && IVAR_b > 0 ) {
-      SERSIC_PROFILE.IVAR_a[NDEF] = IVAR_a ;
-      SERSIC_PROFILE.IVAR_b[NDEF] = IVAR_b ;
-      SERSIC_PROFILE.IVAR_w[NDEF] = IVAR_w ;
-      SERSIC_PROFILE.IVAR_n[NDEF] = IVAR_n ;
+      SERSIC_PROFILE.IVAR_a[NPROF] = IVAR_a ;
+      SERSIC_PROFILE.IVAR_b[NPROF] = IVAR_b ;
+      SERSIC_PROFILE.IVAR_w[NPROF] = IVAR_w ;
+      SERSIC_PROFILE.IVAR_n[NPROF] = IVAR_n ;
 
-      sprintf(SERSIC_PROFILE.VARNAME_a[NDEF], "%s", anam);
-      sprintf(SERSIC_PROFILE.VARNAME_b[NDEF], "%s", bnam);
-      sprintf(SERSIC_PROFILE.VARNAME_w[NDEF], "%s", wnam);
-      sprintf(SERSIC_PROFILE.VARNAME_n[NDEF], "%s", nnam);   
-      NDEF++ ;   
+      sprintf(SERSIC_PROFILE.VARNAME_a[NPROF], "%s", anam);
+      sprintf(SERSIC_PROFILE.VARNAME_b[NPROF], "%s", bnam);
+      sprintf(SERSIC_PROFILE.VARNAME_w[NPROF], "%s", wnam);
+      sprintf(SERSIC_PROFILE.VARNAME_n[NPROF], "%s", nnam);   
+      NPROF++ ;   
     }
   } // end of j-loop
 
-  SERSIC_PROFILE.NDEF = NDEF ;
-  if ( NDEF == 0 ) { return ; }
+  SERSIC_PROFILE.NPROF = NPROF ;
+  if ( NPROF == 0 ) { return ; }
 
 
   // check list of FIXED Sersic indices and make sure
@@ -3041,7 +3046,7 @@ void init_Sersic_VARNAMES(void) {
   for ( ifix=0; ifix < NFIX; ifix++ ) {
     sprintf(tmpnam, "%s", SERSIC_PROFILE.FIX_NAME[ifix]  ) ;
 
-    for ( j=0; j < NDEF; j++ ) {
+    for ( j=0; j < NPROF; j++ ) {
       sprintf(nnam, "%s", SERSIC_PROFILE.VARNAME_n[j] ) ;
 
       if ( strcmp(nnam,tmpnam)==0 ) {
@@ -3065,7 +3070,7 @@ void init_Sersic_VARNAMES(void) {
   // Abort if defined  for both.
 
   NERR = 0;
-  for ( j=0; j < NDEF; j++ ) {
+  for ( j=0; j < NPROF; j++ ) {
     IVAR_n = SERSIC_PROFILE.IVAR_n[j] ;
     FIXn   = SERSIC_PROFILE.FIXn[j] ;
 
@@ -3248,12 +3253,10 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
 
   // Fill SERSIC info a, b, n(and bn), w, wsum.
   // Also fill a_rot = rotation angle w.r.t. RA.
-  // Require at least NDEF-1 weights to be defined;
+  // Require at least NPROF-1 weights to be defined;
   // the last weight is simply 1 = sum(other wgts).
-  // If NDEF=1 then no weights are required.
+  // If NPROF=1 then no weights are required.
   //
-  // Sep 9, 2012: abort if sersic index is outside valid range.
-  // Nov 13 2019: pass SERSIC typedef as argument
 
   int IVAR_ANGLE   = HOSTLIB.IVAR_ANGLE ;
   double FIXa      = INPUTS.HOSTLIB_FIXSERSIC[0] ;
@@ -3261,17 +3264,18 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
   double FIXn      = INPUTS.HOSTLIB_FIXSERSIC[2] ;
   double FIXANG    = INPUTS.HOSTLIB_FIXSERSIC[3];
 
-  int j, NDEF, NWGT, j_nowgt, IVAR_a, IVAR_b, IVAR_w, IVAR_n ;
+  int j, NPROF, NWGT, j_nowgt, IVAR_a, IVAR_b, IVAR_w, IVAR_n ;
   double WGT, WGTSUM, WTOT, n, wsum_last ;
   char fnam[] = "get_Sersic_info" ;
 
   // -------------- BEGIN -------------
 
-  NDEF = SERSIC_PROFILE.NDEF; 
+  NPROF = SERSIC_PROFILE.NPROF; 
   SERSIC->w[0]    = 0.0 ;
   SERSIC->wsum[0] = 0.0 ;
+  SERSIC->NPROF   = NPROF; 
 
-  for ( j=0; j < NDEF; j++ ) {
+  for ( j=0; j < NPROF; j++ ) {
     IVAR_a = SERSIC_PROFILE.IVAR_a[j] ;
     IVAR_b = SERSIC_PROFILE.IVAR_b[j] ;
     IVAR_n = SERSIC_PROFILE.IVAR_n[j] ;
@@ -3309,7 +3313,7 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
   // check how many weights are defined, and track the sum.
   
   NWGT = 0;  IVAR_w=0;  j_nowgt = -9 ;     WGTSUM = WGT = 0.0 ;
-  for ( j=0; j < NDEF; j++ ) {
+  for ( j=0; j < NPROF; j++ ) {
     IVAR_w = SERSIC_PROFILE.IVAR_w[j] ;
     if ( IVAR_w > 0 ) { 
       NWGT++ ;
@@ -3321,22 +3325,22 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
   }
 
 
-  if ( NWGT == NDEF-1 ) {
+  if ( NWGT == NPROF-1 ) {
     SERSIC->w[j_nowgt]  = 1.0 - WGTSUM ;
   }
 
   // check debug option for fixed weight with 2 profiles
-  if ( NDEF == 2 && DEBUG_WGTFLUX2 > 0.00001 ) {
+  if ( NPROF == 2 && DEBUG_WGTFLUX2 > 0.00001 ) {
     SERSIC->w[0]  = 1.0 - DEBUG_WGTFLUX2 ;
     SERSIC->w[1]  = DEBUG_WGTFLUX2 ;
     goto WGTSUM ;
   }
 
 
-  if ( NWGT < NDEF - 1 ) {
+  if ( NWGT < NPROF - 1 ) {
     sprintf(c1err,"%s", "Inadequate Sersic weights.");
     sprintf(c2err,"%d Sersic terms, but only %d weights defined.",
-	    NDEF, NWGT );
+	    NPROF, NWGT );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
@@ -3344,14 +3348,14 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
 
   // fill cumulative WGTFLUX_SUM array
   wsum_last = 0.0 ;
-  for ( j=0; j < NDEF; j++ ) {
+  for ( j=0; j < NPROF; j++ ) {
     WGT = SERSIC->w[j] ;
     SERSIC->wsum[j] = WGT + wsum_last; 
     wsum_last = SERSIC->wsum[j] ; 
   }
 
   // finally check that sum of weights are one
-  WTOT = SERSIC->wsum[NDEF-1] ;
+  WTOT = SERSIC->wsum[NPROF-1] ;
   if ( fabs(WTOT-1.0) > 0.0001 ) {
     sprintf(c1err,"Sum of Sersic weights = %f", WTOT);
     sprintf(c2err,"%s", "Check values of w1, w2 ...");
@@ -3773,7 +3777,7 @@ void readme_HOSTLIB(void) {
 
 
   // summarize Sersic profiles
-  for ( j=0; j < SERSIC_PROFILE.NDEF; j++ ) {
+  for ( j=0; j < SERSIC_PROFILE.NPROF; j++ ) {
     cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
     sprintf(cptr,"GALSHAPE profile : %s %s"
 	    ,SERSIC_PROFILE.VARNAME_a[j]
@@ -4940,7 +4944,7 @@ void GEN_SNHOST_POS(int IGAL) {
   SNHOSTGAL.DDLR              = HOSTLIB_SNPAR_UNDEFINED ;
 
   // bail out if there are no galaxy shape parameters
-  if ( SERSIC_PROFILE.NDEF == 0 ) { return ; }
+  if ( SERSIC_PROFILE.NPROF == 0 ) { return ; }
 
   // extract info for each Sersic term
   get_Sersic_info(IGAL, &SNHOSTGAL.SERSIC) ;    
@@ -4966,7 +4970,7 @@ void GEN_SNHOST_POS(int IGAL) {
   // based on the WGT of each profile.
 
   JPROF = -9;
-  for ( j=0; j < SERSIC_PROFILE.NDEF; j++ ) {
+  for ( j=0; j < SERSIC_PROFILE.NPROF; j++ ) {
     WGT = SNHOSTGAL.SERSIC.wsum[j];
     if ( WGT >= Ran0 && JPROF < 0 ) { JPROF = j ; }
   }
@@ -5314,14 +5318,12 @@ void GEN_SNHOST_NBR(int IGAL) {
 void GEN_SNHOST_DDLR(int i_nbr) {
 
   // Created Nov 2019 by R.Kessler
-  // determine DLR for galaxy with sparse neighbor index i_nbr.
+  // Determine DLR for galaxy with sparse neighbor index i_nbr.
   // Note that i_nbr=0 corresponds to the true host for which
   // the SN was previously overlaid.
   //
-  // TO DO: 
-  //  - if no host coords, compute DLR only for i_nbr=0
-  //  - replace dummy DLR calc with proper calc
-  //  - what is a,b for multi-component Sersic profile ?
+  // If there are multiple Sersic terms, a & b are wgted average
+  // among Sersic terms (Jan 2020)
 
   int IVAR_RA     = HOSTLIB.IVAR_RA ;
   int IVAR_DEC    = HOSTLIB.IVAR_DEC ;
@@ -5331,9 +5333,9 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   double RA_SN    = SNHOSTGAL.RA_SN_DEG;  // deg
   double DEC_SN   = SNHOSTGAL.DEC_SN_DEG;
   
-  double RA_GAL, DEC_GAL, DLR, DDLR ;
-  double SNSEP, top, bottom, a_rot, a_half, b_half ;
-  int    IGAL, JPROF ;
+  double RA_GAL, DEC_GAL, DLR, DDLR, WTOT ;
+  double SNSEP, top, bottom, a_rot, a_half, b_half, w,a,b ;
+  int    IGAL, NPROF, j ;
   SERSIC_DEF SERSIC;
   char fnam[] = "GEN_SNHOST_DDLR" ;
 
@@ -5343,7 +5345,7 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   SNHOSTGAL.SNSEP_NBR_LIST[i_nbr] = 0.0 ;
 
   // bail out if there are no galaxy shape parameters
-  if ( SERSIC_PROFILE.NDEF == 0 ) { return ; }
+  if ( SERSIC_PROFILE.NPROF == 0 ) { return ; }
   
   // get IGAL index to access full info.
   IGAL = SNHOSTGAL.IGAL_NBR_LIST[i_nbr] ;
@@ -5353,7 +5355,8 @@ void GEN_SNHOST_DDLR(int i_nbr) {
     DEC_GAL  = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL] ; 
   }
   else {
-    if ( i_nbr > 0 ) { return ; }
+    // bail if neighbor DLR has no coordinates
+    if ( i_nbr > 0 ) { return ; }  
   }
   // fetch Sersic profile info for this IGAL neighbor
   get_Sersic_info(IGAL, &SERSIC) ; 
@@ -5361,9 +5364,23 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   // compute SN-galaxy separation in arcsec.
   SNSEP = angSep(RA_GAL,DEC_GAL,  RA_SN,DEC_SN,  ASEC_PER_DEG);
 
-  JPROF    = 0;     // what about multi-component profile ??
-  a_half   = SERSIC.a[JPROF]; // half-light radius, major axis
-  b_half   = SERSIC.b[JPROF]; // half-light radius, minor axis
+  // For a & b, take weighted average among Sersic terms (Jan 2020).
+  // This method is gut-feeling and not rigorous.
+  NPROF = SERSIC.NPROF;
+  WTOT  = SERSIC.wsum[NPROF-1] ;
+  a_half = b_half = 0.0 ;
+  for (j=0; j < NPROF; j++ ) {
+    w = SERSIC.w[j];   a = SERSIC.a[j] ;   b = SERSIC.b[j];
+    a_half += w*a;    b_half += w*b;
+  }
+  a_half /= WTOT;  b_half /= WTOT;
+
+  /* xxxxxxx mark delete Jan 14 2020 xxxxxxxxx
+  j    = 0;     // what about multi-component profile ??
+  a_half   = SERSIC.a[j]; // half-light radius, major axis
+  b_half   = SERSIC.b[j]; // half-light radius, minor axis
+  xxxxxxxxx end mark xxxxxxxxxxx */
+
   a_rot    = SERSIC.a_rot ;   // rot angle (deg) w.r.t. RA
 
   // for DLR calc, move to frame where RA=DEC=0 for galaxy center
@@ -6031,7 +6048,7 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
   FSUM_PROFILE = 0.0 ;
   NBIN = SERSIC_TABLE.NBIN_reduced ;
 
-  for ( j=0; j < SERSIC_PROFILE.NDEF; j++ ) {
+  for ( j=0; j < SERSIC_PROFILE.NPROF; j++ ) {
     
     // strip off info for this galaxy component.
     a   = SNHOSTGAL.SERSIC.a[j] ;
@@ -6268,7 +6285,7 @@ void DUMP_SNHOST(void) {
     fflush(stdout);
   }
 
-  if ( SERSIC_PROFILE.NDEF > 0 ) {
+  if ( SERSIC_PROFILE.NPROF > 0 ) {
 
     printf("\t => GAL(RA,DEC) = %.6f, %.6f deg. \n",
 	   SNHOSTGAL.RA_GAL_DEG,  SNHOSTGAL.DEC_GAL_DEG  );
@@ -6290,7 +6307,7 @@ void DUMP_SNHOST(void) {
 
     fflush(stdout);
 
-    for ( j=0; j < SERSIC_PROFILE.NDEF; j++ ) {
+    for ( j=0; j < SERSIC_PROFILE.NPROF; j++ ) {
       a  =  SNHOSTGAL.SERSIC.a[j] ;
       b  =  SNHOSTGAL.SERSIC.b[j] ;
       w  =  SNHOSTGAL.SERSIC.w[j] ;

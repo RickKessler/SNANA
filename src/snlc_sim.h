@@ -304,8 +304,28 @@ typedef struct {
 } TAKE_SPECTRUM_DEF;
 
 
+
+#define NTYPE_FLUXNOISE      5
+#define TYPE_FLUXNOISE_S     0  // from search image + zperr
+#define TYPE_FLUXNOISE_Z     1  // from zero point
+#define TYPE_FLUXNOISE_T     2  // from template
+#define TYPE_FLUXNOISE_F     3  // from error fudge
+#define TYPE_FLUXNOISE_SUM   4  // quadrature sum, for monitor only
+
 typedef struct {
+
   // all SQSIG are in p.e.
+
+  double SQSIG_CALC_TRUE[NTYPE_FLUXNOISE];   // actual scatter
+  double SQSIG_CALC_DATA ;
+  double SQSIG_FUDGE_TRUE[NTYPE_FLUXNOISE];
+  double SQSIG_FUDGE_DATA ;
+  double SQSIG_FINAL_TRUE[NTYPE_FLUXNOISE];
+  double SQSIG_FINAL_DATA, SIG_FINAL_DATA ;
+
+  double SNR_calc;    // does not include template noise (for legacy fudges)
+  double SNR_CALC ;   // includes template noise (for FLUXERRMODEL_FILE)
+
   double SQSIG_SRC;       // source noise = Npe
   double SQSIG_SKY;       // sky+CCD noise
   double SQSIG_ZP ;        // ZP error
@@ -315,16 +335,8 @@ typedef struct {
   double SQSIG_HOST_IMAGE ; // anomalous noise from HOSTNOISE_FILE->obsolete
   double SQSIG_RAN ;        // error shift due to Poisson noise
 
-  double SQSIG_CALC, SIG_CALC; // calculated without fudges
-  double SNR_CALC ;      // used for trigger effic (Aug 24 2014)
+  // SNR for monitor
   double SNR_CALC_MON ;   // calc SNR for MAGMONITOR_SNR input
-
-  // FINAL includes fluxerr corrections
-  double SQSIG_FINAL_TRUE, SIG_FINAL_TRUE ; // true error 
-  double SQSIG_FINAL_DATA, SIG_FINAL_DATA ; // error reported in data file
-  double SQSIG_FINAL_TSKY, SIG_FINAL_TSKY ; // template error
-
-  double SNR_FINAL_TRUE, SNR_FINAL_DATA ;   
   double SNR_FINAL_MON ;   // calc SNR for MAGMONITOR_SNR input
 
   // misc.
@@ -332,7 +344,16 @@ typedef struct {
   char BAND[2];
   int  IFILT_OBS;
 
+  // store actual flux-shift for each term.
+  double FLUX_SHIFT_TRUE[NTYPE_FLUXNOISE];
+
 } FLUXNOISE_DEF ;
+
+
+typedef struct {
+  int    NSUM ;
+  double RHO_EVT, RHO_SUM, RHO_AVG ;
+} MONITOR_REDCOR_FLUXNOISE_DEF ;
 
 // -------------------------------------
 // define user INPUTS
@@ -981,18 +1002,17 @@ struct GENLC {
 
   // flux and magnitudes (float-> double, Jan 2014)
   double flux[MXEPSIM] ;            // flux in ADU
-  double fluxerr_true[MXEPSIM];     // true error
   double fluxerr_data[MXEPSIM];     // reported error in data file 
-  // xxx mark delete  double flux_errstat[MXEPSIM] ;
-  // xxx mark delete  double flux_errtot[MXEPSIM];   
   double template_err[MXEPSIM];     // correlated template error
   double trueSNR[MXEPSIM];          // true/generated SNR
   int    npe_above_sat[MXEPSIM];    // nphotoelectrons above saturation
 
   FLUXNOISE_DEF *FLUXNOISE;    // Dec 27 2019 - refactor for noise cov.
+  
+  MONITOR_REDCOR_FLUXNOISE_DEF MONITOR_REDCOR_FLUXNOISE[MXFILTINDX][NTYPE_FLUXNOISE];
 
   // xxxx -----------------------------------------------------
-  // xxxxx legacy arrays to remove after implementing OBSNOISE
+  // xxxxx legacy arrays to remove after GENFLUX_DRIVER refactor
   // noise contributions (in photoelectrons)
   double NOISE_SN[MXEPSIM] ;
   double NOISE_SKY[MXEPSIM] ;
@@ -1011,6 +1031,7 @@ struct GENLC {
 
   // Gaussian randoms for broadband measurement noise
   double RANGauss_NOISE_SEARCH[MXEPSIM];   // search noise, per epoch
+  double RANGauss_NOISE_FUDGE[MXEPSIM];   //  fudged search noise, per epoch
   double RANGauss_NOISE_ZP[MXEPSIM];       // ZP noise, per epoch (Feb 2018)
   double RANGauss_NOISE_TEMPLATE[MXFIELD_OVP_SIMLIB][MXFILTINDX];  // template noise per filter and field-overlap
 
@@ -1308,7 +1329,7 @@ typedef struct  {
   double  PSFSIG2[MXOBS_SIMLIB];
   double  PSFRATIO[MXOBS_SIMLIB];
   double  ZPTADU[MXOBS_SIMLIB];    // ZPT in ADU for entire exposure
-  double  ZPTSIG[MXOBS_SIMLIB];    // ZPT and ZPTSIG
+  double  ZPTERR[MXOBS_SIMLIB];    // ZPT error
   double  MAG[MXOBS_SIMLIB];       // optional mag
   double  PIXSIZE[MXOBS_SIMLIB] ;   // Nov 26, 2011
 
@@ -1691,9 +1712,12 @@ void   set_GENFLUX_FLAGS(int ep);
 void   gen_fluxNoise_randoms(void);
 void   gen_fluxNoise_calc(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
 void   gen_fluxNoise_fudge_diag(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
+void   gen_fluxNoise_fudge_cov(int icov);
 void   gen_fluxNoise_apply(int ep, int vbose, FLUXNOISE_DEF *FLUXNOISE);
 void   dumpLine_fluxNoise(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE);
 void   dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE);
+void   dumpCovMat_fluxNoise(int icov, int NOBS, double *COV);
+void   monitorCov_fluxNoise(void);
 void   check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE);
 
 void   GENSPEC_DRIVER(void);    // driver to generate all spectra for event

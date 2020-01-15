@@ -47,9 +47,10 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
   //  + read OPT_EXTRAP key from map file, and pass to read_GRIDMAP().
   //
   // Dec 9 2019: abort if map file cannot be opened.
+  // Jan 10 2020: parse optional REDCOV 
 
   FILE *fp;
-  int gzipFlag, FOUNDMAP, NTMP, NVAR, NDIM, NFUN, ivar, igroup;
+  int gzipFlag, FOUNDMAP, NTMP, NVAR, NDIM, NFUN, ivar, igroup, ifilt ;
   int IDMAP, NMAP=0, imap, OPT_EXTRAP=0 ; 
   char PATH[MXPATHLEN], c_get[80];  
   char *fullName = FILENAME_FLUXERRMAP ;
@@ -62,6 +63,8 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
   NMAP_FLUXERRMODEL          = 0 ;
   FLUXERR_FIELDGROUP.NDEFINE = 0 ;  
   NINDEX_SPARSE_FLUXERRMAP   = 0 ;
+  NREDCOV_FLUXERRMAP         = 0 ;
+
   if ( IGNOREFILE(fileName) ) { return ; }
 
   sprintf(BANNER,"%s:", fnam);
@@ -102,6 +105,9 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
     FLUXERRMAP_EXTRAP.NOBS_EXTRAP_HI[imap] = 0 ;
   }
 
+  for(ifilt=0; ifilt < MXFILTINDX; ifilt++ )
+    { INDEX_REDCOV_FLUXERRMAP[ifilt] = -9 ; }
+
   // start reading file
   while ( fscanf(fp, "%s", c_get) != EOF ) {
 
@@ -115,6 +121,11 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
       readchar(fp, fieldList );
       printf("\t FIELD-assign %s --> %s \n", name, fieldList );
       FLUXERR_FIELDGROUP.NDEFINE++ ;
+    }
+
+    if ( strcmp(c_get,"REDCOV:")==0 || strcmp(c_get,"REDCOR:")==0 ) {
+      readchar(fp, TMP_STRING);
+      parse_REDCOV_FLUXERRMAP(TMP_STRING);
     }
 
     if ( strcmp(c_get,"MAPNAME:")==0 ) {
@@ -202,9 +213,9 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
   // print summary of maps
   printSummary_FLUXERRMAP();
 
-  return ;
-
   //  debugexit(fnam) ;
+
+  return ;
 
 } // end INIT_FLUXERRMODEL
 
@@ -332,6 +343,76 @@ int index_sparse_FLUXERRMAP(int NMAP, char *MAPNAME) {
 } // end  index_sparse_FLUXERRMAP
 
 
+// ===========================================
+void parse_REDCOV_FLUXERRMAP(char *STRING) {
+
+  // Created Jan 10 2010
+  //
+  // Input STRING is of the form
+  //   STRING = band1:rho1,band2:rho2,band3:rho3
+  //
+  // where band and REDCOV are colon separated, and comma
+  // separates different bands. Split STRING and load contents
+  // in struct REDCOV_FLUXERRMAP.
+  // Note that REDCOV key can appear multiple times in FLUXERRMODEL_FILE,
+  // so here we keep appending list.
+  //
+  // Each band can be defined no more than once; otherwise abort.
+
+  int NREDCOV = NREDCOV_FLUXERRMAP ;
+  int MXRED   = MXREDCOV_FLUXERRMAP - NREDCOV ;
+
+  int i, NITEM, N2, ifilt_obs, iband, NBAND_TMP ;
+  char *ptrSplit1[MXREDCOV_FLUXERRMAP], *ptrSplit2[2];
+  char *BANDSTRING, *BANDLIST, band[2];
+  char comma[]=  ",", colon[] = ":" ;
+  char fnam[] = "parse_REDCOV_FLUXERRMAP" ;
+
+  // ---------- BEGIN -----------
+
+  for(i=0; i < MXRED; i++ ) 
+    { ptrSplit1[i] = COVINFO_FLUXERRMAP[NREDCOV+i].BANDSTRING; }
+
+  // split by comma
+  splitString(STRING, comma, MXRED, &NITEM, ptrSplit1);
+  
+  // for each item, split by colon to get bandlist:rho
+  ptrSplit2[0] = (char*)malloc( 40*sizeof(char) );
+  ptrSplit2[1] = (char*)malloc( 40*sizeof(char) );
+  for(i=0; i < NITEM; i++ ) {
+    BANDSTRING = COVINFO_FLUXERRMAP[NREDCOV].BANDSTRING ;
+    BANDLIST   = COVINFO_FLUXERRMAP[NREDCOV].BANDLIST ;
+    splitString(ptrSplit1[i], colon, 2, &N2, ptrSplit2);    
+    sprintf(BANDSTRING,  "%s", ptrSplit1[i] );
+    sprintf(BANDLIST,    "%s", ptrSplit2[0] );
+    sscanf(ptrSplit2[1], "%le", &COVINFO_FLUXERRMAP[NREDCOV].REDCOV);
+
+
+    // keep track of which bands are used, and abort if any
+    // band is used more than once.
+    NBAND_TMP = strlen(BANDLIST) ;
+    for(iband=0; iband < NBAND_TMP; iband++ ) {
+      sprintf(band, "%c", BANDLIST[iband] );
+      ifilt_obs = INTFILTER(band);
+      if ( INDEX_REDCOV_FLUXERRMAP[ifilt_obs] >= 0 ) {       
+	sprintf(c1err,"Cannot define %s band more than once.", band);
+	sprintf(c2err,"Each band can be defined only once in REDCOV key.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+      INDEX_REDCOV_FLUXERRMAP[ifilt_obs] = NREDCOV;
+    } // end iband
+
+
+    NREDCOV++ ; // update total number of COV matrices
+  } // end loop over items
+
+  NREDCOV_FLUXERRMAP =  NREDCOV;
+
+
+  return ;
+
+} // end parse_REDCOV_FLUXERRMAP
+
 // =========================================
 void  parse_IGNORE_FLUXERRMAP(char *MAPLIST_IGNORE_DATAERR) {
 
@@ -422,6 +503,14 @@ void printSummary_FLUXERRMAP(void) {
   }
   printf("# %s \n", dashLine);
   printf(" NINDEX_SPARSE_FLUXERRMAP = %d \n", NINDEX_SPARSE_FLUXERRMAP );
+  fflush(stdout);
+
+  // print reduced covariances (Jan 2020)
+  for(imap=0; imap < NREDCOV_FLUXERRMAP; imap++ ) {
+    printf("\t Excess scatter %d: REDCOV(%s) = %6.3f \n", imap,
+	   COVINFO_FLUXERRMAP[imap].BANDLIST, 
+	   COVINFO_FLUXERRMAP[imap].REDCOV );
+  }
   fflush(stdout);
 
 } // end printSummary_FLUXERRMAP

@@ -255,7 +255,6 @@ int main(int argc, char **argv) {
     // new filters are read (i.e, for non1a)
     gen_filtmap(ilc);   
 
-
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("04", ilc) ; }
 
     // Quit if we get negative LIBID;
@@ -307,7 +306,7 @@ int main(int argc, char **argv) {
 
     // convert generated mags into observed fluxes
     GENFLUX_DRIVER_LEGACY();   // diagonal flux-cov only
-    if ( INPUTS.DEBUG_FLAG == 33 )    { GENFLUX_DRIVER(); }
+    if ( INPUTS.DEBUG_FLAG == 33 )  { GENFLUX_DRIVER(); }
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("10", ilc) ; }
 
@@ -7650,7 +7649,7 @@ void init_simvar(void) {
   // One-time init of sim-variables; mostly counters.
   // Nov 24, 2017: init GENLC.MWEBV[_ERR] here instead of in init_GENLC().
 
-  int ifilt ;
+  int ifilt, type ;
   float xmb ;
   char fnam[] = "init_simvar";
 
@@ -7679,25 +7678,22 @@ void init_simvar(void) {
   NGEN_REJECT.CUTWIN    = 0;
   NGEN_REJECT.NEPOCH    = 0;
 
-  /* xxx
-  for(itype=0; itype < MXTYPE; itype++ ) {
-    NGENTYPE_TOT[itype] = 0 ;
-    NGENTYPE_WRITE[itype] = 0 ;
-  }
-  xxxxx  */
-
-  GENLC.MWEBV     = 0.0 ;
-  GENLC.MWEBV_ERR = 0.0 ;
-
+  GENLC.MWEBV           = 0.0 ;
+  GENLC.MWEBV_ERR       = 0.0 ;
   GENLC.NTYPE_SPEC_CUTS = 0;
-  GENLC.NTYPE_SPEC = 0 ;
+  GENLC.NTYPE_SPEC      = 0 ;
   GENLC.NTYPE_PHOT_CUTS = 0;
-  GENLC.NTYPE_PHOT = 0 ;
+  GENLC.NTYPE_PHOT      = 0 ;
 
   GENLC.NON1ASED.ISPARSE    = -9 ;  //  (non1a sparse index: 1-NINDEX)
 
-  for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ )
-    { GENLC.SNRMAX_FILT[ifilt]  = -9.0 ;   }
+  for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
+    GENLC.SNRMAX_FILT[ifilt]  = -9.0 ;   
+    for(type=0; type < NTYPE_FLUXNOISE; type++ ) { 
+      GENLC.MONITOR_REDCOR_FLUXNOISE[ifilt][type].RHO_SUM = 0.0 ; 
+      GENLC.MONITOR_REDCOR_FLUXNOISE[ifilt][type].NSUM    = 0 ; 
+    }
+  }
 
   GENLC.FUDGE_SNRMAX_FLAG = 0 ;
 
@@ -8007,7 +8003,6 @@ void  init_GENLC(void) {
 
     GENLC.flux[epoch]         = NULLFLOAT ;
     GENLC.fluxerr_data[epoch] = NULLFLOAT ;
-    GENLC.fluxerr_true[epoch] = NULLFLOAT ;
     GENLC.mag[epoch]          = NULLFLOAT ;
     GENLC.mag_err[epoch]      = NULLFLOAT ;
 
@@ -8085,7 +8080,7 @@ void  init_GENLC(void) {
     SIMLIB_OBS_GEN.PSFSIG2[i]    = -99. ;
     SIMLIB_OBS_GEN.PSFRATIO[i]   = -99. ;
     SIMLIB_OBS_GEN.ZPTADU[i]     = -99. ;
-    SIMLIB_OBS_GEN.ZPTSIG[i]     = -99. ;
+    SIMLIB_OBS_GEN.ZPTERR[i]     = -99. ;
     SIMLIB_OBS_GEN.APPEND_PHOTFLAG[i] = 0 ;
 
     SIMLIB_OBS_GEN.TEMPLATE_SKYSIG[i]     =  0.0 ;
@@ -9761,10 +9756,6 @@ int fudge_SNR ( void ) {
     for ( ep=1; ep <= GENLC.NEPOCH; ep++ ) {
 
       if ( !GENLC.ISOBS[ep] ) { continue; }
-      /* xxxx mark delete Dec 22 2019  .xyz xxxxxxxxxxxx
-      if ( GENLC.ISPEAK[ep]     ) { continue ; }
-      if ( GENLC.ISTEMPLATE[ep] ) { continue ; }
-      xxxxxxxxxxx */
 
       ifilt_obs  = GENLC.IFILT_OBS[ep] ;
       Tobs       = GENLC.MJD[ep] - GENLC.PEAKMJD ;  // for dump only
@@ -10656,12 +10647,13 @@ void gen_filtmap(int ilc) {
   }
 
 
-  
+
+
   // Dec 22 2019: if any filter was excluded, set ISOBS[ep]=0
   if ( NDOFILT_ZERO > 0 ) {
     for ( ep = 1; ep <= GENLC.NEPOCH; ep++ )  {  
       ifilt_obs = GENLC.IFILT_OBS[ep] ;    
-      if ( !GENLC.DOFILT[ifilt_obs] ) { GENLC.ISOBS[ep] = 0 ; }
+      if ( !GENLC.DOFILT[ifilt_obs] )  { GENLC.ISOBS[ep] = 0 ; }
     }
   }
 
@@ -14880,7 +14872,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.PSFSIG2[ISTORE]  );
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.PSFRATIO[ISTORE] );
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.ZPTADU[ISTORE]   );  
-      readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.ZPTSIG[ISTORE]   );  
+      readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.ZPTERR[ISTORE]   );  
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.MAG[ISTORE]      );
 
       // check MAG column for SIMLIB model (Nov 2019)
@@ -15242,7 +15234,7 @@ void SIMLIB_addCadence_SPECTROGRAPH(void) {
       SIMLIB_OBS_RAW.PSFSIG2[ISTORE]    = -9.0 ;
       SIMLIB_OBS_RAW.PSFRATIO[ISTORE]   = -9.0 ;
       SIMLIB_OBS_RAW.ZPTADU[ISTORE]     = -9.0 ;
-      SIMLIB_OBS_RAW.ZPTSIG[ISTORE]     = -9.0 ;
+      SIMLIB_OBS_RAW.ZPTERR[ISTORE]     = -9.0 ;
       SIMLIB_OBS_RAW.MAG[ISTORE]        = 99.0 ;
       ISTORE++ ;  NOBS_ADD++ ;
 
@@ -15444,7 +15436,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
       // 2. sanity checks to catch crazy [nan] values. Second arg is NVAL=1
       checkval_D("ZPTAVG", 1, &SIMLIB_OBS_RAW.ZPTADU[ISTORE],  6.0, 50.0) ;
-      checkval_D("ZPTSIG", 1, &SIMLIB_OBS_RAW.ZPTSIG[ISTORE],  0.0, 5.0 ) ;
+      checkval_D("ZPTERR", 1, &SIMLIB_OBS_RAW.ZPTERR[ISTORE],  0.0, 5.0 ) ;
       checkval_D("PSF1",   1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 9.9 );
       checkval_D("PSF2",   1, &SIMLIB_OBS_RAW.PSFSIG2[ISTORE], 0.0, 9.9 );
       checkval_D("PSFrat", 1, &SIMLIB_OBS_RAW.PSFRATIO[ISTORE],0.0, 1.0 );
@@ -15517,7 +15509,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     PSF[1]     = SIMLIB_OBS_RAW.PSFSIG2[OBSRAW] ;
     PSF[2]     = SIMLIB_OBS_RAW.PSFRATIO[OBSRAW] ;
     ZPT[0]     = SIMLIB_OBS_RAW.ZPTADU[OBSRAW] ;
-    ZPT[1]     = SIMLIB_OBS_RAW.ZPTSIG[OBSRAW] ;
+    ZPT[1]     = SIMLIB_OBS_RAW.ZPTERR[OBSRAW] ;
     PIXSIZE    = SIMLIB_OBS_RAW.PIXSIZE[OBSRAW];
     MAG        = SIMLIB_OBS_RAW.MAG[OBSRAW] ;
     IFILT_OBS  = SIMLIB_OBS_RAW.IFILT_OBS[OBSRAW] ;
@@ -15600,7 +15592,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     SIMLIB_OBS_GEN.PSFSIG2[NEP]     = PSF[1] * SCALE_PSF ;
     SIMLIB_OBS_GEN.PSFRATIO[NEP]    = PSF[2] ;  // ratio                      
     SIMLIB_OBS_GEN.ZPTADU[NEP]      = ZPT[0] + SHIFT_ZPT ;
-    SIMLIB_OBS_GEN.ZPTSIG[NEP]      = ZPT[1] ;
+    SIMLIB_OBS_GEN.ZPTERR[NEP]      = ZPT[1] ;
     SIMLIB_OBS_GEN.MAG[NEP]         = MAG ;
     SIMLIB_OBS_GEN.NEXPOSE[NEP]     = NEXPOSE ;
     SIMLIB_OBS_GEN.ISTORE_RAW[NEP]  = OBSRAW ;
@@ -15803,7 +15795,7 @@ void store_SIMLIB_SPECTROGRAPH(int ifilt, double *VAL_STORE, int ISTORE) {
   SIMLIB_OBS_RAW.PSFSIG2[ISTORE]    = 0.0 ;  // sigma2
   SIMLIB_OBS_RAW.PSFRATIO[ISTORE]   = 0.0 ;  // ratio of two Gaussians
   SIMLIB_OBS_RAW.ZPTADU[ISTORE]     = ZPT ;  // TEXPOSE zero point (pe)
-  SIMLIB_OBS_RAW.ZPTSIG[ISTORE]     = 0.0 ;  // no error; included in SKYSIG
+  SIMLIB_OBS_RAW.ZPTERR[ISTORE]     = 0.0 ;  // no error; included in SKYSIG
   SIMLIB_OBS_RAW.MAG[ISTORE]        = 99.0; 
 
   // set optional template noise for passbands made from spectrograph
@@ -19503,7 +19495,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
 
   double 
     genmag, genmag_T
-    ,ccdgain, readnoise, skysig, psfsig1, psfsig2, psfratio, zpt, zptsig  
+    ,ccdgain, readnoise, skysig, psfsig1, psfsig2, psfratio, zpt, zpterr
     ,Npe_over_FLUXCAL, ZPTDIF_ADU, NADU_over_FLUXCAL, NADU_over_Npe
     ,template_readnoise, template_skysig, template_zpt
     ,zsn, psfsig_arcsec, psfFWHM_arcsec, galmag, GALMAG, SBmag
@@ -19546,7 +19538,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
 
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) { return SUCCESS; }
 
-  // strip GENLC info into local variables.
+  // strip GENLC info into local gvariables.
 
   ifilt_obs      = GENLC.IFILT_OBS[epoch] ;
   ifilt = GENLC.IFILTINVMAP_OBS[ifilt_obs] ; // sparse index
@@ -19568,7 +19560,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   psfsig2    = SIMLIB_OBS_GEN.PSFSIG2[epoch] ;
   psfratio   = SIMLIB_OBS_GEN.PSFRATIO[epoch] ;
   zpt        = SIMLIB_OBS_GEN.ZPTADU[epoch] ;
-  zptsig     = SIMLIB_OBS_GEN.ZPTSIG[epoch] ;
+  zpterr     = SIMLIB_OBS_GEN.ZPTERR[epoch] ;
   
   GALID   = SNHOSTGAL.GALID ;
   GALMAG  = SNHOSTGAL.GALMAG[ifilt_obs][0] ; // full galaxy mag
@@ -19746,6 +19738,8 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   // compute calculated SNR to use in lookup maps;
   // include coh template noise, but ignore anomalous image noise.
   SNR_CALC      = fluxsn_pe / sqrt(sqsum + template_sqskyerr_pe );
+
+  //  SNR_CALC = fluxsn_pe/sqrt(sqsum_calc + template_sqskyerr_pe );//xxxREMOVE
  
   if ( INPUTS.MAGMONITOR_SNR > 10 ) {
     double sqsum_mon = sqsum - fluxsn_pe + fluxmon_pe ;
@@ -19798,7 +19792,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   // NOTE: maybe the zpt error should be correlated among epochs ?
 
   if ( INPUTS.SMEARFLAG_ZEROPT > 0 ) {
-    relerr  = pow(TEN, 0.4*zptsig) - 1.0 ;
+    relerr  = pow(TEN, 0.4*zpterr) - 1.0 ;
     err1    = fluxsn_adu_errS  ;    
     err2    = (fluxsn_adu-flux_T) * relerr ;    
     sqerr1  = err1 * err1 ;    sqerr2  = err2 * err2 ;
@@ -19847,12 +19841,13 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
     
     // pass FLUXCAL units to fluxErrModel in case of additive term.
 
-    double FLUXCALERR_in, FLUXCALERR_REAL, FLUXCALERR_DATA ;
+    double FLUXCALERR_in, FLUXCALERR_REAL, FLUXCALERR_DATA, err_adu ;
     if ( INPUTS.RESTORE_FLUXERR_BUGS ) 
-      {	FLUXCALERR_in = fluxsn_adu_errS  / NADU_over_FLUXCAL ; }
+      {	err_adu = fluxsn_adu_errS ; }
     else 
-      { FLUXCALERR_in = fluxsn_adu_errST / NADU_over_FLUXCAL ; }
+      { err_adu = fluxsn_adu_errST ; }
 
+    FLUXCALERR_in = err_adu  / NADU_over_FLUXCAL ;
     get_FLUXERRMODEL(OPT, FLUXCALERR_in, band, field,      // (I)
 		     NPAR_FLUXERRMAP_REQUIRE, ERRPARLIST,  // (I)
 		     &FLUXCALERR_REAL, &FLUXCALERR_DATA) ; // (O)
@@ -19860,7 +19855,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
     // convert FLUXCAL back to pe
     fluxsn_adu_errReal = FLUXCALERR_REAL * NADU_over_FLUXCAL ;
     fluxsn_adu_errData = FLUXCALERR_DATA * NADU_over_FLUXCAL ;
-    scale_fluxErr      = fluxsn_adu_errData/fluxsn_adu_errS ;
+    scale_fluxErr      = fluxsn_adu_errData/err_adu ;
   }
   else {
     // leagcy option
@@ -19879,28 +19874,28 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   }  // @@@@@@@@@@@@@@@@@ LEGACY ERRFUDGE @@@@@@@@@@@@@@@@@@@@@@@@@
 
 
-  if ( DEBUG_DUMP == -6 ) {
+  if ( DEBUG_DUMP == -666 ) {
 
     // this dump code is to validate refactored gen_fluxNoise_fudges
     FLUXNOISE_DEF FLUXNOISE ;
     double sqsig, sqsig_calc, sqsig_final_true, sqsig_final_data, sig;
     double sqscale = scale_fluxErr*scale_fluxErr;
-
-    sqsig_calc     = sqsum_calc; // original sqsig with no fudges
+    sqsig_calc = sqsum_calc + template_sqerr_pe ; // orig sqsig, no fudges
 
     // now tack on fudges for "sqsig_final "
-    sqsig             = fluxsn_pe_err * fluxsn_pe_err;
+    sqsig = (fluxsn_pe_err*fluxsn_pe_err) + template_sqerr_pe ;
     sqsig_final_true  = (sqsig + sqImageNoise_pe);
-    sqsig_final_data  = sqsig_final_true * sqscale ;
+    sqsig_final_data  = (sqsig * sqscale) ;
 
-    FLUXNOISE.SIG_FINAL_TRUE = sqrt(sqsig_final_true) ;
-    FLUXNOISE.SIG_FINAL_DATA = sqrt(sqsig_final_data) ;
-    FLUXNOISE.SIG_CALC  = sqrt(sqsig_calc);
-    FLUXNOISE.SQSIG_SRC = fluxsn_pe ;
-    FLUXNOISE.IFILT_OBS = ifilt_obs;
+    FLUXNOISE.SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_SUM] = sqsig_final_true;
+    FLUXNOISE.SQSIG_FINAL_DATA = sqsig_final_data ;
+    FLUXNOISE.SQSIG_CALC_DATA  = sqsig_calc ;
+    FLUXNOISE.SQSIG_SRC        = fluxsn_pe ;
+    FLUXNOISE.IFILT_OBS        = ifilt_obs;
     sprintf(FLUXNOISE.BAND,"%s",band);
     dumpLine_fluxNoise("OLD", epoch, &FLUXNOISE);
   }
+
 
   // Dec 28 2019: hack bug-fix to scale template error for adding noise
   if ( !INPUTS.RESTORE_FLUXERR_BUGS ) 
@@ -19988,7 +19983,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
     printf("\t HOSTNOISE(FLUXCAL,pe) = %f, %f \n",
 	   HOSTNOISE_FLUXCAL, HOSTNOISE_pe);
 
-    printf("\t zptsig=%f   \n",  zptsig);
+    printf("\t zpterr=%f   \n",  zpterr);
     printf("\t GEN(AV,RV) = %7.3f , %7.3f    SHAPEPAR=%7.3f   c=%7.3f\n", 
 	   GENLC.AV, GENLC.RV, GENLC.SHAPEPAR, GENLC.SALT2c );
     printf("\t Gauss random number: %f \n", 
@@ -20130,10 +20125,10 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   GENLC.flux[epoch]         = fluxObs_adu ;        // flux with fluctuation
 
   // store stat error for the flux in ADU;  the FLUXCAL and FLUXCAL_ERR 
-  // (computed later in fluxcal_SNDATA) include the ZPTSIG term.
+  // (computed later in fluxcal_SNDATA) include the ZPTERR term.
   GENLC.fluxerr_data[epoch] = errstat ;    // without ZP smear
 
-  // separately store total error that include ZPTSIG term.
+  // separately store total error that include ZPTERR term.
   // xxx mark delete  GENLC.flux_errtot[epoch]  = errtot ; 
 
   
@@ -20351,20 +20346,6 @@ void snlc_to_SNDATA(int FLAG) {
   //
   // Set CUTBIT_MASK bits
   //
-  // Feb 23, 2012: store search-run ZPT instead of ZPT for template run
-  //
-  // Aug 23, 2012: write file name with %8.8 of NGEN > 1 million
-  //               or if the CIDRAN flag is set.
-  //               Goes with new MXGEN_SIM = 3 million.
-  //
-  // Mar 3 2014: SMEARFLAG_ZEROPT=2 --> report total error.
-  // Nov 23 2014: set PHOTFLAG
-  // Sep 04 2016: SNDATA.MAG computed in fluxcal_SNDATA().
-  // Apr 17 2017: SKY_SIG back to ADU (not FLUXCAL)
-  // Aug 10 2017: abort of NEPOCH>=MXEPOCH to protect SNDATA arrays.
-  // Aug 26 2017: ctmp[60] -> ctmp[200] to handle long model names
-  // Sep 08 2017: load LCLIB info
-  // Sep 20 2017: fix refactor bug setting SURVEY and SUBSURVEY
   // Mar 02 2018: scale SKYSIG_T to same ZP as SKYSIG_S
   //              Only affects output to data files.
   // Jun 01 2018: for LCLIB, set all redshifts and errors to zero
@@ -20796,8 +20777,8 @@ void snlc_to_SNDATA(int FLAG) {
 
     // Feb 23, 2012: store search-run zpt instead of template run  zpt
     SNDATA.ZEROPT[epoch]      = SIMLIB_OBS_GEN.ZPTADU[epoch] ;
-    SNDATA.ZEROPT_ERR[epoch]  = SIMLIB_OBS_GEN.ZPTSIG[epoch] ;
-    SNDATA.ZEROPT_SIG[epoch]  = SIMLIB_OBS_GEN.ZPTSIG[epoch] ;
+    SNDATA.ZEROPT_ERR[epoch]  = SIMLIB_OBS_GEN.ZPTERR[epoch] ;
+    SNDATA.ZEROPT_SIG[epoch]  = SIMLIB_OBS_GEN.ZPTERR[epoch] ;
 
     // mar 18 2018: store SNR at fixed mag to monitor data quality 
     SNDATA.SIMEPOCH_SNRMON[epoch] = GENLC.SNR_MON[epoch];
@@ -22262,7 +22243,7 @@ void GENMAG_DRIVER(void) {
   // Aut 17 2017: call get_lightCurveWidth
 
   int ifilt, ifilt_obs, DOFILT ;
-  //  char fnam[] = "GENMAG_DRIVER" ;
+  char fnam[] = "GENMAG_DRIVER" ;
 
   // -------------- BEGIN ---------------
 
@@ -22349,10 +22330,11 @@ void GENFLUX_DRIVER(void) {
 
   int NEPOCH = GENLC.NEPOCH ;
   int MEM    = (NEPOCH+1)*sizeof(FLUXNOISE_DEF);
-  int epoch, istat, ifilt_obs;
+  int epoch, istat, ifilt_obs, icov;
   int VBOSE_CALC  = 0 ;
   int VBOSE_FUDGE = 0 ;
   int VBOSE_APPLY = 0 ;
+  int DEBUG_MODE  = (INPUTS.DEBUG_FLAG == 33);
   char fnam[] = "GENFLUX_DRIVER" ;
 
   // -------------- BEGIN ---------------
@@ -22364,27 +22346,43 @@ void GENFLUX_DRIVER(void) {
   // generate randoms for each epopch and filter
   // Avoid calling randoms twice when running both legacy gen_smearFlux
   // and refactored code here.
-  if ( INPUTS.DEBUG_FLAG  != 33 ) { gen_fluxNoise_randoms(); }
+  if ( !DEBUG_MODE ) { gen_fluxNoise_randoms(); }
+
+  for(icov=0; icov < NREDCOV_FLUXERRMAP; icov++ )
+    { COVINFO_FLUXERRMAP[icov].NOBS = 0 ; }
 
   for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {
 
-    GENLC.flux[epoch]         = NULLFLOAT ; 
-    GENLC.fluxerr_data[epoch] = NULLFLOAT ;     
+    if ( !DEBUG_MODE ) {
+      GENLC.flux[epoch]         = NULLFLOAT ; 
+      GENLC.fluxerr_data[epoch] = NULLFLOAT ;     
+    }
     GENLC.FLUXNOISE[epoch].IFILT_OBS = -888 ;
- 
+
     if ( !GENLC.ISOBS[epoch]  )  { continue ; }
     gen_fluxNoise_calc(epoch,VBOSE_CALC, &GENLC.FLUXNOISE[epoch]);
 
     // check noise fudge-options; diagonal COV only
     gen_fluxNoise_fudge_diag(epoch, VBOSE_FUDGE, &GENLC.FLUXNOISE[epoch]);
 
-    // apply random noise to flux
-    gen_fluxNoise_apply(epoch, VBOSE_APPLY, &GENLC.FLUXNOISE[epoch] );
-
     if ( VBOSE_CALC ) 
       { dumpLine_fluxNoise("NEW", epoch, &GENLC.FLUXNOISE[epoch] );  }
 
   }
+
+  // check for optional flux covariance in FLUXERRMODEL_FILE maps
+  for(icov=0; icov < NREDCOV_FLUXERRMAP; icov++ )
+    { gen_fluxNoise_fudge_cov(icov); }
+
+
+  // apply random noise to each flux
+  for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {
+    if ( !GENLC.ISOBS[epoch]  )  { continue ; }
+    gen_fluxNoise_apply(epoch, VBOSE_APPLY, &GENLC.FLUXNOISE[epoch] );
+  }
+
+  // monitor covariance separately for S,T,F components, and each band.
+  monitorCov_fluxNoise();
 
   free(GENLC.FLUXNOISE);
 
@@ -22407,6 +22405,8 @@ void gen_fluxNoise_randoms(void) {
   // Feb 14 2018: set GENLC.RANGauss_NOISE_ZP[ep] 
   //
 
+  double RAN1, RAN2;
+  int DEBUG_MODE = (INPUTS.DEBUG_FLAG == 33 ) ;
   int ep, ifilt, ifilt_obs, ifield;
   char fnam[] = "gen_fluxNoise_randoms" ;
 
@@ -22419,16 +22419,21 @@ void gen_fluxNoise_randoms(void) {
 
     ifilt_obs = GENLC.IFILT_OBS[ep] ;    
     GENLC.RANGauss_NOISE_SEARCH[ep] = -99999. ;  
+    GENLC.RANGauss_NOISE_FUDGE[ep]  = -99999. ;  
     GENLC.RANGauss_NOISE_ZP[ep]     = -99999. ;  
 
     // skip un-used epochs so that randoms stay synced with
     // previous (10_33g) snana version.
     if ( !GENLC.ISOBS[ep]  ) { continue ; }
 
-    // load random into global
-    GENLC.RANGauss_NOISE_SEARCH[ep] = GaussRan(1) ;  // from list 1
-    GENLC.RANGauss_NOISE_ZP[ep]     = GaussRan(1) ; 
-  }
+    // load randoms into global
+    RAN1 = GaussRan(1) ;  
+    RAN2 = GaussRan(1) ;  
+    GENLC.RANGauss_NOISE_SEARCH[ep] = RAN1;
+    GENLC.RANGauss_NOISE_ZP[ep]     = RAN2; // Jan 2020; soon to be obsolete
+    GENLC.RANGauss_NOISE_FUDGE[ep]  = RAN2; // for refactored GENFLUX_DRIVER
+
+  } // end ep loop
 
 
   // one random per filter (for template noise) and field overlap
@@ -22476,7 +22481,7 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   double  psfsig2    = SIMLIB_OBS_GEN.PSFSIG2[epoch] ;
   double  psfratio   = SIMLIB_OBS_GEN.PSFRATIO[epoch] ;
   double  zpt        = SIMLIB_OBS_GEN.ZPTADU[epoch] ;
-  double  zptsig     = SIMLIB_OBS_GEN.ZPTSIG[epoch] ;
+  double  zpterr     = SIMLIB_OBS_GEN.ZPTERR[epoch] ;
   double  template_skysig     = SIMLIB_OBS_GEN.TEMPLATE_SKYSIG[epoch] ; 
   double  template_readnoise  = SIMLIB_OBS_GEN.TEMPLATE_READNOISE[epoch] ; 
   double  template_zpt        = SIMLIB_OBS_GEN.TEMPLATE_ZPT[epoch] ;
@@ -22487,13 +22492,13 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   int    OVP, NERR=0;
 
   double ZPTDIF_ADU, NADU_over_FLUXCAL, Npe_over_FLUXCAL, NADU_over_Npe ;
-  double sqsig_true, sqsig_data, sqsig_mon, flux_T, arg;
+  double sqsig_true, sqsig_data, sqsig_mon, sqsig_tmp, flux_T, arg;
   double fluxsn_adu, fluxsn_pe, fluxmon_pe ;
   double area_bg, psfsig_arcsec, psfFWHM_arcsec;
   double sqerr_ccd_pe, skysig_tmp_pe, sqerr_sky_pe, sqerr_zp_pe;
   double fluxgal_pe, galmag ;
   double template_sqerr_sky_pe, template_sqerr_ccd_pe, template_sqerr_pe;
-  double SNR_CALC, SQSIG_CALC, SNR_MON ;
+  double SNR_CALC, SNR_calc, SQSIG_CALC, SNR_MON ;
   char band[2];
   char fnam[] = "gen_fluxNoise_calc" ;
 
@@ -22503,7 +22508,6 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
 
   sprintf(band, "%c", FILTERSTRING[ifilt_obs] );
 
-  printf("\t 1. xxx %s ifilt_obs=%d \n", fnam, ifilt_obs); fflush(stdout);
 
   NERR=0;
   if ( zpt     < 10.0   ) { NERR++ ; }
@@ -22515,7 +22519,6 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
     sprintf(c2err,"zpt=%.2f, psf=%.3f, skysig=%.2f", zpt, psfsig1, skysig);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
-
 
   // compute zp in photo-electrons 
   ZPTDIF_ADU        = zpt - ZEROPOINT_FLUXCAL_DEFAULT ;
@@ -22542,8 +22545,6 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
     fluxmon_pe    = ccdgain * pow(10.0,arg); 
   }
 
-  printf("\t 2. xxx %s ifilt_obs=%d \n", fnam, ifilt_obs); fflush(stdout);
-
   // get effective aperture  area (pixels)
   area_bg       = NoiseEquivAperture(psfsig1, psfsig2, psfratio );
   psfsig_arcsec = pixsize * sqrt(area_bg/(2.0*TWOPI))  ; 
@@ -22561,6 +22562,7 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   template_sqerr_pe = 0.0 ;
 
   if ( SIMLIB_TEMPLATE.USEFLAG && template_skysig > 0.0 ) {
+
     if ( template_zpt < 10.0 ) {
       sprintf(c1err,"Invalid template_zpt(%c)=%f for  LIBID=%d at MJD=%.3f", 
 	      FILTERSTRING[ifilt_obs], template_zpt, GENLC.SIMLIB_ID, mjd );
@@ -22578,8 +22580,8 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
     zfac  = pow(TEN, zparg);
     template_sqerr_sky_pe *= zfac ;
     template_sqerr_ccd_pe *= zfac ;
-
     template_sqerr_pe = template_sqerr_sky_pe + template_sqerr_ccd_pe ;
+
   }
 
   // -------------------------------------------
@@ -22598,12 +22600,12 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   sqerr_zp_pe = 0.0 ;
   if ( INPUTS.SMEARFLAG_ZEROPT > 0 ) {
     double relerr, err;
-    relerr  = pow(TEN, 0.4*zptsig) - 1.0 ;
+    relerr  = pow(TEN, 0.4*zpterr) - 1.0 ;
     err     = (fluxsn_pe-flux_T) * relerr ;    
     sqerr_zp_pe = err*err;
   }
-  
-  printf("\t 3. xxx %s ifilt_obs=%d \n", fnam, ifilt_obs); fflush(stdout);
+ 
+  //  sqerr_zp_pe = 0.0 ; // xxx REMOVE
 
   // --------------------
   // add up SN flux error (photo-electrons^2) in quadrature
@@ -22615,50 +22617,68 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
     + sqerr_ccd_pe     // CCD read noise (added Dec 13, 2010)
     ;
 
-  // true noise includes ZP scatter that is not reported in data files.
-  // Note that correlated template noise is not included here.
-  sqsig_true = sqsig_data + sqerr_zp_pe; 
+  sqsig_true = sqsig_data ;
 
-  // calculated ERROR and SNR are for error fudges
-  SQSIG_CALC = sqsig_data + template_sqerr_pe ;
-  SNR_CALC   = fluxsn_pe / sqrt(SQSIG_CALC);
+  // Check options to include ZPerr in true and reported flux-error.
+  // Note that correlated template noise is not included here.
+  if ( (INPUTS.SMEARFLAG_ZEROPT & 1) > 0 ) 
+    { sqsig_true += sqerr_zp_pe; }
+
+  if ( (INPUTS.SMEARFLAG_ZEROPT & 2) > 0 ) 
+    { sqsig_data += sqerr_zp_pe; }  // reported error includes zperr
+
 
   SNR_MON = 0.0 ;
   if ( INPUTS.MAGMONITOR_SNR > 10 ) {
-    sqsig_mon = sqsig_data - fluxsn_pe + fluxmon_pe ;
-    SNR_MON = fluxmon_pe / sqrt(sqsig_mon + template_sqerr_pe );
+    sqsig_mon = (sqsig_data - fluxsn_pe + fluxmon_pe + template_sqerr_pe);
+    SNR_MON = fluxmon_pe / sqrt(sqsig_mon);
   }
 
-  printf("\t 4 xxx %s ifilt_obs=%d \n", fnam, ifilt_obs); fflush(stdout);  
+  // calculated ERROR and SNR are for error fudges 
+  SQSIG_CALC  = sqsig_data + template_sqerr_pe ;
+  SNR_CALC    = fluxsn_pe / sqrt(SQSIG_CALC);
+  SNR_calc    = fluxsn_pe / sqrt(sqsig_data); // exlcude template noise
 
+  // - - - - - - - - - - - - - - -   
   // load info in output structure
+
   FLUXNOISE->SQSIG_SRC       = fluxsn_pe ; // image source noise
   FLUXNOISE->SQSIG_TSRC      = flux_T ;    // template source noise (LCLIB)
   FLUXNOISE->SQSIG_SKY       = sqerr_sky_pe + sqerr_ccd_pe ;
   FLUXNOISE->SQSIG_TSKY      = template_sqerr_pe ; // template sky noise
   FLUXNOISE->SQSIG_ZP        = sqerr_zp_pe;  
   FLUXNOISE->SQSIG_HOST_PHOT = fluxgal_pe ;
-  FLUXNOISE->SQSIG_CALC      = SQSIG_CALC;
-  FLUXNOISE->SIG_CALC        = sqrt(SQSIG_CALC);  // this never changes
 
-  // note that SIG_FINAL  can change later with fudges
-  FLUXNOISE->SQSIG_FINAL_TRUE    = sqsig_true;
-  FLUXNOISE->SIG_FINAL_TRUE      = sqrt(sqsig_true);
 
-  FLUXNOISE->SQSIG_FINAL_DATA    = sqsig_data;
-  FLUXNOISE->SIG_FINAL_DATA      = sqrt(sqsig_data);
+  FLUXNOISE->SQSIG_CALC_TRUE[TYPE_FLUXNOISE_S]    = sqsig_true ;
+  FLUXNOISE->SQSIG_CALC_TRUE[TYPE_FLUXNOISE_T]    = template_sqerr_pe;
+  FLUXNOISE->SQSIG_CALC_TRUE[TYPE_FLUXNOISE_Z]    = sqerr_zp_pe;
+  FLUXNOISE->SQSIG_CALC_TRUE[TYPE_FLUXNOISE_F]    = 0.0 ;
 
-  FLUXNOISE->SQSIG_FINAL_TSKY    = template_sqerr_pe ;
-  FLUXNOISE->SIG_FINAL_TSKY      = sqrt(template_sqerr_pe);
 
-  FLUXNOISE->SNR_CALC         = SNR_CALC ;
-  FLUXNOISE->SNR_CALC_MON     = SNR_MON  ;
-  FLUXNOISE->SNR_FINAL_MON    = SNR_MON  ;
+  FLUXNOISE->SQSIG_CALC_TRUE[TYPE_FLUXNOISE_SUM]  = 
+    FLUXNOISE->SQSIG_CALC_TRUE[TYPE_FLUXNOISE_S] +
+    FLUXNOISE->SQSIG_CALC_TRUE[TYPE_FLUXNOISE_T] ;
 
-  FLUXNOISE->NEA              = area_bg ;
-  FLUXNOISE->GALMAG_NEA       = galmag ;
-  FLUXNOISE->Npe_over_FLUXCAL = Npe_over_FLUXCAL;
-  FLUXNOISE->NADU_over_Npe    = NADU_over_Npe ;
+  int itype;
+  for(itype=0; itype < NTYPE_FLUXNOISE ; itype++ )  { 
+    FLUXNOISE->SQSIG_FUDGE_TRUE[itype] = 0.0 ;
+    FLUXNOISE->SQSIG_FINAL_TRUE[itype] = FLUXNOISE->SQSIG_CALC_TRUE[itype]; 
+  }
+
+  FLUXNOISE->SQSIG_CALC_DATA   = sqsig_data + template_sqerr_pe;
+  FLUXNOISE->SQSIG_FUDGE_DATA  = 0.0 ;
+  FLUXNOISE->SQSIG_FINAL_DATA  = sqsig_data + template_sqerr_pe;
+
+  FLUXNOISE->SNR_CALC            = SNR_CALC ;
+  FLUXNOISE->SNR_calc            = SNR_calc ;
+  FLUXNOISE->SNR_CALC_MON        = SNR_MON  ;
+  FLUXNOISE->SNR_FINAL_MON       = SNR_MON  ;
+
+  FLUXNOISE->NEA                 = area_bg ;
+  FLUXNOISE->GALMAG_NEA          = galmag ;
+  FLUXNOISE->Npe_over_FLUXCAL    = Npe_over_FLUXCAL;
+  FLUXNOISE->NADU_over_Npe       = NADU_over_Npe ;
 
   FLUXNOISE->IFILT_OBS = ifilt_obs;
   sprintf(FLUXNOISE->BAND,"%s",band);
@@ -22673,7 +22693,7 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
   // Created Dec 27, 2019
   // Compute diagonal error fudges, if specified 
   // (ignore off-diag correlations among epochs)
-  // Note that SIG_CALC is not changed, but SIG_FINAL is updated here
+
 
   int    ifilt_obs  = GENLC.IFILT_OBS[epoch] ;
   char   *FIELD     = GENLC.FIELDNAME[epoch];
@@ -22684,26 +22704,27 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
   double  ZPADU     = SIMLIB_OBS_GEN.ZPTADU[epoch] ;
   double  PIXSIZE   = SIMLIB_OBS_GEN.PIXSIZE[epoch];
 
-  double Npe_over_FLUXCAL   = FLUXNOISE->Npe_over_FLUXCAL;
-  double NEA                = FLUXNOISE->NEA;
-  double SIG_CALC           = FLUXNOISE->SIG_CALC ;
-  double SQSIG_CALC         = FLUXNOISE->SQSIG_CALC ;
-  double SQSIG_SRC          = FLUXNOISE->SQSIG_SRC; // = SN flux, p.e.
-  double SQSIG_SKY          = FLUXNOISE->SQSIG_SKY;
-  double SQSIG_HOST_PHOT    = FLUXNOISE->SQSIG_HOST_PHOT;
-  double GALMAG_NEA         = FLUXNOISE->GALMAG_NEA ;
-  double SNR_CALC           = FLUXNOISE->SNR_CALC ;
-  double SQSIG_FINAL_TRUE   = FLUXNOISE->SQSIG_FINAL_TRUE ;
-  double SQSIG_FINAL_DATA   = FLUXNOISE->SQSIG_FINAL_DATA ;
-  double SQSIG_FINAL_TSKY   = FLUXNOISE->SQSIG_FINAL_TSKY ;
-
   long long GALID           = SNHOSTGAL.GALID ;
   double SBmag              = SNHOSTGAL.SB_MAG[ifilt_obs];
   double SNSEP              = SNHOSTGAL.SNSEP ;
 
-  int    OVP;
-  double Scale, sqScale, magerr_tmp, fluxErr_tmp, sqerr_tmp ;
-  double SIG_FINAL_TRUE, SNR_MON;
+  double Npe_over_FLUXCAL   = FLUXNOISE->Npe_over_FLUXCAL;
+  double NEA                = FLUXNOISE->NEA;
+  
+  double SQSIG_CALC         = FLUXNOISE->SQSIG_CALC_DATA;
+  double SIG_CALC           = sqrt(SQSIG_CALC);
+  double SNR_CALC           = FLUXNOISE->SNR_CALC ;
+  double SNR_calc           = FLUXNOISE->SNR_calc ;
+  double SQSIG_SRC          = FLUXNOISE->SQSIG_SRC; // = SN flux, p.e.
+  double SQSIG_SKY          = FLUXNOISE->SQSIG_SKY;
+  double SQSIG_HOST_PHOT    = FLUXNOISE->SQSIG_HOST_PHOT;
+  double GALMAG_NEA         = FLUXNOISE->GALMAG_NEA ;
+
+  int    NTYPE = NTYPE_FLUXNOISE;
+  int    OVP, itype ;
+  double SCALE, SQSCALE, magerr_tmp, fluxErr_tmp ;
+  double SQSIG_TRUE[NTYPE_FLUXNOISE];
+  double SQSIG_DATA, SQSIG_TMP, SNR_MON, SQSIG_SCALED ;
   char   BAND[2];
   char   fnam[] = "gen_fluxNoise_fudge_diag" ;
 
@@ -22711,6 +22732,11 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
 
   sprintf(BAND, "%c", FILTERSTRING[ifilt_obs] );
   if ( SBmag > 32.0 ) { SBmag = 32.0; }    // to limit fluxerrmap size
+  
+  SQSIG_DATA = FLUXNOISE->SQSIG_FINAL_DATA; 
+  for(itype=0; itype < NTYPE; itype++ ) { 
+    SQSIG_TRUE[itype] = FLUXNOISE->SQSIG_FINAL_TRUE[itype]; 
+  }
 
   // - - - - - - - - - - - - - - 
 
@@ -22718,24 +22744,28 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
   magerr_tmp = INPUTS.FUDGE_MAGERR_FILTER[ifilt_obs]; 
   if ( magerr_tmp > 1.0E-9 ) {
     fluxErr_tmp   = SQSIG_SRC* ( 1.0 - pow(10.0,-0.4*magerr_tmp)) ;
-    sqerr_tmp     = fluxErr_tmp * fluxErr_tmp ;
-    SQSIG_FINAL_TRUE  += sqerr_tmp ;
-    SQSIG_FINAL_DATA  += sqerr_tmp ;
+    SQSIG_TMP     = fluxErr_tmp * fluxErr_tmp ;
+    SQSIG_TRUE[TYPE_FLUXNOISE_S]  += SQSIG_TMP ;
+    SQSIG_DATA                    += SQSIG_TMP ;
+  }
+  
+  // Optional errscale fudge (default=1) applied to true and reported errors.
+  SCALE  = INPUTS.FUDGESCALE_FLUXERR_FILTER[ifilt_obs] ;
+  if ( fabs(SCALE-1.0) > 1.0E-9 ) {
+    SCALE        = SCALE * SCALE ;
+    SQSIG_DATA  *= SQSCALE ;  
+    for(itype=0; itype < NTYPE; itype++ ) { SQSIG_TRUE[itype] *= SQSCALE ; }
   }
 
-  // Optional errscale fudge (default=1) applied to true and reported errors.
-  Scale        = INPUTS.FUDGESCALE_FLUXERR_FILTER[ifilt_obs] ;
-  sqScale      = Scale*Scale;
-  SQSIG_FINAL_TRUE *= sqScale ;
-  SQSIG_FINAL_DATA *= sqScale ;
-  SQSIG_FINAL_TSKY *= sqScale ;
 
   // Optional errscale fudge (default=1) applied only to reported errors
-  Scale        = INPUTS.FUDGESCALE_FLUXERR2_FILTER[ifilt_obs] ;
-  sqScale      = Scale*Scale;
-  SQSIG_FINAL_DATA *= sqScale ;
-  SQSIG_FINAL_TSKY *= sqScale ;
-
+  SCALE  = INPUTS.FUDGESCALE_FLUXERR2_FILTER[ifilt_obs] ;
+  if ( fabs(SCALE-1.0) > 1.0E-9 ) {
+    SCALE        = SCALE * SCALE ;
+    SQSIG_DATA  *= SQSCALE ;  
+  }
+  
+ 
   // Feb 2018: fudge error from FLUXERRMODEL. Should replace _legacy codes.
   if ( NMAP_FLUXERRMODEL > 0 ) {
     double ERRPARLIST[MXPAR_FLUXERRMAP];
@@ -22761,13 +22791,28 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
 		     NPAR_FLUXERRMAP_REQUIRE, ERRPARLIST,  // (I)
 		     &FLUXCALERR_TRUE, &FLUXCALERR_DATA) ; // (O)
     
-    // scale template noise that gets added later.
-    Scale   = FLUXCALERR_DATA/FLUXCALERR_in ;    sqScale = Scale*Scale ;    
-    double fluxerr_true = FLUXCALERR_TRUE * Npe_over_FLUXCAL;
-    double fluxerr_data = FLUXCALERR_DATA * Npe_over_FLUXCAL;
-    SQSIG_FINAL_TRUE  = fluxerr_true * fluxerr_true ;
-    SQSIG_FINAL_DATA  = fluxerr_data * fluxerr_data ;
-    SQSIG_FINAL_TSKY *= sqScale;
+    SCALE   = FLUXCALERR_TRUE/FLUXCALERR_in ;  SQSCALE = SCALE*SCALE ;
+
+    // don't modify true SQSIG(S); instead, add extra error to FUDGE term.
+    SQSIG_TMP    = SQSIG_TRUE[TYPE_FLUXNOISE_S] ; 
+    SQSIG_SCALED = SQSCALE * SQSIG_TMP ;
+    SQSIG_TRUE[TYPE_FLUXNOISE_F] = SQSIG_SCALED - SQSIG_TMP;
+
+    SQSIG_TRUE[TYPE_FLUXNOISE_T] *= SQSCALE ; // scale template noise
+    /*
+    for(itype=0; itype < NTYPE; itype++ ) 
+      { SQSIG_TRUE[itype] *= SQSCALE ; }
+    */
+
+    SCALE   = FLUXCALERR_DATA/FLUXCALERR_in ;  SQSCALE = SCALE*SCALE ;
+    SQSIG_DATA *= SQSCALE ;
+
+    // keep track of NOBS per covariance matrix
+    if ( NREDCOV_FLUXERRMAP > 0 ) {
+      int ICOV = INDEX_REDCOV_FLUXERRMAP[ifilt_obs];
+      COVINFO_FLUXERRMAP[ICOV].NOBS++ ;
+    }
+
   }
 
 
@@ -22786,18 +22831,17 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
     if ( ERR_CAL > 1.0E-6 && XT==1.0 ) {
       ERR_pe      = ERR_CAL * Npe_over_FLUXCAL ;
       sqadderr_pe = (ERR_pe * ERR_pe) ;
-      SQSIG_FINAL_TRUE += sqadderr_pe;
-      SQSIG_FINAL_DATA += sqadderr_pe;
+      SQSIG_TRUE[TYPE_FLUXNOISE_S] += sqadderr_pe;
+      SQSIG_DATA                   += sqadderr_pe;
     }
 
-    Scale     = get_SIMLIB_fluxerrScale_LEGACY(ifilt_obs, SNR_CALC );    
-    sqScale   = Scale*Scale;
-    SQSIG_FINAL_TRUE *= sqScale;
-    SQSIG_FINAL_DATA *= sqScale;
+    SCALE     = get_SIMLIB_fluxerrScale_LEGACY(ifilt_obs, SNR_calc );    
+    SQSCALE   = SCALE * SCALE ;
+    SQSIG_DATA *= SQSCALE ;
+    for(itype=0; itype < NTYPE; itype++ ) { SQSIG_TRUE[itype] *= SQSCALE ; }
 
   }
   // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
 
 
   // @@@@@@@@@@@@@@@@@ LEGACY ERRFUDGE @@@@@@@@@@@@@@@@@@@@@@@@@
@@ -22827,45 +22871,217 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
       (SQSIG_SKY+SQSIG_HOST_PHOT)*(SQ1-1.0)  ;    // err-scale;
 
     // update TRUE error only; leave reported error as is.
-    SQSIG_FINAL_TRUE += sqImageNoise_pe;    
+    SQSIG_TRUE[TYPE_FLUXNOISE_S] += sqImageNoise_pe;    
   }
   // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 
 
+
   // @@@@@@@@@@@@@@@@@ LEGACY ERROR SCALE @@@@@@@@@@@@@@@@@@@@@@@@@
   if ( INPUTS.FUDGEOPT_FLUXERR > 0 ) {
-    Scale   = scale_fluxErrModel_legacy(BAND,FIELD,MJD,ZPADU,SKYSIG,PSFSIG1);
-    sqScale = Scale * Scale ;
-    SQSIG_FINAL_DATA *= sqScale ;      // scale reported error only
+    SCALE  = scale_fluxErrModel_legacy(BAND,FIELD,MJD,ZPADU,SKYSIG,PSFSIG1);
+    SQSCALE     = SCALE * SCALE ;
+    SQSIG_DATA *= SQSCALE ;      // scale reported error only
   }  // @@@@@@@@@@@@@@@@@ LEGACY ERROR SCALE @@@@@@@@@@@@@@@@@@@@@@@@@
 
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-  // store final true error after fudges have been added.
-  SIG_FINAL_TRUE = sqrt(SQSIG_FINAL_TRUE);
-  FLUXNOISE->SQSIG_FINAL_TRUE = SQSIG_FINAL_TRUE ;
-  FLUXNOISE->SIG_FINAL_TRUE   = SIG_FINAL_TRUE ;
+  
+  FLUXNOISE->SQSIG_FINAL_DATA = SQSIG_DATA;
+  for(itype=0; itype < NTYPE; itype++ ) { 
+    FLUXNOISE->SQSIG_FINAL_TRUE[itype] = SQSIG_TRUE[itype];
+  }
 
-  // and again for reported errors in data files ...
-  FLUXNOISE->SQSIG_FINAL_DATA = SQSIG_FINAL_DATA ;
-  FLUXNOISE->SIG_FINAL_DATA   = sqrt(SQSIG_FINAL_DATA);
+  FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_SUM]  = 
+    FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_S] +
+    FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_T] +
+    FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_F] ; 
 
-  // and again for correlated template noise
-  FLUXNOISE->SQSIG_FINAL_TSKY = SQSIG_FINAL_TSKY;
-  FLUXNOISE->SIG_FINAL_TSKY   = sqrt(SQSIG_FINAL_TSKY);
 
   // store monitor SNR, corrected for error fudges
   SNR_MON = FLUXNOISE->SNR_CALC_MON ;
   if ( SNR_MON > 1.0E-9 ) {
-    Scale = SIG_FINAL_TRUE/SIG_CALC; 
-    FLUXNOISE->SNR_FINAL_MON = SNR_MON / Scale ;
+    SQSCALE = FLUXNOISE->SQSIG_FINAL_DATA/FLUXNOISE->SQSIG_CALC_DATA ;
+    FLUXNOISE->SNR_FINAL_MON = SNR_MON / sqrt(SQSCALE) ;
   }
 
   return ;
 
 } // end gen_fluxNoise_fudge_diag
 
+// ******************************
+void gen_fluxNoise_fudge_cov(int icov) {
+
+  // Created Jan 10 2020
+  // Compute correlated randoms among epochs in "icov" group.
+  // Modify GAURAN_F = GENLC.RANGauss_NOISE_FUDGE[epoch] so that
+  //     GAURAN_F * sqrt(SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_F])
+  //
+  // is the correlated flux-shift.
+  //
+  // Beware that epochs in "icov" group are a subset of the
+  // GENLC.NEPOCH total epochs, so watch indices.
+
+  int  NOBS = COVINFO_FLUXERRMAP[icov].NOBS ;
+  int  MEMD0 = NOBS*sizeof(double);
+  int  MEMD1 = NOBS*sizeof(double*);
+  int  NEPOCH  = GENLC.NEPOCH ;
+  int  TYPE_S  = TYPE_FLUXNOISE_S ;  // search noise
+  int  TYPE_F  = TYPE_FLUXNOISE_F ;  // fudge noise
+  double COVFAC = 1.0E-3;
+
+  int  ep, iep0, iep1, indx_1D, IFILT_OBS, INDEX_REDCOV, iREDCOV ;
+  int  N0=0, N1=0, o, MEMD, *epMAP ;
+  double *covFlux_1D, **covCholesky_2D ;
+  double SQSIG_FUDGE[2] ;
+  double SIGxSIG, REDCOV, COV ;
+  int LDMP = 0 ; 
+  char fnam[] = "gen_fluxNoise_fudge_cov" ;
+
+  // --------- BEGIN --------
+
+  if ( NOBS <= 1 ) { return ; }
+
+  if ( LDMP ) 
+    { printf("\n xxx ------------- DUMP on for %s --------------- \n", fnam); }
+
+  // create matrix for each cov matrix
+
+  covFlux_1D     = (double*)malloc (NOBS*NOBS * sizeof(double) ) ;
+  covCholesky_2D = (double**)malloc(MEMD1) ;
+  for(o=0; o < NOBS; o++ ) { covCholesky_2D[o] = (double*) malloc(MEMD0); }
+
+  epMAP = (int*) malloc( NOBS * sizeof(int) );
+
+  /* xxxx mark delete xxxxxxxx
+  MEMD = (NEPOCH+1) * sizeof(double) ;
+  SQSIG_FINAL  = (double*)malloc ( MEMD ) ;
+  SQSIG_CALC   = (double*)malloc ( MEMD ) ;
+  SQSIG_FUDGE  = (double*)malloc ( MEMD ) ;
+  for(ep=1; ep <= NEPOCH; ep++ ) {
+    if ( !GENLC.ISOBS[ep]  ) { continue ; }
+    SQSIG_FINAL[ep]  = GENLC.FLUXNOISE[ep].SQSIG_FINAL_TRUE[TYPE_S] ;
+    SQSIG_CALC[ep]   = GENLC.FLUXNOISE[ep].SQSIG_CALC_TRUE[TYPE_S] ;
+    SQSIG_FUDGE[ep]  = SQSIG_FINAL[ep] - SQSIG_CALC[ep];
+    GENLC.FLUXNOISE[ep].SQSIG_FINAL_TRUE[TYPE_S] = SQSIG_CALC[ep];
+    GENLC.FLUXNOISE[ep].SQSIG_FINAL_TRUE[TYPE_F] = SQSIG_FUDGE[ep];
+  }
+  xxxxxx end mark xxxx */
+
+  for(iep0=1; iep0 <= NEPOCH; iep0++ ) {
+
+    if ( !GENLC.ISOBS[iep0]  ) { continue ; }
+    IFILT_OBS    = GENLC.IFILT_OBS[iep0] ;
+    INDEX_REDCOV = INDEX_REDCOV_FLUXERRMAP[IFILT_OBS];
+    if ( INDEX_REDCOV != icov ) { continue; }
+    N0++ ;  N1=0;
+
+    epMAP[N0-1] = iep0 ; // preserve mapping between GENLC and COV arrays
+
+    for(iep1=1; iep1 <= iep0; iep1++ ) {
+
+      if ( !GENLC.ISOBS[iep1]  ) { continue ; }
+
+      IFILT_OBS = GENLC.IFILT_OBS[iep1] ;
+      INDEX_REDCOV = INDEX_REDCOV_FLUXERRMAP[IFILT_OBS];
+      if ( INDEX_REDCOV != icov ) { continue; }
+      N1++ ;
+
+      REDCOV  = COVINFO_FLUXERRMAP[INDEX_REDCOV].REDCOV;
+      if ( N0 == N1 ) { REDCOV = 1.0 ; }
+
+      SQSIG_FUDGE[0] = GENLC.FLUXNOISE[iep0].SQSIG_FINAL_TRUE[TYPE_F];
+      SQSIG_FUDGE[1] = GENLC.FLUXNOISE[iep1].SQSIG_FINAL_TRUE[TYPE_F];
+      SIGxSIG  = sqrt(SQSIG_FUDGE[0] * SQSIG_FUDGE[1]) ;
+      COV      = SIGxSIG * REDCOV ;
+            
+      indx_1D = (N1-1)*NOBS + (N0-1) ;
+      covFlux_1D[indx_1D] = COV;
+
+      if ( LDMP ) {
+	printf(" xxx iep[0,1]=%2d,%2d  N[0,1]=%2d,%2d  indx_1D=%3d  "
+	       "COV=%.1f\n",
+	       iep0, iep1, N0, N1, indx_1D, COV); fflush(stdout);
+	fflush(stdout);
+      }
+
+      indx_1D = (N0-1)*NOBS + (N1-1) ;
+      covFlux_1D[indx_1D] = COV;
+
+    }  // end iep2
+  }  // end iep
+
+
+  // - - - - - - - - 
+  // sanity checks
+  if ( N0 != NOBS || N1 != NOBS ) {
+    sprintf(c1err,"Invalid %d x %d matrix; expected %d^2 ",
+	    N0, N1, NOBS);
+    sprintf(c2err,"CID=%d  NEPOCH=%d  icov=%d(%s)",
+	    GENLC.CID, GENLC.NEPOCH, 
+	    icov, COVINFO_FLUXERRMAP[icov].BANDSTRING);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+
+  if(LDMP) { dumpCovMat_fluxNoise(icov, NOBS, covFlux_1D); }
+
+  // - - - - - - - - - - - - - - - - - - - - -
+  // do Cholesky decomp ...
+  int obs0, obs1;
+  double *flux_scatter, GAURAN, GAURAN_ORIG, GAURAN_NEW, SIG_F ;
+  gsl_matrix_view chk;
+
+  flux_scatter = (double*) malloc( MEMD0 );
+  chk  = gsl_matrix_view_array ( covFlux_1D, NOBS, NOBS); 
+  gsl_linalg_cholesky_decomp ( &chk.matrix )  ;
+  
+  for(obs0=0; obs0 < NOBS; obs0++ ) {  
+    flux_scatter[obs0] = 0.0 ;
+    for(obs1=0; obs1 < NOBS; obs1++ ) {
+      covCholesky_2D[obs0][obs1] = 0.0 ;
+      if ( obs0 < obs1 ) {
+	covCholesky_2D[obs0][obs1] = gsl_matrix_get(&chk.matrix,obs0,obs1); 
+      }
+      ep = epMAP[obs1];
+      GAURAN  = GENLC.RANGauss_NOISE_FUDGE[ep] ; 
+      flux_scatter[obs0] += (GAURAN * covCholesky_2D[obs0][obs1]) ;
+    }
+  }
+  
+  // modify independent RANGauss_FUDGE
+  for(o=0; o < NOBS; o++ ) {
+    ep             = epMAP[o];
+    SIG_F          = sqrt(GENLC.FLUXNOISE[ep].SQSIG_FINAL_TRUE[TYPE_F]);
+    GAURAN_ORIG    = GENLC.RANGauss_NOISE_FUDGE[ep] ; 
+    GAURAN_NEW     = flux_scatter[o]/SIG_F ;
+    GENLC.RANGauss_NOISE_FUDGE[ep] = GAURAN_NEW ;
+  } // end o loop
+
+
+  /* xxxxxx
+  for (i = 0 ; i < 3 ; i++) {
+    for (j = 0 ; j < 3 ; j++) {
+      double tmp = INPUTS.COVMAT_CHOLESKY_SCATTER[j][i]; 
+      SCATTER_VALUES[i] += tmp * normalvector[j];      
+    }
+  }
+  xxxxxxxxx*/
+
+  // free matrix memory.
+  free(covFlux_1D);
+
+  for(o=0; o < NOBS; o++ ) { free(covCholesky_2D[o]); }
+  free(covCholesky_2D);
+
+  free(epMAP);  free(flux_scatter);
+
+  // xxx mark delete  free(SQSIG_FINAL);free(SQSIG_CALC); free(SQSIG_FUDGE);
+
+  return ;
+
+} // end of  gen_fluxNoise_fudge_cov
 
 // *********************a****************
 void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
@@ -22879,50 +23095,76 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   char  *BAND        = FLUXNOISE->BAND;
   double fluxTrue    = FLUXNOISE->SQSIG_SRC ;          // p.e.
   double fluxgal     = FLUXNOISE->SQSIG_HOST_PHOT ;
-  double SQSIG_S     = FLUXNOISE->SQSIG_FINAL_TRUE;
-  double SQSIG_TSKY  = FLUXNOISE->SQSIG_FINAL_TSKY;
-  double SQSIG_ZP    = FLUXNOISE->SQSIG_ZP;
+  
+  double SQSIG_S     = FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_S];
+  double SQSIG_T     = FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_T];
+  double SQSIG_F     = FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_F];
+  double SQSIG_Z     = FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_Z];
+  double SIG_S       = sqrt(SQSIG_S);  // search image
+  double SIG_T       = sqrt(SQSIG_T);  // template
+  double SIG_F       = sqrt(SQSIG_F);  // fudge noise
+  double SIG_Z       = sqrt(SQSIG_Z);  // ZP noise, included in _S
 
-  double SIG_S       = sqrt(SQSIG_S);
-  double SIG_ZP      = sqrt(SQSIG_ZP);
-  double SIG_TSKY    = sqrt(SQSIG_TSKY);
-
-  int   ifield, OVP;
-  double GAURAN_S, GAURAN_TSKY, GAURAN_ZP, fluxObs, genmag_T, flux_T ;
+  int    ifield, OVP ;
+  double GAURAN_S, GAURAN_T, GAURAN_Z, GAURAN_F;
+  double SHIFT_S,  SHIFT_T,  SHIFT_Z,  SHIFT_F ;
+  double fluxObs, genmag_T, flux_T ;
   double SQSIG_TMP, SIG_TMP, SCALE_TMP, SNR_CALC, SNR_MON ;
   char fnam[] = "gen_fluxNoise_apply" ;
 
   // ----------- BEGIN -----------
 
+  if ( ifilt_obs < 0 || ifilt_obs > MXFILTINDX ) {
+    sprintf(c1err,"Undefined IFILT_OBS=%d for ep=%d CID=%d .",
+	    ifilt_obs, epoch, GENLC.CID);
+    sprintf(c2err,"Probably a code bug.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
   ifield        = IFIELD_OVP_SIMLIB(1,FIELD);
-  if ( ifield < 0 ) { ifield=0; } // Nov 2016: needed for GAURAN_TEMPLATE
+  if ( ifield < 0 ) { ifield=0; }   // Nov 2016: needed for GAURAN_TEMPLATE
+
 
   // strip off previuously generated Gaussian randoms
-  GAURAN_S = GAURAN_ZP = GAURAN_TSKY = 0.0 ;
-  if ( INPUTS.SMEARFLAG_FLUX > 0 )  {     
-    GAURAN_S    = GENLC.RANGauss_NOISE_SEARCH[epoch] ; 
-    GAURAN_ZP   = GENLC.RANGauss_NOISE_ZP[epoch] ; 
-    GAURAN_TSKY = GENLC.RANGauss_NOISE_TEMPLATE[ifield][ifilt_obs] ;
+  GAURAN_S = GAURAN_F = GAURAN_Z = GAURAN_T = 0.0 ;
+  if ( INPUTS.SMEARFLAG_FLUX > 0 ) {     
+    GAURAN_S   = GENLC.RANGauss_NOISE_SEARCH[epoch] ; 
+    GAURAN_F   = GENLC.RANGauss_NOISE_FUDGE[epoch] ; 
+    GAURAN_Z   = GENLC.RANGauss_NOISE_ZP[epoch] ; 
+    GAURAN_T   = GENLC.RANGauss_NOISE_TEMPLATE[ifield][ifilt_obs] ;
   }
-  
 
-  // - - - - - - - - - 
-  
-  fluxObs  = fluxTrue
-    + ( SIG_S    * GAURAN_S     )  // from search image
-    + ( SIG_ZP   * GAURAN_ZP    )  // from ZP error
-    + ( SIG_TSKY * GAURAN_TSKY  )  // from template 
-    ;
+  SHIFT_S = SIG_S * GAURAN_S ; // independent part of search image
+  SHIFT_Z = SIG_Z * GAURAN_Z ; // ZP
+  SHIFT_T = SIG_T * GAURAN_T ; // 100% correlated noise from template
+  SHIFT_F = SIG_F * GAURAN_F ; // fudged noise, maybe with correlations
+
+  // store each shift to monitor later.
+  FLUXNOISE->FLUX_SHIFT_TRUE[TYPE_FLUXNOISE_S] = SHIFT_S ;
+  FLUXNOISE->FLUX_SHIFT_TRUE[TYPE_FLUXNOISE_Z] = SHIFT_Z ;
+  FLUXNOISE->FLUX_SHIFT_TRUE[TYPE_FLUXNOISE_T] = SHIFT_T ;
+  FLUXNOISE->FLUX_SHIFT_TRUE[TYPE_FLUXNOISE_F] = SHIFT_F ;
+
+  // - - - - - - - - - - -  -
+  // sum the shifts to get observed flux.
+  // Note that 
+  //   * SIG_F != 0 only for FLUXERRMODEL_FILE option.
+  //   * SHIFT_Z is already included in SHIFT_S.
+  fluxObs  = fluxTrue + (SHIFT_S + SHIFT_T + SHIFT_F) ;
+
+  // - - - - - - - - - - -  -
+
 
   // check option for random template noise instead of default correlated noise
   OVP = (INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_RANDOM_TEMPLATENOISE);
   if ( OVP ) {
-    SQSIG_TMP = SQSIG_S + SQSIG_TSKY ;
+    SQSIG_TMP = SQSIG_S + SQSIG_T ;
     SIG_TMP   = sqrt(SQSIG_TMP)   ;
-    fluxObs   = fluxTrue + (SIG_TMP*GAURAN_S + SIG_ZP*GAURAN_ZP);
+    fluxObs   = fluxTrue + (SIG_TMP*GAURAN_S);
   }
 
   
+
   // Adjust reported error to be based on observed flux instead of true flux.  
   double sqerr_ran ;
   if ( fluxObs > 0 ) 
@@ -22930,13 +23172,14 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   else
     { sqerr_ran = -fluxTrue; }
   
+
+  // update reported error in data file
+  double SIG_FINAL_TRUE  = sqrt(FLUXNOISE->SQSIG_FINAL_DATA); // local use
   SQSIG_TMP = FLUXNOISE->SQSIG_FINAL_DATA + sqerr_ran;
   FLUXNOISE->SQSIG_FINAL_DATA = SQSIG_TMP ;
   FLUXNOISE->SIG_FINAL_DATA   = sqrt(SQSIG_TMP) ;
   FLUXNOISE->SQSIG_RAN        = sqerr_ran ;
 
-  // check for really crazy flux values
-  // xxx see below  check_crazyFlux(fluxObs, epoch, FLUXNOISE);
 
 
   // check option to ignore source & host error in reported error
@@ -22964,7 +23207,7 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
     FLUXNOISE->SNR_CALC *= SCALE_TMP ;
   }
 
-  
+
   // - - - - - - - - - - - - - - - - - - - 
   // Jan 2018: check for saturation. NPE > 0 --> saturation
   int npe_above_sat = npe_above_saturation(epoch,fluxTrue+fluxgal);
@@ -22974,19 +23217,6 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
     FLUXNOISE->SQSIG_FINAL_DATA = SIG_TMP * SIG_TMP ;
     FLUXNOISE->SIG_FINAL_DATA   = SIG_TMP;
   }
-
-
-  // add template noise to FINAL err that is reported in data files
-  SQSIG_TMP = FLUXNOISE->SQSIG_FINAL_DATA + FLUXNOISE->SQSIG_FINAL_TSKY ;
-  SIG_TMP   = sqrt(SQSIG_TMP);
-  FLUXNOISE->SQSIG_FINAL_DATA  = SQSIG_TMP;
-  FLUXNOISE->SIG_FINAL_DATA    = SIG_TMP;
-
-  // repeate for TRUE noise for diagnostics
-  SQSIG_TMP = FLUXNOISE->SQSIG_FINAL_TRUE + FLUXNOISE->SQSIG_FINAL_TSKY ;
-  SIG_TMP   = sqrt(SQSIG_TMP);
-  FLUXNOISE->SQSIG_FINAL_TRUE  = SQSIG_TMP;
-  FLUXNOISE->SIG_FINAL_TRUE    = SIG_TMP;
 
   // ---------------------------------------------
   // load global GENLC array.
@@ -22999,15 +23229,14 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   double legacy_fluxerr_data = GENLC.fluxerr_data[epoch];
 
   GENLC.flux[epoch]         = fluxObs * NADU_over_Npe ;  
-  GENLC.fluxerr_true[epoch] = FLUXNOISE->SIG_FINAL_TRUE * NADU_over_Npe;
   GENLC.fluxerr_data[epoch] = FLUXNOISE->SIG_FINAL_DATA * NADU_over_Npe;
 
 
-  // store true SNR without fluctuations
-  GENLC.trueSNR[epoch] =  fluxTrue/FLUXNOISE->SIG_FINAL_TRUE;
+  // store true SNR without fluctuations (used later to force SNRMAX)
+  GENLC.trueSNR[epoch] =  fluxTrue/SIG_FINAL_TRUE;
 
   // store coherent template error.
-  GENLC.template_err[epoch] = FLUXNOISE->SIG_FINAL_TSKY*NADU_over_Npe;
+  GENLC.template_err[epoch] = NADU_over_Npe * SIG_T ;
 
   // store SNR of fixed monitor mag
   GENLC.SNR_MON[epoch]  = FLUXNOISE->SNR_FINAL_MON ;
@@ -23021,7 +23250,6 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   
   if ( vbose ) {
     double flux         = GENLC.flux[epoch];
-    double fluxerr_true = GENLC.fluxerr_true[epoch];
     double fluxerr_data = GENLC.fluxerr_data[epoch];
     double ratio_flux   = flux/legacy_flux;
     double ratio_err    = fluxerr_data/legacy_fluxerr_data;
@@ -23045,6 +23273,7 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   if ( epoch == -7 ) 
     { dumpEpoch_fluxNoise_apply(fnam,epoch,FLUXNOISE); }
 
+
   return ;
 
 
@@ -23062,7 +23291,7 @@ void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
   double  ZPADU        = SIMLIB_OBS_GEN.ZPTADU[ep] ;
   double  zsn          = GENLC.REDSHIFT_HELIO ;
   double  flux         =  GENLC.flux[ep];         // ADU
-  double  fluxerr      =  GENLC.fluxerr_true[ep]; // ADU
+  double  fluxerr      =  GENLC.fluxerr_data[ep]; // ADU
   double  mag_smear    =  GENLC.magsmear8[ep];
 
   double arg, pow_arg, xt, crazyFlux, crazyFlux_neg ;
@@ -23130,20 +23359,73 @@ void  check_crazyFlux(int ep, FLUXNOISE_DEF *FLUXNOISE) {
 // ********************************************************
 void dumpLine_fluxNoise(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE) {
   // Dump util for refactoring GENFLUX_DRIVER
-  double sig_calc       = FLUXNOISE->SIG_CALC ;
-  double sig_final_true = FLUXNOISE->SIG_FINAL_TRUE ;
-  double sig_final_data = FLUXNOISE->SIG_FINAL_DATA ;
-  double sqsig_src      = FLUXNOISE->SQSIG_SRC ;
-  char  *band           = FLUXNOISE->BAND;
+  double sqsig_calc       = FLUXNOISE->SQSIG_CALC_DATA ;
+  double sqsig_final_true = FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_SUM] ;
+  double sqsig_final_data = FLUXNOISE->SQSIG_FINAL_DATA ;
+  double sqsig_src        = FLUXNOISE->SQSIG_SRC ;
+  char  *band             = FLUXNOISE->BAND;
   // --------- begin --------
   printf(" xxx %s: sig(%3d-%s) = %9.3f -> %9.3f(true)/%9.3f(data) "
 	 " F_SN=%.1f\n",
-	 fnam, ep, band, sig_calc, sig_final_true, sig_final_data, 
+	 fnam, ep, band,
+	 sqrt(sqsig_calc),
+	 sqrt(sqsig_final_true), 
+	 sqrt(sqsig_final_data), 
 	 sqsig_src ); 
+
   return;
 
-} // end dumopLine_fluxNoise
+} // end dumpLine_fluxNoise
 
+// ***********************
+void dumpCovMat_fluxNoise(int icov, int NOBS, double *COV) {
+
+  int i0, i1, J1D, NOBS_dump = NOBS;
+  double COVTMP ;
+  char fnam[] = "dumpCovMat_fluxNoise" ;
+  if ( NOBS_dump > 8 ) { NOBS_dump = 8; }
+  printf("\n Dump COV matrix for icov=%d  (%s) \n", 
+	 icov, COVINFO_FLUXERRMAP[icov].BANDSTRING);
+  
+  for(i0=0; i0 < NOBS_dump; i0++ ) {
+    for(i1=0; i1 < NOBS_dump; i1++ ) {
+      J1D = i0*NOBS + i1;
+      COVTMP = COV[J1D];
+      printf("%10.1f ", COVTMP); fflush(stdout);
+    }
+    printf("\n");
+  }
+
+  //  debugexit(fnam);
+
+} // end dumpCovMat_fluxNoise
+
+
+
+// *********************************************
+void monitorCov_fluxNoise(void) {
+
+  // Jan 2020
+  // evaluate reduced correlation for each band,
+  // and separately for Search, Template, Fudge components.
+  // REDCORs are computed for each event, and then averaged
+  // over all events. 
+
+  int NEPOCH = GENLC.NEPOCH ;
+  int ifilt_obs, ep;
+  double RHO;
+  char fnam[] = "monitorCov_fluxNoise" ;
+
+  // ------------ BEGIN -----------
+
+  // .xyz
+  //  GENLC.MONITOR_REDCOR_FLUXNOISE[ifilt][type].RHO_SUM = 0.0 ; 
+  //  GENLC.MONITOR_REDCOR_FLUXNOISE[ifilt][type].NSUM    = 0 ; 
+
+
+  return ;
+
+} // end monitorCov_fluxNoise(int ifilt_obs) {
 
 // *****************************************
 void dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE) {
@@ -23151,6 +23433,8 @@ void dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE) {
   // Created Dec 2019
   // Complete fluxNoise dump for epoch 'ep'.
   // This is part of the GENFLUX_DRIVER refactor.
+
+  /* xxxx
   
   int  ifilt_obs = FLUXNOISE->IFILT_OBS;
   char *band     = FLUXNOISE->BAND;
@@ -23235,6 +23519,7 @@ void dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE) {
 	 FLUXNOISE->SIG_FINAL_DATA);
 
   printf(" xxx\n");  fflush(stdout);
+  xxxxxx */
 
   return ;
 
@@ -24629,8 +24914,7 @@ void INIT_COVMAT_SCATTER( void )
     INPUTS.COVMAT_SCATTER[2][2]
   };
 
-  gsl_matrix_view chk;  
-
+  gsl_matrix_view chk;
   chk  = gsl_matrix_view_array (a_data, 3, 3); 
   gsl_linalg_cholesky_decomp ( &chk.matrix)  ;
   
@@ -27368,7 +27652,7 @@ void SIMLIB_DUMP_DRIVER(void) {
   // ----------------------------------
 
 #define MXSIMLIB_DUMP_STDOUT 50   // max simlib entries to screen-dump
-#define ZPTSIG_MAX  0.05      // exclude entries with this much ZPT-variation
+#define ZPTERR_MAX  0.05      // exclude entries with this much ZPT-variation
 
   int QUIET =  INPUTS.DASHBOARD_DUMPFLAG;
 
@@ -27385,7 +27669,7 @@ void SIMLIB_DUMP_DRIVER(void) {
   double
     MJD, MJD_LAST, GAPMAX, GAPAVG, MJDWIN, FRAC, *ptrmjd
     ,ZPT_pe, PSF, SKYSIG_ADU, SKYSIG_pe
-    ,ZPTSIG, M5SIG
+    ,ZPTERR, M5SIG
     ,ZPT_SIMLIB, PSF_SIMLIB, SNR_maglimit
     ,FSKY_pe, SKYMAG, RA, DEC, MWEBV
     ,XNobs, TMP, TMP0,  TMP1, wgt_LCLIB, wgtsum_LCLIB=0.0
@@ -27625,8 +27909,8 @@ void SIMLIB_DUMP_DRIVER(void) {
       MJD_LAST = -9.0; if(iep>1) { MJD_LAST=GENLC.MJD[iep-1]; }
       MJD = GENLC.MJD[iep];
 
-      ZPTSIG    = SIMLIB_OBS_GEN.ZPTSIG[iep]; 
-      if ( ZPTSIG > ZPTSIG_MAX ) { continue;} // exclude extreme variations
+      ZPTERR    = SIMLIB_OBS_GEN.ZPTERR[iep]; 
+      if ( ZPTERR > ZPTERR_MAX ) { continue;} // exclude extreme variations
 
 
       if ( MJD < MJDMIN4 ) { MJDMIN4 = MJD ; }
@@ -28206,9 +28490,9 @@ void SIMLIB_DUMP_makeTable(int LDMP_MJD_TEXT,int LDMP_ROOT) {
   sprintf(varName,"ZPTADU(NOBS):D" );
   SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
 		 &SIMLIB_OBS_RAW.ZPTADU[1], varName, 1 );
-  sprintf(varName,"ZPTSIG(NOBS):D" );
+  sprintf(varName,"ZPTERR(NOBS):D" );
   SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,
-		 &SIMLIB_OBS_RAW.ZPTSIG[1], varName, 1 );
+		 &SIMLIB_OBS_RAW.ZPTERR[1], varName, 1 );
 
   sprintf(varName,"MAG(NOBS):D" );
   SNTABLE_ADDCOL(TABLEID_SIMLIB_DUMP, BLOCKVAR,

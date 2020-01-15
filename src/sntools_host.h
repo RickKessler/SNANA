@@ -262,7 +262,7 @@ struct SAMEHOST_DEF {
 // Sersic quantities to define galaxy profile
 // these are all defined during init
 struct SERSIC_PROFILE_DEF {
-  int  NDEF ;    // number of defined Sersic/profile components  
+  int  NPROF ;    // number of defined Sersic/profile components  
 
   char VARNAME_a[MXSERSIC_HOSTLIB][12];     // name of major axis; i.e, a1
   char VARNAME_b[MXSERSIC_HOSTLIB][12];     // name of minor axis; i.e, b1
@@ -349,8 +349,9 @@ struct HOSTLIB_WGTMAP_DEF {
 
 
 typedef struct { 
+  int     NPROF; // number of Sersic profiles 
   // Sersic profiles for this host
-  double  INDEX ; // Sersic 'n' 
+  double  INDEX ; // Sersic 'n[JPROF]'  for selected JPROF term
   double  a[MXSERSIC_HOSTLIB]  ;
   double  b[MXSERSIC_HOSTLIB]  ;
   double  n[MXSERSIC_HOSTLIB]  ;

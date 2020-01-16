@@ -23620,7 +23620,7 @@ c no native calls to CERNLIB or ROOT.
 c
 c
 c Apr 11 2019:  MXEP_SNLCPAK -> 4*MXEPOCH (was 10*MXEPOCH)
-c
+c Jan 16 2020:  pass sim fluxes (see VSIMFLUX)
 c -----------------------------------------------------------
       IMPLICIT NONE
 
@@ -23653,6 +23653,7 @@ c SNLCPAK arrays
      &  ,VTOBS(MXEP_SNLCPAK)
      &  ,VFLUX(MXEP_SNLCPAK)
      &  ,VFLUX_ERR(MXEP_SNLCPAK)
+     &  ,VSIMFLUX(MXEP_SNLCPAK)  ! Jan 2020
      &  ,VCHI2(MXEP_SNLCPAK)
      &  ,VREJECT(MXEP_SNLCPAK)
      &  ,VERRCALC(MXEP_SNLCPAK)
@@ -23768,6 +23769,7 @@ c -----------------------------
           VFLUX(NOBS)     = SNLC_FLUXCAL(ep)
           VFLUX_ERR(NOBS) = SNLC_FLUXCAL_ERRTOT(ep)
           VERRCALC(NOBS)  = SNLC_FLUXCAL_ERRCALC(ep)
+          VSIMFLUX(NOBS) = SIM_EPFLUXCAL(ep)   ! Jan 2020
 
           VFILTOBS(NOBS)  = IFILT_OBS
           VREJECT(NOBS)   = DBLE( 1 - ISNLC_SNRECON_USE(ep) )
@@ -23818,10 +23820,16 @@ c store data-FITFUN chi2
      &     VFILTOBS, SNLCPAK_EPFLAG_CHI2, LENCCID)
       ENDIF
 
+c check for sim fluxes (Jan 2020)
+      IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
+        CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, 
+     &     VSIMFLUX, VFLUX_ERR, 
+     &     VFILTOBS, SNLCPAK_EPFLAG_FLUXSIM, LENCCID)
+      ENDIF
+
 c ------------------------------------------
       IF ( .NOT. OVMODEL_ANYFUN ) GOTO 500
 c ------------------------------------------
-
 
 c plot smooth best-fit ANYFUN function in 2-day bins.
 

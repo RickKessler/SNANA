@@ -305,12 +305,13 @@ typedef struct {
 
 
 
-#define NTYPE_FLUXNOISE      5
-#define TYPE_FLUXNOISE_S     0  // from search image + zperr
-#define TYPE_FLUXNOISE_Z     1  // from zero point
-#define TYPE_FLUXNOISE_T     2  // from template
-#define TYPE_FLUXNOISE_F     3  // from error fudge
-#define TYPE_FLUXNOISE_SUM   4  // quadrature sum, for monitor only
+#define NTYPE_FLUXNOISE      6
+#define TYPE_FLUXNOISE_S     0  // from search image -> feeds pipe effic.
+#define TYPE_FLUXNOISE_SZ    1  // Search plus zero point
+#define TYPE_FLUXNOISE_Z     2  // from zero point
+#define TYPE_FLUXNOISE_T     3  // from template
+#define TYPE_FLUXNOISE_F     4  // from error fudge
+#define TYPE_FLUXNOISE_SUM   5  // quadrature sum S+Z+T+F
 
 typedef struct {
 
@@ -322,9 +323,10 @@ typedef struct {
   double SQSIG_FUDGE_DATA ;
   double SQSIG_FINAL_TRUE[NTYPE_FLUXNOISE];
   double SQSIG_FINAL_DATA, SIG_FINAL_DATA ;
-
-  double SNR_calc;    // does not include template noise (for legacy fudges)
-  double SNR_CALC ;   // includes template noise (for FLUXERRMODEL_FILE)
+  
+  double SNR_CALC_S;     // for legacy fluxerr scale option
+  double SNR_CALC_ST;    // feeds pipe detection effic 
+  double SNR_CALC_SZT ;  // feeds FLUXERRMODEL_FILE
 
   double SQSIG_SRC;       // source noise = Npe
   double SQSIG_SKY;       // sky+CCD noise
@@ -353,7 +355,7 @@ typedef struct {
 typedef struct {
   int    NSUM ;
   double RHO_EVT, RHO_SUM, RHO_AVG ;
-} MONITOR_REDCOR_FLUXNOISE_DEF ;
+} MONITOR_REDCOV_FLUXNOISE_DEF ;
 
 // -------------------------------------
 // define user INPUTS
@@ -451,6 +453,7 @@ struct INPUTS {
   char FLUXERRMODEL_FILE[MXPATHLEN];   // input err-scale map(s)
   char FLUXERRMAP_IGNORE_DATAERR[100]; // list of MAPNAMES to ignore in data error
   int  FLUXERRMODEL_OPTMASK ;
+  char FLUXERRMODEL_REDCOV[100];  // overwrite REDCOR key in _FILE
 
   // define anomalous subtraction noise in separate file to be
   // used in both the simulation and in snana to inflate errors.
@@ -1009,7 +1012,7 @@ struct GENLC {
 
   FLUXNOISE_DEF *FLUXNOISE;    // Dec 27 2019 - refactor for noise cov.
   
-  MONITOR_REDCOR_FLUXNOISE_DEF MONITOR_REDCOR_FLUXNOISE[MXFILTINDX][NTYPE_FLUXNOISE];
+  MONITOR_REDCOV_FLUXNOISE_DEF MONITOR_REDCOV_FLUXNOISE[MXFILTINDX][NTYPE_FLUXNOISE];
 
   // xxxx -----------------------------------------------------
   // xxxxx legacy arrays to remove after GENFLUX_DRIVER refactor
@@ -1173,6 +1176,7 @@ struct GENFILT {
 int NGENLC_TOT ;             // actual number of generated LC
 int NGENLC_WRITE ;           // number written
 int NGENSPEC_WRITE ;         // number of spectra written
+int NGENFLUX_DRIVER;         // number of calls to GENFLUX_DRIVER
 
 struct NGEN_REJECT {
   int GENRANGE, GENMAG;

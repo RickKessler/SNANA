@@ -17816,4 +17816,35 @@
      + pass SIM_EPFLUXCAL to SNLCPAK to be compatible with previous
        update for snana & snlc_fit.
    
+
+# ======================================================================= 
+         v10_75 (Jan 18 2020) 
+
+         ***** IMPORTANT(v10_75) ***** 
+
+   minus-sign bug-fixes in SALT2mu treatment of gamma.
+   Two bugs cancelled for BBC5D, but not for BBC7D.
+
+         ***** USEFUL(v10_75) ***** 
+
+         ***** MISCELLANEOUS(v10_75) ***** 
+
+   snlc_sim.c[h] :
+      + notation change: ZPTSIG -> ZPTERR
+      + more developemnt of gen_fluxnois_xxx routines.
+        REDCOR feature works, but needs more testing.
+
+   sntools_host.c
+     + in GEN_SNHOST_DDLR, take wgt avg of a & b instead of using
+       only the first Sersic term.
+     + bug fix in malloc_HOSTLIB (uncovered by Rebekah)
+
+   combine_fitres.c 
+     + implement -mxrow option
+     + add new -zcut option
+
+   SALT2mu.c
+     + fix minus sign bug for gammadm in two places:
+       1) Trip equation in chi2 function, 2) and get_gammadm_host().
+       
 END: 

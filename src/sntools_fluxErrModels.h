@@ -20,9 +20,10 @@
 #define MXPAR_FLUXERRMAP          10
 char VARNAMES_FLUXERRMAP[MXPAR_FLUXERRMAP][20];
 
-#define MASK_APPLY_SIM_FLUXERRMAP  1
-#define MASK_APPLY_DATA_FLUXERRMAP 2
-#define MASK_DUMP_FLUXERRMAP       256
+#define MASK_APPLY_SIM_FLUXERRMAP   1
+#define MASK_APPLY_DATA_FLUXERRMAP  2
+#define MASK_MONITORCOV_FLUXERRMAP  128 // monitor REDCOV input
+#define MASK_DUMP_FLUXERRMAP        256
 
 
 char FILENAME_FLUXERRMAP[MXPATHLEN];
@@ -81,9 +82,9 @@ struct {
 } COVINFO_FLUXERRMAP[MXREDCOV_FLUXERRMAP];
 
 // ======== functions ==============
-void  INIT_FLUXERRMODEL(int optmask, char *fileName, 
+void  INIT_FLUXERRMODEL(int optmask, char *fileName, char *redcorString,
 			char *mapList_ignore_dataErr);
-void  init_fluxerrmodel__(int *optmask, char *fileName, 
+void  init_fluxerrmodel__(int *optmask, char *fileName, char *redcorString,
 			  char *mapList_ignore_dataErr);
 
 void  DUMP_FLUXERRMAP(int imap);

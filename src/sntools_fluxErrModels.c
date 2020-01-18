@@ -25,7 +25,8 @@
 
 
 // ===========================================================
-void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR) {
+void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, 
+		       char *redcovString, char *MAPLIST_IGNORE_DATAERR) {
 
   // Created Feb 2018
   // Read and store maps to correct flux-uncertainties.
@@ -36,6 +37,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
   // Inputs:
   //   OPTMASK  : bit options
   //   fileName : file containing maps to read
+  //   redcovString : optional override of REDCOV argument.
   //   MAPLIST_IGNORE_DATAERR : 
   //      optional [comma-separated] list of maps to use only for simulation,
   //      but not include in the reported data error.
@@ -48,10 +50,12 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
   //
   // Dec 9 2019: abort if map file cannot be opened.
   // Jan 10 2020: parse optional REDCOV 
+  // Jan 16 2020: pass redcovString override.
 
   FILE *fp;
   int gzipFlag, FOUNDMAP, NTMP, NVAR, NDIM, NFUN, ivar, igroup, ifilt ;
-  int IDMAP, NMAP=0, imap, OPT_EXTRAP=0 ; 
+  int IDMAP, NMAP=0, imap, OPT_EXTRAP=0 ;
+  int USE_REDCOV_OVERRIDE=0;
   char PATH[MXPATHLEN], c_get[80];  
   char *fullName = FILENAME_FLUXERRMAP ;
   char *name, *fieldList, TMP_STRING[80], LINE[100];
@@ -108,6 +112,11 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
   for(ifilt=0; ifilt < MXFILTINDX; ifilt++ )
     { INDEX_REDCOV_FLUXERRMAP[ifilt] = -9 ; }
 
+  if ( !IGNOREFILE(redcovString) ) {
+    USE_REDCOV_OVERRIDE =  1;
+    parse_REDCOV_FLUXERRMAP(redcovString);
+  }
+
   // start reading file
   while ( fscanf(fp, "%s", c_get) != EOF ) {
 
@@ -123,9 +132,11 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
       FLUXERR_FIELDGROUP.NDEFINE++ ;
     }
 
-    if ( strcmp(c_get,"REDCOV:")==0 || strcmp(c_get,"REDCOR:")==0 ) {
-      readchar(fp, TMP_STRING);
-      parse_REDCOV_FLUXERRMAP(TMP_STRING);
+    if ( !USE_REDCOV_OVERRIDE ) {
+      if ( strcmp(c_get,"REDCOV:")==0 || strcmp(c_get,"REDCOR:")==0 ) {
+	readchar(fp, TMP_STRING);
+	parse_REDCOV_FLUXERRMAP(TMP_STRING);
+      }
     }
 
     if ( strcmp(c_get,"MAPNAME:")==0 ) {
@@ -219,9 +230,10 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
 
 } // end INIT_FLUXERRMODEL
 
-void  init_fluxerrmodel__(int *optmask, char *fileName, 
+void  init_fluxerrmodel__(int *optmask, char *fileName, char *redcorString,
 			  char *mapList_ignore_dataErr) 
-{  INIT_FLUXERRMODEL(*optmask, fileName, mapList_ignore_dataErr); }
+{  INIT_FLUXERRMODEL(*optmask, fileName, redcorString,
+		     mapList_ignore_dataErr); }
 
 
 // =============================================

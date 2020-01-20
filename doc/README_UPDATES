@@ -17839,6 +17839,9 @@
       + new sim-inoput key  OPT_DEVEL_GENFLUX
       + OPT_DEVEL_BBC7D=1 by default 
 
+   snana_manual:
+     + new sub section 4.11.2 Modeling Flux Correlations
+
    genmag_SALT2.c
      + fix memory leak.
 

@@ -1563,15 +1563,14 @@ the usual expression for the co-added zeropoint.
 From the noise calculation in Eq.~\ref{eq:noiseModel} there
 are two quantities which the simuation cannot determine
 from the \simlib\ file:  
-1) a global scale $\SSNR$, and 2) an offset $\sigOFF$.
-These quantities must be determined by the survey team.
-\S\ref{sss:fluxerrmap} explains how to provide this information
-to the simulation via tables, and
+1) global scale $\SSNR$, and 2) offset $\sigOFF$.
+\S\ref{sss:fluxerrmap} explains how a survey team provides 
+this information via tables, and
 \S\ref{sss:fluxerrmap_ideas} suggests a general strategy on how
-to determine these corrections.
+to determine $\SSNR$.
 
 % - - - - - - - - - - - - - - - - - - - - - - - 
-\subsubsection{ {\tt FLUXERRMAP} Tables }
+\subsubsection{ {\tt FLUXERRMODEL} Tables }
 \label{sss:fluxerrmap}
 % - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -1585,23 +1584,23 @@ multi-dimensional function of the following 8 variables:
    PSF:      FWHM, arcsec
    SKYSIG:   ADU/pixel
    ZP:       zero point, ADU
-   LOGSNR:   log10(SNR)
+   LOGSNR:   log10(SNR)  # calculated SNR before error fudge
    SBMAG:    surface-brightness mag, per arcsecond^2
    GALAMG:   total galaxy mag
    SNSEP:    SN-host separation, arcsec
 \end{verbatim}
 %
-The set of 8 observed values for each \obs\ is refered to as $\obsvec$.
+For each \obs, the set of 8 values is called $\obsvec$.
 Several 1D maps can be defined, or a single multi-dimensional
 map can be used to capture correlations. The 1D maps are
 illustrated for the 3-year SDSS sample in
 %
 \begin{verbatim}
-  $SNDATA_ROOT/simlib/SDSS/SDSS_fluxErrModel.DAT
+     $SNDATA_ROOT/simlib/SDSS/SDSS_fluxErrModel.DAT
 \end{verbatim}
 %
 The first {\tt NVAR-1} columns are input variables among the
-eight variables above. The last column is either
+8 variables above. The last column is either
 {\tt ERRSCALE} ($=\SSNR$) or {\tt ERRADD} ($=\sigOFF$).
 The {\tt BAND} key specifies that each map corresponds
 only to that band. There is also an optional {\tt FIELD}
@@ -1635,10 +1634,11 @@ The map corresponds to the {\tt DEEP} fields, which is internally
 translated to {\tt C3} and {\tt X3} fields. The map applies to all
 four ($griz$) passbands.
 
-\clearpage
+
 The maps can be applied to simulations and to data.
 For simulations, 
 the following sim-input command will use the SDSS set of maps:
+\clearpage
 \begin{verbatim}
   FLUXERRMODEL_FILE:  SDSS_fluxErrModel.DAT
 
@@ -1691,8 +1691,8 @@ This format may be more useful for making plots and debugging.
 DEFINE_FIELDGROUP:  SHALLOW   E1+E2+S1+S2+C1+C2+X1+X2 
 DEFINE_FIELDGROUP:  DEEP      C3+X3
 
-REDCOR: g:0.3,r:0.5  # reduced corr = 0.3 & 0.5 for g & r, respectively
-REDCOR: iz:0.4       # reduced corr = 0.4 for i+z combined
+REDCOV: g:0.3,r:0.5  # reduced corr = 0.3 & 0.5 for g & r, respectively
+REDCOV: iz:0.4       # reduced corr = 0.4 for i+z combined
 
 MAPNAME:  ERRSCALE_2D_ZPPSF
 BAND: griz    FIELD:  DEEP
@@ -1724,6 +1724,44 @@ ENDMAP:
 \label{fig:fluxerrmap_2D}
 \end{figure}
 
+% - - - - - - - - - - - - - - - - - - - - - - - 
+\subsubsection{Modeling Flux Correlations }
+\label{sss:fluxCov}
+% - - - - - - - - - - - - - - - - - - - - - - - 
+
+The anomolous flux uncertainty may be from a process that is 
+correlated among each epoch: e.g, image-subtraction artifacts. 
+Optioanl flux correlations can be defined using the {\tt REDCOV} 
+keys as shown in Fig.~\ref{fig:fluxerrmap_2D}.
+
+The first key ({\tt REDCOV: g:0.3,r:0.5}) specifies a 30\% 
+reduced correlation among g-band epochs, and 50\% correlation
+among r-band epochs; there are no correlations
+between the g \& r bands.  This one-line specifier can 
+also be broken into two lines: ``{\tt REDCOV: g:0.3}'' and 
+``{\tt REDCOV: r:0.5}.''
+The second key ({\tt REDCOV: iz:0.4}) specifies a 40\%
+reduced correlation among the i \& z bands. 
+For correlations among all bands, {\tt REDCOV: griz:0.4}.
+To vary the correlations without modifying {\tt FLUXERRMODEL\_FILE}
+(e.g., systematic studies using {\tt sim\_SNmix}),
+use the following command-line override,
+\begin{Verbatim}
+    snlc_sim.exe <inputFile> FLUXERRMODEL_REDCOV g:0.3,r:0.5,iz:0.5
+\end{Verbatim}
+
+Since the Poisson noise components are independent,
+the correlation is introduced only in the anomalous part of
+the uncertainty, Defining $\sigma_{\rm final} = \SSNR \sigma_{\rm calc}$,
+where $\SSNR$ is the error scale from the map, the simulation
+breaks the final \unc\ into two components:
+%
+%\begin{equation}
+ $\sigma_{\rm final}^2 = \sigma_{\rm calc}^2 + \sigma_{\rm fudge}^2$~.
+%\end{equation}
+%
+Correlations are introduced among the $\sigma_{\rm fudge}$ components, 
+while the Poisson-$\sigma_{\rm calc}$ components are independent.
 
 % - - - - - - - - - - - - - - - - - - - - - - - 
 \clearpage
@@ -1801,7 +1839,7 @@ with $1.48\times {\rm median}$.
 
 % - - - - - - - - - - - - - - - - - - - - - - - 
 %\clearpage
-\subsubsection{Extracting Information for {\tt FLUXERRMAP} }
+\subsubsection{Extracting Information for {\tt FLUXERRMODEL} }
 \label{sss:fluxerrmap_info}
 % - - - - - - - - - - - - - - - - - - - - - - - 
 

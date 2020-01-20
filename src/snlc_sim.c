@@ -22302,10 +22302,20 @@ void GENFLUX_DRIVER_LEGACY(void) {
   // Driver routine to generate observed fluxes and uncertainties
   // from true/generated mags.
   //
+
   int epoch, istat, ifilt_obs;
   int VBOSE_SMEAR = 0;
   char fnam[] = "GENFLUX_DRIVER_LEGACY" ;
   // -------------- BEGIN ---------------
+
+  // xxxxxxxx temp check until refactored code is default
+  int OPT_NEW = (INPUTS.OPT_DEVEL_GENFLUX & 2); // will call new code too
+  if ( !OPT_NEW && NREDCOV_FLUXERRMAP > 0 ) {
+    sprintf(c1err,"REDCOV in FLUXERRMODEL_FILE is valid only with");
+    sprintf(c2err,"refactored GENFLUX_DRIVER code (OPT_DEVEL_GENFLUX: 2).");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+  // xxxxxxxxx
 
   gen_fluxNoise_randoms();   // randoms for instrumental noise
 

@@ -1497,9 +1497,7 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_PSF,  CUTBIT_ZP
      &  ,CUTBIT_PHOTPROB
      &  ,CUTBIT_TREST, CUTBIT_TOBS, CUTBIT_MJD
-cc xxx     &  ,CUTBIT_IDTEL          ! valid telescope 
      &  ,CUTBIT_ERRTEST          ! epoch cut on ERRCALC/ERRTRUE
-cc xxx     &  ,CUTBIT_NBAND_THRESH
      &  ,CUTBIT_NFILT_SNRMAX
      &  ,CUTBIT_NFILT_SNRMAX2
      &  ,CUTBIT_NFILT_TRESTMIN
@@ -1810,7 +1808,6 @@ ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
      &   ,( cutwin_var(1,cutbit_zp),        cutwin_zp  )
      &   ,( cutwin_var(1,cutbit_photprob),  cutwin_photprob  )
      &   ,( cutwin_var(1,cutbit_errtest),   cutwin_errtest   )
-cc     &   ,( cutwin_var(1,cutbit_Nband_thresh), cutwin_nband_thresh )
      &   ,( cutwin_var(1,cutbit_Nfilt_snrmax), cutwin_nfilt_snrmax )
      &   ,( cutwin_var(1,cutbit_Nfilt_snrmax2),cutwin_nfilt_snrmax2 )
      &   ,( cutwin_var(1,cutbit_Nfilt_trestmin),cutwin_nfilt_trestmin)

@@ -196,6 +196,7 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
  Aug 26 2019: implement RELAX_IDIOT_CHECK_SALT2 for P18 to avoid abort.
 
  Nov 7 2019: for SALT3, remove x1*M1/M0 term in error; see ISMODEL_SALT3.
+ Jan 19 2020: in INTEG_zSED_SALT2, fix memory leak related to local magSmear.
 
 ****************************************************************/
 
@@ -2079,6 +2080,10 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   // Apr 23 2019: remove buggy z1 factor inside OPT_SPEC
   //              (caught by D.Jones)
   //
+  // Jan 19 2020:
+  //   replace local magSmear[ilam] with global GENSMEAR.MAGSMEAR_LIST
+  //   so that it works properly with repeat function.
+
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
     ,IDAY, NDAY, nday, iday, ised, ic
@@ -2093,7 +2098,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     ,FRAC_INTERP_DAY, FRAC_INTERP_COLOR, FRAC_INTERP_LAMSED
     ,TRANS, MODELNORM_Fspec, MODELNORM_Finteg, *ptr_FLUXSED[2][4] 
     ,FSED[4], FTMP, FDIF, VAL0, VAL1, mean, arg, FSMEAR
-    ,lam[MXBIN_LAMFILT_SEDMODEL], magSmear[MXBIN_LAMFILT_SEDMODEL]
+    ,lam[MXBIN_LAMFILT_SEDMODEL]
     ,Finteg_filter[2], Finteg_forErr[2], Finteg_spec[2]
     ,Fbin_forFlux, Fbin_forSpec
     ,hc8 = (double)hc ;
@@ -2175,7 +2180,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
       if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }       
       NLAMTMP++ ;
     }
-    get_genSmear( Trest, NLAMTMP, lam, magSmear) ;
+    // xxx mark delete    get_genSmear( Trest, NLAMTMP, lam, magSmear) ;
+    get_genSmear( Trest, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
   }
 
 
@@ -2290,7 +2296,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	
 	// check option to smear SALT2 flux with intrinsic scatter
 	if ( ISTAT_GENSMEAR ) {
-	  arg     =  -0.4*magSmear[ilamobs] ; 
+	  // xxx mark delete  arg   =  -0.4*magSmear[ilamobs] ; 
+	  arg     =  -0.4*GENSMEAR.MAGSMEAR_LIST[ilamobs] ; 
 	  FSMEAR  =  pow(TEN,arg)  ;        // fraction change in flux
 	  FTMP   *=  FSMEAR;                // adjust flux for smearing
 	}

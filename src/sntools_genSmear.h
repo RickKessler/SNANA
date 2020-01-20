@@ -48,8 +48,6 @@ void  parse_VCR_colorString(int ic);
 
 void  get_NRAN_genSmear(int *NRANGauss, int *NRANFlat); // returns NRANxxx
 
-// void  SETRANGauss_genSmear(int NRAN, double *ranList );
-// void  SETRANFlat_genSmear(int NRAN, double *ranList );
 void  SETSNPAR_genSmear(double shape, double color, double redshift) ;
 
 void get_genSmear(double Trest, int NLam, double *Lam,
@@ -145,6 +143,9 @@ struct GENSMEAR {
   // to be re-computed
   int    CID_LAST, NLAM_LAST;
   double TREST_LAST, LAMMIN_LAST, LAMMAX_LAST;
+
+  // define global mag-vs-lanbda to allow repeat function to re-use (Jan 2020)
+  double *MAGSMEAR_LIST ;
 
 } GENSMEAR ;
 

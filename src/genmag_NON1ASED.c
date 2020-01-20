@@ -198,18 +198,6 @@ void genmag_NON1ASED (
   // Nov 16 2016: load MWEBV tables for each band and spectrum
   fill_TABLE_MWXT_SEDMODEL(RV_MWDUST, mwebv); 
 
-  /* xxxxxxxxx mark delete since smear is already in snlc_sim xxxxxxxx
-  // Dec 2019: check COH option from GENMAG_SMEAR_MODELNAME key
-  ISTAT_GENSMEAR = istat_genSmear();
-  if ( ISTAT_GENSMEAR ) {
-    Trest = 0.0 ; 
-    int nblam=1 ;
-    get_genSmear(Trest, nblam, &meanlam_rest, &magSmear);
-    //    printf(" xxx %s: magSmear = %f \n", fnam, magSmear);
-  }
-  xxxxx end mark xxxxxxxxxx */
-
-
   // - - - - - - - 
   for ( epobs=0; epobs < Nobs; epobs++ ) {
 

@@ -648,12 +648,14 @@ void ADD_FITRES(int ifile) {
 
   fflush(stdout);
 
+  /*
   if ( ifile==0 && IVAR_zHD < 0 ) {
     sprintf(c1err,"Cannot apply cut on zHD (%.2f to %.2f).",
 	    INPUTS.CUTWIN_zHD[0], INPUTS.CUTWIN_zHD[1] );
     sprintf(c2err,"Could not find zHD column.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+  */
 
   // free temp arrays
   freeVar_TMP(ifile, NVARALL, NVARSTR, NEVT_APPROX);

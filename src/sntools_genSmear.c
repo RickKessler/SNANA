@@ -96,9 +96,9 @@
 #include <gsl/gsl_matrix.h>
 
 #include "sntools.h"
-#include "sntools_genSmear.h"
 #include "genmag_SEDtools.h"
 #include "genmag_SALT2.h"
+#include "sntools_genSmear.h"
 #include "MWgaldust.h"
 #include "sntools_fitsio.h"
 
@@ -152,6 +152,12 @@ void  init_genSmear_FLAGS(int MSKOPT, double SCALE) {
     sprintf(c2err,"External calling routine must set NSMEARPAR_OVERRIDE=0");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
+
+  // Jan 2020: allocate magsmear-vs-wave array
+  int MEMD = MXLAM_GENSMEAR_SALT2*sizeof(double);
+  GENSMEAR.MAGSMEAR_LIST = (double*) malloc(MEMD);
+
 
 }  // end of init_genSmear_FLAGS
 
@@ -266,14 +272,15 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   // Oct 21 2019: add CID argument
   // Nov 30 2019: MAGSMEAR_COH -> MAGSMEAR_COH[2]
 
-  int ilam;
+  int ilam, repeat ;
   char fnam[] = "get_genSmear" ;
 
   // -------------- BEGIN -----------
 
   GENSMEAR.NCALL++ ;
 
-  if ( repeat_genSmear(Trest,NLam,Lam) ) {  goto SET_LAST; }
+  repeat = repeat_genSmear(Trest,NLam,Lam);
+  if ( repeat ) {  goto SET_LAST; }
 
   // abort if more than one model has been initialized.
   if ( GENSMEAR.NUSE > 1 ) {

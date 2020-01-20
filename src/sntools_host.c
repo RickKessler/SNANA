@@ -4286,7 +4286,11 @@ void GEN_SNHOST_GALID(double ZGEN) {
     fflush(stdout);
 
     sprintf(c1err,"Could not find HOSTLIB entry for ZGEN=%5.4f .", ZGEN);
-    sprintf(c2err,"           ");
+    int USEONCE   = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEONCE );
+    if ( USEONCE ) 
+      { sprintf(c2err,"Each HOST used only once -> need larger library."); }
+    else
+      { sprintf(c2err,"This error is baffling ?!?!?!"); }
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   

@@ -2841,7 +2841,7 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
   else if ( strcmp(key,"MJD") == 0 ) {
     for(i=1; i <= NVAL ; i++ ) { 
       SNDATA.MJD[i] = parVal[i-1] ; 
-      SNDATA.USE_EPOCH[i] = 1;
+      SNDATA.OBSFLAG_WRITE[i] = true ;
     }
   }
   else if ( strcmp(key,"FLUXCAL") == 0 ) {

@@ -376,7 +376,8 @@ struct INPUTS {
   bool RESTORE_HOSTLIB_BUGS ;      // set if DEBUG_FLAG==3
   bool RESTORE_FLUXERR_BUGS ;      // set if DEBUG_FLAG==3
 
-  int OPT_DEVEL_BBC7D; // temp while doing BBC7D development
+  int OPT_DEVEL_BBC7D;   // temp for BBC7D development
+  int OPT_DEVEL_GENFLUX; // temp for GENFLUX_DRIVER refactor + REDCOV
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files
@@ -955,7 +956,6 @@ struct GENLC {
   int   SUBSAMPLE_INDEX ; // only if NSUBSAMPLE_MARK > 0 (June 2017)
   int   NEPOCH;        // includes model-epoch at T=0 and epoch with fluxerr<0
 
-  int   USE_EPOCH[MXEPSIM];
   int   ACCEPTFLAG ;       // True of event is accepted
   int   ACCEPTFLAG_FORCE ; // true if same LIBID is read too many times
   int   ACCEPTFLAG_LAST ;  
@@ -1091,12 +1091,25 @@ struct GENLC {
   float mag[MXEPSIM] ;       // observed mag
   float mag_err[MXEPSIM] ;   // error onabove
 
+  // Jan 19 2020:
+  //   ISPEAK    -> OBSFLAG_PEAK
+  //   ISOBS     -> OBSFLAG_GEN
+  //   USE_EPOCH -> OBSFLAG_WRITE
+  //   ISTEMPLATE -> OBSFLAG_TEMPLATE
+  bool OBSFLAG_GEN[MXEPSIM];     // flag to generate mags & flux
+  bool OBSFLAG_WRITE[MXEPSIM];   // write these to data file
+  bool OBSFLAG_PEAK[MXEPSIM] ;   // extra epochs with peak mags
+  bool OBSFLAG_TEMPLATE[MXEPSIM]; // extra epochs that are templates
+
+  /* xxx mark delete
+  int USE_EPOCH[MXEPSIM];
   int ISOBS[MXEPSIM];       // flags observed epochs
   int ISPEAK[MXEPSIM];      // labels extra epochs that store peakmags.
+  int ISTEMPLATE[MXEPSIM];         // labels extra epochs that are templates
+  xxx */
+
   int IEPOCH_PEAK[MXFILTINDX] ; // identifies peak epoch vs. filter
   int IEPOCH_SNRMAX;            // epoch with SNRMAX (Jun 2018)
-
-  int ISTEMPLATE[MXEPSIM];         // labels extra epochs that are templates
   int IEPOCH_TEMPLATE[MXFILTINDX]; // identifies template epochs
 
   float COVAR[MXFILT_COVAR][MXEPCOV][MXFILT_COVAR][MXEPCOV] ;  // cov matrix

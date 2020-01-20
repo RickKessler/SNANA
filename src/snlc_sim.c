@@ -307,8 +307,9 @@ int main(int argc, char **argv) {
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("09", ilc) ; }
 
     // convert generated mags into observed fluxes
-    GENFLUX_DRIVER_LEGACY();   // diagonal flux-cov only
-    if ( INPUTS.DEBUG_FLAG == 33 )  { GENFLUX_DRIVER(); }
+    int OPT = INPUTS.OPT_DEVEL_GENFLUX ;
+    if ( OPT==0 || (OPT & 1)  )  { GENFLUX_DRIVER_LEGACY(); }
+    if ( (OPT & 2) )             { GENFLUX_DRIVER(); }
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("10", ilc) ; }
 
@@ -600,7 +601,8 @@ void set_user_defaults(void) {
   INPUTS.DEBUG_FLAG = 0 ;
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
   INPUTS.RESTORE_FLUXERR_BUGS = false; // Jan 2020
-  INPUTS.OPT_DEVEL_BBC7D = 0 ;
+  INPUTS.OPT_DEVEL_BBC7D   = 1 ; // turn on, Jan 19 2020
+  INPUTS.OPT_DEVEL_GENFLUX = 0 ; // 1->legacy, 2->new, 3->both
   NLINE_RATE_INFO   = 0;
 
   // don't init zero'th input file since that is the main input file
@@ -1340,6 +1342,8 @@ int read_input(char *input_file) {
 
     if ( uniqueMatch(c_get,"OPT_DEVEL_BBC7D:")  ) 
       { readint ( fp, 1, &INPUTS.OPT_DEVEL_BBC7D );  continue ; }
+    if ( uniqueMatch(c_get,"OPT_DEVEL_GENFLUX:")  ) 
+      { readint ( fp, 1, &INPUTS.OPT_DEVEL_GENFLUX );  continue ; }
 
     // --- HOSTLIB stuff
     if ( uniqueMatch(c_get,"HOSTLIB_FILE:")   ) {
@@ -4330,6 +4334,8 @@ void sim_input_override(void) {
 
     if ( strcmp( ARGV_LIST[i], "OPT_DEVEL_BBC7D" ) == 0 ) 
       { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_DEVEL_BBC7D );  }
+    if ( strcmp( ARGV_LIST[i], "OPT_DEVEL_GENFLUX" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_DEVEL_GENFLUX );  }
     if ( strcmp( ARGV_LIST[i], "DEBUG_FLAG" ) == 0 ) 
       { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.DEBUG_FLAG );   }
 
@@ -6889,7 +6895,7 @@ void genmag_offsets(void) {
     ifilt_obs = GENLC.IFILT_OBS[epoch] ;
 
     // Aug 2012: always init USE_EPOCH[epoch]=0 (fixes IDLOCK bug)     
-    GENLC.USE_EPOCH[epoch] = 0 ; 
+    GENLC.OBSFLAG_WRITE[epoch] = false ; 
     
     if ( !GENLC.DOFILT[ifilt_obs]  ) { continue ; }
     
@@ -6923,10 +6929,10 @@ void genmag_offsets(void) {
 
     // -----------------------------
     // keep peak mags separately (before smearing)
-    if ( GENLC.ISPEAK[epoch]  )  
+    if ( GENLC.OBSFLAG_PEAK[epoch]  )  
       {  GENLC.peakmag_obs[ifilt_obs] = genmag8 ; }
 
-    if ( GENLC.ISTEMPLATE[epoch] ) 
+    if ( GENLC.OBSFLAG_TEMPLATE[epoch] ) 
       { GENLC.genmag_obs_template[ifilt_obs] = genmag8; }
 
   } // end of epoch loop
@@ -8001,7 +8007,7 @@ void  init_GENLC(void) {
   for ( epoch = 0; epoch < NEP_RESET; epoch++ ) {
     GENLC.IFILT_OBS[epoch] = NULLINT ;
 
-    GENLC.USE_EPOCH[epoch] = 0 ;
+    GENLC.OBSFLAG_WRITE[epoch] = false ;
 
     sprintf(GENLC.FIELDNAME[epoch], "NULL" );
 
@@ -8030,9 +8036,9 @@ void  init_GENLC(void) {
     sprintf(GENLC.kcornam[epoch],    "NULL" );
     sprintf(GENLC.warpcolnam[epoch], "NULL" );
 
-    GENLC.ISOBS[epoch]       = 1 ; // default is all epochs are observations 
-    GENLC.ISPEAK[epoch]      = 0 ;    
-    GENLC.ISTEMPLATE[epoch]  = 0 ;    
+    GENLC.OBSFLAG_GEN[epoch] = true ; // default is to generate all obs
+    GENLC.OBSFLAG_PEAK[epoch]      = false ;    
+    GENLC.OBSFLAG_TEMPLATE[epoch]  = false ;    
     GENLC.SNR_CALC[epoch]    = 0.0 ;
     GENLC.SNR_MON[epoch]     = 0.0 ;
 
@@ -9756,7 +9762,7 @@ int fudge_SNR ( void ) {
   if ( ITER2 ) {
     for ( ep=1; ep <= GENLC.NEPOCH; ep++ ) {
 
-      if ( !GENLC.ISOBS[ep] ) { continue; }
+      if ( !GENLC.OBSFLAG_GEN[ep] ) { continue; }
 
       ifilt_obs  = GENLC.IFILT_OBS[ep] ;
       Tobs       = GENLC.MJD[ep] - GENLC.PEAKMJD ;  // for dump only
@@ -9964,8 +9970,8 @@ void gen_event_driver(int ilc) {
       GENLC.NEPOCH++ ; NEP   = GENLC.NEPOCH ;
       GENLC.MJD[NEP]         = MJD_TEMPLATE ;
       GENLC.IFILT_OBS[NEP]   = ifilt_obs ;
-      GENLC.ISTEMPLATE[NEP]  = 1 ;
-      GENLC.ISOBS[NEP]       = 0 ;
+      GENLC.OBSFLAG_TEMPLATE[NEP]  = true ;
+      GENLC.OBSFLAG_GEN[NEP]       = false ;
       GENLC.IEPOCH_TEMPLATE[ifilt_obs] = NEP ; 
     }
 
@@ -9974,8 +9980,8 @@ void gen_event_driver(int ilc) {
     GENLC.NEPOCH++ ; NEP = GENLC.NEPOCH ;
     GENLC.MJD[NEP]       = GENLC.PEAKMJD ;
     GENLC.IFILT_OBS[NEP] = ifilt_obs ;
-    GENLC.ISPEAK[NEP]    = 1 ;
-    GENLC.ISOBS[NEP]     = 0 ;
+    GENLC.OBSFLAG_PEAK[NEP]    = true ;
+    GENLC.OBSFLAG_GEN[NEP]     = false ;
     GENLC.IEPOCH_PEAK[ifilt_obs] = NEP ; 
 
   }  // ifilt_obs loop
@@ -10072,7 +10078,7 @@ void override_modelPar_from_SNHOST(void) {
     if ( DM_HOSTCOR != 0.0 ) {
       GENLC.SALT2gammaDM = DM_HOSTCOR ;
 
-      // xxxxxx temp hack until BBC7D is developed xxxxxxxxxxx
+      // xxxxxx backward hack until BBC7D is developed xxxxxxxxxxx
       if ( !INPUTS.OPT_DEVEL_BBC7D ) {	
 	arg = -0.4*DM_HOSTCOR; 
 	GENLC.SALT2mB += DM_HOSTCOR; // old-style mB corr for Mat paper.
@@ -10239,7 +10245,7 @@ void gen_event_stronglens(int ilc, int istage) {
 
   // update MJD for epoch flagged as peakMJD
   for(ep=0; ep <= GENLC.NEPOCH; ep++ ) {
-    if ( GENLC.ISPEAK[ep] ) { GENLC.MJD[ep] = GENLC.PEAKMJD ; }
+    if ( GENLC.OBSFLAG_PEAK[ep] ) { GENLC.MJD[ep] = GENLC.PEAKMJD ; }
   }
 
 
@@ -10654,7 +10660,7 @@ void gen_filtmap(int ilc) {
   if ( NDOFILT_ZERO > 0 ) {
     for ( ep = 1; ep <= GENLC.NEPOCH; ep++ )  {  
       ifilt_obs = GENLC.IFILT_OBS[ep] ;    
-      if ( !GENLC.DOFILT[ifilt_obs] )  { GENLC.ISOBS[ep] = 0 ; }
+      if ( !GENLC.DOFILT[ifilt_obs] )  { GENLC.OBSFLAG_GEN[ep] = false ; }
     }
   }
 
@@ -16968,7 +16974,6 @@ int USE_SAME_SIMLIB_ID(int IFLAG) {
   // check option to keep using same LIBID
   if ( IDLOCK > 1 && GENLC.SIMLIB_ID > 0 ) { return 1; }
 
-
   if ( SIMLIB_HEADER.NREPEAT <= INPUTS.SIMLIB_NREPEAT ) { 
     NEW_SAMEFLAG=1; 
   }
@@ -18510,7 +18515,7 @@ int gen_cutwin(void) {
 
   // if we get here, calcualte CUT-WINDOW variables.
   
-  LDMP = ( GENLC.CID < -5555 ) ;
+  LDMP = ( GENLC.CID == -991 ) ;
 
   if ( LDMP ) {
     printf("\n xxx ----------------------------------------------- \n");
@@ -18582,7 +18587,7 @@ int gen_cutwin(void) {
 
     // require valid epoch to continue
 
-    if ( GENLC.USE_EPOCH[ep] == 0 ) { continue ; }
+    if ( !GENLC.OBSFLAG_GEN[ep] ) { continue ; }
     
     if ( Trest < INPUTS.CUTWIN_TRESTMIN[0] ) { continue ; }
     if ( Trest > INPUTS.CUTWIN_TRESTMAX[1] ) { continue ; }
@@ -19062,7 +19067,7 @@ void  LOAD_SEARCHEFF_DATA(void) {
 
   for(ep=1; ep <= GENLC.NEPOCH; ep++ ) {
 
-    if ( !GENLC.ISOBS[ep] ) { continue; } 
+    if ( !GENLC.OBSFLAG_GEN[ep] ) { continue; } 
 
     SNR_CALC = GENLC.SNR_CALC[ep] ; // Aug 24, 2014
 
@@ -19178,8 +19183,8 @@ void  LOAD_SEARCHEFF_DATA_LEGACY(void) {
 
     for ( ep=EPMIN; ep <= EPMAX; ep++ ) {
 
-      if ( GENLC.ISPEAK[ep]     ) { continue ; } // Sep 24 2017
-      if ( GENLC.ISTEMPLATE[ep] ) { continue ; }
+      if ( GENLC.OBSFLAG_PEAK[ep]     ) { continue ; } // Sep 24 2017
+      if ( GENLC.OBSFLAG_TEMPLATE[ep] ) { continue ; }
 
       SNR_CALC = GENLC.SNR_CALC[ep] ; // Aug 24, 2014
 
@@ -19533,7 +19538,6 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   char field[MXCHAR_FIELDNAME], band[4];
   char fnam[] = "gen_smearFlux" ;
 
-  int DEBUG_DUMP = (INPUTS.DEBUG_FLAG == 33 ) ;
 
   // ----------------- BEGIN --------------
 
@@ -19598,7 +19602,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   // bail on bad input or non-existant peak epoch
   int SKIPIT = 0;
 
-  if ( !GENLC.ISOBS[epoch]  )      { SKIPIT = 1 ; }
+  if ( !GENLC.OBSFLAG_GEN[epoch]  )      { SKIPIT = 1 ; }
   if ( zpt     < 10.0   )          { SKIPIT = 1 ; }
   if ( psfsig1 < 0.0001 )          { SKIPIT = 1 ; }
   if ( skysig  < 0.0001 )          { SKIPIT = 1 ; }
@@ -19878,7 +19882,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   }  // @@@@@@@@@@@@@@@@@ LEGACY ERRFUDGE @@@@@@@@@@@@@@@@@@@@@@@@@
 
 
-  if ( DEBUG_DUMP  == -666 ) {
+  if ( (INPUTS.OPT_DEVEL_GENFLUX & 4)>0 ) {
 
     // this dump code is to validate refactored gen_fluxNoise_fudges
     FLUXNOISE_DEF FLUXNOISE ;
@@ -20699,14 +20703,9 @@ void snlc_to_SNDATA(int FLAG) {
 
   for ( epoch = 1; epoch <= GENLC.NEPOCH ; epoch++ ) {
 
-    SNDATA.USE_EPOCH[epoch] = GENLC.USE_EPOCH[epoch] ;
+    SNDATA.OBSFLAG_WRITE[epoch] = GENLC.OBSFLAG_WRITE[epoch] ;
 
-    if ( !GENLC.ISOBS[epoch] ) { continue; }
-
-    /* xxxxxxxx mark delete Dec 22 2019 xxxxxxx
-    if ( GENLC.ISPEAK[epoch]      ) { continue ; }
-    if ( GENLC.ISTEMPLATE[epoch]  ) { continue ; }
-    xxxxxxxxxxx */
+    if ( !GENLC.OBSFLAG_GEN[epoch] ) { continue; }
 
     ifilt_obs    = GENLC.IFILT_OBS[epoch];
       
@@ -22141,7 +22140,7 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
   GENLC_ORIG.TREST       = (double*)malloc( MEMD ) ;
 
   for(iep=1; iep <= GENLC_ORIG.NEPOCH ; iep++ ) {
-    GENLC_ORIG.ISPEAK[iep]    = GENLC.ISPEAK[iep] ;
+    GENLC_ORIG.ISPEAK[iep]    = GENLC.OBSFLAG_PEAK[iep] ;
     GENLC_ORIG.IFILT_OBS[iep] = GENLC.IFILT_OBS[iep] ;
     GENLC_ORIG.MJD[iep]       = GENLC.MJD[iep];
     GENLC_ORIG.TOBS[iep]      = GENLC.epoch_obs[iep];  
@@ -22149,7 +22148,7 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
 
     if ( GENLC_ORIG.ISPEAK[iep] == 0 ) { continue ; }
     NEP_PEAKONLY++ ;
-    GENLC.ISPEAK[NEP_PEAKONLY]       = GENLC_ORIG.ISPEAK[iep] ;
+    GENLC.OBSFLAG_PEAK[NEP_PEAKONLY]       = GENLC_ORIG.ISPEAK[iep] ;
     GENLC.IFILT_OBS[NEP_PEAKONLY]    = GENLC_ORIG.IFILT_OBS[iep] ;
     GENLC.MJD[NEP_PEAKONLY]          = GENLC_ORIG.MJD[iep] ;
     GENLC.epoch_obs[NEP_PEAKONLY]   = GENLC_ORIG.TOBS[iep] ;
@@ -22168,11 +22167,11 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
   // check to restore ALL epochs
   if ( LFIND_SPEC ) {
     for(iep=1; iep <= GENLC.NEPOCH ; iep++ ) {
-      GENLC.ISPEAK[iep]      = GENLC_ORIG.ISPEAK[iep];
-      GENLC.IFILT_OBS[iep]   = GENLC_ORIG.IFILT_OBS[iep] ;
-      GENLC.MJD[iep]         = GENLC_ORIG.MJD[iep];
-      GENLC.epoch_obs[iep]  = GENLC_ORIG.TOBS[iep]  ;
-      GENLC.epoch_rest[iep] = GENLC_ORIG.TREST[iep] ;
+      GENLC.OBSFLAG_PEAK[iep]  = GENLC_ORIG.ISPEAK[iep];
+      GENLC.IFILT_OBS[iep]     = GENLC_ORIG.IFILT_OBS[iep] ;
+      GENLC.MJD[iep]           = GENLC_ORIG.MJD[iep];
+      GENLC.epoch_obs[iep]     = GENLC_ORIG.TOBS[iep]  ;
+      GENLC.epoch_rest[iep]    = GENLC_ORIG.TREST[iep] ;
     }
   }
 
@@ -22311,7 +22310,7 @@ void GENFLUX_DRIVER_LEGACY(void) {
   gen_fluxNoise_randoms();   // randoms for instrumental noise
 
   for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {
-    if( !GENLC.ISOBS[epoch] ) { continue; }
+    if( !GENLC.OBSFLAG_GEN[epoch] ) { continue; }
     ifilt_obs = GENLC.IFILT_OBS[epoch] ;
     // convert 'genmag' into Possion-smeared mag and flux
     istat =  gen_smearFlux ( epoch, VBOSE_SMEAR );
@@ -22335,10 +22334,10 @@ void GENFLUX_DRIVER(void) {
   int NEPOCH = GENLC.NEPOCH ;
   int MEM    = (NEPOCH+1)*sizeof(FLUXNOISE_DEF);
   int epoch, istat, ifilt_obs, icov;
-  int VBOSE_CALC  = 0 ;
+  int VBOSE_CALC  = (INPUTS.OPT_DEVEL_GENFLUX & 4) ;
   int VBOSE_FUDGE = 0 ;
   int VBOSE_APPLY = 0 ;
-  int DEBUG_MODE  = (INPUTS.DEBUG_FLAG == 33);
+  int LEGACY      = (INPUTS.OPT_DEVEL_GENFLUX & 1) ;
   char fnam[] = "GENFLUX_DRIVER" ;
 
   // -------------- BEGIN ---------------
@@ -22351,20 +22350,20 @@ void GENFLUX_DRIVER(void) {
   // generate randoms for each epopch and filter
   // Avoid calling randoms twice when running both legacy gen_smearFlux
   // and refactored code here.
-  if ( !DEBUG_MODE ) { gen_fluxNoise_randoms(); }
+  if ( !LEGACY ) { gen_fluxNoise_randoms(); }
 
   for(icov=0; icov < NREDCOV_FLUXERRMAP; icov++ )
     { COVINFO_FLUXERRMAP[icov].NOBS = 0 ; }
 
   for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {
 
-    if ( !DEBUG_MODE ) {
+    if ( !LEGACY ) {
       GENLC.flux[epoch]         = NULLFLOAT ; 
       GENLC.fluxerr_data[epoch] = NULLFLOAT ;     
     }
     GENLC.FLUXNOISE[epoch].IFILT_OBS = -888 ;
 
-    if ( !GENLC.ISOBS[epoch]  )  { continue ; }
+    if ( !GENLC.OBSFLAG_GEN[epoch]  )  { continue ; }
     gen_fluxNoise_calc(epoch,VBOSE_CALC, &GENLC.FLUXNOISE[epoch]);
 
     // check noise fudge-options; diagonal COV only
@@ -22382,7 +22381,7 @@ void GENFLUX_DRIVER(void) {
 
   // apply random noise to each flux
   for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {
-    if ( !GENLC.ISOBS[epoch]  )  { continue ; }
+    if ( !GENLC.OBSFLAG_GEN[epoch]  )  { continue ; }
     gen_fluxNoise_apply(epoch, VBOSE_APPLY, &GENLC.FLUXNOISE[epoch] );
   }
 
@@ -22412,7 +22411,6 @@ void gen_fluxNoise_randoms(void) {
   //
 
   double RAN1, RAN2;
-  int DEBUG_MODE = (INPUTS.DEBUG_FLAG == 33 ) ;
   int ep, ifilt, ifilt_obs, ifield;
   char fnam[] = "gen_fluxNoise_randoms" ;
 
@@ -22430,7 +22428,7 @@ void gen_fluxNoise_randoms(void) {
 
     // skip un-used epochs so that randoms stay synced with
     // previous (10_33g) snana version.
-    if ( !GENLC.ISOBS[ep]  ) { continue ; }
+    if ( !GENLC.OBSFLAG_GEN[ep]  ) { continue ; }
 
     // load randoms into global
     RAN1 = GaussRan(1) ;  
@@ -22975,7 +22973,7 @@ void gen_fluxNoise_fudge_cov(int icov) {
   // - - - - - - 
   for(iep0=1; iep0 <= NEPOCH; iep0++ ) {
 
-    if ( !GENLC.ISOBS[iep0]  ) { continue ; }
+    if ( !GENLC.OBSFLAG_GEN[iep0]  ) { continue ; }
     IFILT_OBS    = GENLC.IFILT_OBS[iep0] ;
     INDEX_REDCOV = INDEX_REDCOV_FLUXERRMAP[IFILT_OBS];
     if ( INDEX_REDCOV != icov ) { continue; }
@@ -22985,7 +22983,7 @@ void gen_fluxNoise_fudge_cov(int icov) {
 
     for(iep1=1; iep1 <= iep0; iep1++ ) {
 
-      if ( !GENLC.ISOBS[iep1]  ) { continue ; }
+      if ( !GENLC.OBSFLAG_GEN[iep1]  ) { continue ; }
 
       IFILT_OBS = GENLC.IFILT_OBS[iep1] ;
       INDEX_REDCOV = INDEX_REDCOV_FLUXERRMAP[IFILT_OBS];
@@ -23442,10 +23440,10 @@ void monitorCov_fluxNoise(void) {
 
   // - - - - - - - - - - - - - - - - - - - - -
   for(ep0=1; ep0 <= NEPOCH; ep0++ ) {
-    if ( !GENLC.ISOBS[ep0] ) { continue; }
+    if ( !GENLC.OBSFLAG_GEN[ep0] ) { continue; }
 
     for(ep1=1; ep1 < ep0; ep1++ ) {
-      if ( !GENLC.ISOBS[ep1] ) { continue; }
+      if ( !GENLC.OBSFLAG_GEN[ep1] ) { continue; }
 
       if ( GENLC.IFILT_OBS[ep0] != GENLC.IFILT_OBS[ep1] ) { continue; }
       ifilt_obs = GENLC.IFILT_OBS[ep0];
@@ -23630,7 +23628,7 @@ void set_GENFLUX_FLAGS(int epoch) {
   
   if ( IS_ERRPOS ) {
     if ( !IS_UNDEFINED ) { 
-      GENLC.USE_EPOCH[epoch] = 1 ; 
+      GENLC.OBSFLAG_WRITE[epoch] = true ; 
       GENLC.NOBS++ ;
       GENLC.NOBS_FILTER[ifilt_obs]++ ;
     }
@@ -27388,11 +27386,10 @@ void append_SNPHOT_TEXT(void) {
   // write VARLIST line to file
   fprintf(fp,"%s\n", tmpLine);
 
-    
       
   for ( ep=1; ep <= GENLC.NEPOCH; ep++ ) {
 
-    if ( GENLC.USE_EPOCH[ep] == 0  ) { continue ; }
+    if ( !GENLC.OBSFLAG_WRITE[ep]  ) { continue ; }
 
     mjd         = GENLC.MJD[ep];
     ifilt_obs   = GENLC.IFILT_OBS[ep] ;

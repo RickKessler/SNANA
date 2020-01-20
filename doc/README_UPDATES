@@ -17822,8 +17822,11 @@
 
          ***** IMPORTANT(v10_75) ***** 
 
-   minus-sign bug-fixes in SALT2mu treatment of gamma.
-   Two bugs cancelled for BBC5D, but not for BBC7D.
+   minus-sign fixes in SALT2mu treatment of gamma.
+   Two sign-flips cancelled for BBC5D, but not for BBC7D.
+
+   In sim, INPUTS.OPT_DEVEL_BBC7D=1 to use new SIM_GAMMADM 
+   code by default
 
          ***** USEFUL(v10_75) ***** 
 
@@ -17833,6 +17836,11 @@
       + notation change: ZPTSIG -> ZPTERR
       + more developemnt of gen_fluxnois_xxx routines.
         REDCOR feature works, but needs more testing.
+      + new sim-inoput key  OPT_DEVEL_GENFLUX
+      + OPT_DEVEL_BBC7D=1 by default 
+
+   genmag_SALT2.c
+     + fix memory leak.
 
    sntools_host.c
      + in GEN_SNHOST_DDLR, take wgt avg of a & b instead of using
@@ -17844,7 +17852,7 @@
      + add new -zcut option
 
    SALT2mu.c
-     + fix minus sign bug for gammadm in two places:
+     + fix minus sign convention for gammadm in two places:
        1) Trip equation in chi2 function, 2) and get_gammadm_host().
        
 END: 

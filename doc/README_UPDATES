@@ -17818,15 +17818,19 @@
    
 
 # ======================================================================= 
-         v10_75 (Jan 18 2020) 
+         v10_75 (Jan 20 2020) 
 
          ***** IMPORTANT(v10_75) ***** 
 
-   minus-sign fixes in SALT2mu treatment of gamma.
-   Two sign-flips cancelled for BBC5D, but not for BBC7D.
+   Sim flux correlations with REDCOV key: see manual Sec 4.11.2.
+   Until refactored code is default, set OPT_DEVEL_GENFLUX: 2
 
-   In sim, INPUTS.OPT_DEVEL_BBC7D=1 to use new SIM_GAMMADM 
-   code by default
+   Minus-sign fixes in SALT2mu treatment of gamma. Two sign-flips 
+   (mag shift and Tripp equation) cancelled for BBC5D, but not 
+   for BBC7D.
+   
+   In sim, INPUTS.OPT_DEVEL_BBC7D=1 to use new SIM_GAMMADM code
+   by default. Required for BBC7D, and works for BBC5D too.
 
          ***** USEFUL(v10_75) ***** 
 

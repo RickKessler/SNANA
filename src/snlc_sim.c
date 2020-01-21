@@ -22393,6 +22393,8 @@ void GENFLUX_DRIVER(void) {
   for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {
     if ( !GENLC.OBSFLAG_GEN[epoch]  )  { continue ; }
     gen_fluxNoise_apply(epoch, VBOSE_APPLY, &GENLC.FLUXNOISE[epoch] );
+
+    set_GENFLUX_FLAGS(epoch);
   }
 
   // monitor covariance separately for S,T,F components, and each band.

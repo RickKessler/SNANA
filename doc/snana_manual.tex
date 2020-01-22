@@ -1725,34 +1725,18 @@ ENDMAP:
 \end{figure}
 
 % - - - - - - - - - - - - - - - - - - - - - - - 
+\clearpage
 \subsubsection{Modeling Flux Correlations }
 \label{sss:fluxCov}
 % - - - - - - - - - - - - - - - - - - - - - - - 
 
 The anomolous flux uncertainty may be from a process that is 
 correlated among each epoch: e.g, image-subtraction artifacts. 
-Optioanl flux correlations can be defined using the {\tt REDCOV} 
-keys as shown in Fig.~\ref{fig:fluxerrmap_2D}.
-
-The first key ({\tt REDCOV: g:0.3,r:0.5}) specifies a 30\% 
-reduced correlation among g-band epochs, and 50\% correlation
-among r-band epochs; there are no correlations
-between the g \& r bands.  This one-line specifier can 
-also be broken into two lines: ``{\tt REDCOV: g:0.3}'' and 
-``{\tt REDCOV: r:0.5}.''
-The second key ({\tt REDCOV: iz:0.4}) specifies a 40\%
-reduced correlation among the i \& z bands. 
-For correlations among all bands, {\tt REDCOV: griz:0.4}.
-To vary the correlations without modifying {\tt FLUXERRMODEL\_FILE}
-(e.g., systematic studies using {\tt sim\_SNmix}),
-use the following command-line override,
-\begin{Verbatim}
-    snlc_sim.exe <inputFile> FLUXERRMODEL_REDCOV g:0.3,r:0.5,iz:0.5
-\end{Verbatim}
-
+Optional flux correlations in the {\it anomalous} scatter can be 
+defined with reduced covariances among bands and fields.
 Since the Poisson noise components are independent,
 the correlation is introduced only in the anomalous part of
-the uncertainty, Defining $\sigma_{\rm final} = \SSNR \sigma_{\rm calc}$,
+the uncertainty. Defining $\sigma_{\rm final} = \SSNR \sigma_{\rm calc}$,
 where $\SSNR$ is the error scale from the map, the simulation
 breaks the final \unc\ into two components:
 %
@@ -1762,6 +1746,58 @@ breaks the final \unc\ into two components:
 %
 Correlations are introduced among the $\sigma_{\rm fudge}$ components, 
 while the Poisson-$\sigma_{\rm calc}$ components are independent.
+
+
+Reduced covariances are specified with  {\tt REDCOV} 
+keys (Fig.~\ref{fig:fluxerrmap_2D}).
+The first key ({\tt REDCOV: g:0.3,r:0.5}) specifies a 30\% 
+reduced correlation among g-band epochs, and 50\% correlation
+among r-band epochs; there are no correlations
+between the g \& r bands.  This one-line specifier can 
+also be broken into two lines: ``{\tt REDCOV: g:0.3}'' and 
+``{\tt REDCOV: r:0.5}.''
+The second key ({\tt REDCOV: iz:0.4}) specifies a 40\%
+reduced correlation among the i \& z bands. 
+For correlations among all bands, {\tt REDCOV: griz:0.4}.
+
+A field dependence can be specified in parentheses as follows:
+\begin{Verbatim}
+   REDCOV(DEEP): griz:0.6
+   REDCOV(SHALLOW): g:0.1,r_0.2,i_0.3,z:0.4
+     or
+   REDCOV(C3+X3): griz:0.6
+   REDCOV(E1+E2+S1+S2+C1+C2+X1+X2): g:0.1,r_0.2,i_0.3,z:0.4
+\end{Verbatim}
+%
+where {\tt DEEP} and {\tt SHALLOW} are convenient 
+{\tt FIELDGROUP} definitions in Fig.~\ref{fig:fluxerrmap_2D}.
+
+
+\medskip
+To vary the correlations without modifying {\tt FLUXERRMODEL\_FILE}
+(e.g., systematic studies using {\tt sim\_SNmix}),
+use the following sim-input keys;
+\begin{Verbatim}
+   FLUXERRMODEL_REDCOV:  g:0.3,r:0.5,iz:0.5
+     or 
+   FLUXERRMODEL_REDCOV(DEEP): griz:0.6
+     or 
+   FLUXERRMODEL_REDCOV: NONE  # disable flux covariances.
+\end{Verbatim}
+For command line overrides and {\tt GENOPT} options for {\tt sim\_SNmix},
+remove the colon. The parenetheses are properly handled by
+{\tt sim\_SNmix}, but for command-line overrides quotes are needed,
+e.g., 
+\begin{Verbatim}
+  snlc_sim.exe <inpFile> 'FLUXERRMODEL_REDCOV(DEEP) griz:0.6'
+\end{Verbatim}
+%
+Just as multiple {\tt REDCOV} keys are allowed in the
+{\tt FLUXERRMODEL\_FILE},
+multiple {\tt FLUXERRMODEL\_REDCOV} keys are allowed
+in the sim-input file, or as command line overrides.
+
+
 
 % - - - - - - - - - - - - - - - - - - - - - - - 
 \clearpage

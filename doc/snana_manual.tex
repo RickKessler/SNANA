@@ -1771,7 +1771,10 @@ A field dependence can be specified in parentheses as follows:
 %
 where {\tt DEEP} and {\tt SHALLOW} are convenient 
 {\tt FIELDGROUP} definitions in Fig.~\ref{fig:fluxerrmap_2D}.
-
+Note that the {\tt FIELDGROUP}s are defined only in the
+{\tt FLUXERRMODEL\_FILE}, and not in the sim-input file.
+However, the {\tt FIELDGROUP} names can be used in the
+sim-input file and command-line overrides.
 
 \medskip
 To vary the correlations without modifying {\tt FLUXERRMODEL\_FILE}

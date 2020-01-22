@@ -316,7 +316,6 @@ typedef struct {
 typedef struct {
 
   // all SQSIG are in p.e.
-
   double SQSIG_CALC_TRUE[NTYPE_FLUXNOISE];   // actual scatter
   double SQSIG_CALC_DATA ;
   double SQSIG_FUDGE_TRUE[NTYPE_FLUXNOISE];
@@ -344,7 +343,7 @@ typedef struct {
   // misc.
   double Npe_over_FLUXCAL, NADU_over_Npe, NEA, GALMAG_NEA ;
   char BAND[2];
-  int  IFILT_OBS;
+  int  IFILT_OBS, INDEX_REDCOV ;
 
   // store actual flux-shift for each term.
   double FLUX_SHIFT_TRUE[NTYPE_FLUXNOISE];
@@ -454,7 +453,7 @@ struct INPUTS {
   char FLUXERRMODEL_FILE[MXPATHLEN];   // input err-scale map(s)
   char FLUXERRMAP_IGNORE_DATAERR[100]; // list of MAPNAMES to ignore in data error
   int  FLUXERRMODEL_OPTMASK ;
-  char FLUXERRMODEL_REDCOV[100];  // overwrite REDCOR key in _FILE
+  char FLUXERRMODEL_REDCOV[200];  // overwrite REDCOR key in _FILE
 
   // define anomalous subtraction noise in separate file to be
   // used in both the simulation and in snana to inflate errors.

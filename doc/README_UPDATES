@@ -17862,4 +17862,18 @@
      + fix minus sign convention for gammadm in two places:
        1) Trip equation in chi2 function, 2) and get_gammadm_host().
        
+
+# ======================================================================= 
+         v10_75b (  ) 
+
+         ***** IMPORTANT(v10_75b) ***** 
+
+         ***** USEFUL(v10_75b) ***** 
+
+         ***** MISCELLANEOUS(v10_75b) ***** 
+
+    snlc_sim.c
+     + few refactor bug fixes, and add FIELD option for reduced flux-cov;
+       see updated manual section 4.11.2.
+
 END: 

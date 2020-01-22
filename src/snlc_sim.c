@@ -1001,7 +1001,7 @@ void set_user_defaults(void) {
 
   INPUTS.FLUXERRMODEL_OPTMASK = 0 ;
   sprintf(INPUTS.FLUXERRMODEL_FILE,          "NONE" ); 
-  sprintf(INPUTS.FLUXERRMODEL_REDCOV,        "NONE" ); 
+  sprintf(INPUTS.FLUXERRMODEL_REDCOV,        ""     );  
   sprintf(INPUTS.FLUXERRMAP_IGNORE_DATAERR,  "NONE" );
   sprintf(INPUTS.HOSTNOISE_FILE,             "NONE" ); 
   sprintf(INPUTS.WRONGHOST_FILE,             "NONE" ); 
@@ -1315,7 +1315,6 @@ int read_input(char *input_file) {
 
     // if comment key is found, read remainder of line into dummy string
     // so that anything after comment key is ignored (even a valid key)
-    // xxx mark delete if ( c_get[0] == '#' || c_get[0] == '!' || c_get[0] == '%' ) 
     if ( commentchar(c_get) ) 
       { ptrTmp = fgets(tmpLine, 80, fp) ; continue ; }
 
@@ -1444,8 +1443,16 @@ int read_input(char *input_file) {
     if ( uniqueMatch(c_get,"FLUXERRMAP_IGNORE_DATAERR:")  )
       { readchar ( fp, INPUTS.FLUXERRMAP_IGNORE_DATAERR ); continue ; }   
 
-    if ( uniqueMatch(c_get,"FLUXERRMODEL_REDCOV:")  )
-      { readchar ( fp, INPUTS.FLUXERRMODEL_REDCOV ); continue ; }   
+    if ( strstr(c_get,"FLUXERRMODEL_REDCOV") != NULL ) {
+      // note that multiple entries with same key are allowed
+      readchar ( fp, ctmp ) ;
+      strcat(INPUTS.FLUXERRMODEL_REDCOV,c_get); // store key name
+      strcat(INPUTS.FLUXERRMODEL_REDCOV," ");   // blank space
+      strcat(INPUTS.FLUXERRMODEL_REDCOV,ctmp);  // argument
+      strcat(INPUTS.FLUXERRMODEL_REDCOV," ");   // blank space
+      if (IGNOREFILE(ctmp)) { sprintf(INPUTS.FLUXERRMODEL_REDCOV,"NONE"); }
+      continue ; 
+    }
 
     // --- anomalous host-subtraction noise ------
     if ( uniqueMatch(c_get,"HOSTNOISE_FILE:")   ) {
@@ -4503,9 +4510,17 @@ void sim_input_override(void) {
     if ( strcmp( ARGV_LIST[i], "FLUXERRMODEL_OPTMASK" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.FLUXERRMODEL_OPTMASK ); 
     }
-    if ( strcmp( ARGV_LIST[i], "FLUXERRMODEL_REDCOV" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", &INPUTS.FLUXERRMODEL_REDCOV ); 
+
+    if ( strstr( ARGV_LIST[i], "FLUXERRMODEL_REDCOV" ) !=NULL ) {
+      sprintf(ctmp, "%s", ARGV_LIST[i] );
+      i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp2 ); 
+      strcat(INPUTS.FLUXERRMODEL_REDCOV,ctmp);   // store key name
+      strcat(INPUTS.FLUXERRMODEL_REDCOV," ");    // blank space
+      strcat(INPUTS.FLUXERRMODEL_REDCOV,ctmp2);  // store argument
+      strcat(INPUTS.FLUXERRMODEL_REDCOV," ");    // blank space
+      if (IGNOREFILE(ctmp2)) { sprintf(INPUTS.FLUXERRMODEL_REDCOV,"NONE"); }
     }
+
     if ( strcmp( ARGV_LIST[i], "FLUXERRMAP_IGNORE_DATAERR" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.FLUXERRMAP_IGNORE_DATAERR ); 
     }
@@ -22310,7 +22325,7 @@ void GENFLUX_DRIVER_LEGACY(void) {
 
   // xxxxxxxx temp check until refactored code is default
   int OPT_NEW = (INPUTS.OPT_DEVEL_GENFLUX & 2); // will call new code too
-  if ( !OPT_NEW && NREDCOV_FLUXERRMAP > 0 ) {
+  if ( !OPT_NEW && NREDCOV_FLUXERRMODEL > 0 ) {
     sprintf(c1err,"REDCOV in FLUXERRMODEL_FILE is valid only with");
     sprintf(c2err,"refactored GENFLUX_DRIVER code (OPT_DEVEL_GENFLUX: 2).");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
@@ -22362,8 +22377,8 @@ void GENFLUX_DRIVER(void) {
   // and refactored code here.
   if ( !LEGACY ) { gen_fluxNoise_randoms(); }
 
-  for(icov=0; icov < NREDCOV_FLUXERRMAP; icov++ )
-    { COVINFO_FLUXERRMAP[icov].NOBS = 0 ; }
+  for(icov=0; icov < NREDCOV_FLUXERRMODEL; icov++ )
+    { COVINFO_FLUXERRMODEL[icov].NOBS = 0 ; }
 
   for ( epoch = 1; epoch <= GENLC.NEPOCH; epoch++ ) {
 
@@ -22385,7 +22400,7 @@ void GENFLUX_DRIVER(void) {
   }
 
   // check for optional flux covariance in FLUXERRMODEL_FILE maps
-  for(icov=0; icov < NREDCOV_FLUXERRMAP; icov++ )
+  for(icov=0; icov < NREDCOV_FLUXERRMODEL; icov++ )
     { gen_fluxNoise_fudge_cov(icov); }
 
 
@@ -22398,7 +22413,7 @@ void GENFLUX_DRIVER(void) {
   }
 
   // monitor covariance separately for S,T,F components, and each band.
-  if ( (INPUTS.FLUXERRMODEL_OPTMASK & MASK_MONITORCOV_FLUXERRMAP)>0 )
+  if ( (INPUTS.FLUXERRMODEL_OPTMASK & MASK_MONITORCOV_FLUXERRMODEL)>0 )
     {  monitorCov_fluxNoise(); }
 
   free(GENLC.FLUXNOISE);
@@ -22819,18 +22834,16 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
     SQSIG_TRUE[TYPE_FLUXNOISE_F] = SQSIG_SCALED - SQSIG_TMP;
 
     SQSIG_TRUE[TYPE_FLUXNOISE_T] *= SQSCALE ; // scale template noise
-    /*
-    for(itype=0; itype < NTYPE; itype++ ) 
-      { SQSIG_TRUE[itype] *= SQSCALE ; }
-    */
 
     SCALE   = FLUXCALERR_DATA/FLUXCALERR_in ;  SQSCALE = SCALE*SCALE ;
     SQSIG_DATA *= SQSCALE ;
 
     // keep track of NOBS per covariance matrix
-    if ( NREDCOV_FLUXERRMAP > 0 ) {
-      int ICOV = INDEX_REDCOV_FLUXERRMAP[ifilt_obs];
-      COVINFO_FLUXERRMAP[ICOV].NOBS++ ;
+    FLUXNOISE->INDEX_REDCOV = -9 ;
+    if ( NREDCOV_FLUXERRMODEL > 0 ) {
+      int ICOV = INDEX_REDCOV_FLUXERRMODEL(BAND,FIELD,2,fnam);      
+      COVINFO_FLUXERRMODEL[ICOV].NOBS++ ;
+      FLUXNOISE->INDEX_REDCOV = ICOV;
     }
 
   }
@@ -22951,7 +22964,7 @@ void gen_fluxNoise_fudge_cov(int icov) {
   // Beware that epochs in "icov" group are a subset of the
   // GENLC.NEPOCH total epochs, so watch indices.
 
-  int  NOBS = COVINFO_FLUXERRMAP[icov].NOBS ;
+  int  NOBS = COVINFO_FLUXERRMODEL[icov].NOBS ;
   int  MEMD0 = NOBS*sizeof(double);
   int  MEMD1 = NOBS*sizeof(double*);
   int  NEPOCH  = GENLC.NEPOCH ;
@@ -22965,6 +22978,7 @@ void gen_fluxNoise_fudge_cov(int icov) {
   double SQSIG_FUDGE[2] ;
   double SIGxSIG, REDCOV, COV ;
   int LDMP = 0 ; 
+  char *BAND, *FIELD;
   char fnam[] = "gen_fluxNoise_fudge_cov" ;
 
   // --------- BEGIN --------
@@ -22987,7 +23001,7 @@ void gen_fluxNoise_fudge_cov(int icov) {
 
     if ( !GENLC.OBSFLAG_GEN[iep0]  ) { continue ; }
     IFILT_OBS    = GENLC.IFILT_OBS[iep0] ;
-    INDEX_REDCOV = INDEX_REDCOV_FLUXERRMAP[IFILT_OBS];
+    INDEX_REDCOV = GENLC.FLUXNOISE[iep0].INDEX_REDCOV;
     if ( INDEX_REDCOV != icov ) { continue; }
     N0++ ;  N1=0;
 
@@ -22998,11 +23012,11 @@ void gen_fluxNoise_fudge_cov(int icov) {
       if ( !GENLC.OBSFLAG_GEN[iep1]  ) { continue ; }
 
       IFILT_OBS = GENLC.IFILT_OBS[iep1] ;
-      INDEX_REDCOV = INDEX_REDCOV_FLUXERRMAP[IFILT_OBS];
+      INDEX_REDCOV = GENLC.FLUXNOISE[iep1].INDEX_REDCOV;
       if ( INDEX_REDCOV != icov ) { continue; }
       N1++ ;
 
-      REDCOV  = COVINFO_FLUXERRMAP[INDEX_REDCOV].REDCOV;
+      REDCOV  = COVINFO_FLUXERRMODEL[INDEX_REDCOV].REDCOV;
       if ( N0 == N1 ) { REDCOV = 1.0 ; }
 
       SQSIG_FUDGE[0] = GENLC.FLUXNOISE[iep0].SQSIG_FINAL_TRUE[TYPE_F];
@@ -23035,7 +23049,7 @@ void gen_fluxNoise_fudge_cov(int icov) {
 	    N0, N1, NOBS);
     sprintf(c2err,"CID=%d  NEPOCH=%d  icov=%d(%s)",
 	    GENLC.CID, GENLC.NEPOCH, 
-	    icov, COVINFO_FLUXERRMAP[icov].BANDSTRING);
+	    icov, COVINFO_FLUXERRMODEL[icov].BANDSTRING);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
 
@@ -23408,7 +23422,7 @@ void dumpCovMat_fluxNoise(int icov, int NOBS, double *COV) {
   char fnam[] = "dumpCovMat_fluxNoise" ;
   if ( NOBS_dump > 8 ) { NOBS_dump = 8; }
   printf("\n Dump COV matrix for icov=%d  (%s) \n", 
-	 icov, COVINFO_FLUXERRMAP[icov].BANDSTRING);
+	 icov, COVINFO_FLUXERRMODEL[icov].BANDSTRING);
   
   for(i0=0; i0 < NOBS_dump; i0++ ) {
     for(i1=0; i1 < NOBS_dump; i1++ ) {
@@ -23487,7 +23501,7 @@ void monitorCov_fluxNoise(void) {
   char cfilt[2];
 
   if ( (NGENFLUX_DRIVER % 50) != 0 ) { return; }
-
+  
   printf(" xxx \n");
   printf(" xxx ------------ NCALL = %d------------------------- \n",
 	 NGENFLUX_DRIVER );

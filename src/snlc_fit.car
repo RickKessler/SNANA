@@ -9285,7 +9285,8 @@ c since they are case-insensitive.
 
         NFADD = NFADD + 1
         ipar = NPLOTPAR + i + NFADD*NFILTOBS_TABLE
-        PARNAME_STORE(ipar) = 'prob_' // cfilt_obs
+cc xxx mark delete         PARNAME_STORE(ipar) = 'prob_' // cfilt_obs
+        PARNAME_STORE(ipar) = 'FITPROB_' // cfilt_obs
 
 555   CONTINUE
 

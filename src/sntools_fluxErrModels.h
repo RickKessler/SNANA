@@ -4,6 +4,8 @@
 #define MXVAR_FLUXERRMAP        10
 #define MXROW_FLUXERRMAP        10000
 #define MXREDCOV_FLUXERRMAP     20
+#define MXCHAR_STRING_REDCOV    200
+#define ALL_STRING               "ALL"
 
 #define IPAR_FLUXERRMAP_MJD     0
 #define IPAR_FLUXERRMAP_PSF     1  // FWHM, arcsec
@@ -22,8 +24,8 @@ char VARNAMES_FLUXERRMAP[MXPAR_FLUXERRMAP][20];
 
 #define MASK_APPLY_SIM_FLUXERRMAP   1
 #define MASK_APPLY_DATA_FLUXERRMAP  2
-#define MASK_MONITORCOV_FLUXERRMAP  128 // monitor REDCOV input
-#define MASK_DUMP_FLUXERRMAP        256
+#define MASK_MONITORCOV_FLUXERRMODEL  128 // monitor REDCOV input
+#define MASK_DUMP_MAP_FLUXERRMODEL    256
 
 
 char FILENAME_FLUXERRMAP[MXPATHLEN];
@@ -32,7 +34,7 @@ int  NMAP_FLUXERRMODEL ;
 struct {
   char NAME[40];  
   char FIELDLIST_ORIG[40]; // field list of pointer to DEFINE_FIELDGROUP
-  char FIELDLIST[40];
+  char FIELDLIST[80];
   char BANDLIST[MXFILTINDX];
   int  NVAR ; // NDIM + NFUN
   char VARNAMES[MXVAR_FLUXERRMAP][20];
@@ -67,19 +69,24 @@ int NROW_DUMP_FLUXERRMAP;
 
 // define optional covariances for fudged errors
 
-int NREDCOV_FLUXERRMAP;
-int INDEX_REDCOV_FLUXERRMAP[MXFILTINDX];
+int NREDCOV_FLUXERRMODEL ;
+// xxx int INDEX_REDCOV_FLUXERRM[MXFILTINDX];
 struct { 
 
   // variables to init
+  char   FIELDGROUP[40] ;     // e.g.  'DEEP'
+  char   FIELDLIST[80] ;      // e.g., 'C3+X3'
   char   BANDSTRING[40]; // e.g., gr:0.2
   char   BANDLIST[20];   // e.g., gr
   double REDCOV ;        // e.g.  0.2
 
+  bool   ALL_FIELD ; // flag for FIELD = 'ALL'
+
   // variables for each event
   int NOBS;    // number of obs for this covariance matrix
   
-} COVINFO_FLUXERRMAP[MXREDCOV_FLUXERRMAP];
+} COVINFO_FLUXERRMODEL[MXREDCOV_FLUXERRMAP];
+
 
 // ======== functions ==============
 void  INIT_FLUXERRMODEL(int optmask, char *fileName, char *redcorString,
@@ -87,16 +94,21 @@ void  INIT_FLUXERRMODEL(int optmask, char *fileName, char *redcorString,
 void  init_fluxerrmodel__(int *optmask, char *fileName, char *redcorString,
 			  char *mapList_ignore_dataErr);
 
-void  DUMP_FLUXERRMAP(int imap);
+void  set_FIELDLIST_FLUXERRMODEL(char *FIELDGROUP, char *FIELDLIST);
+int   INDEX_MAP_FLUXERRMODEL(char *BAND, char *FIELD, char *FUNCALL);
+int   INDEX_REDCOV_FLUXERRMODEL(char *BAND, char *FIELD, int opt_FIELD, 
+				char *FUNCALL);
 
+void  DUMP_MAP_FLUXERRMODEL(int imap);
 void  END_FLUXERRMODEL(void);
 void  end_fluxerrmodel__(void);
 
 int   index_sparse_FLUXERRMAP(int NMAP, char *MAPNAME);
 int   IVARLIST_FLUXERRMAP(char *varName) ;
 void  parse_IGNORE_FLUXERRMAP(char *MAPLIST_IGNORE_DATAERR) ;
-void  parse_REDCOV_FLUXERRMAP(char *STRING) ;
-void  printSummary_FLUXERRMAP(void);
+void  parse_REDCOV_FLUXERRMODEL(char *STRING) ;
+void  load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) ;
+void  printSummary_FLUXERRMODEL(void);
 // xxx delete void  malloc_ROWDATA_FLUXERRMAP(int OPT, int NVAR);
 
 void  get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD, 

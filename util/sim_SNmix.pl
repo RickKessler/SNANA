@@ -189,6 +189,9 @@
 #   fixes infinite loop bug when QUIT key isn't in $normLog.
 #
 # Dec 4 2019: new input key  LOGDIR: <dirName>
+#
+# Jan 22 2020: protect GENOPT_GLOBAL for parentheses in argument.
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -1430,6 +1433,10 @@ sub parse_GENOPT_GLOBAL {
 	    $GENOPT_GLOBAL = "$GENOPT_GLOBAL  $tmpLine" ;
 	}
     }
+
+    # check for special characters that need backslash (9/28 2017) 
+    $GENOPT_GLOBAL =~ s/\(/\\(/g ;  # ( --> \(
+    $GENOPT_GLOBAL =~ s/\)/\\)/g ;  # ) --> \)
 
     # check for FORMAT_MASK here, then later check master-input
     # file for <FORMAT_MASK: MASK>

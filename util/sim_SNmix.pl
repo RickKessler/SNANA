@@ -60,6 +60,7 @@
 #                                     # to arg of SIMGEN_INFILE_[Ia,NONIa]
 #   SIMGEN_INFILE_NONIa: <NONIa-override-input-file>
 #   SIMGEN_INFILE_Ia:    <idem for SNIa model> 
+#   SIMGEN_INFILE_SNIa:  <alternate key for SNIa input file>
 #
 #  GENVERSION: ANOTHER_SIMGEN_NAME
 #    GENOPT:  <another command-line override>
@@ -963,6 +964,12 @@ sub parse_inFile_master() {
     $key = "SIMGEN_INFILE_Ia:";
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,
 				@CONTENTS_EXCLUDE_GENVERSION );
+    if ( scalar(@tmp) == 0 ) {
+	# try alternate key
+	$key = "SIMGEN_INFILE_SNIa:";
+	@tmp = sntools::parse_array($key,1,$OPT_QUIET,
+				    @CONTENTS_EXCLUDE_GENVERSION );
+    }
     if ( scalar(@tmp) > 0 ) { 
 	$tmpFile1 = $tmp[0];
 	$tmpFile1 = qx(echo $tmpFile1); # unpack ENV
@@ -978,6 +985,7 @@ sub parse_inFile_master() {
 	unless (-e $tmpFile1 ) {
 	    $MSGERR[0] = "'$tmpFile1' does not exist";
 	    $MSGERR[1] = "Check argument of SIMGEN_INFILE_Ia:" ;
+	    $MSGERR[1] = " or   argument of SIMGEN_INFILE_SNIa:" ;
 	    sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);  
 	}
     }
@@ -1555,7 +1563,7 @@ sub parse_GENVERSION {
 	}
    
 	# check for GENVERSION-dependent sim-input files
-	if ( $KEY eq "SIMGEN_INFILE_Ia:" )  { 
+	if ( $KEY eq "SIMGEN_INFILE_Ia:" || $KEY eq "SIMGEN_INFILE_SNIa:" ) { 
 	    $DOGEN_SNIa = 1;
 	    &store_SIMGEN_INFILE($iver, 1, \@argList);  
 	}

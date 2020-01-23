@@ -703,7 +703,8 @@ struct INPUTS {
   float FUDGESCALE_FLUXERR2_FILTER[MXFILTINDX]; // measured error only
   float FUDGE_MAGERR ;      ;  // global mag error fudge added to all errors
   float FUDGE_MAGERR_FILTER[MXFILTINDX]; // idem for each band
-
+  float FUDGE_ZPTERR ;         // global fudge for ZPTERR in SIMLIB file
+  float FUDGE_ZPTERR_FILTER[MXFILTINDX] ; 
   int   FUDGEOPT_FLUXERR;      // option passed to model of flux-err fudge
 
   int GENPERFECT;   // 1 => perfect lightcurves with x1000 photostats

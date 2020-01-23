@@ -1026,10 +1026,12 @@ void set_user_defaults(void) {
   INPUTS.FUDGESCALE_FLUXERR   = 1.0 ;
   INPUTS.FUDGESCALE_FLUXERR2  = 1.0 ;
   INPUTS.FUDGEOPT_FLUXERR     = 0 ;
-  INPUTS.FUDGE_MAGERR         = 0.0 ;
+  INPUTS.FUDGE_MAGERR         = 0.0 ; // always applied
+  INPUTS.FUDGE_ZPTERR         = 0.0 ; // same, but respects SMEARFLAG_ZPT
 
   for(ifilt=0; ifilt<MXFILTINDX; ifilt++)  { 
     INPUTS.FUDGE_MAGERR_FILTER[ifilt]        = 0.0; 
+    INPUTS.FUDGE_ZPTERR_FILTER[ifilt]        = 0.0; 
     INPUTS.FUDGESHIFT_ZPT_FILTER[ifilt]      = 0.0 ;
     INPUTS.FUDGESCALE_FLUXERR_FILTER[ifilt]  = 1.0 ;
     INPUTS.FUDGESCALE_FLUXERR2_FILTER[ifilt] = 1.0 ;
@@ -2319,6 +2321,10 @@ int read_input(char *input_file) {
     parse_input_KEY_PLUS_FILTER(fp, &iArg, c_get, "FUDGE_MAGERR",
 				&INPUTS.FUDGE_MAGERR, 
 				INPUTS.FUDGE_MAGERR_FILTER);
+
+    parse_input_KEY_PLUS_FILTER(fp, &iArg, c_get, "FUDGE_ZPTERR", // Jan 2020
+				&INPUTS.FUDGE_ZPTERR, 
+				INPUTS.FUDGE_ZPTERR_FILTER);
 
     parse_input_KEY_PLUS_FILTER(fp, &iArg, c_get, "FUDGESCALE_FLUXERR",
 				&INPUTS.FUDGESCALE_FLUXERR, 
@@ -4642,6 +4648,10 @@ void sim_input_override(void) {
     parse_input_KEY_PLUS_FILTER(fpNull, &i, ARGV_LIST[i], "FUDGE_MAGERR",
 				&INPUTS.FUDGE_MAGERR, 
 				INPUTS.FUDGE_MAGERR_FILTER);
+
+    parse_input_KEY_PLUS_FILTER(fpNull, &i, ARGV_LIST[i], "FUDGE_ZPTERR",
+				&INPUTS.FUDGE_ZPTERR, 
+				INPUTS.FUDGE_ZPTERR_FILTER);
 
     parse_input_KEY_PLUS_FILTER(fpNull, &i, ARGV_LIST[i], "FUDGESCALE_FLUXERR",
 				&INPUTS.FUDGESCALE_FLUXERR, 
@@ -15413,11 +15423,12 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // Mar 15 2018: MAG -> MAG_UNDEFINED
   // Jul 11 2018: fix bug by setting PIXSIZE outside UNIT if-block
   // Dec 16 2019: if MAG = MAG_ZEROFLUX, then skip undefined mag-check.
+  // Jan 23 2020: check for FUDGE_ZPTERR
 
   int NOBS_RAW    = SIMLIB_HEADER.NOBS ;
   int NEW_CADENCE = (REPEAT_CADENCE == 0 ) ;
   int ISTORE,  OPTLINE, OBSRAW ;
-  double PIXSIZE, PSF_ORIG ;
+  double PIXSIZE, PSF_ORIG, FUDGE_ZPTERR ;
   char *UNIT, *BAND ;
   char fnam[] = "SIMLIB_prepCadence" ;
 
@@ -15545,8 +15556,14 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     SKYSIG_T   = SIMLIB_OBS_RAW.TEMPLATE_SKYSIG[OBSRAW] ;
     ZPT_T      = SIMLIB_OBS_RAW.TEMPLATE_ZPT[OBSRAW] ;
 
+    // Jan 2020: check for ZPTERR fudge from FUDGE_ZPTERR key
+    FUDGE_ZPTERR = INPUTS.FUDGE_ZPTERR_FILTER[IFILT_OBS];
+    if ( FUDGE_ZPTERR != 0.0 ) { ZPT[1] = FUDGE_ZPTERR; }
+
+
     // compute a few things from OBS_RAW
     if ( INPUTS.SMEARFLAG_ZEROPT == 0 ) { ZPT[1] = 0.0 ; }
+
     if ( MAG != MAG_ZEROFLUX ) 
       { if ( MAG < 5.0 || MAG > 50 ) { MAG = MAG_UNDEFINED ; } }
     if ( MAG < MAG_ZEROFLUX    ) { SIMLIB_HEADER.NOBS_SIM_MAGOBS++ ; }
@@ -19553,7 +19570,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   char field[MXCHAR_FIELDNAME], band[4];
   char fnam[] = "gen_smearFlux" ;
 
-
+  // -------- LEGACY CODE ---------------
   // ----------------- BEGIN --------------
 
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) { return SUCCESS; }
@@ -26177,6 +26194,12 @@ void readme_doc_FUDGES(int *iline) {
     cptr = fudgeLine[NLINE_FUDGE] ;
     sprintf(cptr,"\t Fudge MAGERR (add in quad)      : %6.4f ", 
 	  INPUTS.FUDGE_MAGERR);
+    NLINE_FUDGE++ ;
+  }
+  if ( INPUTS.FUDGE_ZPTERR != 0.0 ) {
+    cptr = fudgeLine[NLINE_FUDGE] ;
+    sprintf(cptr,"\t Fudge ZPTERR in SIMLIB          : %6.4f ", 
+	  INPUTS.FUDGE_ZPTERR);
     NLINE_FUDGE++ ;
   }
 

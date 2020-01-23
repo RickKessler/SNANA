@@ -92,6 +92,8 @@ c
      &  ,SNLCPAK_EPFLAG_FITFUN   ! smooth  fitfun curve
      &  ,SNLCPAK_EPFLAG_FLUXSIM  ! SIM flux per epoch
      &  ,SNLCPAK_EPFLAG_FLUXREST ! rest-frame flux per epoch (optional)
+     &  ,SNLCPAK_EPFLAG_KCOR     ! rest-frame kcor (Jan 2020)
+     &  ,SNLCPAK_EPFLAG_AVWARP   ! rest-frame AVWARP
      &  ,SNLCPAK_EPFLAG_SIMFLUXREST ! idem for sim truth
      &  ,SNLCPAK_EPFLAG_ERRCALC    ! FLUX-ERROR calculated from PSF,ZP,SKY
      &  ,SNLCPAK_BANDFLAG_PKFLUX   ! peak flux vs. filter
@@ -281,8 +283,10 @@ c
      &  ,SNLCPAK_EPFLAG_FITFUN      = 4
      &  ,SNLCPAK_EPFLAG_FLUXSIM     = 5    ! epoch-dependent
      &  ,SNLCPAK_EPFLAG_FLUXREST    = 6
-     &  ,SNLCPAK_EPFLAG_SIMFLUXREST = 7
-     &  ,SNLCPAK_EPFLAG_ERRCALC     = 8
+     &  ,SNLCPAK_EPFLAG_KCOR        =   7
+     &  ,SNLCPAK_EPFLAG_AVWARP      =   8
+     &  ,SNLCPAK_EPFLAG_SIMFLUXREST = 9
+     &  ,SNLCPAK_EPFLAG_ERRCALC     = 10
      &  ,SNLCPAK_BANDFLAG_NDOF    = 100
      &  ,SNLCPAK_BANDFLAG_PKFLUX  = 101  ! filter-dependent 
      &  ,SNLCPAK_BANDFLAG_PKMJD   = 102

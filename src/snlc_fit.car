@@ -17399,7 +17399,7 @@ c
 c Jul 19, 2013: add MJD list to SNLCPAK_DATA
 c Jan 25, 2014: use new I4EP_FIT and R4EP_FIT arrays.
 c Dec 10, 2017: fix to work with SNTABLE_FILTER_REMAP
-c
+c Jan 23, 2020: pack KCOR and AVWARP for rest-frame model
 c ---------------------------------------------
 
       IMPLICIT NONE
@@ -17422,6 +17422,8 @@ c ---------------------------------------------
      &  ,VFLUXOBS(MXEP_SNLCPAK)
      &  ,VFLUXOBS_ERR(MXEP_SNLCPAK)
      &  ,VFLUXREST(MXEP_SNLCPAK)  ! K-corrected rest-frame flux
+     &  ,VKCOR(MXEP_SNLCPAK)
+     &  ,VAVWARP(MXEP_SNLCPAK)
      &  ,VSIMFLUXREST(MXEP_SNLCPAK)  
      &  ,VSIMFLUXOBS(MXEP_SNLCPAK)   ! May 20 2016
      &  ,VZERO(MXEP_SNLCPAK)         ! zeros for true simFlux error
@@ -17549,6 +17551,8 @@ c Dec 10 2017: check for filter-remap option
          IF ( DO_RESTFLUX ) THEN
            VFILTREST(NOBS)    = I4EP_FIT(i,IEP_IFILT_REST1)
            VFLUXREST(NOBS)    = R4EP_FIT(i,JEP_DATAFLUX_REST)
+           VKCOR(NOBS)        = R4EP_FIT(i,JEP_KCOR)
+           VAVWARP(NOBS)      = R4EP_FIT(i,JEP_AVWARP)
            VSIMFLUXREST(NOBS) = R4EP_FIT(i,JEP_SIM_FLUXREST)
          ENDIF
  101  CONTINUE
@@ -17572,9 +17576,17 @@ c      pack generated SIM fluxes (May 20 2016)
       ENDIF
 
 c Jan 2014: store rest-frame filter and flux (mlcs,snoopy ...) 
+c Jan 2020: add KCOR and AVwarp
+
       IF ( DO_RESTFLUX ) THEN
         CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VFLUXREST, VDUMERR, 
      &     VFILTREST, SNLCPAK_EPFLAG_FLUXREST, LENCCID)
+
+        CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VKCOR, VDUMERR, 
+     &     VFILTREST, SNLCPAK_EPFLAG_KCOR, LENCCID)
+
+        CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VAVWARP, VDUMERR, 
+     &     VFILTREST, SNLCPAK_EPFLAG_AVWARP, LENCCID)
 
         if ( LSIM_SNANA ) then
            CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, 

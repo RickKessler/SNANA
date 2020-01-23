@@ -1059,7 +1059,7 @@ void SNHIST_FILL_ROOT(int NDIM, int ID, double *VALUE, double WGT) {
 
   if ( IHIST < 0 ) {
     
-    printf("\n\t\t PRE-ABORT DUMP: \n\n" );
+    print_preAbort_banner(fnam);
     TFILE_ROOT_NEW->pwd();  
     TFILE_ROOT_NEW->ls();  
     

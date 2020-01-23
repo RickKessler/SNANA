@@ -2,7 +2,7 @@
 #
 # Created Jan 2011 by R.Kessler
 #
-# Generic script to fit all SN light curves efficiently by 
+# Generic script to fit SN light curves efficiently by 
 # splitting the sample into NSPLIT = N_NODE jobs and submiting 
 # the jobs in parallel to each node. If no nodes are given, 
 # the jobs are run serially in interactive mode. The input 
@@ -342,6 +342,8 @@
 # Jun 4 2019: "TOTAL_WAIT_ABORT -> 48 hr (was 24 hr)
 # Sep 13 2019: add batchName arg to make_batchFile()
 # Oct 17 2019: new FAST10 & FAST100 option to pre-scale sims by 10,100
+# Nov 12 2019: abort if APPEND_TABLE_TEXT is specified without also
+#              define either HBOOK or ROOT file.
 #
 # =======================
 
@@ -908,7 +910,6 @@ sub parse_nmlFile {
     $nmlFile = $nmlFile_ORIG ;
 
     # get name of NML file without path; used for batchName
-    #.xyz
     $jslash          = rindex($nmlFile_ORIG,"/");  # location of last slash
     $nmlFile_noPath  = substr($nmlFile_ORIG,$jslash+1, 99);
 
@@ -1275,8 +1276,20 @@ sub parse_nmlFile {
     print " VERSION     = @VERSION_LIST \n";
     print " VERSION_FITRES_COMBINE = '${VERSION_FITRES_COMBINE}' \n" ;
     print " FITRES_COMBINE_FILE    = '${FITRES_COMBINE_FILE}' \n" ;
-    print " APPEND_TABLE_TEXT      = '${APPEND_TABLE_LIST}' \n";
-    print " VERSION_AFTERBURNER    = '${VERSION_AFTERBURNER}' \n";
+    print " VERSION_AFTERBURNER    = '${VERSION_AFTERBURNER}' \n";   
+
+    if ( length(${APPEND_TABLE_LIST}) > 1 ) {
+	print " APPEND_TABLE_TEXT      = '${APPEND_TABLE_LIST}' \n";
+	my $VALID=0;
+	if ( $OUTFLAG[$OUTINDX_ROOT]  ) { $VALID=1; }
+	if ( $OUTFLAG[$OUTINDX_HBOOK] ) { $VALID=1; }
+	if ( !$VALID ) {
+	    $MSGERR[0] = "APPEND_TABLE_TEXT won't work because" ;
+	    $MSGERR[1] = "either HFILE_OUT  or ROOTFILE_OUT" ;
+	    $MSGERR[2] = "must be defined in &SNLCINP namelist.";
+	    sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);
+	}
+    }
 
     print " COMBINE_ALL_FLAG = $COMBINE_ALL_FLAG \n" ;
     foreach $tmpLine ( @COMBINE_SUBSET_FITOPT ) {

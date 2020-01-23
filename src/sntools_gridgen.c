@@ -600,10 +600,10 @@ void gen_GRIDevent(int ilc) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
 
-      GENFILT.Trest8[ifilt_obs][NEPTOT] = Trest ;
+      GENFILT.Trest[ifilt_obs][NEPTOT] = Trest ;
       GENLC.MJD[NEPTOT]         = 53000.0 + Tobs ;
-      GENLC.epoch8_obs[NEPTOT]  = Tobs  ;
-      GENLC.epoch8_rest[NEPTOT] = Trest ;
+      GENLC.epoch_obs[NEPTOT]  = Tobs  ;
+      GENLC.epoch_rest[NEPTOT] = Trest ;
       GENLC.IFILT_OBS[NEPTOT]   = ifilt_obs;
 
       /*
@@ -1268,10 +1268,10 @@ void update_GRIDarrays(void) {
     ifilt     = GENLC.IFILTINVMAP_OBS[ifilt_obs];
     sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
 
-    magval    = GENLC.genmag8_obs[ep] ;
-    magerr    = GENLC.generr8_obs[ep] ;
+    magval    = GENLC.genmag_obs[ep] ;
+    magerr    = GENLC.generr_obs[ep] ;
     magerr   *= INPUTS.GENMODEL_ERRSCALE ;
-    Trest     = GENLC.epoch8_obs[ep]/(1. + GENLC.REDSHIFT_CMB) ;
+    Trest     = GENLC.epoch_obs[ep]/(1. + GENLC.REDSHIFT_CMB) ;
 
     /*
     if ( fabs(Trest) < 0.1 && ifilt_obs == 5 ) {
@@ -1284,8 +1284,8 @@ void update_GRIDarrays(void) {
     // for snoopy  model and just 1 logz-bin, use rest-frame
     // mag & error which is really just the relative flux (0-1)
     if ( OPT_SNOOPY_FLUXPACK ) {
-      magval = GENLC.genmag8_rest[ep] ;
-      magerr = GENLC.generr8_rest[ep] ;
+      magval = GENLC.genmag_rest[ep] ;
+      magerr = GENLC.generr_rest[ep] ;
     }
     
     if ( magval > MAXMAG_GRIDGEN ) { magval = MAXMAG_GRIDGEN ; }

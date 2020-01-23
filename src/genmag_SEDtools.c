@@ -158,7 +158,7 @@ double interp_primaryFlux_SEDMODEL(double lam){
 
   // idiot check
   if ( lam < a_lam[0] || lam > a_lam[2] ) {
-    printf("\n PRE-ABORT DUMP\n");
+    print_preAbort_banner(fnam);
     printf("\t Expected lam-range: %6.1f - %6.1f A  ilam=%d/%d . \n",
 	   a_lam[0], a_lam[2], ilam, PRIMARY_SEDMODEL.NLAM );
     sprintf(c1err,"lam=%6.1f is outside expected range", lam);
@@ -358,12 +358,13 @@ void filtdump_SEDMODEL(void) {
   char *name;
   char dashLine[] = 
     "----------------------------------------------------------------------" ;
+  char fnam[] = "filtdump_SEDMODEL";
 
   // --------- BEGIN ----
 
   name  = PRIMARY_SEDMODEL.name ;
-  printf("   Read primary ref '%s' with %d lambda bins \n",
-	 name, PRIMARY_SEDMODEL.NLAM );
+  printf("   %s: Read primary ref '%s' with %d lambda bins \n",
+	 fnam, name, PRIMARY_SEDMODEL.NLAM );
 
   printf("\n");
   printf(
@@ -1055,7 +1056,7 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
     // TREST in SED file can be truncated, so allow a little
     // slop for FRAC_INTERP_DAY
     if ( FRAC_INTERP_DAY < -0.001 || FRAC_INTERP_DAY > 1.001 ) {  
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf("\t DAYMIN=%f   DAYMAX=%f  DAYSTEP=%f \n",
              DAYMIN, DAYMAX, DAYSTEP);
       printf("\t DAY[iep=%d] = %f   Trest=%f\n",
@@ -1076,7 +1077,7 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
   FRAC_INTERP_LAM  = LAMDIF2 / TEMP_SEDMODEL.FINEBIN_LAMSTEP ;
 
   if ( FRAC_INTERP_LAM < -1.0E-8 || FRAC_INTERP_LAM > 1.000000001 ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("\t LAMDIF  = %.2f - %.2f = %.2f \n",
 	   LAMSED, SEDMODEL.LAMMIN[ISED], LAMDIF );
     printf("\t ilamsed = (int) %.2f / %.3f  = %d \n", 
@@ -1493,7 +1494,7 @@ double interp_flux_SEDMODEL(
 
   if ( z < 0.0 || logz > LOGZMAX+0.00001 ) {
     char cfilt[2];  sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] ) ;
-    printf("\n PRE-ABORT INFO: \n");
+    print_preAbort_banner(fnam);
     printf("\t Filter=%s logz = %f   LOGZMAX=%f \n", cfilt, logz, LOGZMAX );
     printf("\t ISED=%d  Trest=%.2f   \n", ISED,Trest);
     sprintf(c1err,"z=%f is outside SEDMODEL_FLUXTABLE lookup table", z);
@@ -1713,9 +1714,7 @@ void  checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) {
 
   // if we get here then abort
   cfilt  = FILTER_SEDMODEL[ifilt].name ;
-
-  printf("\n PRE-ABORT DUMP:\n" );
-
+  print_preAbort_banner(fnam);
   printf("  Calling function '%s' passed ifilt=%d('%s') and z=%.4f \n", 
 	 callFun, ifilt, cfilt, z);
 

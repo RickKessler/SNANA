@@ -81,6 +81,14 @@
 #   DOSKIP_DUPLICATE_SIMJOBS: 0  # no duplicate check; brute-force all jobs
 #                                # (default is on)
 #
+#  TOPDIR_OVERRIDE: <dirName> # logs->[TOPDIR_OVERRIDE]/SIMLOGS_[GENPREFIX]
+#                             #   (default is current pwd)
+#
+#  LOGDIR: <dirName>          # write logs to [LOGDIR] or [pwd]/[LOGDIR]
+#                             #  (default is [pwd]/SIMLOGS_[GENPREFIX]
+#
+# - - - - - - - - - - - - - - - - - - - - - - 
+#
 # HISTORY
 #
 #
@@ -176,6 +184,14 @@
 #   and if RESET_CIDOFF=2, then set RESET_CIDOFF=1 so that 
 #   unique CIDs are for each Ia/NONIa set, not for all sets.
 #
+# Nov 12 2019:
+#   ABORT if normalization job fails; see $normLog -->
+#   fixes infinite loop bug when QUIT key isn't in $normLog.
+#
+# Dec 4 2019: new input key  LOGDIR: <dirName>
+#
+# Jan 22 2020: protect GENOPT_GLOBAL for parentheses in argument.
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -269,7 +285,7 @@ my (@GENVERSION_NAME, $VERSION_TEMP, $VERSION_FINAL, @BATCH_MEM );
 my ($SIMGEN_TEMPDIR, $SIMGEN_FINALDIR, $SIMGEN_MISCDIR, $MISC_SDIR  );
 my ($READMEFILE_FINAL, $LISTFILE_FINAL, $IGNOREFILE_FINAL, $DUMPFILE_FINAL);
 my ($READMEFILE_TEMP, $DUMPFILE_TEMP, $DONE_STAMP, $DONE_STAMP_FLAG );
-my ($LOGDIR, $TOPDIR_SIMLOGS, $Nsec5 );
+my ($LOGDIR, $TOPDIR_SIMLOGS,  $Nsec5 );
 my (@NSIM_GEN, @NSIM_WR, @NSIM_SPEC);
 my (@VERSION_JOBLIST_FINAL, @VERSION_JOBLIST_TEMP);
 my (@STATUS_NORMALIZATION, @TOTAL_STRING );
@@ -553,7 +569,7 @@ sub SUBMIT_NODES {
 	    system("$cmd &") ;
 	}
 	else {
-	    # use batch system (Feb 16 2013)
+	    # use batch system
 	    my $batchName = "${GENPREFIX}_${str_indx}" ;
 	    my $batchFile = "${GENPREFIX}_${str_indx}.BATCH" ;
 	    my $batchLog  = "${GENPREFIX}_${str_indx}.LOG" ;
@@ -641,6 +657,7 @@ sub init_SIMGEN() {
     $currentDir = `pwd`; 
     $currentDir =~ s/\s+$// ; 
 
+    $LOGDIR         = "" ;
     $TOPDIR_SIMLOGS = "$currentDir"; 
 
     $INODE_GLOBAL = 0 ;
@@ -672,6 +689,9 @@ sub init_SIMGEN() {
 
     $DOSKIP_DUPLICATE_SIMJOBS = 1; 
     $NMODEL_DUPL_TOT = 0 ;
+
+    $NABORT = 0 ;
+
     return ;
 
 }   # end of init_SIMGEN
@@ -895,7 +915,6 @@ sub parse_inFile_master() {
 
 
     $key = "SNANA_LOGIN_SETUP:" ;
-# xxxx    @tmp = sntools::parse_line($inFile, 99, $key, $OPT_QUIET ) ;
     @tmp = sntools::parse_array($key,99,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) {
 	$SNANA_LOGIN_SETUP = "$tmp[0]" ;
@@ -904,13 +923,21 @@ sub parse_inFile_master() {
 
 
     $key = "TOPDIR_SIMLOGS:" ;
-## xxxx    @tmp = sntools::parse_line($inFile, 1, $key, $OPT_QUIET ) ;
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) {
 	$TOPDIR_SIMLOGS = $tmp[0] ;
-	$TOPDIR_SIMLOGS = qx(echo $TOPDIR_SIMLOGS) ; # unpack ENV, July 10 2017
+	$TOPDIR_SIMLOGS = qx(echo $TOPDIR_SIMLOGS) ; # unpack ENV
 	$TOPDIR_SIMLOGS =~ s/\s+$// ;   # trim trailing whitespace  
 	print " TOPDIR_SIMLOGS = '${TOPDIR_SIMLOGS}' \n" ;
+    }
+
+    $key = "LOGDIR:" ;
+    @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
+    if ( scalar(@tmp) > 0 ) {
+	$LOGDIR = $tmp[0] ;
+	$LOGDIR = qx(echo $LOGDIR) ; # unpack ENV
+	$LOGDIR =~ s/\s+$// ;        # trim trailing whitespace  
+	print " LOGDIR = '${LOGDIR}' \n" ;
     }
 
     $SNANA_MODELPATH  = "" ;
@@ -1073,28 +1100,13 @@ sub parse_inFile_master() {
     if ( scalar(@tmp) > 0 ) {
 	if ( "$GENPREFIX" ne "MIX" ) {
 	    $MSGERR[0] = "GENPREFIX defined twice: $GENPREFIX and $tmp[0]" ;
-	    $MSGERR[1] = "Only one GENPREFIX declaration allowed in master-input.";
+	    $MSGERR[1] = "Only one GENPREFIX declaration allowed in " . 
+		"master-input.";
 	    sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);	    
 	}
 	$GENPREFIX = $tmp[0]; 
     }
     print " GENPREFIX = $GENPREFIX  \n" ;
-
-# xxxxx mark delete Oct 25 2019 xxxxxxxxxxx
-#    $key = "GENOPT_GLOBAL:" ;
-#    @tmp = sntools::parse_array($key,99,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
-#    if ( scalar(@tmp) > 0 ) {
-#	foreach $tmpLine ( @tmp ) {
-#	    if ( index($tmpLine,"#") > 0 ) {
-#		die "\n ERROR: comment not allowed after GENOPT_GLOBAL key\n" .
-#		    "   Invalid line: '$tmpLine' \n";
-#	    }
-#	    $GENOPT_GLOBAL = "$GENOPT_GLOBAL  $tmpLine" ;
-#	}
-#   }
-#  print " GENOPT_GLOBAL  = '$GENOPT_GLOBAL' \n" ;    
-# xxxxxxxx end mark xxxxxxxxxx
-
 
     $key = "CLEANUP_FLAG:";
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
@@ -1421,6 +1433,10 @@ sub parse_GENOPT_GLOBAL {
 	    $GENOPT_GLOBAL = "$GENOPT_GLOBAL  $tmpLine" ;
 	}
     }
+
+    # check for special characters that need backslash (9/28 2017) 
+    $GENOPT_GLOBAL =~ s/\(/\\(/g ;  # ( --> \(
+    $GENOPT_GLOBAL =~ s/\)/\\)/g ;  # ) --> \)
 
     # check for FORMAT_MASK here, then later check master-input
     # file for <FORMAT_MASK: MASK>
@@ -2399,7 +2415,13 @@ sub make_logDir {
     my ($cmd, $response);
 
     # always set name of log dir
-    $LOGDIR       = "$TOPDIR_SIMLOGS/SIMLOGS_$GENPREFIX" ;
+    if ( $LOGDIR eq "" ) 
+    { $LOGDIR       = "$TOPDIR_SIMLOGS/SIMLOGS_$GENPREFIX" ; }
+    else {
+	# if there are no slashes, then glue current pwd
+	my $jslash  = rindex($LOGDIR,"/");  # location of last slash
+	$LOGDIR = "$currentDir/$LOGDIR" ;
+    }
 
     # if no done-stamp is specified, define a generic default stamp
     if ( $DONE_STAMP_FLAG == 0 ) {
@@ -2487,11 +2509,13 @@ sub get_normalization {
 
 sub get_normalization_model {
 
+    # Nov 12 2019: abort if normalization job fails
+
     # iver = GENVERSION index, $m is model index
     my($iver,$m) = @_;
 
     my(@reqLine, $cmdNorm, $APPEND_NORM, @line, @wdlist, $NPER_SEASON );
-    my($NGEN, $NGEN6);
+    my($NGEN, $NGEN6, $NTMP);
     
     my $MODEL_CLASS  = "$GENMODEL_CLASS[$iver][$m]" ;
     my $MODEL_NAME   = "$GENMODEL_NAME[$iver][$m]" ; 
@@ -2509,7 +2533,8 @@ sub get_normalization_model {
 	"$SIMARG_GENOPT " .   # xxx mark delete $GENOPT_GLOBAL " .
 	"SIMLIB_MAXRANSTART 0" ;
 
-    my $normLogFile  = "$LOGDIR/SIMnorm_${GENVERSION}_${MODEL_CLASS}.LOG" ;
+    my $normLog  = "SIMnorm_${GENVERSION}_${MODEL_CLASS}.LOG" ;
+    my $NORMLOG  = "$LOGDIR/$normLog" ;
 
     print "  Norm-STATUS($GENVERSION) = $STATUS_NORMALIZATION[$iver] \n";
     $| = 1;  # flush stdout
@@ -2517,32 +2542,38 @@ sub get_normalization_model {
     # norm-log file may already exist if jobs are split among nodes.
     # Be careful that log file may exist but not be finished,
     # so sleep 2 extra seconds to make sure that log file is finished.
-    if ( -e $normLogFile ) {
-	print "\t Norm-log file already exists:\n\t $normLogFile . \n";
-
+    if ( -e $NORMLOG ) {
+	print "\t Norm-log file already exists:\n\t $normLog . \n";
+	$NTMP = 0;
 	# normLog exists, but make sure the FATAL line is there to
 	# make sure it's really done
-      CHECKDONE_NORM:
-	@reqLine = qx(grep QUIT $normLogFile);
-	if ( scalar(@reqLine) == 0 ) { sleep 1; goto CHECKDONE_NORM; }
+      CHECKDONE_NORM:	
+	@reqLine = qx(grep QUIT $NORMLOG);
+	if ( scalar(@reqLine) == 0 && $NTMP < 3)  
+	{ sleep 1; $NTMP++; goto CHECKDONE_NORM;  }
 
 	$cmdNorm = "sleep 1" ;
 	$APPEND_NORM = 0 ;
     }
     else {     
-	$cmdNorm  = "$JOBNAME_SIM $SIMARGS > $normLogFile" ;
+	$cmdNorm  = "$JOBNAME_SIM $SIMARGS > $NORMLOG" ;
 	$APPEND_NORM = 1 ;
     }
-
-   
+ 
     print "   Get $MODEL_CLASS normalization ... " ;
     qx($cmdNorm) ;
-    @line = qx { grep "per season ="  $normLogFile }  ;
+    @line = qx { grep "per season ="  $NORMLOG }  ;
+    if ( scalar(@line) == 0 ) {       
+	$MSGERR[0] = "!!! SIMnorm job failed to get normalization !!! ";
+	$MSGERR[1] = "See $normLog";
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR) ;
+    }
+
     @wdlist = split(/\s+/,$line[0]) ;
     $NPER_SEASON = $wdlist[7] ;
     print "NGENTOT_LC($MODEL_CLASS)/season = $NPER_SEASON \n";
     $| = 1;  # flush stdout
-    if ( $APPEND_NORM ) { &append_normLog($normLogFile); }
+    if ( $APPEND_NORM ) { &append_normLog($NORMLOG); }
  
 
     # determine number to generate for SNIa model
@@ -2865,10 +2896,13 @@ sub simgen {
     $key = " ABORT " ;
     @tmp = sntools::parse_line($logFile, 0, $key, $OPT_QUIET) ;
     if ( scalar(@tmp) > 0 ) { 
-	$JOBABORT_FLAG = 1 ;
+	$JOBABORT_FLAG = 1 ;	$NABORT++ ;
+#	print "\n xxx found ABORT in $logFile \n\n";
 	goto LAST_NGEN ; 
     }
-    else { $JOBABORT_FLAG = 0 ; }
+    else { 
+	$JOBABORT_FLAG = 0 ; 
+    }
 
     # increment number of SN generated and written out
     $key = "Wrote" ;

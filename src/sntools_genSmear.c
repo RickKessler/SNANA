@@ -16,7 +16,9 @@
 
  GENMAG_SMEAR_MODELNAME: CCM89    # modify color law with CCM89  
  GENMAG_SMEAR_MODELNAME: PRIVATE  
- GENMAG_SMEAR_MODELNAME: COH      # SIGCOH=.13  (Feb 2014)
+ GENMAG_SMEAR_MODELNAME: COH           # SIGCOH=.13  (Feb 2014)
+ GENMAG_SMEAR_MODELNAME: COH(0.12)     # SIGCOH=.12  (Nov 2019)
+ GENMAG_SMEAR_MODELNAME: COH(0.9+0.2)  # 2 sigma-scat terms (Nov 2019)
  GENMAG_SMEAR_MODELNAME: VCR      # Velocit-Color Relation (MFK14)
  GENMAG_SMEAR_MODELNAME: BIMODAL_UV  # sort'of like Milne 2015
  GENMAG_SMEAR_USRFUN:  <list of 8 params> 
@@ -36,6 +38,7 @@
    init_genSmear_Chotard11
    init_genSmear_private
    init_genSmear_COH
+   init_genSmear_OIR
    init_genSmear_USRFUN
    etc ...
 
@@ -77,6 +80,9 @@
    + significant refactor for speed improvements using repeat_genSmear().
      BEWARE to check repeat_genSmear for Trest-dependent smear models.
 
+ Nov 30 2019: refactor and upgrade COH model to pass 1 or 2 sigma values.
+              Default is still sigma=0.13 mag.
+
 **********************************/
 
 #include <stdio.h> 
@@ -90,9 +96,9 @@
 #include <gsl/gsl_matrix.h>
 
 #include "sntools.h"
-#include "sntools_genSmear.h"
 #include "genmag_SEDtools.h"
 #include "genmag_SALT2.h"
+#include "sntools_genSmear.h"
 #include "MWgaldust.h"
 #include "sntools_fitsio.h"
 
@@ -146,6 +152,12 @@ void  init_genSmear_FLAGS(int MSKOPT, double SCALE) {
     sprintf(c2err,"External calling routine must set NSMEARPAR_OVERRIDE=0");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
+
+  // Jan 2020: allocate magsmear-vs-wave array
+  int MEMD = MXLAM_GENSMEAR_SALT2*sizeof(double);
+  GENSMEAR.MAGSMEAR_LIST = (double*) malloc(MEMD);
+
 
 }  // end of init_genSmear_FLAGS
 
@@ -238,6 +250,7 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
 
 } // end load_genSmear_randoms
 
+
 // ********************************
 void get_genSmear(double Trest, int NLam, double *Lam, 
 		  double *magSmear) {
@@ -257,16 +270,17 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   //
   // Oct 9 2018: check option to scale the magSmear values
   // Oct 21 2019: add CID argument
-  //
+  // Nov 30 2019: MAGSMEAR_COH -> MAGSMEAR_COH[2]
 
-  int ilam;
+  int ilam, repeat ;
   char fnam[] = "get_genSmear" ;
 
   // -------------- BEGIN -----------
 
   GENSMEAR.NCALL++ ;
 
-  if ( repeat_genSmear(Trest,NLam,Lam) ) {  goto SET_LAST; }
+  repeat = repeat_genSmear(Trest,NLam,Lam);
+  if ( repeat ) {  goto SET_LAST; }
 
   // abort if more than one model has been initialized.
   if ( GENSMEAR.NUSE > 1 ) {
@@ -275,7 +289,9 @@ void get_genSmear(double Trest, int NLam, double *Lam,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  GENSMEAR.MAGSMEAR_COH = 0.0 ;
+  GENSMEAR.MAGSMEAR_COH[0] = 0.0 ;
+  GENSMEAR.MAGSMEAR_COH[1] = 0.0 ;
+
   for(ilam=0; ilam < NLam; ilam++ ) { magSmear[ilam] = 0.0 ; }
 
   if ( GENSMEAR_USRFUN.USE ) {
@@ -354,6 +370,10 @@ int repeat_genSmear(double Trest, int NLam, double *Lam) {
   char fnam[] = "repeat_genSmear";
 
   // ------------ BEGIN ------------
+
+  // for 1 lam bin, it's central filter wavelength,
+  // so always re-calculate.
+  if ( NLam == 1 ) { return(NEW); }
 
   if ( (GENSMEAR.MSKOPT & 32 )>0 ) { return(NEW); }
 
@@ -1428,7 +1448,7 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
 
   if ( NBCOH == 1 ) {
     SMEAR0 = rCOH * ptrSIGCOH[0];
-    GENSMEAR.MAGSMEAR_COH = SMEAR0; // load global for SNTABLE (Jun 14 2016)
+    GENSMEAR.MAGSMEAR_COH[0] = SMEAR0; // load global for SNTABLE (Jun 14 2016)
   }
 
 
@@ -2398,33 +2418,112 @@ void get_genSmear_VCR(double Trest, int NLam, double *Lam,
 } // end of get_genSmear_VCR
 
 
-
 // ***************************************
-void init_genSmear_COH(void) {
+void init_genSmear_COH(char *stringArg) {
 
+  // stringArg == "COH" 
+  //     --> hard code coherent sigma = 0.13 mag
+  //
+  // stringArg = COH(0.11) 
+  //     --> sigma = 0.11 mag
+  //
+  // stringArg = COH(0.55+.11) 
+  //     --> sigma = 0.55 and sigma=0.11 (2 variations),
+  //         and stored separate MAGSMEAR_COH values.
+  //
+  // The two scatter values can be output to SIMGEN_DUMP using
+  // MAGSMEAR_COH and MAGSMEAR_COH2.
+  //
+  // Nov 30 2019: major refactor/update, and pass stringArg input
+  //
+
+  int  Nsigma = 0, i, ISBAD ;
+  int  MEMC   = sizeof(char) * 20 ;
+  double SIGMA;
+  char stringLocal[60], stringSigma[60], *ptrSigma[2] ;
+  char plus[] = "+" ;
+  char fnam[] = "init_genSmear_COH" ;
+
+  // -------------- BEGIN ----------------
   GENSMEAR_COH.USE = 1;    GENSMEAR.NUSE++ ;
-  GENSMEAR_COH.MAGSIGMA = 0.13 ; // hard-wired
 
-  printf("\t Coherent MAGSMEAR SIGMA = %.3f \n", 
-	 GENSMEAR_COH.MAGSIGMA ); fflush(stdout);
+  GENSMEAR_COH.MAGSIGMA[0] = -9.0;
+  GENSMEAR_COH.MAGSIGMA[1] = -9.0;
+
+  sprintf(stringLocal, "%s", stringArg);
+  extractStringOpt(stringLocal, stringSigma);
+
+  // only + is allowed between floats, so abort on invalid separators
+  ISBAD=0;
+  if ( strchr(stringSigma,':') != NULL )  { ISBAD = 1; }
+  if ( strchr(stringSigma,'!') != NULL )  { ISBAD = 1; }
+  if ( strchr(stringSigma,',') != NULL )  { ISBAD = 1; }
+  if ( strchr(stringSigma,'%') != NULL )  { ISBAD = 1; }
+
+  if ( ISBAD || strcmp(stringLocal,"COH") != 0 ) {
+    sprintf(c1err,"Invalid GENMAG_SMEAR_MODELNAME: %s", stringArg);
+    sprintf(c2err,"Must be COH or COH([sig]) or COH([sig0]+[sig1])");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+
+
+  if ( strlen(stringSigma) == 0 ) {
+    GENSMEAR_COH.MAGSIGMA[0] = 0.13 ; // hard-wired
+    Nsigma = 1;
+  }
+  else {
+    // examine sigma(s) in parentheses
+    ptrSigma[0] = (char*) malloc(MEMC);
+    ptrSigma[1] = (char*) malloc(MEMC);
+
+    splitString(stringSigma, plus, 2, &Nsigma, ptrSigma);
+    for(i=0; i < Nsigma; i++ ) 
+      { sscanf(ptrSigma[i], "%le", &GENSMEAR_COH.MAGSIGMA[i])  ; }
+
+    free(ptrSigma[0]); free(ptrSigma[1]);
+  }
+
+  GENSMEAR_COH.NSIGMA = Nsigma;
+  for(i=0; i < Nsigma; i++ ) {
+    SIGMA = GENSMEAR_COH.MAGSIGMA[i];
+    printf("\t Coherent MAGSMEAR SIGMA = %.3f \n", SIGMA );
+  }
+
+  fflush(stdout);
 
   // set number of Gaussian randoms neede per SN
-  init_genSmear_randoms(1,0);
+  init_genSmear_randoms(Nsigma,0);
 
-}
+  //  debugexit(fnam); // xxxx REMOVE
+
+} // end init_genSmear_COH
 
 void get_genSmear_COH(double Trest, int NLam, double *Lam, 
 		      double *magSmear) {
 
-  // Apr 6 2016: fix bug by multiplying MAGSMEAR by SIG.
-  int ilam; 
-  double SIG ;
+  // Nov 20 2019: refactor and allow up to two scatter terms.
+  int    Nsigma =   GENSMEAR_COH.NSIGMA;
+  int    ilam, isig ; 
+  double SIG, MAGSMEAR, SUM_MAGSMEAR = 0.0 ;
+  char fnam[] = "get_genSmear_COH";
 
-  SIG      = GENSMEAR_COH.MAGSIGMA ;
-  GENSMEAR.MAGSMEAR_COH = SIG*GENSMEAR.RANGauss_LIST[0] ;
+  // ------------ BEGIN -----------
+
+  for(isig=0; isig < Nsigma; isig++ ) {
+    SIG      = GENSMEAR_COH.MAGSIGMA[isig] ;
+    MAGSMEAR = SIG*GENSMEAR.RANGauss_LIST[isig] ;
+    GENSMEAR.MAGSMEAR_COH[isig] = MAGSMEAR;
+    SUM_MAGSMEAR += MAGSMEAR ; // note linear sum, not in quadrature
+  }
+
+  /*
+  printf(" xxx %s: SUM_MAGSMEAR = %f  (NLAM=%d) \n",
+	 fnam, SUM_MAGSMEAR, NLam ); fflush(stdout);
+  */
 
   for ( ilam=0; ilam < NLam; ilam++ )  
-    { magSmear[ilam] = GENSMEAR.MAGSMEAR_COH ; }
+    { magSmear[ilam] = SUM_MAGSMEAR ; }
 
 } // end of get_genSmear_COH
 
@@ -2603,13 +2702,111 @@ void init_genSmear_OIR(void) {
 
   // Created Aug 30 2019 by R.Kessler and D.Jones
   // Optical+IR smear model based on CfA and CSP.
+  // Very similar to Chotard11 method
   
   char fnam[] = "init_genSmear_OIR";
+  char *OIR_version = "OIR.J19";
+  char *path ;
+  
+  char FILTERS_OIR[NBAND_OIR+1] = "BgriYJH" ;
+  
+  double COV_DIAG_FUDGE = 1.0E-9 ; // needed to be invertible
+  double COV_SCALE = 1.3 ; // to get correct filter-COV from lambda model
+  double COVAR1[NBAND_OIR* NBAND_OIR] ;
+  double COVAR2[NBAND_OIR][NBAND_OIR] ;
+
+  double CC, COVred, tmp, covscale_v ;
+  int i,j, N ;
+  int LDMPCOV = 1; // RK - Nov 5 2019
+  gsl_matrix_view chk;  
 
   // --------------- BEGIN ---------------
 
-  GENSMEAR_OIR.USE = 1;  GENSMEAR.NUSE++;
-  printf(" xxx hello from %s \n", fnam);
+  GENSMEAR_OIR.USE = 1;    GENSMEAR.NUSE++ ;
+
+  // read in covmat from file - using utilities from VCR model
+  printf("\t Init OIR smear model: %s\n", OIR_version );
+  fflush(stdout);
+
+
+  // ------------------------------------
+  // get path and filenames to parse
+  sprintf( PATH_SNDATA_ROOT, "%s", getenv("SNDATA_ROOT") );
+  path = GENSMEAR_OIR.MODELPATH ;
+  sprintf(path,"%s/models/OIR/%s", PATH_SNDATA_ROOT, OIR_version ) ;  
+  sprintf(GENSMEAR_OIR.INFO_FILE, "%s/OIR.INFO", path);
+  printf("\t Read model info from :\n\t\t %s\n", path); 
+  fflush(stdout);
+
+  // -------------------------------------
+  // read OIR.INFO file 
+  read_OIR_INFO();
+
+  // sort OIR bands by wavelength
+  sort_OIR_BANDS();
+
+  // prepare covariance matrix
+  prep_OIR_COVAR();
+
+  printf("\t Initialize OIR model of %s correlations (A19) \n", 
+	 FILTERS_OIR );
+
+  // translate reduced covariance into covariances
+  N = 0 ;
+
+  if ( LDMPCOV ) 
+    {  printf("\n\t xxx COVred(BgriYJH): \n" ); fflush(stdout); }
+
+  for (i =0; i < NBAND_OIR; i++){
+
+    if ( LDMPCOV )  { printf("\t xxx "); fflush(stdout); }
+    for (j = 0; j < NBAND_OIR ; j++){      
+
+      COVred       = GENSMEAR_OIR.COLOR_CORMAT[i][j] ;
+      if ( LDMPCOV ) { printf(" %7.4f\n",COVred); }
+      
+      CC           = GENSMEAR_OIR.COLOR_SIGMA[i] * GENSMEAR_OIR.COLOR_SIGMA[j];
+      //      printf("xxxxxxxxxx2 %7.7f\n",CC);
+      
+      if ( i == j ) { CC += COV_DIAG_FUDGE ; }
+      COVAR2[i][j] = COVred * CC ;
+
+      // fill 1D array for gsl argument below.
+      N++ ;  COVAR1[N-1] = COVAR2[i][j] * COV_SCALE ;
+
+    }
+    if ( LDMPCOV ) { printf("\n"); fflush(stdout); fflush(stdout); }
+  }
+
+  chk  = gsl_matrix_view_array ( COVAR1, NBAND_OIR, NBAND_OIR); 
+  gsl_linalg_cholesky_decomp ( &chk.matrix )  ;  
+
+  for (i =0; i < NBAND_OIR ; i++){
+    for (j = 0; j < NBAND_OIR ; j++) { 
+      if ( j >= i ) 
+	{ GENSMEAR_OIR.Cholesky[i][j] = gsl_matrix_get(&chk.matrix,i,j); }
+      else
+	{ GENSMEAR_OIR.Cholesky[i][j] = 0.0 ; }
+    }
+  }
+
+
+  // print Cholesky matrix
+  printf("\n\t Cholesky Decomp: \n" );
+  for (i =0; i < NBAND_OIR; i++){
+    printf("\t  d%c(Ran) = ", FILTERS_OIR[i] ); fflush(stdout);
+    for (j = 0; j < NBAND_OIR ; j++){
+      tmp = GENSMEAR_OIR.Cholesky[j][i] ;
+      printf("+ %7.4f*R%d ", tmp, j );
+    }    
+    printf("\n"); fflush(stdout);
+  }
+
+  //  debugexit(fnam); // DDDDDDD
+
+  GENSMEAR.NGEN_RANGauss = NBAND_OIR ;
+  GENSMEAR.NGEN_RANFlat  = 0 ;
+
   return;
 
 } // end init_genSmear_OIR
@@ -2627,13 +2824,226 @@ void get_genSmear_OIR(double Trest, int NLam, double *Lam,
   // ---------------- BEGIN -----------------
 
   // illustrate error utility:
-  sprintf(c1err,"genSmear_OIR model not ready.");
-  sprintf(c2err,"Do some coding !");
-  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  //sprintf(c1err,"genSmear_OIR model not ready.");
+  //sprintf(c2err,"Do some coding !");
+  //errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+
+  int    ilam, i, j, IFILT, NBAND ;
+  double lam, tmp, SCATTER_VALUES[NBAND_OIR], LAMCEN[NBAND_OIR] ;
+
+  //uBgriYJH filter wavelengths from https://csp.obs.carnegiescience.edu/data/filters
+  //from Swope site2 and RetroCam
+  NBAND = GENSMEAR_OIR.NBAND_OIRDEF ; // number of OIR model bands
+  for (i = 0 ; i < NBAND ; i++) 
+    { LAMCEN[i] = GENSMEAR_OIR.ORDERED_LAMCEN[i] ;  }
+
+
+  //Matrix Multiply
+  //scatter_values = ch^T normalvector
+  for (i = 0 ; i < NBAND_OIR ; i++) {
+    SCATTER_VALUES[i] = 0.0 ;  
+    for (j = 0 ; j < NBAND_OIR ; j++){
+      //transpose cholesky matrix
+      tmp = GENSMEAR_OIR.Cholesky[j][i] ;      
+      SCATTER_VALUES[i] += tmp * GENSMEAR.RANGauss_LIST[j] ;
+    }
+  }
+
+
+  // -------------
+  for ( ilam=0; ilam < NLam; ilam++ ) {
+
+    lam = Lam[ilam];  // exact lambda
+    
+    // interpolate SCATTER values vs. wavelength
+    if( lam < LAMCEN[0] ) {
+      tmp   = SCATTER_VALUES[0] ;        // extend blueward of UV
+    }
+    else if ( lam > LAMCEN[NBAND_OIR-1] ) {      
+      tmp   = SCATTER_VALUES[NBAND_OIR-1];  // extend redward of I band
+    }
+    else {
+      IFILT = INODE_LAMBDA(lam, NBAND_OIR, LAMCEN);
+      if ( IFILT < 0 ) {
+	sprintf(c1err,"Could not find UBVRI band for lam=%7.1f", lam);
+	sprintf(c2err,"ilam = %d", ilam);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+
+      // interpolate with sin function
+      //printf("xxxxxxxxxx %d\n",&SCATTER_VALUES[IFILT]);
+      tmp = interp_SINFUN( lam, &LAMCEN[IFILT], &SCATTER_VALUES[IFILT], fnam );
+
+    }
+
+    magSmear[ilam] = tmp ;
+
+  }
 
   return;
 
 } // end get_genSmear_OIR
+
+// **********************************
+void read_OIR_INFO(void) {
+
+  // read model params from OIR.INFO file
+  //
+  FILE *fp ;
+  int  ic, ic2, NC, irowmat, iband, IFILTDEF, j ;
+  char c_get[60], band[2];
+  double LAMCEN ;
+  char *infoFile = GENSMEAR_OIR.INFO_FILE ;
+  char fnam[]    = "read_OIR_INFO";
+
+  // ------------- BEGIN ------------
+
+  NC = 7;
+  
+  if ( (fp = fopen(infoFile,"rt") ) == NULL ) {
+    sprintf(c1err,"Cannot open info file:");
+    sprintf(c2err,"%s", infoFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
+  }
+
+  for(ic=0; ic < NBAND_OIR; ic++ ) {
+    GENSMEAR_OIR.COLOR_SIGMA[ic]  = NULLDOUBLE ;
+
+    for(ic2=0; ic2 < NBAND_OIR; ic2++ )
+      { GENSMEAR_OIR.COLOR_CORMAT[ic][ic2] = NULLDOUBLE ; }
+  }
+
+  for(iband=0; iband < NBAND_OIR; iband++  )
+    { GENSMEAR_OIR.LAMCEN_BAND[iband] = -999.0 ; }
+
+  irowmat = 0; // number of matrix rows read.
+
+  while( (fscanf(fp, "%s", c_get)) != EOF ) {
+    if ( c_get[0] == '#' ) { continue; }
+
+    if ( strcmp(c_get,"COLOR_SIGMA_SCALE:") == 0  ) 
+      { readdouble(fp, 1, &GENSMEAR_OIR.COLOR_SIGMA_SCALE ); }
+
+    if ( strcmp(c_get,"COLOR_CORMAT:") == 0  ) {
+      readdouble(fp, NC, GENSMEAR_OIR.COLOR_CORMAT[irowmat] ); 
+      irowmat++ ;
+    }
+
+    if ( strcmp(c_get,"LAMCEN_BAND:") == 0  ) {
+      readchar(fp, band);
+      readdouble(fp, 1, &LAMCEN );
+      IFILTDEF = INTFILTER(band);
+      GENSMEAR_OIR.LAMCEN[IFILTDEF] = LAMCEN ;
+    }
+
+    if ( strcmp(c_get,"COLOR_SIGMA:") == 0  ) 
+      { readdouble(fp, NC, GENSMEAR_OIR.COLOR_SIGMA ); }
+
+    if ( strcmp(c_get,"COLOR_SIGMA_SCALE:") == 0  ) 
+      { readdouble(fp, 0, &GENSMEAR_OIR.COLOR_SIGMA_SCALE ); }
+    
+    if ( strcmp(c_get,"SIGMACOH_MB:") == 0  ) 
+      { readdouble(fp, 1, &GENSMEAR_OIR.SIGMACOH_MB); }
+
+    
+  } // end while
+
+
+  fflush(stdout);
+
+  
+  // -------------------------------------------------------
+  // sanity checks; because sane people do insane things.
+
+  if ( irowmat != NC ) {
+    sprintf(c1err,"Read %d rows of corr. matrix; expected %d rows.",
+	    irowmat, NC);
+    sprintf(c2err,"Check COLOR_CORMAT keys in OIR.INFO file.") ;
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
+  }
+  
+  return ;
+
+} // end of read_OIR_INFO
+
+// ****************************************
+void sort_OIR_BANDS(void) {
+
+  // use already filled GENSMEAR_OIR.LAMCEN[IFILTDEF] array
+  // to define the list of bands, then sort them by lambda 
+  // and fill ORDERED arrays.
+
+  int ORDER =  1; // --> increasing order
+  int NBAND, IFILTDEF, IFILTDEF_B, iband, isort, ic, NC ;
+  int IFILTDEF_LIST[MXFILTINDX];
+  int INDSORT[MXFILTINDX];
+  double LAMCEN, LAMCEN_LIST[MXFILTINDX];
+  char fnam[] = "sort_OIR_BANDS" ;
+
+  // ------------ BEGIN -------------
+
+  // loop over every possible filter index,
+  // and pick out the ones with LAMCEN > 0
+  NBAND = 0 ;
+  for( IFILTDEF=0; IFILTDEF < MXFILTINDX; IFILTDEF++ ) {
+    LAMCEN = GENSMEAR_OIR.LAMCEN[IFILTDEF] ;
+    if ( LAMCEN > 0.0 ) {
+      LAMCEN_LIST[NBAND]   = LAMCEN ;
+      IFILTDEF_LIST[NBAND] = IFILTDEF ;
+      NBAND++ ;
+    }
+  }
+  GENSMEAR_OIR.NBAND_OIRDEF = NBAND ;
+  
+  // sort by increasing wavelength
+  sortDouble(NBAND, LAMCEN_LIST, ORDER, INDSORT);
+  NC = GENSMEAR_OIR.NCOLOR ;
+      
+  IFILTDEF_B = INTFILTER("B");
+
+  // store in global ORDERED arrays.
+  for(iband=0; iband < NBAND; iband++ ) {
+    isort    = INDSORT[iband];
+    LAMCEN   = LAMCEN_LIST[isort];
+    IFILTDEF = IFILTDEF_LIST[isort];
+
+    GENSMEAR_OIR.ORDERED_IFILTDEF[iband] = IFILTDEF ;
+    GENSMEAR_OIR.ORDERED_LAMCEN[iband]   = LAMCEN ;
+
+    if ( IFILTDEF == IFILTDEF_B ) { GENSMEAR_OIR.IFILT_B = iband; }
+
+    printf("\t\t OIR_LAMCEN(%c) = %7.0f \n", FILTERSTRING[IFILTDEF], LAMCEN);
+    fflush(stdout);  
+  }
+
+
+} // end of  sort_OIR_BANDS
+
+// ****************************************
+void  prep_OIR_COVAR(void) {
+
+  int ic1, ic2, NC, N;
+  double S1, S2, rho, COV ;
+  //  char fnam[] = "prep_OIR_COVAR" ;
+
+  // ------------- BEGIN ----------
+
+  NC = NBAND_OIR ;
+  N  = 0 ;
+  for(ic1=0; ic1<NC; ic1++ ) {
+    for(ic2=0; ic2<NC; ic2++ ) {
+      rho = GENSMEAR_OIR.COLOR_CORMAT[ic1][ic2] ;
+      S1  = GENSMEAR_OIR.COLOR_SIGMA[ic1] ;
+      S2  = GENSMEAR_OIR.COLOR_SIGMA[ic2] ;
+      COV = (S1 * S2 * rho) ;
+      printf("hiiiiiiiiiii8 %f\n",S1);
+      N++ ;
+
+    }  // ic2
+  }    // ic1
+
+} // end of   prep_OIR_COVAR
+
 
 
 // ***************************************

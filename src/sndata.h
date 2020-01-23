@@ -179,7 +179,8 @@ struct SNDATA {
   int   NXPIX, NYPIX;
   int   CCDNUM[MXEPOCH] ;
 
-  int    USE_EPOCH[MXEPOCH];      // SNDATA.NOBS = sum of these
+  bool   OBSFLAG_WRITE[MXEPOCH];
+  // xxx mark dele int USE_EPOCH[MXEPOCH];      // SNDATA.NOBS = sum of these
   double MJD[MXEPOCH];            // MJD for each epoch
 
   char  MAGTYPE[20];   // LOG10 or ASINH
@@ -243,7 +244,7 @@ struct SNDATA {
   int   APPLYFLAG_MWEBV;           // T=> correct FLUXCAL
 
   int     HOSTGAL_USEMASK ;  // bits 1,2,3,4 --> MAGOBS, MAGOBSERR, SB, SBERR
-  int     HOSTGAL_NMATCH[2] ; // NMATCH and NMATCH2
+  int     HOSTGAL_NMATCH[2] ; // NMATCH and NMATCH2 (tight/loose DLR cut)
   long long HOSTGAL_OBJID[MXHOSTGAL] ;            // up to 4 host matches
   float   HOSTGAL_SB_FLUX[MXFILTINDX];     // surface bright (FLUXCAL/arcsec)
   float   HOSTGAL_SB_FLUXERR[MXFILTINDX];  // error on above
@@ -254,7 +255,7 @@ struct SNDATA {
   float   HOSTGAL_DDLR[MXHOSTGAL]   ;                 // SNSEP/DLR
   double  HOSTGAL_RA[MXHOSTGAL];
   double  HOSTGAL_DEC[MXHOSTGAL];
-  float   HOSTGAL_CONFUSION ;         // note: does NOT depend in each host
+  float   HOSTGAL_CONFUSION ;         // note: does NOT depend on each host
   float   HOSTGAL_PHOTOZ[MXHOSTGAL] ;
   float   HOSTGAL_PHOTOZ_ERR[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ[MXHOSTGAL] ;

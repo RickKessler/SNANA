@@ -135,7 +135,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
     // check length of file name (Aug 2019)
     lenpath=strlen(path); lenfile=strlen(ptrFile);  lentot=lenpath+lenfile;
     if ( lentot >= MXPATHLEN ) {
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf("   path = '%s' \n", path);
       printf("   file = '%s' \n", ptrFile);
       sprintf(c1err, "filename length= %d is too long", lentot);
@@ -1101,7 +1101,7 @@ void WR_SNFITSIO_UPDATE(void) {
 
   // start by filling end-of-event marker
   ep                        = SNDATA.NEPOCH+1; // artificial epoch
-  SNDATA.USE_EPOCH[ep]      = 1 ;
+  SNDATA.OBSFLAG_WRITE[ep]  = true ;
   SNDATA.MJD[ep]            = SNFITSIO_EOE_MARKER ;
   SNDATA.FLUXCAL[ep]        = SNFITSIO_EOE_MARKER ;
   SNDATA.FLUXCAL_ERRTOT[ep] = SNFITSIO_EOE_MARKER ;
@@ -1115,7 +1115,7 @@ void WR_SNFITSIO_UPDATE(void) {
   NUSE_EPOCH = 0;
   for ( ep = 1; ep <= SNDATA.NEPOCH+1; ep++ ) {
 
-    if ( SNDATA.USE_EPOCH[ep] == 0 )  { continue ; }
+    if ( !SNDATA.OBSFLAG_WRITE[ep] )  { continue ; }
 
     wr_snfitsio_update_phot(ep) ;
 

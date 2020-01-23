@@ -31,8 +31,8 @@ void  psnid_dumpLC_SNGRID(void);
 void  psnid_binCheck(int TYPEINDX, int IPAR, int ibin) ;
 
 
-void psnid_store_data(char *CCID, int NOBS, int *IFILT, 
-		      double *MJD, double *FLUX, double *FLUXERR, 
+void psnid_store_data(char *CCID, int NOBS, int *IFILT, double *MJD,
+		      double *FLUX, double *FLUXERR, double *FLUXSIM,
 		      double *REDSHIFT, double *REDSHIFT_ERR,
 		      double MWEBV, double MWEBVERR, int SIM_NON1A_INDEX );
 void SNLCPAK_PSNID_DATA(double PKMJD);  // pass data to plot interface
@@ -188,7 +188,7 @@ struct DATA_PSNID_DOFIT  {
   // set by psnid_store_data
   char   CCID[40];
   int     NOBS ;  
-  double  *MJD, *FLUX, *FLUX_ERR, *DUMERR0 ;
+  double  *MJD, *FLUXDATA, *FLUXERR, *FLUXSIM, *DUMERR0 ;
   int     *IFILT ; // sparse IFILT
   int     *IFILTOBS ; // absolute index
   double  REDSHIFT[4], REDSHIFT_ERR[4] ; // z and z_host

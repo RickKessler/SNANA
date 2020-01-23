@@ -21,7 +21,7 @@ void   getFileName_SALT2colorDisp(char *fileName) ; // added Jan 2017
 void  init_genSmear_Chotard11(int OPT_farUV) ;
 void  init_genSmear_VCR(char *VCR_version, int index_SNmodel);
 void  init_genSmear_CCM89(double *LAMRANGE) ;
-void  init_genSmear_COH(void) ;
+void  init_genSmear_COH(char *stringArg) ;
 void  init_genSmear_biModalUV(void) ;
 void  init_genSmear_OIR(void);
 void  init_genSmear_COVSED(char *COVSED_version, int OPTMASK);
@@ -34,6 +34,10 @@ int   nval_genSmear_override(char *inputKey, char *parName);
 void  store_genSmear_override(char *parName, int NVAL, double *tmpList);
 int   exec_genSmear_override(int ipar, char *keyName, double *val) ;
 
+void  read_OIR_INFO(void) ;    // read misc. info/parameters
+void  sort_OIR_BANDS(void);
+void  prep_OIR_COVAR(void) ;
+
 void  read_VCR_VSI(void) ;     // read v_Si distribution
 void  read_VCR_INFO(void) ;    // read misc. info/parameters
 void  prep_VCR_forSALT2(void); // inits specific to SALT2
@@ -44,8 +48,6 @@ void  parse_VCR_colorString(int ic);
 
 void  get_NRAN_genSmear(int *NRANGauss, int *NRANFlat); // returns NRANxxx
 
-// void  SETRANGauss_genSmear(int NRAN, double *ranList );
-// void  SETRANFlat_genSmear(int NRAN, double *ranList );
 void  SETSNPAR_genSmear(double shape, double color, double redshift) ;
 
 void get_genSmear(double Trest, int NLam, double *Lam,
@@ -134,12 +136,16 @@ struct GENSMEAR {
   double SUMSMEAR_CHECK[2], SQSUMSMEAR_CHECK[2], SUMCROSS;
   int    NCHECK;
 
-  double MAGSMEAR_COH;   // coherent part of scatter only, for SNTABLE
+  // Nov 2019: allow up to two independent COH scatter terms
+  double MAGSMEAR_COH[2]; 
 
   // keep track of last values to check of magSmear needs
   // to be re-computed
   int    CID_LAST, NLAM_LAST;
   double TREST_LAST, LAMMIN_LAST, LAMMAX_LAST;
+
+  // define global mag-vs-lanbda to allow repeat function to re-use (Jan 2020)
+  double *MAGSMEAR_LIST ;
 
 } GENSMEAR ;
 
@@ -203,9 +209,37 @@ struct GENSMEAR_C11 {
   int OPT_farUV;  // see sub-models C11_0, C11_1, C11_2
 } GENSMEAR_C11 ;
 
+// ------------ OIR struct ----------------------
 
+#define NBAND_OIR 7  // BgriYJH correlations
 struct GENSMEAR_OIR {
   int USE ;
+  double Cholesky[NBAND_OIR][NBAND_OIR];
+
+  // path and filenames
+  char MODELPATH[MXPATHLEN] ;
+  char INFO_FILE[MXPATHLEN] ;
+
+  // inputs from OIR.INFO file
+  int      NCOLOR ;
+  char     COLOR_STRING[NBAND_OIR][8];  
+  double   COLOR_SLOPE[NBAND_OIR] ;
+  double   SIGMACOH_MB ;
+  double   COLOR_SIGMA_SCALE ; // multiplies all the COLOR_SIGMA values.
+  double   COLOR_SIGMA[NBAND_OIR] ;
+  double   COLOR_CORMAT[NBAND_OIR][NBAND_OIR] ;
+
+  double   LAMCEN_BAND[NBAND_OIR*2];  // define warp nodes
+  double   SPECSHIFT_SCALE;  // fudge-scale for spectral shifts
+
+  // define list of filters ordered by wavelength
+  int       NBAND_OIRDEF ;  // number of unique filters = size of ordered list
+  int       ORDERED_IFILTDEF[NBAND_OIR*2];  // sparse/ordered list
+  double    ORDERED_LAMCEN[NBAND_OIR*2];    // sparse/ordered list
+  int       LAMCEN[MXFILTINDX] ;  // <LAM> vs. IFILTDEF
+  int       IFILT_B ;
+
+
 } GENSMEAR_OIR;
 
 struct GENSMEAR_COVSED {
@@ -304,7 +338,8 @@ struct GENSMEAR_VCR {
 
 struct GENSMEAR_COH {
   int    USE ;
-  double MAGSIGMA ;
+  int    NSIGMA;
+  double MAGSIGMA[2] ;
 } GENSMEAR_COH ;
 
 

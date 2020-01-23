@@ -195,6 +195,9 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
 
  Aug 26 2019: implement RELAX_IDIOT_CHECK_SALT2 for P18 to avoid abort.
 
+ Nov 7 2019: for SALT3, remove x1*M1/M0 term in error; see ISMODEL_SALT3.
+ Jan 19 2020: in INTEG_zSED_SALT2, fix memory leak related to local magSmear.
+
 ****************************************************************/
 
 int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
@@ -250,9 +253,9 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   
 
   // Aug 02 2019: set prefix for filenames to allow salt2 or salt3 prefix
-  sprintf(SALT2_PREFIX_FILENAME,"salt2"); // default
+  ISMODEL_SALT3=0; sprintf(SALT2_PREFIX_FILENAME,"salt2"); // default
   if ( strstr(version,"SALT3") != NULL ) 
-    { sprintf(SALT2_PREFIX_FILENAME,"salt3"); } 
+    { sprintf(SALT2_PREFIX_FILENAME,"salt3");  ISMODEL_SALT3=1; } 
 
   RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
 
@@ -610,8 +613,7 @@ void fill_SALT2_TABLE_SED(int ISED) {
 
 	    
       if ( fabs(FRATIO) > FRATIO_CHECK ) {
-       
-	printf("\n\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);
 	printf("  FRATIO = FDIF/FSUM = %f  (FRATIO_CHECK=%le)\n", 
 	       FRATIO, FRATIO_CHECK);
 	printf("  IDAY=%4d  IDAY_ORIG=%4d  \n", IDAY, IDAY_ORIG);
@@ -1877,7 +1879,10 @@ double SALT2magerr(double Trest, double lamRest, double z,
   //                     Finteg[1] / Finteg[0]
   //
   //   - LDMP : dump-and-exit flag
-
+  //
+  // Nov 7 2019: for SALT3 (retraining), set relx1=0. We don't understand
+  //             the origin of this term, so scrap it for SALT3.
+  // 
   double 
      ERRMAP[NERRMAP]
     ,Trest_tmp
@@ -1914,6 +1919,7 @@ double SALT2magerr(double Trest, double lamRest, double z,
   errscale = ERRMAP[INDEX_ERRMAP_SCAL] ;  // error fudge  
 
   relx1    = x1 * Finteg_ratio ;
+  if ( ISMODEL_SALT3 ) { relx1 = 0.0 ; } 
 
   // compute fractional error as in  Guy's ModelRelativeError function
   vartot  = var0 + var1*x1*x1 + (2.0 * x1* covar01) ;
@@ -2074,6 +2080,10 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   // Apr 23 2019: remove buggy z1 factor inside OPT_SPEC
   //              (caught by D.Jones)
   //
+  // Jan 19 2020:
+  //   replace local magSmear[ilam] with global GENSMEAR.MAGSMEAR_LIST
+  //   so that it works properly with repeat function.
+
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
     ,IDAY, NDAY, nday, iday, ised, ic
@@ -2088,7 +2098,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     ,FRAC_INTERP_DAY, FRAC_INTERP_COLOR, FRAC_INTERP_LAMSED
     ,TRANS, MODELNORM_Fspec, MODELNORM_Finteg, *ptr_FLUXSED[2][4] 
     ,FSED[4], FTMP, FDIF, VAL0, VAL1, mean, arg, FSMEAR
-    ,lam[MXBIN_LAMFILT_SEDMODEL], magSmear[MXBIN_LAMFILT_SEDMODEL]
+    ,lam[MXBIN_LAMFILT_SEDMODEL]
     ,Finteg_filter[2], Finteg_forErr[2], Finteg_spec[2]
     ,Fbin_forFlux, Fbin_forSpec
     ,hc8 = (double)hc ;
@@ -2170,7 +2180,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
       if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }       
       NLAMTMP++ ;
     }
-    get_genSmear( Trest, NLAMTMP, lam, magSmear) ;
+    // xxx mark delete    get_genSmear( Trest, NLAMTMP, lam, magSmear) ;
+    get_genSmear( Trest, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
   }
 
 
@@ -2235,7 +2246,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
       if ( LABORT ) {
 	mean = FILTER_SEDMODEL[ifilt].mean ;
-	printf("\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);
 	printf("\t LAMOBS = %7.2f  LAMDIF=%7.2f\n",  LAMOBS, LAMDIF);
 	printf("\t LAMSED = LAMOBS/(1+z) = %7.2f \n", LAMSED );
 	printf("\t LAMSTEP=%4.1f  LAMMIN=%6.1f \n", 
@@ -2285,7 +2296,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	
 	// check option to smear SALT2 flux with intrinsic scatter
 	if ( ISTAT_GENSMEAR ) {
-	  arg     =  -0.4*magSmear[ilamobs] ; 
+	  // xxx mark delete  arg   =  -0.4*magSmear[ilamobs] ; 
+	  arg     =  -0.4*GENSMEAR.MAGSMEAR_LIST[ilamobs] ; 
 	  FSMEAR  =  pow(TEN,arg)  ;        // fraction change in flux
 	  FTMP   *=  FSMEAR;                // adjust flux for smearing
 	}

@@ -578,7 +578,7 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile) {
   fread(&REDSHIFT_SEDMODEL, IZSIZE_ACTUAL,      1, fp);
 
   if ( IZSIZE_RD != IZSIZE_ACTUAL ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("\t sizeof(REDSHIFT_SEDMODEL) struct in binary file: %d bytes \n",
 	    IZSIZE_RD);
     printf("\t sizeof(REDSHIFT_SEDMODEL) struct now : %d bytes \n",

@@ -195,7 +195,7 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
 } // end init_BYOSED
 
 // =========================================================
-void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double MU, 
+void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double zCMB, double MU, 
 		   double MWEBV, int NHOSTPAR, double *HOSTPAR_LIST,
 		   int IFILT_OBS, int NOBS, double *TOBS_list, 
 		   double *MAGOBS_list, double *MAGERR_list ) {

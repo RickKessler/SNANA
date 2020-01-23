@@ -38,7 +38,7 @@
 #include <stdbool.h>
 
 #include "sndata.h"
-#define  SNANA_VERSION_CURRENT  "v10_74j"           
+#define  SNANA_VERSION_CURRENT  "v10_75b"                
 
 #define LIGHT_km  2.99792458e5      // speed of light (km/s) 
 #define LIGHT_A   2.99792458e18     // speed of light (A/s) 
@@ -74,6 +74,8 @@
 
 #define NULLTYPE    0   // SN type with no TYPE in data base.
 
+#define INDEX_NOTSATURATE 0
+#define INDEX_SATURATE    1
 #define FLUXCALERR_SATURATE 1.0E8
 #define MAG_SATURATE   -7.0   // saturated mag
 #define MAG_ZEROFLUX   99.0   // expect flux=0 (e.g., pre-explosion)
@@ -95,6 +97,7 @@
 #define MODEL_LCLIB      12  // light curve library (July 2017)
 #define MODEL_FIXMAG     20  // constant/fixed mag (default is mag=20)
 #define MODEL_RANMAG     21  // constant/fixed mag per LC, random each event
+#define MODEL_SIMLIB     22  // use MAGOBS column of SIMLIB
 #define MXMODEL_INDEX    40
 #define PATH_SNDATA_SIM_LIST  "PATH_SNDATA_SIM.LIST"
 
@@ -293,7 +296,7 @@ struct {
 struct {
   int  NLIST;
   char SOURCE_of_STRING[200];
-  char STRING[MXLIST_STRING_UNIQUE][60];  
+  char STRING[MXLIST_STRING_UNIQUE][100];  
 } STRING_UNIQUE ;
 
 struct {
@@ -459,10 +462,13 @@ void  missingKey_ABORT(char *key, char *file, char *callFun) ;
 void  legacyKey_abort(char *callFun,  char *legacyKey, char *newKey) ;
 
 void  errmsg ( int isev, int iprompt, char *fnam, char *msg1, char *msg2 );
+void  errmsg_( int *isev,int *iprompt, char *fnam, char *msg1, char *msg2 );
 void  prompt(char *msg) ;
-void  madend(int flag);    // indicates bad end of program
+void  madend(int flag);           // indicates bad end of program
 void  happyend(void) ;    // happy end of program
 void  parse_err ( char *infile, int NEWMJD, char *keyword );
+void  print_preAbort_banner(char *fnam);
+void  print_preabort_banner__(char *fnam);
 
 void  warn_oldInputs(char *varName_old, char *varName_new);
 void  warn_oldinputs__(char *varName_old, char* varName_new) ;

@@ -18206,21 +18206,11 @@ c Created Feb 2, 2013
 c Init table for epoch-dependent variables.
 c (replaces CWNT_HBNAMES_RESID)
 c 
-c Mar 2 2013: 
-c   - remove bit-packing to simplify switch to root.
-c   - declare one variable at a time instead of a long list
-c     ==> simplify string translation for root and root TTree 
-c         does not track multiple pointers for dynamic arrays.
-c
-c May 8 2014: NFITDATA -> NFITDATA_TOTAL to include rejected epochs,
-c             and load REJECT flag.
-c
-c Aug 6 2014: for sim, add FLUXCAL_SIM
-c
 c Feb 22 2016: always do the extra EP variables, even for TERSE format.
 c              See EXTRA_EPVAR
 c
 c Jul 22 2017: add BAND (character for IFILT_OBS)
+c Jan 23 2020: add AVWARP for rest-frame models with k-corrections
 c
 c ----------------------------------------------
 
@@ -18422,6 +18412,10 @@ c optionl rest-frame info for rest-frame model
          VARNAME = 'IFILTREST2(NPTFIT):I' // char(0)  ! 2nd nearest IFILT_REST
          CALL SNTABLE_ADDCOL(ID,CBLK, I4EP_FIT(1,IEP_IFILT_REST2), 
      &         VARNAME, 0, LENB, LENV)
+
+         VARNAME = 'AVWARP(NPTFIT):F' // char(0)  ! AVwarp for kcor
+         CALL SNTABLE_ADDCOL(ID,CBLK, R4EP_FIT(1,JEP_AVWARP), 
+     &         VARNAME, 0, LENB,LENV)
 
          VARNAME = 'KCOR(NPTFIT):F' // char(0)  ! k correction
          CALL SNTABLE_ADDCOL(ID,CBLK, R4EP_FIT(1,JEP_KCOR), 

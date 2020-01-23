@@ -17875,5 +17875,15 @@
     snlc_sim.c
      + few refactor bug fixes, and add FIELD option for reduced flux-cov;
        see updated manual section 4.11.2.
+     + for rest-frame models, include AVwarp and Kcor in data file
+       (initial motiation: debug H-band problem with snoopy model)
 
+   snlc_fit.car
+     + add AVwarp in INIT_TABLE_SNFITEP [kcor already there]
+
+   sim_SNmix.pl
+     + for GENOPT_GLOBAL, add backslash in front of () so that it
+       works on command line.
+
+   
 END: 

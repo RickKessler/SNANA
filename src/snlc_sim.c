@@ -27328,6 +27328,8 @@ void append_SNPHOT_TEXT(void) {
   // Mar 18 2018: write optional SNR_MON
   // Feb 08 2019: 
   //   + use strcat in instead of sprintf(tmpLine,"%sxx", tmpLine ...)
+  //
+  // Jan 23 2020: include AVwarp and Kcor for rest-frame models
 
   FILE *fp;
   int ISMODEL_FIXMAG    = ( INDEX_GENMODEL == MODEL_FIXMAG );
@@ -27336,9 +27338,10 @@ void append_SNPHOT_TEXT(void) {
   int LTRIGCHECK, PHOTFLAG, APPEND_MAGREST ;
     
   double mjd, flux, fluxerr, searcherr, templerr, mag, magerr;
-  double mag_rest, ZPT, PSF, SNR, SIM_MAGOBS, SNR_MON, PHOTPROB ;
+  double mag_rest, AVwarp, kcor;
+  double ZPT, PSF, SNR, SIM_MAGOBS, SNR_MON, PHOTPROB ;
 
-  char  cfilt[2], cfield[20], OBSKEY[12] ;
+  char  cfilt[2], cfilt_rest[2], cfield[20], OBSKEY[12] ;
   char  tmpLine[400], tmpVal[80], tmpVarName[40];
   //  char  fnam[] = "append_SNPHOT_TEXT" ;
 
@@ -27357,7 +27360,7 @@ void append_SNPHOT_TEXT(void) {
     { NVAR_TEXT -= 4 ; } // exclude sim info
 
   if ( APPEND_MAGREST    ) 
-    { NVAR_TEXT += 2 ; } // rest-filter and mag
+    { NVAR_TEXT += 4 ; } // rest-filter, rest-mag, AVwarp, kcor
 
   if ( SIMLIB_TEMPLATE.USEFLAG ) 
     { NVAR_TEXT += 1 ; } // template error
@@ -27407,7 +27410,7 @@ void append_SNPHOT_TEXT(void) {
   }
 
   if ( APPEND_MAGREST ) 
-    { strcat(tmpLine,"  FLT_REST  SIM_MAGREST "); }
+    { strcat(tmpLine,"  FLT_REST  SIM_MAGREST AVWARP KCOR"); }
 
   // write VARLIST line to file
   fprintf(fp,"%s\n", tmpLine);
@@ -27483,7 +27486,11 @@ void append_SNPHOT_TEXT(void) {
     if ( APPEND_MAGREST ) { 
       mag_rest    = GENLC.genmag_rest[ep] ;
       ifilt_rest  = GENLC.IFILTMAP_REST1[ifilt_obs] ;
-      sprintf(tmpVal," %c %.4f", FILTERSTRING[ifilt_rest], mag_rest );
+      sprintf(cfilt_rest, "%c", FILTERSTRING[ifilt_rest] );
+      kcor        = GENLC.kcorval8[ep] ;
+      AVwarp      = GENLC.AVwarp8[ep] ;
+      sprintf(tmpVal," %s %.4f %.3f %.3f", 
+	      cfilt_rest, mag_rest, AVwarp, kcor ); 
       strcat(tmpLine,tmpVal) ;
     }
 

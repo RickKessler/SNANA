@@ -15558,8 +15558,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
     // Jan 2020: check for ZPTERR fudge from FUDGE_ZPTERR key
     FUDGE_ZPTERR = INPUTS.FUDGE_ZPTERR_FILTER[IFILT_OBS];
-    if ( FUDGE_ZPTERR != 0.0 ) { ZPT[1] = FUDGE_ZPTERR; }
-
+    if ( FUDGE_ZPTERR > 0.00001 ) { ZPT[1] = FUDGE_ZPTERR; }
 
     // compute a few things from OBS_RAW
     if ( INPUTS.SMEARFLAG_ZEROPT == 0 ) { ZPT[1] = 0.0 ; }
@@ -20839,7 +20838,8 @@ void snlc_to_SNDATA(int FLAG) {
     sprintf(SNDATA.SIMEPOCH_KCORNAM[epoch], "%s",
 	    GENLC.kcornam[epoch] ) ;
     
-    istat = fluxcal_SNDATA ( epoch, "log10" ) ; // --> fill SNDATA.FLUXCAL
+    // --> fill SNDATA.FLUXCAL
+    istat = fluxcal_SNDATA ( epoch, "log10", INPUTS.OPT_DEVEL_GENFLUX ) ; 
     
     // check option to make MWEBV-analysis correction on the
     // reported flux, flux-error and mag
@@ -22650,8 +22650,6 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
     err     = (fluxsn_pe-flux_T) * relerr ;    
     sqerr_zp_pe = err*err;
   }
- 
-  //  sqerr_zp_pe = 0.0 ; // xxx REMOVE
 
   // --------------------
   // add up SN flux error (photo-electrons^2) in quadrature
@@ -22668,12 +22666,15 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
 
   // Check options to include ZPerr in true and reported flux-error.
   // Note that correlated template noise is not included here.
+
+  
   if ( (INPUTS.SMEARFLAG_ZEROPT & 1) > 0 ) 
     { sqsig_true += sqerr_zp_pe; }
-
+  
+  
   if ( (INPUTS.SMEARFLAG_ZEROPT & 2) > 0 ) 
     { sqsig_data += sqerr_zp_pe; }  // reported error includes zperr
-
+  
 
   SNR_MON = 0.0 ;
   if ( INPUTS.MAGMONITOR_SNR > 10 ) {
@@ -23224,9 +23225,9 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   else
     { sqerr_ran = -fluxTrue; }
   
-
   // update reported error in data file
   double SIG_FINAL_TRUE  = sqrt(FLUXNOISE->SQSIG_FINAL_DATA); // local use
+
   SQSIG_TMP = FLUXNOISE->SQSIG_FINAL_DATA + sqerr_ran;
   FLUXNOISE->SQSIG_FINAL_DATA = SQSIG_TMP ;
   FLUXNOISE->SIG_FINAL_DATA   = sqrt(SQSIG_TMP) ;

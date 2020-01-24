@@ -17878,6 +17878,11 @@
      + for rest-frame models, include AVwarp and Kcor in data file
        (initial motiation: debug H-band problem with snoopy model)
 
+   sntools.c:
+     + in fluxcal_SNDATA, remove ZPERR addition to fluxerr;
+       this was adding ZPERR to reported error even though
+       SMEARFLAG_ZEROPT=1 should not. 
+
    snlc_fit.car
      + add AVwarp in INIT_TABLE_SNFITEP [kcor already there]
 

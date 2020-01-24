@@ -418,7 +418,7 @@ double modelmag_extrap(double T, double Tref,
 double modelflux_extrap(double T, double Tref, 
 			double fluxref, double fluxslope, int LDMP);
 
-int fluxcal_SNDATA ( int iepoch, char *magfun ) ;
+int fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) ;
 double asinhinv(double mag, int ifilt);
 
 

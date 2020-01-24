@@ -8148,7 +8148,7 @@ int header_merge(FILE *fp, char *auxheader_file) {
 } // end of header_merge
 
 // ******************************************************
-int  fluxcal_SNDATA ( int iepoch, char *magfun ) {
+int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
 
 
   /*********
@@ -8170,7 +8170,11 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun ) {
   Sep 5 2016: magfun = asinh is now obsolete
 
   Jan 3 2018: check for saturation
-
+  Jan 23 2020: 
+    pass opt argument:
+    opt == 0 or 1 -> keep ZP error added in quadratyre
+    opt &  2 -> refactor --> remove ZP_sig term; ZP error added earlier.
+   
   *********/
 
 
@@ -8189,7 +8193,6 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun ) {
   char fnam[] = "fluxcal_SNDATA" ;
 
   // ------------- BEGIN ----------------
-
 
   VALID_MAGFUN = 0;
 
@@ -8254,17 +8257,20 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun ) {
     arg      = -0.4 * (ZP - ZEROPOINT_FLUXCAL_DEFAULT) ;
     ZP_scale = pow(TEN,arg) ;
  
-    if ( flux_err >= 0.0 && ZP > 10.0  && ZP_sig >= 0.0 ) {
+    if ( flux_err >= 0.0 && ZP > 10.0 ) {
 
       fluxcal     = flux     * ZP_scale ;
       fluxcal_err = flux_err * ZP_scale ;
 
-      // add ZP error here for FLUXCAL; 
-      // note that flux in ADU does not have this ZP error.
-      relerr      = powf(TEN,0.4*ZP_sig) - 1.0 ;
-      tmperr      = fluxcal * relerr ;
-      sqerrtmp    = fluxcal_err*fluxcal_err + tmperr*tmperr ;
-      fluxcal_err = sqrt(sqerrtmp) ;
+      if (opt <= 1 ) {
+	// add ZP error here for FLUXCAL; 
+	// note that flux in ADU does not have this ZP error.
+	relerr      = powf(TEN,0.4*ZP_sig) - 1.0 ;
+	tmperr      = fluxcal * relerr ;
+	sqerrtmp    = fluxcal_err*fluxcal_err + tmperr*tmperr ;
+	fluxcal_err = sqrt(sqerrtmp) ;
+      }
+
     }
   }
 

@@ -602,7 +602,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
   INPUTS.RESTORE_FLUXERR_BUGS = false; // Jan 2020
   INPUTS.OPT_DEVEL_BBC7D   = 1 ; // turn on, Jan 19 2020
-  INPUTS.OPT_DEVEL_GENFLUX = 0 ; // 1->legacy, 2->new, 3->both
+  INPUTS.OPT_DEVEL_GENFLUX = 2 ; // 1->legacy, 2->new, 3->both
   NLINE_RATE_INFO   = 0;
 
   // don't init zero'th input file since that is the main input file

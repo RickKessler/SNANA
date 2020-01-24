@@ -114,6 +114,8 @@ zbinuser=.01,0.012,0.1,0.2,0.3,0.4   # user-defined z-bins
  
 min_per_zbin =  min number of SN in z-bin to keep z-bin (default=1)
 
+nzbin_ccprior = number of redshift bins for CC prior
+
 x1min = lower limit on x1 (-6.0)
 x1max = upper limit on x1 (+6.0)
 cmin  = lower limit on color (-6.0)
@@ -219,7 +221,7 @@ u21=1 --> float H11sigcc1
 u22=1 --> float H11sigcc2
 
 uM0= 0 to fix M0 params to INPUTS.mag0
-   = 1 to float fixed M0 in each bin
+   = 1 to float fixed M0 in each bin (default)
    = 2 to float M0 as knot with interpolation
 
 fixpar_all=1 --> internally set all float logicals to zero, even if
@@ -690,6 +692,8 @@ Default output files (can change names with "prefix" argument)
  Jan 17. 2020:
    + in makeMap_sigmu_biasCor, fix gamma dimension.
    + fix gamma sign errors. Does not affact BBC5D, but affects BBC7D.
+
+ Jan 23 2020: add new input nzbin_ccprior.
 
  ******************************************************/
 
@@ -1307,6 +1311,7 @@ struct INPUTS {
   double  znhalf ;   // z where half of nzbins are log and half are constant
   char    zbinuser[100]; // e.g., 0.01,0.04,0.01,0.3,0.7
 
+  int      nzbin_ccprior; // number of z bins for CC prior (default=4)
   BININFO_DEF BININFO_z ; // Aug 20 2016
   int     min_per_zbin ;
 
@@ -4284,6 +4289,8 @@ void set_defaults(void) {
   INPUTS.zbinuser[0]    = 0 ; // comma-sep list of bin edges
 
   INPUTS.min_per_zbin = MINEVT_PER_ZBIN_DEFAULT ;
+
+  INPUTS.nzbin_ccprior = 0 ; // 0-> use default z-bin size of 0.1
 
   // global scatter matrix
   INPUTS.sigmB  = 0.00 ; // -> 0 on 4/23/2012 by RK
@@ -11096,6 +11103,7 @@ void prepare_CCprior(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
   }
 
+  // setup MURES bins and z bins for storing binned contamination info. 
   setup_contam_CCprior();
 
   if ( USE_CCPRIOR_H11 ) { 
@@ -11297,20 +11305,29 @@ void setup_zbins_CCprior(TABLEVAR_DEF *TABLEVAR, BININFO_DEF *ZBIN) {
   // Setup z-grid for CCprior, and label each data point with
   // iz index to save time in fitting. Note that this z binning
   // can be different from the user z-binning.
+  //
+  // Jan 24 2020: check optional user input from nzbin_ccprior
 
-  double z, zlo, zhi, z0, z1, dnbz, zrange ;
+  int    nzbin_ccprior = INPUTS.nzbin_ccprior ;
+  double zrange = INPUTS.zmax - INPUTS.zmin ;
   double DZBIN_CCPRIOR = 0.10 ;
+
+  double z, zlo, zhi, z0, z1, d_nbz ;
   int  nbz, icc, iz ;
   char MSGERR[100];
   char fnam[] = "setup_zbins_CCprior" ;
 
   // ------------- BEGIN -------------
 
-  // find exact DZBIN that fits in user z range
-  zrange = INPUTS.zmax - INPUTS.zmin ;
-  dnbz   = zrange/DZBIN_CCPRIOR ;
-  nbz    = (int)dnbz;
-  if ( dnbz > (double)nbz ) { nbz++ ; }
+  if ( nzbin_ccprior > 0 ) {
+    nbz = nzbin_ccprior;  // user input nzbin
+  }
+  else {
+    // use hard wired bin size of DZBIN_CCPRIOR
+    d_nbz   = zrange/DZBIN_CCPRIOR ;
+    nbz     = (int)d_nbz;
+    if ( d_nbz > (double)nbz ) { nbz++ ; }
+  }
   DZBIN_CCPRIOR = zrange/(double)nbz ;
 
 
@@ -11329,9 +11346,7 @@ void setup_zbins_CCprior(TABLEVAR_DEF *TABLEVAR, BININFO_DEF *ZBIN) {
     ZBIN->n_perbin[nbz] = 0 ;
     nbz++ ;  ZBIN->nbin = nbz;
   }
-  
-
-  
+    
   for(icc=0; icc < TABLEVAR->NSN_ALL; icc++ ) {
     z = TABLEVAR->zhd[icc];
     sprintf(MSGERR,"%s: z=%f", fnam, z);
@@ -11342,7 +11357,11 @@ void setup_zbins_CCprior(TABLEVAR_DEF *TABLEVAR, BININFO_DEF *ZBIN) {
 
 
   // print summary info for each z-bin
-  printf("\n\t   iz  zmin   zmax     N(NONIA) \n" );
+  printf("\n");
+  printf("  %s: %d z-bins from %.3f to %.3f\n",
+	 fnam, ZBIN->nbin, INPUTS.zmin, INPUTS.zmax);
+
+  printf("\t   iz  zmin   zmax     N(NONIA) \n" );
   for(iz=0; iz < ZBIN->nbin; iz++ ) {
     printf("\t  %3d  %.3f  %.3f  %5d  \n",
 	   iz, ZBIN->lo[iz], ZBIN->hi[iz], ZBIN->n_perbin[iz] );
@@ -11390,6 +11409,12 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     nbin_dmu++ ;  MUZMAP->DMUBIN.nbin = nbin_dmu ;
   }
   
+  if ( IDSAMPLE == 0 ) {
+    printf("\n");
+    printf("  %s: %d dMU-bins from %.3f to %.3f\n",
+	   fnam, MUZMAP->DMUBIN.nbin, DMUMIN_CCPRIOR, DMUMAX_CCPRIOR);
+    fflush(stdout);
+  }
 
   // print DMU distribution for first redshift bin
   MUZMAP->alpha = INPUTS.parval[IPAR_ALPHA0] ;
@@ -11676,9 +11701,10 @@ void  dump_DMUPDF_CCprior(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) {
 void  setup_contam_CCprior(void) {
 
   // Sep 26 2019
-  // setup MURES bins and z bins for storing
-  // binned contamination info. 
+  // setup MURES bins and z bins for storing binned contamination info. 
   // Global CONTAM_INFO structures are filled.
+  // This information is used to monitor contamination after the fit,
+  // but is not used in the fit.
 
   int nb, i;
   double lo[MXz], hi[MXz];
@@ -11705,7 +11731,7 @@ void  setup_contam_CCprior(void) {
   CONTAM_MURES_BINS.BININFO.nbin    = nb;
   CONTAM_MURES_BINS.BININFO.binSize = -9.0;  // N/A
 
-  // next store 4 redshift bins
+  // next store redshift bins
   sprintf(CONTAM_REDSHIFT_BINS.BININFO.varName,"REDSHIFT");
   nb=4;
   double zbin = (INPUTS.zmax - INPUTS.zmin) / (double)nb;
@@ -12805,9 +12831,11 @@ int ppar(char* item) {
     { sscanf(&item[19],"%le", &INPUTS.sigma_cell_biasCor); return(1); }
   
   // -------- CC prior ------------
-  if ( uniqueOverlap(item,"simfile_ccprior=")  ) {
-    parse_simfile_CCprior(&item[16]); return(1);
-  }
+  if ( uniqueOverlap(item,"simfile_ccprior=")  ) 
+    { parse_simfile_CCprior(&item[16]); return(1);  }
+
+  if ( uniqueOverlap(item,"nzbin_ccprior=")) 
+    { sscanf(&item[14],"%i",&INPUTS.nzbin_ccprior); return(1); }
 
   if ( uniqueOverlap(item,"maxprobcc_for_sigint=") )
     { sscanf(&item[21],"%le", &INPUTS.maxProbCC_for_sigint); return(1); } 

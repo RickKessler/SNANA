@@ -17864,9 +17864,12 @@
        
 
 # ======================================================================= 
-         v10_75b (  ) 
+         v10_75b (=Jan 24 2020) 
 
          ***** IMPORTANT(v10_75b) ***** 
+ 
+  simulation: release refactored code for flux-uncertainties.
+     [can revert back  with "OPT_DEVEL_GENFLUX: 0" ]
 
          ***** USEFUL(v10_75b) ***** 
 
@@ -17890,5 +17893,10 @@
      + for GENOPT_GLOBAL, add backslash in front of () so that it
        works on command line.
 
-   
+   combine_fitres.c
+     + MXSN->5M (was 2M), and abort if NEVT > MXSN.
+
+   SALT2mu.c
+     + new input nzbin_ccprior (was previously hard-coded at 4 bins)
+
 END: 

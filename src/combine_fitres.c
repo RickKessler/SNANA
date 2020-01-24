@@ -99,6 +99,10 @@
   Jan 16 2020: 
     + implement -mxrow (was read, but not implemented)
     + new input -zcut <zmin> <zmax>
+  Jan 23 2020
+    + abort if NEVT_APPROX > MXSN
+    + USEDCID -> bool instead of short int.
+    + MXSN -> 5M (was 2M)
 
 ******************************/
 
@@ -149,7 +153,7 @@ int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
 
 
 #define MXFFILE  20       // max number of fitres files to combine
-#define MXSN     2000000   // max SN to read per fitres file
+#define MXSN     5000000   // max SN to read per fitres file
 #define MXVAR_PERFILE  50  // max number of NTUP variables per file
 #define MXVAR_TOT  MXVAR_TABLE     // max number of combined NTUP variables
 #define INIVAL_COMBINE  -888.0
@@ -208,8 +212,7 @@ char  suffix_text[8]  =   "text" ;
 char *ptrSuffix_hbook = suffix_hbook ; // default is lower case, unless H
 char *ptrSuffix_root  = suffix_root ;
 char *ptrSuffix_text  = suffix_text ;
-
-short int USEDCID[MXSN];
+bool USEDCID[MXSN];
 
 int IVARSTR_STORE[MXVAR_TOT] ; // keep track of string vars
 int IVAR_zHD;
@@ -524,9 +527,15 @@ void ADD_FITRES(int ifile) {
 
   // get approx number of SN for memory allocation
 
-  NEVT_APPROX = SNTABLE_NEVT_APPROX_TEXT(INPUTS.FFILE[ifile], NVARALL);
+  // NEVT_APPROX = SNTABLE_NEVT_APPROX_TEXT(INPUTS.FFILE[ifile], NVARALL);
+  NEVT_APPROX = SNTABLE_NEVT_TEXT(INPUTS.FFILE[ifile]);
 
-  if ( NEVT_APPROX >= MXSN-1 ) { NEVT_APPROX = MXSN-1 ; }
+  if ( NEVT_APPROX >= MXSN-1 ) { 
+    sprintf(c1err,"NEVT_APPROX=%d exceeds MXSN=%d", NEVT_APPROX, MXSN);
+    sprintf(c2err,"Probably need to increase MXSN");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    //     NEVT_APPROX = MXSN-1 ; 
+  }
 
   // if 2nd file is much smaller, avoid too small malloc
   if ( ifile > 0 && NEVT_APPROX < NLIST_FIRST_FITRES ) 
@@ -695,7 +704,7 @@ int match_CID_orig(int ifile, int isn2) {
 
     sprintf(ccid,"%s", FITRES_VALUES.STR_ALL[IVARSTR_CCID][isn] );
     if ( strcmp(ccid,ccid2) == 0 ) {
-      USEDCID[isn] = 1;
+      USEDCID[isn] = true ;
       return(isn);
     }
   }
@@ -928,7 +937,7 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
     FITRES_VALUES.FLT_ALL[IVAR_ALL] = (float  *)malloc(MEMF);    
 
     for ( isn=0; isn < MAXLEN; isn++ ) {
-      USEDCID[isn] = 0 ;
+      USEDCID[isn] = false ;
       FITRES_VALUES.FLT_TMP[ivar][isn]     = INIVAL_COMBINE ;
       FITRES_VALUES.FLT_ALL[IVAR_ALL][isn] = INIVAL_COMBINE ;
     }

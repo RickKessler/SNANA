@@ -6419,7 +6419,7 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
 
   if ( OPT == 1 ) {
     // always start with RV and AV    
-    sprintf(NAMES_HOSTPAR,"RV,AV"); NPAR=2;
+    sprintf(NAMES_HOSTPAR,"RV,AV,ZCMB"); NPAR=3;
 
     for ( ivar=0; ivar < NVAR_WGTMAP; ivar++ ) {  
       strcat(NAMES_HOSTPAR,comma);
@@ -6440,7 +6440,8 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
   else if ( OPT ==  2 ) {
     VAL_HOSTPAR[0] = GENLC.RV;
     VAL_HOSTPAR[1] = GENLC.AV;
-    NPAR=2;
+    VAL_HOSTPAR[2] = GENLC.REDSHIFT_CMB;
+    NPAR=3;
 
     for ( ivar=0; ivar < NVAR_WGTMAP; ivar++ ) {  
       VAL_HOSTPAR[NPAR] = SNHOSTGAL.WGTMAP_VALUES[ivar] ;

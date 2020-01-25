@@ -356,10 +356,8 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   
   int numLens = 0;
   for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
-    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.25 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.25){
+    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.2 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.2){
       ++numLens;
-    }else{
-      printf("%i,%f,%f\n",i,zSN,INPUTS_STRONGLENS.ZSRC[i]);
     }
   }
   if(numLens==0){
@@ -371,7 +369,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   int possible_lenses[numLens];
   j=0;
   for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
-    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.25 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.25){
+    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.2 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.2){
       possible_lenses[j]=i;
       ++j;
     }
@@ -392,9 +390,9 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
     MAG[img]     = (double)INPUTS_STRONGLENS.MAG[random_lens_index][img];     
     DELAY[img] = (double)INPUTS_STRONGLENS.DELAY[random_lens_index][img]; 
   }
-
+  
   // load return argument scalars  
-  *IDLENS = IDLENS_local;
+  *IDLENS = (int)(FlatRan*10000000) ; //IDLENS_local;
   *ZLENS  = zLENS_local ;
   *NIMG = NIMG_local;
 

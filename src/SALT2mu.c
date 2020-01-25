@@ -82,6 +82,7 @@ simfile_ccprior=H11   --> no sim; use CC MU-z function from Hlozek 2011
 
 varname_pIa=name of fitres param containing Prob_Ia
 force_pIa=forced value of Prob_Ia for every event
+force_pIa='perfect' --> pIa = 1 or 0 for true Ia or CC (sim only)
 
 maxprobcc_for_sigint --> compute sigInt from chi2=Ndof for 
                          this Ia-like subset
@@ -224,9 +225,10 @@ uM0= 0 to fix M0 params to INPUTS.mag0
    = 1 to float fixed M0 in each bin (default)
    = 2 to float M0 as knot with interpolation
 
-fixpar_all=1 --> internally set all float logicals to zero, even if
-                 they are set true in the input file
+fixpar_all=1 --> internally set all float logicals to false, even if
+                 they are set true in the input file.
                   (i.e., uM0=0, u1=0, u2=0, etc ...)
+                This option turns BBC into a distance calculator.
 
 blindflag=0  --> turn off blinding
 blindflag=1  --> add cos(10*z)  to MUDIF(z)
@@ -693,7 +695,9 @@ Default output files (can change names with "prefix" argument)
    + in makeMap_sigmu_biasCor, fix gamma dimension.
    + fix gamma sign errors. Does not affact BBC5D, but affects BBC7D.
 
- Jan 23 2020: add new input nzbin_ccprior.
+ Jan 23 2020: 
+   + add new input nzbin_ccprior 
+   + new option force_pIa=perfect (see above)
 
  ******************************************************/
 
@@ -1265,6 +1269,7 @@ struct INPUTS {
   char **simFile_CCprior;    // to get CC prior, dMU vs. z
   char   varname_pIa[100];
   double force_pIa;
+  bool   perfect_pIa;       // internally set if force_pIa='perfect'
   int  typeIa_ccprior ;       // PCC=0 for this sntype
   double maxProbCC_for_sigint;  // max P_CC/ProbIa to sum chi2_1a
 
@@ -4241,6 +4246,7 @@ void set_defaults(void) {
   INPUTS.nfile_CCprior  = 0 ;
   INPUTS.varname_pIa[0] = 0 ;
   INPUTS.force_pIa      = -9.0;
+  INPUTS.perfect_pIa    = false ;
   INPUTS.maxProbCC_for_sigint = 0.2 ;
   INPUTS.typeIa_ccprior       = -9  ;
 
@@ -5508,6 +5514,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   float COV_x0c   = TABLEVAR->COV_x0c[ISN];
   float COV_x1c   = TABLEVAR->COV_x1c[ISN];
   float SIM_X0    = TABLEVAR->SIM_X0[ISN];
+  int   SIM_NONIA_INDEX = TABLEVAR->SIM_NONIA_INDEX[ISN];
 
   float mB, mBerr, sf, zpec, zcmb, zMIN, zMAX, logmass ;
   double covmat8_fit[NLCPAR][NLCPAR], covmat8_int[NLCPAR][NLCPAR];
@@ -5623,6 +5630,18 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 
     if ( INPUTS.force_pIa >= 0.0 ) 
       { TABLEVAR->pIa[ISN] = INPUTS.force_pIa; } 
+
+    if ( INPUTS.perfect_pIa )  {
+      if ( !TABLEVAR->IS_SIM ) {
+	sprintf(c1err,"Cannot force_pIa=perfect for real data.");
+	sprintf(c2err,"This option works only for sim data.") ;
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      if ( SIM_NONIA_INDEX == 0 )
+	{ TABLEVAR->pIa[ISN] = 1.0; } // it's a true SNIa
+      else
+	{ TABLEVAR->pIa[ISN] = 0.0; } // it's not SNIa
+    }
 
     // check option for z-dependent intrinsic COVMAT
     load_ZPOLY_COVMAT(IDSURVEY,zhd);
@@ -12754,7 +12773,7 @@ int ppar(char* item) {
   //                which aborts on duplicate key.
   
   int  ipar, len ;  
-  char key[MXCHAR_VARNAME], *s;
+  char key[MXCHAR_VARNAME], *s, tmpString[60];
   char fnam[] = "ppar" ;
 
   // --------- BEGIN ----------
@@ -12846,8 +12865,14 @@ int ppar(char* item) {
     return(1);
   }
 
-  if ( uniqueOverlap(item,"force_pIa=")  ) 
-    { sscanf(&item[10],"%le", &INPUTS.force_pIa); return(1);  }
+  if ( uniqueOverlap(item,"force_pIa=")  ) { 
+    sscanf(&item[10],"%s", tmpString); 
+    if ( strcmp(tmpString,"perfect")==0 || strcmp(tmpString,"PERFECT")==0 )
+      { INPUTS.perfect_pIa = true ;  INPUTS.ipar[IPAR_scalePCC]=0; }
+    else
+      { sscanf(tmpString, "%le", &INPUTS.force_pIa); }
+    return(1);  
+  }
 
   if ( uniqueOverlap(item,"typeIa_ccprior=") ) 
     { sscanf(&item[15],"%d", &INPUTS.typeIa_ccprior); return(1); } 
@@ -14382,6 +14407,9 @@ void prep_input(void) {
 
   if ( INPUTS.force_pIa >= 0.0 ) 
     { printf(" force_pIa = %.3f \n", INPUTS.force_pIa ); }
+
+  if ( INPUTS.perfect_pIa ) 
+    { printf(" force_pIa = 1 or 0 for true SNIa or SNCC \n"); }
 
 
   // if there is no user-defined selection of fit params,

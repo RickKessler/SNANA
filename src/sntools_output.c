@@ -58,38 +58,15 @@
 
   HISTORY
 
-  Mar 24 2013: 
-    - print banner in SNLCPAK_INIT
-    - new function SNLCPAK_NFIT_PER_SN(NFIT) to change this parameter.
-      Needed by snlc_fit with FILTER_FITMAGDIF option.
-
-  Jul 19, 2013: new *MJD argument to SNLCPAK_DATA
-
-
-  Apr 26 2014: 
-    Add new functions
-       TABLEFILE_OPEN, TABLEFILE_CLOSE, SNTABLE_NEVT, SNTABLE_READ_VALUES
-    so that snana programs use only functions defined here and
-    NOT in the _hbook.c or _root.c file. i.e., should use only the
-    wrappers.
-
-    Fix logic reseting NLCPAK when 1 of the fits failes;
-    use CCID_LAST in MAKEDIR_OUTPUT.
-
- May 11 2014:  SNTABLE_LOAD -> SNTABLE_ADDCOL and major refactoring
-               to simplify logic and prepare for including TEXT tables.
-
- Oct 26, 2014: 
-    switch to refactored systm for reading and dumping tables.
-    --> define each output variable with optional cast to load array.
-    --> user interface is the same for each format.
-        
  Mar 28 2016:
    + check NVAR_ADDCOL_TOT < MXVAR_TABLE; abort otherwise
 
  Sep 12 2016: allow reading column into 1 or 2 different arrays.
               See .NPTR[ivar]. Need by SALT2mu to read some info
               into redundant CUTWIN array.
+
+ Jan 27 2020: abort of no extension for root or hbook file;
+              see TABLEFILE_OPEN.
 
 ************************************************/
 
@@ -314,6 +291,18 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
     }
 
     ptrtok = strtok(NULL," " );
+  }
+
+
+  
+  // make sure table file has some kind of extension (Jan 2020)
+  if ( TYPE_FLAG==IFILETYPE_ROOT || TYPE_FLAG==IFILETYPE_HBOOK ) {
+    if ( strchr(FILENAME,'.') == NULL ) {
+      sprintf(MSGERR1,"Missing extension for FILENAME = '%s' ", FILENAME);
+      sprintf(MSGERR2,"Add valid extension: "
+	      "e.g., '.ROOT', '.HBOOK', '.TEXT'" );
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
+    }
   }
 
 
@@ -874,6 +863,7 @@ void parse_TABLEVAR(char *varName_with_cast, char *varName,
   //             to avoid parsing bug.
   //
   // Jun 07 2019: add S for short int
+  //
 
   int  icast, icast_tmp, vecFlag, isize ;
   int  i, ncp, ibr0, ibr1 ;

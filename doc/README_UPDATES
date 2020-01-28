@@ -17899,4 +17899,24 @@
    SALT2mu.c
      + new input nzbin_ccprior (was previously hard-coded at 4 bins)
 
+
+# ======================================================================= 
+         v10_75c (  ) 
+
+         ***** IMPORTANT(v10_75c) ***** 
+
+         ***** USEFUL(v10_75c) ***** 
+
+         ***** MISCELLANEOUS(v10_75c) ***** 
+
+    SALT2mu.c:
+      + new option force_pIa=perfect -> pIa=1,0 for true SNIa,CC (sim only)
+    
+    sntools_output_hbook.c:
+      + fix memcopy bug for VARLIST_FINAL.
+
+    snana.car"
+      + fix evil string parse bug in PARSE_TERSE_VARLIST.
+        Remove check on 'ZP' to avoid conflict with 'ZPERR'.
+
 END: 

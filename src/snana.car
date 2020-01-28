@@ -6,6 +6,7 @@ c Can also fit function to estimate time of peak brightness.
 c
 c
 
+
                      CHANGES
           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  
@@ -13611,8 +13612,12 @@ c now check list of variable names
           ITERSE_ZPFLUX = IVAR
         else if ( CTMP(1:3) .EQ. 'Zpt' ) then
           ITERSE_ZPFLUX = IVAR
-        else if ( CTMP(1:2) .EQ. 'ZP' ) then
-          ITERSE_ZPFLUX = IVAR
+
+c xxxxxxxxx Jan 27 2020: mark delete to void conflict with ZPERR xxxxx
+c        else if ( CTMP(1:2) .EQ. 'ZP' ) then
+c          ITERSE_ZPFLUX = IVAR
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
         else if ( CTMP(1:6) .EQ. 'ZPFLUX' ) then
           ITERSE_ZPFLUX = IVAR
         else if ( CTMP(1:6) .EQ. 'FLUXZP' ) then
@@ -35573,6 +35578,7 @@ c              See new parameter PSFMAX_forFLUXMAX
 c
 c May 17, 2019: implement new options OPTBIT_SETPKMJD_[TRIGGER,MAXFLUX2]
 c May 20, 2019: return if less then 2 epochs.
+c Jan 27, 2020: use STDOUT_UPDATE flag to print screen update.
 c -------------------------------------------------------------
 
       IMPLICIT NONE
@@ -35971,8 +35977,10 @@ c Finally, take PKMJD-wgted average of remaining filters.
       PKMJDAVG = PKMJDSUM/WGTSUM + MJDOFF
       PKMJD    = PKMJDAVG
 
-      write(6,50) CCID(1:ISNLC_LENCCID), PKMJD,METHOD
-50    format(T8,'SET_PEAKMJD(',A,') --> ', F9.3, 3x, A )
+      if ( STDOUT_UPDATE ) THEN
+        write(6,50) CCID(1:ISNLC_LENCCID), PKMJD,METHOD
+50      format(T8,'SET_PEAKMJD(',A,') --> ', F9.3, 3x, A )
+      endif
 
 c -----------------------------------------------
 

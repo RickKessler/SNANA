@@ -2717,7 +2717,10 @@ double SALT2colorDisp(double lam, char *callFun) {
   // this function aborts if 'lam' is outside the valid
   // rest-lambda range. Make sure to check that 'lam' is valid
   // before calling this function.
-
+  //
+  // Jan 28 2020:
+  //  if UV extrap is used, extrapolate instead of aborting
+  //
   int imap, NLAM ;
   double cDisp, LAMMIN, LAMMAX ;
   double *mapLam, *mapDisp ;
@@ -2734,6 +2737,10 @@ double SALT2colorDisp(double lam, char *callFun) {
   mapDisp = SALT2_ERRMAP[imap].VALUE ;
 
   if ( NLAM <= 0 ) { cDisp = 0.0 ; return cDisp ; }
+
+  
+  if ( INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX > 0.0 && lam < LAMMIN ) 
+    { cDisp = mapDisp[0]; return(cDisp);  }
 
   // first some sanity checks
   if ( lam < LAMMIN || lam > LAMMAX ) {  

@@ -2436,6 +2436,7 @@ C ================================================
       LOGICAL FUNCTION CRAZYFITERR(isn,iter)
 
 c Returns TRUE if a crazy fit error is identified.
+c Jan 28 2020: check for crazy-small errors too, only if floated.
 
       IMPLICIT NONE
 +CDE,SNDATCOM. 
@@ -2446,7 +2447,7 @@ c Returns TRUE if a crazy fit error is identified.
 
       INTEGER ISN, ITER ! (I) ! SN index & fit-iteration
       REAL ERR_COLOR, ERR_SHAPE, ERR_DIST, ERR_PKMJD
-      LOGICAL LNAN
+      LOGICAL LNAN, FLOAT_COLOR, FLOAT_SHAPE, FLOAT_DIST, FLOAT_PKMJD
 
 C --------------- BEGIN ----------------
 
@@ -2456,6 +2457,11 @@ C --------------- BEGIN ----------------
       ERR_SHAPE =  FITERR(IPAR_SHAPE,ITER)  
       ERR_DIST  =  FITERR(IPAR_DLMAG,ITER)  
       ERR_PKMJD =  FITERR(IPAR_PEAKMJD,ITER)
+
+      FLOAT_COLOR = FLOATPAR(IPAR_COLOR)
+      FLOAT_SHAPE = FLOATPAR(IPAR_SHAPE)
+      FLOAT_DIST  = FLOATPAR(IPAR_DLMAG)
+      FLOAT_PKMJD = FLOATPAR(IPAR_PEAKMJD)
 
 c xxxxxxxxxxxxxxxxxxx
 c      print*, ' xxx '
@@ -2492,10 +2498,22 @@ c ------------------------
 c last fit iteration
 
       CRAZYFITERR = .TRUE.
-      IF ( ERR_COLOR   > 3.  ) RETURN
-      IF ( ERR_SHAPE   > 3.  ) RETURN
-      IF ( ERR_DIST    > 3.  ) RETURN
-      IF ( ERR_PKMJD   > 10. ) RETURN
+      IF ( FLOAT_COLOR ) THEN
+        IF ( ERR_COLOR > 3.0  .or. ERR_COLOR < 1.0E-8  ) RETURN
+      ENDIF
+
+      IF ( FLOAT_SHAPE ) THEN
+        IF ( ERR_SHAPE > 3.0  .or. ERR_SHAPE < 1.0E-8  ) RETURN
+      ENDIF
+
+      IF ( FLOAT_DIST ) THEN
+        IF ( ERR_DIST  > 3.0  .or. ERR_DIST  < 1.0E-15 ) RETURN
+      ENDIF
+
+      IF ( FLOAT_PKMJD ) THEN
+        IF ( ERR_PKMJD > 10.0 .or. ERR_PKMJD < 1.0E-8  ) RETURN
+      ENDIF
+
       CRAZYFITERR = .FALSE.
 
       RETURN

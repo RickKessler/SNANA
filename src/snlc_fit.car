@@ -4452,7 +4452,8 @@ c increment SNRMAX for fitted epochs only
              R4EP_ALL(epoch,JEP_KCOR_ERR)   = MAG_KCOR(2)
              R4EP_ALL(epoch,JEP_AVWARP)     = AVWARP
 
-             arg = 0.4*(MAG_KCOR(1) + SNLC_DLMAG)
+c xxx remove harmless bug, Jan 2020  arg = 0.4*(MAG_KCOR(1) + SNLC_DLMAG)
+             arg = 0.4*(MAG_KCOR(1) + DISTPAR)
              R4EP_ALL(epoch,JEP_DATAFLUX_REST)= flux_data * 10.0**(arg)
            ENDIF
 
@@ -5274,7 +5275,7 @@ c return MAG_REST
 c note that genmag_mlcs starts at 0, so subtract 1 from index.
              ifilt_tmp  = IFILTINVMAP_MODEL(ifilt_rest) - 1 
              if ( ifilt_tmp < 0 ) then
-               c1err = 'Invalid rest-frame filter for genmag_snoopy: '// 
+               c1err = 'Invalid rest-frame filt for genmag_mlcs2k2: '// 
      &               FILTDEF_STRING(IFILT_REST:IFILT_REST)
                c2err = 'Valid rest-frame filters: ' // 
      &               FILTLIST_MODEL(1:NFILT_MODEL)
@@ -5294,9 +5295,9 @@ c note that genmag_mlcs starts at 0, so subtract 1 from index.
 
          do ifilt = 1, NFILT_FITMAP_REST
             IFILT_REST = IFILT_FITMAP_REST(ifilt)
-            ifilt_tmp  = IFILTINVMAP_MODEL(ifilt_rest)
+            ifilt_tmp  = IFILTINVMAP_MODEL(ifilt_rest) - 1  ! C index
  
-            if ( ifilt_tmp .LE. 0 ) then
+            if ( ifilt_tmp < 0 ) then
                c1err = 'Invalid rest-frame filter for genmag_snoopy: '// 
      &               FILTDEF_STRING(IFILT_REST:IFILT_REST)
                c2err = 'Valid rest-frame filters: ' // 
@@ -5544,26 +5545,6 @@ c save AVwarp
         KCORERR_TMP(ifilt2_obs) = GET_KCORERR8 ( OPT_KCORERR,
      &        ifilt_rest_tmp(1), ifilt2_obs, Trest, ZSN, AVwarp) 
 
-
-ccc +SELF,NOAVWARP.  ! stupid bug since v8_64 (Aug 2010)
-+SELF,IF=NOAVWARP.   ! fixed  bug  for  v9_84 (Jan 2012)
-c xxxxxxxxxxxxx
-        LAMDIF_KCORFUN(1) = -7.0  ! flag to use AVWARP=0 for KCOR
-        KCOR_NOAVWARP(ifilt2_obs)  = KCORFUN8 ( ifilt2_obs
-     &     ,IFILT_REST_KCORFUN, MAG_REST_KCORFUN
-     &     ,LAMDIF_KCORFUN, Trest, ZSN
-     &     ,AVWARP_KCORFUN    ! (O)
-     &        )
-
-c redefine kcor error to be difference between nominal Kcor
-c and K-correction without color warping.
-c Use this only for testing.
-        KCORERR_TMP(ifilt2_obs) = 
-     &      KCOR_TMP(ifilt2_obs) - KCOR_NOAVWARP(ifilt2_obs)
-c xxxxxxxxxxx
-+SELF.
-
-
         MAG_XTMW_OBS(ifilt2_obs) = 0.0
         if ( LSNXTMW ) then
            MAG_XTMW_OBS(ifilt2_obs) =
@@ -5777,8 +5758,8 @@ c unextincted mag in rest frame
      &  ,filtdef_string(ifilt_rest1:ifilt_rest1)
      &  ,MAG_REST(ifilt_rest1)
 
-703     FORMAT(T10,'Mr(',A,')=',F7.2,'(',I2.2,')',  2x,
-     &            'XMr(',A,')=',F7.2 )
+703     FORMAT(T10,'Mrest(',A,')=',F7.2,'(',I2.2,')',  2x,
+     &            'XMrest(',A,')=',F7.2 )
 
 c write rest color, AVwarp and Kcor
 
@@ -5797,8 +5778,9 @@ c write rest color, AVwarp and Kcor
 c write observer mag and flux
 
          write(6,706) filtdef_string(ifilt_obs:ifilt_obs),
-     &                MAG_OBS, FLUX
-706      format(T10,'Mo(',A,')=',F8.3, 2x, 'Flux=',G12.3 )
+     &                MAG_OBS, MAG_XTMW, FLUX
+706      format(T10,'m_obs(',A,')=',F8.3, 2x, 'm(XTMW)=',F6.3,  
+     &              2x, 'Flux=',G12.3 )
 
 c now write single line with CID keyword ;
 c grep "CID" > bla creates easy-to-read column-formatted file 

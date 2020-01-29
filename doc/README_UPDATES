@@ -17915,8 +17915,19 @@
     sntools_output_hbook.c:
       + fix memcopy bug for VARLIST_FINAL.
 
-    snana.car"
+    snana.car
       + fix evil string parse bug in PARSE_TERSE_VARLIST.
         Remove check on 'ZP' to avoid conflict with 'ZPERR'.
+      + in CRAZYERRCHECK, check for too-small errors along with too-large.
+
+    genmag_SALT2.c
+      + in SALT2colorDisp, extrapolate if UV extrap is used.
+
+    MWgaldust.c: 
+      + For Fitzpatrick 1999 color law, abort if WAVE < 12000 A to
+        avoid crazy extrapolation of Fitz99/Odon94 vs. wavelength.
+        This ratio-vs-wave needs to be updated for NIR use.
+        Problem uncovered by D.Jones while analyzing RAISIN data 
+        with SNOOPY model. For NIR, use OPT_MWCOLORLAW = 94.
 
 END: 

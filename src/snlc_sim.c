@@ -24068,7 +24068,7 @@ void genmodel(
 
   else if ( INDEX_GENMODEL  == MODEL_SNOOPY ) {
 
-    ifilt_tmp = GENLC.IFILTINVMAP_REST[ifilt_rest] + 1 ;
+    ifilt_tmp = GENLC.IFILTINVMAP_REST[ifilt_rest] ;
     genmag_snoopy (
 		   ifilt_tmp             // (I) SNoopY internal filter index
 		   ,stretch[0]           // (I) shape parameter 

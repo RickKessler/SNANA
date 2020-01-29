@@ -6222,7 +6222,7 @@ c check ERRFLAG_FIT
 
 
 42    format(T8,'Analyze ISN=',I8, 2x,
-     &    'for ',A14,'  NMJD(stored,cuts)=', I4, ' ->', I3 )
+     &    'for ',A14,'  NMJD(stored,cuts)=', I4, '->', I4 )
       CALL FLUSH(6)
       CALL USRANA(IERR)     ! call user-analysis routine
 

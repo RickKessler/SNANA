@@ -457,8 +457,12 @@ void SNTABLE_ADDCOL_HBOOK(int IDTABLE, char *BLOCK, void* PTRVAR,
 
     if ( ivar == 0 ) 
       { sprintf(VARLIST_FINAL,"%s", tmpVar ); }
-    else
-      { sprintf(VARLIST_FINAL,"%s,%s", VARLIST_FINAL, tmpVar ); }
+    else {
+      strcat(VARLIST_FINAL,","); 
+      strcat(VARLIST_FINAL,tmpVar); 
+    // xxx mark del { sprintf(VARLIST_FINAL,"%s,%s",VARLIST_FINAL,tmpVar);}
+    }
+
 
   } // end ivar loop
 

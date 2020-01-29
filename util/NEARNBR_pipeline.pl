@@ -110,6 +110,9 @@
 #     NNtrain C-code has been updated to account for SCALE_NON1A > 1.
 #
 # Jun 25 2019: read OPT_TUNE_HOSTEFF  
+#
+# Nov 29 2019: if no GENPREFIX: key, read GENPREFIX from GENOPT_GLOBAL string.
+#
 # -------------------------------------
 
 use List::Util qw(first);
@@ -825,7 +828,7 @@ sub run_simgen {
 # =============================
 sub parse_SIMDATA_MASTER {
 
-    my ($KEY, @tmp);
+    my ($KEY, @tmp, $tmpLine );
 
     unless ( -e $INFILE_SIMDATA_MASTER ) { return; }
 
@@ -835,6 +838,14 @@ sub parse_SIMDATA_MASTER {
     sntools::loadArray_fromFile($INFILE_SIMDATA_MASTER,
 				\@CONTENTS_SIMDATA);
 
+    # Jun 2019: get current GENOPT_GLOBAL in case we need to append
+    $GENOPT_GLOBAL_DATA = "" ;
+    $KEY = "GENOPT_GLOBAL:" ;
+    @tmp  = sntools::parse_array($KEY,9, $OPT_QUIET, @CONTENTS_SIMDATA) ;
+    foreach $tmpLine ( @tmp ) {
+	$tmpLine =~ s/\s+$// ;     # trim trailing whitespace   
+	$GENOPT_GLOBAL_DATA  = "$GENOPT_GLOBAL_DATA $tmpLine" ; 
+    }
     
     $KEY  = "GENVERSION:" ;
     @GENV_LIST_SIMDATA = sntools::parse_array($KEY,1, $OPT_ABORT, 
@@ -843,8 +854,15 @@ sub parse_SIMDATA_MASTER {
     $NGENVER_SIMDATA = scalar(@GENV_LIST_SIMDATA);
 
     $KEY  = "GENPREFIX:" ;
-    @tmp  = sntools::parse_array($KEY,1, $OPT_ABORT, @CONTENTS_SIMDATA);
-    $GENPREFIX_ORIG_DATA = "$tmp[0]" ;
+    @tmp  = sntools::parse_array($KEY,1, $OPT_QUIET, @CONTENTS_SIMDATA);
+    if ( scalar(@tmp) > 0 ) {
+	$GENPREFIX_ORIG_DATA = "$tmp[0]" ;
+    }
+    else {
+	$KEY = "GENPREFIX" ;
+	@tmp = sntools::parse_value_after_key($KEY,$GENOPT_GLOBAL_DATA);
+	$GENPREFIX_ORIG_DATA = "$tmp[0]" ;
+    }
     print "\t GENPREFIX:  $GENPREFIX_ORIG_DATA \n";
 
     # get names of snlc_sim input files in case they are needed
@@ -863,18 +881,12 @@ sub parse_SIMDATA_MASTER {
     @tmp  = sntools::parse_array($KEY,1, $OPT_ABORT, @CONTENTS_SIMDATA) ;
     $NGEN_UNIT_DATA = $tmp[0] ; 
 
-    # Jun 2019: get current GENOPT_GLOBAL in case we need to append
-    $KEY = "GENOPT_GLOBAL:" ;
-    @tmp  = sntools::parse_array($KEY,9, $OPT_QUIET, @CONTENTS_SIMDATA) ;
-    $GENOPT_GLOBAL_DATA  = "$tmp[0]" ;
-    $GENOPT_GLOBAL_DATA  =~ s/\s+$// ;     # trim trailing whitespace 
-
 } # end  parse_SIMDATA_MASTER
 
 # =============================
 sub parse_SIMTRAIN_MASTER {
 
-    my ($KEY, @tmp);
+    my ($KEY, @tmp, $tmpLine );
 
     print "\n Parse SIMTRAIN_MASTER file:  $INFILE_SIMTRAIN_MASTER \n";
 
@@ -882,6 +894,14 @@ sub parse_SIMTRAIN_MASTER {
     sntools::loadArray_fromFile($INFILE_SIMTRAIN_MASTER,
 				\@CONTENTS_SIMTRAIN);
 
+    # Jun 2019: get current GENOPT_GLOBAL in case we need to append
+    $GENOPT_GLOBAL_TRAIN = "" ;
+    $KEY = "GENOPT_GLOBAL:" ;
+    @tmp  = sntools::parse_array($KEY,9, $OPT_QUIET, @CONTENTS_SIMTRAIN) ;
+    foreach $tmpLine ( @tmp ) {
+	$tmpLine =~ s/\s+$// ;     # trim trailing whitespace   
+	$GENOPT_GLOBAL_TRAIN  = "$GENOPT_GLOBAL_TRAIN $tmpLine" ;
+    }
     
     $KEY  = "GENVERSION:" ;
     @GENV_LIST_SIMTRAIN = sntools::parse_array($KEY,1, $OPT_ABORT, 
@@ -890,8 +910,15 @@ sub parse_SIMTRAIN_MASTER {
     $NGENVER_SIMTRAIN = scalar(@GENV_LIST_SIMTRAIN);
 
     $KEY  = "GENPREFIX:" ;
-    @tmp  = sntools::parse_array($KEY,1, $OPT_ABORT, @CONTENTS_SIMTRAIN);
-    $GENPREFIX_ORIG_TRAIN = "$tmp[0]" ;
+    @tmp  = sntools::parse_array($KEY,1, $OPT_QUIET, @CONTENTS_SIMTRAIN);
+    if ( scalar(@tmp) > 0 ) {
+	$GENPREFIX_ORIG_TRAIN = "$tmp[0]" ;
+    }
+    else {
+	$KEY = "GENPREFIX" ;
+	@tmp = sntools::parse_value_after_key($KEY,$GENOPT_GLOBAL_TRAIN);
+	$GENPREFIX_ORIG_TRAIN = "$tmp[0]" ;
+    }
     print "\t GENPREFIX:  $GENPREFIX_ORIG_TRAIN \n";
 
     &parse_SIMGEN_RANSEED() ;
@@ -912,11 +939,6 @@ sub parse_SIMTRAIN_MASTER {
     @tmp  = sntools::parse_array($KEY,1, $OPT_ABORT, @CONTENTS_SIMTRAIN) ;
     $NGEN_UNIT_TRAIN = $tmp[0] ; 
 
-    # Jun 2019: get current GENOPT_GLOBAL in case we need to append
-    $KEY = "GENOPT_GLOBAL:" ;
-    @tmp  = sntools::parse_array($KEY,9, $OPT_QUIET, @CONTENTS_SIMTRAIN) ;
-    $GENOPT_GLOBAL_TRAIN  = "$tmp[0]" ;
-    $GENOPT_GLOBAL_TRAIN  =~ s/\s+$// ;     # trim trailing whitespace 
 
 } # end of parse_SIMTRAIN_MASTER
 
@@ -1016,10 +1038,11 @@ sub make_SIMGEN_MASTER {
 
 ####    $INFILE_MASTER
 
-    # For biasCor, remove CC and add global options
+    # For biasCor, remove CC and add global options .xyz
     if ( $ISTAGE == $ISTAGE_SIMGEN_BIASCOR ) {
 	my $sigArg = "$GENOPT_GLOBAL_TRAIN " .
 	    "GENSIGMA_SALT2ALPHA 9000 9000  GENSIGMA_SALT2BETA 9000 9000 " ;  
+	$sigArg =~ s/ $GENPREFIX_ORIG/ $genPrefix/g ;
 	$SEDCMD = "$SEDCMD -e " . "'/SIMGEN_INFILE_NONIa/d'" ;
 	$SEDCMD = "$SEDCMD -e " . "'/GENOPT_GLOBAL/d'" ;
 	$SEDCMD = "$SEDCMD -e " . " '\$ i\GENOPT_GLOBAL: $sigArg'" ;
@@ -1031,6 +1054,7 @@ sub make_SIMGEN_MASTER {
     if ( $DOTRAIN && $SIMTRAIN_SCALE_NON1A != 1.0 ) {
 	my $sigArg = "$GENOPT_GLOBAL_TRAIN " .
 	    "DNDZ_SCALE_NON1A $SIMTRAIN_SCALE_NON1A " ;
+	$sigArg =~ s/ $GENPREFIX_ORIG/ $genPrefix/g ;
 	$SEDCMD = "$SEDCMD -e " . "'/GENOPT_GLOBAL/d'" ;
 	$SEDCMD = "$SEDCMD -e " . " '\$ i\GENOPT_GLOBAL: $sigArg'" ;
     }
@@ -1039,6 +1063,7 @@ sub make_SIMGEN_MASTER {
 	# take out zHOST effic file so that eff(zHOST) = 1
 	my $tmpArg = "$GENOPT_GLOBAL_DATA " .
 	    " SEARCHEFF_zHOST_FILE NONE  APPLY_SEARCHEFF_OPT 1 " ;
+	$tmpArg =~ s/ $GENPREFIX_ORIG/ $genPrefix/g ;
         $SEDCMD = "$SEDCMD -e " . "'/GENOPT_GLOBAL/d'" ;
         $SEDCMD = "$SEDCMD -e " . " '\$ i\GENOPT_GLOBAL: $tmpArg'" ;	
     }

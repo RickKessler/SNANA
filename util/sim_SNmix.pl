@@ -60,6 +60,7 @@
 #                                     # to arg of SIMGEN_INFILE_[Ia,NONIa]
 #   SIMGEN_INFILE_NONIa: <NONIa-override-input-file>
 #   SIMGEN_INFILE_Ia:    <idem for SNIa model> 
+#   SIMGEN_INFILE_SNIa:  <alternate key for SNIa input file>
 #
 #  GENVERSION: ANOTHER_SIMGEN_NAME
 #    GENOPT:  <another command-line override>
@@ -80,6 +81,14 @@
 #   CLEANUP_FLAG:  0             # leave TMP_[user]_xxx verions (default is on)
 #   DOSKIP_DUPLICATE_SIMJOBS: 0  # no duplicate check; brute-force all jobs
 #                                # (default is on)
+#
+#  TOPDIR_OVERRIDE: <dirName> # logs->[TOPDIR_OVERRIDE]/SIMLOGS_[GENPREFIX]
+#                             #   (default is current pwd)
+#
+#  LOGDIR: <dirName>          # write logs to [LOGDIR] or [pwd]/[LOGDIR]
+#                             #  (default is [pwd]/SIMLOGS_[GENPREFIX]
+#
+# - - - - - - - - - - - - - - - - - - - - - - 
 #
 # HISTORY
 #
@@ -180,6 +189,10 @@
 #   ABORT if normalization job fails; see $normLog -->
 #   fixes infinite loop bug when QUIT key isn't in $normLog.
 #
+# Dec 4 2019: new input key  LOGDIR: <dirName>
+#
+# Jan 22 2020: protect GENOPT_GLOBAL for parentheses in argument.
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -273,7 +286,7 @@ my (@GENVERSION_NAME, $VERSION_TEMP, $VERSION_FINAL, @BATCH_MEM );
 my ($SIMGEN_TEMPDIR, $SIMGEN_FINALDIR, $SIMGEN_MISCDIR, $MISC_SDIR  );
 my ($READMEFILE_FINAL, $LISTFILE_FINAL, $IGNOREFILE_FINAL, $DUMPFILE_FINAL);
 my ($READMEFILE_TEMP, $DUMPFILE_TEMP, $DONE_STAMP, $DONE_STAMP_FLAG );
-my ($LOGDIR, $TOPDIR_SIMLOGS, $Nsec5 );
+my ($LOGDIR, $TOPDIR_SIMLOGS,  $Nsec5 );
 my (@NSIM_GEN, @NSIM_WR, @NSIM_SPEC);
 my (@VERSION_JOBLIST_FINAL, @VERSION_JOBLIST_TEMP);
 my (@STATUS_NORMALIZATION, @TOTAL_STRING );
@@ -557,7 +570,7 @@ sub SUBMIT_NODES {
 	    system("$cmd &") ;
 	}
 	else {
-	    # use batch system (Feb 16 2013)
+	    # use batch system
 	    my $batchName = "${GENPREFIX}_${str_indx}" ;
 	    my $batchFile = "${GENPREFIX}_${str_indx}.BATCH" ;
 	    my $batchLog  = "${GENPREFIX}_${str_indx}.LOG" ;
@@ -645,6 +658,7 @@ sub init_SIMGEN() {
     $currentDir = `pwd`; 
     $currentDir =~ s/\s+$// ; 
 
+    $LOGDIR         = "" ;
     $TOPDIR_SIMLOGS = "$currentDir"; 
 
     $INODE_GLOBAL = 0 ;
@@ -902,7 +916,6 @@ sub parse_inFile_master() {
 
 
     $key = "SNANA_LOGIN_SETUP:" ;
-# xxxx    @tmp = sntools::parse_line($inFile, 99, $key, $OPT_QUIET ) ;
     @tmp = sntools::parse_array($key,99,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) {
 	$SNANA_LOGIN_SETUP = "$tmp[0]" ;
@@ -911,13 +924,21 @@ sub parse_inFile_master() {
 
 
     $key = "TOPDIR_SIMLOGS:" ;
-## xxxx    @tmp = sntools::parse_line($inFile, 1, $key, $OPT_QUIET ) ;
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) {
 	$TOPDIR_SIMLOGS = $tmp[0] ;
-	$TOPDIR_SIMLOGS = qx(echo $TOPDIR_SIMLOGS) ; # unpack ENV, July 10 2017
+	$TOPDIR_SIMLOGS = qx(echo $TOPDIR_SIMLOGS) ; # unpack ENV
 	$TOPDIR_SIMLOGS =~ s/\s+$// ;   # trim trailing whitespace  
 	print " TOPDIR_SIMLOGS = '${TOPDIR_SIMLOGS}' \n" ;
+    }
+
+    $key = "LOGDIR:" ;
+    @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
+    if ( scalar(@tmp) > 0 ) {
+	$LOGDIR = $tmp[0] ;
+	$LOGDIR = qx(echo $LOGDIR) ; # unpack ENV
+	$LOGDIR =~ s/\s+$// ;        # trim trailing whitespace  
+	print " LOGDIR = '${LOGDIR}' \n" ;
     }
 
     $SNANA_MODELPATH  = "" ;
@@ -943,6 +964,12 @@ sub parse_inFile_master() {
     $key = "SIMGEN_INFILE_Ia:";
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,
 				@CONTENTS_EXCLUDE_GENVERSION );
+    if ( scalar(@tmp) == 0 ) {
+	# try alternate key
+	$key = "SIMGEN_INFILE_SNIa:";
+	@tmp = sntools::parse_array($key,1,$OPT_QUIET,
+				    @CONTENTS_EXCLUDE_GENVERSION );
+    }
     if ( scalar(@tmp) > 0 ) { 
 	$tmpFile1 = $tmp[0];
 	$tmpFile1 = qx(echo $tmpFile1); # unpack ENV
@@ -958,6 +985,7 @@ sub parse_inFile_master() {
 	unless (-e $tmpFile1 ) {
 	    $MSGERR[0] = "'$tmpFile1' does not exist";
 	    $MSGERR[1] = "Check argument of SIMGEN_INFILE_Ia:" ;
+	    $MSGERR[1] = " or   argument of SIMGEN_INFILE_SNIa:" ;
 	    sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);  
 	}
     }
@@ -1080,7 +1108,8 @@ sub parse_inFile_master() {
     if ( scalar(@tmp) > 0 ) {
 	if ( "$GENPREFIX" ne "MIX" ) {
 	    $MSGERR[0] = "GENPREFIX defined twice: $GENPREFIX and $tmp[0]" ;
-	    $MSGERR[1] = "Only one GENPREFIX declaration allowed in master-input.";
+	    $MSGERR[1] = "Only one GENPREFIX declaration allowed in " . 
+		"master-input.";
 	    sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);	    
 	}
 	$GENPREFIX = $tmp[0]; 
@@ -1413,6 +1442,10 @@ sub parse_GENOPT_GLOBAL {
 	}
     }
 
+    # check for special characters that need backslash (9/28 2017) 
+    $GENOPT_GLOBAL =~ s/\(/\\(/g ;  # ( --> \(
+    $GENOPT_GLOBAL =~ s/\)/\\)/g ;  # ) --> \)
+
     # check for FORMAT_MASK here, then later check master-input
     # file for <FORMAT_MASK: MASK>
 
@@ -1530,7 +1563,7 @@ sub parse_GENVERSION {
 	}
    
 	# check for GENVERSION-dependent sim-input files
-	if ( $KEY eq "SIMGEN_INFILE_Ia:" )  { 
+	if ( $KEY eq "SIMGEN_INFILE_Ia:" || $KEY eq "SIMGEN_INFILE_SNIa:" ) { 
 	    $DOGEN_SNIa = 1;
 	    &store_SIMGEN_INFILE($iver, 1, \@argList);  
 	}
@@ -2390,7 +2423,13 @@ sub make_logDir {
     my ($cmd, $response);
 
     # always set name of log dir
-    $LOGDIR       = "$TOPDIR_SIMLOGS/SIMLOGS_$GENPREFIX" ;
+    if ( $LOGDIR eq "" ) 
+    { $LOGDIR       = "$TOPDIR_SIMLOGS/SIMLOGS_$GENPREFIX" ; }
+    else {
+	# if there are no slashes, then glue current pwd
+	my $jslash  = rindex($LOGDIR,"/");  # location of last slash
+	$LOGDIR = "$currentDir/$LOGDIR" ;
+    }
 
     # if no done-stamp is specified, define a generic default stamp
     if ( $DONE_STAMP_FLAG == 0 ) {

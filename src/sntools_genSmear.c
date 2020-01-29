@@ -16,7 +16,9 @@
 
  GENMAG_SMEAR_MODELNAME: CCM89    # modify color law with CCM89  
  GENMAG_SMEAR_MODELNAME: PRIVATE  
- GENMAG_SMEAR_MODELNAME: COH      # SIGCOH=.13  (Feb 2014)
+ GENMAG_SMEAR_MODELNAME: COH           # SIGCOH=.13  (Feb 2014)
+ GENMAG_SMEAR_MODELNAME: COH(0.12)     # SIGCOH=.12  (Nov 2019)
+ GENMAG_SMEAR_MODELNAME: COH(0.9+0.2)  # 2 sigma-scat terms (Nov 2019)
  GENMAG_SMEAR_MODELNAME: VCR      # Velocit-Color Relation (MFK14)
  GENMAG_SMEAR_MODELNAME: BIMODAL_UV  # sort'of like Milne 2015
  GENMAG_SMEAR_USRFUN:  <list of 8 params> 
@@ -78,6 +80,9 @@
    + significant refactor for speed improvements using repeat_genSmear().
      BEWARE to check repeat_genSmear for Trest-dependent smear models.
 
+ Nov 30 2019: refactor and upgrade COH model to pass 1 or 2 sigma values.
+              Default is still sigma=0.13 mag.
+
 **********************************/
 
 #include <stdio.h> 
@@ -91,9 +96,9 @@
 #include <gsl/gsl_matrix.h>
 
 #include "sntools.h"
-#include "sntools_genSmear.h"
 #include "genmag_SEDtools.h"
 #include "genmag_SALT2.h"
+#include "sntools_genSmear.h"
 #include "MWgaldust.h"
 #include "sntools_fitsio.h"
 
@@ -147,6 +152,12 @@ void  init_genSmear_FLAGS(int MSKOPT, double SCALE) {
     sprintf(c2err,"External calling routine must set NSMEARPAR_OVERRIDE=0");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
+
+  // Jan 2020: allocate magsmear-vs-wave array
+  int MEMD = MXLAM_GENSMEAR_SALT2*sizeof(double);
+  GENSMEAR.MAGSMEAR_LIST = (double*) malloc(MEMD);
+
 
 }  // end of init_genSmear_FLAGS
 
@@ -239,6 +250,7 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
 
 } // end load_genSmear_randoms
 
+
 // ********************************
 void get_genSmear(double Trest, int NLam, double *Lam, 
 		  double *magSmear) {
@@ -258,16 +270,17 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   //
   // Oct 9 2018: check option to scale the magSmear values
   // Oct 21 2019: add CID argument
-  //
+  // Nov 30 2019: MAGSMEAR_COH -> MAGSMEAR_COH[2]
 
-  int ilam;
+  int ilam, repeat ;
   char fnam[] = "get_genSmear" ;
 
   // -------------- BEGIN -----------
 
   GENSMEAR.NCALL++ ;
 
-  if ( repeat_genSmear(Trest,NLam,Lam) ) {  goto SET_LAST; }
+  repeat = repeat_genSmear(Trest,NLam,Lam);
+  if ( repeat ) {  goto SET_LAST; }
 
   // abort if more than one model has been initialized.
   if ( GENSMEAR.NUSE > 1 ) {
@@ -276,7 +289,9 @@ void get_genSmear(double Trest, int NLam, double *Lam,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  GENSMEAR.MAGSMEAR_COH = 0.0 ;
+  GENSMEAR.MAGSMEAR_COH[0] = 0.0 ;
+  GENSMEAR.MAGSMEAR_COH[1] = 0.0 ;
+
   for(ilam=0; ilam < NLam; ilam++ ) { magSmear[ilam] = 0.0 ; }
 
   if ( GENSMEAR_USRFUN.USE ) {
@@ -355,6 +370,10 @@ int repeat_genSmear(double Trest, int NLam, double *Lam) {
   char fnam[] = "repeat_genSmear";
 
   // ------------ BEGIN ------------
+
+  // for 1 lam bin, it's central filter wavelength,
+  // so always re-calculate.
+  if ( NLam == 1 ) { return(NEW); }
 
   if ( (GENSMEAR.MSKOPT & 32 )>0 ) { return(NEW); }
 
@@ -1429,7 +1448,7 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
 
   if ( NBCOH == 1 ) {
     SMEAR0 = rCOH * ptrSIGCOH[0];
-    GENSMEAR.MAGSMEAR_COH = SMEAR0; // load global for SNTABLE (Jun 14 2016)
+    GENSMEAR.MAGSMEAR_COH[0] = SMEAR0; // load global for SNTABLE (Jun 14 2016)
   }
 
 
@@ -2399,33 +2418,112 @@ void get_genSmear_VCR(double Trest, int NLam, double *Lam,
 } // end of get_genSmear_VCR
 
 
-
 // ***************************************
-void init_genSmear_COH(void) {
+void init_genSmear_COH(char *stringArg) {
 
+  // stringArg == "COH" 
+  //     --> hard code coherent sigma = 0.13 mag
+  //
+  // stringArg = COH(0.11) 
+  //     --> sigma = 0.11 mag
+  //
+  // stringArg = COH(0.55+.11) 
+  //     --> sigma = 0.55 and sigma=0.11 (2 variations),
+  //         and stored separate MAGSMEAR_COH values.
+  //
+  // The two scatter values can be output to SIMGEN_DUMP using
+  // MAGSMEAR_COH and MAGSMEAR_COH2.
+  //
+  // Nov 30 2019: major refactor/update, and pass stringArg input
+  //
+
+  int  Nsigma = 0, i, ISBAD ;
+  int  MEMC   = sizeof(char) * 20 ;
+  double SIGMA;
+  char stringLocal[60], stringSigma[60], *ptrSigma[2] ;
+  char plus[] = "+" ;
+  char fnam[] = "init_genSmear_COH" ;
+
+  // -------------- BEGIN ----------------
   GENSMEAR_COH.USE = 1;    GENSMEAR.NUSE++ ;
-  GENSMEAR_COH.MAGSIGMA = 0.13 ; // hard-wired
 
-  printf("\t Coherent MAGSMEAR SIGMA = %.3f \n", 
-	 GENSMEAR_COH.MAGSIGMA ); fflush(stdout);
+  GENSMEAR_COH.MAGSIGMA[0] = -9.0;
+  GENSMEAR_COH.MAGSIGMA[1] = -9.0;
+
+  sprintf(stringLocal, "%s", stringArg);
+  extractStringOpt(stringLocal, stringSigma);
+
+  // only + is allowed between floats, so abort on invalid separators
+  ISBAD=0;
+  if ( strchr(stringSigma,':') != NULL )  { ISBAD = 1; }
+  if ( strchr(stringSigma,'!') != NULL )  { ISBAD = 1; }
+  if ( strchr(stringSigma,',') != NULL )  { ISBAD = 1; }
+  if ( strchr(stringSigma,'%') != NULL )  { ISBAD = 1; }
+
+  if ( ISBAD || strcmp(stringLocal,"COH") != 0 ) {
+    sprintf(c1err,"Invalid GENMAG_SMEAR_MODELNAME: %s", stringArg);
+    sprintf(c2err,"Must be COH or COH([sig]) or COH([sig0]+[sig1])");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+
+
+  if ( strlen(stringSigma) == 0 ) {
+    GENSMEAR_COH.MAGSIGMA[0] = 0.13 ; // hard-wired
+    Nsigma = 1;
+  }
+  else {
+    // examine sigma(s) in parentheses
+    ptrSigma[0] = (char*) malloc(MEMC);
+    ptrSigma[1] = (char*) malloc(MEMC);
+
+    splitString(stringSigma, plus, 2, &Nsigma, ptrSigma);
+    for(i=0; i < Nsigma; i++ ) 
+      { sscanf(ptrSigma[i], "%le", &GENSMEAR_COH.MAGSIGMA[i])  ; }
+
+    free(ptrSigma[0]); free(ptrSigma[1]);
+  }
+
+  GENSMEAR_COH.NSIGMA = Nsigma;
+  for(i=0; i < Nsigma; i++ ) {
+    SIGMA = GENSMEAR_COH.MAGSIGMA[i];
+    printf("\t Coherent MAGSMEAR SIGMA = %.3f \n", SIGMA );
+  }
+
+  fflush(stdout);
 
   // set number of Gaussian randoms neede per SN
-  init_genSmear_randoms(1,0);
+  init_genSmear_randoms(Nsigma,0);
 
-}
+  //  debugexit(fnam); // xxxx REMOVE
+
+} // end init_genSmear_COH
 
 void get_genSmear_COH(double Trest, int NLam, double *Lam, 
 		      double *magSmear) {
 
-  // Apr 6 2016: fix bug by multiplying MAGSMEAR by SIG.
-  int ilam; 
-  double SIG ;
+  // Nov 20 2019: refactor and allow up to two scatter terms.
+  int    Nsigma =   GENSMEAR_COH.NSIGMA;
+  int    ilam, isig ; 
+  double SIG, MAGSMEAR, SUM_MAGSMEAR = 0.0 ;
+  char fnam[] = "get_genSmear_COH";
 
-  SIG      = GENSMEAR_COH.MAGSIGMA ;
-  GENSMEAR.MAGSMEAR_COH = SIG*GENSMEAR.RANGauss_LIST[0] ;
+  // ------------ BEGIN -----------
+
+  for(isig=0; isig < Nsigma; isig++ ) {
+    SIG      = GENSMEAR_COH.MAGSIGMA[isig] ;
+    MAGSMEAR = SIG*GENSMEAR.RANGauss_LIST[isig] ;
+    GENSMEAR.MAGSMEAR_COH[isig] = MAGSMEAR;
+    SUM_MAGSMEAR += MAGSMEAR ; // note linear sum, not in quadrature
+  }
+
+  /*
+  printf(" xxx %s: SUM_MAGSMEAR = %f  (NLAM=%d) \n",
+	 fnam, SUM_MAGSMEAR, NLam ); fflush(stdout);
+  */
 
   for ( ilam=0; ilam < NLam; ilam++ )  
-    { magSmear[ilam] = GENSMEAR.MAGSMEAR_COH ; }
+    { magSmear[ilam] = SUM_MAGSMEAR ; }
 
 } // end of get_genSmear_COH
 

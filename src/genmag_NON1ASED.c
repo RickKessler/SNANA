@@ -167,12 +167,11 @@ void genmag_NON1ASED (
 
   // Oct 23 2018: replace x0 argument with mu
 
-  int  ifilt, epobs, ILAMPOW = 0    ;
-
-  double  z1, ZP, meanlam_obs, Tobs, Trest ;
-  double  AV_MW, XT_MW, XT_HOST, flux, FLUX ;
+  int  ifilt, epobs, ILAMPOW = 0 ;
+  double  z1, ZP, meanlam_obs, meanlam_rest, Tobs, Trest ;
+  double  AV_MW, XT_MW, XT_HOST, flux, FLUX, magobs;
   char *cfilt;
-  //  char fnam[] = "genmag_NON1ASED" ;
+  char fnam[] = "genmag_NON1ASED" ;
 
   // --------- BEGIN ----------
 
@@ -180,27 +179,26 @@ void genmag_NON1ASED (
   z1    = 1. + z;
 
   // filter info for this "ifilt"
-  meanlam_obs = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda
-  ZP          = FILTER_SEDMODEL[ifilt].ZP ;
-  cfilt       = FILTER_SEDMODEL[ifilt].name ;
-
+  meanlam_obs  = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda
+  meanlam_rest = meanlam_obs/z1 ;
+  ZP           = FILTER_SEDMODEL[ifilt].ZP ;
+  cfilt        = FILTER_SEDMODEL[ifilt].name ;
+  
   // get approx Galactic extinction using central wavelength of filter
   // No need to be as precise as SALT2.
   AV_MW = RV_MWDUST * mwebv ; 
   XT_MW = GALextinct ( RV_MWDUST, AV_MW, meanlam_obs, 94 );
 
-  // get extinction from host in rest-frame (Jan 15, 2012)
+  // get extinction from host in rest-frame
   if ( AV_host > 1.0E-9 ) 
-    { XT_HOST = GALextinct ( RV_host, AV_host, meanlam_obs/z1, 94 ); }
+    { XT_HOST = GALextinct ( RV_host, AV_host, meanlam_rest, 94 ); }
   else
     { XT_HOST = 0.0 ; }
-
 
   // Nov 16 2016: load MWEBV tables for each band and spectrum
   fill_TABLE_MWXT_SEDMODEL(RV_MWDUST, mwebv); 
 
-  //determine integer times which sandwich the times in Tobs
-
+  // - - - - - - - 
   for ( epobs=0; epobs < Nobs; epobs++ ) {
 
     Tobs = Tobs_list[epobs];
@@ -222,8 +220,9 @@ void genmag_NON1ASED (
       magerr_list[epobs] = MAGERR_UNDEFINED ;
     }
     else if ( FLUX > 1.0E-30 ) {
-      magobs_list[epobs] = (ZP + XT_MW + XT_HOST) - 2.5*log10(FLUX);
-      magerr_list[epobs] = 0.1 ;  // wild guess
+      magobs =  (ZP + XT_MW + XT_HOST) - 2.5*log10(FLUX);
+      magobs_list[epobs] = magobs; 
+      magerr_list[epobs] = 0.1 ;  
    }
     else {
       magobs_list[epobs] = MAG_ZEROFLUX ;
@@ -351,7 +350,7 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
     XN      = ( wgt / WGTSUM[ISPEC1A] ) * XNGEN[ISPEC1A] ;
 
     if ( DO_GENGRID==0 && (ISPEC1A && FRAC_PEC1A == 0.0)  ) {
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf("\t Check DNDZ_PEC1A key is defined.\n");
       printf("\t Check that GENRANGE_REDSHIFT is not a delta function.\n");
       printf("\t Check that GENRANGE_PEAKMJD  is not a delta function.\n");

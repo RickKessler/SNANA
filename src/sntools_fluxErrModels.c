@@ -25,7 +25,8 @@
 
 
 // ===========================================================
-void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR) {
+void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, 
+		       char *STRING_REDCOV, char *MAPLIST_IGNORE_DATAERR) {
 
   // Created Feb 2018
   // Read and store maps to correct flux-uncertainties.
@@ -35,8 +36,15 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
   //
   // Inputs:
   //   OPTMASK  : bit options
+  //
   //   fileName : file containing maps to read
-  //   MAPLIST_IGNORE_DATAERR : 
+  //
+  //   STRING_REDCOV : optional override of REDCOV argument(s).
+  //      key val key val etc ...
+  //      e.g., 
+  //     FLUXERRMODEL_REDCOV(DEEP) griz:0.6  FLUXERRMODEL_REDCOV(SHAL) g:0.2
+  //
+  //   MAPLIST_IGNORE_DATAERR :
   //      optional [comma-separated] list of maps to use only for simulation,
   //      but not include in the reported data error.
   //                            
@@ -46,14 +54,20 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
   //  + NVAR key is obsolete (see warn_MNVAR_KEY)
   //  + read OPT_EXTRAP key from map file, and pass to read_GRIDMAP().
   //
+  // Dec 9 2019: abort if map file cannot be opened.
+  // Jan 10 2020: parse optional REDCOV 
+  // Jan 16 2020: pass redcovString override.
 
   FILE *fp;
-  int gzipFlag, FOUNDMAP, NTMP, NVAR, NDIM, NFUN, ivar, igroup;
-  int IDMAP, NMAP=0, imap, OPT_EXTRAP=0 ; 
+  int  gzipFlag, FOUNDMAP, NTMP, NVAR, NDIM, NFUN, ivar, igroup, ifilt ;
+  int  IDMAP, NMAP=0, imap, OPT_EXTRAP=0, LENTMP ;
+  int  USE_REDCOV=1, USE_REDCOV_OVERRIDE=0;
+  bool HAS_COLON;
   char PATH[MXPATHLEN], c_get[80];  
   char *fullName = FILENAME_FLUXERRMAP ;
   char *name, *fieldList, TMP_STRING[80], LINE[100];
   char MSGERR_FILE[200];
+  char colon[] = ":", hash[] = "#"  ;
   char fnam[] = "INIT_FLUXERRMODEL" ;
 
   // ------------ BEGIN --------------
@@ -61,6 +75,8 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
   NMAP_FLUXERRMODEL          = 0 ;
   FLUXERR_FIELDGROUP.NDEFINE = 0 ;  
   NINDEX_SPARSE_FLUXERRMAP   = 0 ;
+  NREDCOV_FLUXERRMODEL       = 0 ;
+
   if ( IGNOREFILE(fileName) ) { return ; }
 
   sprintf(BANNER,"%s:", fnam);
@@ -68,6 +84,12 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
 
   sprintf(PATH, "%s/simlib", PATH_SNDATA_ROOT);
   fp = snana_openTextFile(1,PATH, fileName, fullName, &gzipFlag);
+
+  if ( !fp ) {
+    sprintf(c1err,"Cannot open FLUXERRMODEL_FILE");
+    sprintf(c2err,"'%s'", fullName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
 
   sprintf(MSGERR_FILE,"check FLUXERRMODEL_FILE: '%s'", fullName);
   FOUNDMAP=0;
@@ -95,8 +117,22 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
     FLUXERRMAP_EXTRAP.NOBS_EXTRAP_HI[imap] = 0 ;
   }
 
+  // check user-option to disable REDCOV
+  if ( IGNOREFILE(STRING_REDCOV)  ) { USE_REDCOV = 0 ; }
+  if ( strlen(STRING_REDCOV) == 0 ) { USE_REDCOV = 1 ; }
+ 
+  // check user-option to override REDCOV in FLUXERRMODEL_FILE
+  if ( strlen(STRING_REDCOV) > 0 ) { USE_REDCOV_OVERRIDE =  1; }
+  
+  // - - - - - - - - - - - - - - - - - 
   // start reading file
   while ( fscanf(fp, "%s", c_get) != EOF ) {
+
+    // on any comment char, scoop up rest of line and ignore it
+    if ( commentchar(c_get) ) 
+      { fgets(TMP_STRING, 80, fp) ; continue ; }
+    
+    HAS_COLON = ( strstr(c_get,colon) && c_get[0] != '#' );
 
     if ( strcmp(c_get,"OPT_EXTRAP:")==0 ) { readint(fp,1,&OPT_EXTRAP); }
 
@@ -110,6 +146,17 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
       FLUXERR_FIELDGROUP.NDEFINE++ ;
     }
 
+    if ( USE_REDCOV && !USE_REDCOV_OVERRIDE && HAS_COLON ) {
+      
+      if ( strstr(c_get,"REDCOV") || strstr(c_get,"REDCOR") ) {
+	readchar(fp, TMP_STRING);
+	strcat(STRING_REDCOV,c_get);
+	strcat(STRING_REDCOV," ");
+	strcat(STRING_REDCOV,TMP_STRING);
+	strcat(STRING_REDCOV," ");
+      }
+    }
+
     if ( strcmp(c_get,"MAPNAME:")==0 ) {
       FOUNDMAP = 1 ;
       NMAP = NMAP_FLUXERRMODEL; 
@@ -119,8 +166,9 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
       FLUXERRMAP[NMAP].MAP.VARLIST[0]   = 0 ;
       FLUXERRMAP[NMAP].MASK_APPLY   = 3;    // SIM & DATA by default 
       
-      sprintf(FLUXERRMAP[NMAP].BANDLIST,"ALL"); // default is all bands
-      sprintf(FLUXERRMAP[NMAP].FIELDLIST,"ALL"); // default is all fields
+      // set defaults to all bands and fields
+      sprintf(FLUXERRMAP[NMAP].BANDLIST,  "%s",  ALL_STRING); 
+      sprintf(FLUXERRMAP[NMAP].FIELDLIST, "%s",  ALL_STRING );
       FLUXERRMAP[NMAP].INDEX_SPARSE = index_sparse_FLUXERRMAP(NMAP,name) ;
 
       NMAP_FLUXERRMODEL++ ; 
@@ -142,12 +190,19 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
       readchar(fp, TMP_STRING);
       sprintf(FLUXERRMAP[NMAP].FIELDLIST,      "%s", TMP_STRING);
       sprintf(FLUXERRMAP[NMAP].FIELDLIST_ORIG, "%s", TMP_STRING);
-      for (igroup=0; igroup < FLUXERR_FIELDGROUP.NDEFINE; igroup++ ) {
-	name      = FLUXERR_FIELDGROUP.NAME[igroup] ;
-	fieldList = FLUXERR_FIELDGROUP.FIELDLIST[igroup] ;
-	if ( strcmp(TMP_STRING,name) == 0 ) 
-	  { sprintf(FLUXERRMAP[NMAP].FIELDLIST, "%s", fieldList); }
-      }
+
+      // if this field is a group; substitute field list.
+      set_FIELDLIST_FLUXERRMODEL(TMP_STRING,FLUXERRMAP[NMAP].FIELDLIST);
+
+      /* xxxxxxxxxxxxx mark delete Jan 22 2020 xxxxxxxxx
+	 for (igroup=0; igroup < FLUXERR_FIELDGROUP.NDEFINE; igroup++ ) {
+	 name      = FLUXERR_FIELDGROUP.NAME[igroup] ;
+	 fieldList = FLUXERR_FIELDGROUP.FIELDLIST[igroup] ;
+	 if ( strcmp(TMP_STRING,name) == 0 ) 
+	 { sprintf(FLUXERRMAP[NMAP].FIELDLIST, "%s", fieldList); }
+	 }
+	 xxxxxxx end mark xxxxx */
+
     }  // end FIELD
 
     if ( strcmp(c_get,"NVAR:")==0 ) { warn_NVAR_KEY(fullName); }
@@ -174,60 +229,12 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
 		   MXROW_FLUXERRMAP, fnam, 
 		   &FLUXERRMAP[NMAP].MAP );  // <== returned		   
 
-      if ( (OPTMASK & MASK_DUMP_FLUXERRMAP)>0 )
-	{ DUMP_FLUXERRMAP(NMAP); }
+      if ( (OPTMASK & MASK_DUMP_MAP_FLUXERRMODEL)>0 )
+	{ DUMP_MAP_FLUXERRMODEL(NMAP); }
 
       FOUNDMAP=0 ;
 
     }  // end VARNAMES
-
-    /* xxxxxxxxxxxxxxx mark delete Mar 16 2019 xxxxxxxx
-    if ( strcmp(c_get,"ROW:")==0 ) {
-      irow = FLUXERRMAP[NMAP].NROW;
-      readdouble( fp, NVAR, TMPVAL );
-      if ( irow < MXROW_FLUXERRMAP ) {
-	for(ivar=0; ivar < NVAR; ivar++ ) 
-	  { TMP_ROWDATA_FLUXERRMAP[ivar][irow] = TMPVAL[ivar]; }
-      }
-      FLUXERRMAP[NMAP].NROW++ ;
-    }
-    xxxxxxxxxx end mark xxxxxxxx*/
-
-
-    /* xxxxxxxxxxxxxx mark delete xxxxxxxxxxxxxxxxxx
-    if ( strcmp(c_get,"ENDMAP:")==0 ) {
-
-      NROW = FLUXERRMAP[NMAP].NROW ;
-      if ( NROW >= MXROW_FLUXERRMAP ) {
-	sprintf(c1err,"NROW=%d exceeds bound (MXROW=%d)",
-		NROW, MXROW_FLUXERRMAP);
-	sprintf(c2err,"Check MAPNAME='%s'  BAND='%s'  FIELD='%s' "
-		,FLUXERRMAP[NMAP].NAME 
-		,FLUXERRMAP[NMAP].BANDLIST
-		,FLUXERRMAP[NMAP].FIELDLIST );
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-      }
-
-      sprintf(TMP_STRING,"%s(%s-%s)",
-	      FLUXERRMAP[NMAP].NAME,
-	      FLUXERRMAP[NMAP].FIELDLIST,
-	      FLUXERRMAP[NMAP].BANDLIST );
-
-      IDMAP = IDGRIDMAP_FLUXERRMODEL_OFFSET + NMAP ;
-      NROW  = FLUXERRMAP[NMAP].NROW ;
-      
-      init_interp_GRIDMAP(IDMAP, TMP_STRING, NROW, NVAR-1, NFUN, 0,
-			  TMP_ROWDATA_FLUXERRMAP, 
-			  &TMP_ROWDATA_FLUXERRMAP[NVAR-1], 
-			  &FLUXERRMAP[NMAP].MAP );  // <== output
-      			  
-      if ( (OPTMASK & MASK_DUMP_FLUXERRMAP)>0 )
-	{ DUMP_FLUXERRMAP(NMAP); }
-
-      FOUNDMAP=0 ;
-      malloc_ROWDATA_FLUXERRMAP(-1,NVAR);
-    }
-    xxxxxxxxxxx end mark xxxxxxxxxxxxxxx */
 
   }
   // done reading
@@ -235,27 +242,33 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName, char *MAPLIST_IGNORE_DATAERR
   // --- check for maps to ignore in reported data error
   parse_IGNORE_FLUXERRMAP(MAPLIST_IGNORE_DATAERR);
 
+  // check for reduced flux covarianve
+  parse_REDCOV_FLUXERRMODEL(STRING_REDCOV);
+
+  // close map file.
   if ( gzipFlag == 0 ) 
     { fclose(fp); }
   else
     { pclose(fp); }
 
   // print summary of maps
-  printSummary_FLUXERRMAP();
+  printSummary_FLUXERRMODEL();
+
+  //  if (NREDCOV_FLUXERRMODEL) { debugexit(fnam) ; }
+
 
   return ;
 
-  //  debugexit(fnam) ;
-
 } // end INIT_FLUXERRMODEL
 
-void  init_fluxerrmodel__(int *optmask, char *fileName, 
+void  init_fluxerrmodel__(int *optmask, char *fileName, char *redcorString,
 			  char *mapList_ignore_dataErr) 
-{  INIT_FLUXERRMODEL(*optmask, fileName, mapList_ignore_dataErr); }
+{  INIT_FLUXERRMODEL(*optmask, fileName, redcorString,
+		     mapList_ignore_dataErr); }
 
 
 // =============================================
-void  DUMP_FLUXERRMAP(int IMAP) {
+void  DUMP_MAP_FLUXERRMODEL(int IMAP) {
 
   // Created April 2018
   // Re-write FLUXERRMODEL_FILE contents in fitres format
@@ -272,7 +285,7 @@ void  DUMP_FLUXERRMAP(int IMAP) {
   FILE *fp;
   int  NVAR_DUMP=0, ivar, irow, OPENFLAG=0 ;
   char VARLIST[100][40];
-  //  char fnam[] = "DUMP_FLUXERRMAP";
+  char fnam[] = "DUMP_MAP_FLUXERRMODEL";
 
   // ---------------- BEGIN ---------------
   
@@ -332,7 +345,7 @@ void  DUMP_FLUXERRMAP(int IMAP) {
 
   return ;
 
-} // end DUMP_FLUXERRMAP
+} // end DUMP_MAP_FLUXERRMODEL
 
 
 // =======================================
@@ -373,7 +386,162 @@ int index_sparse_FLUXERRMAP(int NMAP, char *MAPNAME) {
 } // end  index_sparse_FLUXERRMAP
 
 
-// =========================================
+// ===========================================
+void parse_REDCOV_FLUXERRMODEL(char *STRING) {
+
+  // Created Jan 10 2010
+  //
+  // Input STRING is of the form
+  //   key val key val etc ...
+  //   The key string has the form
+  //      FLUXERRMODEL_REDCOV or REDCOV or
+  //      FLUXERRMODEL_REDCOV(FIELDNAME) or REDCOV(FIELDNAME)
+  //   and val has the form
+  //      val = band1:rho1,band2:rho2,band3:rho3
+  //   where band and REDCOV are colon separated, and comma
+  //   separates different bands. 
+  //
+  // This syntax allows multiple REDCOV keys in the map file,
+  // and also multiple FLUXERRMAP_REDCOV (override) keys in the 
+  // sim-input file or command-line.
+  //
+  //
+  // Split input STRING and load contents into struct REDCOV_FLUXERRMAP.
+  // Each band can be defined no more than once; otherwise abort.
+
+  int MXRED   = MXREDCOV_FLUXERRMAP;
+  int MEMC    = MXCHAR_STRING_REDCOV * sizeof(char) ;
+
+  int   NKEYVAL, NKEY, NITEM, i, ikey;
+  char *ptrSplit0[MXRED], *ptrSplit1[MXRED];
+  char FIELD[40];
+  char space[] = " ", comma[]=  ",", colon[] = ":" ;
+  char fnam[] = "parse_REDCOV_FLUXERRMODEL" ;
+  int  LDMP = 0 ;
+
+  // ---------- BEGIN -----------
+
+  if ( LDMP ) {  printf(" xxx %s: STRING='%s' \n", fnam, STRING);  }
+
+  if ( IGNOREFILE(STRING) ) { return; }
+
+  if ( strlen(STRING) >= MXCHAR_STRING_REDCOV ) {
+    print_preAbort_banner(fnam);
+    printf("  STRING = '%s' \n", STRING);
+    sprintf(c1err,"STRING length exceeds bound of MXCHAR_STRING_REDCOV=%d", 
+	    MXCHAR_STRING_REDCOV );
+    sprintf(c2err,"Try fewer REDCOV keys are extend bound.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  // allocate string memory for splitting strings
+  for(i=0; i < MXRED; i++ ) {
+    ptrSplit0[i] = (char*) malloc(MEMC);
+    ptrSplit1[i] = (char*) malloc(MEMC);
+  }
+
+  // - - - - - - - -
+  // split by blank space to get key & val
+  splitString(STRING, space, MXRED, &NKEYVAL, ptrSplit0);
+  NKEY = NKEYVAL/2; 
+
+  int i2key=0;
+  for(ikey=0; ikey < NKEY; ikey++ ) {
+    i2key = 2*ikey;
+
+    // get optional field
+    extractStringOpt(ptrSplit0[i2key],FIELD);
+    if ( IGNOREFILE(FIELD) ) { sprintf(FIELD,"%s",ALL_STRING); }
+    
+    if ( LDMP ) { 
+      printf(" xxx ======================================== \n"); 
+      printf(" xxx KEY[%d] = '%s'  -> FIELD='%s'\n", 
+	     i2key, ptrSplit0[i2key], FIELD );
+      printf(" xxx VAL[%d] = '%s' \n", 
+	     i2key, ptrSplit0[i2key+1] );
+    }
+    
+    // split by comma
+    splitString(ptrSplit0[i2key+1], comma, MXRED, &NITEM, ptrSplit1);
+    for(i=0; i < NITEM; i++ ) 
+      {  load_REDCOV_FLUXERRMODEL(ptrSplit1[i],FIELD); }    
+
+  } // end ikey
+
+  // free local memory
+  for(i=0; i < MXRED; i++ ) { free(ptrSplit0[i]); free(ptrSplit1[i]);  }
+
+  return ;
+
+} // end parse_REDCOV_FLUXERRMODEL
+
+
+// ========================================
+void load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) {
+
+  // Input is argument item of REDCOV or FLUXERRMODEL_REDCOV
+  // If argument is g:0.2,r,0.3,i:0.4
+  // then ITEM_REDCOV is either g:0.2 or r:0.3 or i:0.4.
+   
+  int  NREDCOV = NREDCOV_FLUXERRMODEL ;
+  int  N2, ifilt_obs, NBAND_TMP, iband, INDEX_CHECK ;
+  double REDCOV ;
+  char *ptr_BANDSTRING, *ptr_BANDLIST, *ptrSplit2[2];
+  char *ptr_FIELDGRP, *ptr_FIELDLIST, band[2] ;
+  char colon[] = ":" ;
+  char fnam[]= "load_REDCOV_FLUXERRMODEL";
+
+  // ------------- BEGIN ------------
+
+  ptrSplit2[0] = (char*)malloc( 40*sizeof(char) );
+  ptrSplit2[1] = (char*)malloc( 40*sizeof(char) );
+
+  ptr_BANDSTRING = COVINFO_FLUXERRMODEL[NREDCOV].BANDSTRING ;
+  ptr_BANDLIST   = COVINFO_FLUXERRMODEL[NREDCOV].BANDLIST ;
+  ptr_FIELDGRP   = COVINFO_FLUXERRMODEL[NREDCOV].FIELDGROUP ;
+  ptr_FIELDLIST  = COVINFO_FLUXERRMODEL[NREDCOV].FIELDLIST ;
+
+  splitString(ITEM_REDCOV, colon, 2, &N2, ptrSplit2);    
+  sprintf(ptr_BANDSTRING,  "%s", ITEM_REDCOV );
+  sprintf(ptr_BANDLIST,    "%s", ptrSplit2[0] );
+  sprintf(ptr_FIELDGRP,    "%s", FIELD);
+  sscanf(ptrSplit2[1], "%le", &REDCOV );
+
+  // set FIELDLIST based on FIELDGRP; 
+  sprintf(ptr_FIELDLIST, "%s", ptr_FIELDGRP);
+  set_FIELDLIST_FLUXERRMODEL(ptr_FIELDGRP,ptr_FIELDLIST);
+
+  COVINFO_FLUXERRMODEL[NREDCOV].REDCOV = REDCOV ;
+  COVINFO_FLUXERRMODEL[NREDCOV].ALL_FIELD = 
+    ( strcmp(ptr_FIELDGRP,ALL_STRING) == 0 );
+
+  // keep track of which bands are used, and abort if any
+  // band is used more than once.
+  NBAND_TMP = strlen(ptr_BANDLIST) ;
+  for(iband=0; iband < NBAND_TMP; iband++ ) {
+    sprintf(band, "%c", ptr_BANDLIST[iband] );
+    ifilt_obs = INTFILTER(band);
+
+    INDEX_CHECK = INDEX_REDCOV_FLUXERRMODEL(band,ptr_FIELDGRP,1,fnam);
+    if ( INDEX_CHECK >= 0 ) {       
+      sprintf(c1err,"Cannot define %s-%s band more than once.", 
+	      band, ptr_FIELDGRP);
+      sprintf(c2err,"Each band/FIELD can be defined only once in REDCOV keys.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
+  } // end iband
+  
+
+  free(ptrSplit2[0]);      free(ptrSplit2[1]);
+  NREDCOV_FLUXERRMODEL++ ;
+
+  return ;
+
+} // end load_REDCOV_FLUXERRMODEL
+
+
+// ==========================================================
 void  parse_IGNORE_FLUXERRMAP(char *MAPLIST_IGNORE_DATAERR) {
 
   // parse input string for comma-separated list of MAP-NAMES
@@ -430,11 +598,11 @@ void  parse_IGNORE_FLUXERRMAP(char *MAPLIST_IGNORE_DATAERR) {
 
 
 // =========================================
-void printSummary_FLUXERRMAP(void) {
+void printSummary_FLUXERRMODEL(void) {
 
   int imap ;
   char NAME[60];
-  //  char fnam[] = "printSummary_FLUXERRMAP" ;
+  //  char fnam[] = "printSummary_FLUXERRMODEL" ;
   char dashLine[] = 
     "------------------------------------------------"
     "---------------------------" ;
@@ -465,7 +633,18 @@ void printSummary_FLUXERRMAP(void) {
   printf(" NINDEX_SPARSE_FLUXERRMAP = %d \n", NINDEX_SPARSE_FLUXERRMAP );
   fflush(stdout);
 
-} // end printSummary_FLUXERRMAP
+  // print reduced covariances (Jan 2020)
+  int NREDCOV = NREDCOV_FLUXERRMODEL ;
+  printf(" NREDCOV = %d  (number of reduced flux-cov)\n", NREDCOV);
+  for(imap=0; imap < NREDCOV; imap++ ) {
+    printf("\t Excess scatter %d: REDCOV(%s) = %6.3f  (FIELD=%s)\n", imap,
+	   COVINFO_FLUXERRMODEL[imap].BANDLIST, 
+	   COVINFO_FLUXERRMODEL[imap].REDCOV,
+	   COVINFO_FLUXERRMODEL[imap].FIELDGROUP    );
+  }
+  fflush(stdout);
+
+} // end printSummary_FLUXERRMODEL
 
 
 // =======================================================
@@ -479,7 +658,8 @@ int IVARLIST_FLUXERRMAP(char *varName) {
       { return(IVAR); }
   }
 
-  printf("\n PRE-ABORT DUMP: Valid variables for FLUXERRMAP: \n");
+  print_preAbort_banner(fnam);
+  printf("  Valid variables for FLUXERRMAP: \n");
   for(IVAR=0; IVAR < MXVAR_FLUXERRMAP; IVAR++ ) 
     { printf("\t %s \n", VARNAMES_FLUXERRMAP[IVAR] );  }
   
@@ -519,6 +699,8 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
   // what happens if some error corrections are not accounted for 
   // in the analysis.
   //
+  // Jan 22 2020: refactor to use INDEX_MAP_FLUXERRMODEL.
+
 
   int NMAP      = NMAP_FLUXERRMODEL; 
   int NSPARSE[MXMAP_FLUXERRMAP];
@@ -553,78 +735,57 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
   for(isp=0; isp<NINDEX_SPARSE_FLUXERRMAP; isp++ ) 
     { NSPARSE[isp] = 0 ; }
 
-  for(imap=0; imap < NMAP; imap++ ) {
-    MATCH_BAND = MATCH_FIELD = 0 ;
-
-    // check BAND match
-    tmpString = FLUXERRMAP[imap].BANDLIST ; 
-    if ( strcmp(tmpString,"ALL") == 0 ) 
-      { MATCH_BAND = 1; }
-    else
-      { if( strstr(tmpString,BAND)!=NULL)  { MATCH_BAND=1;}  }
+  imap = INDEX_MAP_FLUXERRMODEL(BAND, FIELD, fnam);
+  if ( imap < 0 ) { return ; }
     
-    if ( MATCH_BAND == 0 ) { continue ; }
+  // have valid map; increment number of times this MAPNAME is used.
+  isp = FLUXERRMAP[imap].INDEX_SPARSE ; 
+  NSPARSE[isp]++ ;
 
-    // check FIELD match
-    tmpString = FLUXERRMAP[imap].FIELDLIST ; 
-    if ( strcmp(tmpString,"ALL") == 0 ) 
-      { MATCH_FIELD = 1; }
-    else
-      { if( strstr(tmpString,FIELD)!=NULL)  { MATCH_FIELD=1;}  }
+  if ( NSPARSE[isp] > 1 ) {
+    sprintf(c1err,"%d FLUXERRMODEL maps for %s (BAND=%s, FIELD=%s)", 
+	    NSPARSE[isp], FLUXERRMAP[imap].NAME, BAND, FIELD );
+    sprintf(c2err,"Only 0 or 1 allowed per MAPNAME.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
 
-    if ( MATCH_FIELD == 0 ) { continue ; }
-
-    // have valid map; increment number of times this MAPNAME is used.
-    isp = FLUXERRMAP[imap].INDEX_SPARSE ; 
-    NSPARSE[isp]++ ;
-
-    if ( NSPARSE[isp] > 1 ) {
-      sprintf(c1err,"%d FLUXERRMODEL maps for %s (BAND=%s, FIELD=%s)", 
-	      NSPARSE[isp], FLUXERRMAP[imap].NAME, BAND, FIELD );
-      sprintf(c2err,"Only 0 or 1 allowed per MAPNAME.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  // load correct variables for this map
+  IDMAP = IDGRIDMAP_FLUXERRMODEL_OFFSET + imap ;
+  load_parList_FLUXERRMAP(imap, PARLIST, parList);
+  istat = interp_GRIDMAP( &FLUXERRMAP[imap].MAP, parList, &errModelVal);
+  
+  if ( LDMP || istat<0 ) {
+    char cparList[100] ;  cparList[0] = 0 ;
+    NVAR      = FLUXERRMAP[imap].NVAR ;
+    for(ivar=0; ivar < NVAR-1; ivar++ ) { 
+      IVAR      = FLUXERRMAP[imap].IVARLIST[ivar] ;
+      tmpString = FLUXERRMAP[imap].VARNAMES[ivar] ;
+      sprintf(cparList,"%s %s=%.3f", cparList, tmpString, parList[ivar] ); 
     }
-
-    // load correct variables for this map
-    IDMAP = IDGRIDMAP_FLUXERRMODEL_OFFSET + imap ;
-    load_parList_FLUXERRMAP(imap, PARLIST, parList);
-    istat = interp_GRIDMAP( &FLUXERRMAP[imap].MAP, parList, &errModelVal);
-
-    if ( LDMP || istat<0 ) {
-      char cparList[100] ;  cparList[0] = 0 ;
-      NVAR      = FLUXERRMAP[imap].NVAR ;
-      for(ivar=0; ivar < NVAR-1; ivar++ ) { 
-	IVAR      = FLUXERRMAP[imap].IVARLIST[ivar] ;
-	tmpString = FLUXERRMAP[imap].VARNAMES[ivar] ;
-	sprintf(cparList,"%s %s=%.3f", cparList, tmpString, parList[ivar] ); 
-      }
-      printf(" xxx imap=%2d  %s(%s-%s)  MJD=%.3f  FLUXERR_IN=%.3f\n", 
-	     imap, FLUXERRMAP[imap].NAME, FIELD, BAND,
-	     PARLIST[IPAR_FLUXERRMAP_MJD],  FLUXERR_IN) ;
-      printf(" xxx     %s  :  errModelVal=%.3f\n", 
-	     cparList, errModelVal);
-      fflush(stdout) ;
-    }
-   
-    if ( istat < 0 ) {
-      sprintf(c1err,"Cannot interpolate FLUXERRMAP");
-      sprintf(c2err,"Need to extend range of map.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-    }
-
-    MASK_APPLY = FLUXERRMAP[imap].MASK_APPLY ;
-    if ( ( MASK_APPLY & MASK_APPLY_SIM_FLUXERRMAP)> 0 ) {
-      FLUXERR_TMP  = *FLUXERR_SIM ;
-      *FLUXERR_SIM = apply_FLUXERRMODEL(imap, errModelVal, FLUXERR_TMP);
-    }
-    if ( ( MASK_APPLY & MASK_APPLY_DATA_FLUXERRMAP)> 0 ) {
-      FLUXERR_TMP   = *FLUXERR_DATA ;
-      *FLUXERR_DATA = apply_FLUXERRMODEL(imap, errModelVal, FLUXERR_TMP);
-    }
-
-
-  } // end imap loop
-
+    printf(" xxx imap=%2d  %s(%s-%s)  MJD=%.3f  FLUXERR_IN=%.3f\n", 
+	   imap, FLUXERRMAP[imap].NAME, FIELD, BAND,
+	   PARLIST[IPAR_FLUXERRMAP_MJD],  FLUXERR_IN) ;
+    printf(" xxx     %s  :  errModelVal=%.3f\n", 
+	   cparList, errModelVal);
+    fflush(stdout) ;
+  }
+  
+  if ( istat < 0 ) {
+    sprintf(c1err,"Cannot interpolate FLUXERRMAP");
+    sprintf(c2err,"Need to extend range of map.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+  
+  MASK_APPLY = FLUXERRMAP[imap].MASK_APPLY ;
+  if ( ( MASK_APPLY & MASK_APPLY_SIM_FLUXERRMAP)> 0 ) {
+    FLUXERR_TMP  = *FLUXERR_SIM ;
+    *FLUXERR_SIM = apply_FLUXERRMODEL(imap, errModelVal, FLUXERR_TMP);
+  }
+  if ( ( MASK_APPLY & MASK_APPLY_DATA_FLUXERRMAP)> 0 ) {
+    FLUXERR_TMP   = *FLUXERR_DATA ;
+    *FLUXERR_DATA = apply_FLUXERRMODEL(imap, errModelVal, FLUXERR_TMP);
+  }
+  
 
   if ( LDMP ) {
     printf(" xxx FLUXERR[IN,SIM,DATA] = %.3f, %.3f, %.3f \n",
@@ -646,6 +807,121 @@ void  get_fluxerrmodel__(int *OPT, double *FLUXERR_IN, char *BAND, char *FIELD,
   get_FLUXERRMODEL(*OPT, *FLUXERR_IN, BAND, FIELD, *NPAR, PARLIST,
 		   FLUXERR_GEN, FLUXERR_DATA);
 }
+
+
+// =========================================================
+void set_FIELDLIST_FLUXERRMODEL(char *FIELDGROUP, char *FIELDLIST) {
+
+  // Created Jan 22 2020
+  // For input FIELDGROUP, set ouptut FIELDLIST
+  // Note that FIELDLIST is not initialized here, so if there
+  // is no FIELDGROUP match, then input FIELDLIST is not modified.
+  //
+  int igroup ;
+  char *tmp_FIELDGROUP, *tmp_FIELDLIST;
+  
+
+  for (igroup=0; igroup < FLUXERR_FIELDGROUP.NDEFINE; igroup++ ) {
+    tmp_FIELDGROUP  = FLUXERR_FIELDGROUP.NAME[igroup] ;
+    tmp_FIELDLIST   = FLUXERR_FIELDGROUP.FIELDLIST[igroup] ;
+    if ( strcmp(tmp_FIELDGROUP,FIELDGROUP) == 0 ) 
+      { sprintf(FIELDLIST, "%s", tmp_FIELDLIST); }
+  }
+
+} // end set_FIELDLIST_FLUXERRMODEL
+
+// =====================================================
+int INDEX_MAP_FLUXERRMODEL(char *BAND, char *FIELD, char *FUNCALL) {
+
+  // Created Jan 22, 2020
+  // For input BAND and FIELD, return index of map for FLUXERRMODEL.
+  // FUNCALL is calling function, and used only for error message.
+
+  int NMAP = NMAP_FLUXERRMODEL; 
+  int  imap, IMAP=-9, NMATCH=0 ;
+  bool MATCH_BAND, MATCH_FIELD;
+  char *tmpString ;
+  char fnam[] = "INDEX_MAP_FLUXERRMODEL" ;
+
+  // ------------ BEGIN ---------
+
+  for(imap=0; imap < NMAP; imap++ ) {
+    MATCH_BAND = MATCH_FIELD = false ;
+
+    // check BAND match
+    tmpString = FLUXERRMAP[imap].BANDLIST ; 
+    if ( strcmp(tmpString,ALL_STRING) == 0 ) 
+      { MATCH_BAND = true ; }
+    else
+      { if( strstr(tmpString,BAND)!=NULL)  { MATCH_BAND=true;}  }
+    
+    if ( !MATCH_BAND ) { continue ; }
+
+    // check FIELD match
+    tmpString = FLUXERRMAP[imap].FIELDLIST ; 
+    if ( strcmp(tmpString,ALL_STRING) == 0 ) 
+      { MATCH_FIELD = true; }
+    else
+      { if( strstr(tmpString,FIELD)!=NULL)  { MATCH_FIELD=true;}  }
+
+    if ( !MATCH_FIELD ) { continue ; }
+
+    NMATCH++; IMAP=imap;
+  }
+
+  if ( NMATCH > 1 ) {
+    sprintf(c1err,"Invalid NMATCH=%d for BAND=%s and FIELD=%s",
+	    NMATCH, BAND, FIELD);
+    sprintf(c2err,"Calling function is %s", FUNCALL);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+  
+  return(IMAP) ;
+
+} // end INDEX_MAP_FLUXERRMODEL
+
+// ==========================================================
+int INDEX_REDCOV_FLUXERRMODEL(char *BAND, char *FIELD, int OPT_FIELD,
+			      char *FUNCALL) {
+
+  // Return index of REDCOV map for input BAND and FIELD.
+  // OPT_FIELD=1 -> check FIELDGROUP (e.g., DEEP, SHALLOW, etc...)
+  // OPT_FIELD=2 -> check FIELDLIST (e.g., C3+X3, S1+S2, etc ...)
+  //
+  // FUNCALL is the calling function, and used only for error message.
+
+  int NREDCOV = NREDCOV_FLUXERRMODEL ;
+  int INDEX   = -9, NMATCH=0, i ;
+  bool MATCH_BAND, MATCH_FIELD, ALL_FIELD ;
+  char *tmp_FIELD, *tmp_BANDLIST ;
+  char fnam[] = "INDEX_REDCOV_FLUXERRMODEL" ;
+
+  // --------------- BEGIN ----------------
+
+  for(i=0; i < NREDCOV; i++ ) {
+
+    if ( OPT_FIELD == 1 ) 
+      { tmp_FIELD    = COVINFO_FLUXERRMODEL[i].FIELDGROUP ; }
+    else
+      { tmp_FIELD    = COVINFO_FLUXERRMODEL[i].FIELDLIST ; }
+
+    tmp_BANDLIST = COVINFO_FLUXERRMODEL[i].BANDLIST ;
+    ALL_FIELD    = COVINFO_FLUXERRMODEL[i].ALL_FIELD ;
+    MATCH_BAND   = ( strstr(tmp_BANDLIST,BAND) != NULL );
+    MATCH_FIELD  = ( strstr(tmp_FIELD,FIELD)   != NULL || ALL_FIELD );
+    if ( MATCH_BAND && MATCH_FIELD )  { INDEX = i; NMATCH++ ; }
+  }
+
+  if ( NMATCH > 1 ) {
+    sprintf(c1err,"Invalid NMATCH=%d for BAND=%s and FIELD=%s",
+	    NMATCH, BAND, FIELD);
+    sprintf(c2err,"Calling function is %s", FUNCALL);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  return(INDEX) ;
+
+} // end of INDEX_REDCOV_FLUXERRMODEL
 
 
 // =========================================================

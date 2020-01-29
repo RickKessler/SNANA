@@ -150,6 +150,7 @@ void read_spectrograph_text(char *inFile) {
   INPUTS_SPECTRO.TEXPOSE_MIN = INPUTS_SPECTRO.TEXPOSE_MAX = -9.0 ;
 
   NERR_SNR_SPECTROGRAPH = 0 ;
+  NERR_BADSNR_SPECTROGRAPH = 0 ;
 
   NKEY_FOUND = DONE_MALLOC = 0 ;
   for(ikey=0; ikey < NKEY_REQ_SPECTROGRAPH; ikey++ ) 
@@ -205,7 +206,7 @@ void read_spectrograph_text(char *inFile) {
     if ( strcmp(c_get,"SPECBIN:") == 0 ) {
 
       if ( NKEY_FOUND < NKEY_REQ_SPECTROGRAPH ) { 
-	printf("\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);
 	for(ikey=0; ikey < NKEY_REQ_SPECTROGRAPH; ikey++ ) {
 	  printf("   Required header key:  '%s'   (FOUND=%d) \n", 
 		 KEYREQ_LIST[ikey], KEYFLAG_FOUND[ikey] );
@@ -226,6 +227,12 @@ void read_spectrograph_text(char *inFile) {
   if ( NERR_SNR_SPECTROGRAPH > 0 ) {
     sprintf(c1err,"Found %d errors for which", NERR_SNR_SPECTROGRAPH);
     sprintf(c2err,"SNR(Texpose) is NOT monotically increasing");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  if ( NERR_BADSNR_SPECTROGRAPH > 0 ) {
+    sprintf(c1err,"Found %d SNR<=0 errors.", NERR_BADSNR_SPECTROGRAPH);
+    sprintf(c2err,"Check spectrograph table.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -312,7 +319,7 @@ int read_SPECBIN_spectrograph(FILE *fp) {
   for(t=0; t < NBT; t++ ) {
     INPUTS_SPECTRO.SNR0[NBL][t]  = XTMP[jtmp] ;  jtmp++ ;
     INPUTS_SPECTRO.SNR1[NBL][t]  = XTMP[jtmp] ;  jtmp++ ;
-    NERR_SNR_SPECTROGRAPH += check_SNR_SPECTROGRAPH(NBL,t);
+    check_SNR_SPECTROGRAPH(NBL,t);
   }
   NBL++ ;  
   INPUTS_SPECTRO.NBIN_LAM = NBL ;
@@ -330,7 +337,7 @@ int read_SPECBIN_spectrograph(FILE *fp) {
 
 
 // ========================================================
-int check_SNR_SPECTROGRAPH(int l, int t) {
+void check_SNR_SPECTROGRAPH(int l, int t) {
 
   // make sure that SNR(t) is increasing, where
   // t = TEXPOSURE index
@@ -343,7 +350,10 @@ int check_SNR_SPECTROGRAPH(int l, int t) {
 
   // ---------------BEGIN ----------
 
-  if ( t == 0 ) { return(0) ;}
+  if ( t == 0 ) { return ;}
+
+  if ( INPUTS_SPECTRO.SNR0[l][t] <= 0.0  ) { NERR_BADSNR_SPECTROGRAPH++ ; }
+  if ( INPUTS_SPECTRO.SNR1[l][t] <= 0.0  ) { NERR_BADSNR_SPECTROGRAPH++ ; }
 
   if ( INPUTS_SPECTRO.SNR0[l][t] < INPUTS_SPECTRO.SNR0[l][t-1] ) {
     printf("\n# - - - - - - - - - - - - - - - - - - - - - - - - -\n");
@@ -356,7 +366,7 @@ int check_SNR_SPECTROGRAPH(int l, int t) {
     sprintf(c1err,"SNR0 is not monotonic");
     sprintf(c2err,"Check SPECTROGRAPH table");
     errmsg(SEV_WARN, 0, fnam, c1err, c2err); 
-    return(1);
+    NERR_SNR_SPECTROGRAPH++ ;
   }
 
   if ( INPUTS_SPECTRO.SNR1[l][t] < INPUTS_SPECTRO.SNR1[l][t-1] ) {
@@ -370,10 +380,10 @@ int check_SNR_SPECTROGRAPH(int l, int t) {
     sprintf(c1err,"SNR1 is not monotonic");
     sprintf(c2err,"Check SPECTROGRAPH table");
     errmsg(SEV_WARN, 0, fnam, c1err, c2err); 
-    return(1);
+    NERR_SNR_SPECTROGRAPH++ ;
   }
 
-  return(0)
+  return ;
 ;
 } // end check_SNR_SPECTROGRAPH
 
@@ -556,7 +566,7 @@ void  solve_spectrograph(void) {
       //      if ( t == 0 ) { TOP = 2.0; BOT=1.0; } // xxxx REMOVE
 
       if ( TOP <= 0.0 || BOT <= 0.0 ) {
-	printf("\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);
 	printf("\t BOT = %le  and  TOP = %le\n", BOT, TOP);
 	printf("\t BOT = (%le)^2 - (%le)^2 \n", DUM0, DUM1);
 	printf("\t TOP = %le - %le \n", POWMAG[0], POWMAG[1]);
@@ -583,7 +593,7 @@ void  solve_spectrograph(void) {
       }
 
       if ( check[0] > 0.001  ||  check[1] > 0.001 ) {
-	printf("\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);
 	printf("   SNR0(input/check) = %f/%f = %f \n",
 	       SNR[0], SNR_check[0], SNR[0]/SNR_check[0] );
 	printf("   SNR1(input/check) = %f/%f = %f \n",

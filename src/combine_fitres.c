@@ -49,6 +49,9 @@
 
   >  combine_fitres.exe <fitres1>  -mxrow 50000
 
+  >  combine_fitres.exe  <fitres1> -zcut <zmin> <zmax>
+         [cut on zHD]
+
   >  combine_fitres.exe <fitres1> <fitres2> .. T   ! [outPrefix].TEXT
   >  combine_fitres.exe <fitres1> <fitres2> .. t   ! [outPrefix].text
       (create only text output; disable default hbook output)
@@ -92,6 +95,14 @@
    To revert back to slow matching method,
       combine_fitres.exe <argList>  -matchflag 1
    Beware of significant refactor.
+
+  Jan 16 2020: 
+    + implement -mxrow (was read, but not implemented)
+    + new input -zcut <zmin> <zmax>
+  Jan 23 2020
+    + abort if NEVT_APPROX > MXSN
+    + USEDCID -> bool instead of short int.
+    + MXSN -> 5M (was 2M)
 
 ******************************/
 
@@ -142,7 +153,7 @@ int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
 
 
 #define MXFFILE  20       // max number of fitres files to combine
-#define MXSN     2000000   // max SN to read per fitres file
+#define MXSN     5000000   // max SN to read per fitres file
 #define MXVAR_PERFILE  50  // max number of NTUP variables per file
 #define MXVAR_TOT  MXVAR_TABLE     // max number of combined NTUP variables
 #define INIVAL_COMBINE  -888.0
@@ -164,6 +175,7 @@ int NVARSTR_FILE[MXFFILE]; // number of variables that are string
 // See ICAST_FITRES[D,F,I,C] parameters in sntools.h
 int ICAST_FITRES_COMBINE[MXVAR_TOT]; 
 
+int NWRITE_SNTABLE ;
 
 // for SNtable
 #define  TABLEID_COMBINE   TABLEID_FITRES
@@ -180,6 +192,8 @@ struct INPUTS {
   char OUTFILE_TEXT[MXPATHLEN] ;
   int  MXROW_READ ;
   int  MATCHFLAG ;
+  double CUTWIN_zHD[2];
+  int    DOzCUT;
 } INPUTS ;
 
 
@@ -198,10 +212,10 @@ char  suffix_text[8]  =   "text" ;
 char *ptrSuffix_hbook = suffix_hbook ; // default is lower case, unless H
 char *ptrSuffix_root  = suffix_root ;
 char *ptrSuffix_text  = suffix_text ;
-
-short int USEDCID[MXSN];
+bool USEDCID[MXSN];
 
 int IVARSTR_STORE[MXVAR_TOT] ; // keep track of string vars
+int IVAR_zHD;
 
 int NLIST_FIRST_FITRES ;   // number of SN in 1st fitres file
 int NLIST2_FITRES ;        // idem for 2nd, 3rd, etc ...
@@ -219,7 +233,7 @@ struct FITRES_VALUES {
   char  ***STR_ALL ;  // string values for all files [ivar][isn]
   char  ***STR_TMP ;  // string values for current file
 
-  float  **FLT_ALL ;  // values for all files  [ivar][isn]
+  float  **FLT_ALL ;  // float values for all files  [ivar][isn]
   float  **FLT_TMP ;  // idem for 1 file
 
 } FITRES_VALUES ;
@@ -289,7 +303,7 @@ int main(int argc, char **argv) {
 
   WRITE_SNTABLE() ;
 
-  printf("   Done. \n");
+  printf("   Done writing %d events. \n", NWRITE_SNTABLE );
   fflush(stdout);
 
   return(0);
@@ -312,6 +326,9 @@ void  PARSE_ARGV(int argc, char **argv) {
   INPUTS.MXROW_READ   = 1000000000 ;
   INPUTS.MATCHFLAG    = MATCHFLAG_HASH ; // MATCHFLAG_ORIG;
   INPUTS.OUTFILE_TEXT[0]  = 0 ;
+  INPUTS.CUTWIN_zHD[0] = -9.0 ;  
+  INPUTS.CUTWIN_zHD[1] = +9.0 ; 
+  INPUTS.DOzCUT = 0 ;
   sprintf(INPUTS.OUTPREFIX_COMBINE, "combine_fitres" );
 
   for ( i = 1; i < NARGV_LIST ; i++ ) {
@@ -346,8 +363,15 @@ void  PARSE_ARGV(int argc, char **argv) {
       continue ;
     }
 
+    if ( strcmp(argv[i],"-zcut") == 0 ) {
+      i++ ; sscanf(argv[i], "%le", &INPUTS.CUTWIN_zHD[0] );
+      i++ ; sscanf(argv[i], "%le", &INPUTS.CUTWIN_zHD[1] );
+      INPUTS.DOzCUT = 1; 
+      continue ;
+    }
+
     if ( strcmp_ignoreCase(argv[i],"r") == 0 ) { 
-      CREATEFILE_ROOT = 1;  
+      CREATEFILE_ROOT = 1;
       if (CREATEFILE_HBOOK==1) {CREATEFILE_HBOOK=0;}  // root on, hbook off
       if ( strcmp(argv[i],"R")==0 ) { ptrSuffix_root = SUFFIX_ROOT ; }
       continue ;
@@ -427,6 +451,7 @@ void INIT_TABLEVAR(void) {
   NLIST_FIRST_FITRES = NLIST2_FITRES = 0 ;
 
   IFILE_FIRST_SNANA = -9;
+  IVAR_zHD = -9;
 
 } // end INIT_TABLEVAR
 
@@ -466,9 +491,7 @@ void ADD_FITRES(int ifile) {
 
   // ----------- BEGIN -----------
 
-
   printf("\n --------------------- %s -------------------------\n", fnam );
-
 
   // open file & read header; use generic table name SNTABLE
   // since for ascii files the table name is not used.
@@ -504,10 +527,15 @@ void ADD_FITRES(int ifile) {
 
   // get approx number of SN for memory allocation
 
-  NEVT_APPROX = SNTABLE_NEVT_APPROX_TEXT(INPUTS.FFILE[ifile], NVARALL);
+  // NEVT_APPROX = SNTABLE_NEVT_APPROX_TEXT(INPUTS.FFILE[ifile], NVARALL);
+  NEVT_APPROX = SNTABLE_NEVT_TEXT(INPUTS.FFILE[ifile]);
 
-  if ( NEVT_APPROX >= MXSN-1 ) { NEVT_APPROX = MXSN-1 ; }
-
+  if ( NEVT_APPROX >= MXSN-1 ) { 
+    sprintf(c1err,"NEVT_APPROX=%d exceeds MXSN=%d", NEVT_APPROX, MXSN);
+    sprintf(c2err,"Probably need to increase MXSN");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    //     NEVT_APPROX = MXSN-1 ; 
+  }
 
   // if 2nd file is much smaller, avoid too small malloc
   if ( ifile > 0 && NEVT_APPROX < NLIST_FIRST_FITRES ) 
@@ -526,15 +554,17 @@ void ADD_FITRES(int ifile) {
   NVARALL_FITRES_LAST = NVARALL_FITRES ;
   NVARSTR_FITRES_LAST = NVARSTR_FITRES ;
 
-
   for ( ivar=0; ivar < NVARALL; ivar++ ) {
 
     // don't duplicate FIELD (Dec 8 2014)
-    if ( SKIP_VARNAME(ifile, ivar) ) { continue ; }
+    if ( SKIP_VARNAME(ifile,ivar) ) { continue ; }
 
     // get VARNAME and ICAST
     VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
     ICAST   = READTABLE_POINTERS.ICAST_STORE[ivar] ;
+
+    
+    if ( ifile==0 && strcmp(VARNAME,"zHD") == 0 ) { IVAR_zHD = ivar; }
 
     // Sep 19 2019: make sure first column is CID
     // xxx mark delete if ( ivar == IVARSTR_CCID && strstr(VARNAME,"CID") == NULL ) {
@@ -627,6 +657,14 @@ void ADD_FITRES(int ifile) {
 
   fflush(stdout);
 
+  /*
+  if ( ifile==0 && IVAR_zHD < 0 ) {
+    sprintf(c1err,"Cannot apply cut on zHD (%.2f to %.2f).",
+	    INPUTS.CUTWIN_zHD[0], INPUTS.CUTWIN_zHD[1] );
+    sprintf(c2err,"Could not find zHD column.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  */
 
   // free temp arrays
   freeVar_TMP(ifile, NVARALL, NVARSTR, NEVT_APPROX);
@@ -666,7 +704,7 @@ int match_CID_orig(int ifile, int isn2) {
 
     sprintf(ccid,"%s", FITRES_VALUES.STR_ALL[IVARSTR_CCID][isn] );
     if ( strcmp(ccid,ccid2) == 0 ) {
-      USEDCID[isn] = 1;
+      USEDCID[isn] = true ;
       return(isn);
     }
   }
@@ -899,7 +937,7 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
     FITRES_VALUES.FLT_ALL[IVAR_ALL] = (float  *)malloc(MEMF);    
 
     for ( isn=0; isn < MAXLEN; isn++ ) {
-      USEDCID[isn] = 0 ;
+      USEDCID[isn] = false ;
       FITRES_VALUES.FLT_TMP[ivar][isn]     = INIVAL_COMBINE ;
       FITRES_VALUES.FLT_ALL[IVAR_ALL][isn] = INIVAL_COMBINE ;
     }
@@ -1005,9 +1043,10 @@ void WRITE_SNTABLE(void) {
     ,openOpt[40], CCIDint[40]
     ;
 
+  double zHD;
   int GZIPFLAG = 0 ;
   int ivar, ivarstr, isn, IERR, ICAST, CIDint ;
-  int IFILETYPE, NOUT ;
+  int IFILETYPE, NOUT, out, SKIP ;
 
   // char  fnam[] = "WRITE_SNTABLE" ;
   // --------------- BEGIN ------------
@@ -1015,6 +1054,8 @@ void WRITE_SNTABLE(void) {
   IERR = -9 ;
   NOUT = 0 ;
   OUTFILE[NOUT][0] = 0 ;
+  NWRITE_SNTABLE = 0 ;
+
 
 #ifdef USE_HBOOK
   if (CREATEFILE_HBOOK)  { 
@@ -1049,7 +1090,6 @@ void WRITE_SNTABLE(void) {
     NOUT++ ;
   }
 #endif
-
 
   printf("\n   Create combined SNTable with %d variables \n", 
 	 NVAR_WRITE_COMBINED );
@@ -1109,6 +1149,12 @@ void WRITE_SNTABLE(void) {
   printf("   Fill combined table with %d rows ... \n", NLIST_FIRST_FITRES );
   fflush(stdout);
 
+  if ( INPUTS.DOzCUT ) {
+    printf("\n ONLY WRITE EVENTS with %.3f < zHD < %.3f \n\n",
+	   INPUTS.CUTWIN_zHD[0], INPUTS.CUTWIN_zHD[1] );
+    fflush(stdout);
+  }
+
   for ( isn = 0; isn < NLIST_FIRST_FITRES ; isn++ ) {
 
     TABLEROW_VALUES.CIDint = -999;
@@ -1146,12 +1192,28 @@ void WRITE_SNTABLE(void) {
       
     } // ivar
 
+    SKIP = 0 ;
+    if ( INPUTS.DOzCUT ) {
+      zHD = TABLEROW_VALUES.FLT[IVAR_zHD];
+      if ( zHD < INPUTS.CUTWIN_zHD[0] ) { SKIP = 1; }
+      if ( zHD > INPUTS.CUTWIN_zHD[1] ) { SKIP = 1; }
+    }
+    if ( SKIP ) { continue ; }
+
+    NWRITE_SNTABLE++ ;
     SNTABLE_FILL(TABLEID_COMBINE);
 
+    // Jan 2020: stop of -mxrow
+    if ( isn >= INPUTS.MXROW_READ-1 ) {
+      printf("\n\t STOP AFTER WRITING %d ROWS. \n\n", isn);
+      fflush(stdout);  goto DONE_FILL ;
+    }
+    
   } // isn
 
+ DONE_FILL:
+
   // close it
-  int out;
   for(out=0; out < NOUT; out++ ) 
     { TABLEFILE_CLOSE(OUTFILE[out]);  }
 

@@ -52,6 +52,8 @@
 //    so better to use EPOCH table from ROOT or HBOOK file.
 //    Bottom line is no change.
 //
+// Dec 19 2019: for sims, write SIM_FLUXCAL column to LCPLOT file.
+//
 // **********************************************
 
 char FILEPREFIX_TEXT[100];
@@ -353,7 +355,7 @@ void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR,
   TBNAME = TABLEINFO_TEXT.TBNAME[ITAB] ;
 
   if ( ITAB < 0 ) {
-    printf("\n PRE-ABORT DUMP: \n");
+    print_preAbort_banner(fnam);
     printf("   VARLIST_ORIG = '%s' \n", ADDCOL_VARDEF->VARLIST_ORIG);
     printf("   NVAR = %d \n", ADDCOL_VARDEF->NVAR );
     sprintf(MSGERR1, "Could not find text table with ");
@@ -382,7 +384,7 @@ void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR,
     // check varlist bound
     LENV = strlen(varList) + strlen(VARNAME) + 1 ;
     if ( LENV >= MXCHAR_LINE ) {
-      printf("\n PRE-ABORT DUMP: \n");
+      print_preAbort_banner(fnam);
       printf(" varList = '%s' \n", varList);
       printf(" VARNAME to add: '%s' \n", VARNAME);
       sprintf(MSGERR1, "len(VARLIST)=%d exceeds bound of %d",
@@ -862,6 +864,13 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   sprintf(VARDEF_SNLC[NVAR],  "MJD-PKMJD");
   NVAR++ ;
 
+
+  if ( SNLCPAK_OUTPUT.SIMFLAG ) {  // Dec 2019
+    sprintf(VARNAME_SNLC[NVAR], "SIM_FLUXCAL" );  
+    sprintf(VARDEF_SNLC[NVAR],  "true flux"   );
+    NVAR++ ;
+  }
+
   sprintf(VARNAME_SNLC[NVAR], "FLUXCAL" );  
   sprintf(VARDEF_SNLC[NVAR],  "calibrated flux");
   NVAR++ ;
@@ -906,6 +915,14 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
 
   sprintf(VARNAME_SNLC[NVAR], "FLUX_REST" );   
   sprintf(VARDEF_SNLC[NVAR],  "optional rest-frame flux");
+  NVAR++ ;
+
+  sprintf(VARNAME_SNLC[NVAR], "KCOR" );   
+  sprintf(VARDEF_SNLC[NVAR],  "optional kcor");
+  NVAR++ ;
+
+  sprintf(VARNAME_SNLC[NVAR], "AVWARP" );   
+  sprintf(VARDEF_SNLC[NVAR],  "optional AVwarp");
   NVAR++ ;
 
   sprintf(VARNAME_SNLC[NVAR], "SIM_FLUX_REST" ); 
@@ -1452,7 +1469,7 @@ void SNLCPAK_WRITE_HEADER_TEXT(FILE *fp) {
   NOBS_SIMREST = SNLCPAK_OUTPUT.NOBS[SNLCPAK_EPFLAG_SIMFLUXREST] ;
 
   NVAR = NVAR_LCPLOT_REQ ;
-  if ( NOBS_REST    > 0 ) { NVAR +=2 ; }
+  if ( NOBS_REST    > 0 ) { NVAR +=4 ; }
   if ( NOBS_SIMREST > 0 ) { NVAR +=1 ; }
 
   if ( OPT_FORMAT == OPT_FORMAT_COL ) {
@@ -1490,18 +1507,23 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
   //  obs     : epoch/obs index
   //  ifilt   : sparse filter index
   //  OUTFLAG : 1->data, 0->best-fit, -1->rejected data
+  //
+  // Dec 19 2019: write SIM_FLUXCAL for sim
+  // Jan 23 2020: write KCOR and AVWARP (for rest-frame model only)
+  //
+  int ISFIT       = ( FLAG == SNLCPAK_EPFLAG_FITFUN    ) ;
+  int ISDATA      = ( FLAG == SNLCPAK_EPFLAG_FLUXDATA  ) ;
+  int NOBS_FITFUN = SNLCPAK_OUTPUT.NOBS[SNLCPAK_EPFLAG_FITFUN];
 
-  int NOBS_FITFUN, ISFIT, IFILT_REST, NOBS_REST, NOBS_SIMREST, flag ;
+  int IFILT_REST, NOBS_REST, NOBS_SIMREST, flag ;
   int OPT_FORMAT ;
-  double chi2,  FLUX_REST, ERRCALC ;
+  double chi2,  FLUX_REST, KCOR, AVWARP, ERRCALC, SIM_FLUXCAL ;
   char BAND[2], BAND_REST[2], sep[4], comment[200], LINE[400], CVAL[80];
 
   char fnam[] = "snlcpak_textLine" ;
 
   // ------------ BEGIN --------------
 
-  ISFIT       = ( FLAG == SNLCPAK_EPFLAG_FITFUN    ) ;
-  NOBS_FITFUN = SNLCPAK_OUTPUT.NOBS[SNLCPAK_EPFLAG_FITFUN];
 
   if ( NOBS_FITFUN == 0 || ISFIT ) 
     { chi2 = 0.0 ; }
@@ -1530,6 +1552,16 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
 
   sprintf(CVAL,"%s %7.2f", sep, SNLCPAK_OUTPUT.TOBS[FLAG][obs] );
   strcat(LINE,CVAL);
+
+  
+  if ( SNLCPAK_OUTPUT.SIMFLAG ) {
+    int EPFLAG_SIM = SNLCPAK_EPFLAG_FLUXSIM ;
+    SIM_FLUXCAL = 0.0 ;
+    if ( ISDATA ) { SIM_FLUXCAL = SNLCPAK_OUTPUT.EPDATA[EPFLAG_SIM][obs]; }
+    sprintf(CVAL,"%s %11.4le", sep, SIM_FLUXCAL );
+    strcat(LINE,CVAL);    
+  }
+
 
   sprintf(CVAL,"%s %11.4le", sep, SNLCPAK_OUTPUT.EPDATA[FLAG][obs] );
   strcat(LINE,CVAL);
@@ -1570,7 +1602,9 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
 
     // default is no rest-frame info
     FLUX_REST  = -999. ;
-    IFILT_REST = - 9;
+    KCOR       = -99. ;
+    AVWARP     = -99. ;
+    IFILT_REST = -9;
     sprintf(BAND_REST, "!" );
     
     if ( OUTFLAG == 1 )   {  
@@ -1580,11 +1614,15 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
 
     if ( OUTFLAG == 1 && IFILT_REST > 0 ) {
       // rest info for each data point used in fit
-      FLUX_REST  = SNLCPAK_OUTPUT.EPDATA[flag][obs];
+      FLUX_REST  = SNLCPAK_OUTPUT.EPDATA[SNLCPAK_EPFLAG_FLUXREST][obs];
+      KCOR   = SNLCPAK_OUTPUT.EPDATA[SNLCPAK_EPFLAG_KCOR][obs];
+      AVWARP = SNLCPAK_OUTPUT.EPDATA[SNLCPAK_EPFLAG_AVWARP][obs];
       sprintf(BAND_REST, "%c", FILTERSTRING[IFILT_REST] );
     }
 
-    sprintf(CVAL,"%s  %s%s %.5le",  sep, BAND_REST, sep, FLUX_REST);    
+    //    sprintf(CVAL,"%s  %s%s %.5le",  sep, BAND_REST, sep, FLUX_REST);    
+    sprintf(CVAL,"%s  %s%s %.5le%s %.3f%s %.3f",  
+	    sep, BAND_REST, sep, FLUX_REST, sep,KCOR, sep, AVWARP);    
     strcat(LINE,CVAL);
 
   }  // NOBS_REST
@@ -1613,6 +1651,7 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
   fprintf(fp,"%s\n", LINE );
   fflush(fp);
 
+  return ;
 
 }  // end of snlcpak_textLine
 

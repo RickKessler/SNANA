@@ -179,7 +179,8 @@ struct SNDATA {
   int   NXPIX, NYPIX;
   int   CCDNUM[MXEPOCH] ;
 
-  int    USE_EPOCH[MXEPOCH];      // SNDATA.NOBS = sum of these
+  bool   OBSFLAG_WRITE[MXEPOCH];
+  // xxx mark dele int USE_EPOCH[MXEPOCH];      // SNDATA.NOBS = sum of these
   double MJD[MXEPOCH];            // MJD for each epoch
 
   char  MAGTYPE[20];   // LOG10 or ASINH

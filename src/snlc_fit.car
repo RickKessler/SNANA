@@ -1627,7 +1627,7 @@ c rest-frame init
          IF( NKCOR_STORE .EQ. 0 ) THEN
            c1err = 'Cannot fit rest-frame model ' 
      &          // FITMODEL_NAME(1:40)
-           c2err = 'with no K-cor tables. Check HFILE_KCOR.'
+           c2err = 'with no K-cor tables. Check KCOR_FILE.'
            CALL MADABORT("FITPAR_INI", c1err, c2err)
          ENDIF
 
@@ -2436,6 +2436,7 @@ C ================================================
       LOGICAL FUNCTION CRAZYFITERR(isn,iter)
 
 c Returns TRUE if a crazy fit error is identified.
+c Jan 28 2020: check for crazy-small errors too, only if floated.
 
       IMPLICIT NONE
 +CDE,SNDATCOM. 
@@ -2446,7 +2447,7 @@ c Returns TRUE if a crazy fit error is identified.
 
       INTEGER ISN, ITER ! (I) ! SN index & fit-iteration
       REAL ERR_COLOR, ERR_SHAPE, ERR_DIST, ERR_PKMJD
-      LOGICAL LNAN
+      LOGICAL LNAN, FLOAT_COLOR, FLOAT_SHAPE, FLOAT_DIST, FLOAT_PKMJD
 
 C --------------- BEGIN ----------------
 
@@ -2456,6 +2457,11 @@ C --------------- BEGIN ----------------
       ERR_SHAPE =  FITERR(IPAR_SHAPE,ITER)  
       ERR_DIST  =  FITERR(IPAR_DLMAG,ITER)  
       ERR_PKMJD =  FITERR(IPAR_PEAKMJD,ITER)
+
+      FLOAT_COLOR = FLOATPAR(IPAR_COLOR)
+      FLOAT_SHAPE = FLOATPAR(IPAR_SHAPE)
+      FLOAT_DIST  = FLOATPAR(IPAR_DLMAG)
+      FLOAT_PKMJD = FLOATPAR(IPAR_PEAKMJD)
 
 c xxxxxxxxxxxxxxxxxxx
 c      print*, ' xxx '
@@ -2492,10 +2498,22 @@ c ------------------------
 c last fit iteration
 
       CRAZYFITERR = .TRUE.
-      IF ( ERR_COLOR   > 3.  ) RETURN
-      IF ( ERR_SHAPE   > 3.  ) RETURN
-      IF ( ERR_DIST    > 3.  ) RETURN
-      IF ( ERR_PKMJD   > 10. ) RETURN
+      IF ( FLOAT_COLOR ) THEN
+        IF ( ERR_COLOR > 3.0  .or. ERR_COLOR < 1.0E-8  ) RETURN
+      ENDIF
+
+      IF ( FLOAT_SHAPE ) THEN
+        IF ( ERR_SHAPE > 3.0  .or. ERR_SHAPE < 1.0E-8  ) RETURN
+      ENDIF
+
+      IF ( FLOAT_DIST ) THEN
+        IF ( ERR_DIST  > 3.0  .or. ERR_DIST  < 1.0E-15 ) RETURN
+      ENDIF
+
+      IF ( FLOAT_PKMJD ) THEN
+        IF ( ERR_PKMJD > 10.0 .or. ERR_PKMJD < 1.0E-8  ) RETURN
+      ENDIF
+
       CRAZYFITERR = .FALSE.
 
       RETURN
@@ -3059,7 +3077,8 @@ c TMP_FITMODEL has the special end-string char(0) need for C functions.
 
 c turn on covariance model by default, 
 c unless user specifically sets OPT_COVAR=0
-        IF ( OPT_COVAR_FLUX .EQ. -9 ) OPT_COVAR_FLUX = 1
+        IF ( OPT_COVAR_FLUX .EQ. -9 ) OPT_COVAR_FLUX    = 1
+        if ( .not. USE_MODEL_MAGERR ) OPT_COVAR_FLUX    = 0 
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SIMSED ) THEN
 
@@ -4433,7 +4452,8 @@ c increment SNRMAX for fitted epochs only
              R4EP_ALL(epoch,JEP_KCOR_ERR)   = MAG_KCOR(2)
              R4EP_ALL(epoch,JEP_AVWARP)     = AVWARP
 
-             arg = 0.4*(MAG_KCOR(1) + SNLC_DLMAG)
+c xxx remove harmless bug, Jan 2020  arg = 0.4*(MAG_KCOR(1) + SNLC_DLMAG)
+             arg = 0.4*(MAG_KCOR(1) + DISTPAR)
              R4EP_ALL(epoch,JEP_DATAFLUX_REST)= flux_data * 10.0**(arg)
            ENDIF
 
@@ -5255,7 +5275,7 @@ c return MAG_REST
 c note that genmag_mlcs starts at 0, so subtract 1 from index.
              ifilt_tmp  = IFILTINVMAP_MODEL(ifilt_rest) - 1 
              if ( ifilt_tmp < 0 ) then
-               c1err = 'Invalid rest-frame filter for genmag_snoopy: '// 
+               c1err = 'Invalid rest-frame filt for genmag_mlcs2k2: '// 
      &               FILTDEF_STRING(IFILT_REST:IFILT_REST)
                c2err = 'Valid rest-frame filters: ' // 
      &               FILTLIST_MODEL(1:NFILT_MODEL)
@@ -5275,9 +5295,9 @@ c note that genmag_mlcs starts at 0, so subtract 1 from index.
 
          do ifilt = 1, NFILT_FITMAP_REST
             IFILT_REST = IFILT_FITMAP_REST(ifilt)
-            ifilt_tmp  = IFILTINVMAP_MODEL(ifilt_rest)
+            ifilt_tmp  = IFILTINVMAP_MODEL(ifilt_rest) - 1  ! C index
  
-            if ( ifilt_tmp .LE. 0 ) then
+            if ( ifilt_tmp < 0 ) then
                c1err = 'Invalid rest-frame filter for genmag_snoopy: '// 
      &               FILTDEF_STRING(IFILT_REST:IFILT_REST)
                c2err = 'Valid rest-frame filters: ' // 
@@ -5525,26 +5545,6 @@ c save AVwarp
         KCORERR_TMP(ifilt2_obs) = GET_KCORERR8 ( OPT_KCORERR,
      &        ifilt_rest_tmp(1), ifilt2_obs, Trest, ZSN, AVwarp) 
 
-
-ccc +SELF,NOAVWARP.  ! stupid bug since v8_64 (Aug 2010)
-+SELF,IF=NOAVWARP.   ! fixed  bug  for  v9_84 (Jan 2012)
-c xxxxxxxxxxxxx
-        LAMDIF_KCORFUN(1) = -7.0  ! flag to use AVWARP=0 for KCOR
-        KCOR_NOAVWARP(ifilt2_obs)  = KCORFUN8 ( ifilt2_obs
-     &     ,IFILT_REST_KCORFUN, MAG_REST_KCORFUN
-     &     ,LAMDIF_KCORFUN, Trest, ZSN
-     &     ,AVWARP_KCORFUN    ! (O)
-     &        )
-
-c redefine kcor error to be difference between nominal Kcor
-c and K-correction without color warping.
-c Use this only for testing.
-        KCORERR_TMP(ifilt2_obs) = 
-     &      KCOR_TMP(ifilt2_obs) - KCOR_NOAVWARP(ifilt2_obs)
-c xxxxxxxxxxx
-+SELF.
-
-
         MAG_XTMW_OBS(ifilt2_obs) = 0.0
         if ( LSNXTMW ) then
            MAG_XTMW_OBS(ifilt2_obs) =
@@ -5637,10 +5637,9 @@ c
      &    .and. SHAPE(1)     .LT. PRIOR_SHAPE_RANGE(2) 
      &    .and. abs(AVHOST)  .LT. 10.0 ) then
 
+	   CALL PRINT_PREABORT_BANNER("USRFUN"//CHAR(0), 40)
            cfilt = filtdef_string(ifilt_obs:ifilt_obs) 
-
-           print*,' '
-           print*,' PRE-ABORT DUMP for ', cfilt,' : '
+           print*,' Filter = ', cfilt,' : '
            print*,' MAG(LANDOLT)-MAG(BESSELL) = ',
      &         MAG_OBS_TMP(ifilt_obs), ' - ',
      &         MAG_BESSELL_OBS(ifilt_obs), ' = ', DIF
@@ -5759,8 +5758,8 @@ c unextincted mag in rest frame
      &  ,filtdef_string(ifilt_rest1:ifilt_rest1)
      &  ,MAG_REST(ifilt_rest1)
 
-703     FORMAT(T10,'Mr(',A,')=',F7.2,'(',I2.2,')',  2x,
-     &            'XMr(',A,')=',F7.2 )
+703     FORMAT(T10,'Mrest(',A,')=',F7.2,'(',I2.2,')',  2x,
+     &            'XMrest(',A,')=',F7.2 )
 
 c write rest color, AVwarp and Kcor
 
@@ -5779,8 +5778,9 @@ c write rest color, AVwarp and Kcor
 c write observer mag and flux
 
          write(6,706) filtdef_string(ifilt_obs:ifilt_obs),
-     &                MAG_OBS, FLUX
-706      format(T10,'Mo(',A,')=',F8.3, 2x, 'Flux=',G12.3 )
+     &                MAG_OBS, MAG_XTMW, FLUX
+706      format(T10,'m_obs(',A,')=',F8.3, 2x, 'm(XTMW)=',F6.3,  
+     &              2x, 'Flux=',G12.3 )
 
 c now write single line with CID keyword ;
 c grep "CID" > bla creates easy-to-read column-formatted file 
@@ -6937,10 +6937,10 @@ c check legacy nml variables.
       IF ( OPT_XTMW_ERR > -8 ) THEN
          OPT_COVAR_MWXTERR = OPT_XTMW_ERR   ! Sep 22, 2013
       ENDIF
-
       IF ( OPT_COVAR > -98 ) THEN
          OPT_COVAR_FLUX = OPT_COVAR   ! Nov 9 2018
       ENDIF
+
 c ------------------
 c check option to turn off all priors.
       IF ( OPT_PRIOR .LE. 0 ) THEN
@@ -9285,7 +9285,8 @@ c since they are case-insensitive.
 
         NFADD = NFADD + 1
         ipar = NPLOTPAR + i + NFADD*NFILTOBS_TABLE
-        PARNAME_STORE(ipar) = 'prob_' // cfilt_obs
+cc xxx mark delete         PARNAME_STORE(ipar) = 'prob_' // cfilt_obs
+        PARNAME_STORE(ipar) = 'FITPROB_' // cfilt_obs
 
 555   CONTINUE
 
@@ -10009,12 +10010,14 @@ c Also subtract index offsets
 
         ENDIF
 
+         R4EP_ALL(ep,JEP_SIM_FLUXCAL) = 0.0
          IF ( LSIM_MAGOBS .or. LSIM_SNANA ) THEN
             ARG   = 0.4*(ZEROPOINT_FLUXCAL_DEFAULT - SIM_EPMAGOBS(ep))
             FLUX_SIM = 10.0**(ARG)
             SQDIF    = (FLUX_SIM - FLUX_DATA)**2
             SQERR    = FLUXERR_DATA*FLUXERR_DATA
 
+cc	    print*,' xxxx ', ep, FLUX_SIM
             R4EP_ALL(ep,JEP_SIM_FLUXCAL) = FLUX_SIM
             IF ( FLUXERR_DATA > 0 ) THEN
                R4EP_ALL(ep,JEP_SIM_DELCHI2) = SQDIF/SQERR
@@ -10069,14 +10072,10 @@ c set error on MilkyWay Galactic extinction
 
          ERR_TRUE  = SNLC_FLUXCAL_ERRTOT(ep)  
          ERR_CALC  = SNLC_FLUXCAL_ERRCALC(ep)
-         if ( ERR_CALC > 0.0 .and. ERR_TRUE > 0.0 ) THEN        
-            ERR_TMP = ERR_CALC/ERR_TRUE
-         else
-            ERR_TMP = -9.0 
-         ENDIF
+	 ERR_TMP   = SNLC_FLUXCAL_ERRTEST(ep)
+
          R4EP_ALL(ep,JEP_ERRTEST) = ERR_TMP
          R4EP_ALL(ep,JEP_ERRCALC) = ERR_CALC
-
 
 102   CONTINUE   ! end of EPMIN,EPMAX loop
 101   CONTINUE   ! end of IMJD loop
@@ -15346,7 +15345,6 @@ c -------------------------------------------------
 c re-read KCOR file to include FILTLIST_FITRESTMAG
 c (user must make sure that FILTLIST_FITRESTMAG is in the kcor file)
 
-cc      CALL RDKCOR(HFILE_KCOR,IERR)
       CALL RDKCOR(KCOR_FILE,IERR)
 
       CALL CDTOPDIR_OUTPUT  ! back to topdir
@@ -15361,7 +15359,7 @@ c Abort if any filter is missing.
          IF ( .NOT. LFILTDEF_OBS(ifiltdef)  ) THEN
            c1err = 'FILTLIST_FITRESTMAG = ' // cfilt // 
      &            ' is not in kcor file.'
-           c2err = 'Check ' // HFILE_KCOR
+           c2err = 'Check ' // KCOR_FILE
            CALL MADABORT("FITRESTMAG_INI", c1err, c2err )
          ENDIF
 200   CONTINUE
@@ -16969,6 +16967,9 @@ c Aug 15, 2012: protect printing info for undefined IFILT_OBS.
 c
 c Jul 31 2015: write fitres [column] format to make it easier to parse.
 c
+c Nov 19 2019: remove NVAR key
+c Dec 04 2019: remove obsolete IFILTOBS_RST to avoid negative index
+c
 c ------------
 
       IMPLICIT NONE
@@ -16993,7 +16994,6 @@ c local args
      &   LTMP, imjd, NMJD, ipar, NVAR_OUT
      &  ,CID, CID_TMP
      &  ,IFILT, IFILT_OBS, IFILT_RST
-     &  ,IFILTOBS_RST(MXFILT_ALL)
 
       REAL*8  
      &   MJD8, MJD8_LAST, MJD8LIST(MXINTERP)
@@ -17050,8 +17050,8 @@ c open output file.
         print*,' '
 
         WRITE(LUNINTERP,40) 'Interpolation Results at MJD_INTERP'
-        WRITE(LUNINTERP,401) NVAR_OUT
-401     FORMAT('NVAR: ', I2)
+cc xxx mark delete         WRITE(LUNINTERP,401) NVAR_OUT
+cc xxx 401     FORMAT('NVAR: ', I2)
         WRITE(LUNINTERP,402)
 402     FORMAT('VARNAMES: CID BAND MJD_INTERP MAG MAGERR '
      &                   'FLUX FLUXERR TOBS TREST' )
@@ -17079,16 +17079,11 @@ c search MJD(s) for this SN:
 c avoid repeating an MJD ... mainly to avoid multiple PEAKMJD entries.
         IF ( MJD8 .EQ. MJD8_LAST ) GOTO 200
 
-        do ifilt_obs = 1, MXFILT_ALL
-          IFILTOBS_RST(ifilt_obs) = 0
-        enddo
 
 c get observer mags,flux,kcor at this MJD
-c Also get local mapping IFILTOBS_RST.
 
         DO IFILT = 1, NFILTDEF_SURVEY      
           ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-          ifilt_rst = IFILT_REST_MAP(ifilt)
 
           if ( USE_FILT(ifilt_obs) ) then
 
@@ -17101,34 +17096,9 @@ c Also get local mapping IFILTOBS_RST.
              MAGERROBS_INTERP(ifilt_obs)  = MAG8ERR
              KCOR_INTERP(ifilt_obs)       = KCOR8
 
-             IFILTOBS_RST(ifilt_rst) = ifilt_obs
-
           endif
         ENDDO
 
-
-c get rest-mags at this MJD
-
-        DO  ifilt = 1, NFILTDEF_REST
-            IFILT_RST = IFILTDEF_MAP_REST(ifilt) 
-            ifilt_obs = IFILTOBS_RST(ifilt_rst)
-
-           CALL MODELMAG_CALC(ifilt_rst, 'REST', MJD8,
-     &           FLUX8, FLUX8ERR, MAG8, MAG8ERR, KCOR8 ) ! return args
-            MAGRST_INTERP(ifilt_rst)    = MAG8 + PEAKMAG_AT_10PC
-            MAGERRRST_INTERP(ifilt_rst) = MAG8ERR
-
-           if ( IFILT_OBS .GT. 0 ) then
-c            get rest-mag assuming a fixed cosmology
-             CALL MODELMAG_CALC(ifilt_obs, 'REST2', MJD8,
-     &           FLUX8, FLUX8ERR, MAG8, MAG8ERR, KCOR8 ) ! return args
-           else
-             MAG8    = 99. - PEAKMAG_AT_10PC
-             MAG8ERR = 9.
-           endif
-            MAGRST2_INTERP(ifilt_rst)    = MAG8 + PEAKMAG_AT_10PC
-            MAGERRRST2_INTERP(ifilt_rst) = MAG8ERR
-        ENDDO
 
 c -------------------------
 c write results to output file.
@@ -17142,7 +17112,6 @@ c write results to output file.
 40      format('# ', A)
         DO 1400 IFILT = 1, NFILTDEF_SURVEY      
           ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-          ifilt_rst = IFILT_REST_MAP(ifilt)
           BAND      = FILTDEF_STRING(ifilt_obs:ifilt_obs)
           if ( .not. USE_FILT(ifilt_obs) ) GOTO 1400
 
@@ -17154,11 +17123,11 @@ c write results to output file.
      &       FLUXOBS_INTERP(ifilt_obs), FLUXERROBS_INTERP(ifilt_obs),
      &       TOBS, TREST
        
-405        format('SN: ', 
+405        format('INTERP: ', 
      &          A, 1x, A1, 1x, F9.3,   ! CCID, BAND, MJD8
      &          2x, 2F7.3,               ! MAG MAGERR
      &          2x, 2G10.4,              ! FLUX FLUXERR
-     &          2F6.2                ! TOBS TREST
+     &          2F7.2                    ! TOBS TREST
      &             )
 
 1400    CONTINUE
@@ -17430,7 +17399,7 @@ c
 c Jul 19, 2013: add MJD list to SNLCPAK_DATA
 c Jan 25, 2014: use new I4EP_FIT and R4EP_FIT arrays.
 c Dec 10, 2017: fix to work with SNTABLE_FILTER_REMAP
-c
+c Jan 23, 2020: pack KCOR and AVWARP for rest-frame model
 c ---------------------------------------------
 
       IMPLICIT NONE
@@ -17453,6 +17422,8 @@ c ---------------------------------------------
      &  ,VFLUXOBS(MXEP_SNLCPAK)
      &  ,VFLUXOBS_ERR(MXEP_SNLCPAK)
      &  ,VFLUXREST(MXEP_SNLCPAK)  ! K-corrected rest-frame flux
+     &  ,VKCOR(MXEP_SNLCPAK)
+     &  ,VAVWARP(MXEP_SNLCPAK)
      &  ,VSIMFLUXREST(MXEP_SNLCPAK)  
      &  ,VSIMFLUXOBS(MXEP_SNLCPAK)   ! May 20 2016
      &  ,VZERO(MXEP_SNLCPAK)         ! zeros for true simFlux error
@@ -17580,6 +17551,8 @@ c Dec 10 2017: check for filter-remap option
          IF ( DO_RESTFLUX ) THEN
            VFILTREST(NOBS)    = I4EP_FIT(i,IEP_IFILT_REST1)
            VFLUXREST(NOBS)    = R4EP_FIT(i,JEP_DATAFLUX_REST)
+           VKCOR(NOBS)        = R4EP_FIT(i,JEP_KCOR)
+           VAVWARP(NOBS)      = R4EP_FIT(i,JEP_AVWARP)
            VSIMFLUXREST(NOBS) = R4EP_FIT(i,JEP_SIM_FLUXREST)
          ENDIF
  101  CONTINUE
@@ -17595,7 +17568,7 @@ c store data-FITFUN chi2
       CALL SNLCPAK_DATA(CCID, NOBS, VMJD,VTOBS, VCHI2, VDUMERR, 
      &     VFILTOBS, SNLCPAK_EPFLAG_CHI2, LENCCID)
 
-      IF ( LSIM_SNANA) THEN
+      IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
 c      pack generated SIM fluxes (May 20 2016)
         CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, 
      &     VSIMFLUXOBS, VZERO,   ! VZERO = zero error for each true flux 
@@ -17603,9 +17576,17 @@ c      pack generated SIM fluxes (May 20 2016)
       ENDIF
 
 c Jan 2014: store rest-frame filter and flux (mlcs,snoopy ...) 
+c Jan 2020: add KCOR and AVwarp
+
       IF ( DO_RESTFLUX ) THEN
         CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VFLUXREST, VDUMERR, 
      &     VFILTREST, SNLCPAK_EPFLAG_FLUXREST, LENCCID)
+
+        CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VKCOR, VDUMERR, 
+     &     VFILTREST, SNLCPAK_EPFLAG_KCOR, LENCCID)
+
+        CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VAVWARP, VDUMERR, 
+     &     VFILTREST, SNLCPAK_EPFLAG_AVWARP, LENCCID)
 
         if ( LSIM_SNANA ) then
            CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, 
@@ -18030,14 +18011,6 @@ c now the fitted error.
          CALL SNTABLE_ADDCOL(ID, CBLOCK, LCERR_STORE(ipar), 
      &        VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST)
 
-c xxxxxxxxxxxxx
-c May 23 2018: error-diff for last 2 iterations
-c         VARLIST  = VARNAME(1:LENNAME) // 'FRACERRDIF:F' 
-c         LENLIST  = INDEX(VARLIST,' ') - 1
-c         CALL SNTABLE_ADDCOL(ID, CBLOCK, LCFRACERRDIF_STORE(ipar), 
-c     &        VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
-c xxxxxxxxxxxxx
-
  380  CONTINUE
 
 
@@ -18245,21 +18218,11 @@ c Created Feb 2, 2013
 c Init table for epoch-dependent variables.
 c (replaces CWNT_HBNAMES_RESID)
 c 
-c Mar 2 2013: 
-c   - remove bit-packing to simplify switch to root.
-c   - declare one variable at a time instead of a long list
-c     ==> simplify string translation for root and root TTree 
-c         does not track multiple pointers for dynamic arrays.
-c
-c May 8 2014: NFITDATA -> NFITDATA_TOTAL to include rejected epochs,
-c             and load REJECT flag.
-c
-c Aug 6 2014: for sim, add FLUXCAL_SIM
-c
 c Feb 22 2016: always do the extra EP variables, even for TERSE format.
 c              See EXTRA_EPVAR
 c
 c Jul 22 2017: add BAND (character for IFILT_OBS)
+c Jan 23 2020: add AVWARP for rest-frame models with k-corrections
 c
 c ----------------------------------------------
 
@@ -18461,6 +18424,10 @@ c optionl rest-frame info for rest-frame model
          VARNAME = 'IFILTREST2(NPTFIT):I' // char(0)  ! 2nd nearest IFILT_REST
          CALL SNTABLE_ADDCOL(ID,CBLK, I4EP_FIT(1,IEP_IFILT_REST2), 
      &         VARNAME, 0, LENB, LENV)
+
+         VARNAME = 'AVWARP(NPTFIT):F' // char(0)  ! AVwarp for kcor
+         CALL SNTABLE_ADDCOL(ID,CBLK, R4EP_FIT(1,JEP_AVWARP), 
+     &         VARNAME, 0, LENB,LENV)
 
          VARNAME = 'KCOR(NPTFIT):F' // char(0)  ! k correction
          CALL SNTABLE_ADDCOL(ID,CBLK, R4EP_FIT(1,JEP_KCOR), 
@@ -19122,8 +19089,7 @@ c      check FITRESTMAG variables
             CALL MADABORT(FNAM, c1err, c2err )  
          endif
       ELSE
-         print*,' '
-         print*,' PRE-ABORT DUMP: '
+	 CALL PRINT_PREABORT_BANNER(FNAM//CHAR(0), 40)
          print*,'   LENPAR, LENLOC, ISERR = ', LENPAR, LENLOC, ISERR
          print*,'   VARNAME = ', VARNAME(1:20)
          print*,'   VARNAME(LENPAR-3:LENPAR) = ',

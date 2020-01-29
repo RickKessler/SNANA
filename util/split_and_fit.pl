@@ -910,7 +910,6 @@ sub parse_nmlFile {
     $nmlFile = $nmlFile_ORIG ;
 
     # get name of NML file without path; used for batchName
-    #.xyz
     $jslash          = rindex($nmlFile_ORIG,"/");  # location of last slash
     $nmlFile_noPath  = substr($nmlFile_ORIG,$jslash+1, 99);
 
@@ -3218,6 +3217,8 @@ sub DONE_CHECK_LCFIT {
     # Dec 13 2017: if NSPLIT=1, search for exact DONE-FILE match to avoid
     #              slow-down with wild card.
     #
+    # Jan 23 2020: grep ' ERROR ABORT ' instead of ' ABORT '
+
     my ($NEXPECT,  @line, @wdlist, $PREFIX, $indx );
     my (@TMPLIST, $cGRACE, $cABORT, $VCOMB );
     my ($VERSION, $SUFFIX, $FF, $SUF, $OUTFILE, $ISDONE_LCFIT ) ;
@@ -3283,7 +3284,8 @@ sub DONE_CHECK_LCFIT {
 	$NGRACE   = scalar(@TMPLIST);
 	$NGRACE_TOTAL += $NGRACE ;
 	
-	@TMPLIST  = qx(grep $qq ABORT $qq $searchString);
+#	@TMPLIST  = qx(grep $qq ABORT $qq $searchString);
+	@TMPLIST  = qx(grep $qq ERROR ABORT $qq $searchString);
 	$NABORT   = scalar(@TMPLIST);
 	$NABORT_TOTAL += $NABORT ;
 	

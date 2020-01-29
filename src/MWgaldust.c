@@ -104,6 +104,8 @@
  * Sep 21 2013 RK - move GAL-related functions from sntools.c to here
  * 
  * Oct 29 2013 RK - move slalib routines to sntools.c
+ *
+ * Jan 28 2020 RK - abort if WAVE>12000 and using Fitz99 color law
  */
 /**************************************************************************/
 
@@ -338,7 +340,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
   int i, DO94  ;
   double XT, x, y, a, b, fa, fb, xpow, xx, xx2, xx3 ;
   double y2, y3, y4, y5, y6, y7, y8 ;
-  //  char fnam[] = "GALextinct" ;
+  char fnam[] = "GALextinct" ;
 
   // ------------------- BEGIN --------------
 
@@ -443,6 +445,14 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
       -0.0380031, 0.00416853,  -0.000235077, 5.31309e-06 
     } ;
     
+    if ( WAVE > WAVEMAX_FITZ99  ) {
+      sprintf(c1err,"Invalid WAVE=%.1f A for Fitzpatrick 99 color law.",
+	      WAVE );
+      sprintf(c2err,"Avoid NIR (>%.1f), or update Fitz99 in NIR",
+	      WAVEMAX_FITZ99 );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
     // compute powers of wavelength without using slow 'pow' function
     wpow[0]  = 1.0 ;
     wpow[1]  = WAVE/1000. ;

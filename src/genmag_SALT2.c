@@ -196,6 +196,7 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
  Aug 26 2019: implement RELAX_IDIOT_CHECK_SALT2 for P18 to avoid abort.
 
  Nov 7 2019: for SALT3, remove x1*M1/M0 term in error; see ISMODEL_SALT3.
+ Jan 19 2020: in INTEG_zSED_SALT2, fix memory leak related to local magSmear.
 
 ****************************************************************/
 
@@ -612,8 +613,7 @@ void fill_SALT2_TABLE_SED(int ISED) {
 
 	    
       if ( fabs(FRATIO) > FRATIO_CHECK ) {
-       
-	printf("\n\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);
 	printf("  FRATIO = FDIF/FSUM = %f  (FRATIO_CHECK=%le)\n", 
 	       FRATIO, FRATIO_CHECK);
 	printf("  IDAY=%4d  IDAY_ORIG=%4d  \n", IDAY, IDAY_ORIG);
@@ -2080,6 +2080,10 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   // Apr 23 2019: remove buggy z1 factor inside OPT_SPEC
   //              (caught by D.Jones)
   //
+  // Jan 19 2020:
+  //   replace local magSmear[ilam] with global GENSMEAR.MAGSMEAR_LIST
+  //   so that it works properly with repeat function.
+
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
     ,IDAY, NDAY, nday, iday, ised, ic
@@ -2094,7 +2098,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     ,FRAC_INTERP_DAY, FRAC_INTERP_COLOR, FRAC_INTERP_LAMSED
     ,TRANS, MODELNORM_Fspec, MODELNORM_Finteg, *ptr_FLUXSED[2][4] 
     ,FSED[4], FTMP, FDIF, VAL0, VAL1, mean, arg, FSMEAR
-    ,lam[MXBIN_LAMFILT_SEDMODEL], magSmear[MXBIN_LAMFILT_SEDMODEL]
+    ,lam[MXBIN_LAMFILT_SEDMODEL]
     ,Finteg_filter[2], Finteg_forErr[2], Finteg_spec[2]
     ,Fbin_forFlux, Fbin_forSpec
     ,hc8 = (double)hc ;
@@ -2176,7 +2180,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
       if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }       
       NLAMTMP++ ;
     }
-    get_genSmear( Trest, NLAMTMP, lam, magSmear) ;
+    // xxx mark delete    get_genSmear( Trest, NLAMTMP, lam, magSmear) ;
+    get_genSmear( Trest, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
   }
 
 
@@ -2241,7 +2246,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
       if ( LABORT ) {
 	mean = FILTER_SEDMODEL[ifilt].mean ;
-	printf("\n PRE-ABORT DUMP: \n");
+	print_preAbort_banner(fnam);
 	printf("\t LAMOBS = %7.2f  LAMDIF=%7.2f\n",  LAMOBS, LAMDIF);
 	printf("\t LAMSED = LAMOBS/(1+z) = %7.2f \n", LAMSED );
 	printf("\t LAMSTEP=%4.1f  LAMMIN=%6.1f \n", 
@@ -2291,7 +2296,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 	
 	// check option to smear SALT2 flux with intrinsic scatter
 	if ( ISTAT_GENSMEAR ) {
-	  arg     =  -0.4*magSmear[ilamobs] ; 
+	  // xxx mark delete  arg   =  -0.4*magSmear[ilamobs] ; 
+	  arg     =  -0.4*GENSMEAR.MAGSMEAR_LIST[ilamobs] ; 
 	  FSMEAR  =  pow(TEN,arg)  ;        // fraction change in flux
 	  FTMP   *=  FSMEAR;                // adjust flux for smearing
 	}
@@ -2711,7 +2717,10 @@ double SALT2colorDisp(double lam, char *callFun) {
   // this function aborts if 'lam' is outside the valid
   // rest-lambda range. Make sure to check that 'lam' is valid
   // before calling this function.
-
+  //
+  // Jan 28 2020:
+  //  if UV extrap is used, extrapolate instead of aborting
+  //
   int imap, NLAM ;
   double cDisp, LAMMIN, LAMMAX ;
   double *mapLam, *mapDisp ;
@@ -2728,6 +2737,10 @@ double SALT2colorDisp(double lam, char *callFun) {
   mapDisp = SALT2_ERRMAP[imap].VALUE ;
 
   if ( NLAM <= 0 ) { cDisp = 0.0 ; return cDisp ; }
+
+  
+  if ( INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX > 0.0 && lam < LAMMIN ) 
+    { cDisp = mapDisp[0]; return(cDisp);  }
 
   // first some sanity checks
   if ( lam < LAMMIN || lam > LAMMAX ) {  

@@ -21,7 +21,7 @@ void   getFileName_SALT2colorDisp(char *fileName) ; // added Jan 2017
 void  init_genSmear_Chotard11(int OPT_farUV) ;
 void  init_genSmear_VCR(char *VCR_version, int index_SNmodel);
 void  init_genSmear_CCM89(double *LAMRANGE) ;
-void  init_genSmear_COH(void) ;
+void  init_genSmear_COH(char *stringArg) ;
 void  init_genSmear_biModalUV(void) ;
 void  init_genSmear_OIR(void);
 void  init_genSmear_COVSED(char *COVSED_version, int OPTMASK);
@@ -48,8 +48,6 @@ void  parse_VCR_colorString(int ic);
 
 void  get_NRAN_genSmear(int *NRANGauss, int *NRANFlat); // returns NRANxxx
 
-// void  SETRANGauss_genSmear(int NRAN, double *ranList );
-// void  SETRANFlat_genSmear(int NRAN, double *ranList );
 void  SETSNPAR_genSmear(double shape, double color, double redshift) ;
 
 void get_genSmear(double Trest, int NLam, double *Lam,
@@ -138,12 +136,16 @@ struct GENSMEAR {
   double SUMSMEAR_CHECK[2], SQSUMSMEAR_CHECK[2], SUMCROSS;
   int    NCHECK;
 
-  double MAGSMEAR_COH;   // coherent part of scatter only, for SNTABLE
+  // Nov 2019: allow up to two independent COH scatter terms
+  double MAGSMEAR_COH[2]; 
 
   // keep track of last values to check of magSmear needs
   // to be re-computed
   int    CID_LAST, NLAM_LAST;
   double TREST_LAST, LAMMIN_LAST, LAMMAX_LAST;
+
+  // define global mag-vs-lanbda to allow repeat function to re-use (Jan 2020)
+  double *MAGSMEAR_LIST ;
 
 } GENSMEAR ;
 
@@ -336,7 +338,8 @@ struct GENSMEAR_VCR {
 
 struct GENSMEAR_COH {
   int    USE ;
-  double MAGSIGMA ;
+  int    NSIGMA;
+  double MAGSIGMA[2] ;
 } GENSMEAR_COH ;
 
 

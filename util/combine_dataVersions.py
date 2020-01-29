@@ -43,7 +43,9 @@
 #
 #  Dec 8 2017: S.Hinton - merge duplicates
 #  Jan 8 2018: RK - add VPEC_FILE option
-
+#
+#  Nov 16 2019 RK - bug fix writing AB_SED and BD17_SED
+#
 # ====================================
 
 import os
@@ -153,14 +155,22 @@ def write_kcor_inputFile(versionInfo,kcorInfo):
     f.write("# Host = %s\n" % ( HOSTNAME) )
     f.write("# %s\n" % NOW )
     f.write("\n")
-    
-    f.write( "SN_SED:       %s\n" % ( kcorInfo[0].SN_SED ) )
-    
-    if ( len(kcorInfo[0].BD17_SED) > 0 ) :
-         f.write("BD17_SED:     %s\n" % (kcorInfo[0].BD17_SED ) )
+        
+    f.write( "SN_SED:       %s\n" % ( kcorInfo[0].SN_SED ) )    
 
-    if ( len(kcorInfo[0].AB_SED) > 0 ) :
-         f.write("AB_SED:       %s\n" % (kcorInfo[0].AB_SED ) )
+    # check all kcor files for primary(s)
+    nkcor=0
+    USE_BD17 = 0 ; USE_AB = 0
+    for kcor in kcorInfo :
+        if ( len(kcorInfo[nkcor].BD17_SED) > 0 and USE_BD17==0 ) :
+            f.write("BD17_SED:     %s\n" % (kcorInfo[nkcor].BD17_SED ) )
+            USE_BD17 = 1
+
+        if ( len(kcorInfo[nkcor].AB_SED) > 0  and  USE_AB==0) :
+            f.write("AB_SED:       %s\n" % (kcorInfo[nkcor].AB_SED ) )
+            USE_AB = 1
+        nkcor += 1
+
 
     f.write( "LAMBDA_RANGE: %s %s \n" %
              ( kcorInfo[0].LAMRANGE[0], kcorInfo[0].LAMRANGE[1] ) )
@@ -387,8 +397,9 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     # - - - - - start constructino of 'sed' command - - - - - - -
     sedcmd = "sed "
     
-    # replace SURVEY
-    sedAdd  = "-e 's/%s/ %s(%s)/g' " % (SURVEY,SOUT,SURVEY) 
+    # replace SURVEY ... only first occurance !
+    sedAdd  = "-e '0,/SURVEY:/s/%s/ %s(%s)/' " % (SURVEY,SOUT,SURVEY)
+# xxx mark delete    sedAdd  = "-e 's/%s/ %s(%s)/g' " % (SURVEY,SOUT,SURVEY) 
     sedcmd += sedAdd
     
     # Replace global filter string.

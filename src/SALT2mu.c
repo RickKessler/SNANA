@@ -4009,7 +4009,6 @@ double fcn_muerrz(int OPT, double z, double zerr) {
 
   // Created July 1 2017
   // Compute muerr from redshift (z) and its error (zerr)
-  // and optional zpecerr.
   // 
   //
   // OPT=1 --> low-z approx for empty universe

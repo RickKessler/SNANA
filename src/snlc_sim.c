@@ -964,11 +964,12 @@ void set_user_defaults(void) {
   INPUTS.HOSTLIB_MAXREAD     = 1000000000 ; // default is 1 billion
   INPUTS.HOSTLIB_MXINTFLUX_SNPOS = 0.99 ;  // use 99% of total flux for SNPOS
   INPUTS.HOSTLIB_GALID_NULL      = -9;     // value for no host
-  INPUTS.HOSTLIB_GALID_PRIORITY[0] = 0 ;
-  INPUTS.HOSTLIB_GALID_PRIORITY[1] = 0 ;
-  INPUTS.HOSTLIB_SBRADIUS          = 0.6*2.0 ; // arcsec
-  INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL = 9999999;  // default is never re-use host
-  INPUTS.HOSTLIB_SERSIC_SCALE      = 1.0 ;
+  INPUTS.HOSTLIB_GALID_PRIORITY[0]  = 0 ;
+  INPUTS.HOSTLIB_GALID_PRIORITY[1]  = 0 ;
+  INPUTS.HOSTLIB_SBRADIUS           = 0.6*2.0 ; // arcsec
+  INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL  = 9999999;  // default is never re-use host
+  INPUTS.HOSTLIB_SCALE_SERSIC_SIZE  = 1.0 ;
+  INPUTS.HOSTLIB_SCALE_LOGMASS_ERR  = 1.0 ;
 
   INPUTS.HOSTLIB_GENZPHOT_OUTLIER[0] = -9.0 ;
   INPUTS.HOSTLIB_GENZPHOT_OUTLIER[1] = -9.0 ;
@@ -1383,10 +1384,15 @@ int read_input(char *input_file) {
     if ( uniqueMatch(c_get,"HOSTLIB_DZTOL:")  ) 
       { readdouble ( fp, 3, INPUTS.HOSTLIB_DZTOL );  continue ; }
 
-    if ( uniqueMatch(c_get,"HOSTLIB_SERSIC_SCALE:")  )
-      { readdouble ( fp, 1, &INPUTS.HOSTLIB_SERSIC_SCALE ); continue ; }
-   
+    if ( uniqueMatch(c_get,"HOSTLIB_SERSIC_SCALE:")  ) // legacy name
+      { readdouble ( fp, 1, &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); continue ; }
 
+    if ( uniqueMatch(c_get,"HOSTLIB_SCALE_SERSIC_SIZE:")  )
+      { readdouble ( fp, 1, &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); continue ; }
+
+    if ( uniqueMatch(c_get,"HOSTLIB_SCALE_LOGMASS_ERR:")  )
+      { readdouble ( fp, 1, &INPUTS.HOSTLIB_SCALE_LOGMASS_ERR ); continue ; }
+   
     // for hostlib variables, allow STOREPAR or STOREVA
     if ( uniqueMatch(c_get,"HOSTLIB_STOREVAR:")  )
       { readchar ( fp, INPUTS.HOSTLIB_STOREPAR_LIST ); continue ; }
@@ -4481,13 +4487,21 @@ void sim_input_override(void) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_DZTOL[2] ); 
     }
 
+    if ( strcmp( ARGV_LIST[i], "HOSTLIB_SERSIC_SCALE" ) == 0 ) { // legacy name
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); 
+    }
+    if ( strcmp( ARGV_LIST[i], "HOSTLIB_SCALE_SERSIC_SIZE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); 
+    }
+    if ( strcmp( ARGV_LIST[i], "HOSTLIB_SCALE_LOGMASS_ERR" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SCALE_LOGMASS_ERR ); 
+    }
+
     if ( strcmp( ARGV_LIST[i], "HOSTLIB_STOREPAR" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_STOREPAR_LIST ); 
     }
 
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_SERSIC_SCALE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SERSIC_SCALE ); 
-    }
+
 
     if ( strcmp( ARGV_LIST[i], "HOSTLIB_SBRADIUS" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SBRADIUS ); 
@@ -11901,17 +11915,20 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALSNSEP") ;   // host-SN separation, arcsec
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.SNSEP ;
+  // xxxx  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.SNSEP ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL_DDLR_SORT[0].SNSEP ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALSNDLR") ;   // 2/2019: DLR from Sako 2014, Gupta 2016
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.DLR ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL_DDLR_SORT[0].DLR ;
+  // xxxx  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.DLR ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALSNDDLR") ;   //2/2019:  d_DLR = SNSEP/DLR
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.DDLR ;
+  // xxx mark dele  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.DDLR ;
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL_DDLR_SORT[0].DDLR ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -20953,9 +20970,9 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   // Dec 17, 2012: fill HOSTGAL_NFILT_MAGOBS and others with ifilt_obs=0
   // Feb 12, 2014: fill SNDATA.SIM_HOSTGAL_xxx, and add IFLAG arg
   // Jun 02, 2018: load zphot info for LCLIB
-  //
+  // Jan 29 2020: USE_REFACTOR -> true to get multiple hosts
 
-  int    DEBUG_NEW = ( INPUTS.DEBUG_FLAG == 2 );
+  bool   USE_REFACTOR = true ;
   int    NPAR, ipar, OVP, ifilt, NMATCH, m ;
   double psfsig, mag_GAL, mag_SN, mag_dif, fgal ;
   char  *name ;
@@ -21005,7 +21022,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
   if ( ifilt_obs == 0 ) {
 
-    if ( DEBUG_NEW ) {
+    if ( USE_REFACTOR ) {
       // NEW(Nov 2019): test multiple host matches with NBR_LIST in HOSTLIB
       SNDATA.HOSTGAL_NMATCH[0] = SNDATA.HOSTGAL_NMATCH[1] = NMATCH ;
       for(m=0; m < NMATCH; m++ ) {
@@ -21026,12 +21043,15 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 	SNDATA.HOSTGAL_DEC[m]         = SNHOSTGAL_DDLR_SORT[m].DEC ;
 	SNDATA.HOSTGAL_DDLR[m]        = SNHOSTGAL_DDLR_SORT[m].DDLR ;
 	SNDATA.HOSTGAL_SNSEP[m]       = SNHOSTGAL_DDLR_SORT[m].SNSEP ;
-	SNDATA.HOSTGAL_LOGMASS[m]     = SNHOSTGAL_DDLR_SORT[m].LOGMASS ;
-	SNDATA.HOSTGAL_LOGMASS_ERR[m] = SNHOSTGAL_DDLR_SORT[m].LOGMASS_ERR ;
+	SNDATA.HOSTGAL_LOGMASS_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE;
+	SNDATA.HOSTGAL_LOGMASS_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].LOGMASS_OBS ;
+	SNDATA.HOSTGAL_LOGMASS_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].LOGMASS_ERR ;
       }
     }
+
+    /* xxxxxxxx mark delete Jan 31 2020 xxxxxxx
     else {
-      // default before +HOSTNBR 
+      // default before +HOSTNBR loads just one host 
       if ( SNHOSTGAL.GALID>0 ) 
 	{ SNDATA.HOSTGAL_NMATCH[0]=1 ; SNDATA.HOSTGAL_NMATCH[1]=1 ; }
       SNDATA.HOSTGAL_OBJID[0]          = SNHOSTGAL.GALID ;
@@ -21049,10 +21069,13 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 	(SNHOSTGAL.DEC_GAL_DEG - SNHOSTGAL.DEC_SN_DEG);
       SNDATA.HOSTGAL_SNSEP[0]          = SNHOSTGAL.SNSEP ;
       SNDATA.HOSTGAL_DDLR[0]           = SNHOSTGAL.DDLR ;
-      SNDATA.HOSTGAL_LOGMASS[0]        = SNHOSTGAL.LOGMASS ;
+
+      SNDATA.HOSTGAL_LOGMASS_TRUE[0]   = SNHOSTGAL.LOGMASS_TRUE ;
+      SNDATA.HOSTGAL_LOGMASS_OBS[0]    = SNHOSTGAL.LOGMASS_OBS ;
       SNDATA.HOSTGAL_LOGMASS_ERR[0]    = SNHOSTGAL.LOGMASS_ERR ;
       
-    } // end DEBUG_FLAG
+    } // end USE_REFACTOR
+    xxxxxxxx end mark xxxxxxxx */
 
     NPAR = SNDATA.NPAR_SIM_HOSTLIB ;
     for(ipar=0; ipar < NPAR ; ipar++ ) {
@@ -21069,7 +21092,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   SNDATA.HOSTGAL_MAG[0][ifilt] = (float)SNHOSTGAL.GALMAG[ifilt_obs][0]; 
   SNDATA.HOSTGAL_USEMASK |= 1 ; // flag to write host mag
 
-  if ( DEBUG_NEW ) {
+  if ( USE_REFACTOR ) {
     for(m=0; m < NMATCH; m++ ) {
       SNDATA.HOSTGAL_MAG[m][ifilt] = 
 	(float)SNHOSTGAL_DDLR_SORT[m].MAG[ifilt_obs] ;

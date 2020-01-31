@@ -17901,9 +17901,11 @@
 
 
 # ======================================================================= 
-         v10_75c (  ) 
+         v10_75c (Jan 31 2020) 
 
          ***** IMPORTANT(v10_75c) ***** 
+
+   release refactored sntools_host.c for sim --> allows multiple host matches.
 
          ***** USEFUL(v10_75c) ***** 
 
@@ -17929,5 +17931,8 @@
         This ratio-vs-wave needs to be updated for NIR use.
         Problem uncovered by D.Jones while analyzing RAISIN data 
         with SNOOPY model. For NIR, use OPT_MWCOLORLAW = 94.
+
+   sim:
+    + new input HOSTLIB_SCALE_LOGMASS_ERR (default=1.0).
 
 END: 

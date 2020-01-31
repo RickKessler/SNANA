@@ -45,16 +45,15 @@
   of MALLOCSIZE_HOSTLIB) as the HOSTLIB is read. The limitation 
   is therefore set by the memory available to your processor.
 
+  LOGMASS is internally converted to LOGMASS_TRUE.
+  User can provide LOGMASS_TRUE & LOGMASS_OBS, or provide
+  LOGMASS_TRUE and LOGMASS_ERR from which LOGMASS_OBS is
+  computed from smearing the true LOGMASS.
 
  TODO_LIST: 
-  - photoZ clipping with HOSTLIB_GENRANGE_NSIGZ
-
-  - set DEBUG_WGTFLUX=0 when LSST hostlib has Sersic weights
-
-  - find image of rotated galaxy to check treatment of a_rot.
-
-  - increase Gal noise due to template subtraction 
-     (JPAS/Xavier request)
+  - sum GALMAG[iPSF] over galaxy neihbors (Jan 31 2020)
+  - fix ZPHOT so that it is computed for each neighbor, rather
+     than only the true host (Jan 31 2020)
 
 
           HISTORY
@@ -89,6 +88,11 @@
 
  Jan 14 2020: 
    + in GEN_SNHOST_DDLR(), a & b are wgted avg among Sersic terms.
+
+ Jan 31 2020: little more work on DDLR_SORT:
+    +  make sure sorted (total) host mags have extinction
+         (but beware that GALMAG under SN is only from TRUE host)
+    +  implement LOGMASS_TRUE, LOGMASS_OBS
 
 =========================================================== */
 
@@ -351,10 +355,11 @@ void init_OPTIONAL_HOSTVAR(void) {
   sprintf(cptr,"%s", HOSTLIB_VARNAME_NBR_LIST ); 
 
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
-  sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS );
-
+  sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE );
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_ERR );
+  NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
+  sprintf(cptr,"%s", HOSTLIB_VARNAME_LOGMASS_OBS );
 
   NVAR++; cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;
   sprintf(cptr,"%s", HOSTLIB_VARNAME_FIELD ); 
@@ -1424,7 +1429,7 @@ void read_head_HOSTLIB(FILE *fp) {
 	get_PARSE_WORD(0,ivar,c_var);
 	checkAlternateVarNames(c_var);
 
-	// if coeff_tempalte[nn], make sure it's actually needed
+	// if coeff_template[nn], make sure it's actually needed
 	checkVarName_specTemplate(c_var);
 
 	// load ALL array
@@ -1547,13 +1552,14 @@ void read_head_HOSTLIB(FILE *fp) {
   HOSTLIB.IVAR_ZTRUE   = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZTRUE,1) ; // required 
 
   // optional
-  HOSTLIB.IVAR_ZPHOT       = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZPHOT,   0) ; 
-  HOSTLIB.IVAR_ZPHOT_ERR   = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZPHOT_ERR,0);
-  HOSTLIB.IVAR_LOGMASS     = IVAR_HOSTLIB(HOSTLIB_VARNAME_LOGMASS, 0) ; 
-  HOSTLIB.IVAR_LOGMASS_ERR = IVAR_HOSTLIB(HOSTLIB_VARNAME_LOGMASS_ERR,0);
-  HOSTLIB.IVAR_ANGLE       = IVAR_HOSTLIB(HOSTLIB_VARNAME_ANGLE,0) ;   
-  HOSTLIB.IVAR_FIELD       = IVAR_HOSTLIB(HOSTLIB_VARNAME_FIELD,0) ;   
-  HOSTLIB.IVAR_NBR_LIST    = IVAR_HOSTLIB(HOSTLIB_VARNAME_NBR_LIST,0) ; 
+  HOSTLIB.IVAR_ZPHOT        = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZPHOT,   0) ; 
+  HOSTLIB.IVAR_ZPHOT_ERR    = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZPHOT_ERR,0);
+  HOSTLIB.IVAR_LOGMASS_TRUE = IVAR_HOSTLIB(HOSTLIB_VARNAME_LOGMASS_TRUE, 0) ; 
+  HOSTLIB.IVAR_LOGMASS_OBS  = IVAR_HOSTLIB(HOSTLIB_VARNAME_LOGMASS_OBS,  0) ; 
+  HOSTLIB.IVAR_LOGMASS_ERR  = IVAR_HOSTLIB(HOSTLIB_VARNAME_LOGMASS_ERR,  0);
+  HOSTLIB.IVAR_ANGLE        = IVAR_HOSTLIB(HOSTLIB_VARNAME_ANGLE,0) ;   
+  HOSTLIB.IVAR_FIELD        = IVAR_HOSTLIB(HOSTLIB_VARNAME_FIELD,0) ;   
+  HOSTLIB.IVAR_NBR_LIST     = IVAR_HOSTLIB(HOSTLIB_VARNAME_NBR_LIST,0) ; 
   
   // Jan 2015: Optional RA & DEC have multiple allowed keys
   int IVAR_RA[3], IVAR_DEC[3] ;
@@ -1607,11 +1613,8 @@ void  checkAlternateVarNames(char *varName) {
   if ( strcmp(varName,"ZPHOTERR") == 0 ) 
     { sprintf(varName,"%s", HOSTLIB_VARNAME_ZPHOT_ERR); }
 
-  if ( strcmp(varName,"LOGMASS_OBS") == 0 ) 
-    { sprintf(varName,"%s", HOSTLIB_VARNAME_LOGMASS); }
-
-  if ( strcmp(varName,"LOGMASS_OBS_ERR") == 0 ) 
-    { sprintf(varName,"%s", HOSTLIB_VARNAME_LOGMASS_ERR); }
+  if ( strcmp(varName,"LOGMASS") == 0 )  // legacy name (Jan 31 2020)
+    { sprintf(varName,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE); }
 
 } // end of   checkAlternateVarNames
 
@@ -2104,16 +2107,6 @@ void malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ) {
   // separate check for READ index
   if ( (NGAL_READ % MALLOCSIZE_HOSTLIB) == 0 ) {
     HOSTLIB.MALLOCSIZE_I  += (I4  * MALLOCSIZE_HOSTLIB) ;
-
-    /* xxxxxx mark delete xxxxxxxxxx
-    printf(" xxx ------------------------------------ \n");
-    printf(" xxx %s: HOSTLIB.MALLOCSIZE_I/4 = %d\n", 
-	   fnam,HOSTLIB.MALLOCSIZE_I/4);
-    printf(" xxx %s: MALLOCSIZE_HOSTLIB     = %d\n", 
-	   fnam, MALLOCSIZE_HOSTLIB);
-    printf(" xxx %s: NGAL_READ = %d \n", fnam, NGAL_READ);
-    xxxxxxxxxxxxx */
-
     HOSTLIB.LIBINDEX_READ = 
       (int *)realloc(HOSTLIB.LIBINDEX_READ, HOSTLIB.MALLOCSIZE_I);
     for(igal=NGAL_READ; igal < NGAL_READ+MALLOCSIZE_HOSTLIB; igal++ ) 
@@ -3108,7 +3101,7 @@ void init_Sersic_HOSTLIB(void) {
   // need for relative flux calculations/
 
   int  j, NBIN, ir, VBOSE    ;
-  double  Rmax, Rmin, logRbin, logRmin, logRmax, logR, dif, xmem  ;
+  double  Rmax, Rmin, logRbin, logRmin, logRmax, logR, dif, xmem, SCALE  ;
   //  char fnam[] = "init_Sersic_HOSTLIB" ;
 
   // --------------- BEGIN ------------
@@ -3165,10 +3158,9 @@ void init_Sersic_HOSTLIB(void) {
     printf(" (%4.1f kB) \n", xmem );
     fflush(stdout);
 
-    if ( fabs(INPUTS.HOSTLIB_SERSIC_SCALE-1.0)>1.0E-5  ) {
-      printf("\t Sersic(a0,b0) scale:  %.3f \n", 
-	     INPUTS.HOSTLIB_SERSIC_SCALE);
-    }
+    SCALE = INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ;
+    if ( fabs(SCALE-1.0)>1.0E-5  ) 
+      { printf("\t Sersic(a0,b0) scale:  %.3f \n", SCALE);    }
   }
 
   // optional test of Seric-integral interpolation via 1/n
@@ -3297,8 +3289,8 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
     if ( FIXANG > -998.0) { SERSIC->a_rot = FIXANG; }
 
     // apply user-scale on size (Mar 28 2018)
-    SERSIC->a[j] *= INPUTS.HOSTLIB_SERSIC_SCALE ;
-    SERSIC->b[j] *= INPUTS.HOSTLIB_SERSIC_SCALE ;
+    SERSIC->a[j] *= INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ;
+    SERSIC->b[j] *= INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ;
     
     if ( n < SERSIC_INDEX_MIN || n > SERSIC_INDEX_MAX ) {
       sprintf(c1err,"Sersic index=%f outside valid range (%5.2f-%5.2f)",
@@ -3645,7 +3637,7 @@ void readme_HOSTLIB(void) {
 
   int    NTMP, ivar, NVAR, NROW, LSN2GAL, LGALMAG, j, igal ;
   long long GALID ;
-  double RAD, WGT, fixran, *fixab ;
+  double RAD, WGT, fixran, *fixab, SCALE ;
   char *cptr,  copt[40],  ctmp[20], ZNAME[40] ;
   char fnam[] = "readme_HOSTLIB" ;
 
@@ -3720,6 +3712,17 @@ void readme_HOSTLIB(void) {
       sprintf(c2err ,"%s", "but RA and/or DEC are missing from HOSTLIB.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
+  }
+
+  SCALE = INPUTS.HOSTLIB_SCALE_SERSIC_SIZE;
+  if ( fabs(SCALE-1.0) > 0.00001 ) {
+    cptr = HOSTLIB.COMMENT[NTMP];  NTMP++ ; 
+    sprintf(cptr, "\t Scale Sersic size by %.3f ", SCALE);
+  }
+  SCALE = INPUTS.HOSTLIB_SCALE_LOGMASS_ERR;
+  if ( fabs(SCALE-1.0) > 0.00001 ) {
+    cptr = HOSTLIB.COMMENT[NTMP];  NTMP++ ; 
+    sprintf(cptr, "\t Scale LOGMASS_ERR by %.3f ", SCALE);
   }
 
   fixran = INPUTS.HOSTLIB_FIXRAN_RADIUS ;
@@ -3993,6 +3996,12 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   //
   // Check new FIXRAN_RADIUS and FIXRAN_PHI options
   // July 2015: add PEAKMJD arg to allow re-using host after MINDAYSEP
+  //
+  // Jan 31 2020: 
+  //  little more refactor to use DDLR sorting. Note that 
+  //  GEN_SNHOST_ZPHOT(IGAL) is moved after DDLR sorting,
+  //  which changes random sync.
+  //
 
   int    USE, IGAL, ilist ;
   double fixran ;
@@ -4040,27 +4049,31 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   IGAL = SNHOSTGAL.IGAL ;
   if ( IGAL < 0 ) { return ; } // Aug 2015
 
-  // check on host photoz
-  GEN_SNHOST_ZPHOT(IGAL);
+  // xxx move below after DDLR sort, Jan 31 2020: GEN_SNHOST_ZPHOT(IGAL);
 
   // generate SN position at galaxy
   GEN_SNHOST_POS(IGAL);
 
-  if ( INPUTS.DEBUG_FLAG == 2 ) {
-    // check for neighbors
-    GEN_SNHOST_NBR(IGAL);
+  // - - - - - - - - - - - - - -
+  // check for neighbors
+  GEN_SNHOST_NBR(IGAL);
     
-    // determine DLR and ordered list
-    for(ilist=0; ilist < SNHOSTGAL.NNBR; ilist++ ) 
-      { GEN_SNHOST_DDLR(ilist); }
-    
-    // sort by DDLR
-    SORT_SNHOST_byDDLR();
+  // determine DLR and ordered list
+  for(ilist=0; ilist < SNHOSTGAL.NNBR; ilist++ ) 
+    { GEN_SNHOST_DDLR(ilist); }
+  
+  // sort by DDLR
+  SORT_SNHOST_byDDLR();
 
-  } // end DEBUG_FLAG
+  // - - - - - - 
+  // check on host photoz
+  GEN_SNHOST_ZPHOT(IGAL);
 
   // check if redshift needs to be updated (Apr 8 2019)
   TRANSFER_SNHOST_REDSHIFT(IGAL);
+
+  // check on host logmass for each possible host match (Feb 2020)
+  GEN_SNHOST_LOGMASS();
 
   // host-mag within SN aperture
   GEN_SNHOST_GALMAG(IGAL);
@@ -4341,8 +4354,9 @@ void init_SNHOSTGAL(void) {
   SNHOSTGAL.ZTRUE       = -9.0 ;
   SNHOSTGAL.ZPHOT       = -9.0 ;
   SNHOSTGAL.ZPHOT_ERR   = -9.0 ;
-  SNHOSTGAL.LOGMASS     = -9.0 ;
-  SNHOSTGAL.LOGMASS_ERR = -9.0 ;  
+
+  // xxx mark delete  SNHOSTGAL.LOGMASS     = -9.0 ;
+  // xxx mark delete SNHOSTGAL.LOGMASS_ERR = -9.0 ;  
 
   SNHOSTGAL.a_SNGALSEP_ASEC   = HOSTLIB_SNPAR_UNDEFINED ;
   SNHOSTGAL.b_SNGALSEP_ASEC   = HOSTLIB_SNPAR_UNDEFINED ;
@@ -4361,7 +4375,6 @@ void init_SNHOSTGAL(void) {
       SNHOSTGAL.GALMAG[ifilt][i]  = MAG_UNDEFINED ;
       SNHOSTGAL.SB_FLUX[ifilt]    = 0.0 ; 
       SNHOSTGAL.SB_MAG[ifilt]     = MAG_UNDEFINED ;
-      SNHOSTGAL.GALMAG_TOT[ifilt] = MAG_UNDEFINED ;
     }
   }
 
@@ -4517,31 +4530,46 @@ void GEN_SNHOST_ZPHOT(int IGAL) {
   //              See new functions GEN_SNHOST_ZPHOT_from_XXXX
   //
   // Oct 04 2018: fix awful bug with checking HOSTLIB_GENZPHOT usage
-  //              
-  int j;
-  double ZPHOT, ZPHOT_ERR, ZBIAS, tmp ;
+  //     
+  // Jan 31 2020: compute for all neighbors
+
+  int    NNBR  = SNHOSTGAL.NNBR;
   double ZTRUE = SNHOSTGAL.ZTRUE ;
+  double ZGEN  = SNHOSTGAL.ZGEN ;
+  int j, inbr;
+  double ZPHOT, ZPHOT_ERR, ZBIAS, tmp ;
   char fnam[] = "GEN_SNHOST_ZPHOT" ;
 
   // ----------- BEGIN ----------
 
-  if ( INPUTS.USE_HOSTLIB_GENZPHOT  ) 
-    { GEN_SNHOST_ZPHOT_from_CALC(IGAL,&ZPHOT,&ZPHOT_ERR); }
-  else
-    { GEN_SNHOST_ZPHOT_from_HOSTLIB(IGAL,&ZPHOT,&ZPHOT_ERR); }
-
-  // Apply user-specified bias
+  // Compte user-specified bias
   ZBIAS = 0 ;
   for(j=0; j < 4; j++ ) {
     tmp = (double)INPUTS.HOSTLIB_GENZPHOT_BIAS[j];
-    if ( tmp != 0.0 ) {
-      ZBIAS += tmp * pow(ZTRUE, (double)j );
-    }
+    if ( tmp != 0.0 )  { ZBIAS += tmp * pow(ZTRUE, (double)j );  }
   }
+
+  for(inbr=0; inbr < NNBR; inbr++ ) {
+    if ( INPUTS.USE_HOSTLIB_GENZPHOT  ) 
+      { GEN_SNHOST_ZPHOT_from_CALC(ZGEN, &ZPHOT,&ZPHOT_ERR); }
+    else
+      { GEN_SNHOST_ZPHOT_from_HOSTLIB(inbr, ZGEN, &ZPHOT,&ZPHOT_ERR); }
+
+    SNHOSTGAL_DDLR_SORT[inbr].ZPHOT     = ZPHOT + ZBIAS;
+    SNHOSTGAL_DDLR_SORT[inbr].ZPHOT_ERR = ZPHOT_ERR ;
+  }
+
+
+  // final ZPHOT is from host with closest match (Jan 31 2020)
+  SNHOSTGAL.ZPHOT     = SNHOSTGAL_DDLR_SORT[0].ZPHOT;
+  SNHOSTGAL.ZPHOT_ERR = SNHOSTGAL_DDLR_SORT[0].ZPHOT_ERR ;
+
+  /* xxxx mark delete xxxxx
   ZPHOT += ZBIAS;
   SNHOSTGAL.ZPHOT       = ZPHOT ;
   SNHOSTGAL.ZPHOT_ERR   = ZPHOT_ERR ;
-  
+  xxxxx */
+
 
   // -------------------------------
   // Aug 18 2015
@@ -4573,7 +4601,7 @@ void GEN_SNHOST_ZPHOT(int IGAL) {
 
 
 // =======================================
-void GEN_SNHOST_ZPHOT_from_CALC(int IGAL, double *ZPHOT, double *ZPHOT_ERR) {
+void GEN_SNHOST_ZPHOT_from_CALC(double ZGEN, double *ZPHOT, double *ZPHOT_ERR) {
 
   // Created Feb 23 2017
   // Compute ZPHOT and ZPHOT_ERR from Gaussian profiles specified
@@ -4588,17 +4616,18 @@ void GEN_SNHOST_ZPHOT_from_CALC(int IGAL, double *ZPHOT, double *ZPHOT_ERR) {
   //    entire HOSTLIB z-range
   //
   // June 7 2018: protect against ZPHOT < 0
+  // Jan 31 2020: pass ZGEN instead of unused IGAL
 
   double  sigz1_core[3] ;  // sigma/(1+z): a0 + a1*(1+z) + a2*(1+z)^2
   double  sigz1_outlier, prob_outlier, zpeak, sigz_lo, sigz_hi ;
   double  sigma_core, sigma_outlier, HOSTLIB_ZRANGE[2] ;
-  double  z, z1, ranGauss, ranProb, ranzFlat, zphotErr, zshift_ran ;
+  double  z1, ranGauss, ranProb, ranzFlat, zphotErr, zshift_ran ;
 
   GENGAUSS_ASYM_DEF ZPHOTERR_ASYMGAUSS ;
 
   int    OUTLIER_FLAT=0;
   double SIGMA_OUTLIER_FLAT = 9.999 ; // pick random z if sig_outlier> this
-  //  char   fnam[] = "GEN_SNHOST_ZPHOT_from_CALC" ;
+  char   fnam[] = "GEN_SNHOST_ZPHOT_from_CALC" ;
 
   // ----------- BEGIN -------------
 
@@ -4611,10 +4640,12 @@ void GEN_SNHOST_ZPHOT_from_CALC(int IGAL, double *ZPHOT, double *ZPHOT_ERR) {
   prob_outlier  = (double)INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[3] ;
   sigz1_outlier = (double)INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[4] ;
 
-  // - - - - - -
+  // - - - - - - - - - - - - 
 
-  z  = GENLC.REDSHIFT_HELIO ;
-  z1 = 1.0 + z ;
+  // xxx delete Jan 31 2020  z  = GENLC.REDSHIFT_HELIO ;
+
+  z1 = 1.0 + ZGEN ;
+
   sigma_core = (sigz1_core[0] + 
 		sigz1_core[1]*z1 + 
 		sigz1_core[2]*(z1*z1) ) ;
@@ -4622,7 +4653,6 @@ void GEN_SNHOST_ZPHOT_from_CALC(int IGAL, double *ZPHOT, double *ZPHOT_ERR) {
   sigma_outlier = sigz1_outlier*z1 ;
   
  PICKRAN:
-
 
   ranProb  = FlatRan1(1) ;
 
@@ -4645,7 +4675,7 @@ void GEN_SNHOST_ZPHOT_from_CALC(int IGAL, double *ZPHOT, double *ZPHOT_ERR) {
     // to avoid negative ZPHOT (or truncated ZPHOT),
     // check to modify symmetric error into asymmetric error
 
-    zphoterr_asym(z, zphotErr, &ZPHOTERR_ASYMGAUSS);
+    zphoterr_asym(ZGEN, zphotErr, &ZPHOTERR_ASYMGAUSS);
     zpeak   = ZPHOTERR_ASYMGAUSS.PEAK;
     sigz_lo = ZPHOTERR_ASYMGAUSS.SIGMA[0] ;
     sigz_hi = ZPHOTERR_ASYMGAUSS.SIGMA[1] ;
@@ -4661,7 +4691,7 @@ void GEN_SNHOST_ZPHOT_from_CALC(int IGAL, double *ZPHOT, double *ZPHOT_ERR) {
   if ( *ZPHOT < 0.001 ) { goto PICKRAN; }
 
   // reported ZPHOT_ERR is sigma_core, or the RMS of asym Gaussian.
-  zphoterr_asym(z, sigma_core, &ZPHOTERR_ASYMGAUSS) ;
+  zphoterr_asym(ZGEN, sigma_core, &ZPHOTERR_ASYMGAUSS) ;
   *ZPHOT_ERR = ZPHOTERR_ASYMGAUSS.RMS ;
  
 
@@ -4842,7 +4872,8 @@ void zphoterr_asym(double ZTRUE, double ZPHOTERR,
 
 
 // =================================================
-void GEN_SNHOST_ZPHOT_from_HOSTLIB(int IGAL, double *ZPHOT, double *ZPHOT_ERR) {
+void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN, 
+				   double *ZPHOT, double *ZPHOT_ERR) {
 
   // Created Feb 23 2017:
   // Generate host-ZPHOT from host library.
@@ -4851,34 +4882,55 @@ void GEN_SNHOST_ZPHOT_from_HOSTLIB(int IGAL, double *ZPHOT, double *ZPHOT_ERR) {
   // However, ZPHOTERR is not adjusted, which assumes that the
   // library ZTRUE is always close to generated redshift.
   //
+  // Inputs:
+  //   INBR = neighbor index (0 -> true host)
+  //   ZGEN = true helio redshift of SN
+  //   
+  // Outputs;
+  //   *ZPHOT = photo z of host
+  //   *ZPHOT_ERR = error on above
+  //
+  //
   // Mar 28 2018: float -> double
   // May 17 2018: if either zphot<0 or zphoterr<0, set both
   //              to -9. These indicate failed host photo-z fit.
   //
   // Apr 06 2019: initialize outputs (*ZPHOT,*ZPHOT_ERR) to -9.
-  //
+  // Jan 31 2020: 
+  //   + pass INBR (neighbor index) instead of IGAL
+  //   + pass ZGEN instead of using GENLC.REDSHIFT_HELIO
+
 
   int IVAR_ZPHOT, IVAR_ZPHOT_ERR ;
-  double ZDIF, zphot_local, zerr_local ;
-  //  char fnam[] = "GEN_SNHOST_ZPHOT_from_HOSTLIB" ;
+  double ZDIF, ZTRUE, zphot_local, zerr_local ;
+  char fnam[] = "GEN_SNHOST_ZPHOT_from_HOSTLIB" ;
 
   // ----------- BEGIN -----------
 
   *ZPHOT  = *ZPHOT_ERR = -9.0; 
   IVAR_ZPHOT     = HOSTLIB.IVAR_ZPHOT ;
   IVAR_ZPHOT_ERR = HOSTLIB.IVAR_ZPHOT_ERR ;
-
   if ( IVAR_ZPHOT < 0 ) { return ; }
 
+  ZDIF = 0.0 ;
+  if ( GENLC.CORRECT_HOSTMATCH ) {
+    // from legacy wrong-host map
+    ZTRUE = SNHOSTGAL_DDLR_SORT[INBR].ZSPEC ; // ZTRUE from hostlib
+    ZDIF = ZGEN - ZTRUE ; 
+  }
+
+  zphot_local = SNHOSTGAL_DDLR_SORT[INBR].ZPHOT + ZDIF ;
+  zerr_local  = SNHOSTGAL_DDLR_SORT[INBR].ZPHOT_ERR ;
+  
+  /* xxxxxxx mark delete Jan 31 2020 xxxxxxxx
   if ( GENLC.CORRECT_HOSTMATCH ) 
     { ZDIF = GENLC.REDSHIFT_HELIO - SNHOSTGAL.ZTRUE ; }
   else
     { ZDIF = 0.0 ; }    // wrong host
-
   zphot_local   = HOSTLIB.VALUE_ZSORTED[IVAR_ZPHOT][IGAL] ;
   zphot_local  += ZDIF ;
-
   zerr_local  = HOSTLIB.VALUE_ZSORTED[IVAR_ZPHOT_ERR][IGAL] ;
+  xxxxxxxxxx end delete xxxxxxxxxxx  */
 
   if ( zphot_local < 0.0 || zerr_local < 0.0 ) 
     { zphot_local = zerr_local = -9.0; }
@@ -4889,6 +4941,55 @@ void GEN_SNHOST_ZPHOT_from_HOSTLIB(int IGAL, double *ZPHOT, double *ZPHOT_ERR) {
   *ZPHOT_ERR = zerr_local;
 
 } // end GEN_SNHOST_ZPHOT_from_HOSTLIB
+
+
+// =========================================
+void GEN_SNHOST_LOGMASS(void) {
+
+  // Created Feb 2020
+  // If LOGMASS_OBS is defined in HOSTLIB, do nothing.
+  // Otherwise, use LOGMASS_TRUE and LOGMASS_ERR to determine 
+  // LOGMASS_OBS.
+
+  int  NNBR       = SNHOSTGAL.NNBR;
+  int  IVAR_TRUE  = HOSTLIB.IVAR_LOGMASS_TRUE ;
+  int  IVAR_OBS   = HOSTLIB.IVAR_LOGMASS_OBS ;
+  int  IVAR_ERR   = HOSTLIB.IVAR_LOGMASS_ERR ;
+  double SCALE    = INPUTS.HOSTLIB_SCALE_LOGMASS_ERR;
+  int i;
+
+  double LOGMASS_TRUE, LOGMASS_OBS, LOGMASS_ERR, GauRan ;
+  double rmin=-3.0, rmax=3.0 ;
+  char fnam[] = "GEN_SNHOST_LOGMASS" ;
+
+  // ---------- BEGIN -----------
+  
+  if ( IVAR_TRUE < 0 ) { return; }
+
+  for(i=0; i < NNBR; i++ ) {
+
+    LOGMASS_OBS = -9.0 ;
+
+    if ( IVAR_OBS > 0 ) { 
+      LOGMASS_OBS = SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS ;
+    }
+
+    if ( IVAR_TRUE > 0 && IVAR_ERR > 0 ) {
+      LOGMASS_TRUE = SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE ;
+      LOGMASS_ERR  = SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR ;
+      LOGMASS_ERR *= SCALE ;
+      GauRan = GaussRanClip(1,rmin,rmax);
+
+      LOGMASS_OBS = LOGMASS_TRUE + GauRan*LOGMASS_ERR ;
+    }
+
+    SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS = LOGMASS_OBS;
+      
+  }
+
+  return ;
+
+} // end GEN_SNHOST_LOGMASS
 
 // =======================================
 void GEN_SNHOST_POS(int IGAL) {
@@ -4934,6 +5035,7 @@ void GEN_SNHOST_POS(int IGAL) {
     ;
 
   int  DEBUG_MODE_SIMLIB = 0 ;
+  int  LDMP = 0 ;
   char fnam[] = "GEN_SNHOST_POS" ;
 
   // -------------- BEGIN -------------
@@ -5130,7 +5232,6 @@ void GEN_SNHOST_POS(int IGAL) {
   // selected SN coord to SNHOST coord. 
   // Likely use is for input to Image sim where the
   // SN coords must correspond to the galaxy location.
-
   if ( LSN2GAL ) {
     GENLC.RA   = SNHOSTGAL.RA_SN_DEG ;
     GENLC.DEC  = SNHOSTGAL.DEC_SN_DEG ;
@@ -5144,6 +5245,21 @@ void GEN_SNHOST_POS(int IGAL) {
     SIMLIB_HEADER.RA  = SNHOSTGAL.RA_SN_DEG ;
     SIMLIB_HEADER.DEC = SNHOSTGAL.DEC_SN_DEG ;
     SIMLIB_SNHOST_POS(IGAL, &SNHOSTGAL.SERSIC, 1 );
+  }
+
+
+  if ( LDMP ) {
+    printf(" xxx %s: RA,DEC(SN) = %f, %f \n",
+	   fnam, GENLC.RA, GENLC.DEC);
+    printf(" xxx %s: RA,DEC(GAL)= %f, %f \n", 
+	   fnam, SNHOSTGAL.RA_GAL_DEG, SNHOSTGAL.DEC_GAL_DEG );
+    printf(" xxx %s: Ran0,Ran1 = %.4f, %.4f \n", fnam, Ran0, Ran1);
+    printf(" xxx %s: a,b(half)=%.3f,%.3f n=%.3f a_rot=%.3f \n",
+	   fnam, a_half, b_half, n, a_rot);
+    printf(" xxx %s: a=%.4f b=%.4f  r=%.4f  phi=%.4f  DLR=%.4f \n",
+	   fnam, a, b, reduced_R, phi, DLR);
+    printf(" xxx %s: JPROF=%d IGAL=%d \n", fnam, JPROF, IGAL);
+    fflush(stdout);
   }
 
   return ;
@@ -5179,7 +5295,7 @@ void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
   double bsq    = b*b;
   int    ilist  = 1 ;
   int    LEGACY = 0 ;
-  int    LDMP   = 0 ;
+  int    LDMP   = (GENLC.CID == 9) ;
   double RAD    = RADIAN ;
   double fixran, phi, FlatRan_x, FlatRan_y, x, y, SUM ;
   char fnam[] = "GEN_SNHOST_ANGLE";
@@ -5209,8 +5325,8 @@ void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
   SUM = (x*x/asq) + (y*y/bsq);
 
   if ( LDMP ) {
-    printf(" xxx %s: x=%f, y=%f, SUM=%f \n", 
-	   fnam, x, y, SUM); fflush(stdout);
+    printf(" xxx %s: CID=%d x=%f, y=%f, SUM=%f \n", 
+	   fnam, GENLC.CID, x, y, SUM); fflush(stdout);
   }
 
   if ( SUM > 1.0 ) { goto PICK; }
@@ -5234,7 +5350,7 @@ void GEN_SNHOST_NBR(int IGAL) {
   // If NBR_LIST column exists, parse it and convert row numbers
   // to SNHOSTGAL.IGAL_NBR_LIST
   
-  int  LDMP = 0; // ( NCALL_GEN_SNHOST_DRIVER < 20 );
+  int  LDMP = 0 ; // ( NCALL_GEN_SNHOST_DRIVER < 20 );
   int  i, ii, NNBR_READ, NNBR_STORE, rowNum, IGAL_STORE, IGAL_ZSORT ;
   int  ROWNUM_LIST[MXNBR_LIST];
   long long GALID ;
@@ -5247,6 +5363,11 @@ void GEN_SNHOST_NBR(int IGAL) {
 
   SNHOSTGAL.NNBR = 1; // true host sets default at 1
   SNHOSTGAL.IGAL_NBR_LIST[0] = IGAL;
+
+  // set default DDLR and SNSEP to that of true host
+  SNHOSTGAL_DDLR_SORT[0].SNSEP = SNHOSTGAL.SNSEP ;
+  SNHOSTGAL_DDLR_SORT[0].DDLR  = SNHOSTGAL.DDLR ;
+
 
   // bail if there is no NBR list
   if ( HOSTLIB.IVAR_NBR_LIST < 0 ) { return ; }
@@ -5359,13 +5480,16 @@ void GEN_SNHOST_DDLR(int i_nbr) {
     DEC_GAL  = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL] ; 
   }
   else {
-    // bail if neighbor DLR has no coordinates
-    if ( i_nbr > 0 ) { return ; }  
+    // just one host, 
+    RA_GAL  =   SNHOSTGAL.RA_GAL_DEG ;
+    DEC_GAL =   SNHOSTGAL.DEC_GAL_DEG ;
+    if ( i_nbr > 0 ) { return ; }
   }
   // fetch Sersic profile info for this IGAL neighbor
   get_Sersic_info(IGAL, &SERSIC) ; 
 
   // compute SN-galaxy separation in arcsec.
+
   SNSEP = angSep(RA_GAL,DEC_GAL,  RA_SN,DEC_SN,  ASEC_PER_DEG);
 
   // For a & b, take weighted average among Sersic terms (Jan 2020).
@@ -5501,13 +5625,13 @@ void SORT_SNHOST_byDDLR(void) {
   // Sort galaxy NBRs by DDLR, and load global structure
   // SNHOSTGAL_DDLR_SORT[i], where i=0 has smallest DDLR.
 
-  int  NNBR       = SNHOSTGAL.NNBR;
+  int  NNBR       = SNHOSTGAL.NNBR ;
   int  ORDER_SORT = +1 ;     // increasing order
-  int  LDMP = 0 ;
+  int  LDMP = 0 ; // (GENLC.CID == 9 ) ;
 
   int  INDEX_UNSORT[MXNBR_LIST], i, unsort, IGAL, IVAR, ifilt, ifilt_obs ;
   long long GALID;
-  double DDLR, SNSEP, MAG ;
+  double DDLR, SNSEP, MAG, RA_GAL, DEC_GAL ;
   char fnam[] = "SORT_SNHOST_byDDLR" ;
 
   // ------------- BEGIN ---------------
@@ -5527,6 +5651,13 @@ void SORT_SNHOST_byDDLR(void) {
     DDLR   = SNHOSTGAL.DDLR_NBR_LIST[unsort] ;
     SNSEP  = SNHOSTGAL.SNSEP_NBR_LIST[unsort] ;
 
+    RA_GAL = GENLC.RA;    DEC_GAL = GENLC.DEC;
+    if ( i == 0 ) { 
+      RA_GAL  += (SNHOSTGAL.RA_GAL_DEG  - SNHOSTGAL.RA_SN_DEG  ) ;
+      DEC_GAL += (SNHOSTGAL.DEC_GAL_DEG - SNHOSTGAL.DEC_SN_DEG ) ;
+    }
+
+
     // load logical for true host
     SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = false ;
     if ( unsort == 0 ) // first element of unsorted array is true host
@@ -5541,14 +5672,14 @@ void SORT_SNHOST_byDDLR(void) {
     // to determine final host coords near SN. This feature allows using
     // HOSTLIB with any set of coordinates, even coords well outside
     // SN fields.
-    SNHOSTGAL_DDLR_SORT[i].RA  = GENLC.RA; // SN coord is default
+    SNHOSTGAL_DDLR_SORT[i].RA  = RA_GAL;
     IVAR = HOSTLIB.IVAR_RA; 
     if ( IVAR > 0 ) { // if we have Gal coords, shift by GAL-SN difference
       SNHOSTGAL_DDLR_SORT[i].RA += 
 	( get_VALUE_HOSTLIB(IVAR,IGAL) - SNHOSTGAL.RA_SN_DEG );
     }
 
-    SNHOSTGAL_DDLR_SORT[i].DEC = GENLC.DEC;
+    SNHOSTGAL_DDLR_SORT[i].DEC = DEC_GAL ;
     IVAR = HOSTLIB.IVAR_DEC; 
     if ( IVAR > 0 ) {
       SNHOSTGAL_DDLR_SORT[i].DEC += 
@@ -5570,10 +5701,20 @@ void SORT_SNHOST_byDDLR(void) {
       SNHOSTGAL_DDLR_SORT[i].ZPHOT_ERR = -9.0 ;
     }
 
-    IVAR = HOSTLIB.IVAR_LOGMASS; 
-    SNHOSTGAL_DDLR_SORT[i].LOGMASS     = get_VALUE_HOSTLIB(IVAR,IGAL);
+
+    SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE = -9.0;
+    SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS  = -9.0;
+    SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR  = -9.0;
+
+    IVAR = HOSTLIB.IVAR_LOGMASS_TRUE; 
+    if ( IVAR > 0 ) 
+      { SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE = get_VALUE_HOSTLIB(IVAR,IGAL); }
+    IVAR = HOSTLIB.IVAR_LOGMASS_OBS; 
+    if ( IVAR > 0 ) 
+      { SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS = get_VALUE_HOSTLIB(IVAR,IGAL); }
     IVAR = HOSTLIB.IVAR_LOGMASS_ERR; 
-    SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR = get_VALUE_HOSTLIB(IVAR,IGAL);
+    if ( IVAR > 0 )
+      { SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR = get_VALUE_HOSTLIB(IVAR,IGAL); }
 			      
     for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
       ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
@@ -5584,7 +5725,10 @@ void SORT_SNHOST_byDDLR(void) {
 
     if ( LDMP ) {
       printf("\t xxx %s: i=%d unsort=%d  DDLR=%6.2f  SEP=%8.1f\n",
-	     fnam, i, unsort, DDLR, SNSEP ); fflush(stdout);
+	     fnam, i, unsort, DDLR, SNSEP ); 
+      printf("\t xxx %s: RA_GAL=%f DEC_GAL=%f \n",
+	     fnam, SNHOSTGAL_DDLR_SORT[i].RA, SNHOSTGAL_DDLR_SORT[i].DEC);
+      fflush(stdout);      
     }
   }
   
@@ -5662,18 +5806,21 @@ void TRANSFER_SNHOST_REDSHIFT(IGAL) {
 // ==============================
 void GEN_SNHOST_GALMAG(int IGAL) {
 
-  // Compute host mag contained within PSF for each observer-filter. 
+  // Compute TRUE host mag contained within PSF for each observer-filter,
+  // which is used to compute local surface brightness.
   // Assume that each [filt]_obs value corresponds to the total
   // flux of the host; then use the generated SN position to 
   // determine several apertures and compute the flux-fraction 
-  // in each aperture. Finally, compute host mags based on the
-  // the total-host mag and the flux-fractions.
+  // in each aperture. Finally, compute total host mag for each neighbor.
+  //
+  // BEWARE: for host flux under SN, only true host is used.
+  //         TO be exactly right, should sum all neighbors.
   //
   // For a given PSF, the effective aperture is
   // taken to be 4*PI*PSF^2.
   //
   // Fill struct
-  //   SNHOSTGAL.GALMAG_TOT[ifilt_obs]
+  //   SNHOSTGAL_DDLR_SORT[inbr].MAG[ifilt_obs] = MAG ; 
   //   SNHOSTGAL.GALMAG[ifilt_obs][iPSF]
   //
   // May 27, 2011: apply Galactic extinction, see MWXT[ifilt_obs]
@@ -5685,6 +5832,11 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   // May 5 2017: use user-input INPUTS.HOSTLIB_SBRADIUS
   //
   // Nov 25 2019: protect dm for GALFRAC=0
+  //
+  // Jan 31 2020: refactor to load DDLR_SORT array for MAG.
+
+  int  NNBR       = SNHOSTGAL.NNBR ;
+
   double 
      x_SN, y_SN
     ,xgal, ygal, MAGOBS, MAGOBS_LIB, PSF, FGAL, dF
@@ -5699,17 +5851,16 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     ;
 
   float lamavg4, lamrms4, lammin4, lammax4  ;
-  int ifilt, ifilt_obs, i, IVAR, jbinTH, opt_frame    ;
+  int ifilt, ifilt_obs, i, inbr, IVAR, jbinTH, opt_frame    ;
   char fnam[] = "GEN_SNHOST_GALMAG" ;
 
   // ------------ BEGIN -------------
-
 
   for ( i=0; i <= NMAGPSF_HOSTLIB ; i++ ) { GALFRAC_SUM[i] =  0.0 ; }
   
 
   // compute MilkyWay Galactic extinction in each filter using
-  // extinction at mean wavelength
+  // extinction at mean wavelength.
   opt_frame = GENFRAME_OBS ; 
   AV        = RVMW * GENLC.MWEBV_SMEAR ;
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
@@ -5721,22 +5872,28 @@ void GEN_SNHOST_GALMAG(int IGAL) {
 
     // compute & store galaxy mag if they are defined
     IVAR      = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;
+    if ( IVAR < 0 ) { continue; }
 
-    if ( IVAR >= 0 ) {
-      MAGOBS_LIB = HOSTLIB.VALUE_ZSORTED[IVAR][IGAL] ; 
-      MAGOBS     = MAGOBS_LIB + MWXT[ifilt_obs] ; // dim  with Gal extinction
-      SNHOSTGAL.GALMAG_TOT[ifilt_obs] = MAGOBS ;
+    // dim each possible host/neighbor (Jan 31 2020)
+    for(inbr=0; inbr < NNBR; inbr++ ) {     
+      SNHOSTGAL_DDLR_SORT[inbr].MAG[ifilt_obs] += MWXT[ifilt_obs] ;       
+    }
 
-      /*
+    /* xxx mark delete Jan 31 2020 xxxxxxx
+    MAGOBS_LIB = HOSTLIB.VALUE_ZSORTED[IVAR][IGAL] ; 
+    MAGOBS     = MAGOBS_LIB 
+    SNHOSTGAL.GALMAG_TOT[ifilt_obs] = MAGOBS ;
+    xxxxxx */
+
+    /*
       printf(" xxx ------------------------ \n");
       printf(" xxx %s: load ifilt_obs=%d IGAL=%d, IVAR=%d \n",
-	     fnam, ifilt_obs, IGAL, IVAR );
+      fnam, ifilt_obs, IGAL, IVAR );
       printf(" xxx %s: MWXT=%.3f   MAGOBS=%.3f -> %.3f \n" ,
-	     fnam, MWXT[ifilt_obs], MAGOBS_LIB, MAGOBS);
-      */
-
-    }
-  }
+      fnam, MWXT[ifilt_obs], MAGOBS_LIB, MAGOBS);
+    */
+       
+  } // end ifilt
 
   // --------------------------------------------------------
   // check option to compute host noise under SN
@@ -5815,7 +5972,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
 
   // convert GALFRAC into mag shift and add to galaxy mag
   // i=0 is for the total mag; i=1-N is for aperture PSFs.
-
+  // Note that here we use TRUE host labelled by IGAL.
 
   for ( i=0; i <= NMAGPSF_HOSTLIB ; i++ ) {
 
@@ -6112,14 +6269,22 @@ void  STORE_SNHOST_MISC(int IGAL) {
     SNHOSTGAL.WGTMAP_VALUES[ivar] = HOSTLIB.VALUE_ZSORTED[IVAR_STORE][IGAL] ;
   }
 
+
+  /* xxxxxxxx mark delete Jan 31 2020 xxxxxxxxxxx
   // store host mass if it's there. 
-  IVAR  = HOSTLIB.IVAR_LOGMASS ;
+  IVAR  = HOSTLIB.IVAR_LOGMASS_TRUE ;
   if ( IVAR > 0 ) 
-    { SNHOSTGAL.LOGMASS = HOSTLIB.VALUE_ZSORTED[IVAR][IGAL] ; }
+    { SNHOSTGAL.LOGMASS_TRUE = HOSTLIB.VALUE_ZSORTED[IVAR][IGAL] ; }
+
+  IVAR  = HOSTLIB.IVAR_LOGMASS_OBS ;
+  if ( IVAR > 0 ) 
+    { SNHOSTGAL.LOGMASS_OBS = HOSTLIB.VALUE_ZSORTED[IVAR][IGAL] ; }
 
   IVAR = HOSTLIB.IVAR_LOGMASS_ERR ;
   if ( IVAR > 0 ) 
     { SNHOSTGAL.LOGMASS_ERR = HOSTLIB.VALUE_ZSORTED[IVAR][IGAL] ; }
+  xxxxxxxxxx end delete xxxxxxx */
+
 
 
   // -----------------------------------------------------------

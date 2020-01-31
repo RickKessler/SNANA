@@ -90,8 +90,9 @@
 // define optional keys
 #define HOSTLIB_VARNAME_ZPHOT        "ZPHOT"
 #define HOSTLIB_VARNAME_ZPHOT_ERR    "ZPHOT_ERR" 
-#define HOSTLIB_VARNAME_LOGMASS      "LOGMASS"  // log10(Mgal/Msolar) 2/2014
+#define HOSTLIB_VARNAME_LOGMASS_TRUE "LOGMASS_TRUE"  // log10(Mgal/Msolar)
 #define HOSTLIB_VARNAME_LOGMASS_ERR  "LOGMASS_ERR" 
+#define HOSTLIB_VARNAME_LOGMASS_OBS  "LOGMASS_OBS"
 #define HOSTLIB_VARNAME_RA           "RA"  
 #define HOSTLIB_VARNAME_DEC          "DEC" 
 #define HOSTLIB_VARNAME_RA_HOST      "RA_HOST"  
@@ -167,8 +168,9 @@ struct HOSTLIB_DEF {
   int IVAR_ZTRUE  ;
   int IVAR_ZPHOT ;
   int IVAR_ZPHOT_ERR  ;
-  int IVAR_LOGMASS ;
+  int IVAR_LOGMASS_TRUE ;
   int IVAR_LOGMASS_ERR ;
+  int IVAR_LOGMASS_OBS ;
   int IVAR_RA ;
   int IVAR_DEC ; 
   int IVAR_ANGLE ;  // rot angle of a-axis w.r.t. RA
@@ -370,7 +372,8 @@ typedef struct {
   long long GALID ;
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
   double ZSPEC, ZSPEC_ERR ;     // ZTRUE
-  double RA, DEC, SNSEP, DLR, DDLR, LOGMASS, LOGMASS_ERR ;
+  double RA, DEC, SNSEP, DLR, DDLR;
+  double LOGMASS_TRUE, LOGMASS_ERR, LOGMASS_OBS ;
   double MAG[MXFILTINDX]; 
   bool   TRUE_MATCH ;
 } SNHOSTGAL_DDLR_SORT_DEF ;
@@ -425,15 +428,15 @@ struct SNHOSTGAL {
   double SB_MAG[MXFILTINDX] ;  // surface brightness mag in 1 sq-arcsec
   double SB_FLUX[MXFILTINDX] ;
 
-  double GALMAG_TOT[MXFILTINDX];                 // Dec 20 2018
+  // xxx delete Jan 31 2020  double GALMAG_TOT[MXFILTINDX];  
   double GALMAG[MXFILTINDX][NMAGPSF_HOSTLIB+1] ; // mag per PSF bin
-  double GALFRAC[NMAGPSF_HOSTLIB+1]; // gal light-frac in each aperture
+  double GALFRAC[NMAGPSF_HOSTLIB+1]; // true gal light-frac in each aperture
   double GALFRAC_SBRADIUS[NMAGPSF_HOSTLIB+1]; // gal light-frac in SB radius
   double WGTMAP_SNMAGSHIFT ;        // SN mag shift from wgtmap
   double WGTMAP_WGT ;               // selection weight
 
   // log10 of Mgal/Msolar
-  double LOGMASS, LOGMASS_ERR ;
+  // xxx mark delete   double LOGMASS, LOGMASS_ERR ;  
 
   // parameters used to interpolate selection WGT
   double WGTMAP_VALUES[MXVAR_HOSTLIB]; 
@@ -517,6 +520,7 @@ void   SORT_SNHOST_byDDLR(void);
 void   TRANSFER_SNHOST_REDSHIFT(int IGAL);
 void   GEN_SNHOST_GALMAG(int IGAL);
 void   GEN_SNHOST_ZPHOT(int IGAL);
+void   GEN_SNHOST_LOGMASS(void); // Feb 2020
 int    USEHOST_GALID(int IGAL) ;
 void   FREEHOST_GALID(int IGAL) ;
 void   checkAbort_noHOSTLIB(void) ;
@@ -579,11 +583,12 @@ void   set_usebit_HOSTLIB_MSKOPT(int MSKOPT);
 
 void setbit_HOSTLIB_MSKOPT(int MSKOPT) ; // added Jan 2017
 
-void GEN_SNHOST_ZPHOT_from_CALC(int IGAL,    double *ZPHOT, double *ZPHOT_ERR);
+void GEN_SNHOST_ZPHOT_from_CALC(double ZGEN, double *ZPHOT, double *ZPHOT_ERR);
 void zphoterr_asym(double ZTRUE, double ZPHOTERR, 
 		   GENGAUSS_ASYM_DEF *asymGaussPar );
 
-void GEN_SNHOST_ZPHOT_from_HOSTLIB(int IGAL, double *ZPHOT, double *ZPHOT_ERR); 
+void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN, 
+				   double *ZPHOT, double *ZPHOT_ERR); 
 double snmagshift_salt2gamma_HOSTLIB(int GALID);
 
 // SPECBASIS functions

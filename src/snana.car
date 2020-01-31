@@ -8612,6 +8612,8 @@ c Jun 12 2019:
 c   pass TRUETYPE_SNIa to NEARNBR_SET_TRUETYPE().
 c   Needed if SCALE_NON1A != 1.
 c
+c Jan 29 2020: abort if TRAINFILE_PATH is set, but TRAINFILE_LIST is not.
+c
 c -----------------
 
       IMPLICIT NONE
@@ -8630,6 +8632,7 @@ c -----------------
      &  ,name_forC*(MXCHAR_FILENAME)
 
       LOGICAL   INPUT_ISVARNAME(4*NN_MXVAR)
+      LOGICAL   IS_TRAINPATH, IS_TRAINFILE
       CHARACTER INPUT_VARNAME(4*NN_MXVAR)*(MXCHAR_FILEWORD)
       REAL*8    INPUT_VALUE(4*NN_MXVAR)
       REAL*8    SEPMAX(3), RATIO
@@ -8681,8 +8684,16 @@ c namelist &NNINP  exists ==> read it.
 c check for command-line override
       CALL NNINP_OVERRIDE()
       
+      IS_TRAINPATH = ( NEARNBR_TRAINFILE_PATH .NE. ' ' )
+      IS_TRAINFILE = ( NEARNBR_TRAINFILE_LIST .NE. ' ' )
+
 c make sure there is a training file to continue
-      IF ( NEARNBR_TRAINFILE_LIST .EQ. ' ' ) THEN
+      IF ( .not. IS_TRAINFILE ) THEN
+         IF ( IS_TRAINPATH ) THEN
+           c1err = 'NEARNBR_TRAINFILE_PATH is set, '
+           c2err = 'but NEARNBR_TRAINFILE_LIST is not.'
+           CALL  MADABORT(FNAM, C1ERR, C2ERR)
+         ENDIF
          RETURN 
       ENDIF
 
@@ -8691,7 +8702,7 @@ c call init functions in sntools_nearnbr.c
 
       CALL NEARNBR_INIT()  ! C function 
       
-      IF ( NEARNBR_TRAINFILE_PATH .NE. ' ' ) THEN
+      IF ( IS_TRAINPATH  ) THEN
         CALL SNANA_NEARNBR_RDPATH(PATH)  ! return PATH
         LSTR = INDEX(PATH,' ') - 1
         CALL NEARNBR_SET_TRAINPATH(PATH(1:LSTR)//char(0), LSTR)

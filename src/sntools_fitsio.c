@@ -1354,7 +1354,7 @@ void wr_snfitsio_update_head(void) {
     // host mass
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_LOGMASS", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGMASS[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGMASS_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;

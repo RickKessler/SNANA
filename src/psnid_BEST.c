@@ -11,7 +11,6 @@
 
  Calling functions are in psnid.cra.
 
-
 ?!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!?
   ISSUES found by RK Feb 28 2013;
 
@@ -28,7 +27,6 @@
   that loop over all non-Ia types. See, for example, LIA_Ibc,LIA_II
 
 ?!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!?
-
 
  --------------------------------
  Integration notes for Masao:
@@ -91,7 +89,6 @@
 
    - to make light curve plots,
        mkfitplots.pl  --h <hisFileName>  --tmin -20 --tmax 80
-
 
      HISTORY
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -899,7 +896,7 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
   // 1) redshift priors (0=FLAT, 1=SNLC, 2=ZHOST; see PSNID_ZPRIOR_XXXX)
   // 2) SN tpes         (0=Ia, 1=Ibc, 2=II; see PSNID_ITYPE_SNXX)
 
-  z = 0 ; // only one z prior
+  z  =  0 ; // only one z prior
 
   
   // loop over SN tpes (0=Ia, 1=Ibc, 2=II; see PSNID_ITYPE_SNXX)

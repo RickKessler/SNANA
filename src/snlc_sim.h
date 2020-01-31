@@ -439,9 +439,12 @@ struct INPUTS {
 
   double HOSTLIB_GENRANGE_RA[2];
   double HOSTLIB_GENRANGE_DEC[2];
+  // xxx ??  double HOSTLIB_GENSIGMA_LOGMASS;  // LOGMASS uncertainty 
   double HOSTLIB_SBRADIUS ; // arcsec, determine SB using this radius
   double HOSTLIB_DZTOL[3] ; // define zSN-zGAL tolerance vs. redshift 
-  double HOSTLIB_SERSIC_SCALE; // scale Sersic size
+  // xxx   double HOSTLIB_SERSIC_SCALE; // scale Sersic size
+  double HOSTLIB_SCALE_LOGMASS_ERR ; // default is 1.0
+  double HOSTLIB_SCALE_SERSIC_SIZE ; // default is 1.0
   char   HOSTLIB_STOREPAR_LIST[MXPATHLEN]; // (I) comma-sep list 
 
   // debug options

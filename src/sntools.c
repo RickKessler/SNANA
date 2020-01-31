@@ -2787,11 +2787,12 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
     {  SNDATA.HOSTGAL_DDLR[1] = parVal[0] ;  }
 
   else if ( strcmp(key,"HOSTGAL_LOGMASS") == 0 )
-    {  SNDATA.HOSTGAL_LOGMASS[0] = parVal[0] ;  }
+    {  SNDATA.HOSTGAL_LOGMASS_OBS[0] = parVal[0] ;  }
   else if ( strcmp(key,"HOSTGAL_LOGMASS_ERR") == 0 )
     {  SNDATA.HOSTGAL_LOGMASS_ERR[0] = parVal[0] ;  }
+
   else if ( strcmp(key,"HOSTGAL2_LOGMASS") == 0 )
-    {  SNDATA.HOSTGAL_LOGMASS[1] = parVal[0] ;  }
+    {  SNDATA.HOSTGAL_LOGMASS_OBS[1] = parVal[0] ;  }
   else if ( strcmp(key,"HOSTGAL2_LOGMASS_ERR") == 0 )
     {  SNDATA.HOSTGAL_LOGMASS_ERR[1] = parVal[0] ;  }
 
@@ -6908,10 +6909,11 @@ int init_SNDATA ( void ) {
     SNDATA.HOSTGAL_RA[igal]          = -999.0 ;
     SNDATA.HOSTGAL_DEC[igal]         = -999.0 ;
     SNDATA.HOSTGAL_DDLR[igal]        = -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS[igal]     = -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS_ERR[igal] = -9.0 ;
-    SNDATA.HOSTGAL_sSFR[igal]        = -9.0 ;
-    SNDATA.HOSTGAL_sSFR_ERR[igal]    = -9.0 ;
+    SNDATA.HOSTGAL_LOGMASS_TRUE[igal] = -9.0 ;
+    SNDATA.HOSTGAL_LOGMASS_OBS[igal]  = -9.0 ;
+    SNDATA.HOSTGAL_LOGMASS_ERR[igal]  = -9.0 ;
+    SNDATA.HOSTGAL_sSFR[igal]         = -9.0 ;
+    SNDATA.HOSTGAL_sSFR_ERR[igal]     = -9.0 ;
   }
   SNDATA.HOSTGAL_USEMASK = 0 ;
 
@@ -7938,10 +7940,10 @@ void wr_HOSTGAL(FILE *fp) {
 	      SNDATA.HOSTGAL_CONFUSION );
     }
 
-    if ( SNDATA.HOSTGAL_LOGMASS[igal] > 0.0 ) {
+    if ( SNDATA.HOSTGAL_LOGMASS_OBS[igal] > 0.0 ) {
       fprintf(fp, "%s_LOGMASS:  %6.3f +- %6.3f   # log10(Mgal/Msolar)\n", 
 	      PREFIX, 
-	      SNDATA.HOSTGAL_LOGMASS[igal], 
+	      SNDATA.HOSTGAL_LOGMASS_OBS[igal], 
 	      SNDATA.HOSTGAL_LOGMASS_ERR[igal] );
 
       fprintf(fp, "%s_sSFR:  %6.3e +- %6.3e  \n",

@@ -540,7 +540,7 @@ void   parse_WGTMAP_HOSTLIB(FILE *fp, char *string);
 void   parse_WGTMAP_HOSTLIB_LEGACY(FILE *fp, char *string);
 void   parse_Sersic_n_fixed(FILE *fp, char *string); 
 void   read_head_HOSTLIB(FILE *fp);
-void   checkAlternateVarNames(char *varName) ;
+void   checkAlternateVarNames_HOSTLIB(char *varName) ;
 void   read_gal_HOSTLIB(FILE *fp);
 void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, 
 			   char *field, char *nbr_list  );

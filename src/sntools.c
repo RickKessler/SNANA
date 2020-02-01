@@ -6808,6 +6808,8 @@ int  init_SNPATH(void) {
   // Feb 19 2015: 
   //   checkg getenv() == NULL rather than if it returns "(null)".
   //   Set SURVEYNAME to "" instead of SDSS.
+  //
+  // Jan 31 2020: init PATH_USER_INPUT = ""
 
   char fnam[] = "init_SNPATH" ;
 
@@ -6850,6 +6852,8 @@ int  init_SNPATH(void) {
   sprintf(PATH_SNDATA_SIM,        "%s/SIM",        PATH_SNDATA_ROOT);
   SNDATA.SURVEY_NAME[0]=0;
   SNDATA.SUBSURVEY_NAME[0] = 0 ;
+
+  PATH_USER_INPUT[0] = 0 ; 
 
   fflush(stdout);
   return(SUCCESS);

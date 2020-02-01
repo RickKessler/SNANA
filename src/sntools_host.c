@@ -597,6 +597,9 @@ void  init_OUTVAR_HOSTLIB(void) {
   // Be careful NOT to store the same variable twice in case
   // user requests a variable that is already required or
   // in the WGTMAP.
+  //
+  // Feb 01 2020: 
+  //  + call checkAlternateVarNames so that LOGMASS -> LOGMASS_TRUE.
 
   int   NVAR_STOREPAR, NVAR_OUT, NVAR_REQ, LOAD, ivar, ivar2, ISDUPL;
   char  VARLIST_ALL[MXPATHLEN], VARLIST_LOAD[MXPATHLEN];
@@ -626,6 +629,7 @@ void  init_OUTVAR_HOSTLIB(void) {
   for(ivar=0; ivar < NVAR_STOREPAR; ivar++ ) {
 
     get_PARSE_WORD(0,ivar,varName); // return varName
+    checkAlternateVarNames_HOSTLIB(varName);
 
     // skip duplicates, which could come from zHOST effic map,
     // or user mistake setting up STOREPAR_LIST
@@ -818,7 +822,7 @@ void parse_WGTMAP_HOSTLIB(FILE *fp, char *string) {
     VARNAME = HOSTLIB_WGTMAP.VARNAME[ivar] ;
     get_PARSE_WORD(0,ivar,VARNAME);
     
-    checkAlternateVarNames(VARNAME); // Jan 31 2020
+    checkAlternateVarNames_HOSTLIB(VARNAME); // Jan 31 2020
 
     strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME);
     strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST," ");
@@ -1429,7 +1433,7 @@ void read_head_HOSTLIB(FILE *fp) {
       // parse the VARNAMES from LINE string
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	get_PARSE_WORD(0,ivar,c_var);
-	checkAlternateVarNames(c_var);
+	checkAlternateVarNames_HOSTLIB(c_var);
 
 	// if coeff_template[nn], make sure it's actually needed
 	checkVarName_specTemplate(c_var);
@@ -1600,7 +1604,7 @@ void read_head_HOSTLIB(FILE *fp) {
 
 
 // =====================================
-void  checkAlternateVarNames(char *varName) {
+void  checkAlternateVarNames_HOSTLIB(char *varName) {
 
   // Feb 12 2014
   // If input varName matches an allowed [hard-wired] alternative,
@@ -1618,7 +1622,7 @@ void  checkAlternateVarNames(char *varName) {
   if ( strcmp(varName,"LOGMASS") == 0 )  // legacy name (Jan 31 2020)
     { sprintf(varName,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE); }
 
-} // end of   checkAlternateVarNames
+} // end of   checkAlternateVarNames_HOSTLIB
 
 // ====================================
 void  parse_Sersic_n_fixed(FILE *fp, char  *string) {

@@ -1703,6 +1703,9 @@ int read_input(char *input_file) {
     if ( uniqueMatch(c_get,"GENMODEL_EXTRAP_LATETIME:") ) 
       { readchar ( fp, INPUTS.GENMODEL_EXTRAP_LATETIME ); continue ; }
 
+    if ( uniqueMatch(c_get,"PATH_USER_INPUT:")  )
+      { readchar(fp, PATH_USER_INPUT ); continue ; }
+
     if ( uniqueMatch(c_get,"PATH_SNDATA_SIM:")  )
       { readchar(fp, INPUTS.PATH_SNDATA_SIM ); continue ; }
 
@@ -1713,7 +1716,6 @@ int read_input(char *input_file) {
       { readchar(fp, INPUTS.NON1ASED.PATH ); continue ; }
    
     L_NON1ASED = ( INPUTS.NON1A_MODELFLAG == MODEL_NON1ASED ) ;
-
 
     L_NON1AKEY = ( strcmp(c_get,"NON1A_KEYS:")    ==0 || 
 		   strcmp(c_get,"NONIA_KEYS:")    ==0 ||
@@ -3286,6 +3288,11 @@ void parse_input_SIMGEN_DUMP(FILE *fp, int *iArg, char *KEYNAME ) {
     *iArg = i ;
   }
 
+  // Feb 1 2020: allow alternate HOSTLIB names
+  for (itmp=0; itmp < INPUTS.NVAR_SIMGEN_DUMP; itmp++ ) {
+    checkAlternateVarNames_HOSTLIB(INPUTS.VARNAME_SIMGEN_DUMP[itmp]);
+  }
+
   return ;
 
 } // end parse_input_SIMGEN_DUMP
@@ -4751,6 +4758,11 @@ void sim_input_override(void) {
     }
     if ( strcmp( ARGV_LIST[i], "GENPREFIX" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPREFIX ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "PATH_USER_INPUT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", PATH_USER_INPUT );
       goto INCREMENT_COUNTER; 
     }
 
@@ -11957,17 +11969,9 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   // allow any variable on extra HOSTLIB_STOREVAR list
   NTMP = NVAR_SIMGEN_DUMP ; 
   for(ivar=0; ivar < HOSTLIB_OUTVAR_EXTRA.NOUT; ivar++ ) {
-
-    /* xxxx mark delete July 12 2019 xxxxxxxxxx
-    // avoid declaring a variable twice.
-    cptr = HOSTLIB_OUTVAR_EXTRA.NAME[ivar] ;     FOUND = 0 ;
-    for(ivar2=0; ivar2<NTMP; ivar2++ ) 
-      { if ( strcmp(SIMGEN_DUMP[ivar2].VARNAME,cptr) == 0 ) { FOUND=1; }    }
-    if ( FOUND ) { continue ; }
-    xxxxxxxx end mark delete xxxxxxxxxxx*/
-
     if ( HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[ivar] ) { continue; } 
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+    //    checkAlternateVarNames_HOSTLIB(cptr);  // Feb 1 2020
     sprintf(cptr,"%s", HOSTLIB_OUTVAR_EXTRA.NAME[ivar] );
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &HOSTLIB_OUTVAR_EXTRA.VALUE[ivar];
     NVAR_SIMGEN_DUMP++ ;

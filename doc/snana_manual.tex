@@ -3901,6 +3901,30 @@ To allow for easy verification, the {\tt +HOSTNBR} option includes a
 screen-dump for several entries,
 where the dump includes both row number and {\tt GALID}.
 
+% ------------------------------------
+\subsubsection{Treatment of {\tt LOGMASS} }
+\label{sss:hostlib_logmass}
+% ------------------------------------
+
+To propagate effects of  host-galaxy mass \unc,
+the simulation treats the following {\tt HOSTLIB} columns:
+%
+\begin{Verbatim}
+    LOGMASS_TRUE    # true log10(M/Msolar)
+    LOGMASS         # same as above
+    LOGMASS_ERR     # Gaussian uncertainty
+    LOGMASS_OBS     # measured log10(M/Msolar)
+\end{Verbatim}
+%
+If {\tt LOGMASS\_OBS} is not included, then the measured
+mass is determined from a random Gaussian fluctuation
+using {\tt LOGMASS\_ERR}. {\tt LOGMASS\_OBS} is propagated
+to the output and used in cosmology fitting.
+The sim-input parameter {\tt HOSTLIB\_SCALE\_LOGMASS\_ERR} scales 
+the \unc\
+(see Table near top of \S\ref{sss:hostlib_options}).
+
+
 
 % ------------------------------------
 \subsubsection{Notes on CPU Resources}

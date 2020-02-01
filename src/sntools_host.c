@@ -818,6 +818,8 @@ void parse_WGTMAP_HOSTLIB(FILE *fp, char *string) {
     VARNAME = HOSTLIB_WGTMAP.VARNAME[ivar] ;
     get_PARSE_WORD(0,ivar,VARNAME);
     
+    checkAlternateVarNames(VARNAME); // Jan 31 2020
+
     strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME);
     strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST," ");
     
@@ -4973,13 +4975,11 @@ void GEN_SNHOST_LOGMASS(void) {
     if ( IVAR_OBS > 0 ) { 
       LOGMASS_OBS = SNHOSTGAL_DDLR_SORT[i].LOGMASS_OBS ;
     }
-
-    if ( IVAR_TRUE > 0 && IVAR_ERR > 0 ) {
+    else if ( IVAR_TRUE > 0 && IVAR_ERR > 0 ) {
       LOGMASS_TRUE = SNHOSTGAL_DDLR_SORT[i].LOGMASS_TRUE ;
       LOGMASS_ERR  = SNHOSTGAL_DDLR_SORT[i].LOGMASS_ERR ;
       LOGMASS_ERR *= SCALE ;
       GauRan = GaussRanClip(1,rmin,rmax);
-
       LOGMASS_OBS = LOGMASS_TRUE + GauRan*LOGMASS_ERR ;
     }
 

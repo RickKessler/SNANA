@@ -659,6 +659,44 @@ You can get a list of files with the commands
 
 
 % ------------------------------------
+   \subsection{Search Hierarchy for Supplemental Input Files}
+   \label{subsec:sim_inpfiles}
+% ------------------------------------
+
+The simulation has input options for more than a dozen different 
+maps that are read in as supplemental files. These maps include:
+cadence, host galaxy, detection efficiency vs. SNR, 
+spectroscopic selection efficiency, etc ...
+To see all maps in your simulation job, 
+see dashboard utility in \S\ref{sss:sim_dashboard}.
+The simulation will search for each supplemental file with
+the following priority
+\begin{enumerate}
+  \item current diretory (i.e., no path appended to file name)
+  \item path specified by sim-input~~~ {\tt PATH\_USER\_INPUT: <path>}
+  \item default path under \$\sndataroot.
+\end{enumerate}
+%
+Priority (1) allows over-riding defaults by
+simply copying a map file to your local directory.
+Priority (2) is useful in higher-level pipelines that
+copy the top-level sim-input file to a spearate directory, 
+but doesn't copy the supplemental files.
+Priority (3) checks for default files from
+previous analyses or publications. For example,
+a SIMLIB file is checked under 
+{\tt \$SNDATA\_ROOT/simlib},
+a k-correction file is checked under
+{\tt \$SNDATA\_ROOT/kcor},
+trigger files are checked under
+{\tt \$SNDATA\_ROOT/models/searcheff}, etc ...
+
+Note that the most robust method is to specify file names with a 
+full path that has an environment (ENV) variable; the ENV ensures that
+the sim job will run on other computer platforms.
+
+
+% ------------------------------------
    \subsection{Synchronizing Random Numbers}
    \label{subsec:sim_ransync}
 % ------------------------------------

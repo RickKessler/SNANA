@@ -5996,7 +5996,7 @@ int rd_sedFlux(
   // open SED file.
 
   fpsed = open_TEXTgz(sedFile, "rt", &GZIPFLAG );
-  if ( fpsed == NULL ) {
+  if ( !fpsed  ) {
     sprintf(c1err,"Cannot open SED file: " );
     sprintf(c2err,"  '%s' ", sedFile);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
@@ -9994,13 +9994,19 @@ void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG) {
 
 
 // *************************************************
-FILE *snana_openTextFile (int vboseFlag, char *SNPATH, char *fileName, 
+FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName, 
 			  char *fullName, int *gzipFlag ) {
 
   /* ----------------------------------------------
     Shell to open text file for reading.
     First search local directory; if file not found
-    then search $SNPATH
+    then search paths in [space-separated] PATH_LIST.
+    The search priority is
+      + current pwd
+      + 1st path in PATH_LIST
+      + 2nd path in PATH_LIST
+    There is no warning or error if file exists in 
+    multiple directories.
 
     This allows user to easily over-ride default
     with private version.
@@ -10010,11 +10016,16 @@ FILE *snana_openTextFile (int vboseFlag, char *SNPATH, char *fileName,
    Dec 29 2017: use open_TEXTgz to allow reading gzipped files.
    Jan 11 2018: add gzipFile output arg
    Mar 20 2019: padd vboseFlag to print comment to stdout
+   Feb 01 2020: SNPATH -> PATH_LIST (space separated)
   ----------------------------------------------- */
 
 #define TEXTMODE_read "rt"
+#define MXPATH_CHECK 4
 
   int LDMP = (vboseFlag>0) ;
+  int ipath, NPATH ;
+  bool IS_OPEN = false ;
+  char *PATH[MXPATH_CHECK], sepKey[]= " " ; 
   FILE *fp ;
   //  char fnam[] = "snana_openTextFile" ;
 
@@ -10033,19 +10044,78 @@ FILE *snana_openTextFile (int vboseFlag, char *SNPATH, char *fileName,
     return fp;
   } 
 
+  // if we get here, try paths in PATH_LIST
 
-   // if we get here, try official location
-   sprintf(fullName, "%s/%s", SNPATH,  fileName );
-   //   fp = fopen(fullName, "rt") ;
-   fp = open_TEXTgz(fullName,TEXTMODE_read, gzipFlag );
+  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
+    { PATH[ipath] = (char*) malloc(MXPATHLEN*sizeof(char) ); }
 
-   if ( LDMP && fp != NULL ) { printf("\t Opened : %s \n", fullName ); }
+  splitString(PATH_LIST, sepKey, MXPATH_CHECK,
+	       &NPATH, PATH ); // <== returned
 
-   // return pointer regardless of status
-   return fp;
+  for(ipath=0; ipath < NPATH; ipath++ ) {
+    if ( IS_OPEN ) { continue ; }
+
+    sprintf(fullName, "%s/%s", PATH[ipath],  fileName );
+    //   fp = fopen(fullName, "rt") ;
+    fp = open_TEXTgz(fullName,TEXTMODE_read, gzipFlag );
+
+    if ( fp != NULL ) {
+      IS_OPEN = true ;
+      if ( LDMP ) { printf("\t Opened : %s \n", fullName ); }
+    }
+
+  } // end ipath
+
+  // free memory
+  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )   { free(PATH[ipath]); }
+
+  // return pointer regardless of status
+  return fp;
 
 }  // end of snana_openTextFile
 
+
+// *****************************************************
+void abort_openTextFile(char *keyName, char *PATH_LIST,
+                        char *fileName, char *funCall) {
+
+  // if *snana_openTextFile returns NULL pointer, call this
+  // function to print error info and abort. Main thing is
+  // to print out all directories that were checked from
+  // current dir and PATH_LIST.
+  
+  //#define MXPATH_CHECK 4
+  int NPATH, ipath;
+  char *PATH[MXPATH_CHECK], sepKey[] = " " ;
+
+  // -------------- BEGIN ----------------
+
+  print_preAbort_banner(funCall);
+
+
+  // append path(s) from PATH_LIST
+  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
+    { PATH[ipath] = (char*) malloc( MXPATHLEN * sizeof(char) ); }
+
+  // first path is current working dir
+  getcwd(PATH[0],MXPATHLEN);
+
+  // split string to get other paths
+  splitString(PATH_LIST, sepKey, MXPATH_CHECK,
+	      &NPATH, &PATH[1] ); // <== returned
+  
+  printf("\n  The following paths were checked for input file read from"
+	 "\n  %s: %s \n", keyName, fileName);
+  for(ipath=0; ipath <= NPATH; ipath++ ) 
+    { printf("     %s \n", PATH[ipath] );   }
+
+  sprintf(c1err,"Could not find '%s' input file:", keyName );
+  sprintf(c2err,"%s  (see preAbort info above)", fileName);
+  errmsg(SEV_FATAL, 0, funCall, c1err, c2err );
+  
+  return ;
+
+} // end abort_openTextFile
 
 
 // ***************************

@@ -47,6 +47,10 @@
    + major refactor & update for SEARCHEFF_zHOST; multi-D map
      as an arbitrary function of HOSTLIB params.
 
+  Feb 2 1 2020:
+   add PATH_USER_INPUT to path list for snana_openTextFile,
+   and if not file then call abort_openTextFile.
+
 ************************************/
 
 #include <stdio.h>
@@ -125,7 +129,8 @@ void init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF ) {
   NONZERO_SEARCHEFF_SPEC  = 0 ;
   NONZERO_SEARCHEFF_zHOST = 0 ;
 
-  sprintf(PATH_SEARCHEFF, "%s/models/searcheff", PATH_SNDATA_ROOT );
+  sprintf(PATH_SEARCHEFF, "%s %s/models/searcheff", 
+	  PATH_USER_INPUT, PATH_SNDATA_ROOT );
 
   if ( INPUTS_SEARCHEFF.FUNEFF_DEBUG ) {
     printf("\t Use FUNEFF_DEBUG = %d \n", INPUTS_SEARCHEFF.FUNEFF_DEBUG );
@@ -304,10 +309,15 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
   if ( fp == NULL ) { 
 
     if ( IREQUIRE ) {
+      abort_openTextFile("SEARCHEFF_PIPELINE_EFF_FILE", 
+			 PATH_SEARCHEFF, file_local, fnam);
+
+      /* xxxxxx mark delete Feb 1 2020
       sprintf(c1err,"Could not open %s", file_local);
       sprintf(c2err,"%s",
 	      "Check 'SEARCHEFF_PIPELINE_EFF_FILE:' key in sim-input file");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+      xxxxx */
     }
     else { 
       printf("\n  Optional SEARCHEFF_PIPELINE_FILE not found -> skip. \n");
@@ -851,16 +861,21 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
 
   //  printf(" xxx logic file -> '%s' \n", logicFile); 
 
-  fp = snana_openTextFile(0,PATH_SEARCHEFF, logicFile,
+  fp = snana_openTextFile(0, PATH_SEARCHEFF, logicFile,
 			  ptrFile_final, &gzipFlag ); // returned
 
+  if ( !fp ) {
+    abort_openTextFile("SEARCHEFF_PIPELINE_LOGIC_FILE",
+		       PATH_SEARCHEFF, logicFile, fnam );
+  }
 
+  /* xxxxxxxx mark delete Feb 1 2020 xxxxxxxxxxx
   if ( ( fp = fopen(ptrFile_final, "rt") ) == NULL ) {
     sprintf(c1err,"Could not open %s", logicFile);
     sprintf(c2err,"Check SEARCHEFF_PIPELINE_LOGIC_FILE key in sim-input");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
-
+  xxxxxxxxxxxx end mark xxxxxxxxxx */
 
   sprintf(cline, "\n   Fetch SOFTWARE SEARCH-LOGIC from : \n"); 
   SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
@@ -1087,9 +1102,15 @@ void  init_SEARCHEFF_SPEC(char *survey) {
 
   if ( fp == NULL ) { 
     if ( IREQUIRE ) {
+      abort_openTextFile("SEARCHEFF_SPEC_FILE",
+			 PATH_SEARCHEFF, effspec_file_local, fnam );
+
+      /* xxxxxxxx mark delete Feb 1 2020 xxxxxxxxx
       sprintf(c1err,"Could not open %s", effspec_file_local);
       sprintf(c2err,"%s","Check 'SEARCHEFF_SPEC_FILE:' key in sim-input file");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+      xxxxxxxxx */
+
     }
     else  { 
       printf("\n  Optional SEARCHEFF_SPEC_FILE not specified -> skip. \n");
@@ -1302,10 +1323,17 @@ FILE *open_zHOST_FILE(int OPT) {
   // examine if there is no zHOST file
   if ( fp == NULL ) { 
     if ( IREQUIRE ) {
+
+      abort_openTextFile("SEARCHEFF_zHOST_FILE",
+			 PATH_SEARCHEFF, localFile, fnam );
+
+      /* xxxxxxx mark delete Feb 2 2020 xxxxxxxxx
       sprintf(c1err,"Could not open %s", localFile);
       sprintf(c2err,"%s","Check 'SEARCHEFF_zHOST_FILE:' "
 	      "key in sim-input file");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+      xxxxxxxxxx */
+
     }
     else  { 
       if ( LPRINT )   { 

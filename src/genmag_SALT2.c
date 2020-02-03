@@ -1062,8 +1062,9 @@ void read_SALT2_INFO_FILE(void) {
 
   sprintf(infoFile, "%s/%s", SALT2_MODELPATH, SALT2_INFO_FILE );
 
+ 
   if (( fp = fopen(infoFile, "rt")) == NULL ) {
-    sprintf(c1err,"Could not open info file:");
+    sprintf(c1err,"Could not open SALT2 info file:");
     sprintf(c2err," %s", infoFile );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }

@@ -618,9 +618,11 @@ void print_banner ( const char *banner ) ;
 
 // shells to open text file
 FILE *open_TEXTgz(char *FILENAME, const char *mode,int *GZIPFLAG) ;
-FILE *snana_openTextFile (int vboseFlag, char *subdir, char *filename, 
+FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName, 
 			  char *fullName, int *gzipFlag ); 
 void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
+void abort_openTextFile(char *keyName, char *PATH_LIST, 
+			char *fileName, char *funCall);
 
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
 void ENVrestore(char *fileName_noENV, char *fileName_orig);

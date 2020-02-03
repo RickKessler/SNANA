@@ -17901,11 +17901,18 @@
 
 
 # ======================================================================= 
-         v10_75c (Jan 31 2020) 
+         v10_75c (Feb xx 2020) 
 
          ***** IMPORTANT(v10_75c) ***** 
 
-   release refactored sntools_host.c for sim --> allows multiple host matches.
+   + release refactored sntools_host.c for sim --> 
+      allows multiple host matches.
+
+   + new sim-input "PATH_USER_INPUT: <path>" to search both local
+     dir and PATH_USER_INPUT for input files.
+
+   + LOGMASS smearing in sim using LOGMASS_TRUE & LOGMASS_ERR,
+     or using LOGMASS_TRUE and LOGMASS_OBS; see manual.
 
          ***** USEFUL(v10_75c) ***** 
 
@@ -17936,5 +17943,7 @@
     + new input HOSTLIB_SCALE_LOGMASS_ERR (default=1.0).
     + fixes to allow user input LOGMASS, but internally convert 
        to LOGMASS_TRUE
+    + new utility abort_openTextFile() gives more info when
+      input file cannot be opened.
 
 END: 

@@ -5716,6 +5716,7 @@ void prep_user_input(void) {
   ENVreplace(INPUTS.STRONGLENS_FILE,fnam,1);
   ENVreplace(INPUTS.LCLIB_FILE,fnam,1);
   ENVreplace(INPUTS.MODELPATH,fnam,1);
+  ENVreplace(PATH_USER_INPUT,fnam,1);
 
   if ( strlen(INPUTS.PATH_SNDATA_SIM) > 0 ) {
     add_PATH_SNDATA_SIM(INPUTS.PATH_SNDATA_SIM);
@@ -13880,7 +13881,7 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
   // Open SIMLIB file and read global header into
   // SIMLIB_GLOBAL_HEADER structure.
 
-  char PATH_DEFAULT[MXPATHLEN];
+  char PATH_DEFAULT[2*MXPATHLEN];
   char *OPENFILE = INPUTS.SIMLIB_OPENFILE;
   char c_get[80];
   int  NTMP, NFILT;
@@ -13890,14 +13891,18 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
 
   print_banner(fnam);
 
-  sprintf(PATH_DEFAULT, "%s/simlib",  PATH_SNDATA_ROOT );
+  sprintf(PATH_DEFAULT, "%s %s/simlib",  PATH_USER_INPUT, PATH_SNDATA_ROOT );
   fp_SIMLIB = snana_openTextFile(1,PATH_DEFAULT, INPUTS.SIMLIB_FILE, 
 				 OPENFILE, &INPUTS.SIMLIB_GZIPFLAG );
   
   if ( fp_SIMLIB == NULL ) {
+    abort_openTextFile("SIMLIB_FILE", PATH_DEFAULT, INPUTS.SIMLIB_FILE, fnam);
+
+    /* xxxxx Mark delete Feb 1 2020 xxxxxx
     sprintf ( c1err, "Cannot open file SIMLIB_FILE" );
     sprintf ( c2err," '%s' ", INPUTS.SIMLIB_FILE );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    xxxx */ 
   }
 
   // - - - - - - - - - - - - - - - -
@@ -17331,7 +17336,7 @@ void init_zvariation(void) {
   // Jul 19 2017: add GENMAG_OFF_GLOBAL to update list
   // Jul 24 2017: update error reporting of NZBIN exceeding boung.
 
-  char *ptrZfile, *ptrparname, *ptrPar, *ptrPoly;
+  char *ptrZfile, *ptrparname, *ptrPar, *ptrPoly, fileName_full[MXPATHLEN] ;
   char GENPREFIX[60], c_get[60], method[20], parName[60], cpoly[60] ;
 
 #define NPREFIX_GENGAUSS 15
@@ -17345,7 +17350,7 @@ void init_zvariation(void) {
 
   double *ptrzval, *ptrzshift, ZTMP, ZMIN, ZMAX, ZGEN[2], shift ;
   int i, i2, NZ, MATCH, FLAG, ipar, IPAR_USR=-9 ;
-  int IZVAR_DEJA, IZVAR_FILE ;
+  int IZVAR_DEJA, IZVAR_FILE, gzipFlag ;
   FILE *fpz;
   char    fnam[] = "init_zvariation" ;
 
@@ -17447,11 +17452,22 @@ void init_zvariation(void) {
 
   // -------------------------------------------
   // open file
+
+  //.xyz
+  fpz = snana_openTextFile(1, PATH_USER_INPUT, ptrZfile,
+			   fileName_full, &gzipFlag );
+  
+  if ( !fpz ) {
+    abort_openTextFile("ZVARIATION_FILE", 
+		       PATH_USER_INPUT, ptrZfile, fnam);
+  }
+  /* xxxxxxxxxx mark delete Feb 1 2020 xxxxxxxx
   if ( (fpz = fopen(ptrZfile, "rt"))==NULL ) {   
     sprintf ( c1err, "Cannot open ZVARIATION_FILE " );
     sprintf ( c2err," '%s' ", ptrZfile );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+  xxxxxxxxx */
 
   print_banner(" Read Z-DEPENDENCE for SIM PARAMETERS ");
 

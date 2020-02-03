@@ -702,20 +702,26 @@ void open_HOSTLIB(FILE **fp) {
   // Dec 29 2017: use snana_openTextFile utility to allow gzipped library.
 
   char libname_full[MXPATHLEN] ;
-  char PATH_DEFAULT[MXPATHLEN] ;
+  char PATH_DEFAULT[2*MXPATHLEN] ;
   char fnam[] = "open_HOSTLIB" ;
 
   // ----------- BEGIN ----------
 
-  sprintf(PATH_DEFAULT, "%s/simlib", PATH_SNDATA_ROOT );
+  sprintf(PATH_DEFAULT, "%s %s/simlib", PATH_USER_INPUT, PATH_SNDATA_ROOT );
   *fp = snana_openTextFile(0,PATH_DEFAULT, INPUTS.HOSTLIB_FILE,
 			   libname_full, &HOSTLIB.GZIPFLAG );  // <== returned
 
 
   if ( *fp == NULL ) {
+    abort_openTextFile("HOSTLIB_FILE", 
+		       PATH_DEFAULT, INPUTS.HOSTLIB_FILE, fnam);
+
+    /* xxxxxxxxx mark delete Feb 1 2020 xxxxxxxxxxx
     sprintf ( c1err, "Cannot open file :" );
     sprintf ( c2err," '%s' ", libname_full );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    xxxxxxxxxxxx */
+
   }
 
   sprintf(HOSTLIB.FILENAME , "%s", libname_full );
@@ -733,13 +739,10 @@ void  read_wgtmap_HOSTLIB(void) {
   // will be ignored. Note that this function must be called
   // before read_head_HOSTLIB().
 
-  char 
-    *ptrFile
-    ,c_get[40]
-    ,fnam[] = "read_wgtmap_HOSTLIB" 
-    ;
-
   FILE *fp ;
+  int  gzipFlag ;
+  char *ptrFile, fileName_full[MXPATHLEN], c_get[40] ;
+  char fnam[] = "read_wgtmap_HOSTLIB"  ;
 
   // ------------- BEGIN --------------
 
@@ -748,12 +751,21 @@ void  read_wgtmap_HOSTLIB(void) {
   ptrFile = INPUTS.HOSTLIB_WGTMAP_FILE ;
   if ( IGNOREFILE(ptrFile) )  { return ; }
 
+  fp = snana_openTextFile(0,PATH_USER_INPUT, ptrFile,
+			  fileName_full, &gzipFlag );  // <== returned
+
+  if ( !fp ) {
+      abort_openTextFile("HOSTLIB_WGTMAP_FILE", 
+			 PATH_USER_INPUT, ptrFile, fnam);
+  }
+
+  /* xxxx mark delete Feb 1 2020 xxxxxxxx
   if ( (fp = fopen(ptrFile, "rt")) == NULL ) {
     sprintf(c1err,"%s", "Could not find supplemental WGTMAP file:" );
     sprintf(c2err,"%s", ptrFile );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-
+  xxxxxxxxxxxxx */
 
   // if we get here, open and read WGTMAP file.
 
@@ -876,11 +888,11 @@ void  read_specbasis_HOSTLIB(void) {
 
   FILE *fp;
   int  NBIN_WAVE, NBIN_READ, IFILETYPE;
-  int  NVAR, ivar, ICOL_WAVE, NT, MEMD, NUM ;
+  int  NVAR, ivar, ICOL_WAVE, NT, MEMD, NUM, gzipFlag ;
   int  NVAR_WAVE  = 0 ;
   int  OPT_VARDEF = 0 ;
   int  LEN_PREFIX = strlen(PREFIX_SPECBASIS);
-  char *ptrFile, *varName, c_get[60];  
+  char *ptrFile, *varName, c_get[60], fileName_full[MXPATHLEN] ;  
   char TBLNAME[] = "SPECBASIS";
   char fnam[] = "read_specbasis_HOSTLIB";
   
@@ -899,12 +911,21 @@ void  read_specbasis_HOSTLIB(void) {
 
   // - - - - - - - - - - - - - -
   // read until VARNAMES key in case there are supplemental keys
+
+  fp = snana_openTextFile(0, PATH_USER_INPUT, ptrFile,
+			  fileName_full, &gzipFlag );  // <== returned
+  if ( !fp ) {
+      abort_openTextFile("HOSTLIB_SPECBASIS_FILE", 
+			 PATH_USER_INPUT, ptrFile, fnam);
+  }
+
+  /* xxxxxxxxx mark delete Feb 1 2020 xxxxxxxxxx
   if ( (fp = fopen(ptrFile, "rt")) == NULL ) {
     sprintf(c1err,"%s", "Could not open SPEC-TEMPLATE file:" );
     sprintf(c2err,"%s", ptrFile );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-  
+  xxxxxxxxxxxxxxx */
 
   int STOP=0;
   while( !STOP ) {

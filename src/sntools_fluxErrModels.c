@@ -63,7 +63,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
   int  IDMAP, NMAP=0, imap, OPT_EXTRAP=0, LENTMP ;
   int  USE_REDCOV=1, USE_REDCOV_OVERRIDE=0;
   bool HAS_COLON;
-  char PATH[MXPATHLEN], c_get[80];  
+  char PATH[2*MXPATHLEN], c_get[80];  
   char *fullName = FILENAME_FLUXERRMAP ;
   char *name, *fieldList, TMP_STRING[80], LINE[100];
   char MSGERR_FILE[200];
@@ -82,13 +82,17 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
   sprintf(BANNER,"%s:", fnam);
   print_banner(BANNER);
 
-  sprintf(PATH, "%s/simlib", PATH_SNDATA_ROOT);
+  sprintf(PATH, "%s %s/simlib", PATH_USER_INPUT, PATH_SNDATA_ROOT);
   fp = snana_openTextFile(1,PATH, fileName, fullName, &gzipFlag);
 
   if ( !fp ) {
+    abort_openTextFile("FLUXERRMODEL_FILE", PATH, fileName, fnam);
+
+    /* xxxxxxxx mark delete Feb 1 2020 xxxxxxxxxxxxx
     sprintf(c1err,"Cannot open FLUXERRMODEL_FILE");
     sprintf(c2err,"'%s'", fullName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    xxxxxxxxxxxxx */
   }
 
   sprintf(MSGERR_FILE,"check FLUXERRMODEL_FILE: '%s'", fullName);

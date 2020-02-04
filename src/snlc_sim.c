@@ -528,6 +528,7 @@ void get_user_input(void) {
 
   ***********/
   int i ;
+  bool FOUNDKEY[2];
   //  char fnam[] = "get_user_input"    ;
 
   // ------------ BEGIN ---------------
@@ -547,7 +548,9 @@ void get_user_input(void) {
   // This check is needed because the override list is read below after
   // the 2nd input file is alread read.
   for ( i = 2; i < NARGV_LIST ; i++ ) {   
-    if ( strcmp(ARGV_LIST[i],"INPUT_FILE_INCLUDE") == 0 ) { 
+    FOUNDKEY[0] = ( strcmp(ARGV_LIST[i],"INPUT_FILE_INCLUDE") == 0 );
+    FOUNDKEY[1] = ( strcmp(ARGV_LIST[i],"INPUT_INCLUDE_FILE") == 0 );
+    if ( FOUNDKEY[0] || FOUNDKEY[1] ) {
       sprintf(INPUTS.INPUT_FILE_LIST[1], "%s", ARGV_LIST[i+1] ) ; 
       INPUTS.INPUT_FILE_LIST[2][0] = 0 ; // erase 2nd include file
     }
@@ -1286,6 +1289,7 @@ int read_input(char *input_file) {
   int L_NON1ASED, L_NON1AKEY, L_PEC1AKEY, L_TMP, ITMP, NWD ;
   int itmp, N, j, ifilt, opt_tmp;
   int key, NKEY, ovp1, ovp2, ITYPE ;
+  bool FOUNDKEY[2];
   int iArg = -9;
   char  stringSource[] = "sim-input file" ;
   char  comma[] = ","; 
@@ -1321,7 +1325,10 @@ int read_input(char *input_file) {
     if ( commentchar(c_get) ) 
       { ptrTmp = fgets(tmpLine, 80, fp) ; continue ; }
 
-    if ( strcmp(c_get,"INPUT_FILE_INCLUDE:") == 0 ) {
+    // multiple include files allowed, so do NOT use uniqueMatch
+    FOUNDKEY[0] = ( strcmp(c_get,"INPUT_FILE_INCLUDE:") == 0 );
+    FOUNDKEY[1] = ( strcmp(c_get,"INPUT_INCLUDE_FILE:") == 0 );
+    if ( FOUNDKEY[0] || FOUNDKEY[1] ) {
       if ( strlen(INPUTS.INPUT_FILE_LIST[1]) == 0 )  // 1st include file
 	{ readchar ( fp, INPUTS.INPUT_FILE_LIST[1]); }
       else if ( strlen(INPUTS.INPUT_FILE_LIST[2])==0 )  // 2nd include file

@@ -1499,7 +1499,7 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_OFFSET_SBFLUX  ! host surface brightness
      &  ,CUTBIT_OFFSET_SNRMAX  ! SNRMAX cuts in each filter     
      &  ,CUTBIT_MJD_MARKER     ! things above do NOT depend on epoch
-     &  ,CUTBIT_PSF,  CUTBIT_ZP
+     &  ,CUTBIT_PSF,  CUTBIT_ZP, CUTBIT_ZPERR
      &  ,CUTBIT_PHOTPROB
      &  ,CUTBIT_TREST, CUTBIT_TOBS, CUTBIT_MJD
      &  ,CUTBIT_ERRTEST          ! epoch cut on ERRCALC/ERRTRUE
@@ -1554,13 +1554,12 @@ c SN-dependent cuts above
 c MJD-dependent cuts below
      &  ,CUTBIT_PSF          = CUTBIT_MJD_MARKER + 1  ! PSF cut
      &  ,CUTBIT_ZP           = CUTBIT_MJD_MARKER + 2  ! ZP  cut (Feb 2018)
-     &  ,CUTBIT_PHOTPROB     = CUTBIT_MJD_MARKER + 3
-cc xxx mark delete     &  ,CUTBIT_NBAND_THRESH = CUTBIT_MJD_MARKER + 4
-     &  ,CUTBIT_Trest        = CUTBIT_MJD_MARKER + 4
-     &  ,CUTBIT_Tobs         = CUTBIT_MJD_MARKER + 5
-     &  ,CUTBIT_MJD          = CUTBIT_MJD_MARKER + 6  
-     &  ,CUTBIT_ERRTEST      = CUTBIT_MJD_MARKER + 7
-cc xxx mark delete     &  ,CUTBIT_IDTEL        = CUTBIT_MJD_MARKER + 8
+     &  ,CUTBIT_ZPERR        = CUTBIT_MJD_MARKER + 3  ! ZPERR (Feb 2020)
+     &  ,CUTBIT_PHOTPROB     = CUTBIT_MJD_MARKER + 4
+     &  ,CUTBIT_Trest        = CUTBIT_MJD_MARKER + 5
+     &  ,CUTBIT_Tobs         = CUTBIT_MJD_MARKER + 6
+     &  ,CUTBIT_MJD          = CUTBIT_MJD_MARKER + 7  
+     &  ,CUTBIT_ERRTEST      = CUTBIT_MJD_MARKER + 8
 c
      &  ,CUTBIT_OFFSET       = CUTBIT_ERRTEST
      &  ,NCUTBIT             = CUTBIT_OFFSET 
@@ -1673,6 +1672,7 @@ c  Below are Epoch-dependent cuts
      &  ,cutwin_zp(2)            ! ZEROPT cut, ADU or NPE
      &  ,cutwin_zpADU(2)         ! ZEROPT cut, ADU
      &  ,cutwin_zpNPE(2)         ! ZEROPT cut, NPE
+     &  ,cutwin_ZPERR(2)         ! ZPERR cut
      &  ,cutwin_photprob(2)
      &  ,cutwin_errtest(2)       ! cut on ERRCALC/ERRTRUE
      &  ,cutwin_Trest(2)         ! window for all epochs, rest frame days
@@ -1811,6 +1811,7 @@ ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
      &   ,( cutwin_var(1,cutbit_Nepoch),    cutwin_Nepoch )
      &   ,( cutwin_var(1,cutbit_psf),       cutwin_psf )
      &   ,( cutwin_var(1,cutbit_zp),        cutwin_zp  )
+     &   ,( cutwin_var(1,cutbit_zperr),     cutwin_zperr  )
      &   ,( cutwin_var(1,cutbit_photprob),  cutwin_photprob  )
      &   ,( cutwin_var(1,cutbit_errtest),   cutwin_errtest   )
      &   ,( cutwin_var(1,cutbit_Nfilt_snrmax), cutwin_nfilt_snrmax )
@@ -2102,8 +2103,8 @@ c
      &   ,cutwin_Tobsmin,  cutwin_Tobsmax
      &   ,cutwin_peakmjd,  cutwin_mjd
 c
-     &   ,cutwin_psf,       cutwin_zp,  CUTWIN_ZPADU, CUTWIN_ZPNPE
-     &   ,cutwin_photprob,  cutwin_errtest
+     &   ,cutwin_psf, cutwin_zp,  CUTWIN_ZPADU, CUTWIN_ZPNPE
+     &   ,cutwin_zperr, cutwin_photprob,  cutwin_errtest
      &   ,cutwin_nband_thresh
      &   ,cutwin_nfilt_snrmax,   cutwin_nfilt_snrmax2
      &   ,cutwin_nfilt_trestmin, cutwin_nfilt_trestmax
@@ -5050,6 +5051,10 @@ c - - - - - - - -
          else if ( LINE_ARGS(i) .EQ. 'CUTWIN_PSF' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_PSF(1)
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_PSF(2)
+
+         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_ZPERR' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPERR(1)
+            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPERR(2)
 
          else if ( LINE_ARGS(i) .EQ. 'CUTWIN_ZPADU' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPADU(1)
@@ -15650,6 +15655,8 @@ c
 c Feb 20 2017: update to allow multiple bands gluded together.
 c              'gri .01'  is equivalent to  'g .01  r .01  i .01'
 c
+c Feb 4 2020: check ALL or all to set same mag for all bands.
+c
 c --------------------------------------
 
       IMPLICIT NONE
@@ -15693,6 +15700,21 @@ c --------------- BEGIN ------------
         IFILTDEF(i) = 0
         XFILTVAL(i) = 0.  ! init output to zero
       ENDDO
+
+c - - - - - - - - - - - - -
+c Feb 2020: check 'all' option to set same mag error for all filters
+      IF ( STRING(1:3) .EQ. 'ALL' .or. STRING(1:3).EQ. 'all' ) then
+         CALL get_PARSE_WORD_fortran(iwd,cwd,LEN) ! read ALL string
+         CALL get_PARSE_WORD_fortran(iwd,cwd,LEN) ! read mag_err
+         read(cwd,*) VAL
+         do ifilt_tmp = 1, NFILTDEF_SURVEY
+	   IFILTDEF(ifilt_tmp) = IFILTDEF_MAP_SURVEY(ifilt_tmp)
+           XFILTVAL(ifilt_tmp) = VAL
+         enddo
+         RETURN
+      ENDIF
+
+c - - - - - - - - - 
 
       NFILT_LAST = 0
       DO 200 iwd = 1, NWD
@@ -16988,6 +17010,7 @@ c hard-wire names of cut variables (maxchar = 28)
       cutvar_name(CUTBIT_REDSHIFT_ERR) = 'Redshift-ERROR:'
       cutvar_name(CUTBIT_PSF)          = 'PSF:'
       cutvar_name(CUTBIT_ZP)           = 'ZP:'
+      cutvar_name(CUTBIT_ZPERR)        = 'ZPERR:'
       cutvar_name(CUTBIT_PHOTPROB)     = 'PHOTPROB:'
 cc xxx      cutvar_name(CUTBIT_NBAND_THRESH) = 'Nband thresh:'
       cutvar_name(CUTBIT_MWEBV)        = 'MWEBV:'
@@ -22540,6 +22563,9 @@ c Dec 18 2017: replace cloudAVG with PSF cut. Note that cut is in ARCSEC
 
          SNEP_CUTVAR(CUTBIT_ZP,imjd) = 
      &       SNLC_ZEROPT_forCUT(EPMIN) 
+
+         SNEP_CUTVAR(CUTBIT_ZPERR,imjd) = 
+     &       SNLC_ZEROPT_ERR(EPMIN)      ! Feb 2020
 
          SNEP_CUTVAR(CUTBIT_PHOTPROB,imjd)  = 
      &       SNLC_PHOTPROB(EPMIN)

@@ -7220,9 +7220,8 @@ but sometimes $\SIGCHISQ$ can be very large
 (positive or negative) if a fitted \unc\ undergoes
 a significant change between fit iterations.
 Fits with a large $\SIGCHISQ$ value can be rejected
-using the {\tt \&FITINP} namelist variable {\tt FITWIN\_CHI2SIGMA}. 
-%The default is to reject fits with $\vert\SIGCHISQ\vert > 10$
-%({\tt FITWIN\_CHI2SIGMA = -10, +10}).  
+using the {\tt \&FITINP} namelist variable {\tt FITWIN\_CHI2SIGMA},
+or using {\tt SIGCHI2} variable in output FITRES table.
 Values of $\SIGCHISQ$ can be visually examined with
 %
 \begin{verbatim}
@@ -7988,31 +7987,30 @@ and there is no need to specify {\tt SNCID\_LIST}.
 % ------------------------------------
 
 The \snfitter\ program provides an interface to modify 
-zero-point offsets as well as the magnitudes of the
-primary reference star. The primary magnitudes can be
-individually adjusted using the \&{\tt SNLCINP} namelist option
+zero-point (ZP) offsets as well as the primary magnitudes.
+The primary mags can be individually adjusted using 
+\&{\tt SNLCINP} namelist options
 %
 \begin{Verbatim}[frame=single]
     MAGOBS_SHIFT_PRIMARY  = 'B .02  V .01'
     MAGOBS_SHIFT_PRIMARY  = 'B .01  V .01 R 0.01'
     MAGOBS_SHIFT_PRIMARY  = 'BVR 0.01'    # same as above
     MAGREST_SHIFT_PRIMARY = 'B .02  V .01'
-   
 \end{Verbatim}
 %
 which shifts the primary mags by 0.02 and 0.01 for $B$ and $V$,
-respectively, in the example above. 
+respectively.
 Note that separate strings are used for the
 observer-frame and rest-frame to allow for the same 
 filter-character to be used in each reference frame.
 This option is equivalent to re-generating the
 K-correction tables with these shifts, 
 but the {\tt MAG[OBS,REST]\_SHIFT\_PRIMARY}
-option is much quicker since you can use the same K-correction tables.
+option is more convenient since you can use the same K-correction tables.
 
 
-For the zero-points, there are two ways to introduce shifts.
-The first method is to specify the offsets in a file, {\tt ZPOFF.DAT},
+There are two ways to introduce ZP shifts.
+First, specify ZP offsets in a file, {\tt ZPOFF.DAT},
 located in the {\tt filters} sub-directory. For the SDSS AB-offsets,
 the file location is
 %
@@ -8021,7 +8019,7 @@ the file location is
   u -0.037  g 0.024  r  0.005  i  0.018  z  0.016 
 \end{Verbatim}
 % $
-If {\tt ZPOFF.DAT} does not exist, the shifts are zero.
+If {\tt ZPOFF.DAT} does not exist, the ZP shifts are zero.
 This method is used for standardized shifts.
 
 The second option is designed to probe the uncertainty
@@ -8034,9 +8032,8 @@ specified with the \&{\tt SNLCINP} namelist string
     MAGOBS_SHIFT_ZP = 'gri .01'    # same as above
 \end{verbatim}
 %
-Note that the shifts in {\tt ZPOFF.DAT} and {\tt MAGOBS\_SHIFT\_ZP}
-are added so that you make well-defined shifts relative to the
-standard shifts in {\tt ZPOFF.DAT}.
+Note that the {\tt MAGOBS\_SHIFT\_ZP} shifts are
+added to those in {\tt ZPOFF.DAT}.
 
 \medskip
 Wavelength-dependent shifts can be applied with polynomial
@@ -8068,12 +8065,12 @@ namelist variables,
      FUDGE_FLUXCAL_OFFSET = 'u -0.6 g 0.4   r 1.2  i -3.7 z 2.2'
      FUDGE_FLUXCAL_ERROR  = 'u 24   g -12   r 44   i 19   z -22'
      FUDGE_MAG_ERROR      = 'u .01  g .011  r .009 i .01  z .018'
+     FUDGE_MAG_ERROR      = 'ALL 0.02'  ! add .02 mag err to all bands
 \end{Verbatim}
-These fudges should be used for systematic studies only;
+These fudges are intended for  systematic studies;
 permanent changes should be made in the data files.
 The error fudges are added/subtracted in quadrature
 based on the sign of {\tt FUDGE\_FLUXCAL\_ERROR}.
-
 
 % ------------------------------------
 %   \clearpage

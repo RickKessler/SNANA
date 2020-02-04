@@ -4802,6 +4802,11 @@ void sim_input_override(void) {
     } // end GENMODEL key
 
 
+    if ( strcmp(ARGV_LIST[i], "GENMODEL_EXTRAP_LATETIME") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENMODEL_EXTRAP_LATETIME );
+      goto INCREMENT_COUNTER;
+    }
+
     if ( strcmp( ARGV_LIST[i], "FORMAT_MASK" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.FORMAT_MASK ); 
       goto INCREMENT_COUNTER; 

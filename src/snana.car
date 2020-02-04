@@ -15703,16 +15703,16 @@ c --------------- BEGIN ------------
 
 c - - - - - - - - - - - - -
 c Feb 2020: check 'all' option to set same mag error for all filters
-      IF ( STRING(1:3) .EQ. 'ALL' .or. STRING(1:3).EQ. 'all' ) then
-         CALL get_PARSE_WORD_fortran(iwd,cwd,LEN) ! read ALL string
-         CALL get_PARSE_WORD_fortran(iwd,cwd,LEN) ! read mag_err
-         read(cwd,*) VAL
-         do ifilt_tmp = 1, NFILTDEF_SURVEY
-	   IFILTDEF(ifilt_tmp) = IFILTDEF_MAP_SURVEY(ifilt_tmp)
-           XFILTVAL(ifilt_tmp) = VAL
-         enddo
-         RETURN
-      ENDIF
+c      IF ( STRING(1:3) .EQ. 'ALL' .or. STRING(1:3).EQ. 'all' ) then
+c         CALL get_PARSE_WORD_fortran(iwd,cwd,LEN) ! read ALL string
+c         CALL get_PARSE_WORD_fortran(iwd,cwd,LEN) ! read mag_err
+c         read(cwd,*) VAL
+c         do ifilt_tmp = 1, NFILTDEF_SURVEY
+c	   IFILTDEF(ifilt_tmp) = IFILTDEF_MAP_SURVEY(ifilt_tmp)
+c           XFILTVAL(ifilt_tmp) = VAL
+c         enddo
+c         RETURN
+c      ENDIF
 
 c - - - - - - - - - 
 

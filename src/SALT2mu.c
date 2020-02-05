@@ -10760,6 +10760,7 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
   double val, val_last, val1st, val2nd ;
   float  *ptrVal_f = NULL;
   short int *ptrVal_index ;
+  bool   IS_GAMMADM = false ;
   int    irow, unsort, NVAL, NBMAX ;
   int    ISGRID, NROW;
   char fnam[] = "get_BININFO_biasCor_alphabeta" ;
@@ -10778,8 +10779,10 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
     { ptrVal_f = INFO_BIASCOR.TABLEVAR.SIM_ALPHA ; NBMAX=MXa; }
   else if ( strcmp(varName,"SIM_beta") == 0 )  
     { ptrVal_f = INFO_BIASCOR.TABLEVAR.SIM_BETA ;  NBMAX=MXb; }
-  else if ( strcmp(varName,"SIM_gammaDM") == 0 )  
-    { ptrVal_f = INFO_BIASCOR.TABLEVAR.SIM_GAMMADM ; NBMAX=MXg; }
+  else if ( strcmp(varName,"SIM_gammaDM") == 0 ) { 
+    ptrVal_f = INFO_BIASCOR.TABLEVAR.SIM_GAMMADM ; NBMAX=MXg; 
+    IS_GAMMADM = true ;
+  }
   else {
     sprintf(c1err,"Invalid varName = '%s' ", varName);
     errmsg(SEV_FATAL, 0, fnam, c1err, "Must be SIMalpha or SIMbeta");  
@@ -10806,6 +10809,9 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
     val_last = val ;
   }
 
+  // Feb 2020: if lots of gammaDM bins, allow physical distribution
+  //  and do NOT add this dimenstion to BBC biasCor
+  if ( IS_GAMMADM && NVAL > 5 ) { NVAL = 1; val2nd - val_last; }
 
   // add error check on number of a,b bins (Apr 28 2017)
   if ( NVAL > NBMAX ) {

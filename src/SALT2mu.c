@@ -10811,7 +10811,7 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
 
   // Feb 2020: if lots of gammaDM bins, allow physical distribution
   //  and do NOT add this dimenstion to BBC biasCor
-  if ( IS_GAMMADM && NVAL > 5 ) { NVAL = 1; val2nd - val_last; }
+  if ( IS_GAMMADM && NVAL > 5 ) { NVAL = 1; val2nd = val_last; }
 
   // add error check on number of a,b bins (Apr 28 2017)
   if ( NVAL > NBMAX ) {

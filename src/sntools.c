@@ -5962,13 +5962,19 @@ int rd_sedFlux(
    +  move error checking earlier, right after loop.
    + add error check for NDAY=NLAM=0 (maybe catch tabs)
         
+  Feb 4 2020:
+    + read 120 chars per line instead of 80 (and define MXCHAR_RDFLUX)
+    + abort if line length is too long (to avoid corruption)
+    + abort if fewer than 3 words are read
+
   **********/
 
 #define  MXWORD_RDFLUX 4  // max values per line to read
+#define  MXCHAR_RDFLUX 120 // max char per line to read
 
   FILE *fpsed;
 
-  char txterr[20], line[200] ;
+  char txterr[20], line[200], lastLine[200] ;
   //  char *ptrtok, s1[60], s2[60], s3[60], s4[60], tmpline[200] ;
   char *ptrStringVal[4], StringVal[4][40];
   char space[] = " ";
@@ -6028,7 +6034,19 @@ int rd_sedFlux(
   for(ival=0; ival < MXWORD_RDFLUX; ival++ ) 
     { ptrStringVal[ival] = StringVal[ival];   }
 
-  while ( fgets (line, 80, fpsed ) != NULL  ) {
+  line[0] = lastLine[0] = 0 ;
+
+  while ( fgets (line, MXCHAR_RDFLUX+10, fpsed ) != NULL  ) {
+
+    if ( strlen(line) > MXCHAR_RDFLUX ) {
+      print_preAbort_banner(fnam);
+      printf("   sedFile: %s \n", sedFile);
+      printf("   current  line: '%s' \n", line);
+      sprintf(c1err,"Line length=%d exceeds bound of %d",
+	      strlen(line), MXCHAR_RDFLUX );
+      sprintf(c2err,"Either increase MXCHAR_RDFLUX, or reduce line len");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+    }
 
     NRDLINE++ ;   
 
@@ -6036,12 +6054,28 @@ int rd_sedFlux(
     if ( strlen(line) <= 2 ) { continue ; }
     if ( commentchar(line) ) { continue ; }
 
-    splitString2(line, space, MXWORD_RDFLUX,  // input line is destroyed
-		 &NRDWORD, ptrStringVal ) ;  // returned
+    //    splitString2(line, space, MXWORD_RDFLUX,  // input line is destroyed
+    //		 &NRDWORD, ptrStringVal ) ;  // returned
+
+    splitString(line, space, MXWORD_RDFLUX, 
+		&NRDWORD, ptrStringVal ) ;  // returned
+   
+    if ( NRDWORD < 3 ) {
+      print_preAbort_banner(fnam);
+      printf("   sedFile: %s \n", sedFile);
+      printf("   previous line: '%s' \n", lastLine);
+      printf("   current  line: '%s' \n", line);
+      sprintf(c1err,"NRDWORD = %d, but expected at least 3", NRDWORD);
+      sprintf(c2err,"Check dumped lines from file above.", line);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+    }
 
     sscanf(StringVal[0], "%le" , &day  ) ;
     sscanf(StringVal[1], "%le" , &lam  ) ;
     sscanf(StringVal[2], "%le" , &flux ) ;
+
+    sprintf(lastLine, "%s", line);
+
     if ( OPT_READ_FLUXERR ) { sscanf(StringVal[3], "%le" , &fluxerr ) ;  }
 
     if ( day < DAYrange[0] ) { continue ; }

@@ -699,6 +699,9 @@ Default output files (can change names with "prefix" argument)
    + add new input nzbin_ccprior 
    + new option force_pIa=perfect (see above)
 
+ Feb 5 2020: ignore gammaDM dimension if >5 bins to allow for a
+             physically motivated distribution
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -6908,8 +6911,11 @@ void prepare_biasCor(void) {
   //
   // Dec 11 2019: fix to work with DOCOR_1D5DCUT
   //
+  // Feb 5 2020: if > 5 SIM_gammaDM bins, do NOT add another dimension
 
-  int INDX, IDSAMPLE, SKIP, NSN_DATA, CUTMASK, ievt, NBINg=0 ;
+  int INDX, IDSAMPLE, SKIP, NSN_DATA, CUTMASK, ievt ;
+  int  NBINm = INPUTS.nbin_logmass;
+  int  NBINg = 0; // is set below 
   int  OPTMASK       = INPUTS.opt_biasCor ;
   int  EVENT_TYPE    = EVENT_TYPE_BIASCOR;
   int  nfile_biasCor = INPUTS.nfile_biasCor ;
@@ -6922,6 +6928,7 @@ void prepare_biasCor(void) {
   int  IDEAL         = ( OPTMASK & MASK_BIASCOR_COVINT ) ;
   char txt_biasCor[40]  ;
   
+  bool USEDIM_GAMMADM, USEDIM_LOGMASS;
   int NDIM_BIASCOR=0;
   char fnam[] = "prepare_biasCor" ;
 
@@ -6952,20 +6959,26 @@ void prepare_biasCor(void) {
     NDIM_BIASCOR = 5;  
     sprintf(INFO_BIASCOR.STRING_PARLIST,"z,x1,c,a,b");
 
-    // if there are >= 2 gammaDM bins, automatically swith to 7D if there
-    // are >= 2 logMass bins, or switch to 6D if there is just one logmass bin.
+    // if there are 2 gammaDM bins, automatically add this dimension
+    // to biasCor; if more than 5 bins, assume it's a continuous 
+    // distribution and do NOT add dimension to biasCor.
+    // If >= 2 logMass bins, add this dimension to biasCor.
+
     NBINg = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin;
-    if ( NBINg > 1 && INPUTS.nbin_logmass == 1 ) { 
+    USEDIM_GAMMADM = (NBINg > 1 && NBINg < 5);
+    USEDIM_LOGMASS = (NBINm > 1 ) ;
+
+    if ( USEDIM_GAMMADM && !USEDIM_LOGMASS ) {
       NDIM_BIASCOR = 6; 
       sprintf(INFO_BIASCOR.STRING_PARLIST,"z,x1,c,a,b,g");  
     }
 
-    if ( NBINg == 1 && INPUTS.nbin_logmass > 1 ) { 
+    if ( !USEDIM_GAMMADM && USEDIM_LOGMASS ) {
       NDIM_BIASCOR = 6; 
       sprintf(INFO_BIASCOR.STRING_PARLIST,"z,m,x1,c,a,b");  
     }
 
-    if ( NBINg > 1 && INPUTS.nbin_logmass > 1 ) { 
+    if ( USEDIM_GAMMADM && USEDIM_LOGMASS ) {
       NDIM_BIASCOR = 7; 
       sprintf(INFO_BIASCOR.STRING_PARLIST,"z,m,x1,c,a,b,g");  
     }

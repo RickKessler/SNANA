@@ -17873,6 +17873,8 @@
 
          ***** USEFUL(v10_75b) ***** 
 
+   SALT2mu: new nzbin_ccprior input
+
          ***** MISCELLANEOUS(v10_75b) ***** 
 
     snlc_sim.c
@@ -17914,13 +17916,19 @@
    + LOGMASS smearing in sim using LOGMASS_TRUE & LOGMASS_ERR,
      or using LOGMASS_TRUE and LOGMASS_OBS; see manual.
 
+   + abort if Fitpatrick 99 color law used beyond 12,000 A.
+
          ***** USEFUL(v10_75c) ***** 
+
+   + new &SNLCINP input CUTWIN_ZPERR (for snana.exe, snlc_fit, psnid)
 
          ***** MISCELLANEOUS(v10_75c) ***** 
 
     SALT2mu.c:
       + new option force_pIa=perfect -> pIa=1,0 for true SNIa,CC (sim only)
-    
+      + ignore gammaDM dimension if >5 bins to allow for a                 
+         physically motivated distribution.
+ 
     sntools_output_hbook.c:
       + fix memcopy bug for VARLIST_FINAL.
 
@@ -17930,6 +17938,7 @@
       + in CRAZYERRCHECK, check for too-small errors along with too-large.
       + add &SNLCINP input CUTWIN_ZPERR (BEWARE: not tested)
       + new &SNLCINP option, FUDGE_MAG_ERROR = 'ALL 0.02'
+      + write TEMPLATE info for make-SIMLIB option.
 
     genmag_SALT2.c
       + in SALT2colorDisp, extrapolate if UV extrap is used.
@@ -17948,7 +17957,6 @@
     + new utility abort_openTextFile() gives more info when
       input file cannot be opened.
     + allow sim-input INPUT_INCLUDE_FILE or INPUT_FILE_INCLUDE
-
- 
+    + add GENMODEL_EXTRAP_LATETIME to command-line override 
 
 END: 

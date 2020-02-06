@@ -1405,10 +1405,21 @@ c Feb 2017: common block for writing SIMLIB file to SIMLIB_OUT
       REAL*8   SKYLAM_LIST(MXLIST_SKY), SKYMAG_LIST(MXLIST_SKY)
       REAL*8   PSF_FWHM_GUESS, PIXSIZE_GUESS, ADD_SKYSIG_PIX
    
-      LOGICAL ISGROUND  ! T=> ground based survey
-      REAL    SIMLIB_ZPERR(MXFILT_ALL)
+      LOGICAL ISGROUND, FOUND_TEMPLATE_INFO ! T=> ground based survey
+      REAL  
+     &    SIMLIB_ZPERR(MXFILT_ALL)
+     &   ,SIMLIB_TEMPLATE_SKYSIG(MXFILT_ALL)
+     &   ,SIMLIB_TEMPLATE_ZPT(MXFILT_ALL)
 
-      COMMON/SIMLIBCOM4/ NLIST_SKY, ISGROUND, SIMLIB_ZPERR
+      CHARACTER 
+     &   STRING_SIMLIB_TEMPLATE_SKYSIG*200
+     &  ,STRING_SIMLIB_TEMPLATE_ZPT*200
+
+      COMMON/SIMLIBCOM4/ NLIST_SKY, ISGROUND, FOUND_TEMPLATE_INFO
+     &   ,SIMLIB_ZPERR
+     &   ,SIMLIB_TEMPLATE_SKYSIG, SIMLIB_TEMPLATE_ZPT
+     &   ,STRING_SIMLIB_TEMPLATE_SKYSIG, STRING_SIMLIB_TEMPLATE_ZPT
+
       COMMON/SIMLIBCOM8/ 
      &   SKYLAM_LIST, SKYMAG_LIST
      &  ,PSF_FWHM_GUESS, PIXSIZE_GUESS, ADD_SKYSIG_PIX
@@ -20898,7 +20909,7 @@ c -------------------------------------------
 +SELF.
 
 +SELF,IF=SNFIT,PSNID.
-      C1ERR = 'Cannot use SIMLIB_OUT option with snlc_fit.'
+      C1ERR = 'Cannot use SIMLIB_OUT option with snlc_fit or psnid.'
       C2ERR = 'Use snana.exe instead. '
       CALL MADABORT(FNAM, c1err, c2err)
 +SELF.
@@ -21005,8 +21016,6 @@ c first loop through and count NOBS
 21     CONTINUE
 25    CONTINUE
 
-ccc xxx mark delete      IF ( NOBS < CUTWIN_NEPOCH(1) ) RETURN  
-
 c -----------
       PIXSIZE = SNLC_PIXSIZE
       if ( PIXSIZE < 0.0 ) PIXSIZE = PIXSIZE_GUESS
@@ -21037,6 +21046,23 @@ c         write(LUNOUT,"('SALT2x1: ',F6.3,5x,'SALT2c: ',F6.3)" )
 c     &          SIM_SHAPEPAR, SIM_COLORPAR 
       ENDIF
 
+c - - - - -
+      CALL SET_SIMLIB_TEMPLATE_INFO()  ! Feb 5 2020
+
+      IF ( FOUND_TEMPLATE_INFO ) THEN
+          write(LUNOUT,"('TEMPLATE_ZPT:',$)")
+          DO ifilt = 1, NFILTDEF_SURVEY
+             write(LUNOUT,"(F8.3,$)" ) SIMLIB_TEMPLATE_ZPT(ifilt)
+          ENDDO
+          write(LUNOUT,"(' ')")
+
+          write(LUNOUT,"('TEMPLATE_SKYSIG:',$)")
+          DO ifilt = 1, NFILTDEF_SURVEY
+             write(LUNOUT,"(F9.2,$)" ) SIMLIB_TEMPLATE_SKYSIG(ifilt)
+          ENDDO
+          write(LUNOUT,"(' ')")
+
+      ENDIF
 
 c write column header
       WRITE(LUNOUT,110) 
@@ -21117,6 +21143,64 @@ c Mainly for low-z sample which has no meta data.
 
       RETURN
       END  ! end of MAKE_SIMLIB_FILE
+
+
+C =========================================
++DECK,SET_SIMLIB_TEMPLATE_INFO.
+      SUBROUTINE SET_SIMLIB_TEMPLATE_INFO()  
+
+c Created Feb 2020
+c If there is SKYSIG_T (template) info, set arrays
+c    SIMLIB_TEMPLATE_ZPT[SKYSIG](ifilt)
+c Search all epochs and extract typical epoch for each band.
+
+      IMPLICIT NONE
+
+c local variables
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,SIMLIBCOM.
+
+      INTEGER ep, EPMIN, EPMAX, NEWMJD, IFILT, IFILT_OBS
+      LOGICAL IS_SET(MXFILT_ALL)
+      REAL ZPT, SKYSIG
+
+C ------------- BEGIN -------------
+
+      DO IFILT = 1, NFILTDEF_SURVEY
+        SIMLIB_TEMPLATE_ZPT(ifilt)    = -9.0 
+        SIMLIB_TEMPLATE_SKYSIG(ifilt) = -9.0 
+        IS_SET(IFILT) = .FALSE.
+      END DO
+
+      STRING_SIMLIB_TEMPLATE_SKYSIG = ''
+      STRING_SIMLIB_TEMPLATE_ZPT    = ''
+
+      FOUND_TEMPLATE_INFO = .FALSE.
+
+c find first epoch for each band
+
+      DO 300 NEWMJD = 1, ISNLC_NEWMJD_STORE
+        EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
+        EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
+        DO 301 EP = EPMIN, EPMAX           
+           IFILT_OBS = ISNLC_IFILT_OBS(ep)
+           IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
+           ZPT       = SNLC_ZEROPT(ep)
+           SKYSIG    = SNLC_SKYSIG_T(ep)
+           if ( .not.IS_SET(ifilt) .and. ZPT > 10.0 ) then
+             IS_SET(ifilt)                 = .TRUE.
+             FOUND_TEMPLATE_INFO           = .TRUE.
+             SIMLIB_TEMPLATE_ZPT(ifilt)    = ZPT
+             SIMLIB_TEMPLATE_SKYSIG(ifilt) = SKYSIG             
+           endif
+ 301    CONTINUE
+ 300  CONTINUE
+
+      RETURN
+      END
 
 C ====================================
 +DECK,SET_SIMLIB_SKYMAG.
@@ -21225,11 +21309,7 @@ C -------------- BEGIN --------------
       DO ifilt    = 1, NF
          ifiltdef = IAFILT(ifilt)
          ZPERR    = xafilt(ifilt)
-         SIMLIB_ZPERR(ifiltdef) = ZPERR
-         
-c         CFILT = filtdef_string(ifiltdef:ifiltdef)
-c         write(6,60) CFILT, IFILTDEF, ZPERR 
-c60       format(' xxx : ZPERR(', A1,I3, ') = ', F6.3 )
+         SIMLIB_ZPERR(ifiltdef) = ZPERR        
       ENDDO
 
       RETURN

@@ -24,10 +24,10 @@ __MODEL_BANDFLUX_SPACING = 5.0
 
 def print_err():
 	print("""
-                       ______
-                     /    x  \\
-                    /   --------<  ABORT Python on Fatal Error.
-                __ /  _______/
+		       ______
+		     /	  x  \\
+		    /	--------<  ABORT Python on Fatal Error.
+		__ /  _______/
 /^^^^^^^^^^^^^^/  __/
 \________________/
 				""")
@@ -36,7 +36,6 @@ def print_err():
 
 class genmag_BYOSED:
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
-			#print(PATH_VERSION)
 			#print('LIST: ',OPTMASK)
 			#print('HOST_PARAM_NAMES: ',HOST_PARAM_NAMES)
 			# TODO: write a print statement that warns if
@@ -186,7 +185,7 @@ class genmag_BYOSED:
 					warp_data['SCALE_TYPE']='inner'
 				elif warp_data['SCALE_TYPE'] not in ['inner','outer']:
 					raise RuntimeError("Do not recognize variable SCALE_TYPE, should be 'inner' or 'outer'")
-					
+				
 
 
 				if 'SN_FUNCTION' in warp_data:
@@ -196,6 +195,7 @@ class genmag_BYOSED:
 						raise RuntimeError("Did not supply scale distribution information for SN effect %s."%warp)
 
 
+					
 					if 'SN_FUNCTION_SCALE' not in warp_data:
 						scale_factor=1.
 					else:
@@ -267,7 +267,8 @@ class genmag_BYOSED:
 		
 
 		def fetchSED_BYOSED(self,trest,maxlam=5000,external_id=1,new_event=1,hostpars='',mB_calc=False):
-			
+
+					
 			try:
 				if len(self.wave)>maxlam:
 					raise RuntimeError("Your wavelength array cannot be larger than %i but is %i"%(maxlam,len(self.wave)))
@@ -300,9 +301,11 @@ class genmag_BYOSED:
 			except Exception as e:
 				print('Python Error :',e)
 				print_err()
- 			
+			
 			
 			outer_product=np.zeros(len(self.wave))
+
+
 
 			for warp in [x for x in self.warp_effects]:# if x!='COLOR']:
 				if mB_calc and self.sn_effects[warp].scale_type!='outer':
@@ -329,7 +332,7 @@ class genmag_BYOSED:
 							
 						#	existing=np.loadtxt('color.dat').reshape(-1,2)
 						#	existing=np.append(existing,[hostpars[(self.host_param_names).index('ZCMB')],
-                                                         #   self.sn_effects[warp].scale_parameter]).reshape(-1,2)
+							 #   self.sn_effects[warp].scale_parameter]).reshape(-1,2)
 							
 						#	np.savetxt('color.dat',existing)
 						#except:
@@ -342,6 +345,7 @@ class genmag_BYOSED:
 					temp_scale_param = 0
 					temp_outer_product=np.ones(len(self.wave))
 					outer_scale_param=0
+
 
 					if warp in self.sn_effects.keys():
 						if self.verbose:
@@ -372,20 +376,38 @@ class genmag_BYOSED:
 					#else:
 					#	temp_warp_param=self.sn_effects[warp].warp_parameter
 					if warp in self.host_effects.keys():
+						
 						if self.verbose:
 							if self.host_effects[warp].warp_parameter is not None:
 								print('Phase=%.1f, %s: %.2f'%(trest,warp,self.host_effects[warp].warp_parameter))
 							else:
 								print('Phase=%.1f, %s: %.2f'%(trest,warp,self.host_effects[warp].scale_parameter))
 						if self.host_effects[warp].scale_type=='inner':
-							product*=self.host_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
-							temp_scale_param*=self.host_effects[warp].scale_parameter
+								if temp_scale_param==0:
+										temp_scale_param=self.host_effects[warp].scale_parameter
+								else:
+										temp_scale_param*=self.host_effects[warp].scale_parameter
+								product*=self.host_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
+								
 						else:
-							temp_outer_product*=self.host_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
-							outer_scale_param*=self.host_effects[warp].scale_parameter
+								
+								if outer_scale_param==0:
+										outer_scale_param=self.host_effects[warp].scale_parameter
+								else:
+										outer_scale_param*=self.host_effects[warp].scale_parameter
+								temp_outer_product*=self.host_effects[warp].flux(trest_arr,self.wave,hostpars,self.host_param_names)
+								
+						
+						
+						
 					
 					inner_product+=product*temp_scale_param
 					outer_product+=temp_outer_product*outer_scale_param
+					
+
+
+
+					
 					
 				except Exception as e:
 					print('Python Error :',e)
@@ -503,6 +525,7 @@ class WarpModel(object):
 		parameter_arrays=[np.ones(len(wave))*self._parameters[i] if self._param_names[i] not in ['PHASE','WAVELENGTH'] 
 							else phase_wave_dict[self._param_names[i]] for i in range(len(self._param_names))]
 
+
 		return(self.warp_function(np.vstack(parameter_arrays).T).flatten())
 
 
@@ -581,9 +604,10 @@ def _skewed_normal(name,dist_dat,dist_type):
 		else:
 			a=dist_dat[dist_type+'_DIST_PEAK']-3*dist_dat[dist_type+'_DIST_SIGMA'][0]
 			b=dist_dat[dist_type+'_DIST_PEAK']+3*dist_dat[dist_type+'_DIST_SIGMA'][1]
-		
+		if a==b:
+				return(lambda :[a])
 		dist = skewed_normal(name,a=a,b=b)
-		sample=np.arange(a,b,.0001)
+		sample=np.linspace(a,b,int(1e4))
 		return(lambda : np.random.choice(sample,1,
 										 p=dist._pdf(sample,dist_dat[dist_type+'_DIST_PEAK'],dist_dat[dist_type+'_DIST_SIGMA'][0],dist_dat[dist_type+'_DIST_SIGMA'][1])))
 		
@@ -592,13 +616,14 @@ def _param_from_dist(dist_file,path):
 	dist=np.loadtxt(os.path.join(path,dist_file))
 	a=np.min(dist)-abs(np.min(dist))
 	b=np.max(dist)+abs(np.max(dist))
-	sample=np.arange(a,b,1e-7)
-	pdf=gaussian_kde(dist.T).pdf(np.arange(a,b,1e-7))
+	sample=np.linspace(a,b,int(1e4))
+	pdf=gaussian_kde(dist.T).pdf(np.linspace(a,b,int(1e4)))
 	return(lambda : np.random.choice(sample,1,p=pdf/np.sum(pdf)))
 
 def _get_distribution(name,dist_dat,path,sn_or_host):
 	dist_dict={}
 	if np.any(['DIST_FILE' in x for x in dist_dat.keys() if 'PARAM' in x]):
+		
 		if sn_or_host+'_PARAM_DIST_FILE' in dist_dat.keys():
 			dist_dict['PARAM']=_param_from_dist(dist_dat[sn_or_host+'_PARAM_DIST_FILE'],path)
 		else:
@@ -674,10 +699,10 @@ def _generate_ND_grids(func,filename=None,colnames=None,*arrs):
 	return(gridded)
 	
 	
-def _read_ND_grids(filename,scale_factor=1.):	
+def _read_ND_grids(filename,scale_factor=1.):
 	with open(filename,'r') as f:
 		temp=f.readline()
-		
+
 		if temp[0]=='#':
 			names=temp.strip('#').split()
 			gridded=pandas.read_csv(filename,sep=' ',names=names,comment='#',header=None)
@@ -707,7 +732,7 @@ def main():
 		#print(test(np.array([[10,5000],[10,6000]])))
 		import matplotlib.pyplot as plt
 		#sys.exit()
-		mySED=genmag_BYOSED('$WFIRST_ROOT/SALT3/examples/wfirst/byosed/',2,[],'HOST_MASS,SFR,AGE,ZCMB,METALLICITY')
+		mySED=genmag_BYOSED('$WFIRST_ROOT/SALT3/examples/wfirst/byosed/',2,[],'AGE,ZCMB,METALLICITY')
 		mySED.sn_id=1
 		'''
 		hist=[]
@@ -728,7 +753,7 @@ def main():
 		#mySED.sn_effects['COLOR'].scale_parameter=.1
 		#print(np.where(mySED.wave==10000)[0][0])
 		#print(mySED.fetchParNames_BYOSED())
-		print([np.sum(mySED.fetchSED_BYOSED(p,5000,p,2,[2.5,1,1,.5])) for p in [-5,0,10,15]])
+		print([np.sum(mySED.fetchSED_BYOSED(p,5000,np.random.uniform(1,10),2,[1,1,.5])) for p in [5,5,5,5]])
 		sys.exit()
 
 

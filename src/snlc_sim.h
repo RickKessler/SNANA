@@ -164,6 +164,8 @@ typedef struct {
 // Mar 2016: create typedefs for NON1A 
 typedef struct {  
 
+  int IFLAG_GEN;
+
   // NON1ASED inputs from sim-input file
   char  PATH[MXPATHLEN];                // user-defined path to NON1A seds
   char  LISTFILE[MXPATHLEN];           // $PATH/NON1A.LIST

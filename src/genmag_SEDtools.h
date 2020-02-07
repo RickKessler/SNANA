@@ -323,6 +323,8 @@ double interp_flux_SEDMODEL(int ISED, int ilampower, int ifilt_obs,
 			    double z, double Trest );
 double get_flux_SEDMODEL(int ISED, int ilampow, int ifilt_obs,
 			 double z, double Trest) ;
+double get_magerr_SEDMODEL(int ISED, int ifilt_obs,
+			   double z, double Trest) ;
 
 double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
                            double z, char *funCall );
@@ -367,6 +369,8 @@ void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX);
 void set_UVLAM_EXTRAPFLUX_SEDMODEL(float UVLAM_MIN);
 
 void FLUX_SCALE_SEDMODEL(double SCALE, SEDMODEL_FLUX_DEF *SEDFLUX);
+
+bool found_fluxerr_SEDMODEL(char *sedFile);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // SPECTROGRAPH functions

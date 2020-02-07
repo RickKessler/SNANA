@@ -1189,7 +1189,6 @@ void set_user_defaults(void) {
     {  GRIDGEN_INPUTS.NBIN[i] = 0;  }
 #endif
 
-
   sprintf(INPUTS.NONLINEARITY_FILE,"NONE");
 
   INPUTS.LCLIB_FILE[0] = 0 ;
@@ -3437,7 +3436,7 @@ void parse_input_GENMODEL(FILE *fp, int *iArg ) {
   int  jnam;
   char *GENMODEL = INPUTS.GENMODEL ;
   char ctmp[60], *NAME0 ;
-  int  LDMP   = 0 ;
+  bool LDMP = false ;
   char fnam[] = "parse_input_GENMODEL" ;
   
   // ---------- BEGIN ------------
@@ -3446,7 +3445,7 @@ void parse_input_GENMODEL(FILE *fp, int *iArg ) {
     // read from file 
     readchar ( fp, GENMODEL );      
     
-    // check for path + model (Feb 22 2017)
+    // check for path/model (Feb 22 2017)
     extract_MODELNAME(GENMODEL,                   // input path/model
 		      INPUTS.MODELPATH, INPUTS.MODELNAME); // returned
     
@@ -3481,7 +3480,7 @@ void parse_input_GENMODEL(FILE *fp, int *iArg ) {
     // allow mlcs in place of mlcs2k2
     if ( strcmp(GENMODEL,"mlcs")==0 ) { sprintf(GENMODEL,"mlcs2k2"); }
 
-    
+ 
   }
   else {
     // read command-line arg
@@ -5693,6 +5692,7 @@ void prep_user_input(void) {
   Oct 04 2018: set INPUTS.USE_HOSTLIB_GENZPHOT
   Feb 15 2019: turn off INPUTS.GENMAG_SMEAR_MODELNAME for SIMSED model.
   Dec 01 2019: allow COH scatter model for NON1ASED and SIMSED models.
+  Feb 06 2020: set DO_AV for GRIDGEN
 
   *******************/
 
@@ -6167,12 +6167,14 @@ void prep_user_input(void) {
   // check for host AV
   if ( INPUTS.WV07_REWGT_EXPAV > -1.0E-9 ) { INPUTS.WV07_GENAV_FLAG=1; }
 
-  int DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ;  
-  int DO_AVTAU = INPUTS.GENEXPTAU_AV     > 1.0E-9 ;
-  int DO_AVSIG = INPUTS.GENGAUSIG_AV     > 1.0E-9 ;
-  int DO_AV    = INPUTS.GENRANGE_AV[1]   > 1.0E-9 ;
+  bool DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ;  
+  bool DO_AVTAU = INPUTS.GENEXPTAU_AV     > 1.0E-9 ;
+  bool DO_AVSIG = INPUTS.GENGAUSIG_AV     > 1.0E-9 ;
+  bool DO_AV    = INPUTS.GENRANGE_AV[1]   > 1.0E-9 ;
+  bool DO_WV07  = (INPUTS.WV07_GENAV_FLAG > 0 );
+  bool DO_GRID  = (GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID );
   INPUTS.DO_AV = (DO_AV && DO_RV && 
-		  ( DO_AVTAU || DO_AVSIG || INPUTS.WV07_GENAV_FLAG) ) ;
+		  ( DO_AVTAU || DO_AVSIG || DO_WV07 || DO_GRID )  ) ;
 
   if ( INPUTS.DO_AV==0 && DO_AV ) {
     print_preAbort_banner(fnam);
@@ -21657,9 +21659,10 @@ void init_genmodel(void) {
 
   else if ( INDEX_GENMODEL == MODEL_NON1ASED ) {
 
-    INPUTS.NON1ASED.NGENTOT  = INPUTS.NGEN ;
-    INPUTS.NON1ASED.CIDOFF   = INPUTS.CIDOFF ;
-    GENLC.NON1ASED.IFLAG_GEN = GENLC.IFLAG_GENSOURCE ;
+    INPUTS.NON1ASED.NGENTOT   = INPUTS.NGEN ;
+    INPUTS.NON1ASED.CIDOFF    = INPUTS.CIDOFF ;
+    INPUTS.NON1ASED.IFLAG_GEN = GENLC.IFLAG_GENSOURCE ;
+    GENLC.NON1ASED.IFLAG_GEN  = GENLC.IFLAG_GENSOURCE ;
     
     GENLC.NON1ASED.FRAC_PEC1A = INPUTS.RATEPAR_PEC1A.SEASON_FRAC ;
     prep_NON1ASED( &INPUTS.NON1ASED, &GENLC.NON1ASED );

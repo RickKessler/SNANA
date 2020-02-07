@@ -5320,7 +5320,7 @@ void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
   double bsq    = b*b;
   int    ilist  = 1 ;
   int    LEGACY = 0 ;
-  int    LDMP   = (GENLC.CID == 9) ;
+  int    LDMP   = (GENLC.CID == -9) ;
   double RAD    = RADIAN ;
   double fixran, phi, FlatRan_x, FlatRan_y, x, y, SUM ;
   char fnam[] = "GEN_SNHOST_ANGLE";

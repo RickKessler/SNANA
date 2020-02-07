@@ -739,7 +739,6 @@ c analysis-related variables.
      &  ,ISNLC_NFILT_TRESTMIN     ! Nfilt passing TRESTMIN cut
      &  ,ISNLC_NFILT_TRESTMAX     ! idem for TRESTMAX
      &  ,ISNLC_NFILT_TREST2       ! Nfilt passing CUTWIN_TREST2 cut
-cc xxx    &  ,ISNLC_NFILT_THRESH(MXEPOCH)
      &  ,ISNLC_NEPOCH_FOUND  ! actual number of epochs found
      &  ,ISNLC_NEPOCH_STORE  ! number of epochs stored in memory
      &  ,ISNLC_NEPOCH_USE       ! used after PHOTMASK cuts
@@ -1510,6 +1509,7 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_PHOTPROB
      &  ,CUTBIT_TREST, CUTBIT_TOBS, CUTBIT_MJD
      &  ,CUTBIT_ERRTEST          ! epoch cut on ERRCALC/ERRTRUE
+     &  ,CUTBIT_TREST_TRUEFLUX2  ! for sim or fakes, require valid flux
      &  ,CUTBIT_NFILT_SNRMAX
      &  ,CUTBIT_NFILT_SNRMAX2
      &  ,CUTBIT_NFILT_TRESTMIN
@@ -1566,7 +1566,8 @@ c MJD-dependent cuts below
      &  ,CUTBIT_Trest        = CUTBIT_MJD_MARKER + 5
      &  ,CUTBIT_Tobs         = CUTBIT_MJD_MARKER + 6
      &  ,CUTBIT_MJD          = CUTBIT_MJD_MARKER + 7  
-     &  ,CUTBIT_ERRTEST      = CUTBIT_MJD_MARKER + 8
+     &  ,CUTBIT_TREST_TRUEFLUX2= CUTBIT_MJD_MARKER + 8
+     &  ,CUTBIT_ERRTEST      = CUTBIT_MJD_MARKER + 9
 c
      &  ,CUTBIT_OFFSET       = CUTBIT_ERRTEST
      &  ,NCUTBIT             = CUTBIT_OFFSET 
@@ -1682,6 +1683,8 @@ c  Below are Epoch-dependent cuts
      &  ,cutwin_ZPERR(2)         ! ZPERR cut
      &  ,cutwin_photprob(2)
      &  ,cutwin_errtest(2)       ! cut on ERRCALC/ERRTRUE
+     &  ,cutwin_Trest_trueflux(2) ! Trest range requiring valid true flux
+     &  ,cutwin_Trest_trueflux2(2) ! cut on logical flag
      &  ,cutwin_Trest(2)         ! window for all epochs, rest frame days
      &  ,cutwin_Tobs(2)          ! window for all epochs, obs-frame days
      &  ,cutwin_MJD(2)           ! MJD window
@@ -1821,6 +1824,7 @@ ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
      &   ,( cutwin_var(1,cutbit_zperr),     cutwin_zperr  )
      &   ,( cutwin_var(1,cutbit_photprob),  cutwin_photprob  )
      &   ,( cutwin_var(1,cutbit_errtest),   cutwin_errtest   )
+     &   ,( cutwin_var(1,cutbit_trest_trueflux2),cutwin_trest_trueflux2)
      &   ,( cutwin_var(1,cutbit_Nfilt_snrmax), cutwin_nfilt_snrmax )
      &   ,( cutwin_var(1,cutbit_Nfilt_snrmax2),cutwin_nfilt_snrmax2 )
      &   ,( cutwin_var(1,cutbit_Nfilt_trestmin),cutwin_nfilt_trestmin)
@@ -1835,6 +1839,7 @@ ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
      &   ,( cutwin_var(1,cutbit_Tobsmin),   cutwin_Tobsmin )
      &   ,( cutwin_var(1,cutbit_Tobsmax),   cutwin_Tobsmax )
      &   ,( cutwin_var(1,cutbit_Trest),     cutwin_Trest )
+     &   ,( cutwin_var(1,cutbit_Trest_trueflux2),cutwin_Trest_trueflux2)
      &   ,( cutwin_var(1,cutbit_Tobs),      cutwin_Tobs )
      &   ,( cutwin_var(1,cutbit_MJD),       cutwin_MJD   )
      &   ,( cutwin_var(1,cutbit_peakmjd),   cutwin_peakmjd )
@@ -1873,7 +1878,6 @@ c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
      &  ,SNMJD_LIST_FILE      ! list of "CID MJD" to process
      &  ,SNMJD_OUT_FILE       ! MJD_LIST out file
      &  ,MNFIT_PKMJD_LOGFILE  ! separate log for PKMJD fits
-cc     &  ,ZPOFF_FILE           ! AB (ZP) off for obs-frame mags
      &  ,USERTAGS_FILE        ! optional int user tag per SN
      &  ,VPEC_FILE            ! pec. velocity corrections
      &  ,HEADER_OVERRIDE_FILE ! header-var overrides
@@ -1928,7 +1932,6 @@ c
      &  ,MXLC_FIT                ! stop after this many fits passing all cuts
      &  ,PHOTFLAG_DETECT         ! used to count NOBS_DETECT and TLIVE_DETECT
      &  ,PHOTFLAG_TRIGGER        ! determine MJD(trigger) for survey
-     &  ,APPLY_FLUXCOR_BUG       ! see calling sequence in SNRECON
      &  ,FLUXERRMODEL_OPTMASK
      &  ,OPT_SIMLIB_OUT          ! bit mask of SIMLIB_OUT options
 
@@ -2051,8 +2054,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT, DTOBS_MODEL_PLOT
      &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP
      &    , MULTISEASON_NREJECT_OUTLIER, MULTISEASON_CHI2RED_ACTIVE
-     &    , APPLY_FLUXCOR_BUG, PHOTFLAG_DETECT, PHOTFLAG_TRIGGER
-     &    , CUTWIN_ZPADU, CUTWIN_ZPNPE
+     &    , PHOTFLAG_DETECT, PHOTFLAG_TRIGGER
+     &    , CUTWIN_ZPADU, CUTWIN_ZPNPE, CUTWIN_TREST_TRUEFLUX
 
       COMMON / SNLCINP8 /
      &    H0_REF, OLAM_REF, OMAT_REF, ORAD_REF, W0_REF, DWDA_REF
@@ -2090,7 +2093,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT, DTOBS_MODEL_PLOT
      &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP
      &    , MULTISEASON_NREJECT_OUTLIER, MULTISEASON_CHI2RED_ACTIVE
-     &    , APPLY_FLUXCOR_BUG, PHOTFLAG_DETECT, PHOTFLAG_TRIGGER
+     &    , PHOTFLAG_DETECT, PHOTFLAG_TRIGGER
 c
 c Below are cut-variables defined in SNCUTS
 c
@@ -2112,7 +2115,7 @@ c
 c
      &   ,cutwin_psf, cutwin_zp,  CUTWIN_ZPADU, CUTWIN_ZPNPE
      &   ,cutwin_zperr, cutwin_photprob,  cutwin_errtest
-     &   ,cutwin_nband_thresh
+     &   ,cutwin_trest_trueflux, cutwin_nband_thresh
      &   ,cutwin_nfilt_snrmax,   cutwin_nfilt_snrmax2
      &   ,cutwin_nfilt_trestmin, cutwin_nfilt_trestmax
      &   ,cutwin_trest2, cutwin_nfilt_trest2
@@ -3362,6 +3365,11 @@ c set namelist defaults
          CUTWIN_SNRMIN_FILT(2,ifilt) = +CUTVAL_OPEN
       enddo
 
+      CUTWIN_TREST_TRUEFLUX(1)  = 999.0 ! user input
+      CUTWIN_TREST_TRUEFLUX(2)  = 999.0
+      CUTWIN_TREST_TRUEFLUX2(1) = 0.9  ! logical cutwin
+      CUTWIN_TREST_TRUEFLUX2(2) = 1.1
+
 c Setting ignore file to 'NONE' => do not read any file.
 c Setting INGORE file to 'DEFAULT' is a flag to read
 c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
@@ -3495,8 +3503,6 @@ c by default do NOT check for multiseason activity (Oct 2014)
 
       PHOTFLAG_DETECT   = 0 
       PHOTFLAG_TRIGGER  = 0
-      APPLY_FLUXCOR_BUG = 1  ! keep bug until DES3YR papers published
-
 
       CUTWIN_NSEASON_ACTIVE(1) = -99.
       CUTWIN_NSEASON_ACTIVE(2) = +99.
@@ -4775,9 +4781,6 @@ c to allow multiple specifications.
          else if ( LINE_ARGS(i) .EQ. 'PHOTFLAG_TRIGGER' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) PHOTFLAG_TRIGGER
 
-         else if ( LINE_ARGS(i) .EQ. 'APPLY_FLUXCOR_BUG' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) APPLY_FLUXCOR_BUG
-
 c -----------
          else if ( LINE_ARGS(i) .EQ. 'MULTISEASON_OPTMASK' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) MULTISEASON_OPTMASK
@@ -5073,6 +5076,10 @@ c - - - - - - - -
          else if ( LINE_ARGS(i) .EQ. 'CUTWIN_ERRTEST' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ERRTEST(1)
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ERRTEST(2)
+
+         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TREST_TRUEFLUX' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TREST_TRUEFLUX(1)
+            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TREST_TRUEFLUX(2)
 
 c ------------
          else if ( LINE_ARGS(i) .EQ. 'MAGOBS_SHIFT_PRIMARY' ) then
@@ -17023,7 +17030,6 @@ c hard-wire names of cut variables (maxchar = 28)
       cutvar_name(CUTBIT_ZP)           = 'ZP:'
       cutvar_name(CUTBIT_ZPERR)        = 'ZPERR:'
       cutvar_name(CUTBIT_PHOTPROB)     = 'PHOTPROB:'
-cc xxx      cutvar_name(CUTBIT_NBAND_THRESH) = 'Nband thresh:'
       cutvar_name(CUTBIT_MWEBV)        = 'MWEBV:'
       cutvar_name(CUTBIT_NSEASON_ACTIVE) = 'NSEASON_ACTIVE:'
       cutvar_name(CUTBIT_REQEP)        = 'REQEP_CUTFLAG:'
@@ -17033,7 +17039,7 @@ cc xxx      cutvar_name(CUTBIT_NBAND_THRESH) = 'Nband thresh:'
       cutvar_name(CUTBIT_TREST)        = 'Trest:'
       cutvar_name(CUTBIT_TOBS)         = 'Tobs:'
       cutvar_name(CUTBIT_ERRTEST)      = 'ERR(CALC)/ERR(TRUE):'
-cc xxx mark delete      cutvar_name(CUTBIT_IDTEL)        = 'Telescope:'
+      cutvar_name(CUTBIT_TREST_TRUEFLUX2) = 'Trest_TRUEFLUX:'
       cutvar_name(CUTBIT_SNRMAX)       = 'SNRmax:'
       cutvar_name(CUTBIT_SNRMAX2)      = 'SNRmax2:'
       cutvar_name(CUTBIT_NFILT_SNRMAX) = 'NFILT_SNRmax:'
@@ -19016,7 +19022,8 @@ c = = = = = = = = = = = = = = = = = = = = = = = = = = = =
            
            CALL CHECK_DUPLICATE_MJDBAND(ep) ! Jun 13 2017
 
-           if ( APPLY_FLUXCOR_BUG == 0 ) then
+c Feb 6 2020: fudge errors here before SNRMAX is computed
+           if ( .NOT. RESTORE_DES3YR ) then
              CALL EXEC_FUDGE_FLUXCAL(ep)  ! flux and fluxerr fudges
            endif
 
@@ -19047,8 +19054,8 @@ c strip off local variables.
 c Jan 3 2018: skip saturated mags
           if ( FLUXCAL_ERR .GE. 0.9E8 .AND. LSIM_SNANA ) GOTO 201
 
-          if ( APPLY_FLUXCOR_BUG > 0 ) then
-            CALL EXEC_FUDGE_FLUXCAL(ep)  ! flux and fluxerr fudges
+          if ( RESTORE_DES3YR ) then
+             CALL EXEC_FUDGE_FLUXCAL(ep)  ! flux and fluxerr fudges
           endif
 
 c convert sim-mag to SIM_FLUXCA
@@ -22573,6 +22580,7 @@ c Jul 11 2017: declare PS8 as REAL*8, not INT*8
 c Dec 09 2017: remove REJECT_PRESCALE() and move it to SNANA_DRIVER
 c Dec 18 2017: set cut for PSF
 c Feb 27 2018: set cut for ZP in Npe; see CUTWIN_ZP
+c Feb 06 2020: add cut for Trest_trueflux
 c -----------------------------
 
       IMPLICIT NONE
@@ -22591,9 +22599,10 @@ c local var
 
       INTEGER*8  CUTMASK8_TMP, OVP8_SN, OVP8_ALL
 
-      LOGICAL LTEST, LCUT
+      LOGICAL LTEST, LCUT, LCUT1, LCUT2
  
       REAL  TMP, Tmin, Tmax, ZZ, TGAPMAX, T0GAPMAX, TLIST(MXEPOCH)
+      REAL  TREST, TRUEMAG
 
 c functions
       LOGICAL MJDSELECT, IDTELSELECT, LCIDSELECT
@@ -22651,11 +22660,6 @@ c Dec 18 2017: replace cloudAVG with PSF cut. Note that cut is in ARCSEC
          SNEP_CUTVAR(CUTBIT_ERRTEST,imjd)  =   ! Nov 2019
      &       SNLC_FLUXCAL_ERRTEST(EPMIN)
 
-c xxxxxxx mark delete Nov 2019 xxxxxx
-c         SNEP_CUTVAR(CUTBIT_NBAND_THRESH,imjd)  = 
-c     &       ISNLC_NFILT_THRESH(IMJD)
-c xxxxxxxxxxxxxxxxxxxxxxxx
-
          SNEP_CUTVAR(CUTBIT_TREST,imjd)  = 
      &       SNLC_TREST(EPMIN)
 
@@ -22665,9 +22669,23 @@ c xxxxxxxxxxxxxxxxxxxxxxxx
          SNEP_CUTVAR(CUTBIT_MJD,imjd)  = 
      &       SNLC8_MJD(EPMIN)
 
+c Requiring valid true flux is a little tricky.
+c Motivation is for fake light curves on images where a few epochs 
+c didn't get overlaid for unknown reasons.
+         SNEP_CUTVAR(CUTBIT_TREST_TRUEFLUX2,imjd) = 1.0
+         IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
+            Trest   = SNLC_TREST(EPMIN)
+            TRUEMAG = SIM_EPMAGOBS(EPMIN)
+            LCUT1   = (TREST > CUTWIN_TREST_TRUEFLUX(1) .and.
+     &                 TREST < CUTWIN_TREST_TRUEFLUX(2) )
+            LCUT2   = (TRUEMAG < 40)
+            if ( LCUT1 .and. (.not. LCUT2) ) then
+              SNEP_CUTVAR(CUTBIT_TREST_TRUEFLUX2,imjd) = 0.0
+            endif
+         ENDIF
 
 100   CONTINUE
-  
+
 c ----------------------------------------------------
 c Evaluate cutmask for each epoch
 

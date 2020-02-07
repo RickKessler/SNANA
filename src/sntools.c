@@ -5969,9 +5969,6 @@ int rd_sedFlux(
 
   **********/
 
-#define  MXWORD_RDFLUX 4  // max values per line to read
-#define  MXCHAR_RDFLUX 120 // max char per line to read
-
   FILE *fpsed;
 
   char txterr[20], line[200], lastLine[200] ;
@@ -5984,8 +5981,8 @@ int rd_sedFlux(
   double daystep_last, daystep, daystep_dif ;
   double lamstep_last, lamstep, lamstep_dif ;
   int iep, ilam, iflux, ival, LAMFILLED, OKBOUND_LAM, OKBOUND_DAY, NBIN ;
-  int NRDLINE, NRDWORD, GZIPFLAG, FIRST_NONZEROFLUX, NONZEROFLUX ;
-  int OPT_READ_FLUXERR, OPT_FIX_DAYSTEP, OPT_FIX_LAMSTEP ;
+  int  NRDLINE, NRDWORD, GZIPFLAG, FIRST_NONZEROFLUX, NONZEROFLUX ;
+  bool OPT_READ_FLUXERR, OPT_FIX_DAYSTEP;
 
   // define tolerances for binning uniformity (Aug 2017)
   double DAYSTEP_TOL = 0.5E-3; // tolerance on DAYSTEP uniformity
@@ -6009,11 +6006,11 @@ int rd_sedFlux(
   }
 
   // check OPTMASK args
-  OPT_READ_FLUXERR = 0  ;              // default: ignore fluxerr column
-  OPT_FIX_DAYSTEP = OPT_FIX_LAMSTEP = 1; // default => require fixed bin size
+  OPT_READ_FLUXERR = false ;      // default: ignore fluxerr column
+  OPT_FIX_DAYSTEP  = true;     // default => require fixed bin size
 
-  if ( (OPTMASK & 1) > 0 ) { OPT_READ_FLUXERR = 1; }
-  if ( (OPTMASK & 2) > 0 ) { OPT_FIX_DAYSTEP  = 0; }
+  if ( (OPTMASK & 1) > 0 ) { OPT_READ_FLUXERR = true ; }
+  if ( (OPTMASK & 2) > 0 ) { OPT_FIX_DAYSTEP  = false ; }
 
   if ( OPT_READ_FLUXERR  ) 
     { sprintf(txterr, "and errors"); }
@@ -6031,20 +6028,20 @@ int rd_sedFlux(
   daystep_last = daystep=-9.0;  day_last = -999999. ;
   lamstep_last = lamstep=-9.0;  lam_last = -999999. ;
 
-  for(ival=0; ival < MXWORD_RDFLUX; ival++ ) 
+  for(ival=0; ival < MXWORDLINE_FLUX; ival++ ) 
     { ptrStringVal[ival] = StringVal[ival];   }
 
   line[0] = lastLine[0] = 0 ;
 
-  while ( fgets (line, MXCHAR_RDFLUX+10, fpsed ) != NULL  ) {
+  while ( fgets (line, MXCHARLINE_FLUX+10, fpsed ) != NULL  ) {
 
-    if ( strlen(line) > MXCHAR_RDFLUX ) {
+    if ( strlen(line) > MXCHARLINE_FLUX ) {
       print_preAbort_banner(fnam);
       printf("   sedFile: %s \n", sedFile);
       printf("   current  line: '%s' \n", line);
       sprintf(c1err,"Line length=%d exceeds bound of %d",
-	      strlen(line), MXCHAR_RDFLUX );
-      sprintf(c2err,"Either increase MXCHAR_RDFLUX, or reduce line len");
+	      strlen(line), MXCHARLINE_FLUX );
+      sprintf(c2err,"Either increase MXCHARLINE_FLUX, or reduce line len");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
     }
 
@@ -6057,7 +6054,7 @@ int rd_sedFlux(
     //    splitString2(line, space, MXWORD_RDFLUX,  // input line is destroyed
     //		 &NRDWORD, ptrStringVal ) ;  // returned
 
-    splitString(line, space, MXWORD_RDFLUX, 
+    splitString(line, space, MXWORDLINE_FLUX, 
 		&NRDWORD, ptrStringVal ) ;  // returned
    
     if ( NRDWORD < 3 ) {
@@ -6076,7 +6073,17 @@ int rd_sedFlux(
 
     sprintf(lastLine, "%s", line);
 
-    if ( OPT_READ_FLUXERR ) { sscanf(StringVal[3], "%le" , &fluxerr ) ;  }
+    if ( OPT_READ_FLUXERR ) { 
+      if ( NRDWORD < 4 ) {
+	printf("   sedFile: %s \n", sedFile);
+	printf("   previous line: '%s' \n", lastLine);
+	printf("   current  line: '%s' \n", line);
+	sprintf(c1err,"NRDWORD = %d, but expected at least 4", NRDWORD);
+	sprintf(c2err,"to read FLUXERR from 4th coloumn.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+      }
+      sscanf(StringVal[3], "%le" , &fluxerr ) ;  
+    }
 
     if ( day < DAYrange[0] ) { continue ; }
     if ( day > DAYrange[1] ) { continue ; }

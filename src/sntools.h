@@ -280,6 +280,10 @@ struct {
 #define MXCHARLINE_PARSE_WORDS 2000   // max chars per line
 #define MXWORDLINE_PARSE_WORDS  700   // max words per line
 #define MXWORDFILE_PARSE_WORDS 500000 // max words to parse in a file
+
+#define MXWORDLINE_FLUX       10  // max words per line in SED file
+#define MXCHARLINE_FLUX      120  // max char per line to read from SED
+
 #define MSKOPT_PARSE_WORDS_FILE    1   // parse words in a file
 #define MSKOPT_PARSE_WORDS_STRING  2   // parse string
 #define MSKOPT_PARSE_WORDS_IGNORECOMMA 4   // parse blank space; ignore comma

@@ -49,6 +49,7 @@
 void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
 
   // Init SED for NON1ASED model.
+  // Note that prep_NON1SED is called earlier.
   //
   // Inputs:
   //   isparse      = sparse index for template
@@ -60,13 +61,16 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
   //
   // May 06 2019: refactor to pass INPUTS_NON1ASED_DEF
   //
+  // Feb 06, 2020: 
+  //   + for GENGRID option, call found_fluxerr_SEDMODEL()
+  //     to check for FLUXERR column in SED file.
 
   double UVLAM     = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX ;
-
-  int ifilt, ifilt_obs, NZBIN ;
+  int   DO_GENGRID = ( INP_NON1ASED->IFLAG_GEN == IFLAG_GENGRID ) ;
+  int ifilt, ifilt_obs, NZBIN, NON1A_INDEX ;
   double Trange[2], Lrange[2] ;
-  char sedcomment[40];
-  //  char fnam[] = "init_genmag_NON1ASED"  ;
+  char sedcomment[40], *sedFile ;
+  char fnam[] = "init_genmag_NON1ASED"  ;
 
   // ------------- BEGIN -------------
 
@@ -80,12 +84,26 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
     SEDMODEL.NSURFACE     = 1 ;  // process 1 NONIA sed at a time
     SEDMODEL.RESTLAMMIN_FILTERCEN  = INP_NON1ASED->RESTLAMBDA_RANGE[0];
     SEDMODEL.RESTLAMMAX_FILTERCEN  = INP_NON1ASED->RESTLAMBDA_RANGE[1];
+    SEDMODEL_MWEBV_LAST   = -999.  ;
+
     SEDMODEL.OPTMASK      = 
       OPTMASK_DAYLIST_SEDMODEL  +  // allow non-uniform day bins
       OPTMASK_T0SHIFT_PEAKMAG      // shift T=0 to be at peakmag
       ;
 
-    SEDMODEL_MWEBV_LAST   = -999.  ;
+    // if error column exists in first SED file, 
+    // add read-err flag to OPTMASK 
+    if ( DO_GENGRID ) {
+      sedFile     = INP_NON1ASED->SED_FILE[1] ;
+      if ( found_fluxerr_SEDMODEL(sedFile) )  { 
+	SEDMODEL.OPTMASK += OPTMASK_FLUXERR_SEDMODEL ; 
+	printf("\t Read FLUXERR from SED files.\n");
+      }
+      else {
+	printf("\t Do NOT read FLUXERR from SED files.\n");
+      }
+    }
+
 
     malloc_SEDFLUX_SEDMODEL(&TEMP_SEDMODEL,0,0,0);
 
@@ -99,8 +117,8 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
     return;
   }
 
-  int   NON1A_INDEX = INP_NON1ASED->INDEX[isparse];
-  char *sedFile     = INP_NON1ASED->SED_FILE[isparse] ;
+  NON1A_INDEX = INP_NON1ASED->INDEX[isparse];
+  sedFile     = INP_NON1ASED->SED_FILE[isparse] ;
 
   Trange[0] =  -150. ;  // widen Trange Apr 2 2018 
   Trange[1] =   500. ;  
@@ -169,7 +187,7 @@ void genmag_NON1ASED (
 
   int  ifilt, epobs, ILAMPOW = 0 ;
   double  z1, ZP, meanlam_obs, meanlam_rest, Tobs, Trest ;
-  double  AV_MW, XT_MW, XT_HOST, flux, FLUX, magobs;
+  double  AV_MW, XT_MW, XT_HOST, flux, FLUX, magerr, magobs;
   char *cfilt;
   char fnam[] = "genmag_NON1ASED" ;
 
@@ -210,9 +228,11 @@ void genmag_NON1ASED (
     if ( Trest < TEMP_SEDMODEL.DAYMIN ) { continue ; }
     
     // call function to handle Trest extrap if needed
-    flux = get_flux_SEDMODEL(ISED_NON1A, ILAMPOW, ifilt_obs, z, Trest) ;
-	  
-    FLUX = flux * pow(TEN,-0.4*mu);
+    flux    = get_flux_SEDMODEL(ISED_NON1A, ILAMPOW, ifilt_obs, z, Trest) ;
+    magerr  = get_magerr_SEDMODEL(ISED_NON1A, ifilt_obs, z, Trest);
+    FLUX    = flux * pow(TEN,-0.4*mu);
+
+    // if(epobs==10) { printf(" xxx flux=%le magerr=%f \n", flux, magerr); }
 
     if ( flux == FLUX_UNDEFINED ) {
       FLUX = FLUX_UNDEFINED ;
@@ -221,9 +241,9 @@ void genmag_NON1ASED (
     }
     else if ( FLUX > 1.0E-30 ) {
       magobs =  (ZP + XT_MW + XT_HOST) - 2.5*log10(FLUX);
-      magobs_list[epobs] = magobs; 
-      magerr_list[epobs] = 0.1 ;  
-   }
+      magobs_list[epobs] = magobs ; 
+      magerr_list[epobs] = magerr ;
+    }
     else {
       magobs_list[epobs] = MAG_ZEROFLUX ;
       magerr_list[epobs] = MAGERR_UNDEFINED ;
@@ -245,7 +265,7 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
 		   GENLC_NON1ASED_DEF *GEN_NON1ASED) {
 
   // Feb 11, 2009 R.Kessler
-  // Prepare picking a NON1ASED template
+  // One-time call to prepare picking a NON1ASED template
   // If NGENTOT > NSED, then distribute according to weight.
   // If NGENTOT < NSED, then generate 1 each for the first
   // NGENTOT SEDs, then none for the rest.
@@ -402,7 +422,6 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
     INP_NON1ASED->MXGEN[isp] = NGENSUM ;
 
     ptrSed  = INP_NON1ASED->SED_FILE[isp] ;
-
     getName_SED_FILE_NON1ASED(INP_NON1ASED->PATH, name, 
 			      ptrSed); // return ptrSed
 
@@ -414,6 +433,7 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
     else {
       NSED_SKIP++ ; 
     }
+
 
     if ( NGENTMP < 0 ) {
       sprintf(c1err,"Cannot generate %d %s events.", 
@@ -450,8 +470,7 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
 // =========================================================
 void  getName_SED_FILE_NON1ASED(char *PATH, char *inpName, char *outName) {
 
-  // Created Aug 28 2017 
-  
+  // Created Aug 28 2017   
   // Inputs
   //   *PATH     is the path containing NON1A.LIST file
   //   *inpName  is a name in the NON1A.LIST file

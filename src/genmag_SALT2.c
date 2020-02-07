@@ -1521,7 +1521,7 @@ double genmag_extrap_latetime_SALT2(double mag_daymin, double day,
 
   // interpolate each extrap parameter vs. wavelength
   for(ipar=1; ipar < NPAR; ipar++ ) { // skip LAM parameter
-    //.xyz
+   
     ptrLam = INPUT_EXTRAP_LATETIME.PARLIST[IPAR_EXTRAP_LAM] ;
     ptrVal = INPUT_EXTRAP_LATETIME.PARLIST[ipar] ;
     if ( lam < ptrLam[0] ) {

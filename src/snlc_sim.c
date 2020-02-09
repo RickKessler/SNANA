@@ -23611,7 +23611,6 @@ void dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE) {
   // Complete fluxNoise dump for epoch 'ep'.
   // This is part of the GENFLUX_DRIVER refactor.
 
-  /* xxxx
   
   int  ifilt_obs = FLUXNOISE->IFILT_OBS;
   char *band     = FLUXNOISE->BAND;
@@ -23620,8 +23619,11 @@ void dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE) {
 
   double flux_data    = GENLC.flux[ep]/NADU_over_Npe;   // Npe
   double flux_true    = FLUXNOISE->SQSIG_SRC;           // Npe
-  double fluxerr_data = FLUXNOISE->SIG_FINAL_DATA;  // Npe
-  double fluxerr_true = FLUXNOISE->SIG_FINAL_TRUE;  // Npe
+
+  double SQSIG_DATA   = FLUXNOISE->SQSIG_FINAL_DATA;  // Npe
+  double SQSIG_TRUE   = FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_SUM];
+  double fluxerr_data = sqrt(SQSIG_DATA);
+  double fluxerr_true = sqrt(SQSIG_TRUE);
 
   double genmag       = GENLC.genmag_obs[ep];
   double Trest        = GENLC.epoch_rest[ep]; 
@@ -23692,11 +23694,11 @@ void dumpEpoch_fluxNoise_apply(char *fnam, int ep, FLUXNOISE_DEF *FLUXNOISE) {
 	 FLUXNOISE->SQSIG_RAN );
 
   printf(" xxx SIG_pe(CALC, FINAL_TRUE, FINAL_DATA) = %.2f, %.2f, %.2f \n",
-	 FLUXNOISE->SIG_CALC, FLUXNOISE->SIG_FINAL_TRUE,
-	 FLUXNOISE->SIG_FINAL_DATA);
+	 sqrt(FLUXNOISE->SQSIG_CALC_DATA),
+	 fluxerr_data, fluxerr_true );
 
   printf(" xxx\n");  fflush(stdout);
-  xxxxxx */
+
 
   return ;
 

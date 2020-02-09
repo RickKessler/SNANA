@@ -1733,8 +1733,9 @@ REDCOV: g:0.3,r:0.5  # reduced corr = 0.3 & 0.5 for g & r, respectively
 REDCOV: iz:0.4       # reduced corr = 0.4 for i+z combined
 
 MAPNAME:  ERRSCALE_2D_ZPPSF
-BAND: griz    FIELD:  DEEP
-NVAR: 3
+BAND: griz    FIELD:  DEEP 
+SCALE_FLUXERR_DATA: 1.2   # scale reported error, but not true err
+SCALE_FLUXERR_TRUE: 1.1   # scale true error, but not reported err
 VARNAMES:  ZP  PSF  ERRSCALE
 ROW:       29  0.5    1.02
 ROW:       29  1.5    1.25

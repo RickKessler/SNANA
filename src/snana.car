@@ -18841,6 +18841,8 @@ c
 c Nov 12 2018: check APPLY_FLUXCOR_BUG to apply bug of computing
 c              SNRMAX variables before EXEC_FUDGE_FLUXCAL()
 c
+c Feb 08 2020: apply PSF and ZPERR cuts here so that USEFLAG is set.
+c
 c -------------------------------------------
 
       IMPLICIT NONE
@@ -18862,14 +18864,14 @@ c local var
       REAL
      &   Fluxcal, Fluxcal_err, TRUEFLUX
      &  ,Xnsig, MAG, SIM_MAG, magoff, ZP, PHOTPROB
-     &  ,Tobs, z1, z, Trest, scale, arg
+     &  ,Tobs, z1, z, Trest, scale, arg, PSF, ZPERR
      &  ,Zhost, Zhosterr, LAMOBS, LAMZ1,  SNRMAX
 
       REAL*8  MJD8, EBV8, EBVERR8
       REAL*8  MJD8_FIRSTDETECT, MJD8_LASTALL, MJD8_LASTFILT(MXFILT_ALL)
 
       LOGICAL 
-     &   LSIG, LLAM, LZ, LTEST, LXMJD, LINCMJD
+     &   LSIG, LLAM, LZ, LTEST, LXMJD, LINCMJD, LPSF, LZPERR
      &  ,LSNRMAX(MXFILT_ALL)
      &  ,LSNRMAX2(MXFILT_ALL)
      &  ,LFLUX, LERR, LTMP, USE4SNRMAX
@@ -19139,7 +19141,15 @@ c check how many obs are in the INCLUDE_MJD window (Aug 2015)
 c check MJD-exclude window to reject epochs (but keep LC)
           LXMJD = MJD8 .GE. CUTWIN_MJD_EXCLUDE(1) .and. 
      &            MJD8 .LE. CUTWIN_MJD_EXCLUDE(2)
-                    
+            
+c Feb 2020: check PSF and ZPERR cuts here
+          PSF = SNLC_PSF_SIG1(EP)
+          LPSF = PSF .GE. CUTWIN_PSF(1) .and. PSF.LE.CUTWIN_PSF(2)
+
+          ZPERR  = SNLC_ZEROPT_ERR(EP)
+          LZPERR = ZPERR .GE. CUTWIN_ZPERR(1) .and. 
+     &             ZPERR .LE. CUTWIN_ZPERR(2)
+        
           LSIG = Xnsig .GE. cutwin_snrmin_filt(1,ifilt)
      &     .and. Tobs  .GE. cutwin_Tobs(1)  
      &     .and. Tobs  .LE. cutwin_Tobs(2)  
@@ -19149,6 +19159,7 @@ c check MJD-exclude window to reject epochs (but keep LC)
      &     .and. MJD8  .LE. cutwin_MJD(2)
      &     .and. .not. LXMJD     ! Feb 2012
      &     .and. LLAM            ! rest-frame lambda OK (7/08/08)
+     &     .and. LPSF .and. LZPERR     ! Feb 2020
      &     .and. fluxcal_err >  0.0    ! flux err is > 0  
 
           IF ( .NOT. LSIG ) GOTO 201 ! Nov 30, 2011
@@ -21688,7 +21699,7 @@ c get signal error, but avoid problems with large negative fluxes
       else
          SQERR_SIGNAL = 0.0
       endif
-          
+      
 c get effective area for sky-bkg = 1/[integral PSF^2], pixelsize^2
       AREA  = NoiseEquivAperture(PSFsig1,PSFsig2,PSFratio)  
       SNLC_AREA_NOISE(iepoch) = AREA
@@ -24307,7 +24318,7 @@ c Jan 8 2018: write zHEL[ERR] to text file
 c Mar 9 2018: add PHOTPROB info, MIN and Nepochs
 c Mar 10 2019: add HOST_OBJID with BLOCK_LL for long long int
 c May 23 2019: bug fix: book HOST_RA[DEC] as double instead of float.
-c
+c Feb 20 2020: write MWEBV to TEXT table.
 c --------------------------------------------------
 
       IMPLICIT NONE
@@ -24480,8 +24491,13 @@ c tack on VPEC
      &                       LENBLOCK, 20 )
 
 c - - - - -  Galactic extinction - - - -  -
+c Feb 6 2020: write MWEBV to TEXT (but not the error)
 
-      VARLIST = 'MWEBV:F,MWEBVERR:F' // char(0)
+      VARLIST = 'MWEBV:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_MWEBV, VARLIST, 1,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'MWEBVERR:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_MWEBV, VARLIST, 0, 
      &                   LENBLOCK, 20 )
 
@@ -24934,6 +24950,10 @@ c -- observing conditions
 
       VARNAME = 'ZEROPT(NOBS):F' // char(0)  
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_ZEROPT,
+     &      VARNAME, 0, LENB,LENV)
+
+      VARNAME = 'ZEROPT_ERR(NOBS):F' // char(0)  
+      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_ZEROPT_ERR,
      &      VARNAME, 0, LENB,LENV)
 
       VARNAME = 'PSF(NOBS):F' // char(0)  

@@ -41,7 +41,10 @@ struct {
   int  IVARLIST[MXVAR_FLUXERRMAP] ; // list of IVAR from full list
   int  MASK_APPLY ;   // bit0 for sim, bit1 for data
   int  INDEX_SPARSE; 
+
   struct GRIDMAP  MAP ;
+  double SCALE_FLUXERR_DATA; // scale reported error, but not true error
+  double SCALE_FLUXERR_TRUE; // scale true error, but not reported error
 } FLUXERRMAP[MXMAP_FLUXERRMAP] ;
   
 

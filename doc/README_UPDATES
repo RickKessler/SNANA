@@ -17926,6 +17926,9 @@
    + new &SNLCINP input CUTWIN_ZPERR (for snana.exe, snlc_fit, psnid);
       beware that it's NOT explicitly tested.
 
+   + include MWEBV in TEXT tables. If you leave MWEBV in the APPEND
+     argument, it will show up as MWEBV_2 in the text table.
+
          ***** MISCELLANEOUS(v10_75c) ***** 
 
     SALT2mu.c:
@@ -17945,6 +17948,8 @@
       + write TEMPLATE info for make-SIMLIB option.
       + new &SNLCINP input CUTWIN_TREST_TRUEFLUX = -20, 70  
          to require valid true flux for fakes.
+      + in SNRECON, apply PSF and ZPERR cuts on each epoch.
+        Verify new CUTWIN_ZPERR cut.
 
     genmag_SALT2.c
       + in SALT2colorDisp, extrapolate if UV extrap is used.
@@ -17965,5 +17970,7 @@
     + allow sim-input INPUT_INCLUDE_FILE or INPUT_FILE_INCLUDE
     + add GENMODEL_EXTRAP_LATETIME to command-line override 
         (was mistakenly left out during plasticc devel)
+    + new keys for FLUXERRMODEL_FILE, SCALE_FLUXERR_TRUE[DATA]
+         (see manual)
 
-END: 
+END:   

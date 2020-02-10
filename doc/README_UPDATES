@@ -17903,7 +17903,7 @@
 
 
 # ======================================================================= 
-         v10_75c (Feb xx 2020) 
+         v10_75c (Feb 10 2020) 
 
          ***** IMPORTANT(v10_75c) ***** 
 
@@ -17918,8 +17918,6 @@
 
    + abort if Fitpatrick 99 color law used beyond 12,000 A.
 
-   + remove default BUG-KEEP flag for where to compute flux-error 
-     fudges (snana.car). Now it's part of RESTORE_DES3YR.
 
          ***** USEFUL(v10_75c) ***** 
 
@@ -17943,13 +17941,15 @@
       + fix evil string parse bug in PARSE_TERSE_VARLIST;
          remove check on 'ZP' to avoid conflict with 'ZPERR'.
       + in CRAZYERRCHECK, check for too-small errors along with too-large.
-      + add &SNLCINP input CUTWIN_ZPERR (BEWARE: not tested)
+      + add &SNLCINP input CUTWIN_ZPERR 
       + new &SNLCINP option, FUDGE_MAG_ERROR = 'ALL 0.02'
       + write TEMPLATE info for make-SIMLIB option.
       + new &SNLCINP input CUTWIN_TREST_TRUEFLUX = -20, 70  
          to require valid true flux for fakes.
       + in SNRECON, apply PSF and ZPERR cuts on each epoch.
-        Verify new CUTWIN_ZPERR cut.
+      + remove default BUG-KEEP flag for where to compute flux-error 
+        fudges (snana.car). Now it's part of RESTORE_DES3YR. Benign.
+
 
     genmag_SALT2.c
       + in SALT2colorDisp, extrapolate if UV extrap is used.

@@ -646,6 +646,7 @@ struct INPUTS {
   char   GENMAG_SMEAR_MODELNAME[100]; // name of specific smear-model
   char   GENMAG_SMEAR_MODELARG[MXPATHLEN];  // optional arg after colon
   float  GENMAG_SMEAR_SCALE;          // scale magSmears (default=1)
+  float  GENMAG_SMEAR_ADDPHASECOR[2]; // magSmear and coh time
 
   int    NPAR_GENSMEAR_USRFUN ;
   double GENMAG_SMEAR_USRFUN[100];   // intrinsic smear with function

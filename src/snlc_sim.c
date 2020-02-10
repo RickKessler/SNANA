@@ -854,8 +854,10 @@ void set_user_defaults(void) {
   INPUTS.GENMODEL_ERRSCALE_CORRELATION = 0.0;   // corr with GENMAG_SMEAR
   INPUTS.GENMODEL_MSKOPT             = 0 ; 
   INPUTS.GENMODEL_ARGLIST[0]         = 0 ;
-  INPUTS.GENMAG_SMEAR[0]             = 0.0;
-  INPUTS.GENMAG_SMEAR[1]             = 0.0;
+  INPUTS.GENMAG_SMEAR[0]             = 0.0 ;
+  INPUTS.GENMAG_SMEAR[1]             = 0.0 ;
+  INPUTS.GENMAG_SMEAR_ADDPHASECOR[0] = 0.0 ;
+  INPUTS.GENMAG_SMEAR_ADDPHASECOR[1] = 0.0 ;
   INPUTS.GENSMEAR_RANGauss_FIX       = -999.0 ;
   INPUTS.GENSMEAR_RANFlat_FIX        = -999.0 ;
 
@@ -2123,6 +2125,8 @@ int read_input(char *input_file) {
       continue ;
     }
 
+    if ( uniqueMatch(c_get,"GENMAG_SMEAR_ADDPHASECOR:")  ) 
+      { readfloat(fp, 2, INPUTS.GENMAG_SMEAR_ADDPHASECOR );  }
 
     if ( uniqueMatch(c_get,"GENMAG_SMEAR_USRFUN:")  ) { 
       INPUTS.NPAR_GENSMEAR_USRFUN     = 8 ; // fix hard-wired param
@@ -5278,14 +5282,16 @@ void sim_input_override(void) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp) ;
       split2floats(ctmp, comma, tmpSmear);
 
-    
-      // Sep 2014: if NON1a magSmear is already set, 
-      //           then do not use GENMAG_SMEAR.
+      // if NON1a magSmear is already set, then dont use GENMAG_SMEAR.
       if ( INPUTS.NON1ASED.MAGSMEAR[1][0] <= 0.0 ) {
 	INPUTS.GENMAG_SMEAR[0] = tmpSmear[0]; 
 	INPUTS.GENMAG_SMEAR[1] = tmpSmear[1]; 
       }
-	
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_ADDPHASECOR" ) == 0 ) {      
+      i++ ; sscanf(ARGV_LIST[i], "%f", INPUTS.GENMAG_SMEAR_ADDPHASECOR[0]) ;
+      i++ ; sscanf(ARGV_LIST[i], "%f", INPUTS.GENMAG_SMEAR_ADDPHASECOR[1]) ;
     }
 
     if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_USRFUN" ) == 0 ) {
@@ -22352,7 +22358,6 @@ void GENMAG_DRIVER(void) {
     
     genmodel(ifilt_obs,1); 
 
-
     if ( GENFRAME_OPT == GENFRAME_REST ) {
       genmodel(ifilt_obs,2);      // 2nd nearest filter
       genmodel(ifilt_obs,3);      // 3rd nearest filter
@@ -24445,7 +24450,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     ;
 
   float lamavg4, lamrms4, lammin4, lammax4 ;
-
+  bool  USE_SMEARSIG = false;
   char cfilt[2];
   char fnam[] = "genmodelSmear" ;
 
@@ -24520,23 +24525,29 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
   ran_FILT = GENLC.GENSMEAR_RANGauss_FILTER[ifilt_local] ; 
 
   // now get filter-dependent smearing
-  if ( INPUTS.NFILT_SMEAR > 0 ) 
-    { smearsig_fix = INPUTS.GENMAG_SMEAR_FILTER[ifilt_local]; }
+  if ( INPUTS.NFILT_SMEAR > 0 )  { 
+    smearsig_fix = INPUTS.GENMAG_SMEAR_FILTER[ifilt_local]; 
+    USE_SMEARSIG = true ;
+  }
 
   // loop over epochs and apply same mag-smear 
 
   for ( iep=1; iep <= NEPFILT; iep++ ) {
 
-    smearsig_model = 0.0 ;
+    magSmear = smearsig_model = 0.0 ;
     Tep   = ptr_epoch[iep - 1] ; // rest or obs.
     Trest = Tep / Z1 ;          // Z1=1 (rest) or 1+z (obs)
      
-    if ( USE_GENMODEL_ERRSCALE  ) 
-      { smearsig_model = genSmear_ERRSCALE(ptr_generr,iep, NEPFILT ); }
+    if ( USE_GENMODEL_ERRSCALE  ) { // practially obsolete
+      smearsig_model = genSmear_ERRSCALE(ptr_generr,iep, NEPFILT ); 
+      USE_SMEARSIG = true ;
+    }
 
     // add two sources of smear in quadrature: FILTER and ERRSCALE
-    smearsig = sqrt( pow(smearsig_model,2.) + pow(smearsig_fix,2.) );      
-    magSmear = smearsig * ran_FILT ;  // apply filter-dependent random smear
+    if ( USE_SMEARSIG ) {
+      smearsig = sqrt( pow(smearsig_model,2.) + pow(smearsig_fix,2.) );      
+      magSmear = smearsig * ran_FILT ;  // apply filter-dependent random smear
+    }
 
     // model-dependent smearing; note that get_genSmear returns
     // a randomly generated magSmear rather than a sigma-smear.
@@ -24580,7 +24591,6 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     }
 
     // Aug 15, 2009: clip mag-smear at +- 3 mag to avoid catastrophe
-
     if ( magSmear < -3.0 ) { magSmear = -3.0 ; }
     if ( magSmear > +3.0 ) { magSmear = +3.0 ; }
 
@@ -24589,7 +24599,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
       magSmear = genmodelSmear_interp(ifilt_obs,iep) ;
     }
     
-    ptr_genmag[iep-1]                     += magSmear ;
+    ptr_genmag[iep-1]                    += magSmear ;
     GENFILT.genmag_smear[ifilt_obs][iep] += magSmear ;
 
   } // ep loop

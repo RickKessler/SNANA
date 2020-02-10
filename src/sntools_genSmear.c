@@ -2206,7 +2206,7 @@ void prep_VCR_forSALT2(void) {
 
 
 // *****************************************
-void  parse_VCR_colorString(ic) {
+void  parse_VCR_colorString(int ic) {
 
   // Mar 2014
   // store filter index for each color,

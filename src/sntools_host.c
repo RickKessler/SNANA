@@ -3889,7 +3889,7 @@ double get_VALUE_HOSTLIB(int ivar, int igal) {
   // -------------- BEGIN ---------------
   VALUE = -9.0 ;
   if ( HOSTLIB.SORTFLAG == 0 ) {
-    sprintf(c1err,"Cannot return sorted VALUE(ivar,igal=%d)", ivar, igal);
+    sprintf(c1err,"Cannot return sorted VALUE(ivar=%d,igal=%d)", ivar, igal);
     sprintf(c2err,"until HOSTLIB is redshift-sorted.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -4065,7 +4065,7 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
 
   if ( ZGEN_HELIO < HOSTLIB.ZMIN || ZGEN_HELIO > HOSTLIB.ZMAX ) {
     double zCMB = zhelio_zcmb_translator(ZGEN_HELIO,GENLC.RA,GENLC.DEC,"eq",+1);
-    sprintf(c1err,"Invalid ZGEN(helio,CMB)=%f ", ZGEN_HELIO, zCMB );
+    sprintf(c1err,"Invalid ZGEN(Helio,CMB)=%f,%f ", ZGEN_HELIO, zCMB );
     sprintf(c2err,"HOSTLIB z-range is %6.4f to %6.4f",
 	    HOSTLIB.ZMIN, HOSTLIB.ZMAX );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -5762,7 +5762,7 @@ void SORT_SNHOST_byDDLR(void) {
 } // SORT_SNHOST_byDDLR
 
 // =================================
-void TRANSFER_SNHOST_REDSHIFT(IGAL) {
+void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
 
   // Apr 2019
   // Check for redshift change; either explicit transfer to use

@@ -8273,7 +8273,6 @@ void init_modelSmear(void) {
     goto SKIP_GENSMEAR ; 
   }
 
-
   INPUTS.DO_MODELSMEAR  = 1 ;
 
     sprintf(key,"GENMAG_SMEAR_MODELNAME") ;
@@ -17473,7 +17472,6 @@ void init_zvariation(void) {
   // -------------------------------------------
   // open file
 
-  //.xyz
   fpz = snana_openTextFile(1, PATH_USER_INPUT, ptrZfile,
 			   fileName_full, &gzipFlag );
   
@@ -24444,7 +24442,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
 
   double 
     ran_COH, ran_FILT
-    ,magSmear=0.0, magSmear_model
+    ,magSmear=0.0, magSmear_model, TMPSIG
     ,smearsig, smearsig_fix, smearsig_model
     ,Tep, Tpeak, Trest, lamrest, Z1
     ;
@@ -24564,7 +24562,12 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
       magSmear = magSmear_model ;
     }
    
-    
+    //    .xyz
+    TMPSIG = INPUTS.GENMAG_SMEAR_ADDPHASECOR[0];
+    if ( TMPSIG > 1.0E-8 ) {
+      magSmear += TMPSIG * GaussRan(2); // temp hack, later add coherence
+    }
+
     //* xxxxxxxxxxxxxxxx
     if  ( fabs(Tep) < .01 && ifilt_obs == -2 ) {
       printf("\t xxx ------------------------------------- \n");

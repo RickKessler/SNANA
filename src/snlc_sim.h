@@ -648,6 +648,9 @@ struct INPUTS {
   float  GENMAG_SMEAR_SCALE;          // scale magSmears (default=1)
   float  GENMAG_SMEAR_ADDPHASECOR[2]; // magSmear and coh time
 
+  // GENMAG_SMEAR_SCALE(c): 0.98,.1,-0.02,0.3,-5.0 
+  // GENMAG_SMEAR_SCALE(x1): 0.98,.1,-0.02 
+
   int    NPAR_GENSMEAR_USRFUN ;
   double GENMAG_SMEAR_USRFUN[100];   // intrinsic smear with function
 

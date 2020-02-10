@@ -449,6 +449,7 @@ extern"C" {
   void load_DUMPLINE(char *LINE, double DVAL) ;
 
   int  get_ICAST_READTBLE_POINTER(char *varName);
+  int  ICAST_for_textVar(char *varName) ;
 
   // - - - autoStore utility functions - - - - 
   int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName, 

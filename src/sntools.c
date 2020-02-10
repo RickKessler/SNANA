@@ -3510,7 +3510,7 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
 
   // tack on default SIM dir (Sep 2019)
   int IPATH_SIM_DEFAULT = NPATH;
-  sprintf(PATHLIST[NPATH], "%s/SIM", SNDATA_ROOT, VERSION); NPATH++ ;
+  sprintf(PATHLIST[NPATH], "%s/SIM", SNDATA_ROOT ); NPATH++ ;
 
   if ( LDMP ) 
     { printf(" xxx DATADIR = '%s' \n", DATADIR); fflush(stdout); }
@@ -6063,7 +6063,7 @@ int rd_sedFlux(
       printf("   previous line: '%s' \n", lastLine);
       printf("   current  line: '%s' \n", line);
       sprintf(c1err,"NRDWORD = %d, but expected at least 3", NRDWORD);
-      sprintf(c2err,"Check dumped lines from file above.", line);
+      sprintf(c2err,"Check dumped lines from file above.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
     }
 

@@ -142,7 +142,7 @@ void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN);
 void  freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN); 
 
 // declare functions in sntools_output_text.c
-int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
+// xxxx mark dele int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
 
 // ================================
 // Global variables
@@ -525,7 +525,8 @@ void ADD_FITRES(int ifile) {
   // get approx number of SN for memory allocation
 
   // NEVT_APPROX = SNTABLE_NEVT_APPROX_TEXT(INPUTS.FFILE[ifile], NVARALL);
-  NEVT_APPROX = SNTABLE_NEVT_TEXT(INPUTS.FFILE[ifile]);
+  //xx NEVT_APPROX = SNTABLE_NEVT_TEXT(INPUTS.FFILE[ifile]);
+  NEVT_APPROX = SNTABLE_NEVT(INPUTS.FFILE[ifile],"TABLE");
 
   if ( NEVT_APPROX >= MXSN-1 ) { 
     sprintf(c1err,"NEVT_APPROX=%d exceeds MXSN=%d", NEVT_APPROX, MXSN);
@@ -564,7 +565,6 @@ void ADD_FITRES(int ifile) {
     if ( ifile==0 && strcmp(VARNAME,"zHD") == 0 ) { IVAR_zHD = ivar; }
 
     // Sep 19 2019: make sure first column is CID
-    // xxx mark delete if ( ivar == IVARSTR_CCID && strstr(VARNAME,"CID") == NULL ) {
     if ( ivar == IVARSTR_CCID ) {
       if ( ICAST_for_textVar(VARNAME) != ICAST_C ) {
 	sprintf(c1err,"Unrecognized first column: %s", VARNAME);

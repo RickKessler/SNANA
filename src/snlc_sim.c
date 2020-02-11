@@ -5290,8 +5290,8 @@ void sim_input_override(void) {
     }
 
     if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_ADDPHASECOR" ) == 0 ) {      
-      i++ ; sscanf(ARGV_LIST[i], "%f", INPUTS.GENMAG_SMEAR_ADDPHASECOR[0]) ;
-      i++ ; sscanf(ARGV_LIST[i], "%f", INPUTS.GENMAG_SMEAR_ADDPHASECOR[1]) ;
+      i++ ; sscanf(ARGV_LIST[i], "%f", &INPUTS.GENMAG_SMEAR_ADDPHASECOR[0]) ;
+      i++ ; sscanf(ARGV_LIST[i], "%f", &INPUTS.GENMAG_SMEAR_ADDPHASECOR[1]) ;
     }
 
     if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_USRFUN" ) == 0 ) {

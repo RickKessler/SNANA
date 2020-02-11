@@ -13611,7 +13611,7 @@ double GALrate_model(double l, double b, RATEPAR_DEF *RATEPAR ) {
 double gen_AV(void) {
 
   // select AV from exponential distribution,
-  // dN/dAv = exp(-av/tau) + exp(.5*av^2/sig^2)
+  // dN/dAv = exp(-av/tau) + exp(-0.5*av^2/sig^2)
   //
   // Oct 26, 2012: tau > 50 -> flat distribution
   // Mar 15, 2013: include Gaussian core (requested by Rodney for HST)
@@ -13629,6 +13629,8 @@ double gen_AV(void) {
   //   while fixing warnings from -Wall, found and fixed bug setting
   //   un-initialized "peak":   peakGauss = INPUTS.GENGAUPEAK_AV ;
   //
+  // Feb 11 2020: fix bug computing WGT_GAUSS
+
   double  tau, sig, ratio, peakGauss, expmin, expmax, expdif ;
   double avmin, avmax, AV, ran_EXPON, ran_GAUSS, ran_WGT ;
   int DOFUN_EXPON, DOFUN_GAUSS ;
@@ -13693,7 +13695,7 @@ double gen_AV(void) {
   if ( tau > 0.0 && sig > 0.0 && ratio > 0.0 ) {
     double WGT_EXPON, WGT_GAUSS, WGT_SUM ;
     WGT_EXPON = 1.0 / tau ;
-    WGT_GAUSS = ratio / sqrt(TWOPI * sig);
+    WGT_GAUSS = 0.5*ratio / sqrt(TWOPI * sig*sig);
     WGT_SUM = WGT_EXPON + WGT_GAUSS ;
     if ( ran_WGT < WGT_EXPON/WGT_SUM ) 
       { DOFUN_EXPON = 1; }

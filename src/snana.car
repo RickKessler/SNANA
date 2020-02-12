@@ -1754,6 +1754,7 @@ c
      &  ,FUDGE_MAG_COVERR_FILT(MXFILT_ALL)
      &  ,MWEBV_SCALE        ! scale MW extinc for syst test
      &  ,MWEBV_SHIFT        ! shift MW extinc
+     &  ,MWEBV_FORCE        ! force specific MWEBV value (Feb 2020)
 
       REAL 
      &   RV_MWCOLORLAW   ! (I) RV for Galactic extinction 
@@ -1804,7 +1805,7 @@ c
      &   ,FUDGE_MAG_ERROR, FUDGE_MAG_ERROR_FILT
      &   ,FUDGE_MAG_COVERR, FUDGE_MAG_COVERR_FILT
      &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, OPT_MWEBV
-     &   ,MWEBV_SCALE, MWEBV_SHIFT
+     &   ,MWEBV_SCALE, MWEBV_SHIFT, MWEBV_FORCE
      &   ,REDSHIFT_FINAL_SHIFT, FLUXERRCALC_ZPTERR 
      &   ,CUTWIN_MJD_EXCLUDE, CUTWIN_MJD_INCLUDE
 
@@ -2134,7 +2135,7 @@ c
      &   ,FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
      &   ,MAGCOR_FILE, SIM_MAGCOR_FILE, FUDGE_HOSTNOISE_FILE
      &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, OPT_MWEBV  
-     &   ,MWEBV_SCALE, MWEBV_SHIFT
+     &   ,MWEBV_SCALE, MWEBV_SHIFT, MWEBV_FORCE
      &   ,REDSHIFT_FINAL_SHIFT, FLUXERRCALC_ZPTERR 
      &   ,CUTWIN_MJD_EXCLUDE, CUTWIN_MJD_INCLUDE, CUTWIN_NMJD_INCLUDE
 
@@ -3460,6 +3461,7 @@ c default is to reject nothing (accept everything)
 
       MWEBV_SCALE    = 1.0
       MWEBV_SHIFT    = 0.0
+      MWEBV_FORCE    = -9.0
       OPT_MWCOLORLAW = -9   ! use default if not specified in &SNLCINP
       OPT_MWEBV      = -9   ! idem
       RV_MWCOLORLAW  = -9.0 ! idem
@@ -3806,6 +3808,13 @@ c init some INIXXX parameter for fit
          GLOBAL_BANNER = ''
          write(GLOBAL_BANNER,541) MWEBV_SCALE, MWEBV_SHIFT
 541      format('Galactic MWEBV -> MWEBV *', F6.3,'  +  ', F6.3 )
+        CALL PRBANNER ( GLOBAL_BANNER )
+      ENDIF
+
+      IF ( MWEBV_FORCE > -0.01 ) THEN
+         GLOBAL_BANNER = ''
+         write(GLOBAL_BANNER,542) MWEBV_FORCE
+542      format('Force Galactic MWEBV -> ', F6.3 )
         CALL PRBANNER ( GLOBAL_BANNER )
       ENDIF
 
@@ -5168,6 +5177,9 @@ c -------------
 
          else if ( LINE_ARGS(i) .EQ. 'MWEBV_SHIFT' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) MWEBV_SHIFT
+
+         else if ( LINE_ARGS(i) .EQ. 'MWEBV_FORCE' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) MWEBV_FORCE
 
          else if ( LINE_ARGS(i) .EQ. 'REDSHIFT_FINAL_SHIFT' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) REDSHIFT_FINAL_SHIFT
@@ -12401,7 +12413,6 @@ c local var
 c functions
       INTEGER  SNTYPESTAT, CCDNUMSTAT, GET_IDSURVEY
       LOGICAL  READ_HEADKEY
-cc      REAL     MWEBV_FUDGE
 
 C ----------- BEGIN ---------
 
@@ -16094,37 +16105,6 @@ c now that ISBXFILT=T  set global logical
       RETURN
       END
 
-C ==========================================
-+DECK,MWEBVFUDGE.
-      REAL FUNCTION MWEBV_FUDGE(MWEBV)
-c
-c NOV 29 2017: *** OBSOLETE FUNCTION *****
-c
-c Return MWEBV with user-requested fudges (if any are specified).
-c Abort of MWEBV < 0.
-c
-c -------------------
-
-      IMPLICIT NONE
-
-      REAL  MWEBV  ! (I) Galactic E(B-V) read from data file
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-
-C --------------- BEGIN ---------------
-
-      if ( MWEBV .LT. 0.0 ) then
-         write(c1err,662) MWEBV,  SNLC_CCID
-662      format('MWEBV=',F8.2,' is negative for SN ', A8,'  ?!?!?!' )
-         c2err = 'Check MWEBV: in data file header'
-         CALL MADABORT("MWEBV_FUDGE", c1err, c2err )
-      endif
-
-      MWEBV_FUDGE = (MWEBV * MWEBV_SCALE)  +  MWEBV_SHIFT
-
-      RETURN
-      END
 C ================================================      
 +DECK,GET_IDTEL.
       INTEGER FUNCTION GET_IDTEL ( tel_name )
@@ -18842,6 +18822,7 @@ c Nov 12 2018: check APPLY_FLUXCOR_BUG to apply bug of computing
 c              SNRMAX variables before EXEC_FUDGE_FLUXCAL()
 c
 c Feb 08 2020: apply PSF and ZPERR cuts here so that USEFLAG is set.
+c Feb 12 2020: check MWEBV_FORCE
 c
 c -------------------------------------------
 
@@ -18942,6 +18923,10 @@ c Note that MWEBV and MWEBV_ERR are modified if OPT_MWEBV > 0
 
       SNLC_MWEBV     = SNGL(EBV8)     * MWEBV_SCALE + MWEBV_SHIFT
       SNLC_MWEBV_ERR = SNGL(EBVERR8)  * MWEBV_SCALE      
+      IF ( MWEBV_FORCE > -0.001 ) THEN
+         SNLC_MWEBV = MWEBV_FORCE
+         SNLC_MWEBV_ERR = 0.0
+      ENDIF
 
 c compute Galactic extinction in each band
 c (Oct 11 2013: code moved from MAIN to here)

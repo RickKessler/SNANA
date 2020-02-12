@@ -30,6 +30,10 @@ void  init_genSmear_COVSED(char *COVSED_version, int OPTMASK);
 void  parse_COVSED_INFO_FILE(void);
 void  readFits_genSmear_COVSED(char *covFileName);
 
+void  init_genSmear_phaseCor(double magSmear, double exptau);
+void  get_genSmear_phaseCor(int CID, double phase, double *magSmear );
+void  check_genSmear_phaseCor(void);
+
 void  init_genSmear_private(void) ;
 
 int   nval_genSmear_override(char *inputKey, char *parName);
@@ -352,6 +356,26 @@ struct GENSMEAR_BIMODAL_UV {
   double  LAMU_MIN, LAMU_CEN, LAMU_MAX;
   double  MAGU_SPLIT, MAGU_SIGMA ;
 } GENSMEAR_BIMODAL_UV ;
+
+
+// see sim input GENMAG_SMEAR_ADDPHASECOR: <magSmear> <expTau>
+struct {
+  int     USE;
+  double  INPUT_MAGSMEAR, INPUT_EXPTAU; // copied from user input
+  int     NBIN ;
+  double  BINSIZE ;
+  double  RANGE[2] ;  // min & max phase to store COVMAT
+  double *GRID_PHASE ;      // phase value at each grid point
+  double **Cholesky ;     // fixed matrix for GRID
+  double *GRID_MAGSMEAR ; // for each event
+  double *RANGauss_LIST ; // new randoms for each event
+  int    CID_LAST ;       // used to identify new event
+
+  int    NCHECK, NSUM;
+  double SUMCHECK[10]; // for internal COV check
+
+} GENSMEAR_PHASECOR ;
+
 
 // --------- private struct for testing --------------
 struct GENSMEAR_PRIVATE {

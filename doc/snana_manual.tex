@@ -2241,10 +2241,11 @@ GENMAG_SMEAR_FILTER: UBV 0.05  # and/or fixed smearing per filter
 GENMAG_SMEAR_FILTER: RI  0.08  # and/or fixed smearing per filter
 
 # method 3: Pick model name from specialized code in genSmear_models.c
-GENMAG_SMEAR_MODELNAME:   G10 
+GENMAG_SMEAR_MODELNAME:   G10         # or C11 
 GENMAG_SMEAR_SCALE:       1.0         # scale all magSmear values
-GENMAG_SMEARPAR_OVERRIDE: BLA  1.234                 # optional param override
+GENMAG_SMEARPAR_OVERRIDE: BLA  1.234  # optional param override
 GENMAG_SMEARPAR_OVERRIDE: BLALIST[3]  1.8  2.2  3.4  # idem
+GENMAG_SMEAR_ADDPHASECOR: 0.03 7.0    # magSmear  expTau(days)
 
 # method 4: vary RV with asymmetric Gaussian distribution
 GENPEAK_RV:         1.6             # location of Gauss peak
@@ -2272,14 +2273,13 @@ the argument is a list of observer-frame filters.
 
 
 {\tt GENMAG\_SMEAR\_MODELNAME} allows the most flexibility
-because this option  allows for an arbitrarily complex function
-to describe the smearing as a function of wavelength.
+with an arbitrarily complex function
+to describe the smearing as a function of wavelength and/or phase.
 These functions are in a separately compiled module 
-({\tt \$SNANA\_DIR/src/sntools\_genSmear.c})
-so that updates are relatively easy and so that these functions
-can in principle be used in non-{\snana} applications.
+({\tt \$SNANA\_DIR/src/sntools\_genSmear.c}), and these 
+functions can in principle be used in non-{\snana} applications.
 The top of {\tt sntools\_genSmear.c}  
-gives a list of model-name options.
+provides a list of model-name options.
 The models include a ``PRIVATE'' option so that anyone can 
 quickly implement a model of intrinsic smearing by adding 
 code to the blank functions 
@@ -2290,9 +2290,16 @@ to turn off this option.
 smear-model parameters; a list of allowed keys can be seen
 by grepping the source code,
 \begin{verbatim}
-  grep GENMAG_SMEARPAR_OVERRIDE $SNANA_DIR/src/sntools_genSmear.c | grep KEY
+  grep  exec_genSmear_override  $SNANA_DIR/src/sntools_genSmear.c
 \end{verbatim}
 % $
+Finally, {\tt GENMAG\_SMEAR\_ADDPHASECOR} is a phase dependent
+brightness variation that can be combined with {\tt GENMAG\_SMEAR\_MODELNAME}.
+The two {\tt ADDPHASECOR} arguments are 1)  Gaussian sigma, and 2)
+coherence parameter ($\tau$) such that for epoch separation 
+$\Delta T$ days, the reduced correlation is  
+$\rho = \exp(-\Delta T/\tau)$.
+Note that $\rho=1$ for $\Delta T = 0$.
 
 While these smearing models are functions of rest-frame
 wavelength, there are two implementation modes 

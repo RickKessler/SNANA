@@ -8220,12 +8220,16 @@ void init_modelSmear(void) {
   //    PEAKMJD estimate
   //
   // Nov 30 2019: pass SMEAR_MODELNAME to init_genmag_COH
+  //
+  // Feb 11 2020: call init_genSmear_phaseCor(magSmear,expTau);
+  //
 
   double GENMODEL_ERRSCALE = (double)INPUTS.GENMODEL_ERRSCALE ;
   double SMEAR_SCALE       = (double)INPUTS.GENMAG_SMEAR_SCALE;
   int    SMEAR_MSKOPT      = INPUTS.GENMAG_SMEAR_MSKOPT ;
   int    OPT, j, USE_SALT2smear, MEMD, NRANGauss=0, NRANFlat=0 ;
   double LAMRANGE[2], SIGCOH,  PARLIST_SETPKMJD[10];
+  double magSmear, expTau;
   char *ptrName, key[40], NAM3[8]; 
   char MODELPATH_SALT2[MXPATHLEN];
   char fnam[] = "init_modelSmear"  ;
@@ -8263,15 +8267,7 @@ void init_modelSmear(void) {
 
   ptrName = INPUTS.GENMAG_SMEAR_MODELNAME ;
 
-  if ( IGNOREFILE(ptrName) ) { 
-    // xxxx .xyz init un-used randoms to preserve randon synch for SNANA_tester
-    if ( INPUTS.DEBUG_FLAG == 55 ) {
-      init_genSmear_randoms(MXFILTINDX-1,MXFILTINDX-1); // .xyz obsolete
-    }
-    // xxxxxxxx
-
-    goto SKIP_GENSMEAR ; 
-  }
+  if ( IGNOREFILE(ptrName) ) {  goto SKIP_GENSMEAR ;  }
 
   INPUTS.DO_MODELSMEAR  = 1 ;
 
@@ -8397,10 +8393,16 @@ void init_modelSmear(void) {
     //    dump_modelSmearSigma();
   }
 
+
  SKIP_GENSMEAR:
+
+  // phase-dependent smearing is independent of GENMAG_SMEAR_MODELNAME
+  magSmear = INPUTS.GENMAG_SMEAR_ADDPHASECOR[0];
+  expTau   = INPUTS.GENMAG_SMEAR_ADDPHASECOR[1];
+  init_genSmear_phaseCor(magSmear,expTau) ;
+
   
   // May 2019: init method to estimate peakmjd for data files
-
   if ( INPUTS.GENSIGMA_PEAKMJD > 1.0E-9 ) // legacy Gauss smear
     { INPUTS.OPT_SETPKMJD = 0; }  
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) // do nothing for GRID
@@ -11299,7 +11301,8 @@ void genran_modelSmear(void) {
   }
 
   if ( !IGNOREFILE(INPUTS.GENMAG_SMEAR_MODELNAME) )  {
-    load_genSmear_randoms(GENLC.CID, rmin, rmax, INPUTS.GENSMEAR_RANGauss_FIX);
+    load_genSmear_randoms(GENLC.CID, rmin, rmax, 
+			  INPUTS.GENSMEAR_RANGauss_FIX);
   }
 
   // set randoms for instrinsic scatter matrix (July 2011)
@@ -13725,7 +13728,7 @@ double gen_AV(void) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
       if ( itry  > 1 ) { ran_GAUSS = GaussRan(1); }
-      if (peakGauss > 0) 
+      if (peakGauss > 0.0001 ) 
 	{ AV = sig * ran_GAUSS + peakGauss; }
       else
 	{ AV = sig * fabs(ran_GAUSS); }
@@ -24417,7 +24420,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
   // Inputs:
   //
   // NEPFILT     : Number of epochs for this filter
-  // ifilt_obs   : observer filter index
+  // ifilt_obs   : observer filter 
   // ifilt_rest  : rest-frame filter index (for rest-frame model only)
   // z           : redshift
   //
@@ -24444,7 +24447,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
 
   double 
     ran_COH, ran_FILT
-    ,magSmear=0.0, magSmear_model, TMPSIG
+    ,magSmear=0.0, magSmear_model, magSmear_tmp, TMPSIG
     ,smearsig, smearsig_fix, smearsig_model
     ,Tep, Tpeak, Trest, lamrest, Z1
     ;
@@ -24564,11 +24567,6 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
       magSmear = magSmear_model ;
     }
    
-    //    .xyz
-    TMPSIG = INPUTS.GENMAG_SMEAR_ADDPHASECOR[0];
-    if ( TMPSIG > 1.0E-8 ) {
-      magSmear += TMPSIG * GaussRan(2); // temp hack, later add coherence
-    }
 
     //* xxxxxxxxxxxxxxxx
     if  ( fabs(Tep) < .01 && ifilt_obs == -2 ) {
@@ -24603,7 +24601,12 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     if ( smearsig_fix < -1.0E-6 ) {
       magSmear = genmodelSmear_interp(ifilt_obs,iep) ;
     }
-    
+
+    // add small phase-dependent scatter (Feb 11 2020)
+    get_genSmear_phaseCor(GENLC.CID, Trest, &magSmear_tmp);
+    magSmear += magSmear_tmp ;
+
+    // store magSmear in global
     ptr_genmag[iep-1]                    += magSmear ;
     GENFILT.genmag_smear[ifilt_obs][iep] += magSmear ;
 

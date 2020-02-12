@@ -75,13 +75,15 @@
    + after reading salt2 dispersion file, clip wavelengths outside
      SALT2 wave range. Avoids abort at very low redshifts.
 
- Oct 18 2019: begin COV model
+ Oct 18 2019: begin COVSED model [based on SNF]
+
  Oct 21 2019: 
    + significant refactor for speed improvements using repeat_genSmear().
      BEWARE to check repeat_genSmear for Trest-dependent smear models.
 
- Nov 30 2019: refactor and upgrade COH model to pass 1 or 2 sigma values.
-              Default is still sigma=0.13 mag.
+ Nov 30 2019: 
+   + refactor and upgrade COH model to pass 1 or 2 sigma values.
+      Default is still sigma=0.13 mag.
 
 **********************************/
 
@@ -126,6 +128,8 @@ void  init_genSmear_FLAGS(int MSKOPT, double SCALE) {
   GENSMEAR_BIMODAL_UV.USE = 0 ;
   GENSMEAR_OIR.USE        = 0 ;
   GENSMEAR_COVSED.USE     = 0 ;
+  GENSMEAR_PHASECOR.USE   = 0 ;
+
   GENSMEAR.NSET_RANGauss  = 0 ;
   GENSMEAR.NSET_RANFlat   = 0 ;
   GENSMEAR.SCALE          = SCALE ; // Oct 9 2018
@@ -243,6 +247,15 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
   if ( RANFIX > -99.0 ) { 
     for(iran=0; iran < NRANGauss; iran++ ) {                 
       GENSMEAR.RANGauss_LIST[iran] = RANFIX ;
+    }
+  }
+
+  // Feb 12 2020: check randoms for phaseCor model
+  if ( GENSMEAR_PHASECOR.USE ) {
+    int NBIN = GENSMEAR_PHASECOR.NBIN ;
+    for(iran=0; iran < NBIN; iran++ ) {                 
+      GENSMEAR_PHASECOR.RANGauss_LIST[iran] = 
+	GaussRanClip(ILIST_RAN,gmin,gmax); 
     }
   }
 
@@ -3387,12 +3400,6 @@ void get_genSmear_COVSED(double Trest, int NWAVE, double *WAVE,
     GENSMEAR_COVSED.SCATTER_VALUES[i] = 0.0 ;  
     for (j = 0 ; j < NBIN_WAVE ; j++){
       //transpose cholesky matrix
-
-      /*
-      tmp = GENSMEAR_COVSED.Cholesky[j][i] ;  
-      ran = GENSMEAR.RANGauss_LIST[j] ;
-      GENSMEAR_COVSED.SCATTER_VALUES[i] += (tmp * ran);
-      */
       GENSMEAR_COVSED.SCATTER_VALUES[i] += 
 	(GENSMEAR_COVSED.Cholesky[j][i] * GENSMEAR.RANGauss_LIST[j]) ;
     }
@@ -3635,3 +3642,232 @@ int  exec_genSmear_override(int IPAR, char *PARNAME, double *VAL) {
   return NVAL ;
 
 } // end exec_genSmear_override
+
+// ==================================================
+void  init_genSmear_phaseCor(double magSmear, double expTau) {
+
+  // Created Feb 11 2020 by R. Kessler
+  // Initialize phase-correlation model where 
+  //  + magSmear = Gaussiam smear (few percent)
+  //  + reduced correlation between any two epochs is 
+  //    exp(-phaseDif/exptau)
+  //
+  // This smear-model should only be noticable for very
+  // high-SNR epochs where SNR ~ few x 10.
+  // Motivation is low FITPROB excess (compared to sims)
+
+  // hard code GRID binning; maybe later add this to sim-input
+  int NBIN_PHASECOR    =   60 ;
+  double TMIN_PHASECOR = -18.0 ;
+  double TBIN_PHASECOR =   1.0 ;
+
+  int NBIN, i, j, N, MEMD ;
+  double phase, *COVMAT1D ;
+  char fnam[] = "init_genSmear_phaseCor" ;
+
+  // ------------- BEGIN --------------
+
+  if ( magSmear == 0.0 ) { return; }
+
+  printf("\n %s: magSmear=%.3f, rho=exp(-Tdif/%.1f) \n",
+	 fnam, magSmear, expTau); 
+  fflush(stdout);
+
+  GENSMEAR_PHASECOR.USE = 1;
+  GENSMEAR_PHASECOR.INPUT_MAGSMEAR = magSmear ;  
+  GENSMEAR_PHASECOR.INPUT_EXPTAU   = expTau ;
+  GENSMEAR_PHASECOR.CID_LAST       = -9 ;
+
+  GENSMEAR_PHASECOR.NCHECK       = 0 ;
+  GENSMEAR_PHASECOR.NSUM         = 0 ;
+  GENSMEAR_PHASECOR.SUMCHECK[0]  = 0.0 ;
+  GENSMEAR_PHASECOR.SUMCHECK[1]  = 0.0 ;
+  GENSMEAR_PHASECOR.SUMCHECK[2]  = 0.0 ;
+  GENSMEAR_PHASECOR.SUMCHECK[3]  = 0.0 ;
+  
+  NBIN = NBIN_PHASECOR ;
+  MEMD = NBIN * sizeof(double) ;
+  GENSMEAR_PHASECOR.GRID_PHASE    = (double*)malloc(MEMD);
+  GENSMEAR_PHASECOR.GRID_MAGSMEAR = (double*)malloc(MEMD);
+  GENSMEAR_PHASECOR.RANGauss_LIST = (double*)malloc(MEMD);
+
+  for(i=0; i < NBIN; i++ ) {
+    phase = TMIN_PHASECOR + TBIN_PHASECOR*(double)i ;
+    GENSMEAR_PHASECOR.GRID_PHASE[i] = phase ;
+  }
+
+  GENSMEAR_PHASECOR.NBIN      = NBIN ;
+  GENSMEAR_PHASECOR.RANGE[0]  = GENSMEAR_PHASECOR.GRID_PHASE[0] ;
+  GENSMEAR_PHASECOR.RANGE[1]  = GENSMEAR_PHASECOR.GRID_PHASE[NBIN-1] ;
+  GENSMEAR_PHASECOR.BINSIZE   = TBIN_PHASECOR;
+
+  MEMD = NBIN * NBIN * sizeof(double);
+  COVMAT1D = (double *) malloc(MEMD);
+
+  // construct COV matrix vs. phase
+  double Ti, Tj, TDIF, COV, RHO ;
+  N=0;
+  for(i=0; i < NBIN; i++ ) {
+    for(j=0; j < NBIN; j++ ) {
+      Ti   = GENSMEAR_PHASECOR.GRID_PHASE[i];
+      Tj   = GENSMEAR_PHASECOR.GRID_PHASE[j];
+      TDIF = fabs(Ti-Tj);
+      RHO  = exp(-TDIF/expTau);
+      COV  = magSmear * magSmear * RHO ;
+      COVMAT1D[N] = COV;   N++ ;
+    }
+  }
+
+
+  // printf("\t Prepare PhaseCor Cholesky decomp. \n"); fflush(stdout);
+  gsl_matrix_view chk;  
+  chk = gsl_matrix_view_array ( COVMAT1D, NBIN, NBIN);
+  gsl_linalg_cholesky_decomp(&chk.matrix) ;
+
+  // load cholesly matrix
+  GENSMEAR_PHASECOR.Cholesky = (double**) malloc(NBIN*sizeof(double*));
+  for (i =0; i < NBIN ; i++){    
+    GENSMEAR_PHASECOR.Cholesky[i] = (double*) malloc(NBIN*sizeof(double));
+    for (j = 0; j < NBIN ; j++) { 
+      if ( j >= i ) 
+	{ GENSMEAR_PHASECOR.Cholesky[i][j] = gsl_matrix_get(&chk.matrix,i,j);}
+      else
+	{ GENSMEAR_PHASECOR.Cholesky[i][j] = 0.0 ; }
+    }
+  }
+  	 
+  //  debugexit(fnam);
+
+  return ;
+
+} // end init_genSmear_phaseCor
+
+// ---------
+void  get_genSmear_phaseCor(int CID, double phase, double *magSmear ) {
+
+  int CID_LAST = GENSMEAR_PHASECOR.CID_LAST ;
+  int NBIN     = GENSMEAR_PHASECOR.NBIN ;
+  int i, j;
+  double Chol, RANG, magSmear_local = 0.0 ;
+  char fnam[] = "get_genSmear_phaseCor" ;
+  int  LDMP = 0 ;
+
+  // ---------- BEGIN ---------
+
+  *magSmear = 0.0 ;
+  if ( !GENSMEAR_PHASECOR.USE ) { return; }
+
+  // for each new event, prepare new list of correlated randoms
+  if ( CID != CID_LAST ) {
+
+    if ( LDMP ) 
+      { printf(" xxx ----------- CID = %d -------------- \n", CID); }
+
+    // new scatter values for each event.
+    for (i = 0 ; i < NBIN; i++) {    
+      GENSMEAR_PHASECOR.GRID_MAGSMEAR[i] = 0.0 ;  
+      for (j = 0 ; j < NBIN ; j++){
+	//transpose cholesky matrix
+	Chol = GENSMEAR_PHASECOR.Cholesky[j][i] ;
+	RANG = GENSMEAR_PHASECOR.RANGauss_LIST[j] ;
+	GENSMEAR_PHASECOR.GRID_MAGSMEAR[i] += Chol * RANG;
+      }
+
+      if ( LDMP  ) {
+	printf(" xxx i=%2d  phase=%5.0f  magSmear = %6.3f \n", i,
+	       GENSMEAR_PHASECOR.GRID_PHASE[i],
+	       GENSMEAR_PHASECOR.GRID_MAGSMEAR[i]  );     
+      }
+    }
+
+    check_genSmear_phaseCor();    
+	
+  } // end new CID
+
+  GENSMEAR_PHASECOR.CID_LAST = CID;
+
+  // interpolate magSmear at phase
+
+  if ( phase <= GENSMEAR_PHASECOR.RANGE[0] ) {
+    magSmear_local = GENSMEAR_PHASECOR.GRID_MAGSMEAR[0] ;
+  }
+  else if ( phase >= GENSMEAR_PHASECOR.RANGE[NBIN-1] ) {
+    magSmear_local = GENSMEAR_PHASECOR.GRID_MAGSMEAR[NBIN-1] ;
+  }
+  else {
+    magSmear_local = interp_1DFUN(1,phase, NBIN, 
+				  GENSMEAR_PHASECOR.GRID_PHASE, 
+				  GENSMEAR_PHASECOR.GRID_MAGSMEAR, fnam);
+  }
+  
+  *magSmear = magSmear_local ;
+  return ;
+
+} // end get_genSmear_phaseCor
+
+
+// - - - 
+void  check_genSmear_phaseCor(void) {
+
+  // Feb 2020
+  // Utility to verify the reduced covariance form the 
+  // ADDPHASECOR model.
+
+  int    IBIN_CHECK = -10 ;
+  int    NBIN       = GENSMEAR_PHASECOR.NBIN ;
+  double EXPTAU     = GENSMEAR_PHASECOR.INPUT_EXPTAU;
+  double DT_CHECK[10], T0, m0, m1, RHO_PREDICT, RHO_CHECK;
+  char fnam[] = "check_genSmear_phaseCor" ;
+
+  // ------------- BEGIN ------------
+
+  if ( IBIN_CHECK < 0 ) { return; }
+
+  GENSMEAR_PHASECOR.NCHECK = 3; // dT=0, 1, max
+  GENSMEAR_PHASECOR.NSUM++ ;
+
+  DT_CHECK[0] = 0.0;
+  DT_CHECK[1] = GENSMEAR_PHASECOR.BINSIZE ;
+  DT_CHECK[2] = GENSMEAR_PHASECOR.RANGE[1] - GENSMEAR_PHASECOR.RANGE[0];
+
+  // check neighboring bins
+  m0 = GENSMEAR_PHASECOR.GRID_MAGSMEAR[IBIN_CHECK];
+  GENSMEAR_PHASECOR.SUMCHECK[0] += (m0*m0);
+
+  // check neighboring bins
+  m0 = GENSMEAR_PHASECOR.GRID_MAGSMEAR[IBIN_CHECK];
+  m1 = GENSMEAR_PHASECOR.GRID_MAGSMEAR[IBIN_CHECK+1];
+  GENSMEAR_PHASECOR.SUMCHECK[1] += (m0*m1);
+  
+  // check first/last bin with min correlation
+  m0 = GENSMEAR_PHASECOR.GRID_MAGSMEAR[0];
+  m1 = GENSMEAR_PHASECOR.GRID_MAGSMEAR[NBIN-1] ;
+  GENSMEAR_PHASECOR.SUMCHECK[2] += (m0*m1);
+
+  int icheck, NSUM;
+  double XN, SUMCHECK, ARG, DT, SIG, SQSIG;
+  NSUM = GENSMEAR_PHASECOR.NSUM; 
+  
+  if ( NSUM > 0 && (NSUM % 100) == 0 ) {
+
+    printf(" xxx --------------------------------- \n");
+    printf(" xxx %s at N = %d: \n", fnam, NSUM );
+    
+    XN      = (double)NSUM ;
+    SIG     = GENSMEAR_PHASECOR.INPUT_MAGSMEAR ;
+    SQSIG   = SIG*SIG;
+    T0      = GENSMEAR_PHASECOR.GRID_PHASE[IBIN_CHECK];
+    for(icheck = 0; icheck < GENSMEAR_PHASECOR.NCHECK; icheck++ ) {
+      DT  = DT_CHECK[icheck];       ARG = DT/EXPTAU;
+      SUMCHECK    = GENSMEAR_PHASECOR.SUMCHECK[icheck] ;
+      RHO_PREDICT = exp(-ARG);
+      RHO_CHECK   = SUMCHECK / (XN*SQSIG);
+      printf(" xxx RHO(dT=%4.1f) = %6.3f (expect RHO=%6.3f) \n",
+	     DT, RHO_CHECK, RHO_PREDICT);
+      fflush(stdout);
+    }
+    
+    //    printf(" xxx NEVT=%5d: phaseRHO(dT=%.0f)=%.3f, 
+  }
+
+} // end check_genSmear_phaseCor

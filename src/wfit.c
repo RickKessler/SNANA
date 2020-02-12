@@ -1239,7 +1239,7 @@ int main(int argc,char *argv[]){
 
 
     // Jun 2019: check for csv format
-    char sep[] = "";
+    char sep[] = " ";
     if ( csv_out ) { sprintf(sep,","); }
 
     if ( !usemarg  ) {

@@ -17973,4 +17973,24 @@
     + new keys for FLUXERRMODEL_FILE, SCALE_FLUXERR_TRUE[DATA]
          (see manual)
 
-END:   
+
+# ======================================================================= 
+         v10_75d (  ) 
+
+         ***** IMPORTANT(v10_75d) ***** 
+
+         ***** USEFUL(v10_75d) ***** 
+
+   sim now has phase-smearing correlations; see GENMAG_SMEAR_ADDPHASECOR
+
+         ***** MISCELLANEOUS(v10_75d) ***** 
+
+    sntools*.c:
+      + several compile fixes found by Cori compiler.
+
+    snlc_sim.c
+     + in gen_AV(), fix bug computing Gauss weight.
+     + new sim input to include phase covariance in model
+         GENMAG_SMEAR_ADDPHASECOR: 0.03 7.0  # magSmear, expTau(days)
+
+END: 

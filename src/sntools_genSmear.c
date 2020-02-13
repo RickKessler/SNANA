@@ -251,7 +251,7 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
   }
 
   // Feb 12 2020: check randoms for phaseCor model
-  if ( GENSMEAR_PHASECOR.USE ) {
+  if ( GENSMEAR_PHASECOR.USE  ) {  
     int NBIN = GENSMEAR_PHASECOR.NBIN ;
     for(iran=0; iran < NBIN; iran++ ) {                 
       GENSMEAR_PHASECOR.RANGauss_LIST[iran] = 
@@ -615,82 +615,6 @@ void get_NRAN_genSmear(int *NRANGauss, int *NRANFlat) {
   *NRANFlat  = GENSMEAR.NGEN_RANFlat ;
 } 
 
-
-
-/* xxx mark delete Oct 21 2019 xxxxxxxx
-void SETRANGauss_genSmear(int NRAN, double *ranList) {
-
-  // Created Mar 6, 2012 by R.Kessler
-  // Store input *ranList for this SN; use same ranList for all 
-  // epochs and wavelengths. Pass new *ranList for each SN.
-  //
-  // (I) NRAN = number of Gaussian randoms passed
-  // (I) ranList = list of randomw
-
-  int i;
-  double r;
-  char cList[100] ;
-  char fnam[] = "SETRANGauss_genSmear" ;
-
-  // --------------- BEGIN ------------
-
-  if ( GENSMEAR.NUSE == 0  ) { return ; }
-
-  if( NRAN != GENSMEAR.NGEN_RANGauss ) {
-    sprintf(c1err,"passed NRAN=%d, but require NGEN_RANGauss=%d",
-	    NRAN, GENSMEAR.NGEN_RANGauss ) ;
-    sprintf(c2err,"%s", "Check random generator.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);         
-  }
-
-  GENSMEAR.NSET_RANGauss++ ;
-
-  // store randoms; official list starts at 1.
-  cList[0] = 0 ;
-  for ( i=0 ; i < NRAN; i++ ) 
-    { r   = ranList[i];  GENSMEAR.RANGauss_LIST[i] = r ; }
-
-  //  printf(" %2d xxx genSmear randoms = %s \n", GENSMEAR.NSETRAN, cList );
-
-}  // end of SETRANGauss_genSmear
-
-
-void SETRANFlat_genSmear(int NRAN, double *ranList) {
-
-  // Created Jan 2014 by R.Kessler
-  // Store input *ranList for this SN; use same ranList for all 
-  // epochs and wavelengths. Pass new *ranList for each SN.
-  //
-  // (I) NRAN = number of FLAT [0-1] randoms passed
-  // (I) ranList = list of randoms
-
-  int i;
-  double r;
-  char cList[100] ; // char-list of randoms, for debub only
-  char fnam[] = "SETRANFlat_genSmear" ;
-
-  // --------------- BEGIN ------------
-
-  if ( GENSMEAR.NUSE == 0  ) { return ; }
-
-  if( NRAN != GENSMEAR.NGEN_RANFlat ) {
-    sprintf(c1err,"passed NRAN=%d, but require NGEN_RANFlat=%d",
-	    NRAN, GENSMEAR.NGEN_RANFlat ) ;
-    sprintf(c2err,"%s", "Check random generator.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);         
-  }
-
-  GENSMEAR.NSET_RANFlat++ ;
-
-  // store randoms; official list starts at 1.
-  cList[0] = 0 ;
-  for ( i=0 ; i < NRAN; i++ ) 
-    { r   = ranList[i];  GENSMEAR.RANFlat_LIST[i] = r ;  }
-
-  //  printf(" %2d xxx genSmear randoms = %s \n", GENSMEAR.NSETRAN, cList );
-
-}  // end of SETRANFlat_genSmear
-xxxxxxxxxxx end mark xxxxxxxxxx */
 
 
 
@@ -3667,7 +3591,7 @@ void  init_genSmear_phaseCor(double magSmear, double expTau) {
 
   // ------------- BEGIN --------------
 
-  if ( magSmear == 0.0 ) { return; }
+  if ( magSmear == 0.0 ) { return; } 
 
   printf("\n %s: magSmear=%.3f, rho=exp(-Tdif/%.1f) \n",
 	 fnam, magSmear, expTau); 
@@ -3747,7 +3671,7 @@ void  get_genSmear_phaseCor(int CID, double phase, double *magSmear ) {
 
   int CID_LAST = GENSMEAR_PHASECOR.CID_LAST ;
   int NBIN     = GENSMEAR_PHASECOR.NBIN ;
-  int i, j;
+  int i, j ;
   double Chol, RANG, magSmear_local = 0.0 ;
   char fnam[] = "get_genSmear_phaseCor" ;
   int  LDMP = 0 ;
@@ -3791,11 +3715,11 @@ void  get_genSmear_phaseCor(int CID, double phase, double *magSmear ) {
   if ( phase <= GENSMEAR_PHASECOR.RANGE[0] ) {
     magSmear_local = GENSMEAR_PHASECOR.GRID_MAGSMEAR[0] ;
   }
-  else if ( phase >= GENSMEAR_PHASECOR.RANGE[NBIN-1] ) {
+  else if ( phase >= GENSMEAR_PHASECOR.RANGE[1] ) {
     magSmear_local = GENSMEAR_PHASECOR.GRID_MAGSMEAR[NBIN-1] ;
   }
   else {
-    magSmear_local = interp_1DFUN(1,phase, NBIN, 
+    magSmear_local = interp_1DFUN(1, phase, NBIN, 
 				  GENSMEAR_PHASECOR.GRID_PHASE, 
 				  GENSMEAR_PHASECOR.GRID_MAGSMEAR, fnam);
   }

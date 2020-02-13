@@ -24503,7 +24503,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     GENLC.MAGSMEAR_COH[0] = magSmear ;  // store global
 
     for ( iep = 1; iep <= NEPFILT; iep++ )   { 
-      ptr_genmag[iep-1]                     += magSmear ;
+      ptr_genmag[iep-1]                    += magSmear ;
       GENFILT.genmag_smear[ifilt_obs][iep] += magSmear ;
     }
   }
@@ -24604,7 +24604,7 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
 
     // add small phase-dependent scatter (Feb 11 2020)
     get_genSmear_phaseCor(GENLC.CID, Trest, &magSmear_tmp);
-    magSmear += magSmear_tmp ;
+    magSmear += magSmear_tmp ; 
 
     // store magSmear in global
     ptr_genmag[iep-1]                    += magSmear ;

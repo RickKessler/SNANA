@@ -5075,6 +5075,10 @@ c - - - - - - - -
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPERR(1)
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPERR(2)
 
+         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_PHOTPROB' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_PHOTPROB(1)
+            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_PHOTPROB(2)
+
          else if ( LINE_ARGS(i) .EQ. 'CUTWIN_ZPADU' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPADU(1)
             i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPADU(2)
@@ -18821,7 +18825,7 @@ c
 c Nov 12 2018: check APPLY_FLUXCOR_BUG to apply bug of computing
 c              SNRMAX variables before EXEC_FUDGE_FLUXCAL()
 c
-c Feb 08 2020: apply PSF and ZPERR cuts here so that USEFLAG is set.
+c Feb 08 2020: apply PSF, ZPERR, PHOTPROB cuts here so that USEFLAG is set.
 c Feb 12 2020: check MWEBV_FORCE
 c
 c -------------------------------------------
@@ -18852,7 +18856,7 @@ c local var
       REAL*8  MJD8_FIRSTDETECT, MJD8_LASTALL, MJD8_LASTFILT(MXFILT_ALL)
 
       LOGICAL 
-     &   LSIG, LLAM, LZ, LTEST, LXMJD, LINCMJD, LPSF, LZPERR
+     &   LSIG, LLAM, LZ, LTEST, LXMJD, LINCMJD, LPSF, LZPERR, LPP
      &  ,LSNRMAX(MXFILT_ALL)
      &  ,LSNRMAX2(MXFILT_ALL)
      &  ,LFLUX, LERR, LTMP, USE4SNRMAX
@@ -19135,6 +19139,9 @@ c Feb 2020: check PSF and ZPERR cuts here
           LZPERR = ZPERR .GE. CUTWIN_ZPERR(1) .and. 
      &             ZPERR .LE. CUTWIN_ZPERR(2)
         
+          PHOTPROB = SNLC_PHOTPROB(ep)
+          LPP  = (PHOTPROB > CUTWIN_PHOTPROB(1) .OR. PHOTPROB<-0.001)
+
           LSIG = Xnsig .GE. cutwin_snrmin_filt(1,ifilt)
      &     .and. Tobs  .GE. cutwin_Tobs(1)  
      &     .and. Tobs  .LE. cutwin_Tobs(2)  
@@ -19144,7 +19151,7 @@ c Feb 2020: check PSF and ZPERR cuts here
      &     .and. MJD8  .LE. cutwin_MJD(2)
      &     .and. .not. LXMJD     ! Feb 2012
      &     .and. LLAM            ! rest-frame lambda OK (7/08/08)
-     &     .and. LPSF .and. LZPERR     ! Feb 2020
+     &     .and. LPSF .and. LZPERR .and. LPP    ! Feb 2020
      &     .and. fluxcal_err >  0.0    ! flux err is > 0  
 
           IF ( .NOT. LSIG ) GOTO 201 ! Nov 30, 2011

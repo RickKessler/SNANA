@@ -28,7 +28,7 @@
 #define  MXMAP_SEARCHEFF_PHOTPROB     10
 #define  MXROW_SEARCHEFF_PHOTPROB  10000
 #define  MXVAR_SEARCHEFF_PHOTPROB     20
-#define  MXOBS_PHOTPROB              100 // max obs per event with PHOTPROB
+#define  MXOBS_PHOTPROB             200 // max obs per event with PHOTPROB
 
 #define  MXMAP_SEARCHEFF_SPEC   20   // max number of SPEC-maps
 #define  MXROW_SEARCHEFF_SPEC 30000  // temp max size of SPEC-eff map
@@ -51,10 +51,11 @@
 #define MXOBS_TRIGGER 10*MXEPOCH 
 
 // define allowed variables to use in PHOTPROB map
-#define IVARABS_PHOTPROB_SNR     0
-#define IVARABS_PHOTPROB_LOGSNR  1
-#define IVARABS_PHOTPROB_SBMAG   2
-#define MXDEF_VARNAMES_PHOTPROB  3
+#define IVARABS_PHOTPROB_SNR       0
+#define IVARABS_PHOTPROB_LOGSNR    1
+#define IVARABS_PHOTPROB_SBMAG     2
+#define IVARABS_PHOTPROB_REDSHIFT  3  // Feb 14 2020
+#define MXDEF_VARNAMES_PHOTPROB    4
 
 char COMMENT_README_TRIGGER[200];
 

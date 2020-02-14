@@ -510,6 +510,7 @@ int  readMap_SEARCHEFF_PHOTPROB(FILE *fp,  char *key) {
       sprintf(VARDEF_SEARCHEFF_PHOTPROB[IVARABS_PHOTPROB_SNR],    "SNR"   );
       sprintf(VARDEF_SEARCHEFF_PHOTPROB[IVARABS_PHOTPROB_LOGSNR], "LOGSNR");
       sprintf(VARDEF_SEARCHEFF_PHOTPROB[IVARABS_PHOTPROB_SBMAG],  "SBMAG" );
+      sprintf(VARDEF_SEARCHEFF_PHOTPROB[IVARABS_PHOTPROB_REDSHIFT],"REDSHIFT");
     }
     return(1) ;
   }
@@ -656,7 +657,6 @@ int  readMap_SEARCHEFF_PHOTPROB(FILE *fp,  char *key) {
 			&SEARCHEFF_PHOTPROB[imap].GRIDMAP  );  // <== returned
 
 
-    printf(" xxx free TMPMAP. \n"); fflush(stdout);
     for(ivar=0; ivar<NVAR_TOT; ivar++ ) { free(SEARCHEFF_TMPMAP2D[ivar]); }
     free(SEARCHEFF_TMPMAP2D);
 
@@ -2204,7 +2204,7 @@ void setRan_for_PHOTPROB(void) {
   if ( NMAP == 0 ) { return ; }
 
   if ( NSTORE >= MXOBS_PHOTPROB ) {
-    sprintf(c1err,"NSTORE = %d exceed bound MXOBS_PHOT{RPB=%d", 
+    sprintf(c1err,"NSTORE = %d exceed bound MXOBS_PHOTRPOB=%d", 
 	    NSTORE, MXOBS_PHOTPROB );
     sprintf(c2err,"Check MXOBS_PHOTPROB in sntools_trigger.h");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
@@ -2715,6 +2715,8 @@ double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) {
   // Return value of variable corresponding to IVAR 
   // in the PHOTPROB map 'IMAP'
   // OBS is the observation index.
+  //
+  // Feb 14 2020: add REDSHIFT dependence
 
   double VALMIN  = SEARCHEFF_PHOTPROB[IMAP].VALMIN[IVAR] ;
   double VALMAX  = SEARCHEFF_PHOTPROB[IMAP].VALMAX[IVAR] ;
@@ -2723,6 +2725,7 @@ double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) {
   int    IFILTOBS = SEARCHEFF_DATA.IFILTOBS[OBS] ;
   double SNR      = SEARCHEFF_DATA.SNR[OBS]; 
   double SBMAG    = SEARCHEFF_DATA.SBMAG[IFILTOBS]; 
+  double REDSHIFT = SEARCHEFF_DATA.REDSHIFT ; 
   int    IVARABS ;
   double VAL=0.0 ;
   char *VARNAME;
@@ -2741,6 +2744,8 @@ double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) {
     { VAL = log10(SNR) ; }
   else if ( IVARABS == IVARABS_PHOTPROB_SBMAG ) 
     { VAL = SBMAG ; }
+  else if ( IVARABS == IVARABS_PHOTPROB_REDSHIFT )  // FEB 2020
+    { VAL = REDSHIFT ; }
   else {
     sprintf(c1err,"Invalid PHOTPROB-map variable '%s'", VARNAME);
     sprintf(c2err,"OBS=%d  IMAP=%d  IVAR=%d  IVARABS=%d", 

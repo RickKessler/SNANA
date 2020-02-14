@@ -17992,8 +17992,10 @@
      + in gen_AV(), fix bug computing Gauss weight.
      + new sim input to include phase covariance in model
          GENMAG_SMEAR_ADDPHASECOR: 0.03 7.0  # magSmear, expTau(days)
-  
+     + include REDSHIFT dependence for PHOTPROB map.
+
     snana.car
      + new &SNLCINP input:  MWEBV_FORCE = <val>
+     + re-implement CUTWIN_PHOTPROB.
 
 END: 

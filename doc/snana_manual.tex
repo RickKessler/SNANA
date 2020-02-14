@@ -2547,11 +2547,13 @@ but is passed to the output data files so that cuts can be applied.
 For example, {\tt PHOTPROB} can represent a machine-learning score 
 from difference-imaging, or from cuts that reject flux-outliers.
 The map consists of a {\tt PHOTPROB} distribution  in bins
-of {\tt SNR} (or {\tt LOGSNR}) and/or {\tt SBMAG} (surface brightness).
+of {\tt SNR} (or {\tt LOGSNR}) and/or {\tt SBMAG} (surface brightness),
+and/or {\tt REDSHIFT}.
 The {\tt PHOTPROB\_WGTLIST} is a histogram of events in each bin.
 The simulation internally determines the cumulative distribution
 function (CDF) for each {\tt SNR-SBMAG} bin, and interpolates
-for each simulated epoch based on the generated {\tt SNR} and {\tt SBMAG}.
+for each simulated epoch based on the generated 
+{\tt SNR}, {\tt SBMAG}, and {\tt REDSHIFT}.
 The interpolated CDF is used to generate a random {\tt PHOTPROB} value
 for each \obs. Finally, this example applies to all fields and bands,
 but separate maps can be read for each band and/or each field.

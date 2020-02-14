@@ -3579,7 +3579,6 @@ void  init_genSmear_phaseCor(double magSmear, double expTau) {
   // This smear-model should only be noticable for very
   // high-SNR epochs where SNR ~ few x 10.
   // Motivation is low FITPROB excess (compared to sims)
-
   // hard code GRID binning; maybe later add this to sim-input
   int NBIN_PHASECOR    =   60 ;
   double TMIN_PHASECOR = -18.0 ;
@@ -3599,7 +3598,7 @@ void  init_genSmear_phaseCor(double magSmear, double expTau) {
 
   GENSMEAR_PHASECOR.USE = 1;
   GENSMEAR_PHASECOR.INPUT_MAGSMEAR = magSmear ;  
-  GENSMEAR_PHASECOR.INPUT_EXPTAU   = max(expTau,1.0E-12) ;
+  GENSMEAR_PHASECOR.INPUT_EXPTAU   = expTau;
   GENSMEAR_PHASECOR.CID_LAST       = -9 ;
 
   GENSMEAR_PHASECOR.NCHECK       = 0 ;

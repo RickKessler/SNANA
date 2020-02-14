@@ -8398,7 +8398,7 @@ void init_modelSmear(void) {
 
   // phase-dependent smearing is independent of GENMAG_SMEAR_MODELNAME
   magSmear = INPUTS.GENMAG_SMEAR_ADDPHASECOR[0];
-  expTau   = INPUTS.GENMAG_SMEAR_ADDPHASECOR[1];
+  expTau   = max(INPUTS.GENMAG_SMEAR_ADDPHASECOR[1],1.0E-12);
   init_genSmear_phaseCor(magSmear,expTau) ;
 
   

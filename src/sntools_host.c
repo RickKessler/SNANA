@@ -3325,7 +3325,7 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
     SERSIC->b[j]  = HOSTLIB.VALUE_ZSORTED[IVAR_b][IGAL] ; 
     SERSIC->n[j]  = n ;
     SERSIC->bn[j] = get_Sersic_bn(n);
-    SERSIC->a_rot =  HOSTLIB.VALUE_ZSORTED[IVAR_ANGLE][IGAL] ; 
+    SERSIC->a_rot = HOSTLIB.VALUE_ZSORTED[IVAR_ANGLE][IGAL] ; 
 
     /* xxxxxxx mark delete xxxxxxxxx
     if ( FIXa   >    0.0) { SERSIC->a[j]  = FIXa; }

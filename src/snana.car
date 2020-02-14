@@ -8046,7 +8046,7 @@ C ============================
       IMPLICIT NONE
 +CDE,SNPAR.
 +CDE,CTRLCOM.
-      character funname*(*)          ! name of function calling MADABORT
+      character funname*(*)  ! name of function calling MADABORT
       character c1err*(*), c2err*(*) ! two error messages
       INTEGER ISEV_FATAL, IPROMPT, LENF, LEN1, LEN2
       PARAMETER ( ISEV_FATAL = 4, IPROMPT=0 )
@@ -22367,6 +22367,7 @@ c This code was moved from RDSNDATA so that it can be
 c called for both TEXT and FITS format.
 c
 c Feb 26 2015: SNFILE_README already filled, so don't fill it here.
+c Feb 14 2020: fix first abort message, use FNAM.
 c
 
       IMPLICIT NONE
@@ -22382,10 +22383,11 @@ c
      &   CMD*(MXCHAR_FILENAME+20)
      &  ,FILENAME*(MXCHAR_FILENAME)
      &  ,VERSION*(MXCHAR_VERSION)
-
+     &  ,FNAM*12
 c --------------- BEGIN --------------
 
       IERR = 0
+      FNAM = 'DMP_README'
 
       L1 = INDEX( SNDATA_PREFIX, ' ' ) - 1
 
@@ -22399,10 +22401,12 @@ c --------------- BEGIN --------------
       LEN_README = INDEX ( FILENAME, ' ' ) - 1
       CLOSE ( UNIT = LUNDMP )
 
-      IF ( IERROPEN .NE. 0 ) THEN
-        C1err = 'Could not find README file '
-        C2err = FILENAME(1:LEN_README)
-        CALL MADABORT("DMP_README", c1err, c2err )
+      IF ( IERROPEN .NE. 0 ) THEN 
+        CALL PRINT_PREABORT_BANNER(FNAM(1:10)//char(0),10)
+        print*,' FILENAME = ', FILENAME
+	C1err = 'Could not find README file '
+        C2err =	'For FILENAME above.'
+	CALL MADABORT(FNAM, c1err, c2err )
       ENDIF
 
 

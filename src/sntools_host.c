@@ -3276,6 +3276,10 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
   // the last weight is simply 1 = sum(other wgts).
   // If NPROF=1 then no weights are required.
   //
+  // Feb 2020:
+  //  + For FIXSERSIC option, set HOSTLIB.VALUE_ZSORTED
+  //    so that fix Sersic params show up in SIMGEN_DUMP file.
+  //
 
   int IVAR_ANGLE   = HOSTLIB.IVAR_ANGLE ;
   double FIXa      = INPUTS.HOSTLIB_FIXSERSIC[0] ;
@@ -3299,6 +3303,19 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
     IVAR_b = SERSIC_PROFILE.IVAR_b[j] ;
     IVAR_n = SERSIC_PROFILE.IVAR_n[j] ;
 
+    // check for option(s) to fix Sersic params
+    if ( FIXa > 0.0 ) 
+      { HOSTLIB.VALUE_ZSORTED[IVAR_a][IGAL] = FIXa; }
+    if ( FIXb > 0.0 ) 
+      { HOSTLIB.VALUE_ZSORTED[IVAR_b][IGAL] = FIXb; }
+    if ( FIXn > -998.0 && IVAR_n >= 0 ) 
+      { HOSTLIB.VALUE_ZSORTED[IVAR_n][IGAL] = FIXn; }
+    if ( FIXn > -998.0 && IVAR_n < 0 ) 
+      { SERSIC_PROFILE.FIXn[j] = FIXn; }
+    if ( FIXANG > -998.0 ) 
+      { HOSTLIB.VALUE_ZSORTED[IVAR_ANGLE][IGAL] = FIXANG; }
+
+    // - - - - - - 
     if ( IVAR_n >= 0 ) 
       { n = HOSTLIB.VALUE_ZSORTED[IVAR_n][IGAL] ; }
     else
@@ -3310,10 +3327,12 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
     SERSIC->bn[j] = get_Sersic_bn(n);
     SERSIC->a_rot =  HOSTLIB.VALUE_ZSORTED[IVAR_ANGLE][IGAL] ; 
 
+    /* xxxxxxx mark delete xxxxxxxxx
     if ( FIXa   >    0.0) { SERSIC->a[j]  = FIXa; }
     if ( FIXb   >    0.0) { SERSIC->b[j]  = FIXb; }
     if ( FIXn   > -998.0) { SERSIC->n[j]  = FIXn; }
     if ( FIXANG > -998.0) { SERSIC->a_rot = FIXANG; }
+    xxxxxxxxxxxx */
 
     // apply user-scale on size (Mar 28 2018)
     SERSIC->a[j] *= INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ;

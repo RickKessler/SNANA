@@ -3599,7 +3599,7 @@ void  init_genSmear_phaseCor(double magSmear, double expTau) {
 
   GENSMEAR_PHASECOR.USE = 1;
   GENSMEAR_PHASECOR.INPUT_MAGSMEAR = magSmear ;  
-  GENSMEAR_PHASECOR.INPUT_EXPTAU   = expTau ;
+  GENSMEAR_PHASECOR.INPUT_EXPTAU   = max(expTau,1.0E-12) ;
   GENSMEAR_PHASECOR.CID_LAST       = -9 ;
 
   GENSMEAR_PHASECOR.NCHECK       = 0 ;

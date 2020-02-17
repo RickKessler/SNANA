@@ -502,6 +502,7 @@ int  readMap_SEARCHEFF_PHOTPROB(FILE *fp,  char *key) {
     SEARCHEFF_PHOTPROB[imap].NFUN_CDF       = 0 ;
     SEARCHEFF_PHOTPROB[imap].NROW           = 0 ;
     SEARCHEFF_PHOTPROB[imap].REQUIRE_DETECTION = 0 ;
+    SEARCHEFF_PHOTPROB[imap].CUTVAL         = -999.0 ;
     SEARCHEFF_PHOTPROB[imap].REDUCED_CORR      = 0 ;
     sprintf( SEARCHEFF_PHOTPROB[imap].FIELDLIST, "ALL") ;
     sprintf( SEARCHEFF_PHOTPROB[imap].FILTERLIST,"ALL") ;
@@ -543,6 +544,9 @@ int  readMap_SEARCHEFF_PHOTPROB(FILE *fp,  char *key) {
 
   else if ( strcmp(key,"REQUIRE_DETECTION:")==0 )   { 
     readint(fp, 1, &SEARCHEFF_PHOTPROB[imap].REQUIRE_DETECTION );
+  }
+  else if ( strcmp(key,"CUTVAL:")==0 )   { 
+    readdouble(fp, 1, &SEARCHEFF_PHOTPROB[imap].CUTVAL );
   }
   else if ( strcmp(key,"REDUCED_CORR:")==0 )   { 
     readdouble(fp, 1, &SEARCHEFF_PHOTPROB[imap].REDUCED_CORR );
@@ -1774,15 +1778,14 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
   //   + Refactor and fix logic so that MJD_TRIGGER is correct
   //
 
-  int NMJD_DETECT, NDETECT, imask, NOBS, MARK, DETECT_MARK ;
-  int IFILTOBS, obs, OVP, obsLast, LFIND, FIRST=0;
+  int NMJD_DETECT, NDETECT, imask, NOBS, MARK, DETECT_MARK, IMAP ;
+  int IFILTOBS, obs, OVP, obsLast, istore, LFIND, FIRST=0;
   int IFILTOBS_MASK, IFILTDEF_MASK, NEXT_DETECT, DETECT_FLAG ;
   int FOUND_TRIGGER=0;
   int OBSMARKER_DETECT[MXOBS_TRIGGER];
-  double  RAN, EFF, MJD, MJD_LAST, MJD_DIF, TDIF_NEXT, SNR,MAG ;
+  double  RAN, EFF, MJD, MJD_LAST, MJD_DIF, TDIF_NEXT, SNR,MAG, PHOTPROB ;
   char CFILT[4];
   int LDMP  = 0 ;
-  int LEGACY_PHOTPROB = 0 ; 
   //  char fnam[] = "gen_SEARCHEFF_PIPELINE";
 
   // ------------- BEGIN -------------
@@ -1891,7 +1894,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
 
       if ( NMJD_DETECT >= SEARCHEFF_LOGIC.NMJD ) {
 	LFIND = 1 ;   *MJD_TRIGGER = MJD; 
-	SEARCHEFF_DATA.detectFlag[obs] += 2; // Mar 15, 2018
+	SEARCHEFF_DATA.detectFlag[obs] += 2;
 	
 	if ( LDMP ) {
 	  printf(" xxx \t NMJD_DETECT=%d at MJD_TRIGGER=%.4f \n",
@@ -1910,17 +1913,20 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
 
 
   // check on photprob
-  if ( OBS_PHOTPROB.NSTORE > 0  && !LEGACY_PHOTPROB ) {
-    int istore;
+  if ( OBS_PHOTPROB.NSTORE > 0 ) {
     setRan_for_PHOTPROB();
     for(istore=0; istore < OBS_PHOTPROB.NSTORE ; istore++ ) {
       obs = OBS_PHOTPROB.OBS_LIST[istore];
-      SEARCHEFF_DATA.PHOTPROB[obs] = get_PIPELINE_PHOTPROB(istore); 
-    }    
+      PHOTPROB = get_PIPELINE_PHOTPROB(istore); 
+      SEARCHEFF_DATA.PHOTPROB[obs] = PHOTPROB ;
+
+      IMAP = OBS_PHOTPROB.IMAP_LIST[istore] ;
+      if ( PHOTPROB < SEARCHEFF_PHOTPROB[IMAP].CUTVAL ) 
+	{ SEARCHEFF_DATA.detectFlag[obs] += 128; } // reject
+
+    } 
     dumpLine_PIPELINE_PHOTPROB();
   } // end PHOTPROB if-block
-
-
 
 
     //  if ( LDMP ) {  debugexit(fnam); } // check DUMP ID = 94

@@ -20832,6 +20832,16 @@ void snlc_to_SNDATA(int FLAG) {
     if ( (MSKTMP & 2)>0  &&  PHOTFLAG_TRIGGER>0 ) 
       { SNDATA.PHOTFLAG[epoch] += PHOTFLAG_TRIGGER ; } 
 
+
+    /* xxxxxxx mark delete xxxxxxxxx
+    // check epoch rejected by PHOTPROB cut (Feb 2020)
+    if ( (MSKTMP & 128) > 0 ) {
+      GENLC.NOBS-- ;
+      GENLC.OBSFLAG_WRITE[epoch] = false ;
+    }
+    xxxxxxx */
+
+
     // Jan 17 2018: check appended observations
     int APP = SIMLIB_OBS_GEN.APPEND_PHOTFLAG[epoch] ;
     if ( APP > 0 ) 
@@ -25343,6 +25353,7 @@ void readme_doc(int iflag_readme) {
   // Feb 01 2017: call readme_doc_NON1ASED
   // Jan 16 2019: always print KCOR file (before, only printed for SNIA)
   // May 27 2019: print PEAKMJD-estimate method
+  // Feb 16 2020: write SIMULATION key at top for Pippin.
 
   char ctmp[MXPATHLEN], cfilt[2], cwd[MXPATHLEN] ;
   char *cptr;
@@ -25367,11 +25378,16 @@ void readme_doc(int iflag_readme) {
   //--- brief description
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr," BRIEF_DESCRIPTION: simulate %s SNe with GENMODEL = %s \n", 
-	  INPUTS.GENSOURCE, INPUTS.MODELNAME );
+  sprintf(cptr,"SIMULATION: \n" ); // Feb 2020
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"  BRIEF_DESCRIPTION: simulate %s SNe with GENMODEL = %s \n", 
+	  INPUTS.GENSOURCE, INPUTS.MODELNAME );
+
+  /* xxxx
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\n");
+  xxxx */
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"  HOST MACHINE: %s \n", getenv("HOST") );

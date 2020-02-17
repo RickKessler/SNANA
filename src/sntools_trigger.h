@@ -146,6 +146,7 @@ struct {
   int  NVAR_TOT, NVAR_MAP, NFUN_CDF ;
   int  NROW ;
   int  REQUIRE_DETECTION; // flag read from SEARCH-input file
+  double CUTVAL ;         // reject epoch if PHOTPROB < CUTVAL (Feb 2020)
   double REDUCED_CORR ;   // reduced correlation (-1:1) read from input file
  
   double PHOTPROB_CDFBINS[MXVAR_SEARCHEFF_PHOTPROB] ;
@@ -163,6 +164,7 @@ struct {
   double RAN_LIST[MXOBS_PHOTPROB];  // list of ran[0,1]
   int    OBSINV_LIST[MXOBS_TRIGGER];  // local index vs [obs]
 } OBS_PHOTPROB;
+
 
 struct SEARCHEFF_LOGIC {
   int  NMJD;     // number of MJDs to have a detection

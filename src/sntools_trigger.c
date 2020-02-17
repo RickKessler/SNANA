@@ -943,7 +943,7 @@ void parse_search_eff_logic(char *survey, int NMJD, char *logic) {
   NOR   = 1;
 
   // init logic array to zero.
-  for ( i=0; i<10; i++ ) {
+  for ( i=0; i< MXMASK_SEARCHEFF_LOGIC; i++ ) {
     SEARCHEFF_LOGIC.IFILTDEF_MASK[i] = 0;
   }
 
@@ -971,7 +971,7 @@ void parse_search_eff_logic(char *survey, int NMJD, char *logic) {
     if ( strcmp(ctmp,"+")==0 )
       { ifiltdef = 0;   NOR++;   NAND=0; }
     else {
-      // xxx mark delete ifiltdef=filtindx_(ctmp, strlen(ctmp)); 
+
       ifiltdef = INTFILTER(ctmp) ;
       NAND++ ;
       if ( ifiltdef <= 0 ) {
@@ -982,7 +982,7 @@ void parse_search_eff_logic(char *survey, int NMJD, char *logic) {
     }
 
     if ( NAND > 0 ) 
-      { SEARCHEFF_LOGIC.IFILTDEF_MASK[NOR] |= (1 << ifiltdef); }
+      { SEARCHEFF_LOGIC.IFILTDEF_MASK[NOR-1] |= (1 << ifiltdef); }
 
     /*
     printf("\t logic-char(%d) = %s => MASK[%d] =%d \n", 
@@ -991,6 +991,16 @@ void parse_search_eff_logic(char *survey, int NMJD, char *logic) {
 
   } // end of char-loop (i)
 
+
+  if ( NOR >= MXMASK_SEARCHEFF_LOGIC ) {
+    print_preAbort_banner(fnam);
+    printf("   PIPELINE_LOGIC_FILE: %s\n", 
+	   INPUTS_SEARCHEFF.PIPELINE_LOGIC_FILE);
+    printf("   LOGIC STRING: '%s' ", logic);
+    sprintf(c1err,"NOR=%d exceeds bound of %d", NOR, MXMASK_SEARCHEFF_LOGIC);
+    sprintf(c2err,"Check LOGIC file and string above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
 
   printf("\n"); fflush(stdout);
 
@@ -1777,13 +1787,18 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
   //   + Refactor and fix logic to ignore MAG_UNDEFINED epochs
   //   + Refactor and fix logic so that MJD_TRIGGER is correct
   //
+  // Feb 17 2020
+  //  + refactor to implement CUTVAL cut on PHOTPROB and use
+  //    it as part of detection.
+  //
 
   int NMJD_DETECT, NDETECT, imask, NOBS, MARK, DETECT_MARK, IMAP ;
-  int IFILTOBS, obs, OVP, obsLast, istore, LFIND, FIRST=0;
+  int IFILTOBS, obs, OVP, obsLast, istore, LFIND, ISET, FIRST=0;
   int IFILTOBS_MASK, IFILTDEF_MASK, NEXT_DETECT, DETECT_FLAG ;
-  int FOUND_TRIGGER=0;
+  int FOUND_TRIGGER=0, LCUT_PHOTPROB ;
   int OBSMARKER_DETECT[MXOBS_TRIGGER];
-  double  RAN, EFF, MJD, MJD_LAST, MJD_DIF, TDIF_NEXT, SNR,MAG, PHOTPROB ;
+  double  RAN, EFF, MJD, MJD_LAST, MJD_DIF, TDIF_NEXT, SNR,MAG;
+  double  PHOTPROB, CUTVAL ;
   char CFILT[4];
   int LDMP  = 0 ;
   //  char fnam[] = "gen_SEARCHEFF_PIPELINE";
@@ -1791,7 +1806,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
   // ------------- BEGIN -------------
 
   if ( INPUTS_SEARCHEFF.FUNEFF_DEBUG ) {
-    RAN   = SEARCHEFF_RANDOMS.PIPELINE[0] ;
+    RAN   = SEARCHEFF_RANDOMS.FLAT_PIPELINE[0] ;
     return gen_SEARCHEFF_DEBUG("PIPELINE", RAN, &EFF) ;
   }
 
@@ -1811,27 +1826,14 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
   // fill OBSMARKER_DETECT to mark end of each detection period.
   obsLast = -9;
   for(obs = 0 ; obs < NOBS; obs++ ) {
-
     OBSMARKER_DETECT[obs] = 0 ;
-
     MAG  = SEARCHEFF_DATA.MAG[obs] ;
     MJD  = SEARCHEFF_DATA.MJD[obs] ;
-
     if ( MAG == MAG_UNDEFINED ) { continue ; }
-
-    if ( !FIRST ) { 
-      FIRST=1; obsLast=obs; MJD_LAST= MJD; continue; 
-    }
-    // xxx mark del if ( obs == 0 ) { obsLast=obs; MJD_LAST= MJD; continue; }
-	
-
+    if ( !FIRST ) {  FIRST=1; obsLast=obs; MJD_LAST= MJD; continue;  }       
     MJD_DIF     = fabs(MJD-MJD_LAST);
     NEXT_DETECT = ( MJD_DIF > TDIF_NEXT );
 
-    /*
-    printf(" xxx obs=%d  obsLast=%d  NEXT_DETECT=%d\n",
-	   obs, obsLast, NEXT_DETECT);
-    */
     if ( NEXT_DETECT && obsLast >= 0 ) 
       { OBSMARKER_DETECT[obsLast] = 1 ; MJD_LAST=MJD; }
 
@@ -1844,47 +1846,80 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
   NDETECT = IFILTOBS_MASK = LFIND = DETECT_MARK = 0 ;
   OBS_PHOTPROB.NSTORE = 0 ;
 
+  // loop over each epoch and determine if there is a detection,
+  // and also if there is a PHOTPROB measurement.
   for(obs = 0 ; obs < SEARCHEFF_DATA.NOBS; obs++ ) {
+    OBS_PHOTPROB.IMAP_LIST[obs]    = -9;
+    SEARCHEFF_DATA.detectFlag[obs] = 0; 
 
-    if ( SEARCHEFF_DATA.MAG[obs] == MAG_UNDEFINED ) { continue ; }
+    MAG      = SEARCHEFF_DATA.MAG[obs] ;
+    if ( MAG == MAG_UNDEFINED ) { continue ; }
 
     IFILTOBS = SEARCHEFF_DATA.IFILTOBS[obs] ;
-    MJD      = SEARCHEFF_DATA.MJD[obs] ;
+    RAN      = SEARCHEFF_RANDOMS.FLAT_PIPELINE[obs] ;
+    EFF      = GETEFF_PIPELINE_DETECT(obs); // compute effic
+    DETECT_FLAG =  ( RAN < EFF ) ;
+    if ( DETECT_FLAG ) 
+      { SEARCHEFF_DATA.detectFlag[obs] += DETECT_MASK_SNR; }
+
+    ISET = setObs_for_PHOTPROB(DETECT_FLAG,obs); // set obs for PHOTPROB
+
+    // all epochs have "good PHOTPROB" by default
+    SEARCHEFF_DATA.detectFlag[obs] += DETECT_MASK_PHOTPROB ; 
+
+  }  // end obs loop
+
+
+  // - - - - - - - - - - - - - - -
+  // Compute photprob AFTER finding all detections so that
+  // PHOTPROB covariance can be included.
+  if ( OBS_PHOTPROB.NSTORE > 0 ) {
+    setRan_for_PHOTPROB();
+    for(istore=0; istore < OBS_PHOTPROB.NSTORE ; istore++ ) {
+      obs      = OBS_PHOTPROB.OBS_LIST[istore];
+      IMAP     = OBS_PHOTPROB.IMAP_LIST[istore] ;
+      PHOTPROB = get_PIPELINE_PHOTPROB(istore); 
+      SEARCHEFF_DATA.PHOTPROB[obs] = PHOTPROB ;
+
+      // if PHOTPROB fails cut, then turn off DETECTFLAG bit
+      CUTVAL = SEARCHEFF_PHOTPROB[IMAP].CUTVAL ;
+      LCUT_PHOTPROB = ( PHOTPROB > CUTVAL ) ;
+      if ( !LCUT_PHOTPROB ) 
+	{ SEARCHEFF_DATA.detectFlag[obs] -= DETECT_MASK_PHOTPROB ; }
+    } 
+    dumpLine_PIPELINE_PHOTPROB(); // optional dump
+  } // end PHOTPROB if-block
+
+
+  // - - - - - - - - - - - - - - -
+  // loop again over observations to determine trigger.
+  // Check both detection and PHOTPROB.
+
+  for(obs = 0 ; obs < SEARCHEFF_DATA.NOBS; obs++ ) {
+
     SNR      = SEARCHEFF_DATA.SNR[obs] ;
     MAG      = SEARCHEFF_DATA.MAG[obs] ;
-    MARK     = OBSMARKER_DETECT[obs] ;
-    EFF      = GETEFF_PIPELINE_DETECT(obs); // compute effic
-    FOUND_TRIGGER = (*MJD_TRIGGER < 0.99E6 ) ;
 
-    //  xxx mark delete   if ( MARK ) { NMARK++ ; }
+    if ( MAG == MAG_UNDEFINED ) { continue ; }
 
-    // do simulation with random/independent epochs.
-    RAN         = SEARCHEFF_RANDOMS.PIPELINE[obs] ;
-    DETECT_FLAG =  ( RAN < EFF ) ;
+    IFILTOBS    = SEARCHEFF_DATA.IFILTOBS[obs] ;
+    MJD         = SEARCHEFF_DATA.MJD[obs] ;
+    DETECT_FLAG = SEARCHEFF_DATA.detectFlag[obs];
+    MARK        = OBSMARKER_DETECT[obs] ;
 
-    if ( LDMP  ) {
-      sprintf(CFILT, "%c",  FILTERSTRING[IFILTOBS] );
-      printf(" xxx MJD=%.3f-%s  SNR=%6.2f  EFF=%6.3f  RAN=%5.3f  "
-	     "DETECT=%d  MARK=%d\n",
-	     MJD, CFILT, SNR, EFF, RAN, DETECT_FLAG, MARK );
-    }
-
-    if ( DETECT_FLAG ) { 
-      SEARCHEFF_DATA.detectFlag[obs] = 1; // Nov 23 2014
-      IFILTOBS_MASK |= ( 1 << IFILTOBS );     
-    }
-
-    setObs_for_PHOTPROB(DETECT_FLAG,obs);
-
-
+    // set filter-detect mask if both detection and PHOTPROB are satisfied.
+    if ( (DETECT_FLAG & 1) > 0  && (DETECT_FLAG & 4)>0 ) 
+      { IFILTOBS_MASK |= ( 1 << IFILTOBS )  ; }
+    
+ 
     // Check for trigger if trigger not yet formed, and at least
-    // one obs-group marker has passed.
-    // Check IFILTOBS_MASK for detection(s).
+    // one obs-group marker has passed.  Check IFILTOBS_MASK for detection(s).
 
+    FOUND_TRIGGER = (*MJD_TRIGGER < 0.99E6 ) ;
     if ( !FOUND_TRIGGER  ) {
 
       NDETECT = 0 ;  // reset number of detections 
-      for ( imask=1; imask <= SEARCHEFF_LOGIC.NMASK; imask++ ) {
+      for ( imask=0; imask < SEARCHEFF_LOGIC.NMASK; imask++ ) {
 	IFILTDEF_MASK = SEARCHEFF_LOGIC.IFILTDEF_MASK[imask];
 	OVP = IFILTDEF_MASK & IFILTOBS_MASK ;
 	if ( OVP == IFILTDEF_MASK ) { NDETECT++ ; }
@@ -1894,7 +1929,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
 
       if ( NMJD_DETECT >= SEARCHEFF_LOGIC.NMJD ) {
 	LFIND = 1 ;   *MJD_TRIGGER = MJD; 
-	SEARCHEFF_DATA.detectFlag[obs] += 2;
+	SEARCHEFF_DATA.detectFlag[obs] += DETECT_MASK_MJD_TRIGGER ; ;
 	
 	if ( LDMP ) {
 	  printf(" xxx \t NMJD_DETECT=%d at MJD_TRIGGER=%.4f \n",
@@ -1909,25 +1944,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
     // reset MASK after each detection period
     if ( MARK ) { IFILTOBS_MASK = DETECT_MARK = 0 ; } 
 
-  }  // end obs loop
-
-
-  // check on photprob
-  if ( OBS_PHOTPROB.NSTORE > 0 ) {
-    setRan_for_PHOTPROB();
-    for(istore=0; istore < OBS_PHOTPROB.NSTORE ; istore++ ) {
-      obs = OBS_PHOTPROB.OBS_LIST[istore];
-      PHOTPROB = get_PIPELINE_PHOTPROB(istore); 
-      SEARCHEFF_DATA.PHOTPROB[obs] = PHOTPROB ;
-
-      IMAP = OBS_PHOTPROB.IMAP_LIST[istore] ;
-      if ( PHOTPROB < SEARCHEFF_PHOTPROB[IMAP].CUTVAL ) 
-	{ SEARCHEFF_DATA.detectFlag[obs] += 128; } // reject
-
-    } 
-    dumpLine_PIPELINE_PHOTPROB();
-  } // end PHOTPROB if-block
-
+  } // end obs loop
 
     //  if ( LDMP ) {  debugexit(fnam); } // check DUMP ID = 94
 
@@ -2106,7 +2123,7 @@ double GETEFF_PIPELINE_DETECT(int obs) {
 
 
 // *************************************
-void setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
+int setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
 
   // Created Apr 2018
   // Store observations for which PHOTPROB will be computed.
@@ -2123,7 +2140,7 @@ void setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
 
   int NSTORE = OBS_PHOTPROB.NSTORE;
   int  imap, IMAP, NMATCH, MATCH_FIELD, MATCH_FILT ;
-  char FILT[4], *FIELD_TMP, *FILT_TMP;
+  char FILT[2], *FIELD_TMP, *FILT_TMP;
   char fnam[]      = "setObs_for_PHOTPROB" ;
 
   // ------------ BEGIN ------------
@@ -2161,14 +2178,17 @@ void setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
     { return; }
 
   
+  int SET=0;
   // if we get here, store info
   if ( NSTORE < MXOBS_PHOTPROB ) {
-    OBS_PHOTPROB.OBS_LIST[NSTORE]  = obs;
-    OBS_PHOTPROB.IMAP_LIST[NSTORE] = IMAP;
+    OBS_PHOTPROB.OBS_LIST[NSTORE]  = obs ;
+    OBS_PHOTPROB.OBSINV_LIST[obs]  = NSTORE ;
+    OBS_PHOTPROB.IMAP_LIST[NSTORE] = IMAP ;
+    SET = 1 ;
   }
-  OBS_PHOTPROB.NSTORE++;
+  OBS_PHOTPROB.NSTORE++ ;
 
-  return;
+  return(SET);
 
 }  // end setObs_for_PHOTPROB" ;
 
@@ -2198,13 +2218,15 @@ void setRan_for_PHOTPROB(void) {
 
   int  NSTORE     = OBS_PHOTPROB.NSTORE ;
   int  NMAP       = INPUTS_SEARCHEFF.NMAP_PHOTPROB ;
-  int  MEMD, istore, imap, imap1, irow, irow1, NCOV, obs, obs1 ;
-  double CORR, CORR1, FLATRAN, GAURAN, GAURAN_LIST[MXOBS_PHOTPROB];
   double GAURAN_MAX = GAUSS_INTEGRAL_STORAGE.XMAX - 0.1 ;
   double COVDIAG = 1.0;  // Cov matrix has sigma=1
+
+  CHOLESKY_DECOMP_DEF DECOMP;
+  int  MEMD, istore, imap, imap1, irow, irow1, NCOV, obs, obs1 ;
+  double CORR, CORR1, FLATRAN, GAURAN, *COVTMP1D ;
+  double GAURAN_LIST[MXOBS_PHOTPROB], GAURANCORR_LIST[MXOBS_PHOTPROB];
   char   fnam[] = "setRan_for_PHOTPROB" ;
 
-  double **CHOLESKY_COV, *COV1D  ;
 
   // ------------ BEGIN -----------
 
@@ -2221,7 +2243,7 @@ void setRan_for_PHOTPROB(void) {
     // no photprob correlations --> use already-stored flatran[0,1]
     for(istore=0; istore < NSTORE; istore++ ) {
       obs  = OBS_PHOTPROB.OBS_LIST[istore] ;
-      OBS_PHOTPROB.RAN_LIST[istore]  = SEARCHEFF_RANDOMS.PHOTPROB[obs] ; 
+      OBS_PHOTPROB.RAN_LIST[istore] = SEARCHEFF_RANDOMS.FLAT_PHOTPROB[obs] ; 
     }
     return ; 
   }
@@ -2232,59 +2254,77 @@ void setRan_for_PHOTPROB(void) {
   // Start with correlated Gaussians, then transform to 
   // uniform [0,1] distribution.
 
-  // allocate matrix
-  CHOLESKY_COV = (double**) malloc ( NSTORE * sizeof(double*) );
-  MEMD = NSTORE * sizeof(double);
-  for(irow=0; irow < NSTORE; irow++ ) 
-    { CHOLESKY_COV[irow] = (double*) malloc ( MEMD );  }
-
 
   // construct 1D cov matrix for unit-width Gaussians
   MEMD  = NSTORE * NSTORE * sizeof(double);
-  COV1D = (double*) malloc (MEMD); 
+  DECOMP.COVMAT1D = (double*) malloc (MEMD); 
+  DECOMP.MATSIZE = NSTORE ;
+
+  // xxx  COVTMP1D = (double*) malloc (MEMD);  // REMOVE LATER
   NCOV  = 0;
-  for (irow=0; irow < NSTORE; irow++){
+  for (irow=0; irow < NSTORE; irow++) {
     for (irow1 = 0; irow1 < NSTORE ; irow1++) {       
       imap  = OBS_PHOTPROB.IMAP_LIST[irow];
       imap1 = OBS_PHOTPROB.IMAP_LIST[irow1];
       CORR  = SEARCHEFF_PHOTPROB[imap].REDUCED_CORR;
       CORR1 = SEARCHEFF_PHOTPROB[imap1].REDUCED_CORR;
       if ( irow == irow1 ) 
-	{ COV1D[NCOV] = COVDIAG; }
+	{ DECOMP.COVMAT1D[NCOV] = COVDIAG; }
       else
-	{ COV1D[NCOV] = sqrt(CORR*CORR1); }
+	{ DECOMP.COVMAT1D[NCOV] = sqrt(CORR*CORR1); }
 
-      NCOV++;
+      // xxx      COVTMP1D[NCOV] = DECOMP.COVMAT1D[NCOV] ; // REMOVE LATER
+      NCOV++ ;
     }
   }
  
+  init_Cholesky(+1, &DECOMP);
 
-  // -------------------------------------------
-  // Do Cholesky decomp
+  /* xxxx mark delete xxxxx
+  // allocate matrix
+  double **CHOLESKY_COV, *COV1D  ;
   gsl_matrix_view chk; 
-  chk = gsl_matrix_view_array ( COV1D, NSTORE, NSTORE ); 
+  CHOLESKY_COV = (double**) malloc ( NSTORE * sizeof(double*) );
+  MEMD = NSTORE * sizeof(double);
+  for(irow=0; irow < NSTORE; irow++ ) 
+    { CHOLESKY_COV[irow] = (double*) malloc ( MEMD );  }
+
+  chk = gsl_matrix_view_array ( COVTMP1D, NSTORE, NSTORE ); 
   gsl_linalg_cholesky_decomp ( &chk.matrix)  ;    
   for (irow=0; irow < NSTORE; irow++){
     for (irow1 = 0; irow1 < NSTORE ; irow1++) {    
       if ( irow <= irow1 ) {
-	CHOLESKY_COV[irow][irow1] = 
-	  gsl_matrix_get(&chk.matrix,irow,irow1) ;
+	CHOLESKY_COV[irow][irow1] = gsl_matrix_get(&chk.matrix,irow,irow1) ;
       }
       else
 	{ CHOLESKY_COV[irow][irow1] = 0.0; }
     }    
   }
+  xxxxxxxx end mark delete xxxxxxxxx */
+
+
+  for(irow=0; irow < NSTORE; irow++ ) {
+    obs    = OBS_PHOTPROB.OBS_LIST[irow] ;
+    GAURAN_LIST[irow] = SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[obs];
+  }
+  GaussRanCorr(&DECOMP, GAURAN_LIST, // (I)
+	       GAURANCORR_LIST);     // (O)
 
   double tmpMat, tmpRan, x0=0.0 ;
   for(irow=0; irow < NSTORE; irow++ ) {
+
+    /* xxx mark delete Feb 17 2020 xxxxxxx .xyz
     GAURAN = 0.0 ;
     obs    = OBS_PHOTPROB.OBS_LIST[irow] ;
     for(irow1=0; irow1 < NSTORE ; irow1++ ) {
       obs1   = OBS_PHOTPROB.OBS_LIST[irow1] ;
       tmpMat = CHOLESKY_COV[irow1][irow] ;
-      tmpRan = SEARCHEFF_RANDOMS.PHOTPROB[obs1] ;  // Gauss-Ran
+      tmpRan = SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[obs1] ;  // Gauss-Ran
       GAURAN += ( tmpMat * tmpRan) ;
     }
+    xxxxxxxxxxxx */
+
+    GAURAN = GAURANCORR_LIST[irow] ;
 
     // keep GAURAN within limits of pre-defined Gauss integral grid
     if ( GAURAN > +GAURAN_MAX ) { GAURAN = +GAURAN_MAX; }
@@ -2303,7 +2343,7 @@ void setRan_for_PHOTPROB(void) {
       sprintf(c2err,"NSTORE = %d", NSTORE);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
     }
-    GAURAN_LIST[irow]            = GAURAN; // for debug only
+    GAURAN_LIST[irow]            = GAURAN; // store for debug only
     OBS_PHOTPROB.RAN_LIST[irow]  = FLATRAN ;
   } // end irow loop
 
@@ -2316,10 +2356,16 @@ void setRan_for_PHOTPROB(void) {
 	   GAURAN_LIST[0], GAURAN_LIST[1], GAURAN_LIST[2] );
   }
 
+
+  // free memory
+  init_Cholesky(-1, &DECOMP);
+
+  /* xxxxxxxxxxxxxxx mark delete xxxxxxxxxx
   // free temp  matrices
   for(irow=0; irow < NSTORE; irow++ )  { free(CHOLESKY_COV[irow]); }
   free(CHOLESKY_COV);
-  free(COV1D);
+  free(DECOMP.COVMAT1D);
+  xxxxxxxxxxx  end mark xxxxxxxxxxxxx  */
 
   return;
 
@@ -2440,7 +2486,7 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
   EFF   = 1.0 ;
 
   if ( INPUTS_SEARCHEFF.FUNEFF_DEBUG ) {
-    RAN   = SEARCHEFF_RANDOMS.SPEC[0] ;
+    RAN   = SEARCHEFF_RANDOMS.FLAT_SPEC[0] ;
     return gen_SEARCHEFF_DEBUG("SPEC", RAN, EFF_SPEC) ;
   }
 
@@ -2510,7 +2556,7 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
   *EFF_SPEC = EFF ;  
 
   // compare spec-eff to random number
-  RAN = SEARCHEFF_RANDOMS.SPEC[0] ;
+  RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[0] ;
   if ( RAN > EFF ) { LFIND = 0 ; }
 
   return LFIND ;
@@ -2539,7 +2585,7 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
 
   // check debug option
   if ( INPUTS_SEARCHEFF.FUNEFF_DEBUG ) {
-    RAN = SEARCHEFF_RANDOMS.SPEC[50] ;
+    RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[50] ;
     return gen_SEARCHEFF_DEBUG("zHOST", RAN, EFF_zHOST) ;
   }
 
@@ -2569,7 +2615,7 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
   *EFF_zHOST = EFF ;  // load function arg.
 
   // borrow one of the already-allocated SPEC randoms.
-  RAN = SEARCHEFF_RANDOMS.SPEC[50] ;
+  RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[50] ;
   if ( RAN > EFF ) { LFIND = 0 ; }
 
   /*

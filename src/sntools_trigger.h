@@ -48,6 +48,10 @@
 #define APPLYMASK_SEARCHEFF_SPEC        2  // spec confirmed
 #define APPLYMASK_SEARCHEFF_zHOST       4  // zSpec from host
 
+#define DETECT_MASK_SNR         1  // detect mask for SNR or MAG
+#define DETECT_MASK_MJD_TRIGGER 2  // identify obs where trigger passes
+#define DETECT_MASK_PHOTPROB    4  // detect mask for PHOTPROB
+
 #define MXOBS_TRIGGER 10*MXEPOCH 
 
 // define allowed variables to use in PHOTPROB map
@@ -166,11 +170,12 @@ struct {
 } OBS_PHOTPROB;
 
 
+#define MXMASK_SEARCHEFF_LOGIC 10 // max number of logic conditions
 struct SEARCHEFF_LOGIC {
   int  NMJD;     // number of MJDs to have a detection
   int  NMASK;    // number of ORs
-  int  IFILTDEF_MASK[20];  // AND-mask vs. NMASK
-  char INPUT_STRING[40];  // user-input logic-string
+  int  IFILTDEF_MASK[MXMASK_SEARCHEFF_LOGIC];  // AND-mask vs. NMASK
+  char INPUT_STRING[80];  // user-input logic-string
 } SEARCHEFF_LOGIC ;
 
 
@@ -251,9 +256,11 @@ struct {
 
   // randoms
 struct {
-  double PIPELINE[MXOBS_TRIGGER];    // for each obs [0,1]
-  double PHOTPROB[MXOBS_TRIGGER]; 
-  double SPEC[MXFILTINDX+1] ;        // for each filter
+  double FLAT_PIPELINE[MXOBS_TRIGGER];     // flat ran for each obs [0,1]
+  double FLAT_PHOTPROB[MXOBS_TRIGGER];     // flat ran for each detection
+  double GAUSS_PHOTPROB[MXOBS_TRIGGER];     // Gauss ran for each detection
+  double GAUSSCORR_PHOTPROB[MXOBS_TRIGGER] ;  // correlated Gauss Ran
+  double FLAT_SPEC[MXFILTINDX+1] ;            // for each filter
 } SEARCHEFF_RANDOMS ;
 
 
@@ -293,7 +300,7 @@ void   LOAD_PHOTPROB_CDF(int NVAR_CDF, double *WGTLIST );
 double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) ;
 double GETEFF_PIPELINE_DETECT(int obs);
 
-void   setObs_for_PHOTPROB(int DETECT_FLAG, int obs);
+int    setObs_for_PHOTPROB(int DETECT_FLAG, int obs);
 void   setRan_for_PHOTPROB(void) ;
 double get_PIPELINE_PHOTPROB(int obs);
 double get_PIPELINE_PHOTPROB_Obsolete(int DETECT_FLAG, int obs);

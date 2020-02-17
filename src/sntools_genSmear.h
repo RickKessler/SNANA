@@ -211,7 +211,8 @@ struct GENSMEAR_SALT2 {
 #define NBAND_C11 6  // UBVRI correlations
 struct GENSMEAR_C11 {
   int USE ;
-  double Cholesky[NBAND_C11][NBAND_C11] ;
+  CHOLESKY_DECOMP_DEF DECOMP ;
+  // xxx mark delete  double Cholesky[NBAND_C11][NBAND_C11] ;
   int OPT_farUV;  // see sub-models C11_0, C11_1, C11_2
 } GENSMEAR_C11 ;
 
@@ -259,10 +260,11 @@ struct GENSMEAR_COVSED {
 
   // COVSED and binning read from FITS file
   int     NBIN_WAVE, NBIN_EPOCH, NBIN_WAVExEPOCH, NBIN_COVMAT ;
-  double  *WAVE, *EPOCH, *COVMAT1D ;
+  double  *WAVE, *EPOCH; // xxx mark delete *COVMAT1D ;
 
   // matrix used to generate correlated randoms
-  double **Cholesky;
+  CHOLESKY_DECOMP_DEF DECOMP;
+  // xxx marl delete  double **Cholesky;
 
   // magSmear scatter values for each event.
   double *SCATTER_VALUES; 
@@ -366,10 +368,12 @@ struct {
   double  BINSIZE ;
   double  RANGE[2] ;  // min & max phase to store COVMAT
   double *GRID_PHASE ;      // phase value at each grid point
-  double **Cholesky ;     // fixed matrix for GRID
+  // xxx mark delete  double **Cholesky ;     // fixed matrix for GRID
   double *GRID_MAGSMEAR ; // for each event
   double *RANGauss_LIST ; // new randoms for each event
   int    CID_LAST ;       // used to identify new event
+
+  CHOLESKY_DECOMP_DEF DECOMP;
 
   int    NCHECK, NSUM;
   double SUMCHECK[10]; // for internal COV check

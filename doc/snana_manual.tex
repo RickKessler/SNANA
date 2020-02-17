@@ -2631,7 +2631,8 @@ ENDMAP:
 MAPNAME_PHOTPROB:  MLSCORE_FAKES
 BAND: griz   FIELD: ALL  # map applies to all fields and bands
 REQUIRE_DETECTION: 1   # generate PHOTPROB only for detections, 0 otherwise
-REDUCED_CORR:  0.5     # induce correlation among all PHOTROB per event
+REDUCED_CORR:  0.6     # induce correlation among all PHOTROB per event
+CUTVAL:        0.5     # require PHOTPROB>0.5 for detection
 NDUMP: 3               # DEBUG: one-line dump of 3 PHOTPROB per event
 NVAR:  6               # LOGSNR, SBMAG + 4 PHOTPRPB_WGTLIST bins
 VARNAMES:   LOGSNR  SBMAG  PHOTPROB_WGTLIST

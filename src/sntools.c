@@ -34,7 +34,85 @@
 **********************************************************
 **********************************************************/
 
+void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP) {
 
+  // Feb 2020
+  // Inputs are 
+  //   + OPT > 0 -> malloc COVMAT2D and load it
+  //   + OPT < 0 -> free COVMAT2D and return
+  //   + DECOMP->MATSIZE
+  //   + DECOMP->COVMAT1D
+  //
+  // Outputs are
+  //  + DECOMP->CHOLESKY2D
+
+  int MATSIZE = DECOMP->MATSIZE ;
+  int MEMD0   = MATSIZE * sizeof(double ) ;
+  int MEMD1   = MATSIZE * sizeof(double*) ;
+  int irow0, irow1;
+  gsl_matrix_view chk; 
+
+  // ------------ BEGIN -----------
+
+  if ( OPT < 0 ) {
+    for(irow0 = 0; irow0 < MATSIZE; irow0++ )
+      { free(DECOMP->CHOLESKY2D[irow0]); }
+    free(DECOMP->CHOLESKY2D);
+    return ;
+  }
+
+  
+  DECOMP->CHOLESKY2D = (double**) malloc ( MEMD1 );
+  for(irow0 = 0; irow0 < MATSIZE; irow0++ )
+    { DECOMP->CHOLESKY2D[irow0] = (double*) malloc ( MEMD0 ); }
+
+  chk = gsl_matrix_view_array ( DECOMP->COVMAT1D, MATSIZE, MATSIZE);
+  gsl_linalg_cholesky_decomp ( &chk.matrix)  ;    
+  for (irow0=0; irow0 < MATSIZE ; irow0++){
+    for (irow1 = 0; irow1 < MATSIZE ; irow1++) {    
+      if ( irow0 <= irow1 ) {
+	DECOMP->CHOLESKY2D[irow0][irow1] = 
+	  gsl_matrix_get(&chk.matrix,irow0,irow1) ;
+      }
+      else
+	{ DECOMP->CHOLESKY2D[irow0][irow1] = 0.0; }
+    }    
+  }
+
+  return ;
+
+} // end init_Cholesky
+
+
+void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP,
+		  double *RanList_noCorr, double *RanList_Corr) {
+
+  // Feb 2020
+  // For input list of MATSIZE Gaussian randoms in RanList_noCorr,  
+  // return correlated randoms in RanList_Corr
+
+  int MATSIZE   = DECOMP->MATSIZE;
+  double GAURAN, tmpMat, tmpRan ;
+  int irow0, irow1;
+  char fnam[] = "GaussRanCorr" ;
+
+  // ------------- BEGIN ------------
+
+  for(irow0=0; irow0 < MATSIZE; irow0++ ) {
+    GAURAN = 0.0 ;
+    for(irow1 = 0; irow1 < MATSIZE ; irow1++ ) {
+      tmpMat = DECOMP->CHOLESKY2D[irow1][irow0] ;
+      tmpRan = RanList_noCorr[irow1];
+      GAURAN += ( tmpMat * tmpRan) ;
+    }
+    RanList_Corr[irow0] = GAURAN;
+  }
+
+  return ;
+
+} // end GaussRanCorr
+
+// ==========================================================
 void init_obs_atFLUXMAX(int OPTMASK, double *PARLIST, int VBOSE) {
 
   // May 24 2019

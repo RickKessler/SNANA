@@ -602,7 +602,8 @@ struct INPUTS {
   int   NPAIR_SIMSED_COV ;                 // number of input COV pairs
   float COVPAIR_SIMSED_COV[MXPAR_SIMSED];  // COV among two variables
   int   IPARPAIR_SIMSED_COV[MXPAR_SIMSED][2] ; // IPAR indices of two corr vars
-  double **CHOLESKY_SIMSED_COV ;
+  // xxx mark delete  double **CHOLESKY_SIMSED_COV ;
+  CHOLESKY_DECOMP_DEF SIMSED_DECOMP;
   int    IPARLIST_SIMSED_COV[MXPAR_SIMSED];  // vs. IROW
   int    IROWLIST_SIMSED_COV[MXPAR_SIMSED];  // vs. IPAR
   int    NROW_SIMSED_COV;

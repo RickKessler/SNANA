@@ -6531,9 +6531,9 @@ void prep_user_SIMSED(void) {
 
   int NPAIR = INPUTS.NPAIR_SIMSED_COV; 
   int NPAR  = INPUTS.NPAR_SIMSED ;
-
   int ipair, j, ipartmp, ipar, IPAR0, IPAR1;
   int NTMP, NIPAR[MXPAR_SIMSED] ;
+  double COV;
   char *NAME ;
   char fnam[] = "prep_user_SIMSED";
 
@@ -6605,16 +6605,21 @@ void prep_user_SIMSED(void) {
   int MEMD, NMAT, ISPAIR0, ISPAIR1 ;
   double *COVMAT_1D, SIG0, SIG1, RHO, COV_OFFDIAG ;
 
+  MEMD = NROW*NROW * sizeof(double) ;
+  INPUTS.SIMSED_DECOMP.MATSIZE  = NROW;
+  INPUTS.SIMSED_DECOMP.COVMAT1D = (double *) malloc ( MEMD);
+
+  /* xxx Feb 17 2020 mark delete xxxxxxxx
   // allocate memory for COVMAT and CHOLESKY 
-  COVMAT_1D                  = (double *) malloc ( NROW*NROW * sizeof(double) );
+  COVMAT_1D  = (double *) malloc ( NROW*NROW * sizeof(double) );
   INPUTS.CHOLESKY_SIMSED_COV = (double**) malloc ( NROW * sizeof(double*) );
   for(irow=0; irow < NROW; irow++ ) {
     MEMD = NROW * sizeof(double);
     INPUTS.CHOLESKY_SIMSED_COV[irow] = (double*) malloc ( MEMD );
   }
+  xxxxxxxxx end mark xxxxxxxx */
 
-
-  // load COVMAT_1D
+  // load COVMAT1D
   NMAT = 0 ;
   for(irow=0; irow < NROW; irow++ ) {
     IPAR0 = INPUTS.IPARLIST_SIMSED_COV[irow] ;
@@ -6640,12 +6645,12 @@ void prep_user_SIMSED(void) {
       }
 
       if ( IPAR0 == IPAR1 ) 
-	{ COVMAT_1D[NMAT] = SIG0*SIG0 ; }    // diagonal
+	{ COV = SIG0*SIG0 ; }    // diagonal
       else 
-	{ COVMAT_1D[NMAT] = COV_OFFDIAG ; }  // off-diag
+	{ COV = COV_OFFDIAG ; }  // off-diag
 
-
-      RHO = COVMAT_1D[NMAT] / ( SIG0*SIG1 );
+      INPUTS.SIMSED_DECOMP.COVMAT1D[NMAT] = COV;
+      RHO = COV / ( SIG0*SIG1 );
       printf("%8.4f ", RHO );
 
       NMAT++ ;
@@ -6653,12 +6658,16 @@ void prep_user_SIMSED(void) {
     printf("\n"); fflush(stdout);
   }
 
+
   // -------------------------------------------
   // store Cholesky decomp
+
+  init_Cholesky(+1, &INPUTS.SIMSED_DECOMP );
+
+  /* xxxxx Feb 17 2020 mark delete xxxxxxx
   gsl_matrix_view chk; 
   chk = gsl_matrix_view_array ( COVMAT_1D, NROW, NROW ); 
   gsl_linalg_cholesky_decomp ( &chk.matrix)  ;  
-  
   for (irow=0; irow<NROW; irow++){
     for (irow1 = 0; irow1 < NROW ; irow1++){      
       if (irow <= irow1 ) { 
@@ -6666,10 +6675,12 @@ void prep_user_SIMSED(void) {
 	  gsl_matrix_get(&chk.matrix,irow,irow1) ;
       }
       else {
-	INPUTS.CHOLESKY_SIMSED_COV[irow][irow1] = 0.0 ; // Apr 7 2018
+	INPUTS.CHOLESKY_SIMSED_COV[irow][irow1] = 0.0 ;
       }
     }    
   }
+  xxxxxxxxxxx mark delete xxxxxxxxx */
+
   
   printf("\n");
   //  debugexit(fnam);
@@ -7954,8 +7965,9 @@ void  init_GENLC(void) {
     SEARCHEFF_DATA.SNR[obs]         = -9.0 ;
     SEARCHEFF_DATA.detectFlag[obs]  =  0   ;
     SEARCHEFF_DATA.PHOTPROB[obs]    =  0.0 ;
-    SEARCHEFF_RANDOMS.PIPELINE[obs] = -9.0 ;
-    SEARCHEFF_RANDOMS.PHOTPROB[obs] = -999.0 ;
+    SEARCHEFF_RANDOMS.FLAT_PIPELINE[obs] = -9.0 ;
+    SEARCHEFF_RANDOMS.FLAT_PHOTPROB[obs]  = -999.0 ;
+    SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[obs] = -999.0 ;
   }
   
 
@@ -8054,7 +8066,7 @@ void  init_GENLC(void) {
     GENLC.SNRMAX_FILT[ifilt_obs]    = -9.0 ;  
     GENLC.SNRMAX_SORTED[ifilt_obs]  = -9.0 ;  
 
-    SEARCHEFF_RANDOMS.SPEC[ifilt_obs] = -9.0 ;
+    SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt_obs] = -9.0 ;
 
     GENLC.NOBS_FILTER[ifilt_obs] = 0 ;
     GENLC.NOBS_SATURATE_FILTER[0][ifilt_obs] = 0 ;
@@ -10961,17 +10973,25 @@ void  gen_modelPar_SIMSED(void) {
       GAURAN[irow]  = GaussRan(1);   // Gauss Random
       CORRVAL[irow] = 0.0 ;
     }
+
+    
+    GaussRanCorr(&INPUTS.SIMSED_DECOMP, GAURAN, CORRVAL ); // return CORRVAL
+
     for(irow=0; irow < NROW_COV; irow++ ) {
       ipar = INPUTS.IPARLIST_SIMSED_COV[irow];
       PEAK = INPUTS.GENGAUSS_SIMSED[ipar].PEAK;
       PMIN = INPUTS.GENGAUSS_SIMSED[ipar].RANGE[0];
       PMAX = INPUTS.GENGAUSS_SIMSED[ipar].RANGE[1];
-      CORRVAL[irow] = PEAK ;
+      CORRVAL[irow] += PEAK ;
+
+      /* xxxx Feb 17 2020 mark delete xxxxx
       for(irow1=0; irow1 < NROW_COV; irow1++ ) {
 	tmpMat = INPUTS.CHOLESKY_SIMSED_COV[irow1][irow] ;
 	tmpRan = GAURAN[irow1] ;
 	CORRVAL[irow] += ( tmpMat * tmpRan) ;
       }
+      xxxxxxx end mark xxxxxxxxx */
+
       if ( CORRVAL[irow] > PMAX ) { goto PICK_RANCOV; }
       if ( CORRVAL[irow] < PMIN ) { goto PICK_RANCOV; }
     } // end irow loop
@@ -19133,16 +19153,14 @@ void  LOAD_SEARCHEFF_DATA(void) {
   //    more efficiency, and beware change of random sync.
   //
 
-  int USE_LEGACY = ( INPUTS.DEBUG_FLAG == 55);
+  bool ISCORR_PHOTRPBOB = (INPUTS_SEARCHEFF.NREDUCED_CORR_PHOTPROB > 0);
+  int  NMAP_PHOTPROB    = INPUTS_SEARCHEFF.NMAP_PHOTPROB;
+
   int imjd, ep, NOBS, NRANTMP=0;
   double flux, flux_err, SNR_CALC, SNR_MEAS, SNR, oldRan, tmpRan ;
   char fnam[] = "LOAD_SEARCHEFF_DATA";
 
   // --------------- BEGIN ----------------
-
-  if ( USE_LEGACY )
-    { LOAD_SEARCHEFF_DATA_LEGACY(); return; }
-
 
   SEARCHEFF_DATA.CID        = GENLC.CID ;
   SEARCHEFF_DATA.REDSHIFT   = GENLC.REDSHIFT_HELIO ;
@@ -19180,20 +19198,39 @@ void  LOAD_SEARCHEFF_DATA(void) {
     SEARCHEFF_DATA.SNR[NOBS]       = SNR ;
     SEARCHEFF_DATA.NPE_SAT[NOBS]   = GENLC.npe_above_sat[ep];
     
-    oldRan = SEARCHEFF_RANDOMS.PIPELINE[NOBS] ;
+    oldRan = SEARCHEFF_RANDOMS.FLAT_PIPELINE[NOBS] ;
     if ( oldRan < -0.001 ) 
-      { SEARCHEFF_RANDOMS.PIPELINE[NOBS] = FlatRan1(1); NRANTMP++; }
+      { SEARCHEFF_RANDOMS.FLAT_PIPELINE[NOBS] = FlatRan1(1);  NRANTMP++ ; }
     
-    oldRan = SEARCHEFF_RANDOMS.PHOTPROB[NOBS] ;
+
+    if ( NMAP_PHOTPROB > 0 ) {
+      // load Gaussian randoms for correlated PHOTPROB
+      if ( ISCORR_PHOTRPBOB ) {
+	oldRan = SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[NOBS] ;
+	if ( oldRan < -998.0 ) 
+	  { SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[NOBS] = GaussRan(1); }
+      }
+      else {
+	// load flat randoms for uncorrelated PHOTPROB
+	oldRan = SEARCHEFF_RANDOMS.FLAT_PHOTPROB[NOBS] ;
+	if ( oldRan < -998.0 ) 
+	  { SEARCHEFF_RANDOMS.FLAT_PHOTPROB[NOBS] = FlatRan1(1); }	
+      }
+    } // end NMAP_PHOTPROB
+
+
+    /* xxxxxxxx mark delete Feb 17 2020 xxxxxxxxxxx
+    oldRan = SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[NOBS] ;
     if ( oldRan < -998.0 && INPUTS_SEARCHEFF.NMAP_PHOTPROB >0 )  { 
       if ( INPUTS_SEARCHEFF.NREDUCED_CORR_PHOTPROB == 0 ) 
 	{ tmpRan = FlatRan1(1); } // flat randoms [0,1] for uncorrelated
       else
 	{ tmpRan = GaussRan(1); } // need Gauss-randoms for correlation
-      SEARCHEFF_RANDOMS.PHOTPROB[NOBS] = tmpRan ;
+      SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[NOBS] = tmpRan ;
     }
-    
-  }
+    xxxxxxxxxxxx end mark xxxxxxxxx */
+
+  } // end ep loop over epochs
 
   SEARCHEFF_DATA.NOBS =  GENLC.NEPOCH ;
 
@@ -19204,8 +19241,8 @@ void  LOAD_SEARCHEFF_DATA(void) {
 
   for ( ifilt=0; ifilt <= MXFILTINDX; ifilt++ ) {
 
-    if ( SEARCHEFF_RANDOMS.SPEC[ifilt] < -0.01 ) 
-      { SEARCHEFF_RANDOMS.SPEC[ifilt]  = FlatRan1(1); }
+    if ( SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt] < -0.01 ) 
+      { SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt]  = FlatRan1(1); }
 
     if ( ifilt == MXFILTINDX ) { continue ; } // avoid array overwrite
     SEARCHEFF_DATA.PEAKMAG[ifilt] = MAG_UNDEFINED ;
@@ -19231,129 +19268,6 @@ void  LOAD_SEARCHEFF_DATA(void) {
 } // end of LOAD_SEARCHEFF_DATA
 
 
-// ******************************************
-void  LOAD_SEARCHEFF_DATA_LEGACY(void) {
-
-  // Created Jan , 2014
-  // Load structures
-  //   - SEARCHEFF_DATA 
-  //   - SEARCHEFF_RANDOMS
-  // to be used by  SEARCHEFF_xxx functions to evaluate
-  // pipeline and SPEC efficiencies.
-  //
-  // Aug 24 2014: 
-  //   major fix, use SNR_CALC instead of measured SNR.
-  //   But for SDSS, keep using measured SNR so that spec-effic is OK.
-  //
-  // Jun 23 2016: load HOSTMAG and HOSTSB
-  // Jan 03 2018: load NPE_SAT
-  // Jan 15 2018: load GENLC.FIELDNAME[0], not FIELDNAME[1]
-  // Jun 18 2018: load SNRMAX
-
-  int imjd, ep, NOBS, EPMIN, EPMAX, NRANTMP=0;
-  double flux, flux_err, SNR_CALC, SNR_MEAS, SNR, oldRan, tmpRan ;
-  char fnam[] = "LOAD_SEARCHEFF_DATA_LEGACY";
-
-  // --------------- BEGIN ----------------
-
-  SEARCHEFF_DATA.CID        = GENLC.CID ;
-  SEARCHEFF_DATA.REDSHIFT   = GENLC.REDSHIFT_HELIO ;
-  SEARCHEFF_DATA.PEAKMJD    = GENLC.PEAKMJD ;
-  SEARCHEFF_DATA.DTPEAK_MIN = GENLC.DTPEAK_MIN ; // closest T-Tpeak
-  SEARCHEFF_DATA.SALT2mB    = GENLC.SALT2mB ;
-  SEARCHEFF_DATA.SNRMAX     = GENLC.SNRMAX_GLOBAL ;
-
-
-  sprintf(SEARCHEFF_DATA.FIELDNAME, "%s", GENLC.FIELDNAME[0] );
-
-  NOBS = 0 ;
-
-  for ( imjd = 1; imjd <= GENLC.NEWMJD ; imjd++ ) {
-    EPMIN = GENLC.EPOCH_RANGE_NEWMJD[imjd][0] ;
-    EPMAX = GENLC.EPOCH_RANGE_NEWMJD[imjd][1] ;
-
-    for ( ep=EPMIN; ep <= EPMAX; ep++ ) {
-
-      if ( GENLC.OBSFLAG_PEAK[ep]     ) { continue ; } // Sep 24 2017
-      if ( GENLC.OBSFLAG_TEMPLATE[ep] ) { continue ; }
-
-      SNR_CALC = GENLC.SNR_CALC[ep] ; // Aug 24, 2014
-
-      flux      = GENLC.flux[ep] ;
-      flux_err  = GENLC.fluxerr_data[ep] ;
-      SNR_MEAS  = -9.0 ;
-      if ( flux_err > 0.0 ) { SNR_MEAS = flux / flux_err ; }
-   
-      SNR = SNR_CALC ;
-      
-      // for SDSS, continue using wrong SNR based on measured flux
-      // so that the spec-efficiency function is still correct.
-      if ( strcmp(GENLC.SURVEY_NAME,"SDSS") == 0 ) { SNR = SNR_MEAS; }
-
-      //      NOBS = ep-1; // Dec 22 2019
-      SEARCHEFF_DATA.IFILTOBS[NOBS]  = GENLC.IFILT_OBS[ep] ;     
-      SEARCHEFF_DATA.MJD[NOBS]       = GENLC.MJD[ep] ;
-      SEARCHEFF_DATA.MAG[NOBS]       = GENLC.genmag_obs[ep] ; 
-      SEARCHEFF_DATA.SNR[NOBS]       = SNR ;
-      SEARCHEFF_DATA.NPE_SAT[NOBS]   = GENLC.npe_above_sat[ep];
-
-      oldRan = SEARCHEFF_RANDOMS.PIPELINE[NOBS] ;
-      if ( oldRan < -0.001 ) 
-	{ SEARCHEFF_RANDOMS.PIPELINE[NOBS] = FlatRan1(1); NRANTMP++; }
-
-      oldRan = SEARCHEFF_RANDOMS.PHOTPROB[NOBS] ;
-      if ( oldRan < -998.0 && INPUTS_SEARCHEFF.NMAP_PHOTPROB >0 )  { 
-	if ( INPUTS_SEARCHEFF.NREDUCED_CORR_PHOTPROB == 0 ) 
-	  { tmpRan = FlatRan1(1); } // flat randoms [0,1] for uncorrelated
-	else
-	  { tmpRan = GaussRan(1); } // need Gauss-randoms for correlation
-	SEARCHEFF_RANDOMS.PHOTPROB[NOBS] = tmpRan ;
-      }
-
-      NOBS++ ;
-    }
-  }
-
-  SEARCHEFF_DATA.NOBS =  NOBS ;
-
-  // load SPEC-EFF randoms and filter-dependent quantities
-
-  int ifilt, ifilt_obs ;
-
-  for ( ifilt=0; ifilt <= MXFILTINDX; ifilt++ ) {
-
-    if ( SEARCHEFF_RANDOMS.SPEC[ifilt] < -0.01 ) 
-      { SEARCHEFF_RANDOMS.SPEC[ifilt]  = FlatRan1(1); }
-
-    if ( ifilt == MXFILTINDX ) { continue ; } // avoid array overwrite
-    SEARCHEFF_DATA.PEAKMAG[ifilt] = MAG_UNDEFINED ;
-    SEARCHEFF_DATA.HOSTMAG[ifilt] = MAG_UNDEFINED ;
-    SEARCHEFF_DATA.SBMAG[ifilt]   = MAG_UNDEFINED ;
-    
-  }
-  
-  /*
-  printf(" xxx %s: CID=%d NRAN=%d  RAN[0] = %f,%f \n",
-	 fnam, GENLC.CID, NRANTMP, 
-	 SEARCHEFF_RANDOMS.PIPELINE[0], SEARCHEFF_RANDOMS.SPEC[0]);
-  fflush(stdout);
-  */
-
-  for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
-      ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
-      /*
-      printf(" xxx ifilt_obs=%d: MAG[PEAK,HOST,SB] = %.3f, %.3f, %.3f \n",
-	     ifilt_obs, GENLC.peakmag_obs[ifilt_obs],
-	     SNHOSTGAL.GALMAG[ifilt_obs][0], SNHOSTGAL.SB_MAG[ifilt_obs] );
-      */
-      SEARCHEFF_DATA.PEAKMAG[ifilt_obs] =  GENLC.peakmag_obs[ifilt_obs] ;
-      SEARCHEFF_DATA.HOSTMAG[ifilt_obs] =  SNHOSTGAL.GALMAG[ifilt_obs][0] ;
-      SEARCHEFF_DATA.SBMAG[ifilt_obs] =    SNHOSTGAL.SB_MAG[ifilt_obs];
-  }  // ifilt
-
-  return ;
-
-} // end of LOAD_SEARCHEFF_DATA_LEGACY
 
 // ******************************************
 void gen_spectype(void) {

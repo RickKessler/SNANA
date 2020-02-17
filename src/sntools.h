@@ -257,6 +257,16 @@ typedef struct  {
 } GENPOLY_DEF ;
 
 
+
+// Feb 2020: structure to handle correlated randoms using Cholesky decomp
+typedef struct {
+  int    MATSIZE;      // matrix size along each dimension
+  double *COVMAT1D ;   // user-input COV matrix
+  double **CHOLESKY2D; // Cholesky decomp matrix used to get correlated ran
+  //  gsl_matrix_view chk; // internal matrix
+} CHOLESKY_DECOMP_DEF ;
+
+
 #define MXFILT_REMAP 20
 struct  {
   int  NMAP ;
@@ -335,6 +345,9 @@ struct {
 // ##############################################################
 
 
+void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP ) ;
+void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP, 
+		  double *RanList_noCorr, double *RanList_corr);
 
 void INIT_SNANA_DUMP(char *STRING);
 int  CHECK_SNANA_DUMP(char *FUNNAME, char *CCID, char *BAND, double MJD );

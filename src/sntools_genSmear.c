@@ -84,6 +84,10 @@
  Nov 30 2019: 
    + refactor and upgrade COH model to pass 1 or 2 sigma values.
       Default is still sigma=0.13 mag.
+ 
+ Feb 17 2020
+   + refactor correlated Gauss randoms to use init_Cholesky and
+     GaussRanCorr utilities.
 
 **********************************/
 
@@ -1475,6 +1479,9 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
   //               1 -> 100% correlation with U
   //               2 -> 100% anti-correlation with U
   //
+  //
+  // Feb 17 2020: refactor to use CHOLESLY_DECOMP_DEF struct.
+  //
   // -------------------
 
   char FILTERS_C11[NBAND_C11+1] = "vUBVRI" ;
@@ -1531,7 +1538,7 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
 
   double CC, COVred, tmp, covscale_v ;
   int i,j, N ;
-
+  int MEMD = NBAND_C11 * NBAND_C11 * sizeof(double);
   gsl_matrix_view chk;  
 
   //  char fnam[] = "init_genSmear_Chotard11" ;
@@ -1540,6 +1547,8 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
 
   GENSMEAR_C11.USE = 1;    GENSMEAR.NUSE++ ;
   GENSMEAR_C11.OPT_farUV = OPT_farUV;
+  GENSMEAR_C11.DECOMP.COVMAT1D = (double*) malloc(MEMD);
+  GENSMEAR_C11.DECOMP.MATSIZE  = NBAND_C11 ;
 
   printf("\t Initialize Chotard11/SNF model of %s correlations\n", 
 	 FILTERS_C11 );
@@ -1569,19 +1578,23 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
       if ( i != IFILT_v && j == IFILT_v ) 
 	{ COVred = covscale_v * COVAR_reduced_EWSi[i][IFILT_U]; }
 
-      CC           = COVAR_diag_EWSi[i] * COVAR_diag_EWSi[j];
-
+      CC   = COVAR_diag_EWSi[i] * COVAR_diag_EWSi[j];
       if ( i == j ) { CC += COV_DIAG_FUDGE ; }
-      COVAR2[i][j] = COVred * CC ;
 
-      // fill 1D array for gsl argument below.
-      N++ ;  COVAR1[N-1] = COVAR2[i][j] * COV_SCALE ;
+      COVAR2[i][j] = COVred * CC ; // xxx REMOVE
+      GENSMEAR_C11.DECOMP.COVMAT1D[N] = COVred * CC * COV_SCALE;
+
+      N++ ;  
+      COVAR1[N-1] = COVAR2[i][j] * COV_SCALE ; // xxx REMOVE
 
       printf(" %7.4f ", COVred );
     }
     printf("\n"); fflush(stdout);
   }
 
+  init_Cholesky(+1, &GENSMEAR_C11.DECOMP); 
+
+  /* xxxxx mark deleteFeb 17 2020  xxxxxxxxx
   chk  = gsl_matrix_view_array ( COVAR1, NBAND_C11, NBAND_C11); 
   gsl_linalg_cholesky_decomp ( &chk.matrix )  ;  
 
@@ -1593,6 +1606,7 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
 	{ GENSMEAR_C11.Cholesky[i][j] = 0.0 ; }
     }
   }
+  xxxxxxxx mark delete xxxxxx */
 
 
   // print Cholesky matrix
@@ -1600,7 +1614,8 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
   for (i =0; i < NBAND_C11; i++){
     printf("\t  d%c(Ran) = ", FILTERS_C11[i] ); fflush(stdout);
     for (j = 0; j < NBAND_C11 ; j++){      
-      tmp = GENSMEAR_C11.Cholesky[j][i] ;
+      //      tmp = GENSMEAR_C11.Cholesky[j][i] ; // xxx REMOVE
+      tmp = GENSMEAR_C11.DECOMP.CHOLESKY2D[j][i] ;
       printf("+ %7.4f*R%d ", tmp, j );
     }    
     printf("\n"); fflush(stdout);
@@ -1619,6 +1634,7 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
 void get_genSmear_Chotard11(double Trest, int NLam, double *Lam, 
 			    double *magSmear) {
 
+  
   int    ilam, i, j, IFILT ;
   double lam, tmp, SCATTER_VALUES[NBAND_C11] ;
 
@@ -1629,17 +1645,22 @@ void get_genSmear_Chotard11(double Trest, int NLam, double *Lam,
 
   // ---------- BEGIN -------
 
-  //Matrix Multiply
-  //scatter_values = ch^T normalvector
+  /******** mark delete Feb 17 2020 xxxxxxxx
+  //Matrix Multiply scatter_values = ch^T normalvector
   for (i = 0 ; i < NBAND_C11 ; i++) {
     SCATTER_VALUES[i] = 0.0 ;  
     for (j = 0 ; j < NBAND_C11 ; j++){
-      //transpose cholesky matrix
       tmp = GENSMEAR_C11.Cholesky[j][i] ;      
       SCATTER_VALUES[i] += tmp * GENSMEAR.RANGauss_LIST[j] ;
     }
   }
+  xxxxxxxxxx */
 
+
+
+  // Feb 17 2020: use new utility for correlated randoms
+  GaussRanCorr(&GENSMEAR_C11.DECOMP, GENSMEAR.RANGauss_LIST, // (I)
+	       SCATTER_VALUES );            // (O)
 
   // -------------
   for ( ilam=0; ilam < NLam; ilam++ ) {
@@ -2989,8 +3010,10 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
   // Created Oct 18 2019 by R.Kessler.
   // Covariance model in wavelength x phase bins.
   // Initial model is from Sugar/Pierre-Francoise Leget.
-  
-  gsl_matrix_view chk;  
+  //
+  // Feb 17 2020: use CHOLESKY_DECOMP_DEF struct 
+
+  // xxx mark delete  gsl_matrix_view chk;  
   double COV_DIAG_FUDGE = 1.0E-9 ; // needed to be invertible
   char *covFileName = (char*)malloc(MXPATHLEN*sizeof(char) ) ;
   char *ptrPATH = GENSMEAR_COVSED.MODEL_PATH;
@@ -3033,8 +3056,10 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
   // fudge diagonal COV to ensure positive-definite
   for (i =0; i < NBIN ; i++){
     jj = NBIN*i + i;
-    GENSMEAR_COVSED.COVMAT1D[jj] += COV_DIAG_FUDGE;
+    GENSMEAR_COVSED.DECOMP.COVMAT1D[jj] += COV_DIAG_FUDGE;
   }
+
+
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - -
   // Check option to monitor COV at two wavelengths
@@ -3050,15 +3075,18 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
     i1 = quickBinSearch(LAMPAIR[1], NBIN_WAVE, WAVE_LIST, fnam);
     LAMPAIR[0] = WAVE_LIST[i0] ; // snap to nearest bin
     LAMPAIR[1] = WAVE_LIST[i1] ; // snap to nearest bin
-    COVMAT[0][0] = GENSMEAR_COVSED.COVMAT1D[NBIN*i0+i0] ;
-    COVMAT[1][1] = GENSMEAR_COVSED.COVMAT1D[NBIN*i1+i1] ;
-    COVMAT[0][1] = GENSMEAR_COVSED.COVMAT1D[NBIN*i0+i1] ;
-    COVMAT[1][0] = GENSMEAR_COVSED.COVMAT1D[NBIN*i1+i0] ;
+    COVMAT[0][0] = GENSMEAR_COVSED.DECOMP.COVMAT1D[NBIN*i0+i0] ;
+    COVMAT[1][1] = GENSMEAR_COVSED.DECOMP.COVMAT1D[NBIN*i1+i1] ;
+    COVMAT[0][1] = GENSMEAR_COVSED.DECOMP.COVMAT1D[NBIN*i0+i1] ;
+    COVMAT[1][0] = GENSMEAR_COVSED.DECOMP.COVMAT1D[NBIN*i1+i0] ;
     init_genSmear_COVLAM_debug(LAMPAIR,COVMAT);
   }
 
   
   printf("\t Prepare Cholesky decomp. \n"); fflush(stdout);
+  init_Cholesky(+1, &GENSMEAR_COVSED.DECOMP);
+
+  /* xxxx mark delete xxxxxxxxxx
   chk  = gsl_matrix_view_array ( GENSMEAR_COVSED.COVMAT1D, NBIN, NBIN);
   gsl_linalg_cholesky_decomp(&chk.matrix) ;
 
@@ -3073,6 +3101,8 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
 	{ GENSMEAR_COVSED.Cholesky[i][j] = 0.0 ; }
     }
   }
+  xxxxxxxx end mark xxxxxxxx */
+
 
   // allocate array to use in gen_magSmear_COV
   GENSMEAR_COVSED.SCATTER_VALUES = (double*) malloc(NBIN*sizeof(double) );
@@ -3080,11 +3110,8 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
   init_genSmear_randoms(NBIN,0);
 
   // free original COVMAT from memory
-  free(GENSMEAR_COVSED.COVMAT1D);
+  free(GENSMEAR_COVSED.DECOMP.COVMAT1D);
 
-  //  gsl_matrix_free(&chk.matrix);
-  //  debugexit(fnam);
-  
 
   return;
 
@@ -3250,7 +3277,8 @@ void readFits_genSmear_COVSED(char *fileName) {
 
   GENSMEAR_COVSED.WAVE     = (double*) malloc ( MEMD1 * NBIN_WAVE    );
   GENSMEAR_COVSED.EPOCH    = (double*) malloc ( MEMD1 * NBIN_EPOCH   );
-  GENSMEAR_COVSED.COVMAT1D = (double*) malloc ( MEMD1 * NBIN_COVMAT  );
+  GENSMEAR_COVSED.DECOMP.COVMAT1D = (double*) malloc ( MEMD1 * NBIN_COVMAT  );
+  GENSMEAR_COVSED.DECOMP.MATSIZE  = NBIN_COVMAT;
 
 
   long FIRSTROW=1, FIRSTELEM=1, NREAD;
@@ -3265,7 +3293,7 @@ void readFits_genSmear_COVSED(char *fileName) {
   // read covmat into 1D array
   NREAD = NBIN_COVMAT;  istat=0;
   fits_read_col_dbl(fp, ICOL_COVMAT, FIRSTROW, FIRSTELEM, NREAD, NULL_1D,
-		    GENSMEAR_COVSED.COVMAT1D, &anynul, &istat);
+		    GENSMEAR_COVSED.DECOMP.COVMAT1D, &anynul, &istat);
   snfitsio_errorCheck("read COVMAT1D", istat);
 
 
@@ -3281,7 +3309,7 @@ void readFits_genSmear_COVSED(char *fileName) {
   for(iwave=0; iwave < NBIN_WAVE; iwave++ ) {
     jcov = iwave*NBIN_WAVE + iwave;
     WAVE = GENSMEAR_COVSED.WAVE[iwave];
-    COV  = GENSMEAR_COVSED.COVMAT1D[jcov];
+    COV  = GENSMEAR_COVSED.DECOMP.COVMAT1D[jcov];
     if ( (WAVE - WAVE_LAST) > 500.0 ) {
       printf("\t\t WAVE[%4d] = %6.0f : sqrt[ DIAG ] = %6.3f \n", 
 	     iwave, WAVE, sqrt(COV) );      
@@ -3318,17 +3346,21 @@ void get_genSmear_COVSED(double Trest, int NWAVE, double *WAVE,
 
   // ---------------- BEGIN -----------------
 
-  //Matrix Multiply
-  //scatter_values = ch^T normalvector
+  /* xxxxxxxx mark delete Feb 17 2020 xxxxxxxxx
+  //Matrix Multiply scatter_values = ch^T normalvector
   for (i = 0 ; i < NBIN_WAVE ; i++) {    
     GENSMEAR_COVSED.SCATTER_VALUES[i] = 0.0 ;  
     for (j = 0 ; j < NBIN_WAVE ; j++){
-      //transpose cholesky matrix
       GENSMEAR_COVSED.SCATTER_VALUES[i] += 
 	(GENSMEAR_COVSED.Cholesky[j][i] * GENSMEAR.RANGauss_LIST[j]) ;
     }
   }
+  xxxxxxxxx end mark xxxxxxxxxx*/
 
+
+  // Feb 17 2020: new utility to fetch correlated randoms
+  GaussRanCorr(&GENSMEAR_COVSED.DECOMP, GENSMEAR.RANGauss_LIST, // (I)
+	       GENSMEAR_COVSED.SCATTER_VALUES );        // (O)
 
   // -------------
   for ( iwave=0; iwave < NWAVE; iwave++ ) {
@@ -3567,6 +3599,8 @@ int  exec_genSmear_override(int IPAR, char *PARNAME, double *VAL) {
 
 } // end exec_genSmear_override
 
+
+
 // ==================================================
 void  init_genSmear_phaseCor(double magSmear, double expTau) {
 
@@ -3580,12 +3614,13 @@ void  init_genSmear_phaseCor(double magSmear, double expTau) {
   // high-SNR epochs where SNR ~ few x 10.
   // Motivation is low FITPROB excess (compared to sims)
   // hard code GRID binning; maybe later add this to sim-input
+
   int NBIN_PHASECOR    =   60 ;
   double TMIN_PHASECOR = -18.0 ;
   double TBIN_PHASECOR =   1.0 ;
 
   int NBIN, i, j, N, MEMD ;
-  double phase, *COVMAT1D ;
+  double phase;
   char fnam[] = "init_genSmear_phaseCor" ;
 
   // ------------- BEGIN --------------
@@ -3625,7 +3660,8 @@ void  init_genSmear_phaseCor(double magSmear, double expTau) {
   GENSMEAR_PHASECOR.BINSIZE   = TBIN_PHASECOR;
 
   MEMD = NBIN * NBIN * sizeof(double);
-  COVMAT1D = (double *) malloc(MEMD);
+  GENSMEAR_PHASECOR.DECOMP.COVMAT1D = (double *) malloc(MEMD);
+  GENSMEAR_PHASECOR.DECOMP.MATSIZE  = NBIN ;
 
   // construct COV matrix vs. phase
   double Ti, Tj, TDIF, COV, RHO ;
@@ -3637,16 +3673,19 @@ void  init_genSmear_phaseCor(double magSmear, double expTau) {
       TDIF = fabs(Ti-Tj);
       RHO  = exp(-TDIF/expTau);
       COV  = magSmear * magSmear * RHO ;
-      COVMAT1D[N] = COV;   N++ ;
+      GENSMEAR_PHASECOR.DECOMP.COVMAT1D[N] = COV;
+      N++ ;
     }
   }
 
-
   // printf("\t Prepare PhaseCor Cholesky decomp. \n"); fflush(stdout);
+  init_Cholesky(+1, &GENSMEAR_PHASECOR.DECOMP);
+
+
+  /* xxxxxxxxxx Feb 17 2020  mark delete
   gsl_matrix_view chk;  
   chk = gsl_matrix_view_array ( COVMAT1D, NBIN, NBIN);
   gsl_linalg_cholesky_decomp(&chk.matrix) ;
-
   // load cholesly matrix
   GENSMEAR_PHASECOR.Cholesky = (double**) malloc(NBIN*sizeof(double*));
   for (i =0; i < NBIN ; i++){    
@@ -3658,7 +3697,9 @@ void  init_genSmear_phaseCor(double magSmear, double expTau) {
 	{ GENSMEAR_PHASECOR.Cholesky[i][j] = 0.0 ; }
     }
   }
-  	 
+  xxxxxxxxxxx end mark xxxxxxxxxx */
+
+
   //  debugexit(fnam);
 
   return ;
@@ -3686,11 +3727,14 @@ void  get_genSmear_phaseCor(int CID, double phase, double *magSmear ) {
     if ( LDMP ) 
       { printf(" xxx ----------- CID = %d -------------- \n", CID); }
 
+    GaussRanCorr(&GENSMEAR_PHASECOR.DECOMP, GENSMEAR_PHASECOR.RANGauss_LIST,
+		 GENSMEAR_PHASECOR.GRID_MAGSMEAR);
+
+    /* xxxxxxx Feb 17 2020, mark delete xxxxxxxxx
     // new scatter values for each event.
     for (i = 0 ; i < NBIN; i++) {    
       GENSMEAR_PHASECOR.GRID_MAGSMEAR[i] = 0.0 ;  
       for (j = 0 ; j < NBIN ; j++){
-	//transpose cholesky matrix
 	Chol = GENSMEAR_PHASECOR.Cholesky[j][i] ;
 	RANG = GENSMEAR_PHASECOR.RANGauss_LIST[j] ;
 	GENSMEAR_PHASECOR.GRID_MAGSMEAR[i] += Chol * RANG;
@@ -3702,6 +3746,7 @@ void  get_genSmear_phaseCor(int CID, double phase, double *magSmear ) {
 	       GENSMEAR_PHASECOR.GRID_MAGSMEAR[i]  );     
       }
     }
+    xxxxxxxxx end mark xxxxxxxxxxx*/
 
     check_genSmear_phaseCor();    
 	

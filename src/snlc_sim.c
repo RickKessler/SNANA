@@ -8471,8 +8471,8 @@ void dump_modelSmearSigma(void) {
   for(igen=0; igen < NRANGEN; igen++ ) {
     init_RANLIST();      // init list of random numbers 
     genran_modelSmear(); // load randoms for genSmear
-    get_genSmear(TREST,NLAM,LAMARRAY,MAGARRAY); // return MAGARRAY
-
+    get_genSmear(TREST, GENLC.SALT2c ,GENLC.SHAPEPAR, 
+		 NLAM, LAMARRAY, MAGARRAY); // return MAGARRAY
 
     for(ilam=0; ilam < NLAM; ilam++ ) 
       { MAGSMEAR[ilam][igen] = MAGARRAY[ilam]  ; }
@@ -24487,7 +24487,8 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
 		    &lamavg4, &lamrms4, &lammin4, &lammax4 );
       lamrest = (double)lamavg4 / ( 1.0 + z );   
       
-      get_genSmear(Trest, ONE,  &lamrest, &magSmear_model);
+      get_genSmear(Trest, GENLC.SALT2c, GENLC.SALT2x1, 
+		   ONE,  &lamrest, &magSmear_model);
       magSmear = magSmear_model ;
     }
    

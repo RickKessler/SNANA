@@ -17998,6 +17998,10 @@
       + refactor detection to require PHOTPROB cut if CUTVAL
         is specified in SEARCHEFF_PIPELINE_FILE.
 
+    sntools_genSmear.c, snlc_sim.c:
+     + refactor correlated random Gaussians to use new utilities:
+       init_Cholesky and GaussRanCorr()/
+
     snana.car
      + new &SNLCINP input:  MWEBV_FORCE = <val>
      + re-implement CUTWIN_PHOTPROB.

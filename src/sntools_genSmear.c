@@ -269,7 +269,7 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
 
 
 // ********************************
-void get_genSmear(double Trest, int NLam, double *Lam, 
+void get_genSmear(double Trest, double c, double x1, int NLam, double *Lam, 
 		  double *magSmear) {
 
   // April 2012
@@ -280,6 +280,7 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   //   Trest  : MJD-MJD_peak)/(1+z)
   //   NLam   : number of wave bins
   //  *Lam    : array of rest-frame wavelenths
+  //   c, x1  : SALT2 color and stretch
   //
   // Output
   //   magSmear : magSmear at each *Lam bin.
@@ -288,6 +289,7 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   // Oct 9 2018: check option to scale the magSmear values
   // Oct 21 2019: add CID argument
   // Nov 30 2019: MAGSMEAR_COH -> MAGSMEAR_COH[2]
+  // Feb 17 2020: add c & x1 input args
 
   int ilam, repeat ;
   char fnam[] = "get_genSmear" ;
@@ -353,6 +355,10 @@ void get_genSmear(double Trest, int NLam, double *Lam,
     for(ilam=0; ilam < NLam; ilam++ ) 
       { magSmear[ilam] *= GENSMEAR.SCALE; }
   }
+
+
+  // mark here to scale smearing based on c & x1 .xyz
+
 
 
  SET_LAST:

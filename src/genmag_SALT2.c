@@ -2181,8 +2181,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
       if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }       
       NLAMTMP++ ;
     }
-    // xxx mark delete    get_genSmear( Trest, NLAMTMP, lam, magSmear) ;
-    get_genSmear( Trest, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
+    get_genSmear( Trest, c, x1, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
   }
 
 

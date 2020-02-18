@@ -629,6 +629,7 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
   ISTAT_SMEAR = istat_genSmear(); // check for smear model
 
   if ( ISTAT_SMEAR ) {
+    double cdum=0.0, x1dum=0.0 ;
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
       LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
       LAMSED       = LAMOBS/z1;   // rest-frame wavelength 
@@ -640,7 +641,7 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
     printf(" xxx %s:  Trest=%.3f  ifilt_obs=%d \n", 
 	   fnam,  Trest, ifilt_obs); fflush(stdout);
     */
-    get_genSmear( Trest, NLAMFILT, lam, magSmear) ;
+    get_genSmear( Trest, cdum, x1dum, NLAMFILT, lam, magSmear) ;
   }
 
   // - - - - - -

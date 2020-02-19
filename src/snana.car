@@ -24477,6 +24477,8 @@ c - - - - -  redshift - - - - -
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_ZHD, VARLIST,1,
      &                   LENBLOCK, 20 )
 
+c z = zCMB for spec z, but for photo-z fit z & zERR are the original
+c data redshifts to allow plotting zHD-z resids
       VARLIST = 'z:F,zERR:F'  // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_REDSHIFT, VARLIST, 0, 
      &                   LENBLOCK, 20)

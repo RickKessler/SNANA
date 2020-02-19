@@ -193,6 +193,10 @@
 #
 # Jan 22 2020: protect GENOPT_GLOBAL for parentheses in argument.
 #
+# Feb 19 2020: 
+#   + in write_GENSTAT_DRIVER(), increase max BUSYFILE wait time from
+#     10s to 60s (for NERSC).
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -3213,11 +3217,12 @@ sub write_GENSTAT_DRIVER {
 
     # avoid different batch jobs trying to open STATFILE
     # at the same time. Use BUSYFILE to control traffic.
+    # Increase max BUSY wait from 10s to 60s (for NERSC).
     my $NSLEEP = 0 ;
     while ( -e $BUSYFILE ) { 
 	sleep(1);  
 	$NSLEEP++ ;
-	if ($NSLEEP > 10 ) {
+	if ($NSLEEP > 60 ) {
 	    $MSGERR[0] = "BUSYFILE still there after $NSLEEP seconds";
 	    $MSGERR[1] = "BUSYFILE = $BUSYFILE" ;
 	    sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);

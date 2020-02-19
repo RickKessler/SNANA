@@ -1125,7 +1125,7 @@ sub parse_nmlFile {
 	    
 	    $fitopt = "@words[1 .. $#words]" ;
 	    &getVersionList($ver, \@tmpVerList, \@tmpPathList); 
-	    
+	    @PATH_SIMDATA_LIST = ( @PATH_SIMDATA_LIST, @tmpPathList );
 	    @VERSION_LIST        = ( @VERSION_LIST, @tmpVerList );
 	    @VERSION_FITOPT_LIST = ( @VERSION_FITOPT_LIST, $fitopt );
 	}

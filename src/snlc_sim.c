@@ -7964,7 +7964,7 @@ void  init_GENLC(void) {
     SEARCHEFF_DATA.MAG[obs]         =  MAG_UNDEFINED ;
     SEARCHEFF_DATA.SNR[obs]         = -9.0 ;
     SEARCHEFF_DATA.detectFlag[obs]  =  0   ;
-    SEARCHEFF_DATA.PHOTPROB[obs]    =  0.0 ;
+    SEARCHEFF_DATA.PHOTPROB[obs]    =  -9.0 ; 
     SEARCHEFF_RANDOMS.FLAT_PIPELINE[obs] = -9.0 ;
     SEARCHEFF_RANDOMS.FLAT_PHOTPROB[obs]  = -999.0 ;
     SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[obs] = -999.0 ;
@@ -25269,6 +25269,7 @@ void readme_doc(int iflag_readme) {
   // Jan 16 2019: always print KCOR file (before, only printed for SNIA)
   // May 27 2019: print PEAKMJD-estimate method
   // Feb 16 2020: write SIMULATION key at top for Pippin.
+  // Feb 20 2020: write PHOTPROB info
 
   char ctmp[MXPATHLEN], cfilt[2], cwd[MXPATHLEN] ;
   char *cptr;
@@ -25704,7 +25705,15 @@ void readme_doc(int iflag_readme) {
     NLINE = SEARCHEFF_DETECT[imap].NLINE_README ; 
     for ( itmp = 1; itmp <= NLINE; itmp++ ) {
       i++; cptr = VERSION_INFO.README_DOC[i] ;
-      sprintf(cptr,"%s", SEARCHEFF_DETECT[imap].README[itmp] ) ;
+      sprintf(cptr, "%s", SEARCHEFF_DETECT[imap].README[itmp] ) ;
+    }    
+  }
+
+  for ( imap=0; imap < INPUTS_SEARCHEFF.NMAP_PHOTPROB; imap++ ) {
+    NLINE = SEARCHEFF_PHOTPROB[imap].NLINE_README ; 
+    for ( itmp = 0; itmp < NLINE; itmp++ ) {
+      i++; cptr = VERSION_INFO.README_DOC[i] ;
+      sprintf(cptr, "%s", SEARCHEFF_PHOTPROB[imap].README[itmp] ) ;
     }    
   }
 

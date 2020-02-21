@@ -801,27 +801,36 @@ void check_SEARCHEFF_DETECT(int imap) {
 
 // *********************************************
 void check_SEARCHEFF_PHOTPROB(int imap) {
-
   
   // set README comment(s).
-  //  char fnam[] = "check_SEARCHEFF_PHOTPROB" ;
+  char fnam[] = "check_SEARCHEFF_PHOTPROB" ;
 
   // -------------- BEGIN ----------------
 
   if ( imap==0 ) {
     printf("\n");
     printf("        PHOTPROB \n");
-    printf("         MAPNAME             FIELD(s)     BAND(s)   NFUN   NROW \n");
-    printf("# ------------------------------------------------------------- \n");
+    printf("         MAPNAME             FIELD(s)     BAND(s)   "
+	   "NFUN   NROW \n");
+    printf("# -------------------------------"
+	   "------------------------------ \n");
   }
+
+  char *NAME      = SEARCHEFF_PHOTPROB[imap].NAME;
+  char *FIELDLIST = SEARCHEFF_PHOTPROB[imap].FIELDLIST;
+  char *BANDLIST  = SEARCHEFF_PHOTPROB[imap].FILTERLIST;
+  int  NFUN       = SEARCHEFF_PHOTPROB[imap].NFUN_CDF ;
+  int  NROW       = SEARCHEFF_PHOTPROB[imap].NROW;
+
   printf("  %d) %16.16s   %10.10s   %10.10s       %d   %4d \n",
-	 imap,
-	 SEARCHEFF_PHOTPROB[imap].NAME,
-	 SEARCHEFF_PHOTPROB[imap].FIELDLIST,
-	 SEARCHEFF_PHOTPROB[imap].FILTERLIST,
-	 SEARCHEFF_PHOTPROB[imap].NFUN_CDF,
-	 SEARCHEFF_PHOTPROB[imap].NROW );
-  fflush(stdout);
+	 imap, NAME, FIELDLIST, BANDLIST, NFUN, NROW );
+  fflush(stdout) ;
+
+  SEARCHEFF_PHOTPROB[imap].NLINE_README = 0 ; 
+  int i = SEARCHEFF_PHOTPROB[imap].NLINE_README++ ;
+  char *cptr = SEARCHEFF_PHOTPROB[imap].README[i] ;
+  sprintf(cptr, "  PHOTPROB MAP %s: BANDS=%s  FIELD=%s \n",
+	  NAME, BANDLIST, FIELDLIST );
 
   return ;
 
@@ -874,13 +883,6 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
 		       PATH_SEARCHEFF, logicFile, fnam );
   }
 
-  /* xxxxxxxx mark delete Feb 1 2020 xxxxxxxxxxx
-  if ( ( fp = fopen(ptrFile_final, "rt") ) == NULL ) {
-    sprintf(c1err,"Could not open %s", logicFile);
-    sprintf(c2err,"Check SEARCHEFF_PIPELINE_LOGIC_FILE key in sim-input");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-  }
-  xxxxxxxxxxxx end mark xxxxxxxxxx */
 
   sprintf(cline, "\n   Fetch SOFTWARE SEARCH-LOGIC from : \n"); 
   SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
@@ -1871,7 +1873,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
 
 
   // - - - - - - - - - - - - - - -
-  // Compute photprob AFTER finding all detections so that
+  // Compute photprob AFTER finding all PHOTPROB epochs so that
   // PHOTPROB covariance can be included.
   if ( OBS_PHOTPROB.NSTORE > 0 ) {
     setRan_for_PHOTPROB();

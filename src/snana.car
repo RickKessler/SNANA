@@ -22588,6 +22588,7 @@ c Dec 09 2017: remove REJECT_PRESCALE() and move it to SNANA_DRIVER
 c Dec 18 2017: set cut for PSF
 c Feb 27 2018: set cut for ZP in Npe; see CUTWIN_ZP
 c Feb 06 2020: add cut for Trest_trueflux
+c Feb 20 2020: make sure PHOTPROB cut passes if PHOTPROB < 0
 c -----------------------------
 
       IMPLICIT NONE
@@ -22609,7 +22610,7 @@ c local var
       LOGICAL LTEST, LCUT, LCUT1, LCUT2
  
       REAL  TMP, Tmin, Tmax, ZZ, TGAPMAX, T0GAPMAX, TLIST(MXEPOCH)
-      REAL  TREST, TRUEMAG
+      REAL  TREST, TRUEMAG, PHOTPROB
 
 c functions
       LOGICAL MJDSELECT, IDTELSELECT, LCIDSELECT
@@ -22661,8 +22662,9 @@ c Dec 18 2017: replace cloudAVG with PSF cut. Note that cut is in ARCSEC
          SNEP_CUTVAR(CUTBIT_ZPERR,imjd) = 
      &       SNLC_ZEROPT_ERR(EPMIN)      ! Feb 2020
 
-         SNEP_CUTVAR(CUTBIT_PHOTPROB,imjd)  = 
-     &       SNLC_PHOTPROB(EPMIN)
+         PHOTPROB = SNLC_PHOTPROB(EPMIN)
+         IF ( PHOTPROB < 0.0 ) PHOTPROB = 1.0  ! undefined PHOTPROB passes cut
+         SNEP_CUTVAR(CUTBIT_PHOTPROB,imjd)  = PHOTPROB 
 
          SNEP_CUTVAR(CUTBIT_ERRTEST,imjd)  =   ! Nov 2019
      &       SNLC_FLUXCAL_ERRTEST(EPMIN)

@@ -17994,6 +17994,7 @@
          GENMAG_SMEAR_ADDPHASECOR: 0.03 7.0  # magSmear, expTau(days)
      + update PHOTPROB map to include REDSHIFT and GALMAG.
      + initialize PHOTPROB to -9 (undefined) instead of 0
+     + new sim input FUDGESCALE_NOISE_TEMPLATE
 
     sntools_trigger.c
       + refactor detection to require PHOTPROB cut if CUTVAL

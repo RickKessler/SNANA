@@ -11623,8 +11623,9 @@ Errors and $S/N$ can be fudged in the simulation  as follows:
   FUDGESHIFT_ZPT:  -3.0        # reduce ZPT by 3 mags
 
 # 2. options to increase SKY-noise while leaving SN flux unchanged
-  FUDGESCALE_PSF: 2       # increase PSF
-  FUDGESCALE_SKYNOISE: 3  # increases SKYNOISE (note that SKY *= 3^2)
+  FUDGESCALE_PSF: 2            # increase PSF
+  FUDGESCALE_NOISE_SKY: 3      # increases SKYNOISE (SKY *= 3^2)
+  FUDGESCALE_NOISE_TEMPLATE 0  # remove template noise
 
 # 3. force nearest-peak S/N = 25 for all bands 
   FUDGE_SNRMAX:  25      # adjust exposure time

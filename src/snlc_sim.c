@@ -1025,9 +1025,10 @@ void set_user_defaults(void) {
   INPUTS.IFILTOBS_FUDGE_SNRMAX = -1 ;
   INPUTS.STRING_FUDGE_SNRMAX[0] = 0 ;
 
-  INPUTS.FUDGESCALE_PSF       = 1.0 ;
-  INPUTS.FUDGESCALE_SKYNOISE  = 1.0 ;
-  INPUTS.FUDGESCALE_READNOISE = 1.0 ;
+  INPUTS.FUDGESCALE_PSF            = 1.0 ;
+  INPUTS.FUDGESCALE_NOISE_SKY      = 1.0 ;
+  INPUTS.FUDGESCALE_NOISE_READ     = 1.0 ;
+  INPUTS.FUDGESCALE_NOISE_TEMPLATE = 1.0 ;
   INPUTS.FUDGESHIFT_ZPT       = 0.0 ;
   INPUTS.FUDGESCALE_FLUXERR   = 1.0 ;
   INPUTS.FUDGESCALE_FLUXERR2  = 1.0 ;
@@ -2322,11 +2323,18 @@ int read_input(char *input_file) {
     if ( uniqueMatch(c_get,"FUDGESCALE_PSF:")  ) 
       { readfloat ( fp, 1, &INPUTS.FUDGESCALE_PSF ); continue ; }
 
-    if ( uniqueMatch(c_get,"FUDGESCALE_SKYNOISE:")  ) 
-      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_SKYNOISE ); continue ; }
+    if ( uniqueMatch(c_get,"FUDGESCALE_NOISE_SKY:")  ) 
+      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_SKY ); continue ; }
+    if ( uniqueMatch(c_get,"FUDGESCALE_SKYNOISE:") ) // legacy name
+      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_SKY ); continue ; }
 
-    if ( uniqueMatch(c_get,"FUDGESCALE_READNOISE:")  ) 
-      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_READNOISE ); continue ; }
+    if ( uniqueMatch(c_get,"FUDGESCALE_NOISE_READ:")  ) 
+      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_READ ); continue ; }
+    if ( uniqueMatch(c_get,"FUDGESCALE_READNOISE:")  )  // legacy name
+      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_READ ); continue ; }
+
+    if ( uniqueMatch(c_get,"FUDGESCALE_NOISE_TEMPLATE:")  ) 
+      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_TEMPLATE ); continue ; }
 
     if ( uniqueMatch(c_get,"FUDGEOPT_FLUXERR:")  )   
       { readint ( fp, 1, &INPUTS.FUDGEOPT_FLUXERR ); continue ; }
@@ -4661,12 +4669,20 @@ void sim_input_override(void) {
       i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.FUDGESCALE_PSF ); 
       goto INCREMENT_COUNTER; 
     }
-    if ( strcmp( ARGV_LIST[i], "FUDGESCALE_SKYNOISE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.FUDGESCALE_SKYNOISE ); 
+
+
+    if ( strcmp( ARGV_LIST[i], "FUDGESCALE_SKYNOISE" ) == 0 ||
+	 strcmp( ARGV_LIST[i], "FUDGESCALE_NOISE_SKY" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.FUDGESCALE_NOISE_SKY ); 
       goto INCREMENT_COUNTER; 
     }
-    if ( strcmp( ARGV_LIST[i], "FUDGESCALE_READNOISE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.FUDGESCALE_READNOISE ); 
+    if ( strcmp( ARGV_LIST[i], "FUDGESCALE_READNOISE" ) == 0 ||
+	 strcmp( ARGV_LIST[i], "FUDGESCALE_NOISE_READ" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.FUDGESCALE_NOISE_READ ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "FUDGESCALE_NOISE_TEMPLATE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.FUDGESCALE_NOISE_TEMPLATE ); 
       goto INCREMENT_COUNTER; 
     }
 
@@ -15494,6 +15510,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // Jul 11 2018: fix bug by setting PIXSIZE outside UNIT if-block
   // Dec 16 2019: if MAG = MAG_ZEROFLUX, then skip undefined mag-check.
   // Jan 23 2020: check for FUDGE_ZPTERR
+  // Feb 22 2020: fetch SCALE_SKYSIG_T for template noise scale.
 
   int NOBS_RAW    = SIMLIB_HEADER.NOBS ;
   int NEW_CADENCE = (REPEAT_CADENCE == 0 ) ;
@@ -15581,7 +15598,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   int  IFLAG_SYNFILT, IFLAG_TEMPLATE, IFIELD, APP ;
   double MJD, CCDGAIN, RDNOISE, SKYSIG, PSF[3], ZPT[2], MAG ;
   double SKYSIG_T, RDNOISE_T, ZPT_T ;
-  double SHIFT_ZPT, SCALE_SKYSIG, SCALE_RDNOISE, SCALE_PSF ;
+  double SHIFT_ZPT, SCALE_SKYSIG, SCALE_SKYSIG_T, SCALE_RDNOISE, SCALE_PSF ;
   double MJD_DIF, MJD_LAST_KEEP, DT, DUMMY_STORE[3] ;
   char   *TEL, *FIELD, cfilt[2];
 
@@ -15659,7 +15676,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     GENLC.SIMLIB_USEFILT_ENTRY[IFILT_OBS] = 1;
 
     // get optional fudge scales
-    get_SIMLIB_SCALES(IFILT_OBS, &SHIFT_ZPT, &SCALE_SKYSIG, &SCALE_RDNOISE);
+    get_SIMLIB_SCALES(IFILT_OBS, &SHIFT_ZPT, &SCALE_SKYSIG, &SCALE_SKYSIG_T, 
+		      &SCALE_RDNOISE);
     SCALE_PSF = INPUTS.FUDGESCALE_PSF ;
 
     NEP++; 
@@ -15736,6 +15754,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
       }  
 
       SKYSIG_T = SIMLIB_TEMPLATE.SKYSIG[IFIELD][IFILT_OBS] * SCALE_SKYSIG ;
+      SKYSIG_T *= SCALE_SKYSIG_T ; // Feb 2020
       SIMLIB_OBS_GEN.TEMPLATE_SKYSIG[NEP]    = SKYSIG_T ;	
       SIMLIB_OBS_RAW.TEMPLATE_SKYSIG[OBSRAW] = SKYSIG_T ;
       
@@ -17271,6 +17290,7 @@ int  parse_SIMLIB_ZPT(char *cZPT, double *ZPT,
 void get_SIMLIB_SCALES( int ifilt_obs
 		       ,double *SHIFT_ZPT
 		       ,double *SCALE_SKYSIG
+		       ,double *SCALE_SKYSIG_T
 		       ,double *SCALE_READNOISE
 		       ) {
 
@@ -17283,21 +17303,21 @@ void get_SIMLIB_SCALES( int ifilt_obs
   // init to fudged values
   //
   // Jun 19 2017: use filter-dependent ZPT shift.
+  // Feb 22 2020: add *SCALE_SKYSIG_T argument
   //
   // --------- BEGIN ----------
   
-  *SCALE_SKYSIG    = (double)INPUTS.FUDGESCALE_SKYNOISE ;
-  *SCALE_READNOISE = (double)INPUTS.FUDGESCALE_READNOISE ;
+  *SCALE_SKYSIG    = (double)INPUTS.FUDGESCALE_NOISE_SKY ;
+  *SCALE_SKYSIG_T  = (double)INPUTS.FUDGESCALE_NOISE_TEMPLATE ;
+  *SCALE_READNOISE = (double)INPUTS.FUDGESCALE_NOISE_READ ;
   *SHIFT_ZPT       = (double)INPUTS.FUDGESHIFT_ZPT_FILTER[ifilt_obs] ;
-
+  
 
   if ( INPUTS.EXPOSURE_TIME_MSKOPT  & (1 << 0) )
     { *SHIFT_ZPT  += GENLC.SHIFT_ZPTSIMLIB[ifilt_obs]; }
 
-
-  if ( INPUTS.EXPOSURE_TIME_MSKOPT  & (1 << 1) )
-    { *SCALE_SKYSIG  *= GENLC.SCALE_NOISE[ifilt_obs] ; }
-
+  if ( INPUTS.EXPOSURE_TIME_MSKOPT  & (1 << 1) )  
+    {  *SCALE_SKYSIG   *= GENLC.SCALE_NOISE[ifilt_obs] ; }
 
   if ( INPUTS.EXPOSURE_TIME_MSKOPT  & (1 << 2) )
     { *SCALE_READNOISE  *= GENLC.SCALE_NOISE[ifilt_obs] ; }
@@ -26181,17 +26201,17 @@ void readme_doc_FUDGES(int *iline) {
 
   // create local comment lines based on used fudges.
 
-  if ( INPUTS.FUDGESCALE_SKYNOISE != 1.0 ) {
+  if ( INPUTS.FUDGESCALE_NOISE_SKY != 1.0 ) {
     cptr = fudgeLine[NLINE_FUDGE] ;
     sprintf(cptr,"\t Fudge-scale for SIMLIB NOISE(SKY) : %5.2f ", 
-	  INPUTS.FUDGESCALE_SKYNOISE);
+	  INPUTS.FUDGESCALE_NOISE_SKY );
     NLINE_FUDGE++ ;
   }
 
-  if ( INPUTS.FUDGESCALE_READNOISE != 1.0 ) {
+  if ( INPUTS.FUDGESCALE_NOISE_READ != 1.0 ) {
     cptr = fudgeLine[NLINE_FUDGE] ;
     sprintf(cptr,"\t Fudge-scale for SIMLIB NOISE(CCD-read) : %5.2f ", 
-	  INPUTS.FUDGESCALE_READNOISE);
+	  INPUTS.FUDGESCALE_NOISE_READ );
     NLINE_FUDGE++ ;
   }
 

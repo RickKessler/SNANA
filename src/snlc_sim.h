@@ -703,8 +703,9 @@ struct INPUTS {
 
   // define fudges on seeing conditions
   float FUDGESCALE_PSF ;       // scale PSF
-  float FUDGESCALE_SKYNOISE ;  // scale SKY noise
-  float FUDGESCALE_READNOISE ; // scale CCD/readout noise
+  float FUDGESCALE_NOISE_SKY ;  // scale SKY noise
+  float FUDGESCALE_NOISE_READ ; // scale CCD/readout noise
+  float FUDGESCALE_NOISE_TEMPLATE; // scale template noise
   float FUDGESHIFT_ZPT ;    ;  // shift zero point
   float FUDGESHIFT_ZPT_FILTER[MXFILTINDX]; // ZP shift per filter
   float FUDGESCALE_FLUXERR  ;  // global fudge on true error
@@ -1608,7 +1609,8 @@ void   GENFILTERS_CHECK(void);
 double get_SIMLIB_fluxerrScale_LEGACY(int ifiltobs, double SNR ) ;
 
 void   get_SIMLIB_SCALES( int ifilt_obs, double *SHIFT_ZPT,
-			  double *SCALE_SKYSIG, double *SCALE_READNOISE ) ;
+			  double *SCALE_SKYSIG, double *SCALE_SKYSIG_T,
+			  double *SCALE_READNOISE ) ;
 
 double SIMLIB_angsep_min(int NSTORE, double RA, double DEC, 
 			 double *RA_STORE, double *DEC_STORE);

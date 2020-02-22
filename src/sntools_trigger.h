@@ -28,7 +28,7 @@
 #define  MXMAP_SEARCHEFF_PHOTPROB     10
 #define  MXROW_SEARCHEFF_PHOTPROB  10000
 #define  MXVAR_SEARCHEFF_PHOTPROB     20
-#define  MXOBS_PHOTPROB             200 // max obs per event with PHOTPROB
+#define  MXOBS_PHOTPROB              400 // max obs per event with PHOTPROB
 
 #define  MXMAP_SEARCHEFF_SPEC   20   // max number of SPEC-maps
 #define  MXROW_SEARCHEFF_SPEC 30000  // temp max size of SPEC-eff map

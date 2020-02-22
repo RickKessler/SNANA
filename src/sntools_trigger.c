@@ -1802,8 +1802,8 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
   double  RAN, EFF, MJD, MJD_LAST, MJD_DIF, TDIF_NEXT, SNR,MAG;
   double  PHOTPROB, CUTVAL ;
   char CFILT[4];
-  int LDMP  = 0 ;
-  //  char fnam[] = "gen_SEARCHEFF_PIPELINE";
+  int LDMP  = (ID == -39 ); 
+  char fnam[] = "gen_SEARCHEFF_PIPELINE";
 
   // ------------- BEGIN -------------
 
@@ -1869,8 +1869,13 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
     // all epochs have "good PHOTPROB" by default
     SEARCHEFF_DATA.detectFlag[obs] += DETECT_MASK_PHOTPROB ; 
 
-  }  // end obs loop
+    if ( LDMP ) {
+      printf(" xxx detectFlag[%2d] = %d (IFILTOBS=%d) EFF=%.3f RAN=%.3f\n",
+	     obs, SEARCHEFF_DATA.detectFlag[obs], IFILTOBS, EFF, RAN);
+      fflush(stdout);
+    }
 
+  }  // end obs loop
 
   // - - - - - - - - - - - - - - -
   // Compute photprob AFTER finding all PHOTPROB epochs so that
@@ -1881,6 +1886,8 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
       obs      = OBS_PHOTPROB.OBS_LIST[istore];
       IMAP     = OBS_PHOTPROB.IMAP_LIST[istore] ;
       PHOTPROB = get_PIPELINE_PHOTPROB(istore); 
+      // xxx if ( (ID%3) == 0 ) { PHOTPROB=0.7; } else { PHOTPROB=0.3; }
+
       SEARCHEFF_DATA.PHOTPROB[obs] = PHOTPROB ;
 
       // if PHOTPROB fails cut, then turn off DETECTFLAG bit

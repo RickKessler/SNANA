@@ -3818,6 +3818,12 @@ c init some INIXXX parameter for fit
         CALL PRBANNER ( GLOBAL_BANNER )
       ENDIF
 
+      IF ( CUTWIN_PHOTPROB(1) > -0.001 .and. 
+     &     PHOTFLAG_DETECT==0) THEN         
+         C1ERR = 'Cannot define CUTWIN_PHOTPROB without also'
+         C2ERR = 'defining PHOTFLAG_DETECT'
+         CALL MADABORT(FNAM, C1ERR, C2ERR)
+      ENDIF 
 
 c ---------------------------
       IF ( VERSION_REFORMAT_FITS .NE. 'NULL' ) THEN

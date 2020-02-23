@@ -8076,7 +8076,9 @@ namelist variables,
      FUDGE_FLUXCAL_OFFSET = 'u -0.6 g 0.4   r 1.2  i -3.7 z 2.2'
      FUDGE_FLUXCAL_ERROR  = 'u 24   g -12   r 44   i 19   z -22'
      FUDGE_MAG_ERROR      = 'u .01  g .011  r .009 i .01  z .018'
-     FUDGE_MAG_ERROR      = 'ALL 0.02'  ! add .02 mag err to all bands
+     FUDGE_MAG_ERROR      = 'ALL 0.02'       ! add .02 mag err to all bands
+     FUDGE_FLUXERR_SCALE  = 'g 1.04 r 1.02'  ! scale fluxerr in g,r bands
+     FUDGE_FLUXERR_SCALE  = 'ALL 1.03'       ! scale all bands by 1.03
 \end{Verbatim}
 These fudges are intended for  systematic studies;
 permanent changes should be made in the data files.

@@ -1734,6 +1734,7 @@ c Note that error is added in quadrature; ERROR<0 is subtracted in quadrature.
      &  ,FUDGE_FLUXCAL_ERRPIX  ! per-pixel error --> FLUXCAL error propto PSF
      &  ,FUDGE_MAG_ERROR       ! Oct 2013: add stat error per band
      &  ,FUDGE_MAG_COVERR      ! Feb 2015: add covariant error per band
+     &  ,FUDGE_FLUXERR_SCALE   ! Feb 2020: scale error in each band
 
       REAL
      &   MAGOBS_SHIFT_PRIMARY_FILT(MXFILT_ALL) ! shift mag of primary ref
@@ -1750,6 +1751,7 @@ c
      &  ,FUDGE_FLUXCAL_OFFSET_FILT(MXFILT_ALL)
      &  ,FUDGE_FLUXCAL_ERROR_FILT(MXFILT_ALL)
      &  ,FUDGE_FLUXCAL_ERRPIX_FILT(MXFILT_ALL)
+     &  ,FUDGE_FLUXERR_SCALE_FILT(MXFILT_ALL)
      &  ,FUDGE_MAG_ERROR_FILT(MXFILT_ALL)
      &  ,FUDGE_MAG_COVERR_FILT(MXFILT_ALL)
      &  ,MWEBV_SCALE        ! scale MW extinc for syst test
@@ -1800,8 +1802,10 @@ c
      &   ,MAGREST_SHIFT_ZP_USER
      &   ,FILTER_LAMSHIFT, FILTER_LAMSHIFT_FILT
      &   ,FUDGE_FLUXCAL_OFFSET,FUDGE_FLUXCAL_ERROR,FUDGE_FLUXCAL_ERRPIX
+     &   ,FUDGE_FLUXERR_SCALE
      &   ,FUDGE_FLUXCAL_OFFSET_FILT
      &   ,FUDGE_FLUXCAL_ERROR_FILT, FUDGE_FLUXCAL_ERRPIX_FILT
+     &   ,FUDGE_FLUXERR_SCALE_FILT
      &   ,FUDGE_MAG_ERROR, FUDGE_MAG_ERROR_FILT
      &   ,FUDGE_MAG_COVERR, FUDGE_MAG_COVERR_FILT
      &   ,RV_MWCOLORLAW, OPT_MWCOLORLAW, OPT_MWEBV
@@ -2131,6 +2135,7 @@ c
      &   ,MAGREST_SHIFT_PRIMARY, MAGREST_SHIFT_ZP, FILTER_LAMSHIFT
      &   ,MAGOBS_SHIFT_PRIMARY_PARAMS, MAGOBS_SHIFT_ZP_PARAMS
      &   ,FUDGE_FLUXCAL_OFFSET,FUDGE_FLUXCAL_ERROR,FUDGE_FLUXCAL_ERRPIX
+     &   ,FUDGE_FLUXERR_SCALE
      &   ,FUDGE_MAG_ERROR, FUDGE_MAG_COVERR
      &   ,FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
      &   ,MAGCOR_FILE, SIM_MAGCOR_FILE, FUDGE_HOSTNOISE_FILE
@@ -3450,6 +3455,7 @@ c default is to reject nothing (accept everything)
       FUDGE_FLUXCAL_OFFSET = ''
       FUDGE_FLUXCAL_ERROR  = ''
       FUDGE_FLUXCAL_ERRPIX = ''
+      FUDGE_FLUXERR_SCALE  = ''
       FUDGE_MAG_ERROR      = ''
       FUDGE_MAG_COVERR     = ''
       FUDGE_HOSTNOISE_FILE = ''
@@ -5144,6 +5150,10 @@ c --------------
             i = i + 1 
             FUDGE_FLUXCAL_ERRPIX = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
 
+         else if ( LINE_ARGS(i) .EQ. 'FUDGE_FLUXERR_SCALE' ) then
+            i = i + 1 
+            FUDGE_FLUXERR_SCALE = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
+
          else if ( LINE_ARGS(i) .EQ. 'FUDGE_MAG_ERROR' ) then
             i = i + 1 
             FUDGE_MAG_ERROR = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
@@ -5542,6 +5552,12 @@ c - - - -
       DO i = 1, NF
          ifiltdef = IAFILT(i)
          FUDGE_FLUXCAL_ERRPIX_FILT(ifiltdef) = xafilt(i)
+      ENDDO
+
+      CALL PARSE_FILTSTRING(1,FUDGE_FLUXERR_SCALE, NF, iafilt, xafilt )
+      DO i = 1, NF
+         ifiltdef = IAFILT(i)
+         FUDGE_FLUXERR_SCALE_FILT(ifiltdef) = xafilt(i)
       ENDDO
 
 c - - - 
@@ -8352,6 +8368,7 @@ c define filter indices for Legacy filters
           FUDGE_FLUXCAL_ERROR_FILT(ifilt)   =  0.0 
           FUDGE_FLUXCAL_ERRPIX_FILT(ifilt)  =  0.0 
           FUDGE_FLUXCAL_OFFSET_FILT(ifilt)  =  0.0 
+          FUDGE_FLUXERR_SCALE_FILT(ifilt)   =  1.0 ! Feb 2020
           FUDGE_MAG_ERROR_FILT(ifilt)       =  0.0 
           FUDGE_MAG_COVERR_FILT(ifilt)      =  0.0 
 
@@ -19803,6 +19820,7 @@ c local var
 
       REAL*8
      &   ERR1, ERR2a, ERR2b, ERR3, ERR_SIM, ERR_DATA
+     &  ,ERR_ORIG, SCALE, FUDGE
      &  ,SQERR, SQERR1, SQERR2a, SQERR2b, SQERR3, SQERRHOST, SQERRMAP
      &  ,RDNOISE_pe, FLUXCAL, FLUXADU, SNR, SNR_PROTECT, LOGSNR
      &  ,AREA, PSFSIG1, PSFSIG2, PSFRATIO  
@@ -19829,10 +19847,11 @@ c ------------ BEGIN ----------------
      &     + SNLC_FLUXCAL_OFF(ifilt)               ! offset in data file
      &     + FUDGE_FLUXCAL_OFFSET_FILT(IFILT_OBS)  ! user-nml offset
 
-
-      ERR1  = DBLE(SNLC_FLUXCAL_ERRTOT(ep))              ! from data file
-      ERR2a = DBLE(FUDGE_FLUXCAL_ERROR_FILT(IFILT_OBS))  ! fudge FLUXCAL error
-      ERR2b = DBLE(FUDGE_FLUXCAL_ERRPIX_FILT(IFILT_OBS)) ! fudge FLUXCAL err/pix
+      SCALE    = DBLE(FUDGE_FLUXERR_SCALE_FILT(IFILT_OBS))
+      ERR_ORIG = DBLE(SNLC_FLUXCAL_ERRTOT(ep))
+      ERR1  = ERR_ORIG * SCALE
+      ERR2a = DBLE(FUDGE_FLUXCAL_ERROR_FILT(IFILT_OBS))  ! fudge error
+      ERR2b = DBLE(FUDGE_FLUXCAL_ERRPIX_FILT(IFILT_OBS)) ! fudge err/pix
       ERR3  = DBLE(FUDGE_MAG_ERROR_FILT(IFILT_OBS))* FLUXCAL ! fudge mag err
 
       SQERR1     = ERR1  * ERR1

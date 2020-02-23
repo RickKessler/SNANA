@@ -18006,11 +18006,15 @@
 
     snana.car
      + new &SNLCINP input:  MWEBV_FORCE = <val>
+     + new &SNCLINP input:  FUDGE_FLUXERR_SCALE = 'g 1.02 r 1.03'
      + re-implement CUTWIN_PHOTPROB.
      + in MNFIT_STOREPAR, set NDOF_PRIO=0 on each iteration,
-       otherwise it keeps value from previous ITER.
+       otherwise it keeps value from previous ITER (0 or 1).
        This bug affected data and sim the same way, so the fix
        slightly affects FITPROB shape, but is not expected to 
        impact data/sim agreement in FITPROB.
+    
+    snlc_fit.car:
+     + OPT_COVAR_MWXT=1 -> full cov, =2 ->  diag only (for tests)x
 
 END: 

@@ -9453,6 +9453,8 @@ c Feb 23 2015: call COVFUDGE_DATA.
 c              Rename RHOFUDGE() -> RHOFUDGE_MODEL().
 c
 c July 2016:  pass x0, RV & AV arg to gencovar_SALT2()
+c
+c Feb 2020: add OPT_COVAR_MWXT==2 option to include only DIAG part.
 c 
 c ----------------------------------------------------------
 
@@ -9488,6 +9490,7 @@ c local var
 
       LOGICAL 
      &  LPRINT, USE_DIAG_ONLY, LTMP, LDIAG, FIRST_ITER, CHECK_COV
+     & ,LMWXT
 
       character BANNER*60, ccid*(MXCHAR_CCID)
 
@@ -9754,10 +9757,12 @@ c applied to R4EP_MODELFLUX_ERR
 c check option to turn off model error.
          IF ( FUDGE_MAGERR_MODEL .EQ. 0.0 ) COV_MODEL = 0.0
          
-c  add XTMW full covariance if option is set
-         IF ( OPT_COVAR_MWXTERR > 0 ) THEN
+c check for XTMW covariance
+         LMWXT = (OPT_COVAR_MWXTERR == 1) .or.        ! full COV
+     &           (OPT_COVAR_MWXTERR == 2 .and. LDIAG) ! diag only 
+         IF ( LMWXT ) THEN
             ERR1 = R4EP_ALL(ep_row,JEP_MWXT_FLUXERR)
-            ERR2 = R4EP_ALL(ep_col,JEP_MWXT_FLUXERR)
+            ERR2 = R4EP_ALL(ep_col,JEP_MWXT_FLUXERR)          
             COV_MWXT = ERR1 * ERR2
          ENDIF
 

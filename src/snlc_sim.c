@@ -4358,7 +4358,8 @@ void sim_input_override(void) {
   while ( i < NARGV_LIST ) {
     printf("  PROCESS COMMAND LINE ARG: %s \n", ARGV_LIST[i] );
 
-    if ( strcmp( ARGV_LIST[i], "INPUT_FILE_INCLUDE" ) == 0 ) {
+    if ( strcmp( ARGV_LIST[i], "INPUT_FILE_INCLUDE" ) == 0 ||
+	 strcmp( ARGV_LIST[i], "INPUT_INCLUDE_FILE" ) == 0  ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.INPUT_FILE_LIST[1] ); 
       INPUTS.INPUT_FILE_LIST[2][0] = 0 ; // erase 2nd include file
     }
@@ -4420,8 +4421,11 @@ void sim_input_override(void) {
       setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
 
       // check if we are just turning off the HOSTLIB
-      if ( IGNOREFILE(INPUTS.HOSTLIB_FILE)  )
-	{ INPUTS.HOSTLIB_USE = INPUTS.HOSTLIB_MSKOPT = 0 ; }
+      if ( IGNOREFILE(INPUTS.HOSTLIB_FILE)  )  { 
+	INPUTS.HOSTLIB_USE    = 0 ; 
+	INPUTS.HOSTLIB_MSKOPT = 0 ; 
+	//	HOSTLIB_MSKOPT_USE    = 0 ; 
+      }
 
     }
     if ( strcmp( ARGV_LIST[i], "HOSTLIB_WGTMAP_FILE" ) == 0 ) {
@@ -15753,12 +15757,13 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;
       }  
 
-      SKYSIG_T = SIMLIB_TEMPLATE.SKYSIG[IFIELD][IFILT_OBS] * SCALE_SKYSIG ;
-      SKYSIG_T *= SCALE_SKYSIG_T ; // Feb 2020
+      SKYSIG_T = SIMLIB_TEMPLATE.SKYSIG[IFIELD][IFILT_OBS] ;
+      SKYSIG_T *= (SCALE_SKYSIG * SCALE_SKYSIG_T) ; // Feb 2020
       SIMLIB_OBS_GEN.TEMPLATE_SKYSIG[NEP]    = SKYSIG_T ;	
       SIMLIB_OBS_RAW.TEMPLATE_SKYSIG[OBSRAW] = SKYSIG_T ;
       
-      RDNOISE_T = SIMLIB_TEMPLATE.READNOISE[IFIELD][IFILT_OBS]*SCALE_RDNOISE ;
+      RDNOISE_T  = SIMLIB_TEMPLATE.READNOISE[IFIELD][IFILT_OBS] ;
+      RDNOISE_T *= (SCALE_RDNOISE * SCALE_SKYSIG_T) ;
       SIMLIB_OBS_GEN.TEMPLATE_READNOISE[NEP]    = RDNOISE_T ;	
       SIMLIB_OBS_RAW.TEMPLATE_READNOISE[OBSRAW] = RDNOISE_T ;
 

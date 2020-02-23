@@ -18007,5 +18007,10 @@
     snana.car
      + new &SNLCINP input:  MWEBV_FORCE = <val>
      + re-implement CUTWIN_PHOTPROB.
+     + in MNFIT_STOREPAR, set NDOF_PRIO=0 on each iteration,
+       otherwise it keeps value from previous ITER.
+       This bug affected data and sim the same way, so the fix
+       slightly affects FITPROB shape, but is not expected to 
+       impact data/sim agreement in FITPROB.
 
 END: 

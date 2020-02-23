@@ -37446,6 +37446,7 @@ c Nov 17, 2011: replace CERNLIB's PROB with snana's PROB_CHI2NDOF
 c Jan 04, 2016: protect sqrt(negative SQERR8)
 c May 05, 2018: init FITERRMAT=0 instead of -9. Allows USESIM_xxx=T
 c May 23, 2018: set LCFRACERRDIF_STORE(ipar)
+c Feb 22, 2020: set NDOF_PRIOR=0  here on each iteration.
 c
 c subroutine args
 
@@ -37487,6 +37488,7 @@ c get prior-chi2 using special flag
 
 c determine effective Ndof for prior.
 
+      NDOF_PRIOR = 0      ! bug fix, Feb 22 2020
       if ( CHI8 .GT. 0.01 ) then
         NDOF_PRIOR = 1
       endif

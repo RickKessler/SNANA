@@ -18017,4 +18017,9 @@
     snlc_fit.car:
      + OPT_COVAR_MWXT=1 -> full cov, =2 ->  diag only (for tests)x
 
+    SALT2mu.c
+     + opt_biascor += 128 -> correct mu-sim_mu instead of
+       correcting mB,x1,c.  Still needs testing.
+
+
 END: 

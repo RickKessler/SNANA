@@ -822,8 +822,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define EIGMIN_COV 0.0001
 
 /* Nominal M0 */
-//#define M0_DEFAULT -30.0   
-#define M0_DEFAULT -29.97
+#define M0_DEFAULT -30.0   
 
 // options for uM0
 #define M0FITFLAG_CONSTANT     0 // global constant M0 (no floated)
@@ -4590,7 +4589,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
     f_MEMORY += (float)(MEMTOT/1.0E6) ;
 
     // fitParBias[isn][ipar] to allow passing mB,x1,c via array
-    f_MEMORY += malloc_double2D(opt, LEN_MALLOC, NLCPAR, 
+    f_MEMORY += malloc_double2D(opt, LEN_MALLOC, NLCPAR+1, 
 				&INFO_DATA.fitParBias ); // <== returned
 
     f_MEMORY += malloc_FITPARBIAS_ALPHABETA(opt, LEN_MALLOC,
@@ -4621,7 +4620,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
     free(INFO_DATA.muBiasErr);
     free(INFO_DATA.muBias_zinterp);
 
-    malloc_double2D(opt, LEN_MALLOC, NLCPAR, &INFO_DATA.fitParBias ); 
+    malloc_double2D(opt, LEN_MALLOC, NLCPAR+1, &INFO_DATA.fitParBias ); 
     malloc_FITPARBIAS_ALPHABETA(opt, LEN_MALLOC,
 				&INFO_DATA.FITPARBIAS_ALPHABETA );
     malloc_double4D(opt, LEN_MALLOC, MXa, MXb, MXg, 
@@ -5725,13 +5724,13 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     // Note that true Alpha,Beta,GammaDM are used for mu_obs.
     // Beware that M0_DEFAULT may be fragile.
     double Alpha, Beta, GammaDM, mu_obs, mu_true; 
-    mB      = TABLEVAR->fitpar[INDEX_mB][ISN];
-    x1      = TABLEVAR->fitpar[INDEX_x1][ISN];
-    c       = TABLEVAR->fitpar[INDEX_c][ISN];
-    Alpha   = TABLEVAR->SIM_ALPHA[ISN];
-    Beta    = TABLEVAR->SIM_BETA[ISN];
-    GammaDM = TABLEVAR->SIM_GAMMADM[ISN];
-    mu_true = TABLEVAR->SIM_MU[ISN];
+    mB      = TABLEVAR->fitpar[INDEX_mB][ISN] ;
+    x1      = TABLEVAR->fitpar[INDEX_x1][ISN] ;
+    c       = TABLEVAR->fitpar[INDEX_c][ISN] ;
+    Alpha   = TABLEVAR->SIM_ALPHA[ISN] ;
+    Beta    = TABLEVAR->SIM_BETA[ISN] ;
+    GammaDM = TABLEVAR->SIM_GAMMADM[ISN] ;
+    mu_true = TABLEVAR->SIM_MU[ISN] ;
     mu_obs  = mB - M0_DEFAULT + Alpha*x1 - Beta*c - GammaDM ;
     TABLEVAR->fitpar[INDEX_mu][ISN]      = mu_obs ;  // Feb 24 2020
     TABLEVAR->SIM_FITPAR[INDEX_mu][ISN]  = mu_true ;
@@ -7147,7 +7146,7 @@ void prepare_biasCor(void) {
     makeMap_binavg_biasCor(IDSAMPLE);
 
     // prepare 3D bias maps need to interpolate bias
-    for(INDX=ILCPAR_MIN; INDX <= ILCPAR_MAX ; INDX++ ) 
+    for(INDX = ILCPAR_MIN; INDX <= ILCPAR_MAX ; INDX++ ) 
       { makeMap_fitPar_biasCor(IDSAMPLE,INDX); }
 
 
@@ -7191,9 +7190,8 @@ void prepare_biasCor(void) {
     IDSAMPLE = INFO_DATA.TABLEVAR.IDSAMPLE[n]; 
     if ( CUTMASK ) { continue ; }
 
-    DUMPFLAG = 0; // (NUSE_TOT < 2 ) ; // xxx REMOVE
+    DUMPFLAG = 0;    // ( NUSE_TOT < 2 ) ; // xxx REMOVE
     istore = storeDataBias(n,DUMPFLAG);
-
     
     NUSE[IDSAMPLE]++ ; NUSE_TOT++ ;
     if ( istore == 0 )  { 
@@ -7733,7 +7731,6 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
   sum     = (double*) malloc(MEMD) ;
   sumsq   = (double*) malloc(MEMD) ;
 
-  // .xyz 
   ptr_fitpar  = INFO_BIASCOR.TABLEVAR.fitpar[ipar_LCFIT] ;
   ptr_simpar  = INFO_BIASCOR.TABLEVAR.SIM_FITPAR[ipar_LCFIT] ;
   ptr_gammadm = INFO_BIASCOR.TABLEVAR.SIM_GAMMADM ;
@@ -7858,7 +7855,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
   // -----------------------------------------------
   // print grid-cell stats on last parameter
   // (since it's the same for each parameter)
-  if ( ipar_LCFIT == INDEX_c ) {
+  if ( ipar_LCFIT == INFO_BIASCOR.ILCPAR_MAX ) {
     printf("  BiasCor computed for %d of %d grid-cells with >=1 events.\n",
 	   NMAP_USE, NMAP_TOT ) ;
     printf("  BiasCor sample: %d of %d pass cuts for IDSAMPLE=%d.\n",
@@ -8278,7 +8275,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   int    ia, ib, ig, iz, im, ic, i1d, NCELL, isp ; 
   int    ievt, istat_cov, istat_bias, N, J1D, ipar ;
   double muErr, muErrsq, muDif, muDifsq, pull, tmp1, tmp2  ;
-  double muBias, muBiasErr, muCOVscale, fitParBias[NLCPAR] ;
+  double muBias, muBiasErr, muCOVscale, fitParBias[NLCPAR+1] ;
   double a, b, gDM, z, m, c ;
   double *SUM_MUERR, *SUM_SQMUERR;
   double *SUM_MUDIF, *SUM_SQMUDIF ;
@@ -10031,7 +10028,6 @@ int  storeBias_CCprior(int n) {
       
       BIASCORLIST.alpha    = INFO_BIASCOR.BININFO_SIM_ALPHA.avg[ia];
       BIASCORLIST.beta     = INFO_BIASCOR.BININFO_SIM_BETA.avg[ib];
-      // xxx bug !BIASCORLIST.gammadm  = INFO_BIASCOR.BININFO_SIM_GAMMADM.avg[ib];
       BIASCORLIST.gammadm  = INFO_BIASCOR.BININFO_SIM_GAMMADM.avg[ig];
 
       istat_bias =
@@ -10087,6 +10083,7 @@ int get_fitParBias(char *cid,
   int IDSAMPLE = BIASCORLIST->idsample ;
   int ID = IDSAMPLE;
 
+  bool DO_BIASCOR_MU  = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   int  ILCPAR_MIN = INFO_BIASCOR.ILCPAR_MIN ;
   int  ILCPAR_MAX = INFO_BIASCOR.ILCPAR_MAX ;
 
@@ -10453,13 +10450,18 @@ int get_fitParBias(char *cid,
   if ( LDMP ) {
     printf("\n") ;
     for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ ) {
-      printf(" xxx bias(%2.2s) = %6.3f +-  %6.3f  SQERRINV=%le\n"
+      printf(" xxx bias(%2.2s) = %7.4f +-  %7.4f   SQERRINV=%le\n"
 	     ,BIASCOR_NAME_LCFIT[ipar]
-	     ,FITPARBIAS->VAL[ipar]
-	     ,FITPARBIAS->ERR[ipar] 
-	     ,SUM_SQERRINV[ipar]
-	     );
+	     ,FITPARBIAS->VAL[ipar], FITPARBIAS->ERR[ipar] 
+	     ,SUM_SQERRINV[ipar]  );
     }
+
+    if ( DO_BIASCOR_MU == false ) {
+      double muBias =  FITPARBIAS->VAL[INDEX_mB] +
+	a * FITPARBIAS->VAL[INDEX_x1] -	b * FITPARBIAS->VAL[INDEX_c] ;
+      printf(" xxx bias(mu) = %7.4f \n", muBias ); 
+    }
+     
     fflush(stdout);
     //    debugexit(fnam);
   }
@@ -15466,11 +15468,14 @@ void write_fitres(char* fileName) {
   // Jun 10 2019: call printCOVINT 
   // Jan 09 2019: fix to loop over each datafile instead of only the first.
 
+  bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
+  bool  IS_SIM            = INFO_DATA.TABLEVAR.IS_SIM ;
+
   double VAL, ERR, PULL ;
   FILE  *fout, *finp;
 
   int n, ivar, indx, NCUT, icut, cutmask, NWR, ISFLOAT, iz, GZIPFLAG ;
-  int idsample, IS_SIM, NSN_DATA, NSN_BIASCOR, ifile ;
+  int idsample, NSN_DATA, NSN_BIASCOR, ifile ;
   char 
      line[MXCHAR_LINE], tmpLine[MXCHAR_LINE] 
     ,tmpName[60], ztxt[60], KEY[MXCHAR_VARNAME], CCID[40]
@@ -15481,10 +15486,8 @@ void write_fitres(char* fileName) {
 
   // ------------------ BEGIN ----------------
 
-  IS_SIM      =  (INFO_DATA.TABLEVAR.IS_SIM == true) ;
   NSN_DATA    =  INFO_DATA.TABLEVAR.NSN_ALL;
   NSN_BIASCOR =  INFO_BIASCOR.TABLEVAR.NSN_ALL;
-
 
   // first define the new fitres variables to add to the
   // original list  
@@ -15505,18 +15508,16 @@ void write_fitres(char* fileName) {
   if ( INFO_CCPRIOR.USE ) 
     { NVAR_NEW++;  sprintf(VARNAMES_NEW[NVAR_NEW],"PROBCC_BEAMS"); }
 
-  /* xxx mark delete Jul 19 2019 ... use already existing SIM_DLMAG
-  if  ( IS_SIM  ) {
-    NVAR_NEW++ ; sprintf(VARNAMES_NEW[NVAR_NEW],"SIM_MU"); // for back-compat.
-  }
-  xxxxxxxx end mark xxxxxxxx */
 
   if ( NSN_BIASCOR  > 0 ) {
     NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"biasCor_mu");
     NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"biasCorErr_mu");
-    NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"biasCor_mB");
-    NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"biasCor_x1");
-    NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"biasCor_c");
+
+    if ( DO_BIASCOR_MU == false ) {
+      NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"biasCor_mB");
+      NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"biasCor_x1");
+      NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"biasCor_c");
+    }
     NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"biasScale_muCOV");
     NVAR_NEW++ ;  sprintf(VARNAMES_NEW[NVAR_NEW],"IDSAMPLE");
   }
@@ -15888,13 +15889,14 @@ void write_fitres_misc(FILE *fout) {
   //
   // Sep 24 2019: write SUM_PROBIa and SUM_PROBCC
   //
+  
+  bool   IS_SIM = INFO_DATA.TABLEVAR.IS_SIM ;
   double chi2min, chi2red, SIGINT_AVG ;
-  int    IS_SIM, NDOF, NSNFIT, USE_CCPRIOR, NSN_BIASCOR ;
+  int    NDOF, NSNFIT, USE_CCPRIOR, NSN_BIASCOR ;
   BININFO_DEF  *BININFO_SIM_ALPHA, *BININFO_SIM_BETA ;
 
   // ------------- BEGIN -----------
 
-  IS_SIM      = (INFO_DATA.TABLEVAR.IS_SIM == true) ;
   NSN_BIASCOR = INFO_BIASCOR.TABLEVAR.NSN_PASSCUTS ;
   USE_CCPRIOR = INFO_CCPRIOR.USE ; 
   SIGINT_AVG  = INFO_BIASCOR.SIGINT_AVG;
@@ -16063,11 +16065,13 @@ void append_fitres(FILE *fp, char *CCID, int  indx ) {
   // Mar 1 2018: add M0
   // Sep 26 2019: write probcc_beams
 
+  bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
+  bool  IS_SIM            = INFO_DATA.TABLEVAR.IS_SIM ;
   double z, zerr, mu, muerr, muerr2, mumodel, mures, pull, M0DIF ;
   double sim_mb, sim_mu, probcc_beams  ;
   double muBias=0.0, muBiasErr=0.0,  muCOVscale=0.0, chi2=0.0 ;
   double fitParBias[NLCPAR] = { 0.0, 0.0, 0.0 } ;
-  int IS_SIM, n, cutmask, NWR, NSN_BIASCOR, idsample ;
+  int    n, cutmask, NWR, NSN_BIASCOR, idsample ;
 
   char fnam[20] = "append_fitres" ;
 
@@ -16075,7 +16079,6 @@ void append_fitres(FILE *fp, char *CCID, int  indx ) {
 
   n =  indx;
 
-  IS_SIM      =  (INFO_DATA.TABLEVAR.IS_SIM == true) ;
   NSN_BIASCOR =  INFO_BIASCOR.TABLEVAR.NSN_ALL;
   z        = INFO_DATA.TABLEVAR.zhd[n] ;  
   zerr     = INFO_DATA.TABLEVAR.zhderr[n] ;
@@ -16095,9 +16098,11 @@ void append_fitres(FILE *fp, char *CCID, int  indx ) {
   if ( NSN_BIASCOR > 0 ) { 
     muBias               = INFO_DATA.muBias[n] ;
     muBiasErr            = INFO_DATA.muBiasErr[n] ;
-    fitParBias[INDEX_mB] = INFO_DATA.fitParBias[n][INDEX_mB] ;
-    fitParBias[INDEX_x1] = INFO_DATA.fitParBias[n][INDEX_x1] ;
-    fitParBias[INDEX_c]  = INFO_DATA.fitParBias[n][INDEX_c] ;    
+    if ( DO_BIASCOR_MU == false ) {
+      fitParBias[INDEX_mB] = INFO_DATA.fitParBias[n][INDEX_mB] ;
+      fitParBias[INDEX_x1] = INFO_DATA.fitParBias[n][INDEX_x1] ;
+      fitParBias[INDEX_c]  = INFO_DATA.fitParBias[n][INDEX_c] ;    
+    }
     muCOVscale           = INFO_DATA.muCOVscale[n]  ;
   }
   
@@ -16117,18 +16122,14 @@ void append_fitres(FILE *fp, char *CCID, int  indx ) {
   if ( INFO_CCPRIOR.USE ) 
     { NWR++; fprintf(fp,"%.3e ", INFO_DATA.probcc_beams[n]); }
 
-  /* xxx mark delete Jul 19 2019 xxxxxxx
-  if ( IS_SIM ) {
-    NWR++ ; fprintf(fp, "%7.4f ",  sim_mu ); // same as SIMDLMAG
-  }
-  xxxxxxxx */
-
   if ( NSN_BIASCOR > 0 ) {
     NWR++ ; fprintf(fp, "%6.3f ", muBias );
     NWR++ ; fprintf(fp, "%6.3f ", muBiasErr );
-    NWR++ ; fprintf(fp, "%6.3f ", fitParBias[INDEX_mB] );
-    NWR++ ; fprintf(fp, "%6.3f ", fitParBias[INDEX_x1] );
-    NWR++ ; fprintf(fp, "%6.3f ", fitParBias[INDEX_c] );
+    if ( DO_BIASCOR_MU == false ) {
+      NWR++ ; fprintf(fp, "%6.3f ", fitParBias[INDEX_mB] );
+      NWR++ ; fprintf(fp, "%6.3f ", fitParBias[INDEX_x1] );
+      NWR++ ; fprintf(fp, "%6.3f ", fitParBias[INDEX_c] );
+    }
     NWR++ ; fprintf(fp, "%6.3f ", muCOVscale ) ;
     NWR++ ; fprintf(fp, "%d "   , idsample ) ;
   }

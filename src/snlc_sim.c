@@ -25416,7 +25416,7 @@ void readme_doc(int iflag_readme) {
 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  j = INPUTS.SMEARFLAG_ZEROPT ;
+  if( INPUTS.SMEARFLAG_ZEROPT > 0 ) { j=1; } else { j=0; }
   sprintf(cptr, "\t Zeropt-smearing is %s \n", conoff[j] );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;  j=0;
@@ -25728,7 +25728,7 @@ void readme_doc(int iflag_readme) {
   sprintf(cptr,"%s", SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[0] ) ;
   for ( imap=0; imap < INPUTS_SEARCHEFF.NMAP_DETECT; imap++ ) {
     NLINE = SEARCHEFF_DETECT[imap].NLINE_README ; 
-    for ( itmp = 1; itmp <= NLINE; itmp++ ) {
+    for ( itmp = 0; itmp < NLINE; itmp++ ) {
       i++; cptr = VERSION_INFO.README_DOC[i] ;
       sprintf(cptr, "%s", SEARCHEFF_DETECT[imap].README[itmp] ) ;
     }    
@@ -25744,7 +25744,7 @@ void readme_doc(int iflag_readme) {
 
   // print detection logic
   NLINE = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ; 
-  for ( itmp = 1; itmp <= NLINE; itmp++ ) {
+  for ( itmp = 0; itmp < NLINE; itmp++ ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"%s", SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[itmp] ) ;
   }    
@@ -25754,7 +25754,7 @@ void readme_doc(int iflag_readme) {
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%s", "\n  Spectroscopic Efficiency : \n" );
-  for ( iopt=1; iopt <= SEARCHEFF_SPEC_INFO.NLINE_README; iopt++ ) {
+  for ( iopt=0; iopt < SEARCHEFF_SPEC_INFO.NLINE_README; iopt++ ) {
       i++; cptr = VERSION_INFO.README_DOC[i] ;
       sprintf(cptr, "%s \n", SEARCHEFF_SPEC_INFO.README[iopt] ) ;    
   }
@@ -25824,7 +25824,7 @@ void readme_doc(int iflag_readme) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"\n" );
     NLINE = HOSTLIB.NLINE_COMMENT ;
-    for ( itmp=1; itmp <= NLINE; itmp++ ) {
+    for ( itmp=0; itmp < NLINE; itmp++ ) {
       i++; cptr = VERSION_INFO.README_DOC[i] ;
       sprintf(cptr,"\t %s \n", HOSTLIB.COMMENT[itmp] );
     }
@@ -26553,8 +26553,8 @@ void  readme_doc_magSmear(int *iline) {
 
 
   onoff = 0;
-  if ( INPUTS.GENMODEL_ERRSCALE > 0.0 ) onoff=1; 
-  if ( INPUTS.NFILT_SMEAR       > 0   ) onoff=1; 
+  if ( INPUTS.GENMODEL_ERRSCALE > 0.0 ) { onoff=1; }
+  if ( INPUTS.NFILT_SMEAR       > 0   ) { onoff=1; }
 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
@@ -26598,10 +26598,8 @@ void  readme_doc_magSmear(int *iline) {
   // restlambda-dependent smearing using  GENMAG_SMEAR_MODELNAME
 
   onoff = 0;   ctmp[0] = 0 ;
-  if ( istat_genSmear() > 0 ) { 
-    onoff=1; 
-    sprintf(ctmp,"%s", INPUTS.GENMAG_SMEAR_MODELNAME);
-  }
+  if ( istat_genSmear() > 0 ) 
+    { onoff=1;     sprintf(ctmp,"%s", INPUTS.GENMAG_SMEAR_MODELNAME); }
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"   Model 3: %s model-smear is %s  \n", 
 	  ctmp, conoff[onoff] );

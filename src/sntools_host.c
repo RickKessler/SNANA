@@ -1692,6 +1692,7 @@ void read_gal_HOSTLIB(FILE *fp) {
   //
   // Dec 29 2017: time to read 416,000 galaxies 5 sec ->
   // Nov 11 2019: check NBR_LIST
+  // Feb 25 2020: set VALMIN & VALMAX for float; skip for ISCHAR.
 
   char c_get[40], FIELD[MXCHAR_FIELDNAME], NBR_LIST[MXCHAR_NBR_LIST] ;
   char fnam[] = "read_gal_HOSTLIB"  ;
@@ -1699,7 +1700,7 @@ void read_gal_HOSTLIB(FILE *fp) {
   long long GALID, GALID_MIN, GALID_MAX ;
   int  ivar_ALL, ivar_STORE, NVAR_STORE, NGAL, NGAL_READ, MEMC ;
   int  NPRIORITY;
-
+  bool ISCHAR ;
   double xval[MXVAR_HOSTLIB], val, ZTMP, LOGZCUT[2], DLOGZ_SAFETY ;
 
   // ----------------- BEGIN -----------
@@ -1761,12 +1762,15 @@ void read_gal_HOSTLIB(FILE *fp) {
 	val      = xval[ivar_ALL] ;
 
 	HOSTLIB.VALUE_UNSORTED[ivar_STORE][NGAL] = val ;
+	ISCHAR = ISCHAR_HOSTLIB(ivar_STORE);
 
 	// keep track of min and max for each variable
-	if ( val > HOSTLIB.VALMAX[ivar_STORE] ) 
-	  { HOSTLIB.VALMAX[ivar_STORE] = val; }
-	if ( val < HOSTLIB.VALMIN[ivar_STORE] ) 
-	  { HOSTLIB.VALMIN[ivar_STORE] = val; }
+	if ( ISCHAR == false ) {
+	  if ( val > HOSTLIB.VALMAX[ivar_STORE] ) 
+	    { HOSTLIB.VALMAX[ivar_STORE] = val; }
+	  if ( val < HOSTLIB.VALMIN[ivar_STORE] ) 
+	    { HOSTLIB.VALMIN[ivar_STORE] = val; }
+	}
 
       }
 
@@ -1788,7 +1792,7 @@ void read_gal_HOSTLIB(FILE *fp) {
       ivar_STORE = HOSTLIB.IVAR_NBR_LIST ;
       if ( ivar_STORE > 0  ) {
 	ivar_ALL   = HOSTLIB.IVAR_ALL[ivar_STORE];
-	MEMC       = strlen(NBR_LIST) * sizeof(char) ;
+	MEMC       = (1+strlen(NBR_LIST)) * sizeof(char) ;
 	HOSTLIB.NBR_UNSORTED[NGAL] = (char*) malloc(MEMC);
 	sprintf(HOSTLIB.NBR_UNSORTED[NGAL],"%s", NBR_LIST);
       }
@@ -1948,6 +1952,7 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
 
 
   for(ival=0; ival < NVAL; ival++ ) {
+    VALUES[ival] = -9.0 ; 
     if ( ival == ival_FIELD )  { 
       sprintf(tmpWORD, "%s", WDLIST[ival] );      len = strlen(tmpWORD);
       if ( len > MXCHAR_FIELDNAME ) {
@@ -2330,8 +2335,8 @@ void sortz_HOSTLIB(void) {
     
     if ( DO_NBR ) {  // Nov 11 2019 
       ptr_UNSORT = HOSTLIB.NBR_UNSORTED[unsort];
-      MEMC = strlen(ptr_UNSORT) * sizeof(char);
-      if ( MEMC == 0 ) { MEMC = 2; }
+      MEMC = (1+strlen(ptr_UNSORT)) * sizeof(char);
+      if ( MEMC == 0 ) { MEMC = 4 ; }
       HOSTLIB.NBR_ZSORTED[igal] = (char*)malloc(MEMC) ; 
       sprintf(HOSTLIB.NBR_ZSORTED[igal], "%s", ptr_UNSORT);
       free(HOSTLIB.NBR_UNSORTED[unsort]); 
@@ -3981,6 +3986,15 @@ int IVAR_HOSTLIB(char *varname, int ABORTFLAG) {
 
 } // end of IVAR_HOSTLIB
 
+bool ISCHAR_HOSTLIB(int IVAR) {
+  // Feb 25 2020
+  // return true if input IVAR corresponds to a string variable.
+  // IVAR is stored index, not ALL index.
+  if ( IVAR == HOSTLIB.IVAR_FIELD )     { return(true); }
+  if ( IVAR == HOSTLIB.IVAR_NBR_LIST )  { return(true); }
+  return(false);
+
+} // end ISCHAR_HOSTLIB
 
 // ========================================
 int ICOL_SPECBASIS(char *varname, int ABORTFLAG) {

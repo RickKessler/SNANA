@@ -51,6 +51,8 @@
    add PATH_USER_INPUT to path list for snana_openTextFile,
    and if not file then call abort_openTextFile.
 
+  Feb 25 2020: store README LINES from 0 to N-1 instead of 1 to N.
+
 ************************************/
 
 #include <stdio.h>
@@ -777,10 +779,9 @@ void check_SEARCHEFF_DETECT(int imap) {
 	  cfilt, EFF, ptr_effname, VAL );
   
   printf("%s", cline);
-  SEARCHEFF_DETECT[imap].NLINE_README++ ;
-  i = SEARCHEFF_DETECT[imap].NLINE_README++ ;
+  i = SEARCHEFF_DETECT[imap].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[imap].README[i], "%s", cline);
-  
+  SEARCHEFF_DETECT[imap].NLINE_README++ ;
 
   // ------
   // print VAL (SNR or MAG) when eff is closest to  0.5
@@ -791,10 +792,9 @@ void check_SEARCHEFF_DETECT(int imap) {
 	  cfilt, EFF, ptr_effname, VAL );
 
   printf("%s", cline);
-  SEARCHEFF_DETECT[imap].NLINE_README++ ;
-  i = SEARCHEFF_DETECT[imap].NLINE_README++ ;
+  i = SEARCHEFF_DETECT[imap].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[imap].README[i], "%s", cline);
-
+  SEARCHEFF_DETECT[imap].NLINE_README++ ;
 
 } // end of check_SEARCHEFF_DETECT
 
@@ -827,10 +827,11 @@ void check_SEARCHEFF_PHOTPROB(int imap) {
   fflush(stdout) ;
 
   SEARCHEFF_PHOTPROB[imap].NLINE_README = 0 ; 
-  int i = SEARCHEFF_PHOTPROB[imap].NLINE_README++ ;
+  int i = SEARCHEFF_PHOTPROB[imap].NLINE_README ;
   char *cptr = SEARCHEFF_PHOTPROB[imap].README[i] ;
   sprintf(cptr, "  PHOTPROB MAP %s: BANDS=%s  FIELD=%s \n",
 	  NAME, BANDLIST, FIELDLIST );
+  SEARCHEFF_PHOTPROB[imap].NLINE_README++ ;
 
   return ;
 
@@ -885,17 +886,17 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
 
 
   sprintf(cline, "\n   Fetch SOFTWARE SEARCH-LOGIC from : \n"); 
-  SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
-  i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
+  i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", cline);
   printf("%s", cline);
+  SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
 
 
   sprintf(cline, "\t %s \n", ptrFile_final ); 
-  SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
-  i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
+  i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", cline);
   printf("%s", cline);
+  SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
 
   
   NMJD = 0;
@@ -952,18 +953,17 @@ void parse_search_eff_logic(char *survey, int NMJD, char *logic) {
   
   // use c1err for message, even though it's not an error
   sprintf(c1err, "\t Logic: %d MJDs require filters=%s \n", NMJD, logic);
-  SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
-  i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
+  i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", c1err);
   printf("%s", c1err);
-
+  SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
 
   sprintf(c1err, "\t Trigger epoch contains all obs withing %.3f days\n",
 	  INPUTS_SEARCHEFF.TIME_SINGLE_DETECT);
-  SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
-  i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
+  i = SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[i], "%s", c1err);
   printf("%s", c1err);
+  SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].NLINE_README++ ;
 
   len = strlen(logic);
 
@@ -1061,10 +1061,9 @@ void  init_SEARCHEFF_SPEC(char *survey) {
 
   // ------------ BEGIN --------------
 
-  N = 0 ;
-  N++ ;  cptr = SEARCHEFF_SPEC_INFO.README[N] ;
+  N = 0 ;  cptr = SEARCHEFF_SPEC_INFO.README[N] ;
   sprintf(cptr, "\t %s", "No spec-eff option specified ==> 100% efficiency.");
-  SEARCHEFF_SPEC_INFO.NLINE_README = N ;
+  SEARCHEFF_SPEC_INFO.NLINE_README = N ;  N++;
 
   INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO=0;
   SEARCHEFF_SPEC_INFO.IVARTYPE_MASK = 0 ;
@@ -1215,13 +1214,13 @@ void  init_SEARCHEFF_SPEC(char *survey) {
   fflush(stdout) ;
 
   N = 0 ;
-  N++ ;  cptr = SEARCHEFF_SPEC_INFO.README[N] ;
+  cptr = SEARCHEFF_SPEC_INFO.README[N] ;  N++ ;  
   sprintf(cptr, "\t %s", "GRID-MAP read from ");
-  N++ ;  cptr = SEARCHEFF_SPEC_INFO.README[N] ;
+  cptr = SEARCHEFF_SPEC_INFO.README[N] ;  N++ ;  
   sprintf(cptr, "\t %s", ptrFile_final );
 
   if ( fabs(SPECEFF_SCALE-1.0) > 0.0001 ) {
-    N++ ;  cptr = SEARCHEFF_SPEC_INFO.README[N] ;
+    cptr = SEARCHEFF_SPEC_INFO.README[N] ;    N++ ;  
     sprintf(cptr, "\t EffSpec from file is scaled by %le", SPECEFF_SCALE );
   }
 

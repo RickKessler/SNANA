@@ -17995,6 +17995,8 @@
      + update PHOTPROB map to include REDSHIFT and GALMAG.
      + initialize PHOTPROB to -9 (undefined) instead of 0
      + new sim input FUDGESCALE_NOISE_TEMPLATE
+     + fix a few bugs related to using +HOSTNBR HOSTLIB.
+         (and add +HOSTNBR sim job in snana tester)
 
     sntools_trigger.c
       + refactor detection to require PHOTPROB cut if CUTVAL
@@ -18020,6 +18022,5 @@
     SALT2mu.c
      + opt_biascor += 128 -> correct mu-sim_mu instead of
        correcting mB,x1,c.  Still needs testing.
-
 
 END: 

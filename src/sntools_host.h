@@ -570,6 +570,7 @@ void   copy_VARNAMES_zHOST_to_HOSTLIB_STOREPAR(void);
 void   readme_HOSTLIB(void);
 void   check_duplicate_GALID(void);
 int    IVAR_HOSTLIB(char *varname, int ABORTFLAG);
+bool   ISCHAR_HOSTLIB(int IVAR);
 
 long long get_GALID_HOSTLIB(int igal);
 double get_ZTRUE_HOSTLIB(int igal);

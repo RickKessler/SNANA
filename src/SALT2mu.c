@@ -188,8 +188,8 @@ p9  = Omega_L (0.73)
 p10 = Omega_k (0.0)
 p11 = w (-1.0)
 p12 = wa (0.0)
-p13 = scalePCC  if u13=1 (CC prior in BEAMS-like chi2)
-p13 = scalePIa  if u13=2 (see A in Eq 4 of https://arxiv.org/abs/1111.5328)
+p13 = scalePCC  if u13=1 (scale P_CC in BEAMS-like chi2)
+p13 = scalePIa  if u13=2 (= A in Eq 4 of https://arxiv.org/abs/1111.5328)
 p14 = sigint   (if using CC prior in BEAMS) DOES NOT WORK !!!
 p15 = alphaHost (dalpha/dlogMhost)
 p16 = betaHost  (dbeta/dlogMhost)
@@ -13134,7 +13134,7 @@ int ppar(char* item) {
     { sscanf(&item[9],"%lf",&INPUTS.parval[16]); return(1); }
 
 
-  /* xxx mark delete xxxxxx
+  /* xxx mark delete (params read below) xxxxxx
   // check for H11 fitpar options
   for(j=0; j < NPAR_H11_TOT; j++ ) {
     ipar = IPAR_H11 + j;

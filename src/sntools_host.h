@@ -39,6 +39,7 @@
 #define HOSTLIB_MSKOPT_SN2GAL_Z     16 // transfer SN Z to ZTRUE
 #define HOSTLIB_MSKOPT_USEONCE      32 // use host galaxy only once
 #define HOSTLIB_MSKOPT_USESNPAR     64 // use SN color & shape from hostlib
+#define HOSTLIB_MSKOPT_SWAPZPHOT   128 // swap ZTRUE with ZPHOT
 #define HOSTLIB_MSKOPT_VERBOSE     256 // print extra info to screen
 #define HOSTLIB_MSKOPT_DEBUG       512 // fix a=2, b=1, rotang=0 
 #define HOSTLIB_MSKOPT_DUMP       1024 // screen-dump for each host 

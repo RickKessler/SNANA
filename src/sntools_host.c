@@ -94,6 +94,8 @@
          (but beware that GALMAG under SN is only from TRUE host)
     +  implement LOGMASS_TRUE, LOGMASS_OBS
 
+ Feb 26 2020: check SWAPZPHOT option to set ZTRUE = ZPHOT
+
 =========================================================== */
 
 #include <stdio.h>
@@ -1694,6 +1696,11 @@ void read_gal_HOSTLIB(FILE *fp) {
   // Nov 11 2019: check NBR_LIST
   // Feb 25 2020: set VALMIN & VALMAX for float; skip for ISCHAR.
 
+  bool DO_SWAPZPHOT = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT) ;
+  int  IVAR_ZPHOT    = HOSTLIB.IVAR_ZPHOT ; // ivar_STORE
+  int  IVAR_ZTRUE    = HOSTLIB.IVAR_ZTRUE ;
+  int  IVAR_FIELD    = HOSTLIB.IVAR_FIELD ;
+  int  IVAR_NBR_LIST = HOSTLIB.IVAR_NBR_LIST ;
   char c_get[40], FIELD[MXCHAR_FIELDNAME], NBR_LIST[MXCHAR_NBR_LIST] ;
   char fnam[] = "read_gal_HOSTLIB"  ;
   
@@ -1775,9 +1782,8 @@ void read_gal_HOSTLIB(FILE *fp) {
       }
 
       // store optional FIELD string 
-      ivar_STORE = HOSTLIB.IVAR_FIELD ;
-      if ( ivar_STORE > 0  ) {
-	ivar_ALL   = HOSTLIB.IVAR_ALL[ivar_STORE];
+      if ( IVAR_FIELD > 0  ) {
+	// xxx mark delete	ivar_ALL   = HOSTLIB.IVAR_ALL[IVAR_FIELD];
 	sprintf(HOSTLIB.FIELD_UNSORTED[NGAL],"%s", FIELD);
       }
 
@@ -1789,12 +1795,17 @@ void read_gal_HOSTLIB(FILE *fp) {
       }
 
       // Nov 11 2019: store optional NBR_LIST string 
-      ivar_STORE = HOSTLIB.IVAR_NBR_LIST ;
-      if ( ivar_STORE > 0  ) {
-	ivar_ALL   = HOSTLIB.IVAR_ALL[ivar_STORE];
+      if ( IVAR_NBR_LIST > 0 ) {
+	//  xxx mark delete ivar_ALL   = HOSTLIB.IVAR_ALL[ivar_STORE];
 	MEMC       = (1+strlen(NBR_LIST)) * sizeof(char) ;
 	HOSTLIB.NBR_UNSORTED[NGAL] = (char*) malloc(MEMC);
 	sprintf(HOSTLIB.NBR_UNSORTED[NGAL],"%s", NBR_LIST);
+      }
+
+      // Feb 26 2020: check option to replace ZTRUE with ZPHOT
+      if ( DO_SWAPZPHOT ) {
+	HOSTLIB.VALUE_UNSORTED[IVAR_ZTRUE][NGAL] = 
+	  HOSTLIB.VALUE_UNSORTED[IVAR_ZPHOT][NGAL] ;
       }
 
       // store NGAL index vs. absolute READ index (for HOSTNBR)

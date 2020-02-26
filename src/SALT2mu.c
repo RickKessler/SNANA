@@ -3283,7 +3283,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 	for(ig=0; ig<MXg; ig++ ) {
 	  MUCOVSCALE_ALPHABETA[ia][ib][ig] = 
 	    INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig] ; 
-	  for(ipar=ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ ) {
+	  for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ ) {
 	    FITPARBIAS_ALPHABETA[ia][ib][ig].VAL[ipar] = 
 	      INFO_DATA.FITPARBIAS_ALPHABETA[n][ia][ib][ig].VAL[ipar] ; 
 	    FITPARBIAS_ALPHABETA[ia][ib][ig].ERR[ipar] = 
@@ -3350,6 +3350,17 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
       muBias  = muBias_zinterp ; 
     }
        
+    if ( n == -1 ) {  //.xyz
+      printf(" xxx %s-%3.3d %s  a,b,g=%.4f,%.4f,%.4f  "
+	     "muBias=%7.4f  (fpb0=%.4f,%.4f) \n",
+	     fnam, FITRESULT.NCALL_FCN, name, alpha,beta,gamma, 
+	     muBias,
+	     FITPARBIAS_ALPHABETA[0][0][0].VAL[ILCPAR_MAX],
+	     FITPARBIAS_ALPHABETA[0][1][0].VAL[ILCPAR_MAX]
+	     );
+      fflush(stdout);
+    }
+
     // load muBias info into globals
 
     INFO_DATA.muBias[n]     = muBias ;
@@ -5719,7 +5730,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   }  // end not-DATA
 
   // - - - - -
-  if ( IS_BIASCOR && DO_BIASCOR_MU ) {   // .xyz 
+  if ( !IS_DATA  && DO_BIASCOR_MU ) { 
     // load mu for opton bias-correct MU instead of correcting mB,x1,c 
     // Note that true Alpha,Beta,GammaDM are used for mu_obs.
     // Beware that M0_DEFAULT may be fragile.
@@ -5732,9 +5743,8 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     GammaDM = TABLEVAR->SIM_GAMMADM[ISN] ;
     mu_true = TABLEVAR->SIM_MU[ISN] ;
     mu_obs  = mB - M0_DEFAULT + Alpha*x1 - Beta*c - GammaDM ;
-    TABLEVAR->fitpar[INDEX_mu][ISN]      = mu_obs ;  // Feb 24 2020
+    TABLEVAR->fitpar[INDEX_mu][ISN]      = mu_obs ; 
     TABLEVAR->SIM_FITPAR[INDEX_mu][ISN]  = mu_true ;
-
   }
 
   if ( IS_BIASCOR && IDEAL ) {
@@ -7190,7 +7200,7 @@ void prepare_biasCor(void) {
     IDSAMPLE = INFO_DATA.TABLEVAR.IDSAMPLE[n]; 
     if ( CUTMASK ) { continue ; }
 
-    DUMPFLAG = 0;    // ( NUSE_TOT < 2 ) ; // xxx REMOVE
+    DUMPFLAG = 0 ; // (NUSE_TOT == 1 ) ; // xxx REMOVE
     istore = storeDataBias(n,DUMPFLAG);
     
     NUSE[IDSAMPLE]++ ; NUSE_TOT++ ;
@@ -10457,9 +10467,12 @@ int get_fitParBias(char *cid,
     }
 
     if ( DO_BIASCOR_MU == false ) {
-      double muBias =  FITPARBIAS->VAL[INDEX_mB] +
-	a * FITPARBIAS->VAL[INDEX_x1] -	b * FITPARBIAS->VAL[INDEX_c] ;
-      printf(" xxx bias(mu) = %7.4f \n", muBias ); 
+      double bias_mB = FITPARBIAS->VAL[INDEX_mB];
+      double bias_x1 = FITPARBIAS->VAL[INDEX_x1];
+      double bias_c  = FITPARBIAS->VAL[INDEX_c] ;
+      double muBias  = bias_mB + a*bias_x1 - b*bias_c ;
+      if ( LDMP ) 
+	{ printf(" xxx bias(mu) = %7.4f \n", muBias ); }
     }
      
     fflush(stdout);
@@ -11350,7 +11363,7 @@ void store_INFO_CCPRIOR_CUTS(void) {
     INFO_CCPRIOR.TABLEVAR_CUTS.x0[icc]  = 
       INFO_CCPRIOR.TABLEVAR.x0[isn];
 
-    for(ipar=ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ ) { 
+    for(ipar=0; ipar < NLCPAR; ipar++ ) { 
       INFO_CCPRIOR.TABLEVAR_CUTS.fitpar[ipar][icc] = 
 	INFO_CCPRIOR.TABLEVAR.fitpar[ipar][isn];
     }
@@ -11368,7 +11381,7 @@ void store_INFO_CCPRIOR_CUTS(void) {
     for(ia = 0; ia < NBINa; ia++ ) {
       for(ib = 0; ib < NBINb; ib++ ) {
 	for(ig = 0; ig < NBINg; ig++ ) {
-	  for(ipar=ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ ) { 
+	  for(ipar=0; ipar < NLCPAR; ipar++ ) { 
 	    INFO_CCPRIOR.FITPARBIAS_ALPHABETA_CUTS[icc][ia][ib][ig].VAL[ipar] =
 	      INFO_CCPRIOR.FITPARBIAS_ALPHABETA[isn][ia][ib][ig].VAL[ipar] ;
 	    
@@ -11547,7 +11560,7 @@ void setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     }
   }
 
-    
+
   // get DMUPDF in each z bin
   setup_DMUPDF_CCprior(IDSAMPLE, TABLEVAR, MUZMAP );  
   
@@ -11574,18 +11587,15 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   // This function is called for each fcn call, so no print statements !
   
   int imu, NMUBIN, NZBIN, ia, ib, ig, iz, icc, idsample ;
-  int NCC[MXz][MAXMUBIN]; 
-  int NCC_SUM[MXz];  // integrals over dmu
-  double SUM_DMU[MXz];
-  double SUMSQ_DMU[MXz];
-  double z, c, x1, mB, dl, mu, mumodel, dmu;
-  double a, b, gDM, M0 ;
+  int NCC[MXz][MAXMUBIN], NCC_SUM[MXz]; 
+  double SUM_DMU[MXz], SUMSQ_DMU[MXz];
+  double z, c, x1, mB, dl, mu, mumodel, dmu, a, b, gDM, M0 ;
   double XMU, XCC, XCC_SUM, DMUBIN ;
   char *name ;
 
   // muBias declarations
-  int USE_BIASCOR  = ( INFO_BIASCOR.TABLEVAR.NSN_ALL > 0 ) ;
-  int NDIM_BIASCOR = INFO_BIASCOR.NDIM ;
+  bool USE_BIASCOR  = ( INFO_BIASCOR.TABLEVAR.NSN_ALL > 0 ) ;
+  int  NDIM_BIASCOR = INFO_BIASCOR.NDIM ;
   BIASCORLIST_DEF     BIASCORLIST ;
   INTERPWGT_AlphaBetaGammaDM INTERPWGT ;
   FITPARBIAS_DEF   FITPARBIAS_TMP[MXa][MXb][MXg] ; 
@@ -11698,7 +11708,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     imu      = IBINFUN(dmu, &MUZMAP->DMUBIN, 0, "" );
 
     // xxxxxxxxxxxxxxxxxxxxxxx
-    if ( icc == -5 ) {
+    if ( icc < -5 ) {
       printf(" xxx -----------  icc=%d  ---------- \n", icc);
       printf(" xxx z=%.3f  c=%.3f  x1=%.3f  mB=%.3f  \n",
 	      z, c, x1, mB );
@@ -11879,7 +11889,7 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
   // Increment histogram of CC contamination vs. xhisto (mures,z, etc ...)
 
   int    ibin;
-  int    IS_SIM  =  (INFO_DATA.TABLEVAR.IS_SIM == true) ;
+  bool   IS_SIM  =  INFO_DATA.TABLEVAR.IS_SIM ;
   double Prob_CC = 1.0 - Prob_Ia ;
   double sum_Ia, sum_cc, ratio ;
   char fnam[] = "sum_contam_CCprior";
@@ -12107,7 +12117,6 @@ double prob_CCprior_H11(int n, double dmu,
   dmuCC   = (dmu-CCpoly) ;  // i.e., mucalc -> mucalc+CCpoly
   arg     = 0.5*(dmuCC*dmuCC)/sqsigCC ;
   
-  //  sigCC   = data[n].sigCC_last ;
   sigCC   = sqrt(sqsigCC);
   prob    = (PIFAC/sigCC) * exp(-arg) ;
 
@@ -12124,6 +12133,7 @@ double prob_CCprior_H11(int n, double dmu,
   return(prob) ;
 
 } // end prob_CCprior_H11
+
 
 // ===================================================
 double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP, 

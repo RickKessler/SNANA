@@ -17975,13 +17975,14 @@
 
 
 # ======================================================================= 
-         v10_75d (  ) 
+         v10_75d (Feb 25 2020 ) 
 
          ***** IMPORTANT(v10_75d) ***** 
 
          ***** USEFUL(v10_75d) ***** 
 
-   sim now has phase-smearing correlations; see GENMAG_SMEAR_ADDPHASECOR
+   + SALT2mu (BBC) has new option to bias-correct mu instead of mB,x1,c.
+   + new sim phase-smearing correlations; see GENMAG_SMEAR_ADDPHASECOR
 
          ***** MISCELLANEOUS(v10_75d) ***** 
 
@@ -18010,17 +18011,23 @@
      + new &SNLCINP input:  MWEBV_FORCE = <val>
      + new &SNCLINP input:  FUDGE_FLUXERR_SCALE = 'g 1.02 r 1.03'
      + re-implement CUTWIN_PHOTPROB.
-     + in MNFIT_STOREPAR, set NDOF_PRIO=0 on each iteration,
+     + in MNFIT_STOREPAR, set NDOF_PRIOR=0 on each iteration,
        otherwise it keeps value from previous ITER (0 or 1).
        This bug affected data and sim the same way, so the fix
        slightly affects FITPROB shape, but is not expected to 
        impact data/sim agreement in FITPROB.
     
     snlc_fit.car:
-     + OPT_COVAR_MWXT=1 -> full cov, =2 ->  diag only (for tests)x
+     + OPT_COVAR_MWXT=1 -> full cov, =2 ->  diag only (for tests)
 
     SALT2mu.c
-     + opt_biascor += 128 -> correct mu-sim_mu instead of
-       correcting mB,x1,c.  Still needs testing.
+     + opt_biascor += 128 -> correct mu-sim_mu instead of mB,x1,c.
+       Prelim tests show nuissance params (a,b,g) are within 0.1% 
+       of default method of correcting mB,x1,c.
+
+    psnid_tools.c[h]:
+      + define INPUTS.OPT_DEBUG, and have it passed from psnid.car.
+        Useful for debugging with
+           psnid.exe <myInput> OPT_DEBUG <OPTVAL>
 
 END: 

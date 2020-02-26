@@ -283,7 +283,8 @@
 
   May 20 2019: PSNID_NONIA_MXTYPES = 100 ->  1000 (for lots of KN models)
 
-  Feb 26, 2020: Dummy comment for testing git.
+  Feb 26 2020: + print out warning message when skipping candidate
+                 due to user-specified OPT_ZPRIOR
 
  ================================================================ */
 
@@ -888,7 +889,12 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
 
   // redshift priors (0=flat, [1,2=other priors])
   psnid_best_set_zprior_onez(REDSHIFT, REDSHIFT_ERR);
-  if ( PSNID_BEST_RESULTS.ZPRIOR_DO[0] == 0 ) { return ERRFLAG ; }
+  if ( PSNID_BEST_RESULTS.ZPRIOR_DO[0] == 0 )
+  {
+    printf("\t WARNING:  skipping CID = %s for OPT_ZPRIOR %d\n\n",
+	   CCID, PSNID_INPUTS.OPT_ZPRIOR);
+    return ERRFLAG ;
+  }
 
   /****************************************/
   /***     Main part of grid search     ***/

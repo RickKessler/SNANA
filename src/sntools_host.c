@@ -3697,7 +3697,12 @@ void readme_HOSTLIB(void) {
 
   // prepare comments for README file.
 
-  int    NTMP, ivar, NVAR, NROW, LSN2GAL, LGALMAG, j, igal ;
+  bool DO_GALMAG       = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_GALMAG);
+  bool DO_SN2GAL_Z     = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z);
+  bool DO_SN2GAL_COORD = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC);
+  bool DO_SWAPZPHOT    = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT ) ;
+
+  int    NTMP, ivar, NVAR, NROW, j, igal ;
   long long GALID ;
   double RAD, WGT, fixran, *fixab, SCALE ;
   char *cptr,  copt[40],  ctmp[20], ZNAME[40] ;
@@ -3752,20 +3757,17 @@ void readme_HOSTLIB(void) {
 
   sprintf(copt,"HOSTLIB Opt: ");
 
-  LGALMAG = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_GALMAG ) ;
-  if ( LGALMAG ) {
+  if ( DO_GALMAG ) {
     cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
     sprintf(cptr, "%s compute host-noise contribution to SN noise", copt );    
   }
 
-  LSN2GAL = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z ) ;
-  if ( LSN2GAL ) {
+  if ( DO_SN2GAL_Z ) {
     cptr = HOSTLIB.COMMENT[NTMP];  NTMP++ ; 
     sprintf(cptr, "%s change SN redshift to host redshift", copt );    
   }
 
-  LSN2GAL = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
-  if ( LSN2GAL ) {
+  if ( DO_SN2GAL_COORD ) {
     cptr = HOSTLIB.COMMENT[NTMP];  NTMP++ ; 
     sprintf(cptr, "%s change SN position to host-SN pos.", copt );    
 
@@ -3774,6 +3776,11 @@ void readme_HOSTLIB(void) {
       sprintf(c2err ,"%s", "but RA and/or DEC are missing from HOSTLIB.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
+  }
+
+  if ( DO_SWAPZPHOT ) {
+    cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
+    sprintf(cptr, "%s set ZTRUE = ZPHOT ", copt);
   }
 
   SCALE = INPUTS.HOSTLIB_SCALE_SERSIC_SIZE;
@@ -3855,8 +3862,7 @@ void readme_HOSTLIB(void) {
 
 
   // print out list of aperture radii
-  LGALMAG = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_GALMAG ) ;
-  if ( LGALMAG ) {
+  if ( DO_GALMAG ) {
     cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
     sprintf(cptr, "GALMAG %s interp-grid for PSFSIG(asec) = ",
 	    HOSTLIB.filterList );

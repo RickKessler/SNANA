@@ -1940,7 +1940,7 @@ int main(int argc,char* argv[ ])
 
  DOFIT:
 
-  if ( INPUTS.JOBID_SPLITRAN>0 ) 
+  if ( INPUTS.JOBID_SPLITRAN > 0 ) 
     { NJOB_SPLITRAN = INPUTS.JOBID_SPLITRAN; } // do only this one SPLIT job
   else
     { NJOB_SPLITRAN++ ; }  // keep going to do them all
@@ -1964,12 +1964,14 @@ int main(int argc,char* argv[ ])
   // execuate minuit mnparm_ commands
   exec_mnparm(); 
 
-  // use FCN call and make chi2-outlier cut (Jul 19 2019)
-  applyCut_chi2();
+  // xxx move after SPLITRAN_SUMMARY  applyCut_chi2();
 
   // check option to fetch summary of all previous SPLITRAN jobs
   if ( INPUTS.JOBID_SPLITRAN > INPUTS.NSPLITRAN ) 
     {  SPLITRAN_SUMMARY(); return(0); }
+
+  // use FCN call and make chi2-outlier cut (Jul 19 2019)
+  applyCut_chi2();
 
   FITRESULT.NFIT_ITER = 0 ;
 
@@ -3302,8 +3304,10 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     gammaDM = get_gammadm_host(z, logmass, hostPar );
 
     //    DUMPFLAG = ( strcmp(name,"93018")==0 ) ; // xxx REMOVE 44
-    if ( INTERPFLAG_abg ) 
-      { get_INTERPWGT_abg(alpha,beta,gammaDM, DUMPFLAG, &INTERPWGT, name); }
+    if ( INTERPFLAG_abg ) {
+      get_INTERPWGT_abg(alpha, beta, gammaDM, DUMPFLAG, &INTERPWGT, 
+			strcat(fnam,name) );
+    }
 
     //    DUMPFLAG = 0 ;
 
@@ -3854,9 +3858,12 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
   // ------------------------------
   if ( SUMWGT < 1.0E-9 ) {
     print_preAbort_banner(fnam);
-    printf("\t Alpha  =%.3f   Alpha_interp=%.3f \n",    alpha,   a_interp);
-    printf("\t Beta   =%.3f   Beta_interp=%.3f  \n",    beta,    b_interp);
-    printf("\t Gammadm=%.3f   Gammadm_interp=%.3f  \n", gammadm, g_interp);
+    printf("   Alpha  =%.3f   Alpha_interp=%.3f  (bnd: %.3f to %.3f)\n",  
+	   alpha, a_interp, a_bound_min, a_bound_max);
+    printf("   Beta   =%.3f   Beta_interp=%.3f   (bnd: %.3f to %.3f)\n",
+	   beta,    b_interp, b_bound_min, b_bound_max );
+    printf("   Gammadm=%.3f   Gammadm_interp=%.3f (bnd: %.3f to %.3f)\n", 
+	   gammadm, g_interp, g_bound_min, g_bound_max );
 
     for(ia=0; ia < MXa; ia++ ) {
       for(ib=0; ib < MXb; ib++ ) {

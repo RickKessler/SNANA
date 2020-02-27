@@ -709,6 +709,8 @@ Default output files (can change names with "prefix" argument)
      mB,x1,c. See MASK_BIASCOR_MU = 128, and see ILCPAR_MIN, ICLPAR_MAX.
      Invoke mu-bias correction with opt_biascor += 128.
 
+  Feb 27 2020: MXSPLITRAN -> 1000 (was 100)
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -833,7 +835,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define MXSNTYPE 20
 
 // max number of random split jobs (RK - July 10, 2012)
-#define MXSPLITRAN 100
+#define MXSPLITRAN 1000
 
 // define indices for fit parameters
 #define NLCPAR    3  // mB,x1,c
@@ -3305,8 +3307,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 
     //    DUMPFLAG = ( strcmp(name,"93018")==0 ) ; // xxx REMOVE 44
     if ( INTERPFLAG_abg ) {
-      get_INTERPWGT_abg(alpha, beta, gammaDM, DUMPFLAG, &INTERPWGT, 
-			strcat(fnam,name) );
+      get_INTERPWGT_abg(alpha, beta, gammaDM, DUMPFLAG, &INTERPWGT, name);
     }
 
     //    DUMPFLAG = 0 ;

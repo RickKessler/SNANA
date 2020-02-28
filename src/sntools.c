@@ -7519,6 +7519,7 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
 
     // - - - -  SIM_HOSTLIB_XXX  (Feb 2014)
 
+    fprintf(fp,"SIM_HOSTLIB_GALID:  %lld \n", SNDATA.SIM_HOSTLIB_GALID);
     char key[60];
     int NPAR = SNDATA.NPAR_SIM_HOSTLIB; 
     fprintf(fp, "SIM_HOSTLIB_NPAR: %d \n", NPAR);

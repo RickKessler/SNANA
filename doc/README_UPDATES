@@ -18040,4 +18040,17 @@
 
          ***** MISCELLANEOUS(v10_75e) ***** 
 
+   SALT2mu.c: bug fix for NSPLITRAN option; move chi2 cut after
+              SPLITRAN summary.
+
+   sntools_host.c[h], snlc_sim.c[h], sntools_fitsio.c :
+     + overhaul simulation part that reads and processes
+       HOSTNBR HOSTLIB; fix bugs and finish what was left undone.
+
+   snlc_sim.c:
+     + new sim-input HOSTLIB_MAXDDLR: 4.0 (see manual)
+
+   snana.car:
+     + plot 2nd host info if HOSTGAL_ANGSEP exists (data or sim)
+
 END: 

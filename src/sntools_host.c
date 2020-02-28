@@ -95,6 +95,7 @@
     +  implement LOGMASS_TRUE, LOGMASS_OBS
 
  Feb 26 2020: check SWAPZPHOT option to set ZTRUE = ZPHOT
+ Feb 27 2020: fix index bug translating NBR_LIST.
 
 =========================================================== */
 
@@ -308,6 +309,9 @@ void initvar_HOSTLIB(void) {
   // malloc temp string pointers for splitString function
   for(ivar=0; ivar < MXTMPWORD_HOSTLIB; ivar++ ) 
     { TMPWORD_HOSTLIB[ivar] = (char*)malloc( 40*sizeof(char) ); }
+
+
+  reset_SNHOSTGAL_DDLR_SORT(MXNBR_LIST);
 
   return ;
 
@@ -1809,7 +1813,7 @@ void read_gal_HOSTLIB(FILE *fp) {
       }
 
       // store NGAL index vs. absolute READ index (for HOSTNBR)
-      HOSTLIB.LIBINDEX_READ[NGAL_READ] = NGAL ;
+      HOSTLIB.LIBINDEX_READ[NGAL_READ] = NGAL ; // NGAL_READ starts at 0
 
     }
   } // end of while-fscanf
@@ -5424,7 +5428,10 @@ void GEN_SNHOST_NBR(int IGAL) {
   // Created Nov 2019 by R. Kessler
   // If NBR_LIST column exists, parse it and convert row numbers
   // to SNHOSTGAL.IGAL_NBR_LIST
-  
+  //
+  // Beware that rowNum in +HOSTNBR file is a fortran-like
+  // index, but here it is read with C-like index.
+
   int  LDMP = 0 ; // ( NCALL_GEN_SNHOST_DRIVER < 20 );
   int  i, ii, NNBR_READ, NNBR_STORE, rowNum, IGAL_STORE, IGAL_ZSORT ;
   int  ROWNUM_LIST[MXNBR_LIST];
@@ -5435,6 +5442,8 @@ void GEN_SNHOST_NBR(int IGAL) {
   char fnam[] = "GEN_SNHOST_NBR";
 
   // ---------------- BEGIN ----------------
+
+  reset_SNHOSTGAL_DDLR_SORT(SNHOSTGAL.NNBR);
 
   SNHOSTGAL.NNBR = 1; // true host sets default at 1
   SNHOSTGAL.IGAL_NBR_LIST[0] = IGAL;
@@ -5465,15 +5474,16 @@ void GEN_SNHOST_NBR(int IGAL) {
   NNBR_STORE = 1; // start counter on stored neighbors
 
   ROWNUM_LIST[0] = -9;
-  for(i=1; i < NNBR_READ; i++ ) {
+  for(i=1; i < NNBR_READ; i++ ) {   // start at 1 to skip true host
     sscanf(TMPWORD_HOSTLIB[i], "%d", &rowNum);
 
-    // rowNum here is NGAL_READ before cuts. Use two layers of
-    // indexing to get the desired z-sorted IGAL
-    IGAL_STORE = HOSTLIB.LIBINDEX_READ[rowNum];
+    // rowNum is a fotran-line index starting at 1, which  is 
+    // NGAL_READ+1 before cuts. Use two layers of  indexing to 
+    // get the desired z-sorted IGAL
+    IGAL_STORE = HOSTLIB.LIBINDEX_READ[rowNum-1];
     if ( IGAL_STORE < 0 ) { continue; } // neighbor was cut from sample
 
-    IGAL_ZSORT = HOSTLIB.LIBINDEX_ZSORT[IGAL_STORE];  // <== crash
+    IGAL_ZSORT = HOSTLIB.LIBINDEX_ZSORT[IGAL_STORE]; 
     GALID      = get_GALID_HOSTLIB(IGAL_ZSORT);
 
     ii = NNBR_STORE; NNBR_STORE++ ;
@@ -5624,6 +5634,23 @@ void GEN_SNHOST_DDLR(int i_nbr) {
 
 } // end GEN_SNHOST_DDLR
 
+
+// ==============================
+void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
+
+  SNHOSTGAL.NNBR = 0;
+  int i;
+  for(i=0; i < MAXNBR; i++ ) {    
+    SNHOSTGAL_DDLR_SORT[i].GALID = -9 ;
+    SNHOSTGAL_DDLR_SORT[i].SNSEP = -9.0 ;
+    SNHOSTGAL_DDLR_SORT[i].DDLR  = -9.0 ;  
+    SNHOSTGAL_DDLR_SORT[i].RA    = 999.0 ;
+    SNHOSTGAL_DDLR_SORT[i].DEC   = 999.0 ;
+  }
+
+  
+} // end reset_SNHOSTGAL_DDLR_SORT
+
 // =======================================================
 void SIMLIB_SNHOST_POS(int IGAL, SERSIC_DEF *SERSIC, int DEBUG_MODE) {
 
@@ -5699,12 +5726,15 @@ void SORT_SNHOST_byDDLR(void) {
   // created Nov 2019
   // Sort galaxy NBRs by DDLR, and load global structure
   // SNHOSTGAL_DDLR_SORT[i], where i=0 has smallest DDLR.
-
+  //
+  // At end of function, set SNHOSTGAL.NNBR = number passing DDLR cut.
+  //
   int  NNBR       = SNHOSTGAL.NNBR ;
   int  ORDER_SORT = +1 ;     // increasing order
   int  LDMP = 0 ; // (GENLC.CID == 9 ) ;
 
   int  INDEX_UNSORT[MXNBR_LIST], i, unsort, IGAL, IVAR, ifilt, ifilt_obs ;
+  int  NNBR_DDLRCUT = 0 ;
   long long GALID;
   double DDLR, SNSEP, MAG, RA_GAL, DEC_GAL ;
   char fnam[] = "SORT_SNHOST_byDDLR" ;
@@ -5726,12 +5756,13 @@ void SORT_SNHOST_byDDLR(void) {
     DDLR   = SNHOSTGAL.DDLR_NBR_LIST[unsort] ;
     SNSEP  = SNHOSTGAL.SNSEP_NBR_LIST[unsort] ;
 
+    if ( DDLR < INPUTS.HOSTLIB_MAXDDLR ) { NNBR_DDLRCUT++ ; }
+
     RA_GAL = GENLC.RA;    DEC_GAL = GENLC.DEC;
     if ( i == 0 ) { 
       RA_GAL  += (SNHOSTGAL.RA_GAL_DEG  - SNHOSTGAL.RA_SN_DEG  ) ;
       DEC_GAL += (SNHOSTGAL.DEC_GAL_DEG - SNHOSTGAL.DEC_SN_DEG ) ;
     }
-
 
     // load logical for true host
     SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = false ;
@@ -5807,6 +5838,9 @@ void SORT_SNHOST_byDDLR(void) {
     }
   }
   
+  // truncate list to those satisfying DDLR cut (Feb 2020)
+  SNHOSTGAL.NNBR = NNBR_DDLRCUT ;
+
   return ;
 
 } // SORT_SNHOST_byDDLR
@@ -7353,7 +7387,10 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
 
   // set stdout dump for a few events so that igal_unsiort <-> GALID
   // can be visually checked when appended HOSTLIB is read back.
-  LSTDOUT = (igal_unsort < 10 || igal_unsort > NGAL-10);
+  LSTDOUT = ( igal_unsort < 10 || 
+	      igal_unsort > NGAL-10 ||
+	      GALID == 432048 
+	      );
   if ( LSTDOUT  && strlen(LINE_STDOUT) > 0 ) {
     printf("# ---------------------------------------------------- \n");
     printf(" Crosscheck dump for igal_read=%d, GALID=%lld \n",

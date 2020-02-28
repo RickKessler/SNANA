@@ -433,7 +433,7 @@ struct INPUTS {
   int  HOSTLIB_MINDAYSEP_SAMEGAL ;    // min DAYs before re-using host gal  
   float  HOSTLIB_MXINTFLUX_SNPOS; // gen SNPOS within this flux-fraction (.99)
   float  HOSTLIB_GENRANGE_NSIGZ[2];  // allowed range of (Zphot-Z)/Zerr
-
+  float  HOSTLIB_MAXDDLR ;             // keep hosts with DDLR < MAXDDLR
   float  HOSTLIB_GENZPHOT_FUDGEPAR[5]; // analytic ZPHOT & ZPHOTERR   
   float  HOSTLIB_GENZPHOT_OUTLIER[2];  // range for FLAT outlier distribution.
   float  HOSTLIB_GENZPHOT_BIAS[5];     // poly(z) bias on ZPHOT (Mar 28 2018)
@@ -441,10 +441,8 @@ struct INPUTS {
 
   double HOSTLIB_GENRANGE_RA[2];
   double HOSTLIB_GENRANGE_DEC[2];
-  // xxx ??  double HOSTLIB_GENSIGMA_LOGMASS;  // LOGMASS uncertainty 
   double HOSTLIB_SBRADIUS ; // arcsec, determine SB using this radius
   double HOSTLIB_DZTOL[3] ; // define zSN-zGAL tolerance vs. redshift 
-  // xxx   double HOSTLIB_SERSIC_SCALE; // scale Sersic size
   double HOSTLIB_SCALE_LOGMASS_ERR ; // default is 1.0
   double HOSTLIB_SCALE_SERSIC_SIZE ; // default is 1.0
   char   HOSTLIB_STOREPAR_LIST[MXPATHLEN]; // (I) comma-sep list 

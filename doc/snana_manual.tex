@@ -3646,12 +3646,13 @@ the sim-input file (or via command-line override):
 \begin{Verbatim}[frame=single]
    HOSTLIB_FILE:         DES.HOSTLIB  # required
 # optional
+   HOSTLIB_MSKOPT:       8            # default=0
    HOSTLIB_WGTMAP_FILE:   xxxx        # default=none
    HOSTLIB_ZPHOTEFF_FILE: xxxx        # default=none
    HOSTLIB_SPECBASIS_FILE: xxxx       # default=none
    HOSTLIB_MAXREAD:      10000        # default=billion
    HOSTLIB_MXINTFLUX_SNPOS: .999      # default=.99
-   HOSTLIB_MSKOPT:       8            # default=0
+   HOSTLIB_MAXDDLR:      xxx          # default=4 (for host matches)
    HOSTLIB_SBRADIUS:     xxx          # default=1.2 arcsec
    HOSTLIB_GENRANGE_RA:    xxx yyy    # default= -999 to +999
    HOSTLIB_GENRANGE_DECL:  xxx yyy    # default= -999 to +999)   
@@ -3916,12 +3917,11 @@ flux-scatter as a function of local surface brightness.
 \label{sss:hostlib_NBR}
 % ------------------------------------
 
-To simulate the effect of matching SN to the wrong galaxy with the
-DLR method,
+To simulate the effect of matching SN to the wrong galaxy 
+with the DLR method,
 a list of true galaxy neighbors is needed for each \hostlib\ entry. 
-For any \hostlib\ that includes sky coordinates, a supplemental 
-column with a comma-separated
-list of neighbors can be created with
+For a \hostlib\ that includes sky coordinates, a supplemental 
+column with a comma-separated list of neighbors can be created with
 %
 \begin{verbatim}
    snlc_sim.exe <iputFile> +HOSTNBR
@@ -3939,16 +3939,33 @@ as sim-input keys. A new \hostlib\ is created with {\tt +HOSTNBR}
 extension, and the simulation quits without generating events.
 If Sersic profiles are included, running the simulation again with the 
 newly-created \hostlib\ results in computing DLR for the true galaxy and
-each neighbor galaxy, and ordering the galaxy matches by DLR, 
-even of the smallest DLR is the wrong match.
-{\it (TO DO: define tag for true match)}
+each neighbor galaxy, and ordering the galaxy matches by 
+{\tt DDLR = DLR/Angsep}, 
+even if the smallest {\tt DDLR} is the wrong match.
 
-To find the galaxy neighbors quickly when using the output \hostlib\ 
+To find the galaxy neighbors quickly when using the output 
+{\tt HOSTLIB+NBR}
 in a simulation,
-the galaxy identifiers are \hostlib\ row numbers rather than {\tt GALID}.
+the galaxy identifiers are \hostlib\ row numbers (start at row 1)
+rather than {\tt GALID}.
 To allow for easy verification, the {\tt +HOSTNBR} option includes a 
 screen-dump for several entries,
 where the dump includes both row number and {\tt GALID}.
+
+{\tt SIM\_HOSTLIB\_GALID} is the true galaxy ID, and is in 
+output data files and output tables created by analysis codes.
+An incorrect host-match is flagged by
+{\tt SIM\_HOSTLIB\_GALID}$\ne${\tt HOSTGAL\_OBJID};
+in this case, it is likely that
+{\tt SIM\_HOSTLIB\_GALID = HOSTGAL2\_OBJID}.
+To reject host-matches with a {\tt DDLR} cut
+(\S\ref{sss:hostlib_options}),
+set sim-input key ``{\tt HOSTLIB\_MAXDDLR: <cutval>}.''  
+For analysis, host information can be added to TEXT-formatted
+tables (\S\ref{subsec:anavar}) using 
+\begin{verbatim}
+       SNTABLE_LIST = 'SNANA(text:host) FITRES(text:host)'
+\end{verbatim}
 
 % ------------------------------------
 \subsubsection{Treatment of {\tt LOGMASS} }

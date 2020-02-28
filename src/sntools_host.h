@@ -373,7 +373,7 @@ typedef struct {
   long long GALID ;
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
   double ZSPEC, ZSPEC_ERR ;     // ZTRUE
-  double RA, DEC, SNSEP, DLR, DDLR;
+  double RA, DEC, SNSEP, DLR, DDLR ;
   double LOGMASS_TRUE, LOGMASS_ERR, LOGMASS_OBS ;
   double MAG[MXFILTINDX]; 
   bool   TRUE_MATCH ;
@@ -517,6 +517,7 @@ void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE);
 void   GEN_SNHOST_NBR(int IGAL);
 void   GEN_SNHOST_DDLR(int i_nbr);
 void   SORT_SNHOST_byDDLR(void);
+void   reset_SNHOSTGAL_DDLR_SORT(int MAXNBR);
 
 void   TRANSFER_SNHOST_REDSHIFT(int IGAL);
 void   GEN_SNHOST_GALMAG(int IGAL);

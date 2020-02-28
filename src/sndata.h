@@ -338,6 +338,8 @@ struct SNDATA {
   char  SIM_HOSTLIB_PARNAME[100][40]; // name of host params to store
   float SIM_HOSTLIB_PARVAL[100];      // host param values
 
+  long long SIM_HOSTLIB_GALID ; // true HOST GALID -> OBJID
+
   // - - - - -
   float SIM_RISETIME_SHIFT;    // rise time shift relative to model
   float SIM_FALLTIME_SHIFT;

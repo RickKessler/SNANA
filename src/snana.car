@@ -1042,7 +1042,7 @@ c
      &  ,SIM_NOBS_UNDEFINED   ! NOBS where model is undefined
      &  ,SIM_NSUBSAMPLE_MARK  ! Number of marked sub-samples
      &  ,SIM_SUBSAMPLE_INDEX  ! sub-sample index
-     &  ,SIM_REDSHIFT_FLAG    ! points to source of redshift
+     &  ,SIM_REDSHIFT_FLAG    ! points to source of redshift     
      &  ,SIMOPT_MWCOLORLAW    ! option for MW color law
      &  ,SIMOPT_MWEBV         ! option to modify MWEBV_SFD map
      &  ,NPAR_SIMSED
@@ -1054,7 +1054,9 @@ c
      &  ,NEP_SIM_MODELGRID
      &  ,NEP_SIM_MAGOBS          ! number of sim epochs with MAGOBS < 99
 
+      
       INTEGER*8  SIM_HOSTLIB_GALID
+      REAL*8    DSIM_HOSTLIB_GALID  ! for table only
 
       CHARACTER 
      &   SIMNAME_MODEL*40     ! SALT2, mlcs2k2, NON1A, etc ...
@@ -1108,7 +1110,7 @@ c
      &   ,SIM_HOSTLIB_PARNAME, SIM_HOSTLIB_KEYWORD
 
       COMMON / SNSIMCOM8 / 
-     &         SIM8_RA, SIM8_DECL, SIM_HOSTLIB_GALID
+     &   SIM8_RA, SIM8_DECL, SIM_HOSTLIB_GALID, DSIM_HOSTLIB_GALID
 
 +KEEP,PRIVCOM.
 
@@ -12854,16 +12856,8 @@ c - - - - - - - -
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
       IF ( LTMP ) THEN
          I8TMP = DINT(RET8(1))
-         SNHOST_OBJID(igal) = I8TMP
-
-c xxxxxxxxxxxxxxxxx
-        IF ( OPT_DEBUG == 888 ) THEN
-c            SNHOST_OBJID(igal) = I8TMP*1000000000 + I8TMP
-            SNHOST_OBJID(igal) = I8TMP*I8TMP*I8TMP*I8TMP
-        ENDIF
-c xxxxxxxxxxxxxxxx
-
-         DSNHOST_OBJID(igal) = DBLE( SNHOST_OBJID(igal) )
+         SNHOST_OBJID(igal)  = I8TMP
+         DSNHOST_OBJID(igal) = RET8(1)
       ENDIF  
 
       KEY    = PREFIX(1:LENPRE)//'_PHOTOZ'
@@ -15043,7 +15037,8 @@ c - - - - - - - - -
       KEY  = 'SIM_HOSTLIB_GALID'
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
       IF ( LTMP ) THEN
-        SIM_HOSTLIB_GALID = INT( RET8(1) )
+         SIM_HOSTLIB_GALID = INT( RET8(1) )
+        DSIM_HOSTLIB_GALID = RET8(1)
       ENDIF
 
       KEY  = 'SIM_TEMPLATEMAG'
@@ -16720,6 +16715,7 @@ c init a few SNHOST arrays
       SNHOST_CONFUSION         = -9.0
       do igal = 1, MXSNHOST 
          SNHOST_OBJID(igal)       = -9
+        DSNHOST_OBJID(igal)       = -9.0
          SNHOST8_RA(igal)         = -999.0
          SNHOST8_DEC(igal)        = -999.0
          SNHOST_ANGSEP(igal)      = -9.0
@@ -24613,8 +24609,8 @@ c always write LOGMASS and SFR
      &      VARLIST(1:LENLIST)//char(0), 0, LENBLOCK, LENLIST)
       ENDIF
 
-c Feb 2019: a few things for 2nd match, data only
-      IF ( .NOT. LSIM_SNANA ) THEN
+c Feb 2019: a few things for existing ANGSEP
+      IF ( EXIST_SNHOST_ANGSEP ) THEN 
 
 c         VARLIST = 'HOST2_OBJID:L'  // char(0)
 c         CALL SNTABLE_ADDCOL(ID, CBLOCK_L, SNHOST_OBJID(2), VARLIST,0,
@@ -25206,6 +25202,7 @@ c Jan 08, 2018: add SIM_VPEC to text-FITRES output
 c Feb 28, 2018: add LCLIB params
 c Dec 10, 2018: add BYOSED params
 c Feb 01, 2019: add SIM_LCWIDTH
+c Feb 27, 2020: add SIM_HOSTLIB_GALID
 
       IMPLICIT  NONE
       INTEGER   ID          ! (I) table id
@@ -25219,7 +25216,7 @@ c local var
       CHARACTER 
      &    CTMP*(MXCHAR_FILEWORD)
      &  , VARLIST*400, CBLOCK*40
-      INTEGER LENLIST, IPAR, LENBLOCK, LENTMP
+      INTEGER LENLIST, IPAR, LENBLOCK, LENTMP, ITEXT
 
       EXTERNAL SNTABLE_ADDCOL
 
@@ -25392,13 +25389,18 @@ c Feb 2018: LCLIB model params
 
 c SIM_HOSTLIB params
 
+      ITEXT = 0
+      if ( WRTABLEFILE_HOST_TEXT ) ITEXT=1
+      VARLIST = 'SIM_HOSTLIB_GALID' // ':D' // char(0) ! Feb 2020
+         CALL SNTABLE_ADDCOL(ID,CBLOCK, DSIM_HOSTLIB_GALID,
+     &        VARLIST, ITEXT,    LENBLOCK, LENLIST)
+
       DO IPAR    = 1, NPAR_SIM_HOSTLIB
          CTMP    = SIM_HOSTLIB_PARNAME(ipar)
          LENTMP  = INDEX(CTMP,' ') - 1
          VARLIST = 'SIM_HOSTLIB_' // CTMP(1:LENTMP) // ':F' // char(0)
-         CALL SNTABLE_ADDCOL(ID,CBLOCK,SIM_HOSTLIB_PARVAL(ipar),
-     &        VARLIST, 0, 
-     &        LENBLOCK, LENLIST)
+         CALL SNTABLE_ADDCOL(ID,CBLOCK, SIM_HOSTLIB_PARVAL(ipar),
+     &        VARLIST, 0,    LENBLOCK, LENLIST)
       ENDDO  
 
 

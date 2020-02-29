@@ -273,7 +273,8 @@ c variable indices for R4EP_
      &  ,JEP_MODELMAG,  JEP_MODELMAG_ERR
      &  ,JEP_FLUX_ERRTOT, JEP_RATIO, JEP_RATIO_ERR
      &  ,JEP_LAMREST, JEP_AVWARP, JEP_KCOR, JEP_KCOR_ERR
-     &  ,JEP_DATAFLUX_REST, JEP_MODELMAG_REST, JEP_FUDGEFLUX_ERR
+     &  ,JEP_DATAFLUX_REST, JEP_MODELMAG_REST
+     &  ,JEP_FUDGEFLUX_ERR, JEP_FUDGE_MAXFRAC
      &  ,JEP_RESID, JEP_RESID_ERR, JEP_MAGDIF, JEP_DELCHI2
      &  ,JEP_XTHOST, JEP_MWXT, JEP_MWXT_MAGERR, JEP_MWXT_FLUXERR
      &  ,JEP_FPKRAT, JEP_FPKRATERR
@@ -346,6 +347,7 @@ c for R4EP_XXX
      &  ,JEP_SIM_FLUXREST  = 48
      &  ,JEP_SIM_FLUXCAL   = 49  ! for LSIM_MAGOBS = T
      &  ,JEP_SIM_DELCHI2   = 50  ! chi2 from data-sim flux diff
+     &  ,JEP_FUDGE_MAXFRAC = 51
      &     )
 
 c EP_XXX refers to "IMJD" variables stored at end of fit.
@@ -2194,6 +2196,10 @@ c
 c Jun 21 2018: 
 c   check CRAZYFITERR on every iteration to check for NaN
 c
+c Feb 28 2020:
+c   set ERRFLAG = -1 (repeat iter) if both ITER1_MAXFRAC and 
+c   DELCHI2_REJECT are set. Fixes long-standing bug.
+c
 c --------------------------------------------------
 
       IMPLICIT NONE
@@ -2216,7 +2222,8 @@ c local var
      &   IFILT, IFILT_OBS, CID, LCID, IERR, NFIT_PLOT
      &  ,OPT, hid, i, IERR_MARG
 
-      LOGICAL DOLC_PLOT, LFITOK,  LAST, DO_REFIT
+      LOGICAL DOLC_PLOT, LFITOK,  FIRST, LAST, DO_REFIT
+      LOGICAL LMAXFRAC, LCHI2REJ
       REAL FRACERRDIF
       character sdir*20, chis*40, ccid*(MXCHAR_CCID)
 
@@ -2227,6 +2234,7 @@ C -------------------- BEGIN ---------------
 
       ERRFLAG  = 0   ! init output to "accept"
       LAST     = ITER .EQ. NFIT_ITERATION
+      FIRST    = ITER .EQ. 1
 
       CID   = SNLC_CID
       CCID  = SNLC_CCID      
@@ -2260,6 +2268,24 @@ c Jan 2016: fit iteration again if cov matrix has not converged
          ERRFLAG = ERRFLAG_REPEAT_ITER  ! -1
          RETURN
       ENDIF
+
+c Feb 28 2020: 
+c    repeat if first iteration errors are fudged and chi2-epoch
+c    rejection is turned on. These two options are not compatible,
+c    so apply LMAXFRAC first iter, then on repeat of 1st iteration,
+c    get chi2 for DELCHI2_REJECT cut.
+
+      IF ( RESTORE_DES3YR ) GOTO 555
+
+      IF ( FIRST .and. (.not.LREPEAT_ITER) ) THEN
+        LMAXFRAC = (FUDGEALL_ITER1_MAXFRAC > 1.0E-8)
+        LCHI2REJ = (DELCHI2_REJECT < 1.0E8 )
+        if ( LMAXFRAC .and. LCHI2REJ ) then
+          ERRFLAG = ERRFLAG_REPEAT_ITER   ! .xyz
+        endif
+      ENDIF
+
+555   CONTINUE ! xxxx skip here to restore DES3YR
 
 c --------------------------------------------
 c May 2018 check option to repeat entire fit with MINOS
@@ -4105,6 +4131,8 @@ c local arguments
      &  ,LFLAG_FIT, LFLAG_PRIOR_ONLY, LFLAG_SIGMA_ONLY
      &  ,LAST, LDMPFCN_LOC, LDMPFUN_LOC, LREJECT, LFITDATA  
      &  ,FIRSTFILT, LASTFILT, LMWCOR, LIGNORE, LTMP, LMUFIX, LPOSFLUX
+     &  ,FIRST_ITER
+     &  ,REJECT_TREST, REJECT_MJD, REJECT_SIGNOISE, REJECT_DELCHI2
 
       CHARACTER CVAR*8, star*1
       REAL*8 delchi2_off(2000)
@@ -4151,6 +4179,8 @@ c extract parameters into local variables
       ITER       = int ( XVAL(IPAR_ITER) )
       ISN        = int ( XVAL(IPAR_ISN)  )
       if ( ITER .EQ. 0 .OR. ISN .EQ. 0 ) RETURN
+
+      FIRST_ITER = FIRST_ITERATION(ITER) 
 
       COLORPAR    = XVAL(IPAR_AV)       !  AV or c
       AVRV        = XVAL(IPAR_AVRV) 
@@ -4494,28 +4524,43 @@ c data/Model ratio
 
 c check for epochs to reject at end of 1st iteration only (note LAST=T here)
 
-            if ( FIRST_ITERATION(iter) ) then
+           if ( FIRST_ITER .and. IFLAG <= 4 ) then  ! includes iter=1 repeat
 
               signoise_data  = flux_data  / flux_data_errtot
               signoise_model = flux_model / flux_data_errtot
-              
+
+              REJECT_TREST   = 
+     &           (Trest < FITWIN_TREST_FILT(1,ifilt_obs) ) .or. 
+     &           (Trest > FITWIN_TREST_FILT(2,ifilt_obs) )
+              REJECT_MJD = 
+     &          (MJD < FITWIN_MJD(1)) .or. (MJD > FITWIN_MJD(2))
+
+              REJECT_DELCHI2  = (delchi2  > DELCHI2_REJECT  )
+              REJECT_SIGNOISE = (signoise_data < SIGNOISE_REJECT)
+
               LREJECT  = 
-     &              (delchi2   .GT. DELCHI2_REJECT  )
-     &        .or.  (Trest     .LT. FITWIN_TREST_FILT(1,ifilt_obs) )
-     &        .or.  (Trest     .GT. FITWIN_TREST_FILT(2,ifilt_obs) )
-     &        .or.  (MJD       .LT. FITWIN_MJD(1)   )
-     &        .or.  (MJD       .GT. FITWIN_MJD(2)   )
-     &        .or.  (signoise_data  .LT. SIGNOISE_REJECT )
+     &              REJECT_DELCHI2 .or. REJECT_SIGNOISE .or. 
+     &              REJECT_TREST   .or. REJECT_MJD
               
               if ( epoch < MXFIT_DATA ) then
                 if ( LREJECT ) then 
                    I4EP_ALL(epoch,IEP_REJECT) = 1
+
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+c               write(6,689) iter, LREPEAT_ITER, epoch, Trest,
+c     &            delchi2, R4EP_ALL(epoch,JEP_FUDGE_MAXFRAC) 
+c689            format(' xxx REJECT ITER=',I1,'(',L1,')', 3x,
+c     &            'ep=',I3, 2x, 'Trest=', F8.2, 2x, 
+c     &            'DELCHI2=',F8.2, 2x,'MAXFRAC=',F5.2)
+c                call flush(6)
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
                 else
                    I4EP_ALL(epoch,IEP_REJECT) = 0
                 endif
               endif
 
-           endif
+           endif  ! end FIRST_ITERATION
 
            if ( LFITDATA .and. (.NOT.LFLAG_USESIM) ) then
 
@@ -8146,7 +8191,7 @@ c FCNSNLC args
 
 C --------------- BEGIN -----------------
 
-      IF ( USE_SNHOST_ZPHOT .and. OPT_DEBUG .ne. 444 ) THEN
+      IF ( USE_SNHOST_ZPHOT  ) THEN
          c1err = '&SNLCINP input USE_SNHOST_ZPHOT=T'
          c2err = 'not allowed with photo-z fits'
          CALL MADABORT('FITINI_PHOTOZ', c1err, c2err)    
@@ -8785,27 +8830,6 @@ c --------------------------------------------
         PARMAX  = INIVAL(IPAR)
         PARBIN  = 0.0
 
-+SELF,IF=XXXREMOVE.
-c xxxxxxxxx mark delete Jul 2019 xxxxxxxxx
-      ELSE IF ( LREPEAT_ITER ) THEN
-
-        PARLAST  = FITVAL(IPAR,ITER)
-        DIF      = BND_LOCAL(2) - BND_LOCAL(1)
-        PARMIN   = PARLAST - DIF/4.0  ! (hard-wire)
-        PARMAX   = PARLAST + DIF/4.0
-        PARMIN   = MAX ( PARMIN, BND_LOCAL(1) )
-        PARMAX   = MIN ( PARMAX, BND_LOCAL(2) )
-
-        IF ( DO_COLOR ) THEN
-           NBIN  = int(5.*(PARMAX-PARMIN) ) + 1       ! hard-wire
-        ELSE
-           NBIN  = 3  ! stretch/lumi bins
-        ENDIF
-
-        NBIN = NBIN * ISCALE_COURSEBIN_PHOTOZ
-        PARBIN   = (PARMAX - PARMIN) / DBLE(NBIN)
-c xxxxxxxxxx end mark xxxxxxxxxxxx
-+SELF.
       ELSE
         PARMIN  = BND_LOCAL(1)
         PARMAX  = BND_LOCAL(2)
@@ -9532,7 +9556,6 @@ c  Fill R4EP_XXX and I4EP_XXX arrays.
 c -------------------------------
 c load some local arrays.
 
-cc        DO N = 1, NEPOCH_ALL(0)
         DO N = 1, NFITDATA_TOTAL
            ep = EPLIST_FIT(N)
 
@@ -10053,6 +10076,7 @@ c all plots.
 
         ERR_TMP = MAXFRAC * SNLC_FLUXCALMAX(ifilt)  
         R4EP_ALL(ep,JEP_FUDGEFLUX_ERR)  = ERR_TMP
+        R4EP_ALL(ep,JEP_FUDGE_MAXFRAC)  = MAXFRAC
 
 c set error on MilkyWay Galactic extinction
          MAGERR8 = SNLC_MWXT_MAGERR(ifilt)
@@ -10167,6 +10191,10 @@ c and also from FUDGE_FITERR_XXX options.
 c Return maximum of these two MAXFRAC  values  so that we 
 c essentially OR the two options.
 c
+c Feb 28 2020: 
+c   FIRST_ITER now includes !LREPEAT_ITER. Restore old bug 
+c   with RESTORE_DES3YR.
+c
 c -------------
       IMPLICIT NONE
 
@@ -10179,6 +10207,7 @@ c local args
 +CDE,SNDATCOM. 
 +CDE,SNFITCOM.
 +CDE,SNLCINP.
++CDE,SNANAFIT.
 
       REAL ALL_MAXFRAC, FITERR_MAXFRAC
       LOGICAL LT1, LT2, LAM1, LAM2, LFILT, LITER
@@ -10191,7 +10220,11 @@ c ------------------ BEGIN ----------------
       GET_FUDGE_FITERR_MAXFRAC = 0.0 
       IF ( .NOT. USE_FUDGE_FITERR ) RETURN
 
-      FIRST_ITER  = FIRST_ITERATION(ITER)
+      FIRST_ITER = FIRST_ITERATION(ITER) .and. (.NOT. LREPEAT_ITER)
+
+c - - - - - - 
+      IF ( RESTORE_DES3YR ) FIRST_ITER = FIRST_ITERATION(ITER) 
+c - - - - - - -
 
       ALL_MAXFRAC         = 0.0
       FITERR_MAXFRAC      = 0.0
@@ -15081,8 +15114,6 @@ c
 +CDE,SNFITCOM.
 +CDE,SNANAFIT.
 +CDE,FITIDEALCOM.
-
-cc+CDE,SNLCINP.   ! xxx TEMP for OPT_DEBUG
 
       INTEGER IMJD, EPMIN, EPMAX, EP, IFILT_OBS
       REAL FSCALE

@@ -6367,7 +6367,7 @@ c such as from filter dropouts  in photoZ fit.
 
 c check option to redo fit-iteration 
       if ( ERRFLAG .EQ. -1 ) then
-         ITER = ITER - 1 
+         ITER         = ITER - 1 
          LREPEAT_ITER = .TRUE.
       else
          LREPEAT_ITER = .FALSE.

@@ -18035,7 +18035,12 @@
          v10_75e (  ) 
 
          ***** IMPORTANT(v10_75e) ***** 
-
+   snlc_fit.car:
+     For &FITINP inputs FUDGEALL_ITER1_MAXFRAC and DELCHI2_REJECT,
+     fixed long-standing bug where ITER1_MAXFRAC causes DELCHI2_REJECT
+     to have little or no impact. Fix include extra fit-iteration,
+     so CPU time will increase.
+ 
          ***** USEFUL(v10_75e) ***** 
 
          ***** MISCELLANEOUS(v10_75e) ***** 
@@ -18049,8 +18054,14 @@
 
    snlc_sim.c:
      + new sim-input HOSTLIB_MAXDDLR: 4.0 (see manual)
+     + for SIMLIB model, automatoically set zHOST_FILE and SPEC_FILE to NONE
 
    snana.car:
      + plot 2nd host info if HOSTGAL_ANGSEP exists (data or sim)
+
+   snlc_fit.car:
+     + if FUDGEALL_ITER1_MAXFRAC and DELCHI2_REJECT are both set,
+       do MAXFRAC first, then repeat 1st iter and set chi2 for
+       DELCHI2_REJECT.
 
 END: 

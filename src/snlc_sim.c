@@ -6066,6 +6066,9 @@ void prep_user_input(void) {
     INPUTS.HOSTLIB_DZTOL[2] = 0.0;
 
     GENLC.ptr_SHAPEPAR = &GENLC.SALT2x1 ; 
+    sprintf(INPUTS_SEARCHEFF.USER_zHOST_FILE, "NONE" );
+    sprintf(INPUTS_SEARCHEFF.USER_SPEC_FILE,  "NONE" );
+
   }
   else {
     sprintf(c1err,"%s is not a valid genmag-model", INPUTS.MODELNAME);

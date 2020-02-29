@@ -1108,7 +1108,7 @@ C ===================================
 +USE,P=*HFUNS,T=EXE.
 
 C ===========================================
-+DECK,FPAR_INI.
++DECK,FITPAR_INI.
       SUBROUTINE FITPAR_INI(IERR)
 c
 c User init: (read input, open files, etc ...)
@@ -1658,7 +1658,7 @@ c ----
       END  ! end of FITPAR_INI
 
 C ===========================================
-+DECK,FPARINI2.
++DECK,FITPAR_INI2.
       SUBROUTINE FITPAR_INI2(IERR)
 c
 c Created May 2012 by R.Kessler
@@ -1720,7 +1720,7 @@ c not yet been filled.
       END  ! end FITPAR_INI2
 
 C ===========================================
-+DECK,FPAREND.
++DECK,FITPAR_END.
       SUBROUTINE FITPAR_END(IERR)
 c
 c User end-routine after all analysis/fits are done. 
@@ -1754,7 +1754,7 @@ C ------------------- BEGIN ---------------------
       END
 
 C ==========================================
-+DECK,FPAR_PREP.
++DECK,FITPAR_PREP.
       SUBROUTINE FITPAR_PREP ( iter, IERR )
 c
 c For each "isn" supernova, this user-routine is used to
@@ -2083,7 +2083,7 @@ c ---------------
 
 
 C =====================================
-+DECK,FINI_EPVAR.
++DECK,FITINI_EPVAR.
       SUBROUTINE FITINI_EPVAR(ITER)
       IMPLICIT NONE
 
@@ -2158,7 +2158,7 @@ c init filter-dependent variables.
 
 
 C ===================================================
-+DECK,FPAR_ANA.
++DECK,FITPAR_ANA.
       SUBROUTINE FITPAR_ANA ( isn, iter, ERRFLAG )
 c
 c User-routine to analyze fit results after each SN.
@@ -2269,23 +2269,30 @@ c Jan 2016: fit iteration again if cov matrix has not converged
          RETURN
       ENDIF
 
+
+
+c xxxxxxxx mark delete Feb 29 2020 xxxxxxxxxx
 c Feb 28 2020: 
 c    repeat if first iteration errors are fudged and chi2-epoch
 c    rejection is turned on. These two options are not compatible,
 c    so apply LMAXFRAC first iter, then on repeat of 1st iteration,
 c    get chi2 for DELCHI2_REJECT cut.
 
-      IF ( RESTORE_DES3YR ) GOTO 555
+c xxx       IF ( RESTORE_DES3YR ) GOTO 555
 
-      IF ( FIRST .and. (.not.LREPEAT_ITER) ) THEN
-        LMAXFRAC = (FUDGEALL_ITER1_MAXFRAC > 1.0E-8)
-        LCHI2REJ = (DELCHI2_REJECT < 1.0E8 )
-        if ( LMAXFRAC .and. LCHI2REJ ) then
-          ERRFLAG = ERRFLAG_REPEAT_ITER   ! .xyz
-        endif
+      IF ( OPT_DEBUG == 33 ) THEN
+         IF ( FIRST .and. (.not.LREPEAT_ITER) ) THEN
+            LMAXFRAC = (FUDGEALL_ITER1_MAXFRAC > 1.0E-8)
+            LCHI2REJ = (DELCHI2_REJECT < 1.0E8 )
+            if ( LMAXFRAC .and. LCHI2REJ ) then
+               ERRFLAG = ERRFLAG_REPEAT_ITER ! .xyz
+            endif
+         ENDIF
       ENDIF
 
-555   CONTINUE ! xxxx skip here to restore DES3YR
+cc xxx 555   CONTINUE ! xxxx skip here to restore DES3YR
+c xxxxxxxx end mark xxxxxxxxx
+
 
 c --------------------------------------------
 c May 2018 check option to repeat entire fit with MINOS
@@ -2458,7 +2465,7 @@ c See input namelist "SNMJD_LIST_FILE"
       END      ! end of FITPAR_ANA
 
 C ================================================
-+DECK,CRAZYERR.
++DECK,CRAZYFITERR.
       LOGICAL FUNCTION CRAZYFITERR(isn,iter)
 
 c Returns TRUE if a crazy fit error is identified.
@@ -4077,6 +4084,10 @@ c Jul 13 2019:
 c   + compute RATIO_ERR only if LFLAG_USER=T (to reduce compute time)
 c   + apply SNR_RAW cut to compute R4SN_FFSUM_XXX
 c
+c Feb 28 2020: 
+c   define DELCHI2_NOFUDGE to make test with DELCHI2_REJECT;
+c   fixes long-standing bug when FUDGEALL_ITER1_MAXFRAC is set.
+c
 c ---------------------------------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM. 
@@ -4116,7 +4127,7 @@ c local arguments
      &  ,errtmp, arg, RATIO, RATIO_ERR, WGT, MAGDIF, SNR_FIT, SNR_RAW
      &  ,AVwarp, mag_kcor(2), mag_tmp, mag_err
      &  ,dif, sqdif, sqsig, inv_sqsig, sqsig_nofudge
-     &  ,delchi2, delchi2_diag, delchi2_sigma
+     &  ,delchi2, delchi2_diag, delchi2_sigma, delchi2_nofudge
      &  ,chi2filt_sigma(MXFILT_OBS),chi2sum_sigma,chi2filt(MXFILT_OBS)
      &  ,errfrac, DEL_FLUX(MXFIT_DATA)
      &  ,FF, COV_INV, x1, DT1, DT2, CHI2PRIOR(0:MXFITPAR)
@@ -4390,11 +4401,14 @@ c always evaluate simple chi2 ignoring covariance
 
         flux_errtot = dsqrt(sqsig)
                 
-        delchi2 = sqdif * inv_sqsig
+        delchi2         = sqdif * inv_sqsig
+        delchi2_nofudge = sqdif/sqsig_nofudge
+        IF ( RESTORE_DES3YR ) delchi2_nofudge = delchi2
 
         IF ( LFLAG_SIGMA_ONLY ) THEN
-          delchi2       = 0.0
-          delchi2_diag  = 0.0
+          delchi2         = 0.0
+          delchi2_diag    = 0.0
+          delchi2_nofudge = 0.0
         ENDIF
 
 c 5/08/2009: tack on chi2 from model-error (2nd iter only)
@@ -4535,7 +4549,14 @@ c check for epochs to reject at end of 1st iteration only (note LAST=T here)
               REJECT_MJD = 
      &          (MJD < FITWIN_MJD(1)) .or. (MJD > FITWIN_MJD(2))
 
-              REJECT_DELCHI2  = (delchi2  > DELCHI2_REJECT  )
+              REJECT_DELCHI2  = (delchi2_nofudge  > DELCHI2_REJECT  )
+
+c xxxxxxxxxxxx mark delete Feb 29 2020 xxxxxxxxxxxxxxx
+              if ( OPT_DEBUG == 33 ) then
+                 REJECT_DELCHI2  = (delchi2  > DELCHI2_REJECT  )
+              endif
+c xxxxxxxxxxxxxxxxxxxxx
+
               REJECT_SIGNOISE = (signoise_data < SIGNOISE_REJECT)
 
               LREJECT  = 
@@ -4546,14 +4567,14 @@ c check for epochs to reject at end of 1st iteration only (note LAST=T here)
                 if ( LREJECT ) then 
                    I4EP_ALL(epoch,IEP_REJECT) = 1
 
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+c xxxxxxxxxxxxxxxxxxxxxx mark delete Feb 29 2020 xxxxxxxxxxx
 c               write(6,689) iter, LREPEAT_ITER, epoch, Trest,
 c     &            delchi2, R4EP_ALL(epoch,JEP_FUDGE_MAXFRAC) 
 c689            format(' xxx REJECT ITER=',I1,'(',L1,')', 3x,
 c     &            'ep=',I3, 2x, 'Trest=', F8.2, 2x, 
 c     &            'DELCHI2=',F8.2, 2x,'MAXFRAC=',F5.2)
 c                call flush(6)
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
                 else
                    I4EP_ALL(epoch,IEP_REJECT) = 0
@@ -10220,11 +10241,13 @@ c ------------------ BEGIN ----------------
       GET_FUDGE_FITERR_MAXFRAC = 0.0 
       IF ( .NOT. USE_FUDGE_FITERR ) RETURN
 
-      FIRST_ITER = FIRST_ITERATION(ITER) .and. (.NOT. LREPEAT_ITER)
+      FIRST_ITER = FIRST_ITERATION(ITER) 
 
-c - - - - - - 
-      IF ( RESTORE_DES3YR ) FIRST_ITER = FIRST_ITERATION(ITER) 
-c - - - - - - -
+c xxxxxxx mark delete Feb 29 2020 xxxxxx
+      if ( OPT_DEBUG == 33 ) then
+         FIRST_ITER = FIRST_ITERATION(ITER) .and. (.NOT. LREPEAT_ITER)
+      endif
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
       ALL_MAXFRAC         = 0.0
       FITERR_MAXFRAC      = 0.0

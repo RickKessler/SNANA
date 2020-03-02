@@ -602,6 +602,8 @@ void set_user_defaults(void) {
 
   INPUTS.TRACE_MAIN = 0;
   INPUTS.DEBUG_FLAG = 0 ;
+
+  INPUTS.RESTORE_DES3YR       = false; // Mar 2020
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
   INPUTS.RESTORE_FLUXERR_BUGS = false; // Jan 2020
   INPUTS.OPT_DEVEL_BBC7D   = 1 ; // turn on, Jan 19 2020
@@ -1351,6 +1353,13 @@ int read_input(char *input_file) {
 
     if ( uniqueMatch(c_get,"DEBUG_FLAG:")  ) 
       { readint ( fp, 1, &INPUTS.DEBUG_FLAG );  continue ; }
+
+    // .xyz
+    if ( uniqueMatch(c_get,"RESTORE_DES3YR:")  )  { 
+      readint ( fp, 1, &ITMP );  
+      if ( ITMP ) { INPUTS.RESTORE_DES3YR = true; }
+      continue ; 
+    }
 
     if ( uniqueMatch(c_get,"OPT_DEVEL_BBC7D:")  ) 
       { readint ( fp, 1, &INPUTS.OPT_DEVEL_BBC7D );  continue ; }
@@ -4342,7 +4351,7 @@ void sim_input_override(void) {
   // Mar 10 2017: start add 'goto INCREMENT_COUNTER' to avoid conflicts.
   // Dec 27 2018: check LCLIB_CUTWIN
 
-  int  i, ilast, iuse, ifilt, N, j ;
+  int  i, ilast, iuse, ifilt, N, j, ITMP ;
   int  ipar, opt_tmp, itype, NLOCAL_DNDZ ;
   char  ctmp[80], ctmp2[80], parname[60] ;
   float ftmp, tmpSmear[2];
@@ -4384,6 +4393,12 @@ void sim_input_override(void) {
       { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_DEVEL_GENFLUX );  }
     if ( strcmp( ARGV_LIST[i], "DEBUG_FLAG" ) == 0 ) 
       { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.DEBUG_FLAG );   }
+
+    //.xyz
+    if ( strcmp( ARGV_LIST[i], "RESTORE_DES3YR" ) == 0 )  {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &ITMP );
+      INPUTS.RESTORE_DES3YR = true ;
+    }
 
     if ( strcmp( ARGV_LIST[i], "NONLINEARITY_FILE" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.NONLINEARITY_FILE ); 
@@ -6481,7 +6496,7 @@ void prep_user_input(void) {
     }
   }
 
-  if ( INPUTS.DEBUG_FLAG == 3 ) {
+  if ( INPUTS.DEBUG_FLAG == 3 || INPUTS.RESTORE_DES3YR ) {
     INPUTS.RESTORE_HOSTLIB_BUGS = true ;
     INPUTS.RESTORE_FLUXERR_BUGS = true ;
     printf("\t Restore bugs for DES3YR analysis.\n");

@@ -11209,30 +11209,25 @@ if not, you may request additional test-jobs.
 
 
 % --------------------------------------
-  \subsubsection{Data Backup/Archival: {\tt backup\_SNDATA\_version.cmd} }
-  \label{sss:backup_SNDATA}
+  \subsubsection{Restoring Bugs}
+  \label{sss:restore_bugs}
 % --------------------------------------
 
-A data version can be archived with
-%
+Following the publication of an analysis, \snana\ bugs are
+found and fixed, and algorithms are improved.
+While all \snana\ code versions are archived for reproducibility,
+it may be convenient to include a flag to restore original code,
+including bugs. Such a flag allows using the same [current] code 
+version to process data with \& without the code changes. 
+The first such flag is for the DES 3-year (DES3YR) cosmology results 
+published Winter 2019:
+% 
 \begin{verbatim}
-   backup_SNDATA_version.cmd  MYVERSION
+   RESTORE_DES3YR: 1  # sim-input
+
+   &SNLCINP
+      RESTORE_DES3YR = T  # LC fit input
 \end{verbatim}
-%
-which creates a tarball-backup in
-%
-\begin{verbatim}
-   $SNDATA_ROOT/lcmerge/archive/MYVERSION_[yyy]-[mm]-[dd].tar.gz
-\end{verbatim}
-%
-where {\tt [yyyy]-[mm]-[dd]} is the year, month and day.
-This script is useful to backup a newly made data version,
-archive a version used in a publication, or to send a data
-version to a collaborator.
-In general the {\tt\$}{\sndataroot} disk is not backup up,
-so to have a truly protected backup you need to either
-(1) backup {\tt\$}{\sndataroot} or (2) copy the tarball-backup
-to another storage device.
 
 
 % --------------------------------------

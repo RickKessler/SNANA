@@ -18038,8 +18038,7 @@
    snlc_fit.car:
      For &FITINP inputs FUDGEALL_ITER1_MAXFRAC and DELCHI2_REJECT,
      fixed long-standing bug where ITER1_MAXFRAC causes DELCHI2_REJECT
-     to have little or no impact. Fix include extra fit-iteration,
-     so CPU time will increase.
+     to have little or no impact. 
  
          ***** USEFUL(v10_75e) ***** 
 
@@ -18058,10 +18057,12 @@
 
    snana.car:
      + plot 2nd host info if HOSTGAL_ANGSEP exists (data or sim)
+     + modify LCUTEPOCH to replace obsolete IDTEL with IFILT,
+       and reject if EPCUT_SNRMIN requires any SNR > 100.
 
    snlc_fit.car:
-     + if FUDGEALL_ITER1_MAXFRAC and DELCHI2_REJECT are both set,
-       do MAXFRAC first, then repeat 1st iter and set chi2 for
-       DELCHI2_REJECT.
+     + when DELCHI2_REJECT is set, apply test on DELCHI2 
+       without extra FUDGEALL_ITER1_MAXFRAC so that the FUDGE 
+       does not mess up the DELCHI2_REJECT feature.
 
 END: 

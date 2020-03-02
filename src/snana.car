@@ -11211,7 +11211,7 @@ c local variables
 
       INTEGER 
      &   NRD, JPAR, LRET, ep
-     &  ,IDTEL, IDFIELD, NEPCUT
+     &  ,IFILT_OBS, IFILT, IDFIELD, NEPCUT
   
       CHARACTER  KEYNAME*80
 
@@ -11305,13 +11305,13 @@ c use above info to determine which epochs to keep/reject
       NEPCUT = 0
 
       DO 99 ep = 1, NRD
-        MJD     = SNGL( SNLC8_MJD(ep) )
-        IDFIELD = ISNLC_IDFIELD(ep)
-        IDTEL   = ISNLC_IDTEL(ep)
-
+        MJD         = SNGL( SNLC8_MJD(ep) )
+        IDFIELD     = ISNLC_IDFIELD(ep)
+        IFILT_OBS   = ISNLC_IFILT_OBS(ep)
+        IFILT       = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
         IGNORE  = CHECK_EPOCH_IGNORE(1,ep) .and.
      &            (.not. REFORMAT_SAVE_BADEPOCHS)
-        LCUT    = LCUTEPOCH(Z, PKMJD, MJD, IDTEL, IDFIELD ) 
+        LCUT    = LCUTEPOCH(Z, PKMJD, MJD, IFILT, IDFIELD ) 
      &            .and. (.not. IGNORE )
 
         IF ( LCUT ) then
@@ -14415,6 +14415,7 @@ c subroutine args.
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
++CDE,FILTCOM.
      
 c local var
       character 
@@ -14423,8 +14424,9 @@ c local var
 
       integer  
      &   Newmjd, ITMPN(MXFILT_OBS)
-     &  ,IDTEL, IDFIELD, ITMP, EPMIN, EPMAX, ep, NFILT
-     
+     &  ,IDTEL, IDFIELD, ITMP, EPMIN, EPMAX, ep
+     &  ,IFILT_OBS, IFILT, NFILT
+
       REAL Z, PKMJD
       LOGICAL LTMP, LTMP1, LTMP2, IGNORE
 
@@ -14615,13 +14617,15 @@ c read optional SIM quantities if it's there (Jan 2014)
         endif
 
 c apply epoch cut.
-        Z       = SNLC_REDSHIFT
-        PKMJD   = SNLC_SEARCH_PEAKMJD
-        IDTEL   = 999   ! no telescope defined for TERSE format
-        IDFIELD = ISNLC_IDFIELD(EPMIN)  
+        Z         = SNLC_REDSHIFT
+        PKMJD     = SNLC_SEARCH_PEAKMJD
+        IDFIELD   = ISNLC_IDFIELD(EPMIN)  
+        IFILT_OBS = ISNLC_IFILT_OBS(EPMIN)
+        IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
+
         IGNORE  = CHECK_EPOCH_IGNORE(1,EPMIN) .and. 
      &            (.not. REFORMAT_SAVE_BADEPOCHS)
-        LTMP    = LCUTEPOCH(Z, PKMJD, SNGL(MJD8), IDTEL, IDFIELD)
+        LTMP    = LCUTEPOCH(Z, PKMJD, SNGL(MJD8), IFILT_OBS, IDFIELD)
      &            .and. (.not. IGNORE )
 
         if ( .NOT. LTMP ) ISTAT = ISTAT_SKIP
@@ -16483,6 +16487,8 @@ c Set LSORT=T for any invalid measurement
            LVALID(ifilt_obs) = .FALSE.
          endif
 100   CONTINUE
+   
+cc      print*,' xxx LVALID = ', LVALID
 
 c -------------------------------------------------------
 c increment NEWMJD and NEPOCH if we have not erased
@@ -23509,7 +23515,7 @@ c find starting bin for grid interpolation
 
 C =========================================
 +DECK,LCUTEPOCH.
-      LOGICAL FUNCTION LCUTEPOCH(Z, PKMJD, MJD, IDTEL, IDFIELD)
+      LOGICAL FUNCTION LCUTEPOCH(Z, PKMJD, MJD, IFILT, IDFIELD)
 
 c ------------------------------------------- 
 c Created Jun 18, 2011
@@ -23518,7 +23524,9 @@ c The input are the epoch values rather than the SN ID.
 c
 c May 2012: ZZ=1 if z<0 to avoid ZZ=0
 c May 29 2019: do NOT apply Trest cut if OPT_SETPKMJD > 0
-c
+c Mar 01 2020: 
+c   Replace IDTEL with IFILT, and reject if SNRMIN cut >= 100.
+c   Allows rejecting bands using, e.g.,  EPCUT_SNRMIN = 'g 100 r 100'
 c ------------------------------------------
 
       IMPLICIT NONE
@@ -23527,8 +23535,8 @@ c ------------------------------------------
      &   Z, PKMJD      ! (I) redshift and time of peak brightness
      &  ,MJD           ! (I) MJD of epoch 
 
-      INTEGER IDTEL    ! (I) telescope ID
-      INTEGER IDFIELD  ! (I) FIELD ID
+      INTEGER IFILT       ! (I) sparse filter index
+      INTEGER IDFIELD     ! (I) FIELD ID
 
 c local variables
 
@@ -23557,6 +23565,7 @@ c evaluate epoch cut in rest-frame
 c       PKMJD not yet determined, so no TREST cut
          LTrest = .TRUE.
       ELSE
+c  use PEAKMJD from data file, go ahead with TREST cut
          Trest = (MJD - PKMJD) / ZZ
          LTrest = ( Trest .GE. cutwin_Trest(1) .and. 
      &              TRest .LE. cutwin_Trest(2) )
@@ -23571,9 +23580,16 @@ c       PKMJD not yet determined, so no TREST cut
       LTMP = LTREST .and. LMJD .and. (.not. LXMJD)
       IF ( .NOT. LTMP ) RETURN
 
+      if ( IFILT < 900 ) then
+        LTMP = CUTWIN_SNRMIN_FILT(1,IFILT) < 99.9999
+        IF ( .NOT. LTMP ) RETURN
+      endif
+
+c xxxxxxxxx mark delete Mar 1 2020
 c check selected telescope
-      LTMP = DOALL_SNTEL   .or. IDTEL .GT. 0
-      IF ( .NOT. LTMP ) RETURN
+c      LTMP = DOALL_SNTEL   .or. IDTEL .GT. 0
+c      IF ( .NOT. LTMP ) RETURN
+c xxxxxxxxxx end mark xxxxxxxxxxxx
 
 c check selected field.
       LTMP = DOALL_SNFIELD .or. IDFIELD .GT. 0          
@@ -35649,6 +35665,8 @@ c TREST cuts CANNOT be applied in the read-stage.
 c This function greatly reduces loop sizes for fitting, and helps 
 c prevent array bound overflows if fit-epoch arrays are smaller 
 c than the total array storage.
+c
+c Mar 1 2020: also require SNRMIN cut to be < 100 -> reject bands.
 
       IMPLICIT NONE
 
@@ -35661,8 +35679,9 @@ c than the total array storage.
       REAL*8  MJD8, MJD8_LAST
       INTEGER NMJD_STORE_NEW, NMJD_STORE_ORIG, NEWMJD
       INTEGER EPMIN, EPMAX, ep_orig, ep_new, IMJD
+      INTEGER IFILT, IFILT_OBS
       REAL MJD, TOBS, TREST, z1, z
-      LOGICAL LPASS
+      LOGICAL LPASS, LTREST, LSNRMIN
       CHARACTER FNAM*28
 
 c ------------------- BEGIN -------------------
@@ -35681,7 +35700,6 @@ c ------------------- BEGIN -------------------
          z1 = 1.0  ! in case Z = -9 is undefined; Trest -> Tobs
       endif
 
-
       DO 101 NEWMJD = 1, ISNLC_NEWMJD_STORE
          EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
          EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
@@ -35689,9 +35707,15 @@ c ------------------- BEGIN -------------------
          MJD8  = SNLC8_MJD(EPMIN) 
          MJD   = SNGL(MJD8)
          TOBS  = MJD - SNLC_SEARCH_PEAKMJD
+         IFILT_OBS = ISNLC_IFILT_OBS(epmin)
+         IFILT     = IFILTDEF_INVMAP_SURVEY(IFILT_OBS)
+
          TREST = TOBS/z1
-         LPASS = TREST >= CUTWIN_TREST(1) .and. 
-     &           TREST <= CUTWIN_TREST(2)
+         LTREST = TREST >= CUTWIN_TREST(1) .and. 
+     &            TREST <= CUTWIN_TREST(2)
+         LSNRMIN = CUTWIN_SNRMIN_FILT(1,IFILT) < 1000.
+
+         LPASS = LTREST .and. LSNRMIN
 
           IF ( LPASS ) THEN
             NMJD_STORE_NEW = NMJD_STORE_NEW + 1

@@ -18471,7 +18471,7 @@ c keep reading until first ROW key is found
          if ( NLINE > 50 ) then
             C1ERR = 'Could not find ROW key after 50 lines.'
             C2ERR = 'Check ' // MAGCOR_FILE
-            CALL MADABORT(FNAM,C1ERR,C2ERR)          
+            CALL MADABORT(FNAM,C1ERR,C2ERR)   
          endif
 
          NWD = STORE_PARSE_WORDS(MSKOPT, LINE//char(0), 200)
@@ -19157,7 +19157,9 @@ c check MJD-exclude window to reject epochs (but keep LC)
      &            MJD8 .LE. CUTWIN_MJD_EXCLUDE(2)
             
 c Feb 2020: check PSF and ZPERR cuts here
-          PSF = SNLC_PSF_SIG1(EP)
+c           PSF cut is FWHM, arcsec. ZPERR cut in mag.
+c Mar 2 2020: fix awful PSF units bug
+          PSF  = SNLC_PSF_SIG1(EP) * (SNLC_PIXSIZE * 2.355)
           LPSF = PSF .GE. CUTWIN_PSF(1) .and. PSF.LE.CUTWIN_PSF(2)
 
           ZPERR  = SNLC_ZEROPT_ERR(EP)
@@ -37533,7 +37535,12 @@ c get prior-chi2 using special flag
 
 c determine effective Ndof for prior.
 
-      NDOF_PRIOR = 0      ! bug fix, Feb 22 2020
+      if ( RESTORE_DES3YR ) then
+         ! do not reset NDOF_PRIOR to restore bug
+      else 
+         NDOF_PRIOR = 0      ! bug fix, Feb 22 2020
+      endif
+   
       if ( CHI8 .GT. 0.01 ) then
         NDOF_PRIOR = 1
       endif

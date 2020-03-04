@@ -18032,14 +18032,19 @@
 
 
 # ======================================================================= 
-         v10_75e (  ) 
+         v10_75e (Mar 04 2020) 
 
          ***** IMPORTANT(v10_75e) ***** 
+
    snlc_fit.car:
      For &FITINP inputs FUDGEALL_ITER1_MAXFRAC and DELCHI2_REJECT,
-     fixed long-standing bug where ITER1_MAXFRAC causes DELCHI2_REJECT
-     to have little or no impact. 
+     fixed long-standing conflict bug where ITER1_MAXFRAC causes 
+     DELCHI2_REJECT to have little or no impact. 
  
+     Improve initial PKMJD-vs-CHI2 sweep in FITINI_ADJUST.
+
+   snana.car : fix PSF cut bug introduced at v10_75c.
+
          ***** USEFUL(v10_75e) ***** 
 
          ***** MISCELLANEOUS(v10_75e) ***** 
@@ -18053,16 +18058,28 @@
 
    snlc_sim.c:
      + new sim-input HOSTLIB_MAXDDLR: 4.0 (see manual)
-     + for SIMLIB model, automatoically set zHOST_FILE and SPEC_FILE to NONE
+     + for SIMLIB model, automatically set zHOST_FILE and SPEC_FILE to NONE
+     + add sim-input  RESTORE_DEDS3YR: 1  to restore DES3YR bugs in sim.
 
    snana.car:
      + plot 2nd host info if HOSTGAL_ANGSEP exists (data or sim)
      + modify LCUTEPOCH to replace obsolete IDTEL with IFILT,
        and reject if EPCUT_SNRMIN requires any SNR > 100.
+     + wrap recent NDOF_PRIOR fix around RESTORE_DES3YR
+     + fix awful bug from v10_75c ; CUTWIN_PSF was applied
+       to PSF with wrong units.
 
    snlc_fit.car:
      + when DELCHI2_REJECT is set, apply test on DELCHI2 
        without extra FUDGEALL_ITER1_MAXFRAC so that the FUDGE 
        does not mess up the DELCHI2_REJECT feature.
+
+     + in FITINI_ADJUST, tweak PKMJD sweep to 
+         1) span -4 to +4 days, 2 day bins (was -2 to +2, 1 day bin)
+         2) remove requirement that new CHI2 < 5*NEPOCH
+       This change causes ~dozen snana-tester failures, but the
+       changes are all in 4th or 5th significant digit, and thus OK.
+       This update should make fits more robust against bad PEAKMDJINI
+       estimates.
 
 END: 

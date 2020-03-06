@@ -18082,4 +18082,18 @@
        This update should make fits more robust against bad PEAKMDJINI
        estimates.
 
+
+# ======================================================================= 
+         v10_75f (  ) 
+
+         ***** IMPORTANT(v10_75f) ***** 
+
+         ***** USEFUL(v10_75f) ***** 
+
+         ***** MISCELLANEOUS(v10_75f) ***** 
+
+   snlc_fit.car
+     + new FITRES table variable NPTFIT_REJECT = number of obs
+       withing Trest window that are rejected by DELCHI2_REJECT.
+       
 END: 

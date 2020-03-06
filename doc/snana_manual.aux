@@ -1,0 +1,511 @@
+\relax 
+\citation{JRK07}
+\citation{Guy07}
+\citation{Burns11}
+\citation{Gold01}
+\citation{Hayden09}
+\citation{K10_challenge}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{7}}
+\newlabel{sec:intro}{{1}{7}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}{\tt  SNANA}\ Basics}{7}}
+\newlabel{sec:basics}{{2}{7}}
+\citation{SNANA09}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Dr. Evil-ABORT-Face}{8}}
+\newlabel{abort}{{2.1}{8}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Data Files}{8}}
+\newlabel{dataFiles}{{2.2}{8}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Citations}{8}}
+\newlabel{subsec:cite}{{2.3}{8}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}The Calibration + K-Correction file}{9}}
+\newlabel{sec:kcorFile}{{3}{9}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Changing the Mean Filter Wavelength}{9}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Defining a {{\tt  SPECTROGRAPH}} }{10}}
+\newlabel{subsec:kcor_spectrograph}{{3.2}{10}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}The {\tt  SNANA}\ Simulation: {\tt  snlc\_sim.exe}}{11}}
+\newlabel{sec:snlc_sim}{{4}{11}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Overview of Model Magnitudes and Noise Calculation }{11}}
+\newlabel{subsec:overview}{{4.1}{11}}
+\newlabel{eq:noiseModel}{{3}{11}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Getting Started Quickly }{12}}
+\newlabel{subsec:sim_start}{{4.2}{12}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Search Hierarchy for Supplemental Input Files}{13}}
+\newlabel{subsec:sim_inpfiles}{{4.3}{13}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Synchronizing Random Numbers}{13}}
+\newlabel{subsec:sim_ransync}{{4.4}{13}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Simulated TYPE}{14}}
+\newlabel{subsec:sim_sntype}{{4.5}{14}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.6}The `{{\tt  SIMLIB}}' Observing Conditions File }{15}}
+\newlabel{subsec:simlib}{{4.6}{15}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces  Header and part of first entry of the {\tt  SIMLIB}\ file used for the SDSS-II survey. }}{17}}
+\newlabel{fig:simlib}{{1}{17}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.6.1}{{\tt  SIMLIB}} Options in the Sim-Input File}{18}}
+\newlabel{sssec:simlib_options}{{4.6.1}{18}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.6.2}{{\tt  SIMLIB}} {\tt  SPECTROGRAPH}\ }{19}}
+\newlabel{sssec:simlib_spectrograph}{{4.6.2}{19}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.6.3}{{\tt  SIMLIB}} Options for each LIBID}{20}}
+\newlabel{sssec:libid_options}{{4.6.3}{20}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.6.4}Saturation Option}{21}}
+\newlabel{sssec:saturation}{{4.6.4}{21}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.6.5}{\tt  APPEND} Option}{22}}
+\newlabel{sssec:simlib_append}{{4.6.5}{22}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.6.6}SNR Monitor}{22}}
+\newlabel{sssec:SNRMON}{{4.6.6}{22}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.7}Simulating Fields}{22}}
+\newlabel{subsec:simFields}{{4.7}{22}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.7.1}Overlapping Fields}{22}}
+\newlabel{sss:overlap}{{4.7.1}{22}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.7.2}Field Subset}{23}}
+\newlabel{sss:field_subset}{{4.7.2}{23}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.8}Correlated Template Noise}{24}}
+\newlabel{subsec:template_noise}{{4.8}{24}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.9}Simulating Multiple Instruments}{25}}
+\newlabel{subsec:multi_telescope}{{4.9}{25}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces  Excerpt from {\tt  SIMLIB}\ with two instruments: DES optical ($griz$) and VIDEO infrared ($YJ$). }}{25}}
+\newlabel{fig:simlib_merge}{{2}{25}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.10}Simulating Multiple Seasons}{25}}
+\newlabel{subsec:multi_seasons}{{4.10}{25}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.11}Simulating a Filter as a Sum of Components}{26}}
+\newlabel{subsec:filterSum}{{4.11}{26}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.12}Noise Corrections: $\mathaccent "705E\relax {S}_{\rm  SNR}$ and $\mathaccent "705E\relax \sigma _0$ }{27}}
+\newlabel{subsec:noise_cor}{{4.12}{27}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.12.1} {\tt  FLUXERRMODEL} Tables }{27}}
+\newlabel{sss:fluxerrmap}{{4.12.1}{27}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces  Illustration of {\tt  FLUXERRMODEL\_FILE} with 2D map to define $\mathaccent "705E\relax {S}_{\rm  SNR}$ for DEEP fields in DES. While the bands and fields correspond to DES, this map is made up for illustration and should not be used in any analysis. }}{29}}
+\newlabel{fig:fluxerrmap_2D}{{3}{29}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.12.2}Modeling Flux Correlations }{30}}
+\newlabel{sss:fluxCov}{{4.12.2}{30}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.12.3} Suggested Strategy for Determining {\tt  FLUXERRMODEL} Tables }{31}}
+\newlabel{sss:fluxerrmap_ideas}{{4.12.3}{31}}
+\newlabel{eq:SSNRmap1}{{5}{31}}
+\newlabel{eq:SSNRmap2}{{6}{31}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.12.4}Extracting Information for {\tt  FLUXERRMODEL} }{31}}
+\newlabel{sss:fluxerrmap_info}{{4.12.4}{31}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.12.5} Legacy Noise Corrections }{32}}
+\newlabel{sss:noise_cor_legacy}{{4.12.5}{32}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.13}Example Noise Calculation}{33}}
+\newlabel{subsec:noise_calc}{{4.13}{33}}
+\newlabel{eq:sigmaNADU}{{8}{33}}
+\newlabel{eq:NEA_formula}{{10}{33}}
+\citation{Nugent2002}
+\citation{JRK07}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.14}K-corrections }{35}}
+\newlabel{subsec:simKcor}{{4.14}{35}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.15}Intrinsic Brightness Variations}{36}}
+\newlabel{subsec:magsmear}{{4.15}{36}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.15.1}Supernova Brightness Variations}{36}}
+\newlabel{sss:SNmagsmear}{{4.15.1}{36}}
+\citation{MICE2015}
+\citation{LogNormal2013}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.15.2}Weak Gravitational Lensing}{37}}
+\newlabel{sss:weak_lensing}{{4.15.2}{37}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.15.3}Strong Gravitational Lensing}{38}}
+\newlabel{sss:stronglens}{{4.15.3}{38}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.16}Search Efficiency }{39}}
+\newlabel{subsec:simeff}{{4.16}{39}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.16.1}Software-Pipeline Efficiency }{39}}
+\newlabel{sss:eff_pipeline}{{4.16.1}{39}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Illustration of {\tt  SEARCHEFF\_PIPELINE\_FILE} }}{41}}
+\newlabel{fig:pipeline_maps}{{4}{41}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.16.2}Spectroscopic-Confirmation Efficiency }{42}}
+\newlabel{sss:eff_spec}{{4.16.2}{42}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Illustration of spectroscopic\ efficiency\ format for the {\tt  SNANA}\ simulation.}}{43}}
+\newlabel{fig:speceff}{{5}{43}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces  Valid {\tt  VARNAMES} to describe $\epsilon _{spec}$. }}{44}}
+\newlabel{fig:speceff_varnames}{{6}{44}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.16.3}Unconfirmed\ Efficiency for Host-Galaxy Redshift }{45}}
+\newlabel{sss:eff_zHOST}{{4.16.3}{45}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.16.4}Determining $\epsilon _{spec}$}{48}}
+\newlabel{sssec:simeffspec}{{4.16.4}{48}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.16.5}Time Above Detection and Number of Detections}{49}}
+\newlabel{sssec:detect_var}{{4.16.5}{49}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.17}Selection Cuts }{50}}
+\newlabel{subsec:simcuts}{{4.17}{50}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.18}Varying the Exposure Time/Aperture/Efficiency}{52}}
+\newlabel{subsec:exposure_time}{{4.18}{52}}
+\citation{Schlegel_98}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.19}Simulating Galactic Extinction}{53}}
+\newlabel{subsec:sim_MWEBV}{{4.19}{53}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.19.1}Some Details on Galactic Extinction Computations}{54}}
+\newlabel{sss:GALextinc_misc}{{4.19.1}{54}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.19.2}Correcting FLUXCAL for Galactic Extinction}{54}}
+\newlabel{sss:FLUXCOR_MWEBV}{{4.19.2}{54}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.20}Simulating the Host Galaxy}{55}}
+\newlabel{subsec:hostlib}{{4.20}{55}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces  Example {\sc  hostlib}\ for the {\tt  SNANA}\ simulation. }}{56}}
+\newlabel{fig:hostlib}{{7}{56}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.20.1}{{\sc  hostlib}} Options}{57}}
+\newlabel{sss:hostlib_options}{{4.20.1}{57}}
+\newlabel{eq:ZPHOTERR}{{19}{58}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.20.2}Generating Host Spectra}{60}}
+\newlabel{sss:hostlib_spectra}{{4.20.2}{60}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.20.3}Synthetic Host Magnitudes ({\tt  +HOSTMAGS})}{60}}
+\newlabel{sss:hostlib_synmag}{{4.20.3}{60}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.20.4}Generate List of Host Neighbors ({\tt  +HOSTNBR})}{60}}
+\newlabel{sss:hostlib_NBR}{{4.20.4}{60}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.20.5}Treatment of {\tt  LOGMASS} }{61}}
+\newlabel{sss:hostlib_logmass}{{4.20.5}{61}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.20.6}Notes on CPU Resources}{61}}
+\newlabel{sss:hostlib_CPU}{{4.20.6}{61}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.20.7}Ensuring Host PhotoZ in Fitting Program}{61}}
+\newlabel{sss:hostlib_photoz}{{4.20.7}{61}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.20.8}Miscellaneous}{61}}
+\newlabel{sss:hostlob_misc}{{4.20.8}{61}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.20.9}Anomalous Flux-Scatter on Bright Galaxies}{62}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.21}Simulating Mis-Matched Host Galaxy}{64}}
+\newlabel{subsec:sim_wronghost}{{4.21}{64}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.22}Simulating Rate vs. Redshift: Volumetric and per Season}{65}}
+\newlabel{subsec:DNDZ}{{4.22}{65}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.23}Simulating Rate vs. Galactic Coordinates}{67}}
+\newlabel{subsec:DNDB}{{4.23}{67}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.24}Simulating a {{\tt  SPECTROGRAPH}} }{69}}
+\newlabel{subsec:sim_spec}{{4.24}{69}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.24.1}Spectral Time-Windows Relative to Peak Brightness }{70}}
+\newlabel{sss:SPEC_EPOCH}{{4.24.1}{70}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.24.2}Calibration Warp vs. Wavelength}{71}}
+\newlabel{sss:SPEC_WARP}{{4.24.2}{71}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.24.3}{{\tt  SPECTROGRAPH}} Options}{71}}
+\newlabel{sss:SPEC_OPTMASK}{{4.24.3}{71}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.24.4}Simulating a Single High-S/N Spectrum}{72}}
+\newlabel{sss:ONESPEC}{{4.24.4}{72}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.25}Simulating Rise-Time Variations}{72}}
+\newlabel{subsec:simRiseTime}{{4.25}{72}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.26}Altering Input SEDs}{73}}
+\newlabel{subsec:Alter_SED}{{4.26}{73}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.26.1}Simulating PEAKMJD or Time of Explosion}{73}}
+\newlabel{sss:tpeak_or_texplode}{{4.26.1}{73}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.26.2}Extrapolating UV Flux}{73}}
+\newlabel{sss:UVLAM_EXTRAP}{{4.26.2}{73}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.27}{\tt  NGEN} keys}{74}}
+\newlabel{subsec:NGEN}{{4.27}{74}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.28}``Perfect'' Simulations}{74}}
+\newlabel{subsec:sim_perfect}{{4.28}{74}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.29}Generating Redshift ($z_{\rm  hel}$, $z_{\rm  cmb}$), Peculiar Velocity and Distance }{75}}
+\newlabel{subsec:genz}{{4.29}{75}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.30}Redshift-Dependent Parameters}{76}}
+\newlabel{subsec:zvar}{{4.30}{76}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.31}Estimating PEAKMJD}{77}}
+\newlabel{subsec:SETPKMJD}{{4.31}{77}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.32}Generating Efficiency Maps}{77}}
+\newlabel{subsec:simeff_genmap}{{4.32}{77}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.33}Light Curve Output Formats}{78}}
+\newlabel{subsec:sim_formats}{{4.33}{78}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.33.1}TEXT Light Curve Output (Default) }{79}}
+\newlabel{sssec:text_format}{{4.33.1}{79}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.33.2}Model-Mag Light Curve Output}{79}}
+\newlabel{sssec:modelmag}{{4.33.2}{79}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.33.3}Suppress {\tt  SIM\_XXX} Info}{79}}
+\newlabel{sssec:blind_test}{{4.33.3}{79}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.33.4}Random CID}{79}}
+\newlabel{sssec:random_CID}{{4.33.4}{79}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.33.5}FITS Format}{81}}
+\newlabel{sssec:fits_format}{{4.33.5}{81}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.33.6}{\tt  PHOTFLAG} Mask}{81}}
+\newlabel{sssec:PHOTFLAG}{{4.33.6}{81}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.33.7}Source of Each Redshift}{82}}
+\newlabel{sssec:redshift_flag}{{4.33.7}{82}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.34}Simulation Dump Options}{83}}
+\newlabel{subsec:dump_options}{{4.34}{83}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.34.1}{\tt  SIMLIB\_DUMP} Utility }{83}}
+\newlabel{sssec:simlib_dump}{{4.34.1}{83}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.34.2}Cadence Figure of Merit Utility }{84}}
+\newlabel{sssec:cadence_FoM}{{4.34.2}{84}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.34.3}{\tt  SIMGEN\_DUMP} File }{84}}
+\newlabel{sss:simgen_dump}{{4.34.3}{84}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {4.34.4} Model Dump }{85}}
+\newlabel{sssec:model_dump}{{4.34.4}{85}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.35}Including a Second Sim-Input File}{85}}
+\newlabel{subsec:split_siminput}{{4.35}{85}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.36}Multi-dimensional {\tt  GRID} Option}{86}}
+\newlabel{ssec:grid}{{4.36}{86}}
+\newlabel{eq:ilcoff}{{22}{87}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.37}TGRIDSTEP: Linear Interpolation of Model Flux}{89}}
+\newlabel{ssec:TGRIDSTEP}{{4.37}{89}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.38}Marking Sub-Samples}{89}}
+\newlabel{ssec:subsamples}{{4.38}{89}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.39}Applying Systematic Errors (RANSYSTPAR) }{90}}
+\newlabel{ssec:RANSYSTPAR}{{4.39}{90}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}The {\tt  SNANA}\ Fitter: {\tt  snlc\_fit.exe}\ }{91}}
+\newlabel{sec:snlc_fit}{{5}{91}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Getting Started Quickly }{91}}
+\newlabel{subsec:fit_start}{{5.1}{91}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Discussion of Lightcurve Fits}{91}}
+\newlabel{subsec:fit_discuss}{{5.2}{91}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Methods of Fit-Parameter Estimation}{92}}
+\newlabel{subsec:param_eval}{{5.3}{92}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.3.1} {{\sc  minuit}} Covariances}{93}}
+\newlabel{sss:minuit_cov}{{5.3.1}{93}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Initial Estimate of Peak-MJD ($\mathaccent "707E\relax {t_0}$) }{94}}
+\newlabel{subsec:initial_peakmjd}{{5.4}{94}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces {\tt  \&SNLCINP} options to estimate {\tt  PEAKMJD}}}{94}}
+\newlabel{fig:SETPKMJD}{{8}{94}}
+\newlabel{eq:t0fun}{{23}{95}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Galactic Reddening}{96}}
+\newlabel{subsec:fit_MWEBV}{{5.5}{96}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.6}Selecting Filters}{97}}
+\newlabel{subsec:select_filters}{{5.6}{97}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.7}Fitting Priors}{97}}
+\newlabel{subsec:priors}{{5.7}{97}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.8}Selecting an Efficiency Map for a Fitting Prior}{98}}
+\newlabel{subsec:prior_eff}{{5.8}{98}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.9}Viewing Lightcurve Fits: {\tt  mkfitplots.pl} }{98}}
+\newlabel{subsec:fit_view}{{5.9}{98}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.10}Tracking SN versus Cuts}{99}}
+\newlabel{subsec:sncuts}{{5.10}{99}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.11}PhotoZ Fits}{100}}
+\newlabel{subsec:photoz}{{5.11}{100}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces  Examples of setting photoZ options within the {\tt  \&FITINP} namelist. }}{102}}
+\newlabel{fig:photoZ}{{9}{102}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.11.1}Redshift-Dependent Selection in PhotoZ Fits}{103}}
+\newlabel{sss:dropfilter_photoz}{{5.11.1}{103}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.11.2}Initial Parameter Estimate}{104}}
+\newlabel{sss:photoz_ini}{{5.11.2}{104}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.11.3}Smooth Model Error Transition Across Filter Boundaries}{105}}
+\newlabel{sss:smooth_model}{{5.11.3}{105}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.11.4}Don't Fool Yourself when PhotoZ-Fitting Simulations}{105}}
+\newlabel{sss:photoz_fool}{{5.11.4}{105}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.11.5}Including the log($\sigma $) Term in the $\chi ^2$ }{106}}
+\newlabel{sss:chi2sigma}{{5.11.5}{106}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.11.6}Avoiding Filter Drop-outs at High PhotoZ}{106}}
+\newlabel{sss:avoid_filter_dropouts}{{5.11.6}{106}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.11.7}4-Parameter Fit Using Host Galaxy Photo-$z$ }{106}}
+\newlabel{sss:zphot_host}{{5.11.7}{106}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.12}Excluding/Downweighting Filters and Epoch Ranges}{107}}
+\newlabel{subsec:fitexclude}{{5.12}{107}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.13}Rest-Frame Wavelength Range}{108}}
+\newlabel{subsec:restlambda}{{5.13}{108}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.14}Extracting Light Curve Shape from the Fit}{109}}
+\newlabel{subsec:extract_template}{{5.14}{109}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.15}Landolt $\leftrightarrow $ Bessell Color Transformations}{109}}
+\newlabel{subsec:OPT_LANDOLT}{{5.15}{109}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.16}Interpolating Fluxes and Magnitudes}{110}}
+\newlabel{subsec:interp}{{5.16}{110}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.17}Fitting Rest-Frame Peak-Magnitudes and Colors}{111}}
+\newlabel{subsec:FitRestMag}{{5.17}{111}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.18}Peak-Mag Crosschecks: {\tt  FITMAGDIF}}{111}}
+\newlabel{subsec:FITMAGDIF}{{5.18}{111}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.19}Selecting SNID(s), Field(s), and Telescope(s) }{112}}
+\newlabel{subsec:select}{{5.19}{112}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.19.1}Selecting/Ignoring SNID}{112}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.19.2}Selecting SNID List with Command Line Override}{113}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.19.3}Selecting Fields and Overlapping Fields}{113}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.19.4}Selecting Telescopes}{114}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.19.5}Selecting MJD Ranges}{114}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.19.6}Quickly Analyzing a few SNe from a Large Sample}{114}}
+\newlabel{subsec:quickAnal}{{5.19.6}{114}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.20}Mag-Shifts in Zero Points and Primary Reference Star }{115}}
+\newlabel{subsec:zpshifts}{{5.20}{115}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.21}Fudging the {\tt  FLUXCAL} Offsets and Uncertainties}{115}}
+\newlabel{subsec:fudge_fluxcal}{{5.21}{115}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.22}Updating the Filter Transmission for each SN}{116}}
+\newlabel{subsec:filter_update}{{5.22}{116}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.23}Shifting the Mean Filter Transmission Wavelength}{116}}
+\newlabel{subsec:lamshift}{{5.23}{116}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.24}Monitoring Fit-Jobs with ``grep'' }{116}}
+\newlabel{subsec:grep}{{5.24}{116}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.25}User SN Tags }{117}}
+\newlabel{subsec:usertags}{{5.25}{117}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.26}Over-Riding Information in Data Files}{118}}
+\newlabel{subsec:data_override}{{5.26}{118}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.26.1}Over-Riding Header Information}{118}}
+\newlabel{sss:header_override}{{5.26.1}{118}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {5.26.2}Over-Riding Light Curve Information}{119}}
+\newlabel{sss:lc_override}{{5.26.2}{119}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.27}Peculiar Velocity Corrections }{119}}
+\newlabel{subsec:vpec}{{5.27}{119}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.28}{\tt  SIMCHI2\_CHEAT} }{120}}
+\newlabel{subsec:simchi2_chear}{{5.28}{120}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.29}Cuts on true {\tt  SIM\_XXX} Parameters}{120}}
+\newlabel{subsec:SIMVAR_CUTS}{{5.29}{120}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.30}IDEAL Fits with True Flux (Sim only) }{120}}
+\newlabel{subsec:IDEAL}{{5.30}{120}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Private Options}{122}}
+\newlabel{sec:private}{{6}{122}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Creating Your Private Code }{122}}
+\newlabel{subsec:private_fitter}{{6.1}{122}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Private Sim Path: {\tt  PATH\_SNDATA\_SIM} }{123}}
+\newlabel{subsec:private_sim}{{6.2}{123}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Private Data Path for Analysis: {\tt  PRIVATE\_DATA\_PATH} }{123}}
+\newlabel{subsec:private_data}{{6.3}{123}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Private Model-Path: {\tt  \$SNANA\_MODELPATH} }{123}}
+\newlabel{subsec:private_modelpath}{{6.4}{123}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Private Variables in Data Files}{124}}
+\newlabel{subsec:private_var}{{6.5}{124}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.5.1}CUTWIN-selection on Private Variables}{124}}
+\newlabel{sss:private_cuts}{{6.5.1}{124}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {6.5.2}Using a Private Redshift in the Analysis}{124}}
+\newlabel{sss:private_redshift}{{6.5.2}{124}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Adding a New Survey }{125}}
+\newlabel{sec:newsurvey}{{7}{125}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Filter Names and Rules for K-corrections}{126}}
+\newlabel{subsec:filternames}{{7.1}{126}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Combining Surveys}{127}}
+\newlabel{subsec:combine_dataVerions}{{7.2}{127}}
+\citation{PSNID_2011}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Photometric Classification }{129}}
+\newlabel{sec:photid}{{8}{129}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}{\tt  psnid.exe}}{129}}
+\newlabel{subsec:psnid}{{8.1}{129}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {8.1.1}Preparing Photometric Templates for {{\tt  psnid.exe}}}{130}}
+\newlabel{sss:sim_SNgrid}{{8.1.1}{130}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {8.1.2}Redshift Priors for {{\tt  psnid.exe}}}{130}}
+\newlabel{sss:psnid_zprior}{{8.1.2}{130}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {8.1.3}Rate Priors for {{\tt  psnid.exe}}}{131}}
+\newlabel{sss:psnid_rateprior}{{8.1.3}{131}}
+\citation{Sako2014}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Nearest Neighbor Method}{132}}
+\@writefile{toc}{\contentsline {section}{\numberline {9}Light Curve Models}{134}}
+\newlabel{sec:models}{{9}{134}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}{{\tt  MLCS2k2}}}{135}}
+\newlabel{subsec:mlcs}{{9.1}{135}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.2}{{\sc  salt-ii}} {\relax \fontsize  {10.95}{13.6}\selectfont  \abovedisplayskip 11\p@ plus3\p@ minus6\p@ \abovedisplayshortskip \z@ plus3\p@ \belowdisplayshortskip 6.5\p@ plus3.5\p@ minus3\p@ \def \leftmargin \leftmargini \parsep 5\p@ plus2.5\p@ minus\p@ \topsep 10\p@ plus4\p@ minus6\p@ \itemsep 5\p@ plus2.5\p@ minus\p@ {\leftmargin \leftmargini \topsep 9\p@ plus3\p@ minus5\p@ \parsep 4.5\p@ plus2\p@ minus\p@ \itemsep \parsep }\belowdisplayskip \abovedisplayskip (J. Guy et al., {\bf  A\&A 466}, 11, 2007)} }{136}}
+\newlabel{subsec:salt2}{{9.2}{136}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.3}{{\tt  SNooPy}}}{137}}
+\newlabel{subsec:snoopy}{{9.3}{137}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.4}{{\tt  SIMSED}}}{138}}
+\newlabel{subsec:SIMSED}{{9.4}{138}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.5}{\tt  NONIASED}}{141}}
+\newlabel{subsec:NON1A}{{9.5}{141}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {9.5.1}Peculiar SNIa}{142}}
+\newlabel{sss:pec1a}{{9.5.1}{142}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.6}\tt  NON1AGRID}{143}}
+\newlabel{subsec:NON1AGRID}{{9.6}{143}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.7}{{\tt  FIXMAG}} and {{\tt  RANMAG}}}{143}}
+\newlabel{subsec:fixmag}{{9.7}{143}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.8}{{\tt  SIMLIB}}: Read True Mags from {\tt  SIMLIB}\ File}{143}}
+\newlabel{subsec:MODEL_SIMLIB}{{9.8}{143}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.9}{{\tt  LCLIB}}: Galactic Transients}{144}}
+\newlabel{subsec:MODEL_LCLIB}{{9.9}{144}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {9.9.1}Overview}{144}}
+\newlabel{sss:LCLIB_overview}{{9.9.1}{144}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {9.9.2}Defining the Library}{144}}
+\newlabel{sss:LCLIB_define}{{9.9.2}{144}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {9.9.3} Implementation }{145}}
+\newlabel{sss:LCLIB_implem}{{9.9.3}{145}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces  TEXT-library format for {\tt  LCLIB} model type. }}{147}}
+\newlabel{fig:LCLIB_format}{{10}{147}}
+\citation{JM11}
+\citation{BBC}
+\@writefile{toc}{\contentsline {section}{\numberline {10}{\sc  salt-ii}\ Programs}{148}}
+\newlabel{sec:SALT2code}{{10}{148}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.1}Computing Distance Moduli from BBC Method: {\tt  SALT2mu.exe} }{148}}
+\newlabel{sec:SALT2mu}{{10.1}{148}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.2}Blinding BBC Output from {\tt  SALT2mu.exe} }{149}}
+\newlabel{sec:BBC_blind}{{10.2}{149}}
+\@writefile{toc}{\contentsline {section}{\numberline {11}Cosmology Fitters}{150}}
+\newlabel{sec:wfit}{{11}{150}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {11.1}Interpreting Redshift Variables in SNANA Tables}{150}}
+\newlabel{subsec:zdefine}{{11.1}{150}}
+\citation{Hui_06}
+\citation{Goliath2001}
+\citation{Goliath2001}
+\@writefile{toc}{\contentsline {subsection}{\numberline {11.2}Peculiar Velocity Covariances}{151}}
+\newlabel{subsec:mucovar}{{11.2}{151}}
+\newlabel{eq:B}{{35}{151}}
+\newlabel{eq:C}{{36}{151}}
+\@writefile{toc}{\contentsline {section}{\numberline {12}Miscellaneous Tools and Features}{152}}
+\newlabel{sec:tools}{{12}{152}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.1}Analysis-Output: Files, Tables, Variables }{152}}
+\newlabel{subsec:anavar}{{12.1}{152}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.1.1}Combining Ascii ``Fitres'' Files: {\tt  combine\_fitres.exe}}{154}}
+\newlabel{sss:combine_fitres}{{12.1.1}{154}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.1.2}{\tt  SNTABLE} Dump Utility: {{\tt  sntable\_dump.pl}} }{156}}
+\newlabel{sss:sntable_dump}{{12.1.2}{156}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.1.3}Extract Value from Fitres File: {\tt  get\_fitresValue.pl}}{157}}
+\newlabel{sss:getValue}{{12.1.3}{157}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.1.4}Working with IAUC names}{157}}
+\newlabel{sss:IAUC}{{12.1.4}{157}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.1.5}{\tt  ovdatamc.py}\nobreakspace  {}: Plotting Utility for Data/MC Overlays}{158}}
+\newlabel{sss:ovdatamc}{{12.1.5}{158}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.2}General Misc. Tools}{158}}
+\newlabel{subsec:MiscTools_general}{{12.2}{158}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.2.1}Command-line Overrides}{158}}
+\newlabel{sss:override}{{12.2.1}{158}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.2.2}Synchronizing/Updating Survey Files: survey\_update.pl}{159}}
+\newlabel{sss:survey_update}{{12.2.2}{159}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.2.3}Bug-Catcher: the {\tt  SNANA\_tester} Script }{159}}
+\newlabel{sss:SNANA_tester}{{12.2.3}{159}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.2.4}Restoring Bugs}{159}}
+\newlabel{sss:restore_bugs}{{12.2.4}{159}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.2.5}K-correction Dump Utility: {\tt  kcordump.exe}}{159}}
+\newlabel{sss:kcordump}{{12.2.5}{159}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.3}Misc. Simulation Tools}{161}}
+\newlabel{subsec:MiscTools_sim}{{12.3}{161}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.3.1}{\tt  DASHBOARD} Utility}{161}}
+\newlabel{sss:sim_dashboard}{{12.3.1}{161}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.3.2}Simulate Ia/non-Ia mix: {\tt  sim\_SNmix.pl}}{161}}
+\newlabel{sss:sim_SNmix}{{12.3.2}{161}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces Example of master-control file for {\tt  sim\_SNmix.pl}.}}{163}}
+\newlabel{fig:sim_SNmix}{{11}{163}}
+\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces Example of master-control file for {\tt  sim\_SNmix.pl}: Continued}}{164}}
+\newlabel{fig:sim_SNmix-2}{{12}{164}}
+\citation{Schlegel_98}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.3.3}Co-Adding {\tt  SIMLIB} Observations on Same Night: {\tt  simlib\_coadd.exe} }{165}}
+\newlabel{sss:simlib_coadd}{{12.3.3}{165}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.3.4}Creating a {\tt  SIMLIB}\ from Data}{165}}
+\newlabel{sss:data_simlib}{{12.3.4}{165}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.3.5}Fudging Simulated Errors and Signal-to-Noise Ratio (S/N) }{167}}
+\newlabel{sss:fudge_sim_errors}{{12.3.5}{167}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.4}Misc. Fitting Tools}{169}}
+\newlabel{subsec:MiscTools_fit}{{12.4}{169}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.4.1}Fit Multiple Samples with Multiple Fit-Options: {\tt  split\_and\_fit.pl}}{169}}
+\newlabel{sss:split_fit}{{12.4.1}{169}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.4.2}Analyzing Residuals from Lightcurve Fits}{169}}
+\newlabel{sss:resids_error}{{12.4.2}{169}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.4.3}Extracting Light Curves into ASCII Formatted Files}{169}}
+\newlabel{sss:LCextract}{{12.4.3}{169}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.4.4}Translating SNDATA files into SALT-II Format}{170}}
+\newlabel{sss:lcmerge2salt}{{12.4.4}{170}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.4.5}Translating TEXT data-files into FITS Format}{170}}
+\newlabel{sss:text2fits}{{12.4.5}{170}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.4.6}Re-write Data FIles with Flux Fudges}{171}}
+\newlabel{sss:text2text}{{12.4.6}{171}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.4.7}Fudging Fitting Errors}{171}}
+\newlabel{sss:fudge_fit_errors}{{12.4.7}{171}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.4.8}1/Vmax Method: Post-Fit Calculations}{172}}
+\newlabel{sss:Vmax}{{12.4.8}{172}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.4.9}FILTER\_REPLACE}{173}}
+\newlabel{sss:filter_replace}{{12.4.9}{173}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.4.10}SNTABLE\_FILTER\_REMAP}{173}}
+\newlabel{sss:filter_remap}{{12.4.10}{173}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.4.11}Selecting Early Epochs}{174}}
+\newlabel{sss:early}{{12.4.11}{174}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.4.12}Selecting Epoch Ranges for Fast Transients ({\tt  REQUIRE\_EPOCHS\_STRING}) }{175}}
+\newlabel{sss:reqep}{{12.4.12}{175}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.4.13}Miscellaneous {\tt  \&SNLCINP} Options}{175}}
+\newlabel{sss:misc_SNLCINP}{{12.4.13}{175}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.5}Misc. {\tt  SIMSED}\ Utilities}{175}}
+\newlabel{subsec:SIMSED_utils}{{12.5}{175}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.5.1}{\tt  SIMSED}\ Spectrum Extraction: {\tt  SIMSED\_extractSpec.exe} }{175}}
+\newlabel{sssec:SIMSED_extract}{{12.5.1}{175}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.5.2}{\tt  SIMSED}\ Fudge Afterburner: {\tt  SIMSED\_fudge.exe} }{175}}
+\newlabel{sssec:SIMSED_fudge}{{12.5.2}{175}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {12.5.3}{\tt  SIMSED}\ Preparation for SNANA: {\tt  SIMSED\_prep.exe} }{175}}
+\newlabel{sssec:SIMSED_prep}{{12.5.3}{175}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.6} Reading gzip'ed Input Files }{176}}
+\newlabel{subsec:gzip_inputs}{{12.6}{176}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.7} Program Return Codes }{176}}
+\newlabel{subsec:return_codes}{{12.7}{176}}
+\@writefile{toc}{\contentsline {section}{\numberline {13}{\tt  SNANA} Updates}{177}}
+\newlabel{sec:snana_updates}{{13}{177}}
+\@writefile{toc}{\contentsline {section}{\numberline {14}Reporting Problems}{177}}
+\newlabel{sec:problems}{{14}{177}}
+\bibstyle{unsrt}
+\bibdata{snana_manual}
+\bibcite{JRK07}{1}
+\bibcite{Guy07}{2}
+\bibcite{Burns11}{3}
+\bibcite{Gold01}{4}
+\bibcite{Hayden09}{5}
+\bibcite{K10_challenge}{6}
+\bibcite{SNANA09}{7}
+\bibcite{Nugent2002}{8}
+\bibcite{MICE2015}{9}
+\bibcite{LogNormal2013}{10}
+\bibcite{Schlegel_98}{11}
+\bibcite{PSNID_2011}{12}
+\bibcite{Sako2014}{13}
+\bibcite{JM11}{14}
+\bibcite{BBC}{15}
+\bibcite{Hui_06}{16}
+\bibcite{Goliath2001}{17}
+\@writefile{toc}{\contentsline {section}{References}{178}}

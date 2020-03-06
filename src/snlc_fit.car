@@ -262,7 +262,7 @@ c variable indices for I4EP_
       INTEGER
      &   IEP_IMJD, IEP_EPOCH, IEP_IDTEL
      &  ,IEP_IFILT, IEP_IFILT_OBS, IEP_IFILT_REST1, IEP_IFILT_REST2
-     &  ,IEP_REJECT
+     &  ,IEP_REJECT, IEP_REJECT2
 
 c variable indices for R4EP_
       INTEGER   
@@ -295,6 +295,7 @@ c for I4EP_XXX
      &  ,IEP_IFILT_REST1     = 6  ! absolute filter index, nearest rest-filter
      &  ,IEP_IFILT_REST2     = 7  ! idem, 2nd nearest rest-frame filter
      &  ,IEP_REJECT          = 8  ! flag to reject epoch from fit
+     &  ,IEP_REJECT2         = 9  ! rejected inside Trest window (Mar 2020)
 c
 c for R4EP_XXX
      &  ,JEP_MJD              = 1
@@ -4140,7 +4141,7 @@ c local arguments
      &  ,LFLAG_USESIM    ! use SIM params instead of XVAL (IFLAG=99)
      &  ,LFLAG_FAST      ! speed up if possible (for pdf integration)
      &  ,LFLAG_FIT, LFLAG_PRIOR_ONLY, LFLAG_SIGMA_ONLY
-     &  ,LAST, LDMPFCN_LOC, LDMPFUN_LOC, LREJECT, LFITDATA  
+     &  ,LAST, LDMPFCN_LOC, LDMPFUN_LOC, LREJECT, LREJECT2, LFITDATA  
      &  ,FIRSTFILT, LASTFILT, LMWCOR, LIGNORE, LTMP, LMUFIX, LPOSFLUX
      &  ,FIRST_ITER
      &  ,REJECT_TREST, REJECT_MJD, REJECT_SIGNOISE, REJECT_DELCHI2
@@ -4563,22 +4564,15 @@ c xxxxxxxxxxxxxxxxxxxxx
      &              REJECT_DELCHI2 .or. REJECT_SIGNOISE .or. 
      &              REJECT_TREST   .or. REJECT_MJD
               
+              LREJECT2  = 
+     &            (REJECT_DELCHI2 .or. REJECT_SIGNOISE) .and.
+     &            (.not. REJECT_TREST )
+
               if ( epoch < MXFIT_DATA ) then
-                if ( LREJECT ) then 
-                   I4EP_ALL(epoch,IEP_REJECT) = 1
-
-c xxxxxxxxxxxxxxxxxxxxxx mark delete Feb 29 2020 xxxxxxxxxxx
-c               write(6,689) iter, LREPEAT_ITER, epoch, Trest,
-c     &            delchi2, R4EP_ALL(epoch,JEP_FUDGE_MAXFRAC) 
-c689            format(' xxx REJECT ITER=',I1,'(',L1,')', 3x,
-c     &            'ep=',I3, 2x, 'Trest=', F8.2, 2x, 
-c     &            'DELCHI2=',F8.2, 2x,'MAXFRAC=',F5.2)
-c                call flush(6)
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-                else
-                   I4EP_ALL(epoch,IEP_REJECT) = 0
-                endif
+                I4EP_ALL(epoch,IEP_REJECT)  = 0
+                I4EP_ALL(epoch,IEP_REJECT2) = 0
+                if ( LREJECT  ) I4EP_ALL(epoch,IEP_REJECT)  = 1          
+                if ( LREJECT2 ) I4EP_ALL(epoch,IEP_REJECT2) = 1  ! Mar 2020
               endif
 
            endif  ! end FIRST_ITERATION
@@ -9187,6 +9181,8 @@ c               filter for case-insensitive ntuple.
 c
 c Jun 24 2013: always ignore FILTER_REPLACE filters for plotting.
 c
+c Mar 5 2020: ad NPTFIT_REJECT (due to DELCHI2)
+c
 c -----------------
 
       IMPLICIT NONE
@@ -9267,6 +9263,9 @@ c add chi2 info for global fit.
       NPLOTPAR        =  NPLOTPAR + 1
       PARNAME_STORE(NPLOTPAR) = 'NDOF'
       PAROPT_STORE(NPLOTPAR)  = OPT_PARSTORE_TEXTTABLE 
+
+      NPLOTPAR        =  NPLOTPAR + 1
+      PARNAME_STORE(NPLOTPAR) = 'NPTFIT_REJECT'  ! Mar 2020
 
       NPLOTPAR        =  NPLOTPAR + 1
       PARNAME_STORE(NPLOTPAR) = 'FITCHI2'
@@ -9901,7 +9900,7 @@ c local var
 
       INTEGER 
      &   IFILT, IFILT_OBS, IREJ, IMJD, ep, EPMIN, EPMAX
-     &  ,IDTEL, N, OPT, IF1, IF2, ifit, ivar, REJECT
+     &  ,IDTEL, N, OPT, IF1, IF2, ifit, ivar, REJECT, REJECT2
 
       INTEGER ITER_DMP / -1 /
       REAL 
@@ -9913,7 +9912,7 @@ c local var
 
       REAL*8 FTMP8, MAGERR8, MJD8
 
-      LOGICAL LTMP, LREJECT
+      LOGICAL LTMP, LREJECT, LREJECT2
 
       character cfilt*1
 
@@ -9933,6 +9932,7 @@ C ----------------- BEGIN ----------------
          NEPOCH_FIT(ifilt)    = 0
          NEPOCH_REJECT(ifilt) = 0
       ENDDO
+      NEPOCH_REJECT2 = 0
 
       Z = REDSHIFT_FIT
       Z1 = 1. + z
@@ -9951,7 +9951,7 @@ c previous iteration values are needed; e.g. FCNCHI2_SIGMA
       
 c ---------------------------------
       
-      DO 200 IREJ      = 0, 1
+      DO 200 IREJ      = 0, 1  ! 0=keep, 1=reject
 
       DO 101 IMJD      = 1, ISNLC_NEWMJD_STORE
 
@@ -9999,14 +9999,26 @@ c flux-error is negative
 cc mark delete May 2016        if ( fluxerr_data .LE.  0.0  ) goto 102
 
 c check if this epoch is rejected
-        REJECT  = I4EP_ALL(ep,IEP_REJECT)
-        LREJECT = (iter > 1  .and. REJECT .EQ. 1)
+        REJECT   = I4EP_ALL(ep,IEP_REJECT)
+        REJECT2  = I4EP_ALL(ep,IEP_REJECT2)
+
+        LREJECT  = (iter > 1  .and. REJECT  > 0)
+        LREJECT2 = (iter > 1  .and. REJECT2 > 0)
+
+c count rejected epochs witing TREST window
+        IF ( LREJECT2 .and. IREJ .EQ. 1 ) then
+           NEPOCH_REJECT2 = NEPOCH_REJECT2 + 1
+        ENDIF
+
 
         IF ( LREJECT .and. IREJ .EQ. 1 ) then
+c count all rejected epochs
            NEPOCH_REJECT(ifilt) = NEPOCH_REJECT(ifilt) + 1         
            NEPOCH_REJECT(0)     = NEPOCH_REJECT(0)     + 1  
            NFITDATA_REJECT      = NFITDATA_REJECT + 1
+
         ELSE IF ( .NOT. LREJECT .and. IREJ .EQ. 0 ) THEN
+c count epochs used for fitting
            NEPOCH_FIT(ifilt)    = NEPOCH_FIT(ifilt) + 1
            NEPOCH_FIT(0)        = NEPOCH_FIT(0)     + 1
            NFITDATA             = NFITDATA + 1
@@ -12518,6 +12530,10 @@ c Note index here is NPAR instead of ipar
       NPAR = NPAR + 1  ! Ndof
       FITVAL_STORE(NPAR) = XNFITDOF(0)
       LCVAL_STORE(NPAR)  = XNFITDOF(0)
+
+      NPAR = NPAR + 1  ! reject epochs withing Trest range (Mar 2020)
+      FITVAL_STORE(NPAR) = FLOAT(NEPOCH_REJECT2)
+      LCVAL_STORE(NPAR)  = FLOAT(NEPOCH_REJECT2)
 
       NPAR = NPAR + 1         ! chi2
       FITVAL_STORE(NPAR) = FITCHI2_STORE(1)

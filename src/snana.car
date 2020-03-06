@@ -2510,6 +2510,7 @@ c define arrays used in fit.
      &  ,NEPOCH_ALL(0:MXFILT_OBS)    ! fit+rejected epochs per filter
      &  ,NEPOCH_FIT(0:MXFILT_OBS)    ! number of epochs fit per filter
      &  ,NEPOCH_REJECT(0:MXFILT_OBS) ! number of epochs rejected by fit 
+     &  ,NEPOCH_REJECT2          ! total rejected ep within TREST window
      &  ,ERRTYPE(MXFITPAR)  ! MINOS or PARAB
      &  ,PARPTR_CHI2
      &  ,PARPTR_IFILT_REST(MXFILT_ALL)
@@ -2607,7 +2608,7 @@ c ---- ISNLC_XXX  -> XXX_FIT  re-evaluated after fitting
 
       COMMON / SNANAFIT4 / 
      &   NFITPAR_MN, NFITPAR, NFIXPAR, PARNAME_STORE, PAROPT_STORE
-     &  ,NEPOCH_ALL, NEPOCH_FIT, NEPOCH_REJECT
+     &  ,NEPOCH_ALL, NEPOCH_FIT, NEPOCH_REJECT, NEPOCH_REJECT2
      &  ,NPLOTPAR, ERRTYPE, FLOATPAR, USEPDF_MARG
      &  ,PARPTR_CHI2, PARPTR_IFILT_REST, PARPTR_FITRESTMAG
      &  ,FITVAL_STORE, FITERR_STORE

@@ -8413,6 +8413,8 @@ To apply cuts on generated (true) parameters,
        SIM_TEMPLATE_INDEX_LIST = 202,203
        ! and/or
        SIMVAR_CUTWIN_STRING = 'NEP_SIM_MAGOBS 3 9999' ! >=3 obs with trueFlux>0
+       ! and/or
+       CUTWIN_TREST_TRUEFLUX = -20, 100  ! require trueFlux>0 in this range
 
 \end{verbatim}
 %
@@ -8421,7 +8423,13 @@ and true redshift (for any model) to satisfy
 the above cut-windows.  Also works on {\tt SIM\_x1}.
 The second option is for {\tt NON1ASED}, {\tt SIMSED}, and {\tt LCLIB}
 models; it selects a user-defined list of template indices.
-Third option required min number of observations with true flux$>0$/
+
+The 3rd option requires at least 3 observations with true flux$>0$.
+The last option ({\tt CUTWIN\_TREST\_TRUEFLUX}) requires
+a true positive flux in the specified {\tt TREST} range (days).
+For fakes overlaid on image,  these last two options are useful 
+to avoid pathologies from missing fake overlays that leave 
+unphsyical zero-flux observations.
 
 
 % -----------------------------------

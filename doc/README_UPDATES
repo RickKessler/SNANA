@@ -18084,13 +18084,15 @@
 
 
 # ======================================================================= 
-         v10_75f (  ) 
+         v10_76 (Mar 7 2020) 
 
-         ***** IMPORTANT(v10_75f) ***** 
+         ***** IMPORTANT(v10_76) ***** 
 
-         ***** USEFUL(v10_75f) ***** 
+   SIMULATION: Default cosmology params updated from Planck 2018.
 
-         ***** MISCELLANEOUS(v10_75f) ***** 
+         ***** USEFUL(v10_76) ***** 
+
+         ***** MISCELLANEOUS(v10_76) ***** 
 
    snlc_fit.car
      + new FITRES table variable NPTFIT_REJECT = number of obs
@@ -18104,8 +18106,9 @@
        Planck 2018 params ni sntools.h.
 
    snana.car:
-     + update OMAT_DEFAULT and OLAM_DEFAULT to Planck 2018,
-       but these params are used only for approx DELMU Hubble
-       residual, but not used for nominal LC fitting or analysis.
+     + update OMAT_DEFAULT and OLAM_DEFAULT to Planck 2018.
+       These params are used only for initial amplitude estimate,  
+       and in the approx DELMU Hubble residual that is not used
+       anywhere in the analysis.
 
 END: 

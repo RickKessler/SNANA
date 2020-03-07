@@ -18095,5 +18095,17 @@
    snlc_fit.car
      + new FITRES table variable NPTFIT_REJECT = number of obs
        withing Trest window that are rejected by DELCHI2_REJECT.
-       
+        
+   sntools.h
+     + define cosmology parameters with updated Planck 2018
+
+   snlc_sim.c:
+     + replace ancient cosmo params (OM,OL = 0.3,0.7) with
+       Planck 2018 params ni sntools.h.
+
+   snana.car:
+     + update OMAT_DEFAULT and OLAM_DEFAULT to Planck 2018,
+       but these params are used only for approx DELMU Hubble
+       residual, but not used for nominal LC fitting or analysis.
+
 END: 

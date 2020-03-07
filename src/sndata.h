@@ -59,16 +59,6 @@
 #define WRITE_MASK_SIM_MODELPAR 32  // write model par for SIMSED, LCLIB
 #define WRITE_MASK_COMPACT    64  // suppress non-essential PHOT output
 
-/* xxxxxxxxx mark delete 4.19.2019 xxxxxxxxx
-#define Zisfrom_DB            0  // z_best is filled
-#define Zisfrom_SURVEY        1  // z_best = z_survey
-#define Zisfrom_SNHOSTPHOTOZ  3  // above are not filled
-#define Zisfrom_SNPHOTOZ      4  // ...
-#define Zisfrom_WRONGHOST     5  // matched to wrong host (for sims)
-#define Zisfrom_HOST          6  // UNCONFIRMED, but got host-z
-#define Zisfrom_noHOST        7  // UNCONFIRMED and no host-z
-xxxxxxxxxxxx end mark xxxxxxxxxxxxxx */
-
 #define OPT_ZPTSIG_TRUN  1   // option to use ZPTSIG from template
 #define OPT_ZPTSIG_SRUN  2   // idem for search run
 

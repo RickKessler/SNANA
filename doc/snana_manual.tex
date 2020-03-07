@@ -117,6 +117,7 @@
 
 \newcommand{\OM}{\Omega_M}
 \newcommand{\OL}{\Omega_{\Lambda}}
+\newcommand{\Ok}{\Omega_k}
 
 \newcommand{\jobend}{\mbox{~$^\dagger$}}
 
@@ -695,6 +696,46 @@ Note that the most robust method is to specify file names with a
 full path that has an environment (ENV) variable; the ENV ensures that
 the sim job will run on other computer platforms.
 
+% ------------------------------------
+   \subsection{Cosmological Parameters}
+   \label{subsec:sim_cosmopar}
+% ------------------------------------
+
+The default cosmological parameters are specified in {\tt sntools.h};
+as of March 2020,
+%
+\begin{Verbatim}[frame=single]
+// cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
+#define OMEGA_MATTER_LCDM   0.315 
+#define OMEGA_LAMBDA_LCDM   0.685 
+#define w0_LCDM            -1.0
+#define wa_LCDM             0.0
+#define H0_SALT2            70    // km/s/Mpc : tied to SALT2 training
+#define H0_MLCS             65    // km/s/Mpc : tied to MLCS training
+#define H0_Planck          67.4   // 1807.06209 (Planck 2018)
+#define H0_SH0ES           74.03  // 1903.07603 (Riess 2019)
+\end{Verbatim}
+%
+The default H0 value is {\tt H0\_SALT2};
+if an MLCS model is requested, then {\tt H0\_MLCS} is used.
+The {\tt Planck} and {\tt SH0ES} values of H0 are not used 
+in the simulation.
+For specific analyses requiring different cosmo parameters, 
+use the following sim-input keys:
+%
+\begin{Verbatim}[frame=single]
+  OMEGA_MATTER:  <value>
+  OMEGA_LAMBDA:  <value>
+  W0_LAMBDA:     <value>
+  H0:            <value>
+\end{Verbatim}
+%
+It is recommended to use the defaults so that global updates
+are easily propagated thru Github updates rather than modifying
+numerous sim-input files.
+The curvature is computing internally as $\Ok = 1 - \OM - \OL$,
+and the radiation term is ignored. Time-varying $w$
+is currently not implemented.
 
 % ------------------------------------
    \subsection{Synchronizing Random Numbers}
@@ -5118,7 +5159,7 @@ the incorrect and correct sim-inputs:
 
 The \SNANA\ analysis \& fitting programs include options for 
 estimating {\tt PEAKMJD} from the measured fluxes
-(\S\ref{subsec:initial_peakmjd}, Fig.~\ref{fig:SETPKMJD}), 
+(\S\ref{sss:initial_peakmjd}, Fig.~\ref{fig:SETPKMJD}), 
 and these options can be applied to both data and the simulation.
 For non-\SNANA\ analysis codes, it may be useful to include
 a {\tt PEAKMJD} estimate in the simulated data files,
@@ -6077,15 +6118,8 @@ When the unix command ``{\tt ps}'' shows that
 the job has finished, congratulations !
 You have fit your lightcurves with 
 CERNLIB's {\minuit} program.\footnote{\wwwMINUIT}
-To create a pdf file showing the light curve fits
-(\S\ref{subsec:fit_view}),
-\begin{verbatim}
-   mkfitplots.pl --h  snfit_SDSS.hbook
-\end{verbatim}
-%
-creates {\tt snfit\_SDSS\_fits.pdf}.
-If you are shaking your head wondering what the heck you just did,
-that's a good sign.  
+To create a pdf file showing the light curve fits,
+see \S\ref{subsec:lcplot}.
 
 
 % ------------------------------------
@@ -6258,8 +6292,20 @@ and uses the errors and $\rho_{ij}$ to determine COV.
 % ------------------------------------
    \clearpage
    \newcommand{\toApprox}{\tilde{t_0}}
-   \subsection{Initial Estimate of Peak-MJD ($\toApprox$) }
-   \label{subsec:initial_peakmjd}
+
+   \subsection{Initial Parameter Estimates}
+   \label{subsec:fitpar_init}
+% ------------------------------------
+
+Before minimization, there are two stages for initializing 
+light curve fit parameters. First is a rough estimate of
+peak MJD (\S\ref{sss:initial_peakmjd}). The second step
+is a refined peak MJD estimate and an estimate for the
+amplitude parameter (\S\ref{sss:initial_fitpar}).
+
+% ------------------------------------
+   \subsubsection{Rough Estimate of Peak-MJD ($\toApprox$) }
+   \label{sss:initial_peakmjd}
 % ------------------------------------
 
 Many light curve fitting programs rely on an approximate estimate 
@@ -6401,6 +6447,20 @@ method is that outlier $\toApprox$ values can be manually fixed.
 For simulations, see \S\ref{subsec:SETPKMJD} on how to leave
 a $\toApprox$ estimate in the output data files.
 
+
+
+\subsubsection{Refined Estimate of Peak-MJD and Amplitude Parameter}
+\label{sss:initial_fitpar}
+
+After $\toApprox$ is determined, a course {\tt PEAKMJD} grid
+is searched from $-4$ to $+4$ days (2 day bins) w.r.t, {\tt PKMJDINI},
+and {\tt PEAKMJD} from minimum $\chi^2$ is used as the initial value.
+Next, the data/model ratio is used to estimate the amplitude parameter:
+$x_0$ for SALT2, or distance modulus for MLCS.
+For very high-SNR events, the initial parameter estimate may not
+be good enough to prevent catastrophic fits; in this case,
+try inflating the first-iteration flux uncertainties
+using {\tt FUDGEALL\_ITER1\_MAXFRAC}  (\S\ref{subsec:fitexclude}).
 
 
 % ---------------------------------------
@@ -6646,45 +6706,37 @@ search-efficiencies (\S\ref{subsec:simeff}).
 
 % ------------------------------------
 %   \clearpage
-   \subsection{Viewing Lightcurve Fits: {\tt mkfitplots.pl} }
-   \label{subsec:fit_view}
+   \subsection{Viewing Lightcurve Fits: {\tt plot\_snana.py} and 
+       {\tt mkfitplots.pl} }
+   \label{subsec:lcplot}
 % ------------------------------------
 
-There is an after-burner script to prepare a pdf file showing
-each light curve (data + fit) for each passband,
+There are two utilities to view light curves. 
+The recommended utility is
 \begin{verbatim}
-    > mkfitplots.pl  --h  snlc_fit.hbook
+   plot_snana.py -v <version> -i <snid1,snid2,snid3,etc..>
+\end{verbatim}
+and optional arguments include {\tt -p} for private data path,
+and {\tt -f} for input file for light curve fit. 
+Typing {\tt plot\_snana.py} with no arguments gives a help menu.
+
+
+There is a much older script that operates on the output ROOT or HBOOK
+file when {\tt LCPLOT} is included in the {\tt SNTABLE\_LIST}
+(\S\ref{subsec:anavar}),
+%
+\begin{verbatim}
+     mkfitplots.pl  <rootFilename>
 \end{verbatim}
 %
-The ``{\tt snlc\_fit.hbook}'' argument above is the name of the 
-hbook file that was specified with the namelist argument 
-{\tt HFILE\_OUT} inside the  {\tt \&SNLCINP} namelist.
-This script creates a file called {\tt snlc\_fit\_fits.pdf}. 
-More generally, the pdf file name
-has the same prefix as the hbook file name.
+where {\tt rootFilename} is the argument of {\tt \&SNLCINP}
+input {\tt ROOTFILE\_OUT}.
 On each plot the black dots are data (or simulated data)
 and the green curve is best-fit model.
-There are many plotting options; see instructions with
+There are several plotting options; see instructions with
 \begin{verbatim}
-   more \$SNANA_DIR/util/mkfitplots.pl
+   more $SNANA_DIR/util/mkfitplots.pl
 \end{verbatim}
-%$
-
-\bigskip
-To view the light curves without doing any fits,
-set {\tt\&SNLCINP} namelist variable {\tt OPT\_LCPLOT=1},
-run the {\tt snana.exe} program, and then run the above
-{\tt mkfitplots.pl} command.
-
-\bigskip
-For versions prior to {\tt v10\_17}
-you need to run a once-in-a-lifetime command
-\begin{verbatim}
-    >  paw_setup.cmd
-\end{verbatim}
-For later versions there is no need to run this script,
-and there is no need to maintain a private 
-{\tt /kumacs} directory.
 
 
 % ------------------------------------
@@ -7473,21 +7525,12 @@ consider creating a private model-version
 
 % ------------------------------------
    \clearpage
-   \subsection{Extracting Light Curve Shape from the Fit}
-   \label{subsec:extract_template}
+   \subsection{Better peak Flux Estimate}
+   \label{subsec:peakFlux}
 % ------------------------------------
 
-The light curve shape, defined as the flux-to-peakFlux ratio 
-(${\fpkrat}$) versus epoch, 
-is determined after each light curve fit.
-In principle, this ratio is unity at the epoch of peak brightness.
-The residual-ntuple variable is {\tt FPKRAT} (ntuple id 7799)
-and the fortran variables are {\tt EP\_FPKRAT} and {\tt EP\_FPKRATERR}.
-See fortran subroutine {\tt FPKRAT} for example on how to
-access these arrays.
-
 While the flux values are from the data, the estimate
-of the peakFlux is based on the best-fit model.
+of the peak flux (peakFlux) is based on the best-fit model.
 The peakFlux estimate can be significantly off, 
 particularly for multi-band light curves that fit
 one of the colors poorly.
@@ -7519,19 +7562,6 @@ on the data-flux error (i.e., ignores the model error),
 and ``$\absTrest + 1$'' is an arbitrary factor (in days) 
 used to downweight epochs away from peak.
 
-To see the peakFlux estimates on the light curve fit
-(\S~\ref{subsec:fit_view}), use the command 
-%
-\begin{Verbatim}[frame=single]
-   mkfitplots.pl  --h <hisfile>  PEAKFLUX
-      or
-   PAW > snana#fitres pkf=1
-\end{Verbatim}
-%
-and a pink horizontal line is drawn through the peakFlux
-estimate for each filter and SN.
-The user is encouraged to vary {\tt TREST\_PEAKRENORM}
-to check the sensitivity of the epoch range.
 
 
 % -------------------------------
@@ -7582,7 +7612,7 @@ file with the matching primary reference.
 There are two methods for interpolating the SN flux 
 at a particular observation time (MJD). The first method
 is to use the generic 'any-LC' function from 
-\S\ref{subsec:initial_peakmjd},
+\S\ref{sss:initial_peakmjd},
 and the second method is to use an SN~Ia light curve model.
 For either method prepare a two-column file that lists each 
 SNID and MJD to interpolate. To interpolate all SN at a
@@ -10685,7 +10715,7 @@ The available output tables are
   \item SNANA (ID=7100): general variables for all SN before fitting
   \item FITRES (ID=7788): fit results for SN passing fit requirements.
       Fit residuals for each epoch can be optionally included.
-  \item SNLCPAK: used by {\tt mkfitplots.pl} (\S\ref{subsec:fit_view})
+  \item SNLCPAK: used by {\tt mkfitplots.pl} (\S\ref{subsec:lcplot})
          to make light curve plots for data and best-fit model.
 \end{itemize}
 %

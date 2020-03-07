@@ -323,8 +323,8 @@ c
      &  ,H0_DEFAULT        = 70.0 / ( 1.0E6 * Parsec )  ! standard value
      &  ,W0_DEFAULT        = -1.0
      &  ,DWDA_DEFAULT      =  0.0
-     &  ,OMAT_DEFAULT      =  0.3
-     &  ,OLAM_DEFAULT      =  0.7
+     &  ,OMAT_DEFAULT      =  0.315  ! Planck 2018 (updated Mar 2020)
+     &  ,OLAM_DEFAULT      =  0.685  ! idem
      &  ,ORAD_DEFAULT      =  1.2E-5
 c
      &  ,H0ERR_DEFAULT        =  7.0 / ( 1.0E6 * Parsec ) 

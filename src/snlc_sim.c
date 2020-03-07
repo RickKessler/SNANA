@@ -651,10 +651,18 @@ void set_user_defaults(void) {
   INPUTS.NJOBTOT    = 0;         // for batch only
   INPUTS.NSUBSAMPLE_MARK = 0 ;
 
+  // Mar 2020: use updated cosmoparameters defined in sntools.h
+  INPUTS.OMEGA_MATTER  =  (double)OMEGA_MATTER_LCDM ;
+  INPUTS.OMEGA_LAMBDA  =  (double)OMEGA_LAMBDA_LCDM ;
+  INPUTS.W0_LAMBDA     =  (double)w0_LCDM ;
+  INPUTS.H0            =  (double)H0_SALT2 ;
+
+  /* xxx mark delete Mar 7 2020 xxxxxxx
   INPUTS.OMEGA_MATTER  =  0.3 ;
   INPUTS.OMEGA_LAMBDA  =  0.7 ;
   INPUTS.W0_LAMBDA     = -1.0 ;
   INPUTS.H0            = 70.0 ;
+  xxxxxxxxxxxx end mark xxxxxxxxx  */
 
   INPUTS.GENRANGE_RA[0]   = -360.0  ;
   INPUTS.GENRANGE_RA[1]   = +360.0  ;
@@ -5900,6 +5908,8 @@ void prep_user_input(void) {
     sprintf(GENLC.COLORPAR2_NAME,   "RV"    );
     GENLC.ptr_SHAPEPAR = &GENLC.DELTA ;
     copy_GENGAUSS_ASYM( &INPUTS.GENGAUSS_DELTA, &INPUTS.GENGAUSS_SHAPEPAR );
+
+    if ( INPUTS.H0 == H0_SALT2 ) { INPUTS.H0 = (double)H0_MLCS; }
   }
 
   else if ( INDEX_GENMODEL == MODEL_SNOOPY  ) {

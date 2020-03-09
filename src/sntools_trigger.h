@@ -302,7 +302,7 @@ void   LOAD_PHOTPROB_CDF(int NVAR_CDF, double *WGTLIST );
 double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) ;
 double GETEFF_PIPELINE_DETECT(int obs);
 
-int    setObs_for_PHOTPROB(int DETECT_FLAG, int obs);
+void   setObs_for_PHOTPROB(int DETECT_FLAG, int obs);
 void   setRan_for_PHOTPROB(void) ;
 double get_PIPELINE_PHOTPROB(int obs);
 double get_PIPELINE_PHOTPROB_Obsolete(int DETECT_FLAG, int obs);

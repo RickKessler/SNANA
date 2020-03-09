@@ -1794,7 +1794,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
   //
 
   int NMJD_DETECT, NDETECT, imask, NOBS, MARK, DETECT_MARK, IMAP ;
-  int IFILTOBS, obs, OVP, obsLast, istore, LFIND, ISET, FIRST=0;
+  int IFILTOBS, obs, OVP, obsLast, istore, LFIND, FIRST=0;
   int IFILTOBS_MASK, IFILTDEF_MASK, NEXT_DETECT, DETECT_FLAG ;
   int FOUND_TRIGGER=0, LCUT_PHOTPROB ;
   int OBSMARKER_DETECT[MXOBS_TRIGGER];
@@ -1863,7 +1863,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
     if ( DETECT_FLAG ) 
       { SEARCHEFF_DATA.detectFlag[obs] += DETECT_MASK_SNR; }
 
-    ISET = setObs_for_PHOTPROB(DETECT_FLAG,obs); // set obs for PHOTPROB
+    setObs_for_PHOTPROB(DETECT_FLAG,obs); // set obs for PHOTPROB
 
     // all epochs have "good PHOTPROB" by default
     SEARCHEFF_DATA.detectFlag[obs] += DETECT_MASK_PHOTPROB ; 
@@ -2131,7 +2131,7 @@ double GETEFF_PIPELINE_DETECT(int obs) {
 
 
 // *************************************
-int setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
+void setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
 
   // Created Apr 2018
   // Store observations for which PHOTPROB will be computed.
@@ -2146,7 +2146,7 @@ int setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
   int   IFILTOBS   = SEARCHEFF_DATA.IFILTOBS[obs] ;
   char  *FIELD     = SEARCHEFF_DATA.FIELDNAME ; 
 
-  int NSTORE = OBS_PHOTPROB.NSTORE;
+  int  NSTORE = OBS_PHOTPROB.NSTORE;
   int  imap, IMAP, NMATCH, MATCH_FIELD, MATCH_FILT ;
   char FILT[2], *FIELD_TMP, *FILT_TMP;
   char fnam[]      = "setObs_for_PHOTPROB" ;
@@ -2186,17 +2186,15 @@ int setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
     { return; }
 
   
-  int SET=0;
   // if we get here, store info
   if ( NSTORE < MXOBS_PHOTPROB ) {
     OBS_PHOTPROB.OBS_LIST[NSTORE]  = obs ;
     OBS_PHOTPROB.OBSINV_LIST[obs]  = NSTORE ;
     OBS_PHOTPROB.IMAP_LIST[NSTORE] = IMAP ;
-    SET = 1 ;
   }
   OBS_PHOTPROB.NSTORE++ ;
 
-  return(SET);
+  return ;
 
 }  // end setObs_for_PHOTPROB" ;
 

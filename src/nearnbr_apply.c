@@ -25,6 +25,9 @@
     + fix NN_PROB_IA calculation in nearnbr_apply_exec();
       now works even if ITYPE_BEST<0.
 
+ Mar 9 2020
+   in read_NNpar, replace zPHOT with zHD.
+
  ==================================================== */
 
 #include <stdio.h>
@@ -225,7 +228,8 @@ void  read_NNpar(void) {
 
       // variable name in read-list is same, except for z->zHD
       sprintf(tmpVarList, "%s", tmpVar);
-      if ( strcmp(tmpVar,"z")==0 ) {  sprintf(tmpVarList,"zHD");  }
+      if ( strcmp(tmpVar,"z"    )==0 ) {  sprintf(tmpVarList,"zHD");  }
+      if ( strcmp(tmpVar,"zPHOT")==0 ) {  sprintf(tmpVarList,"zHD");  }
 
       if ( NVAR_SEPMAX==1 ) 
 	{ sprintf(VARLIST_SEPMAX,"%s", tmpVarList ); }

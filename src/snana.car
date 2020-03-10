@@ -19784,7 +19784,7 @@ c for sims, give reminder that corrections are not applied to sims.
 
 
 C ===============================
-+DECK,FUDGEFCAL.
++DECK,EXEC_FUDGE_FLUXCAL.
       SUBROUTINE EXEC_FUDGE_FLUXCAL(EP)
 
 c Created Nov 15, 2011 by R.Kessler and J.Marriner
@@ -19810,6 +19810,11 @@ c Feb 16, 2018:
 c  + call get_FLUXERRMODEL, float -> double, little refactor
 c
 c Nov 12, 2018: call EXEC_MAGCOR(ep)
+c
+c Mar 9 2020: 
+c   fix awful bug where previous FLUXCAL was used to apply
+c   FUDGE_MAG_ERROR. Note RESTORE_DES3YR restores bug.
+c   
 c ------------
 
       IMPLICIT NONE
@@ -19825,9 +19830,9 @@ c local var
 
       REAL*8
      &   ERR1, ERR2a, ERR2b, ERR3, ERR_SIM, ERR_DATA
-     &  ,ERR_ORIG, SCALE, FUDGE
+     &  ,ERR_ORIG, SCALE, FUDGE, SNR, SNR_PROTECT, LOGSNR
      &  ,SQERR, SQERR1, SQERR2a, SQERR2b, SQERR3, SQERRHOST, SQERRMAP
-     &  ,RDNOISE_pe, FLUXCAL, FLUXADU, SNR, SNR_PROTECT, LOGSNR
+     &  ,RDNOISE_pe, FLUXCAL, FLUXCAL_BUG, FLUXADU
      &  ,AREA, PSFSIG1, PSFSIG2, PSFRATIO  
      &  ,GALMAG, SBMAG, SBFLUX, SNSEP, NOISEPAR(2)
      &  ,MJD, GAIN, SKYSIG, ZP, ZPDIF, PARLIST(20)
@@ -19852,6 +19857,8 @@ c ------------ BEGIN ----------------
      &     + SNLC_FLUXCAL_OFF(ifilt)               ! offset in data file
      &     + FUDGE_FLUXCAL_OFFSET_FILT(IFILT_OBS)  ! user-nml offset
 
++SELF,IF=XXXREM.
+c xxxxxxxxxx mark delete Mar 9 2020 xxxxxxxxxxxxxxxx
       SCALE    = DBLE(FUDGE_FLUXERR_SCALE_FILT(IFILT_OBS))
       ERR_ORIG = DBLE(SNLC_FLUXCAL_ERRTOT(ep))
       ERR1  = ERR_ORIG * SCALE
@@ -19866,6 +19873,8 @@ c ------------ BEGIN ----------------
       SQERR3     = ERR3  * ERR3
       SQERRHOST  = 0.0 
       SQERRMAP   = 0.0 
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxx
++SELF. 
 
 c get C function arguments
       cBAND        = cfilt(1:1) // char(0)
@@ -19887,6 +19896,28 @@ c get C function arguments
       ZPDIF      = ZP - ZEROPOINT_FLUXCAL_DEFAULT
       MJD        = SNLC8_MJD(EP)
       SNR        = FLUXCAL/ERR1
+
+c - - - - - - - - - - - - - - 
+      SCALE    = DBLE(FUDGE_FLUXERR_SCALE_FILT(IFILT_OBS))
+      ERR_ORIG = DBLE(SNLC_FLUXCAL_ERRTOT(ep))
+      ERR1  = ERR_ORIG * SCALE
+      ERR2a = DBLE(FUDGE_FLUXCAL_ERROR_FILT(IFILT_OBS))  ! fudge error
+      ERR2b = DBLE(FUDGE_FLUXCAL_ERRPIX_FILT(IFILT_OBS)) ! fudge err/pix
+      ERR3  = DBLE(FUDGE_MAG_ERROR_FILT(IFILT_OBS))* FLUXCAL ! fudge mag err
+
+      if ( RESTORE_DES3YR ) then
+         ERR3 = DBLE(FUDGE_MAG_ERROR_FILT(IFILT_OBS))* FLUXCAL_BUG
+      endif
+
+      SQERR1     = ERR1  * ERR1
+      SQERR2a    = ERR2a * ERR2a
+      IF ( ERR2a .LT. 0.0 ) SQERR2a = -SQERR2a
+      SQERR2b    = ERR2b * ERR2b   ! * AREA  ! sum in quad over pixels
+      SQERR3     = ERR3  * ERR3
+      SQERRHOST  = 0.0 
+      SQERRMAP   = 0.0 
+
+      FLUXCAL_BUG = DBLE( SNLC_FLUXCAL(ep) ) ! for RESTORE_DES3YR (Mar 2020)
 
 c --------------------------------------------
 c  Check for map corrections

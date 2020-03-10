@@ -18111,4 +18111,30 @@
        and in the approx DELMU Hubble residual that is not used
        anywhere in the analysis.
 
+
+# ======================================================================= 
+         v10_76b (  ) 
+
+         ***** IMPORTANT(v10_76b) ***** 
+
+    bug fix for FUDGE_MAG_ERROR.
+
+         ***** USEFUL(v10_76b) ***** 
+
+         ***** MISCELLANEOUS(v10_76b) ***** 
+
+   snana.car
+    + this is a bit embarassing, but fixed awful bug related to 
+      FUDGE_MAG_ERROR; was using FLUXCAL from previous epoch to
+      compute FLUXERR_ADD = FUDGE_MAG_ERROR*FLUXCAL.
+      Traced bug to refactor at  v10_58m (Feb 19, 2018). 
+      Bug found by D.Jones when comparing split_and_fit vs. 
+      snlc_fit.exe ; slight fitPar differences were found because 
+      first epoch had different previous epoch based on different 
+      previous event.
+
+      RESTORE_DES3YR restores this bug. For DES3YR, this bug affects
+      the following lowz fit-input:
+      FUDGE_MAG_ERROR = 'u 0.01 v 0.01 w 0.01 x 0.01 y 0.01 z 0.01 A 0.01'
+
 END: 

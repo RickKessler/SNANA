@@ -10038,8 +10038,11 @@ void gen_event_driver(int ilc) {
     // Similarly, GENLC.REDSHIFT_HOST is changed to be the true zhost
     GEN_SNHOST_DRIVER(zHOST, GENLC.PEAKMJD); 
 
-    // pick model params AFTER redshift/host selection (4.09.2019)
-    gen_modelPar(ilc); 
+    // pick model params AFTER redshift/host selection (4.09.2019),
+    // and note that GEN_SNHOST can modify GENLC.DLMU that is used
+    // for model params.
+    gen_modelPar(ilc, OPT_FRAME_REST); 
+    gen_modelPar(ilc, OPT_FRAME_OBS ); 
 
     // - - - - - - - 
     // get host galaxy extinction for rest-frame models and for NON1A
@@ -10076,7 +10079,8 @@ void gen_event_driver(int ilc) {
   else if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) {
 #ifdef SNGRIDGEN
     gen_GRIDevent(ilc);
-    gen_modelPar(ilc) ;
+    gen_modelPar(ilc, OPT_FRAME_REST) ;
+    gen_modelPar(ilc, OPT_FRAME_OBS ) ;
 #endif
     return ;
   }
@@ -10176,7 +10180,6 @@ void override_modelPar_from_SNHOST(void) {
   DM_HOSTCOR = modelPar_from_SNHOST(SNHOSTGAL.WGTMAP_SNMAGSHIFT,
 				    HOSTLIB_VARNAME_SNMAGSHIFT);
 
-
   // check option to pick shape param from HOSTLIB 
   shape  = modelPar_from_SNHOST(GENLC.SHAPEPAR,GENLC.SHAPEPAR_NAME);
   *GENLC.ptr_SHAPEPAR = shape ; 
@@ -10194,6 +10197,7 @@ void override_modelPar_from_SNHOST(void) {
     double a = GENLC.SALT2alpha ;
     double b = GENLC.SALT2beta  ;
     double c = GENLC.SALT2c ;
+    // note that generic shape param (x1) is modified above.
 
     GENLC.SALT2c =   // optional overwrite from HOSTLIB
       modelPar_from_SNHOST(c, GENLC.COLORPAR_NAME);   
@@ -10824,7 +10828,7 @@ void genshift_risefalltimes(void) {
 
 
 // *****************************************
-void gen_modelPar(int ilc) {
+void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   /*********
    generate shape/luminosity parameter for model:
@@ -10843,12 +10847,19 @@ void gen_modelPar(int ilc) {
 
   Nov 25 2019: for SIMLIB model, set SALT2x1[c]
 
+  Mar 11 2020: pass OPT_FRAME = rest or obs.
+
   **********/
-  int ISMODEL_SALT2     = ( INDEX_GENMODEL == MODEL_SALT2  );
-  int ISMODEL_SIMSED    = ( INDEX_GENMODEL == MODEL_SIMSED );
-  int ISMODEL_FIXMAG    = ( INDEX_GENMODEL == MODEL_FIXMAG );
-  int ISMODEL_SIMLIB    = ( INDEX_GENMODEL == MODEL_SIMLIB );
-  int ISMODEL_NON1ASED  = ( INDEX_GENMODEL == MODEL_NON1ASED );
+
+  bool ISFRAME_REST      = ( OPT_FRAME == OPT_FRAME_REST );
+  bool ISFRAME_OBS       = ( OPT_FRAME == OPT_FRAME_OBS );
+  bool ISMODEL_SALT2     = ( INDEX_GENMODEL == MODEL_SALT2  );
+  bool ISMODEL_SIMSED    = ( INDEX_GENMODEL == MODEL_SIMSED );
+  bool ISMODEL_FIXMAG    = ( INDEX_GENMODEL == MODEL_FIXMAG );
+  bool ISMODEL_SIMLIB    = ( INDEX_GENMODEL == MODEL_SIMLIB );
+  bool ISMODEL_NON1ASED  = ( INDEX_GENMODEL == MODEL_NON1ASED );
+  
+  bool DOSHAPE = ( !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG < 0 ) ;
 
   double ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   double shape;
@@ -10858,14 +10869,14 @@ void gen_modelPar(int ilc) {
   //------------ BEGIN function ------------
 
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) { 
-    int DOFUN = ( ISMODEL_NON1ASED || ISMODEL_SIMSED);
+    bool DOFUN = ( ISMODEL_NON1ASED || ISMODEL_SIMSED);
     if ( !DOFUN) { return ; }
   }
 
   // ---------------------------------------
   // evaluate shape with z-dependence on population, 
 
-  if ( !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0 ) { // probably SNIa
+  if ( DOSHAPE && ISFRAME_REST ) {
 
     char *snam = GENLC.SHAPEPAR_GENNAME ;
     GENGAUSS_ZVAR = 
@@ -10879,31 +10890,40 @@ void gen_modelPar(int ilc) {
     *GENLC.ptr_SHAPEPAR = shape ; // load model-spefic shape variables 
   }
 
+  // - - - - - - - - - - - - - - - - 
+
   if ( ISMODEL_SALT2 ) {
-    gen_modelPar_SALT2();
+    gen_modelPar_SALT2(OPT_FRAME);
   }
   else if ( ISMODEL_NON1ASED  )  {
-    pick_NON1ASED(ilc, &INPUTS.NON1ASED, &GENLC.NON1ASED);
+    if ( ISFRAME_REST ) 
+      { pick_NON1ASED(ilc, &INPUTS.NON1ASED, &GENLC.NON1ASED); }
   }
   else if ( ISMODEL_SIMSED ) {
     // generate all of the SIMSED params, whatever they are.
 
-    gen_modelPar_SIMSED();
+    gen_modelPar_SIMSED(OPT_FRAME);
 
   } // end of SIMSED if-block
 
   else  if ( ISMODEL_FIXMAG ) {	  
-    GENLC.NOSHAPE   = FlatRan ( 2, INPUTS.FIXMAG );  
-    if ( INPUTS.GENFRAME_FIXMAG == GENFRAME_REST ) 
-      { GENLC.NOSHAPE += GENLC.DLMU; }
+    if ( ISFRAME_REST ) 
+      { GENLC.NOSHAPE   = FlatRan ( 2, INPUTS.FIXMAG );  }
+
+    if ( ISFRAME_OBS ) {
+      if ( INPUTS.GENFRAME_FIXMAG == GENFRAME_REST ) 
+	{ GENLC.NOSHAPE += GENLC.DLMU; }
+    }
   }
   else if ( ISMODEL_SIMLIB ) {
 
     // this is a fragile hack to link SALT2 params with SIMLIB model.
     // Purpose is to allow cutting on SALT2x1[c] in SIMLIB header.
-    shape               = SIMLIB_HEADER.GENGAUSS_SALT2x1.RANGE[0] ;
-    GENLC.SHAPEPAR      = shape ; 
-    *GENLC.ptr_SHAPEPAR = shape ; 
+    if ( ISFRAME_REST ) {
+      shape               = SIMLIB_HEADER.GENGAUSS_SALT2x1.RANGE[0] ;
+      GENLC.SHAPEPAR      = shape ; 
+      *GENLC.ptr_SHAPEPAR = shape ; 
+    }
   }
   
   return ;
@@ -10912,58 +10932,65 @@ void gen_modelPar(int ilc) {
 
 
 //***************************************
-void  gen_modelPar_SALT2(void) {
+void  gen_modelPar_SALT2(int OPT_FRAME) {
 
   // Created Feb 26 2018
+  // Mar 11 2020: pass OPT_FRAME argument.
 
+  bool ISFRAME_REST    = ( OPT_FRAME == OPT_FRAME_REST );
+  bool ISFRAME_OBS     = ( OPT_FRAME == OPT_FRAME_OBS  );
   double   ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   GENGAUSS_ASYM_DEF  GENGAUSS_ZVAR ;
   //  char fnam[] = "gen_modelPar_SALT2";
 
   // ---------- BEGIN -----------
 
-    // for SALT2, the color term is analogous to shapepar
-    // so generate the 'c' and beta term here.
-
-  GENGAUSS_ZVAR = 
-    get_zvariation_GENGAUSS(ZCMB,"SALT2c",&INPUTS.GENGAUSS_SALT2c);
-  GENLC.SALT2c = 
-    exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;
-
-  GENGAUSS_ZVAR = 
-    get_zvariation_GENGAUSS(ZCMB,"SALT2ALPHA",&INPUTS.GENGAUSS_SALT2ALPHA);
-  GENLC.SALT2alpha = 
-    exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;
-
-  GENGAUSS_ZVAR = 
-    get_zvariation_GENGAUSS(ZCMB,"SALT2BETA",&INPUTS.GENGAUSS_SALT2BETA);
-  GENLC.SALT2beta = 
-    exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;
-
-
-  // 2/29/2016: optional  beta(c) polynomial
-  if( INPUTS.SALT2BETA_cPOLY[0] > 0.0 ) {
-    double c = GENLC.SALT2c ;
-    GENLC.SALT2beta += (
-			INPUTS.SALT2BETA_cPOLY[0] +
-			INPUTS.SALT2BETA_cPOLY[1]*c +
-			INPUTS.SALT2BETA_cPOLY[2]*(c*c)  -
-			INPUTS.GENGAUSS_SALT2BETA.PEAK 	 );
-  }
-
-
-  // now compute x0 parameter from MU and the alpha,beta params.
-  GENLC.SALT2x0 = SALT2x0calc(GENLC.SALT2alpha, GENLC.SALT2beta, 
-			      GENLC.SALT2x1, GENLC.SALT2c, GENLC.DLMU );
+  // for SALT2, the color term is analogous to shapepar
+  // so generate the 'c' and beta term here.
   
-  GENLC.SALT2mB = SALT2mBcalc(GENLC.SALT2x0);
+  if ( ISFRAME_REST ) {
+    GENGAUSS_ZVAR = 
+      get_zvariation_GENGAUSS(ZCMB,"SALT2c",&INPUTS.GENGAUSS_SALT2c);
+    GENLC.SALT2c = 
+      exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;
+
+    GENGAUSS_ZVAR = 
+      get_zvariation_GENGAUSS(ZCMB,"SALT2ALPHA",&INPUTS.GENGAUSS_SALT2ALPHA);
+    GENLC.SALT2alpha = 
+      exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;
+    
+    GENGAUSS_ZVAR = 
+      get_zvariation_GENGAUSS(ZCMB,"SALT2BETA",&INPUTS.GENGAUSS_SALT2BETA);
+    GENLC.SALT2beta = 
+      exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;
+    
+
+    // 2/29/2016: optional  beta(c) polynomial
+    if( INPUTS.SALT2BETA_cPOLY[0] > 0.0 ) {
+      double c = GENLC.SALT2c ;
+      GENLC.SALT2beta += (
+			  INPUTS.SALT2BETA_cPOLY[0] +
+			  INPUTS.SALT2BETA_cPOLY[1]*c +
+			  INPUTS.SALT2BETA_cPOLY[2]*(c*c)  -
+			  INPUTS.GENGAUSS_SALT2BETA.PEAK 	 );
+    }
+
+  } // end ISFRAME_REST
+
+  if ( ISFRAME_OBS ) {
+    // now compute x0 parameter from MU and the alpha,beta params.
+    GENLC.SALT2x0 = SALT2x0calc(GENLC.SALT2alpha, GENLC.SALT2beta, 
+				GENLC.SALT2x1, GENLC.SALT2c, GENLC.DLMU );
+    
+    GENLC.SALT2mB = SALT2mBcalc(GENLC.SALT2x0);
+  }
 
   return;
 
 } // end gen_modelPar_SALT2
 
 //***************************************
-void  gen_modelPar_SIMSED(void) {
+void  gen_modelPar_SIMSED(int OPT_FRAME) {
 
   // Created Feb 26 2018
   // Move code from gen_modelPar() to here, and add code to
@@ -10974,7 +11001,10 @@ void  gen_modelPar_SIMSED(void) {
   //     (part of refactor for SIMSED loops)
   //
   // Apr 28 2019: return for GRIDGEN, after computing DLMU
+  // Mar 11 2020: pass OPT_FRAME
 
+  bool ISFRAME_REST    = ( OPT_FRAME == OPT_FRAME_REST );
+  bool ISFRAME_OBS     = ( OPT_FRAME == OPT_FRAME_OBS  );
   int     NPAR      = INPUTS.NPAR_SIMSED;
   int     NROW_COV  = INPUTS.NROW_SIMSED_COV;
   double  ZCMB      = GENLC.REDSHIFT_CMB ; // for z-dependent populations
@@ -10991,10 +11021,15 @@ void  gen_modelPar_SIMSED(void) {
 
   // ----------- BEGIN ------------
 
-  // use SALT2x0 parameter for SIMSED ... it just converts
+  if ( ISFRAME_OBS ) {
+    // use SALT2x0 parameter for SIMSED ... it just converts
     // MU into a flux-scale.
-  ARG = -0.4 * GENLC.DLMU ;
-  GENLC.SALT2x0 = pow(TEN , ARG );
+    ARG = -0.4 * GENLC.DLMU ;
+    GENLC.SALT2x0 = pow(TEN , ARG );
+  }
+
+  if ( !ISFRAME_REST ) { return; }
+  // everything below is rest frame.
 
 #ifdef SNGRIDGEN
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) { return; }
@@ -11032,15 +11067,6 @@ void  gen_modelPar_SIMSED(void) {
       PMIN = INPUTS.GENGAUSS_SIMSED[ipar].RANGE[0];
       PMAX = INPUTS.GENGAUSS_SIMSED[ipar].RANGE[1];
       CORRVAL[irow] += PEAK ;
-
-      /* xxxx Feb 17 2020 mark delete xxxxx
-      for(irow1=0; irow1 < NROW_COV; irow1++ ) {
-	tmpMat = INPUTS.CHOLESKY_SIMSED_COV[irow1][irow] ;
-	tmpRan = GAURAN[irow1] ;
-	CORRVAL[irow] += ( tmpMat * tmpRan) ;
-      }
-      xxxxxxx end mark xxxxxxxxx */
-
       if ( CORRVAL[irow] > PMAX ) { goto PICK_RANCOV; }
       if ( CORRVAL[irow] < PMIN ) { goto PICK_RANCOV; }
     } // end irow loop
@@ -15678,7 +15704,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
     // Jan 2020: check for ZPTERR fudge from FUDGE_ZPTERR key
     FUDGE_ZPTERR = INPUTS.FUDGE_ZPTERR_FILTER[IFILT_OBS];
-    if ( FUDGE_ZPTERR > 0.00001 ) { ZPT[1] = FUDGE_ZPTERR; }
+    if ( FUDGE_ZPTERR > 0.0000001 ) { ZPT[1] = FUDGE_ZPTERR; }
 
     // compute a few things from OBS_RAW
     if ( INPUTS.SMEARFLAG_ZEROPT == 0 ) { ZPT[1] = 0.0 ; }
@@ -22763,7 +22789,10 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
   // Created Dec 27, 2019
   // Compute diagonal error fudges, if specified 
   // (ignore off-diag correlations among epochs)
-
+  //
+  // Mar 12 2020:
+  //  Fix bug applying INPUTS.FUDGESCALE_FLUXERR_FILTER(2) because
+  //  it was using undefined SQSCALE.
 
   int    ifilt_obs  = GENLC.IFILT_OBS[epoch] ;
   char   *FIELD     = GENLC.FIELDNAME[epoch];
@@ -22820,21 +22849,22 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
     SQSIG_TRUE[TYPE_FLUXNOISE_S]  += SQSIG_TMP ;
     SQSIG_DATA                    += SQSIG_TMP ;
   }
-  
+
   // Optional errscale fudge (default=1) applied to true and reported errors.
   SCALE  = INPUTS.FUDGESCALE_FLUXERR_FILTER[ifilt_obs] ;
   if ( fabs(SCALE-1.0) > 1.0E-9 ) {
-    SCALE        = SCALE * SCALE ;
+    // SCALE      = SCALE * SCALE ; xxx bug removed, Mar 12 2020
+    SQSCALE      = SCALE * SCALE ;
     SQSIG_DATA  *= SQSCALE ;  
     for(itype=0; itype < NTYPE; itype++ ) { SQSIG_TRUE[itype] *= SQSCALE ; }
   }
-
+  
 
   // Optional errscale fudge (default=1) applied only to reported errors
   SCALE  = INPUTS.FUDGESCALE_FLUXERR2_FILTER[ifilt_obs] ;
   if ( fabs(SCALE-1.0) > 1.0E-9 ) {
-    SCALE        = SCALE * SCALE ;
-    SQSIG_DATA  *= SQSCALE ;  
+    SQSCALE        = SCALE * SCALE ;
+    SQSIG_DATA    *= SQSCALE ;  
   }
   
  
@@ -24559,6 +24589,11 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
     // add small phase-dependent scatter (Feb 11 2020)
     get_genSmear_phaseCor(GENLC.CID, Trest, &magSmear_tmp);
     magSmear += magSmear_tmp ; 
+
+    if ( iep == -3 ) {  
+      printf(" 66666  %d/%d  %2d  %7.2f  %8.4f \n", 
+	     GENLC.CID, GENLC.SIMLIB_ID, ifilt_obs, Trest, magSmear); 
+    }
 
     // store magSmear in global
     ptr_genmag[iep-1]                    += magSmear ;

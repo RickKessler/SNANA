@@ -69,7 +69,13 @@
 #    OUTDIR_PREFIX:  SALT2mu    ! prefix for each output directory 
 #
 #    STRINGMATCH_IGNORE:  LOWZ  SDSS  SNLS
-#    STRINGMATCH:  COMBINED   # combine all versions with COMBINED in name
+#        (see explanation below)
+#
+#    STRINGMATCH_IGNORE:  IGNORE  
+#       (ignore string matches; requires 1 and only 1 version per INPDIR)
+#
+#    STRINGMATCH:  <COMBINED>   # combine all versions with COMBINED in name
+#    STRINGMATCH:  IGNORE       # same as "STRINGMATCH_IGNORE:  IGNORE"
 #
 # STRINGMATCH_IGNORE is used to help match which versions to sum with 
 # the 'INPDIR+:' keys. For example, if versions LOWZ_SYST1 and SDSS_SYST1 
@@ -251,6 +257,10 @@
 # Oct 25 2019: OUTDIR_OVERRIDE works for INPDIR too 
 # Dec 09 2019: fix bug in makeDir_NSPLITRAN();  check SUMMARY_FLAG
 #
+# Mar 10 2020: 
+#   + new option to ignore string matches if there is only one version;
+#     see new function require_one_version().
+#
 # ------------------------------------------------------
 
 use IO::Handle ;
@@ -341,6 +351,7 @@ sub makeDir_NSPLITRAN ;
 sub makeDirs_SALT2mu ;
 sub makeSumDir_SALT2mu ;
 sub VERSION_STRINGMATCH_IGNORE ;
+sub require_one_version ;
 sub GET_IVERMATCH ;
 sub subDirName_after_lastSlash ;
 sub USE_FITOPT ;
@@ -390,7 +401,6 @@ my($IDIR,$IVER) ;
 my $INPDIR ;
 for($IDIR=0; $IDIR < $N_INPDIR; $IDIR++ ) 
 { &verify_INPDIR($IDIR); }
-
 
 if ( $NSPLITRAN > 0 ) { 
     &makeDir_NSPLITRAN();
@@ -1087,7 +1097,7 @@ sub makeDirs_SALT2mu {
 	@tmpGrep   = qx(grep MERGED $mergeFile | grep " FITOPT000 ");
 	@tmp       = ();
 	foreach $tmpLine (@tmpGrep) {
-	    $tmpLine  =~ s/^\s+// ;         # remove leading spaces (Sep 4 2017)
+	    $tmpLine  =~ s/^\s+// ;    # remove leading spaces (Sep 4 2017)
 	    @wdlist   = split(/\s+/,$tmpLine) ;
 	    $version  = $wdlist[1];
 	    if ( $version eq "$VERSION_EXCLUDE"             ) { next ; }
@@ -1131,7 +1141,7 @@ sub makeDirs_SALT2mu {
 # ========================
 sub makeSumDir_SALT2mu {
 
-    # create one output dir in which the fitres files are summed; 
+    # creates one output dir in which the fitres files are summed; 
     #
     # find $TOPDIR consisting of maximum overlap of all directory names.
     # Example:
@@ -1148,6 +1158,8 @@ sub makeSumDir_SALT2mu {
     #              entire string is checked.
     # May 24 2019: allow user-defined OUTDIR_OVERRIDE
     #
+    # Mar 10 2020: check require_one_version().
+    #
     # -------------------------
 
     my ( $LEND, $MATCH, $i, $c1ref, $c1, $LENMATCH ) ;
@@ -1155,6 +1167,7 @@ sub makeSumDir_SALT2mu {
     my ( $jslash, $jstart_SDIR, $indx, $OUTDIR);
     
     # -------------------- BEGIN ----------------------
+
 
     # - - - - - - - - - 
     # find maximum substring of INPDIR that matches all INPDIRs
@@ -1208,12 +1221,13 @@ sub makeSumDir_SALT2mu {
 	print " Create $OUTDIR \n";
 	@tmp = qx(mkdir -p $OUTDIR  2>&1 );
 	if ( scalar(@tmp) ) { die "\n @tmp \n ABORT "; }	
+	qx(cp $INPUT_FILE $OUTDIR);
     }
     else {
 	print " Define $OUTDIR \n";
     }
 
-    qx(cp $INPUT_FILE $OUTDIR);
+#    qx(cp $INPUT_FILE $OUTDIR);
 
     # --------------------------------------------
     # now the tricky part; find matching subdirs to sum.
@@ -1256,19 +1270,34 @@ sub makeSumDir_SALT2mu {
 	    @tmp = (@tmp , $version);
 	}
 
+	# if one version is required abort on multiple versions
+	if ( &require_one_version() == 1 ) {
+	    $NVER = scalar(@tmp) ;
+	    if ( $NVER != 1 ) {
+		$MSGERR[0] = "Found $NVER versions in" ;
+		$MSGERR[1] = "$INPDIR/MERGE.LOG ." ;
+		$MSGERR[2] = "But ... only 1 version allowed for option to ";
+		$MSGERR[3] = "ignore string matches.";
+		$i = 4;
+		foreach $vers ( @tmp ) 
+		{ $MSGERR[$i] = "Found VERSION = $vers" ; $i++; }
+		sntools::FATAL_ERROR(@MSGERR);		
+	    }
+	} 
+
 	@tmpSorted = sort(@tmp) ;  # -> alphabetical order
 	$NVER = 0 ;
 	$DIRFIX  = "$INPDIRFIX_SNFIT_LIST[$NDIR]" ;
 
-       
 	foreach $vers (@tmpSorted) {
 	    if ( $NVER > $NVERSION_MAX ) { $NVER_SKIP++; next; }
 	    $vers4match = &VERSION_STRINGMATCH_IGNORE($vers);
 
             if ( length($STRINGMATCH) > 2 )  { $vers4match = $STRINGMATCH ; }
-	    if ( length($DIRFIX)      > 2 )  { $vers = $DIRFIX ; }
-	    
+	    if ( length($DIRFIX)      > 2 )  { $vers = $DIRFIX ; }	   
+
 	    $VERSION_SNFIT_LIST[$NDIR][$NVER]  = $vers ;
+#	    print " xxx load VERSION_SNFIT_LIST[$NDIR][$NVER] = $vers\n";
 	    $VERSION_4MATCH_LIST[$NDIR][$NVER] = $vers4match ;
 #	    print " xxx $vers -> '$vers4match' \n";
 	    $NVER++ ;
@@ -1299,12 +1328,16 @@ sub makeSumDir_SALT2mu {
 	$NDIR_MATCH = 1 ;  # always matches itself
 
 	for($idir=1; $idir < $NDIR; $idir++ ) {
-	    $iverMatch = &GET_IVERMATCH($VER_REF,$idir);
+	    if ( &require_one_version() == 1 )
+	    { $iverMatch = 0 ; }
+	    else
+	    { $iverMatch = &GET_IVERMATCH($VER_REF,$idir); }
 	    if ( $iverMatch >=0 ) {
 		$NDIR_MATCH++ ;
 		$IVERSION_4SUM_LIST[$idir][$NVERSION_4SUM] = $iverMatch ;
 	    }
 	} # idir
+
 	if ( $NDIR_MATCH == $NDIR ) {
 	    $IVERSION_4SUM_LIST[0][$NVERSION_4SUM]  = $iver ;
 	    $VERSION_4SUM_LIST[$NVERSION_4SUM]      = $VER_REF ;
@@ -1313,7 +1346,7 @@ sub makeSumDir_SALT2mu {
 	    $NVERSION_FINAL[0] = $NVERSION_4SUM ;
 #	    print "\t Found match for FITRES-sum: $VER_REF \n"; 
 
-	    if ( $SUBMIT_FLAG ) {	qx(mkdir $OUTDIR/$VER_REF); }
+	    if ( $SUBMIT_FLAG ) { qx(mkdir $OUTDIR/$VER_REF); }
 	}
 	else { 
 #	    print "\t Cound not match $VER_REF (NDIR_MATCH=$NDIR_MATCH)\n"; 
@@ -1372,6 +1405,8 @@ sub VERSION_STRINGMATCH_IGNORE {
     # return $version with ignore-strings removed
     $version_out = $version ;
     
+    if ( &require_one_version() == 1 ) { return($version_out); }
+
     foreach $wd ( @STRINGMATCH_IGNORE_LIST ) {
 	$WD  = "$wd" ;
         $WD  =~ s/\+/\\\+/ ;  # add backslash in front of special char + sign 
@@ -1395,6 +1430,24 @@ sub VERSION_STRINGMATCH_IGNORE {
 
 } # end of VERSION_STRINGMATCH_IGNORE {
 
+
+# ==================================
+sub require_one_version {
+
+    # Mar 10 2010
+    # check option to ignore string matches, but this
+    # works only of there is one version per directory.
+
+    my($istat, $istat0, $istat1);
+    $istat0 =  ( "$STRINGMATCH_IGNORE" eq "IGNORE" ) ;
+    $istat1 =  ( "$STRINGMATCH"        eq "IGNORE" ) ;
+    $istat  =  ( $istat0 || $istat1 ) ;
+
+#    print " xxx require: stat = $istat0, $istat1, $istat \n";
+
+    return($istat);
+
+} # end require_one_version
 
 # ==================================
 sub copy_inpFiles {
@@ -1488,7 +1541,7 @@ sub cat_inpFiles {
 	$iver          = $IVERSION_4SUM_LIST[$idir][$iver_sum] ;
 	$VERSION_SNFIT = $VERSION_SNFIT_LIST[$idir][$iver];
 	$INPDIR        = $INPDIR_SNFIT_LIST[$idir] ;
-
+	
 	print "\t Add VERSION[$iver] = $VERSION_SNFIT \n";
 
 	$FFILE  = "${INPDIR}/${VERSION_SNFIT}/$ffile" ;
@@ -1496,7 +1549,7 @@ sub cat_inpFiles {
 	if ( -l $FFILE ) {
 	    my $symLink = readlink($FFILE);
 	    my $jslash = rindex($symLink,"/");  # location of last slash
-	    if ( $jslash < 0 ) # .xyz
+	    if ( $jslash < 0 ) 
 	    { $FFILE      = "${INPDIR}/${VERSION_SNFIT}/$symLink" ; }
 	    else
 	    { $FFILE = $symLink; }
@@ -1510,7 +1563,7 @@ sub cat_inpFiles {
 	
     }  # idir
  
-    # make sure that NVAR and VARNAMES match in each fitres file
+    # make sure that VARNAMES match in each fitres file
     &verify_CATLIST($CATLIST);
 
     # May 1 2018: do not allow mix of gzip and unzip
@@ -1559,8 +1612,6 @@ sub verify_CATLIST {
     
     @fList = split(/\s+/,$CATLIST) ;
     $NFILE = 0 ;
-
-
 
     foreach $f (@fList) {  
        
@@ -1673,10 +1724,14 @@ sub make_COMMANDS {
     my ($NDIR, $NVER, $idir, $iver, $ifitopt );
     $NTOT_JOBS = 0 ;    $icpu = 0 ;
     $NDIR = scalar(@OUTDIR_SALT2mu_LIST) ;
+
+    print " 1. xxx make_COMMANDS  NDIR=$NDIR\n";
     for($idir=0 ; $idir < $NDIR; $idir++ ) {
 	$NVER   = $NVERSION_FINAL[$idir] ;
+	print " 2. xxx make_COMMANDS idir=$idir NVER=$NVER \n";
 	for ( $iver=0; $iver  < $NVER; $iver++ ) {
 	    for($ifitopt=0; $ifitopt < $NFITOPT_SNFIT[$idir]; $ifitopt++ ) {
+		print " xxx call prep_COM for $idir, $iver, $ifitopt \n";
 		&prep_COMMAND($idir,$iver,$ifitopt);
 	    }  # ifitopt
 	}    # iver
@@ -1699,7 +1754,7 @@ sub make_COMMANDS {
 	print "\n PRE-ABORT DUMP: \n";
 	&matchDump();
 		    
-	$MSGERR[0] = "No SALT2mu jobs found.";
+	$MSGERR[0] = "No SALT2mu jobs found in make_COMMANDS() .";
 	$MSGERR[1] = "Probably a stringMatch problem";
 	sntools::FATAL_ERROR(@MSGERR);
     }
@@ -2147,22 +2202,6 @@ sub wait_for_done {
 	@tmp = qx(grep ' ABORT ' $OUTDIR/*/SALT2*.LOG );
 	$NJOB_ABORT += scalar(@tmp);       
     }
-
-# xxxxxxxx mark delete Sep 29 2019 xxxxxxxxxx
-#    if ( $NJOB_ABORT > 0 )  
-#    { $msg = "FAILED  ($NABORT ABORTS)"; }
-#    else
-#    { $msg = "SUCCESS" ; }
-#
-#    print " Final STATUS for DONE file: $msg \n";
-#    qx(echo '$msg' >> $ALLDONE_FILE);
-#
-# Sep 12 2019: optional user-done file from DONE_STAMP key
-#    if ( $DONE_STAMP_FILE ne "" ) {
-#	qx(echo '$msg' >> $DONE_STAMP_FILE );
-#    }
-# xxxxxxxxxxxxxxxxx end mark xxxxxxxxxxxxxx
-
 
 }  # end of wait_for_done
 

@@ -106,6 +106,7 @@
 #define HOSTLIB_MAGOBS_SUFFIX        "_obs"     // key = [filt]$SUFFIX
 #define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
 
+#define MXSNVARDEF_WGTMAP  4  // Mar 2020: max num of SN vars (e.g., x1, c ...)
 
 // for SNMAGSHIFT, allow hostlib param instead of wgtmap
 #define HOSTLIB_VARNAME_SNMAGSHIFT  "SNMAGSHIFT" 
@@ -322,20 +323,35 @@ struct HOSTLIB_ZPHOTEFF_DEF {
   double EFF[MXBIN_ZPHOTEFF] ;
 } HOSTLIB_ZPHOTEFF ; 
 
+
 // define the weight  map .. 
 struct HOSTLIB_WGTMAP_DEF {
 
   // GRID value vs. [ivar][igrid]
 
   // parameters describing each WGT
-  double WGTMAX ; // max weight for entire  wgtmap
-  char VARNAME[MXVAR_HOSTLIB][40]; 
-  int  ISTAT ;    // non-ZERO => wgtmap has been read
- 
+  char  VARNAME[MXVAR_HOSTLIB][40]; 
+  bool  READSTAT ;    // T => wgtmap has been read
+  bool  USE_SALT2GAMMA_GRID;
+
+  // params for SN variables that are NOT in the hostlib (Mar 2020)
+  int   N_SNVAR ;                // number of SN properties
+  bool  IS_SNVAR[MXVAR_HOSTLIB]; // true -> SN property NOT in HOSTLIB
+  int   ISPARSE_SNVAR[MXVAR_HOSTLIB];   // sparse list pointing to ivar_WGTMAP
+  int   INVSPARSE_SNVAR[MXVAR_HOSTLIB]; // ivar -> sparse ivar
+  int   NBIN_SNVAR[MXVAR_HOSTLIB];      // nbin vs. sparse SNVAR index
+  double *ptrVal_SNVAR[MXVAR_HOSTLIB];  // value(s) for each event
+
+  // weigt storage for each galaxy
+  double  WGTMAX ; // max weight for entire  wgtmap
   double *WGTSUM ;      // cumulative sum of weights over entire HOSTLIB
   double *WGT ;         // wgt for each hostlib entry
-  double *SNMAGSHIFT ;  // SN mag shift at for each hostlib entry
-  int  USE_SALT2GAMMA_GRID;
+  double *SNMAGSHIFT ;  // SN mag shift for each hostlib entry
+
+  double **WGTMAX_SNVAR ;        // vs. [igal][ivar_SN]
+  double ***WGT_SNVAR ;          // vs. [igal][ivar_SN][ibin_SN]
+  double ***WGTSUM_SNVAR;        // idem
+  double ***SNMAGSHIFT_SNVAR ;   // idem
 
   // define  arrays to store list of GALIDs to check wgtmap interpolation
   int      NCHECKLIST ;
@@ -345,7 +361,8 @@ struct HOSTLIB_WGTMAP_DEF {
   double    CHECKLIST_WGT[MXCHECK_WGTMAP] ;
   double    CHECKLIST_SNMAG[MXCHECK_WGTMAP] ;
 
-  struct  GRIDMAP  GRIDMAP ;
+  struct  GRIDMAP  GRIDMAP ;       // all WGTMAP vars
+  //  struct  GRIDMAP  gridmap_SNVAR ; // subset of SN vars not in HOSTLIB
 
 } HOSTLIB_WGTMAP ;
 
@@ -537,9 +554,15 @@ void   init_OPTIONAL_HOSTVAR(void) ;
 void   init_REQUIRED_HOSTVAR(void) ;
 int    load_VARNAME_STORE(char *varName) ;
 void   open_HOSTLIB(FILE **fp);
-void   read_wgtmap_HOSTLIB(void);
-void   parse_WGTMAP_HOSTLIB(FILE *fp, char *string);
-void   parse_WGTMAP_HOSTLIB_LEGACY(FILE *fp, char *string);
+
+void   init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END);
+void   read_HOSTLIB_WGTMAP(void);
+void   parse_HOSTLIB_WGTMAP(FILE *fp, char *string);
+bool   checkSNvar_HOSTLIB_WGTMAP(char *varName);
+void   runCheck_HOSTLIB_WGTMAP(void);
+void   malloc_HOSTLIB_WGTMAP(int NGAL, int N_SNVAR, int *NBIN_SNVAR, 
+			     double ***PTR);
+
 void   parse_Sersic_n_fixed(FILE *fp, char *string); 
 void   read_head_HOSTLIB(FILE *fp);
 void   checkAlternateVarNames_HOSTLIB(char *varName) ;
@@ -551,7 +574,6 @@ void   summary_snpar_HOSTLIB(void) ;
 void   malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ);
 void   sortz_HOSTLIB(void);
 void   zptr_HOSTLIB(void);
-void   init_HOSTLIB_WGTMAP(void);
 void   init_HOSTLIB_ZPHOTEFF(void);
 void   init_GALMAG_HOSTLIB(void);
 void   init_Gauss2d_Overlap(void);

@@ -18137,4 +18137,28 @@
       the following lowz fit-input:
       FUDGE_MAG_ERROR = 'u 0.01 v 0.01 w 0.01 x 0.01 y 0.01 z 0.01 A 0.01'
 
+   nearnbr_apply.c: fix to handle zPHOT
+
+   SALT2mu_fit.pl :
+     + new option  "STRINGMATCH_IGNORE: IGNORE" to ignore string
+       matches. Works only there is 1 and only 1 version per
+       INPDIR. Aborts if multiple VERSIONs.
+    
+   snlc_sim.c
+     + split gen_modelpar into REST and OBS frame ... prepare
+       for REST frame to be called before get_HOSTLIB, and
+       OBS frame to be called after get-HOSLTIB in case DLMU 
+       is changed.
+     + fix refactor bug applying FUDGESCALE_FLUXERR_FILTER and
+       FUDGESCALE_FLUXERR2_FILTER
+
+  sntools_host.c:
+     + begin refactor to allow x1 and c in WGTMAP using generated
+       x1,c, and NOT requiring x1,c in HOSTLIB.
+
+  sim_SNmix.pl:
+    + add NOPROMT arg to clopbber SIMLOGS even if there is no DONE
+      stamp.
+
+
 END: 

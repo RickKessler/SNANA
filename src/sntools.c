@@ -4750,9 +4750,9 @@ int  get_1DINDEX(int ID, int NDIM, int *indx ) {
   // 
   // If the number of grid-points in each dimension is
   // N1, N2 ... N_NDIM, then the returned index is an
-  // integer from 1 to N1*N2* ... N_NDIM.
+  // integer from 0 to N1*N2* ... N_NDIM-1.
   // For example, for a 3 dimensional array [4][5][4],
-  // the returned index is from 1 to 4*5*4 = 80.
+  // the returned index is from 0 to 4*5*4-1 = 80-1 = 79
   //
   // Feb 25, 2013: ABORT if *indx exceeds NPT
   // Feb 12, 2018: indx is 0 to N-1 (no longer 1-N)

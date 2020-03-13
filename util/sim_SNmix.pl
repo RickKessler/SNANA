@@ -28,6 +28,8 @@
 #  sim_SNmix.pl <SNmixFile> GENSTAT    ! debug GENSTAT
 #  sim_SNmix.pl <SNmixFile> KICP       ! force kicp queue
 #  sim_SNmix.pl <SNmixFile> NOSUBMIT   ! init, but don't submit
+#  sim_SNmix.pl <SNmixFile> NOPROMPT   ! skip prompt if SIMLOGS has no DONE stamp
+#                                      !  (make sure batch jobs are killed)
 #
 #  And for internal use only:
 #    sim_SNmix.pl <SNmixFile> -NODEINDX <nodeindx>  -SUFFIX $Nsec5
@@ -197,6 +199,10 @@
 #   + in write_GENSTAT_DRIVER(), increase max BUSYFILE wait time from
 #     10s to 60s (for NERSC).
 #
+# Mar 12 2020: 
+#   + add NOPROMPT option to clobber SIMLOGS subDir even if there is no
+#     DONE stamp.
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -299,13 +305,13 @@ my (@STATUS_NORMALIZATION, @TOTAL_STRING );
 my (@CONTENTS_INFILE_MASTER, @CONTENTS_INFILE_INCLUDE );
 my (@CONTENTS_INFILE_Ia, @CONTENTS_INFILE_NONIa, @CONTENTS_INFILE_SIMGEN);
 
-my ($NARG,$SNMIX_INFILE_MASTER,$SUBMITFLAG );
+my ($NARG,$SNMIX_INFILE_MASTER,$SUBMIT_FLAG, $PROMPT_FLAG );
 my ($INPUT_FILE_INCLUDE_Ia, $INPUT_FILE_INCLUDE_NONIa, @GENOPT_FILE_INCLUDE);
 my ($INPUT_FILE_ZVAR_Ia, $INPUT_FILE_ZVAR_NON1A, @INPUT_FILE_NON1AGRID );
 my ($SIMLIB_FILE, $SEARCHEFF_SPEC_FILE, $HOSTNOISE_FILE, $ZPHOTEFF_FILE );
 my ($FASTFAC, $SUFFIX_TEMP );
 my ($DO_SSH, $DO_BATCH, $SNANA_LOGIN_SETUP);
-my ($KILLJOBS_FLAG, $DEBUG_GENSTAT, $INODE_GLOBAL);
+my ($KILLJOBS_FLAG, $DEBUG_GENSTAT, $INODE_GLOBAL, $PROMPT_FLAG );
 my ($DOGEN_SNIa, $DOGEN_NONIa, @NVAR_SIMGEN_DUMP);
 my ($CONVERT_SIMGEN_DUMP, $DO_SIMGEN_DUMP);
 my ($NCLASS_SIMGEN_DUMP, $NCLASS_SIMGEN_DUMPALL );
@@ -379,8 +385,8 @@ if ( $KILLJOBS_FLAG ) { sntools::Killjobs(@SSH_NODELIST) ;  die "\n"; }
 
 &init_duplicate();
 
-if ( $SUBMITFLAG == 0 ) {
-    print "\n SUBMITFLAG=0 ==> DO NOT SUBMIT JOBS.\n";
+if ( $SUBMIT_FLAG == 0 ) {
+    print "\n SUBMIT_FLAG=0 ==> DO NOT SUBMIT JOBS.\n";
     exit(0);
 }
 
@@ -669,6 +675,7 @@ sub init_SIMGEN() {
 
     $KILLJOBS_FLAG = 0 ;
     $DEBUG_GENSTAT = 0 ;
+    $PROMPT_FLAG   = 1 ;
 
     @GENMODEL_NGENTOT  = ( ) ;
     
@@ -721,7 +728,8 @@ sub parse_arg() {
     $SUFFIX_TEMP    = "TEMP" ;
     $DO_SSH         = 0 ;
     $DO_BATCH       = 0 ;
-    $SUBMITFLAG     = 1;
+    $SUBMIT_FLAG    = 1;
+    $PROMPT_FLAG    = 1;
 
     for ( $i = 1; $i < $NARG ; $i++ ) { $USEARG[$i]=0; }
 
@@ -733,7 +741,8 @@ sub parse_arg() {
 	if ( $arg eq "FAST100"   ) { $FASTFAC = 100 ;  $USEARG[$i]=1; }
 	if ( $arg eq "KILL"      ) { $KILLJOBS_FLAG=1; $USEARG[$i]=1; }	
 	if ( $arg eq "GENSTAT"   ) { $DEBUG_GENSTAT=1; $USEARG[$i]=1; }	
-	if ( $arg eq "NOSUBMIT"  ) { $SUBMITFLAG = 0 ; $USEARG[$i]=1; }
+	if ( $arg eq "NOSUBMIT"  ) { $SUBMIT_FLAG = 0; $USEARG[$i]=1; }
+	if ( $arg eq "NOPROMPT"  ) { $PROMPT_FLAG = 0; $USEARG[$i]=1; }
 
 	if ( "$arg" eq "-NODEINDX_SSH"   )  { 
 	    $NODEINDX   = $argNext;  $DO_SSH = 1; 
@@ -2449,7 +2458,7 @@ sub make_logDir {
     # Aug 2017: if LOGDIR exists without DONE stamp, give SEVERE WARNING
     my $EXIST_LOGDIR = (-d $LOGDIR);
     my $EXIST_DONE   = (-e $DONE_STAMP );
-    if ($EXIST_LOGDIR && $EXIST_DONE == 0 ) {
+    if ($PROMPT_FLAG &&  $EXIST_LOGDIR && $EXIST_DONE == 0 ) {
 	print "\n\n ***** SEVERE WARNING ******** \n" ;
 	print "LOGDIR = \n  '$LOGDIR' \n";
 	print "exists without a done stamp. \n";
@@ -2557,7 +2566,7 @@ sub get_normalization_model {
     if ( -e $NORMLOG ) {
 	print "\t Norm-log file already exists:\n\t $normLog . \n";
 	$NTMP = 0;
-	# normLog exists, but make sure the FATAL line is there to
+	# normLog exists, but make sure the QUIT line is there to
 	# make sure it's really done
       CHECKDONE_NORM:	
 	@reqLine = qx(grep QUIT $NORMLOG);
@@ -2578,6 +2587,8 @@ sub get_normalization_model {
     if ( scalar(@line) == 0 ) {       
 	$MSGERR[0] = "!!! SIMnorm job failed to get normalization !!! ";
 	$MSGERR[1] = "See $normLog";
+	$MSGERR[2] = "APPEND_NORM = $APPEND_NORM" ;
+	$MSGERR[3] = "cmdNorm = '$cmdNorm' ";
 	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR) ;
     }
 

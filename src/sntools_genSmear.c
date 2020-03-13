@@ -3643,7 +3643,8 @@ void  init_genSmear_phaseCor(double magSmear, double expTau) {
   GENSMEAR_PHASECOR.CID_LAST       = -9 ;
 
   GENSMEAR_PHASECOR.NCHECK       = 0 ;
-  GENSMEAR_PHASECOR.NSUM         = 0 ;
+  GENSMEAR_PHASECOR.NSUM         = 0  ;
+  GENSMEAR_PHASECOR.sumCHECK     = 0.0 ;
   GENSMEAR_PHASECOR.SUMCHECK[0]  = 0.0 ;
   GENSMEAR_PHASECOR.SUMCHECK[1]  = 0.0 ;
   GENSMEAR_PHASECOR.SUMCHECK[2]  = 0.0 ;
@@ -3712,7 +3713,7 @@ void  init_genSmear_phaseCor(double magSmear, double expTau) {
 
 } // end init_genSmear_phaseCor
 
-// ---------
+// ----------------------------
 void  get_genSmear_phaseCor(int CID, double phase, double *magSmear ) {
 
   int CID_LAST = GENSMEAR_PHASECOR.CID_LAST ;
@@ -3735,24 +3736,6 @@ void  get_genSmear_phaseCor(int CID, double phase, double *magSmear ) {
 
     GaussRanCorr(&GENSMEAR_PHASECOR.DECOMP, GENSMEAR_PHASECOR.RANGauss_LIST,
 		 GENSMEAR_PHASECOR.GRID_MAGSMEAR);
-
-    /* xxxxxxx Feb 17 2020, mark delete xxxxxxxxx
-    // new scatter values for each event.
-    for (i = 0 ; i < NBIN; i++) {    
-      GENSMEAR_PHASECOR.GRID_MAGSMEAR[i] = 0.0 ;  
-      for (j = 0 ; j < NBIN ; j++){
-	Chol = GENSMEAR_PHASECOR.Cholesky[j][i] ;
-	RANG = GENSMEAR_PHASECOR.RANGauss_LIST[j] ;
-	GENSMEAR_PHASECOR.GRID_MAGSMEAR[i] += Chol * RANG;
-      }
-
-      if ( LDMP  ) {
-	printf(" xxx i=%2d  phase=%5.0f  magSmear = %6.3f \n", i,
-	       GENSMEAR_PHASECOR.GRID_PHASE[i],
-	       GENSMEAR_PHASECOR.GRID_MAGSMEAR[i]  );     
-      }
-    }
-    xxxxxxxxx end mark xxxxxxxxxxx*/
 
     check_genSmear_phaseCor();    
 	
@@ -3807,6 +3790,7 @@ void  check_genSmear_phaseCor(void) {
   // check neighboring bins
   m0 = GENSMEAR_PHASECOR.GRID_MAGSMEAR[IBIN_CHECK];
   GENSMEAR_PHASECOR.SUMCHECK[0] += (m0*m0);
+  GENSMEAR_PHASECOR.sumCHECK    += m0 ;
 
   // check neighboring bins
   m0 = GENSMEAR_PHASECOR.GRID_MAGSMEAR[IBIN_CHECK];
@@ -3819,9 +3803,10 @@ void  check_genSmear_phaseCor(void) {
   GENSMEAR_PHASECOR.SUMCHECK[2] += (m0*m1);
 
   int icheck, NSUM;
-  double XN, SUMCHECK, ARG, DT, SIG, SQSIG;
+  double XN, SUMCHECK, sumCHECK, ARG, DT, SIG, SQSIG, RMS ;
   NSUM = GENSMEAR_PHASECOR.NSUM; 
   
+
   if ( NSUM > 0 && (NSUM % 100) == 0 ) {
 
     printf(" xxx --------------------------------- \n");
@@ -3831,13 +3816,22 @@ void  check_genSmear_phaseCor(void) {
     SIG     = GENSMEAR_PHASECOR.INPUT_MAGSMEAR ;
     SQSIG   = SIG*SIG;
     T0      = GENSMEAR_PHASECOR.GRID_PHASE[IBIN_CHECK];
+
+    sumCHECK    = GENSMEAR_PHASECOR.sumCHECK ;    // sum(m0)
+    SUMCHECK    = GENSMEAR_PHASECOR.SUMCHECK[0] ; // sum(m0^2)
+    RMS = RMSfromSUMS(NSUM, sumCHECK, SUMCHECK);
+
     for(icheck = 0; icheck < GENSMEAR_PHASECOR.NCHECK; icheck++ ) {
       DT  = DT_CHECK[icheck];       ARG = DT/EXPTAU;
       SUMCHECK    = GENSMEAR_PHASECOR.SUMCHECK[icheck] ;
       RHO_PREDICT = exp(-ARG);
       RHO_CHECK   = SUMCHECK / (XN*SQSIG);
-      printf(" xxx RHO(dT=%4.1f) = %6.3f (expect RHO=%6.3f) \n",
+      printf(" xxx RHO(dT=%4.1f) = %6.3f (expect RHO=%6.3f) ",
 	     DT, RHO_CHECK, RHO_PREDICT);
+
+      if ( icheck == 0 ) { printf("  RMS=%6.4f", RMS ); }
+      printf("\n");
+
       fflush(stdout);
     }
     

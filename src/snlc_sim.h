@@ -1683,9 +1683,9 @@ void   gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
 			char *REJECT_STAGE );
 void   gen_event_stronglens(int ilc, int istage);
 void   gen_filtmap(int ilc);  // generate filter-maps
-void   gen_modelPar(int ilc);     // generate stretch or delta or dm15 ...
-void   gen_modelPar_SALT2(void); 
-void   gen_modelPar_SIMSED(void); 
+void   gen_modelPar(int ilc, int OPT_FRAME);  
+void   gen_modelPar_SALT2(int OPT_FRAME); 
+void   gen_modelPar_SIMSED(int OPT_FRAME); 
 void   gen_MWEBV(void);       // generate MWEBV
 void   override_modelPar_from_SNHOST(void) ;
 

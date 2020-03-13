@@ -378,6 +378,7 @@ struct {
 
   int    NCHECK, NSUM;
   double SUMCHECK[10]; // for internal COV check
+  double sumCHECK ;
 
 } GENSMEAR_PHASECOR ;
 

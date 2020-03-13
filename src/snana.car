@@ -14626,7 +14626,7 @@ c apply epoch cut.
 
         IGNORE  = CHECK_EPOCH_IGNORE(1,EPMIN) .and. 
      &            (.not. REFORMAT_SAVE_BADEPOCHS)
-        LTMP    = LCUTEPOCH(Z, PKMJD, SNGL(MJD8), IFILT_OBS, IDFIELD)
+        LTMP    = LCUTEPOCH(Z, PKMJD, SNGL(MJD8), IFILT, IDFIELD)
      &            .and. (.not. IGNORE )
 
         if ( .NOT. LTMP ) ISTAT = ISTAT_SKIP
@@ -19905,8 +19905,9 @@ c - - - - - - - - - - - - - -
       ERR2b = DBLE(FUDGE_FLUXCAL_ERRPIX_FILT(IFILT_OBS)) ! fudge err/pix
       ERR3  = DBLE(FUDGE_MAG_ERROR_FILT(IFILT_OBS))* FLUXCAL ! fudge mag err
 
-      if ( RESTORE_DES3YR ) then
+      if ( RESTORE_DES3YR ) then  ! Mar 2020
          ERR3 = DBLE(FUDGE_MAG_ERROR_FILT(IFILT_OBS))* FLUXCAL_BUG
+         FLUXCAL_BUG = DBLE( SNLC_FLUXCAL(ep) ) 
       endif
 
       SQERR1     = ERR1  * ERR1
@@ -19916,8 +19917,6 @@ c - - - - - - - - - - - - - -
       SQERR3     = ERR3  * ERR3
       SQERRHOST  = 0.0 
       SQERRMAP   = 0.0 
-
-      FLUXCAL_BUG = DBLE( SNLC_FLUXCAL(ep) ) ! for RESTORE_DES3YR (Mar 2020)
 
 c --------------------------------------------
 c  Check for map corrections

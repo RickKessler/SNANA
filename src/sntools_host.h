@@ -339,7 +339,9 @@ struct HOSTLIB_WGTMAP_DEF {
   bool  IS_SNVAR[MXVAR_HOSTLIB]; // true -> SN property NOT in HOSTLIB
   int   ISPARSE_SNVAR[MXVAR_HOSTLIB];   // sparse list pointing to ivar_WGTMAP
   int   INVSPARSE_SNVAR[MXVAR_HOSTLIB]; // ivar -> sparse ivar
-  int   NBIN_SNVAR[MXVAR_HOSTLIB];      // nbin vs. sparse SNVAR index
+  int   NB1D_SNVAR[MXVAR_HOSTLIB];      // numer of bins per SNvar
+  int   NBTOT_SNVAR;                    // product of NB1D
+  int  *IBIN1D_SNVAR[MXVAR_HOSTLIB];  // 1D bin -> bin per var
   double *ptrVal_SNVAR[MXVAR_HOSTLIB];  // value(s) for each event
 
   // weigt storage for each galaxy
@@ -348,10 +350,10 @@ struct HOSTLIB_WGTMAP_DEF {
   double *WGT ;         // wgt for each hostlib entry
   double *SNMAGSHIFT ;  // SN mag shift for each hostlib entry
 
-  double **WGTMAX_SNVAR ;        // vs. [igal][ivar_SN]
-  double ***WGT_SNVAR ;          // vs. [igal][ivar_SN][ibin_SN]
-  double ***WGTSUM_SNVAR;        // idem
-  double ***SNMAGSHIFT_SNVAR ;   // idem
+
+  double **WGT_SNVAR ;          // vs. [igal][ibin_SN]
+  double **WGTSUM_SNVAR;        // idem
+  double **SNMAGSHIFT_SNVAR ;   // idem
 
   // define  arrays to store list of GALIDs to check wgtmap interpolation
   int      NCHECKLIST ;
@@ -560,8 +562,8 @@ void   read_HOSTLIB_WGTMAP(void);
 void   parse_HOSTLIB_WGTMAP(FILE *fp, char *string);
 bool   checkSNvar_HOSTLIB_WGTMAP(char *varName);
 void   runCheck_HOSTLIB_WGTMAP(void);
-void   malloc_HOSTLIB_WGTMAP(int NGAL, int N_SNVAR, int *NBIN_SNVAR, 
-			     double ***PTR);
+void   malloc_HOSTLIB_WGTMAP(int NGAL, int NBTOT, double **PTR);
+void   prep_SNVAR_HOSTLIB_WGTMAP(void);
 
 void   parse_Sersic_n_fixed(FILE *fp, char *string); 
 void   read_head_HOSTLIB(FILE *fp);

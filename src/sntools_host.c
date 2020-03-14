@@ -217,7 +217,7 @@ void initvar_HOSTLIB(void) {
   // one-time init of variables used for HOSTLIB
 
   int ivar, j, igal, ifilt  ;
-  //  char fnam[] = "initvar_HOSTLIB" ;
+  char fnam[] = "initvar_HOSTLIB" ;
 
   // ----------- BEGIN -------------
 
@@ -301,6 +301,7 @@ void initvar_HOSTLIB(void) {
   HOSTLIB_WGTMAP.NCHECKLIST = 0;
   HOSTLIB_WGTMAP.N_SNVAR      = 0 ;
   HOSTLIB_WGTMAP.NBTOT_SNVAR  = 1 ; // at least 1 dummy bin of no WGTMAP
+
   for ( ivar=0; ivar < MXVAR_WGTMAP_HOSTLIB; ivar++ ) {  
     sprintf(HOSTLIB_WGTMAP.VARNAME[ivar], "%s", NULLSTRING );
     HOSTLIB_WGTMAP.NB1D_SNVAR[ivar] = 0 ;
@@ -315,7 +316,6 @@ void initvar_HOSTLIB(void) {
   // malloc temp string pointers for splitString function
   for(ivar=0; ivar < MXTMPWORD_HOSTLIB; ivar++ ) 
     { TMPWORD_HOSTLIB[ivar] = (char*)malloc( 40*sizeof(char) ); }
-
 
   reset_SNHOSTGAL_DDLR_SORT(MXNBR_LIST);
 
@@ -910,13 +910,14 @@ void prep_SNVAR_HOSTLIB_WGTMAP(void) {
   // prepare optonion SN variables in WGTMAP that re NOT in HOSTLIB.
 
   int  N_SNVAR = HOSTLIB_WGTMAP.N_SNVAR ;
-  int  ivar_SN, ivar, NBIN, NBTOT, IBIN, IBIN_TMP, NB1D, IB1D  ;
+  int  ivar_SN, ivar, NBIN, NBTOT, IBIN, IBIN_TMP, NB1D, IB1D, ID  ;
   char *VARNAME, VARLIST[100] ;
   char fnam[] = "prep_SNVAR_HOSTLIB_WGTMAP" ;
-
+  bool LDMP = false;
   // ------------- BEGIN -----------
 
   if ( N_SNVAR == 0 ) { return ; }
+ 
 
   VARLIST[0] = 0 ;
   for(ivar_SN = 0; ivar_SN < N_SNVAR; ivar_SN++ ) {
@@ -925,8 +926,10 @@ void prep_SNVAR_HOSTLIB_WGTMAP(void) {
     strcat(VARLIST,VARNAME);
     strcat(VARLIST," " );
     NBIN    = HOSTLIB_WGTMAP.GRIDMAP.NBIN[ivar];
+
     HOSTLIB_WGTMAP.NB1D_SNVAR[ivar_SN] = NBIN;
     HOSTLIB_WGTMAP.NBTOT_SNVAR *= NBIN;
+    sprintf(HOSTLIB_WGTMAP.VARNAME_SNVAR[ivar_SN],"%s", VARNAME);
     // printf(" xxx %s: NBIN[%d,%s] = %d \n", fnam, ivar_SN, VARNAME, NBIN);
   }
   NBTOT = HOSTLIB_WGTMAP.NBTOT_SNVAR;
@@ -939,31 +942,130 @@ void prep_SNVAR_HOSTLIB_WGTMAP(void) {
   int MEMI = NBTOT * sizeof(int) ;
   for(ivar_SN = 0; ivar_SN < N_SNVAR; ivar_SN++ )
     { HOSTLIB_WGTMAP.IBIN1D_SNVAR[ivar_SN] = (int*) malloc(MEMI); }
-  
-
 
   for(IBIN=0; IBIN < HOSTLIB_WGTMAP.NBTOT_SNVAR; IBIN++ ) {
     IBIN_TMP = IBIN ;
     NBTOT = HOSTLIB_WGTMAP.NBTOT_SNVAR;
     for(ivar_SN = 0; ivar_SN < N_SNVAR; ivar_SN++ ) {
-      ivar    = HOSTLIB_WGTMAP.ISPARSE_SNVAR[ivar_SN];
-      VARNAME = HOSTLIB_WGTMAP.VARNAME[ivar] ;
       NB1D = HOSTLIB_WGTMAP.NB1D_SNVAR[ivar_SN] ;
       NBTOT   /= NB1D ;
       IB1D     = IBIN_TMP/NBTOT ;
       IBIN_TMP = ( IBIN_TMP % NBTOT);
       HOSTLIB_WGTMAP.IBIN1D_SNVAR[ivar_SN][IBIN] = IB1D ;
-      printf(" xxx %s: IBIN=%3d -> %s bin = %d\n",
-	     fnam, IBIN, VARNAME, IB1D);	     
+
+      if ( LDMP ) {
+	VARNAME = HOSTLIB_WGTMAP.VARNAME_SNVAR[ivar_SN] ;
+	printf(" xxx %s: IBIN=%3d -> %s bin = %d\n",
+	       fnam, IBIN, VARNAME, IB1D);	     
+      }
     }
   }
 
-  debugexit(fnam);
+  // - - - - - - - - - - - 
+  // init map to convert multiple 1D indices into a single index
+  // for 1D array.
+  HOSTLIB_WGTMAP.IDMAP_INDEX_SNVAR = IDGRIDMAP_HOSTLIB_WGTMAP + 1 ;
+  ID = HOSTLIB_WGTMAP.IDMAP_INDEX_SNVAR ;
+  init_1DINDEX(ID, N_SNVAR, HOSTLIB_WGTMAP.NB1D_SNVAR );
 
   return ;
 
 } // end prep_SNVAR_HOSTLIB_WGTMAP
 
+// =======================================
+void getVal_SNVAR_HOSTLIB_WGTMAP(int ibin, double *VAL_WGTMAP) {
+
+  // Created Mar 14 2020
+  // For input SNVar "ibin", return SN value for each SNVar
+  // that is NOT in the HOSTLIB.
+  //
+  // Example with x1(5 bins) and c(3 bins) so that ibin can take
+  // and value from 0 to 14. 
+  // Ouptut VAL_WGTMAP[0] is the x1 value for the weigt map, 
+  // and VAL_WGTMAP[1] is the c value.
+
+  int N_SNVAR     = HOSTLIB_WGTMAP.N_SNVAR;
+  int ivar_SN, ivar, IB1D;
+  double VAL;
+  bool LDMP = false;
+  char fnam[] = "getVal_SNVAR_HOSTLIB_WGTMAP" ;
+
+  // ------------ BEGIN ------------
+
+  for(ivar_SN=0; ivar_SN < N_SNVAR; ivar_SN++ ) {
+    IB1D  = HOSTLIB_WGTMAP.IBIN1D_SNVAR[ivar_SN][ibin] ;
+    ivar  = HOSTLIB_WGTMAP.ISPARSE_SNVAR[ivar_SN];
+    VAL   = HOSTLIB_WGTMAP.GRIDMAP.FUNVAL[ivar][IB1D] ; 
+    VAL_WGTMAP[ivar_SN] = VAL;
+
+    if ( LDMP ) {
+      char *VARNAME = HOSTLIB_WGTMAP.VARNAME_SNVAR[ivar_SN] ;
+      printf(" xxx ibin=%3d -> %s = %8.3f \n", ibin, VARNAME, VAL);
+      fflush(stdout);
+    }
+  }
+
+  return ;
+
+} // end getVal_SNVAR_HOSTLIB_WGTMAP
+
+
+// ========================================
+int getBin_SNVAR_HOSTLIB_WGTMAP(void) {
+
+  // Mar 14 2020
+  // Called for each event, return SNVAR ibin for current
+  // ptrVal_SNVAR values. Note that here we find ibin
+  // such that SNVAR values have closest match to 
+  // current generated values in ptrVal_SNVAR.
+  //
+  // Beware that uniform bins are required in each SNVAR dimension.
+
+  int  NBTOT_SNVAR = HOSTLIB_WGTMAP.NBTOT_SNVAR;
+  int  N_SNVAR     = HOSTLIB_WGTMAP.N_SNVAR;
+  int  ID          = HOSTLIB_WGTMAP.IDMAP_INDEX_SNVAR ;
+  int  ivar_SN, ivar, ibin, IBIN = 0 ;
+  int    IB1D[MXVAR_HOSTLIB];
+  double VAL, VALMIN, VALMAX, VALBIN;
+  char fnam[] = "getBin_SNVAR_HOSTLIB_WGTMAP" ;
+  bool LDMP = true ;
+  // ------------- BEGIN ------------
+  
+  if ( N_SNVAR == 0 ) { return(IBIN); }
+
+  if ( LDMP ) { 
+    printf(" xxx -------------------------------------------- \n");
+    printf(" xxx    %s DUMP \n", fnam ); 
+  }
+
+  for(ivar_SN=0; ivar_SN < N_SNVAR; ivar_SN++ ) {
+    ivar    =  HOSTLIB_WGTMAP.ISPARSE_SNVAR[ivar_SN];
+    VALBIN  =  HOSTLIB_WGTMAP.GRIDMAP.VALBIN[ivar] ; 
+    VALMIN  =  HOSTLIB_WGTMAP.GRIDMAP.VALMIN[ivar] ; 
+    VALMAX  =  HOSTLIB_WGTMAP.GRIDMAP.VALMAX[ivar] ; 
+    VAL     = *HOSTLIB_WGTMAP.ptrVal_SNVAR[ivar_SN] ;
+    IB1D[ivar_SN] = (int)((VAL-VALMIN)/VALBIN) ; 
+
+    if ( LDMP ) {
+      char *VARNAME = HOSTLIB_WGTMAP.VARNAME_SNVAR[ivar_SN]; 
+      printf(" xxx %3s = %8.4f (ivar=%d, MIN=%.3f, BIN=%.3f, bin1D=%d) \n", 
+	     VARNAME, VAL, ivar, VALMIN, VALBIN, IB1D[ivar_SN] );
+    }
+  }
+
+  IBIN = get_1DINDEX(ID, N_SNVAR, IB1D);
+
+  if ( LDMP ) { printf(" xxx IBIN = %d \n", IBIN); fflush(stdout); }
+
+  if ( IBIN < 0 ) {
+    sprintf(c1err, "Invalid IBIN=%d" );
+    sprintf(c2err, "SNVAR is messed up.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  return(IBIN) ;
+
+} // end getBin_SNVAR_HOSTLIB_WGTMAP
 
 // ====================================
 void  read_specbasis_HOSTLIB(void) {
@@ -1323,33 +1425,6 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 
     // global scale for physical units
     HOSTSPEC.FLAM_EVT[ilam_basis] = (FLAM_SUM * HOSTSPEC.FLAM_SCALE * znorm);
-
-    /* xxxxxxxxxxxxxxxx 
-    LAMOBS  = z1*HOSTSPEC.WAVE_CEN[ilam_basis]; // obs frame
-       // ZP is no good here because ZP is in SPECTROGRAPH bins,
-       // not in HOSTSPEC bins.
-    if ( DUMPFLAG ) {
-      if ( LAMOBS > LAMMIN_SPECTRO && 
-	   LAMOBS < LAMMAX_SPECTRO && LAMOBS-LAMOBS_LAST > 20.0 ) {
-	
-	LAMOBS_MIN   = z1*HOSTSPEC.WAVE_MIN[ilam_basis];
-	LAMOBS_MAX   = z1*HOSTSPEC.WAVE_MAX[ilam_basis];
-	LAMOBS_BIN   = z1*HOSTSPEC.WAVE_BINSIZE[ilam_basis];
-	FLAM_TMP     = FLAM_BASIS[ilam_basis] ;
-	ZP = interp_1DFUN(OPT_INTERP_LINEAR, LAMOBS, NBLAM_SPECTRO,
-			  LAMAVG_SPECTRO, ZP_SPECTRO, fnam); // ZP NOT RIGHT
-
-	FLUX    = FLAM_TMP * LAMOBS_BIN * LAMOBS/(hc8*z1);
-	MAG     = ZP - 2.5*log10(FLUX);
-	
-	printf(" xxx %7.1f - %7.1f: FLAM(RAW,NORM) = %10.3le, %10.3le   "
-	       "MAG=%5.2f (ZP=%5.2f) \n",
-	       LAMOBS_MIN, LAMOBS_MAX, FLAM_SUM, FLAM_TMP, MAG, ZP );
-	fflush(stdout);        LAMOBS_LAST = LAMOBS ;
-      }
-
-    } // end DUMPFLAG
-    xxxxxxxxxxxxxxxx */    
 
   } // end ilam_basis
 
@@ -2615,9 +2690,6 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   // do some inits, allocate memory and make sanity checks.
   //
   // Inputs:
-  //   OPT_INIT : 1 -> first call before processing events
-  //              2 -> called during each event (new since Mar 2020)
-  //
   //   IGAL_START : first IGAL to compute wgt
   //   IGAL_END   : last IGAL to compute wgt
   //
@@ -2629,7 +2701,6 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   // Jun 25 2019: check GAMMA_GRID option
   //
 
-  bool FIRST_CALL = ( OPT_INIT == 1 ) ;
   bool IS_SNVAR ;
   int  i, NDIM, ivar, ivar_STORE, ivar_SN, NFUN, NROW, NBIN, ibin, istat ;
   int  NGAL, NCHECK, NN, igal, igal_difmax, isparse ;
@@ -2648,7 +2719,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 
   double
     VAL, VALMIN, VALMAX, WGT, WGTSUM, WGTSUM_LAST, SNMAGSHIFT
-    ,VAL_WGTMAP[MXVAR_HOSTLIB]
+    ,VAL_WGTMAP[MXVAR_HOSTLIB], VAL_SNVAR[MXVAR_HOSTLIB]
     ,ZTRUE, ZTRUE_CHECK, ZDIF, WGT_EXACT, WGT_INTERP, WDIF
     ,WDIF_SUM, SQWDIF_SUM, WDIF_AVG, WDIF_RMS, XN, WDIF_MAX, SQTMP
     ,TMPVAL[2]
@@ -2661,8 +2732,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 
   VBOSE = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_VERBOSE );
 
-  if ( FIRST_CALL ) 
-    { printf("\t Interpolate WGTMAP for each galaxy ... \n" ) ; }
+  printf("\t Interpolate WGTMAP for each galaxy ... \n" ) ;
 
   fflush(stdout);
 
@@ -2672,38 +2742,41 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   NGAL = HOSTLIB.NGAL_STORE ;
   HOSTLIB_WGTMAP.USE_SALT2GAMMA_GRID = USE_GAMMA_GRID;
 
-  if ( USE_GAMMA_GRID && FIRST_CALL ) {
+  if ( USE_GAMMA_GRID  ) {
     printf("\t Implement BIASCOR_SALT2GAMMA_GRID: %.2f to %.2f mag\n",
 	   GAMMA_GRID_MIN, GAMMA_GRID_MAX);
     fflush(stdout);
   }
 
   // ------------------------------------------------------
-  // allocate memory for wgt, snmagshift and cumulative weight-sum.
-  // Note we need double-precision here.
-  // Here the  memory is allocated for each GALID.
-
-  // xxxxx mark delete after refactor with 3D wgtmap maps
-  HOSTLIB_WGTMAP.WGT        = (double *)malloc(2*HOSTLIB.MALLOCSIZE_D+I8);
-  HOSTLIB_WGTMAP.WGTSUM     = (double *)malloc(2*HOSTLIB.MALLOCSIZE_D+I8);
-  HOSTLIB_WGTMAP.SNMAGSHIFT = (double *)malloc(2*HOSTLIB.MALLOCSIZE_D+I8);
-  // xxxxxxxxx
-
+  // allocate memory (for each host gal) for wgt, snmagshift and 
+  // cumulative weight-sum.
 
   if ( N_SNVAR > 0 ) { 
+    // include extra dimension for SNval that are NOT in HOSTLIB
     N_SNVAR_LOCAL = N_SNVAR; 
-    malloc_HOSTLIB_WGTMAP(NGAL, NBTOT_SNVAR, HOSTLIB_WGTMAP.WGT_SNVAR );
-    malloc_HOSTLIB_WGTMAP(NGAL, NBTOT_SNVAR, HOSTLIB_WGTMAP.WGTSUM_SNVAR );
-    malloc_HOSTLIB_WGTMAP(NGAL, NBTOT_SNVAR, HOSTLIB_WGTMAP.SNMAGSHIFT_SNVAR);
+    malloc_SNVAR_HOSTLIB_WGTMAP(NGAL, NBTOT_SNVAR, 
+				&HOSTLIB_WGTMAP.WGT_SNVAR );
+    malloc_SNVAR_HOSTLIB_WGTMAP(NGAL, NBTOT_SNVAR, 
+				&HOSTLIB_WGTMAP.WGTSUM_SNVAR );
+    malloc_SNVAR_HOSTLIB_WGTMAP(NGAL, NBTOT_SNVAR, 
+				&HOSTLIB_WGTMAP.SNMAGSHIFT_SNVAR);
+  }
+  else {
+    // HOSTLIB vars only
+    int MEMD = NGAL * sizeof(double);
+    HOSTLIB_WGTMAP.WGT        = (double *)malloc(MEMD);
+    HOSTLIB_WGTMAP.WGTSUM     = (double *)malloc(MEMD);
+    HOSTLIB_WGTMAP.SNMAGSHIFT = (double *)malloc(MEMD);
   }
 
-  // xxxxxx most likely to be deleted xxxxxx
-  if ( FIRST_CALL && INPUTS.DEBUG_FLAG == 444 ) { return; }  
-  // xxxx end delete xxxxxxxx
 
   // ---------------------------------------------------
 
   for(ibin=0; ibin < NBTOT_SNVAR ; ibin++ ) {
+
+    if ( N_SNVAR > 0 )  // fetch SN grid values
+      { getVal_SNVAR_HOSTLIB_WGTMAP(ibin,VAL_SNVAR); }
 
     WGTSUM_LAST = 0.0 ;
     for ( igal=IGAL_START ; igal <= IGAL_END ; igal++ ) {
@@ -2729,7 +2802,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 	else {
 	  // get VAL from SN property
 	  isparse =  HOSTLIB_WGTMAP.INVSPARSE_SNVAR[ivar] ;
-	  VAL     =  0.0 ;
+	  VAL     =  VAL_SNVAR[isparse];
 	}
 	VAL_WGTMAP[ivar] = VAL ;
       } // end ivar loop
@@ -2769,21 +2842,22 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       WGTSUM = WGTSUM_LAST + WGT;
       
       // print first 3 weights and last wgt
-      if ( FIRST_CALL && VBOSE && (igal <= 1 || igal == NGAL-1) ) {
-	printf("\t\t WGT(GALID=%lld) = %f -> WGTSUM = %f \n", 
-	       GALID, WGT, WGTSUM ); 
+      if ( VBOSE && ibin==0 && (igal <= 1 || igal == NGAL-1) ) {
+	printf("\t   WGT(igal=%d,GALID=%lld) = %f -> WGTSUM = %f \n", 
+	       igal, GALID, WGT, WGTSUM ); 
 	fflush(stdout);
       }
 	
-      // load global array for each sum
-      HOSTLIB_WGTMAP.WGT[igal]        = WGT    ;
-      HOSTLIB_WGTMAP.WGTSUM[igal]     = WGTSUM ;
-      HOSTLIB_WGTMAP.SNMAGSHIFT[igal] = SNMAGSHIFT ;
-            
+      // load global array for each sum            
       if ( N_SNVAR > 0 ) {
 	HOSTLIB_WGTMAP.WGT_SNVAR[igal][ibin]        = WGT    ;
 	HOSTLIB_WGTMAP.WGTSUM_SNVAR[igal][ibin]     = WGTSUM ;
 	HOSTLIB_WGTMAP.SNMAGSHIFT_SNVAR[igal][ibin] = SNMAGSHIFT ;	
+      }
+      else {
+	HOSTLIB_WGTMAP.WGT[igal]        = WGT    ;
+	HOSTLIB_WGTMAP.WGTSUM[igal]     = WGTSUM ;
+	HOSTLIB_WGTMAP.SNMAGSHIFT[igal] = SNMAGSHIFT ;
       }
 
       WGTSUM_LAST  =  WGTSUM ;
@@ -2800,7 +2874,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 	
 	
       LDMPWGT = ( igal == -9 ) ; //  INPUTS.HOSTLIB_MAXREAD - 10  );
-      if ( FIRST_CALL && LDMPWGT ) {
+      if ( LDMPWGT ) {
 	sprintf(cvar,"%s", HOSTLIB_WGTMAP.VARNAME[0] );
 	printf(" xxx GALID=%lld  %s=%6.2f   WGT=%5.3f  WGTSUM=%f \n", 
 	       GALID, cvar, VAL_WGTMAP[0], WGT, WGTSUM );
@@ -2817,31 +2891,33 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 
   runCheck_HOSTLIB_WGTMAP();
 
-  //  debugexit("checklist"); // xxxxxxxxx
+  //  debugexit(fnam); // xxxxxxxxx
+
 
 } // end of init_HOSTLIB_WGTMAP
 
 
 // =========================================
-void  malloc_HOSTLIB_WGTMAP(int NGAL, int NBTOT, double **PTR) {
+void  malloc_SNVAR_HOSTLIB_WGTMAP(int NGAL, int NBTOT, double ***PTR) {
 
   // Mar 12 2020
   // Allocate memory for WGTMAP:
   // Inputs:
-  //   NGAL = number of stored galaxies
-  //   NBTOT   = number of bins 
+  //   NGAL  = number of stored galaxies
+  //   NBTOT = number of bins in 1D array
 
   int igal, ibin ;
-  char fnam[] = "malloc_HOSTLIB_WGTMAP" ;
+  char fnam[] = "malloc_SNVAR_HOSTLIB_WGTMAP" ;
   // --------------- BEGIN ------------
-  PTR = (double**) malloc( NGAL * sizeof(double*) ) ;
+
+  *PTR = (double**) malloc( NGAL * sizeof(double*) ) ;
   for(igal = 0; igal < NGAL; igal++ ) {
-    PTR[igal] = (double*) malloc( NBTOT*sizeof(double) ) ;    
-    for(ibin=0; ibin < NBTOT; ibin++ )  { PTR[igal][ibin] = 0.0 ; }
+    (*PTR)[igal] = (double*) malloc( NBTOT*sizeof(double) ) ;    
+    for(ibin=0; ibin < NBTOT; ibin++ )  { (*PTR)[igal][ibin] = 0.0 ; }
   } // end igal
   return ;
 
-} // end malloc_HOSTLIB_WGTMAP
+} // end malloc_SNVAR_HOSTLIB_WGTMAP
 
 // =========================================
 void runCheck_HOSTLIB_WGTMAP(void) {
@@ -4067,11 +4143,14 @@ void readme_HOSTLIB(void) {
   if ( NVAR > 0 ) {
     cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
     sprintf(cptr,"Weight MAP size : %d ", NROW );
+
+    /* xxx mark delete Mar 14 2020 xxxxxxxx
     cptr = HOSTLIB.COMMENT[NTMP];    NTMP++ ; 
     igal  = 0 ;
     GALID = get_GALID_HOSTLIB(igal) ;
     WGT   = HOSTLIB_WGTMAP.WGTSUM[igal];
     sprintf(cptr,"Weight of GALID=%lld : %f (1st HOSTLIB entry) ", GALID,WGT);
+    xxxxx  end mark xxxxx */
   }
 
 
@@ -4353,8 +4432,6 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   IGAL = SNHOSTGAL.IGAL ;
   if ( IGAL < 0 ) { return ; } // Aug 2015
 
-  // xxx move below after DDLR sort, Jan 31 2020: GEN_SNHOST_ZPHOT(IGAL);
-
   // generate SN position at galaxy
   GEN_SNHOST_POS(IGAL);
 
@@ -4428,9 +4505,10 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // Nov 23 2019: for MODEL_SIMLIB, force GALID to value in SIMLIB header.
 
   double FlatRan1_GALID = SNHOSTGAL.FlatRan1_GALID ;
+  int N_SNVAR     = HOSTLIB_WGTMAP.N_SNVAR ;
 
   int  IZ_CEN, iz_cen, IGAL_SELECT, igal_start, igal_end, igal, LDMP;
-  int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, MATCH; 
+  int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, MATCH, ibin_SNVAR; 
   long long GALID_FORCE, GALID ;
   double  ZTRUE, LOGZGEN ,WGT_start, WGT_end, WGT_dif, WGT_select, WGT ;
   double  ztol, dztol, z, z_start, z_end ;
@@ -4522,19 +4600,18 @@ void GEN_SNHOST_GALID(double ZGEN) {
   SNHOSTGAL.IGAL_SELECT_RANGE[0] = igal_start ;
   SNHOSTGAL.IGAL_SELECT_RANGE[1] = igal_end ;
 
-  // xxxxxxx most likely to be deleted, Mar 11 2020 xxxxxxxxxxx
-  bool TESTSPEED_WGTSUM_CALC = ( INPUTS.DEBUG_FLAG == 444 ) ;
-  if ( TESTSPEED_WGTSUM_CALC ) {     
-    init_HOSTLIB_WGTMAP(2,igal_start, igal_end);
-  }
-  // xxxxxxxxxxxxxxxxxxxxxxxx
-
-  //  int ibin_SNVAR[MXVAR_HOSTLIB];
-  //  getBin_SNVAR_HOSTLIB_WGTMAP(ibin_SNVAR);
-
   // now pick random igal between igal_start and igal_end
-  WGT_start  = HOSTLIB_WGTMAP.WGTSUM[igal_start];
-  WGT_end    = HOSTLIB_WGTMAP.WGTSUM[igal_end];
+
+  if ( N_SNVAR > 0 ) {
+    ibin_SNVAR = getBin_SNVAR_HOSTLIB_WGTMAP();
+    WGT_start  = HOSTLIB_WGTMAP.WGTSUM_SNVAR[igal_start][ibin_SNVAR];
+    WGT_end    = HOSTLIB_WGTMAP.WGTSUM_SNVAR[igal_end][ibin_SNVAR];
+  }
+  else {
+    WGT_start  = HOSTLIB_WGTMAP.WGTSUM[igal_start];
+    WGT_end    = HOSTLIB_WGTMAP.WGTSUM[igal_end];
+  }
+
   WGT_dif    = WGT_end - WGT_start ;
   WGT_select = WGT_start + ( WGT_dif * FlatRan1_GALID * 0.95 ) ;
 
@@ -4578,7 +4655,10 @@ void GEN_SNHOST_GALID(double ZGEN) {
 	{ continue ; }
     }
 
-    WGT  = HOSTLIB_WGTMAP.WGTSUM[igal]; 
+    if ( N_SNVAR > 0 ) 
+      { WGT  = HOSTLIB_WGTMAP.WGTSUM_SNVAR[igal][ibin_SNVAR]; }
+    else
+      { WGT  = HOSTLIB_WGTMAP.WGTSUM[igal] ; }
 
     if ( WGT <  WGT_select  ) 
       { NSKIP_WGT++; continue ; }

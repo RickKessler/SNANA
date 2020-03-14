@@ -10032,6 +10032,8 @@ void gen_event_driver(int ilc) {
 		      &GENLC.CORRECT_HOSTMATCH );
     GENLC.REDSHIFT_HOST = zHOST ;  // helio frame
 
+    gen_modelPar(ilc, OPT_FRAME_REST);  // move before GEN_SNHOST (Mar 14 2020)
+
     // Fetch host-galaxy using HOSTLIB (except for LCLIB model)
     // Note that SNHOST_DRIVER can change GENLC.REDSHIFT_CMB 
     // and DLMAG to match that of the HOST
@@ -10041,7 +10043,7 @@ void gen_event_driver(int ilc) {
     // pick model params AFTER redshift/host selection (4.09.2019),
     // and note that GEN_SNHOST can modify GENLC.DLMU that is used
     // for model params.
-    gen_modelPar(ilc, OPT_FRAME_REST); 
+    // xxx mark delete    gen_modelPar(ilc, OPT_FRAME_REST); 
     gen_modelPar(ilc, OPT_FRAME_OBS ); 
 
     // - - - - - - - 

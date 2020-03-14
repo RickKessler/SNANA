@@ -106,7 +106,7 @@
 #define HOSTLIB_MAGOBS_SUFFIX        "_obs"     // key = [filt]$SUFFIX
 #define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
 
-#define MXSNVARDEF_WGTMAP  4  // Mar 2020: max num of SN vars (e.g., x1, c ...)
+// xxx #define MXSNVAR_HOSTLIB_WGTMAP 4 // max num of SN vars (e.g., x1, c ..)
 
 // for SNMAGSHIFT, allow hostlib param instead of wgtmap
 #define HOSTLIB_VARNAME_SNMAGSHIFT  "SNMAGSHIFT" 
@@ -334,15 +334,19 @@ struct HOSTLIB_WGTMAP_DEF {
   bool  READSTAT ;    // T => wgtmap has been read
   bool  USE_SALT2GAMMA_GRID;
 
+
   // params for SN variables that are NOT in the hostlib (Mar 2020)
+  int   IDMAP_INDEX_SNVAR;       // for get_1DINDEX
   int   N_SNVAR ;                // number of SN properties
-  bool  IS_SNVAR[MXVAR_HOSTLIB]; // true -> SN property NOT in HOSTLIB
-  int   ISPARSE_SNVAR[MXVAR_HOSTLIB];   // sparse list pointing to ivar_WGTMAP
-  int   INVSPARSE_SNVAR[MXVAR_HOSTLIB]; // ivar -> sparse ivar
-  int   NB1D_SNVAR[MXVAR_HOSTLIB];      // numer of bins per SNvar
+  bool  IS_SNVAR[MXVAR_WGTMAP_HOSTLIB]; // true -> SN property NOT in HOSTLIB
+  int   ISPARSE_SNVAR[MXVAR_WGTMAP_HOSTLIB]; //sparse list point to ivar_WGTMAP
+  int   INVSPARSE_SNVAR[MXVAR_HOSTLIB]; // HOSTLIB ivar -> sparse WGTMAP ivar
+
+  char  VARNAME_SNVAR[MXVAR_WGTMAP_HOSTLIB][40];
+  int   NB1D_SNVAR[MXVAR_WGTMAP_HOSTLIB];      // numer of bins per SNvar
   int   NBTOT_SNVAR;                    // product of NB1D
-  int  *IBIN1D_SNVAR[MXVAR_HOSTLIB];  // 1D bin -> bin per var
-  double *ptrVal_SNVAR[MXVAR_HOSTLIB];  // value(s) for each event
+  int  *IBIN1D_SNVAR[MXVAR_WGTMAP_HOSTLIB];  // 1D bin -> bin per var
+  double *ptrVal_SNVAR[MXVAR_WGTMAP_HOSTLIB];  // value(s) for each event
 
   // weigt storage for each galaxy
   double  WGTMAX ; // max weight for entire  wgtmap
@@ -364,7 +368,6 @@ struct HOSTLIB_WGTMAP_DEF {
   double    CHECKLIST_SNMAG[MXCHECK_WGTMAP] ;
 
   struct  GRIDMAP  GRIDMAP ;       // all WGTMAP vars
-  //  struct  GRIDMAP  gridmap_SNVAR ; // subset of SN vars not in HOSTLIB
 
 } HOSTLIB_WGTMAP ;
 
@@ -562,8 +565,10 @@ void   read_HOSTLIB_WGTMAP(void);
 void   parse_HOSTLIB_WGTMAP(FILE *fp, char *string);
 bool   checkSNvar_HOSTLIB_WGTMAP(char *varName);
 void   runCheck_HOSTLIB_WGTMAP(void);
-void   malloc_HOSTLIB_WGTMAP(int NGAL, int NBTOT, double **PTR);
+void   malloc_SNVAR_HOSTLIB_WGTMAP(int NGAL, int NBTOT, double ***PTR);
 void   prep_SNVAR_HOSTLIB_WGTMAP(void);
+void   getVal_SNVAR_HOSTLIB_WGTMAP(int ibin, double *VAL_WGTMAP); // init
+int    getBin_SNVAR_HOSTLIB_WGTMAP(void); // for each event
 
 void   parse_Sersic_n_fixed(FILE *fp, char *string); 
 void   read_head_HOSTLIB(FILE *fp);

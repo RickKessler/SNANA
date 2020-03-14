@@ -18113,11 +18113,11 @@
 
 
 # ======================================================================= 
-         v10_76b (  ) 
+         v10_76b (March 14 2020) 
 
          ***** IMPORTANT(v10_76b) ***** 
 
-    bug fix for FUDGE_MAG_ERROR.
+    snlc_fit.exe bug fix for FUDGE_MAG_ERROR 
 
          ***** USEFUL(v10_76b) ***** 
 
@@ -18142,7 +18142,8 @@
    SALT2mu_fit.pl :
      + new option  "STRINGMATCH_IGNORE: IGNORE" to ignore string
        matches. Works only there is 1 and only 1 version per
-       INPDIR. Aborts if multiple VERSIONs.
+       INPDIR. Aborts if multiple VERSIONs. 
+       Still testing -> NOT yet working.
     
    snlc_sim.c
      + split gen_modelpar into REST and OBS frame ... prepare
@@ -18151,14 +18152,16 @@
        is changed.
      + fix refactor bug applying FUDGESCALE_FLUXERR_FILTER and
        FUDGESCALE_FLUXERR2_FILTER
+     + move rest-frame part of gen_modelPar to before GEN_SNHOST
+       so that HOSTLIB-WGTMAP can depend on SN params.
+       Beware: changes random sync.
 
   sntools_host.c:
      + begin refactor to allow x1 and c in WGTMAP using generated
-       x1,c, and NOT requiring x1,c in HOSTLIB.
+       x1,c, and NOT requiring x1,c in HOSTLIB. 
 
   sim_SNmix.pl:
     + add NOPROMT arg to clopbber SIMLOGS even if there is no DONE
       stamp.
-
 
 END: 

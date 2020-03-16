@@ -226,6 +226,7 @@ int main(int argc, char **argv) {
   print_banner( " Begin Generating Lightcurves. " );
   fflush(stdout);
 
+  t_end_init = time(NULL); // Mar 15 2020
 
   for ( ilc = 1; ilc <= INPUTS.NGEN ; ilc++ ) {
 
@@ -25905,13 +25906,15 @@ void readme_doc(int iflag_readme) {
 
   // ---- statistics
 
-  double t_tot   = (t_end-t_start) ; // total proc time, sec
-  double R_gen   = (double)NGENLC_TOT / t_tot ;  // NGEN/sec
-  double R_write = (double)NGENLC_WRITE/t_tot ;  // NWRITE/sec
+  double t_tot   = (t_end-t_start) ;       // total proc time, sec
+  double t_init  = (t_end_init - t_start) ; // total init time
+  double t_gen   = (t_end - t_end_init); // total gen time after init
+  double R_gen   = (double)NGENLC_TOT / t_gen ;  // NGEN/sec
+  double R_write = (double)NGENLC_WRITE/t_gen ;  // NWRITE/sec
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n  Generation Statistics (total CPU=%.1f minutes): \n", 
-	  t_tot/60.);
+  sprintf(cptr,"\n  Generation Statistics (gen CPU=%.1f minutes): \n", 
+	  t_gen/60.);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\t Generated %5d simulated light curves "

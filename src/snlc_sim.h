@@ -25,7 +25,7 @@
 
 // ************ GLOBAL VARIABLES *************
 
-time_t t_start, t_end;
+time_t t_start, t_end, t_end_init ;
 
 #define  MXINPUT_FILE_SIM   3       // 1 input file + 2 includes
 #define  MXCID_SIM  299999999   // max sim CID and max number of SN

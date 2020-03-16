@@ -38,7 +38,7 @@
 #include <stdbool.h>
 
 #include "sndata.h"
-#define  SNANA_VERSION_CURRENT  "v10_76b"                     
+#define  SNANA_VERSION_CURRENT  "v10_76c"                      
 
 // cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
 #define OMEGA_MATTER_LCDM   0.315 

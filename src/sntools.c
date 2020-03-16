@@ -4549,6 +4549,8 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
   // Mar 14 2019: 
   //  + check OPT_EXTRAP option
   //  + return SUCCESS or ERROR instead of hard-coded values.
+  //
+  // Mar 15 2020: allow numerical glitches in TMPMIN and TMPMAX
 
   int 
     ivar, ifun, NFUN, NVAR, ID, igrid, MSK, NBIN
@@ -4589,6 +4591,10 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
     TMPMAX   = gridmap->VALMAX[ivar] ;
     TMPBIN   = gridmap->VALBIN[ivar] ;
     TMPRANGE = TMPMAX - TMPMIN ;
+
+    // Mar 15 2020: allow numerical glitches
+    TMPMAX += (1.0E-14*TMPRANGE);
+    TMPMIN -= (1.0E-14*TMPRANGE);
 
     // check extrap option
     if ( gridmap->OPT_EXTRAP ) {

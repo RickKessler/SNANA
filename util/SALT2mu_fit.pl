@@ -1725,13 +1725,10 @@ sub make_COMMANDS {
     $NTOT_JOBS = 0 ;    $icpu = 0 ;
     $NDIR = scalar(@OUTDIR_SALT2mu_LIST) ;
 
-    print " 1. xxx make_COMMANDS  NDIR=$NDIR\n";
     for($idir=0 ; $idir < $NDIR; $idir++ ) {
 	$NVER   = $NVERSION_FINAL[$idir] ;
-	print " 2. xxx make_COMMANDS idir=$idir NVER=$NVER \n";
 	for ( $iver=0; $iver  < $NVER; $iver++ ) {
 	    for($ifitopt=0; $ifitopt < $NFITOPT_SNFIT[$idir]; $ifitopt++ ) {
-		print " xxx call prep_COM for $idir, $iver, $ifitopt \n";
 		&prep_COMMAND($idir,$iver,$ifitopt);
 	    }  # ifitopt
 	}    # iver

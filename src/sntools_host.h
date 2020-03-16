@@ -106,10 +106,12 @@
 #define HOSTLIB_MAGOBS_SUFFIX        "_obs"     // key = [filt]$SUFFIX
 #define HOSTLIB_SNPAR_UNDEFINED  -9999.0 
 
-// xxx #define MXSNVAR_HOSTLIB_WGTMAP 4 // max num of SN vars (e.g., x1, c ..)
 
-// for SNMAGSHIFT, allow hostlib param instead of wgtmap
+// for SNMAGSHIFT, allow hostlib param instead of wgtmap.
+// To save storage memory, SNMAGSHIFT is stored as 2 byte short int 
+// with I2 = SNMAGSHIFT * I2SNMAGSHIFT_HOSTLIB 
 #define HOSTLIB_VARNAME_SNMAGSHIFT  "SNMAGSHIFT" 
+#define I2MAGSCALE_HOSTLIB 20000.0
 
 // define ascii files with tables needed for numerical computation
 #define FILENAME_Gauss2d    "$SNDATA_ROOT/simlib/Gauss2dIntegrals.dat" 
@@ -334,6 +336,7 @@ struct HOSTLIB_WGTMAP_DEF {
   bool  READSTAT ;    // T => wgtmap has been read
   bool  USE_SALT2GAMMA_GRID;
 
+  double MEMTOT_MB;  // memory (MB) allocated for wgtmap
 
   // params for SN variables that are NOT in the hostlib (Mar 2020)
   int   IDMAP_INDEX_SNVAR;       // for get_1DINDEX
@@ -344,20 +347,24 @@ struct HOSTLIB_WGTMAP_DEF {
 
   char  VARNAME_SNVAR[MXVAR_WGTMAP_HOSTLIB][40];
   int   NB1D_SNVAR[MXVAR_WGTMAP_HOSTLIB];      // numer of bins per SNvar
-  int   NBTOT_SNVAR;                    // product of NB1D
-  int  *IBIN1D_SNVAR[MXVAR_WGTMAP_HOSTLIB];  // 1D bin -> bin per var
+  int   NBTOT_SNVAR;                         // product of NB1D
+  int  *IBIN1D_SNVAR[MXVAR_WGTMAP_HOSTLIB];  // global 1D bin -> bin per var
+  double *VALGRID_SNVAR[MXVAR_WGTMAP_HOSTLIB];   // value vs. global 1D bin
+
+  // SNVAR variables update each event
   double *ptrVal_SNVAR[MXVAR_WGTMAP_HOSTLIB];  // value(s) for each event
+  int     ibin_SNVAR ;                         // SNVAR bin per event
 
   // weigt storage for each galaxy
   double  WGTMAX ; // max weight for entire  wgtmap
   double *WGTSUM ;      // cumulative sum of weights over entire HOSTLIB
-  double *WGT ;         // wgt for each hostlib entry
-  double *SNMAGSHIFT ;  // SN mag shift for each hostlib entry
+  //double *WGT ;         // wgt for each hostlib entry
+  short int *I2SNMAGSHIFT ;  // SN mag shift for each hostlib entry
 
 
-  double **WGT_SNVAR ;          // vs. [igal][ibin_SN]
-  double **WGTSUM_SNVAR;        // idem
-  double **SNMAGSHIFT_SNVAR ;   // idem
+  //  double **WGT_SNVAR ;                // vs. [igal][ibin_SN]
+  double **WGTSUM_SNVAR;              // idem
+  short int **I2SNMAGSHIFT_SNVAR ;   // idem
 
   // define  arrays to store list of GALIDs to check wgtmap interpolation
   int      NCHECKLIST ;
@@ -550,7 +557,7 @@ void   FREEHOST_GALID(int IGAL) ;
 void   checkAbort_noHOSTLIB(void) ;
 void   checkAbort_HOSTLIB(void) ;
 
-void   STORE_SNHOST_MISC(int IGAL);
+void   STORE_SNHOST_MISC(int IGAL, int ibin_SNVAR);
 double modelPar_from_SNHOST(double parVal_orig, char *parName);
 void   DEBUG_1LINEDUMP_SNHOST(void) ;
 void   DUMP_SNHOST(void);
@@ -565,6 +572,7 @@ void   read_HOSTLIB_WGTMAP(void);
 void   parse_HOSTLIB_WGTMAP(FILE *fp, char *string);
 bool   checkSNvar_HOSTLIB_WGTMAP(char *varName);
 void   runCheck_HOSTLIB_WGTMAP(void);
+void   malloc_HOSTLIB_WGTMAP(void); 
 void   malloc_SNVAR_HOSTLIB_WGTMAP(int NGAL, int NBTOT, double ***PTR);
 void   prep_SNVAR_HOSTLIB_WGTMAP(void);
 void   getVal_SNVAR_HOSTLIB_WGTMAP(int ibin, double *VAL_WGTMAP); // init

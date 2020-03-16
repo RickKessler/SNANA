@@ -18164,4 +18164,18 @@
     + add NOPROMT arg to clopbber SIMLOGS even if there is no DONE
       stamp.
 
+
+# ======================================================================= 
+         v10_76c (  ) 
+
+         ***** IMPORTANT(v10_76c) ***** 
+
+   New Hostlib-wgtmap option to include SN params (e.g., x1, c)
+   in WGTMAP that are not in the HOSTLIB. Minimal testing so far, 
+   so users should run their own tests.
+
+         ***** USEFUL(v10_76c) ***** 
+
+         ***** MISCELLANEOUS(v10_76c) ***** 
+
 END: 

@@ -215,6 +215,10 @@
     + H0=70 replaced with H0 = H0_SALT2 (param in sntools.h)
     + omm_prior = 0.3 -> OMEGA_MATTER_LCDM (paramn in sntools.h)
 
+ Mar 18 2020:
+    + DJB added cmb_sim and bao_sim flags to set cosmology of priors to 
+      same as default cosmology in sntools
+
 *****************************************************************************/
 
 int compare_double_reverse (const void *, const void *);
@@ -848,16 +852,22 @@ int main(int argc,char *argv[]){
         printf("Fit with BAO prior in sim cosmology: OM=%5.3f, w=%5.3f, A(BAO) =%5.3f +- %5.3f. \n"
                , OMEGA_MATTER_LCDM, w0_LCDM, abest, sigma_a);
       } 
-
-      debugexit("hello");
     } else {
       printf("Fitting data with Omega_m prior: %5.3f +/- %5.3f\n",
 	      omm_prior,omm_prior_sig);
     }
 
-    if (usecmb) 
-      printf("Fit with CMB (WMAP) prior:  R=%5.3f +- %5.3f. \n"
-	      ,Rcmb_best, sigma_Rcmb);
+    if (usecmb) {
+      if ( usecmb == 1 ) {
+	printf("Fit with CMB (WMAP) prior:  R=%5.3f +- %5.3f. \n"
+	       ,Rcmb_best, sigma_Rcmb);
+      }
+      if ( usecmb == 2 ) {
+        printf("Fit with CMB (WMAP) prior in sim cosmology: OM=%5.3f, w=%5.3f, R=%5.3f +- %5.3f. \n"
+               , OMEGA_MATTER_LCDM, w0_LCDM, Rcmb_best, sigma_Rcmb);
+      } 
+      //debugexit('hello');
+    }
 
     if ( usemarg != 0 ) 
       printf("Will MARGINALIZE for final w & OM \n");
@@ -872,7 +882,17 @@ int main(int argc,char *argv[]){
     /* Get approximate expected minimum chi2 (= NCIDLIST - 3 dof),
        used to keep numbers small in the chi2 loop.  */
 
-    Ndof = NCIDLIST - 3 + usebao + usecmb ;
+    //mark delete line below
+    //Ndof = NCIDLIST - 3 + usebao + usecmb ;
+    
+    Ndof = NCIDLIST - 3 ;
+    if ( usebao ) 
+      Ndof++ ;
+    if ( usecmb ) 
+      Ndof++ ;
+
+    
+
     chi_approx = (double)(Ndof);
 
     for( i=0; i < w_steps; i++){
@@ -1969,6 +1989,13 @@ void set_priors(void) {
     abest = sqrt(OM) * tmp1 * tmp2 ;
 
   }
+
+  if ( usecmb == 2) {
+    //recompute Rbest
+    rz = Hainv_integral ( ONE, OM, OE, w, acmb, ONE ) / LIGHT_km;
+    Rcmb_best = sqrt(OM) * rz ;
+  }
+
 
   return;
 

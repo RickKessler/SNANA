@@ -18178,4 +18178,7 @@
 
          ***** MISCELLANEOUS(v10_76c) ***** 
 
+   wfit.c:  
+    + use cosmo params in sntools.h to sync with sim.
+
 END: 

@@ -1651,19 +1651,6 @@ void get_genSmear_Chotard11(double Trest, int NLam, double *Lam,
 
   // ---------- BEGIN -------
 
-  /******** mark delete Feb 17 2020 xxxxxxxx
-  //Matrix Multiply scatter_values = ch^T normalvector
-  for (i = 0 ; i < NBAND_C11 ; i++) {
-    SCATTER_VALUES[i] = 0.0 ;  
-    for (j = 0 ; j < NBAND_C11 ; j++){
-      tmp = GENSMEAR_C11.Cholesky[j][i] ;      
-      SCATTER_VALUES[i] += tmp * GENSMEAR.RANGauss_LIST[j] ;
-    }
-  }
-  xxxxxxxxxx */
-
-
-
   // Feb 17 2020: use new utility for correlated randoms
   GaussRanCorr(&GENSMEAR_C11.DECOMP, GENSMEAR.RANGauss_LIST, // (I)
 	       SCATTER_VALUES );            // (O)

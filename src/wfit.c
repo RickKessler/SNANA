@@ -211,6 +211,10 @@
    + -csv command writes cospar in csv format.
    + -outfile_resid NONE --> no resid file
 
+  Mar 17 2020: 
+    + H0=70 replaced with H0 = H0_SALT2 (param in sntools.h)
+    + omm_prior = 0.3 -> OMEGA_MATTER_LCDM (paramn in sntools.h)
+
 *****************************************************************************/
 
 int compare_double_reverse (const void *, const void *);
@@ -251,8 +255,8 @@ struct CUTSELECT {
 
 // =========== variables ================
 
-//double H0       = 65.0 ;         // approx value only
-double H0       = 70.0 ;         // approx value only (changed Sep 2016)
+// xxxdouble H0       = 70.0 ;  // approx value only (changed Sep 2016)
+double H0       = H0_SALT2;      //
 double H0SIG    = 1000.0 ;        // error used in prior
 double SIG_MUOFF ;
 double SQSIG_MUOFF ;
@@ -280,12 +284,13 @@ int MUERR_INCLUDE_zERR;    // True if zERR already included in MUERR
 int MUERR_INCLUDE_LENS ;   // True if lensing sigma already included
 
   /* WMAP + LSS, from SDSS, Tegmark et al, astro-ph/0310723  */
-double omm_prior = 0.3;      /* omega_matter prior */
+// xxx mark del double omm_prior     = 0.3;      /* omega_matter prior */
+double omm_prior     = OMEGA_MATTER_LCDM;    /* omega_matter prior */
 double omm_prior_sig = 0.04;  /* 1 sigma uncertainty on prior: 10% */
 
 // Apr 2016: reference cosmology to fit  MUDIF = mu- mu(ref), 
 // only if MUDIF column is present in the input file
-double wref  = -1.0;
+double wref  = -1.0 ;
 double omref =  0.3 ;
 
 char label_cospar[40] = "none" ; // string label for cospar file.
@@ -492,8 +497,6 @@ int main(int argc,char *argv[]){
   double rz ;
 
   /* 2df prior, as used by JT's wcont */
-  /*   omm_prior = 0.278;      /\* omega_matter prior *\/ */
-  /*   omm_prior_sig = 0.042;  /\* 1 sigma uncertainty on prior: 10% *\/ */
 
   /*   We specify the *number* of steps for omega_m, w, H0. */
 

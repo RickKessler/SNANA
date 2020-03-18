@@ -2320,6 +2320,7 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
   // but stored as a function of observer-frame wavelength.
   //
   // Mar 2 2017: fix to work with SPECTROGRAPH 
+  // Mar 18 2020: DJB added logic for changing RV
 
   int  NLAMFILT, ilam, I8, I8p, ifilt, ifilt_obs, ifilt_min ;
   int  OPT_COLORLAW, NBSPEC ;
@@ -2352,9 +2353,16 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
 
   }
 
+  bool update_hostxt = false;
+  if ( AV != SEDMODEL_HOSTXT_LAST.AV ){ update_hostxt = true; }
+  if ( RV != SEDMODEL_HOSTXT_LAST.RV ){ update_hostxt = true; }
+  if ( z != SEDMODEL_HOSTXT_LAST.z ){ update_hostxt = true; }
+
+  /*
+  xxx Mark Delete March 18 2020. Dealing with RV changing landmine.
   if ( AV == SEDMODEL_HOSTXT_LAST.AV  &&  z == SEDMODEL_HOSTXT_LAST.z ) 
     { return ; }
-
+  */
 
   OPT_COLORLAW = MWXT_SEDMODEL.OPT_COLORLAW ;
   NBSPEC = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;

@@ -189,7 +189,7 @@ double SEDMODEL_MWEBV_LAST ;
 
 // July 2016: define array for host extinction
 double **SEDMODEL_TABLE_HOSTXT_FRAC ;
-struct{double AV, z; } SEDMODEL_HOSTXT_LAST ;
+struct{double AV, z, RV; } SEDMODEL_HOSTXT_LAST ;
 
 
 // define TEMP structure that gets over-written for each SED.

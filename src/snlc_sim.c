@@ -653,9 +653,9 @@ void set_user_defaults(void) {
   INPUTS.NSUBSAMPLE_MARK = 0 ;
 
   // Mar 2020: use updated cosmoparameters defined in sntools.h
-  INPUTS.OMEGA_MATTER  =  (double)OMEGA_MATTER_LCDM ;
-  INPUTS.OMEGA_LAMBDA  =  (double)OMEGA_LAMBDA_LCDM ;
-  INPUTS.W0_LAMBDA     =  (double)w0_LCDM ;
+  INPUTS.OMEGA_MATTER  =  (double)OMEGA_MATTER_DEFAULT ; 
+  INPUTS.OMEGA_LAMBDA  =  (double)OMEGA_LAMBDA_DEFAULT ;
+  INPUTS.W0_LAMBDA     =  (double)w0_DEFAULT ;
   INPUTS.H0            =  (double)H0_SALT2 ;
 
   /* xxx mark delete Mar 7 2020 xxxxxxx

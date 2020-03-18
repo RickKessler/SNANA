@@ -18180,5 +18180,11 @@
 
    wfit.c:  
     + use cosmo params in sntools.h to sync with sim.
+    + DJB add -bao_sim and -cmb_sim  flags.
+
+   genmag_SEDtools.c[h]: 
+     + check if RV changes for making grid of host MWXT.
+
+   sntools.h: rename  _LCDM -> _DEFAULT for cosmo params.
 
 END: 

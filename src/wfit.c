@@ -213,7 +213,7 @@
 
  Mar 17 2020: 
     + H0=70 replaced with H0 = H0_SALT2 (param in sntools.h)
-    + omm_prior = 0.3 -> OMEGA_MATTER_LCDM (paramn in sntools.h)
+    + omm_prior = 0.3 -> OMEGA_MATTER_DEFAULT (paramn in sntools.h)
 
  Mar 18 2020:
     + DJB added cmb_sim and bao_sim flags to set cosmology of priors to 
@@ -290,7 +290,7 @@ int MUERR_INCLUDE_LENS ;   // True if lensing sigma already included
 
   /* WMAP + LSS, from SDSS, Tegmark et al, astro-ph/0310723  */
 // xxx mark del double omm_prior     = 0.3;      /* omega_matter prior */
-double omm_prior     = OMEGA_MATTER_LCDM;    /* omega_matter prior */
+double omm_prior     = OMEGA_MATTER_DEFAULT;    /* omega_matter prior */
 double omm_prior_sig = 0.04;  /* 1 sigma uncertainty on prior: 10% */
 
 // Apr 2016: reference cosmology to fit  MUDIF = mu- mu(ref), 
@@ -845,12 +845,13 @@ int main(int argc,char *argv[]){
 
     if (usebao) {
       if (usebao == 1) {
-	printf("Fit with BAO Eisenstein 2006 prior: A(BAO) =%5.3f +- %5.3f. \n"
-	       ,abest, sigma_a);
+	printf("Fit with BAO Eisenstein 2006 prior: "
+	       "A(BAO) =%5.3f +- %5.3f \n", abest, sigma_a);
       }
       if (usebao == 2) {
-        printf("Fit with BAO prior in sim cosmology: OM=%5.3f, w=%5.3f, A(BAO) =%5.3f +- %5.3f. \n"
-               , OMEGA_MATTER_LCDM, w0_LCDM, abest, sigma_a);
+        printf("Fit with BAO prior in sim cosmology: "
+	       "OM=%5.3f, w=%5.3f, A(BAO) =%5.3f +- %5.3f \n" ,
+               OMEGA_MATTER_DEFAULT, w0_DEFAULT, abest, sigma_a);
       } 
     } else {
       printf("Fitting data with Omega_m prior: %5.3f +/- %5.3f\n",
@@ -859,12 +860,13 @@ int main(int argc,char *argv[]){
 
     if (usecmb) {
       if ( usecmb == 1 ) {
-	printf("Fit with CMB (WMAP) prior:  R=%5.3f +- %5.3f. \n"
-	       ,Rcmb_best, sigma_Rcmb);
+	printf("Fit with CMB (WMAP) prior:  R=%5.3f +- %5.3f  \n" ,
+	        Rcmb_best, sigma_Rcmb);
       }
       if ( usecmb == 2 ) {
-        printf("Fit with CMB (WMAP) prior in sim cosmology: OM=%5.3f, w=%5.3f, R=%5.3f +- %5.3f. \n"
-               , OMEGA_MATTER_LCDM, w0_LCDM, Rcmb_best, sigma_Rcmb);
+        printf("Fit with CMB (WMAP) prior in sim cosmology: "
+	       "OM=%5.3f, w=%5.3f, R=%5.3f +- %5.3f  \n" ,
+               OMEGA_MATTER_DEFAULT, w0_DEFAULT, Rcmb_best, sigma_Rcmb);
       } 
       //debugexit('hello');
     }
@@ -1966,9 +1968,9 @@ void set_priors(void) {
 
   double rz, tmp1, tmp2;
 
-  double OM = OMEGA_MATTER_LCDM ;
+  double OM = OMEGA_MATTER_DEFAULT ;
   double OE = 1 - OM ;
-  double w = w0_LCDM ;
+  double w = w0_DEFAULT ;
 
 
   Cosparam cparloc;

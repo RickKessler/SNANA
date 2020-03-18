@@ -40,11 +40,11 @@
 #include "sndata.h"
 #define  SNANA_VERSION_CURRENT  "v10_76c"                      
 
-// cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
-#define OMEGA_MATTER_LCDM   0.315 
-#define OMEGA_LAMBDA_LCDM   0.685 
-#define w0_LCDM            -1.0
-#define wa_LCDM             0.0
+// default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
+#define OMEGA_MATTER_DEFAULT   0.315 
+#define OMEGA_LAMBDA_DEFAULT   0.685 
+#define w0_DEFAULT            -1.0
+#define wa_DEFAULT             0.0
 #define H0_SALT2            70    // km/s/Mpc : tied to SALT2 training
 #define H0_MLCS             65    // km/s/Mpc : tied to MLCS training
 #define H0_Planck          67.4   // 1807.06209 (Planck 2018)

@@ -18187,4 +18187,7 @@
 
    sntools.h: rename  _LCDM -> _DEFAULT for cosmo params.
 
+   snana.car:
+     + add SIM_RV to table output.
+
 END: 

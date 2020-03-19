@@ -372,6 +372,7 @@ int main(int argc,char *argv[]){
     "   -minchi2\t\t get w and OM from minchi2 instead of marginalizing",
     "   -marg\t\t get w and OM from marginalizing",
     "   -Rcmb\tCMB comstraints: R = Rcmb +/- sigma_Rcmb [= 1.710 +/- 0.019]",
+    "   -sigma_Rcmb\tUncertainty on Rcmb",
     "   -abest\tBAO constraints: A = abest +/- sigma_a [= 0.469 +/- 0.017]",
     "   -sigma_a\tSee Eisensten et al., '06, eqn. 4 for details",
     "   -z_bao\t\tBAO average redshift, z_bao=0.35",

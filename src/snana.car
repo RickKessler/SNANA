@@ -25252,6 +25252,7 @@ c Feb 28, 2018: add LCLIB params
 c Dec 10, 2018: add BYOSED params
 c Feb 01, 2019: add SIM_LCWIDTH
 c Feb 27, 2020: add SIM_HOSTLIB_GALID
+c Mar 19, 2020: add SIM_RV  to table
 
       IMPLICIT  NONE
       INTEGER   ID          ! (I) table id
@@ -25396,6 +25397,9 @@ c external scatter (SIM_AV) from dust.
       if ( SIMNAME_COLORPAR(1:6) .NE. 'SIM_AV' ) then
         VARLIST = 'SIM_AV:F' // char(0)
         CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_AV,  VARLIST, 1,
+     &                   LENBLOCK, LENLIST)
+        VARLIST = 'SIM_RV:F' // char(0)
+        CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_RV,  VARLIST, 1,
      &                   LENBLOCK, LENLIST)
       endif
 

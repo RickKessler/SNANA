@@ -5151,26 +5151,66 @@ void sim_input_override(void) {
     // read RV parameters
     sscanf_GENGAUSS(&i, "RV",  &INPUTS.GENGAUSS_RV  ) ;
 
+    
+
+    // xxx   if ( strcmp( ARGV_LIST[i], "GENRANGE_AV" ) == 0 ) {
+    // xxx i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_AV[0] ); 
+    // xxx i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_AV[1] ); 
+    // xxx }
+
     if ( strcmp( ARGV_LIST[i], "GENRANGE_AV" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_AV[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_AV[1] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.RANGE[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.RANGE[1] );
+      INPUTS.GENRANGE_AV[0] = INPUTS.GENPROFILE_AV.RANGE[0];//legacy
+      INPUTS.GENRANGE_AV[1] = INPUTS.GENPROFILE_AV.RANGE[1];//legacy
     }
 
-    if ( strcmp( ARGV_LIST[i], "GENTAU_AV" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENEXPTAU_AV );   }
-    if ( strcmp( ARGV_LIST[i], "GENEXPTAU_AV" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENEXPTAU_AV );   }
+    if ( strcmp( ARGV_LIST[i], "GENTAU_AV" ) == 0 || strcmp( ARGV_LIST[i], "GENEXPTAU_AV" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.EXP_TAU ); 
+	INPUTS.GENEXPTAU_AV = INPUTS.GENPROFILE_AV.EXP_TAU;//legacy
+      }
 
-    if ( strcmp( ARGV_LIST[i], "GENSIG_AV" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENGAUSIG_AV );   }
-    if ( strcmp( ARGV_LIST[i], "GENGAUSIG_AV" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENGAUSIG_AV );   }
+    // xxx    if ( strcmp( ARGV_LIST[i], "GENEXPTAU_AV" ) == 0 ) 
+    // xxx  { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENEXPTAU_AV );  }
+
+    if ( strcmp( ARGV_LIST[i], "GENSIG_AV" ) == 0 || strcmp( ARGV_LIST[i], "GENGAUSIG_AV" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.SIGMA );   
+	INPUTS.GENGAUSIG_AV = INPUTS.GENPROFILE_AV.SIGMA ;//legacy
+      }
+
+    // xxx    if ( strcmp( ARGV_LIST[i], "GENGAUSIG_AV" ) == 0 ) 
+    // xxx  { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENGAUSIG_AV );   }
 
     if ( strcmp( ARGV_LIST[i], "GENGAUPEAK_AV" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENGAUPEAK_AV );   }
+      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.PEAK );   
+	INPUTS.GENGAUPEAK_AV = INPUTS.GENPROFILE_AV.PEAK; //legacy
+      }
 
     if ( strcmp( ARGV_LIST[i], "GENRATIO_AV0" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRATIO_AV0 );   }
+      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.RATIO );   
+	INPUTS.GENRATIO_AV0 = INPUTS.GENPROFILE_AV.RATIO;//legacy
+      }
+
+    // --------- EBV HOST ------------------------------------
+
+    if ( strcmp( ARGV_LIST[i], "GENGAUPEAK_EBV_HOST" ) == 0 )
+      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.PEAK ); }
+
+    if ( strcmp( ARGV_LIST[i], "GENSIG_EBV_HOST" ) == 0 )
+      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.SIGMA ); }
+
+    if ( strcmp( ARGV_LIST[i], "GENTAU_EBV_HOST" ) == 0 )
+      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.EXP_TAU ); }
+
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_EBV_HOST" ) == 0 ){
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.RANGE[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.RANGE[1] );
+    }
+    if ( strcmp( ARGV_LIST[i], "GENRATIO_EBV0_HOST" ) == 0 )
+      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.RATIO ); }
+
+
+    // -------------------------------------------------------
 
     sscanf_GENGAUSS(&i, "SALT2c",     &INPUTS.GENGAUSS_SALT2c     ) ;
     sscanf_GENGAUSS(&i, "SALT2x1",    &INPUTS.GENGAUSS_SALT2x1    ) ;
@@ -6275,14 +6315,17 @@ void prep_user_input(void) {
   // check for host AV
   if ( INPUTS.WV07_REWGT_EXPAV > -1.0E-9 ) { INPUTS.WV07_GENAV_FLAG=1; }
 
+  // xxx mark delete after refactor -------------------------------
+
   bool DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ;  
   bool DO_AVTAU = INPUTS.GENEXPTAU_AV     > 1.0E-9 ;
   bool DO_AVSIG = INPUTS.GENGAUSIG_AV     > 1.0E-9 ;
   bool DO_AV    = INPUTS.GENRANGE_AV[1]   > 1.0E-9 ;
   bool DO_WV07  = (INPUTS.WV07_GENAV_FLAG > 0 );
   bool DO_GRID  = (GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID );
+
   INPUTS.DO_AV = (DO_AV && DO_RV && 
-		  ( DO_AVTAU || DO_AVSIG || DO_WV07 || DO_GRID )  ) ;
+		  ( DO_AVTAU || DO_AVSIG || DO_WV07 || DO_GRID )  ) ; 
 
   if ( INPUTS.DO_AV==0 && DO_AV ) {
     print_preAbort_banner(fnam);
@@ -6294,6 +6337,15 @@ void prep_user_input(void) {
     sprintf(c2err,"But cannot generate AV>0; see above param-dump");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
+
+  // xxx end mark delete ------------------------------------------
+
+
+
+  setUseFlag_GEN_EXP_HALFGAUSS(INPUTS.GENPROFILE_AV,"AV");
+  setUseFlag_GEN_EXP_HALFGAUSS(INPUTS.GENPROFILE_EBV_HOST,"EBV_HOST");
+
+
 
   // --------------------------------------
   //----------- PRINT SUMMARY -------------

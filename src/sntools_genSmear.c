@@ -2758,6 +2758,13 @@ void init_genSmear_OIR(void) {
   GENSMEAR.NGEN_RANGauss = NBAND_OIR ;
   GENSMEAR.NGEN_RANFlat  = 0 ;
 
+  // ----------------------------
+  // store number of randoms to generate.
+
+  int NRANGauss = NBAND_OIR; //NCOLOR + 1; // each color + sigma_Coh
+  int NRANFlat  = 0; //1 ;  // pick v_Si
+  init_genSmear_randoms(NRANGauss,NRANFlat);
+
   return;
 
 } // end init_genSmear_OIR

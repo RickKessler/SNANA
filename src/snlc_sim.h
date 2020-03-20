@@ -536,11 +536,15 @@ struct INPUTS {
   int  MAGMONITOR_SNR ;   // compute SNR for this mag -> monitor
 
   GENGAUSS_ASYM_DEF GENGAUSS_SHAPEPAR ;    // MEAN, SIGMA, RANGE
-  GENGAUSS_ASYM_DEF GENGAUSS_RV ;
   GENGAUSS_ASYM_DEF GENGAUSS_DELTA ;
   GENGAUSS_ASYM_DEF GENGAUSS_DM15 ;
   GENGAUSS_ASYM_DEF GENGAUSS_STRETCH ;
-  
+  GENGAUSS_ASYM_DEF GENGAUSS_RV ;
+
+  GEN_EXP_HALFGAUSS_DEF GENPROFILE_AV ;
+  GEN_EXP_HALFGAUSS_DEF GENPROFILE_EBV_HOST ;
+
+
   SPECTROGRAPH_OPTIONS_DEF  SPECTROGRAPH_OPTIONS ;
   TAKE_SPECTRUM_DEF         TAKE_SPECTRUM[MXPEREVT_TAKE_SPECTRUM] ;
   float                     TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE ;
@@ -1726,6 +1730,7 @@ void update_accept_counters(void);
 
 void    simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX);
 double  gen_AV(void);          // generate AV from model
+double  gen_AV_legacy(void);          // generate AV from model                                             
 double  GENAV_WV07(void);   
 double  gen_RV(void);          // generate RV from model
 void    gen_conditions(void);  // generate conditions for each field

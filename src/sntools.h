@@ -258,6 +258,16 @@ typedef struct  {
 } GENGAUSS_ASYM_DEF ;
 
 
+// March 20 2020: Generic struct for exponential and half gaussian.
+typedef struct  {
+  bool USE; // sets to true if values are declared.
+  char   NAME[80];  // name of variable
+  double EXP_TAU ; // exponential
+  double PEAK, SIGMA ; // half gaussian
+  double RATIO ; // gauss/exp at zero
+  double RANGE[2] ; // output
+} GEN_EXP_HALFGAUSS_DEF ;
+
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
 #define MXORDER_GENPOLY 20
 typedef struct  {

@@ -122,6 +122,7 @@
 # Oct 22 2019: compile with -O2 to speed sim with genSmear Cholesky stuff.
 #               (-O3 doesn't help)
 #
+# March 20 2020: added sntools_genExpHalfGauss
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -387,6 +388,7 @@ OBJ_SIM	 = 	\
 	$(OBJ)/sntools_gridgen.o  \
 	$(OBJ)/sntools_spectrograph.o \
 	$(OBJ)/sntools_genGauss_asym.o \
+        $(OBJ)/sntools_genExpHalfGauss.o \
 	$(OBJ)/inoue_igm.o \
 	$(OBJ_GENMAG_SIM) 
 
@@ -900,6 +902,15 @@ $(OBJ)/multiseason.o : $(SRC)/multiseason.c
 $(OBJ)/sntools_genGauss_asym.o : $(SRC)/sntools_genGauss_asym.c  $(SRC)/sntools_genGauss_asym.h  skewNormal.c
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS)  $(IGSL) $(SRC)/sntools_genGauss_asym.c )
+
+# -------------------------------------------------        
+#  sntools_genExpHalfGauss  tools (March 2020)                                         
+
+$(OBJ)/sntools_genExpHalfGauss.o : $(SRC)/sntools_genExpHalfGauss.c  $(SRC)/sntools_genExpHalfGauss.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS)  $(IGSL) $(SRC)/sntools_genExpHalfGauss.c )
+
+
 
 # ------------------------------------------------
 # compile genmag_xxxx functions (.o only

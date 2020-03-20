@@ -6337,15 +6337,11 @@ void prep_user_input(void) {
     sprintf(c2err,"But cannot generate AV>0; see above param-dump");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
-
   // xxx end mark delete ------------------------------------------
 
 
-
-  setUseFlag_GEN_EXP_HALFGAUSS(INPUTS.GENPROFILE_AV,"AV");
-  setUseFlag_GEN_EXP_HALFGAUSS(INPUTS.GENPROFILE_EBV_HOST,"EBV_HOST");
-
-
+  setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV,"AV");
+  setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST,"EBV_HOST");
 
   // --------------------------------------
   //----------- PRINT SUMMARY -------------
@@ -13845,11 +13841,6 @@ double gen_AV(void) {
   double avmin, avmax, AV, ran_EXPON, ran_GAUSS, ran_WGT ;
   int DOFUN_EXPON, DOFUN_GAUSS ;
   char fnam[] = "gen_AV" ;
-
-  GEN_EXP_HALFGAUSS_DEF dummy;
-  double initval = -9.0 ;
-  init_GEN_EXP_HALFGAUSS(dummy, initval );
-
 
   // ------------ BEGIN -------------
 

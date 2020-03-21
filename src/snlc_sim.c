@@ -13860,7 +13860,7 @@ double gen_AV(void) {
  
   if (INPUTS.GENPROFILE_EBV_HOST.USE) {
     EBV_HOST = exec_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST);
-    AV = EBV_HOST * GENLC.RV
+    AV = EBV_HOST * GENLC.RV ;
   }
 
   // putbackinlater if ( INPUTS.WV07_GENAV_FLAG )  { AV = GENAV_WV07(); return(AV); }

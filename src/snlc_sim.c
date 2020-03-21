@@ -13825,45 +13825,38 @@ double GALrate_model(double l, double b, RATEPAR_DEF *RATEPAR ) {
 // ***********************************
 double gen_AV(void) {
 
-  // select AV from exponential distribution,
-  // dN/dAv = exp(-av/tau) + exp(-0.5*av^2/sig^2)
-  //
-  // Oct 26, 2012: tau > 50 -> flat distribution
-  // Mar 15, 2013: include Gaussian core (requested by Rodney for HST)
-  //                      float -> double
+  // Mar 20, 2020: refactor by D.Brout and R.Kessler
   // 
-  // Feb 02, 2016: for pure Gaussian, repeat until avmin < AV < avmax;
-  //               and abort after MAXTRY_ABORT tries
+  // Select AV from exponential + halfGauss distribution,
+  //    dN/dAv = exp(-av/tau) + exp(-0.5*av^2/sig^2)
+  //      or
+  // select EBV_HOST from same distribiution and then
+  // AV = EVB_HIST*RV
   //
-  // Feb 19, 2016: added missing 'goto DONE' in DOFUN_GAUSS (D.Jones)
-  //
-  // Feb 24, 2016: adjusted gaussian to allow non-0 centroid using
-  //               the GENGAUPEAK_AV keyword (D. Jones)
-  //
-  // Jan 14 2017: 
-  //   while fixing warnings from -Wall, found and fixed bug setting
-  //   un-initialized "peak":   peakGauss = INPUTS.GENGAUPEAK_AV ;
-  //
-  // Feb 11 2020: fix bug computing WGT_GAUSS
-  // March 20 2020: DJB refactor with EBV_HOST
+  // 
 
-  char fnam[] = "gen_AV" ;
-  double AV = 0.0;
+  char  fnam[] = "gen_AV" ;
+  double RV       = GENLC.RV ;
+  double AV       = 0.0;
   double EBV_HOST = 0.0;
+  double epsilon  = 1.0E-12 ;
+
   // ------------ BEGIN -------------
 
+  // preserve old option to generate WV07 extinction model (RK)
+  if ( INPUTS.WV07_GENAV_FLAG )  { AV = GENAV_WV07(); goto DONE ; }
+
+
   //.xyz
-  if (INPUTS.GENPROFILE_AV.USE) {
+  if ( INPUTS.GENPROFILE_AV.USE ) {
     AV = exec_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV);
-    //printf("xxx %s AV=%f",fnam,AV);
   }
  
-  if (INPUTS.GENPROFILE_EBV_HOST.USE) {
+  if ( INPUTS.GENPROFILE_EBV_HOST.USE ) {
     EBV_HOST = exec_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST);
-    AV = EBV_HOST * GENLC.RV ;
+    AV       = EBV_HOST * RV ;
   }
 
-  // putbackinlater if ( INPUTS.WV07_GENAV_FLAG )  { AV = GENAV_WV07(); return(AV); }
 
   /*
   GENLC.AVTAU = INPUTS.GENEXPTAU_AV 
@@ -13877,6 +13870,12 @@ double gen_AV(void) {
   GENLC.AV0RATIO = INPUTS.GENRATIO_AV0
     + get_zvariation(GENLC.REDSHIFT_CMB,"GENRATIO_AV0" );
   */
+
+ DONE: 
+  if ( AV > epsilon  && RV < epsilon ) {
+      // abort here 
+  }
+
 
   return(AV) ;
 

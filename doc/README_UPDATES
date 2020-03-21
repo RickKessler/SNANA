@@ -18190,4 +18190,14 @@
    snana.car:
      + add SIM_RV to table output.
 
+   new code files sntools_genExpHalfGauss.c[h]
+   to implement generic expon+halfGauss profiles for AV
+   or EBV_HOST.
+
+   snlc_sim.c:
+    + refactor gen_AV and include option to specify EBV_HOST
+      profile, or AV profile. 
+
+   SNANA_Codetests.py: bug fix for batch systems
+
 END: 

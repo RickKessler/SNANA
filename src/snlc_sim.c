@@ -59,6 +59,7 @@
 #include "sntools_grid.h"
 #include "sntools_spectrograph.h"
 #include "sntools_genGauss_asym.h"
+#include "sntools_genExpHalfGauss.h"
 #include "sntools_output.h"   // added Jan 11 2017
 #include "inoue_igm.h"        // added Jun 27 2019
 
@@ -1369,7 +1370,7 @@ int read_input(char *input_file) {
     if ( uniqueMatch(c_get,"DEBUG_FLAG:")  ) 
       { readint ( fp, 1, &INPUTS.DEBUG_FLAG );  continue ; }
 
-    // .xyz
+    
     if ( uniqueMatch(c_get,"RESTORE_DES3YR:")  )  { 
       readint ( fp, 1, &ITMP );  
       if ( ITMP ) { INPUTS.RESTORE_DES3YR = true; }
@@ -4455,7 +4456,7 @@ void sim_input_override(void) {
     if ( strcmp( ARGV_LIST[i], "DEBUG_FLAG" ) == 0 ) 
       { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.DEBUG_FLAG );   }
 
-    //.xyz
+    
     if ( strcmp( ARGV_LIST[i], "RESTORE_DES3YR" ) == 0 )  {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &ITMP );
       INPUTS.RESTORE_DES3YR = true ;
@@ -6342,6 +6343,14 @@ void prep_user_input(void) {
 
   setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV,"AV");
   setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST,"EBV_HOST");
+
+  // if AV and EBV_HOST useflags are both set, then abort
+  if (INPUTS.GENPROFILE_AV.USE && INPUTS.GENPROFILE_EBV_HOST.USE) {
+    sprintf(c1err,"Not allowed to generate both AV and EBV_HOST");
+    sprintf(c2err,"Check input file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+  
 
   // --------------------------------------
   //----------- PRINT SUMMARY -------------
@@ -13836,25 +13845,27 @@ double gen_AV(void) {
   //   un-initialized "peak":   peakGauss = INPUTS.GENGAUPEAK_AV ;
   //
   // Feb 11 2020: fix bug computing WGT_GAUSS
+  // March 20 2020: DJB refactor with EBV_HOST
 
-  double  tau, sig, ratio, peakGauss, expmin, expmax, expdif ;
-  double avmin, avmax, AV, ran_EXPON, ran_GAUSS, ran_WGT ;
-  int DOFUN_EXPON, DOFUN_GAUSS ;
   char fnam[] = "gen_AV" ;
-
+  double AV = 0.0;
+  double EBV_HOST = 0.0;
   // ------------ BEGIN -------------
 
-  AV    = 0.0 ;
-  DOFUN_EXPON = DOFUN_GAUSS = 0 ;
+  //.xyz
+  if (INPUTS.GENPROFILE_AV.USE) {
+    AV = exec_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV);
+    //printf("xxx %s AV=%f",fnam,AV);
+  }
+ 
+  if (INPUTS.GENPROFILE_EBV_HOST.USE) {
+    EBV_HOST = exec_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST);
+    AV = EBV_HOST * GENLC.RV ;
+  }
 
-  // always burn randoms to stay synced.
-  ran_EXPON = FlatRan1(1) ;
-  ran_GAUSS = GaussRan(1);    
-  ran_WGT   = FlatRan1(1) ;  
+  // putbackinlater if ( INPUTS.WV07_GENAV_FLAG )  { AV = GENAV_WV07(); return(AV); }
 
-  if ( INPUTS.WV07_GENAV_FLAG )  { AV = GENAV_WV07(); return(AV); }
-
-  // pick from exponential
+  /*
   GENLC.AVTAU = INPUTS.GENEXPTAU_AV 
     + get_zvariation(GENLC.REDSHIFT_CMB,"GENEXPTAU_AV");
 
@@ -13865,89 +13876,8 @@ double gen_AV(void) {
 
   GENLC.AV0RATIO = INPUTS.GENRATIO_AV0
     + get_zvariation(GENLC.REDSHIFT_CMB,"GENRATIO_AV0" );
+  */
 
-  tau   = GENLC.AVTAU ;
-  sig   = GENLC.AVSIG ;
-  ratio = GENLC.AV0RATIO ;  // Gauss/expon ratio
-
-  avmin = INPUTS.GENRANGE_AV[0] ;
-  avmax = INPUTS.GENRANGE_AV[1] ;
-
-  // sanity check
-  if ( (avmax > avmin) && (tau==0.0 && sig==0.0) ) {
-    sprintf(c1err,"GENRANGE_AV = %.3f to %.3f", avmin, avmax);
-    sprintf(c2err,"but GENEXPTAU_AV=0 and GENGAUSIG_AV=0");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-
-  // check for trivial cases
-
-  if ( tau   <= 0.001 && sig <= 0.001 )  // delta function at AVMIN
-    { AV = avmin; goto DONE ; }
-
-  if ( avmin == avmax )       // delta-function at AVMIN
-    { AV = avmin; goto DONE ; }  
-
-  if ( tau > 50. && ratio == 0.0 )    // flat distribution
-    { AV = avmin + (avmax - avmin) * ran_EXPON ; goto DONE ; }
-
-
-  // check for pure exponential or pure Gaussian
-  if ( tau > 0.0 &&  sig <= 0.0 ) { DOFUN_EXPON = 1 ; }
-  if ( sig > 0.0 &&  tau <= 0.0 ) { DOFUN_GAUSS = 1 ; }
-
-
-  // check for mixed.
-  if ( tau > 0.0 && sig > 0.0 && ratio > 0.0 ) {
-    double WGT_EXPON, WGT_GAUSS, WGT_SUM ;
-    WGT_EXPON = 1.0 / tau ;
-    WGT_GAUSS = 0.5*ratio / sqrt(TWOPI * sig*sig);
-    WGT_SUM = WGT_EXPON + WGT_GAUSS ;
-    if ( ran_WGT < WGT_EXPON/WGT_SUM ) 
-      { DOFUN_EXPON = 1; }
-    else
-      { DOFUN_GAUSS = 1; }
-  }
-
-  // pure exponential 
-  if ( DOFUN_EXPON ) {
-    expmin = expf(-avmin/tau) ;  // note that expmin > expmax !!!
-    expmax = expf(-avmax/tau) ;
-    expdif = expmin - expmax ;    
-    AV = -tau * log( expmin - expdif*ran_EXPON ) ;
-    goto DONE ;
-  }
-
-  // pure Guassian (AV > 0 only)                   
-  if ( DOFUN_GAUSS ) {
-    int MAXTRY_ABORT = 10000  ;  // abort after this many tries   
-    int itry = 0 ;
-    AV = -9999.0 ;
-    while ( AV < avmin || AV > avmax ) {
-      if ( itry > MAXTRY_ABORT ) {
-	sprintf(c1err,"Can't find Gauss-AV between %.2f and %.2f",
-                avmin, avmax);
-        sprintf(c2err,"after %d tries (sigma=%.2f)\n", itry, sig );
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-      }
-      if ( itry  > 1 ) { ran_GAUSS = GaussRan(1); }
-      if (peakGauss > 0.0001 ) 
-	{ AV = sig * ran_GAUSS + peakGauss; }
-      else
-	{ AV = sig * fabs(ran_GAUSS); }
- 
-      itry++ ;
-    }
-    goto DONE ;
-  }
-
-  // if we get here then abort on confusion.
-  sprintf(c1err,"Could not determine AV from Expon. or Gaussian ??");
-  sprintf(c2err,"tau=%f  sig=%f  ratio=%f", tau, sig, ratio);
-  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
-
- 
- DONE:
   return(AV) ;
 
 }  // end of gen_AV

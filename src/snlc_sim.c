@@ -6316,41 +6316,52 @@ void prep_user_input(void) {
   // check for host AV
   if ( INPUTS.WV07_REWGT_EXPAV > -1.0E-9 ) { INPUTS.WV07_GENAV_FLAG=1; }
 
-  // xxx mark delete after refactor -------------------------------
-
-  bool DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ;  
-  bool DO_AVTAU = INPUTS.GENEXPTAU_AV     > 1.0E-9 ;
-  bool DO_AVSIG = INPUTS.GENGAUSIG_AV     > 1.0E-9 ;
-  bool DO_AV    = INPUTS.GENRANGE_AV[1]   > 1.0E-9 ;
   bool DO_WV07  = (INPUTS.WV07_GENAV_FLAG > 0 );
   bool DO_GRID  = (GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID );
 
-  INPUTS.DO_AV = (DO_AV && DO_RV && 
-		  ( DO_AVTAU || DO_AVSIG || DO_WV07 || DO_GRID )  ) ; 
+  // xxx mark delete after refactor -----------------------------
+  
+  if (INPUTS.DEBUG_FLAG != 42){
+  
+    bool DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ;  
+    bool DO_AVTAU = INPUTS.GENEXPTAU_AV     > 1.0E-9 ;
+    bool DO_AVSIG = INPUTS.GENGAUSIG_AV     > 1.0E-9 ;
+    bool DO_AV    = INPUTS.GENRANGE_AV[1]   > 1.0E-9 ;
 
-  if ( INPUTS.DO_AV==0 && DO_AV ) {
-    print_preAbort_banner(fnam);
-    printf("\t GENPEAK_RV   = %f \n", INPUTS.GENGAUSS_RV.PEAK );
-    printf("\t GENEXPTAU_AV = %f \n", INPUTS.GENEXPTAU_AV );
-    printf("\t GENGAUSIG_AV = %f \n", INPUTS.GENGAUSIG_AV );
-    sprintf(c1err,"GENRANGE_AV = %.3f to %.3f", 
-	    INPUTS.GENRANGE_AV[0], INPUTS.GENRANGE_AV[1] );
-    sprintf(c2err,"But cannot generate AV>0; see above param-dump");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    INPUTS.DO_AV = (DO_AV && DO_RV && 
+		    ( DO_AVTAU || DO_AVSIG || DO_WV07 || DO_GRID )  ) ; 
+
+    if ( INPUTS.DO_AV==0 && DO_AV ) {
+      print_preAbort_banner(fnam);
+      printf("\t GENPEAK_RV   = %f \n", INPUTS.GENGAUSS_RV.PEAK );
+      printf("\t GENEXPTAU_AV = %f \n", INPUTS.GENEXPTAU_AV );
+      printf("\t GENGAUSIG_AV = %f \n", INPUTS.GENGAUSIG_AV );
+      sprintf(c1err,"GENRANGE_AV = %.3f to %.3f", 
+	      INPUTS.GENRANGE_AV[0], INPUTS.GENRANGE_AV[1] );
+      sprintf(c2err,"But cannot generate AV>0; see above param-dump");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
   }
   // xxx end mark delete ------------------------------------------
 
+  if (INPUTS.DEBUG_FLAG == 42){
 
-  setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV,"AV");
-  setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST,"EBV_HOST");
+    setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV,"AV");
+    setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST,"EBV_HOST");
 
-  // if AV and EBV_HOST useflags are both set, then abort
-  if (INPUTS.GENPROFILE_AV.USE && INPUTS.GENPROFILE_EBV_HOST.USE) {
-    sprintf(c1err,"Not allowed to generate both AV and EBV_HOST");
-    sprintf(c2err,"Check input file.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    // if AV and EBV_HOST useflags are both set, then abort
+    if (INPUTS.GENPROFILE_AV.USE && INPUTS.GENPROFILE_EBV_HOST.USE) {
+      sprintf(c1err,"Not allowed to generate both AV and EBV_HOST");
+      sprintf(c2err,"Check input file.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
+
+    INPUTS.DO_AV = (INPUTS.GENPROFILE_AV.USE || INPUTS.GENPROFILE_EBV_HOST.USE 
+      || DO_WV07 || DO_GRID) ;
+
   }
   
+
 
   // --------------------------------------
   //----------- PRINT SUMMARY -------------
@@ -10165,7 +10176,7 @@ void gen_event_driver(int ilc) {
 		    INDEX_GENMODEL == MODEL_SIMSED  ||
 		    INDEX_GENMODEL == MODEL_S11DM15 ||
 		    INDEX_GENMODEL == MODEL_BYOSED 	     );
-
+    
     if ( (ISREST || ISNON1A || ISMISC) && INPUTS.DO_AV ) {
       GENLC.RV = gen_RV() ;
       if (INPUTS.DEBUG_FLAG == 42) {
@@ -13849,27 +13860,40 @@ double gen_AV(void) {
 
   //.xyz
   if ( INPUTS.GENPROFILE_AV.USE ) {
-    AV = exec_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV);
+    copy_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV,&GENLC.GENPROFILE_AV);
+
+    GENLC.GENPROFILE_AV.EXP_TAU = INPUTS.GENEXPTAU_AV 
+      + get_zvariation(GENLC.REDSHIFT_CMB,"GENEXPTAU_AV");// legacy
+    GENLC.GENPROFILE_AV.EXP_TAU = INPUTS.GENPROFILE_AV.EXP_TAU
+      + get_zvariation(GENLC.REDSHIFT_CMB,"GENTAU_AV");
+
+    GENLC.GENPROFILE_AV.SIGMA = INPUTS.GENGAUSIG_AV
+      + get_zvariation(GENLC.REDSHIFT_CMB,"GENEXPSIG_AV");// legacy
+    GENLC.GENPROFILE_AV.SIGMA = INPUTS.GENPROFILE_AV.SIGMA
+      + get_zvariation(GENLC.REDSHIFT_CMB,"GENSIG_AV");
+
+    GENLC.GENPROFILE_AV.RATIO = INPUTS.GENPROFILE_AV.RATIO
+      + get_zvariation(GENLC.REDSHIFT_CMB,"GENRATIO_AV0" ); 
+
+    AV = exec_GEN_EXP_HALFGAUSS(&GENLC.GENPROFILE_AV);
+    
   }
  
   if ( INPUTS.GENPROFILE_EBV_HOST.USE ) {
-    EBV_HOST = exec_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST);
+    copy_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST,&GENLC.GENPROFILE_EBV_HOST);
+
+    GENLC.GENPROFILE_EBV_HOST.EXP_TAU = INPUTS.GENPROFILE_EBV_HOST.EXP_TAU
+      + get_zvariation(GENLC.REDSHIFT_CMB,"GENTAU_EBV_HOST");
+
+    GENLC.GENPROFILE_EBV_HOST.SIGMA = INPUTS.GENPROFILE_EBV_HOST.SIGMA
+      + get_zvariation(GENLC.REDSHIFT_CMB,"GENSIG_EBV_HOST");
+
+    GENLC.GENPROFILE_EBV_HOST.RATIO = INPUTS.GENPROFILE_EBV_HOST.RATIO
+      + get_zvariation(GENLC.REDSHIFT_CMB,"GENRATIO_EBV0_HOST" );
+
+    EBV_HOST = exec_GEN_EXP_HALFGAUSS(&GENLC.GENPROFILE_EBV_HOST);
     AV       = EBV_HOST * RV ;
   }
-
-
-  /*
-  GENLC.AVTAU = INPUTS.GENEXPTAU_AV 
-    + get_zvariation(GENLC.REDSHIFT_CMB,"GENEXPTAU_AV");
-
-  GENLC.AVSIG = INPUTS.GENGAUSIG_AV 
-    + get_zvariation(GENLC.REDSHIFT_CMB,"GENEXPSIG_AV");
-
-  peakGauss = INPUTS.GENGAUPEAK_AV; 
-
-  GENLC.AV0RATIO = INPUTS.GENRATIO_AV0
-    + get_zvariation(GENLC.REDSHIFT_CMB,"GENRATIO_AV0" );
-  */
 
  DONE: 
   if ( AV > epsilon  && RV < epsilon ) {
@@ -17635,6 +17659,7 @@ void init_zvariation(void) {
   // Jun 2 2017: add 2nd-peak params to PREFIX_GENGAUSS
   // Jul 19 2017: add GENMAG_OFF_GLOBAL to update list
   // Jul 24 2017: update error reporting of NZBIN exceeding boung.
+  // Mar 21 2020: DJB added more parameters to check for zvar. 
 
   char *ptrZfile, *ptrparname, *ptrPar, *ptrPoly, fileName_full[MXPATHLEN] ;
   char GENPREFIX[60], c_get[60], method[20], parName[60], cpoly[60] ;
@@ -17728,9 +17753,17 @@ void init_zvariation(void) {
   // add a few miscellaneous variables.
   if ( INPUTS.NPAR_SIMSED == 0 ) { 
     update_PARDEF_ZVAR( "GENEXPTAU_AV"       );  // Mar 2013
+    update_PARDEF_ZVAR( "GENTAU_AV"          );  // new naming March 2020
     update_PARDEF_ZVAR( "GENGAUSIG_AV"       );
+    update_PARDEF_ZVAR( "GENSIG_AV"          );
     update_PARDEF_ZVAR( "GENGAUPEAK_AV"      );
+    update_PARDEF_ZVAR( "GENPEAK_AV"         );
     update_PARDEF_ZVAR( "GENRATIO_AV0"       );
+    update_PARDEF_ZVAR( "GENTAU_EBV_HOST"    );
+    update_PARDEF_ZVAR( "GENSIG_EBV_HOST"    );
+    update_PARDEF_ZVAR( "GENPEAK_EBV_HOST"   );
+    update_PARDEF_ZVAR( "GENRATIO_EBV0_HOST" );
+
     update_PARDEF_ZVAR( "VSI"                ); // Si velocity for VCR model
     update_PARDEF_ZVAR( "GENMAG_OFF_GLOBAL"  ); // added July 2017
   }

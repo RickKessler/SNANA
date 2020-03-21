@@ -19,7 +19,7 @@
 
  Jul 30 2018: define input_file_include2
  Jan 06 2020: genmag8 -> genmag, same for epoch8 & peakmag8
-
+ Mar 20 2020: Dillon: MXPAR_ZVAR -> 150 (was 100) 
 ********************************************/
 
 
@@ -914,10 +914,16 @@ struct GENLC {
 
   int    SIMSED_IPARMAP[MXPAR_SIMSED];     // IPAR list in COV mat 
   double SIMSED_PARVAL[MXPAR_SIMSED];    // params for SIMSED model
-  
+
+  // xxx mark delete after refactor 3/21/2020
   double AVTAU;       // 5/11/2009: added in case of z-dependence
   double AVSIG;       // Gauss sigma
   double AV0RATIO ;   // Guass/expon ratio at AV=0
+  // xxx mark end delete       
+
+  GEN_EXP_HALFGAUSS_DEF GENPROFILE_AV; // 3/2020: added by djb for z-dep
+  GEN_EXP_HALFGAUSS_DEF GENPROFILE_EBV_HOST; // 3/2020: added by djb for z-dep
+
   double AV ;         // host extinction param for CCM89 law
   double RV ;         // host extinction param for CCM89 law
 
@@ -1532,7 +1538,7 @@ struct {
 // ================================================
 //  Z-dependent variations of sim-parameters
 
-#define MXPAR_ZVAR     100   // max number of ZVAR variables
+#define MXPAR_ZVAR     150   // max number of ZVAR variables
 #define MXZBIN_ZVAR    100   // max number of zins to define Z-variation
 #define POLYORDER_ZVAR   3  // order of polynomial with ZPOLY option
 #define FLAG_ZPOLY_ZVAR  1 

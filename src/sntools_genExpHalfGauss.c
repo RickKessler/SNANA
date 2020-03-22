@@ -20,8 +20,6 @@ void init_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, double VAL
   
   char fnam[] = "init_GEN_EXP_HALFGAUSS" ;
   
-  printf("xxx Hello from %s\n",fnam);
-
   gen_EXP_HALFGAUSS->USE = false;
 
   gen_EXP_HALFGAUSS->NAME[0] = 0;

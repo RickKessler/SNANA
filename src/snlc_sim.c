@@ -6318,12 +6318,12 @@ void prep_user_input(void) {
 
   bool DO_WV07  = (INPUTS.WV07_GENAV_FLAG > 0 );
   bool DO_GRID  = (GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID );
+  bool DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ;
 
   // xxx mark delete after refactor -----------------------------
   
   if (INPUTS.DEBUG_FLAG != 42){
   
-    bool DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ;  
     bool DO_AVTAU = INPUTS.GENEXPTAU_AV     > 1.0E-9 ;
     bool DO_AVSIG = INPUTS.GENGAUSIG_AV     > 1.0E-9 ;
     bool DO_AV    = INPUTS.GENRANGE_AV[1]   > 1.0E-9 ;
@@ -10177,14 +10177,20 @@ void gen_event_driver(int ilc) {
 		    INDEX_GENMODEL == MODEL_S11DM15 ||
 		    INDEX_GENMODEL == MODEL_BYOSED 	     );
     
-    if ( (ISREST || ISNON1A || ISMISC) && INPUTS.DO_AV ) {
+    bool DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ; //added by DJB because we are removing DO_AV 
+
+    if ( (ISREST || ISNON1A || ISMISC) && DO_RV ) {
       GENLC.RV = gen_RV() ;
+      printf("%f\n",GENLC.RV);//mark delete djb
+    }
+
+    if ( (ISREST || ISNON1A || ISMISC) && INPUTS.DO_AV ) {
+      // GENLC.RV = gen_RV() ; // mark delete DJB. added separately above
       if (INPUTS.DEBUG_FLAG == 42) {
 	GENLC.AV = gen_AV() ;//DJB March 20 2020: Adding new way to sim EBV.
       } else {
 	GENLC.AV = gen_AV_legacy() ;
       }
-
     }
 
     override_modelPar_from_SNHOST(); // Jun 2016      
@@ -10319,7 +10325,6 @@ void override_modelPar_from_SNHOST(void) {
 
   RV       = GENLC.RV ;
   GENLC.RV = modelPar_from_SNHOST(RV,GENLC.COLORPAR_NAME);
-
 
   if ( INDEX_GENMODEL  == MODEL_SALT2 ) {
     double a = GENLC.SALT2alpha ;

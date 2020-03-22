@@ -10177,8 +10177,14 @@ void gen_event_driver(int ilc) {
 		    INDEX_GENMODEL == MODEL_S11DM15 ||
 		    INDEX_GENMODEL == MODEL_BYOSED 	     );
     
+    bool DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ; //added by DJB because we are removing DO_AV 
+
     if ( (ISREST || ISNON1A || ISMISC) && INPUTS.DO_AV ) {
       GENLC.RV = gen_RV() ;
+    }
+
+    if ( (ISREST || ISNON1A || ISMISC) && INPUTS.DO_AV ) {
+      // GENLC.RV = gen_RV() ; // mark delete DJB. added separately above
       if (INPUTS.DEBUG_FLAG == 42) {
 	GENLC.AV = gen_AV() ;//DJB March 20 2020: Adding new way to sim EBV.
       } else {

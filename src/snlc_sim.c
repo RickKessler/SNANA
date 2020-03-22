@@ -10179,8 +10179,9 @@ void gen_event_driver(int ilc) {
     
     bool DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ; //added by DJB because we are removing DO_AV 
 
-    if ( (ISREST || ISNON1A || ISMISC) && INPUTS.DO_AV ) {
+    if ( (ISREST || ISNON1A || ISMISC) && DO_RV ) {
       GENLC.RV = gen_RV() ;
+      printf("%f\n",GENLC.RV);//mark delete djb
     }
 
     if ( (ISREST || ISNON1A || ISMISC) && INPUTS.DO_AV ) {
@@ -10190,7 +10191,6 @@ void gen_event_driver(int ilc) {
       } else {
 	GENLC.AV = gen_AV_legacy() ;
       }
-
     }
 
     override_modelPar_from_SNHOST(); // Jun 2016      
@@ -10325,7 +10325,6 @@ void override_modelPar_from_SNHOST(void) {
 
   RV       = GENLC.RV ;
   GENLC.RV = modelPar_from_SNHOST(RV,GENLC.COLORPAR_NAME);
-
 
   if ( INDEX_GENMODEL  == MODEL_SALT2 ) {
     double a = GENLC.SALT2alpha ;

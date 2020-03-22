@@ -6318,12 +6318,12 @@ void prep_user_input(void) {
 
   bool DO_WV07  = (INPUTS.WV07_GENAV_FLAG > 0 );
   bool DO_GRID  = (GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID );
+  bool DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ;
 
   // xxx mark delete after refactor -----------------------------
   
   if (INPUTS.DEBUG_FLAG != 42){
   
-    bool DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ;  
     bool DO_AVTAU = INPUTS.GENEXPTAU_AV     > 1.0E-9 ;
     bool DO_AVSIG = INPUTS.GENGAUSIG_AV     > 1.0E-9 ;
     bool DO_AV    = INPUTS.GENRANGE_AV[1]   > 1.0E-9 ;

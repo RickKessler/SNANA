@@ -3412,7 +3412,7 @@ void parse_input_GENMAG_SMEAR_SCALE(FILE *fp, int *iArg, char *KEYNAME ) {
   //
 
   int i = *iArg ;
-  bool LDMP = false ;
+  bool LDMP = true ;
   char cArg[40];
   char fnam[] = "parse_input_GENMAG_SMEAR_SCALE";
 
@@ -3445,7 +3445,7 @@ void parse_input_GENMAG_SMEAR_SCALE(FILE *fp, int *iArg, char *KEYNAME ) {
     printf(" xxx STRINGTMP = '%s'   VARNAME = '%s' \n", 
 	   STRINGTMP, VARNAME);
     fflush(stdout);
-    debugexit(fnam);
+    //    debugexit(fnam);
   }
 
   return;
@@ -5454,7 +5454,7 @@ void sim_input_override(void) {
     if ( strcmp( ARGV_LIST[i], "GENSMEAR_RANFLATFIX" ) == 0 ) 
       { i++ ; sscanf(ARGV_LIST[i],"%le",&INPUTS.GENSMEAR_RANFlat_FIX );  }
 
-    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_SCALE" ) == 0 )
+    if ( strstr( ARGV_LIST[i], "GENMAG_SMEAR_SCALE" ) != NULL )
       { parse_input_GENMAG_SMEAR_SCALE(fpNull, &i, ARGV_LIST[i] ); }
 
     if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_MSKOPT" ) == 0 ) {

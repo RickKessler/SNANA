@@ -212,6 +212,7 @@ void init_genSmear_SCALE(char *SCALE_STRING) {
   }
   else {
     printf("\t GENMAG_SMEAR_SCALE: poly(%s) = %s \n", VARNAME, cPOLY);
+    sprintf(GENSMEAR_SCALE.VARNAME, "%s", VARNAME);
   }
 
   return;

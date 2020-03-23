@@ -18174,6 +18174,11 @@
    in WGTMAP that are not in the HOSTLIB. Minimal testing so far, 
    so users should run their own tests.
 
+   wfit.c: new options -bao_sim and -cmb_sim to use sim cosmology
+           for bao and cmb priors.
+
+   sim: new EBV_HOST params (see manual Sec 9.1)
+
          ***** USEFUL(v10_76c) ***** 
 
          ***** MISCELLANEOUS(v10_76c) ***** 
@@ -18197,7 +18202,19 @@
    snlc_sim.c:
     + refactor gen_AV and include option to specify EBV_HOST
       profile, or AV profile. 
+    + implement color or stretch dependent scale on scatter:
+          GENMAG_SMEAR_SCALE(c): xxx,yyy,zzz
+          GENMAG_SMEAR_SCALE(x1): xxx,yyy,zzz
+    + refactor SALT2BETA_cPOLY to use _GENPOLY tools; untested -> BEWARE.
 
    SNANA_Codetests.py: bug fix for batch systems
+
+   snana_manual.pdf:
+     + in Sec 9, add new section about host-gal extinction
+       and include both AV and EBV options.
+
+   Makefile:
+     + fix dependence on sntools_gridgen.c to hopefully avoid
+       SNANA_Codetest problems when re-making snlc_sim.
 
 END: 

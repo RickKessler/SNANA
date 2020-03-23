@@ -773,9 +773,12 @@ void set_user_defaults(void) {
   INPUTS.BIASCOR_SALT2GAMMA_GRID[0] = +9.0 ; // min
   INPUTS.BIASCOR_SALT2GAMMA_GRID[1] = -9.0 ; // max
 
+  init_GENPOLY(&INPUTS.SALT2BETA_cPOLY);
+  /* xxx mark del Mar 23 2020 xxxxxxxx
   INPUTS.SALT2BETA_cPOLY[0] = 0.0 ;
   INPUTS.SALT2BETA_cPOLY[1] = 0.0 ;
   INPUTS.SALT2BETA_cPOLY[2] = 0.0 ;
+  xxxxxxxxxxxxx */
 
   INPUTS.SALT2mu_FILE[0] = 0 ;  // May 2013
 
@@ -879,7 +882,7 @@ void set_user_defaults(void) {
   INPUTS.GENSMEAR_RANGauss_FIX       = -999.0 ;
   INPUTS.GENSMEAR_RANFlat_FIX        = -999.0 ;
 
-  INPUTS.GENMAG_SMEAR_SCALE = 1.0;
+  INPUTS.GENMAG_SMEAR_SCALE[0] = 0 ;
   sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE") ;
   INPUTS.GENMAG_SMEAR_MODELARG[0] = 0;
   INPUTS.GENMAG_SMEAR_MSKOPT      = 0 ;
@@ -1307,11 +1310,11 @@ int read_input(char *input_file) {
     ;
 
   float ftmp, sigTmp[2];
-  int L_NON1ASED, L_NON1AKEY, L_PEC1AKEY, L_TMP, ITMP, NWD ;
-  int itmp, N, j, ifilt, opt_tmp;
-  int key, NKEY, ovp1, ovp2, ITYPE ;
+  int  L_NON1ASED, L_NON1AKEY, L_PEC1AKEY, L_TMP, ITMP, NWD ;
+  int  itmp, N, j, ifilt, opt_tmp;
+  int  key, NKEY, ovp1, ovp2, ITYPE ;
   bool FOUNDKEY[2];
-  int iArg = -9;
+  int  iArg = -9;
   char  stringSource[] = "sim-input file" ;
   char  comma[] = ","; 
   char  fnam[] = "read_input"  ;
@@ -1539,7 +1542,7 @@ int read_input(char *input_file) {
 	readdouble(fp, POLYORDER_ZVAR, &zpoly[1] );
 	sprintf(cpoly,"%f,%f,%f,%f", zpoly[0],zpoly[1],zpoly[2],zpoly[3]);
       }
-      parse_GENPOLY(cpoly, &INPUT_ZVARIATION[N].POLY, fnam);
+      parse_GENPOLY(cpoly, "z", &INPUT_ZVARIATION[N].POLY, fnam);
       // xxx delete readdouble(fp,POLYORDER_ZVAR+1,INPUT_ZVARIATION[N].ZPOLY);
       continue ; 
     }
@@ -2021,8 +2024,12 @@ int read_input(char *input_file) {
     if ( uniqueMatch(c_get,"BIASCOR_SALT2GAMMA_GRID:")   ) 
       { readdouble(fp, 2, INPUTS.BIASCOR_SALT2GAMMA_GRID );  continue ; }
 
-    if ( uniqueMatch(c_get,"SALT2BETA_cPOLY:")   ) 
-      { readdouble(fp, 3, INPUTS.SALT2BETA_cPOLY );  continue ; }
+    if ( uniqueMatch(c_get,"SALT2BETA_cPOLY:")   )  { 
+      // xxx mark delete  readdouble(fp, 3, INPUTS.SALT2BETA_cPOLY );  
+      readchar(fp, cpoly);
+      parse_GENPOLY(cpoly, "SALT2BETA_cPOLY", &INPUTS.SALT2BETA_cPOLY, fnam);
+      continue ;
+    }
 
     if ( uniqueMatch(c_get,"SALT2mu_FILE:" )   )
       { readchar(fp, INPUTS.SALT2mu_FILE ); continue ; }
@@ -2215,8 +2222,9 @@ int read_input(char *input_file) {
       continue ; 
     }
 
-    if ( uniqueMatch(c_get,"GENMAG_SMEAR_SCALE:")   ) 
-      { readfloat(fp, 1, &INPUTS.GENMAG_SMEAR_SCALE ); continue ; }
+
+    if ( strstr(c_get,"GENMAG_SMEAR_SCALE") != NULL ) 
+      { parse_input_GENMAG_SMEAR_SCALE(fp, &iArg, c_get ); continue ; }
 
     if ( uniqueMatch(c_get,"GENMAG_SMEAR_MSKOPT:")   ) 
       { readint(fp, 1, &INPUTS.GENMAG_SMEAR_MSKOPT ); continue ; }
@@ -3387,6 +3395,64 @@ void parse_input_SIMGEN_DUMP(FILE *fp, int *iArg, char *KEYNAME ) {
 
 } // end parse_input_SIMGEN_DUMP
 
+
+// ===================================
+void parse_input_GENMAG_SMEAR_SCALE(FILE *fp, int *iArg, char *KEYNAME ) {
+
+  // Mar 22 2020
+  // Parse either a global scale or a polynominal function:
+  //
+  // For these example user inputs
+  //  GENMAG_SMEAR_SCALE: 1.3            ! global scale
+  //  GENMAG_SMEAR_SCALE(SALT2c) 0.9,0.3 ! scale = 0.9 + 0.3*c 
+  //
+  // This function loads INPUTS.GENMAG_SMEAR_SCALE with 
+  //     'NOVAR  1.3'
+  //     'SALT2c 0.9,0.3'
+  //
+
+  int i = *iArg ;
+  bool LDMP = false ;
+  char cArg[40];
+  char fnam[] = "parse_input_GENMAG_SMEAR_SCALE";
+
+  // --------------- BEGIN -----------------
+
+  if ( i < 0 ) {
+    readchar(fp, cArg); // read argument from file
+  }
+  else {
+    // read command-line arg.
+    i++ ; sscanf(ARGV_LIST[i], "%s", cArg ); 
+    *iArg = i ;
+  }
+
+  // - - - - - - - - 
+  
+  char VARNAME[20], STRINGTMP[100];
+  sprintf(STRINGTMP, "%s", KEYNAME);
+  // extract optional varname from () of key name
+  extractStringOpt(STRINGTMP,VARNAME); // return stringOpt; 
+
+  if ( strlen(VARNAME) == 0 ) { sprintf(VARNAME,"NOVAR"); }
+
+  sprintf(INPUTS.GENMAG_SMEAR_SCALE,"%s  %s", VARNAME, cArg);
+
+  if ( LDMP ) {
+    printf("\n xxx %s DEBUG DUMP -------------- \n", fnam );
+    printf(" xxx input KEYNAME = '%s' \n", KEYNAME);
+    printf(" xxx read cArg = '%s' \n", cArg);
+    printf(" xxx STRINGTMP = '%s'   VARNAME = '%s' \n", 
+	   STRINGTMP, VARNAME);
+    fflush(stdout);
+    debugexit(fnam);
+  }
+
+  return;
+  
+} // end parse_input_GENMAG_SMEAR_SCALE
+
+
 // ==================================================
 int parse_input_KEY_PLUS_FILTER(FILE *fp, int *iArg, 
 				char *INPUT_STRING, char *KEYCHECK,
@@ -3479,7 +3545,8 @@ int parse_input_KEY_PLUS_FILTER(FILE *fp, int *iArg,
 void parse_GENMAG_SMEAR_MODELNAME(void) {
 
   // Split GENMAG_SMEAR_MODELSTRING by colon;
-  // store right side of colon in GENMAG_SMEAR_MODELARG.
+  // Left side of colon is MODELNAME, and right side of colon 
+  // is a model argument stored as GENMAG_SMEAR_MODELARG.
 
   int  MEMC = MXCHAR_FILENAME * sizeof(char) ;
   char colon[] = ":" ;
@@ -3729,7 +3796,7 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
       sprintf(c2err, "Expected LAMPOLY(,,,)");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
-    parse_GENPOLY(stringOpt, GENLAMPOLY_WARP, fnam);
+    parse_GENPOLY(stringOpt, "wave", GENLAMPOLY_WARP, fnam);
     INPUTS.NWARP_TAKE_SPECTRUM++ ;
   }
   
@@ -3799,11 +3866,11 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
   extractStringOpt(stringTmp,stringOpt); // return stringOpt
   if ( strcmp(stringTmp,"SNR_ZPOLY") == 0 ) {
     INPUTS.TAKE_SPECTRUM[N].OPT_TEXPOSE = 2;
-    parse_GENPOLY(stringOpt, GENZPOLY_SNR, fnam);
+    parse_GENPOLY(stringOpt, "SNR", GENZPOLY_SNR, fnam);
   }
   else if ( strcmp(stringTmp,"TEXPOSE_ZPOLY") == 0 ) {
     INPUTS.TAKE_SPECTRUM[N].OPT_TEXPOSE = 1;
-    parse_GENPOLY(stringOpt, GENZPOLY_TEXPOSE, fnam);
+    parse_GENPOLY(stringOpt, "TEXPOSE", GENZPOLY_TEXPOSE, fnam);
   }
   else {
     sprintf(c1err, "Cannot parse '%s' after TAKE_SPECTRUM key.",string1);
@@ -4415,7 +4482,7 @@ void sim_input_override(void) {
 
   int  i, ilast, iuse, ifilt, N, j, ITMP ;
   int  ipar, opt_tmp, itype, NLOCAL_DNDZ ;
-  char  ctmp[80], ctmp2[80], parname[60] ;
+  char  ctmp[80], ctmp2[80], parname[60], cpoly[40] ;
   float ftmp, tmpSmear[2];
   char *modelName ;
   char comma[] = "," ;
@@ -4488,7 +4555,7 @@ void sim_input_override(void) {
       NPAR_ZVAR_USR++ ;  
       i++ ; sscanf(ARGV_LIST[i] , "%s",  INPUT_ZVARIATION[N].PARNAME );
       i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp );
-      parse_GENPOLY(ctmp, &INPUT_ZVARIATION[N].POLY, fnam );
+      parse_GENPOLY(ctmp, "z", &INPUT_ZVARIATION[N].POLY, fnam );
     }  // ZVARIATION_POLY
 
 
@@ -5070,11 +5137,13 @@ void sim_input_override(void) {
 
     if ( strcmp( ARGV_LIST[i], "DNDZ_ALLSCALE" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.RATEPAR.DNDZ_ALLSCALE ); 
+      goto INCREMENT_COUNTER; 
     }
 
     // LEGACY KEY
     if ( strcmp( ARGV_LIST[i], "DNDZ_SCALE_NON1A" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.RATEPAR.DNDZ_SCALE[1] ); 
+      goto INCREMENT_COUNTER; 
     }
 
     // -----------------------------------------------
@@ -5093,42 +5162,52 @@ void sim_input_override(void) {
     if ( strcmp( ARGV_LIST[i], "GENRANGE_PEAKMAG" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_PEAKMAG[0] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_PEAKMAG[1] ); 
+      goto INCREMENT_COUNTER; 
     }
 
     if ( strcmp( ARGV_LIST[i], "GENRANGE_MJD" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_MJD[0] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_MJD[1] ); 
+      goto INCREMENT_COUNTER;       goto INCREMENT_COUNTER; 
     }
     if ( strcmp( ARGV_LIST[i], "GENRANGE_PEAKMJD" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_PEAKMJD[0] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_PEAKMJD[1] ); 
+      goto INCREMENT_COUNTER; 
     }
 
     if ( strcmp( ARGV_LIST[i], "GENSIGMA_SEARCH_PEAKMJD" ) == 0 ) { //legacy
       i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENSIGMA_PEAKMJD); 
+      goto INCREMENT_COUNTER; 
     }
     if ( strcmp( ARGV_LIST[i], "GENSIGMA_PEAKMJD" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENSIGMA_PEAKMJD); 
+      goto INCREMENT_COUNTER; 
     }
     if ( strcmp( ARGV_LIST[i], "OPT_SETPKMJD" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_SETPKMJD); 
+      goto INCREMENT_COUNTER; 
     }
 
     if ( strcmp( ARGV_LIST[i], "NEWMJD_DIF" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.NEWMJD_DIF ); 
+      goto INCREMENT_COUNTER; 
     }
 
     if ( strcmp( ARGV_LIST[i], "GENRANGE_TREST" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_TREST[0] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_TREST[1] ); 
+      goto INCREMENT_COUNTER; 
     }
 
     if ( strcmp( ARGV_LIST[i], "TGRIDSTEP_MODEL_INTERP" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.TGRIDSTEP_MODEL_INTERP );
+      goto INCREMENT_COUNTER; 
     }
 
     if ( strcmp( ARGV_LIST[i], "GENPAR_SELECT_FILE" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPAR_SELECT_FILE );
+      goto INCREMENT_COUNTER; 
     }
 
     // ------------------------------------------------
@@ -5138,6 +5217,7 @@ void sim_input_override(void) {
 
     if ( strcmp( ARGV_LIST[i], "STRETCH_TEMPLATE_FILE" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.STRETCH_TEMPLATE_FILE ); 
+      goto INCREMENT_COUNTER; 
     }
 
     // ------------------------------------------------
@@ -5164,51 +5244,61 @@ void sim_input_override(void) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.RANGE[1] );
       INPUTS.GENRANGE_AV[0] = INPUTS.GENPROFILE_AV.RANGE[0];//legacy
       INPUTS.GENRANGE_AV[1] = INPUTS.GENPROFILE_AV.RANGE[1];//legacy
+      goto INCREMENT_COUNTER; 
     }
 
-    if ( strcmp( ARGV_LIST[i], "GENTAU_AV" ) == 0 || strcmp( ARGV_LIST[i], "GENEXPTAU_AV" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.EXP_TAU ); 
-	INPUTS.GENEXPTAU_AV = INPUTS.GENPROFILE_AV.EXP_TAU;//legacy
-      }
+    if ( strcmp( ARGV_LIST[i], "GENTAU_AV" ) == 0 || 
+	 strcmp( ARGV_LIST[i], "GENEXPTAU_AV" ) == 0 ) { 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.EXP_TAU ); 
+      INPUTS.GENEXPTAU_AV = INPUTS.GENPROFILE_AV.EXP_TAU;//legacy
+      goto INCREMENT_COUNTER; 
+    }
 
     // xxx    if ( strcmp( ARGV_LIST[i], "GENEXPTAU_AV" ) == 0 ) 
     // xxx  { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENEXPTAU_AV );  }
 
-    if ( strcmp( ARGV_LIST[i], "GENSIG_AV" ) == 0 || strcmp( ARGV_LIST[i], "GENGAUSIG_AV" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.SIGMA );   
-	INPUTS.GENGAUSIG_AV = INPUTS.GENPROFILE_AV.SIGMA ;//legacy
-      }
+    if ( strcmp( ARGV_LIST[i], "GENSIG_AV" ) == 0 || 
+	 strcmp( ARGV_LIST[i], "GENGAUSIG_AV" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.SIGMA );   
+      INPUTS.GENGAUSIG_AV = INPUTS.GENPROFILE_AV.SIGMA ;//legacy
+      goto INCREMENT_COUNTER; 
+    }
 
     // xxx    if ( strcmp( ARGV_LIST[i], "GENGAUSIG_AV" ) == 0 ) 
     // xxx  { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENGAUSIG_AV );   }
 
-    if ( strcmp( ARGV_LIST[i], "GENGAUPEAK_AV" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.PEAK );   
-	INPUTS.GENGAUPEAK_AV = INPUTS.GENPROFILE_AV.PEAK; //legacy
-      }
+    if ( strcmp( ARGV_LIST[i], "GENGAUPEAK_AV" ) == 0 ) { 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.PEAK );   
+      INPUTS.GENGAUPEAK_AV = INPUTS.GENPROFILE_AV.PEAK; //legacy
+      goto INCREMENT_COUNTER; 
+    }
 
-    if ( strcmp( ARGV_LIST[i], "GENRATIO_AV0" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.RATIO );   
-	INPUTS.GENRATIO_AV0 = INPUTS.GENPROFILE_AV.RATIO;//legacy
-      }
+    if ( strcmp( ARGV_LIST[i], "GENRATIO_AV0" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.RATIO );   
+      INPUTS.GENRATIO_AV0 = INPUTS.GENPROFILE_AV.RATIO;//legacy
+      goto INCREMENT_COUNTER; 
+    }
 
     // --------- EBV HOST ------------------------------------
 
     if ( strcmp( ARGV_LIST[i], "GENGAUPEAK_EBV_HOST" ) == 0 )
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.PEAK ); }
+      { i++ ; sscanf(ARGV_LIST[i],"%le", &INPUTS.GENPROFILE_EBV_HOST.PEAK ); }
 
     if ( strcmp( ARGV_LIST[i], "GENSIG_EBV_HOST" ) == 0 )
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.SIGMA ); }
+      { i++ ; sscanf(ARGV_LIST[i],"%le", &INPUTS.GENPROFILE_EBV_HOST.SIGMA ); }
 
     if ( strcmp( ARGV_LIST[i], "GENTAU_EBV_HOST" ) == 0 )
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.EXP_TAU ); }
+      { i++ ; sscanf(ARGV_LIST[i],"%le", &INPUTS.GENPROFILE_EBV_HOST.EXP_TAU);}
 
     if ( strcmp( ARGV_LIST[i], "GENRANGE_EBV_HOST" ) == 0 ){
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.RANGE[0] );
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.RANGE[1] );
+      goto INCREMENT_COUNTER; 
     }
-    if ( strcmp( ARGV_LIST[i], "GENRATIO_EBV0_HOST" ) == 0 )
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.RATIO ); }
+    if ( strcmp( ARGV_LIST[i], "GENRATIO_EBV0_HOST" ) == 0 ) { 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.RATIO ); 
+      goto INCREMENT_COUNTER; 
+    }
 
 
     // -------------------------------------------------------
@@ -5225,9 +5315,15 @@ void sim_input_override(void) {
       
 
     if ( strcmp ( ARGV_LIST[i], "SALT2BETA_cPOLY" ) == 0 ) {
+      //.xyz
+      i++ ; sscanf(ARGV_LIST[i] , "%s", cpoly);
+      parse_GENPOLY(cpoly, "SALT2BETA_cPOLY",  &INPUTS.SALT2BETA_cPOLY, fnam);
+
+       /* xxx mark del Mar 23 2020 xxxxxxxx
        i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.SALT2BETA_cPOLY[0] );  
        i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.SALT2BETA_cPOLY[1] );  
        i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.SALT2BETA_cPOLY[2] );  
+       xxxxxxxxx */
     }
 
     // May 2013: check option to read alpha,beta from SALT2mu-fitres file
@@ -5358,9 +5454,9 @@ void sim_input_override(void) {
     if ( strcmp( ARGV_LIST[i], "GENSMEAR_RANFLATFIX" ) == 0 ) 
       { i++ ; sscanf(ARGV_LIST[i],"%le",&INPUTS.GENSMEAR_RANFlat_FIX );  }
 
-    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_SCALE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i], "%f", &INPUTS.GENMAG_SMEAR_SCALE);
-    }
+    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_SCALE" ) == 0 )
+      { parse_input_GENMAG_SMEAR_SCALE(fpNull, &i, ARGV_LIST[i] ); }
+
     if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_MSKOPT" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i], "%d", &INPUTS.GENMAG_SMEAR_MSKOPT );
     }
@@ -8406,9 +8502,9 @@ void init_modelSmear(void) {
   // Feb 11 2020: call init_genSmear_phaseCor(magSmear,expTau);
   //
 
-  double GENMODEL_ERRSCALE = (double)INPUTS.GENMODEL_ERRSCALE ;
-  double SMEAR_SCALE       = (double)INPUTS.GENMAG_SMEAR_SCALE;
-  int    SMEAR_MSKOPT      = INPUTS.GENMAG_SMEAR_MSKOPT ;
+  double GENMODEL_ERRSCALE   = (double)INPUTS.GENMODEL_ERRSCALE ;
+  char  *SMEAR_SCALE_STRING  = INPUTS.GENMAG_SMEAR_SCALE;
+  int    SMEAR_MSKOPT        = INPUTS.GENMAG_SMEAR_MSKOPT ;
   int    OPT, j, USE_SALT2smear, MEMD, NRANGauss=0, NRANFlat=0 ;
   double LAMRANGE[2], SIGCOH,  PARLIST_SETPKMJD[10];
   double magSmear, expTau;
@@ -8440,12 +8536,11 @@ void init_modelSmear(void) {
   if (  INPUTS.GENMAG_SMEAR[0]  > 0. || GENMODEL_ERRSCALE  > 0.  ) 
     { INPUTS.DO_MODELSMEAR = 1 ; }
 
-
   // check passband magsmear 
   init_genSmear_filters();
 
-  // check model names
-  init_genSmear_FLAGS(SMEAR_MSKOPT,SMEAR_SCALE); // internal inits
+  // internal inits for genSmear 
+  init_genSmear_FLAGS(SMEAR_MSKOPT,SMEAR_SCALE_STRING);
 
   ptrName = INPUTS.GENMAG_SMEAR_MODELNAME ;
 
@@ -8565,7 +8660,7 @@ void init_modelSmear(void) {
   }
 
 
-  printf("   MagSmear scale: %.3f \n", SMEAR_SCALE);
+  // xxx mark dele  printf("   MagSmear scale: %.3f \n", SMEAR_SCALE);
 
   // -------------------------------
   if ( INPUTS.DO_MODELSMEAR  == 0 ) 
@@ -8641,7 +8736,7 @@ void dump_modelSmearSigma(void) {
   for(igen=0; igen < NRANGEN; igen++ ) {
     init_RANLIST();      // init list of random numbers 
     genran_modelSmear(); // load randoms for genSmear
-    get_genSmear(TREST, GENLC.SALT2c ,GENLC.SHAPEPAR, 
+    get_genSmear(TREST, GENLC.SALT2c, GENLC.SHAPEPAR, 
 		 NLAM, LAMARRAY, MAGARRAY); // return MAGARRAY
 
     for(ilam=0; ilam < NLAM; ilam++ ) 
@@ -10177,17 +10272,15 @@ void gen_event_driver(int ilc) {
 		    INDEX_GENMODEL == MODEL_S11DM15 ||
 		    INDEX_GENMODEL == MODEL_BYOSED 	     );
     
-    bool DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ; //added by DJB because we are removing DO_AV 
-
-    if ( (ISREST || ISNON1A || ISMISC) && DO_RV ) {
-      GENLC.RV = gen_RV() ;
-      printf("%f\n",GENLC.RV);//mark delete djb
-    }
+    /* xxx mark delete 
+    bool DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ; //added by DJB 
+    if ( (ISREST || ISNON1A || ISMISC) && DO_RV ) { GENLC.RV = gen_RV() ;  }
+    xxxxxxxx */
 
     if ( (ISREST || ISNON1A || ISMISC) && INPUTS.DO_AV ) {
-      // GENLC.RV = gen_RV() ; // mark delete DJB. added separately above
+      GENLC.RV = gen_RV() ; 
       if (INPUTS.DEBUG_FLAG == 42) {
-	GENLC.AV = gen_AV() ;//DJB March 20 2020: Adding new way to sim EBV.
+	GENLC.AV = gen_AV() ;  //DJB March 20 2020: Adding new way to sim EBV.
       } else {
 	GENLC.AV = gen_AV_legacy() ;
       }
@@ -11074,7 +11167,7 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
   bool ISFRAME_OBS     = ( OPT_FRAME == OPT_FRAME_OBS  );
   double   ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   GENGAUSS_ASYM_DEF  GENGAUSS_ZVAR ;
-  //  char fnam[] = "gen_modelPar_SALT2";
+  char fnam[] = "gen_modelPar_SALT2";
 
   // ---------- BEGIN -----------
 
@@ -11098,14 +11191,18 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
       exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;
     
 
-    // 2/29/2016: optional  beta(c) polynomial
-    if( INPUTS.SALT2BETA_cPOLY[0] > 0.0 ) {
+    // 2/29/2016: optional  beta(c) polynomial 
+    // 3/23/2020: refactor using GENPOLY tools
+    if( INPUTS.SALT2BETA_cPOLY.ORDER >= 0 ) {
       double c = GENLC.SALT2c ;
-      GENLC.SALT2beta += (
-			  INPUTS.SALT2BETA_cPOLY[0] +
-			  INPUTS.SALT2BETA_cPOLY[1]*c +
-			  INPUTS.SALT2BETA_cPOLY[2]*(c*c)  -
-			  INPUTS.GENGAUSS_SALT2BETA.PEAK 	 );
+      GENLC.SALT2beta += eval_GENPOLY(c, &INPUTS.SALT2BETA_cPOLY, fnam);
+
+      /* xxx mark delete Mar 23 2020 xxxxx
+	 INPUTS.SALT2BETA_cPOLY[0] +
+	 INPUTS.SALT2BETA_cPOLY[1]*c +
+	 INPUTS.SALT2BETA_cPOLY[2]*(c*c)  -
+	 INPUTS.GENGAUSS_SALT2BETA.PEAK 	 );
+	 xxxxx */
     }
 
   } // end ISFRAME_REST
@@ -13847,7 +13944,7 @@ double gen_AV(void) {
   //    dN/dAv = exp(-av/tau) + exp(-0.5*av^2/sig^2)
   //      or
   // select EBV_HOST from same distribiution and then
-  // AV = EVB_HIST*RV
+  // AV = EVB_HOST*RV
   //
   // 
 
@@ -17834,7 +17931,7 @@ void init_zvariation(void) {
 	sprintf(c2err,"for ZPOLY option with param = '%s'", ptrparname);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
-      parse_GENPOLY(cpoly,&INPUT_ZVARIATION[IPAR_USR].POLY, fnam);
+      parse_GENPOLY(cpoly, "z", &INPUT_ZVARIATION[IPAR_USR].POLY, fnam);
     }
 
     if ( strcmp(c_get,"ZBIN:") == 0 ) {
@@ -27173,11 +27270,8 @@ void readme_doc_SALT2params(int *iline ) {
   
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  if ( INPUTS.SALT2BETA_cPOLY[0] > 0.0 ) { 
-    sprintf(cptr,"\t Beta = %.3f + %.3f*c + %.3f*c^2 "
-	    , INPUTS.SALT2BETA_cPOLY[0] 
-	    , INPUTS.SALT2BETA_cPOLY[1] 
-	    , INPUTS.SALT2BETA_cPOLY[2]  );
+  if ( INPUTS.SALT2BETA_cPOLY.ORDER >= 0 ) { 
+    sprintf(cptr,"\t Beta(c) = %s \n", INPUTS.SALT2BETA_cPOLY.STRING);
   }
   else {
     sprintf(string, "\t Beta%s ", star);

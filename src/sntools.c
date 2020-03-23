@@ -1215,22 +1215,25 @@ void init_GENPOLY(GENPOLY_DEF *GENPOLY) {
   }
 } // end init_GENPOLY
 
-void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
+void parse_GENPOLY(char *stringPoly, char *varName, 
+		   GENPOLY_DEF *GENPOLY, char *callFun) {
 
   // Mar 23 2019
-  // parse input string and load GENPOLY structure with 
+  // parse input stringPoly and load GENPOLY structure with 
   // polynomial of arbitrary order (up to 20).
   //
   // Examples:
-  //  string = "1.0,.034,1.0E-4" 
+  //  stringPoly = "1.0,.034,1.0E-4" 
   //     --> load 2nd order polynominal
-  //  string = "0.9:1.1,.034,1.0E-4,2.2E-8" 
+  //  stringPoly = "0.9:1.1,.034,1.0E-4,2.2E-8" 
   //     --> load 3rd order polynominal, and a0 coefficient
   //         range is 0.9 to 1.1 for random selection.
   //
   // Input *callFun is for error or debug msg only.
   //
-  // Be carefuly to parse both commas and colons
+  // Be carefull to parse both commas and colons
+  //
+  // Mar 22 2020: pass varName and load it.
   //
 
   int MEMC    = sizeof(char);
@@ -1245,7 +1248,8 @@ void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
 
   // ----------- BEGIN ------------
 
-  sprintf(GENPOLY->STRING,"%s", string);
+  sprintf(GENPOLY->STRING, "%s", stringPoly );
+  sprintf(GENPOLY->VARNAME,"%s", varName ); // Mar 22 2020
 
   for(o=0; o < MXSPLIT; o++ ) 
     { splitValue[o] = (char*)malloc( 40*MEMC); }
@@ -1253,7 +1257,7 @@ void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
   splitRange[0] = (char*)malloc( 40*MEMC);
   splitRange[1] = (char*)malloc( 40*MEMC);
 
-  splitString(string, comma, MXSPLIT,      // inputs
+  splitString(stringPoly, comma, MXSPLIT,      // inputs
               &NSPLIT, splitValue );      // outputs         
 
   ORDER = NSPLIT-1;
@@ -1272,7 +1276,7 @@ void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
 	sprintf(c1err,"NRANGE=%d for order=%d. Expect 2 args"
 		" around one colon.", 	NRANGE, o);
 	sprintf(c2err,"Check %s element of %s (callFun=%s)", 
-		tmpVal, string, callFun );
+		tmpVal, stringPoly, callFun );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       sscanf(splitRange[0], "%le", &DVAL0 ); 
@@ -1298,7 +1302,7 @@ void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
   if ( LDMP ) {
     printf("\n xxx ======== %s DUMP =========== \n", fnam );
     printf(" xxx calling function: %s \n", callFun);
-    printf(" xxx input string = '%s' \n", string);
+    printf(" xxx input stringPoly = '%s' \n", stringPoly);
     printf(" xxx NORDER = %d \n", ORDER );
     for(o=0; o <= ORDER; o++ ) {
       DVAL0 = GENPOLY->COEFF_RANGE[o][0];
@@ -1322,7 +1326,7 @@ double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun) {
   // Mar 2019
   // evaluate polynominal for input value 'val'.
   // Note that random numbers are used for ranges.
-  // Avoid using slow 'pow' function.
+  // here we avoid using slow 'pow' function.
 
   int o, ORDER = GENPOLY->ORDER;
   double VALPOLY = 0.0 ;

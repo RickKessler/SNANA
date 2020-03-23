@@ -122,7 +122,8 @@
 # Oct 22 2019: compile with -O2 to speed sim with genSmear Cholesky stuff.
 #               (-O3 doesn't help)
 #
-# March 20 2020: added sntools_genExpHalfGauss
+# Mar 20 2020: added sntools_genExpHalfGauss (DJB)
+# Mar 23 2020: include snlc_sim.h dependence for sntools_gridgen.o
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -147,7 +148,7 @@ CC   = cc
 EXTRA_FLAGS = -O1   # -ftree-vectorize -ftree-vectorizer-verbose=2
 
 # EXTRA_FLAGS = -O2 -Wall
-  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
+#  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
   PROFILEFLAG = 
 #  PROFILEFLAG = -pg
@@ -795,7 +796,7 @@ $(OBJ)/sntools_kcor.o : $(SRC)/sntools_kcor.c $(SRC)/sntools_kcor.h $(SRC)/sndat
 	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_kcor.o
 
 
-$(OBJ)/sntools_gridgen.o : $(SRC)/sntools_gridgen.c $(SRC)/sntools_grid.h $(SRC)/sndata.h
+$(OBJ)/sntools_gridgen.o : $(SRC)/sntools_gridgen.c $(SRC)/sntools_grid.h $(SRC)/sndata.h $(SRC)/snlc_sim.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_gridgen.c )
 

@@ -260,20 +260,22 @@ typedef struct  {
 
 // March 20 2020: Generic struct for exponential and half gaussian.
 typedef struct  {
-  bool USE; // sets to true if values are declared.
-  char   NAME[80];  // name of variable
-  double EXP_TAU ; // exponential
-  double PEAK, SIGMA ; // half gaussian
-  double RATIO ; // gauss/exp at zero
-  double RANGE[2] ; // output
+  bool   USE;          // T => values are set
+  char   NAME[80];     // name of variable
+  double EXP_TAU ;     // exponential compoent: exp(-x/EXP_TAU)
+  double PEAK, SIGMA ; // peak & sigma of half gaussian component
+  double RATIO ;       // Gauss(0)/Expon(0)
+  double RANGE[2] ;    // generate random value in this RANGE
 } GEN_EXP_HALFGAUSS_DEF ;
+
 
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
 #define MXORDER_GENPOLY 20
 typedef struct  {
-  int ORDER;   // 2nd order means up to x^2
+  int ORDER;       // 2 -> 2nd order -> a + b*x + c*x^2
   double COEFF_RANGE[MXORDER_GENPOLY][2]; // range for each coeff.
   char   STRING[200]; // string that was parsed to get COEFF_RANGEs
+  char   VARNAME[40]; // optional variable name
 } GENPOLY_DEF ;
 
 
@@ -441,7 +443,8 @@ void malloc_PARSE_WORDS(void);
 void get_PARSE_WORD(int langFlag, int iwd, char *word);
 
 void init_GENPOLY(GENPOLY_DEF *GENPOLY);
-void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun );
+void parse_GENPOLY(char *stringPoly, char *varName, 
+		   GENPOLY_DEF *GENPOLY, char *callFun );
 double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun);
 void parse_multiplier(char *inString, char *key, double *multiplier);
 void check_uniform_bins(int NBIN, double *VAL, char *comment_forAbort);

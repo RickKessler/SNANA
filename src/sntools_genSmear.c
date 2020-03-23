@@ -118,12 +118,16 @@ int  istat_genSmear(void) {
   return(GENSMEAR.NUSE);
 }
 
-void  init_genSmear_FLAGS(int MSKOPT, double SCALE) {
+void  init_genSmear_FLAGS(int MSKOPT, char *SCALE_STRING) {
+
+  // Mar 22 2020: 
+  //  replace double SCALE with string that may have polynom funct
 
   char fnam[] = "init_genSmear_FLAGS" ;
 
   GENSMEAR.NUSE           = 0 ; // number of GENSMEAR init calls
   GENSMEAR.NCALL          = 0 ; // number of get_genSmear calls.
+
   GENSMEAR_USRFUN.USE     = 0 ;
   GENSMEAR_SALT2.USE      = 0 ;
   GENSMEAR_C11.USE        = 0 ;
@@ -133,10 +137,11 @@ void  init_genSmear_FLAGS(int MSKOPT, double SCALE) {
   GENSMEAR_OIR.USE        = 0 ;
   GENSMEAR_COVSED.USE     = 0 ;
   GENSMEAR_PHASECOR.USE   = 0 ;
+  GENSMEAR_SCALE.USE      = 0 ;
 
   GENSMEAR.NSET_RANGauss  = 0 ;
   GENSMEAR.NSET_RANFlat   = 0 ;
-  GENSMEAR.SCALE          = SCALE ; // Oct 9 2018
+  // xxx mark del  GENSMEAR.SCALE          = SCALE ; // Oct 9 2018
   GENSMEAR.MSKOPT         = MSKOPT ; // Oct 2019
 
   // hard-wire wavelengths to monitor COVARIANCE between 
@@ -167,7 +172,52 @@ void  init_genSmear_FLAGS(int MSKOPT, double SCALE) {
   GENSMEAR.MAGSMEAR_LIST = (double*) malloc(MEMD);
 
 
+  init_genSmear_SCALE(SCALE_STRING);
+
+  return ;
+
 }  // end of init_genSmear_FLAGS
+
+
+// *************************************
+void init_genSmear_SCALE(char *SCALE_STRING) {
+  
+  // Created Mar 22 2020 by R.Kessler
+  // SCALE_STRING = '[VARNAME] [POLYSTRING]'
+
+  char VARNAME[40], cPOLY[40], *cptr[2];
+  char space[] = " " ;
+  int  NTMP ;
+  char fnam[] = "init_genSmear_SCALE" ;
+    
+  // ---------- BEGIN ----------
+
+  GENSMEAR_SCALE.GLOBAL = 1.0 ; // default
+  if ( strlen(SCALE_STRING) == 0 ) { return ; }
+
+  GENSMEAR_SCALE.USE = 1;
+
+  // split string to get variable name and polynom string
+  cptr[0] = VARNAME;
+  cptr[1] = cPOLY;
+
+  splitString(SCALE_STRING, space, 2, &NTMP, cptr);
+
+  // xxx  printf(" xxx VARNAME='%s'  cPOLY = '%s' \n", VARNAME, cPOLY);
+
+  parse_GENPOLY(cPOLY, VARNAME, &GENSMEAR_SCALE.POLY, fnam);
+  if ( GENSMEAR_SCALE.POLY.ORDER == 0 ) {
+    GENSMEAR_SCALE.GLOBAL = GENSMEAR_SCALE.POLY.COEFF_RANGE[0][0];
+    printf("\t Global GENMAG_SMEAR_SCALE: %.3f \n", GENSMEAR_SCALE.GLOBAL);
+  }
+  else {
+    printf("\t GENMAG_SMEAR_SCALE: poly(%s) = %s \n", VARNAME, cPOLY);
+  }
+
+  return;
+
+} // end of init_genSmear_SCALE
+
 
 // *******************************************************
 void init_genSmear_randoms(int NRANGauss, int NRANFlat) {
@@ -350,15 +400,11 @@ void get_genSmear(double Trest, double c, double x1, int NLam, double *Lam,
   }
 
 
-  // Oct 9 2018: check option to scale the smearing
-  if ( fabs(GENSMEAR.SCALE-1.0) > 1.0E-5 ) {
-    for(ilam=0; ilam < NLam; ilam++ ) 
-      { magSmear[ilam] *= GENSMEAR.SCALE; }
+  // Mar 2020: check option to scale the smearing vs. c & x1
+  if ( GENSMEAR_SCALE.USE ) {    
+    double SCALE = get_genSmear_SCALE(c,x1);
+    for(ilam=0; ilam < NLam; ilam++ ) { magSmear[ilam] *= SCALE ; }
   }
-
-
-  // mark here to scale smearing based on c & x1 .xyz
-
 
 
  SET_LAST:
@@ -656,6 +702,37 @@ void SETSNPAR_genSmear(double shape, double color, double redshift) {
 
 }  // end of SETSNPAR_genSmear
 
+
+// ************************************
+double get_genSmear_SCALE(double c, double x1) {
+
+  // Created Mar 22 2020 by R.Kessler
+  // Return magSmear scale based on color and stretch.
+
+  double SCALE  = 1.0 ;
+  double VAL;
+  char *varName = GENSMEAR_SCALE.VARNAME ;
+  char fnam[] = "get_genSmear_SCALE" ;
+
+  // -------------- BEGIN ------------
+
+  if ( !GENSMEAR_SCALE.USE ) { return(SCALE); }
+
+  if ( strcmp(varName,"c") == 0 ) 
+    { VAL = c; }
+  else if ( strcmp(varName,"x1") == 0 ) 
+    { VAL = x1 ; }
+  else {
+    sprintf(c1err,"Invalid VARNAME='%s' for poly fun", varName);
+    sprintf(c2err,"Check sim-input GENMAG_SMEAR_SCALE");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  SCALE = eval_GENPOLY(VAL, &GENSMEAR_SCALE.POLY, fnam);
+
+  return(SCALE);
+
+} // end get_genSmear_SCALE
 
 
 // ************************************************

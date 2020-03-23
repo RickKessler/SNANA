@@ -2264,9 +2264,10 @@ GENMAG_SMEAR_FILTER: RI  0.08  # and/or fixed smearing per filter
 
 # method 3: Pick model name from specialized code in genSmear_models.c
 GENMAG_SMEAR_MODELNAME:   G10         # or C11 
-GENMAG_SMEAR_SCALE:       1.0         # scale all magSmear values
+GENMAG_SMEAR_SCALE:       1.2         # scale all magSmear values
+GENMAG_SMEAR_SCALE(c):    0.95,0.3    # scale magSmear by 0.95 + 0.3*c
 GENMAG_SMEARPAR_OVERRIDE: BLA  1.234  # optional param override
-GENMAG_SMEARPAR_OVERRIDE: BLALIST[3]  1.8  2.2  3.4  # idem
+GENMAG_SMEARPAR_OVERRIDE: BLALIST[3] 1.8  2.2  3.4  # idem
 GENMAG_SMEAR_ADDPHASECOR: 0.03 7.0    # magSmear  expTau(days)
 
 # method 4: vary RV with asymmetric Gaussian distribution
@@ -9425,7 +9426,7 @@ Examples are
 
 \begin{Verbatim}[frame=single]
    # models based on directory: model class name is between slash and dot
-   GENMODEL:  [PATH]/SALT2.JLA-B14         # this is a dir, not file name
+   GENMODEL:  [PATH]/SALT2.JLA-B14       
    GENMODEL:  [PATH]/SIMSED.SNII-MOSFIT
    GENMODEL:  [PATH]/NONIASED.UV2IR
    GENMODEL:  [PATH]/BYOSED.TEST
@@ -9472,11 +9473,46 @@ an asymmetric Gaussian.
 
 % ------------------------
 \clearpage
+\subsection{Host Galaxy Extinction}
+\label{subsec:host_extinct}
+
+The following host-galaxy extinction parameters can be included
+with any of the SN models below. RV and AV specifications are
+required for MKCS2k2 and SNooPy, and optional for the other models.
+The color law (e.g., SFD98, Fitzpatrick99) is the same
+as that chosen for Galactic extinction
+(see {\tt OPT\_MWCOLORLAW} in \S\ref{subsec:sim_MWEBV}).
+
+\noindent
+Simulation input keys  for  {\tt snlc\_sim.exe} :
+\begin{Verbatim}[frame=single]
+   GENPEAK_RV:       xxx        # peak prob dust parameter
+   GENRANGE_RV:      xxx  xxx   # min and max limits for RV generation
+   GENSIGMA_RV:      xxx  xxx   # lo & hi Gaussian sigmas
+
+   GENRANGE_AV:      xxx  xxx     # CCM89 V-band extinction
+   GENTAU_AV:        xxx          # dN/dAV = exp(-AV/xxx)
+   GENSIG_AV:        xxx          #      += Guass(AV,sigma)
+   GENRATIO_AV0:     xxx          # Gauss/exp ratio at AV=0
+
+   # instead of selecting AV from distribution, here E(B-V)
+   # is randomly picked so that AV = RV*E(B-V)
+   GENRANGE_EBV_HOST: xxx xxx
+   GENTAU_EBV_HOST:   xxx
+   GENSIG_EBV_HOST:   xxx
+   GENRATIO_EBV_HOST: xxx
+\end{Verbatim}
+
+
+% --------------------
+\clearpage
 \subsection{{\mlcs}}
 \label{subsec:mlcs}
 
 \noindent
 Reference: Jha, Riess, Kirshner, {\bf AJ 659}, 122 (2007). 
+Note that host-galaxy extinction parameters (for AV,RV) 
+are required from \S\ref{subsec:host_extinct}.
 
 \noindent
 Simulation input keys  for  {\tt snlc\_sim.exe} :
@@ -9484,15 +9520,6 @@ Simulation input keys  for  {\tt snlc\_sim.exe} :
    GENPEAK_DELTA:    xxx         # shape  parameter
    GENRANGE_DELTA:   xxx  xxx
    GENSIGMA_DELTA:   xxx  xxx  
-
-   GENPEAK_RV:       xxx        # CCM89 dust parameter
-   GENRANGE_RV:      xxx  xxx
-   GENSIGMA_RV:      xxx  xxx
-
-   GENRANGE_AV:      xxx  xxx     # CCM89 V-band extinction
-   GENTAU_AV:        xxx          # dN/dAV = exp(-AV/xxx)
-   GENSIG_AV:        xxx          #      += Guass(AV,sigma)
-   GENRATIO_AV0:     xxx          # Gauss/exp ratio at AV=0
 \end{Verbatim}
 
 \bigskip
@@ -9547,7 +9574,7 @@ Simulation input keys  for {\tt snlc\_sim.exe} :
    GENPEAK_SALT2BETA:  3.2   ! color coeff
    GENSIGMA_SALT2BETA: 0 0   ! default is no beta smearing
    GENRANGE_SALT2BETA: 0 5   ! restrict if SIGMA is non-zero
-   SALT2BETA_cPOLY: b0 b1 b2 ! 2nd order poly of c; overrides GENPEAK_SALT2BETA
+   SALT2BETA_cPOLY: b0,b1,b2 ! polyFun of c; overrides GENPEAK_SALT2BETA
 
    GENPEAK_SALT2ALPHA:  0.14    ! x1 coeff
    GENSIGMA_SALT2ALPHA: 0 0.0   ! default is no alpha smearing
@@ -9556,15 +9583,13 @@ Simulation input keys  for {\tt snlc\_sim.exe} :
 %
 and special grid keys for BBC are described in 
 \S\ref{sec:SALT2mu}.
-
+Note that host-galaxy extinction parameters (for AV,RV) 
+are optional from \S\ref{subsec:host_extinct}.
 
 \medskip
 \noindent
 \&{\tt FITINP} namelist variables  for {\tt snlc\_fit.exe} :
 \begin{Verbatim}[frame=single]
-   SALT2alpha     = xxx  ! used to compute approx mu-muref
-   SALT2beta      = xxx  ! idem
-
    INISTP_COLOR   = xxx  ! 0 => fix color to INIVAL_COLOR; else float
    INIVAL_COLOR   = xxx
    INISTP_SHAPE   = xxx  ! 0 => fix x1 to INIVAL_SHAPE; else float
@@ -9574,11 +9599,12 @@ and special grid keys for BBC are described in
    PRIOR_SHAPE_RANGE = xxx, xxx  ! flat prior on x1 (prevents crazy values)
    PRIOR_SHAPE_SIGMA = xxx       ! Gauss rolloff at edges of flat prior
 
-   SALT2_DICTFILE = 'xyz'  ! output formatted for original hubblefit
-
    OPT_COVAR = 0  ! 0 => COV-diag only 
                   ! 1 => COV fixed during fit
                   ! 2 => COV re-calculated for each chi2 in fit
+
+   SALT2alpha     = xxx  ! to compute approx mu-resid; does not affect fit
+   SALT2beta      = xxx  ! idem
 \end{Verbatim}
 Note that the {\tt INISTP\_XXX} and {\tt INIVAL\_XXX} parameters
 are specified only to fix these parameters in the fit. 
@@ -9592,6 +9618,8 @@ If not specified, these parameters are floated in the fit.
 
 \noindent
 Reference: C. Burns et al., arXiv:1010.4040. 
+Note that host-galaxy extinction parameters (for AV,RV) 
+are required from \S\ref{subsec:host_extinct}.
 
 \noindent
 Simulation input keys  for {\tt snlc\_sim.exe} :
@@ -9599,13 +9627,6 @@ Simulation input keys  for {\tt snlc\_sim.exe} :
    GENPEAK_DM15:    xxx         # shape parameter
    GENRANGE_DM15:   xxx  xxx
    GENSIGMA_DM15:   xxx  xxx  
-   GENPEAK_RV:       xxx        # CCM89 dust parameter
-   GENRANGE_RV:      xxx  xxx
-   GENSIGMA_RV:      xxx  xxx
-   GENRANGE_AV:      xxx  xxx     # CCM89 V-band extinction
-   GENTAU_AV:        xxx          # dN/dAV = exp(-AV/xxx)
-   GENSIG_AV:        xxx          #      += Guass(AV,sigma)
-   GENRATIO_AV0:     xxx          # Gauss/exp ratio at AV=0
 \end{Verbatim}
 
 \bigskip
@@ -9843,6 +9864,8 @@ be switched off with
    snlc_sim.exe  mysim.input  SIMSED_USE_BINARY 0
 \end{verbatim}
 
+Finally, host-galaxy extinction parameters (for AV,RV) 
+are optional from \S\ref{subsec:host_extinct}.
 
 % ------------------------
 \clearpage
@@ -9901,11 +9924,6 @@ The \NONIA\ model is specified with the following sim-input keys,
   NON1ASED:         3     0.2  -0.2     0.8        2
   NON1ASED:         4     0.4  -0.6     0.9,0.5    3
   etc ...
-
-  GENRANGE_AV:      xxx  xxx     # CCM89 V-band extinction
-  GENTAU_AV:        xxx          # dN/dAV = exp(-AV/xxx)
-  GENSIG_AV:        xxx          #      += Guass(AV,sigma)
-  GENRATIO_AV0:     xxx          # Gauss/exp ratio at AV=0
 \end{Verbatim}
 % $
 There are two ways to specify model location. First is to specify
@@ -9997,6 +10015,8 @@ random SNIDs can be assigned as described in
 \S\ref{subsec:sim_formats}. With random SNIDs,
 any subset of the simulation is a truly random subset.
 
+Finally, note that host-galaxy extinction parameters (for AV,RV) 
+are optional from \S\ref{subsec:host_extinct}.
 
 % -----------------------------------------
 \subsubsection{Peculiar SNIa}

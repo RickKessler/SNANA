@@ -6,9 +6,10 @@
 #define MASK_GENSMEAR_APPLY 1 // apply genSmear, old or new
 #define MASK_GENSMEAR_NEW   2 // re-compute genSmear
 
-void  init_genSmear_FLAGS(int MSKOPT, double SCALE); // set flags to zero
+void  init_genSmear_FLAGS(int MSKOPT, char *SCALE_STRING); 
 int   istat_genSmear(void) ;
 
+void  init_genSmear_SCALE(char *SCALE_STRING);
 void  init_genSmear_USRFUN(int NPAR, double *parList, double *LAMRANGE ) ;
 
 void   init_genSmear_SALT2(char *version, char *dispFile, double SIGCOH, 
@@ -64,6 +65,8 @@ void load_genSmear_randoms(int CID, double rmin, double rmax, double RANFIX);
 
 void init_genSmear_COVLAM_debug(double *lam, double COVMAT[2][2] );
 void update_genSmear_COVLAM_debug(double *magSmear);
+
+double get_genSmear_SCALE(double c, double x1);
 
 void  get_genSmear_USRFUN(double Trest, int NLam, double *Lam, 
 			  double *magSmear ) ;
@@ -128,7 +131,7 @@ struct GENSMEAR {
   int    NGEN_RANFlat ;
   int    NSET_RANGauss ;
   int    NSET_RANFlat ;
-  double *RANGauss_LIST; // [MXRAN_GENSMEAR] ;  //.xyz malloc ??
+  double *RANGauss_LIST; // [MXRAN_GENSMEAR] ; 
   double *RANFlat_LIST; // [MXRAN_GENSMEAR] ;
   int    CID; // CID for each set of randoms
 
@@ -136,7 +139,10 @@ struct GENSMEAR {
   double REDSHIFT ;       // allows for redshift evolution (Jan 2014)
   double ZPOW[10];  // store powers of redshift for faster calculations.
 
-  double SCALE ; // global scale to all mag-smearing (Oct 9 2018)
+  // xxxx mark delete Mar 22 2020: moved below to GENSMEAR_SCALE
+  // xxx   double SCALE ; // global scale to all mag-smearing (Oct 9 2018)
+  // xxxxxxxxxxxxx end mark xxxxxxxxx
+
   int    MSKOPT ; // generic opt-mask
 
   // debug option to check scatter at 'CHECK' wavelength
@@ -155,6 +161,16 @@ struct GENSMEAR {
   double *MAGSMEAR_LIST ;
 
 } GENSMEAR ;
+
+
+// Mar 22 2020:
+// define scaling of mag-smearing as global scale or ploynomial func
+struct {
+  int    USE ;
+  double GLOBAL ; // global scale  ... or ...
+  GENPOLY_DEF POLY ;  // polynominal function of ...
+  char VARNAME[20];   // this variable name
+} GENSMEAR_SCALE ;
 
 // ---------- USRFUN struct -----------------
 #define NPAR_GENSMEAR_USRFUN_REQUIRED   8

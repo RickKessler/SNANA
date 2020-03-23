@@ -569,7 +569,8 @@ struct INPUTS {
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2x1 ;   
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2ALPHA ;
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2BETA ;
-  double SALT2BETA_cPOLY[3];    // poly fun of c (see Mandel 2010)
+  // xxx mark delete  double SALT2BETA_cPOLY[3];    // poly fun of c
+  GENPOLY_DEF SALT2BETA_cPOLY;
   double BIASCOR_SALT2GAMMA_GRID[2]; // gamma range for BBC-biasCor sample
 
   char   SALT2mu_FILE[200];        // read alpha,beta from here
@@ -650,9 +651,8 @@ struct INPUTS {
   float  GENMAG_SMEAR[2];             // intrinsic mag-smear (asymm Gauss)
   char   GENMAG_SMEAR_MODELNAME[100]; // name of specific smear-model
   char   GENMAG_SMEAR_MODELARG[MXPATHLEN];  // optional arg after colon
-  float  GENMAG_SMEAR_SCALE;          // scale magSmears (default=1)
   float  GENMAG_SMEAR_ADDPHASECOR[2]; // magSmear and coh time
-
+  char   GENMAG_SMEAR_SCALE[100];
   // GENMAG_SMEAR_SCALE(c): 0.98,.1,-0.02,0.3,-5.0 
   // GENMAG_SMEAR_SCALE(x1): 0.98,.1,-0.02 
 
@@ -1661,6 +1661,7 @@ void   parse_input_SIMGEN_DUMP(FILE *fp, int *iArg, char *KEYNAME );
 void   parse_input_SOLID_ANGLE(FILE *fp, int *iArg, char *KEYNAME );
 void   parse_input_GENMODEL_ARGLIST(FILE *fp, int *iArg );
 void   parse_input_GENMODEL(FILE *fp, int *iArg );
+void   parse_input_GENMAG_SMEAR_SCALE(FILE *fp, int *iArg, char *KEYNAME );
 void   parse_GENMAG_SMEAR_MODELNAME(void);
 
 void   read_input_RATEPAR(FILE *fp, char *WHAT, char *KEY, 

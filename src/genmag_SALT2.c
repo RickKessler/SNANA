@@ -197,6 +197,7 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
 
  Nov 7 2019: for SALT3, remove x1*M1/M0 term in error; see ISMODEL_SALT3.
  Jan 19 2020: in INTEG_zSED_SALT2, fix memory leak related to local magSmear.
+ Mar 24 2020: if ISMODEL_SALT3, then read SALT3.INFO 
 
 ****************************************************************/
 
@@ -226,7 +227,9 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  /* xxx Mar 24 2020 mark delete (moved below ) xxxx
   sprintf(SALT2_INFO_FILE,     "SALT2.INFO" );
+  xxxxxxxxxxxx */
 
   // summarize filter info
   filtdump_SEDMODEL();
@@ -253,9 +256,9 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   
 
   // Aug 02 2019: set prefix for filenames to allow salt2 or salt3 prefix
-  ISMODEL_SALT3=0; sprintf(SALT2_PREFIX_FILENAME,"salt2"); // default
+  ISMODEL_SALT3=false ; sprintf(SALT2_PREFIX_FILENAME,"salt2"); // default
   if ( strstr(version,"SALT3") != NULL ) 
-    { sprintf(SALT2_PREFIX_FILENAME,"salt3");  ISMODEL_SALT3=1; } 
+    { sprintf(SALT2_PREFIX_FILENAME,"salt3");  ISMODEL_SALT3=true ; } 
 
   RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
 
@@ -282,6 +285,12 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   sprintf(SALT2_VERSION,"%s", version); // May 15 2013
 
   // ============================
+
+  // Mar 24 2020 INFO file depends on SALT2 or SALT3
+  if ( ISMODEL_SALT3 ) 
+    { sprintf(SALT2_INFO_FILE,  "SALT3.INFO" ); }
+  else
+    { sprintf(SALT2_INFO_FILE,  "SALT2.INFO" ); }
 
   read_SALT2_INFO_FILE();  
 
@@ -1179,7 +1188,7 @@ void read_SALT2_INFO_FILE(void) {
 
   // print INFO to screen
 
-  printf("\n  SALT2.INFO \n");
+  printf("\n  %s \n", SALT2_INFO_FILE );
   printf("\t RESTLAMBDA_RANGE:  %6.0f - %6.0f A\n"
 	 ,INPUT_SALT2_INFO.RESTLAMMIN_FILTERCEN
 	 ,INPUT_SALT2_INFO.RESTLAMMAX_FILTERCEN );
@@ -1242,7 +1251,7 @@ void read_SALT2_INFO_FILE(void) {
   }
   else {
     sprintf(c1err,"Invalid SEDFLUX_INTERP_OPT = %d", OPT );
-    sprintf(c2err,"Check SALT2.INFO file above");
+    sprintf(c2err,"Check %s file above", SALT2_INFO_FILE );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);        
   }
   
@@ -1254,7 +1263,7 @@ void read_SALT2_INFO_FILE(void) {
   printf("\t ERRMAP_INTERP_OPT:   %d  (%s) \n", OPT, CHAR_ERROPT[OPT] );
   if ( OPT < 0 || OPT > 2 ) {
     sprintf(c1err,"Invalid ERRMAP_INTERP_OPT = %d", OPT );
-    sprintf(c2err,"Check SALT2.INFO file above");
+    sprintf(c2err,"Check %s file above", SALT2_INFO_FILE);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 

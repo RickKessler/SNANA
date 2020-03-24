@@ -6191,7 +6191,7 @@ c check both upper & lower case
          ENDIF
 20    CONTINUE
 
-c May 31 2019 hack: if SALT3, switch to SALT2 to avoid lots of code refactoring.
+c May 31 2019 hack: if SALT3, switch to SALT2 to avoid lots of code refactor.
       if ( FITMODEL_INDEX == MODEL_SALT3 ) FITMODEL_INDEX=MODEL_SALT2
 
 c abort if FITMODEL_INDEX has not been found.
@@ -15431,7 +15431,6 @@ c (user must make sure that FILTLIST_FITRESTMAG is in the kcor file)
       CALL RDKCOR(KCOR_FILE,IERR)
 
       CALL CDTOPDIR_OUTPUT  ! back to topdir
-
 
 c check that added filter(s) are all in the KCOR file.
 c Abort if any filter is missing.

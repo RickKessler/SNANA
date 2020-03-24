@@ -18221,4 +18221,7 @@
      + fix so that SIMGEN_INFILE_Ia need not be global if
        there is a SIMGEN_INFILE_Ia for each GENVERSION.
 
+   genmag_SALT2.c[h]:
+     + if ISMODEL_SALT3 then read SALT3.INFO instead of SALT2.INFO.
+
 END: 

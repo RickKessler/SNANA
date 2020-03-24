@@ -18217,4 +18217,8 @@
      + fix dependence on sntools_gridgen.c to hopefully avoid
        SNANA_Codetest problems when re-making snlc_sim.
 
+   sim_SNmix,pl:
+     + fix so that SIMGEN_INFILE_Ia need not be global if
+       there is a SIMGEN_INFILE_Ia for each GENVERSION.
+
 END: 

@@ -203,6 +203,9 @@
 #   + add NOPROMPT option to clobber SIMLOGS subDir even if there is no
 #     DONE stamp.
 #
+# Mar 24 2020: fix so that SIMGEN_INFILE_Ia need not be global if
+#              there is a SIMGEN_INFILE_Ia for each GENVERSION
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -1782,6 +1785,8 @@ sub store_SIMGEN_INFILE(@) {
     # iflag=1 -> load version-dependent SNIa infile
     # iflag=2 -> load version-dependent NONIa infile
     # iflag>2 -> 2nd,3rd ... NON1a infile to override
+    #
+    # Mar 24 2020: if mIa<0, set mIa=0
 
     my ($m, $inFile, $inFile_Ia, $LDMP);
 
@@ -1790,7 +1795,7 @@ sub store_SIMGEN_INFILE(@) {
     $LDMP = 0 ;
     if ( $LDMP ) {
 	print " xxx ------------------------------ \n";
-	print " xxx iver=$iver  iflag=$iflag \n";
+	print " xxx iver=$iver  iflag=$iflag  NGENMODEL=$NGENMODEL[$iver]\n";
 	if ( $iflag > 0 ) {
 	    print " xxx inFileList = " ;
 	    foreach $inFile (@$inFileList) { print "'$inFile' "; }
@@ -1829,7 +1834,12 @@ sub store_SIMGEN_INFILE(@) {
 	    $MSGERR[1] = "to override it under GENVERSION." ; 
 	    sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR); 
 	}
-	# overwrite SNIa model
+	# overwrite or add SNIa model
+	if ( $mIa < 0 ) {  # first SNIa input file
+	    $mIa = 0; 
+	    $NGENMODEL[$iver]++; 
+	    $NGENMODEL_GLOBAL++ ; 
+	}
 	$SIMGEN_INFILE[$iver][$mIa]  =  @$inFileList[0] ; 
 	$GENMODEL_CLASS[$iver][$mIa] =  "SNIa" ;
 	$GENMODEL_NAME[$iver][$mIa]  =  $GENMODEL_NAME_GLOBAL[$mIa] ;
@@ -3105,7 +3115,7 @@ sub make_AUXFILE_LIST {
 
     }
     else {
-	# FITS format SNIa, then NONIaMODEL  .xyz
+	# FITS format SNIa, then NONIaMODEL 
 
 	if ( $DOGEN_SNIa ) {
 	    $headFiles = "${GENPREFIX}*SNIa*HEAD.FITS" ;

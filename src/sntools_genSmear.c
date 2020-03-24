@@ -404,6 +404,7 @@ void get_genSmear(double Trest, double c, double x1, int NLam, double *Lam,
   // Mar 2020: check option to scale the smearing vs. c & x1
   if ( GENSMEAR_SCALE.USE ) {    
     double SCALE = get_genSmear_SCALE(c,x1);
+    //    printf(" xxx %s  c=%.3f  SCALE=%.3f \n", fnam, c, SCALE);
     for(ilam=0; ilam < NLam; ilam++ ) { magSmear[ilam] *= SCALE ; }
   }
 

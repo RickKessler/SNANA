@@ -33338,9 +33338,10 @@ c local variables.
 
       INTEGER i, LL
       character cfilt*2, C1err*80, C2ERR*80, CFILTNAME_TMP*60
-
+      character fnam*16
 c ---------------- BEGIN -------------
 
+      FNAM = 'GET_FILTTRANS'
       LDBUG = (IFILT .EQ. -99)
      
       LOBS_CHECK  = BTEST( MASKFRAME, OPT_FILTOBS  - 1 )
@@ -33360,7 +33361,7 @@ c pass back  full name of filter
          write(C2ERR,602) MASKFRAME
 601      format('Unknown filter-trans for FILTER = ',A, 2x,'IFILT=',I3)
 602      format('MASKFRAME = ',I4 )
-         CALL MADABORT('GET_FILTTRANS', C1ERR, C2ERR )
+         CALL MADABORT(FNAM, C1ERR, C2ERR )
       ENDIF
 
 c -----------------

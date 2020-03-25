@@ -12997,17 +12997,18 @@ c +CDE,FILTCOM.
 
 c local variables
       REAL*8  xx1
-
+      LOGICAL DOFIT_zFIX
       LOGICAL FIRST_ITERATION   ! function
 
 c --------------- BEGIN -------------
 
       SALT2xx1 = -999.
+      DOFIT_zFIX = (.NOT. DOFIT_PHOTOZ)
 
       IF ( FIRST_ITERATION(ITER)  ) then
         xx1 = 0.0    ! always fix xx1 on 1st iteration
       ELSE
-         if ( DOCHI2_SIGMA .and. .NOT. DOFIT_PHOTOZ) then
+         if ( DOCHI2_SIGMA .and. DOFIT_zFIX) then
              xx1 = x1
          else
              xx1 = FITVAL(IPAR_SHAPE,iter-1) ! from previous iteration
@@ -13030,6 +13031,8 @@ c Return redshift (zz) for SALT2 error calculation.
 c Motivation is for photoz fit, fix zz = z(previous iteration),
 c and use zz for SALT2 error calculation. 
 c
+c Mar 24 2020: fix logic usign local DOFIT_zFIX; needed for FITRESTMAG.
+c
 c ---------------------
       IMPLICIT NONE
 
@@ -13045,16 +13048,18 @@ c +CDE,FILTCOM.
 
 c local variables
       REAL*8  zz
+      LOGICAL DOFIT_zFIX
       LOGICAL FIRST_ITERATION   ! function
 
 c --------------- BEGIN -------------
 
       SALT2zz = -999.
+      DOFIT_zFIX = (.NOT. DOFIT_PHOTOZ)
 
-      IF ( FIRST_ITERATION(ITER)  ) then
+      IF ( FIRST_ITERATION(ITER) .or. DOFIT_zFIX ) then
         zz = z
       ELSE
-         if ( DOCHI2_SIGMA .and. .NOT. DOFIT_PHOTOZ) then
+         if ( DOCHI2_SIGMA .and. DOFIT_zFIX) then
              zz = z
          else
              zz = FITVAL(IPAR_ZPHOT,iter-1) ! from previous iteration

@@ -18224,4 +18224,12 @@
    genmag_SALT2.c[h]:
      + if ISMODEL_SALT3 then read SALT3.INFO instead of SALT2.INFO.
 
+   snlc_fit.car
+     + fix logic for SALT2zz so that zz=z if not photo-z fit.
+       Fixes subtle interaction bug with FITRESTMAG option.
+
+   sntools_host.c:
+     + in STORE_SNHOST_MISC(), fix init bug that came earlier from
+       refactor to include c & x1.
+
 END: 

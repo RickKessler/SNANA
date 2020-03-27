@@ -540,7 +540,7 @@ c namelist input variables.
      &   ,FILTER_FITMAGDIF*4      ! fit magObs in this filter 2 ways for test
 
       CHARACTER
-     &   FILTLIST_FITRESTMAG*12     ! fit for this restMag filter
+     &   FILTLIST_FITRESTMAG*12     ! fit for these restMag filters
       REAL 
      &   LUMIFIX_FITRESTMAG       ! fix shape par to this value (legacy name)
      &  ,SHAPEFIX_FITRESTMAG      ! same as above
@@ -1011,7 +1011,6 @@ c Mar 2013: for FILTER_FITMAGDIF option
     
 +KEEP,FITRESTCOM.
 
-
 +CDE,ALLFILTCOM.
 
 c for option to fit peakMag in rest-frame filter
@@ -1030,7 +1029,7 @@ c for option to fit peakMag in rest-frame filter
      &  ,ITERLAST_FITRESTMAG(MXFILT_FITRESTMAG) ! last iteration vs. IFILTSP
      &  ,NFILTDEF_SURVEY_ORIG
      &  ,NLCPLOT_FITRESTMAG
-     &  ,IFILTOBS_BRACKET(2)
+     &  ,IFILTOBS_BRACKET(MXFILT_FITRESTMAG)
      &  ,IPAROFF_FITRESTMAG  ! IPAR offset for LCVAL_STORE
 
       REAL   
@@ -4551,13 +4550,6 @@ c check for epochs to reject at end of 1st iteration only (note LAST=T here)
      &          (MJD < FITWIN_MJD(1)) .or. (MJD > FITWIN_MJD(2))
 
               REJECT_DELCHI2  = (delchi2_nofudge  > DELCHI2_REJECT  )
-
-c xxxxxxxxxxxx mark delete Feb 29 2020 xxxxxxxxxxxxxxx
-              if ( OPT_DEBUG == 33 ) then
-                 REJECT_DELCHI2  = (delchi2  > DELCHI2_REJECT  )
-              endif
-c xxxxxxxxxxxxxxxxxxxxx
-
               REJECT_SIGNOISE = (signoise_data < SIGNOISE_REJECT)
 
               LREJECT  = 
@@ -10263,12 +10255,6 @@ c ------------------ BEGIN ----------------
 
       FIRST_ITER = FIRST_ITERATION(ITER) 
 
-c xxxxxxx mark delete Feb 29 2020 xxxxxx
-      if ( OPT_DEBUG == 33 ) then
-         FIRST_ITER = FIRST_ITERATION(ITER) .and. (.NOT. LREPEAT_ITER)
-      endif
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
       ALL_MAXFRAC         = 0.0
       FITERR_MAXFRAC      = 0.0
 
@@ -15271,7 +15257,7 @@ c compute mB from x0 (Jan 28 2018)
       END   !  SIMFIT_IDEAL_CALC
 
 C ================================================
-+DECK,FITRESTINI.
++DECK,FITRESTMAG_INI.
       SUBROUTINE FITRESTMAG_INI
 
 c Created Feb 10, 2012
@@ -15281,11 +15267,6 @@ c if FITLTER_RESTMAG is set, then add this filter
 c to suryey-filter list and re-init kcor file to 
 c include this filter. Called only once.
 c
-c Mar 20, 2012: fix dumb bug when filters is already defined.
-c Feb 10, 2013: replace HFILE_KCOR with KCOR_FILE
-c Dec 11, 2014: after 2-band fits, do 2 more fits instead of 1
-c               in case the previus model-fluxes aren't right,
-c               and are used to compute covariances.
 c --------
 
       IMPLICIT NONE
@@ -15371,9 +15352,6 @@ c add NFIT_ITERATION for each new filter
      &     + 1                             ! nominal again
      &     + 1                             ! nominal again (Dec 11 2014)
 
-c xxxxxxxxxxxxxxxx
-      IF ( DUMB_DEBUG ) NFIT_ITERATION = NFIT_ITERATION - 1
-c xxxxxxxxxxxxxxxxx
 
       IF ( NFIT_ITERATION .GT. MXITER ) THEN
         write(c1err,661) NFIT_ITERATION
@@ -15459,7 +15437,7 @@ c if another version header is read.
       END
 
 C =====================================
-+DECK,FITRSTPREP.
++DECK,FITRESTMAG_PREP.
       SUBROUTINE FITRESTMAG_PREP(ITER)
 
 c Feb 12, 2012
@@ -15468,17 +15446,6 @@ c for fitting FILTLIST_FITRESTMAG. Do nothing for first 1/2 of iterations
 c to get t0 and stretch. For 2nd half of iterations keep only
 c the two observer bands that bracket FILTLIST_FITRESTMAG.
 c 
-c Mar 20, 2012: make fix to work when rest-filter is subset of
-c               SURVEY_FILTERS
-c
-c Oct 24, 2012: fix some benign bugs caught by -g (debugger).
-c               Check that IFILTOBS(1,2) > 0 before using it as index.
-c
-c Apr 26, 2013: fix bug jumping to 455; move GOTO after
-c               IFILTDEF_MAP_SURVEY(ifilt) is reset.
-c               This bug was introduced in v10_17 (Oct 26 2012).
-c
-c Apr 7 2014: Fix to work when SNRMAX is not evaluated ; see LSNR1,2
 c
 c Apr 24 2014:
 c  Re-do SNRMAX logic; apply cut to mask filters before calling
@@ -15489,6 +15456,11 @@ c  BRACKET filters but then g fails SNRMAX cut; now it will find
 c  r&i instead.
 c
 c Dec 3 2014: for photo-z fit, set Z=ZPHOT instead of SNLC_REDSHIFT.
+c
+c Mar 26 2020
+c  Refactor to use new BRACKET_FILTERLIST with DLAM_TOL so that 
+c  more than 2 bands can be included if some bands have very 
+c  similar central wavelengths.
 c
 c -----------------------
 
@@ -15512,14 +15484,15 @@ c local var
      &  ,J, JKEEP, LL, NBRA, NTRY, itry, ITERLAST, IPAR
      &  ,IFILTDEF_MAP_SAVE(MXFILT_OBS)
 
-      REAL       LAMAVG, LAMREST(3), Z, SNRMAX, SNRMAX1, SNRMAX2
-      CHARACTER  CFILT(2)*2, CTMP*4, CFILTDEF*2
+      REAL LAMAVG, LAMREST(3), LAMTMP, Z, DLAM_TOL
+      REAL SNRMAX, SNRMAX1, SNRMAX2
+      CHARACTER CFILTOBS_LIST*(MXFILT_OBS), CTMP*4, CFILTDEF*2
 
       LOGICAL L_BRACKET, L_MATCH, L_USE, L_SNR, L_KEEP
       LOGICAL SKIPTEST, LSNR, LSNR1, LSNR2
 
 c function
-      INTEGER BRACKET_IFILT_OBS
+      INTEGER BRACKET_FILTERLIST, BRACKET_IFILT_OLD
 
 c -------------------- BEGIN ----------------
 
@@ -15594,6 +15567,11 @@ c to the last 2-band fit.
          RETURN   ! bail out on last ALLFIT iteration
       ENDIF
 
+c Mar 26 2020: 
+c   set DLAM tolerance to already existing input par;
+c   Later may need separate input param.
+
+      DLAM_TOL = LAMEXTRAP_FITRESTMAG
 c =========================================
 
 c strip off filter to process for this fit-iteration
@@ -15672,9 +15650,15 @@ c Sep 2013: beware that BRACKET_IFILT_OBS() checks all filters
 c selected by snana, not just the ones in FILTLIST_FIT.
 c Use EPCUT_SNRMIN to reject extra filters.
 
-         NBRA = BRACKET_IFILT_OBS(LAMREST(itry), Z, IFILTOBS_BRACKET)
-         IF1 = IFILTOBS_BRACKET(1) 
-         IF2 = IFILTOBS_BRACKET(2) 
+         LAMTMP = LAMREST(itry)
+         IF ( OPT_DEBUG == 1000 ) then
+            NBRA = BRACKET_FILTERLIST(LAMTMP, DLAM_TOL, Z, 
+     &             IFILTOBS_BRACKET) ! <== returned
+         else
+            NBRA = BRACKET_IFILT_OLD(LAMTMP,Z,IFILTOBS_BRACKET)
+         endif
+         IF1 = IFILTOBS_BRACKET(1)  ! closest band, low wavelen
+         IF2 = IFILTOBS_BRACKET(2)  ! closest band, high wavelen
 
 +SELF,IF=XYZDEL.
          print*, ' xxx ------------------------------------------ '
@@ -15691,7 +15675,8 @@ c Use EPCUT_SNRMIN to reject extra filters.
 
 c check if IFILTOBS_BRACKET(1:2) are valid
          L_USE = USE_ALLFILT(IF1) .and. USE_ALLFILT(IF2)
-         L_BRACKET = (NBRA .EQ. 2) .and. L_USE
+c xxx mark del L_BRACKET = (NBRA .EQ. 2) .and. L_USE
+         L_BRACKET = (NBRA >= 2) .and. L_USE
 
          if ( L_BRACKET ) goto 444
 440   CONTINUE
@@ -15713,18 +15698,17 @@ c print message for which filter to fit, or to skip.
 455   CONTINUE
 
       IF ( L_BRACKET ) THEN
-         CFILT(1) =  FILTDEF_STRING(IF1:IF1)
-         CFILT(2) =  FILTDEF_STRING(IF2:IF2)
+         CFILTOBS_LIST(1:1) =  FILTDEF_STRING(IF1:IF1)
+         CFILTOBS_LIST(2:2) =  FILTDEF_STRING(IF2:IF2)
          CTMP     = 'Fit ' 
       ELSE
          CTMP     = 'Skip' 
-         CFILT(1) =  '?'
-         CFILT(2) =  '?'
+         CFILTOBS_LIST =  '??'
       ENDIF
 
       LL = ISNLC_LENCCID
       write(6,20) CTMP, CFILTDEF,
-     &     SNLC_CCID(1:LL), CFILT(1)(1:1), CFILT(2)(1:1)
+     &     SNLC_CCID(1:LL), CFILTOBS_LIST(1:NBRA)
 20    format(T5, A,' RestMag-',A,'  for  CID = ',A, 
      &               3x, 'ObsFilt = ',A,A) 
       CALL FLUSH(6)
@@ -15743,7 +15727,7 @@ c turn off ALL filters so that nothing passes.
          IFILT_TMP   = IFILTDEF_MAP_SURVEY(ifilt)
          L_USE       = USE_ALLFILT(IFILT_TMP)
          
-      DO 202 j       = 1, 2
+      DO 202 j       = 1, NBRA  ! xxx 2 -> NBRA
            L_MATCH   = IFILT_TMP .EQ. IFILTOBS_BRACKET(J)            
            IF ( L_BRACKET .and. L_MATCH .AND. L_USE ) THEN
                L_KEEP  = .TRUE.
@@ -15754,7 +15738,7 @@ c turn off ALL filters so that nothing passes.
          if ( L_KEEP ) then
             LL = INDEX ( FILTLIST_FIT_USE, ' ' ) - 1
             FILTLIST_FIT_USE = FILTLIST_FIT_USE(1:LL) // 
-     &            cfilt(jkeep)(1:1)
+     &            cfiltobs_list(jkeep:jkeep)
             NFILT_OBS_USEFIT = NFILT_OBS_USEFIT + 1
             USE_FILT(IFILT_TMP) = .TRUE.
          else
@@ -15766,7 +15750,7 @@ c turn off ALL filters so that nothing passes.
 c --------------------
 c sanity check
 
-      IF ( L_BRACKET .and. NFILT_OBS_USEFIT .NE. 2 ) THEN
+      IF ( L_BRACKET .and. NFILT_OBS_USEFIT < 2 ) THEN
          write(c1err,601)  NFILT_OBS_USEFIT 
 601      format('L_BRACKET=T  but  NFILT_OBS_USEFIT = ',I2)
          write(c2err,602) SNLC_CCID, ITER, CFILTDEF
@@ -15785,6 +15769,227 @@ c sanity check
 
       RETURN
       END    ! end of FITRESTMAG_PREP(ITER)
+
+
+C ========================================
++DECK,BRACKET_IFILT_OLD.
+      INTEGER FUNCTION BRACKET_IFILT_OLD ( 
+     &          LAMREST, Z, IFILTOBS_BRACKET )
+
+c !!!!!!!!!!!!!!!!!!!
+c !!!! Mar 25 2020: SLATED TO BECOME OBSOLETE !!!!
+c !!!!!!!!!!!!!!!!!!!
+c -----------------------------------------
+c Feb 12, 2012
+c Return IFILTOBS_BRACKET(2) (filter indices) that brackets
+c LAMREST in the rest-frame. In the loop over SURVEY filters, 
+c IFILT_OBS = -999 is a flag to ignore this filter.
+c
+c Return number of bracket-filters found; 2 => success.
+c
+c ------------------------------------------
+
+      IMPLICIT NONE
+
+c subroutine args.
+
+      REAL LAMREST   ! (I) rest-frame lambda to match
+      REAL Z         ! (I) redshift
+      INTEGER 
+     &  IFILTOBS_BRACKET(2) ! (O) IFILTOBS that brackets LAMREST
+
+c local var
++CDE,SNDATCOM.  from snana.car
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER IFILT, IFILTOBS, JLOHI, NFILT
+      REAL Z1, LAMZ, LAMDIF, LAMDIFMIN(2)
+
+C ------------- BEGIN ------------
+
+      Z1 = 1.0 + z
+
+      LAMDIFMIN(1) = 99999999.
+      LAMDIFMIN(2) = 99999999.
+
+      IFILTOBS_BRACKET(1) = -9 
+      IFILTOBS_BRACKET(2) = -9
+
+      DO 100 ifilt = 1, NFILTDEF_SURVEY
+
+         if ( .not. EXIST_FILT(ifilt) ) goto 100
+
+         ifiltobs = IFILTDEF_MAP_SURVEY(ifilt)
+         if ( ifiltobs .EQ. -999 ) goto 100
+         
+         LAMZ   = FILTOBS_LAMAVG(ifiltobs)/Z1
+         LAMDIF = ABS(LAMZ-LAMREST)
+
+         IF ( LAMZ .LE. LAMREST ) THEN
+            JLOHI = 1
+         ELSE
+            JLOHI = 2
+         ENDIF
+
+         if ( LAMDIF .LT. LAMDIFMIN(JLOHI) ) then
+             LAMDIFMIN(JLOHI)        = LAMDIF
+             IFILTOBS_BRACKET(JLOHI) = IFILTOBS
+         endif
+
+100   CONTINUE
+
+c set function value
+
+      NFILT = 0
+      IF ( IFILTOBS_BRACKET(1) .GT. 0 ) NFILT = NFILT + 1
+      IF ( IFILTOBS_BRACKET(2) .GT. 0 ) NFILT = NFILT + 1
+
+      BRACKET_IFILT_OLD = NFILT
+
+      RETURN
+      END   
+
+C ========================================
++DECK,BRACKET_FILTERLIST.
+      INTEGER FUNCTION BRACKET_FILTERLIST ( 
+     &          LAMREST, DLAM_TOL, Z, IFILTOBS_BRACKET )
+
+c -----------------------------------------
+c Mar 25 2020
+c Return IFILTOBS_BRACKET (indices) of obs-filters that bracket
+c LAMREST in the rest-frame. 
+c In the loop over SURVEY filters, IFILT_OBS = -999 is a flag
+c (externally set) to ignore this filter.
+c
+c This function originally returned just 2 bands: one below and
+c one above the target LAMREST. Now it has been refactored to
+c return all filters within DLAM_TOL of closest filters.
+c
+c Original motivatoin is to work for LOWZ in which each band 
+c is broken into several bands covering different time periods.
+c 
+c
+c Inputs:
+c   LAMREST   : rest-frame wavelength to bracket
+c   DLAM_TOL  : combine obs filters withing this tolerance
+c   Z         : redshift
+c  
+c Output:
+c   IFILTOBS_BRACKET(1) : closest band with LAM/z1 < LAMREST
+c   IFILTOBS_BRACKET(2) : closest band with LAM/z1 > LAMREST
+c   IFILTOBS_BRACKET(3) : optional additional band within DLAM_TOL
+c   IFILTOBS_BRACKET(4) : optional additional band within DLAM_TOL
+c   etc ...
+c
+c Function returns number of bands in IFILTOBS_BRACKET list.
+c If only low or high bands are found, function returns 1.
+c Function returnig 2 or larger is flag for success.
+c Example, if filters a,b,c all have LAM/z1 < LAMREST, then
+c function returns 1. But if there is also filter d with 
+c LAM/z1>LAMREST, then function returns 4.
+c
+c ------------------------------------------
+
+      IMPLICIT NONE
+
+c subroutine args.
+
+      REAL LAMREST   ! (I) rest-frame lambda to match
+      REAL DLAM_TOL  ! (I) tolerance to accept multiple bracket filters
+      REAL Z         ! (I) redshift
+
+      INTEGER 
+     &  IFILTOBS_BRACKET(*) ! (O) IFILTOBS that brackets LAMREST
+
+c local var
++CDE,SNDATCOM.  from snana.car
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER IFILT, NFILT, IFILTOBS, IFILTOBS_LO, IFILTOBS_HI, JLOHI
+      REAL    Z1, LAMZ, LAMZ_LO, LAMZ_HI, LAMDIF, LAMDIFMIN(2)
+      CHARACTER  CFILT*2
+
+C ------------- BEGIN ------------
+
+      Z1 = 1.0 + z
+
+      LAMDIFMIN(1) = 99999999.
+      LAMDIFMIN(2) = 99999999.
+
+      DO 100 ifilt = 1, NFILTDEF_SURVEY
+
+         if ( .not. EXIST_FILT(ifilt) ) goto 100
+         ifiltobs = IFILTDEF_MAP_SURVEY(ifilt)
+         if ( ifiltobs .EQ. -999 ) goto 100
+
+         CFILT  = FILTDEF_STRING(IFILTOBS:IFILTOBS)         
+         LAMZ   = FILTOBS_LAMAVG(ifiltobs)/Z1
+         LAMDIF = ABS(LAMZ-LAMREST)
+
+         IF ( LAMZ .LE. LAMREST ) THEN
+            JLOHI = 1
+         ELSE
+            JLOHI = 2
+         ENDIF
+
+         if ( LAMDIF .LT. LAMDIFMIN(JLOHI) ) then
+             LAMDIFMIN(JLOHI)        = LAMDIF
+             IFILTOBS_BRACKET(JLOHI) = IFILTOBS
+         endif
+
+100   CONTINUE
+
+c set function value
+
+      NFILT = 0
+      IFILTOBS_LO = IFILTOBS_BRACKET(1)
+      IFILTOBS_HI = IFILTOBS_BRACKET(2)
+      IF ( IFILTOBS_LO > 0 ) NFILT = NFILT + 1
+      IF ( IFILTOBS_HI > 0 ) NFILT = NFILT + 1
+      BRACKET_FILTERLIST = NFILT
+
+      IF ( NFILT < 2       ) RETURN
+      IF ( DLAM_TOL < 0.01 ) RETURN
+
+cc      IF ( DLAM_TOL < 1.0E9 ) RETURN ! xxx REMOVE
+
+      LAMZ_LO = FILTOBS_LAMAVG(IFILTOBS_LO)/Z1
+      LAMZ_HI = FILTOBS_LAMAVG(IFILTOBS_HI)/Z1
+
+c if we get here, check for more bands with DLAM_TOL ...
+
+      DO 200 ifilt = 1, NFILTDEF_SURVEY
+
+         if ( .not. EXIST_FILT(ifilt) ) goto 200
+         ifiltobs = IFILTDEF_MAP_SURVEY(ifilt)
+         if ( ifiltobs .EQ. -999 ) goto 200
+
+c skip already defined bracket filters
+         if ( ifiltobs == IFILTOBS_LO ) goto 200
+         if ( ifiltobs == IFILTOBS_HI ) goto 200
+
+         LAMZ   = FILTOBS_LAMAVG(IFILTOBS)/Z1
+
+c start with lower-wavelength filter
+         LAMDIF = ABS(LAMZ-LAMZ_LO)
+         if ( LAMZ < LAMZ_LO .and. LAMDIF < DLAM_TOL ) then
+            NFILT = NFILT + 1 ; IFILTOBS_BRACKET(NFILT) = ifiltobs
+         endif
+
+c higher-wavelength filter
+         LAMDIF = ABS(LAMZ-LAMZ_HI)
+         if ( LAMZ > LAMZ_HI .and. LAMDIF < DLAM_TOL ) then
+            NFILT = NFILT + 1 ; IFILTOBS_BRACKET(NFILT) = ifiltobs
+         endif
+
+ 200  CONTINUE
+
+      BRACKET_FILTERLIST = NFILT
+
+      RETURN
+      END
 
 C =====================================
 +DECK,FITRESTCALC.

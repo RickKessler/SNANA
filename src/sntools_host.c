@@ -6723,6 +6723,8 @@ void  STORE_SNHOST_MISC(int IGAL, int ibin_SNVAR) {
   // store misc variables in SNHOSTGAL structure.
   // Needed to write to data file.
 
+  // Mar 27 2020: init I2SNMAGSHIFT=0 to fix crazy unitialized values.
+
   int  NDIM           = HOSTLIB_WGTMAP.GRIDMAP.NDIM;
   bool USE_SNVAR      = ( ibin_SNVAR >= 0 ) ;
   bool USE_SNMAGSHIFT = ((INPUTS.HOSTLIB_MSKOPT&HOSTLIB_MSKOPT_SNMAGSHIFT)>0);
@@ -6734,7 +6736,8 @@ void  STORE_SNHOST_MISC(int IGAL, int ibin_SNVAR) {
   // ------------ BEGIN ---------
 
   WGTSUM = WGTSUM_LAST = 0.0 ;
-
+  I2SNMAGSHIFT = 0 ;
+  
   // store wgt and SN mag shift for this host
   if ( USE_SNVAR ) {
     WGTSUM  = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR][IGAL];

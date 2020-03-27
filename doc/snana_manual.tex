@@ -1209,13 +1209,11 @@ in a \simlib\ file.
 \end{Verbatim}
 %
 \noindent
-If any {\tt GENRANGE\_XXX} key appears {\it without} an associated
-{\tt GENSIGMA\_SIGMA} key, then the corresponding value
-is re-generated from a flat distribution. 
-If the {\tt GENSIGMA\_SIGMA} is specified, then the new value
-is re-generated from a Gaussian distribution whose peak value
-is at the center of the {\tt GENRANGE\_XXX} window.
-
+If {\tt GENSIGMA\_XXX} is not specified, a flat distribution is generated
+within {\tt GENRANGE\_XXX}.
+If the {\tt GENSIGMA\_XXX} are specified, each XXX value
+is generated from a Gaussian distribution whose peak value
+is the center of the {\tt GENRANGE\_XXX} window.
 
 For more info on the {\tt TEMPLATE\_XXX} keys, 
 see \S\ref{subsec:template_noise}. 

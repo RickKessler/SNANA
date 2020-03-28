@@ -3595,21 +3595,10 @@ the +RA coordinate.  If North is up and East is to the right,
 
 \clearpage
 The next set of keys in Fig.~\ref{fig:hostlib} describes
-an optional weight map. In this example, galaxies are
+an optional weight map (WGTMAP). In this example, galaxies are
 weighted by the absolute r-band magnitude, and the
 SN brightness is also adjusted using the same map.
-Following the {\tt VARNAMES\_WGTMAP} key, the first ``$N-2$'' 
-variables must be from the {\tt VARNAMES} list in Fig.~\ref{fig:hostlib},
-which describe an arbitrary dependence on host properties.
-The last two variables must be {\tt WGT} and {\tt SNMAGSHIFT},
-although any names can be used here.
-{\tt SNMAGSHIFT} is applied to the SALT2 mB and $x_0$ parameters,
-and this shift is thus included in bias corrections.
-If no weight map is given the simulation will assign
-a weight of unity to each host galaxy, with zero mag-shift.
-Starting with \snana\ version v10\_70, the ``{\tt NVAR:}''
-and ``{\tt NVAR\_WGTMAP:}" keys are obsolete, although leaving
-them in the {\tt HOSTLIB} file will not cause any harm.
+See \S\ref{sss:hostlib_wgtmap} for details about the WGTMAP.
 
 
 % ----------------
@@ -3881,10 +3870,69 @@ will transfer the SN redshift and coordinates to that of
 the galaxy, and compute the galaxy noise.
 
 
+% ------------------------------------
 \clearpage
+\subsubsection{\hostlib\ Weight Map (WGTMAP)}
+\label{sss:hostlib_wgtmap}
+% ------------------------------------
+
+Ideally the simulation would select a random galaxy in the universe,
+and then select SN properties based on the host galaxy properties.
+In practice, however, the reverse is more practical: SN properties 
+are picked from a measured population, and after the SN is selected
+a host galaxy is assigned.
+Using the \hostlib\ properties, an optional ``weight map'' ({\tt WGTMAP}) 
+defines a relative probability for assigning a host galaxy. 
+The redshift is matched based on a tolerance
+(see {\tt HOSTLIB\_DZTOL} key), and the {\tt WGTMAP} is applied among
+all galaxies within the redshift tolerance.
+An example {\tt WGTMAP} is shown in Fig.~\ref{fig:hostlib}, but it may be
+more convenient to define the {\tt WGTMAP} in a separate file using the
+{\tt HOSTLIB\_WGTMAP\_FILE} (\S\ref{sss:hostlib_options}).
+
+Following the {\tt VARNAMES\_WGTMAP} key, the first ``$N-2$'' 
+variables must be from the {\tt VARNAMES} list in Fig.~\ref{fig:hostlib},
+which describe an arbitrary dependence on host properties.
+The last two variables must be {\tt WGT} and {\tt SNMAGSHIFT},
+where the latter is applied to the generated magnitudes if the
+4-bit is set in {\tt HOSTLIB\_MSKOPT}.
+
+If no weight map is provided, the simulation will assign
+a weight of unity to each host galaxy, with zero mag-shift.
+Starting with \snana\ version v10\_70, the ``{\tt NVAR:}''
+and ``{\tt NVAR\_WGTMAP:}" keys are obsolete, although leaving
+them in the {\tt HOSTLIB} file will not cause any harm.
+
+To include {\tt WGTMAP} correlations with SALT2 streth (x1) and color (c),
+simply include x1 and/or c in the {\tt WGTMAP}. These are the only
+{\tt WGTMAP} variables that are {\tt not} required to be in the
+\hostlib\ {\tt VARANMES} list. If x1 and c are not in the \hostlib,
+the generated value is snapped to the nearest {\tt WGTMAP} grid point
+so that the simulation runs more efficiently. For example,
+consider a {\tt WGTMAP} color grid from $-0.3$ to $+0.5$ in bins of 0.1;
+for a generated color of $c=0.12$, the weight is the pre-computed value
+at the grid point $c=0.1$. 
+
+{\bf MEMORY WARNING}: 
+To maintain simulation speed, the {\tt WGT} and {\tt SNMAGSHIFT} are 
+precomputed and stored in memory for each galaxy and each x1,c grid point;
+beware that this memory storage can be large.
+For example, consider a {\tt HOSTLIB} with a million galaxies and
+a {\tt WGTMAP} that includes a $20\times 20$ ``x1~$\times$~c'' grid. 
+The {\tt WGT} and {\tt SNMAGSHIFT} are stored for $20\times 20\times 10^6 = $
+400~million values, consuming 4~Gb of memory.\footnote{While {\tt WGT}
+  is stored as 8-byte double, {\tt SNMAGSHIFT*20000} is stored as
+  2-byte short int to reduce memory.}
+%
+Check memory usage in the stdout from this output:
+\begin{verbatim}
+   Interpolate WGTMAP for each galaxy (68.47 MB)
+\end{verbatim}
+
+
+%\clearpage
 \newcommand{\Rhalf}{R_{1/2}}
 \newcommand{\Sn}{{\cal S}_{n}}
-
 
 % ------------------------------------
 \subsubsection{Generating Host Spectra}
@@ -3916,6 +3964,7 @@ the z-norm term.
 
 
 % ------------------------------------
+\clearpage
 \subsubsection{Synthetic Host Magnitudes ({\tt +HOSTMAGS})}
 \label{sss:hostlib_synmag}
 % ------------------------------------
@@ -7697,6 +7746,7 @@ for {\tt snlc\_fit.exe},
    FILTLIST_FITRESTMAG  = 'UBV'
    LAMEXTRAP_FITRESTMAG = 250   ! (A) allow this much rest-frame extrapolation
    SHAPEFIX_FITRESTMAG  = -0.2  ! => fix SHAPEPAR for PEAKMAG calc
+   DLAMTOL_FITRESTMAG   = 100   ! include obs bands with 100 A of closest bands
 \end{Verbatim}
 %
 The kcor/calibration file must include these extra (UBV) 
@@ -7717,6 +7767,12 @@ with {\tt LAMEXTRAP\_FITRESTMAG}$=250$~{\AA} we have
 $z_{\rm min} = 4800/(3600+250)-1= 0.247$.
 Similar logic is applied to the reddest filter.
 
+{\tt DLAMTOL\_FITRESTMAG} allows the inclusion of multiple bands
+with similar central wavelengths. For example, consider a survey
+with G and g bands, and central wavelengths of 4800~\AA and 4840~\AA,
+respectively. If g is the closest band to the desired rest-frame band,
+then G is exluded by default. However, with {\tt DLAMTOL\_FITRESTMAG=100}
+both G and g are included.
 
 The fitting for each SN proceeds as follows.
 The first ``{\tt NFIT\_ITERATION}'' fit-iterations are used

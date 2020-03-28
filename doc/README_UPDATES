@@ -18166,7 +18166,7 @@
 
 
 # ======================================================================= 
-         v10_76c (  ) 
+         v10_76c (Mar 28 2020) 
 
          ***** IMPORTANT(v10_76c) ***** 
 
@@ -18227,6 +18227,7 @@
    snlc_fit.car
      + fix logic for SALT2zz so that zz=z if not photo-z fit.
        Fixes subtle interaction bug with FITRESTMAG option.
+     + new &FITINP DLAMTOL_FITRESTMAG ; see manual.
 
    sntools_host.c:
      + in STORE_SNHOST_MISC(), fix init bug that came earlier from

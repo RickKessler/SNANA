@@ -546,6 +546,7 @@ c namelist input variables.
      &  ,SHAPEFIX_FITRESTMAG      ! same as above
      &  ,COLORFIX_FITRESTMAG      ! fix color par to this value
      &  ,LAMEXTRAP_FITRESTMAG     ! allow this much rest-frame extrapolation
+     &  ,DLAMTOL_FITRESTMAG       ! allow this lam-tolerance for closest bands
 
       LOGICAL
      &    DOFIT_FILT(0:MXFILT_ALL)
@@ -750,7 +751,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,FILTLIST_FIT
      &   ,FILTLIST_DMPFCN, FILTER_FITMAGDIF, DUMB_DEBUG
      &   ,FILTLIST_FITRESTMAG, LUMIFIX_FITRESTMAG, SHAPEFIX_FITRESTMAG
-     &   ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG
+     &   ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG, DLAMTOL_FITRESTMAG
      &   ,FILTLIST_DMPFUN, TREST_DMPFUN, SCALE_PLOTCHI2
      &   ,NEARFILT_IGNORE_REST, FILTLAM_SHIFT
      &   ,DOFIT_FILT, DOFIT_PHOTOZ, SKIP_PHOTOZ_INIT
@@ -818,7 +819,7 @@ c ------
      &   ,FILTLIST_FIT
      &   ,FILTLIST_DMPFCN, FILTER_FITMAGDIF, DUMB_DEBUG
      &   ,FILTLIST_FITRESTMAG, LUMIFIX_FITRESTMAG, SHAPEFIX_FITRESTMAG
-     &   ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG
+     &   ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG, DLAMTOL_FITRESTMAG
      &   ,FILTLIST_DMPFUN, TREST_DMPFUN, SCALE_PLOTCHI2
      &   ,NEARFILT_IGNORE_REST, FILTLAM_SHIFT
      &   ,DOFIT_PHOTOZ, SKIP_PHOTOZ_INIT
@@ -2268,31 +2269,6 @@ c Jan 2016: fit iteration again if cov matrix has not converged
          ERRFLAG = ERRFLAG_REPEAT_ITER  ! -1
          RETURN
       ENDIF
-
-
-
-c xxxxxxxx mark delete Feb 29 2020 xxxxxxxxxx
-c Feb 28 2020: 
-c    repeat if first iteration errors are fudged and chi2-epoch
-c    rejection is turned on. These two options are not compatible,
-c    so apply LMAXFRAC first iter, then on repeat of 1st iteration,
-c    get chi2 for DELCHI2_REJECT cut.
-
-c xxx       IF ( RESTORE_DES3YR ) GOTO 555
-
-      IF ( OPT_DEBUG == 33 ) THEN
-         IF ( FIRST .and. (.not.LREPEAT_ITER) ) THEN
-            LMAXFRAC = (FUDGEALL_ITER1_MAXFRAC > 1.0E-8)
-            LCHI2REJ = (DELCHI2_REJECT < 1.0E8 )
-            if ( LMAXFRAC .and. LCHI2REJ ) then
-               ERRFLAG = ERRFLAG_REPEAT_ITER ! .xyz
-            endif
-         ENDIF
-      ENDIF
-
-cc xxx 555   CONTINUE ! xxxx skip here to restore DES3YR
-c xxxxxxxx end mark xxxxxxxxx
-
 
 c --------------------------------------------
 c May 2018 check option to repeat entire fit with MINOS
@@ -6906,6 +6882,7 @@ c Aug 17 2015: from snlc_sim.defaults since this is no longer read
       LUMIFIX_FITRESTMAG   = 999.  ! crazy value -> use best-fit value
       SHAPEFIX_FITRESTMAG  = 999. 
       LAMEXTRAP_FITRESTMAG = 0.0 
+      DLAMTOL_FITRESTMAG   = 0.0  ! Mar 28 2020
 
       FILTLIST_FIT    = ''
       FILTLIST_DMPFCN = ''
@@ -7672,6 +7649,10 @@ c --------------
          else if ( LINE_ARGS(i) .EQ. 'LAMEXTRAP_FITRESTMAG' ) then
             i = i + 1
             READ(LINE_ARGS(i),*)  LAMEXTRAP_FITRESTMAG 
+
+         else if ( LINE_ARGS(i) .EQ. 'DLAMTOL_FITRESTMAG' ) then
+            i = i + 1
+            READ(LINE_ARGS(i),*) DLAMTOL_FITRESTMAG 
 
 c --------
          else if ( LINE_ARGS(i) .EQ. 'FILTLIST_FIT' ) then
@@ -15404,8 +15385,13 @@ c check for legacy variable
       write(6,54) LAMEXTRAP_FITRESTMAG
  54   format(T8,'Allow rest-wavelength extrapolation of +- ', 
      &          F5.0,' A ')
-      write(6,55)       NFILTDEF_SURVEY_ORIG, NFILTDEF_SURVEY
-55    format(T8,'NFILTDEF_SURVEY = ',I3,' -> ', I3)
+
+      write(6,55) DLAMTOL_FITRESTMAG
+ 55   format(T8,'Include obs bands within ', F5.0,
+     &          ' A of closest bands.')
+
+      write(6,58)       NFILTDEF_SURVEY_ORIG, NFILTDEF_SURVEY
+ 58   format(T8,'NFILTDEF_SURVEY = ',I3,' -> ', I3)
 
 c -------------------------------------------------
 c re-read KCOR file to include FILTLIST_FITRESTMAG
@@ -15460,7 +15446,7 @@ c
 c Mar 26 2020
 c  Refactor to use new BRACKET_FILTERLIST with DLAM_TOL so that 
 c  more than 2 bands can be included if some bands have very 
-c  similar central wavelengths.
+c  similar central wavelengths. 
 c
 c -----------------------
 
@@ -15567,11 +15553,9 @@ c to the last 2-band fit.
          RETURN   ! bail out on last ALLFIT iteration
       ENDIF
 
-c Mar 26 2020: 
-c   set DLAM tolerance to already existing input par;
-c   Later may need separate input param.
+c set tolerance for including bands close in wavelength
+      DLAM_TOL = DLAMTOL_FITRESTMAG
 
-      DLAM_TOL = LAMEXTRAP_FITRESTMAG
 c =========================================
 
 c strip off filter to process for this fit-iteration
@@ -15652,10 +15636,11 @@ c Use EPCUT_SNRMIN to reject extra filters.
 
          LAMTMP = LAMREST(itry)
          IF ( OPT_DEBUG == 1000 ) then
+            NBRA = BRACKET_IFILT_OLD(LAMTMP,Z,IFILTOBS_BRACKET) ! legacy
+         else
+c new default, Mar 28 2020
             NBRA = BRACKET_FILTERLIST(LAMTMP, DLAM_TOL, Z, 
      &             IFILTOBS_BRACKET) ! <== returned
-         else
-            NBRA = BRACKET_IFILT_OLD(LAMTMP,Z,IFILTOBS_BRACKET)
          endif
          IF1 = IFILTOBS_BRACKET(1)  ! closest band, low wavelen
          IF2 = IFILTOBS_BRACKET(2)  ! closest band, high wavelen
@@ -15664,8 +15649,8 @@ c Use EPCUT_SNRMIN to reject extra filters.
          print*, ' xxx ------------------------------------------ '
          print*, ' xxx NBRA, itry = ', NBRA, itry
          print*, ' xxx LAMREST =', LAMREST(itry),'   z=',Z
-         print*, ' xxx --> IF1,IF2 =', IF1, IF2
-         print*, ' xxx --> BAND1,2 =', 
+         print*, ' xxx --> IF1,IF2 = ', IF1, IF2
+         print*, ' xxx --> BAND1,2 = ', 
      &         FILTDEF_STRING(IF1:IF1), FILTDEF_STRING(IF2:IF2)
          call flush(6)
 +SELF.
@@ -15679,7 +15664,7 @@ c xxx mark del L_BRACKET = (NBRA .EQ. 2) .and. L_USE
          L_BRACKET = (NBRA >= 2) .and. L_USE
 
          if ( L_BRACKET ) goto 444
-440   CONTINUE
+440   CONTINUE  ! end itry
 
 c --------------------
 444   CONTINUE
@@ -15698,8 +15683,10 @@ c print message for which filter to fit, or to skip.
 455   CONTINUE
 
       IF ( L_BRACKET ) THEN
-         CFILTOBS_LIST(1:1) =  FILTDEF_STRING(IF1:IF1)
-         CFILTOBS_LIST(2:2) =  FILTDEF_STRING(IF2:IF2)
+         do i = 1, NBRA
+            IFILTDEF = IFILTOBS_BRACKET(i) 
+            CFILTOBS_LIST(i:i) =  FILTDEF_STRING(IFILTDEF:IFILTDEF)
+         enddo
          CTMP     = 'Fit ' 
       ELSE
          CTMP     = 'Skip' 

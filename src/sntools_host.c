@@ -1815,7 +1815,6 @@ bool checkSNvar_HOSTLIB_WGTMAP(char *varName) {
 
   // Created Mar 12 2020
   // Inputs:
-  //   OPT_SETPTR -> set pointer
   //   varName = variable name
 
   int N = HOSTLIB_WGTMAP.N_SNVAR;
@@ -1843,6 +1842,7 @@ bool checkSNvar_HOSTLIB_WGTMAP(char *varName) {
 
 
   return(IS_SNVAR);
+
 } // end checkSNvarNames_HOSTLIB(int OPT, char *varName) {
  
 // =====================================

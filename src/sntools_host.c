@@ -1840,6 +1840,11 @@ bool checkSNvar_HOSTLIB_WGTMAP(char *varName) {
     HOSTLIB_WGTMAP.ptrVal_SNVAR[N] = &GENLC.AV ;
   }
 
+  if ( strcmp(varName,"RV") == 0 ) { 
+    IS_SNVAR = true ; 
+    HOSTLIB_WGTMAP.ptrVal_SNVAR[N] = &GENLC.RV ;
+  }
+
 
   return(IS_SNVAR);
 

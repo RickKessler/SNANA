@@ -18233,4 +18233,17 @@
      + in STORE_SNHOST_MISC(), fix init bug that came earlier from
        refactor to include c & x1.
 
+
+# ======================================================================= 
+         v10_76d (  ) 
+
+         ***** IMPORTANT(v10_76d) ***** 
+
+         ***** USEFUL(v10_76d) ***** 
+
+         ***** MISCELLANEOUS(v10_76d) ***** 
+
+    SALT2mu.c:
+      MXFILE_[DATA,BIASCOR,CCPRIOR] -> 20 (was 10)
+
 END: 

@@ -741,9 +741,9 @@ char STRING_EVENT_TYPE[MXEVENT_TYPE][12] =
 
 #define MAXPAR_MINUIT 110  // limit for MINUIT params (Sep 10 2017)
 
-#define MXFILE_DATA    10  // max number of data files to read
-#define MXFILE_BIASCOR 10  // max number of biasCor files to read
-#define MXFILE_CCPRIOR 10  // max number of CCprior files to read
+#define MXFILE_DATA     20  // max number of data files to read
+#define MXFILE_BIASCOR  20  // max number of biasCor files to read
+#define MXFILE_CCPRIOR  20  // max number of CCprior files to read
 
 // Maximum number of bins
 // Note that 5D biasCor array would take 30*20*20*5*5 = 300,000

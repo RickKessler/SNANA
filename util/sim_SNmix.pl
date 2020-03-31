@@ -1787,8 +1787,9 @@ sub store_SIMGEN_INFILE(@) {
     # iflag>2 -> 2nd,3rd ... NON1a infile to override
     #
     # Mar 24 2020: if mIa<0, set mIa=0
+    # Mar 31 2020: allow ENV for inFile.
 
-    my ($m, $inFile, $inFile_Ia, $LDMP);
+    my ($m, $inFile, $inFile_Ia, $LDMP, $tmpFile );
 
     # ---------- BEGIN ----------
     
@@ -1807,6 +1808,8 @@ sub store_SIMGEN_INFILE(@) {
     # make sure each inFile exists
     if ( $iflag > 0 ) {
 	foreach $inFile (@$inFileList) { 
+	    $inFile = qx(echo $inFile); 
+	    $inFile =~ s/\s+$// ;   # trim trailing whitespace  
 	    unless (-e $inFile ) {
 		$MSGERR[0] = "Sim-input file '$inFile' does not exist;";
 		$MSGERR[1] = "Check arguments of 'SIMGEN_INFILE_NONIa:'" ;

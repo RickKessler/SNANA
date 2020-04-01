@@ -711,6 +711,9 @@ Default output files (can change names with "prefix" argument)
 
   Feb 27 2020: MXSPLITRAN -> 1000 (was 100)
 
+  Mar 31 2020: abort if a,b,g binning is not the same in each IDSURVEY
+             see check_abg_minmax_biasCor().
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -1266,13 +1269,13 @@ struct INPUTS {
   double snrmin_sigint_biasCor; // SNRMIN used to determine sigint
   double sigma_cell_biasCor; // to weight events in cell for biasCor value
 
-  char fieldGroup_biasCor[120]; // sub-divide biasCor groups based on field
+  char fieldGroup_biasCor[200]; // sub-divide biasCor groups based on field
   int  use_fieldGroup_biasCor;  // logical flag for above
 
-  char surveyGroup_biasCor[200]; // combine surveys into group
+  char surveyGroup_biasCor[400]; // combine surveys into group
   int  use_surveyGroup_biasCor;
 
-  char surveyList_noBiasCor[120]; // list of surveys fit, but skip biasCor
+  char surveyList_noBiasCor[200]; // list of surveys fit, but skip biasCor
   char idsample_select[40];       // e.g., '0+3'
 
   int interp_biascor_logmass;
@@ -1326,7 +1329,7 @@ struct INPUTS {
   int     nlogzbin;  // number of log-spaced redshift bins
   double  powzbin ;  // fit & output zbin ~ (1+z)^powzbin
   double  znhalf ;   // z where half of nzbins are log and half are constant
-  char    zbinuser[100]; // e.g., 0.01,0.04,0.01,0.3,0.7
+  char    zbinuser[MXPATHLEN]; // e.g., 0.01,0.04,0.01,0.3,0.7
 
   int      nzbin_ccprior; // number of z bins for CC prior (default=4)
   BININFO_DEF BININFO_z ; // Aug 20 2016
@@ -1663,7 +1666,8 @@ void  setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
 			    BININFO_DEF *BININFO);
 void  get_BININFO_biasCor_alphabeta(char *varName, double *VAL_MIN, 
 				    double *VAL_MAX, double *VAL_BIN ) ;
-				    
+void check_abg_minmax_biasCor(char *varName, double *valmin_list,
+			      double *valmax_list) ;				    
 void  makeMap_fitPar_biasCor(int ISAMPLE, int ipar_LCFIT);
 void  makeMap_sigmu_biasCor(int ISAMPLE);   
 void  vpec_biasCor(void);
@@ -2237,14 +2241,22 @@ void exec_mnpout_mnerrs(void) {
 // ***********************************************
 void setup_BININFO_redshift(void) {
 
+  int LEN;
   char fnam[] = "setup_BININFO_redshift";
 
   // ------------ BEGIN ------------
 
   //Set up BBC z bins for data
 
-  if ( strlen(INPUTS.zbinuser) > 0 )
-    { setup_BININFO_userz(); }
+  LEN = strlen(INPUTS.zbinuser);
+  if ( LEN > 0 )  { 
+    if ( LEN > MXPATHLEN - 10 ) {
+      sprintf(c1err,"len(zbinuser) = %d is too long");
+      sprintf(c2err,"Reduce size or increase array bound.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    setup_BININFO_userz(); 
+  }
 
   else if ( INPUTS.nlogzbin > 0 ) 
     { setup_BININFO_logz(); }
@@ -3355,7 +3367,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
       muBias  = muBias_zinterp ; 
     }
        
-    if ( n == -1 ) {  //.xyz
+    if ( n == -1 ) { 
       printf(" xxx %s-%3.3d %s  a,b,g=%.4f,%.4f,%.4f  "
 	     "muBias=%7.4f  (fpb0=%.4f,%.4f) \n",
 	     fnam, FITRESULT.NCALL_FCN, name, alpha,beta,gamma, 
@@ -10648,9 +10660,9 @@ void setup_CELLINFO_biasCor(int IDSAMPLE) {
     // since alpha,beta binning is fixed for all IDSAMPLEs
     printf("\n\t\t Global Alpha,Beta Binning \n"); fflush(stdout);
 
-    setup_BININFO_biasCor(IDSAMPLE, 100*INDEX_x1, MXz,
+    setup_BININFO_biasCor(IDSAMPLE, 100, MXa,  
 			  &INFO_BIASCOR.BININFO_SIM_ALPHA );     
-    setup_BININFO_biasCor(IDSAMPLE, 100*INDEX_c, MXb,
+    setup_BININFO_biasCor(IDSAMPLE, 200, MXb,
 			  &INFO_BIASCOR.BININFO_SIM_BETA );   
     setup_BININFO_biasCor(IDSAMPLE, 300, MXg,			    
 			  &INFO_BIASCOR.BININFO_SIM_GAMMADM ); 
@@ -10704,6 +10716,7 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
   //
   // Apr 30 2017: change "nbin>=MAXBIN" -> "nbin>MAXBIN" for abort trap.
   // Jul 16 2019: process SIM_gammaDM
+  // Mar 31 2020: allow 1 bin for beta as well as gamma; see OK1BIN
 
   double val_lo, val_hi, VAL_MIN, VAL_MAX, VAL_BIN;
   int nbin ;
@@ -10768,8 +10781,10 @@ void setup_BININFO_biasCor(int IDSAMPLE, int ipar_LCFIT, int MAXBIN,
   }
 
 
-  // trap errors for everyrthing but gamma; allow 1 gammaDM bin
-  if ( VAL_MAX <= VAL_MIN  && ipar_LCFIT != 300 ) {
+  // allow 1 bin for beta and gamma; but not for other params
+  bool ONEBIN = (VAL_MAX == VAL_MIN) ;
+  bool OK1BIN = ( ONEBIN && (ipar_LCFIT >= 100) ) ;
+  if ( VAL_MAX <= VAL_MIN  && !OK1BIN ) {
     sprintf(c1err,"%s VAL_MAX=%f  <=  VAL_MIN=%f", 
 	    NAME, VAL_MAX, VAL_MIN);
     sprintf(c2err,"VAL_BIN = %f \n", VAL_BIN);
@@ -10830,14 +10845,16 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
   //
   // Apr 28 2017: abort if NVAL > NBMAX
   // Jul 16 2019: allow for gammaDM
+  // Mar 31 2020: store min/max per IDSURVEY (since IDSAMPLE not yet known)
 
   double valmin_loc, valmax_loc, valbin_loc;
   double val, val_last, val1st, val2nd ;
+  double valmin_sample[MXIDSURVEY], valmax_sample[MXIDSURVEY];
   float  *ptrVal_f = NULL;
-  short int *ptrVal_index ;
-  bool   IS_GAMMADM = false ;
+  short int *ptrVal_index, *ptr_IDSURVEY ;
+  bool   IS_GRID, IS_GAMMADM = false ;
   int    irow, unsort, NVAL, NBMAX ;
-  int    ISGRID, NROW;
+  int    NROW, IDSURVEY, NONIA_INDEX ;
   char fnam[] = "get_BININFO_biasCor_alphabeta" ;
 
   // ------------- BEGIN --------------
@@ -10850,6 +10867,7 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
 
   NROW         = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
   ptrVal_index = INFO_BIASCOR.TABLEVAR.SIM_NONIA_INDEX;
+  ptr_IDSURVEY = INFO_BIASCOR.TABLEVAR.IDSURVEY ;   
   if ( strcmp(varName,"SIM_alpha") == 0 ) 
     { ptrVal_f = INFO_BIASCOR.TABLEVAR.SIM_ALPHA ; NBMAX=MXa; }
   else if ( strcmp(varName,"SIM_beta") == 0 )  
@@ -10864,6 +10882,12 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
   }
   
 
+  for(IDSURVEY=0; IDSURVEY < MXIDSURVEY; IDSURVEY++ ) {
+    valmin_sample[IDSURVEY] = +1000.0 + IDSURVEY ;
+    valmax_sample[IDSURVEY] = -1000.0 - IDSURVEY ;
+  }
+
+
   int  ORDER_SORT   = +1 ; // increasing order
   int *INDEX_UNSORT = (int*)malloc( NROW * sizeof(int) );
   sortFloat( NROW, ptrVal_f, ORDER_SORT, INDEX_UNSORT ) ;
@@ -10871,9 +10895,12 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
   val1st = val2nd = -99999. ;
   NVAL = 0;  val_last = -99999. ;
   for ( irow=0; irow < NROW; irow++ ) {
-    unsort = INDEX_UNSORT[irow];
-    val   = (double)ptrVal_f[unsort];
-    if ( ptrVal_index[unsort] != 0 ) { continue ; }
+    unsort      = INDEX_UNSORT[irow];
+    val         = (double)ptrVal_f[unsort];
+    NONIA_INDEX = ptrVal_index[unsort];
+    IDSURVEY    = (int)ptr_IDSURVEY[unsort];
+
+    if ( NONIA_INDEX != 0 ) { continue ; }
 
     if ( val > val_last ) { 
       NVAL++ ; 
@@ -10882,6 +10909,9 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
       if ( NVAL == 2 ) { val2nd = val ; }
     }
     val_last = val ;
+
+    if ( val < valmin_sample[IDSURVEY] ) { valmin_sample[IDSURVEY]=val; }
+    if ( val > valmax_sample[IDSURVEY] ) { valmax_sample[IDSURVEY]=val; }
   }
 
   // Feb 2020: if lots of gammaDM bins, allow physical distribution
@@ -10897,23 +10927,19 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
   }
 
 
-  /* xxxx mark delete Feb 22 2020 xxxxxxxxxxxxxxxxx
-  // Dec 2016: check option to use only the boundardy bins
-  if ( (INPUTS.opt_biasCor & MASK_BIASCOR_2x2ab) > 0 ) {
-    val2nd = val_last;  NVAL=2;
-  }
-  xxxxxxxxxxx end delete xxxxxxxxxxx */
-
   // ---------------------------
   if ( NVAL < 10 ) { 
-    ISGRID = 1 ; 
+    IS_GRID = true ; 
     valbin_loc = val2nd - val1st ;
     valmin_loc = val1st   - 0.5*valbin_loc ;
     valmax_loc = val_last + 0.5*valbin_loc ;
     
+    // check that GRID min & max is the same for each IDSAMPLE
+    check_abg_minmax_biasCor(varName,valmin_sample,valmax_sample);
+
   }
   else {
-    ISGRID = 0 ;  // continuous
+    IS_GRID = false ;  // continuous
     unsort = INDEX_UNSORT[0];        valmin_loc = (double)ptrVal_f[unsort];
     unsort = INDEX_UNSORT[NROW-1];   valmax_loc = (double)ptrVal_f[unsort];
 
@@ -10941,6 +10967,60 @@ void  get_BININFO_biasCor_alphabeta(char *varName,
   return ;
 
 } // end get_BININFO_biasCor_alphabeta
+
+
+// ================================================
+void check_abg_minmax_biasCor(char *varName, double *valmin_list,
+			      double *valmax_list) {
+
+  // Created Mar 31 2020
+  // If min or max is different for any IDSAMPLE, abort.
+  // This enforces requirement that alpha, beta, and gamma
+  // grid must be the same for each biasCor sub-sample.
+  //
+
+  int idsurvey ;
+  int NERR=0;
+  double valmin, valmax, valmin_ref, valmax_ref;
+  char fnam[] = "check_abg_minmax_biasCor" ;
+  // ----------- BEGIN ------------
+
+  valmin_ref = -9.0 ;
+  valmax_ref = -9.0 ;
+
+  for(idsurvey=0; idsurvey < MXIDSURVEY; idsurvey++ ) {
+    valmin = valmin_list[idsurvey];
+    valmax = valmax_list[idsurvey];
+
+    if ( valmax < -900.0 ) { continue; }
+    if ( valmin_ref == -9.0 ) { valmin_ref = valmin; }
+    if ( valmax_ref == -9.0 ) { valmax_ref = valmax; }
+
+    if ( valmin != valmin_ref ) { NERR++ ; }
+    if ( valmax != valmax_ref ) { NERR++ ; } 
+
+  }
+
+  if ( NERR > 0 ) {
+    print_preAbort_banner(fnam);        
+    printf("   IDSURVEY   SURVEY    min(%s)  max(%s) \n", varName, varName);   
+    for(idsurvey=0; idsurvey < MXIDSURVEY; idsurvey++ ) {
+      char *SURVEY = SURVEY_INFO.SURVEYDEF_LIST[idsurvey] ;
+      valmin = valmin_list[idsurvey];
+      valmax = valmax_list[idsurvey];
+      if ( valmax < -900.0 ) { continue; }
+      printf("     %2d %12s     %8.4f       %8.4f \n",  
+	     idsurvey, SURVEY, valmin, valmax);
+      fflush(stdout);
+    }
+
+    sprintf(c1err,"%d min/max errors in alpha,beta,gamma grid",	NERR);
+    sprintf(c2err,"Check min & max vs. IDSAMPLE above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );  
+  }
+
+  return ;
+} // end check_abg_minmax_biasCor
 
 // ================================================
 void get_muBias(char *NAME,

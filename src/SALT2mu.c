@@ -8668,11 +8668,11 @@ double muresid_biasCor(int ievt ) {
   g        = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt] ;
   z        = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt] ;
   logmass  = (double)INFO_BIASCOR.TABLEVAR.logmass[ievt];
-  mB     = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_mB][ievt] ; 
-  x1     = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_x1][ievt] ;
-  c      = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_c][ievt] ;
-  zTrue  = (double)INFO_BIASCOR.TABLEVAR.SIM_ZCMB[ievt];
-  muTrue = (double)INFO_BIASCOR.TABLEVAR.SIM_MU[ievt];
+  mB       = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_mB][ievt] ; 
+  x1       = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_x1][ievt] ;
+  c        = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_c][ievt] ;
+  zTrue    = (double)INFO_BIASCOR.TABLEVAR.SIM_ZCMB[ievt];
+  muTrue   = (double)INFO_BIASCOR.TABLEVAR.SIM_MU[ievt];
   
   dmHost = 0.0 ;
   if ( INPUTS.USE_GAMMA0 ) {

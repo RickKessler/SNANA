@@ -8661,10 +8661,20 @@ double muresid_biasCor(int ievt ) {
 
   // ----------------- BEGIN ----------------
 
-  M0     = INPUTS.nommag0 ;
+  bool DOBIAS_MU = ( INPUTS.opt_biasCor & MASK_BIASCOR_MU     ) ;
 
-  a        = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[ievt] ;
-  b        = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt] ;
+  M0     = INPUTS.nommag0 ;
+  //.xyz
+
+  if (DOBIAS_MU) {
+    a = INPUTS.parval[IPAR_ALPHA0];
+    b = INPUTS.parval[IPAR_BETA0];
+  } 
+  else{
+    a        = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[ievt] ;
+    b        = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt] ;
+  }
+
   g        = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt] ;
   z        = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt] ;
   logmass  = (double)INFO_BIASCOR.TABLEVAR.logmass[ievt];

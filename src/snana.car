@@ -4010,6 +4010,8 @@ c              to SNLCPAK_INIT
 c
 c Dec 19 2019: pass SIMFLAG to SNLCPAK_INIT.
 c
+c Apr 03 2020: add call to  ENVreplace(TEXTFILE_PREFIX)
+c
 c ------------------------------------------------------
 
       IMPLICIT NONE
@@ -4122,6 +4124,7 @@ c -------------------------------------------
 
 
       IF ( TEXTFILE_PREFIX .NE. ' ' ) THEN
+         CALL ENVreplace(TEXTFILE_PREFIX)
          COPT          = "new text" // char(0)
          USE_TABLEFILE_TEXT = .TRUE. 
          USE_TABLEFILE      = .TRUE.

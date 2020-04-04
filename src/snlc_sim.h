@@ -1843,7 +1843,7 @@ void   MWEBVfluxCor_to_SNDATA(int epoch) ;
 void   readme_doc(int iflag_readme);
 void   readme_doc_SIMLIB(int *iline) ;
 void   readme_doc_filterWarn(int *iline);
-void   readme_doc_hostxt(int *iline) ;
+void   readme_doc_hostxt(int *iline, GEN_EXP_HALFGAUSS_DEF *GENPROFILE) ;
 void   readme_doc_MWXT(int *iline);
 void   readme_doc_NON1ASED(int *iline);
 void   readme_doc_SIMSED(int *iline);

@@ -7683,7 +7683,10 @@ void set_MAPCELL_biasCor(int IDSAMPLE) {
 
   CELLINFO_BIASCOR[IDSAMPLE].NCELL = NCELL ;
 
-  if  ( NBINg <= 1 ) { NDIM=5; } else { NDIM=7; }
+  NDIM = 5;
+  if ( NBINg > 1 ) { NDIM++ ; }
+  if ( NBINm > 1 ) { NDIM++ ; }
+  // xxx mark del  if  ( NBINg <= 1 ) { NDIM=5; } else { NDIM=7; }
 
   printf("  %s : malloc for %d  %dD-cells for biasCor \n", fnam, NCELL, NDIM );
   fflush(stdout);
@@ -8653,6 +8656,7 @@ double muresid_biasCor(int ievt ) {
   // naive distance from Trip formula.
   //
   // Aug 22 2019: incoude dmHost term based on initial hostPar values.
+  // Apr 02 2020: for BIASCOR_MU option, a,b = user input p1,p2  
 
   double z, a, b, g, M0, mB, x1, c, logmass, dmHost, hostPar[10];
   double zTrue, muFit, muTrue, muz, muDif ;
@@ -10412,8 +10416,8 @@ int get_fitParBias(char *cid,
   
   if ( LDMP ) {
     printf("\n") ;
-    printf(" xxx\t SUM_WGT = %le   NCELL_INTERP_USE=%d (CUT=3)\n", 
-	   SUM_WGT, NCELL_INTERP_USE );
+    printf(" xxx\t SUM_WGT = %le   NCELL_INTERP_USE=%d of %d (CUT=3)\n", 
+	   SUM_WGT, NCELL_INTERP_USE, NCELL_INTERP_TOT );
     fflush(stdout);
   }
 
@@ -12508,7 +12512,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   x0        =  (double)TABLEVAR->x0[isn];  
   x1        =  (double)TABLEVAR->fitpar[INDEX_x1][isn] ;
   c         =  (double)TABLEVAR->fitpar[INDEX_c ][isn] ;  
-  logmass    =  (double)TABLEVAR->logmass[isn];
+  logmass   =  (double)TABLEVAR->logmass[isn];
   x0err     =  (double)TABLEVAR->x0err[isn] ;
   mBerr     =  (double)TABLEVAR->fitpar_err[INDEX_mB][isn] ;
   x1err     =  (double)TABLEVAR->fitpar_err[INDEX_x1][isn] ;
@@ -12540,7 +12544,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     { setbit_CUTMASK(isn, CUTBIT_c, TABLEVAR); }
 
   if ( (logmass<INPUTS.logmass_min) || (logmass>INPUTS.logmass_max) ) 
-    { setbit_CUTMASK(isn, CUTBIT_logmass, TABLEVAR); }
+    { setbit_CUTMASK(isn, CUTBIT_logmass, TABLEVAR);  }
 
   if ( x0err <= INPUTS.maxerr_abort_x0 ) { BADERR = true ; }
   if ( x1err <= INPUTS.maxerr_abort_x1 ) { BADERR = true ; }

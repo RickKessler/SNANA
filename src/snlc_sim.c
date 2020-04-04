@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
 
   // define local structures
   SIMFILE_AUX_DEF  SIMFILE_AUX ;
-  //  char fnam[] = "main"; 
+  char fnam[] = "main"; 
 
   // ------------- BEGIN --------------
 
@@ -135,7 +135,6 @@ int main(int argc, char **argv) {
     errmsg(SEV_FATAL, 0, "main", c1err, "" ); 
   }
 
-
   // prepare randome systematic shifts after reading SURVEY from SIMLIB
   prep_RANSYSTPAR() ;
 
@@ -144,7 +143,6 @@ int main(int argc, char **argv) {
     sprintf(c1err,"NGEN_LC=0 & NGENTOT_LC=0" );
     errmsg(SEV_FATAL, 0, "main", c1err, ""); 
   }
-
 
   // init version for simulated output
   init_VERSION(INPUTS.GENVERSION);
@@ -196,6 +194,7 @@ int main(int argc, char **argv) {
   if ( INPUTS.USE_KCOR_LEGACY   ) { init_kcor_legacy(INPUTS.KCOR_FILE); }
   if ( INPUTS.USE_KCOR_REFACTOR ) { init_kcor_refactor(); }
 
+
   init_genmodel();
   init_modelSmear(); 
   init_genSpec();     // July 2016: prepare optional spectra
@@ -203,6 +202,7 @@ int main(int argc, char **argv) {
 
   if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS)>0 ) 
     { rewrite_HOSTLIB_plusMags(); }
+
 
   if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSNBR)>0 ) 
     { rewrite_HOSTLIB_plusNbr(); }
@@ -213,7 +213,6 @@ int main(int argc, char **argv) {
   // check option to dump rest-frame mags
  SIMLIB_DUMP:
   if ( INPUTS.USEFLAG_DMPTREST ) { DUMP_GENMAG_DRIVER() ; }
-
 
   // check for simlib-dump
   SIMLIB_DUMP_DRIVER();
@@ -659,13 +658,6 @@ void set_user_defaults(void) {
   INPUTS.W0_LAMBDA     =  (double)w0_DEFAULT ;
   INPUTS.H0            =  (double)H0_SALT2 ;
 
-  /* xxx mark delete Mar 7 2020 xxxxxxx
-  INPUTS.OMEGA_MATTER  =  0.3 ;
-  INPUTS.OMEGA_LAMBDA  =  0.7 ;
-  INPUTS.W0_LAMBDA     = -1.0 ;
-  INPUTS.H0            = 70.0 ;
-  xxxxxxxxxxxx end mark xxxxxxxxx  */
-
   INPUTS.GENRANGE_RA[0]   = -360.0  ;
   INPUTS.GENRANGE_RA[1]   = +360.0  ;
   INPUTS.GENRANGE_DEC[0]  = -360.0  ;
@@ -774,11 +766,6 @@ void set_user_defaults(void) {
   INPUTS.BIASCOR_SALT2GAMMA_GRID[1] = -9.0 ; // max
 
   init_GENPOLY(&INPUTS.SALT2BETA_cPOLY);
-  /* xxx mark del Mar 23 2020 xxxxxxxx
-  INPUTS.SALT2BETA_cPOLY[0] = 0.0 ;
-  INPUTS.SALT2BETA_cPOLY[1] = 0.0 ;
-  INPUTS.SALT2BETA_cPOLY[2] = 0.0 ;
-  xxxxxxxxxxxxx */
 
   INPUTS.SALT2mu_FILE[0] = 0 ;  // May 2013
 
@@ -1543,7 +1530,6 @@ int read_input(char *input_file) {
 	sprintf(cpoly,"%f,%f,%f,%f", zpoly[0],zpoly[1],zpoly[2],zpoly[3]);
       }
       parse_GENPOLY(cpoly, "z", &INPUT_ZVARIATION[N].POLY, fnam);
-      // xxx delete readdouble(fp,POLYORDER_ZVAR+1,INPUT_ZVARIATION[N].ZPOLY);
       continue ; 
     }
 
@@ -2025,7 +2011,6 @@ int read_input(char *input_file) {
       { readdouble(fp, 2, INPUTS.BIASCOR_SALT2GAMMA_GRID );  continue ; }
 
     if ( uniqueMatch(c_get,"SALT2BETA_cPOLY:")   )  { 
-      // xxx mark delete  readdouble(fp, 3, INPUTS.SALT2BETA_cPOLY );  
       readchar(fp, cpoly);
       parse_GENPOLY(cpoly, "SALT2BETA_cPOLY", &INPUTS.SALT2BETA_cPOLY, fnam);
       continue ;
@@ -2056,7 +2041,6 @@ int read_input(char *input_file) {
     read_input_GENGAUSS(fp, c_get, "RV",  &INPUTS.GENGAUSS_RV );
 
     if ( uniqueMatch(c_get,"GENRANGE_AV:")  ) 
-      // xxx     { readdouble ( fp, 2, INPUTS.GENRANGE_AV ); continue ; }
       { readdouble ( fp, 2, INPUTS.GENPROFILE_AV.RANGE ); 
 	INPUTS.GENRANGE_AV[0] = INPUTS.GENPROFILE_AV.RANGE[0];//legacy
 	INPUTS.GENRANGE_AV[1] = INPUTS.GENPROFILE_AV.RANGE[1];//legacy
@@ -2065,37 +2049,27 @@ int read_input(char *input_file) {
 
     // allow old or new key for AV tau
     if ( uniqueMatch(c_get,"GENTAU_AV:") || uniqueMatch(c_get,"GENEXPTAU_AV:") ) 
-      // xxx { readdouble ( fp, 1, &INPUTS.GENEXPTAU_AV );  continue ; }
       {
 	readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.EXP_TAU ); 
 	INPUTS.GENEXPTAU_AV = INPUTS.GENPROFILE_AV.EXP_TAU ; //legacy variable
 	continue ;
       }
      
-    //xxx mark delete march 2020
-    //xxx if ( uniqueMatch(c_get,"GENEXPTAU_AV:")  ) 
-    //xxx { readdouble ( fp, 1, &INPUTS.GENEXPTAU_AV ); continue ; }
 
     if ( uniqueMatch(c_get,"GENSIG_AV:") || uniqueMatch(c_get,"GENGAUSIG_AV:") ) 
-      // xxx     { readdouble ( fp, 1, &INPUTS.GENGAUSIG_AV ); continue ; }
       {
 	readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.SIGMA );
         INPUTS.GENGAUSIG_AV = INPUTS.GENPROFILE_AV.SIGMA ; //legacy variable                              
 	continue ;
       }
 
-    //  xxx  if ( uniqueMatch(c_get,"GENGAUSIG_AV:")  ) 
-    //  xxx { readdouble ( fp, 1, &INPUTS.GENGAUSIG_AV ); continue ; }
-
     if ( uniqueMatch(c_get,"GENGAUPEAK_AV:")  ) 
-      // xxx { readdouble ( fp, 1, &INPUTS.GENGAUPEAK_AV ); continue ; }
       { readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.PEAK ); 
 	INPUTS.GENGAUPEAK_AV = INPUTS.GENPROFILE_AV.PEAK;//legacy
 	continue ; 
       } 
 
     if ( uniqueMatch(c_get,"GENRATIO_AV0:")  ) 
-      // xxx { readdouble ( fp, 1, &INPUTS.GENRATIO_AV0 ); continue ; }
       { 
 	readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.RATIO ); 
 	INPUTS.GENRATIO_AV0 = INPUTS.GENPROFILE_AV.RATIO ; //legacy
@@ -2816,7 +2790,6 @@ void  read_input_RATEPAR(FILE *fp, char *WHAT, char *KEYNAME,
 	if ( R > RATEPAR->RATEMAX ) 
 	  { RATEPAR->RATEMAX=R; bmax=b; }
       }
-      //  printf(" xxx max GALrate=%f at b=%f \n", RATEPAR->RATEMAX,bmax);
     }
     else if ( strcmp(RATEPAR->NAME,"BPOLY") == 0 ) {
       RATEPAR->INDEX_MODEL   = INDEX_RATEMODEL_BPOLY ;
@@ -2829,7 +2802,6 @@ void  read_input_RATEPAR(FILE *fp, char *WHAT, char *KEYNAME,
 	if ( R > RATEPAR->RATEMAX ) 
 	  { RATEPAR->RATEMAX=R; bmax=b; }
       }
-      //  printf(" xxx max GALrate=%f at b=%f \n", RATEPAR->RATEMAX,bmax);
     }
     else {
       sprintf(c1err,"'%s %s' is invalid", KEYNAME, RATEPAR->NAME );
@@ -2972,12 +2944,6 @@ void  sscanf_RATEPAR(int *i, char *WHAT, RATEPAR_DEF *RATEPAR) {
     RATEPAR->INDEX_MODEL   = INDEX_RATEMODEL_FLAT ;
     RATEPAR->NMODEL_ZRANGE = 1 ;
   }
-  /* xxxxxxxxxxxx mark delete Mar 30 2019 xxxxxxxx
-  else if ( strcmp(RATEPAR->NAME,RATEMODELNAME_CCS15) == 0 ) {
-    RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_CCS15 ;
-    RATEPAR->NMODEL_ZRANGE = 1 ;
-  }
-  xxxxxxxxxxxxxxxxx */
   else if ( strstr(RATEPAR->NAME,RATEMODELNAME_CCS15) != NULL ) {
     parse_multiplier(RATEPAR->NAME,RATEMODELNAME_CCS15, &TMPVAL);
     sprintf(RATEPAR->NAME,"%s", RATEMODELNAME_CCS15); // strip off scale
@@ -3412,7 +3378,7 @@ void parse_input_GENMAG_SMEAR_SCALE(FILE *fp, int *iArg, char *KEYNAME ) {
   //
 
   int i = *iArg ;
-  bool LDMP = true ;
+  bool LDMP = false ;
   char cArg[40];
   char fnam[] = "parse_input_GENMAG_SMEAR_SCALE";
 
@@ -6443,7 +6409,7 @@ void prep_user_input(void) {
   if (INPUTS.DEBUG_FLAG == 42){
 
     setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV,"AV");
-    setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST,"EBV_HOST");
+    setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST,"EBV");
 
     // if AV and EBV_HOST useflags are both set, then abort
     if (INPUTS.GENPROFILE_AV.USE && INPUTS.GENPROFILE_EBV_HOST.USE) {
@@ -10259,7 +10225,6 @@ void gen_event_driver(int ilc) {
     // pick model params AFTER redshift/host selection (4.09.2019),
     // and note that GEN_SNHOST can modify GENLC.DLMU that is used
     // for model params.
-    // xxx mark delete    gen_modelPar(ilc, OPT_FRAME_REST); 
     gen_modelPar(ilc, OPT_FRAME_OBS ); 
 
     // - - - - - - - 
@@ -10272,11 +10237,6 @@ void gen_event_driver(int ilc) {
 		    INDEX_GENMODEL == MODEL_S11DM15 ||
 		    INDEX_GENMODEL == MODEL_BYOSED 	     );
     
-    /* xxx mark delete 
-    bool DO_RV    = INPUTS.GENGAUSS_RV.PEAK > 1.0E-9 ; //added by DJB 
-    if ( (ISREST || ISNON1A || ISMISC) && DO_RV ) { GENLC.RV = gen_RV() ;  }
-    xxxxxxxx */
-
     if ( (ISREST || ISNON1A || ISMISC) && INPUTS.DO_AV ) {
       GENLC.RV = gen_RV() ; 
       if (INPUTS.DEBUG_FLAG == 42) {
@@ -15113,7 +15073,6 @@ void SIMLIB_READ_DRIVER(void) {
 
   // ------------------ BEGIN ------------------
 
-
   // Begin refactored code.
   // read next cadence and load SIMLIB_OBS_RAW array
 
@@ -15138,7 +15097,6 @@ void SIMLIB_READ_DRIVER(void) {
 
   // transfer OBS_RAW list to GEN_OBS list; cuts and MJD-sorting
   SIMLIB_prepCadence(REPEAT);
-
 
   return ;
 
@@ -15575,8 +15533,11 @@ int keep_SIMLIB_HEADER(void) {
 
 
   // check redshift window
-  if(LTRACE) {printf(" xxx %s: 8\n", fnam );}
   ptrGen = SIMLIB_HEADER.GENRANGE_REDSHIFT ;
+  if(LTRACE) {
+    printf(" xxx %s: 8 check zrange: %.3f to %.3f\n", 
+	   fnam, ptrGen[0], ptrGen[1] );
+  }
   if ( ptrGen[0] > 0.0 ) {
     icheck = check_SIMLIB_GENRANGE(INPUTS.GENRANGE_REDSHIFT, ptrGen);
     if ( icheck < 0 ) { return(REJECT_FLAG); }
@@ -25886,12 +25847,11 @@ void readme_doc(int iflag_readme) {
   strcat(cptr,"\n"); 
 
   // indicate which quantities were scaled by EXPOSURE_TIME  
-  // xxx mark delete May 2019  if ( fabsf(xtprod-1.0) > .001 ) {
-    if ( xtprod != 1.0 ) {
+  if ( xtprod != 1.0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"\t %s  exposure MSKOPT=%d => ", 
 	    INPUTS.GENFILTERS, INPUTS.EXPOSURE_TIME_MSKOPT );
-
+    
     if ( INPUTS.EXPOSURE_TIME_MSKOPT  & (1 << 0) )
       { strcat(cptr, "ZPT  "); }
     if ( INPUTS.EXPOSURE_TIME_MSKOPT  & (1 << 1) )
@@ -25990,7 +25950,15 @@ void readme_doc(int iflag_readme) {
   // --------------------------------
   // dump host extinction params
 
-  readme_doc_hostxt(&i);
+  if ( INPUTS.GENPROFILE_AV.USE )
+    { readme_doc_hostxt(&i, &INPUTS.GENPROFILE_AV); }
+  else if ( INPUTS.GENPROFILE_EBV_HOST.USE ) 
+    { readme_doc_hostxt(&i, &INPUTS.GENPROFILE_EBV_HOST); }
+  else {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"\n  Host Extinction Parameters: NONE  (AV=0) \n");    
+  }
+
 
 
   // ====================================
@@ -27160,66 +27128,56 @@ void readme_doc_filterWarn(int *iline) {
 
 
 // *******************************
-void readme_doc_hostxt(int *iline) {
+void readme_doc_hostxt(int *iline, GEN_EXP_HALFGAUSS_DEF *GENPROFILE) {
 
   // add host extinction info to README 
+  // Apr 4 2020: refactor and update to allow EBV or AV spec.
 
+  char *VARNAME = GENPROFILE->NAME;
   int i;
-  int LDMP_HOSTXT, USE_AV ;
-  char *cptr, cEXPON[40], cGAUSS[40] ;
+  char *cptr;
+  char cEXPON[40], cGAUSS[40] ;
 
   // ------------ BEGIN --------------
 
   i = *iline ;
 
-  LDMP_HOSTXT = 
-    ( GENFRAME_OPT   == GENFRAME_REST ) ||
-    ( INPUTS.NON1A_MODELFLAG > 0 )  ;
+  // write host extinct info
 
-  USE_AV = 
-    (INPUTS.GENRANGE_AV[1] > 1.0E-9 ) &&
-    (INPUTS.GENEXPTAU_AV   > 1.0E-9  || INPUTS.GENGAUSIG_AV > 1.0E-9 ) ;
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"\n  Host Extinction Parameters: \n");
 
-  if ( LDMP_HOSTXT && (USE_AV==0)  ) {
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\n  Host Extinction Parameters: NONE  (AV=0) \n");    
-  }
-
-  if ( LDMP_HOSTXT && USE_AV  ) {
-
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\n  Host Extinction Parameters: \n");
-
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf_GENGAUSS(cptr, "\t RV ", &INPUTS.GENGAUSS_RV);
-
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t Gen-Range for AV  : %4.2f to %4.2f  (model=%s) \n", 
-	    INPUTS.GENRANGE_AV[0], INPUTS.GENRANGE_AV[1], INPUTS.GENSNXT );
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf_GENGAUSS(cptr, "\t RV ", &INPUTS.GENGAUSS_RV);
   
 
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    if ( INPUTS.GENEXPTAU_AV < 50.0 ) {
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"\t Gen-Range for %s  : %4.2f to %4.2f  (model=%s) \n", 
+	  VARNAME,GENPROFILE->RANGE[0], GENPROFILE->RANGE[1], INPUTS.GENSNXT );
+  
+ 
+  
+  double TAU   = GENPROFILE->EXP_TAU;
+  double RATIO = GENPROFILE->RATIO;
+  double SIG   = GENPROFILE->SIGMA;
 
-      cEXPON[0] = 0 ;
-      cGAUSS[0] = 0 ;
-      if ( INPUTS.GENEXPTAU_AV > 1.0E-9 ) 
-	{ sprintf(cEXPON,"exp(-AV/%4.2f)/tau", 
-		  INPUTS.GENEXPTAU_AV ); 
-	}
-      if ( INPUTS.GENGAUSIG_AV > 1.0E-9 ) 
-	{ sprintf(cGAUSS,"%4.2f x Gauss(AV,sig=%4.2f)",
-		  INPUTS.GENRATIO_AV0, INPUTS.GENGAUSIG_AV ); 
-	}
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  if ( TAU < 50.0 ) {
+    
+    sprintf(cEXPON,"ExpNONE");
+    sprintf(cGAUSS,"GaussNONE");
 
-      sprintf(cptr,"\t dN/dAv = %s + %s \n", cEXPON, cGAUSS ); 
-    }
-    else  { 
-      sprintf(cptr,"\t dN/dAv = flat \n");  // Rodney request (Oct 2012)
-    }
-
-  }  // end of SALT2/color/dust if-block
-
+    if ( TAU > 1.0E-9 ) 
+      { sprintf(cEXPON,"exp(-%s/%4.2f)", VARNAME, TAU );   }
+    if ( INPUTS.GENGAUSIG_AV > 1.0E-9 ) 
+      { sprintf(cGAUSS,"%4.2f x Gauss(%s,sig=%4.2f)", RATIO, VARNAME,SIG );  }
+    
+    sprintf(cptr,"\t dN/d%s = %s + %s \n", VARNAME, cEXPON, cGAUSS ); 
+  }
+  else  { 
+    sprintf(cptr,"\t dN/d%s = flat \n", VARNAME ); 
+  }
+  
 
   *iline = i ;
 

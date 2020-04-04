@@ -877,7 +877,7 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
   
   HOSTLIB_WGTMAP.WGTMAX = HOSTLIB_WGTMAP.GRIDMAP.FUNMAX[0];
 
-  if ( INPUTS.DEBUG_FLAG = 111 ) 
+  if ( INPUTS.DEBUG_FLAG == 111 ) 
     { HOSTLIB_WGTMAP.WGTMAX = 1.0 ; } // xxx REMOVE AFTER DEBUG
 
   // update global counter

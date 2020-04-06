@@ -6384,8 +6384,14 @@ void prep_user_input(void) {
 
   // xxx mark delete after refactor -----------------------------
   
-  if (INPUTS.DEBUG_FLAG != 42){
-  
+  if (INPUTS.DEBUG_FLAG == 42){
+    sprintf(c1err,"DEBUG_FLAG == 42 is depricated");
+    c2err[0] = 0;
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+  if (INPUTS.DEBUG_FLAG == 41){
+    // this is legacy code
+
     bool DO_AVTAU = INPUTS.GENEXPTAU_AV     > 1.0E-9 ;
     bool DO_AVSIG = INPUTS.GENGAUSIG_AV     > 1.0E-9 ;
     bool DO_AV    = INPUTS.GENRANGE_AV[1]   > 1.0E-9 ;
@@ -6406,22 +6412,19 @@ void prep_user_input(void) {
   }
   // xxx end mark delete ------------------------------------------
 
-  if (INPUTS.DEBUG_FLAG == 42){
 
-    setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV,"AV");
-    setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST,"EBV");
+  setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV,"AV");
+  setUseFlag_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST,"EBV");
 
-    // if AV and EBV_HOST useflags are both set, then abort
-    if (INPUTS.GENPROFILE_AV.USE && INPUTS.GENPROFILE_EBV_HOST.USE) {
-      sprintf(c1err,"Not allowed to generate both AV and EBV_HOST");
-      sprintf(c2err,"Check input file.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-    }
-
-    INPUTS.DO_AV = (INPUTS.GENPROFILE_AV.USE || INPUTS.GENPROFILE_EBV_HOST.USE 
-      || DO_WV07 || DO_GRID) ;
-
+  // if AV and EBV_HOST useflags are both set, then abort
+  if (INPUTS.GENPROFILE_AV.USE && INPUTS.GENPROFILE_EBV_HOST.USE) {
+    sprintf(c1err,"Not allowed to generate both AV and EBV_HOST");
+    sprintf(c2err,"Check input file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
+
+  INPUTS.DO_AV = (INPUTS.GENPROFILE_AV.USE || INPUTS.GENPROFILE_EBV_HOST.USE 
+		  || DO_WV07 || DO_GRID) ;
   
 
 
@@ -6689,7 +6692,7 @@ void prep_user_input(void) {
     }
   }
 
-  if ( INPUTS.DEBUG_FLAG == 3 || INPUTS.RESTORE_DES3YR ) {
+  if ( INPUTS.RESTORE_DES3YR ) {
     INPUTS.RESTORE_HOSTLIB_BUGS = true ;
     INPUTS.RESTORE_FLUXERR_BUGS = true ;
     printf("\t Restore bugs for DES3YR analysis.\n");
@@ -10239,10 +10242,10 @@ void gen_event_driver(int ilc) {
     
     if ( (ISREST || ISNON1A || ISMISC) && INPUTS.DO_AV ) {
       GENLC.RV = gen_RV() ; 
-      if (INPUTS.DEBUG_FLAG == 42) {
-	GENLC.AV = gen_AV() ;  //DJB March 20 2020: Adding new way to sim EBV.
+      if (INPUTS.DEBUG_FLAG == 41) {
+	GENLC.AV = gen_AV_legacy() ; //legacy code
       } else {
-	GENLC.AV = gen_AV_legacy() ;
+        GENLC.AV = gen_AV() ;  //DJB March 20 2020: Adding new way to sim EBV.      
       }
     }
 
@@ -21859,7 +21862,7 @@ void init_genmodel(void) {
     // model-specific init
     OPTMASK = 0; 
     if ( INPUTS.LEGACY_colorXTMW_SALT2 ) { OPTMASK += 128 ; }
-    if ( INPUTS.DEBUG_FLAG == 64 )       { OPTMASK +=  64 ; } // ABORT on bad lamRange
+    //xxx mark delete:  if ( INPUTS.DEBUG_FLAG == 64 )       { OPTMASK +=  64 ; } // ABORT on bad lamRange
  
     istat = init_genmag_SALT2(GENMODEL, GENMODEL_EXTRAP, OPTMASK) ;
 

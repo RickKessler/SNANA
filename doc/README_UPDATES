@@ -18255,6 +18255,8 @@
  
     snana.car:
       + call ENVreplace(TEXTFILE_PREFIX)
+      + for SIMLIB_OUT option, extend SKY noise estimates into
+        J,H,K bands using Table 3 from https://arxiv.org/pdf/0809.4988.pdf
 
     sntools_host.c
       + fix evil bug setting DEBUG_FLAG = 111 instead of testing
@@ -18262,5 +18264,7 @@
 
     snlc_sim.c
      + fix readme_doc_hostxt() to write AV or EBV info.
+
+    new script: $SNANA_DIR/util/translate_CSPDR3.py
 
 END: 

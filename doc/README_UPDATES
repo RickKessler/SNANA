@@ -18265,6 +18265,9 @@
       + fix evil bug setting DEBUG_FLAG = 111 instead of testing
         DEBUG_FLAG==111. Messes up other DEBUG_FLAG settings.
 
+    sntools_host.h
+      + MXWGT_HOSTLIB -> 50,000 (was 5,000)
+
     snlc_sim.c
      + fix readme_doc_hostxt() to write AV or EBV info.
      + remove DEBUG_FLAG==42 wrapper for refactored code to allow EBV

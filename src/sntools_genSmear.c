@@ -2845,14 +2845,17 @@ void init_genSmear_OIR(char *VERSION) {
 
   //  debugexit(fnam); // DDDDDDD
 
+  /* xxx mark delete (RK) since this is done in init_genSmear_randoms
   GENSMEAR.NGEN_RANGauss = NBAND_OIR ;
   GENSMEAR.NGEN_RANFlat  = 0 ;
+  xxxxxxxxxxxxxx */
 
   // ----------------------------
   // store number of randoms to generate.
 
-  int NRANGauss = NBAND_OIR; //NCOLOR + 1; // each color + sigma_Coh
-  int NRANFlat  = 0; //1 ;  // pick v_Si
+
+  int NRANGauss = NBAND_OIR + 1 ; //NCOLOR  + COH
+  int NRANFlat  = 0;
   init_genSmear_randoms(NRANGauss,NRANFlat);
 
   return;
@@ -2867,21 +2870,24 @@ void get_genSmear_OIR(double Trest, int NLam, double *Lam,
 
   // Created Aug 30 2019 by R.Kessler and D.Jones
   //
+
+  int NBAND           = GENSMEAR_OIR.NBAND_OIRDEF ;
+  double RANGauss_COH = GENSMEAR.RANGauss_LIST[NBAND];
+
+  int    ilam, i, j, IFILT ;
+  double lam, tmp, SCATTER_VALUES[NBAND_OIR], LAMCEN[NBAND_OIR] ;
+  double SCATTER_COH;
   char fnam[] = "get_genSmear_OIR";
 
   // ---------------- BEGIN -----------------
 
-  // illustrate error utility:
-  //sprintf(c1err,"genSmear_OIR model not ready.");
-  //sprintf(c2err,"Do some coding !");
-  //errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  // RK - start with coherent scatter
+  SCATTER_COH = GENSMEAR_OIR.SIGMACOH * RANGauss_COH ;
 
-  int    ilam, i, j, IFILT, NBAND ;
-  double lam, tmp, SCATTER_VALUES[NBAND_OIR], LAMCEN[NBAND_OIR] ;
-
-  //uBgriYJH filter wavelengths from https://csp.obs.carnegiescience.edu/data/filters
+  //uBgriYJH filter wavelengths from 
+  //   https://csp.obs.carnegiescience.edu/data/filters
   //from Swope site2 and RetroCam
-  NBAND = GENSMEAR_OIR.NBAND_OIRDEF ; // number of OIR model bands
+
   for (i = 0 ; i < NBAND ; i++) 
     { LAMCEN[i] = GENSMEAR_OIR.ORDERED_LAMCEN[i] ;  }
 
@@ -2924,7 +2930,7 @@ void get_genSmear_OIR(double Trest, int NLam, double *Lam,
 
     }
 
-    magSmear[ilam] = tmp ;
+    magSmear[ilam] = tmp + SCATTER_COH ;
 
   }
 
@@ -2990,8 +2996,9 @@ void read_OIR_INFO(void) {
     if ( strcmp(c_get,"COLOR_SIGMA_SCALE:") == 0  ) 
       { readdouble(fp, 0, &GENSMEAR_OIR.COLOR_SIGMA_SCALE ); }
     
-    if ( strcmp(c_get,"SIGMACOH_MB:") == 0  ) 
-      { readdouble(fp, 1, &GENSMEAR_OIR.SIGMACOH_MB); }
+    if ( strcmp(c_get,"SIGMACOH_MB:") == 0  ||
+	 strcmp(c_get,"SIGMACOH:"   ) == 0 ) 
+      { readdouble(fp, 1, &GENSMEAR_OIR.SIGMACOH); }
 
     
   } // end while
@@ -3084,7 +3091,7 @@ void  prep_OIR_COVAR(void) {
       S1  = GENSMEAR_OIR.COLOR_SIGMA[ic1] ;
       S2  = GENSMEAR_OIR.COLOR_SIGMA[ic2] ;
       COV = (S1 * S2 * rho) ;
-      printf("hiiiiiiiiiii8 %f\n",S1);
+      // xxx      printf("hiiiiiiiiiii8 %f\n",S1);
       N++ ;
 
     }  // ic2

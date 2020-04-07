@@ -248,7 +248,7 @@ struct GENSMEAR_OIR {
   int      NCOLOR ;
   char     COLOR_STRING[NBAND_OIR][8];  
   double   COLOR_SLOPE[NBAND_OIR] ;
-  double   SIGMACOH_MB ;
+  double   SIGMACOH ;
   double   COLOR_SIGMA_SCALE ; // multiplies all the COLOR_SIGMA values.
   double   COLOR_SIGMA[NBAND_OIR] ;
   double   COLOR_CORMAT[NBAND_OIR][NBAND_OIR] ;

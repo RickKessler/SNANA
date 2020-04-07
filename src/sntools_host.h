@@ -30,6 +30,8 @@
    +  NZPTR_HOSTLIB -> HOSTLIB.NZPTR is a variable (not constant param) 
        computed from MAX/MIN LOGZ (no longer hard-wired)
 
+ Apr 7 2020: MXWGT_HOSTLIB -> 50,000 (was 5,000)
+
 ==================================================== */
 
 #define HOSTLIB_MSKOPT_USE           1 // internally set if HOSTLIB_FILE
@@ -51,7 +53,7 @@
 #define MXCHAR_LINE_HOSTLIB 600  // max number of chars per HOSTLIB line
 #define MXVAR_HOSTLIB       200  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
-#define MXWGT_HOSTLIB      5000  // max number of WGT: keys
+#define MXWGT_HOSTLIB     50000  // max number of WGT: keys
 #define MXCHECK_WGTMAP     1000  // max no. galaxies to check wgt map
 #define MALLOCSIZE_HOSTLIB 40000 // incremental size of internal HOSTLIB array
 #define MXCOMMENT_HOSTLIB  40    // max number of lines for README file

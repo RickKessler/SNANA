@@ -8618,7 +8618,7 @@ void init_modelSmear(void) {
     {  init_genSmear_OIR() ; }
     xxxxxxxxxxxx */
 
-  else if ( strstr(ptrName,"OIR.") == 0 ) 
+  else if ( strstr(ptrName,"OIR.") != NULL ) 
     {  init_genSmear_OIR(ptrName) ; }
 
   else if ( strstr(ptrName,"COVSED.") != NULL ) 

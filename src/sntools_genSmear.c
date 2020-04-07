@@ -141,7 +141,6 @@ void  init_genSmear_FLAGS(int MSKOPT, char *SCALE_STRING) {
 
   GENSMEAR.NSET_RANGauss  = 0 ;
   GENSMEAR.NSET_RANFlat   = 0 ;
-  // xxx mark del  GENSMEAR.SCALE          = SCALE ; // Oct 9 2018
   GENSMEAR.MSKOPT         = MSKOPT ; // Oct 2019
 
   // hard-wire wavelengths to monitor COVARIANCE between 
@@ -2728,7 +2727,7 @@ void get_genSmear_private(double Trest, int NLam, double *Lam,
 
 
 // ***************************************
-void init_genSmear_OIR(char *version) {
+void init_genSmear_OIR(char *VERSION) {
 
   // Created Aug 30 2019 by R.Kessler and D.Jones
   // Optical+IR smear model based on CfA and CSP.
@@ -2736,12 +2735,11 @@ void init_genSmear_OIR(char *version) {
   //
   // version: e.g., $PATH/OIR.v1
   //
-  // Apr 6 2020 RK - pass version argument 
+  // Apr 6 2020 RK - pass VERSION argument 
   //
-  char fnam[] = "init_genSmear_OIR";
-  char *OIR_version = "OIR.J19";
-  char *path ;
-  
+
+  char *PATH = GENSMEAR_OIR.MODELPATH ;
+  char version[100];
   char FILTERS_OIR[NBAND_OIR+1] = "BgriYJH" ;
   
   double COV_DIAG_FUDGE = 1.0E-9 ; // needed to be invertible
@@ -2751,25 +2749,35 @@ void init_genSmear_OIR(char *version) {
 
   double CC, COVred, tmp, covscale_v ;
   int i,j, N ;
-  int LDMPCOV = 1; // RK - Nov 5 2019
+  int LDMPCOV = 0; 
   gsl_matrix_view chk;  
+
+  char fnam[] = "init_genSmear_OIR";
 
   // --------------- BEGIN ---------------
 
   GENSMEAR_OIR.USE = 1;    GENSMEAR.NUSE++ ;
 
+  // ------------------------------------
+  // get path and filenames to parse.
+  // Note that VERSION may include full path.
+  // Returned version is just the OIR.ABC part.
+
+  extract_MODELNAME(VERSION,          // input may include full path
+		    PATH, version);   // returned
+  
+  // if no path is given, use default path under SNDATA_ROOT
+  if ( strlen(PATH) == 0 ) {
+    sprintf(PATH,"%s/models/OIR/%s", PATH_SNDATA_ROOT, version ) ;  
+  }
+
   // read in covmat from file - using utilities from VCR model
-  printf("\t Init OIR smear model: %s\n", OIR_version );
+  printf("\t Init OIR smear model: %s\n", version );
   fflush(stdout);
 
 
-  // ------------------------------------
-  // get path and filenames to parse
-  sprintf( PATH_SNDATA_ROOT, "%s", getenv("SNDATA_ROOT") );
-  path = GENSMEAR_OIR.MODELPATH ;
-  sprintf(path,"%s/models/OIR/%s", PATH_SNDATA_ROOT, OIR_version ) ;  
-  sprintf(GENSMEAR_OIR.INFO_FILE, "%s/OIR.INFO", path);
-  printf("\t Read model info from :\n\t\t %s\n", path); 
+  sprintf(GENSMEAR_OIR.INFO_FILE, "%s/OIR.INFO", PATH );
+  printf("\t Read model info from :\n\t\t %s\n", GENSMEAR_OIR.INFO_FILE ); 
   fflush(stdout);
 
   // -------------------------------------
@@ -2800,7 +2808,6 @@ void init_genSmear_OIR(char *version) {
       if ( LDMPCOV ) { printf(" %7.4f\n",COVred); }
       
       CC           = GENSMEAR_OIR.COLOR_SIGMA[i] * GENSMEAR_OIR.COLOR_SIGMA[j];
-      //      printf("xxxxxxxxxx2 %7.7f\n",CC);
       
       if ( i == j ) { CC += COV_DIAG_FUDGE ; }
       COVAR2[i][j] = COVred * CC ;
@@ -3096,7 +3103,7 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
   //
   // Feb 17 2020: use CHOLESKY_DECOMP_DEF struct 
 
-  // xxx mark delete  gsl_matrix_view chk;  
+
   double COV_DIAG_FUDGE = 1.0E-9 ; // needed to be invertible
   char *covFileName = (char*)malloc(MXPATHLEN*sizeof(char) ) ;
   char *ptrPATH = GENSMEAR_COVSED.MODEL_PATH;
@@ -3168,24 +3175,6 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
   
   printf("\t Prepare Cholesky decomp. \n"); fflush(stdout);
   init_Cholesky(+1, &GENSMEAR_COVSED.DECOMP);
-
-  /* xxxx mark delete xxxxxxxxxx
-  chk  = gsl_matrix_view_array ( GENSMEAR_COVSED.COVMAT1D, NBIN, NBIN);
-  gsl_linalg_cholesky_decomp(&chk.matrix) ;
-
-  // load cholesly matrix
-  GENSMEAR_COVSED.Cholesky = (double**) malloc(NBIN*sizeof(double*));
-  for (i =0; i < NBIN ; i++){    
-    GENSMEAR_COVSED.Cholesky[i] = (double*) malloc(NBIN*sizeof(double));
-    for (j = 0; j < NBIN ; j++) { 
-      if ( j >= i ) 
-	{ GENSMEAR_COVSED.Cholesky[i][j] = gsl_matrix_get(&chk.matrix,i,j); }
-      else
-	{ GENSMEAR_COVSED.Cholesky[i][j] = 0.0 ; }
-    }
-  }
-  xxxxxxxx end mark xxxxxxxx */
-
 
   // allocate array to use in gen_magSmear_COV
   GENSMEAR_COVSED.SCATTER_VALUES = (double*) malloc(NBIN*sizeof(double) );
@@ -3428,17 +3417,6 @@ void get_genSmear_COVSED(double Trest, int NWAVE, double *WAVE,
   char fnam[] = "get_genSmear_COVSED";
 
   // ---------------- BEGIN -----------------
-
-  /* xxxxxxxx mark delete Feb 17 2020 xxxxxxxxx
-  //Matrix Multiply scatter_values = ch^T normalvector
-  for (i = 0 ; i < NBIN_WAVE ; i++) {    
-    GENSMEAR_COVSED.SCATTER_VALUES[i] = 0.0 ;  
-    for (j = 0 ; j < NBIN_WAVE ; j++){
-      GENSMEAR_COVSED.SCATTER_VALUES[i] += 
-	(GENSMEAR_COVSED.Cholesky[j][i] * GENSMEAR.RANGauss_LIST[j]) ;
-    }
-  }
-  xxxxxxxxx end mark xxxxxxxxxx*/
 
 
   // Feb 17 2020: new utility to fetch correlated randoms
@@ -3764,25 +3742,6 @@ void  init_genSmear_phaseCor(double magSmear, double expTau) {
 
   // printf("\t Prepare PhaseCor Cholesky decomp. \n"); fflush(stdout);
   init_Cholesky(+1, &GENSMEAR_PHASECOR.DECOMP);
-
-
-  /* xxxxxxxxxx Feb 17 2020  mark delete
-  gsl_matrix_view chk;  
-  chk = gsl_matrix_view_array ( COVMAT1D, NBIN, NBIN);
-  gsl_linalg_cholesky_decomp(&chk.matrix) ;
-  // load cholesly matrix
-  GENSMEAR_PHASECOR.Cholesky = (double**) malloc(NBIN*sizeof(double*));
-  for (i =0; i < NBIN ; i++){    
-    GENSMEAR_PHASECOR.Cholesky[i] = (double*) malloc(NBIN*sizeof(double));
-    for (j = 0; j < NBIN ; j++) { 
-      if ( j >= i ) 
-	{ GENSMEAR_PHASECOR.Cholesky[i][j] = gsl_matrix_get(&chk.matrix,i,j);}
-      else
-	{ GENSMEAR_PHASECOR.Cholesky[i][j] = 0.0 ; }
-    }
-  }
-  xxxxxxxxxxx end mark xxxxxxxxxx */
-
 
   //  debugexit(fnam);
 

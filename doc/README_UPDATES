@@ -18258,6 +18258,9 @@
       + for SIMLIB_OUT option, extend SKY noise estimates into
         J,H,K bands using Table 3 from https://arxiv.org/pdf/0809.4988.pdf
 
+    snlc_fit.car
+      + apply AV prior for SNOOPY (same as for mkcs2k2)
+
     sntools_host.c
       + fix evil bug setting DEBUG_FLAG = 111 instead of testing
         DEBUG_FLAG==111. Messes up other DEBUG_FLAG settings.
@@ -18273,5 +18276,6 @@
       + pass version to init_genSmear_OIR(version)
         Argument of GENMAG_SMEAR_MODELNAME must be of the
         form$PATH/OIR.[suffix]
-
+ 
+       
 END: 

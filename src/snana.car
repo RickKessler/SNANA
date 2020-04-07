@@ -1560,7 +1560,7 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_NSEASON_ACTIVE = 29  ! May 2019
      &  ,CUTBIT_REQEP          = 30  ! required epochs (9/17/2017)
      &  ,CUTBIT_PRIVATE        = 31  ! all private-var cuts
-     &  ,CUTBIT_SIMVAR        = 32  ! 
+     &  ,CUTBIT_SIMVAR         = 32  ! 
      &  ,CUTBIT_USRCUTS        = 33  ! PASS_USRCUTS=T
      &  ,CUTBIT_OFFSET_SBFLUX  = 34  ! Mar 2012
      &  ,CUTBIT_OFFSET_SNRMAX  = 34 + MXFILT_SNRMAX

@@ -7928,6 +7928,9 @@ c Mar 24, 2012: set bound on AV and DELTA (for photoz fit)
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SNOOPY ) THEN
 
          INIVAL(IPAR_SHAPE)    =  1.1
+         INISTP(IPAR_SHAPE)    =  0.3
+         INIVAL(IPAR_COLOR)    =  INIVAL_AV
+         INISTP(IPAR_COLOR)    =  INISTP_AV
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
 
@@ -10303,6 +10306,8 @@ c Feb 02, 2013: replace HBOOK and HF1 with SNHIST_XXX utilities
 c
 c Apr 2 2018: call FITINI_FLATPRIOR for color
 c
+c Apr 7 2020: init AV prior for SNOOPY as well as MLCS2k2
+c
 c ------------------------
 
       IMPLICIT NONE
@@ -10399,7 +10404,8 @@ c
 
 c now turn on prior(s) specific to model
 
-      IF ( FITMODEL_INDEX .EQ. MODEL_MLCS2k2 ) THEN
+      IF ( FITMODEL_INDEX .EQ. MODEL_MLCS2k2 .or. 
+     &     FITMODEL_INDEX .EQ. MODEL_SNOOPY ) THEN
         CALL FITINI_AVPRIOR(LSTAT)
         IF ( LSTAT ) THEN
            NPRIOR = NPRIOR + 1
@@ -11722,7 +11728,6 @@ c local var
 
       LOGICAL USE_SIMEFF
 
-
 c function
       INTEGER  INIT_SIMEFFMAP, STORE_PARSE_WORDS
       EXTERNAL INIT_SIMEFFMAP, STORE_PARSE_WORDS
@@ -11808,7 +11813,7 @@ c check other variables that are not in the fit-par list
 
 
       IF ( FITMODEL_INDEX == MODEL_MLCS2k2 .and. USE_TABLEFILE ) THEN
-        CALL MON_SIMEFF
+        CALL MON_SIMEFF()
       ENDIF
 
       RETURN

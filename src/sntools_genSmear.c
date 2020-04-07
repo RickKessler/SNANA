@@ -2728,12 +2728,16 @@ void get_genSmear_private(double Trest, int NLam, double *Lam,
 
 
 // ***************************************
-void init_genSmear_OIR(void) {
+void init_genSmear_OIR(char *version) {
 
   // Created Aug 30 2019 by R.Kessler and D.Jones
   // Optical+IR smear model based on CfA and CSP.
   // Very similar to Chotard11 method
-  
+  //
+  // version: e.g., $PATH/OIR.v1
+  //
+  // Apr 6 2020 RK - pass version argument 
+  //
   char fnam[] = "init_genSmear_OIR";
   char *OIR_version = "OIR.J19";
   char *path ;

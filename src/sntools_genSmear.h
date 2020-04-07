@@ -26,7 +26,7 @@ void  init_genSmear_VCR(char *VCR_version, int index_SNmodel);
 void  init_genSmear_CCM89(double *LAMRANGE) ;
 void  init_genSmear_COH(char *stringArg) ;
 void  init_genSmear_biModalUV(void) ;
-void  init_genSmear_OIR(void);
+void  init_genSmear_OIR(char *OIR_version);
 void  init_genSmear_COVSED(char *COVSED_version, int OPTMASK);
 void  parse_COVSED_INFO_FILE(void);
 void  readFits_genSmear_COVSED(char *covFileName);

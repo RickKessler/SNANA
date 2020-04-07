@@ -18264,7 +18264,14 @@
 
     snlc_sim.c
      + fix readme_doc_hostxt() to write AV or EBV info.
+     + remove DEBUG_FLAG==42 wrapper for refactored code to allow EBV
+       DEBUG_FLAG=41 uses legacy code.
 
-    new script: $SNANA_DIR/util/translate_CSPDR3.py
+    $SNANA_DIR/util/translate_CSPDR3.py -> new script.
+
+    sntools_genSmear.c
+      + pass version to init_genSmear_OIR(version)
+        Argument of GENMAG_SMEAR_MODELNAME must be of the
+        form$PATH/OIR.[suffix]
 
 END: 

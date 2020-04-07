@@ -8613,8 +8613,13 @@ void init_modelSmear(void) {
   else if ( strcmp(ptrName,"BIMODAL_UV") == 0 ) 
     {  init_genSmear_biModalUV() ; }
 
+  /* xxxx mark del Apr 6 2020 xxxxxxxx
   else if ( strcmp(ptrName,"OIR") == 0 ) 
     {  init_genSmear_OIR() ; }
+    xxxxxxxxxxxx */
+
+  else if ( strstr(ptrName,"OIR.") == 0 ) 
+    {  init_genSmear_OIR(ptrName) ; }
 
   else if ( strstr(ptrName,"COVSED.") != NULL ) 
     {  init_genSmear_COVSED(ptrName,0); }

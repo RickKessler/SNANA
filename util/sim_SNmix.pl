@@ -206,6 +206,9 @@
 # Mar 24 2020: fix so that SIMGEN_INFILE_Ia need not be global if
 #              there is a SIMGEN_INFILE_Ia for each GENVERSION
 #
+# Apr 7 2020:
+#    leave FAILURE message in DONE stamp if SBATCH file does not exist.
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -363,7 +366,7 @@ my $MOI4 = substr($MOI,0,4);
 my $PREFIX_TEMP  = "TMP_${MOI4}" ;
 my $SUFFIX_DUMP_TEMP = "DUMP_TEMP" ;
 
-my $BATCH_TEMPLATE_KICP = '$StBATCH_TEMPLATES/SBATCH_kicp.TEMPLATE' ;
+my $BATCH_TEMPLATE_KICP = '$SBATCH_TEMPLATES/SBATCH_kicp.TEMPLATE' ;
 
 my $OPT_GENSTAT_TABLE_plusLINKS = 1;
 my $OPT_GENSTAT_TABLE_noLINKS   = 2;
@@ -546,7 +549,6 @@ sub SUBMIT_NODES {
 	$NCPU = $NJOBTOT ;  
     }
 
-
     &set_timeStamp();  # set Nsec5 = number of seconds since midnight
 
     # determine key based on SSH or BATCH system
@@ -563,6 +565,12 @@ sub SUBMIT_NODES {
     if ( length($SNANA_MODELPATH) > 0 ) 
 	{ $cmdSetup = "$cmdSetup ; $ENVDEF_MODELPATH" ; }
    
+
+    if ( $BATCH_NCORE && !(-e $BATCH_TEMPLATE)  ) {
+	$MSGERR[0] = "Cannot find BATCH template file";
+	$MSGERR[1] = "$BATCH_TEMPLATE";
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);  
+    }
 
     print "\n";
     print " Split SIMGEN jobs by nodes: \n";

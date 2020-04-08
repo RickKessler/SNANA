@@ -7,7 +7,7 @@ import sys
 from scipy.interpolate import RectBivariateSpline,interp1d,interp2d,interpn
 from ast import literal_eval
 from scipy.stats import rv_continuous,gaussian_kde,norm as normal
-from copy import copy
+from copy import copy,deepcopy
 import pickle
 
 if not hasattr(sys, 'argv'):
@@ -85,7 +85,15 @@ class genmag_BYOSED:
 
 				fluxarr = flux.reshape([len(np.unique(phase)),len(np.unique(wave))])
 				self.norm =float(config['MAIN']['NORM']) if 'NORM' in config['MAIN'].keys() else -19.365
-				
+				self.alpha=float(config['MAIN']['ALPHA']) if 'ALPHA' in config['MAIN'].keys() else 0.14
+				self.beta=float(config['MAIN']['BETA']) if 'BETA' in config['MAIN'].keys() else 3.1
+
+				typ=config['MAIN']['SNTYPE'] if 'SNTYPE' in config['MAIN'].keys() else 'IA'
+				if typ=='IA':
+					self.is_Ia=True
+				else:
+					self.is_Ia=False
+
 				#self.x0=10**(.4*19.365)
 				self.x0=10**(-.4*self.norm)
 				
@@ -103,29 +111,7 @@ class genmag_BYOSED:
 
 				self.sedInterp=interp2d(self.phase,self.wave,self.flux.T,kind='linear',bounds_error=True)
 				
-				self.B_Band = self.options.bBand
-				self.noRescale = True if 'NORESCALE' in config['MAIN'].keys() and config['MAIN']['NORESCALE'].upper()=='TRUE' else False
-				try:
-					self.B_wave,self.B_trans = np.loadtxt(self.B_Band,unpack=True)
-				except:
-					print("Issue with B band file provided, switching to default...")
-					self.B_Band = os.path.join(os.environ['SNDATA_ROOT'],'filters','Bessell90','Bessell90_K09','Bessell90_B.dat')
-					self.B_wave,self.B_trans = np.loadtxt(self.B_Band,unpack=True)
-				trans_func=interp1d(self.B_wave,self.B_trans)
-				self.B_int_wave = self.wave[np.where(np.logical_and(self.wave>=self.B_wave.min(),self.wave<=self.B_wave.max()))[0]]
-				self.B_int_dwave = self.wave[1]-self.wave[0]
-				self.B_wave_inds=np.array([np.where(self.wave==x)[0][0] for x in self.B_int_wave])
 				
-				self.B_int_trans=trans_func(self.B_int_wave)
-				
-				self.mB = self.calc_mB(self.sedInterp(0,self.B_int_wave).flatten())
-				self.effect_mB=None
-				
-				#fluxsmear=self.fetchSED_BYOSED([0],5000,1,1,[0 for x in range(len(self.host_param_names))])
-				#import pickle
-				#with open('/project2/rkessler/SURVEYS/WFIRST/USERS/jpierel/byosed/fluxsmear.dat','wb') as f:
-				#	pickle.dump([self.wave,fluxsmear],f)
-
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
 				print('Python Error :',e)
@@ -206,8 +192,8 @@ class genmag_BYOSED:
 						raise RuntimeError("Do not recognize format of function for %s SN Function"%warp)
 					if warp.upper() in sn_param_names and 'PARAM' not in distribution.keys():
 						raise RuntimeError("Must supply parameter distribution for SN effect %s"%warp)
-					sn_scale_parameter=distribution['SCALE']()[0]
-					warp_parameter=distribution['PARAM']()[0] if 'PARAM' in distribution.keys() else None
+					sn_scale_parameter=distribution['SCALE'](-1)
+					warp_parameter=distribution['PARAM'](-1) if 'PARAM' in distribution.keys() else None
 					if warp.upper() in sn_param_names and warp_parameter is None:
 						raise RuntimeError("Woops, you are not providing a PARAM distribution for your %s effect."%warp.upper())
 
@@ -234,8 +220,8 @@ class genmag_BYOSED:
 					if warp.upper() in host_param_names and 'PARAM' not in distribution.keys() and warp.upper() not in self.host_param_names:
 						raise RuntimeError("Must supply parameter distribution for HOST effect %s"%warp)
 
-					host_scale_parameter=distribution['SCALE']()[0]
-					warp_parameter=distribution['PARAM']()[0] if 'PARAM' in distribution.keys() else None
+					host_scale_parameter=distribution['SCALE'](-1)
+					warp_parameter=distribution['PARAM'](-1) if 'PARAM' in distribution.keys() else None
 					if warp.upper() in host_param_names and warp_parameter is None and warp.upper() not in self.host_param_names:
 						raise RuntimeError("Woops, you are not providing a PARAM distribution for your %s effect."%warp.upper())
 					host_dict[warp]=WarpModel(warp_function=host_function,
@@ -308,39 +294,23 @@ class genmag_BYOSED:
 
 
 			for warp in [x for x in self.warp_effects]:# if x!='COLOR']:
-				if mB_calc and self.sn_effects[warp].scale_type!='outer':
-					continue
 				try: #if True:
 					
 					if newSN:
-						if not self.noRescale:
-							self.effect_mB=None
-							self.mB=self.calc_mB(self.sedInterp(0,self.B_int_wave).flatten()*10**(-0.4*(self.magsmear+self.magoff)))
+						z=hostpars[self.host_param_names.index('z')] if 'z' in self.host_param_names else None
+						print(self.host_param_names)
 						if warp in self.sn_effects.keys():
-							self.sn_effects[warp].updateWarp_Param()
-							self.sn_effects[warp].updateScale_Param()
+							self.sn_effects[warp].updateWarp_Param(z)
+							self.sn_effects[warp].updateScale_Param(z)
 							if warp in self.host_effects.keys():
-								self.host_effects[warp].updateWarp_Param()
+								self.host_effects[warp].updateWarp_Param(z)
 								self.host_effects[warp].scale_parameter=1.
 						
 						else:
-							self.host_effects[warp].updateWarp_Param()
-							self.host_effects[warp].updateScale_Param()
+							self.host_effects[warp].updateWarp_Param(z)
+							self.host_effects[warp].updateScale_Param(z)
 						
 
-						#try:
-							
-						#	existing=np.loadtxt('color.dat').reshape(-1,2)
-						#	existing=np.append(existing,[hostpars[(self.host_param_names).index('ZCMB')],
-							 #   self.sn_effects[warp].scale_parameter]).reshape(-1,2)
-							
-						#	np.savetxt('color.dat',existing)
-						#except:
-						#	np.savetxt('color.dat',np.array([hostpars[(self.host_param_names).index('ZCMB')],
-														#	 self.sn_effects[warp].scale_parameter]).reshape(-1,2))
-
-					# not sure about the multiplication by x0 here, depends on if SNANA is messing with the
-					# absolute magnitude somewhere else
 					product=np.ones(len(self.wave))
 					temp_scale_param = 0
 					temp_outer_product=np.ones(len(self.wave))
@@ -371,10 +341,6 @@ class genmag_BYOSED:
 								outer_scale_param*=self.sn_effects[warp].scale_parameter
 							
 
-					#if warp in self.sn_effects[warp]._param_names:
-					#	temp_warp_param=1.
-					#else:
-					#	temp_warp_param=self.sn_effects[warp].warp_parameter
 					if warp in self.host_effects.keys():
 						
 						if self.verbose:
@@ -415,21 +381,25 @@ class genmag_BYOSED:
 			
 			
 
-			if self.noRescale is False and self.effect_mB is None:
-				self.effect_mB=self.mB
-				self.effect_mB=self.calc_mB(np.array(self.fetchSED_BYOSED(0,maxlam=maxlam,external_id=external_id,new_event=external_id,hostpars=hostpars,mB_calc=True))[self.B_wave_inds])
-			
-
 			fluxsmear*=((1+inner_product)*10**(-0.4*outer_product))
 			
-			if not self.noRescale:
-				fluxsmear*=(self.mB/self.effect_mB)
-
+			if self.is_Ia:
+				fluxsmear*=self.brightness_correct_Ia()
 
 			return list(fluxsmear)
 			
-		def calc_mB(self,flux):
-			return(np.sum(self.B_int_wave *self.B_int_trans* flux) *self.B_int_dwave / __HC_ERG_AA__)
+		def brightness_correct_Ia(self):
+			if 'COLOR' in self.sn_effects.keys():
+				c=self.sn_effects['COLOR'].scale_parameter
+			else:
+				c=0
+			if 'STRETCH' in self.sn_effects.keys():
+				s=self.sn_effects['STRETCH'].scale_parameter
+			else:
+				s=0
+
+			return(10**(-.4*(self.beta*c-self.alpha*s)))
+
 		
 		def fetchParNames_BYOSED(self):
 				return list(np.append(self.warp_effects,['lum']))
@@ -505,9 +475,10 @@ class WarpModel(object):
 		self.scale_distribution=scale_distribution
 		self.scale_type=scale_type
 
-	def updateWarp_Param(self):
+	def updateWarp_Param(self,z=None):
+		print(z)
 		if self.warp_distribution is not None:
-			self.warp_parameter=self.warp_distribution()[0]
+			self.warp_parameter=self.warp_distribution(z)
 
 			if self.name in self._param_names:
 				self.set(**{self.name:self.warp_parameter})
@@ -515,8 +486,8 @@ class WarpModel(object):
 		#else:
 		#	print("Cannot update warping param, no distribution.")
 
-	def updateScale_Param(self):
-		self.scale_parameter=self.scale_distribution()[0]
+	def updateScale_Param(self,z=None):
+		self.scale_parameter=self.scale_distribution(z)
 
 		
 	def flux(self,phase,wave,host_params,host_param_names):
@@ -620,36 +591,72 @@ def _param_from_dist(dist_file,path):
 	pdf=gaussian_kde(dist.T).pdf(np.linspace(a,b,int(1e4)))
 	return(lambda : np.random.choice(sample,1,p=pdf/np.sum(pdf)))
 
+def _get_zdepend(dist_file,path,typ):
+	fv=0 if typ=='add' else 1
+	z,factor=np.loadtxt(os.path.join(path,dist_file),unpack=True)
+	return(interp1d(z,factor,fill_value=fv,bounds_error=False))
+
+
 def _get_distribution(name,dist_dat,path,sn_or_host):
 	dist_dict={}
+	param=True
 	if np.any(['DIST_FILE' in x for x in dist_dat.keys() if 'PARAM' in x]):
 		
 		if sn_or_host+'_PARAM_DIST_FILE' in dist_dat.keys():
-			dist_dict['PARAM']=_param_from_dist(dist_dat[sn_or_host+'_PARAM_DIST_FILE'],path)
+			param_func=_param_from_dist(dist_dat[sn_or_host+'_PARAM_DIST_FILE'],path)
 		else:
 			raise RuntimeError("You may have a typo, did you mean to set 'PARAM_DIST_FILE' for %s?"%sn_or_host)
 		
 		
 	elif np.any(['PARAM' in x for x in dist_dat.keys()]):
 		try:
-			dist_dict['PARAM']=_skewed_normal(name,dist_dat,sn_or_host+'_PARAM')
+			param_func=_skewed_normal(name,dist_dat,sn_or_host+'_PARAM')
 		except:
 			raise RuntimeError("You may have a typo in the variables of your %s param distribution(s)."%sn_or_host)
+	else:
+		param=False
 
 	if np.any(['DIST_FILE' in x for x in dist_dat.keys() if 'SCALE' in x]):
 		if 'SCALE_DIST_FILE' in dist_dat.keys():
-			dist_dict['SCALE']=_param_from_dist(dist_dat['SCALE_DIST_FILE'],path)
+			scale_func=_param_from_dist(dist_dat['SCALE_DIST_FILE'],path)
 		else:
 			raise RuntimeError("You may have a typo, did you mean to set 'SCALE_DIST_FILE'?")
 		
 	elif np.any(['SCALE' in x for x in dist_dat.keys()]):
 		try:
-			dist_dict['SCALE']=_skewed_normal(name,dist_dat,'SCALE')
+			scale_func=_skewed_normal(name,dist_dat,'SCALE')
 		except:
 			raise RuntimeError("You may have a typo in the variables of your %s scale distribution(s)."%sn_or_host)
 	else:
 		raise RuntimeError("Must supply scale distribution for every effect.")
 
+	if np.any(['ZDEPEND' in x for x in dist_dat.keys() if 'PARAM' in x]):
+
+		if sn_or_host+'_PARAM_ZDEPEND_FILE' in dist_dat.keys():
+			
+			if sn_or_host+'_PARAM_ZDEPEND_TYPE' in dist_dat.keys() and dist_dat[sn_or_host+'_PARAM_ZDEPEND_TYPE']=='MULTIPLY':
+				zdepend=_get_zdepend(dist_dat[sn_or_host+'_PARAM_ZDEPEND_FILE'],path,'multiply')
+				dist_dict['PARAM']=lambda z: param_func()[0]*zdepend(z)
+			else:
+				zdepend=_get_zdepend(dist_dat[sn_or_host+'_PARAM_ZDEPEND_FILE'],path,'add')
+				dist_dict['PARAM']=lambda z: param_func()[0]+zdepend(z)
+		else:
+			raise RuntimeError("You may have a typo, did you mean to set 'ZDEPEND' for %s?"%sn_or_host)
+	elif param:
+		dist_dict['PARAM']=lambda z:param_func()[0]
+	if np.any(['ZDEPEND' in x for x in dist_dat.keys() if 'SCALE' in x]):
+		if sn_or_host+'_SCALE_ZDEPEND_FILE' in dist_dat.keys():
+			
+			if sn_or_host+'_SCALE_ZDEPEND_TYPE' in dist_dat.keys() and dist_dat[sn_or_host+'_SCALE_ZDEPEND_TYPE']=='MULTIPLY':
+				zdepend=_get_zdepend(dist_dat[sn_or_host+'_SCALE_ZDEPEND_FILE'],path,'multiply')
+				dist_dict['SCALE']=lambda z: scale_func()[0]*zdepend(z)
+			else:
+				zdepend=_get_zdepend(dist_dat[sn_or_host+'_SCALE_ZDEPEND_FILE'],path,'add')
+				dist_dict['SCALE']=lambda z: scale_func()[0]+zdepend(z)
+		else:
+			raise RuntimeError("You may have a typo, did you mean to set 'ZDEPEND' for %s scale distribution?"%sn_or_host)
+	else:
+		dist_dict['SCALE']=lambda z:scale_func()[0]
 	return(dist_dict)
 
 def _integration_grid(low, high, target_spacing):
@@ -732,7 +739,7 @@ def main():
 		#print(test(np.array([[10,5000],[10,6000]])))
 		import matplotlib.pyplot as plt
 		#sys.exit()
-		mySED=genmag_BYOSED('$WFIRST_ROOT/SALT3/examples/wfirst/byosed/',2,[],'AGE,ZCMB,METALLICITY')
+		mySED=genmag_BYOSED('$WFIRST_ROOT/SALT3/examples/wfirst/byosed/',2,[],'z,AGE,ZCMB,METALLICITY')
 		mySED.sn_id=1
 		'''
 		hist=[]
@@ -753,7 +760,7 @@ def main():
 		#mySED.sn_effects['COLOR'].scale_parameter=.1
 		#print(np.where(mySED.wave==10000)[0][0])
 		#print(mySED.fetchParNames_BYOSED())
-		print([np.sum(mySED.fetchSED_BYOSED(p,5000,np.random.uniform(1,10),2,[1,1,.5])) for p in [5,5,5,5]])
+		print([np.sum(mySED.fetchSED_BYOSED(p,5000,np.random.uniform(1,10),2,[1,1,1,.5])) for p in [5,5,5,5]])
 		sys.exit()
 
 

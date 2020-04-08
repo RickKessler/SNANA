@@ -581,7 +581,7 @@ sub SUBMIT_NODES {
 	    sntools::make_batchFile($BATCH_TEMPLATE, $LOGDIR,
 				    $batchName, $batchFile, $batchLog, 
 				    $batchMem, $JOB);
-
+	    
 	    qx(cd $LOGDIR ; $BATCH_COMMAND $batchFile);
 	    usleep(100000);  # Feb 9 2018: 0.1 sec delays
 	}

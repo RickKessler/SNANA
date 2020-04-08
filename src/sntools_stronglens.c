@@ -180,7 +180,7 @@ void init_stronglens(char *MODEL_FILE) {
 
       	if ( iwd == INPUTS_STRONGLENS.ICOL_LENSID ) 
       	  { sscanf(tmpWord, "%d", &INPUTS_STRONGLENS.IDLENS[i]); }
-
+		
       	else if ( iwd == INPUTS_STRONGLENS.ICOL_ZLENS ) 
       	  { sscanf(tmpWord, "%f", &INPUTS_STRONGLENS.ZLENS[i]); }
 
@@ -329,7 +329,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   //   DUMPFLAG  dump flag (Aug 7 2019, RK)
   //
   // Ouptuts:
-  //  IDLENS      integer identifier for galaxy lens
+  //  IDLENS      random integer identifier for galaxy lens
   //  ZLENS       redshift of lens galaxy
   //  blend_flag  1 if blended into single LC; 0 if each image is resolved
   //  NIMG      Number of images
@@ -356,7 +356,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   
   int numLens = 0;
   for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
-    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.2 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.2){
+    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.05){
       ++numLens;
     }
   }
@@ -369,7 +369,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   int possible_lenses[numLens];
   j=0;
   for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
-    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.2 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.2){
+    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.05){
       possible_lenses[j]=i;
       ++j;
     }
@@ -392,7 +392,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   }
   
   // load return argument scalars  
-  *IDLENS = (int)(FlatRan*10000000) ; //IDLENS_local;
+  *IDLENS = IDLENS_local ; //(int)(FlatRan*10000000) ; //IDLENS_local;
   *ZLENS  = zLENS_local ;
   *NIMG = NIMG_local;
 

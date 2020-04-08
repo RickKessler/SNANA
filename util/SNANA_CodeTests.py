@@ -16,6 +16,9 @@
 #
 # Sep 4 2019: run SNANA_SETUP for batch mode (bug fix)
 #
+# Mar 21 2020: in submitTasks_BATCH(), fix slashes in SNANA_SETUP
+#              to work with sed.
+#
 
 import os
 import sys 
@@ -834,6 +837,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
     BATCH_SUBMIT_COMMAND = BATCH_INFO[0]
     BATCH_TEMPLATE_FILE  = BATCH_INFO[1]
 
+    SNANA_SETUP_forSed = SNANA_SETUP.replace('/','\/')
     
     cmd_job0 = ("snana.exe --snana_version > %s" % SNANA_INFO_FILE)
     for cpunum in range(0,NCPU) :
@@ -849,14 +853,20 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
         if cpunum == 0 :
             cmd_job = cmd_job0 + ' ; ' + cmd_job
 
-        # construct sed command to replace strings in batch-template
+#        print(' 0. xxx -------------------- ')
+#        print(' 1. xxx prep sed ... ' )
+        # constrruct sed command to replace strings in batch-template
         cmd_sed  = 'sed  '
         cmd_sed += ("-e 's/REPLACE_NAME/CodeTest_CPU%3.3d/g' " % cpunum )
         cmd_sed += ("-e 's/REPLACE_LOGFILE/%s/g' " % batch_logfile)
         cmd_sed += ("-e 's/REPLACE_MEM/%d/g' " % MEMORY )
-        cmd_sed += ("-e 's/REPLACE_JOB/%s ; %s/g' " % (SNANA_SETUP,cmd_job) )
+        cmd_sed += ("-e 's/REPLACE_JOB/%s ; %s/g' " 
+                    % (SNANA_SETUP_forSed,cmd_job) )
         cmd_sed += (" %s > %s" % (BATCH_TEMPLATE_FILE,BATCH_RUNFILE) )
+#        print(' xxx sed = %s ' % cmd_sed)
+
         os.system(cmd_sed)
+
 
         # make sure batch file was created .xyz
         if ( os.path.isfile(BATCH_RUNFILE) == False ) :

@@ -1,0 +1,17 @@
+*** Begin of history file: Fri Mar 13 22:14:24 2020
+mess $sigma(log10(17))
+mess $sigma(1.23**17)
+mess $sigma(log10(10))
+mess $sigma(1.23**10)
+mess $sigma(1.33**10)
+mess $sigma(1.33**7)
+x^10 = 17
+mess $sigma(1.33**7)
+mess $sigma(1.33**10)
+mess $sigma(1.33**10)
+mess $sigma(1.33**60)
+mess $sigma(1.33**60/1E6)
+mess $sigma(1.33**30/1E6)
+mess $sigma(1.33**30/1E3)
+q
+*** End   of history file: Fri Mar 13 22:18:56 2020

@@ -171,7 +171,7 @@ extern"C" {
   int  SNTABLE_READ_EXEC_TEXT(void);
 
   int validRowKey_TEXT(char *string) ;
-  int ICAST_for_textVar(char *varName) ;
+  // xxx mvoed to sntools_output.h  int ICAST_for_textVar(char *varName) ;
 
   int count_varnames_TEXT();
   int get_varname_TEXT(int ivar, char *varName );

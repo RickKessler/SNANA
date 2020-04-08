@@ -197,6 +197,7 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
 
  Nov 7 2019: for SALT3, remove x1*M1/M0 term in error; see ISMODEL_SALT3.
  Jan 19 2020: in INTEG_zSED_SALT2, fix memory leak related to local magSmear.
+ Mar 24 2020: if ISMODEL_SALT3, then read SALT3.INFO 
 
 ****************************************************************/
 
@@ -226,7 +227,9 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  /* xxx Mar 24 2020 mark delete (moved below ) xxxx
   sprintf(SALT2_INFO_FILE,     "SALT2.INFO" );
+  xxxxxxxxxxxx */
 
   // summarize filter info
   filtdump_SEDMODEL();
@@ -253,9 +256,9 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   
 
   // Aug 02 2019: set prefix for filenames to allow salt2 or salt3 prefix
-  ISMODEL_SALT3=0; sprintf(SALT2_PREFIX_FILENAME,"salt2"); // default
+  ISMODEL_SALT3=false ; sprintf(SALT2_PREFIX_FILENAME,"salt2"); // default
   if ( strstr(version,"SALT3") != NULL ) 
-    { sprintf(SALT2_PREFIX_FILENAME,"salt3");  ISMODEL_SALT3=1; } 
+    { sprintf(SALT2_PREFIX_FILENAME,"salt3");  ISMODEL_SALT3=true ; } 
 
   RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
 
@@ -282,6 +285,12 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   sprintf(SALT2_VERSION,"%s", version); // May 15 2013
 
   // ============================
+
+  // Mar 24 2020 INFO file depends on SALT2 or SALT3
+  if ( ISMODEL_SALT3 ) 
+    { sprintf(SALT2_INFO_FILE,  "SALT3.INFO" ); }
+  else
+    { sprintf(SALT2_INFO_FILE,  "SALT2.INFO" ); }
 
   read_SALT2_INFO_FILE();  
 
@@ -1062,8 +1071,9 @@ void read_SALT2_INFO_FILE(void) {
 
   sprintf(infoFile, "%s/%s", SALT2_MODELPATH, SALT2_INFO_FILE );
 
+ 
   if (( fp = fopen(infoFile, "rt")) == NULL ) {
-    sprintf(c1err,"Could not open info file:");
+    sprintf(c1err,"Could not open SALT2 info file:");
     sprintf(c2err," %s", infoFile );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -1178,7 +1188,7 @@ void read_SALT2_INFO_FILE(void) {
 
   // print INFO to screen
 
-  printf("\n  SALT2.INFO \n");
+  printf("\n  %s \n", SALT2_INFO_FILE );
   printf("\t RESTLAMBDA_RANGE:  %6.0f - %6.0f A\n"
 	 ,INPUT_SALT2_INFO.RESTLAMMIN_FILTERCEN
 	 ,INPUT_SALT2_INFO.RESTLAMMAX_FILTERCEN );
@@ -1241,7 +1251,7 @@ void read_SALT2_INFO_FILE(void) {
   }
   else {
     sprintf(c1err,"Invalid SEDFLUX_INTERP_OPT = %d", OPT );
-    sprintf(c2err,"Check SALT2.INFO file above");
+    sprintf(c2err,"Check %s file above", SALT2_INFO_FILE );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);        
   }
   
@@ -1253,7 +1263,7 @@ void read_SALT2_INFO_FILE(void) {
   printf("\t ERRMAP_INTERP_OPT:   %d  (%s) \n", OPT, CHAR_ERROPT[OPT] );
   if ( OPT < 0 || OPT > 2 ) {
     sprintf(c1err,"Invalid ERRMAP_INTERP_OPT = %d", OPT );
-    sprintf(c2err,"Check SALT2.INFO file above");
+    sprintf(c2err,"Check %s file above", SALT2_INFO_FILE);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -1520,7 +1530,7 @@ double genmag_extrap_latetime_SALT2(double mag_daymin, double day,
 
   // interpolate each extrap parameter vs. wavelength
   for(ipar=1; ipar < NPAR; ipar++ ) { // skip LAM parameter
-    //.xyz
+   
     ptrLam = INPUT_EXTRAP_LATETIME.PARLIST[IPAR_EXTRAP_LAM] ;
     ptrVal = INPUT_EXTRAP_LATETIME.PARLIST[ipar] ;
     if ( lam < ptrLam[0] ) {
@@ -2180,8 +2190,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
       if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }       
       NLAMTMP++ ;
     }
-    // xxx mark delete    get_genSmear( Trest, NLAMTMP, lam, magSmear) ;
-    get_genSmear( Trest, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
+    get_genSmear( Trest, c, x1, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
   }
 
 
@@ -2717,7 +2726,10 @@ double SALT2colorDisp(double lam, char *callFun) {
   // this function aborts if 'lam' is outside the valid
   // rest-lambda range. Make sure to check that 'lam' is valid
   // before calling this function.
-
+  //
+  // Jan 28 2020:
+  //  if UV extrap is used, extrapolate instead of aborting
+  //
   int imap, NLAM ;
   double cDisp, LAMMIN, LAMMAX ;
   double *mapLam, *mapDisp ;
@@ -2734,6 +2746,10 @@ double SALT2colorDisp(double lam, char *callFun) {
   mapDisp = SALT2_ERRMAP[imap].VALUE ;
 
   if ( NLAM <= 0 ) { cDisp = 0.0 ; return cDisp ; }
+
+  
+  if ( INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX > 0.0 && lam < LAMMIN ) 
+    { cDisp = mapDisp[0]; return(cDisp);  }
 
   // first some sanity checks
   if ( lam < LAMMIN || lam > LAMMAX ) {  

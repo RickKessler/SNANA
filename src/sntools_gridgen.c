@@ -1270,7 +1270,10 @@ void update_GRIDarrays(void) {
 
     magval    = GENLC.genmag_obs[ep] ;
     magerr    = GENLC.generr_obs[ep] ;
-    magerr   *= INPUTS.GENMODEL_ERRSCALE ;
+
+    if ( INPUTS.GENMODEL_ERRSCALE > 0.001 ) 
+      { magerr   *= INPUTS.GENMODEL_ERRSCALE ; }
+
     Trest     = GENLC.epoch_obs[ep]/(1. + GENLC.REDSHIFT_CMB) ;
 
     /*

@@ -88,6 +88,9 @@ void PSNID_USER_INPUT(int NVAR, double *input_array, char *input_string ) {
   ivar++ ; dval = input_array[ivar];
   PSNID_INPUTS.W0 = dval ;
 
+  ivar++ ; dval = input_array[ivar];
+  PSNID_INPUTS.OPT_DEBUG = (int)dval ;
+
   // load &PSNIDINP doubles ...
   ivar++ ; dval = input_array[ivar];
   PSNID_INPUTS.AV_TAU = dval ;

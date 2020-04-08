@@ -11,7 +11,6 @@
 
  Calling functions are in psnid.cra.
 
-
 ?!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!?
   ISSUES found by RK Feb 28 2013;
 
@@ -28,7 +27,6 @@
   that loop over all non-Ia types. See, for example, LIA_Ibc,LIA_II
 
 ?!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!?
-
 
  --------------------------------
  Integration notes for Masao:
@@ -91,7 +89,6 @@
 
    - to make light curve plots,
        mkfitplots.pl  --h <hisFileName>  --tmin -20 --tmax 80
-
 
      HISTORY
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -285,6 +282,9 @@
   July 25 2018: define PSNID_MINOBS, and abort if too few obs.
 
   May 20 2019: PSNID_NONIA_MXTYPES = 100 ->  1000 (for lots of KN models)
+
+  Feb 26 2020: + print out warning message when skipping candidate
+                 due to user-specified OPT_ZPRIOR
 
  ================================================================ */
 
@@ -889,7 +889,12 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
 
   // redshift priors (0=flat, [1,2=other priors])
   psnid_best_set_zprior_onez(REDSHIFT, REDSHIFT_ERR);
-  if ( PSNID_BEST_RESULTS.ZPRIOR_DO[0] == 0 ) { return ERRFLAG ; }
+  if ( PSNID_BEST_RESULTS.ZPRIOR_DO[0] == 0 )
+  {
+    printf("\t WARNING:  skipping CID = %s for OPT_ZPRIOR %d\n\n",
+	   CCID, PSNID_INPUTS.OPT_ZPRIOR);
+    return ERRFLAG ;
+  }
 
   /****************************************/
   /***     Main part of grid search     ***/
@@ -899,7 +904,7 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
   // 1) redshift priors (0=FLAT, 1=SNLC, 2=ZHOST; see PSNID_ZPRIOR_XXXX)
   // 2) SN tpes         (0=Ia, 1=Ibc, 2=II; see PSNID_ITYPE_SNXX)
 
-  z = 0 ; // only one z prior
+  z  =  0 ; // only one z prior
 
   
   // loop over SN tpes (0=Ia, 1=Ibc, 2=II; see PSNID_ITYPE_SNXX)

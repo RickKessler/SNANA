@@ -87,35 +87,36 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
 
 
   // set global logical for SIM
-  SNFITSIO_SIMFLAG_SNANA = SNFITSIO_SIMFLAG_MAGOBS = 0 ;  
-  SNFITSIO_SIMFLAG_SPECTROGRAPH = 0 ;
-  SNFITSIO_SIMFLAG_SNRMON       = 0 ;
-  SNFITSIO_SIMFLAG_MODELPAR     = 0 ;
-  SNFITSIO_COMPACT_FLAG = 0 ; 
+  SNFITSIO_SIMFLAG_SNANA = SNFITSIO_SIMFLAG_MAGOBS = false ;  
+  SNFITSIO_SIMFLAG_SPECTROGRAPH = false ;
+  SNFITSIO_SIMFLAG_SNRMON       = false ;
+  SNFITSIO_SIMFLAG_MODELPAR     = false ;
+  SNFITSIO_SIMFLAG_NBR_LIST     = false ; 
+  SNFITSIO_COMPACT_FLAG         = false ; 
   sprintf(SNFITSIO_VARNAME_SNRMON,"NONE");
 
   OVP = ( simFlag & WRITE_MASK_SIM_SNANA) ;
   if ( OVP > 0 )  {// full SNANA sim
-    SNFITSIO_SIMFLAG_SNANA = 1 ; 
-    if ( SPECTROGRAPH_USEFLAG ) { SNFITSIO_SIMFLAG_SPECTROGRAPH = 1; }
+    SNFITSIO_SIMFLAG_SNANA = true ; 
+    if ( SPECTROGRAPH_USEFLAG ) { SNFITSIO_SIMFLAG_SPECTROGRAPH = true ; }
   }
 
   OVP = ( simFlag & WRITE_MASK_SIM_MAGOBS ) ;
   if ( OVP > 0 ) // data-like, but with MAGOBS
-    { SNFITSIO_SIMFLAG_MAGOBS = 1 ; }
+    { SNFITSIO_SIMFLAG_MAGOBS = true ; }
 
   OVP = ( simFlag & WRITE_MASK_SIM_SNRMON ) ;
   if ( OVP > 0 ) { 
-    SNFITSIO_SIMFLAG_SNRMON = 1 ; 
+    SNFITSIO_SIMFLAG_SNRMON = true ; 
     sprintf(SNFITSIO_VARNAME_SNRMON, "SIM_SNRMAG%2.2d", 
 	    SNDATA.MAGMONITOR_SNR);
   }
 
   OVP = ( simFlag & WRITE_MASK_COMPACT ) ; // Jan 23 2018
-  if ( OVP > 0  ) { SNFITSIO_COMPACT_FLAG = 1; }
+  if ( OVP > 0  ) { SNFITSIO_COMPACT_FLAG = true ; }
 
   OVP = ( simFlag & WRITE_MASK_SIM_MODELPAR ) ;
-  if ( OVP > 0 ) { SNFITSIO_SIMFLAG_MODELPAR = 1 ; }
+  if ( OVP > 0 ) { SNFITSIO_SIMFLAG_MODELPAR = true ; }
 
   IFILE_SNFITSIO = 1; // only one file written here.
 
@@ -193,7 +194,8 @@ void wr_snfitsio_init_head(void) {
   // May 24, 2017: add CCDNUM
   // Dec 10, 2018: add BYOSED
   // Jul 20, 2019: add strong lens info
-
+  // Feb 27, 2020: add SIM_HOSTLIB_GALID
+  //
   long  NROW = 0 ;
   int itype, ncol, istat, ivar, ipar ;
   int ifilt, ifilt_obs;
@@ -218,7 +220,7 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "16A" ,"IAUC", itype   ) ;
   wr_snfitsio_addCol( "1I" , "FAKE", itype   ) ;  // 0=data; >1 => sim
 
-  if ( SNFITSIO_SIMFLAG_SNANA == 0 )
+  if ( !SNFITSIO_SIMFLAG_SNANA  )
     {  wr_snfitsio_addCol( "1I" , "MASK_FLUXCOR_SNANA", itype );  }
 
   wr_snfitsio_addCol( "1D" , "RA"  ,    itype   ) ;  
@@ -278,8 +280,13 @@ void wr_snfitsio_init_head(void) {
   }
 
 
-  // Feb 7 2019: for data, store 2nd HOSTGAL info
-  if ( SNFITSIO_SIMFLAG_SNANA == 0 ) {
+  // Feb 7 2019: store 2nd HOSTGAL for 
+  //  1) data or 2) sim with NBR_LIST in HOSTLIB
+
+  SNFITSIO_SIMFLAG_NBR_LIST = 
+    ( !SNFITSIO_SIMFLAG_SNANA || HOSTLIB.IVAR_NBR_LIST > 0 ) ;
+
+  if ( SNFITSIO_SIMFLAG_NBR_LIST ) {
     wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID" ,      itype ); 
     wr_snfitsio_addCol( "1E", "HOSTGAL2_PHOTOZ" ,     itype );
     wr_snfitsio_addCol( "1E", "HOSTGAL2_PHOTOZ_ERR" , itype );
@@ -310,6 +317,7 @@ void wr_snfitsio_init_head(void) {
  
   }  // end of NOT-sim block
 
+  // - - - -
 
   // add HOSTGAL SB (Sep 3 2014)
   //  if ( (SNDATA.HOSTGAL_USEMASK & 4 ) > 0 ) {
@@ -318,7 +326,7 @@ void wr_snfitsio_init_head(void) {
     sprintf(parName,"HOSTGAL_SB_FLUXCAL_%c", FILTERSTRING[ifilt_obs] );
     wr_snfitsio_addCol( "1E", parName, itype );
   }
-    //}
+   
 
   // -----------------
 
@@ -349,6 +357,7 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E",  "SIM_REDSHIFT_HOST"  , itype ); 
     wr_snfitsio_addCol( "1I",  "SIM_REDSHIFT_FLAG"  , itype ); // 4.19.2019
     wr_snfitsio_addCol( "1E",  "SIM_VPEC"           , itype );
+    wr_snfitsio_addCol( "1K",  "SIM_HOSTLIB_GALID"  , itype ); // Feb 2020
 
     for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
       sprintf(parName,"%s", SNDATA.SIM_HOSTLIB_KEYWORD[ipar] );
@@ -543,7 +552,7 @@ void wr_snfitsio_init_phot(void) {
 
   long  NROW = 0 ;
   int itype, ncol, istat ;
-  int WRFULL = ( SNFITSIO_COMPACT_FLAG == 0 );
+  int WRFULL = ( SNFITSIO_COMPACT_FLAG == false );
   fitsfile *fp;
   char TBLname[40] ;
   //  char fnam[] = "wr_snfitsio_init_phot" ;
@@ -918,7 +927,7 @@ void wr_snfitsio_create(int itype ) {
 
   // --------------------------------------------
   // simulation info (optional)
-  if ( SNFITSIO_SIMFLAG_SNANA == 0 ) { return ; }
+  if ( !SNFITSIO_SIMFLAG_SNANA ) { return ; }
 
   // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
   // @@@@@@@ if we are here, write SIM_XXX info @@@@@@@@@@@
@@ -1190,7 +1199,7 @@ void wr_snfitsio_update_head(void) {
   wr_snfitsio_fillTable ( ptrColnum, "FAKE", itype );
 
   // mask of fluxcor fudges (Nov 2018); real data only
-  if ( SNFITSIO_SIMFLAG_SNANA == 0 ) {
+  if ( !SNFITSIO_SIMFLAG_SNANA  ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1I = (short int)SNDATA.MASK_FLUXCOR ;
     wr_snfitsio_fillTable ( ptrColnum, "MASK_FLUXCOR_SNANA", itype );
@@ -1285,7 +1294,8 @@ void wr_snfitsio_update_head(void) {
 
   // ---------- HOST --------------
   int igal, NHOSTGAL=1;  char PREFIX[20]="HOSTGAL";
-  if(SNFITSIO_SIMFLAG_SNANA==0) { NHOSTGAL=MXHOSTGAL; }
+  // xxx mark delete  if( !SNFITSIO_SIMFLAG_SNANA ) { NHOSTGAL=MXHOSTGAL; }
+  if ( SNFITSIO_SIMFLAG_NBR_LIST ) { NHOSTGAL = MXHOSTGAL; }
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   sprintf(parName,"%s_NMATCH", PREFIX);
@@ -1354,7 +1364,7 @@ void wr_snfitsio_update_head(void) {
     // host mass
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_LOGMASS", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGMASS[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGMASS_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -1438,7 +1448,7 @@ void wr_snfitsio_update_head(void) {
 
 
   // --------------------------------------------
-  if ( SNFITSIO_SIMFLAG_SNANA == 0 ) { return ; }
+  if ( !SNFITSIO_SIMFLAG_SNANA ) { return ; }
   // --------------------------------------------
 
   // write the simulated model for reach SN to allow SN-mixtures
@@ -1513,6 +1523,11 @@ void wr_snfitsio_update_head(void) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SIM_REDSHIFT_FLAG ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_REDSHIFT_FLAG", itype );
+
+  // true HOSTGAL OBJID
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1K = SNDATA.SIM_HOSTLIB_GALID ;
+  wr_snfitsio_fillTable ( ptrColnum, "SIM_HOSTLIB_GALID", itype );
 
   // Vpec
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -1849,7 +1864,7 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
 void wr_snfitsio_update_phot(int ep) {
 
   int itype, LOC ,*ptrColnum  ;
-  int WRFULL = ( SNFITSIO_COMPACT_FLAG == 0 );
+  int WRFULL = ( SNFITSIO_COMPACT_FLAG == false );
   //  char fnam[] = "wr_snfitsio_update_phot" ;
   
   // ------------- BEGIN --------------
@@ -2831,12 +2846,12 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   fits_read_key(fp, TSTRING, keyname,
 		&snfitsFile[ifile][itype], comment, &istat_spec );
   if ( istat_spec == 0 ) {
-    SNFITSIO_SIMFLAG_SPECTROGRAPH = 1 ;
+    SNFITSIO_SIMFLAG_SPECTROGRAPH = true ;
     sprintf(snfitsFile_plusPath[ifile][itype],"%s/%s", 
 	    SNFITSIO_DATA_PATH, snfitsFile[ifile][itype] );
   }
   else {
-    SNFITSIO_SIMFLAG_SPECTROGRAPH = 0 ;
+    SNFITSIO_SIMFLAG_SPECTROGRAPH = false ;
     sprintf(snfitsFile[ifile][itype],"NONE");
   }
 

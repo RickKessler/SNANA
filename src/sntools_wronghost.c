@@ -94,7 +94,7 @@ void INIT_WRONGHOST(char *inFile, double ZMIN, double ZMAX) {
 		WRONGHOST.PROB_POLY[0],WRONGHOST.PROB_POLY[1],
 		WRONGHOST.PROB_POLY[2],WRONGHOST.PROB_POLY[3] );
       }
-      parse_GENPOLY(tmpWord,&WRONGHOST.ZPOLY_PROB,fnam);      
+      parse_GENPOLY(tmpWord, "z", &WRONGHOST.ZPOLY_PROB,fnam);      
       goto NEXTREAD ;
     }
 

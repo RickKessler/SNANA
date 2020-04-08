@@ -59,16 +59,6 @@
 #define WRITE_MASK_SIM_MODELPAR 32  // write model par for SIMSED, LCLIB
 #define WRITE_MASK_COMPACT    64  // suppress non-essential PHOT output
 
-/* xxxxxxxxx mark delete 4.19.2019 xxxxxxxxx
-#define Zisfrom_DB            0  // z_best is filled
-#define Zisfrom_SURVEY        1  // z_best = z_survey
-#define Zisfrom_SNHOSTPHOTOZ  3  // above are not filled
-#define Zisfrom_SNPHOTOZ      4  // ...
-#define Zisfrom_WRONGHOST     5  // matched to wrong host (for sims)
-#define Zisfrom_HOST          6  // UNCONFIRMED, but got host-z
-#define Zisfrom_noHOST        7  // UNCONFIRMED and no host-z
-xxxxxxxxxxxx end mark xxxxxxxxxxxxxx */
-
 #define OPT_ZPTSIG_TRUN  1   // option to use ZPTSIG from template
 #define OPT_ZPTSIG_SRUN  2   // idem for search run
 
@@ -93,7 +83,7 @@ char PATH_SNDATA_PHOTOMETRY[MXPATHLEN];
 char PATH_SNDATA_LCMERGE[MXPATHLEN];
 char PATH_SNDATA_SIM[MXPATHLEN];
 char PATH_SNANA_DIR[MXPATHLEN];
-
+char PATH_USER_INPUT[MXPATHLEN]; // Jan 31 2020
    
 struct {
   int  NSURVEYDEF ;  // number of surveys in SURVEY.DEF file
@@ -260,7 +250,8 @@ struct SNDATA {
   float   HOSTGAL_PHOTOZ_ERR[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ_ERR[MXHOSTGAL] ;
-  float   HOSTGAL_LOGMASS[MXHOSTGAL] ;           // Feb 2014
+  float   HOSTGAL_LOGMASS_TRUE[MXHOSTGAL] ;
+  float   HOSTGAL_LOGMASS_OBS[MXHOSTGAL] ;  
   float   HOSTGAL_LOGMASS_ERR[MXHOSTGAL] ;
   float   HOSTGAL_sSFR[MXHOSTGAL] ;           // Apri 2019
   float   HOSTGAL_sSFR_ERR[MXHOSTGAL] ;
@@ -336,6 +327,8 @@ struct SNDATA {
   char  SIM_HOSTLIB_KEYWORD[100][60]; // keyword for ascii
   char  SIM_HOSTLIB_PARNAME[100][40]; // name of host params to store
   float SIM_HOSTLIB_PARVAL[100];      // host param values
+
+  long long SIM_HOSTLIB_GALID ; // true HOST GALID -> OBJID
 
   // - - - - -
   float SIM_RISETIME_SHIFT;    // rise time shift relative to model

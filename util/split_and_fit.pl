@@ -1125,7 +1125,7 @@ sub parse_nmlFile {
 	    
 	    $fitopt = "@words[1 .. $#words]" ;
 	    &getVersionList($ver, \@tmpVerList, \@tmpPathList); 
-	    
+	    @PATH_SIMDATA_LIST = ( @PATH_SIMDATA_LIST, @tmpPathList );
 	    @VERSION_LIST        = ( @VERSION_LIST, @tmpVerList );
 	    @VERSION_FITOPT_LIST = ( @VERSION_FITOPT_LIST, $fitopt );
 	}
@@ -3217,6 +3217,8 @@ sub DONE_CHECK_LCFIT {
     # Dec 13 2017: if NSPLIT=1, search for exact DONE-FILE match to avoid
     #              slow-down with wild card.
     #
+    # Jan 23 2020: grep ' ERROR ABORT ' instead of ' ABORT '
+
     my ($NEXPECT,  @line, @wdlist, $PREFIX, $indx );
     my (@TMPLIST, $cGRACE, $cABORT, $VCOMB );
     my ($VERSION, $SUFFIX, $FF, $SUF, $OUTFILE, $ISDONE_LCFIT ) ;
@@ -3282,7 +3284,8 @@ sub DONE_CHECK_LCFIT {
 	$NGRACE   = scalar(@TMPLIST);
 	$NGRACE_TOTAL += $NGRACE ;
 	
-	@TMPLIST  = qx(grep $qq ABORT $qq $searchString);
+#	@TMPLIST  = qx(grep $qq ABORT $qq $searchString);
+	@TMPLIST  = qx(grep $qq ERROR ABORT $qq $searchString);
 	$NABORT   = scalar(@TMPLIST);
 	$NABORT_TOTAL += $NABORT ;
 	

@@ -38,7 +38,17 @@
 #include <stdbool.h>
 
 #include "sndata.h"
-#define  SNANA_VERSION_CURRENT  "v10_75b"                
+#define  SNANA_VERSION_CURRENT  "v10_76d"                       
+
+// default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
+#define OMEGA_MATTER_DEFAULT   0.315 
+#define OMEGA_LAMBDA_DEFAULT   0.685 
+#define w0_DEFAULT            -1.0
+#define wa_DEFAULT             0.0
+#define H0_SALT2            70    // km/s/Mpc : tied to SALT2 training
+#define H0_MLCS             65    // km/s/Mpc : tied to MLCS training
+#define H0_Planck          67.4   // 1807.06209 (Planck 2018)
+#define H0_SH0ES           74.03  // 1903.07603 (Riess 2019)
 
 #define LIGHT_km  2.99792458e5      // speed of light (km/s) 
 #define LIGHT_A   2.99792458e18     // speed of light (A/s) 
@@ -248,13 +258,35 @@ typedef struct  {
 } GENGAUSS_ASYM_DEF ;
 
 
+// March 20 2020: Generic struct for exponential and half gaussian.
+typedef struct  {
+  bool   USE;          // T => values are set
+  char   NAME[80];     // name of variable
+  double EXP_TAU ;     // exponential compoent: exp(-x/EXP_TAU)
+  double PEAK, SIGMA ; // peak & sigma of half gaussian component
+  double RATIO ;       // Gauss(0)/Expon(0)
+  double RANGE[2] ;    // generate random value in this RANGE
+} GEN_EXP_HALFGAUSS_DEF ;
+
+
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
 #define MXORDER_GENPOLY 20
 typedef struct  {
-  int ORDER;   // 2nd order means up to x^2
+  int ORDER;       // 2 -> 2nd order -> a + b*x + c*x^2
   double COEFF_RANGE[MXORDER_GENPOLY][2]; // range for each coeff.
   char   STRING[200]; // string that was parsed to get COEFF_RANGEs
+  char   VARNAME[40]; // optional variable name
 } GENPOLY_DEF ;
+
+
+
+// Feb 2020: structure to handle correlated randoms using Cholesky decomp
+typedef struct {
+  int    MATSIZE;      // matrix size along each dimension
+  double *COVMAT1D ;   // user-input COV matrix
+  double **CHOLESKY2D; // Cholesky decomp matrix used to get correlated ran
+  //  gsl_matrix_view chk; // internal matrix
+} CHOLESKY_DECOMP_DEF ;
 
 
 #define MXFILT_REMAP 20
@@ -280,6 +312,10 @@ struct {
 #define MXCHARLINE_PARSE_WORDS 2000   // max chars per line
 #define MXWORDLINE_PARSE_WORDS  700   // max words per line
 #define MXWORDFILE_PARSE_WORDS 500000 // max words to parse in a file
+
+#define MXWORDLINE_FLUX       10  // max words per line in SED file
+#define MXCHARLINE_FLUX      120  // max char per line to read from SED
+
 #define MSKOPT_PARSE_WORDS_FILE    1   // parse words in a file
 #define MSKOPT_PARSE_WORDS_STRING  2   // parse string
 #define MSKOPT_PARSE_WORDS_IGNORECOMMA 4   // parse blank space; ignore comma
@@ -331,6 +367,9 @@ struct {
 // ##############################################################
 
 
+void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP ) ;
+void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP, 
+		  double *RanList_noCorr, double *RanList_corr);
 
 void INIT_SNANA_DUMP(char *STRING);
 int  CHECK_SNANA_DUMP(char *FUNNAME, char *CCID, char *BAND, double MJD );
@@ -404,7 +443,8 @@ void malloc_PARSE_WORDS(void);
 void get_PARSE_WORD(int langFlag, int iwd, char *word);
 
 void init_GENPOLY(GENPOLY_DEF *GENPOLY);
-void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun );
+void parse_GENPOLY(char *stringPoly, char *varName, 
+		   GENPOLY_DEF *GENPOLY, char *callFun );
 double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun);
 void parse_multiplier(char *inString, char *key, double *multiplier);
 void check_uniform_bins(int NBIN, double *VAL, char *comment_forAbort);
@@ -418,7 +458,7 @@ double modelmag_extrap(double T, double Tref,
 double modelflux_extrap(double T, double Tref, 
 			double fluxref, double fluxslope, int LDMP);
 
-int fluxcal_SNDATA ( int iepoch, char *magfun ) ;
+int fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) ;
 double asinhinv(double mag, int ifilt);
 
 
@@ -618,9 +658,11 @@ void print_banner ( const char *banner ) ;
 
 // shells to open text file
 FILE *open_TEXTgz(char *FILENAME, const char *mode,int *GZIPFLAG) ;
-FILE *snana_openTextFile (int vboseFlag, char *subdir, char *filename, 
+FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName, 
 			  char *fullName, int *gzipFlag ); 
 void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
+void abort_openTextFile(char *keyName, char *PATH_LIST, 
+			char *fileName, char *funCall);
 
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
 void ENVrestore(char *fileName_noENV, char *fileName_orig);

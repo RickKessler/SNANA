@@ -76,17 +76,20 @@ int MXOBS_SNFITSIO ;     // max NOBS among SNe (to allocate memory)
 
 int MALLOC_LEN_SNFITSIO[MXTYPE_SNFITSIO] ; // malloc length per file type
 
-int  SNFITSIO_SIMFLAG_SNANA ;  // SNANA sim
-int  SNFITSIO_SIMFLAG_MAGOBS ; // data-like with SIM_MAGOBS
-int  SNFITSIO_SIMFLAG_SPECTROGRAPH ;  // simulated spectra (Aug 2016)
-int  SNFITSIO_SIMFLAG_SNRMON      ;   // SNR(MAGMONITOR)
-int  SNFITSIO_SIMFLAG_MODELPAR    ;   // model params for SIMSED, LCLIB
+bool  SNFITSIO_SIMFLAG_SNANA ;  // SNANA sim
+bool  SNFITSIO_SIMFLAG_MAGOBS ; // data-like with SIM_MAGOBS
+bool  SNFITSIO_SIMFLAG_SPECTROGRAPH ;  // simulated spectra (Aug 2016)
+bool  SNFITSIO_SIMFLAG_SNRMON      ;   // SNR(MAGMONITOR)
+bool  SNFITSIO_SIMFLAG_MODELPAR    ;   // model params for SIMSED, LCLIB
+bool  SNFITSIO_SIMFLAG_NBR_LIST    ;   // HOSTLIB has NBR_LIST (Feb 2020)
+bool  SNFITSIO_COMPACT_FLAG ;    // Jan 2018
+
 char SNFITSIO_VARNAME_SNRMON[40] ;    // includes int mag value in name
 
 int  SNFITSIO_SUBSURVEY_FLAG ;  // indicates subSurvey column
 int  SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
 char SNFITSIO_DATATYPE[20] ;
-int  SNFITSIO_COMPACT_FLAG ;    // Jan 2018
+
 
 struct TABLEDEF {
   // name of each header paramater (SNID, REDSHIFT, etc ...)

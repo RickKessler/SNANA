@@ -347,7 +347,7 @@ void  load_FLUX_BOXFILT(void) {
 
 
 // =====================================
-void SIMSED_check_lastDay(ised,ifilt) {
+void SIMSED_check_lastDay(int ised, int ifilt) {
 
   // check mag(last) - mag(peak) > WARN_MAGDIF_LASTPEAK
 

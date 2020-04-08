@@ -104,6 +104,8 @@
  * Sep 21 2013 RK - move GAL-related functions from sntools.c to here
  * 
  * Oct 29 2013 RK - move slalib routines to sntools.c
+ *
+ * Jan 28 2020 RK - abort if WAVE>12000 and using Fitz99 color law
  */
 /**************************************************************************/
 
@@ -338,29 +340,13 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
   int i, DO94  ;
   double XT, x, y, a, b, fa, fb, xpow, xx, xx2, xx3 ;
   double y2, y3, y4, y5, y6, y7, y8 ;
-  //  char fnam[] = "GALextinct" ;
+  char fnam[] = "GALextinct" ;
 
   // ------------------- BEGIN --------------
 
   XT = 0.0 ;
 
-  // xxx mark delete 8.04.2019  if ( AV <= 1.0E-9 )  {  return XT ; }
   if ( AV == 0.0  )  {  return XT ; }
-
-  // -----------------------------------------
-  // check that opt is valid
-  /* xxxx need to fill OPTLIST_MWCOLORLAW array to check here ??
-  VALID = 0 ;
-  for ( i=0; i < NOPT_MWCOLORLAW; i++ )  { 
-    if ( OPT == OPTLIST_MWCOLORLAW[i]  ) { VALID = 1 ; }     
-  }
-  if ( VALID == 0 ) {
-    sprintf(c1err,"Invalid OPT = %d", OPT);
-    sprintf(c2err,"See valid options in OPTLIST_MWCOLORLAW in sntools.h");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-  }
-  xxxx */
-
 
   // -----------------------------------------
   DO94 = (OPT == 94 || OPT == 99 ) ;
@@ -443,6 +429,14 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
       -0.0380031, 0.00416853,  -0.000235077, 5.31309e-06 
     } ;
     
+    if ( WAVE > WAVEMAX_FITZ99  ) {
+      sprintf(c1err,"Invalid WAVE=%.1f A for Fitzpatrick 99 color law.",
+	      WAVE );
+      sprintf(c2err,"Avoid NIR (>%.1f), or update Fitz99 in NIR",
+	      WAVEMAX_FITZ99 );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
     // compute powers of wavelength without using slow 'pow' function
     wpow[0]  = 1.0 ;
     wpow[1]  = WAVE/1000. ;

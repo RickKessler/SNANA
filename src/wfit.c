@@ -211,6 +211,14 @@
    + -csv command writes cospar in csv format.
    + -outfile_resid NONE --> no resid file
 
+ Mar 17 2020: 
+    + H0=70 replaced with H0 = H0_SALT2 (param in sntools.h)
+    + omm_prior = 0.3 -> OMEGA_MATTER_DEFAULT (paramn in sntools.h)
+
+ Mar 18 2020:
+    + DJB added cmb_sim and bao_sim flags to set cosmology of priors to 
+      same as default cosmology in sntools
+
 *****************************************************************************/
 
 int compare_double_reverse (const void *, const void *);
@@ -225,6 +233,7 @@ void   get_chi2wOM(double w, double OM, double sqmurms_add,
 void getname(char *basename, char *tempname, int nrun);
 
 double get_minwOM( double *w_atchimin, double *OM_atchimin );
+void set_priors(void);
 
 double *mu, *mu_sig, *mu_ref, *mu_sqsig, *z, *z_sig;
 int    *snnbin; // to allow for binning of SNe. default is 1. [JLM]
@@ -251,8 +260,8 @@ struct CUTSELECT {
 
 // =========== variables ================
 
-//double H0       = 65.0 ;         // approx value only
-double H0       = 70.0 ;         // approx value only (changed Sep 2016)
+// xxxdouble H0       = 70.0 ;  // approx value only (changed Sep 2016)
+double H0       = H0_SALT2;      //
 double H0SIG    = 1000.0 ;        // error used in prior
 double SIG_MUOFF ;
 double SQSIG_MUOFF ;
@@ -280,12 +289,13 @@ int MUERR_INCLUDE_zERR;    // True if zERR already included in MUERR
 int MUERR_INCLUDE_LENS ;   // True if lensing sigma already included
 
   /* WMAP + LSS, from SDSS, Tegmark et al, astro-ph/0310723  */
-double omm_prior = 0.3;      /* omega_matter prior */
+// xxx mark del double omm_prior     = 0.3;      /* omega_matter prior */
+double omm_prior     = OMEGA_MATTER_DEFAULT;    /* omega_matter prior */
 double omm_prior_sig = 0.04;  /* 1 sigma uncertainty on prior: 10% */
 
 // Apr 2016: reference cosmology to fit  MUDIF = mu- mu(ref), 
 // only if MUDIF column is present in the input file
-double wref  = -1.0;
+double wref  = -1.0 ;
 double omref =  0.3 ;
 
 char label_cospar[40] = "none" ; // string label for cospar file.
@@ -298,7 +308,7 @@ double c_light = 299792.458 ;  /* speed of light, km/s */
   /* BAO parameters */
 double abest = 0.469;
 double sigma_a = 0.017;
-double z1 = 0.35;
+double z_bao = 0.35;
 double a1 ;
 
   // CMB params (May 29, 2008 RSK)
@@ -356,13 +366,16 @@ int main(int argc,char *argv[]){
     "   -ompri\tcentral value of omega_m prior [default: 0.30]", 
     "   -dompri\twidth of omega_m prior [default: 0.04]",
     "   -bao\t\tuse BAO constraints from Eisenstein et al, 2006",
+    "   -bao_sim\t\tuse BAO constraints with simulated cosmology and E06 formalism",
     "   -cmb\t\tuse CMB constraints from 5-year WMAP (2008)",
+    "   -cmb_sim\t\tuse CMB constraints with simulated cosmology and WMAP formalism",
     "   -minchi2\t\t get w and OM from minchi2 instead of marginalizing",
     "   -marg\t\t get w and OM from marginalizing",
     "   -Rcmb\tCMB comstraints: R = Rcmb +/- sigma_Rcmb [= 1.710 +/- 0.019]",
+    "   -sigma_Rcmb\tUncertainty on Rcmb",
     "   -abest\tBAO constraints: A = abest +/- sigma_a [= 0.469 +/- 0.017]",
     "   -sigma_a\tSee Eisensten et al., '06, eqn. 4 for details",
-    "   -z1\t\tBAO average redshift, z1=0.35",
+    "   -z_bao\t\tBAO average redshift, z_bao=0.35",
     "   \t\tcurrently user must choose either Omega_m or BAO, not both",
     "   -czerr\terror in c*redshift (km/s), used for all SNe",
     "   -zerr\terror in redshift, used for all SNe",
@@ -492,12 +505,10 @@ int main(int argc,char *argv[]){
   double rz ;
 
   /* 2df prior, as used by JT's wcont */
-  /*   omm_prior = 0.278;      /\* omega_matter prior *\/ */
-  /*   omm_prior_sig = 0.042;  /\* 1 sigma uncertainty on prior: 10% *\/ */
 
   /*   We specify the *number* of steps for omega_m, w, H0. */
 
-  a1   = 1./(1. + z1);
+  a1   = 1./(1. + z_bao);
   acmb = 1./(1.+zcmb);
 
   /* Omega_m & w grid parameters */
@@ -530,6 +541,8 @@ int main(int argc,char *argv[]){
 	omm_prior_sig = atof(argv[++iarg]);
       } else if (strcasecmp(argv[iarg]+1,"bao")==0) { 
 	usebao=1;
+      } else if (strcasecmp(argv[iarg]+1,"bao_sim")==0) {
+        usebao=2;
       } else if (strcasecmp(argv[iarg]+1,"csv")==0) { 
 	csv_out=1;
       } else if (strcasecmp(argv[iarg]+1, "Rcmb")==0) {
@@ -540,10 +553,12 @@ int main(int argc,char *argv[]){
 	abest = atof(argv[++iarg]);
       } else if (strcasecmp(argv[iarg]+1,"sigma_a")==0) { 
 	sigma_a = atof(argv[++iarg]);
-      } else if (strcasecmp(argv[iarg]+1,"z1")==0) { 
-	z1 = atof(argv[++iarg]); a1 = 1./(1. + z1);
+      } else if (strcasecmp(argv[iarg]+1,"z_bao")==0) { 
+	z_bao = atof(argv[++iarg]); a1 = 1./(1. + z_bao);
       } else if (strcasecmp(argv[iarg]+1,"cmb")==0) { 
 	usecmb=1;
+      } else if (strcasecmp(argv[iarg]+1,"cmb_sim")==0) {
+        usecmb=2;
 
       } else if (strcasecmp(argv[iarg]+1,"minchi2")==0) { 
 	usemarg=0;
@@ -782,6 +797,9 @@ int main(int argc,char *argv[]){
 	*/
       }
     }
+
+    // Set BAO and CMB priors
+    set_priors();
   
   /********************************************************/
     /******* read MU-covariances (if specified) *************/
@@ -827,16 +845,32 @@ int main(int argc,char *argv[]){
 	     H0SIG, H0, SIG_MUOFF );
 
     if (usebao) {
-      printf("Fit with BAO prior: A(BAO) =%5.3f +- %5.3f. \n"
-	      ,abest, sigma_a);
+      if (usebao == 1) {
+	printf("Fit with BAO Eisenstein 2006 prior: "
+	       "A(BAO) =%5.3f +- %5.3f \n", abest, sigma_a);
+      }
+      if (usebao == 2) {
+        printf("Fit with BAO prior in sim cosmology: "
+	       "OM=%5.3f, w=%5.3f, A(BAO) =%5.3f +- %5.3f \n" ,
+               OMEGA_MATTER_DEFAULT, w0_DEFAULT, abest, sigma_a);
+      } 
     } else {
       printf("Fitting data with Omega_m prior: %5.3f +/- %5.3f\n",
 	      omm_prior,omm_prior_sig);
     }
 
-    if (usecmb) 
-      printf("Fit with CMB (WMAP) prior:  R=%5.3f +- %5.3f. \n"
-	      ,Rcmb_best, sigma_Rcmb);
+    if (usecmb) {
+      if ( usecmb == 1 ) {
+	printf("Fit with CMB (WMAP) prior:  R=%5.3f +- %5.3f  \n" ,
+	        Rcmb_best, sigma_Rcmb);
+      }
+      if ( usecmb == 2 ) {
+        printf("Fit with CMB (WMAP) prior in sim cosmology: "
+	       "OM=%5.3f, w=%5.3f, R=%5.3f +- %5.3f  \n" ,
+               OMEGA_MATTER_DEFAULT, w0_DEFAULT, Rcmb_best, sigma_Rcmb);
+      } 
+      //debugexit('hello');
+    }
 
     if ( usemarg != 0 ) 
       printf("Will MARGINALIZE for final w & OM \n");
@@ -851,7 +885,17 @@ int main(int argc,char *argv[]){
     /* Get approximate expected minimum chi2 (= NCIDLIST - 3 dof),
        used to keep numbers small in the chi2 loop.  */
 
-    Ndof = NCIDLIST - 3 + usebao + usecmb ;
+    //mark delete line below
+    //Ndof = NCIDLIST - 3 + usebao + usecmb ;
+    
+    Ndof = NCIDLIST - 3 ;
+    if ( usebao ) 
+      Ndof++ ;
+    if ( usecmb ) 
+      Ndof++ ;
+
+    
+
     chi_approx = (double)(Ndof);
 
     for( i=0; i < w_steps; i++){
@@ -1239,7 +1283,7 @@ int main(int argc,char *argv[]){
 
 
     // Jun 2019: check for csv format
-    char sep[] = "";
+    char sep[] = " ";
     if ( csv_out ) { sprintf(sep,","); }
 
     if ( !usemarg  ) {
@@ -1918,6 +1962,48 @@ void read_mucovar(char *inFile) {
 } // end of read_mucovar()
 
 
+//===================================
+void set_priors(void) {
+
+  char fnam[]="set_priors";
+
+  double rz, tmp1, tmp2;
+
+  double OM = OMEGA_MATTER_DEFAULT ;
+  double OE = 1 - OM ;
+  double w = w0_DEFAULT ;
+
+
+  Cosparam cparloc;
+
+  cparloc.omm = OM ;
+  cparloc.ome = OE ;
+  cparloc.w0  = w ;
+  cparloc.wa  = 0.0 ;
+
+  // ===== BEGIN ==========
+  
+  if ( usebao == 2 ){ 
+    //recompute abest
+
+    rz = codist(z_bao, &cparloc);
+    tmp1 = pow( EofZ(z_bao, &cparloc), NEGTHIRD) ;
+    tmp2 = pow( (1./z_bao) * rz, TWOTHIRD );
+    abest = sqrt(OM) * tmp1 * tmp2 ;
+
+  }
+
+  if ( usecmb == 2) {
+    //recompute Rbest
+    rz = Hainv_integral ( ONE, OM, OE, w, acmb, ONE ) / LIGHT_km;
+    Rcmb_best = sqrt(OM) * rz ;
+  }
+
+
+  return;
+
+} //end of set_priors()
+
 // ==================================
 void invert_mucovar(double sqmurms_add) {
 
@@ -2092,9 +2178,9 @@ void get_chi2wOM (
   if (usebao) {
     /* Use BAO constraints from Eisenstein et al, 2006 */
 
-    rz = codist(z1, &cparloc);
-    tmp1 = pow( EofZ(z1, &cparloc), NEGTHIRD) ;
-    tmp2 = pow( (1./z1) * rz, TWOTHIRD );
+    rz = codist(z_bao, &cparloc);
+    tmp1 = pow( EofZ(z_bao, &cparloc), NEGTHIRD) ;
+    tmp2 = pow( (1./z_bao) * rz, TWOTHIRD );
     a = sqrt(OM) * tmp1 * tmp2 ;
     nsig = (a-abest)/sigma_a ;
     *chi2tot =  *chi2sn + pow( nsig, TWO );
@@ -2260,9 +2346,9 @@ int compare_double_reverse (const void *a, const void *b)
      See Eisenstein et al, 2006, ApJ, section 4.5, where they introduce the 
      function A:
 
-     A = sqrt(Omega_m) * E(z1)^(-1/3) * [(1/z1) * d(z1)]^(2/3)
+     A = sqrt(Omega_m) * E(z_bao)^(-1/3) * [(1/z_bao) * d(z_bao)]^(2/3)
 
-     where z1=0.35 and A is constrained by their measurements to be
+     where z_bao=0.35 and A is constrained by their measurements to be
      A = 0.469 +/- 0.017.
 
   For convenience, E(z), 1/E(z) and d(z) are provided here.

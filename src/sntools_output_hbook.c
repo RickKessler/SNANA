@@ -457,8 +457,12 @@ void SNTABLE_ADDCOL_HBOOK(int IDTABLE, char *BLOCK, void* PTRVAR,
 
     if ( ivar == 0 ) 
       { sprintf(VARLIST_FINAL,"%s", tmpVar ); }
-    else
-      { sprintf(VARLIST_FINAL,"%s,%s", VARLIST_FINAL, tmpVar ); }
+    else {
+      strcat(VARLIST_FINAL,","); 
+      strcat(VARLIST_FINAL,tmpVar); 
+    // xxx mark del { sprintf(VARLIST_FINAL,"%s,%s",VARLIST_FINAL,tmpVar);}
+    }
+
 
   } // end ivar loop
 
@@ -1577,7 +1581,9 @@ void SNLCPAK_FILL_HBOOK(void) {
   //              plotted for true simFlux.
   //
   // Oct 3 2018: NBIN -> NOBS_FITFUN in Tobs plot for FITFUN (bugfix)
-
+  //
+  // Mar 8 2020: define HOFF_EPOCH and CTAG_EPOCH for kcor and AVwarp.
+  //
   int  
     NOBS, FLAG, obs, firstObs, NOBS_FITFUN, NOBS_CHI2
     ,IFILT, USE, OVFIT, iplot, NFIT
@@ -1636,6 +1642,8 @@ void SNLCPAK_FILL_HBOOK(void) {
   HOFF_EPOCH[SNLCPAK_EPFLAG_FLUXDATA]    =  100 ;
   HOFF_EPOCH[SNLCPAK_EPFLAG_REJECT]      = 1300 ;
   HOFF_EPOCH[SNLCPAK_EPFLAG_CHI2]        =  400 ;
+  HOFF_EPOCH[SNLCPAK_EPFLAG_KCOR]        = 2000 ; // Mar 2020
+  HOFF_EPOCH[SNLCPAK_EPFLAG_AVWARP]      = 2400 ; // Mar 2020
   HOFF_EPOCH[SNLCPAK_EPFLAG_FITFUN]      = 3200 ;
   HOFF_EPOCH[SNLCPAK_EPFLAG_FLUXSIM]     = 3900 ;  
   HOFF_EPOCH[SNLCPAK_EPFLAG_FLUXREST]    = 4000 ;  
@@ -1644,6 +1652,8 @@ void SNLCPAK_FILL_HBOOK(void) {
   sprintf( CTAG_EPOCH[SNLCPAK_EPFLAG_FLUXDATA],    "Data Flux"      );
   sprintf( CTAG_EPOCH[SNLCPAK_EPFLAG_REJECT],      "Reject Flag"    );
   sprintf( CTAG_EPOCH[SNLCPAK_EPFLAG_CHI2],        "[h]^2!"         );
+  sprintf( CTAG_EPOCH[SNLCPAK_EPFLAG_KCOR],        "kcor"           );
+  sprintf( CTAG_EPOCH[SNLCPAK_EPFLAG_AVWARP],      "AVWARP"         );
   sprintf( CTAG_EPOCH[SNLCPAK_EPFLAG_FITFUN],      "Fit-Model Flux" );
   sprintf( CTAG_EPOCH[SNLCPAK_EPFLAG_FLUXSIM],     "Sim Flux"       );
   sprintf( CTAG_EPOCH[SNLCPAK_EPFLAG_FLUXREST],    "Flux-rest"      );

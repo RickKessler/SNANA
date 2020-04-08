@@ -33,7 +33,7 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
   double VALTMP[3], Prob, dmu, ztmp, z=0.0, zLAST=-9.9 ;
   double SUM_WGT, SUM_dmu, dmu_avg, SUM_Prob ;
 
-  char PATH_DEFAULT[MXPATHLEN], MAPFILENAME[MXPATHLEN] ;
+  char PATH_DEFAULT[2*MXPATHLEN], MAPFILENAME[MXPATHLEN] ;
   char fnam[] = "init_lensDMU" ;
 
   // ---------------- BEGIN -----------------
@@ -52,16 +52,22 @@ void init_lensDMU(char *mapFileName, float dsigma_dz) {
 
   print_banner(fnam);
 
-  sprintf(PATH_DEFAULT,"%s/models/lensing", PATH_SNDATA_ROOT);
+  sprintf(PATH_DEFAULT,"%s %s/models/lensing", 
+	  PATH_USER_INPUT, PATH_SNDATA_ROOT);
   
   // check mapFileName in user dir, then under PATH_DEFAULT
   FPMAP = snana_openTextFile(1,PATH_DEFAULT, mapFileName, 
 			     MAPFILENAME, &gzipFlag );
 
   if ( FPMAP == NULL ) {
+    abort_openTextFile("WEAKLENS_PROBMAP_FILE", 
+		       PATH_DEFAULT, mapFileName, fnam);
+
+    /* xxxxxxxxx mark delete Feb 1 2020 xxxxxxxxxxx
     sprintf(c1err, "Could not find lensing mapFile");
     sprintf(c2err, " '%s' ", mapFileName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
+    xxxxxxxxxxxxx */
   }
 
 

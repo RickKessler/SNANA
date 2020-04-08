@@ -6,13 +6,16 @@
 #define MASK_GENSMEAR_APPLY 1 // apply genSmear, old or new
 #define MASK_GENSMEAR_NEW   2 // re-compute genSmear
 
-void  init_genSmear_FLAGS(int MSKOPT, double SCALE); // set flags to zero
+void  init_genSmear_FLAGS(int MSKOPT, char *SCALE_STRING); 
 int   istat_genSmear(void) ;
 
+void  init_genSmear_SCALE(char *SCALE_STRING);
 void  init_genSmear_USRFUN(int NPAR, double *parList, double *LAMRANGE ) ;
 
 void   init_genSmear_SALT2(char *version, char *dispFile, double SIGCOH, 
 			   double *GENRANGE_REDSHIFT);
+void init_genSmear_randoms(int NRANGauss, int NRANFlat) ;
+
 void   read_genSmear_SALT2disp(char *smearFile) ;
 void   read_genSmear_SALT2sigcoh(char *versionSALT2, GRIDMAP1D *SIGCOH_LAM ) ;
 void   parse_SIGCOH_SALT2(char *KEYNAME, char *KEYARG, GRIDMAP1D *SIGCOH_LAM);
@@ -23,10 +26,14 @@ void  init_genSmear_VCR(char *VCR_version, int index_SNmodel);
 void  init_genSmear_CCM89(double *LAMRANGE) ;
 void  init_genSmear_COH(char *stringArg) ;
 void  init_genSmear_biModalUV(void) ;
-void  init_genSmear_OIR(void);
+void  init_genSmear_OIR(char *OIR_version);
 void  init_genSmear_COVSED(char *COVSED_version, int OPTMASK);
 void  parse_COVSED_INFO_FILE(void);
 void  readFits_genSmear_COVSED(char *covFileName);
+
+void  init_genSmear_phaseCor(double magSmear, double exptau);
+void  get_genSmear_phaseCor(int CID, double phase, double *magSmear );
+void  check_genSmear_phaseCor(void);
 
 void  init_genSmear_private(void) ;
 
@@ -50,13 +57,16 @@ void  get_NRAN_genSmear(int *NRANGauss, int *NRANFlat); // returns NRANxxx
 
 void  SETSNPAR_genSmear(double shape, double color, double redshift) ;
 
-void get_genSmear(double Trest, int NLam, double *Lam,
+void get_genSmear(double Trest, double c, double x1, int NLam, double *Lam,
 		  double *magSmear) ;
+
 int  repeat_genSmear(double Trest, int NLam, double *Lam);
 void load_genSmear_randoms(int CID, double rmin, double rmax, double RANFIX);
 
 void init_genSmear_COVLAM_debug(double *lam, double COVMAT[2][2] );
 void update_genSmear_COVLAM_debug(double *magSmear);
+
+double get_genSmear_SCALE(double c, double x1);
 
 void  get_genSmear_USRFUN(double Trest, int NLam, double *Lam, 
 			  double *magSmear ) ;
@@ -121,7 +131,7 @@ struct GENSMEAR {
   int    NGEN_RANFlat ;
   int    NSET_RANGauss ;
   int    NSET_RANFlat ;
-  double *RANGauss_LIST; // [MXRAN_GENSMEAR] ;  //.xyz malloc ??
+  double *RANGauss_LIST; // [MXRAN_GENSMEAR] ; 
   double *RANFlat_LIST; // [MXRAN_GENSMEAR] ;
   int    CID; // CID for each set of randoms
 
@@ -129,7 +139,10 @@ struct GENSMEAR {
   double REDSHIFT ;       // allows for redshift evolution (Jan 2014)
   double ZPOW[10];  // store powers of redshift for faster calculations.
 
-  double SCALE ; // global scale to all mag-smearing (Oct 9 2018)
+  // xxxx mark delete Mar 22 2020: moved below to GENSMEAR_SCALE
+  // xxx   double SCALE ; // global scale to all mag-smearing (Oct 9 2018)
+  // xxxxxxxxxxxxx end mark xxxxxxxxx
+
   int    MSKOPT ; // generic opt-mask
 
   // debug option to check scatter at 'CHECK' wavelength
@@ -148,6 +161,16 @@ struct GENSMEAR {
   double *MAGSMEAR_LIST ;
 
 } GENSMEAR ;
+
+
+// Mar 22 2020:
+// define scaling of mag-smearing as global scale or ploynomial func
+struct {
+  int    USE ;
+  double GLOBAL ; // global scale  ... or ...
+  GENPOLY_DEF POLY ;  // polynominal function of ...
+  char VARNAME[20];   // this variable name
+} GENSMEAR_SCALE ;
 
 // ---------- USRFUN struct -----------------
 #define NPAR_GENSMEAR_USRFUN_REQUIRED   8
@@ -205,7 +228,8 @@ struct GENSMEAR_SALT2 {
 #define NBAND_C11 6  // UBVRI correlations
 struct GENSMEAR_C11 {
   int USE ;
-  double Cholesky[NBAND_C11][NBAND_C11] ;
+  CHOLESKY_DECOMP_DEF DECOMP ;
+  // xxx mark delete  double Cholesky[NBAND_C11][NBAND_C11] ;
   int OPT_farUV;  // see sub-models C11_0, C11_1, C11_2
 } GENSMEAR_C11 ;
 
@@ -224,7 +248,7 @@ struct GENSMEAR_OIR {
   int      NCOLOR ;
   char     COLOR_STRING[NBAND_OIR][8];  
   double   COLOR_SLOPE[NBAND_OIR] ;
-  double   SIGMACOH_MB ;
+  double   SIGMACOH ;
   double   COLOR_SIGMA_SCALE ; // multiplies all the COLOR_SIGMA values.
   double   COLOR_SIGMA[NBAND_OIR] ;
   double   COLOR_CORMAT[NBAND_OIR][NBAND_OIR] ;
@@ -253,10 +277,11 @@ struct GENSMEAR_COVSED {
 
   // COVSED and binning read from FITS file
   int     NBIN_WAVE, NBIN_EPOCH, NBIN_WAVExEPOCH, NBIN_COVMAT ;
-  double  *WAVE, *EPOCH, *COVMAT1D ;
+  double  *WAVE, *EPOCH; // xxx mark delete *COVMAT1D ;
 
   // matrix used to generate correlated randoms
-  double **Cholesky;
+  CHOLESKY_DECOMP_DEF DECOMP;
+  // xxx marl delete  double **Cholesky;
 
   // magSmear scatter values for each event.
   double *SCATTER_VALUES; 
@@ -350,6 +375,29 @@ struct GENSMEAR_BIMODAL_UV {
   double  LAMU_MIN, LAMU_CEN, LAMU_MAX;
   double  MAGU_SPLIT, MAGU_SIGMA ;
 } GENSMEAR_BIMODAL_UV ;
+
+
+// see sim input GENMAG_SMEAR_ADDPHASECOR: <magSmear> <expTau>
+struct {
+  int     USE;
+  double  INPUT_MAGSMEAR, INPUT_EXPTAU; // copied from user input
+  int     NBIN ;
+  double  BINSIZE ;
+  double  RANGE[2] ;  // min & max phase to store COVMAT
+  double *GRID_PHASE ;      // phase value at each grid point
+  // xxx mark delete  double **Cholesky ;     // fixed matrix for GRID
+  double *GRID_MAGSMEAR ; // for each event
+  double *RANGauss_LIST ; // new randoms for each event
+  int    CID_LAST ;       // used to identify new event
+
+  CHOLESKY_DECOMP_DEF DECOMP;
+
+  int    NCHECK, NSUM;
+  double SUMCHECK[10]; // for internal COV check
+  double sumCHECK ;
+
+} GENSMEAR_PHASECOR ;
+
 
 // --------- private struct for testing --------------
 struct GENSMEAR_PRIVATE {

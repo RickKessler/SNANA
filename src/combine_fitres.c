@@ -12,9 +12,6 @@
   between different fitres outputs for the same
   set of SN.
 
- TO DO: replace CID-matching with hash table; 
-    e.g.,  http://troydhanson.github.io/uthash/index.html
-
  Usage:
   >  combine_fitres.exe <fitres1> <fitres2> ...
 
@@ -99,6 +96,10 @@
   Jan 16 2020: 
     + implement -mxrow (was read, but not implemented)
     + new input -zcut <zmin> <zmax>
+  Jan 23 2020
+    + abort if NEVT_APPROX > MXSN
+    + USEDCID -> bool instead of short int.
+    + MXSN -> 5M (was 2M)
 
 ******************************/
 
@@ -141,7 +142,7 @@ void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN);
 void  freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN); 
 
 // declare functions in sntools_output_text.c
-int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
+// xxxx mark dele int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
 
 // ================================
 // Global variables
@@ -149,7 +150,7 @@ int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
 
 
 #define MXFFILE  20       // max number of fitres files to combine
-#define MXSN     2000000   // max SN to read per fitres file
+#define MXSN     5000000   // max SN to read per fitres file
 #define MXVAR_PERFILE  50  // max number of NTUP variables per file
 #define MXVAR_TOT  MXVAR_TABLE     // max number of combined NTUP variables
 #define INIVAL_COMBINE  -888.0
@@ -208,8 +209,7 @@ char  suffix_text[8]  =   "text" ;
 char *ptrSuffix_hbook = suffix_hbook ; // default is lower case, unless H
 char *ptrSuffix_root  = suffix_root ;
 char *ptrSuffix_text  = suffix_text ;
-
-short int USEDCID[MXSN];
+bool USEDCID[MXSN];
 
 int IVARSTR_STORE[MXVAR_TOT] ; // keep track of string vars
 int IVAR_zHD;
@@ -524,9 +524,16 @@ void ADD_FITRES(int ifile) {
 
   // get approx number of SN for memory allocation
 
-  NEVT_APPROX = SNTABLE_NEVT_APPROX_TEXT(INPUTS.FFILE[ifile], NVARALL);
+  // NEVT_APPROX = SNTABLE_NEVT_APPROX_TEXT(INPUTS.FFILE[ifile], NVARALL);
+  //xx NEVT_APPROX = SNTABLE_NEVT_TEXT(INPUTS.FFILE[ifile]);
+  NEVT_APPROX = SNTABLE_NEVT(INPUTS.FFILE[ifile],"TABLE");
 
-  if ( NEVT_APPROX >= MXSN-1 ) { NEVT_APPROX = MXSN-1 ; }
+  if ( NEVT_APPROX >= MXSN-1 ) { 
+    sprintf(c1err,"NEVT_APPROX=%d exceeds MXSN=%d", NEVT_APPROX, MXSN);
+    sprintf(c2err,"Probably need to increase MXSN");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    //     NEVT_APPROX = MXSN-1 ; 
+  }
 
   // if 2nd file is much smaller, avoid too small malloc
   if ( ifile > 0 && NEVT_APPROX < NLIST_FIRST_FITRES ) 
@@ -558,7 +565,6 @@ void ADD_FITRES(int ifile) {
     if ( ifile==0 && strcmp(VARNAME,"zHD") == 0 ) { IVAR_zHD = ivar; }
 
     // Sep 19 2019: make sure first column is CID
-    // xxx mark delete if ( ivar == IVARSTR_CCID && strstr(VARNAME,"CID") == NULL ) {
     if ( ivar == IVARSTR_CCID ) {
       if ( ICAST_for_textVar(VARNAME) != ICAST_C ) {
 	sprintf(c1err,"Unrecognized first column: %s", VARNAME);
@@ -695,7 +701,7 @@ int match_CID_orig(int ifile, int isn2) {
 
     sprintf(ccid,"%s", FITRES_VALUES.STR_ALL[IVARSTR_CCID][isn] );
     if ( strcmp(ccid,ccid2) == 0 ) {
-      USEDCID[isn] = 1;
+      USEDCID[isn] = true ;
       return(isn);
     }
   }
@@ -928,7 +934,7 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
     FITRES_VALUES.FLT_ALL[IVAR_ALL] = (float  *)malloc(MEMF);    
 
     for ( isn=0; isn < MAXLEN; isn++ ) {
-      USEDCID[isn] = 0 ;
+      USEDCID[isn] = false ;
       FITRES_VALUES.FLT_TMP[ivar][isn]     = INIVAL_COMBINE ;
       FITRES_VALUES.FLT_ALL[IVAR_ALL][isn] = INIVAL_COMBINE ;
     }

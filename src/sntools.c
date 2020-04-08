@@ -34,7 +34,85 @@
 **********************************************************
 **********************************************************/
 
+void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP) {
 
+  // Feb 2020
+  // Inputs are 
+  //   + OPT > 0 -> malloc COVMAT2D and load it
+  //   + OPT < 0 -> free COVMAT2D and return
+  //   + DECOMP->MATSIZE
+  //   + DECOMP->COVMAT1D
+  //
+  // Outputs are
+  //  + DECOMP->CHOLESKY2D
+
+  int MATSIZE = DECOMP->MATSIZE ;
+  int MEMD0   = MATSIZE * sizeof(double ) ;
+  int MEMD1   = MATSIZE * sizeof(double*) ;
+  int irow0, irow1;
+  gsl_matrix_view chk; 
+
+  // ------------ BEGIN -----------
+
+  if ( OPT < 0 ) {
+    for(irow0 = 0; irow0 < MATSIZE; irow0++ )
+      { free(DECOMP->CHOLESKY2D[irow0]); }
+    free(DECOMP->CHOLESKY2D);
+    return ;
+  }
+
+  
+  DECOMP->CHOLESKY2D = (double**) malloc ( MEMD1 );
+  for(irow0 = 0; irow0 < MATSIZE; irow0++ )
+    { DECOMP->CHOLESKY2D[irow0] = (double*) malloc ( MEMD0 ); }
+
+  chk = gsl_matrix_view_array ( DECOMP->COVMAT1D, MATSIZE, MATSIZE);
+  gsl_linalg_cholesky_decomp ( &chk.matrix)  ;    
+  for (irow0=0; irow0 < MATSIZE ; irow0++){
+    for (irow1 = 0; irow1 < MATSIZE ; irow1++) {    
+      if ( irow0 <= irow1 ) {
+	DECOMP->CHOLESKY2D[irow0][irow1] = 
+	  gsl_matrix_get(&chk.matrix,irow0,irow1) ;
+      }
+      else
+	{ DECOMP->CHOLESKY2D[irow0][irow1] = 0.0; }
+    }    
+  }
+
+  return ;
+
+} // end init_Cholesky
+
+
+void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP,
+		  double *RanList_noCorr, double *RanList_Corr) {
+
+  // Feb 2020
+  // For input list of MATSIZE Gaussian randoms in RanList_noCorr,  
+  // return correlated randoms in RanList_Corr
+
+  int MATSIZE   = DECOMP->MATSIZE;
+  double GAURAN, tmpMat, tmpRan ;
+  int irow0, irow1;
+  char fnam[] = "GaussRanCorr" ;
+
+  // ------------- BEGIN ------------
+
+  for(irow0=0; irow0 < MATSIZE; irow0++ ) {
+    GAURAN = 0.0 ;
+    for(irow1 = 0; irow1 < MATSIZE ; irow1++ ) {
+      tmpMat = DECOMP->CHOLESKY2D[irow1][irow0] ;
+      tmpRan = RanList_noCorr[irow1];
+      GAURAN += ( tmpMat * tmpRan) ;
+    }
+    RanList_Corr[irow0] = GAURAN;
+  }
+
+  return ;
+
+} // end GaussRanCorr
+
+// ==========================================================
 void init_obs_atFLUXMAX(int OPTMASK, double *PARLIST, int VBOSE) {
 
   // May 24 2019
@@ -1137,22 +1215,25 @@ void init_GENPOLY(GENPOLY_DEF *GENPOLY) {
   }
 } // end init_GENPOLY
 
-void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
+void parse_GENPOLY(char *stringPoly, char *varName, 
+		   GENPOLY_DEF *GENPOLY, char *callFun) {
 
   // Mar 23 2019
-  // parse input string and load GENPOLY structure with 
+  // parse input stringPoly and load GENPOLY structure with 
   // polynomial of arbitrary order (up to 20).
   //
   // Examples:
-  //  string = "1.0,.034,1.0E-4" 
+  //  stringPoly = "1.0,.034,1.0E-4" 
   //     --> load 2nd order polynominal
-  //  string = "0.9:1.1,.034,1.0E-4,2.2E-8" 
+  //  stringPoly = "0.9:1.1,.034,1.0E-4,2.2E-8" 
   //     --> load 3rd order polynominal, and a0 coefficient
   //         range is 0.9 to 1.1 for random selection.
   //
   // Input *callFun is for error or debug msg only.
   //
-  // Be carefuly to parse both commas and colons
+  // Be carefull to parse both commas and colons
+  //
+  // Mar 22 2020: pass varName and load it.
   //
 
   int MEMC    = sizeof(char);
@@ -1167,7 +1248,8 @@ void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
 
   // ----------- BEGIN ------------
 
-  sprintf(GENPOLY->STRING,"%s", string);
+  sprintf(GENPOLY->STRING, "%s", stringPoly );
+  sprintf(GENPOLY->VARNAME,"%s", varName ); // Mar 22 2020
 
   for(o=0; o < MXSPLIT; o++ ) 
     { splitValue[o] = (char*)malloc( 40*MEMC); }
@@ -1175,7 +1257,7 @@ void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
   splitRange[0] = (char*)malloc( 40*MEMC);
   splitRange[1] = (char*)malloc( 40*MEMC);
 
-  splitString(string, comma, MXSPLIT,      // inputs
+  splitString(stringPoly, comma, MXSPLIT,      // inputs
               &NSPLIT, splitValue );      // outputs         
 
   ORDER = NSPLIT-1;
@@ -1194,7 +1276,7 @@ void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
 	sprintf(c1err,"NRANGE=%d for order=%d. Expect 2 args"
 		" around one colon.", 	NRANGE, o);
 	sprintf(c2err,"Check %s element of %s (callFun=%s)", 
-		tmpVal, string, callFun );
+		tmpVal, stringPoly, callFun );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       sscanf(splitRange[0], "%le", &DVAL0 ); 
@@ -1220,7 +1302,7 @@ void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
   if ( LDMP ) {
     printf("\n xxx ======== %s DUMP =========== \n", fnam );
     printf(" xxx calling function: %s \n", callFun);
-    printf(" xxx input string = '%s' \n", string);
+    printf(" xxx input stringPoly = '%s' \n", stringPoly);
     printf(" xxx NORDER = %d \n", ORDER );
     for(o=0; o <= ORDER; o++ ) {
       DVAL0 = GENPOLY->COEFF_RANGE[o][0];
@@ -1244,7 +1326,7 @@ double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun) {
   // Mar 2019
   // evaluate polynominal for input value 'val'.
   // Note that random numbers are used for ranges.
-  // Avoid using slow 'pow' function.
+  // here we avoid using slow 'pow' function.
 
   int o, ORDER = GENPOLY->ORDER;
   double VALPOLY = 0.0 ;
@@ -2787,11 +2869,12 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
     {  SNDATA.HOSTGAL_DDLR[1] = parVal[0] ;  }
 
   else if ( strcmp(key,"HOSTGAL_LOGMASS") == 0 )
-    {  SNDATA.HOSTGAL_LOGMASS[0] = parVal[0] ;  }
+    {  SNDATA.HOSTGAL_LOGMASS_OBS[0] = parVal[0] ;  }
   else if ( strcmp(key,"HOSTGAL_LOGMASS_ERR") == 0 )
     {  SNDATA.HOSTGAL_LOGMASS_ERR[0] = parVal[0] ;  }
+
   else if ( strcmp(key,"HOSTGAL2_LOGMASS") == 0 )
-    {  SNDATA.HOSTGAL_LOGMASS[1] = parVal[0] ;  }
+    {  SNDATA.HOSTGAL_LOGMASS_OBS[1] = parVal[0] ;  }
   else if ( strcmp(key,"HOSTGAL2_LOGMASS_ERR") == 0 )
     {  SNDATA.HOSTGAL_LOGMASS_ERR[1] = parVal[0] ;  }
 
@@ -3509,7 +3592,7 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
 
   // tack on default SIM dir (Sep 2019)
   int IPATH_SIM_DEFAULT = NPATH;
-  sprintf(PATHLIST[NPATH], "%s/SIM", SNDATA_ROOT, VERSION); NPATH++ ;
+  sprintf(PATHLIST[NPATH], "%s/SIM", SNDATA_ROOT ); NPATH++ ;
 
   if ( LDMP ) 
     { printf(" xxx DATADIR = '%s' \n", DATADIR); fflush(stdout); }
@@ -4470,6 +4553,8 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
   // Mar 14 2019: 
   //  + check OPT_EXTRAP option
   //  + return SUCCESS or ERROR instead of hard-coded values.
+  //
+  // Mar 15 2020: allow numerical glitches in TMPMIN and TMPMAX
 
   int 
     ivar, ifun, NFUN, NVAR, ID, igrid, MSK, NBIN
@@ -4510,6 +4595,10 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
     TMPMAX   = gridmap->VALMAX[ivar] ;
     TMPBIN   = gridmap->VALBIN[ivar] ;
     TMPRANGE = TMPMAX - TMPMIN ;
+
+    // Mar 15 2020: allow numerical glitches
+    TMPMAX += (1.0E-14*TMPRANGE);
+    TMPMIN -= (1.0E-14*TMPRANGE);
 
     // check extrap option
     if ( gridmap->OPT_EXTRAP ) {
@@ -4671,9 +4760,9 @@ int  get_1DINDEX(int ID, int NDIM, int *indx ) {
   // 
   // If the number of grid-points in each dimension is
   // N1, N2 ... N_NDIM, then the returned index is an
-  // integer from 1 to N1*N2* ... N_NDIM.
+  // integer from 0 to N1*N2* ... N_NDIM-1.
   // For example, for a 3 dimensional array [4][5][4],
-  // the returned index is from 1 to 4*5*4 = 80.
+  // the returned index is from 0 to 4*5*4-1 = 80-1 = 79
   //
   // Feb 25, 2013: ABORT if *indx exceeds NPT
   // Feb 12, 2018: indx is 0 to N-1 (no longer 1-N)
@@ -5961,15 +6050,18 @@ int rd_sedFlux(
    +  move error checking earlier, right after loop.
    + add error check for NDAY=NLAM=0 (maybe catch tabs)
         
-  **********/
+  Feb 4 2020:
+    + read 120 chars per line instead of 80 (and define MXCHAR_RDFLUX)
+    + abort if line length is too long (to avoid corruption)
+    + abort if fewer than 3 words are read
 
-#define  MXWORD_RDFLUX 4  // max values per line to read
+  **********/
 
   FILE *fpsed;
 
-  char txterr[20], line[200] ;
+  char txterr[20], line[200], lastLine[200] ;
   //  char *ptrtok, s1[60], s2[60], s3[60], s4[60], tmpline[200] ;
-  char *ptrStringVal[4], StringVal[4][40];
+  char *ptrStringVal[MXWORDLINE_FLUX], StringVal[MXWORDLINE_FLUX][40];
   char space[] = " ";
   char fnam[]  = "rd_sedFlux" ;
 
@@ -5977,8 +6069,8 @@ int rd_sedFlux(
   double daystep_last, daystep, daystep_dif ;
   double lamstep_last, lamstep, lamstep_dif ;
   int iep, ilam, iflux, ival, LAMFILLED, OKBOUND_LAM, OKBOUND_DAY, NBIN ;
-  int NRDLINE, NRDWORD, GZIPFLAG, FIRST_NONZEROFLUX, NONZEROFLUX ;
-  int OPT_READ_FLUXERR, OPT_FIX_DAYSTEP, OPT_FIX_LAMSTEP ;
+  int  NRDLINE, NRDWORD, GZIPFLAG, FIRST_NONZEROFLUX, NONZEROFLUX ;
+  bool OPT_READ_FLUXERR, OPT_FIX_DAYSTEP;
 
   // define tolerances for binning uniformity (Aug 2017)
   double DAYSTEP_TOL = 0.5E-3; // tolerance on DAYSTEP uniformity
@@ -5995,18 +6087,18 @@ int rd_sedFlux(
   // open SED file.
 
   fpsed = open_TEXTgz(sedFile, "rt", &GZIPFLAG );
-  if ( fpsed == NULL ) {
+  if ( !fpsed  ) {
     sprintf(c1err,"Cannot open SED file: " );
     sprintf(c2err,"  '%s' ", sedFile);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
   // check OPTMASK args
-  OPT_READ_FLUXERR = 0  ;              // default: ignore fluxerr column
-  OPT_FIX_DAYSTEP = OPT_FIX_LAMSTEP = 1; // default => require fixed bin size
+  OPT_READ_FLUXERR = false ;      // default: ignore fluxerr column
+  OPT_FIX_DAYSTEP  = true;     // default => require fixed bin size
 
-  if ( (OPTMASK & 1) > 0 ) { OPT_READ_FLUXERR = 1; }
-  if ( (OPTMASK & 2) > 0 ) { OPT_FIX_DAYSTEP  = 0; }
+  if ( (OPTMASK & 1) > 0 ) { OPT_READ_FLUXERR = true ; }
+  if ( (OPTMASK & 2) > 0 ) { OPT_FIX_DAYSTEP  = false ; }
 
   if ( OPT_READ_FLUXERR  ) 
     { sprintf(txterr, "and errors"); }
@@ -6024,10 +6116,22 @@ int rd_sedFlux(
   daystep_last = daystep=-9.0;  day_last = -999999. ;
   lamstep_last = lamstep=-9.0;  lam_last = -999999. ;
 
-  for(ival=0; ival < MXWORD_RDFLUX; ival++ ) 
+  for(ival=0; ival < MXWORDLINE_FLUX; ival++ ) 
     { ptrStringVal[ival] = StringVal[ival];   }
 
-  while ( fgets (line, 80, fpsed ) != NULL  ) {
+  line[0] = lastLine[0] = 0 ;
+
+  while ( fgets (line, MXCHARLINE_FLUX+10, fpsed ) != NULL  ) {
+
+    if ( strlen(line) > MXCHARLINE_FLUX ) {
+      print_preAbort_banner(fnam);
+      printf("   sedFile: %s \n", sedFile);
+      printf("   current  line: '%s' \n", line);
+      sprintf(c1err,"Line length=%d exceeds bound of %d",
+	      strlen(line), MXCHARLINE_FLUX );
+      sprintf(c2err,"Either increase MXCHARLINE_FLUX, or reduce line len");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+    }
 
     NRDLINE++ ;   
 
@@ -6035,13 +6139,39 @@ int rd_sedFlux(
     if ( strlen(line) <= 2 ) { continue ; }
     if ( commentchar(line) ) { continue ; }
 
-    splitString2(line, space, MXWORD_RDFLUX,  // input line is destroyed
-		 &NRDWORD, ptrStringVal ) ;  // returned
+    //    splitString2(line, space, MXWORD_RDFLUX,  // input line is destroyed
+    //		 &NRDWORD, ptrStringVal ) ;  // returned
+
+    splitString(line, space, MXWORDLINE_FLUX, 
+		&NRDWORD, ptrStringVal ) ;  // returned
+   
+    if ( NRDWORD < 3 ) {
+      print_preAbort_banner(fnam);
+      printf("   sedFile: %s \n", sedFile);
+      printf("   previous line: '%s' \n", lastLine);
+      printf("   current  line: '%s' \n", line);
+      sprintf(c1err,"NRDWORD = %d, but expected at least 3", NRDWORD);
+      sprintf(c2err,"Check dumped lines from file above.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+    }
 
     sscanf(StringVal[0], "%le" , &day  ) ;
     sscanf(StringVal[1], "%le" , &lam  ) ;
     sscanf(StringVal[2], "%le" , &flux ) ;
-    if ( OPT_READ_FLUXERR ) { sscanf(StringVal[3], "%le" , &fluxerr ) ;  }
+
+    sprintf(lastLine, "%s", line);
+
+    if ( OPT_READ_FLUXERR ) { 
+      if ( NRDWORD < 4 ) {
+	printf("   sedFile: %s \n", sedFile);
+	printf("   previous line: '%s' \n", lastLine);
+	printf("   current  line: '%s' \n", line);
+	sprintf(c1err,"NRDWORD = %d, but expected at least 4", NRDWORD);
+	sprintf(c2err,"to read FLUXERR from 4th coloumn.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+      }
+      sscanf(StringVal[3], "%le" , &fluxerr ) ;  
+    }
 
     if ( day < DAYrange[0] ) { continue ; }
     if ( day > DAYrange[1] ) { continue ; }
@@ -6807,6 +6937,8 @@ int  init_SNPATH(void) {
   // Feb 19 2015: 
   //   checkg getenv() == NULL rather than if it returns "(null)".
   //   Set SURVEYNAME to "" instead of SDSS.
+  //
+  // Jan 31 2020: init PATH_USER_INPUT = ""
 
   char fnam[] = "init_SNPATH" ;
 
@@ -6849,6 +6981,8 @@ int  init_SNPATH(void) {
   sprintf(PATH_SNDATA_SIM,        "%s/SIM",        PATH_SNDATA_ROOT);
   SNDATA.SURVEY_NAME[0]=0;
   SNDATA.SUBSURVEY_NAME[0] = 0 ;
+
+  PATH_USER_INPUT[0] = 0 ; 
 
   fflush(stdout);
   return(SUCCESS);
@@ -6908,10 +7042,11 @@ int init_SNDATA ( void ) {
     SNDATA.HOSTGAL_RA[igal]          = -999.0 ;
     SNDATA.HOSTGAL_DEC[igal]         = -999.0 ;
     SNDATA.HOSTGAL_DDLR[igal]        = -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS[igal]     = -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS_ERR[igal] = -9.0 ;
-    SNDATA.HOSTGAL_sSFR[igal]        = -9.0 ;
-    SNDATA.HOSTGAL_sSFR_ERR[igal]    = -9.0 ;
+    SNDATA.HOSTGAL_LOGMASS_TRUE[igal] = -9.0 ;
+    SNDATA.HOSTGAL_LOGMASS_OBS[igal]  = -9.0 ;
+    SNDATA.HOSTGAL_LOGMASS_ERR[igal]  = -9.0 ;
+    SNDATA.HOSTGAL_sSFR[igal]         = -9.0 ;
+    SNDATA.HOSTGAL_sSFR_ERR[igal]     = -9.0 ;
   }
   SNDATA.HOSTGAL_USEMASK = 0 ;
 
@@ -7394,6 +7529,7 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
 
     // - - - -  SIM_HOSTLIB_XXX  (Feb 2014)
 
+    fprintf(fp,"SIM_HOSTLIB_GALID:  %lld \n", SNDATA.SIM_HOSTLIB_GALID);
     char key[60];
     int NPAR = SNDATA.NPAR_SIM_HOSTLIB; 
     fprintf(fp, "SIM_HOSTLIB_NPAR: %d \n", NPAR);
@@ -7938,10 +8074,10 @@ void wr_HOSTGAL(FILE *fp) {
 	      SNDATA.HOSTGAL_CONFUSION );
     }
 
-    if ( SNDATA.HOSTGAL_LOGMASS[igal] > 0.0 ) {
+    if ( SNDATA.HOSTGAL_LOGMASS_OBS[igal] > 0.0 ) {
       fprintf(fp, "%s_LOGMASS:  %6.3f +- %6.3f   # log10(Mgal/Msolar)\n", 
 	      PREFIX, 
-	      SNDATA.HOSTGAL_LOGMASS[igal], 
+	      SNDATA.HOSTGAL_LOGMASS_OBS[igal], 
 	      SNDATA.HOSTGAL_LOGMASS_ERR[igal] );
 
       fprintf(fp, "%s_sSFR:  %6.3e +- %6.3e  \n",
@@ -8148,7 +8284,7 @@ int header_merge(FILE *fp, char *auxheader_file) {
 } // end of header_merge
 
 // ******************************************************
-int  fluxcal_SNDATA ( int iepoch, char *magfun ) {
+int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
 
 
   /*********
@@ -8170,7 +8306,11 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun ) {
   Sep 5 2016: magfun = asinh is now obsolete
 
   Jan 3 2018: check for saturation
-
+  Jan 23 2020: 
+    pass opt argument:
+    opt == 0 or 1 -> keep ZP error added in quadratyre
+    opt &  2 -> refactor --> remove ZP_sig term; ZP error added earlier.
+   
   *********/
 
 
@@ -8189,7 +8329,6 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun ) {
   char fnam[] = "fluxcal_SNDATA" ;
 
   // ------------- BEGIN ----------------
-
 
   VALID_MAGFUN = 0;
 
@@ -8254,17 +8393,20 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun ) {
     arg      = -0.4 * (ZP - ZEROPOINT_FLUXCAL_DEFAULT) ;
     ZP_scale = pow(TEN,arg) ;
  
-    if ( flux_err >= 0.0 && ZP > 10.0  && ZP_sig >= 0.0 ) {
+    if ( flux_err >= 0.0 && ZP > 10.0 ) {
 
       fluxcal     = flux     * ZP_scale ;
       fluxcal_err = flux_err * ZP_scale ;
 
-      // add ZP error here for FLUXCAL; 
-      // note that flux in ADU does not have this ZP error.
-      relerr      = powf(TEN,0.4*ZP_sig) - 1.0 ;
-      tmperr      = fluxcal * relerr ;
-      sqerrtmp    = fluxcal_err*fluxcal_err + tmperr*tmperr ;
-      fluxcal_err = sqrt(sqerrtmp) ;
+      if (opt <= 1 ) {
+	// add ZP error here for FLUXCAL; 
+	// note that flux in ADU does not have this ZP error.
+	relerr      = powf(TEN,0.4*ZP_sig) - 1.0 ;
+	tmperr      = fluxcal * relerr ;
+	sqerrtmp    = fluxcal_err*fluxcal_err + tmperr*tmperr ;
+	fluxcal_err = sqrt(sqerrtmp) ;
+      }
+
     }
   }
 
@@ -9982,13 +10124,19 @@ void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG) {
 
 
 // *************************************************
-FILE *snana_openTextFile (int vboseFlag, char *SNPATH, char *fileName, 
+FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName, 
 			  char *fullName, int *gzipFlag ) {
 
   /* ----------------------------------------------
     Shell to open text file for reading.
     First search local directory; if file not found
-    then search $SNPATH
+    then search paths in [space-separated] PATH_LIST.
+    The search priority is
+      + current pwd
+      + 1st path in PATH_LIST
+      + 2nd path in PATH_LIST
+    There is no warning or error if file exists in 
+    multiple directories.
 
     This allows user to easily over-ride default
     with private version.
@@ -9998,11 +10146,16 @@ FILE *snana_openTextFile (int vboseFlag, char *SNPATH, char *fileName,
    Dec 29 2017: use open_TEXTgz to allow reading gzipped files.
    Jan 11 2018: add gzipFile output arg
    Mar 20 2019: padd vboseFlag to print comment to stdout
+   Feb 01 2020: SNPATH -> PATH_LIST (space separated)
   ----------------------------------------------- */
 
 #define TEXTMODE_read "rt"
+#define MXPATH_CHECK 4
 
   int LDMP = (vboseFlag>0) ;
+  int ipath, NPATH ;
+  bool IS_OPEN = false ;
+  char *PATH[MXPATH_CHECK], sepKey[]= " " ; 
   FILE *fp ;
   //  char fnam[] = "snana_openTextFile" ;
 
@@ -10021,19 +10174,78 @@ FILE *snana_openTextFile (int vboseFlag, char *SNPATH, char *fileName,
     return fp;
   } 
 
+  // if we get here, try paths in PATH_LIST
 
-   // if we get here, try official location
-   sprintf(fullName, "%s/%s", SNPATH,  fileName );
-   //   fp = fopen(fullName, "rt") ;
-   fp = open_TEXTgz(fullName,TEXTMODE_read, gzipFlag );
+  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
+    { PATH[ipath] = (char*) malloc(MXPATHLEN*sizeof(char) ); }
 
-   if ( LDMP && fp != NULL ) { printf("\t Opened : %s \n", fullName ); }
+  splitString(PATH_LIST, sepKey, MXPATH_CHECK,
+	       &NPATH, PATH ); // <== returned
 
-   // return pointer regardless of status
-   return fp;
+  for(ipath=0; ipath < NPATH; ipath++ ) {
+    if ( IS_OPEN ) { continue ; }
+
+    sprintf(fullName, "%s/%s", PATH[ipath],  fileName );
+    //   fp = fopen(fullName, "rt") ;
+    fp = open_TEXTgz(fullName,TEXTMODE_read, gzipFlag );
+
+    if ( fp != NULL ) {
+      IS_OPEN = true ;
+      if ( LDMP ) { printf("\t Opened : %s \n", fullName ); }
+    }
+
+  } // end ipath
+
+  // free memory
+  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )   { free(PATH[ipath]); }
+
+  // return pointer regardless of status
+  return fp;
 
 }  // end of snana_openTextFile
 
+
+// *****************************************************
+void abort_openTextFile(char *keyName, char *PATH_LIST,
+                        char *fileName, char *funCall) {
+
+  // if *snana_openTextFile returns NULL pointer, call this
+  // function to print error info and abort. Main thing is
+  // to print out all directories that were checked from
+  // current dir and PATH_LIST.
+  
+  //#define MXPATH_CHECK 4
+  int NPATH, ipath;
+  char *PATH[MXPATH_CHECK], sepKey[] = " " ;
+
+  // -------------- BEGIN ----------------
+
+  print_preAbort_banner(funCall);
+
+
+  // append path(s) from PATH_LIST
+  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
+    { PATH[ipath] = (char*) malloc( MXPATHLEN * sizeof(char) ); }
+
+  // first path is current working dir
+  getcwd(PATH[0],MXPATHLEN);
+
+  // split string to get other paths
+  splitString(PATH_LIST, sepKey, MXPATH_CHECK,
+	      &NPATH, &PATH[1] ); // <== returned
+  
+  printf("\n  The following paths were checked for input file read from"
+	 "\n  %s: %s \n", keyName, fileName);
+  for(ipath=0; ipath <= NPATH; ipath++ ) 
+    { printf("     %s \n", PATH[ipath] );   }
+
+  sprintf(c1err,"Could not find '%s' input file:", keyName );
+  sprintf(c2err,"%s  (see preAbort info above)", fileName);
+  errmsg(SEV_FATAL, 0, funCall, c1err, c2err );
+  
+  return ;
+
+} // end abort_openTextFile
 
 
 // ***************************

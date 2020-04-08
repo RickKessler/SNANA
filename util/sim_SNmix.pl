@@ -28,6 +28,8 @@
 #  sim_SNmix.pl <SNmixFile> GENSTAT    ! debug GENSTAT
 #  sim_SNmix.pl <SNmixFile> KICP       ! force kicp queue
 #  sim_SNmix.pl <SNmixFile> NOSUBMIT   ! init, but don't submit
+#  sim_SNmix.pl <SNmixFile> NOPROMPT   ! skip prompt if SIMLOGS has no DONE stamp
+#                                      !  (make sure batch jobs are killed)
 #
 #  And for internal use only:
 #    sim_SNmix.pl <SNmixFile> -NODEINDX <nodeindx>  -SUFFIX $Nsec5
@@ -60,6 +62,7 @@
 #                                     # to arg of SIMGEN_INFILE_[Ia,NONIa]
 #   SIMGEN_INFILE_NONIa: <NONIa-override-input-file>
 #   SIMGEN_INFILE_Ia:    <idem for SNIa model> 
+#   SIMGEN_INFILE_SNIa:  <alternate key for SNIa input file>
 #
 #  GENVERSION: ANOTHER_SIMGEN_NAME
 #    GENOPT:  <another command-line override>
@@ -192,6 +195,20 @@
 #
 # Jan 22 2020: protect GENOPT_GLOBAL for parentheses in argument.
 #
+# Feb 19 2020: 
+#   + in write_GENSTAT_DRIVER(), increase max BUSYFILE wait time from
+#     10s to 60s (for NERSC).
+#
+# Mar 12 2020: 
+#   + add NOPROMPT option to clobber SIMLOGS subDir even if there is no
+#     DONE stamp.
+#
+# Mar 24 2020: fix so that SIMGEN_INFILE_Ia need not be global if
+#              there is a SIMGEN_INFILE_Ia for each GENVERSION
+#
+# Apr 7 2020:
+#    leave FAILURE message in DONE stamp if SBATCH file does not exist.
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -294,13 +311,13 @@ my (@STATUS_NORMALIZATION, @TOTAL_STRING );
 my (@CONTENTS_INFILE_MASTER, @CONTENTS_INFILE_INCLUDE );
 my (@CONTENTS_INFILE_Ia, @CONTENTS_INFILE_NONIa, @CONTENTS_INFILE_SIMGEN);
 
-my ($NARG,$SNMIX_INFILE_MASTER,$SUBMITFLAG );
+my ($NARG,$SNMIX_INFILE_MASTER,$SUBMIT_FLAG, $PROMPT_FLAG );
 my ($INPUT_FILE_INCLUDE_Ia, $INPUT_FILE_INCLUDE_NONIa, @GENOPT_FILE_INCLUDE);
 my ($INPUT_FILE_ZVAR_Ia, $INPUT_FILE_ZVAR_NON1A, @INPUT_FILE_NON1AGRID );
 my ($SIMLIB_FILE, $SEARCHEFF_SPEC_FILE, $HOSTNOISE_FILE, $ZPHOTEFF_FILE );
 my ($FASTFAC, $SUFFIX_TEMP );
 my ($DO_SSH, $DO_BATCH, $SNANA_LOGIN_SETUP);
-my ($KILLJOBS_FLAG, $DEBUG_GENSTAT, $INODE_GLOBAL);
+my ($KILLJOBS_FLAG, $DEBUG_GENSTAT, $INODE_GLOBAL, $PROMPT_FLAG );
 my ($DOGEN_SNIa, $DOGEN_NONIa, @NVAR_SIMGEN_DUMP);
 my ($CONVERT_SIMGEN_DUMP, $DO_SIMGEN_DUMP);
 my ($NCLASS_SIMGEN_DUMP, $NCLASS_SIMGEN_DUMPALL );
@@ -349,7 +366,7 @@ my $MOI4 = substr($MOI,0,4);
 my $PREFIX_TEMP  = "TMP_${MOI4}" ;
 my $SUFFIX_DUMP_TEMP = "DUMP_TEMP" ;
 
-my $BATCH_TEMPLATE_KICP = '$StBATCH_TEMPLATES/SBATCH_kicp.TEMPLATE' ;
+my $BATCH_TEMPLATE_KICP = '$SBATCH_TEMPLATES/SBATCH_kicp.TEMPLATE' ;
 
 my $OPT_GENSTAT_TABLE_plusLINKS = 1;
 my $OPT_GENSTAT_TABLE_noLINKS   = 2;
@@ -374,8 +391,8 @@ if ( $KILLJOBS_FLAG ) { sntools::Killjobs(@SSH_NODELIST) ;  die "\n"; }
 
 &init_duplicate();
 
-if ( $SUBMITFLAG == 0 ) {
-    print "\n SUBMITFLAG=0 ==> DO NOT SUBMIT JOBS.\n";
+if ( $SUBMIT_FLAG == 0 ) {
+    print "\n SUBMIT_FLAG=0 ==> DO NOT SUBMIT JOBS.\n";
     exit(0);
 }
 
@@ -532,7 +549,6 @@ sub SUBMIT_NODES {
 	$NCPU = $NJOBTOT ;  
     }
 
-
     &set_timeStamp();  # set Nsec5 = number of seconds since midnight
 
     # determine key based on SSH or BATCH system
@@ -549,6 +565,12 @@ sub SUBMIT_NODES {
     if ( length($SNANA_MODELPATH) > 0 ) 
 	{ $cmdSetup = "$cmdSetup ; $ENVDEF_MODELPATH" ; }
    
+
+    if ( $BATCH_NCORE && !(-e $BATCH_TEMPLATE)  ) {
+	$MSGERR[0] = "Cannot find BATCH template file";
+	$MSGERR[1] = "$BATCH_TEMPLATE";
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);  
+    }
 
     print "\n";
     print " Split SIMGEN jobs by nodes: \n";
@@ -664,6 +686,7 @@ sub init_SIMGEN() {
 
     $KILLJOBS_FLAG = 0 ;
     $DEBUG_GENSTAT = 0 ;
+    $PROMPT_FLAG   = 1 ;
 
     @GENMODEL_NGENTOT  = ( ) ;
     
@@ -716,7 +739,8 @@ sub parse_arg() {
     $SUFFIX_TEMP    = "TEMP" ;
     $DO_SSH         = 0 ;
     $DO_BATCH       = 0 ;
-    $SUBMITFLAG     = 1;
+    $SUBMIT_FLAG    = 1;
+    $PROMPT_FLAG    = 1;
 
     for ( $i = 1; $i < $NARG ; $i++ ) { $USEARG[$i]=0; }
 
@@ -728,7 +752,8 @@ sub parse_arg() {
 	if ( $arg eq "FAST100"   ) { $FASTFAC = 100 ;  $USEARG[$i]=1; }
 	if ( $arg eq "KILL"      ) { $KILLJOBS_FLAG=1; $USEARG[$i]=1; }	
 	if ( $arg eq "GENSTAT"   ) { $DEBUG_GENSTAT=1; $USEARG[$i]=1; }	
-	if ( $arg eq "NOSUBMIT"  ) { $SUBMITFLAG = 0 ; $USEARG[$i]=1; }
+	if ( $arg eq "NOSUBMIT"  ) { $SUBMIT_FLAG = 0; $USEARG[$i]=1; }
+	if ( $arg eq "NOPROMPT"  ) { $PROMPT_FLAG = 0; $USEARG[$i]=1; }
 
 	if ( "$arg" eq "-NODEINDX_SSH"   )  { 
 	    $NODEINDX   = $argNext;  $DO_SSH = 1; 
@@ -963,6 +988,12 @@ sub parse_inFile_master() {
     $key = "SIMGEN_INFILE_Ia:";
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,
 				@CONTENTS_EXCLUDE_GENVERSION );
+    if ( scalar(@tmp) == 0 ) {
+	# try alternate key
+	$key = "SIMGEN_INFILE_SNIa:";
+	@tmp = sntools::parse_array($key,1,$OPT_QUIET,
+				    @CONTENTS_EXCLUDE_GENVERSION );
+    }
     if ( scalar(@tmp) > 0 ) { 
 	$tmpFile1 = $tmp[0];
 	$tmpFile1 = qx(echo $tmpFile1); # unpack ENV
@@ -978,6 +1009,7 @@ sub parse_inFile_master() {
 	unless (-e $tmpFile1 ) {
 	    $MSGERR[0] = "'$tmpFile1' does not exist";
 	    $MSGERR[1] = "Check argument of SIMGEN_INFILE_Ia:" ;
+	    $MSGERR[1] = " or   argument of SIMGEN_INFILE_SNIa:" ;
 	    sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);  
 	}
     }
@@ -1555,7 +1587,7 @@ sub parse_GENVERSION {
 	}
    
 	# check for GENVERSION-dependent sim-input files
-	if ( $KEY eq "SIMGEN_INFILE_Ia:" )  { 
+	if ( $KEY eq "SIMGEN_INFILE_Ia:" || $KEY eq "SIMGEN_INFILE_SNIa:" ) { 
 	    $DOGEN_SNIa = 1;
 	    &store_SIMGEN_INFILE($iver, 1, \@argList);  
 	}
@@ -1761,15 +1793,18 @@ sub store_SIMGEN_INFILE(@) {
     # iflag=1 -> load version-dependent SNIa infile
     # iflag=2 -> load version-dependent NONIa infile
     # iflag>2 -> 2nd,3rd ... NON1a infile to override
+    #
+    # Mar 24 2020: if mIa<0, set mIa=0
+    # Mar 31 2020: allow ENV for inFile.
 
-    my ($m, $inFile, $inFile_Ia, $LDMP);
+    my ($m, $inFile, $inFile_Ia, $LDMP, $tmpFile );
 
     # ---------- BEGIN ----------
     
     $LDMP = 0 ;
     if ( $LDMP ) {
 	print " xxx ------------------------------ \n";
-	print " xxx iver=$iver  iflag=$iflag \n";
+	print " xxx iver=$iver  iflag=$iflag  NGENMODEL=$NGENMODEL[$iver]\n";
 	if ( $iflag > 0 ) {
 	    print " xxx inFileList = " ;
 	    foreach $inFile (@$inFileList) { print "'$inFile' "; }
@@ -1781,6 +1816,8 @@ sub store_SIMGEN_INFILE(@) {
     # make sure each inFile exists
     if ( $iflag > 0 ) {
 	foreach $inFile (@$inFileList) { 
+	    $inFile = qx(echo $inFile); 
+	    $inFile =~ s/\s+$// ;   # trim trailing whitespace  
 	    unless (-e $inFile ) {
 		$MSGERR[0] = "Sim-input file '$inFile' does not exist;";
 		$MSGERR[1] = "Check arguments of 'SIMGEN_INFILE_NONIa:'" ;
@@ -1808,7 +1845,12 @@ sub store_SIMGEN_INFILE(@) {
 	    $MSGERR[1] = "to override it under GENVERSION." ; 
 	    sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR); 
 	}
-	# overwrite SNIa model
+	# overwrite or add SNIa model
+	if ( $mIa < 0 ) {  # first SNIa input file
+	    $mIa = 0; 
+	    $NGENMODEL[$iver]++; 
+	    $NGENMODEL_GLOBAL++ ; 
+	}
 	$SIMGEN_INFILE[$iver][$mIa]  =  @$inFileList[0] ; 
 	$GENMODEL_CLASS[$iver][$mIa] =  "SNIa" ;
 	$GENMODEL_NAME[$iver][$mIa]  =  $GENMODEL_NAME_GLOBAL[$mIa] ;
@@ -2437,7 +2479,7 @@ sub make_logDir {
     # Aug 2017: if LOGDIR exists without DONE stamp, give SEVERE WARNING
     my $EXIST_LOGDIR = (-d $LOGDIR);
     my $EXIST_DONE   = (-e $DONE_STAMP );
-    if ($EXIST_LOGDIR && $EXIST_DONE == 0 ) {
+    if ($PROMPT_FLAG &&  $EXIST_LOGDIR && $EXIST_DONE == 0 ) {
 	print "\n\n ***** SEVERE WARNING ******** \n" ;
 	print "LOGDIR = \n  '$LOGDIR' \n";
 	print "exists without a done stamp. \n";
@@ -2545,7 +2587,7 @@ sub get_normalization_model {
     if ( -e $NORMLOG ) {
 	print "\t Norm-log file already exists:\n\t $normLog . \n";
 	$NTMP = 0;
-	# normLog exists, but make sure the FATAL line is there to
+	# normLog exists, but make sure the QUIT line is there to
 	# make sure it's really done
       CHECKDONE_NORM:	
 	@reqLine = qx(grep QUIT $NORMLOG);
@@ -2566,6 +2608,8 @@ sub get_normalization_model {
     if ( scalar(@line) == 0 ) {       
 	$MSGERR[0] = "!!! SIMnorm job failed to get normalization !!! ";
 	$MSGERR[1] = "See $normLog";
+	$MSGERR[2] = "APPEND_NORM = $APPEND_NORM" ;
+	$MSGERR[3] = "cmdNorm = '$cmdNorm' ";
 	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR) ;
     }
 
@@ -3082,7 +3126,7 @@ sub make_AUXFILE_LIST {
 
     }
     else {
-	# FITS format SNIa, then NONIaMODEL  .xyz
+	# FITS format SNIa, then NONIaMODEL 
 
 	if ( $DOGEN_SNIa ) {
 	    $headFiles = "${GENPREFIX}*SNIa*HEAD.FITS" ;
@@ -3205,11 +3249,12 @@ sub write_GENSTAT_DRIVER {
 
     # avoid different batch jobs trying to open STATFILE
     # at the same time. Use BUSYFILE to control traffic.
+    # Increase max BUSY wait from 10s to 60s (for NERSC).
     my $NSLEEP = 0 ;
     while ( -e $BUSYFILE ) { 
 	sleep(1);  
 	$NSLEEP++ ;
-	if ($NSLEEP > 10 ) {
+	if ($NSLEEP > 60 ) {
 	    $MSGERR[0] = "BUSYFILE still there after $NSLEEP seconds";
 	    $MSGERR[1] = "BUSYFILE = $BUSYFILE" ;
 	    sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);

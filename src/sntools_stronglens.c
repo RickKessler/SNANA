@@ -24,10 +24,10 @@ void init_stronglens(char *MODEL_FILE) {
   char fnam[] = "init_stronglens";
   char cline[200],tmpWord[64];
   int MSKOPT_PARSE = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
-  int iwd,NWD,i,j,k,NVARS,NIMG,Nsplit ;
+  int iwd,NWD,i,j,k,NVARS,NIMG,Nsplit, gzipFlag ;
   char *cptr[MXIMG_STRONGLENS];
   char comma[] = ",";
-  char MISSING_VAR[40];
+  char MISSING_VAR[40], FULLNAME_MODEL_FILE[MXPATHLEN] ;
   int  MEMC  = 64*sizeof(char);
   // --------------- BEGIN ---------------
 
@@ -40,12 +40,20 @@ void init_stronglens(char *MODEL_FILE) {
 
 
   // open input file for reading
-  fp = fopen(MODEL_FILE,"rt");
+  // xxx mark delete  fp = fopen(MODEL_FILE,"rt");
+  fp = snana_openTextFile(1,PATH_USER_INPUT, MODEL_FILE,
+			  FULLNAME_MODEL_FILE, &gzipFlag );
 
   if ( fp == NULL ) {
+    abort_openTextFile("STRONGLENS_FILE",
+		       PATH_USER_INPUT, MODEL_FILE, fnam );
+
+    /* xxxxxxxx mark delete Feb 1 2020 xxxxxxxxxxx
     sprintf(c1err, "Could not open strong-lens model file");
     sprintf(c2err, " '%s' ", MODEL_FILE);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    xxxxxxxxxxx */
+
   }
 
   INPUTS_STRONGLENS.USE_FLAG = 1;

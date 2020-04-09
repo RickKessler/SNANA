@@ -5462,6 +5462,11 @@ void GEN_SNHOST_POS(int IGAL) {
   // Nov 15 2019: 
   //   + fix aweful bug for local a,b coords in ellipse frame.
   //   + call  GEN_SNHOST_ANGLE(IGAL,&phi);
+  //
+  // Apr 9 2020:
+  //  + move IVAR_ANGLE<0 abort trap up to before get_Sersic_info()
+  //    so that we get clean abort instead of seg fault.
+  //
 
   // strip off user options passed via sim-input file
   int LSN2GAL = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
@@ -5499,6 +5504,12 @@ void GEN_SNHOST_POS(int IGAL) {
 
   // bail out if there are no galaxy shape parameters
   if ( SERSIC_PROFILE.NPROF == 0 ) { return ; }
+
+  if ( HOSTLIB.IVAR_ANGLE < 0 ) {
+    sprintf(c1err,"Missing required %s in hostlib", HOSTLIB_VARNAME_ANGLE);
+    sprintf(c2err,"Needed to choose position near host.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
   // extract info for each Sersic term
   get_Sersic_info(IGAL, &SNHOSTGAL.SERSIC) ;    
@@ -5594,11 +5605,6 @@ void GEN_SNHOST_POS(int IGAL) {
   // get major and minor half-light axes (arcsec) for this 
   // Sersic profile and this galaxy
 
-  if ( HOSTLIB.IVAR_ANGLE < 0 ) {
-    sprintf(c1err,"Missing required %s in hostlib", HOSTLIB_VARNAME_ANGLE);
-    sprintf(c2err,"Needed to choose position near host.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
 
   // Feb 4 2019: 
   // get DLR, distance to half-light ellipse, in direction of SN

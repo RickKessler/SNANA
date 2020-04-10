@@ -14,6 +14,8 @@
 
   Mar 27 2017: add LEAKAGE_CUT to INPUTS.
 
+  APr 10 2020: MXKCOR -> 200 (was 100)
+
 ********************************************************/
 
 #define VERSION_KCOR 3    // internal version
@@ -23,7 +25,7 @@
 #define MXLAM_FILT  5000  // max number of lambda bins for filters
 #define MXEP        150   // 110
 #define MXREDSHIFT  80    // max number of redshift bins 
-#define MXKCOR     100    // max number of Kcors to make (Kgg,Kgr, etc..)
+#define MXKCOR     200    // max number of Kcors to make (Kgg,Kgr, etc..)
 #define MXAV        50    // max size of AV grid
 #define MXMWEBV      4    // max number of MW E(B-V) bins
 #define MXPRIMARY    6    // max number of primary standards

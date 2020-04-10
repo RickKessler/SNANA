@@ -18279,6 +18279,5 @@
       + pass version to init_genSmear_OIR(version)
         Argument of GENMAG_SMEAR_MODELNAME must be of the
         form$PATH/OIR.[suffix]
- 
        
 END: 

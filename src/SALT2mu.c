@@ -5758,9 +5758,16 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     mB      = TABLEVAR->fitpar[INDEX_mB][ISN] ;
     x1      = TABLEVAR->fitpar[INDEX_x1][ISN] ;
     c       = TABLEVAR->fitpar[INDEX_c][ISN] ;
+
+    /* xxx NO 4/10/2020 xxxxx
     Alpha   = TABLEVAR->SIM_ALPHA[ISN] ;
     Beta    = TABLEVAR->SIM_BETA[ISN] ;
+    xxxxxxx */
+
+    Alpha   = INPUTS.parval[IPAR_ALPHA0]; // 4/10/2020: temp hack;later should
+    Beta    = INPUTS.parval[IPAR_BETA0];  // measure A,B from slopes of HR vs x1,c
     GammaDM = TABLEVAR->SIM_GAMMADM[ISN] ;
+
     mu_true = TABLEVAR->SIM_MU[ISN] ;
     mu_obs  = mB - M0_DEFAULT + Alpha*x1 - Beta*c - GammaDM ;
     TABLEVAR->fitpar[INDEX_mu][ISN]      = mu_obs ; 
@@ -8668,7 +8675,6 @@ double muresid_biasCor(int ievt ) {
   bool DOBIAS_MU = ( INPUTS.opt_biasCor & MASK_BIASCOR_MU     ) ;
 
   M0     = INPUTS.nommag0 ;
-  //.xyz
 
   if (DOBIAS_MU) {
     a = INPUTS.parval[IPAR_ALPHA0];

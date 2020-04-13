@@ -20944,7 +20944,6 @@ c +CDE,SNANAFIT.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,SIMLIBCOM.
-c +CDE,KCORCOM,IF=R4KCOR,I2KCOR.
 
       REAL*8  MJD, GAIN, RDNOISE, SKYSIG, PSF1, PSF2, PSFRAT
       REAL*8  ZP, ZPERR, MAG, FLUX, FLUXERR, PIXSIZE, LAMOBS
@@ -21017,14 +21016,14 @@ c -------------------------------------------
 10      FORMAT(A, 1x, A)  ! KEY VAL
 11      FORMAT('# ', A)
 
+        WRITE(LUNOUT,10) 'NLIBID:     ',  'NLIBID_REPLACE'
+
         if ( IS_REAL_DATA ) then   
           WRITE(LUNOUT,10) 'PSF_UNIT:    ',  'ARCSEC_FWHM'
           WRITE(LUNOUT,10) 'SKYSIG_UNIT: ',  'ADU_PER_SQARCSEC'  
           CALL SET_SIMLIB_SKYMAG()
           CALL SET_SIMLIB_ZPERR()
        endif
-
-        WRITE(LUNOUT,10) 'NLIBID:     ',  'NLIBID_REPLACE'
 
         WRITE(LUNOUT, '(/,A,/)' ) 'BEGIN LIBGEN' 
 cc90      FORMAT(/, 'BEGIN LIBGEN',/  )

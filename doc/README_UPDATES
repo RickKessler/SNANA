@@ -18239,7 +18239,14 @@
 
          ***** IMPORTANT(v10_76d) ***** 
 
+     + sim: refactored code (to allow EBV distrib) is now default code.
+
          ***** USEFUL(v10_76d) ***** 
+
+     + $SNANA_DIR/util/get_vpec.py
+     + $SNANA_DIR/util/translate_CSPDR3.py
+     + kcor.exe can transform mag systems: e.g., VEGA->AB
+     + snlc_fit: AV prior enabled for snoopy model.
 
          ***** MISCELLANEOUS(v10_76d) ***** 
 
@@ -18279,5 +18286,18 @@
       + pass version to init_genSmear_OIR(version)
         Argument of GENMAG_SMEAR_MODELNAME must be of the
         form$PATH/OIR.[suffix]
-       
+    
+   kcor.h and snana.car:  MXKCOR -> 200 (was 100)
+
+   kcor.c[h]
+    + new feature to mix mag systems in the input, but transform
+      them internally to common system. See new syntax
+      "MAGSYSTEM: BD17->AB", and see kcor-input instructions
+      at top of kcor.c.
+
+   New utility to fetch peculiar velocities:
+      $SNANA_DIR/util/get_vpec.py
+   and assoicated map is
+     $SNDATA_ROOT/models/VPEC/twomass++_velocity_LV11.npy
+
 END: 

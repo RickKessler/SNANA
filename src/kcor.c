@@ -45,6 +45,42 @@
     kcor.exe <inFile> DUPLICATE_LAMSHIFT_GLOBAL 10
        (prep duplicate filter set with lambda shift)
 
+  - - - - - - - - - - - - - - 
+  INPUT FILE KEYS:
+
+     SN_SED:  <file with SN flux vs. lam and phase>
+
+     MAGSYSTEM: AB
+     MAGSYSTEM: BD17
+     MAGSYSTEM: BD17->AB  # read BD17 mag, but transform internally to AB
+    
+     FILTSYSTEM: COUNT    # most moder systems are count
+     FILTSYSTEM: ENERGY   # older Bessell system may be energy
+
+     FILTPATH:  <path>   # location of filter trans files
+
+     FILTER: <stringName>  <fileName>  <mag>
+       [note that last char of stringName is used in sim and snlc_fit]
+
+     LAMBDA_RANGE: <lammin> <lammax>
+     OUTFILE:  <outFile>              
+      [this outFile is input arg for KCOR_FILE in snlc_sim and snlc_fit.]
+
+   To define K-corrections:
+
+       KCOR:  <restFilter>  <obsFilter>   K_ro
+
+       REDSHIFT_RANGE: <zmin> <zmax>  # z-range to store kcor table
+       REDSHIFT_BINSIZE: <binSize>    # bin size of kcor table
+
+   AV-warp params for k-corrs:
+       RV:          3.1 
+       AV_RANGE:   -6.0  6.0  
+       AV_BINSIZE:  0.5    # increase for quicker tests
+       AV_OPTION:   2      # 2->proper integration over filter
+
+
+
   HISTORY
   ~~~~~~~~~~
 
@@ -131,6 +167,13 @@
  Apr 28 2019:
    + new debug input SN_SED_POWERLAW -> flux(SN) = (lam/5000)^POWERLAW.
     
+ Apr 11 2020
+   + new option to transform primary mag systems with, e.g., 
+        MAGSYSTEM: VEGA->AB
+        MAGSYSTEM: VEGA->BD17
+     which will read in VEGA offsets and transform internally
+     to AB [BD17] system. This option allows mixing mag systems.
+
 ****************************************************/
 
 #include <stdio.h>   
@@ -140,6 +183,7 @@
 #include <fcntl.h>   
 #include <errno.h>   
 #include <math.h>       // need this for log10 function 
+#include <ctype.h>
 
 #include "fitsio.h"
 
@@ -220,12 +264,14 @@ int rd_input(void) {
   // Open and read user input file
   // Apr 25, 2009: initialize NFILT_SYSTEM = 0
   // May 25 2017: read optional LAMSHIFT_GLOBAL
-
+  // Apr 10 2020: check for optional MAGSYST_INPUT->MAGSYS
+  // 
   char 
     c_get[80]
     ,c_flt[2][40]
     ,kcorname[40]    // local name for filter 
     ,magcheck_name[40]
+    ,MAGSYSTEM_TMP[60]
     ,FILTPATH_LIST[MXFILTDEF+1][MXCHAR_FILENAME]
     ,*ptr_tmp
     ,TXT_MAGREF[60]
@@ -237,7 +283,7 @@ int rd_input(void) {
 
   FILE *fp_input ;  // name of user input file 
 
-  int iprim, ifilt, itmp, i, gzipFlag ;
+  int iprim, ifilt, itmp, i, gzipFlag, INDX, INDX_INPUT ;
   int NFILT_SYSTEM, LANDOLT_OPT, FILTER_IGNORE   ;
 
   float xlim4[2];
@@ -296,10 +342,11 @@ int rd_input(void) {
   }
 
   INPUTS.N_OUTFILE = 0 ;
-  sprintf(INPUTS.OUTFILE[0],  "NULL" );
-  sprintf(INPUTS.OUTFILE[1],  "NULL" );
-  sprintf(MAGSYSTEM.NAME,     "NULL" );
-  sprintf(FILTSYSTEM.NAME,    "NULL" );
+  sprintf(INPUTS.OUTFILE[0],     "NULL" );
+  sprintf(INPUTS.OUTFILE[1],     "NULL" );
+  MAGSYSTEM.NAME[0]       = 0 ;
+  MAGSYSTEM.NAME_INPUT[0] = 0 ;
+  FILTSYSTEM.NAME[0]      = 0 ;
 
   INPUTS.PLOTFLAG_SN      = 1 ; // default => plot SNSED and SN mags
   INPUTS.PLOTFLAG_PRIMARY = 1 ; // default => plot primary spec
@@ -321,9 +368,10 @@ int rd_input(void) {
   SPECTROGRAPH_USEFLAG = 0 ;
   INPUTS_SPECTRO.SYN_FILTERLIST_BAND[0]=0;
 
-  FILTER_IGNORE = 0;
-  MAGSYSTEM.INDX  = 0 ;
-  FILTSYSTEM.INDX = 0;
+  FILTER_IGNORE         = 0;
+  MAGSYSTEM.INDX        = 0 ;
+  MAGSYSTEM.INDX_INPUT  = 0 ;
+  FILTSYSTEM.INDX       = 0;
 
   INPUTS.OPT_MWCOLORLAW = OPT_MWCOLORLAW_ODON94 ; 
 
@@ -477,7 +525,14 @@ int rd_input(void) {
 
 
     if ( strcmp(c_get,"MAGSYSTEM:")==0 )  {
-      readchar ( fp_input,  MAGSYSTEM.NAME );
+      readchar ( fp_input,  MAGSYSTEM_TMP );
+      parse_MAGSYTEM(MAGSYSTEM_TMP, &MAGSYSTEM) ;
+
+      /* xxxxx mark delete 
+      printf(" xxx %s: MAGSYSTEM->NAME(%s) = %s -> '%s' (DO_TR=%d)\n",
+	     fnam, MAGSYSTEM_TMP, MAGSYSTEM.NAME_INPUT, MAGSYSTEM.NAME,
+	     MAGSYSTEM.DO_TRANSFORM );
+	     xxxx */
 
       // check for command-line override
       if ( strcmp(MAGSYSTEM.NAME,INPUTS.MAGSYSTEM_REPLACE1) == 0 ) 
@@ -489,12 +544,21 @@ int rd_input(void) {
 	{ FILTER_IGNORE = 0 ; }
 
 
-      MAGSYSTEM.INDX   = index_primary(MAGSYSTEM.NAME);
-      PRIMARYSED[MAGSYSTEM.INDX].USE = 1; // added Mar 2013
-      MAGSYSTEM.OFFSET = 2.5 * log10 ( FNU_AB );
+      INDX_INPUT = index_primary(MAGSYSTEM.NAME_INPUT); 
+      INDX       = index_primary(MAGSYSTEM.NAME);
+      MAGSYSTEM.INDX_INPUT = INDX_INPUT ;
+      MAGSYSTEM.INDX       = INDX ;
+      PRIMARYSED[INDX_INPUT].USE = 1; 
+      PRIMARYSED[INDX].USE       = 1; 
+      MAGSYSTEM.OFFSET_INPUT = 2.5 * log10 ( FNU_AB );
+      MAGSYSTEM.OFFSET       = 2.5 * log10 ( FNU_AB );
 
-      printf("\n\t Found MAGSYSTEM '%s' with offset = %8.3f \n",
-	     MAGSYSTEM.NAME, MAGSYSTEM.OFFSET );
+      PRIMARYSED[INDX].IS_AB       = (strcmp(MAGSYSTEM.NAME,"AB")==0) ;
+      PRIMARYSED[INDX_INPUT].IS_AB = (strcmp(MAGSYSTEM.NAME_INPUT,"AB")==0) ;
+
+      printf("\n\t Found MAGSYSTEM '%s' with offset = %8.3f (INDX=%d->%d)\n",
+	     MAGSYSTEM_TMP, MAGSYSTEM.OFFSET,
+	     MAGSYSTEM.INDX_INPUT, MAGSYSTEM.INDX );
     }  
 
 
@@ -545,18 +609,14 @@ int rd_input(void) {
 
       readchar   ( fp_input, INPUT_FILTER.FILTNAME );
       readchar   ( fp_input, INPUT_FILTER.FILENAME );
-      // xxx mark delete  readdouble ( fp_input, 1, &INPUT_FILTER.MAGREF );
       readchar   ( fp_input, TXT_MAGREF);
       parse_MAGREF(INPUT_FILTER.FILTNAME, TXT_MAGREF, 
 		   &INPUT_FILTER.MAGREF ); // <== returned
 
-      INPUT_FILTER.IFLAG_SYN = 0;
-      
+      INPUT_FILTER.IFLAG_SYN = 0;     
       NFILTDEF++ ;      // increment total no. filters
       NFILT_SYSTEM++ ;  // increment NFILT for current system
- 
-      storeFilterInfo( &INPUT_FILTER, &MAGSYSTEM, &FILTSYSTEM );
-	          
+      storeFilterInfo( &INPUT_FILTER, &MAGSYSTEM, &FILTSYSTEM );   
     }  // end of FITLER: read
 
 
@@ -743,6 +803,7 @@ int rd_input(void) {
   //   parrot the input after command-line overrides
   // ==================================================
 
+  printf("\t NPRIMARY:          %d \n", INPUTS.NPRIMARY);
   printf("\t SN Ia templates:   %s \n", INPUTS.inFile_snsed );
   printf("\t SN SED Fudge file: %s \n", INPUTS.inFile_snsed_fudge );
   printf("\t TREF_EXPLODE = %6.1f days (rest-frame)\n", 
@@ -887,6 +948,60 @@ void  parse_MAGREF(char *FILTNAME, char *TXT_MAGREF, double *MAGREF ) {
 
 } // end parse_MAGREF
 
+
+// **************************************
+void parse_MAGSYTEM(char *MAGSYSTEM_ARG, MAGSYSTEM_DEF *MAGSYSTEM) {
+
+  // Created Aril 2020 by R.Kessler
+  // 
+  // Examples:
+  // Input MAGSYSTEM_ARG = VEGA    
+  // Output
+  //    MAGSYSTEM->NAME_INPUT = VEGA
+  //    MAGSYSTEM->NAME       = VEGA
+  //    MAGSYSTEM->DO_TRANSFORM = 0 (false)
+  //
+  // Input MAGSYSTEM_ARG = VEGA->AB 
+  // Output
+  //    MAGSYSTEM->NAME_INPUT = VEGA
+  //    MAGSYSTEM->NAME       = AB
+  //    MAGSYSTEM->DO_TRANSFORM = 1 (true)
+
+  int i, i2, len, jdash;
+  char TMP_ARG[60];
+  char fnam[] = "parse_MAGSYSTEM" ;
+
+  // ----------- BEGIN -----------
+
+  MAGSYSTEM->NAME_INPUT[0] = MAGSYSTEM->NAME[0] = 0 ;
+  MAGSYSTEM->DO_TRANSFORM  = 0 ;
+
+  if ( strstr(MAGSYSTEM_ARG,"->") == NULL ) {
+    sprintf(MAGSYSTEM->NAME_INPUT, "%s", MAGSYSTEM_ARG);
+    sprintf(MAGSYSTEM->NAME,       "%s", MAGSYSTEM_ARG);
+  }
+  else {
+    MAGSYSTEM->DO_TRANSFORM  = 1 ;
+    len = strlen(MAGSYSTEM_ARG);
+    jdash = -9 ;
+    for(i=0; i < len; i++ ) 
+      { if ( MAGSYSTEM_ARG[i] == '-' ) {jdash=i;} }
+    
+    sprintf(TMP_ARG,"%s", MAGSYSTEM_ARG);
+    strncpy(MAGSYSTEM->NAME_INPUT,  TMP_ARG, jdash);
+    sprintf(MAGSYSTEM->NAME, "%s", &MAGSYSTEM_ARG[jdash+2] );
+
+    /*
+    printf(" xxx %s: jdash=%d  NAME = '%s' -> '%s' \n", 
+	   fnam, jdash, MAGSYSTEM->NAME_INPUT, MAGSYSTEM->NAME );
+    */
+    
+  }
+
+  return ;
+
+} // end parse_MAGSYSTEM
+
 // ******************************
 void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
 		      MAGSYSTEM_DEF    *MAGSYSTEM,
@@ -898,7 +1013,14 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   // Store filter info in global arrays.
   //
 
-  int NF, lenf, IFLAG_SYN ;
+  int  INDX        = MAGSYSTEM->INDX;
+  int  INDX_INPUT  = MAGSYSTEM->INDX_INPUT ;
+  char *NAME       = MAGSYSTEM->NAME;
+  char *NAME_INPUT = MAGSYSTEM->NAME_INPUT ;
+  double OFFSET       = MAGSYSTEM->OFFSET;
+  double OFFSET_INPUT = MAGSYSTEM->OFFSET_INPUT;
+
+  int NF, lenf, IFLAG_SYN, INDX_TMP ;
   char FILENAME[MXPATHLEN], band[4];
   char fnam[] = "storeFilterInfo" ;
 
@@ -935,9 +1057,10 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   sprintf ( FILTER[NF].name, "%s" , filtName );
   sprintf ( FILTER[NF].file, "%s" , FILENAME ) ;  
 
-  if ( MAGSYSTEM->INDX <= 0 || MAGSYSTEM->INDX > 10 ) {
+
+  if ( INDX <= 0 || INDX > 10 ) {
     sprintf(c1err, "MAGSYSTEM = '%s' is not defined for FILTER='%s'",
-	    MAGSYSTEM->NAME, filtName );
+	    NAME, filtName );
     sprintf(c2err,"Check input file: %s ", INPUTS.inFile_input);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -951,12 +1074,19 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
 
   // assign current MAGSYSTEM parameters
   
-  FILTER[NF].MAGSYSTEM_OFFSET = MAGSYSTEM->OFFSET ;
-  FILTER[NF].MAGSYSTEM_INDX   = MAGSYSTEM->INDX ;
-  sprintf(FILTER[NF].MAGSYSTEM_NAME,"%s", MAGSYSTEM->NAME ) ;
+  FILTER[NF].MAGSYSTEM_OFFSET       = OFFSET ;
+  FILTER[NF].MAGSYSTEM_INDX         = INDX ;
+  FILTER[NF].MAGSYSTEM_INDX_INPUT   = INDX_INPUT;
+
+  /*
+  printf(" xxx %s: NF=%d load INDX = %d -> %d \n",
+	 fnam, NF, INDX_INPUT, INDX );
+  */
+
+  sprintf(FILTER[NF].MAGSYSTEM_NAME,"%s", NAME ) ;
   FILTER[NF].MAGFILTER_REF    = magRef ;
   FILTER[NF].FILTSYSTEM_INDX  = FILTSYSTEM->INDX ;
-  
+
   sprintf(FILTER[NF].FILTSYSTEM_NAME,"%s", FILTSYSTEM->NAME ) ;
   sprintf(FILTER[NF].PATH,"%s", INPUTS.FILTPATH ) ;
   FILTER[NF].IPATH = NFILTPATH ;  // Dec 2012
@@ -966,12 +1096,15 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   FILTER[NF].SNMAG0_CHECK_VALUE  = -99.0 ; // fill with NULL
   
   // 4/25/2009 - load PRIMARYSED struct as well.
-  PRIMARYSED[MAGSYSTEM->INDX].MAGSYSTEM_OFFSET = MAGSYSTEM->OFFSET ;
-  sprintf(PRIMARYSED[MAGSYSTEM->INDX].MAGSYSTEM_NAME,"%s", 
-	  MAGSYSTEM->NAME ) ;
-  
-  sprintf(PRIMARYSED[MAGSYSTEM->INDX].MAGSYSTEM_SEDFILE,"%s", 
-	  INPUTS.inFile_PRIMARY[MAGSYSTEM->INDX] ) ;
+  PRIMARYSED[INDX].MAGSYSTEM_OFFSET = OFFSET ;
+  sprintf(PRIMARYSED[INDX].MAGSYSTEM_NAME,"%s", NAME ) ;  
+  sprintf(PRIMARYSED[INDX].MAGSYSTEM_SEDFILE,"%s", 
+	  INPUTS.inFile_PRIMARY[INDX] ) ;
+
+  PRIMARYSED[INDX_INPUT].MAGSYSTEM_OFFSET = OFFSET_INPUT ;
+  sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_NAME,"%s", NAME_INPUT ) ;
+  sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_SEDFILE,"%s", 
+	  INPUTS.inFile_PRIMARY[INDX_INPUT] ) ;
 
   if ( IFLAG_SYN ) {
     double L0 = INPUT_FILTER->LAMRANGE_SYN[0] ;
@@ -1610,28 +1743,37 @@ int kcor_ini(void) {
    if ( rd_snsed() != SUCCESS ) { return ERROR; }
 
 
-   // read & rebin all USED primary refs.
-   
+   // be careful to loop over each 'iprim' in each stage so that
+   // it works regardless of the order that PRIMARY refs are defined
+   // in the kcor-input file.
+
+   // read & rebin all USED primary refs.   
    for( iprim = 1; iprim <= INPUTS.NPRIMARY; iprim++ ) {
-
      if ( PRIMARYSED[iprim].USE == 0 ) { continue ; }
-
      istat = rd_primary(iprim, subdir_standards );
      if ( istat != SUCCESS ) { return ERROR; }
-     
-     if ( primarymag(iprim) != SUCCESS ) { madend(1); }
    }
+ 
+   // compute primary mags and zp per filter
+   for( iprim = 1; iprim <= INPUTS.NPRIMARY; iprim++ )
+     { primarymag_zp(iprim) ; }
 
+   // check option to transform primary; e.g., VEGA->AB
+   for( iprim = 1; iprim <= INPUTS.NPRIMARY; iprim++ )
+     { primarymag_zp2(iprim) ; }
+
+
+   // print summary for each primary and filter
+   for( iprim = 1; iprim <= INPUTS.NPRIMARY; iprim++ )
+     { primarymag_summary(iprim) ; }
+   
 
    // loop over Kcors to see which filters are rest/obs
    //
    for ( ikcor = 1; ikcor <= NKCOR; ikcor++ ) {
-
      index_filter ( ikcor, &ifilt_rest, &ifilt_obs );
-
      MSKTMP = FILTER[ifilt_rest].MASKFRAME ;
      FILTER[ifilt_rest].MASKFRAME = ( MSKTMP | MSKFRAME_REST );
-
      MSKTMP = FILTER[ifilt_obs].MASKFRAME ;
      FILTER[ifilt_obs].MASKFRAME = ( MSKTMP | MSKFRAME_OBS );
    }
@@ -3713,7 +3855,7 @@ void index_filter ( int ikcor, int *ifilt_rest, int *ifilt_obs ) {
 
 
 // *************************************************
-int snmag ( void ) {
+int snmag(void) {
 
   /***
     fill 
@@ -3896,7 +4038,7 @@ int snmag ( void ) {
 
 
 // *****************************************************
-int primarymag ( int iprim ) {
+void primarymag_zp(int iprim ) {
 
   /***
    fill
@@ -3915,28 +4057,34 @@ int primarymag ( int iprim ) {
 
   ****/
 
-  int ifilt, ilam ;
+  int ifilt, ilam, INDX, INDX_INPUT ;
   int idump = 0;
 
-   double 
-     arg, lam, trans, flux, wflux, wfilt, mag, ftmp, LAMMIN, LAMMAX
-     , fluxsum[MXFILTDEF+1]
-     , filtsum[MXFILTDEF+1]
-         ;
+  double  arg, lam, trans, flux, wflux, wfilt, mag, ftmp, LAMMIN, LAMMAX;
+  double  fluxsum[MXFILTDEF+1], filtsum[MXFILTDEF+1] ;
+  bool    USE_FILT, DO_TRANSFORM ;
 
-   char *name ;
-   char fnam[] = "primarymag" ;
+  char *name ;
+  char fnam[] = "primarymag_zp" ;
 
   /* ------------------- BEGIN --------------------- */
 
-   printf("\n ***** Compute %s flux in each filter ***** \n", 
+   printf("\n ***** Compute %s flux and ZP in each filter ***** \n", 
 	  PRIMARYSED[iprim].MAGSYSTEM_NAME ) ;
-   printf("\n");
    fflush(stdout);
 
    for ( ifilt=1;  ifilt <= NFILTDEF ; ifilt++ ) {
 
-     if ( iprim != FILTER[ifilt].MAGSYSTEM_INDX ) continue ;
+     INDX       = FILTER[ifilt].MAGSYSTEM_INDX ;
+     INDX_INPUT = FILTER[ifilt].MAGSYSTEM_INDX_INPUT;  // 4/2020
+     USE_FILT   = (iprim==INDX || iprim == INDX_INPUT);
+
+     /*  xxxx
+     printf(" xxx %s: iprim=%d ifilt=%2d INDX=%d->%d USE=%d \n",
+	    fnam, iprim, ifilt, INDX_INPUT, INDX, USE_FILT);
+     xxxx */
+
+     if ( !USE_FILT ) { continue; }
 
      fluxsum[ifilt]   = 0.0;
      filtsum[ifilt]   = 0.0;
@@ -3986,49 +4134,113 @@ int primarymag ( int iprim ) {
 
       FILTER[ifilt].MAGFILTER_ZP = FILTER[ifilt].MAGFILTER_REF ;
 
-      // adjust filter zeropoint except for AB system.
+      // adjust filter zeropoint except for AB system because
+      // since AB mags are zero
+      if ( !PRIMARYSED[iprim].IS_AB ) 
+	{ FILTER[ifilt].MAGFILTER_ZP += PRIMARYSED[iprim].ZP[ifilt] ; }
+
+      /* xxxxxxxxxxxxxxx mark delet Apr 11 2020 xxxxxxx
       name = INPUTS.name_PRIMARY[iprim] ;
       if ( strcmp(name,"AB" ) != 0 ) {
 	FILTER[ifilt].MAGFILTER_ZP += PRIMARYSED[iprim].ZP[ifilt] ; 
       }
+      xxxxxxxxxx */
 
    }  // end of 'ifilt' loop
 
+   return;
+
+}  // end of primarymag_zp
+
+// *****************************************************
+void primarymag_zp2(int iprim ) {
+
+  // Created Apri 2020 by R.Kessler
+  // If magsys input is different than final magsys,
+  // apply zp transformation. This applies to kcor-inputs
+  // such as 
+  //   MAGSYSTEM:  VEGA->AB
+  //   MAGSYSTEM:  BD17->AB
+  //
+
+  int  ifilt, INDX, INDX_INPUT ;
+  double ZP_INPUT, ZP ;
+  char fnam[] = "primarymag_zp2" ;
+
+  // ---------- BEGIN ------------
+
+  for ( ifilt=1;  ifilt <= NFILTDEF ; ifilt++ ) {
+    
+    INDX       = FILTER[ifilt].MAGSYSTEM_INDX ;
+    INDX_INPUT = FILTER[ifilt].MAGSYSTEM_INDX_INPUT; 
+
+    if ( INDX != iprim      ) { continue; }
+    if ( INDX == INDX_INPUT ) { continue; }
+
+    // here do the transform from INDX_INPUT to INDX
+    
+    ZP       = PRIMARYSED[INDX].ZP[ifilt] ; 
+    ZP_INPUT = PRIMARYSED[INDX_INPUT].ZP[ifilt] ; 
+    //    FILTER[ifilt].MAGFILTER_ZP  += (ZP_INPUT - ZP);
+    FILTER[ifilt].MAGFILTER_REF += (ZP_INPUT - ZP);
+    
+    /*xxxx
+    printf(" xxx %s: iprim=%d ifilt=%2d(%s)  ZP=%6.3f->%6.3f \n",
+	   fnam, iprim, ifilt, FILTER[ifilt].name,  ZP_INPUT, ZP);
+    */
+  }
+
+  return;
+
+} // end primarymag_zp2
+
+// *****************************************************
+void primarymag_summary(int iprim) {
+
+  // print table summarizing primary mag and ZP
+
+  char *NAME = PRIMARYSED[iprim].MAGSYSTEM_NAME ;
+  int  ifilt, INDX, INDX_INPUT;
+  bool USE_FILT;
+  char fnam[] = "primarymag_summary" ;
+
+  // ----------- BEGIN -----------
+
+  // #############################
+  // print results to screen
+  
+  printf("                                            syn                    \n");
+  printf("                                flux        %s     system  final  \n",
+	 NAME );
+  printf("         filter      (system) (Nph/s/cm^2)  mag      ZPoff    ZP    \n" );
+  printf("  ------------------------------------------------------------------ \n");
+  
+  for ( ifilt=1;  ifilt <= NFILTDEF ; ifilt++ ) {
+    
+    INDX       = FILTER[ifilt].MAGSYSTEM_INDX ;
+    INDX_INPUT = FILTER[ifilt].MAGSYSTEM_INDX_INPUT;  // 4/2020
+    USE_FILT = (iprim==INDX);
+    if ( !USE_FILT ) { continue; }
+    
+    printf("%20s (%6s)   %9.3le %8.4f %7.3f %7.3f  \n"
+	   ,FILTER[ifilt].name
+	   ,FILTER[ifilt].MAGSYSTEM_NAME
+	   ,PRIMARYSED[iprim].FLUXSUM[ifilt]
+	   ,PRIMARYSED[iprim].SYNMAG[ifilt]
+	   ,FILTER[ifilt].MAGFILTER_REF
+	   ,FILTER[ifilt].MAGFILTER_ZP
+	   );
+    
+  }
+
+  printf("  ----------------------------------------------------------------- \n");
 
 
-   // #############################
-   // print results to screen
+  fflush(stdout);
 
-   printf("                                            syn                    \n");
-   printf("                                flux        %s     system  final  \n",
-	  PRIMARYSED[iprim].MAGSYSTEM_NAME );
-   printf("         filter      (system) (Nph/s/cm^2)  mag      ZPoff    ZP    \n" );
-   printf("  ------------------------------------------------------------------ \n");
+  return ;
 
-   for ( ifilt=1;  ifilt <= NFILTDEF ; ifilt++ ) {
-     
-     if ( iprim != FILTER[ifilt].MAGSYSTEM_INDX ) { continue ; }
-
-      printf("%20s (%6s)   %9.3le %8.4f %7.3f %7.3f  \n"
-	     ,FILTER[ifilt].name
-	     ,FILTER[ifilt].MAGSYSTEM_NAME
-	     ,fluxsum[ifilt]
-	     ,PRIMARYSED[iprim].SYNMAG[ifilt]
-	     ,FILTER[ifilt].MAGFILTER_REF
-	     ,FILTER[ifilt].MAGFILTER_ZP
-	     );
-
-   }
-
-   printf("  ----------------------------------------------------------------- \n");
-
-
-   fflush(stdout);
-   return SUCCESS;
-
-}  // end of primarymag
-
-
+} // end primarymag_summary
 
 
 // *****************************************************

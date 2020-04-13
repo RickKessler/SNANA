@@ -1159,7 +1159,7 @@ c   VALUE   = 44.4
 
       PARAMETER (
      &   LUNKCOR      = 98  ! log unit number to read
-     &  ,MXKCOR       = 100 ! max number of KCOR tables to read
+     &  ,MXKCOR       = 200 ! max number of KCOR tables to read
      &  ,KDIM_T       = 1  ! epoch KCOR index
      &  ,KDIM_Z       = 2  ! redshift KCOR index
      &  ,KDIM_AV      = 3  ! AV kcor index

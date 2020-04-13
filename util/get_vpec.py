@@ -169,7 +169,7 @@ else:
 	
 def main(ra,dec,z,vpec_mapfile=None):
 
-	if os.path.expandvars(vpec_mapfile) != vpec_mapfile_default:
+	if vpec_mapfile is not None and os.path.expandvars(vpec_mapfile) != vpec_mapfile_default:
 		ini = VelocityCorrection(vpec_mapfile)
 	else: ini = _ini
 	if _ini is None: raise RuntimeError('cannot find flow map file')

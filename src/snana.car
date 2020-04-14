@@ -21191,6 +21191,12 @@ c Mainly for low-z sample which has no meta data.
               FLUX    = SNLC_FLUXCAL(EP)
               FLUXERR = SNLC_FLUXCAL_ERRTOT(EP)
               LAMOBS  = FILTOBS_LAMAVG(IFILT_OBS)
+
+              if ( LAMOBS < 0.0 ) then
+                 c1err = 'Invalid/undefined band = ' // band
+		 c2err = 'Make sure all bands are defined in kcor file'
+                 CALL MADABORT(FNAM, C1ERR, C2ERR )
+              endif
               CALL COMPUTE_SIMLIB_INFO(
      &               SNLC_CCID,FLUX,FLUXERR,LAMOBS,PIXSIZE,
      &               PSF1, SKYSIG, ZP)     ! returned

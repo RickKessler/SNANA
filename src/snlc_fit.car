@@ -7762,7 +7762,9 @@ c
 c Dec 5 2013: remove ISN arg, and set SIMCHI2_CHEAT=0
 c
 c Aug 29 2017: check DOFIT_IDEAL
-
+c
+c Apr 13 2020: fix INISTP[VAL]_SHAPE logic for MLCS2k2 and SNOOPY
+c
 c ----------------------------------------
 
       IMPLICIT NONE
@@ -7927,15 +7929,15 @@ c Mar 24, 2012: set bound on AV and DELTA (for photoz fit)
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SNOOPY ) THEN
 
-         INIVAL(IPAR_SHAPE)    =  1.1
-         INISTP(IPAR_SHAPE)    =  0.3
+         if (INIVAL_SHAPE==NULLVAL) INIVAL(IPAR_SHAPE) = 1.1
+         INISTP(IPAR_SHAPE)    =  INISTP_SHAPE
          INIVAL(IPAR_COLOR)    =  INIVAL_AV
          INISTP(IPAR_COLOR)    =  INISTP_AV
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
 
-         INIVAL(IPAR_SHAPE)   =  0.001 !  INIVAL_SHAPE
-         INISTP(IPAR_SHAPE)   =  INISTP_SHAPE    ! initial step size         
+         if (INIVAL_SHAPE==NULLVAL) INIVAL(IPAR_SHAPE) = 0.001
+         INISTP(IPAR_SHAPE)   =  INISTP_SHAPE    ! initial step size 
          
          INIVAL(IPAR_COLOR)    =  INIVAL_COLOR
          INISTP(IPAR_COLOR)    =  INISTP_COLOR

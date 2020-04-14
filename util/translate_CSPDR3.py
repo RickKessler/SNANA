@@ -29,6 +29,8 @@ import shutil
 import datetime
 import numpy as np
 
+import get_vpec
+
 # get SFD98 map
 from astropy.coordinates import SkyCoord
 import astropy.units as u
@@ -39,6 +41,7 @@ INPDIR             = 'DR3'
 VERSION_SNANA      = 'CSPDR3'  # output dir name
 LOGMASS_FILE       = 'CSPDR3_LOGMASS.DAT'
 zERR               = 0.0001    # no z-errors in DR, so this is a fudge
+VPECERR            = 250.0     # VPEC uncertainty, km/s
 MJDOFF             = 53000.0   # add this back to CSP dates
 
 # define auxilary SNANA files
@@ -161,6 +164,7 @@ def translate_file(INPFILE, FILTERMAP_SNANA, LOGMASS_LIST):
                MWEBV     = SFD98*0.86  # include SF11 corr
                MWEBVERR  = MWEBV/6.0
                zCMB      = znew(RA,DEC,zHELIO)
+               VPEC      = get_vpec.main(RA,DEC,zCMB)[0]
 
           elif ( words[0] == 'filter' ) :
                band_CSP   = words[1]
@@ -189,6 +193,9 @@ def translate_file(INPFILE, FILTERMAP_SNANA, LOGMASS_LIST):
                 % (zHELIO,zERR) )
      fout.write('REDSHIFT_FINAL: %6.4f +- %6.4f  # CMB \n'
                 % (zCMB,zERR) )
+     fout.write('VPEC:     %6.1f +- %6.1f        # km/s, from LV11 map \n'
+                % (VPEC,VPECERR) )
+
      fout.write('MWEBV:    %6.3f +- %6.3f        # SFD98 * 0.86 \n' 
                 % (MWEBV,MWEBVERR) )
 
@@ -255,6 +262,7 @@ def makeAuxFile_README(OUTFILE_LIST,LOGMASS_LIST,FILTERMAP_SNANA):
      f.write(' Extra quantities in SNANA data files that are not in DR3:\n')
      f.write('   REDSHIFT_FINAL computed from CMB dipole.\n')
      f.write('   zERR    = %.4f \n' % zERR)
+     f.write('   VPEC    is from LV2011 map. \n')
      f.write('   PEAKMJD is from brightest observation.\n')
      f.write('   MWEBV   is from SFD98 x 0.86 correction from SF2011. \n' )
 

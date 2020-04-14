@@ -18267,6 +18267,7 @@
 
     snlc_fit.car
       + apply AV prior for SNOOPY (same as for mkcs2k2)
+      + fix INISTP_SHAPE logic for SNOOPY and MKCS2k2
 
     sntools_host.c
       + fix evil bug setting DEBUG_FLAG = 111 instead of testing

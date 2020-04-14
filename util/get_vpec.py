@@ -1,31 +1,36 @@
 #!/usr/bin/env python
 # D. Jones - 4/13/20
-"""Peculiar velocity corrections from a 2M++ flow model.  Command 
-line usage will probably be pretty slow - get_vpec.main() should be faster.
+"""Peculiar velocity corrections from a 2M++ flow model.  
+
+   Usage: get_vpec.py ra dec redshift
+
+Beware that command line usage may be slow due to reading
+large map; get_vpec.main(ra,dec,zcmb) should be faster.
 
 Explanation adopted from Jones+18:
-This code corrects for peculiar velocities using the nearby
-galaxy density field measured by the 2M++ catalog from 2MASS 
-(Lavaux & Hudson 2011). The uncorrelated uncertainty associated 
-with each correction is ±250 km/s (Scolnic+18).	 The 
-peculiar-velocity model is parameterized by the equation
-beta_I = Omega_M^0.55/b_I, where b_I describes the light-to-matter bias. 
-(The parameter beta_I is unrelated to the SALT2 nuisance parameter.)
-Carrick et al. (2015) measured beta_I = 0.43 +- 0.021. This code 
-adopts a conservative 5 sigma (+-0.1) systematic 
-on beta_I for its peculiar velocity systematic uncertainty.
+This code corrects for peculiar velocities using the nearby galaxy 
+density field measured by the 2M++ catalog from 2MASS 
+(Lavaux & Hudson 2011, arxiv:1105.6107). The uncorrelated 
+uncertainty associated with each VPEC value is +_250 km/s 
+(from Pantheon analysis in Scolnic+18).
+
+The peculiar-velocity model is parameterized by 
+        beta_I = Omega_M^0.55/b_I, 
+where b_I describes the light-to-matter bias. 
+(beta_I is unrelated to the SALT2 nuisance parameter)
+Carrick et al. 2015 (arXiv:1504.04627) measured beta_I=0.43+-0.021,
+which is propagated here as a systematic error on vpec.
+However, the 250km/s error from Pantheon is not included here.
 
 This algorithm and map, along with an older version of this code, 
-has been used previously in:
+has been used previously in the following SNIa-cosmology analyses:
 
-https://ui.adsabs.harvard.edu/abs/2018ApJ...859..101S/abstract
-https://ui.adsabs.harvard.edu/abs/2018ApJ...857...51J/abstract
-https://ui.adsabs.harvard.edu/abs/2019ApJ...881...19J/abstract
-
-
-usage: get_vpec.py ra dec redshift
-
-redshift should be CMB frame!
+https://ui.adsabs.harvard.edu/abs/2018ApJ...859..101S
+   (Pantheon analysism, Scolnic et al., 2018)
+https://ui.adsabs.harvard.edu/abs/2018ApJ...857...51J
+   (Photometric SNIa-cosmology results, Jones 2018)
+https://ui.adsabs.harvard.edu/abs/2019ApJ...881...19J
+   (SNIa-cosmologuy from single telescope, Jones 2019)
 
 """
 
@@ -39,9 +44,11 @@ from astropy import units as u
 from astropy.coordinates import SkyCoord
 
 # a few hard-coded variables that might need to be updated someday
+
 _c=299792458/1000.0
 _beta = 0.43
-_beta_err = 0.1
+# xxx mark delete RK_beta_err = 0.1
+_beta_err = 0.021
 _v_helio = 371.
 _l_h = 263.85 # galactic longitude
 _b_h = 48.25 # galactic latitude
@@ -52,6 +59,11 @@ _b_LG = -5.9451
 _l_0 = np.radians(264.14)
 _b_0 = np.radians(48.26)
 
+# define hard-wired default map file name
+SNDATA_ROOT   = os.environ['SNDATA_ROOT']
+vpec_mapfile_default = ('%s/models/VPEC/twomass++_velocity_LH11.npy' % SNDATA_ROOT)
+
+# ====================================================
 
 def sin_d(x):
 	""" sine in degrees for convenience """
@@ -160,10 +172,13 @@ class VelocityCorrection(object):
 		return cpecvel
 
 
-vpec_mapfile_default = os.path.expandvars('$SNDATA_ROOT/models/VPEC/twomass++_velocity_LV11.npy')
-if os.path.exists(vpec_mapfile_default): _ini = VelocityCorrection(vpec_mapfile_default)
+# xxx RK mark delete vpec_mapfile_default = os.path.expandvars('$SNDATA_ROOT/models/VPEC/twomass++_velocity_LH11.npy')
+
+if os.path.exists(vpec_mapfile_default): 
+	_ini = VelocityCorrection(vpec_mapfile_default)
 else:
-	print('warning: default map file %s cannot be found'%vpec_mapfile_default)
+	print('warning: default map file %s cannot be found' 
+	      % vpec_mapfile_default)
 	_ini = None
 
 	
@@ -177,16 +192,16 @@ def main(ra,dec,z,vpec_mapfile=None):
 	sc = SkyCoord(ra,dec,unit=(u.deg, u.deg))
 	gsc = sc.galactic
 
-	z_hel = ini.convert_to_helio(sc.ra.degree, sc.dec.degree, z)
-	vpec = ini.lookup_velocity(z_hel,gsc.l.degree,gsc.b.degree)
+	z_hel    = ini.convert_to_helio(sc.ra.degree, sc.dec.degree, z)
+	vpec     = ini.lookup_velocity(z_hel,gsc.l.degree,gsc.b.degree)
 	pec_corr = ini.correct_redshift(z_hel,vpec,gsc.l.degree,gsc.b.degree)
 
 	z_c = ini.correct_redshift(z_hel,vpec,gsc.l.degree,gsc.b.degree)
 
-	ini.beta = _beta
+	ini.beta     = _beta
 	ini.beta_err = _beta_err
-	ini.r_plus = 1 + ini.beta_err/ini.beta
-	ini.r_minus = 1 - ini.beta_err/ini.beta
+	ini.r_plus   = 1 + ini.beta_err/ini.beta
+	ini.r_minus  = 1 - ini.beta_err/ini.beta
 	z_plus = ini.correct_redshift(z_hel, ini.r_plus*vpec,gsc.l.degree,gsc.b.degree)
 	z_minus = ini.correct_redshift(z_hel, ini.r_minus*vpec,gsc.l.degree,gsc.b.degree)
 	
@@ -198,9 +213,12 @@ if __name__ == "__main__":
 	parser.add_argument("ra",type=float)
 	parser.add_argument("dec",type=float)
 	parser.add_argument("redshift",type=float)
-	parser.add_argument("--vpec_mapfile",default="$SNDATA_ROOT/models/VPEC/twomass++_velocity_LV11.npy",type=str)
+# xxx RK mark delete  parser.add_argument("--vpec_mapfile",default="$SNDATA_ROOT/models/VPEC/twomass++_velocity_LH11.npy",type=str)
+	parser.add_argument("--vpec_mapfile",default=vpec_mapfile_default,type=str)
 	p = parser.parse_args()
 	
 	vpec,vsys = main(p.ra,p.dec,p.redshift,vpec_mapfile=p.vpec_mapfile)
-	print('VPEC VPEC_SYS')
+
+	print('vpec = %.2f +- %.2f(sys) km/sec' % (vpec,vsys) )
+# xxx mark delete RK	print('VPEC VPEC_SYS')
 	print(vpec,vsys)

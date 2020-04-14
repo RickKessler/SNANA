@@ -205,8 +205,12 @@ def main(ra,dec,z,vpec_mapfile=None):
 	ini.r_minus  = 1 - ini.beta_err/ini.beta
 	z_plus = ini.correct_redshift(z_hel, ini.r_plus*vpec,gsc.l.degree,gsc.b.degree)
 	z_minus = ini.correct_redshift(z_hel, ini.r_minus*vpec,gsc.l.degree,gsc.b.degree)
-	
-	return (pec_corr-z)*_c,(z_plus-z)*_c
+
+	vpec0 = (pec_corr-z)*_c
+	vpec1 = (z_plus-z)*_c  # includes error
+	vsys  = abs(vpec0 - vpec1)
+# xxx mark delete RK	return (pec_corr-z)*_c,(z_plus-z)*_c
+	return vpec0,vsys
 
 if __name__ == "__main__":
 
@@ -218,8 +222,7 @@ if __name__ == "__main__":
 	parser.add_argument("--vpec_mapfile",default=vpec_mapfile_default,type=str)
 	p = parser.parse_args()
 	
-	vpec,vsys = main(p.ra,p.dec,p.redshift,vpec_mapfile=p.vpec_mapfile)
-	vsyserr = abs(vsys-vpec)
+	vpec,vsyserr = main(p.ra,p.dec,p.redshift,vpec_mapfile=p.vpec_mapfile)
 
 	print('vpec = %.1f +- %.1f +- %.1f(5sigma_sys)  km/sec' 
 	      % (vpec, _vpecerr, vsyserr) )

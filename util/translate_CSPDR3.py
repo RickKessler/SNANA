@@ -193,7 +193,7 @@ def translate_file(INPFILE, FILTERMAP_SNANA, LOGMASS_LIST):
                 % (zHELIO,zERR) )
      fout.write('REDSHIFT_FINAL: %6.4f +- %6.4f  # CMB \n'
                 % (zCMB,zERR) )
-     fout.write('VPEC:     %6.1f +- %6.1f  (+-%.1f 5sigma_sys) # km/s, from LH11 map \n'
+     fout.write('VPEC:     %6.1f +- %6.1f  (+- %.1f 5sigma_sys) # km/s, from LH11 map \n'
                 % (VPEC,VPECERR,VPECERR_SYS) )
 
      fout.write('MWEBV:    %6.3f +- %6.3f        # SFD98 * 0.86 \n' 

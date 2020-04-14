@@ -164,7 +164,7 @@ def translate_file(INPFILE, FILTERMAP_SNANA, LOGMASS_LIST):
                MWEBV     = SFD98*0.86  # include SF11 corr
                MWEBVERR  = MWEBV/6.0
                zCMB      = znew(RA,DEC,zHELIO)
-               VPEC      = get_vpec.main(RA,DEC,zCMB)[0]
+               VPEC,VPECERR_SYS = get_vpec.main(RA,DEC,zCMB)
 
           elif ( words[0] == 'filter' ) :
                band_CSP   = words[1]
@@ -193,8 +193,8 @@ def translate_file(INPFILE, FILTERMAP_SNANA, LOGMASS_LIST):
                 % (zHELIO,zERR) )
      fout.write('REDSHIFT_FINAL: %6.4f +- %6.4f  # CMB \n'
                 % (zCMB,zERR) )
-     fout.write('VPEC:     %6.1f +- %6.1f        # km/s, from LH11 map \n'
-                % (VPEC,VPECERR) )
+     fout.write('VPEC:     %6.1f +- %6.1f  (+-%.1f 5sigma_sys) # km/s, from LH11 map \n'
+                % (VPEC,VPECERR,VPECERR_SYS) )
 
      fout.write('MWEBV:    %6.3f +- %6.3f        # SFD98 * 0.86 \n' 
                 % (MWEBV,MWEBVERR) )

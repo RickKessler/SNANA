@@ -47,8 +47,7 @@ from astropy.coordinates import SkyCoord
 
 _c=299792458/1000.0
 _beta = 0.43
-# xxx mark delete RK_beta_err = 0.1
-_beta_err = 0.021
+_beta_err = 0.021*5.0  # 5 sigma is industry standard
 _v_helio = 371.
 _l_h = 263.85 # galactic longitude
 _b_h = 48.25 # galactic latitude
@@ -58,6 +57,8 @@ _l_LG = 105.7467
 _b_LG = -5.9451
 _l_0 = np.radians(264.14)
 _b_0 = np.radians(48.26)
+
+_vpecerr = 250.0  # only for printout
 
 # define hard-wired default map file name
 SNDATA_ROOT   = os.environ['SNDATA_ROOT']
@@ -218,7 +219,9 @@ if __name__ == "__main__":
 	p = parser.parse_args()
 	
 	vpec,vsys = main(p.ra,p.dec,p.redshift,vpec_mapfile=p.vpec_mapfile)
+	vsyserr = abs(vsys-vpec)
 
-	print('vpec = %.2f +- %.2f(sys) km/sec' % (vpec,vsys) )
+	print('vpec = %.1f +- %.1f +- %.1f(5sigma_sys)  km/sec' 
+	      % (vpec, _vpecerr, vsyserr) )
 # xxx mark delete RK	print('VPEC VPEC_SYS')
-	print(vpec,vsys)
+	print(vpec,vsyserr)

@@ -247,8 +247,6 @@ int main(int argc, char **argv) {
 
     if ( GENLC.NEPOCH < INPUTS.CUTWIN_NEPOCH[0] ) {   // avoid NEPOCH=0
       gen_event_reject(&ilc, &SIMFILE_AUX, "NEPOCH");
-      //      printf(" xxx main: NEPOCH=%d, LIBID=%d \n",
-      //	     GENLC.NEPOCH, SIMLIB_HEADER.LIBID); fflush(stdout);
       goto GENEFF;
     }
 

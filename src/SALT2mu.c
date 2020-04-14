@@ -714,6 +714,8 @@ Default output files (can change names with "prefix" argument)
   Mar 31 2020: abort if a,b,g binning is not the same in each IDSURVEY
              see check_abg_minmax_biasCor().
 
+  Apr 14 2020: in write_NWARN, add warning about excessive loss from biasCor cut.
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -893,7 +895,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 
 #define NCOSPAR 4  // size of cosPar array (OL,Ok,w0,wa)
 
-#define MXNUM_SAMPLE  25  // max number of SURVEY/FIELD samples
+#define MXNUM_SAMPLE  25  // max number of SURVEY/FIELD samples (max IDSAMPLE)
 #define MXCHAR_SAMPLE 100 // max string length of sample name
 #define USERFLAG_SURVEYGROUP_SAMPLE  1  // bookkeeping for biasCor IDSAMPLE
 #define USERFLAG_FIELDGROUP_SAMPLE   2
@@ -912,8 +914,7 @@ int  *CUTMASK_POINTER[MXEVENT_TYPE];
 int  *NALL_CUTMASK_POINTER[MXEVENT_TYPE];
 int  *NPASS_CUTMASK_POINTER[MXEVENT_TYPE];
 int  *NREJECT_CUTMASK_POINTER[MXEVENT_TYPE];
-int  NWARN_CUTMASK[MXEVENT_TYPE]; // refactor test warnings
-
+int  NDATA_BIASCORCUT[2][MXNUM_SAMPLE]; // track biascor reject for data
 
 int MAXSN ;
 int NJOB_SPLITRAN; // number of random split-jobs
@@ -1379,6 +1380,7 @@ struct INPUTS {
   char   PREFIX[100] ; // out file names = [PREFIX].extension
   
   int dumpflag_nobiasCor; // 1 --> dump info for data with no valid biasCor
+  double frac_warn_nobiasCor; // give warning of nobiasCor frac exceeds this
 
   char SNID_MUCOVDUMP[MXCHAR_VARNAME]; // dump MUERR info for this SNID (Jun 2018)
 
@@ -1944,6 +1946,7 @@ int main(int argc,char* argv[ ])
 
   t_end_init = time(NULL);
 
+
  DOFIT:
 
   if ( INPUTS.JOBID_SPLITRAN > 0 ) 
@@ -1969,8 +1972,6 @@ int main(int argc,char* argv[ ])
 
   // execuate minuit mnparm_ commands
   exec_mnparm(); 
-
-  // xxx move after SPLITRAN_SUMMARY  applyCut_chi2();
 
   // check option to fetch summary of all previous SPLITRAN jobs
   if ( INPUTS.JOBID_SPLITRAN > INPUTS.NSPLITRAN ) 
@@ -4251,6 +4252,9 @@ void set_defaults(void) {
   sprintf(INPUTS.fieldGroup_biasCor, "NONE" );
   INPUTS.use_fieldGroup_biasCor = 0 ;
 
+  INPUTS.dumpflag_nobiasCor  = 0 ;
+  INPUTS.frac_warn_nobiasCor = 0.02 ;
+
   sprintf(INPUTS.surveyGroup_biasCor, "NONE" );
   INPUTS.use_surveyGroup_biasCor = 0 ;
 
@@ -4454,10 +4458,11 @@ void init_CUTMASK(void) {
     CUTMASK_LIST[bit] = (1 << bit);
     for(evtype=0; evtype < MXEVENT_TYPE; evtype++ ) { 
       NSTORE_CUTBIT[evtype][bit] = 0 ; 
-      NWARN_CUTMASK[evtype]  = 0 ;
     }
   }
 
+  for(bit=0; bit < MXNUM_SAMPLE; bit++ ) 
+    { NDATA_BIASCORCUT[0][bit] = NDATA_BIASCORCUT[1][bit] = 0 ; }
 
   sprintf(CUTSTRING_LIST[CUTBIT_z],         "z"  );
   sprintf(CUTSTRING_LIST[CUTBIT_x1],        "x1" );
@@ -7232,7 +7237,7 @@ void prepare_biasCor(void) {
     
     NUSE[IDSAMPLE]++ ; NUSE_TOT++ ;
     if ( istore == 0 )  { 
-      NSKIP_TOT++; NSKIP[IDSAMPLE]++ ;     
+      NSKIP_TOT++; NSKIP[IDSAMPLE]++ ;  
       setbit_CUTMASK(n, CUTBIT_BIASCOR, &INFO_DATA.TABLEVAR); 
       if( INPUTS.dumpflag_nobiasCor && NSKIP_TOT<10 ) 
 	{ storeDataBias(n,1); } 
@@ -7242,6 +7247,11 @@ void prepare_biasCor(void) {
 
 
   for(IDSAMPLE=0; IDSAMPLE < NSAMPLE_BIASCOR; IDSAMPLE++ ) {
+
+    // store NSKIP and NUSE for later to print warning about excess loss
+    NDATA_BIASCORCUT[0][IDSAMPLE] = NUSE[IDSAMPLE];
+    NDATA_BIASCORCUT[1][IDSAMPLE] = NSKIP[IDSAMPLE];
+
     if ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_SELECT == 0 ) { continue; }
     printf("  Rejected %d (of %d) DATA events with no %dD biasCor (%s).\n",
 	   NSKIP[IDSAMPLE], NUSE[IDSAMPLE], 
@@ -12450,7 +12460,6 @@ void print_eventStats(int event_type) {
 	 STRTYPE, NSN_TOT, *NSN_PASS, NSN_REJ);
 
   for(bit=0; bit < MXCUTBIT; bit++ ) {
-    // xxx mark delete    NCUT = NSTORE_CUTBIT[event_type][bit] ;
     NCUT = NBIT[bit] ;
     if ( NCUT > 0 ) {
       printf(" %s NCUT[%2.2d] = %6d(ALL) %6d(onlyCut)   [%s] \n",
@@ -13338,6 +13347,9 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"dumpflag_nobiascor=")) 
     { sscanf(&item[19],"%d", &INPUTS.dumpflag_nobiasCor ); return(1); }
+
+  if ( uniqueOverlap(item,"frac_warn_nobiascor=")) 
+    { sscanf(&item[20],"%le", &INPUTS.frac_warn_nobiasCor ); return(1); }
 
   if ( uniqueOverlap(item,"snid_mucovdump=")) 
     { sscanf(&item[15],"%s", INPUTS.SNID_MUCOVDUMP); return(1); }
@@ -15884,6 +15896,25 @@ void write_NWARN(FILE *fp, int FLAG) {
     fprintf(fp,"# WARNING(SEVERE): %d z bins have MUDIFFERR = 0 --> %.0f\n", 
 	    NWARN_MUDIFERR_ZERO, MUDIFERR_ZERO );
     fflush(fp);
+  }
+
+  // Apr 14 2020: check excessive loss from nobiascor cut
+  int idsample, NREJ, NTOT; // .xyz
+  double frac;
+  char *NAME ;
+  for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
+    NTOT = NDATA_BIASCORCUT[0][idsample];
+    NREJ = NDATA_BIASCORCUT[1][idsample];
+    NAME = SAMPLE_BIASCOR[idsample].NAME ;
+    frac = 0.0 ;
+    if ( NTOT > 0 ) { frac = (double)NREJ / (double)NTOT; }
+
+    if ( frac > INPUTS.frac_warn_nobiasCor ) {
+      fprintf(fp,"# WARNING(SEVERE): %d of %d events (%.1f %) "
+	      "have no biasCor for %s\n",
+	      NREJ, NTOT, 100.*frac, NAME );
+	      
+    }
   }
 
   return ;

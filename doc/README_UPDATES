@@ -18247,6 +18247,7 @@
      + $SNANA_DIR/util/translate_CSPDR3.py
      + kcor.exe can transform mag systems: e.g., VEGA->AB
      + snlc_fit: AV prior enabled for snoopy model.
+     + SALT2mu output fitres file has warnings for biasCor loss > 2%
 
          ***** MISCELLANEOUS(v10_76d) ***** 
 
@@ -18256,7 +18257,7 @@
         in any IDSURVEY subset.
       + for +128 bit, sigint_biascor is computed with user-input
         alpha, beta (p1,p2) instead of SIM_ALPHA, SIM_BETA
-
+     
     sim_SNmix.pl
       + allow ENV reading INFILE under GENVERSION.
  
@@ -18299,6 +18300,6 @@
    New utility to fetch peculiar velocities:
       $SNANA_DIR/util/get_vpec.py
    and assoicated map is
-     $SNDATA_ROOT/models/VPEC/twomass++_velocity_LV11.npy
+     $SNDATA_ROOT/models/VPEC/twomass++_velocity_LH11.npy
 
 END: 

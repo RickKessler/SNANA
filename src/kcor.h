@@ -390,7 +390,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
 
 int   rd_filter( int ifilt ) ;  // read filter transmissions from files 
 void  parse_MAGREF(char *FILTNAME, char *TXT_MAGREF, double *MAGREF ) ;
-void  parse_MAGSYTEM(char *MAGSYSTEM_TMP, MAGSYSTEM_DEF *MAGSYSTEM) ;
+void  parse_MAGSYSTEM(char *MAGSYSTEM_TMP, MAGSYSTEM_DEF *MAGSYSTEM) ;
 void  parse_OOB(char *bandList, double *LAMRANGE, double RATIO);
 void  addOOBTrans_filter(int ifilt);
 

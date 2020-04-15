@@ -14,16 +14,13 @@
     - redshfit range for K correction grid
 
   Lambda binning notes.
-  The SN templates with 10 A bins defines the nominal
-  output binning. The filter resposes are stored in
-  the original binning, but interpolation is used to
-  convolute and plot the response with the same binning
-  as the SN.  The primary ref (Vega,BD17..) can have can
-  have differnt different binning because it is immediately 
-  converted to have the same binning as the SN.  Note that 
-  SN and filter response input files must have uniform 
-  lambda bins, while the primary reference can have 
-  non-uniform binning.
+  The SN templates with 10 A bins defines the nominal output 
+  binning. The filter resposes are stored in the original 
+  binning (can be non-uniform), but interpolation is used to
+  multiply and plot the response with the same binning
+  as the SN SED.  The primary ref (Vega,BD17..) can have can
+  have different (non-uniform( different binning because it 
+  is immediately converted to have the same binning as the SN. 
 
   Usage:
     
@@ -173,6 +170,10 @@
         MAGSYSTEM: VEGA->BD17
      which will read in VEGA offsets and transform internally
      to AB [BD17] system. This option allows mixing mag systems.
+
+ Apr 14 2020:
+    + fix subtle bug computing lam-weighted averages in rd_filter;
+      matters only for non-uniform wavelength bins.
 
 ****************************************************/
 
@@ -344,9 +345,8 @@ int rd_input(void) {
   INPUTS.N_OUTFILE = 0 ;
   sprintf(INPUTS.OUTFILE[0],     "NULL" );
   sprintf(INPUTS.OUTFILE[1],     "NULL" );
-  MAGSYSTEM.NAME[0]       = 0 ;
-  MAGSYSTEM.NAME_INPUT[0] = 0 ;
   FILTSYSTEM.NAME[0]      = 0 ;
+  FILTSYSTEM.INDX       = 0;
 
   INPUTS.PLOTFLAG_SN      = 1 ; // default => plot SNSED and SN mags
   INPUTS.PLOTFLAG_PRIMARY = 1 ; // default => plot primary spec
@@ -369,9 +369,12 @@ int rd_input(void) {
   INPUTS_SPECTRO.SYN_FILTERLIST_BAND[0]=0;
 
   FILTER_IGNORE         = 0;
+
+  MAGSYSTEM.NAME[0]       = 0 ;
+  MAGSYSTEM.NAME_INPUT[0] = 0 ;
   MAGSYSTEM.INDX        = 0 ;
   MAGSYSTEM.INDX_INPUT  = 0 ;
-  FILTSYSTEM.INDX       = 0;
+  MAGSYSTEM.DO_TRANSFORM = 0 ;
 
   INPUTS.OPT_MWCOLORLAW = OPT_MWCOLORLAW_ODON94 ; 
 
@@ -526,7 +529,7 @@ int rd_input(void) {
 
     if ( strcmp(c_get,"MAGSYSTEM:")==0 )  {
       readchar ( fp_input,  MAGSYSTEM_TMP );
-      parse_MAGSYTEM(MAGSYSTEM_TMP, &MAGSYSTEM) ;
+      parse_MAGSYSTEM(MAGSYSTEM_TMP, &MAGSYSTEM) ;
 
       /* xxxxx mark delete 
       printf(" xxx %s: MAGSYSTEM->NAME(%s) = %s -> '%s' (DO_TR=%d)\n",
@@ -950,7 +953,7 @@ void  parse_MAGREF(char *FILTNAME, char *TXT_MAGREF, double *MAGREF ) {
 
 
 // **************************************
-void parse_MAGSYTEM(char *MAGSYSTEM_ARG, MAGSYSTEM_DEF *MAGSYSTEM) {
+void parse_MAGSYSTEM(char *MAGSYSTEM_ARG, MAGSYSTEM_DEF *MAGSYSTEM) {
 
   // Created Aril 2020 by R.Kessler
   // 
@@ -988,7 +991,9 @@ void parse_MAGSYTEM(char *MAGSYSTEM_ARG, MAGSYSTEM_DEF *MAGSYSTEM) {
       { if ( MAGSYSTEM_ARG[i] == '-' ) {jdash=i;} }
     
     sprintf(TMP_ARG,"%s", MAGSYSTEM_ARG);
-    strncpy(MAGSYSTEM->NAME_INPUT,  TMP_ARG, jdash);
+
+    snprintf(MAGSYSTEM->NAME_INPUT, jdash+1, "%s", TMP_ARG);
+    // xxx merde !!  strncpy(MAGSYSTEM->NAME_INPUT,  TMP_ARG, jdash);
     sprintf(MAGSYSTEM->NAME, "%s", &MAGSYSTEM_ARG[jdash+2] );
 
     /*
@@ -2094,6 +2099,10 @@ int rd_filter ( int ifilt ) {
 
   July 2016: check IFU option to strip off spectrograph info.
 
+  Apr 14 2020
+    Fix calc of fitler-averages to account for non-uniform binning.
+    In particular, compute dlam for each wavelength bin.
+
  ****/
 
    FILE *fp;
@@ -2189,28 +2198,40 @@ int rd_filter ( int ifilt ) {
 	FILTER[ifilt].TRANS[ilam]  = trans ;
      }
 
-      wtsum += trans * lambda ;
-      tsum  += trans;
+     if ( ilam == 1 ) 
+       { dlam = FILTER[ifilt].LAMBDA[ilam+1] - FILTER[ifilt].LAMBDA[ilam]; }
+     else if ( ilam == NBIN ) 
+       { dlam = FILTER[ifilt].LAMBDA[NBIN] - FILTER[ifilt].LAMBDA[NBIN-1]; }
+     else {
+       dlam = FILTER[ifilt].LAMBDA[ilam+1] - FILTER[ifilt].LAMBDA[ilam-1]; 
+       dlam /= 2.0 ;
+     }
+
+      wtsum += dlam * trans * lambda ;
+      tsum  += dlam * trans ;
 
    }  // end of fscanf loop   
 
 
+   /* xxx mark delete Apr 14 2020 xxxxxxxxx
    // May 2014: get average lambda bin for SUMTOT (for internal check only)
    dlam = FILTER[ifilt].LAMBDA[NBIN] - FILTER[ifilt].LAMBDA[1];
    dlam /= (double)NBIN ;
+   xxxxxxxxxx */
 
    FILTER[ifilt].LAMAVG = wtsum / tsum ;
-   FILTER[ifilt].SUMTOT = dlam * tsum ; // check later that filter covers SED
+   FILTER[ifilt].SUMTOT = tsum ; // check later that filter covers SED
+   // xxx mark delete   FILTER[ifilt].SUMTOT = dlam * tsum ; 
 
-   lammin  = FILTER[ifilt].LAMBDA[1];
-   lammax  = FILTER[ifilt].LAMBDA[NBIN];
-   lamavg  = FILTER[ifilt].LAMAVG;   
+   lammin  = FILTER[ifilt].LAMBDA[1] ;
+   lammax  = FILTER[ifilt].LAMBDA[NBIN] ;
+   lamavg  = FILTER[ifilt].LAMAVG ;   
 
    FILTER[ifilt].LAMBDA_MIN     = lammin;
    FILTER[ifilt].LAMBDA_MAX     = lammax;
 
-   if ( lammin < FILTER_LAMBDA_MIN ) FILTER_LAMBDA_MIN = lammin ;
-   if ( lammax > FILTER_LAMBDA_MAX ) FILTER_LAMBDA_MAX = lammax ;
+   if ( lammin < FILTER_LAMBDA_MIN ) { FILTER_LAMBDA_MIN = lammin ; }
+   if ( lammax > FILTER_LAMBDA_MAX ) { FILTER_LAMBDA_MAX = lammax ; }
    
 
    printf("\t Filter-%2.2d %10s : "
@@ -3890,7 +3911,7 @@ int snmag(void) {
   double zero = 0.0 ;
   double TPEAK  = 0.0;
   double T15DAY = 15.0;
-  //  char fnam[] = "snmag";
+  char fnam[] = "snmag";
 
   /* ------------------- BEGIN --------------------- */
 
@@ -3964,7 +3985,15 @@ int snmag(void) {
 
        filter_check = filtsum_check/FILTER[ifilt].SUMTOT - 1.0;
 
-       if ( fabs(filter_check) > 0.2  ) { mag = 666.0; }
+       // if filtsum_check (integral over SED-lambda range)
+       // does not match integral over entire filter range (to within 20%),
+       // set MAG_UNDEFINED to flag problem
+       // xxx mark delete  if ( fabs(filter_check) > 0.2  ) { mag = MAG_UNDEFINED ; }
+       if ( fabs(filter_check) > 0.05  ) { 
+	 printf(" WARNING(%s): filter_check(%s) = %.3f \n",
+		fnam, FILTER[ifilt].name, filter_check);
+	 mag = MAG_UNDEFINED ; 
+       }
 
        SNSED.MAG_RST[iepoch][ifilt]  = mag;
        

@@ -70,6 +70,10 @@ idsample_select=2+3                ! fit only IDSAMPLE = 2 and 3
 surveylist_nobiascor='HST,LOWZ'    ! no biasCor for these surveys
 interp_biascor_logmass=1           ! allows turning OFF logmass interpolation
 
+dumpflag_nobiascor=1;   ! dump info for data with no valid biasCor (up to 10 events)
+frac_warn_nobiascor=0.02  ! print warning in output fitres file if nobiascor
+                          ! cut-loss exceeds this fraction (applies to each IDSAMPLE)
+
 To check sample stats for each surveyGroup and fieldGroup,
    grep IDSAMPLE  <stdout_file>
 
@@ -714,7 +718,10 @@ Default output files (can change names with "prefix" argument)
   Mar 31 2020: abort if a,b,g binning is not the same in each IDSURVEY
              see check_abg_minmax_biasCor().
 
-  Apr 14 2020: in write_NWARN, add warning about excessive loss from biasCor cut.
+  Apr 14 2020: 
+    + in write_NWARN, add warning about excessive loss from biasCor cut.
+
+  Apr 15 2020: if MINOS errors are zero, report parabolic error.
 
  ******************************************************/
 
@@ -2208,8 +2215,12 @@ void exec_mnpout_mnerrs(void) {
       printf("par %2i      %10s %s         fixed\n",  ipar, text, cPARVAL);
     }
     else  {
-      mnerrs_(&iMN, &eplus, &eminus, &eparab,&globcc);
-      PARERR = 0.5*( fabs(eplus) + fabs(eminus) ) ;
+      mnerrs_(&iMN, &eplus, &eminus, &eparab, &globcc);
+
+      if ( fabs(eplus) > 1.0E-6 && fabs(eminus) > 1.0E-6 ) 
+	{ PARERR = 0.5*( fabs(eplus) + fabs(eminus) ) ; }
+      else
+	{ PARERR = eparab; } // Apr 15 2020 : better than nothing
 	  	
       if ( BLIND_OFFSET(ipar) == 0.0   ) {
 	strcpy(format,"par %2i (%2i) %10s %11.4e +/- %.4e "

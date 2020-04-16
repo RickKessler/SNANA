@@ -3741,7 +3741,8 @@ c count entries in lists
       END DO
       NCCID_LIST = i - 1
 
-      if ( NCID_LIST>0 .or. NCCID_LIST>0 ) then
+      if ( NCID_LIST>0 .or. NCCID_LIST>0 .or. 
+     &     SNCID_LIST_FILE .NE. ' ') then
          CUTWIN_CID(1) = 0;  CUTWIN_CID(2) = 0
       endif
 

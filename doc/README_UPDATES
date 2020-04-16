@@ -18235,7 +18235,7 @@
 
 
 # ======================================================================= 
-         v10_76d (  ) 
+         v10_76d (Apr 16 2020) 
 
          ***** IMPORTANT(v10_76d) ***** 
 
@@ -18257,7 +18257,8 @@
         in any IDSURVEY subset.
       + for +128 bit, sigint_biascor is computed with user-input
         alpha, beta (p1,p2) instead of SIM_ALPHA, SIM_BETA
-     
+      + if MINOS errors are zero, report parabolic error.
+ 
     sim_SNmix.pl
       + allow ENV reading INFILE under GENVERSION.
  

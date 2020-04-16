@@ -3988,7 +3988,7 @@ int snmag(void) {
        // if filtsum_check (integral over SED-lambda range)
        // does not match integral over entire filter range (to within 20%),
        // set MAG_UNDEFINED to flag problem
-       // xxx mark delete  if ( fabs(filter_check) > 0.2  ) { mag = MAG_UNDEFINED ; }
+       // xxx mark delete if(fabs(filter_check)>0.2) {mag=MAG_UNDEFINED;}
        if ( fabs(filter_check) > 0.05  ) { 
 	 printf(" WARNING(%s): filter_check(%s) = %.3f \n",
 		fnam, FILTER[ifilt].name, filter_check);

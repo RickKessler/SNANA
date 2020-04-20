@@ -18303,4 +18303,18 @@
    and assoicated map is
      $SNDATA_ROOT/models/VPEC/twomass++_velocity_LH11.npy
 
+
+# ======================================================================= 
+         v10_76e (  ) 
+
+         ***** IMPORTANT(v10_76e) ***** 
+
+         ***** USEFUL(v10_76e) ***** 
+
+         ***** MISCELLANEOUS(v10_76e) ***** 
+
+   snlc_fit.car:
+     + fix evil array bound bug for FITMODEL_NAME that
+       includes full path. 
+
 END: 

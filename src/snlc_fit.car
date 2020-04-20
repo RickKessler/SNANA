@@ -2937,7 +2937,8 @@ c
 c Jun 24 2018: pass NONE argument to INIT_GENMAG_SALT2
 c
 c Jul 09 2019: call set_UVLAM_EXTRAPFLUX_SEDMODEL
-c
+c 
+c Apr 20 2020: fix dimenstion of TMP_FITMODEL to allow paths
 c ---------------------------------------------------------
 
       IMPLICIT NONE
@@ -2969,7 +2970,8 @@ c local var
 
       CHARACTER 
      &   tmpname*20
-     &  ,TMP_FITMODEL*(MXCHAR_MODELNAME)
+cc xxxx     &  ,TMP_FITMODEL*(MXCHAR_MODELNAME)
+     &  ,TMP_FITMODEL*(MXCHAR_FILENAME)
      &  ,BLANK*8
      &  ,CFILT1*2
      &  ,cfilt*(MXFILT_ALL)

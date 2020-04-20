@@ -16224,6 +16224,7 @@ void append_fitres(FILE *fp, char *CCID, int  indx ) {
   //
   // Mar 1 2018: add M0
   // Sep 26 2019: write probcc_beams
+  // Apr 18 2020: write extra digit of precision for bias(mb,c,mu)
 
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   bool  IS_SIM            = INFO_DATA.TABLEVAR.IS_SIM ;
@@ -16283,12 +16284,12 @@ void append_fitres(FILE *fp, char *CCID, int  indx ) {
     { NWR++; fprintf(fp,"%.3e ", INFO_DATA.probcc_beams[n]); }
 
   if ( NSN_BIASCOR > 0 ) {
-    NWR++ ; fprintf(fp, "%6.3f ", muBias );
+    NWR++ ; fprintf(fp, "%6.4f ", muBias );
     NWR++ ; fprintf(fp, "%6.3f ", muBiasErr );
     if ( DO_BIASCOR_MU == false ) {
-      NWR++ ; fprintf(fp, "%6.3f ", fitParBias[INDEX_mB] );
+      NWR++ ; fprintf(fp, "%6.4f ", fitParBias[INDEX_mB] );
       NWR++ ; fprintf(fp, "%6.3f ", fitParBias[INDEX_x1] );
-      NWR++ ; fprintf(fp, "%6.3f ", fitParBias[INDEX_c] );
+      NWR++ ; fprintf(fp, "%6.4f ", fitParBias[INDEX_c] );
     }
     NWR++ ; fprintf(fp, "%6.3f ", muCOVscale ) ;
     NWR++ ; fprintf(fp, "%d "   , idsample ) ;

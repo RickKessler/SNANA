@@ -1073,6 +1073,8 @@ void read_SALT2_INFO_FILE(void) {
 
  
   if (( fp = fopen(infoFile, "rt")) == NULL ) {
+    print_preAbort_banner(fnam);
+    printf("\t SALT2_MODELPATH = '%s' \n", SALT2_MODELPATH);
     sprintf(c1err,"Could not open SALT2 info file:");
     sprintf(c2err," %s", infoFile );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 

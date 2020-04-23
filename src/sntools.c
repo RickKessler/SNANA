@@ -3941,6 +3941,8 @@ void extractStringOpt(char *string, char *stringOpt) {
 
 } // end extractStringOpt
 
+void extractstringopt_(char *string, char *stringOpt) 
+{ extractStringOpt(string,stringOpt); }
 
 // ===============================================
 void  remove_string_termination(char *STRING, int LENTOT) {

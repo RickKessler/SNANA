@@ -1888,6 +1888,7 @@ c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
      &  ,SNTABLE_LIST     ! list of SNTABLEs to create
      &  ,SNTABLE_FILTER_REMAP ! remap filters in tables
      &  ,KCOR_FILE            ! fits-formatted KCOR tables
+     &  ,OVERRIDE_RESTLAM_BOUNDARY*80 ! e.g., '5100(gV) 6200(rV)'
      &  ,EPOCH_IGNORE_FILE    ! file with epochs to ignor
      &  ,SNMJD_LIST_FILE      ! list of "CID MJD" to process
      &  ,SNMJD_OUT_FILE       ! MJD_LIST out file
@@ -1900,7 +1901,7 @@ c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
      &  ,SIMLIB_ZPERR_LIST    ! 'abc .01 def .02 ghi .005'
      &  ,NONLINEARITY_FILE    ! non-linearity map (Apr 2017)
 c
-     &  ,FUDGE_HOSTNOISE_FILE  ! legacy: inflate error vs.  hostSB (Mar 2015)
+     &  ,FUDGE_HOSTNOISE_FILE  ! legacy: inflate error vs. hostSB (Mar 2015)
      &  ,FLUXERRMODEL_FILE     ! DATA ONLY: err-fudge maps
      &  ,SIM_FLUXERRMODEL_FILE ! idem, SIM only
      &  ,MAGCOR_FILE           ! DATA ONLY: mag-cor for each CID-MJD-band
@@ -2041,7 +2042,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, OPT_SIMLIB_OUT
      &    , hfile_out, rootfile_out, textfile_prefix
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP
-     &    , KCOR_FILE, USERTAGS_FILE  ! ZPOFF_FILE, 
+     &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
      &    , MAGCOR_FILE, SIM_MAGCOR_FILE,  FUDGE_HOSTNOISE_FILE
@@ -2085,7 +2086,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , hfile_out, rootfile_out, textfile_prefix
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP
-     &    , KCOR_FILE, USERTAGS_FILE  ! , ZPOFF_FILE
+     &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE, NONLINEARITY_FILE
      &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, OPT_SIMLIB_OUT
@@ -3393,6 +3394,7 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       EPOCH_IGNORE_FILE = 'DEFAULT' 
 
       KCOR_FILE   = 'NULL'
+      OVERRIDE_RESTLAM_BOUNDARY = ''
 
       hfile_out         = ' '
       rootfile_out      = ' '
@@ -4763,6 +4765,8 @@ c to allow multiple specifications.
 
          else if ( LINE_ARGS(i) .EQ. 'KCOR_FILE' ) then
             i = i + 1 ; KCOR_FILE = LINE_ARGS(i)
+         else if (LINE_ARGS(i).EQ.'OVERRIDE_RESTLAM_BOUNDARY') then
+            i = i + 1 ; OVERRIDE_RESTLAM_BOUNDARY = LINE_ARGS(i)
 
          else if ( LINE_ARGS(i) .EQ. 'HFILE_OUT' ) then
             i = i + 1 ; HFILE_OUT = LINE_ARGS(i)
@@ -9571,9 +9575,9 @@ c
 +CDE,SNPAR.
 
 c subroutine args
-      INTEGER   IWD                       ! (I) word index to fetch
+      INTEGER   IWD           ! (I) word index to fetch
       CHARACTER WORD*(*)      ! (O) stored word
-      INTEGER   LEN                       ! (O) length of word
+      INTEGER   LEN           ! (O) length of word
 
 c local args
       INTEGER  iwd_C
@@ -9583,9 +9587,50 @@ c local args
 C ------------- BEGIN -----------
       iwd_C = iwd-1
       CALL GET_PARSE_WORD(ONE, iwd_C,WORD_C,LEN)
-
       LEN  = INDEX(WORD_C, ' ' ) - 1
       WORD = WORD_C(1:LEN)
+      RETURN
+      END
+
+C ================================
++DECK,EXTRACTSTRINGOPT_fortran.
+      SUBROUTINE EXTRACTSTRINGOPT_fortran(string, stringOpt)
+
+c Apr 23 2020:
+c Wrapper to call C function extractStringOpt
+c
+c If input string = 'xyz(argOpt)' then 
+c   output string    = xyz
+c   output stringOpt = argOpt
+c
+c If input string = 'xyz' then 
+c   output string    = xyz
+c   output stringOpt = ''
+c
+c ----------------------
+      IMPLICIT NONE
+
+      CHARACTER STRING*(*)       ! (I/O)
+      CHARACTER STRINGOPT*(*)    ! (O)
+
+c local var
+      INTEGER   j, LENS, LENOPT
+      CHARACTER STR_LOCAL*100, STROPT_LOCAL*100
+      EXTERNAL  EXTRACTSTRINGOPT
+
+c -------- BEGIN -----------
+
+      STRINGOPT = ''      
+      j = index(string,'(')
+      if ( j <= 0 ) return
+
+      LENS = index(string,' ') - 1
+      STR_LOCAL = string(1:LENS) // char(0)
+      CALL extractStringOpt(STR_LOCAL,STROPT_LOCAL, LENS, LENOPT)
+
+c load output arguments
+      STRING    = STR_LOCAL(1:LENS)
+      STRINGOPT = STROPT_LOCAL(1:LENOPT)
 
       RETURN
       END
@@ -27546,6 +27591,8 @@ c print rest-frame filters, and also SET_LAMREST_RANGE
 
       if ( NFILTDEF_REST    .GT. 0 ) print*,' ' 
 
+      CALL SET_LAMREST_RANGE(0)  ! init optional override ranges
+
       DO 136 ifilt_tmp = 1, NFILTDEF_REST
         ifiltdef = IFILTDEF_MAP_REST(ifilt_tmp)
 
@@ -29028,14 +29075,21 @@ c if AVbinsize is zero, then there is just one AV bin
       END
 
 C ===============================================
-+DECK,SET_LAMRANGE.
-      SUBROUTINE SET_LAMREST_RANGE(ifilt)
++DECK,SET_LAMREST_RANGE.
+      SUBROUTINE SET_LAMREST_RANGE(ifiltdef)
 c
 c Created Dec 7, 2006 by R.Kessler
 c
-c Set lambda range for this "ifilt"
-c Hard-wire Bessell ranges from Jha's MLCS code.
-c hard-wire SDSS ranges based on inspection of filter responses.
+c Set lambda range for this absolute "ifiltdef" to be used
+c for k-correction to pick nearest rest-frame band.
+c If neighbor (nbr) filters overlap, then boundary is where
+c normalized transmissions are the same. If no overlap,
+c then boundary is between the two edges.
+c
+c ifiltdef =0 -> init optional override ranges based on 
+c                &SNLCINP OVERRIDE_RESTLAM_BOUNDARY
+
+c For UBVRI, hard-wire Bessell ranges from Jha's MLCS code.
 c
 c The reason for hard-wiring ranges is so that when
 c we change to other 'Bessell-like' systems (Cohen, etc ...),
@@ -29045,23 +29099,13 @@ c Apr 17, 2009: check nearest filter using sparse array
 c               index of assuming that index is +-1 
 c               from current index.  Initial use is MLCS-IR.
 c
-c Aug 12, 2009: 
-c   - set I-band LAM-range based on whether Y-band
-c     is defined in the rest-frame.
-c
-c   - for bluest  unknown  filter, LAMMIN -> LAMMIN/2
-c   - for reddest unknown  filter, LAMMAX -> LAMMAX + 1000
-c
-c
-c Nov 3, 2010: 
-c   - more than 6 filters, skip to 300 (for CSP BVugriYJH)
-c   - fix logic below '300' to handle close-lambda filters 
+c Apr 23 2020: ifiltdef=0 --> init optional override ranges
 c       
 c ----------------------------------------
 
       IMPLICIT NONE
        
-      integer ifilt  ! (I) filter index
+      integer ifiltdef  ! (I) absolute filter index
 
 c locaql args
 
@@ -29070,151 +29114,156 @@ c locaql args
 +CDE,SNCUTS.
 +CDE,SNLCINP.
 +CDE,KCORCOM.
++CDE,SNFILECOM.
 
-      LOGICAL LSET, LTMP,  LVALID
+      LOGICAL  LTMP,  LVALID, LSET(2), NOTSET(2)
 
-      INTEGER 
-     &   ilam, ilam_nbr
-     &  ,ifilt_nbr
-     &  ,IMINMAX, i
-     &  ,ifilt_near(2)
-     &  ,ifilt_rest
-     &  ,ifilt_tmp
-     &  ,NBIN_OVP
-
+      INTEGER   
+     &   ilam, ilam_nbr, ifiltdef_nbr, IMINMAX, i, NF, ifilt
+     &  ,ifiltdef_near(2), ifiltdef_rest, ifiltdef_tmp(2)
+     &  ,NBIN_OVP, NLAMBIN, NWD, iwd, LENWD
+   
       REAL 
-     &   LAM_NBR, LAMAVG_NBR
-     &  ,LAM, LAMAVG, LAMTMP, LAMMAX
-     &  ,LAMDIF, LAMDIF_NEAR(2)
+     &   LAM_NBR, LAMAVG_NBR, LAM, LAMAVG, LAMTMP, LAMMAX
+     &  ,LAMDIF, LAMDIF_NEAR(2), LAMAVG_TMP(2)
      &  ,DLAM, T, TNBR, DT, DTMIN, LAMOVP, LAMOVP_AVG
+     &  ,T_MAX, TNBR_MAX
+
+      CHARACTER string*40, FILTERS*40, FNAM*18, BAND*2
+
+c functions
+      INTEGER STORE_PARSE_WORDS, FILTINDX
 
 C ------------------ BEGIN --------------
 
-c if ugriz and UBVRI are mixed, then use the more general
-c filter-boundary logic below. Here we just check if there 
-c are more than 6 rest-frame filters, but better logic 
-c should be included later.
+      FNAM = 'SET_LAMREST_RANGE'
 
-      IF ( RESTKCOR_FILTERS(1:5) .NE. 'UBVRI' ) GOTO 300
-
-c -------------------------------------------------
-      IF ( ifilt .EQ.  IFILT_SDSS_u ) THEN
-         FILTREST_LAMRANGE(1,ifilt) =  1000.
-         FILTREST_LAMRANGE(2,ifilt) =  3900.
-      ELSE IF ( ifilt .EQ.  IFILT_SDSS_g ) THEN
-         FILTREST_LAMRANGE(1,ifilt) =  3900.
-         FILTREST_LAMRANGE(2,ifilt) =  5440.
-      ELSE IF ( ifilt .EQ.  IFILT_SDSS_r ) THEN
-         FILTREST_LAMRANGE(1,ifilt) =  5440.
-         FILTREST_LAMRANGE(2,ifilt) =  6830.
-      ELSE IF ( ifilt .EQ.  IFILT_SDSS_i ) THEN
-         FILTREST_LAMRANGE(1,ifilt) =  6830.
-         FILTREST_LAMRANGE(2,ifilt) =  8260.
-      ELSE IF ( ifilt .EQ.  IFILT_SDSS_z ) THEN
-         FILTREST_LAMRANGE(1,ifilt) =  8260.
-         FILTREST_LAMRANGE(2,ifilt) = 12000.
-
-c -----
-
-      ELSE IF ( ifilt .EQ.  IFILT_BESS_U ) THEN
-         FILTREST_LAMRANGE(1,ifilt) = 1000.
-         FILTREST_LAMRANGE(2,ifilt) = 3900.
-      ELSE IF ( ifilt .EQ.  IFILT_BESS_B ) THEN
-         FILTREST_LAMRANGE(1,ifilt) = 3900.
-         FILTREST_LAMRANGE(2,ifilt) = 4850.
-      ELSE IF ( ifilt .EQ.  IFILT_BESS_BX ) THEN
-         FILTREST_LAMRANGE(1,ifilt) = 3615.
-         FILTREST_LAMRANGE(2,ifilt) = 5595.
-      ELSE IF ( ifilt .EQ.  IFILT_BESS_V ) THEN
-         FILTREST_LAMRANGE(1,ifilt) = 4850.
-         FILTREST_LAMRANGE(2,ifilt) = 5850.
-      ELSE IF ( ifilt .EQ.  IFILT_BESS_R ) THEN
-         FILTREST_LAMRANGE(1,ifilt) = 5850. 
-         FILTREST_LAMRANGE(2,ifilt) = 7050.
-      ELSE IF ( ifilt .EQ.  IFILT_BESS_I ) THEN
-
-         IFILT_TMP = IFILTDEF_INVMAP_REST(IFILT_Y) 
-         if ( IFILT_TMP .GT. 0 ) then
-            LAMMAX = FILTREST_LAMRANGE(1,IFILT_Y) 
-         else
-            LAMMAX = 12000.  ! no Y-band in rest-frame
-         endif
-         FILTREST_LAMRANGE(1,ifilt) = 7050.
-         FILTREST_LAMRANGE(2,ifilt) = LAMMAX
-
+c if rest-frame bands are Bessell UBVRI, use hard-wired boundaries
+c for mlcs2k2.
+      IF ( RESTKCOR_FILTERS(1:5) .EQ. 'UBVRI' ) THEN
+        CALL SET_LAMREST_RANGE_UBVRI(ifiltdef)
+        RETURN
       ENDIF
 
-c check option to include buggy lambda ranges.
+c -------------------------------------
+c check for user-override of filter-wavelength boundaries
+c Parse &SNLCINP input (e.g.)
+c    OVERRIDE_RESTLAM_BOUNDARY = '5100(gV) 6322(rV)'
+c and fill FILTREST_LAMBDA(NLAMBIN,ifiltdef) here so that
+c the algorithm below is skipped.
 
-      IF ( DOBUG_LAMRANGE ) THEN
-         FILTREST_LAMRANGE(2,IFILT_BESS_V) = 5800.
-         FILTREST_LAMRANGE(1,ifilt_BESS_R) = 5800.  
-         FILTREST_LAMRANGE(2,ifilt_BESS_R) = 7300.
-         FILTREST_LAMRANGE(1,ifilt_BESS_I) = 7300.
+      IF ( IFILTDEF == 0 ) THEN  
+        if ( OVERRIDE_RESTLAM_BOUNDARY .EQ. '' ) return
+        NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,
+     &      OVERRIDE_RESTLAM_BOUNDARY//char(0), 100)
+
+        DO 22 iwd = 1, NWD
+          CALL get_PARSE_WORD_fortran(iwd, string, LENWD )
+          CALL extractStringOpt(string,filters)
+          READ(string,*) LAMTMP
+
++SELF,IF=XYZREMOVE.
+	  NF = INDEX(filters,' ') - 1
+          if ( NF .ne. 2 ) then
+             CALL PRINT_PREABORT_BANNER(FNAM(1:18)//char(0),40)
+	     print*,'  &SNLCINP input OVERRIDE_RESTLAM_BOUNDARY = ',
+     &           OVERRIDE_RESTLAM_BOUNDARY(1:30)
+             print*,' Nfilters = ', NF
+             C1ERR = 'Invalid filter list = ' // filters(1:10)
+	     C2ERR = 'Two and only two rest-bands required'
+             CALL  MADABORT(FNAM, C1ERR, C2ERR)
+          endif
++SELF.
+
+          write(6,122) filters(1:2), LAMTMP
+122       format(t8,'Override rest-wave ',A, ' boundary -> ',F7.0,' A')
+
+          DO ifilt = 1, 2
+	     band  = filters(ifilt:ifilt)
+             ifiltdef_tmp(ifilt) =  FILTINDX(band)
+             LAMAVG_TMP(ifilt) = FILTREST_LAMAVG(ifiltdef_tmp(ifilt))
+          ENDDO
+22      CONTINUE
+ 
+c       print*,' xxx LAMAVG_TMP = ', LAMAVG_TMP
+c	print*,' xxx IFILTDEF_TMP = ', ifiltdef_tmp 
+
+c set FILTREST_LAMRANGE edge based on which band is bluer/redder
+
+        if ( LAMAVG_TMP(1) < LAMAVG_TMP(2) ) then
+           FILTREST_LAMRANGE(2,ifiltdef_tmp(1)) = LAMTMP ! red edge
+           FILTREST_LAMRANGE(1,ifiltdef_tmp(2)) = LAMTMP ! blue edge
+        else
+           FILTREST_LAMRANGE(1,ifiltdef_tmp(1)) = LAMTMP ! blue edge
+           FILTREST_LAMRANGE(2,ifiltdef_tmp(2)) = LAMTMP ! red edge
+        endif
+
+        RETURN
       ENDIF
 
-c check if FILT_LAMRANGE has been set;
-c if not, then just use approx calc.
-
-      LSET = FILTREST_LAMRANGE(1,ifilt) .GE. 0.0 .and.
-     &       FILTREST_LAMRANGE(2,ifilt) .GE. 0.0 
-      IF ( LSET ) RETURN
+c .xyz
+c check of boundary is already set 
+      LSET(1) = ( FILTREST_LAMRANGE(1,ifiltdef) > 0.1 )
+      LSET(2) = ( FILTREST_LAMRANGE(2,ifiltdef) > 0.1 )
+ 
+      NOTSET(1) = ( .not. LSET(1) )
+      NOTSET(2) = ( .not. LSET(2) )
 
 c -------------------------------------------
-c if we are here, set LAMRANGE based on where
-c transmission(LAM,ifilt) = transmission of 
-c next closest filter.
-
 c first set min and max lambda for this filter to be
 c default LAMBDA range.
 
-300   CONTINUE
+      if ( NOTSET(1) ) then
+        LAM = FILTREST_LAMBDA(1,ifiltdef)
+        FILTREST_LAMRANGE(1,ifiltdef)  = LAM
+      endif
 
-      LAM = FILTREST_LAMBDA(1,ifilt)
-      FILTREST_LAMRANGE(1,ifilt)  = LAM
+      if ( NOTSET(2) ) then
+        NLAMBIN = NLAMBIN_FILTREST(ifiltdef)
+        LAM = FILTREST_LAMBDA(NLAMBIN,ifiltdef)
+        FILTREST_LAMRANGE(2,ifiltdef)  = LAM
+      endif
 
-      LAM = FILTREST_LAMBDA(NLAMBIN_FILTREST(ifilt),ifilt)
-      FILTREST_LAMRANGE(2,ifilt)  = LAM
-
-      LAMAVG = FILTREST_LAMAVG(ifilt)
+      LAMAVG = FILTREST_LAMAVG(ifiltdef)
 
 c fetch nearest rest-frame filters needed by SN model
 
-      IFILT_NEAR(1)  = -9
-      IFILT_NEAR(2)  = -9
+      IFILTDEF_NEAR(1)  = -9
+      IFILTDEF_NEAR(2)  = -9
       LAMDIF_NEAR(1) = 99999.
       LAMDIF_NEAR(2) = 99999.
 
       DO 190 i = 1, NFILTDEF_REST
 
-        ifilt_rest = IFILTDEF_MAP_REST(i)
-        if ( ifilt_rest .EQ. IFILT ) goto 190
+        ifiltdef_rest = IFILTDEF_MAP_REST(i)
+        if ( ifiltdef_rest .EQ. IFILTDEF ) goto 190
 
-        LAMTMP  = FILTREST_LAMAVG(ifilt_rest)
+        LAMTMP  = FILTREST_LAMAVG(ifiltdef_rest)
         LAMDIF  = ABS(LAMAVG-LAMTMP)
 
         if   ( LAMTMP .LT. LAMAVG 
      &   .and. LAMDIF .LT. LAMDIF_NEAR(1) ) then
             LAMDIF_NEAR(1) = LAMDIF
-            IFILT_NEAR(1) = ifilt_rest
+            IFILTDEF_NEAR(1) = ifiltdef_rest
         endif
 
         if   ( LAMTMP .GT. LAMAVG 
      &   .and. LAMDIF .LT. LAMDIF_NEAR(2) ) then
             LAMDIF_NEAR(2) = LAMDIF
-            IFILT_NEAR(2) = ifilt_rest
+            IFILTDEF_NEAR(2) = ifiltdef_rest
         endif
 
 190   CONTINUE  ! end of sparse loop over rest filters
 
 
 c set extreme bound if there is no nbr filter
-      IF ( IFILT_NEAR(1) .LE. 0 ) then
-         FILTREST_LAMRANGE(1,ifilt) = FILTREST_LAMRANGE(1,ifilt)/2.
+      IF ( NOTSET(1) .and. IFILTDEF_NEAR(1) .LE. 0 ) then
+         FILTREST_LAMRANGE(1,ifiltdef) = 
+     &   FILTREST_LAMRANGE(1,ifiltdef)/2.
       ENDIF
-      IF ( IFILT_NEAR(2) .LE. 0 ) then
-        FILTREST_LAMRANGE(2,ifilt) = 
-     &  FILTREST_LAMRANGE(2,ifilt) + 1000.
+      IF ( NOTSET(2) .and. IFILTDEF_NEAR(2) .LE. 0 ) then
+        FILTREST_LAMRANGE(2,ifiltdef) = 
+     &  FILTREST_LAMRANGE(2,ifiltdef) + 1000.
       ENDIF
 
 c if voisin filter has smaller LAMAVG,
@@ -29222,28 +29271,29 @@ c then look for where transmissions are the same
       
       DO 200 IMINMAX = 1, 2  ! bluer, redder filter
 
-         ifilt_nbr  = ifilt_near(IMINMAX)
-         if ( ifilt_nbr  .LE. 0      ) goto 200
+         ifiltdef_nbr  = ifiltdef_near(IMINMAX)
+         if ( ifiltdef_nbr  .LE. 0      ) goto 200
 
-         LAMAVG_NBR = FILTREST_LAMAVG(ifilt_nbr)
+         LAMAVG_NBR = FILTREST_LAMAVG(ifiltdef_nbr)
          if ( LAMAVG_NBR .EQ. LAMAVG ) goto 200
          if ( LAMAVG_NBR .LT. 0.0    ) goto 200
 
-         LAMOVP      = FILTREST_LAMRANGE(iminmax,ifilt) ! init
+         LAMOVP  = FILTREST_LAMRANGE(iminmax,ifiltdef) ! init
+
+         T_MAX    = FILTREST_TRANSMAX(ifiltdef)
+         TNBR_MAX = FILTREST_TRANSMAX(ifiltdef_nbr)
 
          NBIN_OVP    = 0
          DTMIN       = 9.
-         DO ilam     = 1, NLAMBIN_FILTREST(ifilt)
-         DO ilam_nbr = 1, NLAMBIN_FILTREST(ifilt_nbr)
-           LAM       = FILTREST_LAMBDA(ilam,ifilt)
-           LAM_NBR   = FILTREST_LAMBDA(ilam_nbr,ifilt_nbr)
-           T    = FILTREST_TRANS(ilam,ifilt) / 
-     &                 FILTREST_TRANSMAX(ifilt)
-           TNBR = FILTREST_TRANS(ilam_nbr,ifilt_nbr) / 
-     &                 FILTREST_TRANSMAX(ifilt_nbr)
+         DO ilam     = 1, NLAMBIN_FILTREST(ifiltdef)
+         DO ilam_nbr = 1, NLAMBIN_FILTREST(ifiltdef_nbr)
+           LAM       = FILTREST_LAMBDA(ilam,ifiltdef)
+           LAM_NBR   = FILTREST_LAMBDA(ilam_nbr,ifiltdef_nbr)
+           T    = FILTREST_TRANS(ilam,ifiltdef) / T_MAX
+           TNBR = FILTREST_TRANS(ilam_nbr,ifiltdef_nbr) / TNBR_MAX
            DT   = ABS(T-TNBR)
            DLAM = ABS(LAM-LAM_NBR)
-           LTMP = (DLAM .LT. 1.0) .and.  (DT .LT. DTMIN)
+           LTMP = (DLAM < 1.0) .and.  (DT < DTMIN)
            IF ( LTMP ) THEN
               DTMIN   = DT
               LAMOVP  = LAM
@@ -29270,11 +29320,75 @@ c if the wavelength ranges do not overlap, just take average
             LAMOVP = LAMOVP_AVG
          endif
 
-         FILTREST_LAMRANGE(iminmax,ifilt)  = LAMOVP
+         if ( NOTSET(iminmax) ) then
+            FILTREST_LAMRANGE(iminmax,ifiltdef)  = LAMOVP
+         endif
 
 200   CONTINUE  ! loop over bluer/redder filter
 
       RETURN 
+      END   ! SET_LAMREST_RANGE
+
+C =============================
++DECK,SET_LAMREST_RANGE_UBVRI.
+      SUBROUTINE SET_LAMREST_RANGE_UBVRI(ifiltdef)
+
+C Apr 23 2020
+C set legacy ranges for Bessell UBVRI bands (e.g., for mlcs2k2)
+c  [copied from SET_LAMREST_RANGE to clean up]
+
+      IMPLICIT NONE
+       
+      INTEGER IFILTDEF ! absolute filter index (rest-frame)
+
+c local args
+
++CDE,SNPAR.
++CDE,FILTCOM.
+      INTEGER IFILT_TMP
+      REAL LAMMAX
+
+c ----------- BEGIN -------------
+
+      IF ( ifiltdef .EQ.  IFILT_BESS_U ) THEN
+         FILTREST_LAMRANGE(1,ifiltdef) = 1000.
+         FILTREST_LAMRANGE(2,ifiltdef) = 3900.
+      ELSE IF ( ifiltdef .EQ.  IFILT_BESS_B ) THEN
+         FILTREST_LAMRANGE(1,ifiltdef) = 3900.
+         FILTREST_LAMRANGE(2,ifiltdef) = 4850.
+      ELSE IF ( ifiltdef .EQ.  IFILT_BESS_BX ) THEN
+         FILTREST_LAMRANGE(1,ifiltdef) = 3615.
+         FILTREST_LAMRANGE(2,ifiltdef) = 5595.
+      ELSE IF ( ifiltdef .EQ.  IFILT_BESS_V ) THEN
+         FILTREST_LAMRANGE(1,ifiltdef) = 4850.
+         FILTREST_LAMRANGE(2,ifiltdef) = 5850.
+      ELSE IF ( ifiltdef .EQ.  IFILT_BESS_R ) THEN
+         FILTREST_LAMRANGE(1,ifiltdef) = 5850. 
+         FILTREST_LAMRANGE(2,ifiltdef) = 7050.
+      ELSE IF ( ifiltdef .EQ.  IFILT_BESS_I ) THEN
+
+         IFILT_TMP = IFILTDEF_INVMAP_REST(IFILT_Y) 
+         if ( IFILT_TMP .GT. 0 ) then
+            LAMMAX = FILTREST_LAMRANGE(1,IFILT_Y) 
+         else
+            LAMMAX = 12000.  ! no Y-band in rest-frame
+         endif
+         FILTREST_LAMRANGE(1,ifiltdef) = 7050.
+         FILTREST_LAMRANGE(2,ifiltdef) = LAMMAX
+      ENDIF
+
+c check option to include buggy lambda ranges.
+
+c xxxxxxxx mark delete Apr 23 2020 xxxxxxxxxx
+c      IF ( DOBUG_LAMRANGE ) THEN
+c         FILTREST_LAMRANGE(2,IFILT_BESS_V) = 5800.
+c         FILTREST_LAMRANGE(1,ifilt_BESS_R) = 5800.  
+c         FILTREST_LAMRANGE(2,ifilt_BESS_R) = 7300.
+c         FILTREST_LAMRANGE(1,ifilt_BESS_I) = 7300.
+c      ENDIF
+c xxxxxxxxxxxxxx mark delete xxxxxxxxxxx
+
+      RETURN
       END
 
 C ==========================================
@@ -29510,7 +29624,7 @@ c don't check on 2nd RDKCOR call
 
 
 C ===========================================
-+DECK,NEARFLTOBS.
++DECK,NEAREST_IFILT_OBS.
       INTEGER FUNCTION NEAREST_IFILT_OBS(ifilt_rest,Z)
 
 c Nov 2010 R.Kessler
@@ -29568,7 +29682,7 @@ C -------------- BEGIN -------------
       END
 
 C ===========================================
-+DECK,NEARFLTREST.
++DECK,NEAREST_IFILT_REST.
       INTEGER FUNCTION NEAREST_IFILT_REST( 
      &   OPT          ! (I) option; see below
      &  ,ifiltdef     ! (I) observer filter index
@@ -29672,7 +29786,7 @@ c ------------ BEGIN -------------
       lamz   = LAMAVG_IN / ( 1 + z )
 
       IF ( LDMP ) THEN
-          print*,' -------------------------------------'
+          print*,' xxxx -------------------------------------'
           print*,' xxxx DUMP NEAREST_IFILT_REST xxxxx '
           print*,' Z=',Z,'   ifiltdef = ', ifiltdef,' (',
      &          filtdef_string(ifiltdef:ifiltdef), ')'

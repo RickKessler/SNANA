@@ -18317,4 +18317,8 @@
      + fix evil array bound bug for FITMODEL_NAME that
        includes full path. 
 
+   snana.car
+      + new &SNLCINP OVERRIDE_RESTLAM_BOUNDARY to manually
+        adjust rest-frame boundaries for k-corrections.
+
 END: 

@@ -645,6 +645,7 @@ void split2floats(char *string, char *sep, float *fval) ;
 
 void remove_quote(char *string);
 void extractStringOpt ( char *string, char *stringOpt) ;
+void extractstringopt_ ( char *string, char *stringOpt) ;
 void extract_MODELNAME(char *STRING, char *MODELPATH, char *MODELNAME);
 void extract_modelname__(char *STRING, char *MODELPATH, char *MODELNAME);
 

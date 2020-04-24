@@ -209,6 +209,10 @@
 # Apr 7 2020:
 #    leave FAILURE message in DONE stamp if SBATCH file does not exist.
 #
+# Apr 24 2020:
+#   +  abort if PATH_SNDATA_SIM does not exist.
+#   +  abort if NPER_SEASON is null string
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -881,7 +885,6 @@ sub parse_inFile_master() {
     }
 
     $key = "JOBNAME_SIM:" ;
-# xxx    @tmp = sntools::parse_line($inFile, 1, $key, $OPT_QUIET ) ;
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) { 
 	$JOBNAME_SIM = "$tmp[0]" ;  
@@ -891,7 +894,6 @@ sub parse_inFile_master() {
     $JOBNAME_SIM_FULLPATH =~ s/\s+$// ;   # trim trailing whitespace
 
     $key = "PATH_SNDATA_SIM:" ;
-# xxxx    @tmp = sntools::parse_line($inFile, 1, $key, $OPT_QUIET ) ;
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) { 
 	$PATH_SNDATA_SIM = "$tmp[0]" ;  
@@ -1095,12 +1097,6 @@ sub parse_inFile_master() {
 	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);	
     }
 
-# xxxxxx mark delete Oct 28 2019 xxxxxxxxx
-#    if ( scalar(@tmp) > 0 ) {
-#	my(@ZRANGE);	$ZRANGE[0] = $tmp[0];	$ZRANGE[1] = $tmp[1];
-#	$SIMARG_ZRANGE  = "GENRANGE_REDSHIFT $ZRANGE[0] $ZRANGE[1]";	
-#   }
-# xxxxxxxxx end mark xxxxxxxxxx
 
     $key = "H0:" ; 
     @tmp = sntools::parse_array($key,2,$OPT_QUIET,@CONTENTS_INFILE_MASTER );
@@ -1158,9 +1154,13 @@ sub parse_inFile_master() {
     print " DOGEN[SNIa,NONIa] = $DOGEN_SNIa,$DOGEN_NONIa \n";
     &check_SIMGEN_DUMP();
     
-
     if ( $USER_PATH_SNDATA_SIM ) {
-	print " PATH_SNDATA_SIM (\$SNDATA_ROOT/SIM) -> $PATH_SNDATA_SIM \n";
+	print " PATH_SNDATA_SIM -> $PATH_SNDATA_SIM \n";
+	if ( !(-d $PATH_SNDATA_SIM) ) {
+	    $MSGERR[0] = "PATH_SNDATA_SIM does not exist:" ;
+	    $MSGERR[1] = "  $PATH_SNDATA_SIM" ;
+	    sntools::FATAL_ERROR(@MSGERR);
+	}
     }
 
     return ;
@@ -2552,6 +2552,7 @@ sub get_normalization {
 sub get_normalization_model {
 
     # Nov 12 2019: abort if normalization job fails
+    # Apr 24 2020: abort if $NPER_SEASON is null string
 
     # iver = GENVERSION index, $m is model index
     my($iver,$m) = @_;
@@ -2615,6 +2616,12 @@ sub get_normalization_model {
 
     @wdlist = split(/\s+/,$line[0]) ;
     $NPER_SEASON = $wdlist[7] ;
+    if ( length($NPER_SEASON) == 0 ) {
+	$MSGERR[0] = "Unable to extract NPER_SEASON from 7th word of";
+	$MSGERR[1] = "grep line : $line[0]" ;
+	$MSGERR[2] = "in NORMLOG file : $NORMLOG" ;
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR) ;
+    }
     print "NGENTOT_LC($MODEL_CLASS)/season = $NPER_SEASON \n";
     $| = 1;  # flush stdout
     if ( $APPEND_NORM ) { &append_normLog($NORMLOG); }

@@ -9901,8 +9901,9 @@ c Dec 20, 2013:   modify how LSIM is set
 c Aug 07, 2014:   read NXPIX, NYPIX
 c Oct 16, 2017:   call PARSE_TERSE_VARLIST to check ITERSE_CCDNUM
 c Nov 14, 2018:   read MASK_FLUXCOR_SNANA
+c Apr 25, 2020:   allow NOBS=0 for fakes on images (IFAKE=1)
 c
-C -------------------------------------
+C -------------------------------------------------------------
 
       IMPLICIT NONE
 
@@ -9969,6 +9970,7 @@ c read name of first text file from [VERSION].LIST file
       LL = INDEX ( SNDATA_PATH , ' ' ) - 1
       LOCALFILE = SNDATA_PATH(1:LL) // '/' // SNDATA_FILE_CURRENT
 
+      IFAKE = 0
       LL        = INDEX(LOCALFILE,' ') - 1
       NAME_forC = LOCALFILE(1:LL)// char(0)
       NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LL)
@@ -9981,11 +9983,12 @@ c read name of first text file from [VERSION].LIST file
       ENDIF
 
 c - - - - - - - - - 
-      DO 10 iwd = 1, NWD
+      DO 10 iwd = 1, NWD-1
 
         call get_PARSE_WORD_fortran(iwd+0, cwdList(1),  LWD0 )
-        call get_PARSE_WORD_fortran(iwd+1, cwdList(2),  LWD0 )
         cwd  = cwdList(1)
+
+        call get_PARSE_WORD_fortran(iwd+1, cwdList(2),  LWD0 )
         cwd1 = cwdList(2)
 
         ISKEY_VARLIST  = ( cwd(1:7) .EQ. 'VARLIST' ) 
@@ -9994,7 +9997,9 @@ c - - - - - - - - -
 
         do i = 3, NWD_LOAD
             iwd2 = iwd + i - 1
-            call get_PARSE_WORD_fortran(iwd2, cwdList(i),  LWD0 )
+            if ( iwd2 <= NWD ) then
+              call get_PARSE_WORD_fortran(iwd2, cwdList(i),  LWD0 )
+            endif
         enddo
 
 c check required header keys
@@ -10082,12 +10087,20 @@ c the FAKE key may not be there.
         LOBS = cwd .EQ. 'EPOCH:' .or. cwd .EQ. 'OBS:'
         IF ( LOBS ) GOTO 100         
 
+c for fakes, allow zero obs and bail on END key
+        IF ( IFAKE == 1 .and. cwd(1:4) .EQ. 'END:' ) GOTO 100
+
 10    CONTINUE  ! end iwd loop
 
-c if we get here there are no epochs/observations => abort.
-      c1err = 'Did not find any observations.'
-      c2err = 'Check ' // SNDATA_FILE_CURRENT(1:72)
-      CALL MADABORT("RDSURVEY_TEXT", c1err, c2err )
+c for real data or sim, if we get here there are no epochs/observations => abort
+c For fake overlaid on images, do not abort on zero obs.
+c
+      if ( IFAKE .NE. 1 ) then
+        c1err = 'Did not find any observations.'
+        c2err = 'Check ' // SNDATA_FILE_CURRENT(1:72)
+        CALL MADABORT("RDSURVEY_TEXT", c1err, c2err )
+      endif
+
 
 c -----------------------------------------------------
 100   CONTINUE  ! come here after read entire header

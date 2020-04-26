@@ -7541,10 +7541,10 @@ c ------------------------------
       INTEGER iwd, NWD, ifilt, NTMP, IFILT_OBS, IFILT_TMP(2) 
       INTEGER LL, LL0, LL1, LL2, MSKOPT
       character 
-     &   cwd*(MXCHAR_FILEWORD)
-     &  ,cwd1*(MXCHAR_FILEWORD)
-     &  ,cwd2*(MXCHAR_FILEWORD)
-     &  ,ctmp*(MXCHAR_FILEWORD)
+     &   cwd*(MXCHAR_FILEWORD-2)
+     &  ,cwd1*(MXCHAR_FILEWORD-2)
+     &  ,cwd2*(MXCHAR_FILEWORD-2)
+     &  ,ctmp*(MXCHAR_FILEWORD-2)
      &  ,cfilt(2)*2, cfilt1*1
      &  ,cutvar_file*(MXCHAR_FILENAME)
      &  ,list_file*(MXCHAR_FILENAME)

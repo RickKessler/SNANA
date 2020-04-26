@@ -124,6 +124,7 @@
 #
 # Mar 20 2020: added sntools_genExpHalfGauss (DJB)
 # Mar 23 2020: include snlc_sim.h dependence for sntools_gridgen.o
+# Apr 25 2020: include lCint for LROOT only of libCint.so exists
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -219,10 +220,19 @@ else
    IROOT       = -I/$(ROOT_DIR)/include -I/opt/local/include/freetype2
    ROOT_LIBDIR = $(LIB_SDIR)
    ROOT_LIBDIR = lib
-   LROOT = -L$(ROOT_DIR)/$(ROOT_LIBDIR) -lCore -lCint -lRIO -lNet -lHist -lGraf -lGraf3d -lGpad -lTree -lRint -lPostscript -lMatrix -lPhysics -lMathCore -lThread -ldl
+
+# include lCint if it exists (root v5), and exclude if not (root v6)
+   LCINT = -lCint
+   LIBCINT_ROOT5 = $(ROOT_DIR)/$(ROOT_LIBDIR)/libCint.so
+   ifeq (,$(wildcard $(LIBCINT_ROOT5)))
+	LCINT = 
+   endif	 
+
+   LROOT = -L$(ROOT_DIR)/$(ROOT_LIBDIR) -lCore -lRIO -lNet -lHist -lGraf -lGraf3d -lGpad -lTree -lRint -lPostscript -lMatrix -lPhysics -lMathCore -lThread -ldl $(LCINT)
    SNTOOLS_ROOT = $(SRC)/sntools_output_root.c 
 endif
 
+#echo " LIBINT_ROOT5 = $(LIBCINT_ROOT5) " ;
 
 # Apr 2019: check for python codes
 ifndef SNANA_PYTHON_DIR

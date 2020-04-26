@@ -9901,7 +9901,7 @@ c Dec 20, 2013:   modify how LSIM is set
 c Aug 07, 2014:   read NXPIX, NYPIX
 c Oct 16, 2017:   call PARSE_TERSE_VARLIST to check ITERSE_CCDNUM
 c Nov 14, 2018:   read MASK_FLUXCOR_SNANA
-c Apr 25, 2020:   allow NOBS=0 for fakes on images (IFAKE=1)
+c Apr 25, 2020:   allow NOBS=0 if ABORT_ON_NOEPOCHS=F
 c
 C -------------------------------------------------------------
 
@@ -9932,7 +9932,7 @@ c local variables.
       LOGICAL 
      &   LDONE_DATA, LOBS, LRDFILT
      &  ,L_SURVEY, L_FILTERS, L_GENMODEL
-     &  ,ISKEY_VARLIST
+     &  ,ISKEY_VARLIST, ALLOW_NOEPOCHS
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
@@ -9941,6 +9941,8 @@ C ------------- BEGIN ----------------
 
       IERR = 0
 
+      ALLOW_NOEPOCHS = (.not. ABORT_ON_NOEPOCHS)
+ 
       global_banner = 'RDSURVEY_TEXT: Fetch global SURVEY info.'
       CALL prbanner( global_banner(1:60) )
 
@@ -10088,14 +10090,14 @@ c the FAKE key may not be there.
         IF ( LOBS ) GOTO 100         
 
 c for fakes, allow zero obs and bail on END key
-        IF ( IFAKE == 1 .and. cwd(1:4) .EQ. 'END:' ) GOTO 100
+        IF ( ALLOW_NOEPOCHS .and. cwd(1:4) .EQ. 'END:' ) GOTO 100
 
 10    CONTINUE  ! end iwd loop
 
 c for real data or sim, if we get here there are no epochs/observations => abort
 c For fake overlaid on images, do not abort on zero obs.
 c
-      if ( IFAKE .NE. 1 ) then
+      if ( ABORT_ON_NOEPOCHS ) then
         c1err = 'Did not find any observations.'
         c2err = 'Check ' // SNDATA_FILE_CURRENT(1:72)
         CALL MADABORT("RDSURVEY_TEXT", c1err, c2err )

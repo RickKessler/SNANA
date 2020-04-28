@@ -12042,6 +12042,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   // Mar 14 2017: tack on TAKE_SPECTRUM info
   // mar 28 2017: add IDSURVEY
   // Oct 16 2019: move MAGSMEAR_COH after SKIP1 
+  // Apr 28 2020: allow list of var names for SALT2c,x1,x0 (see strList_)
 
   int i, ifilt, ifilt_obs, ifilt_rest, ipar, imap, ivar, NTMP ;
   char *cptr ;
@@ -12466,65 +12467,55 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.STRETCH ;
   NVAR_SIMGEN_DUMP++ ;
 
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"S2alpha") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2alpha ;
-  NVAR_SIMGEN_DUMP++ ;
+  char strList_alpha[3][20] = { "SALT2alpha", "S2alpha", "SIM_alpha" };
+  for(i=0; i < 3; i++ ) {
+    cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+    sprintf(cptr,"%s", strList_alpha[i] ) ;
+    SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2alpha ;
+    NVAR_SIMGEN_DUMP++ ;
+  }
 
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"SALT2alpha") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2alpha ;
-  NVAR_SIMGEN_DUMP++ ;
+  char strList_beta[3][20] = { "SALT2beta", "S2beta", "SIM_beta" };
+  for(i=0; i < 3; i++ ) {
+    cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+    sprintf(cptr,"%s", strList_beta[i] ) ;
+    SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2beta ;
+    NVAR_SIMGEN_DUMP++ ;
+  }
 
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"S2beta") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2beta ;
-  NVAR_SIMGEN_DUMP++ ;
 
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"SALT2beta") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2beta ;
-  NVAR_SIMGEN_DUMP++ ;
+  char strList_x0[3][20] = { "S2x0", "SALT2x0", "SIM_x0" };
+  for(i=0; i < 3; i++ ) {
+    cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+    sprintf(cptr,"%s", strList_x0[i] ) ;
+    SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2x0 ;
+    NVAR_SIMGEN_DUMP++ ;
+  }
 
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"S2x0") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2x0 ;
-  NVAR_SIMGEN_DUMP++ ;
+  char strList_x1[3][20] = { "S2x1", "SALT2x1", "SIM_x1" };
+  for(i=0; i < 3; i++ ) {
+    cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+    sprintf(cptr,"%s", strList_x1[i] ) ;
+    SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2x1 ;
+    NVAR_SIMGEN_DUMP++ ;
+  }
 
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"SALT2x0") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2x0 ;
-  NVAR_SIMGEN_DUMP++ ;
+  char strList_c[3][20] = { "S2c", "SALT2c", "SIM_c" };
+  for(i=0; i < 3; i++ ) {
+    cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+    sprintf(cptr,"%s", strList_c[i] ) ;
+    SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2c ;
+    NVAR_SIMGEN_DUMP++ ;
+  }
 
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"S2x1") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2x1 ;
-  NVAR_SIMGEN_DUMP++ ;
+  char strList_mb[3][20] = { "S2mb", "SALT2mb", "SIM_mb" };
+  for(i=0; i < 3; i++ ) {
+    cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+    sprintf(cptr,"%s", strList_mb[i] ) ;
+    SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2mB ;
+    NVAR_SIMGEN_DUMP++ ;
+  }
 
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"SALT2x1") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2x1 ;
-  NVAR_SIMGEN_DUMP++ ;
-
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"S2c") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2c ;
-  NVAR_SIMGEN_DUMP++ ;
-
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"SALT2c") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2c ;
-  NVAR_SIMGEN_DUMP++ ;
-
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"S2mb") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2mB ;
-  NVAR_SIMGEN_DUMP++ ;
-
-  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"SALT2mb") ;
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2mB ;
-  NVAR_SIMGEN_DUMP++ ;
 
   // check COVMAT_SCATTER
   if ( INPUTS.NCOVMAT_SCATTER > 0 ) {

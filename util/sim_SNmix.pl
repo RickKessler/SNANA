@@ -213,6 +213,10 @@
 #   +  abort if PATH_SNDATA_SIM does not exist.
 #   +  abort if NPER_SEASON is null string
 #
+# Apr 28 2020:
+#   + abort if SIMGEN_INFILE_[Ia,SNIa,NONIa] is not specified.
+#       (github issues from Justin)
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -1151,6 +1155,15 @@ sub parse_inFile_master() {
 	{ &parse_INFILE_NONIa($iver,$m); }
     }
 
+    if ( $NSIMTYPE == 0 ) {
+	$MSGERR[0] = " Must specify sim-input file for Ia and/or NON1A." ;
+	$MSGERR[1] = " Add 1 or more of the following keys in $SNMIX_INFILE_MASTER :" ;
+	$MSGERR[2] = "  SIMGEN_INFILE_Ia: <inFile> " ;
+	$MSGERR[3] = "  SIMGEN_INFILE_SNIa: <inFile> " ;
+	$MSGERR[4] = "  SIMGEN_INFILE_NONIa: <inFile> " ;
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);
+    }
+
     print " DOGEN[SNIa,NONIa] = $DOGEN_SNIa,$DOGEN_NONIa \n";
     &check_SIMGEN_DUMP();
     
@@ -1383,13 +1396,6 @@ sub syncVerify_files {
     my ($ISCC,$G5);
     $G5   = substr($GENMODEL_NAME_GLOBAL[$m],0,5);  # e.g., allow NON1ASED
     $ISCC = ( $G5 ne "FIXMAG" );
-
-    if ( $NSIMTYPE == 0 ) {
-	$MSGERR[0] = " Must specify sim-input file for Ia and/or NON1A." ;
-	$MSGERR[1] = " Add SIMGEN_INFILE_Ia and/or SIMGEN_INFILE_NONIa key";
-	$MSGERR[2] = " in $SNMIX_INFILE_MASTER ";
-	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);
-    }
 
     if ( $NSIMTYPE == 2 && $ISCC ) {
 	my ($found);  

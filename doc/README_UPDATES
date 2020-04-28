@@ -18320,5 +18320,15 @@
    snana.car
       + new &SNLCINP OVERRIDE_RESTLAM_BOUNDARY to manually
         adjust rest-frame boundaries for k-corrections.
+      + allow NOBS=0 if &SNLCINP ABORT_ON_NOEPOCHS=F
+
+   sim_SNmix:
+      + abort if PATH_SNDATA_SIM does not exist. 
+      + abort if NPER_SEASON string is null
+      + abort if there are no SIMGEN_INFILE_[Ia,SNIa,NONIa] keys
+
+   Makefile:
+     + add LROOT logic for lCint so that it works for both
+       root v5 and root v6.
 
 END: 

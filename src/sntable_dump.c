@@ -485,7 +485,7 @@ void  open_fitresFile(void) {
   int i ;
   char VARNAME_CID[] = "CID";
   char VARNAME_ROW[] = "ROW";
-  char SEP[] = " " ;
+  char SEP[4] = " " ;
   char *ptrVar;
   //  char fnam[] = "open_fitresFile" ;
   // -------------- BEGIN --------------

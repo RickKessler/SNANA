@@ -7600,8 +7600,8 @@ C -------------------- BEGIN -------------------
           NREPLACE    = INDEX(NAMEof_REPLACE(1), ' ' ) - 1
         else if ( cwd(1:1) .EQ. '@' ) then
           NEWKEY = NEWKEY + 1
-          NEWKEY_NAME(NEWKEY) = cwd(2:LL0)
-          NEWKEY_ARG(NEWKEY)  = cwd1
+          NEWKEY_NAME(NEWKEY)(1:LL0-1) = cwd(2:LL0)
+          NEWKEY_ARG(NEWKEY)           = cwd1
         endif
 
       ENDDO

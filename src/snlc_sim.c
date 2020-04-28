@@ -27385,8 +27385,8 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // clear out old GENVERSION files; 2nd arg is PROMPT flag
   clr_VERSION(INPUTS.GENVERSION,INPUTS.CLEARPROMPT);
 
-  // create new subdir for simulated SNDATA files
-
+  // create new subdir for simulated SNDATA files.
+  // Note that -p is not used to avoid bad behavior.
   sprintf(cmd,"mkdir -m g+wr %s", PATH_SNDATA_SIM );
   isys = system(cmd);
 

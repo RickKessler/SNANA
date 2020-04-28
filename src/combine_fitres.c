@@ -101,6 +101,9 @@
     + USEDCID -> bool instead of short int.
     + MXSN -> 5M (was 2M)
 
+ Apr 27 2020:
+   + init strings to NULL (see INIVAL_COMBINE_STR)
+
 ******************************/
 
 #include <stdio.h>
@@ -153,7 +156,8 @@ void  freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN);
 #define MXSN     5000000   // max SN to read per fitres file
 #define MXVAR_PERFILE  50  // max number of NTUP variables per file
 #define MXVAR_TOT  MXVAR_TABLE     // max number of combined NTUP variables
-#define INIVAL_COMBINE  -888.0
+#define INIVAL_COMBINE_FLT  -888.0
+#define INIVAL_COMBINE_STR  "NULL" 
 #define MXSTRLEN       MXCHAR_VARNAME  // changed from 28 (Sep 20 2019)
 #define MXSTRLEN_BAND      4
 #define MXSTRLEN_CID      20
@@ -814,7 +818,8 @@ void ADD_FITRES_VARLIST(int ifile, int isn, int isn2) {
     if ( ICAST != ICAST_C )  {   // not a string
       
       if (  isnan(FITRES_VALUES.FLT_TMP[ivar][isn2]) !=0 ) {
-	sprintf(c1err,"isnan for FLT_TMP[ivar=%d][isn=%d]", ivar, isn2 );
+	sprintf(c1err,"isnan for FLT_TMP[ivar=%d][isn=%d] = %f", 
+		ivar, isn2, FITRES_VALUES.FLT_TMP[ivar][isn2]  );
 	sprintf(c2err,"varname = %s", VARNAME_COMBINE[ivar] );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
@@ -935,8 +940,8 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
 
     for ( isn=0; isn < MAXLEN; isn++ ) {
       USEDCID[isn] = false ;
-      FITRES_VALUES.FLT_TMP[ivar][isn]     = INIVAL_COMBINE ;
-      FITRES_VALUES.FLT_ALL[IVAR_ALL][isn] = INIVAL_COMBINE ;
+      FITRES_VALUES.FLT_TMP[ivar][isn]     = INIVAL_COMBINE_FLT ;
+      FITRES_VALUES.FLT_ALL[IVAR_ALL][isn] = INIVAL_COMBINE_FLT ;
     }
   }
 
@@ -953,6 +958,8 @@ void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN) {
   // NVAR is the number of string variables in this fitres file.
   // Note that NVAR >= 1 because the CID string must always
   // be there.
+  //
+  // Apr 27 2020: init STR_ALL and STR_TMP to 'NULL'
 
   char fnam[] = "fitres_malloc_str" ;
   int ivar, IVAR_ALL, isn, MEMC, NTOT ;
@@ -991,6 +998,9 @@ void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN) {
     for ( isn=0; isn < MAXLEN; isn++ ) {
       FITRES_VALUES.STR_TMP[ivar][isn]     = (char*)malloc(MEMC);
       FITRES_VALUES.STR_ALL[IVAR_ALL][isn] = (char*)malloc(MEMC);
+      sprintf(FITRES_VALUES.STR_TMP[ivar][isn],"%s"    , INIVAL_COMBINE_STR) ;
+      sprintf(FITRES_VALUES.STR_ALL[IVAR_ALL][isn],"%s", INIVAL_COMBINE_STR) ;
+   
     } // isn
   }  // ivar
 

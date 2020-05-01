@@ -6383,6 +6383,8 @@ Fig.~\ref{fig:SETPKMJD}.
    MJDWIN_SETPKMJD  = 60   # for Fmax-clump method only (default=60)
    PHOTFLAG_TRIGGER = MASK # for MJD_TRIGGER method (MASK set by survey)
    CUTWIN_TOBS = -999,999  # After finding MJD(Fmax), apply TOBS cut for Bazin fit.
+
+   SHIFT_SETPKMJD = 5.0    # syst test to shift initial PKMJD by 5 days (default=0)
 \end{Verbatim}
 \end{center}
 \end{figure}
@@ -11666,6 +11668,9 @@ The {\tt snana.exe} program can create such a
   ! for sims, or fake data with SIM_MAGOBS :
     OPT_SIMLIB_OUT = 1    ! write SIM_MAGOBS in last SIMLIB column, all obs
     OPT_SIMLIB_OUT = 2    ! idem, but only when true flux > 0
+
+ ! for systematic tests only
+    SIMLIB_OUT_TMINFIX = 5   !  force PEAKMJD = MJD_MIN - 5
 \end{verbatim}
 %
 If the light curve data include meta data (PSF,SKY,ZP)

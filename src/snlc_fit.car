@@ -628,6 +628,7 @@ c
      &  ,INISTP_SHAPE2      ! initial step for 2nd shape-par
 c
      &  ,INIVAL_PEAKMJD       ! initial value for MJD  (days)   
+     &  ,INIVAL_PEAKMJD_SHIFT   ! shift INIVAL_PEAKMJD by this much
      &  ,INIVAL_RV            ! initial value for RV
      &  ,INIVAL_AV            ! initial value for AV
      &  ,INIVAL_AVRV          ! 
@@ -777,7 +778,8 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV
      &   ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR
      &   ,INISTP_SHAPE, INISTP_SHAPE2
-     &   ,INIVAL_PEAKMJD, INIVAL_AV, INIVAL_RV, INIVAL_AVRV
+     &   ,INIVAL_PEAKMJD, INIVAL_PEAKMJD_SHIFT
+     &   ,INIVAL_AV, INIVAL_RV, INIVAL_AVRV
      &   ,INIVAL_DLMAG, INIVAL_PHOTOZ, INIVAL_COLOR, INIVAL_X0
      &   ,INIVAL_SHAPE, INIVAL_SHAPE2, INIVAL_SHIFT_ERRFRAC
      &   ,FRACERRDIF_REPEATFIT
@@ -845,7 +847,8 @@ c ------
      &   ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV
      &   ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR
      &   ,INISTP_SHAPE, INISTP_SHAPE2
-     &   ,INIVAL_PEAKMJD, INIVAL_AV, INIVAL_RV, INIVAL_AVRV
+     &   ,INIVAL_PEAKMJD, INIVAL_PEAKMJD_SHIFT
+     &   ,INIVAL_AV, INIVAL_RV, INIVAL_AVRV
      &   ,INIVAL_DLMAG, INIVAL_PHOTOZ, INIVAL_COLOR, INIVAL_X0
      &   ,INIVAL_SHAPE, INIVAL_SHAPE2, INIVAL_SHIFT_ERRFRAC
      &   ,FRACERRDIF_REPEATFIT
@@ -6717,7 +6720,8 @@ c to reject crazy fits
       INISTP_X0        = 1.0E-5
       INISTP_PHOTOZ    = 0.0
 
-      INIVAL_PEAKMJD   = NULLVAL
+      INIVAL_PEAKMJD       = NULLVAL
+      INIVAL_PEAKMJD_SHIFT = 999999.
       INIVAL_AV        = NULLVAL
       INIVAL_RV        = RV_MWCOLORLAW
       INIVAL_AVRV      = 0.1
@@ -7576,6 +7580,10 @@ c ------------
             i = i + 1
             READ(LINE_ARGS(i),*) INIVAL_PEAKMJD
 
+         else if ( LINE_ARGS(i) .EQ. 'INIVAL_PEAKMJD_SHIFT' ) then
+            i = i + 1
+            READ(LINE_ARGS(i),*) INIVAL_PEAKMJD_SHIFT
+
          else if ( LINE_ARGS(i) .EQ. 'INISTP_SHAPE' ) then
             i = i + 1
             READ(LINE_ARGS(i),*) INISTP_SHAPE
@@ -7773,6 +7781,7 @@ c ----------------------------------------
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
++CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,FITIDEALCOM.
 
@@ -8045,6 +8054,7 @@ c ------------------------
 c check if user has specified any INITIAL values.
 c To fix a parameter value, must also set INISTP_XXX = 0.0
 
+
       IF ( INIVAL_PEAKMJD .GT. 40000. )
      &     INIVAL_PEAKMJD = INIVAL_PEAKMJD - MJDOFF 
 
@@ -8105,12 +8115,20 @@ c now check if want to fix a parameter with the simulated value.
                INISTP(ipar) = 0.0
 
                IF ( ipar .EQ. IPAR_PEAKMJD ) then
-                  INIVAL(ipar) = INIVAL(ipar) - MJDOFF ! Nov 2013
+                  INIVAL(ipar) = INIVAL(ipar) - MJDOFF         ! Nov 2013
+                  INIVAL(ipar) = INIVAL(ipar) + SHIFT_SETPKMJD ! May 2020
                ENDIF
             endif
          enddo
-      ENDIF
+      ENDIF  ! end LSIM_SNANA
 
+c xxxxxxx mark delete May 1 2020 xxxxxxxxxxxxxxxx
+c May 2020: check for shifting initial PEAKMJD
+c      IF ( INIVAL_PEAKMJD_SHIFT < 999.0 ) THEN
+c          INIVAL(IPAR_PEAKMJD) = 
+c     &    INIVAL(IPAR_PEAKMJD) + INIVAL_PEAKMJD_SHIFT	  
+c      ENDIF
+c xxxxxxxxxxxxxxx
 
 c set FITVAL on 1st interation since this array
 c are used in the ADJUST & FITINI_XXXX routines.

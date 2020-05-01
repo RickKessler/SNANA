@@ -18321,6 +18321,8 @@
       + new &SNLCINP OVERRIDE_RESTLAM_BOUNDARY to manually
         adjust rest-frame boundaries for k-corrections.
       + allow NOBS=0 if &SNLCINP ABORT_ON_NOEPOCHS=F
+      + new &SNLCINP input SIMLIB_OUT_TMINFIX
+      + new &SNLCINP input SHIFT_SETPKMJD
 
    sim_SNmix:
       + abort if PATH_SNDATA_SIM does not exist. 

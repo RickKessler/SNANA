@@ -1949,6 +1949,7 @@ c
      &  ,PHOTFLAG_TRIGGER        ! determine MJD(trigger) for survey
      &  ,FLUXERRMODEL_OPTMASK
      &  ,OPT_SIMLIB_OUT          ! bit mask of SIMLIB_OUT options
+     &  ,SIMLIB_OUT_TMINFIX      ! choose PEAKMJD such that min(MJD-PEAKMJ) = TMINFIX
 
       LOGICAL 
      &   LSIM_SEARCH_SPEC   ! (I) T => require simulated SPEC-tag
@@ -2012,6 +2013,7 @@ c variables to control estimate of PEAKMJD
       REAL
      &   SNRCUT_SETPKMJD         ! define SNR for Fmax in clump method
      &  ,MJDWIN_SETPKMJD         ! MJD window for Fmax in clump method
+     &  ,SHIFT_SETPKMJD          ! shift initial PKMJD for systematic test
 
 c define reference cosmological parameters (double precision!)
 c Aug 7, 2009: each parameter has dimension 2 for value & error
@@ -2039,7 +2041,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE, NONLINEARITY_FILE
-     &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, OPT_SIMLIB_OUT
+     &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST
+     &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , hfile_out, rootfile_out, textfile_prefix
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP
      &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
@@ -2048,7 +2051,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , MAGCOR_FILE, SIM_MAGCOR_FILE,  FUDGE_HOSTNOISE_FILE
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
      &    , OPT_SETPKMJD
-     &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, OPT_DEBUG
+     &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, SHIFT_SETPKMJD, OPT_DEBUG
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_zHOST
      &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
@@ -2089,10 +2092,11 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE, NONLINEARITY_FILE
-     &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, OPT_SIMLIB_OUT
+     &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST
+     &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
      &    , OPT_SETPKMJD
-     &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, OPT_DEBUG
+     &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, SHIFT_SETPKMJD, OPT_DEBUG
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST
      &    , LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
@@ -3405,6 +3409,7 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       SIMLIB_OUT = ''
       SIMLIB_ZPERR_LIST = ''
       OPT_SIMLIB_OUT    = 1
+      SIMLIB_OUT_TMINFIX = 99999 ! large value -> not used
 
       NONLINEARITY_FILE = ''
 
@@ -3500,6 +3505,7 @@ c default is to reject nothing (accept everything)
       OPT_SETPKMJD      = 0
       SNRCUT_SETPKMJD   =  5.0 ! only for FLUXMAX2 option (Fmax-clump)
       MJDWIN_SETPKMJD   = 60.0 ! only for FLUXMAX2 option (Fmax-clump)
+      SHIFT_SETPKMJD    =  0.0 ! for systematic test only
 
       OPT_DEBUG           = 0
       LDMP_SNFAIL         = .FALSE.
@@ -4888,6 +4894,8 @@ c ----------
             i = i + 1 ; READ(LINE_ARGS(i),*) MJDWIN_SETPKMJD
          else if ( LINE_ARGS(i) .EQ. 'SNRCUT_SETPKMJD' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) SNRCUT_SETPKMJD
+         else if ( LINE_ARGS(i) .EQ. 'SHIFT_SETPKMJD' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) SHIFT_SETPKMJD
 
          else if ( LINE_ARGS(i) .EQ. 'DOBUG_LAMRANGE' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) DOBUG_LAMRANGE
@@ -4921,6 +4929,9 @@ c ----------
 
          else if ( LINE_ARGS(i) .EQ. 'OPT_SIMLIB_OUT' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) OPT_SIMLIB_OUT
+
+         else if ( LINE_ARGS(i) .EQ. 'SIMLIB_OUT_TMINFIX' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) SIMLIB_OUT_TMINFIX
 
          else if ( LINE_ARGS(i) .EQ. 'NONLINEARITY_FILE' ) then
             i = i + 1 ; NONLINEARITY_FILE = LINE_ARGS(i)
@@ -12481,6 +12492,9 @@ c        HOSTGAL_PHOTOZ[_ERR]
 c        HOSTGAL_SPECZ[_ERR]
 c
 c Feb 8 2019: call PARSE_HOSTGAL(igal) to parse multiple host-matches.
+c
+c May 01 2020: add SHIFT_SETPKMJD to  PEAKMJD read from header.
+c
 c --------------------------------------------------
 
       IMPLICIT NONE
@@ -12770,12 +12784,11 @@ c check the newer PEAKMJD key, as well as the older key
 
       KEY  = 'PEAKMJD'
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SNLC_SEARCH_PEAKMJD = SNGL(RET8(1))
+      IF ( LTMP ) SNLC_SEARCH_PEAKMJD = SNGL(RET8(1)) + SHIFT_SETPKMJD
 
       KEY  = 'SEARCH_PEAKMJD'
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SNLC_SEARCH_PEAKMJD = SNGL(RET8(1))
-
+      IF ( LTMP ) SNLC_SEARCH_PEAKMJD = SNGL(RET8(1)) + SHIFT_SETPKMJD
 
 c read optional FLUXCAL_OFF to correct for SN light in template
 
@@ -21008,6 +21021,7 @@ c +CDE,SNANAFIT.
 
       REAL*8  MJD, GAIN, RDNOISE, SKYSIG, PSF1, PSF2, PSFRAT
       REAL*8  ZP, ZPERR, MAG, FLUX, FLUXERR, PIXSIZE, LAMOBS
+      rEAL*8  MJD_MIN, TOBS_MIN, PEAKMJD
       INTEGER LIBID, IFILT, IFILT_OBS, LASTEP(MXFILT_OBS)
       INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP,i
       LOGICAL IS_REAL_DATA, WRALL_SIM_MAGOBS, WRSET_SIM_MAGOBS
@@ -21158,16 +21172,26 @@ c -----------
 
       WRITE(LUNOUT,66)
 66    FORMAT('#--------------------------------------------' )
- 
+
+c check option to force TMIN
+      MJD_MIN  = SNLC8_MJD(1)
+      PEAKMJD  = SNLC_SEARCH_PEAKMJD
+      IF ( SIMLIB_OUT_TMINFIX < 999 ) THEN
+        PEAKMJD = MJD_MIN - DBLE(SIMLIB_OUT_TMINFIX)
+      ENDIF
+      TOBS_MIN = MJD_MIN - PEAKMJD
+
       LIBID = SNLC_CID      ! UNIQUE_CIDINT(SNLC_CCID)
-      WRITE(LUNOUT,101) LIBID, SNLC_CCID
- 101  FORMAT('LIBID: ', I8, 5x, '# cadence from SNID=', A )
+ 
+      WRITE(LUNOUT,101) LIBID, SNLC_CCID(1:ISNLC_LENCCID), TOBS_MIN
+ 101  FORMAT('LIBID: ', I8, 5x, '# cadence from SNID=', A, 2x,
+     &    'min(MJD-PEAKMJD)=',F5.1  )
 
       WRITE(LUNOUT,103) SNLC8_RA, SNLC8_DEC, SNLC_MWEBV
  103  FORMAT('RA: ', F12.6, 8x, 'DEC:', F12.6, 5x, 'MWEBV: ',F7.4)
 
       WRITE(LUNOUT,105) NOBS, PIXSIZE, 
-     &       SNLC_REDSHIFT,  SNLC_SEARCH_PEAKMJD 
+     &       SNLC_REDSHIFT,  PEAKMJD 
  105  FORMAT('NOBS: ', I4, 5x, 'PIXSIZE: ', F6.3, 5x,
      &       'REDSHIFT: 'F8.5, 5x, 'PEAKMJD: ', F9.3 )
 
@@ -35884,6 +35908,8 @@ c
 c May 17, 2019: implement new options OPTBIT_SETPKMJD_[TRIGGER,MAXFLUX2]
 c May 20, 2019: return if less then 2 epochs.
 c Jan 27, 2020: use STDOUT_UPDATE flag to print screen update.
+c May 01, 2020: implement SHIFT_SETPKMJD
+c
 c -------------------------------------------------------------
 
       IMPLICIT NONE
@@ -36339,6 +36365,7 @@ c -----------------------------------------------
 c -----------------------------------------    
 800   CONTINUE
 
+      PKMJD = PKMJD + SHIFT_SETPKMJD
       SNLC_SNANAFIT_PEAKMJD = PKMJD
       SNLC_SEARCH_PEAKMJD   = PKMJD
 

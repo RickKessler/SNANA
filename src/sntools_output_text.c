@@ -948,7 +948,7 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   fprintf(PTRFILE_LCLIST, "VARNAMES: CID IFIT\n");
   fflush(PTRFILE_LCLIST);
 
-  SNLCPAK_USE_TEXT = 1;
+  SNLCPAK_USE_TEXT = true ;
   sprintf( SNLCPAK_OUTPUT.TEXTFILE_PREFIX, "%s", PREFIX );
 
 
@@ -1681,7 +1681,7 @@ void OPEN_TEXTFILE_SPECLIST(char *PREFIX) {
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
-  SPECPAK_USE_TEXT = 1;
+  SPECPAK_USE_TEXT = true ;
 
   return ;
 

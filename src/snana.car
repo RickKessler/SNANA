@@ -4,8 +4,7 @@ c Program to read light curves and apply user selection
 c cuts specified in the &SNLCINP namelist.
 c Can also fit function to estimate time of peak brightness.
 c
-c
-
+c  
 
                      CHANGES
           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -62,9 +61,9 @@ c parameters used by snana code
      &  ,ISTAT_READAGAIN, ISTAT_SKIP
      &  ,IDTABLE_MCMC, NFIT_VERBOSE
      &  ,ITABLE_SNANA,  ITABLE_FITRES, ITABLE_SNLCPAK, ITABLE_SPECPAK
-     &  ,ITABLE_MODELSPEC, MXTABLE
+     &  ,ITABLE_MODELSPEC, ITABLE_MARZ, MXTABLE
      &  ,IDTABLE_SNANA, IDTABLE_FITRES, IDTABLE_MODELSPEC
-     &  ,IDTABLE_CIDPTR
+     &  ,IDTABLE_CIDPTR, IDTABLE_MARZ
      &  ,OPT_PARSTORE_TEXTTABLE
      &  ,MSKOPT_PARSE_WORDS_STRING
      &  ,MSKOPT_PARSE_WORDS_FILE
@@ -240,13 +239,14 @@ c
      &  ,ISTAT_SKIP           = -1
 c
      &  ,ITABLE_SNANA=1, ITABLE_FITRES=2, ITABLE_SNLCPAK=3
-     &  ,ITABLE_SPECPAK=4, ITABLE_MODELSPEC=5
+     &  ,ITABLE_SPECPAK=4, ITABLE_MODELSPEC=5, ITABLE_MARZ=6
      &  ,MXTABLE = 10
-     &  ,IDTABLE_SNANA   = 7100
-     &  ,IDTABLE_FITRES  = 7788 
+     &  ,IDTABLE_SNANA     = 7100  ! anaysis variables, every event
+     &  ,IDTABLE_FITRES    = 7788  ! SNANA table + fit results, passing cuts
      &  ,IDTABLE_MODELSPEC = 8000  ! SALT2 model spectra from LC fit
-     &  ,IDTABLE_CIDPTR  = 1600  
-     &  ,IDTABLE_MCMC    = 7711
+     &  ,IDTABLE_MARZ      = 8100  ! MARZ tables
+     &  ,IDTABLE_CIDPTR    = 1600  
+     &  ,IDTABLE_MCMC      = 7711  ! obsolete ?
      &  ,OPT_PARSTORE_TEXTTABLE = 1  ! tag subset for TEXT table.
      &  ,MSKOPT_PARSE_WORDS_FILE    = 1   ! parse file
      &  ,MSKOPT_PARSE_WORDS_STRING  = 2   ! for store_PARSE_WORDS: string
@@ -562,6 +562,7 @@ c SNTABLE control variables (May 2014)
      &   USE_TABLEFILE_HBOOK  ! write table in HBOOK format
      &  ,USE_TABLEFILE_ROOT   ! write table in ROOT format
      &  ,USE_TABLEFILE_TEXT   ! write table in TEXT format
+     &  ,USE_TABLEFILE_MARZ   ! write table in MARZ/FITS format
      &  ,USE_TABLEFILE        ! T if either any of the above are set
      &  ,WRTABLEFILE_IAUC     ! T-> SNID -> IAUC (for writing tables)
      &  ,WRTABLEFILE_SIMVAR   ! T-> include SIM_XXX vars for simulation
@@ -590,7 +591,7 @@ c Sep 23 2017: allow user codes to add private variables to SNTABLE
  
       COMMON / SNTABLECOM / 
      &     USE_TABLEFILE_HBOOK, USE_TABLEFILE_ROOT
-     &    ,USE_TABLEFILE_TEXT, USE_TABLEFILE
+     &    ,USE_TABLEFILE_TEXT, USE_TABLEFILE_MARZ, USE_TABLEFILE
      &    ,OPT_TABLE, TEXTFORMAT_TABLE
      &    ,CUTMASK_SNANA_TABLE, WRTABLEFILE_IAUC, WRTABLEFILE_SIMVAR
      &    ,WRTABLEFILE_ZPHOT, WRTABLEFILE_HOST_TEXT
@@ -1885,6 +1886,7 @@ c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
      &  ,HFILE_OUT        ! output hbook filename
      &  ,ROOTFILE_OUT     ! output filename for root
      &  ,TEXTFILE_PREFIX  ! prefix for ascii tables
+     &  ,MARZFILE_OUT         ! write spectra to FITS file for input to MARZ
      &  ,SNTABLE_LIST     ! list of SNTABLEs to create
      &  ,SNTABLE_FILTER_REMAP ! remap filters in tables
      &  ,KCOR_FILE            ! fits-formatted KCOR tables
@@ -1897,7 +1899,8 @@ c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
      &  ,VPEC_FILE            ! pec. velocity corrections
      &  ,HEADER_OVERRIDE_FILE ! header-var overrides
      &  ,SNCID_LIST_FILE      ! list of CID's to process
-     &  ,SIMLIB_OUT           ! write simlib entry for each event
+     &  ,SIMLIB_OUT           ! legacy name
+     &  ,SIMLIB_OUTFILE       ! write simlib entry for each event
      &  ,SIMLIB_ZPERR_LIST    ! 'abc .01 def .02 ghi .005'
      &  ,NONLINEARITY_FILE    ! non-linearity map (Apr 2017)
 c
@@ -2041,10 +2044,10 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE, NONLINEARITY_FILE
-     &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST
+     &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , hfile_out, rootfile_out, textfile_prefix
-     &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP
+     &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT
      &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
@@ -2088,11 +2091,11 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , hfile_out, rootfile_out, textfile_prefix
-     &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP
+     &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT
      &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE, NONLINEARITY_FILE
-     &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST
+     &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
      &    , OPT_SETPKMJD
@@ -3403,10 +3406,12 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       hfile_out         = ' '
       rootfile_out      = ' '
       textfile_prefix   = ' '
+      MARZFILE_OUT      = ' '  ! May 2020
 
       SNCID_LIST_FILE   = ' '
       MXEVT_PROCESS      = 999888777
-      SIMLIB_OUT = ''
+      SIMLIB_OUT     = ''
+      SIMLIB_OUTFILE = ''
       SIMLIB_ZPERR_LIST = ''
       OPT_SIMLIB_OUT    = 1
       SIMLIB_OUT_TMINFIX = 99999 ! large value -> not used
@@ -3866,6 +3871,10 @@ c check option to save bad epochs for OPT_REFORMAT
          REFORMAT_SAVE_BADEPOCHS = .TRUE.
       ENDIF
 
+c - - - - -
+      IF ( SIMLIB_OUT .NE. '' ) SIMLIB_OUTFILE = SIMLIB_OUT
+
+     
 c ---------------------------
 c if ENV is in path, make substitution
       CALL ENVreplace(PRIVATE_DATA_PATH) 
@@ -4028,6 +4037,8 @@ c Dec 19 2019: pass SIMFLAG to SNLCPAK_INIT.
 c
 c Apr 03 2020: add call to  ENVreplace(TEXTFILE_PREFIX)
 c
+c May 02 2020: begin MARZFILE_OUT (to store WFIRST host spectra for MARZ)
+c
 c ------------------------------------------------------
 
       IMPLICIT NONE
@@ -4101,12 +4112,33 @@ c set strings needed for the SNLCPAK_INIT functio
          CALL SPECPAK_INIT(SURVEY_forC, VER_PHOT_forC, TEXTFMT_forC,
      &          LENSRVY, LENV1, LENFMT )
       ENDIF
-
+c .xyz
 c -------------------------------------------
 
       USE_TABLEFILE        = .FALSE.
       USE_TABLEFILE_HBOOK  = .FALSE.  
       USE_TABLEFILE_ROOT   = .FALSE.      
+      USE_TABLEFILE_TEXT   = .FALSE.     ! May 2 2020 (forgot init earlier)
+      USE_TABLEFILE_MARZ   = .FALSE.     ! May 2 2020 (new table)
+
+c MARZ (host spectra only)
+      IF ( MARZFILE_OUT .NE. '' ) THEN
+         COPT          = "new" // char(0)
+      	 CALL ENVreplace(MARZFILE_OUT)
+         LENFILE   = INDEX(MARZFILE_OUT,' ') - 1
+         CFILE     = MARZFILE_OUT(1:LENFILE) // char(0)
+         IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, LENFILE, 20)
+
+         USE_TABLEFILE_MARZ = .TRUE. 
+         USE_TABLEFILE      = .TRUE.
+
+         IF ( IFILETYPE < 0 ) THEN
+            C1ERR = 'Could not open MARZ fits-file'
+            C2ERR = MARZFILE_OUT(1:LENFILE)
+            CALL  MADABORT(FNAM, C1ERR, C2ERR)
+         ENDIF
+      ENDIF
+
 
       IF ( HFILE_OUT .NE. ' ' ) THEN
          COPT          = "new hbook" // char(0)
@@ -4154,7 +4186,6 @@ c -------------------------------------------
             CALL  MADABORT(FNAM, C1ERR, C2ERR)
          ENDIF
       ENDIF
-
 
 c ----------------------------------------
 c Oct 23, 2014: store global comments
@@ -4267,6 +4298,7 @@ c namelist, SNTABLE_LIST = 'SNANA(text:[format])' and SNANA->LCPLOT.
       TEXTFORMAT_TABLE(ITABLE_SNLCPAK)   = 'none'
       TEXTFORMAT_TABLE(ITABLE_SPECPAK)   = 'none' ! Apr 2019
       TEXTFORMAT_TABLE(ITABLE_MODELSPEC) = 'none' 
+      TEXTFORMAT_TABLE(ITABLE_MARZ)      = 'none' 
 
       CUTMASK_SNANA_TABLE = 63  ! default is to add everything in snana table
 
@@ -4321,6 +4353,10 @@ c STRING is of the form "tbName(copt_list)".
 
          CALL PARSE_SNTABLE_LIST(locase_STRING, TBNAME, NOPT, COPT_LIST)
 
+c check MARZ outpout option (May 2020)
+         if ( MARZFILE_OUT .NE. ' ' ) OPT_TABLE(ITABLE_SPECPAK)=2
+
+c - - - - - - - - - - - - - - - - - - 
 c check table-names
 
          if ( TBname(1:5) .EQ. 'snana' ) then
@@ -4444,11 +4480,14 @@ c summarize
       ITAB = ITABLE_MODELSPEC
       write(6,40) 'MODELSPEC', OPT_TABLE(ITAB),TEXTFORMAT_TABLE(ITAB)
 
- 40   format(T5,A8,'-table: USE=',I1,       3x, 'TEXTFORMAT=',A4 )
- 41   format(T5,A8,'-table: MXLC_PLOT=',I6, 3x, 'TEXTFORMAT=',A4 )
+      ITAB = ITABLE_MARZ
+      write(6,40) 'MARZ', OPT_TABLE(ITAB),TEXTFORMAT_TABLE(ITAB)
+
+ 40   format(T5,A9,'-table: USE=',I1,       3x, 'TEXTFORMAT=',A4 )
+ 41   format(T5,A9,'-table: MXLC_PLOT=',I6, 3x, 'TEXTFORMAT=',A4 )
 
       write(6,51) 'SNANA', CUTMASK_SNANA_TABLE
-51    format(T5,A8,'-table: select CUTFLAG_SNANA & ', I3 )
+51    format(T5,A9,'-table: select CUTFLAG_SNANA & ', I3 )
 
       if ( WRTABLEFILE_HOST_TEXT ) then
          print*,'   Include HOSTGAL info in TEXT tables.'
@@ -4783,6 +4822,9 @@ c to allow multiple specifications.
          else if ( LINE_ARGS(i) .EQ. 'TEXTFILE_PREFIX' ) then
             i = i + 1 ; TEXTFILE_PREFIX = LINE_ARGS(i)
 
+         else if ( LINE_ARGS(i) .EQ. 'MARZFILE_OUT' ) then
+            i = i + 1 ; MARZFILE_OUT = LINE_ARGS(i)
+
          else if ( LINE_ARGS(i) .EQ. 'SNTABLE_LIST' ) then
             i = i + 1 ; SNTABLE_LIST = LINE_ARGS(i)
          else if ( LINE_ARGS(i) .EQ. 'SNTABLE_FILTER_REMAP' ) then
@@ -4922,7 +4964,9 @@ c ----------
      &          PARSE_INTLIST(STRING_LIST,SIM_TEMPLATE_INDEX_LIST)
 
          else if ( LINE_ARGS(i) .EQ. 'SIMLIB_OUT' ) then
-            i = i + 1 ; SIMLIB_OUT = LINE_ARGS(i)
+            i = i + 1 ; SIMLIB_OUTFILE = LINE_ARGS(i)
+         else if ( LINE_ARGS(i) .EQ. 'SIMLIB_OUTFILE' ) then
+            i = i + 1 ; SIMLIB_OUTFILE = LINE_ARGS(i)
 
          else if ( LINE_ARGS(i) .EQ. 'SIMLIB_ZPERR_LIST' ) then
             i = i + 1 ; SIMLIB_ZPERR_LIST = LINE_ARGS(i)
@@ -6456,6 +6500,11 @@ c close hbook file using wrapper so that we don't need CERNLIB flag here.
 
       IF ( USE_TABLEFILE_TEXT ) THEN  ! April 2019
          CALL TABLEFILE_CLOSE("NULL"//char(0),10)
+      ENDIF
+
+      IF ( USE_TABLEFILE_MARZ ) THEN  ! April 2019
+         LENF = index(MARZFILE_OUT,' ') - 1
+         CALL TABLEFILE_CLOSE(MARZFILE_OUT(1:LENF)//char(0), LENF)
       ENDIF
 
       IF ( FLAG_NEARNBR == NNFLAG_TRAIN ) THEN
@@ -12338,7 +12387,7 @@ c check for end of photometry and existence of SPECTRA
          endif
 
          IF ( END_PHOTOMETRY .and. ISKEY_SPEC ) THEN
-            CALL PARSE_SPECTRUM ( cwd, istat )
+            CALL PARSE_SPECTRUM_TEXT ( cwd, istat )
          ENDIF
 
  200  CONTINUE  ! NWD loop
@@ -14064,8 +14113,8 @@ C ---------- BEGIN ------------
 
 
 C ================================================
-+DECK,PARSE_SPECTRUM.
-      SUBROUTINE PARSE_SPECTRUM ( cwords, istat ) 
++DECK,PARSE_SPECTRUM_TEXT.
+      SUBROUTINE PARSE_SPECTRUM_TEXT ( cwords, istat ) 
 c
 c Apri 2019
 c -----------------
@@ -14111,7 +14160,7 @@ c check header stuff
            write(c1err,81) MXSPECTRUM 
 81         format('NSPECTRUM exceeds bound of MXSPECTRUM=',I2 )
            c2err = 'Check MXSPECTRUM in snana.car'
-           CALL MADABORT("PARSE_SPECTRUM", c1err, c2err )
+           CALL MADABORT("PARSE_SPECTRUM_TEXT", c1err, c2err )
          endif
          NLAMBIN_READ = 0 
          ID_SPECTRUM(NSPECTRUM) = ID
@@ -14139,7 +14188,7 @@ c check header stuff
 91         format('NLAMBIN=',I5,' exceeds bound of ', 
      &            'MXLAM_SPECTRUM=',I5)
            c2err = 'Check MXLAM_SPECTRUM in snana.car'
-           CALL MADABORT("PARSE_SPECTRUM", c1err, c2err )
+           CALL MADABORT("PARSE_SPECTRUM_TEXT", c1err, c2err )
          endif
       ENDIF
 
@@ -14162,14 +14211,13 @@ c check SPEC: line with wave and flux
 661        format('Read ',I4,' lam bins, but expected ',I4)
            write(c2err,662) SNLC_CCID(1:12), ID
 662        format('CID=',A,' SPECTRUM_ID=',I2 )
-           CALL MADABORT("PARSE_SPECTRUM", c1err, c2err )
+           CALL MADABORT("PARSE_SPECTRUM_TEXT", c1err, c2err )
          endif
          NLAMBIN_READ = 0
       ENDIF
 
       RETURN 
-      END     ! end PARSE_SPECTRUM
-
+      END     ! end PARSE_SPECTRUM_TEXT
 
 C =============================================
 +DECK,CIDASSIGN.
@@ -21031,7 +21079,7 @@ c +CDE,SNANAFIT.
 
 C ------------------ BEGIN ------------------
 
-      IF( SIMLIB_OUT .EQ. '' ) RETURN
+      IF( SIMLIB_OUTFILE .EQ. '' ) RETURN
 
       FNAM = 'MAKE_SIMLIB_FILE'
       IS_REAL_DATA = ( .NOT. (LSIM_SNANA .or. LSIM_MAGOBS) )
@@ -21066,16 +21114,16 @@ c -------------------------------------------
         GLOBAL_BANNER = 
      &      'Prepare to write SIMLIB file from data'
         CALL PRBANNER (GLOBAL_BANNER(1:60) )
-        LEN1 = INDEX(SIMLIB_OUT,' ') -1 
-        print*,'   Open output SIMLIB file: ', SIMLIB_OUT(1:LEN1)
+        LEN1 = INDEX(SIMLIB_OUTFILE,' ') -1 
+        print*,'   Open output SIMLIB file: ', SIMLIB_OUTFILE(1:LEN1)
         
         OPEN(   UNIT   = LUNOUT
-     &        , FILE   = SIMLIB_OUT
+     &        , FILE   = SIMLIB_OUTFILE
      &        , STATUS = 'UNKNOWN'
      &           )
 
         WRITE(LUNOUT,11) 
-     &       'Created from snana.exe using SIMLIB_OUT option.'
+     &       'Created from snana.exe using SIMLIB_OUTFILE option.'
         WRITE(LUNOUT,11) 
      &       'VERSION_PHOTOMETRY: ' // VERSION_PHOTOMETRY(1)(1:60)
         if ( WR_SIM_MAGOBS ) then
@@ -21120,9 +21168,9 @@ c replace N_SNLC_CUTS with comment giving number of SIMLIB entries
 	 STR_NEW = cNCUTS
 	 LEN0    = index(STR_OLD,' ') - 1
 	 LEN1    = 8    ! for cNCUT
-         LEN2    = INDEX(SIMLIB_OUT,' ') - 1
+         LEN2    = INDEX(SIMLIB_OUTFILE,' ') - 1
 	 write(SEDCMD,505) 
-     &       STR_OLD(1:LEN0), STR_NEW(1:LEN1), SIMLIB_OUT(1:LEN2)
+     &       STR_OLD(1:LEN0), STR_NEW(1:LEN1), SIMLIB_OUTFILE(1:LEN2)
 c	 print*,' xxx SEDCMD = ', SEDCMD
          CALL SYSTEM(SEDCMD)
 
@@ -21132,10 +21180,10 @@ c is SUBSURVEY_LIST is not blank, use system 'sed' command
 c to insert its comma-separate list at top of SIMLIB file.
          IF ( SUBSURVEY_NAME_LIST .NE. '' ) THEN
             LEN1   = INDEX(SUBSURVEY_NAME_LIST,' ') - 1
-            LEN2   = INDEX(SIMLIB_OUT,' ') - 1
+            LEN2   = INDEX(SIMLIB_OUTFILE,' ') - 1
             SEDCMD = "sed -i '1i SUBSURVEY_LIST: " 
      &          // SUBSURVEY_NAME_LIST(1:LEN1) // "' " 
-     &          // SIMLIB_OUT(1:LEN2)
+     &          // SIMLIB_OUTFILE(1:LEN2)
             CALL SYSTEM(SEDCMD)
          ENDIF
 
@@ -21487,7 +21535,7 @@ C =======================================================
 
 c
 c Created Jan 26 2017 by R.Kessler
-c When &SNLCINP namelist SIMLIB_OUT is specified (fileName),
+c When &SNLCINP namelist SIMLIB_OUTFILE is specified (fileName),
 c and the data files have no meta data, this function is called
 c as a hack to compute SIMLIB row entries for PSF, SKYSIG and ZP.
 c 
@@ -22086,6 +22134,7 @@ C ==========================================
 
 c Re-Created Feb 2013
 c Driver for monitor tables.
+c May 2 2020: add call to TABLE_MARZ
 
       IMPLICIT NONE
 
@@ -22112,10 +22161,14 @@ c ------------------------------------------------------
       IF ( OPT_TABLE(ITABLE_SNANA) > 0 ) THEN
          CALL TABLE_SNANA(IDTABLE_SNANA,IFLAG)   
       ENDIF
-
+      
       LTMP = ( IFLAG .EQ. IFLAG_INI .or. MADE_LCPLOT )  
       IF ( LTMP ) THEN
          CALL TABLE_CIDPTR(IFLAG)     ! init CID pointers for LC plots
+      ENDIF
+
+      IF ( MARZFILE_OUT .NE. '' ) THEN
+         CALL TABLE_MARZ(IDTABLE_MARZ,IFLAG)
       ENDIF
 
       RETURN
@@ -24239,7 +24292,7 @@ c set global flag.
 +SELF.
 
 
-C ==============================
+C ==============================================
 +DECK,SPECPLOT.
       SUBROUTINE SPECPLOT()
 
@@ -24257,6 +24310,7 @@ c
       CHARACTER  CCID_forC*(MXCHAR_CCID)
       LOGICAL DOPLOT_SNLC
 
+      EXTERNAL SPECPAK_DATA
 C ----------------- BEGIN ---------------
 
 c check if we should make the plot
@@ -24279,8 +24333,8 @@ c load each spectrum into SPECPAK C-function util
      &       , TOBS_SPECTRUM(ispec)    ! May 7 2019
      &       , TEXPOSE_SPECTRUM(ispec)
      &       , NLAMBIN_SPECTRUM(ispec)
-     &       , LAMMIN_SPECTRUM(1,ispec)
-     &       , LAMMAX_SPECTRUM(1,ispec)
+     &       , LAMMIN_SPECTRUM(1,ispec) ! array of LAMMIN in each bin
+     &       , LAMMAX_SPECTRUM(1,ispec) ! array of LAMMAX in each bin
      &       , FLAM_SPECTRUM(1,ispec)
      &       , FLAMERR_SPECTRUM(1,ispec)
      &       , LENCCID )
@@ -25886,6 +25940,91 @@ C ------------ BEGIN --------------
 
       RETURN
       END
+
+C ===========================================
++DECK,TABLE_MARZ.
+      SUBROUTINE TABLE_MARZ(IDTABLE,IFLAG)
+c
+c Created May 2020 by R.Kessler
+c Driver for MARZ table with host-galaxy spectra.
+c
+c ------------------------------
+      IMPLICIT NONE
++CDE,SNPAR.
++CDE,SNCUTS.
++CDE,CTRLCOM.
++CDE,SNLCCOM.
++CDE,SNLCINP.
++CDE,SNFILECOM.
++CDE,SPECCOM.
++CDE,SNSIMCOM.
+
+      INTEGER IDTABLE  ! (I) table ID
+      INTEGER IFLAG    ! (I) see IFLAG_XXX params
+
+c local var
+
+      LOGICAL   DO_FILL
+      INTEGER   LENNAME, LENFMT, ISPEC, LENCCID
+      CHARACTER FNAM*12, NAME*40, TEXTFMT*20, TEXTFMT_forC*20
+      CHARACTER CCID_forC*32
+      EXTERNAL SNTABLE_CREATE, SNTABLE_FILL, SPECPAK_DATA
+
+C -------------------- BEGIN -----------------
+      FNAM = 'TABLE_MARZ'
+
++SELF,IF=SNFIT,PSNID.
+      c1err = 'Cannot write MARZ spectra file with fit code'
+      c2err = 'MARZFILE_OUT works only with snana.exe '
+      CALL MADABORT(FNAM, c1err, c2err)
++SELF.
+
+      IF ( IFLAG .EQ. IFLAG_INI ) THEN
+         NAME     = 'MARZ' // char(0)
+         LENNAME  = INDEX(NAME,    ' ') - 1
+         TEXTFMT_forC = 'FITS' // char(0)
+         LENFMT       =  4
+         CALL SNTABLE_CREATE(IDTABLE, NAME, TEXTFMT_forC, 
+     &          LENNAME,LENFMT)  ! C fun
+
+         RETURN
+      ENDIF
+
+c --------------------------
+c fill table.
+
+      DO_FILL = LSNCUTS
+      IF ( DO_FILL ) THEN
+         ISPEC = 1
+         LENCCID   = ISNLC_LENCCID
+         CCID_forC = SNLC_CCID(1:LENCCID)
+         if ( LSIM_SNANA ) then
+            write(CCID_forC,40) SNLC_CCID(1:LENCCID), SIM_REDSHIFT_HELIO
+40          format(A, '[z=', F5.3, ']' )
+            LENCCID = LENCCID + 9
+         endif
+	 CCID_forC = CCID_forC(1:LENCCID) // char(0)
+
+         CALL SPECPAK_DATA(
+     &         CCID_forC
+     &       , ID_SPECTRUM(ispec)
+     &       , MJD_SPECTRUM(ispec)
+     &       , TOBS_SPECTRUM(ispec)    ! May 7 2019
+     &       , TEXPOSE_SPECTRUM(ispec)
+     &       , NLAMBIN_SPECTRUM(ispec)
+     &       , LAMMIN_SPECTRUM(1,ispec)
+     &       , LAMMAX_SPECTRUM(1,ispec)
+     &       , FLAM_SPECTRUM(1,ispec)
+     &       , FLAMERR_SPECTRUM(1,ispec)
+     &       , LENCCID )
+
+          CALL SPECPAK_FILL(CCID_forC, LENCCID)
+cc xxx mark delete   CALL SNTABLE_FILL(IDTABLE)  ! generic C function
+      ENDIF
+
+      RETURN
+      END    ! end of TABLE_MARZ
+
 
 C =============================================
 +DECK,CWNDUP.
@@ -29175,6 +29314,10 @@ c functions
 
 C ------------------ BEGIN --------------
 
+      IF ( NKCOR_STORE .EQ. 0 ) THEN
+        RETURN
+      ENDIF
+
       FNAM = 'SET_LAMREST_RANGE'
 
 c if rest-frame bands are Bessell UBVRI, use hard-wired boundaries
@@ -29192,7 +29335,8 @@ c and fill FILTREST_LAMBDA(NLAMBIN,ifiltdef) here so that
 c the algorithm below is skipped.
 
       IF ( IFILTDEF == 0 ) THEN  
-        if ( OVERRIDE_RESTLAM_BOUNDARY .EQ. '' ) return
+        LENWD = INDEX(OVERRIDE_RESTLAM_BOUNDARY,' ') - 1
+        if ( LENWD < 2 ) RETURN
         NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,
      &      OVERRIDE_RESTLAM_BOUNDARY//char(0), 100)
 
@@ -29200,19 +29344,6 @@ c the algorithm below is skipped.
           CALL get_PARSE_WORD_fortran(iwd, string, LENWD )
           CALL extractStringOpt(string,filters)
           READ(string,*) LAMTMP
-
-+SELF,IF=XYZREMOVE.
-	  NF = INDEX(filters,' ') - 1
-          if ( NF .ne. 2 ) then
-             CALL PRINT_PREABORT_BANNER(FNAM(1:18)//char(0),40)
-	     print*,'  &SNLCINP input OVERRIDE_RESTLAM_BOUNDARY = ',
-     &           OVERRIDE_RESTLAM_BOUNDARY(1:30)
-             print*,' Nfilters = ', NF
-             C1ERR = 'Invalid filter list = ' // filters(1:10)
-	     C2ERR = 'Two and only two rest-bands required'
-             CALL  MADABORT(FNAM, C1ERR, C2ERR)
-          endif
-+SELF.
 
           write(6,122) filters(1:2), LAMTMP
 122       format(t8,'Override rest-wave ',A, ' boundary -> ',F7.0,' A')
@@ -29224,8 +29355,12 @@ c the algorithm below is skipped.
           ENDDO
 22      CONTINUE
  
-c       print*,' xxx LAMAVG_TMP = ', LAMAVG_TMP
+c xxxxxxxxxxxxxx
+c        print*,' xxx OVERRIDE_RESTLAM_BOUNDARY = |', 
+c     &               OVERRIDE_RESTLAM_BOUNDARY,'|'
+c        print*,' xxx LAMAVG_TMP = ', LAMAVG_TMP
 c	print*,' xxx IFILTDEF_TMP = ', ifiltdef_tmp 
+c xxxxxxxxxxxxxx
 
 c set FILTREST_LAMRANGE edge based on which band is bluer/redder
 
@@ -29240,7 +29375,6 @@ c set FILTREST_LAMRANGE edge based on which band is bluer/redder
         RETURN
       ENDIF
 
-c .xyz
 c check of boundary is already set 
       LSET(1) = ( FILTREST_LAMRANGE(1,ifiltdef) > 0.1 )
       LSET(2) = ( FILTREST_LAMRANGE(2,ifiltdef) > 0.1 )

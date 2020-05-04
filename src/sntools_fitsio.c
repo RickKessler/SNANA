@@ -502,10 +502,8 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   // add table column with form *tform and *name.
 
   int NPAR;
-  char 
-    *ptrTmp 
-    ,fnam[] = "wr_snfitsio_addCol" 
-    ;
+  char  *ptrTmp ;
+  char fnam[] = "wr_snfitsio_addCol"     ;
 
   // ------------- BEGIN -------------------
 
@@ -526,7 +524,6 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   ptrTmp = SNFITSIO_TABLEDEF[itype].name[NPAR] ;
   SNFITSIO_TABLEDEF[itype].ptrName[NPAR] = ptrTmp ;
   sprintf(ptrTmp, "%s", name ) ;
-
 
   // param  type (int, float ...)
   ptrTmp = SNFITSIO_TABLEDEF[itype].form[NPAR];  
@@ -2401,15 +2398,6 @@ int RD_SNFITSIO_INIT(int MSKOPT, char *PATH, char *version) {
     rd_snfitsio_file(IFILE_SNFITSIO);
     rd_snfitsio_specFile(IFILE_SNFITSIO); // check for spectra (4.2019)
   }
-
-
-  /* xxx .xyz
-  if ( SNFITSIO_SIMFLAG_SPECTROGRAPH ) {
-    RDSPEC_SNFITSIO_HEADER.NROW = 0 ;
-    for (ifile = 1; ifile <= NFILE_SNFITSIO; ifile++ ) 
-      {  rd_snfitsio_initSpec(ifile,vbose); }
-  }
-  */
 
 
   return(NSNLC_SNFITSIO_TOT) ;

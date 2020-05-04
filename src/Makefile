@@ -410,7 +410,9 @@ SNTOOLS_OUTPUT = \
 	$(SRC)/sntools_output.c \
 	$(SRC)/sntools_output.h \
 	$(SRC)/sntools_output_hbook.c \
-	$(SRC)/sntools_output_text.c  $(SNTOOLS_ROOT)
+	$(SRC)/sntools_output_marz.c \
+	$(SRC)/sntools_output_text.c \
+	$(SNTOOLS_ROOT)
 
 # ------------------------------------------------------
 
@@ -500,7 +502,7 @@ $(BIN)/sncosmo_mcmc.exe : $(OBJ)/sncosmo_mcmc.o $(OBJ)/sntools.o
 
 
 $(OBJ)/SALT2mu.o : $(SRC)/SALT2mu.c $(SRC)/sntools.c $(SRC)/sntools_output.c
-	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(IGSL) $(SRC)/SALT2mu.c ) 
+	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/SALT2mu.c ) 
 
 $(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
@@ -508,7 +510,7 @@ $(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o
 	$(OBJ)/sntools.o \
 	$(OBJ)/sntools_output.o \
 	$(OBJ)/minuit.o 	\
-	$(LCERN) $(LROOT) -lm $(LGSL) $(CPPLIB)
+	$(LCERN) $(LROOT) -lm $(LGSL) $(LCFITSIO) $(CPPLIB)
 	(cd $(OBJ);  rm SALT2mu.o ) 
 
 # -----------------------------------------------------
@@ -675,7 +677,7 @@ $(BIN)/kcordump.exe : $(OBJ)/kcordump.o $(OBJ)/MWgaldust.o
 # combine_fitres (C-version with no array limits)
 
 $(OBJ)/combine_fitres.o :  $(SRC)/combine_fitres.c
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/combine_fitres.c )
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/combine_fitres.c )
 
 $(BIN)/combine_fitres.exe : \
 	$(OBJ)/combine_fitres.o $(OBJ)/sntools.o  $(OBJ)/sntools_output.o 
@@ -683,14 +685,14 @@ $(BIN)/combine_fitres.exe : \
 	$(OBJ)/combine_fitres.o \
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm combine_fitres.o )
 
 # --------------------
 # sntable_dump (Apr 2013)
 
 $(OBJ)/sntable_dump.o : $(SRC)/sntable_dump.c $(SNTOOLS_OUTPUT)
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) \
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) \
 	$(SRC)/sntable_dump.c )
 
 $(BIN)/sntable_dump.exe :  \
@@ -699,7 +701,7 @@ $(BIN)/sntable_dump.exe :  \
 	$(OBJ)/sntable_dump.o 	\
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm sntable_dump.o )
 
 
@@ -707,7 +709,7 @@ $(BIN)/sntable_dump.exe :  \
 # sntable_combine (Jan 2017)
 
 $(OBJ)/sntable_combine.o : $(SRC)/sntable_combine.c $(SNTOOLS_OUTPUT)
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) \
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) \
 	$(SRC)/sntable_combine.c )
 
 $(BIN)/sntable_combine.exe :  \
@@ -716,7 +718,7 @@ $(BIN)/sntable_combine.exe :  \
 	$(OBJ)/sntable_combine.o 	\
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm sntable_combine.o )
 
 # --------------------
@@ -724,7 +726,7 @@ $(BIN)/sntable_combine.exe :  \
 # Link to libsnana.a to get forclose(LUN) wrapper
 
 $(OBJ)/nearnbr_maxFoM.o : $(SRC)/nearnbr_maxFoM.c $(SNTOOLS_OUTPUT)
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) \
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) \
 	$(SRC)/nearnbr_maxFoM.c )
 
 $(BIN)/nearnbr_maxFoM.exe :  \
@@ -733,14 +735,14 @@ $(BIN)/nearnbr_maxFoM.exe :  \
 	$(OBJ)/nearnbr_maxFoM.o \
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO)  -lm $(CPPLIB)
 	(cd $(OBJ); rm nearnbr_maxFoM.o )
 
 # --------------------
 # nearnbr_apply (Jan 2017)
 
 $(OBJ)/nearnbr_apply.o : $(SRC)/nearnbr_apply.c $(SNTOOLS_OUTPUT)
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) \
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO)  \
 	$(SRC)/nearnbr_apply.c )
 
 $(BIN)/nearnbr_apply.exe :  \
@@ -750,7 +752,7 @@ $(BIN)/nearnbr_apply.exe :  \
 	$(OBJ)/sntools.o  	\
 	$(OBJ)/sntools_nearnbr.o \
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm nearnbr_apply.o )
 
 
@@ -890,7 +892,7 @@ $(OBJ)/kdtree.o : $(SRC)/kdtree.c $(SRC)/kdtree.h
 
 $(OBJ)/sntools_output.o : $(SNTOOLS_OUTPUT)
 	(cd $(OBJ); \
-	$(CCoutput) $(SNCFLAGS) $(IROOT) $(SRC)/sntools_output.c )
+	$(CCoutput) $(SNCFLAGS) $(IROOT) $(ICFITSIO) $(SRC)/sntools_output.c )
 
 # -------------------------------------------------
 #   MWgaldust from D.Cinabro (.o only)
@@ -1016,7 +1018,7 @@ $(BIN)/merge_hbook.exe : $(OBJ)/merge_hbook.o
 # merge_root.exe program (Apr 2013)
 
 $(OBJ)/merge_root.o : $(SRC)/merge_root.c $(SNTOOLS_OUTPUT) 
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) \
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) \
 	$(SRC)/merge_root.c )
 
 $(BIN)/merge_root.exe :  \
@@ -1025,7 +1027,7 @@ $(BIN)/merge_root.exe :  \
 	$(OBJ)/merge_root.o 	\
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm merge_root.o )
 
 # -------------
@@ -1137,14 +1139,14 @@ $(BIN)/atmosphere_sim.exe : \
 # unfold_snpar
 
 $(OBJ)/unfold_snpar.o : $(SRC)/unfold_snpar.c
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/unfold_snpar.c )
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/unfold_snpar.c )
 
 $(BIN)/unfold_snpar.exe : $(OBJ)/unfold_snpar.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/unfold_snpar.o	\
 	$(OBJ)/sntools.o 	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB) 
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB) 
 	(cd $(OBJ); rm unfold_snpar.o )
 
 ####################  END ##########################################

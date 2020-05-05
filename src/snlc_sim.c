@@ -12508,8 +12508,8 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
     NVAR_SIMGEN_DUMP++ ;
   }
 
-  char strList_mb[3][20] = { "S2mb", "SALT2mb", "SIM_mb" };
-  for(i=0; i < 3; i++ ) {
+  char strList_mb[5][20] = { "S2mb", "SALT2mb", "SALT2mB", "SIM_mb", "SIM_mB" };
+  for(i=0; i < 5; i++ ) {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
     sprintf(cptr,"%s", strList_mb[i] ) ;
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2mB ;

@@ -2776,6 +2776,7 @@ c define bits for user option-mask OPT_SETPKMJD  (lsb = 0 )
      &  ,OPTBIT_SETPKMJD_FLUXMAX2
      &  ,OPTBIT_SETPKMJD_TRIGGER
      &  ,OPTBIT_SETPKMJD_DUMP
+     &  ,OPTBIT_SETPKMJD_SIM
 
       PARAMETER ( 
      &  OPTBIT_SETPKMJD_ANYFUN  = 0  ! (=1) use exact function from Bazin 09
@@ -2786,6 +2787,7 @@ c define bits for user option-mask OPT_SETPKMJD  (lsb = 0 )
      & ,OPTBIT_SETPKMJD_TRIGGER = 5  ! (=32) PKMJD = MJD_TRIGGER 
      & ,OPTBIT_SETPKMJD_SAVEPAR = 9  ! (=512) save fit params to SNANA table
      & ,OPTBIT_SETPKMJD_DUMP    =10  !(=1024) extra screen dump per SN/filter
+     & ,OPTBIT_SETPKMJD_SIM     =11  !(=2048) PKMJDINI = SIM_PEAKMJD
      &   )
 
 c Define fit params
@@ -3508,9 +3510,9 @@ c default is to reject nothing (accept everything)
       DTOBS_MODEL_PLOT = 2.0  ! 2 day binning
  
       OPT_SETPKMJD      = 0
-      SNRCUT_SETPKMJD   =  5.0 ! only for FLUXMAX2 option (Fmax-clump)
-      MJDWIN_SETPKMJD   = 60.0 ! only for FLUXMAX2 option (Fmax-clump)
-      SHIFT_SETPKMJD    =  0.0 ! for systematic test only
+      SNRCUT_SETPKMJD   =  5.0  ! only for FLUXMAX2 option (Fmax-clump)
+      MJDWIN_SETPKMJD   = 60.0  ! only for FLUXMAX2 option (Fmax-clump)
+      SHIFT_SETPKMJD    =  0.0  ! for systematic test only
 
       OPT_DEBUG           = 0
       LDMP_SNFAIL         = .FALSE.
@@ -12542,7 +12544,7 @@ c        HOSTGAL_SPECZ[_ERR]
 c
 c Feb 8 2019: call PARSE_HOSTGAL(igal) to parse multiple host-matches.
 c
-c May 01 2020: add SHIFT_SETPKMJD to  PEAKMJD read from header.
+c May 01 2020: add SHIFT_SETPKMJD to PEAKMJD value read from header.
 c
 c --------------------------------------------------
 
@@ -36043,7 +36045,7 @@ c May 17, 2019: implement new options OPTBIT_SETPKMJD_[TRIGGER,MAXFLUX2]
 c May 20, 2019: return if less then 2 epochs.
 c Jan 27, 2020: use STDOUT_UPDATE flag to print screen update.
 c May 01, 2020: implement SHIFT_SETPKMJD
-c
+c May 05, 2020: implement OPT_SETPKMJD_SIM option
 c -------------------------------------------------------------
 
       IMPLICIT NONE
@@ -36077,6 +36079,7 @@ c -------------------------------------------------------------
      &    LSET, LDMP, LDMP_USER, NOABORT, LABORT
      &   ,USEFILT(MXFILT_ALL)
      &   ,USE_MJDatFLUXMAX, USE_MJDatFLUXMAX2, USE_MJDatTRIGGER
+     &   ,USE_SIMPKMJD
      &   ,FIRST_INIT, DOFIT, NOFIT
 
       CHARACTER cfilt*8, FNAM*12, METHOD*24, CCID*(MXCHAR_CCID)
@@ -36108,6 +36111,7 @@ c July 12 2013: check option to use MJD at max flux (no fitting)
       USE_MJDatFLUXMAX  = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_FLUXMAX)
       USE_MJDatFLUXMAX2 = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_FLUXMAX2)
       USE_MJDatTRIGGER  = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_TRIGGER)
+      USE_SIMPKMJD      = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_SIM)
       DOFIT = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_ANYFUN) .or. ! Bazin09
      &        BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_POLYCOR)
       NOFIT = (.NOT. DOFIT)
@@ -36117,6 +36121,18 @@ c July 12 2013: check option to use MJD at max flux (no fitting)
         c2err = 'to set PEAKMJD = MJD_TRIGGER'
         CALL MADABORT(FNAM, c1err, c2err)
       endif
+
+c May 5 2020: check option to use true SIM_PEAKMJD 
+      IF ( USE_SIMPKMJD ) THEN
+        if ( LSIM_SNANA ) then
+            PKMJD = SIM_PEAKMJD
+            GOTO 800
+        else
+           c1err = 'Cannot use OPT_SETPKMJD += 2048 for real data'
+           c2err = 'This option (use SIM_PEAKMJD) is for sim only'
+           CALL MADABORT(FNAM, c1err, c2err)
+        endif
+      ENDIF
 
 c bail if the user CUTWIN_PEAKMJD does not contain  any observations:
       IF ( SNLC8_MJDMIN .GT. CUTWIN_PEAKMJD(2) ) RETURN

@@ -18310,9 +18310,16 @@
          ***** IMPORTANT(v10_76e) ***** 
 
          ***** USEFUL(v10_76e) ***** 
+   
+   New snana.exe option to translate sim spectra to MARZ format.
+   See top of sntools_output_marz.c for details.
 
          ***** MISCELLANEOUS(v10_76e) ***** 
 
+   NEW source code sntools_output_marz.c, using FITS format.
+   Output file can be read by MARZ code to determine reshift
+   from host spectrum.
+   
    snlc_fit.car:
      + fix evil array bound bug for FITMODEL_NAME that
        includes full path. 
@@ -18323,6 +18330,8 @@
       + allow NOBS=0 if &SNLCINP ABORT_ON_NOEPOCHS=F
       + new &SNLCINP input SIMLIB_OUT_TMINFIX
       + new &SNLCINP input SHIFT_SETPKMJD
+      + new $SNLCINP MARZFILE_OUT
+      + new option OPT_SETPKMJD=2048 -> PKMJDINI = SIM_PKMJDINI
 
    sim_SNmix:
       + abort if PATH_SNDATA_SIM does not exist. 

@@ -12267,7 +12267,7 @@ c - - - - - - - - -
         IF ( ISKEY_VARLIST  ) NWD_LOAD = NVAR_TERSE+1
         IF ( ISKEY_OBS      ) NWD_LOAD = NVAR_TERSE+1
         IF ( ISKEY_SPECTRUM ) NWD_LOAD = 2
-        IF ( ISKEY_SPECBIN  ) THEN ; 
+        IF ( ISKEY_SPECBIN  ) THEN
            NVAR_SPECTRUM  = 5                  ! for data
            if ( LSIM_SNANA ) NVAR_SPECTRUM = 7 ! for sim
            NWD_LOAD = NVAR_SPECTRUM

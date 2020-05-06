@@ -5279,15 +5279,8 @@ void sim_input_override(void) {
       
 
     if ( strcmp ( ARGV_LIST[i], "SALT2BETA_cPOLY" ) == 0 ) {
-      //.xyz
       i++ ; sscanf(ARGV_LIST[i] , "%s", cpoly);
       parse_GENPOLY(cpoly, "SALT2BETA_cPOLY",  &INPUTS.SALT2BETA_cPOLY, fnam);
-
-       /* xxx mark del Mar 23 2020 xxxxxxxx
-       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.SALT2BETA_cPOLY[0] );  
-       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.SALT2BETA_cPOLY[1] );  
-       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.SALT2BETA_cPOLY[2] );  
-       xxxxxxxxx */
     }
 
     // May 2013: check option to read alpha,beta from SALT2mu-fitres file
@@ -9235,7 +9228,7 @@ void GENSPEC_TRUE(int imjd) {
     genSpec_HOSTLIB(GENLC.REDSHIFT_HELIO,         // (I) helio redshift
 		    GENLC.MWEBV,                  // (I) Galactic extinction
 		    DUMPFLAG,                     // (I)
-		    GENSPEC.GENFLUX_LIST[imjd],   // (O) fluxGen per bin 
+		    GENSPEC.GENFLUX_LIST[imjd],   // (O) true fluxGen per bin 
 		    GENSPEC.GENMAG_LIST[imjd] );  // (O) magGen per bin
     return;
   }
@@ -9641,6 +9634,8 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
   
   // apply noise to flux and smear over wavelength bins.
   // Return SNR over input wavelength range.
+  //
+  // Mat 6 2020: skip bin if SNR_true = 0
 
   int    NBLAM = INPUTS_SPECTRO.NBIN_LAM ;
   int    ilam, ILAM_MIN=99999, ILAM_MAX=-9, NBLAM_USE=0 ;
@@ -9652,7 +9647,7 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
   double  SCALE_SNR  = INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR ;
   double  SNR_SPEC ;
 
-  //  char   fnam[] = "GENSPEC_SMEAR" ;
+  char   fnam[] = "GENSPEC_SMEAR" ;
 
   // ------------- BEGIN -------------
 
@@ -9676,6 +9671,8 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     // get true SNR in this lambda bin
     SNR_true = getSNR_spectrograph(ilam, TEXPOSE_S, TEXPOSE_T, GENMAG, 
 				   &ERRFRAC_T);  // template frac of error
+
+    if ( SNR_true < 1.0E-18 ) { continue; } // May 2020
 
     if ( SCALE_SNR != 1.00 ) { SNR_true *= SCALE_SNR ;  }
     
@@ -9754,7 +9751,7 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
   double tmp_GenFlux, tmp_GenFluxErr, tmp_GenFluxErr_S, tmp_GenFluxErr_T ;
   double tmp_RanFlux_S, tmp_RanFlux_T;
   double GenFluxErr_S, OBSFLUX, OBSFLUXERR ;
-  int    NBIN2, ilam2, ilam_tmp, NBLAM, NRAN;
+  int    NBIN2, ilam2, ilam_tmp, NBLAM, NRAN, LDMP=0 ;
   char fnam[] = "GENSPEC_LAMSMEAR" ;
 
   // ----------- BEGIN ---------------
@@ -9823,19 +9820,21 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
       if ( noTNOISE ) { tmp_RanFlux_T = 0.0 ; }
     }
 
-    /* xxxxxxxx
-    if ( (ilam > 98 && ilam < 103) && ilam2==ilam ) {
-      printf(" xxx ilam=%3d imjd=%d  noise(S,T) = %10.3le , %10.3le \n",
-	     ilam, imjd, tmp_RanFlux_S, tmp_RanFlux_T );
+    
+    LDMP = (ilam < -5);
+    if ( LDMP ) {
+      printf(" xxx ilam=%3d(%d)  imjd=%d  noise(S,T) = %10.3le , %10.3le\n",
+	     ilam, ilam2, imjd, tmp_RanFlux_S, tmp_RanFlux_T );
+      printf(" xxx \t (%f, %f) \n", GenFluxErr, GenFluxErr_T  );
     }
-    xxxxxxxxxxx */
+    
 
     // add noise to true flux
     OBSFLUX    = tmp_GenFlux + tmp_RanFlux_S + tmp_RanFlux_T ;
     OBSFLUXERR = tmp_GenFluxErr ; // naive obs-error is true error
 
     // increment sum of obsFlux and sum of error-squared.
-    GENSPEC.OBSFLUX_LIST[imjd][ilam2]      += OBSFLUX ;
+    GENSPEC.OBSFLUX_LIST[imjd][ilam2]      += OBSFLUX ;  
     GENSPEC.OBSFLUXERRSQ_LIST[imjd][ilam2] += (OBSFLUXERR*OBSFLUXERR) ;
     GENSPEC.GENFLUX_LAMSMEAR_LIST[imjd][ilam2] += tmp_GenFlux ;
 
@@ -9899,7 +9898,7 @@ void  GENSPEC_FLAM(int imjd) {
   int  ORDER  = GENLAMPOLY_WARP->ORDER; 
   int  NBLAM  = INPUTS_SPECTRO.NBIN_LAM ;
   char fnam[] = "GENSPEC_FLAM" ;
-  int  LDMP   = 0 ;
+  int  LDMP   = 0 ; 
 
   // ------------ BEGIN ------------
 
@@ -9928,8 +9927,9 @@ void  GENSPEC_FLAM(int imjd) {
     WARP = 1.0;
     if ( DO_WARP ) { WARP = eval_GENPOLY(LAMAVG, GENLAMPOLY_WARP, fnam); }
 
-    if ( LDMP && fabs(LAMAVG-7000.0) < 20.0 ) {
-      printf(" xxx \t LAM=%.1f  --> WARP = %8.5f \n", LAMAVG, WARP);
+    if ( LDMP && ilam < -5 ) {
+      printf(" xxx \t LAM=%.1f (BIN=%.1f)  --> WARP = %8.5f  F=%le\n", 
+	     LAMAVG, LAMBIN, WARP, FLUX );
       fflush(stdout);
     }
 
@@ -13916,8 +13916,6 @@ double gen_AV(void) {
   // preserve old option to generate WV07 extinction model (RK)
   if ( INPUTS.WV07_GENAV_FLAG )  { AV = GENAV_WV07(); goto DONE ; }
 
-
-  //.xyz
   if ( INPUTS.GENPROFILE_AV.USE ) {
     copy_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_AV,&GENLC.GENPROFILE_AV);
 

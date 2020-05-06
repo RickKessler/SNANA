@@ -296,11 +296,6 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
     else if ( strcmp_ignoreCase(ctmp,key_text) == 0 ) 
       { TYPE_FLAG = IFILETYPE_TEXT ; }
 
-    /* xxx mark delete xxxx
-    else if ( strcmp_ignoreCase(ctmp,key_marz) == 0 )   // May 2020
-      { TYPE_FLAG = IFILETYPE_MARZ ; }
-    xxxxxxx */
-
     else {
       sprintf(MSGERR1,"Invalid option '%s'", ctmp);
       sprintf(MSGERR2,"in STRINGOPT = '%s' ", STRINGOPT);
@@ -361,9 +356,11 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   else
     { USE_CURRENT = 0 ; }
 
-
+  /*
   printf(" xxx %s: OPEN_FLAG=%d  TYPE_FLAG=%d  (%s) \n",
 	 fnam, OPEN_FLAG, TYPE_FLAG, FILENAME);
+  */
+
   // ---------------------------------------
   // check for fatal errors -> abort
 

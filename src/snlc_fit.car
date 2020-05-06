@@ -8122,14 +8122,6 @@ c now check if want to fix a parameter with the simulated value.
          enddo
       ENDIF  ! end LSIM_SNANA
 
-c xxxxxxx mark delete May 1 2020 xxxxxxxxxxxxxxxx
-c May 2020: check for shifting initial PEAKMJD
-c      IF ( INIVAL_PEAKMJD_SHIFT < 999.0 ) THEN
-c          INIVAL(IPAR_PEAKMJD) = 
-c     &    INIVAL(IPAR_PEAKMJD) + INIVAL_PEAKMJD_SHIFT	  
-c      ENDIF
-c xxxxxxxxxxxxxxx
-
 c set FITVAL on 1st interation since this array
 c are used in the ADJUST & FITINI_XXXX routines.
 c (exception for option that fixes parameters)
@@ -9010,12 +9002,6 @@ ccc xxx mark delete     DO i = -2, 2
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 5")
 
 c load inital PEAK MJD and re-run FCNSNLC to update EP_FLUX_MODEL
-
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-ccc xxx mark delete Mar 4 2020
-ccc xxx     CHI8TEST = DBLE ( 5 * NEPOCH_ALL(0) )
-ccc xxx     IF(CHI8MIN<CHI8INI .and. CHI8MIN<CHI8TEST) THEN
-c xxxxxxxxxxxxxx
 
       IF ( CHI8MIN < CHI8INI ) THEN
         INIVAL(IPAR_PEAKMJD) = PEAKMJD_SAVE  ! save new PEAKMJD

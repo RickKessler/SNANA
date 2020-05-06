@@ -70,7 +70,6 @@ void marzfitsio_errorCheck(char *comment, int status) {
   /*****************************************************/
   /* Print out cfitsio error messages and exit program */
   /*****************************************************/
-
   if (status) {
     fits_report_error(stderr, status); /* print error report */
     errmsg(SEV_FATAL, 0, fnam, comment, comment2);
@@ -145,7 +144,8 @@ void WRITE_TABLES_MARZ(char *FILENAME) {
   // ------------ BEGIN ------------
 
   printf("   Write marz file %s \n", FILENAME);
-  printf("      (NSPEC=%d, NBIN_WAVE=%d) \n", NSPEC, NBIN_WAVE );
+  printf("      (NSPEC=%d, %d WAVE bins from %.1f to %.1f A) \n", 
+	 NSPEC, NBIN_WAVE, MARZ_SPECDATA.WAVE[0], MARZ_SPECDATA.WAVE[NBIN_WAVE-1] ) ;
 
   varNames = (char**) malloc(MEMC1);
   formats  = (char**) malloc(MEMC1);
@@ -247,69 +247,6 @@ void WRITE_TABLES_MARZ(char *FILENAME) {
   marzfitsio_errorCheck(msg, istat);
 
 
-  /* xxxxxxxxxxxx mark delete xxxxxxxxxxxxxx
-  // - - - - - - - 
-  // prepare arrays for tables vs. wavelength
-  ncol = NBIN_WAVE;  
-  for(iwave=0; iwave < NBIN_WAVE; iwave++ ) { 
-    sprintf(varNames[iwave],"%d", iwave+1); 
-    sprintf(formats[iwave], "1E");
-  }
-  float *VALTMP_COLUMN; 
-  VALTMP_COLUMN = (float*)malloc(NSPEC*sizeof(float));
-
-  // write WAVELENGTH table
-  sprintf(tblName,"%s", MARZTABLE_WAVE );
-  int ONE = 1;  // just one row
-  fits_create_tbl(FP_MARZ, BINARY_TBL, ONE, ncol,
-		  varNames, formats, units, tblName,  &istat );
-  sprintf(msg, "Create %s table", tblName );
-  marzfitsio_errorCheck(msg, istat);
-
-  firstrow = firstelem = 1; 
-  for(iwave=0; iwave < NBIN_WAVE; iwave++ ) { 
-    colnum = iwave + 1 ;
-    fits_write_col(FP_MARZ, TFLOAT, colnum, firstrow, firstelem, ONE,
-		   &MARZ_SPECDATA.WAVE[iwave], &istat);
-    sprintf(msg, "Write %s table, colnum=%d", tblName, colnum );
-    marzfitsio_errorCheck(msg, istat);
-  }
-
-
-  // write FLAM and VARFLAM tables. 
-  // Beware that VALTMP array is vs. ispec in each wave bin, not vs. iwave.
-  int jTABLE;
-
-  for(jTABLE = 0; jTABLE < 2; jTABLE++ ) {
-
-    if ( jTABLE == 0 ) 
-      { sprintf(tblName,"%s", MARZTABLE_FLAM ); }
-    else
-      { sprintf(tblName,"%s", MARZTABLE_VARIANCE ); }
-
-    fits_create_tbl(FP_MARZ, BINARY_TBL, NROW, ncol,
-		    varNames, formats, units, tblName,  &istat );
-    sprintf(msg, "Create %s table", tblName );
-    marzfitsio_errorCheck(msg, istat);
-    
-    firstrow = firstelem = 1; 
-    for(iwave=0; iwave < NBIN_WAVE; iwave++ ) { 
-      colnum = iwave + 1 ;
-      for(ispec=0; ispec < NSPEC; ispec++ ) {
-	if ( jTABLE == 0 ) 
-	  { VALTMP_COLUMN[ispec] = MARZ_SPECDATA.FLAM[ispec][iwave]; }
-	else
-	  { VALTMP_COLUMN[ispec] = MARZ_SPECDATA.VARFLAM[ispec][iwave]; }
-      }
-      fits_write_col(FP_MARZ, TFLOAT, colnum, firstrow, firstelem, NSPEC,
-		     VALTMP_COLUMN, &istat);
-      sprintf(msg, "Write %s table, colnum=%d", tblName, colnum );
-      marzfitsio_errorCheck(msg, istat);
-    }
-  }
-
-  xxxxxxxxxx end delete xxxxxxxxxxxx */
-
 
   return ;
 
@@ -398,6 +335,15 @@ void SPECPAK_FILL_MARZ(void) {
       LAMAVG = 0.5*(LAMMIN + LAMMAX);
       MARZ_SPECDATA.WAVE[iwave] = LAMAVG ;
     }
+  }
+
+  // abort if wavelength binning changes
+  if ( MARZ_SPECDATA.NBIN_WAVE != SPECPAK_OUTPUT.NLAMBIN_LIST[0] ) {
+    sprintf(MSGERR1,"Stored NBIN_WAVE=%d for first event ...", 
+	    MARZ_SPECDATA.NBIN_WAVE);
+    sprintf(MSGERR2,"but NBIN(CID=%s) = %d. Cannot change binning.",
+	    CCID, SPECPAK_OUTPUT.NLAMBIN_LIST[0] );      
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
   MARZ_SPECDATA.NSPEC++ ;

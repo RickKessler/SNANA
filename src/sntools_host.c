@@ -1370,7 +1370,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 		     double *GENFLUX_LIST, double *GENMAG_LIST) {
 
   // Created Jun 28 2019 by R.Kessler
-  // Return host spectrum, including Galactic extinction.
+  // Return true host spectrum (no noise), including Galactic extinction.
   // If option is set to compute broadband mags, load them
   // into SNHOSTGAL.GALMAG[ifilt_obs][0] 
   //
@@ -1541,7 +1541,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 
     // store flux (not FLAM) in SPECTROGRAPH bin
     GENFLUX_LIST[ilam] = FLUX_TMP * MWXT_FRAC ;  
-
+    
     // convert to mag
     ZP    = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
     FTMP  = (LAMOBS/(hc8*z1)) * FLUX_TMP;

@@ -18332,6 +18332,7 @@
       + new &SNLCINP input SHIFT_SETPKMJD
       + new $SNLCINP MARZFILE_OUT
       + new option OPT_SETPKMJD=2048 -> PKMJDINI = SIM_PKMJDINI
+      + compute new variable AREAFRAC_AVG and output to SNANA table.
 
    sim_SNmix:
       + abort if PATH_SNDATA_SIM does not exist. 
@@ -18344,5 +18345,7 @@
 
    sntools_spectrograph.c:
      + fix getSNR_spectrograph to return SNR=0 if ZP is undefined.
+     + fix format to write LAMMIN & LAMMAX; remove LAMCEN option because
+       snana.exe read-back assumes LAMMIN & LAMMAX.
 
 END: 

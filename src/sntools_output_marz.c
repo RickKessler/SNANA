@@ -8,8 +8,12 @@
   This utility is invoked with interactive snana.exe program and
     &SNLCINP
       MARZFILE_OUT = '***marz***.fits'
+      VERSION_PHOTOMETRY = 'XYZ'
+      SNTABLE_LIST       = ''
+    &END
 
-  The output file name must have a .fits extension, and 
+
+  The output marz-file name must have a .fits extension, and 
   either 'marz' or 'MARZ' must be part of the fileName.
   MARZFILE_OUT will not work with fitting codes (snlc_fit, psnid),
   and will not work in batch mode.

@@ -811,6 +811,7 @@ c
      &  ,SNLC_XPIX(MXEPOCH)      ! pixel location
      &  ,SNLC_YPIX(MXEPOCH)      ! pixel location
      &  ,SNLC_AREAFRAC(MXEPOCH)  ! area-frac contained by XPIX,YPIX
+     &  ,SNLC_AREAFRAC_AVG       ! average over epochs (May 2020)
      &  ,SNLC_MWEBV              ! Milky Way Galactic E(B-V)
      &  ,SNLC_MWEBV_ERR          ! error on above
      &  ,SNLC_SKYSIG(MXEPOCH)    ! sigma on above
@@ -885,8 +886,8 @@ c
      &    ,SNLC_GAIN, SNLC_RDNOISE
      &    ,SNLC_MWXT_MAG, SNLC_MWXT_FLUXFRAC, SNLC_MWXT_MAGERR
      &    ,SNLC_MWEBV, SNLC_MWEBV_ERR
-     &    ,SNLC_XPIX, SNLC_YPIX, SNLC_AREAFRAC, SNLC_PIXSIZE
-     &    ,SNLC_NXPIX, SNLC_NYPIX
+     &    ,SNLC_XPIX, SNLC_YPIX, SNLC_PIXSIZE, SNLC_NXPIX, SNLC_NYPIX
+     &    ,SNLC_AREAFRAC_AVG, SNLC_AREAFRAC
      &    ,SNLC_SKYSIG,  SNLC_SKYSIG_T
      &    ,SNLC_PSF_SIG1, SNLC_PSF_SIG2, SNLC_PSF_RATIO
      &    ,SNLC_AREA_NOISE
@@ -11393,14 +11394,7 @@ c Mar 2015 - parse more epoch variables for CHECK_EPOCH_IGNORE
       JPAR = JPAR + 1
       NRD = RD_SNFITSIO_STR(IROW, KEYNAME, STRFITS, 
      &     INDXFITS_PHOT(JPAR), 3, LRET )
-+SELF,IF=XXXBAND.
-      IF ( NRD <= 0) THEN   
-c         Mar 29 2017: try alternate BAND key
-         KEYNAME  = "BAND" // char(0)
-         NRD = RD_SNFITSIO_STR(IROW, KEYNAME, STRFITS, 
-     &          INDXFITS_PHOT(JPAR), 3, LRET )
-      ENDIF
-+SELF.
+
       CALL CHECK_FITSABORT(IVERS,NRD,KEYNAME)
       LRET = INDEX( STRFITS, char(0) ) -1
       CALL UNPACK_SNFITSIO_STR(NRD, KEYNAME, STRFITS(1:LRET) )
@@ -16850,6 +16844,8 @@ c ------------- BEGIN -------------
 
       SNLC_PHOTPROB_MIN = 1.0
 
+      SNLC_AREAFRAC_AVG = -9.0
+
 c init a few SNHOST arrays
 
       SNHOST_NMATCH            =  0
@@ -16978,6 +16974,8 @@ c      print*,' xxx NCALL,NEP_RESET=', NCALL_SNANA_DRIVER, NEP_RESET
 
         SNLC_DTOBS(iep)          = -9.0 
         SNLC_DTOBS_SAMEFILT(iep) = -9.0 
+
+        SNLC_AREAFRAC(iep)  = -9.0
 
       END DO  ! end of epoch loop
 
@@ -19010,7 +19008,7 @@ c local var
      &   Fluxcal, Fluxcal_err, TRUEFLUX
      &  ,Xnsig, MAG, SIM_MAG, magoff, ZP, PHOTPROB
      &  ,Tobs, z1, z, Trest, scale, arg, PSF, ZPERR
-     &  ,Zhost, Zhosterr, LAMOBS, LAMZ1,  SNRMAX
+     &  ,Zhost, Zhosterr, LAMOBS, LAMZ1,  SNRMAX, SUM_AREAFRAC
 
       REAL*8  MJD8, EBV8, EBVERR8
       REAL*8  MJD8_FIRSTDETECT, MJD8_LASTALL, MJD8_LASTFILT(MXFILT_ALL)
@@ -19142,6 +19140,7 @@ c Useful as initial value for fits.
       NBAND_SNRMAX2 = 0
       MJD8_LASTALL  = -9.0
       NEP_SIM_MAGOBS =  0
+      SUM_AREAFRAC   = 0.0
 
 c fill ISNLC_NFIELD with number of fields; 
       CALL COUNTFIELDS()
@@ -19229,13 +19228,10 @@ c convert sim-mag to SIM_FLUXCA
 +SELF,IF=SNANA,SNFIT.
           CALL FLUXERRCALC( ep, Fluxcal, Fluxcal_err )
 c compute relative area of rectangle containing pixel location
-          CALL CCD_AREAFRAC(ep)   ! 8.07.2014
+ccc xxx mark delete; see below   CALL CCD_AREAFRAC(ep)   ! 8.07.2014
 +SELF.
 
 c compute significance.
-c Feb 2, 2007: 
-c   use FLUXCAL instead of FLUX to determine signal/noise.
-c
           Xnsig  = -999.0
           LERR   = (Fluxcal_err > 0.0 )
           LFLUX  = (abs(Fluxcal+9.0) > 1.0E-5 )  !  FLUXCAL != -9
@@ -19371,6 +19367,13 @@ c check for trigger bit set by survey (5.2019)
              SNLC8_MJD_TRIGGER = MJD8
           endif
 
++SELF,IF=SNANA,SNFIT.
+          CALL CCD_AREAFRAC(ep)
+          IF ( SNLC_AREAFRAC(ep) > -0.001 ) then
+             SUM_AREAFRAC = SUM_AREAFRAC + SNLC_AREAFRAC(ep)
+          ENDIF
++SELF.
+
 201     CONTINUE     ! come here of LSIG fails
 
           
@@ -19409,6 +19412,12 @@ c check option to estimate LC width
 
 c May 2017: load ADDCOL arrays
       CALL TABLE_ADDCOL_LOAD()
+
+      print*,' xxx NEP_USE, AREAFRAC_AVG = ', 
+     &        ISNLC_NEPOCH_USE, SUM_AREAFRAC
+      IF ( ISNLC_NEPOCH_USE > 0 ) then
+        SNLC_AREAFRAC_AVG = SUM_AREAFRAC/float(ISNLC_NEPOCH_USE)
+      ENDIF
 
       RETURN
       END   ! end of SNRECON
@@ -22087,10 +22096,18 @@ C ==========================================
 
 c Created aug 2014 by R.Kessler
 c Use input globals NXPIX,NYPIX, XPIX(ep), YPIX(ep)
-c to compute SNLC_AREAFRAC(ep) = A/ AMAX where
+c to compute SNLC_AREAFRAC(ep) = A/AMAX where
 c
 c A    = area of largest rectangle containing XPIX, YPIX
 c AMAX = area of CCD.
+c
+c For uniform CCD illumination, the distribution of AREAFRAC
+c is uniform; AREAFRAC=0 at center of CCD, and AREAFRAC=1.00 
+c at edge.
+c
+c Also note that this works only for data because there is
+c no pixel-coord input to the simulation ... but maybe 
+c someday XPIX and YPIX keys will be added to SIMLIB header.
 c
 c --------------
       IMPLICIT NONE
@@ -24596,7 +24613,6 @@ c check filter list for filter-dependent columns (Feb 2017)
 
 c - - - - - - ID variables - - - - - - 
 
-
       VARLIST = 'CID:I' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_CID, VARLIST,0, 
      &                   LENBLOCK, 20 )
@@ -24660,6 +24676,10 @@ c --------------------------------------------
 
       VARLIST = 'RA:D,DEC:D' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC8_RA, VARLIST,0,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'AREAFRAC_AVG:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_AREAFRAC_AVG, VARLIST,0,
      &                   LENBLOCK, 20 )
 
 c -- NEPOCH ( Aug 2013)

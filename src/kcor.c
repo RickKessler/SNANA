@@ -1676,9 +1676,7 @@ void  ADDFILTERS_LAMSHIFT_GLOBAL(void) {
 
     sprintf ( FILTER[ifilt2].band, "%s" ,  FILTER[ifilt].band );
     sprintf ( FILTER[ifilt2].name, "*%s" , FILTER[ifilt].name );
-    sprintf ( FILTER[ifilt2].file, "%s" ,  FILTER[ifilt].file );
-    
-    printf(" ifilt2 = %d  for ifilt=%d \n", ifilt2, ifilt);
+    sprintf ( FILTER[ifilt2].file, "%s" ,  FILTER[ifilt].file );    
 
     FILTER[ifilt2].MAGSYSTEM_OFFSET = FILTER[ifilt].MAGSYSTEM_OFFSET ;
     FILTER[ifilt2].MAGSYSTEM_INDX   = FILTER[ifilt].MAGSYSTEM_INDX ;
@@ -2102,15 +2100,18 @@ int rd_filter ( int ifilt ) {
   Apr 14 2020
     Fix calc of fitler-averages to account for non-uniform binning.
     In particular, compute dlam for each wavelength bin.
+ 
+  May 7 2020: 
+    fix refactor bug from Apr 14 2020; LAMSHIFT now applied in 
+    separate ilam loop.
 
  ****/
 
+   double LAMSHIFT =  INPUTS.FILTER_LAMSHIFT[ifilt] ; 
    FILE *fp;
 
-   double
-     lambda, trans, tsum, wtsum
-     ,lammin, lammax, lamavg, dlam, dlam_last
-     ;
+   double lambda, trans, tsum, wtsum ;
+   double lammin, lammax, lamavg, dlam, dlam_last     ;
 
    int NBIN, IFLAG_SYN, ilam, gzipFlag ;
      
@@ -2176,10 +2177,17 @@ int rd_filter ( int ifilt ) {
    dlam_last = 0.0 ;
    dlam      = 0.0 ;
 
+   if ( LAMSHIFT != 0.0 ) {
+     for ( ilam = 1; ilam <= NBIN; ilam++ ) 
+       { FILTER[ifilt].LAMBDA[ilam] += LAMSHIFT ; }
+   }
+
+   // - - - -
    for ( ilam = 1; ilam <= NBIN; ilam++ ) {
 
-     // Nov 2014: apply optional lambda shift (default shift is zero)
-     FILTER[ifilt].LAMBDA[ilam] += INPUTS.FILTER_LAMSHIFT[ifilt] ; 
+     /* xxx mark delete May 7 2020 xxxxxxx
+       FILTER[ifilt].LAMBDA[ilam] += INPUTS.FILTER_LAMSHIFT[ifilt] ; 
+     xxxxxxxxxxx */
 
      lambda = FILTER[ifilt].LAMBDA[ilam];
      trans  = FILTER[ifilt].TRANS[ilam] ;
@@ -2213,15 +2221,8 @@ int rd_filter ( int ifilt ) {
    }  // end of fscanf loop   
 
 
-   /* xxx mark delete Apr 14 2020 xxxxxxxxx
-   // May 2014: get average lambda bin for SUMTOT (for internal check only)
-   dlam = FILTER[ifilt].LAMBDA[NBIN] - FILTER[ifilt].LAMBDA[1];
-   dlam /= (double)NBIN ;
-   xxxxxxxxxx */
-
    FILTER[ifilt].LAMAVG = wtsum / tsum ;
    FILTER[ifilt].SUMTOT = tsum ; // check later that filter covers SED
-   // xxx mark delete   FILTER[ifilt].SUMTOT = dlam * tsum ; 
 
    lammin  = FILTER[ifilt].LAMBDA[1] ;
    lammax  = FILTER[ifilt].LAMBDA[NBIN] ;
@@ -2238,7 +2239,6 @@ int rd_filter ( int ifilt ) {
 	  "%3d values from %5.0f to %5.0f A, <lam>=%5.0f \n", 
 	  ifilt, ptr_name, NBIN, lammin, lammax, lamavg );
 
-   double LAMSHIFT = INPUTS.FILTER_LAMSHIFT[ifilt];
    if ( LAMSHIFT  != 0.0 ) {
      printf("\t\t\t LAMSHIFT = %.1f \n", LAMSHIFT );
    }
@@ -3990,8 +3990,8 @@ int snmag(void) {
        // set MAG_UNDEFINED to flag problem
        // xxx mark delete if(fabs(filter_check)>0.2) {mag=MAG_UNDEFINED;}
        if ( fabs(filter_check) > 0.05  ) { 
-	 printf(" WARNING(%s): filter_check(%s) = %.3f \n",
-		fnam, FILTER[ifilt].name, filter_check);
+	 printf(" WARNING(%s): filter_check(%s) = %.3f  ep=%d\n",
+		fnam, FILTER[ifilt].name, filter_check, iepoch );
 	 mag = MAG_UNDEFINED ; 
        }
 

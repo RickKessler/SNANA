@@ -534,6 +534,7 @@ void  checkStringUnique(char *string, char *msgSource, char *callFun);
 int   uniqueMatch(char *string, char *key);
 int   uniqueOverlap(char *string, char *key);
 int   keyMatch(char *string, char *key);
+int   ivar_matchList(char *varName, int NVAR, char **varList);
 
 void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun, 
 			int *NVAR, int *NKEY, int *UNIQUE, char **VARNAMES );

@@ -18348,4 +18348,9 @@
      + fix format to write LAMMIN & LAMMAX; remove LAMCEN option because
        snana.exe read-back assumes LAMMIN & LAMMAX.
 
+   SALT2mu.c:
+    + begin refactor to allow input fitres files to have
+      different columns. Still using legacy write where
+      all files must have same columns.
+
 END: 

@@ -34,6 +34,20 @@
 **********************************************************
 **********************************************************/
 
+int ivar_matchList(char *varName, int NVAR, char **varList) {
+
+  // Created May 2020
+  // return ivar such that varList[ivar] that matches varName; 
+  // else return -9
+  int ivar;
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+    if ( strcmp(varName,varList[ivar]) == 0 ) { return(ivar); }
+  }
+
+  return(-9);
+} //
+
+// =========================================================
 void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP) {
 
   // Feb 2020

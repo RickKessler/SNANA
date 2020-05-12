@@ -10521,7 +10521,7 @@ to have different columns, and the output {\tt FITRES} table from
   \item the same ``{\tt varname\_pIa}'' logic is applied to variables
         specified with {\tt SALT2mu}-input key  \\
         {\tt append\_varnames\_missing}. The default is {\tt PROB*}  to
-        include all classifier probababilities.
+        include all classifier probabilities.
 \end{itemize}
 %
 As an example, consider an analysis combining a spec-confirmed
@@ -10558,10 +10558,10 @@ SALT2mu.exe cat_only \
      append_varname_missing='PROB*,VPEC*,sSFR' \
      catfile_out=CATFILE.FITRES
   or
-cat_snana_table.py \
-     -datfile                 LOWZ.FITRES,HIGHZ.FITRES \
-     -append_varname_missing  'PROB*,VPEC*,sSFR' \
-     -catfile_out             CATFILE.FITRES 
+cat_sntable.py \
+     -i  LOWZ.FITRES,HIGHZ.FITRES \
+     -a  PROB*,VPEC*,sSFR \
+     -o  CATFILE.FITRES 
 \end{verbatim}
 %
 The {\tt cat\_only} argument (replacing input file)
@@ -10569,8 +10569,11 @@ directs {\tt SALT2mu} to skip fitting and perform only the catenation.
 Beware that the wildcard ({\tt *}) causes problems with unix;
 therefore use either single quotes as shown above,
 or use a backslash ({\tt PROB\textbackslash*,VPEC\textbackslash*,sSFR}).
-A python wrapper ({\tt cat\_snana\_table.py}) is also available with a 
+
+A python wrapper ({\tt cat\_sntable.py}) is also available with a 
 more obvious code-name to search in {\tt \$SNANA\_DIR/util}.
+This python wrapper can parse wildcards without single quotes.
+The -i and -o arguments are required; -a is optional (default is PROB*).
 
 % -----------------------------------------
   \clearpage

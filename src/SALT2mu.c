@@ -105,15 +105,16 @@ idsurvey_list_probcc=CSP,JRK07,51,53
 
     grep Force <stdout>  # to verify parsing
 
-
 # to allow for missing data columns in some input files, need to append 
 # a value of -9 in the FITRES output to avoid mis-aligned output columns.
-# Default will append anything with PROB_ prefix to allow for
-# multiple classification probs in photometric sample, while missing
-# int the spec-sample.
+# Default will append varname_pIa and anything with PROB_ prefix to allow 
+# for multiple classification probs in photometric sample, while missing
+# in the spec-sample.
 append_varname_missing = 'PROB_*'         ! default: wildcard for PROB_* 
 append_varname_missing = 'PROB_NOTSOGOOD' ! only this one varname
-append_varname_missing = 'PROB_*,PIA_*'   ! wildcard for PROB_* or PIA*
+append_varname_missing = 'PROB_*,PIA_*'   ! wildcard for PROB_* or PIA_*
+# note that varname_pIa is automatically included, even 
+# if not specified in this key. 
 
 - - - - - -  binning - - - - - -
 nzbin    = number of uniform z bins to use (beware: some bins may be empty)
@@ -732,6 +733,15 @@ Default output files (can change names with "prefix" argument)
     + in write_NWARN, add warning about excessive loss from biasCor cut.
 
   Apr 15 2020: if MINOS errors are zero, report parabolic error.
+
+  May 10 2020: 
+   + use new/refactored write_fitres that allows for different
+     columns in the input data-fitres files (file= key). 
+     Also see new append_varname_missing key to specify which
+     columns to append for files that are missing a column.
+     Initial motivation is to combined photometric samples
+     that have PROB_[classifier] columns and spec samples that
+     do not have these columns. 
 
  ******************************************************/
 
@@ -1588,7 +1598,6 @@ int FOUNDKEY_OPT_PHOTOZ = 0 ;
 
 int NVAR_ORIG ;    // NVAR from original ntuple
 int NVAR_APPEND ;  // NVAR appended from SALTmu
-int NVAR_TOT  ;    // sum of above
 char VARNAMES_APPEND[MAXPAR*10][MXCHAR_VARNAME] ;
 char VARNAMES_ORIG[100][MXCHAR_VARNAME] ;
 
@@ -4618,7 +4627,11 @@ void read_data(void) {
     NVAR_ORIG   = SNTABLE_READPREP(IFILETYPE,"FITRES");
     ISTART      = INFO_DATA.TABLEVAR.NSN_ALL ;
     SNTABLE_READPREP_TABLEVAR(ifile, ISTART, NEVT[ifile], &INFO_DATA.TABLEVAR);
-    NROW = SNTABLE_READ_EXEC();     // read entire file; load arrays
+
+    if ( INPUTS.cat_only ) 
+      { NROW = NEVT[ifile];  SNTABLE_CLOSE_TEXT(); }
+    else
+      { NROW = SNTABLE_READ_EXEC(); }    // read entire file; load arrays
     INFO_DATA.TABLEVAR.NSN_ALL += NROW ;
 
     INFO_DATA.TABLEVAR.EVENT_RANGE[ifile][0] = ISTART ;
@@ -6056,7 +6069,7 @@ void store_output_varnames(void) {
   bool EXIST;
   char *varName, *varName2 ;
   bool wildcard, MATCH ;
-  int LDMP = 1 ;
+  int LDMP = 0 ;
   char fnam[] = "store_output_varnames" ;
   // ------------- BEGIN ------------
   
@@ -16091,7 +16104,7 @@ void write_fitres_driver(char* fileName) {
     ,tmpName[60], ztxt[60], KEY[MXCHAR_VARNAME], CCID[40]
     ;
 
-  bool LEGACY_WRITE = true ;
+  bool LEGACY_WRITE = false ;
   char fnam[] = "write_fitres_driver" ;
 
   // ------------------ BEGIN ----------------
@@ -16103,7 +16116,6 @@ void write_fitres_driver(char* fileName) {
   define_varnames_append();  // sets NVAR_APPEND and VARNAMES_APPEND
 
   // - - - - - - - - - -
-  NVAR_TOT = NVAR_ORIG + NVAR_APPEND ;
 
   printf("\n Open output file with  cutmask_write=%d : \n", 
 	 INPUTS.cutmask_write );
@@ -16112,7 +16124,17 @@ void write_fitres_driver(char* fileName) {
   
   // - - - - - - - -  -
   fout = fopen(fileName,"wt");
-
+  if (!fout ) {
+    if ( INPUTS.cat_only ) {
+      sprintf(c1err,"Could not open catfile_out='%s'", INPUTS.catfile_out);
+      sprintf(c2err,"Check catfile_out key.", fileName );
+    }
+    else {
+      sprintf(c1err,"Could not open output fitres file");
+      sprintf(c2err,"'%s' ", fileName );
+    }
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
   if ( INPUTS.cat_only ) {
     write_cat_info(fout); // write cat info to output file header
@@ -16128,9 +16150,6 @@ void write_fitres_driver(char* fileName) {
 
   if ( INPUTS.cutmask_write != -9 ) { 
     // write standard header keys
-#ifdef TEXTFILE_NVAR
-    fprintf(fout,"NVAR: %i \n", NVAR_TOT ); 
-#endif
     fprintf(fout,"VARNAMES: ");
     
     if ( LEGACY_WRITE ) {
@@ -16324,8 +16343,13 @@ void write_fitres_driver(char* fileName) {
 
   fclose(fout);
 
-  printf(" Wrote %d SN  (%d/%d used in fit) \n", 
-	 NWR, FITRESULT.NSNFIT , NSN_DATA );
+  if ( INPUTS.cat_only ) {
+    printf(" Wrote %d SN to cat table.\n", NWR); 
+  }
+  else {
+    printf(" Wrote %d SN  (%d/%d used in fit) \n", 
+	   NWR, FITRESULT.NSNFIT , NSN_DATA );
+  }
   fflush(stdout);
 
   return ;
@@ -16369,6 +16393,7 @@ int write_fitres_line(int indx, int ifile, char *line, FILE *fout) {
   }
 
   fprintf(fout,"%s\n", line_out);
+  ISTAT = 1;
 
   if ( LDMP ) { debugexit(fnam); }
 

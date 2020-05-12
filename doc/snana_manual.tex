@@ -98,6 +98,7 @@
 \newcommand{\Npe}{N_{\rm pe}}
 \newcommand{\logSNR}{\log_{10}({\rm SNR})}
 \newcommand{\degsq}{deg$^2$}
+\newcommand{\hostmass}{M_{\rm host}}
 
 \newcommand{\lam}{\lambda}
 \newcommand{\lamg}{\lambda_g}
@@ -9668,8 +9669,48 @@ are specified only to fix these parameters in the fit.
 If not specified, these parameters are floated in the fit.
 
 
+\subsubsection{Simulating $\alpha,\beta,\gamma$ Grid for {\tt SALT2mu}/BBC }
+\label{sss:simgrid_forSALT2mu}
+%$
+For {\tt SALT2mu}-BBC, the ``biasCor'' sample is generated on
+a grid of $\alpha,\beta,\gamma$ in order to dynamically interpolate
+the bias-correction at each fitting step. The sim-input
+keys are as follows:
+%
+\begin{verbatim}
+   GENPEAK_SALT2ALPHA:   0.14   
+   GENSIGMA_SALT2ALPHA:  1E8   1E8
+   GENRANGE_SALT2ALPHA:  0.10  0.20
+   GENGRID_SALT2ALPHA:   2       # <=== only 2 allowed for BBC
+
+   GENPEAK_SALT2BETA:   3.2 
+   GENSIGMA_SALT2BETA:  1E8  1E8 
+   GENRANGE_SALT2BETA:  2.5  3.5
+   GENGRID_SALT2BETA:   2       # <== only 2 allowed for BBC
+
+   BIASCOR_SALT2GAMMA_GRID:  0  0.10
+\end{verbatim}
+%
+The {\tt GENGRID\_SALT2xxx} parameters define a grid-size of 2,
+and {\tt GENRANGE\_SALT2xxx} define the two grid points.
+The large {\tt GENSIGMA\_SALT2xxx} values specify flat
+distributions that result in two $\delta$-functions per parameter.
+
+If $\gamma$ were implemented the same way as for $\alpha$ and $\beta$, 
+BBC could only fit a step function with a $\hostmass$-split 
+at exactly the same value used in the biasCor sample.
+To allow for an arbitrary standardation function of $\hostmass$ 
+in the BBC fit,
+the $\gamma$ parameter is treated in a different manner compared
+with $\alpha$ and $\beta$. {\tt BIASCOR\_SALT2GAMMA\_GRID} specifies
+two grid-points to randomly generate mag-offsets. This is not
+quite $\gamma$ because it has no $\hostmass$ dependence, but in the
+BBC fit these mag offsets are associated with $\gamma$ and $\hostmass$,
+where $\gamma$ is the maximum SNIa mag-splitting.
+
+
 % ------------------------
-% \clearpage
+\clearpage
 \subsection{{\snoopy}}
 \label{subsec:snoopy}
 
@@ -10426,18 +10467,11 @@ etc É
 
 % ##########################################
    \clearpage
-   \section{\SALTII\ Programs}
-   \label{sec:SALT2code}
+   \section{Computing Distance Moduli from BBC Method: {\tt SALT2mu.exe} }
+   \label{sec:SALT2mu}
 % ###########################################
 
 
-
-% -----------------------------------------
-  \subsection{Computing Distance Moduli from BBC Method: {\tt SALT2mu.exe} }
-  \label{sec:SALT2mu}
-% -----------------------------------------
-
-\newcommand{\hostmass}{M_{\rm host}}
 
 The \snana\ program {\tt SALT2mu.exe} reads \SALTII\ fitted parameters,
 performs a global fit for $\alpha,\beta,\gamma$, which are SNIa 
@@ -10451,52 +10485,92 @@ The {\tt SALT2mu} program can implement the
 to produce bias-corrected distances in redshift bins.
 To include bias corrections, {\tt SALT2mu} reads SALT2-fitted 
 parameters for the data and for a large ``biasCor'' simulation.
-%
-A sample input file is in
+The biasCor simulation should be generated on a grid of
+$\alpha,\beta,\gamma$ as described in \S\ref{sss:simgrid_forSALT2mu}.
+
+A sample {\tt SALT2mu.exe}-input file is in
 \begin{verbatim}
   $SNDATA_ROOT/sample_input_files/SALT2/SALT2mu.default
 \end{verbatim}
 and a description of all input-file options are given at the
 top of the code in {\tt \$SNANA\_DIR/src/SALT2mu.c}.
-%$
-The ``biasCor'' sample must incude a grid of
-$\alpha,\beta,\gamma$ in order to dynamically interpolate
-the bias-correction at each fitting step. The sim-input
-keys are as follows:
+
+
+% -----------------------------------------
+  \clearpage
+  \subsection{Catenating FITRES Files from Multiple Samples}
+  \label{subsec:cat_fitres}
+% -----------------------------------------
+
+SNIa-cosmlogy analyses include multiple samples 
+(e.g., LOWZ, SDSS, PS1, SNLS, DES ...). 
+While \snana\ codes perform light-curve fitting and simulations
+separately for each sample, the {\tt SALT2mu}/BBC program
+performs a global fit to all of the data samples combined.
+Through \snana\ code versions {\tt v10\_76e}, each {\tt FITRES} table
+file (produced from {\tt snlc\_fit.exe}) was required to have the same 
+columns so that a simple concatenate combines the data into a single file.
+Starting at {\tt v10\_77}, input {\tt FITRES} tables are allowed
+to have different columns, and the output {\tt FITRES} table from
+{\tt SALT2mu} is created with the following logic:
+\begin{itemize}
+  \item column names appearing in each {\tt FITRES} file are included,
+     regardless of column locations.
+  \item {\tt varname\_pIa} column is included; if missing (e.g., from LOWZ),
+       then -9 values are substituted.
+  \item the same ``{\tt varname\_pIa}'' logic is applied to variables
+        specified with {\tt SALT2mu}-input key  \\
+        {\tt append\_varnames\_missing}. The default is {\tt PROB*}  to
+        include all classifier probababilities.
+\end{itemize}
 %
+As an example, consider an analysis combining a spec-confirmed
+LOWZ sample and a photometrically-identified HIGHZ sample.
+The LOWZ sample contains several peculiar-velocity estimates
+({\tt VPEC1}, {\tt VPEC2}, {\tt VPEC3}) that are not in the HIGHZ table;
+the HIGHZ sample includes several classifier probabilities 
+({\tt PROB\_A}, {\tt PROB\_B}, {\tt PROB\_C}) and {\tt sSFR} that are not
+in the LOWZ table.
+All of these values are included in the {\tt SALT2mu} output
+using the following {\tt SALT2mu}-input key,
 \begin{verbatim}
-   GENPEAK_SALT2ALPHA:   0.14   
-   GENSIGMA_SALT2ALPHA:  1E8   1E8
-   GENRANGE_SALT2ALPHA:  0.10  0.20
-   GENGRID_SALT2ALPHA:   2
+   append_varnames_missing='PROB*,VPEC*,sSFR'
+\end{verbatim} 
+The wildcard ({\tt *}) picks up any column name containing
+{\tt PROB} or {\tt VPEC}. An exact {\tt sSFR} column match
+is also selected.
+The {\tt VPEC} values are set to $-9$
+for the HIGHZ sample, and similarly the {\tt PROB} and {\tt sSFR}
+values are set to $-9$ for the LOWZ sample.
+The top of the output {\tt FITRES} file includes comment-summary
+of i) input {\tt FITRES} file names, 
+ii) {\tt append\_varnames\_missing}, and iii) column names 
+that were discarded.
 
-   GENPEAK_SALT2BETA:   3.2 
-   GENSIGMA_SALT2BETA:  1E8  1E8 
-   GENRANGE_SALT2BETA:  2.5  3.5
-   GENGRID_SALT2BETA:   2
-
-   BIASCOR_SALT2GAMMA_GRID:  0  0.10
+\medskip
+Combining fitres files with different columns may be useful
+for other (non-\snana) codes, and therefore this {\tt SALT2mu}
+``{\tt FITRES}-combine'' logic can be implemented as a 
+utility without the overhead of fitting,
+\begin{verbatim}
+SALT2mu.exe cat_only \
+     datfile=LOWZ.FITRES,HIGHZ.FITRES \
+     append_varname_missing='PROB*,VPEC*,sSFR' \
+     catfile_out=CATFILE.FITRES
+  or
+cat_snana_table.py \
+     -datfile                 LOWZ.FITRES,HIGHZ.FITRES \
+     -append_varname_missing  'PROB*,VPEC*,sSFR' \
+     -catfile_out             CATFILE.FITRES 
 \end{verbatim}
 %
-The {\tt GENGRID\_SALT2xxx} parameters define a grid-size of 2,
-and {\tt GENRANGE\_SALT2xxx} define the two grid points.
-The large {\tt GENSIGMA\_SALT2xxx} values result in a flat
-distribution, but will not generate values outside the
-{\tt GENRANGE}.
-
-If $\gamma$ were implemented the same way as for $\alpha$ and $\beta$, 
-BBC could only fit a step function with a $\hostmass$-split 
-at exactly the same value used in the biasCor sample.
-%
-To allow for an arbitrary standardation function of $\hostmass$ 
-in the BBC fit,
-the $\gamma$ parameter is treated in a different manner compared
-with $\alpha$ and $\beta$. {\tt BIASCOR\_SALT2GAMMA\_GRID} specifies
-two grid-points to randomly generate mag-offsets. This is not
-quite $\gamma$ because it has no $\hostmass$ dependence, but in the
-BBC fit these mag offsets are associated with $\gamma$ and $\hostmass$,
-where $\gamma$ is the maximum SNIa mag-splitting.
-
+The {\tt cat\_only} argument (replacing input file)
+directs {\tt SALT2mu} to skip fitting and perform only the catenation.
+Beware that the wildcard ({\tt *}) causes problems with unix;
+therefore use either single quotes as shown above,
+or use a backslash ({\tt PROB\textbackslash*,VPEC\textbackslash*,sSFR}).
+A python wrapper ({\tt cat\_snana\_table.py}) is also available with a 
+more obvious code-name to search in {\tt \$SNANA\_DIR/util}.
 
 % -----------------------------------------
   \clearpage

@@ -18305,7 +18305,7 @@
 
 
 # ======================================================================= 
-         v10_76e (  ) 
+         v10_76e (May 10 2020) 
 
          ***** IMPORTANT(v10_76e) ***** 
 
@@ -18352,5 +18352,18 @@
     + begin refactor to allow input fitres files to have
       different columns. Still using legacy write where
       all files must have same columns.
+
+
+# ======================================================================= 
+         v10_77 (  ) 
+
+         ***** IMPORTANT(v10_77) ***** 
+
+   SALT2mu.exe, SALT2mu_fit.pl allow input FITRES files to have
+     different columns; see manual Sec 10.1
+
+         ***** USEFUL(v10_77) ***** 
+
+         ***** MISCELLANEOUS(v10_77) ***** 
 
 END: 

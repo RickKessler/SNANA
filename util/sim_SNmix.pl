@@ -217,6 +217,8 @@
 #   + abort if SIMGEN_INFILE_[Ia,SNIa,NONIa] is not specified.
 #       (github issues from Justin)
 #
+# May 12 2020: increment NABORT if logFile does not exist.
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -2948,6 +2950,14 @@ sub simgen {
 
     # run job and wait for it to finish ...
     system("$simcmd");
+    sleep(1); 
+
+    # May 2020: make sure log file exists
+    if ( !(-e $logFile) ) {
+	print "\n xxx cannot find logFile = $logFile ??? xxx \n";
+	$JOBABORT_FLAG = 1 ;   $NABORT++ ;
+        goto LAST_NGEN ;
+    }
 
     # Jun 7 2013: if sim aborted, exit here to make sure DONE stamp is made.
     $key = " ABORT " ;
@@ -2957,9 +2967,9 @@ sub simgen {
 #	print "\n xxx found ABORT in $logFile \n\n";
 	goto LAST_NGEN ; 
     }
-    else { 
-	$JOBABORT_FLAG = 0 ; 
-    }
+
+    # no abort if we get here.
+    $JOBABORT_FLAG = 0 ; 
 
     # increment number of SN generated and written out
     $key = "Wrote" ;

@@ -1581,9 +1581,10 @@ sub cat_inpFiles {
     $CMD_CAT .= "catfile_out=$CATFILE_OUT ";
 
     $CMD_GZIP = "" ;
-    if ( $Ngzip > 0 ) { $CMD_GZIP = "gzip $CATFILE_OUT" ; }
-    qx($CMD_CAT > $CAT_LOG ; $CMD_GZIP ; rm $CAT_LOG );
-    
+    $CMD_GZIP = "gzip $CATFILE_OUT " ;
+    qx($CMD_CAT > $CAT_LOG ; rm $CAT_LOG );
+    if ( $Ngzip > 0 ) { qx($$CMD_GZIP); }
+
 #    die "\xxx DEBUG DIE xxx\n";
     $NTOT_FITRES++ ;
 

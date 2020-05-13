@@ -10558,7 +10558,7 @@ SALT2mu.exe cat_only \
      append_varname_missing='PROB*,VPEC*,sSFR' \
      catfile_out=CATFILE.FITRES
   or
-cat_sntable.py \
+sntable_cat.py \
      -i  LOWZ.FITRES,HIGHZ.FITRES \
      -a  PROB*,VPEC*,sSFR \
      -o  CATFILE.FITRES 
@@ -10570,7 +10570,7 @@ Beware that the wildcard ({\tt *}) causes problems with unix;
 therefore use either single quotes as shown above,
 or use a backslash ({\tt PROB\textbackslash*,VPEC\textbackslash*,sSFR}).
 
-A python wrapper ({\tt cat\_sntable.py}) is also available with a 
+A python wrapper ({\tt sntable\_cat.py}) is also available with a 
 more obvious code-name to search in {\tt \$SNANA\_DIR/util}.
 This python wrapper can parse wildcards without single quotes.
 The -i and -o arguments are required; -a is optional (default is PROB*).

@@ -18364,7 +18364,7 @@
 
          ***** USEFUL(v10_77) ***** 
 
-   New utility cat_sntable.py (see manual Sec 10.1)
+   New utility sntable_cat.py (see manual Sec 10.1)
 
          ***** MISCELLANEOUS(v10_77) ***** 
 
@@ -18375,5 +18375,8 @@
    snlc_sim.c
     + output REAMDE includes list of each map file with MAP: key
       so that they can be grepped.
+
+   sim_SNmix.pl:
+    + write PATH_SNDATA_SIM in TOTAL_SUMMARY.LOG
 
 END: 

@@ -217,7 +217,9 @@
 #   + abort if SIMGEN_INFILE_[Ia,SNIa,NONIa] is not specified.
 #       (github issues from Justin)
 #
-# May 12 2020: increment NABORT if logFile does not exist.
+# May 12 2020: 
+#   + increment NABORT if logFile does not exist.
+#   + write PATH_SNDATA_SIM in TOTAL_SUMMARY.LOG
 #
 # ---------------------------------------------------------
 
@@ -3785,6 +3787,8 @@ sub make_TOTAL_SUMMARY_FILE {
     print "\n Created $TOTAL_FILE \n";
 
     open  PTR_TMPFILE , "> $TOTAL_FILE" ;
+
+    print PTR_TMPFILE "PATH_SNDATA_SIM: $PATH_SNDATA_SIM \n\n";
 
     for($JJ=0 ; $JJ < 2; $JJ++ ) {
 	# JJ=0 for SNIa, JJ=1 for NONIa

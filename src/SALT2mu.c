@@ -1792,7 +1792,7 @@ void  write_version_info(FILE *fp) ;
 void  define_varnames_append(void) ;
 int   write_fitres_line(int indx, int ifile, char *line, FILE *fout) ;
 int   write_fitres_line_legacy(int indx, char *line, FILE *fout) ;
-void  write_fitres_append(FILE *fp, char *CCID, int  indx);
+void  write_fitres_line_append(FILE *fp, int indx);
 void  write_cat_info(FILE *fout) ;
 void  prep_blindVal_strings(void);
 void  write_blindFlag_message(FILE *fout) ;
@@ -16390,7 +16390,11 @@ int write_fitres_line(int indx, int ifile, char *line, FILE *fout) {
     strcat(line_out,blank);
   }
 
-  fprintf(fout,"%s\n", line_out);
+  fprintf(fout,"%s", line_out);
+  if ( !INPUTS.cat_only) { write_fitres_line_append(fout, indx); }
+
+  fprintf(fout,"\n");
+
   ISTAT = 1;
 
   if ( LDMP ) { debugexit(fnam); }
@@ -16441,8 +16445,9 @@ int write_fitres_line_legacy(int indx, char *line, FILE *fout) {
   fprintf(fout, "%s ", line);
   
   // append variables computed by SALT2mu
-  if ( !INPUTS.cat_only) { write_fitres_append(fout, CCID, indx); }
+  if ( !INPUTS.cat_only) { write_fitres_line_append(fout,indx); }
 
+  // print line feed
   fprintf(fout,"\n");  fflush(fout);
   ISTAT = 1;
   
@@ -16847,7 +16852,7 @@ void get_CCIDindx(char *CCID, int *indx) {
 
 
 // ============================================
-void write_fitres_append(FILE *fp, char *CCID, int  indx ) {
+void write_fitres_line_append(FILE *fp, int indx ) {
 
   // Oct 17, 2011 R.Kessler
   // append line in fitres file with SALT2mu info corresponding to 
@@ -16857,6 +16862,7 @@ void write_fitres_append(FILE *fp, char *CCID, int  indx ) {
   // Mar 1 2018: add M0
   // Sep 26 2019: write probcc_beams
   // Apr 18 2020: write extra digit of precision for bias(mb,c,mu)
+  // May 13 2020: write to char line, then single fprintf for entire line.
 
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   bool  IS_SIM            = INFO_DATA.TABLEVAR.IS_SIM ;
@@ -16865,8 +16871,8 @@ void write_fitres_append(FILE *fp, char *CCID, int  indx ) {
   double muBias=0.0, muBiasErr=0.0,  muCOVscale=0.0, chi2=0.0 ;
   double fitParBias[NLCPAR] = { 0.0, 0.0, 0.0 } ;
   int    n, cutmask, NWR, NSN_BIASCOR, idsample ;
-
-  char fnam[20] = "write_fitres_append" ;
+  char line[400], word[40] ;	 
+  char fnam[] = "write_fitres_line_append" ;
 
   // ------------ BEGIN --------------
 
@@ -16901,33 +16907,36 @@ void write_fitres_append(FILE *fp, char *CCID, int  indx ) {
   
   if (pull > 99.999) { pull=99.999; }
   
-  NWR=0;
-  fprintf(fp, "%d ",    cutmask);   NWR++ ; 
-  fprintf(fp, "%7.4f ", mu     );   NWR++ ; 
-  fprintf(fp, "%7.4f ", mumodel);   NWR++ ; 
-  fprintf(fp, "%7.4f ", muerr  );   NWR++ ; 
-  fprintf(fp, "%7.4f ", muerr2 );   NWR++ ; 
-  fprintf(fp, "%7.4f ", mures  );   NWR++ ; 
-  fprintf(fp, "%6.3f ", pull   );   NWR++ ; 
-  fprintf(fp, "%7.4f ", M0DIF  );   NWR++ ; 
-  fprintf(fp, "%.2f ",  chi2   );   NWR++ ; 
+  NWR=0;  line[0] = 0 ;
+  sprintf(word, "%d ",    cutmask);   NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", mu     );   NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", mumodel);   NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", muerr  );   NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", muerr2 );   NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", mures  );   NWR++ ; strcat(line,word);
+  sprintf(word, "%6.3f ", pull   );   NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", M0DIF  );   NWR++ ; strcat(line,word);
+  sprintf(word, "%.2f ",  chi2   );   NWR++ ; strcat(line,word);
 
-  if ( INFO_CCPRIOR.USE ) 
-    { fprintf(fp,"%.3e ", INFO_DATA.probcc_beams[n]);  NWR++; }
-
-  if ( NSN_BIASCOR > 0 ) {
-    fprintf(fp, "%6.4f ", muBias );       NWR++ ; 
-    fprintf(fp, "%6.3f ", muBiasErr );    NWR++ ; 
-    if ( DO_BIASCOR_MU == false ) {
-      fprintf(fp, "%6.4f ", fitParBias[INDEX_mB] );      NWR++ ; 
-      fprintf(fp, "%6.3f ", fitParBias[INDEX_x1] );      NWR++ ; 
-      fprintf(fp, "%6.4f ", fitParBias[INDEX_c] );       NWR++ ; 
-    }
-    fprintf(fp, "%6.3f ", muCOVscale ) ;    NWR++ ; 
-    fprintf(fp, "%d "   , idsample ) ;      NWR++ ; 
+  if ( INFO_CCPRIOR.USE ) { 
+    sprintf(word,"%.3e ", INFO_DATA.probcc_beams[n]);  NWR++; 
+    strcat(line,word);
   }
 
+  if ( NSN_BIASCOR > 0 ) {
+    sprintf(word, "%6.4f ", muBias );       NWR++ ; strcat(line,word);
+    sprintf(word, "%6.3f ", muBiasErr );    NWR++ ; strcat(line,word);
+    if ( DO_BIASCOR_MU == false ) {
+      sprintf(word,"%6.4f ", fitParBias[INDEX_mB]); NWR++; strcat(line,word);
+      sprintf(word,"%6.3f ", fitParBias[INDEX_x1]); NWR++; strcat(line,word);
+      sprintf(word,"%6.4f ", fitParBias[INDEX_c]);  NWR++; strcat(line,word);
+    }
+    sprintf(word, "%6.3f ", muCOVscale ) ;    NWR++ ; strcat(line,word);
+    sprintf(word, "%d "   , idsample ) ;      NWR++ ; strcat(line,word);
+  }
 
+  
+  fprintf(fp,"%s", line);
   fflush(fp);
 
   if ( NWR != NVAR_APPEND ) {
@@ -16937,8 +16946,9 @@ void write_fitres_append(FILE *fp, char *CCID, int  indx ) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  return ;
 
-} // end of write_fitres_append
+} // end of write_fitres_line_append
 
 
 // **************************************

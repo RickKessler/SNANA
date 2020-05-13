@@ -4617,7 +4617,6 @@ sub gzip_VERSION {
     if ( $GZIP_STATUS[$iver] == 1 ) { return ; }  # already gzipped
 
     $VERSION   = "$VERSION_LIST[$iver]" ;
-# xxx mark delete    $MERGEDIR  = "$OUTDIR/$VERSION";
     $MERGEDIR  = "$OUTDIR_LIST[$iver]";
 
     my $dashLine = "- - - - - - - - - - - - - - - - - - - - - - - - - - - " ;
@@ -4679,9 +4678,7 @@ sub run_afterBurner {
 
     $CMD       = "$VERSION_AFTERBURNER";
     $VERSION   = "$VERSION_LIST[$iver]" ;
-    $MERGEDIR  = "$OUTDIR_LIST[$iver]";
-
-    print PTR_MERGE2 " xxx AFTERBURNER = '$CMD'  (VERSION=$VERSION)\n";
+    $MERGEDIR  = "$OUTDIR_LIST[$iver]" ;
 
     if ( $CMD eq '' ) { return; }
 #    if ( length($CMD) == 0 ) { return ; }

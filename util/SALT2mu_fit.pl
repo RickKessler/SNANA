@@ -2051,7 +2051,7 @@ sub prep_COMMAND {
 	my $MAKETABLE_HBOOK = 0;
 	if ( $MAKETABLE_HBOOK ) {
 	    $JOBNAME   = "$JOBNAME_MAKETABLE" ;
-	    $argOut    = "--outprefix $SPREFIX" ;
+	    $argOut    = "-outprefix $SPREFIX" ;
 	    $COMBINE_ARGS   = "${out_FITRES} $COMBINE_FMTARG $argOut" ;
 	    $combLog        = "combine_${SPREFIX}.LOG" ;
 	    $combText       = "${SPREFIX}.text" ;  # Jun 17 2016

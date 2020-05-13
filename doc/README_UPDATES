@@ -18379,4 +18379,10 @@
    sim_SNmix.pl:
     + write PATH_SNDATA_SIM in TOTAL_SUMMARY.LOG
 
+   split_and_fit.pl:
+     + fix FITRES_COMBINE_FILE feature that was broken because
+       execution code was accidentally removed in previous refactor.
+     + fix bug causing FITRES files NOT to be gzipped, and was
+       also causing VERSION_AFTERBURNER option to be skipped.
+
 END: 

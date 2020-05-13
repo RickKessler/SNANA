@@ -23,13 +23,13 @@
       combine_fitres.txt    (combined fitres text-file)
 
  Option:
-  >  combine_fitres.exe <fitres1> <fitres2> --outprefix <outprefix>
+  >  combine_fitres.exe <fitres1> <fitres2> -outprefix <outprefix>
     produces output files <outprefix>.hbook and  <outprefix>.text
 
-  >  combine_fitres.exe <fitres1> <fitres2> --outfile_text <outfile>
+  >  combine_fitres.exe <fitres1> <fitres2> -outfile_text <outfile>
        (text outpout name is <outfile>)
 
-  >  combine_fitres.exe <fitres1> <fitres2> --outfile_text <outfile.gz>
+  >  combine_fitres.exe <fitres1> <fitres2> -outfile_text <outfile.gz>
        (produce gzipped outfile.gz)
 
   >  combine_fitres.exe <fitres1>  R      ! .ROOT extension 

@@ -4252,7 +4252,7 @@ sub convert_SIMGEN_DUMP {
     if ( $CONVERT_SIMGEN_DUMP eq 'ROOT'  ) { $FMTARG='R'; }
 
     if ( $FMTARG ne '' ) {
-	$ARGS = "$DUMP_FILE $FMTARG --outprefix $VERSION_ALL" ;
+	$ARGS = "$DUMP_FILE $FMTARG -outprefix $VERSION_ALL" ;
 	$CMD  = "combine_fitres.exe $ARGS" ;
 	$CMD  = "$CMD" . " ; rm ${VERSION_ALL}.text" ;
 	print " Convert $DUMP_FILE file to $CONVERT_SIMGEN_DUMP \n" ;

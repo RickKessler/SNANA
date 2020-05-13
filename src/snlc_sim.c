@@ -26085,26 +26085,6 @@ void readme_doc(int iflag_readme) {
   }
   
 
-  /* xxxxx mark delete Sep 4 2019 xxxxxxxxxxxxxx
-  // write APPLY-mask
-  OVP1 = (INPUTS.APPLY_SEARCHEFF_OPT & 1);
-  OVP2 = (INPUTS.APPLY_SEARCHEFF_OPT & 2);
-  OVP3 = (INPUTS.APPLY_SEARCHEFF_OPT & 4);
-
-  if ( OVP1 && OVP2 ) 
-    { sprintf(ctmp,"%s", "Apply both PIPELINE+SPEC efficiencies"); }
-  else if ( OVP1 && OVP2 == 0 ) 
-    { sprintf(ctmp,"%s", "Apply only PIPELINE efficiency (not SPEC-eff)"); }
-  else if ( OVP1 == 0 && OVP2 ) 
-    { sprintf(ctmp,"%s", "Apply only SPEC efficiency (not PIPELINE-eff)"); }
-  else if ( OVP1 == 0 && OVP2 == 0 ) 
-    { sprintf(ctmp,"%s", "Do NOT Apply trigger efficiency "); }
-      
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n  APPLY_SEARCHEFF_OPT:  %d => %s \n", 
-	  INPUTS.APPLY_SEARCHEFF_OPT, ctmp);
-  xxxxxxxx end mark xxxxxxxxx */
-
   sprintf(cptr,"\n  %s \n", COMMENT_README_TRIGGER);
 
   // print SNTYPE values for SPEC and PHOT Ia-subsets 
@@ -26146,6 +26126,10 @@ void readme_doc(int iflag_readme) {
 
   // -----  FUDGES on observing conditions ------
   readme_doc_FUDGES(&i);
+
+  // write list of MAPs so that pipelines can check time-stamps, etc ...
+  readme_doc_mapFileList(&i);
+
 
   // ======================================
   VERSION_INFO.NLINE_README_INIT = i;   // can dump to here after init
@@ -26606,6 +26590,74 @@ void readme_doc_FUDGES(int *iline) {
 
 } // end readme_doc_FUDGES
 
+// ******************************************
+void readme_doc_mapFileList(int *iline) {
+
+  // write each map file so that higher level pipelines
+  // can grep out these files and compare time stamps
+  // against the sim data time stamp.
+
+  int i;
+  // -------- BEGIN ---------
+
+  i = *iline;
+
+  i++; 
+  sprintf(VERSION_INFO.README_DOC[i], "\n");
+
+  readme_doc_mapFile(&i, "SIMLIB_FILE:", INPUTS.SIMLIB_FILE);
+  readme_doc_mapFile(&i, "KCOR_FILE:",   INPUTS.KCOR_FILE);
+  readme_doc_mapFile(&i, "HOSTLIB_WGTMAP_FILE:", 
+		     INPUTS.HOSTLIB_WGTMAP_FILE);
+  readme_doc_mapFile(&i, "HOSTLIB_ZPHOTEFF_FILE:", 
+		     INPUTS.HOSTLIB_ZPHOTEFF_FILE);
+  readme_doc_mapFile(&i, "HOSTLIB_SPECBASIS_FILE:", 
+		     INPUTS.HOSTLIB_SPECBASIS_FILE);
+  readme_doc_mapFile(&i, "WRONGHOST_FILE:", 
+		     INPUTS.WRONGHOST_FILE);
+  readme_doc_mapFile(&i, "FLUXERRMODEL_FILE:",
+		     INPUTS.FLUXERRMODEL_FILE);
+  readme_doc_mapFile(&i, "NONLINEARITY_FILE:",
+		     INPUTS.NONLINEARITY_FILE);
+  readme_doc_mapFile(&i, "ZVARIATION_FILE:",
+		     INPUT_ZVARIATION_FILE );
+  readme_doc_mapFile(&i, "WEAKLENS_PROBMAP_FILE" ,
+		     INPUTS.WEAKLENS_PROBMAP_FILE );
+  readme_doc_mapFile(&i, "SEARCHEFF_PIPELINE_LOGIC_FILE:" ,
+		     INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE);
+  readme_doc_mapFile(&i, "SEARCHEFF_PIPELINE_EFF_FILE:" ,
+		     INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE);
+  readme_doc_mapFile(&i, "SEARCHEFF_SPEC_FILE:" ,
+		     INPUTS_SEARCHEFF.USER_SPEC_FILE);
+  readme_doc_mapFile(&i, "SEARCHEFF_zHOST_FILE:" ,
+		     INPUTS_SEARCHEFF.USER_zHOST_FILE);
+
+  *iline = i;
+
+  return ;
+
+}  // end readme_doc_mapFile_list
+
+void readme_doc_mapFile(int *iline, char *KEY, char *FILENAME) {
+
+  int i;
+  char *cptr  ;
+  char KEY_MAP[] = "MAP:" ;
+
+  // -------------- BEGIN ------------
+  i = *iline ;
+  
+  printf(" xxx KEY = %s, FILENAME = %s \n", KEY, FILENAME);
+  if ( !IGNOREFILE(FILENAME) ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"%s %s %s\n", KEY_MAP, KEY, FILENAME);
+  }
+
+
+  *iline = i;
+  return ;
+
+} // end readme_doc_mapFile
 
 // ********************************************
 void readme_doc_GENPERFECT(int *iline) {

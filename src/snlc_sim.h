@@ -1853,6 +1853,8 @@ void   readme_doc_SALT2params(int *iline ) ;
 void   readme_doc_FIXMAG(int *iline ) ;
 void   readme_doc_GENPERFECT(int *iline ) ;
 void   readme_doc_FUDGES(int *iline) ;
+void   readme_doc_mapFileList(int *iline) ;
+void   readme_doc_mapFile(int *iline, char *KEY, char *FILENAME) ;
 void   readme_doc_CUTWIN(int *iline) ;
 void   readme_doc_TAKE_SPECTRUM(int *iline);
 

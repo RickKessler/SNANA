@@ -12704,10 +12704,8 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
 	   IDSAMPLE, dmu_local, prob); fflush(stdout);
   }
   // xxxxxxxxxxxxxxxxxxx
-
-  
+ 
   // -------------------------------
-  // if we get here, return zero prob.
   return(prob);
 
 } // end prob_CCprior_sim

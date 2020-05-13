@@ -18368,4 +18368,12 @@
 
          ***** MISCELLANEOUS(v10_77) ***** 
 
+   sntools_host.c
+    + in get_Sersic_info(), allow Sersic weight truncation
+      error at E-3 level; renormalize wgts.
+
+   snlc_sim.c
+    + output REAMDE includes list of each map file with MAP: key
+      so that they can be grepped.
+
 END: 

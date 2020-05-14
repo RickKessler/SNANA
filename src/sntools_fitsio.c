@@ -195,7 +195,8 @@ void wr_snfitsio_init_head(void) {
   // Dec 10, 2018: add BYOSED
   // Jul 20, 2019: add strong lens info
   // Feb 27, 2020: add SIM_HOSTLIB_GALID
-  //
+  // May 14, 2020: add REDSHIFT_QUALITYFLAG
+
   long  NROW = 0 ;
   int itype, ncol, istat, ivar, ipar ;
   int ifilt, ifilt_obs;
@@ -242,6 +243,7 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1E", "REDSHIFT_HELIO_ERR" ,   itype );
   wr_snfitsio_addCol( "1E", "REDSHIFT_FINAL" ,       itype );
   wr_snfitsio_addCol( "1E", "REDSHIFT_FINAL_ERR" ,   itype );
+  wr_snfitsio_addCol( "1I", "REDSHIFT_QUALITYFLAG",  itype );
 
   wr_snfitsio_addCol( "1E", "VPEC" ,      itype );  // peculiar velocity cor
   wr_snfitsio_addCol( "1E", "VPEC_ERR" ,  itype );  // error on correction
@@ -315,12 +317,11 @@ void wr_snfitsio_init_head(void) {
       wr_snfitsio_addCol( "1E", parName, itype );
     }
  
-  }  // end of NOT-sim block
+  }  // end of 2nd-HOSTGAL block
 
   // - - - -
 
-  // add HOSTGAL SB (Sep 3 2014)
-  //  if ( (SNDATA.HOSTGAL_USEMASK & 4 ) > 0 ) {
+  // HOSTGAL Surface Brightness (SB) under SN
   for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
     ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
     sprintf(parName,"HOSTGAL_SB_FLUXCAL_%c", FILTERSTRING[ifilt_obs] );
@@ -1279,6 +1280,10 @@ void wr_snfitsio_update_head(void) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.REDSHIFT_FINAL_ERR ;
   wr_snfitsio_fillTable ( ptrColnum, "REDSHIFT_FINAL_ERR", itype );
+
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.REDSHIFT_QUALITYFLAG ;
+  wr_snfitsio_fillTable ( ptrColnum, "REDSHIFT_QUALITYFLAG", itype );
 
   // VPEC and error (Jan 2018)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;

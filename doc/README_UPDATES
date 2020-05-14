@@ -18385,4 +18385,9 @@
      + fix bug causing FITRES files NOT to be gzipped, and was
        also causing VERSION_AFTERBURNER option to be skipped.
 
+   snana.car, sntools_fitsio:
+     + add REDSHIFT_QUALITYFLAG to data structure.
+       This is a survey-dependent flag on spec-z (host or SN),
+       and thus there is no standard set of flag definitions.
+
 END: 

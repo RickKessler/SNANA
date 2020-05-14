@@ -721,7 +721,8 @@ c analysis-related variables.
       INTEGER
      &   SNLC_CID               ! integer CID 
      &  ,ISNLC_SNRECON_USE(MXEPOCH)  ! 1 -> epoch used in SNRECON
-     &  ,ISNLC_PHOTFLAG(MXEPOCH) ! photomety flags
+     &  ,ISNLC_PHOTFLAG(MXEPOCH)     ! photomety flags
+     &  ,ISNLC_zFLAG                 ! zspec-quality flag (May 2020)
      &  ,ISNLC_LENCCID     ! char-len of CCID
      &  ,ISNLC_LENIAUC     ! char-len of IAUC name
      &  ,ISNLC_VERSION     ! photometry version index vs. ISN     
@@ -903,7 +904,7 @@ c
 
       COMMON / ISNCOM /      
      &     ISNLC_VERSION, ISNLC_SNRECON_USE, ISNLC_PHOTFLAG
-     &    ,ISNLC_TYPE
+     &    ,ISNLC_TYPE, ISNLC_zFLAG
      &    ,ISNLC_ABSO_INDEX, ISNLC_IFILE,ISNLC_LENCCID,ISNLC_LENIAUC
      &    ,ISNLC_NFILT_NEWMJD, ISNLC_IFILT_OBS
      &    ,ISNLC_NEWMJD_HEAD, ISNLC_NEWMJD_FOUND, ISNLC_NEWMJD_STORE
@@ -1473,6 +1474,7 @@ c define hard-wired list of valid over-rides
      &   'HOSTGAL_sSFR,HOSTGAL_sSFR_ERR,HOSTGAL_DDLR,' // 
      &   'HOSTGAL_PHOTOZ,HOSTGAL_PHOTOZ_ERR,' // 
      &   'VPEC,VPEC_ERR,REDSHIFT_FINAL,REDSHIFT_FINAL_ERR,' //
+     &   'REDSHIFT_QUALITYFLAG,zFLAG,' //
      &   'SIM_SALT2x1,SIM_SALT2c,SIM_x1,SIM_c,'      //
      &   'PEAKMJD,PKMJDINI,PEAKMJDINI,' //
      &   'MWEBV,MWEBV_ERR '      )
@@ -6796,6 +6798,9 @@ c ---------- redshift info --------
 
       DVAL      = SNLC_VPEC_ERR
       CALL SET_SNDATA_DBLE("VPEC_ERR", DVAL )
+
+      DVAL      = DBLE(ISNLC_zFLAG)
+      CALL SET_SNDATA_DBLE("REDSHIFT_QUALITYFLAG", DVAL )
 
 c ------- host galaxy info  ------------
       HOSTGAL_USEMASK = 0
@@ -14321,39 +14326,19 @@ C ==============================================
 +DECK,PRS_REDSHIFT.
       SUBROUTINE PARSE_REDSHIFT ( isnlc, cwords, istat )
 c
-c parse redshift parameters.
-c cword(1) is the keyword; cword(2) is the value,c
-c or cword(2-6) are the five values for ugirz.
+c Parse redshift parameters.
+c cword(1) is the keyword; cword(2) is the value.
 c Returns ISTAT=0 (OK) if redshift is within cut-window;
 c other returns ISTAT = -1
 c
-c May 15, 2008: LZTMP includes cut on redshift error.
-c
-c Oct 31, 2008: add crazy-Z protection (see ZMAX)
-c
-c Mar 17, 2009: read ZHELIO and ZCMB
-c
-c Aug 7, 2009:   Z = Z  + REDSHIFT_FINAL_SHIFT
-c                to fudge redshifts in photoZ fits
-c
-c Nov 21, 2009: protect NZ from exceeding MXZSPEC
-c
-c Jun 22, 2011: use READ_HEADKEY() function to read either TEXT or FITS
-c
-c Aug 28, 2012: set HEADMASK_Z bit if valid redshift key is found.
-c               Used to make sure that required keys are found.
-c
-c Dec 18, 2012: simplify logic using new RETSTR='+ERR' feature to read
-c               both the value and error with one call to READ_HEADKEY
-c
-c Aug 19, 2013: remove call to ZCUTSTAT; no more redshift cuts from 
-c               header because it messess up the cut-bookkeeping.
 c
 c Jul 11 2015:  read optional SN-only redshift (REDSHIFT_SN[_ERR])
 c
 c May 1 2018: 
 c   + use '+ERR' feature to read VPEC[ERR] as either 2 keys,
 c     or as  VPEC: xxx +- yyy
+c
+c May 2020: read optional REDSHIFT_QUALITYFLAG
 c
 c --------------
 
@@ -14453,6 +14438,17 @@ c Jan 2018: read optional VPEC & its error
 
       IF (  abs(VPEC_ERR_OVERRIDE) > .001 ) THEN
          SNLC_VPEC_ERR = VPEC_ERR_OVERRIDE  ! Jan 11 2018
+      ENDIF
+
+c ---------------------------------------
+c May 2020: read optional quality flag
+      RETSTR = ''
+      ZKEY   = 'REDSHIFT_QUALITYFLAG'
+      LZTMP   = READ_HEADKEY(isnlc, cwords, ZKEY, RET8, RETSTR )
+      IF ( LZTMP ) THEN
+         if ( RET8(1) .NE. IGNORE_HEADVAL) then
+           ISNLC_zFLAG  = INT ( RET8(1) )
+         endif
       ENDIF
 
       RETURN
@@ -16826,11 +16822,11 @@ c ------------- BEGIN -------------
       SNLC_ZCMB_ERR      =   0.0
       SNLC_ZSN           =  -9.0 
       SNLC_ZSN_ERR       =   0.0
-
       SNLC_REDSHIFT      =  -9.0
       SNLC_REDSHIFT_ERR  =   0.0
       SNLC_VPEC          =   0.0
       SNLC_VPEC_ERR      =   0.0
+      ISNLC_zFLAG        =  -999  
 
       SNLC_PIXSIZE       =  -9.0
       SNLC_NXPIX         =  -9.0
@@ -18327,9 +18323,10 @@ C ========================================================
 c Created Nov 29 2016 by R.Kessler
 c Execute header override.
 c
-c Aug 7 2019: fix bug setting SNLC_ZCMB_ERR to zerr instead of z.
+c Aug  7 2019: fix bug setting SNLC_ZCMB_ERR to zerr instead of z.
 c Nov 22 2019: check for HOSTGAL_OBJID, SIM_SALT2x1[c]
- 
+c May 14 2020: check for REDSHIFT_QUALITYFLAG
+
       IMPLICIT NONE
     
 +CDE,SNDATCOM.
@@ -18392,6 +18389,11 @@ c brute-force check each possible header variable
           SNLC_ZHELIO = sngl(DVAL)
         ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_HELIO_ERR' ) THEN
           SNLC_ZHELIO_ERR = sngl(DVAL)
+
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_QUALITYFLAG' ) THEN
+           ISNLC_zFLAG = int(DVAL)
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'zFLAG' ) THEN
+           ISNLC_zFLAG = int(DVAL)
 
         ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_OBJID' ) THEN
           SNHOST_OBJID(1) = sngl(DVAL)   ! Nov 22 2019
@@ -24555,11 +24557,12 @@ c
 c May 31 2016: add zCMB[ERR] to text file and remove legacy "z,zerr"
 c              from text file [since z=zHELIO]
 c
-c Jan 8 2018: write zHEL[ERR] to text file
-c Mar 9 2018: add PHOTPROB info, MIN and Nepochs
+c Jan  8 2018: write zHEL[ERR] to text file
+c Mar  9 2018: add PHOTPROB info, MIN and Nepochs
 c Mar 10 2019: add HOST_OBJID with BLOCK_LL for long long int
 c May 23 2019: bug fix: book HOST_RA[DEC] as double instead of float.
 c Feb 20 2020: write MWEBV to TEXT table.
+c May 14 2020: add zFLAG
 c --------------------------------------------------
 
       IMPLICIT NONE
@@ -24723,6 +24726,10 @@ c - - - - -  redshift - - - - -
 
       VARLIST = 'zHD:F,zHDERR:F' // char(0)  ! Hubble diagram redshift
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_ZHD, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'zFLAG:I' // char(0)  ! z-quality flag (May 2020)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_zFLAG, VARLIST, 0,
      &                   LENBLOCK, 20 )
 
 c z = zCMB for spec z, but for photo-z fit z & zERR are the original

@@ -261,8 +261,8 @@ struct SNDATA {
   float REDSHIFT_HELIO_ERR;     // final (best) redshift, Helio frame
   float REDSHIFT_FINAL;         // idem, CMB frame
   float REDSHIFT_FINAL_ERR;     // error on above
-  float REDSHIFT_SURVEY;        // redshift from survey
   float VPEC, VPEC_ERR;         // Jan 2018
+  int   REDSHIFT_QUALITYFLAG;   // quality flag (survey-dependent meaning)
 
   // info obtained during survey (in SQL). 
   // Note that LC fit => Masao's fitter

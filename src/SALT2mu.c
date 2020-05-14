@@ -14384,7 +14384,8 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   if ( DATAONLY && isData==0 ) { return(0) ; } // Oct 23 2018
 
   if ( NOVAR && ABORTFLAG ) {
-    sprintf(c1err,"Invalid CUTWIN on '%s'", VARNAME);
+    sprintf(c1err,"Invalid CUTWIN on '%s' (ivar=%d, icut=%d, isData=%d)", 
+	    VARNAME, ivar, icut, isData );
     sprintf(c2err,"Check CUTWIN keys in input file" ); 
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }

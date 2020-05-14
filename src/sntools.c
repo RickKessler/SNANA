@@ -2827,6 +2827,9 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
   else if ( strcmp(key,"REDSHIFT_HELIO_ERR") == 0 )
     {  SNDATA.REDSHIFT_HELIO_ERR = parVal[0] ;  }
 
+  else if ( strcmp(key,"REDSHIFT_QUALITYFLAG") == 0 )
+    {  SNDATA.REDSHIFT_QUALITYFLAG = (int)parVal[0] ;  }
+
   else if ( strcmp(key,"VPEC") == 0 )
     {  SNDATA.VPEC = parVal[0] ;  }
   else if ( strcmp(key,"VPEC_ERR") == 0 )

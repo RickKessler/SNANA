@@ -722,7 +722,7 @@ c analysis-related variables.
      &   SNLC_CID               ! integer CID 
      &  ,ISNLC_SNRECON_USE(MXEPOCH)  ! 1 -> epoch used in SNRECON
      &  ,ISNLC_PHOTFLAG(MXEPOCH)     ! photomety flags
-     &  ,ISNLC_zFLAG                 ! zspec-quality flag (May 2020)
+     &  ,ISNLC_zFLAG                 ! zspec-quality flag (May 2020), data only
      &  ,ISNLC_LENCCID     ! char-len of CCID
      &  ,ISNLC_LENIAUC     ! char-len of IAUC name
      &  ,ISNLC_VERSION     ! photometry version index vs. ISN     
@@ -14441,7 +14441,11 @@ c Jan 2018: read optional VPEC & its error
       ENDIF
 
 c ---------------------------------------
-c May 2020: read optional quality flag
+c May 2020: 
+c Read optional quality flag for redshift, which can appear only for 
+c real data. This flag refers to spectral quality of host or SN. 
+c Each survey should define flag values in their data-readme.
+
       RETSTR = ''
       ZKEY   = 'REDSHIFT_QUALITYFLAG'
       LZTMP   = READ_HEADKEY(isnlc, cwords, ZKEY, RET8, RETSTR )

@@ -78,6 +78,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
   // Jun 14 2017: pass Nsubsample_mark as argument
   // Mar 18 2018: check for SNRMON
   // Aug 19 2019: check length of filename.
+  // May 14 2020: set SNFITSIO_DATAFLAG
 
   int  itype, ipar, OVP, lenpath, lenfile, lentot ;
   char *ptrFile, *ptrFile2, *ptrType ;
@@ -85,9 +86,9 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
   
   // --------------- BEGIN --------------
 
-
   // set global logical for SIM
-  SNFITSIO_SIMFLAG_SNANA = SNFITSIO_SIMFLAG_MAGOBS = false ;  
+  SNFITSIO_SIMFLAG_SNANA = SNFITSIO_SIMFLAG_MAGOBS = false ; 
+  SNFITSIO_DATAFLAG = false ;
   SNFITSIO_SIMFLAG_SPECTROGRAPH = false ;
   SNFITSIO_SIMFLAG_SNRMON       = false ;
   SNFITSIO_SIMFLAG_MODELPAR     = false ;
@@ -104,6 +105,8 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
   OVP = ( simFlag & WRITE_MASK_SIM_MAGOBS ) ;
   if ( OVP > 0 ) // data-like, but with MAGOBS
     { SNFITSIO_SIMFLAG_MAGOBS = true ; }
+
+  SNFITSIO_DATAFLAG = !(SNFITSIO_SIMFLAG_SNANA || SNFITSIO_SIMFLAG_MAGOBS);
 
   OVP = ( simFlag & WRITE_MASK_SIM_SNRMON ) ;
   if ( OVP > 0 ) { 
@@ -243,7 +246,9 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1E", "REDSHIFT_HELIO_ERR" ,   itype );
   wr_snfitsio_addCol( "1E", "REDSHIFT_FINAL" ,       itype );
   wr_snfitsio_addCol( "1E", "REDSHIFT_FINAL_ERR" ,   itype );
-  wr_snfitsio_addCol( "1I", "REDSHIFT_QUALITYFLAG",  itype );
+
+  if ( SNFITSIO_DATAFLAG ) 
+    { wr_snfitsio_addCol( "1I", "REDSHIFT_QUALITYFLAG",  itype ); }
 
   wr_snfitsio_addCol( "1E", "VPEC" ,      itype );  // peculiar velocity cor
   wr_snfitsio_addCol( "1E", "VPEC_ERR" ,  itype );  // error on correction
@@ -1281,9 +1286,11 @@ void wr_snfitsio_update_head(void) {
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.REDSHIFT_FINAL_ERR ;
   wr_snfitsio_fillTable ( ptrColnum, "REDSHIFT_FINAL_ERR", itype );
 
-  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.REDSHIFT_QUALITYFLAG ;
-  wr_snfitsio_fillTable ( ptrColnum, "REDSHIFT_QUALITYFLAG", itype );
+  if ( SNFITSIO_DATAFLAG ) {
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.REDSHIFT_QUALITYFLAG ;
+    wr_snfitsio_fillTable ( ptrColnum, "REDSHIFT_QUALITYFLAG", itype );
+  }
 
   // VPEC and error (Jan 2018)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;

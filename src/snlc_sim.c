@@ -15122,12 +15122,14 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   //    
   // Jan 3 2018: use parse_SIMLIB_IDplusNEXPOSE() to read IDEXPT & NEXPOSE
   // Sep 17 2019: rewind on EOF so that END_OF_SIMLIB: key is optional.
+  // May 15 2020: don't read SPECTROGRPAH key unless SPECTROGRAPH_USEFLAG is set.
 
   int ISMODEL_SIMLIB =  (INDEX_GENMODEL == MODEL_SIMLIB);
   int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0, scanStat;
   int APPEND_PHOTFLAG, ifilt_obs, DONE_READING, DO_REWIND ;
   int NTRY, USEFLAG_LIBID, USEFLAG_MJD, OPTLINE, NWD, NTMP ;
   int   NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT, NMAG_notZeroFlux;
+  bool  FOUND_SPECTROGRAPH ;
   double PIXSIZE, TEXPOSE_S, MJD, MAG ;
   char c_get[80], ctmp[80], *BAND, cline[200] ;
   char *FIELD = SIMLIB_HEADER.FIELD;
@@ -15274,7 +15276,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       if ( USEFLAG_LIBID == ACCEPT_FLAG ) { OPTLINE = OPTLINE_SIMLIB_S;  }
     }
 
-    if ( strcmp(c_get,"SPECTROGRAPH:") == 0 && USEFLAG_LIBID==ACCEPT_FLAG )
+    
+    FOUND_SPECTROGRAPH = 
+      ( SPECTROGRAPH_USEFLAG && strcmp(c_get,"SPECTROGRAPH:")==0 );
+    if ( FOUND_SPECTROGRAPH && USEFLAG_LIBID==ACCEPT_FLAG )
       { OPTLINE = OPTLINE_SIMLIB_SPECTROGRAPH ;  }
 
     // always check reasons to reject (header cuts, FIELD, APPEND ...)
@@ -26647,7 +26652,6 @@ void readme_doc_mapFile(int *iline, char *KEY, char *FILENAME) {
   // -------------- BEGIN ------------
   i = *iline ;
   
-  printf(" xxx KEY = %s, FILENAME = %s \n", KEY, FILENAME);
   if ( !IGNOREFILE(FILENAME) ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"%s %s %s\n", KEY_MAP, KEY, FILENAME);

@@ -18375,6 +18375,8 @@
    snlc_sim.c
     + output REAMDE includes list of each map file with MAP: key
       so that they can be grepped.
+    + fix minor spectrograph bug: ignore SPECTROGRAPH keys in 
+      SIMLIB if spectrograph is not defined in kcor file.
 
    sim_SNmix.pl:
     + write PATH_SNDATA_SIM in TOTAL_SUMMARY.LOG

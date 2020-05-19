@@ -5496,7 +5496,16 @@ void GEN_SNHOST_POS(int IGAL) {
   SNHOSTGAL.DDLR              = HOSTLIB_SNPAR_UNDEFINED ;
 
   // bail out if there are no galaxy shape parameters
-  if ( NPROF == 0 ) { return ; }
+  if ( NPROF == 0 ) { 
+
+    if ( LSN2GAL ) {
+      sprintf(c1err,"Cannot exec HOSTLIB_MSKOPT += %d", 
+	      HOSTLIB_MSKOPT_SN2GAL_RADEC);
+      sprintf(c2err,"Must define host Sersic profile to move SN near host.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    return ; 
+  }
 
   if ( HOSTLIB.IVAR_ANGLE < 0 ) {
     sprintf(c1err,"Missing required %s in hostlib", HOSTLIB_VARNAME_ANGLE);

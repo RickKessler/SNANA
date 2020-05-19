@@ -18392,4 +18392,7 @@
        This is a survey-dependent flag on spec-z (host or SN),
        and thus there is no standard set of flag definitions.
 
+   SALT2mu.c
+     + new option CUTWIN(BIASCORONLY) to cut only on biasCor.
+
 END: 

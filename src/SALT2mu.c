@@ -1355,11 +1355,12 @@ struct INPUTS {
   double chi2max;     // chi2-outlier cut (Jul 2019)
 
   int    NCUTWIN ;
-  int    CUTWIN_RDFLAG[MXCUTWIN] ; // 1=> read, 0=> use existing var
   char   CUTWIN_NAME[MXCUTWIN][MXCHAR_VARNAME];
   double CUTWIN_RANGE[MXCUTWIN][2];
-  int    CUTWIN_ABORTFLAG[MXCUTWIN] ;  // 1=> abort if var does not exist
-  int    CUTWIN_DATAONLY[MXCUTWIN] ;   // 1=> cut on data only (not biasCor)
+  bool   LCUTWIN_RDFLAG[MXCUTWIN] ; // 1=> read, 0=> use existing var
+  bool   LCUTWIN_ABORTFLAG[MXCUTWIN] ;  // 1=> abort if var does not exist
+  bool   LCUTWIN_DATAONLY[MXCUTWIN] ;   // 1=> cut on real or sim data 
+  bool   LCUTWIN_BIASCORONLY[MXCUTWIN]; // 1=> cut on biasCor
 
   int  Nsntype ;
   int  sntype[MXSNTYPE]; // list of sntype(s) to select
@@ -5063,7 +5064,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     free(TABLEVAR->CUTMASK);
 
     for(i=0; i < INPUTS.NCUTWIN; i++ ) { 
-      if ( INPUTS.CUTWIN_RDFLAG[i] ) { free(TABLEVAR->CUTVAL[i]); }
+      if ( INPUTS.LCUTWIN_RDFLAG[i] ) { free(TABLEVAR->CUTVAL[i]); }
     }
 
     free(TABLEVAR->SIM_NONIA_INDEX);
@@ -5103,7 +5104,7 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
 
   // --------------- BEGIN -----------------
 
-  INPUTS.CUTWIN_RDFLAG[icut] = 0;
+  INPUTS.LCUTWIN_RDFLAG[icut] = false ;
 
   if ( strcmp(CUTNAME,"x0") == 0 )
     { TABLEVAR->CUTVAL[icut] = TABLEVAR->x0; }
@@ -5131,7 +5132,7 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
   // IDSURVEY and SNTYPE are int ??
 
   else {
-    INPUTS.CUTWIN_RDFLAG[icut] = 1 ;
+    INPUTS.LCUTWIN_RDFLAG[icut] = true ;
     TABLEVAR->CUTVAL[icut] = (float*)malloc(MEMF);  MEMTOT += MEMF ; 
     if ( strcmp(CUTNAME,INPUTS.varname_gamma) == 0 ) 
       { TABLEVAR->ICUTWIN_GAMMA = icut;       }
@@ -5342,8 +5343,10 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   int USE_FIELDGROUP  = ( INPUTS.use_fieldGroup_biasCor > 0 ) ;
   int IDEAL           = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
 
-  int  icut, ivar, ivar2, irow, id, RDFLAG ;
-  char vartmp[MXCHAR_VARNAME], *cutname, str_z[MXCHAR_VARNAME], str_zerr[MXCHAR_VARNAME]; 
+  int  icut, ivar, ivar2, irow, id ;
+  bool RDFLAG ;
+  char vartmp[MXCHAR_VARNAME], *cutname, str_z[MXCHAR_VARNAME]; 
+  char str_zerr[MXCHAR_VARNAME]; 
 
   char fnam[] = "SNTABLE_READPREP_TABLEVAR" ;
 
@@ -5511,7 +5514,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   //read CUTWIN variables 
   for(icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
     cutname = INPUTS.CUTWIN_NAME[icut]; 
-    RDFLAG  = INPUTS.CUTWIN_RDFLAG[icut] ;
+    RDFLAG  = INPUTS.LCUTWIN_RDFLAG[icut] ;
     sprintf(vartmp, "%s:F", cutname );
     if ( !usesim_CUTWIN(vartmp)  ) { continue ; }
 
@@ -14264,8 +14267,9 @@ void parse_CUTWIN(char *item) {
 
   INPUTS.NCUTWIN++ ;
   ICUT = INPUTS.NCUTWIN-1 ;
-  INPUTS.CUTWIN_ABORTFLAG[ICUT] = 1;  // default is to abort on missing var
-  INPUTS.CUTWIN_DATAONLY[ICUT]  = 0;  // default cut on data and biasCor
+  INPUTS.LCUTWIN_ABORTFLAG[ICUT] = true ;   //  abort on missing var
+  INPUTS.LCUTWIN_DATAONLY[ICUT]  = false ;  //  cut on data 
+  INPUTS.LCUTWIN_BIASCORONLY[ICUT] = false ;  //  cut on sim data and biasCor
 
   sprintf(local_item,"%s", item);
   ptrtok = strtok(local_item," ");
@@ -14278,10 +14282,13 @@ void parse_CUTWIN(char *item) {
       extractStringOpt(KEY, stringOpt); // return stringOpt
 
       if ( strcmp(stringOpt,"NOABORT") == 0 ) 
-	{ INPUTS.CUTWIN_ABORTFLAG[ICUT] = 0; } // allow missing variable 
+	{ INPUTS.LCUTWIN_ABORTFLAG[ICUT] = false; } // allow missing variable 
 
       if ( strcmp(stringOpt,"DATAONLY") == 0 ) 
-	{ INPUTS.CUTWIN_DATAONLY[ICUT] = 1; } // cut on data only
+	{ INPUTS.LCUTWIN_DATAONLY[ICUT] = true ; } // cut on data only
+
+      if ( strcmp(stringOpt,"BIASCORONLY") == 0 ) 
+	{ INPUTS.LCUTWIN_BIASCORONLY[ICUT] = true ; } // cut on sim & biascor
     }
 
     if ( i == 1 ) 
@@ -14300,7 +14307,7 @@ void parse_CUTWIN(char *item) {
 	 ,INPUTS.CUTWIN_NAME[ICUT]
 	 ,INPUTS.CUTWIN_RANGE[ICUT][0]
 	 ,INPUTS.CUTWIN_RANGE[ICUT][1]
-	 ,INPUTS.CUTWIN_ABORTFLAG[ICUT]
+	 ,INPUTS.LCUTWIN_ABORTFLAG[ICUT]
 	 ) ;
 
 } // end of parse_CUTWIN
@@ -14372,16 +14379,18 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   //  + new input arg isData=1 for data, zero for sim biasCor 
   //  + check DATAONLY flag.
 
-  int  NOVAR     = ( ivar < 0 );
-  int  ABORTFLAG = INPUTS.CUTWIN_ABORTFLAG[icut];
-  int  DATAONLY  = INPUTS.CUTWIN_DATAONLY[icut];
-  int  ISTAT;
-  char *VARNAME  = INPUTS.CUTWIN_NAME[icut];
+  bool  NOVAR       = ( ivar < 0 );
+  bool  ABORTFLAG   = INPUTS.LCUTWIN_ABORTFLAG[icut];
+  bool  DATAONLY    = INPUTS.LCUTWIN_DATAONLY[icut];
+  bool  BIASCORONLY = INPUTS.LCUTWIN_BIASCORONLY[icut];
+  int   ISTAT ;
+  char *VARNAME   = INPUTS.CUTWIN_NAME[icut];
   char  fnam[] = "set_DOFLAG_CUTWIN" ;
 
   // ------------- BEGIN -------------
   
-  if ( DATAONLY && isData==0 ) { return(0) ; } // Oct 23 2018
+  if ( DATAONLY    && !isData ) { return(0) ; } // Oct 23 2018
+  if ( BIASCORONLY &&  isData ) { return(0) ; } // May 18 2020
 
   if ( NOVAR && ABORTFLAG ) {
     sprintf(c1err,"Invalid CUTWIN on '%s' (ivar=%d, icut=%d, isData=%d)", 

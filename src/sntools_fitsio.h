@@ -76,6 +76,7 @@ int MXOBS_SNFITSIO ;     // max NOBS among SNe (to allocate memory)
 
 int MALLOC_LEN_SNFITSIO[MXTYPE_SNFITSIO] ; // malloc length per file type
 
+bool  SNFITSIO_DATAFLAG ;       // true -> real data (not sim, not fakes)
 bool  SNFITSIO_SIMFLAG_SNANA ;  // SNANA sim
 bool  SNFITSIO_SIMFLAG_MAGOBS ; // data-like with SIM_MAGOBS
 bool  SNFITSIO_SIMFLAG_SPECTROGRAPH ;  // simulated spectra (Aug 2016)

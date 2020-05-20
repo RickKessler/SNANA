@@ -209,6 +209,18 @@
 # Apr 7 2020:
 #    leave FAILURE message in DONE stamp if SBATCH file does not exist.
 #
+# Apr 24 2020:
+#   +  abort if PATH_SNDATA_SIM does not exist.
+#   +  abort if NPER_SEASON is null string
+#
+# Apr 28 2020:
+#   + abort if SIMGEN_INFILE_[Ia,SNIa,NONIa] is not specified.
+#       (github issues from Justin)
+#
+# May 12 2020: 
+#   + increment NABORT if logFile does not exist.
+#   + write PATH_SNDATA_SIM in TOTAL_SUMMARY.LOG
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -881,7 +893,6 @@ sub parse_inFile_master() {
     }
 
     $key = "JOBNAME_SIM:" ;
-# xxx    @tmp = sntools::parse_line($inFile, 1, $key, $OPT_QUIET ) ;
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) { 
 	$JOBNAME_SIM = "$tmp[0]" ;  
@@ -891,7 +902,6 @@ sub parse_inFile_master() {
     $JOBNAME_SIM_FULLPATH =~ s/\s+$// ;   # trim trailing whitespace
 
     $key = "PATH_SNDATA_SIM:" ;
-# xxxx    @tmp = sntools::parse_line($inFile, 1, $key, $OPT_QUIET ) ;
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_MASTER);
     if ( scalar(@tmp) > 0 ) { 
 	$PATH_SNDATA_SIM = "$tmp[0]" ;  
@@ -1095,12 +1105,6 @@ sub parse_inFile_master() {
 	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);	
     }
 
-# xxxxxx mark delete Oct 28 2019 xxxxxxxxx
-#    if ( scalar(@tmp) > 0 ) {
-#	my(@ZRANGE);	$ZRANGE[0] = $tmp[0];	$ZRANGE[1] = $tmp[1];
-#	$SIMARG_ZRANGE  = "GENRANGE_REDSHIFT $ZRANGE[0] $ZRANGE[1]";	
-#   }
-# xxxxxxxxx end mark xxxxxxxxxx
 
     $key = "H0:" ; 
     @tmp = sntools::parse_array($key,2,$OPT_QUIET,@CONTENTS_INFILE_MASTER );
@@ -1155,12 +1159,25 @@ sub parse_inFile_master() {
 	{ &parse_INFILE_NONIa($iver,$m); }
     }
 
+    if ( $NSIMTYPE == 0 ) {
+	$MSGERR[0] = " Must specify sim-input file for Ia and/or NON1A." ;
+	$MSGERR[1] = " Add 1 or more of the following keys in $SNMIX_INFILE_MASTER :" ;
+	$MSGERR[2] = "  SIMGEN_INFILE_Ia: <inFile> " ;
+	$MSGERR[3] = "  SIMGEN_INFILE_SNIa: <inFile> " ;
+	$MSGERR[4] = "  SIMGEN_INFILE_NONIa: <inFile> " ;
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);
+    }
+
     print " DOGEN[SNIa,NONIa] = $DOGEN_SNIa,$DOGEN_NONIa \n";
     &check_SIMGEN_DUMP();
     
-
     if ( $USER_PATH_SNDATA_SIM ) {
-	print " PATH_SNDATA_SIM (\$SNDATA_ROOT/SIM) -> $PATH_SNDATA_SIM \n";
+	print " PATH_SNDATA_SIM -> $PATH_SNDATA_SIM \n";
+	if ( !(-d $PATH_SNDATA_SIM) ) {
+	    $MSGERR[0] = "PATH_SNDATA_SIM does not exist:" ;
+	    $MSGERR[1] = "  $PATH_SNDATA_SIM" ;
+	    sntools::FATAL_ERROR(@MSGERR);
+	}
     }
 
     return ;
@@ -1383,13 +1400,6 @@ sub syncVerify_files {
     my ($ISCC,$G5);
     $G5   = substr($GENMODEL_NAME_GLOBAL[$m],0,5);  # e.g., allow NON1ASED
     $ISCC = ( $G5 ne "FIXMAG" );
-
-    if ( $NSIMTYPE == 0 ) {
-	$MSGERR[0] = " Must specify sim-input file for Ia and/or NON1A." ;
-	$MSGERR[1] = " Add SIMGEN_INFILE_Ia and/or SIMGEN_INFILE_NONIa key";
-	$MSGERR[2] = " in $SNMIX_INFILE_MASTER ";
-	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);
-    }
 
     if ( $NSIMTYPE == 2 && $ISCC ) {
 	my ($found);  
@@ -2552,6 +2562,7 @@ sub get_normalization {
 sub get_normalization_model {
 
     # Nov 12 2019: abort if normalization job fails
+    # Apr 24 2020: abort if $NPER_SEASON is null string
 
     # iver = GENVERSION index, $m is model index
     my($iver,$m) = @_;
@@ -2615,6 +2626,12 @@ sub get_normalization_model {
 
     @wdlist = split(/\s+/,$line[0]) ;
     $NPER_SEASON = $wdlist[7] ;
+    if ( length($NPER_SEASON) == 0 ) {
+	$MSGERR[0] = "Unable to extract NPER_SEASON from 7th word of";
+	$MSGERR[1] = "grep line : $line[0]" ;
+	$MSGERR[2] = "in NORMLOG file : $NORMLOG" ;
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR) ;
+    }
     print "NGENTOT_LC($MODEL_CLASS)/season = $NPER_SEASON \n";
     $| = 1;  # flush stdout
     if ( $APPEND_NORM ) { &append_normLog($NORMLOG); }
@@ -2935,6 +2952,14 @@ sub simgen {
 
     # run job and wait for it to finish ...
     system("$simcmd");
+    sleep(1); 
+
+    # May 2020: make sure log file exists
+    if ( !(-e $logFile) ) {
+	print "\n xxx cannot find logFile = $logFile ??? xxx \n";
+	$JOBABORT_FLAG = 1 ;   $NABORT++ ;
+        goto LAST_NGEN ;
+    }
 
     # Jun 7 2013: if sim aborted, exit here to make sure DONE stamp is made.
     $key = " ABORT " ;
@@ -2944,9 +2969,9 @@ sub simgen {
 #	print "\n xxx found ABORT in $logFile \n\n";
 	goto LAST_NGEN ; 
     }
-    else { 
-	$JOBABORT_FLAG = 0 ; 
-    }
+
+    # no abort if we get here.
+    $JOBABORT_FLAG = 0 ; 
 
     # increment number of SN generated and written out
     $key = "Wrote" ;
@@ -3763,6 +3788,8 @@ sub make_TOTAL_SUMMARY_FILE {
 
     open  PTR_TMPFILE , "> $TOTAL_FILE" ;
 
+    print PTR_TMPFILE "PATH_SNDATA_SIM: $PATH_SNDATA_SIM \n\n";
+
     for($JJ=0 ; $JJ < 2; $JJ++ ) {
 	# JJ=0 for SNIa, JJ=1 for NONIa
 	$TYPE = $TYPELIST[$JJ] ;     $SUMSTRING = "SUM-$TYPE" ;
@@ -4225,7 +4252,7 @@ sub convert_SIMGEN_DUMP {
     if ( $CONVERT_SIMGEN_DUMP eq 'ROOT'  ) { $FMTARG='R'; }
 
     if ( $FMTARG ne '' ) {
-	$ARGS = "$DUMP_FILE $FMTARG --outprefix $VERSION_ALL" ;
+	$ARGS = "$DUMP_FILE $FMTARG -outprefix $VERSION_ALL" ;
 	$CMD  = "combine_fitres.exe $ARGS" ;
 	$CMD  = "$CMD" . " ; rm ${VERSION_ALL}.text" ;
 	print " Convert $DUMP_FILE file to $CONVERT_SIMGEN_DUMP \n" ;

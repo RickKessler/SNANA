@@ -78,6 +78,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
   // Jun 14 2017: pass Nsubsample_mark as argument
   // Mar 18 2018: check for SNRMON
   // Aug 19 2019: check length of filename.
+  // May 14 2020: set SNFITSIO_DATAFLAG
 
   int  itype, ipar, OVP, lenpath, lenfile, lentot ;
   char *ptrFile, *ptrFile2, *ptrType ;
@@ -85,9 +86,9 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
   
   // --------------- BEGIN --------------
 
-
   // set global logical for SIM
-  SNFITSIO_SIMFLAG_SNANA = SNFITSIO_SIMFLAG_MAGOBS = false ;  
+  SNFITSIO_SIMFLAG_SNANA = SNFITSIO_SIMFLAG_MAGOBS = false ; 
+  SNFITSIO_DATAFLAG = false ;
   SNFITSIO_SIMFLAG_SPECTROGRAPH = false ;
   SNFITSIO_SIMFLAG_SNRMON       = false ;
   SNFITSIO_SIMFLAG_MODELPAR     = false ;
@@ -104,6 +105,8 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
   OVP = ( simFlag & WRITE_MASK_SIM_MAGOBS ) ;
   if ( OVP > 0 ) // data-like, but with MAGOBS
     { SNFITSIO_SIMFLAG_MAGOBS = true ; }
+
+  SNFITSIO_DATAFLAG = !(SNFITSIO_SIMFLAG_SNANA || SNFITSIO_SIMFLAG_MAGOBS);
 
   OVP = ( simFlag & WRITE_MASK_SIM_SNRMON ) ;
   if ( OVP > 0 ) { 
@@ -195,7 +198,8 @@ void wr_snfitsio_init_head(void) {
   // Dec 10, 2018: add BYOSED
   // Jul 20, 2019: add strong lens info
   // Feb 27, 2020: add SIM_HOSTLIB_GALID
-  //
+  // May 14, 2020: add REDSHIFT_QUALITYFLAG
+
   long  NROW = 0 ;
   int itype, ncol, istat, ivar, ipar ;
   int ifilt, ifilt_obs;
@@ -242,6 +246,9 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1E", "REDSHIFT_HELIO_ERR" ,   itype );
   wr_snfitsio_addCol( "1E", "REDSHIFT_FINAL" ,       itype );
   wr_snfitsio_addCol( "1E", "REDSHIFT_FINAL_ERR" ,   itype );
+
+  if ( SNFITSIO_DATAFLAG ) 
+    { wr_snfitsio_addCol( "1I", "REDSHIFT_QUALITYFLAG",  itype ); }
 
   wr_snfitsio_addCol( "1E", "VPEC" ,      itype );  // peculiar velocity cor
   wr_snfitsio_addCol( "1E", "VPEC_ERR" ,  itype );  // error on correction
@@ -315,12 +322,11 @@ void wr_snfitsio_init_head(void) {
       wr_snfitsio_addCol( "1E", parName, itype );
     }
  
-  }  // end of NOT-sim block
+  }  // end of 2nd-HOSTGAL block
 
   // - - - -
 
-  // add HOSTGAL SB (Sep 3 2014)
-  //  if ( (SNDATA.HOSTGAL_USEMASK & 4 ) > 0 ) {
+  // HOSTGAL Surface Brightness (SB) under SN
   for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
     ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
     sprintf(parName,"HOSTGAL_SB_FLUXCAL_%c", FILTERSTRING[ifilt_obs] );
@@ -502,10 +508,8 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   // add table column with form *tform and *name.
 
   int NPAR;
-  char 
-    *ptrTmp 
-    ,fnam[] = "wr_snfitsio_addCol" 
-    ;
+  char  *ptrTmp ;
+  char fnam[] = "wr_snfitsio_addCol"     ;
 
   // ------------- BEGIN -------------------
 
@@ -526,7 +530,6 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   ptrTmp = SNFITSIO_TABLEDEF[itype].name[NPAR] ;
   SNFITSIO_TABLEDEF[itype].ptrName[NPAR] = ptrTmp ;
   sprintf(ptrTmp, "%s", name ) ;
-
 
   // param  type (int, float ...)
   ptrTmp = SNFITSIO_TABLEDEF[itype].form[NPAR];  
@@ -1160,6 +1163,8 @@ void wr_snfitsio_update__(void) {
 // ==================================
 void wr_snfitsio_update_head(void) {
 
+  // May 20 2020: fix bug setting parName for SIM_STRONGLENS_XXX
+
   int itype, LOC ,*ptrColnum, ipar, ivar    ;
   int  PTROBS_MIN, PTROBS_MAX;
   int  ifilt, ifilt_obs ;
@@ -1282,6 +1287,12 @@ void wr_snfitsio_update_head(void) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.REDSHIFT_FINAL_ERR ;
   wr_snfitsio_fillTable ( ptrColnum, "REDSHIFT_FINAL_ERR", itype );
+
+  if ( SNFITSIO_DATAFLAG ) {
+    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.REDSHIFT_QUALITYFLAG ;
+    wr_snfitsio_fillTable ( ptrColnum, "REDSHIFT_QUALITYFLAG", itype );
+  }
 
   // VPEC and error (Jan 2018)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -1720,27 +1731,27 @@ void wr_snfitsio_update_head(void) {
   if ( SNDATA.SIM_SL_FLAG ) { 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.SIM_SL_IDLENS ;
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_ID", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_zLENS ;
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_z", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_TDELAY ;
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_TDELAY", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_MAGSHIFT ;
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_MAGSHIFT", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SIM_SL_NIMG ;
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_NIMG", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SIM_SL_IMGNUM ;
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_IMGNUM", itype );
   }
 
 
@@ -2401,15 +2412,6 @@ int RD_SNFITSIO_INIT(int MSKOPT, char *PATH, char *version) {
     rd_snfitsio_file(IFILE_SNFITSIO);
     rd_snfitsio_specFile(IFILE_SNFITSIO); // check for spectra (4.2019)
   }
-
-
-  /* xxx .xyz
-  if ( SNFITSIO_SIMFLAG_SPECTROGRAPH ) {
-    RDSPEC_SNFITSIO_HEADER.NROW = 0 ;
-    for (ifile = 1; ifile <= NFILE_SNFITSIO; ifile++ ) 
-      {  rd_snfitsio_initSpec(ifile,vbose); }
-  }
-  */
 
 
   return(NSNLC_SNFITSIO_TOT) ;

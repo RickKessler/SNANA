@@ -34,6 +34,20 @@
 **********************************************************
 **********************************************************/
 
+int ivar_matchList(char *varName, int NVAR, char **varList) {
+
+  // Created May 2020
+  // return ivar such that varList[ivar] that matches varName; 
+  // else return -9
+  int ivar;
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+    if ( strcmp(varName,varList[ivar]) == 0 ) { return(ivar); }
+  }
+
+  return(-9);
+} //
+
+// =========================================================
 void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP) {
 
   // Feb 2020
@@ -2813,6 +2827,9 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
   else if ( strcmp(key,"REDSHIFT_HELIO_ERR") == 0 )
     {  SNDATA.REDSHIFT_HELIO_ERR = parVal[0] ;  }
 
+  else if ( strcmp(key,"REDSHIFT_QUALITYFLAG") == 0 )
+    {  SNDATA.REDSHIFT_QUALITYFLAG = (int)parVal[0] ;  }
+
   else if ( strcmp(key,"VPEC") == 0 )
     {  SNDATA.VPEC = parVal[0] ;  }
   else if ( strcmp(key,"VPEC_ERR") == 0 )
@@ -3941,6 +3958,8 @@ void extractStringOpt(char *string, char *stringOpt) {
 
 } // end extractStringOpt
 
+void extractstringopt_(char *string, char *stringOpt) 
+{ extractStringOpt(string,stringOpt); }
 
 // ===============================================
 void  remove_string_termination(char *STRING, int LENTOT) {
@@ -4014,8 +4033,8 @@ void trim_blank_spaces(char *string) {
     if ( ISBLANK && FOUNDCHAR ) { goto DONE ; }
     if ( ISTERM               ) { goto DONE ; }
 
-    if ( ISCHAR ) 
-      {  sprintf(tmpString,"%s%s", tmpString, c1); }
+    if ( ISCHAR )  { strcat(tmpString,c1); } 
+    // xxx mark delete    {  sprintf(tmpString,"%s%s", tmpString, c1); }
   }
 
 
@@ -6054,6 +6073,7 @@ int rd_sedFlux(
     + read 120 chars per line instead of 80 (and define MXCHAR_RDFLUX)
     + abort if line length is too long (to avoid corruption)
     + abort if fewer than 3 words are read
+
 
   **********/
 

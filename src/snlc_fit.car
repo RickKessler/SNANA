@@ -628,6 +628,7 @@ c
      &  ,INISTP_SHAPE2      ! initial step for 2nd shape-par
 c
      &  ,INIVAL_PEAKMJD       ! initial value for MJD  (days)   
+     &  ,INIVAL_PEAKMJD_SHIFT   ! shift INIVAL_PEAKMJD by this much
      &  ,INIVAL_RV            ! initial value for RV
      &  ,INIVAL_AV            ! initial value for AV
      &  ,INIVAL_AVRV          ! 
@@ -777,7 +778,8 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV
      &   ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR
      &   ,INISTP_SHAPE, INISTP_SHAPE2
-     &   ,INIVAL_PEAKMJD, INIVAL_AV, INIVAL_RV, INIVAL_AVRV
+     &   ,INIVAL_PEAKMJD, INIVAL_PEAKMJD_SHIFT
+     &   ,INIVAL_AV, INIVAL_RV, INIVAL_AVRV
      &   ,INIVAL_DLMAG, INIVAL_PHOTOZ, INIVAL_COLOR, INIVAL_X0
      &   ,INIVAL_SHAPE, INIVAL_SHAPE2, INIVAL_SHIFT_ERRFRAC
      &   ,FRACERRDIF_REPEATFIT
@@ -845,7 +847,8 @@ c ------
      &   ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV
      &   ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR
      &   ,INISTP_SHAPE, INISTP_SHAPE2
-     &   ,INIVAL_PEAKMJD, INIVAL_AV, INIVAL_RV, INIVAL_AVRV
+     &   ,INIVAL_PEAKMJD, INIVAL_PEAKMJD_SHIFT
+     &   ,INIVAL_AV, INIVAL_RV, INIVAL_AVRV
      &   ,INIVAL_DLMAG, INIVAL_PHOTOZ, INIVAL_COLOR, INIVAL_X0
      &   ,INIVAL_SHAPE, INIVAL_SHAPE2, INIVAL_SHIFT_ERRFRAC
      &   ,FRACERRDIF_REPEATFIT
@@ -2937,7 +2940,8 @@ c
 c Jun 24 2018: pass NONE argument to INIT_GENMAG_SALT2
 c
 c Jul 09 2019: call set_UVLAM_EXTRAPFLUX_SEDMODEL
-c
+c 
+c Apr 20 2020: fix dimenstion of TMP_FITMODEL to allow paths
 c ---------------------------------------------------------
 
       IMPLICIT NONE
@@ -2969,7 +2973,8 @@ c local var
 
       CHARACTER 
      &   tmpname*20
-     &  ,TMP_FITMODEL*(MXCHAR_MODELNAME)
+cc xxxx     &  ,TMP_FITMODEL*(MXCHAR_MODELNAME)
+     &  ,TMP_FITMODEL*(MXCHAR_FILENAME)
      &  ,BLANK*8
      &  ,CFILT1*2
      &  ,cfilt*(MXFILT_ALL)
@@ -6715,7 +6720,8 @@ c to reject crazy fits
       INISTP_X0        = 1.0E-5
       INISTP_PHOTOZ    = 0.0
 
-      INIVAL_PEAKMJD   = NULLVAL
+      INIVAL_PEAKMJD       = NULLVAL
+      INIVAL_PEAKMJD_SHIFT = 999999.
       INIVAL_AV        = NULLVAL
       INIVAL_RV        = RV_MWCOLORLAW
       INIVAL_AVRV      = 0.1
@@ -7574,6 +7580,10 @@ c ------------
             i = i + 1
             READ(LINE_ARGS(i),*) INIVAL_PEAKMJD
 
+         else if ( LINE_ARGS(i) .EQ. 'INIVAL_PEAKMJD_SHIFT' ) then
+            i = i + 1
+            READ(LINE_ARGS(i),*) INIVAL_PEAKMJD_SHIFT
+
          else if ( LINE_ARGS(i) .EQ. 'INISTP_SHAPE' ) then
             i = i + 1
             READ(LINE_ARGS(i),*) INISTP_SHAPE
@@ -7762,13 +7772,16 @@ c
 c Dec 5 2013: remove ISN arg, and set SIMCHI2_CHEAT=0
 c
 c Aug 29 2017: check DOFIT_IDEAL
-
+c
+c Apr 13 2020: fix INISTP[VAL]_SHAPE logic for MLCS2k2 and SNOOPY
+c
 c ----------------------------------------
 
       IMPLICIT NONE
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
++CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,FITIDEALCOM.
 
@@ -7927,15 +7940,15 @@ c Mar 24, 2012: set bound on AV and DELTA (for photoz fit)
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SNOOPY ) THEN
 
-         INIVAL(IPAR_SHAPE)    =  1.1
-         INISTP(IPAR_SHAPE)    =  0.3
+         if (INIVAL_SHAPE==NULLVAL) INIVAL(IPAR_SHAPE) = 1.1
+         INISTP(IPAR_SHAPE)    =  INISTP_SHAPE
          INIVAL(IPAR_COLOR)    =  INIVAL_AV
          INISTP(IPAR_COLOR)    =  INISTP_AV
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
 
-         INIVAL(IPAR_SHAPE)   =  0.001 !  INIVAL_SHAPE
-         INISTP(IPAR_SHAPE)   =  INISTP_SHAPE    ! initial step size         
+         if (INIVAL_SHAPE==NULLVAL) INIVAL(IPAR_SHAPE) = 0.001
+         INISTP(IPAR_SHAPE)   =  INISTP_SHAPE    ! initial step size 
          
          INIVAL(IPAR_COLOR)    =  INIVAL_COLOR
          INISTP(IPAR_COLOR)    =  INISTP_COLOR
@@ -8041,6 +8054,7 @@ c ------------------------
 c check if user has specified any INITIAL values.
 c To fix a parameter value, must also set INISTP_XXX = 0.0
 
+
       IF ( INIVAL_PEAKMJD .GT. 40000. )
      &     INIVAL_PEAKMJD = INIVAL_PEAKMJD - MJDOFF 
 
@@ -8101,12 +8115,12 @@ c now check if want to fix a parameter with the simulated value.
                INISTP(ipar) = 0.0
 
                IF ( ipar .EQ. IPAR_PEAKMJD ) then
-                  INIVAL(ipar) = INIVAL(ipar) - MJDOFF ! Nov 2013
+                  INIVAL(ipar) = INIVAL(ipar) - MJDOFF         ! Nov 2013
+                  INIVAL(ipar) = INIVAL(ipar) + SHIFT_SETPKMJD ! May 2020
                ENDIF
             endif
          enddo
-      ENDIF
-
+      ENDIF  ! end LSIM_SNANA
 
 c set FITVAL on 1st interation since this array
 c are used in the ADJUST & FITINI_XXXX routines.
@@ -8988,12 +9002,6 @@ ccc xxx mark delete     DO i = -2, 2
       if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 5")
 
 c load inital PEAK MJD and re-run FCNSNLC to update EP_FLUX_MODEL
-
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-ccc xxx mark delete Mar 4 2020
-ccc xxx     CHI8TEST = DBLE ( 5 * NEPOCH_ALL(0) )
-ccc xxx     IF(CHI8MIN<CHI8INI .and. CHI8MIN<CHI8TEST) THEN
-c xxxxxxxxxxxxxx
 
       IF ( CHI8MIN < CHI8INI ) THEN
         INIVAL(IPAR_PEAKMJD) = PEAKMJD_SAVE  ! save new PEAKMJD

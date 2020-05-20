@@ -22,22 +22,22 @@
        (print list of variables, then quit)
 
   Options:
-    sntable_dump.exe <tableFile>  <tableName>  --V <varNames>
-    sntable_dump.exe <tableFile>  <tableName>  --v <varNames>   
+    sntable_dump.exe <tableFile>  <tableName>  -V <varNames>
+    sntable_dump.exe <tableFile>  <tableName>  -v <varNames>   
 
-    sntable_dump.exe <tableFile>  <tableName>  --O  <outFile>
-    sntable_dump.exe <tableFile>  <tableName>  --o  <outFile>
-    sntable_dump.exe <tableFile>  <tableName>  --o  stdout  ! screen dump
+    sntable_dump.exe <tableFile>  <tableName>  -O  <outFile>
+    sntable_dump.exe <tableFile>  <tableName>  -o  <outFile>
+    sntable_dump.exe <tableFile>  <tableName>  -o  stdout  ! screen dump
                                               
     sntable_dump.exe <tableFile>  <tableName>  NOHEADER
        (multi-column table with no header info and no 'SN:' key)
 
-    sntable_dump.exe <tableFile>  <tableName>  --o  <outFile> --format csv
+    sntable_dump.exe <tableFile>  <tableName>  -o  <outFile> -format csv
         (csv format)
 
-    sntable_dump.exe <tableFile>  <tableName>  --outlier 3 4
-    sntable_dump.exe <tableFile>  <tableName>  --outlier_sim 3 4
-       (print 3-4 sigma outliers: '--outlier' for fit-data,
+    sntable_dump.exe <tableFile>  <tableName>  -outlier 3 4
+    sntable_dump.exe <tableFile>  <tableName>  -outlier_sim 3 4
+       (print 3-4 sigma outliers: '-outlier' for fit-data,
           '--outlier_sim' for data-sim outliers)
 
    sntable_dump.exe <tableFile>  <tableName>  OBS
@@ -54,12 +54,12 @@
    for root file, tableName is the string name of the table.
 
    Example hbook commands:
-   sntable_dump.exe snana.hbook  7100  --v CCID RA DECL TYPE
-   sntable_dump.exe snfit.hbook  7788  --v CCID RA DECL TYPE --o snfit.fitres
+   sntable_dump.exe snana.hbook  7100  -v CCID RA DECL TYPE
+   sntable_dump.exe snfit.hbook  7788  -v CCID RA DECL TYPE -o snfit.fitres
 
    Example root commands:
-   sntable_dump.exe snana.root  SNANA  --v CCID RA DECL TYPE
-   sntable_dump.exe snfit.root  FITRES --v CCID RA DECL TYPE --o snfit.fitres
+   sntable_dump.exe snana.root  SNANA  -v CCID RA DECL TYPE
+   sntable_dump.exe snfit.root  FITRES -v CCID RA DECL TYPE -o snfit.fitres
 
 
 
@@ -68,17 +68,17 @@
   Apr 26, 2014: replace HBOOK-specific and ROOT-specific functions
                 with wrappers in sntools_output.c[h].
 
-  Aug 2 2014: new command-line option '--OUTLIER <n1> <n2>' to 
+  Aug 2 2014: new command-line option '-OUTLIER <n1> <n2>' to 
               print fit-outliers between n1 and n2-sigma.
 
-  Aug 4,2014  allow --v arguments to append --outlier variables.
+  Aug 4,2014  allow -v arguments to append -outlier variables.
 
   Oct 26 2014: use refactored system (no changes, just re-compile)
 
-  Jul 20 2016: allow  "--o stdout" to dump fitres output to screen 
+  Jul 20 2016: allow  "-o stdout" to dump fitres output to screen 
                instead of to a file. Done for SNANA_tester script.
 
-  Jul 21 2017: optional argumen "--format IGNORE"
+  Jul 21 2017: optional argumen "-format IGNORE"
                New function write_IGNORE_FILE();
 
   Aug 4 2017:
@@ -92,8 +92,8 @@
  Feb 22 2018: new OBS argument to dump all observations
 
  FEb 24 2019:
-  +  allow CID as first varname in --v list.
-  +  new option  "--format csv"  
+  +  allow CID as first varname in -v list.
+  +  new option  "-format csv"  
 
  Nov 6 2019: 
     + add FLUXERRCALC_SIM to outlier table
@@ -101,6 +101,8 @@
     + abort trap if NVAR > MXVAR_DUMP.
 
  Dec 28 2019: for OBS option, include FLUXCAL_MODEL
+
+ May 13 2020: replace --v with -v, etc ...
 
 ********************************************/
 
@@ -281,7 +283,7 @@ void parse_args(int NARG, char **argv) {
     }
 
     
-    if ( strcmp_ignoreCase(argv[i],"--outlier" ) == 0 ) {
+    if ( strcmp_ignoreCase(argv[i],"-outlier" ) == 0 ) {
       sscanf(argv[i+1], "%f", &INPUTS.OUTLIER_NSIGMA[0] );
       sscanf(argv[i+2], "%f", &INPUTS.OUTLIER_NSIGMA[1] );
       sprintf(INPUTS.OUTLIER_VARNAME_CHI2FLUX, "CHI2FLUX" );
@@ -289,7 +291,7 @@ void parse_args(int NARG, char **argv) {
       sprintf(INPUTS.COMMENT_FLUXREF,          "fitFlux" );
     }
 
-    if ( strcmp_ignoreCase(argv[i],"--outlier_sim" ) == 0 ) {
+    if ( strcmp_ignoreCase(argv[i],"-outlier_sim" ) == 0 ) {
       sscanf(argv[i+1], "%f", &INPUTS.OUTLIER_NSIGMA[0] );
       sscanf(argv[i+2], "%f", &INPUTS.OUTLIER_NSIGMA[1] );
       sprintf(INPUTS.OUTLIER_VARNAME_CHI2FLUX, "CHI2FLUX_SIM" );
@@ -306,12 +308,12 @@ void parse_args(int NARG, char **argv) {
       sprintf(INPUTS.COMMENT_FLUXREF,          "simFlux"      ) ;
     }
 
-    if ( strcmp(argv[i],"--O" ) == 0  || strcmp(argv[i],"--o")== 0 )  { 
+    if ( strcmp(argv[i],"-O" ) == 0  || strcmp(argv[i],"-o")== 0 )  { 
       IFLAG_VARNAMES = 0;
       sprintf(INPUTS.OUTFILE_FITRES,"%s", argv[i+1])  ; 
     }
     
-    if ( strcmp_ignoreCase(argv[i],"--format" ) == 0 ) {
+    if ( strcmp_ignoreCase(argv[i],"-format" ) == 0 ) {
       sscanf(argv[i+1], "%s", INPUTS.FORMAT_OUTFILE );
       IFLAG_VARNAMES = 0;
       if ( strcmp(INPUTS.FORMAT_OUTFILE,"csv") == 0 ||
@@ -333,8 +335,8 @@ void parse_args(int NARG, char **argv) {
       INPUTS.NVAR++ ; 
     }
 
-    if ( strcmp(argv[i],"--V" ) == 0 )  { IFLAG_VARNAMES = 1; }
-    if ( strcmp(argv[i],"--v" ) == 0 )  { IFLAG_VARNAMES = 1; }
+    if ( strcmp(argv[i],"-V" ) == 0 )  { IFLAG_VARNAMES = 1; }
+    if ( strcmp(argv[i],"-v" ) == 0 )  { IFLAG_VARNAMES = 1; }
     
   }
 
@@ -485,7 +487,7 @@ void  open_fitresFile(void) {
   int i ;
   char VARNAME_CID[] = "CID";
   char VARNAME_ROW[] = "ROW";
-  char SEP[] = " " ;
+  char SEP[4] = " " ;
   char *ptrVar;
   //  char fnam[] = "open_fitresFile" ;
   // -------------- BEGIN --------------

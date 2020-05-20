@@ -38,7 +38,7 @@
 #include <stdbool.h>
 
 #include "sndata.h"
-#define  SNANA_VERSION_CURRENT  "v10_76d"                       
+#define  SNANA_VERSION_CURRENT  "v10_77"                         
 
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
 #define OMEGA_MATTER_DEFAULT   0.315 
@@ -534,6 +534,7 @@ void  checkStringUnique(char *string, char *msgSource, char *callFun);
 int   uniqueMatch(char *string, char *key);
 int   uniqueOverlap(char *string, char *key);
 int   keyMatch(char *string, char *key);
+int   ivar_matchList(char *varName, int NVAR, char **varList);
 
 void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun, 
 			int *NVAR, int *NKEY, int *UNIQUE, char **VARNAMES );
@@ -645,6 +646,7 @@ void split2floats(char *string, char *sep, float *fval) ;
 
 void remove_quote(char *string);
 void extractStringOpt ( char *string, char *stringOpt) ;
+void extractstringopt_ ( char *string, char *stringOpt) ;
 void extract_MODELNAME(char *STRING, char *MODELPATH, char *MODELNAME);
 void extract_modelname__(char *STRING, char *MODELPATH, char *MODELNAME);
 

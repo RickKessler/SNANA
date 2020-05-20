@@ -363,7 +363,7 @@ int main(int argc,char *argv[]){
     " Default for input file is 3 columns: z, mu, sigma_mu, but see below",
     "",
     "  Options:",
-    "   -ompri\tcentral value of omega_m prior [default: 0.30]", 
+    "   -ompri\tcentral value of omega_m prior [default: Planck2018]", 
     "   -dompri\twidth of omega_m prior [default: 0.04]",
     "   -bao\t\tuse BAO constraints from Eisenstein et al, 2006",
     "   -bao_sim\t\tuse BAO constraints with simulated cosmology and E06 formalism",

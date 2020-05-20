@@ -199,7 +199,6 @@ void INIT_HOSTLIB(void) {
   // prepare comments for README file and/or screen dump
   readme_HOSTLIB();
 
-
   TIME_INIT_HOSTLIB[1]  = time(NULL);
   double dT = (TIME_INIT_HOSTLIB[1]-TIME_INIT_HOSTLIB[0]);
   printf("\t HOSTLIB Init time: %.2f seconds \n", dT );
@@ -1370,7 +1369,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 		     double *GENFLUX_LIST, double *GENMAG_LIST) {
 
   // Created Jun 28 2019 by R.Kessler
-  // Return host spectrum, including Galactic extinction.
+  // Return true host spectrum (no noise), including Galactic extinction.
   // If option is set to compute broadband mags, load them
   // into SNHOSTGAL.GALMAG[ifilt_obs][0] 
   //
@@ -1541,7 +1540,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 
     // store flux (not FLAM) in SPECTROGRAPH bin
     GENFLUX_LIST[ilam] = FLUX_TMP * MWXT_FRAC ;  
-
+    
     // convert to mag
     ZP    = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
     FTMP  = (LAMOBS/(hc8*z1)) * FLUX_TMP;
@@ -3653,7 +3652,10 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
   //  + For FIXSERSIC option, set HOSTLIB.VALUE_ZSORTED
   //    so that fix Sersic params show up in SIMGEN_DUMP file.
   //
-
+  // May 12 2020: 
+  //   + allow wgt-truncation slop below E-3 by re-normalizing weights.
+  //     (bug found by M.Vincenzi using MICECAT with double Sersic profile)
+  //
   int IVAR_ANGLE   = HOSTLIB.IVAR_ANGLE ;
   double FIXa      = INPUTS.HOSTLIB_FIXSERSIC[0] ;
   double FIXb      = INPUTS.HOSTLIB_FIXSERSIC[1] ;
@@ -3700,13 +3702,6 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
     SERSIC->bn[j] = get_Sersic_bn(n);
     SERSIC->a_rot = HOSTLIB.VALUE_ZSORTED[IVAR_ANGLE][IGAL] ; 
 
-    /* xxxxxxx mark delete xxxxxxxxx
-    if ( FIXa   >    0.0) { SERSIC->a[j]  = FIXa; }
-    if ( FIXb   >    0.0) { SERSIC->b[j]  = FIXb; }
-    if ( FIXn   > -998.0) { SERSIC->n[j]  = FIXn; }
-    if ( FIXANG > -998.0) { SERSIC->a_rot = FIXANG; }
-    xxxxxxxxxxxx */
-
     // apply user-scale on size (Mar 28 2018)
     SERSIC->a[j] *= INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ;
     SERSIC->b[j] *= INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ;
@@ -3730,7 +3725,7 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
       NWGT++ ;
       WGT     = HOSTLIB.VALUE_ZSORTED[IVAR_w][IGAL] ;
       WGTSUM += WGT;
-      SERSIC->w[j]  = WGT ;
+      SERSIC->w[j] = WGT ;
     }
     else { j_nowgt = j ; }
   }
@@ -3765,15 +3760,31 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
     wsum_last = SERSIC->wsum[j] ; 
   }
 
-  // finally check that sum of weights are one
+  // finally check that sum of weights are one within E-3,
+  // which allows a little  truncation slop in writing the HOSTLIB
   WTOT = SERSIC->wsum[NPROF-1] ;
-  if ( fabs(WTOT-1.0) > 0.0001 ) {
-    sprintf(c1err,"Sum of Sersic weights = %f", WTOT);
+  if ( fabs(WTOT-1.0) > 1.0E-3 ) {
+    print_preAbort_banner(fnam);
+    printf("\t NPROF = %d   (NWGT=%d, j_nowgt=%d) \n", 
+	   NPROF, NWGT, j_nowgt);
+    for ( j=0; j < NPROF; j++ ) { 
+      printf("\t WGT[%d] = %12.5le  WGTSUM = %12.5le \n", 
+	     j, SERSIC->w[j], SERSIC->wsum[j] ); 
+    }
+    sprintf(c1err,"Sum of Sersic weights = %f (ne 1) for GALID=%lld", 
+	    WTOT, SNHOSTGAL.GALID );
     sprintf(c2err,"%s", "Check values of w1, w2 ...");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-
+  // May 12 2020
+  // To allow truncation slop in writing HOSTLIB, 
+  // if WTOT is slightly off of 1, re-normalize the weights
+  if ( fabs(WTOT-1.0) > 1.0E-12 ) {
+    double w_scale = 1.0/WTOT;
+    for ( j=0; j < NPROF; j++ ) 
+      { SERSIC->w[j] *= w_scale ;  SERSIC->wsum[j] *= w_scale ;  }
+  }
   return ;
 
 } // end of get_Sersic_info
@@ -4197,14 +4208,6 @@ void readme_HOSTLIB(void) {
   if ( NVAR > 0 ) {
     cptr = HOSTLIB.COMMENT[NTMP]; NTMP++ ; 
     sprintf(cptr,"Weight MAP size : %d ", NROW );
-
-    /* xxx mark delete Mar 14 2020 xxxxxxxx
-    cptr = HOSTLIB.COMMENT[NTMP];    NTMP++ ; 
-    igal  = 0 ;
-    GALID = get_GALID_HOSTLIB(igal) ;
-    WGT   = HOSTLIB_WGTMAP.WGTSUM[igal];
-    sprintf(cptr,"Weight of GALID=%lld : %f (1st HOSTLIB entry) ", GALID,WGT);
-    xxxxx  end mark xxxxx */
   }
 
 
@@ -5372,16 +5375,6 @@ void GEN_SNHOST_ZPHOT_from_HOSTLIB(int INBR, double ZGEN,
   zphot_local = SNHOSTGAL_DDLR_SORT[INBR].ZPHOT + ZDIF ;
   zerr_local  = SNHOSTGAL_DDLR_SORT[INBR].ZPHOT_ERR ;
   
-  /* xxxxxxx mark delete Jan 31 2020 xxxxxxxx
-  if ( GENLC.CORRECT_HOSTMATCH ) 
-    { ZDIF = GENLC.REDSHIFT_HELIO - SNHOSTGAL.ZTRUE ; }
-  else
-    { ZDIF = 0.0 ; }    // wrong host
-  zphot_local   = HOSTLIB.VALUE_ZSORTED[IVAR_ZPHOT][IGAL] ;
-  zphot_local  += ZDIF ;
-  zerr_local  = HOSTLIB.VALUE_ZSORTED[IVAR_ZPHOT_ERR][IGAL] ;
-  xxxxxxxxxx end delete xxxxxxxxxxx  */
-
   if ( zphot_local < 0.0 || zerr_local < 0.0 ) 
     { zphot_local = zerr_local = -9.0; }
   
@@ -5470,7 +5463,7 @@ void GEN_SNHOST_POS(int IGAL) {
 
   // strip off user options passed via sim-input file
   int LSN2GAL = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
-
+  int NPROF   =  SERSIC_PROFILE.NPROF ;
   int IVAR_RA     = HOSTLIB.IVAR_RA ;
   int IVAR_DEC    = HOSTLIB.IVAR_DEC ;
   int IVAR_ANGLE  = HOSTLIB.IVAR_ANGLE ;
@@ -5503,7 +5496,16 @@ void GEN_SNHOST_POS(int IGAL) {
   SNHOSTGAL.DDLR              = HOSTLIB_SNPAR_UNDEFINED ;
 
   // bail out if there are no galaxy shape parameters
-  if ( SERSIC_PROFILE.NPROF == 0 ) { return ; }
+  if ( NPROF == 0 ) { 
+
+    if ( LSN2GAL ) {
+      sprintf(c1err,"Cannot exec HOSTLIB_MSKOPT += %d", 
+	      HOSTLIB_MSKOPT_SN2GAL_RADEC);
+      sprintf(c2err,"Must define host Sersic profile to move SN near host.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    return ; 
+  }
 
   if ( HOSTLIB.IVAR_ANGLE < 0 ) {
     sprintf(c1err,"Missing required %s in hostlib", HOSTLIB_VARNAME_ANGLE);
@@ -5535,17 +5537,26 @@ void GEN_SNHOST_POS(int IGAL) {
   // based on the WGT of each profile.
 
   JPROF = -9;
-  for ( j=0; j < SERSIC_PROFILE.NPROF; j++ ) {
+  for ( j=0; j < NPROF; j++ ) {
     WGT = SNHOSTGAL.SERSIC.wsum[j];
     if ( WGT >= Ran0 && JPROF < 0 ) { JPROF = j ; }
   }
+
+  /* xxx mark delete May 12 2020 (redundant ) xxxxxx
+  double WGTMAX = SNHOSTGAL.SERSIC.wsum[NPROF-1] ;
+  if ( fabs(WGTMAX-1.0) > 1.0E-10 ) {
+    sprintf(c1err,"Max WGT = %le != 1 ", WGTMAX );
+    sprintf(c2err,"Something wrong for GALID=%lld", SNHOSTGAL.GALID );	    
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  xxxxxxx */
 
   // bail if we cannot pick a Sersic profile.
   if ( JPROF < 0 ) {
     ptr = SNHOSTGAL.SERSIC.wsum ; 
     sprintf(c1err,"Could not find random Sersic profile for Ran0=%f", Ran0);
-    sprintf(c2err,"SERSIC_wsum = %f %f %f %f",
-	    ptr[0], ptr[1], ptr[2], ptr[3] );
+    sprintf(c2err,"SERSIC_wsum = %f %f %f %f (GALID=%lld)",
+	    ptr[0], ptr[1], ptr[2], ptr[3], SNHOSTGAL.GALID );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -6362,12 +6373,6 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     for(inbr=0; inbr < NNBR; inbr++ ) {     
       SNHOSTGAL_DDLR_SORT[inbr].MAG[ifilt_obs] += MWXT[ifilt_obs] ;       
     }
-
-    /* xxx mark delete Jan 31 2020 xxxxxxx
-    MAGOBS_LIB = HOSTLIB.VALUE_ZSORTED[IVAR][IGAL] ; 
-    MAGOBS     = MAGOBS_LIB 
-    SNHOSTGAL.GALMAG_TOT[ifilt_obs] = MAGOBS ;
-    xxxxxx */
 
     /*
       printf(" xxx ------------------------ \n");

@@ -9,7 +9,7 @@
 #  ROW  2  <value1> <value2> <value3> ...
 #  etc ...
 #
-# If the first variable name is NOT CID or ROW or STARID, 
+# If the first variable name is NOT CID (or ROW or STARID or SNID), 
 # then a ROW column is inserted.  Either comma or blank-space 
 # delimeters are allowed.
 #
@@ -26,6 +26,8 @@
 #
 # May 12 2016: fix to allow '#' in first line.
 # Jun 27 2019: remove NVAR key that is obsolete.
+# Apr 17 2020: check for SNID in first colum
+#
 # ----------------------
 
 use strict ;
@@ -153,6 +155,7 @@ sub make_outFile {
     $FIRSTVAR    = $VARLIST_ORIG[0];
 
     if ( $FIRSTVAR eq "CID"    ) { $ADDROW = 0 ; }
+    if ( $FIRSTVAR eq "SNID"   ) { $ADDROW = 0 ; }
     if ( $FIRSTVAR eq "cid"    ) { $ADDROW = 0 ; }
     if ( $FIRSTVAR eq "ROW"    ) { $ADDROW = 0 ; }
     if ( $FIRSTVAR eq "GALID"  ) { $ADDROW = 0 ; }

@@ -31,6 +31,14 @@
   Note that minLam,maxLam are specified for each bin so that
   non-uniform bins are allowed.
 
+
+           HISTORY 
+       ~~~~~~~~~~~~~~
+
+  May 06 2020:
+    + in getSNR_spectrograph, return SNR=0 if ZP is undefined.
+
+
 *********************************************************/
 
 #include <stdio.h>
@@ -540,6 +548,8 @@ void  solve_spectrograph(void) {
 
   // ------------- BEGIN ---------------
 
+  printf(" xxx YO here in %s \n", fnam);
+
   for(iref=0; iref < 2; iref++ ) {
     MAGREF[iref] = INPUTS_SPECTRO.MAGREF_LIST[iref];
     ARG  = -0.4 * MAGREF[iref] ; 
@@ -582,7 +592,7 @@ void  solve_spectrograph(void) {
       F[1]   = pow(TEN, -0.4*(MAGREF[1]-ZP) );
       SQSIGSKY = (F[0]/SNR[0])*(F[0]/SNR[0]) - F[0] ;
 
-      // store in global
+      // store in global 
       INPUTS_SPECTRO.ZP[l][t]        = ZP ;
       INPUTS_SPECTRO.SQSIGSKY[l][t]  = SQSIGSKY ;
 
@@ -757,6 +767,7 @@ void read_spectrograph_fits(char *inFile) {
   //
   // Oct 14 2016: read LAMSIGMA_LIST
   // Sep 19 2018: fill INPUTS_SPECTRO.ISFIX_LAMBIN (used for output FORMAT)
+  // May 06 2020: default format is to format LAMMIN & LAMMAX instead of just LAMCEN
 
   int istat, hdutype, extver, icol, anynul ;
   fitsfile *fp ;
@@ -766,7 +777,7 @@ void read_spectrograph_fits(char *inFile) {
   double L0, L1  ;
 
   char keyName[40], comment[80], TBLname[40], INFILE[MXPATHLEN] ;
-  //  char fnam[] = "read_spectrograph_fits" ;
+  char fnam[] = "read_spectrograph_fits" ;
 
   // --------------- BEGIN -----------------
 
@@ -878,7 +889,8 @@ void read_spectrograph_fits(char *inFile) {
 
   // compute LAMAVG & LAMBIN
   double LBIN, LASTBIN=0.0 ;
-  INPUTS_SPECTRO.FORMAT_MASK = 1; // default: write LAMCEN
+  // xxxx mark delete  INPUTS_SPECTRO.FORMAT_MASK = 1; // default: write LAMCEN
+  INPUTS_SPECTRO.FORMAT_MASK = 2; // default: write LAMMIN & LAMMAX
   for(l=0; l <NBL; l++ ) {
     L0 = INPUTS_SPECTRO.LAMMIN_LIST[l] ;
     L1 = INPUTS_SPECTRO.LAMMAX_LIST[l] ;
@@ -917,6 +929,7 @@ void read_spectrograph_fits(char *inFile) {
     snfitsio_errorCheck(c1err, istat);
 
     for(l=0; l <NBL; l++ ) {
+
       INPUTS_SPECTRO.ZP[l][t]       = (double)ZP_f[l] ;
       INPUTS_SPECTRO.SQSIGSKY[l][t] = (double)SQ_f[l] ;
       
@@ -1027,6 +1040,7 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   // SQSIGSKY is returned as well.
   //
   // Feb 2 2017: fix awful bug and scale template noise to search-zp
+  // May 6 2020: return SNR=0 if ZP=-9 (undefined)
 
   int OPT_INTERP=1;
   int NBT  = INPUTS_SPECTRO.NBIN_TEXPOSE ;
@@ -1038,16 +1052,21 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   char errmsg_ZP_T[] = "getSNR_spectrograph(ZP_T)";
   char errmsg_SQ_S[] = "getSNR_spectrograph(SQ_S)";
   char errmsg_SQ_T[] = "getSNR_spectrograph(SQ_T)";
+  int  LDMP = (ILAM < -3);
 
   // -------------- BEGIN --------------
 
-  SNR = SQ_S = SQ_T = 0.0 ;
+  SNR = SQ_S = SQ_T = ZP_S = ZP_T = 0.0 ;
 
   if ( TEXPOSE_S < Tmin  || TEXPOSE_S > Tmax ) {
     sprintf(c1err,"Invalid TEXPOSE_S = %f", TEXPOSE_S );
     sprintf(c2err,"Valid TEXPOSE_S range: %.2f to %.2f \n", Tmin, Tmax);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
+
+  // May 2020: if ZP is undefined in this ILAM bin, return SNR=0
+  if ( INPUTS_SPECTRO.ZP[ILAM][0] < 0.0 ) { return(SNR); }
 
   // interpolate ZP(Texpose) and SQSIG(Texpose)
   ZP_S = interp_1DFUN (OPT_INTERP, TEXPOSE_S, NBT, 
@@ -1085,6 +1104,19 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   *ERRFRAC_T = sqrt(SQ_T)/FluxErr ; // Oct 28 2016
 
   SNR = Flux/FluxErr ;  // true SNR
+
+  if ( LDMP ) {
+    printf(" xxx %s DUMP xxxx ---------------------- \n", fnam);
+    printf(" xxx ILAM=%d LAM=%f \n", ILAM, INPUTS_SPECTRO.LAMAVG_LIST[ILAM] );
+    printf(" xxx TEXPOSE_[S,T] = %f , %f \n", TEXPOSE_S, TEXPOSE_T );
+    printf(" xxx SQ[S,T] = %le , %le    Flux=%le \n", SQ_S, SQ_T, Flux);    
+    printf(" xxx ZP[S,T] = %le , %le  \n", ZP_S, ZP_T );    
+    printf(" xxx INPUTS_SPECTRO.ZP = %f, %f, %f ... \n",
+	   INPUTS_SPECTRO.ZP[ILAM][0], INPUTS_SPECTRO.ZP[ILAM][1], 
+	   INPUTS_SPECTRO.ZP[ILAM][2]);
+    printf(" xxx \n");
+    fflush(stdout);
+  }
 
   return(SNR);
 

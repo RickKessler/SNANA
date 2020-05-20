@@ -169,6 +169,7 @@ extern"C" {
 
   int  SNTABLE_READPREP_TEXT(void);
   int  SNTABLE_READ_EXEC_TEXT(void);
+  void SNTABLE_CLOSE_TEXT(void) ;
 
   int validRowKey_TEXT(char *string) ;
   // xxx mvoed to sntools_output.h  int ICAST_for_textVar(char *varName) ;
@@ -948,7 +949,7 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   fprintf(PTRFILE_LCLIST, "VARNAMES: CID IFIT\n");
   fflush(PTRFILE_LCLIST);
 
-  SNLCPAK_USE_TEXT = 1;
+  SNLCPAK_USE_TEXT = true ;
   sprintf( SNLCPAK_OUTPUT.TEXTFILE_PREFIX, "%s", PREFIX );
 
 
@@ -1277,17 +1278,23 @@ int SNTABLE_READ_EXEC_TEXT(void) {
 
   } // end fscanf 
   
-    fclose(FP);
+  fclose(FP);
 
-    // May 2 2019: reset flags to allow opening another file.
-    NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
-    USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT]     = 0;
+  // May 2 2019: reset flags to allow opening another file.
+  NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
+  USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT]     = 0;
 
-    return NROW ;
+  return(NROW) ;
 
 } // end of SNTABLE_READ_EXEC_TEXT
 
-
+void SNTABLE_CLOSE_TEXT(void) {
+  // May 2020
+  // can call this function after SNTABLE_NEVT
+  // so that there is no need to read entire file.
+  NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
+  USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT]     = 0;
+} 
 
 // =========================================
 int validRowKey_TEXT(char *string) {
@@ -1681,7 +1688,7 @@ void OPEN_TEXTFILE_SPECLIST(char *PREFIX) {
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
-  SPECPAK_USE_TEXT = 1;
+  SPECPAK_USE_TEXT = true ;
 
   return ;
 

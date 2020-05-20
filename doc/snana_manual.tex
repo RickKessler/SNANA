@@ -65,8 +65,8 @@
 \newcommand{\mwebv}{MWEBV}
 \newcommand{\hostlib}{{\sc hostlib}}
 
-\newcommand{\Zphot}{Z_{\rm phot}}
-\newcommand{\Zspec}{Z_{\rm spec}}
+\newcommand{\Zphot}{z_{\rm phot}}
+\newcommand{\Zspec}{z_{\rm spec}}
 
 \newcommand{\eff}{efficiency}
 \newcommand{\effs}{efficiencies}
@@ -98,6 +98,7 @@
 \newcommand{\Npe}{N_{\rm pe}}
 \newcommand{\logSNR}{\log_{10}({\rm SNR})}
 \newcommand{\degsq}{deg$^2$}
+\newcommand{\hostmass}{M_{\rm host}}
 
 \newcommand{\lam}{\lambda}
 \newcommand{\lamg}{\lambda_g}
@@ -1029,6 +1030,7 @@ etc ...
 
 \begin{Verbatim}[frame=single]
   SIMLIB_MSKOPT:  nnn     # bit-mask of options (see below)
+  SIMLIB_MINOBS:  nnn     # require at least this many obs per LIBID
   SIMLIB_IDSTART: nnn     # start at LIBID nnn
   SIMLIB_IDLOCK:  nnn     # use only LIBID nnn ; skip all others
   SIMLIB_MAXRANSTART: nnn # start at random LIBID among first nnn entries
@@ -3081,9 +3083,55 @@ in the file argument of {\tt SEARCHEFF\_zHOST\_FILE}.
 Lastly, for published results we recommend putting measured \eff\ 
 files in the public area \\ {\tt \$SNDATA\_ROOT/models/searcheff}.
 
-
 % ------------------------------------
   \clearpage
+   \subsubsection{Simulating and Fitting Mix of $\Zspec$ and $\Zphot$ From Host Galaxy}
+   \label{sssec:sim_zmix}
+% ------------------------------------
+
+For future surveys, it may be interesting to consider a mix of redshift sources:
+spectroscopic host redshifts ($\Zspec$) measured at lower redshifts, 
+and photometric host redshifts ($\Zphot$) measured at higher redshifts.
+This mix-$z$ simulation requires two inputs: 1) {\tt SEARCHEFF\_zHOST\_FILE} 
+specifying \eff\ vs. redshift of acquiring $\Zspec$ of the host, and
+2) {\tt ZPHOT} and {\tt ZPHOTERR} columns in the {\tt HOSTLIB}, or use the
+{\tt HOSTLIB\_GENZPHOT\_FUDGEPAR} input (\S\ref{sss:hostlib_options}).
+The relevant sim-inputs are:
+%
+\begin{Verbatim}
+   APPLY_SEARCHEFF_OPT:   1        # apply software trigger only
+   SEARCHEFF_zHOST_FILE:    SEARCHEFF_zHOST.DAT
+\end{Verbatim}
+%
+The {\tt zHOST} efficiency map is used first to determine if the event has an accurate $\Zspec$.
+If there is no $\Zspec$, then the redshift is taken from {\tt ZPHOT} and {\tt ZPHOTERR}.
+Note that {\tt REDSHIFT\_FINAL[\_ERR]} in the data file is either $\Zspec$ or {\tt ZPHOT},
+so there is only one redshift variable to access in the analysis. Supplemental data variables
+{\tt HOSTGAL\_ZSPEC} and {\tt HOSTGAL\_ZPHOT} are also available, for example,
+to compare $\Zphot$ against $\Zspec$ in the subset for which both are available.
+
+In the light curve fitting stage, use {\tt \&FITINP} namelist option  {\tt OPT\_PHOTOZ=2}
+to perform a  5-parameter $\Zphot$ fit with the host redshift as a prior (\S\ref{subsec:photoz}).
+The $z$-prior is a Gaussian with mean and $\sigma$ taken from {\tt REDSHIFT\_FINAL[\_ERR]}. 
+The value of  {\tt REDSHIFT\_FINAL\_ERR} is much smaller for $\Zspec$
+events compared with $\Zphot$ events. For $\Zspec$ events, the small $\sigma$ value
+results in such a strong $z$-prior that the fit is essentially a 4-parameter fit with fixed redshift.
+To validate this process, plot the following
+from the output {\tt FITRES} table,
+\begin{Verbatim}
+    zHD - SIM_ZCMB vs. SIM_ZCMB
+    zHDERR vs. SIM_ZCMB
+\end{Verbatim}
+
+\medskip
+\noindent Example input files for WFIRST are provided in
+\vspace{-0.2cm}
+\begin{Verbatim}
+  $SNDATA_ROOT/sample_input_files/WFIRST_zspec+zphot 
+\end{Verbatim}
+
+% ------------------------------------
+%  \clearpage
    \subsubsection{Determining $\simeffspec$}
    \label{sssec:simeffspec}
 % ------------------------------------
@@ -6382,6 +6430,8 @@ Fig.~\ref{fig:SETPKMJD}.
    MJDWIN_SETPKMJD  = 60   # for Fmax-clump method only (default=60)
    PHOTFLAG_TRIGGER = MASK # for MJD_TRIGGER method (MASK set by survey)
    CUTWIN_TOBS = -999,999  # After finding MJD(Fmax), apply TOBS cut for Bazin fit.
+
+   SHIFT_SETPKMJD = 5.0    # syst test to shift initial PKMJD by 5 days (default=0)
 \end{Verbatim}
 \end{center}
 \end{figure}
@@ -9665,8 +9715,48 @@ are specified only to fix these parameters in the fit.
 If not specified, these parameters are floated in the fit.
 
 
+\subsubsection{Simulating $\alpha,\beta,\gamma$ Grid for {\tt SALT2mu}/BBC }
+\label{sss:simgrid_forSALT2mu}
+%$
+For {\tt SALT2mu}-BBC, the ``biasCor'' sample is generated on
+a grid of $\alpha,\beta,\gamma$ in order to dynamically interpolate
+the bias-correction at each fitting step. The sim-input
+keys are as follows:
+%
+\begin{verbatim}
+   GENPEAK_SALT2ALPHA:   0.14   
+   GENSIGMA_SALT2ALPHA:  1E8   1E8
+   GENRANGE_SALT2ALPHA:  0.10  0.20
+   GENGRID_SALT2ALPHA:   2       # <=== only 2 allowed for BBC
+
+   GENPEAK_SALT2BETA:   3.2 
+   GENSIGMA_SALT2BETA:  1E8  1E8 
+   GENRANGE_SALT2BETA:  2.5  3.5
+   GENGRID_SALT2BETA:   2       # <== only 2 allowed for BBC
+
+   BIASCOR_SALT2GAMMA_GRID:  0  0.10
+\end{verbatim}
+%
+The {\tt GENGRID\_SALT2xxx} parameters define a grid-size of 2,
+and {\tt GENRANGE\_SALT2xxx} define the two grid points.
+The large {\tt GENSIGMA\_SALT2xxx} values specify flat
+distributions that result in two $\delta$-functions per parameter.
+
+If $\gamma$ were implemented the same way as for $\alpha$ and $\beta$, 
+BBC could only fit a step function with a $\hostmass$-split 
+at exactly the same value used in the biasCor sample.
+To allow for an arbitrary standardation function of $\hostmass$ 
+in the BBC fit,
+the $\gamma$ parameter is treated in a different manner compared
+with $\alpha$ and $\beta$. {\tt BIASCOR\_SALT2GAMMA\_GRID} specifies
+two grid-points to randomly generate mag-offsets. This is not
+quite $\gamma$ because it has no $\hostmass$ dependence, but in the
+BBC fit these mag offsets are associated with $\gamma$ and $\hostmass$,
+where $\gamma$ is the maximum SNIa mag-splitting.
+
+
 % ------------------------
-% \clearpage
+\clearpage
 \subsection{{\snoopy}}
 \label{subsec:snoopy}
 
@@ -10423,18 +10513,11 @@ etc É
 
 % ##########################################
    \clearpage
-   \section{\SALTII\ Programs}
-   \label{sec:SALT2code}
+   \section{Computing Distance Moduli from BBC Method: {\tt SALT2mu.exe} }
+   \label{sec:SALT2mu}
 % ###########################################
 
 
-
-% -----------------------------------------
-  \subsection{Computing Distance Moduli from BBC Method: {\tt SALT2mu.exe} }
-  \label{sec:SALT2mu}
-% -----------------------------------------
-
-\newcommand{\hostmass}{M_{\rm host}}
 
 The \snana\ program {\tt SALT2mu.exe} reads \SALTII\ fitted parameters,
 performs a global fit for $\alpha,\beta,\gamma$, which are SNIa 
@@ -10448,52 +10531,95 @@ The {\tt SALT2mu} program can implement the
 to produce bias-corrected distances in redshift bins.
 To include bias corrections, {\tt SALT2mu} reads SALT2-fitted 
 parameters for the data and for a large ``biasCor'' simulation.
-%
-A sample input file is in
+The biasCor simulation should be generated on a grid of
+$\alpha,\beta,\gamma$ as described in \S\ref{sss:simgrid_forSALT2mu}.
+
+A sample {\tt SALT2mu.exe}-input file is in
 \begin{verbatim}
   $SNDATA_ROOT/sample_input_files/SALT2/SALT2mu.default
 \end{verbatim}
 and a description of all input-file options are given at the
 top of the code in {\tt \$SNANA\_DIR/src/SALT2mu.c}.
-%$
-The ``biasCor'' sample must incude a grid of
-$\alpha,\beta,\gamma$ in order to dynamically interpolate
-the bias-correction at each fitting step. The sim-input
-keys are as follows:
+
+
+% -----------------------------------------
+  \clearpage
+  \subsection{Catenating FITRES Files from Multiple Samples}
+  \label{subsec:cat_fitres}
+% -----------------------------------------
+
+SNIa-cosmlogy analyses include multiple samples 
+(e.g., LOWZ, SDSS, PS1, SNLS, DES ...). 
+While \snana\ codes perform light-curve fitting and simulations
+separately for each sample, the {\tt SALT2mu}/BBC program
+performs a global fit to all of the data samples combined.
+Through \snana\ code versions {\tt v10\_76e}, each {\tt FITRES} table
+file (produced from {\tt snlc\_fit.exe}) was required to have the same 
+columns so that a simple concatenate combines the data into a single file.
+Starting at {\tt v10\_77}, input {\tt FITRES} tables are allowed
+to have different columns, and the output {\tt FITRES} table from
+{\tt SALT2mu} is created with the following logic:
+\begin{itemize}
+  \item column names appearing in each {\tt FITRES} file are included,
+     regardless of column locations.
+  \item {\tt varname\_pIa} column is included; if missing (e.g., from LOWZ),
+       then -9 values are substituted.
+  \item the same ``{\tt varname\_pIa}'' logic is applied to variables
+        specified with {\tt SALT2mu}-input key  \\
+        {\tt append\_varnames\_missing}. The default is {\tt PROB*}  to
+        include all classifier probabilities.
+\end{itemize}
 %
+As an example, consider an analysis combining a spec-confirmed
+LOWZ sample and a photometrically-identified HIGHZ sample.
+The LOWZ sample contains several peculiar-velocity estimates
+({\tt VPEC1}, {\tt VPEC2}, {\tt VPEC3}) that are not in the HIGHZ table;
+the HIGHZ sample includes several classifier probabilities 
+({\tt PROB\_A}, {\tt PROB\_B}, {\tt PROB\_C}) and {\tt sSFR} that are not
+in the LOWZ table.
+All of these values are included in the {\tt SALT2mu} output
+using the following {\tt SALT2mu}-input key,
 \begin{verbatim}
-   GENPEAK_SALT2ALPHA:   0.14   
-   GENSIGMA_SALT2ALPHA:  1E8   1E8
-   GENRANGE_SALT2ALPHA:  0.10  0.20
-   GENGRID_SALT2ALPHA:   2
+   append_varnames_missing='PROB*,VPEC*,sSFR'
+\end{verbatim} 
+The wildcard ({\tt *}) picks up any column name containing
+{\tt PROB} or {\tt VPEC}. An exact {\tt sSFR} column match
+is also selected.
+The {\tt VPEC} values are set to $-9$
+for the HIGHZ sample, and similarly the {\tt PROB} and {\tt sSFR}
+values are set to $-9$ for the LOWZ sample.
+The top of the output {\tt FITRES} file includes comment-summary
+of i) input {\tt FITRES} file names, 
+ii) {\tt append\_varnames\_missing}, and iii) column names 
+that were discarded.
 
-   GENPEAK_SALT2BETA:   3.2 
-   GENSIGMA_SALT2BETA:  1E8  1E8 
-   GENRANGE_SALT2BETA:  2.5  3.5
-   GENGRID_SALT2BETA:   2
-
-   BIASCOR_SALT2GAMMA_GRID:  0  0.10
+\medskip
+Combining fitres files with different columns may be useful
+for other (non-\snana) codes, and therefore this {\tt SALT2mu}
+``{\tt FITRES}-combine'' logic can be implemented as a 
+utility without the overhead of fitting,
+\begin{verbatim}
+SALT2mu.exe cat_only \
+     datfile=LOWZ.FITRES,HIGHZ.FITRES \
+     append_varname_missing='PROB*,VPEC*,sSFR' \
+     catfile_out=CATFILE.FITRES
+  or
+sntable_cat.py \
+     -i  LOWZ.FITRES,HIGHZ.FITRES \
+     -a  PROB*,VPEC*,sSFR \
+     -o  CATFILE.FITRES 
 \end{verbatim}
 %
-The {\tt GENGRID\_SALT2xxx} parameters define a grid-size of 2,
-and {\tt GENRANGE\_SALT2xxx} define the two grid points.
-The large {\tt GENSIGMA\_SALT2xxx} values result in a flat
-distribution, but will not generate values outside the
-{\tt GENRANGE}.
+The {\tt cat\_only} argument (replacing input file)
+directs {\tt SALT2mu} to skip fitting and perform only the catenation.
+Beware that the wildcard ({\tt *}) causes problems with unix;
+therefore use either single quotes as shown above,
+or use a backslash ({\tt PROB\textbackslash*,VPEC\textbackslash*,sSFR}).
 
-If $\gamma$ were implemented the same way as for $\alpha$ and $\beta$, 
-BBC could only fit a step function with a $\hostmass$-split 
-at exactly the same value used in the biasCor sample.
-%
-To allow for an arbitrary standardation function of $\hostmass$ 
-in the BBC fit,
-the $\gamma$ parameter is treated in a different manner compared
-with $\alpha$ and $\beta$. {\tt BIASCOR\_SALT2GAMMA\_GRID} specifies
-two grid-points to randomly generate mag-offsets. This is not
-quite $\gamma$ because it has no $\hostmass$ dependence, but in the
-BBC fit these mag offsets are associated with $\gamma$ and $\hostmass$,
-where $\gamma$ is the maximum SNIa mag-splitting.
-
+A python wrapper ({\tt sntable\_cat.py}) is also available with a 
+more obvious code-name to search in {\tt \$SNANA\_DIR/util}.
+This python wrapper can parse wildcards without single quotes.
+The -i and -o arguments are required; -a is optional (default is PROB*).
 
 % -----------------------------------------
   \clearpage
@@ -11665,6 +11791,9 @@ The {\tt snana.exe} program can create such a
   ! for sims, or fake data with SIM_MAGOBS :
     OPT_SIMLIB_OUT = 1    ! write SIM_MAGOBS in last SIMLIB column, all obs
     OPT_SIMLIB_OUT = 2    ! idem, but only when true flux > 0
+
+ ! for systematic tests only
+    SIMLIB_OUT_TMINFIX = 5   !  force PEAKMJD = MJD_MIN - 5
 \end{verbatim}
 %
 If the light curve data include meta data (PSF,SKY,ZP)

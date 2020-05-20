@@ -4,8 +4,7 @@ c Program to read light curves and apply user selection
 c cuts specified in the &SNLCINP namelist.
 c Can also fit function to estimate time of peak brightness.
 c
-c
-
+c  
 
                      CHANGES
           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -62,9 +61,9 @@ c parameters used by snana code
      &  ,ISTAT_READAGAIN, ISTAT_SKIP
      &  ,IDTABLE_MCMC, NFIT_VERBOSE
      &  ,ITABLE_SNANA,  ITABLE_FITRES, ITABLE_SNLCPAK, ITABLE_SPECPAK
-     &  ,ITABLE_MODELSPEC, MXTABLE
+     &  ,ITABLE_MODELSPEC, ITABLE_MARZ, MXTABLE
      &  ,IDTABLE_SNANA, IDTABLE_FITRES, IDTABLE_MODELSPEC
-     &  ,IDTABLE_CIDPTR
+     &  ,IDTABLE_CIDPTR, IDTABLE_MARZ
      &  ,OPT_PARSTORE_TEXTTABLE
      &  ,MSKOPT_PARSE_WORDS_STRING
      &  ,MSKOPT_PARSE_WORDS_FILE
@@ -240,13 +239,14 @@ c
      &  ,ISTAT_SKIP           = -1
 c
      &  ,ITABLE_SNANA=1, ITABLE_FITRES=2, ITABLE_SNLCPAK=3
-     &  ,ITABLE_SPECPAK=4, ITABLE_MODELSPEC=5
+     &  ,ITABLE_SPECPAK=4, ITABLE_MODELSPEC=5, ITABLE_MARZ=6
      &  ,MXTABLE = 10
-     &  ,IDTABLE_SNANA   = 7100
-     &  ,IDTABLE_FITRES  = 7788 
+     &  ,IDTABLE_SNANA     = 7100  ! anaysis variables, every event
+     &  ,IDTABLE_FITRES    = 7788  ! SNANA table + fit results, passing cuts
      &  ,IDTABLE_MODELSPEC = 8000  ! SALT2 model spectra from LC fit
-     &  ,IDTABLE_CIDPTR  = 1600  
-     &  ,IDTABLE_MCMC    = 7711
+     &  ,IDTABLE_MARZ      = 8100  ! MARZ tables
+     &  ,IDTABLE_CIDPTR    = 1600  
+     &  ,IDTABLE_MCMC      = 7711  ! obsolete ?
      &  ,OPT_PARSTORE_TEXTTABLE = 1  ! tag subset for TEXT table.
      &  ,MSKOPT_PARSE_WORDS_FILE    = 1   ! parse file
      &  ,MSKOPT_PARSE_WORDS_STRING  = 2   ! for store_PARSE_WORDS: string
@@ -562,6 +562,7 @@ c SNTABLE control variables (May 2014)
      &   USE_TABLEFILE_HBOOK  ! write table in HBOOK format
      &  ,USE_TABLEFILE_ROOT   ! write table in ROOT format
      &  ,USE_TABLEFILE_TEXT   ! write table in TEXT format
+     &  ,USE_TABLEFILE_MARZ   ! write table in MARZ/FITS format
      &  ,USE_TABLEFILE        ! T if either any of the above are set
      &  ,WRTABLEFILE_IAUC     ! T-> SNID -> IAUC (for writing tables)
      &  ,WRTABLEFILE_SIMVAR   ! T-> include SIM_XXX vars for simulation
@@ -590,7 +591,7 @@ c Sep 23 2017: allow user codes to add private variables to SNTABLE
  
       COMMON / SNTABLECOM / 
      &     USE_TABLEFILE_HBOOK, USE_TABLEFILE_ROOT
-     &    ,USE_TABLEFILE_TEXT, USE_TABLEFILE
+     &    ,USE_TABLEFILE_TEXT, USE_TABLEFILE_MARZ, USE_TABLEFILE
      &    ,OPT_TABLE, TEXTFORMAT_TABLE
      &    ,CUTMASK_SNANA_TABLE, WRTABLEFILE_IAUC, WRTABLEFILE_SIMVAR
      &    ,WRTABLEFILE_ZPHOT, WRTABLEFILE_HOST_TEXT
@@ -720,7 +721,8 @@ c analysis-related variables.
       INTEGER
      &   SNLC_CID               ! integer CID 
      &  ,ISNLC_SNRECON_USE(MXEPOCH)  ! 1 -> epoch used in SNRECON
-     &  ,ISNLC_PHOTFLAG(MXEPOCH) ! photomety flags
+     &  ,ISNLC_PHOTFLAG(MXEPOCH)     ! photomety flags
+     &  ,ISNLC_zFLAG                 ! zspec-quality flag (May 2020), data only
      &  ,ISNLC_LENCCID     ! char-len of CCID
      &  ,ISNLC_LENIAUC     ! char-len of IAUC name
      &  ,ISNLC_VERSION     ! photometry version index vs. ISN     
@@ -810,6 +812,7 @@ c
      &  ,SNLC_XPIX(MXEPOCH)      ! pixel location
      &  ,SNLC_YPIX(MXEPOCH)      ! pixel location
      &  ,SNLC_AREAFRAC(MXEPOCH)  ! area-frac contained by XPIX,YPIX
+     &  ,SNLC_AREAFRAC_AVG       ! average over epochs (May 2020)
      &  ,SNLC_MWEBV              ! Milky Way Galactic E(B-V)
      &  ,SNLC_MWEBV_ERR          ! error on above
      &  ,SNLC_SKYSIG(MXEPOCH)    ! sigma on above
@@ -884,8 +887,8 @@ c
      &    ,SNLC_GAIN, SNLC_RDNOISE
      &    ,SNLC_MWXT_MAG, SNLC_MWXT_FLUXFRAC, SNLC_MWXT_MAGERR
      &    ,SNLC_MWEBV, SNLC_MWEBV_ERR
-     &    ,SNLC_XPIX, SNLC_YPIX, SNLC_AREAFRAC, SNLC_PIXSIZE
-     &    ,SNLC_NXPIX, SNLC_NYPIX
+     &    ,SNLC_XPIX, SNLC_YPIX, SNLC_PIXSIZE, SNLC_NXPIX, SNLC_NYPIX
+     &    ,SNLC_AREAFRAC_AVG, SNLC_AREAFRAC
      &    ,SNLC_SKYSIG,  SNLC_SKYSIG_T
      &    ,SNLC_PSF_SIG1, SNLC_PSF_SIG2, SNLC_PSF_RATIO
      &    ,SNLC_AREA_NOISE
@@ -901,7 +904,7 @@ c
 
       COMMON / ISNCOM /      
      &     ISNLC_VERSION, ISNLC_SNRECON_USE, ISNLC_PHOTFLAG
-     &    ,ISNLC_TYPE
+     &    ,ISNLC_TYPE, ISNLC_zFLAG
      &    ,ISNLC_ABSO_INDEX, ISNLC_IFILE,ISNLC_LENCCID,ISNLC_LENIAUC
      &    ,ISNLC_NFILT_NEWMJD, ISNLC_IFILT_OBS
      &    ,ISNLC_NEWMJD_HEAD, ISNLC_NEWMJD_FOUND, ISNLC_NEWMJD_STORE
@@ -1159,7 +1162,7 @@ c   VALUE   = 44.4
 
       PARAMETER (
      &   LUNKCOR      = 98  ! log unit number to read
-     &  ,MXKCOR       = 100 ! max number of KCOR tables to read
+     &  ,MXKCOR       = 200 ! max number of KCOR tables to read
      &  ,KDIM_T       = 1  ! epoch KCOR index
      &  ,KDIM_Z       = 2  ! redshift KCOR index
      &  ,KDIM_AV      = 3  ! AV kcor index
@@ -1471,6 +1474,7 @@ c define hard-wired list of valid over-rides
      &   'HOSTGAL_sSFR,HOSTGAL_sSFR_ERR,HOSTGAL_DDLR,' // 
      &   'HOSTGAL_PHOTOZ,HOSTGAL_PHOTOZ_ERR,' // 
      &   'VPEC,VPEC_ERR,REDSHIFT_FINAL,REDSHIFT_FINAL_ERR,' //
+     &   'REDSHIFT_QUALITYFLAG,zFLAG,' //
      &   'SIM_SALT2x1,SIM_SALT2c,SIM_x1,SIM_c,'      //
      &   'PEAKMJD,PKMJDINI,PEAKMJDINI,' //
      &   'MWEBV,MWEBV_ERR '      )
@@ -1885,9 +1889,11 @@ c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
      &  ,HFILE_OUT        ! output hbook filename
      &  ,ROOTFILE_OUT     ! output filename for root
      &  ,TEXTFILE_PREFIX  ! prefix for ascii tables
+     &  ,MARZFILE_OUT         ! write spectra to FITS file for input to MARZ
      &  ,SNTABLE_LIST     ! list of SNTABLEs to create
      &  ,SNTABLE_FILTER_REMAP ! remap filters in tables
      &  ,KCOR_FILE            ! fits-formatted KCOR tables
+     &  ,OVERRIDE_RESTLAM_BOUNDARY*80 ! e.g., '5100(gV) 6200(rV)'
      &  ,EPOCH_IGNORE_FILE    ! file with epochs to ignor
      &  ,SNMJD_LIST_FILE      ! list of "CID MJD" to process
      &  ,SNMJD_OUT_FILE       ! MJD_LIST out file
@@ -1896,11 +1902,12 @@ c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
      &  ,VPEC_FILE            ! pec. velocity corrections
      &  ,HEADER_OVERRIDE_FILE ! header-var overrides
      &  ,SNCID_LIST_FILE      ! list of CID's to process
-     &  ,SIMLIB_OUT           ! write simlib entry for each event
+     &  ,SIMLIB_OUT           ! legacy name
+     &  ,SIMLIB_OUTFILE       ! write simlib entry for each event
      &  ,SIMLIB_ZPERR_LIST    ! 'abc .01 def .02 ghi .005'
      &  ,NONLINEARITY_FILE    ! non-linearity map (Apr 2017)
 c
-     &  ,FUDGE_HOSTNOISE_FILE  ! legacy: inflate error vs.  hostSB (Mar 2015)
+     &  ,FUDGE_HOSTNOISE_FILE  ! legacy: inflate error vs. hostSB (Mar 2015)
      &  ,FLUXERRMODEL_FILE     ! DATA ONLY: err-fudge maps
      &  ,SIM_FLUXERRMODEL_FILE ! idem, SIM only
      &  ,MAGCOR_FILE           ! DATA ONLY: mag-cor for each CID-MJD-band
@@ -1948,6 +1955,7 @@ c
      &  ,PHOTFLAG_TRIGGER        ! determine MJD(trigger) for survey
      &  ,FLUXERRMODEL_OPTMASK
      &  ,OPT_SIMLIB_OUT          ! bit mask of SIMLIB_OUT options
+     &  ,SIMLIB_OUT_TMINFIX      ! choose PEAKMJD such that min(MJD-PEAKMJ) = TMINFIX
 
       LOGICAL 
      &   LSIM_SEARCH_SPEC   ! (I) T => require simulated SPEC-tag
@@ -2011,6 +2019,7 @@ c variables to control estimate of PEAKMJD
       REAL
      &   SNRCUT_SETPKMJD         ! define SNR for Fmax in clump method
      &  ,MJDWIN_SETPKMJD         ! MJD window for Fmax in clump method
+     &  ,SHIFT_SETPKMJD          ! shift initial PKMJD for systematic test
 
 c define reference cosmological parameters (double precision!)
 c Aug 7, 2009: each parameter has dimension 2 for value & error
@@ -2038,16 +2047,17 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE, NONLINEARITY_FILE
-     &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, OPT_SIMLIB_OUT
+     &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
+     &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , hfile_out, rootfile_out, textfile_prefix
-     &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP
-     &    , KCOR_FILE, USERTAGS_FILE  ! ZPOFF_FILE, 
+     &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT
+     &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK
      &    , MAGCOR_FILE, SIM_MAGCOR_FILE,  FUDGE_HOSTNOISE_FILE
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
      &    , OPT_SETPKMJD
-     &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, OPT_DEBUG
+     &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, SHIFT_SETPKMJD, OPT_DEBUG
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_zHOST
      &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
@@ -2084,14 +2094,15 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , hfile_out, rootfile_out, textfile_prefix
-     &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP
-     &    , KCOR_FILE, USERTAGS_FILE  ! , ZPOFF_FILE
+     &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT
+     &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE, NONLINEARITY_FILE
-     &    , SIMLIB_OUT, SIMLIB_ZPERR_LIST, OPT_SIMLIB_OUT
+     &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
+     &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
      &    , OPT_SETPKMJD
-     &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, OPT_DEBUG
+     &    , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, SHIFT_SETPKMJD, OPT_DEBUG
      &    , LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST
      &    , LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
@@ -2768,6 +2779,7 @@ c define bits for user option-mask OPT_SETPKMJD  (lsb = 0 )
      &  ,OPTBIT_SETPKMJD_FLUXMAX2
      &  ,OPTBIT_SETPKMJD_TRIGGER
      &  ,OPTBIT_SETPKMJD_DUMP
+     &  ,OPTBIT_SETPKMJD_SIM
 
       PARAMETER ( 
      &  OPTBIT_SETPKMJD_ANYFUN  = 0  ! (=1) use exact function from Bazin 09
@@ -2778,6 +2790,7 @@ c define bits for user option-mask OPT_SETPKMJD  (lsb = 0 )
      & ,OPTBIT_SETPKMJD_TRIGGER = 5  ! (=32) PKMJD = MJD_TRIGGER 
      & ,OPTBIT_SETPKMJD_SAVEPAR = 9  ! (=512) save fit params to SNANA table
      & ,OPTBIT_SETPKMJD_DUMP    =10  !(=1024) extra screen dump per SN/filter
+     & ,OPTBIT_SETPKMJD_SIM     =11  !(=2048) PKMJDINI = SIM_PEAKMJD
      &   )
 
 c Define fit params
@@ -3393,16 +3406,20 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       EPOCH_IGNORE_FILE = 'DEFAULT' 
 
       KCOR_FILE   = 'NULL'
+      OVERRIDE_RESTLAM_BOUNDARY = ''
 
       hfile_out         = ' '
       rootfile_out      = ' '
       textfile_prefix   = ' '
+      MARZFILE_OUT      = ' '  ! May 2020
 
       SNCID_LIST_FILE   = ' '
       MXEVT_PROCESS      = 999888777
-      SIMLIB_OUT = ''
+      SIMLIB_OUT     = ''
+      SIMLIB_OUTFILE = ''
       SIMLIB_ZPERR_LIST = ''
       OPT_SIMLIB_OUT    = 1
+      SIMLIB_OUT_TMINFIX = 99999 ! large value -> not used
 
       NONLINEARITY_FILE = ''
 
@@ -3496,8 +3513,9 @@ c default is to reject nothing (accept everything)
       DTOBS_MODEL_PLOT = 2.0  ! 2 day binning
  
       OPT_SETPKMJD      = 0
-      SNRCUT_SETPKMJD   =  5.0 ! only for FLUXMAX2 option (Fmax-clump)
-      MJDWIN_SETPKMJD   = 60.0 ! only for FLUXMAX2 option (Fmax-clump)
+      SNRCUT_SETPKMJD   =  5.0  ! only for FLUXMAX2 option (Fmax-clump)
+      MJDWIN_SETPKMJD   = 60.0  ! only for FLUXMAX2 option (Fmax-clump)
+      SHIFT_SETPKMJD    =  0.0  ! for systematic test only
 
       OPT_DEBUG           = 0
       LDMP_SNFAIL         = .FALSE.
@@ -3741,7 +3759,8 @@ c count entries in lists
       END DO
       NCCID_LIST = i - 1
 
-      if ( NCID_LIST>0 .or. NCCID_LIST>0 ) then
+      if ( NCID_LIST>0 .or. NCCID_LIST>0 .or. 
+     &     SNCID_LIST_FILE .NE. ' ') then
          CUTWIN_CID(1) = 0;  CUTWIN_CID(2) = 0
       endif
 
@@ -3857,6 +3876,10 @@ c check option to save bad epochs for OPT_REFORMAT
          REFORMAT_SAVE_BADEPOCHS = .TRUE.
       ENDIF
 
+c - - - - -
+      IF ( SIMLIB_OUT .NE. '' ) SIMLIB_OUTFILE = SIMLIB_OUT
+
+     
 c ---------------------------
 c if ENV is in path, make substitution
       CALL ENVreplace(PRIVATE_DATA_PATH) 
@@ -4019,6 +4042,8 @@ c Dec 19 2019: pass SIMFLAG to SNLCPAK_INIT.
 c
 c Apr 03 2020: add call to  ENVreplace(TEXTFILE_PREFIX)
 c
+c May 02 2020: begin MARZFILE_OUT (to store WFIRST host spectra for MARZ)
+c
 c ------------------------------------------------------
 
       IMPLICIT NONE
@@ -4092,12 +4117,33 @@ c set strings needed for the SNLCPAK_INIT functio
          CALL SPECPAK_INIT(SURVEY_forC, VER_PHOT_forC, TEXTFMT_forC,
      &          LENSRVY, LENV1, LENFMT )
       ENDIF
-
+c .xyz
 c -------------------------------------------
 
       USE_TABLEFILE        = .FALSE.
       USE_TABLEFILE_HBOOK  = .FALSE.  
       USE_TABLEFILE_ROOT   = .FALSE.      
+      USE_TABLEFILE_TEXT   = .FALSE.     ! May 2 2020 (forgot init earlier)
+      USE_TABLEFILE_MARZ   = .FALSE.     ! May 2 2020 (new table)
+
+c MARZ (host spectra only)
+      IF ( MARZFILE_OUT .NE. '' ) THEN
+         COPT          = "new" // char(0)
+      	 CALL ENVreplace(MARZFILE_OUT)
+         LENFILE   = INDEX(MARZFILE_OUT,' ') - 1
+         CFILE     = MARZFILE_OUT(1:LENFILE) // char(0)
+         IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, LENFILE, 20)
+
+         USE_TABLEFILE_MARZ = .TRUE. 
+         USE_TABLEFILE      = .TRUE.
+
+         IF ( IFILETYPE < 0 ) THEN
+            C1ERR = 'Could not open MARZ fits-file'
+            C2ERR = MARZFILE_OUT(1:LENFILE)
+            CALL  MADABORT(FNAM, C1ERR, C2ERR)
+         ENDIF
+      ENDIF
+
 
       IF ( HFILE_OUT .NE. ' ' ) THEN
          COPT          = "new hbook" // char(0)
@@ -4145,7 +4191,6 @@ c -------------------------------------------
             CALL  MADABORT(FNAM, C1ERR, C2ERR)
          ENDIF
       ENDIF
-
 
 c ----------------------------------------
 c Oct 23, 2014: store global comments
@@ -4258,6 +4303,7 @@ c namelist, SNTABLE_LIST = 'SNANA(text:[format])' and SNANA->LCPLOT.
       TEXTFORMAT_TABLE(ITABLE_SNLCPAK)   = 'none'
       TEXTFORMAT_TABLE(ITABLE_SPECPAK)   = 'none' ! Apr 2019
       TEXTFORMAT_TABLE(ITABLE_MODELSPEC) = 'none' 
+      TEXTFORMAT_TABLE(ITABLE_MARZ)      = 'none' 
 
       CUTMASK_SNANA_TABLE = 63  ! default is to add everything in snana table
 
@@ -4312,6 +4358,10 @@ c STRING is of the form "tbName(copt_list)".
 
          CALL PARSE_SNTABLE_LIST(locase_STRING, TBNAME, NOPT, COPT_LIST)
 
+c check MARZ outpout option (May 2020)
+         if ( MARZFILE_OUT .NE. ' ' ) OPT_TABLE(ITABLE_SPECPAK)=2
+
+c - - - - - - - - - - - - - - - - - - 
 c check table-names
 
          if ( TBname(1:5) .EQ. 'snana' ) then
@@ -4435,11 +4485,14 @@ c summarize
       ITAB = ITABLE_MODELSPEC
       write(6,40) 'MODELSPEC', OPT_TABLE(ITAB),TEXTFORMAT_TABLE(ITAB)
 
- 40   format(T5,A8,'-table: USE=',I1,       3x, 'TEXTFORMAT=',A4 )
- 41   format(T5,A8,'-table: MXLC_PLOT=',I6, 3x, 'TEXTFORMAT=',A4 )
+      ITAB = ITABLE_MARZ
+      write(6,40) 'MARZ', OPT_TABLE(ITAB),TEXTFORMAT_TABLE(ITAB)
+
+ 40   format(T5,A9,'-table: USE=',I1,       3x, 'TEXTFORMAT=',A4 )
+ 41   format(T5,A9,'-table: MXLC_PLOT=',I6, 3x, 'TEXTFORMAT=',A4 )
 
       write(6,51) 'SNANA', CUTMASK_SNANA_TABLE
-51    format(T5,A8,'-table: select CUTFLAG_SNANA & ', I3 )
+51    format(T5,A9,'-table: select CUTFLAG_SNANA & ', I3 )
 
       if ( WRTABLEFILE_HOST_TEXT ) then
          print*,'   Include HOSTGAL info in TEXT tables.'
@@ -4762,6 +4815,8 @@ c to allow multiple specifications.
 
          else if ( LINE_ARGS(i) .EQ. 'KCOR_FILE' ) then
             i = i + 1 ; KCOR_FILE = LINE_ARGS(i)
+         else if (LINE_ARGS(i).EQ.'OVERRIDE_RESTLAM_BOUNDARY') then
+            i = i + 1 ; OVERRIDE_RESTLAM_BOUNDARY = LINE_ARGS(i)
 
          else if ( LINE_ARGS(i) .EQ. 'HFILE_OUT' ) then
             i = i + 1 ; HFILE_OUT = LINE_ARGS(i)
@@ -4771,6 +4826,9 @@ c to allow multiple specifications.
 
          else if ( LINE_ARGS(i) .EQ. 'TEXTFILE_PREFIX' ) then
             i = i + 1 ; TEXTFILE_PREFIX = LINE_ARGS(i)
+
+         else if ( LINE_ARGS(i) .EQ. 'MARZFILE_OUT' ) then
+            i = i + 1 ; MARZFILE_OUT = LINE_ARGS(i)
 
          else if ( LINE_ARGS(i) .EQ. 'SNTABLE_LIST' ) then
             i = i + 1 ; SNTABLE_LIST = LINE_ARGS(i)
@@ -4883,6 +4941,8 @@ c ----------
             i = i + 1 ; READ(LINE_ARGS(i),*) MJDWIN_SETPKMJD
          else if ( LINE_ARGS(i) .EQ. 'SNRCUT_SETPKMJD' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) SNRCUT_SETPKMJD
+         else if ( LINE_ARGS(i) .EQ. 'SHIFT_SETPKMJD' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) SHIFT_SETPKMJD
 
          else if ( LINE_ARGS(i) .EQ. 'DOBUG_LAMRANGE' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) DOBUG_LAMRANGE
@@ -4909,13 +4969,18 @@ c ----------
      &          PARSE_INTLIST(STRING_LIST,SIM_TEMPLATE_INDEX_LIST)
 
          else if ( LINE_ARGS(i) .EQ. 'SIMLIB_OUT' ) then
-            i = i + 1 ; SIMLIB_OUT = LINE_ARGS(i)
+            i = i + 1 ; SIMLIB_OUTFILE = LINE_ARGS(i)
+         else if ( LINE_ARGS(i) .EQ. 'SIMLIB_OUTFILE' ) then
+            i = i + 1 ; SIMLIB_OUTFILE = LINE_ARGS(i)
 
          else if ( LINE_ARGS(i) .EQ. 'SIMLIB_ZPERR_LIST' ) then
             i = i + 1 ; SIMLIB_ZPERR_LIST = LINE_ARGS(i)
 
          else if ( LINE_ARGS(i) .EQ. 'OPT_SIMLIB_OUT' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) OPT_SIMLIB_OUT
+
+         else if ( LINE_ARGS(i) .EQ. 'SIMLIB_OUT_TMINFIX' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) SIMLIB_OUT_TMINFIX
 
          else if ( LINE_ARGS(i) .EQ. 'NONLINEARITY_FILE' ) then
             i = i + 1 ; NONLINEARITY_FILE = LINE_ARGS(i)
@@ -6442,6 +6507,11 @@ c close hbook file using wrapper so that we don't need CERNLIB flag here.
          CALL TABLEFILE_CLOSE("NULL"//char(0),10)
       ENDIF
 
+      IF ( USE_TABLEFILE_MARZ ) THEN  ! April 2019
+         LENF = index(MARZFILE_OUT,' ') - 1
+         CALL TABLEFILE_CLOSE(MARZFILE_OUT(1:LENF)//char(0), LENF)
+      ENDIF
+
       IF ( FLAG_NEARNBR == NNFLAG_TRAIN ) THEN
          CALL SNANA_NEARNBR_TRAIN_END()
       ELSE IF ( FLAG_NEARNBR == NNFLAG_APPLY ) THEN
@@ -6728,6 +6798,9 @@ c ---------- redshift info --------
 
       DVAL      = SNLC_VPEC_ERR
       CALL SET_SNDATA_DBLE("VPEC_ERR", DVAL )
+
+      DVAL      = DBLE(ISNLC_zFLAG)
+      CALL SET_SNDATA_DBLE("REDSHIFT_QUALITYFLAG", DVAL )
 
 c ------- host galaxy info  ------------
       HOSTGAL_USEMASK = 0
@@ -7536,10 +7609,10 @@ c ------------------------------
       INTEGER iwd, NWD, ifilt, NTMP, IFILT_OBS, IFILT_TMP(2) 
       INTEGER LL, LL0, LL1, LL2, MSKOPT
       character 
-     &   cwd*(MXCHAR_FILEWORD)
-     &  ,cwd1*(MXCHAR_FILEWORD)
-     &  ,cwd2*(MXCHAR_FILEWORD)
-     &  ,ctmp*(MXCHAR_FILEWORD)
+     &   cwd*(MXCHAR_FILEWORD-2)
+     &  ,cwd1*(MXCHAR_FILEWORD-2)
+     &  ,cwd2*(MXCHAR_FILEWORD-2)
+     &  ,ctmp*(MXCHAR_FILEWORD-2)
      &  ,cfilt(2)*2, cfilt1*1
      &  ,cutvar_file*(MXCHAR_FILENAME)
      &  ,list_file*(MXCHAR_FILENAME)
@@ -7595,8 +7668,8 @@ C -------------------- BEGIN -------------------
           NREPLACE    = INDEX(NAMEof_REPLACE(1), ' ' ) - 1
         else if ( cwd(1:1) .EQ. '@' ) then
           NEWKEY = NEWKEY + 1
-          NEWKEY_NAME(NEWKEY) = cwd(2:LL0)
-          NEWKEY_ARG(NEWKEY)  = cwd1
+          NEWKEY_NAME(NEWKEY)(1:LL0-1) = cwd(2:LL0)
+          NEWKEY_ARG(NEWKEY)           = cwd1
         endif
 
       ENDDO
@@ -9570,9 +9643,9 @@ c
 +CDE,SNPAR.
 
 c subroutine args
-      INTEGER   IWD                       ! (I) word index to fetch
+      INTEGER   IWD           ! (I) word index to fetch
       CHARACTER WORD*(*)      ! (O) stored word
-      INTEGER   LEN                       ! (O) length of word
+      INTEGER   LEN           ! (O) length of word
 
 c local args
       INTEGER  iwd_C
@@ -9582,9 +9655,50 @@ c local args
 C ------------- BEGIN -----------
       iwd_C = iwd-1
       CALL GET_PARSE_WORD(ONE, iwd_C,WORD_C,LEN)
-
       LEN  = INDEX(WORD_C, ' ' ) - 1
       WORD = WORD_C(1:LEN)
+      RETURN
+      END
+
+C ================================
++DECK,EXTRACTSTRINGOPT_fortran.
+      SUBROUTINE EXTRACTSTRINGOPT_fortran(string, stringOpt)
+
+c Apr 23 2020:
+c Wrapper to call C function extractStringOpt
+c
+c If input string = 'xyz(argOpt)' then 
+c   output string    = xyz
+c   output stringOpt = argOpt
+c
+c If input string = 'xyz' then 
+c   output string    = xyz
+c   output stringOpt = ''
+c
+c ----------------------
+      IMPLICIT NONE
+
+      CHARACTER STRING*(*)       ! (I/O)
+      CHARACTER STRINGOPT*(*)    ! (O)
+
+c local var
+      INTEGER   j, LENS, LENOPT
+      CHARACTER STR_LOCAL*100, STROPT_LOCAL*100
+      EXTERNAL  EXTRACTSTRINGOPT
+
+c -------- BEGIN -----------
+
+      STRINGOPT = ''      
+      j = index(string,'(')
+      if ( j <= 0 ) return
+
+      LENS = index(string,' ') - 1
+      STR_LOCAL = string(1:LENS) // char(0)
+      CALL extractStringOpt(STR_LOCAL,STROPT_LOCAL, LENS, LENOPT)
+
+c load output arguments
+      STRING    = STR_LOCAL(1:LENS)
+      STRINGOPT = STROPT_LOCAL(1:LENOPT)
 
       RETURN
       END
@@ -9855,8 +9969,9 @@ c Dec 20, 2013:   modify how LSIM is set
 c Aug 07, 2014:   read NXPIX, NYPIX
 c Oct 16, 2017:   call PARSE_TERSE_VARLIST to check ITERSE_CCDNUM
 c Nov 14, 2018:   read MASK_FLUXCOR_SNANA
+c Apr 25, 2020:   allow NOBS=0 if ABORT_ON_NOEPOCHS=F
 c
-C -------------------------------------
+C -------------------------------------------------------------
 
       IMPLICIT NONE
 
@@ -9885,7 +10000,7 @@ c local variables.
       LOGICAL 
      &   LDONE_DATA, LOBS, LRDFILT
      &  ,L_SURVEY, L_FILTERS, L_GENMODEL
-     &  ,ISKEY_VARLIST
+     &  ,ISKEY_VARLIST, ALLOW_NOEPOCHS
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
@@ -9894,6 +10009,8 @@ C ------------- BEGIN ----------------
 
       IERR = 0
 
+      ALLOW_NOEPOCHS = (.not. ABORT_ON_NOEPOCHS)
+ 
       global_banner = 'RDSURVEY_TEXT: Fetch global SURVEY info.'
       CALL prbanner( global_banner(1:60) )
 
@@ -9923,6 +10040,7 @@ c read name of first text file from [VERSION].LIST file
       LL = INDEX ( SNDATA_PATH , ' ' ) - 1
       LOCALFILE = SNDATA_PATH(1:LL) // '/' // SNDATA_FILE_CURRENT
 
+      IFAKE = 0
       LL        = INDEX(LOCALFILE,' ') - 1
       NAME_forC = LOCALFILE(1:LL)// char(0)
       NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LL)
@@ -9935,11 +10053,12 @@ c read name of first text file from [VERSION].LIST file
       ENDIF
 
 c - - - - - - - - - 
-      DO 10 iwd = 1, NWD
+      DO 10 iwd = 1, NWD-1
 
         call get_PARSE_WORD_fortran(iwd+0, cwdList(1),  LWD0 )
-        call get_PARSE_WORD_fortran(iwd+1, cwdList(2),  LWD0 )
         cwd  = cwdList(1)
+
+        call get_PARSE_WORD_fortran(iwd+1, cwdList(2),  LWD0 )
         cwd1 = cwdList(2)
 
         ISKEY_VARLIST  = ( cwd(1:7) .EQ. 'VARLIST' ) 
@@ -9948,7 +10067,9 @@ c - - - - - - - - -
 
         do i = 3, NWD_LOAD
             iwd2 = iwd + i - 1
-            call get_PARSE_WORD_fortran(iwd2, cwdList(i),  LWD0 )
+            if ( iwd2 <= NWD ) then
+              call get_PARSE_WORD_fortran(iwd2, cwdList(i),  LWD0 )
+            endif
         enddo
 
 c check required header keys
@@ -10036,12 +10157,20 @@ c the FAKE key may not be there.
         LOBS = cwd .EQ. 'EPOCH:' .or. cwd .EQ. 'OBS:'
         IF ( LOBS ) GOTO 100         
 
+c for fakes, allow zero obs and bail on END key
+        IF ( ALLOW_NOEPOCHS .and. cwd(1:4) .EQ. 'END:' ) GOTO 100
+
 10    CONTINUE  ! end iwd loop
 
-c if we get here there are no epochs/observations => abort.
-      c1err = 'Did not find any observations.'
-      c2err = 'Check ' // SNDATA_FILE_CURRENT(1:72)
-      CALL MADABORT("RDSURVEY_TEXT", c1err, c2err )
+c for real data or sim, if we get here there are no epochs/observations => abort
+c For fake overlaid on images, do not abort on zero obs.
+c
+      if ( ABORT_ON_NOEPOCHS ) then
+        c1err = 'Did not find any observations.'
+        c2err = 'Check ' // SNDATA_FILE_CURRENT(1:72)
+        CALL MADABORT("RDSURVEY_TEXT", c1err, c2err )
+      endif
+
 
 c -----------------------------------------------------
 100   CONTINUE  ! come here after read entire header
@@ -11270,14 +11399,7 @@ c Mar 2015 - parse more epoch variables for CHECK_EPOCH_IGNORE
       JPAR = JPAR + 1
       NRD = RD_SNFITSIO_STR(IROW, KEYNAME, STRFITS, 
      &     INDXFITS_PHOT(JPAR), 3, LRET )
-+SELF,IF=XXXBAND.
-      IF ( NRD <= 0) THEN   
-c         Mar 29 2017: try alternate BAND key
-         KEYNAME  = "BAND" // char(0)
-         NRD = RD_SNFITSIO_STR(IROW, KEYNAME, STRFITS, 
-     &          INDXFITS_PHOT(JPAR), 3, LRET )
-      ENDIF
-+SELF.
+
       CALL CHECK_FITSABORT(IVERS,NRD,KEYNAME)
       LRET = INDEX( STRFITS, char(0) ) -1
       CALL UNPACK_SNFITSIO_STR(NRD, KEYNAME, STRFITS(1:LRET) )
@@ -12144,7 +12266,7 @@ c - - - - - - - - -
         IF ( ISKEY_VARLIST  ) NWD_LOAD = NVAR_TERSE+1
         IF ( ISKEY_OBS      ) NWD_LOAD = NVAR_TERSE+1
         IF ( ISKEY_SPECTRUM ) NWD_LOAD = 2
-        IF ( ISKEY_SPECBIN  ) THEN ; 
+        IF ( ISKEY_SPECBIN  ) THEN
            NVAR_SPECTRUM  = 5                  ! for data
            if ( LSIM_SNANA ) NVAR_SPECTRUM = 7 ! for sim
            NWD_LOAD = NVAR_SPECTRUM
@@ -12266,7 +12388,7 @@ c check for end of photometry and existence of SPECTRA
          endif
 
          IF ( END_PHOTOMETRY .and. ISKEY_SPEC ) THEN
-            CALL PARSE_SPECTRUM ( cwd, istat )
+            CALL PARSE_SPECTRUM_TEXT ( cwd, istat )
          ENDIF
 
  200  CONTINUE  ! NWD loop
@@ -12420,6 +12542,9 @@ c        HOSTGAL_PHOTOZ[_ERR]
 c        HOSTGAL_SPECZ[_ERR]
 c
 c Feb 8 2019: call PARSE_HOSTGAL(igal) to parse multiple host-matches.
+c
+c May 01 2020: add SHIFT_SETPKMJD to PEAKMJD value read from header.
+c
 c --------------------------------------------------
 
       IMPLICIT NONE
@@ -12709,12 +12834,11 @@ c check the newer PEAKMJD key, as well as the older key
 
       KEY  = 'PEAKMJD'
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SNLC_SEARCH_PEAKMJD = SNGL(RET8(1))
+      IF ( LTMP ) SNLC_SEARCH_PEAKMJD = SNGL(RET8(1)) + SHIFT_SETPKMJD
 
       KEY  = 'SEARCH_PEAKMJD'
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
-      IF ( LTMP ) SNLC_SEARCH_PEAKMJD = SNGL(RET8(1))
-
+      IF ( LTMP ) SNLC_SEARCH_PEAKMJD = SNGL(RET8(1)) + SHIFT_SETPKMJD
 
 c read optional FLUXCAL_OFF to correct for SN light in template
 
@@ -13990,8 +14114,8 @@ C ---------- BEGIN ------------
 
 
 C ================================================
-+DECK,PARSE_SPECTRUM.
-      SUBROUTINE PARSE_SPECTRUM ( cwords, istat ) 
++DECK,PARSE_SPECTRUM_TEXT.
+      SUBROUTINE PARSE_SPECTRUM_TEXT ( cwords, istat ) 
 c
 c Apri 2019
 c -----------------
@@ -14037,7 +14161,7 @@ c check header stuff
            write(c1err,81) MXSPECTRUM 
 81         format('NSPECTRUM exceeds bound of MXSPECTRUM=',I2 )
            c2err = 'Check MXSPECTRUM in snana.car'
-           CALL MADABORT("PARSE_SPECTRUM", c1err, c2err )
+           CALL MADABORT("PARSE_SPECTRUM_TEXT", c1err, c2err )
          endif
          NLAMBIN_READ = 0 
          ID_SPECTRUM(NSPECTRUM) = ID
@@ -14065,7 +14189,7 @@ c check header stuff
 91         format('NLAMBIN=',I5,' exceeds bound of ', 
      &            'MXLAM_SPECTRUM=',I5)
            c2err = 'Check MXLAM_SPECTRUM in snana.car'
-           CALL MADABORT("PARSE_SPECTRUM", c1err, c2err )
+           CALL MADABORT("PARSE_SPECTRUM_TEXT", c1err, c2err )
          endif
       ENDIF
 
@@ -14088,14 +14212,13 @@ c check SPEC: line with wave and flux
 661        format('Read ',I4,' lam bins, but expected ',I4)
            write(c2err,662) SNLC_CCID(1:12), ID
 662        format('CID=',A,' SPECTRUM_ID=',I2 )
-           CALL MADABORT("PARSE_SPECTRUM", c1err, c2err )
+           CALL MADABORT("PARSE_SPECTRUM_TEXT", c1err, c2err )
          endif
          NLAMBIN_READ = 0
       ENDIF
 
       RETURN 
-      END     ! end PARSE_SPECTRUM
-
+      END     ! end PARSE_SPECTRUM_TEXT
 
 C =============================================
 +DECK,CIDASSIGN.
@@ -14203,39 +14326,19 @@ C ==============================================
 +DECK,PRS_REDSHIFT.
       SUBROUTINE PARSE_REDSHIFT ( isnlc, cwords, istat )
 c
-c parse redshift parameters.
-c cword(1) is the keyword; cword(2) is the value,c
-c or cword(2-6) are the five values for ugirz.
+c Parse redshift parameters.
+c cword(1) is the keyword; cword(2) is the value.
 c Returns ISTAT=0 (OK) if redshift is within cut-window;
 c other returns ISTAT = -1
 c
-c May 15, 2008: LZTMP includes cut on redshift error.
-c
-c Oct 31, 2008: add crazy-Z protection (see ZMAX)
-c
-c Mar 17, 2009: read ZHELIO and ZCMB
-c
-c Aug 7, 2009:   Z = Z  + REDSHIFT_FINAL_SHIFT
-c                to fudge redshifts in photoZ fits
-c
-c Nov 21, 2009: protect NZ from exceeding MXZSPEC
-c
-c Jun 22, 2011: use READ_HEADKEY() function to read either TEXT or FITS
-c
-c Aug 28, 2012: set HEADMASK_Z bit if valid redshift key is found.
-c               Used to make sure that required keys are found.
-c
-c Dec 18, 2012: simplify logic using new RETSTR='+ERR' feature to read
-c               both the value and error with one call to READ_HEADKEY
-c
-c Aug 19, 2013: remove call to ZCUTSTAT; no more redshift cuts from 
-c               header because it messess up the cut-bookkeeping.
 c
 c Jul 11 2015:  read optional SN-only redshift (REDSHIFT_SN[_ERR])
 c
 c May 1 2018: 
 c   + use '+ERR' feature to read VPEC[ERR] as either 2 keys,
 c     or as  VPEC: xxx +- yyy
+c
+c May 2020: read optional REDSHIFT_QUALITYFLAG
 c
 c --------------
 
@@ -14335,6 +14438,21 @@ c Jan 2018: read optional VPEC & its error
 
       IF (  abs(VPEC_ERR_OVERRIDE) > .001 ) THEN
          SNLC_VPEC_ERR = VPEC_ERR_OVERRIDE  ! Jan 11 2018
+      ENDIF
+
+c ---------------------------------------
+c May 2020: 
+c Read optional quality flag for redshift, which can appear only for 
+c real data. This flag refers to spectral quality of host or SN. 
+c Each survey should define flag values in their data-readme.
+
+      RETSTR = ''
+      ZKEY   = 'REDSHIFT_QUALITYFLAG'
+      LZTMP   = READ_HEADKEY(isnlc, cwords, ZKEY, RET8, RETSTR )
+      IF ( LZTMP ) THEN
+         if ( RET8(1) .NE. IGNORE_HEADVAL) then
+           ISNLC_zFLAG  = INT ( RET8(1) )
+         endif
       ENDIF
 
       RETURN
@@ -16708,11 +16826,11 @@ c ------------- BEGIN -------------
       SNLC_ZCMB_ERR      =   0.0
       SNLC_ZSN           =  -9.0 
       SNLC_ZSN_ERR       =   0.0
-
       SNLC_REDSHIFT      =  -9.0
       SNLC_REDSHIFT_ERR  =   0.0
       SNLC_VPEC          =   0.0
       SNLC_VPEC_ERR      =   0.0
+      ISNLC_zFLAG        =  -999  
 
       SNLC_PIXSIZE       =  -9.0
       SNLC_NXPIX         =  -9.0
@@ -16725,6 +16843,8 @@ c ------------- BEGIN -------------
       ISNLC_TYPE         =  0
 
       SNLC_PHOTPROB_MIN = 1.0
+
+      SNLC_AREAFRAC_AVG = -9.0
 
 c init a few SNHOST arrays
 
@@ -16854,6 +16974,8 @@ c      print*,' xxx NCALL,NEP_RESET=', NCALL_SNANA_DRIVER, NEP_RESET
 
         SNLC_DTOBS(iep)          = -9.0 
         SNLC_DTOBS_SAMEFILT(iep) = -9.0 
+
+        SNLC_AREAFRAC(iep)  = -9.0
 
       END DO  ! end of epoch loop
 
@@ -18205,9 +18327,10 @@ C ========================================================
 c Created Nov 29 2016 by R.Kessler
 c Execute header override.
 c
-c Aug 7 2019: fix bug setting SNLC_ZCMB_ERR to zerr instead of z.
+c Aug  7 2019: fix bug setting SNLC_ZCMB_ERR to zerr instead of z.
 c Nov 22 2019: check for HOSTGAL_OBJID, SIM_SALT2x1[c]
- 
+c May 14 2020: check for REDSHIFT_QUALITYFLAG
+
       IMPLICIT NONE
     
 +CDE,SNDATCOM.
@@ -18270,6 +18393,11 @@ c brute-force check each possible header variable
           SNLC_ZHELIO = sngl(DVAL)
         ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_HELIO_ERR' ) THEN
           SNLC_ZHELIO_ERR = sngl(DVAL)
+
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_QUALITYFLAG' ) THEN
+           ISNLC_zFLAG = int(DVAL)
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'zFLAG' ) THEN
+           ISNLC_zFLAG = int(DVAL)
 
         ELSE IF ( VARNAME(1:LENV) .EQ. 'HOSTGAL_OBJID' ) THEN
           SNHOST_OBJID(1) = sngl(DVAL)   ! Nov 22 2019
@@ -18886,7 +19014,7 @@ c local var
      &   Fluxcal, Fluxcal_err, TRUEFLUX
      &  ,Xnsig, MAG, SIM_MAG, magoff, ZP, PHOTPROB
      &  ,Tobs, z1, z, Trest, scale, arg, PSF, ZPERR
-     &  ,Zhost, Zhosterr, LAMOBS, LAMZ1,  SNRMAX
+     &  ,Zhost, Zhosterr, LAMOBS, LAMZ1,  SNRMAX, SUM_AREAFRAC
 
       REAL*8  MJD8, EBV8, EBVERR8
       REAL*8  MJD8_FIRSTDETECT, MJD8_LASTALL, MJD8_LASTFILT(MXFILT_ALL)
@@ -19018,6 +19146,7 @@ c Useful as initial value for fits.
       NBAND_SNRMAX2 = 0
       MJD8_LASTALL  = -9.0
       NEP_SIM_MAGOBS =  0
+      SUM_AREAFRAC   = 0.0
 
 c fill ISNLC_NFIELD with number of fields; 
       CALL COUNTFIELDS()
@@ -19105,13 +19234,10 @@ c convert sim-mag to SIM_FLUXCA
 +SELF,IF=SNANA,SNFIT.
           CALL FLUXERRCALC( ep, Fluxcal, Fluxcal_err )
 c compute relative area of rectangle containing pixel location
-          CALL CCD_AREAFRAC(ep)   ! 8.07.2014
+ccc xxx mark delete; see below   CALL CCD_AREAFRAC(ep)   ! 8.07.2014
 +SELF.
 
 c compute significance.
-c Feb 2, 2007: 
-c   use FLUXCAL instead of FLUX to determine signal/noise.
-c
           Xnsig  = -999.0
           LERR   = (Fluxcal_err > 0.0 )
           LFLUX  = (abs(Fluxcal+9.0) > 1.0E-5 )  !  FLUXCAL != -9
@@ -19247,6 +19373,13 @@ c check for trigger bit set by survey (5.2019)
              SNLC8_MJD_TRIGGER = MJD8
           endif
 
++SELF,IF=SNANA,SNFIT.
+          CALL CCD_AREAFRAC(ep)
+          IF ( SNLC_AREAFRAC(ep) > -0.001 ) then
+             SUM_AREAFRAC = SUM_AREAFRAC + SNLC_AREAFRAC(ep)
+          ENDIF
++SELF.
+
 201     CONTINUE     ! come here of LSIG fails
 
           
@@ -19285,6 +19418,12 @@ c check option to estimate LC width
 
 c May 2017: load ADDCOL arrays
       CALL TABLE_ADDCOL_LOAD()
+
+      print*,' xxx NEP_USE, AREAFRAC_AVG = ', 
+     &        ISNLC_NEPOCH_USE, SUM_AREAFRAC
+      IF ( ISNLC_NEPOCH_USE > 0 ) then
+        SNLC_AREAFRAC_AVG = SUM_AREAFRAC/float(ISNLC_NEPOCH_USE)
+      ENDIF
 
       RETURN
       END   ! end of SNRECON
@@ -20944,10 +21083,10 @@ c +CDE,SNANAFIT.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,SIMLIBCOM.
-c +CDE,KCORCOM,IF=R4KCOR,I2KCOR.
 
       REAL*8  MJD, GAIN, RDNOISE, SKYSIG, PSF1, PSF2, PSFRAT
       REAL*8  ZP, ZPERR, MAG, FLUX, FLUXERR, PIXSIZE, LAMOBS
+      rEAL*8  MJD_MIN, TOBS_MIN, PEAKMJD
       INTEGER LIBID, IFILT, IFILT_OBS, LASTEP(MXFILT_OBS)
       INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP,i
       LOGICAL IS_REAL_DATA, WRALL_SIM_MAGOBS, WRSET_SIM_MAGOBS
@@ -20957,7 +21096,7 @@ c +CDE,KCORCOM,IF=R4KCOR,I2KCOR.
 
 C ------------------ BEGIN ------------------
 
-      IF( SIMLIB_OUT .EQ. '' ) RETURN
+      IF( SIMLIB_OUTFILE .EQ. '' ) RETURN
 
       FNAM = 'MAKE_SIMLIB_FILE'
       IS_REAL_DATA = ( .NOT. (LSIM_SNANA .or. LSIM_MAGOBS) )
@@ -20992,16 +21131,16 @@ c -------------------------------------------
         GLOBAL_BANNER = 
      &      'Prepare to write SIMLIB file from data'
         CALL PRBANNER (GLOBAL_BANNER(1:60) )
-        LEN1 = INDEX(SIMLIB_OUT,' ') -1 
-        print*,'   Open output SIMLIB file: ', SIMLIB_OUT(1:LEN1)
+        LEN1 = INDEX(SIMLIB_OUTFILE,' ') -1 
+        print*,'   Open output SIMLIB file: ', SIMLIB_OUTFILE(1:LEN1)
         
         OPEN(   UNIT   = LUNOUT
-     &        , FILE   = SIMLIB_OUT
+     &        , FILE   = SIMLIB_OUTFILE
      &        , STATUS = 'UNKNOWN'
      &           )
 
         WRITE(LUNOUT,11) 
-     &       'Created from snana.exe using SIMLIB_OUT option.'
+     &       'Created from snana.exe using SIMLIB_OUTFILE option.'
         WRITE(LUNOUT,11) 
      &       'VERSION_PHOTOMETRY: ' // VERSION_PHOTOMETRY(1)(1:60)
         if ( WR_SIM_MAGOBS ) then
@@ -21017,14 +21156,14 @@ c -------------------------------------------
 10      FORMAT(A, 1x, A)  ! KEY VAL
 11      FORMAT('# ', A)
 
+        WRITE(LUNOUT,10) 'NLIBID:     ',  'NLIBID_REPLACE'
+
         if ( IS_REAL_DATA ) then   
           WRITE(LUNOUT,10) 'PSF_UNIT:    ',  'ARCSEC_FWHM'
           WRITE(LUNOUT,10) 'SKYSIG_UNIT: ',  'ADU_PER_SQARCSEC'  
           CALL SET_SIMLIB_SKYMAG()
           CALL SET_SIMLIB_ZPERR()
        endif
-
-        WRITE(LUNOUT,10) 'NLIBID:     ',  'NLIBID_REPLACE'
 
         WRITE(LUNOUT, '(/,A,/)' ) 'BEGIN LIBGEN' 
 cc90      FORMAT(/, 'BEGIN LIBGEN',/  )
@@ -21046,9 +21185,9 @@ c replace N_SNLC_CUTS with comment giving number of SIMLIB entries
 	 STR_NEW = cNCUTS
 	 LEN0    = index(STR_OLD,' ') - 1
 	 LEN1    = 8    ! for cNCUT
-         LEN2    = INDEX(SIMLIB_OUT,' ') - 1
+         LEN2    = INDEX(SIMLIB_OUTFILE,' ') - 1
 	 write(SEDCMD,505) 
-     &       STR_OLD(1:LEN0), STR_NEW(1:LEN1), SIMLIB_OUT(1:LEN2)
+     &       STR_OLD(1:LEN0), STR_NEW(1:LEN1), SIMLIB_OUTFILE(1:LEN2)
 c	 print*,' xxx SEDCMD = ', SEDCMD
          CALL SYSTEM(SEDCMD)
 
@@ -21058,10 +21197,10 @@ c is SUBSURVEY_LIST is not blank, use system 'sed' command
 c to insert its comma-separate list at top of SIMLIB file.
          IF ( SUBSURVEY_NAME_LIST .NE. '' ) THEN
             LEN1   = INDEX(SUBSURVEY_NAME_LIST,' ') - 1
-            LEN2   = INDEX(SIMLIB_OUT,' ') - 1
+            LEN2   = INDEX(SIMLIB_OUTFILE,' ') - 1
             SEDCMD = "sed -i '1i SUBSURVEY_LIST: " 
      &          // SUBSURVEY_NAME_LIST(1:LEN1) // "' " 
-     &          // SIMLIB_OUT(1:LEN2)
+     &          // SIMLIB_OUTFILE(1:LEN2)
             CALL SYSTEM(SEDCMD)
          ENDIF
 
@@ -21098,16 +21237,26 @@ c -----------
 
       WRITE(LUNOUT,66)
 66    FORMAT('#--------------------------------------------' )
- 
+
+c check option to force TMIN
+      MJD_MIN  = SNLC8_MJD(1)
+      PEAKMJD  = SNLC_SEARCH_PEAKMJD
+      IF ( SIMLIB_OUT_TMINFIX < 999 ) THEN
+        PEAKMJD = MJD_MIN - DBLE(SIMLIB_OUT_TMINFIX)
+      ENDIF
+      TOBS_MIN = MJD_MIN - PEAKMJD
+
       LIBID = SNLC_CID      ! UNIQUE_CIDINT(SNLC_CCID)
-      WRITE(LUNOUT,101) LIBID, SNLC_CCID
- 101  FORMAT('LIBID: ', I8, 5x, '# cadence from SNID=', A )
+ 
+      WRITE(LUNOUT,101) LIBID, SNLC_CCID(1:ISNLC_LENCCID), TOBS_MIN
+ 101  FORMAT('LIBID: ', I8, 5x, '# cadence from SNID=', A, 2x,
+     &    'min(MJD-PEAKMJD)=',F5.1  )
 
       WRITE(LUNOUT,103) SNLC8_RA, SNLC8_DEC, SNLC_MWEBV
  103  FORMAT('RA: ', F12.6, 8x, 'DEC:', F12.6, 5x, 'MWEBV: ',F7.4)
 
       WRITE(LUNOUT,105) NOBS, PIXSIZE, 
-     &       SNLC_REDSHIFT,  SNLC_SEARCH_PEAKMJD 
+     &       SNLC_REDSHIFT,  PEAKMJD 
  105  FORMAT('NOBS: ', I4, 5x, 'PIXSIZE: ', F6.3, 5x,
      &       'REDSHIFT: 'F8.5, 5x, 'PEAKMJD: ', F9.3 )
 
@@ -21192,6 +21341,12 @@ c Mainly for low-z sample which has no meta data.
               FLUX    = SNLC_FLUXCAL(EP)
               FLUXERR = SNLC_FLUXCAL_ERRTOT(EP)
               LAMOBS  = FILTOBS_LAMAVG(IFILT_OBS)
+
+              if ( LAMOBS < 0.0 ) then
+                 c1err = 'Invalid/undefined band = ' // band
+		 c2err = 'Make sure all bands are defined in kcor file'
+                 CALL MADABORT(FNAM, C1ERR, C2ERR )
+              endif
               CALL COMPUTE_SIMLIB_INFO(
      &               SNLC_CCID,FLUX,FLUXERR,LAMOBS,PIXSIZE,
      &               PSF1, SKYSIG, ZP)     ! returned
@@ -21397,7 +21552,7 @@ C =======================================================
 
 c
 c Created Jan 26 2017 by R.Kessler
-c When &SNLCINP namelist SIMLIB_OUT is specified (fileName),
+c When &SNLCINP namelist SIMLIB_OUTFILE is specified (fileName),
 c and the data files have no meta data, this function is called
 c as a hack to compute SIMLIB row entries for PSF, SKYSIG and ZP.
 c 
@@ -21947,10 +22102,18 @@ C ==========================================
 
 c Created aug 2014 by R.Kessler
 c Use input globals NXPIX,NYPIX, XPIX(ep), YPIX(ep)
-c to compute SNLC_AREAFRAC(ep) = A/ AMAX where
+c to compute SNLC_AREAFRAC(ep) = A/AMAX where
 c
 c A    = area of largest rectangle containing XPIX, YPIX
 c AMAX = area of CCD.
+c
+c For uniform CCD illumination, the distribution of AREAFRAC
+c is uniform; AREAFRAC=0 at center of CCD, and AREAFRAC=1.00 
+c at edge.
+c
+c Also note that this works only for data because there is
+c no pixel-coord input to the simulation ... but maybe 
+c someday XPIX and YPIX keys will be added to SIMLIB header.
 c
 c --------------
       IMPLICIT NONE
@@ -21996,6 +22159,7 @@ C ==========================================
 
 c Re-Created Feb 2013
 c Driver for monitor tables.
+c May 2 2020: add call to TABLE_MARZ
 
       IMPLICIT NONE
 
@@ -22022,10 +22186,14 @@ c ------------------------------------------------------
       IF ( OPT_TABLE(ITABLE_SNANA) > 0 ) THEN
          CALL TABLE_SNANA(IDTABLE_SNANA,IFLAG)   
       ENDIF
-
+      
       LTMP = ( IFLAG .EQ. IFLAG_INI .or. MADE_LCPLOT )  
       IF ( LTMP ) THEN
          CALL TABLE_CIDPTR(IFLAG)     ! init CID pointers for LC plots
+      ENDIF
+
+      IF ( MARZFILE_OUT .NE. '' ) THEN
+         CALL TABLE_MARZ(IDTABLE_MARZ,IFLAG)
       ENDIF
 
       RETURN
@@ -24149,7 +24317,7 @@ c set global flag.
 +SELF.
 
 
-C ==============================
+C ==============================================
 +DECK,SPECPLOT.
       SUBROUTINE SPECPLOT()
 
@@ -24167,6 +24335,7 @@ c
       CHARACTER  CCID_forC*(MXCHAR_CCID)
       LOGICAL DOPLOT_SNLC
 
+      EXTERNAL SPECPAK_DATA
 C ----------------- BEGIN ---------------
 
 c check if we should make the plot
@@ -24189,8 +24358,8 @@ c load each spectrum into SPECPAK C-function util
      &       , TOBS_SPECTRUM(ispec)    ! May 7 2019
      &       , TEXPOSE_SPECTRUM(ispec)
      &       , NLAMBIN_SPECTRUM(ispec)
-     &       , LAMMIN_SPECTRUM(1,ispec)
-     &       , LAMMAX_SPECTRUM(1,ispec)
+     &       , LAMMIN_SPECTRUM(1,ispec) ! array of LAMMIN in each bin
+     &       , LAMMAX_SPECTRUM(1,ispec) ! array of LAMMAX in each bin
      &       , FLAM_SPECTRUM(1,ispec)
      &       , FLAMERR_SPECTRUM(1,ispec)
      &       , LENCCID )
@@ -24392,11 +24561,12 @@ c
 c May 31 2016: add zCMB[ERR] to text file and remove legacy "z,zerr"
 c              from text file [since z=zHELIO]
 c
-c Jan 8 2018: write zHEL[ERR] to text file
-c Mar 9 2018: add PHOTPROB info, MIN and Nepochs
+c Jan  8 2018: write zHEL[ERR] to text file
+c Mar  9 2018: add PHOTPROB info, MIN and Nepochs
 c Mar 10 2019: add HOST_OBJID with BLOCK_LL for long long int
 c May 23 2019: bug fix: book HOST_RA[DEC] as double instead of float.
 c Feb 20 2020: write MWEBV to TEXT table.
+c May 14 2020: add zFLAG
 c --------------------------------------------------
 
       IMPLICIT NONE
@@ -24449,7 +24619,6 @@ c check filter list for filter-dependent columns (Feb 2017)
       ADDCOL_SETPKMJD = ( LTMP .and. OPT_SETPKMJD > 0 ) 
 
 c - - - - - - ID variables - - - - - - 
-
 
       VARLIST = 'CID:I' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_CID, VARLIST,0, 
@@ -24516,6 +24685,10 @@ c --------------------------------------------
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC8_RA, VARLIST,0,
      &                   LENBLOCK, 20 )
 
+      VARLIST = 'AREAFRAC_AVG:F' // char(0)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_AREAFRAC_AVG, VARLIST,0,
+     &                   LENBLOCK, 20 )
+
 c -- NEPOCH ( Aug 2013)
  
       VARLIST = 'NEPOCH:I' // char(0)
@@ -24557,6 +24730,10 @@ c - - - - -  redshift - - - - -
 
       VARLIST = 'zHD:F,zHDERR:F' // char(0)  ! Hubble diagram redshift
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_ZHD, VARLIST,1,
+     &                   LENBLOCK, 20 )
+
+      VARLIST = 'zFLAG:I' // char(0)  ! z-quality flag (May 2020)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_zFLAG, VARLIST, 0,
      &                   LENBLOCK, 20 )
 
 c z = zCMB for spec z, but for photo-z fit z & zERR are the original
@@ -25796,6 +25973,91 @@ C ------------ BEGIN --------------
 
       RETURN
       END
+
+C ===========================================
++DECK,TABLE_MARZ.
+      SUBROUTINE TABLE_MARZ(IDTABLE,IFLAG)
+c
+c Created May 2020 by R.Kessler
+c Driver for MARZ table with host-galaxy spectra.
+c
+c ------------------------------
+      IMPLICIT NONE
++CDE,SNPAR.
++CDE,SNCUTS.
++CDE,CTRLCOM.
++CDE,SNLCCOM.
++CDE,SNLCINP.
++CDE,SNFILECOM.
++CDE,SPECCOM.
++CDE,SNSIMCOM.
+
+      INTEGER IDTABLE  ! (I) table ID
+      INTEGER IFLAG    ! (I) see IFLAG_XXX params
+
+c local var
+
+      LOGICAL   DO_FILL
+      INTEGER   LENNAME, LENFMT, ISPEC, LENCCID
+      CHARACTER FNAM*12, NAME*40, TEXTFMT*20, TEXTFMT_forC*20
+      CHARACTER CCID_forC*32
+      EXTERNAL SNTABLE_CREATE, SNTABLE_FILL, SPECPAK_DATA
+
+C -------------------- BEGIN -----------------
+      FNAM = 'TABLE_MARZ'
+
++SELF,IF=SNFIT,PSNID.
+      c1err = 'Cannot write MARZ spectra file with fit code'
+      c2err = 'MARZFILE_OUT works only with snana.exe '
+      CALL MADABORT(FNAM, c1err, c2err)
++SELF.
+
+      IF ( IFLAG .EQ. IFLAG_INI ) THEN
+         NAME     = 'MARZ' // char(0)
+         LENNAME  = INDEX(NAME,    ' ') - 1
+         TEXTFMT_forC = 'FITS' // char(0)
+         LENFMT       =  4
+         CALL SNTABLE_CREATE(IDTABLE, NAME, TEXTFMT_forC, 
+     &          LENNAME,LENFMT)  ! C fun
+
+         RETURN
+      ENDIF
+
+c --------------------------
+c fill table.
+
+      DO_FILL = LSNCUTS
+      IF ( DO_FILL ) THEN
+         ISPEC = 1
+         LENCCID   = ISNLC_LENCCID
+         CCID_forC = SNLC_CCID(1:LENCCID)
+         if ( LSIM_SNANA ) then
+            write(CCID_forC,40) SNLC_CCID(1:LENCCID), SIM_REDSHIFT_HELIO
+40          format(A, '[z=', F5.3, ']' )
+            LENCCID = LENCCID + 9
+         endif
+	 CCID_forC = CCID_forC(1:LENCCID) // char(0)
+
+         CALL SPECPAK_DATA(
+     &         CCID_forC
+     &       , ID_SPECTRUM(ispec)
+     &       , MJD_SPECTRUM(ispec)
+     &       , TOBS_SPECTRUM(ispec)    ! May 7 2019
+     &       , TEXPOSE_SPECTRUM(ispec)
+     &       , NLAMBIN_SPECTRUM(ispec)
+     &       , LAMMIN_SPECTRUM(1,ispec)
+     &       , LAMMAX_SPECTRUM(1,ispec)
+     &       , FLAM_SPECTRUM(1,ispec)
+     &       , FLAMERR_SPECTRUM(1,ispec)
+     &       , LENCCID )
+
+          CALL SPECPAK_FILL(CCID_forC, LENCCID)
+cc xxx mark delete   CALL SNTABLE_FILL(IDTABLE)  ! generic C function
+      ENDIF
+
+      RETURN
+      END    ! end of TABLE_MARZ
+
 
 C =============================================
 +DECK,CWNDUP.
@@ -27540,6 +27802,8 @@ c print rest-frame filters, and also SET_LAMREST_RANGE
 
       if ( NFILTDEF_REST    .GT. 0 ) print*,' ' 
 
+      CALL SET_LAMREST_RANGE(0)  ! init optional override ranges
+
       DO 136 ifilt_tmp = 1, NFILTDEF_REST
         ifiltdef = IFILTDEF_MAP_REST(ifilt_tmp)
 
@@ -29022,14 +29286,21 @@ c if AVbinsize is zero, then there is just one AV bin
       END
 
 C ===============================================
-+DECK,SET_LAMRANGE.
-      SUBROUTINE SET_LAMREST_RANGE(ifilt)
++DECK,SET_LAMREST_RANGE.
+      SUBROUTINE SET_LAMREST_RANGE(ifiltdef)
 c
 c Created Dec 7, 2006 by R.Kessler
 c
-c Set lambda range for this "ifilt"
-c Hard-wire Bessell ranges from Jha's MLCS code.
-c hard-wire SDSS ranges based on inspection of filter responses.
+c Set lambda range for this absolute "ifiltdef" to be used
+c for k-correction to pick nearest rest-frame band.
+c If neighbor (nbr) filters overlap, then boundary is where
+c normalized transmissions are the same. If no overlap,
+c then boundary is between the two edges.
+c
+c ifiltdef =0 -> init optional override ranges based on 
+c                &SNLCINP OVERRIDE_RESTLAM_BOUNDARY
+
+c For UBVRI, hard-wire Bessell ranges from Jha's MLCS code.
 c
 c The reason for hard-wiring ranges is so that when
 c we change to other 'Bessell-like' systems (Cohen, etc ...),
@@ -29039,23 +29310,13 @@ c Apr 17, 2009: check nearest filter using sparse array
 c               index of assuming that index is +-1 
 c               from current index.  Initial use is MLCS-IR.
 c
-c Aug 12, 2009: 
-c   - set I-band LAM-range based on whether Y-band
-c     is defined in the rest-frame.
-c
-c   - for bluest  unknown  filter, LAMMIN -> LAMMIN/2
-c   - for reddest unknown  filter, LAMMAX -> LAMMAX + 1000
-c
-c
-c Nov 3, 2010: 
-c   - more than 6 filters, skip to 300 (for CSP BVugriYJH)
-c   - fix logic below '300' to handle close-lambda filters 
+c Apr 23 2020: ifiltdef=0 --> init optional override ranges
 c       
 c ----------------------------------------
 
       IMPLICIT NONE
        
-      integer ifilt  ! (I) filter index
+      integer ifiltdef  ! (I) absolute filter index
 
 c locaql args
 
@@ -29064,151 +29325,151 @@ c locaql args
 +CDE,SNCUTS.
 +CDE,SNLCINP.
 +CDE,KCORCOM.
++CDE,SNFILECOM.
 
-      LOGICAL LSET, LTMP,  LVALID
+      LOGICAL  LTMP,  LVALID, LSET(2), NOTSET(2)
 
-      INTEGER 
-     &   ilam, ilam_nbr
-     &  ,ifilt_nbr
-     &  ,IMINMAX, i
-     &  ,ifilt_near(2)
-     &  ,ifilt_rest
-     &  ,ifilt_tmp
-     &  ,NBIN_OVP
-
+      INTEGER   
+     &   ilam, ilam_nbr, ifiltdef_nbr, IMINMAX, i, NF, ifilt
+     &  ,ifiltdef_near(2), ifiltdef_rest, ifiltdef_tmp(2)
+     &  ,NBIN_OVP, NLAMBIN, NWD, iwd, LENWD
+   
       REAL 
-     &   LAM_NBR, LAMAVG_NBR
-     &  ,LAM, LAMAVG, LAMTMP, LAMMAX
-     &  ,LAMDIF, LAMDIF_NEAR(2)
+     &   LAM_NBR, LAMAVG_NBR, LAM, LAMAVG, LAMTMP, LAMMAX
+     &  ,LAMDIF, LAMDIF_NEAR(2), LAMAVG_TMP(2)
      &  ,DLAM, T, TNBR, DT, DTMIN, LAMOVP, LAMOVP_AVG
+     &  ,T_MAX, TNBR_MAX
+
+      CHARACTER string*40, FILTERS*40, FNAM*18, BAND*2
+
+c functions
+      INTEGER STORE_PARSE_WORDS, FILTINDX
 
 C ------------------ BEGIN --------------
 
-c if ugriz and UBVRI are mixed, then use the more general
-c filter-boundary logic below. Here we just check if there 
-c are more than 6 rest-frame filters, but better logic 
-c should be included later.
-
-      IF ( RESTKCOR_FILTERS(1:5) .NE. 'UBVRI' ) GOTO 300
-
-c -------------------------------------------------
-      IF ( ifilt .EQ.  IFILT_SDSS_u ) THEN
-         FILTREST_LAMRANGE(1,ifilt) =  1000.
-         FILTREST_LAMRANGE(2,ifilt) =  3900.
-      ELSE IF ( ifilt .EQ.  IFILT_SDSS_g ) THEN
-         FILTREST_LAMRANGE(1,ifilt) =  3900.
-         FILTREST_LAMRANGE(2,ifilt) =  5440.
-      ELSE IF ( ifilt .EQ.  IFILT_SDSS_r ) THEN
-         FILTREST_LAMRANGE(1,ifilt) =  5440.
-         FILTREST_LAMRANGE(2,ifilt) =  6830.
-      ELSE IF ( ifilt .EQ.  IFILT_SDSS_i ) THEN
-         FILTREST_LAMRANGE(1,ifilt) =  6830.
-         FILTREST_LAMRANGE(2,ifilt) =  8260.
-      ELSE IF ( ifilt .EQ.  IFILT_SDSS_z ) THEN
-         FILTREST_LAMRANGE(1,ifilt) =  8260.
-         FILTREST_LAMRANGE(2,ifilt) = 12000.
-
-c -----
-
-      ELSE IF ( ifilt .EQ.  IFILT_BESS_U ) THEN
-         FILTREST_LAMRANGE(1,ifilt) = 1000.
-         FILTREST_LAMRANGE(2,ifilt) = 3900.
-      ELSE IF ( ifilt .EQ.  IFILT_BESS_B ) THEN
-         FILTREST_LAMRANGE(1,ifilt) = 3900.
-         FILTREST_LAMRANGE(2,ifilt) = 4850.
-      ELSE IF ( ifilt .EQ.  IFILT_BESS_BX ) THEN
-         FILTREST_LAMRANGE(1,ifilt) = 3615.
-         FILTREST_LAMRANGE(2,ifilt) = 5595.
-      ELSE IF ( ifilt .EQ.  IFILT_BESS_V ) THEN
-         FILTREST_LAMRANGE(1,ifilt) = 4850.
-         FILTREST_LAMRANGE(2,ifilt) = 5850.
-      ELSE IF ( ifilt .EQ.  IFILT_BESS_R ) THEN
-         FILTREST_LAMRANGE(1,ifilt) = 5850. 
-         FILTREST_LAMRANGE(2,ifilt) = 7050.
-      ELSE IF ( ifilt .EQ.  IFILT_BESS_I ) THEN
-
-         IFILT_TMP = IFILTDEF_INVMAP_REST(IFILT_Y) 
-         if ( IFILT_TMP .GT. 0 ) then
-            LAMMAX = FILTREST_LAMRANGE(1,IFILT_Y) 
-         else
-            LAMMAX = 12000.  ! no Y-band in rest-frame
-         endif
-         FILTREST_LAMRANGE(1,ifilt) = 7050.
-         FILTREST_LAMRANGE(2,ifilt) = LAMMAX
-
+      IF ( NKCOR_STORE .EQ. 0 ) THEN
+        RETURN
       ENDIF
 
-c check option to include buggy lambda ranges.
+      FNAM = 'SET_LAMREST_RANGE'
 
-      IF ( DOBUG_LAMRANGE ) THEN
-         FILTREST_LAMRANGE(2,IFILT_BESS_V) = 5800.
-         FILTREST_LAMRANGE(1,ifilt_BESS_R) = 5800.  
-         FILTREST_LAMRANGE(2,ifilt_BESS_R) = 7300.
-         FILTREST_LAMRANGE(1,ifilt_BESS_I) = 7300.
+c if rest-frame bands are Bessell UBVRI, use hard-wired boundaries
+c for mlcs2k2.
+      IF ( RESTKCOR_FILTERS(1:5) .EQ. 'UBVRI' ) THEN
+        CALL SET_LAMREST_RANGE_UBVRI(ifiltdef)
+        RETURN
       ENDIF
 
-c check if FILT_LAMRANGE has been set;
-c if not, then just use approx calc.
+c -------------------------------------
+c check for user-override of filter-wavelength boundaries
+c Parse &SNLCINP input (e.g.)
+c    OVERRIDE_RESTLAM_BOUNDARY = '5100(gV) 6322(rV)'
+c and fill FILTREST_LAMBDA(NLAMBIN,ifiltdef) here so that
+c the algorithm below is skipped.
 
-      LSET = FILTREST_LAMRANGE(1,ifilt) .GE. 0.0 .and.
-     &       FILTREST_LAMRANGE(2,ifilt) .GE. 0.0 
-      IF ( LSET ) RETURN
+      IF ( IFILTDEF == 0 ) THEN  
+        LENWD = INDEX(OVERRIDE_RESTLAM_BOUNDARY,' ') - 1
+        if ( LENWD < 2 ) RETURN
+        NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,
+     &      OVERRIDE_RESTLAM_BOUNDARY//char(0), 100)
+
+        DO 22 iwd = 1, NWD
+          CALL get_PARSE_WORD_fortran(iwd, string, LENWD )
+          CALL extractStringOpt(string,filters)
+          READ(string,*) LAMTMP
+
+          write(6,122) filters(1:2), LAMTMP
+122       format(t8,'Override rest-wave ',A, ' boundary -> ',F7.0,' A')
+
+          DO ifilt = 1, 2
+	     band  = filters(ifilt:ifilt)
+             ifiltdef_tmp(ifilt) =  FILTINDX(band)
+             LAMAVG_TMP(ifilt) = FILTREST_LAMAVG(ifiltdef_tmp(ifilt))
+          ENDDO
+22      CONTINUE
+ 
+c xxxxxxxxxxxxxx
+c        print*,' xxx OVERRIDE_RESTLAM_BOUNDARY = |', 
+c     &               OVERRIDE_RESTLAM_BOUNDARY,'|'
+c        print*,' xxx LAMAVG_TMP = ', LAMAVG_TMP
+c	print*,' xxx IFILTDEF_TMP = ', ifiltdef_tmp 
+c xxxxxxxxxxxxxx
+
+c set FILTREST_LAMRANGE edge based on which band is bluer/redder
+
+        if ( LAMAVG_TMP(1) < LAMAVG_TMP(2) ) then
+           FILTREST_LAMRANGE(2,ifiltdef_tmp(1)) = LAMTMP ! red edge
+           FILTREST_LAMRANGE(1,ifiltdef_tmp(2)) = LAMTMP ! blue edge
+        else
+           FILTREST_LAMRANGE(1,ifiltdef_tmp(1)) = LAMTMP ! blue edge
+           FILTREST_LAMRANGE(2,ifiltdef_tmp(2)) = LAMTMP ! red edge
+        endif
+
+        RETURN
+      ENDIF
+
+c check of boundary is already set 
+      LSET(1) = ( FILTREST_LAMRANGE(1,ifiltdef) > 0.1 )
+      LSET(2) = ( FILTREST_LAMRANGE(2,ifiltdef) > 0.1 )
+ 
+      NOTSET(1) = ( .not. LSET(1) )
+      NOTSET(2) = ( .not. LSET(2) )
 
 c -------------------------------------------
-c if we are here, set LAMRANGE based on where
-c transmission(LAM,ifilt) = transmission of 
-c next closest filter.
-
 c first set min and max lambda for this filter to be
 c default LAMBDA range.
 
-300   CONTINUE
+      if ( NOTSET(1) ) then
+        LAM = FILTREST_LAMBDA(1,ifiltdef)
+        FILTREST_LAMRANGE(1,ifiltdef)  = LAM
+      endif
 
-      LAM = FILTREST_LAMBDA(1,ifilt)
-      FILTREST_LAMRANGE(1,ifilt)  = LAM
+      if ( NOTSET(2) ) then
+        NLAMBIN = NLAMBIN_FILTREST(ifiltdef)
+        LAM = FILTREST_LAMBDA(NLAMBIN,ifiltdef)
+        FILTREST_LAMRANGE(2,ifiltdef)  = LAM
+      endif
 
-      LAM = FILTREST_LAMBDA(NLAMBIN_FILTREST(ifilt),ifilt)
-      FILTREST_LAMRANGE(2,ifilt)  = LAM
-
-      LAMAVG = FILTREST_LAMAVG(ifilt)
+      LAMAVG = FILTREST_LAMAVG(ifiltdef)
 
 c fetch nearest rest-frame filters needed by SN model
 
-      IFILT_NEAR(1)  = -9
-      IFILT_NEAR(2)  = -9
+      IFILTDEF_NEAR(1)  = -9
+      IFILTDEF_NEAR(2)  = -9
       LAMDIF_NEAR(1) = 99999.
       LAMDIF_NEAR(2) = 99999.
 
       DO 190 i = 1, NFILTDEF_REST
 
-        ifilt_rest = IFILTDEF_MAP_REST(i)
-        if ( ifilt_rest .EQ. IFILT ) goto 190
+        ifiltdef_rest = IFILTDEF_MAP_REST(i)
+        if ( ifiltdef_rest .EQ. IFILTDEF ) goto 190
 
-        LAMTMP  = FILTREST_LAMAVG(ifilt_rest)
+        LAMTMP  = FILTREST_LAMAVG(ifiltdef_rest)
         LAMDIF  = ABS(LAMAVG-LAMTMP)
 
         if   ( LAMTMP .LT. LAMAVG 
      &   .and. LAMDIF .LT. LAMDIF_NEAR(1) ) then
             LAMDIF_NEAR(1) = LAMDIF
-            IFILT_NEAR(1) = ifilt_rest
+            IFILTDEF_NEAR(1) = ifiltdef_rest
         endif
 
         if   ( LAMTMP .GT. LAMAVG 
      &   .and. LAMDIF .LT. LAMDIF_NEAR(2) ) then
             LAMDIF_NEAR(2) = LAMDIF
-            IFILT_NEAR(2) = ifilt_rest
+            IFILTDEF_NEAR(2) = ifiltdef_rest
         endif
 
 190   CONTINUE  ! end of sparse loop over rest filters
 
 
 c set extreme bound if there is no nbr filter
-      IF ( IFILT_NEAR(1) .LE. 0 ) then
-         FILTREST_LAMRANGE(1,ifilt) = FILTREST_LAMRANGE(1,ifilt)/2.
+      IF ( NOTSET(1) .and. IFILTDEF_NEAR(1) .LE. 0 ) then
+         FILTREST_LAMRANGE(1,ifiltdef) = 
+     &   FILTREST_LAMRANGE(1,ifiltdef)/2.
       ENDIF
-      IF ( IFILT_NEAR(2) .LE. 0 ) then
-        FILTREST_LAMRANGE(2,ifilt) = 
-     &  FILTREST_LAMRANGE(2,ifilt) + 1000.
+      IF ( NOTSET(2) .and. IFILTDEF_NEAR(2) .LE. 0 ) then
+        FILTREST_LAMRANGE(2,ifiltdef) = 
+     &  FILTREST_LAMRANGE(2,ifiltdef) + 1000.
       ENDIF
 
 c if voisin filter has smaller LAMAVG,
@@ -29216,28 +29477,29 @@ c then look for where transmissions are the same
       
       DO 200 IMINMAX = 1, 2  ! bluer, redder filter
 
-         ifilt_nbr  = ifilt_near(IMINMAX)
-         if ( ifilt_nbr  .LE. 0      ) goto 200
+         ifiltdef_nbr  = ifiltdef_near(IMINMAX)
+         if ( ifiltdef_nbr  .LE. 0      ) goto 200
 
-         LAMAVG_NBR = FILTREST_LAMAVG(ifilt_nbr)
+         LAMAVG_NBR = FILTREST_LAMAVG(ifiltdef_nbr)
          if ( LAMAVG_NBR .EQ. LAMAVG ) goto 200
          if ( LAMAVG_NBR .LT. 0.0    ) goto 200
 
-         LAMOVP      = FILTREST_LAMRANGE(iminmax,ifilt) ! init
+         LAMOVP  = FILTREST_LAMRANGE(iminmax,ifiltdef) ! init
+
+         T_MAX    = FILTREST_TRANSMAX(ifiltdef)
+         TNBR_MAX = FILTREST_TRANSMAX(ifiltdef_nbr)
 
          NBIN_OVP    = 0
          DTMIN       = 9.
-         DO ilam     = 1, NLAMBIN_FILTREST(ifilt)
-         DO ilam_nbr = 1, NLAMBIN_FILTREST(ifilt_nbr)
-           LAM       = FILTREST_LAMBDA(ilam,ifilt)
-           LAM_NBR   = FILTREST_LAMBDA(ilam_nbr,ifilt_nbr)
-           T    = FILTREST_TRANS(ilam,ifilt) / 
-     &                 FILTREST_TRANSMAX(ifilt)
-           TNBR = FILTREST_TRANS(ilam_nbr,ifilt_nbr) / 
-     &                 FILTREST_TRANSMAX(ifilt_nbr)
+         DO ilam     = 1, NLAMBIN_FILTREST(ifiltdef)
+         DO ilam_nbr = 1, NLAMBIN_FILTREST(ifiltdef_nbr)
+           LAM       = FILTREST_LAMBDA(ilam,ifiltdef)
+           LAM_NBR   = FILTREST_LAMBDA(ilam_nbr,ifiltdef_nbr)
+           T    = FILTREST_TRANS(ilam,ifiltdef) / T_MAX
+           TNBR = FILTREST_TRANS(ilam_nbr,ifiltdef_nbr) / TNBR_MAX
            DT   = ABS(T-TNBR)
            DLAM = ABS(LAM-LAM_NBR)
-           LTMP = (DLAM .LT. 1.0) .and.  (DT .LT. DTMIN)
+           LTMP = (DLAM < 1.0) .and.  (DT < DTMIN)
            IF ( LTMP ) THEN
               DTMIN   = DT
               LAMOVP  = LAM
@@ -29264,11 +29526,75 @@ c if the wavelength ranges do not overlap, just take average
             LAMOVP = LAMOVP_AVG
          endif
 
-         FILTREST_LAMRANGE(iminmax,ifilt)  = LAMOVP
+         if ( NOTSET(iminmax) ) then
+            FILTREST_LAMRANGE(iminmax,ifiltdef)  = LAMOVP
+         endif
 
 200   CONTINUE  ! loop over bluer/redder filter
 
       RETURN 
+      END   ! SET_LAMREST_RANGE
+
+C =============================
++DECK,SET_LAMREST_RANGE_UBVRI.
+      SUBROUTINE SET_LAMREST_RANGE_UBVRI(ifiltdef)
+
+C Apr 23 2020
+C set legacy ranges for Bessell UBVRI bands (e.g., for mlcs2k2)
+c  [copied from SET_LAMREST_RANGE to clean up]
+
+      IMPLICIT NONE
+       
+      INTEGER IFILTDEF ! absolute filter index (rest-frame)
+
+c local args
+
++CDE,SNPAR.
++CDE,FILTCOM.
+      INTEGER IFILT_TMP
+      REAL LAMMAX
+
+c ----------- BEGIN -------------
+
+      IF ( ifiltdef .EQ.  IFILT_BESS_U ) THEN
+         FILTREST_LAMRANGE(1,ifiltdef) = 1000.
+         FILTREST_LAMRANGE(2,ifiltdef) = 3900.
+      ELSE IF ( ifiltdef .EQ.  IFILT_BESS_B ) THEN
+         FILTREST_LAMRANGE(1,ifiltdef) = 3900.
+         FILTREST_LAMRANGE(2,ifiltdef) = 4850.
+      ELSE IF ( ifiltdef .EQ.  IFILT_BESS_BX ) THEN
+         FILTREST_LAMRANGE(1,ifiltdef) = 3615.
+         FILTREST_LAMRANGE(2,ifiltdef) = 5595.
+      ELSE IF ( ifiltdef .EQ.  IFILT_BESS_V ) THEN
+         FILTREST_LAMRANGE(1,ifiltdef) = 4850.
+         FILTREST_LAMRANGE(2,ifiltdef) = 5850.
+      ELSE IF ( ifiltdef .EQ.  IFILT_BESS_R ) THEN
+         FILTREST_LAMRANGE(1,ifiltdef) = 5850. 
+         FILTREST_LAMRANGE(2,ifiltdef) = 7050.
+      ELSE IF ( ifiltdef .EQ.  IFILT_BESS_I ) THEN
+
+         IFILT_TMP = IFILTDEF_INVMAP_REST(IFILT_Y) 
+         if ( IFILT_TMP .GT. 0 ) then
+            LAMMAX = FILTREST_LAMRANGE(1,IFILT_Y) 
+         else
+            LAMMAX = 12000.  ! no Y-band in rest-frame
+         endif
+         FILTREST_LAMRANGE(1,ifiltdef) = 7050.
+         FILTREST_LAMRANGE(2,ifiltdef) = LAMMAX
+      ENDIF
+
+c check option to include buggy lambda ranges.
+
+c xxxxxxxx mark delete Apr 23 2020 xxxxxxxxxx
+c      IF ( DOBUG_LAMRANGE ) THEN
+c         FILTREST_LAMRANGE(2,IFILT_BESS_V) = 5800.
+c         FILTREST_LAMRANGE(1,ifilt_BESS_R) = 5800.  
+c         FILTREST_LAMRANGE(2,ifilt_BESS_R) = 7300.
+c         FILTREST_LAMRANGE(1,ifilt_BESS_I) = 7300.
+c      ENDIF
+c xxxxxxxxxxxxxx mark delete xxxxxxxxxxx
+
+      RETURN
       END
 
 C ==========================================
@@ -29504,7 +29830,7 @@ c don't check on 2nd RDKCOR call
 
 
 C ===========================================
-+DECK,NEARFLTOBS.
++DECK,NEAREST_IFILT_OBS.
       INTEGER FUNCTION NEAREST_IFILT_OBS(ifilt_rest,Z)
 
 c Nov 2010 R.Kessler
@@ -29562,7 +29888,7 @@ C -------------- BEGIN -------------
       END
 
 C ===========================================
-+DECK,NEARFLTREST.
++DECK,NEAREST_IFILT_REST.
       INTEGER FUNCTION NEAREST_IFILT_REST( 
      &   OPT          ! (I) option; see below
      &  ,ifiltdef     ! (I) observer filter index
@@ -29666,7 +29992,7 @@ c ------------ BEGIN -------------
       lamz   = LAMAVG_IN / ( 1 + z )
 
       IF ( LDMP ) THEN
-          print*,' -------------------------------------'
+          print*,' xxxx -------------------------------------'
           print*,' xxxx DUMP NEAREST_IFILT_REST xxxxx '
           print*,' Z=',Z,'   ifiltdef = ', ifiltdef,' (',
      &          filtdef_string(ifiltdef:ifiltdef), ')'
@@ -35749,6 +36075,8 @@ c
 c May 17, 2019: implement new options OPTBIT_SETPKMJD_[TRIGGER,MAXFLUX2]
 c May 20, 2019: return if less then 2 epochs.
 c Jan 27, 2020: use STDOUT_UPDATE flag to print screen update.
+c May 01, 2020: implement SHIFT_SETPKMJD
+c May 05, 2020: implement OPT_SETPKMJD_SIM option
 c -------------------------------------------------------------
 
       IMPLICIT NONE
@@ -35782,6 +36110,7 @@ c -------------------------------------------------------------
      &    LSET, LDMP, LDMP_USER, NOABORT, LABORT
      &   ,USEFILT(MXFILT_ALL)
      &   ,USE_MJDatFLUXMAX, USE_MJDatFLUXMAX2, USE_MJDatTRIGGER
+     &   ,USE_SIMPKMJD
      &   ,FIRST_INIT, DOFIT, NOFIT
 
       CHARACTER cfilt*8, FNAM*12, METHOD*24, CCID*(MXCHAR_CCID)
@@ -35813,6 +36142,7 @@ c July 12 2013: check option to use MJD at max flux (no fitting)
       USE_MJDatFLUXMAX  = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_FLUXMAX)
       USE_MJDatFLUXMAX2 = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_FLUXMAX2)
       USE_MJDatTRIGGER  = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_TRIGGER)
+      USE_SIMPKMJD      = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_SIM)
       DOFIT = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_ANYFUN) .or. ! Bazin09
      &        BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_POLYCOR)
       NOFIT = (.NOT. DOFIT)
@@ -35822,6 +36152,18 @@ c July 12 2013: check option to use MJD at max flux (no fitting)
         c2err = 'to set PEAKMJD = MJD_TRIGGER'
         CALL MADABORT(FNAM, c1err, c2err)
       endif
+
+c May 5 2020: check option to use true SIM_PEAKMJD 
+      IF ( USE_SIMPKMJD ) THEN
+        if ( LSIM_SNANA ) then
+            PKMJD = SIM_PEAKMJD
+            GOTO 800
+        else
+           c1err = 'Cannot use OPT_SETPKMJD += 2048 for real data'
+           c2err = 'This option (use SIM_PEAKMJD) is for sim only'
+           CALL MADABORT(FNAM, c1err, c2err)
+        endif
+      ENDIF
 
 c bail if the user CUTWIN_PEAKMJD does not contain  any observations:
       IF ( SNLC8_MJDMIN .GT. CUTWIN_PEAKMJD(2) ) RETURN
@@ -36204,6 +36546,7 @@ c -----------------------------------------------
 c -----------------------------------------    
 800   CONTINUE
 
+      PKMJD = PKMJD + SHIFT_SETPKMJD
       SNLC_SNANAFIT_PEAKMJD = PKMJD
       SNLC_SEARCH_PEAKMJD   = PKMJD
 

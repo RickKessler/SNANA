@@ -18235,11 +18235,19 @@
 
 
 # ======================================================================= 
-         v10_76d (  ) 
+         v10_76d (Apr 16 2020) 
 
          ***** IMPORTANT(v10_76d) ***** 
 
+     + sim: refactored code (to allow EBV distrib) is now default code.
+
          ***** USEFUL(v10_76d) ***** 
+
+     + $SNANA_DIR/util/get_vpec.py
+     + $SNANA_DIR/util/translate_CSPDR3.py
+     + kcor.exe can transform mag systems: e.g., VEGA->AB
+     + snlc_fit: AV prior enabled for snoopy model.
+     + SALT2mu output fitres file has warnings for biasCor loss > 2%
 
          ***** MISCELLANEOUS(v10_76d) ***** 
 
@@ -18249,7 +18257,8 @@
         in any IDSURVEY subset.
       + for +128 bit, sigint_biascor is computed with user-input
         alpha, beta (p1,p2) instead of SIM_ALPHA, SIM_BETA
-
+      + if MINOS errors are zero, report parabolic error.
+ 
     sim_SNmix.pl
       + allow ENV reading INFILE under GENVERSION.
  
@@ -18260,6 +18269,7 @@
 
     snlc_fit.car
       + apply AV prior for SNOOPY (same as for mkcs2k2)
+      + fix INISTP_SHAPE logic for SNOOPY and MKCS2k2
 
     sntools_host.c
       + fix evil bug setting DEBUG_FLAG = 111 instead of testing
@@ -18279,6 +18289,114 @@
       + pass version to init_genSmear_OIR(version)
         Argument of GENMAG_SMEAR_MODELNAME must be of the
         form$PATH/OIR.[suffix]
- 
-       
+    
+   kcor.h and snana.car:  MXKCOR -> 200 (was 100)
+
+   kcor.c[h]
+    + new feature to mix mag systems in the input, but transform
+      them internally to common system. See new syntax
+      "MAGSYSTEM: BD17->AB", and see kcor-input instructions
+      at top of kcor.c.
+
+   New utility to fetch peculiar velocities:
+      $SNANA_DIR/util/get_vpec.py
+   and assoicated map is
+     $SNDATA_ROOT/models/VPEC/twomass++_velocity_LH11.npy
+
+
+# ======================================================================= 
+         v10_76e (May 10 2020) 
+
+         ***** IMPORTANT(v10_76e) ***** 
+
+         ***** USEFUL(v10_76e) ***** 
+   
+   New snana.exe option to translate sim spectra to MARZ format.
+   See top of sntools_output_marz.c for details.
+
+         ***** MISCELLANEOUS(v10_76e) ***** 
+
+   NEW source code sntools_output_marz.c, using FITS format.
+   Output file can be read by MARZ code to determine reshift
+   from host spectrum.
+   
+   snlc_fit.car:
+     + fix evil array bound bug for FITMODEL_NAME that
+       includes full path. 
+
+   snana.car
+      + new &SNLCINP OVERRIDE_RESTLAM_BOUNDARY to manually
+        adjust rest-frame boundaries for k-corrections.
+      + allow NOBS=0 if &SNLCINP ABORT_ON_NOEPOCHS=F
+      + new &SNLCINP input SIMLIB_OUT_TMINFIX
+      + new &SNLCINP input SHIFT_SETPKMJD
+      + new $SNLCINP MARZFILE_OUT
+      + new option OPT_SETPKMJD=2048 -> PKMJDINI = SIM_PKMJDINI
+      + compute new variable AREAFRAC_AVG and output to SNANA table.
+
+   sim_SNmix:
+      + abort if PATH_SNDATA_SIM does not exist. 
+      + abort if NPER_SEASON string is null
+      + abort if there are no SIMGEN_INFILE_[Ia,SNIa,NONIa] keys
+
+   Makefile:
+     + add LROOT logic for lCint so that it works for both
+       root v5 and root v6.
+
+   sntools_spectrograph.c:
+     + fix getSNR_spectrograph to return SNR=0 if ZP is undefined.
+     + fix format to write LAMMIN & LAMMAX; remove LAMCEN option because
+       snana.exe read-back assumes LAMMIN & LAMMAX.
+
+   SALT2mu.c:
+    + begin refactor to allow input fitres files to have
+      different columns. Still using legacy write where
+      all files must have same columns.
+
+
+# ======================================================================= 
+         v10_77 (  ) 
+
+         ***** IMPORTANT(v10_77) ***** 
+
+   SALT2mu.exe, SALT2mu_fit.pl allow input FITRES files to have
+     different columns; see manual Sec 10.1
+
+         ***** USEFUL(v10_77) ***** 
+
+   New utility sntable_cat.py (see manual Sec 10.1)
+
+         ***** MISCELLANEOUS(v10_77) ***** 
+
+   sntools_host.c
+    + in get_Sersic_info(), allow Sersic weight truncation
+      error at E-3 level; renormalize wgts.
+
+   snlc_sim.c
+    + output REAMDE includes list of each map file with MAP: key
+      so that they can be grepped.
+    + fix minor spectrograph bug: ignore SPECTROGRAPH keys in 
+      SIMLIB if spectrograph is not defined in kcor file.
+    + fix a few harmless valgrind errors related to strongLens option.
+
+   sim_SNmix.pl:
+    + write PATH_SNDATA_SIM in TOTAL_SUMMARY.LOG
+
+   split_and_fit.pl:
+     + fix FITRES_COMBINE_FILE feature that was broken because
+       execution code was accidentally removed in previous refactor.
+     + fix bug causing FITRES files NOT to be gzipped, and was
+       also causing VERSION_AFTERBURNER option to be skipped.
+
+   snana.car, sntools_fitsio:
+     + add REDSHIFT_QUALITYFLAG to data structure.
+       This is a survey-dependent flag on spec-z (host or SN),
+       and thus there is no standard set of flag definitions.
+
+   SALT2mu.c
+     + new option CUTWIN(BIASCORONLY) to cut only on biasCor.
+
+   sntools_fitsio.c
+     + fix bug writing SIM_STRONGLENS_XXX params 
+
 END: 

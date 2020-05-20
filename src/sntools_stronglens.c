@@ -347,7 +347,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   //  YIMG        list of NIMG Y separations (arcsec)
   //
   int    IDLENS_local, NIMG_local=0, img,i,j;
-  double FlatRan, GauRan, zLENS_local;
+  double FlatRan, GauRan, zLENS_local,zSRC_local;
   char fnam[] = "get_stronglens" ;
 
   // ---------------- BEGIN ---------------
@@ -364,7 +364,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   
   int numLens = 0;
   for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
-    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.05){
+    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN*.99 && INPUTS_STRONGLENS.ZSRC[i]<=zSN*1.01){
       ++numLens;
     }
   }
@@ -377,7 +377,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   int possible_lenses[numLens];
   j=0;
   for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
-    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.05){
+    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN*.99 && INPUTS_STRONGLENS.ZSRC[i]<=zSN*1.01){
       possible_lenses[j]=i;
       ++j;
     }
@@ -388,8 +388,9 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
 
   IDLENS_local  = INPUTS_STRONGLENS.IDLENS[random_lens_index];
   zLENS_local   = (double)INPUTS_STRONGLENS.ZLENS[random_lens_index];  
+  zSRC_local    = (double)INPUTS_STRONGLENS.ZSRC[random_lens_index];
   NIMG_local    = INPUTS_STRONGLENS.NIMG[random_lens_index];
-
+  
   
   // strip off image-dependent quantities, and recast to double
   for(img=0 ; img < NIMG_local; img++ ) {
@@ -403,14 +404,14 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   *IDLENS = IDLENS_local ; //(int)(FlatRan*10000000) ; //IDLENS_local;
   *ZLENS  = zLENS_local ;
   *NIMG = NIMG_local;
-
-
+  
+  DUMPFLAG = 1;
   if ( DUMPFLAG ) {
     printf(" xxx \n");
     printf(" xxx ------ %s DUMP -------- \n", fnam );
     printf(" xxx input zSN = %.3f \n", zSN);
-    printf(" xxx output IDLENS=%d at zLENS=%.3f \n", 
-	   IDLENS_local, zLENS_local );
+    printf(" xxx output IDLENS=%d at zLENS=%.3f and zSRC=%.3f \n", 
+	   IDLENS_local, zLENS_local, zSRC_local );
 
     for(img=0 ; img < NIMG_local; img++ ) {
       printf(" xxx output image-%d: mu=%.3f deltaT=%.2f  X,Y-offset=%f,%f\n",

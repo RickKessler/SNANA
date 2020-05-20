@@ -6115,8 +6115,13 @@ void SORT_SNHOST_byDDLR(void) {
   //
   // At end of function, set SNHOSTGAL.NNBR = number passing DDLR cut.
   //
-  int  NNBR       = SNHOSTGAL.NNBR ;
-  int  ORDER_SORT = +1 ;     // increasing order
+  // May 20 2020: bug fix for LSN2GAL
+  //
+  bool LSN2GAL_RADEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC);
+  int  NNBR          = SNHOSTGAL.NNBR ;
+  int  IVAR_RA       = HOSTLIB.IVAR_RA;
+  int  IVAR_DEC      = HOSTLIB.IVAR_DEC ;
+  int  ORDER_SORT    = +1 ;     // increasing order
   int  LDMP = 0 ; // (GENLC.CID == 9 ) ;
 
   int  INDEX_UNSORT[MXNBR_LIST], i, unsort, IGAL, IVAR, ifilt, ifilt_obs ;
@@ -6163,19 +6168,16 @@ void SORT_SNHOST_byDDLR(void) {
     // if HOSTLIB coords don't match the SN, then use GAL-SN difference
     // to determine final host coords near SN. This feature allows using
     // HOSTLIB with any set of coordinates, even coords well outside
-    // SN fields.
+    // SN fields. If SN->GAL option, then don't change galaxy position.
     SNHOSTGAL_DDLR_SORT[i].RA  = RA_GAL;
-    IVAR = HOSTLIB.IVAR_RA; 
-    if ( IVAR > 0 ) { // if we have Gal coords, shift by GAL-SN difference
-      SNHOSTGAL_DDLR_SORT[i].RA += 
-	( get_VALUE_HOSTLIB(IVAR,IGAL) - SNHOSTGAL.RA_SN_DEG );
-    }
-
     SNHOSTGAL_DDLR_SORT[i].DEC = DEC_GAL ;
-    IVAR = HOSTLIB.IVAR_DEC; 
-    if ( IVAR > 0 ) {
-      SNHOSTGAL_DDLR_SORT[i].DEC += 
-	( get_VALUE_HOSTLIB(IVAR,IGAL) - SNHOSTGAL.DEC_SN_DEG );
+
+    if ( IVAR_RA>0 && IVAR_DEC>0 &&  !LSN2GAL_RADEC ) {
+	SNHOSTGAL_DDLR_SORT[i].RA += 
+	  ( get_VALUE_HOSTLIB(IVAR_RA,IGAL) - SNHOSTGAL.RA_SN_DEG );
+
+	SNHOSTGAL_DDLR_SORT[i].DEC += 
+	  ( get_VALUE_HOSTLIB(IVAR_DEC,IGAL) - SNHOSTGAL.DEC_SN_DEG );
     }
 
     IVAR = HOSTLIB.IVAR_ZTRUE ;

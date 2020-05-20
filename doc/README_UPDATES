@@ -18371,6 +18371,8 @@
    sntools_host.c
     + in get_Sersic_info(), allow Sersic weight truncation
       error at E-3 level; renormalize wgts.
+    + fix refactor bug related to SN->GAL coord option (MSKOPT+=8)
+      (see function SORT_SNHOST_byDDLR)
 
    snlc_sim.c
     + output REAMDE includes list of each map file with MAP: key

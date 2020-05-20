@@ -18377,6 +18377,7 @@
       so that they can be grepped.
     + fix minor spectrograph bug: ignore SPECTROGRAPH keys in 
       SIMLIB if spectrograph is not defined in kcor file.
+    + fix a few harmless valgrind errors related to strongLens option.
 
    sim_SNmix.pl:
     + write PATH_SNDATA_SIM in TOTAL_SUMMARY.LOG
@@ -18394,5 +18395,8 @@
 
    SALT2mu.c
      + new option CUTWIN(BIASCORONLY) to cut only on biasCor.
+
+   sntools_fitsio.c
+     + fix bug writing SIM_STRONGLENS_XXX params 
 
 END: 

@@ -1163,6 +1163,8 @@ void wr_snfitsio_update__(void) {
 // ==================================
 void wr_snfitsio_update_head(void) {
 
+  // May 20 2020: fix bug setting parName for SIM_STRONGLENS_XXX
+
   int itype, LOC ,*ptrColnum, ipar, ivar    ;
   int  PTROBS_MIN, PTROBS_MAX;
   int  ifilt, ifilt_obs ;
@@ -1729,27 +1731,27 @@ void wr_snfitsio_update_head(void) {
   if ( SNDATA.SIM_SL_FLAG ) { 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.SIM_SL_IDLENS ;
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_ID", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_zLENS ;
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_z", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_TDELAY ;
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_TDELAY", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_MAGSHIFT ;
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_MAGSHIFT", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SIM_SL_NIMG ;
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_NIMG", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SIM_SL_IMGNUM ;
-    wr_snfitsio_fillTable ( ptrColnum, parName, itype );
+    wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_IMGNUM", itype );
   }
 
 

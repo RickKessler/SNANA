@@ -153,7 +153,8 @@ CUTWIN  <VARNAME>  <MIN> <MAX>
 CUTWIN  FITPROB  .01 1.0
 CUTWIN  SNRMAX3   8  999999
 CUTWIN(NOABORT)  SIM_x1  -2 2    ! do not abort if SIM_x1 isn't there
-CUTWIN(DATAONLY) LOGMASS  5 12   ! cut on data only (not on biasCor)
+CUTWIN(DATAONLY)    LOGMASS  5 12   ! cut on data only (not on biasCor)
+CUTWIN(BIASCORONLY) BLA_LOGMASS  5 12 ! cut on biasCor (not on data)
 
 chi2max  = chi2-outlier cut applied before fit. Beware that initial
            and final chi2 can differ, so allow slop in the cut.
@@ -1927,8 +1928,53 @@ float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
 		      double *****array4D );
 
 
+// ======================================================================
+// ==== GLOBALS AND FUNCTIONS TO USE SALT2mu as CHI2-INFO FUNCTION ======
+// ======================================================================
 
-// ==== LEGACY FUNCTIONS TO REMOVE AFTER REFACTOR =====
+void SNFUNPAR_CHI2INFO_INIT(void); // one time init (binning, malloc ...)
+void SNFUNPAR_CHI2INFO_LOAD_OUTPUT(void); 
+void SNFUNPAR_CHI2INFO_WRITE(void); // write output
+int  SNFUNPAR_CHI2INFO_LOAD_BININFO(char *varName, double xmin, double xmax, 
+				    double binSize,  BININFO_DEF *BININFO,
+				    FILE *fp);
+
+#define ISNPAR_x1 0
+#define ISNPAR_c  1
+#define ISNPAR_m  2
+// VARNAMES: ic ix1 im NEVT MURES_SQSUM MURES_SUM
+struct {
+  bool  USE;
+  char  OUTFILE[MXCHAR_FILENAME] ;
+  FILE *FP_OUT ;
+  char  LINE_VARNAMES[200];
+  BININFO_DEF binInfo[3]; // c,x1,m
+  double alpha, alphaErr, beta, betaErr;
+  int    ***MAP3D_to_1D;
+  int    NBIN_TOT ; // total number of storage bins
+  int    *NEVT;  // Nevt per in NBIN_TOT bins
+  double *MURES_SQSUM, *MURES_SUM; // to reconstruct MU-bias and MU-RMS
+} SNFUNPAR_CHI2INFO_OUTPUT ;
+
+#define MXSIM_SNFUNPAR 10
+typedef struct {
+  char PARNAME[40] ; // e.g., SIM_RV, SIM_c, etc ...
+  char FUNNAME[40] ; // e.g., EXP or Gauss
+  GENPOLY_DEF PARLIST[MXSIM_SNFUNPAR]; // each param can be polyfun of z
+  bool ISGAUSS, ISEXP;
+} SIM_SNFUNPAR_DEF ;
+
+#define MXSIMPAR_REWGT 10
+struct {
+  bool USE;
+  int N_BOUNDFUN;
+  int N_REWGTFUN;
+  SIM_SNFUNPAR_DEF  BOUNDFUN[MXSIMPAR_REWGT];
+  SIM_SNFUNPAR_DEF  REWGTFUN[MXSIMPAR_REWGT];
+} SIM_SNFUNPAR_STORE ;
+
+
+
 
 
 // *********************************
@@ -2014,11 +2060,12 @@ int main(int argc,char* argv[ ])
   // check for user-constraint on nmax (July 2017) AFTER prepare_biasCor 
   applyCut_nmax();
 
-  /* Solve for minimum of chi-squared */
+  // check option to turn SALT2mu into chi2-info function 
+  SNFUNPAR_CHI2INFO_INIT();
 
   t_end_init = time(NULL);
 
-
+  /* Solve for minimum of chi-squared */
  DOFIT:
 
   if ( INPUTS.JOBID_SPLITRAN > 0 ) 
@@ -2139,6 +2186,7 @@ int main(int argc,char* argv[ ])
   // ------------------------------------------------
   // check files to write
   outFile_driver();
+
 
   //---------
   if ( NJOB_SPLITRAN < INPUTS.NSPLITRAN  &&  INPUTS.JOBID_SPLITRAN<0 ) 
@@ -4527,6 +4575,9 @@ void set_defaults(void) {
   INPUTS.USE_GAMMA0  = 0 ;
 
   init_CUTMASK();
+
+  SNFUNPAR_CHI2INFO_OUTPUT.USE        = false ;
+  SNFUNPAR_CHI2INFO_OUTPUT.OUTFILE[0] = 0;
 
   return ;
 
@@ -13242,6 +13293,7 @@ void parse_parFile(char *parFile ) {
   //
 
   FILE *fdef;
+  bool SKIP, EXCEPTION;
   char *sptr;
   char fnam[] = "parse_parFile" ;
 
@@ -13284,8 +13336,14 @@ void parse_parFile(char *parFile ) {
     // Aug 24 2016: make exception for key containing group_biasCor
     //    to allow colon-delimeter in input string
     // NOTE: should re-facto to check list of keys allowing colon
+    SKIP      = ( strstr(sptr,":")             != NULL );
+    EXCEPTION = ( strstr(sptr,"group_biascor") != NULL );
+    if ( SKIP && !EXCEPTION ) { continue ; }
+
+    /* xxx mark delete May 19 2020 xxxxxxxx
     if ( strstr(sptr,"group_biascor") == NULL &&
 	 strstr(sptr,":") != NULL ) { continue ; }
+    xxxxxxxx end mark xxxxxxx */
 
     ppar(sptr); // pass entire line
   }
@@ -13303,6 +13361,8 @@ void override_parFile(int argc, char **argv) {
 
   // April 23, 2012 by R.Kessler
   // Moved from MAIN
+  //
+  // Read command-line arguments and override input file.
   //
   // Jan 15 2018: bug fix to work with CUTWIN; see i+=3
   // May 15 2019: increase item & line size to allow for
@@ -13324,19 +13384,6 @@ void override_parFile(int argc, char **argv) {
   for (i=2; i < argc; ++i) {
 
     item = argv[i];
-
-    /* xxxxxxxxx mark delete Aug 6 2019 xxxxxxxxxxxxx
-    strncpy(item,argv[i],255);
-    if (strlen(item) > 200) {
-      printf("\n FATAL ERROR in %s: \n", fnam );
-      printf("\t Argument %i exceeds 200 characters \n", i  );
-      printf("\t check string '%s' \n", item);
-      printf("\t ***** ABORT ***** \n");
-      fflush(stdout);
-      exit(2);
-    }
-    xxxxxxxxxxxx end mark xxxxxxxxxxxxx */
-
     ntmp++;
 
     //  if ( strcmp(item,"CUTWIN") == 0 ) {
@@ -13391,6 +13438,12 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"catfile_out=") ) {
     s = INPUTS.catfile_out ;
     sscanf(&item[12],"%s",s); remove_quote(s); return(1);
+  }
+
+  if ( uniqueOverlap(item,"snparfile_out=") ) {
+    s = SNFUNPAR_CHI2INFO_OUTPUT.OUTFILE ;
+    SNFUNPAR_CHI2INFO_OUTPUT.USE = true ;
+    sscanf(&item[14],"%s",s); remove_quote(s); return(1);
   }
   
   if ( uniqueOverlap(item,"cutmask_write=") )
@@ -14374,10 +14427,16 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
 
   // return 1 if ivar>=0.
   // If ivar<0 and abortflag is set for icut, then abort.
-  // 
+  // isData=1 for datafile argument (real or sim dat);
+  // isData=0 for biasCor sample.
+  //
   // Oct 23 2018: 
   //  + new input arg isData=1 for data, zero for sim biasCor 
   //  + check DATAONLY flag.
+  //
+  // May 18 2020:
+  //   + check BIASCORONLY flag.
+  //
 
   bool  NOVAR       = ( ivar < 0 );
   bool  ABORTFLAG   = INPUTS.LCUTWIN_ABORTFLAG[icut];
@@ -15743,6 +15802,12 @@ void outFile_driver(void) {
 
   // --------------- BEGIN -------------
 
+  if ( SNFUNPAR_CHI2INFO_OUTPUT.USE ) {
+    SNFUNPAR_CHI2INFO_LOAD_OUTPUT();
+    SNFUNPAR_CHI2INFO_WRITE();
+    return ;
+  }
+
   if ( strlen(prefix) > 0 && !IGNOREFILE(prefix)  ) {
 
     if ( INPUTS.NSPLITRAN == 1 )  { 
@@ -16426,31 +16491,10 @@ int write_fitres_line_legacy(int indx, char *line, FILE *fout) {
 
   // ----------- BEGIN -----------
 
-  /* xxx mark delete xxxxxxx
-  // break tmpline into blank-separated strings
-  sprintf(tmpLine,"%s", line);
-  ptrtok = strtok(tmpLine," ");
-  sscanf ( ptrtok, "%s", KEY );
-  ptrtok = strtok(NULL, " ");
-  sscanf ( ptrtok, "%s", CCID );
-  //    ptrtok = strtok(NULL, " ");
-      
-  if ( strcmp(KEY,"SN:") != 0 ) { return(ISTAT); }
-  xxxxxxx end mark xxxxxxxxxx*/
-
   // remove <CR> from end of line (requested by Rahul)
   ptrCR = strchr(line,'\n');
   if (ptrCR) {*ptrCR = ' ';}
   
-  /* xxx mark delete xxxx
-  if ( !INPUTS.cat_only ) {
-    // get index for this CCID
-    get_CCIDindx(CCID, &indx) ;     
-    cutmask = INFO_DATA.TABLEVAR.CUTMASK[indx];      
-    if ( keep_cutmask(cutmask) == 0 ) { return(ISTAT) ; }
-  }
-  xxxxxxxx */
-
   // Print SN line from input fiters file
   fprintf(fout, "%s ", line);
   
@@ -17522,3 +17566,236 @@ void lubksb(const double* a, const int n, const int ndim,
   return;
 } /* lubksb */
 
+
+// =======================================================
+//  SNPAR_CHI2INFO functions to use SALT2mu as 
+//  function to return chi2-info for higher-level
+//  MCMC fitter for SN population parameters.
+// =======================================================
+
+void  SNFUNPAR_CHI2INFO_INIT(void) {
+
+  int   nbc, nbx1, nbm, ix1, ic, im;
+  BININFO_DEF *BININFO ;
+  char fnam[] = "SNFUNPAR_CHI2INFO_INIT" ;
+
+  // ------------- BEGIN ----------
+
+  if ( !SNFUNPAR_CHI2INFO_OUTPUT.USE ) { return; }
+
+  print_banner(fnam);
+
+  // - - - - - - - - - - - - - - - - - - - 
+  // open output file
+  char *outFile = SNFUNPAR_CHI2INFO_OUTPUT.OUTFILE ;
+  FILE *fp;
+  fp = fopen(outFile, "wt");
+  if ( !fp ) {
+    sprintf(c1err,"Could not open SNPAR outfile='%s'", outFile);
+    c2err[0] = 0 ;
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  SNFUNPAR_CHI2INFO_OUTPUT.FP_OUT = fp;
+  printf("\t Open outFile: %s \n", outFile);
+  fflush(stdout);
+
+
+  // - - - - - - - - - - - - - - - - - - - 
+  // load BININFO for c,x1,m
+  // Hard-code for now, maybe later take user input
+
+  BININFO = &SNFUNPAR_CHI2INFO_OUTPUT.binInfo[ISNPAR_x1];
+  nbx1 = SNFUNPAR_CHI2INFO_LOAD_BININFO("x1", -3.0, 3.0, 2.0, BININFO, fp);
+
+  BININFO = &SNFUNPAR_CHI2INFO_OUTPUT.binInfo[ISNPAR_c];
+  nbc = SNFUNPAR_CHI2INFO_LOAD_BININFO("c", -0.3, 0.5, 0.2, BININFO, fp);
+  
+  BININFO = &SNFUNPAR_CHI2INFO_OUTPUT.binInfo[ISNPAR_m];
+  nbm = SNFUNPAR_CHI2INFO_LOAD_BININFO("m", 5.0, 15.0, 5.0, BININFO, fp);
+
+  printf("\t Setup CHI2INFO bins: nbx1=%d nbc=%d nbm=%d \n",
+	 nbx1, nbc, nbm );
+
+  // - - - - - - - - - - - - - - - - - - - 
+  // prepare 3D -> 1D map
+  int MEMx1 = nbx1 * sizeof(int**) ;
+  int MEMc  = nbc  * sizeof(int*) ;
+  int MEMm  = nbm  * sizeof(int) ;
+  int NBIN_TOT = 0;
+  SNFUNPAR_CHI2INFO_OUTPUT.MAP3D_to_1D = (int***) malloc(MEMx1);
+  for(ix1=0; ix1 < nbx1; ix1++ ) {
+    SNFUNPAR_CHI2INFO_OUTPUT.MAP3D_to_1D[ix1]= (int**) malloc(MEMc);
+    for(ic=0; ic < nbc; ic++ ) {
+      SNFUNPAR_CHI2INFO_OUTPUT.MAP3D_to_1D[ix1][ic]= (int*) malloc(MEMm);
+      for(im=0; im < nbm; im++ ) {
+	SNFUNPAR_CHI2INFO_OUTPUT.MAP3D_to_1D[ix1][ic][im] = NBIN_TOT ;
+	NBIN_TOT++ ;
+      }
+    }
+  }
+
+
+  fprintf(fp,"NBIN_TOT: %d \n", NBIN_TOT);
+
+  int MEMI = NBIN_TOT * sizeof(int) ;
+  int MEMD = NBIN_TOT * sizeof(double) ;
+  SNFUNPAR_CHI2INFO_OUTPUT.NBIN_TOT = NBIN_TOT ;
+  SNFUNPAR_CHI2INFO_OUTPUT.NEVT = (int*) malloc(MEMI);
+  SNFUNPAR_CHI2INFO_OUTPUT.MURES_SUM   = (double*) malloc(MEMD);
+  SNFUNPAR_CHI2INFO_OUTPUT.MURES_SQSUM = (double*) malloc(MEMD);
+
+  // store VARNAMES line
+  sprintf(SNFUNPAR_CHI2INFO_OUTPUT.LINE_VARNAMES,
+	  "VARNAMES: ROW       ix1 ic im   NEVT  MURES_SUM   MURES_SQSUM");
+
+  //  debugexit(fnam);
+  return ;
+
+} // end SNFUNPAR_CHI2INFO_INIT
+
+
+// ===================================================
+int SNFUNPAR_CHI2INFO_LOAD_BININFO(char *varName, 
+				   double xmin, double xmax, double binSize,
+				   BININFO_DEF *BININFO, FILE *fp ) {
+  int nbin;
+  double x;
+  char fnam[] = "SNFUNPAR_CHI2INFO_LOAD_BININFO" ;
+  // ------------ BEGIN -----------
+  nbin = 0 ;
+  sprintf(BININFO->varName,"%s", varName );
+  for(x = xmin ; x < xmax; x += binSize ) {
+    BININFO->lo[nbin]  = x ;
+    BININFO->hi[nbin]  = x + binSize ;
+    BININFO->avg[nbin] = x + 0.5*binSize ;
+    nbin++ ;
+  }
+  BININFO->nbin = nbin ;
+  BININFO->binSize = binSize ;
+
+  fprintf(fp,"BININFO: %2s %2d %6.3f %6.3f\n",   
+	  varName, nbin, xmin, xmax);
+
+  return(nbin) ;
+} // end SNFUNPAR_CHI2INFO_LOAD_BININFO
+
+
+// ===========================================
+void SNFUNPAR_CHI2INFO_LOAD_OUTPUT(void) {
+
+  // called after each fit, load output struct.
+
+  int NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int NBIN_TOT      = SNFUNPAR_CHI2INFO_OUTPUT.NBIN_TOT ;
+  int i, isn, cutmask, ix1,ic,im, isnpar, IPAR_LCFIT  ;
+  int i3d[3], J1D ;
+  double xval, mures ;
+  char *CCID;
+  BININFO_DEF *BININFO ;
+  char fnam[] = "SNFUNPAR_CHI2INFO_LOAD_OUTPUT";
+
+  // ---------- BEGIN ----------
+  for(i=0; i < NBIN_TOT; i++ ) {
+    SNFUNPAR_CHI2INFO_OUTPUT.NEVT[i]        = 0 ;
+    SNFUNPAR_CHI2INFO_OUTPUT.MURES_SUM[i]   = 0.0 ;
+    SNFUNPAR_CHI2INFO_OUTPUT.MURES_SQSUM[i] = 0.0 ;
+  }
+
+  // loop over data
+
+  for(isn=0; isn < NSN_DATA; isn++ ) {
+
+    CCID    = INFO_DATA.TABLEVAR.name[isn]; 
+    cutmask = INFO_DATA.TABLEVAR.CUTMASK[isn]; 
+    if ( !keep_cutmask(cutmask)  ) { continue; }
+    ix1 = ic = im = -9;
+
+    for(isnpar = 0; isnpar < 3; isnpar++ ) {
+
+      if ( isnpar == ISNPAR_x1 ) 
+	{ xval  = INFO_DATA.TABLEVAR.fitpar[INDEX_x1][isn]; }
+      else if ( isnpar == ISNPAR_c ) 
+	{ xval  = INFO_DATA.TABLEVAR.fitpar[INDEX_c][isn]; }
+      else if ( isnpar == ISNPAR_m ) 
+	{ xval  = INFO_DATA.TABLEVAR.logmass[isn]; }
+      
+      BININFO = &SNFUNPAR_CHI2INFO_OUTPUT.binInfo[isnpar];
+      i3d[isnpar] = IBINFUN(xval, BININFO, 1, fnam);
+
+      if ( i3d[isnpar] < 0 ) {
+	sprintf(c1err,"Invalid i3d[%d] = %d for xval=%f", 
+		isnpar, i3d[isnpar], xval );
+	sprintf(c2err,"Check CCID = '%s'", CCID);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+    }
+
+    ix1 = i3d[ISNPAR_x1];  ic=i3d[ISNPAR_c]; im=i3d[ISNPAR_m];
+    J1D = SNFUNPAR_CHI2INFO_OUTPUT.MAP3D_to_1D[ix1][ic][im];
+    SNFUNPAR_CHI2INFO_OUTPUT.NEVT[J1D]++ ;
+
+    mures    = INFO_DATA.mures[isn] ;
+    SNFUNPAR_CHI2INFO_OUTPUT.MURES_SUM[J1D]   +=  mures;
+    SNFUNPAR_CHI2INFO_OUTPUT.MURES_SQSUM[J1D] +=  (mures*mures);
+  } // end isn 
+
+
+  return ;
+
+} // end  SNFUNPAR_CHI2INFO_LOAD_OUTPUT
+
+// ===========================================
+void SNFUNPAR_CHI2INFO_WRITE(void) {
+
+  int NBIN_TOT = SNFUNPAR_CHI2INFO_OUTPUT.NBIN_TOT ;
+  int nbx1     = SNFUNPAR_CHI2INFO_OUTPUT.binInfo[ISNPAR_x1].nbin;
+  int nbc      = SNFUNPAR_CHI2INFO_OUTPUT.binInfo[ISNPAR_c].nbin;
+  int nbm      = SNFUNPAR_CHI2INFO_OUTPUT.binInfo[ISNPAR_m].nbin ;
+  FILE *FP     = SNFUNPAR_CHI2INFO_OUTPUT.FP_OUT ;
+
+  int ITER=1;
+  char NAME[40], tmpName[40];
+  int ix1, ic, im, IBIN1D, NEVT, n, ISFLOAT, ISM0 ;
+  double SUM, SQSUM, VAL, ERR ;
+  char fnam[] = "SNFUNPAR_CHI2INFO_WRITE" ;
+
+  // ----------- BEGIN -------------
+
+  fprintf(FP,"\n# ================================================ \n");
+  // write fitted nuisance params 
+  for ( n=0; n < FITINP.NFITPAR_ALL ; n++ ) {
+
+    ISFLOAT = FITINP.ISFLOAT[n] ;
+    ISM0    = (n >= MXCOSPAR) ; // it's z-binned M0
+
+    if ( ISFLOAT && !ISM0 ) {
+      VAL = FITRESULT.PARVAL[1][n] ;
+      ERR = FITRESULT.PARERR[1][n] ;
+      sprintf(tmpName,"%s", FITRESULT.PARNAME[n]);
+      fprintf(FP,"FITPAR:  %-14s = %10.5f +- %8.5f \n",
+	      tmpName, VAL, ERR );
+    }
+  } // end loop over SALT2mu fit params
+
+  // - - - - - - 
+
+  fprintf(FP,"%s\n", SNFUNPAR_CHI2INFO_OUTPUT.LINE_VARNAMES);
+
+  for(ix1=0; ix1 < nbx1; ix1++ ) {
+    for(ic=0; ic < nbc; ic++ ) {
+      for(im=0; im < nbm; im++ ) {
+	IBIN1D = SNFUNPAR_CHI2INFO_OUTPUT.MAP3D_to_1D[ix1][ic][im];
+	NEVT   = SNFUNPAR_CHI2INFO_OUTPUT.NEVT[IBIN1D];
+	SUM    = SNFUNPAR_CHI2INFO_OUTPUT.MURES_SUM[IBIN1D];
+	SQSUM  = SNFUNPAR_CHI2INFO_OUTPUT.MURES_SQSUM[IBIN1D];
+
+	sprintf(NAME,"ITER%5.5d-%4.4d", ITER, IBIN1D);
+	fprintf(FP,"ROW: %s %2d %2d %2d  %4d %14.6le %14.6le \n", 
+		NAME, ix1,ic,im,  NEVT, SUM, SQSUM); 
+      }
+    }    
+  }
+
+  return ;
+
+} // end SNFUNPAR_CHI2INFO_WRITE

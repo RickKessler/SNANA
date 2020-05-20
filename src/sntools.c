@@ -4033,8 +4033,8 @@ void trim_blank_spaces(char *string) {
     if ( ISBLANK && FOUNDCHAR ) { goto DONE ; }
     if ( ISTERM               ) { goto DONE ; }
 
-    if ( ISCHAR ) 
-      {  sprintf(tmpString,"%s%s", tmpString, c1); }
+    if ( ISCHAR )  { strcat(tmpString,c1); } 
+    // xxx mark delete    {  sprintf(tmpString,"%s%s", tmpString, c1); }
   }
 
 
@@ -6073,6 +6073,7 @@ int rd_sedFlux(
     + read 120 chars per line instead of 80 (and define MXCHAR_RDFLUX)
     + abort if line length is too long (to avoid corruption)
     + abort if fewer than 3 words are read
+
 
   **********/
 

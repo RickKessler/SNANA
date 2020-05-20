@@ -5879,7 +5879,7 @@ void prep_user_input(void) {
 
 
   Jun 19 2017:
-   + remove !MODEL_FIXMAG requirement for prep_genmag_offsets().
+   + remove !MODEL_FIXMAG requirement for prep_genmag_offset().
 
   Aug 16 2017: abort of GENRANGE_REDSHIFT[1] > ZMAX_SNANA
 
@@ -7192,6 +7192,7 @@ void genmag_offsets(void) {
   //              it into distance modulus.
   //
   // Sep 24 2017: check for template genmag
+  // May 20 2020: check IMGNUM >= 0 before add lens-mag offset
 
   int epoch, ifilt_obs, IMGNUM ;
   double MAGOFF, genmag8 ;
@@ -7219,8 +7220,10 @@ void genmag_offsets(void) {
     if ( INPUTS.OPT_DEVEL_BBC7D ) 
       { MAGOFF += GENLC.SALT2gammaDM ;   }
 
-    if ( INPUTS_STRONGLENS.USE_FLAG ) 
-      { IMGNUM = GENSL.IMGNUM;  MAGOFF += GENSL.MAGSHIFT_LIST[IMGNUM];  }
+    if ( INPUTS_STRONGLENS.USE_FLAG )  { 
+      IMGNUM = GENSL.IMGNUM; 
+      if ( IMGNUM>=0 ) { MAGOFF += GENSL.MAGSHIFT_LIST[IMGNUM];  }
+    }
 
     // ------
     // apply mag-offset to each epoch-mag, unless mag is
@@ -10447,7 +10450,7 @@ void gen_event_stronglens(int ilc, int istage) {
   double TRESTMAX  = INPUTS.GENRANGE_TREST[1];
   int    MEMD      = MXIMG_STRONGLENS * sizeof(double);
   double RAD       = RADIAN;
-  int    LDMP      = (ilc<4) ; 
+  int    LDMP      = (ilc < 4) ; 
 
   double zLENS, zSN, z1, hostpar[10];
   double PEAKMJD, tdelay_min=1.0E9, tdelay_max=-1.0E9;
@@ -10495,6 +10498,7 @@ void gen_event_stronglens(int ilc, int istage) {
 
   // -----------------------
   if ( istage == 2 ) {
+    if ( NIMG == 0 ) { return; } // May 2020
     if ( !GENSL.REPEAT_FLAG ) {
       // store original coords on first image
       GENSL.RA_noSL    = GENLC.RA;

@@ -156,6 +156,11 @@ CUTWIN(NOABORT)  SIM_x1  -2 2    ! do not abort if SIM_x1 isn't there
 CUTWIN(DATAONLY)    LOGMASS  5 12   ! cut on data only (not on biasCor)
 CUTWIN(BIASCORONLY) BLA_LOGMASS  5 12 ! cut on biasCor (not on data)
 
+#select field(s) for data and biasCor with
+fieldlist=X1,X2   # X1 and X2
+fieldlist=X3      # X3 only
+fieldlist=X       # any field with X in name
+
 chi2max  = chi2-outlier cut applied before fit. Beware that initial
            and final chi2 can differ, so allow slop in the cut.
            = -2log10(ProbIa_BEAMS + ProbCC_BEAMS); see Eq 6 of BBC paper
@@ -744,6 +749,8 @@ Default output files (can change names with "prefix" argument)
      that have PROB_[classifier] columns and spec samples that
      do not have these columns. 
 
+  May 20 2020: new input fieldlist=<comma sep list>
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -910,6 +917,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define CUTBIT_IDSAMPLE  20    //  IDSAMPLE
 #define CUTBIT_CHI2      21    //  chi2 outlier (data only)
 #define CUTBIT_CID       22    //  for specifying a list of cids to process
+#define CUTBIT_FIELD     23    //  see fieldlist= input
 #define MXCUTBIT         25  
 
 #define dotDashLine "-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-" 
@@ -1358,6 +1366,10 @@ struct INPUTS {
   int    NCUTWIN ;
   char   CUTWIN_NAME[MXCUTWIN][MXCHAR_VARNAME];
   double CUTWIN_RANGE[MXCUTWIN][2];
+
+  int    NFIELD ;
+  char   *FIELDLIST[MXFIELD_OVERLAP] ;
+
   bool   LCUTWIN_RDFLAG[MXCUTWIN] ; // 1=> read, 0=> use existing var
   bool   LCUTWIN_ABORTFLAG[MXCUTWIN] ;  // 1=> abort if var does not exist
   bool   LCUTWIN_DATAONLY[MXCUTWIN] ;   // 1=> cut on real or sim data 
@@ -1640,6 +1652,7 @@ void load_ZPOLY_COVMAT(int IDSURVEY, double Z ) ;
 double sum_ZPOLY_COVMAT(double Z, double *polyPar) ;
 
 void parse_CUTWIN(char *item);
+void parse_FIELDLIST(char *item);
 int  apply_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST);
 int  usesim_CUTWIN(char *varName) ;
 int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
@@ -4401,7 +4414,8 @@ void set_defaults(void) {
   INPUTS.iflag_duplicate = IFLAG_DUPLICATE_ABORT ;
 
 
-  INPUTS.NCUTWIN = 0;
+  INPUTS.NCUTWIN = 0 ;
+  INPUTS.NFIELD  = 0 ;
 
   INPUTS.uM0   = M0FITFLAG_ZBINS_FLAT;
   INPUTS.uzsim = 0 ; // option to set z=simz (i.e., to cheat)
@@ -4603,6 +4617,7 @@ void init_CUTMASK(void) {
   sprintf(CUTSTRING_LIST[CUTBIT_logmass],   "logmass"  );
   sprintf(CUTSTRING_LIST[CUTBIT_MINBIN],    "min per zbin");
   sprintf(CUTSTRING_LIST[CUTBIT_CUTWIN],    "CUTWIN");
+  sprintf(CUTSTRING_LIST[CUTBIT_FIELD],     "CUTFIELD");
   sprintf(CUTSTRING_LIST[CUTBIT_sntype],    "sntype");
   sprintf(CUTSTRING_LIST[CUTBIT_HOST],      "HOST");
   sprintf(CUTSTRING_LIST[CUTBIT_BADERR],    "BADERR among SALT2 fitPar");
@@ -4971,6 +4986,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
   int  NLCPAR_LOCAL = NLCPAR ; // beware that ILCPAR_MIN/MAX isn't set yet
   if ( DOBIAS_MU ) { NLCPAR_LOCAL++ ; }
 
+  bool USE_FIELD = (INPUTS.use_fieldGroup_biasCor || INPUTS.NFIELD>0);
   int long long MEMTOT=0;
   float f_MEMTOT;
   int  i, isn, MEMF_TMP1, MEMF_TMP ;
@@ -4984,7 +5000,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     for(i=0; i<LEN_MALLOC; i++ ) 
       { TABLEVAR->name[i] = (char*)malloc(MEMC2); MEMTOT+=MEMC2; }
 
-    if ( INPUTS.use_fieldGroup_biasCor ) { 
+    if ( USE_FIELD ) {
       TABLEVAR->field =  (char**)malloc(MEMC);
       for(i=0; i<LEN_MALLOC; i++ ) 
 	{ TABLEVAR->field[i] = (char*)malloc(MEMC2); MEMTOT+=MEMC2; }  
@@ -5074,7 +5090,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     for(i=0; i<LEN_MALLOC; i++ ) { free(TABLEVAR->name[i]); }
     free(TABLEVAR->name);
 
-    if ( INPUTS.use_fieldGroup_biasCor ) { 
+    if ( USE_FIELD ) {
       for(i=0; i<LEN_MALLOC; i++ ) { free(TABLEVAR->field[i]) ; }
       free(TABLEVAR->field);
     }
@@ -5382,7 +5398,8 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   //   LEN        : size of array to read
   //   TABLEVAR   : structure with arrays to initialize
   //
-  //  May 8 2020: add IFILE argument.
+  //  May  8 2020: add IFILE argument.
+  //  May 20 2020: check NFIELD
 
   int EVENT_TYPE = TABLEVAR->EVENT_TYPE;
   int IS_DATA    = ( EVENT_TYPE == EVENT_TYPE_DATA);
@@ -5391,7 +5408,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 
   int VBOSE = 1 ;  // verbose, but no abort on missing variable
   int FIRSTFILE = ( ISTART == 0 ) ;
-  int USE_FIELDGROUP  = ( INPUTS.use_fieldGroup_biasCor > 0 ) ;
+  int USE_FIELD = ( INPUTS.use_fieldGroup_biasCor>0 || INPUTS.NFIELD>0);
   int IDEAL           = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
 
   int  icut, ivar, ivar2, irow, id ;
@@ -5434,7 +5451,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 
   // initialize a few arrays
   for(irow=ISTART; irow < ISTART+LEN; irow++ ) {
-    if ( USE_FIELDGROUP ) { TABLEVAR->field[irow][0] = 0 ; }
+    if ( USE_FIELD ) { TABLEVAR->field[irow][0] = 0 ; }
     TABLEVAR->IDSURVEY[irow]   = -9 ;
     TABLEVAR->IDSAMPLE[irow]   = -9 ;
     TABLEVAR->CUTMASK[irow]    =  0 ;
@@ -5468,10 +5485,15 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->name[ISTART], 
 			  LEN, VBOSE) ;
 
-  if ( USE_FIELDGROUP ) {
+  if ( USE_FIELD ) {
     sprintf(vartmp, "FIELD:C*%d", MXCHAR_CCID ); 
-    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->field[ISTART], 
-			    LEN, VBOSE) ;
+    ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->field[ISTART], 
+				   LEN, VBOSE) ;
+    if ( ivar < 0 ) {
+      sprintf(c1err,"Required FIELD column missing");
+      sprintf(c2err,"Check CUTFIELD or fieldGroup_biascor keys");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+    }
   }
 
   sprintf(vartmp,"IDSURVEY:S" ); // S -> short int
@@ -5574,7 +5596,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 				     LEN, VBOSE );
     }
     else {
-      ivar = IVAR_READTABLE_POINTER(cutname); // May 8 2020 .xyz
+      ivar = IVAR_READTABLE_POINTER(cutname); // May 8 2020 
     }
     TABLEVAR->DOFLAG_CUTWIN[icut] = set_DOFLAG_CUTWIN(ivar,icut,IS_DATA);
   }
@@ -12927,6 +12949,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
   // Created June, 2019 by R.Kessler
   // Set 'cutmask'  for this 'isn' and 'event_type'
+  // Also check CUTFIELD (May 2020)
   //
   // Inputs: 
   //   isn        -> SN index
@@ -12938,6 +12961,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   int IS_DATA    = ( event_type == EVENT_TYPE_DATA );
   int IS_BIASCOR = ( event_type == EVENT_TYPE_BIASCOR );
   int IS_CCPRIOR = ( event_type == EVENT_TYPE_CCPRIOR );
+  int NFIELD = INPUTS.NFIELD ;
 
   //  int  LDMP = 0;
   int  LCUTWIN, DOFLAG_CUTWIN[MXCUTWIN], icut, outside ;
@@ -12982,9 +13006,21 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
 
   // =======================================
-
+  // check CUTWIN options
   LCUTWIN = apply_CUTWIN(event_type, DOFLAG_CUTWIN, cutvar_local);
   if ( LCUTWIN == 0 ) { setbit_CUTMASK(isn, CUTBIT_CUTWIN, TABLEVAR); }
+
+  // -----------------
+  // check CUTFIELD (May 2020)
+  if ( NFIELD > 0 ) {
+    bool MATCH = false;
+    char *tmpField, *field = TABLEVAR->field[isn];  
+    for(icut=0; icut < NFIELD; icut++ ) {
+      tmpField = INPUTS.FIELDLIST[icut] ;
+      if ( strstr(field,tmpField) != NULL )   {  MATCH=true; }
+    }
+    if ( !MATCH ) { setbit_CUTMASK(isn, CUTBIT_FIELD, TABLEVAR); }
+  }
 
   // -----------------------------------------
   // apply legacy cuts 
@@ -13651,6 +13687,9 @@ int ppar(char* item) {
 
   if ( !strncmp(item,"CUTWIN",6) )  // multiple CUTWIN keys allowed
     { parse_CUTWIN(item); return(1); } 
+
+  if ( uniqueOverlap(item,"fieldlist=") ) 
+    { parse_FIELDLIST(&item[10]); return(1); } 
 
   if ( uniqueOverlap(item,"idsample_select=") ) 
     {  sscanf(&item[16], "%s", INPUTS.idsample_select );  return(1); } 
@@ -14320,8 +14359,8 @@ void parse_CUTWIN(char *item) {
 
   INPUTS.NCUTWIN++ ;
   ICUT = INPUTS.NCUTWIN-1 ;
-  INPUTS.LCUTWIN_ABORTFLAG[ICUT] = true ;   //  abort on missing var
-  INPUTS.LCUTWIN_DATAONLY[ICUT]  = false ;  //  cut on data 
+  INPUTS.LCUTWIN_ABORTFLAG[ICUT]   = true ;   //  abort on missing var
+  INPUTS.LCUTWIN_DATAONLY[ICUT]    = false ;  //  cut on data 
   INPUTS.LCUTWIN_BIASCORONLY[ICUT] = false ;  //  cut on sim data and biasCor
 
   sprintf(local_item,"%s", item);
@@ -14485,6 +14524,39 @@ int usesim_CUTWIN(char *varName) {
   if (strcmp(varName,"SIM_TEMPLATE_INDEX") == 0 ) { use = 0 ; }  // 7.31.2018
   return(use);
 }
+
+
+// **************************************************
+void parse_FIELDLIST(char *item) {
+
+  // Created May 2020
+  // break comma-separated list and load NFIELD values
+
+  int  i ;
+  int LDMP = 0 ;
+  char comma[] = "," ;
+  char fnam[] = "parse_FIELDLIST" ;
+
+  // ------------ BEGIN ------------
+  
+  for(i=0; i < MXFIELD_OVERLAP; i++ ) 
+    { INPUTS.FIELDLIST[i] = (char*) malloc(20*sizeof(char) ); }
+
+  splitString(item, comma, MXFIELD_OVERLAP,               // inputs
+	      &INPUTS.NFIELD, INPUTS.FIELDLIST ); // outputs
+  
+  if ( LDMP ) {
+    for(i=0; i < INPUTS.NFIELD; i++ ) {
+      printf(" xxx %s: select FIELD = '%s' \n", 
+	     fnam, INPUTS.FIELDLIST[i] ); fflush(stdout);
+    }
+  }
+
+  //  debugexit(fnam); // xxxx REMOVE
+
+  return ;
+
+} // end parse_FIELDLIST
 
 // **************************************************
 void SPLITRAN_prep_input(void) {

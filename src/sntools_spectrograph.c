@@ -157,6 +157,9 @@ void read_spectrograph_text(char *inFile) {
   INPUTS_SPECTRO.LAM_MIN     = INPUTS_SPECTRO.LAM_MAX     = -9.0 ;
   INPUTS_SPECTRO.TEXPOSE_MIN = INPUTS_SPECTRO.TEXPOSE_MAX = -9.0 ;
 
+  INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsMAGREF  = 5.0 ;
+  INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsTEXPOSE = 1.2 ;
+
   NERR_SNR_SPECTROGRAPH = 0 ;
   NERR_BADSNR_SPECTROGRAPH = 0 ;
 
@@ -171,7 +174,6 @@ void read_spectrograph_text(char *inFile) {
   reset_VALUES_SPECBIN(); 
 
   while( (fscanf(fp, "%s", c_get)) != EOF) {
-
 
     // if comment key is found, read remainder of line into dummy string  
     // so that anything after comment key is ignored (even a valid key)  
@@ -207,6 +209,15 @@ void read_spectrograph_text(char *inFile) {
 
       NRDCOL = 2 + 2*NBT ; // number of columns to read below
       DONE_MALLOC = 1;
+    }
+
+    // check optional key(s)
+    if ( strcmp(c_get,"SNR_POISSON_RATIO_ABORT_vsMAGREF:") == 0 ) {
+      readdouble(fp, 1, &INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsMAGREF);
+    }
+
+    if ( strcmp(c_get,"SNR_POISSON_RATIO_ABORT_vsTEXPOSE:") == 0 ) {
+      readdouble(fp, 1, &INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsTEXPOSE);
     }
 
     // - - - - - - - - - -
@@ -253,6 +264,10 @@ void read_spectrograph_text(char *inFile) {
   for(t=0; t < NBT; t++ ) 
     { printf("%d ", (int)INPUTS_SPECTRO.TEXPOSE_LIST[t]); }
   printf(" sec \n");
+
+  printf("    SNR_POISSON_RATIO_ABORT(MAGREF,TEXPOSE) = %.2f, %.2f \n",
+	 INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsMAGREF,
+	 INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsTEXPOSE) ;
 
   // -----
   if ( NBL >= MXLAM_SPECTROGRAPH ) {
@@ -347,49 +362,116 @@ int read_SPECBIN_spectrograph(FILE *fp) {
 // ========================================================
 void check_SNR_SPECTROGRAPH(int l, int t) {
 
-  // make sure that SNR(t) is increasing, where
-  // t = TEXPOSURE index
-  // l = lambda index
+  // May 21 2020: Refactor and update
   //
-  // Returns 0 for success; returns 1 on error so that
-  // calling function can count errors.
+  // ABORT if
+  //   SNR(t) is not increasing
+  //   SNR1/SNR0 ratio is outside tolerance 
+  //   SNR(t)/SNR(t-1) is outside tolerance
+  //
+  // SNR-Tolerance ratios are user-input in spectrograph file:
+  //   SNR_POISSON_RATIO_ABORT_vsMAGREF:  <val>
+  //   SNR_POISSON_RATIO_ABORT_vsTEXPOSE: <val>
+  //
+  // Inputs:
+  //   t = TEXPOSURE index
+  //   l = lambda index
+  //
+  //
+  // BEWARE SNR INDEX:
+  //   In code we have SNR0,SNR1, but manual has SNR1,SNR2 ..
+  //   so print error messages to match manual notation.
+  //
 
-  char fnam[] = "check_SNR_SPECTROGRAPH" ;
+  double LAM     = INPUTS_SPECTRO.LAMAVG_LIST[l];
+  double TEXPOSE = INPUTS_SPECTRO.TEXPOSE_LIST[t] ;
+  double MAGREF0 = INPUTS_SPECTRO.MAGREF_LIST[0];
+  double MAGREF1 = INPUTS_SPECTRO.MAGREF_LIST[1];
+  double SNR0    = INPUTS_SPECTRO.SNR0[l][t];
+  double SNR1    = INPUTS_SPECTRO.SNR1[l][t];
+  double LOGSNR_RATIO_TOL;
 
+  double arg, FLUXREF_RATIO, SNR_RATIO_POISSON, SNR_RATIO, LOGSNR_RATIO ;
+  double *ptrSNR;
+  double *ptrTexpose = INPUTS_SPECTRO.TEXPOSE_LIST;
+  int    iSNR ;
+  char fnam[]    = "check_SNR_SPECTROGRAPH" ;
+  int  LDMP = 0;
   // ---------------BEGIN ----------
 
-  if ( t == 0 ) { return ;}
+    sprintf(c2err,"LAM=%.1f  TEXPOSE=%.2f  (l=%d, t=%d)", 
+	    LAM, TEXPOSE, l, t );
 
-  if ( INPUTS_SPECTRO.SNR0[l][t] <= 0.0  ) { NERR_BADSNR_SPECTROGRAPH++ ; }
-  if ( INPUTS_SPECTRO.SNR1[l][t] <= 0.0  ) { NERR_BADSNR_SPECTROGRAPH++ ; }
-
-  if ( INPUTS_SPECTRO.SNR0[l][t] < INPUTS_SPECTRO.SNR0[l][t-1] ) {
-    printf("\n# - - - - - - - - - - - - - - - - - - - - - - - - -\n");
-    printf(" PRE-WARNING DUMP: \n" ) ;
-    printf("\t LAMBDA(l=%d) = %f \n", l, INPUTS_SPECTRO.LAMAVG_LIST[l] );
-    printf("\t SNR0(Texpose=%.2f) = %f (t=%d)\n", 
-	   INPUTS_SPECTRO.TEXPOSE_LIST[t-1], INPUTS_SPECTRO.SNR0[l][t-1],t-1);
-    printf("\t SNR0(Texpose=%.2f) = %f (t=%d)\n", 
-	   INPUTS_SPECTRO.TEXPOSE_LIST[t],  INPUTS_SPECTRO.SNR0[l][t], t );
-    sprintf(c1err,"SNR0 is not monotonic");
-    sprintf(c2err,"Check SPECTROGRAPH table");
-    errmsg(SEV_WARN, 0, fnam, c1err, c2err); 
-    NERR_SNR_SPECTROGRAPH++ ;
+  // check for negative SNR that are obviously bad
+  if ( SNR0 < 1.0E-12 || SNR1 < 1.0E-12 ) { 
+    sprintf(c1err,"Invalid/negative SNR[0,1] = %le, %le ", SNR0, SNR1);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  if ( INPUTS_SPECTRO.SNR1[l][t] < INPUTS_SPECTRO.SNR1[l][t-1] ) {
-    printf("\n# - - - - - - - - - - - - - - - - - - - - - - - - -\n");
-    printf(" PRE-WARNING DUMP: \n" ) ;
-    printf("\t LAMBDA(l=%d) = %f \n", l, INPUTS_SPECTRO.LAMAVG_LIST[l] );
-    printf("\t SNR1(Texpose=%.2f) = %f (t=%d) \n", 
-	   INPUTS_SPECTRO.TEXPOSE_LIST[t-1], INPUTS_SPECTRO.SNR1[l][t-1],t-1 );
-    printf("\t SNR1(Texpose=%.2f) = %f (t=%d) \n", 
-	   INPUTS_SPECTRO.TEXPOSE_LIST[t], INPUTS_SPECTRO.SNR1[l][t], t );
-    sprintf(c1err,"SNR1 is not monotonic");
-    sprintf(c2err,"Check SPECTROGRAPH table");
-    errmsg(SEV_WARN, 0, fnam, c1err, c2err); 
-    NERR_SNR_SPECTROGRAPH++ ;
+  // check that SNR1/SNR0 ratio is with factor of TOL of Poisson expectations
+  arg               = 0.4*(MAGREF0-MAGREF1);
+  FLUXREF_RATIO     = pow(TEN,arg);  // fluxref1/fluxref0
+  SNR_RATIO_POISSON = sqrt(FLUXREF_RATIO); // expected SNR ratio from Poisson
+  SNR_RATIO         = SNR1/SNR0;  
+  LOGSNR_RATIO = log10(SNR_RATIO/SNR_RATIO_POISSON);
+
+  LOGSNR_RATIO_TOL = log10(INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsMAGREF);
+  if ( fabs(LOGSNR_RATIO) > LOGSNR_RATIO_TOL ) {
+    print_preAbort_banner(fnam);
+    printf("\t MAGREF[0,1]   = %.3f, %.3f \n", MAGREF0, MAGREF1);
+    printf("\t FLUXREF_RATIO = %le \n", FLUXREF_RATIO);
+    printf("\t SNR1/SNR0[real,Poisson] = %f, %f \n", 
+	   SNR_RATIO, SNR_RATIO_POISSON);
+    printf("\t LOGSNR_RATIO = %f (TOL=%.3f) \n",
+	   LOGSNR_RATIO, LOGSNR_RATIO_TOL) ;
+    sprintf(c1err,"Possible crazy SNR1/SNR0 ratio (way off from Poisson)");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+  
+
+  // - - - - - - - - - 
+  if ( t == 0 ) { return ; }
+
+  LOGSNR_RATIO_TOL = log10(INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsTEXPOSE);
+
+  // check that SNR is monotonically increasig
+  for(iSNR=0; iSNR < 2; iSNR++ ) {
+    if ( iSNR == 0 ) { ptrSNR = INPUTS_SPECTRO.SNR0[l] ; }
+    else             { ptrSNR = INPUTS_SPECTRO.SNR1[l] ; }
+
+    SNR_RATIO = ptrSNR[t] / ptrSNR[t-1] ;
+    SNR_RATIO_POISSON = sqrt(ptrTexpose[t]/ptrTexpose[t-1]); // prediction
+    LOGSNR_RATIO = log10(SNR_RATIO/SNR_RATIO_POISSON);
+
+    // abort if SNR is way off of Poisson prediction
+    if ( fabs(LOGSNR_RATIO) > LOGSNR_RATIO_TOL ) {
+      print_preAbort_banner(fnam);      
+      printf("\t SNR%d(Texpose=%.2f) = %f (t=%d)\n", 
+	     iSNR+1, ptrTexpose[t-1], ptrSNR[t-1], t-1);
+      printf("\t SNR%d(Texpose=%.2f) = %f (t=%d)\n", 
+	     iSNR+1, ptrTexpose[t],  ptrSNR[t], t );
+      printf("\t SNR1/SNR0[real,Poisson] = %f, %f \n", 
+	     SNR_RATIO, SNR_RATIO_POISSON);
+      printf("\t LOGSNR_RATIO = %f (TOL=%.3f) \n",
+	     LOGSNR_RATIO, LOGSNR_RATIO_TOL) ;
+      sprintf(c1err,"Crazy SNR%d vs. Texpose", iSNR+1);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    // abort if SNR is not increasing
+    if ( ptrSNR[t] <= ptrSNR[t-1] ) {
+      print_preAbort_banner(fnam);      
+      printf("\t SNR%d(Texpose=%.2f) = %f (t=%d)\n", 
+	     iSNR+1, ptrTexpose[t-1], ptrSNR[t-1], t-1);
+      printf("\t SNR%d(Texpose=%.2f) = %f (t=%d)\n", 
+	     iSNR+1, ptrTexpose[t],  ptrSNR[t], t );
+      sprintf(c1err,"SNR%d is not increasing with Texpose", iSNR+1);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+  }
+
+
 
   return ;
 ;
@@ -548,8 +630,6 @@ void  solve_spectrograph(void) {
 
   // ------------- BEGIN ---------------
 
-  printf(" xxx YO here in %s \n", fnam);
-
   for(iref=0; iref < 2; iref++ ) {
     MAGREF[iref] = INPUTS_SPECTRO.MAGREF_LIST[iref];
     ARG  = -0.4 * MAGREF[iref] ; 
@@ -565,6 +645,7 @@ void  solve_spectrograph(void) {
     LAMAVG = 0.5 * ( LAMMIN + LAMMAX );
 
     for(t=0; t < NBT; t++ ) {
+
       SNR[0] = INPUTS_SPECTRO.SNR0[l][t] ;
       SNR[1] = INPUTS_SPECTRO.SNR1[l][t] ;
       TOP    = POWMAG[0] - POWMAG[1] ;
@@ -621,6 +702,7 @@ void  solve_spectrograph(void) {
   return ;
 
 } // end solve_spectrograph
+
 
 
 // ================================================

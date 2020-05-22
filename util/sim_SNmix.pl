@@ -1520,7 +1520,8 @@ sub parse_GENVERSION {
     #
     # Feb 11 2019: check for SIMGEN_INFILE_NONIa[Ia]
     # Apr 18 2019: set DOGEN_NONIa[SNIa] flags (bug fix)
-    #
+    # May 21 2020: increment NSIMTYPE if first time with Ia or NONIa
+
 
     my (@INFILE_LINES, @USE_GENOPT, @GENOPT_LINES, @NGENOPT, $NOPT );
     my ($VAL,$KEY, $key, $NWD, $GENOPT, $CLASS, $NAME );
@@ -1598,10 +1599,12 @@ sub parse_GENVERSION {
    
 	# check for GENVERSION-dependent sim-input files
 	if ( $KEY eq "SIMGEN_INFILE_Ia:" || $KEY eq "SIMGEN_INFILE_SNIa:" ) { 
+            if ( !$DOGEN_SNIa ) { $NSIMTYPE++ ; }
 	    $DOGEN_SNIa = 1;
 	    &store_SIMGEN_INFILE($iver, 1, \@argList);  
 	}
 	if ( $KEY eq "SIMGEN_INFILE_NONIa:" )  { 
+            if ( !$DOGEN_NONIa ) { $NSIMTYPE++ ; }
 	    $DOGEN_NONIa = 1;
 	    $iflag = 2 + $INFILE_NONIA_OVERRIDE[$iver] ;
 	    &store_SIMGEN_INFILE($iver, $iflag, \@argList);  

@@ -424,6 +424,7 @@ are given by
      \\
    \sigSky^2 & = & (F_1/{\rm SNR}_1)^2 - F_1 ~~ ; ~~~ 
             F_1 \equiv 10^{-0.4(m_1-\ZP)}
+  \label{eq:ZPspec}
 \end{eqnarray}
 %
 where $m_{1,2}$ are the two mag-reference values,
@@ -437,9 +438,15 @@ The \SPEC\ is defined in a separate text file with the
 following syntax:
 
 \begin{Verbatim}[frame=single]
+# required keys:
 INSTRUMENT: MYSPECDEVICE
 MAGREF_LIST:  20 28           # used to define SNR1 and SNR2
 TEXPOSE_LIST: 300 1000 2000   # seconds
+
+# optional keys to check for bad SNR inputs
+SNR_POISSON_RATIO_ABORT_vsMAGREF:  5     # default
+SNR_POISSON_RATIO_ABORT_vsTEXPOSE: 1.2   # default
+
 
 #         LAM   LAM   LAM
 #         MIN   MAX   RES    SNR1 SNR2      SNR1 SNR2      SNR1 SNR2
@@ -448,6 +455,11 @@ SPECBIN:  4210  4222  14.5  12.39 0.018    24.94 0.066    50.82 0.172
 etc ...
 \end{Verbatim}
 %
+The required keys include name of instrument,
+two ref mag values ($m_1,m_2$ in Eq.~\ref{eq:ZPspec}),
+and a list of exposure times. The optional keys to 
+check for bad SNR inputs are described below.
+
 Each $\lam$-bin ({\tt SPECBIN} key) includes 
 $\lam_{\rm min}$ and $\lam_{\rm max}$ (\AA)
 to avoid confusion with non-uniform $\lam$ bins. 
@@ -493,7 +505,44 @@ With 200 $\lam$-bins in {\tt MYSPECDEVICE.DAT}, the {\tt rebin=3}
 option results in keeping 66 combined bins. Since $3\times 66=198 < 200$,
 the last two $\lam$-bins are ignored.
 
+\bigskip
+%With a somewhat complicated text format, it is easy to make
+%mistakes that are difficult to trace. To catch some mistakes
+%in computing SNR values, automatic crosschecks are performed 
+%using SNR-ratios and expectations based on Poisson noise.
 
+\newcommand{\Rpredict}{{\rm R}_{\rm SNR-Poiss}}  % SNR-ratio prediction
+\newcommand{\RSNR}{{\rm R}_{\rm SNR}}           % input SNR-ratio
+\newcommand{\RRabort}{{\cal R}_{\rm Abort}}    % SNR-ratio/SNR-ratio abort
+
+\noindent {\bf SNR\_POISSON\_RATIO\_ABORT\_vsMAGREF} 
+($\RRabort$) is used to check each SNR pair: SNR1 and SNR2. 
+The {\tt MAGREF} difference is used to predict the
+SNR-ratio ($\RSNR=$SNR2/SNR1) from Poisson statistics,
+%
+\begin{equation}
+  \Rpredict = 10^{0.2*({\rm MAG1}-{\rm MAG2})} ~.
+\end{equation}
+%
+The kcor program aborts if
+\begin{equation}
+  \vert \log_{10}[\RSNR/\Rpredict] \vert  > \log_{10}(\RRabort)
+\end{equation}
+%
+The cut on absolute-value of log conveniently cuts on both
+$\RSNR/\Rpredict$ and $\Rpredict/\RSNR$~.
+Note that ``R'' refers to SNR ratios, while user-input 
+$\RRabort$ is a ratio of R values.
+
+\bigskip
+\noindent {\bf SNR\_POISSON\_RATIO\_ABORT\_vsTEXPOSE}
+($\RRabort$)
+performs a similar test for SNR vs. exposure time. 
+If the exposure time doubles, the naive Poisson noise expectation
+is that SNR increases by $\sqrt{2}$.
+With default $\RRabort=1.2$, the kcor program aborts if
+the SNR-ratio differs by more than 20\% from the
+$\sqrt{2}$ expectation.
 
 % ##########################################
    \clearpage

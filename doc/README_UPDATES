@@ -18383,6 +18383,8 @@
 
    sim_SNmix.pl:
     + write PATH_SNDATA_SIM in TOTAL_SUMMARY.LOG
+    + fix false-ABORT bug if SIMGEN_INPUT_Ia is not global,
+      but specified under GENVERSION key.
 
    split_and_fit.pl:
      + fix FITRES_COMBINE_FILE feature that was broken because
@@ -18394,6 +18396,8 @@
      + add REDSHIFT_QUALITYFLAG to data structure.
        This is a survey-dependent flag on spec-z (host or SN),
        and thus there is no standard set of flag definitions.
+     + MXSPECTRUM     = 5     -> 20
+     + MXLAM_SPECTRUM = 2000  -> 20000
 
    SALT2mu.c
      + new option CUTWIN(BIASCORONLY) to cut only on biasCor.
@@ -18401,5 +18405,11 @@
 
    sntools_fitsio.c
      + fix bug writing SIM_STRONGLENS_XXX params 
+
+   kcor.c: 
+     + new spectrograph table inputs to catch crazy SNR values,
+          SNR_POISSON_RATIO_ABORT_vsMAGREF
+          SNR_POISSON_RATIO_ABORT_vsTEXPOSE
+       (see manual updates)
 
 END: 

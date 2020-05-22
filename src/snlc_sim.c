@@ -9445,7 +9445,7 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
 	   LAMMIN_OBS, LAMMAX_OBS);
     printf(" xxx LAMRANGE(stored) = %.1f to %.1f \n",
 	   LAMMIN, LAMMAX);
-    printf(" xxx SNR_MIN(%d sec)=%.1f, SNR_MAX(%d sec)=%.1f \n",
+    printf(" xxx SNR_MIN(%d sec)=%.3f, SNR_MAX(%d sec)=%.3f \n",
 	    (int)TEXPOSE_MIN, SNR_MIN, (int)TEXPOSE_MAX, SNR_MAX);
     printf(" xxx OPT_FRAME_EPOCH=%d(%s)  OPT_FRAME_LAMBDA=%d \n",
 	   OPT_FRAME_EPOCH, FRAME_EPOCH, OPT_FRAME_LAMBDA );

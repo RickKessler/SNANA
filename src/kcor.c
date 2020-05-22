@@ -175,6 +175,9 @@
     + fix subtle bug computing lam-weighted averages in rd_filter;
       matters only for non-uniform wavelength bins.
 
+ May 22 2020:
+    in func ADDFILTERS_LAMSHIFT_GLOBAL(), load MAGSYSTEM_INDX_INPUT
+
 ****************************************************/
 
 #include <stdio.h>   
@@ -1650,6 +1653,7 @@ void  ADDFILTERS_LAMSHIFT_GLOBAL(void) {
   // The duplicate filter name has an asterisk (*) in front;
   // e.g. SDSS-r duplicate is *SDSS-r
   //
+  // May 22 2020: load MAGSYSTEM_INDX_INPUT
 
   int NF = NFILTDEF ;
   int ifilt, ifilt2, INDX ;
@@ -1679,7 +1683,10 @@ void  ADDFILTERS_LAMSHIFT_GLOBAL(void) {
     sprintf ( FILTER[ifilt2].file, "%s" ,  FILTER[ifilt].file );    
 
     FILTER[ifilt2].MAGSYSTEM_OFFSET = FILTER[ifilt].MAGSYSTEM_OFFSET ;
-    FILTER[ifilt2].MAGSYSTEM_INDX   = FILTER[ifilt].MAGSYSTEM_INDX ;
+
+    INDX = FILTER[ifilt].MAGSYSTEM_INDX;
+    FILTER[ifilt2].MAGSYSTEM_INDX        = INDX;
+    FILTER[ifilt2].MAGSYSTEM_INDX_INPUT  = INDX; // May 22 2020
 
     sprintf(FILTER[ifilt2].MAGSYSTEM_NAME, "%s",FILTER[ifilt].MAGSYSTEM_NAME);
     sprintf(FILTER[ifilt2].FILTSYSTEM_NAME,"%s",FILTER[ifilt].FILTSYSTEM_NAME);

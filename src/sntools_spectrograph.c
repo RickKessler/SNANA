@@ -1,6 +1,7 @@
 /**************************************************
  Created July 2016 by R.Kessler
 
+
  utility to read info needed to simulation spectra and/or IFU.
  Used by kcor and snlc_sim programs.
 

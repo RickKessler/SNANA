@@ -1090,6 +1090,8 @@ void  read_specbasis_HOSTLIB(void) {
   // This read must be done before reading the HOSTLIB,
   // so that the template names can be matched between
   // this specTemplate file and the VARNAMES in the HOSTLIB.
+  //
+  // May 22 2020: abort if VARNAMES key not found
 
   FILE *fp;
   int  NBIN_WAVE, NBIN_READ, IFILETYPE;
@@ -1124,18 +1126,12 @@ void  read_specbasis_HOSTLIB(void) {
 			 PATH_USER_INPUT, ptrFile, fnam);
   }
 
-  /* xxxxxxxxx mark delete Feb 1 2020 xxxxxxxxxx
-  if ( (fp = fopen(ptrFile, "rt")) == NULL ) {
-    sprintf(c1err,"%s", "Could not open SPEC-TEMPLATE file:" );
-    sprintf(c2err,"%s", ptrFile );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-  xxxxxxxxxxxxxxx */
 
-  int STOP=0;
-  while( !STOP ) {
-    fscanf(fp, "%s", c_get);
-    if ( strcmp(c_get,"VARNAMES:") == 0 ) { STOP=1; }
+  bool FOUND_VARNAMES = false ;
+  while( !FOUND_VARNAMES  && (fscanf(fp, "%s", c_get)) != EOF) {
+
+    // xxx mark delete    fscanf(fp, "%s", c_get);
+    if ( strcmp(c_get,"VARNAMES:") == 0 ) { FOUND_VARNAMES=true ; }
 
     if ( strcmp(c_get,"FLAM_SCALE:") == 0 ) 
       { readdouble(fp, 1, &HOSTSPEC.FLAM_SCALE); }    
@@ -1145,6 +1141,12 @@ void  read_specbasis_HOSTLIB(void) {
   }
 
   fclose(fp);
+
+  if ( !FOUND_VARNAMES ) {
+    sprintf(c1err,"Could not find VARNAMES in header of");
+    sprintf(c2err,"HOSTLIB_SPECBASIS_FILE");
+    errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
+  }
 
   // - - - - - - - - - - - - - -
   // now read with standard routines

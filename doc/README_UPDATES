@@ -18398,6 +18398,7 @@
        and thus there is no standard set of flag definitions.
      + MXSPECTRUM     = 5     -> 20
      + MXLAM_SPECTRUM = 2000  -> 20000
+     + MXTABLE1D_AVWARP -> 1.5 million for D.J (was 1 million)
 
    SALT2mu.c
      + new option CUTWIN(BIASCORONLY) to cut only on biasCor.
@@ -18411,5 +18412,12 @@
           SNR_POISSON_RATIO_ABORT_vsMAGREF
           SNR_POISSON_RATIO_ABORT_vsTEXPOSE
        (see manual updates)
+     + fix bug related to duplicate filters with lamshift.
+
+   sntools_spectrograph.c:
+     in getSNR function, if variance < 0, return SNR=0 so that
+     sim simply ignores this wave bin. Can happen for very
+     faint mags when SNR ~ 1 and SQSIGSKY solution is not well
+     defined.
 
 END: 

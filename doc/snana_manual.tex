@@ -3946,19 +3946,21 @@ viewed with the grep-command
 %
 \item {\tt MSKOPT} += 64~: 
   use SN properties in hostlib to override default generation:
-  examples are color (e..g, c or AV), shape (e.g., x1 or Delta), 
-  RV, beta, alpha, and SNMAGSHIFT.
-  Case-insensitive so that x1 or X1 will work.
-  All available SN parameters are used; 
-  simulation aborts if no SN parameters are found.
+  c, x1, Delta, AV, RV.
+  Case-insensitive so that x1 and X1 both work.
+  Sim aborts if no SN parameters are found.
 %
 \item {\tt MSKOPT} += 128~: set {\tt ZTRUE = ZPHOT} 
      (e.g., study impact of {\tt HOSTLIB} based on photo-z).
 %
-\item {\tt MSKOPT} += 256~: increase verbosity to screen.
+\item {\tt MSKOPT} += 256~: increase init verbosity to screen.
+%
+\item {\tt MSKOPT} += 512~: use peculiar velocity columns in {\tt HOSTLIB}
+       ({\tt VPEC,VPEC\_ERR}). \\
+       Overrides sim-input keys {\tt GENSIGMA\_VPEC} and {\tt VPEC\_ERR}.
 %
 \item {\tt MSKOPT} += 1024~: detailed screen dump
-        for each selected host.
+        for each event (for small tests only)
 %
 \end{itemize}
 %
@@ -5097,8 +5099,7 @@ in your sim-input file.
 
 % ------------------------------------
 \clearpage
-\subsection{Generating Redshift ($\zhelio$, $\zcmb$), 
-     Peculiar Velocity and Distance }
+\subsection{Generating Redshift ($\zhelio$, $\zcmb$) and Distance }
 \label{subsec:genz}
 % ------------------------------------
 
@@ -5107,8 +5108,6 @@ An overview of redshift-related inputs are as follows:
    GENRANGE_REDSHIFT:  0.01 1.0  # ZCMB-gen range
    GENSIGMA_REDSHIFT:  0.001     # Gaussian z-error      (default=0)
    GENBIAS_REDSHIFT:   1.0E-4    # global redshift bias  (default=0)
-   GENSIGMA_VPEC:      300       # true sigma(v_pec), km/sec  (default=0)
-   VPEC_ERR:           150       # measured error on VPEC (default=0)
    VEL_CMBAPEX:        371       # CMB dipole, (default = 371 km/sec)
 \end{verbatim}
 %
@@ -5116,28 +5115,10 @@ The CMB redshift is generated first, and then the RA \& DEC
 from the \simlib\ file is used to compute $\zhelio$ with
 $\ell=264.14$~deg, ~~ $b=48.26$~deg,~~
 and default {\tt VEL\_CMBAPEX=371}.
-A Gaussian-random peculiar velocity correction ($\vpec$) is defined by 
-{\tt GENSIGMA\_VPEC},\footnote{\snana\ users would be grateful
-  if somebody provides code to compute $\vpec$ based on
-  RA, DEC, and $\zcmb$.}
-and corresponds to the true scatter.
-{\tt VPEC\_ERR} is the measured error on $\vpec$
-(see \S\ref{subsec:vpec}).
-{\tt VPEC} and {\tt VPEC\_ERR} are written to the data files.
-With true peculiar-velocity value {\tt SIM\_VPEC}, 
-the {\tt VPEC} correction ($\vpec$) in the data file is
-\begin{verbatim}
-    VPEC = -SIM_VPEC + VPEC_ERR*GaussRan  # VPEC_ERR <  GENSIGMA_VPEC
-    VPEC =  0                             # VPEC_ERR >= GENSIGMA_VPEC
-\end{verbatim}
-%
-For high-z samples that do not have a VPEC correction,
-set {\tt VPEC\_ERR} = {\tt GENSIGMA\_VPEC} as a flag to
-apply no correction.
 
 To generate $\zhelio=\zcmb$ (sometimes useful for debugging), 
-set {\tt GENSIGMA\_VPEC} and  {\tt VEL\_CMBAPEX} to zero in 
-the sim-input file, or use the command-line override 
+set {\tt GENSIGMA\_VPEC} (\S\ref{sss:vpec}) and  {\tt VEL\_CMBAPEX} 
+to zero in the sim-input file, or use the command-line override 
 ``{\tt VEL\_CMBAPEX 0  GENSIGMA\_VPEC 0}''.
 
 
@@ -5145,8 +5126,7 @@ The simulated/true $\zcmb$ range is defined by {\tt GENRANGE\_REDSHIFT},
 and the probability vs. redshift is defined by the rate model
 (\S\ref{subsec:DNDZ}).
 The true $\zhelio$ is transformed from $\zcmb$ using the sky coordinates 
-and a peculiar velocity ($\vpec$) that is randomly drawn from a Gaussian 
-with $\sigma_{vpec}=${\tt GENSIGMA\_VPEC}.
+and a peculiar velocity ($\vpec$, \S\ref{sss:vpec}).
 The measured $\zhelio$ ({\tt REDSHIFT\_HELIO} in data files) 
 includes measurement noise drawn from a 
 Gaussian with $\sigma_z=${\tt GENSIGMA\_REDSHIFT}.
@@ -5187,12 +5167,65 @@ a $z$-bias can be added in the analysis/fitting program
 
 \medskip
 The simulated luminosity distance is computed as 
+%\vspace{-0.2cm}
+\begin{equation}
+  D_L = (1+\zhelio)r(\zcmb),~~~ 
+     r(\zcmb) \equiv (c/H_0)\int_0^{\zcmb} dz/H(z)~.
+\end{equation}
 %
-$$  D_L = (1+\zhelio)r(\zcmb),~~~ 
-   r(\zcmb) \equiv (c/H_0)\int_0^{\zcmb} dz/H(z)~.$$
+
+
+% - - - - - - -
+\clearpage 
+\subsubsection{Generating Peculiar Velocity}
+\label{sss:vpec}
+
+There are two methods to simulate peculiar velocity.
+The first method is to define a Gaussian profile and Gaussian 
+correction in the sim-input file,
+\begin{verbatim}
+   GENSIGMA_VPEC:      300       # true sigma(v_pec), km/sec  (default=0)
+   VPEC_ERR:           150       # measured error on VPEC (default=0)
+\end{verbatim}
+
+A Gaussian-random peculiar velocity correction ($\vpec$) is defined by 
+{\tt GENSIGMA\_VPEC},\footnote{\snana\ users would be grateful
+  if somebody provides code to compute $\vpec$ based on
+  RA, DEC, and $\zcmb$.}
+and corresponds to the true scatter.
+{\tt VPEC\_ERR} is the measured error on $\vpec$
+(see \S\ref{subsec:vpec}).
+{\tt VPEC} and {\tt VPEC\_ERR} are written to the data files.
+With true peculiar-velocity value {\tt SIM\_VPEC}, 
+the {\tt VPEC} correction ($\vpec$) in the data file is
+\begin{verbatim}
+    VPEC = -SIM_VPEC + VPEC_ERR*GaussRan  # VPEC_ERR <  GENSIGMA_VPEC
+    VPEC =  0                             # VPEC_ERR >= GENSIGMA_VPEC
+\end{verbatim}
 %
-For \snana\ versions prior to v10\_56, the $D_L$ prefactor was approximated
-as $(1+\zcmb)$.
+For high-z samples that do not have a VPEC correction,
+set {\tt VPEC\_ERR} = {\tt GENSIGMA\_VPEC} as a flag to
+apply no correction.
+
+The first method has the advantage of simplicitly, but does not
+account for large-scale correlations and bulk flows.
+To account for such effects, the second method reads a {\tt VPEC} 
+column from the {\tt HOSTLIB} if the 512-bit is set in 
+{\tt HOSTLIB\_MSKOPT} (\S\ref{sss:hostlib_options}). 
+The associated \unc\ can be defined in two ways:
+1) a separate {\tt VPEC\_ERR} column 
+   defining a distinct \unc\ for each host, or 
+2) fixing the uncertainty with header key ``{\tt VPEC\_ERR: <vpecErr>}.''
+The output {\tt README} includes summary information as follows:
+\begin{verbatim}
+   HOSTLIB Opt:  Use VPEC (RMS=305  min/max=-3189/3350 km/sec)
+\end{verbatim}
+
+
+Note that mixing the two methods is not allowed;
+e.g, the sim will abort if {\tt VPEC} is defined in the {\tt HOSTLIB} 
+while ``{\tt VPEC\_ERR:}'' is defined in the sim-input file.
+
 
 % ------------------------------------
    \clearpage

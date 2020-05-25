@@ -34,6 +34,12 @@
 **********************************************************
 **********************************************************/
 
+void catVarList_with_comma(char *varList, char *addVarName) {
+  char comma[] = "," ;
+  if ( strlen(varList) > 0 ) { strcat(varList,comma); }
+  strcat(varList,addVarName);
+} 
+
 int ivar_matchList(char *varName, int NVAR, char **varList) {
 
   // Created May 2020

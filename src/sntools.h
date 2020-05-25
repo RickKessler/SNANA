@@ -367,6 +367,8 @@ struct {
 // ##############################################################
 
 
+void catVarList_with_comma(char *varList, char *addVarName);
+
 void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP ) ;
 void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP, 
 		  double *RanList_noCorr, double *RanList_corr);

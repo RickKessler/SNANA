@@ -967,7 +967,7 @@ void set_user_defaults(void) {
   sprintf(INPUTS.HOSTLIB_FILE,          "NONE" );  // input library
   sprintf(INPUTS.HOSTLIB_WGTMAP_FILE,   "NONE" );  // optional wgtmap
   sprintf(INPUTS.HOSTLIB_ZPHOTEFF_FILE, "NONE" );  // optional zphot-eff
-  sprintf(INPUTS.HOSTLIB_SPECBASIS_FILE, "NONE" );  // optional host-spec templates
+  sprintf(INPUTS.HOSTLIB_SPECBASIS_FILE,"NONE" );  //optional host-spec templ
   INPUTS.HOSTLIB_STOREPAR_LIST[0] = 0 ; // optional vars -> outfile
 
   INPUTS.HOSTLIB_USE    = 0;
@@ -12246,19 +12246,16 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALSNSEP") ;   // host-SN separation, arcsec
-  // xxxx  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.SNSEP ;
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL_DDLR_SORT[0].SNSEP ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALSNDLR") ;   // 2/2019: DLR from Sako 2014, Gupta 2016
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL_DDLR_SORT[0].DLR ;
-  // xxxx  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.DLR ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALSNDDLR") ;   //2/2019:  d_DLR = SNSEP/DLR
-  // xxx mark dele  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.DDLR ;
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL_DDLR_SORT[0].DDLR ;
   NVAR_SIMGEN_DUMP++ ;
 
@@ -12290,7 +12287,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   for(ivar=0; ivar < HOSTLIB_OUTVAR_EXTRA.NOUT; ivar++ ) {
     if ( HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[ivar] ) { continue; } 
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    //    checkAlternateVarNames_HOSTLIB(cptr);  // Feb 1 2020
+
     sprintf(cptr,"%s", HOSTLIB_OUTVAR_EXTRA.NAME[ivar] );
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &HOSTLIB_OUTVAR_EXTRA.VALUE[ivar];
     NVAR_SIMGEN_DUMP++ ;
@@ -13127,8 +13124,9 @@ double gen_redshift_helio(void) {
   double zCMB = GENLC.REDSHIFT_CMB ;
   double RA   = GENLC.RA;
   double DEC  = GENLC.DEC ;
+  bool   USE_HOSTLIB_VPEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC );
   double vpec, zhelio, dzpec ;
-  //  char fnam[] = "gen_redshift_helio" ;
+  char fnam[] = "gen_redshift_helio" ;
 
   // ----------- BEGIN ------------
 
@@ -13138,7 +13136,15 @@ double gen_redshift_helio(void) {
   zhelio = zhelio_zcmb_translator(zCMB, RA,DEC, "eq", -1);
 
   // apply v_pec
-  vpec = (double)INPUTS.GENSIGMA_VPEC * GaussRan(2) ;
+  if ( USE_HOSTLIB_VPEC ) {
+    // May 2020: do nothing; will be done later in HOSTLIB call.
+    vpec = 0.0;  
+  }
+  else {
+    // pick random vpec
+    vpec = ((double)INPUTS.GENSIGMA_VPEC) * GaussRan(2) ;    
+  }
+
   GENLC.VPEC = vpec; 
   if ( vpec != 0.0 ) {
     dzpec = vpec/LIGHT_km ;
@@ -13316,15 +13322,26 @@ void gen_zsmear(double zerr) {
  
   // --------------------------------------------
   // Determine VPEC correction using Gaussian-random number.
-  // Note that correction has oppoisite sign true value.
-  // If VPEC_ERR is >= to true scatter, this is a flag
+  // Note that correction has oppoisite sign of true value.
+  // If sim-input VPEC_ERR is >= true scatter, this is a flag
   // to NOT apply a correction and set measured VPEC_SMEAR=0.
+  // If VPEC is from HOSTLIB, a correction is made.
 
+  bool   USE_HOSTLIB_VPEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC );
+  bool   APPLY_VPEC_SMEAR = 
+    ( USE_HOSTLIB_VPEC || INPUTS.VPEC_ERR < INPUTS.GENSIGMA_VPEC );
   double GAURAN_VPEC = GENLC.REDSHIFT_RAN[MXZRAN-1];
-  if ( INPUTS.VPEC_ERR < INPUTS.GENSIGMA_VPEC )
-    { GENLC.VPEC_SMEAR = -GENLC.VPEC + (INPUTS.VPEC_ERR * GAURAN_VPEC) ; }
-  else
-    { GENLC.VPEC_SMEAR = 0.0 ; }  // do NOT apply correction (e.g., high-z)
+  double VPEC_ERR ;
+  GENLC.VPEC_SMEAR   = 0.0; // default is no vpec correction
+
+  if ( APPLY_VPEC_SMEAR ) {
+    if ( USE_HOSTLIB_VPEC )
+      { VPEC_ERR = SNHOSTGAL.VPEC_ERR; } // from HOSTLIB
+    else
+      { VPEC_ERR = INPUTS.VPEC_ERR; }     // from sim-input file
+	  
+    GENLC.VPEC_SMEAR = -GENLC.VPEC + (VPEC_ERR * GAURAN_VPEC) ; 
+  }
 
   return ;
 
@@ -21364,10 +21381,10 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 	SNDATA.HOSTGAL_SPECZ_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].ZSPEC_ERR;
       }
       
-      SNDATA.HOSTGAL_RA[m]          = SNHOSTGAL_DDLR_SORT[m].RA ;
-      SNDATA.HOSTGAL_DEC[m]         = SNHOSTGAL_DDLR_SORT[m].DEC ;
-      SNDATA.HOSTGAL_DDLR[m]        = SNHOSTGAL_DDLR_SORT[m].DDLR ;
-      SNDATA.HOSTGAL_SNSEP[m]       = SNHOSTGAL_DDLR_SORT[m].SNSEP ;
+      SNDATA.HOSTGAL_RA[m]           = SNHOSTGAL_DDLR_SORT[m].RA ;
+      SNDATA.HOSTGAL_DEC[m]          = SNHOSTGAL_DDLR_SORT[m].DEC ;
+      SNDATA.HOSTGAL_DDLR[m]         = SNHOSTGAL_DDLR_SORT[m].DDLR ;
+      SNDATA.HOSTGAL_SNSEP[m]        = SNHOSTGAL_DDLR_SORT[m].SNSEP ;
       SNDATA.HOSTGAL_LOGMASS_TRUE[m] = SNHOSTGAL_DDLR_SORT[m].LOGMASS_TRUE;
       SNDATA.HOSTGAL_LOGMASS_OBS[m]  = SNHOSTGAL_DDLR_SORT[m].LOGMASS_OBS ;
       SNDATA.HOSTGAL_LOGMASS_ERR[m]  = SNHOSTGAL_DDLR_SORT[m].LOGMASS_ERR ;
@@ -25809,9 +25826,15 @@ void readme_doc(int iflag_readme) {
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t Peculiar Velocity Gaussian sigma: %.1f km/sec\n", 
-	  INPUTS.GENSIGMA_VPEC );
-
+  bool   USE_HOSTLIB_VPEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC );
+  if ( USE_HOSTLIB_VPEC  ) {
+    sprintf(cptr,"\t Peculiar Velocity HOSTLIB RMS : %.1f km/sec\n", 
+	    HOSTLIB.VPEC_RMS );
+  }
+  else {
+    sprintf(cptr,"\t Peculiar Velocity Gauss sigma: %.1f km/sec\n", 
+	    INPUTS.GENSIGMA_VPEC );
+  }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\t %s   ZP   offsets : ", INPUTS.GENFILTERS);

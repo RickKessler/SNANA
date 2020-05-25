@@ -18380,6 +18380,7 @@
     + fix minor spectrograph bug: ignore SPECTROGRAPH keys in 
       SIMLIB if spectrograph is not defined in kcor file.
     + fix a few harmless valgrind errors related to strongLens option.
+    + add VPEC option in HOSTLIB; see manual sec 4.30.1
 
    sim_SNmix.pl:
     + write PATH_SNDATA_SIM in TOTAL_SUMMARY.LOG

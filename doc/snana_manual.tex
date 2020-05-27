@@ -434,9 +434,11 @@ $m_2-m_1 < 2.5\log_{10}({\rm SNR}_1/{\rm SNR}_2)$.
 %
 To account for exposure-time ($\Texpose$) dependence, 
 $\SNRlam$ can be defined for multiple $\Texpose$ values.
-The \SPEC\ is defined in a separate text file with the 
-following syntax:
-
+The \SPEC\ is defined in a separate text file as shown 
+in Fig.~\ref{fig:spectro_table}.
+%
+\begin{figure} [ht] 
+\begin{center}
 \begin{Verbatim}[frame=single]
 # required keys:
 INSTRUMENT: MYSPECDEVICE
@@ -454,6 +456,12 @@ SPECBIN:  4200  4210  12.4  11.39 0.017    24.78 0.063    50.72 0.168
 SPECBIN:  4210  4222  14.5  12.39 0.018    24.94 0.066    50.82 0.172   
 etc ...
 \end{Verbatim}
+\end{center}
+\caption{
+  Spectrograph table format for kcor program and simulation.
+ }
+\label{fig:spectro_table}
+\end{figure}
 %
 The required keys include name of instrument,
 two ref mag values ($m_1,m_2$ in Eq.~\ref{eq:ZPspec}),
@@ -4831,6 +4839,7 @@ The warping is applied only to the measured $\Flam$
 the true $\Flam$ is not warped ({\tt SIM\_GENFLAM}).
 
 % ------------------------------------
+\clearpage
 \subsubsection{{\SPEC} Options}
 \label{sss:SPEC_OPTMASK}
 % ------------------------------------
@@ -4839,12 +4848,16 @@ The {\tt SPECTROGRAPH\_OPTMASK} key in the sim-input file
 can be used as follows:
 %
 \begin{verbatim}
-  SPECTROGRAPH_OPTMASK:  1  # turn off lambda smearing
-  SPECTROGRAPH_OPTMASK:  2  # double LAMSIGMA smearing
-  SPECTROGRAPH_OPTMASK:  4  # flux only in center lambda bin (delta function)
-  SPECTROGRAPH_OPTMASK:  8  # SNR -> SNR x 100
-  SPECTROGRAPH_OPTMASK: 16  # TREF -> TREF x 100 (template expose time)
-  SPECTROGRAPH_OPTMASK:  6  # flux only in center bin & LAMSIGMA*=2
+  SPECTROGRAPH_OPTMASK:  1   # turn off lambda smearing
+  SPECTROGRAPH_OPTMASK:  2   # double LAMSIGMA smearing
+  SPECTROGRAPH_OPTMASK:  4   # flux only in center lambda bin (delta function)
+  SPECTROGRAPH_OPTMASK:  8   # SNR -> SNR x 100
+  SPECTROGRAPH_OPTMASK: 16   # TREF -> TREF x 100 (template expose time)
+  SPECTROGRAPH_OPTMASK: 32   # only template noise
+  SPECTROGRAPH_OPTMASK: 64   # for SNR_REQUEST, extrap TEXPOSE if needed
+  SPECTROGRAPH_OPTMASK: 2048 # skip spectra
+  SPECTROGRAPH_OPTMASK: 32768# turn off all noise in spectra
+  SPECTROGRAPH_OPTMASK:  6   # flux only in center bin & LAMSIGMA*=2
 
   SPECTROGRAPH_SCALE_TEXPOSE: 2.4  # scale exposure times by 2.4
 \end{verbatim}
@@ -4854,6 +4867,25 @@ as illustrated by the last option above with \\
 {\tt SPECTROGRAPH\_OPTMASK=6}.
 The default is {\tt SPECTROGRAPH\_OPTMASK=0},
 and the options above are intended for testing and debugging.
+
+
+{\tt OPTMASK+=64} is a little tricky, so here is added explanation.
+By default, the exposure time is bounded by the min and max 
+{\tt TEXPOSE\_LIST} values in the spectrograph table
+(Fig.~\ref{fig:spectro_table}). For example, suppose {\tt SNR\_MAX=20}
+at the max exposure time of {\tt TEXPOSE=2000}, and the user
+requests {\tt SNR\_REQUEST=40} (via {\tt TAKE\_SPECTRUM} key);
+the default behavior is to return {\tt TEXPOSE=2000} 
+and {\tt SNR=20} to avoid exposing for longer than what has
+been defined. With {\tt OPTMASK+=64}, however, the exposure
+time is extended to give the requested SNR:
+\begin{equation}
+{\tt TEXPOSE} = {\tt TEXPOSE\_MAX} + [{\tt SNR\_REQUEST}/{\tt SNR\_MAX}]^2
+\end{equation}
+and a similar equation is used for requested {\tt SNR} below
+the minimum-defined {\tt SNR\_MIN}.
+% .xyz
+
 
 The last option ({\tt SCALE\_TEXPOSE})
 is a continuously tunable knob to scale
@@ -4899,7 +4931,7 @@ each spectrum should be defined as a separate SED file.
 
 
 % ------------------------------------
-%\clearpage
+\clearpage
 \subsection{Simulating Rise-Time Variations}
 \label{subsec:simRiseTime}
 % ------------------------------------

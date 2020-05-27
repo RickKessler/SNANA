@@ -18421,4 +18421,20 @@
      faint mags when SNR ~ 1 and SQSIGSKY solution is not well
      defined.
 
+
+# ======================================================================= 
+         v10_77b (  ) 
+
+         ***** IMPORTANT(v10_77b) ***** 
+
+         ***** USEFUL(v10_77b) ***** 
+
+         ***** MISCELLANEOUS(v10_77b) ***** 
+
+    snlc_sim.c[h]: 
+      + new SPECTROGRAPH_MSKOPT += 64 -> extrapolate TEXPOSE beyond 
+        range defined in spectrograph table. See updated manual 
+        section 4.25.3 SPECTROGRAPH Options
+           BEWARE: NOT WELL TESTED 
+
 END: 

@@ -267,6 +267,10 @@
 #   Later, this SALT2mu.exe call may be replaced by a python
 #   wrapper, cat_snana_table.py.
 #
+# May 27 2020:
+#   + in makeDir_NSPLITRAN(), make better abort message when
+#     datafile= is missing.
+#
 # ------------------------------------------------------
 
 use IO::Handle ;
@@ -1055,8 +1059,12 @@ sub makeDir_NSPLITRAN {
     elsif ( -e $gzdatafile ) 
     { qx(cp $gzdatafile $OUTDIR); }
     else {
-	$MSGERR[0] = "Unable to find argument of" ;
-	$MSGERR[1] = "$tmp[0]" ;
+	$MSGERR[0] = "Unable to find required argument of" ;
+	$MSGERR[1] = "datafile=$tmp[0]" ;
+	$MSGERR[2] = "Either datafile=  key is missing," ;
+	$MSGERR[3] = "or cannot find data file '$tmp[0]' ";
+	$MSGERR[4] = "Beware that INPDIR are ignored for NSPLITRAN.";
+	    
 	sntools::FATAL_ERROR(@MSGERR);
     }
 

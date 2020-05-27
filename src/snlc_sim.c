@@ -9371,8 +9371,11 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
 
   // Compute TEXPOSE from requested SNR.
   // For synthetic filters, update ZPT and SKYSIG.
-
-  int  LDMP   = (GENLC.CID == INPUTS.TAKE_SPECTRUM_DUMPCID );
+  // May 27 2020: check option to extrapolate TEXPOSE beyond defined range
+  //
+  bool LDMP       = (GENLC.CID == INPUTS.TAKE_SPECTRUM_DUMPCID );
+  int  OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;  
+  bool DO_TEXTRAP = ( (OPTMASK & SPECTROGRAPH_OPTMASK_TEXTRAP)>0 );
 
   int  NBLAM            = INPUTS_SPECTRO.NBIN_LAM ;  
   int  INDX             = GENSPEC.INDEX_TAKE_SPECTRUM[imjd] ;
@@ -9396,8 +9399,8 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
   double TREST       = TOBS/z1;
 
   double LAMMIN_OBS, LAMMAX_OBS ;
-  double SNR=0.0, SNR_REQUEST, TEXPOSE, TEXPOSE_T, SKYSIG, SKYSIG_T;
-  double ZPT, PSFSIG ;
+  double SNR=0.0, SNR_REQUEST, SNR_RATIO, ZPT, PSFSIG;
+  double TEXPOSE_REQUEST, TEXPOSE, TEXPOSE_T, SKYSIG, SKYSIG_T;
   char fnam[] = "GENSPEC_TEXPOSE_TAKE_SPECTRUM" ;
   
   // ------------ BEGIN --------------
@@ -9453,13 +9456,39 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
   }
 
   if ( SNR_REQUEST <= SNR_MIN ) {
-    GENSPEC.TEXPOSE_LIST[imjd]     = TEXPOSE_MIN ;
-    GENSPEC.SNR_COMPUTE_LIST[imjd] = SNR_MIN ;
+    if ( DO_TEXTRAP ) { 
+      SNR_RATIO                      = SNR_REQUEST/SNR_MIN;
+      TEXPOSE_REQUEST                = TEXPOSE_MIN * (SNR_RATIO*SNR_RATIO);
+      GENSPEC.TEXPOSE_LIST[imjd]     = TEXPOSE_REQUEST ;
+      GENSPEC.SNR_COMPUTE_LIST[imjd] = SNR_REQUEST ;
+    }
+    else {
+      GENSPEC.TEXPOSE_LIST[imjd]     = TEXPOSE_MIN ;
+      GENSPEC.SNR_COMPUTE_LIST[imjd] = SNR_MIN ;
+    }
     goto CLEANUP ;
   }
+
+
   if ( SNR_REQUEST >= SNR_MAX ) {
-    GENSPEC.TEXPOSE_LIST[imjd]     = TEXPOSE_MAX ;
-    GENSPEC.SNR_COMPUTE_LIST[imjd] = SNR_MAX ;
+    if ( DO_TEXTRAP ) {  // option to extrapolate TEXPOSE
+      SNR_RATIO                      = SNR_REQUEST/SNR_MAX;
+      TEXPOSE_REQUEST                = TEXPOSE_MAX * (SNR_RATIO*SNR_RATIO);
+      GENSPEC.TEXPOSE_LIST[imjd]     = TEXPOSE_REQUEST ;
+      GENSPEC.SNR_COMPUTE_LIST[imjd] = SNR_REQUEST ;
+    }
+    else {
+      GENSPEC.TEXPOSE_LIST[imjd]     = TEXPOSE_MAX ;
+      GENSPEC.SNR_COMPUTE_LIST[imjd] = SNR_MAX ;
+    }
+
+    /*
+    printf(" xxx TEXPOSE_TAKE_SPEC: DO_TEXTRAP=%d "
+	   "SNR(MAX,REQ)=%5.1f,%5.1f  TEXPOSE(MAX,REQ)=%6.0f,%6.0f \n",
+	   DO_TEXTRAP,	SNR_MAX, SNR_REQUEST,
+	   TEXPOSE_MAX, TEXPOSE_REQUEST );
+    */
+
     goto CLEANUP ;
   }
 
@@ -9650,6 +9679,8 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
   double  SCALE_SNR  = INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR ;
   double  SNR_SPEC ;
 
+  int  OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;  
+  bool ALLOW_TEXTRAP = ( (OPTMASK & SPECTROGRAPH_OPTMASK_TEXTRAP)>0 );
   char   fnam[] = "GENSPEC_SMEAR" ;
 
   // ------------- BEGIN -------------
@@ -9672,7 +9703,8 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
     if ( GENMAG  > 600.0 ) { continue ; } // Mar 2019
 
     // get true SNR in this lambda bin
-    SNR_true = getSNR_spectrograph(ilam, TEXPOSE_S, TEXPOSE_T, GENMAG, 
+    SNR_true = getSNR_spectrograph(ilam, TEXPOSE_S, TEXPOSE_T, ALLOW_TEXTRAP,
+				   GENMAG, 
 				   &ERRFRAC_T);  // template frac of error
 
     if ( SNR_true < 1.0E-18 ) { continue; } // May 2020
@@ -10233,7 +10265,7 @@ void gen_event_driver(int ilc) {
 
     // pick model params AFTER redshift/host selection (4.09.2019),
     // and note that GEN_SNHOST can modify GENLC.DLMU that is used
-    // for model params.
+    // for model params. e.g.: for SALT2, params are c,x1,alpha,beta.
     gen_modelPar(ilc, OPT_FRAME_OBS ); 
 
     // - - - - - - - 
@@ -11131,6 +11163,7 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
 void  gen_modelPar_SALT2(int OPT_FRAME) {
 
   // Created Feb 26 2018
+  // Generated c, x1, alpha, beta
   // Mar 11 2020: pass OPT_FRAME argument.
 
   bool ISFRAME_REST    = ( OPT_FRAME == OPT_FRAME_REST );
@@ -11166,13 +11199,6 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
     if( INPUTS.SALT2BETA_cPOLY.ORDER >= 0 ) {
       double c = GENLC.SALT2c ;
       GENLC.SALT2beta += eval_GENPOLY(c, &INPUTS.SALT2BETA_cPOLY, fnam);
-
-      /* xxx mark delete Mar 23 2020 xxxxx
-	 INPUTS.SALT2BETA_cPOLY[0] +
-	 INPUTS.SALT2BETA_cPOLY[1]*c +
-	 INPUTS.SALT2BETA_cPOLY[2]*(c*c)  -
-	 INPUTS.GENGAUSS_SALT2BETA.PEAK 	 );
-	 xxxxx */
     }
 
   } // end ISFRAME_REST

@@ -1107,12 +1107,13 @@ void read_spectrograph_fits(char *inFile) {
 
 // ====================================================
 double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
-			   double GENMAG, double *ERRFRAC_T) {
+			   bool ALLOW_TEXTRAP, double GENMAG, double *ERRFRAC_T) {
 
   // Return SNR for inputs
   //  + SPECTROGRAPH wavelength bin (ILAM)
   //  + search exposure time (TEXPOSE_S)
   //  + template exposure time (TEXPOSE_T)
+  //  + ALLOW_TEXTRAP=T -> allow extrapolating SNR ~ sqrt(TEXPOSE); else abort
   //  + magnitude in wavelength bin (GENMAG)
   //
   // *ERRFRAC_T  = sigma_template/FluxErrTot
@@ -1125,12 +1126,16 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   // Feb  2 2017: fix awful bug and scale template noise to search-zp
   // May  6 2020: return SNR=0 if ZP=-9 (undefined)
   // May 22 2020: return SNR=0 if variance < 0 (see SQ_SUM)
+  // May 27 2020: pass & implement new option ALLOW_TEXTRAP 
 
   int OPT_INTERP=1;
-  int NBT  = INPUTS_SPECTRO.NBIN_TEXPOSE ;
-  double SNR, ZP_S, ZP_T, arg, SQ_S, SQ_T, SQ_SUM, Flux, FluxErr ;
+  int NBT       = INPUTS_SPECTRO.NBIN_TEXPOSE ;
   double Tmin   = INPUTS_SPECTRO.TEXPOSE_LIST[0] ;
   double Tmax   = INPUTS_SPECTRO.TEXPOSE_LIST[NBT-1] ;
+  double TEXPOSE_S_local = TEXPOSE_S ;
+  double TEXPOSE_T_local = TEXPOSE_T ;
+  double SNR, ZP_S, ZP_T, arg, SQ_S, SQ_T, SQ_SUM, Flux, FluxErr ;
+  bool   DO_TEXTRAP = false;
   char fnam[] = "getSNR_spectrograph" ;
   char errmsg_ZP_S[] = "getSNR_spectrograph(ZP_S)";
   char errmsg_ZP_T[] = "getSNR_spectrograph(ZP_T)";
@@ -1143,7 +1148,13 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
 
   SNR = SQ_S = SQ_T = ZP_S = ZP_T = 0.0 ;
 
-  if ( TEXPOSE_S < Tmin  || TEXPOSE_S > Tmax ) {
+  if ( ALLOW_TEXTRAP ) {
+    if ( TEXPOSE_S < Tmin ) 
+      { TEXPOSE_S_local = Tmin + 0.00001 ; DO_TEXTRAP = true;}
+    if ( TEXPOSE_S > Tmax ) 
+      { TEXPOSE_S_local = Tmax - 0.00001 ; DO_TEXTRAP = true ; }
+  }
+  else if ( TEXPOSE_S < Tmin  || TEXPOSE_S > Tmax ) {
     sprintf(c1err,"Invalid TEXPOSE_S = %f", TEXPOSE_S );
     sprintf(c2err,"Valid TEXPOSE_S range: %.2f to %.2f \n", Tmin, Tmax);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -1154,11 +1165,11 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   if ( INPUTS_SPECTRO.ZP[ILAM][0] < 0.0 ) { return(SNR); }
 
   // interpolate ZP(Texpose) and SQSIG(Texpose)
-  ZP_S = interp_1DFUN (OPT_INTERP, TEXPOSE_S, NBT, 
+  ZP_S = interp_1DFUN (OPT_INTERP, TEXPOSE_S_local, NBT, 
 		       INPUTS_SPECTRO.TEXPOSE_LIST,
 		       INPUTS_SPECTRO.ZP[ILAM], errmsg_ZP_S );
   
-  SQ_S = interp_1DFUN (OPT_INTERP, TEXPOSE_S, NBT, 
+  SQ_S = interp_1DFUN (OPT_INTERP, TEXPOSE_S_local, NBT, 
 		       INPUTS_SPECTRO.TEXPOSE_LIST,
 		       INPUTS_SPECTRO.SQSIGSKY[ILAM], errmsg_SQ_S );
   
@@ -1188,6 +1199,10 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   SQ_SUM  = (SQ_S + SQ_T + Flux);
   if ( SQ_SUM >= 0.0 ) 
     {  FluxErr = sqrt(SQ_SUM);  SNR = Flux/FluxErr ;  }
+
+  // check extrapolation beyond defined range of TEXPOSE (May 27 2020)
+  if ( DO_TEXTRAP )
+    { SNR *= sqrt(TEXPOSE_S / TEXPOSE_S_local); }
 
   if ( SQ_T >= 0.0 )
     {  *ERRFRAC_T = sqrt(SQ_T)/FluxErr ; } 

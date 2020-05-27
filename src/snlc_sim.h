@@ -269,6 +269,7 @@ typedef struct {
 #define SPECTROGRAPH_OPTMASK_SNRx100     8  // multiply SNR x 100
 #define SPECTROGRAPH_OPTMASK_noTEMPLATE 16  // no template noise
 #define SPECTROGRAPH_OPTMASK_onlyTNOISE 32  // only template noise
+#define SPECTROGRAPH_OPTMASK_TEXTRAP    64  // extrap TEXPOSE outside range
 #define SPECTROGRAPH_OPTMASK_NOSPEC   2048  // skip spectra
 #define SPECTROGRAPH_OPTMASK_noNOISE 32768  // internal only: turn off noise
 

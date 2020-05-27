@@ -3,7 +3,7 @@
 
 #define MXSPEC                 50   // max Nspec per event   
 #define MXTEXPOSE_SPECTROGRAPH 50   // max size of TEXPOSE grid
-#define MXLAM_SPECTROGRAPH    2400  // same as MXBIN_LAMFILT_SEDMODEL
+#define MXLAM_SPECTROGRAPH     10000 // ->10k on May 27 2020 (was 2400)
 #define MXLAMSMEAR_SPECTROGRAPH 20  // max number of smeared lambda bins
 #define FITSTABLE_NAME_SPECTROGRAPH  "SPECTROGRAPH" 
 #define NCOL_noSNR 3    // Ncolumns before SNR values
@@ -117,7 +117,7 @@ void get_FILTERtrans_spectrograph(double *LMIN, double *LMAX, int MXLAM,
 				  double *LAM_ARRAY, double *TRANS_ARRAY );
 
 double getSNR_spectrograph(int ilam, double Texpose_S, double Texpose_T, 
-			   double genMag,  double *ERRFRAC_T );
+			   bool ALLOW_TEXTRAP,double genMag,double *ERRFRAC_T);
 
 void check_SNR_SPECTROGRAPH(int l, int t);
 

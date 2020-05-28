@@ -380,7 +380,7 @@ struct INPUTS {
   bool RESTORE_HOSTLIB_BUGS ;   // set if DEBUG_FLAG==3 .or. RESTORE_DES3YR
   bool RESTORE_FLUXERR_BUGS ;   // set if DEBUG_FLAG==3 .or. idem
 
-  int OPT_DEVEL_BBC7D;   // temp for BBC7D development
+  // xxx  int OPT_DEVEL_BBC7D;   // temp for BBC7D development
   int OPT_DEVEL_GENFLUX; // temp for GENFLUX_DRIVER refactor + REDCOV
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 

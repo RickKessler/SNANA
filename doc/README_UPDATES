@@ -18436,5 +18436,11 @@
         range defined in spectrograph table. See updated manual 
         section 4.25.3 SPECTROGRAPH Options
            BEWARE: NOT WELL TESTED 
+      + remove OPT_DEVEL_BBC7D flag
+      + fux bug overriding RV from HOSTLIB
+
+    SALT2mu_fit.pl
+     + fix obscure ABORT  message when datfile= key is missing
+       for NSPLITRAN option.
 
 END: 

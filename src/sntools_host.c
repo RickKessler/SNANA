@@ -424,7 +424,14 @@ void init_OPTIONAL_HOSTVAR(void) {
     sprintf(tmpName[N_SNPAR],"%s", GENLC.COLORPAR_NAME);    N_SNPAR++ ; 
     sprintf(tmpName[N_SNPAR],"%s", GENLC.SHAPEPAR2_NAME);   N_SNPAR++ ; 
     sprintf(tmpName[N_SNPAR],"%s", GENLC.COLORPAR2_NAME);   N_SNPAR++ ; 
-    sprintf(tmpName[N_SNPAR],"%s", HOSTLIB_VARNAME_SNMAGSHIFT );  N_SNPAR++ ; 
+    sprintf(tmpName[N_SNPAR],"%s", HOSTLIB_VARNAME_SNMAGSHIFT );  N_SNPAR++ ;
+
+    // May 2020: for SALT2 model, allow additional host dust params  
+    if ( INDEX_GENMODEL  == MODEL_SALT2 ) {
+      sprintf(tmpName[N_SNPAR],"RV");   N_SNPAR++ ;
+      sprintf(tmpName[N_SNPAR],"AV");   N_SNPAR++ ;
+    }   
+
     HOSTLIB.NVAR_SNPAR   = N_SNPAR ;
 
     for ( j=0; j < N_SNPAR; j++ ) {

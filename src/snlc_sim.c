@@ -605,7 +605,6 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_DES3YR       = false; // Mar 2020
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
   INPUTS.RESTORE_FLUXERR_BUGS = false; // Jan 2020
-  INPUTS.OPT_DEVEL_BBC7D   = 1 ; // turn on, Jan 19 2020
   INPUTS.OPT_DEVEL_GENFLUX = 2 ; // 1->legacy, 2->new, 3->both
   NLINE_RATE_INFO   = 0;
 
@@ -1365,8 +1364,6 @@ int read_input(char *input_file) {
       continue ; 
     }
 
-    if ( uniqueMatch(c_get,"OPT_DEVEL_BBC7D:")  ) 
-      { readint ( fp, 1, &INPUTS.OPT_DEVEL_BBC7D );  continue ; }
     if ( uniqueMatch(c_get,"OPT_DEVEL_GENFLUX:")  ) 
       { readint ( fp, 1, &INPUTS.OPT_DEVEL_GENFLUX );  continue ; }
 
@@ -4480,8 +4477,6 @@ void sim_input_override(void) {
       INPUTS.NVAR_SIMGEN_DUMP = -9;
     }
 
-    if ( strcmp( ARGV_LIST[i], "OPT_DEVEL_BBC7D" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_DEVEL_BBC7D );  }
     if ( strcmp( ARGV_LIST[i], "OPT_DEVEL_GENFLUX" ) == 0 ) 
       { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_DEVEL_GENFLUX );  }
     if ( strcmp( ARGV_LIST[i], "DEBUG_FLAG" ) == 0 ) 
@@ -7215,10 +7210,13 @@ void genmag_offsets(void) {
       + INPUTS.GENMAG_OFF_MODEL[ifilt_obs]   // user-defined model offs
       - INPUTS.GENMAG_OFF_ZP[ifilt_obs]      // user-defined ZP offsets
       + GENLC.LENSDMU                        // lensing correction
+      + GENLC.SALT2gammaDM                   // gamma from SN-host corr
     ;
 
+    /* xxxxxxxxxxxx mark delete May 28 2020
     if ( INPUTS.OPT_DEVEL_BBC7D ) 
       { MAGOFF += GENLC.SALT2gammaDM ;   }
+      xxxxxxxxxxxxxx */
 
     if ( INPUTS_STRONGLENS.USE_FLAG )  { 
       IMGNUM = GENSL.IMGNUM; 
@@ -10388,11 +10386,12 @@ void override_modelPar_from_SNHOST(void) {
   //
   // Mar 23 2018: allow SNMAGSHIFT or USESNPAR
   // May 23 2019: adjust amplitude for SALT2gammaDM
+  // May 28 2020: fix call for RV, and add AV
 
   double GAMMA_GRID_MIN = INPUTS.BIASCOR_SALT2GAMMA_GRID[0];
   double GAMMA_GRID_MAX = INPUTS.BIASCOR_SALT2GAMMA_GRID[1];
   int USE1, USE2, USE3 ;
-  double DM_HOSTCOR, shape, PKMJD, RV, arg ;
+  double DM_HOSTCOR, shape, PKMJD, RV, AV, arg ;
   //  char fnam[] = "override_modelPar_from_SNHOST" ;
 
   // ---------------- BEGIN ------------------
@@ -10418,7 +10417,11 @@ void override_modelPar_from_SNHOST(void) {
   GENLC.PEAKMJD = modelPar_from_SNHOST(PKMJD,"PEAKMJD") ;
 
   RV       = GENLC.RV ;
-  GENLC.RV = modelPar_from_SNHOST(RV,GENLC.COLORPAR_NAME);
+  // xxx mark delete  GENLC.RV = modelPar_from_SNHOST(RV,GENLC.COLORPAR_NAME);
+  GENLC.RV = modelPar_from_SNHOST(RV,"RV");
+
+  AV       = GENLC.AV ;
+  GENLC.AV = modelPar_from_SNHOST(AV,"AV");
 
   if ( INDEX_GENMODEL  == MODEL_SALT2 ) {
     double a = GENLC.SALT2alpha ;
@@ -10443,13 +10446,14 @@ void override_modelPar_from_SNHOST(void) {
     if ( DM_HOSTCOR != 0.0 ) {
       GENLC.SALT2gammaDM = DM_HOSTCOR ;
 
+      /* xxxxxxx mark delete May 28 2020 xxxxxxxx
       // xxxxxx backward hack until BBC7D is developed xxxxxxxxxxx
       if ( !INPUTS.OPT_DEVEL_BBC7D ) {	
 	arg = -0.4*DM_HOSTCOR; 
 	GENLC.SALT2mB += DM_HOSTCOR; // old-style mB corr for Mat paper.
 	GENLC.SALT2x0 *= pow(TEN,arg);
       }
-      // xxxxxxxxxxxxxxxxxxxxxx
+      xxxxxxxxxxxxxxxxxxxxxx */
 
     }
   }

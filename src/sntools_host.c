@@ -430,6 +430,7 @@ void init_OPTIONAL_HOSTVAR(void) {
     if ( INDEX_GENMODEL  == MODEL_SALT2 ) {
       sprintf(tmpName[N_SNPAR],"RV");   N_SNPAR++ ;
       sprintf(tmpName[N_SNPAR],"AV");   N_SNPAR++ ;
+      sprintf(tmpName[N_SNPAR],"EBV");  N_SNPAR++ ;
     }   
 
     HOSTLIB.NVAR_SNPAR   = N_SNPAR ;
@@ -2033,7 +2034,6 @@ bool checkSNvar_HOSTLIB_WGTMAP(char *varName) {
     IS_SNVAR = true ; 
     HOSTLIB_WGTMAP.ptrVal_SNVAR[N] = &GENLC.RV ;
   }
-
 
   return(IS_SNVAR);
 

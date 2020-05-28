@@ -10386,12 +10386,12 @@ void override_modelPar_from_SNHOST(void) {
   //
   // Mar 23 2018: allow SNMAGSHIFT or USESNPAR
   // May 23 2019: adjust amplitude for SALT2gammaDM
-  // May 28 2020: fix call for RV, and add AV
+  // May 28 2020: fix call for RV, and add AV & EBV options too.
 
   double GAMMA_GRID_MIN = INPUTS.BIASCOR_SALT2GAMMA_GRID[0];
   double GAMMA_GRID_MAX = INPUTS.BIASCOR_SALT2GAMMA_GRID[1];
   int USE1, USE2, USE3 ;
-  double DM_HOSTCOR, shape, PKMJD, RV, AV, arg ;
+  double DM_HOSTCOR, shape, PKMJD, RV, AV, EBV, arg ;
   //  char fnam[] = "override_modelPar_from_SNHOST" ;
 
   // ---------------- BEGIN ------------------
@@ -10417,11 +10417,16 @@ void override_modelPar_from_SNHOST(void) {
   GENLC.PEAKMJD = modelPar_from_SNHOST(PKMJD,"PEAKMJD") ;
 
   RV       = GENLC.RV ;
-  // xxx mark delete  GENLC.RV = modelPar_from_SNHOST(RV,GENLC.COLORPAR_NAME);
   GENLC.RV = modelPar_from_SNHOST(RV,"RV");
 
   AV       = GENLC.AV ;
   GENLC.AV = modelPar_from_SNHOST(AV,"AV");
+
+  // check for EBV in HOSTLOB ... update AV
+  if ( GENLC.RV > 0.001 ) {
+    EBV = GENLC.AV/GENLC.RV ;
+    GENLC.AV  = GENLC.RV * modelPar_from_SNHOST(EBV,"EBV");
+  }
 
   if ( INDEX_GENMODEL  == MODEL_SALT2 ) {
     double a = GENLC.SALT2alpha ;
@@ -13988,7 +13993,8 @@ double gen_AV(void) {
   }
  
   if ( INPUTS.GENPROFILE_EBV_HOST.USE ) {
-    copy_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST,&GENLC.GENPROFILE_EBV_HOST);
+    copy_GEN_EXP_HALFGAUSS(&INPUTS.GENPROFILE_EBV_HOST,
+			   &GENLC.GENPROFILE_EBV_HOST);
 
     GENLC.GENPROFILE_EBV_HOST.EXP_TAU = INPUTS.GENPROFILE_EBV_HOST.EXP_TAU
       + get_zvariation(GENLC.REDSHIFT_CMB,"GENTAU_EBV_HOST");

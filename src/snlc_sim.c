@@ -959,6 +959,7 @@ void set_user_defaults(void) {
   INPUTS.USE_SIMLIB_DISTANCE = 0;  // use 'DISTANCE: <d(Mpc)>' in header
   INPUTS.USE_SIMLIB_PEAKMJD  = 0;  // use 'PEAKMJD: <t0>'  in header
   INPUTS.USE_SIMLIB_MAGOBS   = 0;
+  INPUTS.USE_SIMLIB_SPECTRA  = 0;
 
   INPUTS.SIMLIB_MSKOPT = 0 ;
   GENLC.SIMLIB_IDLOCK  = -9;
@@ -1232,6 +1233,8 @@ void set_user_defaults_SPECTROGRAPH(void) {
   INPUTS.TAKE_SPECTRUM_DUMPCID  = -9 ;
   INPUTS.TAKE_SPECTRUM_HOSTFRAC =  0.0 ;
   INPUTS.TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE =  1.0 ;
+
+  INPUTS.WARP_SPECTRUM_STRING[0] = 0 ;
   INPUTS.NWARP_TAKE_SPECTRUM = 0 ;
   INPUTS.NHOST_TAKE_SPECTRUM = 0 ;
 
@@ -1286,11 +1289,11 @@ int read_input(char *input_file) {
 
   FILE *fp;
 
+  char  *warp_spectrum_string = INPUTS.WARP_SPECTRUM_STRING;
   char 
     c_get[80], ctmp[80], ctmp2[80], tmpLine[200]
-    ,ckey[60], cval[40], cpoly[60], warp_spectrum_string[100]
-    ,*parname, *modelName   
-    ,*ptrTmp = tmpLine
+    ,ckey[60], cval[40], cpoly[60]
+    ,*parname, *modelName, *ptrTmp = tmpLine
     ;
 
   float ftmp, sigTmp[2];
@@ -1621,6 +1624,11 @@ int read_input(char *input_file) {
       readint ( fp, 1, &INPUTS.USE_SIMLIB_MAGOBS ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
       continue ;
+    }
+    if ( uniqueMatch(c_get,"USE_SIMLIB_SPECTRA:")   ) { 
+      readint ( fp, 1, &INPUTS.USE_SIMLIB_SPECTRA ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      continue ; 
     }
 
     if ( uniqueMatch(c_get,"SIMLIB_MSKOPT:")  ) {
@@ -3825,7 +3833,8 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
   readchar(fp,string2);
   sprintf(stringTmp, "%s", string2);
   extractStringOpt(stringTmp,stringOpt); // return stringOpt
-  if ( strcmp(stringTmp,"SNR_ZPOLY") == 0 ) {
+  if ( strcmp(stringTmp,"SNR_ZPOLY") == 0 ||
+       strcmp(stringTmp,"SNR")       == 0    ) {
     INPUTS.TAKE_SPECTRUM[N].OPT_TEXPOSE = 2;
     parse_GENPOLY(stringOpt, "SNR", GENZPOLY_SNR, fnam);
   }
@@ -3852,9 +3861,11 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
     splitString(stringOpt, colon, 5,      // inputs               
 		&NSPLIT, ptrSplit );      // outputs             
 
-    if ( strcmp(stringTmp,"SNR_LAMREST") == 0 ) 
+    if ( strcmp(stringTmp,"SNR_LAMREST") == 0 ||
+	 strcmp(stringTmp,"LAMREST_SNR") == 0 ) 
       { INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_LAMBDA = GENFRAME_REST ; }
-    else if ( strcmp(stringTmp,"SNR_LAMOBS") == 0 ) 
+    else if ( strcmp(stringTmp,"SNR_LAMOBS") == 0 ||
+	      strcmp(stringTmp,"LAMOBS_SNR") == 0   ) 
       { INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_LAMBDA = GENFRAME_OBS ; }
     else {
       sprintf(c1err,"Invalid key '%s' for LAMBDA-RANGE.", string3);
@@ -3872,7 +3883,7 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
     ptrF = INPUTS.TAKE_SPECTRUM[N].SNR_LAMRANGE ;
     sscanf( strValues[0] , "%f", &ptrF[0] );  // load LAMRANGE
     sscanf( strValues[1] , "%f", &ptrF[1] ); 
-  }    
+  }  
 
   // - - - - - -
 
@@ -4761,6 +4772,10 @@ void sim_input_override(void) {
     }
     if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_MAGOBS" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_MAGOBS ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+    }
+    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_SPECTRA" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_SPECTRA ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
     }
 
@@ -17138,10 +17153,11 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   //
   // Jan 4 2018: read optional DISTANCE key, and convert to zCMB
 
-  int  USE_MODEL_SIMLIB = (INDEX_GENMODEL == MODEL_SIMLIB);
-  int  RDFLAG_REDSHIFT  = (INPUTS.USE_SIMLIB_REDSHIFT || USE_MODEL_SIMLIB);
-  int  RDFLAG_PEAKMJD   = (INPUTS.USE_SIMLIB_PEAKMJD  || USE_MODEL_SIMLIB);
-  int  RDFLAG_DISTANCE  = (INPUTS.USE_SIMLIB_DISTANCE || USE_MODEL_SIMLIB);
+  bool USE_MODEL_SIMLIB = (INDEX_GENMODEL == MODEL_SIMLIB);
+  bool RDFLAG_REDSHIFT  = (INPUTS.USE_SIMLIB_REDSHIFT || USE_MODEL_SIMLIB);
+  bool RDFLAG_PEAKMJD   = (INPUTS.USE_SIMLIB_PEAKMJD  || USE_MODEL_SIMLIB);
+  bool RDFLAG_DISTANCE  = (INPUTS.USE_SIMLIB_DISTANCE || USE_MODEL_SIMLIB);
+  bool RDFLAG_SPECTRA   = (INPUTS.USE_SIMLIB_SPECTRA  || USE_MODEL_SIMLIB);
   int  LTMP ;
   double TMPVAL, TMPRANGE[2], dist, MU ;
 
@@ -17258,6 +17274,14 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
     SIMLIB_HEADER.GENGAUSS_SALT2x1.SIGMA[0] = TMPVAL ;
     SIMLIB_HEADER.GENGAUSS_SALT2x1.SIGMA[1] = TMPVAL ;
   } 
+
+  // - - - - - - - - - 
+  // May 29 2020 : check for TAKE_SPECTRUM keys
+  if ( strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
+    char *warpString = INPUTS.WARP_SPECTRUM_STRING;
+    //.xyz
+    parse_input_TAKE_SPECTRUM(fp_SIMLIB,warpString);
+  }
 
   return ;
 

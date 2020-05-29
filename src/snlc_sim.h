@@ -412,6 +412,7 @@ struct INPUTS {
   int  USE_SIMLIB_DISTANCE ;  // 1 => use distance in LIB (if it's there)
   int  USE_SIMLIB_PEAKMJD ;   // idem for optional PEAKMJD
   int  USE_SIMLIB_MAGOBS ;    // use MAGOBS column instead of SN model
+  int  USE_SIMLIB_SPECTRA;    // use TAKE_SPECTRUM keys in SIMLIB header
   int  SIMLIB_MSKOPT ;        // special SIMLIB options (see manaul)
 
   // ---- end simlib inputs -----
@@ -551,6 +552,8 @@ struct INPUTS {
   float                     TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE ;
   int                       TAKE_SPECTRUM_DUMPCID;
   float                     TAKE_SPECTRUM_HOSTFRAC;
+
+  char                      WARP_SPECTRUM_STRING[200];
   int                       NWARP_TAKE_SPECTRUM ; // set internally
   int                       NHOST_TAKE_SPECTRUM ; // set internally
 

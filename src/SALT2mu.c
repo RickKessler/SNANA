@@ -751,6 +751,12 @@ Default output files (can change names with "prefix" argument)
 
   May 20 2020: new input fieldlist=<comma sep list>
 
+  May 29 2020:
+    + for ALL surveys lumped together (no 64 bit), fix bug where
+      IDSAMPLE was not set and was thus -9; set all IDSAMPLE=0.
+    + ABORT if surveygroup_biascor includes survey which does
+      not exist in the data.
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -6364,6 +6370,10 @@ void prepare_IDSAMPLE_biasCor(void) {
   // Mar 20 2018: if OPT_PHOTOZ exists, split by zSPEC and zPHOT 
   //
   // Jun 6 2019: refactor to use INFO_DATA struct.
+  //
+  // May 29 2020: 
+  //   + fix bug for ALL surveys lumped together; set all IDSAMPLE=0
+  //
 
   int USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
   int isn, IDSURVEY, OPT_PHOTOZ, N, IDSAMPLE, i, NIDSURVEY[MXIDSURVEY] ;
@@ -6431,6 +6441,9 @@ void prepare_IDSAMPLE_biasCor(void) {
     SAMPLE_BIASCOR[IDSAMPLE].zMIN_DATA = INPUTS.zmin ;
     SAMPLE_BIASCOR[IDSAMPLE].zMAX_DATA = INPUTS.zmax ;
     set_BINSIZE_SAMPLE_biasCor(IDSAMPLE);
+
+    for(isn=0; isn < NSN_DATA; isn++ )
+      { INFO_DATA.TABLEVAR.IDSAMPLE[isn] = IDSAMPLE ;} // May 29 2020
 
     dump_SAMPLE_INFO(EVENT_TYPE_DATA);
     return ;  
@@ -6774,6 +6787,9 @@ void  set_SURVEYGROUP_biasCor(void) {
   // If any surveys are missing from user input, append then as new
   // groups so that all surveys are included in a surveyGroup.
   //
+  // May 29 2020: 
+  //  + abort if NO data exists for survey in user-input surveygroup_biascor
+  //
 
   int  LDMP   = 0 ;
   int  USE_SURVEYGROUP = INPUTS.use_surveyGroup_biasCor ;
@@ -6826,6 +6842,15 @@ void  set_SURVEYGROUP_biasCor(void) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
 
+      // May 29 2020: abort if there is no data in this requested sample
+      NEVT = INFO_DATA.TABLEVAR.NSN_PER_SURVEY[ID];
+      if ( NEVT == 0 ) {
+        sprintf(c1err,"No data for requested SURVEY = %s(%d)", ptrTmp[i2],ID);
+        sprintf(c2err,"Check input key surveygroup_biascor");
+        errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      }
+
+  
       if ( LDMP ) {
 	printf(" xxx %s: IGRP=%d i2=%d  IDSRVY=%3d  SURVEY=%s \n",
 	       fnam, i, i2, ID, ptrTmp[i2] ); fflush(stdout);

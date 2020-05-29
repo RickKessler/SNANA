@@ -19419,8 +19419,6 @@ c check option to estimate LC width
 c May 2017: load ADDCOL arrays
       CALL TABLE_ADDCOL_LOAD()
 
-      print*,' xxx NEP_USE, AREAFRAC_AVG = ', 
-     &        ISNLC_NEPOCH_USE, SUM_AREAFRAC
       IF ( ISNLC_NEPOCH_USE > 0 ) then
         SNLC_AREAFRAC_AVG = SUM_AREAFRAC/float(ISNLC_NEPOCH_USE)
       ENDIF
@@ -21083,12 +21081,14 @@ c +CDE,SNANAFIT.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,SIMLIBCOM.
++CDE,SPECCOM.
 
       REAL*8  MJD, GAIN, RDNOISE, SKYSIG, PSF1, PSF2, PSFRAT
       REAL*8  ZP, ZPERR, MAG, FLUX, FLUXERR, PIXSIZE, LAMOBS
-      rEAL*8  MJD_MIN, TOBS_MIN, PEAKMJD
+      REAL*8  MJD_MIN, TOBS_MIN, PEAKMJD
       INTEGER LIBID, IFILT, IFILT_OBS, LASTEP(MXFILT_OBS)
-      INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP,i
+      INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP
+      INTEGER i
       LOGICAL IS_REAL_DATA, WRALL_SIM_MAGOBS, WRSET_SIM_MAGOBS
       LOGICAL WR_SIM_MAGOBS
       CHARACTER BAND*4, FNAM*20, SEDCMD*200
@@ -21288,6 +21288,9 @@ c - - - - -
           write(LUNOUT,"(' ')")
 
       ENDIF
+
+c May 29 2020: write TAKE_SPECTRUM keys if there are spectra
+      CALL WRITE_SIMLIB_TAKE_SPECTRUM(LUNOUT)
 
 c write column header
       WRITE(LUNOUT,110) 
@@ -21732,6 +21735,81 @@ c check how close computed TMP_SKYMAG is to expected SKYMAG
       RETURN
       END      ! end COMPUTE_SIMLIB_INFO
 
+C ==================
++DECK,WRITE_SIMLIB_SPECTRUM.
+      SUBROUTINE WRITE_SIMLIB_TAKE_SPECTRUM(LUN)
+
+C Created May 29 2020
+C If there are spectra, write TAKE_SPECTRUM keys to 
+C SIMLIB header (LUNOUT)
+C
+
+      INTEGER LUN ! (I) write to this LUN
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,SPECCOM.
+
+      REAL TOBS, LAMMIN, LAMMAX, SNR
+      REAL*8 FLUXSUM, SQERRSUM, FLAM, FLAMERR, DLAM
+      INTEGER ispec, NLAMBIN, ilam
+      INTEGER LEN_TOBS, LEN_SNR, LEN_LAMMIN, LEN_LAMMAX
+      CHARACTER 
+     &    STR_TOBS*20, STR_SNR*20, 
+     &    STR_LAMMIN*20, STR_LAMMAX*20
+    
+C ----------- BEGIN --------
+ 
+      DO 222 ispec = 1, NSPECTRUM
+         TOBS = TOBS_SPECTRUM(ispec)
+         SNR = 34.33
+         NLAMBIN  = NLAMBIN_SPECTRUM(ispec)
+         LAMMIN   = LAMMIN_SPECTRUM(1,ispec)
+         LAMMAX   = LAMMAX_SPECTRUM(NLAMBIN,ispec)
+
+         FLUXSUM = 0.0 ; SQERRSUM = 0.0 
+       
+         DO ilam = 1, NLAMBIN
+             FLAM    = FLAM_SPECTRUM(ilam,ispec)
+             FLAMERR = FLAMERR_SPECTRUM(ilam,ispec)
+             DLAM    = 
+     &         LAMMAX_SPECTRUM(ilam,ispec) - LAMMIN_SPECTRUM(ilam,ispec)
+             FLUXSUM  = FLUXSUM + (FLAM*DLAM)
+             SQERRSUM = SQERRSUM + (FLAMERR*DLAM)**2
+         ENDDO
+         SNR = FLUXSUM / sqrt(SQERRSUM)
+
+         CALL float2string_nospace(TOBS, STR_TOBS, LEN_TOBS)
+         CALL float2string_nospace(SNR,  STR_SNR,  LEN_SNR)
+         CALL float2string_nospace(LAMMIN,  STR_LAMMIN, LEN_LAMMIN)
+         CALL float2string_nospace(LAMMAX,  STR_LAMMAX, LEN_LAMMAX)
+
+         WRITE(LUN,225) 
+     &      STR_TOBS(1:LEN_TOBS), STR_SNR(1:LEN_SNR),
+     &      STR_LAMMIN(1:LEN_LAMMIN), STR_LAMMAX(1:LEN_LAMMAX)
+ 225     FORMAT('TAKE_SPECTRUM:  TOBS(',A,')', 3x, 
+     &           'SNR(',A,')', 3x, 'SNR_LAMOBS(',A,':',A, ')' )
+
+ 222  CONTINUE
+
+      RETURN
+      END
+
++DECK,FLOAT2STRING_NOSPACE.
+      SUBROUTINE float2string_nospace(VAL, STRING, LEN)
+
+      REAL VAL              ! (I) float value to convert
+      CHARACTER STRING*(*)  ! (O) string with float value 
+      INTEGER  LEN          ! (O) length of string
+
+      write(STRING,240) VAL
+ 240  format(F10.1)
+
+      STRING = ADJUSTL(STRING)
+      LEN = INDEX(STRING,' ') - 1
+
+      RETURN
+      END
 C =======================================================
 +DECK,FLUXERRCALC,IF=SNANA,SNFIT.
       SUBROUTINE FLUXERRCALC(iepoch, FLUXCAL, FLUXCAL_ERR )

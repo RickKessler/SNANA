@@ -18443,4 +18443,8 @@
      + fix obscure ABORT  message when datfile= key is missing
        for NSPLITRAN option.
 
+    snana.car:
+      + for SIMLIB_OUT option, include TAKE_SPECTRUM keys in
+        SIMLIB header if spectra exist in data files.
+
 END: 

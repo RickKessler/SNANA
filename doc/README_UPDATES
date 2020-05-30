@@ -18438,6 +18438,8 @@
       + remove OPT_DEVEL_BBC7D flag
       + fux bug overriding RV from HOSTLIB
       + new input option, USE_SIMLIB_SPECTRA: 1 (see manual)
+      + abort if USE_SIMLIB_XXX flags result in all LIBIDs rejected
+         by GENRANGE_XXX windows. Avoids infinite loop/hang.
 
     SALT2mu_fit.pl
      + fix obscure ABORT  message when datfile= key is missing
@@ -18450,5 +18452,10 @@
     snana.car:
       + for SIMLIB_OUT option, include TAKE_SPECTRUM keys in
         SIMLIB header if spectra exist in data files.
+      + fix some SPECPLOT bugs.
 
+    SNR_LAMPOLY??
+       https://www.gnu.org/software/gsl/doc/html/lls.html
+       gsl_multifit_linear
+       https://stackoverflow.com/questions/36522882/how-can-i-use-gsl-to-calculate-polynomial-regression-data-points/45144399
 END: 

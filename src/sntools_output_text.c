@@ -1307,6 +1307,7 @@ int validRowKey_TEXT(char *string) {
   if ( strcmp(string,"SN:")    == 0 ) { return 1; }
   if ( strcmp(string,"ROW:")   == 0 ) { return 1; }
   if ( strcmp(string,"GAL:")   == 0 ) { return 1; }
+  if ( strcmp(string,"OBS:")   == 0 ) { return 1; } // May 30 2020 (SPECTRA)
   //  if ( strcmp(string,"LIBID:") == 0 ) { return 1; }
 
   return 0 ;
@@ -1761,7 +1762,7 @@ void SPECPAK_FILL_TEXT(void) {
   // fill SPEC-LIST table vs. ID
   for(ispec=0; ispec < NSPEC; ispec++ ) {
 
-    fprintf(PTRFILE_SPECLIST,"OBS: %8s  %d  %d  %.3f %6.1f  %.1f \n",
+    fprintf(PTRFILE_SPECLIST,"OBS: %8s  %2d  %4d  %.3f %6.1f  %.1f \n",
 	    SPECPAK_OUTPUT.CCID,
 	    SPECPAK_OUTPUT.ID_LIST[ispec],
 	    SPECPAK_OUTPUT.NLAMBIN_LIST[ispec],

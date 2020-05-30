@@ -8097,6 +8097,7 @@ void init_simvar(void) {
   SIMLIB_HEADER.NFOUND_DEC   = 0 ;
   SIMLIB_HEADER.NFOUND_MJD   = 0 ;
   SIMLIB_HEADER.NFOUND_FIELD = 0 ;
+  SIMLIB_HEADER.NFOUND_GENCUTS = 0 ;
 
   SIMLIB_OBS_GEN.PIXSIZE[0] = -9.0 ; // ?? why is this here
 
@@ -15569,8 +15570,8 @@ int keep_SIMLIB_HEADER(void) {
   // Return ACCEPT_FLAG if SIMLIB_HEADER values pass cuts.
   // Return REJECT_FLAG if SIMLIB_HEADER fails cuts, or REWIND flag is set
   //
-  // Nov 28 9 2019: few checks for SIMLIB model.
-
+  // Nov 28 2019: few checks for SIMLIB model.
+  // May 30 2020: increment SIMLIB_HEADER.NFOUND_GENCUTS after all cuts.
 
   int  ID      = SIMLIB_HEADER.LIBID ;
   int  NOBS    = SIMLIB_HEADER.NOBS ;
@@ -15707,6 +15708,8 @@ int keep_SIMLIB_HEADER(void) {
   if(LTRACE) {printf(" xxx %s: 99 END\n", fnam ); debugexit(fnam); }
   
   // if we get here, keep this ID
+  SIMLIB_HEADER.NFOUND_GENCUTS++ ;
+
   return(ACCEPT_FLAG) ;
 
 } // end keep_SIMLIB_HEADER
@@ -17785,6 +17788,8 @@ void ENDSIMLIB_check(void) {
   // if anything passes MJD, RA and DECL cuts.
   // If not, abort with message instead of wrapping
   // around in an infinite loop.
+  //
+  // May 30 2020: abort if SIMLIB_HEADER.NFOUND_GENCUTS == 0
 
   char fnam[] = "ENDSIMLIB_check";
 
@@ -17813,6 +17818,12 @@ void ENDSIMLIB_check(void) {
       sprintf(c2err,"Check sim-input file and SIMLIB file.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
+  }
+
+  if ( SIMLIB_HEADER.NFOUND_GENCUTS == 0 ) {
+    sprintf(c1err,"Could not find SIMLIB HEADER passing GENRANGE_XXX cuts.");
+    sprintf(c2err,"Check USE_SIMLIB_XXX flags and header values.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
 

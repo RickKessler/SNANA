@@ -1342,6 +1342,7 @@ struct SIMLIB_HEADER {
   int NFOUND_RA   ; // idem with valid RA
   int NFOUND_DEC  ; // idem with valid DEC
   int NFOUND_FIELD ;
+  int NFOUND_GENCUTS; // May 30 2020
 
 } SIMLIB_HEADER ;
 

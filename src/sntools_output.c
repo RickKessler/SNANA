@@ -3230,6 +3230,12 @@ void SPECPAK_DATA(char *CCID, int ID, double MJD, double Tobs, double Texpose,
   }
 
   SPECPAK_OUTPUT.NSPEC++ ;
+  if ( SPECPAK_OUTPUT.NSPEC >= MXSPEC_SPECPAK ) {
+    sprintf(MSGERR1, "NSPEC exceeds MXSPEC_SPECPAK=%d bound.", 
+	    MXSPEC_SPECPAK);
+    sprintf(MSGERR2, "Reduce NSPEC or increase MXSPEC_SPECPAK"); 
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
 
   return ;
 
@@ -3264,7 +3270,7 @@ void SPECPAK_FILL(char *CCID) {
 #endif
 
 
-  SPECPAK_CLEAR_PLOT(); // .xyz
+  SPECPAK_CLEAR_PLOT(); 
 
 }  // end  SPECPAK_FILL
 

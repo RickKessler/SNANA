@@ -28,6 +28,7 @@
  Dec 11 2019: replace lots of [40] with [MXCHAR_VARNAME]
 
  May 02 2020: add spectra format for MARZ (FITS with particular extensions)
+ May 30 2020: MXSPEC_SPECPAK -> 40 (was 10)
 
 *******************************************/
 
@@ -267,7 +268,7 @@ struct  SNLCPAK_OUTPUT {
 
 
 // Apr 2019: create struture for multiple spectra per event (SN & HOST)
-#define MXSPEC_SPECPAK 10
+#define MXSPEC_SPECPAK 40
 struct SPECPAK_OUTPUT {
   int  NSPEC;  // per event
   char SURVEY[60] ;

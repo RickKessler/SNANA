@@ -4466,7 +4466,8 @@ c check for options inside ()
 
 c ------------
 c if LCPLOT is not specified, set MXLC_PLOT to zero.
-      IF  ( OPT_TABLE(ITABLE_SNLCPAK) == 0 ) MXLC_PLOT = 0
+      IF  ( OPT_TABLE(ITABLE_SNLCPAK) == 0 .and.
+     &      OPT_TABLE(ITABLE_SPECPAK) == 0  )    MXLC_PLOT = 0
 
 c -------------
 c summarize 
@@ -24053,6 +24054,52 @@ c check list of CCIDs to plot
       RETURN
       END
 
+C =============================
++DECK,DOPLOT_SPEC.
+      LOGICAL FUNCTION DOPLOT_SPEC()
+
+C Created May 30 2020
+C Returns T to make spectra plot(s) for this SN
+C 
+C ----------
+
+      IMPLICIT NONE
++CDE,SNDATCOM. 
++CDE,SNLCINP.
+
+      INTEGER i, LENTMP
+      LOGICAL DOPLOT
+
+C ------------ BEGIN -------------
+
+      DOPLOT = .FALSE.
+      if ( OPT_TABLE(ITABLE_SPECPAK) == 0 ) goto 888  
+
+      if ( N_SNLC_PLOT < MXLC_PLOT ) THEN
+         DOPLOT = .TRUE.
+         GOTO 888
+      endif
+
+c check list of CCIDs to plot
+
+      DO 100 i = 1, NCCID_PLOT
+        LENTMP = INDEX( SNCCID_PLOT(i)//' ', ' ') - 1
+
+        IF ( LENTMP .NE. ISNLC_LENCCID ) GOTO 100
+
+        if ( SNCCID_PLOT(i) .EQ. SNLC_CCID ) then
+          DOPLOT = .TRUE.
+          GOTO 888
+        endif
+
+100   CONTINUE
+
+888   CONTINUE
+      DOPLOT_SPEC = DOPLOT
+
+      RETURN
+      END
+
 C -----------------------------------------
 +DECK,GETNLCPLOT,IF=SNANA.
       INTEGER FUNCTION SNANA_GET_NLCPLOT()
@@ -24411,13 +24458,13 @@ c
 
       INTEGER LENCCID, LENTEXT, ispec
       CHARACTER  CCID_forC*(MXCHAR_CCID)
-      LOGICAL DOPLOT_SNLC
+      LOGICAL DOPLOT_SPEC
 
       EXTERNAL SPECPAK_DATA
 C ----------------- BEGIN ---------------
 
 c check if we should make the plot
-      IF ( .NOT. DOPLOT_SNLC() ) RETURN
+      IF ( .NOT. DOPLOT_SPEC() ) RETURN
 
       LENCCID = ISNLC_LENCCID
       CCID_forC = SNLC_CCID(1:LENCCID) // char(0)
@@ -24444,7 +24491,9 @@ c load each spectrum into SPECPAK C-function util
  100     CONTINUE
 
 c write out spectrum to TEXT table (HBOOK,ROOT not enabled)
-      CALL SPECPAK_FILL(CCID_forC, LENCCID)
+      IF ( NSPECTRUM > 0 ) then
+         CALL SPECPAK_FILL(CCID_forC, LENCCID)
+      ENDIF
 
       RETURN
       END

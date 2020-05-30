@@ -21787,7 +21787,7 @@ C ----------- BEGIN --------
          WRITE(LUN,225) 
      &      STR_TOBS(1:LEN_TOBS), STR_SNR(1:LEN_SNR),
      &      STR_LAMMIN(1:LEN_LAMMIN), STR_LAMMAX(1:LEN_LAMMAX)
- 225     FORMAT('TAKE_SPECTRUM:  TOBS(',A,')', 3x, 
+ 225     FORMAT('TAKE_SPECTRUM:  TOBS(', A, ')', 3x, 
      &           'SNR(',A,')', 3x, 'SNR_LAMOBS(',A,':',A, ')' )
 
  222  CONTINUE

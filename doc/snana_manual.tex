@@ -11892,9 +11892,9 @@ Ideally, a \simlib\ is created from a library of
 \obss\ containing PSF, sky-noise and zero-point.
 However, there may be cases where it is useful to
 create a \simlib\ directly from a data sample. 
-Two examples are 1) low-z sample which has no meta-data 
-to construct a \simlib\ file, and 2) simulating fake SN
-that have already been overlaid on images.
+A few examples are 
+1) low-z sample which has no meta-data to construct a \simlib\ file, 
+2) simulating fake SNe that have already been overlaid on images.
 
 The {\tt snana.exe} program can create such a
 \simlib\ via the {\tt \&SNLCINP} input key(s)
@@ -11935,26 +11935,50 @@ Arbitrary {\tt ZPERR} values can be input via
 %
 Any band not listed above gets the default {\tt ZPERR=0.01}.
 
+If spectra are included in data (e.g., SNIa training sample), 
+a {\tt TAKE\_SPECTRUM} key for each spectrum is automatically written
+to each {\tt LIBID} header as follows
+\begin{verbatim}
+   TAKE_SPECTRUM: TOBS(4.6)   SNR(1179)   SNR_LAMOBS(3590:7535)
+\end{verbatim}
+The {\tt SNR} and wavelength range ({\tt SNR\_LAMOBS})
+correspond to the full wavelength range of the spectrum,
+and each simulated spectrum (below) is truncated in wavelength
+to match that of the data. Beware that the average SNR
+of simulated spectra match the data, but the $\lambda$-dependence
+of SNR is from the spectrograph table (Fig.~\ref{fig:spectro_table})
+and may not match the data.
+
+
 The \simlib\ is updated for events passing cuts in the 
 {\tt \&SNLCINP} namelist, and a \simlib\ row is written
 for each epoch.  The \simlib\ header for each event
-includes the redshift and peakMJD. When using this
-\simlib\ in the simulation, one can either generate random
-redshift \& peakMJD values, or pick the data values
-from the header using the following sim-input keys
+includes the redshift, peak-MJD, and spectra-SNR info. 
+When using this \simlib\ in the simulation, 
+header values are selected with following sim-input keys
 (\S\ref{sssec:simlib_options}):
 \begin{verbatim}
   USE_SIMLIB_PEAKMJD:  1  # use peakMJD in header (if there)
   USE_SIMLIB_REDSHIFT: 1  # use redshift in header (if there)
+  USE_SIMLIB_SPECTRA:  1  # use TAKE_SPECTRUM key(s) in header
 \end{verbatim}
 
+A few warnings: 
+1)~sim-input keys {\tt GENRANGE\_REDSHIFT} and {\tt GENRANGE\_PEAKMJD}
+are applied and therefore some \simlib\ entries can be rejected,
+2) the simulation may generate more than {\tt NGENTOT\_LC} 
+events so that {\tt NGENTOT\_LC} events are generated
+within the {\tt GENRANGE\_REDSHIFT[PEAKMJD]} windows,
+3)~{\tt TAKE\_SPECTRUM} keys are used from either
+the {\tt SIMLIB} header or sim-input file, but not both;
+the simulation will abort if both are requested.
 
 The {\tt OPT\_SIMLIB\_OUT} feature writes the true (simulated) mags in the
 last column of the \simlib\ file.
 Beware that overlapping fields are not treated properly, 
-so it is recommended to also set {\tt CUTWIN\_NFIELD = 1,1}.
-The ``{\simlib}'' model feature in the simulation (\S\ref{subsec:MODEL_SIMLIB}) 
-reads these mags.
+so it is recommended to set {\tt CUTWIN\_NFIELD = 1,1}.
+The ``{\simlib}'' model feature in the simulation 
+(\S\ref{subsec:MODEL_SIMLIB}) reads these mags.
 
 % --------------------------------------
   \clearpage

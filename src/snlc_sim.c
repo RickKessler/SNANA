@@ -2584,8 +2584,14 @@ int read_input(char *input_file) {
     if ( keyMatch(c_get,"WARP_SPECTRUM:")  ) 
       { readchar(fp,warp_spectrum_string);  GENSPEC.USE_WARP=1; continue ; }
 
-    if ( keyMatch(c_get,"TAKE_SPECTRUM:")  ) 
-      {  parse_input_TAKE_SPECTRUM(fp,warp_spectrum_string); continue ; }
+    if ( keyMatch(c_get,"TAKE_SPECTRUM:")  ) {       
+      if(INPUTS.USE_SIMLIB_SPECTRA ) {
+	sprintf(c1err,"Cannot mix TAKE_SPECTRUM keys from sim-input & SIMLIB.");
+	sprintf(c2err,"Remove one of these TAKE_SPECTRUM sources.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+      parse_input_TAKE_SPECTRUM(fp,warp_spectrum_string); continue ; 
+    }
 
     if ( keyMatch(c_get,"TAKE_SPECTRUM_HOSTFRAC:")  ) 
       {	readfloat(fp, 1, &INPUTS.TAKE_SPECTRUM_HOSTFRAC ); continue ; }
@@ -3724,16 +3730,20 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
   //  + pass WARP_SPECTRUM_STRING
   //
   // June 28 2019: allow HOST argument
+  //
+  // May 29 2020: 
+  //   + if reading SIMLIB header, skip epochs outside GENRANGE_TREST
+  //
 
   int  N = NPEREVT_TAKE_SPECTRUM ;
   GENPOLY_DEF *GENLAMPOLY_WARP  = &INPUTS.TAKE_SPECTRUM[N].GENLAMPOLY_WARP ;
   GENPOLY_DEF *GENZPOLY_TEXPOSE = &INPUTS.TAKE_SPECTRUM[N].GENZPOLY_TEXPOSE;
   GENPOLY_DEF *GENZPOLY_SNR     = &INPUTS.TAKE_SPECTRUM[N].GENZPOLY_SNR ;
-  float *ptrF ;
+  float *ptrRange, *ptrLam ;
   char string1[80], string2[80], string3[80]; 
-  char *ptrSplit[4], strValues[4][20] ;
+  char *ptrSplit[4], strValues[4][20], *ptrFrame ;
   int  NSPLIT, i ;
-  int  IS_HOST = 0;
+  bool IS_HOST = false;
   char colon[] = ":"; 
   char stringTmp[80], stringOpt[200];
   char fnam[] = "parse_input_TAKE_SPECTRUM" ;
@@ -3787,7 +3797,7 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
   else if ( strcmp(stringTmp,"HOST") == 0 ) {
     INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH = GENFRAME_HOST ;
     sprintf(INPUTS.TAKE_SPECTRUM[N].EPOCH_FRAME,"HOST");
-    IS_HOST = 1;
+    IS_HOST = true ;
     INPUTS.NHOST_TAKE_SPECTRUM++ ;
   }
   else if ( strcmp(stringTmp,"TEMPLATE_TEXPOSE_SCALE") == 0 ) {
@@ -3802,12 +3812,12 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
   }
 
  
-
   // get epoch range from colon-seperated values in stringOpt
-  ptrF = INPUTS.TAKE_SPECTRUM[N].EPOCH_RANGE ;
+  ptrRange = INPUTS.TAKE_SPECTRUM[N].EPOCH_RANGE ;
+  ptrFrame = INPUTS.TAKE_SPECTRUM[N].EPOCH_FRAME ;
 
   if ( IS_HOST ) {
-    ptrF[0] = ptrF[1] = 9999.0 ;  
+    ptrRange[0] = ptrRange[1] = 9999.0 ;  
   }
   else {
     for(i=0; i < 4; i++ ) { ptrSplit[i] = strValues[i]; }
@@ -3815,16 +3825,42 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
     splitString(stringOpt, colon, 4,      // inputs               
 		&NSPLIT, ptrSplit );      // outputs             
 
-    if ( NSPLIT != 2 ) {
+    if ( NSPLIT < 1 || NSPLIT > 2 ) {
       sprintf(c1err, "\n   Found %d colon-separated values in '%s'", 
 	      NSPLIT, string1);
-      sprintf(c2err, "but expected %d values.", 2);
+      sprintf(c2err, "but expected 1 or 2 values.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }   
-    sscanf( strValues[0] , "%f", &ptrF[0] );  // load TREST_RANGE or TOBS_RANGE
-    sscanf( strValues[1] , "%f", &ptrF[1] ); 
+
+    // load TREST_RANGE or TOBS_RANGE
+    sscanf( strValues[0] ,        "%f", &ptrRange[0] ); 
+    sscanf( strValues[NSPLIT-1] , "%f", &ptrRange[1] ); 
   }
 
+
+  // - - - - - - - - - - - - -  -
+  // if reading SIMLIB header, skip epochs outside GENRANGE_TREST
+  if ( !IS_HOST && INPUTS.USE_SIMLIB_SPECTRA && INPUTS.USE_SIMLIB_REDSHIFT) {
+    double z, Tmin, Tmax, Trest;  int OPT_FRAME;
+    z    = SIMLIB_HEADER.GENRANGE_REDSHIFT[0] ;
+    Tmin = INPUTS.GENRANGE_TREST[0] ;
+    Tmax = INPUTS.GENRANGE_TREST[1] ;
+    OPT_FRAME = INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH ;
+    if ( OPT_FRAME == GENFRAME_OBS ) 
+      { Trest = ptrRange[0] / (1.0+z); }
+    else if ( OPT_FRAME == GENFRAME_REST) 
+      { Trest = ptrRange[0] ; }
+    else {
+      sprintf(c1err, "Invalid OPT_FRAME = %d (%s)",   OPT_FRAME, ptrFrame);
+      sprintf(c2err, "epoch range: %f to %f \n", 
+	      ptrRange[0], ptrRange[1] ) ;
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
+    }
+
+    if ( Trest < Tmin ) { return; }
+    if ( Trest > Tmax ) { return; }
+
+  }  // end if block
 
   // -------------------------------
   //  parse string2 for SNR or TEXPOSE
@@ -3880,9 +3916,9 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    ptrF = INPUTS.TAKE_SPECTRUM[N].SNR_LAMRANGE ;
-    sscanf( strValues[0] , "%f", &ptrF[0] );  // load LAMRANGE
-    sscanf( strValues[1] , "%f", &ptrF[1] ); 
+    ptrLam = INPUTS.TAKE_SPECTRUM[N].SNR_LAMRANGE ;
+    sscanf( strValues[0] , "%f", &ptrLam[0] );  // load LAMRANGE
+    sscanf( strValues[1] , "%f", &ptrLam[1] ); 
   }  
 
   // - - - - - -
@@ -8948,6 +8984,13 @@ void GENSPEC_DRIVER(void) {
 
     imjd = imjd_order[i];
 
+    if ( INPUTS.USE_SIMLIB_SPECTRA ) {
+      // clip spectra wavelength range to match that for SNR range.
+      LAMMIN = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[0] ;
+      LAMMAX = INPUTS.TAKE_SPECTRUM[imjd].SNR_LAMRANGE[1] ;
+    }
+
+    
     GENSPEC_INIT(2,imjd);   // 2-> event-dependent init
 
     // compute true GENMAG and FLUXGEN in each lambda bin
@@ -8963,6 +9006,7 @@ void GENSPEC_DRIVER(void) {
     GENSPEC_TEXPOSE_TAKE_SPECTRUM(imjd);
 
     // smear fluxes from Poisson noise and wavelength
+    // Returned SNR is over entire wavelength range, but not used here.
     SNR = GENSPEC_SMEAR(imjd,LAMMIN,LAMMAX);
 
     // Feb 2 2017: convert flux to FLAM (dF/dlam)
@@ -9424,6 +9468,7 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
   SNR_REQUEST = eval_GENPOLY(z,GENZPOLY_SNR,fnam);
   GENSPEC.SNR_REQUEST_LIST[imjd] = SNR_REQUEST ;
 
+  // extract min/max wavelength to determine SNR
   LAMMIN_OBS = GENSPEC.LAMOBS_SNR_LIST[imjd][0] ;
   LAMMAX_OBS = GENSPEC.LAMOBS_SNR_LIST[imjd][1] ;
 
@@ -17093,6 +17138,8 @@ void init_SIMLIB_HEADER(void) {
   sprintf(SIMLIB_HEADER.TELESCOPE,  "%s", SIMLIB_GLOBAL_HEADER.TELESCOPE) ;
   SIMLIB_HEADER.PIXSIZE  = SIMLIB_GLOBAL_HEADER.PIXSIZE ;
 
+  if ( INPUTS.USE_SIMLIB_SPECTRA ) { NPEREVT_TAKE_SPECTRUM = 0 ; }
+
   return ;
 
 } // end init_SIMLIB_HEADER
@@ -17152,6 +17199,8 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   //   KEY       : current simlib string to check
   //
   // Jan 4 2018: read optional DISTANCE key, and convert to zCMB
+  //
+  // May 29 2020: check for TAKE_SPECTRUM key(s) in header.
 
   bool USE_MODEL_SIMLIB = (INDEX_GENMODEL == MODEL_SIMLIB);
   bool RDFLAG_REDSHIFT  = (INPUTS.USE_SIMLIB_REDSHIFT || USE_MODEL_SIMLIB);
@@ -17279,7 +17328,6 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   // May 29 2020 : check for TAKE_SPECTRUM keys
   if ( strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
     char *warpString = INPUTS.WARP_SPECTRUM_STRING;
-    //.xyz
     parse_input_TAKE_SPECTRUM(fp_SIMLIB,warpString);
   }
 

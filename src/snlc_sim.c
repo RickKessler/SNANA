@@ -245,6 +245,8 @@ int main(int argc, char **argv) {
 
     gen_event_driver(ilc); 
 
+    if ( GENLC.STOPGEN_FLAG ) { NGENLC_TOT--;  goto ENDLOOP ; }
+
     if ( GENLC.NEPOCH < INPUTS.CUTWIN_NEPOCH[0] ) {   // avoid NEPOCH=0
       gen_event_reject(&ilc, &SIMFILE_AUX, "NEPOCH");
       goto GENEFF;
@@ -380,7 +382,7 @@ int main(int argc, char **argv) {
     if ( INPUTS.NGENTOT_LC > 0 ) { screen_update(); }
 
     GENLC.STOPGEN_FLAG = geneff_calc();  // calc generation effic & error  
-    if ( GENLC.STOPGEN_FLAG == 1 )  { goto ENDLOOP; }
+    if ( GENLC.STOPGEN_FLAG )  { goto ENDLOOP; }
     
     fflush(stdout);
     
@@ -15292,7 +15294,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
     if ( DO_REWIND ) {
       // check SIMLIB after 5 passes to avoid infinite loop
-      if ( SIMLIB_HEADER.NWRAP >= 5 )  { ENDSIMLIB_check(); }
+      // xxx mark delete  if ( SIMLIB_HEADER.NWRAP >= 5 )  { ENDSIMLIB_check(); }
+      ENDSIMLIB_check();
       if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
 	snana_rewind(fp_SIMLIB, INPUTS.SIMLIB_OPENFILE,
 		     INPUTS.SIMLIB_GZIPFLAG);
@@ -17791,11 +17794,18 @@ void ENDSIMLIB_check(void) {
   //
   // May 30 2020: abort if SIMLIB_HEADER.NFOUND_GENCUTS == 0
 
+  bool QUIT_NOREWIND = ((INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_QUIT_NOREWIND)>0);
   char fnam[] = "ENDSIMLIB_check";
 
   // ------- BEGIN ---------
 
-  if ( INPUTS.SIMLIB_DUMP >= 0 ) return ;
+  if ( INPUTS.SIMLIB_DUMP >= 0 ) { return ; }
+
+  // check option to quite generating after reading SIMLIB once
+  if ( QUIT_NOREWIND && SIMLIB_HEADER.NWRAP == 0 ) { GENLC.STOPGEN_FLAG = 1; }
+
+  // don't do error checking until a few wrap-arounds.
+  if ( SIMLIB_HEADER.NWRAP < 5 ) { return ; }
 
   if ( SIMLIB_HEADER.NFOUND_RA == 0 ) {
     sprintf(c1err,"Could not find SIMLIB RA within");
@@ -19048,7 +19058,6 @@ int geneff_calc(void) {
 
   GENLC.GENEFF    = EFF ;
   GENLC.GENEFFERR = EFF_ERR ;
-
 
   return ISTOP ;
 
@@ -26398,17 +26407,29 @@ void readme_doc(int iflag_readme) {
 	  GENLC.GENEFF, GENLC.GENEFFERR);
 
   // give warning if generation stops early
-  if ( GENLC.STOPGEN_FLAG == 1  ) {
+  if ( GENLC.STOPGEN_FLAG  ) {
 
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\n  WARNING: GENERATION STOPPED WHEN ERROR\n");
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t   on ERR(EFF) <= EFFERR_STOPGEN(=%f)\n",  
-	    INPUTS.EFFERR_STOPGEN );
-
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t  => YOU HAVE %d FEWER LIGHT CURVES THAN REQUESTED\n",
-	    INPUTS.NGEN_LC - NGENLC_WRITE );
+    bool QUIT_NOREWIND=((INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_QUIT_NOREWIND)>0);
+  
+    if ( QUIT_NOREWIND ) {
+      i++; cptr = VERSION_INFO.README_DOC[i] ;
+      sprintf(cptr,
+	      "\n  WARNING: GENERATION STOPPED AFTER ONE PASS THRU SIMLIB\n");
+      i++; cptr = VERSION_INFO.README_DOC[i] ;
+      sprintf(cptr,"\t  AS REQUESTED BY SIM-INPUT SIMLIB_MSKOPT += %d\n",
+	      SIMLIB_MSKOPT_QUIT_NOREWIND );
+    }
+    else {
+      i++; cptr = VERSION_INFO.README_DOC[i] ;
+      sprintf(cptr,"\n  WARNING: GENERATION STOPPED WHEN ERROR\n");
+      i++; cptr = VERSION_INFO.README_DOC[i] ;
+      sprintf(cptr,"\t   on ERR(EFF) <= EFFERR_STOPGEN(=%f)\n",  
+	      INPUTS.EFFERR_STOPGEN );
+      
+      i++; cptr = VERSION_INFO.README_DOC[i] ;
+      sprintf(cptr,"\t  => YOU HAVE %d FEWER LIGHT CURVES THAN REQUESTED\n",
+	      INPUTS.NGEN_LC - NGENLC_WRITE );
+    }
   }
 
 

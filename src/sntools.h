@@ -27,6 +27,10 @@
                so that it is more accessible. Also define function
                get_SNANA_VERSION.
 
+  May 30 2020: 
+    MXWORDFILE_PARSE_WORDS -> 1 million (was 500k) to handle 
+    data files with lots of spectra.
+
 ********************************************************/
 
 #include <stdio.h>
@@ -311,7 +315,7 @@ struct {
 #define MXCHARWORD_PARSE_WORDS 60     // MXCHAR per word
 #define MXCHARLINE_PARSE_WORDS 2000   // max chars per line
 #define MXWORDLINE_PARSE_WORDS  700   // max words per line
-#define MXWORDFILE_PARSE_WORDS 500000 // max words to parse in a file
+#define MXWORDFILE_PARSE_WORDS 1000000 // max words to parse in a file
 
 #define MXWORDLINE_FLUX       10  // max words per line in SED file
 #define MXCHARLINE_FLUX      120  // max char per line to read from SED

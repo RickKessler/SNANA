@@ -70,6 +70,9 @@
 
  May 04 2020: add MARZ output option.
 
+ May 30 2020: include sndata.h and remove a few redundant define statements
+               in sntools_outout.h
+
 ************************************************/
 
 #include <stdio.h>
@@ -83,6 +86,7 @@
 #include <sys/stat.h>
 
 // #include "sntools.h"
+#include "sndata.h"
 #include "sntools_output.h"
 
 // include the package-specific code(s) here.

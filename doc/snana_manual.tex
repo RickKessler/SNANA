@@ -1101,6 +1101,7 @@ etc ...
   USE_SIMLIB_PEAKMJD:  1  # use peakMJD in header (if there)
   USE_SIMLIB_REDSHIFT: 1  # use redshift in header (if there)
   USE_SIMLIB_DISTANCE: 1  # use lumi-distance in header (invert to get zCMB)
+  USE_SIMLIB_SPECTRA:  1  # use TAKE_SPECTRUM keys in header 
 \end{Verbatim}
 
 More information about the {\tt SIMLIB\_DUMP} option
@@ -1117,6 +1118,13 @@ The {\tt SIMLIB\_MSKOPT} options are
       these events are forced to be accepted with 
       {\tt NOBS = NEPOCH = 0} 
       to ensure that forced events fails all analysis cuts.
+%
+   \item {\tt MSKOPT} += 4~: 
+        stop generating after one pass through \simlib\ file.
+        Set {\tt NGENTOT\_LC} to large value to avoid stopping
+        before end of \simlib. Beware: if {\tt APPLY\_CUTWIN\_OPT} is set,
+        the number of events written to data file may be fewer
+        than number of \simlib\ entries.
 %
    \item {\tt MSKOPT} += 8~: debug option to replace correlated
       template noise ({\tt TEMPLATE\_XXX} keys below) with

@@ -127,7 +127,7 @@ int WRFLAG_COMPACT   ; // Jan 2018
 //#define SIMLIB_MXGEN_LIBID 10000  // stop gen on this many for one LIBID
 #define SIMLIB_MXGEN_LIBID 1000
 #define SIMLIB_MSKOPT_REPEAT_UNTIL_ACCEPT      2 // force each LIBID to accept
-#define SIMLIB_MSKOPT_BLANK                    4 // un-used (Mar 26 2018)
+#define SIMLIB_MSKOPT_QUIT_NOREWIND            4 // quit after one pass
 #define SIMLIB_MSKOPT_RANDOM_TEMPLATENOISE     8 // random template noise
 #define SIMLIB_MSKOPT_IGNORE_TEMPLATENOISE    16 // ignore template coherence
 #define SIMLIB_MSKOPT_IGNORE_FLUXERR_COR      32 // ignore FLUXERR_COR map
@@ -287,7 +287,7 @@ typedef struct {
 } SPECTROGRAPH_OPTIONS_DEF;
 
 
-#define MXPEREVT_TAKE_SPECTRUM 20
+#define MXPEREVT_TAKE_SPECTRUM MXSPECTRA
 int     NPEREVT_TAKE_SPECTRUM ; 
 typedef struct {
   float EPOCH_RANGE[2];    // Trest or TOBS range

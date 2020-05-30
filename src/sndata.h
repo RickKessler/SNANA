@@ -43,6 +43,7 @@
 #define MXFILT_COVAR  9  // max number of filters per obs.
 #define MXFILTINDX 100   // max filter index
 #define MXIDSURVEY 200   // max number of SURVEYS in SURVEY.DEF file
+#define MXSPECTRA   40   // max number of spectra in data files
 
 #define MXDOCLINE 1000    // max number of lines in README.DOC file
 #define MXTYPE    1000    // max TYPE id in data base
@@ -85,7 +86,7 @@ char PATH_SNDATA_SIM[MXPATHLEN];
 char PATH_SNANA_DIR[MXPATHLEN];
 char PATH_USER_INPUT[MXPATHLEN]; // Jan 31 2020
    
-struct {
+struct SURVEY_INFO_DEF {
   int  NSURVEYDEF ;  // number of surveys in SURVEY.DEF file
   char SURVEYDEF_LIST[MXIDSURVEY][40];  // SURVEY-string vs. IDSURVEY
   int  SURVEYFLAG[MXIDSURVEY]; // status of use in survey or field group.

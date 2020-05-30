@@ -18440,6 +18440,7 @@
       + new input option, USE_SIMLIB_SPECTRA: 1 (see manual)
       + abort if USE_SIMLIB_XXX flags result in all LIBIDs rejected
          by GENRANGE_XXX windows. Avoids infinite loop/hang.
+      + SIMLIB_MSKOPT += 4 -> stop after reading SIMLIB one time.
 
     SALT2mu_fit.pl
      + fix obscure ABORT  message when datfile= key is missing
@@ -18453,6 +18454,14 @@
       + for SIMLIB_OUT option, include TAKE_SPECTRUM keys in
         SIMLIB header if spectra exist in data files.
       + fix some SPECPLOT bugs.
+
+    sntools_output.c:
+       + include sndata.h and remove some redundant #define statements
+         from sntools_output.h .
+
+    sntools.h:
+      MXWORDFILE_PARSE_WORDS -> 1 million (was 500k) to handle data
+      files with lots of spectra.
 
     SNR_LAMPOLY??
        https://www.gnu.org/software/gsl/doc/html/lls.html

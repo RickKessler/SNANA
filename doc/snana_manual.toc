@@ -1,0 +1,231 @@
+\contentsline {section}{\numberline {1}Introduction}{7}
+\contentsline {section}{\numberline {2}{\tt SNANA}\ Basics}{7}
+\contentsline {subsection}{\numberline {2.1}Dr. Evil-ABORT-Face}{8}
+\contentsline {subsection}{\numberline {2.2}Data Files}{8}
+\contentsline {subsection}{\numberline {2.3}Citations}{8}
+\contentsline {section}{\numberline {3}The Calibration + K-Correction file}{9}
+\contentsline {subsection}{\numberline {3.1}Changing the Mean Filter Wavelength}{9}
+\contentsline {subsection}{\numberline {3.2}Defining a {{\tt SPECTROGRAPH}} }{10}
+\contentsline {section}{\numberline {4}The {\tt SNANA}\ Simulation: {\tt snlc\_sim.exe}}{12}
+\contentsline {subsection}{\numberline {4.1}Overview of Model Magnitudes and Noise Calculation }{12}
+\contentsline {subsection}{\numberline {4.2}Getting Started Quickly }{13}
+\contentsline {subsection}{\numberline {4.3}Search Hierarchy for Supplemental Input Files}{13}
+\contentsline {subsection}{\numberline {4.4}Cosmological Parameters}{14}
+\contentsline {subsection}{\numberline {4.5}Synchronizing Random Numbers}{14}
+\contentsline {subsection}{\numberline {4.6}Simulated TYPE}{16}
+\contentsline {subsection}{\numberline {4.7}The `{{\tt SIMLIB}}' Observing Conditions File }{17}
+\contentsline {subsubsection}{\numberline {4.7.1}{{\tt SIMLIB}} Options in the Sim-Input File}{20}
+\contentsline {subsubsection}{\numberline {4.7.2}{{\tt SIMLIB}} {\tt SPECTROGRAPH}\ }{22}
+\contentsline {subsubsection}{\numberline {4.7.3}{{\tt SIMLIB}} Options for each LIBID}{23}
+\contentsline {subsubsection}{\numberline {4.7.4}Saturation Option}{24}
+\contentsline {subsubsection}{\numberline {4.7.5}{\tt APPEND} Option}{25}
+\contentsline {subsubsection}{\numberline {4.7.6}SNR Monitor}{25}
+\contentsline {subsection}{\numberline {4.8}Simulating Fields}{25}
+\contentsline {subsubsection}{\numberline {4.8.1}Overlapping Fields}{25}
+\contentsline {subsubsection}{\numberline {4.8.2}Field Subset}{26}
+\contentsline {subsection}{\numberline {4.9}Correlated Template Noise}{27}
+\contentsline {subsection}{\numberline {4.10}Simulating Multiple Instruments}{28}
+\contentsline {subsection}{\numberline {4.11}Simulating Multiple Seasons}{28}
+\contentsline {subsection}{\numberline {4.12}Simulating a Filter as a Sum of Components}{29}
+\contentsline {subsection}{\numberline {4.13}Noise Corrections: $\mathaccent "705E\relax {S}_{\rm SNR}$ and $\mathaccent "705E\relax \sigma _0$ }{30}
+\contentsline {subsubsection}{\numberline {4.13.1} {\tt FLUXERRMODEL} Tables }{30}
+\contentsline {subsubsection}{\numberline {4.13.2}Modeling Flux Correlations }{33}
+\contentsline {subsubsection}{\numberline {4.13.3} Suggested Strategy for Determining {\tt FLUXERRMODEL} Tables }{34}
+\contentsline {subsubsection}{\numberline {4.13.4}Extracting Information for {\tt FLUXERRMODEL} }{34}
+\contentsline {subsubsection}{\numberline {4.13.5} Legacy Noise Corrections }{35}
+\contentsline {subsection}{\numberline {4.14}Example Noise Calculation}{36}
+\contentsline {subsection}{\numberline {4.15}K-corrections }{38}
+\contentsline {subsection}{\numberline {4.16}Intrinsic Brightness Variations}{39}
+\contentsline {subsubsection}{\numberline {4.16.1}Supernova Brightness Variations}{39}
+\contentsline {subsubsection}{\numberline {4.16.2}Weak Gravitational Lensing}{40}
+\contentsline {subsubsection}{\numberline {4.16.3}Strong Gravitational Lensing}{41}
+\contentsline {subsection}{\numberline {4.17}Search Efficiency }{42}
+\contentsline {subsubsection}{\numberline {4.17.1}Software-Pipeline Efficiency }{42}
+\contentsline {subsubsection}{\numberline {4.17.2}Spectroscopic-Confirmation Efficiency }{45}
+\contentsline {subsubsection}{\numberline {4.17.3}Unconfirmed\ Efficiency for Host-Galaxy Redshift }{48}
+\contentsline {subsubsection}{\numberline {4.17.4}Simulating and Fitting Mix of $z_{\rm spec}$ and $z_{\rm phot}$ From Host Galaxy}{51}
+\contentsline {subsubsection}{\numberline {4.17.5}Determining $\epsilon _{spec}$}{51}
+\contentsline {subsubsection}{\numberline {4.17.6}Time Above Detection and Number of Detections}{52}
+\contentsline {subsection}{\numberline {4.18}Selection Cuts }{53}
+\contentsline {subsection}{\numberline {4.19}Varying the Exposure Time/Aperture/Efficiency}{55}
+\contentsline {subsection}{\numberline {4.20}Simulating Galactic Extinction}{56}
+\contentsline {subsubsection}{\numberline {4.20.1}Some Details on Galactic Extinction Computations}{57}
+\contentsline {subsubsection}{\numberline {4.20.2}Correcting FLUXCAL for Galactic Extinction}{57}
+\contentsline {subsection}{\numberline {4.21}Simulating the Host Galaxy}{58}
+\contentsline {subsubsection}{\numberline {4.21.1}{{\sc hostlib}} Options}{60}
+\contentsline {subsubsection}{\numberline {4.21.2}{\sc hostlib}\ Weight Map (WGTMAP)}{63}
+\contentsline {subsubsection}{\numberline {4.21.3}Generating Host Spectra}{63}
+\contentsline {subsubsection}{\numberline {4.21.4}Synthetic Host Magnitudes ({\tt +HOSTMAGS})}{64}
+\contentsline {subsubsection}{\numberline {4.21.5}Generate List of Host Neighbors ({\tt +HOSTNBR})}{64}
+\contentsline {subsubsection}{\numberline {4.21.6}Treatment of {\tt LOGMASS} }{64}
+\contentsline {subsubsection}{\numberline {4.21.7}Notes on CPU Resources}{65}
+\contentsline {subsubsection}{\numberline {4.21.8}Ensuring Host PhotoZ in Fitting Program}{65}
+\contentsline {subsubsection}{\numberline {4.21.9}Miscellaneous}{65}
+\contentsline {subsubsection}{\numberline {4.21.10}Anomalous Flux-Scatter on Bright Galaxies}{66}
+\contentsline {subsection}{\numberline {4.22}Simulating Mis-Matched Host Galaxy}{67}
+\contentsline {subsection}{\numberline {4.23}Simulating Rate vs. Redshift: Volumetric and per Season}{68}
+\contentsline {subsection}{\numberline {4.24}Simulating Rate vs. Galactic Coordinates}{70}
+\contentsline {subsection}{\numberline {4.25}Simulating a {{\tt SPECTROGRAPH}} }{72}
+\contentsline {subsubsection}{\numberline {4.25.1}Spectral Time-Windows Relative to Peak Brightness }{73}
+\contentsline {subsubsection}{\numberline {4.25.2}Calibration Warp vs. Wavelength}{74}
+\contentsline {subsubsection}{\numberline {4.25.3}{{\tt SPECTROGRAPH}} Options}{75}
+\contentsline {subsubsection}{\numberline {4.25.4}Simulating a Single High-S/N Spectrum}{75}
+\contentsline {subsection}{\numberline {4.26}Simulating Rise-Time Variations}{76}
+\contentsline {subsection}{\numberline {4.27}Altering Input SEDs}{77}
+\contentsline {subsubsection}{\numberline {4.27.1}Simulating PEAKMJD or Time of Explosion}{77}
+\contentsline {subsubsection}{\numberline {4.27.2}Extrapolating UV Flux}{77}
+\contentsline {subsection}{\numberline {4.28}{\tt NGEN} keys}{78}
+\contentsline {subsection}{\numberline {4.29}``Perfect'' Simulations}{78}
+\contentsline {subsection}{\numberline {4.30}Generating Redshift ($z_{\rm hel}$, $z_{\rm cmb}$) and Distance }{79}
+\contentsline {subsubsection}{\numberline {4.30.1}Generating Peculiar Velocity}{80}
+\contentsline {subsection}{\numberline {4.31}Redshift-Dependent Parameters}{81}
+\contentsline {subsection}{\numberline {4.32}Estimating PEAKMJD}{82}
+\contentsline {subsection}{\numberline {4.33}Generating Efficiency Maps}{82}
+\contentsline {subsection}{\numberline {4.34}Light Curve Output Formats}{83}
+\contentsline {subsubsection}{\numberline {4.34.1}TEXT Light Curve Output (Default) }{84}
+\contentsline {subsubsection}{\numberline {4.34.2}Model-Mag Light Curve Output}{84}
+\contentsline {subsubsection}{\numberline {4.34.3}Suppress {\tt SIM\_XXX} Info}{84}
+\contentsline {subsubsection}{\numberline {4.34.4}Random CID}{84}
+\contentsline {subsubsection}{\numberline {4.34.5}FITS Format}{86}
+\contentsline {subsubsection}{\numberline {4.34.6}{\tt PHOTFLAG} Mask}{86}
+\contentsline {subsubsection}{\numberline {4.34.7}Source of Each Redshift}{87}
+\contentsline {subsection}{\numberline {4.35}Simulation Dump Options}{88}
+\contentsline {subsubsection}{\numberline {4.35.1}{\tt SIMLIB\_DUMP} Utility }{88}
+\contentsline {subsubsection}{\numberline {4.35.2}Cadence Figure of Merit Utility }{89}
+\contentsline {subsubsection}{\numberline {4.35.3}{\tt SIMGEN\_DUMP} File }{89}
+\contentsline {subsubsection}{\numberline {4.35.4} Model Dump }{90}
+\contentsline {subsection}{\numberline {4.36}Including a Second Sim-Input File}{90}
+\contentsline {subsection}{\numberline {4.37}Multi-dimensional {\tt GRID} Option}{91}
+\contentsline {subsection}{\numberline {4.38}TGRIDSTEP: Linear Interpolation of Model Flux}{94}
+\contentsline {subsection}{\numberline {4.39}Marking Sub-Samples}{94}
+\contentsline {subsection}{\numberline {4.40}Applying Systematic Errors (RANSYSTPAR) }{95}
+\contentsline {section}{\numberline {5}The {\tt SNANA}\ Fitter: {\tt snlc\_fit.exe}\ }{96}
+\contentsline {subsection}{\numberline {5.1}Getting Started Quickly }{96}
+\contentsline {subsection}{\numberline {5.2}Discussion of Lightcurve Fits}{96}
+\contentsline {subsection}{\numberline {5.3}Methods of Fit-Parameter Estimation}{97}
+\contentsline {subsubsection}{\numberline {5.3.1} {{\sc minuit}} Covariances}{98}
+\contentsline {subsection}{\numberline {5.4}Initial Parameter Estimates}{99}
+\contentsline {subsubsection}{\numberline {5.4.1}Rough Estimate of Peak-MJD ($\mathaccent "707E\relax {t_0}$) }{99}
+\contentsline {subsubsection}{\numberline {5.4.2}Refined Estimate of Peak-MJD and Amplitude Parameter}{100}
+\contentsline {subsection}{\numberline {5.5}Galactic Reddening}{101}
+\contentsline {subsection}{\numberline {5.6}Selecting Filters}{102}
+\contentsline {subsection}{\numberline {5.7}Fitting Priors}{102}
+\contentsline {subsection}{\numberline {5.8}Selecting an Efficiency Map for a Fitting Prior}{103}
+\contentsline {subsection}{\numberline {5.9}Viewing Lightcurve Fits: {\tt plot\_snana.py} and {\tt mkfitplots.pl} }{103}
+\contentsline {subsection}{\numberline {5.10}Tracking SN versus Cuts}{104}
+\contentsline {subsection}{\numberline {5.11}PhotoZ Fits}{105}
+\contentsline {subsubsection}{\numberline {5.11.1}Redshift-Dependent Selection in PhotoZ Fits}{108}
+\contentsline {subsubsection}{\numberline {5.11.2}Initial Parameter Estimate}{109}
+\contentsline {subsubsection}{\numberline {5.11.3}Smooth Model Error Transition Across Filter Boundaries}{110}
+\contentsline {subsubsection}{\numberline {5.11.4}Don't Fool Yourself when PhotoZ-Fitting Simulations}{110}
+\contentsline {subsubsection}{\numberline {5.11.5}Including the log($\sigma $) Term in the $\chi ^2$ }{111}
+\contentsline {subsubsection}{\numberline {5.11.6}Avoiding Filter Drop-outs at High PhotoZ}{111}
+\contentsline {subsubsection}{\numberline {5.11.7}4-Parameter Fit Using Host Galaxy Photo-$z$ }{111}
+\contentsline {subsection}{\numberline {5.12}Excluding/Downweighting Filters and Epoch Ranges}{112}
+\contentsline {subsection}{\numberline {5.13}Rest-Frame Wavelength Range}{113}
+\contentsline {subsection}{\numberline {5.14}Better peak Flux Estimate}{114}
+\contentsline {subsection}{\numberline {5.15}Landolt $\leftrightarrow $ Bessell Color Transformations}{114}
+\contentsline {subsection}{\numberline {5.16}Interpolating Fluxes and Magnitudes}{115}
+\contentsline {subsection}{\numberline {5.17}Fitting Rest-Frame Peak-Magnitudes and Colors}{116}
+\contentsline {subsection}{\numberline {5.18}Peak-Mag Crosschecks: {\tt FITMAGDIF}}{116}
+\contentsline {subsection}{\numberline {5.19}Selecting SNID(s), Field(s), and Telescope(s) }{117}
+\contentsline {subsubsection}{\numberline {5.19.1}Selecting/Ignoring SNID}{117}
+\contentsline {subsubsection}{\numberline {5.19.2}Selecting SNID List with Command Line Override}{118}
+\contentsline {subsubsection}{\numberline {5.19.3}Selecting Fields and Overlapping Fields}{118}
+\contentsline {subsubsection}{\numberline {5.19.4}Selecting Telescopes}{119}
+\contentsline {subsubsection}{\numberline {5.19.5}Selecting MJD Ranges}{119}
+\contentsline {subsubsection}{\numberline {5.19.6}Quickly Analyzing a few SNe from a Large Sample}{119}
+\contentsline {subsection}{\numberline {5.20}Mag-Shifts in Zero Points and Primary Reference Star }{120}
+\contentsline {subsection}{\numberline {5.21}Fudging the {\tt FLUXCAL} Offsets and Uncertainties}{121}
+\contentsline {subsection}{\numberline {5.22}Updating the Filter Transmission for each SN}{121}
+\contentsline {subsection}{\numberline {5.23}Shifting the Mean Filter Transmission Wavelength}{121}
+\contentsline {subsection}{\numberline {5.24}Monitoring Fit-Jobs with ``grep'' }{122}
+\contentsline {subsection}{\numberline {5.25}User SN Tags }{122}
+\contentsline {subsection}{\numberline {5.26}Over-Riding Information in Data Files}{124}
+\contentsline {subsubsection}{\numberline {5.26.1}Over-Riding Header Information}{124}
+\contentsline {subsubsection}{\numberline {5.26.2}Over-Riding Light Curve Information}{125}
+\contentsline {subsection}{\numberline {5.27}Peculiar Velocity Corrections }{125}
+\contentsline {subsection}{\numberline {5.28}{\tt SIMCHI2\_CHEAT} }{126}
+\contentsline {subsection}{\numberline {5.29}Cuts on true {\tt SIM\_XXX} Parameters}{126}
+\contentsline {subsection}{\numberline {5.30}IDEAL Fits with True Flux (Sim only) }{126}
+\contentsline {section}{\numberline {6}Private Options}{128}
+\contentsline {subsection}{\numberline {6.1}Creating Your Private Code }{128}
+\contentsline {subsection}{\numberline {6.2}Private Sim Path: {\tt PATH\_SNDATA\_SIM} }{129}
+\contentsline {subsection}{\numberline {6.3}Private Data Path for Analysis: {\tt PRIVATE\_DATA\_PATH} }{129}
+\contentsline {subsection}{\numberline {6.4}Private Model-Path: {\tt \$SNANA\_MODELPATH} }{129}
+\contentsline {subsection}{\numberline {6.5}Private Variables in Data Files}{130}
+\contentsline {subsubsection}{\numberline {6.5.1}CUTWIN-selection on Private Variables}{130}
+\contentsline {subsubsection}{\numberline {6.5.2}Using a Private Redshift in the Analysis}{130}
+\contentsline {section}{\numberline {7}Adding a New Survey }{131}
+\contentsline {subsection}{\numberline {7.1}Filter Names and Rules for K-corrections}{132}
+\contentsline {subsection}{\numberline {7.2}Combining Surveys}{133}
+\contentsline {section}{\numberline {8}Photometric Classification }{135}
+\contentsline {subsection}{\numberline {8.1}{\tt psnid.exe}}{135}
+\contentsline {subsubsection}{\numberline {8.1.1}Preparing Photometric Templates for {{\tt psnid.exe}}}{136}
+\contentsline {subsubsection}{\numberline {8.1.2}Redshift Priors for {{\tt psnid.exe}}}{136}
+\contentsline {subsubsection}{\numberline {8.1.3}Rate Priors for {{\tt psnid.exe}}}{137}
+\contentsline {subsection}{\numberline {8.2}Nearest Neighbor Method}{138}
+\contentsline {section}{\numberline {9}Light Curve Models}{140}
+\contentsline {subsection}{\numberline {9.1}Host Galaxy Extinction}{141}
+\contentsline {subsection}{\numberline {9.2}{{\tt MLCS2k2}}}{142}
+\contentsline {subsection}{\numberline {9.3}{{\sc salt-ii}} {\relax \fontsize {10.95}{13.6}\selectfont \abovedisplayskip 11\p@ plus3\p@ minus6\p@ \abovedisplayshortskip \z@ plus3\p@ \belowdisplayshortskip 6.5\p@ plus3.5\p@ minus3\p@ \def \leftmargin \leftmargini \parsep 5\p@ plus2.5\p@ minus\p@ \topsep 10\p@ plus4\p@ minus6\p@ \itemsep 5\p@ plus2.5\p@ minus\p@ {\leftmargin \leftmargini \topsep 9\p@ plus3\p@ minus5\p@ \parsep 4.5\p@ plus2\p@ minus\p@ \itemsep \parsep }\belowdisplayskip \abovedisplayskip (J. Guy et al., {\bf A\&A 466}, 11, 2007)} }{143}
+\contentsline {subsubsection}{\numberline {9.3.1}Simulating $\alpha ,\beta ,\gamma $ Grid for {\tt SALT2mu}/BBC }{144}
+\contentsline {subsection}{\numberline {9.4}{{\tt SNooPy}}}{145}
+\contentsline {subsection}{\numberline {9.5}{{\tt SIMSED}}}{146}
+\contentsline {subsection}{\numberline {9.6}{\tt NONIASED}}{149}
+\contentsline {subsubsection}{\numberline {9.6.1}Peculiar SNIa}{150}
+\contentsline {subsection}{\numberline {9.7}\tt NON1AGRID}{151}
+\contentsline {subsection}{\numberline {9.8}{{\tt FIXMAG}} and {{\tt RANMAG}}}{151}
+\contentsline {subsection}{\numberline {9.9}{{\tt SIMLIB}}: Read True Mags from {\tt SIMLIB}\ File}{151}
+\contentsline {subsection}{\numberline {9.10}{{\tt LCLIB}}: Galactic Transients}{152}
+\contentsline {subsubsection}{\numberline {9.10.1}Overview}{152}
+\contentsline {subsubsection}{\numberline {9.10.2}Defining the Library}{152}
+\contentsline {subsubsection}{\numberline {9.10.3} Implementation }{153}
+\contentsline {section}{\numberline {10}Computing Distance Moduli from BBC Method: {\tt SALT2mu.exe} }{156}
+\contentsline {subsection}{\numberline {10.1}Catenating FITRES Files from Multiple Samples}{157}
+\contentsline {subsection}{\numberline {10.2}Blinding BBC Output from {\tt SALT2mu.exe} }{158}
+\contentsline {section}{\numberline {11}Cosmology Fitters}{159}
+\contentsline {subsection}{\numberline {11.1}Interpreting Redshift Variables in SNANA Tables}{159}
+\contentsline {subsection}{\numberline {11.2}Peculiar Velocity Covariances}{160}
+\contentsline {section}{\numberline {12}Miscellaneous Tools and Features}{161}
+\contentsline {subsection}{\numberline {12.1}Analysis-Output: Files, Tables, Variables }{161}
+\contentsline {subsubsection}{\numberline {12.1.1}Combining Ascii ``Fitres'' Files: {\tt combine\_fitres.exe}}{163}
+\contentsline {subsubsection}{\numberline {12.1.2}{\tt SNTABLE} Dump Utility: {{\tt sntable\_dump.pl}} }{165}
+\contentsline {subsubsection}{\numberline {12.1.3}Extract Value from Fitres File: {\tt get\_fitresValue.pl}}{166}
+\contentsline {subsubsection}{\numberline {12.1.4}Working with IAUC names}{166}
+\contentsline {subsubsection}{\numberline {12.1.5}{\tt ovdatamc.py}\nobreakspace {}: Plotting Utility for Data/MC Overlays}{167}
+\contentsline {subsection}{\numberline {12.2}General Misc. Tools}{167}
+\contentsline {subsubsection}{\numberline {12.2.1}Command-line Overrides}{167}
+\contentsline {subsubsection}{\numberline {12.2.2}Synchronizing/Updating Survey Files: survey\_update.pl}{168}
+\contentsline {subsubsection}{\numberline {12.2.3}Bug-Catcher: the {\tt SNANA\_tester} Script }{168}
+\contentsline {subsubsection}{\numberline {12.2.4}Restoring Bugs}{168}
+\contentsline {subsubsection}{\numberline {12.2.5}K-correction Dump Utility: {\tt kcordump.exe}}{168}
+\contentsline {subsection}{\numberline {12.3}Misc. Simulation Tools}{170}
+\contentsline {subsubsection}{\numberline {12.3.1}{\tt DASHBOARD} Utility}{170}
+\contentsline {subsubsection}{\numberline {12.3.2}Simulate Ia/non-Ia mix: {\tt sim\_SNmix.pl}}{170}
+\contentsline {subsubsection}{\numberline {12.3.3}Co-Adding {\tt SIMLIB} Observations on Same Night: {\tt simlib\_coadd.exe} }{174}
+\contentsline {subsubsection}{\numberline {12.3.4}Creating a {\tt SIMLIB}\ from Data}{174}
+\contentsline {subsubsection}{\numberline {12.3.5}Fudging Simulated Errors and Signal-to-Noise Ratio (S/N) }{176}
+\contentsline {subsection}{\numberline {12.4}Misc. Fitting Tools}{178}
+\contentsline {subsubsection}{\numberline {12.4.1}Fit Multiple Samples with Multiple Fit-Options: {\tt split\_and\_fit.pl}}{178}
+\contentsline {subsubsection}{\numberline {12.4.2}Analyzing Residuals from Lightcurve Fits}{178}
+\contentsline {subsubsection}{\numberline {12.4.3}Extracting Light Curves into ASCII Formatted Files}{178}
+\contentsline {subsubsection}{\numberline {12.4.4}Translating SNDATA files into SALT-II Format}{179}
+\contentsline {subsubsection}{\numberline {12.4.5}Translating TEXT data-files into FITS Format}{179}
+\contentsline {subsubsection}{\numberline {12.4.6}Re-write Data FIles with Flux Fudges}{180}
+\contentsline {subsubsection}{\numberline {12.4.7}Fudging Fitting Errors}{180}
+\contentsline {subsubsection}{\numberline {12.4.8}1/Vmax Method: Post-Fit Calculations}{181}
+\contentsline {subsubsection}{\numberline {12.4.9}FILTER\_REPLACE}{182}
+\contentsline {subsubsection}{\numberline {12.4.10}SNTABLE\_FILTER\_REMAP}{182}
+\contentsline {subsubsection}{\numberline {12.4.11}Selecting Early Epochs}{183}
+\contentsline {subsubsection}{\numberline {12.4.12}Selecting Epoch Ranges for Fast Transients ({\tt REQUIRE\_EPOCHS\_STRING}) }{184}
+\contentsline {subsubsection}{\numberline {12.4.13}Miscellaneous {\tt \&SNLCINP} Options}{184}
+\contentsline {subsection}{\numberline {12.5}Misc. {\tt SIMSED}\ Utilities}{184}
+\contentsline {subsubsection}{\numberline {12.5.1}{\tt SIMSED}\ Spectrum Extraction: {\tt SIMSED\_extractSpec.exe} }{184}
+\contentsline {subsubsection}{\numberline {12.5.2}{\tt SIMSED}\ Fudge Afterburner: {\tt SIMSED\_fudge.exe} }{184}
+\contentsline {subsubsection}{\numberline {12.5.3}{\tt SIMSED}\ Preparation for SNANA: {\tt SIMSED\_prep.exe} }{184}
+\contentsline {subsection}{\numberline {12.6} Reading gzip'ed Input Files }{185}
+\contentsline {subsection}{\numberline {12.7} Program Return Codes }{185}
+\contentsline {section}{\numberline {13}{\tt SNANA} Updates}{186}
+\contentsline {section}{\numberline {14}Reporting Problems}{186}
+\contentsline {section}{References}{187}

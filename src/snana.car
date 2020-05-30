@@ -963,7 +963,7 @@ c  Not intended for analysis.
 
       PARAMETER (
      &   MXVAR_SPECTRUM = 10   ! max number of variables after SPEC: key
-     &  ,MXSPECTRUM     = 20    ! max number of spectra to read per event
+     &  ,MXSPECTRUM     = 40    ! max number of spectra to read per event
      &  ,MXLAM_SPECTRUM = 20000 ! max number of wave bins per spectrum
      &        )
 

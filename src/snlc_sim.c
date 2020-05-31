@@ -962,6 +962,7 @@ void set_user_defaults(void) {
   INPUTS.USE_SIMLIB_PEAKMJD  = 0;  // use 'PEAKMJD: <t0>'  in header
   INPUTS.USE_SIMLIB_MAGOBS   = 0;
   INPUTS.USE_SIMLIB_SPECTRA  = 0;
+  INPUTS.USE_SIMLIB_SALT2    = 0;
 
   INPUTS.SIMLIB_MSKOPT = 0 ;
   GENLC.SIMLIB_IDLOCK  = -9;
@@ -1629,6 +1630,11 @@ int read_input(char *input_file) {
     }
     if ( uniqueMatch(c_get,"USE_SIMLIB_SPECTRA:")   ) { 
       readint ( fp, 1, &INPUTS.USE_SIMLIB_SPECTRA ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      continue ; 
+    }
+    if ( uniqueMatch(c_get,"USE_SIMLIB_SALT2:")   ) { 
+      readint ( fp, 1, &INPUTS.USE_SIMLIB_SALT2 ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
       continue ; 
     }
@@ -4790,31 +4796,43 @@ void sim_input_override(void) {
 
     if ( strcmp( ARGV_LIST[i], "SIMLIB_NREPEAT" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_NREPEAT ); 
+      goto INCREMENT_COUNTER; 
     }
 
     if ( strcmp( ARGV_LIST[i], "SIMLIB_NSKIPMJD" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_NSKIPMJD ); 
+      goto INCREMENT_COUNTER; 
     }
 
     if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_REDSHIFT" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_REDSHIFT ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
+      goto INCREMENT_COUNTER; 
     }
     if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_DISTANCE" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_DISTANCE ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
+      goto INCREMENT_COUNTER; 
     }
     if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_PEAKMJD" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_PEAKMJD ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
+      goto INCREMENT_COUNTER; 
     }
     if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_MAGOBS" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_MAGOBS ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
+      goto INCREMENT_COUNTER; 
     }
     if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_SPECTRA" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_SPECTRA ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_SALT2" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_SALT2 ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      goto INCREMENT_COUNTER; 
     }
 
     if ( strcmp( ARGV_LIST[i], "SIMLIB_MSKOPT" ) == 0 ) {
@@ -11158,8 +11176,10 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
   bool ISMODEL_FIXMAG    = ( INDEX_GENMODEL == MODEL_FIXMAG );
   bool ISMODEL_SIMLIB    = ( INDEX_GENMODEL == MODEL_SIMLIB );
   bool ISMODEL_NON1ASED  = ( INDEX_GENMODEL == MODEL_NON1ASED );
-  
-  bool DOSHAPE = ( !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG < 0 ) ;
+
+  bool SKIPx1  = ( fabs(SIMLIB_HEADER.GENGAUSS_SALT2x1.PEAK) < 9.0 );  
+  bool DOSHAPE = ( !SKIPx1 && !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0) ;
+
 
   double ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   double shape;
@@ -11238,8 +11258,10 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
   // Generated c, x1, alpha, beta
   // Mar 11 2020: pass OPT_FRAME argument.
 
-  bool ISFRAME_REST    = ( OPT_FRAME == OPT_FRAME_REST );
-  bool ISFRAME_OBS     = ( OPT_FRAME == OPT_FRAME_OBS  );
+  bool ISFRAME_REST  = ( OPT_FRAME == OPT_FRAME_REST );
+  bool ISFRAME_OBS   = ( OPT_FRAME == OPT_FRAME_OBS  );
+  bool SKIPx1  = ( fabs(SIMLIB_HEADER.GENGAUSS_SALT2x1.PEAK) < 9.0 );
+  bool SKIPc   = ( fabs(SIMLIB_HEADER.GENGAUSS_SALT2c.PEAK)  < 9.0 );
   double   ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   GENGAUSS_ASYM_DEF  GENGAUSS_ZVAR ;
   char fnam[] = "gen_modelPar_SALT2";
@@ -11248,12 +11270,16 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
 
   // for SALT2, the color term is analogous to shapepar
   // so generate the 'c' and beta term here.
+
   
   if ( ISFRAME_REST ) {
-    GENGAUSS_ZVAR = 
-      get_zvariation_GENGAUSS(ZCMB,"SALT2c",&INPUTS.GENGAUSS_SALT2c);
-    GENLC.SALT2c = 
-      exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;
+
+    if ( !SKIPc ) {
+      GENGAUSS_ZVAR = 
+	get_zvariation_GENGAUSS(ZCMB,"SALT2c",&INPUTS.GENGAUSS_SALT2c);
+      GENLC.SALT2c = 
+	exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;
+    }
 
     GENGAUSS_ZVAR = 
       get_zvariation_GENGAUSS(ZCMB,"SALT2ALPHA",&INPUTS.GENGAUSS_SALT2ALPHA);
@@ -17207,12 +17233,14 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   // Jan 4 2018: read optional DISTANCE key, and convert to zCMB
   //
   // May 29 2020: check for TAKE_SPECTRUM key(s) in header.
+  // May 31 2020: parse SALT2 params only of USE_SIMLIB_SALT2 flag is set
 
   bool USE_MODEL_SIMLIB = (INDEX_GENMODEL == MODEL_SIMLIB);
   bool RDFLAG_REDSHIFT  = (INPUTS.USE_SIMLIB_REDSHIFT || USE_MODEL_SIMLIB);
   bool RDFLAG_PEAKMJD   = (INPUTS.USE_SIMLIB_PEAKMJD  || USE_MODEL_SIMLIB);
   bool RDFLAG_DISTANCE  = (INPUTS.USE_SIMLIB_DISTANCE || USE_MODEL_SIMLIB);
   bool RDFLAG_SPECTRA   = (INPUTS.USE_SIMLIB_SPECTRA  || USE_MODEL_SIMLIB);
+  bool RDFLAG_SALT2     = (INPUTS.USE_SIMLIB_SALT2    || USE_MODEL_SIMLIB);
   int  LTMP ;
   double TMPVAL, TMPRANGE[2], dist, MU ;
 
@@ -17286,49 +17314,54 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   }
 
 
-  // check for SALT2c range & sigma
-  LTMP=0;
-  if ( strcmp(KEY,"SALT2c:") == 0 ) {
-    readdouble ( fp_SIMLIB, 1, &TMPVAL);
-    TMPRANGE[0] = TMPRANGE[1] = TMPVAL ; LTMP=1;    
-  }
-  else if ( strcmp(KEY,"GENRANGE_SALT2c:") == 0 ) {
-    readdouble ( fp_SIMLIB, 2, TMPRANGE ); LTMP=1 ;
-  }
-  if ( LTMP ) {
-    SIMLIB_HEADER.GENGAUSS_SALT2c.PEAK     = 0.5*(TMPRANGE[0]+TMPRANGE[1]);
-    SIMLIB_HEADER.GENGAUSS_SALT2c.RANGE[0] = TMPRANGE[0] ;
-    SIMLIB_HEADER.GENGAUSS_SALT2c.RANGE[1] = TMPRANGE[1] ;
-    SIMLIB_HEADER.REGEN_FLAG = 1;
-  }
+  // - - - - - - - - - - - - - - - - - 
+  if ( RDFLAG_SALT2 ) {
+    LTMP=0;
+    // check for SALT2c range & sigma
+    if ( strcmp(KEY,"SALT2c:") == 0 ) {
+      readdouble ( fp_SIMLIB, 1, &TMPVAL);
+      TMPRANGE[0] = TMPRANGE[1] = TMPVAL ; LTMP=1;
+      printf(" xxx read SALT2c = %6.3f for CID=%d \n", TMPVAL, GENLC.CID);
+    }
+    else if ( strcmp(KEY,"GENRANGE_SALT2c:") == 0 ) {
+      readdouble ( fp_SIMLIB, 2, TMPRANGE ); LTMP=1 ;
+    }
+    if ( LTMP ) {
+      SIMLIB_HEADER.GENGAUSS_SALT2c.PEAK     = 0.5*(TMPRANGE[0]+TMPRANGE[1]);
+      SIMLIB_HEADER.GENGAUSS_SALT2c.RANGE[0] = TMPRANGE[0] ;
+      SIMLIB_HEADER.GENGAUSS_SALT2c.RANGE[1] = TMPRANGE[1] ;
+      SIMLIB_HEADER.REGEN_FLAG = 1;
+    }
+    
+    if ( strcmp(KEY,"GENSIGMA_SALT2c:") == 0 ) {
+      readdouble ( fp_SIMLIB, 1, &TMPVAL ); 
+      SIMLIB_HEADER.GENGAUSS_SALT2c.SIGMA[0] = TMPVAL ;
+      SIMLIB_HEADER.GENGAUSS_SALT2c.SIGMA[1] = TMPVAL ;
+    } 
+    
+    // check for SALT2x1 range & sigma
+    LTMP=0;
+    if ( strcmp(KEY,"SALT2x1:")==0 ) {
+      readdouble ( fp_SIMLIB, 1, &TMPVAL );   
+      TMPRANGE[0] = TMPRANGE[1] = TMPVAL ; LTMP=1;  
+    }
+    else if ( strcmp(KEY,"GENRANGE_SALT2x1:")==0 ) {
+      readdouble ( fp_SIMLIB, 2, TMPRANGE );   LTMP=1;
+    }
+    if ( LTMP ) {
+      SIMLIB_HEADER.GENGAUSS_SALT2x1.PEAK     = 0.5*(TMPRANGE[0]+TMPRANGE[1]);
+      SIMLIB_HEADER.GENGAUSS_SALT2x1.RANGE[0] = TMPRANGE[0] ;
+      SIMLIB_HEADER.GENGAUSS_SALT2x1.RANGE[1] = TMPRANGE[1] ;
+      SIMLIB_HEADER.REGEN_FLAG = 1;
+    }
+    
+    if ( strcmp(KEY,"GENSIGMA_SALT2x1:") == 0 ) {
+      readdouble ( fp_SIMLIB, 1, &TMPVAL ); 
+      SIMLIB_HEADER.GENGAUSS_SALT2x1.SIGMA[0] = TMPVAL ;
+      SIMLIB_HEADER.GENGAUSS_SALT2x1.SIGMA[1] = TMPVAL ;
+    } 
+  }  // end RDFLAG_SALT2
 
-  if ( strcmp(KEY,"GENSIGMA_SALT2c:") == 0 ) {
-    readdouble ( fp_SIMLIB, 1, &TMPVAL ); 
-    SIMLIB_HEADER.GENGAUSS_SALT2c.SIGMA[0] = TMPVAL ;
-    SIMLIB_HEADER.GENGAUSS_SALT2c.SIGMA[1] = TMPVAL ;
-  } 
-
-  // check for SALT2x1 range & sigma
-  LTMP=0;
-  if ( strcmp(KEY,"SALT2x1:")==0 ) {
-    readdouble ( fp_SIMLIB, 1, &TMPVAL );   
-    TMPRANGE[0] = TMPRANGE[1] = TMPVAL ; LTMP=1;  
-  }
-  else if ( strcmp(KEY,"GENRANGE_SALT2x1:")==0 ) {
-    readdouble ( fp_SIMLIB, 2, TMPRANGE );   LTMP=1;
-  }
-  if ( LTMP ) {
-    SIMLIB_HEADER.GENGAUSS_SALT2x1.PEAK     = 0.5*(TMPRANGE[0]+TMPRANGE[1]);
-    SIMLIB_HEADER.GENGAUSS_SALT2x1.RANGE[0] = TMPRANGE[0] ;
-    SIMLIB_HEADER.GENGAUSS_SALT2x1.RANGE[1] = TMPRANGE[1] ;
-    SIMLIB_HEADER.REGEN_FLAG = 1;
-  }
-
-  if ( strcmp(KEY,"GENSIGMA_SALT2x1:") == 0 ) {
-    readdouble ( fp_SIMLIB, 1, &TMPVAL ); 
-    SIMLIB_HEADER.GENGAUSS_SALT2x1.SIGMA[0] = TMPVAL ;
-    SIMLIB_HEADER.GENGAUSS_SALT2x1.SIGMA[1] = TMPVAL ;
-  } 
 
   // - - - - - - - - - 
   // May 29 2020 : check for TAKE_SPECTRUM keys
@@ -17369,6 +17402,7 @@ int check_SIMLIB_GENRANGE(double *GENRANGE_ORIG, double *GENRANGE_NEW) {
 } // end check_SIMLIB_GENRANGE
 
 
+// ============================================
 int regen_SIMLIB_GENRANGES(void) {
 
   // Created Apr 13 2016 by R.Kessler

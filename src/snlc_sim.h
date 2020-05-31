@@ -413,6 +413,7 @@ struct INPUTS {
   int  USE_SIMLIB_PEAKMJD ;   // idem for optional PEAKMJD
   int  USE_SIMLIB_MAGOBS ;    // use MAGOBS column instead of SN model
   int  USE_SIMLIB_SPECTRA;    // use TAKE_SPECTRUM keys in SIMLIB header
+  int  USE_SIMLIB_SALT2 ;     // use SALT2c and SALT2x1 from SIMLIB header
   int  SIMLIB_MSKOPT ;        // special SIMLIB options (see manaul)
 
   // ---- end simlib inputs -----

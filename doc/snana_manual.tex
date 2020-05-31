@@ -1102,6 +1102,7 @@ etc ...
   USE_SIMLIB_REDSHIFT: 1  # use redshift in header (if there)
   USE_SIMLIB_DISTANCE: 1  # use lumi-distance in header (invert to get zCMB)
   USE_SIMLIB_SPECTRA:  1  # use TAKE_SPECTRUM keys in header 
+  USE_SIMLIB_SALT2:    1  # use SALT2c & SALT2x1 keys in header
 \end{Verbatim}
 
 More information about the {\tt SIMLIB\_DUMP} option
@@ -11916,6 +11917,10 @@ The {\tt snana.exe} program can create such a
 
  ! for systematic tests only
     SIMLIB_OUT_TMINFIX = 5   !  force PEAKMJD = MJD_MIN - 5
+
+ ! optional method to include SALT2x1 and SALT2c in header
+ ! if fitted c and x1 are in the header-override file:
+   HEADER_OVERRIDE_FILE = '[fileName with c and x1 colums]'
 \end{verbatim}
 %
 If the light curve data include meta data (PSF,SKY,ZP)

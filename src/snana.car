@@ -1477,7 +1477,7 @@ c define hard-wired list of valid over-rides
      &   'REDSHIFT_QUALITYFLAG,zFLAG,' //
      &   'SIM_SALT2x1,SIM_SALT2c,SIM_x1,SIM_c,'      //
      &   'PEAKMJD,PKMJDINI,PEAKMJDINI,' //
-     &   'MWEBV,MWEBV_ERR '      )
+     &   'MWEBV,MWEBV_ERR,x1,c'   )
       
       INTEGER MXVAR_HEADER_OVERRIDE
       PARAMETER ( MXVAR_HEADER_OVERRIDE = 10 )
@@ -18344,12 +18344,14 @@ c May 14 2020: check for REDSHIFT_QUALITYFLAG
       CHARACTER cVARNAME*40, VARNAME*40, cDUM*20
       CHARACTER CCID_SNID*(MXCHAR_CCID), CCID_IAUC*(MXCHAR_CCID)
       CHARACTER FNAM*24
-
+      LOGICAL    MAKE_SIMLIB_OUT
 c functions
       EXTERNAL SNTABLE_AUTOSTORE_READ
 C ------------ BEGIN ------------
 
       IF ( NVAR_HEADER_OVERRIDE <= 0 ) RETURN
+
+      MAKE_SIMLIB_OUT = ( SIMLIB_OUTFILE .NE. '' ) 
 
       FNAM = 'EXEC_HEADER_OVERRIDE'
 
@@ -18442,7 +18444,7 @@ c brute-force check each possible header variable
         ELSE IF ( VARNAME(1:LENV) .EQ. 'PEAKMJDINI' ) THEN  ! same
           SNLC_SEARCH_PEAKMJD = sngl(DVAL)
 
-        ELSE
+        ELSE IF ( .NOT. MAKE_SIMLIB_OUT ) THEN           
            C1ERR = 'Unknown VARNAME = '// VARNAME(1:LENV)
            C2ERR = 'Check VARLIST_ALL_HEADER_OVERRIDE in snana.car' 
            CALL MADABORT(FNAM, c1err, c2err )
@@ -21083,17 +21085,18 @@ c +CDE,SNANAFIT.
 +CDE,FILTCOM.
 +CDE,SIMLIBCOM.
 +CDE,SPECCOM.
++CDE,OVRIDECOM.
 
       REAL*8  MJD, GAIN, RDNOISE, SKYSIG, PSF1, PSF2, PSFRAT
       REAL*8  ZP, ZPERR, MAG, FLUX, FLUXERR, PIXSIZE, LAMOBS
-      REAL*8  MJD_MIN, TOBS_MIN, PEAKMJD
+      REAL*8  MJD_MIN, TOBS_MIN, PEAKMJD, DVAL
       INTEGER LIBID, IFILT, IFILT_OBS, LASTEP(MXFILT_OBS)
       INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP
-      INTEGER i
+      INTEGER i, LENcMAG, ISTAT
       LOGICAL IS_REAL_DATA, WRALL_SIM_MAGOBS, WRSET_SIM_MAGOBS
       LOGICAL WR_SIM_MAGOBS
-      CHARACTER BAND*4, FNAM*20, SEDCMD*200
-      CHARACTER cMAG*10, cNCUTS*12, STR_OLD*40, STR_NEW*60
+      CHARACTER BAND*4, FNAM*20, SEDCMD*200, cDUM*20, CCID*32
+      CHARACTER cMAG*12, cNCUTS*12, STR_OLD*40, STR_NEW*60
 
 C ------------------ BEGIN ------------------
 
@@ -21267,10 +21270,21 @@ c Nov 23 2019: add more info for simulated data
       IF ( WR_SIM_MAGOBS  ) THEN
          write(LUNOUT,"('GALID: ',I9)" ) SNHOST_OBJID(1)
          write(LUNOUT,"('FIELD: ',A )" ) SNLC_FIELDLIST ! includes overlaps
-
-c         write(LUNOUT,"('SALT2x1: ',F6.3,5x,'SALT2c: ',F6.3)" )
-c     &          SIM_SHAPEPAR, SIM_COLORPAR 
       ENDIF
+
+c - - - - - - - - - - 
+c May 31 2020:  if header-override file is set, check for SALT2 fit params
+      IF ( NVAR_HEADER_OVERRIDE > 0 ) THEN
+        CCID = SNLC_CCID(1:ISNLC_LENCCID)//char(0)
+        CALL SNTABLE_AUTOSTORE_READ(CCID, "x1"//char(0), 
+     &        ISTAT, DVAL,cDUM,    MXCHAR_CCID,10,20)
+        if ( ISTAT == 0 ) write(LUNOUT,"('SALT2x1: ',F7.4)" ) DVAL
+
+        CALL SNTABLE_AUTOSTORE_READ(CCID, "c"//char(0), 
+     &        ISTAT, DVAL,cDUM,    MXCHAR_CCID,10,20)
+        if ( ISTAT == 0 ) write(LUNOUT,"('SALT2c:  ',F7.4)" ) DVAL
+      ENDIF
+
 
 c - - - - -
       CALL SET_SIMLIB_TEMPLATE_INFO()  ! Feb 5 2020
@@ -21327,11 +21341,12 @@ c --------
            ZP        = SNLC_ZEROPT(ep)
            ZPERR     = SNLC_ZEROPT_ERR(ep)
 
-           cMAG      = '99'
+           cMAG      = '99' ; LENcMAG=2
            if ( WR_SIM_MAGOBS ) then
               MAG = SIM_EPMAGOBS(ep)
               if ( WRSET_SIM_MAGOBS .and. MAG > 98.0 ) goto 301
               write(cMAG,"(F8.4)") MAG
+              LENcMAG = 8
            endif
 
            IF ( PSF1 < 1.0E-5 .and. SKYSIG > 1.0E-5 ) GOTO 301
@@ -21360,7 +21375,7 @@ c Mainly for low-z sample which has no meta data.
      &        MJD, EP, BAND,    ! EP is a dummy ID
      &        GAIN, RDNOISE, 
      &        SKYSIG, PSF1, PSF2, PSFRAT,
-     &        ZP, ZPERR, cMAG
+     &        ZP, ZPERR, cMAG(1:LENcMAG)
 
 120        format('S: ', 
      &            F9.3, I4, 2x, A2, 2x,      ! MJD, ID, BAND

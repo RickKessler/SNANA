@@ -286,6 +286,8 @@
   Feb 26 2020: + print out warning message when skipping candidate
                  due to user-specified OPT_ZPRIOR
 
+  May 22 2020: + added error model of H20 templates (S13_H20)
+
  ================================================================ */
 
 #include <stdio.h>
@@ -1246,7 +1248,7 @@ void psnid_best_split_nonia_types(int *types, int optdebug)
     printf("\t There are %2d II    templates\n", nii);
     printf("\t There are %2d PEC1A templates\n", npec1a);
 
-    for(i=1; i < 4; i++ ) {
+    for(i=1; i <= 4; i++ ) {
       printf("\t There are %2d MODEL%d templates\n", nmodel[i],i);
     }
     
@@ -1537,6 +1539,8 @@ double psnid_best_modelErr(int TYPEINDX, double Trest, double modelErr_grid){
   // strip off string-name of mag-error model into local pointer
   modelName = PSNID_INPUTS.MODELNAME_MAGERR ; 
   
+  ISIA = (TYPEINDX == TYPEINDX_SNIA_PSNID) ;
+
   if ( strcmp(modelName,"GRID") == 0 ) 
     {  MAGERR = modelErr_grid ; }
 
@@ -1548,6 +1552,14 @@ double psnid_best_modelErr(int TYPEINDX, double Trest, double modelErr_grid){
 
   else if ( strcmp(modelName,"S11") == 0 ) 
     {  MAGERR = psnid_best_modelErr_S11(TYPEINDX,Trest) ; }
+
+  else if ( strcmp(modelName,"S13_H20") == 0 ) {
+    if ( ISIA ) {
+      MAGERR = psnid_best_modelErr_S13(TYPEINDX,Trest);
+    } else {
+      MAGERR = modelErr_grid;
+    }
+  }
 
   else 
     {

@@ -4,7 +4,7 @@
 #define MXSPEC                 50   // max Nspec per event   
 #define MXTEXPOSE_SPECTROGRAPH 50   // max size of TEXPOSE grid
 #define MXLAM_SPECTROGRAPH     10000 // ->10k on May 27 2020 (was 2400)
-#define MXLAMSMEAR_SPECTROGRAPH 20  // max number of smeared lambda bins
+#define MXLAMSMEAR_SPECTROGRAPH 40  // max number of smeared lambda bins
 #define FITSTABLE_NAME_SPECTROGRAPH  "SPECTROGRAPH" 
 #define NCOL_noSNR 3    // Ncolumns before SNR values
 #define TEXPOSE_INFINITE_SPECTROGRAPH 1.0E8 // flag to ignore noise

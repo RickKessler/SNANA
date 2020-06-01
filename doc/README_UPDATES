@@ -18463,6 +18463,9 @@
       MXWORDFILE_PARSE_WORDS -> 1 million (was 500k) to handle data
       files with lots of spectra.
 
+    sntools_spectrograph.h:
+        MXLAMSMEAR_SPECTROGRAPH -> 40 (was 20) for small DIEMOS bins
+
     SNR_LAMPOLY??
        https://www.gnu.org/software/gsl/doc/html/lls.html
        gsl_multifit_linear

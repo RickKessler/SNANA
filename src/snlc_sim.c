@@ -1223,10 +1223,12 @@ void set_user_defaults(void) {
 // *******************************************
 void set_user_defaults_SPECTROGRAPH(void) {
 
+  // Jun 1 2020: NLAMSIGMA  -> 3.0 (was 5.0)
+
   // set default spectrograph options
   INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK         =  0 ;
   INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC     =  0 ;
-  INPUTS.SPECTROGRAPH_OPTIONS.NLAMSIGMA       =  5.0;
+  INPUTS.SPECTROGRAPH_OPTIONS.NLAMSIGMA       =  3.0;
   INPUTS.SPECTROGRAPH_OPTIONS.SCALE_LAMSIGMA  =  1. ;
   INPUTS.SPECTROGRAPH_OPTIONS.SCALE_SNR       =  1. ;  // scale on SNR
   INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE   =  1. ;  // scale Texpose
@@ -9853,7 +9855,7 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
   //
   // Jan 17 2018: use ILIST_RANDOM_SPECTROGRAPH
   // Oct 25 2019: fix bug setting GRAN_T if there is no template.
-  // 
+  // Jun 01 2020: move NRAN abort outside loop with more info
 
   int OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
   int onlyTNOISE = ( OPTMASK & SPECTROGRAPH_OPTMASK_onlyTNOISE ) ;
@@ -9863,7 +9865,7 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
   double NSIGLAM, LAMAVG, LAMSIGMA, LAMBIN, LAMSIG0, LAMSIG1;
   double GINT, SUM_GINT, GINT_SQRT, GRAN_S, GRAN_T ;
   double tmp_GenFlux, tmp_GenFluxErr, tmp_GenFluxErr_S, tmp_GenFluxErr_T ;
-  double tmp_RanFlux_S, tmp_RanFlux_T;
+  double tmp_RanFlux_S, tmp_RanFlux_T, RANGauss_NOISE_TEMPLATE;
   double GenFluxErr_S, OBSFLUX, OBSFLUXERR ;
   int    NBIN2, ilam2, ilam_tmp, NBLAM, NRAN, LDMP=0 ;
   char fnam[] = "GENSPEC_LAMSMEAR" ;
@@ -9916,14 +9918,15 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
       { tmp_RanFlux_S = tmp_RanFlux_T = 0.0 ; }
     else {
 
-      GRAN_S = GRAN_T = 0.0 ;
+      GRAN_S = GRAN_T = RANGauss_NOISE_TEMPLATE = 0.0 ;
       if ( GENSPEC.NMJD_PROC==0 && tmp_GenFluxErr_T > 0.0 ) 
-	{ GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam]=GaussRan(ILIST_RAN);}
-      else 
-	{ GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] = 0.0 ; }
+	{ RANGauss_NOISE_TEMPLATE = GaussRan(ILIST_RAN);}
+
+      if ( NRAN < MXLAMSMEAR_SPECTROGRAPH )
+	{ GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] = RANGauss_NOISE_TEMPLATE; }
 
       GRAN_S = GaussRan(ILIST_RAN);
-      GRAN_T = GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] ;
+      GRAN_T = RANGauss_NOISE_TEMPLATE ;
 
       // random noise from search 
       tmp_RanFlux_S = tmp_GenFluxErr_S * GRAN_S ;
@@ -9942,7 +9945,6 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
       printf(" xxx \t (%f, %f) \n", GenFluxErr, GenFluxErr_T  );
     }
     
-
     // add noise to true flux
     OBSFLUX    = tmp_GenFlux + tmp_RanFlux_S + tmp_RanFlux_T ;
     OBSFLUXERR = tmp_GenFluxErr ; // naive obs-error is true error
@@ -9954,14 +9956,21 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
 
     NRAN++ ;
 
-    if ( NRAN >= MXLAMSMEAR_SPECTROGRAPH ) {
-      sprintf(c1err,"NLAMSMEAR = %d exceeds bound of %d",
-	      NRAN, MXLAMSMEAR_SPECTROGRAPH );
-      sprintf(c2err,"ilam=%d LAMAVG=%.2f", ilam, LAMAVG );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-    }
-
   } // end ilam2
+    
+  // - - - - - -
+  if ( NRAN >= MXLAMSMEAR_SPECTROGRAPH ) {
+    print_preAbort_banner(fnam);    
+    printf("\t NSIGLAM  = %f \n", NSIGLAM);
+    printf("\t LAMSIGMA = %f \n", LAMSIGMA );
+    printf("\t LAMBIN   = %f \n", LAMBIN);
+    printf("\t NBIN2    = %d \n", NBIN2 );
+    sprintf(c1err,"NLAMSMEAR = %d exceeds bound of %d",
+	    NRAN, MXLAMSMEAR_SPECTROGRAPH );
+    sprintf(c2err,"ilam=%d LAMAVG=%.2f", ilam, LAMAVG );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
 
   return ;
 
@@ -17321,7 +17330,6 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
     if ( strcmp(KEY,"SALT2c:") == 0 ) {
       readdouble ( fp_SIMLIB, 1, &TMPVAL);
       TMPRANGE[0] = TMPRANGE[1] = TMPVAL ; LTMP=1;
-      printf(" xxx read SALT2c = %6.3f for CID=%d \n", TMPVAL, GENLC.CID);
     }
     else if ( strcmp(KEY,"GENRANGE_SALT2c:") == 0 ) {
       readdouble ( fp_SIMLIB, 2, TMPRANGE ); LTMP=1 ;

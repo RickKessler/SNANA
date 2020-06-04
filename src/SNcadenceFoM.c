@@ -475,6 +475,7 @@ double SNcadenceFoM( int OPTMASK, int Nobs, double *MJDLIST, double *M5SIGLIST,
     ,mjd_rand_array[MAXRAN_MJDARRAY]
     ,m5sig_array[MAXRAN_MJDARRAY]
     ,m5sig_rand_array[MAXRAN_MJDARRAY]
+    ,MEDIAN
     ;
 
   double result;    // save fraction of FoM bins above the current FoM
@@ -568,7 +569,7 @@ double SNcadenceFoM( int OPTMASK, int Nobs, double *MJDLIST, double *M5SIGLIST,
   }
 
   arrayStat(Nobs, m5sig_array,               // <== input
-	    &M5SIG_AVG_t, &M5SIG_RMS_t );  // <== returned
+	    &M5SIG_AVG_t, &M5SIG_RMS_t, &MEDIAN );  // <== returned
 
   LDMP_LOCAL = 0 ; // set to whatever needed for debugging
 

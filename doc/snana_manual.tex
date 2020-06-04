@@ -8169,25 +8169,6 @@ The `append' option in the sntable-dump utility
 Note that the {\tt FIELD} string cannot be appended to the
 text-fitres file (sorry!).
  
-
-% -------------------
-\subsubsection{Selecting Telescopes}
-%
-If lightcurves are constructed from multiple telescopes
-defined in \${\sndataroot}/{\tt SURVEY.DEF}, 
-all epochs/telescopes are used by default. 
-To select a subset for analysis,
-%
-\begin{Verbatim}[frame=single]
-   SNTEL_LIST    = 'SDSS'       ! list of telescopes
-\end{Verbatim}
-%
-would analyze lightcurves using SDSS epochs,
-and ignore observations from other hypothetical instruments.
-The code aborts if an invalid telescope is selected;
-i.e., one that is not specified in the {\tt SURVEY.DEF} file.
-
-
 % -----------------------------
 \subsubsection{Selecting MJD Ranges}
 

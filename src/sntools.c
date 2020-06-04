@@ -3845,36 +3845,56 @@ int  getList_PATH_SNDATA_SIM(char **pathList) {
 
 
 // =============================================================
-void arrayStat(int N, double *array, double *AVG, double *RMS) {
+void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN) {
 
   // For input *array return *AVG and *RMS
+  // Jun 2 2020: include MEDIAN in output
 
   int i;
-  double XN, avg, sqsum, rms, tmpdif ;
+  double XN, val, avg, sum, sqsum, rms, median, tmpdif ;
 
   // ----------- BEGIN ------------
+
   *AVG = *RMS = 0.0 ;
   if ( N <= 0 ) { return ; }
 
-  avg  = rms = sqsum = 0.0 ;
+  avg  = rms = sqsum = sum = median = 0.0 ;
   XN   = (double)N ;
 
-  for ( i=0; i < N; i++ ) { avg += *(array+i) ; }
-  avg /= XN ; 
+  for ( i=0; i < N; i++ ) 
+    { val=array[i] ; sum += val; sqsum += (val*val); }
 
+  avg = sum/XN ; 
+  rms = RMSfromSUMS(N, sum, sqsum);
+
+  /* xxxxxxxxxxx mark delete Jun 2 2020 xxxxxxx
   for ( i=0; i < N ; i++ ) {
     tmpdif =  ( *(array+i) - avg ) ;
     sqsum += (tmpdif*tmpdif) ;
   }
   rms = sqrt(sqsum/XN) ;
-  
-  // load output array.
-  *AVG = avg ;
-  *RMS = rms ;
+  xxxxxxxxxxx end mark xxxxxxxxx */
 
+  // for median, sort list and them median is middle element
+  int ORDER_SORT  = +1;
+  int *INDEX_SORT = (int*) malloc( N * sizeof(int) ) ;
+  int imedian, iHalf       = N/2;
+  sortDouble(N, array, ORDER_SORT, INDEX_SORT );
+  imedian = INDEX_SORT[iHalf];
+  median  = array[imedian];
+
+  // load output array.
+  *AVG    = avg ;
+  *RMS    = rms ;
+  *MEDIAN = median;
+
+  return ;
 } // end of arrayStat
 
+void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN) 
+{ arrayStat(*N, array, AVG, RMS, MEDIAN); }
 
+  // ========================================================
 double RMSfromSUMS(int N, double SUM, double SQSUM) {
 
   // Created Aug 2017

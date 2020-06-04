@@ -8745,7 +8745,7 @@ void dump_modelSmearSigma(void) {
 
   int NLAM, NRANGEN, igen, ilam ;
   double LAMMIN, LAMMAX, LAMBIN, LAMARRAY[100], LAM, TREST;
-  double **MAGSMEAR, MAGARRAY[100], AVG, RMS ;
+  double **MAGSMEAR, MAGARRAY[100], AVG, RMS, MEDIAN ;
   char fnam[] = "dump_modelSmearSigma" ;
 
   // --------------- BEGIN --------------
@@ -8787,7 +8787,7 @@ void dump_modelSmearSigma(void) {
 
   for(ilam=0; ilam < NLAM; ilam++ ) {
     LAM = LAMARRAY[ilam] ;
-    arrayStat(NRANGEN, MAGSMEAR[ilam], &AVG, &RMS);
+    arrayStat(NRANGEN, MAGSMEAR[ilam], &AVG, &RMS, &MEDIAN);
     printf("\t LAM = %6.0f : magSmear(AVG,RMS) = %6.3f , %5.3f \n", 
 	   LAM, AVG, RMS); fflush(stdout);
   }

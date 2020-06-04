@@ -18454,6 +18454,7 @@
       + for SIMLIB_OUT option, include TAKE_SPECTRUM keys in
         SIMLIB header if spectra exist in data files.
       + fix some SPECPLOT bugs.
+      + fix SPECPAK compatibility issue with using both MARZ & TEXT tables.
 
     sntools_output.c:
        + include sndata.h and remove some redundant #define statements

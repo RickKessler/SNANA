@@ -1033,6 +1033,8 @@ void read_SALT2colorDisp(void) {
 
   fflush(stdout);
 
+  return ;
+
 } // end of read_SALT2colorDisp
 
 

@@ -1,7 +1,6 @@
 /**************************************************
  Created July 2016 by R.Kessler
 
-
  utility to read info needed to simulation spectra and/or IFU.
  Used by kcor and snlc_sim programs.
 
@@ -32,13 +31,11 @@
   Note that minLam,maxLam are specified for each bin so that
   non-uniform bins are allowed.
 
-
            HISTORY 
        ~~~~~~~~~~~~~~
 
   May 06 2020:
     + in getSNR_spectrograph, return SNR=0 if ZP is undefined.
-
 
 *********************************************************/
 

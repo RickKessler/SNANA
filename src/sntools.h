@@ -639,7 +639,8 @@ double quadInterp ( double VAL, double VAL_LIST[3], double FUN_LIST[3],
 
 double polyEval(int N, double *coef, double x);
 
-void arrayStat(int N, double *array, double *AVG, double *RMS) ;
+void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN);
+void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN);
 double RMSfromSUMS(int N, double SUM, double SQSUM);
 void trim_blank_spaces(char *string) ;
 void remove_string_termination(char *STRING, int LEN) ;

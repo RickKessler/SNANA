@@ -985,6 +985,7 @@ c  Not intended for analysis.
      &   ,LAMMAX_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM)
      &   ,FLAM_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM) 
      &   ,FLAMERR_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM)  
+cc     &   ,SIM_FLAM_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM)  
 
       COMMON/SPECCOM4/ RDFLAG_SPECTRUM
      &   ,NVAR_SPECTRUM, NSPECTRUM, ID_SPECTRUM, NLAMBIN_SPECTRUM
@@ -993,8 +994,7 @@ c  Not intended for analysis.
       COMMON/SPECCOM8/ 
      &    MJD_SPECTRUM, TOBS_SPECTRUM, TEXPOSE_SPECTRUM
      &   ,LAMMIN_SPECTRUM, LAMMAX_SPECTRUM
-     &   ,FLAM_SPECTRUM, FLAMERR_SPECTRUM
-
+     &   ,FLAM_SPECTRUM, FLAMERR_SPECTRUM  ! SIM_FLAM_SPECTRUM
 
 +KEEP,SNSIMCOM.
 
@@ -14203,6 +14203,9 @@ c check SPEC: line with wave and flux
          READ(cwords(3),*) LAMMAX_SPECTRUM(ilam,NSPECTRUM)
          READ(cwords(4),*) FLAM_SPECTRUM(ilam,NSPECTRUM)
          READ(cwords(5),*) FLAMERR_SPECTRUM(ilam,NSPECTRUM)
+         if ( LSIM_SNANA ) then
+cc             READ(cwords(5),*) SIM_FLAM_SPECTRUM(ilam,NSPECTRUM)
+         endif
       ENDIF
 
       IF ( CWD .EQ. 'SPECTRUM_END:' ) THEN
@@ -21768,12 +21771,14 @@ C
 
       REAL TOBS, LAMMIN, LAMMAX, SNR
       REAL*8 FLUXSUM, SQERRSUM, FLAM, FLAMERR, DLAM
+cc      REAL*8 SNR_SPECTRUM(MXLAM_SPECTRUM), AVG, RMS, MEDIAN
       INTEGER ispec, NLAMBIN, ilam
       INTEGER LEN_TOBS, LEN_SNR, LEN_LAMMIN, LEN_LAMMAX
       CHARACTER 
      &    STR_TOBS*20, STR_SNR*20, 
      &    STR_LAMMIN*20, STR_LAMMAX*20
-    
+
+      EXTERNAL ARRAYSTAT    
 C ----------- BEGIN --------
  
       DO 222 ispec = 1, NSPECTRUM
@@ -21790,10 +21795,18 @@ C ----------- BEGIN --------
              FLAMERR = FLAMERR_SPECTRUM(ilam,ispec)
              DLAM    = 
      &         LAMMAX_SPECTRUM(ilam,ispec) - LAMMIN_SPECTRUM(ilam,ispec)
-             FLUXSUM  = FLUXSUM + (FLAM*DLAM)
+             FLUXSUM  = FLUXSUM  + (FLAM*DLAM)
              SQERRSUM = SQERRSUM + (FLAMERR*DLAM)**2
+cc xxx             SNR_SPECTRUM(ilam) = FLAM/FLAMERR
          ENDDO
          SNR = FLUXSUM / sqrt(SQERRSUM)
+
+c xxxxxxx mark delete xxxxxxxx
+c         CALL ARRAYSTAT(NLAMBIN, SNR_SPECTRUM, AVG, RMS, MEDIAN)
+c         write(6,444) SNR, AVG, RMS, MEDIAN, NLAMBIN
+c 444     format(' xxx SNR(old)=',F6.0, 3x, 'AVG,RMS,MEDIAN=',3F6.1,
+c     &           3x,'NLAMBIN=',I5 )
+c xxxxxxxxx end mark xxxxxxx
 
          CALL float2string_nospace(TOBS, STR_TOBS, LEN_TOBS)
          CALL float2string_nospace(SNR,  STR_SNR,  LEN_SNR)
@@ -24481,6 +24494,8 @@ C ----------------- BEGIN ---------------
 c check if we should make the plot
       IF ( .NOT. DOPLOT_SPEC() ) RETURN
 
+      IF ( MARZFILE_OUT .NE. '' ) RETURN
+
       LENCCID = ISNLC_LENCCID
       CCID_forC = SNLC_CCID(1:LENCCID) // char(0)
 
@@ -26178,6 +26193,10 @@ c fill table.
 40          format(A, '[z=', F5.3, ']' )
             LENCCID = LENCCID + 9
          endif
+
+         write(6,10) CCID_forC(1:LENCCID)
+ 10      format(T8,'SPECPLOT: pack CID=',A,' for MARZ table.')
+
 	 CCID_forC = CCID_forC(1:LENCCID) // char(0)
 
          CALL SPECPAK_DATA(
@@ -26194,7 +26213,6 @@ c fill table.
      &       , LENCCID )
 
           CALL SPECPAK_FILL(CCID_forC, LENCCID)
-cc xxx mark delete   CALL SNTABLE_FILL(IDTABLE)  ! generic C function
       ENDIF
 
       RETURN

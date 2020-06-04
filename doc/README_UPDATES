@@ -18441,6 +18441,13 @@
       + abort if USE_SIMLIB_XXX flags result in all LIBIDs rejected
          by GENRANGE_XXX windows. Avoids infinite loop/hang.
       + SIMLIB_MSKOPT += 4 -> stop after reading SIMLIB one time.
+      + to address ringing in simulated spectra, refactor randoms to 
+        allow two independent streams, where the 2nd stream is used 
+        for spectrograph noise. For now, default NSTREAM_RAN=1,
+        but can study impact of two streams with
+          snlc_sim.exe <inFile> NSTREAM_RAN 2 
+        Next SNANA version will likely have NSTREAM_RAN=2 by default,
+        where stream 0 stays synced to lists, while stream 1 is not.
 
     SALT2mu_fit.pl
      + fix obscure ABORT  message when datfile= key is missing
@@ -18467,8 +18474,4 @@
     sntools_spectrograph.h:
         MXLAMSMEAR_SPECTROGRAPH -> 40 (was 20) for small DIEMOS bins
 
-    SNR_LAMPOLY??
-       https://www.gnu.org/software/gsl/doc/html/lls.html
-       gsl_multifit_linear
-       https://stackoverflow.com/questions/36522882/how-can-i-use-gsl-to-calculate-polynomial-regression-data-points/45144399
 END: 

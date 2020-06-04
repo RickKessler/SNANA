@@ -2406,9 +2406,6 @@ void invertmatrix_(int *N, int *n, double *Matrix ) {
 }
 
 
-void randominit_(int *ISEED) {  srandom(*ISEED) ; } 
-
-
 void sortDouble(int NSORT, double *ARRAY, int ORDER, 
 		int *INDEX_SORT) {
 
@@ -5376,24 +5373,61 @@ double skewGauss(double x, double siglo,double sighi,
 } // end of skewGauss
 
 
+// ************************************
+void init_random_seed(int ISEED, int NSTREAM) {
+
+  // Create Jun 4 2020 by R.Kessler
+  //  [moved init_simRandoms from snlc_sim.c to here, and re-named it]
+  //
+  // Init random seed(s) 
+  // NSTREAM = 1 -> one random stream and regular init with srandom()
+  // NSTREAM = 2 -> two independent streams, use srandom_r
+
+  GENRAN_INFO.NSTREAM = NSTREAM ;
+  int i, size ;
+  int ISEED2 = ISEED * 7 + 137; // for 2nd stream, if requested
+  int ISEED_LIST[MXSTREAM_RAN] = { ISEED, ISEED2 } ;
+  char fnam[] = "init_random_seed" ;
+
+  // ----------- BEGIN ----------------
+
+  if ( NSTREAM == 1 ) 
+    {   srandom(ISEED); }
+  else {
+    for(i=0; i < NSTREAM; i++ ) {
+      memset( &GENRAN_INFO.ranStream[i], 0,  
+	      sizeof(GENRAN_INFO.ranStream[i]) ) ;
+      initstate_r(ISEED_LIST[i], GENRAN_INFO.stateBuf[i], BUFSIZE_RAN, 
+		  &GENRAN_INFO.ranStream[i] ); 
+      srandom_r( ISEED_LIST[i], &GENRAN_INFO.ranStream[i] ); 
+    }
+  }
+
+  fill_RANLISTs(); 
+  for ( i=1; i <= GENRAN_INFO.NLIST_RAN; i++ )  
+    { GENRAN_INFO.RANFIRST[i] = FlatRan1(i); }
+  
+  // ---------------- skewNormal stuff -------------------
+  //
+  // xxx  init_skewNormal(ISEED);  // one-time init, to set seed in python
+
+  return ;
+
+} // end init_random_seed
+
 
 // **********************************************
-void init_RANLIST(void) {
+void fill_RANLISTs(void) {
 
   // Dec 1, 2006 RSK
-  // Load RANLIST8 array with lots of random numbers (uniform from 0-1).
-  // If SEED is fixed, then a fixed list is generated
-  // for each SN. [note that the list is different for each SN ...
-  // but the lists repeate themselves when the simulation reruns.]
-  //
-  // Feb 26 2013: fill separate RANLIST8_GENSMEAR list so that
-  //              intrinsic-scatter randoms can be changed without
-  //              changing synced randoms for main generation.
+  // Load RANSTORE array with random numbers (uniform from 0-1)
+  // from stream 0 usins unix_random(0)
   //
   // Jun 9 2018: use unix_random() call.
+  // Jun 4 2020: change function name from init_RANLIST -> fill_RANLISTs
 
-  int ilist, istore;
-  char fnam[] = "init_RANLIST" ;
+  int ilist, istore, NLIST_RAN;
+  char fnam[] = "fill_RANLISTs" ;
 
   // ---------------- BEGIN ----------------
 
@@ -5402,7 +5436,7 @@ void init_RANLIST(void) {
   NLIST_RAN++ ;   // main generation
   NLIST_RAN++ ;   // genSmear
   NLIST_RAN++ ;   // GENSPEC_DRIVER (Jan 2018)
-
+  GENRAN_INFO.NLIST_RAN = NLIST_RAN ;
 
   if ( NLIST_RAN > MXLIST_RAN ) {
     sprintf(c1err,"NLIST_RAN=%d exceeds bound.", NLIST_RAN);
@@ -5412,27 +5446,40 @@ void init_RANLIST(void) {
 
 
   for (ilist = 1; ilist <= NLIST_RAN; ilist++ ) {
-    NSTORE_RAN[ilist] = 0 ;
+    GENRAN_INFO.NSTORE_RAN[ilist] = 0 ;
     for ( istore=0; istore < MXSTORE_RAN; istore++ ) {
-      RANSTORE8[ilist][istore] = unix_random();
+      GENRAN_INFO.RANSTORE[ilist][istore] = unix_random(0);
     }
   }
 
-}  // end of init_RANLIST
+  return ;
+
+}  // end of fill_RANLISTs
 
 // **********************************
-double unix_random(void) {
+double unix_random(int istream) {
   // Created Jun 9 2018
-  // Return random between 0 and 1
-  long int i8 = random(); 
-  double   r8 = (double)i8 / (double)RAND_MAX ;  // 0 < r8 < 1 
+  // Input istream is the random stream: 0 or 1
+  // Return random between 0 and 1.
+
+  int NSTREAM = GENRAN_INFO.NSTREAM ;
+  int JRAN ;
+  // ------------ BEGIN ----------------
+  if ( NSTREAM == 1 ) 
+    { JRAN = random(); }
+  else
+    { random_r(&GENRAN_INFO.ranStream[istream], &JRAN); }
+
+  double r8 = (double)JRAN / (double)RAND_MAX ;  // 0 < r8 < 1 
   return(r8);
 }
-double unix_random__(void) { return( unix_random() ); }
+
+double unix_random__(int *istream) { return( unix_random(*istream) ); }
 
 // ***********************************
 double GaussRan(int ilist) {
-  // return Gaussian random number
+  // return Gaussian random number using randoms from "ilist",
+  // which uses stream 0.
   double R,  V1, V2, FAC, G ;
   // --------------- BEGIN ----------------
  BEGIN:
@@ -5446,6 +5493,30 @@ double GaussRan(int ilist) {
   return G ;
 }  // end of Gaussran
 
+
+double unix_GaussRan(int istream) {
+  // Created Jun 4 2020
+  // pick random Gaussian directly from unix_random using 
+  // independent "istream" input.
+  double R,  V1, V2, FAC, G ;
+  int    NSTREAM = GENRAN_INFO.NSTREAM ;
+  char fnam[] = "unix_GaussRan" ;
+
+  // --------------- BEGIN ----------------
+ BEGIN:
+  if ( istream >= NSTREAM ) {
+    sprintf(c1err,"Invalid istream = %d (NSTREAM=%d)", istream, NSTREAM);
+    sprintf(c2err,"Check call to init_random_seed." );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+  V1 = 2.0 * unix_random(istream) - 1.0;
+  V2 = 2.0 * unix_random(istream) - 1.0;
+  R  = V1*V1 + V2*V2 ;
+  if ( R >= 1.0 ) { goto BEGIN ; }
+  FAC = sqrt(-2.*log(R)/R) ;
+  G = V2 * FAC ;
+  return G ;
+} // end unix_GaussRan
 
 double GaussRanClip(int ilist, double ranGmin, double ranGmax ) {
   // Created Aug 2016
@@ -5462,6 +5533,7 @@ double FlatRan1(int ilist) {
 
   int  N ;
   double   x8;
+  int  NLIST_RAN = GENRAN_INFO.NLIST_RAN ;
   char fnam[] = "FlatRan1" ;
 
   // return random number between 0 and 1
@@ -5474,14 +5546,15 @@ double FlatRan1(int ilist) {
   }
 
   // check to wrap around with random list.
-  if ( NSTORE_RAN[ilist] >= MXSTORE_RAN ) { NSTORE_RAN[ilist] = 0;  }
+  if ( GENRAN_INFO.NSTORE_RAN[ilist] >= MXSTORE_RAN ) 
+    { GENRAN_INFO.NSTORE_RAN[ilist] = 0;  }
 
   // use current random in list
-  N  = NSTORE_RAN[ilist] ;
-  x8 = RANSTORE8[ilist][N] ;
+  N  = GENRAN_INFO.NSTORE_RAN[ilist] ;
+  x8 = GENRAN_INFO.RANSTORE[ilist][N] ;
 
   // increment for next usage.
-  NSTORE_RAN[ilist]++;  
+  GENRAN_INFO.NSTORE_RAN[ilist]++;  
 
   return x8;
 

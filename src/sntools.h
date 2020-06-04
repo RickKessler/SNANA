@@ -125,12 +125,25 @@
 char FILTERSTRING[100] ;
 
 // define variables for random number list
-#define MXLIST_RAN      4  // max number of lists
-#define MXSTORE_RAN  1000  //  size of each RANLIST (for each event)
-double  RANSTORE8[MXLIST_RAN+1][MXSTORE_RAN] ;
-int     NLIST_RAN;         // Number of lists
-int     NSTORE_RAN[MXLIST_RAN+1] ;
-double  RANFIRST[MXLIST_RAN+1], RANLAST[MXLIST_RAN+1]; // for syncing.
+#define MXLIST_RAN      4  // max number of lists for stream0
+#define MXSTORE_RAN  1000  // size of each RANLIST (for each event)
+#define MXSTREAM_RAN    2  // max number of independent streams
+#define BUFSIZE_RAN   256
+
+typedef struct random_data random_data ;
+struct {
+  
+  int     NSTREAM ; // number of srandom streams (legacy is 1)
+  double  RANSTORE[MXLIST_RAN+1][MXSTORE_RAN] ;
+  int     NLIST_RAN;         // Number of lists
+  int     NSTORE_RAN[MXLIST_RAN+1] ;
+  double  RANFIRST[MXLIST_RAN+1], RANLAST[MXLIST_RAN+1]; // for syncing.
+
+  // for multi-stream randoms
+  random_data ranStream[MXSTREAM_RAN];
+  char stateBuf[MXSTREAM_RAN][BUFSIZE_RAN];
+} GENRAN_INFO ;
+
 
 // errmsg parameters 
 char c1err[200];   // for kcorerr utility 
@@ -708,8 +721,10 @@ double angSep( double RA1,double DEC1,
 
 // random-number generators.
 // May 2014: snran1 -> Flatran1,  float rangen -> double FlatRan
-void   init_RANLIST(void);
-double unix_random(void) ;
+void   init_random_seed(int ISEED, int NSTREAM);
+void   fill_RANLISTs(void);
+double unix_random(int istream) ;
+double unix_GaussRan(int istream);
 double FlatRan (int ilist, double *range);  //return rnmd on range[0-1]
 double FlatRan1(int ilist);          // return 0 < random  < 1
 double GaussRan(int ilist);          // returns gaussian random number
@@ -718,8 +733,7 @@ int    getRan_Poisson(double mean);
 //void   FlatRan_correlated(int NDIM, double *COVRED, double *outRanList);
 
 // mangled functions for fortran
-void   randominit_(int *ISEED);  // calls native srandom(ISEED)
-double unix_random__(void) ;
+double unix_random__(int *istream) ;
 double flatran1_(int *ilist) ;          // for fortran
 double gaussran_(int *ilist);         // for fortran
 

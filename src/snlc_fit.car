@@ -8612,7 +8612,7 @@ c local var
       CHARACTER PARNAME*20
 
 c function
-      REAL*8 GET_DIST8, USRFUN, UNIX_RANDOM, FLATRAN1
+      REAL*8 GET_DIST8, USRFUN
       EXTERNAL USRFUN
 
 C ------------ BEGIN ----------

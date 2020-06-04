@@ -182,6 +182,8 @@ Nov 21, 2011 JLM:
           See new local global FLUX_ERRFLAG.
              BEWARE:  NOT TESTED
 
+ Jun 4 2020: call init_random_seed(...)
+
 **************************************/
 
 #include "genmag_SIMSED.c"
@@ -308,8 +310,11 @@ int main(int argc, char **argv) {
   printf("   SNANA_DIR = %s \n", getenv("SNANA_DIR") );
   init_inputs();
   parse_args(argc, argv );
-  srandom(INPUTS.ISEED);
 
+  printf("   Init randoms, SEED = %d \n", INPUTS.ISEED);
+
+  init_random_seed(INPUTS.ISEED, 1);
+  // xxx mark delete Jun 4 2020  srandom(INPUTS.ISEED);
 
   // prepare the corners and SEDs needed to interpolate
   // the SEDs in SED-parameter space
@@ -409,6 +414,7 @@ void parse_args(int argc, char **argv) {
   double Trest, parval, z1 ;
 
   // ---------- BEGIN --------
+
 
   NARGV_LIST = argc;
 
@@ -535,7 +541,7 @@ void parse_args(int argc, char **argv) {
 
 
   // make sure that every argument is defined.
-  
+
   check_argv();
 
 
@@ -1459,7 +1465,6 @@ void fudgeSNR(int ep) {
 
   // ---------- BEGIN ------------
 
-
   whereSNR = 0;
   whereLAM = 0;
   LAM = SPECLAM[0];
@@ -1472,7 +1477,7 @@ void fudgeSNR(int ep) {
 
   snrlambin   = INPUTS.specSNRLAMBIN[ep];  // bin size to define SNR
   lam_binsize = SPEC_LAMSTEP;     // bin size of input spectrum
-  init_RANLIST();
+  fill_RANLISTs();
 
   // scale SNR to binsize of spectrum
   snrScale = sqrt(lam_binsize/snrlambin);

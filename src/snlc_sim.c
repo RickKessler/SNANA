@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
 
   // init random number generator, and store first random.
   if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID  ) 
-    { init_simRandoms();  }
+    { init_random_seed(INPUTS.ISEED, INPUTS.NSTREAM_RAN); }
 
   // prepare user input after init_simRandoms to allow 
   // random systematic shifts.
@@ -241,7 +241,7 @@ int main(int argc, char **argv) {
     if ( INPUTS.TRACE_MAIN  ) { dmp_trace_main("02", ilc) ; }
 
     if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID ) 
-      { init_RANLIST(); }      // init list of random numbers for each SN    
+      { fill_RANLISTs(); }      // init list of random numbers for each SN    
 
     gen_event_driver(ilc); 
 
@@ -334,7 +334,8 @@ int main(int argc, char **argv) {
 		      ,&GENLC.MJD_TRIGGER ) ;    // (O)
     }
 
-    for ( i=1; i<=NLIST_RAN; i++ )  { RANLAST[i] = FlatRan1(i); }
+    for ( i=1; i<= GENRAN_INFO.NLIST_RAN ; i++ )  
+      { GENRAN_INFO.RANLAST[i] = FlatRan1(i); }
 
     // if APPLY opt is set, then require search MASK to keep SN;
     // otherwise keep all SNe    
@@ -632,7 +633,8 @@ void set_user_defaults(void) {
   // - - - - - -
   GENLC.NFILTDEF_OBS = 0;
 
-  INPUTS.ISEED      = 1 ;
+  INPUTS.ISEED       = 1 ;
+  INPUTS.NSTREAM_RAN = 1 ;
   INPUTS.RANLIST_START_GENSMEAR = 1 ;
 
   INPUTS.NGEN_SCALE         =  1.0 ;
@@ -1882,17 +1884,16 @@ int read_input(char *input_file) {
       continue ; 
     }
     
-    if ( uniqueMatch(c_get,"RANSEED:")  ) { 
-      readint ( fp, 1, &ITMP ); // read regular int
+    if ( uniqueMatch(c_get,"RANSEED:") ) {
+      readint(fp, 1,  &ITMP) ;
       INPUTS.ISEED = ITMP ;     // set unsigned int
       continue ; 
     }
+    if ( uniqueMatch(c_get,"NSTREAM_RAN:") ) {
+      readint(fp, 1,  &INPUTS.NSTREAM_RAN) ;
+      continue ; 
+    }
 
-    /*
-    if ( uniqueMatch(c_get,"RANSEED_ADD:")  ) { 
-      readint ( fp, 1, &ITMP ); // read regular int
-      INPUTS.ISEED_ADD = ITMP ;     // set unsigned int
-      } */
 
     if ( uniqueMatch(c_get,"RANLIST_START_GENSMEAR:") )
       { readint(fp, 1, &INPUTS.RANLIST_START_GENSMEAR ); continue ; }    
@@ -5086,6 +5087,10 @@ void sim_input_override(void) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.ISEED );  
       goto INCREMENT_COUNTER; 
     }
+    if ( strcmp( ARGV_LIST[i], "NSTREAM_RAN" ) == 0 )  { 
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NSTREAM_RAN );  
+      goto INCREMENT_COUNTER; 
+    }
 
     if ( strcmp( ARGV_LIST[i], "RANLIST_START_GENSMEAR" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.RANLIST_START_GENSMEAR ); 
@@ -6524,7 +6529,8 @@ void prep_user_input(void) {
 
   printf(" \n" );
 
-  printf("\t Random number seed: %d \n", INPUTS.ISEED );
+  printf("\t Random number seed: %d  (NSTREAM=%d)\n", 
+	 INPUTS.ISEED, INPUTS.NSTREAM_RAN );
 
   printf("\t Gen-Range for RA(deg)  : %8.3f to %8.3f \n", 
 	 INPUTS.GENRANGE_RA[0], INPUTS.GENRANGE_RA[1] );
@@ -7149,7 +7155,7 @@ void  prep_RANSYSTPAR(void) {
   int ISEED_OLD = INPUTS.ISEED ;
   int ISEED_NEW = ISEED_OLD + 137*IDUM ;
   INPUTS.ISEED  = ISEED_NEW ;
-  init_simRandoms();
+  init_random_seed(INPUTS.ISEED, INPUTS.NSTREAM_RAN);
   printf("\t* ISEED = %d --> %d \n", ISEED_OLD, ISEED_NEW );
 
   printf("\t* First Unsync-Syst Random : %f "
@@ -8191,27 +8197,48 @@ void  set_GENMODEL_NAME(void) {
 
 } // end set_GENMODEL_NAME
 
-// ************************************
+
+
+/* xxxxxxxxxxxx mark delete Jun 4 2020 xxxxxxxxxxxxx
 void init_simRandoms(void) {
 
   // Create Sep 2016 by R.Kessler & E.Jennings
   // Move init stuff from main, and check for skewNormal.
 
-  int i;
-  int ISEED = INPUTS.ISEED ;
-  //  char fnam[] = "init_simRandoms" ;
+  GENRAN_INFO.NSTREAM = 1;
+
+  int NSTREAM = GENRAN_INFO.NSTREAM ;
+  int i, size ;
+  int ISEED  = INPUTS.ISEED ;
+  int ISEED2 = INPUTS.ISEED * 7 + 137;
+  int ISEED_LIST[MXSTREAM_RAN] = { ISEED, ISEED2} ;
+  char fnam[] = "init_simRandoms" ;
 
   // ----------- BEGIN ----------------
-  srandom(ISEED);
-  init_RANLIST(); 
-  for ( i=1; i <= NLIST_RAN; i++ )  
-    { RANFIRST[i] = FlatRan1(i); }
+
+  if ( NSTREAM == 1 ) 
+    {   srandom(ISEED); }
+  else {
+    for(i=0; i < NSTREAM; i++ ) {
+      memset( &GENRAN_INFO.ranStream[i], 0,  
+	      sizeof(GENRAN_INFO.ranStream[i]) ) ;
+      initstate_r(ISEED_LIST[i], GENRAN_INFO.stateBuf[i], BUFSIZE_RAN, 
+		  &GENRAN_INFO.ranStream[i] ); 
+      srandom_r( ISEED_LIST[i], &GENRAN_INFO.ranStream[i] ); 
+    }
+  }
+
+  fill_RANLISTs(); 
+  for ( i=1; i <= GENRAN_INFO.NLIST_RAN; i++ )  
+    { GENRAN_INFO.RANFIRST[i] = FlatRan1(i); }
   
   // ---------------- skewNormal stuff -------------------
   //
-  init_skewNormal(ISEED);  // one-time init, to set seed in python
+  // xxx  init_skewNormal(ISEED);  // one-time init, to set seed in python
 
 } // end init_simRandoms
+xxxxxxxx end mark xxxxxxxxxxxx */
+
 
 // ************************************
 void  init_GENLC(void) {
@@ -8774,7 +8801,7 @@ void dump_modelSmearSigma(void) {
 
 
   for(igen=0; igen < NRANGEN; igen++ ) {
-    init_RANLIST();      // init list of random numbers 
+    fill_RANLISTs();      // init list of random numbers 
     genran_modelSmear(); // load randoms for genSmear
     get_genSmear(TREST, GENLC.SALT2c, GENLC.SHAPEPAR, 
 		 NLAM, LAMARRAY, MAGARRAY); // return MAGARRAY
@@ -9861,7 +9888,11 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
   int onlyTNOISE = ( OPTMASK & SPECTROGRAPH_OPTMASK_onlyTNOISE ) ;
   int noTNOISE   = ( OPTMASK & SPECTROGRAPH_OPTMASK_noTEMPLATE ) ;
   int noNOISE    = ( OPTMASK & SPECTROGRAPH_OPTMASK_noNOISE    ) ;
-  int ILIST_RAN  = ILIST_RANDOM_SPECTROGRAPH ;
+
+  int NSTREAM      = GENRAN_INFO.NSTREAM ;
+  int ISTREAM_RAN  = ISTREAM_RANDOM_SPECTROGRAPH ;
+  int ILIST_RAN    = ILIST_RANDOM_SPECTROGRAPH ; // mark obsolete, Jun 4 2020
+
   double NSIGLAM, LAMAVG, LAMSIGMA, LAMBIN, LAMSIG0, LAMSIG1;
   double GINT, SUM_GINT, GINT_SQRT, GRAN_S, GRAN_T ;
   double tmp_GenFlux, tmp_GenFluxErr, tmp_GenFluxErr_S, tmp_GenFluxErr_T ;
@@ -9919,13 +9950,23 @@ void  GENSPEC_LAMSMEAR(int imjd, int ilam, double GenFlux,
     else {
 
       GRAN_S = GRAN_T = RANGauss_NOISE_TEMPLATE = 0.0 ;
-      if ( GENSPEC.NMJD_PROC==0 && tmp_GenFluxErr_T > 0.0 ) 
-	{ RANGauss_NOISE_TEMPLATE = GaussRan(ILIST_RAN);}
+      if ( GENSPEC.NMJD_PROC==0 && tmp_GenFluxErr_T > 0.0 ) { 
+	if ( NSTREAM == 2 ) 
+	  { RANGauss_NOISE_TEMPLATE = unix_GaussRan(ISTREAM_RAN); }
+	else
+	  { RANGauss_NOISE_TEMPLATE = GaussRan(ILIST_RAN); }
+      }
 
-      if ( NRAN < MXLAMSMEAR_SPECTROGRAPH )
-	{ GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] = RANGauss_NOISE_TEMPLATE; }
+      if ( NRAN < MXLAMSMEAR_SPECTROGRAPH ) {
+	GENSPEC.RANGauss_NOISE_TEMPLATE[NRAN][ilam] = RANGauss_NOISE_TEMPLATE;
+      }
 
-      GRAN_S = GaussRan(ILIST_RAN);
+
+      if ( NSTREAM ==  2 ) 
+	{ GRAN_S = unix_GaussRan(ISTREAM_RAN); }
+      else
+	{ GRAN_S = GaussRan(ILIST_RAN); }
+
       GRAN_T = RANGauss_NOISE_TEMPLATE ;
 
       // random noise from search 
@@ -11693,7 +11734,7 @@ void genran_modelSmear(void) {
 
   // always generate randoms to stay synced, even if mag smear is zero.
 
-  NSTORE_RAN[ILIST_RAN] = INPUTS.RANLIST_START_GENSMEAR ; // reset
+  GENRAN_INFO.NSTORE_RAN[ILIST_RAN] = INPUTS.RANLIST_START_GENSMEAR ; // reset
 
   rmin = INPUTS.SIGMACLIP_MAGSMEAR[0] ;
   rmax = INPUTS.SIGMACLIP_MAGSMEAR[1] ;
@@ -12136,7 +12177,6 @@ int MATCH_INDEX_SIMGEN_DUMP(char *varName ) {
 	    MATCH_INDEX, varName);
     sprintf(c2err,"is really messed up.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-
   }
   
   // if we get here, return valid matched index.
@@ -14850,7 +14890,7 @@ void SIMLIB_findStart(void) {
   // check user-input SIMLIB_MAXRANSTART
   MAXRANSTART = INPUTS.SIMLIB_MAXRANSTART ; // default
   if ( MAXRANSTART > 0 ) {
-    flatRan     = unix_random() ;
+    flatRan     = unix_random(0) ;
     XSKIP       = (double)MAXRANSTART * flatRan ;
     NSKIP_LIBID = (int)XSKIP + 1 ;
     DOSKIP = 1;
@@ -14861,7 +14901,7 @@ void SIMLIB_findStart(void) {
   // for batch job, autom-compute NSKIP 
   if ( NJOBTOT > 0  &&  NLIBID > 100 ) { 
 
-    flatRan     = unix_random() ;
+    flatRan     = unix_random(0) ;
     XTMP        = (double)NLIBID / (double)NJOBTOT;    
     NTMP        = (int)XTMP ;
     NLIBID_EXTRA = NTMP - INPUTS.NGENTOT_LC ; // Number of extra LIBIDs 
@@ -18554,7 +18594,7 @@ void init_CIDRAN(void) {
 
     // use unix 'random' instead of snana 'rangen()'.
     // because rangen() uses a finite list of randoms.
-    r8 = unix_random();   
+    r8 = unix_random(0);   
     NCALL_random++ ;
     CIDRAN = CIDMIN + (int)( r8 * (double)(CIDMAX-CIDMIN) ) ;
 
@@ -26355,10 +26395,10 @@ void readme_doc(int iflag_readme) {
 
 
   int ilist;
-  for ( ilist=1; ilist <= NLIST_RAN; ilist++ ) {
+  for ( ilist=1; ilist <= GENRAN_INFO.NLIST_RAN; ilist++ ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"\t FIRST/LAST Random Number (List=%d): %f %f  \n", 
-	    ilist, RANFIRST[ilist], RANLAST[ilist] );
+	    ilist, GENRAN_INFO.RANFIRST[ilist], GENRAN_INFO.RANLAST[ilist] );
   }
 
   // ---- statistics
@@ -29401,11 +29441,6 @@ double SIMLIB_angsep_min(int NSTORE, double RA, double DEC,
 void DUMP_GENMAG_DRIVER(void) {
 
   // compute mag in 1-day bins and write to text file.
-  // Oct 6, 2009: open genmagerr_xxx file and dump errors.
-  // Feb 10, 2010: add TEST_COSANGLE for SIMSED model
-  // Apr 19, 2010: fix SALT2 bug by setting GENLC.SALT2alpha[beta]
-  // Apr 23, 2010: calculate DM15 and print along with SHAPEPAR string
-  // Feb 26, 2013: comment out init_RANLIST()
   //
   // Jan 31 2017: major overhaul and refactor.
   //   + write 1 TEXT tableFile instead of PAW-readable file per band.
@@ -29764,7 +29799,7 @@ void test_ran(void) {
   for ( i = 1; i<=100000; i++ ) {
     // now smear with sigma=1
     NTMP++ ;
-    if ( NTMP==100 ) {  init_RANLIST();  NTMP = 0 ; }
+    if ( NTMP==100 ) {  fill_RANLISTs();  NTMP = 0 ; }
     x = GaussRan(1);
     if ( x >=  0.0 ) 
       { y = 0.5 + GaussIntegral(x0,x);     }

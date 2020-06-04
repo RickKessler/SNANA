@@ -8,7 +8,8 @@
 #define FITSTABLE_NAME_SPECTROGRAPH  "SPECTROGRAPH" 
 #define NCOL_noSNR 3    // Ncolumns before SNR values
 #define TEXPOSE_INFINITE_SPECTROGRAPH 1.0E8 // flag to ignore noise
-#define ILIST_RANDOM_SPECTROGRAPH 3  // Jan 2018
+#define ILIST_RANDOM_SPECTROGRAPH 3   // separate list for ran Trest
+#define ISTREAM_RANDOM_SPECTROGRAPH 1 // independent random stream.
 
 int  SPECTROGRAPH_USEFLAG ;
 int  NERR_SNR_SPECTROGRAPH ;

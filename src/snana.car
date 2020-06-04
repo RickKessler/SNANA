@@ -38558,7 +38558,7 @@ c check for namelist over-rides from command line.
 
       IF ( LMCMC ) THEN
         ISEED = 12345
-        CALL randominit(ISEED)  ! init randoms via C interface
+cc xxx mark delete Jun 2020  CALL randominit(ISEED)  ! init randoms via C 
       ENDIF
 
 C #################################################   

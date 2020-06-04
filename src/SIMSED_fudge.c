@@ -2634,25 +2634,7 @@ void sedFudge_smear(int ised, int ismear) {
 
   // generate Gaussian random numbers for this SED 
 
-  init_RANLIST();
-
-  /* xxx mark delete Oct 21 2019 xxxxxxxx
-  NGAURAN = SMEARMODEL_DEF[indx].NGAURAN ;
-  for ( iran=1; iran <= NGAURAN; iran++ ) 
-    { GAURANLIST_SMEARMODEL[iran] = GaussRan(1);  }
-
-  NFLATRAN = SMEARMODEL_DEF[indx].NFLATRAN ;
-  for ( iran=1; iran <= NFLATRAN; iran++ ) 
-    { FLATRANLIST_SMEARMODEL[iran] = FlatRan1(1);  }
-
-
-  // if using one of the genSmear_model.c models, 
-  // set randoms for this SED.
-  if ( SMEARMODEL_ID.USE_genSmear ) {
-    SETRANGauss_genSmear(NGAURAN,  &GAURANLIST_SMEARMODEL[1]  );
-    SETRANFlat_genSmear (NFLATRAN, &FLATRANLIST_SMEARMODEL[1] );
-  }
-  xxxxxxxx end mark xxxxxxxx */
+  fill_RANLISTs();
 
   for ( iday = 0; iday < TEMP_SEDMODEL.NDAY; iday++ ) {
     for ( ilam = 0; ilam < TEMP_SEDMODEL.NLAM; ilam++ ) {

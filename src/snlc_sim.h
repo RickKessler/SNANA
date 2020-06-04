@@ -494,7 +494,8 @@ struct INPUTS {
   char GENMODEL_ARGLIST[400] ;
   int  GENMAG_SMEAR_MSKOPT;   // bit-mask of GENSMEAR options
   unsigned int ISEED;         // random seed
- 
+  int          NSTREAM_RAN;   // number of independent random streams
+
   int    RANLIST_START_GENSMEAR;  // to pick different genSmear randoms
 
   double OMEGA_MATTER;   // used to select random Z and SN magnitudes
@@ -1791,7 +1792,7 @@ double genmodelSmear_interp(int ifilt_interp, int iep);
 double genmodel_Tshift(double T, double z);
 
 void   init_simvar(void);        // one-time init of counters, etc ..
-void   init_simRandoms(void);    // init stuff for randoms
+// xxx mark delete void   init_simRandoms(void);    // init stuff for randoms
 void   init_genmodel(void);      // init above
 void   init_genSpec(void);        // one-time init for SPECTROGRAPH
 void   init_genSEDMODEL(void); // generic init for SEDMODEL

@@ -1124,6 +1124,7 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   // May  6 2020: return SNR=0 if ZP=-9 (undefined)
   // May 22 2020: return SNR=0 if variance < 0 (see SQ_SUM)
   // May 27 2020: pass & implement new option ALLOW_TEXTRAP 
+  // Jun 04 2020: init *ERRFRAC_T=0
 
   int OPT_INTERP=1;
   int NBT       = INPUTS_SPECTRO.NBIN_TEXPOSE ;
@@ -1144,6 +1145,7 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   // -------------- BEGIN --------------
 
   SNR = SQ_S = SQ_T = ZP_S = ZP_T = 0.0 ;
+  *ERRFRAC_T = 0.0 ;
 
   if ( ALLOW_TEXTRAP ) {
     if ( TEXPOSE_S < Tmin ) 

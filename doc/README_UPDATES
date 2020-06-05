@@ -18423,11 +18423,18 @@
 
 
 # ======================================================================= 
-         v10_77b (  ) 
+         v10_77b (June 5 2020) 
 
          ***** IMPORTANT(v10_77b) ***** 
-
+    
          ***** USEFUL(v10_77b) ***** 
+
+    SIMLIB_OUT option (snana.exe) adds TAKE_SPECTRUM keys in SIMLIB header
+    if spectra are in the data file.
+
+    Simulating spectra has new option to extrap TEXPOSE beyond defined range.
+
+    New sim option to read SIMLIB exactly once.
 
          ***** MISCELLANEOUS(v10_77b) ***** 
 

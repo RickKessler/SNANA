@@ -18451,7 +18451,8 @@
 
     SALT2mu_fit.pl
      + fix obscure ABORT  message when datfile= key is missing
-       for NSPLITRAN option.
+        for NSPLITRAN option.
+     + on abort, write FAIL to DONE file 
 
     SALT2mu.c
       + for ALL surveys lumped together (no 64 bit), fix bug where

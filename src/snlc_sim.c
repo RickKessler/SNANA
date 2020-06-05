@@ -26395,10 +26395,13 @@ void readme_doc(int iflag_readme) {
 
 
   int ilist;
+  sumstat_RANLISTs(2);
   for ( ilist=1; ilist <= GENRAN_INFO.NLIST_RAN; ilist++ ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"\t FIRST/LAST Random Number (List=%d): %f %f  \n", 
-	    ilist, GENRAN_INFO.RANFIRST[ilist], GENRAN_INFO.RANLAST[ilist] );
+    sprintf(cptr,"   FIRST/LAST Random Number (List=%d): %f %f  "
+	    "AVG(wrap) = %.1f +_ %.1f \n", ilist, 
+	    GENRAN_INFO.RANFIRST[ilist], GENRAN_INFO.RANLAST[ilist],
+	    GENRAN_INFO.NWRAP_AVG[ilist], GENRAN_INFO.NWRAP_RMS[ilist]	);
   }
 
   // ---- statistics

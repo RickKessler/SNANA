@@ -5404,8 +5404,15 @@ void init_random_seed(int ISEED, int NSTREAM) {
   }
 
   fill_RANLISTs(); 
-  for ( i=1; i <= GENRAN_INFO.NLIST_RAN; i++ )  
-    { GENRAN_INFO.RANFIRST[i] = FlatRan1(i); }
+  for ( i=1; i <= GENRAN_INFO.NLIST_RAN; i++ )  { 
+    GENRAN_INFO.RANFIRST[i]    = FlatRan1(i); 
+    GENRAN_INFO.NWRAP_MIN[i]   = 99999.0 ;
+    GENRAN_INFO.NWRAP_MAX[i]   = 0.0; 
+    GENRAN_INFO.NWRAP_SUM[i]   = 0.0; 
+    GENRAN_INFO.NWRAP_SUMSQ[i] = 0.0; 
+  }
+
+  GENRAN_INFO.NCALL_fill_RANSTATs = 0;
   
   // ---------------- skewNormal stuff -------------------
   //
@@ -5432,10 +5439,9 @@ void fill_RANLISTs(void) {
   // ---------------- BEGIN ----------------
 
   NLIST_RAN = 0 ;
-
   NLIST_RAN++ ;   // main generation
   NLIST_RAN++ ;   // genSmear
-  NLIST_RAN++ ;   // GENSPEC_DRIVER (Jan 2018)
+  NLIST_RAN++ ;   // spectrograph
   GENRAN_INFO.NLIST_RAN = NLIST_RAN ;
 
   if ( NLIST_RAN > MXLIST_RAN ) {
@@ -5444,8 +5450,10 @@ void fill_RANLISTs(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
+  sumstat_RANLISTs(0);
 
   for (ilist = 1; ilist <= NLIST_RAN; ilist++ ) {
+    // fill new list of randoms
     GENRAN_INFO.NSTORE_RAN[ilist] = 0 ;
     for ( istore=0; istore < MXSTORE_RAN; istore++ ) {
       GENRAN_INFO.RANSTORE[ilist][istore] = unix_random(0);
@@ -5455,6 +5463,49 @@ void fill_RANLISTs(void) {
   return ;
 
 }  // end of fill_RANLISTs
+
+// **********************************
+void sumstat_RANLISTs(int FLAG) {
+
+  // Created Jun 4 2020
+  // called by fill_RANLISTs
+  // FLAG = 0 -> increment stats
+  // FLAG = 2 -> print final symmary stats
+
+  int NLIST_RAN = GENRAN_INFO.NLIST_RAN ;
+  int ilist, NCALL ;
+  double XNWRAP, XN1, XN0 = (double)MXSTORE_RAN ;
+
+  // --------- BEGIN ----------
+
+  if ( FLAG == 0 ) {
+    if ( GENRAN_INFO.NSTORE_RAN[1] == 0 ) { return; }   
+    GENRAN_INFO.NCALL_fill_RANSTATs++ ;
+    for (ilist = 1; ilist <= NLIST_RAN; ilist++ ) {      
+      // increment stats for previous wrap-usage
+      XN1 = GENRAN_INFO.NSTORE_RAN[ilist];
+      GENRAN_INFO.NWRAP[ilist]       += (XN1/XN0) ;
+      XNWRAP = GENRAN_INFO.NWRAP[ilist];     
+      GENRAN_INFO.NWRAP_SUM[ilist]   += XNWRAP;
+      GENRAN_INFO.NWRAP_SUMSQ[ilist] += (XNWRAP*XNWRAP);      
+      GENRAN_INFO.NWRAP[ilist]        = 0.0 ;
+    } // end ilist
+  }
+  else {
+    // compute final AVG and RMS
+    double AVG, RMS, SUM, SUMSQ ;
+    for (ilist = 1; ilist <= NLIST_RAN; ilist++ ) { 
+      SUM   = GENRAN_INFO.NWRAP_SUM[ilist] ;
+      SUMSQ = GENRAN_INFO.NWRAP_SUMSQ[ilist] ;
+      NCALL = GENRAN_INFO.NCALL_fill_RANSTATs ;
+      GENRAN_INFO.NWRAP_AVG[ilist] = SUM/(double)NCALL ; 
+      GENRAN_INFO.NWRAP_RMS[ilist] = RMSfromSUMS(NCALL, SUM, SUMSQ);
+    }
+  }
+
+  return;
+
+} // end sumstat_RANLISTs
 
 // **********************************
 double unix_random(int istream) {
@@ -5546,8 +5597,10 @@ double FlatRan1(int ilist) {
   }
 
   // check to wrap around with random list.
-  if ( GENRAN_INFO.NSTORE_RAN[ilist] >= MXSTORE_RAN ) 
-    { GENRAN_INFO.NSTORE_RAN[ilist] = 0;  }
+  if ( GENRAN_INFO.NSTORE_RAN[ilist] >= MXSTORE_RAN ) { 
+    GENRAN_INFO.NSTORE_RAN[ilist] = 0;  
+    GENRAN_INFO.NWRAP[ilist] += 1.0 ;
+  }
 
   // use current random in list
   N  = GENRAN_INFO.NSTORE_RAN[ilist] ;

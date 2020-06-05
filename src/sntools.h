@@ -142,6 +142,17 @@ struct {
   // for multi-stream randoms
   random_data ranStream[MXSTREAM_RAN];
   char stateBuf[MXSTREAM_RAN][BUFSIZE_RAN];
+
+  // wrap-around stats for how often each random is re-used.
+  int    NCALL_fill_RANSTATs;
+  double NWRAP_MIN[MXLIST_RAN+1] ;
+  double NWRAP_MAX[MXLIST_RAN+1] ;
+  double NWRAP_AVG[MXLIST_RAN+1] ;
+  double NWRAP_RMS[MXLIST_RAN+1] ;
+  double NWRAP[MXLIST_RAN+1] ;
+  double NWRAP_SUM[MXLIST_RAN+1] ;
+  double NWRAP_SUMSQ[MXLIST_RAN+1] ;
+
 } GENRAN_INFO ;
 
 
@@ -723,6 +734,7 @@ double angSep( double RA1,double DEC1,
 // May 2014: snran1 -> Flatran1,  float rangen -> double FlatRan
 void   init_random_seed(int ISEED, int NSTREAM);
 void   fill_RANLISTs(void);
+void   sumstat_RANLISTs(int FLAG);
 double unix_random(int istream) ;
 double unix_GaussRan(int istream);
 double FlatRan (int ilist, double *range);  //return rnmd on range[0-1]

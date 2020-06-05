@@ -271,6 +271,10 @@
 #   + in makeDir_NSPLITRAN(), make better abort message when
 #     datafile= is missing.
 #
+# Jun 4 2020:
+#   +  replace some FATAL_ERROR calls with FATAL_ERROR_STAMP so that
+#      a SUCCESS or FAIL message is passed to Pippin.
+#
 # ------------------------------------------------------
 
 use IO::Handle ;
@@ -1065,7 +1069,7 @@ sub makeDir_NSPLITRAN {
 	$MSGERR[3] = "or cannot find data file '$tmp[0]' ";
 	$MSGERR[4] = "Beware that INPDIR are ignored for NSPLITRAN.";
 	    
-	sntools::FATAL_ERROR(@MSGERR);
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
     }
 
     return ;
@@ -1266,7 +1270,7 @@ sub makeSumDir_SALT2mu {
 	    $MSGERR[0] = "Unable to grep 'MERGED' and ' FITOPT000 '";
 	    $MSGERR[1] = "from $mergeFile";
 	    $MSGERR[2] = "Check for aborts or tabs." ;
-	    sntools::FATAL_ERROR(@MSGERR);
+	    sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
 	}
 	foreach $tmpLine (@tmpGrep) {
 	    $tmpLine  =~ s/^\s+// ;    # remove leading spaces  (Sep 4 2017)
@@ -1295,7 +1299,7 @@ sub makeSumDir_SALT2mu {
 		$i = 4;
 		foreach $vers ( @tmp ) 
 		{ $MSGERR[$i] = "Found VERSION = $vers" ; $i++; }
-		sntools::FATAL_ERROR(@MSGERR);		
+		sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);  
 	    }
 	} 
 
@@ -1325,7 +1329,7 @@ sub makeSumDir_SALT2mu {
     if ( $NVER_SKIP > 0 ) {
 	$MSGERR[0] = "Skipped $NVER_SKIP versions";
 	$MSGERR[1] = "check $NVERSION_MAX = $NVERSION_MAX" ;
-	sntools::FATAL_ERROR(@MSGERR);
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
     }
 
     # -----------
@@ -1403,7 +1407,7 @@ sub GET_IVERMATCH {
 	$MSGERR[1] = "VERSION=$VERSION and idir=$idir" ;
 	$MSGERR[2] = "(idir -> $INPDIR_SNFIT_LIST[$idir])" ;
 	$MSGERR[3] = "No more than 1 match allowed.";
-	sntools::FATAL_ERROR(@MSGERR);
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
     }
 
     return $iverMatch ;
@@ -1678,7 +1682,7 @@ sub cat_inpFiles_legacy {
 	$MSGERR[0] = "Ngzip=$Ngzip  and  Nunzip=$Nunzip" ;
 	$MSGERR[1] = "All input FITRES files must be zipped, or unzipped";
 	$MSGERR[2] = "Cannot mix.";
-	sntools::FATAL_ERROR(@MSGERR);
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
     }
 
     $cdout   = "cd $OUTDIR_SALT2mu_LIST[0]/${VERSION_4SUM}" ;
@@ -1743,7 +1747,7 @@ sub verify_CATLIST {
 		$MSGERR[0] = "Found mis-matched variable in VARNAMES list.";
 		$MSGERR[1] = "VARNAME($ivar) = $V in \n\t $f" ;
 		$MSGERR[2] = "but VARNAME($ivar) = $V_REF in \n\t $fList[0]";
-		sntools::FATAL_ERROR(@MSGERR);
+		sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
 	    }
 	}
     }
@@ -1861,7 +1865,7 @@ sub make_COMMANDS {
 		    
 	$MSGERR[0] = "No SALT2mu jobs found in make_COMMANDS() .";
 	$MSGERR[1] = "Probably a stringMatch problem";
-	sntools::FATAL_ERROR(@MSGERR);
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
     }
     
     if ( $NCPU > $NTOT_JOBS ) {	

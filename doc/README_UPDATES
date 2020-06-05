@@ -18482,4 +18482,17 @@
     sntools_spectrograph.h:
         MXLAMSMEAR_SPECTROGRAPH -> 40 (was 20) for small DIEMOS bins
 
+
+# ======================================================================= 
+         v10_77c (June 5 2020) 
+
+         ***** IMPORTANT(v10_77c) ***** 
+
+    In sim, NSTREAM_RAN = 2 (was 1) so that spectrograph noise 
+    burns independent set of randoms.  Random sync changed here.
+
+         ***** USEFUL(v10_77c) ***** 
+
+         ***** MISCELLANEOUS(v10_77c) ***** 
+
 END: 

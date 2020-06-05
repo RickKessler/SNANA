@@ -634,7 +634,7 @@ void set_user_defaults(void) {
   GENLC.NFILTDEF_OBS = 0;
 
   INPUTS.ISEED       = 1 ;
-  INPUTS.NSTREAM_RAN = 1 ;
+  INPUTS.NSTREAM_RAN = 2 ; // June 6 2020 (2nd stream for spectro noise)
   INPUTS.RANLIST_START_GENSMEAR = 1 ;
 
   INPUTS.NGEN_SCALE         =  1.0 ;

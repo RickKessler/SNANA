@@ -21763,16 +21763,23 @@ C If there are spectra, write TAKE_SPECTRUM keys to
 C SIMLIB header (LUNOUT)
 C
 
+      IMPLICIT NONE
       INTEGER LUN ! (I) write to this LUN
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,SPECCOM.
 
-      REAL TOBS, LAMMIN, LAMMAX, SNR
-      REAL*8 FLUXSUM, SQERRSUM, FLAM, FLAMERR, DLAM
-cc      REAL*8 SNR_SPECTRUM(MXLAM_SPECTRUM), AVG, RMS, MEDIAN
-      INTEGER ispec, NLAMBIN, ilam
+c discard if FLUXERR/FLUXERR_MEDIAN exceeds this value
+c --> avoid crazy large errors that result in bad FLUXUM/FLUXERRSUM.
+      REAL TOL_FLUXERR_MEDIAN_RATIO
+      PARAMETER ( TOL_FLUXERR_MEDIAN_RATIO = 50.0 ) 
+
+      REAL*8  TOBS, LAMMIN, LAMMAX, SNR
+      REAL*8  MJD, LAMMIN_BIN, LAMMAX_BIN
+      REAL*8  FLUXSUM, SQERRSUM, FLAM, FLAMERR, DLAM
+      REAL*8  FLAMERR_AVG, FLAMERR_RMS, FLAMERR_MEDIAN, RATIO
+      INTEGER ispec, NLAMBIN, ilam, NBIN_REJECT
       INTEGER LEN_TOBS, LEN_SNR, LEN_LAMMIN, LEN_LAMMAX
       CHARACTER 
      &    STR_TOBS*20, STR_SNR*20, 
@@ -21782,36 +21789,45 @@ cc      REAL*8 SNR_SPECTRUM(MXLAM_SPECTRUM), AVG, RMS, MEDIAN
 C ----------- BEGIN --------
  
       DO 222 ispec = 1, NSPECTRUM
-         TOBS = TOBS_SPECTRUM(ispec)
-         SNR = 34.33
-         NLAMBIN  = NLAMBIN_SPECTRUM(ispec)
-         LAMMIN   = LAMMIN_SPECTRUM(1,ispec)
-         LAMMAX   = LAMMAX_SPECTRUM(NLAMBIN,ispec)
+         MJD       = MJD_SPECTRUM(ispec)
+         TOBS      = TOBS_SPECTRUM(ispec)
+         NLAMBIN   = NLAMBIN_SPECTRUM(ispec)
+         LAMMIN    = LAMMIN_SPECTRUM(1,ispec)
+         LAMMAX    = LAMMAX_SPECTRUM(NLAMBIN,ispec)
 
          FLUXSUM = 0.0 ; SQERRSUM = 0.0 
        
+         CALL ARRAYSTAT(NLAMBIN, FLAMERR_SPECTRUM(1,ispec), 
+     &                  FLAMERR_AVG, FLAMERR_RMS, FLAMERR_MEDIAN)
+
+         NBIN_REJECT = 0 
          DO ilam = 1, NLAMBIN
              FLAM    = FLAM_SPECTRUM(ilam,ispec)
              FLAMERR = FLAMERR_SPECTRUM(ilam,ispec)
-             DLAM    = 
-     &         LAMMAX_SPECTRUM(ilam,ispec) - LAMMIN_SPECTRUM(ilam,ispec)
-             FLUXSUM  = FLUXSUM  + (FLAM*DLAM)
-             SQERRSUM = SQERRSUM + (FLAMERR*DLAM)**2
-cc xxx             SNR_SPECTRUM(ilam) = FLAM/FLAMERR
+             LAMMIN_BIN = LAMMIN_SPECTRUM(ilam,ispec)
+             LAMMAX_BIN = LAMMAX_SPECTRUM(ilam,ispec) 
+
+             RATIO = FLAMERR/FLAMERR_MEDIAN
+             if ( RATIO > TOL_FLUXERR_MEDIAN_RATIO ) then 
+                NBIN_REJECT = NBIN_REJECT + 1
+             else
+               DLAM     = 2.0 ! LAMMAX_BIN - LAMMIN_BIN
+               FLUXSUM  = FLUXSUM  + (FLAM*DLAM)
+               SQERRSUM = SQERRSUM + (FLAMERR*DLAM)**2
+             endif
          ENDDO
          SNR = FLUXSUM / sqrt(SQERRSUM)
-
-c xxxxxxx mark delete xxxxxxxx
-c         CALL ARRAYSTAT(NLAMBIN, SNR_SPECTRUM, AVG, RMS, MEDIAN)
-c         write(6,444) SNR, AVG, RMS, MEDIAN, NLAMBIN
-c 444     format(' xxx SNR(old)=',F6.0, 3x, 'AVG,RMS,MEDIAN=',3F6.1,
-c     &           3x,'NLAMBIN=',I5 )
-c xxxxxxxxx end mark xxxxxxx
-
-         CALL float2string_nospace(TOBS, STR_TOBS, LEN_TOBS)
-         CALL float2string_nospace(SNR,  STR_SNR,  LEN_SNR)
-         CALL float2string_nospace(LAMMIN,  STR_LAMMIN, LEN_LAMMIN)
-         CALL float2string_nospace(LAMMAX,  STR_LAMMAX, LEN_LAMMAX)
+         if ( NBIN_REJECT > 0 ) then
+            write(6,212) SNLC_CCID(1:ISNLC_LENCCID), 
+     &                 NBIN_REJECT, NLAMBIN, MJD
+ 212        format(t5, 'WARNING(',A,'): flag ', I4,' of ', I5, 2x,
+     &        'bins as FLAMERR outlier (MJD=',F9.3,')' )
+         endif
+         
+         CALL dble2string_nospace(TOBS, STR_TOBS, LEN_TOBS)
+         CALL dble2string_nospace(SNR,  STR_SNR,  LEN_SNR)
+         CALL dble2string_nospace(LAMMIN,  STR_LAMMIN, LEN_LAMMIN)
+         CALL dble2string_nospace(LAMMAX,  STR_LAMMAX, LEN_LAMMAX)
 
          WRITE(LUN,225) 
      &      STR_TOBS(1:LEN_TOBS), STR_SNR(1:LEN_SNR),
@@ -21824,9 +21840,22 @@ c xxxxxxxxx end mark xxxxxxx
       RETURN
       END
 
+C ================================================
++DECK,DBLE2STRING_NOSPACE.
+      SUBROUTINE dble2string_nospace(VAL, STRING, LEN)
+      IMPLICIT NONE
+      REAL*8 VAL            ! (I) double value to convert
+      CHARACTER STRING*(*)  ! (O) string with float value 
+      INTEGER  LEN          ! (O) length of string
+      write(STRING,240) VAL
+ 240  format(F10.1)
+      STRING = ADJUSTL(STRING)
+      LEN = INDEX(STRING,' ') - 1
+      RETURN
+      END
 +DECK,FLOAT2STRING_NOSPACE.
       SUBROUTINE float2string_nospace(VAL, STRING, LEN)
-
+      IMPLICIT NONE
       REAL VAL              ! (I) float value to convert
       CHARACTER STRING*(*)  ! (O) string with float value 
       INTEGER  LEN          ! (O) length of string

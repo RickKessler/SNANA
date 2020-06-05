@@ -18495,4 +18495,18 @@
 
          ***** MISCELLANEOUS(v10_77c) ***** 
 
+
+# ======================================================================= 
+         v10_77d (  ) 
+
+         ***** IMPORTANT(v10_77d) ***** 
+
+         ***** USEFUL(v10_77d) ***** 
+
+         ***** MISCELLANEOUS(v10_77d) ***** 
+
+    snana.car
+      for writing TAKE_SPECTRUM keys to SIMLIB, exlcude wave bins
+      where FLUXERR/FLUXERR_MEDIAN > 50
+
 END: 

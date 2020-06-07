@@ -221,7 +221,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   //   OBS_atFLUXMAX:  obs-index for max flux in each filter band
   //
   // Jul 2 2019: fix bug computing MJDMIN/MAX to work with unsorted MJD_LIST.
-  //
+  // Jun 7 2020: sort by MJD to handle unsorted data files (e.g., LSST DC2)
 
   int    OPTMASK         = INPUTS_OBS_atFLUXMAX.OPTMASK ;
   if ( OPTMASK == 0 ) { return ; }
@@ -235,7 +235,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   int USE_MJDatFLUXMAX2 = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2);
   int USE_BACKUP_SNRCUT, ITER, NITER, IMJD, IMJDMAX=0 ;
   int NOBS_SNRCUT=0, NSNRCUT_MAXSUM=0;
-  int IFILTOBS, o, omin, omax, omin2, omax2, NOTHING ;
+  int IFILTOBS, o, omin, omax, omin2, omax2, o_sort, NOTHING ;
   int MALLOC=0 ;
   double SNR, SNRCUT=0.0, SNRMAX=0.0, FLUXMAX[MXFILTINDX] ;
   double MJD, MJDMIN, MJDMAX, FLUX, FLUXERR;
@@ -253,6 +253,12 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   NSNRCUT_MAXSUM = 0 ;
   USE_BACKUP_SNRCUT = 0;
 
+  // sort by MJD (needed for FmaxClump method)
+  MEMI = NOBS*sizeof(int) ;
+  int  ORDER_SORT = +1;
+  int *INDEX_SORT   = (int*) malloc(MEMI) ;
+  sortDouble(NOBS, MJD_LIST, ORDER_SORT, INDEX_SORT );
+
   // find MJDMIN,MAX (obs may not be time-ordered)
   MJDMIN = +999999.0 ;
   MJDMAX = -999999.0 ;
@@ -261,12 +267,10 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     if ( MJD < MJDMIN ) { MJDMIN = MJD; }
     if ( MJD > MJDMAX ) { MJDMAX = MJD; }
   }
-
-
+  
   NWIN_COMBINE = (int)(MJDWIN_USER/MJDSTEP_SNRCUT + 0.01) ;
   MXWIN_SNRCUT = (int)((MJDMAX-MJDMIN)/MJDSTEP_SNRCUT)+1 ;
 
-  if ( NWIN_COMBINE < 0 ) {  }
 
   if ( MXWIN_SNRCUT < 0 ) {
     sprintf(c1err,"Crazy MXWIN_SNRCUT = %d",  MXWIN_SNRCUT);
@@ -292,7 +296,6 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   }
   else if ( USE_MJDatFLUXMAX2 ) {
     NITER   = 2 ;
-    // xxx makr delete    MJDMIN  = MJD_LIST[0];
     IMJDMAX = 0;
     SNRCUT  = SNRCUT_USER;
     if ( USE_BACKUP_SNRCUT ) { SNRCUT = SNRCUT_BACKUP; }
@@ -300,7 +303,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     if ( MALLOC == 0 ) {
       NSNRCUT     = (int*)malloc(MEMI);
       oMIN_SNRCUT = (int*)malloc(MEMI);
-      oMAX_SNRCUT = (int*)malloc(MEMI);
+      oMAX_SNRCUT = (int*)malloc(MEMI);     
       MALLOC = 1; 
     }
     // initialize quantities in each 10-day bin
@@ -340,7 +343,8 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    
+    printf(" xxx %s: ---------------- \n", fnam );
+
     if ( LDMP ) {
       printf(" xxx ITER=%d : omin,omax=%3d-%3d   MJDWIN=%.1f-%.1f"
 	     " SNRCUT=%.1f \n", 
@@ -349,11 +353,19 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     }
 
     NOBS_SNRCUT=0;   SNRMAX = 0.0 ;
-    for(o = omin; o <= omax; o++ ) {
-      MJD      = MJD_LIST[o];
-      FLUX     = (double)FLUX_LIST[o];
-      FLUXERR  = (double)FLUXERR_LIST[o];
-      IFILTOBS = IFILTOBS_LIST[o];
+    for(o = omin; o <= omax; o++ ) {   // sorted index
+
+      o_sort = INDEX_SORT[o];
+      if ( o_sort < 0 || o_sort >= NOBS ) {
+	sprintf(c1err,"Invalid o_sort=%d for o=%d \n", o_sort, o);
+	sprintf(c2err,"problem sorting my MJD");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+
+      MJD      = MJD_LIST[o_sort];
+      FLUX     = (double)FLUX_LIST[o_sort];
+      FLUXERR  = (double)FLUXERR_LIST[o_sort];
+      IFILTOBS = IFILTOBS_LIST[o_sort];
 
       if ( IFILTOBS < 1 || IFILTOBS >= MXFILTINDX ) {
 	sprintf(c1err,"Invalid IFILTOBS=%d for FLUX[%d]=%f", 
@@ -361,6 +373,9 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 	sprintf(c2err,"NOBS=%d", NOBS);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
       }
+
+      printf(" xxx %s: MJD=%9.3f  o=%d o_sort=%d \n",
+	     fnam, MJD, o, o_sort); fflush(stdout);
 
       IMJD = (int)MJD;    
       if ( IMJD    < 40000   ) { continue; }
@@ -372,12 +387,12 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 
       if ( FLUX > FLUXMAX[IFILTOBS] ) { // max flux in each filter
 	FLUXMAX[IFILTOBS] = FLUX ;
-	OBS_atFLUXMAX[IFILTOBS] = o;
+	OBS_atFLUXMAX[IFILTOBS] = o_sort;
       }
 
       if ( FLUX > FLUXMAX[0] ) {  // global FLUXMAX
 	FLUXMAX[0] = FLUX ;
-	OBS_atFLUXMAX[0] = o;
+	OBS_atFLUXMAX[0] = o_sort;
       }
 
 
@@ -413,7 +428,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     NOTHING = ( ITER==1 && NOBS_SNRCUT==0 ) ;
     if ( NOTHING ) {
       if ( USE_BACKUP_SNRCUT ) 
-	{ return; }
+	{ goto FREE; }
       else
 	{ USE_BACKUP_SNRCUT = 1; goto START; }
     }
@@ -454,8 +469,10 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 
   } // end ITER loop
 
+ FREE:
   if ( MALLOC ) { free(NSNRCUT);  free(oMIN_SNRCUT); free(oMAX_SNRCUT);  }
-
+  free(INDEX_SORT);  
+  
   return;
 
 } // end get_obs_atFLUXMAX

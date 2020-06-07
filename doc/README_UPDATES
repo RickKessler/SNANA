@@ -18512,4 +18512,9 @@
     combine_fitres.c
       + fix variable name match to be case insensitive.
 
+    sntools.c
+     + for FmaxClump method of initial PKMJD, sort MJD_LIST in case
+       data files are not MJD-sorted. Also check that snlc_fit works
+       on un-sorted data. Fix based on LSST-DC2 data files.
+
 END: 

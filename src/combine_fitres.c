@@ -104,6 +104,11 @@
  Apr 27 2020:
    + init strings to NULL (see INIVAL_COMBINE_STR)
 
+ Jun 7 2020: 
+   + match variables with ignore-case so that zCMB and ZCMB are
+     written out as zCMB and ZCMB_2.
+
+ 
 ******************************/
 
 #include <stdio.h>
@@ -675,7 +680,6 @@ void ADD_FITRES(int ifile) {
 // =====================================
 int match_CID_orig(int ifile, int isn2) {
 
-
   // Brute force CID matching by searching both files.
   // isn2 is current SN index; functions returns isn of 
   // first fitres file such that cid(isn2) == cid(isn).
@@ -1013,14 +1017,15 @@ int NMATCH_VARNAME(char *ctag , int ntlist ) {
 
   // Returns number of *ctag matches in first "ntlist"
   // elements of CTAG array
-  
+  // Jun 7 2020: match with ignoreCase
 
   int i, NMATCH, OVP ;
 
   NMATCH = 0;
 
   for ( i=0; i < ntlist; i++ ) {
-    OVP    = strcmp(ctag,VARNAME_COMBINE[i]) ;
+    // xxx mark delete   OVP    = strcmp(ctag,VARNAME_COMBINE[i]) ;
+    OVP    = strcmp_ignoreCase(ctag,VARNAME_COMBINE[i]) ;
     if ( OVP == 0 )  { NMATCH++ ; }
   }
 

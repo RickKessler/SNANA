@@ -315,7 +315,7 @@ def plot_lc(cid,base_name,noGrid,plotter_choice,tmin,tmax,filter_list,plot_all,z
 						elif fit_key in ['x1','c']:
 							to_print.append(['$%s: %.2f'%(fit_key,fits['params'][fit_key][0]),'%.2f$\n'%fits['params'][fit_key][1]])
 						elif fit_key=='NDOF':
-							to_print.append('CHI2/NDOF: %.2f/%.2f\n'%(fits['params'][fit_key],fits['params']['FITCHI2']))
+							to_print.append('CHI2/NDOF: %.2f/%.2f\n'%(fits['params']['FITCHI2'],fits['params'][fit_key]))
 						else:
 							pass
 					if z is not None:

@@ -65,6 +65,8 @@ def read_lc(cid,base_name,plotter_choice,tmin,tmax,filter_list):
 	with open(base_name+".LCPLOT.TEXT",'rb') as f:
 		dat=f.readlines()
 	fitted=False
+	mintime=np.inf
+	maxtime=-np.inf
 	for line in dat:
 		temp=line.split()
 		if len(temp)>0 and b'VARNAMES:' in temp:
@@ -78,7 +80,12 @@ def read_lc(cid,base_name,plotter_choice,tmin,tmax,filter_list):
 			if int(temp[varnames.index('DATAFLAG')])==1:
 				if peak is None:
 					peak=float(temp[varnames.index('MJD')])-float(temp[varnames.index('Tobs')])
-				sn['time'].append(float(temp[varnames.index('Tobs')]))
+				t=float(temp[varnames.index('Tobs')])
+				if t>maxtime:
+					maxtime=t
+				if t<mintime:
+					mintime=t
+				sn['time'].append(t)
 				sn['flux'].append(float(temp[varnames.index('FLUXCAL')]))
 				sn['fluxerr'].append(float(temp[varnames.index('FLUXCAL_ERR')]))
 				sn['filter'].append(str(temp[varnames.index('BAND')].decode('utf-8')))
@@ -111,7 +118,7 @@ def read_lc(cid,base_name,plotter_choice,tmin,tmax,filter_list):
 		fits['trange']={k:[np.min(fit['time'][fit['filter']==k]),np.max(fit['time'][fit['filter']==k])] for k in np.unique(fit['filter'])}
 	else:
 		fits=[]
-	return(sn,fits,peak)
+	return(sn,fits,peak,(mintime,maxtime))
 
 def read_fitres(fitres_filename,param):
 	fit={}
@@ -226,7 +233,7 @@ def plot_lc(cid,base_name,noGrid,plotter_choice,tmin,tmax,filter_list,plot_all):
 	if tmax is None:
 		tmax=np.inf
 		
-	sn,fits,peak=read_lc(cid,base_name,plotter_choice,tmin,tmax,filter_list)
+	sn,fits,peak,minmaxtime=read_lc(cid,base_name,plotter_choice,tmin,tmax,filter_list)
 	
 	if len(sn['time'])==0:
 		return [[],[]]
@@ -267,10 +274,13 @@ def plot_lc(cid,base_name,noGrid,plotter_choice,tmin,tmax,filter_list,plot_all):
 			ax[i].errorbar(temp_sn['time'],temp_sn['flux'],yerr=temp_sn['fluxerr'],
 						  fmt='.',markersize=8,color='k',
 						  label=lab)
+			
 			if len(fits)>0:
-				
 				if not plot_all:
-					fit_time=np.arange(temp_sn['time'][0],temp_sn['time'][-1],1)
+					
+					fit_time=np.arange(np.min(temp_sn['time'])-5,np.max(temp_sn['time'])+5,1)
+
+					
 				else:
 					fit_time=np.arange(fits['trange'][all_bands[j]][0],fits['trange'][all_bands[j]][1],1)
 				
@@ -289,6 +299,7 @@ def plot_lc(cid,base_name,noGrid,plotter_choice,tmin,tmax,filter_list,plot_all):
 
 					ax[i].annotate(''.join([x[0]+r'\pm'+x[1] if isinstance(x,list) else x for x in to_print]),xy=(.02,.55),xycoords='axes fraction',fontsize=6)
 				fit_print=True
+
 			ax[i].legend(fontsize=leg_size)
 			ax[i].set_ylabel('Flux',fontsize=16)
 			
@@ -381,6 +392,45 @@ def plot_cmd(genversion,cid_list,nml,isdist,private):
 	else:
 		all_cids=cid_list
 	return(plotter,'OUT_TEMP_'+rand,all_cids)
+
+def read_existing(nml):
+	files=glob.glob('OUT_TEMP_*')
+	unq_ids=np.unique([f[f.rfind('_')+1:f.find('.')] for f in files])
+
+	if len(unq_ids)>1:
+		print('For existing files, must have only one set of OUT_TEMP_ files in directory...')
+		sys.exit(1)
+	plotter='normal'
+	if nml is not None:
+		if os.path.splitext(nml)[1].upper()!='.NML':
+			nml=os.path.splitext(nml)[0]+'.NML'
+		with open(nml,'r') as f:
+			p=f.readlines()
+	
+		for line in p:
+			if 'FITMODEL_NAME' in line:
+				if 'SALT2' in line:
+					plotter='salt2'
+	base_name='OUT_TEMP_'+unq_ids[0]
+	with open(base_name+".LCLIST.TEXT",'r') as f:
+		dat=f.readlines()
+
+	cids=[]
+	for line in dat:
+		temp=line.split()
+		if len(temp)>0 and temp[0]=='SN:':
+			cids.append(temp[1])
+		
+
+	with open(base_name+'.LOG','r') as f:
+		dat=f.readlines()
+	for line in dat:
+		temp=line.split()
+		if len(temp)>0 and 'snlc' in line:
+			split_line=line.split()
+			genversion=split_line[split_line.index('VERSION_PHOTOMETRY')+1]
+		
+	return(plotter,base_name,','.join(cids),genversion)
 
 def output_fit_res(fitres,filename):
 	with open(os.path.splitext(filename)[0]+'.fitres','w') as f:
@@ -486,6 +536,7 @@ def main():
 	parser.add_option("-i",help='All: CID(s) as comma separated list or range (1-10)',action="store",type="string",dest="CID",default="None")
 	parser.add_option("-v",help='All: Version',action="store",type='string',dest='version',default=None)
 	parser.add_option("-p",help='All: Private Data Path',action="store",type='string',dest='private_path',default=None)
+	parser.add_option("--existing",help="All: Use existing output files for plotting (Must have only 1 set in directory)",action="store_true",dest="existing",default=False)
 	parser.add_option("--noclean",help='All: Leave intermediate files for debugging',action="store_true",dest="noclean",default=False)
 	parser.add_option("--silent",help="All: Do not print anything",action="store_true",dest="silent",default=False)
 	
@@ -497,22 +548,27 @@ def main():
 	if len(sys.argv)==1:
 		parser.print_help(sys.stderr)
 		sys.exit()
-	if options.version is None:
-		if options.fitres_filename is None:
-			raise RuntimeError("Need to define genversion")
-	if options.CID=="None":
-		if options.dist or options.fitres_filename is not None:
-			print("No CID given, assuming all for distributions, then first 5 for LC/SPEC plotting...")
+	
+	if not options.existing:
+		if options.version is None:
+			if options.fitres_filename is None:
+				raise RuntimeError("Need to define genversion")
+		if options.CID=="None":
+			if options.dist or options.fitres_filename is not None:
+				print("No CID given, assuming all for distributions, then first 5 for LC/SPEC plotting...")
+			else:
+				print("No CID given, assuming first 5...")
+			options.CID=None
+			all_cid=True
+		elif '-' in options.CID:
+			options.CID = ','.join([str(i) for i in range(int(options.CID[:options.CID.find('-')]),
+														int(options.CID[options.CID.find('-')+1:])+1)])
+			all_cid=True
 		else:
-			print("No CID given, assuming first 5...")
-		options.CID=None
-		all_cid=True
-	elif '-' in options.CID:
-		options.CID = ','.join([str(i) for i in range(int(options.CID[:options.CID.find('-')]),
-													int(options.CID[options.CID.find('-')+1:])+1)])
-		all_cid=True
+			all_cid=False
 	else:
-		all_cid=False
+		all_cid=True
+	
 	if options.dist and options.nml_filename is None:
 		raise RuntimeError("If you use the 'dist' option, you must provide an NML filename with the -f flag.")
 	
@@ -520,7 +576,10 @@ def main():
 		print("Joint plot type not recognized (see help), setting to kde")
 		options.joint_type='kde'
 	if options.fitres_filename is None:
-		plotter_choice,options.base_name,options.CID=plot_cmd(options.version,options.CID,options.nml_filename,options.dist,options.private_path)
+		if not options.existing:
+			plotter_choice,options.base_name,options.CID=plot_cmd(options.version,options.CID,options.nml_filename,options.dist,options.private_path)
+		else:
+			plotter_choice,options.base_name,options.CID,options.version=read_existing(options.nml_filename)
 		options.CID=options.CID.split(',')
 		if options.filt_list is not None:
 			options.filt_list=options.filt_list.split(',')

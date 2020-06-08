@@ -28,7 +28,7 @@
 #    MUOPT:  bins=20               # apply to all FITOPT by default
 #    MUOPT:  bins=30  FITOPT=0     # apply only to FITOPT000
 #    MUOPT:  bins=30  FITOPT=0,4   # apply only to FITOPT000 & FITOPT004
-#    FITOPT: bins=20               # legacy key, same as MUOPT
+#    MUOPT:  [ZDUM] nzbin=20       # add optional nick name in [] for makeCov
 #
 #    FITOPT000_ONLY: 1   # process only default FITOPT000
 #

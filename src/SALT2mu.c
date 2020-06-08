@@ -757,6 +757,8 @@ Default output files (can change names with "prefix" argument)
     + ABORT if surveygroup_biascor includes survey which does
       not exist in the data.
 
+  Jun 8 2020: add abort traps for crazy IDSURVEY
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -1127,6 +1129,7 @@ typedef struct {
 
   // Full name of each sample. e.g, 'SDSS(82N)'
   char NAME[MXCHAR_SAMPLE];  // full name of sample
+  int  IDSURVEY;             // int ID of survey for this sample
 
   int  NSN[MXEVENT_TYPE]; // per DATA, BIASCOR, CCPRIOR
 
@@ -5781,6 +5784,14 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   TABLEVAR->fitpar[INDEX_mB][ISN]     = mB ;  // this mB has no offset
   TABLEVAR->fitpar_err[INDEX_mB][ISN] = mBerr ;
 
+  if ( IDSURVEY < 0 || IDSURVEY > MXIDSURVEY ) {
+    sprintf(c1err,"Invalid IDSURVEY=%d (unsigned short) for %s SNID=%s", 
+	    IDSURVEY, STRTYPE, name );
+    sprintf(c2err,"Check $SNDATA_ROOT/SURVEY.DEF" );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+
   // increment IDSURVEY-dependent stuff
   TABLEVAR->NSN_PER_SURVEY[IDSURVEY]++ ;
   zMIN = TABLEVAR->zMIN_PER_SURVEY[IDSURVEY] ;
@@ -6414,7 +6425,7 @@ void prepare_IDSAMPLE_biasCor(void) {
     SAMPLE_BIASCOR[i].STRINGOPT[0]        = 0 ;
     SAMPLE_BIASCOR[i].OPT_PHOTOZ          = 0 ; // zSPEC is default
     SAMPLE_BIASCOR[i].NAME[0]             = 0 ;
-
+    SAMPLE_BIASCOR[i].IDSURVEY            = -9 ;
   } // end i loop 
 
 
@@ -6475,6 +6486,12 @@ void prepare_IDSAMPLE_biasCor(void) {
 
     if ( CUTMASK ) { continue ; }
 
+    if ( IDSURVEY < 0 || IDSURVEY > MXIDSURVEY ) {
+      sprintf(c1err,"Invalid IDSURVEY=%d for SNID=%s", IDSURVEY, NAME_SN);
+      sprintf(c2err,"Check $SNDATA_ROOT/SURVEY.DEF" );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
     // strip off stuff into local var
 
     sprintf(SURVEYDEF,"%s", SURVEY_INFO.SURVEYDEF_LIST[IDSURVEY] );
@@ -6512,6 +6529,7 @@ void prepare_IDSAMPLE_biasCor(void) {
       sprintf(SAMPLE_BIASCOR[N].NAME_SURVEYGROUP, "%s", SURVEYGROUP ); 
       sprintf(SAMPLE_BIASCOR[N].STRINGOPT,        "%s", STRINGOPT   ); 
       SAMPLE_BIASCOR[N].OPT_PHOTOZ = OPT_PHOTOZ ;
+      SAMPLE_BIASCOR[N].IDSURVEY = IDSURVEY ; // Jun 2020
 
       NAME_SAMPLE = SAMPLE_BIASCOR[N].NAME ;
       if ( IGNOREFILE(FIELDGROUP) ) { 
@@ -7176,15 +7194,6 @@ void dump_SAMPLE_INFO(int EVENT_TYPE) {
 
     NEVT = SAMPLE_BIASCOR[i].NSN[EVENT_TYPE] ; 
 
-    /* xxx mark delete Jun 6 2019 xxxxxxx
-    if ( strcmp(what,"DATA") == 0 ) 
-      { NEVT = SAMPLE_BIASCOR[i].NDATA ; isdata=1; }
-    else if ( strcmp(what,"BIASCOR") ==  0 ) 
-      { NEVT = SAMPLE_BIASCOR[i].NBIASCOR ; ABORT_ON_NEVTZERO=1; }
-    else
-      { NEVT = SAMPLE_BIASCOR[i].NCCPRIOR ; ABORT_ON_NEVTZERO=0; }
-    xxxxxxxxxx end mark xxxxxxx */
-
     NAME      = SAMPLE_BIASCOR[i].NAME ;
     NOBIASCOR = ( SAMPLE_BIASCOR[i].DOFLAG_BIASCOR == 0 );
     if ( NEVT == 0 ) { NSAMPLE_ZERO++; }
@@ -7199,6 +7208,8 @@ void dump_SAMPLE_INFO(int EVENT_TYPE) {
     // print one-line summary per SAMPLE
     printf("  IDSAMPLE=%2d --> %-20.20s  (%s, %s)\n",
 	   i, NAME, Nstring, zString );
+
+    //.xyz printf(" xxx %s: IDSURVEY = %d \n", fnam, SAMPLE_BIASCOR[i].IDSURVEY);
   }
 
   if ( NZERR > 0 ) {

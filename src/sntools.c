@@ -343,8 +343,6 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    printf(" xxx %s: ---------------- \n", fnam );
-
     if ( LDMP ) {
       printf(" xxx ITER=%d : omin,omax=%3d-%3d   MJDWIN=%.1f-%.1f"
 	     " SNRCUT=%.1f \n", 
@@ -373,9 +371,6 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 	sprintf(c2err,"NOBS=%d", NOBS);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
       }
-
-      printf(" xxx %s: MJD=%9.3f  o=%d o_sort=%d \n",
-	     fnam, MJD, o, o_sort); fflush(stdout);
 
       IMJD = (int)MJD;    
       if ( IMJD    < 40000   ) { continue; }

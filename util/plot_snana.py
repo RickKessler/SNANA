@@ -12,7 +12,6 @@ from matplotlib.backends.backend_pdf import PdfPages
 import os,glob,math,sys,textwrap
 from optparse import OptionParser
 from scipy.interpolate import interp1d
-import seaborn as sns
 
 
 __band_order__=np.append(['u','b','g','v','r','i','z','y','j','h','k'],
@@ -396,7 +395,12 @@ def output_fit_res(fitres,filename):
 												fitres[cid]['c'][1]))
 
 def create_dists(fitres,param,joint_type):
-
+	try:
+		import seaborn as sns
+	except:
+		print("For distribution plotting, seaborn is needed.")
+		sys.exit(1)
+		
 	res={p:[] for p in ['x0','x1','c']}
 	reserr={p:[] for p in ['x0','x1','c']}
 	if param is not None:

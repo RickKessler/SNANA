@@ -168,7 +168,7 @@ def plot_spec(cid,bin_size,base_name,noGrid,zname):
 		m=0
 		for nfig in range(int(math.ceil(len(np.unique(sn['tobs']))/4.))):
 			fig,ax=plt.subplots(nrows=min(len(np.unique(sn['tobs'])),4),ncols=1,figsize=(8,8),sharex=True)
-			ax[0].set_title('SN%s'%cid[0],fontsize=16)
+			ax[0].set_title('SNID=%s'%cid[0],fontsize=16)
 			for j in range(min(len(np.unique(sn['tobs'])[m:]),4)):
 				
 				temp_sn=np.where(sn['tobs']==np.unique(sn['tobs'])[m])[0]
@@ -279,7 +279,7 @@ def plot_lc(cid,base_name,noGrid,plotter_choice,tmin,tmax,filter_list,plot_all,z
 	sharedx=True
 	for nfig in range(int(math.ceil(rows/4.))): 
 		fig,ax=plt.subplots(nrows=min(len(all_bands),4),ncols=1,figsize=(8,8),sharex=sharedx)
-		ax[0].set_title('SN%s'%cid[0],fontsize=16)
+		ax[0].set_title('SNID=%s'%cid[0],fontsize=16)
 		fit_print=False
 		for i in range(min(len(all_bands[j:]),4)):
 			temp_sn={k:sn[k][np.where(sn['filter']==all_bands[j])[0]] for k in sn.keys()}
@@ -315,7 +315,7 @@ def plot_lc(cid,base_name,noGrid,plotter_choice,tmin,tmax,filter_list,plot_all,z
 						elif fit_key in ['x1','c']:
 							to_print.append(['$%s: %.2f'%(fit_key,fits['params'][fit_key][0]),'%.2f$\n'%fits['params'][fit_key][1]])
 						elif fit_key=='NDOF':
-							to_print.append('CHI2/NDOF: %.2f\n'%(fits['params'][fit_key]/fits['params']['FITCHI2']))
+							to_print.append('CHI2/NDOF: %.2f/%.2f\n'%(fits['params'][fit_key],fits['params']['FITCHI2']))
 						else:
 							pass
 					if z is not None:

@@ -65,8 +65,8 @@
 \newcommand{\mwebv}{MWEBV}
 \newcommand{\hostlib}{{\sc hostlib}}
 
-\newcommand{\Zphot}{Z_{\rm phot}}
-\newcommand{\Zspec}{Z_{\rm spec}}
+\newcommand{\Zphot}{z_{\rm phot}}
+\newcommand{\Zspec}{z_{\rm spec}}
 
 \newcommand{\eff}{efficiency}
 \newcommand{\effs}{efficiencies}
@@ -98,6 +98,7 @@
 \newcommand{\Npe}{N_{\rm pe}}
 \newcommand{\logSNR}{\log_{10}({\rm SNR})}
 \newcommand{\degsq}{deg$^2$}
+\newcommand{\hostmass}{M_{\rm host}}
 
 \newcommand{\lam}{\lambda}
 \newcommand{\lamg}{\lambda_g}
@@ -117,6 +118,7 @@
 
 \newcommand{\OM}{\Omega_M}
 \newcommand{\OL}{\Omega_{\Lambda}}
+\newcommand{\Ok}{\Omega_k}
 
 \newcommand{\jobend}{\mbox{~$^\dagger$}}
 
@@ -422,6 +424,7 @@ are given by
      \\
    \sigSky^2 & = & (F_1/{\rm SNR}_1)^2 - F_1 ~~ ; ~~~ 
             F_1 \equiv 10^{-0.4(m_1-\ZP)}
+  \label{eq:ZPspec}
 \end{eqnarray}
 %
 where $m_{1,2}$ are the two mag-reference values,
@@ -431,13 +434,21 @@ $m_2-m_1 < 2.5\log_{10}({\rm SNR}_1/{\rm SNR}_2)$.
 %
 To account for exposure-time ($\Texpose$) dependence, 
 $\SNRlam$ can be defined for multiple $\Texpose$ values.
-The \SPEC\ is defined in a separate text file with the 
-following syntax:
-
+The \SPEC\ is defined in a separate text file as shown 
+in Fig.~\ref{fig:spectro_table}.
+%
+\begin{figure} [ht] 
+\begin{center}
 \begin{Verbatim}[frame=single]
+# required keys:
 INSTRUMENT: MYSPECDEVICE
 MAGREF_LIST:  20 28           # used to define SNR1 and SNR2
 TEXPOSE_LIST: 300 1000 2000   # seconds
+
+# optional keys to check for bad SNR inputs
+SNR_POISSON_RATIO_ABORT_vsMAGREF:  5     # default
+SNR_POISSON_RATIO_ABORT_vsTEXPOSE: 1.2   # default
+
 
 #         LAM   LAM   LAM
 #         MIN   MAX   RES    SNR1 SNR2      SNR1 SNR2      SNR1 SNR2
@@ -445,7 +456,18 @@ SPECBIN:  4200  4210  12.4  11.39 0.017    24.78 0.063    50.72 0.168
 SPECBIN:  4210  4222  14.5  12.39 0.018    24.94 0.066    50.82 0.172   
 etc ...
 \end{Verbatim}
+\end{center}
+\caption{
+  Spectrograph table format for kcor program and simulation.
+ }
+\label{fig:spectro_table}
+\end{figure}
 %
+The required keys include name of instrument,
+two ref mag values ($m_1,m_2$ in Eq.~\ref{eq:ZPspec}),
+and a list of exposure times. The optional keys to 
+check for bad SNR inputs are described below.
+
 Each $\lam$-bin ({\tt SPECBIN} key) includes 
 $\lam_{\rm min}$ and $\lam_{\rm max}$ (\AA)
 to avoid confusion with non-uniform $\lam$ bins. 
@@ -491,7 +513,44 @@ With 200 $\lam$-bins in {\tt MYSPECDEVICE.DAT}, the {\tt rebin=3}
 option results in keeping 66 combined bins. Since $3\times 66=198 < 200$,
 the last two $\lam$-bins are ignored.
 
+\bigskip
+%With a somewhat complicated text format, it is easy to make
+%mistakes that are difficult to trace. To catch some mistakes
+%in computing SNR values, automatic crosschecks are performed 
+%using SNR-ratios and expectations based on Poisson noise.
 
+\newcommand{\Rpredict}{{\rm R}_{\rm SNR-Poiss}}  % SNR-ratio prediction
+\newcommand{\RSNR}{{\rm R}_{\rm SNR}}           % input SNR-ratio
+\newcommand{\RRabort}{{\cal R}_{\rm Abort}}    % SNR-ratio/SNR-ratio abort
+
+\noindent {\bf SNR\_POISSON\_RATIO\_ABORT\_vsMAGREF} 
+($\RRabort$) is used to check each SNR pair: SNR1 and SNR2. 
+The {\tt MAGREF} difference is used to predict the
+SNR-ratio ($\RSNR=$SNR2/SNR1) from Poisson statistics,
+%
+\begin{equation}
+  \Rpredict = 10^{0.2*({\rm MAG1}-{\rm MAG2})} ~.
+\end{equation}
+%
+The kcor program aborts if
+\begin{equation}
+  \vert \log_{10}[\RSNR/\Rpredict] \vert  > \log_{10}(\RRabort)
+\end{equation}
+%
+The cut on absolute-value of log conveniently cuts on both
+$\RSNR/\Rpredict$ and $\Rpredict/\RSNR$~.
+Note that ``R'' refers to SNR ratios, while user-input 
+$\RRabort$ is a ratio of R values.
+
+\bigskip
+\noindent {\bf SNR\_POISSON\_RATIO\_ABORT\_vsTEXPOSE}
+($\RRabort$)
+performs a similar test for SNR vs. exposure time. 
+If the exposure time doubles, the naive Poisson noise expectation
+is that SNR increases by $\sqrt{2}$.
+With default $\RRabort=1.2$, the kcor program aborts if
+the SNR-ratio differs by more than 20\% from the
+$\sqrt{2}$ expectation.
 
 % ##########################################
    \clearpage
@@ -573,7 +632,7 @@ may take some practice to use properly.
 The first step is to copy a sample input file to your
 private area,
 \begin{verbatim}
-   > cp $SNDATA_ROOT/sample_input_files/mlcs2k2/sim_[SURVEY].input. 
+   > cp $SNDATA_ROOT/sample_input_files/SALT2/sim_[SURVEY].input  . 
 \end{verbatim}
 %
 where {\tt [SURVEY]} is one of the surveys for which
@@ -590,7 +649,7 @@ Now you can run the simulation, for example, with
    > snlc_sim.exe  sim_SDSS.input
 \end{verbatim}
 %
-which should generated ten lightcurves using the MLCS2k2 model.
+which should generated 100 lightcurves using the SALT2 model.
 The next step is to modify the input file to suit your needs.
 The input parameters are internally commented within the
 source code; for example, to get more information about
@@ -606,42 +665,23 @@ All of the input options are defined in a structure
 called {\tt INPUTS} in {\tt snlc\_sim.h}.
 Please report variables that are not commented, or that
 have confusing comments.
-Don't hesitate contacting other people familiar with \simexe.  
-Some of the light curve parameters are obscure 
-(i.e, describing the distribution of extinction \& $\Delta$), 
-and our best estimates of these parameters can change.
-To reduce the burden of tracking all of these parameters,
-defaults for these obscure parameters are stored in the 
-file
-\begin{verbatim}
-   $SNDATA_ROOT/models/snlc_sim.defaults  .
-\end{verbatim}
-%
-If you simply ignore these obscure parameters in your input file, 
-the ``defaults'' defined above will be used in the simulation. 
-You can modify any parameter by defining the parameter 
-explicitly in your input file.
-
+Don't hesitate requesting help from other people familiar with \snana.
 
 The simulated lightcurves are located in
 \$\sndataroot/{\tt SIM}. Do NOT try `ls' !!!
-Instead, try `{\tt ls~-d */}' to see all versions.
+Instead, try `{\tt ls~-d *}' to see all versions.
 To avoid sifting through hundreds of versions from multiple
-users, I always use `{\tt RK}' as a prefix 
-for my versions, and therefore I can see my versions with
-`{\tt ls~-d~RK*/}.'
-Each simulated version is located in a sub-directory named
-by your version.
+users, use your initials (or project acronym) as a prefix 
+for your versions.
 %
-Recall that you have full write-privilege, so use caution.
-Each version has an auto-generated README file. If your version is
-called `MYFIRSTSIM', then do
+Each simulated version has an auto-generated README file. 
+If your version is called `MYFIRSTSIM', then do
 \begin{verbatim}
    > more $SNDATA_ROOT/SIM/MYFIRSTSIM/MYFIRSTSIM.README
 \end{verbatim}
 %
 which contains a list of all your simulation options.
-The default format is FITS: one FITS file for the
+The default sim-data format is FITS: one FITS file for the
 header info with one row per SN, and a second FITS
 file with all of the light curves. 
 Instead of FITS format, you can generate a text file per SN
@@ -657,6 +697,84 @@ You can get a list of files with the commands
    more MYFIRSTSIM.LIST
 \end{verbatim}
 
+
+% ------------------------------------
+   \subsection{Search Hierarchy for Supplemental Input Files}
+   \label{subsec:sim_inpfiles}
+% ------------------------------------
+
+The simulation has input options for more than a dozen different 
+maps that are read in as supplemental files. These maps include:
+cadence, host galaxy, detection efficiency vs. SNR, 
+spectroscopic selection efficiency, etc ...
+To see all maps in your simulation job, 
+see dashboard utility in \S\ref{sss:sim_dashboard}.
+The simulation will search for each supplemental file with
+the following priority
+\begin{enumerate}
+  \item current diretory (i.e., no path appended to file name)
+  \item path specified by sim-input~~~ {\tt PATH\_USER\_INPUT: <path>}
+  \item default path under \$\sndataroot.
+\end{enumerate}
+%
+Priority (1) allows over-riding defaults by
+simply copying a map file to your local directory.
+Priority (2) is useful in higher-level pipelines that
+copy the top-level sim-input file to a spearate directory, 
+but doesn't copy the supplemental files.
+Priority (3) checks for default files from
+previous analyses or publications. For example,
+a SIMLIB file is checked under 
+{\tt \$SNDATA\_ROOT/simlib},
+a k-correction file is checked under
+{\tt \$SNDATA\_ROOT/kcor},
+trigger files are checked under
+{\tt \$SNDATA\_ROOT/models/searcheff}, etc ...
+
+Note that the most robust method is to specify file names with a 
+full path that has an environment (ENV) variable; the ENV ensures that
+the sim job will run on other computer platforms.
+
+% ------------------------------------
+   \subsection{Cosmological Parameters}
+   \label{subsec:sim_cosmopar}
+% ------------------------------------
+
+The default cosmological parameters are specified in {\tt sntools.h};
+as of March 2020,
+%
+\begin{Verbatim}[frame=single]
+// cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
+#define OMEGA_MATTER_LCDM   0.315 
+#define OMEGA_LAMBDA_LCDM   0.685 
+#define w0_LCDM            -1.0
+#define wa_LCDM             0.0
+#define H0_SALT2            70    // km/s/Mpc : tied to SALT2 training
+#define H0_MLCS             65    // km/s/Mpc : tied to MLCS training
+#define H0_Planck          67.4   // 1807.06209 (Planck 2018)
+#define H0_SH0ES           74.03  // 1903.07603 (Riess 2019)
+\end{Verbatim}
+%
+The default H0 value is {\tt H0\_SALT2};
+if an MLCS model is requested, then {\tt H0\_MLCS} is used.
+The {\tt Planck} and {\tt SH0ES} values of H0 are not used 
+in the simulation.
+For specific analyses requiring different cosmo parameters, 
+use the following sim-input keys:
+%
+\begin{Verbatim}[frame=single]
+  OMEGA_MATTER:  <value>
+  OMEGA_LAMBDA:  <value>
+  W0_LAMBDA:     <value>
+  H0:            <value>
+\end{Verbatim}
+%
+It is recommended to use the defaults so that global updates
+are easily propagated thru Github updates rather than modifying
+numerous sim-input files.
+The curvature is computing internally as $\Ok = 1 - \OM - \OL$,
+and the radiation term is ignored. Time-varying $w$
+is currently not implemented.
 
 % ------------------------------------
    \subsection{Synchronizing Random Numbers}
@@ -969,6 +1087,7 @@ etc ...
 
 \begin{Verbatim}[frame=single]
   SIMLIB_MSKOPT:  nnn     # bit-mask of options (see below)
+  SIMLIB_MINOBS:  nnn     # require at least this many obs per LIBID
   SIMLIB_IDSTART: nnn     # start at LIBID nnn
   SIMLIB_IDLOCK:  nnn     # use only LIBID nnn ; skip all others
   SIMLIB_MAXRANSTART: nnn # start at random LIBID among first nnn entries
@@ -982,6 +1101,8 @@ etc ...
   USE_SIMLIB_PEAKMJD:  1  # use peakMJD in header (if there)
   USE_SIMLIB_REDSHIFT: 1  # use redshift in header (if there)
   USE_SIMLIB_DISTANCE: 1  # use lumi-distance in header (invert to get zCMB)
+  USE_SIMLIB_SPECTRA:  1  # use TAKE_SPECTRUM keys in header 
+  USE_SIMLIB_SALT2:    1  # use SALT2c & SALT2x1 keys in header
 \end{Verbatim}
 
 More information about the {\tt SIMLIB\_DUMP} option
@@ -998,6 +1119,13 @@ The {\tt SIMLIB\_MSKOPT} options are
       these events are forced to be accepted with 
       {\tt NOBS = NEPOCH = 0} 
       to ensure that forced events fails all analysis cuts.
+%
+   \item {\tt MSKOPT} += 4~: 
+        stop generating after one pass through \simlib\ file.
+        Set {\tt NGENTOT\_LC} to large value to avoid stopping
+        before end of \simlib. Beware: if {\tt APPLY\_CUTWIN\_OPT} is set,
+        the number of events written to data file may be fewer
+        than number of \simlib\ entries.
 %
    \item {\tt MSKOPT} += 8~: debug option to replace correlated
       template noise ({\tt TEMPLATE\_XXX} keys below) with
@@ -1149,13 +1277,11 @@ in a \simlib\ file.
 \end{Verbatim}
 %
 \noindent
-If any {\tt GENRANGE\_XXX} key appears {\it without} an associated
-{\tt GENSIGMA\_SIGMA} key, then the corresponding value
-is re-generated from a flat distribution. 
-If the {\tt GENSIGMA\_SIGMA} is specified, then the new value
-is re-generated from a Gaussian distribution whose peak value
-is at the center of the {\tt GENRANGE\_XXX} window.
-
+If {\tt GENSIGMA\_XXX} is not specified, a flat distribution is generated
+within {\tt GENRANGE\_XXX}.
+If the {\tt GENSIGMA\_XXX} are specified, each XXX value
+is generated from a Gaussian distribution whose peak value
+is the center of the {\tt GENRANGE\_XXX} window.
 
 For more info on the {\tt TEMPLATE\_XXX} keys, 
 see \S\ref{subsec:template_noise}. 
@@ -1695,8 +1821,9 @@ REDCOV: g:0.3,r:0.5  # reduced corr = 0.3 & 0.5 for g & r, respectively
 REDCOV: iz:0.4       # reduced corr = 0.4 for i+z combined
 
 MAPNAME:  ERRSCALE_2D_ZPPSF
-BAND: griz    FIELD:  DEEP
-NVAR: 3
+BAND: griz    FIELD:  DEEP 
+SCALE_FLUXERR_DATA: 1.2   # scale reported error, but not true err
+SCALE_FLUXERR_TRUE: 1.1   # scale true error, but not reported err
 VARNAMES:  ZP  PSF  ERRSCALE
 ROW:       29  0.5    1.02
 ROW:       29  1.5    1.25
@@ -2202,10 +2329,12 @@ GENMAG_SMEAR_FILTER: UBV 0.05  # and/or fixed smearing per filter
 GENMAG_SMEAR_FILTER: RI  0.08  # and/or fixed smearing per filter
 
 # method 3: Pick model name from specialized code in genSmear_models.c
-GENMAG_SMEAR_MODELNAME:   G10 
-GENMAG_SMEAR_SCALE:       1.0         # scale all magSmear values
-GENMAG_SMEARPAR_OVERRIDE: BLA  1.234                 # optional param override
-GENMAG_SMEARPAR_OVERRIDE: BLALIST[3]  1.8  2.2  3.4  # idem
+GENMAG_SMEAR_MODELNAME:   G10         # or C11 
+GENMAG_SMEAR_SCALE:       1.2         # scale all magSmear values
+GENMAG_SMEAR_SCALE(c):    0.95,0.3    # scale magSmear by 0.95 + 0.3*c
+GENMAG_SMEARPAR_OVERRIDE: BLA  1.234  # optional param override
+GENMAG_SMEARPAR_OVERRIDE: BLALIST[3] 1.8  2.2  3.4  # idem
+GENMAG_SMEAR_ADDPHASECOR: 0.03 7.0    # magSmear  expTau(days)
 
 # method 4: vary RV with asymmetric Gaussian distribution
 GENPEAK_RV:         1.6             # location of Gauss peak
@@ -2233,14 +2362,13 @@ the argument is a list of observer-frame filters.
 
 
 {\tt GENMAG\_SMEAR\_MODELNAME} allows the most flexibility
-because this option  allows for an arbitrarily complex function
-to describe the smearing as a function of wavelength.
+with an arbitrarily complex function
+to describe the smearing as a function of wavelength and/or phase.
 These functions are in a separately compiled module 
-({\tt \$SNANA\_DIR/src/sntools\_genSmear.c})
-so that updates are relatively easy and so that these functions
-can in principle be used in non-{\snana} applications.
+({\tt \$SNANA\_DIR/src/sntools\_genSmear.c}), and these 
+functions can in principle be used in non-{\snana} applications.
 The top of {\tt sntools\_genSmear.c}  
-gives a list of model-name options.
+provides a list of model-name options.
 The models include a ``PRIVATE'' option so that anyone can 
 quickly implement a model of intrinsic smearing by adding 
 code to the blank functions 
@@ -2251,9 +2379,16 @@ to turn off this option.
 smear-model parameters; a list of allowed keys can be seen
 by grepping the source code,
 \begin{verbatim}
-  grep GENMAG_SMEARPAR_OVERRIDE $SNANA_DIR/src/sntools_genSmear.c | grep KEY
+  grep  exec_genSmear_override  $SNANA_DIR/src/sntools_genSmear.c
 \end{verbatim}
 % $
+Finally, {\tt GENMAG\_SMEAR\_ADDPHASECOR} is a phase dependent
+brightness variation that can be combined with {\tt GENMAG\_SMEAR\_MODELNAME}.
+The two {\tt ADDPHASECOR} arguments are 1)  Gaussian sigma, and 2)
+coherence parameter ($\tau$) such that for epoch separation 
+$\Delta T$ days, the reduced correlation is  
+$\rho = \exp(-\Delta T/\tau)$.
+Note that $\rho=1$ for $\Delta T = 0$.
 
 While these smearing models are functions of rest-frame
 wavelength, there are two implementation modes 
@@ -2337,9 +2472,6 @@ Users should examine and validate the distribution of
 % -----------------------------------
 \subsubsection{Strong Gravitational Lensing}
 \label{sss:stronglens}
-
-\noindent NOT READY ...
-\bigskip
 
 Strong lensing is simulated by including a library of lenses with
 sim-input 
@@ -2501,11 +2633,13 @@ but is passed to the output data files so that cuts can be applied.
 For example, {\tt PHOTPROB} can represent a machine-learning score 
 from difference-imaging, or from cuts that reject flux-outliers.
 The map consists of a {\tt PHOTPROB} distribution  in bins
-of {\tt SNR} (or {\tt LOGSNR}) and/or {\tt SBMAG} (surface brightness).
+of {\tt SNR} (or {\tt LOGSNR}) and/or {\tt SBMAG} (surface brightness),
+and/or {\tt REDSHIFT}.
 The {\tt PHOTPROB\_WGTLIST} is a histogram of events in each bin.
 The simulation internally determines the cumulative distribution
 function (CDF) for each {\tt SNR-SBMAG} bin, and interpolates
-for each simulated epoch based on the generated {\tt SNR} and {\tt SBMAG}.
+for each simulated epoch based on the generated 
+{\tt SNR}, {\tt SBMAG}, and {\tt REDSHIFT}.
 The interpolated CDF is used to generate a random {\tt PHOTPROB} value
 for each \obs. Finally, this example applies to all fields and bands,
 but separate maps can be read for each band and/or each field.
@@ -2583,7 +2717,8 @@ ENDMAP:
 MAPNAME_PHOTPROB:  MLSCORE_FAKES
 BAND: griz   FIELD: ALL  # map applies to all fields and bands
 REQUIRE_DETECTION: 1   # generate PHOTPROB only for detections, 0 otherwise
-REDUCED_CORR:  0.5     # induce correlation among all PHOTROB per event
+REDUCED_CORR:  0.6     # induce correlation among all PHOTROB per event
+CUTVAL:        0.5     # require PHOTPROB>0.5 for detection
 NDUMP: 3               # DEBUG: one-line dump of 3 PHOTPROB per event
 NVAR:  6               # LOGSNR, SBMAG + 4 PHOTPRPB_WGTLIST bins
 VARNAMES:   LOGSNR  SBMAG  PHOTPROB_WGTLIST
@@ -3014,9 +3149,55 @@ in the file argument of {\tt SEARCHEFF\_zHOST\_FILE}.
 Lastly, for published results we recommend putting measured \eff\ 
 files in the public area \\ {\tt \$SNDATA\_ROOT/models/searcheff}.
 
-
 % ------------------------------------
   \clearpage
+   \subsubsection{Simulating and Fitting Mix of $\Zspec$ and $\Zphot$ From Host Galaxy}
+   \label{sssec:sim_zmix}
+% ------------------------------------
+
+For future surveys, it may be interesting to consider a mix of redshift sources:
+spectroscopic host redshifts ($\Zspec$) measured at lower redshifts, 
+and photometric host redshifts ($\Zphot$) measured at higher redshifts.
+This mix-$z$ simulation requires two inputs: 1) {\tt SEARCHEFF\_zHOST\_FILE} 
+specifying \eff\ vs. redshift of acquiring $\Zspec$ of the host, and
+2) {\tt ZPHOT} and {\tt ZPHOTERR} columns in the {\tt HOSTLIB}, or use the
+{\tt HOSTLIB\_GENZPHOT\_FUDGEPAR} input (\S\ref{sss:hostlib_options}).
+The relevant sim-inputs are:
+%
+\begin{Verbatim}
+   APPLY_SEARCHEFF_OPT:   1        # apply software trigger only
+   SEARCHEFF_zHOST_FILE:    SEARCHEFF_zHOST.DAT
+\end{Verbatim}
+%
+The {\tt zHOST} efficiency map is used first to determine if the event has an accurate $\Zspec$.
+If there is no $\Zspec$, then the redshift is taken from {\tt ZPHOT} and {\tt ZPHOTERR}.
+Note that {\tt REDSHIFT\_FINAL[\_ERR]} in the data file is either $\Zspec$ or {\tt ZPHOT},
+so there is only one redshift variable to access in the analysis. Supplemental data variables
+{\tt HOSTGAL\_ZSPEC} and {\tt HOSTGAL\_ZPHOT} are also available, for example,
+to compare $\Zphot$ against $\Zspec$ in the subset for which both are available.
+
+In the light curve fitting stage, use {\tt \&FITINP} namelist option  {\tt OPT\_PHOTOZ=2}
+to perform a  5-parameter $\Zphot$ fit with the host redshift as a prior (\S\ref{subsec:photoz}).
+The $z$-prior is a Gaussian with mean and $\sigma$ taken from {\tt REDSHIFT\_FINAL[\_ERR]}. 
+The value of  {\tt REDSHIFT\_FINAL\_ERR} is much smaller for $\Zspec$
+events compared with $\Zphot$ events. For $\Zspec$ events, the small $\sigma$ value
+results in such a strong $z$-prior that the fit is essentially a 4-parameter fit with fixed redshift.
+To validate this process, plot the following
+from the output {\tt FITRES} table,
+\begin{Verbatim}
+    zHD - SIM_ZCMB vs. SIM_ZCMB
+    zHDERR vs. SIM_ZCMB
+\end{Verbatim}
+
+\medskip
+\noindent Example input files for WFIRST are provided in
+\vspace{-0.2cm}
+\begin{Verbatim}
+  $SNDATA_ROOT/sample_input_files/WFIRST_zspec+zphot 
+\end{Verbatim}
+
+% ------------------------------------
+%  \clearpage
    \subsubsection{Determining $\simeffspec$}
    \label{sssec:simeffspec}
 % ------------------------------------
@@ -3528,21 +3709,10 @@ the +RA coordinate.  If North is up and East is to the right,
 
 \clearpage
 The next set of keys in Fig.~\ref{fig:hostlib} describes
-an optional weight map. In this example, galaxies are
+an optional weight map (WGTMAP). In this example, galaxies are
 weighted by the absolute r-band magnitude, and the
 SN brightness is also adjusted using the same map.
-Following the {\tt VARNAMES\_WGTMAP} key, the first ``$N-2$'' 
-variables must be from the {\tt VARNAMES} list in Fig.~\ref{fig:hostlib},
-which describe an arbitrary dependence on host properties.
-The last two variables must be {\tt WGT} and {\tt SNMAGSHIFT},
-although any names can be used here.
-{\tt SNMAGSHIFT} is applied to the SALT2 mB and $x_0$ parameters,
-and this shift is thus included in bias corrections.
-If no weight map is given the simulation will assign
-a weight of unity to each host galaxy, with zero mag-shift.
-Starting with \snana\ version v10\_70, the ``{\tt NVAR:}''
-and ``{\tt NVAR\_WGTMAP:}" keys are obsolete, although leaving
-them in the {\tt HOSTLIB} file will not cause any harm.
+See \S\ref{sss:hostlib_wgtmap} for details about the WGTMAP.
 
 
 % ----------------
@@ -3600,12 +3770,13 @@ the sim-input file (or via command-line override):
 \begin{Verbatim}[frame=single]
    HOSTLIB_FILE:         DES.HOSTLIB  # required
 # optional
+   HOSTLIB_MSKOPT:       8            # default=0
    HOSTLIB_WGTMAP_FILE:   xxxx        # default=none
    HOSTLIB_ZPHOTEFF_FILE: xxxx        # default=none
    HOSTLIB_SPECBASIS_FILE: xxxx       # default=none
    HOSTLIB_MAXREAD:      10000        # default=billion
    HOSTLIB_MXINTFLUX_SNPOS: .999      # default=.99
-   HOSTLIB_MSKOPT:       8            # default=0
+   HOSTLIB_MAXDDLR:      xxx          # default=4 (for host matches)
    HOSTLIB_SBRADIUS:     xxx          # default=1.2 arcsec
    HOSTLIB_GENRANGE_RA:    xxx yyy    # default= -999 to +999
    HOSTLIB_GENRANGE_DECL:  xxx yyy    # default= -999 to +999)   
@@ -3615,7 +3786,8 @@ the sim-input file (or via command-line override):
    HOSTLIB_GALID_PRIORITY: xxx yyy    # default= 0 0 
    HOSTLIB_GENZPHOT_FUDGEPAR: a0 a1 a2 bprob b1 # default = all -9
    HOSTLIB_GENZPHOT_BIAS:     b0 b1 b2 b3  # 3rd order poly(ztrue)
-   HOSTLIB_SERSIC_SCALE:  xxx         # default= 1.0
+   HOSTLIB_SCALE_SERSIC_SIZE:  xxx         # default= 1.0
+   HOSTLIB_SCALE_LOGMASS_ERR:  xxx         # default= 1.0
 # debug options
    HOSTLIB_GALID_FORCE:    ####       # forced GALID 
    HOSTLIB_FIXRAN_RADIUS:  #.##       # fix radial random number (0-1)
@@ -3743,9 +3915,10 @@ The parmaeters {\tt b0,b1,b2,b3} describe a 3rd order polynomial function
 of true redshift. This bias applies to {\tt HOSTLIB\_GENZPHOT\_FUDGEPAR} 
 or to the {\tt ZPHOT[ERR]} columns in the {\tt HOSTLIB}.
 
-{\tt HOSTLIB\_SERSIC\_SCALE} scales the a0 and b0 half-light radii
+{\tt HOSTLIB\_SCALE\_SERSIC\_SIZE} scales the a0 and b0 half-light radii
 to make the galaxy sizes bigger or smaller.
 
+{\tt HOSTLIB\_SCALE\_LOGMASS\_ERR} scales the {\tt LOGMASS} \unc.
 
 \clearpage
 The {\tt HOSTLIB\_MSKOPT} options can be 
@@ -3790,16 +3963,21 @@ viewed with the grep-command
 %
 \item {\tt MSKOPT} += 64~: 
   use SN properties in hostlib to override default generation:
-  examples are color (e..g, c or AV), shape (e.g., x1 or Delta), 
-  RV, beta, alpha, and SNMAGSHIFT.
-  Case-insensitive so that x1 or X1 will work.
-  All available SN parameters are used; 
-  simulation aborts if no SN parameters are found.
+  c, x1, Delta, AV, RV.
+  Case-insensitive so that x1 and X1 both work.
+  Sim aborts if no SN parameters are found.
 %
-\item {\tt MSKOPT} += 256~: increase verbosity to screen.
+\item {\tt MSKOPT} += 128~: set {\tt ZTRUE = ZPHOT} 
+     (e.g., study impact of {\tt HOSTLIB} based on photo-z).
+%
+\item {\tt MSKOPT} += 256~: increase init verbosity to screen.
+%
+\item {\tt MSKOPT} += 512~: use peculiar velocity columns in {\tt HOSTLIB}
+       ({\tt VPEC,VPEC\_ERR}). \\
+       Overrides sim-input keys {\tt GENSIGMA\_VPEC} and {\tt VPEC\_ERR}.
 %
 \item {\tt MSKOPT} += 1024~: detailed screen dump
-        for each selected host.
+        for each event (for small tests only)
 %
 \end{itemize}
 %
@@ -3808,10 +3986,69 @@ will transfer the SN redshift and coordinates to that of
 the galaxy, and compute the galaxy noise.
 
 
+% ------------------------------------
 \clearpage
+\subsubsection{\hostlib\ Weight Map (WGTMAP)}
+\label{sss:hostlib_wgtmap}
+% ------------------------------------
+
+Ideally the simulation would select a random galaxy in the universe,
+and then select SN properties based on the host galaxy properties.
+In practice, however, the reverse is more practical: SN properties 
+are picked from a measured population, and after the SN is selected
+a host galaxy is assigned.
+Using the \hostlib\ properties, an optional ``weight map'' ({\tt WGTMAP}) 
+defines a relative probability for assigning a host galaxy. 
+The redshift is matched based on a tolerance
+(see {\tt HOSTLIB\_DZTOL} key), and the {\tt WGTMAP} is applied among
+all galaxies within the redshift tolerance.
+An example {\tt WGTMAP} is shown in Fig.~\ref{fig:hostlib}, but it may be
+more convenient to define the {\tt WGTMAP} in a separate file using the
+{\tt HOSTLIB\_WGTMAP\_FILE} (\S\ref{sss:hostlib_options}).
+
+Following the {\tt VARNAMES\_WGTMAP} key, the first ``$N-2$'' 
+variables must be from the {\tt VARNAMES} list in Fig.~\ref{fig:hostlib},
+which describe an arbitrary dependence on host properties.
+The last two variables must be {\tt WGT} and {\tt SNMAGSHIFT},
+where the latter is applied to the generated magnitudes if the
+4-bit is set in {\tt HOSTLIB\_MSKOPT}.
+
+If no weight map is provided, the simulation will assign
+a weight of unity to each host galaxy, with zero mag-shift.
+Starting with \snana\ version v10\_70, the ``{\tt NVAR:}''
+and ``{\tt NVAR\_WGTMAP:}" keys are obsolete, although leaving
+them in the {\tt HOSTLIB} file will not cause any harm.
+
+To include {\tt WGTMAP} correlations with SALT2 streth (x1) and color (c),
+simply include x1 and/or c in the {\tt WGTMAP}. These are the only
+{\tt WGTMAP} variables that are {\tt not} required to be in the
+\hostlib\ {\tt VARANMES} list. If x1 and c are not in the \hostlib,
+the generated value is snapped to the nearest {\tt WGTMAP} grid point
+so that the simulation runs more efficiently. For example,
+consider a {\tt WGTMAP} color grid from $-0.3$ to $+0.5$ in bins of 0.1;
+for a generated color of $c=0.12$, the weight is the pre-computed value
+at the grid point $c=0.1$. 
+
+{\bf MEMORY WARNING}: 
+To maintain simulation speed, the {\tt WGT} and {\tt SNMAGSHIFT} are 
+precomputed and stored in memory for each galaxy and each x1,c grid point;
+beware that this memory storage can be large.
+For example, consider a {\tt HOSTLIB} with a million galaxies and
+a {\tt WGTMAP} that includes a $20\times 20$ ``x1~$\times$~c'' grid. 
+The {\tt WGT} and {\tt SNMAGSHIFT} are stored for $20\times 20\times 10^6 = $
+400~million values, consuming 4~Gb of memory.\footnote{While {\tt WGT}
+  is stored as 8-byte double, {\tt SNMAGSHIFT*20000} is stored as
+  2-byte short int to reduce memory.}
+%
+Check memory usage in the stdout from this output:
+\begin{verbatim}
+   Interpolate WGTMAP for each galaxy (68.47 MB)
+\end{verbatim}
+
+
+%\clearpage
 \newcommand{\Rhalf}{R_{1/2}}
 \newcommand{\Sn}{{\cal S}_{n}}
-
 
 % ------------------------------------
 \subsubsection{Generating Host Spectra}
@@ -3843,6 +4080,7 @@ the z-norm term.
 
 
 % ------------------------------------
+\clearpage
 \subsubsection{Synthetic Host Magnitudes ({\tt +HOSTMAGS})}
 \label{sss:hostlib_synmag}
 % ------------------------------------
@@ -3865,12 +4103,11 @@ flux-scatter as a function of local surface brightness.
 \label{sss:hostlib_NBR}
 % ------------------------------------
 
-To simulate the effect of matching SN to the wrong galaxy with the
-DLR method,
+To simulate the effect of matching SN to the wrong galaxy 
+with the DLR method,
 a list of true galaxy neighbors is needed for each \hostlib\ entry. 
-For any \hostlib\ that includes sky coordinates, a supplemental 
-column with a comma-separated
-list of neighbors can be created with
+For a \hostlib\ that includes sky coordinates, a supplemental 
+column with a comma-separated list of neighbors can be created with
 %
 \begin{verbatim}
    snlc_sim.exe <iputFile> +HOSTNBR
@@ -3888,16 +4125,57 @@ as sim-input keys. A new \hostlib\ is created with {\tt +HOSTNBR}
 extension, and the simulation quits without generating events.
 If Sersic profiles are included, running the simulation again with the 
 newly-created \hostlib\ results in computing DLR for the true galaxy and
-each neighbor galaxy, and ordering the galaxy matches by DLR, 
-even of the smallest DLR is the wrong match.
-{\it (TO DO: define tag for true match)}
+each neighbor galaxy, and ordering the galaxy matches by 
+{\tt DDLR = DLR/Angsep}, 
+even if the smallest {\tt DDLR} is the wrong match.
 
-To find the galaxy neighbors quickly when using the output \hostlib\ 
+To find the galaxy neighbors quickly when using the output 
+{\tt HOSTLIB+NBR}
 in a simulation,
-the galaxy identifiers are \hostlib\ row numbers rather than {\tt GALID}.
+the galaxy identifiers are \hostlib\ row numbers (start at row 1)
+rather than {\tt GALID}.
 To allow for easy verification, the {\tt +HOSTNBR} option includes a 
 screen-dump for several entries,
 where the dump includes both row number and {\tt GALID}.
+
+{\tt SIM\_HOSTLIB\_GALID} is the true galaxy ID, and is in 
+output data files and output tables created by analysis codes.
+An incorrect host-match is flagged by
+{\tt SIM\_HOSTLIB\_GALID}$\ne${\tt HOSTGAL\_OBJID};
+in this case, it is likely that
+{\tt SIM\_HOSTLIB\_GALID = HOSTGAL2\_OBJID}.
+To reject host-matches with a {\tt DDLR} cut
+(\S\ref{sss:hostlib_options}),
+set sim-input key ``{\tt HOSTLIB\_MAXDDLR: <cutval>}.''  
+For analysis, host information can be added to TEXT-formatted
+tables (\S\ref{subsec:anavar}) using 
+\begin{verbatim}
+       SNTABLE_LIST = 'SNANA(text:host) FITRES(text:host)'
+\end{verbatim}
+
+% ------------------------------------
+\subsubsection{Treatment of {\tt LOGMASS} }
+\label{sss:hostlib_logmass}
+% ------------------------------------
+
+To propagate effects of  host-galaxy mass \unc,
+the simulation treats the following {\tt HOSTLIB} columns:
+%
+\begin{Verbatim}
+    LOGMASS_TRUE    # true log10(M/Msolar)
+    LOGMASS         # same as above
+    LOGMASS_ERR     # Gaussian uncertainty
+    LOGMASS_OBS     # measured log10(M/Msolar)
+\end{Verbatim}
+%
+If {\tt LOGMASS\_OBS} is not included, then the measured
+mass is determined from a random Gaussian fluctuation
+using {\tt LOGMASS\_ERR}. {\tt LOGMASS\_OBS} is propagated
+to the output and used in cosmology fitting.
+The sim-input parameter {\tt HOSTLIB\_SCALE\_LOGMASS\_ERR} scales 
+the \unc\
+(see Table near top of \S\ref{sss:hostlib_options}).
+
 
 
 % ------------------------------------
@@ -3979,7 +4257,7 @@ the weight map.
 There are two sets of HOST-related parameters in the output.
 The first set, {\tt HOSTGAL\_XXX}, corresponds to observables
 which can appear in real data files. These obervables include
-{\tt OBJID}, {\tt ZPHOT}, {\tt ZPHOT\_ERR} and {\tt LOGMASS}.
+{\tt OBJID}, {\tt ZPHOT}, {\tt ZPHOT\_ERR}, {\tt LOGMASS\_TRUE}.
 Additional obervables may be added later.  The second set,
 {\tt SIM\_HOSTLIB\_XXX}, corresponds to the user-selected
 parameters from the sim-input key {\tt HOSTLIB\_STOREPAR}.
@@ -4275,12 +4553,12 @@ to {\tt NON1ASED} and {\tt NON1AGRID} models.
 For the {\tt LCLIB} model, the rate is defined as a function
 of Galactic coordinates ($l$ and $b$). Current option is
 \begin{verbatim}
-   DNDB:  COSBPOLY:  <b0>  <b1>  <b2>  <b3> <b4> <b5>
+   DNDB:  COSBPOLY  <b0>  <b1>  <b2>  <b3> <b4> <b5>
       or
-   DNDB:  BPOLY:     <b0>  <b1>  <b2>  <b3> <b4> <b5>
+   DNDB:  BPOLY      <b0>  <b1>  <b2>  <b3> <b4> <b5>
 
 # ------- example -------
-   DNDB:  COSBPOLY:   1     0     0     0   0    0  # isotropic
+   DNDB:  COSBPOLY    1     0     0     0   0    0  # isotropic
 \end{verbatim}
 %
 which defines the $b$-dependence with a 
@@ -4570,6 +4848,7 @@ The warping is applied only to the measured $\Flam$
 the true $\Flam$ is not warped ({\tt SIM\_GENFLAM}).
 
 % ------------------------------------
+\clearpage
 \subsubsection{{\SPEC} Options}
 \label{sss:SPEC_OPTMASK}
 % ------------------------------------
@@ -4578,12 +4857,16 @@ The {\tt SPECTROGRAPH\_OPTMASK} key in the sim-input file
 can be used as follows:
 %
 \begin{verbatim}
-  SPECTROGRAPH_OPTMASK:  1  # turn off lambda smearing
-  SPECTROGRAPH_OPTMASK:  2  # double LAMSIGMA smearing
-  SPECTROGRAPH_OPTMASK:  4  # flux only in center lambda bin (delta function)
-  SPECTROGRAPH_OPTMASK:  8  # SNR -> SNR x 100
-  SPECTROGRAPH_OPTMASK: 16  # TREF -> TREF x 100 (template expose time)
-  SPECTROGRAPH_OPTMASK:  6  # flux only in center bin & LAMSIGMA*=2
+  SPECTROGRAPH_OPTMASK:  1   # turn off lambda smearing
+  SPECTROGRAPH_OPTMASK:  2   # double LAMSIGMA smearing
+  SPECTROGRAPH_OPTMASK:  4   # flux only in center lambda bin (delta function)
+  SPECTROGRAPH_OPTMASK:  8   # SNR -> SNR x 100
+  SPECTROGRAPH_OPTMASK: 16   # TREF -> TREF x 100 (template expose time)
+  SPECTROGRAPH_OPTMASK: 32   # only template noise
+  SPECTROGRAPH_OPTMASK: 64   # for SNR_REQUEST, extrap TEXPOSE if needed
+  SPECTROGRAPH_OPTMASK: 2048 # skip spectra
+  SPECTROGRAPH_OPTMASK: 32768# turn off all noise in spectra
+  SPECTROGRAPH_OPTMASK:  6   # flux only in center bin & LAMSIGMA*=2
 
   SPECTROGRAPH_SCALE_TEXPOSE: 2.4  # scale exposure times by 2.4
 \end{verbatim}
@@ -4593,6 +4876,25 @@ as illustrated by the last option above with \\
 {\tt SPECTROGRAPH\_OPTMASK=6}.
 The default is {\tt SPECTROGRAPH\_OPTMASK=0},
 and the options above are intended for testing and debugging.
+
+
+{\tt OPTMASK+=64} is a little tricky, so here is added explanation.
+By default, the exposure time is bounded by the min and max 
+{\tt TEXPOSE\_LIST} values in the spectrograph table
+(Fig.~\ref{fig:spectro_table}). For example, suppose {\tt SNR\_MAX=20}
+at the max exposure time of {\tt TEXPOSE=2000}, and the user
+requests {\tt SNR\_REQUEST=40} (via {\tt TAKE\_SPECTRUM} key);
+the default behavior is to return {\tt TEXPOSE=2000} 
+and {\tt SNR=20} to avoid exposing for longer than what has
+been defined. With {\tt OPTMASK+=64}, however, the exposure
+time is extended to give the requested SNR:
+\begin{equation}
+{\tt TEXPOSE} = {\tt TEXPOSE\_MAX} + [{\tt SNR\_REQUEST}/{\tt SNR\_MAX}]^2
+\end{equation}
+and a similar equation is used for requested {\tt SNR} below
+the minimum-defined {\tt SNR\_MIN}.
+% .xyz
+
 
 The last option ({\tt SCALE\_TEXPOSE})
 is a continuously tunable knob to scale
@@ -4638,7 +4940,7 @@ each spectrum should be defined as a separate SED file.
 
 
 % ------------------------------------
-%\clearpage
+\clearpage
 \subsection{Simulating Rise-Time Variations}
 \label{subsec:simRiseTime}
 % ------------------------------------
@@ -4838,8 +5140,7 @@ in your sim-input file.
 
 % ------------------------------------
 \clearpage
-\subsection{Generating Redshift ($\zhelio$, $\zcmb$), 
-     Peculiar Velocity and Distance }
+\subsection{Generating Redshift ($\zhelio$, $\zcmb$) and Distance }
 \label{subsec:genz}
 % ------------------------------------
 
@@ -4848,8 +5149,6 @@ An overview of redshift-related inputs are as follows:
    GENRANGE_REDSHIFT:  0.01 1.0  # ZCMB-gen range
    GENSIGMA_REDSHIFT:  0.001     # Gaussian z-error      (default=0)
    GENBIAS_REDSHIFT:   1.0E-4    # global redshift bias  (default=0)
-   GENSIGMA_VPEC:      300       # true sigma(v_pec), km/sec  (default=0)
-   VPEC_ERR:           150       # measured error on VPEC (default=0)
    VEL_CMBAPEX:        371       # CMB dipole, (default = 371 km/sec)
 \end{verbatim}
 %
@@ -4857,28 +5156,10 @@ The CMB redshift is generated first, and then the RA \& DEC
 from the \simlib\ file is used to compute $\zhelio$ with
 $\ell=264.14$~deg, ~~ $b=48.26$~deg,~~
 and default {\tt VEL\_CMBAPEX=371}.
-A Gaussian-random peculiar velocity correction ($\vpec$) is defined by 
-{\tt GENSIGMA\_VPEC},\footnote{\snana\ users would be grateful
-  if somebody provides code to compute $\vpec$ based on
-  RA, DEC, and $\zcmb$.}
-and corresponds to the true scatter.
-{\tt VPEC\_ERR} is the measured error on $\vpec$
-(see \S\ref{subsec:vpec}).
-{\tt VPEC} and {\tt VPEC\_ERR} are written to the data files.
-With true peculiar-velocity value {\tt SIM\_VPEC}, 
-the {\tt VPEC} correction ($\vpec$) in the data file is
-\begin{verbatim}
-    VPEC = -SIM_VPEC + VPEC_ERR*GaussRan  # VPEC_ERR <  GENSIGMA_VPEC
-    VPEC =  0                             # VPEC_ERR >= GENSIGMA_VPEC
-\end{verbatim}
-%
-For high-z samples that do not have a VPEC correction,
-set {\tt VPEC\_ERR} = {\tt GENSIGMA\_VPEC} as a flag to
-apply no correction.
 
 To generate $\zhelio=\zcmb$ (sometimes useful for debugging), 
-set {\tt GENSIGMA\_VPEC} and  {\tt VEL\_CMBAPEX} to zero in 
-the sim-input file, or use the command-line override 
+set {\tt GENSIGMA\_VPEC} (\S\ref{sss:vpec}) and  {\tt VEL\_CMBAPEX} 
+to zero in the sim-input file, or use the command-line override 
 ``{\tt VEL\_CMBAPEX 0  GENSIGMA\_VPEC 0}''.
 
 
@@ -4886,8 +5167,7 @@ The simulated/true $\zcmb$ range is defined by {\tt GENRANGE\_REDSHIFT},
 and the probability vs. redshift is defined by the rate model
 (\S\ref{subsec:DNDZ}).
 The true $\zhelio$ is transformed from $\zcmb$ using the sky coordinates 
-and a peculiar velocity ($\vpec$) that is randomly drawn from a Gaussian 
-with $\sigma_{vpec}=${\tt GENSIGMA\_VPEC}.
+and a peculiar velocity ($\vpec$, \S\ref{sss:vpec}).
 The measured $\zhelio$ ({\tt REDSHIFT\_HELIO} in data files) 
 includes measurement noise drawn from a 
 Gaussian with $\sigma_z=${\tt GENSIGMA\_REDSHIFT}.
@@ -4928,12 +5208,65 @@ a $z$-bias can be added in the analysis/fitting program
 
 \medskip
 The simulated luminosity distance is computed as 
+%\vspace{-0.2cm}
+\begin{equation}
+  D_L = (1+\zhelio)r(\zcmb),~~~ 
+     r(\zcmb) \equiv (c/H_0)\int_0^{\zcmb} dz/H(z)~.
+\end{equation}
 %
-$$  D_L = (1+\zhelio)r(\zcmb),~~~ 
-   r(\zcmb) \equiv (c/H_0)\int_0^{\zcmb} dz/H(z)~.$$
+
+
+% - - - - - - -
+\clearpage 
+\subsubsection{Generating Peculiar Velocity}
+\label{sss:vpec}
+
+There are two methods to simulate peculiar velocity.
+The first method is to define a Gaussian profile and Gaussian 
+correction in the sim-input file,
+\begin{verbatim}
+   GENSIGMA_VPEC:      300       # true sigma(v_pec), km/sec  (default=0)
+   VPEC_ERR:           150       # measured error on VPEC (default=0)
+\end{verbatim}
+
+A Gaussian-random peculiar velocity correction ($\vpec$) is defined by 
+{\tt GENSIGMA\_VPEC},\footnote{\snana\ users would be grateful
+  if somebody provides code to compute $\vpec$ based on
+  RA, DEC, and $\zcmb$.}
+and corresponds to the true scatter.
+{\tt VPEC\_ERR} is the measured error on $\vpec$
+(see \S\ref{subsec:vpec}).
+{\tt VPEC} and {\tt VPEC\_ERR} are written to the data files.
+With true peculiar-velocity value {\tt SIM\_VPEC}, 
+the {\tt VPEC} correction ($\vpec$) in the data file is
+\begin{verbatim}
+    VPEC = -SIM_VPEC + VPEC_ERR*GaussRan  # VPEC_ERR <  GENSIGMA_VPEC
+    VPEC =  0                             # VPEC_ERR >= GENSIGMA_VPEC
+\end{verbatim}
 %
-For \snana\ versions prior to v10\_56, the $D_L$ prefactor was approximated
-as $(1+\zcmb)$.
+For high-z samples that do not have a VPEC correction,
+set {\tt VPEC\_ERR} = {\tt GENSIGMA\_VPEC} as a flag to
+apply no correction.
+
+The first method has the advantage of simplicitly, but does not
+account for large-scale correlations and bulk flows.
+To account for such effects, the second method reads a {\tt VPEC} 
+column from the {\tt HOSTLIB} if the 512-bit is set in 
+{\tt HOSTLIB\_MSKOPT} (\S\ref{sss:hostlib_options}). 
+The associated \unc\ can be defined in two ways:
+1) a separate {\tt VPEC\_ERR} column 
+   defining a distinct \unc\ for each host, or 
+2) fixing the uncertainty with header key ``{\tt VPEC\_ERR: <vpecErr>}.''
+The output {\tt README} includes summary information as follows:
+\begin{verbatim}
+   HOSTLIB Opt:  Use VPEC (RMS=305  min/max=-3189/3350 km/sec)
+\end{verbatim}
+
+
+Note that mixing the two methods is not allowed;
+e.g, the sim will abort if {\tt VPEC} is defined in the {\tt HOSTLIB} 
+while ``{\tt VPEC\_ERR:}'' is defined in the sim-input file.
+
 
 % ------------------------------------
    \clearpage
@@ -5026,7 +5359,7 @@ the incorrect and correct sim-inputs:
 
 The \SNANA\ analysis \& fitting programs include options for 
 estimating {\tt PEAKMJD} from the measured fluxes
-(\S\ref{subsec:initial_peakmjd}, Fig.~\ref{fig:SETPKMJD}), 
+(\S\ref{sss:initial_peakmjd}, Fig.~\ref{fig:SETPKMJD}), 
 and these options can be applied to both data and the simulation.
 For non-\SNANA\ analysis codes, it may be useful to include
 a {\tt PEAKMJD} estimate in the simulated data files,
@@ -5985,15 +6318,8 @@ When the unix command ``{\tt ps}'' shows that
 the job has finished, congratulations !
 You have fit your lightcurves with 
 CERNLIB's {\minuit} program.\footnote{\wwwMINUIT}
-To create a pdf file showing the light curve fits
-(\S\ref{subsec:fit_view}),
-\begin{verbatim}
-   mkfitplots.pl --h  snfit_SDSS.hbook
-\end{verbatim}
-%
-creates {\tt snfit\_SDSS\_fits.pdf}.
-If you are shaking your head wondering what the heck you just did,
-that's a good sign.  
+To create a pdf file showing the light curve fits,
+see \S\ref{subsec:lcplot}.
 
 
 % ------------------------------------
@@ -6166,8 +6492,20 @@ and uses the errors and $\rho_{ij}$ to determine COV.
 % ------------------------------------
    \clearpage
    \newcommand{\toApprox}{\tilde{t_0}}
-   \subsection{Initial Estimate of Peak-MJD ($\toApprox$) }
-   \label{subsec:initial_peakmjd}
+
+   \subsection{Initial Parameter Estimates}
+   \label{subsec:fitpar_init}
+% ------------------------------------
+
+Before minimization, there are two stages for initializing 
+light curve fit parameters. First is a rough estimate of
+peak MJD (\S\ref{sss:initial_peakmjd}). The second step
+is a refined peak MJD estimate and an estimate for the
+amplitude parameter (\S\ref{sss:initial_fitpar}).
+
+% ------------------------------------
+   \subsubsection{Rough Estimate of Peak-MJD ($\toApprox$) }
+   \label{sss:initial_peakmjd}
 % ------------------------------------
 
 Many light curve fitting programs rely on an approximate estimate 
@@ -6215,6 +6553,8 @@ Fig.~\ref{fig:SETPKMJD}.
    MJDWIN_SETPKMJD  = 60   # for Fmax-clump method only (default=60)
    PHOTFLAG_TRIGGER = MASK # for MJD_TRIGGER method (MASK set by survey)
    CUTWIN_TOBS = -999,999  # After finding MJD(Fmax), apply TOBS cut for Bazin fit.
+
+   SHIFT_SETPKMJD = 5.0    # syst test to shift initial PKMJD by 5 days (default=0)
 \end{Verbatim}
 \end{center}
 \end{figure}
@@ -6309,6 +6649,20 @@ method is that outlier $\toApprox$ values can be manually fixed.
 For simulations, see \S\ref{subsec:SETPKMJD} on how to leave
 a $\toApprox$ estimate in the output data files.
 
+
+
+\subsubsection{Refined Estimate of Peak-MJD and Amplitude Parameter}
+\label{sss:initial_fitpar}
+
+After $\toApprox$ is determined, a course {\tt PEAKMJD} grid
+is searched from $-4$ to $+4$ days (2 day bins) w.r.t, {\tt PKMJDINI},
+and {\tt PEAKMJD} from minimum $\chi^2$ is used as the initial value.
+Next, the data/model ratio is used to estimate the amplitude parameter:
+$x_0$ for SALT2, or distance modulus for MLCS.
+For very high-SNR events, the initial parameter estimate may not
+be good enough to prevent catastrophic fits; in this case,
+try inflating the first-iteration flux uncertainties
+using {\tt FUDGEALL\_ITER1\_MAXFRAC}  (\S\ref{subsec:fitexclude}).
 
 
 % ---------------------------------------
@@ -6554,45 +6908,37 @@ search-efficiencies (\S\ref{subsec:simeff}).
 
 % ------------------------------------
 %   \clearpage
-   \subsection{Viewing Lightcurve Fits: {\tt mkfitplots.pl} }
-   \label{subsec:fit_view}
+   \subsection{Viewing Lightcurve Fits: {\tt plot\_snana.py} and 
+       {\tt mkfitplots.pl} }
+   \label{subsec:lcplot}
 % ------------------------------------
 
-There is an after-burner script to prepare a pdf file showing
-each light curve (data + fit) for each passband,
+There are two utilities to view light curves. 
+The recommended utility is
 \begin{verbatim}
-    > mkfitplots.pl  --h  snlc_fit.hbook
+   plot_snana.py -v <version> -i <snid1,snid2,snid3,etc..>
+\end{verbatim}
+and optional arguments include {\tt -p} for private data path,
+and {\tt -f} for input file for light curve fit. 
+Typing {\tt plot\_snana.py} with no arguments gives a help menu.
+
+
+There is a much older script that operates on the output ROOT or HBOOK
+file when {\tt LCPLOT} is included in the {\tt SNTABLE\_LIST}
+(\S\ref{subsec:anavar}),
+%
+\begin{verbatim}
+     mkfitplots.pl  <rootFilename>
 \end{verbatim}
 %
-The ``{\tt snlc\_fit.hbook}'' argument above is the name of the 
-hbook file that was specified with the namelist argument 
-{\tt HFILE\_OUT} inside the  {\tt \&SNLCINP} namelist.
-This script creates a file called {\tt snlc\_fit\_fits.pdf}. 
-More generally, the pdf file name
-has the same prefix as the hbook file name.
+where {\tt rootFilename} is the argument of {\tt \&SNLCINP}
+input {\tt ROOTFILE\_OUT}.
 On each plot the black dots are data (or simulated data)
 and the green curve is best-fit model.
-There are many plotting options; see instructions with
+There are several plotting options; see instructions with
 \begin{verbatim}
-   more \$SNANA_DIR/util/mkfitplots.pl
+   more $SNANA_DIR/util/mkfitplots.pl
 \end{verbatim}
-%$
-
-\bigskip
-To view the light curves without doing any fits,
-set {\tt\&SNLCINP} namelist variable {\tt OPT\_LCPLOT=1},
-run the {\tt snana.exe} program, and then run the above
-{\tt mkfitplots.pl} command.
-
-\bigskip
-For versions prior to {\tt v10\_17}
-you need to run a once-in-a-lifetime command
-\begin{verbatim}
-    >  paw_setup.cmd
-\end{verbatim}
-For later versions there is no need to run this script,
-and there is no need to maintain a private 
-{\tt /kumacs} directory.
 
 
 % ------------------------------------
@@ -7156,9 +7502,8 @@ but sometimes $\SIGCHISQ$ can be very large
 (positive or negative) if a fitted \unc\ undergoes
 a significant change between fit iterations.
 Fits with a large $\SIGCHISQ$ value can be rejected
-using the {\tt \&FITINP} namelist variable {\tt FITWIN\_CHI2SIGMA}. 
-%The default is to reject fits with $\vert\SIGCHISQ\vert > 10$
-%({\tt FITWIN\_CHI2SIGMA = -10, +10}).  
+using the {\tt \&FITINP} namelist variable {\tt FITWIN\_CHI2SIGMA},
+or using {\tt SIGCHI2} variable in output FITRES table.
 Values of $\SIGCHISQ$ can be visually examined with
 %
 \begin{verbatim}
@@ -7382,21 +7727,12 @@ consider creating a private model-version
 
 % ------------------------------------
    \clearpage
-   \subsection{Extracting Light Curve Shape from the Fit}
-   \label{subsec:extract_template}
+   \subsection{Better peak Flux Estimate}
+   \label{subsec:peakFlux}
 % ------------------------------------
 
-The light curve shape, defined as the flux-to-peakFlux ratio 
-(${\fpkrat}$) versus epoch, 
-is determined after each light curve fit.
-In principle, this ratio is unity at the epoch of peak brightness.
-The residual-ntuple variable is {\tt FPKRAT} (ntuple id 7799)
-and the fortran variables are {\tt EP\_FPKRAT} and {\tt EP\_FPKRATERR}.
-See fortran subroutine {\tt FPKRAT} for example on how to
-access these arrays.
-
 While the flux values are from the data, the estimate
-of the peakFlux is based on the best-fit model.
+of the peak flux (peakFlux) is based on the best-fit model.
 The peakFlux estimate can be significantly off, 
 particularly for multi-band light curves that fit
 one of the colors poorly.
@@ -7428,19 +7764,6 @@ on the data-flux error (i.e., ignores the model error),
 and ``$\absTrest + 1$'' is an arbitrary factor (in days) 
 used to downweight epochs away from peak.
 
-To see the peakFlux estimates on the light curve fit
-(\S~\ref{subsec:fit_view}), use the command 
-%
-\begin{Verbatim}[frame=single]
-   mkfitplots.pl  --h <hisfile>  PEAKFLUX
-      or
-   PAW > snana#fitres pkf=1
-\end{Verbatim}
-%
-and a pink horizontal line is drawn through the peakFlux
-estimate for each filter and SN.
-The user is encouraged to vary {\tt TREST\_PEAKRENORM}
-to check the sensitivity of the epoch range.
 
 
 % -------------------------------
@@ -7491,7 +7814,7 @@ file with the matching primary reference.
 There are two methods for interpolating the SN flux 
 at a particular observation time (MJD). The first method
 is to use the generic 'any-LC' function from 
-\S\ref{subsec:initial_peakmjd},
+\S\ref{sss:initial_peakmjd},
 and the second method is to use an SN~Ia light curve model.
 For either method prepare a two-column file that lists each 
 SNID and MJD to interpolate. To interpolate all SN at a
@@ -7596,6 +7919,7 @@ for {\tt snlc\_fit.exe},
    FILTLIST_FITRESTMAG  = 'UBV'
    LAMEXTRAP_FITRESTMAG = 250   ! (A) allow this much rest-frame extrapolation
    SHAPEFIX_FITRESTMAG  = -0.2  ! => fix SHAPEPAR for PEAKMAG calc
+   DLAMTOL_FITRESTMAG   = 100   ! include obs bands with 100 A of closest bands
 \end{Verbatim}
 %
 The kcor/calibration file must include these extra (UBV) 
@@ -7616,6 +7940,12 @@ with {\tt LAMEXTRAP\_FITRESTMAG}$=250$~{\AA} we have
 $z_{\rm min} = 4800/(3600+250)-1= 0.247$.
 Similar logic is applied to the reddest filter.
 
+{\tt DLAMTOL\_FITRESTMAG} allows the inclusion of multiple bands
+with similar central wavelengths. For example, consider a survey
+with G and g bands, and central wavelengths of 4800~\AA and 4840~\AA,
+respectively. If g is the closest band to the desired rest-frame band,
+then G is exluded by default. However, with {\tt DLAMTOL\_FITRESTMAG=100}
+both G and g are included.
 
 The fitting for each SN proceeds as follows.
 The first ``{\tt NFIT\_ITERATION}'' fit-iterations are used
@@ -7839,25 +8169,6 @@ The `append' option in the sntable-dump utility
 Note that the {\tt FIELD} string cannot be appended to the
 text-fitres file (sorry!).
  
-
-% -------------------
-\subsubsection{Selecting Telescopes}
-%
-If lightcurves are constructed from multiple telescopes
-defined in \${\sndataroot}/{\tt SURVEY.DEF}, 
-all epochs/telescopes are used by default. 
-To select a subset for analysis,
-%
-\begin{Verbatim}[frame=single]
-   SNTEL_LIST    = 'SDSS'       ! list of telescopes
-\end{Verbatim}
-%
-would analyze lightcurves using SDSS epochs,
-and ignore observations from other hypothetical instruments.
-The code aborts if an invalid telescope is selected;
-i.e., one that is not specified in the {\tt SURVEY.DEF} file.
-
-
 % -----------------------------
 \subsubsection{Selecting MJD Ranges}
 
@@ -7924,31 +8235,30 @@ and there is no need to specify {\tt SNCID\_LIST}.
 % ------------------------------------
 
 The \snfitter\ program provides an interface to modify 
-zero-point offsets as well as the magnitudes of the
-primary reference star. The primary magnitudes can be
-individually adjusted using the \&{\tt SNLCINP} namelist option
+zero-point (ZP) offsets as well as the primary magnitudes.
+The primary mags can be individually adjusted using 
+\&{\tt SNLCINP} namelist options
 %
 \begin{Verbatim}[frame=single]
     MAGOBS_SHIFT_PRIMARY  = 'B .02  V .01'
     MAGOBS_SHIFT_PRIMARY  = 'B .01  V .01 R 0.01'
     MAGOBS_SHIFT_PRIMARY  = 'BVR 0.01'    # same as above
     MAGREST_SHIFT_PRIMARY = 'B .02  V .01'
-   
 \end{Verbatim}
 %
 which shifts the primary mags by 0.02 and 0.01 for $B$ and $V$,
-respectively, in the example above. 
+respectively.
 Note that separate strings are used for the
 observer-frame and rest-frame to allow for the same 
 filter-character to be used in each reference frame.
 This option is equivalent to re-generating the
 K-correction tables with these shifts, 
 but the {\tt MAG[OBS,REST]\_SHIFT\_PRIMARY}
-option is much quicker since you can use the same K-correction tables.
+option is more convenient since you can use the same K-correction tables.
 
 
-For the zero-points, there are two ways to introduce shifts.
-The first method is to specify the offsets in a file, {\tt ZPOFF.DAT},
+There are two ways to introduce ZP shifts.
+First, specify ZP offsets in a file, {\tt ZPOFF.DAT},
 located in the {\tt filters} sub-directory. For the SDSS AB-offsets,
 the file location is
 %
@@ -7957,7 +8267,7 @@ the file location is
   u -0.037  g 0.024  r  0.005  i  0.018  z  0.016 
 \end{Verbatim}
 % $
-If {\tt ZPOFF.DAT} does not exist, the shifts are zero.
+If {\tt ZPOFF.DAT} does not exist, the ZP shifts are zero.
 This method is used for standardized shifts.
 
 The second option is designed to probe the uncertainty
@@ -7970,9 +8280,8 @@ specified with the \&{\tt SNLCINP} namelist string
     MAGOBS_SHIFT_ZP = 'gri .01'    # same as above
 \end{verbatim}
 %
-Note that the shifts in {\tt ZPOFF.DAT} and {\tt MAGOBS\_SHIFT\_ZP}
-are added so that you make well-defined shifts relative to the
-standard shifts in {\tt ZPOFF.DAT}.
+Note that the {\tt MAGOBS\_SHIFT\_ZP} shifts are
+added to those in {\tt ZPOFF.DAT}.
 
 \medskip
 Wavelength-dependent shifts can be applied with polynomial
@@ -8004,12 +8313,14 @@ namelist variables,
      FUDGE_FLUXCAL_OFFSET = 'u -0.6 g 0.4   r 1.2  i -3.7 z 2.2'
      FUDGE_FLUXCAL_ERROR  = 'u 24   g -12   r 44   i 19   z -22'
      FUDGE_MAG_ERROR      = 'u .01  g .011  r .009 i .01  z .018'
+     FUDGE_MAG_ERROR      = 'ALL 0.02'       ! add .02 mag err to all bands
+     FUDGE_FLUXERR_SCALE  = 'g 1.04 r 1.02'  ! scale fluxerr in g,r bands
+     FUDGE_FLUXERR_SCALE  = 'ALL 1.03'       ! scale all bands by 1.03
 \end{Verbatim}
-These fudges should be used for systematic studies only;
+These fudges are intended for  systematic studies;
 permanent changes should be made in the data files.
 The error fudges are added/subtracted in quadrature
 based on the sign of {\tt FUDGE\_FLUXCAL\_ERROR}.
-
 
 % ------------------------------------
 %   \clearpage
@@ -8322,6 +8633,8 @@ To apply cuts on generated (true) parameters,
        SIM_TEMPLATE_INDEX_LIST = 202,203
        ! and/or
        SIMVAR_CUTWIN_STRING = 'NEP_SIM_MAGOBS 3 9999' ! >=3 obs with trueFlux>0
+       ! and/or
+       CUTWIN_TREST_TRUEFLUX = -20, 100  ! require trueFlux>0 in this range
 
 \end{verbatim}
 %
@@ -8330,7 +8643,13 @@ and true redshift (for any model) to satisfy
 the above cut-windows.  Also works on {\tt SIM\_x1}.
 The second option is for {\tt NON1ASED}, {\tt SIMSED}, and {\tt LCLIB}
 models; it selects a user-defined list of template indices.
-Third option required min number of observations with true flux$>0$/
+
+The 3rd option requires at least 3 observations with true flux$>0$.
+The last option ({\tt CUTWIN\_TREST\_TRUEFLUX}) requires
+a true positive flux in the specified {\tt TREST} range (days).
+For fakes overlaid on image,  these last two options are useful 
+to avoid pathologies from missing fake overlays that leave 
+unphsyical zero-flux observations.
 
 
 % -----------------------------------
@@ -9315,7 +9634,7 @@ Examples are
 
 \begin{Verbatim}[frame=single]
    # models based on directory: model class name is between slash and dot
-   GENMODEL:  [PATH]/SALT2.JLA-B14         # this is a dir, not file name
+   GENMODEL:  [PATH]/SALT2.JLA-B14       
    GENMODEL:  [PATH]/SIMSED.SNII-MOSFIT
    GENMODEL:  [PATH]/NONIASED.UV2IR
    GENMODEL:  [PATH]/BYOSED.TEST
@@ -9362,11 +9681,46 @@ an asymmetric Gaussian.
 
 % ------------------------
 \clearpage
+\subsection{Host Galaxy Extinction}
+\label{subsec:host_extinct}
+
+The following host-galaxy extinction parameters can be included
+with any of the SN models below. RV and AV specifications are
+required for MKCS2k2 and SNooPy, and optional for the other models.
+The color law (e.g., SFD98, Fitzpatrick99) is the same
+as that chosen for Galactic extinction
+(see {\tt OPT\_MWCOLORLAW} in \S\ref{subsec:sim_MWEBV}).
+
+\noindent
+Simulation input keys  for  {\tt snlc\_sim.exe} :
+\begin{Verbatim}[frame=single]
+   GENPEAK_RV:       xxx        # peak prob dust parameter
+   GENRANGE_RV:      xxx  xxx   # min and max limits for RV generation
+   GENSIGMA_RV:      xxx  xxx   # lo & hi Gaussian sigmas
+
+   GENRANGE_AV:      xxx  xxx     # CCM89 V-band extinction
+   GENTAU_AV:        xxx          # dN/dAV = exp(-AV/xxx)
+   GENSIG_AV:        xxx          #      += Guass(AV,sigma)
+   GENRATIO_AV0:     xxx          # Gauss/exp ratio at AV=0
+
+   # instead of selecting AV from distribution, here E(B-V)
+   # is randomly picked so that AV = RV*E(B-V)
+   GENRANGE_EBV_HOST: xxx xxx
+   GENTAU_EBV_HOST:   xxx
+   GENSIG_EBV_HOST:   xxx
+   GENRATIO_EBV_HOST: xxx
+\end{Verbatim}
+
+
+% --------------------
+\clearpage
 \subsection{{\mlcs}}
 \label{subsec:mlcs}
 
 \noindent
 Reference: Jha, Riess, Kirshner, {\bf AJ 659}, 122 (2007). 
+Note that host-galaxy extinction parameters (for AV,RV) 
+are required from \S\ref{subsec:host_extinct}.
 
 \noindent
 Simulation input keys  for  {\tt snlc\_sim.exe} :
@@ -9374,15 +9728,6 @@ Simulation input keys  for  {\tt snlc\_sim.exe} :
    GENPEAK_DELTA:    xxx         # shape  parameter
    GENRANGE_DELTA:   xxx  xxx
    GENSIGMA_DELTA:   xxx  xxx  
-
-   GENPEAK_RV:       xxx        # CCM89 dust parameter
-   GENRANGE_RV:      xxx  xxx
-   GENSIGMA_RV:      xxx  xxx
-
-   GENRANGE_AV:      xxx  xxx     # CCM89 V-band extinction
-   GENTAU_AV:        xxx          # dN/dAV = exp(-AV/xxx)
-   GENSIG_AV:        xxx          #      += Guass(AV,sigma)
-   GENRATIO_AV0:     xxx          # Gauss/exp ratio at AV=0
 \end{Verbatim}
 
 \bigskip
@@ -9437,7 +9782,7 @@ Simulation input keys  for {\tt snlc\_sim.exe} :
    GENPEAK_SALT2BETA:  3.2   ! color coeff
    GENSIGMA_SALT2BETA: 0 0   ! default is no beta smearing
    GENRANGE_SALT2BETA: 0 5   ! restrict if SIGMA is non-zero
-   SALT2BETA_cPOLY: b0 b1 b2 ! 2nd order poly of c; overrides GENPEAK_SALT2BETA
+   SALT2BETA_cPOLY: b0,b1,b2 ! polyFun of c; overrides GENPEAK_SALT2BETA
 
    GENPEAK_SALT2ALPHA:  0.14    ! x1 coeff
    GENSIGMA_SALT2ALPHA: 0 0.0   ! default is no alpha smearing
@@ -9446,15 +9791,13 @@ Simulation input keys  for {\tt snlc\_sim.exe} :
 %
 and special grid keys for BBC are described in 
 \S\ref{sec:SALT2mu}.
-
+Note that host-galaxy extinction parameters (for AV,RV) 
+are optional from \S\ref{subsec:host_extinct}.
 
 \medskip
 \noindent
 \&{\tt FITINP} namelist variables  for {\tt snlc\_fit.exe} :
 \begin{Verbatim}[frame=single]
-   SALT2alpha     = xxx  ! used to compute approx mu-muref
-   SALT2beta      = xxx  ! idem
-
    INISTP_COLOR   = xxx  ! 0 => fix color to INIVAL_COLOR; else float
    INIVAL_COLOR   = xxx
    INISTP_SHAPE   = xxx  ! 0 => fix x1 to INIVAL_SHAPE; else float
@@ -9464,24 +9807,67 @@ and special grid keys for BBC are described in
    PRIOR_SHAPE_RANGE = xxx, xxx  ! flat prior on x1 (prevents crazy values)
    PRIOR_SHAPE_SIGMA = xxx       ! Gauss rolloff at edges of flat prior
 
-   SALT2_DICTFILE = 'xyz'  ! output formatted for original hubblefit
-
    OPT_COVAR = 0  ! 0 => COV-diag only 
                   ! 1 => COV fixed during fit
                   ! 2 => COV re-calculated for each chi2 in fit
+
+   SALT2alpha     = xxx  ! to compute approx mu-resid; does not affect fit
+   SALT2beta      = xxx  ! idem
 \end{Verbatim}
 Note that the {\tt INISTP\_XXX} and {\tt INIVAL\_XXX} parameters
 are specified only to fix these parameters in the fit. 
 If not specified, these parameters are floated in the fit.
 
 
+\subsubsection{Simulating $\alpha,\beta,\gamma$ Grid for {\tt SALT2mu}/BBC }
+\label{sss:simgrid_forSALT2mu}
+%$
+For {\tt SALT2mu}-BBC, the ``biasCor'' sample is generated on
+a grid of $\alpha,\beta,\gamma$ in order to dynamically interpolate
+the bias-correction at each fitting step. The sim-input
+keys are as follows:
+%
+\begin{verbatim}
+   GENPEAK_SALT2ALPHA:   0.14   
+   GENSIGMA_SALT2ALPHA:  1E8   1E8
+   GENRANGE_SALT2ALPHA:  0.10  0.20
+   GENGRID_SALT2ALPHA:   2       # <=== only 2 allowed for BBC
+
+   GENPEAK_SALT2BETA:   3.2 
+   GENSIGMA_SALT2BETA:  1E8  1E8 
+   GENRANGE_SALT2BETA:  2.5  3.5
+   GENGRID_SALT2BETA:   2       # <== only 2 allowed for BBC
+
+   BIASCOR_SALT2GAMMA_GRID:  0  0.10
+\end{verbatim}
+%
+The {\tt GENGRID\_SALT2xxx} parameters define a grid-size of 2,
+and {\tt GENRANGE\_SALT2xxx} define the two grid points.
+The large {\tt GENSIGMA\_SALT2xxx} values specify flat
+distributions that result in two $\delta$-functions per parameter.
+
+If $\gamma$ were implemented the same way as for $\alpha$ and $\beta$, 
+BBC could only fit a step function with a $\hostmass$-split 
+at exactly the same value used in the biasCor sample.
+To allow for an arbitrary standardation function of $\hostmass$ 
+in the BBC fit,
+the $\gamma$ parameter is treated in a different manner compared
+with $\alpha$ and $\beta$. {\tt BIASCOR\_SALT2GAMMA\_GRID} specifies
+two grid-points to randomly generate mag-offsets. This is not
+quite $\gamma$ because it has no $\hostmass$ dependence, but in the
+BBC fit these mag offsets are associated with $\gamma$ and $\hostmass$,
+where $\gamma$ is the maximum SNIa mag-splitting.
+
+
 % ------------------------
-% \clearpage
+\clearpage
 \subsection{{\snoopy}}
 \label{subsec:snoopy}
 
 \noindent
 Reference: C. Burns et al., arXiv:1010.4040. 
+Note that host-galaxy extinction parameters (for AV,RV) 
+are required from \S\ref{subsec:host_extinct}.
 
 \noindent
 Simulation input keys  for {\tt snlc\_sim.exe} :
@@ -9489,13 +9875,6 @@ Simulation input keys  for {\tt snlc\_sim.exe} :
    GENPEAK_DM15:    xxx         # shape parameter
    GENRANGE_DM15:   xxx  xxx
    GENSIGMA_DM15:   xxx  xxx  
-   GENPEAK_RV:       xxx        # CCM89 dust parameter
-   GENRANGE_RV:      xxx  xxx
-   GENSIGMA_RV:      xxx  xxx
-   GENRANGE_AV:      xxx  xxx     # CCM89 V-band extinction
-   GENTAU_AV:        xxx          # dN/dAV = exp(-AV/xxx)
-   GENSIG_AV:        xxx          #      += Guass(AV,sigma)
-   GENRATIO_AV0:     xxx          # Gauss/exp ratio at AV=0
 \end{Verbatim}
 
 \bigskip
@@ -9733,6 +10112,8 @@ be switched off with
    snlc_sim.exe  mysim.input  SIMSED_USE_BINARY 0
 \end{verbatim}
 
+Finally, host-galaxy extinction parameters (for AV,RV) 
+are optional from \S\ref{subsec:host_extinct}.
 
 % ------------------------
 \clearpage
@@ -9791,11 +10172,6 @@ The \NONIA\ model is specified with the following sim-input keys,
   NON1ASED:         3     0.2  -0.2     0.8        2
   NON1ASED:         4     0.4  -0.6     0.9,0.5    3
   etc ...
-
-  GENRANGE_AV:      xxx  xxx     # CCM89 V-band extinction
-  GENTAU_AV:        xxx          # dN/dAV = exp(-AV/xxx)
-  GENSIG_AV:        xxx          #      += Guass(AV,sigma)
-  GENRATIO_AV0:     xxx          # Gauss/exp ratio at AV=0
 \end{Verbatim}
 % $
 There are two ways to specify model location. First is to specify
@@ -9887,6 +10263,8 @@ random SNIDs can be assigned as described in
 \S\ref{subsec:sim_formats}. With random SNIDs,
 any subset of the simulation is a truly random subset.
 
+Finally, note that host-galaxy extinction parameters (for AV,RV) 
+are optional from \S\ref{subsec:host_extinct}.
 
 % -----------------------------------------
 \subsubsection{Peculiar SNIa}
@@ -10239,18 +10617,11 @@ etc É
 
 % ##########################################
    \clearpage
-   \section{\SALTII\ Programs}
-   \label{sec:SALT2code}
+   \section{Computing Distance Moduli from BBC Method: {\tt SALT2mu.exe} }
+   \label{sec:SALT2mu}
 % ###########################################
 
 
-
-% -----------------------------------------
-  \subsection{Computing Distance Moduli from BBC Method: {\tt SALT2mu.exe} }
-  \label{sec:SALT2mu}
-% -----------------------------------------
-
-\newcommand{\hostmass}{M_{\rm host}}
 
 The \snana\ program {\tt SALT2mu.exe} reads \SALTII\ fitted parameters,
 performs a global fit for $\alpha,\beta,\gamma$, which are SNIa 
@@ -10264,52 +10635,95 @@ The {\tt SALT2mu} program can implement the
 to produce bias-corrected distances in redshift bins.
 To include bias corrections, {\tt SALT2mu} reads SALT2-fitted 
 parameters for the data and for a large ``biasCor'' simulation.
-%
-A sample input file is in
+The biasCor simulation should be generated on a grid of
+$\alpha,\beta,\gamma$ as described in \S\ref{sss:simgrid_forSALT2mu}.
+
+A sample {\tt SALT2mu.exe}-input file is in
 \begin{verbatim}
   $SNDATA_ROOT/sample_input_files/SALT2/SALT2mu.default
 \end{verbatim}
 and a description of all input-file options are given at the
 top of the code in {\tt \$SNANA\_DIR/src/SALT2mu.c}.
-%$
-The ``biasCor'' sample must incude a grid of
-$\alpha,\beta,\gamma$ in order to dynamically interpolate
-the bias-correction at each fitting step. The sim-input
-keys are as follows:
+
+
+% -----------------------------------------
+  \clearpage
+  \subsection{Catenating FITRES Files from Multiple Samples}
+  \label{subsec:cat_fitres}
+% -----------------------------------------
+
+SNIa-cosmlogy analyses include multiple samples 
+(e.g., LOWZ, SDSS, PS1, SNLS, DES ...). 
+While \snana\ codes perform light-curve fitting and simulations
+separately for each sample, the {\tt SALT2mu}/BBC program
+performs a global fit to all of the data samples combined.
+Through \snana\ code versions {\tt v10\_76e}, each {\tt FITRES} table
+file (produced from {\tt snlc\_fit.exe}) was required to have the same 
+columns so that a simple concatenate combines the data into a single file.
+Starting at {\tt v10\_77}, input {\tt FITRES} tables are allowed
+to have different columns, and the output {\tt FITRES} table from
+{\tt SALT2mu} is created with the following logic:
+\begin{itemize}
+  \item column names appearing in each {\tt FITRES} file are included,
+     regardless of column locations.
+  \item {\tt varname\_pIa} column is included; if missing (e.g., from LOWZ),
+       then -9 values are substituted.
+  \item the same ``{\tt varname\_pIa}'' logic is applied to variables
+        specified with {\tt SALT2mu}-input key  \\
+        {\tt append\_varnames\_missing}. The default is {\tt PROB*}  to
+        include all classifier probabilities.
+\end{itemize}
 %
+As an example, consider an analysis combining a spec-confirmed
+LOWZ sample and a photometrically-identified HIGHZ sample.
+The LOWZ sample contains several peculiar-velocity estimates
+({\tt VPEC1}, {\tt VPEC2}, {\tt VPEC3}) that are not in the HIGHZ table;
+the HIGHZ sample includes several classifier probabilities 
+({\tt PROB\_A}, {\tt PROB\_B}, {\tt PROB\_C}) and {\tt sSFR} that are not
+in the LOWZ table.
+All of these values are included in the {\tt SALT2mu} output
+using the following {\tt SALT2mu}-input key,
 \begin{verbatim}
-   GENPEAK_SALT2ALPHA:   0.14   
-   GENSIGMA_SALT2ALPHA:  1E8   1E8
-   GENRANGE_SALT2ALPHA:  0.10  0.20
-   GENGRID_SALT2ALPHA:   2
+   append_varnames_missing='PROB*,VPEC*,sSFR'
+\end{verbatim} 
+The wildcard ({\tt *}) picks up any column name containing
+{\tt PROB} or {\tt VPEC}. An exact {\tt sSFR} column match
+is also selected.
+The {\tt VPEC} values are set to $-9$
+for the HIGHZ sample, and similarly the {\tt PROB} and {\tt sSFR}
+values are set to $-9$ for the LOWZ sample.
+The top of the output {\tt FITRES} file includes comment-summary
+of i) input {\tt FITRES} file names, 
+ii) {\tt append\_varnames\_missing}, and iii) column names 
+that were discarded.
 
-   GENPEAK_SALT2BETA:   3.2 
-   GENSIGMA_SALT2BETA:  1E8  1E8 
-   GENRANGE_SALT2BETA:  2.5  3.5
-   GENGRID_SALT2BETA:   2
-
-   BIASCOR_SALT2GAMMA_GRID:  0  0.10
+\medskip
+Combining fitres files with different columns may be useful
+for other (non-\snana) codes, and therefore this {\tt SALT2mu}
+``{\tt FITRES}-combine'' logic can be implemented as a 
+utility without the overhead of fitting,
+\begin{verbatim}
+SALT2mu.exe cat_only \
+     datfile=LOWZ.FITRES,HIGHZ.FITRES \
+     append_varname_missing='PROB*,VPEC*,sSFR' \
+     catfile_out=CATFILE.FITRES
+  or
+sntable_cat.py \
+     -i  LOWZ.FITRES,HIGHZ.FITRES \
+     -a  PROB*,VPEC*,sSFR \
+     -o  CATFILE.FITRES 
 \end{verbatim}
 %
-The {\tt GENGRID\_SALT2xxx} parameters define a grid-size of 2,
-and {\tt GENRANGE\_SALT2xxx} define the two grid points.
-The large {\tt GENSIGMA\_SALT2xxx} values result in a flat
-distribution, but will not generate values outside the
-{\tt GENRANGE}.
+The {\tt cat\_only} argument (replacing input file)
+directs {\tt SALT2mu} to skip fitting and perform only the catenation.
+Beware that the wildcard ({\tt *}) causes problems with unix;
+therefore use either single quotes as shown above,
+or use a backslash ({\tt PROB\textbackslash*,VPEC\textbackslash*,sSFR}).
 
-If $\gamma$ were implemented the same way as for $\alpha$ and $\beta$, 
-BBC could only fit a step function with a $\hostmass$-split 
-at exactly the same value used in the biasCor sample.
-%
-To allow for an arbitrary standardation function of $\hostmass$ 
-in the BBC fit,
-the $\gamma$ parameter is treated in a different manner compared
-with $\alpha$ and $\beta$. {\tt BIASCOR\_SALT2GAMMA\_GRID} specifies
-two grid-points to randomly generate mag-offsets. This is not
-quite $\gamma$ because it has no $\hostmass$ dependence, but in the
-BBC fit these mag offsets are associated with $\gamma$ and $\hostmass$,
-where $\gamma$ is the maximum SNIa mag-splitting.
-
+A python wrapper ({\tt sntable\_cat.py}) is also available with a 
+more obvious code-name to search in {\tt \$SNANA\_DIR/util}.
+This python wrapper can parse wildcards without single quotes.
+The -i and -o arguments are required; -a is optional (default is PROB*).
 
 % -----------------------------------------
   \clearpage
@@ -10586,7 +11000,7 @@ The available output tables are
   \item SNANA (ID=7100): general variables for all SN before fitting
   \item FITRES (ID=7788): fit results for SN passing fit requirements.
       Fit residuals for each epoch can be optionally included.
-  \item SNLCPAK: used by {\tt mkfitplots.pl} (\S\ref{subsec:fit_view})
+  \item SNLCPAK: used by {\tt mkfitplots.pl} (\S\ref{subsec:lcplot})
          to make light curve plots for data and best-fit model.
 \end{itemize}
 %
@@ -11118,30 +11532,25 @@ if not, you may request additional test-jobs.
 
 
 % --------------------------------------
-  \subsubsection{Data Backup/Archival: {\tt backup\_SNDATA\_version.cmd} }
-  \label{sss:backup_SNDATA}
+  \subsubsection{Restoring Bugs}
+  \label{sss:restore_bugs}
 % --------------------------------------
 
-A data version can be archived with
-%
+Following the publication of an analysis, \snana\ bugs are
+found and fixed, and algorithms are improved.
+While all \snana\ code versions are archived for reproducibility,
+it may be convenient to include a flag to restore original code,
+including bugs. Such a flag allows using the same [current] code 
+version to process data with \& without the code changes. 
+The first such flag is for the DES 3-year (DES3YR) cosmology results 
+published Winter 2019:
+% 
 \begin{verbatim}
-   backup_SNDATA_version.cmd  MYVERSION
+   RESTORE_DES3YR: 1  # sim-input
+
+   &SNLCINP
+      RESTORE_DES3YR = T  # LC fit input
 \end{verbatim}
-%
-which creates a tarball-backup in
-%
-\begin{verbatim}
-   $SNDATA_ROOT/lcmerge/archive/MYVERSION_[yyy]-[mm]-[dd].tar.gz
-\end{verbatim}
-%
-where {\tt [yyyy]-[mm]-[dd]} is the year, month and day.
-This script is useful to backup a newly made data version,
-archive a version used in a publication, or to send a data
-version to a collaborator.
-In general the {\tt\$}{\sndataroot} disk is not backup up,
-so to have a truly protected backup you need to either
-(1) backup {\tt\$}{\sndataroot} or (2) copy the tarball-backup
-to another storage device.
 
 
 % --------------------------------------
@@ -11473,9 +11882,9 @@ Ideally, a \simlib\ is created from a library of
 \obss\ containing PSF, sky-noise and zero-point.
 However, there may be cases where it is useful to
 create a \simlib\ directly from a data sample. 
-Two examples are 1) low-z sample which has no meta-data 
-to construct a \simlib\ file, and 2) simulating fake SN
-that have already been overlaid on images.
+A few examples are 
+1) low-z sample which has no meta-data to construct a \simlib\ file, 
+2) simulating fake SNe that have already been overlaid on images.
 
 The {\tt snana.exe} program can create such a
 \simlib\ via the {\tt \&SNLCINP} input key(s)
@@ -11486,6 +11895,13 @@ The {\tt snana.exe} program can create such a
   ! for sims, or fake data with SIM_MAGOBS :
     OPT_SIMLIB_OUT = 1    ! write SIM_MAGOBS in last SIMLIB column, all obs
     OPT_SIMLIB_OUT = 2    ! idem, but only when true flux > 0
+
+ ! for systematic tests only
+    SIMLIB_OUT_TMINFIX = 5   !  force PEAKMJD = MJD_MIN - 5
+
+ ! optional method to include SALT2x1 and SALT2c in header
+ ! if fitted c and x1 are in the header-override file:
+   HEADER_OVERRIDE_FILE = '[fileName with c and x1 colums]'
 \end{verbatim}
 %
 If the light curve data include meta data (PSF,SKY,ZP)
@@ -11513,26 +11929,50 @@ Arbitrary {\tt ZPERR} values can be input via
 %
 Any band not listed above gets the default {\tt ZPERR=0.01}.
 
+If spectra are included in data (e.g., SNIa training sample), 
+a {\tt TAKE\_SPECTRUM} key for each spectrum is automatically written
+to each {\tt LIBID} header as follows
+\begin{verbatim}
+   TAKE_SPECTRUM: TOBS(4.6)   SNR(1179)   SNR_LAMOBS(3590:7535)
+\end{verbatim}
+The {\tt SNR} and wavelength range ({\tt SNR\_LAMOBS})
+correspond to the full wavelength range of the spectrum,
+and each simulated spectrum (below) is truncated in wavelength
+to match that of the data. Beware that the average SNR
+of simulated spectra match the data, but the $\lambda$-dependence
+of SNR is from the spectrograph table (Fig.~\ref{fig:spectro_table})
+and may not match the data.
+
+
 The \simlib\ is updated for events passing cuts in the 
 {\tt \&SNLCINP} namelist, and a \simlib\ row is written
 for each epoch.  The \simlib\ header for each event
-includes the redshift and peakMJD. When using this
-\simlib\ in the simulation, one can either generate random
-redshift \& peakMJD values, or pick the data values
-from the header using the following sim-input keys
+includes the redshift, peak-MJD, and spectra-SNR info. 
+When using this \simlib\ in the simulation, 
+header values are selected with following sim-input keys
 (\S\ref{sssec:simlib_options}):
 \begin{verbatim}
   USE_SIMLIB_PEAKMJD:  1  # use peakMJD in header (if there)
   USE_SIMLIB_REDSHIFT: 1  # use redshift in header (if there)
+  USE_SIMLIB_SPECTRA:  1  # use TAKE_SPECTRUM key(s) in header
 \end{verbatim}
 
+A few warnings: 
+1)~sim-input keys {\tt GENRANGE\_REDSHIFT} and {\tt GENRANGE\_PEAKMJD}
+are applied and therefore some \simlib\ entries can be rejected,
+2) the simulation may generate more than {\tt NGENTOT\_LC} 
+events so that {\tt NGENTOT\_LC} events are generated
+within the {\tt GENRANGE\_REDSHIFT[PEAKMJD]} windows,
+3)~{\tt TAKE\_SPECTRUM} keys are used from either
+the {\tt SIMLIB} header or sim-input file, but not both;
+the simulation will abort if both are requested.
 
 The {\tt OPT\_SIMLIB\_OUT} feature writes the true (simulated) mags in the
 last column of the \simlib\ file.
 Beware that overlapping fields are not treated properly, 
-so it is recommended to also set {\tt CUTWIN\_NFIELD = 1,1}.
-The ``{\simlib}'' model feature in the simulation (\S\ref{subsec:MODEL_SIMLIB}) 
-reads these mags.
+so it is recommended to set {\tt CUTWIN\_NFIELD = 1,1}.
+The ``{\simlib}'' model feature in the simulation 
+(\S\ref{subsec:MODEL_SIMLIB}) reads these mags.
 
 % --------------------------------------
   \clearpage
@@ -11551,8 +11991,9 @@ Errors and $S/N$ can be fudged in the simulation  as follows:
   FUDGESHIFT_ZPT:  -3.0        # reduce ZPT by 3 mags
 
 # 2. options to increase SKY-noise while leaving SN flux unchanged
-  FUDGESCALE_PSF: 2       # increase PSF
-  FUDGESCALE_SKYNOISE: 3  # increases SKYNOISE (note that SKY *= 3^2)
+  FUDGESCALE_PSF: 2            # increase PSF
+  FUDGESCALE_NOISE_SKY: 3      # increases SKYNOISE (SKY *= 3^2)
+  FUDGESCALE_NOISE_TEMPLATE 0  # remove template noise
 
 # 3. force nearest-peak S/N = 25 for all bands 
   FUDGE_SNRMAX:  25      # adjust exposure time

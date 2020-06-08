@@ -19,6 +19,10 @@
 # Jan 05, 2017: add extractStringOpt
 # Dec 03, 2017: add clean_fileList
 # Apr 17, 2019: add FATAL_ERROR_STAMP function
+# Jan 31, 2020: 
+#   + replace a few "ERROR:" messages with FATAL_ERROR util.
+#   + update FATAL_ERROR to look similar to C code error util.
+#
 
 package sntools ;
 use List::Util qw(min max);
@@ -263,13 +267,23 @@ sub loadArray_fromFile(@) {
     #
     # Sep 12, 2014: skip comment lines and insert ENDLINE strings
 
-    my ($tmp, $msgerr, $LINE, $str0) ;
+    my ($tmp, @MSGERR, $LINE, $str0) ;
 
     print " Read/store contents of $inFile \n" ;
-    $msgerr = 
-	"ERROR: Cannot open '$inFile' \n from loadArray_fromFile\n" ;
 
-    open PTR_INFILE_TEMP, $inFile or die "\n $msgerr\n ";
+# xxxxxxx mark delete 
+#    $msgerr =  "ERROR: Cannot open '$inFile' \n from loadArray_fromFile\n" ;
+#     open PTR_INFILE_TEMP, $inFile or die "\n $msgerr\n ";
+# xxxxxxxxx
+
+    $inFile     =~ s/\s+$// ;  # remove trailing spaces
+    if ( !(-e $inFile ) ) {
+	$MSGERR[0] = "Cannot open input file" ;
+	$MSGERR[1] = "$inFile ";
+	$MSGERR[2] = "from loadArray_fromFile";
+	sntools::FATAL_ERROR(@MSGERR);
+    }
+    open (PTR_INFILE_TEMP, $inFile);
 
     foreach $LINE ( <PTR_INFILE_TEMP> ) {
 
@@ -299,14 +313,22 @@ sub loadArray_excludeLines(@) {
     # Same as loadArray_fromFile, but exclude lines between
     # start end keys.
 
-    my ($tmp, $msgerr, $LINE, $str0, @wdlist) ;
+    my ($tmp, @MSGERR, $LINE, $str0, @wdlist) ;
     my $SKIPLINE=0;
 
     print " Read/store contents of $inFile \n" ;
-    $msgerr = 
-	"ERROR: Cannot open '$inFile' \n from loadArray_excludeLines\n" ;
+#    $msgerr="ERROR: Cannot open '$inFile' \n from loadArray_excludeLines\n";
+#    open PTR_INFILE_TEMP, $inFile or die "\n $msgerr\n ";
 
-    open PTR_INFILE_TEMP, $inFile or die "\n $msgerr\n ";
+    $inFile     =~ s/\s+$// ;  # remove trailing spaces
+    if ( !(-e $inFile) ) {
+	$MSGERR[0] = "Cannot open input file" ;
+	$MSGERR[1] = "$inFile ";
+	$MSGERR[2] = "from loadArray_excludeLines";
+	sntools::FATAL_ERROR(@MSGERR);
+    }
+
+    open (PTR_INFILE_TEMP, $inFile ) ; 
 
     foreach $LINE ( <PTR_INFILE_TEMP> ) {
 
@@ -389,17 +411,18 @@ sub FATAL_ERROR(@) {
     print "\n   `|```````|`    ";
     print "\n   <| o\\ /o |>    ";
     print "\n    | ' ; ' |     ";
-    print "\n    |  ___  |     ABORT ON FATAL ERROR " ;
+    print "\n    |  ___  |     ABORT program on Fatal Error. " ;
     print "\n    | |' '| |     " ;
     print "\n    | `---' |     " ;
     print "\n    \\_______/    " ;
     print "\n" ;    
 
-    print "\n ERROR MESSAGES : \n" ;
+# xxx mark delete     print "\n ERROR MESSAGES : \n" ;
+    print "\n FATAL ERROR ABORT : \n" ;
     for ( $i = 0; $i < $NERRMSG; $i++ ) {
 	print "\t $ERRMSG[$i] \n";
     }
-    die "\n       ***** ABORT ***** \n" ;
+    die "\n\n" ;
 
 }  # ERRMSG
 

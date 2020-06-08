@@ -12,9 +12,6 @@
   between different fitres outputs for the same
   set of SN.
 
- TO DO: replace CID-matching with hash table; 
-    e.g.,  http://troydhanson.github.io/uthash/index.html
-
  Usage:
   >  combine_fitres.exe <fitres1> <fitres2> ...
 
@@ -26,13 +23,13 @@
       combine_fitres.txt    (combined fitres text-file)
 
  Option:
-  >  combine_fitres.exe <fitres1> <fitres2> --outprefix <outprefix>
+  >  combine_fitres.exe <fitres1> <fitres2> -outprefix <outprefix>
     produces output files <outprefix>.hbook and  <outprefix>.text
 
-  >  combine_fitres.exe <fitres1> <fitres2> --outfile_text <outfile>
+  >  combine_fitres.exe <fitres1> <fitres2> -outfile_text <outfile>
        (text outpout name is <outfile>)
 
-  >  combine_fitres.exe <fitres1> <fitres2> --outfile_text <outfile.gz>
+  >  combine_fitres.exe <fitres1> <fitres2> -outfile_text <outfile.gz>
        (produce gzipped outfile.gz)
 
   >  combine_fitres.exe <fitres1>  R      ! .ROOT extension 
@@ -104,6 +101,14 @@
     + USEDCID -> bool instead of short int.
     + MXSN -> 5M (was 2M)
 
+ Apr 27 2020:
+   + init strings to NULL (see INIVAL_COMBINE_STR)
+
+ Jun 7 2020: 
+   + match variables with ignore-case so that zCMB and ZCMB are
+     written out as zCMB and ZCMB_2.
+
+ 
 ******************************/
 
 #include <stdio.h>
@@ -145,7 +150,7 @@ void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN);
 void  freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN); 
 
 // declare functions in sntools_output_text.c
-int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
+// xxxx mark dele int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
 
 // ================================
 // Global variables
@@ -156,7 +161,8 @@ int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
 #define MXSN     5000000   // max SN to read per fitres file
 #define MXVAR_PERFILE  50  // max number of NTUP variables per file
 #define MXVAR_TOT  MXVAR_TABLE     // max number of combined NTUP variables
-#define INIVAL_COMBINE  -888.0
+#define INIVAL_COMBINE_FLT  -888.0
+#define INIVAL_COMBINE_STR  "NULL" 
 #define MXSTRLEN       MXCHAR_VARNAME  // changed from 28 (Sep 20 2019)
 #define MXSTRLEN_BAND      4
 #define MXSTRLEN_CID      20
@@ -528,7 +534,8 @@ void ADD_FITRES(int ifile) {
   // get approx number of SN for memory allocation
 
   // NEVT_APPROX = SNTABLE_NEVT_APPROX_TEXT(INPUTS.FFILE[ifile], NVARALL);
-  NEVT_APPROX = SNTABLE_NEVT_TEXT(INPUTS.FFILE[ifile]);
+  //xx NEVT_APPROX = SNTABLE_NEVT_TEXT(INPUTS.FFILE[ifile]);
+  NEVT_APPROX = SNTABLE_NEVT(INPUTS.FFILE[ifile],"TABLE");
 
   if ( NEVT_APPROX >= MXSN-1 ) { 
     sprintf(c1err,"NEVT_APPROX=%d exceeds MXSN=%d", NEVT_APPROX, MXSN);
@@ -567,7 +574,6 @@ void ADD_FITRES(int ifile) {
     if ( ifile==0 && strcmp(VARNAME,"zHD") == 0 ) { IVAR_zHD = ivar; }
 
     // Sep 19 2019: make sure first column is CID
-    // xxx mark delete if ( ivar == IVARSTR_CCID && strstr(VARNAME,"CID") == NULL ) {
     if ( ivar == IVARSTR_CCID ) {
       if ( ICAST_for_textVar(VARNAME) != ICAST_C ) {
 	sprintf(c1err,"Unrecognized first column: %s", VARNAME);
@@ -673,7 +679,6 @@ void ADD_FITRES(int ifile) {
 
 // =====================================
 int match_CID_orig(int ifile, int isn2) {
-
 
   // Brute force CID matching by searching both files.
   // isn2 is current SN index; functions returns isn of 
@@ -817,7 +822,8 @@ void ADD_FITRES_VARLIST(int ifile, int isn, int isn2) {
     if ( ICAST != ICAST_C )  {   // not a string
       
       if (  isnan(FITRES_VALUES.FLT_TMP[ivar][isn2]) !=0 ) {
-	sprintf(c1err,"isnan for FLT_TMP[ivar=%d][isn=%d]", ivar, isn2 );
+	sprintf(c1err,"isnan for FLT_TMP[ivar=%d][isn=%d] = %f", 
+		ivar, isn2, FITRES_VALUES.FLT_TMP[ivar][isn2]  );
 	sprintf(c2err,"varname = %s", VARNAME_COMBINE[ivar] );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
@@ -938,8 +944,8 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
 
     for ( isn=0; isn < MAXLEN; isn++ ) {
       USEDCID[isn] = false ;
-      FITRES_VALUES.FLT_TMP[ivar][isn]     = INIVAL_COMBINE ;
-      FITRES_VALUES.FLT_ALL[IVAR_ALL][isn] = INIVAL_COMBINE ;
+      FITRES_VALUES.FLT_TMP[ivar][isn]     = INIVAL_COMBINE_FLT ;
+      FITRES_VALUES.FLT_ALL[IVAR_ALL][isn] = INIVAL_COMBINE_FLT ;
     }
   }
 
@@ -956,6 +962,8 @@ void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN) {
   // NVAR is the number of string variables in this fitres file.
   // Note that NVAR >= 1 because the CID string must always
   // be there.
+  //
+  // Apr 27 2020: init STR_ALL and STR_TMP to 'NULL'
 
   char fnam[] = "fitres_malloc_str" ;
   int ivar, IVAR_ALL, isn, MEMC, NTOT ;
@@ -994,6 +1002,9 @@ void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN) {
     for ( isn=0; isn < MAXLEN; isn++ ) {
       FITRES_VALUES.STR_TMP[ivar][isn]     = (char*)malloc(MEMC);
       FITRES_VALUES.STR_ALL[IVAR_ALL][isn] = (char*)malloc(MEMC);
+      sprintf(FITRES_VALUES.STR_TMP[ivar][isn],"%s"    , INIVAL_COMBINE_STR) ;
+      sprintf(FITRES_VALUES.STR_ALL[IVAR_ALL][isn],"%s", INIVAL_COMBINE_STR) ;
+   
     } // isn
   }  // ivar
 
@@ -1006,14 +1017,15 @@ int NMATCH_VARNAME(char *ctag , int ntlist ) {
 
   // Returns number of *ctag matches in first "ntlist"
   // elements of CTAG array
-  
+  // Jun 7 2020: match with ignoreCase
 
   int i, NMATCH, OVP ;
 
   NMATCH = 0;
 
   for ( i=0; i < ntlist; i++ ) {
-    OVP    = strcmp(ctag,VARNAME_COMBINE[i]) ;
+    // xxx mark delete   OVP    = strcmp(ctag,VARNAME_COMBINE[i]) ;
+    OVP    = strcmp_ignoreCase(ctag,VARNAME_COMBINE[i]) ;
     if ( OVP == 0 )  { NMATCH++ ; }
   }
 

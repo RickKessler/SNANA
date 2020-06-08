@@ -346,23 +346,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT) {
 
   XT = 0.0 ;
 
-  // xxx mark delete 8.04.2019  if ( AV <= 1.0E-9 )  {  return XT ; }
   if ( AV == 0.0  )  {  return XT ; }
-
-  // -----------------------------------------
-  // check that opt is valid
-  /* xxxx need to fill OPTLIST_MWCOLORLAW array to check here ??
-  VALID = 0 ;
-  for ( i=0; i < NOPT_MWCOLORLAW; i++ )  { 
-    if ( OPT == OPTLIST_MWCOLORLAW[i]  ) { VALID = 1 ; }     
-  }
-  if ( VALID == 0 ) {
-    sprintf(c1err,"Invalid OPT = %d", OPT);
-    sprintf(c2err,"See valid options in OPTLIST_MWCOLORLAW in sntools.h");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-  }
-  xxxx */
-
 
   // -----------------------------------------
   DO94 = (OPT == 94 || OPT == 99 ) ;

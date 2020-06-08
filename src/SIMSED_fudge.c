@@ -2634,25 +2634,7 @@ void sedFudge_smear(int ised, int ismear) {
 
   // generate Gaussian random numbers for this SED 
 
-  init_RANLIST();
-
-  /* xxx mark delete Oct 21 2019 xxxxxxxx
-  NGAURAN = SMEARMODEL_DEF[indx].NGAURAN ;
-  for ( iran=1; iran <= NGAURAN; iran++ ) 
-    { GAURANLIST_SMEARMODEL[iran] = GaussRan(1);  }
-
-  NFLATRAN = SMEARMODEL_DEF[indx].NFLATRAN ;
-  for ( iran=1; iran <= NFLATRAN; iran++ ) 
-    { FLATRANLIST_SMEARMODEL[iran] = FlatRan1(1);  }
-
-
-  // if using one of the genSmear_model.c models, 
-  // set randoms for this SED.
-  if ( SMEARMODEL_ID.USE_genSmear ) {
-    SETRANGauss_genSmear(NGAURAN,  &GAURANLIST_SMEARMODEL[1]  );
-    SETRANFlat_genSmear (NFLATRAN, &FLATRANLIST_SMEARMODEL[1] );
-  }
-  xxxxxxxx end mark xxxxxxxx */
+  fill_RANLISTs();
 
   for ( iday = 0; iday < TEMP_SEDMODEL.NDAY; iday++ ) {
     for ( ilam = 0; ilam < TEMP_SEDMODEL.NLAM; ilam++ ) {
@@ -3298,6 +3280,7 @@ void get_intBins(int imodel, int icos, double lam, double day,
 void init_SMEARMODEL(void) {
 
   double SMEAR_SCALE = 1.0 ;
+  char   SMEAR_SCALE_STRING[] = "NOVAR 1.0";
   int indx, NGAURAN, NFLATRAN, OPT,  NPAR, ipar ;
   double sigcoh = -9.0 ;
   char fnam[] = "init_SMEARMODEL" ;
@@ -3316,14 +3299,14 @@ void init_SMEARMODEL(void) {
   else if ( indx == SMEARMODEL_ID.G10 ) {
     char smearFile[200] = "" ;
     double zRange[2] = { 0.01, 1.00 };  // Aug 28 2019
-    init_genSmear_FLAGS(0,SMEAR_SCALE); // internal inits
+    init_genSmear_FLAGS(0,SMEAR_SCALE_STRING); // internal inits
     init_genSmear_SALT2("SALT2.Guy10", "G10", sigcoh, zRange) ; 
     get_NRAN_genSmear(&NGAURAN, &NFLATRAN); // Jan 2014, RK
     SMEARMODEL_DEF[indx].NGAURAN  = NGAURAN ; 
     SMEARMODEL_ID.USE_genSmear = 1 ;
   }
   else if ( indx == SMEARMODEL_ID.C11 ) {
-    init_genSmear_FLAGS(0,SMEAR_SCALE); // internal inits
+    init_genSmear_FLAGS(0,SMEAR_SCALE_STRING); // internal inits
     OPT     = (int)INPUTS.SMEARMODEL_PARVAL[1] ;
     init_genSmear_Chotard11(OPT) ;
     get_NRAN_genSmear(&NGAURAN, &NFLATRAN); // Jan 2014, RK
@@ -3331,7 +3314,7 @@ void init_SMEARMODEL(void) {
     SMEARMODEL_ID.USE_genSmear = 1 ;
   }
   else if ( indx == SMEARMODEL_ID.VCR ) {
-    init_genSmear_FLAGS(0,SMEAR_SCALE); // internal inits
+    init_genSmear_FLAGS(0,SMEAR_SCALE_STRING); // internal inits
     init_genSmear_VCR("VCR", MODEL_SALT2) ;
     get_NRAN_genSmear(&NGAURAN, &NFLATRAN); 
     SMEARMODEL_DEF[indx].NGAURAN   = NGAURAN ; 

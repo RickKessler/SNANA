@@ -27,6 +27,10 @@
                so that it is more accessible. Also define function
                get_SNANA_VERSION.
 
+  May 30 2020: 
+    MXWORDFILE_PARSE_WORDS -> 1 million (was 500k) to handle 
+    data files with lots of spectra.
+
 ********************************************************/
 
 #include <stdio.h>
@@ -38,7 +42,17 @@
 #include <stdbool.h>
 
 #include "sndata.h"
-#define  SNANA_VERSION_CURRENT  "v10_75c"                 
+#define  SNANA_VERSION_CURRENT  "v10_77d"                            
+
+// default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
+#define OMEGA_MATTER_DEFAULT   0.315 
+#define OMEGA_LAMBDA_DEFAULT   0.685 
+#define w0_DEFAULT            -1.0
+#define wa_DEFAULT             0.0
+#define H0_SALT2            70    // km/s/Mpc : tied to SALT2 training
+#define H0_MLCS             65    // km/s/Mpc : tied to MLCS training
+#define H0_Planck          67.4   // 1807.06209 (Planck 2018)
+#define H0_SH0ES           74.03  // 1903.07603 (Riess 2019)
 
 #define LIGHT_km  2.99792458e5      // speed of light (km/s) 
 #define LIGHT_A   2.99792458e18     // speed of light (A/s) 
@@ -111,12 +125,36 @@
 char FILTERSTRING[100] ;
 
 // define variables for random number list
-#define MXLIST_RAN      4  // max number of lists
-#define MXSTORE_RAN  1000  //  size of each RANLIST (for each event)
-double  RANSTORE8[MXLIST_RAN+1][MXSTORE_RAN] ;
-int     NLIST_RAN;         // Number of lists
-int     NSTORE_RAN[MXLIST_RAN+1] ;
-double  RANFIRST[MXLIST_RAN+1], RANLAST[MXLIST_RAN+1]; // for syncing.
+#define MXLIST_RAN      4  // max number of lists for stream0
+#define MXSTORE_RAN  1000  // size of each RANLIST (for each event)
+#define MXSTREAM_RAN    2  // max number of independent streams
+#define BUFSIZE_RAN   256
+
+typedef struct random_data random_data ;
+struct {
+  
+  int     NSTREAM ; // number of srandom streams (legacy is 1)
+  double  RANSTORE[MXLIST_RAN+1][MXSTORE_RAN] ;
+  int     NLIST_RAN;         // Number of lists
+  int     NSTORE_RAN[MXLIST_RAN+1] ;
+  double  RANFIRST[MXLIST_RAN+1], RANLAST[MXLIST_RAN+1]; // for syncing.
+
+  // for multi-stream randoms
+  random_data ranStream[MXSTREAM_RAN];
+  char stateBuf[MXSTREAM_RAN][BUFSIZE_RAN];
+
+  // wrap-around stats for how often each random is re-used.
+  int    NCALL_fill_RANSTATs;
+  double NWRAP_MIN[MXLIST_RAN+1] ;
+  double NWRAP_MAX[MXLIST_RAN+1] ;
+  double NWRAP_AVG[MXLIST_RAN+1] ;
+  double NWRAP_RMS[MXLIST_RAN+1] ;
+  double NWRAP[MXLIST_RAN+1] ;
+  double NWRAP_SUM[MXLIST_RAN+1] ;
+  double NWRAP_SUMSQ[MXLIST_RAN+1] ;
+
+} GENRAN_INFO ;
+
 
 // errmsg parameters 
 char c1err[200];   // for kcorerr utility 
@@ -248,13 +286,35 @@ typedef struct  {
 } GENGAUSS_ASYM_DEF ;
 
 
+// March 20 2020: Generic struct for exponential and half gaussian.
+typedef struct  {
+  bool   USE;          // T => values are set
+  char   NAME[80];     // name of variable
+  double EXP_TAU ;     // exponential compoent: exp(-x/EXP_TAU)
+  double PEAK, SIGMA ; // peak & sigma of half gaussian component
+  double RATIO ;       // Gauss(0)/Expon(0)
+  double RANGE[2] ;    // generate random value in this RANGE
+} GEN_EXP_HALFGAUSS_DEF ;
+
+
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
 #define MXORDER_GENPOLY 20
 typedef struct  {
-  int ORDER;   // 2nd order means up to x^2
+  int ORDER;       // 2 -> 2nd order -> a + b*x + c*x^2
   double COEFF_RANGE[MXORDER_GENPOLY][2]; // range for each coeff.
   char   STRING[200]; // string that was parsed to get COEFF_RANGEs
+  char   VARNAME[40]; // optional variable name
 } GENPOLY_DEF ;
+
+
+
+// Feb 2020: structure to handle correlated randoms using Cholesky decomp
+typedef struct {
+  int    MATSIZE;      // matrix size along each dimension
+  double *COVMAT1D ;   // user-input COV matrix
+  double **CHOLESKY2D; // Cholesky decomp matrix used to get correlated ran
+  //  gsl_matrix_view chk; // internal matrix
+} CHOLESKY_DECOMP_DEF ;
 
 
 #define MXFILT_REMAP 20
@@ -279,7 +339,11 @@ struct {
 #define MXCHARWORD_PARSE_WORDS 60     // MXCHAR per word
 #define MXCHARLINE_PARSE_WORDS 2000   // max chars per line
 #define MXWORDLINE_PARSE_WORDS  700   // max words per line
-#define MXWORDFILE_PARSE_WORDS 500000 // max words to parse in a file
+#define MXWORDFILE_PARSE_WORDS 1000000 // max words to parse in a file
+
+#define MXWORDLINE_FLUX       10  // max words per line in SED file
+#define MXCHARLINE_FLUX      120  // max char per line to read from SED
+
 #define MSKOPT_PARSE_WORDS_FILE    1   // parse words in a file
 #define MSKOPT_PARSE_WORDS_STRING  2   // parse string
 #define MSKOPT_PARSE_WORDS_IGNORECOMMA 4   // parse blank space; ignore comma
@@ -331,6 +395,11 @@ struct {
 // ##############################################################
 
 
+void catVarList_with_comma(char *varList, char *addVarName);
+
+void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP ) ;
+void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP, 
+		  double *RanList_noCorr, double *RanList_corr);
 
 void INIT_SNANA_DUMP(char *STRING);
 int  CHECK_SNANA_DUMP(char *FUNNAME, char *CCID, char *BAND, double MJD );
@@ -404,7 +473,8 @@ void malloc_PARSE_WORDS(void);
 void get_PARSE_WORD(int langFlag, int iwd, char *word);
 
 void init_GENPOLY(GENPOLY_DEF *GENPOLY);
-void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun );
+void parse_GENPOLY(char *stringPoly, char *varName, 
+		   GENPOLY_DEF *GENPOLY, char *callFun );
 double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun);
 void parse_multiplier(char *inString, char *key, double *multiplier);
 void check_uniform_bins(int NBIN, double *VAL, char *comment_forAbort);
@@ -494,6 +564,7 @@ void  checkStringUnique(char *string, char *msgSource, char *callFun);
 int   uniqueMatch(char *string, char *key);
 int   uniqueOverlap(char *string, char *key);
 int   keyMatch(char *string, char *key);
+int   ivar_matchList(char *varName, int NVAR, char **varList);
 
 void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun, 
 			int *NVAR, int *NKEY, int *UNIQUE, char **VARNAMES );
@@ -592,7 +663,8 @@ double quadInterp ( double VAL, double VAL_LIST[3], double FUN_LIST[3],
 
 double polyEval(int N, double *coef, double x);
 
-void arrayStat(int N, double *array, double *AVG, double *RMS) ;
+void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN);
+void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN);
 double RMSfromSUMS(int N, double SUM, double SQSUM);
 void trim_blank_spaces(char *string) ;
 void remove_string_termination(char *STRING, int LEN) ;
@@ -605,6 +677,7 @@ void split2floats(char *string, char *sep, float *fval) ;
 
 void remove_quote(char *string);
 void extractStringOpt ( char *string, char *stringOpt) ;
+void extractstringopt_ ( char *string, char *stringOpt) ;
 void extract_MODELNAME(char *STRING, char *MODELPATH, char *MODELNAME);
 void extract_modelname__(char *STRING, char *MODELPATH, char *MODELNAME);
 
@@ -618,9 +691,11 @@ void print_banner ( const char *banner ) ;
 
 // shells to open text file
 FILE *open_TEXTgz(char *FILENAME, const char *mode,int *GZIPFLAG) ;
-FILE *snana_openTextFile (int vboseFlag, char *subdir, char *filename, 
+FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName, 
 			  char *fullName, int *gzipFlag ); 
 void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
+void abort_openTextFile(char *keyName, char *PATH_LIST, 
+			char *fileName, char *funCall);
 
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
 void ENVrestore(char *fileName_noENV, char *fileName_orig);
@@ -657,8 +732,11 @@ double angSep( double RA1,double DEC1,
 
 // random-number generators.
 // May 2014: snran1 -> Flatran1,  float rangen -> double FlatRan
-void   init_RANLIST(void);
-double unix_random(void) ;
+void   init_random_seed(int ISEED, int NSTREAM);
+void   fill_RANLISTs(void);
+void   sumstat_RANLISTs(int FLAG);
+double unix_random(int istream) ;
+double unix_GaussRan(int istream);
 double FlatRan (int ilist, double *range);  //return rnmd on range[0-1]
 double FlatRan1(int ilist);          // return 0 < random  < 1
 double GaussRan(int ilist);          // returns gaussian random number
@@ -667,8 +745,7 @@ int    getRan_Poisson(double mean);
 //void   FlatRan_correlated(int NDIM, double *COVRED, double *outRanList);
 
 // mangled functions for fortran
-void   randominit_(int *ISEED);  // calls native srandom(ISEED)
-double unix_random__(void) ;
+double unix_random__(int *istream) ;
 double flatran1_(int *ilist) ;          // for fortran
 double gaussran_(int *ilist);         // for fortran
 

@@ -3,12 +3,13 @@
 
 #define MXSPEC                 50   // max Nspec per event   
 #define MXTEXPOSE_SPECTROGRAPH 50   // max size of TEXPOSE grid
-#define MXLAM_SPECTROGRAPH    2400  // same as MXBIN_LAMFILT_SEDMODEL
-#define MXLAMSMEAR_SPECTROGRAPH 20  // max number of smeared lambda bins
+#define MXLAM_SPECTROGRAPH     10000 // ->10k on May 27 2020 (was 2400)
+#define MXLAMSMEAR_SPECTROGRAPH 40  // max number of smeared lambda bins
 #define FITSTABLE_NAME_SPECTROGRAPH  "SPECTROGRAPH" 
 #define NCOL_noSNR 3    // Ncolumns before SNR values
 #define TEXPOSE_INFINITE_SPECTROGRAPH 1.0E8 // flag to ignore noise
-#define ILIST_RANDOM_SPECTROGRAPH 3  // Jan 2018
+#define ILIST_RANDOM_SPECTROGRAPH 3   // separate list for ran Trest
+#define ISTREAM_RANDOM_SPECTROGRAPH 1 // independent random stream.
 
 int  SPECTROGRAPH_USEFLAG ;
 int  NERR_SNR_SPECTROGRAPH ;
@@ -22,6 +23,8 @@ struct {
   int    NBIN_LAM, NBIN_LAM_noREBIN;
   int    NBIN_TEXPOSE ;
   int    NREBIN_LAM;      // rebin by this integer value (Sep 2 2016)
+  double SNR_POISSON_RATIO_ABORT_vsMAGREF ;
+  double SNR_POISSON_RATIO_ABORT_vsTEXPOSE ;
 
   // define spectro table read from input file: 
   // needs to be malloced with NBIN_xxx
@@ -115,7 +118,7 @@ void get_FILTERtrans_spectrograph(double *LMIN, double *LMAX, int MXLAM,
 				  double *LAM_ARRAY, double *TRANS_ARRAY );
 
 double getSNR_spectrograph(int ilam, double Texpose_S, double Texpose_T, 
-			   double genMag,  double *ERRFRAC_T );
+			   bool ALLOW_TEXTRAP,double genMag,double *ERRFRAC_T);
 
 void check_SNR_SPECTROGRAPH(int l, int t);
 

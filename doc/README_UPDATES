@@ -17873,6 +17873,8 @@
 
          ***** USEFUL(v10_75b) ***** 
 
+   SALT2mu: new nzbin_ccprior input
+
          ***** MISCELLANEOUS(v10_75b) ***** 
 
     snlc_sim.c
@@ -17901,24 +17903,53 @@
 
 
 # ======================================================================= 
-         v10_75c (  ) 
+         v10_75c (Feb 10 2020) 
 
          ***** IMPORTANT(v10_75c) ***** 
 
+   + release refactored sntools_host.c for sim --> 
+      allows multiple host matches.
+
+   + new sim-input "PATH_USER_INPUT: <path>" to search both local
+     dir and PATH_USER_INPUT for input files.
+
+   + LOGMASS smearing in sim using LOGMASS_TRUE & LOGMASS_ERR,
+     or using LOGMASS_TRUE and LOGMASS_OBS; see manual.
+
+   + abort if Fitpatrick 99 color law used beyond 12,000 A.
+
+
          ***** USEFUL(v10_75c) ***** 
+
+   + new &SNLCINP input CUTWIN_ZPERR (for snana.exe, snlc_fit, psnid);
+      beware that it's NOT explicitly tested.
+
+   + include MWEBV in TEXT tables. If you leave MWEBV in the APPEND
+     argument, it will show up as MWEBV_2 in the text table.
 
          ***** MISCELLANEOUS(v10_75c) ***** 
 
     SALT2mu.c:
       + new option force_pIa=perfect -> pIa=1,0 for true SNIa,CC (sim only)
-    
+      + ignore gammaDM dimension if >5 bins to allow for a                 
+         physically motivated distribution.
+ 
     sntools_output_hbook.c:
       + fix memcopy bug for VARLIST_FINAL.
 
     snana.car
-      + fix evil string parse bug in PARSE_TERSE_VARLIST.
-        Remove check on 'ZP' to avoid conflict with 'ZPERR'.
+      + fix evil string parse bug in PARSE_TERSE_VARLIST;
+         remove check on 'ZP' to avoid conflict with 'ZPERR'.
       + in CRAZYERRCHECK, check for too-small errors along with too-large.
+      + add &SNLCINP input CUTWIN_ZPERR 
+      + new &SNLCINP option, FUDGE_MAG_ERROR = 'ALL 0.02'
+      + write TEMPLATE info for make-SIMLIB option.
+      + new &SNLCINP input CUTWIN_TREST_TRUEFLUX = -20, 70  
+         to require valid true flux for fakes.
+      + in SNRECON, apply PSF and ZPERR cuts on each epoch.
+      + remove default BUG-KEEP flag for where to compute flux-error 
+        fudges (snana.car). Now it's part of RESTORE_DES3YR. Benign.
+
 
     genmag_SALT2.c
       + in SALT2colorDisp, extrapolate if UV extrap is used.
@@ -17929,5 +17960,561 @@
         This ratio-vs-wave needs to be updated for NIR use.
         Problem uncovered by D.Jones while analyzing RAISIN data 
         with SNOOPY model. For NIR, use OPT_MWCOLORLAW = 94.
+
+   sim:
+    + new input HOSTLIB_SCALE_LOGMASS_ERR (default=1.0).
+    + fixes to allow user input LOGMASS, but internally convert 
+       to LOGMASS_TRUE
+    + new utility abort_openTextFile() gives more info when
+      input file cannot be opened.
+    + allow sim-input INPUT_INCLUDE_FILE or INPUT_FILE_INCLUDE
+    + add GENMODEL_EXTRAP_LATETIME to command-line override 
+        (was mistakenly left out during plasticc devel)
+    + new keys for FLUXERRMODEL_FILE, SCALE_FLUXERR_TRUE[DATA]
+         (see manual)
+
+
+# ======================================================================= 
+         v10_75d (Feb 25 2020 ) 
+
+         ***** IMPORTANT(v10_75d) ***** 
+
+         ***** USEFUL(v10_75d) ***** 
+
+   + SALT2mu (BBC) has new option to bias-correct mu instead of mB,x1,c.
+   + new sim phase-smearing correlations; see GENMAG_SMEAR_ADDPHASECOR
+
+         ***** MISCELLANEOUS(v10_75d) ***** 
+
+    sntools*.c:
+      + several compile fixes found by Cori compiler.
+
+    snlc_sim.c
+     + in gen_AV(), fix bug computing Gauss weight.
+     + new sim input to include phase covariance in model
+         GENMAG_SMEAR_ADDPHASECOR: 0.03 7.0  # magSmear, expTau(days)
+     + update PHOTPROB map to include REDSHIFT and GALMAG.
+     + initialize PHOTPROB to -9 (undefined) instead of 0
+     + new sim input FUDGESCALE_NOISE_TEMPLATE
+     + fix a few bugs related to using +HOSTNBR HOSTLIB.
+         (and add +HOSTNBR sim job in snana tester)
+
+    sntools_trigger.c
+      + refactor detection to require PHOTPROB cut if CUTVAL
+        is specified in SEARCHEFF_PIPELINE_FILE.
+
+    sntools_genSmear.c, snlc_sim.c:
+     + refactor correlated random Gaussians to use new utilities:
+       init_Cholesky and GaussRanCorr()/
+
+    snana.car
+     + new &SNLCINP input:  MWEBV_FORCE = <val>
+     + new &SNCLINP input:  FUDGE_FLUXERR_SCALE = 'g 1.02 r 1.03'
+     + re-implement CUTWIN_PHOTPROB.
+     + in MNFIT_STOREPAR, set NDOF_PRIOR=0 on each iteration,
+       otherwise it keeps value from previous ITER (0 or 1).
+       This bug affected data and sim the same way, so the fix
+       slightly affects FITPROB shape, but is not expected to 
+       impact data/sim agreement in FITPROB.
+    
+    snlc_fit.car:
+     + OPT_COVAR_MWXT=1 -> full cov, =2 ->  diag only (for tests)
+
+    SALT2mu.c
+     + opt_biascor += 128 -> correct mu-sim_mu instead of mB,x1,c.
+       Prelim tests show nuissance params (a,b,g) are within 0.1% 
+       of default method of correcting mB,x1,c.
+
+    psnid_tools.c[h]:
+      + define INPUTS.OPT_DEBUG, and have it passed from psnid.car.
+        Useful for debugging with
+           psnid.exe <myInput> OPT_DEBUG <OPTVAL>
+
+
+# ======================================================================= 
+         v10_75e (Mar 04 2020) 
+
+         ***** IMPORTANT(v10_75e) ***** 
+
+   snlc_fit.car:
+     For &FITINP inputs FUDGEALL_ITER1_MAXFRAC and DELCHI2_REJECT,
+     fixed long-standing conflict bug where ITER1_MAXFRAC causes 
+     DELCHI2_REJECT to have little or no impact. 
+ 
+     Improve initial PKMJD-vs-CHI2 sweep in FITINI_ADJUST.
+
+   snana.car : fix PSF cut bug introduced at v10_75c.
+
+         ***** USEFUL(v10_75e) ***** 
+
+         ***** MISCELLANEOUS(v10_75e) ***** 
+
+   SALT2mu.c: bug fix for NSPLITRAN option; move chi2 cut after
+              SPLITRAN summary.
+
+   sntools_host.c[h], snlc_sim.c[h], sntools_fitsio.c :
+     + overhaul simulation part that reads and processes
+       HOSTNBR HOSTLIB; fix bugs and finish what was left undone.
+
+   snlc_sim.c:
+     + new sim-input HOSTLIB_MAXDDLR: 4.0 (see manual)
+     + for SIMLIB model, automatically set zHOST_FILE and SPEC_FILE to NONE
+     + add sim-input  RESTORE_DEDS3YR: 1  to restore DES3YR bugs in sim.
+
+   snana.car:
+     + plot 2nd host info if HOSTGAL_ANGSEP exists (data or sim)
+     + modify LCUTEPOCH to replace obsolete IDTEL with IFILT,
+       and reject if EPCUT_SNRMIN requires any SNR > 100.
+     + wrap recent NDOF_PRIOR fix around RESTORE_DES3YR
+     + fix awful bug from v10_75c ; CUTWIN_PSF was applied
+       to PSF with wrong units.
+
+   snlc_fit.car:
+     + when DELCHI2_REJECT is set, apply test on DELCHI2 
+       without extra FUDGEALL_ITER1_MAXFRAC so that the FUDGE 
+       does not mess up the DELCHI2_REJECT feature.
+
+     + in FITINI_ADJUST, tweak PKMJD sweep to 
+         1) span -4 to +4 days, 2 day bins (was -2 to +2, 1 day bin)
+         2) remove requirement that new CHI2 < 5*NEPOCH
+       This change causes ~dozen snana-tester failures, but the
+       changes are all in 4th or 5th significant digit, and thus OK.
+       This update should make fits more robust against bad PEAKMDJINI
+       estimates.
+
+
+# ======================================================================= 
+         v10_76 (Mar 7 2020) 
+
+         ***** IMPORTANT(v10_76) ***** 
+
+   SIMULATION: Default cosmology params updated from Planck 2018.
+
+         ***** USEFUL(v10_76) ***** 
+
+         ***** MISCELLANEOUS(v10_76) ***** 
+
+   snlc_fit.car
+     + new FITRES table variable NPTFIT_REJECT = number of obs
+       withing Trest window that are rejected by DELCHI2_REJECT.
+        
+   sntools.h
+     + define cosmology parameters with updated Planck 2018
+
+   snlc_sim.c:
+     + replace ancient cosmo params (OM,OL = 0.3,0.7) with
+       Planck 2018 params ni sntools.h.
+
+   snana.car:
+     + update OMAT_DEFAULT and OLAM_DEFAULT to Planck 2018.
+       These params are used only for initial amplitude estimate,  
+       and in the approx DELMU Hubble residual that is not used
+       anywhere in the analysis.
+
+
+# ======================================================================= 
+         v10_76b (March 14 2020) 
+
+         ***** IMPORTANT(v10_76b) ***** 
+
+    snlc_fit.exe bug fix for FUDGE_MAG_ERROR 
+
+         ***** USEFUL(v10_76b) ***** 
+
+         ***** MISCELLANEOUS(v10_76b) ***** 
+
+   snana.car
+    + this is a bit embarassing, but fixed awful bug related to 
+      FUDGE_MAG_ERROR; was using FLUXCAL from previous epoch to
+      compute FLUXERR_ADD = FUDGE_MAG_ERROR*FLUXCAL.
+      Traced bug to refactor at  v10_58m (Feb 19, 2018). 
+      Bug found by D.Jones when comparing split_and_fit vs. 
+      snlc_fit.exe ; slight fitPar differences were found because 
+      first epoch had different previous epoch based on different 
+      previous event.
+
+      RESTORE_DES3YR restores this bug. For DES3YR, this bug affects
+      the following lowz fit-input:
+      FUDGE_MAG_ERROR = 'u 0.01 v 0.01 w 0.01 x 0.01 y 0.01 z 0.01 A 0.01'
+
+   nearnbr_apply.c: fix to handle zPHOT
+
+   SALT2mu_fit.pl :
+     + new option  "STRINGMATCH_IGNORE: IGNORE" to ignore string
+       matches. Works only there is 1 and only 1 version per
+       INPDIR. Aborts if multiple VERSIONs. 
+       Still testing -> NOT yet working.
+    
+   snlc_sim.c
+     + split gen_modelpar into REST and OBS frame ... prepare
+       for REST frame to be called before get_HOSTLIB, and
+       OBS frame to be called after get-HOSLTIB in case DLMU 
+       is changed.
+     + fix refactor bug applying FUDGESCALE_FLUXERR_FILTER and
+       FUDGESCALE_FLUXERR2_FILTER
+     + move rest-frame part of gen_modelPar to before GEN_SNHOST
+       so that HOSTLIB-WGTMAP can depend on SN params.
+       Beware: changes random sync.
+
+  sntools_host.c:
+     + begin refactor to allow x1 and c in WGTMAP using generated
+       x1,c, and NOT requiring x1,c in HOSTLIB. 
+
+  sim_SNmix.pl:
+    + add NOPROMT arg to clopbber SIMLOGS even if there is no DONE
+      stamp.
+
+
+# ======================================================================= 
+         v10_76c (Mar 28 2020) 
+
+         ***** IMPORTANT(v10_76c) ***** 
+
+   New Hostlib-wgtmap option to include SN params (e.g., x1, c)
+   in WGTMAP that are not in the HOSTLIB. Minimal testing so far, 
+   so users should run their own tests.
+
+   wfit.c: new options -bao_sim and -cmb_sim to use sim cosmology
+           for bao and cmb priors.
+
+   sim: new EBV_HOST params (see manual Sec 9.1)
+
+         ***** USEFUL(v10_76c) ***** 
+
+         ***** MISCELLANEOUS(v10_76c) ***** 
+
+   wfit.c:  
+    + use cosmo params in sntools.h to sync with sim.
+    + DJB add -bao_sim and -cmb_sim  flags.
+
+   genmag_SEDtools.c[h]: 
+     + check if RV changes for making grid of host MWXT.
+
+   sntools.h: rename  _LCDM -> _DEFAULT for cosmo params.
+
+   snana.car:
+     + add SIM_RV to table output.
+
+   new code files sntools_genExpHalfGauss.c[h]
+   to implement generic expon+halfGauss profiles for AV
+   or EBV_HOST.
+
+   snlc_sim.c:
+    + refactor gen_AV and include option to specify EBV_HOST
+      profile, or AV profile. 
+    + implement color or stretch dependent scale on scatter:
+          GENMAG_SMEAR_SCALE(c): xxx,yyy,zzz
+          GENMAG_SMEAR_SCALE(x1): xxx,yyy,zzz
+    + refactor SALT2BETA_cPOLY to use _GENPOLY tools; untested -> BEWARE.
+
+   SNANA_Codetests.py: bug fix for batch systems
+
+   snana_manual.pdf:
+     + in Sec 9, add new section about host-gal extinction
+       and include both AV and EBV options.
+
+   Makefile:
+     + fix dependence on sntools_gridgen.c to hopefully avoid
+       SNANA_Codetest problems when re-making snlc_sim.
+
+   sim_SNmix,pl:
+     + fix so that SIMGEN_INFILE_Ia need not be global if
+       there is a SIMGEN_INFILE_Ia for each GENVERSION.
+
+   genmag_SALT2.c[h]:
+     + if ISMODEL_SALT3 then read SALT3.INFO instead of SALT2.INFO.
+
+   snlc_fit.car
+     + fix logic for SALT2zz so that zz=z if not photo-z fit.
+       Fixes subtle interaction bug with FITRESTMAG option.
+     + new &FITINP DLAMTOL_FITRESTMAG ; see manual.
+
+   sntools_host.c:
+     + in STORE_SNHOST_MISC(), fix init bug that came earlier from
+       refactor to include c & x1.
+
+
+# ======================================================================= 
+         v10_76d (Apr 16 2020) 
+
+         ***** IMPORTANT(v10_76d) ***** 
+
+     + sim: refactored code (to allow EBV distrib) is now default code.
+
+         ***** USEFUL(v10_76d) ***** 
+
+     + $SNANA_DIR/util/get_vpec.py
+     + $SNANA_DIR/util/translate_CSPDR3.py
+     + kcor.exe can transform mag systems: e.g., VEGA->AB
+     + snlc_fit: AV prior enabled for snoopy model.
+     + SALT2mu output fitres file has warnings for biasCor loss > 2%
+
+         ***** MISCELLANEOUS(v10_76d) ***** 
+
+    SALT2mu.c:
+      + MXFILE_[DATA,BIASCOR,CCPRIOR] -> 20 (was 10)
+      + for alpha, beta, gamma, abort on inconsistent binning 
+        in any IDSURVEY subset.
+      + for +128 bit, sigint_biascor is computed with user-input
+        alpha, beta (p1,p2) instead of SIM_ALPHA, SIM_BETA
+      + if MINOS errors are zero, report parabolic error.
+ 
+    sim_SNmix.pl
+      + allow ENV reading INFILE under GENVERSION.
+ 
+    snana.car:
+      + call ENVreplace(TEXTFILE_PREFIX)
+      + for SIMLIB_OUT option, extend SKY noise estimates into
+        J,H,K bands using Table 3 from https://arxiv.org/pdf/0809.4988.pdf
+
+    snlc_fit.car
+      + apply AV prior for SNOOPY (same as for mkcs2k2)
+      + fix INISTP_SHAPE logic for SNOOPY and MKCS2k2
+
+    sntools_host.c
+      + fix evil bug setting DEBUG_FLAG = 111 instead of testing
+        DEBUG_FLAG==111. Messes up other DEBUG_FLAG settings.
+
+    sntools_host.h
+      + MXWGT_HOSTLIB -> 50,000 (was 5,000)
+
+    snlc_sim.c
+     + fix readme_doc_hostxt() to write AV or EBV info.
+     + remove DEBUG_FLAG==42 wrapper for refactored code to allow EBV
+       DEBUG_FLAG=41 uses legacy code.
+
+    $SNANA_DIR/util/translate_CSPDR3.py -> new script.
+
+    sntools_genSmear.c
+      + pass version to init_genSmear_OIR(version)
+        Argument of GENMAG_SMEAR_MODELNAME must be of the
+        form$PATH/OIR.[suffix]
+    
+   kcor.h and snana.car:  MXKCOR -> 200 (was 100)
+
+   kcor.c[h]
+    + new feature to mix mag systems in the input, but transform
+      them internally to common system. See new syntax
+      "MAGSYSTEM: BD17->AB", and see kcor-input instructions
+      at top of kcor.c.
+
+   New utility to fetch peculiar velocities:
+      $SNANA_DIR/util/get_vpec.py
+   and assoicated map is
+     $SNDATA_ROOT/models/VPEC/twomass++_velocity_LH11.npy
+
+
+# ======================================================================= 
+         v10_76e (May 10 2020) 
+
+         ***** IMPORTANT(v10_76e) ***** 
+
+         ***** USEFUL(v10_76e) ***** 
+   
+   New snana.exe option to translate sim spectra to MARZ format.
+   See top of sntools_output_marz.c for details.
+
+         ***** MISCELLANEOUS(v10_76e) ***** 
+
+   NEW source code sntools_output_marz.c, using FITS format.
+   Output file can be read by MARZ code to determine reshift
+   from host spectrum.
+   
+   snlc_fit.car:
+     + fix evil array bound bug for FITMODEL_NAME that
+       includes full path. 
+
+   snana.car
+      + new &SNLCINP OVERRIDE_RESTLAM_BOUNDARY to manually
+        adjust rest-frame boundaries for k-corrections.
+      + allow NOBS=0 if &SNLCINP ABORT_ON_NOEPOCHS=F
+      + new &SNLCINP input SIMLIB_OUT_TMINFIX
+      + new &SNLCINP input SHIFT_SETPKMJD
+      + new $SNLCINP MARZFILE_OUT
+      + new option OPT_SETPKMJD=2048 -> PKMJDINI = SIM_PKMJDINI
+      + compute new variable AREAFRAC_AVG and output to SNANA table.
+
+   sim_SNmix:
+      + abort if PATH_SNDATA_SIM does not exist. 
+      + abort if NPER_SEASON string is null
+      + abort if there are no SIMGEN_INFILE_[Ia,SNIa,NONIa] keys
+
+   Makefile:
+     + add LROOT logic for lCint so that it works for both
+       root v5 and root v6.
+
+   sntools_spectrograph.c:
+     + fix getSNR_spectrograph to return SNR=0 if ZP is undefined.
+     + fix format to write LAMMIN & LAMMAX; remove LAMCEN option because
+       snana.exe read-back assumes LAMMIN & LAMMAX.
+
+   SALT2mu.c:
+    + begin refactor to allow input fitres files to have
+      different columns. Still using legacy write where
+      all files must have same columns.
+
+
+# ======================================================================= 
+         v10_77 (May 25 2020) 
+
+         ***** IMPORTANT(v10_77) ***** 
+
+   SALT2mu.exe, SALT2mu_fit.pl allow input FITRES files to have
+     different columns; see manual Sec 10.1
+
+         ***** USEFUL(v10_77) ***** 
+
+   New utility sntable_cat.py (see manual Sec 10.1)
+
+         ***** MISCELLANEOUS(v10_77) ***** 
+
+   sntools_host.c
+    + in get_Sersic_info(), allow Sersic weight truncation
+      error at E-3 level; renormalize wgts.
+    + fix refactor bug related to SN->GAL coord option (MSKOPT+=8)
+      (see function SORT_SNHOST_byDDLR)
+
+   snlc_sim.c
+    + output REAMDE includes list of each map file with MAP: key
+      so that they can be grepped.
+    + fix minor spectrograph bug: ignore SPECTROGRAPH keys in 
+      SIMLIB if spectrograph is not defined in kcor file.
+    + fix a few harmless valgrind errors related to strongLens option.
+    + add VPEC option in HOSTLIB; see manual sec 4.30.1
+
+   sim_SNmix.pl:
+    + write PATH_SNDATA_SIM in TOTAL_SUMMARY.LOG
+    + fix false-ABORT bug if SIMGEN_INPUT_Ia is not global,
+      but specified under GENVERSION key.
+
+   split_and_fit.pl:
+     + fix FITRES_COMBINE_FILE feature that was broken because
+       execution code was accidentally removed in previous refactor.
+     + fix bug causing FITRES files NOT to be gzipped, and was
+       also causing VERSION_AFTERBURNER option to be skipped.
+
+   snana.car, sntools_fitsio:
+     + add REDSHIFT_QUALITYFLAG to data structure.
+       This is a survey-dependent flag on spec-z (host or SN),
+       and thus there is no standard set of flag definitions.
+     + MXSPECTRUM     = 5     -> 20
+     + MXLAM_SPECTRUM = 2000  -> 20000
+     + MXTABLE1D_AVWARP -> 1.5 million for D.J (was 1 million)
+
+   SALT2mu.c
+     + new option CUTWIN(BIASCORONLY) to cut only on biasCor.
+     + new option fieldlist=<list> ; see instructions at top of code file.
+
+   sntools_fitsio.c
+     + fix bug writing SIM_STRONGLENS_XXX params 
+
+   kcor.c: 
+     + new spectrograph table inputs to catch crazy SNR values,
+          SNR_POISSON_RATIO_ABORT_vsMAGREF
+          SNR_POISSON_RATIO_ABORT_vsTEXPOSE
+       (see manual updates)
+     + fix bug related to duplicate filters with lamshift.
+
+   sntools_spectrograph.c:
+     in getSNR function, if variance < 0, return SNR=0 so that
+     sim simply ignores this wave bin. Can happen for very
+     faint mags when SNR ~ 1 and SQSIGSKY solution is not well
+     defined.
+
+
+# ======================================================================= 
+         v10_77b (June 5 2020) 
+
+         ***** IMPORTANT(v10_77b) ***** 
+    
+         ***** USEFUL(v10_77b) ***** 
+
+    SIMLIB_OUT option (snana.exe) adds TAKE_SPECTRUM keys in SIMLIB header
+    if spectra are in the data file.
+
+    Simulating spectra has new option to extrap TEXPOSE beyond defined range.
+
+    New sim option to read SIMLIB exactly once.
+
+         ***** MISCELLANEOUS(v10_77b) ***** 
+
+    snlc_sim.c[h]: 
+      + new SPECTROGRAPH_MSKOPT += 64 -> extrapolate TEXPOSE beyond 
+        range defined in spectrograph table. See updated manual 
+        section 4.25.3 SPECTROGRAPH Options
+      + remove OPT_DEVEL_BBC7D flag
+      + fux bug overriding RV from HOSTLIB
+      + new input option, USE_SIMLIB_SPECTRA: 1 (see manual)
+      + abort if USE_SIMLIB_XXX flags result in all LIBIDs rejected
+         by GENRANGE_XXX windows. Avoids infinite loop/hang.
+      + SIMLIB_MSKOPT += 4 -> stop after reading SIMLIB one time.
+      + to address ringing in simulated spectra, refactor randoms to 
+        allow two independent streams, where the 2nd stream is used 
+        for spectrograph noise. For now, default NSTREAM_RAN=1,
+        but can study impact of two streams with
+          snlc_sim.exe <inFile> NSTREAM_RAN 2 
+        Next SNANA version will likely have NSTREAM_RAN=2 by default,
+        where stream 0 stays synced to lists, while stream 1 is not.
+
+    SALT2mu_fit.pl
+     + fix obscure ABORT  message when datfile= key is missing
+        for NSPLITRAN option.
+     + on abort, write FAIL to DONE file 
+
+    SALT2mu.c
+      + for ALL surveys lumped together (no 64 bit), fix bug where
+        IDSAMPLE was not set and was thus -9; set all IDSAMPLE=0
+
+    snana.car:
+      + for SIMLIB_OUT option, include TAKE_SPECTRUM keys in
+        SIMLIB header if spectra exist in data files.
+      + fix some SPECPLOT bugs.
+      + fix SPECPAK compatibility issue with using both MARZ & TEXT tables.
+
+    sntools_output.c:
+       + include sndata.h and remove some redundant #define statements
+         from sntools_output.h .
+
+    sntools.h:
+      MXWORDFILE_PARSE_WORDS -> 1 million (was 500k) to handle data
+      files with lots of spectra.
+
+    sntools_spectrograph.h:
+        MXLAMSMEAR_SPECTROGRAPH -> 40 (was 20) for small DIEMOS bins
+
+
+# ======================================================================= 
+         v10_77c (June 5 2020) 
+
+         ***** IMPORTANT(v10_77c) ***** 
+
+    In sim, NSTREAM_RAN = 2 (was 1) so that spectrograph noise 
+    burns independent set of randoms.  Random sync changed here.
+
+         ***** USEFUL(v10_77c) ***** 
+
+         ***** MISCELLANEOUS(v10_77c) ***** 
+
+
+# ======================================================================= 
+         v10_77d (  ) 
+
+         ***** IMPORTANT(v10_77d) ***** 
+
+         ***** USEFUL(v10_77d) ***** 
+
+         ***** MISCELLANEOUS(v10_77d) ***** 
+
+    snana.car
+      for writing TAKE_SPECTRUM keys to SIMLIB, exlcude wave bins
+      where FLUXERR/FLUXERR_MEDIAN > 50
+
+    combine_fitres.c
+      + fix variable name match to be case insensitive.
+
+    sntools.c
+     + for FmaxClump method of initial PKMJD, sort MJD_LIST in case
+       data files are not MJD-sorted. Also check that snlc_fit works
+       on un-sorted data. Fix based on LSST-DC2 data files.
 
 END: 

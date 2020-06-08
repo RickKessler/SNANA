@@ -1374,17 +1374,6 @@ double interp_flux_SEDMODEL(
   // Return interpolated flux-integral 'S' 
   // from pre-tabulated tables
   //
-  // May 5, 2011: 
-  //  major re-write to replace linear interp with spline interpolation.
-  //  Start with quadratic interp in each dimension, and later a 
-  //  real 2D-spline should be installed. Note the new array 
-  //  S2DTMP[iz][ep] is a local 2D array that can be fed to a
-  //  spline/interp function.  Local variable NBIN_SPLINE 
-  //  determinees how many nodes in each dimention are used.
-  //
-  // Nov 02, 2011 fix bug when redshift is in last bin; see NZTMP
-  // Jun 9, 2012: fix test on logz > LOGZMAX -> logz > 1.0001*LOGZMAX
-  //
   // Aug 17 2015: fix long-standing bug; replace TEMP_SEDMODEL.DAY with
   //              DAYLIST from this SED. Previously was using last read
   //              DAYLIST.
@@ -1541,7 +1530,6 @@ double interp_flux_SEDMODEL(
 
     // interpolate across epoch to get SZ
     if ( NDAY > 1 ) {
-	// xxx mark delete   SZTMP[iz] = quadInterp( Trest, ptr_EP, S2DTMP[iz], fnam );  
 	// linear interp to avoid crazy parabolic fits
       SZTMP[iz] = interp_1DFUN (1, Trest,
 				  NBIN_SPLINE, ptr_EP, S2DTMP[iz], fnam ) ;
@@ -1609,6 +1597,51 @@ long int INDEX_SEDMODEL_FLUXTABLE(int ifilt, int iz,
   return INDEX ;
 
 } // end of INDEX_SEDMODEL_FLUXTABLE
+
+// ************************************
+double get_magerr_SEDMODEL( int ISED, int ifilt_obs,
+			     double z, double Trest) {
+
+  int    NLAM    = TEMP_SEDMODEL.NLAM ;
+  int    NDAY    = TEMP_SEDMODEL.NDAY ; 
+  double DAYMIN  = TEMP_SEDMODEL.DAYMIN ;
+  double DAYMAX  = TEMP_SEDMODEL.DAYMAX ;
+  int    ifilt, EP, ILAM, jflux ;
+  double FRAC, LAMSED, LAMDIF, FLUX, FLUXERR, magerr = 0.10 ;
+  char fnam[] = "get_magerr_SEDMODEL";
+
+  // -------------- BEGIN --------------
+
+  // get epoch index for Trest
+  if ( Trest <= DAYMIN ) 
+    { EP = 0 ; }
+  else if ( Trest >= DAYMAX ) 
+    { EP = NDAY-1 ; }
+  else
+    { get_DAYBIN_SEDMODEL(ISED, Trest, &EP, &FRAC); }
+
+  // get lambda bin
+  ifilt     = IFILTMAP_SEDMODEL[ifilt_obs] ;
+  LAMSED    = FILTER_SEDMODEL[ifilt].mean / (1.0 + z) ;
+  LAMDIF    = LAMSED - SEDMODEL.LAMMIN[ISED] ;
+  ILAM      = (int)(LAMDIF/TEMP_SEDMODEL.LAMSTEP) ;
+  if ( ILAM < 0        ) { ILAM = 0 ; }
+  if ( ILAM > NLAM - 1 ) { ILAM = NLAM - 1 ; }
+
+  jflux      = NLAM*EP + ILAM ;
+  FLUX       = TEMP_SEDMODEL.FLUX[jflux];
+  FLUXERR    = TEMP_SEDMODEL.FLUXERR[jflux];
+
+  if ( FLUX > 1.0E-15 ) 
+    { magerr  = 2.5*log10(1.0+FLUXERR/FLUX); }
+  else
+    { magerr = 5.0 ; }
+
+
+  return(magerr) ;
+
+} // end get_magerr_SEDMODEL
+
 
 // *******************************************
 int IFILTSTAT_SEDMODEL(int ifilt_obs, double z) { 
@@ -2287,6 +2320,7 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
   // but stored as a function of observer-frame wavelength.
   //
   // Mar 2 2017: fix to work with SPECTROGRAPH 
+  // Mar 18 2020: DJB added logic for changing RV
 
   int  NLAMFILT, ilam, I8, I8p, ifilt, ifilt_obs, ifilt_min ;
   int  OPT_COLORLAW, NBSPEC ;
@@ -2319,9 +2353,16 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
 
   }
 
+  bool update_hostxt = false;
+  if ( AV != SEDMODEL_HOSTXT_LAST.AV ){ update_hostxt = true; }
+  if ( RV != SEDMODEL_HOSTXT_LAST.RV ){ update_hostxt = true; }
+  if ( z != SEDMODEL_HOSTXT_LAST.z ){ update_hostxt = true; }
+
+  /*
+  xxx Mark Delete March 18 2020. Dealing with RV changing landmine.
   if ( AV == SEDMODEL_HOSTXT_LAST.AV  &&  z == SEDMODEL_HOSTXT_LAST.z ) 
     { return ; }
-
+  */
 
   OPT_COLORLAW = MWXT_SEDMODEL.OPT_COLORLAW ;
   NBSPEC = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
@@ -2593,6 +2634,50 @@ void FLUX_SCALE_SEDMODEL(double SCALE, SEDMODEL_FLUX_DEF *SEDFLUX) {
   return ;
 
 } // end FLUX_SCALE_SEDMODEL
+
+// ===============================================
+bool found_fluxerr_SEDMODEL(char *sedFile) {
+
+  // Created Feb 6 2020
+  // Returns true if 4th column (fluxerr) is found in the
+  // input SED file.
+
+  bool found = false;
+  int  gzipFlag, NRDWORD, i ;
+  FILE *fp;
+  char line[200], *stringVal[MXWORDLINE_FLUX], space[] = " ";
+  char fnam[] = "found_fluxerr_SEDMODEL" ;
+
+  // -------------- BEGIN ------------
+
+  fp = open_TEXTgz(sedFile, "rt", &gzipFlag);
+  if ( !fp ) {
+    sprintf(c1err,"Could not open sedFile:");
+    sprintf(c2err,"%s", sedFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  for(i=0; i < MXWORDLINE_FLUX; i++ )
+    { stringVal[i] = (char*) malloc(60*sizeof(char) ) ;  }
+
+  while ( fgets (line, 200, fp ) != NULL  ) {
+    if ( strlen(line) < 2  ) { continue ; }
+    if ( commentchar(line) ) { continue ; }
+
+    splitString(line, space, MXWORDLINE_FLUX,
+                &NRDWORD, stringVal ) ;  // returned                         
+
+    if ( NRDWORD >= 4 ) { found = true; }
+    goto DONE;
+  }
+
+ DONE:
+  // free mem
+  for(i=0; i < MXWORDLINE_FLUX; i++ )    { free(stringVal[i]); }
+  fclose(fp);
+  return(found);
+
+} // end found_fluxerr_SEDMODEL
 
 // ======================================================
 void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {

@@ -54,6 +54,9 @@
 //
 // Dec 19 2019: for sims, write SIM_FLUXCAL column to LCPLOT file.
 //
+// Jun 03 2020: if MARZ option is set, remove [z=xxx] from CCID
+//              in TEXT SPECPLOT table.
+//
 // **********************************************
 
 char FILEPREFIX_TEXT[100];
@@ -155,7 +158,7 @@ extern"C" {
   void OPEN_TEXTFILE_SPECLIST(char *PREFIX) ;  
   void open_textfile_speclist__(char *PREFIX) ;   
   void SPECPAK_FILL_TEXT(void) ;
-  void specpak_textLine(FILE *fp, int ilam, int OUTFLAG);
+  void specpak_textLine(FILE *fp, char *CCID, int ilam, int OUTFLAG);
   void SPECPAK_WRITE_HEADER_TEXT(void) ;
 
   void get_sepchar(int OPT_FORMAT, char *comment, char *sep) ;
@@ -169,9 +172,10 @@ extern"C" {
 
   int  SNTABLE_READPREP_TEXT(void);
   int  SNTABLE_READ_EXEC_TEXT(void);
+  void SNTABLE_CLOSE_TEXT(void) ;
 
   int validRowKey_TEXT(char *string) ;
-  int ICAST_for_textVar(char *varName) ;
+  // xxx mvoed to sntools_output.h  int ICAST_for_textVar(char *varName) ;
 
   int count_varnames_TEXT();
   int get_varname_TEXT(int ivar, char *varName );
@@ -948,7 +952,7 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   fprintf(PTRFILE_LCLIST, "VARNAMES: CID IFIT\n");
   fflush(PTRFILE_LCLIST);
 
-  SNLCPAK_USE_TEXT = 1;
+  SNLCPAK_USE_TEXT = true ;
   sprintf( SNLCPAK_OUTPUT.TEXTFILE_PREFIX, "%s", PREFIX );
 
 
@@ -1277,17 +1281,23 @@ int SNTABLE_READ_EXEC_TEXT(void) {
 
   } // end fscanf 
   
-    fclose(FP);
+  fclose(FP);
 
-    // May 2 2019: reset flags to allow opening another file.
-    NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
-    USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT]     = 0;
+  // May 2 2019: reset flags to allow opening another file.
+  NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
+  USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT]     = 0;
 
-    return NROW ;
+  return(NROW) ;
 
 } // end of SNTABLE_READ_EXEC_TEXT
 
-
+void SNTABLE_CLOSE_TEXT(void) {
+  // May 2020
+  // can call this function after SNTABLE_NEVT
+  // so that there is no need to read entire file.
+  NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
+  USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT]     = 0;
+} 
 
 // =========================================
 int validRowKey_TEXT(char *string) {
@@ -1300,6 +1310,7 @@ int validRowKey_TEXT(char *string) {
   if ( strcmp(string,"SN:")    == 0 ) { return 1; }
   if ( strcmp(string,"ROW:")   == 0 ) { return 1; }
   if ( strcmp(string,"GAL:")   == 0 ) { return 1; }
+  if ( strcmp(string,"OBS:")   == 0 ) { return 1; } // May 30 2020 (SPECTRA)
   //  if ( strcmp(string,"LIBID:") == 0 ) { return 1; }
 
   return 0 ;
@@ -1681,7 +1692,7 @@ void OPEN_TEXTFILE_SPECLIST(char *PREFIX) {
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
-  SPECPAK_USE_TEXT = 1;
+  SPECPAK_USE_TEXT = true ;
 
   return ;
 
@@ -1739,23 +1750,31 @@ void SPECPAK_FILL_TEXT(void) {
 
   // Apr 2019
   // Write spectra data
+  // If CID is of the form nnn[z=xxx], remove stuff in brackets
+  // since [z=xxx] is only for marz table.
 
   int   NLAMBIN_TOT = SPECPAK_OUTPUT.NLAMBIN_TOT;
   int   NSPEC       = SPECPAK_OUTPUT.NSPEC;
-  int   ispec, ilam;
-  //  char  fnam[] = "SPECPAK_FILL_TEXT" ;
+  int   ispec, ilam, LENCCID;
+  char  CCID[MXCHAR_CCID], *ctmp;
+  char  fnam[] = "SPECPAK_FILL_TEXT" ;
 
   // --------------- BEGIN ------------
 
   if ( NCALL_SPECPAK_FILL == 1 ) 
     { SPECPAK_WRITE_HEADER_TEXT();  }
  
+  sprintf(CCID,"%s", SPECPAK_OUTPUT.CCID);
+  if ( SPECPAK_USE_MARZ ) {
+    ctmp = strchr(CCID,'[') ;
+    if ( ctmp != NULL ) {  LENCCID = (int)(ctmp-CCID); CCID[LENCCID] = 0 ; }
+  }
 
   // fill SPEC-LIST table vs. ID
   for(ispec=0; ispec < NSPEC; ispec++ ) {
 
-    fprintf(PTRFILE_SPECLIST,"OBS: %8s  %d  %d  %.3f %6.1f  %.1f \n",
-	    SPECPAK_OUTPUT.CCID,
+    fprintf(PTRFILE_SPECLIST,"OBS: %8s  %2d  %4d  %.3f %6.1f  %.1f \n",
+	    CCID,
 	    SPECPAK_OUTPUT.ID_LIST[ispec],
 	    SPECPAK_OUTPUT.NLAMBIN_LIST[ispec],
 	    SPECPAK_OUTPUT.MJD_LIST[ispec],
@@ -1766,20 +1785,19 @@ void SPECPAK_FILL_TEXT(void) {
 
   // fill SPEC-PLOT table vs. wavelength
   for(ilam=0; ilam < NLAMBIN_TOT; ilam++ )
-    { specpak_textLine(PTRFILE_SPECPLOT, ilam, 0); }
+    { specpak_textLine(PTRFILE_SPECPLOT, CCID, ilam, 0); }
 
 
 }  // end of SNLCPAK_FILL_TEXT
 
 // ==============================
-void specpak_textLine(FILE *fp, int ilam, int OUTFLAG ) {
+void specpak_textLine(FILE *fp, char *CCID, int ilam, int OUTFLAG ) {
 
   // Inputs
   //  *fp      : file pointer to write to
   //  ilam     : wave bin
   //  OUTFLAG  : not used
 
-  char  *CCID     = SPECPAK_OUTPUT.CCID ;
   int    ID       = SPECPAK_OUTPUT.ID[ilam];
   double LAMMIN   = SPECPAK_OUTPUT.LAMMIN[ilam];
   double LAMMAX   = SPECPAK_OUTPUT.LAMMAX[ilam];

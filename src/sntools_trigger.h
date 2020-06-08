@@ -28,7 +28,7 @@
 #define  MXMAP_SEARCHEFF_PHOTPROB     10
 #define  MXROW_SEARCHEFF_PHOTPROB  10000
 #define  MXVAR_SEARCHEFF_PHOTPROB     20
-#define  MXOBS_PHOTPROB              100 // max obs per event with PHOTPROB
+#define  MXOBS_PHOTPROB              400 // max obs per event with PHOTPROB
 
 #define  MXMAP_SEARCHEFF_SPEC   20   // max number of SPEC-maps
 #define  MXROW_SEARCHEFF_SPEC 30000  // temp max size of SPEC-eff map
@@ -48,13 +48,19 @@
 #define APPLYMASK_SEARCHEFF_SPEC        2  // spec confirmed
 #define APPLYMASK_SEARCHEFF_zHOST       4  // zSpec from host
 
+#define DETECT_MASK_SNR         1  // detect mask for SNR or MAG
+#define DETECT_MASK_MJD_TRIGGER 2  // identify obs where trigger passes
+#define DETECT_MASK_PHOTPROB    4  // detect mask for PHOTPROB
+
 #define MXOBS_TRIGGER 10*MXEPOCH 
 
 // define allowed variables to use in PHOTPROB map
-#define IVARABS_PHOTPROB_SNR     0
-#define IVARABS_PHOTPROB_LOGSNR  1
-#define IVARABS_PHOTPROB_SBMAG   2
-#define MXDEF_VARNAMES_PHOTPROB  3
+#define IVARABS_PHOTPROB_SNR       0
+#define IVARABS_PHOTPROB_LOGSNR    1
+#define IVARABS_PHOTPROB_SBMAG     2
+#define IVARABS_PHOTPROB_REDSHIFT  3  // Feb 14 2020
+#define IVARABS_PHOTPROB_GALMAG    4  // Feb 16 2020
+#define MXDEF_VARNAMES_PHOTPROB    5
 
 char COMMENT_README_TRIGGER[200];
 
@@ -62,7 +68,7 @@ char VARDEF_SEARCHEFF_PHOTPROB[MXDEF_VARNAMES_PHOTPROB][20] ;
 
 int  SEARCHEFF_FLAG;   // FLAG_EFFSNR or FLAG_EFFMAG
 
-char PATH_SEARCHEFF[MXPATHLEN]; // path for PIPELINE_FILE, SPEC_FILE
+char PATH_SEARCHEFF[2*MXPATHLEN]; // path for PIPELINE_FILE, SPEC_FILE
 
 int NONZERO_SEARCHEFF_SPEC  ;
 int NONZERO_SEARCHEFF_zHOST ;
@@ -126,7 +132,7 @@ struct SEARCHEFF_PIPELINE {
   char   FILTERLIST[MXFILTINDX] ;
   double *VAL, *EFF ;
   int    NLINE_README;
-  char   README[10][MXPATHLEN];
+  char   README[20][MXPATHLEN];
 } SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT+1] ;
 
 
@@ -144,12 +150,15 @@ struct {
   int  NVAR_TOT, NVAR_MAP, NFUN_CDF ;
   int  NROW ;
   int  REQUIRE_DETECTION; // flag read from SEARCH-input file
+  double CUTVAL ;         // reject epoch if PHOTPROB < CUTVAL (Feb 2020)
   double REDUCED_CORR ;   // reduced correlation (-1:1) read from input file
  
   double PHOTPROB_CDFBINS[MXVAR_SEARCHEFF_PHOTPROB] ;
   struct GRIDMAP GRIDMAP; 
 
-  
+  int NLINE_README;
+  char README[4][MXPATHLEN];
+
 } SEARCHEFF_PHOTPROB[MXMAP_SEARCHEFF_PHOTPROB];
 
 
@@ -162,11 +171,13 @@ struct {
   int    OBSINV_LIST[MXOBS_TRIGGER];  // local index vs [obs]
 } OBS_PHOTPROB;
 
+
+#define MXMASK_SEARCHEFF_LOGIC 10 // max number of logic conditions
 struct SEARCHEFF_LOGIC {
   int  NMJD;     // number of MJDs to have a detection
   int  NMASK;    // number of ORs
-  int  IFILTDEF_MASK[20];  // AND-mask vs. NMASK
-  char INPUT_STRING[40];  // user-input logic-string
+  int  IFILTDEF_MASK[MXMASK_SEARCHEFF_LOGIC];  // AND-mask vs. NMASK
+  char INPUT_STRING[80];  // user-input logic-string
 } SEARCHEFF_LOGIC ;
 
 
@@ -247,9 +258,11 @@ struct {
 
   // randoms
 struct {
-  double PIPELINE[MXOBS_TRIGGER];    // for each obs [0,1]
-  double PHOTPROB[MXOBS_TRIGGER]; 
-  double SPEC[MXFILTINDX+1] ;        // for each filter
+  double FLAT_PIPELINE[MXOBS_TRIGGER];     // flat ran for each obs [0,1]
+  double FLAT_PHOTPROB[MXOBS_TRIGGER];     // flat ran for each detection
+  double GAUSS_PHOTPROB[MXOBS_TRIGGER];     // Gauss ran for each detection
+  double GAUSSCORR_PHOTPROB[MXOBS_TRIGGER] ;  // correlated Gauss Ran
+  double FLAT_SPEC[MXFILTINDX+1] ;            // for each filter
 } SEARCHEFF_RANDOMS ;
 
 

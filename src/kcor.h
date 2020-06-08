@@ -14,6 +14,8 @@
 
   Mar 27 2017: add LEAKAGE_CUT to INPUTS.
 
+  Apr 10 2020: MXKCOR -> 200 (was 100)
+
 ********************************************************/
 
 #define VERSION_KCOR 3    // internal version
@@ -23,7 +25,7 @@
 #define MXLAM_FILT  5000  // max number of lambda bins for filters
 #define MXEP        150   // 110
 #define MXREDSHIFT  80    // max number of redshift bins 
-#define MXKCOR     100    // max number of Kcors to make (Kgg,Kgr, etc..)
+#define MXKCOR     200    // max number of Kcors to make (Kgg,Kgr, etc..)
 #define MXAV        50    // max size of AV grid
 #define MXMWEBV      4    // max number of MW E(B-V) bins
 #define MXPRIMARY    6    // max number of primary standards
@@ -87,6 +89,8 @@ struct INPUTS {
   char MAGSYSTEM_REPLACE2[40] ;
   char MAGSYSTEM_IGNORE[40]   ;
 
+  // xxx  char MAGSYSTEM_INPUT[40]; // e.g., VEGA->AB where VEGA is input magsys
+
   // filter lam shifts ... entered via command-line override only
   int    NFILTER_LAMSHIFT ; // number of non-zero LAMSHIFTs
   double FILTER_LAMSHIFT[MXFILTDEF];
@@ -133,10 +137,14 @@ struct INPUTS {
 } INPUTS ;
 
 
+// for most cases, NAME = NAME_INPUT. However, there is an option
+// where NAME_INPUT->NAME (e.g, VEGA->AB) means transform the
+// input MAGSYS with 'NAME_INPUT' to MAGSYS with 'NAME.
 typedef struct {
-  char   NAME[60];
-  int    INDX ;
-  double OFFSET ;  
+  char   NAME_INPUT[60], NAME[60];
+  int    INDX_INPUT, INDX ;
+  double OFFSET_INPUT, OFFSET ;
+  int    DO_TRANSFORM ;  // T -> NAME_INPUT != NAME
 } MAGSYSTEM_DEF ;
 
 typedef struct {
@@ -226,7 +234,8 @@ struct SNSED_FUDGE {
 // define "primary" SED [VEGA, BD17, etc ...]
 
 struct PRIMARYSED {   
-  int USE ; // 1-> this primary is actually used.
+  int USE ;    // 1-> this primary is actually used.
+  int IS_AB;   // 1-> AB system
 
   double ZP[MXFILTDEF];          // primary zero point
   double FLUXSUM[MXFILTDEF];   // Flam dlam or Fnu dnu/nu
@@ -253,6 +262,7 @@ struct PRIMARYSED {
   double MAGSYSTEM_OFFSET   ;
   char   MAGSYSTEM_NAME[40] ;
   char   MAGSYSTEM_SEDFILE[200];
+
 
 } PRIMARYSED[MXPRIMARY];
 
@@ -294,6 +304,7 @@ struct  FILTER
 
   char   MAGSYSTEM_NAME[40];     // (I) mag system (Vega, ABnu, ABlam ...)
   int    MAGSYSTEM_INDX;        // index corresponding to NAME
+  int    MAGSYSTEM_INDX_INPUT; 
   double MAGSYSTEM_OFFSET;      // global system mag offset(same for each filt)
   double MAGFILTER_REF;         // (I) mag of primary ref 
   double MAGFILTER_ZPOFF;       // (I) AB offset from optional ZPOFF.DAT file
@@ -369,7 +380,9 @@ void  set_kcorFile_format(void) ;
 int   malloc_ini(void);
 int   kcor_out(void) ;
 int   kcor_grid(void) ;
-int   primarymag(int iprim);  // integrated fluxes, mags, and zero points/
+void  primarymag_zp(int iprim);  // integrated fluxes, mags, and zero points/
+void  primarymag_zp2(int iprim);
+void  primarymag_summary(int iprim); 
 int   snmag(void);    // determine integrated fluxes and magnitudes
 
 void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
@@ -377,7 +390,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
 
 int   rd_filter( int ifilt ) ;  // read filter transmissions from files 
 void  parse_MAGREF(char *FILTNAME, char *TXT_MAGREF, double *MAGREF ) ;
-
+void  parse_MAGSYSTEM(char *MAGSYSTEM_TMP, MAGSYSTEM_DEF *MAGSYSTEM) ;
 void  parse_OOB(char *bandList, double *LAMRANGE, double RATIO);
 void  addOOBTrans_filter(int ifilt);
 

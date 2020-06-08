@@ -122,6 +122,9 @@
 # Oct 22 2019: compile with -O2 to speed sim with genSmear Cholesky stuff.
 #               (-O3 doesn't help)
 #
+# Mar 20 2020: added sntools_genExpHalfGauss (DJB)
+# Mar 23 2020: include snlc_sim.h dependence for sntools_gridgen.o
+# Apr 25 2020: include lCint for LROOT only of libCint.so exists
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -217,10 +220,19 @@ else
    IROOT       = -I/$(ROOT_DIR)/include -I/opt/local/include/freetype2
    ROOT_LIBDIR = $(LIB_SDIR)
    ROOT_LIBDIR = lib
-   LROOT = -L$(ROOT_DIR)/$(ROOT_LIBDIR) -lCore -lCint -lRIO -lNet -lHist -lGraf -lGraf3d -lGpad -lTree -lRint -lPostscript -lMatrix -lPhysics -lMathCore -lThread -ldl
+
+# include lCint if it exists (root v5), and exclude if not (root v6)
+   LCINT = -lCint
+   LIBCINT_ROOT5 = $(ROOT_DIR)/$(ROOT_LIBDIR)/libCint.so
+   ifeq (,$(wildcard $(LIBCINT_ROOT5)))
+	LCINT = 
+   endif	 
+
+   LROOT = -L$(ROOT_DIR)/$(ROOT_LIBDIR) -lCore -lRIO -lNet -lHist -lGraf -lGraf3d -lGpad -lTree -lRint -lPostscript -lMatrix -lPhysics -lMathCore -lThread -ldl $(LCINT)
    SNTOOLS_ROOT = $(SRC)/sntools_output_root.c 
 endif
 
+#echo " LIBINT_ROOT5 = $(LIBCINT_ROOT5) " ;
 
 # Apr 2019: check for python codes
 ifndef SNANA_PYTHON_DIR
@@ -387,6 +399,7 @@ OBJ_SIM	 = 	\
 	$(OBJ)/sntools_gridgen.o  \
 	$(OBJ)/sntools_spectrograph.o \
 	$(OBJ)/sntools_genGauss_asym.o \
+        $(OBJ)/sntools_genExpHalfGauss.o \
 	$(OBJ)/inoue_igm.o \
 	$(OBJ_GENMAG_SIM) 
 
@@ -397,7 +410,9 @@ SNTOOLS_OUTPUT = \
 	$(SRC)/sntools_output.c \
 	$(SRC)/sntools_output.h \
 	$(SRC)/sntools_output_hbook.c \
-	$(SRC)/sntools_output_text.c  $(SNTOOLS_ROOT)
+	$(SRC)/sntools_output_marz.c \
+	$(SRC)/sntools_output_text.c \
+	$(SNTOOLS_ROOT)
 
 # ------------------------------------------------------
 
@@ -487,7 +502,7 @@ $(BIN)/sncosmo_mcmc.exe : $(OBJ)/sncosmo_mcmc.o $(OBJ)/sntools.o
 
 
 $(OBJ)/SALT2mu.o : $(SRC)/SALT2mu.c $(SRC)/sntools.c $(SRC)/sntools_output.c
-	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(IGSL) $(SRC)/SALT2mu.c ) 
+	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/SALT2mu.c ) 
 
 $(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
@@ -495,7 +510,7 @@ $(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o
 	$(OBJ)/sntools.o \
 	$(OBJ)/sntools_output.o \
 	$(OBJ)/minuit.o 	\
-	$(LCERN) $(LROOT) -lm $(LGSL) $(CPPLIB)
+	$(LCERN) $(LROOT) -lm $(LGSL) $(LCFITSIO) $(CPPLIB)
 	(cd $(OBJ);  rm SALT2mu.o ) 
 
 # -----------------------------------------------------
@@ -662,7 +677,7 @@ $(BIN)/kcordump.exe : $(OBJ)/kcordump.o $(OBJ)/MWgaldust.o
 # combine_fitres (C-version with no array limits)
 
 $(OBJ)/combine_fitres.o :  $(SRC)/combine_fitres.c
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/combine_fitres.c )
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/combine_fitres.c )
 
 $(BIN)/combine_fitres.exe : \
 	$(OBJ)/combine_fitres.o $(OBJ)/sntools.o  $(OBJ)/sntools_output.o 
@@ -670,14 +685,14 @@ $(BIN)/combine_fitres.exe : \
 	$(OBJ)/combine_fitres.o \
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm combine_fitres.o )
 
 # --------------------
 # sntable_dump (Apr 2013)
 
 $(OBJ)/sntable_dump.o : $(SRC)/sntable_dump.c $(SNTOOLS_OUTPUT)
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) \
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) \
 	$(SRC)/sntable_dump.c )
 
 $(BIN)/sntable_dump.exe :  \
@@ -686,7 +701,7 @@ $(BIN)/sntable_dump.exe :  \
 	$(OBJ)/sntable_dump.o 	\
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm sntable_dump.o )
 
 
@@ -694,7 +709,7 @@ $(BIN)/sntable_dump.exe :  \
 # sntable_combine (Jan 2017)
 
 $(OBJ)/sntable_combine.o : $(SRC)/sntable_combine.c $(SNTOOLS_OUTPUT)
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) \
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) \
 	$(SRC)/sntable_combine.c )
 
 $(BIN)/sntable_combine.exe :  \
@@ -703,7 +718,7 @@ $(BIN)/sntable_combine.exe :  \
 	$(OBJ)/sntable_combine.o 	\
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm sntable_combine.o )
 
 # --------------------
@@ -711,7 +726,7 @@ $(BIN)/sntable_combine.exe :  \
 # Link to libsnana.a to get forclose(LUN) wrapper
 
 $(OBJ)/nearnbr_maxFoM.o : $(SRC)/nearnbr_maxFoM.c $(SNTOOLS_OUTPUT)
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) \
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) \
 	$(SRC)/nearnbr_maxFoM.c )
 
 $(BIN)/nearnbr_maxFoM.exe :  \
@@ -720,14 +735,14 @@ $(BIN)/nearnbr_maxFoM.exe :  \
 	$(OBJ)/nearnbr_maxFoM.o \
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO)  -lm $(CPPLIB)
 	(cd $(OBJ); rm nearnbr_maxFoM.o )
 
 # --------------------
 # nearnbr_apply (Jan 2017)
 
 $(OBJ)/nearnbr_apply.o : $(SRC)/nearnbr_apply.c $(SNTOOLS_OUTPUT)
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) \
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO)  \
 	$(SRC)/nearnbr_apply.c )
 
 $(BIN)/nearnbr_apply.exe :  \
@@ -737,7 +752,7 @@ $(BIN)/nearnbr_apply.exe :  \
 	$(OBJ)/sntools.o  	\
 	$(OBJ)/sntools_nearnbr.o \
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm nearnbr_apply.o )
 
 
@@ -793,7 +808,7 @@ $(OBJ)/sntools_kcor.o : $(SRC)/sntools_kcor.c $(SRC)/sntools_kcor.h $(SRC)/sndat
 	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_kcor.o
 
 
-$(OBJ)/sntools_gridgen.o : $(SRC)/sntools_gridgen.c $(SRC)/sntools_grid.h $(SRC)/sndata.h
+$(OBJ)/sntools_gridgen.o : $(SRC)/sntools_gridgen.c $(SRC)/sntools_grid.h $(SRC)/sndata.h $(SRC)/snlc_sim.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_gridgen.c )
 
@@ -877,7 +892,7 @@ $(OBJ)/kdtree.o : $(SRC)/kdtree.c $(SRC)/kdtree.h
 
 $(OBJ)/sntools_output.o : $(SNTOOLS_OUTPUT)
 	(cd $(OBJ); \
-	$(CCoutput) $(SNCFLAGS) $(IROOT) $(SRC)/sntools_output.c )
+	$(CCoutput) $(SNCFLAGS) $(IROOT) $(ICFITSIO) $(SRC)/sntools_output.c )
 
 # -------------------------------------------------
 #   MWgaldust from D.Cinabro (.o only)
@@ -900,6 +915,15 @@ $(OBJ)/multiseason.o : $(SRC)/multiseason.c
 $(OBJ)/sntools_genGauss_asym.o : $(SRC)/sntools_genGauss_asym.c  $(SRC)/sntools_genGauss_asym.h  skewNormal.c
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS)  $(IGSL) $(SRC)/sntools_genGauss_asym.c )
+
+# -------------------------------------------------        
+#  sntools_genExpHalfGauss  tools (March 2020)                                         
+
+$(OBJ)/sntools_genExpHalfGauss.o : $(SRC)/sntools_genExpHalfGauss.c  $(SRC)/sntools_genExpHalfGauss.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS)  $(IGSL) $(SRC)/sntools_genExpHalfGauss.c )
+
+
 
 # ------------------------------------------------
 # compile genmag_xxxx functions (.o only
@@ -994,7 +1018,7 @@ $(BIN)/merge_hbook.exe : $(OBJ)/merge_hbook.o
 # merge_root.exe program (Apr 2013)
 
 $(OBJ)/merge_root.o : $(SRC)/merge_root.c $(SNTOOLS_OUTPUT) 
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) \
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) \
 	$(SRC)/merge_root.c )
 
 $(BIN)/merge_root.exe :  \
@@ -1003,7 +1027,7 @@ $(BIN)/merge_root.exe :  \
 	$(OBJ)/merge_root.o 	\
 	$(OBJ)/sntools.o  	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB)
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	(cd $(OBJ); rm merge_root.o )
 
 # -------------
@@ -1115,14 +1139,14 @@ $(BIN)/atmosphere_sim.exe : \
 # unfold_snpar
 
 $(OBJ)/unfold_snpar.o : $(SRC)/unfold_snpar.c
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/unfold_snpar.c )
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/unfold_snpar.c )
 
 $(BIN)/unfold_snpar.exe : $(OBJ)/unfold_snpar.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/unfold_snpar.o	\
 	$(OBJ)/sntools.o 	\
 	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) -lm $(CPPLIB) 
+	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB) 
 	(cd $(OBJ); rm unfold_snpar.o )
 
 ####################  END ##########################################

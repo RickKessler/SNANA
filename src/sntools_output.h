@@ -27,6 +27,9 @@
  
  Dec 11 2019: replace lots of [40] with [MXCHAR_VARNAME]
 
+ May 02 2020: add spectra format for MARZ (FITS with particular extensions)
+ May 30 2020: MXSPEC_SPECPAK -> MXSPECTRA from sndata.h
+
 *******************************************/
 
 
@@ -34,6 +37,7 @@
 #define USE_HBOOK 
 #define USE_ROOT    
 #define USE_TEXT  // always leave this on; same logic as for HBOOK,ROOT, ...
+#define USE_MARZ  // always leave this on
 
 //#define TEXTFILE_NVAR  // read/write NVAR key in FITRES files (Dec 2018)
 
@@ -44,7 +48,8 @@
 #define IFILETYPE_HBOOK  1
 #define IFILETYPE_ROOT   2
 #define IFILETYPE_TEXT   3
-#define MXTABLEFILETYPE  4
+#define IFILETYPE_MARZ   4
+#define MXTABLEFILETYPE  5
 
 #define MXCHAR_FILENAME  240
 #define MXCHAR_VARLIST   2000  
@@ -65,10 +70,10 @@
 #define TABLENAME_SNANA   "SNANA"
 #define TABLEID_FITRES     7788
 #define TABLEID_SNANA      7100
-
+#define TABLEID_MARZ       8100
 
 char STRING_TABLEFILE_TYPE[MXTABLEFILETYPE][12] ;
-  // =  { "NULL", "HBOOK", "ROOT", "TEXT" } ;
+  // =  { "NULL", "HBOOK", "ROOT", "TEXT", "MARZ" } ;
 
 char STRING_TABLEFILE_OPENFLAG[MXOPENFLAG][12] ;
  //  = { "NULL", "NEW", "READ" } ;
@@ -97,10 +102,11 @@ char LINE_TABLECOMMENT[MXLINE_TABLECOMMENT][MXCHAR_FILENAME];
 // -------------------------------------
 // define a few things from sntools.h so that we don't have to
 // include all of sntools.h
-#define MXFILTINDX 100   // must match value in sndata.h
-#define SEV_FATAL  4    // must match value in sntools.h, for errmsg call
-#define MXEPOCH   2000   // should match MXEPOCH in snana.car (Aug 2 2014)
-
+// #define MXFILTINDX 100    // must match value in sndata.h
+#define SEV_FATAL  4      // must match value in sntools.h, for errmsg call
+//#define MXEPOCH   2000    // should match MXEPOCH in snana.car (Aug 2 2014)
+//#define MXSPEC_SPECPAK 40 // must match MXSPECTRA in sndata.h
+#define MXSPEC_SPECPAK MXSPECTRA
 
 #define ICAST_L   16  // long long int (64 bits)
 #define ICAST_D    8  // double
@@ -167,23 +173,24 @@ struct READTABLE_POINTERS {
 } READTABLE_POINTERS ;
 
 
-// ----------------------------
-// SNLCPAK global declarations
+// -------------------------------------------------
+// SNLCPAK global declarations for light curves
 
 #define SNLCPAK_INITDONE  12345
 #define SPECPAK_INITDONE  98765
 #define MXFIT_PER_SN      10
 
-int SNLCPAK_USE_HBOOK ; 
-int SNLCPAK_USE_ROOT  ;
-int SNLCPAK_USE_HDF5  ;
-int SNLCPAK_USE_TEXT  ;
+bool SNLCPAK_USE_HBOOK ; 
+bool SNLCPAK_USE_ROOT  ;
+bool SNLCPAK_USE_HDF5  ;
+bool SNLCPAK_USE_TEXT  ;
 int NCALL_SNLCPAK_FILL ; // number of calls to SNLCPAK_FILL
 
-int SPECPAK_USE_HBOOK ; 
-int SPECPAK_USE_ROOT  ;
-int SPECPAK_USE_HDF5  ;
-int SPECPAK_USE_TEXT  ;
+bool SPECPAK_USE_HBOOK ; 
+bool SPECPAK_USE_ROOT  ;
+bool SPECPAK_USE_HDF5  ;
+bool SPECPAK_USE_TEXT  ;
+bool SPECPAK_USE_MARZ  ;
 int NCALL_SPECPAK_FILL ; // number of calls to SPECPAK_FILL
 
 // define flags for epoch info
@@ -261,8 +268,7 @@ struct  SNLCPAK_OUTPUT {
 } SNLCPAK_OUTPUT ;
 
 
-// Apr 2019: create struture for spectra
-#define MXSPEC_SPECPAK 10
+// Apr 2019: create struture for multiple spectra per event (SN & HOST)
 struct SPECPAK_OUTPUT {
   int  NSPEC;  // per event
   char SURVEY[60] ;
@@ -341,7 +347,7 @@ struct SNTABLE_AUTOSTORE {
 // define LASTREAD structure to speed up AUTOSTORE lookup
 // when CCID is repeated.
 struct LASTREAD_AUTOSTORE  {
-  int IFILE, IROW;
+  int  IFILE, IROW;
   char CCID[MXCHAR_CCID];
 } LASTREAD_AUTOSTORE ;
 
@@ -449,6 +455,7 @@ extern"C" {
   void load_DUMPLINE(char *LINE, double DVAL) ;
 
   int  get_ICAST_READTBLE_POINTER(char *varName);
+  int  ICAST_for_textVar(char *varName) ;
 
   // - - - autoStore utility functions - - - - 
   int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName, 
@@ -535,7 +542,6 @@ extern"C" {
   void SNLCPAK_CHECK(char *CCID, char *comment);
   char *replace_str(char *st, const char *orig, const char *repl) ;
   
-
   // SPECPAK functions (Apr 2019)
   void SPECPAK_INIT(char *SURVEY, char *VERSION_PHOT, char *TEXT_FORMAT );
   void specpak_init__(char *SURVEY, char *VERSION_PHOT, char *TEXTFMT ); 
@@ -557,6 +563,7 @@ extern"C" {
   int ISFILE_HBOOK(char *fileName);
   int ISFILE_ROOT(char *fileName);
   int ISFILE_TEXT(char *fileName);
+  int ISFILE_MARZ(char *fileName);
 				 
 #ifdef __cplusplus
 }          

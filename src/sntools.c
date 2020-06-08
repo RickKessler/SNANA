@@ -34,7 +34,105 @@
 **********************************************************
 **********************************************************/
 
+void catVarList_with_comma(char *varList, char *addVarName) {
+  char comma[] = "," ;
+  if ( strlen(varList) > 0 ) { strcat(varList,comma); }
+  strcat(varList,addVarName);
+} 
 
+int ivar_matchList(char *varName, int NVAR, char **varList) {
+
+  // Created May 2020
+  // return ivar such that varList[ivar] that matches varName; 
+  // else return -9
+  int ivar;
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+    if ( strcmp(varName,varList[ivar]) == 0 ) { return(ivar); }
+  }
+
+  return(-9);
+} //
+
+// =========================================================
+void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP) {
+
+  // Feb 2020
+  // Inputs are 
+  //   + OPT > 0 -> malloc COVMAT2D and load it
+  //   + OPT < 0 -> free COVMAT2D and return
+  //   + DECOMP->MATSIZE
+  //   + DECOMP->COVMAT1D
+  //
+  // Outputs are
+  //  + DECOMP->CHOLESKY2D
+
+  int MATSIZE = DECOMP->MATSIZE ;
+  int MEMD0   = MATSIZE * sizeof(double ) ;
+  int MEMD1   = MATSIZE * sizeof(double*) ;
+  int irow0, irow1;
+  gsl_matrix_view chk; 
+
+  // ------------ BEGIN -----------
+
+  if ( OPT < 0 ) {
+    for(irow0 = 0; irow0 < MATSIZE; irow0++ )
+      { free(DECOMP->CHOLESKY2D[irow0]); }
+    free(DECOMP->CHOLESKY2D);
+    return ;
+  }
+
+  
+  DECOMP->CHOLESKY2D = (double**) malloc ( MEMD1 );
+  for(irow0 = 0; irow0 < MATSIZE; irow0++ )
+    { DECOMP->CHOLESKY2D[irow0] = (double*) malloc ( MEMD0 ); }
+
+  chk = gsl_matrix_view_array ( DECOMP->COVMAT1D, MATSIZE, MATSIZE);
+  gsl_linalg_cholesky_decomp ( &chk.matrix)  ;    
+  for (irow0=0; irow0 < MATSIZE ; irow0++){
+    for (irow1 = 0; irow1 < MATSIZE ; irow1++) {    
+      if ( irow0 <= irow1 ) {
+	DECOMP->CHOLESKY2D[irow0][irow1] = 
+	  gsl_matrix_get(&chk.matrix,irow0,irow1) ;
+      }
+      else
+	{ DECOMP->CHOLESKY2D[irow0][irow1] = 0.0; }
+    }    
+  }
+
+  return ;
+
+} // end init_Cholesky
+
+
+void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP,
+		  double *RanList_noCorr, double *RanList_Corr) {
+
+  // Feb 2020
+  // For input list of MATSIZE Gaussian randoms in RanList_noCorr,  
+  // return correlated randoms in RanList_Corr
+
+  int MATSIZE   = DECOMP->MATSIZE;
+  double GAURAN, tmpMat, tmpRan ;
+  int irow0, irow1;
+  char fnam[] = "GaussRanCorr" ;
+
+  // ------------- BEGIN ------------
+
+  for(irow0=0; irow0 < MATSIZE; irow0++ ) {
+    GAURAN = 0.0 ;
+    for(irow1 = 0; irow1 < MATSIZE ; irow1++ ) {
+      tmpMat = DECOMP->CHOLESKY2D[irow1][irow0] ;
+      tmpRan = RanList_noCorr[irow1];
+      GAURAN += ( tmpMat * tmpRan) ;
+    }
+    RanList_Corr[irow0] = GAURAN;
+  }
+
+  return ;
+
+} // end GaussRanCorr
+
+// ==========================================================
 void init_obs_atFLUXMAX(int OPTMASK, double *PARLIST, int VBOSE) {
 
   // May 24 2019
@@ -123,7 +221,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   //   OBS_atFLUXMAX:  obs-index for max flux in each filter band
   //
   // Jul 2 2019: fix bug computing MJDMIN/MAX to work with unsorted MJD_LIST.
-  //
+  // Jun 7 2020: sort by MJD to handle unsorted data files (e.g., LSST DC2)
 
   int    OPTMASK         = INPUTS_OBS_atFLUXMAX.OPTMASK ;
   if ( OPTMASK == 0 ) { return ; }
@@ -137,7 +235,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   int USE_MJDatFLUXMAX2 = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2);
   int USE_BACKUP_SNRCUT, ITER, NITER, IMJD, IMJDMAX=0 ;
   int NOBS_SNRCUT=0, NSNRCUT_MAXSUM=0;
-  int IFILTOBS, o, omin, omax, omin2, omax2, NOTHING ;
+  int IFILTOBS, o, omin, omax, omin2, omax2, o_sort, NOTHING ;
   int MALLOC=0 ;
   double SNR, SNRCUT=0.0, SNRMAX=0.0, FLUXMAX[MXFILTINDX] ;
   double MJD, MJDMIN, MJDMAX, FLUX, FLUXERR;
@@ -155,6 +253,12 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   NSNRCUT_MAXSUM = 0 ;
   USE_BACKUP_SNRCUT = 0;
 
+  // sort by MJD (needed for FmaxClump method)
+  MEMI = NOBS*sizeof(int) ;
+  int  ORDER_SORT = +1;
+  int *INDEX_SORT   = (int*) malloc(MEMI) ;
+  sortDouble(NOBS, MJD_LIST, ORDER_SORT, INDEX_SORT );
+
   // find MJDMIN,MAX (obs may not be time-ordered)
   MJDMIN = +999999.0 ;
   MJDMAX = -999999.0 ;
@@ -163,12 +267,10 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     if ( MJD < MJDMIN ) { MJDMIN = MJD; }
     if ( MJD > MJDMAX ) { MJDMAX = MJD; }
   }
-
-
+  
   NWIN_COMBINE = (int)(MJDWIN_USER/MJDSTEP_SNRCUT + 0.01) ;
   MXWIN_SNRCUT = (int)((MJDMAX-MJDMIN)/MJDSTEP_SNRCUT)+1 ;
 
-  if ( NWIN_COMBINE < 0 ) {  }
 
   if ( MXWIN_SNRCUT < 0 ) {
     sprintf(c1err,"Crazy MXWIN_SNRCUT = %d",  MXWIN_SNRCUT);
@@ -194,7 +296,6 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   }
   else if ( USE_MJDatFLUXMAX2 ) {
     NITER   = 2 ;
-    // xxx makr delete    MJDMIN  = MJD_LIST[0];
     IMJDMAX = 0;
     SNRCUT  = SNRCUT_USER;
     if ( USE_BACKUP_SNRCUT ) { SNRCUT = SNRCUT_BACKUP; }
@@ -202,7 +303,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     if ( MALLOC == 0 ) {
       NSNRCUT     = (int*)malloc(MEMI);
       oMIN_SNRCUT = (int*)malloc(MEMI);
-      oMAX_SNRCUT = (int*)malloc(MEMI);
+      oMAX_SNRCUT = (int*)malloc(MEMI);     
       MALLOC = 1; 
     }
     // initialize quantities in each 10-day bin
@@ -242,7 +343,8 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    
+    printf(" xxx %s: ---------------- \n", fnam );
+
     if ( LDMP ) {
       printf(" xxx ITER=%d : omin,omax=%3d-%3d   MJDWIN=%.1f-%.1f"
 	     " SNRCUT=%.1f \n", 
@@ -251,11 +353,19 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     }
 
     NOBS_SNRCUT=0;   SNRMAX = 0.0 ;
-    for(o = omin; o <= omax; o++ ) {
-      MJD      = MJD_LIST[o];
-      FLUX     = (double)FLUX_LIST[o];
-      FLUXERR  = (double)FLUXERR_LIST[o];
-      IFILTOBS = IFILTOBS_LIST[o];
+    for(o = omin; o <= omax; o++ ) {   // sorted index
+
+      o_sort = INDEX_SORT[o];
+      if ( o_sort < 0 || o_sort >= NOBS ) {
+	sprintf(c1err,"Invalid o_sort=%d for o=%d \n", o_sort, o);
+	sprintf(c2err,"problem sorting my MJD");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+
+      MJD      = MJD_LIST[o_sort];
+      FLUX     = (double)FLUX_LIST[o_sort];
+      FLUXERR  = (double)FLUXERR_LIST[o_sort];
+      IFILTOBS = IFILTOBS_LIST[o_sort];
 
       if ( IFILTOBS < 1 || IFILTOBS >= MXFILTINDX ) {
 	sprintf(c1err,"Invalid IFILTOBS=%d for FLUX[%d]=%f", 
@@ -263,6 +373,9 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 	sprintf(c2err,"NOBS=%d", NOBS);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
       }
+
+      printf(" xxx %s: MJD=%9.3f  o=%d o_sort=%d \n",
+	     fnam, MJD, o, o_sort); fflush(stdout);
 
       IMJD = (int)MJD;    
       if ( IMJD    < 40000   ) { continue; }
@@ -274,12 +387,12 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 
       if ( FLUX > FLUXMAX[IFILTOBS] ) { // max flux in each filter
 	FLUXMAX[IFILTOBS] = FLUX ;
-	OBS_atFLUXMAX[IFILTOBS] = o;
+	OBS_atFLUXMAX[IFILTOBS] = o_sort;
       }
 
       if ( FLUX > FLUXMAX[0] ) {  // global FLUXMAX
 	FLUXMAX[0] = FLUX ;
-	OBS_atFLUXMAX[0] = o;
+	OBS_atFLUXMAX[0] = o_sort;
       }
 
 
@@ -315,7 +428,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     NOTHING = ( ITER==1 && NOBS_SNRCUT==0 ) ;
     if ( NOTHING ) {
       if ( USE_BACKUP_SNRCUT ) 
-	{ return; }
+	{ goto FREE; }
       else
 	{ USE_BACKUP_SNRCUT = 1; goto START; }
     }
@@ -356,8 +469,10 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 
   } // end ITER loop
 
+ FREE:
   if ( MALLOC ) { free(NSNRCUT);  free(oMIN_SNRCUT); free(oMAX_SNRCUT);  }
-
+  free(INDEX_SORT);  
+  
   return;
 
 } // end get_obs_atFLUXMAX
@@ -1137,22 +1252,25 @@ void init_GENPOLY(GENPOLY_DEF *GENPOLY) {
   }
 } // end init_GENPOLY
 
-void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
+void parse_GENPOLY(char *stringPoly, char *varName, 
+		   GENPOLY_DEF *GENPOLY, char *callFun) {
 
   // Mar 23 2019
-  // parse input string and load GENPOLY structure with 
+  // parse input stringPoly and load GENPOLY structure with 
   // polynomial of arbitrary order (up to 20).
   //
   // Examples:
-  //  string = "1.0,.034,1.0E-4" 
+  //  stringPoly = "1.0,.034,1.0E-4" 
   //     --> load 2nd order polynominal
-  //  string = "0.9:1.1,.034,1.0E-4,2.2E-8" 
+  //  stringPoly = "0.9:1.1,.034,1.0E-4,2.2E-8" 
   //     --> load 3rd order polynominal, and a0 coefficient
   //         range is 0.9 to 1.1 for random selection.
   //
   // Input *callFun is for error or debug msg only.
   //
-  // Be carefuly to parse both commas and colons
+  // Be carefull to parse both commas and colons
+  //
+  // Mar 22 2020: pass varName and load it.
   //
 
   int MEMC    = sizeof(char);
@@ -1167,7 +1285,8 @@ void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
 
   // ----------- BEGIN ------------
 
-  sprintf(GENPOLY->STRING,"%s", string);
+  sprintf(GENPOLY->STRING, "%s", stringPoly );
+  sprintf(GENPOLY->VARNAME,"%s", varName ); // Mar 22 2020
 
   for(o=0; o < MXSPLIT; o++ ) 
     { splitValue[o] = (char*)malloc( 40*MEMC); }
@@ -1175,7 +1294,7 @@ void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
   splitRange[0] = (char*)malloc( 40*MEMC);
   splitRange[1] = (char*)malloc( 40*MEMC);
 
-  splitString(string, comma, MXSPLIT,      // inputs
+  splitString(stringPoly, comma, MXSPLIT,      // inputs
               &NSPLIT, splitValue );      // outputs         
 
   ORDER = NSPLIT-1;
@@ -1194,7 +1313,7 @@ void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
 	sprintf(c1err,"NRANGE=%d for order=%d. Expect 2 args"
 		" around one colon.", 	NRANGE, o);
 	sprintf(c2err,"Check %s element of %s (callFun=%s)", 
-		tmpVal, string, callFun );
+		tmpVal, stringPoly, callFun );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       sscanf(splitRange[0], "%le", &DVAL0 ); 
@@ -1220,7 +1339,7 @@ void parse_GENPOLY(char *string, GENPOLY_DEF *GENPOLY, char *callFun) {
   if ( LDMP ) {
     printf("\n xxx ======== %s DUMP =========== \n", fnam );
     printf(" xxx calling function: %s \n", callFun);
-    printf(" xxx input string = '%s' \n", string);
+    printf(" xxx input stringPoly = '%s' \n", stringPoly);
     printf(" xxx NORDER = %d \n", ORDER );
     for(o=0; o <= ORDER; o++ ) {
       DVAL0 = GENPOLY->COEFF_RANGE[o][0];
@@ -1244,7 +1363,7 @@ double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun) {
   // Mar 2019
   // evaluate polynominal for input value 'val'.
   // Note that random numbers are used for ranges.
-  // Avoid using slow 'pow' function.
+  // here we avoid using slow 'pow' function.
 
   int o, ORDER = GENPOLY->ORDER;
   double VALPOLY = 0.0 ;
@@ -2304,9 +2423,6 @@ void invertmatrix_(int *N, int *n, double *Matrix ) {
 }
 
 
-void randominit_(int *ISEED) {  srandom(*ISEED) ; } 
-
-
 void sortDouble(int NSORT, double *ARRAY, int ORDER, 
 		int *INDEX_SORT) {
 
@@ -2731,6 +2847,9 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
   else if ( strcmp(key,"REDSHIFT_HELIO_ERR") == 0 )
     {  SNDATA.REDSHIFT_HELIO_ERR = parVal[0] ;  }
 
+  else if ( strcmp(key,"REDSHIFT_QUALITYFLAG") == 0 )
+    {  SNDATA.REDSHIFT_QUALITYFLAG = (int)parVal[0] ;  }
+
   else if ( strcmp(key,"VPEC") == 0 )
     {  SNDATA.VPEC = parVal[0] ;  }
   else if ( strcmp(key,"VPEC_ERR") == 0 )
@@ -2787,11 +2906,12 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
     {  SNDATA.HOSTGAL_DDLR[1] = parVal[0] ;  }
 
   else if ( strcmp(key,"HOSTGAL_LOGMASS") == 0 )
-    {  SNDATA.HOSTGAL_LOGMASS[0] = parVal[0] ;  }
+    {  SNDATA.HOSTGAL_LOGMASS_OBS[0] = parVal[0] ;  }
   else if ( strcmp(key,"HOSTGAL_LOGMASS_ERR") == 0 )
     {  SNDATA.HOSTGAL_LOGMASS_ERR[0] = parVal[0] ;  }
+
   else if ( strcmp(key,"HOSTGAL2_LOGMASS") == 0 )
-    {  SNDATA.HOSTGAL_LOGMASS[1] = parVal[0] ;  }
+    {  SNDATA.HOSTGAL_LOGMASS_OBS[1] = parVal[0] ;  }
   else if ( strcmp(key,"HOSTGAL2_LOGMASS_ERR") == 0 )
     {  SNDATA.HOSTGAL_LOGMASS_ERR[1] = parVal[0] ;  }
 
@@ -3509,7 +3629,7 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
 
   // tack on default SIM dir (Sep 2019)
   int IPATH_SIM_DEFAULT = NPATH;
-  sprintf(PATHLIST[NPATH], "%s/SIM", SNDATA_ROOT, VERSION); NPATH++ ;
+  sprintf(PATHLIST[NPATH], "%s/SIM", SNDATA_ROOT ); NPATH++ ;
 
   if ( LDMP ) 
     { printf(" xxx DATADIR = '%s' \n", DATADIR); fflush(stdout); }
@@ -3739,36 +3859,56 @@ int  getList_PATH_SNDATA_SIM(char **pathList) {
 
 
 // =============================================================
-void arrayStat(int N, double *array, double *AVG, double *RMS) {
+void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN) {
 
   // For input *array return *AVG and *RMS
+  // Jun 2 2020: include MEDIAN in output
 
   int i;
-  double XN, avg, sqsum, rms, tmpdif ;
+  double XN, val, avg, sum, sqsum, rms, median, tmpdif ;
 
   // ----------- BEGIN ------------
+
   *AVG = *RMS = 0.0 ;
   if ( N <= 0 ) { return ; }
 
-  avg  = rms = sqsum = 0.0 ;
+  avg  = rms = sqsum = sum = median = 0.0 ;
   XN   = (double)N ;
 
-  for ( i=0; i < N; i++ ) { avg += *(array+i) ; }
-  avg /= XN ; 
+  for ( i=0; i < N; i++ ) 
+    { val=array[i] ; sum += val; sqsum += (val*val); }
 
+  avg = sum/XN ; 
+  rms = RMSfromSUMS(N, sum, sqsum);
+
+  /* xxxxxxxxxxx mark delete Jun 2 2020 xxxxxxx
   for ( i=0; i < N ; i++ ) {
     tmpdif =  ( *(array+i) - avg ) ;
     sqsum += (tmpdif*tmpdif) ;
   }
   rms = sqrt(sqsum/XN) ;
-  
-  // load output array.
-  *AVG = avg ;
-  *RMS = rms ;
+  xxxxxxxxxxx end mark xxxxxxxxx */
 
+  // for median, sort list and them median is middle element
+  int ORDER_SORT  = +1;
+  int *INDEX_SORT = (int*) malloc( N * sizeof(int) ) ;
+  int imedian, iHalf       = N/2;
+  sortDouble(N, array, ORDER_SORT, INDEX_SORT );
+  imedian = INDEX_SORT[iHalf];
+  median  = array[imedian];
+
+  // load output array.
+  *AVG    = avg ;
+  *RMS    = rms ;
+  *MEDIAN = median;
+
+  return ;
 } // end of arrayStat
 
+void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN) 
+{ arrayStat(*N, array, AVG, RMS, MEDIAN); }
 
+  // ========================================================
 double RMSfromSUMS(int N, double SUM, double SQSUM) {
 
   // Created Aug 2017
@@ -3858,6 +3998,8 @@ void extractStringOpt(char *string, char *stringOpt) {
 
 } // end extractStringOpt
 
+void extractstringopt_(char *string, char *stringOpt) 
+{ extractStringOpt(string,stringOpt); }
 
 // ===============================================
 void  remove_string_termination(char *STRING, int LENTOT) {
@@ -3931,8 +4073,8 @@ void trim_blank_spaces(char *string) {
     if ( ISBLANK && FOUNDCHAR ) { goto DONE ; }
     if ( ISTERM               ) { goto DONE ; }
 
-    if ( ISCHAR ) 
-      {  sprintf(tmpString,"%s%s", tmpString, c1); }
+    if ( ISCHAR )  { strcat(tmpString,c1); } 
+    // xxx mark delete    {  sprintf(tmpString,"%s%s", tmpString, c1); }
   }
 
 
@@ -4470,6 +4612,8 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
   // Mar 14 2019: 
   //  + check OPT_EXTRAP option
   //  + return SUCCESS or ERROR instead of hard-coded values.
+  //
+  // Mar 15 2020: allow numerical glitches in TMPMIN and TMPMAX
 
   int 
     ivar, ifun, NFUN, NVAR, ID, igrid, MSK, NBIN
@@ -4510,6 +4654,10 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
     TMPMAX   = gridmap->VALMAX[ivar] ;
     TMPBIN   = gridmap->VALBIN[ivar] ;
     TMPRANGE = TMPMAX - TMPMIN ;
+
+    // Mar 15 2020: allow numerical glitches
+    TMPMAX += (1.0E-14*TMPRANGE);
+    TMPMIN -= (1.0E-14*TMPRANGE);
 
     // check extrap option
     if ( gridmap->OPT_EXTRAP ) {
@@ -4671,9 +4819,9 @@ int  get_1DINDEX(int ID, int NDIM, int *indx ) {
   // 
   // If the number of grid-points in each dimension is
   // N1, N2 ... N_NDIM, then the returned index is an
-  // integer from 1 to N1*N2* ... N_NDIM.
+  // integer from 0 to N1*N2* ... N_NDIM-1.
   // For example, for a 3 dimensional array [4][5][4],
-  // the returned index is from 1 to 4*5*4 = 80.
+  // the returned index is from 0 to 4*5*4-1 = 80-1 = 79
   //
   // Feb 25, 2013: ABORT if *indx exceeds NPT
   // Feb 12, 2018: indx is 0 to N-1 (no longer 1-N)
@@ -5242,33 +5390,76 @@ double skewGauss(double x, double siglo,double sighi,
 } // end of skewGauss
 
 
+// ************************************
+void init_random_seed(int ISEED, int NSTREAM) {
+
+  // Create Jun 4 2020 by R.Kessler
+  //  [moved init_simRandoms from snlc_sim.c to here, and re-named it]
+  //
+  // Init random seed(s) 
+  // NSTREAM = 1 -> one random stream and regular init with srandom()
+  // NSTREAM = 2 -> two independent streams, use srandom_r
+
+  GENRAN_INFO.NSTREAM = NSTREAM ;
+  int i, size ;
+  int ISEED2 = ISEED * 7 + 137; // for 2nd stream, if requested
+  int ISEED_LIST[MXSTREAM_RAN] = { ISEED, ISEED2 } ;
+  char fnam[] = "init_random_seed" ;
+
+  // ----------- BEGIN ----------------
+
+  if ( NSTREAM == 1 ) 
+    {   srandom(ISEED); }
+  else {
+    for(i=0; i < NSTREAM; i++ ) {
+      memset( &GENRAN_INFO.ranStream[i], 0,  
+	      sizeof(GENRAN_INFO.ranStream[i]) ) ;
+      initstate_r(ISEED_LIST[i], GENRAN_INFO.stateBuf[i], BUFSIZE_RAN, 
+		  &GENRAN_INFO.ranStream[i] ); 
+      srandom_r( ISEED_LIST[i], &GENRAN_INFO.ranStream[i] ); 
+    }
+  }
+
+  fill_RANLISTs(); 
+  for ( i=1; i <= GENRAN_INFO.NLIST_RAN; i++ )  { 
+    GENRAN_INFO.RANFIRST[i]    = FlatRan1(i); 
+    GENRAN_INFO.NWRAP_MIN[i]   = 99999.0 ;
+    GENRAN_INFO.NWRAP_MAX[i]   = 0.0; 
+    GENRAN_INFO.NWRAP_SUM[i]   = 0.0; 
+    GENRAN_INFO.NWRAP_SUMSQ[i] = 0.0; 
+  }
+
+  GENRAN_INFO.NCALL_fill_RANSTATs = 0;
+  
+  // ---------------- skewNormal stuff -------------------
+  //
+  // xxx  init_skewNormal(ISEED);  // one-time init, to set seed in python
+
+  return ;
+
+} // end init_random_seed
+
 
 // **********************************************
-void init_RANLIST(void) {
+void fill_RANLISTs(void) {
 
   // Dec 1, 2006 RSK
-  // Load RANLIST8 array with lots of random numbers (uniform from 0-1).
-  // If SEED is fixed, then a fixed list is generated
-  // for each SN. [note that the list is different for each SN ...
-  // but the lists repeate themselves when the simulation reruns.]
-  //
-  // Feb 26 2013: fill separate RANLIST8_GENSMEAR list so that
-  //              intrinsic-scatter randoms can be changed without
-  //              changing synced randoms for main generation.
+  // Load RANSTORE array with random numbers (uniform from 0-1)
+  // from stream 0 usins unix_random(0)
   //
   // Jun 9 2018: use unix_random() call.
+  // Jun 4 2020: change function name from init_RANLIST -> fill_RANLISTs
 
-  int ilist, istore;
-  char fnam[] = "init_RANLIST" ;
+  int ilist, istore, NLIST_RAN;
+  char fnam[] = "fill_RANLISTs" ;
 
   // ---------------- BEGIN ----------------
 
   NLIST_RAN = 0 ;
-
   NLIST_RAN++ ;   // main generation
   NLIST_RAN++ ;   // genSmear
-  NLIST_RAN++ ;   // GENSPEC_DRIVER (Jan 2018)
-
+  NLIST_RAN++ ;   // spectrograph
+  GENRAN_INFO.NLIST_RAN = NLIST_RAN ;
 
   if ( NLIST_RAN > MXLIST_RAN ) {
     sprintf(c1err,"NLIST_RAN=%d exceeds bound.", NLIST_RAN);
@@ -5276,29 +5467,87 @@ void init_RANLIST(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
+  sumstat_RANLISTs(0);
 
   for (ilist = 1; ilist <= NLIST_RAN; ilist++ ) {
-    NSTORE_RAN[ilist] = 0 ;
+    // fill new list of randoms
+    GENRAN_INFO.NSTORE_RAN[ilist] = 0 ;
     for ( istore=0; istore < MXSTORE_RAN; istore++ ) {
-      RANSTORE8[ilist][istore] = unix_random();
+      GENRAN_INFO.RANSTORE[ilist][istore] = unix_random(0);
     }
   }
 
-}  // end of init_RANLIST
+  return ;
+
+}  // end of fill_RANLISTs
 
 // **********************************
-double unix_random(void) {
+void sumstat_RANLISTs(int FLAG) {
+
+  // Created Jun 4 2020
+  // called by fill_RANLISTs
+  // FLAG = 0 -> increment stats
+  // FLAG = 2 -> print final symmary stats
+
+  int NLIST_RAN = GENRAN_INFO.NLIST_RAN ;
+  int ilist, NCALL ;
+  double XNWRAP, XN1, XN0 = (double)MXSTORE_RAN ;
+
+  // --------- BEGIN ----------
+
+  if ( FLAG == 0 ) {
+    if ( GENRAN_INFO.NSTORE_RAN[1] == 0 ) { return; }   
+    GENRAN_INFO.NCALL_fill_RANSTATs++ ;
+    for (ilist = 1; ilist <= NLIST_RAN; ilist++ ) {      
+      // increment stats for previous wrap-usage
+      XN1 = GENRAN_INFO.NSTORE_RAN[ilist];
+      GENRAN_INFO.NWRAP[ilist]       += (XN1/XN0) ;
+      XNWRAP = GENRAN_INFO.NWRAP[ilist];     
+      GENRAN_INFO.NWRAP_SUM[ilist]   += XNWRAP;
+      GENRAN_INFO.NWRAP_SUMSQ[ilist] += (XNWRAP*XNWRAP);      
+      GENRAN_INFO.NWRAP[ilist]        = 0.0 ;
+    } // end ilist
+  }
+  else {
+    // compute final AVG and RMS
+    double AVG, RMS, SUM, SUMSQ ;
+    for (ilist = 1; ilist <= NLIST_RAN; ilist++ ) { 
+      SUM   = GENRAN_INFO.NWRAP_SUM[ilist] ;
+      SUMSQ = GENRAN_INFO.NWRAP_SUMSQ[ilist] ;
+      NCALL = GENRAN_INFO.NCALL_fill_RANSTATs ;
+      GENRAN_INFO.NWRAP_AVG[ilist] = SUM/(double)NCALL ; 
+      GENRAN_INFO.NWRAP_RMS[ilist] = RMSfromSUMS(NCALL, SUM, SUMSQ);
+    }
+  }
+
+  return;
+
+} // end sumstat_RANLISTs
+
+// **********************************
+double unix_random(int istream) {
   // Created Jun 9 2018
-  // Return random between 0 and 1
-  long int i8 = random(); 
-  double   r8 = (double)i8 / (double)RAND_MAX ;  // 0 < r8 < 1 
+  // Input istream is the random stream: 0 or 1
+  // Return random between 0 and 1.
+
+  int NSTREAM = GENRAN_INFO.NSTREAM ;
+  int JRAN ;
+  // ------------ BEGIN ----------------
+  if ( NSTREAM == 1 ) 
+    { JRAN = random(); }
+  else
+    { random_r(&GENRAN_INFO.ranStream[istream], &JRAN); }
+
+  double r8 = (double)JRAN / (double)RAND_MAX ;  // 0 < r8 < 1 
   return(r8);
 }
-double unix_random__(void) { return( unix_random() ); }
+
+double unix_random__(int *istream) { return( unix_random(*istream) ); }
 
 // ***********************************
 double GaussRan(int ilist) {
-  // return Gaussian random number
+  // return Gaussian random number using randoms from "ilist",
+  // which uses stream 0.
   double R,  V1, V2, FAC, G ;
   // --------------- BEGIN ----------------
  BEGIN:
@@ -5312,6 +5561,30 @@ double GaussRan(int ilist) {
   return G ;
 }  // end of Gaussran
 
+
+double unix_GaussRan(int istream) {
+  // Created Jun 4 2020
+  // pick random Gaussian directly from unix_random using 
+  // independent "istream" input.
+  double R,  V1, V2, FAC, G ;
+  int    NSTREAM = GENRAN_INFO.NSTREAM ;
+  char fnam[] = "unix_GaussRan" ;
+
+  // --------------- BEGIN ----------------
+ BEGIN:
+  if ( istream >= NSTREAM ) {
+    sprintf(c1err,"Invalid istream = %d (NSTREAM=%d)", istream, NSTREAM);
+    sprintf(c2err,"Check call to init_random_seed." );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+  V1 = 2.0 * unix_random(istream) - 1.0;
+  V2 = 2.0 * unix_random(istream) - 1.0;
+  R  = V1*V1 + V2*V2 ;
+  if ( R >= 1.0 ) { goto BEGIN ; }
+  FAC = sqrt(-2.*log(R)/R) ;
+  G = V2 * FAC ;
+  return G ;
+} // end unix_GaussRan
 
 double GaussRanClip(int ilist, double ranGmin, double ranGmax ) {
   // Created Aug 2016
@@ -5328,6 +5601,7 @@ double FlatRan1(int ilist) {
 
   int  N ;
   double   x8;
+  int  NLIST_RAN = GENRAN_INFO.NLIST_RAN ;
   char fnam[] = "FlatRan1" ;
 
   // return random number between 0 and 1
@@ -5340,14 +5614,17 @@ double FlatRan1(int ilist) {
   }
 
   // check to wrap around with random list.
-  if ( NSTORE_RAN[ilist] >= MXSTORE_RAN ) { NSTORE_RAN[ilist] = 0;  }
+  if ( GENRAN_INFO.NSTORE_RAN[ilist] >= MXSTORE_RAN ) { 
+    GENRAN_INFO.NSTORE_RAN[ilist] = 0;  
+    GENRAN_INFO.NWRAP[ilist] += 1.0 ;
+  }
 
   // use current random in list
-  N  = NSTORE_RAN[ilist] ;
-  x8 = RANSTORE8[ilist][N] ;
+  N  = GENRAN_INFO.NSTORE_RAN[ilist] ;
+  x8 = GENRAN_INFO.RANSTORE[ilist][N] ;
 
   // increment for next usage.
-  NSTORE_RAN[ilist]++;  
+  GENRAN_INFO.NSTORE_RAN[ilist]++;  
 
   return x8;
 
@@ -5961,15 +6238,19 @@ int rd_sedFlux(
    +  move error checking earlier, right after loop.
    + add error check for NDAY=NLAM=0 (maybe catch tabs)
         
-  **********/
+  Feb 4 2020:
+    + read 120 chars per line instead of 80 (and define MXCHAR_RDFLUX)
+    + abort if line length is too long (to avoid corruption)
+    + abort if fewer than 3 words are read
 
-#define  MXWORD_RDFLUX 4  // max values per line to read
+
+  **********/
 
   FILE *fpsed;
 
-  char txterr[20], line[200] ;
+  char txterr[20], line[200], lastLine[200] ;
   //  char *ptrtok, s1[60], s2[60], s3[60], s4[60], tmpline[200] ;
-  char *ptrStringVal[4], StringVal[4][40];
+  char *ptrStringVal[MXWORDLINE_FLUX], StringVal[MXWORDLINE_FLUX][40];
   char space[] = " ";
   char fnam[]  = "rd_sedFlux" ;
 
@@ -5977,8 +6258,8 @@ int rd_sedFlux(
   double daystep_last, daystep, daystep_dif ;
   double lamstep_last, lamstep, lamstep_dif ;
   int iep, ilam, iflux, ival, LAMFILLED, OKBOUND_LAM, OKBOUND_DAY, NBIN ;
-  int NRDLINE, NRDWORD, GZIPFLAG, FIRST_NONZEROFLUX, NONZEROFLUX ;
-  int OPT_READ_FLUXERR, OPT_FIX_DAYSTEP, OPT_FIX_LAMSTEP ;
+  int  NRDLINE, NRDWORD, GZIPFLAG, FIRST_NONZEROFLUX, NONZEROFLUX ;
+  bool OPT_READ_FLUXERR, OPT_FIX_DAYSTEP;
 
   // define tolerances for binning uniformity (Aug 2017)
   double DAYSTEP_TOL = 0.5E-3; // tolerance on DAYSTEP uniformity
@@ -5995,18 +6276,18 @@ int rd_sedFlux(
   // open SED file.
 
   fpsed = open_TEXTgz(sedFile, "rt", &GZIPFLAG );
-  if ( fpsed == NULL ) {
+  if ( !fpsed  ) {
     sprintf(c1err,"Cannot open SED file: " );
     sprintf(c2err,"  '%s' ", sedFile);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
   // check OPTMASK args
-  OPT_READ_FLUXERR = 0  ;              // default: ignore fluxerr column
-  OPT_FIX_DAYSTEP = OPT_FIX_LAMSTEP = 1; // default => require fixed bin size
+  OPT_READ_FLUXERR = false ;      // default: ignore fluxerr column
+  OPT_FIX_DAYSTEP  = true;     // default => require fixed bin size
 
-  if ( (OPTMASK & 1) > 0 ) { OPT_READ_FLUXERR = 1; }
-  if ( (OPTMASK & 2) > 0 ) { OPT_FIX_DAYSTEP  = 0; }
+  if ( (OPTMASK & 1) > 0 ) { OPT_READ_FLUXERR = true ; }
+  if ( (OPTMASK & 2) > 0 ) { OPT_FIX_DAYSTEP  = false ; }
 
   if ( OPT_READ_FLUXERR  ) 
     { sprintf(txterr, "and errors"); }
@@ -6024,10 +6305,22 @@ int rd_sedFlux(
   daystep_last = daystep=-9.0;  day_last = -999999. ;
   lamstep_last = lamstep=-9.0;  lam_last = -999999. ;
 
-  for(ival=0; ival < MXWORD_RDFLUX; ival++ ) 
+  for(ival=0; ival < MXWORDLINE_FLUX; ival++ ) 
     { ptrStringVal[ival] = StringVal[ival];   }
 
-  while ( fgets (line, 80, fpsed ) != NULL  ) {
+  line[0] = lastLine[0] = 0 ;
+
+  while ( fgets (line, MXCHARLINE_FLUX+10, fpsed ) != NULL  ) {
+
+    if ( strlen(line) > MXCHARLINE_FLUX ) {
+      print_preAbort_banner(fnam);
+      printf("   sedFile: %s \n", sedFile);
+      printf("   current  line: '%s' \n", line);
+      sprintf(c1err,"Line length=%d exceeds bound of %d",
+	      strlen(line), MXCHARLINE_FLUX );
+      sprintf(c2err,"Either increase MXCHARLINE_FLUX, or reduce line len");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+    }
 
     NRDLINE++ ;   
 
@@ -6035,13 +6328,39 @@ int rd_sedFlux(
     if ( strlen(line) <= 2 ) { continue ; }
     if ( commentchar(line) ) { continue ; }
 
-    splitString2(line, space, MXWORD_RDFLUX,  // input line is destroyed
-		 &NRDWORD, ptrStringVal ) ;  // returned
+    //    splitString2(line, space, MXWORD_RDFLUX,  // input line is destroyed
+    //		 &NRDWORD, ptrStringVal ) ;  // returned
+
+    splitString(line, space, MXWORDLINE_FLUX, 
+		&NRDWORD, ptrStringVal ) ;  // returned
+   
+    if ( NRDWORD < 3 ) {
+      print_preAbort_banner(fnam);
+      printf("   sedFile: %s \n", sedFile);
+      printf("   previous line: '%s' \n", lastLine);
+      printf("   current  line: '%s' \n", line);
+      sprintf(c1err,"NRDWORD = %d, but expected at least 3", NRDWORD);
+      sprintf(c2err,"Check dumped lines from file above.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+    }
 
     sscanf(StringVal[0], "%le" , &day  ) ;
     sscanf(StringVal[1], "%le" , &lam  ) ;
     sscanf(StringVal[2], "%le" , &flux ) ;
-    if ( OPT_READ_FLUXERR ) { sscanf(StringVal[3], "%le" , &fluxerr ) ;  }
+
+    sprintf(lastLine, "%s", line);
+
+    if ( OPT_READ_FLUXERR ) { 
+      if ( NRDWORD < 4 ) {
+	printf("   sedFile: %s \n", sedFile);
+	printf("   previous line: '%s' \n", lastLine);
+	printf("   current  line: '%s' \n", line);
+	sprintf(c1err,"NRDWORD = %d, but expected at least 4", NRDWORD);
+	sprintf(c2err,"to read FLUXERR from 4th coloumn.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+      }
+      sscanf(StringVal[3], "%le" , &fluxerr ) ;  
+    }
 
     if ( day < DAYrange[0] ) { continue ; }
     if ( day > DAYrange[1] ) { continue ; }
@@ -6807,6 +7126,8 @@ int  init_SNPATH(void) {
   // Feb 19 2015: 
   //   checkg getenv() == NULL rather than if it returns "(null)".
   //   Set SURVEYNAME to "" instead of SDSS.
+  //
+  // Jan 31 2020: init PATH_USER_INPUT = ""
 
   char fnam[] = "init_SNPATH" ;
 
@@ -6849,6 +7170,8 @@ int  init_SNPATH(void) {
   sprintf(PATH_SNDATA_SIM,        "%s/SIM",        PATH_SNDATA_ROOT);
   SNDATA.SURVEY_NAME[0]=0;
   SNDATA.SUBSURVEY_NAME[0] = 0 ;
+
+  PATH_USER_INPUT[0] = 0 ; 
 
   fflush(stdout);
   return(SUCCESS);
@@ -6908,10 +7231,11 @@ int init_SNDATA ( void ) {
     SNDATA.HOSTGAL_RA[igal]          = -999.0 ;
     SNDATA.HOSTGAL_DEC[igal]         = -999.0 ;
     SNDATA.HOSTGAL_DDLR[igal]        = -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS[igal]     = -9.0 ;
-    SNDATA.HOSTGAL_LOGMASS_ERR[igal] = -9.0 ;
-    SNDATA.HOSTGAL_sSFR[igal]        = -9.0 ;
-    SNDATA.HOSTGAL_sSFR_ERR[igal]    = -9.0 ;
+    SNDATA.HOSTGAL_LOGMASS_TRUE[igal] = -9.0 ;
+    SNDATA.HOSTGAL_LOGMASS_OBS[igal]  = -9.0 ;
+    SNDATA.HOSTGAL_LOGMASS_ERR[igal]  = -9.0 ;
+    SNDATA.HOSTGAL_sSFR[igal]         = -9.0 ;
+    SNDATA.HOSTGAL_sSFR_ERR[igal]     = -9.0 ;
   }
   SNDATA.HOSTGAL_USEMASK = 0 ;
 
@@ -7394,6 +7718,7 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
 
     // - - - -  SIM_HOSTLIB_XXX  (Feb 2014)
 
+    fprintf(fp,"SIM_HOSTLIB_GALID:  %lld \n", SNDATA.SIM_HOSTLIB_GALID);
     char key[60];
     int NPAR = SNDATA.NPAR_SIM_HOSTLIB; 
     fprintf(fp, "SIM_HOSTLIB_NPAR: %d \n", NPAR);
@@ -7938,10 +8263,10 @@ void wr_HOSTGAL(FILE *fp) {
 	      SNDATA.HOSTGAL_CONFUSION );
     }
 
-    if ( SNDATA.HOSTGAL_LOGMASS[igal] > 0.0 ) {
+    if ( SNDATA.HOSTGAL_LOGMASS_OBS[igal] > 0.0 ) {
       fprintf(fp, "%s_LOGMASS:  %6.3f +- %6.3f   # log10(Mgal/Msolar)\n", 
 	      PREFIX, 
-	      SNDATA.HOSTGAL_LOGMASS[igal], 
+	      SNDATA.HOSTGAL_LOGMASS_OBS[igal], 
 	      SNDATA.HOSTGAL_LOGMASS_ERR[igal] );
 
       fprintf(fp, "%s_sSFR:  %6.3e +- %6.3e  \n",
@@ -9988,13 +10313,19 @@ void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG) {
 
 
 // *************************************************
-FILE *snana_openTextFile (int vboseFlag, char *SNPATH, char *fileName, 
+FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName, 
 			  char *fullName, int *gzipFlag ) {
 
   /* ----------------------------------------------
     Shell to open text file for reading.
     First search local directory; if file not found
-    then search $SNPATH
+    then search paths in [space-separated] PATH_LIST.
+    The search priority is
+      + current pwd
+      + 1st path in PATH_LIST
+      + 2nd path in PATH_LIST
+    There is no warning or error if file exists in 
+    multiple directories.
 
     This allows user to easily over-ride default
     with private version.
@@ -10004,11 +10335,16 @@ FILE *snana_openTextFile (int vboseFlag, char *SNPATH, char *fileName,
    Dec 29 2017: use open_TEXTgz to allow reading gzipped files.
    Jan 11 2018: add gzipFile output arg
    Mar 20 2019: padd vboseFlag to print comment to stdout
+   Feb 01 2020: SNPATH -> PATH_LIST (space separated)
   ----------------------------------------------- */
 
 #define TEXTMODE_read "rt"
+#define MXPATH_CHECK 4
 
   int LDMP = (vboseFlag>0) ;
+  int ipath, NPATH ;
+  bool IS_OPEN = false ;
+  char *PATH[MXPATH_CHECK], sepKey[]= " " ; 
   FILE *fp ;
   //  char fnam[] = "snana_openTextFile" ;
 
@@ -10027,19 +10363,78 @@ FILE *snana_openTextFile (int vboseFlag, char *SNPATH, char *fileName,
     return fp;
   } 
 
+  // if we get here, try paths in PATH_LIST
 
-   // if we get here, try official location
-   sprintf(fullName, "%s/%s", SNPATH,  fileName );
-   //   fp = fopen(fullName, "rt") ;
-   fp = open_TEXTgz(fullName,TEXTMODE_read, gzipFlag );
+  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
+    { PATH[ipath] = (char*) malloc(MXPATHLEN*sizeof(char) ); }
 
-   if ( LDMP && fp != NULL ) { printf("\t Opened : %s \n", fullName ); }
+  splitString(PATH_LIST, sepKey, MXPATH_CHECK,
+	       &NPATH, PATH ); // <== returned
 
-   // return pointer regardless of status
-   return fp;
+  for(ipath=0; ipath < NPATH; ipath++ ) {
+    if ( IS_OPEN ) { continue ; }
+
+    sprintf(fullName, "%s/%s", PATH[ipath],  fileName );
+    //   fp = fopen(fullName, "rt") ;
+    fp = open_TEXTgz(fullName,TEXTMODE_read, gzipFlag );
+
+    if ( fp != NULL ) {
+      IS_OPEN = true ;
+      if ( LDMP ) { printf("\t Opened : %s \n", fullName ); }
+    }
+
+  } // end ipath
+
+  // free memory
+  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )   { free(PATH[ipath]); }
+
+  // return pointer regardless of status
+  return fp;
 
 }  // end of snana_openTextFile
 
+
+// *****************************************************
+void abort_openTextFile(char *keyName, char *PATH_LIST,
+                        char *fileName, char *funCall) {
+
+  // if *snana_openTextFile returns NULL pointer, call this
+  // function to print error info and abort. Main thing is
+  // to print out all directories that were checked from
+  // current dir and PATH_LIST.
+  
+  //#define MXPATH_CHECK 4
+  int NPATH, ipath;
+  char *PATH[MXPATH_CHECK], sepKey[] = " " ;
+
+  // -------------- BEGIN ----------------
+
+  print_preAbort_banner(funCall);
+
+
+  // append path(s) from PATH_LIST
+  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
+    { PATH[ipath] = (char*) malloc( MXPATHLEN * sizeof(char) ); }
+
+  // first path is current working dir
+  getcwd(PATH[0],MXPATHLEN);
+
+  // split string to get other paths
+  splitString(PATH_LIST, sepKey, MXPATH_CHECK,
+	      &NPATH, &PATH[1] ); // <== returned
+  
+  printf("\n  The following paths were checked for input file read from"
+	 "\n  %s: %s \n", keyName, fileName);
+  for(ipath=0; ipath <= NPATH; ipath++ ) 
+    { printf("     %s \n", PATH[ipath] );   }
+
+  sprintf(c1err,"Could not find '%s' input file:", keyName );
+  sprintf(c2err,"%s  (see preAbort info above)", fileName);
+  errmsg(SEV_FATAL, 0, funCall, c1err, c2err );
+  
+  return ;
+
+} // end abort_openTextFile
 
 
 // ***************************

@@ -281,12 +281,14 @@ void gridinterp_snoopy(int ifilt, double shape,
       IPTRLC      = IPTRLC_OFF[im] + ioff + index_Trest;
       I2TMP       = SNGRID_SNOOPY.I2GRIDGEN_LCMAG[IPTRLC] ;
       I2ERR       = SNGRID_SNOOPY.I2GRIDGEN_LCERR[IPTRLC] ;
+      // xxx      if ( I2ERR > 999 ) { I2TMP = 30000; } // temp hack, May 2020
       gridFlux2[0][im]  = (double)I2TMP / GRIDGEN_I2LCPACK ;
       gridErr2[0][im]   = (double)I2ERR / GRIDGEN_I2LCPACK ;
 
       IPTRLC      = IPTRLC_OFF[im] + ioff + (index_Trest+1) ;
       I2TMP       = SNGRID_SNOOPY.I2GRIDGEN_LCMAG[IPTRLC] ;
       I2ERR       = SNGRID_SNOOPY.I2GRIDGEN_LCERR[IPTRLC] ;
+      // xxxx      if ( I2ERR > 999 ) { I2TMP = 30000; } // temp hack, May 2020
       gridFlux2[1][im]  = (double)I2TMP / GRIDGEN_I2LCPACK ;
       gridErr2[1][im]   = (double)I2ERR / GRIDGEN_I2LCPACK ;
 

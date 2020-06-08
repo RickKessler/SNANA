@@ -63,7 +63,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
   int  IDMAP, NMAP=0, imap, OPT_EXTRAP=0, LENTMP ;
   int  USE_REDCOV=1, USE_REDCOV_OVERRIDE=0;
   bool HAS_COLON;
-  char PATH[MXPATHLEN], c_get[80];  
+  char PATH[2*MXPATHLEN], c_get[80];  
   char *fullName = FILENAME_FLUXERRMAP ;
   char *name, *fieldList, TMP_STRING[80], LINE[100];
   char MSGERR_FILE[200];
@@ -82,13 +82,17 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
   sprintf(BANNER,"%s:", fnam);
   print_banner(BANNER);
 
-  sprintf(PATH, "%s/simlib", PATH_SNDATA_ROOT);
+  sprintf(PATH, "%s %s/simlib", PATH_USER_INPUT, PATH_SNDATA_ROOT);
   fp = snana_openTextFile(1,PATH, fileName, fullName, &gzipFlag);
 
   if ( !fp ) {
+    abort_openTextFile("FLUXERRMODEL_FILE", PATH, fileName, fnam);
+
+    /* xxxxxxxx mark delete Feb 1 2020 xxxxxxxxxxxxx
     sprintf(c1err,"Cannot open FLUXERRMODEL_FILE");
     sprintf(c2err,"'%s'", fullName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    xxxxxxxxxxxxx */
   }
 
   sprintf(MSGERR_FILE,"check FLUXERRMODEL_FILE: '%s'", fullName);
@@ -165,7 +169,9 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
       FLUXERRMAP[NMAP].NVAR = NVAR  = 0 ;
       FLUXERRMAP[NMAP].MAP.VARLIST[0]   = 0 ;
       FLUXERRMAP[NMAP].MASK_APPLY   = 3;    // SIM & DATA by default 
-      
+      FLUXERRMAP[NMAP].SCALE_FLUXERR_TRUE = 1.0 ;
+      FLUXERRMAP[NMAP].SCALE_FLUXERR_DATA = 1.0 ;
+
       // set defaults to all bands and fields
       sprintf(FLUXERRMAP[NMAP].BANDLIST,  "%s",  ALL_STRING); 
       sprintf(FLUXERRMAP[NMAP].FIELDLIST, "%s",  ALL_STRING );
@@ -194,16 +200,22 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
       // if this field is a group; substitute field list.
       set_FIELDLIST_FLUXERRMODEL(TMP_STRING,FLUXERRMAP[NMAP].FIELDLIST);
 
-      /* xxxxxxxxxxxxx mark delete Jan 22 2020 xxxxxxxxx
-	 for (igroup=0; igroup < FLUXERR_FIELDGROUP.NDEFINE; igroup++ ) {
-	 name      = FLUXERR_FIELDGROUP.NAME[igroup] ;
-	 fieldList = FLUXERR_FIELDGROUP.FIELDLIST[igroup] ;
-	 if ( strcmp(TMP_STRING,name) == 0 ) 
-	 { sprintf(FLUXERRMAP[NMAP].FIELDLIST, "%s", fieldList); }
-	 }
-	 xxxxxxx end mark xxxxx */
-
     }  // end FIELD
+
+    if ( strcmp(c_get,"SCALE_FLUXERR_DATA:")==0 ) {
+      if ( FOUNDMAP == 0 ) {
+	sprintf(c1err,"%s key not allowed outside MAP", c_get);
+	errmsg(SEV_FATAL, 0, fnam, c1err, MSGERR_FILE ); 
+      }
+      readdouble(fp, 1, &FLUXERRMAP[NMAP].SCALE_FLUXERR_DATA );
+    } 
+    if ( strcmp(c_get,"SCALE_FLUXERR_TRUE:")==0 ) {
+      if ( FOUNDMAP == 0 ) {
+	sprintf(c1err,"%s key not allowed outside MAP", c_get);
+	errmsg(SEV_FATAL, 0, fnam, c1err, MSGERR_FILE ); 
+      }
+      readdouble(fp, 1, &FLUXERRMAP[NMAP].SCALE_FLUXERR_TRUE );
+    } 
 
     if ( strcmp(c_get,"NVAR:")==0 ) { warn_NVAR_KEY(fullName); }
 
@@ -674,7 +686,7 @@ int IVARLIST_FLUXERRMAP(char *varName) {
 // =======================================================
 void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD, 
 		      int NPAR, double *PARLIST,
-		      double *FLUXERR_SIM, double *FLUXERR_DATA ) {
+		      double *FLUXERR_TRUE, double *FLUXERR_DATA ) {
 
   // Created Feb 2018 by R.Kessler
   // For input flux-error (FLUXERR_IN), function returns corrected
@@ -691,16 +703,16 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
   //   PARLIST     : list of parameters for maps: PSF, SBMAG, etc ...
   //
   // Ouput:
-  //   FLUXERR_SIM : generated flux error
+  //   FLUXERR_TRUE: true generated flux error (for sim)
   //   FLUXERR_DATA: reported flux-error in data files
   //
-  // For nominal sims, FLUXERR_DATA = FLUXERR_SIM.
+  // For nominal sims, FLUXERR_DATA = FLUXERR_TRUE.
   // For systematic studies, however, it may be useful to check 
   // what happens if some error corrections are not accounted for 
   // in the analysis.
   //
   // Jan 22 2020: refactor to use INDEX_MAP_FLUXERRMODEL.
-
+  // Feb 08 2020: scale errors with SCALE_FLUXERR_DATA[TRUE]
 
   int NMAP      = NMAP_FLUXERRMODEL; 
   int NSPARSE[MXMAP_FLUXERRMAP];
@@ -715,7 +727,7 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
 
   //  LDMP = ( strcmp(BAND,"g") == 0 && fabs(FLUXERR_IN-12.8)<1.0 ); 
 
-  *FLUXERR_SIM  = FLUXERR_IN ;
+  *FLUXERR_TRUE = FLUXERR_IN ;
   *FLUXERR_DATA = FLUXERR_IN ;
   if ( NMAP_FLUXERRMODEL == 0 ) { return; }
 
@@ -749,7 +761,8 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  // load correct variables for this map
+  // load correct variables for this map;
+  // errModelVal is the error scale from map
   IDMAP = IDGRIDMAP_FLUXERRMODEL_OFFSET + imap ;
   load_parList_FLUXERRMAP(imap, PARLIST, parList);
   istat = interp_GRIDMAP( &FLUXERRMAP[imap].MAP, parList, &errModelVal);
@@ -778,18 +791,21 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
   
   MASK_APPLY = FLUXERRMAP[imap].MASK_APPLY ;
   if ( ( MASK_APPLY & MASK_APPLY_SIM_FLUXERRMAP)> 0 ) {
-    FLUXERR_TMP  = *FLUXERR_SIM ;
-    *FLUXERR_SIM = apply_FLUXERRMODEL(imap, errModelVal, FLUXERR_TMP);
+    FLUXERR_TMP  = *FLUXERR_TRUE ;
+    *FLUXERR_TRUE = apply_FLUXERRMODEL(imap, errModelVal, FLUXERR_TMP);
+    *FLUXERR_TRUE *= FLUXERRMAP[imap].SCALE_FLUXERR_TRUE;
   }
+
   if ( ( MASK_APPLY & MASK_APPLY_DATA_FLUXERRMAP)> 0 ) {
-    FLUXERR_TMP   = *FLUXERR_DATA ;
-    *FLUXERR_DATA = apply_FLUXERRMODEL(imap, errModelVal, FLUXERR_TMP);
+    FLUXERR_TMP    = *FLUXERR_DATA ;
+    *FLUXERR_DATA  = apply_FLUXERRMODEL(imap, errModelVal, FLUXERR_TMP);
+    *FLUXERR_DATA *= FLUXERRMAP[imap].SCALE_FLUXERR_DATA;
   }
   
 
   if ( LDMP ) {
-    printf(" xxx FLUXERR[IN,SIM,DATA] = %.3f, %.3f, %.3f \n",
-	   FLUXERR_IN, *FLUXERR_SIM, *FLUXERR_DATA );
+    printf(" xxx FLUXERR[IN,TRUE,DATA] = %.3f, %.3f, %.3f \n",
+	   FLUXERR_IN, *FLUXERR_TRUE, *FLUXERR_DATA );
     //  debugexit(fnam); 
 
   }

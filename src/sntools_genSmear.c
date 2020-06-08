@@ -75,13 +75,19 @@
    + after reading salt2 dispersion file, clip wavelengths outside
      SALT2 wave range. Avoids abort at very low redshifts.
 
- Oct 18 2019: begin COV model
+ Oct 18 2019: begin COVSED model [based on SNF]
+
  Oct 21 2019: 
    + significant refactor for speed improvements using repeat_genSmear().
      BEWARE to check repeat_genSmear for Trest-dependent smear models.
 
- Nov 30 2019: refactor and upgrade COH model to pass 1 or 2 sigma values.
-              Default is still sigma=0.13 mag.
+ Nov 30 2019: 
+   + refactor and upgrade COH model to pass 1 or 2 sigma values.
+      Default is still sigma=0.13 mag.
+ 
+ Feb 17 2020
+   + refactor correlated Gauss randoms to use init_Cholesky and
+     GaussRanCorr utilities.
 
 **********************************/
 
@@ -112,12 +118,16 @@ int  istat_genSmear(void) {
   return(GENSMEAR.NUSE);
 }
 
-void  init_genSmear_FLAGS(int MSKOPT, double SCALE) {
+void  init_genSmear_FLAGS(int MSKOPT, char *SCALE_STRING) {
+
+  // Mar 22 2020: 
+  //  replace double SCALE with string that may have polynom funct
 
   char fnam[] = "init_genSmear_FLAGS" ;
 
   GENSMEAR.NUSE           = 0 ; // number of GENSMEAR init calls
   GENSMEAR.NCALL          = 0 ; // number of get_genSmear calls.
+
   GENSMEAR_USRFUN.USE     = 0 ;
   GENSMEAR_SALT2.USE      = 0 ;
   GENSMEAR_C11.USE        = 0 ;
@@ -126,9 +136,11 @@ void  init_genSmear_FLAGS(int MSKOPT, double SCALE) {
   GENSMEAR_BIMODAL_UV.USE = 0 ;
   GENSMEAR_OIR.USE        = 0 ;
   GENSMEAR_COVSED.USE     = 0 ;
+  GENSMEAR_PHASECOR.USE   = 0 ;
+  GENSMEAR_SCALE.USE      = 0 ;
+
   GENSMEAR.NSET_RANGauss  = 0 ;
   GENSMEAR.NSET_RANFlat   = 0 ;
-  GENSMEAR.SCALE          = SCALE ; // Oct 9 2018
   GENSMEAR.MSKOPT         = MSKOPT ; // Oct 2019
 
   // hard-wire wavelengths to monitor COVARIANCE between 
@@ -159,7 +171,53 @@ void  init_genSmear_FLAGS(int MSKOPT, double SCALE) {
   GENSMEAR.MAGSMEAR_LIST = (double*) malloc(MEMD);
 
 
+  init_genSmear_SCALE(SCALE_STRING);
+
+  return ;
+
 }  // end of init_genSmear_FLAGS
+
+
+// *************************************
+void init_genSmear_SCALE(char *SCALE_STRING) {
+  
+  // Created Mar 22 2020 by R.Kessler
+  // SCALE_STRING = '[VARNAME] [POLYSTRING]'
+
+  char VARNAME[40], cPOLY[40], *cptr[2];
+  char space[] = " " ;
+  int  NTMP ;
+  char fnam[] = "init_genSmear_SCALE" ;
+    
+  // ---------- BEGIN ----------
+
+  GENSMEAR_SCALE.GLOBAL = 1.0 ; // default
+  if ( strlen(SCALE_STRING) == 0 ) { return ; }
+
+  GENSMEAR_SCALE.USE = 1;
+
+  // split string to get variable name and polynom string
+  cptr[0] = VARNAME;
+  cptr[1] = cPOLY;
+
+  splitString(SCALE_STRING, space, 2, &NTMP, cptr);
+
+  // xxx  printf(" xxx VARNAME='%s'  cPOLY = '%s' \n", VARNAME, cPOLY);
+
+  parse_GENPOLY(cPOLY, VARNAME, &GENSMEAR_SCALE.POLY, fnam);
+  if ( GENSMEAR_SCALE.POLY.ORDER == 0 ) {
+    GENSMEAR_SCALE.GLOBAL = GENSMEAR_SCALE.POLY.COEFF_RANGE[0][0];
+    printf("\t Global GENMAG_SMEAR_SCALE: %.3f \n", GENSMEAR_SCALE.GLOBAL);
+  }
+  else {
+    printf("\t GENMAG_SMEAR_SCALE: poly(%s) = %s \n", VARNAME, cPOLY);
+    sprintf(GENSMEAR_SCALE.VARNAME, "%s", VARNAME);
+  }
+
+  return;
+
+} // end of init_genSmear_SCALE
+
 
 // *******************************************************
 void init_genSmear_randoms(int NRANGauss, int NRANFlat) {
@@ -246,13 +304,22 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
     }
   }
 
+  // Feb 12 2020: check randoms for phaseCor model
+  if ( GENSMEAR_PHASECOR.USE  ) {  
+    int NBIN = GENSMEAR_PHASECOR.NBIN ;
+    for(iran=0; iran < NBIN; iran++ ) {                 
+      GENSMEAR_PHASECOR.RANGauss_LIST[iran] = 
+	GaussRanClip(ILIST_RAN,gmin,gmax); 
+    }
+  }
+
   return;
 
 } // end load_genSmear_randoms
 
 
 // ********************************
-void get_genSmear(double Trest, int NLam, double *Lam, 
+void get_genSmear(double Trest, double c, double x1, int NLam, double *Lam, 
 		  double *magSmear) {
 
   // April 2012
@@ -263,6 +330,7 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   //   Trest  : MJD-MJD_peak)/(1+z)
   //   NLam   : number of wave bins
   //  *Lam    : array of rest-frame wavelenths
+  //   c, x1  : SALT2 color and stretch
   //
   // Output
   //   magSmear : magSmear at each *Lam bin.
@@ -271,6 +339,7 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   // Oct 9 2018: check option to scale the magSmear values
   // Oct 21 2019: add CID argument
   // Nov 30 2019: MAGSMEAR_COH -> MAGSMEAR_COH[2]
+  // Feb 17 2020: add c & x1 input args
 
   int ilam, repeat ;
   char fnam[] = "get_genSmear" ;
@@ -331,10 +400,11 @@ void get_genSmear(double Trest, int NLam, double *Lam,
   }
 
 
-  // Oct 9 2018: check option to scale the smearing
-  if ( fabs(GENSMEAR.SCALE-1.0) > 1.0E-5 ) {
-    for(ilam=0; ilam < NLam; ilam++ ) 
-      { magSmear[ilam] *= GENSMEAR.SCALE; }
+  // Mar 2020: check option to scale the smearing vs. c & x1
+  if ( GENSMEAR_SCALE.USE ) {    
+    double SCALE = get_genSmear_SCALE(c,x1);
+    //    printf(" xxx %s  c=%.3f  SCALE=%.3f \n", fnam, c, SCALE);
+    for(ilam=0; ilam < NLam; ilam++ ) { magSmear[ilam] *= SCALE ; }
   }
 
 
@@ -604,82 +674,6 @@ void get_NRAN_genSmear(int *NRANGauss, int *NRANFlat) {
 
 
 
-/* xxx mark delete Oct 21 2019 xxxxxxxx
-void SETRANGauss_genSmear(int NRAN, double *ranList) {
-
-  // Created Mar 6, 2012 by R.Kessler
-  // Store input *ranList for this SN; use same ranList for all 
-  // epochs and wavelengths. Pass new *ranList for each SN.
-  //
-  // (I) NRAN = number of Gaussian randoms passed
-  // (I) ranList = list of randomw
-
-  int i;
-  double r;
-  char cList[100] ;
-  char fnam[] = "SETRANGauss_genSmear" ;
-
-  // --------------- BEGIN ------------
-
-  if ( GENSMEAR.NUSE == 0  ) { return ; }
-
-  if( NRAN != GENSMEAR.NGEN_RANGauss ) {
-    sprintf(c1err,"passed NRAN=%d, but require NGEN_RANGauss=%d",
-	    NRAN, GENSMEAR.NGEN_RANGauss ) ;
-    sprintf(c2err,"%s", "Check random generator.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);         
-  }
-
-  GENSMEAR.NSET_RANGauss++ ;
-
-  // store randoms; official list starts at 1.
-  cList[0] = 0 ;
-  for ( i=0 ; i < NRAN; i++ ) 
-    { r   = ranList[i];  GENSMEAR.RANGauss_LIST[i] = r ; }
-
-  //  printf(" %2d xxx genSmear randoms = %s \n", GENSMEAR.NSETRAN, cList );
-
-}  // end of SETRANGauss_genSmear
-
-
-void SETRANFlat_genSmear(int NRAN, double *ranList) {
-
-  // Created Jan 2014 by R.Kessler
-  // Store input *ranList for this SN; use same ranList for all 
-  // epochs and wavelengths. Pass new *ranList for each SN.
-  //
-  // (I) NRAN = number of FLAT [0-1] randoms passed
-  // (I) ranList = list of randoms
-
-  int i;
-  double r;
-  char cList[100] ; // char-list of randoms, for debub only
-  char fnam[] = "SETRANFlat_genSmear" ;
-
-  // --------------- BEGIN ------------
-
-  if ( GENSMEAR.NUSE == 0  ) { return ; }
-
-  if( NRAN != GENSMEAR.NGEN_RANFlat ) {
-    sprintf(c1err,"passed NRAN=%d, but require NGEN_RANFlat=%d",
-	    NRAN, GENSMEAR.NGEN_RANFlat ) ;
-    sprintf(c2err,"%s", "Check random generator.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);         
-  }
-
-  GENSMEAR.NSET_RANFlat++ ;
-
-  // store randoms; official list starts at 1.
-  cList[0] = 0 ;
-  for ( i=0 ; i < NRAN; i++ ) 
-    { r   = ranList[i];  GENSMEAR.RANFlat_LIST[i] = r ;  }
-
-  //  printf(" %2d xxx genSmear randoms = %s \n", GENSMEAR.NSETRAN, cList );
-
-}  // end of SETRANFlat_genSmear
-xxxxxxxxxxx end mark xxxxxxxxxx */
-
-
 
 void SETSNPAR_genSmear(double shape, double color, double redshift) {
 
@@ -709,6 +703,37 @@ void SETSNPAR_genSmear(double shape, double color, double redshift) {
 
 }  // end of SETSNPAR_genSmear
 
+
+// ************************************
+double get_genSmear_SCALE(double c, double x1) {
+
+  // Created Mar 22 2020 by R.Kessler
+  // Return magSmear scale based on color and stretch.
+
+  double SCALE  = 1.0 ;
+  double VAL;
+  char *varName = GENSMEAR_SCALE.VARNAME ;
+  char fnam[] = "get_genSmear_SCALE" ;
+
+  // -------------- BEGIN ------------
+
+  if ( !GENSMEAR_SCALE.USE ) { return(SCALE); }
+
+  if ( strcmp(varName,"c") == 0 ) 
+    { VAL = c; }
+  else if ( strcmp(varName,"x1") == 0 ) 
+    { VAL = x1 ; }
+  else {
+    sprintf(c1err,"Invalid VARNAME='%s' for poly fun", varName);
+    sprintf(c2err,"Check sim-input GENMAG_SMEAR_SCALE");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  SCALE = eval_GENPOLY(VAL, &GENSMEAR_SCALE.POLY, fnam);
+
+  return(SCALE);
+
+} // end get_genSmear_SCALE
 
 
 // ************************************************
@@ -1538,6 +1563,9 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
   //               1 -> 100% correlation with U
   //               2 -> 100% anti-correlation with U
   //
+  //
+  // Feb 17 2020: refactor to use CHOLESLY_DECOMP_DEF struct.
+  //
   // -------------------
 
   char FILTERS_C11[NBAND_C11+1] = "vUBVRI" ;
@@ -1594,7 +1622,7 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
 
   double CC, COVred, tmp, covscale_v ;
   int i,j, N ;
-
+  int MEMD = NBAND_C11 * NBAND_C11 * sizeof(double);
   gsl_matrix_view chk;  
 
   //  char fnam[] = "init_genSmear_Chotard11" ;
@@ -1603,6 +1631,8 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
 
   GENSMEAR_C11.USE = 1;    GENSMEAR.NUSE++ ;
   GENSMEAR_C11.OPT_farUV = OPT_farUV;
+  GENSMEAR_C11.DECOMP.COVMAT1D = (double*) malloc(MEMD);
+  GENSMEAR_C11.DECOMP.MATSIZE  = NBAND_C11 ;
 
   printf("\t Initialize Chotard11/SNF model of %s correlations\n", 
 	 FILTERS_C11 );
@@ -1632,19 +1662,23 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
       if ( i != IFILT_v && j == IFILT_v ) 
 	{ COVred = covscale_v * COVAR_reduced_EWSi[i][IFILT_U]; }
 
-      CC           = COVAR_diag_EWSi[i] * COVAR_diag_EWSi[j];
-
+      CC   = COVAR_diag_EWSi[i] * COVAR_diag_EWSi[j];
       if ( i == j ) { CC += COV_DIAG_FUDGE ; }
-      COVAR2[i][j] = COVred * CC ;
 
-      // fill 1D array for gsl argument below.
-      N++ ;  COVAR1[N-1] = COVAR2[i][j] * COV_SCALE ;
+      COVAR2[i][j] = COVred * CC ; // xxx REMOVE
+      GENSMEAR_C11.DECOMP.COVMAT1D[N] = COVred * CC * COV_SCALE;
+
+      N++ ;  
+      COVAR1[N-1] = COVAR2[i][j] * COV_SCALE ; // xxx REMOVE
 
       printf(" %7.4f ", COVred );
     }
     printf("\n"); fflush(stdout);
   }
 
+  init_Cholesky(+1, &GENSMEAR_C11.DECOMP); 
+
+  /* xxxxx mark deleteFeb 17 2020  xxxxxxxxx
   chk  = gsl_matrix_view_array ( COVAR1, NBAND_C11, NBAND_C11); 
   gsl_linalg_cholesky_decomp ( &chk.matrix )  ;  
 
@@ -1656,6 +1690,7 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
 	{ GENSMEAR_C11.Cholesky[i][j] = 0.0 ; }
     }
   }
+  xxxxxxxx mark delete xxxxxx */
 
 
   // print Cholesky matrix
@@ -1663,7 +1698,8 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
   for (i =0; i < NBAND_C11; i++){
     printf("\t  d%c(Ran) = ", FILTERS_C11[i] ); fflush(stdout);
     for (j = 0; j < NBAND_C11 ; j++){      
-      tmp = GENSMEAR_C11.Cholesky[j][i] ;
+      //      tmp = GENSMEAR_C11.Cholesky[j][i] ; // xxx REMOVE
+      tmp = GENSMEAR_C11.DECOMP.CHOLESKY2D[j][i] ;
       printf("+ %7.4f*R%d ", tmp, j );
     }    
     printf("\n"); fflush(stdout);
@@ -1682,6 +1718,7 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
 void get_genSmear_Chotard11(double Trest, int NLam, double *Lam, 
 			    double *magSmear) {
 
+  
   int    ilam, i, j, IFILT ;
   double lam, tmp, SCATTER_VALUES[NBAND_C11] ;
 
@@ -1692,17 +1729,9 @@ void get_genSmear_Chotard11(double Trest, int NLam, double *Lam,
 
   // ---------- BEGIN -------
 
-  //Matrix Multiply
-  //scatter_values = ch^T normalvector
-  for (i = 0 ; i < NBAND_C11 ; i++) {
-    SCATTER_VALUES[i] = 0.0 ;  
-    for (j = 0 ; j < NBAND_C11 ; j++){
-      //transpose cholesky matrix
-      tmp = GENSMEAR_C11.Cholesky[j][i] ;      
-      SCATTER_VALUES[i] += tmp * GENSMEAR.RANGauss_LIST[j] ;
-    }
-  }
-
+  // Feb 17 2020: use new utility for correlated randoms
+  GaussRanCorr(&GENSMEAR_C11.DECOMP, GENSMEAR.RANGauss_LIST, // (I)
+	       SCATTER_VALUES );            // (O)
 
   // -------------
   for ( ilam=0; ilam < NLam; ilam++ ) {
@@ -2206,7 +2235,7 @@ void prep_VCR_forSALT2(void) {
 
 
 // *****************************************
-void  parse_VCR_colorString(ic) {
+void  parse_VCR_colorString(int ic) {
 
   // Mar 2014
   // store filter index for each color,
@@ -2698,16 +2727,19 @@ void get_genSmear_private(double Trest, int NLam, double *Lam,
 
 
 // ***************************************
-void init_genSmear_OIR(void) {
+void init_genSmear_OIR(char *VERSION) {
 
   // Created Aug 30 2019 by R.Kessler and D.Jones
   // Optical+IR smear model based on CfA and CSP.
   // Very similar to Chotard11 method
-  
-  char fnam[] = "init_genSmear_OIR";
-  char *OIR_version = "OIR.J19";
-  char *path ;
-  
+  //
+  // version: e.g., $PATH/OIR.v1
+  //
+  // Apr 6 2020 RK - pass VERSION argument 
+  //
+
+  char *PATH = GENSMEAR_OIR.MODELPATH ;
+  char version[100];
   char FILTERS_OIR[NBAND_OIR+1] = "BgriYJH" ;
   
   double COV_DIAG_FUDGE = 1.0E-9 ; // needed to be invertible
@@ -2717,25 +2749,35 @@ void init_genSmear_OIR(void) {
 
   double CC, COVred, tmp, covscale_v ;
   int i,j, N ;
-  int LDMPCOV = 1; // RK - Nov 5 2019
+  int LDMPCOV = 0; 
   gsl_matrix_view chk;  
+
+  char fnam[] = "init_genSmear_OIR";
 
   // --------------- BEGIN ---------------
 
   GENSMEAR_OIR.USE = 1;    GENSMEAR.NUSE++ ;
 
+  // ------------------------------------
+  // get path and filenames to parse.
+  // Note that VERSION may include full path.
+  // Returned version is just the OIR.ABC part.
+
+  extract_MODELNAME(VERSION,          // input may include full path
+		    PATH, version);   // returned
+  
+  // if no path is given, use default path under SNDATA_ROOT
+  if ( strlen(PATH) == 0 ) {
+    sprintf(PATH,"%s/models/OIR/%s", PATH_SNDATA_ROOT, version ) ;  
+  }
+
   // read in covmat from file - using utilities from VCR model
-  printf("\t Init OIR smear model: %s\n", OIR_version );
+  printf("\t Init OIR smear model: %s\n", version );
   fflush(stdout);
 
 
-  // ------------------------------------
-  // get path and filenames to parse
-  sprintf( PATH_SNDATA_ROOT, "%s", getenv("SNDATA_ROOT") );
-  path = GENSMEAR_OIR.MODELPATH ;
-  sprintf(path,"%s/models/OIR/%s", PATH_SNDATA_ROOT, OIR_version ) ;  
-  sprintf(GENSMEAR_OIR.INFO_FILE, "%s/OIR.INFO", path);
-  printf("\t Read model info from :\n\t\t %s\n", path); 
+  sprintf(GENSMEAR_OIR.INFO_FILE, "%s/OIR.INFO", PATH );
+  printf("\t Read model info from :\n\t\t %s\n", GENSMEAR_OIR.INFO_FILE ); 
   fflush(stdout);
 
   // -------------------------------------
@@ -2766,7 +2808,6 @@ void init_genSmear_OIR(void) {
       if ( LDMPCOV ) { printf(" %7.4f\n",COVred); }
       
       CC           = GENSMEAR_OIR.COLOR_SIGMA[i] * GENSMEAR_OIR.COLOR_SIGMA[j];
-      //      printf("xxxxxxxxxx2 %7.7f\n",CC);
       
       if ( i == j ) { CC += COV_DIAG_FUDGE ; }
       COVAR2[i][j] = COVred * CC ;
@@ -2804,8 +2845,18 @@ void init_genSmear_OIR(void) {
 
   //  debugexit(fnam); // DDDDDDD
 
+  /* xxx mark delete (RK) since this is done in init_genSmear_randoms
   GENSMEAR.NGEN_RANGauss = NBAND_OIR ;
   GENSMEAR.NGEN_RANFlat  = 0 ;
+  xxxxxxxxxxxxxx */
+
+  // ----------------------------
+  // store number of randoms to generate.
+
+
+  int NRANGauss = NBAND_OIR + 1 ; //NCOLOR  + COH
+  int NRANFlat  = 0;
+  init_genSmear_randoms(NRANGauss,NRANFlat);
 
   return;
 
@@ -2819,21 +2870,24 @@ void get_genSmear_OIR(double Trest, int NLam, double *Lam,
 
   // Created Aug 30 2019 by R.Kessler and D.Jones
   //
+
+  int NBAND           = GENSMEAR_OIR.NBAND_OIRDEF ;
+  double RANGauss_COH = GENSMEAR.RANGauss_LIST[NBAND];
+
+  int    ilam, i, j, IFILT ;
+  double lam, tmp, SCATTER_VALUES[NBAND_OIR], LAMCEN[NBAND_OIR] ;
+  double SCATTER_COH;
   char fnam[] = "get_genSmear_OIR";
 
   // ---------------- BEGIN -----------------
 
-  // illustrate error utility:
-  //sprintf(c1err,"genSmear_OIR model not ready.");
-  //sprintf(c2err,"Do some coding !");
-  //errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  // RK - start with coherent scatter
+  SCATTER_COH = GENSMEAR_OIR.SIGMACOH * RANGauss_COH ;
 
-  int    ilam, i, j, IFILT, NBAND ;
-  double lam, tmp, SCATTER_VALUES[NBAND_OIR], LAMCEN[NBAND_OIR] ;
-
-  //uBgriYJH filter wavelengths from https://csp.obs.carnegiescience.edu/data/filters
+  //uBgriYJH filter wavelengths from 
+  //   https://csp.obs.carnegiescience.edu/data/filters
   //from Swope site2 and RetroCam
-  NBAND = GENSMEAR_OIR.NBAND_OIRDEF ; // number of OIR model bands
+
   for (i = 0 ; i < NBAND ; i++) 
     { LAMCEN[i] = GENSMEAR_OIR.ORDERED_LAMCEN[i] ;  }
 
@@ -2876,7 +2930,7 @@ void get_genSmear_OIR(double Trest, int NLam, double *Lam,
 
     }
 
-    magSmear[ilam] = tmp ;
+    magSmear[ilam] = tmp + SCATTER_COH ;
 
   }
 
@@ -2942,8 +2996,9 @@ void read_OIR_INFO(void) {
     if ( strcmp(c_get,"COLOR_SIGMA_SCALE:") == 0  ) 
       { readdouble(fp, 0, &GENSMEAR_OIR.COLOR_SIGMA_SCALE ); }
     
-    if ( strcmp(c_get,"SIGMACOH_MB:") == 0  ) 
-      { readdouble(fp, 1, &GENSMEAR_OIR.SIGMACOH_MB); }
+    if ( strcmp(c_get,"SIGMACOH_MB:") == 0  ||
+	 strcmp(c_get,"SIGMACOH:"   ) == 0 ) 
+      { readdouble(fp, 1, &GENSMEAR_OIR.SIGMACOH); }
 
     
   } // end while
@@ -3036,7 +3091,7 @@ void  prep_OIR_COVAR(void) {
       S1  = GENSMEAR_OIR.COLOR_SIGMA[ic1] ;
       S2  = GENSMEAR_OIR.COLOR_SIGMA[ic2] ;
       COV = (S1 * S2 * rho) ;
-      printf("hiiiiiiiiiii8 %f\n",S1);
+      // xxx      printf("hiiiiiiiiiii8 %f\n",S1);
       N++ ;
 
     }  // ic2
@@ -3052,8 +3107,10 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
   // Created Oct 18 2019 by R.Kessler.
   // Covariance model in wavelength x phase bins.
   // Initial model is from Sugar/Pierre-Francoise Leget.
-  
-  gsl_matrix_view chk;  
+  //
+  // Feb 17 2020: use CHOLESKY_DECOMP_DEF struct 
+
+
   double COV_DIAG_FUDGE = 1.0E-9 ; // needed to be invertible
   char *covFileName = (char*)malloc(MXPATHLEN*sizeof(char) ) ;
   char *ptrPATH = GENSMEAR_COVSED.MODEL_PATH;
@@ -3096,8 +3153,10 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
   // fudge diagonal COV to ensure positive-definite
   for (i =0; i < NBIN ; i++){
     jj = NBIN*i + i;
-    GENSMEAR_COVSED.COVMAT1D[jj] += COV_DIAG_FUDGE;
+    GENSMEAR_COVSED.DECOMP.COVMAT1D[jj] += COV_DIAG_FUDGE;
   }
+
+
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - -
   // Check option to monitor COV at two wavelengths
@@ -3113,29 +3172,16 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
     i1 = quickBinSearch(LAMPAIR[1], NBIN_WAVE, WAVE_LIST, fnam);
     LAMPAIR[0] = WAVE_LIST[i0] ; // snap to nearest bin
     LAMPAIR[1] = WAVE_LIST[i1] ; // snap to nearest bin
-    COVMAT[0][0] = GENSMEAR_COVSED.COVMAT1D[NBIN*i0+i0] ;
-    COVMAT[1][1] = GENSMEAR_COVSED.COVMAT1D[NBIN*i1+i1] ;
-    COVMAT[0][1] = GENSMEAR_COVSED.COVMAT1D[NBIN*i0+i1] ;
-    COVMAT[1][0] = GENSMEAR_COVSED.COVMAT1D[NBIN*i1+i0] ;
+    COVMAT[0][0] = GENSMEAR_COVSED.DECOMP.COVMAT1D[NBIN*i0+i0] ;
+    COVMAT[1][1] = GENSMEAR_COVSED.DECOMP.COVMAT1D[NBIN*i1+i1] ;
+    COVMAT[0][1] = GENSMEAR_COVSED.DECOMP.COVMAT1D[NBIN*i0+i1] ;
+    COVMAT[1][0] = GENSMEAR_COVSED.DECOMP.COVMAT1D[NBIN*i1+i0] ;
     init_genSmear_COVLAM_debug(LAMPAIR,COVMAT);
   }
 
   
   printf("\t Prepare Cholesky decomp. \n"); fflush(stdout);
-  chk  = gsl_matrix_view_array ( GENSMEAR_COVSED.COVMAT1D, NBIN, NBIN);
-  gsl_linalg_cholesky_decomp(&chk.matrix) ;
-
-  // load cholesly matrix
-  GENSMEAR_COVSED.Cholesky = (double**) malloc(NBIN*sizeof(double*));
-  for (i =0; i < NBIN ; i++){    
-    GENSMEAR_COVSED.Cholesky[i] = (double*) malloc(NBIN*sizeof(double));
-    for (j = 0; j < NBIN ; j++) { 
-      if ( j >= i ) 
-	{ GENSMEAR_COVSED.Cholesky[i][j] = gsl_matrix_get(&chk.matrix,i,j); }
-      else
-	{ GENSMEAR_COVSED.Cholesky[i][j] = 0.0 ; }
-    }
-  }
+  init_Cholesky(+1, &GENSMEAR_COVSED.DECOMP);
 
   // allocate array to use in gen_magSmear_COV
   GENSMEAR_COVSED.SCATTER_VALUES = (double*) malloc(NBIN*sizeof(double) );
@@ -3143,11 +3189,8 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
   init_genSmear_randoms(NBIN,0);
 
   // free original COVMAT from memory
-  free(GENSMEAR_COVSED.COVMAT1D);
+  free(GENSMEAR_COVSED.DECOMP.COVMAT1D);
 
-  //  gsl_matrix_free(&chk.matrix);
-  //  debugexit(fnam);
-  
 
   return;
 
@@ -3313,7 +3356,8 @@ void readFits_genSmear_COVSED(char *fileName) {
 
   GENSMEAR_COVSED.WAVE     = (double*) malloc ( MEMD1 * NBIN_WAVE    );
   GENSMEAR_COVSED.EPOCH    = (double*) malloc ( MEMD1 * NBIN_EPOCH   );
-  GENSMEAR_COVSED.COVMAT1D = (double*) malloc ( MEMD1 * NBIN_COVMAT  );
+  GENSMEAR_COVSED.DECOMP.COVMAT1D = (double*) malloc ( MEMD1 * NBIN_COVMAT  );
+  GENSMEAR_COVSED.DECOMP.MATSIZE  = NBIN_COVMAT;
 
 
   long FIRSTROW=1, FIRSTELEM=1, NREAD;
@@ -3328,7 +3372,7 @@ void readFits_genSmear_COVSED(char *fileName) {
   // read covmat into 1D array
   NREAD = NBIN_COVMAT;  istat=0;
   fits_read_col_dbl(fp, ICOL_COVMAT, FIRSTROW, FIRSTELEM, NREAD, NULL_1D,
-		    GENSMEAR_COVSED.COVMAT1D, &anynul, &istat);
+		    GENSMEAR_COVSED.DECOMP.COVMAT1D, &anynul, &istat);
   snfitsio_errorCheck("read COVMAT1D", istat);
 
 
@@ -3344,7 +3388,7 @@ void readFits_genSmear_COVSED(char *fileName) {
   for(iwave=0; iwave < NBIN_WAVE; iwave++ ) {
     jcov = iwave*NBIN_WAVE + iwave;
     WAVE = GENSMEAR_COVSED.WAVE[iwave];
-    COV  = GENSMEAR_COVSED.COVMAT1D[jcov];
+    COV  = GENSMEAR_COVSED.DECOMP.COVMAT1D[jcov];
     if ( (WAVE - WAVE_LAST) > 500.0 ) {
       printf("\t\t WAVE[%4d] = %6.0f : sqrt[ DIAG ] = %6.3f \n", 
 	     iwave, WAVE, sqrt(COV) );      
@@ -3381,23 +3425,10 @@ void get_genSmear_COVSED(double Trest, int NWAVE, double *WAVE,
 
   // ---------------- BEGIN -----------------
 
-  //Matrix Multiply
-  //scatter_values = ch^T normalvector
-  for (i = 0 ; i < NBIN_WAVE ; i++) {    
-    GENSMEAR_COVSED.SCATTER_VALUES[i] = 0.0 ;  
-    for (j = 0 ; j < NBIN_WAVE ; j++){
-      //transpose cholesky matrix
 
-      /*
-      tmp = GENSMEAR_COVSED.Cholesky[j][i] ;  
-      ran = GENSMEAR.RANGauss_LIST[j] ;
-      GENSMEAR_COVSED.SCATTER_VALUES[i] += (tmp * ran);
-      */
-      GENSMEAR_COVSED.SCATTER_VALUES[i] += 
-	(GENSMEAR_COVSED.Cholesky[j][i] * GENSMEAR.RANGauss_LIST[j]) ;
-    }
-  }
-
+  // Feb 17 2020: new utility to fetch correlated randoms
+  GaussRanCorr(&GENSMEAR_COVSED.DECOMP, GENSMEAR.RANGauss_LIST, // (I)
+	       GENSMEAR_COVSED.SCATTER_VALUES );        // (O)
 
   // -------------
   for ( iwave=0; iwave < NWAVE; iwave++ ) {
@@ -3635,3 +3666,219 @@ int  exec_genSmear_override(int IPAR, char *PARNAME, double *VAL) {
   return NVAL ;
 
 } // end exec_genSmear_override
+
+
+
+// ==================================================
+void  init_genSmear_phaseCor(double magSmear, double expTau) {
+
+  // Created Feb 11 2020 by R. Kessler
+  // Initialize phase-correlation model where 
+  //  + magSmear = Gaussiam smear (few percent)
+  //  + reduced correlation between any two epochs is 
+  //    exp(-phaseDif/exptau)
+  //
+  // This smear-model should only be noticable for very
+  // high-SNR epochs where SNR ~ few x 10.
+  // Motivation is low FITPROB excess (compared to sims)
+  // hard code GRID binning; maybe later add this to sim-input
+
+  int NBIN_PHASECOR    =   60 ;
+  double TMIN_PHASECOR = -18.0 ;
+  double TBIN_PHASECOR =   1.0 ;
+
+  int NBIN, i, j, N, MEMD ;
+  double phase;
+  char fnam[] = "init_genSmear_phaseCor" ;
+
+  // ------------- BEGIN --------------
+
+  if ( magSmear == 0.0 ) { return; } 
+
+  printf("\n %s: magSmear=%.3f, rho=exp(-Tdif/%.1f) \n",
+	 fnam, magSmear, expTau); 
+  fflush(stdout);
+
+  GENSMEAR_PHASECOR.USE = 1;
+  GENSMEAR_PHASECOR.INPUT_MAGSMEAR = magSmear ;  
+  GENSMEAR_PHASECOR.INPUT_EXPTAU   = expTau;
+  GENSMEAR_PHASECOR.CID_LAST       = -9 ;
+
+  GENSMEAR_PHASECOR.NCHECK       = 0 ;
+  GENSMEAR_PHASECOR.NSUM         = 0  ;
+  GENSMEAR_PHASECOR.sumCHECK     = 0.0 ;
+  GENSMEAR_PHASECOR.SUMCHECK[0]  = 0.0 ;
+  GENSMEAR_PHASECOR.SUMCHECK[1]  = 0.0 ;
+  GENSMEAR_PHASECOR.SUMCHECK[2]  = 0.0 ;
+  GENSMEAR_PHASECOR.SUMCHECK[3]  = 0.0 ;
+  
+  NBIN = NBIN_PHASECOR ;
+  MEMD = NBIN * sizeof(double) ;
+  GENSMEAR_PHASECOR.GRID_PHASE    = (double*)malloc(MEMD);
+  GENSMEAR_PHASECOR.GRID_MAGSMEAR = (double*)malloc(MEMD);
+  GENSMEAR_PHASECOR.RANGauss_LIST = (double*)malloc(MEMD);
+
+  for(i=0; i < NBIN; i++ ) {
+    phase = TMIN_PHASECOR + TBIN_PHASECOR*(double)i ;
+    GENSMEAR_PHASECOR.GRID_PHASE[i] = phase ;
+  }
+
+  GENSMEAR_PHASECOR.NBIN      = NBIN ;
+  GENSMEAR_PHASECOR.RANGE[0]  = GENSMEAR_PHASECOR.GRID_PHASE[0] ;
+  GENSMEAR_PHASECOR.RANGE[1]  = GENSMEAR_PHASECOR.GRID_PHASE[NBIN-1] ;
+  GENSMEAR_PHASECOR.BINSIZE   = TBIN_PHASECOR;
+
+  MEMD = NBIN * NBIN * sizeof(double);
+  GENSMEAR_PHASECOR.DECOMP.COVMAT1D = (double *) malloc(MEMD);
+  GENSMEAR_PHASECOR.DECOMP.MATSIZE  = NBIN ;
+
+  // construct COV matrix vs. phase
+  double Ti, Tj, TDIF, COV, RHO ;
+  N=0;
+  for(i=0; i < NBIN; i++ ) {
+    for(j=0; j < NBIN; j++ ) {
+      Ti   = GENSMEAR_PHASECOR.GRID_PHASE[i];
+      Tj   = GENSMEAR_PHASECOR.GRID_PHASE[j];
+      TDIF = fabs(Ti-Tj);
+      RHO  = exp(-TDIF/expTau);
+      COV  = magSmear * magSmear * RHO ;
+      GENSMEAR_PHASECOR.DECOMP.COVMAT1D[N] = COV;
+      N++ ;
+    }
+  }
+
+  // printf("\t Prepare PhaseCor Cholesky decomp. \n"); fflush(stdout);
+  init_Cholesky(+1, &GENSMEAR_PHASECOR.DECOMP);
+
+  //  debugexit(fnam);
+
+  return ;
+
+} // end init_genSmear_phaseCor
+
+// ----------------------------
+void  get_genSmear_phaseCor(int CID, double phase, double *magSmear ) {
+
+  int CID_LAST = GENSMEAR_PHASECOR.CID_LAST ;
+  int NBIN     = GENSMEAR_PHASECOR.NBIN ;
+  int i, j ;
+  double Chol, RANG, magSmear_local = 0.0 ;
+  char fnam[] = "get_genSmear_phaseCor" ;
+  int  LDMP = 0 ;
+
+  // ---------- BEGIN ---------
+
+  *magSmear = 0.0 ;
+  if ( !GENSMEAR_PHASECOR.USE ) { return; }
+
+  // for each new event, prepare new list of correlated randoms
+  if ( CID != CID_LAST ) {
+
+    if ( LDMP ) 
+      { printf(" xxx ----------- CID = %d -------------- \n", CID); }
+
+    GaussRanCorr(&GENSMEAR_PHASECOR.DECOMP, GENSMEAR_PHASECOR.RANGauss_LIST,
+		 GENSMEAR_PHASECOR.GRID_MAGSMEAR);
+
+    check_genSmear_phaseCor();    
+	
+  } // end new CID
+
+  GENSMEAR_PHASECOR.CID_LAST = CID;
+
+  // interpolate magSmear at phase
+
+  if ( phase <= GENSMEAR_PHASECOR.RANGE[0] ) {
+    magSmear_local = GENSMEAR_PHASECOR.GRID_MAGSMEAR[0] ;
+  }
+  else if ( phase >= GENSMEAR_PHASECOR.RANGE[1] ) {
+    magSmear_local = GENSMEAR_PHASECOR.GRID_MAGSMEAR[NBIN-1] ;
+  }
+  else {
+    magSmear_local = interp_1DFUN(1, phase, NBIN, 
+				  GENSMEAR_PHASECOR.GRID_PHASE, 
+				  GENSMEAR_PHASECOR.GRID_MAGSMEAR, fnam);
+  }
+  
+  *magSmear = magSmear_local ;
+  return ;
+
+} // end get_genSmear_phaseCor
+
+
+// - - - 
+void  check_genSmear_phaseCor(void) {
+
+  // Feb 2020
+  // Utility to verify the reduced covariance form the 
+  // ADDPHASECOR model.
+
+  int    IBIN_CHECK = -10 ;
+  int    NBIN       = GENSMEAR_PHASECOR.NBIN ;
+  double EXPTAU     = GENSMEAR_PHASECOR.INPUT_EXPTAU;
+  double DT_CHECK[10], T0, m0, m1, RHO_PREDICT, RHO_CHECK;
+  char fnam[] = "check_genSmear_phaseCor" ;
+
+  // ------------- BEGIN ------------
+
+  if ( IBIN_CHECK < 0 ) { return; }
+
+  GENSMEAR_PHASECOR.NCHECK = 3; // dT=0, 1, max
+  GENSMEAR_PHASECOR.NSUM++ ;
+
+  DT_CHECK[0] = 0.0;
+  DT_CHECK[1] = GENSMEAR_PHASECOR.BINSIZE ;
+  DT_CHECK[2] = GENSMEAR_PHASECOR.RANGE[1] - GENSMEAR_PHASECOR.RANGE[0];
+
+  // check neighboring bins
+  m0 = GENSMEAR_PHASECOR.GRID_MAGSMEAR[IBIN_CHECK];
+  GENSMEAR_PHASECOR.SUMCHECK[0] += (m0*m0);
+  GENSMEAR_PHASECOR.sumCHECK    += m0 ;
+
+  // check neighboring bins
+  m0 = GENSMEAR_PHASECOR.GRID_MAGSMEAR[IBIN_CHECK];
+  m1 = GENSMEAR_PHASECOR.GRID_MAGSMEAR[IBIN_CHECK+1];
+  GENSMEAR_PHASECOR.SUMCHECK[1] += (m0*m1);
+  
+  // check first/last bin with min correlation
+  m0 = GENSMEAR_PHASECOR.GRID_MAGSMEAR[0];
+  m1 = GENSMEAR_PHASECOR.GRID_MAGSMEAR[NBIN-1] ;
+  GENSMEAR_PHASECOR.SUMCHECK[2] += (m0*m1);
+
+  int icheck, NSUM;
+  double XN, SUMCHECK, sumCHECK, ARG, DT, SIG, SQSIG, RMS ;
+  NSUM = GENSMEAR_PHASECOR.NSUM; 
+  
+
+  if ( NSUM > 0 && (NSUM % 100) == 0 ) {
+
+    printf(" xxx --------------------------------- \n");
+    printf(" xxx %s at N = %d: \n", fnam, NSUM );
+    
+    XN      = (double)NSUM ;
+    SIG     = GENSMEAR_PHASECOR.INPUT_MAGSMEAR ;
+    SQSIG   = SIG*SIG;
+    T0      = GENSMEAR_PHASECOR.GRID_PHASE[IBIN_CHECK];
+
+    sumCHECK    = GENSMEAR_PHASECOR.sumCHECK ;    // sum(m0)
+    SUMCHECK    = GENSMEAR_PHASECOR.SUMCHECK[0] ; // sum(m0^2)
+    RMS = RMSfromSUMS(NSUM, sumCHECK, SUMCHECK);
+
+    for(icheck = 0; icheck < GENSMEAR_PHASECOR.NCHECK; icheck++ ) {
+      DT  = DT_CHECK[icheck];       ARG = DT/EXPTAU;
+      SUMCHECK    = GENSMEAR_PHASECOR.SUMCHECK[icheck] ;
+      RHO_PREDICT = exp(-ARG);
+      RHO_CHECK   = SUMCHECK / (XN*SQSIG);
+      printf(" xxx RHO(dT=%4.1f) = %6.3f (expect RHO=%6.3f) ",
+	     DT, RHO_CHECK, RHO_PREDICT);
+
+      if ( icheck == 0 ) { printf("  RMS=%6.4f", RMS ); }
+      printf("\n");
+
+      fflush(stdout);
+    }
+    
+    //    printf(" xxx NEVT=%5d: phaseRHO(dT=%.0f)=%.3f, 
+  }
+
+} // end check_genSmear_phaseCor

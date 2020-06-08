@@ -19,43 +19,43 @@
 #   sntable_dump.pl <inFile>  <tableID>
 #      (list variable names in table, then exit)
 #
-#   sntable_dump.pl <inFile>  <tableID>  --v <list of variables>
+#   sntable_dump.pl <inFile>  <tableID>  -v <list of variables>
 #      (dump values for each table entry)
 #
-#   sntable_dump.pl <inFile>  <tableID>  --v <list of variables> --o <outFile>
+#   sntable_dump.pl <inFile>  <tableID>  -v <list of variables> -o <outFile>
 #     (overwrite default outfile in ASCII/TEXT format)
 #
-#   sntable_dump.pl <inFile>  <tableID>  --v <list of variables> \
-#          --o <outFile> --format csv
+#   sntable_dump.pl <inFile>  <tableID>  -v <list of variables> \
+#          -o <outFile> -format csv
 #     (write in CSV format instead of default key format)
 #
-#   sntable_dump.pl <inFile>  <tableID>  --v <list of variables> NOHEADER
+#   sntable_dump.pl <inFile>  <tableID>  -v <list of variables> NOHEADER
 #     (out file has no header info and no 'SN:' key)
 #
-#   sntable_dump.pl <inFile>  <tableID>  --v <vlist>  --a <textFile>
+#   sntable_dump.pl <inFile>  <tableID>  -v <vlist>  -a <textFile>
 #     (append fitres text file with vlist variables)
 #
-#   sntable_dump.pl <inFile>  <tableID>  --outlier <Nsig1> <Nsig2>
+#   sntable_dump.pl <inFile>  <tableID>  -outlier <Nsig1> <Nsig2>
 #    (dump epochs for data-fit outlier between Nsig1 and Nsig2 sigma)
 #
-#   sntable_dump.pl <inFile>  <tableID>  --outlier_sim <Nsig1> <Nsig2>
+#   sntable_dump.pl <inFile>  <tableID>  -outlier_sim <Nsig1> <Nsig2>
 #    (dump epochs for data-sim outlier between Nsig1 and Nsig2 sigma)
 #
-#   sntable_dump.pl <inFile>  <tableID>  --outlier <Nsig1> <Nsig2> \
-#          --format IGNORE
+#   sntable_dump.pl <inFile>  <tableID>  -outlier <Nsig1> <Nsig2> \
+#          -format IGNORE
 #    (dump outliers in IGNORE format for SNANA data version)
 #
 #   sntable_dump.pl <inFile>  <tableID>  OBS
 #     (dump each observation, mainly for fluxerrmap)
 #
-#  Note that --[v,o,a] and -[V,O,A] are accpeted (both lower,upper case)
+#  Note that -[v,o,a] and -[V,O,A] are accpeted (both lower,upper case)
 #
 #
 #      HISTORY
 #
 # Apr 26 2014: allow HBOOK/hbook extenstion along with HIS/.his
 #
-# Aug 2014: new argument  '--outlier <n1> <n2>'
+# Aug 2014: new argument  '-outlier <n1> <n2>'
 #
 # Oct 28, 2014: .txt -> .text for output.
 #
@@ -66,6 +66,10 @@
 #   for HBOOK files, allow root-string table names SNANA & FITRES.
 #
 # Feb 22 2018: new  OBS argument to dump observations for fluxerrmap
+#
+# May 13 2020:
+#   To look more python-like, allow -v (as well as legacy --v),
+#   -a (and --a), etc ...
 #
 # ------------------------------------------
 
@@ -173,18 +177,19 @@ sub parse_args {
 	if ( $ARGV[$i] eq "NOHEADER" ) 
 	{ $USE=1; $OPT_HEAD = "NOHEADER" ; $VFLAG = 0 ; }
 
-	if ( lc($ARGV[$i]) eq '--o' ) 
+	if ( lc($ARGV[$i]) eq '--o' || lc($ARGV[$i]) eq '-o') 
 	{ $USE=1; $i++ ; $OUTFILE_TEXT = $ARGV[$i] ; $VFLAG=0; }
 
-	if ( lc($ARGV[$i]) eq '--a' ) 
+	if ( lc($ARGV[$i]) eq '--a' || lc($ARGV[$i]) eq '-a' ) 
 	{ $USE=1; $i++; $TEXTFILE_APPEND = $ARGV[$i] ; $VFLAG=0; }
 
 	if ( $VFLAG ) 
 	{ $USE=1; @TABLE_VARLIST = (@TABLE_VARLIST , $ARGV[$i]) ; }
-	if ( lc($ARGV[$i]) eq '--v'  ) { $USE=1; $VFLAG = 1; }
+	if ( lc($ARGV[$i]) eq '--v'  || lc($ARGV[$i]) eq '-v') 
+	{ $USE=1; $VFLAG = 1; }
 	
 	$KEY = "outlier" ;
-	if ( lc($ARGV[$i]) eq "--$KEY" )  { 
+	if ( lc($ARGV[$i]) eq "--$KEY" || lc($ARGV[$i]) eq "-$KEY")  { 
 	    $USE=1; 
 	    $KEY_OUTLIER = "$KEY";
 	    $i++ ; $OUTLIER_NSIGMA[0] = $ARGV[$i] ; 
@@ -192,7 +197,7 @@ sub parse_args {
 	}
 
 	$KEY = "outlier_sim" ;
-	if ( lc($ARGV[$i]) eq "--$KEY" )  { 
+	if ( lc($ARGV[$i]) eq "--$KEY" || lc($ARGV[$i]) eq "-$KEY")  { 
 	    $USE=1; 
 	    $KEY_OUTLIER = "$KEY";
 	    $i++ ; $OUTLIER_NSIGMA[0] = $ARGV[$i] ; 
@@ -201,7 +206,7 @@ sub parse_args {
 
 
 	$KEY = "format" ;
-	if ( lc($ARGV[$i]) eq "--$KEY" )  { 
+	if ( lc($ARGV[$i]) eq "--$KEY" || lc($ARGV[$i]) eq "-$KEY")  { 
 	    $USE = 1 ;
 	    $i++ ; $FORMAT_OUTFILE = $ARGV[$i] ;
 	}
@@ -290,21 +295,21 @@ sub make_dump_command {
     $CMD_DUMP = "$JOBNAME  $TABLE_INFILE  $TABLE_ID  $OPT_HEAD" ;
 
     if ( $NVARLIST > 0 ) { 
-	$CMD_DUMP = "$CMD_DUMP --v @TABLE_VARLIST" ; 
-	$CMD_DUMP = "$CMD_DUMP --o $OUTFILE_TEXT" ; 
+	$CMD_DUMP = "$CMD_DUMP -v @TABLE_VARLIST" ; 
+	$CMD_DUMP = "$CMD_DUMP -o $OUTFILE_TEXT" ; 
     }
 
     if ( $OUTLIER_NSIGMA[0] >= 0 ) {
-	$CMD_DUMP = "$CMD_DUMP --$KEY_OUTLIER @OUTLIER_NSIGMA" ;
-	$CMD_DUMP = "$CMD_DUMP --o $OUTFILE_TEXT" ; 
+	$CMD_DUMP = "$CMD_DUMP -$KEY_OUTLIER @OUTLIER_NSIGMA" ;
+	$CMD_DUMP = "$CMD_DUMP -o $OUTFILE_TEXT" ; 
     }
 
     if ( $OPTOBS ) {
-	$CMD_DUMP = "$CMD_DUMP  OBS  --o $OUTFILE_TEXT" ; 
+	$CMD_DUMP = "$CMD_DUMP  OBS  -o $OUTFILE_TEXT" ; 
     }
 
     if ( $FORMAT_OUTFILE ne "DEFAULT" ) {
-	$CMD_DUMP = "$CMD_DUMP --format $FORMAT_OUTFILE" ; 
+	$CMD_DUMP = "$CMD_DUMP -format $FORMAT_OUTFILE" ; 
     }
 
     my $SNANA_DIR = $ENV{'SNANA_DIR'};
@@ -445,7 +450,7 @@ sub textfile_append {
     print "\n Append $TEXTFILE_APPEND with $OUTFILE_TEXT ... \n";
     
     $ARGF = "$TEXTFILE_APPEND $OUTFILE_TEXT $COMINE_FITRES_ARG[$IFILETYPE]" ;
-    $ARGO = "--outprefix $OUTFILE_PREFIX" ;
+    $ARGO = "-outprefix $OUTFILE_PREFIX" ;
     $CMD  = "combine_fitres.exe $ARGF $ARGO" ;
     
     print "CMD = $CMD \n";

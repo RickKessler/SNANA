@@ -11,7 +11,6 @@
 
  Calling functions are in psnid.cra.
 
-
 ?!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!?
   ISSUES found by RK Feb 28 2013;
 
@@ -28,7 +27,6 @@
   that loop over all non-Ia types. See, for example, LIA_Ibc,LIA_II
 
 ?!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!??!?!?!?!??!?!?!?
-
 
  --------------------------------
  Integration notes for Masao:
@@ -91,7 +89,6 @@
 
    - to make light curve plots,
        mkfitplots.pl  --h <hisFileName>  --tmin -20 --tmax 80
-
 
      HISTORY
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -285,6 +282,11 @@
   July 25 2018: define PSNID_MINOBS, and abort if too few obs.
 
   May 20 2019: PSNID_NONIA_MXTYPES = 100 ->  1000 (for lots of KN models)
+
+  Feb 26 2020: + print out warning message when skipping candidate
+                 due to user-specified OPT_ZPRIOR
+
+  May 22 2020: + added error model of H20 templates (S13_H20)
 
  ================================================================ */
 
@@ -889,7 +891,12 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
 
   // redshift priors (0=flat, [1,2=other priors])
   psnid_best_set_zprior_onez(REDSHIFT, REDSHIFT_ERR);
-  if ( PSNID_BEST_RESULTS.ZPRIOR_DO[0] == 0 ) { return ERRFLAG ; }
+  if ( PSNID_BEST_RESULTS.ZPRIOR_DO[0] == 0 )
+  {
+    printf("\t WARNING:  skipping CID = %s for OPT_ZPRIOR %d\n\n",
+	   CCID, PSNID_INPUTS.OPT_ZPRIOR);
+    return ERRFLAG ;
+  }
 
   /****************************************/
   /***     Main part of grid search     ***/
@@ -899,7 +906,7 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
   // 1) redshift priors (0=FLAT, 1=SNLC, 2=ZHOST; see PSNID_ZPRIOR_XXXX)
   // 2) SN tpes         (0=Ia, 1=Ibc, 2=II; see PSNID_ITYPE_SNXX)
 
-  z = 0 ; // only one z prior
+  z  =  0 ; // only one z prior
 
   
   // loop over SN tpes (0=Ia, 1=Ibc, 2=II; see PSNID_ITYPE_SNXX)
@@ -1241,7 +1248,7 @@ void psnid_best_split_nonia_types(int *types, int optdebug)
     printf("\t There are %2d II    templates\n", nii);
     printf("\t There are %2d PEC1A templates\n", npec1a);
 
-    for(i=1; i < 4; i++ ) {
+    for(i=1; i <= 4; i++ ) {
       printf("\t There are %2d MODEL%d templates\n", nmodel[i],i);
     }
     
@@ -1532,6 +1539,8 @@ double psnid_best_modelErr(int TYPEINDX, double Trest, double modelErr_grid){
   // strip off string-name of mag-error model into local pointer
   modelName = PSNID_INPUTS.MODELNAME_MAGERR ; 
   
+  ISIA = (TYPEINDX == TYPEINDX_SNIA_PSNID) ;
+
   if ( strcmp(modelName,"GRID") == 0 ) 
     {  MAGERR = modelErr_grid ; }
 
@@ -1543,6 +1552,14 @@ double psnid_best_modelErr(int TYPEINDX, double Trest, double modelErr_grid){
 
   else if ( strcmp(modelName,"S11") == 0 ) 
     {  MAGERR = psnid_best_modelErr_S11(TYPEINDX,Trest) ; }
+
+  else if ( strcmp(modelName,"S13_H20") == 0 ) {
+    if ( ISIA ) {
+      MAGERR = psnid_best_modelErr_S13(TYPEINDX,Trest);
+    } else {
+      MAGERR = modelErr_grid;
+    }
+  }
 
   else 
     {

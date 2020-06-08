@@ -235,7 +235,7 @@ void OPEN_ROOTFILE(char *FILENAME, char *COPT, int *IERR) {
     sprintf(cstat,"RECREATE"); //   new file; clobber old one 
     ROOT_OPENFLAG    = OPENFLAG_NEW ;
     TFILE_ROOT_NEW   = new TFile(FILENAME,cstat);
-    SNLCPAK_USE_ROOT = 1 ;  
+    SNLCPAK_USE_ROOT = true ;  
 
     NH_ROOT[1]  = 0 ;  // 1D histos
     NH_ROOT[2]  = 0 ;  // 2D histos

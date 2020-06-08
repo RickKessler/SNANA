@@ -64,12 +64,17 @@
 #    MUOPT: powzbin=3
 #    MUOPT: CUTWIN x1ERR 0 1
 #
-#
 #    OUTDIR_OVERRIDE: <TOPDIR>  
 #    OUTDIR_PREFIX:  SALT2mu    ! prefix for each output directory 
 #
 #    STRINGMATCH_IGNORE:  LOWZ  SDSS  SNLS
-#    STRINGMATCH:  COMBINED   # combine all versions with COMBINED in name
+#        (see explanation below)
+#
+#    STRINGMATCH_IGNORE:  IGNORE  
+#       (ignore string matches; requires 1 and only 1 version per INPDIR)
+#
+#    STRINGMATCH:  <COMBINED>   # combine all versions with COMBINED in name
+#    STRINGMATCH:  IGNORE       # same as "STRINGMATCH_IGNORE:  IGNORE"
 #
 # STRINGMATCH_IGNORE is used to help match which versions to sum with 
 # the 'INPDIR+:' keys. For example, if versions LOWZ_SYST1 and SDSS_SYST1 
@@ -251,6 +256,25 @@
 # Oct 25 2019: OUTDIR_OVERRIDE works for INPDIR too 
 # Dec 09 2019: fix bug in makeDir_NSPLITRAN();  check SUMMARY_FLAG
 #
+# Mar 10 2020: 
+#   + new option to ignore string matches if there is only one version;
+#     see new function require_one_version().
+#
+# May 10 2020:
+#   To combine input FITRES files, replace unix cat with 
+#   SALT2mu.exe cat_only <args> to allow for different columns
+#   in each input FITRES file specified by datafile=<fileList>/
+#   Later, this SALT2mu.exe call may be replaced by a python
+#   wrapper, cat_snana_table.py.
+#
+# May 27 2020:
+#   + in makeDir_NSPLITRAN(), make better abort message when
+#     datafile= is missing.
+#
+# Jun 4 2020:
+#   +  replace some FATAL_ERROR calls with FATAL_ERROR_STAMP so that
+#      a SUCCESS or FAIL message is passed to Pippin.
+#
 # ------------------------------------------------------
 
 use IO::Handle ;
@@ -306,7 +330,7 @@ my (@FITOPT_LIST,  $SUMFLAG_INPDIR, $FITOPT000_ONLY );
 my ($STRINGMATCH_IGNORE,  @STRINGMATCH_IGNORE_LIST );
 my ($STRINGMATCH );
 my ($VERSION_EXCLUDE,  $VERSION_EXCLUDE_STRING, $PROMPT );
-my ($SUBMIT_FLAG, $SUMMARY_FLAG );
+my ($SUBMIT_FLAG, $SUMMARY_FLAG, $NOSUBMIT_FLAG );
 my (@SSH_NODELIST, $SSH_NNODE, $SNANA_LOGIN_SETUP );
 my ($BATCH_COMMAND, $BATCH_TEMPLATE, $BATCH_NCORE, $DONE_STAMP_FILE );
 my ($KILLJOBS_FLAG, $SUMMARY_FLAG, $OUTDIR_PREFIX, $OUTDIR_OVERRIDE );
@@ -341,11 +365,13 @@ sub makeDir_NSPLITRAN ;
 sub makeDirs_SALT2mu ;
 sub makeSumDir_SALT2mu ;
 sub VERSION_STRINGMATCH_IGNORE ;
+sub require_one_version ;
 sub GET_IVERMATCH ;
 sub subDirName_after_lastSlash ;
 sub USE_FITOPT ;
 sub copy_inpFiles ;
 sub cat_inpFiles ;
+sub cat_inpFiles_legacy ;
 
 sub make_COMMANDS ;
 sub write_COMMANDS ;
@@ -391,7 +417,6 @@ my $INPDIR ;
 for($IDIR=0; $IDIR < $N_INPDIR; $IDIR++ ) 
 { &verify_INPDIR($IDIR); }
 
-
 if ( $NSPLITRAN > 0 ) { 
     &makeDir_NSPLITRAN();
 }
@@ -409,6 +434,7 @@ else {
     for($IFITOPT=0 ; $IFITOPT < $NFITOPT_SNFIT[0]; $IFITOPT++ ) {
 	for($IVER=0; $IVER < $NVERSION_4SUM ; $IVER++ ) {	
 	    &cat_inpFiles($IFITOPT,$IVER);   # catenate input files for sum
+#	    &cat_inpFiles_legacy($IFITOPT,$IVER); 
 	}
     }
 }
@@ -457,7 +483,7 @@ exit(0);
 
 sub initStuff {
 
-    $SUBMIT_FLAG=1;
+    $SUBMIT_FLAG=1;  $NOSUBMIT_FLAG=0;
     $PROMPT=1;  # prompt user if SALT2mu jobs already running
     # init user-inputs
     $SUMFLAG_INPDIR     = 0 ; # default is each INPDIR is independent
@@ -543,7 +569,7 @@ sub parse_args {
 	if ( $arg eq "KILL"    ) { $KILLJOBS_FLAG = 1 ; }
 	if ( $arg eq "SUMMARY" ) { $SUMMARY_FLAG  = 1 ; $SUBMIT_FLAG=0; }
 	if ( $arg eq "NOPROMPT") { $PROMPT        = 0 ; }
-	if ( $arg eq "NOSUBMIT") { $SUBMIT_FLAG   = 0 ; }
+	if ( $arg eq "NOSUBMIT") { $SUBMIT_FLAG   = 0 ; $NOSUBMIT_FLAG=1; }
 
 	if ( $arg eq "INPDIR+" ) {
 	    $nextArg = qx(echo $nextArg); # allow for ENV
@@ -1037,9 +1063,13 @@ sub makeDir_NSPLITRAN {
     elsif ( -e $gzdatafile ) 
     { qx(cp $gzdatafile $OUTDIR); }
     else {
-	$MSGERR[0] = "Unable to find argument of" ;
-	$MSGERR[1] = "$tmp[0]" ;
-	sntools::FATAL_ERROR(@MSGERR);
+	$MSGERR[0] = "Unable to find required argument of" ;
+	$MSGERR[1] = "datafile=$tmp[0]" ;
+	$MSGERR[2] = "Either datafile=  key is missing," ;
+	$MSGERR[3] = "or cannot find data file '$tmp[0]' ";
+	$MSGERR[4] = "Beware that INPDIR are ignored for NSPLITRAN.";
+	    
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
     }
 
     return ;
@@ -1087,7 +1117,7 @@ sub makeDirs_SALT2mu {
 	@tmpGrep   = qx(grep MERGED $mergeFile | grep " FITOPT000 ");
 	@tmp       = ();
 	foreach $tmpLine (@tmpGrep) {
-	    $tmpLine  =~ s/^\s+// ;         # remove leading spaces (Sep 4 2017)
+	    $tmpLine  =~ s/^\s+// ;    # remove leading spaces (Sep 4 2017)
 	    @wdlist   = split(/\s+/,$tmpLine) ;
 	    $version  = $wdlist[1];
 	    if ( $version eq "$VERSION_EXCLUDE"             ) { next ; }
@@ -1131,7 +1161,7 @@ sub makeDirs_SALT2mu {
 # ========================
 sub makeSumDir_SALT2mu {
 
-    # create one output dir in which the fitres files are summed; 
+    # creates one output dir in which the fitres files are summed; 
     #
     # find $TOPDIR consisting of maximum overlap of all directory names.
     # Example:
@@ -1148,6 +1178,8 @@ sub makeSumDir_SALT2mu {
     #              entire string is checked.
     # May 24 2019: allow user-defined OUTDIR_OVERRIDE
     #
+    # Mar 10 2020: check require_one_version().
+    #
     # -------------------------
 
     my ( $LEND, $MATCH, $i, $c1ref, $c1, $LENMATCH ) ;
@@ -1155,6 +1187,7 @@ sub makeSumDir_SALT2mu {
     my ( $jslash, $jstart_SDIR, $indx, $OUTDIR);
     
     # -------------------- BEGIN ----------------------
+
 
     # - - - - - - - - - 
     # find maximum substring of INPDIR that matches all INPDIRs
@@ -1197,23 +1230,22 @@ sub makeSumDir_SALT2mu {
     else 
     { $OUTDIR  = "$TOPDIR/$SDIR_SUM" ; }
 
-
     # - - - - - - - - - - - - - - - - - - -     
 
  MAKEDIR:
 
     $OUTDIR_SALT2mu_LIST[0] = "$OUTDIR" ;
-    if ( $SUBMIT_FLAG ) {
+    if ( $SUBMIT_FLAG || $NOSUBMIT_FLAG ) {
 	if ( -d $OUTDIR ) { qx(rm -r $OUTDIR) ; }
 	print " Create $OUTDIR \n";
 	@tmp = qx(mkdir -p $OUTDIR  2>&1 );
 	if ( scalar(@tmp) ) { die "\n @tmp \n ABORT "; }	
+	qx(cp $INPUT_FILE $OUTDIR);
     }
     else {
 	print " Define $OUTDIR \n";
     }
 
-    qx(cp $INPUT_FILE $OUTDIR);
 
     # --------------------------------------------
     # now the tricky part; find matching subdirs to sum.
@@ -1238,7 +1270,7 @@ sub makeSumDir_SALT2mu {
 	    $MSGERR[0] = "Unable to grep 'MERGED' and ' FITOPT000 '";
 	    $MSGERR[1] = "from $mergeFile";
 	    $MSGERR[2] = "Check for aborts or tabs." ;
-	    sntools::FATAL_ERROR(@MSGERR);
+	    sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
 	}
 	foreach $tmpLine (@tmpGrep) {
 	    $tmpLine  =~ s/^\s+// ;    # remove leading spaces  (Sep 4 2017)
@@ -1256,19 +1288,34 @@ sub makeSumDir_SALT2mu {
 	    @tmp = (@tmp , $version);
 	}
 
+	# if one version is required abort on multiple versions
+	if ( &require_one_version() == 1 ) {
+	    $NVER = scalar(@tmp) ;
+	    if ( $NVER != 1 ) {
+		$MSGERR[0] = "Found $NVER versions in" ;
+		$MSGERR[1] = "$INPDIR/MERGE.LOG ." ;
+		$MSGERR[2] = "But ... only 1 version allowed for option to ";
+		$MSGERR[3] = "ignore string matches.";
+		$i = 4;
+		foreach $vers ( @tmp ) 
+		{ $MSGERR[$i] = "Found VERSION = $vers" ; $i++; }
+		sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);  
+	    }
+	} 
+
 	@tmpSorted = sort(@tmp) ;  # -> alphabetical order
 	$NVER = 0 ;
 	$DIRFIX  = "$INPDIRFIX_SNFIT_LIST[$NDIR]" ;
 
-       
 	foreach $vers (@tmpSorted) {
 	    if ( $NVER > $NVERSION_MAX ) { $NVER_SKIP++; next; }
 	    $vers4match = &VERSION_STRINGMATCH_IGNORE($vers);
 
             if ( length($STRINGMATCH) > 2 )  { $vers4match = $STRINGMATCH ; }
-	    if ( length($DIRFIX)      > 2 )  { $vers = $DIRFIX ; }
-	    
+	    if ( length($DIRFIX)      > 2 )  { $vers = $DIRFIX ; }	   
+
 	    $VERSION_SNFIT_LIST[$NDIR][$NVER]  = $vers ;
+#	    print " xxx load VERSION_SNFIT_LIST[$NDIR][$NVER] = $vers\n";
 	    $VERSION_4MATCH_LIST[$NDIR][$NVER] = $vers4match ;
 #	    print " xxx $vers -> '$vers4match' \n";
 	    $NVER++ ;
@@ -1282,7 +1329,7 @@ sub makeSumDir_SALT2mu {
     if ( $NVER_SKIP > 0 ) {
 	$MSGERR[0] = "Skipped $NVER_SKIP versions";
 	$MSGERR[1] = "check $NVERSION_MAX = $NVERSION_MAX" ;
-	sntools::FATAL_ERROR(@MSGERR);
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
     }
 
     # -----------
@@ -1299,12 +1346,16 @@ sub makeSumDir_SALT2mu {
 	$NDIR_MATCH = 1 ;  # always matches itself
 
 	for($idir=1; $idir < $NDIR; $idir++ ) {
-	    $iverMatch = &GET_IVERMATCH($VER_REF,$idir);
+	    if ( &require_one_version() == 1 )
+	    { $iverMatch = 0 ; }
+	    else
+	    { $iverMatch = &GET_IVERMATCH($VER_REF,$idir); }
 	    if ( $iverMatch >=0 ) {
 		$NDIR_MATCH++ ;
 		$IVERSION_4SUM_LIST[$idir][$NVERSION_4SUM] = $iverMatch ;
 	    }
 	} # idir
+
 	if ( $NDIR_MATCH == $NDIR ) {
 	    $IVERSION_4SUM_LIST[0][$NVERSION_4SUM]  = $iver ;
 	    $VERSION_4SUM_LIST[$NVERSION_4SUM]      = $VER_REF ;
@@ -1313,7 +1364,8 @@ sub makeSumDir_SALT2mu {
 	    $NVERSION_FINAL[0] = $NVERSION_4SUM ;
 #	    print "\t Found match for FITRES-sum: $VER_REF \n"; 
 
-	    if ( $SUBMIT_FLAG ) {	qx(mkdir $OUTDIR/$VER_REF); }
+	    if ( $SUBMIT_FLAG || $NOSUBMIT_FLAG ) 
+	    { qx(mkdir $OUTDIR/$VER_REF); }
 	}
 	else { 
 #	    print "\t Cound not match $VER_REF (NDIR_MATCH=$NDIR_MATCH)\n"; 
@@ -1355,7 +1407,7 @@ sub GET_IVERMATCH {
 	$MSGERR[1] = "VERSION=$VERSION and idir=$idir" ;
 	$MSGERR[2] = "(idir -> $INPDIR_SNFIT_LIST[$idir])" ;
 	$MSGERR[3] = "No more than 1 match allowed.";
-	sntools::FATAL_ERROR(@MSGERR);
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
     }
 
     return $iverMatch ;
@@ -1372,6 +1424,8 @@ sub VERSION_STRINGMATCH_IGNORE {
     # return $version with ignore-strings removed
     $version_out = $version ;
     
+    if ( &require_one_version() == 1 ) { return($version_out); }
+
     foreach $wd ( @STRINGMATCH_IGNORE_LIST ) {
 	$WD  = "$wd" ;
         $WD  =~ s/\+/\\\+/ ;  # add backslash in front of special char + sign 
@@ -1395,6 +1449,24 @@ sub VERSION_STRINGMATCH_IGNORE {
 
 } # end of VERSION_STRINGMATCH_IGNORE {
 
+
+# ==================================
+sub require_one_version {
+
+    # Mar 10 2010
+    # check option to ignore string matches, but this
+    # works only of there is one version per directory.
+
+    my($istat, $istat0, $istat1);
+    $istat0 =  ( "$STRINGMATCH_IGNORE" eq "IGNORE" ) ;
+    $istat1 =  ( "$STRINGMATCH"        eq "IGNORE" ) ;
+    $istat  =  ( $istat0 || $istat1 ) ;
+
+#    print " xxx require: stat = $istat0, $istat1, $istat \n";
+
+    return($istat);
+
+} # end require_one_version
 
 # ==================================
 sub copy_inpFiles {
@@ -1449,6 +1521,98 @@ sub copy_inpFiles {
 # ==================================
 sub cat_inpFiles {
 
+    # May 2020
+    # catenate FITOPT[nnn].FITRES from each INPDIR
+    # to make a summed fitres file.
+    #
+    # Use cat_snana_table utility which allows different
+    # columns in each fitres file.
+    #
+    # Note that input $IVER is a sparse verson index for the
+    # versions to sum.
+    #
+    # Compared to cat_inpFiles_legacy, this function
+    #  + allows different columns
+    #  + allows mix of gzipped and unzipped FITRES files
+
+    my ($ifitopt,$iver_sum) = @_ ;
+
+    my ($VERSION_4SUM, $VERSION_SNFIT, $INPDIR, $Ngzip, $Nunzip, $cdout);
+    my ($iver, $idir, $nnn, $ffile, $FFILE);
+    my ($CAT_DIR, $CATLIST, $CATFILE_OUT, $CMD_CAT, $CMD_GZIP, $CAT_LOG );
+
+    if ( $SUMMARY_FLAG ) { return ; }
+    if ( $FITOPT000_ONLY && $ifitopt > 0 ) { return ; }
+
+    $VERSION_4SUM = $VERSION_4SUM_LIST[$iver_sum] ;
+
+    # get comma-sep CATLIST of original VERSION-files to catenate
+
+    $CATLIST  = "" ;
+    $nnn      = sprintf("%3.3d", $ifitopt);
+    $ffile    = "FITOPT${nnn}.FITRES" ;
+    $Ngzip = $Nunzip  = 0 ;
+    
+    print "# -------------------------------------------------- \n";
+    print " Catenate input files for:  $VERSION_4SUM  $ffile\n";
+   
+    for($idir=0; $idir < $N_INPDIR; $idir++ ) {
+	$iver          = $IVERSION_4SUM_LIST[$idir][$iver_sum] ;
+	$VERSION_SNFIT = $VERSION_SNFIT_LIST[$idir][$iver];
+	$INPDIR        = $INPDIR_SNFIT_LIST[$idir] ;
+	
+	print "\t Add VERSION[$iver] = $VERSION_SNFIT \n";
+
+	$FFILE  = "${INPDIR}/${VERSION_SNFIT}/$ffile" ;
+
+	if ( -l $FFILE ) {
+	    my $symLink = readlink($FFILE);
+	    my $jslash = rindex($symLink,"/");  # location of last slash
+	    if ( $jslash < 0 ) 
+	    { $FFILE      = "${INPDIR}/${VERSION_SNFIT}/$symLink" ; }
+	    else
+	    { $FFILE = $symLink; }
+	}
+	if ( -e "$FFILE.gz" ) 	{ $Ngzip++; }
+	else                    { $Nunzip++ ; }
+
+	if ( $idir == 0 )    { $CATLIST = "$FFILE" ; }
+	else                 { $CATLIST = "$CATLIST,$FFILE" ; }
+	
+    }  # idir
+ 
+
+    $CAT_DIR     = "$OUTDIR_SALT2mu_LIST[0]/${VERSION_4SUM}" ;
+    $cdout       = "cd $CAT_DIR" ;
+    $CATFILE_OUT = "$CAT_DIR/$ffile" ;
+    $CAT_LOG     = "TMP_CAT.LOG" ;
+
+    $CMD_CAT  = "SALT2mu.exe cat_only  ";
+    $CMD_CAT .= "datafile=$CATLIST ";
+    $CMD_CAT .= "append_varname_missing='PROB*' " ;
+    $CMD_CAT .= "catfile_out=$CATFILE_OUT ";
+
+    $CMD_GZIP = "" ;
+    $CMD_GZIP = "gzip $CATFILE_OUT " ;
+    qx($CMD_CAT > $CAT_LOG ; rm $CAT_LOG );
+    if ( $Ngzip > 0 ) { qx($CMD_GZIP); }
+
+#    die "\xxx DEBUG DIE xxx\n";
+    $NTOT_FITRES++ ;
+
+    return ;
+#    print " xxx CATLIST = $CATLIST \n";
+#    print " xxx \t --> $CATFILE \n";
+
+} # end of cat_inpFiles
+
+
+# ==================================
+sub cat_inpFiles_legacy {
+
+    #
+    # !!!! May 2020: scheduled to become obsolte !!!!!!
+    #
     # catenate FITOPT[nnn].FITRES from each INPDIR
     # to make a summed fitres file.
     # Before doing the cat, make sure that NVAR and VARNAMES
@@ -1481,14 +1645,14 @@ sub cat_inpFiles {
     $ffile    = "FITOPT${nnn}.FITRES" ;
     $Ngzip = $Nunzip  = 0 ;
     
-    print "# ----------------------------------------- \n";
+    print "# -------------------------------------------------- \n";
     print " Catenate input files for:  $VERSION_4SUM  $ffile\n";
    
     for($idir=0; $idir < $N_INPDIR; $idir++ ) {
 	$iver          = $IVERSION_4SUM_LIST[$idir][$iver_sum] ;
 	$VERSION_SNFIT = $VERSION_SNFIT_LIST[$idir][$iver];
 	$INPDIR        = $INPDIR_SNFIT_LIST[$idir] ;
-
+	
 	print "\t Add VERSION[$iver] = $VERSION_SNFIT \n";
 
 	$FFILE  = "${INPDIR}/${VERSION_SNFIT}/$ffile" ;
@@ -1496,7 +1660,7 @@ sub cat_inpFiles {
 	if ( -l $FFILE ) {
 	    my $symLink = readlink($FFILE);
 	    my $jslash = rindex($symLink,"/");  # location of last slash
-	    if ( $jslash < 0 ) # .xyz
+	    if ( $jslash < 0 ) 
 	    { $FFILE      = "${INPDIR}/${VERSION_SNFIT}/$symLink" ; }
 	    else
 	    { $FFILE = $symLink; }
@@ -1510,7 +1674,7 @@ sub cat_inpFiles {
 	
     }  # idir
  
-    # make sure that NVAR and VARNAMES match in each fitres file
+    # make sure that VARNAMES match in each fitres file
     &verify_CATLIST($CATLIST);
 
     # May 1 2018: do not allow mix of gzip and unzip
@@ -1518,7 +1682,7 @@ sub cat_inpFiles {
 	$MSGERR[0] = "Ngzip=$Ngzip  and  Nunzip=$Nunzip" ;
 	$MSGERR[1] = "All input FITRES files must be zipped, or unzipped";
 	$MSGERR[2] = "Cannot mix.";
-	sntools::FATAL_ERROR(@MSGERR);
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
     }
 
     $cdout   = "cd $OUTDIR_SALT2mu_LIST[0]/${VERSION_4SUM}" ;
@@ -1536,10 +1700,11 @@ sub cat_inpFiles {
     
     $NTOT_FITRES++ ;
 
+    return ;
 #    print " xxx CATLIST = $CATLIST \n";
 #    print " xxx \t --> $CATFILE \n";
 
-} # end of cat_inpFiles
+} # end of cat_inpFiles_legacy
 
 
 # =====================
@@ -1559,8 +1724,6 @@ sub verify_CATLIST {
     
     @fList = split(/\s+/,$CATLIST) ;
     $NFILE = 0 ;
-
-
 
     foreach $f (@fList) {  
        
@@ -1584,7 +1747,7 @@ sub verify_CATLIST {
 		$MSGERR[0] = "Found mis-matched variable in VARNAMES list.";
 		$MSGERR[1] = "VARNAME($ivar) = $V in \n\t $f" ;
 		$MSGERR[2] = "but VARNAME($ivar) = $V_REF in \n\t $fList[0]";
-		sntools::FATAL_ERROR(@MSGERR);
+		sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
 	    }
 	}
     }
@@ -1673,6 +1836,7 @@ sub make_COMMANDS {
     my ($NDIR, $NVER, $idir, $iver, $ifitopt );
     $NTOT_JOBS = 0 ;    $icpu = 0 ;
     $NDIR = scalar(@OUTDIR_SALT2mu_LIST) ;
+
     for($idir=0 ; $idir < $NDIR; $idir++ ) {
 	$NVER   = $NVERSION_FINAL[$idir] ;
 	for ( $iver=0; $iver  < $NVER; $iver++ ) {
@@ -1699,9 +1863,9 @@ sub make_COMMANDS {
 	print "\n PRE-ABORT DUMP: \n";
 	&matchDump();
 		    
-	$MSGERR[0] = "No SALT2mu jobs found.";
+	$MSGERR[0] = "No SALT2mu jobs found in make_COMMANDS() .";
 	$MSGERR[1] = "Probably a stringMatch problem";
-	sntools::FATAL_ERROR(@MSGERR);
+	sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
     }
     
     if ( $NCPU > $NTOT_JOBS ) {	
@@ -1899,7 +2063,7 @@ sub prep_COMMAND {
 	my $MAKETABLE_HBOOK = 0;
 	if ( $MAKETABLE_HBOOK ) {
 	    $JOBNAME   = "$JOBNAME_MAKETABLE" ;
-	    $argOut    = "--outprefix $SPREFIX" ;
+	    $argOut    = "-outprefix $SPREFIX" ;
 	    $COMBINE_ARGS   = "${out_FITRES} $COMBINE_FMTARG $argOut" ;
 	    $combLog        = "combine_${SPREFIX}.LOG" ;
 	    $combText       = "${SPREFIX}.text" ;  # Jun 17 2016
@@ -2147,22 +2311,6 @@ sub wait_for_done {
 	@tmp = qx(grep ' ABORT ' $OUTDIR/*/SALT2*.LOG );
 	$NJOB_ABORT += scalar(@tmp);       
     }
-
-# xxxxxxxx mark delete Sep 29 2019 xxxxxxxxxx
-#    if ( $NJOB_ABORT > 0 )  
-#    { $msg = "FAILED  ($NABORT ABORTS)"; }
-#    else
-#    { $msg = "SUCCESS" ; }
-#
-#    print " Final STATUS for DONE file: $msg \n";
-#    qx(echo '$msg' >> $ALLDONE_FILE);
-#
-# Sep 12 2019: optional user-done file from DONE_STAMP key
-#    if ( $DONE_STAMP_FILE ne "" ) {
-#	qx(echo '$msg' >> $DONE_STAMP_FILE );
-#    }
-# xxxxxxxxxxxxxxxxx end mark xxxxxxxxxxxxxx
-
 
 }  # end of wait_for_done
 

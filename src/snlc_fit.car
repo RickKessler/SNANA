@@ -262,7 +262,7 @@ c variable indices for I4EP_
       INTEGER
      &   IEP_IMJD, IEP_EPOCH, IEP_IDTEL
      &  ,IEP_IFILT, IEP_IFILT_OBS, IEP_IFILT_REST1, IEP_IFILT_REST2
-     &  ,IEP_REJECT
+     &  ,IEP_REJECT, IEP_REJECT2
 
 c variable indices for R4EP_
       INTEGER   
@@ -273,7 +273,8 @@ c variable indices for R4EP_
      &  ,JEP_MODELMAG,  JEP_MODELMAG_ERR
      &  ,JEP_FLUX_ERRTOT, JEP_RATIO, JEP_RATIO_ERR
      &  ,JEP_LAMREST, JEP_AVWARP, JEP_KCOR, JEP_KCOR_ERR
-     &  ,JEP_DATAFLUX_REST, JEP_MODELMAG_REST, JEP_FUDGEFLUX_ERR
+     &  ,JEP_DATAFLUX_REST, JEP_MODELMAG_REST
+     &  ,JEP_FUDGEFLUX_ERR, JEP_FUDGE_MAXFRAC
      &  ,JEP_RESID, JEP_RESID_ERR, JEP_MAGDIF, JEP_DELCHI2
      &  ,JEP_XTHOST, JEP_MWXT, JEP_MWXT_MAGERR, JEP_MWXT_FLUXERR
      &  ,JEP_FPKRAT, JEP_FPKRATERR
@@ -294,6 +295,7 @@ c for I4EP_XXX
      &  ,IEP_IFILT_REST1     = 6  ! absolute filter index, nearest rest-filter
      &  ,IEP_IFILT_REST2     = 7  ! idem, 2nd nearest rest-frame filter
      &  ,IEP_REJECT          = 8  ! flag to reject epoch from fit
+     &  ,IEP_REJECT2         = 9  ! rejected inside Trest window (Mar 2020)
 c
 c for R4EP_XXX
      &  ,JEP_MJD              = 1
@@ -346,6 +348,7 @@ c for R4EP_XXX
      &  ,JEP_SIM_FLUXREST  = 48
      &  ,JEP_SIM_FLUXCAL   = 49  ! for LSIM_MAGOBS = T
      &  ,JEP_SIM_DELCHI2   = 50  ! chi2 from data-sim flux diff
+     &  ,JEP_FUDGE_MAXFRAC = 51
      &     )
 
 c EP_XXX refers to "IMJD" variables stored at end of fit.
@@ -537,12 +540,13 @@ c namelist input variables.
      &   ,FILTER_FITMAGDIF*4      ! fit magObs in this filter 2 ways for test
 
       CHARACTER
-     &   FILTLIST_FITRESTMAG*12     ! fit for this restMag filter
+     &   FILTLIST_FITRESTMAG*12     ! fit for these restMag filters
       REAL 
      &   LUMIFIX_FITRESTMAG       ! fix shape par to this value (legacy name)
      &  ,SHAPEFIX_FITRESTMAG      ! same as above
      &  ,COLORFIX_FITRESTMAG      ! fix color par to this value
      &  ,LAMEXTRAP_FITRESTMAG     ! allow this much rest-frame extrapolation
+     &  ,DLAMTOL_FITRESTMAG       ! allow this lam-tolerance for closest bands
 
       LOGICAL
      &    DOFIT_FILT(0:MXFILT_ALL)
@@ -624,6 +628,7 @@ c
      &  ,INISTP_SHAPE2      ! initial step for 2nd shape-par
 c
      &  ,INIVAL_PEAKMJD       ! initial value for MJD  (days)   
+     &  ,INIVAL_PEAKMJD_SHIFT   ! shift INIVAL_PEAKMJD by this much
      &  ,INIVAL_RV            ! initial value for RV
      &  ,INIVAL_AV            ! initial value for AV
      &  ,INIVAL_AVRV          ! 
@@ -747,7 +752,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,FILTLIST_FIT
      &   ,FILTLIST_DMPFCN, FILTER_FITMAGDIF, DUMB_DEBUG
      &   ,FILTLIST_FITRESTMAG, LUMIFIX_FITRESTMAG, SHAPEFIX_FITRESTMAG
-     &   ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG
+     &   ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG, DLAMTOL_FITRESTMAG
      &   ,FILTLIST_DMPFUN, TREST_DMPFUN, SCALE_PLOTCHI2
      &   ,NEARFILT_IGNORE_REST, FILTLAM_SHIFT
      &   ,DOFIT_FILT, DOFIT_PHOTOZ, SKIP_PHOTOZ_INIT
@@ -773,7 +778,8 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV
      &   ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR
      &   ,INISTP_SHAPE, INISTP_SHAPE2
-     &   ,INIVAL_PEAKMJD, INIVAL_AV, INIVAL_RV, INIVAL_AVRV
+     &   ,INIVAL_PEAKMJD, INIVAL_PEAKMJD_SHIFT
+     &   ,INIVAL_AV, INIVAL_RV, INIVAL_AVRV
      &   ,INIVAL_DLMAG, INIVAL_PHOTOZ, INIVAL_COLOR, INIVAL_X0
      &   ,INIVAL_SHAPE, INIVAL_SHAPE2, INIVAL_SHIFT_ERRFRAC
      &   ,FRACERRDIF_REPEATFIT
@@ -815,7 +821,7 @@ c ------
      &   ,FILTLIST_FIT
      &   ,FILTLIST_DMPFCN, FILTER_FITMAGDIF, DUMB_DEBUG
      &   ,FILTLIST_FITRESTMAG, LUMIFIX_FITRESTMAG, SHAPEFIX_FITRESTMAG
-     &   ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG
+     &   ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG, DLAMTOL_FITRESTMAG
      &   ,FILTLIST_DMPFUN, TREST_DMPFUN, SCALE_PLOTCHI2
      &   ,NEARFILT_IGNORE_REST, FILTLAM_SHIFT
      &   ,DOFIT_PHOTOZ, SKIP_PHOTOZ_INIT
@@ -841,7 +847,8 @@ c ------
      &   ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV
      &   ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR
      &   ,INISTP_SHAPE, INISTP_SHAPE2
-     &   ,INIVAL_PEAKMJD, INIVAL_AV, INIVAL_RV, INIVAL_AVRV
+     &   ,INIVAL_PEAKMJD, INIVAL_PEAKMJD_SHIFT
+     &   ,INIVAL_AV, INIVAL_RV, INIVAL_AVRV
      &   ,INIVAL_DLMAG, INIVAL_PHOTOZ, INIVAL_COLOR, INIVAL_X0
      &   ,INIVAL_SHAPE, INIVAL_SHAPE2, INIVAL_SHIFT_ERRFRAC
      &   ,FRACERRDIF_REPEATFIT
@@ -1008,7 +1015,6 @@ c Mar 2013: for FILTER_FITMAGDIF option
     
 +KEEP,FITRESTCOM.
 
-
 +CDE,ALLFILTCOM.
 
 c for option to fit peakMag in rest-frame filter
@@ -1027,7 +1033,7 @@ c for option to fit peakMag in rest-frame filter
      &  ,ITERLAST_FITRESTMAG(MXFILT_FITRESTMAG) ! last iteration vs. IFILTSP
      &  ,NFILTDEF_SURVEY_ORIG
      &  ,NLCPLOT_FITRESTMAG
-     &  ,IFILTOBS_BRACKET(2)
+     &  ,IFILTOBS_BRACKET(MXFILT_FITRESTMAG)
      &  ,IPAROFF_FITRESTMAG  ! IPAR offset for LCVAL_STORE
 
       REAL   
@@ -1106,7 +1112,7 @@ C ===================================
 +USE,P=*HFUNS,T=EXE.
 
 C ===========================================
-+DECK,FPAR_INI.
++DECK,FITPAR_INI.
       SUBROUTINE FITPAR_INI(IERR)
 c
 c User init: (read input, open files, etc ...)
@@ -1656,7 +1662,7 @@ c ----
       END  ! end of FITPAR_INI
 
 C ===========================================
-+DECK,FPARINI2.
++DECK,FITPAR_INI2.
       SUBROUTINE FITPAR_INI2(IERR)
 c
 c Created May 2012 by R.Kessler
@@ -1718,7 +1724,7 @@ c not yet been filled.
       END  ! end FITPAR_INI2
 
 C ===========================================
-+DECK,FPAREND.
++DECK,FITPAR_END.
       SUBROUTINE FITPAR_END(IERR)
 c
 c User end-routine after all analysis/fits are done. 
@@ -1752,7 +1758,7 @@ C ------------------- BEGIN ---------------------
       END
 
 C ==========================================
-+DECK,FPAR_PREP.
++DECK,FITPAR_PREP.
       SUBROUTINE FITPAR_PREP ( iter, IERR )
 c
 c For each "isn" supernova, this user-routine is used to
@@ -2081,7 +2087,7 @@ c ---------------
 
 
 C =====================================
-+DECK,FINI_EPVAR.
++DECK,FITINI_EPVAR.
       SUBROUTINE FITINI_EPVAR(ITER)
       IMPLICIT NONE
 
@@ -2156,7 +2162,7 @@ c init filter-dependent variables.
 
 
 C ===================================================
-+DECK,FPAR_ANA.
++DECK,FITPAR_ANA.
       SUBROUTINE FITPAR_ANA ( isn, iter, ERRFLAG )
 c
 c User-routine to analyze fit results after each SN.
@@ -2194,6 +2200,10 @@ c
 c Jun 21 2018: 
 c   check CRAZYFITERR on every iteration to check for NaN
 c
+c Feb 28 2020:
+c   set ERRFLAG = -1 (repeat iter) if both ITER1_MAXFRAC and 
+c   DELCHI2_REJECT are set. Fixes long-standing bug.
+c
 c --------------------------------------------------
 
       IMPLICIT NONE
@@ -2216,7 +2226,8 @@ c local var
      &   IFILT, IFILT_OBS, CID, LCID, IERR, NFIT_PLOT
      &  ,OPT, hid, i, IERR_MARG
 
-      LOGICAL DOLC_PLOT, LFITOK,  LAST, DO_REFIT
+      LOGICAL DOLC_PLOT, LFITOK,  FIRST, LAST, DO_REFIT
+      LOGICAL LMAXFRAC, LCHI2REJ
       REAL FRACERRDIF
       character sdir*20, chis*40, ccid*(MXCHAR_CCID)
 
@@ -2227,6 +2238,7 @@ C -------------------- BEGIN ---------------
 
       ERRFLAG  = 0   ! init output to "accept"
       LAST     = ITER .EQ. NFIT_ITERATION
+      FIRST    = ITER .EQ. 1
 
       CID   = SNLC_CID
       CCID  = SNLC_CCID      
@@ -2432,7 +2444,7 @@ c See input namelist "SNMJD_LIST_FILE"
       END      ! end of FITPAR_ANA
 
 C ================================================
-+DECK,CRAZYERR.
++DECK,CRAZYFITERR.
       LOGICAL FUNCTION CRAZYFITERR(isn,iter)
 
 c Returns TRUE if a crazy fit error is identified.
@@ -2928,7 +2940,8 @@ c
 c Jun 24 2018: pass NONE argument to INIT_GENMAG_SALT2
 c
 c Jul 09 2019: call set_UVLAM_EXTRAPFLUX_SEDMODEL
-c
+c 
+c Apr 20 2020: fix dimenstion of TMP_FITMODEL to allow paths
 c ---------------------------------------------------------
 
       IMPLICIT NONE
@@ -2960,7 +2973,8 @@ c local var
 
       CHARACTER 
      &   tmpname*20
-     &  ,TMP_FITMODEL*(MXCHAR_MODELNAME)
+cc xxxx     &  ,TMP_FITMODEL*(MXCHAR_MODELNAME)
+     &  ,TMP_FITMODEL*(MXCHAR_FILENAME)
      &  ,BLANK*8
      &  ,CFILT1*2
      &  ,cfilt*(MXFILT_ALL)
@@ -4051,6 +4065,10 @@ c Jul 13 2019:
 c   + compute RATIO_ERR only if LFLAG_USER=T (to reduce compute time)
 c   + apply SNR_RAW cut to compute R4SN_FFSUM_XXX
 c
+c Feb 28 2020: 
+c   define DELCHI2_NOFUDGE to make test with DELCHI2_REJECT;
+c   fixes long-standing bug when FUDGEALL_ITER1_MAXFRAC is set.
+c
 c ---------------------------------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM. 
@@ -4090,7 +4108,7 @@ c local arguments
      &  ,errtmp, arg, RATIO, RATIO_ERR, WGT, MAGDIF, SNR_FIT, SNR_RAW
      &  ,AVwarp, mag_kcor(2), mag_tmp, mag_err
      &  ,dif, sqdif, sqsig, inv_sqsig, sqsig_nofudge
-     &  ,delchi2, delchi2_diag, delchi2_sigma
+     &  ,delchi2, delchi2_diag, delchi2_sigma, delchi2_nofudge
      &  ,chi2filt_sigma(MXFILT_OBS),chi2sum_sigma,chi2filt(MXFILT_OBS)
      &  ,errfrac, DEL_FLUX(MXFIT_DATA)
      &  ,FF, COV_INV, x1, DT1, DT2, CHI2PRIOR(0:MXFITPAR)
@@ -4103,8 +4121,10 @@ c local arguments
      &  ,LFLAG_USESIM    ! use SIM params instead of XVAL (IFLAG=99)
      &  ,LFLAG_FAST      ! speed up if possible (for pdf integration)
      &  ,LFLAG_FIT, LFLAG_PRIOR_ONLY, LFLAG_SIGMA_ONLY
-     &  ,LAST, LDMPFCN_LOC, LDMPFUN_LOC, LREJECT, LFITDATA  
+     &  ,LAST, LDMPFCN_LOC, LDMPFUN_LOC, LREJECT, LREJECT2, LFITDATA  
      &  ,FIRSTFILT, LASTFILT, LMWCOR, LIGNORE, LTMP, LMUFIX, LPOSFLUX
+     &  ,FIRST_ITER
+     &  ,REJECT_TREST, REJECT_MJD, REJECT_SIGNOISE, REJECT_DELCHI2
 
       CHARACTER CVAR*8, star*1
       REAL*8 delchi2_off(2000)
@@ -4151,6 +4171,8 @@ c extract parameters into local variables
       ITER       = int ( XVAL(IPAR_ITER) )
       ISN        = int ( XVAL(IPAR_ISN)  )
       if ( ITER .EQ. 0 .OR. ISN .EQ. 0 ) RETURN
+
+      FIRST_ITER = FIRST_ITERATION(ITER) 
 
       COLORPAR    = XVAL(IPAR_AV)       !  AV or c
       AVRV        = XVAL(IPAR_AVRV) 
@@ -4360,11 +4382,14 @@ c always evaluate simple chi2 ignoring covariance
 
         flux_errtot = dsqrt(sqsig)
                 
-        delchi2 = sqdif * inv_sqsig
+        delchi2         = sqdif * inv_sqsig
+        delchi2_nofudge = sqdif/sqsig_nofudge
+        IF ( RESTORE_DES3YR ) delchi2_nofudge = delchi2
 
         IF ( LFLAG_SIGMA_ONLY ) THEN
-          delchi2       = 0.0
-          delchi2_diag  = 0.0
+          delchi2         = 0.0
+          delchi2_diag    = 0.0
+          delchi2_nofudge = 0.0
         ENDIF
 
 c 5/08/2009: tack on chi2 from model-error (2nd iter only)
@@ -4494,28 +4519,36 @@ c data/Model ratio
 
 c check for epochs to reject at end of 1st iteration only (note LAST=T here)
 
-            if ( FIRST_ITERATION(iter) ) then
+           if ( FIRST_ITER .and. IFLAG <= 4 ) then  ! includes iter=1 repeat
 
               signoise_data  = flux_data  / flux_data_errtot
               signoise_model = flux_model / flux_data_errtot
-              
+
+              REJECT_TREST   = 
+     &           (Trest < FITWIN_TREST_FILT(1,ifilt_obs) ) .or. 
+     &           (Trest > FITWIN_TREST_FILT(2,ifilt_obs) )
+              REJECT_MJD = 
+     &          (MJD < FITWIN_MJD(1)) .or. (MJD > FITWIN_MJD(2))
+
+              REJECT_DELCHI2  = (delchi2_nofudge  > DELCHI2_REJECT  )
+              REJECT_SIGNOISE = (signoise_data < SIGNOISE_REJECT)
+
               LREJECT  = 
-     &              (delchi2   .GT. DELCHI2_REJECT  )
-     &        .or.  (Trest     .LT. FITWIN_TREST_FILT(1,ifilt_obs) )
-     &        .or.  (Trest     .GT. FITWIN_TREST_FILT(2,ifilt_obs) )
-     &        .or.  (MJD       .LT. FITWIN_MJD(1)   )
-     &        .or.  (MJD       .GT. FITWIN_MJD(2)   )
-     &        .or.  (signoise_data  .LT. SIGNOISE_REJECT )
+     &              REJECT_DELCHI2 .or. REJECT_SIGNOISE .or. 
+     &              REJECT_TREST   .or. REJECT_MJD
               
+              LREJECT2  = 
+     &            (REJECT_DELCHI2 .or. REJECT_SIGNOISE) .and.
+     &            (.not. REJECT_TREST )
+
               if ( epoch < MXFIT_DATA ) then
-                if ( LREJECT ) then 
-                   I4EP_ALL(epoch,IEP_REJECT) = 1
-                else
-                   I4EP_ALL(epoch,IEP_REJECT) = 0
-                endif
+                I4EP_ALL(epoch,IEP_REJECT)  = 0
+                I4EP_ALL(epoch,IEP_REJECT2) = 0
+                if ( LREJECT  ) I4EP_ALL(epoch,IEP_REJECT)  = 1          
+                if ( LREJECT2 ) I4EP_ALL(epoch,IEP_REJECT2) = 1  ! Mar 2020
               endif
 
-           endif
+           endif  ! end FIRST_ITERATION
 
            if ( LFITDATA .and. (.NOT.LFLAG_USESIM) ) then
 
@@ -6131,7 +6164,7 @@ c check both upper & lower case
          ENDIF
 20    CONTINUE
 
-c May 31 2019 hack: if SALT3, switch to SALT2 to avoid lots of code refactoring.
+c May 31 2019 hack: if SALT3, switch to SALT2 to avoid lots of code refactor.
       if ( FITMODEL_INDEX == MODEL_SALT3 ) FITMODEL_INDEX=MODEL_SALT2
 
 c abort if FITMODEL_INDEX has not been found.
@@ -6687,7 +6720,8 @@ c to reject crazy fits
       INISTP_X0        = 1.0E-5
       INISTP_PHOTOZ    = 0.0
 
-      INIVAL_PEAKMJD   = NULLVAL
+      INIVAL_PEAKMJD       = NULLVAL
+      INIVAL_PEAKMJD_SHIFT = 999999.
       INIVAL_AV        = NULLVAL
       INIVAL_RV        = RV_MWCOLORLAW
       INIVAL_AVRV      = 0.1
@@ -6854,6 +6888,7 @@ c Aug 17 2015: from snlc_sim.defaults since this is no longer read
       LUMIFIX_FITRESTMAG   = 999.  ! crazy value -> use best-fit value
       SHAPEFIX_FITRESTMAG  = 999. 
       LAMEXTRAP_FITRESTMAG = 0.0 
+      DLAMTOL_FITRESTMAG   = 0.0  ! Mar 28 2020
 
       FILTLIST_FIT    = ''
       FILTLIST_DMPFCN = ''
@@ -7545,6 +7580,10 @@ c ------------
             i = i + 1
             READ(LINE_ARGS(i),*) INIVAL_PEAKMJD
 
+         else if ( LINE_ARGS(i) .EQ. 'INIVAL_PEAKMJD_SHIFT' ) then
+            i = i + 1
+            READ(LINE_ARGS(i),*) INIVAL_PEAKMJD_SHIFT
+
          else if ( LINE_ARGS(i) .EQ. 'INISTP_SHAPE' ) then
             i = i + 1
             READ(LINE_ARGS(i),*) INISTP_SHAPE
@@ -7620,6 +7659,10 @@ c --------------
          else if ( LINE_ARGS(i) .EQ. 'LAMEXTRAP_FITRESTMAG' ) then
             i = i + 1
             READ(LINE_ARGS(i),*)  LAMEXTRAP_FITRESTMAG 
+
+         else if ( LINE_ARGS(i) .EQ. 'DLAMTOL_FITRESTMAG' ) then
+            i = i + 1
+            READ(LINE_ARGS(i),*) DLAMTOL_FITRESTMAG 
 
 c --------
          else if ( LINE_ARGS(i) .EQ. 'FILTLIST_FIT' ) then
@@ -7729,13 +7772,16 @@ c
 c Dec 5 2013: remove ISN arg, and set SIMCHI2_CHEAT=0
 c
 c Aug 29 2017: check DOFIT_IDEAL
-
+c
+c Apr 13 2020: fix INISTP[VAL]_SHAPE logic for MLCS2k2 and SNOOPY
+c
 c ----------------------------------------
 
       IMPLICIT NONE
 +CDE,SNDATCOM. 
 +CDE,SNANAFIT.
 +CDE,SNFITCOM.
++CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,FITIDEALCOM.
 
@@ -7894,12 +7940,15 @@ c Mar 24, 2012: set bound on AV and DELTA (for photoz fit)
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SNOOPY ) THEN
 
-         INIVAL(IPAR_SHAPE)    =  1.1
+         if (INIVAL_SHAPE==NULLVAL) INIVAL(IPAR_SHAPE) = 1.1
+         INISTP(IPAR_SHAPE)    =  INISTP_SHAPE
+         INIVAL(IPAR_COLOR)    =  INIVAL_AV
+         INISTP(IPAR_COLOR)    =  INISTP_AV
 
       ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
 
-         INIVAL(IPAR_SHAPE)   =  0.001 !  INIVAL_SHAPE
-         INISTP(IPAR_SHAPE)   =  INISTP_SHAPE    ! initial step size         
+         if (INIVAL_SHAPE==NULLVAL) INIVAL(IPAR_SHAPE) = 0.001
+         INISTP(IPAR_SHAPE)   =  INISTP_SHAPE    ! initial step size 
          
          INIVAL(IPAR_COLOR)    =  INIVAL_COLOR
          INISTP(IPAR_COLOR)    =  INISTP_COLOR
@@ -8005,6 +8054,7 @@ c ------------------------
 c check if user has specified any INITIAL values.
 c To fix a parameter value, must also set INISTP_XXX = 0.0
 
+
       IF ( INIVAL_PEAKMJD .GT. 40000. )
      &     INIVAL_PEAKMJD = INIVAL_PEAKMJD - MJDOFF 
 
@@ -8065,12 +8115,12 @@ c now check if want to fix a parameter with the simulated value.
                INISTP(ipar) = 0.0
 
                IF ( ipar .EQ. IPAR_PEAKMJD ) then
-                  INIVAL(ipar) = INIVAL(ipar) - MJDOFF ! Nov 2013
+                  INIVAL(ipar) = INIVAL(ipar) - MJDOFF         ! Nov 2013
+                  INIVAL(ipar) = INIVAL(ipar) + SHIFT_SETPKMJD ! May 2020
                ENDIF
             endif
          enddo
-      ENDIF
-
+      ENDIF  ! end LSIM_SNANA
 
 c set FITVAL on 1st interation since this array
 c are used in the ADJUST & FITINI_XXXX routines.
@@ -8146,7 +8196,7 @@ c FCNSNLC args
 
 C --------------- BEGIN -----------------
 
-      IF ( USE_SNHOST_ZPHOT .and. OPT_DEBUG .ne. 444 ) THEN
+      IF ( USE_SNHOST_ZPHOT  ) THEN
          c1err = '&SNLCINP input USE_SNHOST_ZPHOT=T'
          c2err = 'not allowed with photo-z fits'
          CALL MADABORT('FITINI_PHOTOZ', c1err, c2err)    
@@ -8562,7 +8612,7 @@ c local var
       CHARACTER PARNAME*20
 
 c function
-      REAL*8 GET_DIST8, USRFUN, UNIX_RANDOM, FLATRAN1
+      REAL*8 GET_DIST8, USRFUN
       EXTERNAL USRFUN
 
 C ------------ BEGIN ----------
@@ -8785,27 +8835,6 @@ c --------------------------------------------
         PARMAX  = INIVAL(IPAR)
         PARBIN  = 0.0
 
-+SELF,IF=XXXREMOVE.
-c xxxxxxxxx mark delete Jul 2019 xxxxxxxxx
-      ELSE IF ( LREPEAT_ITER ) THEN
-
-        PARLAST  = FITVAL(IPAR,ITER)
-        DIF      = BND_LOCAL(2) - BND_LOCAL(1)
-        PARMIN   = PARLAST - DIF/4.0  ! (hard-wire)
-        PARMAX   = PARLAST + DIF/4.0
-        PARMIN   = MAX ( PARMIN, BND_LOCAL(1) )
-        PARMAX   = MIN ( PARMAX, BND_LOCAL(2) )
-
-        IF ( DO_COLOR ) THEN
-           NBIN  = int(5.*(PARMAX-PARMIN) ) + 1       ! hard-wire
-        ELSE
-           NBIN  = 3  ! stretch/lumi bins
-        ENDIF
-
-        NBIN = NBIN * ISCALE_COURSEBIN_PHOTOZ
-        PARBIN   = (PARMAX - PARMIN) / DBLE(NBIN)
-c xxxxxxxxxx end mark xxxxxxxxxxxx
-+SELF.
       ELSE
         PARMIN  = BND_LOCAL(1)
         PARMAX  = BND_LOCAL(2)
@@ -8837,6 +8866,9 @@ c
 c Aug 30 2017: use function FIRST_ITERATION instead of test on ITER.
 c              --> accomodate SIMFIT_IDEAL logic
 c
+c Mar 4 2020
+c  + modify PKMJD sweep from -2, 2 in 1 day bins, to -4 to +4 in 2 day bins.
+c  + remove CHI2TEST on 5*NEPOCH
 c ----------------------------------------
 
       IMPLICIT NONE
@@ -8955,7 +8987,8 @@ c Now check PEAKMJD by testing 1/2-sigma steps
       IF ( INISTP_PEAKMJD .EQ. 0.0 ) GOTO 444
 
       CHI8MIN = CHI8INI
-      DO i = -2, 2
+ccc xxx mark delete     DO i = -2, 2
+      DO i = -4, 4, 2   ! Mar 4 2020
         Xsig                 = 0.5 * float(i)
         PEAKMJD_STP          = Xsig * INISTP(IPAR_PEAKMJD) 
         INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI + PEAKMJD_STP
@@ -8970,9 +9003,7 @@ c Now check PEAKMJD by testing 1/2-sigma steps
 
 c load inital PEAK MJD and re-run FCNSNLC to update EP_FLUX_MODEL
 
-      CHI8TEST = DBLE ( 5 * NEPOCH_ALL(0) )
-      IF ( CHI8MIN .LT. CHI8TEST .and. 
-     &     CHI8MIN .LT. CHI8INI) THEN
+      IF ( CHI8MIN < CHI8INI ) THEN
         INIVAL(IPAR_PEAKMJD) = PEAKMJD_SAVE  ! save new PEAKMJD
       ELSE
         INIVAL(IPAR_PEAKMJD) = PEAKMJD_INI
@@ -9134,6 +9165,8 @@ c               filter for case-insensitive ntuple.
 c
 c Jun 24 2013: always ignore FILTER_REPLACE filters for plotting.
 c
+c Mar 5 2020: ad NPTFIT_REJECT (due to DELCHI2)
+c
 c -----------------
 
       IMPLICIT NONE
@@ -9214,6 +9247,9 @@ c add chi2 info for global fit.
       NPLOTPAR        =  NPLOTPAR + 1
       PARNAME_STORE(NPLOTPAR) = 'NDOF'
       PAROPT_STORE(NPLOTPAR)  = OPT_PARSTORE_TEXTTABLE 
+
+      NPLOTPAR        =  NPLOTPAR + 1
+      PARNAME_STORE(NPLOTPAR) = 'NPTFIT_REJECT'  ! Mar 2020
 
       NPLOTPAR        =  NPLOTPAR + 1
       PARNAME_STORE(NPLOTPAR) = 'FITCHI2'
@@ -9453,6 +9489,8 @@ c Feb 23 2015: call COVFUDGE_DATA.
 c              Rename RHOFUDGE() -> RHOFUDGE_MODEL().
 c
 c July 2016:  pass x0, RV & AV arg to gencovar_SALT2()
+c
+c Feb 2020: add OPT_COVAR_MWXT==2 option to include only DIAG part.
 c 
 c ----------------------------------------------------------
 
@@ -9488,6 +9526,7 @@ c local var
 
       LOGICAL 
      &  LPRINT, USE_DIAG_ONLY, LTMP, LDIAG, FIRST_ITER, CHECK_COV
+     & ,LMWXT
 
       character BANNER*60, ccid*(MXCHAR_CCID)
 
@@ -9529,7 +9568,6 @@ c  Fill R4EP_XXX and I4EP_XXX arrays.
 c -------------------------------
 c load some local arrays.
 
-cc        DO N = 1, NEPOCH_ALL(0)
         DO N = 1, NFITDATA_TOTAL
            ep = EPLIST_FIT(N)
 
@@ -9754,10 +9792,12 @@ c applied to R4EP_MODELFLUX_ERR
 c check option to turn off model error.
          IF ( FUDGE_MAGERR_MODEL .EQ. 0.0 ) COV_MODEL = 0.0
          
-c  add XTMW full covariance if option is set
-         IF ( OPT_COVAR_MWXTERR > 0 ) THEN
+c check for XTMW covariance
+         LMWXT = (OPT_COVAR_MWXTERR == 1) .or.        ! full COV
+     &           (OPT_COVAR_MWXTERR == 2 .and. LDIAG) ! diag only 
+         IF ( LMWXT ) THEN
             ERR1 = R4EP_ALL(ep_row,JEP_MWXT_FLUXERR)
-            ERR2 = R4EP_ALL(ep_col,JEP_MWXT_FLUXERR)
+            ERR2 = R4EP_ALL(ep_col,JEP_MWXT_FLUXERR)          
             COV_MWXT = ERR1 * ERR2
          ENDIF
 
@@ -9844,7 +9884,7 @@ c local var
 
       INTEGER 
      &   IFILT, IFILT_OBS, IREJ, IMJD, ep, EPMIN, EPMAX
-     &  ,IDTEL, N, OPT, IF1, IF2, ifit, ivar, REJECT
+     &  ,IDTEL, N, OPT, IF1, IF2, ifit, ivar, REJECT, REJECT2
 
       INTEGER ITER_DMP / -1 /
       REAL 
@@ -9856,7 +9896,7 @@ c local var
 
       REAL*8 FTMP8, MAGERR8, MJD8
 
-      LOGICAL LTMP, LREJECT
+      LOGICAL LTMP, LREJECT, LREJECT2
 
       character cfilt*1
 
@@ -9876,6 +9916,7 @@ C ----------------- BEGIN ----------------
          NEPOCH_FIT(ifilt)    = 0
          NEPOCH_REJECT(ifilt) = 0
       ENDDO
+      NEPOCH_REJECT2 = 0
 
       Z = REDSHIFT_FIT
       Z1 = 1. + z
@@ -9894,7 +9935,7 @@ c previous iteration values are needed; e.g. FCNCHI2_SIGMA
       
 c ---------------------------------
       
-      DO 200 IREJ      = 0, 1
+      DO 200 IREJ      = 0, 1  ! 0=keep, 1=reject
 
       DO 101 IMJD      = 1, ISNLC_NEWMJD_STORE
 
@@ -9942,14 +9983,26 @@ c flux-error is negative
 cc mark delete May 2016        if ( fluxerr_data .LE.  0.0  ) goto 102
 
 c check if this epoch is rejected
-        REJECT  = I4EP_ALL(ep,IEP_REJECT)
-        LREJECT = (iter > 1  .and. REJECT .EQ. 1)
+        REJECT   = I4EP_ALL(ep,IEP_REJECT)
+        REJECT2  = I4EP_ALL(ep,IEP_REJECT2)
+
+        LREJECT  = (iter > 1  .and. REJECT  > 0)
+        LREJECT2 = (iter > 1  .and. REJECT2 > 0)
+
+c count rejected epochs witing TREST window
+        IF ( LREJECT2 .and. IREJ .EQ. 1 ) then
+           NEPOCH_REJECT2 = NEPOCH_REJECT2 + 1
+        ENDIF
+
 
         IF ( LREJECT .and. IREJ .EQ. 1 ) then
+c count all rejected epochs
            NEPOCH_REJECT(ifilt) = NEPOCH_REJECT(ifilt) + 1         
            NEPOCH_REJECT(0)     = NEPOCH_REJECT(0)     + 1  
            NFITDATA_REJECT      = NFITDATA_REJECT + 1
+
         ELSE IF ( .NOT. LREJECT .and. IREJ .EQ. 0 ) THEN
+c count epochs used for fitting
            NEPOCH_FIT(ifilt)    = NEPOCH_FIT(ifilt) + 1
            NEPOCH_FIT(0)        = NEPOCH_FIT(0)     + 1
            NFITDATA             = NFITDATA + 1
@@ -10048,6 +10101,7 @@ c all plots.
 
         ERR_TMP = MAXFRAC * SNLC_FLUXCALMAX(ifilt)  
         R4EP_ALL(ep,JEP_FUDGEFLUX_ERR)  = ERR_TMP
+        R4EP_ALL(ep,JEP_FUDGE_MAXFRAC)  = MAXFRAC
 
 c set error on MilkyWay Galactic extinction
          MAGERR8 = SNLC_MWXT_MAGERR(ifilt)
@@ -10162,6 +10216,10 @@ c and also from FUDGE_FITERR_XXX options.
 c Return maximum of these two MAXFRAC  values  so that we 
 c essentially OR the two options.
 c
+c Feb 28 2020: 
+c   FIRST_ITER now includes !LREPEAT_ITER. Restore old bug 
+c   with RESTORE_DES3YR.
+c
 c -------------
       IMPLICIT NONE
 
@@ -10174,6 +10232,7 @@ c local args
 +CDE,SNDATCOM. 
 +CDE,SNFITCOM.
 +CDE,SNLCINP.
++CDE,SNANAFIT.
 
       REAL ALL_MAXFRAC, FITERR_MAXFRAC
       LOGICAL LT1, LT2, LAM1, LAM2, LFILT, LITER
@@ -10186,7 +10245,7 @@ c ------------------ BEGIN ----------------
       GET_FUDGE_FITERR_MAXFRAC = 0.0 
       IF ( .NOT. USE_FUDGE_FITERR ) RETURN
 
-      FIRST_ITER  = FIRST_ITERATION(ITER)
+      FIRST_ITER = FIRST_ITERATION(ITER) 
 
       ALL_MAXFRAC         = 0.0
       FITERR_MAXFRAC      = 0.0
@@ -10254,6 +10313,8 @@ c
 c Feb 02, 2013: replace HBOOK and HF1 with SNHIST_XXX utilities
 c
 c Apr 2 2018: call FITINI_FLATPRIOR for color
+c
+c Apr 7 2020: init AV prior for SNOOPY as well as MLCS2k2
 c
 c ------------------------
 
@@ -10351,7 +10412,8 @@ c
 
 c now turn on prior(s) specific to model
 
-      IF ( FITMODEL_INDEX .EQ. MODEL_MLCS2k2 ) THEN
+      IF ( FITMODEL_INDEX .EQ. MODEL_MLCS2k2 .or. 
+     &     FITMODEL_INDEX .EQ. MODEL_SNOOPY ) THEN
         CALL FITINI_AVPRIOR(LSTAT)
         IF ( LSTAT ) THEN
            NPRIOR = NPRIOR + 1
@@ -11674,7 +11736,6 @@ c local var
 
       LOGICAL USE_SIMEFF
 
-
 c function
       INTEGER  INIT_SIMEFFMAP, STORE_PARSE_WORDS
       EXTERNAL INIT_SIMEFFMAP, STORE_PARSE_WORDS
@@ -11760,7 +11821,7 @@ c check other variables that are not in the fit-par list
 
 
       IF ( FITMODEL_INDEX == MODEL_MLCS2k2 .and. USE_TABLEFILE ) THEN
-        CALL MON_SIMEFF
+        CALL MON_SIMEFF()
       ENDIF
 
       RETURN
@@ -12450,6 +12511,10 @@ c Note index here is NPAR instead of ipar
       FITVAL_STORE(NPAR) = XNFITDOF(0)
       LCVAL_STORE(NPAR)  = XNFITDOF(0)
 
+      NPAR = NPAR + 1  ! reject epochs withing Trest range (Mar 2020)
+      FITVAL_STORE(NPAR) = FLOAT(NEPOCH_REJECT2)
+      LCVAL_STORE(NPAR)  = FLOAT(NEPOCH_REJECT2)
+
       NPAR = NPAR + 1         ! chi2
       FITVAL_STORE(NPAR) = FITCHI2_STORE(1)
       LCVAL_STORE(NPAR)  = LCCHI2_STORE(1) ! Total chi2
@@ -12912,17 +12977,18 @@ c +CDE,FILTCOM.
 
 c local variables
       REAL*8  xx1
-
+      LOGICAL DOFIT_zFIX
       LOGICAL FIRST_ITERATION   ! function
 
 c --------------- BEGIN -------------
 
       SALT2xx1 = -999.
+      DOFIT_zFIX = (.NOT. DOFIT_PHOTOZ)
 
       IF ( FIRST_ITERATION(ITER)  ) then
         xx1 = 0.0    ! always fix xx1 on 1st iteration
       ELSE
-         if ( DOCHI2_SIGMA .and. .NOT. DOFIT_PHOTOZ) then
+         if ( DOCHI2_SIGMA .and. DOFIT_zFIX) then
              xx1 = x1
          else
              xx1 = FITVAL(IPAR_SHAPE,iter-1) ! from previous iteration
@@ -12945,6 +13011,8 @@ c Return redshift (zz) for SALT2 error calculation.
 c Motivation is for photoz fit, fix zz = z(previous iteration),
 c and use zz for SALT2 error calculation. 
 c
+c Mar 24 2020: fix logic usign local DOFIT_zFIX; needed for FITRESTMAG.
+c
 c ---------------------
       IMPLICIT NONE
 
@@ -12960,16 +13028,18 @@ c +CDE,FILTCOM.
 
 c local variables
       REAL*8  zz
+      LOGICAL DOFIT_zFIX
       LOGICAL FIRST_ITERATION   ! function
 
 c --------------- BEGIN -------------
 
       SALT2zz = -999.
+      DOFIT_zFIX = (.NOT. DOFIT_PHOTOZ)
 
-      IF ( FIRST_ITERATION(ITER)  ) then
+      IF ( FIRST_ITERATION(ITER) .or. DOFIT_zFIX ) then
         zz = z
       ELSE
-         if ( DOCHI2_SIGMA .and. .NOT. DOFIT_PHOTOZ) then
+         if ( DOCHI2_SIGMA .and. DOFIT_zFIX) then
              zz = z
          else
              zz = FITVAL(IPAR_ZPHOT,iter-1) ! from previous iteration
@@ -15077,8 +15147,6 @@ c
 +CDE,SNANAFIT.
 +CDE,FITIDEALCOM.
 
-cc+CDE,SNLCINP.   ! xxx TEMP for OPT_DEBUG
-
       INTEGER IMJD, EPMIN, EPMAX, EP, IFILT_OBS
       REAL FSCALE
 
@@ -15183,7 +15251,7 @@ c compute mB from x0 (Jan 28 2018)
       END   !  SIMFIT_IDEAL_CALC
 
 C ================================================
-+DECK,FITRESTINI.
++DECK,FITRESTMAG_INI.
       SUBROUTINE FITRESTMAG_INI
 
 c Created Feb 10, 2012
@@ -15193,11 +15261,6 @@ c if FITLTER_RESTMAG is set, then add this filter
 c to suryey-filter list and re-init kcor file to 
 c include this filter. Called only once.
 c
-c Mar 20, 2012: fix dumb bug when filters is already defined.
-c Feb 10, 2013: replace HFILE_KCOR with KCOR_FILE
-c Dec 11, 2014: after 2-band fits, do 2 more fits instead of 1
-c               in case the previus model-fluxes aren't right,
-c               and are used to compute covariances.
 c --------
 
       IMPLICIT NONE
@@ -15283,9 +15346,6 @@ c add NFIT_ITERATION for each new filter
      &     + 1                             ! nominal again
      &     + 1                             ! nominal again (Dec 11 2014)
 
-c xxxxxxxxxxxxxxxx
-      IF ( DUMB_DEBUG ) NFIT_ITERATION = NFIT_ITERATION - 1
-c xxxxxxxxxxxxxxxxx
 
       IF ( NFIT_ITERATION .GT. MXITER ) THEN
         write(c1err,661) NFIT_ITERATION
@@ -15338,8 +15398,13 @@ c check for legacy variable
       write(6,54) LAMEXTRAP_FITRESTMAG
  54   format(T8,'Allow rest-wavelength extrapolation of +- ', 
      &          F5.0,' A ')
-      write(6,55)       NFILTDEF_SURVEY_ORIG, NFILTDEF_SURVEY
-55    format(T8,'NFILTDEF_SURVEY = ',I3,' -> ', I3)
+
+      write(6,55) DLAMTOL_FITRESTMAG
+ 55   format(T8,'Include obs bands within ', F5.0,
+     &          ' A of closest bands.')
+
+      write(6,58)       NFILTDEF_SURVEY_ORIG, NFILTDEF_SURVEY
+ 58   format(T8,'NFILTDEF_SURVEY = ',I3,' -> ', I3)
 
 c -------------------------------------------------
 c re-read KCOR file to include FILTLIST_FITRESTMAG
@@ -15348,7 +15413,6 @@ c (user must make sure that FILTLIST_FITRESTMAG is in the kcor file)
       CALL RDKCOR(KCOR_FILE,IERR)
 
       CALL CDTOPDIR_OUTPUT  ! back to topdir
-
 
 c check that added filter(s) are all in the KCOR file.
 c Abort if any filter is missing.
@@ -15372,7 +15436,7 @@ c if another version header is read.
       END
 
 C =====================================
-+DECK,FITRSTPREP.
++DECK,FITRESTMAG_PREP.
       SUBROUTINE FITRESTMAG_PREP(ITER)
 
 c Feb 12, 2012
@@ -15381,17 +15445,6 @@ c for fitting FILTLIST_FITRESTMAG. Do nothing for first 1/2 of iterations
 c to get t0 and stretch. For 2nd half of iterations keep only
 c the two observer bands that bracket FILTLIST_FITRESTMAG.
 c 
-c Mar 20, 2012: make fix to work when rest-filter is subset of
-c               SURVEY_FILTERS
-c
-c Oct 24, 2012: fix some benign bugs caught by -g (debugger).
-c               Check that IFILTOBS(1,2) > 0 before using it as index.
-c
-c Apr 26, 2013: fix bug jumping to 455; move GOTO after
-c               IFILTDEF_MAP_SURVEY(ifilt) is reset.
-c               This bug was introduced in v10_17 (Oct 26 2012).
-c
-c Apr 7 2014: Fix to work when SNRMAX is not evaluated ; see LSNR1,2
 c
 c Apr 24 2014:
 c  Re-do SNRMAX logic; apply cut to mask filters before calling
@@ -15402,6 +15455,11 @@ c  BRACKET filters but then g fails SNRMAX cut; now it will find
 c  r&i instead.
 c
 c Dec 3 2014: for photo-z fit, set Z=ZPHOT instead of SNLC_REDSHIFT.
+c
+c Mar 26 2020
+c  Refactor to use new BRACKET_FILTERLIST with DLAM_TOL so that 
+c  more than 2 bands can be included if some bands have very 
+c  similar central wavelengths. 
 c
 c -----------------------
 
@@ -15425,14 +15483,15 @@ c local var
      &  ,J, JKEEP, LL, NBRA, NTRY, itry, ITERLAST, IPAR
      &  ,IFILTDEF_MAP_SAVE(MXFILT_OBS)
 
-      REAL       LAMAVG, LAMREST(3), Z, SNRMAX, SNRMAX1, SNRMAX2
-      CHARACTER  CFILT(2)*2, CTMP*4, CFILTDEF*2
+      REAL LAMAVG, LAMREST(3), LAMTMP, Z, DLAM_TOL
+      REAL SNRMAX, SNRMAX1, SNRMAX2
+      CHARACTER CFILTOBS_LIST*(MXFILT_OBS), CTMP*4, CFILTDEF*2
 
       LOGICAL L_BRACKET, L_MATCH, L_USE, L_SNR, L_KEEP
       LOGICAL SKIPTEST, LSNR, LSNR1, LSNR2
 
 c function
-      INTEGER BRACKET_IFILT_OBS
+      INTEGER BRACKET_FILTERLIST, BRACKET_IFILT_OLD
 
 c -------------------- BEGIN ----------------
 
@@ -15506,6 +15565,9 @@ c to the last 2-band fit.
 
          RETURN   ! bail out on last ALLFIT iteration
       ENDIF
+
+c set tolerance for including bands close in wavelength
+      DLAM_TOL = DLAMTOL_FITRESTMAG
 
 c =========================================
 
@@ -15585,16 +15647,23 @@ c Sep 2013: beware that BRACKET_IFILT_OBS() checks all filters
 c selected by snana, not just the ones in FILTLIST_FIT.
 c Use EPCUT_SNRMIN to reject extra filters.
 
-         NBRA = BRACKET_IFILT_OBS(LAMREST(itry), Z, IFILTOBS_BRACKET)
-         IF1 = IFILTOBS_BRACKET(1) 
-         IF2 = IFILTOBS_BRACKET(2) 
+         LAMTMP = LAMREST(itry)
+         IF ( OPT_DEBUG == 1000 ) then
+            NBRA = BRACKET_IFILT_OLD(LAMTMP,Z,IFILTOBS_BRACKET) ! legacy
+         else
+c new default, Mar 28 2020
+            NBRA = BRACKET_FILTERLIST(LAMTMP, DLAM_TOL, Z, 
+     &             IFILTOBS_BRACKET) ! <== returned
+         endif
+         IF1 = IFILTOBS_BRACKET(1)  ! closest band, low wavelen
+         IF2 = IFILTOBS_BRACKET(2)  ! closest band, high wavelen
 
 +SELF,IF=XYZDEL.
          print*, ' xxx ------------------------------------------ '
          print*, ' xxx NBRA, itry = ', NBRA, itry
          print*, ' xxx LAMREST =', LAMREST(itry),'   z=',Z
-         print*, ' xxx --> IF1,IF2 =', IF1, IF2
-         print*, ' xxx --> BAND1,2 =', 
+         print*, ' xxx --> IF1,IF2 = ', IF1, IF2
+         print*, ' xxx --> BAND1,2 = ', 
      &         FILTDEF_STRING(IF1:IF1), FILTDEF_STRING(IF2:IF2)
          call flush(6)
 +SELF.
@@ -15604,10 +15673,11 @@ c Use EPCUT_SNRMIN to reject extra filters.
 
 c check if IFILTOBS_BRACKET(1:2) are valid
          L_USE = USE_ALLFILT(IF1) .and. USE_ALLFILT(IF2)
-         L_BRACKET = (NBRA .EQ. 2) .and. L_USE
+c xxx mark del L_BRACKET = (NBRA .EQ. 2) .and. L_USE
+         L_BRACKET = (NBRA >= 2) .and. L_USE
 
          if ( L_BRACKET ) goto 444
-440   CONTINUE
+440   CONTINUE  ! end itry
 
 c --------------------
 444   CONTINUE
@@ -15626,18 +15696,19 @@ c print message for which filter to fit, or to skip.
 455   CONTINUE
 
       IF ( L_BRACKET ) THEN
-         CFILT(1) =  FILTDEF_STRING(IF1:IF1)
-         CFILT(2) =  FILTDEF_STRING(IF2:IF2)
+         do i = 1, NBRA
+            IFILTDEF = IFILTOBS_BRACKET(i) 
+            CFILTOBS_LIST(i:i) =  FILTDEF_STRING(IFILTDEF:IFILTDEF)
+         enddo
          CTMP     = 'Fit ' 
       ELSE
          CTMP     = 'Skip' 
-         CFILT(1) =  '?'
-         CFILT(2) =  '?'
+         CFILTOBS_LIST =  '??'
       ENDIF
 
       LL = ISNLC_LENCCID
       write(6,20) CTMP, CFILTDEF,
-     &     SNLC_CCID(1:LL), CFILT(1)(1:1), CFILT(2)(1:1)
+     &     SNLC_CCID(1:LL), CFILTOBS_LIST(1:NBRA)
 20    format(T5, A,' RestMag-',A,'  for  CID = ',A, 
      &               3x, 'ObsFilt = ',A,A) 
       CALL FLUSH(6)
@@ -15656,7 +15727,7 @@ c turn off ALL filters so that nothing passes.
          IFILT_TMP   = IFILTDEF_MAP_SURVEY(ifilt)
          L_USE       = USE_ALLFILT(IFILT_TMP)
          
-      DO 202 j       = 1, 2
+      DO 202 j       = 1, NBRA  ! xxx 2 -> NBRA
            L_MATCH   = IFILT_TMP .EQ. IFILTOBS_BRACKET(J)            
            IF ( L_BRACKET .and. L_MATCH .AND. L_USE ) THEN
                L_KEEP  = .TRUE.
@@ -15667,7 +15738,7 @@ c turn off ALL filters so that nothing passes.
          if ( L_KEEP ) then
             LL = INDEX ( FILTLIST_FIT_USE, ' ' ) - 1
             FILTLIST_FIT_USE = FILTLIST_FIT_USE(1:LL) // 
-     &            cfilt(jkeep)(1:1)
+     &            cfiltobs_list(jkeep:jkeep)
             NFILT_OBS_USEFIT = NFILT_OBS_USEFIT + 1
             USE_FILT(IFILT_TMP) = .TRUE.
          else
@@ -15679,7 +15750,7 @@ c turn off ALL filters so that nothing passes.
 c --------------------
 c sanity check
 
-      IF ( L_BRACKET .and. NFILT_OBS_USEFIT .NE. 2 ) THEN
+      IF ( L_BRACKET .and. NFILT_OBS_USEFIT < 2 ) THEN
          write(c1err,601)  NFILT_OBS_USEFIT 
 601      format('L_BRACKET=T  but  NFILT_OBS_USEFIT = ',I2)
          write(c2err,602) SNLC_CCID, ITER, CFILTDEF
@@ -15698,6 +15769,227 @@ c sanity check
 
       RETURN
       END    ! end of FITRESTMAG_PREP(ITER)
+
+
+C ========================================
++DECK,BRACKET_IFILT_OLD.
+      INTEGER FUNCTION BRACKET_IFILT_OLD ( 
+     &          LAMREST, Z, IFILTOBS_BRACKET )
+
+c !!!!!!!!!!!!!!!!!!!
+c !!!! Mar 25 2020: SLATED TO BECOME OBSOLETE !!!!
+c !!!!!!!!!!!!!!!!!!!
+c -----------------------------------------
+c Feb 12, 2012
+c Return IFILTOBS_BRACKET(2) (filter indices) that brackets
+c LAMREST in the rest-frame. In the loop over SURVEY filters, 
+c IFILT_OBS = -999 is a flag to ignore this filter.
+c
+c Return number of bracket-filters found; 2 => success.
+c
+c ------------------------------------------
+
+      IMPLICIT NONE
+
+c subroutine args.
+
+      REAL LAMREST   ! (I) rest-frame lambda to match
+      REAL Z         ! (I) redshift
+      INTEGER 
+     &  IFILTOBS_BRACKET(2) ! (O) IFILTOBS that brackets LAMREST
+
+c local var
++CDE,SNDATCOM.  from snana.car
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER IFILT, IFILTOBS, JLOHI, NFILT
+      REAL Z1, LAMZ, LAMDIF, LAMDIFMIN(2)
+
+C ------------- BEGIN ------------
+
+      Z1 = 1.0 + z
+
+      LAMDIFMIN(1) = 99999999.
+      LAMDIFMIN(2) = 99999999.
+
+      IFILTOBS_BRACKET(1) = -9 
+      IFILTOBS_BRACKET(2) = -9
+
+      DO 100 ifilt = 1, NFILTDEF_SURVEY
+
+         if ( .not. EXIST_FILT(ifilt) ) goto 100
+
+         ifiltobs = IFILTDEF_MAP_SURVEY(ifilt)
+         if ( ifiltobs .EQ. -999 ) goto 100
+         
+         LAMZ   = FILTOBS_LAMAVG(ifiltobs)/Z1
+         LAMDIF = ABS(LAMZ-LAMREST)
+
+         IF ( LAMZ .LE. LAMREST ) THEN
+            JLOHI = 1
+         ELSE
+            JLOHI = 2
+         ENDIF
+
+         if ( LAMDIF .LT. LAMDIFMIN(JLOHI) ) then
+             LAMDIFMIN(JLOHI)        = LAMDIF
+             IFILTOBS_BRACKET(JLOHI) = IFILTOBS
+         endif
+
+100   CONTINUE
+
+c set function value
+
+      NFILT = 0
+      IF ( IFILTOBS_BRACKET(1) .GT. 0 ) NFILT = NFILT + 1
+      IF ( IFILTOBS_BRACKET(2) .GT. 0 ) NFILT = NFILT + 1
+
+      BRACKET_IFILT_OLD = NFILT
+
+      RETURN
+      END   
+
+C ========================================
++DECK,BRACKET_FILTERLIST.
+      INTEGER FUNCTION BRACKET_FILTERLIST ( 
+     &          LAMREST, DLAM_TOL, Z, IFILTOBS_BRACKET )
+
+c -----------------------------------------
+c Mar 25 2020
+c Return IFILTOBS_BRACKET (indices) of obs-filters that bracket
+c LAMREST in the rest-frame. 
+c In the loop over SURVEY filters, IFILT_OBS = -999 is a flag
+c (externally set) to ignore this filter.
+c
+c This function originally returned just 2 bands: one below and
+c one above the target LAMREST. Now it has been refactored to
+c return all filters within DLAM_TOL of closest filters.
+c
+c Original motivatoin is to work for LOWZ in which each band 
+c is broken into several bands covering different time periods.
+c 
+c
+c Inputs:
+c   LAMREST   : rest-frame wavelength to bracket
+c   DLAM_TOL  : combine obs filters withing this tolerance
+c   Z         : redshift
+c  
+c Output:
+c   IFILTOBS_BRACKET(1) : closest band with LAM/z1 < LAMREST
+c   IFILTOBS_BRACKET(2) : closest band with LAM/z1 > LAMREST
+c   IFILTOBS_BRACKET(3) : optional additional band within DLAM_TOL
+c   IFILTOBS_BRACKET(4) : optional additional band within DLAM_TOL
+c   etc ...
+c
+c Function returns number of bands in IFILTOBS_BRACKET list.
+c If only low or high bands are found, function returns 1.
+c Function returnig 2 or larger is flag for success.
+c Example, if filters a,b,c all have LAM/z1 < LAMREST, then
+c function returns 1. But if there is also filter d with 
+c LAM/z1>LAMREST, then function returns 4.
+c
+c ------------------------------------------
+
+      IMPLICIT NONE
+
+c subroutine args.
+
+      REAL LAMREST   ! (I) rest-frame lambda to match
+      REAL DLAM_TOL  ! (I) tolerance to accept multiple bracket filters
+      REAL Z         ! (I) redshift
+
+      INTEGER 
+     &  IFILTOBS_BRACKET(*) ! (O) IFILTOBS that brackets LAMREST
+
+c local var
++CDE,SNDATCOM.  from snana.car
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER IFILT, NFILT, IFILTOBS, IFILTOBS_LO, IFILTOBS_HI, JLOHI
+      REAL    Z1, LAMZ, LAMZ_LO, LAMZ_HI, LAMDIF, LAMDIFMIN(2)
+      CHARACTER  CFILT*2
+
+C ------------- BEGIN ------------
+
+      Z1 = 1.0 + z
+
+      LAMDIFMIN(1) = 99999999.
+      LAMDIFMIN(2) = 99999999.
+
+      DO 100 ifilt = 1, NFILTDEF_SURVEY
+
+         if ( .not. EXIST_FILT(ifilt) ) goto 100
+         ifiltobs = IFILTDEF_MAP_SURVEY(ifilt)
+         if ( ifiltobs .EQ. -999 ) goto 100
+
+         CFILT  = FILTDEF_STRING(IFILTOBS:IFILTOBS)         
+         LAMZ   = FILTOBS_LAMAVG(ifiltobs)/Z1
+         LAMDIF = ABS(LAMZ-LAMREST)
+
+         IF ( LAMZ .LE. LAMREST ) THEN
+            JLOHI = 1
+         ELSE
+            JLOHI = 2
+         ENDIF
+
+         if ( LAMDIF .LT. LAMDIFMIN(JLOHI) ) then
+             LAMDIFMIN(JLOHI)        = LAMDIF
+             IFILTOBS_BRACKET(JLOHI) = IFILTOBS
+         endif
+
+100   CONTINUE
+
+c set function value
+
+      NFILT = 0
+      IFILTOBS_LO = IFILTOBS_BRACKET(1)
+      IFILTOBS_HI = IFILTOBS_BRACKET(2)
+      IF ( IFILTOBS_LO > 0 ) NFILT = NFILT + 1
+      IF ( IFILTOBS_HI > 0 ) NFILT = NFILT + 1
+      BRACKET_FILTERLIST = NFILT
+
+      IF ( NFILT < 2       ) RETURN
+      IF ( DLAM_TOL < 0.01 ) RETURN
+
+cc      IF ( DLAM_TOL < 1.0E9 ) RETURN ! xxx REMOVE
+
+      LAMZ_LO = FILTOBS_LAMAVG(IFILTOBS_LO)/Z1
+      LAMZ_HI = FILTOBS_LAMAVG(IFILTOBS_HI)/Z1
+
+c if we get here, check for more bands with DLAM_TOL ...
+
+      DO 200 ifilt = 1, NFILTDEF_SURVEY
+
+         if ( .not. EXIST_FILT(ifilt) ) goto 200
+         ifiltobs = IFILTDEF_MAP_SURVEY(ifilt)
+         if ( ifiltobs .EQ. -999 ) goto 200
+
+c skip already defined bracket filters
+         if ( ifiltobs == IFILTOBS_LO ) goto 200
+         if ( ifiltobs == IFILTOBS_HI ) goto 200
+
+         LAMZ   = FILTOBS_LAMAVG(IFILTOBS)/Z1
+
+c start with lower-wavelength filter
+         LAMDIF = ABS(LAMZ-LAMZ_LO)
+         if ( LAMZ < LAMZ_LO .and. LAMDIF < DLAM_TOL ) then
+            NFILT = NFILT + 1 ; IFILTOBS_BRACKET(NFILT) = ifiltobs
+         endif
+
+c higher-wavelength filter
+         LAMDIF = ABS(LAMZ-LAMZ_HI)
+         if ( LAMZ > LAMZ_HI .and. LAMDIF < DLAM_TOL ) then
+            NFILT = NFILT + 1 ; IFILTOBS_BRACKET(NFILT) = ifiltobs
+         endif
+
+ 200  CONTINUE
+
+      BRACKET_FILTERLIST = NFILT
+
+      RETURN
+      END
 
 C =====================================
 +DECK,FITRESTCALC.

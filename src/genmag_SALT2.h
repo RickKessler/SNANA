@@ -20,9 +20,9 @@
 #define SALT2_INTERP_LINEAR 1
 #define SALT2_INTERP_SPLINE 2
 
-int NCALL_DBUG_SALT2 ; 
-int RELAX_IDIOT_CHECK_SALT2;
-int ISMODEL_SALT3 ;
+int  NCALL_DBUG_SALT2 ; 
+int  RELAX_IDIOT_CHECK_SALT2;
+bool ISMODEL_SALT3 ;
 
 /**********************************************
   Init Information

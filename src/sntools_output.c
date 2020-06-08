@@ -68,11 +68,17 @@
  Jan 27 2020: abort of no extension for root or hbook file;
               see TABLEFILE_OPEN.
 
+ May 04 2020: add MARZ output option.
+
+ May 30 2020: include sndata.h and remove a few redundant define statements
+               in sntools_outout.h
+
 ************************************************/
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
@@ -80,6 +86,7 @@
 #include <sys/stat.h>
 
 // #include "sntools.h"
+#include "sndata.h"
 #include "sntools_output.h"
 
 // include the package-specific code(s) here.
@@ -95,6 +102,9 @@
 #include "sntools_output_text.c"
 #endif
 
+#ifdef USE_MARZ
+#include "sntools_output_marz.c"
+#endif
 
 
 // ===============================================
@@ -177,6 +187,7 @@ void TABLEFILE_INIT(void) {
 
   SNLCPAK_USE_HBOOK = SNLCPAK_USE_ROOT = SNLCPAK_USE_TEXT = 0 ;  
   SPECPAK_USE_HBOOK = SPECPAK_USE_ROOT = SPECPAK_USE_TEXT = 0 ;
+  SPECPAK_USE_MARZ  = 0;
 
   sprintf(SNLCPAK_OUTPUT.SURVEY,             "NULL" );
   sprintf(SNLCPAK_OUTPUT.VERSION_PHOTOMETRY, "NULL" );
@@ -205,6 +216,10 @@ int get_TABLEFILE_TYPE(char *FILENAME) {
 
 #ifdef USE_ROOT
   if ( ISFILE_TEXT (FILENAME) ) { return IFILETYPE_TEXT ; }
+#endif
+
+#ifdef USE_MARZ
+  if ( ISFILE_MARZ (FILENAME) ) { return IFILETYPE_MARZ ; }
 #endif
 
   // if we get here we did not find a valid type so return null value
@@ -256,6 +271,8 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   char key_new[]   = "new" ;  // --> write
   char key_read[]  = "read" ;
   char key_q[]     = "q" ;
+
+  // define extensions
   char key_root[]  = "root";
   char key_hbook[] = "hbook" ;
   char key_text[]  = "text" ;
@@ -296,11 +313,12 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
 
   
   // make sure table file has some kind of extension (Jan 2020)
-  if ( TYPE_FLAG==IFILETYPE_ROOT || TYPE_FLAG==IFILETYPE_HBOOK ) {
+  if ( TYPE_FLAG==IFILETYPE_ROOT || TYPE_FLAG==IFILETYPE_HBOOK ||
+       TYPE_FLAG==IFILETYPE_MARZ ) {
     if ( strchr(FILENAME,'.') == NULL ) {
       sprintf(MSGERR1,"Missing extension for FILENAME = '%s' ", FILENAME);
       sprintf(MSGERR2,"Add valid extension: "
-	      "e.g., '.ROOT', '.HBOOK', '.TEXT'" );
+	      "e.g., '.ROOT', '.HBOOK', '.TEXT', '.fits' " );
       errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
     }
   }
@@ -327,6 +345,12 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
     if ( ISFILE_TEXT(FILENAME) )  {  TYPE_FLAG = IFILETYPE_TEXT ; }
     if ( TYPE_FLAG > 0 ) { goto ISFILE_DONE ; }
 #endif
+
+#ifdef USE_MARZ
+    if ( ISFILE_MARZ(FILENAME) )  {  TYPE_FLAG = IFILETYPE_MARZ ; }
+    if ( TYPE_FLAG > 0 ) { goto ISFILE_DONE ; }
+#endif
+
   } // end of OPT_TYPE==0 check
 
   
@@ -337,6 +361,10 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   else
     { USE_CURRENT = 0 ; }
 
+  /*
+  printf(" xxx %s: OPEN_FLAG=%d  TYPE_FLAG=%d  (%s) \n",
+	 fnam, OPEN_FLAG, TYPE_FLAG, FILENAME);
+  */
 
   // ---------------------------------------
   // check for fatal errors -> abort
@@ -380,6 +408,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
     { sprintf(stringOpt,"%sQ", stringOpt); }
 
   // open file based on its type.
+
  
 #ifdef USE_HBOOK
   if ( TYPE_FLAG == IFILETYPE_HBOOK ) {
@@ -438,6 +467,13 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   }
 #endif
 
+#ifdef USE_MARZ
+  if ( TYPE_FLAG == IFILETYPE_MARZ ) {
+    OPEN_MARZFILE(FILENAME, &IERR);
+    NOPEN_TABLEFILE++ ;
+  }
+#endif
+  
   // store USE-flag and filename
   sprintf(NAME_TABLEFILE[OPEN_FLAG][TYPE_FLAG], "%s", FILENAME);
   USE_TABLEFILE[OPEN_FLAG][TYPE_FLAG] = 1; 
@@ -517,6 +553,13 @@ void TABLEFILE_CLOSE(char *FILENAME) {
     { CLOSE_TEXTFILE(); }
 #endif
 
+  
+#ifdef USE_MARZ
+  if(TYPE_FLAG == IFILETYPE_MARZ ) 
+    { CLOSE_MARZFILE(FILENAME); }
+#endif
+ 
+
   // ----------------------------------------------
   // reset info for this IO-flag and file-type;
   // e.g.., allows opening another read-only file.
@@ -568,7 +611,14 @@ void SNTABLE_CREATE(int IDTABLE, char *NAME, char *TEXT_FORMAT) {
   ID = IDTABLE ; // local ID has a real address
 
   NVAR_ADDCOL_TOT = 0; // Mar 28 2016
+
+#ifdef USE_MARZ
+  USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_MARZ] ;
+  if ( USE && IDTABLE == TABLEID_MARZ ) 
+    { SNTABLE_CREATE_MARZ(IDTABLE,NAME);  return; } 
+#endif
   
+
 #ifdef USE_HBOOK
   USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_HBOOK] ; 
   if ( USE ) { SNTABLE_CREATE_HBOOK(IDTABLE,NAME);  }
@@ -587,6 +637,7 @@ void SNTABLE_CREATE(int IDTABLE, char *NAME, char *TEXT_FORMAT) {
   if ( USE ) { SNTABLE_CREATE_TEXT(IDTABLE,NAME,TEXT_FORMAT);  } 
 #endif
 
+ 
   fflush(stdout);
 
 } // end of SNTABLE_CREATE
@@ -607,6 +658,7 @@ void SNTABLE_FILL(int IDTABLE ) {
   //  char fnam[] = "SNTABLE_FILL" ;
   // -------- BEGIN ----------
 
+
 #ifdef USE_HBOOK
   USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_HBOOK] ; 
   if ( USE ) { SNTABLE_FILL_HBOOK(IDTABLE);  }
@@ -621,10 +673,10 @@ void SNTABLE_FILL(int IDTABLE ) {
 
 
 #ifdef USE_TEXT
-
   USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_TEXT] ; 
   if ( USE ) { SNTABLE_FILL_TEXT(IDTABLE); }
 #endif
+
 
 } // end of SNTABLE_FILL
 
@@ -2251,9 +2303,10 @@ void SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
 
   // if IFILE and CCID are the same as last time, 
   // skip slow check of all CCIDs
-  int SAME_FILE = ( IFILE_READ == LASTREAD_AUTOSTORE.IFILE);
-  int SAME_CCID = ( strcmp(CCID,LASTREAD_AUTOSTORE.CCID)==0);
-  if (SAME_FILE && SAME_CCID ) 
+
+  bool IS_SAME_FILE = ( IFILE_READ == LASTREAD_AUTOSTORE.IFILE );
+  bool IS_SAME_CCID = ( strcmp(CCID,LASTREAD_AUTOSTORE.CCID)==0);
+  if (IS_SAME_FILE && IS_SAME_CCID ) 
     { IROW =  LASTREAD_AUTOSTORE.IROW ;  goto SET_OUTVAL; }
 
   // do slow loop over each row and do CCID string match each row.
@@ -2622,8 +2675,6 @@ void SNLCPAK_INIT(char *SURVEY, char *VERSION_PHOT, char *VERSION_SNANA,
   NCALL_SNLCPAK_FILL = 0 ;
 
   set_FILTERSTRING(FILTERSTRING);
-
-  // xxx mark delete  sprintf(SNLCPAK_OUTPUT.CCID_LAST, "BLANK" );
 
   // store info in global
   sprintf(SNLCPAK_OUTPUT.SURVEY,             "%s", SURVEY         );
@@ -3068,6 +3119,7 @@ void SPECPAK_INIT(char *SURVEY, char *VERSION_PHOT, char *TEXT_FORMAT) {
   SPECPAK_USE_HBOOK = 0 ; 
   SPECPAK_USE_ROOT  = 0 ; 
   SPECPAK_USE_TEXT  = 0 ; // Sep 7 2014
+  SPECPAK_USE_MARZ  = 0 ;
   NCALL_SPECPAK_FILL = 0 ;
 
   // store info in global
@@ -3124,6 +3176,9 @@ void SPECPAK_DATA(char *CCID, int ID, double MJD, double Tobs, double Texpose,
 		  double *FLAM, double *FLAMERR)
 {
 
+  // pack/store multiple spectra for one event.
+  // Note that MJD = Tobs = -9 for host galaxy.
+
   int MEMD, MEMI, i, ii, NSPEC, NLAMTOT, ILAM_START ;
   char fnam[] = "SPECPAK_DATA" ;
 
@@ -3141,7 +3196,7 @@ void SPECPAK_DATA(char *CCID, int ID, double MJD, double Tobs, double Texpose,
   SPECPAK_OUTPUT.NLAMBIN_TOT += NLAMBIN ;
   NLAMTOT    = SPECPAK_OUTPUT.NLAMBIN_TOT ;
 
-  sprintf(SPECPAK_OUTPUT.CCID, "%s", CCID);
+  sprintf(SPECPAK_OUTPUT.CCID, "%s", CCID );
   SPECPAK_OUTPUT.ID_LIST[NSPEC]       = ID ;
   SPECPAK_OUTPUT.NLAMBIN_LIST[NSPEC]  = NLAMBIN ;
   SPECPAK_OUTPUT.MJD_LIST[NSPEC]      = MJD;
@@ -3154,10 +3209,10 @@ void SPECPAK_DATA(char *CCID, int ID, double MJD, double Tobs, double Texpose,
   // malloc wave-dependent storage
   if ( NSPEC == 0 ) {
     SPECPAK_OUTPUT.ID      = (int   *)malloc(MEMI);
-    SPECPAK_OUTPUT.LAMMIN  = (double*)malloc(MEMD);
-    SPECPAK_OUTPUT.LAMMAX  = (double*)malloc(MEMD);
-    SPECPAK_OUTPUT.FLAM    = (double*)malloc(MEMD);
-    SPECPAK_OUTPUT.FLAMERR = (double*)malloc(MEMD);
+    SPECPAK_OUTPUT.LAMMIN  = (double*)malloc(MEMD); // array of lammin in each bin
+    SPECPAK_OUTPUT.LAMMAX  = (double*)malloc(MEMD); // array of lammax in each bin
+    SPECPAK_OUTPUT.FLAM    = (double*)malloc(MEMD); // array of flam in each bin
+    SPECPAK_OUTPUT.FLAMERR = (double*)malloc(MEMD); 
   }
   else {
     // realloc for more wave bins
@@ -3179,6 +3234,12 @@ void SPECPAK_DATA(char *CCID, int ID, double MJD, double Tobs, double Texpose,
   }
 
   SPECPAK_OUTPUT.NSPEC++ ;
+  if ( SPECPAK_OUTPUT.NSPEC >= MXSPEC_SPECPAK ) {
+    sprintf(MSGERR1, "NSPEC exceeds MXSPEC_SPECPAK=%d bound.", 
+	    MXSPEC_SPECPAK);
+    sprintf(MSGERR2, "Reduce NSPEC or increase MXSPEC_SPECPAK"); 
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
 
   return ;
 
@@ -3188,8 +3249,8 @@ void SPECPAK_DATA(char *CCID, int ID, double MJD, double Tobs, double Texpose,
 void specpak_data__(char *CCID, int *ID, double *MJD,double *Tobs,
 		    double *Texpose,int *NLAMBIN,double *LAMMIN,double *LAMMAX,
 		    double *FLAM, double *FLAMERR) {
-  SPECPAK_DATA(CCID,*ID,*MJD,*Tobs,*Texpose,
-	       *NLAMBIN,LAMMIN,LAMMAX,FLAM,FLAMERR);
+  SPECPAK_DATA(CCID, *ID, *MJD, *Tobs, *Texpose,
+	       *NLAMBIN, LAMMIN, LAMMAX, FLAM, FLAMERR);
 }
 
 
@@ -3208,7 +3269,12 @@ void SPECPAK_FILL(char *CCID) {
   if ( SPECPAK_USE_TEXT  ) { SPECPAK_FILL_TEXT(); }
 #endif
 
-  SPECPAK_CLEAR_PLOT();
+#ifdef USE_MARZ
+  if ( SPECPAK_USE_MARZ  ) { SPECPAK_FILL_MARZ(); }
+#endif
+
+
+  SPECPAK_CLEAR_PLOT(); 
 
 }  // end  SPECPAK_FILL
 
@@ -3269,11 +3335,15 @@ int ISFILE_ROOT(char *fileName) {
 int ISFILE_TEXT(char *fileName) {
 
   // Created Oct 2014
-  // returns true if suffix corresponds to ascii/text file,
-  // or if NVAR key is found in header.
+  // returns 1 (true) if suffix corresponds to ascii/text file,
+  // or if VARNAMES key is found in header.
+  // Returs 0 (false) otherwise.
+  //
   // Note that the suffix method must be used for files
   // that don't yet exist; i.e., to be written.
   // The header-key method works only for reading.
+  //
+  // May 04 2020: return false for fits or FITS file extension.
 
 #define NSUFFIX_TEXT 12
   int   isuf ;
@@ -3301,9 +3371,13 @@ int ISFILE_TEXT(char *fileName) {
       { return 1 ; }
   }
 
+
+  // May 4 2020: bail on fits extention
+  if ( strstr(fileName,".fits") != NULL ) { return 0; }
+  if ( strstr(fileName,".FITS") != NULL ) { return 0; }
+
   // if we get here, the extension is not known so open file
-  // and check for for recognizable header key NVAR
-  // Dec 2018: check for VARNAMES instead of NVAR
+  // and check for for recognizable header key VARNAMES
 
   FILE *fp ;
   char ctmp[60];
@@ -3324,3 +3398,32 @@ int ISFILE_TEXT(char *fileName) {
 
 } // end of ISFILE_TEXT
 
+// ==============================              
+int ISFILE_MARZ(char *fileName) {
+
+  // Created May 2 2020 by R.Kessler
+  // To be a MARZ file, filename must
+  //  * have fits extension
+  //  * have marz or MARZ in the name.
+
+  bool ISFITS = false ;
+  bool ISMARZ = false ;
+  // --------------- BEGIN ---------------
+
+  // if fileName is blank then return 0 since we don't know what it is.
+  if ( strlen(fileName) == 0 ) { return 0; }
+
+  // ------ must have .fits suffix -------------
+
+  if ( strstr(fileName, ".fits" ) != NULL )  { ISFITS = true ; }
+  if ( !ISFITS ) { return 0; }
+
+  // ----- must have marz or MARZ somewhere in file name ------
+  if ( strstr(fileName, "marz" ) != NULL )  { ISMARZ = true ; }
+  if ( strstr(fileName, "MARZ" ) != NULL )  { ISMARZ = true ; }
+  if ( !ISMARZ ) { return 0; }
+
+  // if we get here, it's a valid MARZ file
+  return 1 ;
+  
+} // end ISFILE_MARZ

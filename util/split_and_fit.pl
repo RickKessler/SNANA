@@ -345,6 +345,10 @@
 # Nov 12 2019: abort if APPEND_TABLE_TEXT is specified without also
 #              define either HBOOK or ROOT file.
 #
+# May 13 2020: 
+#   + fix broken  FITRES_COMBINE_FILE: <xyz.fitres>
+#   + adjust args for stable_dump: --v -> -v, etc ...
+#
 # =======================
 
 use List::Util qw(first);
@@ -389,10 +393,8 @@ sub merge_INIT ;
 sub merge_outFiles ;
 sub merge_outFiles_text ;  # driver to call next three
 sub merge_text_TABLE ;
-sub merge_text_FITRES ;    # XXX soon be obsolete soon (Mar 25 2019)  
 sub merge_text_LCPLOT ;  
 sub append_text_TABLE ;
-sub append_text_FITRES ;  # XXX soon to be obsolete (Mar 25 2019)
 sub mergeLog_update ;
 sub mergeLog_cat ;
 
@@ -1125,7 +1127,7 @@ sub parse_nmlFile {
 	    
 	    $fitopt = "@words[1 .. $#words]" ;
 	    &getVersionList($ver, \@tmpVerList, \@tmpPathList); 
-	    
+	    @PATH_SIMDATA_LIST = ( @PATH_SIMDATA_LIST, @tmpPathList );
 	    @VERSION_LIST        = ( @VERSION_LIST, @tmpVerList );
 	    @VERSION_FITOPT_LIST = ( @VERSION_FITOPT_LIST, $fitopt );
 	}
@@ -1145,7 +1147,7 @@ sub parse_nmlFile {
 
     $VERSION_AFTERBURNER = "" ;
     $key   = "VERSION_AFTERBURNER:" ;
-    @tmp   = sntools::parse_array($key, 20,  $OPT_QUIET, @CONTENTS_NMLFILE);
+    @tmp   = sntools::parse_array($key, 10,  $OPT_QUIET, @CONTENTS_NMLFILE);
     if ( scalar(@tmp) > 0 )  { $VERSION_AFTERBURNER = "$tmp[0]" ; }
 
     $VERSION_FITRES_COMBINE = "" ;
@@ -1155,8 +1157,11 @@ sub parse_nmlFile {
 
     $FITRES_COMBINE_FILE = "" ;
     $key  = "FITRES_COMBINE_FILE:" ;
-    @tmp   = sntools::parse_array($key, 99, $OPT_QUIET, @CONTENTS_NMLFILE);
-    $FITRES_COMBINE_FILE = "@tmp" ;
+    @tmp   = sntools::parse_array($key, 1, $OPT_QUIET, @CONTENTS_NMLFILE);
+    if ( scalar(@tmp) > 0 ) { 
+	$FITRES_COMBINE_FILE = qx(echo $tmp[0]); 
+	$FITRES_COMBINE_FILE =~ s/\s+$// ;
+    }
 
     $COMBINE_ALL_FLAG = 0 ;
     $key  = "COMBINE_ALL_FLAG:" ;
@@ -2046,7 +2051,6 @@ sub make_OUTDIR(@) {
     # ----------------------------------------
     qx(mkdir -p $tmpDir);
 
-    # xxx mark delete xxxx qx(cp $nmlFile  $tmpDir );
     if($opt==0) { 
 	qx(cp $nmlFile  $tmpDir );  # OUTDIR/SPLIT_JOBS_LCFIT
 	qx(cp $nmlFile  $OUTDIR ); 
@@ -2068,10 +2072,6 @@ sub make_OUTDIR(@) {
 
 
     if ( $opt == 1 ) {
-
-	# copy the FITOPT.README file into each version-dir	
-	# xxx mark delete July 2017 qx(cp $FIT_README_FILE $tmpDir );
-
 	# copy FITRES_COMBINE_FILE into current  dir if it exists.
 	if ( -e $FITRES_COMBINE_FILE ) {
 	    qx(cp $FITRES_COMBINE_FILE  $tmpDir );
@@ -2820,7 +2820,7 @@ sub createJobs_SALT2mu(@) {
     }  # indx
 
     # construct command to translate text output into his/root file(s)
-    my $OUTARG    = "--outprefix ${PREFIX_S2mu}" ; 
+    my $OUTARG    = "-outprefix ${PREFIX_S2mu}" ; 
     my $FRES_OUT  = "${PREFIX_S2mu}.fitres" ;
     my $CMD_COMB  = "$JOBNAME_COMBINE $FRES_OUT $fmtArg $OUTARG" ;
 
@@ -3339,7 +3339,11 @@ sub MERGE_DRIVER {
     #
     # Apr 29 2019: create DONE_STAMP after gzipping SPLIT_JOBS, 
     #              instead of before (dumb mistake).
-
+    #
+    # May 13 2020: fix bug incrementing NFITOPT_MERGED which resulted
+    #              in FITRES files NOT being gzipped.
+    #
+ 
     my ($iver, $ifitopt, $IFLAG );
 
     &merge_INIT();
@@ -3354,11 +3358,15 @@ sub MERGE_DRIVER {
     # merge each version and fit-option
     for ( $iver=0 ; $iver < $NVERSION; $iver++ ) {
 
+#	print PTR_MERGE2 
+#	    "\n# ============ $VERSION_LIST[$iver] ========= \n";
+
 	$NFITOPT_MERGED = 0 ;
 
 	for ( $ifitopt=$ifitopt_start ; $ifitopt < $NFITOPT; $ifitopt++ ) {
 
-	    if ( $MERGE_STATUS[$iver][$ifitopt] == 2 ) { next; } # already done
+	    if ( $MERGE_STATUS[$iver][$ifitopt] == 2 ) 
+	    { $NFITOPT_MERGED++; next; } # already done
 
 	    $IFLAG = &DONE_CHECK_LCFIT($iver,$ifitopt);
 	    
@@ -3383,6 +3391,9 @@ sub MERGE_DRIVER {
 	    if ( $IFLAG != $IFLAG_WAIT ) { $NFITOPT_MERGED++ ; }
 	}  # ifitopt
 	
+#	print PTR_MERGE2 " xxx NFITOPT_MERGED = $NFITOPT_MERGED " . 
+#	    "($NFITOPT - $ifitopt_start) \n";
+
 	# gzip files for version when all FITOPT are done
 	if ( $NFITOPT_MERGED == ($NFITOPT-$ifitopt_start) ) { 
 	    &run_afterBurner($iver);  # Aug 31 2015
@@ -3754,11 +3765,9 @@ sub merge_outFiles_text {
     if ( $DOTEXT_TABLE[$ITABLE_FITRES] ) {	
 	# merge/catenate standard FITRES table.
 	&merge_text_TABLE($ITABLE_FITRES, $iver, $ifitopt); 
-# xxx mark delete	&merge_text_FITRES($iver,$ifitopt); 
 	
 	# pull variables out of root/hbook and append to text-fitres file
 	&append_text_TABLE($ITABLE_FITRES,$iver,$ifitopt);
-# xxx	&append_text_FITRES($iver,$ifitopt); # optional
     }
 
     if ( $DOTEXT_TABLE[$ITABLE_LCPLOT] ) {
@@ -3793,7 +3802,6 @@ sub merge_text_LCPLOT {
     if ( $DOTEXT_TABLE[$ITABLE_LCPLOT] == 0 ) { return ; }
 
     $VERSION  = "$VERSION_LIST[$iver]" ;
-# xxx mark delete    $MERGEDIR = "$OUTDIR/$VERSION";
     $MERGEDIR = "$OUTDIR_LIST[$iver]";
     $cdMDIR   = "cd $MERGEDIR";
     $cdSPLIT  = "cd $SPLIT_JOBDIR_LCFIT" ;
@@ -3833,14 +3841,14 @@ sub merge_text_TABLE {
     # both the SNANA and FITRES tables.
 
     my ($VERSION, $DATADIR, $MERGEDIR, $cdSPLIT, $cdMDIR);
-    my ($suf, $sufCat, $tmpFile1, $dumpFile, @tmp, $NSN );
+    my ($suf, $sufCat, $tmpFile1, $dumpFile, @tmp, $NSN, $FF );
     my ($cmd1_fres, $cmd2_fres, $searchString );
     my ($sedcmd, $cmd0, $cmd1, $cmd2, $cmd3, $cmd4, $cmd5 );
     my ($f1, $f2, $FRES_FILE, $FITOPT, $VCOMB );
     my ($line_NVAR, $line_VARNAMES, $sedcmd );
     my (@comment_orig, @comment_add, $comment, @tmpList);
     my ($NFILES, $FOUND_TABLEFILES );
-    my ($TEXTFILE, $textFile, $TEMPFILE) ;
+    my ($TEXTFILE, $textFile, $TEMPFILE, $TEXTFILE_ORIG ) ;
     my $PND = '#' ;
 
     # ---------- BEGIN --------------
@@ -3928,8 +3936,10 @@ sub merge_text_TABLE {
     $comment_add[3] = "FITOPT:  $FITOPT";
     $comment_add[4] = "---------------------------------------- ";
 
-    @tmp           = qx(grep "NVAR: "     $TEXTFILE);
-    $line_NVAR     = "$tmp[0]";   
+# xxxxxxx mark delete may 2020 xxxxxxxxxx
+#    @tmp           = qx(grep "NVAR: "     $TEXTFILE);
+#    $line_NVAR     = "$tmp[0]";   
+# xxxxxxxxxxxxxx
     @tmp           = qx(grep "VARNAMES: " $TEXTFILE);
     $line_VARNAMES = "$tmp[0]" ;
 
@@ -3950,8 +3960,10 @@ sub merge_text_TABLE {
 	$sedcmd = "$sedcmd " . "-e '1i $comment'" ; 
     } 
 
-    if ( length($line_NVAR) > 0 ) 
-    { $sedcmd = "$sedcmd " . "-e '1i $line_NVAR'" ; }
+# xxxxxx mark delete May 2020 xxxxxxx
+#    if ( length($line_NVAR) > 0 ) 
+#    { $sedcmd = "$sedcmd " . "-e '1i $line_NVAR'" ; }
+# xxxxxxxxxxxx
 
     if ( length($line_VARNAMES) > 0 ) 
     { $sedcmd = "$sedcmd " . "-e '1i $line_VARNAMES'" ;  }
@@ -3983,9 +3995,18 @@ sub merge_text_TABLE {
 	qx($cdMDIR ; $cmd1 ; $cmd2 ; $cmd3 ; $cmd4  );
     }
 	
+    # May 13 2020: check FITRES_COMBINE_FILE ... probably got dropped
+    #              in an earlier refactor
+    if ( $FITRES_COMBINE_FILE ne '' ) {
+	$TEXTFILE_ORIG = "${TEXTFILE}_ORIG" ;
+	$FF   = "$TEXTFILE_ORIG  $FITRES_COMBINE_FILE";
+	$cmd1 = "mv $TEXTFILE $TEXTFILE_ORIG" ;
+	$cmd2 = "$JOBNAME_COMBINE  $FF -outfile_text $TEXTFILE T" ; 
+	$cmd3 = "rm $TEXTFILE_ORIG" ;
+	qx($cdMDIR; $cmd1 ; $cmd2 ; $cmd3 );
+    }
 
-    # Sep 14 2014: touch done file
-    
+    # Sep 14 2014: touch done file   
     if ( $ITABLE == $ITABLE_FITRES ) {
 	my $DONEFILE = $MERGED_DONEFILE[$OUTINDX_TEXT][$iver][$ifitopt] ;
 	qx(touch $DONEFILE);
@@ -3995,156 +4016,6 @@ sub merge_text_TABLE {
 
 } # end merge_text_TABLE
 
-# =======================================
-sub merge_text_FITRES {
-
-    # !!!!!!!! Mar 25 2019: slated to be OBSOLETE !!!!!!!!
-    #
-    # catenate fitres text-files.
-    # July 2016: require ifitopt==0 to call copy_SIMGEN_DUMP().
-    # Dec 13 2016: if NSPLIT==1, use exact string match instead of wildcard.
-
-    my ($iver,$ifitopt) = @_;
-
-    my ($VERSION, $DATADIR, $MERGEDIR, $cdSPLIT, $cdMDIR);
-    my ($suf, $sufCat, $tmpFile1, $dumpFile, @tmp, $NSN );
-    my ($cmd1_fres, $cmd2_fres, $searchString );
-    my ($sedcmd, $cmd0, $cmd1, $cmd2, $cmd3, $cmd4, $cmd5 );
-    my ($f1, $f2, $FRES_FILE, $FITOPT, $VCOMB );
-    my ($line_NVAR, $line_VARNAMES, $sedcmd );
-    my (@comment_orig, @comment_add, $comment, @tmpList);
-    my ($NFITRES, $FOUND_FITRES );
-    my ($TEXTFILE, $textFile, $TEMPFILE) ;
-    my $PND = '#' ;
-
-    # ---------- BEGIN --------------
-
-    $VERSION  = "$VERSION_LIST[$iver]" ;
-    $DATADIR  = "$DATADIR_LIST[$iver]" ;
-    $MERGEDIR = "$OUTDIR_LIST[$iver]";
-    $cdMDIR   = "cd $MERGEDIR";
-    $cdSPLIT  = "cd $SPLIT_JOBDIR_LCFIT" ;
-
-    $PREFIX_SPLITJOB  = &get_PREFIX_SPLITJOB($iver,$ifitopt,-1);
-    $PREFIX_MERGED    = sprintf("FITOPT%3.3d", $ifitopt );
-
-    # construct commands to catentate fitres files
-    $suf       = "${SUFFIX_FITRES_TEXT}" ;  # suffix on split-job files
-    $sufCat    = "${SUFFIX_FITRES}" ;       # suffix on cat file
-    $tmpFile1  = "${PREFIX_SPLITJOB}.${sufCat}" ;
-    $textFile  = "$MERGED_outFile[$OUTINDX_TEXT][$iver][$ifitopt]" ;
-    $TEXTFILE  = "$MERGED_OUTFILE[$OUTINDX_TEXT][$iver][$ifitopt]" ;
-
-    # check if some fitres files exist
-    if ( $ifitopt == 0 ) {
-	@tmpList  = qx($cdSPLIT ; ls ${PREFIX_SPLITJOB}*${suf} 2>/dev/null );
-	$NFITRES  = scalar(@tmpList);
-	$FOUND_FITRES = ( $NFITRES > 0 ) ;
-    }
-    else 
-    { $FOUND_FITRES = 1; }
-
-    if ( $FOUND_FITRES == 0 ) {
-	$cmd1_fres = 
-	    "echo WARNING: No fitres files found for $PREFIX_SPLITJOB" ;
-	$cmd2_fres =  "touch $TEXTFILE" ;
-    }
-    else {
-
-	if ( $NSPLIT == 1 ) 
-	{ $searchString = "${PREFIX_SPLITJOB}_SPLIT001.${suf}" ; }
-	else
-	{ $searchString = "${PREFIX_SPLITJOB}_SPLIT*${suf}" ; }
-
-	$cmd1_fres = "cat ${searchString} > $tmpFile1 ";
-	$cmd2_fres = "mv $tmpFile1 $TEXTFILE" ;
-    }
-
-    # check for SIMGEN_DUMP file.
-    if ( ($SIM_FLAG_LIST[$iver] == $SIM_FLAG_NORMAL) &&  $ifitopt==0 ) 
-    { &copy_SIMGEN_DUMP($iver) ; }
-
-    # do the catenating
-    qx($cdSPLIT ; $cmd1_fres ; $cmd2_fres ) ;	    
-    
-    # Cleanup FITRES file so that NVAR and VARNAMES appear only once.
-    # Also add comment at top
-
-    # For FITRES-file comments, replace single quote(s) with 
-    # double quote(s) to avoid sed problems.
-    $FITOPT = "$FITOPT_LIST[$ifitopt]";
-    $FITOPT =~ s/\'/$qq/g ;
-
-    $comment_add[0] = "Catenated from $NSPLIT split-jobs.";
-    $comment_add[1] = "SNANA VERSION: $CURRENT_SNANA_VERSION ";   
-    $comment_add[2] = "DATA  VERSION: $VERSION " ;
-    $comment_add[3] = "FITOPT:  $FITOPT";
-    $comment_add[4] = "---------------------------------------- ";
-
-    @tmp           = qx(grep "NVAR: "     $TEXTFILE);
-    $line_NVAR     = "$tmp[0]";   
-    @tmp           = qx(grep "VARNAMES: " $TEXTFILE);
-    $line_VARNAMES = "$tmp[0]" ;
-
-    # get optional job-comments from first split-file;
-    # we assume that the comments in each split-job are the same.
-    my $firstFile = "$SPLIT_JOBDIR_LCFIT/${PREFIX_SPLITJOB}_SPLIT001.${suf}";
-    @comment_orig  = qx(grep '$PND' $firstFile 2>/dev/null ) ;
-
-
-    $sedcmd = "sed ";
-    foreach $comment (@comment_add) { 
-	$sedcmd = "$sedcmd " . "-e '1i $PND $comment'" ; 
-    } 
-
-    # add in original comments (if they exist)
-    foreach $comment (@comment_orig)  { 
-	chomp $comment ;
-	$sedcmd = "$sedcmd " . "-e '1i $comment'" ; 
-    } 
-
-    if ( length($line_NVAR) > 0 ) 
-    { $sedcmd = "$sedcmd " . "-e '1i $line_NVAR'" ; }
-
-    if ( length($line_VARNAMES) > 0 ) 
-    { $sedcmd = "$sedcmd " . "-e '1i $line_VARNAMES'" ;  }
-
-
-    $sedcmd = "$sedcmd " . "-e '/NVAR/d'" ;
-    $sedcmd = "$sedcmd " . "-e '/VARNAMES/d'" ;
-    $sedcmd = "$sedcmd " . "-e '/#/d'"  ;  # remove comments
-    $sedcmd = "$sedcmd " . "-e '/^\$/d'" ;  # remove blank lines (Dec 2018) 
-
-    $TEMPFILE = "TEMPXXX_${textFile}" ;
-    qx($sedcmd $TEXTFILE > $TEMPFILE ; mv $TEMPFILE $TEXTFILE );
-
-
-    # -----------------------------------------
-    # check option to combine all the FITRES files with a
-    # fitres file from a particular version
-    # WARNING (5/1/2013: this part needs testing
-    $VCOMB = "$VERSION_FITRES_COMBINE" ;
-    $FRES_FILE = "${PREFIX_MERGED}.${SUFFIX_FITRES}" ;
-    if ( $VCOMB  ne  '' ) {
-	# print PTR_MERGE " Combine each merged FITRES with $VCOMB \n" ;
-	$f1   = "$FRES_FILE" ;
-	$f2   = "../${VCOMB}/${FRES_FILE}";
-	$cmd1 = "$JOBNAME_COMBINE  $f1  $f2" ;
-	$cmd2 = "mv $f1 ${f1}_ORIG" ;
-	$cmd3 = "mv combine_fitres.text $f1" ;
-	$cmd4 = "rm combine_fitres.* " ;
-	qx($cdMDIR ; $cmd1 ; $cmd2 ; $cmd3 ; $cmd4  );
-    }
-	
-
-    # Sep 14 2014: touch done file
-  CREATE_DONEFILE:
-    my $DONEFILE = $MERGED_DONEFILE[$OUTINDX_TEXT][$iver][$ifitopt] ;
-    qx(touch $DONEFILE);
-
-    return ;
-
-} # end of merge_text_FITRES
 
 # ===========================
 sub append_text_TABLE {
@@ -4206,9 +4077,9 @@ sub append_text_TABLE {
     $logFile     = "sntable_dump_${SUFFIX}_${TABLENAME}.log" ;
 
     $VARLIST  = "@wdlist[0 .. $#wdlist]" ;
-    $ARG_V    = "--v $VARLIST" ;
-    $ARG_A    = "--a  $textFile" ;
-    $ARG_O    = "--o  $dumpFile" ;
+    $ARG_V    = "-v  $VARLIST" ;
+    $ARG_A    = "-a  $textFile" ;
+    $ARG_O    = "-o  $dumpFile" ;
     $CMD = "$JOBNAME_SNTABLE $outFile_fit $TABLENAME  $ARG_V  $ARG_A  $ARG_O" ;
 
     print PTR_MERGE2 "\n APPEND_TABLE_TEXT Command for $VERSION/$SUFFIX: \n";
@@ -4250,106 +4121,6 @@ sub append_text_TABLE {
     return ;
 
 } # end of append_text_TABLE
-
-
-# ===========================
-sub append_text_FITRES {
-
-    # !!!! Mar 25 2019:LEGACY function soon to be OBSOLETE !!!!
-    #
-    # Check option to append fitrest-text file with variables
-    # from the hbook/root file. Uses sntable_dump.pl.
-    #
-    # May 9, 2013: give unique sntable file-names to avoid clobber.
-    # Feb 8, 2014: if outFile_fit does not exist, leave message in PTR_MERGE2
-    #              and return.
-    #
-    # Sep 13, 2014: when done, remove sntable* files and gzip _ORIG file.
-    #
-
-    my ($iver,$ifitopt) = @_ ;
-
-    my ($indx, @wdlist, $VERSION, $MERGEDIR );
-    my ($CMD, $outFile_fit, $OUTFILE_FIT, $dumpFile, $logFile );
-    my ($textFile, $TABLE_ID, $VARLIST, $ARG_V, $ARG_A, $ARG_O );
-    my ($prefix_append, $outFile_append, $SUFFIX);
-
-
-    # bail if option is NOT set.   
-    if ( $APPEND_FITRES_LIST eq "" ) { return ; }
-
-    @wdlist   = split(/\s+/,$APPEND_FITRES_LIST) ;
-    $TABLE_ID = $wdlist[0] ;       # first element is the table id
-    $textFile = "$MERGED_outFile[$OUTINDX_TEXT][$iver][$ifitopt]" ;
-    $VERSION  = "$VERSION_LIST[$iver]" ;
-    $MERGEDIR = "$OUTDIR_LIST[$iver]" ;
-
-    # internal suffix for outfiles produced by sntable_dump
-    $SUFFIX = "${PREFIX_MERGED}" ;
-
-    # if table id is integer, then it's hbook; else it's root
-    if ( (1*$TABLE_ID) eq "$TABLE_ID" ) 
-    { $indx =  $OUTINDX_HBOOK ; } 
-    else 
-    { $indx =  $OUTINDX_ROOT ; }
-
-
-    # outFile_fit refers to hbook/root output of fit job -> 
-    # input to append script
-    $outFile_fit    = "$MERGED_outFile[$indx][$iver][$ifitopt]" ;  
-    $OUTFILE_FIT    = "$MERGED_OUTFILE[$indx][$iver][$ifitopt]" ;  
-
-    # dumpFile is the intermediate text file containing only the
-    # appended variables extracted from outFile_fit
-    $dumpFile    = "sntable_dump_${SUFFIX}.fitres" ;
-    $logFile     = "sntable_dump_${SUFFIX}.log" ;
-
-    $VARLIST  = "@wdlist[1 .. $#wdlist]" ;
-    $ARG_V    = "--v $VARLIST" ;
-    $ARG_A    = "--a  $textFile" ;
-    $ARG_O    = "--o  $dumpFile" ;
-    $CMD = "$JOBNAME_SNTABLE $outFile_fit $TABLE_ID  $ARG_V  $ARG_A  $ARG_O" ;
-
-    print PTR_MERGE2 "\n APPEND_FITRES Command for $VERSION/$SUFFIX: \n";
-    print PTR_MERGE2 "$CMD\n";
-    PTR_MERGE2 -> autoflush(1);	
-
-    unless ( -e $OUTFILE_FIT ) {
-	print PTR_MERGE2 "\t Cannot find '$outFile_fit' for $VERSION ";
-	print PTR_MERGE2 " --> skip APPEND_FITRES \n";
-	PTR_MERGE2 -> autoflush(1);	
-	return ;
-    }
-
-    qx(cd $MERGEDIR ; $CMD > $logFile);
-
-    # check for abort (June 26 2015)
-    my @bla = qx(cd $MERGEDIR ; grep ABORT $logFile);
-    if ( scalar(@bla) > 0 ) {
-	$MSGERR[0] = "FATAL ERROR: Append-ABORT found in ";
-	$MSGERR[1] = "   $MERGEDIR/$logFile";
-	# use die to make sure it gets printed to screen
-	die "\n $MSGERR[0]\n $MSGERR[1] \n";
-    }
-
-
-    # set outFile_append = name of appended fitres file
-    # (or grep 'Write' from logfile to determine name)
-    $prefix_append  = "sntable_append_${SUFFIX}" ;
-    $outFile_append = "${prefix_append}.text" ;
-
-    # move appended text file to replace original, 
-    # and save original with _ORIG suffix.
-    qx(cd $MERGEDIR ; mv $textFile        ${textFile}_ORIG  );
-    qx(cd $MERGEDIR ; mv $outFile_append  ${textFile}       );
-
-    # cleanup
-    qx(cd $MERGEDIR ; rm ${prefix_append}.*  $logFile $dumpFile ) ;
-    qx(cd $MERGEDIR ; gzip ${textFile}_ORIG );
-
-    return ;
-
-} # end of append_text_FITRES
 
 
 # =========================
@@ -4846,7 +4617,6 @@ sub gzip_VERSION {
     if ( $GZIP_STATUS[$iver] == 1 ) { return ; }  # already gzipped
 
     $VERSION   = "$VERSION_LIST[$iver]" ;
-# xxx mark delete    $MERGEDIR  = "$OUTDIR/$VERSION";
     $MERGEDIR  = "$OUTDIR_LIST[$iver]";
 
     my $dashLine = "- - - - - - - - - - - - - - - - - - - - - - - - - - - " ;
@@ -4908,17 +4678,19 @@ sub run_afterBurner {
 
     $CMD       = "$VERSION_AFTERBURNER";
     $VERSION   = "$VERSION_LIST[$iver]" ;
-# xxx mark delete    $MERGEDIR  = "$OUTDIR/$VERSION";
-    $MERGEDIR  = "$OUTDIR_LIST[$iver]";
+    $MERGEDIR  = "$OUTDIR_LIST[$iver]" ;
 
-    if ( length($CMD) == 0 ) { return ; }
+    if ( $CMD eq '' ) { return; }
+#    if ( length($CMD) == 0 ) { return ; }
     qx(cd $MERGEDIR; $CMD);
 
     print PTR_MERGE2 "\n" ;
-    print PTR_MERGE2 "# ================================================== \n" ;
+    print PTR_MERGE2 
+	"# ================================================== \n";
     print PTR_MERGE2 " Run AFTERBURNER command: \n\t $CMD\n" . 
 	" for $VERSION \n" ;
-    print PTR_MERGE2 "# ================================================== \n" ;
+    print PTR_MERGE2 
+	"# ================================================== \n" ;
     print PTR_MERGE2 "\n" ;
 
     PTR_MERGE2 -> autoflush(1);

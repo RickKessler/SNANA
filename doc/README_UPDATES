@@ -18497,18 +18497,38 @@
 
 
 # ======================================================================= 
-         v10_77d (  ) 
+         v10_77d (Jun 9 2020) 
 
          ***** IMPORTANT(v10_77d) ***** 
 
+    snana.car: Fix awful bug in converting zCMB -> zHELIO;
+      OPT flag was set with wrong sign, so it was converting
+      zHELIO -> zCMB. This ONLY affects data files that have
+      zCMB but not zHELIO. No impact if both REDSHIFT_HELIO
+      and REDSHIFT_CMB are included in data files.
+      A few affected data versions are 
+          LOWZ_JRK07, SNLS_Ast06, CSPDR2
+      JLA data files have both HELIO and CMB redshift, and
+      were thus not affected by this bug.
+      Not clear when this bug was introduced.
+
+    sntools.h: update CMB_apex parameters using Planck 2018.
+
          ***** USEFUL(v10_77d) ***** 
+
+    snana.car
+      If both REDSHIFT_HELIO and REDSHIFT_CMB are read from data files,
+      crosscheck zHELIO with internal calculation; abort if 
+      |dz/z| > zTOL_HELIO2CMB (new &SNLCINP input).
+      Goal is to catch use of approximate/additive formula.
+      See manual section 12.2.5 Crosscheck zHEL -> zCMB
 
          ***** MISCELLANEOUS(v10_77d) ***** 
 
     snana.car
-      for writing TAKE_SPECTRUM keys to SIMLIB, exlcude wave bins
-      where FLUXERR/FLUXERR_MEDIAN > 50
-
+      + for writing TAKE_SPECTRUM keys to SIMLIB, exlcude wave bins
+         where FLUXERR/FLUXERR_MEDIAN > 50
+     
     combine_fitres.c
       + fix variable name match to be case insensitive.
 

@@ -112,6 +112,7 @@
 \newcommand{\zmax}{Z_{\rm max}}
 \newcommand{\zhelio}{z_{\rm hel}}
 \newcommand{\zcmb}{z_{\rm cmb}}
+\newcommand{\zsun}{z_{\odot}}
 \newcommand{\vpec}{{\rm v}_{\rm pec}}
 
 \newcommand{\Nseason}{N_{\rm season}}
@@ -11551,6 +11552,32 @@ published Winter 2019:
    &SNLCINP
       RESTORE_DES3YR = T  # LC fit input
 \end{verbatim}
+
+
+% --------------------------------------
+ \clearpage 
+  \subsubsection{Crosscheck $\zhelio \rightarrow \zcmb$ in Data Files}
+  \label{sss:check_ztranslate}
+% --------------------------------------
+
+In some data files, the CMB-frame redshift has been evaluated
+using the additive approximation, $\zcmb = \zhelio + \zsun$,
+instead of the exact formula, $1+ \zcmb =  (1+\zhelio)/(1-\zsun)$.
+If both {\tt REDSHIFT\_HELIO} and {\tt REDSHIFT\_CMB} are included
+in the data files, the snana code can run a crosscheck with the
+following input,
+\begin{verbatim}
+  &SNLCINP
+     ZTOL_HELIO2CMB = 0.001  ! abort if dz/zCMB > 0.001 (default=0.02)
+
+  or command-line arg:
+    snana.exe <inpFile> ZTOL_HELIO2CMB 0.001
+\end{verbatim}
+The \snana\ code computes $\zcmb$ from $\zhelio$ and compares
+with {\tt REDSHIFT\_CMB} in the data file; if the difference
+({\tt dz}) satisfies {\tt dz/zCMB > ZTOL\_HELIO2CMB}, the code aborts.
+The default tolerance is 0.02, which may catch severe bugs, 
+but will not catch the additive approximation.
 
 
 % --------------------------------------

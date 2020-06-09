@@ -64,9 +64,18 @@
 #define ZAT10PC    2.335e-9         // redshift at 10pc (H0=70)
 #define ZMAX_SNANA 4.0              // max snana redshift, Dec 26 2016
 
+// from Planck 2018 (installed June 8 2020)
+#define  CMBapex_l  (double)264.031    // deg (RA galactic coords !!!)
+#define  CMBapex_b  (double)48.253     // deg (DEC)
+#define  CMBapex_v  (double)369.82    // km/sec
+
+
+/* xxxxx mark delete Jun 8 2020 xxxxxxx
+// probably from COBE 1996 ?
 #define  CMBapex_l  (double)264.14    // deg (RA galactic coords !!!)
 #define  CMBapex_b  (double)48.26     // deg (DECL)
 #define  CMBapex_v  (double)371.0     // km/sec
+xxxxxxxxxxxxx */
 
 #define FWHM_SIGMA_RATIO  2.3548    // FWHM/sigma for Gaussian 
 #define TEN        (double)10.0 

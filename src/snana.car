@@ -1998,7 +1998,8 @@ c LC plot info
      &  SNCCID_PLOT(MXLISTNML)*(MXCHAR_CCID) ! (I) string-list of CCIDs to plot
 
       REAL 
-     &  DTOBS_MODEL_PLOT  ! (I) binning (days) for overlaid best-fit model
+     &   DTOBS_MODEL_PLOT  ! (I) binning (days) for overlaid best-fit model
+     &  ,zTOL_HELIO2CMB    ! (I) give warning if  zCMB and zHEL are off
 
 c Oct 2014: variables to check for multi-season transient activity
 
@@ -2076,7 +2077,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , NSIMVAR_CUTWIN, SIMVAR_CUTWIN, SIMVAR_CUTWIN_LIST
      &    , EARLYLC_STRING, REQUIRE_EPOCHS_STRING, DUMP_STRING
      &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT, DTOBS_MODEL_PLOT
-     &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP
+     &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP, zTOL_HELIO2CMB
      &    , MULTISEASON_NREJECT_OUTLIER, MULTISEASON_CHI2RED_ACTIVE
      &    , PHOTFLAG_DETECT, PHOTFLAG_TRIGGER
      &    , CUTWIN_ZPADU, CUTWIN_ZPNPE, CUTWIN_TREST_TRUEFLUX
@@ -2116,7 +2117,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , H0_REF, OLAM_REF, OMAT_REF, W0_REF, DWDA_REF
      &    , USE_MWCOR, DOBUG_LAMRANGE
      &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT, DTOBS_MODEL_PLOT
-     &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP
+     &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP, zTOL_HELIO2CMB
      &    , MULTISEASON_NREJECT_OUTLIER, MULTISEASON_CHI2RED_ACTIVE
      &    , PHOTFLAG_DETECT, PHOTFLAG_TRIGGER
 c
@@ -2951,10 +2952,6 @@ c read optional tags
 c read optional header-override (can include vpec) 
       CALL INIT_HEADER_OVERRIDE()     ! Nov 29 2016
 
-c Oct 2013: read optional peculiar-velocity corrections 
-c Dec 2016: should use the HEADER_OVERRIDE feature instead.
-      CALL RD_VPEC_FILE(-1)
-
 c init multi-season analysis
       CALL MULTISEASON(IFLAG_INI)  ! 1 = init flag
 
@@ -3570,6 +3567,8 @@ c set reference cosmo params to defaults.
       DWDA_REF(1) = DWDA_DEFAULT
       DWDA_REF(2) = DWDAERR_DEFAULT
 
+      zTOL_HELIO2CMB = 0.02   ! tolerance on dzHELIO/zHELIO
+
 c set LTEST logicals to false.
 
       LTEST_KCOR    = .FALSE.
@@ -4117,7 +4116,7 @@ c set strings needed for the SNLCPAK_INIT functio
          CALL SPECPAK_INIT(SURVEY_forC, VER_PHOT_forC, TEXTFMT_forC,
      &          LENSRVY, LENV1, LENFMT )
       ENDIF
-c .xyz
+
 c -------------------------------------------
 
       USE_TABLEFILE        = .FALSE.
@@ -5301,6 +5300,10 @@ c -------------
          else if ( LINE_ARGS(i) .EQ. 'W0_REF' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) W0_REF(1)
 
+         else if ( LINE_ARGS(i) .EQ. 'ZTOL_HELIO2CMB' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) ZTOL_HELIO2CMB
+         else if ( LINE_ARGS(i) .EQ. 'zTOL_HELIO2CMB' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) ZTOL_HELIO2CMB
 c ----
          else if ( LINE_ARGS(i) .EQ. 'ABORT_ON_BADSURVEY' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) ABORT_ON_BADSURVEY
@@ -6116,24 +6119,6 @@ c Analysis driver for SN with sparse index ISN.
 c Move code from MAIN to here so that each SN is fit
 c right after it is read.
 c
-c Dec 4 2012: call new function USRINI2()
-c
-c Dec 11, 2012: move MON_SNANA(1) call to end after USRANA call.
-c               i.e, call monitor after everything has been analyzed.
-c
-c Jan 2 2013:
-c    if LSNCUTS=F  or LSNFITOK=F, then call MON_SNANA(1) before RETURN.
-c    Allows ntuple update for CUTFLAG=0 to allow examining
-c    why SN fails cuts.
-c
-c Jan 4, 2013: replace local ISTAT_FITANAN with global ERRFLAG_FIT
-c              so that it goes into the SNANA ntuple (7100).
-c              Invert logic so that ERRFLAG_FIT=0 is success
-c              rather than failure.
-c
-c Nov 29 2014: move USRINI2 function at end of IF-bloc, after
-c              MON_SNANA.
-c
 c Nov 29 2016: 
 c   + remove function call to PRIVATE_CHECK.
 c   + add call to EXEC_HEADER_OVERRIDE.
@@ -6186,7 +6171,7 @@ c Apr 2019: special NNtrain option to pick only EVEN CID
       endif
 
 c check option to fetch vPec from file
-      CALL RD_VPEC_FILE(0)
+cc xxx mark delete  Jun 8 2020    CALL RD_VPEC_FILE(0)
 
 c check option to override header values (Nov 29 2016)
       CALL EXEC_HEADER_OVERRIDE()
@@ -8163,26 +8148,18 @@ C ============================
       character c1err*(*), c2err*(*) ! two error messages
       INTEGER ISEV_FATAL, IPROMPT, LENF, LEN1, LEN2
       PARAMETER ( ISEV_FATAL = 4, IPROMPT=0 )
-      LOGICAL LEGACY_ABORT
 
       EXTERNAL ERRMSG
       INTEGER  LENSTR
 c ----------------- BEGIN --------------
-
-      LEGACY_ABORT = .FALSE.
-
-      IF ( LEGACY_ABORT ) then
-         CALL MADABORT_LEGACY(funname,c1err,c2err)
-      ELSE
-         LENF = LENSTR(funname)
-         LEN1 = LENSTR(c1err)
-         LEN2 = LENSTR(c2err)
-         call errmsg(ISEV_FATAL, IPROMPT, 
-     &       funname(1:LENF)//char(0), 
-     &       c1err(1:LEN1)//char(0),
-     &       c2err(1:LEN2)//char(0),
-     &          LENF, LEN1, LEN2 )
-      ENDIF
+      LENF = LENSTR(funname)
+      LEN1 = LENSTR(c1err)
+      LEN2 = LENSTR(c2err)
+      call errmsg(ISEV_FATAL, IPROMPT, 
+     &     funname(1:LENF)//char(0), 
+     &     c1err(1:LEN1)//char(0),
+     &     c2err(1:LEN2)//char(0),
+     &     LENF, LEN1, LEN2 )
 
       RETURN
       END
@@ -18213,7 +18190,8 @@ c before deciding final values for the data files.
 c Also note that the CID in the HEADER_OVERRIDE file
 c can be either the SNID or IAUC name.
 c
-
+c Jun 9 2020: for SIM, leave message and return 
+c
       IMPLICIT NONE
     
 +CDE,SNDATCOM.
@@ -18237,6 +18215,23 @@ C ------------ BEGIN -------------
       IF ( HEADER_OVERRIDE_FILE .EQ. ' '    ) RETURN
       IF ( HEADER_OVERRIDE_FILE .EQ. 'NULL' ) RETURN
       IF ( HEADER_OVERRIDE_FILE .EQ. 'NONE' ) RETURN
+
+      IF ( LSIM_SNANA ) THEN
+        print*,' '
+        print*,
+     &     ' ##########################################################'
+        print*,
+     &     ' !!!! IGNORE HEADER_OVERRIDE_FILE for SNANA SIMULATION !!!!'
+        print*,
+     &     ' ##########################################################'
+        print*,' '
+        CALL FLUSH(6)
+
+        HEADER_OVERRIDE_FILE = ''
+        RETURN
+      ENDIF
+
+      CALL RD_VPEC_FILE(-1)  ! abort is using obsolete VPEC_FILE (Jun 2020)
 
       FNAM = 'INIT_HEADER_OVERRIDE'
 
@@ -18755,131 +18750,17 @@ C --------------- BEGIN --------------
 C ========================================================
 +DECK,RD_VPEC_FILE.
       SUBROUTINE RD_VPEC_FILE(IFLAG)
-
-c Read list of peculiar velocity corrections (and errors)
-c from file VPEC_FILE.
-c Units are km/s, and are converted into a z_CMB correction for
-c the output Hubble diagram.
-c
-c !~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~
-c !~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~
-c
-c WARNING(Nov 2016): 
-c   this function may become obsolete since the same capability
-c   is in HEADER_OVERRIDE_FILE, which can include additional
-c   header variables.  
-c   Should really switch to using HEADER_OVERRIDE_FILE.
-c
-c !~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~
-c !~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~
-c
-c VPEC_FILE format must be 
-c
-c NVAR: <N>
-c VARNAMES:  CID  VPEC VPEC_ERR  <bla1> <bla2> etc ...
-c
-c and note that VPEC and VPEC_ERR can be anywhere on the list
-c
-c Oct 27, 2014: use refactored AUTOSTORE functions 
-c               (works on any format instead of ascii only)
-c
-c Nov 30 2016: 
-c   + pass IFLAG=-1 for init, IFLAG=0 to execute.
-c   + refactor to init and execute in same function
-c
-c Jun 8 2017:
-c  + for LSIM_SNAN, VPEC_FILE -> '' so that VPEC_FILE applies ONLY to data
-c  + allow ENV in VPEC_FILE; see ENVreplace call.
-c
 c ----------------------------
-
       IMPLICIT NONE
-
       INTEGER    IFLAG  ! (I) 
-
 c local var
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
-
-      INTEGER  L1, L2, L3, LENV, ISTAT
-      INTEGER  OPTMASK_STORE, NSTORE_VPEC
-      CHARACTER  
-     &   VARLIST*80
-     &  ,cFILE*(MXCHAR_FILENAME)
-     &  ,cTABLE*20
-     &  ,cVARLIST*80
-     &  ,cVARNAME*40, CCID*(MXCHAR_CCID), cDUM*20
-
-      REAL*8 DVAL 
-
-c functions
-      INTEGER  SNTABLE_AUTOSTORE_INIT
-      EXTERNAL SNTABLE_AUTOSTORE_INIT, SNTABLE_AUTOSTORE_READ
-
 C ------------- BEGIN ------------
-
-
       IF ( VPEC_FILE .EQ. '' ) RETURN
-
-      IF ( LSIM_SNANA ) THEN
-        print*,' '
-        print*,'  ############################################### '
-        print*,'  !!!! IGNORE VPEC_FILE for SNANA SIMULATION !!!! '
-        print*,'  ############################################### '
-        print*,' '
-        CALL FLUSH(6)
-
-        VPEC_FILE = ''  ! Jun 2017: no VPEC in simulation
-        RETURN
-      ENDIF
-
-      IF ( IFLAG < 0 ) THEN  ! one-time init
-  
-        CALL ENVreplace(VPEC_FILE)
-
-        GLOBAL_BANNER = 
-     &      'Read User Peculiar-Velocity Corrections (km/sec)'
-        CALL PRBANNER (GLOBAL_BANNER(1:60) )
-
-c init variables to read
-
-        OPTMASK_STORE = 7  ! 3->7 on May 11 2017
-        VARLIST = 'VPEC,VPEC_ERR '  ! hard-wird names
-
-        L1      = INDEX(VPEC_FILE,' ') - 1
-        L2      = 4
-        L3      = INDEX(VARLIST,  ' ') - 1
-
-        cFILE     = VPEC_FILE(1:L1) // char(0)
-        cTABLE    = 'VPEC'          // char(0) ! anything will work for ascii
-        cVARLIST  = VARLIST(1:L3)   // char(0)
-
-        NSTORE_VPEC = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST, 
-     &                   OPTMASK_STORE,  L1, L2, L3 )
-
-        IF ( NSTORE_VPEC == 0 ) THEN
-           C1ERR = 'NSTORE_VPEC = 0 in VPEC_FILE'
-           C2ERR = 'Check ' // VPEC_FILE(1:70)
-           CALL MADABORT("RD_VPEC_FILE",C1ERR,C2ERR)
-        ENDIF 
-
-      ELSE  ! EXECUTE
-  
-         CCID  = SNLC_CCID(1:ISNLC_LENCCID) // char(0)
-
-         cVARNAME = 'VPEC' // char(0)  ; LENV  = 4
-         CALL SNTABLE_AUTOSTORE_READ(CCID,cVarname,ISTAT,
-     &         DVAL,cDUM,  ISNLC_LENCCID, LENV, 20)
-         IF ( ISTAT == 0 ) SNLC_VPEC = sngl(DVAL)
-
-         cVARNAME = 'VPEC_ERR' // char(0)  ; LENV  = 8
-         CALL  SNTABLE_AUTOSTORE_READ(CCID,cVarname,ISTAT,
-     &         DVAL,cDUM,  ISNLC_LENCCID, LENV, 20)
-         IF ( ISTAT == 0 ) SNLC_VPEC_ERR = sngl(DVAL)
-
-      ENDIF
-
+      C1ERR = '&SNLCIP VPEC_FILE input is obsolete'
+      C2ERR = 'Use HEADER_OVERRIDE_FILE'
+      CALL MADABORT("RD_VPEC_FILE",C1ERR,C2ERR)   ! Jun 8 2020
       RETURN
       END  ! end of RD_VPEC_FILE
 
@@ -19434,11 +19315,18 @@ c May 2017: load ADDCOL arrays
 
 C =============================
 +DECK,SET_ZHELIO.
-      SUBROUTINE SET_ZHELIO
+      SUBROUTINE SET_ZHELIO()
 
 C Creatd Feb 25 2018
 c If SNLC_ZHELIO < 0, transform from zCMB.
 c Otherwise, do nothing.
+c
+c  Jun 8 2020
+c   + fix awful bug with sign of OPT sent to translator.
+c      was translating zHELIO -> CMB instead of zCMB -> zHELIO
+c   + if SNLC_HELIO[CMB] are both given in data file, make
+c     crosscheck here using zTOL_HELIO2CMB test on dz/z
+c ---------
 
       IMPLICIT NONE
 
@@ -19446,29 +19334,58 @@ c Otherwise, do nothing.
 +CDE,SNLCINP.
 
       INTEGER OPT
-      CHARACTER EQ*4
-      REAL*8    ZHEL8, ZCMB8
+      CHARACTER EQ*4, FNAM*12
+      REAL*8  ZHEL8, ZCMB8, DZ8, zRATIO8
 
       REAL*8 zhelio_zcmb_translator ! function
 
 C ------------- BEGIN ------------
 
-      IF ( SNLC_ZHELIO > 0 ) RETURN
-      IF ( SNLC_ZCMB   < 0 ) RETURN
+      FNAM = 'SET_ZHELIO'
+
+c xxx mark delete      IF ( SNLC_ZHELIO > 0 ) RETURN
+      IF ( SNLC_ZCMB  < 0 ) RETURN
 
 c now we have undefined zHELIO and valid zCMB
-      SNLC_ZHELIO_ERR = SNLC_ZCMB_ERR
 
-      OPT    = 1     ! --> convert ZHEL to ZCMB
+      if ( RESTORE_DES3YR ) then
+
+      else
+
+      endif
       EQ     = 'eq' // char(0)
-      ZCMB8  = DBLE ( SNLC_ZCMB )
-      ZHEL8  = 
+
+      IF ( SNLC_ZHELIO > 0 ) THEN
+         OPT    = +1  ! --> convert ZHEL to ZCMB
+         ZHEL8 = DBLE(SNLC_ZHELIO)
+         ZCMB8 = 
+     &      zhelio_zcmb_translator(ZHEL8,SNLC8_RA,SNLC8_DEC,EQ,OPT, 4)
+         zRATIO8 = zCMB8/DBLE(SNLC_zCMB)
+         DZ8     = abs(1.0 - zRATIO8)
+         if ( DZ8 > zTOL_HELIO2CMB ) then
+            CALL PRINT_PREABORT_BANNER(FNAM(1:10)//char(0),12)
+            print*,' zHEL(dataFile) = ', SNLC_ZHELIO
+            print*,' zCMB(dataFile) = ', SNLC_ZCMB
+            print*,' zCMB(compute)  = ', ZCMB8
+            print*,' zRATIO = zCMB(compute)/zCMB(dataFile) = ', 
+     &                 sngl(zRATIO8)
+            print*,' zTOL_HELIO2CMB = ', zTOL_HELIO2CMB
+            C1ERR='Computed zCMB (from zHEL) outside tolerance w.r.t.'
+            C2ERR='REDSHIFT_CMB in data file for CID=' // SNLC_CCID
+            CALL MADABORT(FNAM,C1ERR,C2ERR)
+         endif
+      ELSE
+         OPT    = -1 ! --> convert CMB -> zHEL
+cc         OPT    = +1 ! --> BUG
+         ZCMB8  = DBLE ( SNLC_ZCMB )
+         ZHEL8  = 
      &    zhelio_zcmb_translator(ZCMB8,SNLC8_RA,SNLC8_DEC,EQ,OPT, 4)
 
-      SNLC_ZHELIO = SNGL(ZHEL8)
-
-      SNLC_REDSHIFT     = SNLC_ZHELIO
-      SNLC_REDSHIFT_ERR = SNLC_ZHELIO_ERR
+         SNLC_ZHELIO       = SNGL(ZHEL8)
+         SNLC_ZHELIO_ERR   = SNLC_ZCMB_ERR
+         SNLC_REDSHIFT     = SNLC_ZHELIO
+         SNLC_REDSHIFT_ERR = SNLC_ZHELIO_ERR
+      ENDIF
 
       RETURN
       END

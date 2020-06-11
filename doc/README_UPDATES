@@ -18540,4 +18540,18 @@
     SALT2mu.c
       + add abort traps for crazy IDSURVEY.
 
+
+# ======================================================================= 
+         v10_77e (  ) 
+
+         ***** IMPORTANT(v10_77e) ***** 
+
+         ***** USEFUL(v10_77e) ***** 
+
+         ***** MISCELLANEOUS(v10_77e) ***** 
+
+   snana.car
+     + do NOT apply zTOL check if SNLC_HELIO < 0.003 ... temp hack
+       to protect redshift truncation in DES DIFFIMG.
+
 END: 

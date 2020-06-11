@@ -42,7 +42,7 @@
 #include <stdbool.h>
 
 #include "sndata.h"
-#define  SNANA_VERSION_CURRENT  "v10_77d"                            
+#define  SNANA_VERSION_CURRENT  "v10_77e"                             
 
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
 #define OMEGA_MATTER_DEFAULT   0.315 
@@ -275,6 +275,7 @@ struct GRIDMAP  SIMEFF_GRIDMAP ;
 
 // Jun 8 2018: move GENGAUSS_ASYM from snlc_sim.h to here
 typedef struct  {
+  bool   USE;       // T -> values are set (Jun 11 2020)
   char   NAME[80];  // name of variable                       
   double PEAK ;     // peak prob                          
   double SIGMA[2] ; // asymmetric Gaussian sigmas 
@@ -289,8 +290,7 @@ typedef struct  {
   double SIGMA2[2]; // asym Gaussian sigmas of 2nd peak 
   int  FUNINDEX;    // = NFUN_GENGUASS_ASYM = unique index 
 
-  // Jun 2018
-  double RMS; // optionally filled.
+  double RMS;  // RMS of asym Gaussian
 
 } GENGAUSS_ASYM_DEF ;
 

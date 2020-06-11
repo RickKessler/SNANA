@@ -735,9 +735,6 @@ void set_user_defaults(void) {
   init_GEN_EXP_HALFGAUSS( &INPUTS.GENPROFILE_AV, (double)-9.0 );
   init_GEN_EXP_HALFGAUSS( &INPUTS.GENPROFILE_EBV_HOST, (double)-9.0 );
 
-
-
-
   // init SALT2 gen ranges
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_SALT2c, zero );
   INPUTS.GENGAUSS_SALT2c.PEAK     =  0.0 ;
@@ -4240,38 +4237,27 @@ void read_input_GENGAUSS(FILE *fp, char *string, char *varName,
 
 } // end of read_input_GENGAUSS
 
-void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
 
+/* xxxxxxxxx mark delete Jun 11 2020 [moved to sntools_genGauss_asym]
+void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
   // Created Sep 2 2016
   // Store NAME and increment index.
   // Called by readFile routine and command-line read function.
-
   char *ptrName = genGauss->NAME;
-  //  char fnam[] = "prepIndex_GENGAUSS" ;
+  char fnam[] = "prepIndex_GENGAUSS" ;
   // ---------- BEGIN ---------
-
-  /*
-  printf(" xxx FOUND GENGAUSS(%s): peak=%.2f  "
-	 "range=%9.3le,%9.3le  sigma=%9.3le,%9.3le \n",
-	 varName, genGauss->PEAK, 
-	 genGauss->RANGE[0], genGauss->RANGE[1],
-	 genGauss->SIGMA[0], genGauss->SIGMA[1] );  fflush(stdout);
-  */
-
   // if genGauss name is not set, then set name and FUNINDEX
   if ( strcmp(ptrName,varName) != 0 ) {
     genGauss->FUNINDEX = NFUN_GENGAUSS_ASYM ;
     NFUN_GENGAUSS_ASYM++;  
     sprintf(genGauss->NAME, "%s", varName);  
   }
-
-  // copy each GENGAUSS_ASYM struct into master list in case
-  // some kind of global operation or init is needed.
-
   int FUNINDEX = genGauss->FUNINDEX ;
   copy_GENGAUSS_ASYM( genGauss, &GENGAUSS_ASYM_LIST[FUNINDEX] );
-
 } // end prepIndex_GENGAUSS
+xxxxxxxxxxxxxxx end mark xxxxxxxxxxxx */
+
+
 
 // ************************************************
 void sscanf_GENGAUSS(int *i, char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
@@ -10409,11 +10395,7 @@ void gen_event_driver(int ilc) {
     
     if ( (ISREST || ISNON1A || ISMISC) && INPUTS.DO_AV ) {
       GENLC.RV = gen_RV() ; 
-      if (INPUTS.DEBUG_FLAG == 41) {
-	GENLC.AV = gen_AV_legacy() ; //legacy code
-      } else {
-        GENLC.AV = gen_AV() ;  //DJB March 20 2020: Adding new way to sim EBV.      
-      }
+      GENLC.AV = gen_AV() ;  //DJB March 20 2020:  EBV.      
     }
 
     override_modelPar_from_SNHOST(); // Jun 2016      
@@ -11199,15 +11181,8 @@ void genshift_risefalltimes(void) {
 void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   /*********
-   generate shape/luminosity parameter for model:
+   generate shape/luminosity & color parameters for model:
    stretch, delta, dm15 ... Also computes SALT2x0 and mB.
-
-  Jan 10 2014: call get_zvariation() for SIMSED model.
-
-  Mar 16, 2014: major overhaul to apply z-variatoin to any population
-                parameter, rather than applying only to the MEAN/PEAK.
-
-  Sep 12 2015: set fixmag
 
   Feb 27 2018: refactor with functions gen_shapepar_SALT2[SIMSED]
 
@@ -14156,146 +14131,6 @@ double gen_AV(void) {
   return(AV) ;
 
 }  // end of gen_AV
-
-// ***********************************
-double gen_AV_legacy(void) {
-
-  // select AV from exponential distribution,
-  // dN/dAv = exp(-av/tau) + exp(-0.5*av^2/sig^2)
-  //
-  // Oct 26, 2012: tau > 50 -> flat distribution
-  // Mar 15, 2013: include Gaussian core (requested by Rodney for HST)
-  //                      float -> double
-  // 
-  // Feb 02, 2016: for pure Gaussian, repeat until avmin < AV < avmax;
-  //               and abort after MAXTRY_ABORT tries
-  //
-  // Feb 19, 2016: added missing 'goto DONE' in DOFUN_GAUSS (D.Jones)
-  //
-  // Feb 24, 2016: adjusted gaussian to allow non-0 centroid using
-  //               the GENGAUPEAK_AV keyword (D. Jones)
-  //
-  // Jan 14 2017: 
-  //   while fixing warnings from -Wall, found and fixed bug setting
-  //   un-initialized "peak":   peakGauss = INPUTS.GENGAUPEAK_AV ;
-  //
-  // Feb 11 2020: fix bug computing WGT_GAUSS
-
-  double  tau, sig, ratio, peakGauss, expmin, expmax, expdif ;
-  double avmin, avmax, AV, ran_EXPON, ran_GAUSS, ran_WGT ;
-  int DOFUN_EXPON, DOFUN_GAUSS ;
-  char fnam[] = "gen_AV_legacy" ;
-
-  // ------------ BEGIN -------------
-
-  AV    = 0.0 ;
-  DOFUN_EXPON = DOFUN_GAUSS = 0 ;
-
-  // always burn randoms to stay synced.
-  ran_EXPON = FlatRan1(1) ;
-  ran_GAUSS = GaussRan(1);    
-  ran_WGT   = FlatRan1(1) ;  
-
-  if ( INPUTS.WV07_GENAV_FLAG )  { AV = GENAV_WV07(); return(AV); }
-
-  // pick from exponential
-  GENLC.AVTAU = INPUTS.GENEXPTAU_AV 
-    + get_zvariation(GENLC.REDSHIFT_CMB,"GENEXPTAU_AV");
-
-  GENLC.AVSIG = INPUTS.GENGAUSIG_AV 
-    + get_zvariation(GENLC.REDSHIFT_CMB,"GENEXPSIG_AV");
-
-  peakGauss = INPUTS.GENGAUPEAK_AV; 
-
-  GENLC.AV0RATIO = INPUTS.GENRATIO_AV0
-    + get_zvariation(GENLC.REDSHIFT_CMB,"GENRATIO_AV0" );
-
-  tau   = GENLC.AVTAU ;
-  sig   = GENLC.AVSIG ;
-  ratio = GENLC.AV0RATIO ;  // Gauss/expon ratio
-
-  avmin = INPUTS.GENRANGE_AV[0] ;
-  avmax = INPUTS.GENRANGE_AV[1] ;
-
-  // sanity check
-  if ( (avmax > avmin) && (tau==0.0 && sig==0.0) ) {
-    sprintf(c1err,"GENRANGE_AV = %.3f to %.3f", avmin, avmax);
-    sprintf(c2err,"but GENEXPTAU_AV=0 and GENGAUSIG_AV=0");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-
-  // check for trivial cases
-
-  if ( tau   <= 0.001 && sig <= 0.001 )  // delta function at AVMIN
-    { AV = avmin; goto DONE ; }
-
-  if ( avmin == avmax )       // delta-function at AVMIN
-    { AV = avmin; goto DONE ; }  
-
-  if ( tau > 50. && ratio == 0.0 )    // flat distribution
-    { AV = avmin + (avmax - avmin) * ran_EXPON ; goto DONE ; }
-
-
-  // check for pure exponential or pure Gaussian
-  if ( tau > 0.0 &&  sig <= 0.0 ) { DOFUN_EXPON = 1 ; }
-  if ( sig > 0.0 &&  tau <= 0.0 ) { DOFUN_GAUSS = 1 ; }
-
-
-  // check for mixed.
-  if ( tau > 0.0 && sig > 0.0 && ratio > 0.0 ) {
-    double WGT_EXPON, WGT_GAUSS, WGT_SUM ;
-    WGT_EXPON = 1.0 / tau ;
-    WGT_GAUSS = 0.5*ratio / sqrt(TWOPI * sig*sig);
-    WGT_SUM = WGT_EXPON + WGT_GAUSS ;
-    if ( ran_WGT < WGT_EXPON/WGT_SUM ) 
-      { DOFUN_EXPON = 1; }
-    else
-      { DOFUN_GAUSS = 1; }
-  }
-
-  // pure exponential 
-  if ( DOFUN_EXPON ) {
-    expmin = expf(-avmin/tau) ;  // note that expmin > expmax !!!
-    expmax = expf(-avmax/tau) ;
-    expdif = expmin - expmax ;    
-    AV = -tau * log( expmin - expdif*ran_EXPON ) ;
-    goto DONE ;
-  }
-
-  // pure Guassian (AV > 0 only)                   
-  if ( DOFUN_GAUSS ) {
-    int MAXTRY_ABORT = 10000  ;  // abort after this many tries   
-    int itry = 0 ;
-    AV = -9999.0 ;
-    while ( AV < avmin || AV > avmax ) {
-      if ( itry > MAXTRY_ABORT ) {
-	sprintf(c1err,"Can't find Gauss-AV between %.2f and %.2f",
-                avmin, avmax);
-        sprintf(c2err,"after %d tries (sigma=%.2f)\n", itry, sig );
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-      }
-      if ( itry  > 1 ) { ran_GAUSS = GaussRan(1); }
-      if (peakGauss > 0.0001 ) 
-	{ AV = sig * ran_GAUSS + peakGauss; }
-      else
-	{ AV = sig * fabs(ran_GAUSS); }
- 
-      itry++ ;
-    }
-    goto DONE ;
-  }
-
-  // if we get here then abort on confusion.
-  sprintf(c1err,"Could not determine AV from Expon. or Gaussian ??");
-  sprintf(c2err,"tau=%f  sig=%f  ratio=%f", tau, sig, ratio);
-  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
-
- 
- DONE:
-  return(AV) ;
-
-}  // end of gen_AV_legacy
-
 
 
 // ***********************************

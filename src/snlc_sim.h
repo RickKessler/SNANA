@@ -1653,7 +1653,7 @@ void   read_input_SIMSED_COV(FILE *fp, int OPT,  char *stringOpt );
 void   read_input_SIMSED_PARAM(FILE *fp);
 void   read_input_GENGAUSS(FILE *fp, char *string, char *varname,
 			   GENGAUSS_ASYM_DEF *genGauss );
-void   prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) ;
+// xxx mark void   prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) ;
 
 void   parse_input_GENZPHOT_OUTLIER(char *string);
 void   parse_input_FIXMAG(char *string);
@@ -1744,7 +1744,8 @@ void update_accept_counters(void);
 
 void    simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX);
 double  gen_AV(void);          // generate AV from model
-double  gen_AV_legacy(void);          // generate AV from model                                             
+// xxx mark delete double  gen_AV_legacy(void);  
+
 double  GENAV_WV07(void);   
 double  gen_RV(void);          // generate RV from model
 void    gen_conditions(void);  // generate conditions for each field

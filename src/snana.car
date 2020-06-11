@@ -19355,7 +19355,13 @@ c now we have undefined zHELIO and valid zCMB
       endif
       EQ     = 'eq' // char(0)
 
-      IF ( SNLC_ZHELIO > 0 ) THEN
+c don't apply test on VERY low redshifts to avoid silly 
+c round-off/truncation errors. This is a hack to protect
+c DES DIFFIMG that has redshifts written as %.4f. Next
+c dataFile update will have %.6 precions and then can
+c get apply test all the way down to z ~ 1E-4
+
+      IF ( SNLC_ZHELIO > 0.003 ) THEN  ! 0.003 is temp hack; should be 1E-4
          OPT    = +1  ! --> convert ZHEL to ZCMB
          ZHEL8 = DBLE(SNLC_ZHELIO)
          ZCMB8 = 
@@ -19374,7 +19380,7 @@ c now we have undefined zHELIO and valid zCMB
             C2ERR='REDSHIFT_CMB in data file for CID=' // SNLC_CCID
             CALL MADABORT(FNAM,C1ERR,C2ERR)
          endif
-      ELSE
+      ELSE if ( SNLC_ZHELIO < 0.0 ) THEN
          OPT    = -1 ! --> convert CMB -> zHEL
 cc         OPT    = +1 ! --> BUG
          ZCMB8  = DBLE ( SNLC_ZCMB )

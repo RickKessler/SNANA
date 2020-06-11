@@ -25,7 +25,7 @@ void init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL ) {
 
   sprintf(genGauss->NAME,"NULL");
 
-  genGauss->FUNINDEX  = -9 ;  // Feb 18 2018
+  genGauss->USE       = false ;
   genGauss->PEAK      = VAL ;
 
   genGauss->RANGE[0]  = VAL ;
@@ -50,9 +50,7 @@ void init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL ) {
   genGauss->SIGMA2[0] = 0.0 ;
   genGauss->SIGMA2[1] = 0.0 ;
 
-
-  // Jun 2018 RMS
-  genGauss->RMS = 0.0 ;
+  genGauss->RMS       = 0.0 ;
 
 } // end init_GENGAUSS_ASYM
 
@@ -63,6 +61,8 @@ void copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
   // Aug 30 2016
   // copy contents of genGauss1 into genGauss2
   int i ;
+
+  genGauss2->USE = genGauss1->USE ;
 
   sprintf(genGauss2->NAME,"%s", genGauss1->NAME );
 
@@ -86,10 +86,41 @@ void copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
   genGauss2->SIGMA2[0]  =  genGauss1->SIGMA2[0] ;
   genGauss2->SIGMA2[1]  =  genGauss1->SIGMA2[1] ;
 
+  genGauss2->RMS        =  genGauss1->RMS ;
 
   return ;
 
 } // end copy_GENGAUSS_ASYM
+
+// ======================================
+void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
+
+  // Created Sep 2 2016
+  // Store NAME and increment index.
+  // Called by readFile routine and command-line read function.
+  //
+  // Jun 11 2020: moved from snlc_sim.h, and set USE=true.
+
+  char *ptrName = genGauss->NAME;
+  char fnam[] = "prepIndex_GENGAUSS" ;
+  // ---------- BEGIN ---------
+
+  // if genGauss name is not set, then set name and FUNINDEX
+  if ( strcmp(ptrName,varName) != 0 ) {
+    genGauss->USE      = true ;
+    genGauss->FUNINDEX = NFUN_GENGAUSS_ASYM ;
+    NFUN_GENGAUSS_ASYM++;  
+    sprintf(genGauss->NAME, "%s", varName);  
+  }
+
+  // copy each GENGAUSS_ASYM struct into master list in case
+  // some kind of global operation or init is needed.
+
+  int FUNINDEX = genGauss->FUNINDEX ;
+  copy_GENGAUSS_ASYM( genGauss, &GENGAUSS_ASYM_LIST[FUNINDEX] );
+
+} // end prepIndex_GENGAUSS
+
 
 // **********************************
 double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {

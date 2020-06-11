@@ -275,6 +275,8 @@
 #   +  replace some FATAL_ERROR calls with FATAL_ERROR_STAMP so that
 #      a SUCCESS or FAIL message is passed to Pippin.
 #
+# Jun 11 2020: in NSPLITRAN_prep_COMMAND(), include wfit commands.
+#
 # ------------------------------------------------------
 
 use IO::Handle ;
@@ -454,11 +456,8 @@ if ( $SUBMIT_FLAG == 0 && $SUMMARY_FLAG == 0 )
 
 if ( $SUMMARY_FLAG == 0 ) {
     &submit_JOBS();  # submit all jobs to batch or ssh
-
-    if ( $DEBUG_submit_SUMMARY ) {
-	&submit_SUMMARY();  # launch task to wait for DONEs and make summary
-	exit(0);
-    }
+    &submit_SUMMARY();  # launch task to wait for DONEs and make summary
+    exit(0);
 }
 
 
@@ -560,11 +559,6 @@ sub parse_args {
 
 	if ( $i < $NARG-1 ) { $nextArg = $ARGV[$i+1]; }
 
-# xxxx mark delete xxxx
-#	if ( $arg eq "WAIT"    ) { 
-#	    $WAIT_FLAG  = 1 ;  $SUMMARY_FLAG   = 1 ;
-#	}
-# xxxx
 
 	if ( $arg eq "KILL"    ) { $KILLJOBS_FLAG = 1 ; }
 	if ( $arg eq "SUMMARY" ) { $SUMMARY_FLAG  = 1 ; $SUBMIT_FLAG=0; }
@@ -1783,8 +1777,8 @@ sub make_COMMANDS {
 	$FITSCRIPTS_DIR = "${OUTDIR}/${FITSCRIPTS_PREFIX}" ; 
     }
 
-
-    if ( $SUBMIT_FLAG ) {
+# xxx mark delete    if ( $SUBMIT_FLAG ) {
+    if ( !$SUMMARY_FLAG ) {
 	print "\n Create command-scripts in \n\t $FITSCRIPTS_DIR \n";
 	if ( -d $FITSCRIPTS_DIR ) { qx(rm -r $FITSCRIPTS_DIR); }
 	qx(mkdir $FITSCRIPTS_DIR) ;
@@ -1933,16 +1927,21 @@ sub NSPLITRAN_prep_COMMAND {
     # Analog of prep_COMMAND, but here prepare command for
     # each of the individual SPLITRAN jobs using JOBID_SPLITRAN 
     # argument to SALT2mu.exe.
+    #
+    # Jun 11 2020: include optional wfit commands
 
-    my ($icpu, $OUTDIR, $CMD, $LOGFILE, $ARGLIST, $OUT_PREFIX);
+    my ($icpu, $OUTDIR, $CMD, $LOGFILE, $ARGLIST);
+    my ($OUT_PREFIX, $OUT_PREFIX_FULL);
+
     # pick CPU on round-robin basis
     $icpu = (($isplit-1) % $NCPU) ;   # 0 to NCPU-1  
 
 
     $OUTDIR     = "$OUTDIR_SALT2mu_LIST[0]" ;
     $OUT_PREFIX = "OUT_TEST" ;
+    $OUT_PREFIX_FULL = sprintf("%s-SPLIT%3.3d", $OUT_PREFIX, $isplit);
 
-    $LOGFILE = sprintf("%s-SPLIT%3.3d.LOG", $OUT_PREFIX, $isplit);
+    $LOGFILE = "${OUT_PREFIX_FULL}.LOG" ;
 
     # put summary job in last CPU so it's likely to finish last
     if ( $isplit > $NSPLITRAN ) { 
@@ -1973,6 +1972,23 @@ sub NSPLITRAN_prep_COMMAND {
     if ( $isplit > $NSPLITRAN ) { &add_COMMAND($icpu, "sleep 10"); }
     &add_COMMAND($icpu, "$CMD");
     &add_COMMAND($icpu, "    >& $LOGFILE " );
+
+
+    # Jun 11 2020: check for wfit
+    my($tmpInput, $inFile_tmp, $wPREFIX, $CMDwfit );
+    foreach $tmpInput ( @WFIT_INPUT ) {  # M0DIF or FITRES
+
+	# replace "SALT2mu" with "wfit" in prefix
+	$wPREFIX    = "wfit_${OUT_PREFIX_FULL}" ; 	
+	$inFile_tmp = "${OUT_PREFIX_FULL}.${tmpInput}" ;
+	$CMDwfit = 
+	    " $JOBNAME_WFIT $inFile_tmp $WFIT_OPT " .
+	    "-cospar ${wPREFIX}.COSPAR " .
+	    "-resid  ${wPREFIX}.RESID " .
+	    "   >&   ${wPREFIX}.LOG " ; 
+	&add_COMMAND($icpu, "" ) ;
+	&add_COMMAND($icpu, $CMDwfit ) ;
+    }
 
     return ;
 

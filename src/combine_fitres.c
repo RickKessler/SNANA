@@ -483,9 +483,8 @@ void ADD_FITRES(int ifile) {
   //
 
   int 
-    ivar, IVARTOT, IVARSTR, ivarstr, j
-    ,isn, isn2,  ISN, ICAST, isn_min, isn_start
-    ,NVARALL, NVARSTR, NVAR, NTAG_DEJA, NLIST
+    ivar, ivarstr, j, isn, isn2
+    ,NVARALL, NVARSTR, NVAR, NTAG_DEJA, NLIST, ICAST
     ,index, REPEATCID, NEVT_APPROX, IFILETYPE, iappend
     ;
 
@@ -688,13 +687,9 @@ int match_CID_orig(int ifile, int isn2) {
   // between two lists ... CPU becomes noticable when N_SN 
   // is order 10^5.
 
-  int  NVARALL      = NVARALL_FILE[ifile];
-  long long NLOOP_TOT=0;
-
-  char ccid[MXSTRLEN], ccid2[MXSTRLEN], *VARNAME ;
-  int isn, ICAST, LTMP, TMPMOD;
-  int ivar, ivarstr, IVARSTR, IVARTOT ;
-  char fnam[] = "match_CID_orig" ;
+  char ccid[MXSTRLEN], ccid2[MXSTRLEN] ;
+  int isn;
+  //  char fnam[] = "match_CID_orig" ;
 
   // ----------- BEGIN ------------
 
@@ -734,7 +729,7 @@ int match_CID_hash(int ifile, int isn2) {
   int   isn;
   char  ccid[MXSTRLEN_CID];
   struct hash_table *s, *tmp;
-  char fnam[] = "match_CID_hash" ;
+  //  char fnam[] = "match_CID_hash" ;
 
   // ----------- BEGIN ------------
 
@@ -965,7 +960,7 @@ void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN) {
   //
   // Apr 27 2020: init STR_ALL and STR_TMP to 'NULL'
 
-  char fnam[] = "fitres_malloc_str" ;
+  //  char fnam[] = "fitres_malloc_str" ;
   int ivar, IVAR_ALL, isn, MEMC, NTOT ;
   
   // ---------- BEGIN ------------

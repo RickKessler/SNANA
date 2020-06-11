@@ -759,6 +759,11 @@ Default output files (can change names with "prefix" argument)
 
   Jun 8 2020: add abort traps for crazy IDSURVEY
 
+  Jun 11 
+   + write SPLITRAN_read_wfit() to check for wfit output in NSPLITRAN summary
+   + fix compile warnings with Wall flag
+   + allow iflag_duplicate=0 (IGNORE duplicates) for sims 
+ 
  ******************************************************/
 
 #include <stdio.h>      
@@ -779,7 +784,6 @@ Default output files (can change names with "prefix" argument)
 // define data types to track selection cuts
 
 #define BBC_VERSION 2
-//#define LEGACY_WRITE_FITRES 1
 
 #define EVENT_TYPE_DATA     1
 #define EVENT_TYPE_BIASCOR  2
@@ -1622,7 +1626,6 @@ int FOUNDKEY_OPT_PHOTOZ = 0 ;
 int NVAR_ORIG ;    // NVAR from original ntuple
 int NVAR_APPEND ;  // NVAR appended from SALTmu
 char VARNAMES_APPEND[MAXPAR*10][MXCHAR_VARNAME] ;
-char VARNAMES_ORIG[100][MXCHAR_VARNAME] ;
 
 time_t t_start, t_end_init, t_end_fit, t_read_biasCor[3] ;
 
@@ -1691,6 +1694,7 @@ bool  exist_varname(int ifile,char *varName, TABLEVAR_DEF *TABLEVAR);
 void  get_zString(char *str_z, char *str_zerr, char *cast) ;
 void  SNTABLE_READPREP_TABLEVAR(int ifile, int ISTART, int LEN, 
 				TABLEVAR_DEF *TABLEVAR);
+void  SNTABLE_CLOSE_TEXT(void) ;
 void  compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR) ;
 void  compute_more_INFO_DATA(void);
 void  prepare_IDSAMPLE_biasCor(void); 
@@ -1792,7 +1796,6 @@ void   get_muBias(char *NAME,
 		  double *muBias, double *muBiasErr, double *muCOVscale ) ;
 
 double get_gammadm_host(double z, double logmass, double *hostPar);
-double chi2_gammadm_host(double gammadm);
 
 void  set_defaults(void);
 void  set_fitPar(int ipar, double val, double step, 
@@ -1815,7 +1818,6 @@ void  write_fitres_misc(FILE *fout);
 void  write_version_info(FILE *fp) ;
 void  define_varnames_append(void) ;
 int   write_fitres_line(int indx, int ifile, char *line, FILE *fout) ;
-int   write_fitres_line_legacy(int indx, char *line, FILE *fout) ;
 void  write_fitres_line_append(FILE *fp, int indx);
 void  write_cat_info(FILE *fout) ;
 void  prep_blindVal_strings(void);
@@ -2249,7 +2251,7 @@ void exec_mnparm(void) {
   double M0min, M0max;
   const int null=0;
   char text[100];
-  char fnam[] = "exec_mnparm" ;
+  //  char fnam[] = "exec_mnparm" ;
 
   // -------------- BEGIN --------------
 
@@ -2399,7 +2401,7 @@ void setup_BININFO_redshift(void) {
   LEN = strlen(INPUTS.zbinuser);
   if ( LEN > 0 )  { 
     if ( LEN > MXPATHLEN - 10 ) {
-      sprintf(c1err,"len(zbinuser) = %d is too long");
+      sprintf(c1err,"len(zbinuser) = %d is too long", LEN );
       sprintf(c2err,"Reduce size or increase array bound.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
@@ -2924,6 +2926,7 @@ void check_duplicate_SNID(void) {
   // 2 -> merge fitparams and cov into one LC
   //
 
+  int  iflag   = INPUTS.iflag_duplicate;
   int  MXSTORE = MXSTORE_DUPLICATE ;
   int  isn, nsn, MEMD, MEMI, unsort, *unsortList, ORDER_SORT   ;
   bool IS_SIM;
@@ -2938,8 +2941,14 @@ void check_duplicate_SNID(void) {
   IS_SIM  = INFO_DATA.TABLEVAR.IS_SIM ;
   nsn     = INFO_DATA.TABLEVAR.NSN_ALL ;
 
+  /* xxxxx mark delete Jun 11 2020
   // for simulation there is only one duplicate option: abort
   if ( IS_SIM == true )  { INPUTS.iflag_duplicate = IFLAG_DUPLICATE_ABORT; }
+  xxxxxxxx  */
+
+
+  // Jun 11 2020: for sims, don't bother tracking duplicates
+  if ( IS_SIM &&  iflag == IFLAG_DUPLICATE_IGNORE ) { return; }
 
   MEMD = nsn * sizeof(double) + 4 ;
   MEMI = nsn * sizeof(int)    + 4 ;
@@ -3026,7 +3035,6 @@ void check_duplicate_SNID(void) {
   }
 
  
-  int iflag = INPUTS.iflag_duplicate ;
   printf("  iflag_duplicate = %d --> ", iflag);
   if ( iflag == IFLAG_DUPLICATE_IGNORE ) {
     printf(" do nothing.\n");
@@ -4672,7 +4680,7 @@ void read_data(void) {
 
   int  NFILE = INPUTS.nfile_data;
   //  int  EVENT_TYPE = EVENT_TYPE_DATA;
-  int  NEVT_TOT, NEVT[MXFILE_DATA], ifile, IFILETYPE, ivar, LEN_MALLOC ;
+  int  NEVT_TOT, NEVT[MXFILE_DATA], ifile, IFILETYPE, LEN_MALLOC ;
   int  ISTART, NROW, isn ;
   char *dataFile ;
   char fnam[] = "read_data" ;
@@ -4721,13 +4729,6 @@ void read_data(void) {
   apply_blindpar();
 
   store_output_varnames(); // May 2020
-
-  // xxxxxxx mark delete after refactor xxxx
-  // store VARNAMES_ORIG
-  for(ivar=0; ivar < NVAR_ORIG; ivar++ ) {
-    sprintf(VARNAMES_ORIG[ivar], "%s", READTABLE_POINTERS.VARNAME[ivar] );
-  }
-  // xxxxxxxxxxxxxxxxxx
 
   int NPASS=0;
   for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL; isn++ ) { 
@@ -5000,7 +5001,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
   int long long MEMTOT=0;
   float f_MEMTOT;
   int  i, isn, MEMF_TMP1, MEMF_TMP ;
-  char fnam[] = "malloc_TABLEVAR" ;
+  //  char fnam[] = "malloc_TABLEVAR" ;
 
   // ------------- BEGIN --------------
 
@@ -5730,7 +5731,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   //  int IS_CCPRIOR  = (EVENT_TYPE == EVENT_TYPE_CCPRIOR);
   bool IDEAL       = (INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
   bool FIRST_EVENT = (ISN == 0) ;
-  bool LAST_EVENT  = (ISN == TABLEVAR->NSN_ALL-1 );
+  //  bool LAST_EVENT  = (ISN == TABLEVAR->NSN_ALL-1 );
   char *STRTYPE   = STRING_EVENT_TYPE[EVENT_TYPE];  
 
   int IVAR_GAMMA   = INFO_DATA.TABLEVAR.ICUTWIN_GAMMA ;
@@ -6157,10 +6158,9 @@ void store_output_varnames(void) {
   // + Computed info stored in OUTPUT_VARNAMES struct.
   
   int  NFILE = INPUTS.nfile_data;
-  int  MEMC  = MXCHAR_VARNAME * sizeof(char);
+  //  int  MEMC  = MXCHAR_VARNAME * sizeof(char);
   int  ifile, ifile2, NVAR, NVAR2, MXVAR, NVAR_TOT; 
   int  ivar_match, ivar, ivar2, NMATCH, i ;
-  bool EXIST;
   char *varName, *varName2 ;
   bool wildcard, MATCH ;
   int LDMP = 0 ;
@@ -6283,7 +6283,7 @@ void store_output_varnames(void) {
     printf(" xxx check for dropped table columns: \n");
   }
 
-  int NDROP ;
+  int NDROP=0 ;
   OUTPUT_VARNAMES.DROPLIST[0] = 0;
   for(ifile=0; ifile < NFILE; ifile++ ) {
     NVAR = INFO_DATA.TABLEVAR.NVAR[ifile];
@@ -7561,7 +7561,7 @@ void prepare_biasCor(void) {
     }
 
     if ( DOCOR_MUCOV ) 
-      { sprintf(txt_biasCor,"%dD+MUCOV", NDIM_BIASCOR, txt_biasCor); }
+      { sprintf(txt_biasCor,"%dD+MUCOV", NDIM_BIASCOR); }
     else
       { sprintf(txt_biasCor,"%dD", NDIM_BIASCOR); }
   }
@@ -8813,13 +8813,13 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   // Jan 17 2020: fix gamma-dimension that tripped valgrind errors.
   //
 
-  int ID = IDSAMPLE;
+  //  int ID = IDSAMPLE;
   int NBIASCOR_CUTS = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
-  int    NBINa, NBINb, NBINg, NBINz, NBINm, NBINc ;
+  int    NBINa, NBINb, NBINg, NBINz, NBINc ;
   double cmin,  cmax, cbin, c_lo, c_hi;
 
   int DUMPFLAG = 0 ;
-  int    ia, ib, ig, iz, im, ic, i1d, NCELL, isp ; 
+  int    ia, ib, ig, iz, ic, i1d, NCELL, isp ; 
   int    ievt, istat_cov, istat_bias, N, J1D, ipar ;
   double muErr, muErrsq, muDif, muDifsq, pull, tmp1, tmp2  ;
   double muBias, muBiasErr, muCOVscale, fitParBias[NLCPAR+1] ;
@@ -9175,7 +9175,7 @@ double muresid_biasCor(int ievt ) {
   double z, a, b, g, M0, mB, x1, c, logmass, dmHost, hostPar[10];
   double zTrue, muFit, muTrue, muz, muDif ;
   double dlz, dlzTrue, dmu  ;
-  char fnam[] = "muresid_biasCor" ;
+  //  char fnam[] = "muresid_biasCor" ;
 
   // ----------------- BEGIN ----------------
 
@@ -11576,7 +11576,7 @@ void get_muBias(char *NAME,
   double alpha    = BIASCORLIST->alpha ;
   double beta     = BIASCORLIST->beta  ;
   double gammadm  = BIASCORLIST->gammadm  ;
-  double logmass  = BIASCORLIST->logmass  ;
+  //  double logmass  = BIASCORLIST->logmass  ;
   double z        = BIASCORLIST->z  ;
   double mB       = BIASCORLIST->FITPAR[INDEX_mB] ;
   double x1       = BIASCORLIST->FITPAR[INDEX_x1] ;
@@ -11731,10 +11731,10 @@ double get_gammadm_host(double z, double logmass, double *hostPar) {
   double logmass_cen = hostPar[2]; // Prob=0.5 at this logmass
   double logmass_tau = hostPar[3]; // tau param in transition function
 
-  double gamma, FermiFun, arg, XVAL_GAMMA ;
+  double gamma, FermiFun, arg ;
   double magoff = 0.0 ;
 
-  char   fnam[] = "get_gammadm_host" ;
+  //  char   fnam[] = "get_gammadm_host" ;
 
   // ------------ BEGIN ---------------
 
@@ -11756,47 +11756,6 @@ double get_gammadm_host(double z, double logmass, double *hostPar) {
   return(magoff);
 
 } // end get_gammadm_host
-
-// =======================================
-double chi2_gammadm_host(double gammadm) {
-
-  // Created Aug 2019
-  // Return chi2 associated with gammadm being outside the
-  // bound of the simulated biasCor. 
-  // Chi2 is upsdide-down Gaussian minus 1 so that chi2=0 
-  // at gammadm boundary.
-  // This is intended as a temporaray debug to figure
-  // out gamma-fit problem when SIM_GAMMDM = -0.06 to +0.06.
-
-  double chi2 = 0.0;
-  int    NBINg       = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
-  double gammadm_min = INFO_BIASCOR.BININFO_SIM_GAMMADM.avg[0];
-  double gammadm_max = INFO_BIASCOR.BININFO_SIM_GAMMADM.avg[NBINg-1];
-  double dg, arg;
-  double sqsigdg = 0.005*0.005 ;
-  char fnam[] = "chi2_gammadm_host" ;
-
-  // ---------- BEGIN -----------
-  
-  if ( NBINg <= 1 ) { return(chi2); }
-
-  INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
-  if ( gammadm < gammadm_min ) {
-    dg = gammadm - gammadm_min ;
-  }
-  else if ( gammadm > gammadm_max ) {
-    dg = gammadm - gammadm_max;
-  }
-  else { 
-    return(chi2);
-  }
-
-  arg  = 0.5*(dg*dg)/sqsigdg;
-  chi2 = exp(arg) - 1.0 ;  // chi2=0 when dg=0 
-  
-  return(chi2);
-
-} // end chi2_gammadm_host
 
 
 // ==================================================
@@ -11950,8 +11909,8 @@ void store_INFO_CCPRIOR_CUTS(void) {
   int  NBINb        = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;
   int  NBINg        = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;
 
-  int  ILCPAR_MIN = INFO_BIASCOR.ILCPAR_MIN ;
-  int  ILCPAR_MAX = INFO_BIASCOR.ILCPAR_MAX ;
+  //  int  ILCPAR_MIN = INFO_BIASCOR.ILCPAR_MIN ;
+  //  int  ILCPAR_MAX = INFO_BIASCOR.ILCPAR_MAX ;
 
   int  isn, icc, ia, ib, ig, ipar, cutmask;
   char *name ;
@@ -12437,7 +12396,7 @@ void  setup_contam_CCprior(void) {
   int nb, i;
   double lo[MXz], hi[MXz];
   double tmp_lo, tmp_hi, tmp_avg, tmp_binsize;
-  char fnam[] = "setup_contam_CCprior";
+  //  char fnam[] = "setup_contam_CCprior";
 
   // -------------- BEGIN ----------------
 
@@ -12582,7 +12541,7 @@ void print_contam_CCprior(FILE *fp, CONTAM_INFO_DEF *CONTAM_INFO) {
   double lo, hi, xnIa, xncc, ratio, true_ratio;
   int    ntrue_cc, ntrue_Ia;
   char cRange[40], str_contam_data[80], str_contam_true[80];
-  char fnam[] = "print_contam_CCprior";
+  //  char fnam[] = "print_contam_CCprior";
 
   // -------------- BEGIN --------------
   
@@ -13209,11 +13168,10 @@ int selectCID_data(char *cid){
   // Created Sep 5 2019 by D.Brout
   // for file= data. determines if cid is in cidlist_data
 
-  char fnam[] = "selectCID_data";
+  //  char fnam[] = "selectCID_data";
 
   int ACCEPT = 1;
   int i;
-
   char *tmpCID;
 
   // ------- BEGIN -------------
@@ -13368,7 +13326,7 @@ void parse_parFile(char *parFile ) {
   FILE *fdef;
   bool SKIP, EXCEPTION;
   char *sptr;
-  char fnam[] = "parse_parFile" ;
+  //  char fnam[] = "parse_parFile" ;
 
   // ------------------ BEGIN --------------
 
@@ -15445,7 +15403,7 @@ int force_probcc0(int itype, int id) {
   int  ntype     = INPUTS_PROBCC_ZERO.ntype ; 
   int  nidsurvey = INPUTS_PROBCC_ZERO.nidsurvey ; 
   int  force=0, i;
-  char fnam[] = "force_probcc0";
+  //  char fnam[] = "force_probcc0";
 
   // ------------- BEGIN ---------------
 
@@ -15554,7 +15512,7 @@ void  prep_input_varname_missing(void) {
   int  MEMC  = 60*sizeof(char);
   int  ndef, i, LEN ; 
   bool wildcard;
-  char fnam[] = "prep_input_varname_missing" ;
+  //  char fnam[] = "prep_input_varname_missing" ;
 
   // ----------- BEGIN ----------
 
@@ -16254,7 +16212,7 @@ int SPLITRAN_read_wfit(int isplit) {
   double w, werr;
   char *prefix = INPUTS.PREFIX ;
   char tmpFile[200], LINE[100], WORD[20] ;
-  char fnam[] = "SPLITRAN_read_wfit" ;
+  //  char fnam[] = "SPLITRAN_read_wfit" ;
 
   // ------------ BEGIN ---------------
 
@@ -16334,8 +16292,8 @@ void write_fitres_driver(char* fileName) {
   //   + call define_varnames_append()
   //   + check cat_only option that skips fit and just catenates
 
-  bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
-  bool  IS_SIM            = INFO_DATA.TABLEVAR.IS_SIM ;
+  //  bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
+  //  bool  IS_SIM            = INFO_DATA.TABLEVAR.IS_SIM ;
   int   IWD_KEY  = 0;
   int   IWD_CCID = 1;
 
@@ -16344,12 +16302,9 @@ void write_fitres_driver(char* fileName) {
 
   int n, ivar, indx, NCUT, icut, cutmask, NWR, ISFLOAT, iz, GZIPFLAG ;
   int idsample, NSN_DATA, NSN_BIASCOR, ifile ;
-  char 
-     line[MXCHAR_LINE], tmpLine[MXCHAR_LINE] 
-    ,tmpName[60], ztxt[60], KEY[MXCHAR_VARNAME], CCID[40]
-    ;
+  char  line[MXCHAR_LINE], tmpName[60];
+  char  ztxt[60], KEY[MXCHAR_VARNAME], CCID[40];
 
-  bool LEGACY_WRITE = false ;
   char fnam[] = "write_fitres_driver" ;
 
   // ------------------ BEGIN ----------------
@@ -16372,7 +16327,7 @@ void write_fitres_driver(char* fileName) {
   if (!fout ) {
     if ( INPUTS.cat_only ) {
       sprintf(c1err,"Could not open catfile_out='%s'", INPUTS.catfile_out);
-      sprintf(c2err,"Check catfile_out key.", fileName );
+      sprintf(c2err,"Check catfile_out key." );
     }
     else {
       sprintf(c1err,"Could not open output fitres file");
@@ -16397,16 +16352,10 @@ void write_fitres_driver(char* fileName) {
     // write standard header keys
     fprintf(fout,"VARNAMES: ");
     
-    if ( LEGACY_WRITE ) {
-      for ( ivar=0; ivar < NVAR_ORIG; ivar++ ) { 
-	fprintf(fout,"%s ", VARNAMES_ORIG[ivar] );
-      }
+    for ( ivar=0; ivar < OUTPUT_VARNAMES.NVAR_TOT; ivar++ ) { 
+      fprintf(fout,"%s ", OUTPUT_VARNAMES.LIST[ivar] );
     }
-    else {
-      for ( ivar=0; ivar < OUTPUT_VARNAMES.NVAR_TOT; ivar++ ) { 
-	fprintf(fout,"%s ", OUTPUT_VARNAMES.LIST[ivar] );
-      }
-    }
+    
 
     // tack on SALT2mu/BBC variables (e.g., MU, MURES, etc ...)
     for ( ivar=0; ivar < NVAR_APPEND; ivar++ )   {  
@@ -16576,10 +16525,8 @@ void write_fitres_driver(char* fileName) {
 	if ( !keep_cutmask(cutmask)  ) { continue; }
       }
 
-      if ( LEGACY_WRITE) 
-	{  NWR += write_fitres_line_legacy(indx,line,fout); }
-      else
-	{  NWR += write_fitres_line(indx,ifile,line,fout); }
+
+      NWR += write_fitres_line(indx,ifile,line,fout);
 
     }  // end reading line with fgets
 
@@ -16650,36 +16597,6 @@ int write_fitres_line(int indx, int ifile, char *line, FILE *fout) {
 
 } // end write_fitres_line
 
-// ===============================================
-int write_fitres_line_legacy(int indx, char *line, FILE *fout) {
-
-  // Return 1 if this line is written to fout;
-  // Return 0 otherwise.
-
-  int  cutmask, ISTAT=0 ;
-  char tmpLine[MXCHAR_LINE], KEY[MXCHAR_VARNAME], CCID[40];
-  char *ptrtok, *ptrCR;
-  char fnam[] = "write_fitres_line_legacy" ;
-
-  // ----------- BEGIN -----------
-
-  // remove <CR> from end of line (requested by Rahul)
-  ptrCR = strchr(line,'\n');
-  if (ptrCR) {*ptrCR = ' ';}
-  
-  // Print SN line from input fiters file
-  fprintf(fout, "%s ", line);
-  
-  // append variables computed by SALT2mu
-  if ( !INPUTS.cat_only) { write_fitres_line_append(fout,indx); }
-
-  // print line feed
-  fprintf(fout,"\n");  fflush(fout);
-  ISTAT = 1;
-  
-  return(ISTAT);
-
-} // end write_fitres_line_legacy
 
 // ===============================================
 void define_varnames_append(void) {
@@ -16687,7 +16604,7 @@ void define_varnames_append(void) {
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   int   NSN_BIASCOR       =  INFO_BIASCOR.TABLEVAR.NSN_ALL;
   char  tmpName[MXCHAR_VARNAME];
-  char fnam[] = "define_varnames_append";
+  //  char fnam[] = "define_varnames_append";
 
   // ----------- BEGIN -----------
 
@@ -16768,10 +16685,10 @@ void write_NWARN(FILE *fp, int FLAG) {
     if ( NTOT > 0 ) { frac = (double)NREJ / (double)NTOT; }
 
     if ( frac > INPUTS.frac_warn_nobiasCor ) {
-      fprintf(fp,"# WARNING(SEVERE): %d of %d events (%.1f %) "
+      double frac_percent = 100.0*frac;
+      fprintf(fp,"# WARNING(SEVERE): %d of %d events (%.1f %%) "
 	      "have no biasCor for %s\n",
-	      NREJ, NTOT, 100.*frac, NAME );
-	      
+	      NREJ, NTOT, frac_percent, NAME );	   
     }
   }
 
@@ -16829,7 +16746,7 @@ void prep_blindVal_strings(void) {
   int ipar;
   double *blindpar, parval_orig; ;
   char *s;
-  char fnam[] = "prep_blindVal_strings" ;
+  //  char fnam[] = "prep_blindVal_strings" ;
 
   // --------- BEGIN ---------
 
@@ -16852,7 +16769,7 @@ void prep_blindVal_strings(void) {
 void write_blindFlag_message(FILE *fout) {
   int  blindFlag = INPUTS.blindFlag ;
   int  ipar;
-  double *blindpar, parval_orig ;
+  double *blindpar ;
   // ----------- BEGIN --------------
 
   if ( !blindFlag ) { return; }
@@ -17091,9 +17008,9 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   // May 13 2020: write to char line, then single fprintf for entire line.
 
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
-  bool  IS_SIM            = INFO_DATA.TABLEVAR.IS_SIM ;
+  // bool  IS_SIM            = INFO_DATA.TABLEVAR.IS_SIM ;
   double z, zerr, mu, muerr, muerr2, mumodel, mures, pull, M0DIF ;
-  double sim_mb, sim_mu, probcc_beams  ;
+  double sim_mb, sim_mu  ;
   double muBias=0.0, muBiasErr=0.0,  muCOVscale=0.0, chi2=0.0 ;
   double fitParBias[NLCPAR] = { 0.0, 0.0, 0.0 } ;
   int    n, cutmask, NWR, NSN_BIASCOR, idsample ;
@@ -17832,7 +17749,7 @@ int SNFUNPAR_CHI2INFO_LOAD_BININFO(char *varName,
 				   BININFO_DEF *BININFO, FILE *fp ) {
   int nbin;
   double x;
-  char fnam[] = "SNFUNPAR_CHI2INFO_LOAD_BININFO" ;
+  //  char fnam[] = "SNFUNPAR_CHI2INFO_LOAD_BININFO" ;
   // ------------ BEGIN -----------
   nbin = 0 ;
   sprintf(BININFO->varName,"%s", varName );
@@ -17859,7 +17776,7 @@ void SNFUNPAR_CHI2INFO_LOAD_OUTPUT(void) {
 
   int NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
   int NBIN_TOT      = SNFUNPAR_CHI2INFO_OUTPUT.NBIN_TOT ;
-  int i, isn, cutmask, ix1,ic,im, isnpar, IPAR_LCFIT  ;
+  int i, isn, cutmask, ix1,ic,im, isnpar ;
   int i3d[3], J1D ;
   double xval, mures ;
   char *CCID;
@@ -17919,7 +17836,7 @@ void SNFUNPAR_CHI2INFO_LOAD_OUTPUT(void) {
 // ===========================================
 void SNFUNPAR_CHI2INFO_WRITE(void) {
 
-  int NBIN_TOT = SNFUNPAR_CHI2INFO_OUTPUT.NBIN_TOT ;
+  //  int NBIN_TOT = SNFUNPAR_CHI2INFO_OUTPUT.NBIN_TOT ;
   int nbx1     = SNFUNPAR_CHI2INFO_OUTPUT.binInfo[ISNPAR_x1].nbin;
   int nbc      = SNFUNPAR_CHI2INFO_OUTPUT.binInfo[ISNPAR_c].nbin;
   int nbm      = SNFUNPAR_CHI2INFO_OUTPUT.binInfo[ISNPAR_m].nbin ;
@@ -17929,7 +17846,7 @@ void SNFUNPAR_CHI2INFO_WRITE(void) {
   char NAME[40], tmpName[40];
   int ix1, ic, im, IBIN1D, NEVT, n, ISFLOAT, ISM0 ;
   double SUM, SQSUM, VAL, ERR ;
-  char fnam[] = "SNFUNPAR_CHI2INFO_WRITE" ;
+  //  char fnam[] = "SNFUNPAR_CHI2INFO_WRITE" ;
 
   // ----------- BEGIN -------------
 

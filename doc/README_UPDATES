@@ -18554,4 +18554,11 @@
      + do NOT apply zTOL check if SNLC_HELIO < 0.003 ... temp hack
        to protect redshift truncation in DES DIFFIMG.
 
+   *.c: 
+     + fix compile with Wall warnings.
+
+   SALT2mu.c
+     + allow iflag_duplicate=0 (ignore) to operate on sims.
+     + for NSPLITRAN, include w(wfit) in summary.
+
 END: 

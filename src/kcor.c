@@ -973,9 +973,9 @@ void parse_MAGSYSTEM(char *MAGSYSTEM_ARG, MAGSYSTEM_DEF *MAGSYSTEM) {
   //    MAGSYSTEM->NAME       = AB
   //    MAGSYSTEM->DO_TRANSFORM = 1 (true)
 
-  int i, i2, len, jdash;
+  int i, len, jdash;
   char TMP_ARG[60];
-  char fnam[] = "parse_MAGSYSTEM" ;
+  //  char fnam[] = "parse_MAGSYSTEM" ;
 
   // ----------- BEGIN -----------
 
@@ -1028,7 +1028,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   double OFFSET       = MAGSYSTEM->OFFSET;
   double OFFSET_INPUT = MAGSYSTEM->OFFSET_INPUT;
 
-  int NF, lenf, IFLAG_SYN, INDX_TMP ;
+  int NF, lenf, IFLAG_SYN  ;
   char FILENAME[MXPATHLEN], band[4];
   char fnam[] = "storeFilterInfo" ;
 
@@ -4098,9 +4098,7 @@ void primarymag_zp(int iprim ) {
 
   double  arg, lam, trans, flux, wflux, wfilt, mag, ftmp, LAMMIN, LAMMAX;
   double  fluxsum[MXFILTDEF+1], filtsum[MXFILTDEF+1] ;
-  bool    USE_FILT, DO_TRANSFORM ;
-
-  char *name ;
+  bool    USE_FILT ;
   char fnam[] = "primarymag_zp" ;
 
   /* ------------------- BEGIN --------------------- */
@@ -4201,7 +4199,7 @@ void primarymag_zp2(int iprim ) {
 
   int  ifilt, INDX, INDX_INPUT ;
   double ZP_INPUT, ZP ;
-  char fnam[] = "primarymag_zp2" ;
+  //  char fnam[] = "primarymag_zp2" ;
 
   // ---------- BEGIN ------------
 
@@ -4238,7 +4236,7 @@ void primarymag_summary(int iprim) {
   char *NAME = PRIMARYSED[iprim].MAGSYSTEM_NAME ;
   int  ifilt, INDX, INDX_INPUT;
   bool USE_FILT;
-  char fnam[] = "primarymag_summary" ;
+  //  char fnam[] = "primarymag_summary" ;
 
   // ----------- BEGIN -----------
 

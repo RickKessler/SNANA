@@ -3383,7 +3383,7 @@ c set namelist defaults
       CUTWIN_LAMOBS(1)       =  2000.
       CUTWIN_LAMOBS(2)       = 25000.
 
-      CUTWIN_NBAND_THRESH(1) = -9.0 !  obsolete as of Nov 15 2019
+      CUTWIN_NBAND_THRESH(1) = -9.0   !  obsolete as of Nov 15 2019
       CUTWIN_NBAND_THRESH(2) = -9.0
 
       do ifilt = 1, MXFILT_OBS
@@ -3892,7 +3892,9 @@ c If interactive, replace invalid pwd/ with a valid './' path.
       ENDIF
 
 c Nov 15 2019: abort on obsolete key
-      IF ( CUTWIN_NBAND_THRESH(1) > -1.0 ) then
+      IF ( CUTWIN_NBAND_THRESH(1) > -1.0 .or. 
+     &     CUTWIN_NBAND_THRESH(2) > -1.0 ) then
+         
          C1ERR = 'Remove obsolete CUTWIN_NBAND_THRESH from &SNLCINP.'
          C2ERR = 'Sorry for the inconvenience.'
          CALL MADABORT(FNAM, C1ERR, C2ERR)

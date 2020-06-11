@@ -75,6 +75,7 @@
 // ******************************************
 int main(int argc, char **argv) {
 
+
   int ilc, istat, i  ;
 
   // define local structures
@@ -132,7 +133,7 @@ int main(int argc, char **argv) {
   }  
   else {
     sprintf(c1err,"%s is invalid GENSOURCE", INPUTS.GENSOURCE );
-    errmsg(SEV_FATAL, 0, "main", c1err, "" ); 
+    errmsg(SEV_FATAL, 0, fnam, c1err, "" ); 
   }
 
   // prepare randome systematic shifts after reading SURVEY from SIMLIB
@@ -141,7 +142,7 @@ int main(int argc, char **argv) {
   // abort on NGEN=0 after printing N per season (init_DNDZ_Rate above)
   if ( INPUTS.NGEN_LC <= 0 && INPUTS.NGENTOT_LC <= 0 ) {
     sprintf(c1err,"NGEN_LC=0 & NGENTOT_LC=0" );
-    errmsg(SEV_FATAL, 0, "main", c1err, ""); 
+    errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
   }
 
   // init version for simulated output
@@ -1015,8 +1016,8 @@ void set_user_defaults(void) {
   INPUTS.HOSTLIB_FIXSERSIC[3]  = -999.0 ; // a_rot, deg
 
   INPUTS.FLUXERRMODEL_OPTMASK = 0 ;
+  INPUTS.FLUXERRMODEL_REDCOV[0] = 0;
   sprintf(INPUTS.FLUXERRMODEL_FILE,          "NONE" ); 
-  sprintf(INPUTS.FLUXERRMODEL_REDCOV,        ""     );  
   sprintf(INPUTS.FLUXERRMAP_IGNORE_DATAERR,  "NONE" );
   sprintf(INPUTS.HOSTNOISE_FILE,             "NONE" ); 
   sprintf(INPUTS.WRONGHOST_FILE,             "NONE" ); 
@@ -3849,7 +3850,7 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
   // - - - - - - - - - - - - -  -
   // if reading SIMLIB header, skip epochs outside GENRANGE_TREST
   if ( !IS_HOST && INPUTS.USE_SIMLIB_SPECTRA && INPUTS.USE_SIMLIB_REDSHIFT) {
-    double z, Tmin, Tmax, Trest;  int OPT_FRAME;
+    double z, Tmin, Tmax, Trest=9999.;  int OPT_FRAME;
     z    = SIMLIB_HEADER.GENRANGE_REDSHIFT[0] ;
     Tmin = INPUTS.GENRANGE_TREST[0] ;
     Tmax = INPUTS.GENRANGE_TREST[1] ;
@@ -6889,21 +6890,11 @@ void prep_user_SIMSED(void) {
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - 
   int MEMD, NMAT, ISPAIR0, ISPAIR1 ;
-  double *COVMAT_1D, SIG0, SIG1, RHO, COV_OFFDIAG ;
+  double SIG0, SIG1, RHO, COV_OFFDIAG ;
 
   MEMD = NROW*NROW * sizeof(double) ;
   INPUTS.SIMSED_DECOMP.MATSIZE  = NROW;
   INPUTS.SIMSED_DECOMP.COVMAT1D = (double *) malloc ( MEMD);
-
-  /* xxx Feb 17 2020 mark delete xxxxxxxx
-  // allocate memory for COVMAT and CHOLESKY 
-  COVMAT_1D  = (double *) malloc ( NROW*NROW * sizeof(double) );
-  INPUTS.CHOLESKY_SIMSED_COV = (double**) malloc ( NROW * sizeof(double*) );
-  for(irow=0; irow < NROW; irow++ ) {
-    MEMD = NROW * sizeof(double);
-    INPUTS.CHOLESKY_SIMSED_COV[irow] = (double*) malloc ( MEMD );
-  }
-  xxxxxxxxx end mark xxxxxxxx */
 
   // load COVMAT1D
   NMAT = 0 ;
@@ -6949,24 +6940,6 @@ void prep_user_SIMSED(void) {
   // store Cholesky decomp
 
   init_Cholesky(+1, &INPUTS.SIMSED_DECOMP );
-
-  /* xxxxx Feb 17 2020 mark delete xxxxxxx
-  gsl_matrix_view chk; 
-  chk = gsl_matrix_view_array ( COVMAT_1D, NROW, NROW ); 
-  gsl_linalg_cholesky_decomp ( &chk.matrix)  ;  
-  for (irow=0; irow<NROW; irow++){
-    for (irow1 = 0; irow1 < NROW ; irow1++){      
-      if (irow <= irow1 ) { 
-	INPUTS.CHOLESKY_SIMSED_COV[irow][irow1] = 
-	  gsl_matrix_get(&chk.matrix,irow,irow1) ;
-      }
-      else {
-	INPUTS.CHOLESKY_SIMSED_COV[irow][irow1] = 0.0 ;
-      }
-    }    
-  }
-  xxxxxxxxxxx mark delete xxxxxxxxx */
-
   
   printf("\n");
   //  debugexit(fnam);
@@ -7618,7 +7591,7 @@ void init_RateModel(void) {
 
   // Created Nov 26 2017
   int i;
-  char fnam[] = "init_RateModel" ;
+  //  char fnam[] = "init_RateModel" ;
 
   // -------------- BEGIN ---------------
 
@@ -8553,7 +8526,7 @@ void init_modelSmear(void) {
   double GENMODEL_ERRSCALE   = (double)INPUTS.GENMODEL_ERRSCALE ;
   char  *SMEAR_SCALE_STRING  = INPUTS.GENMAG_SMEAR_SCALE;
   int    SMEAR_MSKOPT        = INPUTS.GENMAG_SMEAR_MSKOPT ;
-  int    OPT, j, USE_SALT2smear, MEMD, NRANGauss=0, NRANFlat=0 ;
+  int    OPT, j, USE_SALT2smear ;
   double LAMRANGE[2], SIGCOH,  PARLIST_SETPKMJD[10];
   double magSmear, expTau;
   char *ptrName, key[40], NAM3[8]; 
@@ -9775,7 +9748,7 @@ double GENSPEC_SMEAR(int imjd, double LAMMIN, double LAMMAX ) {
 
   int  OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;  
   bool ALLOW_TEXTRAP = ( (OPTMASK & SPECTROGRAPH_OPTMASK_TEXTRAP)>0 );
-  char   fnam[] = "GENSPEC_SMEAR" ;
+  //  char   fnam[] = "GENSPEC_SMEAR" ;
 
   // ------------- BEGIN -------------
 
@@ -10318,7 +10291,7 @@ void gen_event_driver(int ilc) {
   int    NEPMIN = (int)INPUTS.CUTWIN_NEPOCH[0];
   double z, z1, Tobs, Trest,  zHOST, Tobs_min, Tobs_max  ;
   int    ifilt, ifilt_obs, NEP, iep, USE_HOSTCOORD ;
-  char   fnam[] = "gen_event_driver" ;
+  //  char   fnam[] = "gen_event_driver" ;
 
   // -------- BEGIN ----------
 
@@ -10504,7 +10477,7 @@ void override_modelPar_from_SNHOST(void) {
   double GAMMA_GRID_MIN = INPUTS.BIASCOR_SALT2GAMMA_GRID[0];
   double GAMMA_GRID_MAX = INPUTS.BIASCOR_SALT2GAMMA_GRID[1];
   int USE1, USE2, USE3 ;
-  double DM_HOSTCOR, shape, PKMJD, RV, AV, EBV, arg ;
+  double DM_HOSTCOR, shape, PKMJD, RV, AV, EBV ;
   //  char fnam[] = "override_modelPar_from_SNHOST" ;
 
   // ---------------- BEGIN ------------------
@@ -10606,7 +10579,7 @@ void gen_event_stronglens(int ilc, int istage) {
   double RAD       = RADIAN;
   int    LDMP      = (ilc < 4) ; 
 
-  double zLENS, zSN, z1, hostpar[10];
+  double zLENS, zSN=-9.0, z1, hostpar[10];
   double PEAKMJD, tdelay_min=1.0E9, tdelay_max=-1.0E9;
   double tdelay=0.0,  magnif=0.0, magshift=0.0;
   double XIMG=0.0, YIMG=0.0;
@@ -11209,7 +11182,7 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
   double ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   double shape;
   GENGAUSS_ASYM_DEF GENGAUSS_ZVAR ;
-  char fnam[] = "gen_modelPar";
+  //  char fnam[] = "gen_modelPar";
 
   //------------ BEGIN function ------------
 
@@ -11285,7 +11258,7 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
 
   bool ISFRAME_REST  = ( OPT_FRAME == OPT_FRAME_REST );
   bool ISFRAME_OBS   = ( OPT_FRAME == OPT_FRAME_OBS  );
-  bool SKIPx1  = ( fabs(SIMLIB_HEADER.GENGAUSS_SALT2x1.PEAK) < 9.0 );
+  //  bool SKIPx1  = ( fabs(SIMLIB_HEADER.GENGAUSS_SALT2x1.PEAK) < 9.0 );
   bool SKIPc   = ( fabs(SIMLIB_HEADER.GENGAUSS_SALT2c.PEAK)  < 9.0 );
   double   ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   GENGAUSS_ASYM_DEF  GENGAUSS_ZVAR ;
@@ -11359,9 +11332,9 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
   double  ZCMB      = GENLC.REDSHIFT_CMB ; // for z-dependent populations
 
   int  ipar, ipar_model, genflag, opt_interp, opt_gridonly ;
-  int  irow, irow1, irow_COV, NRANGEN_ITER=0 ;
+  int  irow, irow_COV, NRANGEN_ITER=0 ;
   double ARG, parVal, parVal_old ;
-  double tmpRan, tmpMat, PEAK, PMIN, PMAX ;
+  double PEAK, PMIN, PMAX ;
   double GAURAN[MXPAR_SIMSED], CORRVAL[MXPAR_SIMSED] ;
   GENGAUSS_ASYM_DEF GENGAUSS_ZVAR ;
   char *parName;
@@ -11690,10 +11663,10 @@ void genran_modelSmear(void) {
   // Mar 24 2016: for GENGRID, return after all randoms are initalized to zero.
   // Jul 20 2019: return for repeat strong lens
  
-  int    ifilt, iran, NRANGauss, NRANFlat ;
+  int    ifilt ;
   int    ILIST_RAN = 2 ; // list to use for genSmear randoms
-  double rr8, rho, RHO, rmax, rmin, rtot, RANFIX ;
-  char fnam[] = "genran_modelSmear" ;
+  double rr8, rho, RHO, rmax, rmin, rtot ;
+  //  char fnam[] = "genran_modelSmear" ;
 
   // -------------- BEGIN --------
 
@@ -13240,7 +13213,7 @@ double gen_redshift_cmb ( void) {
   double zmin = INPUTS.GENRANGE_REDSHIFT[0];
   double zmax = INPUTS.GENRANGE_REDSHIFT[1];
   double zcmb = -9.0 ; 
-  char fnam[] = "gen_redshift_cmb" ;
+  //  char fnam[] = "gen_redshift_cmb" ;
 
   // --------------- BEGIN ------------
 
@@ -13274,7 +13247,7 @@ double gen_redshift_helio(void) {
   double DEC  = GENLC.DEC ;
   bool   USE_HOSTLIB_VPEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC );
   double vpec, zhelio, dzpec ;
-  char fnam[] = "gen_redshift_helio" ;
+  //  char fnam[] = "gen_redshift_helio" ;
 
   // ----------- BEGIN ------------
 
@@ -14074,7 +14047,7 @@ double gen_AV(void) {
   //
   // 
 
-  char  fnam[] = "gen_AV" ;
+  //  char  fnam[] = "gen_AV" ;
   double RV       = GENLC.RV ;
   double AV       = 0.0;
   double EBV_HOST = 0.0;
@@ -15094,7 +15067,7 @@ void SIMLIB_READ_DRIVER(void) {
   // Nov 22 2019: init REPEAT=0
 
   int  REPEAT = 0 ;
-  char fnam[] = "SIMLIB_READ_DRIVER" ;
+  //  char fnam[] = "SIMLIB_READ_DRIVER" ;
 
   // ------------------ BEGIN ------------------
 
@@ -15415,8 +15388,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
     }
 
   } // end while loop with fscanf
-
- DONE_READING:
   
   /*
   printf(" xxx %s  NOBS(EXPECT,FOUND,SKIP,not0) = %d,%d,%d,%d   FIELD=%s \n",
@@ -15494,9 +15465,9 @@ int keep_SIMLIB_HEADER(void) {
   double  zCMB = GENLC.REDSHIFT_CMB ;
   int  ISMODEL_SIMLIB = ( INDEX_GENMODEL == MODEL_SIMLIB );
   double z_min     = SIMLIB_HEADER.GENRANGE_REDSHIFT[0];
-  double z_max     = SIMLIB_HEADER.GENRANGE_REDSHIFT[1];
+  //  double z_max     = SIMLIB_HEADER.GENRANGE_REDSHIFT[1];
   double pkmjd_min = SIMLIB_HEADER.GENGAUSS_PEAKMJD.RANGE[0];
-  double pkmjd_max = SIMLIB_HEADER.GENGAUSS_PEAKMJD.RANGE[1];
+  //  double pkmjd_max = SIMLIB_HEADER.GENGAUSS_PEAKMJD.RANGE[1];
 
   int  iskip, icheck ;
   double *ptrGen ;
@@ -17123,7 +17094,7 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   bool RDFLAG_REDSHIFT  = (INPUTS.USE_SIMLIB_REDSHIFT || USE_MODEL_SIMLIB);
   bool RDFLAG_PEAKMJD   = (INPUTS.USE_SIMLIB_PEAKMJD  || USE_MODEL_SIMLIB);
   bool RDFLAG_DISTANCE  = (INPUTS.USE_SIMLIB_DISTANCE || USE_MODEL_SIMLIB);
-  bool RDFLAG_SPECTRA   = (INPUTS.USE_SIMLIB_SPECTRA  || USE_MODEL_SIMLIB);
+  //  bool RDFLAG_SPECTRA   = (INPUTS.USE_SIMLIB_SPECTRA  || USE_MODEL_SIMLIB);
   bool RDFLAG_SALT2     = (INPUTS.USE_SIMLIB_SALT2    || USE_MODEL_SIMLIB);
   int  LTMP ;
   double TMPVAL, TMPRANGE[2], dist, MU ;
@@ -19574,9 +19545,9 @@ void  LOAD_SEARCHEFF_DATA(void) {
   bool ISCORR_PHOTRPBOB = (INPUTS_SEARCHEFF.NREDUCED_CORR_PHOTPROB > 0);
   int  NMAP_PHOTPROB    = INPUTS_SEARCHEFF.NMAP_PHOTPROB;
 
-  int imjd, ep, NOBS, NRANTMP=0;
-  double flux, flux_err, SNR_CALC, SNR_MEAS, SNR, oldRan, tmpRan ;
-  char fnam[] = "LOAD_SEARCHEFF_DATA";
+  int ep, NOBS, NRANTMP=0;
+  double flux, flux_err, SNR_CALC, SNR_MEAS, SNR, oldRan ;
+  //  char fnam[] = "LOAD_SEARCHEFF_DATA";
 
   // --------------- BEGIN ----------------
 
@@ -20309,7 +20280,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
 
     // this dump code is to validate refactored gen_fluxNoise_fudges
     FLUXNOISE_DEF FLUXNOISE ;
-    double sqsig, sqsig_calc, sqsig_final_true, sqsig_final_data, sig;
+    double sqsig, sqsig_calc, sqsig_final_true, sqsig_final_data ;
     double sqscale = scale_fluxErr*scale_fluxErr;
     sqsig_calc = sqsum_calc + template_sqerr_pe ; // orig sqsig, no fudges
 
@@ -20410,7 +20381,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
 	  sqrt(sqccderr_pe), sqrt(template_sqccderr_pe) );
     printf("\t err_pe(flux,host,image) = %f, %f, %f \n",
 	   sqrt(fluxsn_pe), sqrt(fluxgal_pe), sqrt(sqImageNoise_pe) );
-    printf("\t GALID=%lld   SBmag=%f \n", GALID, SBmag );
+    printf("\t GALID=%d   SBmag=%f \n", GALID, SBmag );
     printf("\t HOSTNOISE(FLUXCAL,pe) = %f, %f \n",
 	   HOSTNOISE_FLUXCAL, HOSTNOISE_pe);
 
@@ -20746,7 +20717,7 @@ int npe_above_saturation ( int epoch, double flux_pe) {
 
   LDMP = ( epoch <= -4) ;
   if ( LDMP ) {
-    int ifilt_obs = GENLC.IFILT_OBS[epoch] ;
+    int ifilt_obs = GENLC.IFILT_OBS[epoch] ; //.xyz
     double genmag = GENLC.genmag_obs[epoch];
     printf("\n");
     printf(" xxx ------------------------------------ \n");
@@ -22329,7 +22300,6 @@ void init_kcor_legacy(char *kcorFile) {
   int ISMODEL_SIMLIB = ( INDEX_GENMODEL == MODEL_SIMLIB );
   int ierrstat, ifilt, ifilt_obs, OPT, NKCOR=0 ;
   float tmpoff_kcor[MXFILTINDX] ;
-  float *ptr ;
   char   copt[40], xtDir[MXPATHLEN], cfilt[4];
   char fnam[] = "init_kcor_legacy" ;
 
@@ -22532,7 +22502,7 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
   } GENLC_ORIG ;
 
 
-  char fnam[] = "gen_TRIGGER_PEAKMAG_SPEC" ;
+  //  char fnam[] = "gen_TRIGGER_PEAKMAG_SPEC" ;
 
   // -------------- BEGIN ----------------
 
@@ -22662,7 +22632,7 @@ void GENMAG_DRIVER(void) {
   // Aut 17 2017: call get_lightCurveWidth
 
   int ifilt, ifilt_obs, DOFILT ;
-  char fnam[] = "GENMAG_DRIVER" ;
+  //  char fnam[] = "GENMAG_DRIVER" ;
 
   // -------------- BEGIN ---------------
 
@@ -22758,12 +22728,12 @@ void GENFLUX_DRIVER(void) {
 
   int NEPOCH = GENLC.NEPOCH ;
   int MEM    = (NEPOCH+1)*sizeof(FLUXNOISE_DEF);
-  int epoch, istat, ifilt_obs, icov;
+  int epoch, icov;
   int VBOSE_CALC  = (INPUTS.OPT_DEVEL_GENFLUX & 4) ;
   int VBOSE_FUDGE = 0 ;
   int VBOSE_APPLY = 0 ;
   int LEGACY      = (INPUTS.OPT_DEVEL_GENFLUX & 1) ;
-  char fnam[] = "GENFLUX_DRIVER" ;
+  //  char fnam[] = "GENFLUX_DRIVER" ;
 
   // -------------- BEGIN ---------------
 
@@ -22839,7 +22809,7 @@ void gen_fluxNoise_randoms(void) {
 
   double RAN1, RAN2;
   int ep, ifilt, ifilt_obs, ifield;
-  char fnam[] = "gen_fluxNoise_randoms" ;
+  //  char fnam[] = "gen_fluxNoise_randoms" ;
 
   // -------------- BEGIN --------------
 
@@ -22899,7 +22869,7 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   // Do not include error fudges here, and do not apply errors here.
 
   int ifilt_obs      = GENLC.IFILT_OBS[epoch] ;
-  int ifilt          = GENLC.IFILTINVMAP_OBS[ifilt_obs] ; // sparse index
+  //  int ifilt          = GENLC.IFILTINVMAP_OBS[ifilt_obs] ; // sparse index
 
   double  mjd        = SIMLIB_OBS_GEN.MJD[epoch] ;
   double  pixsize    = SIMLIB_OBS_GEN.PIXSIZE[epoch] ;
@@ -22921,13 +22891,13 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   int    OVP, NERR=0;
 
   double ZPTDIF_ADU, NADU_over_FLUXCAL, Npe_over_FLUXCAL, NADU_over_Npe ;
-  double sqsig_noZ, sqsig_true, sqsig_data, sqsig_mon, sqsig_tmp, flux_T, arg;
-  double fluxsn_adu, fluxsn_pe, fluxmon_pe ;
+  double sqsig_noZ, sqsig_true, sqsig_data, sqsig_mon, flux_T, arg;
+  double fluxsn_adu, fluxsn_pe, fluxmon_pe=0.0 ;
   double area_bg, psfsig_arcsec, psfFWHM_arcsec;
   double sqerr_ccd_pe, skysig_tmp_pe, sqerr_sky_pe, sqerr_zp_pe;
-  double fluxgal_pe, galmag ;
+  double fluxgal_pe, galmag=0.0 ;
   double template_sqerr_sky_pe, template_sqerr_ccd_pe, template_sqerr_pe;
-  double SNR_CALC, SNR_CALC_S, SNR_CALC_ST, SNR_CALC_SZT, SQSIG_CALC, SNR_MON ;
+  double SNR_CALC_S, SNR_CALC_ST, SNR_CALC_SZT, SQSIG_CALC, SNR_MON ;
   char band[2];
   char fnam[] = "gen_fluxNoise_calc" ;
 
@@ -23152,7 +23122,7 @@ void  gen_fluxNoise_fudge_diag(int epoch, int VBOSE, FLUXNOISE_DEF *FLUXNOISE){
   double SIG_CALC           = sqrt(SQSIG_CALC);
   double SNR_CALC_SZT       = FLUXNOISE->SNR_CALC_SZT ;
   double SNR_CALC_ST        = FLUXNOISE->SNR_CALC_ST ;
-  double SNR_CALC_S         = FLUXNOISE->SNR_CALC_S ;
+  //  double SNR_CALC_S         = FLUXNOISE->SNR_CALC_S ;
 
   double SQSIG_SRC          = FLUXNOISE->SQSIG_SRC; // = SN flux, p.e.
   double SQSIG_SKY          = FLUXNOISE->SQSIG_SKY;
@@ -23373,17 +23343,16 @@ void gen_fluxNoise_fudge_cov(int icov) {
   int  MEMD0 = NOBS*sizeof(double);
   int  MEMD1 = NOBS*sizeof(double*);
   int  NEPOCH  = GENLC.NEPOCH ;
-  int  TYPE_S  = TYPE_FLUXNOISE_S ;  // search noise
+  //  int  TYPE_S  = TYPE_FLUXNOISE_S ;  // search noise
   int  TYPE_F  = TYPE_FLUXNOISE_F ;  // fudge noise
-  double COVFAC = 1.0E-3;
+  //  double COVFAC = 1.0E-3;
 
-  int  ep, iep0, iep1, indx_1D, IFILT_OBS, INDEX_REDCOV, iREDCOV ;
-  int  N0=0, N1=0, o, MEMD, *epMAP ;
+  int  ep, iep0, iep1, indx_1D, IFILT_OBS, INDEX_REDCOV ;
+  int  N0=0, N1=0, o, *epMAP ;
   double *covFlux_1D, **covCholesky_2D ;
   double SQSIG_FUDGE[2] ;
   double SIGxSIG, REDCOV, COV ;
   int LDMP = 0 ; 
-  char *BAND, *FIELD;
   char fnam[] = "gen_fluxNoise_fudge_cov" ;
 
   // --------- BEGIN --------
@@ -23541,18 +23510,18 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   double SQSIG_SZ    = FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_SZ];
   double SQSIG_T     = FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_T];
   double SQSIG_F     = FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_F];
-  double SQSIG_Z     = FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_Z];
+  //  double SQSIG_Z     = FLUXNOISE->SQSIG_FINAL_TRUE[TYPE_FLUXNOISE_Z];
   double SIG_S       = sqrt(SQSIG_S);  // search image
   double SIG_SZ      = sqrt(SQSIG_SZ);  // search image + zp err
   double SIG_T       = sqrt(SQSIG_T);  // template
   double SIG_F       = sqrt(SQSIG_F);  // fudge noise
-  double SIG_Z       = sqrt(SQSIG_Z);  // ZP noise, included in _S
+  //  double SIG_Z       = sqrt(SQSIG_Z);  // ZP noise, included in _S
 
   int    ifield, OVP ;
-  double GAURAN_SZ, GAURAN_T, GAURAN_F, GAURAN_S ;
+  double GAURAN_SZ=0.0, GAURAN_T=0.0, GAURAN_F=0.0, GAURAN_S=0.0 ;
   double SHIFT_SZ,  SHIFT_T,  SHIFT_F, SHIFT_S ;
-  double fluxObs, genmag_T, flux_T ;
-  double SQSIG_TMP, SIG_TMP, SCALE_TMP, SNR_CALC, SNR_MON ;
+  double fluxObs, flux_T ;
+  double SQSIG_TMP, SIG_TMP, SCALE_TMP, SNR_CALC ;
   char fnam[] = "gen_fluxNoise_apply" ;
 
   // ----------- BEGIN -----------
@@ -23666,7 +23635,7 @@ void gen_fluxNoise_apply(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
 
 
   double NADU_over_Npe       = FLUXNOISE->NADU_over_Npe;
-  double Npe_over_FLUXCAL    = FLUXNOISE->Npe_over_FLUXCAL;
+  //  double Npe_over_FLUXCAL    = FLUXNOISE->Npe_over_FLUXCAL;
   double legacy_flux         = GENLC.flux[epoch];
   double legacy_fluxerr_data = GENLC.fluxerr_data[epoch];
 
@@ -23824,7 +23793,7 @@ void dumpCovMat_fluxNoise(int icov, int NOBS, double *COV) {
 
   int i0, i1, J1D, NOBS_dump = NOBS;
   double COVTMP ;
-  char fnam[] = "dumpCovMat_fluxNoise" ;
+  //  char fnam[] = "dumpCovMat_fluxNoise" ;
   if ( NOBS_dump > 8 ) { NOBS_dump = 8; }
   printf("\n Dump COV matrix for icov=%d  (%s) \n", 
 	 icov, COVINFO_FLUXERRMODEL[icov].BANDSTRING);
@@ -23854,14 +23823,14 @@ void monitorCov_fluxNoise(void) {
   // over all events. 
 
   int NEPOCH = GENLC.NEPOCH ;
-  int TYPE_T = TYPE_FLUXNOISE_T ;
+  //  int TYPE_T = TYPE_FLUXNOISE_T ;
 
 #define NTYPE_CHECK 3
   int TYPE_LIST[NTYPE_CHECK];
   char TYPE_STRING[] = "STF";
   int ifilt_obs, ifilt, ep0, ep1, NSUM, i, TYPE ;
   double SHIFT[2], SIG[2], RHO, RHO_SUM, RHO_AVG;
-  char fnam[] = "monitorCov_fluxNoise" ;
+  //  char fnam[] = "monitorCov_fluxNoise" ;
 
   // ------------ BEGIN -----------
 
@@ -24043,7 +24012,7 @@ void set_GENFLUX_FLAGS(int epoch) {
   int  ifilt_obs, indx;
   bool IS_ERRPOS, IS_UNDEFINED, IS_SATURATE ;
   double obsmag, genmag, fluxerr;
-  char fnam[] = "set_GENFLUX_FLAGS" ;
+  //  char fnam[] = "set_GENFLUX_FLAGS" ;
 
   // ---------- BEGIN -------------
 
@@ -24768,8 +24737,8 @@ void genmodelSmear(int NEPFILT, int ifilt_obs, int ifilt_rest,  double z,
 
   double 
     ran_COH, ran_FILT
-    ,magSmear=0.0, magSmear_model, magSmear_tmp, TMPSIG
-    ,smearsig, smearsig_fix, smearsig_model
+    ,magSmear=0.0, magSmear_model, magSmear_tmp
+    ,smearsig=0.0, smearsig_fix, smearsig_model
     ,Tep, Tpeak, Trest, lamrest, Z1
     ;
 
@@ -25678,7 +25647,7 @@ void readme_doc(int iflag_readme) {
   char conoff[2][4] = { "OFF" , "ON" } ;
 
   int i, j, j2, ifilt_obs, ifilt_rest, ifilt, itmp, imap, iopt, ipar ;
-  int NLINE, NOV, NON1A_non1a, OVP1, OVP2, OVP3 ;
+  int NLINE, NOV, NON1A_non1a, OVP1, OVP2 ;
 
   double XN, XNERR ;
   float xt, xtprod, val, ZMIN, ZMAX, shift[2];
@@ -26241,8 +26210,6 @@ void readme_doc(int iflag_readme) {
 
   // ---- statistics
 
-  double t_tot   = (t_end-t_start) ;       // total proc time, sec
-  double t_init  = (t_end_init - t_start) ; // total init time
   double t_gen   = (t_end - t_end_init); // total gen time after init
   double R_gen   = (double)NGENLC_TOT / t_gen ;  // NGEN/sec
   double R_write = (double)NGENLC_WRITE/t_gen ;  // NWRITE/sec
@@ -27496,7 +27463,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   //               for FITS format.
   //
 
-  int i, isys, LENSTR ;
+  int i, isys ;
   char headFile[MXPATHLEN];
   char cmd[2*MXPATHLEN], prefix[2*MXPATHLEN];
   char fnam[] = "init_simFiles" ;

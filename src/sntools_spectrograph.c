@@ -394,7 +394,7 @@ void check_SNR_SPECTROGRAPH(int l, int t) {
   double *ptrTexpose = INPUTS_SPECTRO.TEXPOSE_LIST;
   int    iSNR ;
   char fnam[]    = "check_SNR_SPECTROGRAPH" ;
-  int  LDMP = 0;
+  //  int  LDMP = 0;
   // ---------------BEGIN ----------
 
     sprintf(c2err,"LAM=%.1f  TEXPOSE=%.2f  (l=%d, t=%d)", 
@@ -857,7 +857,7 @@ void read_spectrograph_fits(char *inFile) {
   double L0, L1  ;
 
   char keyName[40], comment[80], TBLname[40], INFILE[MXPATHLEN] ;
-  char fnam[] = "read_spectrograph_fits" ;
+  //  char fnam[] = "read_spectrograph_fits" ;
 
   // --------------- BEGIN -----------------
 
@@ -1131,7 +1131,7 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   double Tmin   = INPUTS_SPECTRO.TEXPOSE_LIST[0] ;
   double Tmax   = INPUTS_SPECTRO.TEXPOSE_LIST[NBT-1] ;
   double TEXPOSE_S_local = TEXPOSE_S ;
-  double TEXPOSE_T_local = TEXPOSE_T ;
+  //  double TEXPOSE_T_local = TEXPOSE_T ;
   double SNR, ZP_S, ZP_T, arg, SQ_S, SQ_T, SQ_SUM, Flux, FluxErr ;
   bool   DO_TEXTRAP = false;
   char fnam[] = "getSNR_spectrograph" ;
@@ -1140,7 +1140,6 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   char errmsg_SQ_S[] = "getSNR_spectrograph(SQ_S)";
   char errmsg_SQ_T[] = "getSNR_spectrograph(SQ_T)";
   int  LDMP = (ILAM < -3);
-  bool ABORT = false;
 
   // -------------- BEGIN --------------
 
@@ -1198,6 +1197,8 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   SQ_SUM  = (SQ_S + SQ_T + Flux);
   if ( SQ_SUM >= 0.0 ) 
     {  FluxErr = sqrt(SQ_SUM);  SNR = Flux/FluxErr ;  }
+  else
+    { FluxErr = -9.0 ; }
 
   // check extrapolation beyond defined range of TEXPOSE (May 27 2020)
   if ( DO_TEXTRAP )
@@ -1219,13 +1220,6 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
 	   INPUTS_SPECTRO.ZP[ILAM][2]);
     printf(" xxx \n");
 
-    /* xxx mark delete 
-    if ( ABORT ) {
-      sprintf(c1err,"Negative variance (SQ_SUM) of effective sky noise ??" );
-      sprintf(c2err,"Check spectrograph table");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
-    }
-    xxxxxxx */
 
     fflush(stdout);
   }

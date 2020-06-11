@@ -139,9 +139,8 @@ char FILTERSTRING[100] ;
 #define MXSTREAM_RAN    2  // max number of independent streams
 #define BUFSIZE_RAN   256
 
-typedef struct random_data random_data ;
+typedef struct random_data random_data_def ;
 struct {
-  
   int     NSTREAM ; // number of srandom streams (legacy is 1)
   double  RANSTORE[MXLIST_RAN+1][MXSTORE_RAN] ;
   int     NLIST_RAN;         // Number of lists
@@ -149,7 +148,7 @@ struct {
   double  RANFIRST[MXLIST_RAN+1], RANLAST[MXLIST_RAN+1]; // for syncing.
 
   // for multi-stream randoms
-  random_data ranStream[MXSTREAM_RAN];
+  random_data_def ranStream[MXSTREAM_RAN];
   char stateBuf[MXSTREAM_RAN][BUFSIZE_RAN];
 
   // wrap-around stats for how often each random is re-used.

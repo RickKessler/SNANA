@@ -1838,6 +1838,7 @@ void  SPLITRAN_cutmask(void);
 void  SPLITRAN_SUMMARY(void); 
 void  SPLITRAN_write_fitpar(char *fileName);
 void  SPLITRAN_read_fitpar(int isplit);
+int   SPLITRAN_read_wfit(int isplit);
 void  SPLITRAN_prep_input(void);
 
 void  CPU_SUMMARY(void);
@@ -14700,6 +14701,7 @@ void SPLITRAN_SUMMARY(void) {
 
   
   int ipar, isplit, NSPLIT, NPAR, NERR_VALID, JOBID_SPLIT ; 
+  int FOUND_wfit = 1;
   double 
     VAL, ERR, XN, XNTMP, NSNAVG, NSNRMS
     ,SUMVAL1[MAXPAR], SUMERR1[MAXPAR]
@@ -14726,6 +14728,15 @@ void SPLITRAN_SUMMARY(void) {
       store_PARSE_WORDS(-1,"");
       for(isplit=1; isplit<=NSPLIT; isplit++ )
 	{ SPLITRAN_read_fitpar(isplit); }
+
+      // check for optional wfit results too (Jun 11 2020)
+      // Note separate isplit loop to make sure that all jobs
+      // have finished. If any wfit file is missing, STOP trying.
+      for(isplit=1; isplit<=NSPLIT; isplit++ ) {
+	if ( FOUND_wfit ) 
+	  { FOUND_wfit = SPLITRAN_read_wfit(isplit);  }
+      }
+
     }
     else
       { return; }
@@ -14798,6 +14809,7 @@ void SPLITRAN_SUMMARY(void) {
   fprintf(fp, "# SPLITRAN SUMMARY for %d jobs (Avg sample size: %d +- %d) \n",
 	  INPUTS.NSPLITRAN, (int)NSNAVG, (int)NSNRMS );
   fprintf(fp," \n");
+  fprintf(fp,"NSPLITRAN: %d \n", INPUTS.NSPLITRAN);
   fprintf(fp,"VARNAMES: ROW PARNAME AVG_VAL AVG_ERR RMS_VAL RMS_ERR \n" );
 
   for ( ipar=1; ipar <= NPAR ; ipar++ ) {
@@ -16170,7 +16182,6 @@ void SPLITRAN_read_fitpar(int isplit) {
   char fnam[] = "SPLITRAN_read_fitpar";
 
   // --------------- BEGIN --------------
-
   
   sprintf(tmpFile,"%s-SPLIT%3.3d.fitpar", prefix, isplit);
   printf(" Read %s \n", tmpFile); fflush(stdout);
@@ -16228,6 +16239,59 @@ void SPLITRAN_read_fitpar(int isplit) {
 
 } // end SPLITRAN_read_fitpar
 
+
+// ******************************************
+int SPLITRAN_read_wfit(int isplit) {
+
+  // Created Jun 11 2020
+  // Read optional wfit output (with .COSPAR extension).
+  // Note that wfit is run by SALT2mu_fit.pl batch script,
+  // and NOT run here by SALT2mu. This utility compiles
+  // the wFit stats along with the SALT2mu stats.
+
+  int  NWD, iwd, NLINE=0, EXIST = 0 ;
+  FILE *fp;
+  double w, werr;
+  char *prefix = INPUTS.PREFIX ;
+  char tmpFile[200], LINE[100], WORD[20] ;
+  char fnam[] = "SPLITRAN_read_wfit" ;
+
+  // ------------ BEGIN ---------------
+
+  sprintf(tmpFile,"wfit_%s-SPLIT%3.3d.COSPAR", prefix, isplit);
+  printf(" Read %s \n", tmpFile); fflush(stdout);
+
+  fp = fopen(tmpFile,"rt");
+  if( !fp ) {
+    printf("\t no wfit output files. \n");
+    return(EXIST);
+  }
+  
+  // set w parameter as floated so that it gets printed;
+  // also modify parName to indicate wfit origin.
+  FITINP.ISFLOAT[IPAR_w0] = 1 ;  
+  sprintf(FITRESULT.PARNAME[IPAR_w0],"w(wfit)" );
+
+  EXIST = 1;
+
+  while(fgets(LINE,100,fp) != NULL ) {
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);    
+    if ( NLINE == 1 ) {
+      iwd=0; get_PARSE_WORD(0,iwd,WORD);  sscanf(WORD, "%le", &w);
+      iwd=1; get_PARSE_WORD(0,iwd,WORD);  sscanf(WORD, "%le", &werr);
+      FITRESULT.PARVAL[isplit][IPAR_w0] = w ;
+      FITRESULT.PARERR[isplit][IPAR_w0] = werr ; 
+    }
+    NLINE++ ;
+  }
+  
+  fclose(fp);
+
+  return(EXIST);
+
+} // end SPLITRAN_read_wfit
+
+// ************************************
 int match_fitParName(char *parName) {
   int  ipar = -9;
   char *PARNAME;

@@ -227,7 +227,7 @@ void init_genSmear_randoms(int NRANGauss, int NRANFlat) {
   // malloc memory to hold Gauss and flat randoms for each event.
 
   int MEMD;
-  char fnam[] = "init_genSmear_randoms";
+  //  char fnam[] = "init_genSmear_randoms";
 
   // ------------ BEGIN --------------
 
@@ -270,7 +270,7 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
   int  LDMP = 0 ;
 
   int iran;
-  char fnam[] = "load_genSmear_randoms" ;
+  //  char fnam[] = "load_genSmear_randoms" ;
 
   // ------------- BEGIN ------------
 
@@ -437,7 +437,7 @@ int repeat_genSmear(double Trest, int NLam, double *Lam) {
   int LDMP    = 0 ;
   double LAMMIN = Lam[0];
   double LAMMAX = Lam[NLam-1];
-  char fnam[] = "repeat_genSmear";
+  //  char fnam[] = "repeat_genSmear";
 
   // ------------ BEGIN ------------
 
@@ -503,11 +503,9 @@ void update_genSmear_COVLAM_debug(double *magSmear) {
   // Inputs:
   //  magSmear[0], magSmear[1] = magSmear values for each wavelength.
 
-  double m0 = magSmear[0];
-  double m1 = magSmear[1];
   double mtmp, XN, SUM, SQSUM, MEAN[2], RMS[2], COV_01, RHO ;
   int i, N;
-  char fnam[] = "update_genSmear_COVLAM_debug" ;
+  //  char fnam[] = "update_genSmear_COVLAM_debug" ;
 
   // ----------- BEGIN -------
 
@@ -724,6 +722,7 @@ double get_genSmear_SCALE(double c, double x1) {
   else if ( strcmp(varName,"x1") == 0 ) 
     { VAL = x1 ; }
   else {
+    VAL = -9999.0 ;
     sprintf(c1err,"Invalid VARNAME='%s' for poly fun", varName);
     sprintf(c2err,"Check sim-input GENMAG_SMEAR_SCALE");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -1058,9 +1057,8 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   //  + add GENRANGE_REDSHIFT argument, and abort on potential gen-errors.
   //  + add logic for last NODE bin
 
-  double SED_LAMMIN =  SALT2_TABLE.LAMMIN;
-  double SED_LAMMAX =  SALT2_TABLE.LAMMAX;
-
+  //  double SED_LAMMIN =  SALT2_TABLE.LAMMIN;
+  double SED_LAMMAX =  SALT2_TABLE.LAMMAX;  
   double zmin = GENRANGE_REDSHIFT[0];
   char dispFile[MXPATHLEN] ;  
   char fnam[] = "init_genSmear_SALT2" ;
@@ -1108,7 +1106,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // ----
 
   int    NRANGEN, ilam, NLAM, NNODE, LAST=0 ;
-  double LAM, LAM2, MINLAM, MAXLAM, MAXLAM_LOOP, DLAM, SIG ;
+  double LAM, LAM2=0.0, MINLAM, MAXLAM, MAXLAM_LOOP, DLAM, SIG ;
   double F0, F1, FUDGE, L0;
 
   // apply sigma-scale fudge so that lambda-interpolated model
@@ -1386,7 +1384,7 @@ void read_genSmear_SALT2disp(char *smearFile) {
 
   char fnam[] = "read_genSmear_SALT2disp" ;
   FILE *fp ;
-  int NLAM, ilam, GZIPFLAG ;
+  int NLAM,  GZIPFLAG ;
 
   // -------------- BEGIN ----------------
 
@@ -1623,8 +1621,6 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
   double CC, COVred, tmp, covscale_v ;
   int i,j, N ;
   int MEMD = NBAND_C11 * NBAND_C11 * sizeof(double);
-  gsl_matrix_view chk;  
-
   //  char fnam[] = "init_genSmear_Chotard11" ;
 
   // ------------ BEGIN -----------
@@ -1719,7 +1715,7 @@ void get_genSmear_Chotard11(double Trest, int NLam, double *Lam,
 			    double *magSmear) {
 
   
-  int    ilam, i, j, IFILT ;
+  int    ilam, IFILT ;
   double lam, tmp, SCATTER_VALUES[NBAND_C11] ;
 
   double LAMCEN[NBAND_C11] = 
@@ -2535,7 +2531,7 @@ void get_genSmear_COH(double Trest, int NLam, double *Lam,
   int    Nsigma =   GENSMEAR_COH.NSIGMA;
   int    ilam, isig ; 
   double SIG, MAGSMEAR, SUM_MAGSMEAR = 0.0 ;
-  char fnam[] = "get_genSmear_COH";
+  //  char fnam[] = "get_genSmear_COH";
 
   // ------------ BEGIN -----------
 
@@ -2747,12 +2743,12 @@ void init_genSmear_OIR(char *VERSION) {
   double COVAR1[NBAND_OIR* NBAND_OIR] ;
   double COVAR2[NBAND_OIR][NBAND_OIR] ;
 
-  double CC, COVred, tmp, covscale_v ;
+  double CC, COVred, tmp ;
   int i,j, N ;
   int LDMPCOV = 0; 
   gsl_matrix_view chk;  
 
-  char fnam[] = "init_genSmear_OIR";
+  //  char fnam[] = "init_genSmear_OIR";
 
   // --------------- BEGIN ---------------
 
@@ -2944,7 +2940,7 @@ void read_OIR_INFO(void) {
   // read model params from OIR.INFO file
   //
   FILE *fp ;
-  int  ic, ic2, NC, irowmat, iband, IFILTDEF, j ;
+  int  ic, ic2, NC, irowmat, iband, IFILTDEF ;
   char c_get[60], band[2];
   double LAMCEN ;
   char *infoFile = GENSMEAR_OIR.INFO_FILE ;
@@ -3029,11 +3025,11 @@ void sort_OIR_BANDS(void) {
   // and fill ORDERED arrays.
 
   int ORDER =  1; // --> increasing order
-  int NBAND, IFILTDEF, IFILTDEF_B, iband, isort, ic, NC ;
+  int NBAND, IFILTDEF, IFILTDEF_B, iband, isort, NC ;
   int IFILTDEF_LIST[MXFILTINDX];
   int INDSORT[MXFILTINDX];
   double LAMCEN, LAMCEN_LIST[MXFILTINDX];
-  char fnam[] = "sort_OIR_BANDS" ;
+  //  char fnam[] = "sort_OIR_BANDS" ;
 
   // ------------ BEGIN -------------
 
@@ -3112,7 +3108,6 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
 
 
   double COV_DIAG_FUDGE = 1.0E-9 ; // needed to be invertible
-  char *covFileName = (char*)malloc(MXPATHLEN*sizeof(char) ) ;
   char *ptrPATH = GENSMEAR_COVSED.MODEL_PATH;
   char *ptrVERS = GENSMEAR_COVSED.VERSION;
   char *ptrFILE = GENSMEAR_COVSED.COVSED_FILE ;
@@ -3148,7 +3143,7 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
   // prepare Cholesky decomp for correlated random in each WAVE bin
 
   int NBIN = GENSMEAR_COVSED.NBIN_WAVExEPOCH ;
-  int i,j, jj;
+  int i, jj;
 
   // fudge diagonal COV to ensure positive-definite
   for (i =0; i < NBIN ; i++){
@@ -3183,7 +3178,7 @@ void init_genSmear_COVSED(char *version, int OPTMASK) {
   printf("\t Prepare Cholesky decomp. \n"); fflush(stdout);
   init_Cholesky(+1, &GENSMEAR_COVSED.DECOMP);
 
-  // allocate array to use in gen_magSmear_COV
+  // alocate array to use in gen_magSmear_COV
   GENSMEAR_COVSED.SCATTER_VALUES = (double*) malloc(NBIN*sizeof(double) );
 
   init_genSmear_randoms(NBIN,0);
@@ -3419,8 +3414,8 @@ void get_genSmear_COVSED(double Trest, int NWAVE, double *WAVE,
   int    ISPEAK     = (fabs(Trest)<0.001);
   int    DEBUG      = ISPEAK && (LAMPAIR_DEBUG[0]>0.0) ;
   int    NDEBUG_STORE = 0 ;
-  int  i,j, iwave;
-  double tmp, ran, tmpWave, magSmear_debug[2];
+  int    iwave;
+  double tmp, tmpWave, magSmear_debug[2];
   char fnam[] = "get_genSmear_COVSED";
 
   // ---------------- BEGIN -----------------
@@ -3687,7 +3682,7 @@ void  init_genSmear_phaseCor(double magSmear, double expTau) {
   double TMIN_PHASECOR = -18.0 ;
   double TBIN_PHASECOR =   1.0 ;
 
-  int NBIN, i, j, N, MEMD ;
+  int NBIN, N, MEMD, i, j ;
   double phase;
   char fnam[] = "init_genSmear_phaseCor" ;
 
@@ -3761,8 +3756,7 @@ void  get_genSmear_phaseCor(int CID, double phase, double *magSmear ) {
 
   int CID_LAST = GENSMEAR_PHASECOR.CID_LAST ;
   int NBIN     = GENSMEAR_PHASECOR.NBIN ;
-  int i, j ;
-  double Chol, RANG, magSmear_local = 0.0 ;
+  double magSmear_local = 0.0 ;
   char fnam[] = "get_genSmear_phaseCor" ;
   int  LDMP = 0 ;
 

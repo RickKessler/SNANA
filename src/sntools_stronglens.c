@@ -347,7 +347,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   //  YIMG        list of NIMG Y separations (arcsec)
   //
   int    IDLENS_local, NIMG_local=0, img,i,j;
-  double FlatRan, GauRan, zLENS_local;
+  double FlatRan, zLENS_local;
   char fnam[] = "get_stronglens" ;
 
   // ---------------- BEGIN ---------------

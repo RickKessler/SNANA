@@ -1608,7 +1608,7 @@ double get_magerr_SEDMODEL( int ISED, int ifilt_obs,
   double DAYMAX  = TEMP_SEDMODEL.DAYMAX ;
   int    ifilt, EP, ILAM, jflux ;
   double FRAC, LAMSED, LAMDIF, FLUX, FLUXERR, magerr = 0.10 ;
-  char fnam[] = "get_magerr_SEDMODEL";
+  //  char fnam[] = "get_magerr_SEDMODEL";
 
   // -------------- BEGIN --------------
 

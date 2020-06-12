@@ -125,6 +125,7 @@
 # Mar 20 2020: added sntools_genExpHalfGauss (DJB)
 # Mar 23 2020: include snlc_sim.h dependence for sntools_gridgen.o
 # Apr 25 2020: include lCint for LROOT only of libCint.so exists
+# Jun 12 2020: add sntools_genPDF
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -398,6 +399,7 @@ OBJ_SIM	 = 	\
 	$(OBJ)/sntools_trigger.o  \
 	$(OBJ)/sntools_gridgen.o  \
 	$(OBJ)/sntools_spectrograph.o \
+	$(OBJ)/sntools_genPDF.o \
 	$(OBJ)/sntools_genGauss_asym.o \
         $(OBJ)/sntools_genExpHalfGauss.o \
 	$(OBJ)/inoue_igm.o \
@@ -910,9 +912,16 @@ $(OBJ)/multiseason.o : $(SRC)/multiseason.c
 
 
 # -------------------------------------------------
+#  sntools_genPDF  tools (Jun 2020)
+
+$(OBJ)/sntools_genPDF.o : $(SRC)/sntools_genPDF.c  $(SRC)/sntools_genPDF.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS)  $(IGSL) $(SRC)/sntools_genPDF.c )
+
+# -------------------------------------------------
 #  sntools_genGauss_asym  tools (Sep 2016)
 
-$(OBJ)/sntools_genGauss_asym.o : $(SRC)/sntools_genGauss_asym.c  $(SRC)/sntools_genGauss_asym.h  skewNormal.c
+$(OBJ)/sntools_genGauss_asym.o : $(SRC)/sntools_genGauss_asym.c  $(SRC)/sntools_genGauss_asym.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS)  $(IGSL) $(SRC)/sntools_genGauss_asym.c )
 

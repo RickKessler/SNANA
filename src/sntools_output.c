@@ -193,7 +193,7 @@ void TABLEFILE_INIT(void) {
   sprintf(SNLCPAK_OUTPUT.VERSION_PHOTOMETRY, "NULL" );
   sprintf(SNLCPAK_OUTPUT.VERSION_SNANA,      "NULL" );
   sprintf(SNLCPAK_OUTPUT.SURVEY_FILTERS,     "NULL" );
-  sprintf(SNLCPAK_OUTPUT.TEXT_FORMAT,        "" );
+  SNLCPAK_OUTPUT.TEXT_FORMAT[0] = 0;
 
 #ifdef USE_TEXT
   FILEPREFIX_TEXT[0] = 0 ;
@@ -258,7 +258,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   //
 
   int  OPEN_FLAG, TYPE_FLAG, OPT_Q, USE_CURRENT, IERR ;
-  char *ptrtok, local_STRINGOPT[80], ctmp[20], *FMT, ENV[200] ;
+  char *ptrtok, local_STRINGOPT[80], ctmp[20];
   char fnam[] = "TABLEFILE_OPEN" ;
 
   // ---------------------- BEGIN ---------------------
@@ -1236,7 +1236,7 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
   //
   // Sep 12 2016: allow up to 2 pointers for each column.
 
-  int ivar, i, NVAR_TOT, NVAR_READ, VECFLAG, ISIZE, NPTR, MATCH ;
+  int ivar, i, NVAR_TOT, NVAR_READ, VECFLAG, ISIZE, NPTR, MATCH, LEN ;
   int ICAST_STORE ;
   char varName[MXCHAR_VARNAME*2], *varTmp ;
   char fnam[] = "sntable_readprep_vardef1" ;
@@ -1262,11 +1262,12 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
   parse_TABLEVAR(varName_withCast,                    // (I)
 		 varName,  &ICAST_STORE, &VECFLAG, &ISIZE);  // (O)
 
-  if ( strlen(varName) > MXCHAR_VARNAME ) {
+  LEN = strlen(varName);
+  if ( LEN > MXCHAR_VARNAME ) {
     print_preAbort_banner(fnam);
     printf("\t varName = '%s' \n", varName);
     sprintf(MSGERR1,"len(varName) = %d exceeds bound of MXCHAR_VARNAME=%d .",
-	    strlen(varName), MXCHAR_VARNAME);
+	    LEN, MXCHAR_VARNAME);
     sprintf(MSGERR2,"Try shorter name.");
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }

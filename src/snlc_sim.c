@@ -199,7 +199,7 @@ int main(int argc, char **argv) {
   init_genmodel();
   init_modelSmear(); 
   init_genSpec();     // July 2016: prepare optional spectra
-
+  init_genPDF(INPUTS.GENPDF_FILE);      // Jun 2020
 
   if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSMAGS)>0 ) 
     { rewrite_HOSTLIB_plusMags(); }
@@ -468,7 +468,6 @@ void simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   end_simFiles(SIMFILE_AUX);
 
-  //end_skewNormal();  // Sep 2016
 
   if ( NAVWARP_OVERFLOW[0] > 0 ) 
     { printf("%s", WARNING_AVWARP_OVERFLOW ); }
@@ -856,6 +855,7 @@ void set_user_defaults(void) {
   INPUTS.NFILT_SMEAR = 0;
   INPUTS.GENMODEL[0] = 0 ;
   INPUTS.MODELPATH[0] = 0 ;
+  INPUTS.GENPDF_FILE[0] = 0 ;
   INPUTS.GENMODEL_ERRSCALE     = 0.00 ; // .001 -> 0 (Jun 20 2016) 
   INPUTS.GENMODEL_ERRSCALE_OPT = 1;   // use peak error at all epochs
   INPUTS.GENMODEL_ERRSCALE_CORRELATION = 0.0;   // corr with GENMAG_SMEAR
@@ -1731,11 +1731,12 @@ int read_input(char *input_file) {
       { parse_input_GENMODEL_ARGLIST(fp,&iArg); continue ; }
 
     if ( uniqueMatch(c_get,"GENMODEL:") > 0  ) {
-
       parse_input_GENMODEL(fp,&iArg);  //4.18.2019
       continue ;
-
     } // end GENMODEL
+
+    if ( uniqueMatch(c_get,"GENPDF_FILE:")  ) 
+      { readchar ( fp, INPUTS.GENPDF_FILE ); continue ; }
 
     if ( uniqueMatch(c_get,"GENMODEL_EXTRAP_LATETIME:") ) 
       { readchar ( fp, INPUTS.GENMODEL_EXTRAP_LATETIME ); continue ; }
@@ -4175,6 +4176,7 @@ void read_input_GENGAUSS(FILE *fp, char *string, char *varName,
   // Apr 21 2016: check for NGRID; 
   // Aug 30 2016: check for SKEWNORMAL, and fill genGauss->NAME
   // Mar 29 2017: check for 2nd peak
+  // Jun 12 2020: remove skewnormal (never worked)
 
   int FOUND=0 ;
   char KEYNAME[80];
@@ -4199,11 +4201,6 @@ void read_input_GENGAUSS(FILE *fp, char *string, char *varName,
   sprintf(KEYNAME,  "GENSKEW_%s:",  varName);
   if ( strcmp(string, KEYNAME )==0 ) 
     { readdouble ( fp, 2, genGauss->SKEW ); FOUND=1; }
-
-
-  sprintf(KEYNAME, "GENSKEWNORMAL_%s:",  varName);
-  if ( strcmp(string, KEYNAME )==0 ) 
-    { readdouble ( fp, 3, genGauss->SKEWNORMAL );  FOUND=1; }
 
   sprintf(KEYNAME, "GENRANGE_%s:", varName);
   if ( strcmp(string, KEYNAME )==0 ) {
@@ -4304,13 +4301,6 @@ void sscanf_GENGAUSS(int *i, char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
   if ( strcmp( ARGV_LIST[*i], KEYNAME ) == 0 ) {
     j++ ; sscanf(ARGV_LIST[j] , "%le", &genGauss->SKEW[0] ); 
     j++ ; sscanf(ARGV_LIST[j] , "%le", &genGauss->SKEW[1] ); 
-  }
-
-  sprintf(KEYNAME, "GENSKEWNORMAL_%s",  varName);
-  if ( strcmp( ARGV_LIST[*i], KEYNAME ) == 0 ) {
-    j++ ; sscanf(ARGV_LIST[j] , "%le", &genGauss->SKEWNORMAL[0] ); 
-    j++ ; sscanf(ARGV_LIST[j] , "%le", &genGauss->SKEWNORMAL[1] ); 
-    j++ ; sscanf(ARGV_LIST[j] , "%le", &genGauss->SKEWNORMAL[2] ); 
   }
 
   sprintf(KEYNAME, "GENRANGE_%s", varName);
@@ -4988,6 +4978,11 @@ void sim_input_override(void) {
       parse_input_GENMODEL(fpNull,&i);
       goto INCREMENT_COUNTER; 
     } // end GENMODEL key
+
+    if ( strcmp( ARGV_LIST[i], "GENPDF_FILE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPDF_FILE );
+      goto INCREMENT_COUNTER; 
+    } 
 
 
     if ( strcmp(ARGV_LIST[i], "GENMODEL_EXTRAP_LATETIME") == 0 ) {
@@ -8157,46 +8152,6 @@ void  set_GENMODEL_NAME(void) {
 } // end set_GENMODEL_NAME
 
 
-
-/* xxxxxxxxxxxx mark delete Jun 4 2020 xxxxxxxxxxxxx
-void init_simRandoms(void) {
-
-  // Create Sep 2016 by R.Kessler & E.Jennings
-  // Move init stuff from main, and check for skewNormal.
-
-  GENRAN_INFO.NSTREAM = 1;
-
-  int NSTREAM = GENRAN_INFO.NSTREAM ;
-  int i, size ;
-  int ISEED  = INPUTS.ISEED ;
-  int ISEED2 = INPUTS.ISEED * 7 + 137;
-  int ISEED_LIST[MXSTREAM_RAN] = { ISEED, ISEED2} ;
-  char fnam[] = "init_simRandoms" ;
-
-  // ----------- BEGIN ----------------
-
-  if ( NSTREAM == 1 ) 
-    {   srandom(ISEED); }
-  else {
-    for(i=0; i < NSTREAM; i++ ) {
-      memset( &GENRAN_INFO.ranStream[i], 0,  
-	      sizeof(GENRAN_INFO.ranStream[i]) ) ;
-      initstate_r(ISEED_LIST[i], GENRAN_INFO.stateBuf[i], BUFSIZE_RAN, 
-		  &GENRAN_INFO.ranStream[i] ); 
-      srandom_r( ISEED_LIST[i], &GENRAN_INFO.ranStream[i] ); 
-    }
-  }
-
-  fill_RANLISTs(); 
-  for ( i=1; i <= GENRAN_INFO.NLIST_RAN; i++ )  
-    { GENRAN_INFO.RANFIRST[i] = FlatRan1(i); }
-  
-  // ---------------- skewNormal stuff -------------------
-  //
-  // xxx  init_skewNormal(ISEED);  // one-time init, to set seed in python
-
-} // end init_simRandoms
-xxxxxxxx end mark xxxxxxxxxxxx */
 
 
 // ************************************
@@ -17765,11 +17720,10 @@ void init_zvariation(void) {
   char *ptrZfile, *ptrparname, *ptrPar, *ptrPoly, fileName_full[MXPATHLEN] ;
   char GENPREFIX[60], c_get[60], method[20], parName[60], cpoly[60] ;
 
-#define NPREFIX_GENGAUSS 15
+#define NPREFIX_GENGAUSS 12
   char PREFIX_GENGAUSS[NPREFIX_GENGAUSS][20] 
     = 
     { "PEAK", "MEAN", "SKEW[0]", "SKEW[1]", "SIGMA[0]", "SIGMA[1]",
-      "SKEWNORMAL[0]", "SKEWNORMAL[1]", "SKEWNORMAL[2]",
       "PROB2", "PEAK2", "SIGMA2[0]", "SIGMA2[1]" ,
       "EXPSIG", "EXPTAU"
     } ;
@@ -18237,13 +18191,6 @@ GENGAUSS_ASYM_DEF get_zvariation_GENGAUSS(double z, char *parName,
   for(i=0; i < 2; i++ ) {
     sprintf(PARNAME, "GENSKEW[%d]_%s", i, parName );
     GENGAUSS_OUT.SKEW[i] += get_zvariation(z,PARNAME) ;
-  }
-
-
-  // check for variation in skewNormal (Sep 2016)
-  for(i=0; i < 3; i++ ) {
-    sprintf(PARNAME, "GENSKEWNORMAL[%d]_%s", i, parName );
-    GENGAUSS_OUT.SKEWNORMAL[i] += get_zvariation(z,PARNAME) ;
   }
 
   // check for variation in the SIGMAs
@@ -27357,7 +27304,6 @@ void sprintf_GENGAUSS(char *string, char *name,
 
   // write genGauss info to string
   // Mar 16 2015: include new SKEW parameter.
-  // Aug 30 2016: check SKEWNORMAL
 
   double s0, s1;
   char cPEAK[80], cSIGMA[80], cSKEW[80], cRANGE[80];
@@ -27376,21 +27322,14 @@ void sprintf_GENGAUSS(char *string, char *name,
     { sprintf(cSIGMA,"SIG-+ > E5,E5"); }
 
 
-  if( genGauss->SKEWNORMAL[1] != 0.0 ) {
-    double *ptrSKEW = genGauss->SKEWNORMAL ;
-    sprintf(string,"%s: SKEWNORMAL(MEAN,SIG,SKEW) = %.3f, %.3f, %.3f\n",
-	    name, ptrSKEW[0], ptrSKEW[1], ptrSKEW[2] );
-  }
-  else {
-    sprintf(cSKEW,"SKEW=%.2f,%.2f",  
-	    genGauss->SKEW[0], genGauss->SKEW[1] );
-    
-    sprintf(cRANGE,"BND=%.2f,%.2f", 
-	    genGauss->RANGE[0], genGauss->RANGE[1] );
-    
-    sprintf(string,"%s: %s  %s  %s  %s\n"
-	    ,name, cPEAK, cSIGMA, cSKEW, cRANGE  );
-  }
+  sprintf(cSKEW,"SKEW=%.2f,%.2f",  
+	  genGauss->SKEW[0], genGauss->SKEW[1] );
+  
+  sprintf(cRANGE,"BND=%.2f,%.2f", 
+	  genGauss->RANGE[0], genGauss->RANGE[1] );
+  
+  sprintf(string,"%s: %s  %s  %s  %s\n"
+	  ,name, cPEAK, cSIGMA, cSKEW, cRANGE  );
 
   return ;
 

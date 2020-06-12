@@ -488,6 +488,8 @@ struct INPUTS {
   char GENMODEL[MXPATHLEN] ; // source model name, with optional path
   char MODELPATH[MXPATHLEN]; // path to model (formerly GENLC.MODELPATH)
   char MODELNAME[100];       // stripped from GENMODEL
+  char GENPDF_FILE[MXPATHLEN]; // PDF for color, stretch, etc ...
+
   char GENMODEL_EXTRAP_LATETIME[MXPATHLEN];
   char GENSNXT[20] ;        // SN hostgal extinction: CCM89 or SJPAR
   int  GENMODEL_MSKOPT;     // bit-mask of model options

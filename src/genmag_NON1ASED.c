@@ -70,7 +70,7 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
   int ifilt, ifilt_obs, NZBIN, NON1A_INDEX ;
   double Trange[2], Lrange[2] ;
   char sedcomment[40], *sedFile ;
-  char fnam[] = "init_genmag_NON1ASED"  ;
+  //  char fnam[] = "init_genmag_NON1ASED"  ;
 
   // ------------- BEGIN -------------
 
@@ -189,7 +189,7 @@ void genmag_NON1ASED (
   double  z1, ZP, meanlam_obs, meanlam_rest, Tobs, Trest ;
   double  AV_MW, XT_MW, XT_HOST, flux, FLUX, magerr, magobs;
   char *cfilt;
-  char fnam[] = "genmag_NON1ASED" ;
+  //  char fnam[] = "genmag_NON1ASED" ;
 
   // --------- BEGIN ----------
 

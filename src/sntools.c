@@ -114,7 +114,7 @@ void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP,
   int MATSIZE   = DECOMP->MATSIZE;
   double GAURAN, tmpMat, tmpRan ;
   int irow0, irow1;
-  char fnam[] = "GaussRanCorr" ;
+  //  char fnam[] = "GaussRanCorr" ;
 
   // ------------- BEGIN ------------
 
@@ -840,7 +840,6 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
 
 
   int nm = MATSIZE ;
-  //  int matz = 1;
   bool matz  ;
   int l, k, m, ierr, ipar, NBAD_EIGVAL ;
   int LDMP = 0; // (strcmp(name,"4249392") == 0);
@@ -884,7 +883,7 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
   if(LDMP){ printf("\t 1. xxx %s \n", fnam); fflush(stdout); }
 
   matz = true;
-  ierr = rs(nm, &covMat[0][0], eigval, &matz, &eigvec[0][0] );
+  ierr = rs(nm, &covMat[0][0], eigval, matz, &eigvec[0][0] );
 
   if(LDMP){ printf("\t 2. xxx %s \n", fnam); fflush(stdout); }
 
@@ -3860,7 +3859,7 @@ void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN) {
   // Jun 2 2020: include MEDIAN in output
 
   int i;
-  double XN, val, avg, sum, sqsum, rms, median, tmpdif ;
+  double XN, val, avg, sum, sqsum, rms, median ;
 
   // ----------- BEGIN ------------
 
@@ -5396,10 +5395,10 @@ void init_random_seed(int ISEED, int NSTREAM) {
   // NSTREAM = 2 -> two independent streams, use srandom_r
 
   GENRAN_INFO.NSTREAM = NSTREAM ;
-  int i, size ;
+  int i ;
   int ISEED2 = ISEED * 7 + 137; // for 2nd stream, if requested
   int ISEED_LIST[MXSTREAM_RAN] = { ISEED, ISEED2 } ;
-  char fnam[] = "init_random_seed" ;
+  //  char fnam[] = "init_random_seed" ;
 
   // ----------- BEGIN ----------------
 
@@ -5505,7 +5504,7 @@ void sumstat_RANLISTs(int FLAG) {
   }
   else {
     // compute final AVG and RMS
-    double AVG, RMS, SUM, SUMSQ ;
+    double SUM, SUMSQ ;
     for (ilist = 1; ilist <= NLIST_RAN; ilist++ ) { 
       SUM   = GENRAN_INFO.NWRAP_SUM[ilist] ;
       SUMSQ = GENRAN_INFO.NWRAP_SUMSQ[ilist] ;
@@ -6253,7 +6252,7 @@ int rd_sedFlux(
   double daystep_last, daystep, daystep_dif ;
   double lamstep_last, lamstep, lamstep_dif ;
   int iep, ilam, iflux, ival, LAMFILLED, OKBOUND_LAM, OKBOUND_DAY, NBIN ;
-  int  NRDLINE, NRDWORD, GZIPFLAG, FIRST_NONZEROFLUX, NONZEROFLUX ;
+  int  NRDLINE, NRDWORD, GZIPFLAG, FIRST_NONZEROFLUX, NONZEROFLUX, LEN ;
   bool OPT_READ_FLUXERR, OPT_FIX_DAYSTEP;
 
   // define tolerances for binning uniformity (Aug 2017)
@@ -6306,13 +6305,14 @@ int rd_sedFlux(
   line[0] = lastLine[0] = 0 ;
 
   while ( fgets (line, MXCHARLINE_FLUX+10, fpsed ) != NULL  ) {
-
-    if ( strlen(line) > MXCHARLINE_FLUX ) {
+    
+    LEN = strlen(line);
+    if ( LEN > MXCHARLINE_FLUX ) {
       print_preAbort_banner(fnam);
       printf("   sedFile: %s \n", sedFile);
       printf("   current  line: '%s' \n", line);
       sprintf(c1err,"Line length=%d exceeds bound of %d",
-	      strlen(line), MXCHARLINE_FLUX );
+	      LEN, MXCHARLINE_FLUX );
       sprintf(c2err,"Either increase MXCHARLINE_FLUX, or reduce line len");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
     }
@@ -10628,7 +10628,6 @@ void errmsg(
 *************************************/
 {
   char c_severe[40];  // char string for serverity 
-  char cmsg[200];
 
         /* ------- begin function execution ------- */
 
@@ -10641,12 +10640,6 @@ void errmsg(
      }
 
    if ( isev == SEV_FATAL ) {  madend(0); }
-
-   /* xxxxx mark delete 
-   // print SEVERITY, FUNCTION name, and 1st message. 
-   sprintf(cmsg, "%s[%s]: \n\t %s", c_severe, fnam, msg1 );
-   printf("\n %s \n", cmsg );
-   xxxxxxxx */
 
    // print severity and name of function
    printf(" %s called by %s\n", c_severe, fnam);

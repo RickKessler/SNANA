@@ -183,9 +183,9 @@ void read_kcor_head(void) {
   char KEYWORD[40], comment[100], tmpStr[100], cfilt[2] ;
   int  NUMPRINT =  14;
   int  MEMC     = 80*sizeof(char); // for malloc
-  int  memc     =  8*sizeof(char); // for malloc
+  //  int  memc     =  8*sizeof(char); // for malloc
 
-  int *IPTR; double *DPTR; float *FPTR; char *SPTR;
+  int *IPTR; double *DPTR; char *SPTR;
   char fnam[] = "read_kcor_head" ;
 
   // --------- BEGIN ---------- 
@@ -437,7 +437,7 @@ void read_kcor_zpoff(void) {
   char **NAME_PRIM, *tmpName ;
   char fnam[] = "read_kcor_zpoff" ;
 
-  int ICOL_FILTER_NAME        = 1 ;
+  //  int ICOL_FILTER_NAME        = 1 ;
   int ICOL_PRIMARY_NAME       = 2 ;
   int ICOL_PRIMARY_MAG        = 3 ;
   int ICOL_PRIMARY_ZPOFF_SYN  = 4 ;
@@ -819,7 +819,7 @@ void addFilter_kcor(int ifiltdef, char *NAME, KCOR_FILTERMAP_DEF *MAP ) {
 
   if ( ifiltdef == 777 ) {
     // dump map, then return
-    int IFILTDEF, NBL ;
+    int IFILTDEF ;
     NF = MAP->NFILTDEF;
     printf("\n");
     printf("\t xxx %s dump: \n", fnam);
@@ -947,14 +947,14 @@ void parse_KCOR_STRING(char *STRING,
   len = strlen(cfilt_rest);
   if ( cband_rest[0] != cfilt_rest[len-1] ) {
     printf(" ERROR: rest band='%c' is not compatible with rest filter='%s'\n",
-	   cband_rest, cfilt_rest);
+	   cband_rest[0], cfilt_rest);
     NERR++ ;  fflush(stdout);
   }
 
   len = strlen(cfilt_obs);
   if ( cband_obs[0] != cfilt_obs[len-1] ) {
     printf(" ERROR: obs band='%c' is not compatible with obs filter='%s'\n",
-	   cband_obs, cfilt_obs );
+	   cband_obs[0], cfilt_obs );
     NERR++ ;  fflush(stdout);
   }
 
@@ -983,9 +983,8 @@ void init_kcor_indices(void) {
   int  NBIN_AV         = KCOR_INFO.BININFO_AV.NBIN ;
   int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
   int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
-  int  NFILTDEF_SURVEY = KCOR_INFO.NFILTDEF_SURVEY ;
-  int  i;
-  char fnam[] = "init_kcor_indices";
+  //  int  NFILTDEF_SURVEY = KCOR_INFO.NFILTDEF_SURVEY ;
+  //  char fnam[] = "init_kcor_indices";
 
   // -------------- BEGIN ----------------
 
@@ -1220,12 +1219,12 @@ void read_kcor_filters(void) {
   float *ARRAY_LAM      = (float*)malloc(MEMF);
   float *ARRAY_TRANS    = (float*)malloc(MEMF);
 
-  int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
-  int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
+  //  int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
+  //  int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
 
   int istat=0, hdutype, anynul, ICOL, NMATCH_OBS, ifilt ;
-  int MASK, IFILTDEF, IFILT_REST, IFILT_OBS, ifilt_sparse;
-  long long FIRSTROW=1, FIRSTELEM=1, NROW;
+  int MASK, IFILTDEF, IFILT_REST, IFILT_OBS ;
+  long long FIRSTROW=1, FIRSTELEM=1 ;
   char FILTERLIST_READ[MXFILTINDX], *FILTER_NAME, FILTER_BAND[2];
   
   char FRAME_REST[] = "REST" ;
@@ -1323,9 +1322,9 @@ void filter_match_kcor(char *NAME, int *IFILT_REST, int *IFILT_OBS) {
   int  NFILTDEF_REST   = KCOR_INFO.FILTERMAP_REST.NFILTDEF ;
   int  NFILTDEF_OBS    = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
   int  IFILTDEF        = INTFILTER(NAME);
-  int  ifilt, IFILTDEF_SURVEY;
-  char *NAME_REST, *NAME_OBS, cband[2];
-  char fnam[] = "filter_match_kcor" ;
+  int  ifilt ;
+  char *NAME_REST, *NAME_OBS ;
+  //  char fnam[] = "filter_match_kcor" ;
 
   // ---------- BEGIN -----------
 
@@ -1433,7 +1432,7 @@ void loadFilterTrans_kcor(int IFILTDEF, int NBL,
   int ilam, ifilt ;
   double LAM, TRANS, MEAN, SQRMS;
   double TMAX=0.0, SUM0=0.0, SUM1=0.0, SUM2=0.0 ;
-  char fnam[] = "loadFilterTrans_kcor" ;
+  //  char fnam[] = "loadFilterTrans_kcor" ;
 
   // ---------------- BEGIN ---------------
 
@@ -1487,7 +1486,7 @@ void read_kcor_primarysed(void) {
   int  NFILTDEF_OBS     = KCOR_INFO.FILTERMAP_OBS.NFILTDEF ;
   int  NBL              = KCOR_INFO.BININFO_LAM.NBIN; // from SED
   int istat=0, hdutype, anynul, ifilt;
-  int KINDX, KINDX_FIRST=-9, KINDX_2ND=-9, NERR_PRIM=0 ;
+  int KINDX=-9, KINDX_FIRST=-9, KINDX_2ND=-9, NERR_PRIM=0 ;
   char *NAME ;
   char fnam[] = "read_kcor_primarysed" ;
 

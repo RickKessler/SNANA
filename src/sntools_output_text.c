@@ -1528,7 +1528,7 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
 
   int IFILT_REST, NOBS_REST, NOBS_SIMREST, flag ;
   int OPT_FORMAT ;
-  double chi2,  FLUX_REST, KCOR, AVWARP, ERRCALC, SIM_FLUXCAL ;
+  double chi2,  FLUX_REST, KCOR, AVWARP, SIM_FLUXCAL ;
   char BAND[2], BAND_REST[2], sep[4], comment[200], LINE[400], CVAL[80];
 
   char fnam[] = "snlcpak_textLine" ;
@@ -1757,7 +1757,7 @@ void SPECPAK_FILL_TEXT(void) {
   int   NSPEC       = SPECPAK_OUTPUT.NSPEC;
   int   ispec, ilam, LENCCID;
   char  CCID[MXCHAR_CCID], *ctmp;
-  char  fnam[] = "SPECPAK_FILL_TEXT" ;
+  //  char  fnam[] = "SPECPAK_FILL_TEXT" ;
 
   // --------------- BEGIN ------------
 

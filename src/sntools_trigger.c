@@ -268,14 +268,9 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
   FILE *fp;
   int   IREQUIRE, gzipFlag, imap, NMAP=0 ;
   int   FOUNDMAP_DETECT=0, FOUNDMAP_PHOTPROB=0 ;
-
-  char 
-    file_local[MXPATHLEN]
-    ,c_get[60]
-    ,*ptrFile_user
-    ,*ptrFile_final
-    ,fnam[] = "init_SEARCHEFF_PIPELINE" 
-    ;
+  char  file_local[MXPATHLEN], c_get[60], *ptrFile_user, *ptrFile_final ;   
+  char  fnam[] = "init_SEARCHEFF_PIPELINE"  ;
+    
 
   // ---------------- BEGIN ----------------
 
@@ -803,7 +798,7 @@ void check_SEARCHEFF_DETECT(int imap) {
 void check_SEARCHEFF_PHOTPROB(int imap) {
   
   // set README comment(s).
-  char fnam[] = "check_SEARCHEFF_PHOTPROB" ;
+  //  char fnam[] = "check_SEARCHEFF_PHOTPROB" ;
 
   // -------------- BEGIN ----------------
 
@@ -1802,7 +1797,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
   double  PHOTPROB, CUTVAL ;
   char CFILT[4];
   int LDMP  = (ID == -39 ); 
-  char fnam[] = "gen_SEARCHEFF_PIPELINE";
+  //  char fnam[] = "gen_SEARCHEFF_PIPELINE";
 
   // ------------- BEGIN -------------
 
@@ -2228,8 +2223,8 @@ void setRan_for_PHOTPROB(void) {
   double COVDIAG = 1.0;  // Cov matrix has sigma=1
 
   CHOLESKY_DECOMP_DEF DECOMP;
-  int  MEMD, istore, imap, imap1, irow, irow1, NCOV, obs, obs1 ;
-  double CORR, CORR1, FLATRAN, GAURAN, *COVTMP1D ;
+  int  MEMD, istore, imap, imap1, irow, irow1, NCOV, obs ;
+  double CORR, CORR1, FLATRAN, GAURAN ;
   double GAURAN_LIST[MXOBS_PHOTPROB], GAURANCORR_LIST[MXOBS_PHOTPROB];
   char   fnam[] = "setRan_for_PHOTPROB" ;
 
@@ -2316,19 +2311,8 @@ void setRan_for_PHOTPROB(void) {
   GaussRanCorr(&DECOMP, GAURAN_LIST, // (I)
 	       GAURANCORR_LIST);     // (O)
 
-  double tmpMat, tmpRan, x0=0.0 ;
+  double x0=0.0 ;
   for(irow=0; irow < NSTORE; irow++ ) {
-
-    /* xxx mark delete Feb 17 2020 xxxxxxx .xyz
-    GAURAN = 0.0 ;
-    obs    = OBS_PHOTPROB.OBS_LIST[irow] ;
-    for(irow1=0; irow1 < NSTORE ; irow1++ ) {
-      obs1   = OBS_PHOTPROB.OBS_LIST[irow1] ;
-      tmpMat = CHOLESKY_COV[irow1][irow] ;
-      tmpRan = SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[obs1] ;  // Gauss-Ran
-      GAURAN += ( tmpMat * tmpRan) ;
-    }
-    xxxxxxxxxxxx */
 
     GAURAN = GAURANCORR_LIST[irow] ;
 
@@ -2396,7 +2380,7 @@ double get_PIPELINE_PHOTPROB(int istore) {
   int    IFILTOBS  = SEARCHEFF_DATA.IFILTOBS[obs] ;
   double SNR       = SEARCHEFF_DATA.SNR[obs] ;
   double SBMAG     = SEARCHEFF_DATA.SBMAG[IFILTOBS] ;  
-  double GALMAG    = SEARCHEFF_DATA.HOSTMAG[IFILTOBS] ;  
+  //  double GALMAG    = SEARCHEFF_DATA.HOSTMAG[IFILTOBS] ;  
   double MJD       = SEARCHEFF_DATA.MJD[obs] ;
 
   int    istat, ivar, LDMP ;

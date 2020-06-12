@@ -148,7 +148,8 @@ struct {
   double  RANFIRST[MXLIST_RAN+1], RANLAST[MXLIST_RAN+1]; // for syncing.
 
   // for multi-stream randoms
-  random_data_def ranStream[MXSTREAM_RAN];
+  //  random_data_def ranStream[MXSTREAM_RAN];
+  struct random_data  ranStream[MXSTREAM_RAN];
   char stateBuf[MXSTREAM_RAN][BUFSIZE_RAN];
 
   // wrap-around stats for how often each random is re-used.
@@ -278,8 +279,7 @@ typedef struct  {
   char   NAME[80];  // name of variable                       
   double PEAK ;     // peak prob                          
   double SIGMA[2] ; // asymmetric Gaussian sigmas 
-  double SKEW[2] ;  // hack-skew; one TrueSigma = SIGMA + SKEW*|x-PEAK| 
-  double SKEWNORMAL[3] ; // real skew (for Rachel & Elise, Aug 2016) 
+  double SKEW[2] ;  // hack-skew; TrueSigma = SIGMA + SKEW*|x-PEAK| 
   double RANGE[2] ; // allows truncation 
   int    NGRID ;      // if non-zero, snap to grid
 

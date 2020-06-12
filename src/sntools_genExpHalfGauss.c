@@ -18,7 +18,7 @@ void init_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, double VAL
   // Created March 20 2020 by R.Kessler and D.Brout
   // Init all genGasuss parameter values to VAL .
   
-  char fnam[] = "init_GEN_EXP_HALFGAUSS" ;
+  //  char fnam[] = "init_GEN_EXP_HALFGAUSS" ;
   
   gen_EXP_HALFGAUSS->USE = false;
 
@@ -110,14 +110,10 @@ double exec_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   double ran_EXPON = FlatRan1(1) ;                                 
   double ran_GAUSS = GaussRan(1);
   double ran_WGT   = FlatRan1(1) ;  
-
   double epsilon = 1.0E-14;
+  double ranval = -9.0 ; //output random value
 
-  double ranval; //output random value
-
-  // saveforlater if ( INPUTS.WV07_GENAV_FLAG )  { AV = GENAV_WV07(); return(AV); }
-
-  
+  // saveforlater if(INPUTS.WV07_GENAV_FLAG) { AV=GENAV_WV07();return(AV); }
 
   // ----- BEGIN ---------------------
 

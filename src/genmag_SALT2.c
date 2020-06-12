@@ -1297,7 +1297,6 @@ void check_lamRange_SALT2errmap(int imap) {
   int    DISABLE = 0 ;
   char fnam[] = "check_lamRange_SALT2errmap" ;
 
-
   // ----------- BEGIN -------------
 
   if ( DISABLE ) { return ; }
@@ -1344,7 +1343,7 @@ void check_dayRange_SALT2errmap(int imap) {
   double ERRMAP_DAYMAX = SALT2_ERRMAP[imap].DAYMAX ;
   double tol = 1.1 ;
   int    DISABLE = 0 ;
-  char fnam[] = "check_dayRange_SALT2errmap" ;
+  //  char fnam[] = "check_dayRange_SALT2errmap" ;
 
   // ----------- BEGIN -------------
 

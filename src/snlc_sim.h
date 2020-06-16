@@ -381,7 +381,8 @@ struct INPUTS {
   bool RESTORE_FLUXERR_BUGS ;   // set if DEBUG_FLAG==3 .or. idem
 
   // xxx  int OPT_DEVEL_BBC7D;   // temp for BBC7D development
-  int OPT_DEVEL_GENFLUX; // temp for GENFLUX_DRIVER refactor + REDCOV
+  // xxx  int OPT_DEVEL_GENFLUX; // temp for GENFLUX_DRIVER refactor + REDCOV
+  int OPT_DEVEL_GENPDF;  // temp for genPDF
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files
@@ -488,7 +489,10 @@ struct INPUTS {
   char GENMODEL[MXPATHLEN] ; // source model name, with optional path
   char MODELPATH[MXPATHLEN]; // path to model (formerly GENLC.MODELPATH)
   char MODELNAME[100];       // stripped from GENMODEL
-  char GENPDF_FILE[MXPATHLEN]; // PDF for color, stretch, etc ...
+
+  char GENPDF_FILE[MXPATHLEN];   // PDF for color, stretch, etc ...
+  char GENPDF_IGNORE[MXPATHLEN]; 
+  int  GENPDF_OPTMASK;           // bit-mask of options
 
   char GENMODEL_EXTRAP_LATETIME[MXPATHLEN];
   char GENSNXT[20] ;        // SN hostgal extinction: CCM89 or SJPAR
@@ -1687,6 +1691,7 @@ void   sim_input_override(void) ;  // parse command-line overrides
 void   prep_user_input(void);      // prepare user input for sim.
 void   prep_user_CUTWIN(void);
 void   prep_user_SIMSED(void);
+void   prep_dustFlags(void);
 
 void   prep_genmag_offsets(void) ;
 void   prep_RANSYSTPAR(void); // called after reading user input 
@@ -1706,6 +1711,7 @@ void   gen_filtmap(int ilc);  // generate filter-maps
 void   gen_modelPar(int ilc, int OPT_FRAME);  
 void   gen_modelPar_SALT2(int OPT_FRAME); 
 void   gen_modelPar_SIMSED(int OPT_FRAME); 
+void   gen_modelPar_dust(int OPT_FRAME); 
 void   gen_MWEBV(void);       // generate MWEBV
 void   override_modelPar_from_SNHOST(void) ;
 

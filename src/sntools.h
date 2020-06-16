@@ -131,6 +131,10 @@ xxxxxxxxxxxxx */
 
 #define PRIVATE_MODELPATH_NAME "SNANA_MODELPATH"  // name of optional env
 
+#define PARNAME_EBV "EBV" 
+#define PARNAME_AV  "AV" 
+#define PARNAME_RV  "RV" 
+
 char FILTERSTRING[100] ;
 
 // define variables for random number list
@@ -250,6 +254,7 @@ typedef struct GRIDMAP1D {
 #define IDGRIDMAP_SPECEFF_OFFSET        30  // id = OFFSET + imap
 #define IDGRIDMAP_zHOST_OFFSET          40  // id = OFFSET + imap
 #define IDGRIDMAP_PHOTPROB_OFFSET       50  // id = OFFSET + imap
+#define IDGRIDMAP_GENPDF                60  // Jun 2020
 #define IDGRIDMAP_FLUXERRMODEL_OFFSET  100  // id = OFFSET + imap
 
 // simeff 
@@ -634,7 +639,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE, int NDIM, int NFUN,
 
 int  interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun );
 
-void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP, 
+void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP, 
 		  int IDMAP, int NDIM, int NFUN, int OPT_EXTRAP, int MXROW,
 		  char *callFun, GRIDMAP *GRIDMAP_LOAD );
 void warn_NVAR_KEY(char *fileName);

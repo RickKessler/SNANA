@@ -4221,7 +4221,7 @@ void split2floats(char *string, char *sep, float *fval) {
 
 
 // ********************************************************
-void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP, 
+void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP, 
 		  int IDMAP, int NDIM, int NFUN, int OPT_EXTRAP, int MXROW,
                   char *callFun, GRIDMAP *GRIDMAP_LOAD ) {
 
@@ -4233,6 +4233,7 @@ void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP,
   //
   // Inputs:
   //   *fp        : already-opened file to read
+  //  MAPNAME     : name of map
   //  KEY_ROW     : NVAR columns follows this row-key
   //  KEY_STOP    : stop reading when this key is reached;
   //              " default is to stop reading on blank line.
@@ -4248,6 +4249,7 @@ void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP,
   //
   //
   // Apr 12 2019: abort if 10 or more rows read without valid key
+  // Jun 12 2020: pass MAPNAME as input arg.
 
   int   READ_NEXTLINE = 1 ;
   int   NROW_READ     = 0 ;
@@ -4266,14 +4268,13 @@ void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP,
 
   int   ivar, NWD, ISKEY_ROW, EXTRA_WORD_OK ;
   int   LDIF1, LDIF2, ivar2, NROW_SKIP=0 ;
-  char  LINE[200], word[40], MAPNAME[100] ;
+  char  LINE[200], word[40] ;
   char fnam[] = "read_GRIDMAP" ;
  
   // ----------- BEGIN -------------
 
   // create generic MAPNAME using row key and IDMAP
-  //  sprintf(MAPNAME,"%s%3.3d", KEY_ROW, IDMAP );
-  sprintf(MAPNAME,"%s", KEY_ROW );
+  // xxx mark delete Jun 2020  sprintf(MAPNAME,"%s", KEY_ROW );
 
   // allocate arrays to monitor uniform binning.
   TMPVAL      = (double*) malloc(NVARTOT * MEMD );
@@ -8482,34 +8483,26 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
    = SINH (  )               if  magfun = "asinh"
 
 
-  Mar 2 2013: float -> double and FLUXCAL_SCALE -> ZEROPOINT_FLUXCAL
+  Inputs:
+     iepoch : epoch index for SNDATA.XXX arrays
+     magfun : log10 or asinh
+     opt    : 0 or 1 -> add ZP_sig uncertainty
+                   2 -> do not add ZP_sig term (error added earlier)
 
-  Mar 14, 2014:  remove requirement of asinh mag < 28; 
-                 keep extreme negative fluxes
-
+           HISTORY 
+        ~~~~~~~~~~~~
   Sep 5 2016: magfun = asinh is now obsolete
 
   Jan 3 2018: check for saturation
   Jan 23 2020: 
-    pass opt argument:
-    opt == 0 or 1 -> keep ZP error added in quadratyre
-    opt &  2 -> refactor --> remove ZP_sig term; ZP error added earlier.
+    pass opt argument to control use of ZP_sig in flux uncertainty.
    
   *********/
 
-
-  double
-     mag, mag_err, mag_tmp
-    ,ZP, ZP_err, ZP_scale, ZP_sig
-    ,flux, flux_err
-    ,fluxcal, fluxcal_err
-    ,ferrp, ferrm
-    ,tmperr, arg
-    ,sqerrtmp, relerr
-    ;
-
+  double mag, mag_err, mag_tmp, ZP, ZP_err, ZP_scale, ZP_sig;
+  double flux, flux_err, fluxcal, fluxcal_err, ferrp, ferrm;
+  double tmperr, arg, sqerrtmp, relerr;
   int VALID_MAGFUN, IFILT, LTMP;
-
   char fnam[] = "fluxcal_SNDATA" ;
 
   // ------------- BEGIN ----------------
@@ -8583,7 +8576,7 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
       fluxcal_err = flux_err * ZP_scale ;
 
       if (opt <= 1 ) {
-	// add ZP error here for FLUXCAL; 
+	// add ZP_sig uncertainty here for FLUXCAL; 
 	// note that flux in ADU does not have this ZP error.
 	relerr      = powf(TEN,0.4*ZP_sig) - 1.0 ;
 	tmperr      = fluxcal * relerr ;
@@ -9478,7 +9471,9 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
   // Inputs
   //   fp      : file pointer to read
   //    MXVAR  : max number of variables to return after VARNAMES keys.
-  //    NVAR_SKIP : number of variables to skip at end of list
+  //    NVAR_SKIP : number of variables to skip:
+  //          postive  -> remove from end of list
+  //          negative -> remove from start of list
   //  *callFun : name of calling function; for error message only
   //
   // Output:
@@ -9486,10 +9481,11 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
   //   *NKEY     : total number of VARNAMES keys found
   //   *UNIQUE   : for each variable, 1=> unique, 0=> duplicate from previous
   //  **VARNAMES : list of all variables (0 to *NVAR-1)
+  //
+  // Jun 12 2020: new option for NVAR_SKIP < 0 -> skip first var(s).
 
-  int  NVAR_LOCAL = 0 ;
-  int  NKEY_LOCAL = 0 ;
-  int  FOUND_VARNAMES, IVAR, ivar, ivar2, NVAR_TMP ;
+  int  NVAR_LOCAL = 0, NKEY_LOCAL = 0, IVAR=0;
+  int  FOUND_VARNAMES, ivar, ivar_start, ivar_end, ivar2, NVAR_TMP ;
   char c_get[60], LINE[100] ;
   char fnam[] = "read_VARNAMES_KEYS" ;
 
@@ -9501,12 +9497,17 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
       NKEY_LOCAL++ ;
       fgets(LINE, 100, fp ); // scoop up varnames
       NVAR_TMP  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
-      NVAR_TMP -= NVAR_SKIP ;
-      for ( ivar=0; ivar < NVAR_TMP; ivar++ ) {
-	IVAR = ivar+NVAR_LOCAL ;
+      // xxx mark delete      NVAR_TMP -= NVAR_SKIP ; 
+      ivar_start = 0; ivar_end = NVAR_TMP;
+      if ( NVAR_SKIP < 0 ) { ivar_start -= NVAR_SKIP; }
+      if ( NVAR_SKIP > 0 ) { ivar_end   -= NVAR_SKIP; }
+      for ( ivar=ivar_start; ivar < ivar_end; ivar++ ) {
+	// xxx mark delete  IVAR = ivar + NVAR_LOCAL ;
 	if ( IVAR < MXVAR ) { get_PARSE_WORD(0,ivar,VARNAMES[IVAR]); }
+	IVAR++ ;
       }
-      NVAR_LOCAL += NVAR_TMP ;
+      // xxx mark delete       NVAR_LOCAL += NVAR_TMP ;
+      NVAR_LOCAL += (ivar_end - ivar_start);
     } // end FOUND_VARNAMES
   } // end while    
 

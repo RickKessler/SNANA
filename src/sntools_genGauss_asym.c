@@ -133,20 +133,37 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   // Oct 02 2016: compute rangeDif after DO_GRID if-block (bug fix)
   // Mar 29 2017: check for 2nd peak
   // Feb 28 2018: check for correlated randoms (see 'redCor')
-  // Jun 12 2020: remove skewnormal (never worked)
-
+  // Jun 12 2020: 
+  //   + remove skewnormal (never worked)
+  //   + return -9 if !USE
+  // 
+  
   double peak, lo, hi, siglo, sighi, skewlo, skewhi, xlo, xhi ; 
   double gridsize, grid0;
   int NTRY, DO_SKEWSIGMA, DO_GRID;
   int NGRID, FUNINDEX, j ;
   int USE_PEAK1=1, MXTRY = 1000, LDMP=0 ;
-  double ranval=0.0, rangeDif, RANGE[2], sigmax, ran1, ran2, PROB2 ;
+  double ranval=-9.0, rangeDif, RANGE[2], sigmax, ran1, ran2, PROB2 ;
+  char *NAME  = genGauss->NAME;
   char fnam[] = "exec_GENGAUSS_ASYM" ;
 
   // ---------- BEGIN -------------
 
+  //  LDMP = (strstr(NAME,"SALT2") != NULL ); // xxx REMOVE
+
   // always burn random to stay synced.
   ran1 = FlatRan1(1) ;
+
+  if ( !genGauss->USE ) {  return(ranval);  }
+
+  /*
+  if ( !genGauss->USE ) {  
+    printf(" xxx %s: undefined '%s' PEAK=%f  RANGE = %f to %f\n", 
+    	   fnam, NAME, genGauss->PEAK,
+	   genGauss->RANGE[0], genGauss->RANGE[1] ); 
+    return(ranval); 
+  }
+  */
 
   // check optional 2nd peak (Mar 2017)
   PROB2 = genGauss->PROB2 ;
@@ -202,9 +219,9 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   sigmax = 10.*rangeDif ;
   DO_SKEWSIGMA  = ( fabs(skewlo)  > 1.0E-9 || fabs(skewhi) > 1.0E-9 ) ;
 
-
+  
   if ( LDMP ) {
-    printf("\t xxx ----------------- %s ------------ \n", genGauss->NAME);
+    printf("\t xxx ----------------- %s ------------ \n", NAME);
     printf("\t xxx peak = %f \n", peak);
     printf("\t xxx range(lo,hi) = %f, %f \n", lo, hi );
     printf("\t xxx sigma(lo,hi) = %f, %f \n", siglo, sighi );
@@ -230,7 +247,7 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
       printf(" DO_SKEW[SIGMA] = %d, %d \n",  DO_SKEWSIGMA);
 
       sprintf(c1err,"Could not find %s RANDOM after %d tries ", 
-	      genGauss->NAME, NTRY );
+	      NAME, NTRY );
       sprintf(c2err,"Something is crazy.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
     }

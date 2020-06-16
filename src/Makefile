@@ -932,8 +932,6 @@ $(OBJ)/sntools_genExpHalfGauss.o : $(SRC)/sntools_genExpHalfGauss.c  $(SRC)/snto
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS)  $(IGSL) $(SRC)/sntools_genExpHalfGauss.c )
 
-
-
 # ------------------------------------------------
 # compile genmag_xxxx functions (.o only
 
@@ -983,9 +981,10 @@ $(OBJ)/genmag_LCLIB.o : $(SRC)/genmag_LCLIB.c  $(SRC)/sntools.h
 
 # -------------------------------------------------
 # Generic Lightcurve simulator 
+# $(SRC)/sntools_genPDF.c
 
 $(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c $(SRC)/sntools_gridgen.c \
-	 $(SRC)/sntools_fitsio.c $(SRC)/sntools_host.c \
+	$(SRC)/sntools_fitsio.c $(SRC)/sntools_host.c $(SRC)/sntools_genPDF.c \
 	$(SRC)/sntools_wronghost.c  $(SRC)/sntools_host.h \
 	$(SRC)/sntools_genSmear.c $(SRC)/SNcadenceFoM.c  \
 	$(SRC)/snlc_sim.h $(SRC)/sndata.h $(SRC)/sntools_kcor.c

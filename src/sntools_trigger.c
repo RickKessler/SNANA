@@ -1167,7 +1167,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
       }
       
       ID = IDGRIDMAP_SPECEFF_OFFSET + NMAP;   NDIM = NVAR-1; NFUN=1;
-      read_GRIDMAP(fp, KEY_ROW, KEY_STOP, ID, NDIM, NFUN, 0,
+      read_GRIDMAP(fp, KEY_ROW, KEY_ROW, KEY_STOP, ID, NDIM, NFUN, 0,
 		   MXROW_SEARCHEFF_SPEC, fnam,
 		   &SEARCHEFF_SPEC[NMAP].GRIDMAP ) ;
       printf("\t for FIELDLIST=%s\n", FIELDLIST);
@@ -1334,17 +1334,8 @@ FILE *open_zHOST_FILE(int OPT) {
   // examine if there is no zHOST file
   if ( fp == NULL ) { 
     if ( IREQUIRE ) {
-
       abort_openTextFile("SEARCHEFF_zHOST_FILE",
 			 PATH_SEARCHEFF, localFile, fnam );
-
-      /* xxxxxxx mark delete Feb 2 2020 xxxxxxxxx
-      sprintf(c1err,"Could not open %s", localFile);
-      sprintf(c2err,"%s","Check 'SEARCHEFF_zHOST_FILE:' "
-	      "key in sim-input file");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-      xxxxxxxxxx */
-
     }
     else  { 
       if ( LPRINT )   { 
@@ -1429,7 +1420,7 @@ void read_zHOST_FILE(FILE *fp) {
 		ptr_VARNAMES[ivar] ) ;
       }
 
-      read_GRIDMAP(fp, KEY_ROW, KEY_STOP, IDMAP, NDIM, NFUN, OPT_EXTRAP,
+      read_GRIDMAP(fp,KEY_ROW,KEY_ROW, KEY_STOP, IDMAP, NDIM, NFUN,OPT_EXTRAP,
 		   MXROW_SEARCHEFF_zHOST, fnam,
 		   &SEARCHEFF_zHOST[NMAP].GRIDMAP ) ;
 

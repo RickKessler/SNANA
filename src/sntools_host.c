@@ -414,7 +414,7 @@ void init_OPTIONAL_HOSTVAR(void) {
   }
 
 
-  // check for optional use of SN params from HOLSTIB; e.g., c, x1, delta
+  // check for optional use of SN params from HOSTLIB; e.g., c, x1, delta
   if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) > 0 ) {
 
     int N_SNPAR = 0 ;
@@ -487,13 +487,6 @@ void init_REQUIRED_HOSTVAR(void) {
   }
 
   HOSTLIB.NVAR_REQUIRED = NVAR ;
-
-  /* xxxxxxxxxx mark delete May 24 2020 xxxxxxxxxxxx
-  // zHOST gets parsed later with trigger maps, but here we check
-  // for HOSTLIB dependence to ensure needed HOSTLIB columns are read.
-  // Beware of spaghetti code.
-  //   copy_VARNAMES_zHOST_to_HOSTLIB_STOREPAR(); 
-  xxxxxx */
 
   // append STOREPAR automatically so that used HOSTLIB variables
   // can be added to SIMGEN-DUMP
@@ -581,48 +574,6 @@ int load_VARNAME_STORE(char *varName) {
 } // end of load_VARNAME_STORE
 
 
-/* xxxxxxxxxxxxx mark delete May 24 2020 xxxxxxxxxxxx
-
-// ==============================================
-void copy_VARNAMES_zHOST_to_HOSTLIB_STOREPAR(void) {
-
-  // Mar 20 2019
-  // copy variables from zHOST efficiency map to 
-  // INPUTS.HOSTLIB_STOREPAR_LIST --> ensure that
-  // all of the HOSTLIB-zHOST parameters are read
-  // from the HOSTLIB.
-
-  FILE *fp ;
-  //  char fnam[] = "copy_VARNAMES_zHOST_to_HOSTLIB_STOREPAR" ;
-
-  // -------------- BEGIN ------------
-
-  // open zHOST file
-  fp = open_zHOST_FILE(-1);
-  if ( fp != NULL ) 
-    { read_VARNAMES_zHOST(fp); fclose(fp); }
-  else 
-    { return ; }
-
-
-  // if we get here, append zHOST varNames to HOSTLIB_STOREPAR_LIST.
-  int ivar; 
-  int  NVAR = SEARCHEFF_zHOST[0].NVAR ;
-  char *plist = INPUTS.HOSTLIB_STOREPAR_LIST ;
-  char *varName;
-
-  for(ivar=0; ivar < NVAR; ivar++ ) {
-    varName = SEARCHEFF_zHOST[0].VARNAMES_HOSTLIB[ivar];
-    if ( strlen(plist) > 0 ) { strcat(plist,","); }
-    strcat(plist,varName);
-
-  } // end ivar
-
-  return ;
-
-} // end copy_VARNAMES_zHOST_to_HOSTLIB_STOREPAR
-xxxxxxxxx end mark xxxxxxxxxxx */
-
 
 // ==============================================
 void append_HOSTLIB_STOREPAR(void) {
@@ -632,13 +583,15 @@ void append_HOSTLIB_STOREPAR(void) {
   // read to implement HOSTLIB_MSKOPT options. This allows
   // adding clearly-used variables to SIMGEN_DUMP without also 
   // defining HOSTLIB_STOREPAR.
+  //
+  // Jun 12 2020: set NVAR_zHOST after reading zHOST file
 
   char *STOREPAR  = INPUTS.HOSTLIB_STOREPAR_LIST ;
-  int  NVAR_zHOST = SEARCHEFF_zHOST[0].NVAR ;
-  int  ivar ;
+  // xxx mark delete  int  NVAR_zHOST = SEARCHEFF_zHOST[0].NVAR ;
+  int  ivar, NVAR_zHOST ;
   char *ptrVarName;
   FILE *fp ;
-  //  char fnam[] = "append_HOSTLIB_STOREPAR" ;
+  char fnam[] = "append_HOSTLIB_STOREPAR" ;
 
   // -------------- BEGIN ------------
 
@@ -648,12 +601,41 @@ void append_HOSTLIB_STOREPAR(void) {
   fp = open_zHOST_FILE(-1);
   if ( fp != NULL ) { 
     read_VARNAMES_zHOST(fp); fclose(fp);
+    NVAR_zHOST = SEARCHEFF_zHOST[0].NVAR ; // Jun 12 2020
     for(ivar=0; ivar < NVAR_zHOST; ivar++ ) {
       ptrVarName = SEARCHEFF_zHOST[0].VARNAMES_HOSTLIB[ivar];
       catVarList_with_comma(STOREPAR,ptrVarName);
     } // end ivar
   }
 
+  // - - - - - - - 
+  fp = fopen(INPUTS.GENPDF_FILE,"rt");
+  if ( fp ) {
+    int MXVAR = 50, NVAR_SKIP=-1, NVAR, NKEY, *UNIQUE;
+    char **VARNAMES;
+
+    UNIQUE   = (int*)malloc(MXVAR*sizeof(int));
+    VARNAMES = (char**) malloc( MXVAR*sizeof(char*) );
+    for(ivar=0; ivar < MXVAR; ivar++ ) 
+      { VARNAMES[ivar] = (char*) malloc( 40*sizeof(char) ); }
+
+    read_VARNAMES_KEYS(fp, MXVAR, NVAR_SKIP, fnam, &NVAR, &NKEY,
+		       UNIQUE, VARNAMES ) ;
+    for(ivar=0; ivar < NVAR; ivar++ ) {
+      ptrVarName = VARNAMES[ivar] ;
+      if ( strcmp(ptrVarName,"PROB") == 0 ) { continue; }
+      if ( UNIQUE[ivar] ) 
+	{ catVarList_with_comma(STOREPAR,ptrVarName); }
+
+      /*
+      printf(" xxx %s: found varName[%2d] = '%s' (UNIQUE=%d)\n",
+	     fnam, ivar, VARNAMES[ivar], UNIQUE[ivar]); fflush(stdout);
+      */
+
+    }
+
+    fclose(fp);
+  }
 
   return ;
 
@@ -967,7 +949,7 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
   } // end of ivar loop
   
   // read WGT keys and load GRIDMAP struct.
-  read_GRIDMAP(fp,"WGT:", "", IDMAP, NDIM, NFUN, 0, 
+  read_GRIDMAP(fp, "WGTMAP", "WGT:", "", IDMAP, NDIM, NFUN, 0, 
 	       MXWGT_HOSTLIB, fnam,
 	       &HOSTLIB_WGTMAP.GRIDMAP ); // <== return GRIDMAP
   
@@ -2019,6 +2001,9 @@ void  checkAlternateVarNames_HOSTLIB(char *varName) {
 
   if ( strcmp(varName,"LOGMASS") == 0 )  // legacy name (Jan 31 2020)
     { sprintf(varName,"%s", HOSTLIB_VARNAME_LOGMASS_TRUE); }
+
+  if ( strcmp(varName,"REDSHIFT") == 0 )  // allowed in GENPDF_FILE (6/2020)
+    { sprintf(varName,"%s", HOSTLIB_VARNAME_ZTRUE); }
 
 } // end of   checkAlternateVarNames_HOSTLIB
 

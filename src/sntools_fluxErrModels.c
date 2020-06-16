@@ -237,7 +237,8 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
 
       IDMAP = IDGRIDMAP_FLUXERRMODEL_OFFSET + NMAP ;
       NDIM  = NVAR-1;  NFUN=1;
-      read_GRIDMAP(fp,"ROW:", "ENDMAP:", IDMAP, NDIM, NFUN, OPT_EXTRAP,
+      read_GRIDMAP(fp, "FLUXERR", "ROW:", "ENDMAP:", 
+		   IDMAP, NDIM, NFUN, OPT_EXTRAP,
 		   MXROW_FLUXERRMAP, fnam, 
 		   &FLUXERRMAP[NMAP].MAP );  // <== returned		   
 

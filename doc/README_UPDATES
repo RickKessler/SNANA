@@ -18546,6 +18546,9 @@
 
          ***** IMPORTANT(v10_77e) ***** 
 
+   sim-input includes GENPDF_FILE with maps to describe populations
+   of color, stretch, AV, RV. See manaul Sec 
+
          ***** USEFUL(v10_77e) ***** 
 
          ***** MISCELLANEOUS(v10_77e) ***** 
@@ -18560,5 +18563,18 @@
    SALT2mu.c
      + allow iflag_duplicate=0 (ignore) to operate on sims.
      + for NSPLITRAN, include w(wfit) in summary.
+
+   sntools_genPDF.c[h]
+     + new functions to read and implement multi-D maps of PDF
+       for color, stretch, RV, AV.
+
+   snlc_sim.c
+     + integrate init_genPDF & exec_genPDF
+     + remove OPT_DEVEL_GENFLUX and associated code.
+
+   remove skewnormal.c and all obsolete/unused skewnormal code.
+
+   sntools_genGauss_asym.c:
+     require genGauss->USE = true to pick random from asym Gauss.
 
 END: 

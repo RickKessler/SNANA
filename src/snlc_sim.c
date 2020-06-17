@@ -558,11 +558,11 @@ void get_user_input(void) {
   } 
 
   // check 1st include file
-  if ( strlen(INPUTS.INPUT_FILE_LIST[1]) > 1 ) 
+  if ( !IGNOREFILE(INPUTS.INPUT_FILE_LIST[1])  ) 
     { read_input(INPUTS.INPUT_FILE_LIST[1] );  }
 
   // check 2nd include file
-  if ( strlen(INPUTS.INPUT_FILE_LIST[2]) > 1 ) 
+  if ( !IGNOREFILE(INPUTS.INPUT_FILE_LIST[2]) ) 
     { read_input(INPUTS.INPUT_FILE_LIST[2] );  }
 
   // --------------------------------------------
@@ -4245,26 +4245,6 @@ void read_input_GENGAUSS(FILE *fp, char *string, char *varName,
 } // end of read_input_GENGAUSS
 
 
-/* xxxxxxxxx mark delete Jun 11 2020 [moved to sntools_genGauss_asym]
-void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
-  // Created Sep 2 2016
-  // Store NAME and increment index.
-  // Called by readFile routine and command-line read function.
-  char *ptrName = genGauss->NAME;
-  char fnam[] = "prepIndex_GENGAUSS" ;
-  // ---------- BEGIN ---------
-  // if genGauss name is not set, then set name and FUNINDEX
-  if ( strcmp(ptrName,varName) != 0 ) {
-    genGauss->FUNINDEX = NFUN_GENGAUSS_ASYM ;
-    NFUN_GENGAUSS_ASYM++;  
-    sprintf(genGauss->NAME, "%s", varName);  
-  }
-  int FUNINDEX = genGauss->FUNINDEX ;
-  copy_GENGAUSS_ASYM( genGauss, &GENGAUSS_ASYM_LIST[FUNINDEX] );
-} // end prepIndex_GENGAUSS
-xxxxxxxxxxxxxxx end mark xxxxxxxxxxxx */
-
-
 
 // ************************************************
 void sscanf_GENGAUSS(int *i, char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
@@ -4487,7 +4467,7 @@ void sim_input_override(void) {
 
   int  i, ilast, iuse, ifilt, N, j, ITMP ;
   int  ipar, opt_tmp, itype, NLOCAL_DNDZ ;
-  char  ctmp[80], ctmp2[80], parname[60], cpoly[40] ;
+  char  ctmp[80], ctmp2[80], parname[60], cpoly[40];
   float ftmp, tmpSmear[2];
   char *modelName ;
   char comma[] = "," ;

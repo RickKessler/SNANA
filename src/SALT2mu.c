@@ -60,6 +60,7 @@ surveygroup_biascor='CFA3+CSP,PS1MD'   ! combine CFA3+CSP into one biasCor
 surveygroup_biascor='CFA3+CSP(zbin=.02),PS1MD' 
 surveygroup_biascor='CFA3+CSP(zbin=.02:cbin=.04:x1bin=.4),PS1MD' 
 surveygroup_biascor='CFA3+CSP(zbin=.02),SDSS(zbin=.04),PS1MD' 
+surveygroup_biascor_abortflag=1  ! 0->allow survey(s) that are not in data
 
   NOTE: if OPT_PHOTOZ column exists in the input FITRES tables, 
         then each biasCor group  is automatically split into 
@@ -764,6 +765,10 @@ Default output files (can change names with "prefix" argument)
    + fix compile warnings with Wall flag
    + allow iflag_duplicate=0 (IGNORE duplicates) for sims 
  
+ Jun 17 2020:
+   New input surveygroup_biascor_abortflag=0 will NOT abort if  
+   surveygroup_biascor includes survey(s) not in the data.
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -1339,7 +1344,8 @@ struct INPUTS {
   int  use_fieldGroup_biasCor;  // logical flag for above
 
   char surveyGroup_biasCor[400]; // combine surveys into group
-  int  use_surveyGroup_biasCor;
+  int  use_surveyGroup_biasCor;   // internall set flag
+  int  surveyGroup_biasCor_abortFlag; // 1-> abort on missing survey
 
   char surveyList_noBiasCor[200]; // list of surveys fit, but skip biasCor
   char idsample_select[40];       // e.g., '0+3'
@@ -4415,6 +4421,7 @@ void set_defaults(void) {
   INPUTS.dumpflag_nobiasCor  = 0 ;
   INPUTS.frac_warn_nobiasCor = 0.02 ;
 
+  INPUTS.surveyGroup_biasCor_abortFlag = 1 ;
   sprintf(INPUTS.surveyGroup_biasCor, "NONE" );
   INPUTS.use_surveyGroup_biasCor = 0 ;
 
@@ -6586,14 +6593,6 @@ void prepare_IDSAMPLE_biasCor(void) {
     // check user option to skip biasCor for this sample
     if ( strstr(INPUTS.surveyList_noBiasCor,SURVEYDEF) != NULL ) 
       { SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR = 0 ; }
-
-    // xxxxxxxxxxxxx
-    if ( isn < NDMP ) {
-      printf(" xxx '%8s'  '%8s'   %8.8s(%2d)   %2d    %s \n", 
-	     NAME_SN, FIELDDEF, SURVEYDEF,IDSURVEY,  IDSAMPLE, FIELDGROUP );
-      fflush(stdout);
-    }
-    // xxxxxxxxxxx
     
   } // end isn loop
 
@@ -6863,7 +6862,7 @@ void  set_SURVEYGROUP_biasCor(void) {
 
       // May 29 2020: abort if there is no data in this requested sample
       NEVT = INFO_DATA.TABLEVAR.NSN_PER_SURVEY[ID];
-      if ( NEVT == 0 ) {
+      if ( NEVT == 0 && INPUTS.surveyGroup_biasCor_abortFlag ) {
         sprintf(c1err,"No data for requested SURVEY = %s(%d)", ptrTmp[i2],ID);
         sprintf(c2err,"Check input key surveygroup_biascor");
         errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
@@ -7210,7 +7209,7 @@ void dump_SAMPLE_INFO(int EVENT_TYPE) {
     printf("  IDSAMPLE=%2d --> %-20.20s  (%s, %s)\n",
 	   i, NAME, Nstring, zString );
 
-    //.xyz printf(" xxx %s: IDSURVEY = %d \n", fnam, SAMPLE_BIASCOR[i].IDSURVEY);
+    // printf(" xxx %s: IDSURVEY = %d \n", fnam, SAMPLE_BIASCOR[i].IDSURVEY);
   }
 
   if ( NZERR > 0 ) {
@@ -13525,6 +13524,10 @@ int ppar(char* item) {
   }
 
 
+  if ( uniqueOverlap(item,"surveygroup_biascor_abortflag=")  ) {
+    sscanf(&item[31],"%d", &INPUTS.surveyGroup_biasCor_abortFlag); 
+    return(1);
+  }
   if ( uniqueOverlap(item,"surveygroup_biascor=")  ) {
     s=INPUTS.surveyGroup_biasCor ; 
     sscanf(&item[20],"%s",s); remove_quote(s);

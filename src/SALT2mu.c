@@ -13525,7 +13525,7 @@ int ppar(char* item) {
 
 
   if ( uniqueOverlap(item,"surveygroup_biascor_abortflag=")  ) {
-    sscanf(&item[31],"%d", &INPUTS.surveyGroup_biasCor_abortFlag); 
+    sscanf(&item[30],"%d", &INPUTS.surveyGroup_biasCor_abortFlag); 
     return(1);
   }
   if ( uniqueOverlap(item,"surveygroup_biascor=")  ) {

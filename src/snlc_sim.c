@@ -6930,7 +6930,8 @@ void prep_dustFlags(void) {
   // Beware to call this function after calling init_genPDF().
   //
   // Set INPUTS.DO_AV = 1 for analytic EXP+HALFGAUSS function
-  // Set INPUTS.DO_AV = 2 for map in GENPDF_FILE.
+  // Set INPUTS.DO_AV = 2 for AV  map in GENPDF_FILE.
+  // Set INPUTS.DO_AV = 4 for EBV map in GENPDF_FILE.
   //
   // Abort if profile is defined twice (analytic and map),
   // or if only one of AV or RV profile is set.
@@ -6969,11 +6970,12 @@ void prep_dustFlags(void) {
   if ( INPUTS.GENPROFILE_EBV_HOST.USE ) { DO_AV = 1; }
   if ( DO_WV07  || DO_GRID            ) { DO_AV = 1; }
   if ( IDMAP_GENPDF(PARNAME_AV) >= 0  ) { DO_AV +=2; }
+  if ( IDMAP_GENPDF(PARNAME_EBV)>= 0  ) { DO_AV +=4; }
   INPUTS.DO_AV = DO_AV ; // store global for gen_modelPar_dust()
 
   // make sure that AV and RV are each defined once and only once.
-  if ( DO_AV == 3 ) {
-    sprintf(c1err,"AV profile defined twice (expFun and GENPDF_FILE)");
+  if ( DO_AV == 3 || DO_AV == 5 ) {
+    sprintf(c1err,"AV/EBV profile defined twice (expFun and GENPDF_FILE)");
     sprintf(c2err,"Only one AV profile allowed.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -14158,9 +14160,13 @@ double gen_AV(void) {
   }
 
   // Jun 2020: check for map in GENPDF_FILE
-  if ( INPUTS.DO_AV == 2 ) {
+  if ( INPUTS.DO_AV == 2 ) {   // flag to get AV from map
     GENGAUSS_NULL.USE = false ;
     AV = get_random_genPDF(PARNAME_AV, &GENGAUSS_NULL); 
+  }
+  if ( INPUTS.DO_AV == 4 ) {  // flag to get EBV from map
+    GENGAUSS_NULL.USE = false ;
+    AV = get_random_genPDF(PARNAME_EBV, &GENGAUSS_NULL); 
   }
 
  DONE: 

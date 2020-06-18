@@ -18578,4 +18578,8 @@
    sntools_genGauss_asym.c:
      require genGauss->USE = true to pick random from asym Gauss.
 
+   snlc_fit.car
+     + fix subtle bug setting ERRMAX_BAD for zPHOT when using
+       spec-z as a prior.
+
 END: 

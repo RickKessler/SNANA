@@ -8537,9 +8537,9 @@ c init HIDKCOR array to 0
       ISTAT = EXEC_CIDMASK(0,MXCID_CHECK)  ! init CID bit-mask
 
       DO IPAR = 1, MXFITPAR
-         ERRMAX_BAD(ipar) = 0.01  ! err < ERRMAX_BAD is labelled bad
+         ERRMAX_BAD(ipar) = 1.0E-4  ! err < ERRMAX_BAD is labelled bad
       ENDDO
-     
+
       SIMNAME_MODEL        = 'SIMNULL0'
       SIMNAME_SHAPEPAR     = 'SIM_SHAPE'  ! changed from SIMSHAPE (4/11/2017)
       SIMNAME_SHAPELAW     = 'SIMNULL1'  ! each SIMNULL has unique name

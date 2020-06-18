@@ -1132,6 +1132,8 @@ c
 c Aug 2 2019: pass full model name (including path) to INIT_GENMAG_SNOOPY,
 c             instead of passing only the model name without path
 c
+c Jun 17 2020: if OPT_PHOTOZ==2, set ERRMAX_BAD(zPHOT) = 1.0E-8
+c
 c -------------------------------------
       IMPLICIT NONE
 
@@ -1238,10 +1240,10 @@ c init to model that fits for extinction and MU;
 c might be changed below, for example, for SALT2 model
 
       PARNAME_STORE(IPAR_AV)      = 'AV'
+      ERRMAX_BAD(IPAR_AV)         = 0.005  ! 0.01->0.005  6/17/2020
 
-      ERRMAX_BAD(IPAR_AV)     = 0.01
       PARNAME_STORE(IPAR_DLMAG)   = 'DLMAG'
-      ERRMAX_BAD(IPAR_DLMAG)  = 0.0
+      ERRMAX_BAD(IPAR_DLMAG)      = 0.0
 
 c check for floating RV in fit
       if ( INISTP_AVRV .GT. 0.0 ) then
@@ -1261,7 +1263,11 @@ c check for floating RV in fit
         PARNAME_STORE(IPAR_ZPHOT)  = 'REDSHIFT'
       ENDIF
 
-      ERRMAX_BAD(IPAR_ZPHOT) =  0.0005 
+      IF ( OPT_PHOTOZ == 2 ) THEN
+          ERRMAX_BAD(IPAR_ZPHOT) =  1.0E-8 ! likely has specz prior, 6/2020
+      ELSE
+          ERRMAX_BAD(IPAR_ZPHOT) =  0.0005 
+      ENDIF
       ABORT_ON_BADZ           = .FALSE.
 
       IF ( LSIM_SNANA ) THEN

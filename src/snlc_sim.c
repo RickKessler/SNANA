@@ -14166,7 +14166,8 @@ double gen_AV(void) {
   }
   if ( INPUTS.DO_AV == 4 ) {  // flag to get EBV from map
     GENGAUSS_NULL.USE = false ;
-    AV = get_random_genPDF(PARNAME_EBV, &GENGAUSS_NULL); 
+    EBV_HOST = get_random_genPDF(PARNAME_EBV, &GENGAUSS_NULL); 
+    AV       = EBV_HOST * RV ;
   }
 
  DONE: 

@@ -18548,6 +18548,8 @@
 
    sim-input includes GENPDF_FILE with maps to describe populations
    of color, stretch, AV, RV. See manaul Sec 
+   Works only in conjuction with sim-input "OPT_DEVEL_GENPDF: 1"
+   Next version will remove the OPT_DEVEL_GENPDF requirement.
 
    Sims using asymGauss: no more using defaults, mainly for RV.
 

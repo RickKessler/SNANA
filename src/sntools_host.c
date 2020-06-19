@@ -886,6 +886,8 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
   //
   // Mar 14 2019: refactor to use read_GRIDMAP().
   // Apr 12 2019: return if string != VARNAMES_WGTMAP
+  // Jun 20 2020: fix what seems like a cut-and-paste bug for N_SNVAR
+  //
 
   int  IDMAP = IDGRIDMAP_HOSTLIB_WGTMAP ;
   long long GALID ;
@@ -934,7 +936,8 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
       HOSTLIB_WGTMAP.ISPARSE_SNVAR[N]       = ivar ;
       HOSTLIB_WGTMAP.INVSPARSE_SNVAR[ivar]  = N ;
       HOSTLIB_WGTMAP.N_SNVAR++ ; 
-      N_SNVAR = HOSTLIB_WGTMAP.N_SNVAR++ ;
+      N_SNVAR = HOSTLIB_WGTMAP.N_SNVAR ;
+      // xxx cut-and-paste bug ???  N_SNVAR = HOSTLIB_WGTMAP.N_SNVAR++ ;
     }
 
     strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME);
@@ -1111,6 +1114,7 @@ int getBin_SNVAR_HOSTLIB_WGTMAP(void) {
   // current generated values in ptrVal_SNVAR.
   //
   // Beware that uniform bins are required in each SNVAR dimension.
+  // Jun 20 2020: abort of SN value is outside WGTMAP range.
 
   int  NBTOT_SNVAR = HOSTLIB_WGTMAP.NBTOT_SNVAR;
   int  N_SNVAR     = HOSTLIB_WGTMAP.N_SNVAR;
@@ -1118,6 +1122,7 @@ int getBin_SNVAR_HOSTLIB_WGTMAP(void) {
   int  ivar_SN, ivar, IBIN = 0 ;
   int  IB1D[MXVAR_HOSTLIB];
   double VAL, VALMIN, VALMAX, VALBIN;
+  char *VARNAME ;
   char fnam[] = "getBin_SNVAR_HOSTLIB_WGTMAP" ;
   bool LDMP   = false ;
 
@@ -1136,12 +1141,19 @@ int getBin_SNVAR_HOSTLIB_WGTMAP(void) {
     VALMIN  =  HOSTLIB_WGTMAP.GRIDMAP.VALMIN[ivar] ; 
     VALMAX  =  HOSTLIB_WGTMAP.GRIDMAP.VALMAX[ivar] ; 
     VAL     = *HOSTLIB_WGTMAP.ptrVal_SNVAR[ivar_SN] ;
+    VARNAME = HOSTLIB_WGTMAP.VARNAME_SNVAR[ivar_SN]; 
     IB1D[ivar_SN] = (int)(0.5+(VAL-VALMIN)/VALBIN) ; 
 
+    if ( VAL < VALMIN || VAL > VALMAX ) {
+      sprintf(c1err,"%s = %.4f is outside WGTMAP range",  VARNAME, VAL);
+      sprintf(c2err,"%.4f <= %s <= %.4f in WGTMAP", VALMIN,VARNAME,VALMAX);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
     if ( LDMP ) {
-      char *VARNAME = HOSTLIB_WGTMAP.VARNAME_SNVAR[ivar_SN]; 
-      printf(" xxx %3s = %8.4f (ivar=%d, MIN=%.3f, BIN=%.3f, bin1D=%d) \n", 
-	     VARNAME, VAL, ivar, VALMIN, VALBIN, IB1D[ivar_SN] );
+      printf(" xxx %3s = %8.4f (ivar=%d, MIN/MAX=%.3f/%.3f "
+	     "BIN=%.3f, bin1D=%d) \n", 
+	     VARNAME, VAL, ivar, VALMIN, VALMAX, VALBIN, IB1D[ivar_SN] );
     }
   }
 

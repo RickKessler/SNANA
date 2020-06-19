@@ -4828,7 +4828,6 @@ int  get_1DINDEX(int ID, int NDIM, int *indx ) {
 
   //  printf(" xxxx %s called with ID = %d \n", fnam, ID) ;
 
-  // xxx mark delete  if ( OFFSET_1DINDEX[ID][0] == 0 ) {
   if ( NPT_PERDIM_1DINDEX[ID][0] == 0 ) {
     sprintf(c1err,"ID=%d  is not defined.", ID );
     sprintf(c2err,"%s", "Must first call init_1DINDEX()");

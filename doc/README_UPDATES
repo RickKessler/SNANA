@@ -18542,12 +18542,14 @@
 
 
 # ======================================================================= 
-         v10_77e (  ) 
+         v10_77e (Jun 19 2020) 
 
          ***** IMPORTANT(v10_77e) ***** 
 
    sim-input includes GENPDF_FILE with maps to describe populations
    of color, stretch, AV, RV. See manaul Sec 
+
+   Sims using asymGauss: no more using defaults, mainly for RV.
 
          ***** USEFUL(v10_77e) ***** 
 
@@ -18572,6 +18574,9 @@
    snlc_sim.c
      + integrate init_genPDF & exec_genPDF
      + remove OPT_DEVEL_GENFLUX and associated code.
+ 
+   sntools_host.c
+     + for WGTMAP using SN properties, abort if SN val is outside wgtmap range.
 
    remove skewnormal.c and all obsolete/unused skewnormal code.
 

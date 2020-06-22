@@ -18589,4 +18589,14 @@
      + fix subtle bug setting ERRMAX_BAD for zPHOT when using
        spec-z as a prior.
 
+
+# ======================================================================= 
+         v10_77f (  ) 
+
+         ***** IMPORTANT(v10_77f) ***** 
+
+         ***** USEFUL(v10_77f) ***** 
+
+         ***** MISCELLANEOUS(v10_77f) ***** 
+
 END: 

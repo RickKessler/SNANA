@@ -5965,16 +5965,11 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     x1      = TABLEVAR->fitpar[INDEX_x1][ISN] ;
     c       = TABLEVAR->fitpar[INDEX_c][ISN] ;
 
-    /* xxx NO 4/10/2020 xxxxx
-    Alpha   = TABLEVAR->SIM_ALPHA[ISN] ;
-    Beta    = TABLEVAR->SIM_BETA[ISN] ;
-    xxxxxxx */
-
     Alpha   = INPUTS.parval[IPAR_ALPHA0]; // 4/10/2020: temp hack;later should
     Beta    = INPUTS.parval[IPAR_BETA0];  // measure A,B from slopes of HR vs x1,c
     GammaDM = TABLEVAR->SIM_GAMMADM[ISN] ;
 
-    mu_true = TABLEVAR->SIM_MU[ISN] ;
+    mu_true = TABLEVAR->SIM_MU[ISN] ;  //.xyz
     mu_obs  = mB - M0_DEFAULT + Alpha*x1 - Beta*c - GammaDM ;
     TABLEVAR->fitpar[INDEX_mu][ISN]      = mu_obs ; 
     TABLEVAR->SIM_FITPAR[INDEX_mu][ISN]  = mu_true ;
@@ -16036,17 +16031,6 @@ void  write_M0(char *fileName) {
     dl    = cosmodl_forFit(z, INPUTS.COSPAR) ;
     MUREF = 5.0*log10(dl) + 25.0 ;
     NFIT = FITINP.NZBIN_FIT[iz] ;
-
-    /* xxx mark delete Oct 13 2019 xxxxxxxxxxx
-    if ( VAL == 0.0 && ERR == 0.0 )
-      { ERR = MUDIFERR_EMPTY ; }
-
-    if ( ERR == 0.0 )
-      { ERR = MUDIFERR_ZERO ; }
-
-    if ( FITINP.ISFLOAT_z[iz] == 0 )
-      { VAL=0.0 ; ERR=MUDIFERR_EMPTY;  }
-    xxxxxxx  */
 
     fprintf(fp, "ROW:     "
 	    "%2d  %7.4f %7.4f %7.4f  "

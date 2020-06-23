@@ -191,13 +191,12 @@ void assign_VARNAME_GENPDF(int imap, int ivar, char *varName) {
 // =====================================================
 double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 			 
-
   int    ILIST_RAN = 1;
-  int    N_ITER=0, MAX_ITER  = 100 ;
-  int    N_EVAL = 0, IDMAP, ivar, NDIM, istat ;
+  int    N_ITER=0, MAX_ITER  = MXITER_GENPDF ;
+  int    N_EVAL = 0, IDMAP, ivar, NDIM, istat, itmp ;
   int    IVAR_HOSTLIB, IGAL = SNHOSTGAL.IGAL;
   double val_inputs[MXVAR_GENPDF], prob_ref, prob, r = 0.0 ;
-  double PAR_RANGE[2], FUNMAX ;
+  double PAR_RANGE[2], FUNMAX, prob_ratio ;
   int    LDMP = 0 ;
   char   *MAPNAME ;
   char fnam[] = "get_random_genPDF";
@@ -257,8 +256,30 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 	  fflush(stdout);
 	}
 
+	TMPSTORE_PROB_REF_GENPDF[N_ITER] = (float)prob_ref;
+	TMPSTORE_PROB_GENPDF[N_ITER]     = (float)prob;
+	TMPSTORE_RAN_GENPDF[N_ITER]      = (float)r ;
 	N_ITER++ ;
 	if ( N_ITER >= MAX_ITER ) {
+	  print_preAbort_banner(fnam);
+	  printf("   %s(%s) \n", MAPNAME, GENPDF[IDMAP].GRIDMAP.VARLIST );
+	  
+	  for(ivar=1; ivar < NDIM; ivar++ ) {
+	    IVAR_HOSTLIB = GENPDF[IDMAP].IVAR_HOSTLIB[ivar];
+	    val_inputs[ivar] = get_VALUE_HOSTLIB(IVAR_HOSTLIB,IGAL);
+	    printf("\t %s = %f \n", 
+		   HOSTLIB.VARNAME_STORE[IVAR_HOSTLIB], val_inputs[ivar] );
+	  }
+
+	  for(itmp = 0; itmp < N_ITER; itmp++ ) {
+	    r          = TMPSTORE_RAN_GENPDF[itmp] ;
+	    prob       = TMPSTORE_PROB_GENPDF[itmp];
+	    prob_ref   = TMPSTORE_PROB_REF_GENPDF[itmp];
+	    prob_ratio = prob/prob_ref;
+	    printf("   %4d: PROB=%8.5f, PROB_REF=%8.5f, "
+		   "RATIO=%.4f, %s=%8.5f \n", 
+		   itmp, prob, prob_ref, prob_ratio, parName, r);
+	  }	  
 	  sprintf(c1err,"N_ITER=%d exceeds bound (prob_ref=%f)", 
 		  N_ITER, prob_ref );
 	  sprintf(c2err,"Check %s or increase MAX_ITER", MAPNAME );

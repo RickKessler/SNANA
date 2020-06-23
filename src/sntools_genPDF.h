@@ -6,6 +6,7 @@
 #define MXMAP_GENPDF    8  // max number of maps per file
 #define MXVAR_GENPDF    6  // max varnames per mape
 #define MXROW_GENPDF 5000   // max number of rows per map
+#define MXITER_GENPDF 200   // max number of iterations for genPDF
 
 #define GENPDF_OPTMASK_EXTRAP 1
 
@@ -20,7 +21,9 @@ struct {
   int      IVAR_HOSTLIB[MXVAR_GENPDF];
 } GENPDF[MXMAP_GENPDF] ;
 
-
+float TMPSTORE_PROB_REF_GENPDF[MXITER_GENPDF];
+float TMPSTORE_PROB_GENPDF[MXITER_GENPDF];
+float TMPSTORE_RAN_GENPDF[MXITER_GENPDF];
 
 // ----------------------------------
 //    FUNCTION PROTOTYPES

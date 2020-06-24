@@ -18598,5 +18598,15 @@
          ***** USEFUL(v10_77f) ***** 
 
          ***** MISCELLANEOUS(v10_77f) ***** 
+ 
+    snana.car
+      + abort if SIMVAR_CUTWIN_STRING variable not found.
+
+    SALT2mu_fit.pl & SALT2mu.c:
+     + refactor/update  so that NSPLITRAN output goes to
+       separate subdirs names 0001, 0002, etc ... 
+       This change should allow Pippin to run CosmoMC.
+       Interactive NSPLITRAN probably won't work,
+       so only use SALT2mu_fit.pl to launch NSPLITRAN.
 
 END: 

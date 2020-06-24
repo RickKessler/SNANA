@@ -19568,41 +19568,50 @@ c Evaluate PASS_SIMCUTS based on user-input SIMVAR_CUTWIN_STRING
 c Check hard-coded SIM_xxx names, and also check SIMSED_xxx names.
 c
 c Nov 25 2019: check NEP_SIM_MAGOBS = number os SIM_MAGOBS < 99
+c Jun 23 2020: abort of VARNAME not found
 
       IMPLICIT NONE
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
+      LOGICAL FOUND
       INTEGER i, ipar, LENTMP
       REAL*8  VMIN, VMAX
-      CHARACTER VARNAME*40, CTMP*60, VARNAME_TMP*60
+      CHARACTER VARNAME*40, CTMP*60, VARNAME_TMP*60, FNAM*20
 
 C --------------- BEGIN ------------
 
       IF ( NSIMVAR_CUTWIN == 0 ) RETURN
+      FNAM = 'EVAL_SIMVAR_CUTS'
 
       DO 100 i = 1, NSIMVAR_CUTWIN
+         FOUND   = .FALSE.
          VMIN    = DBLE( SIMVAR_CUTWIN(1,i) )
          VMAX    = DBLE( SIMVAR_CUTWIN(2,i) )
          VARNAME = SIMVAR_CUTWIN_LIST(i) 
          if ( VARNAME .EQ. 'SIM_ZCMB' ) then
+            FOUND   = .TRUE.
             if ( SIM_REDSHIFT_CMB < VMIN ) PASS_SIMCUTS = .FALSE.
             if ( SIM_REDSHIFT_CMB > VMAX ) PASS_SIMCUTS = .FALSE.
 
          else if ( VARNAME .EQ. 'SIM_PEAKMJD' ) then
+            FOUND   = .TRUE.
             if ( SIM_PEAKMJD < VMIN ) PASS_SIMCUTS = .FALSE.
             if ( SIM_PEAKMJD > VMAX ) PASS_SIMCUTS = .FALSE.
 
          else if ( VARNAME .EQ. 'SIM_SALT2c' ) then
+            FOUND   = .TRUE.
             if ( SIM_COLORPAR < VMIN ) PASS_SIMCUTS = .FALSE.
             if ( SIM_COLORPAR > VMAX ) PASS_SIMCUTS = .FALSE.
 
          else if ( VARNAME .EQ. 'SIM_SALT2x1' ) then
+            FOUND   = .TRUE.
             if ( SIM_SHAPEPAR < VMIN ) PASS_SIMCUTS = .FALSE.
             if ( SIM_SHAPEPAR > VMAX ) PASS_SIMCUTS = .FALSE.     
 
          else if ( VARNAME .EQ. 'NEP_SIM_MAGOBS' ) then
+            FOUND   = .TRUE.
             if ( NEP_SIM_MAGOBS < int(VMIN) ) PASS_SIMCUTS = .FALSE.
             if ( NEP_SIM_MAGOBS > int(VMAX) ) PASS_SIMCUTS = .FALSE.     
          endif
@@ -19613,16 +19622,22 @@ c check SIMSED variables
             LENTMP  = INDEX(CTMP,' ') - 1
             VARNAME_TMP = 'SIMSED_' // CTMP(1:LENTMP)
             if ( VARNAME .EQ. VARNAME_TMP ) then
+            FOUND   = .TRUE.
                if ( SIMSED_PARVAL(ipar) < VMIN ) PASS_SIMCUTS = .FALSE.
                if ( SIMSED_PARVAL(ipar) > VMAX ) PASS_SIMCUTS = .FALSE.
             endif
          ENDDO
 
+         if ( .NOT. FOUND ) then
+            c1err = 'Could not evaluate cut on ' // VARNAME(1:20)
+            c2err = 'Check &SNLCINP  SIMVAR_CUTWIN_STRING'
+            CALL MADABORT(FNAM, c1err, c2err )
+         endif
  100  CONTINUE
 
 
       RETURN
-      END
+      END  ! ene EVAL_SIMVAR_CUTS
 
 C ======================================
 +DECK,PRIVATECUTS.

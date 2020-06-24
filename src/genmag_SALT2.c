@@ -1715,7 +1715,7 @@ void genmag_SALT2(
   char fnam[] = "genmag_SALT2" ;
 
   // ----------------- BEGIN -----------------
-
+  
   // parse bit-mask options
 
   OPT_PRINT_BADFLUX = OPT_RETURN_FLUX =  0; // default flags OFF
@@ -1736,6 +1736,7 @@ void genmag_SALT2(
   ZP           = FILTER_SEDMODEL[ifilt].ZP ;
   cfilt        = FILTER_SEDMODEL[ifilt].name ;
   meanlam_rest = meanlam_obs/z1 ;
+
 
   // make sure filter-lambda range is valid
   checkLamRange_SEDMODEL(ifilt,z,fnam);

@@ -111,9 +111,9 @@
 # The NSPLITRAN mode creates an output sub-directory with a specific 
 # name, "OUT_SALT2mu_NSPLITRAN[n]", and can be changed using the 
 # "OUTDIR_OVERRIDE: <OUTDIR>"  key. The output file names are hard-wired 
-# with prefix=OUT_TEST. Note that for <n> split jobs, <n+1> batch jobs
+# with prefix=SALT2mu. Note that for <n> split jobs, <n+1> batch jobs
 # are submitted because the n+1'th job reads back all of the previous
-# output and prepares a summary of averages and RMS in OUT_TEST_summary.out.
+# output and prepares a summary of averages and RMS in SALT2mu_summary.out.
 #
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # History:
@@ -276,6 +276,9 @@
 #      a SUCCESS or FAIL message is passed to Pippin.
 #
 # Jun 11 2020: in NSPLITRAN_prep_COMMAND(), include wfit commands.
+#
+# Jun 24 2020: refactor so that NSPLITRAN output goes into separate
+#              sub-directories labeled SPLITRAN-[nnnn]/
 #
 # ------------------------------------------------------
 
@@ -446,6 +449,7 @@ if ( $NVERSION_MAX < 999 ) {
     print "\t DEBUG MODE WARNING: only $NVERSION_MAX VERSIONS processed. \n";
 }
 
+
 &make_COMMANDS();  # create all commands per cpu in memory
 &write_COMMANDS(); # write them out into files
 
@@ -460,17 +464,15 @@ if ( $SUMMARY_FLAG == 0 ) {
     exit(0);
 }
 
-
 # wait for all of the SALT2mu DONE files to appear
 &wait_for_done(); 
-
-# xxx mark delete   if ( $NSPLITRAN > 0 ) { exit(0); }
 
 # make summary file
 &make_SUMMARY();
 
 # gzip output
 &gzip_logs(); 
+
 
 # create global DONE file(s) to communicate with higher level pipelines
 &create_done_file() ;
@@ -1777,7 +1779,6 @@ sub make_COMMANDS {
 	$FITSCRIPTS_DIR = "${OUTDIR}/${FITSCRIPTS_PREFIX}" ; 
     }
 
-# xxx mark delete    if ( $SUBMIT_FLAG ) {
     if ( !$SUMMARY_FLAG ) {
 	print "\n Create command-scripts in \n\t $FITSCRIPTS_DIR \n";
 	if ( -d $FITSCRIPTS_DIR ) { qx(rm -r $FITSCRIPTS_DIR); }
@@ -1826,7 +1827,6 @@ sub make_COMMANDS {
 	goto CHECK_NTOT_JOBS ;
     }
 
-
     my ($NDIR, $NVER, $idir, $iver, $ifitopt );
     $NTOT_JOBS = 0 ;    $icpu = 0 ;
     $NDIR = scalar(@OUTDIR_SALT2mu_LIST) ;
@@ -1841,9 +1841,6 @@ sub make_COMMANDS {
     }  # idir
 
 
-    # ----------------
-# xxx mark delete    if ( $SUMMARY_FLAG  )  { return ; }
-     
     # ---------------------------
     # If there are more CPUs then NTOT_JOBS, then reduce NCPU
     # and remove unused CMD files. This is to avoid confusion
@@ -1851,17 +1848,18 @@ sub make_COMMANDS {
     # log/done files.
 
   CHECK_NTOT_JOBS:
-
-    if ( $NTOT_JOBS == 0 ) {
-
+    
+    if ( $NTOT_JOBS == 0 && !$SUMMARY_FLAG ) {
 	print "\n PRE-ABORT DUMP: \n";
-	&matchDump();
-		    
+	&matchDump();		    
 	$MSGERR[0] = "No SALT2mu jobs found in make_COMMANDS() .";
 	$MSGERR[1] = "Probably a stringMatch problem";
+	$MSGERR[2] = "NSPLITRAN=$NSPLITRAN  NTOT_JOBS=$NTOT_JOBS" ;
+	$MSGERR[3] = "SUBMIT_FLAG=$SUBMIT_FLAG  SUMMARY_FLAG=$SUMMARY_FLAG";
 	sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
     }
     
+
     if ( $NCPU > $NTOT_JOBS ) {	
 	my $NCPU_ORIG = $NCPU ;
 	$NCPU = $NTOT_JOBS ;
@@ -1929,22 +1927,39 @@ sub NSPLITRAN_prep_COMMAND {
     # argument to SALT2mu.exe.
     #
     # Jun 11 2020: include optional wfit commands
-
-    my ($icpu, $OUTDIR, $CMD, $LOGFILE, $ARGLIST);
-    my ($OUT_PREFIX, $OUT_PREFIX_FULL);
+    # Jun 24 2020: 
+    #  + refactor to make subDir for each splitRan job
+    #  + see LEGACY flag to run old-style with all files in OUTDIR
+    
+    my ($icpu, $OUTDIR, $OUTDIR_SPLITRAN, $CMD, $LOGFILE, $ARGLIST);
+    my ($OUT_PREFIX, $OUT_PREFIX_FULL, $SUBDIR );
+    my $ISJOB_SUMMARY = ( $isplit > $NSPLITRAN );
+    my $LEGACY_FLAG = 0 ;  # 1 -> all files in OUTDIR; 0-> subDirs
 
     # pick CPU on round-robin basis
     $icpu = (($isplit-1) % $NCPU) ;   # 0 to NCPU-1  
 
-
     $OUTDIR     = "$OUTDIR_SALT2mu_LIST[0]" ;
-    $OUT_PREFIX = "OUT_TEST" ;
-    $OUT_PREFIX_FULL = sprintf("%s-SPLIT%3.3d", $OUT_PREFIX, $isplit);
+# xxx mark delete     $OUT_PREFIX = "OUT_TEST" ;
+    $OUT_PREFIX = "SALT2mu" ; # 6.24.2020
+
+    if ( $LEGACY_FLAG ) { 
+	$OUT_PREFIX_FULL = sprintf("%s-SPLIT%3.3d", $OUT_PREFIX, $isplit);
+	$SUBDIR = "./" ;
+	$OUTDIR_SPLITRAN = $OUTDIR ;
+    }
+    else {
+	$OUT_PREFIX_FULL = $OUT_PREFIX; 
+	$SUBDIR = sprintf("SPLITRAN-%4.4d", $isplit);
+	$OUTDIR_SPLITRAN = "$OUTDIR/$SUBDIR" ; 
+	if ( !$SUMMARY_FLAG && !$ISJOB_SUMMARY ) 
+	{ qx(mkdir $OUTDIR_SPLITRAN) ;  }
+    }
 
     $LOGFILE = "${OUT_PREFIX_FULL}.LOG" ;
 
     # put summary job in last CPU so it's likely to finish last
-    if ( $isplit > $NSPLITRAN ) { 
+    if ( $ISJOB_SUMMARY ) {
 	$icpu    = $icpu_MAXJOBS ; 
 	$LOGFILE = "${OUT_PREFIX}_summary.log";
     }
@@ -1964,15 +1979,18 @@ sub NSPLITRAN_prep_COMMAND {
     $CMD     = "$JOBNAME_FIT $INPUT_FILE $ARGLIST \\" ;
 
     # cd just once
-    if ( $NJOB_PER_CPU[$icpu] == 1 ) 
-    { &add_COMMAND($icpu, "cd $OUTDIR" ) ; }
+    if ( $NJOB_PER_CPU[$icpu] == 1 ) {
+	&add_COMMAND($icpu, "cd $OUTDIR_SPLITRAN" ) ;
+    }
 
     &add_COMMAND($icpu, "" ) ;
     &add_COMMAND($icpu, "# ------------------------------------" ) ;
-    if ( $isplit > $NSPLITRAN ) { &add_COMMAND($icpu, "sleep 10"); }
+    if ( $isplit > $NSPLITRAN ) { 
+	&add_COMMAND($icpu, "sleep 10"); 
+	&add_COMMAND($icpu, "cd $OUTDIR" ) ; # 6.24.2020
+    }
     &add_COMMAND($icpu, "$CMD");
     &add_COMMAND($icpu, "    >& $LOGFILE " );
-
 
     # Jun 11 2020: check for wfit
     my($tmpInput, $inFile_tmp, $wPREFIX, $CMDwfit );
@@ -2292,6 +2310,11 @@ sub submit_SUMMARY {
 
     sleep(2);
     $CMD = "$SCRIPTNAME_FULL $INPUT_FILE SUMMARY NOPROMPT" ;
+
+    # Jun 24 2020: pass NSPLITRAN so that summary job knows how many 
+    # CPUs and DONE files to check.
+    if ( $NSPLITRAN > 0 )  { $CMD = "$CMD NSPLITRAN=$NSPLITRAN" ; }
+
     print "\n\t Submit SUMMARY task in background. \n\n";
     $| = 1;  # auto flush stdout.
 
@@ -2306,6 +2329,7 @@ sub submit_SUMMARY {
 # ====================
 sub wait_for_done {
 
+    # Called during summary stage to wait for DONE files.
     # Sep 28 2019: $DONESPEC argument -> '$DONESPEC' (in quotes)
 
     my ($NDONE, $DONESPEC, $CMD_WAIT );
@@ -2317,6 +2341,7 @@ sub wait_for_done {
     $ALLDONE_FILE = "$FITSCRIPTS_DIR/ALL.DONE" ;
 
     $CMD_WAIT = "wait_for_files.pl  $NDONE  '$DONESPEC'  $ALLDONE_FILE" ; 
+
 
     system("$CMD_WAIT");
 

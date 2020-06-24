@@ -769,6 +769,11 @@ Default output files (can change names with "prefix" argument)
    New input surveygroup_biascor_abortflag=0 will NOT abort if  
    surveygroup_biascor includes survey(s) not in the data.
 
+ Jun 24 2020: 
+    minor refactor for NSPLITRAN to remove SPLIT[nnn] from file names
+    since the files are written to [nnnn]/ sub-directories.
+    NSPLITRAN probably doesn't work interactively; only via batch.
+     
  ******************************************************/
 
 #include <stdio.h>      
@@ -15869,12 +15874,13 @@ void outFile_driver(void) {
   // Created Nov 30 2017
   // [move code out of main]
   // May 29 2019: call SPLITRAN_write_fitpar
+  // Jun 24 2020: remove SPLIT[nnn] from NSPLITRAN file names.
 
   int  JOBID     = INPUTS.JOBID_SPLITRAN ;
   int  NSPLITRAN = INPUTS.NSPLITRAN ;
   char *prefix = INPUTS.PREFIX ;
   char tmpFile1[200], tmpFile2[200], tmpFile3[200];
-
+  char fnam[] = "outFile_driver";
 
   // --------------- BEGIN -------------
 
@@ -15886,6 +15892,10 @@ void outFile_driver(void) {
 
   if ( strlen(prefix) > 0 && !IGNOREFILE(prefix)  ) {
 
+    sprintf(tmpFile1,"%s.fitres", prefix ); 
+    sprintf(tmpFile2,"%s.M0DIF",  prefix ); 
+
+    /* xxxxxxx mark delete Jun 24 2020 xxxxx
     if ( INPUTS.NSPLITRAN == 1 )  { 
       sprintf(tmpFile1,"%s.fitres", prefix ); 
       sprintf(tmpFile2,"%s.M0DIF",  prefix ); 
@@ -15895,7 +15905,8 @@ void outFile_driver(void) {
       sprintf(tmpFile2,"%s-SPLIT%3.3d.M0DIF",  prefix, NJOB_SPLITRAN);
       sprintf(tmpFile3,"%s-SPLIT%3.3d.fitpar", prefix, NJOB_SPLITRAN);
     }
-    
+    xxxxxxxx end mark delete xxxxxxxxx */
+
     prep_blindVal_strings();
     write_fitres_driver(tmpFile1);  // write result for each SN
     write_M0(tmpFile2);      // write M0 vs. redshift
@@ -15903,8 +15914,10 @@ void outFile_driver(void) {
 
     // for single JOBID_SPLITRAN, write fitpar file so that they
     // can be scooped up later to make summary.
-    if ( JOBID >=1 && JOBID <= NSPLITRAN ) 
-      { SPLITRAN_write_fitpar(tmpFile3); }
+    if ( JOBID >=1 && JOBID <= NSPLITRAN )  { 
+      sprintf(tmpFile3,"%s.fitpar", prefix );  
+      SPLITRAN_write_fitpar(tmpFile3); 
+    }
 
   } 
   else {
@@ -16128,7 +16141,8 @@ void SPLITRAN_read_fitpar(int isplit) {
 
   // --------------- BEGIN --------------
   
-  sprintf(tmpFile,"%s-SPLIT%3.3d.fitpar", prefix, isplit);
+  // xxx mark delete  sprintf(tmpFile,"%s-SPLIT%3.3d.fitpar", prefix, isplit);
+  sprintf(tmpFile,"SPLITRAN-%4.4d/%s.fitpar", isplit, prefix );
   printf(" Read %s \n", tmpFile); fflush(stdout);
 
  TRY_OPEN:
@@ -16142,7 +16156,7 @@ void SPLITRAN_read_fitpar(int isplit) {
       goto TRY_OPEN ;
     }      
     else {
-      sprintf(c1err,"Could open SPLITRAN file for reading:");
+      sprintf(c1err,"Could NOT open SPLITRAN file for reading:");
       sprintf(c2err,"%s", tmpFile);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);           
     }
@@ -16203,7 +16217,8 @@ int SPLITRAN_read_wfit(int isplit) {
 
   // ------------ BEGIN ---------------
 
-  sprintf(tmpFile,"wfit_%s-SPLIT%3.3d.COSPAR", prefix, isplit);
+  // xxx mark  sprintf(tmpFile,"wfit_%s-SPLIT%3.3d.COSPAR", prefix, isplit);
+  sprintf(tmpFile,"SPLITRAN-%4.4d/wfit_%s.COSPAR", isplit, prefix);
   printf(" Read %s \n", tmpFile); fflush(stdout);
 
   fp = fopen(tmpFile,"rt");

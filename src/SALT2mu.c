@@ -639,7 +639,7 @@ Default output files (can change names with "prefix" argument)
    + minor refactor of ICC_FITCLASS_XXX: UNKNOWN -> OTHER, CC -> TOT
 
   Apr 29 2019:
-   + for NSPLITRAN option, write summary to [prefix]_summary.out,
+   + for NSPLITRAN option, write summary to [prefix]_SPLITRAN_summary.out,
      and use KEY format.
 
   May 02 2019: remove TABLEFILE_CLOSE() calls since READ_EXEC closes.
@@ -774,6 +774,10 @@ Default output files (can change names with "prefix" argument)
     since the files are written to [nnnn]/ sub-directories.
     NSPLITRAN probably doesn't work interactively; only via batch.
      
+ Jun 25 2020:
+   + when using MU in biasCor (opt_biadcor += 128), fix mu_true
+     to be based on measured redshift instead of true redshift.
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -7841,10 +7845,12 @@ void  prepare_biasCor_zinterp(void) {
   // Special biasCor option to correct mb(z) using muBias(sample,z).
   // Evaluate mubias(sample,z) from biasCor sample.
   //
+  // Jun 25 2020: fix determination of mu_true based on DO_BIASCOR_MU
 
   int    NSAMPLE  = NSAMPLE_BIASCOR ;
   double alpha    = INPUTS.parval[IPAR_ALPHA0] ;
   double beta     = INPUTS.parval[IPAR_BETA0] ;
+  bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
 
   int    NSN_DATA, NSN_BIASCOR, ievt, NCUTS, iz, izusr, idsample, cutmask ;
   double mu_fit, mB_fit, x1_fit, c_fit ;
@@ -7935,7 +7941,11 @@ void  prepare_biasCor_zinterp(void) {
     x1_sim    = (double)INFO_BIASCOR.TABLEVAR.SIM_FITPAR[INDEX_x1][ievt] ;
     c_sim     = (double)INFO_BIASCOR.TABLEVAR.SIM_FITPAR[INDEX_c ][ievt] ;
     SNRMAX    = (double)INFO_BIASCOR.TABLEVAR.snrmax[ievt];
-    mu_true   = (double)INFO_BIASCOR.TABLEVAR.SIM_MU[ievt]; 
+
+    if ( DO_BIASCOR_MU ) // get SIM_MU at measured z
+      { mu_true = (double)INFO_BIASCOR.TABLEVAR.SIM_FITPAR[INDEX_mu][ievt];}
+    else
+      { mu_true = (double)INFO_BIASCOR.TABLEVAR.SIM_MU[ievt]; } // at true z
 
     mu_fit  = mB_fit + alpha*x1_fit - beta*c_fit - M0_DEFAULT ;
     mu_sim  = mB_sim + alpha*x1_sim - beta*c_sim - M0_DEFAULT ;
@@ -14757,7 +14767,7 @@ void SPLITRAN_SUMMARY(void) {
   // write summary to outFile. 
   char OUTFILE[MXPATHLEN] ;
   FILE *fp;
-  sprintf(OUTFILE,"%s_summary.out", INPUTS.PREFIX );
+  sprintf(OUTFILE,"SALT2mu_SPLITRAN_SUMMARY.DAT" );
   fp = fopen(OUTFILE,"wt");
   if ( !fp )  {
     sprintf(c1err,"Could not open SPLITRAN summary file:");

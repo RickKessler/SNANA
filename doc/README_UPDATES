@@ -18608,5 +18608,8 @@
        This change should allow Pippin to run CosmoMC.
        Interactive NSPLITRAN probably won't work,
        so only use SALT2mu_fit.pl to launch NSPLITRAN.
+     + fix mu_true for opt_biascor += 128 (biasCor with MU)
+       to use measured redshift instead of true redshift.
+
 
 END: 

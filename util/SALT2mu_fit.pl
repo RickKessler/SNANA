@@ -365,7 +365,6 @@ sub parse_inpFile ;
 sub parse_MUOPT ;	
 sub parse_WFIT_OPT ;
 sub verify_INPDIR ;
-sub verify_CATLIST ;
 sub makeDir_NSPLITRAN ;
 sub makeDirs_SALT2mu ;
 sub makeSumDir_SALT2mu ;
@@ -376,7 +375,6 @@ sub subDirName_after_lastSlash ;
 sub USE_FITOPT ;
 sub copy_inpFiles ;
 sub cat_inpFiles ;
-sub cat_inpFiles_legacy ;
 
 sub make_COMMANDS ;
 sub write_COMMANDS ;
@@ -389,6 +387,7 @@ sub wait_for_done ;
 sub create_done_file ;
 sub make_SUMMARY ;
 sub write_SUMMARY_LOG ;
+sub write_SPLITRAN_SUMMARY_LOG ;
 sub write_SUMMARY_DAT ;
 sub write_SUMMARY_INPDIR ;
 sub gzip_logs ;
@@ -439,7 +438,6 @@ else {
     for($IFITOPT=0 ; $IFITOPT < $NFITOPT_SNFIT[0]; $IFITOPT++ ) {
 	for($IVER=0; $IVER < $NVERSION_4SUM ; $IVER++ ) {	
 	    &cat_inpFiles($IFITOPT,$IVER);   # catenate input files for sum
-#	    &cat_inpFiles_legacy($IFITOPT,$IVER); 
 	}
     }
 }
@@ -472,7 +470,6 @@ if ( $SUMMARY_FLAG == 0 ) {
 
 # gzip output
 &gzip_logs(); 
-
 
 # create global DONE file(s) to communicate with higher level pipelines
 &create_done_file() ;
@@ -1603,158 +1600,6 @@ sub cat_inpFiles {
 } # end of cat_inpFiles
 
 
-# ==================================
-sub cat_inpFiles_legacy {
-
-    #
-    # !!!! May 2020: scheduled to become obsolte !!!!!!
-    #
-    # catenate FITOPT[nnn].FITRES from each INPDIR
-    # to make a summed fitres file.
-    # Before doing the cat, make sure that NVAR and VARNAMES
-    # are the same to avoid combining files with different
-    # variables.
-    #
-    # Note that input $IVER is a sparse verson index for the
-    # versions to sum.
-    #
-    # Dec 12 2017: if input FITRES files are gzipped, then leave
-    #              catenated files gzipped as well.
-    #
-    # May 1 2018: abort if both gzip and unzip FITRES files exist
-    
-    my ($ifitopt,$iver_sum) = @_ ;
-
-    my ($VERSION_4SUM, $VERSION_SNFIT, $INPDIR, $Ngzip, $Nunzip, $cdout);
-    my ($iver, $idir, $nnn, $ffile, $FFILE);
-    my ($CATLIST, $CATFILE, $CATFILEgz );
-
-    if ( $SUMMARY_FLAG ) { return ; }
-    if ( $FITOPT000_ONLY && $ifitopt > 0 ) { return ; }
-
-    $VERSION_4SUM = $VERSION_4SUM_LIST[$iver_sum] ;
-
-    # get CATLIST of original VERSION-files to catenate
-
-    $CATLIST  = "" ;
-    $nnn      = sprintf("%3.3d", $ifitopt);
-    $ffile    = "FITOPT${nnn}.FITRES" ;
-    $Ngzip = $Nunzip  = 0 ;
-    
-    print "# -------------------------------------------------- \n";
-    print " Catenate input files for:  $VERSION_4SUM  $ffile\n";
-   
-    for($idir=0; $idir < $N_INPDIR; $idir++ ) {
-	$iver          = $IVERSION_4SUM_LIST[$idir][$iver_sum] ;
-	$VERSION_SNFIT = $VERSION_SNFIT_LIST[$idir][$iver];
-	$INPDIR        = $INPDIR_SNFIT_LIST[$idir] ;
-	
-	print "\t Add VERSION[$iver] = $VERSION_SNFIT \n";
-
-	$FFILE  = "${INPDIR}/${VERSION_SNFIT}/$ffile" ;
-
-	if ( -l $FFILE ) {
-	    my $symLink = readlink($FFILE);
-	    my $jslash = rindex($symLink,"/");  # location of last slash
-	    if ( $jslash < 0 ) 
-	    { $FFILE      = "${INPDIR}/${VERSION_SNFIT}/$symLink" ; }
-	    else
-	    { $FFILE = $symLink; }
-	}
-	if ( -e "$FFILE.gz" ) 
-	{ $FFILE = "$FFILE.gz";  $Ngzip++; }
-	else
-	{ $Nunzip++ ; }
-
-	$CATLIST = "$CATLIST" . "$FFILE " ;
-	
-    }  # idir
- 
-    # make sure that VARNAMES match in each fitres file
-    &verify_CATLIST($CATLIST);
-
-    # May 1 2018: do not allow mix of gzip and unzip
-    if ( $Ngzip > 0 && $Nunzip > 0 ) {
-	$MSGERR[0] = "Ngzip=$Ngzip  and  Nunzip=$Nunzip" ;
-	$MSGERR[1] = "All input FITRES files must be zipped, or unzipped";
-	$MSGERR[2] = "Cannot mix.";
-	sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
-    }
-
-    $cdout   = "cd $OUTDIR_SALT2mu_LIST[0]/${VERSION_4SUM}" ;
-    $CATFILE = "$ffile" ;
-    
-    if ( $Ngzip == 0 ) {
-	qx($cdout; cat $CATLIST > $CATFILE );  # normal cat
-    }
-    else {
-	# note that zcat returns unzipped cat-file, while
-	# cat returns gzipped cat-file.
-#	qx($cdout ; zcat $CATLIST > $CATFILE    ); # returns unzipped cat-file
-	qx($cdout ;  cat $CATLIST > $CATFILE.gz ); # returns gzipped cat-file
-    }
-    
-    $NTOT_FITRES++ ;
-
-    return ;
-#    print " xxx CATLIST = $CATLIST \n";
-#    print " xxx \t --> $CATFILE \n";
-
-} # end of cat_inpFiles_legacy
-
-
-# =====================
-sub verify_CATLIST {
-    my ($CATLIST) = @_ ;
-
-    # check NVAR and VARNAMES keys in each file in CATLIST.
-    # Abort on any mis-match.
-    # May 11 2017: if file f is gzipped, unzip it.
-    # Dec 02 2017: do NOT unzip, but still check header values
-    #      (parse_line uses zgrep for .gz files)
-    #
-    # Mar 29 2019: remove NVAR check since no more NVAR key
-    
-    my (@fList, $f, $ff, $fgzip, $NFILE, @tmp ) ;
-    my (@VARLIST_REF, @VARLIST, $ivar, $V_REF, $V);
-    
-    @fList = split(/\s+/,$CATLIST) ;
-    $NFILE = 0 ;
-
-    foreach $f (@fList) {  
-       
-	@tmp  = sntools::parse_line($f, 99, "VARNAMES:", $OPT_ABORT) ;
-
-	@VARLIST  = split(/\s+/,$tmp[0]) ;
-	$NFILE++ ;
-
-	# set ref values on 1st file
-	if ( $NFILE == 1 ) { 
-	    @VARLIST_REF = @VARLIST ; 
-	    next ;  
-	}
-
-	# now check each variable
-	my ($ivar);
-	for($ivar=0; $ivar < scalar(@VARLIST_REF); $ivar++ ) {
-	    $V_REF = $VARLIST_REF[$ivar] ;
-	    $V     = $VARLIST[$ivar] ;
-	    if ( $V ne $V_REF ) {
-		$MSGERR[0] = "Found mis-matched variable in VARNAMES list.";
-		$MSGERR[1] = "VARNAME($ivar) = $V in \n\t $f" ;
-		$MSGERR[2] = "but VARNAME($ivar) = $V_REF in \n\t $fList[0]";
-		sntools::FATAL_ERROR_STAMP($DONE_STAMP_FILE,@MSGERR);
-	    }
-	}
-    }
-
-    return ;
-    
-} # end of verify_CATLIST
-
-
-
-
 # ==============================
 sub make_COMMANDS {
 
@@ -1932,7 +1777,7 @@ sub NSPLITRAN_prep_COMMAND {
     #  + see LEGACY flag to run old-style with all files in OUTDIR
     
     my ($icpu, $OUTDIR, $OUTDIR_SPLITRAN, $CMD, $LOGFILE, $ARGLIST);
-    my ($OUT_PREFIX, $OUT_PREFIX_FULL, $SUBDIR );
+    my ($OUT_PREFIX, $OUT_PREFIX_LEGACY, $SUBDIR );
     my $ISJOB_SUMMARY = ( $isplit > $NSPLITRAN );
     my $LEGACY_FLAG = 0 ;  # 1 -> all files in OUTDIR; 0-> subDirs
 
@@ -1940,28 +1785,29 @@ sub NSPLITRAN_prep_COMMAND {
     $icpu = (($isplit-1) % $NCPU) ;   # 0 to NCPU-1  
 
     $OUTDIR     = "$OUTDIR_SALT2mu_LIST[0]" ;
-# xxx mark delete     $OUT_PREFIX = "OUT_TEST" ;
-    $OUT_PREFIX = "SALT2mu" ; # 6.24.2020
 
     if ( $LEGACY_FLAG ) { 
-	$OUT_PREFIX_FULL = sprintf("%s-SPLIT%3.3d", $OUT_PREFIX, $isplit);
+	$OUT_PREFIX = "OUT_TEST" ;
+	$OUT_PREFIX_LEGACY = sprintf("%s-SPLIT%3.3d", $OUT_PREFIX, $isplit);
 	$SUBDIR = "./" ;
 	$OUTDIR_SPLITRAN = $OUTDIR ;
+	$LOGFILE = "${OUT_PREFIX_LEGACY}.LOG" ;
     }
     else {
-	$OUT_PREFIX_FULL = $OUT_PREFIX; 
-	$SUBDIR = sprintf("SPLITRAN-%4.4d", $isplit);
+	$OUT_PREFIX = "SALT2mu_FITOPT000_MUOPT000" ; # 6.24.2020
+	$LOGFILE    = "${OUT_PREFIX}.LOG" ;
+	$SUBDIR     = sprintf("SPLITRAN-%4.4d", $isplit);
 	$OUTDIR_SPLITRAN = "$OUTDIR/$SUBDIR" ; 
 	if ( !$SUMMARY_FLAG && !$ISJOB_SUMMARY ) 
 	{ qx(mkdir $OUTDIR_SPLITRAN) ;  }
     }
 
-    $LOGFILE = "${OUT_PREFIX_FULL}.LOG" ;
 
     # put summary job in last CPU so it's likely to finish last
     if ( $ISJOB_SUMMARY ) {
 	$icpu    = $icpu_MAXJOBS ; 
-	$LOGFILE = "${OUT_PREFIX}_summary.log";
+	$LOGFILE = "SALT2mu_SPLITRAN_SUMMARY.LOG";
+#	$LOGFILE = "${OUT_PREFIX}_summary.log";
     }
 
     $NJOB_PER_CPU[$icpu]++ ;        # and NJOB for this CPU 
@@ -1997,8 +1843,8 @@ sub NSPLITRAN_prep_COMMAND {
     foreach $tmpInput ( @WFIT_INPUT ) {  # M0DIF or FITRES
 
 	# replace "SALT2mu" with "wfit" in prefix
-	$wPREFIX    = "wfit_${OUT_PREFIX_FULL}" ; 	
-	$inFile_tmp = "${OUT_PREFIX_FULL}.${tmpInput}" ;
+	$wPREFIX    = "wfit_${OUT_PREFIX}" ; 	
+	$inFile_tmp = "${OUT_PREFIX}.${tmpInput}" ;
 	$CMDwfit = 
 	    " $JOBNAME_WFIT $inFile_tmp $WFIT_OPT " .
 	    "-cospar ${wPREFIX}.COSPAR " .
@@ -2392,10 +2238,13 @@ sub make_SUMMARY {
     # Aug 25 2017: add BETA1[_ERR] to varnames list
     # Nov 30 2017: add GAMMA0[_ERR] to varnames list
     
-    if ( $NSPLITRAN > 0 ) { return ; } # no summary for SPLITRAN
+# xxxx    if ( $NSPLITRAN > 0 ) { return ; } # no summary for SPLITRAN
 
     my $SUMMARY_LOGFILE = "$FITSCRIPTS_DIR/FITJOBS_SUMMARY.LOG" ;
     my $SUMMARY_DATFILE = "$FITSCRIPTS_DIR/FITJOBS_SUMMARY.DAT" ;
+
+    if ( $NSPLITRAN > 0 ) 
+    { write_SPLITRAN_SUMMARY_LOG($SUMMARY_LOGFILE); return; }
 
     print "\n";
     print " Creating human-readable SUMMARY file \n\t $SUMMARY_LOGFILE \n";
@@ -2408,7 +2257,6 @@ sub make_SUMMARY {
 
     print PTR_SUMLOG  "\t\t SUMMARY of $NTOT_JOBS SALT2mu FITS \n\n";
 
-#    print PTR_SUMDAT "NVAR: 17 \n";
     print PTR_SUMDAT "VARNAMES: " .
 	"ROW VERSION IVERSION FITOPT MUOPT " . # +5
 	"NSNFIT CHI2RED_1A " .                 # +2
@@ -2421,11 +2269,13 @@ sub make_SUMMARY {
 #    print PTR_SUMDAT "#  Note: CHI2 = -2log(L) for BCD fit \n";
 
     $NDIR = scalar(@OUTDIR_SALT2mu_LIST) ;
+
+    print "\n xxx NDIR=$NDIR NVER=$NVERSION_FINAL[0]  NFITOPT=$NFITOPT_SNFIT[0] \n\n";
+
     for($idir=0 ; $idir < $NDIR; $idir++ ) {
 	$NVER   = $NVERSION_FINAL[$idir] ;
 	for ( $iver=0; $iver  < $NVER; $iver++ ) {
 	    for($ifitopt=0; $ifitopt < $NFITOPT_SNFIT[$idir]; $ifitopt++ ) {
-
 		&write_SUMMARY_LOG($idir,$iver,$ifitopt);
 		&write_SUMMARY_DAT($idir,$iver,$ifitopt);
 
@@ -2543,6 +2393,27 @@ sub write_SUMMARY_LOG {
 
 }  # end of write_SUMMARY_LOG
 
+# ============================================     
+sub write_SPLITRAN_SUMMARY_LOG {
+    my ($SUMMARY_LOGFILE) = @_ ;
+
+    # Created Jun 25 2020
+    # hack to write SUMMARY.LOG for NSPLITRAN so that Pippin
+    # will continue with makeCov and CosmoMC
+    # Note that FITOPT000 and MUOPT000 are hard-wired since
+    # NSPLITRAN does not work for FITOPTs and MUOPTs.
+
+    open  PTR_SUMLOG , "> $SUMMARY_LOGFILE" ;
+    print PTR_SUMLOG  "\t\t SUMMARY of $NTOT_JOBS SALT2mu FITS \n\n" ;
+    print PTR_SUMLOG "MUOPT: 000 [DEFAULT] NONE \n";
+    print PTR_SUMLOG "OUTDIR: $OUTDIR_OVERRIDE \n";
+    print PTR_SUMLOG "\n";
+    print PTR_SUMLOG "  VERSION FITOPT MUOPT \n";
+    print PTR_SUMLOG "    0001   000    000 \n";
+
+    close PTR_SUMLOG ;
+
+} # 
 
 # ============================================
 sub write_SUMMARY_DAT {

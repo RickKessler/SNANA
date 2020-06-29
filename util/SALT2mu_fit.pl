@@ -1824,16 +1824,21 @@ sub NSPLITRAN_prep_COMMAND {
 	"prefix=$OUT_PREFIX" ;
     $CMD     = "$JOBNAME_FIT $INPUT_FILE $ARGLIST \\" ;
 
-    # cd just once
-    if ( $NJOB_PER_CPU[$icpu] == 1 ) {
-	&add_COMMAND($icpu, "cd $OUTDIR_SPLITRAN" ) ;
-    }
+
+# xxxxxxx mark delete Jun 28 2020 xxxxxxxxxx
+#    if ( $NJOB_PER_CPU[$icpu] == 1 ) 
+#	{ &add_COMMAND($icpu, "cd $OUTDIR_SPLITRAN" ) ; }
+# xxxxxxxxxxxxxxxxxxxxxx
 
     &add_COMMAND($icpu, "" ) ;
     &add_COMMAND($icpu, "# ------------------------------------" ) ;
+
     if ( $isplit > $NSPLITRAN ) { 
 	&add_COMMAND($icpu, "sleep 10"); 
 	&add_COMMAND($icpu, "cd $OUTDIR" ) ; # 6.24.2020
+    }
+    else {
+	&add_COMMAND($icpu, "cd $OUTDIR_SPLITRAN" ) ;
     }
     &add_COMMAND($icpu, "$CMD");
     &add_COMMAND($icpu, "    >& $LOGFILE " );

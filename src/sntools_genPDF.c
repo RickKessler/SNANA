@@ -94,6 +94,13 @@ void init_genPDF(int OPTMASK, char *fileName, char *ignoreList) {
   // open file and read it
 
   fp = snana_openTextFile(1, PATH, fileName, fileName_full, &gzipFlag);
+
+  if ( !fp ) {
+    sprintf(c1err,"Could not open GENPDF_FILE");
+    sprintf(c2err,"%s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
   while( (fscanf(fp, "%s", c_get)) != EOF) {
     if ( strcmp(c_get,"VARNAMES:") == 0 ) {
       fgets(LINE,100,fp); // scoop up variable names

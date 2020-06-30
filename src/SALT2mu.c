@@ -29,6 +29,8 @@ nmax=100                 ! fit first 100 events only
 nmax=70(SDSS),200(PS1MD) ! fit 70 SDSS and 200 PS1MD
 nmax=300,200(PS1MD)      ! fit 300 total, with 200 in PS1MD sub-sample
 
+uzsim=1                  ! cheat and use true zCMB for redshift
+
 sigint_fix=0.11            ! fix sigint=0.11 for all data
 sigint_fix=0.11,0.09,0.08  ! comma-sep list of sigint_fix for each IDSAMPLE
 
@@ -1020,7 +1022,7 @@ typedef struct {
   float  *fitpar[NLCPAR+1], *fitpar_err[NLCPAR+1], *x0, *x0err ;
   float  *COV_x0x1, *COV_x0c, *COV_x1c ;
   float  *zhd,    *zhel,    *vpec ;
-  float  *zhderr, *zhelerr, *vpecerr, *zmuerr ;
+  float  *zhderr, *zhelerr, *zmuerr, *vpecerr  ;
   float  *logmass, *pIa, *snrmax ;
   short int  *IDSURVEY, *SNTYPE, *OPT_PHOTOZ ; 
   float  *fitpar_ideal[NLCPAR+1], *x0_ideal;
@@ -4360,31 +4362,33 @@ double zerr_adjust(double z, double zerr, double vpecerr, char *name) {
   //
   // Feb 18 2019: abort if arg of sqrt is negative
 
-  double zerr_new = zerr;
-  double zpecerr  = vpecerr/LIGHT_km;
-  double z1       = (1+z) ;
-  double sqz1     = z1*z1 ;
+  double zerr_new      = zerr;
+  double zpecerr_orig  = vpecerr/LIGHT_km; // from data file
+  double zpecerr_user  = INPUTS.zpecerr;   // override with this user value
+  double z1            = (1+z) ;
+  double sqz1          = z1*z1 ;
   double sqzerr1, sqzerr2, sqzerr3, sqarg;
   double zdif_tol = 1.0E-5 ;
   char fnam[] = "zerr_adjust" ;
   
   // ---------- BEGIN ------------
 
-  if ( INPUTS.zpecerr < 1.0E-9 ) { return(zerr); }
+  if ( zpecerr_user < 1.0E-9 ) { return(zerr); }
 
   sqzerr1 = zerr * zerr;
-  sqzerr2 = sqz1 * zpecerr*zpecerr ; // original 
-  sqzerr3 = sqz1 * INPUTS.zpecerr * INPUTS.zpecerr ; // user-defined
+  sqzerr2 = sqz1 * zpecerr_orig * zpecerr_orig ; // original 
+  sqzerr3 = sqz1 * zpecerr_user * zpecerr_user ; // user-defined
 
   // allow tolerance on difference to allow for
   // precision truncation on FITRES file.
-  if ( z1*zpecerr > zerr+zdif_tol ) {
+  if ( z1*zpecerr_orig > zerr+zdif_tol ) {
     print_preAbort_banner(fnam);
-    printf("    z1*zpecerr = %f * %f = %f \n", z1, zpecerr, z1*zpecerr);
+    printf("    z1*zpecerr = %f * %f = %f \n", 
+	   z1, zpecerr_orig, z1*zpecerr_orig);
     printf("    zerr = %f \n", zerr);
     sprintf(c1err,"Cannot subtract zpecerr from zerr for SNID=%s", name );
     sprintf(c2err,"zerr=%f > (1+z)*zpecerr = (%f)*%f", 
-	    zerr, 1+z, zpecerr);
+	    zerr, 1+z, zpecerr_orig);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
   }
 
@@ -4394,8 +4398,8 @@ double zerr_adjust(double z, double zerr, double vpecerr, char *name) {
     print_preAbort_banner(fnam);
     printf("   sqzerr[1,2,3] = %le, %le, %le \n",
 	   sqzerr1, sqzerr2, sqzerr3 );
-    printf("   user zpecerr = %f \n", INPUTS.zpecerr);
-    sprintf(c1err,"sqrt(negatice number); Cannot adjust zHDERR");
+    printf("   zpecerr_user = %f \n", zpecerr_user);
+    sprintf(c1err,"sqrt(negative number); Cannot adjust zHDERR");
     sprintf(c2err,"Check pre-abort dump above.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -5768,6 +5772,10 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   bool  USE_FIELDGROUP    = (INPUTS.use_fieldGroup_biasCor > 0) ;
 
+  double vpecerr_orig   = (double)TABLEVAR->vpecerr[ISN];
+  if ( INPUTS.zpecerr > 1.0E-9 ) 
+    { TABLEVAR->vpecerr[ISN] = INPUTS.zpecerr * LIGHT_km; } // 6.30.2020
+
   int  IDSURVEY    = (int)TABLEVAR->IDSURVEY[ISN];
   int  SNTYPE      = (int)TABLEVAR->SNTYPE[ISN] ; 
   int  OPT_PHOTOZ  = (int)TABLEVAR->OPT_PHOTOZ[ISN];
@@ -5895,7 +5903,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     // zcmb(1+zpec) = zhd - zpec     
     zpec       =  vpec/LIGHT_km ;
     zcmb       =  (zhd - zpec)/(1.0+zpec) ;
-    zhderr_tmp = (float)zerr_adjust(zcmb, zhderr, vpecerr, name);
+    zhderr_tmp = (float)zerr_adjust(zcmb, zhderr, vpecerr_orig, name);
     TABLEVAR->zhderr[ISN] = zhderr_tmp ;
     
     // xxxxxxxxxxxxx
@@ -5994,9 +6002,13 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   else
     { TABLEVAR->zmuerr[ISN] = vpecerr/LIGHT_km; } // only vpec component
 
+
+
   if ( IS_DATA && ISN < 10 ) {
-    printf(" xxx %s: DATA ISN=%d(%s) zmuerr = %.4f (%d)\n",
-	   fnam, ISN, name, TABLEVAR->zmuerr[ISN], INPUTS.restore_sigz ); 
+    double zmuerr = TABLEVAR->zmuerr[ISN] ;
+    double dmuz  = fcn_muerrz(1, zhd, zmuerr );
+    printf(" xxx %s: DATA ISN=%d(%s)  z=%5.3f  zmuerr=%.4f  (vpecerr=%.1f)\n",
+           fnam, ISN, name, zhd, zmuerr, vpecerr );
     fflush(stdout);
   }
 
@@ -13854,8 +13866,10 @@ int ppar(char* item) {
 
   // ------------
   // check peculiar velocity error
-  if ( uniqueOverlap(item,"zpecerr="))
-    { sscanf(&item[8],"%lf",&INPUTS.zpecerr);  return(1); }
+  if ( uniqueOverlap(item,"zpecerr="))  { 
+    sscanf(&item[8],"%lf",&INPUTS.zpecerr);   
+    return(1); 
+  }
 
   if ( uniqueOverlap(item,"vpecerr="))  { 
     sscanf(&item[8],"%lf",&INPUTS.zpecerr); 
@@ -15151,8 +15165,8 @@ void prep_input_driver(void) {
 	 INPUTS.logmass_min, INPUTS.logmass_max);
   printf("H0=%f \n", INPUTS.H0);
   printf("Nominal M0=%f \n", INPUTS.nommag0);
-  printf("zpecerr = %.4f \n", INPUTS.zpecerr );
-  printf("dsigint/dz(lensing) =%4f \n", INPUTS.lensing_zpar );
+  printf("zpecerr(override)   = %.5f \n", INPUTS.zpecerr );
+  printf("dsigint/dz(lensing) = %.4f \n", INPUTS.lensing_zpar );
 
   if (INPUTS.uave) 
     { printf("Use average M0.\n"); }
@@ -16786,8 +16800,8 @@ void write_MUERR_INCLUDE(FILE *fp) {
 
   tmpErr = INPUTS.zpecerr ;
   if ( tmpErr > 0.0 ) {
-    fprintf(fp, "# MUERR_INCLUDE: zPECERR=%.4f \n", tmpErr );
-    USE=1;
+    fprintf(fp, "# MUERR_INCLUDE: zPECERR=%.5f \n", tmpErr );
+    USE = 1;
   }
 
   tmpErr = INPUTS.lensing_zpar;

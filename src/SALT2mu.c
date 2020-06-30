@@ -1020,7 +1020,7 @@ typedef struct {
   float  *fitpar[NLCPAR+1], *fitpar_err[NLCPAR+1], *x0, *x0err ;
   float  *COV_x0x1, *COV_x0c, *COV_x1c ;
   float  *zhd,    *zhel,    *vpec ;
-  float  *zhderr, *zhelerr, *vpecerr ;
+  float  *zhderr, *zhelerr, *vpecerr, *zmuerr ;
   float  *logmass, *pIa, *snrmax ;
   short int  *IDSURVEY, *SNTYPE, *OPT_PHOTOZ ; 
   float  *fitpar_ideal[NLCPAR+1], *x0_ideal;
@@ -1472,6 +1472,9 @@ struct INPUTS {
 
   char SNID_MUCOVDUMP[MXCHAR_VARNAME]; // dump MUERR info for this SNID
 
+  int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
+  int debug_flag;    // for internal testing/refactoring
+  
 } INPUTS ;
 
 
@@ -1868,7 +1871,7 @@ int     prepNextFit(void);
 void    conflict_check(void);
 // xxx double  get_sigint_calc(double rchi2resid, double orig_sigint);
 double  next_covFitPar(double redchi2, double orig_parval, double parstep);
-void    recalc_dataCov(); 
+void    recalc_dataCov(void); 
 
 //Utility function definitions
 double cosmodl_forFit(double z, double *cosPar);
@@ -2015,7 +2018,14 @@ struct {
 
 
 
+/*
+void python_driver(char *stdin, double *bla, STRUCTBLA *BLABLA) {
+  flow_driver(...)
 
+int main(  )
+   flow_driver(...)
+}
+ */
 
 // *********************************
 int main(int argc,char* argv[ ])
@@ -3307,7 +3317,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   double chi2sum_tot, mures, sqmures;
   double muerrsq, muerrsq_last, muerrsq_raw, muerrsq_tmp, sqsigCC=0.001 ;
   double chi2evt_Ia, chi2sum_Ia, chi2evt, sigCC_chi2penalty=0.0 ;
-  double mu, mb, x1, c, z, zerr, logmass, dl, mumodel, mumodel_store;
+  double mu, mb, x1, c, z, zerr, zmuerr, logmass, dl, mumodel, mumodel_store;
   double muBias, muBiasErr, muBias_zinterp, muCOVscale, gammaDM ;
   double muerr, muerr_raw, muerr_last;
   int    ipar,  ipar2, ia, ib, ig, INTERPFLAG_abg ;
@@ -3441,6 +3451,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     z        = (double)INFO_DATA.TABLEVAR.zhd[n] ;     
     logmass  = (double)INFO_DATA.TABLEVAR.logmass[n];
     zerr     = (double)INFO_DATA.TABLEVAR.zhderr[n] ;
+    zmuerr   = (double)INFO_DATA.TABLEVAR.zmuerr[n] ; // for muerr calc
     mb       = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_mB][n] ;
     x1       = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_x1][n] ;
     c        = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_c][n] ;
@@ -3509,7 +3520,7 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 
     // compute error-squared on distance mod
     muerrsq  = fcn_muerrsq(name, alpha, beta, gamma, covmat_tot,
-			   z, zerr, 0);
+			   z, zmuerr, 0);
 
     // --------------------------------
     // Compute bias from biasCor sample
@@ -3611,11 +3622,6 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 	PTOT_CC  = 1.0 - PTOT_Ia ;
       }
 
-      /* xxxx mark delete May 8 2020 xxxxxxxxxxx
-      if ( force_probcc0(sntype,idsurvey) ) 
-	{ PTOT_Ia = 1.0;  PTOT_CC = 0.0 ;  } // spec-confirmed SNIa
-      xxxxxxx end mark xxxxx */
-
       if ( INPUTS.fitflag_sigmb == 2 ) 
 	{ muerrsq_update = muerrsq ; }  // current muerr for 5D biasCor
       else
@@ -3690,15 +3696,15 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 	    (double)INFO_DATA.TABLEVAR.covmat_fit[n][ipar][ipar2];
 	}
       }
-      muerrsq_raw = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit, z,zerr, 0);
+      muerrsq_raw = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit, z,zmuerr,0);
       muerr_raw   = sqrt(muerrsq_raw);
       INFO_DATA.muerr_raw[n] = muerr_raw;   
 
       // check user dump with total error (Jun 19 2018)
       dumpFlag_muerrsq = ( strcmp(name,INPUTS.SNID_MUCOVDUMP) == 0 );
       if ( dumpFlag_muerrsq ) {
-	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit,z,zerr,1) ;
-	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_tot,z,zerr,1) ;
+	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit,z,zmuerr,1) ;
+	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_tot,z,zmuerr,1) ;
       }
       
       if ( IS_SIM && SIM_NONIA_INDEX > 0 ) { nsnfit_truecc++ ; } 
@@ -4131,7 +4137,7 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
   // alpha,beta : SALT2 standardization parmas for stretch & color
   // gamma      : SALT2 standard param for logmass (NOT USED)
   // COV        : fit cov matrix + intrinsic cov matrix
-  // z,zerr     : redshift & its error
+  // z,zerr     : redshift & its error (zpecerr or zerrtot)
   //
   // Jun 27 2017: REFACTOR z bins
   // Sep 04 2017: use matrix-vector summing:
@@ -4176,7 +4182,7 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
 
   if(dumpFlag) { printf(" xxx mucov  = %le from COV \n", muerrsq);  }
   
-  // add redshift error and peculiar velocity error  
+  // add peculiar velocity error
   dmuz     = fcn_muerrz(1, z, zerr );
   muerrsq += (dmuz*dmuz) ;
 
@@ -4609,10 +4615,11 @@ void set_defaults(void) {
   // ======== misc ======
   INPUTS.NDUMPLOG = 1000 ;
   INPUTS.SNID_MUCOVDUMP[0] = 0 ;
-
+  INPUTS.debug_flag        = 0 ;
+  INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
 
   // === set blind-par values to be used if blindflag=2 (Aug 2017)
-  ISDATA_REAL = 1;
+  ISDATA_REAL = 1 ;
   INPUTS.blind_cosinePar[IPAR_OL][0] = 0.06; 
   INPUTS.blind_cosinePar[IPAR_OL][1] = 23434. ;
 
@@ -5073,6 +5080,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
 
     TABLEVAR->zhd           = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->zhderr        = (float *) malloc(MEMF); MEMTOT+=MEMF;
+    TABLEVAR->zmuerr        = (float *) malloc(MEMF); MEMTOT+=MEMF; // 6/2020
     TABLEVAR->zhel          = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->zhelerr       = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->vpec          = (float *) malloc(MEMF); MEMTOT+=MEMF;
@@ -5138,6 +5146,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     free(TABLEVAR->x0err);
     free(TABLEVAR->zhd);
     free(TABLEVAR->zhderr);
+    free(TABLEVAR->zmuerr);
     free(TABLEVAR->zhel);
     free(TABLEVAR->zhelerr);
     free(TABLEVAR->vpec);
@@ -5489,6 +5498,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->vpecerr[irow]    =  0.0 ;
     TABLEVAR->zhd[irow]        = -9.0 ;
     TABLEVAR->zhderr[irow]     = -9.0 ;
+    TABLEVAR->zmuerr[irow]     = -9.0 ;
     TABLEVAR->zhel[irow]       = -9.0 ;
     TABLEVAR->zhelerr[irow]    = -9.0 ;
     TABLEVAR->snrmax[irow]     =  0.0 ;
@@ -5733,12 +5743,14 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   //   ISN        : SN index for TABLEVAR arrays
   //   TABLEVAR   : structure of arrays
   //
-  //  Beware that we work here with float to save memory,
-  //  particularly for large BIASCOR samples.
+  //  Beware that TABLEVAR are float to save memory,
+  //  particularly for large BIASCOR samples. But local variables
+  //  and calculations are done with double.
   //
   // Aug 22 2019: set logmass to table value, or to p7
   //
   // Feb 24 2020: load TABLEVAR->fitpar[INDEX_mu][ISN]
+  // Jun 27 2020: local float -> double
   //
 
   int EVENT_TYPE   = TABLEVAR->EVENT_TYPE;
@@ -5756,26 +5768,28 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   bool  USE_FIELDGROUP    = (INPUTS.use_fieldGroup_biasCor > 0) ;
 
-  int  IDSURVEY   = (int)TABLEVAR->IDSURVEY[ISN];
-  int  SNTYPE     = (int)TABLEVAR->SNTYPE[ISN] ; 
-  int  OPT_PHOTOZ = TABLEVAR->OPT_PHOTOZ[ISN];
-  char *name      = TABLEVAR->name[ISN];
-  float x0        = TABLEVAR->x0[ISN];
-  float x0err     = TABLEVAR->x0err[ISN];
-  float x1err     = TABLEVAR->fitpar_err[INDEX_x1][ISN];
-  float cerr      = TABLEVAR->fitpar_err[INDEX_c][ISN];
-  float zhd       = TABLEVAR->zhd[ISN];
-  float zhderr    = TABLEVAR->zhderr[ISN];
-  float vpec      = TABLEVAR->vpec[ISN];
-  float vpecerr   = TABLEVAR->vpecerr[ISN];
-  float COV_x0x1  = TABLEVAR->COV_x0x1[ISN];
-  float COV_x0c   = TABLEVAR->COV_x0c[ISN];
-  float COV_x1c   = TABLEVAR->COV_x1c[ISN];
-  float SIM_X0    = TABLEVAR->SIM_X0[ISN];
+  int  IDSURVEY    = (int)TABLEVAR->IDSURVEY[ISN];
+  int  SNTYPE      = (int)TABLEVAR->SNTYPE[ISN] ; 
+  int  OPT_PHOTOZ  = (int)TABLEVAR->OPT_PHOTOZ[ISN];
+  char *name       =      TABLEVAR->name[ISN];
+  double x0        = (double)TABLEVAR->x0[ISN];
+  double x0err     = (double)TABLEVAR->x0err[ISN];
+  double x1err     = (double)TABLEVAR->fitpar_err[INDEX_x1][ISN];
+  double cerr      = (double)TABLEVAR->fitpar_err[INDEX_c][ISN];
+  double zhd       = (double)TABLEVAR->zhd[ISN];
+  double zhderr    = (double)TABLEVAR->zhderr[ISN];
+  double vpec      = (double)TABLEVAR->vpec[ISN];
+  double vpecerr   = (double)TABLEVAR->vpecerr[ISN];
+  double COV_x0x1  = (double)TABLEVAR->COV_x0x1[ISN];
+  double COV_x0c   = (double)TABLEVAR->COV_x0c[ISN];
+  double COV_x1c   = (double)TABLEVAR->COV_x1c[ISN];
+  double SIM_X0    = (double)TABLEVAR->SIM_X0[ISN];
+  double SIM_ZCMB  = (double)TABLEVAR->SIM_ZCMB[ISN];
   int   SIM_NONIA_INDEX = TABLEVAR->SIM_NONIA_INDEX[ISN];
   
-  float mB, mBerr, mB_orig, mB_off, x1, c, sf;
-  float zpec, zcmb, zMIN, zMAX, logmass ;
+  double mB, mBerr, mB_orig, mB_off, x1, c, sf, x0_ideal, mB_ideal ;
+  double zpec, zpecerr, zcmb, zMIN, zMAX, zhderr_tmp, logmass;
+  double dl_hd, dl_sim, dl, dl_ratio, dmu ;
   double covmat8_fit[NLCPAR][NLCPAR], covmat8_int[NLCPAR][NLCPAR];
   double covmat8_tot[NLCPAR][NLCPAR], covtmp8 ;
   int   OPTMASK_COV, ISTAT_COV, i, i2, IDSAMPLE;
@@ -5799,8 +5813,8 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     sf = -2.5/(x0*LOGTEN) ;
     mBerr = fabs(x0err * sf);
   }
-  TABLEVAR->fitpar[INDEX_mB][ISN]     = mB ;  // this mB has no offset
-  TABLEVAR->fitpar_err[INDEX_mB][ISN] = mBerr ;
+  TABLEVAR->fitpar[INDEX_mB][ISN]     = (float)mB ;  // this mB has no offset
+  TABLEVAR->fitpar_err[INDEX_mB][ISN] = (float)mBerr ;
 
   if ( IDSURVEY < 0 || IDSURVEY > MXIDSURVEY ) {
     sprintf(c1err,"Invalid IDSURVEY=%d (unsigned short) for %s SNID=%s", 
@@ -5815,22 +5829,22 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   zMIN = TABLEVAR->zMIN_PER_SURVEY[IDSURVEY] ;
   zMAX = TABLEVAR->zMAX_PER_SURVEY[IDSURVEY] ;
   if ( zhd > 0.0 ) {
-    if ( zhd < zMIN ) { TABLEVAR->zMIN_PER_SURVEY[IDSURVEY] = zhd; }
-    if ( zhd > zMAX ) { TABLEVAR->zMAX_PER_SURVEY[IDSURVEY] = zhd; }
+    if ( zhd < zMIN ) { TABLEVAR->zMIN_PER_SURVEY[IDSURVEY] = (float)zhd; }
+    if ( zhd > zMAX ) { TABLEVAR->zMAX_PER_SURVEY[IDSURVEY] = (float)zhd; }
   }
 
   // - - - - covariance matrix - - - - - - - -  
-  covmat8_fit[INDEX_mB][INDEX_mB] = (double)(x0err*x0err*sf*sf) ;
-  covmat8_fit[INDEX_mB][INDEX_x1] = (double)(COV_x0x1 * sf);
-  covmat8_fit[INDEX_mB][INDEX_c]  = (double)(COV_x0c  * sf) ;
-  covmat8_fit[INDEX_x1][INDEX_x1] = (double)(x1err * x1err) ;
-  covmat8_fit[INDEX_x1][INDEX_c]  = (double)(COV_x1c) ;
-  covmat8_fit[INDEX_c][INDEX_c]   = (double)(cerr * cerr) ;
+  covmat8_fit[INDEX_mB][INDEX_mB] = (x0err*x0err*sf*sf) ;
+  covmat8_fit[INDEX_mB][INDEX_x1] = (COV_x0x1 * sf);
+  covmat8_fit[INDEX_mB][INDEX_c]  = (COV_x0c  * sf) ;
+  covmat8_fit[INDEX_x1][INDEX_x1] = (x1err * x1err) ;
+  covmat8_fit[INDEX_x1][INDEX_c]  = (COV_x1c) ;
+  covmat8_fit[INDEX_c][INDEX_c]   = (cerr * cerr) ;
 
   // symmetric part of off-diagonals
-  covmat8_fit[INDEX_x1][INDEX_mB] = (double)(COV_x0x1 * sf) ;
-  covmat8_fit[INDEX_c][INDEX_mB]  = (double)(COV_x0c  * sf) ;
-  covmat8_fit[INDEX_c][INDEX_x1]  = (double)(COV_x1c);
+  covmat8_fit[INDEX_x1][INDEX_mB] = (COV_x0x1 * sf) ;
+  covmat8_fit[INDEX_c][INDEX_mB]  = (COV_x0c  * sf) ;
+  covmat8_fit[INDEX_c][INDEX_x1]  = (COV_x1c);
 
   OPTMASK_COV=0;
   if ( strcmp(name,INPUTS.SNID_MUCOVDUMP)==0 ) { OPTMASK_COV=4; } //dump COV
@@ -5879,14 +5893,23 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     // add user input zpecerr:
     // zhd = (1+zcmb)*(1+zpec) -1 = zcmb + zpec + zcmb*zpec
     // zcmb(1+zpec) = zhd - zpec     
-    zpec    =  vpec/LIGHT_km ;
-    zcmb    =  (zhd - zpec)/(1.0+zpec) ;
-    TABLEVAR->zhderr[ISN] = zerr_adjust(zcmb, zhderr, vpecerr, name);
+    zpec       =  vpec/LIGHT_km ;
+    zcmb       =  (zhd - zpec)/(1.0+zpec) ;
+    zhderr_tmp = (float)zerr_adjust(zcmb, zhderr, vpecerr, name);
+    TABLEVAR->zhderr[ISN] = zhderr_tmp ;
+    
+    // xxxxxxxxxxxxx
+    if ( ISN < -10 ) {
+      double dmuz  = fcn_muerrz(1, zhd, zhderr );
+      printf(" xxx %s: ISN=%2d z = %.3f +_ (%.3f->%.3f)  dmuz=%.3f \n",
+	     fnam, ISN, zhd, zhderr, TABLEVAR->zhderr[ISN], dmuz);
+    }
+    // xxxxxxxxxxxxx
+
 
     // if cosmo params are fixed, then store mumodel for each event.
     if ( INPUTS.FLOAT_COSPAR == 0 ) {
-      double z8 = (double)zhd;
-      double dl = cosmodl_forFit(z8,INPUTS.COSPAR);
+      dl = cosmodl_forFit(zhd,INPUTS.COSPAR);
       TABLEVAR->mumodel[ISN] = (float)(5.0*log10(dl) + 25.0);
     }
 
@@ -5922,7 +5945,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   // check option to force pIa = 1 for spec confirmed SNIa
   if ( force_probcc0(SNTYPE,IDSURVEY) ) { TABLEVAR->pIa[ISN] = 1.0 ;  } 
 
-
+  
   // - - - - - - - - - - - - - - - - - - - - - - 
   // IDSAMPLE is not ready for data yet,
   // but get it for BIASCOR and/or CCPRIOR
@@ -5952,17 +5975,30 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     // load sim_mb = -2.5log10(sim_x0)
     mB = -9.0;
     if ( SIM_X0 > 0.0 ) { mB = -2.5*log10(SIM_X0); }
-    mB_orig = TABLEVAR->SIM_FITPAR[INDEX_mB][ISN];
+    mB_orig = (double)TABLEVAR->SIM_FITPAR[INDEX_mB][ISN];
     mB_off  = mB_orig - mB;
-    TABLEVAR->SIM_FITPAR[INDEX_mB][ISN] = mB;  // no offset
+    TABLEVAR->SIM_FITPAR[INDEX_mB][ISN] = (float)mB;  // no offset
 
     // legacy check on user zpecerr 
     if ( INPUTS.zpecerr > 1.0E-9 ) {
-      double zpecerr = INPUTS.zpecerr * ( 1.0 + zhd ) ;
+      zpecerr = INPUTS.zpecerr * ( 1.0 + zhd ) ;
       TABLEVAR->zhderr[ISN]= (float)sqrt(zhderr*zhderr + zpecerr*zpecerr);
     }
 
   }  // end not-DATA
+
+  // - - - - - - - - - - - - - - - - - -   
+  // 6.29.2020: load zmuerr used for muerr += dmu/dz x zerr
+  if ( INPUTS.restore_sigz ) 
+    { TABLEVAR->zmuerr[ISN] = TABLEVAR->zhderr[ISN]; } // legacy: full zerr
+  else
+    { TABLEVAR->zmuerr[ISN] = vpecerr/LIGHT_km; } // only vpec component
+
+  if ( IS_DATA && ISN < 10 ) {
+    printf(" xxx %s: DATA ISN=%d(%s) zmuerr = %.4f (%d)\n",
+	   fnam, ISN, name, TABLEVAR->zmuerr[ISN], INPUTS.restore_sigz ); 
+    fflush(stdout);
+  }
 
   // - - - - -
   if ( !IS_DATA  && DO_BIASCOR_MU ) { 
@@ -5970,27 +6006,43 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     // Note that true Alpha,Beta,GammaDM are used for mu_obs.
     // Beware that M0_DEFAULT may be fragile.
     double Alpha, Beta, GammaDM, mu_obs, mu_true; 
-    mB      = TABLEVAR->fitpar[INDEX_mB][ISN] ;
-    x1      = TABLEVAR->fitpar[INDEX_x1][ISN] ;
-    c       = TABLEVAR->fitpar[INDEX_c][ISN] ;
+    mB      = (double)TABLEVAR->fitpar[INDEX_mB][ISN] ;
+    x1      = (double)TABLEVAR->fitpar[INDEX_x1][ISN] ;
+    c       = (double)TABLEVAR->fitpar[INDEX_c][ISN] ;
 
     Alpha   = INPUTS.parval[IPAR_ALPHA0]; // 4/10/2020: temp hack;later should
     Beta    = INPUTS.parval[IPAR_BETA0];  // measure A,B from slopes of HR vs x1,c
     GammaDM = TABLEVAR->SIM_GAMMADM[ISN] ;
 
-    mu_true = TABLEVAR->SIM_MU[ISN] ;  //.xyz
+    if ( INPUTS.debug_flag == 1 ) {
+      // adjust true mu to measured zhd instead of true z (Jun 2020)
+      dl_hd    = cosmodl(zhd,INPUTS.COSPAR);
+      dl_sim   = cosmodl(SIM_ZCMB,INPUTS.COSPAR);
+      dl_ratio = dl_hd/dl_sim ;
+    }
+    else
+      { dl_ratio = 1.0 ; }
+
+    dmu = 5.0*log10(dl_ratio);
+
+    if ( ISN < -20 ) {
+      printf(" xxx %s: ISN=%2d zhd=%.3f SIM_ZCMB=%.3f dmu=%.3f \n",
+	     fnam, ISN, zhd, SIM_ZCMB, dmu );
+    }
+
+    mu_true = (double)TABLEVAR->SIM_MU[ISN] + dmu ;  //.xyz
     mu_obs  = mB - M0_DEFAULT + Alpha*x1 - Beta*c - GammaDM ;
-    TABLEVAR->fitpar[INDEX_mu][ISN]      = mu_obs ; 
-    TABLEVAR->SIM_FITPAR[INDEX_mu][ISN]  = mu_true ;
+    TABLEVAR->fitpar[INDEX_mu][ISN]      = (float)mu_obs ; 
+    TABLEVAR->SIM_FITPAR[INDEX_mu][ISN]  = (float)mu_true ;
   }
 
   if ( IS_BIASCOR && IDEAL ) {
-    float x0_ideal = TABLEVAR->x0_ideal[ISN];
-    TABLEVAR->fitpar_ideal[INDEX_mB][ISN] = -2.5*log10f(x0_ideal); 
+    x0_ideal = (double)TABLEVAR->x0_ideal[ISN];
+    mB_ideal = -2.5*log10f(x0_ideal); 
+    TABLEVAR->fitpar_ideal[INDEX_mB][ISN] = (float)mB_ideal;
   }
 
-
-  // - - - -  -
+  // - - - - 
   // finally, set cutmask in TABLEVAR
   set_CUTMASK(ISN, TABLEVAR);
 
@@ -6019,7 +6071,7 @@ void compute_more_INFO_DATA(void) {
   double beta       = INPUTS.parval[IPAR_BETA0] ;
   double gamma      = INPUTS.parval[IPAR_GAMMA0] ;
   double *ptr_sigCC = &INPUTS.parval[IPAR_H11+3];
-  double muerrsq, sigCC, zhd, zhderr, cov, covmat_tot[NLCPAR][NLCPAR] ;
+  double muerrsq, sigCC, zhd, zhderr, zmuerr, cov, covmat_tot[NLCPAR][NLCPAR] ;
   int    isn, CUTMASK, i, i2 ;
   char *name;
   //  char fnam[] = "compute_more_INFO_DATA";
@@ -6038,13 +6090,14 @@ void compute_more_INFO_DATA(void) {
     else {
       zhd    = (double)INFO_DATA.TABLEVAR.zhd[isn];
       zhderr = (double)INFO_DATA.TABLEVAR.zhderr[isn];
+      zmuerr = (double)INFO_DATA.TABLEVAR.zmuerr[isn];
       for(i=0; i < NLCPAR; i++ ) {
 	for(i2=0; i2 < NLCPAR; i2++ ) {
 	  cov = (double)INFO_DATA.TABLEVAR.covmat_tot[isn][i][i2];
 	  covmat_tot[i][i2] = cov;
 	}
       }
-      muerrsq = fcn_muerrsq(name,alpha,beta,gamma, covmat_tot,zhd,zhderr, 0);
+      muerrsq = fcn_muerrsq(name,alpha,beta,gamma, covmat_tot,zhd,zmuerr, 0);
       sigCC   = ptr_sigCC[0] + zhd*ptr_sigCC[1] + zhd*zhd*ptr_sigCC[2];
     }
 
@@ -7484,6 +7537,7 @@ void prepare_biasCor(void) {
   // Dec 11 2019: fix to work with DOCOR_1D5DCUT
   //
   // Feb 5 2020: if > 5 SIM_gammaDM bins, do NOT add another dimension
+  // Jun 25 2020: if INPUTS.fitflag_sigmb=0, leave it at zero
 
   int INDX, IDSAMPLE, SKIP, NSN_DATA, CUTMASK, ievt ;
   int  NBINm = INPUTS.nbin_logmass;
@@ -7604,12 +7658,13 @@ void prepare_biasCor(void) {
   }
 
   // Jan 16 2018: force correct option for log(sigma) term in chi2
-  if ( NDIM_BIASCOR >=5  ) 
-    { INPUTS.fitflag_sigmb = 2 ; } // include log(sigma) term
-  else
-    { INPUTS.fitflag_sigmb = 1 ; } // ignore log(sigma) term
-  printf("\t Force fitflag_sigmb = %d \n", INPUTS.fitflag_sigmb);
-
+  if ( INPUTS.fitflag_sigmb > 0 ) {
+    if ( NDIM_BIASCOR >=5  ) 
+      { INPUTS.fitflag_sigmb = 2 ; } // include log(sigma) term
+    else
+      { INPUTS.fitflag_sigmb = 1 ; } // ignore log(sigma) term
+    printf("\t Force fitflag_sigmb = %d \n", INPUTS.fitflag_sigmb);
+  }
 
   // check which cov parameter in fit
   if ( IDEAL )  { 
@@ -9264,20 +9319,20 @@ double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov) {
   int DOCOVINT     = ( (maskCov & USEMASK_BIASCOR_COVINT)>0 ) ;
 
   int IDSAMPLE, iz, ia, ib, ig, OPTMASK;
-  double z, zerr, a, b, gDM;
+  double zhd, zhderr, zmuerr, a, b, gDM;
   double COVTOT[NLCPAR][NLCPAR] ;
   double COVINT[NLCPAR][NLCPAR] ;
   double COVTMP, muErrsq ;
   int  j0, j1 ;
   char *name ;
-  //  char fnam[] = "muerrsq_biasCor" ;
+  char fnam[] = "muerrsq_biasCor" ;
   
   // ------------- BEGIN -----------
 
-
   IDSAMPLE = (int)INFO_BIASCOR.TABLEVAR.IDSAMPLE[ievt] ;
-  z        = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt] ;
-  zerr     = (double)INFO_BIASCOR.TABLEVAR.zhderr[ievt] ;
+  zhd      = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt] ;
+  zhderr   = (double)INFO_BIASCOR.TABLEVAR.zhderr[ievt] ;
+  zmuerr   = (double)INFO_BIASCOR.TABLEVAR.zmuerr[ievt] ;
   a        = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[ievt] ;
   b        = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt] ;
   gDM      = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt] ;
@@ -9285,18 +9340,14 @@ double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov) {
   ib       = (int)INFO_BIASCOR.IB[ievt] ;
   ig       = (int)INFO_BIASCOR.IG[ievt] ;
   name     = INFO_BIASCOR.TABLEVAR.name[ievt];
-  iz       = IBINFUN(z,  &INPUTS.BININFO_z, 0, "" );
+  iz       = IBINFUN(zhd,  &INPUTS.BININFO_z, 0, "" );
   if ( DOCOVINT ) 
-    { get_COVINT_biasCor(IDSAMPLE,z,a,b,gDM, COVINT); } // return COVINT
+    { get_COVINT_biasCor(IDSAMPLE,zhd,a,b,gDM, COVINT); } // return COVINT
    
-
   //  check option to include intrinsic scatter matrix
-
   for(j0=0; j0<NLCPAR; j0++ )  { 
     for(j1=0;j1<NLCPAR;j1++ ) { 
-
       COVTMP = 0.0 ;
-
       if ( DOCOVFIT ) 
 	{ COVTMP += (double)INFO_BIASCOR.TABLEVAR.covmat_fit[ievt][j0][j1]; }
       
@@ -9304,17 +9355,15 @@ double muerrsq_biasCor(int ievt, int maskCov, int *istat_cov) {
 	{ COVTMP += COVINT[j0][j1]; }
 
       COVTOT[j0][j1] = COVTMP ;
-
     } 
   }
-
 
   // fix matrix if it has bad eigenvalues (just like for data)
   OPTMASK=0;
   update_covMatrix( name, OPTMASK, NLCPAR, COVTOT, EIGMIN_COV, istat_cov ); 
   
   // compute error on distance, including covariances
-  muErrsq = fcn_muerrsq(name, a, b, gDM, COVTOT, z, zerr, 0 );
+  muErrsq = fcn_muerrsq(name, a, b, gDM, COVTOT, zhd, zmuerr, 0 );
 
   return(muErrsq);
 
@@ -12672,7 +12721,7 @@ double prob_CCprior_H11(int n, double dmu,
   double *zPoly_mu  = &H11_fitpar[0];
   double *zPoly_sig = &H11_fitpar[3];
   char  *name;
-  double z,zerr, zsq ;
+  double z, zerr, zmuerr, zsq ;
   double prob  = 0.0 ;
   double arg, sqsigCC, sigCC, sigintCC, CCpoly, dmuCC ;
   double alpha, beta, gamma, muerrsq_raw, covmat_fit[NLCPAR][NLCPAR] ;
@@ -12681,9 +12730,10 @@ double prob_CCprior_H11(int n, double dmu,
 
   // ----------- BEGIN ------------
 
-  name  = INFO_DATA.TABLEVAR.name[n];
-  z     = INFO_DATA.TABLEVAR.zhd[n];
-  zerr  = INFO_DATA.TABLEVAR.zhderr[n];
+  name    = INFO_DATA.TABLEVAR.name[n];
+  z       = INFO_DATA.TABLEVAR.zhd[n];
+  zerr    = INFO_DATA.TABLEVAR.zhderr[n];
+  zmuerr  = INFO_DATA.TABLEVAR.zmuerr[n];
   for(i=0; i < NLCPAR; i++ ) {
     for(i2=0; i2 < NLCPAR; i2++ )
       { covmat_fit[i][i2] = (double)INFO_DATA.TABLEVAR.covmat_fit[n][i][i2];}
@@ -12699,7 +12749,7 @@ double prob_CCprior_H11(int n, double dmu,
   gamma  = INPUTS.parval[IPAR_GAMMA0] ;
 
   muerrsq_raw = fcn_muerrsq(name, alpha, beta, gamma, covmat_fit,
-			    z,zerr, 0);
+			    z,zmuerr, 0);
 
   sqsigCC = muerrsq_raw + (sigintCC*sigintCC) ;
   dmuCC   = (dmu-CCpoly) ;  // i.e., mucalc -> mucalc+CCpoly
@@ -13677,6 +13727,7 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"sigint_fix="))  { 
     s = INPUTS.sigint_fix ;
     sscanf(&item[11],"%s", INPUTS.sigint_fix);  remove_quote(s); 
+    INPUTS.fitflag_sigmb=0;
     return(1); 
   }
 
@@ -13856,6 +13907,12 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"snid_mucovdump=")) 
     { sscanf(&item[15],"%s", INPUTS.SNID_MUCOVDUMP); return(1); }
+
+  if ( uniqueOverlap(item,"restore_sigz=")) 
+    { sscanf(&item[13],"%d", &INPUTS.restore_sigz); return(1); }
+
+  if ( uniqueOverlap(item,"debug_flag=")) 
+    { sscanf(&item[11],"%d", &INPUTS.debug_flag); return(1); }
 
   return(0);
   
@@ -15692,7 +15749,7 @@ void get_COVINT_model(int IDSAMPLE, double (*COVINT)[NLCPAR] ) {
 
 
 // ******************************************
-void recalc_dataCov(){
+void recalc_dataCov(void) {
 
   // Jan 26 2018 - Major refactor 
   //

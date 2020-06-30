@@ -1,3 +1,4 @@
+
    v9_00 [Sep 3, 2010]  
 
              ***** ACTION ITEMS for ALL SNANA USERS *****
@@ -18610,6 +18611,8 @@
        so only use SALT2mu_fit.pl to launch NSPLITRAN.
      + fix mu_true for opt_biascor += 128 (biasCor with MU)
        to use measured redshift instead of true redshift.
-
+        (fow now, works only with debug_flag=1)
+     + remove redshift error from muerrz calc (use only vpec).
+        restore_sigz=1 restores original calc.
 
 END: 

@@ -19345,16 +19345,16 @@ C ------------- BEGIN ------------
 
       FNAM = 'SET_ZHELIO'
 
-c xxx mark delete      IF ( SNLC_ZHELIO > 0 ) RETURN
       IF ( SNLC_ZCMB  < 0 ) RETURN
 
-c now we have undefined zHELIO and valid zCMB
+c now we have undefined zCMB
 
-      if ( RESTORE_DES3YR ) then
+c xxxxxxxxxxxxxx
+c      if ( RESTORE_DES3YR ) then
+c      else
+c      endif
+c xxxxxxxxxxxxxx
 
-      else
-
-      endif
       EQ     = 'eq' // char(0)
 
 c don't apply test on VERY low redshifts to avoid silly 
@@ -37957,7 +37957,11 @@ c function
 C -------------- BEGIN ------------------
 
       IERR = 0   ! set output flag to OK
-    
+ 
++SELF,IF=MINUIT.
+      CALL ADD_FITPARERR_FROMz(ITER)    ! Jun 2020
++SELF.
+   
 c store chi2
 
       FITCHI2_STORE(1)     = FITCHI2_MIN ! total chi2
@@ -38077,7 +38081,7 @@ c print results for floated parameters only
      &     .or. NFIXPAR .EQ. NFITPAR_MN 
      &     .or .IPAR    .EQ. 1             ! IPAR_ITER - Nov 2014
      &           ) then
-            CALL PR_FITPAR(SNLC_CCID, iter, ipar, 'fit' )
+            CALL PRINT_FITPAR(SNLC_CCID, iter, ipar, 'fit' )
          endif
 
 c do stuff on last iteration
@@ -38184,8 +38188,8 @@ C --------------- BEGIN -------------
       END
 
 C =======================================
-+DECK,PR_FITPAR.
-      SUBROUTINE PR_FITPAR(CCID, iter, ipar, type )
++DECK,PRINT_FITPAR.
+      SUBROUTINE PRINT_FITPAR(CCID, iter, ipar, type )
 c
 c standard print-line for fit-result or pdf-result.
 c
@@ -38253,7 +38257,7 @@ c write par value into string using format
       CALL FLUSH(6)
 
       RETURN
-      END    ! end of PR_FITPAR
+      END    ! end of PRINT_FITPAR
 
 C ==============================
 +DECK,BOOK_CONTOUR.
@@ -38400,7 +38404,7 @@ c over-write LCVAL[ERR] array with pdf-avarges
 
          if ( .NOT. FLOATPAR(ipar)  ) goto 30
 
-         CALL PR_FITPAR( SNLC_CCID, 0, ipar, 'pdf' )
+         CALL PRINT_FITPAR( SNLC_CCID, 0, ipar, 'pdf' )
          CALL FLUSH(6)
 
 30    CONTINUE

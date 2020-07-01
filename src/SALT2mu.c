@@ -6004,7 +6004,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 
 
 
-  if ( IS_DATA && ISN < 10 ) {
+  if ( IS_DATA && ISN < -10 ) {
     double zmuerr = TABLEVAR->zmuerr[ISN] ;
     double dmuz  = fcn_muerrz(1, zhd, zmuerr );
     printf(" xxx %s: DATA ISN=%d(%s)  z=%5.3f  zmuerr=%.4f  (vpecerr=%.1f)\n",

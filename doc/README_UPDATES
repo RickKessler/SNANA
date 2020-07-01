@@ -18588,13 +18588,15 @@
 
    snlc_fit.car
      + fix subtle bug setting ERRMAX_BAD for zPHOT when using
-       spec-z as a prior.
+       spec-z as a prior. Fixes zPHOTERR spike at 0.05.
 
 
 # ======================================================================= 
-         v10_77f (  ) 
+         v10_77f (Jun 30 2020) 
 
          ***** IMPORTANT(v10_77f) ***** 
+
+   SALT2mu: remove redshift error from muerrz calc (use only vpec).
 
          ***** USEFUL(v10_77f) ***** 
 
@@ -18604,7 +18606,7 @@
       + abort if SIMVAR_CUTWIN_STRING variable not found.
 
     SALT2mu_fit.pl & SALT2mu.c:
-     + refactor/update  so that NSPLITRAN output goes to
+     + refactor/update so that NSPLITRAN output goes to
        separate subdirs names 0001, 0002, etc ... 
        This change should allow Pippin to run CosmoMC.
        Interactive NSPLITRAN probably won't work,

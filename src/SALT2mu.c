@@ -5793,6 +5793,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   double COV_x1c   = (double)TABLEVAR->COV_x1c[ISN];
   double SIM_X0    = (double)TABLEVAR->SIM_X0[ISN];
   double SIM_ZCMB  = (double)TABLEVAR->SIM_ZCMB[ISN];
+  double SIM_MU    = (double)TABLEVAR->SIM_MU[ISN] ; 
   int   SIM_NONIA_INDEX = TABLEVAR->SIM_NONIA_INDEX[ISN];
   
   double mB, mBerr, mB_orig, mB_off, x1, c, sf, x0_ideal, mB_ideal ;
@@ -6014,7 +6015,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 
   // - - - - -
   if ( !IS_DATA  && DO_BIASCOR_MU ) { 
-    // load mu for opton bias-correct MU instead of correcting mB,x1,c 
+    // load mu for option to bias-correct MU instead of correcting mB,x1,c 
     // Note that true Alpha,Beta,GammaDM are used for mu_obs.
     // Beware that M0_DEFAULT may be fragile.
     double Alpha, Beta, GammaDM, mu_obs, mu_true; 
@@ -6022,8 +6023,10 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     x1      = (double)TABLEVAR->fitpar[INDEX_x1][ISN] ;
     c       = (double)TABLEVAR->fitpar[INDEX_c][ISN] ;
 
-    Alpha   = INPUTS.parval[IPAR_ALPHA0]; // 4/10/2020: temp hack;later should
-    Beta    = INPUTS.parval[IPAR_BETA0];  // measure A,B from slopes of HR vs x1,c
+    // 4/10/2020: temp hack;later should measure A,B from slopes of HR vs x1,c
+    // Maybe need option to use true A,B from sims ?
+    Alpha   = INPUTS.parval[IPAR_ALPHA0]; 
+    Beta    = INPUTS.parval[IPAR_BETA0]; 
     GammaDM = TABLEVAR->SIM_GAMMADM[ISN] ;
 
     if ( INPUTS.debug_flag == 1 ) {
@@ -6042,7 +6045,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 	     fnam, ISN, zhd, SIM_ZCMB, dmu );
     }
 
-    mu_true = (double)TABLEVAR->SIM_MU[ISN] + dmu ;  //.xyz
+    mu_true = SIM_MU + dmu ; 
     mu_obs  = mB - M0_DEFAULT + Alpha*x1 - Beta*c - GammaDM ;
     TABLEVAR->fitpar[INDEX_mu][ISN]      = (float)mu_obs ; 
     TABLEVAR->SIM_FITPAR[INDEX_mu][ISN]  = (float)mu_true ;
@@ -9245,7 +9248,7 @@ double muresid_biasCor(int ievt ) {
   // Note that there is no bias correction here, just the
   // naive distance from Trip formula.
   //
-  // Aug 22 2019: incoude dmHost term based on initial hostPar values.
+  // Aug 22 2019: include dmHost term based on initial hostPar values.
   // Apr 02 2020: for BIASCOR_MU option, a,b = user input p1,p2  
 
   double z, a, b, g, M0, mB, x1, c, logmass, dmHost, hostPar[10];
@@ -9259,13 +9262,16 @@ double muresid_biasCor(int ievt ) {
 
   M0     = INPUTS.nommag0 ;
 
-  if (DOBIAS_MU) {
-    a = INPUTS.parval[IPAR_ALPHA0];
-    b = INPUTS.parval[IPAR_BETA0];
-  } 
+  if ( DOBIAS_MU ) {
+    // sim_alpha[beta] may not exist or make sense, so set
+    // a,b to user-input values
+    //   fragile alert !!! .xyz
+    a  = INPUTS.parval[IPAR_ALPHA0];
+    b  = INPUTS.parval[IPAR_BETA0];
+  }  
   else{
-    a        = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[ievt] ;
-    b        = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt] ;
+    a  = (double)INFO_BIASCOR.TABLEVAR.SIM_ALPHA[ievt] ;
+    b  = (double)INFO_BIASCOR.TABLEVAR.SIM_BETA[ievt] ;
   }
 
   g        = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt] ;
@@ -9286,22 +9292,21 @@ double muresid_biasCor(int ievt ) {
     dmHost     = get_gammadm_host(z,logmass,hostPar);
   }
 
-  // need true MU at observed redshift z. We don't have the biasCor
-  // cosmology parameters, so we'll use a derivative to compute
-  //     muTrue = SIM_DLMAG + (z-zTrue)*dmu/dz,
-  // where dmu/dz is computed from the SALT2mu-reference cosmology.
-  // Assumption here is that correction to SIM_DLMAG is very small
-  // so that using approximate cosmology for dmu/dz won't matter.
+  // need true MU at observed redshift z for biasCor COSPAR. 
+  // We don't have access to the biasCor COSPAR, so add 
+  // mu-shift (dmu) to SIM_MU(biasCor) where
+  //   dmu = mu(z,COSPAR_BBC) - mu(zTrue,COSPAR_BBC) 
+  //
+  // and COSPAR_BBC are the BBC-input cosmology params
 
-
-  // use measured z including zpec
+  // get d_l for measured redshift 
   dlz      = cosmodl_forFit(z, INPUTS.COSPAR); 
 
-  // use true zCMB
+  // get d_l for true redshift
   dlzTrue  = cosmodl_forFit(zTrue, INPUTS.COSPAR); 
 
   dmu    = 5.0*log10(dlz/dlzTrue) ;
-  muz    = muTrue + dmu ;
+  muz    = muTrue + dmu ;  // mu at measured z and biasCor COSPAR
   muFit  = mB + a*x1 - b*c + dmHost - M0 ; 
   muDif  = muFit - muz ;
 
@@ -9700,6 +9705,8 @@ void init_COVINT_biasCor(void) {
     ia       = (int)INFO_BIASCOR.IA[ievt] ; // true alpha index
     ib       = (int)INFO_BIASCOR.IB[ievt] ; // true beta index
     ig       = (int)INFO_BIASCOR.IG[ievt] ; // true gamma DM
+
+    // use true or meaured redshift ??? [7.01.2020]
     iz       = (int)INFO_BIASCOR.IZ[ievt] ; // true zcmb index
     z        = (int)INFO_BIASCOR.TABLEVAR.SIM_ZCMB[ievt] ;
 

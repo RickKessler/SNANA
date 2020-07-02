@@ -780,6 +780,11 @@ Default output files (can change names with "prefix" argument)
    + when using MU in biasCor (opt_biadcor += 128), fix mu_true
      to be based on measured redshift instead of true redshift.
 
+  Jul 1 2020: abort if NEVT(biasCor)=0 for any IDSAMPLE
+
+  Jul 2 2020
+    + add SIM_MUz[ISN] array to better track calc MU at observed zHD.
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -1031,7 +1036,8 @@ typedef struct {
   short int *SIM_NONIA_INDEX ;
   float *SIM_ALPHA, *SIM_BETA, *SIM_GAMMADM;
   float *SIM_X0, *SIM_FITPAR[NLCPAR+1]; 
-  float *SIM_ZCMB, *SIM_VPEC, *SIM_MU ;
+  float *SIM_ZCMB, *SIM_VPEC, *SIM_MU;
+  float *SIM_MUz ; // calculated SIM_MU at observed redshift
 
   // scalar flags & counters computed from above
   bool   IS_DATA, IS_SIM ;
@@ -4653,8 +4659,10 @@ void init_CUTMASK(void) {
     }
   }
 
-  for(bit=0; bit < MXNUM_SAMPLE; bit++ ) 
-    { NDATA_BIASCORCUT[0][bit] = NDATA_BIASCORCUT[1][bit] = 0 ; }
+  for(bit=0; bit < MXNUM_SAMPLE; bit++ ) {
+    NDATA_BIASCORCUT[0][bit] = NDATA_BIASCORCUT[1][bit] = 0 ; 
+  }
+
 
   sprintf(CUTSTRING_LIST[CUTBIT_z],         "z"  );
   sprintf(CUTSTRING_LIST[CUTBIT_x1],        "x1" );
@@ -5108,6 +5116,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->SIM_ZCMB         = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->SIM_VPEC         = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->SIM_MU           = (float *) malloc(MEMF); MEMTOT+=MEMF;
+    TABLEVAR->SIM_MUz          = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->SIM_ALPHA        = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->SIM_BETA         = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->SIM_GAMMADM      = (float *) malloc(MEMF); MEMTOT+=MEMF;
@@ -5178,6 +5187,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     free(TABLEVAR->SIM_ZCMB);
     free(TABLEVAR->SIM_VPEC);
     free(TABLEVAR->SIM_MU);
+    free(TABLEVAR->SIM_MUz);
     free(TABLEVAR->SIM_ALPHA);
     free(TABLEVAR->SIM_BETA);
     free(TABLEVAR->SIM_GAMMADM);
@@ -5517,6 +5527,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->SIM_BETA[irow]         = -9.0 ;
     TABLEVAR->SIM_GAMMADM[irow]      =  0.0 ; // allow missing gammadm
     TABLEVAR->SIM_MU[irow]           = -9.0 ;
+    TABLEVAR->SIM_MUz[irow]          = -9.0 ;
     TABLEVAR->SIM_ZCMB[irow]         = -9.0 ;
     TABLEVAR->SIM_VPEC[irow]         =  0.0 ;
   }
@@ -5794,6 +5805,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   double SIM_X0    = (double)TABLEVAR->SIM_X0[ISN];
   double SIM_ZCMB  = (double)TABLEVAR->SIM_ZCMB[ISN];
   double SIM_MU    = (double)TABLEVAR->SIM_MU[ISN] ; 
+  double SIM_MUz ;   // SIM_MU at zHD, computed below
   int   SIM_NONIA_INDEX = TABLEVAR->SIM_NONIA_INDEX[ISN];
   
   double mB, mBerr, mB_orig, mB_off, x1, c, sf, x0_ideal, mB_ideal ;
@@ -5979,7 +5991,8 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 
     // misc stuff for BIASCOR & CCPRIOR
     // increment number of events per IDSAMPLE (for biasCor)
-    SAMPLE_BIASCOR[IDSAMPLE].NSN[EVENT_TYPE]++ ;
+    if ( IDSAMPLE >= 0 ) 
+      { SAMPLE_BIASCOR[IDSAMPLE].NSN[EVENT_TYPE]++ ; }
 
     // load sim_mb = -2.5log10(sim_x0)
     mB = -9.0;
@@ -6013,9 +6026,22 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     fflush(stdout);
   }
 
+  // Compute SIM_MUz from zHD (SIM_MU is from true SIM_zCMB)
+  if ( !IS_DATA ) {
+    // beware that INPUTS.COSPAR are not always the same as SIM-COSPAR,
+    // so be careful computing SIM_MU at zHD
+    dl_hd    = cosmodl(zhd,INPUTS.COSPAR);
+    dl_sim   = cosmodl(SIM_ZCMB,INPUTS.COSPAR);
+    dl_ratio = dl_hd/dl_sim ;
+    dmu = 5.0*log10(dl_ratio);
+    //    if(INPUTS.debug_flag!=1) {dmu=0.0;} // remove after testing
+    SIM_MUz = SIM_MU + dmu ;
+    TABLEVAR->SIM_MUz[ISN] = (float)SIM_MUz ;
+  }
+
   // - - - - -
   if ( !IS_DATA  && DO_BIASCOR_MU ) { 
-    // load mu for option to bias-correct MU instead of correcting mB,x1,c 
+    // Prepare option to bias-correct MU instead of correcting mB,x1,c 
     // Note that true Alpha,Beta,GammaDM are used for mu_obs.
     // Beware that M0_DEFAULT may be fragile.
     double Alpha, Beta, GammaDM, mu_obs, mu_true; 
@@ -6029,26 +6055,14 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     Beta    = INPUTS.parval[IPAR_BETA0]; 
     GammaDM = TABLEVAR->SIM_GAMMADM[ISN] ;
 
-    if ( INPUTS.debug_flag == 1 ) {
-      // adjust true mu to measured zhd instead of true z (Jun 2020)
-      dl_hd    = cosmodl(zhd,INPUTS.COSPAR);
-      dl_sim   = cosmodl(SIM_ZCMB,INPUTS.COSPAR);
-      dl_ratio = dl_hd/dl_sim ;
-    }
-    else
-      { dl_ratio = 1.0 ; }
-
-    dmu = 5.0*log10(dl_ratio);
-
     if ( ISN < -20 ) {
       printf(" xxx %s: ISN=%2d zhd=%.3f SIM_ZCMB=%.3f dmu=%.3f \n",
 	     fnam, ISN, zhd, SIM_ZCMB, dmu );
     }
 
-    mu_true = SIM_MU + dmu ; 
     mu_obs  = mB - M0_DEFAULT + Alpha*x1 - Beta*c - GammaDM ;
     TABLEVAR->fitpar[INDEX_mu][ISN]      = (float)mu_obs ; 
-    TABLEVAR->SIM_FITPAR[INDEX_mu][ISN]  = (float)mu_true ;
+    TABLEVAR->SIM_FITPAR[INDEX_mu][ISN]  = (float)SIM_MUz ;
   }
 
   if ( IS_BIASCOR && IDEAL ) {
@@ -7912,10 +7926,11 @@ void  read_simFile_biasCor(void) {
 void  prepare_biasCor_zinterp(void) {
 
   // Jun 28 2016 
-  // Special biasCor option to correct mb(z) using muBias(sample,z).
+  // Special biasCor option to correct vs. redshift only.
   // Evaluate mubias(sample,z) from biasCor sample.
   //
   // Jun 25 2020: fix determination of mu_true based on DO_BIASCOR_MU
+  // Jul 02 2020: fix mu_true = SIM_MUz, regardless of DO_BIASCOR_MU
 
   int    NSAMPLE  = NSAMPLE_BIASCOR ;
   double alpha    = INPUTS.parval[IPAR_ALPHA0] ;
@@ -8012,10 +8027,14 @@ void  prepare_biasCor_zinterp(void) {
     c_sim     = (double)INFO_BIASCOR.TABLEVAR.SIM_FITPAR[INDEX_c ][ievt] ;
     SNRMAX    = (double)INFO_BIASCOR.TABLEVAR.snrmax[ievt];
 
+    mu_true   = (double)INFO_BIASCOR.TABLEVAR.SIM_MUz[ievt];  // at zHD
+
+    /* xxxxxxxxxx mark delete Jul 2 2020 xxxxxx
     if ( DO_BIASCOR_MU ) // get SIM_MU at measured z
       { mu_true = (double)INFO_BIASCOR.TABLEVAR.SIM_FITPAR[INDEX_mu][ievt];}
     else
       { mu_true = (double)INFO_BIASCOR.TABLEVAR.SIM_MU[ievt]; } // at true z
+    xxxxxxxxxx end mark xxxxxxxx */
 
     mu_fit  = mB_fit + alpha*x1_fit - beta*c_fit - M0_DEFAULT ;
     mu_sim  = mB_sim + alpha*x1_sim - beta*c_sim - M0_DEFAULT ;
@@ -11731,7 +11750,7 @@ void get_muBias(char *NAME,
   // so no need to divide by SUMWGT here.
 
   muBias_local = SQERR = 0.0 ;
-    
+  
   for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX ; ipar++ ) {
     biasVal[ipar] /= WGTpar_SUM[ipar] ;
     biasErr[ipar] /= WGTpar_SUM[ipar] ;
@@ -12958,6 +12977,8 @@ void print_eventStats(int event_type) {
   // 
   // Tricky part is counting how many events are rejected by
   // a single cut ... and to to it efficiently.
+  //
+  // Jul 1 2020: abort if NEVT(biasCor)=0 for any IDSAMPLE
 
   char *STRTYPE     = STRING_EVENT_TYPE[event_type];
   int  NSN_TOT, *CUTMASK_PTR ;
@@ -13012,6 +13033,34 @@ void print_eventStats(int event_type) {
 
   printf("#%s\n\n", dashLine);
   fflush(stdout);
+
+
+  // July 1 2020:
+  // Abort if BIASCOR sample is missing for any IDSAMPLE.
+  int NMISSING = 0 ;
+  if ( event_type == EVENT_TYPE_BIASCOR ) {
+    int  NSAMPLE = NSAMPLE_BIASCOR ;
+    int idsample, OPT_PHOTOZ, NSN ;      char *NAME;
+    for(idsample=0 ; idsample < NSAMPLE; idsample++ ) {
+      NSN        = SAMPLE_BIASCOR[idsample].NSN[event_type] ;
+      OPT_PHOTOZ = SAMPLE_BIASCOR[idsample].OPT_PHOTOZ ;
+      NAME       = SAMPLE_BIASCOR[idsample].NAME ;
+      if ( NSN == 0 ) {
+	NMISSING++ ;
+	printf(" WARNING: No BIASCOR events for %s [IDSAMPLE=%d]\n", 
+	       NAME, idsample);
+	printf("\t OPT_PHOTOZ(data) = %d for %s \n", OPT_PHOTOZ, NAME );
+	fflush(stdout);
+      }
+    }
+
+    if ( NMISSING > 0 ) {
+      sprintf(c1err,"%d missing biasCor samples; see WARNINGS above.", 
+	      NMISSING);
+      sprintf(c2err,"Check data and biasCor samples for mis-match.") ; 
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
+    }
+  }
 
   return ;
 
@@ -15983,18 +16032,6 @@ void outFile_driver(void) {
     sprintf(tmpFile1,"%s.fitres", prefix ); 
     sprintf(tmpFile2,"%s.M0DIF",  prefix ); 
 
-    /* xxxxxxx mark delete Jun 24 2020 xxxxx
-    if ( INPUTS.NSPLITRAN == 1 )  { 
-      sprintf(tmpFile1,"%s.fitres", prefix ); 
-      sprintf(tmpFile2,"%s.M0DIF",  prefix ); 
-    }
-    else  { 
-      sprintf(tmpFile1,"%s-SPLIT%3.3d.fitres", prefix, NJOB_SPLITRAN);
-      sprintf(tmpFile2,"%s-SPLIT%3.3d.M0DIF",  prefix, NJOB_SPLITRAN);
-      sprintf(tmpFile3,"%s-SPLIT%3.3d.fitpar", prefix, NJOB_SPLITRAN);
-    }
-    xxxxxxxx end mark delete xxxxxxxxx */
-
     prep_blindVal_strings();
     write_fitres_driver(tmpFile1);  // write result for each SN
     write_M0(tmpFile2);      // write M0 vs. redshift
@@ -16369,11 +16406,7 @@ void write_fitres_driver(char* fileName) {
   // Write outout in fitres format.
   // Combine original fitres variables with those
   // calculated here in SALT2mu.
-  // Jun 2012: increase line-string length from 400 to MXCHAR_LINE
-  // Jul 2013: write averge M0 to fitres file (avemag0)
-  // Apr 2016: for SIM, write true CC/tot ratio of fitted events.
-  // Jul 2016: if cutmask_write=-9, do NOT write the SN lines
-  // Jun 27 2017: REFACTOR z bins
+  //
   // Mar 01 2018: add M0 to output
   // Jun 10 2019: call printCOVINT 
   // Jan 09 2019: fix to loop over each datafile instead of only the first.

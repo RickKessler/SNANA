@@ -8,7 +8,8 @@
 #define MXROW_GENPDF 5000   // max number of rows per map
 #define MXITER_GENPDF 200   // max number of iterations for genPDF
 
-#define GENPDF_OPTMASK_EXTRAP 1
+#define  OPTMASK_GENPDF_EXTRAP       1
+#define  OPTMASK_GENPDF_EXTERNAL_FP  8
 
 int      NMAP_GENPDF;
 int      NCALL_GENPDF ;
@@ -29,7 +30,7 @@ float TMPSTORE_RAN_GENPDF[MXITER_GENPDF];
 //    FUNCTION PROTOTYPES
 // ----------------------------------
 
-void   init_genPDF(int OPTMASK, char *fileName, char *ignore);
+void   init_genPDF(int OPTMASK, FILE *fp, char *fileName, char *ignore);
 void   assign_VARNAME_GENPDF(int imap, int ivar, char *varName) ;
 double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS);
 int IDMAP_GENPDF(char *parName);

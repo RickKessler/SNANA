@@ -9,7 +9,15 @@
 
   Initial use is for SALT2 parameters (c,x1,RV,AV).
 
+  USE_SUBPROCESS is a pre-processor flag so that SALT2mu.c can
+  include only init_genPDF (to read and store map), while not
+  including the extra baggage from sntools_host. The simulation
+  does NOT define USE_SUBPROCESS, and therefore all of the code
+  below is used for the simulation.
+
  ****************************************************/
+
+#ifndef USE_SUBPROCESS
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,9 +31,10 @@
 #include "sntools_host.h"
 #include "sntools_genGauss_asym.h"
 
+#endif
 
 // =====================================================
-void init_genPDF(int OPTMASK, char *fileName, char *ignoreList) {
+void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 
   // June 2020
   // Parse map in fileName. 
@@ -34,6 +43,8 @@ void init_genPDF(int OPTMASK, char *fileName, char *ignoreList) {
   //   OPTMASK -> bit-mask of options
   //         1 : allow extrapolation outside range of map
   //               (e.g, LOGMASS in HOSTLIB extends beyone map)
+  //         8 : use already opened FP
+  //
   //   fileName -> name of file with map(s)
   //   ignoreList -> comma-separated list of map(s) to ignore 
   // 
@@ -73,16 +84,17 @@ void init_genPDF(int OPTMASK, char *fileName, char *ignoreList) {
 
   print_banner(fnam);
 
+#ifndef USE_SUBPROCESS
   if ( HOSTLIB_WGTMAP.N_SNVAR > 0 ) {
     sprintf(c1err,"Found SN params in WGTMAP");
     sprintf(c2err,"-> not compatible with GENPDF_FILE");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
-  
+#endif
 
   // check OPTMASK options
   OPT_EXTRAP_GENPDF = 0 ;
-  if ( (OPTMASK & GENPDF_OPTMASK_EXTRAP) > 0 ) { 
+  if ( (OPTMASK & OPTMASK_GENPDF_EXTRAP) > 0 ) { 
     printf("\t Enable extrapolation beyond map ranges.\n");
     OPT_EXTRAP_GENPDF = 1; 
   }
@@ -93,7 +105,14 @@ void init_genPDF(int OPTMASK, char *fileName, char *ignoreList) {
   // - - - - - - - - - - - - - 
   // open file and read it
 
-  fp = snana_openTextFile(1, PATH, fileName, fileName_full, &gzipFlag);
+  if ( (OPTMASK & OPTMASK_GENPDF_EXTERNAL_FP)> 0 ) { 
+    fp = FP; 
+    printf("  Read already opened file,\n\t %s\n", fileName);
+  }
+  else  { 
+    fp = snana_openTextFile(1, PATH, fileName, fileName_full, &gzipFlag); 
+  }
+
 
   if ( !fp ) {
     sprintf(c1err,"Could not open GENPDF_FILE");
@@ -142,6 +161,7 @@ void init_genPDF(int OPTMASK, char *fileName, char *ignoreList) {
 
   NMAP_GENPDF = NMAP ;
 
+#ifndef USE_SUBPROCESS
   // - - - - - - - -
   // loop thru maps again and check that extra variables (after 1st column)
   // exist in HOSTLIB
@@ -166,11 +186,13 @@ void init_genPDF(int OPTMASK, char *fileName, char *ignoreList) {
       GENPDF[imap].IVAR_HOSTLIB[ivar] = ivar_hostlib;
     }
   }
+#endif
 
   //  debugexit(fnam);
   return;
 
 } // end init_genPDF
+
 
 // =======================================
 void assign_VARNAME_GENPDF(int imap, int ivar, char *varName) {
@@ -194,6 +216,9 @@ void assign_VARNAME_GENPDF(int imap, int ivar, char *varName) {
   return ;
 
 } // end assign_VARNAME_GENPDF
+
+
+#ifndef USE_SUBPROCESS
 
 // =====================================================
 double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
@@ -336,4 +361,5 @@ int IDMAP_GENPDF(char *parName) {
 
 } // end IDMAP_GENPDF
 
+#endif
 

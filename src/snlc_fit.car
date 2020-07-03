@@ -10124,7 +10124,7 @@ c check if this epoch is rejected
         LREJECT  = (iter > 1  .and. REJECT  > 0)
         LREJECT2 = (iter > 1  .and. REJECT2 > 0)
 
-c count rejected epochs witing TREST window
+c count rejected epochs within TREST window
         IF ( LREJECT2 .and. IREJ .EQ. 1 ) then
            NEPOCH_REJECT2 = NEPOCH_REJECT2 + 1
         ENDIF

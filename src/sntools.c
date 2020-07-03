@@ -10850,13 +10850,16 @@ void readchar(FILE *fp, char *clist)
 
 // ************************************************
 void print_banner (const char *banner ) {
-
   printf("\n ********************************************"
 	 "********************** \n");
-  printf("   %s  \n" , banner );
-  fflush(stdout);
-
+  printf("   %s  \n" , banner );   fflush(stdout);
 }
+void fprint_banner (FILE *FP, const char *banner ) {
+  fprintf(FP, "\n ********************************************"
+	 "********************** \n");
+  fprintf(FP, "   %s  \n" , banner );   fflush(FP);
+}
+
 void debugexit(char *string) {
   printf("\n xxx DEBUG EXIT: %s \n", string);
   fflush(stdout);

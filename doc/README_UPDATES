@@ -18617,4 +18617,30 @@
      + remove redshift error from muerrz calc (use only vpec).
         restore_sigz=1 restores original calc.
 
+
+# ======================================================================= 
+         v10_77g (  ) 
+
+         ***** IMPORTANT(v10_77g) ***** 
+
+         ***** USEFUL(v10_77g) ***** 
+
+         ***** MISCELLANEOUS(v10_77g) ***** 
+
+   SALT2mu.c
+     + abort if any IDSAMPLE has zero biasCor events passing cuts.
+
+     + add SIM_MUz array, and opt_biascor=2 is now same as 130
+       because z-only biasCor had always corrected vs. MU.
+
+     + for opt_biascor += 2(1D) or 128(muCor), biasCor true MU
+       is now computed with zHD instead of true z. For 1D biasCor,
+       here is example improvement using DES sims and host-galaxy
+       photo-z:
+            mu_true      m0-M0avg chi2/dof
+          SIM_MU(ztrue)   86.4 / 9      # old using SIM_MU(ztrue)
+          SIM_MU(zHD)     16.1 / 9      # new using SIM_MU(zHD)
+
+
+
 END: 

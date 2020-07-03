@@ -81,6 +81,7 @@ int main(int argc, char **argv) {
 
   // define local structures
   SIMFILE_AUX_DEF  SIMFILE_AUX ;
+  FILE *FP;
   char fnam[] = "main"; 
 
   // ------------- BEGIN --------------
@@ -197,7 +198,8 @@ int main(int argc, char **argv) {
   if ( INPUTS.USE_KCOR_REFACTOR ) { init_kcor_refactor(); }
 
 
-  init_genPDF(INPUTS.GENPDF_OPTMASK,INPUTS.GENPDF_FILE,INPUTS.GENPDF_IGNORE);
+  init_genPDF(INPUTS.GENPDF_OPTMASK, NULL,
+	      INPUTS.GENPDF_FILE, INPUTS.GENPDF_IGNORE ) ;
   init_genmodel();
   init_modelSmear(); 
   init_genSpec();     // July 2016: prepare optional spectra

@@ -42,7 +42,7 @@
 #include <stdbool.h>
 
 #include "sndata.h"
-#define  SNANA_VERSION_CURRENT  "v10_77f"                              
+#define  SNANA_VERSION_CURRENT  "v10_77g"                               
 
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
 #define OMEGA_MATTER_DEFAULT   0.315 
@@ -701,6 +701,7 @@ double prob_chi2ndof__(double *chi2, int *Ndof);
 float edgedist(float XPIX, float YPIX,  int NXPIX, int NYPIX);  
 
 void print_banner ( const char *banner ) ;
+void fprint_banner (FILE *FP, const char *banner ) ;
 
 // shells to open text file
 FILE *open_TEXTgz(char *FILENAME, const char *mode,int *GZIPFLAG) ;

@@ -503,7 +503,7 @@ $(BIN)/sncosmo_mcmc.exe : $(OBJ)/sncosmo_mcmc.o $(OBJ)/sntools.o
 #	$(FFC) $(SNFFLAGS) $(SRC)/sntools_eigen.F)
 
 
-$(OBJ)/SALT2mu.o : $(SRC)/SALT2mu.c $(SRC)/sntools.c $(SRC)/sntools_output.c
+$(OBJ)/SALT2mu.o : $(SRC)/SALT2mu.c $(SRC)/sntools.c $(SRC)/sntools_output.c $(SRC)/sntools_genPDF.c
 	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/SALT2mu.c ) 
 
 $(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o

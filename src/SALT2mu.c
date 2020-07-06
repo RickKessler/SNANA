@@ -238,9 +238,9 @@ u16=1 --> betaHost  = dbeta /dlogmass
 u15=2 --> alphaHost = alpha shift about logmass_cen
 u16=2 --> betaHost  = beta  shift about logmass_cen
 
-u1 = 3 --> float alpha, but disable auto biasCor dependence
-u2 = 3 --> float beta,  but disable auto biasCor dependence
-u5 = 3 --> float gamma, but disable auto biasCor dependence
+u1 = 3 --> float alpha, but force 1 biasCor bin
+u2 = 3 --> float beta,  but force 1 biasCor bin
+u5 = 3 --> float gamma, but force 1 biasCor bin
 
 # if H11 is set and none of the u[nn] are set, then all of them
 # will be used as default H11 option
@@ -2006,9 +2006,13 @@ float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
 #ifdef USE_SUBPROCESS
 void SUBPROCESS_INIT(void); // one time init (binning, malloc ...)
 void SUBPROCESS_PREP_NEXTITER(void); // prepare for next iteration
-void SUBPROCESS_SIM_REWGT(void);
-void SUBPROCESS_LOAD_OUTPUT(void);
-void SUBPROCESS_WRITE(void); // write output
+void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN, 
+				  TABLEVAR_DEF *TABLEVAR); 
+void SUBPROCESS_SIM_REWGT(int ITER_EXPECT);
+int  SUBPROCESS_IVAR_TABLE(char *varName_GENPDF);
+void SUBPROCESS_OUTPUT_PREP(void);
+void SUBPROCESS_OUTPUT_LOAD(void);
+void SUBPROCESS_OUTPUT_WRITE(void); // write output
 
 #include "sntools_genPDF.h" 
 #include "sntools_genPDF.c"
@@ -2019,36 +2023,30 @@ void SUBPROCESS_WRITE(void); // write output
 
 struct {
   bool  USE;
-  char  *FILES ; // comma-sep list of INP,OUTFILE
+  char  *FILES ; // comma-sep list of INPFILE,OUTFILE,STDOUT_FILE
   char  *INPFILE ; // read PDF map from here
   char  *OUTFILE ; // write info back to python driver
   char  *STDOUT_FILE ; // direct stdout here (used only for visual debug)
   FILE  *FP_INP, *FP_OUT ;
+  char   VARNAMES_GENPDF[MXVAR_GENPDF][40];
+  char  *VARNAMES_GENPDF_STRING;
+  int   NVAR_GENPDF;
+  int   IVAR_TABLE_GENPDF[MXMAP_GENPDF][MXVAR_GENPDF]; // map GENPDF <-> TABLE
 
-  char  LINE_VARNAMES[200];
+  // store fitres columns used in GENPDF maps
+  float *TABLEVAR[MXVAR_GENPDF]; // use float to save memory
 
+  // variables filled during each subprocess iteration
   int  ITER;
+
+  // below are variables filled by OUTPUT_LOAD at end of each subproc iter
+  char    LINE_VARNAMES[200];
+  int     NBIN_c ;
+  int    *NEVT_c ;
+  double  RANGE_c[2], BIN_c, *SIM_c ;
   double *MURES_SQSUM, *MURES_SUM; // to reconstruct MU-bias and MU-RMS
 } SUBPROCESS ;
 
-/* xxxx mark delete xxxxx
-#define MXSIM_SNFUNPAR 10
-typedef struct {
-  char PARNAME[40] ; // e.g., SIM_RV, SIM_c, etc ...
-  char FUNNAME[40] ; // e.g., EXP or Gauss
-  GENPOLY_DEF PARLIST[MXSIM_SNFUNPAR]; // each param can be polyfun of z
-  bool ISGAUSS, ISEXP;
-} SIM_SNFUNPAR_DEF ;
-
-#define MXSIMPAR_REWGT 10
-struct {
-  bool USE;
-  int N_BOUNDFUN;
-  int N_REWGTFUN;
-  SIM_SNFUNPAR_DEF  BOUNDFUN[MXSIMPAR_REWGT];
-  SIM_SNFUNPAR_DEF  REWGTFUN[MXSIMPAR_REWGT];
-} SIM_SNFUNPAR_STORE ;
-xxxxxxx end mark xxxxxxx */
 
 #endif
 
@@ -4832,7 +4830,7 @@ void read_data(void) {
    }  
    
 
-   // malloc arrays for all sim files
+   // malloc arrays to read fitres data file
   LEN_MALLOC = NEVT_TOT + 10 ;
   INFO_DATA.TABLEVAR.LEN_MALLOC = LEN_MALLOC ;
   malloc_INFO_DATA(+1,LEN_MALLOC);
@@ -5550,6 +5548,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   //
   //  May  8 2020: add IFILE argument.
   //  May 20 2020: check NFIELD
+  //  Jul 06 2020: check SUBPROCESS GENPDF-variables
 
   int EVENT_TYPE = TABLEVAR->EVENT_TYPE;
   int IS_DATA    = ( EVENT_TYPE == EVENT_TYPE_DATA);
@@ -5569,7 +5568,6 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   char fnam[] = "SNTABLE_READPREP_TABLEVAR" ;
 
   // ----------- BEGIN -------------
-
 
   // init flags on first file
   if ( FIRSTFILE ) {
@@ -5765,13 +5763,13 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   else
     { TABLEVAR->IS_DATA = true;   return ; }
 
+
   // here and below is for simulated data 
 
   // note that IS_DATA refers to datafile= argument, and can be
   // real data or simulated data. ISDATA_REAL is false for sim data.
   if ( IS_DATA ) { 
-    ISDATA_REAL = 0 ;   // not real data 
-
+    ISDATA_REAL = 0 ;   // not real data -> sim data
     // if the 64 blind-sim bit isn't set by user, set blindFlag=0
     if ( (INPUTS.blindFlag & BLINDMASK_SIM)==0 ) { INPUTS.blindFlag=0; }
   }
@@ -5789,23 +5787,18 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_FITPAR[INDEX_c][ISTART], 
 			  LEN, VBOSE);
 
-  // - - - - - c - - - - - -
-
-  sprintf(vartmp,"SIMalpha:F SIM_alpha:F" ) ;
+  sprintf(vartmp,"SIM_alpha:F SIMalpha:F" ) ;
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_ALPHA[ISTART],
 				 LEN, VBOSE );
-  sprintf(vartmp,"SIMbeta:F  SIM_beta:F" ) ;
+  sprintf(vartmp,"SIM_beta:F  SIMbeta:F" ) ;
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_BETA[ISTART],
 				 LEN, VBOSE );
 
-  
-  
   sprintf(vartmp,"SIM_gammaDM:F" ) ; 
   ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->SIM_GAMMADM[ISTART],
 				 LEN, VBOSE );
   TABLEVAR->IVAR_SIM_GAMMADM = ivar;
   
-
   // - - - - - - - - - - - - - - - - - - - 
 
   // true z & MU
@@ -5835,6 +5828,12 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 			  LEN, VBOSE);
     
   }
+
+#ifdef USE_SUBPROCESS  
+  if ( SUBPROCESS.USE ) { 
+    SUBPROCESS_READPREP_TABLEVAR(IFILE, ISTART, LEN, TABLEVAR); 
+  }
+#endif
 
   return ;
 
@@ -13739,6 +13738,12 @@ int ppar(char* item) {
     SUBPROCESS.USE = true ;
     sscanf(&item[17],"%s",s); remove_quote(s); return(1);
   }
+  if ( uniqueOverlap(item,"SUBPROCESS_VARNAMES_GENPDF=") ) {
+    SUBPROCESS.VARNAMES_GENPDF_STRING = 
+      (char*) malloc( MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
+    s = SUBPROCESS.VARNAMES_GENPDF_STRING ; // comma-sep list of varnames
+    sscanf(&item[27],"%s",s); remove_quote(s); return(1);
+  }
 #endif
 
   if ( uniqueOverlap(item,"cutmask_write=") )
@@ -13871,7 +13876,6 @@ int ppar(char* item) {
   }
 
 
-  // xxx mark delete   sprintf(key,"varname_gamma=");
   if ( uniqueOverlap(item,"varname_gamma=") ) {
     s=INPUTS.varname_gamma;  sscanf(&item[14],"%s",s); remove_quote(s); 
     return(1);
@@ -15517,7 +15521,7 @@ void prep_input_driver(void) {
 
   // sanity checks on fitting for GAMMA0 (mag step across host logmass)
   if ( INPUTS.USE_GAMMA0 ) {
-    double TAU           = INPUTS.parval[IPAR_LOGMASS_TAU] ;
+    double TAU   = INPUTS.parval[IPAR_LOGMASS_TAU] ;
 
     if ( TAU < 0.001 ) {
       sprintf(c1err,"Invalid LOGMASS_TAU = %.4f for gammma0 fit", TAU);  
@@ -16184,8 +16188,8 @@ void outFile_driver(void) {
 
 #ifdef USE_SUBPROCESS
   if ( SUBPROCESS.USE ) {
-    SUBPROCESS_LOAD_OUTPUT();
-    SUBPROCESS_WRITE();
+    SUBPROCESS_OUTPUT_LOAD();
+    SUBPROCESS_OUTPUT_WRITE();
     return ;
   }
 #endif
@@ -17960,6 +17964,7 @@ void lubksb(const double* a, const int n, const int ndim,
 //  MCMC fitter for SN population parameters.
 // =======================================================
 
+
 void  SUBPROCESS_INIT(void) {
 
   // Created July 2020
@@ -18028,6 +18033,7 @@ void  SUBPROCESS_INIT(void) {
     fflush(stdout);
   }
 
+  SUBPROCESS_OUTPUT_PREP();
 
   printf("%s  Finished %s\n", KEYNAME_SUBPROCESS_STDOUT, fnam );
   fflush(stdout);
@@ -18038,6 +18044,105 @@ void  SUBPROCESS_INIT(void) {
 } // end SUBPROCESS_INIT
 
 
+// ==========================================================
+void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN, 
+				  TABLEVAR_DEF *TABLEVAR) {
+
+  // Jul 2020
+  // Called during read_data() [before SUBPROCESS_INIT] to 
+  // read GENPDF varnames from FITRES file. This function
+  //  + parses command-line input SUBPROCESS_VARNAMES_GENPDF to get list
+  //    of GENPDF varNames and load SUBPROCESS.VARNAMES_GENPDF[ivar].
+  //  + malloc arrays for GENPDF VARNAMES
+  //  + call SNTABLE_READPREP_VARDEF to prep table read.
+  //
+  // GENPDF varnames are read & stored here regardless of whether
+  // they have already been read for SALT2mu fit. Reading is done
+  // only for sim-data, so doesn't take much extra memory if a few
+  // duplicate colummns are read.
+  //
+
+  int  EVENT_TYPE       = TABLEVAR->EVENT_TYPE ;
+  char *VARNAMES_STRING = SUBPROCESS.VARNAMES_GENPDF_STRING ; 
+  int  LEN_MALLOC       = TABLEVAR->LEN_MALLOC ;
+  int  MEMF             = LEN_MALLOC*sizeof(float) ;
+  char comma[] = ",";
+  char *ptrVarAll[MXVAR_GENPDF], *varName, varCast[60] ;
+  char *VARLIST_READ = (char*) malloc(100*sizeof(char));
+  int  VBOSE  = 3; // print each var; abort on missing var
+  int  ivar, ivar2, IVAR_TABLE, NVAR_GENPDF, NVAR_ALL ;
+  bool SKIP;
+  char fnam[] = "SUBPROCESS_READPREP_TABLEVAR" ;
+
+  // ---------- BEGIN -----------
+
+  if ( EVENT_TYPE != EVENT_TYPE_DATA ) { return; }
+
+  SUBPROCESS.NVAR_GENPDF = 0;
+  if ( strlen(VARNAMES_STRING) == 0 ) { return; }
+
+  if ( ISDATA_REAL ) {
+    sprintf(c1err,"Woah! Cannot process real data here.");
+    sprintf(c2err,"Only SIM data allowed here.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  for(ivar=0; ivar < MXVAR_GENPDF; ivar++ ) 
+    { ptrVarAll[ivar] = (char*)malloc(MXCHAR_VARNAME*sizeof(char) ); }
+
+  
+  splitString(VARNAMES_STRING, comma, MXVAR_GENPDF,    // inputs
+	      &NVAR_ALL, ptrVarAll );              // outputs
+
+  // Store each FITRES column used by GENPDF maps.
+  // Don't bother checking if already read for SALT2mu, but avoid
+  // reading duplicates passed by SUBPROCESS_VARNAMES_GENPDF arg.
+  // NVAR_ALL is number of ALL variables in SUBPROCESS_VARNAMES_GENPDF;
+  // NVAR_GENPDF is number of unique variables after removing
+  // duplicates.
+
+  NVAR_GENPDF = VARLIST_READ[0] = 0 ;
+  for(ivar=0; ivar < NVAR_ALL; ivar++ ) {
+    varName = ptrVarAll[ivar] ;
+    sprintf(varCast, "%s:F", varName);
+    // xx IVAR_TABLE=IVAR_READTABLE_POINTER(varName); // check if already read?
+    
+    // skip  if duplicate
+    SKIP = false;
+    if ( ivar > 0 ) {
+      for(ivar2=0; ivar2 < ivar; ivar2++ ) {
+	if (strcmp(varName,ptrVarAll[ivar2])== 0 ) { SKIP = true; }
+      }
+    }
+    if ( SKIP ) { continue; }
+
+    // malloc on IFILE==0
+    if ( IFILE == 0 ) { 
+      SUBPROCESS.TABLEVAR[NVAR_GENPDF] = (float*)malloc(MEMF); 
+      sprintf(SUBPROCESS.VARNAMES_GENPDF[NVAR_GENPDF],"%s", varName);
+      catVarList_with_comma(VARLIST_READ,varName);
+    }
+    
+    IVAR_TABLE = 
+      SNTABLE_READPREP_VARDEF(varCast, 
+			      &SUBPROCESS.TABLEVAR[NVAR_GENPDF][ISTART],
+			      LEN, VBOSE );   
+
+    NVAR_GENPDF++ ;
+  }
+
+  SUBPROCESS.NVAR_GENPDF = NVAR_GENPDF;
+  
+  // summary for IFILE==0
+  if ( IFILE == 0 ) {
+    printf("%s loaded %s\n", KEYNAME_SUBPROCESS_STDOUT, VARLIST_READ );
+    fflush(stdout);
+  }
+
+  return;
+
+} // end SUBPROCESS_READPREP_TABLEVAR
+
 // ========================================
 void SUBPROCESS_PREP_NEXTITER(void) {
 
@@ -18045,14 +18150,7 @@ void SUBPROCESS_PREP_NEXTITER(void) {
   // For real data, do nothing.
   // For sim, prepare for next iteration.
 
-  FILE *FP_INP  = SUBPROCESS.FP_INP ;
-  FILE *FP_OUT  = SUBPROCESS.FP_OUT ;
-  char *INPFILE = SUBPROCESS.INPFILE ;
-  int  OPTMASK  = OPTMASK_GENPDF_EXTERNAL_FP ;
-
-  bool FOUND_ITER_BEGIN = false;
-  int  ISTAT_READ=-9, ITER_FOUND = -9, ITER_EXPECT = -9 ;
-  char c_get[60];
+  int  ITER_EXPECT = -9 ;
   char fnam[] = "SUBPROCESS_PREP_NEXTITER";
 
   // --------- BEGIN -------------
@@ -18070,9 +18168,45 @@ void SUBPROCESS_PREP_NEXTITER(void) {
     exit(0);
   }
 
-  rewind(FP_INP);
-  rewind(FP_OUT);
+  prep_input_repeat();
+
+  // rewind all SUBPROCESS files
+  rewind(SUBPROCESS.FP_INP);   
+  rewind(SUBPROCESS.FP_OUT);   
   rewind(FP_STDOUT);
+
+  // - - - - - -
+  
+  SUBPROCESS_SIM_REWGT(ITER_EXPECT);
+
+  //  debugexit(fnam);
+
+  return ;
+
+} // end void SUBPROCESS_PREP_NEXTITER
+
+
+// ========================================
+void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
+
+  // Created July 2020
+  // For real data, do nothing.
+  // For sim, read PDF population map(s), same map as for sim-input
+  // GENPDF_FILE, and reweight sim data assuming that sim was 
+  // generated with a flat distribution in each variable.
+
+  int  OPTMASK  = OPTMASK_GENPDF_EXTERNAL_FP ;
+  int  ITER     = SUBPROCESS.ITER ;
+  FILE *FP_INP  = SUBPROCESS.FP_INP ;
+  FILE *FP_OUT  = SUBPROCESS.FP_OUT ;
+  char *INPFILE = SUBPROCESS.INPFILE ;
+
+  bool FOUND_ITER_BEGIN = false;
+  char c_get[60];
+  int  ISTAT_READ=-9, ITER_FOUND = -9  ;
+  char fnam[] = "SUBPROCESS_SIM_REWGT" ;
+
+  // -------- BEGIN -----------
 
   // read input file until we reach iteration key
   while ( !FOUND_ITER_BEGIN && ISTAT_READ != EOF ) {
@@ -18101,124 +18235,180 @@ void SUBPROCESS_PREP_NEXTITER(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  SUBPROCESS.ITER = ITER_FOUND;
-
-  // - - - - - - - -
-
-  prep_input_repeat();
-
-  // - - - - - -
   printf("%s Read PDF map(s) for ITERATION=%d\n", 
-	 KEYNAME_SUBPROCESS_STDOUT, ITER_FOUND);
+	 KEYNAME_SUBPROCESS_STDOUT, ITER );
   init_genPDF(OPTMASK, FP_INP, INPFILE, "");
-  
-  //  debugexit(fnam);
+
+  // - - - - -
+  // prepare index map between IVAR(MAP) and IVAR(TABLE)
+  int imap, NVAR_GENPDF, ivar, IVAR_TABLE ;
+  char *varName_GENPDF, *varName_store;
+  for(imap=0; imap < NMAP_GENPDF; imap++ ) {
+    NVAR_GENPDF = GENPDF[imap].GRIDMAP.NDIM-1; // exclude PROB
+    
+    for(ivar=0; ivar < NVAR_GENPDF; ivar++ ) {
+      varName_GENPDF = GENPDF[imap].VARNAMES[ivar];
+      IVAR_TABLE = SUBPROCESS_IVAR_TABLE(varName_GENPDF);
+      if ( IVAR_TABLE < 0 ) {
+	sprintf(c1err,"Could not find IVAR_TABLE for GENPDF var = '%s'", 
+		varName_GENPDF);
+	sprintf(c2err,"Check command-line arg SUBPROCESS_VARNAMES_GENPDF");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      }
+      SUBPROCESS.IVAR_TABLE_GENPDF[imap][ivar] = IVAR_TABLE ;
+
+    } // end ivar-GENPDF loop
+  }  // end imap loop
+
+  // -------------------------------------
+
+  // loop over sim data and set make to keep/reject based on GENPDF map
+  int isn;
+  int NSN = INFO_DATA.TABLEVAR.NSN_ALL;
+  double XVAL_for_GENPDF[MXVAR_GENPDF];
+
+  for ( isn=0 ; isn < NSN; isn++ ) {
+    
+  }
 
   return ;
-} // end void SUBPROCESS_PREP_NEXTITER
-
-
-// ========================================
-void SUBPROCESS_SIM_REWGT(void) {
-
-  // Created July 2020
-  // For real data, do nothing.
-  // For sim, read GRNPDF map and reweight sim data assuming
-  // sim was generated with a flat distribution in each variable.
 
 } // end SUBPROCESS_SIM_REWGT
 
+
+// =======================================
+int SUBPROCESS_IVAR_TABLE(char *varName) {
+  int ivar;
+  int IVAR_TABLE = -9;
+  char *varTmp;
+  for(ivar=0; ivar < SUBPROCESS.NVAR_GENPDF; ivar++ ) {
+    varTmp = SUBPROCESS.VARNAMES_GENPDF[ivar];
+    if ( strcmp(varName,varTmp)==0 ) { IVAR_TABLE = ivar; }
+  }
+  return(IVAR_TABLE);
+}
+
+// =======================================
+void SUBPROCESS_OUTPUT_PREP(void) {
+
+  // July 3 2020
+  // prep arrays used to load output.
+  // Start with trivial function of color.
+
+  int    ic, NBIN_c = 16 ;
+  double RANGE_c[2] = { -0.3, 0.5} ;
+  double c, cbin ;
+  char fnam[] = "SUBPROCESS_OUTPUT_PREP" ;
+
+  // ----------- BEGIN -----------
+
+  cbin = (RANGE_c[1]-RANGE_c[0])/ (double)NBIN_c ;
+  SUBPROCESS.NBIN_c     = NBIN_c ;
+  SUBPROCESS.RANGE_c[0] = RANGE_c[0] ;
+  SUBPROCESS.RANGE_c[1] = RANGE_c[1] ;
+  SUBPROCESS.BIN_c      = cbin ;
+  
+  sprintf(SUBPROCESS.LINE_VARNAMES, 
+	  "VARNAMES: IDPDF ic SIM_c NEVT  MURES_SUM MURES_SQSUM" );
+
+  int MEMC = NBIN_c * sizeof(int) ;
+  int MEMD = NBIN_c * sizeof(double) ;
+  SUBPROCESS.NEVT_c      = (int*) malloc( MEMC );
+  SUBPROCESS.SIM_c       = (double*) malloc( MEMD );
+  SUBPROCESS.MURES_SUM   = (double*) malloc( MEMD );
+  SUBPROCESS.MURES_SQSUM = (double*) malloc( MEMD );
+
+  double xc;
+  for(ic=0; ic < NBIN_c; ic++ ) {
+    xc = (double)ic + 0.5 ;
+    c = RANGE_c[0] + cbin*xc; 
+    SUBPROCESS.SIM_c[ic]  = c;
+  }
+
+  printf("%s: prep %d output c bins, %.3f to %.3f \n",
+	 KEYNAME_SUBPROCESS_STDOUT, NBIN_c, RANGE_c[0], RANGE_c[1] );
+
+  return ;
+
+} // end SUBPROCESS_OUTPUT_PREP
+
 // ===========================================
-void SUBPROCESS_LOAD_OUTPUT(void) {
+void SUBPROCESS_OUTPUT_LOAD(void) {
 
   // called after each fit, load output struct.
-
-  /* 
   int NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
-  int NBIN_TOT      = SUBPROCESS_OUTPUT.NBIN_TOT ;
-  int i, isn, cutmask, ix1,ic,im, isnpar ;
-  int i3d[3], J1D ;
+  int NBIN_c        = SUBPROCESS.NBIN_c ;
+  double cmin       = SUBPROCESS.RANGE_c[0] ;
+  double cmax       = SUBPROCESS.RANGE_c[1] ;
+  double cbin       = SUBPROCESS.BIN_c ;
+
+  int i, isn, cutmask, ic, isnpar ;
   double xval, mures ;
   char *CCID;
-  BININFO_DEF *BININFO ;
-  */
-  char fnam[] = "SUBPROCESS_LOAD_OUTPUT";
+  //  BININFO_DEF *BININFO ;
+
+  char fnam[] = "SUBPROCESS_OUTPUT_LOAD";
 
   // ---------- BEGIN ----------
 
-  /* xxxx 
-  for(i=0; i < NBIN_TOT; i++ ) {
-    SUBPROCESS_OUTPUT.NEVT[i]        = 0 ;
-    SUBPROCESS_OUTPUT.MURES_SUM[i]   = 0.0 ;
-    SUBPROCESS_OUTPUT.MURES_SQSUM[i] = 0.0 ;
+
+  for(i=0; i < NBIN_c; i++ ) {
+    SUBPROCESS.NEVT_c[i]      = 0 ;
+    SUBPROCESS.MURES_SUM[i]   = 0.0 ;
+    SUBPROCESS.MURES_SQSUM[i] = 0.0 ;
   }
 
   // loop over data
-
   for(isn=0; isn < NSN_DATA; isn++ ) {
 
     CCID    = INFO_DATA.TABLEVAR.name[isn]; 
     cutmask = INFO_DATA.TABLEVAR.CUTMASK[isn]; 
-    if ( !keep_cutmask(cutmask)  ) { continue; }
-    ix1 = ic = im = -9;
-
-    for(isnpar = 0; isnpar < 3; isnpar++ ) {
-
-      if ( isnpar == ISNPAR_x1 ) 
-	{ xval  = INFO_DATA.TABLEVAR.fitpar[INDEX_x1][isn]; }
-      else if ( isnpar == ISNPAR_c ) 
-	{ xval  = INFO_DATA.TABLEVAR.fitpar[INDEX_c][isn]; }
-      else if ( isnpar == ISNPAR_m ) 
-	{ xval  = INFO_DATA.TABLEVAR.logmass[isn]; }
-      
-      BININFO = &SUBPROCESS_OUTPUT.binInfo[isnpar];
-      i3d[isnpar] = IBINFUN(xval, BININFO, 1, fnam);
-
-      if ( i3d[isnpar] < 0 ) {
-	sprintf(c1err,"Invalid i3d[%d] = %d for xval=%f", 
-		isnpar, i3d[isnpar], xval );
-	sprintf(c2err,"Check CCID = '%s'", CCID);
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
-    }
-
-    ix1 = i3d[ISNPAR_x1];  ic=i3d[ISNPAR_c]; im=i3d[ISNPAR_m];
-    J1D = SUBPROCESS_OUTPUT.MAP3D_to_1D[ix1][ic][im];
-    SUBPROCESS_OUTPUT.NEVT[J1D]++ ;
-
     mures    = INFO_DATA.mures[isn] ;
-    SUBPROCESS_OUTPUT.MURES_SUM[J1D]   +=  mures;
-    SUBPROCESS_OUTPUT.MURES_SQSUM[J1D] +=  (mures*mures);
-  } // end isn 
 
-    */
+    if ( !keep_cutmask(cutmask)  ) { continue; }
+    ic = -9;
+
+    xval  = INFO_DATA.TABLEVAR.fitpar[INDEX_c][isn];
+    ic    = (int)( (xval - cmin) / cbin );
+    
+    if ( ic < 0 || ic >= NBIN_c ) {
+      sprintf(c1err,"Invalid ic = %d for c=%f", ic, xval );
+      sprintf(c2err,"Check CCID = '%s'", CCID);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    
+    SUBPROCESS.NEVT_c[ic]++ ;
+    SUBPROCESS.MURES_SUM[ic]   +=  mures;
+    SUBPROCESS.MURES_SQSUM[ic] +=  (mures*mures);
+  } // end isn 
 
   return ;
 
-} // end  SUBPROCESS_LOAD_OUTPUT
+} // end  SUBPROCESS_OUTPUT_LOAD
 
 // ===========================================
-void SUBPROCESS_WRITE(void) {
+void SUBPROCESS_OUTPUT_WRITE(void) {
 
-  /*
-  //  int NBIN_TOT = SUBPROCESS_OUTPUT.NBIN_TOT ;
-  int nbx1     = SUBPROCESS_OUTPUT.binInfo[ISNPAR_x1].nbin;
-  int nbc      = SUBPROCESS_OUTPUT.binInfo[ISNPAR_c].nbin;
-  int nbm      = SUBPROCESS_OUTPUT.binInfo[ISNPAR_m].nbin ;
-  FILE *FP     = SUBPROCESS_OUTPUT.FP_OUT ;
+ 
+  FILE *FP_OUT = SUBPROCESS.FP_OUT ;
+  int  ITER    = SUBPROCESS.ITER ;
+  int  NBIN_c  = SUBPROCESS.NBIN_c ;
 
-  int ITER=1;
   char NAME[40], tmpName[40];
-  int ix1, ic, im, IBIN1D, NEVT, n, ISFLOAT, ISM0 ;
-  double SUM, SQSUM, VAL, ERR ;
-  */
-  //  char fnam[] = "SUBPROCESS_WRITE" ;
+  int  ic, IBIN1D, NEVT, n, ISFLOAT, ISM0 ;
+  double SUM, SQSUM, VAL, ERR, SIM_c ;
+  
+  char fnam[] = "SUBPROCESS_OUTPUT_WRITE" ;
 
   // ----------- BEGIN -------------
 
-  /*
-  fprintf(FP,"\n# ================================================ \n");
-  // write fitted nuisance params 
+  printf("%s write SALT2mu output\n",  KEYNAME_SUBPROCESS_STDOUT );
+  fflush(stdout);
+
+  fprintf(FP_OUT,"ITERATION: %d\n\n", ITER);
+  fflush(FP_OUT);
+
+  // always write fitted nuisance params 
   for ( n=0; n < FITINP.NFITPAR_ALL ; n++ ) {
 
     ISFLOAT = FITINP.ISFLOAT[n] ;
@@ -18228,35 +18418,35 @@ void SUBPROCESS_WRITE(void) {
       VAL = FITRESULT.PARVAL[1][n] ;
       ERR = FITRESULT.PARERR[1][n] ;
       sprintf(tmpName,"%s", FITRESULT.PARNAME[n]);
-      fprintf(FP,"FITPAR:  %-14s = %10.5f +- %8.5f \n",
+      fprintf(FP_OUT, "FITPAR:  %-14s = %10.5f +- %8.5f \n",
 	      tmpName, VAL, ERR );
     }
   } // end loop over SALT2mu fit params
 
   // - - - - - - 
 
-  fprintf(FP,"%s\n", SUBPROCESS_OUTPUT.LINE_VARNAMES);
+  fprintf(FP_OUT, "\n%s\n", SUBPROCESS.LINE_VARNAMES);
+  fflush(FP_OUT);
 
-  for(ix1=0; ix1 < nbx1; ix1++ ) {
-    for(ic=0; ic < nbc; ic++ ) {
-      for(im=0; im < nbm; im++ ) {
-	IBIN1D = SUBPROCESS_OUTPUT.MAP3D_to_1D[ix1][ic][im];
-	NEVT   = SUBPROCESS_OUTPUT.NEVT[IBIN1D];
-	SUM    = SUBPROCESS_OUTPUT.MURES_SUM[IBIN1D];
-	SQSUM  = SUBPROCESS_OUTPUT.MURES_SQSUM[IBIN1D];
+  for(ic=0; ic < NBIN_c ; ic++ ) {
+    
+    NEVT   = SUBPROCESS.NEVT_c[ic] ;
+    SUM    = SUBPROCESS.MURES_SUM[ic];
+    SQSUM  = SUBPROCESS.MURES_SQSUM[ic];
+    SIM_c  = SUBPROCESS.SIM_c[ic];
 
-	sprintf(NAME,"ITER%5.5d-%4.4d", ITER, IBIN1D);
-	fprintf(FP,"ROW: %s %2d %2d %2d  %4d %14.6le %14.6le \n", 
-		NAME, ix1,ic,im,  NEVT, SUM, SQSUM); 
-      }
-    }    
+    //  VARNAMES: IDPDF ic SIM_c NEVT MURES SUM MURES_SQSUM \n" );
+    sprintf(NAME,"ITER%d-%2.2d", ITER, ic);
+    fprintf(FP_OUT, "ROW: %s %2d %6.3f   %4d %14.6le %14.6le \n", 
+	    NAME, ic, SIM_c,  NEVT, SUM, SQSUM); 
+    fflush(FP_OUT);
   }
 
-  */
+  
 
   return ;
 
-} // end SUBPROCESS_WRITE
+} // end SUBPROCESS_OUTPUT_WRITE
 
 
 #endif

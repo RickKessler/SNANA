@@ -2005,11 +2005,13 @@ float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
 
 #ifdef USE_SUBPROCESS
 void SUBPROCESS_INIT(void); // one time init (binning, malloc ...)
+void SUBPROCESS_MALLOC_INPUTS(void);
 void SUBPROCESS_PREP_NEXTITER(void); // prepare for next iteration
 void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN, 
 				  TABLEVAR_DEF *TABLEVAR); 
 void SUBPROCESS_SIM_REWGT(int ITER_EXPECT);
 int  SUBPROCESS_IVAR_TABLE(char *varName_GENPDF);
+void SUBPROCESS_INIT_DUMP(void);
 void SUBPROCESS_OUTPUT_PREP(void);
 void SUBPROCESS_OUTPUT_LOAD(void);
 void SUBPROCESS_OUTPUT_WRITE(void); // write output
@@ -2023,15 +2025,22 @@ void SUBPROCESS_OUTPUT_WRITE(void); // write output
 
 struct {
   bool  USE;
-  char  *FILES ; // comma-sep list of INPFILE,OUTFILE,STDOUT_FILE
+
+  // INPUT_xxx are read directory from command line
+  char  *INPUT_FILES ; // comma-sep list of INPFILE,OUTFILE,STDOUT_FILE
+  char  *INPUT_VARNAMES_GENPDF_STRING;
+  char  *INPUT_SNID_REWGT_DUMP;
+
+  // variables below are computed/extracted from INPPUT_xxx
   char  *INPFILE ; // read PDF map from here
   char  *OUTFILE ; // write info back to python driver
   char  *STDOUT_FILE ; // direct stdout here (used only for visual debug)
   FILE  *FP_INP, *FP_OUT ;
   char   VARNAMES_GENPDF[MXVAR_GENPDF][40];
-  char  *VARNAMES_GENPDF_STRING;
   int   NVAR_GENPDF;
   int   IVAR_TABLE_GENPDF[MXMAP_GENPDF][MXVAR_GENPDF]; // map GENPDF <-> TABLE
+
+  bool *DUMPFLAG_REWGT;
 
   // store fitres columns used in GENPDF maps
   float *TABLEVAR[MXVAR_GENPDF]; // use float to save memory
@@ -11688,7 +11697,8 @@ void  get_BININFO_biasCor_abg(char *varName,
     if ( FORCE_ONEBIN ) { valbin_loc = valmax_loc - valmin_loc; }
 
     // check that GRID min & max is the same for each IDSAMPLE
-    check_abg_minmax_biasCor(varName,valmin_sample,valmax_sample);
+    if ( !FORCE_ONEBIN ) 
+      { check_abg_minmax_biasCor(varName,valmin_sample,valmax_sample); }
 
   }
   else {
@@ -13733,15 +13743,17 @@ int ppar(char* item) {
 
 #ifdef USE_SUBPROCESS
   if ( uniqueOverlap(item,"SUBPROCESS_FILES=") ) {
-    SUBPROCESS.FILES = (char*) malloc( MXCHAR_FILENAME*3*sizeof(char) );
-    s = SUBPROCESS.FILES ; // comma-sep list of INPFILE,OUTFILE
+    SUBPROCESS_MALLOC_INPUTS();
+    s = SUBPROCESS.INPUT_FILES ; // comma-sep list of INPFILE,OUTFILE
     SUBPROCESS.USE = true ;
     sscanf(&item[17],"%s",s); remove_quote(s); return(1);
   }
   if ( uniqueOverlap(item,"SUBPROCESS_VARNAMES_GENPDF=") ) {
-    SUBPROCESS.VARNAMES_GENPDF_STRING = 
-      (char*) malloc( MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
-    s = SUBPROCESS.VARNAMES_GENPDF_STRING ; // comma-sep list of varnames
+    s = SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING ; // comma-sep list of varnames
+    sscanf(&item[27],"%s",s); remove_quote(s); return(1);
+  }
+  if ( uniqueOverlap(item,"SUBPROCESS_SNID_REWGT_DUMP=") ) {
+    s = SUBPROCESS.INPUT_SNID_REWGT_DUMP ; // comma-sep list of SNIDs
     sscanf(&item[27],"%s",s); remove_quote(s); return(1);
   }
 #endif
@@ -17965,10 +17977,28 @@ void lubksb(const double* a, const int n, const int ndim,
 // =======================================================
 
 
+void SUBPROCESS_MALLOC_INPUTS(void) {
+  // malloc SUBPROCESS.INPUT_xxx arrays; called just before reading
+  // SUBPROCESS_FILES argument
+
+    SUBPROCESS.INPUT_FILES = (char*) malloc( MXCHAR_FILENAME*3*sizeof(char) );
+    SUBPROCESS.INPUT_SNID_REWGT_DUMP =
+      (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
+    SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING = 
+      (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
+
+    SUBPROCESS.INPUT_FILES[0] = 0;
+    SUBPROCESS.INPUT_SNID_REWGT_DUMP[0] = 0 ;
+    SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING[0] = 0;
+
+    return ;
+} // end SUBPROCESS_MALLOC_INPUTS
+
+// ==================================
 void  SUBPROCESS_INIT(void) {
 
   // Created July 2020
-  // Parse SUBPROCESS.FILES to get file names for:
+  // Parse SUBPROCESS.INPUT_FILES to get file names for:
   //   input PDF map file (written by python driver)
   //   output info        (passed from SALT2mu to python driver)
   //   log file           (std out created by SALT2mu)
@@ -17992,7 +18022,7 @@ void  SUBPROCESS_INIT(void) {
   tmpFiles[0] = SUBPROCESS.INPFILE ;
   tmpFiles[1] = SUBPROCESS.OUTFILE ;
   tmpFiles[2] = SUBPROCESS.STDOUT_FILE ;
-  splitString(SUBPROCESS.FILES, ",", 3, &NSPLIT, tmpFiles);
+  splitString(SUBPROCESS.INPUT_FILES, ",", 3, &NSPLIT, tmpFiles);
   
   // open INPFILE in read mode
   SUBPROCESS.FP_INP = fopen(SUBPROCESS.INPFILE, "rt");
@@ -18033,6 +18063,9 @@ void  SUBPROCESS_INIT(void) {
     fflush(stdout);
   }
 
+  // prepare optional dumps
+  SUBPROCESS_INIT_DUMP();
+
   SUBPROCESS_OUTPUT_PREP();
 
   printf("%s  Finished %s\n", KEYNAME_SUBPROCESS_STDOUT, fnam );
@@ -18063,7 +18096,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   //
 
   int  EVENT_TYPE       = TABLEVAR->EVENT_TYPE ;
-  char *VARNAMES_STRING = SUBPROCESS.VARNAMES_GENPDF_STRING ; 
+  char *VARNAMES_STRING = SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING ; 
   int  LEN_MALLOC       = TABLEVAR->LEN_MALLOC ;
   int  MEMF             = LEN_MALLOC*sizeof(float) ;
   char comma[] = ",";
@@ -18241,11 +18274,12 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
 
   // - - - - -
   // prepare index map between IVAR(MAP) and IVAR(TABLE)
-  int imap, NVAR_GENPDF, ivar, IVAR_TABLE ;
+  int imap, NVAR_GENPDF, ivar, IVAR_TABLE, IDMAP ;
   char *varName_GENPDF, *varName_store;
   for(imap=0; imap < NMAP_GENPDF; imap++ ) {
-    NVAR_GENPDF = GENPDF[imap].GRIDMAP.NDIM-1; // exclude PROB
-    
+    IDMAP = IDGRIDMAP_GENPDF + imap;
+    NVAR_GENPDF = GENPDF[imap].GRIDMAP.NDIM; 
+
     for(ivar=0; ivar < NVAR_GENPDF; ivar++ ) {
       varName_GENPDF = GENPDF[imap].VARNAMES[ivar];
       IVAR_TABLE = SUBPROCESS_IVAR_TABLE(varName_GENPDF);
@@ -18255,6 +18289,11 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
 	sprintf(c2err,"Check command-line arg SUBPROCESS_VARNAMES_GENPDF");
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
+
+      /*
+      printf(" xxx %s: imap=%d ivar=%d IDMAP=%d --> IVAR_TABLE=%d \n",
+	     fnam, imap, ivar, IDMAP, IVAR_TABLE);
+      */
       SUBPROCESS.IVAR_TABLE_GENPDF[imap][ivar] = IVAR_TABLE ;
 
     } // end ivar-GENPDF loop
@@ -18263,14 +18302,54 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   // -------------------------------------
 
   // loop over sim data and set make to keep/reject based on GENPDF map
-  int isn;
+  int isn, istat, LDMP=0 ;
   int NSN = INFO_DATA.TABLEVAR.NSN_ALL;
-  double XVAL_for_GENPDF[MXVAR_GENPDF];
-
+  char *name;
+  double XVAL, XVAL_for_GENPDF[MXVAR_GENPDF], PROB, PROB_TOT ;
+  
   for ( isn=0 ; isn < NSN; isn++ ) {
-    
-  }
+    PROB_TOT = 1.0;
+    name = INFO_DATA.TABLEVAR.name[isn];
+    LDMP = (isn < 4);
 
+    if ( LDMP ) { printf("\n xxx %s -------------------------- \n", fnam ); }
+
+    for(imap=0; imap < NMAP_GENPDF; imap++ ) {
+      IDMAP = IDGRIDMAP_GENPDF + imap;
+      NVAR_GENPDF = GENPDF[imap].GRIDMAP.NDIM ; // exclude PROB
+      if ( LDMP == 6 ) { 
+	printf(" xxx %s: imap=%d  NVAR_GENPDF = %d \n",
+	       fnam, imap, NVAR_GENPDF) ; fflush(stdout);
+      }
+
+      for(ivar=0; ivar < NVAR_GENPDF; ivar++ ) {
+	IVAR_TABLE = SUBPROCESS.IVAR_TABLE_GENPDF[imap][ivar] ;
+	XVAL       = SUBPROCESS.TABLEVAR[IVAR_TABLE][isn];
+	XVAL_for_GENPDF[ivar] = XVAL ;
+	if ( LDMP == 6 ) {
+	  varName_GENPDF = GENPDF[imap].VARNAMES[ivar];
+	  printf(" xxx %s: imap=%d, %s = %f \n", 
+		 fnam, imap, varName_GENPDF, XVAL);
+	  fflush(stdout);
+	}
+      } // end ivar loop
+
+      istat = interp_GRIDMAP(&GENPDF[imap].GRIDMAP, XVAL_for_GENPDF, &PROB);
+      PROB_TOT *= PROB ;
+
+      if ( LDMP ) {
+	XVAL = XVAL_for_GENPDF[0]; 
+	printf(" xxx %s: PROB(%s,%s=%.3f) = %f \n", 
+		 fnam, name, GENPDF[imap].VARNAMES[0], XVAL, PROB); 
+	  fflush(stdout);
+      }
+      
+    } // end GENPDF map loop
+
+    // apply random number against PROB_TOT to keep or reject this event.
+
+
+  } // end isn loop
   return ;
 
 } // end SUBPROCESS_SIM_REWGT
@@ -18287,6 +18366,34 @@ int SUBPROCESS_IVAR_TABLE(char *varName) {
   }
   return(IVAR_TABLE);
 }
+
+// =======================================
+void SUBPROCESS_INIT_DUMP(void) {
+
+  // parse command-line input SUBPROCESS_SNID_REWGT_DUMP
+  // and load DUMPFLAG_REWGT make for each isn index.
+  
+  int NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int MXSPLIT=20, NSPLIT=0, isn, i ;
+  char *ptrSNID[20];
+
+  // ------------- BEGIN ---------------
+
+  SUBPROCESS.DUMPFLAG_REWGT = (bool*) malloc( NSN_DATA* sizeof(bool) );
+
+  if ( strlen(SUBPROCESS.INPUT_SNID_REWGT_DUMP) > 0 ) { 
+    for(i=0; i < MXSPLIT; i++ ) 
+      { ptrSNID[i] = (char*) malloc( 20*sizeof(char) ); }
+  }
+
+  for(isn=0; isn < NSN_DATA; isn++ ) {
+    SUBPROCESS.DUMPFLAG_REWGT[isn] = false;
+  }  
+  // .xyz
+
+
+  return;
+} // end SUBPROCESS_INIT_DUMP
 
 // =======================================
 void SUBPROCESS_OUTPUT_PREP(void) {

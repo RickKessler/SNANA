@@ -150,7 +150,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 		   IDMAP, NDIM, NFUN, OPT_EXTRAP_GENPDF, 
 		   MXROW_GENPDF, fnam, &GENPDF[NMAP].GRIDMAP );
 
-      /* xxx
+      /*
       NROW = GENPDF[NMAP].GRIDMAP.NROW;
       printf(" Found PROB(%s)  NDIM=%d, NROW=%d \n",  VARLIST, NDIM, NROW);
       */

@@ -10666,8 +10666,7 @@ void madend(int flag) {
 
    char cmsg[40] = { "ABORT program on Fatal Error." };
 
-   printf("\n");
-   printf("\n");
+   //   printf("\n");   printf("\n");
    printf("\n   `|```````|`    ");
    printf("\n   <| o\\ /o |>    ");
    printf("\n    | ' ; ' |     ");

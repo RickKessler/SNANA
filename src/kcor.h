@@ -82,6 +82,7 @@ struct INPUTS {
   char FORMAT_FLAG[MXOUTFILE];     // internally set; format flag(s)
 
   char FILTPATH[200];             // (I) path for filter trans files 
+  char FILTPATH_ORIG[200];        // (I) idem before ENVreplace (7/2020)
   char FILTPATH_replace1[200];   
   char FILTPATH_replace2[200];   
 
@@ -312,6 +313,7 @@ struct  FILTER
 
   int    IPATH ;                   // integer index to PATH
   char   PATH[200] ;              // subdir in $SNDATA_ROOT/filters/
+  char   PATH_ORIG[200];          // idem, before ENVreplace
   char   FILTSYSTEM_NAME[20] ;    // (I) energy or count
   int    FILTSYSTEM_INDX ;        // energy or count
 

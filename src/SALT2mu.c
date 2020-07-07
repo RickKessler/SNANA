@@ -2004,7 +2004,8 @@ float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
 #define USE_SUBPROCESS
 
 #ifdef USE_SUBPROCESS
-void SUBPROCESS_INIT(void); // one time init (binning, malloc ...)
+void SUBPROCESS_HELP(void);
+void SUBPROCESS_INIT(void); // one time init driver (binning, malloc ...)
 void SUBPROCESS_MALLOC_INPUTS(void);
 void SUBPROCESS_PREP_NEXTITER(void); // prepare for next iteration
 void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN, 
@@ -2012,6 +2013,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 void SUBPROCESS_SIM_REWGT(int ITER_EXPECT);
 int  SUBPROCESS_IVAR_TABLE(char *varName_GENPDF);
 void SUBPROCESS_INIT_DUMP(void);
+void SUBPROCESS_INIT_RANFLAT(void);
 void SUBPROCESS_OUTPUT_PREP(void);
 void SUBPROCESS_OUTPUT_LOAD(void);
 void SUBPROCESS_OUTPUT_WRITE(void); // write output
@@ -2029,7 +2031,8 @@ struct {
   // INPUT_xxx are read directory from command line
   char  *INPUT_FILES ; // comma-sep list of INPFILE,OUTFILE,STDOUT_FILE
   char  *INPUT_VARNAMES_GENPDF_STRING;
-  char  *INPUT_SNID_REWGT_DUMP;
+  char  *INPUT_CID_REWGT_DUMP;
+  int    INPUT_ISEED; // random seed
 
   // variables below are computed/extracted from INPPUT_xxx
   char  *INPFILE ; // read PDF map from here
@@ -2044,9 +2047,13 @@ struct {
 
   // store fitres columns used in GENPDF maps
   float *TABLEVAR[MXVAR_GENPDF]; // use float to save memory
+  
+  // store random number for each event.
+  float *RANFLAT;
 
   // variables filled during each subprocess iteration
   int  ITER;
+  bool *KEEP_AFTER_REWGT;
 
   // below are variables filled by OUTPUT_LOAD at end of each subproc iter
   char    LINE_VARNAMES[200];
@@ -2183,20 +2190,18 @@ void SALT2mu_DRIVER_EXEC(void) {
   // Execute MINUIT-based fit.
   // Part of refactor to prepare for higher-level python scripts
   // calling SALT2mu.
-
-  const int null=0;
-  int inf=5, outf=6, savef=7;
+  //
+  // Remove MINUIT printing by moving "SET PRI -1" command to 
+  // be right after MNINIT (instead of further down)
+  //
+  const int null=0 ;
+  int inf = 5, outf = 6, savef = 7;
   int icondn, len, npari, nparx, istat, ndof ;
   double chi2min, fedm, errdef ;
   char text[100], mcom[50];
   char fnam[] = "SALT2mu_DRIVER_EXEC" ;
 
   // -------------- BEGIN ---------------
-
-
-#ifdef USE_SUBPROCESS
-  if ( SUBPROCESS.USE ) { outf = fileno(FP_STDOUT); }
-#endif
 
   if ( INPUTS.JOBID_SPLITRAN > 0 ) 
     { NJOB_SPLITRAN = INPUTS.JOBID_SPLITRAN; } // do only this one SPLIT job
@@ -2216,6 +2221,9 @@ void SALT2mu_DRIVER_EXEC(void) {
   FITRESULT.NCALL_FCN = 0 ;
   mninit_(&inf,&outf,&savef);
 
+  strcpy(mcom,"SET PRI -1");     len = strlen(mcom);
+  mncomd_(fcn, mcom, &icondn, &null, len);  fflush(FP_STDOUT);
+
   strcpy(text,"SALT2mu"); len = strlen(text);  
   mnseti_(text,len);    fflush(FP_STDOUT);
 
@@ -2234,22 +2242,9 @@ void SALT2mu_DRIVER_EXEC(void) {
   // print stats for data after ALL cuts are applied
   print_eventStats(EVENT_TYPE_DATA);
   
-  // check reasons to suppress MINUIT screen dump
-  int MNPRINT = 0 ;
-  //  if ( ISDATA_REAL && INPUTS.blindFlag   ) { MNPRINT = 1; } 
-  //  if ( IGNOREFILE(INPUTS.PREFIX)    ) { MNPRINT = 1; } 
-  //  if ( INPUTS.cutmask_write == -9   ) { MNPRINT = 1; } 
   
   // Beginning of DOFIT loop
   while ( DOFIT_FLAG != FITFLAG_DONE  ) {
-
-    if ( MNPRINT ) 
-      { strcpy(mcom,"SET PRINTOUT 0"); }  // MIMUIT printing on
-    else
-      { strcpy(mcom,"SET PRINTOUT -1"); } // turn off MINUIT printing
-    
-    len = strlen(mcom);
-    mncomd_(fcn,mcom,&icondn,&null,len);  fflush(FP_STDOUT);
 
     //Miniut MINIMIZE (find minimum chi-squared)
     strcpy(mcom,"SIM 1000");   len = strlen(mcom);
@@ -4744,7 +4739,8 @@ void set_defaults(void) {
   init_CUTMASK();
 
 #ifdef USE_SUBPROCESS
-  SUBPROCESS.USE        = false ;
+  SUBPROCESS.USE         = false ;
+  SUBPROCESS.INPUT_ISEED = 12345;
 #endif
 
   return ;
@@ -4778,7 +4774,7 @@ void init_CUTMASK(void) {
   sprintf(CUTSTRING_LIST[CUTBIT_HOST],      "HOST");
   sprintf(CUTSTRING_LIST[CUTBIT_BADERR],    "BADERR among SALT2 fitPar");
   sprintf(CUTSTRING_LIST[CUTBIT_BADCOV],    "BADCOV among SALT2 fitPar");
-  sprintf(CUTSTRING_LIST[CUTBIT_SPLITRAN],  "not in SPLITRAN-subset");
+  sprintf(CUTSTRING_LIST[CUTBIT_SPLITRAN],  "SPLITRAN-subset"); 
   sprintf(CUTSTRING_LIST[CUTBIT_SIMPS],     "sim Prescale" ) ;
   sprintf(CUTSTRING_LIST[CUTBIT_BIASCOR],   "valid BIASCOR" );
   sprintf(CUTSTRING_LIST[CUTBIT_zBIASCOR],  "z-range BIASCOR" );
@@ -13602,6 +13598,10 @@ void parse_parFile(char *parFile ) {
   if ( strcmp(parFile,"cat_only") == 0 ) 
     { INPUTS.cat_only = true; return ;  }
 
+#ifdef USE_SUBPROCESS
+  if ( strcmp(parFile,"SUBPROCESS_HELP") == 0 )  { SUBPROCESS_HELP(); }
+#endif
+
   // allow for some null options to skip reading file
   if ( strcmp(parFile,"NULL")  == 0 ) return;
   if ( strcmp(parFile,"null")  == 0 ) return;
@@ -13742,6 +13742,9 @@ int ppar(char* item) {
   }
 
 #ifdef USE_SUBPROCESS
+  if ( uniqueOverlap(item,"SUBPROCESS_HELP") ) {
+    SUBPROCESS_HELP();
+  }
   if ( uniqueOverlap(item,"SUBPROCESS_FILES=") ) {
     SUBPROCESS_MALLOC_INPUTS();
     s = SUBPROCESS.INPUT_FILES ; // comma-sep list of INPFILE,OUTFILE
@@ -13752,9 +13755,12 @@ int ppar(char* item) {
     s = SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING ; // comma-sep list of varnames
     sscanf(&item[27],"%s",s); remove_quote(s); return(1);
   }
-  if ( uniqueOverlap(item,"SUBPROCESS_SNID_REWGT_DUMP=") ) {
-    s = SUBPROCESS.INPUT_SNID_REWGT_DUMP ; // comma-sep list of SNIDs
-    sscanf(&item[27],"%s",s); remove_quote(s); return(1);
+  if ( uniqueOverlap(item,"SUBPROCESS_CID_REWGT_DUMP=") ) {
+    s = SUBPROCESS.INPUT_CID_REWGT_DUMP ; // comma-sep list of SNIDs
+    sscanf(&item[26],"%s",s); remove_quote(s); return(1);
+  }
+  if ( uniqueOverlap(item,"SUBPROCESS_ISEED=") ) {
+    sscanf(&item[17], "%d", &SUBPROCESS.INPUT_ISEED ); 
   }
 #endif
 
@@ -16149,33 +16155,39 @@ double next_covFitPar(double redchi2, double parval_orig, double parval_step) {
 // ******************************************
 void conflict_check() {
 
-  char var1[200], var2[200];
-  int exitnow;
+  // abort on conflict between inputs.
 
-  exitnow = 0;
+  char var1[200], var2[200];
+  int  NERR = 0, i ;
+  char varName[10][2][20]; // [NERR][IVAR][varName]
+  char fnam[] = "conflict_check" ;
+
+  // ---------- BEGIN -----------
 
   if ( INPUTS.zpolyflag == 1 && INPUTS.fitflag_sigmb > 0 ) {
-    sprintf(var1, "zpolyflag");
-    sprintf(var2, "fitflag_sigmb");
-    exitnow++ ;
+    sprintf(varName[NERR][0], "zpolyflag");
+    sprintf(varName[NERR][1], "fitflag_sigmb");
+    NERR++ ;
   }
 
-  /*
-  if (INPUTS.NSPLITRAN > 1 && INPUTS.fitflag_sigmb > 0 ) {
-    sprintf(var1, "NSPLITRAN");
-    sprintf(var2, "fitflag_sigmb");
-    exitnow = exitnow+1;
+#ifdef USE_SUBPROCESS   
+  if (INPUTS.NSPLITRAN > 1 && SUBPROCESS.USE  ) {
+    sprintf(varName[NERR][0], "NSPLITRAN");
+    sprintf(varName[NERR][1], "SUBPROCESS");
+    NERR++ ;
   }
-  */
+#endif  
   
-  if (exitnow > 0){
-    printf("\n FATAL ERROR:  \n");
-    printf("\t Identified %d input variable conflicts. \n",exitnow);
-    printf("\t Last conflict is between %s and %s. \n", var1, var2);
-    printf("\t See SALT2mu.c subroutine conflict_check for more info.\n");
-    printf("\t Check inputs  and try again. \n");
-    printf("\t ***** ABORT ***** \n ");
-    exit(1);
+  if ( NERR > 0 ) {      
+    print_preAbort_banner(fnam);
+    for(i=0; i < NERR; i++ ) {
+      printf("\t ERROR: conflict between inputs %s and %s\n", 
+	     varName[i][0], varName[i][1] );
+      fflush(stdout);
+    }
+    sprintf(c1err,"Found %d input conflicts (see above).", NERR );
+    sprintf(c2err,"Check inputs.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
   return ;
@@ -17982,17 +17994,53 @@ void SUBPROCESS_MALLOC_INPUTS(void) {
   // SUBPROCESS_FILES argument
 
     SUBPROCESS.INPUT_FILES = (char*) malloc( MXCHAR_FILENAME*3*sizeof(char) );
-    SUBPROCESS.INPUT_SNID_REWGT_DUMP =
+    SUBPROCESS.INPUT_CID_REWGT_DUMP =
       (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
     SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING = 
       (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
 
     SUBPROCESS.INPUT_FILES[0] = 0;
-    SUBPROCESS.INPUT_SNID_REWGT_DUMP[0] = 0 ;
+    SUBPROCESS.INPUT_CID_REWGT_DUMP[0] = 0 ;
     SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING[0] = 0;
 
     return ;
 } // end SUBPROCESS_MALLOC_INPUTS
+
+
+// ==================================
+void  SUBPROCESS_HELP(void) {
+
+  printf("\n");
+  printf("\t   ********** SUBPROCESS HELP MENU ********** \n");
+  printf("\n");
+  printf("First argument is name of SALT2mu input file.\n"
+	 "\n"
+	 "SUBPROCESS_FILES=inpFile,outFile,stdoutFile \n"
+	 "\t inpFile = name of file with input GENPDF maps (to read)\n"
+	 "\t outFile = name of file with SALT2mu output (to write)\n"
+	 "\t stdoutFile = name of log file containint stdout from SALT2mu\n"
+	 "\n"
+	 "SUBPROCESS_VARNAMES_GENPDF="
+	 "<comma sep list of FITRES columns used for PDF maps>\n"
+	 "\t e.g., SIM_x1,LOGMASS,SIM_c,LOGMASS \n"
+	 "\t Duplicate column names ok; they are internally handled.\n"
+	 "\n" 
+	 "SUBPROCESS_CID_REWGT_DUMP=1,2,4,8654,9874    (optional) \n"
+	 "\t list of CIDs to dump reweight info at each iteration.\n"
+	 "\t CID < 10 -> isn index (e.g. CID=2 -> dump 2nd event)\n"
+	 "\t CID > 10 -> dump this exact CID\n"
+	 "\n" 
+	 "Example of full SUBPROCESS command:\n"
+	 "SALT2mu.exe SALT2mu_SIMDATA.input \\\n"
+	 "   SUBPROCESS_FILES="
+	 "SUBPROC_MAPS.DAT,SUBPROC_OUT.DAT,SUBPROC_LOG.STDOUT \\\n"
+	 "   SUBPROCESS_VARNAMES_GENPDF="
+	 "SIM_x1,HOST_LOGMASS,SIM_c,HOST_LOGMASS \\\n"
+	 "   SUBPROCESS_SNID_REWGT_DUMP=1,2,5177316\n"
+	 );
+	
+  exit(0);
+} // end SUBPROCESS_HELP
 
 // ==================================
 void  SUBPROCESS_INIT(void) {
@@ -18004,7 +18052,8 @@ void  SUBPROCESS_INIT(void) {
   //   log file           (std out created by SALT2mu)
   // These files communicate with python program.
 
-  int  MEMC   =  MXCHAR_FILENAME * sizeof(char) ;
+  int NSN_DATA   = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int  MEMC      =  MXCHAR_FILENAME * sizeof(char) ;
   int  NSPLIT ;
   char *tmpFiles[3];
   char fnam[] = "SUBPROCESS_INIT" ;
@@ -18066,7 +18115,14 @@ void  SUBPROCESS_INIT(void) {
   // prepare optional dumps
   SUBPROCESS_INIT_DUMP();
 
+  // prep/malloc arrays for output
   SUBPROCESS_OUTPUT_PREP();
+
+  // prep flat random for each event
+  SUBPROCESS_INIT_RANFLAT();
+
+  // malloc logicals to keep/reject based on random re-wgt
+  SUBPROCESS.KEEP_AFTER_REWGT = (bool*) malloc( NSN_DATA* sizeof(bool) );
 
   printf("%s  Finished %s\n", KEYNAME_SUBPROCESS_STDOUT, fnam );
   fflush(stdout);
@@ -18177,6 +18233,37 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 } // end SUBPROCESS_READPREP_TABLEVAR
 
 // ========================================
+void  SUBPROCESS_INIT_RANFLAT(void) {
+
+  // Init fixed random number [0-1] for each event;
+  // used later to select weighted sub-sample of sim-data.
+
+  int NSN = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int MEMF = NSN * sizeof(float) ;
+  int isn ;
+  double r;
+  char fnam[] = "SUBPROCESS_INIT_RANFLAT" ;
+
+  // ------------ BEGIN -------------
+
+  printf("%s  init randoms with ISEED=%d \n",
+	 KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.INPUT_ISEED );
+  init_random_seed(SUBPROCESS.INPUT_ISEED,1);
+
+  SUBPROCESS.RANFLAT = (float*) malloc ( MEMF );
+  for(isn=0; isn < NSN; isn++ ) {
+    r = unix_random(1);
+    SUBPROCESS.RANFLAT[isn] = (float)r; 
+    if ( isn < 4 )   { 
+      printf("%s\t RANFLAT[%d] = %8.5f \n", KEYNAME_SUBPROCESS_STDOUT,isn,r); 
+    }
+  }
+
+  return ;
+
+} // end  SUBPROCESS_INIT_RANFLAT
+
+// ========================================
 void SUBPROCESS_PREP_NEXTITER(void) {
 
   // Created July 2020
@@ -18272,6 +18359,9 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
 	 KEYNAME_SUBPROCESS_STDOUT, ITER );
   init_genPDF(OPTMASK, FP_INP, INPFILE, "");
 
+  // over-write CUTBIT_SPLITRAN 
+  sprintf(CUTSTRING_LIST[CUTBIT_SPLITRAN],  "GENPDF rewgt");
+
   // - - - - -
   // prepare index map between IVAR(MAP) and IVAR(TABLE)
   int imap, NVAR_GENPDF, ivar, IVAR_TABLE, IDMAP ;
@@ -18302,36 +18392,40 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   // -------------------------------------
 
   // loop over sim data and set make to keep/reject based on GENPDF map
-  int isn, istat, LDMP=0 ;
+  int isn, istat, SIM_NONIA_INDEX, CUTMASK, NKEEP_ORIG=0, NKEEP_REWGT=0 ;
+  bool LDMP, KEEP ;
   int NSN = INFO_DATA.TABLEVAR.NSN_ALL;
   char *name;
-  double XVAL, XVAL_for_GENPDF[MXVAR_GENPDF], PROB, PROB_TOT ;
+  double XVAL, XVAL_for_GENPDF[MXVAR_GENPDF], PROB, PROB_TOT, RANFLAT ;
   
   for ( isn=0 ; isn < NSN; isn++ ) {
-    PROB_TOT = 1.0;
-    name = INFO_DATA.TABLEVAR.name[isn];
-    LDMP = (isn < 4);
+    PROB_TOT        = 1.0;
+    name            = INFO_DATA.TABLEVAR.name[isn];
+    SIM_NONIA_INDEX = INFO_DATA.TABLEVAR.SIM_NONIA_INDEX[isn];
+    //    CUTMASK         = INFO_BIASCOR.TABLEVAR.CUTMASK[isn] ;
+    SUBPROCESS.KEEP_AFTER_REWGT[isn] = KEEP = false;
+    LDMP            = SUBPROCESS.DUMPFLAG_REWGT[isn];
 
-    if ( LDMP ) { printf("\n xxx %s -------------------------- \n", fnam ); }
+    if ( SIM_NONIA_INDEX > 0 ) { continue; } // reject of not true SNIa
+    //    if ( CUTMASK != 0        ) { continue; }
+
+    NKEEP_ORIG++ ;
+
+    if ( LDMP ) {
+      printf(" xxx \n");
+      printf(" xxx %s -------------------------------------- \n", fnam ); 
+      printf(" xxx %s DUMP for isn=%d, SNID=%s \n", fnam, isn, name ); 
+      fflush(stdout);
+    }
 
     for(imap=0; imap < NMAP_GENPDF; imap++ ) {
-      IDMAP = IDGRIDMAP_GENPDF + imap;
-      NVAR_GENPDF = GENPDF[imap].GRIDMAP.NDIM ; // exclude PROB
-      if ( LDMP == 6 ) { 
-	printf(" xxx %s: imap=%d  NVAR_GENPDF = %d \n",
-	       fnam, imap, NVAR_GENPDF) ; fflush(stdout);
-      }
+      IDMAP = IDGRIDMAP_GENPDF + imap ;
+      NVAR_GENPDF = GENPDF[imap].GRIDMAP.NDIM ;
 
       for(ivar=0; ivar < NVAR_GENPDF; ivar++ ) {
 	IVAR_TABLE = SUBPROCESS.IVAR_TABLE_GENPDF[imap][ivar] ;
 	XVAL       = SUBPROCESS.TABLEVAR[IVAR_TABLE][isn];
 	XVAL_for_GENPDF[ivar] = XVAL ;
-	if ( LDMP == 6 ) {
-	  varName_GENPDF = GENPDF[imap].VARNAMES[ivar];
-	  printf(" xxx %s: imap=%d, %s = %f \n", 
-		 fnam, imap, varName_GENPDF, XVAL);
-	  fflush(stdout);
-	}
       } // end ivar loop
 
       istat = interp_GRIDMAP(&GENPDF[imap].GRIDMAP, XVAL_for_GENPDF, &PROB);
@@ -18339,17 +18433,36 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
 
       if ( LDMP ) {
 	XVAL = XVAL_for_GENPDF[0]; 
-	printf(" xxx %s: PROB(%s,%s=%.3f) = %f \n", 
-		 fnam, name, GENPDF[imap].VARNAMES[0], XVAL, PROB); 
-	  fflush(stdout);
+	printf(" xxx %s: PROB(%s=%.3f) = %f \n", 
+		 fnam, GENPDF[imap].VARNAMES[0], XVAL, PROB); 
+	fflush(stdout);
       }
       
     } // end GENPDF map loop
 
     // apply random number against PROB_TOT to keep or reject this event.
+    RANFLAT = (double)SUBPROCESS.RANFLAT[isn];
 
+
+    if ( PROB_TOT >= RANFLAT ) { KEEP = true; NKEEP_REWGT++ ; } 
+    if ( LDMP ) {
+      printf(" xxx %s: PROB_TOT=%7.4f  FLATRAN=%7.4f  KEEP=%d\n", 
+	     fnam, PROB_TOT, RANFLAT, KEEP );
+      fflush(stdout);
+    }
+
+    SUBPROCESS.KEEP_AFTER_REWGT[isn] = KEEP;
+
+    if ( !KEEP ) 
+      { setbit_CUTMASK(isn, CUTBIT_SPLITRAN, &INFO_DATA.TABLEVAR ); }
 
   } // end isn loop
+
+  // - - - - -
+  printf("%s  Keep %d of %d events after GENPDF reweight\n", 
+	 KEYNAME_SUBPROCESS_STDOUT, NKEEP_REWGT, NKEEP_ORIG );
+  fflush(stdout);
+
   return ;
 
 } // end SUBPROCESS_SIM_REWGT
@@ -18370,27 +18483,41 @@ int SUBPROCESS_IVAR_TABLE(char *varName) {
 // =======================================
 void SUBPROCESS_INIT_DUMP(void) {
 
-  // parse command-line input SUBPROCESS_SNID_REWGT_DUMP
+  // parse command-line input SUBPROCESS_CID_REWGT_DUMP
   // and load DUMPFLAG_REWGT make for each isn index.
   
   int NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
-  int MXSPLIT=20, NSPLIT=0, isn, i ;
-  char *ptrSNID[20];
+  int MXSPLIT=20, NSPLIT=0, isn, i, SNID ;
+  bool MATCH, PICK_isn;
+  char comma[] = "," ;
+  char *ptrSNID[20], *name ;
+  char *string = SUBPROCESS.INPUT_CID_REWGT_DUMP ;
+  char fnam[] = "SUBPROCESS_INIT_DUMP" ;
 
   // ------------- BEGIN ---------------
 
   SUBPROCESS.DUMPFLAG_REWGT = (bool*) malloc( NSN_DATA* sizeof(bool) );
 
-  if ( strlen(SUBPROCESS.INPUT_SNID_REWGT_DUMP) > 0 ) { 
+  if ( strlen(string) > 0 ) { 
     for(i=0; i < MXSPLIT; i++ ) 
       { ptrSNID[i] = (char*) malloc( 20*sizeof(char) ); }
+    
+    splitString(string, comma, MXSPLIT,    // inputs
+		&NSPLIT, ptrSNID );        // outputs
   }
 
   for(isn=0; isn < NSN_DATA; isn++ ) {
     SUBPROCESS.DUMPFLAG_REWGT[isn] = false;
-  }  
-  // .xyz
+    name = INFO_DATA.TABLEVAR.name[isn];
 
+    // check user-input list for SNIDs to dump
+    for(i=0; i < NSPLIT; i++ ) {
+      sscanf(ptrSNID[i], "%d", &SNID);
+      MATCH = strcmp(name,ptrSNID[i]) == 0 ;
+      PICK_isn = (SNID == isn && isn < 10);
+      if ( MATCH || PICK_isn ) { SUBPROCESS.DUMPFLAG_REWGT[isn] = true; }
+    }
+  }  
 
   return;
 } // end SUBPROCESS_INIT_DUMP
@@ -18432,7 +18559,7 @@ void SUBPROCESS_OUTPUT_PREP(void) {
     SUBPROCESS.SIM_c[ic]  = c;
   }
 
-  printf("%s: prep %d output c bins, %.3f to %.3f \n",
+  printf("%s  prep %d output c bins, %.3f to %.3f \n",
 	 KEYNAME_SUBPROCESS_STDOUT, NBIN_c, RANGE_c[0], RANGE_c[1] );
 
   return ;

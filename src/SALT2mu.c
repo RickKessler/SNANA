@@ -18081,17 +18081,20 @@ void  SUBPROCESS_INIT(void) {
   tmpFiles[2] = SUBPROCESS.STDOUT_FILE ;
   splitString(SUBPROCESS.INPUT_FILES, ",", 3, &NSPLIT, tmpFiles);
   
-  // open INPFILE in read mode
-  SUBPROCESS.FP_INP = fopen(SUBPROCESS.INPFILE, "rt");
-  if ( !SUBPROCESS.FP_INP ) {
-    sprintf(c1err,"Could not open input GENPDF file to read:" );
-    sprintf(c2err," '%s' ", SUBPROCESS.INPFILE);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-  else {
-    printf("%s  Opened input  file (GENPDF map): %s\n", 
-	   KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.INPFILE );
-    fflush(stdout);
+  // open INPFILE in read mode, but only for sim data.
+  // skip for real data since there is nothing to rewgt.
+  if ( !ISDATA_REAL ) {
+    SUBPROCESS.FP_INP = fopen(SUBPROCESS.INPFILE, "rt");
+    if ( !SUBPROCESS.FP_INP ) {
+      sprintf(c1err,"Could not open input GENPDF file to read:" );
+      sprintf(c2err," '%s' ", SUBPROCESS.INPFILE);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    else {
+      printf("%s  Opened input  file (GENPDF map): %s\n", 
+	     KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.INPFILE );
+      fflush(stdout);
+    }
   }
 
   // open OUTFILE in write mode

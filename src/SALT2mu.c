@@ -2017,6 +2017,7 @@ void SUBPROCESS_INIT_RANFLAT(void);
 void SUBPROCESS_OUTPUT_PREP(void);
 void SUBPROCESS_OUTPUT_LOAD(void);
 void SUBPROCESS_OUTPUT_WRITE(void); // write output
+void SUBPROCESS_EXIT(void);
 
 #include "sntools_genPDF.h" 
 #include "sntools_genPDF.c"
@@ -2341,11 +2342,17 @@ int SALT2mu_DRIVER_SUMMARY(void) {
     { return(FLAG_EXEC_REPEAT); }
 
 #ifdef USE_SUBPROCESS
-  printf("%s CHI2_MIN = %.2f   <M0> = %.4f  NFIT_ITER=%d\n",
-	 KEYNAME_SUBPROCESS_STDOUT, FITRESULT.CHI2SUM_MIN,
-	 FITRESULT.AVEMAG0, FITRESULT.NFIT_ITER );
-  fflush(stdout);
-  if ( SUBPROCESS.USE ) { return(FLAG_EXEC_REPEAT); }
+  if ( SUBPROCESS.USE ) {
+    printf("%s CHI2_MIN = %.2f   <M0> = %.4f  NFIT_ITER=%d\n",
+	   KEYNAME_SUBPROCESS_STDOUT, FITRESULT.CHI2SUM_MIN,
+	   FITRESULT.AVEMAG0, FITRESULT.NFIT_ITER );
+    fflush(stdout);
+    if ( ISDATA_REAL ) 
+      { SUBPROCESS_EXIT(); return(FLAG_EXEC_STOP); }
+    else
+      { return(FLAG_EXEC_REPEAT); }
+ 
+  }
 #endif
 
   
@@ -2354,6 +2361,7 @@ int SALT2mu_DRIVER_SUMMARY(void) {
   SPLITRAN_SUMMARY();
   CPU_SUMMARY();
 
+  
   return(FLAG_EXEC_STOP);
 
 } // end SALT2mu_DRIVER_EXEC
@@ -18282,11 +18290,8 @@ void SUBPROCESS_PREP_NEXTITER(void) {
 
   printf("\n%s Enter expected ITERATION number (-1 to quit) => ",
 	 KEYNAME_SUBPROCESS_STDOUT );
-  scanf( "%d", &ITER_EXPECT);
-  if ( ITER_EXPECT < 0 ) {
-    printf("\n%s Graceful Program Exist. Bye.\n", KEYNAME_SUBPROCESS_STDOUT);
-    exit(0);
-  }
+  scanf( "%d", &ITER_EXPECT); // read response
+  if ( ITER_EXPECT < 0 ) { SUBPROCESS_EXIT(); }
 
   prep_input_repeat();
 
@@ -18529,8 +18534,8 @@ void SUBPROCESS_OUTPUT_PREP(void) {
   // prep arrays used to load output.
   // Start with trivial function of color.
 
-  int    ic, NBIN_c = 16 ;
-  double RANGE_c[2] = { -0.3, 0.5} ;
+  int    ic, NBIN_c = 20 ;
+  double RANGE_c[2] = { -0.4, 0.6} ;
   double c, cbin ;
   char fnam[] = "SUBPROCESS_OUTPUT_PREP" ;
 
@@ -18543,7 +18548,7 @@ void SUBPROCESS_OUTPUT_PREP(void) {
   SUBPROCESS.BIN_c      = cbin ;
   
   sprintf(SUBPROCESS.LINE_VARNAMES, 
-	  "VARNAMES: IDPDF ic SIM_c NEVT  MURES_SUM MURES_SQSUM" );
+	  "VARNAMES: IDPDF ic  c  NEVT  MURES_SUM MURES_SQSUM" );
 
   int MEMC = NBIN_c * sizeof(int) ;
   int MEMD = NBIN_c * sizeof(double) ;
@@ -18639,7 +18644,10 @@ void SUBPROCESS_OUTPUT_WRITE(void) {
   printf("%s write SALT2mu output\n",  KEYNAME_SUBPROCESS_STDOUT );
   fflush(stdout);
 
-  fprintf(FP_OUT,"ITERATION: %d\n\n", ITER);
+  fprintf(FP_OUT,"# ITERATION: %d\n#\n", ITER);
+  fflush(FP_OUT);
+
+  fprintf(FP_OUT,"# NSNFIT: %d \n", FITRESULT.NSNFIT);
   fflush(FP_OUT);
 
   // always write fitted nuisance params 
@@ -18652,14 +18660,14 @@ void SUBPROCESS_OUTPUT_WRITE(void) {
       VAL = FITRESULT.PARVAL[1][n] ;
       ERR = FITRESULT.PARERR[1][n] ;
       sprintf(tmpName,"%s", FITRESULT.PARNAME[n]);
-      fprintf(FP_OUT, "FITPAR:  %-14s = %10.5f +- %8.5f \n",
+      fprintf(FP_OUT, "# FITPAR:  %-14s = %10.5f +- %8.5f \n",
 	      tmpName, VAL, ERR );
     }
   } // end loop over SALT2mu fit params
 
   // - - - - - - 
 
-  fprintf(FP_OUT, "\n%s\n", SUBPROCESS.LINE_VARNAMES);
+  fprintf(FP_OUT, "#\n%s\n", SUBPROCESS.LINE_VARNAMES);
   fflush(FP_OUT);
 
   for(ic=0; ic < NBIN_c ; ic++ ) {
@@ -18682,5 +18690,11 @@ void SUBPROCESS_OUTPUT_WRITE(void) {
 
 } // end SUBPROCESS_OUTPUT_WRITE
 
+
+// ===============================
+void SUBPROCESS_EXIT(void) {
+  printf("\n%s Graceful Program Exit. Bye.\n", KEYNAME_SUBPROCESS_STDOUT);
+  exit(0);
+}
 
 #endif

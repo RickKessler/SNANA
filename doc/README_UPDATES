@@ -18641,6 +18641,8 @@
           SIM_MU(ztrue)   86.4 / 9      # old using SIM_MU(ztrue)
           SIM_MU(zHD)     16.1 / 9      # new using SIM_MU(zHD)
 
-
+   kcor.c
+     + write input file name and FILTER PATH names to output FITS header;
+       can be used later to chase down DOCANA notes.
 
 END: 

@@ -16,6 +16,10 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss);
 void   copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
                           GENGAUSS_ASYM_DEF *genGauss2) ;
 void   dump_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss);
+
+void   set_GENGAUSS_ASYM(double peak, double *sigma, double *range,
+			 GENGAUSS_ASYM_DEF *genGauss);
+
 void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss );
 
 // function prototypes for skewNormal.c (moved here Jan 11 2017)

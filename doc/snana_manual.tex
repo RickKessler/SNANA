@@ -5328,6 +5328,10 @@ Sim-input keys controlling PDF maps are as follows:
    GENPDF_FILE:     <fileName>
    GENPDF_IGNORE:   <comma-sep list of map(s) to ignore>
    GENPDF_OPTMASK:  <optMask>
+
+   GENPDF_FLAT:    SALT2x1(-4:4),SALT2c(-0.4:0.5)
+        or
+   GENPDF_FLAT:    SALT2x1(-4:4),SALT2c(-0.4:0.5),RV(1:4),AV(0:2) 
 \end{Verbatim}
 %
 Only one map-file can be specified, so all maps must reside in this file.
@@ -5342,7 +5346,16 @@ the relevant map. For example,
 disables the RV-PDF map, and instead uses an \AG\ for 
 $R_V$:  peak at 2.2, $\sigma_{-/+} -= 0.2/0.3$.
 If both the analytical \AG\ and PDF map are defined for the same
-parameter, the simulation will abort.
+parameter, the simulation will abort. 
+
+\clearpage
+{\tt GENPDF\_FLAT} forces a flat distribution for an arbitrary
+set of SALT2-related and dust-related variables.
+Variable names are comma-separated, 
+and the colon-separated numbers in parentheses are the 
+min \& max generated value for each variable.
+This option overrides other PDF options based on
+maps, asymmetric Gaussians, and exponential (AV).
 
 \medskip\noindent
 {\tt GENPDF\_OPTMASK} options:

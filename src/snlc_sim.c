@@ -732,8 +732,8 @@ void set_user_defaults(void) {
   INPUTS.WV07_REWGT_EXPAV   = -9.0;
 
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_RV, zero );
-  INPUTS.GENGAUSS_RV.RANGE[0] = 2.1 ;
-  INPUTS.GENGAUSS_RV.RANGE[1] = 4.1 ;
+  INPUTS.GENGAUSS_RV.RANGE[0] = 1.0;  // 2.1 ;
+  INPUTS.GENGAUSS_RV.RANGE[1] = 5.0;  // 4.1 ;
   INPUTS.GENGAUSS_RV.PEAK     = RV_MWDUST ; // for SN host
 
   init_GEN_EXP_HALFGAUSS( &INPUTS.GENPROFILE_AV, (double)-9.0 );
@@ -857,9 +857,12 @@ void set_user_defaults(void) {
   INPUTS.NFILT_SMEAR = 0;
   INPUTS.GENMODEL[0] = 0 ;
   INPUTS.MODELPATH[0] = 0 ;
+
   INPUTS.GENPDF_FILE[0] = 0 ;
   INPUTS.GENPDF_IGNORE[0] = 0 ;
+  INPUTS.GENPDF_FLAT[0]   = 0 ;
   INPUTS.GENPDF_OPTMASK   = 0;
+
   INPUTS.GENMODEL_ERRSCALE     = 0.00 ; // .001 -> 0 (Jun 20 2016) 
   INPUTS.GENMODEL_ERRSCALE_OPT = 1;   // use peak error at all epochs
   INPUTS.GENMODEL_ERRSCALE_CORRELATION = 0.0;   // corr with GENMAG_SMEAR
@@ -1744,6 +1747,8 @@ int read_input(char *input_file) {
       { readchar ( fp, INPUTS.GENPDF_FILE ); continue ; }
     if ( uniqueMatch(c_get,"GENPDF_IGNORE:")  ) 
       { readchar ( fp, INPUTS.GENPDF_IGNORE ); continue ; }
+    if ( uniqueMatch(c_get,"GENPDF_FLAT:")  ) 
+      { readchar ( fp, INPUTS.GENPDF_FLAT ); continue ; }
     if ( uniqueMatch(c_get,"GENPDF_OPTMASK:")  ) 
       { readint ( fp, 1, &INPUTS.GENPDF_OPTMASK ); continue ; }
 
@@ -2072,7 +2077,7 @@ int read_input(char *input_file) {
       }
 
     // allow old or new key for AV tau
-    if ( uniqueMatch(c_get,"GENTAU_AV:") || uniqueMatch(c_get,"GENEXPTAU_AV:") ) 
+    if ( uniqueMatch(c_get,"GENTAU_AV:")||uniqueMatch(c_get,"GENEXPTAU_AV:") ) 
       {
 	readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.EXP_TAU ); 
 	INPUTS.GENEXPTAU_AV = INPUTS.GENPROFILE_AV.EXP_TAU ; //legacy variable
@@ -4979,6 +4984,10 @@ void sim_input_override(void) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPDF_IGNORE );
       goto INCREMENT_COUNTER; 
     } 
+    if ( strcmp( ARGV_LIST[i], "GENPDF_FLAT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPDF_FLAT );
+      goto INCREMENT_COUNTER; 
+    } 
     if ( strcmp( ARGV_LIST[i], "GENPDF_OPTMASK" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENPDF_OPTMASK );
       goto INCREMENT_COUNTER; 
@@ -6162,7 +6171,6 @@ void prep_user_input(void) {
     read_SALT2mu_AlphaBeta(INPUTS.SALT2mu_FILE);
     copy_GENGAUSS_ASYM( &INPUTS.GENGAUSS_SALT2x1, &INPUTS.GENGAUSS_SHAPEPAR );
 
-    
   }
   else if ( INDEX_GENMODEL == MODEL_SIMSED ) {
    
@@ -6398,7 +6406,8 @@ void prep_user_input(void) {
     }
 
     // set global logical if any band uses MJD_TEMPLATE (Sep 2017)
-    if ( INPUTS.MJD_TEMPLATE_FILTER[ifilt] > 1.0 ) { INPUTS.USE_MJD_TEMPLATE = 1 ; }
+    if ( INPUTS.MJD_TEMPLATE_FILTER[ifilt] > 1.0 ) 
+      { INPUTS.USE_MJD_TEMPLATE = 1 ; }
   }
 	 
 
@@ -6419,40 +6428,6 @@ void prep_user_input(void) {
   if ( INPUTS.NVAR_SIMGEN_DUMP == 0  ||
        INPUTS.SIMLIB_DUMP  >= 0        ) 
     { INPUTS.FORMAT_MASK = 0;  DOCHECK_FORMAT_MASK=0; }
-
-
-
-  /* xxxxxxxxxx mark delete Jun 13 2020 xxxxxxxxxxxxxx
-
-  // xxx mark delete after refactor -----------------------------  
-  if (INPUTS.DEBUG_FLAG == 42){
-    sprintf(c1err,"DEBUG_FLAG == 42 is depricated");
-    c2err[0] = 0;
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-  }
-  if (INPUTS.DEBUG_FLAG == 41){
-    // this is legacy code
-
-    bool DO_AVTAU = INPUTS.GENEXPTAU_AV     > 1.0E-9 ;
-    bool DO_AVSIG = INPUTS.GENGAUSIG_AV     > 1.0E-9 ;
-    bool DO_AV    = INPUTS.GENRANGE_AV[1]   > 1.0E-9 ;
-
-    INPUTS.DO_AV = (DO_AV && DO_RV && 
-		    ( DO_AVTAU || DO_AVSIG || DO_WV07 || DO_GRID )  ) ; 
-
-    if ( INPUTS.DO_AV==0 && DO_AV ) {
-      print_preAbort_banner(fnam);
-      printf("\t GENPEAK_RV   = %f \n", INPUTS.GENGAUSS_RV.PEAK );
-      printf("\t GENEXPTAU_AV = %f \n", INPUTS.GENEXPTAU_AV );
-      printf("\t GENGAUSIG_AV = %f \n", INPUTS.GENGAUSIG_AV );
-      sprintf(c1err,"GENRANGE_AV = %.3f to %.3f", 
-	      INPUTS.GENRANGE_AV[0], INPUTS.GENRANGE_AV[1] );
-      sprintf(c2err,"But cannot generate AV>0; see above param-dump");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-    }
-  }
-  // xxx end mark delete ------------------------------------------
-  xxxxxxxxxxxxxx end mark xxxxxxxxxx */
 
 
   // --------------------------------------
@@ -6540,6 +6515,8 @@ void prep_user_input(void) {
 
 
   prep_genmag_offsets(); 
+
+  prep_GENPDF_FLAT();    // Jul 2020: GENPDF
 
   // check for required input;
   // Allow exceptions for GRID option
@@ -6725,6 +6702,7 @@ void prep_user_input(void) {
     INPUTS.RESTORE_FLUXERR_BUGS = true ;
     printf("\t Restore bugs for DES3YR analysis.\n");
   }
+    
 
   printf("\n");
 
@@ -6999,6 +6977,111 @@ void prep_dustFlags(void) {
   return;
 
 } // end prep_dustFlags
+
+
+// *******************************************
+void  prep_GENPDF_FLAT(void) {
+
+  // Jul 8 2020
+  // if GENPDF_FLAT option is set, split string to examine
+  // each variable, and set approproate GENGAUSS params for
+  // flat distribution.
+  // E.g., GENPDF_FLAT = SALT2x1(-4:4),SALT2c(-0.4:0.6),RV(1:5)
+  //   -> x1 PDF is flat from -4 to +4
+  //   -> c PDF is flat from -0.4 to +0.6
+  //   -> RV PDF is flat from 1 to 5
+
+  int  NVAR, NDUM, ivar;
+  char *ptrStringVar[MXVAR_GENPDF], stringVar[40], stringOpt[40] ;
+  char *ptrRange[2], *varName;
+  double PEAK, RANGE[2];
+  double SIGMA_FLAT[2] = { 1.0E6, 1.0E6 }, TAU_FLAT=1.0E6 ;
+  bool   USE_RANGE ;
+  int  MEMC = 40*sizeof(char);
+  char fnam[] = "prep_GENPDF_FLAT" ;
+
+  // ------------ BEGIN -------------
+
+  //  for FLAT distributions, put on the GENPDF_IGNORE list
+  if ( strlen(INPUTS.GENPDF_FLAT) == 0 ) { return; }
+  
+  // split comma-sep GENPDF_FLAT string 
+  for(ivar=0; ivar < MXVAR_GENPDF; ivar++ ) 
+    { ptrStringVar[ivar] = (char*) malloc( MEMC ); }
+
+  ptrRange[0] = (char*) malloc(MEMC);
+
+  splitString(INPUTS.GENPDF_FLAT, COMMA, MXVAR_GENPDF, 
+	      &NVAR, ptrStringVar);  // <== output
+
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+
+    USE_RANGE = false;
+    // note that stringVar = XYZ or XYZ([min]:[max])
+    sprintf(stringVar, "%s", ptrStringVar[ivar]);
+
+    // strip out optional range
+    extractStringOpt(stringVar,stringOpt);
+    varName = stringVar;
+
+    // add varName to ignore list
+    catVarList_with_comma(INPUTS.GENPDF_IGNORE,varName);
+
+    // if stringOpt is set, split it by colon to get range
+    if ( strlen(stringOpt) > 0 ) {
+      splitString(stringOpt, COLON, MXVAR_GENPDF, 
+		  &NDUM, ptrRange);  // <== output      
+      if ( NDUM != 2 ) {
+	sprintf(c1err,"Invalid NDUM=%d (should be 2)", NDUM);
+	sprintf(c2err,"Check '%s' in GENPDF_FLAT = '%s' ",
+		ptrStringVar[ivar], INPUTS.GENPDF_FLAT);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      sscanf(ptrRange[0], "%le", &RANGE[0] );
+      sscanf(ptrRange[1], "%le", &RANGE[1] );
+      PEAK = 0.5 * ( RANGE[0] + RANGE[1] );
+      USE_RANGE = true;
+    }
+
+    if ( !USE_RANGE ) {
+      sprintf(c1err,"Must provide gen-range for '%s'", varName);
+      sprintf(c2err,"Check '%s' in GENPDF_FLAT = '%s' ",
+	      ptrStringVar[ivar], INPUTS.GENPDF_FLAT);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    printf("\t Force flat PDF for %s \n", varName );
+
+    // .xyz
+
+    if ( strcmp(varName,"SALT2x1") == 0 ) {   
+      set_GENGAUSS_ASYM(PEAK, SIGMA_FLAT, RANGE, &INPUTS.GENGAUSS_SALT2x1);
+      copy_GENGAUSS_ASYM(&INPUTS.GENGAUSS_SALT2x1,&INPUTS.GENGAUSS_SHAPEPAR);
+    }
+    else if ( strcmp(varName,"SALT2c") == 0 ) {
+      set_GENGAUSS_ASYM(PEAK, SIGMA_FLAT, RANGE, &INPUTS.GENGAUSS_SALT2c);
+    }
+    else if ( strcmp(varName,"RV") == 0 ) {
+      set_GENGAUSS_ASYM(PEAK, SIGMA_FLAT, RANGE, &INPUTS.GENGAUSS_RV);
+    }
+    else if ( strcmp(varName,"AV") == 0 ) {
+      set_GEN_EXPON(TAU_FLAT, RANGE, &INPUTS.GENPROFILE_AV);
+    }
+    else {
+      sprintf(c1err,"Unable to generate flat PDF for '%s'", varName);
+      sprintf(c2err,"Check sim-input key GENPDF_FLAT");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+
+  } // end ivar
+
+  fflush(stdout);
+
+  return ;
+
+} // end  prep_GENPDF_FLAT
+
 
 // *******************************************
 void  read_SALT2mu_AlphaBeta(char *SALT2mu_FILE) {

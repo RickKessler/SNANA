@@ -18645,4 +18645,7 @@
      + write input file name and FILTER PATH names to output FITS header;
        can be used later to chase down DOCANA notes.
 
+   snlc_sim.c
+     + add GENPDF_FLAT input; see manual.
+
 END: 

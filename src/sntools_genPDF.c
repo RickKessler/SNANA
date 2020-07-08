@@ -100,7 +100,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   }
 
   if ( strlen(ignoreList) > 0 ) 
-    { printf("\t Reject PDF map(s): %s \n", ignoreList); }
+    { printf("\t Ignore PDF map(s): %s \n", ignoreList); }
   
   // - - - - - - - - - - - - - 
   // open file and read it

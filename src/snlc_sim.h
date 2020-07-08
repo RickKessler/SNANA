@@ -493,6 +493,7 @@ struct INPUTS {
   char GENPDF_FILE[MXPATHLEN];   // PDF for color, stretch, etc ...
   char GENPDF_IGNORE[MXPATHLEN]; 
   int  GENPDF_OPTMASK;           // bit-mask of options
+  char GENPDF_FLAT[100];         // force flat PDF; e.g., SALT2x1,SALT2c,RV
 
   char GENMODEL_EXTRAP_LATETIME[MXPATHLEN];
   char GENSNXT[20] ;        // SN hostgal extinction: CCM89 or SJPAR
@@ -1692,6 +1693,7 @@ void   prep_user_input(void);      // prepare user input for sim.
 void   prep_user_CUTWIN(void);
 void   prep_user_SIMSED(void);
 void   prep_dustFlags(void);
+void   prep_GENPDF_FLAT(void);
 
 void   prep_genmag_offsets(void) ;
 void   prep_RANSYSTPAR(void); // called after reading user input 

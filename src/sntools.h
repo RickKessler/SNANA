@@ -63,6 +63,8 @@
 #define RADIAN    TWOPI / 360.0     // added Oct 2010
 #define ZAT10PC    2.335e-9         // redshift at 10pc (H0=70)
 #define ZMAX_SNANA 4.0              // max snana redshift, Dec 26 2016
+#define COMMA      ","              // to split comma-sep strings
+#define COLON      ":"              // to split colon-sep strings
 
 // from Planck 2018 (installed June 8 2020)
 #define  CMBapex_l  (double)264.031    // deg (RA galactic coords !!!)

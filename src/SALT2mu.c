@@ -14408,7 +14408,10 @@ void parse_powzbin(char *item) {
   //  char fnam[] = "parse_powzbin" ;
 
   // ------------- BEGIN ---------------
-  
+
+  INPUTS.powzbin =  0.0 ;  
+  INPUTS.znhalf  = -9.0 ;
+
   splitString(item, comma, MXARG,    // inputs
 	      &NARG, ptrArg );       // outputs
 

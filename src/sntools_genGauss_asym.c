@@ -87,6 +87,33 @@ void copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
 
 } // end copy_GENGAUSS_ASYM
 
+
+// ================================================
+void set_GENGAUSS_ASYM(double peak, double *sigma, double *range,
+		       GENGAUSS_ASYM_DEF *genGauss) {
+
+  // July 2020
+  // Utility to set Asymmetric Gauss params of genGauss.
+  // Does not set 2nd peak, nor sew.
+
+  genGauss->USE      = true ;
+  genGauss->PEAK     = peak;
+  genGauss->SIGMA[0] = sigma[0] ;
+  genGauss->SIGMA[1] = sigma[1] ;
+  genGauss->RANGE[0] = range[0] ;
+  genGauss->RANGE[1] = range[1] ;
+
+  // turn off 2nd peak, skew ...
+  genGauss->PROB2      =  0.0 ;
+  genGauss->PEAK2      =  0.0 ;
+  genGauss->SIGMA2[0]  =  0.0 ;
+  genGauss->SIGMA2[1]  =  0.0 ;
+  genGauss->RMS        =  0.0 ;
+  genGauss->SKEW[0]    =  0.0 ;
+  genGauss->SKEW[1]    =  0.0 ;
+
+} // end set_GENGAUSS_ASYM
+
 // ======================================
 void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
 

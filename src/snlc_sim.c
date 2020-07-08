@@ -7061,11 +7061,14 @@ void  prep_GENPDF_FLAT(void) {
     else if ( strcmp(varName,"SALT2c") == 0 ) {
       set_GENGAUSS_ASYM(PEAK, SIGMA_FLAT, RANGE, &INPUTS.GENGAUSS_SALT2c);
     }
-    else if ( strcmp(varName,"RV") == 0 ) {
+    else if ( strcmp(varName,PARNAME_RV) == 0 ) {
       set_GENGAUSS_ASYM(PEAK, SIGMA_FLAT, RANGE, &INPUTS.GENGAUSS_RV);
     }
-    else if ( strcmp(varName,"AV") == 0 ) {
+    else if ( strcmp(varName,PARNAME_AV) == 0 ) {
       set_GEN_EXPON(TAU_FLAT, RANGE, &INPUTS.GENPROFILE_AV);
+    }
+    else if ( strcmp(varName,PARNAME_EBV) == 0 ) {
+      set_GEN_EXPON(TAU_FLAT, RANGE, &INPUTS.GENPROFILE_EBV_HOST);
     }
     else {
       sprintf(c1err,"Unable to generate flat PDF for '%s'", varName);

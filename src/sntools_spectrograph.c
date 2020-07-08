@@ -157,6 +157,7 @@ void read_spectrograph_text(char *inFile) {
 
   INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsMAGREF  = 5.0 ;
   INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsTEXPOSE = 1.2 ;
+  INPUTS_SPECTRO.MAGSNR_TOLERANCE_ABORT            = -0.001 ;
 
   NERR_SNR_SPECTROGRAPH = 0 ;
   NERR_BADSNR_SPECTROGRAPH = 0 ;
@@ -218,6 +219,10 @@ void read_spectrograph_text(char *inFile) {
       readdouble(fp, 1, &INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsTEXPOSE);
     }
 
+    if ( strcmp(c_get,"MAGSNR_TOLERANCE_ABORT:") == 0 ) {
+      readdouble(fp, 1, &INPUTS_SPECTRO.MAGSNR_TOLERANCE_ABORT );
+    }
+
     // - - - - - - - - - -
 
     if ( strcmp(c_get,"SPECBIN:") == 0 ) {
@@ -266,6 +271,9 @@ void read_spectrograph_text(char *inFile) {
   printf("    SNR_POISSON_RATIO_ABORT(MAGREF,TEXPOSE) = %.2f, %.2f \n",
 	 INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsMAGREF,
 	 INPUTS_SPECTRO.SNR_POISSON_RATIO_ABORT_vsTEXPOSE) ;
+
+  printf("    Abort if [(m1-m0) - 2.5*log10(SNR0/SNR1)] < %f \n",
+	 INPUTS_SPECTRO.MAGSNR_TOLERANCE_ABORT );
 
   // -----
   if ( NBL >= MXLAM_SPECTROGRAPH ) {
@@ -426,7 +434,6 @@ void check_SNR_SPECTROGRAPH(int l, int t) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   
-
   // - - - - - - - - - 
   if ( t == 0 ) { return ; }
 
@@ -535,7 +542,7 @@ int read_TEXPOSE_LIST(FILE *fp) {
   INPUTS_SPECTRO.TEXPOSE_MIN  = INPUTS_SPECTRO.TEXPOSE_LIST[0] ;
   INPUTS_SPECTRO.TEXPOSE_MAX  = INPUTS_SPECTRO.TEXPOSE_LIST[NBT-1] ;
 
-  if ( NBT >= MXTEXPOSE_SPECTROGRAPH ) {
+  if ( NBT >= MXTEXPOSE_SPECTROGRAPH ){ 
     sprintf(c1err,"Found %d TEXPOSE_LIST values", NBT);
     sprintf(c2err,"but MXTEXPOSE_SPECTROGRAPH=%d", MXTEXPOSE_SPECTROGRAPH);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);    
@@ -615,14 +622,16 @@ void  solve_spectrograph(void) {
 
   // in each lambda bin, solve for Zpe and SQSIGSKY
   //
+  // July 8 2020: 
+  //   + allow a little slop when m1-m0 = 2.5*log10(SNR0/SNR1)
 
-  int l,t, iref ;
+  int l,t, iref, ITexpose ;
   int NBL = INPUTS_SPECTRO.NBIN_LAM ;
   int NBT = INPUTS_SPECTRO.NBIN_TEXPOSE ;
 
   double MAGREF[2], POWMAG[2], SQPOWMAG[2], ARG, SNR[2] ;
   double TOP, BOT, ZP, SQSIGSKY, F[2], DUM0, DUM1, LAMMIN, LAMMAX, LAMAVG ;
-  double SNR_check[2], check[2] ;
+  double SNR_check[2], check[2], MAGREF_DIF, MAGSNR_DIF, magCheck ;
 
   char fnam[] = "solve_spectrograph" ;
 
@@ -644,32 +653,58 @@ void  solve_spectrograph(void) {
 
     for(t=0; t < NBT; t++ ) {
 
+      ITexpose = (int)INPUTS_SPECTRO.TEXPOSE_LIST[t]; // for error msg only
       SNR[0] = INPUTS_SPECTRO.SNR0[l][t] ;
       SNR[1] = INPUTS_SPECTRO.SNR1[l][t] ;
       TOP    = POWMAG[0] - POWMAG[1] ;
 
-      DUM0 = POWMAG[0]/SNR[0];
-      DUM1 = POWMAG[1]/SNR[1];
-      BOT  = DUM0*DUM0 - DUM1*DUM1 ;
-
-      //      if ( t == 0 ) { TOP = 2.0; BOT=1.0; } // xxxx REMOVE
-
-      if ( TOP <= 0.0 || BOT <= 0.0 ) {
-	print_preAbort_banner(fnam);
-	printf("\t BOT = %le  and  TOP = %le\n", BOT, TOP);
-	printf("\t BOT = (%le)^2 - (%le)^2 \n", DUM0, DUM1);
-	printf("\t TOP = %le - %le \n", POWMAG[0], POWMAG[1]);
-	printf("\t SNR[0]=%le  SNR[1]=%le \n", SNR[0], SNR[1] );
-	sprintf(c1err,"Cannot solve ZP for LAM=%.1f to %.1f,  and t=%d sec",
-		LAMMIN, LAMMAX, (int)INPUTS_SPECTRO.TEXPOSE_LIST[t] );
-        sprintf(c2err,"Check SPECTROGRAPH") ;
+      // sanity check:
+      if ( SNR[0] <= 1.0E-9 || SNR[1] < 1.0E-9 ) {
+        sprintf(c1err,"Invalid SNR[0,1] = %le, %le", SNR[0], SNR[1]);
+	sprintf(c2err,"Check <LAM> = %.1f, Texpose=%d", LAMAVG, ITexpose);
+        errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      }
+      
+      MAGREF_DIF = MAGREF[1] - MAGREF[0] ;
+      MAGSNR_DIF = 2.5*log10(SNR[0]/SNR[1]);
+      magCheck   = (MAGREF_DIF - MAGSNR_DIF);
+      if ( magCheck < INPUTS_SPECTRO.MAGSNR_TOLERANCE_ABORT ) {
+        sprintf(c1err,"failed solution check at LAM=%.1f, Texpose=%d",
+		LAMAVG, ITexpose );
+	sprintf(c2err,"mref1-mref0 = %f < 2.5log10(SNR0/SNR1) = %f",
+		MAGREF_DIF, MAGSNR_DIF);
         errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
 
-      ZP     = 2.5*log10(TOP/BOT) ;  // photo-electrons
-      F[0]   = pow(TEN, -0.4*(MAGREF[0]-ZP) );
-      F[1]   = pow(TEN, -0.4*(MAGREF[1]-ZP) );
-      SQSIGSKY = (F[0]/SNR[0])*(F[0]/SNR[0]) - F[0] ;
+      if ( magCheck < 0.0 ) {  
+	// allow a little slop and assume sig=0 and SNR= sqrt(F)
+	F[0] = SNR[0] * SNR[0] ;
+	F[1] = SNR[1] * SNR[1] ;
+	ZP       = MAGREF[0] + 2.5*log10( F[0] );
+	SQSIGSKY = 0.0 ;
+      }
+      else {
+	DUM0 = POWMAG[0]/SNR[0];
+	DUM1 = POWMAG[1]/SNR[1];
+	BOT  = DUM0*DUM0 - DUM1*DUM1 ;
+	
+	if ( TOP <= 0.0 || BOT <= 0.0 ) {
+	  print_preAbort_banner(fnam);
+	  printf("\t BOT = %le  and  TOP = %le\n", BOT, TOP);
+	  printf("\t BOT = (%le)^2 - (%le)^2 \n", DUM0, DUM1);
+	  printf("\t TOP = %le - %le \n", POWMAG[0], POWMAG[1]);
+	  printf("\t SNR[0]=%le  SNR[1]=%le \n", SNR[0], SNR[1] );
+	  sprintf(c1err,"Cannot solve ZP for LAM=%.1f to %.1f,  and t=%d sec",
+		  LAMMIN, LAMMAX, ITexpose );
+	  sprintf(c2err,"Check SPECTROGRAPH") ;
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+	}
+	
+	ZP     = 2.5*log10(TOP/BOT) ;  // photo-electrons
+	F[0]   = pow(TEN, -0.4*(MAGREF[0]-ZP) );
+	F[1]   = pow(TEN, -0.4*(MAGREF[1]-ZP) );
+	SQSIGSKY = (F[0]/SNR[0])*(F[0]/SNR[0]) - F[0] ;
+      }
 
       // store in global 
       INPUTS_SPECTRO.ZP[l][t]        = ZP ;

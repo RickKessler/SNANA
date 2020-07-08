@@ -18648,4 +18648,7 @@
    snlc_sim.c
      + add GENPDF_FLAT input; see manual.
 
+   sntools_spectrograph.c
+     + add protection against numerical roundoff when F ~ SNR^2.
+
 END: 

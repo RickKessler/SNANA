@@ -411,7 +411,7 @@ the $\lambda$-shifted band(s) in the fitting program.
 
 A \SPEC\ instrument is defined as a list of SNR-vs-wavelength,
 $\SNRlam$, for two distinct magnitudes. 
-$\SNRlam$ is defined for two mag values so that in each
+$\SNRlam$ is defined for two (and only two) mag values so that in each
 $\lam$-bin an effective zero point and skyNoise is 
 computed analytically, allowing $\SNRlam$ to computed for any mag.
 For each \spec\ bin-center, the zeropoint ($\ZP$) and skyNoise ($\sigSky$) 
@@ -443,13 +443,12 @@ in Fig.~\ref{fig:spectro_table}.
 \begin{Verbatim}[frame=single]
 # required keys:
 INSTRUMENT: MYSPECDEVICE
-MAGREF_LIST:  20 28           # used to define SNR1 and SNR2
-TEXPOSE_LIST: 300 1000 2000   # seconds
+MAGREF_LIST:  20 28           # defines SNR1 and SNR2 (ony 2 allowed)
+TEXPOSE_LIST: 300 1000 2000   # seconds (arbitrary list size)
 
 # optional keys to check for bad SNR inputs
 SNR_POISSON_RATIO_ABORT_vsMAGREF:  5     # default
 SNR_POISSON_RATIO_ABORT_vsTEXPOSE: 1.2   # default
-
 
 #         LAM   LAM   LAM
 #         MIN   MAX   RES    SNR1 SNR2      SNR1 SNR2      SNR1 SNR2
@@ -5350,12 +5349,12 @@ parameter, the simulation will abort.
 
 \clearpage
 {\tt GENPDF\_FLAT} forces a flat distribution for an arbitrary
-set of SALT2-related and dust-related variables.
+set of SALT2-related (x1,c) and dust-related (RV,AV,EBV) variables.
 Variable names are comma-separated, 
 and the colon-separated numbers in parentheses are the 
 min \& max generated value for each variable.
 This option overrides other PDF options based on
-maps, asymmetric Gaussians, and exponential (AV).
+maps, asymmetric Gaussians (x1,c,RV), and exponential (EBV,AV).
 
 \medskip\noindent
 {\tt GENPDF\_OPTMASK} options:

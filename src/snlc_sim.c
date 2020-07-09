@@ -609,7 +609,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_DES3YR       = false; // Mar 2020
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
   INPUTS.RESTORE_FLUXERR_BUGS = false; // Jan 2020
-  INPUTS.OPT_DEVEL_GENPDF     = 0 ;
+  INPUTS.OPT_DEVEL_GENPDF     = 1 ;
   NLINE_RATE_INFO   = 0;
 
   // don't init zero'th input file since that is the main input file

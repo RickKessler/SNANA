@@ -18608,22 +18608,27 @@
     SALT2mu_fit.pl & SALT2mu.c:
      + refactor/update so that NSPLITRAN output goes to
        separate subdirs names 0001, 0002, etc ... 
-       This change should allow Pippin to run CosmoMC.
+       This change allows Pippin to run CosmoMC in each subDir.
        Interactive NSPLITRAN probably won't work,
-       so only use SALT2mu_fit.pl to launch NSPLITRAN.
+       so must use SALT2mu_fit.pl to launch NSPLITRAN.
      + fix mu_true for opt_biascor += 128 (biasCor with MU)
        to use measured redshift instead of true redshift.
-        (fow now, works only with debug_flag=1)
-     + remove redshift error from muerrz calc (use only vpec).
+     + remove redshift error from muerrz calc (use only vpec);
         restore_sigz=1 restores original calc.
+        Explanation in DES docDB note 15287.
 
 
 # ======================================================================= 
-         v10_77g (  ) 
+         v10_77g (Jul 9 2020) 
 
          ***** IMPORTANT(v10_77g) ***** 
 
+   snlc_sim: refactored code (for GENPDF options) now default.
+
          ***** USEFUL(v10_77g) ***** 
+
+    Can use SALT2mu as a SUBPROCESS run by python population fit code; 
+    see below.
 
          ***** MISCELLANEOUS(v10_77g) ***** 
 
@@ -18641,14 +18646,22 @@
           SIM_MU(ztrue)   86.4 / 9      # old using SIM_MU(ztrue)
           SIM_MU(zHD)     16.1 / 9      # new using SIM_MU(zHD)
 
+     + SUBPROCESS features ready to use. Get help with
+          SALT2mu.exe SUBPROCESS_HELP
+
+   snlc_sim.c
+     + add GENPDF_FLAT input; see manual.
+     + OPT_DEVEL_GENPDF=1 by default so that refactored code
+       is now default -> many SNANA_tester jobs fail (as expected)
+       because random sync has changed.
+
    kcor.c
      + write input file name and FILTER PATH names to output FITS header;
        can be used later to chase down DOCANA notes.
 
-   snlc_sim.c
-     + add GENPDF_FLAT input; see manual.
-
    sntools_spectrograph.c
-     + add protection against numerical roundoff when F ~ SNR^2.
-
+     + add protection against numerical roundoff when F <<< SQSIGMA
+       (limit of noise-dominated spectra). When running kcor.exe,
+       grep HACK <stdout> to see modified SNR.
+  
 END: 

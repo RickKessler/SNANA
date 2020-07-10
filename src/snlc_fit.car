@@ -2572,6 +2572,8 @@ C ===============================
 +DECK,ADD_FITPARERR_FROMz.
       SUBROUTINE ADD_FITPARERR_FROMz(ITER)
 c
+c ****** BAD IDEA ... MARK DELETE *****
+c
 c Created Jun 30 2020
 c If not photo-z fit, estimate color error from redshift error
 c and increment fitted color error. Make sure to remove incorrect

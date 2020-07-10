@@ -6253,6 +6253,7 @@ void prep_user_input(void) {
   else if ( INDEX_GENMODEL == MODEL_FIXMAG ) {
     
     GENFRAME_OPT  = GENFRAME_OBS;
+    INPUTS.GENGAUSS_SHAPEPAR.USE      =  true ;
     INPUTS.GENGAUSS_SHAPEPAR.PEAK     =  0.0 ;
     INPUTS.GENGAUSS_SHAPEPAR.RANGE[0] = -0.01 ;  // made up numbers
     INPUTS.GENGAUSS_SHAPEPAR.RANGE[1] = +0.01 ;  // 
@@ -11279,7 +11280,7 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   // ---------------------------------------
   // evaluate shape with z-dependence on population, 
-
+ 
   if ( DOSHAPE && ISFRAME_REST ) {
 
     char *snam = GENLC.SHAPEPAR_GENNAME ;

@@ -473,7 +473,8 @@ c global survey info
      &  ,NSTORE_DUPLICATE_MJD  ! Number stored
      &  ,N_SNFILE              ! # of SN files to read per version
      &  ,N_SNFILE_LAST         ! idem, as of last version
-     &  ,NEPOCH_TOT            ! total number of epochs read
+     &  ,NEPOCH_TOT            ! total number of epochs read from files
+     &  ,NEPOCH_USE            ! total number of used epochs   
      &  ,NEPOCH_CUT            ! total number of epochs passing cuts
      &  ,NEPOCH_BADPHOT        ! # epochs with bad PHOTFLAG (per event)
      &  ,NEPOCH_BADPHOT_SUM    ! # epochs with bad PHOTFLAG (summed)
@@ -534,7 +535,8 @@ c global survey info
      &    ,N_VERSION, N_SNLC, N_SNLC_CUTS, N_SNLC_FIT, N_SNLC_FITCUTS
      &    ,N_SNLC_COVFIX, N_SNFILE, N_SNFILE_LAST, N_DUPLICATE_CID
      &    ,N_DUPLICATE_MJD, NSTORE_DUPLICATE_MJD
-     &    ,NEPOCH_TOT, NEPOCH_CUT, NEPOCH_BADPHOT, NEPOCH_BADPHOT_SUM
+     &    ,NEPOCH_TOT, NEPOCH_USE, NEPOCH_CUT
+     &    ,NEPOCH_BADPHOT, NEPOCH_BADPHOT_SUM
      &    ,REFORMAT_SAVE_BADEPOCHS, STDOUT_UPDATE
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
      &    ,NVAR_TERSE, VARLIST_TERSE
@@ -820,6 +822,7 @@ c
      &  ,SNLC_PSF_SIG1(MXEPOCH)  ! sigma, pixels
      &  ,SNLC_PSF_SIG2(MXEPOCH)
      &  ,SNLC_PSF_RATIO(MXEPOCH)
+     &  ,SNLC_PSF_FWHM_ARCSEC(MXEPOCH) 
      &  ,SNLC_AREA_NOISE(MXEPOCH)  ! Noise-equivalent area (pixels)
      &  ,SNLC_FLUX_NSIG(MXEPOCH)   ! significance
      &  ,SNLC_FLUXCAL_OFF(MXFILT_OBS)    ! add SN light from template
@@ -891,7 +894,7 @@ c
      &    ,SNLC_AREAFRAC_AVG, SNLC_AREAFRAC
      &    ,SNLC_SKYSIG,  SNLC_SKYSIG_T
      &    ,SNLC_PSF_SIG1, SNLC_PSF_SIG2, SNLC_PSF_RATIO
-     &    ,SNLC_AREA_NOISE
+     &    ,SNLC_AREA_NOISE, SNLC_PSF_FWHM_ARCSEC
 c
      &    ,SNLC_FLUX_NSIG, SNLC_FLUXCAL_OFF
      &    ,SNLC_FLUXCAL_ERRCALC, SNLC_FLUXCAL_ERRTEST
@@ -1894,7 +1897,8 @@ c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
      &  ,SNTABLE_FILTER_REMAP ! remap filters in tables
      &  ,KCOR_FILE            ! fits-formatted KCOR tables
      &  ,OVERRIDE_RESTLAM_BOUNDARY*80 ! e.g., '5100(gV) 6200(rV)'
-     &  ,EPOCH_IGNORE_FILE    ! file with epochs to ignor
+     &  ,EPOCH_IGNORE_FILE    ! read this file with epochs to ignor
+     &  ,OUT_EPOCH_IGNORE_FILE ! write this file with discarded epochs
      &  ,SNMJD_LIST_FILE      ! list of "CID MJD" to process
      &  ,SNMJD_OUT_FILE       ! MJD_LIST out file
      &  ,MNFIT_PKMJD_LOGFILE  ! separate log for PKMJD fits
@@ -2047,7 +2051,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPTSIM_LCWIDTH, OPT_REFORMAT_TERSE, OPT_REFORMAT_TEXT
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
-     &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE, NONLINEARITY_FILE
+     &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE
+     &    , SNCID_LIST_FILE, NONLINEARITY_FILE
      &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , hfile_out, rootfile_out, textfile_prefix
@@ -2098,7 +2103,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT
      &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
-     &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE, NONLINEARITY_FILE
+     &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE
+     &    , SNCID_LIST_FILE, NONLINEARITY_FILE
      &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
@@ -3401,6 +3407,7 @@ c Setting INGORE file to 'DEFAULT' is a flag to read
 c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
 
       EPOCH_IGNORE_FILE = 'DEFAULT' 
+      OUT_EPOCH_IGNORE_FILE = ''
 
       KCOR_FILE   = 'NULL'
       OVERRIDE_RESTLAM_BOUNDARY = ''
@@ -4850,6 +4857,8 @@ c to allow multiple specifications.
 
          else if ( LINE_ARGS(i) .EQ. 'EPOCH_IGNORE_FILE' ) then
             i = i + 1  ; EPOCH_IGNORE_FILE = LINE_ARGS(i)
+         else if ( LINE_ARGS(i) .EQ. 'OUT_EPOCH_IGNORE_FILE' ) then
+            i = i + 1  ; OUT_EPOCH_IGNORE_FILE = LINE_ARGS(i)
 
          else if ( LINE_ARGS(i) .EQ. 'NFIT_ITERATION' ) then
             i = i + 1 ;  READ(LINE_ARGS(i),*) NFIT_ITERATION
@@ -5927,11 +5936,11 @@ c if no supernova pass cuts, look for cuts that always fail.
 
 c -----------------------------------
 
-
+cc      write(6,170) NEPOCH_BADPHOT_SUM, NEPOCH_USE
       write(6,170) NEPOCH_BADPHOT_SUM, NEPOCH_TOT
 170   format(T5,'Bad PHOTOMETRY FLAG for ',I8,' of ', I8,' epochs')
 
-         print*,' '
+      print*,' '
 c -------------------------------------------------
 c print out processing time, and process time per SN.
 
@@ -5971,7 +5980,7 @@ c print DUPLICATE-CID WARNING
 
 c print DUPLICATE-MJD WARNING
       IF ( N_DUPLICATE_MJD > 0 ) THEN
-         f_dupl = float(N_DUPLICATE_MJD)/ float(NEPOCH_TOT)
+         f_dupl = float(N_DUPLICATE_MJD)/ float(NEPOCH_USE)
          write(6,60)
          write(6,60)
          write(6,616) N_DUPLICATE_MJD, 100.*f_dupl
@@ -6172,9 +6181,6 @@ c Apr 2019: special NNtrain option to pick only EVEN CID
          endif
       endif
 
-c check option to fetch vPec from file
-cc xxx mark delete  Jun 8 2020    CALL RD_VPEC_FILE(0)
-
 c check option to override header values (Nov 29 2016)
       CALL EXEC_HEADER_OVERRIDE()
 
@@ -6244,7 +6250,6 @@ c check dump-option for SN that fail cuts.
       ENDIF
 
        IF ( OPT_REFORMAT_TEXT  .GT. 0 ) CALL WRTEXT()
-cc       IF ( OPT_REFORMAT_SALT2 .EQ. 1 ) CALL WRSALT2_1()
        IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) CALL WRSALT2_2()
        IF ( OPT_REFORMAT_FITS  .GT. 0 ) CALL UPD_WRFITS()
 
@@ -6458,6 +6463,8 @@ c
 +CDE,NNCOM.
 
       INTEGER IERR, LENF
+      EXTERNAL write_epoch_list_summary
+
 c ----------------- BEGIN -------------
 
 c      CALL PRINT_SNSTATS
@@ -6514,6 +6521,10 @@ c close hbook file using wrapper so that we don't need CERNLIB flag here.
 
 c - - - - - - 
       CALL PRINT_SNSTATS
+
+      IF ( OUT_EPOCH_IGNORE_FILE .NE. '' ) then
+         CALL write_epoch_list_summary()
+      ENDIF
 
       call flush(6)
       print*,' ' 
@@ -8354,6 +8365,7 @@ c get SNANA version from C function
       ISJOB_PSNID = .FALSE.
 
       NEPOCH_TOT = 0
+      NEPOCH_USE = 0
       NEPOCH_CUT = 0
       NEPOCH_BADPHOT     = 0
       NEPOCH_BADPHOT_SUM = 0
@@ -11315,6 +11327,8 @@ c
 c Mar 20 2015: call CHECK_EPOCH_IGNORE here instead of SNRECON
 c              so that ignored epochs are not even stored.
 c
+c Jul 11 2020: read ZP and PSF, and call SET_EPVAR_MISC
+c
 c -------------------------
       IMPLICIT NONE
 
@@ -11396,19 +11410,34 @@ c Mar 2015 - parse more epoch variables for CHECK_EPOCH_IGNORE
      &     INDXFITS_EPCUTS(JPAR),10,LRET)
       CALL CHECK_FITSABORT(IVERS,NRD,KEYNAME)
 
-c --- optional keys below have no call to CHECK_FITSABORT
+c --- optional keys below 
 
       KEYNAME  = "PHOTFLAG" // char(0)
       JPAR = JPAR + 1
       NRD = RD_SNFITSIO_INT(IROW, KEYNAME, ISNLC_PHOTFLAG,
-     &     INDXFITS_EPCUTS(JPAR),8,LRET)
-cc      CALL CHECK_FITSABORT(IVERS,NRD,KEYNAME)
+     &     INDXFITS_EPCUTS(JPAR), 8, LRET)
 
       KEYNAME  = "PHOTPROB" // char(0)
       JPAR = JPAR + 1
       NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SNLC_PHOTPROB,
-     &     INDXFITS_EPCUTS(JPAR),8,LRET)
-cc      CALL CHECK_FITSABORT(IVERS,NRD,KEYNAME)
+     &     INDXFITS_EPCUTS(JPAR), 8, LRET)
+
+c July 2020: read ZP and PSF too
+      KEYNAME  = "ZEROPT" // char(0)
+      JPAR = JPAR + 1
+      NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SNLC_ZEROPT,
+     &     INDXFITS_EPCUTS(JPAR), 8, LRET)
+
+      KEYNAME  = "PSF_SIG1" // char(0)
+      JPAR = JPAR + 1
+      NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SNLC_PSF_SIG1,
+     &     INDXFITS_EPCUTS(JPAR), 8, LRET)
+
+      KEYNAME  = "GAIN" // char(0)
+      JPAR = JPAR + 1
+      NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SNLC_GAIN,
+     &     INDXFITS_EPCUTS(JPAR), 8, LRET)
+
 
 c -----------------------------------------------------
 c use above info to determine which epochs to keep/reject
@@ -11420,8 +11449,10 @@ c use above info to determine which epochs to keep/reject
       DO 99 ep = 1, NRD
         MJD         = SNGL( SNLC8_MJD(ep) )
         IDFIELD     = ISNLC_IDFIELD(ep)
-        IFILT_OBS   = ISNLC_IFILT_OBS(ep)
+        IFILT_OBS   = ISNLC_IFILT_OBS(ep)        
         IFILT       = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
+        CALL SET_EPVAR_MISC(ep)   ! set SNLC_ZP (ADU or Npe) and PSF_FWHM
+
         IGNORE  = CHECK_EPOCH_IGNORE(1,ep) .and.
      &            (.not. REFORMAT_SAVE_BADEPOCHS)
         LCUT    = LCUTEPOCH(Z, PKMJD, MJD, IFILT, IDFIELD ) 
@@ -13092,6 +13123,35 @@ c The output is used for parsing and writing output.
       RETURN
       END
 
+C ==================================
++DECK,SET_EPVAR_MISC.
+      SUBROUTINE SET_EPVAR_MISC(ep)
+c Created Jul 11 2020: 
+c Compute a few misc variables from those read from data files
+c   + SNLC_ZEROPT_forCUT(ep) based on cut in ADU or Npe
+c   + SNLC_PSF_FWHM_ARCSEC(ep)
+
+      IMPLICIT NONE
+      INTEGER ep  ! (I) epoch index
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+      REAL  ZPADD_pe
+
+c -------------- BEGIN ------------
+
+      SNLC_ZEROPT_forCUT(ep) = SNLC_ZEROPT(ep) ! default is ADU
+      if ( cutwin_zpNPE(1) > 0. ) then
+         ZPADD_pe = 2.5*log10(SNLC_GAIN(ep))
+         SNLC_ZEROPT_forCUT(ep) = SNLC_ZEROPT(ep) + ZPADD_pe
+      endif
+
+      SNLC_PSF_FWHM_ARCSEC(ep) = 
+     &   SNLC_PSF_SIG1(ep) * (SNLC_PIXSIZE * 2.355)
+
+      RETURN 
+      END        ! end SET_EPVAR_MISC
+
 C =================================
 +DECK,CHECKSTRING_CCID.
       SUBROUTINE CHECKSTRING_CCID(CCID)
@@ -14735,6 +14795,8 @@ c apply epoch cut.
         IFILT_OBS = ISNLC_IFILT_OBS(EPMIN)
         IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
 
+        CALL SET_EPVAR_MISC(epmin)   ! set SNLC_ZP in ADU or Npe
+
         IGNORE  = CHECK_EPOCH_IGNORE(1,EPMIN) .and. 
      &            (.not. REFORMAT_SAVE_BADEPOCHS)
         LTMP    = LCUTEPOCH(Z, PKMJD, SNGL(MJD8), IFILT, IDFIELD)
@@ -14753,9 +14815,9 @@ c apply epoch cut.
          enddo
       endif
 
-        if ( cwd .EQ. 'GAIN:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_GAIN(EPMIN) )
-        endif
+      if ( cwd .EQ. 'GAIN:' ) then
+         CALL RDNFLOAT(cwords(2),NFILT,SNLC_GAIN(EPMIN) )
+      endif
 
         if ( cwd .EQ. 'RDNOISE:' ) then
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_RDNOISE(EPMIN) )
@@ -14767,12 +14829,6 @@ c apply epoch cut.
         if ( cwd .EQ. 'YPIXEL:' ) then
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_YPIX(EPMIN) )
         endif
-
-c xxxxxxxxxx mark delete Jun 23 2019 xxxxxxxxxxxx
-c        if ( cwd .EQ. 'SKY_AVG:' ) then
-c          CALL RDNFLOAT(cwords(2),NFILT,SNLC_SKY_AVG(EPMIN) )
-c        endif
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
         if ( cwd .EQ. 'SKY_SIG:' ) then
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_SKYSIG(EPMIN) )
@@ -14790,16 +14846,6 @@ c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         if ( cwd .EQ. 'PSF_RATIO:' ) then
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_PSF_RATIO(EPMIN) )
         endif
-
-+SELF,IF=XXXREMOVE.
-c xxxxxxxxx mark delete Jun 24 2019 xxxxxxxxxxxxxx
-        if ( cwd .EQ. 'FLUX:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_FLUX(EPMIN))
-        endif
-        if ( cwd .EQ. 'FLUX_ERRTOT:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_FLUX_ERRTOT(EPMIN))
-        endif
-+SELF.
 
         if ( cwd .EQ. 'ZEROPT:' ) then
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_ZEROPT(EPMIN))
@@ -17057,7 +17103,7 @@ c zero out the FITVAL_STORE array if fit-option is chosen
 
 
 C =======================================
-+DECK,INIT_CMASK.
++DECK,INIT_CUTMASK.
       SUBROUTINE INIT_CUTMASK ( IERR )
 c
 c Creatd Jan 31, 2006 by R.Kessler
@@ -17105,8 +17151,108 @@ C -------------- BEGIN -------------------
       print*,' INIT_CUTMASK: CUTMASK8_SN_ALL  = ',CUTMASK8_SN_ALL
       print*,' INIT_CUTMASK: CUTMASK8_MJD_ALL = ',CUTMASK8_MJD_ALL
 
+c - - - - - - - - -  -
+c July 11 2020: 
+c  check option to write list of rejected epochs 
+c   (e.g., to pass to classifier)
+
+      CALL WRITE_EPOCH_IGNORE_INIT()
+
       RETURN
-      END
+      END  ! end INIT_CUTMASK
+
+C =============================================
++DECK,WRITE_EPOCH_IGNORE_INIT.
+      SUBROUTINE WRITE_EPOCH_IGNORE_INIT()
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER LEN
+      REAL*8  CUTWIN_TMP(2)
+      CHARACTER CUTMODE*12, CUTVARNAME*20
+      EXTERNAL write_epoch_list_init, write_epoch_list_addvar
+
+C ---------- BEGIN --------
+
+      LEN = INDEX(OUT_EPOCH_IGNORE_FILE,' ') - 1
+      if ( LEN <= 0 ) RETURN
+
+      CALL write_epoch_list_init(
+     &     OUT_EPOCH_IGNORE_FILE(1:LEN)//char(0), LEN+1)
+
+      CUTMODE = 'REJECT' // char(0)
+c     start with PHOTFLAG cut
+      CUTWIN_TMP(1)  = DBLE(PHOTFLAG_MSKREJ(1))
+      CUTWIN_TMP(2)  = -9.0
+      CUTVARNAME     = 'PHOTFLAG' // char(0)
+      CALL write_epoch_list_addvar(CUTVARNAME, CUTWIN_TMP, CUTMODE,
+     &     20, 12)
+      
+c next check PHOTPROB
+      CUTWIN_TMP(1)  = CUTWIN_PHOTPROB(1)
+      CUTWIN_TMP(2)  = CUTWIN_PHOTPROB(2)
+      CUTVARNAME     = 'PHOTPROB' // char(0)
+      CALL write_epoch_list_addvar(CUTVARNAME, CUTWIN_TMP, CUTMODE,
+     &     20, 12)
+      
+c zero point
+      CUTWIN_TMP(1)  = CUTWIN_ZP(1)
+      CUTWIN_TMP(2)  = CUTWIN_ZP(2)
+      CUTVARNAME     = 'ZP' // char(0)
+      CALL write_epoch_list_addvar(CUTVARNAME, CUTWIN_TMP, CUTMODE,
+     &     20, 12)
+      
+      CUTWIN_TMP(1) = CUTWIN_PSF(1)
+      CUTWIN_TMP(2) = CUTWIN_PSF(2)
+      CUTVARNAME    = 'PSF' // char(0)
+      CALL write_epoch_list_addvar(CUTVARNAME, CUTWIN_TMP, CUTMODE,
+     &     20, 12)
+      
+c      print*,' '
+c      print*,' xxx DEBUG STOP xxx '
+c      STOP
+
+      RETURN
+      END  ! end WRITE_EPOCH_IGNORE_INIT
+
+C =============================================
++DECK,WRITE_EPOCH_IGNORE_EXEC.
+      SUBROUTINE WRITE_EPOCH_IGNORE_EXEC(ep)
+
+      IMPLICIT NONE
+
+      INTEGER ep ! index to process
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER   NVAR, IFILT_OBS
+      CHARACTER CCID*(MXCHAR_CCID), BAND*2
+      REAL*8  MJD, VALUES(20)
+      EXTERNAL write_epoch_list_exec
+
+C -------- BEGIN -----------
+      IF ( OUT_EPOCH_IGNORE_FILE .EQ. '' ) RETURN
+
+      NVAR = 0
+      
+      IFILT_OBS = ISNLC_IFILT_OBS(ep)
+      CCID = SNLC_CCID(1:ISNLC_LENCCID) // char(0)
+      MJD  = SNLC8_MJD(ep)
+      BAND = FILTDEF_STRING(ifilt_obs:ifilt_obs) // char(0)
+
+      NVAR=NVAR+1;  VALUES(NVAR) = DBLE( ISNLC_PHOTFLAG(ep) )
+      NVAR=NVAR+1;  VALUES(NVAR) = DBLE( SNLC_PHOTPROB(ep)  )
+      NVAR=NVAR+1;  VALUES(NVAR) = DBLE( SNLC_ZEROPT_forCUT(ep) )
+      NVAR=NVAR+1;  VALUES(NVAR) = DBLE( SNLC_PSF_FWHM_ARCSEC(ep) )
+
+      CALL write_epoch_list_exec(CCID, MJD, BAND, VALUES,
+     &      MXCHAR_CCID, 2 )
+
+      RETURN
+      END  ! end WRITE_EPOCH_IGNORE_EXEC
 
 C =======================================
 +DECK,INIT_CNAMES.
@@ -19150,12 +19296,16 @@ c This correction is done AFTER Xsig = S/N is calculated
      &       SNLC_FLUXCAL_ERRTOT(ep) * Scale
            endif
 
++SELF,IF=XXXDELETE.
+c xxxx mark delete July 11 2020 xxxxxxxx
 c Feb 2018: compute ZP quantity for cut
            SNLC_ZEROPT_forCUT(ep) = SNLC_ZEROPT(ep) ! default is ADU
            if ( cutwin_zpNPE(1) > 0. ) then
              SNLC_ZEROPT_forCUT(ep) = SNLC_ZEROPT(ep)
      &                              +  2.5*log10(SNLC_GAIN(ep))
            endif
+c xxxxxxxxxxxxx end mark xxxxxxxx
++SELF.
 
 c Mar 2018: store time since last obs: all bands, and same band
           IF ( MJD8_LASTALL > 0.0 ) THEN
@@ -19185,7 +19335,7 @@ c check MJD-exclude window to reject epochs (but keep LC)
 c Feb 2020: check PSF and ZPERR cuts here
 c           PSF cut is FWHM, arcsec. ZPERR cut in mag.
 c Mar 2 2020: fix awful PSF units bug
-          PSF  = SNLC_PSF_SIG1(EP) * (SNLC_PIXSIZE * 2.355)
+          PSF  = SNLC_PSF_FWHM_ARCSEC(EP)
           LPSF = PSF .GE. CUTWIN_PSF(1) .and. PSF.LE.CUTWIN_PSF(2)
 
           ZPERR  = SNLC_ZEROPT_ERR(EP)
@@ -20864,7 +21014,7 @@ c print info for each required cut
 
 C ==============================
 +DECK,CHECKEPIGNORE.
-      LOGICAL FUNCTION CHECK_EPOCH_IGNORE(OPTMASK,iepoch)
+      LOGICAL FUNCTION CHECK_EPOCH_IGNORE(OPTMASK,ep)
 c
 c Returns TRUE of this epoch is to be ignored for any of
 c the following reasons:
@@ -20890,6 +21040,7 @@ c   + real MJD -> real*8 MJD8
 c
 c Dec 21 2017: add OPTMASK argument to increment global counters
 c   
+c Jul 11 2020: check ZP and PSF
 c ---------------------
 
       IMPLICIT NONE
@@ -20897,14 +21048,14 @@ c ---------------------
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 
-      INTEGER iepoch  ! (I) SN & epoch indices
+      INTEGER ep      ! (I) epoch index
       INTEGER OPTMASK ! (I) options
 c local var
 
       INTEGER MSKTMP, MSKOV, i, LL, ifilt_obs
       LOGICAL IGNORE, LMJD, LCID, LFILT, BADPHOT
       CHARACTER cflt*4, CCID*(MXCHAR_CCID)
-      REAL*8 MJD8
+      REAL*8 MJD8, ZPADD_pe, PSF, ZP
 
 c function(s)
       LOGICAL SELECT_EARLYLC
@@ -20913,6 +21064,11 @@ C ------------ BEGIN -------------
 
       IGNORE  = .FALSE.
       BADPHOT = .FALSE.
+
+c Jul 2020: check option to write list of rejected epochs
++SELF,IF=SNANA.
+           CALL WRITE_EPOCH_IGNORE_EXEC(ep)
++SELF.
 
 c May 6, 2008: first check for epochs to ignore from IGNORE file.
 
@@ -20925,11 +21081,11 @@ c May 6, 2008: first check for epochs to ignore from IGNORE file.
 
 c leave big margin for MJD check (.002 days) in case IGNORE 
 c file has round-off errors for the MJD.
-        MJD8 = SNLC8_MJD(iepoch)
+        MJD8 = SNLC8_MJD(ep)
         LMJD = ( ABS(EPOCH_IGNORE_MJD(i)-MJD8) < 0.002 )
         IF ( .NOT. LMJD ) GOTO 100
 
-        ifilt_obs = ISNLC_IFILT_OBS(iepoch)
+        ifilt_obs = ISNLC_IFILT_OBS(ep)
         cflt      = filtdef_string(ifilt_obs:ifilt_obs)
         LFILT     = EPOCH_IGNORE_FILT(i)(1:1) .EQ. CFLT(1:1)
         IF ( .NOT. LFILT ) GOTO 100
@@ -20950,7 +21106,7 @@ c and skip down to over-write part.
 
 c ----------------------------------
 c now check PHOTFLAG mask.
-      MSKTMP  = ISNLC_PHOTFLAG(iepoch)
+      MSKTMP  = ISNLC_PHOTFLAG(ep)
 
 c check OR-logic 
 c ==> reject epoch if any PHOTFLAG_MSKREJ bit is set
@@ -20975,14 +21131,27 @@ c ==> reject epoch if all PHOTFLAG_MSKREJ(2:5) bits are set
 c ----------------------
 c Check EARLY-epoch select logic (Mar 2015)
 
-      IF ( .not. SELECT_EARLYLC(iepoch) ) IGNORE = .TRUE.
+      IF ( .not. SELECT_EARLYLC(ep) ) IGNORE = .TRUE.
 
 c -------------------------------------
+c July 11 2020
+c  Check cuts on PSF and ZP ... doesn't change analysis,
+c  but allows new OUT_EPOCH_IGNORE_FILE option to work properly.
+
+      ZP = SNLC_ZEROPT_forCUT(ep) 
+      IF ( ZP < CUTWIN_ZP(1) ) IGNORE = .TRUE.
+      IF ( ZP > CUTWIN_ZP(2) ) IGNORE = .TRUE.
+
+      PSF = SNLC_PSF_SIG1(ep)
+      IF ( PSF < CUTWIN_PSF(1) ) IGNORE = .TRUE.
+      IF ( PSF > CUTWIN_PSF(2) ) IGNORE = .TRUE.
 
 600   CONTINUE
 
+c ------------------------------------------
       IF ( BTEST(OPTMASK,0) ) THEN
-        IF ( .NOT. IGNORE)  NEPOCH_TOT = NEPOCH_TOT + 1
+         NEPOCH_TOT = NEPOCH_TOT + 1
+        IF ( .NOT. IGNORE)  NEPOCH_USE = NEPOCH_USE + 1
         IF ( BADPHOT ) THEN
            NEPOCH_BADPHOT     = NEPOCH_BADPHOT     + 1
            NEPOCH_BADPHOT_SUM = NEPOCH_BADPHOT_SUM + 1
@@ -23287,6 +23456,7 @@ c increment all types with ITYPE=-1 (Aug 2013)
 
       RETURN
       END  ! end of SET_CUTMASK
+
 
 C ==============================================
 +DECK,LCIDSELECT.
@@ -29714,21 +29884,12 @@ c ----------- BEGIN -------------
 
 c check option to include buggy lambda ranges.
 
-c xxxxxxxx mark delete Apr 23 2020 xxxxxxxxxx
-c      IF ( DOBUG_LAMRANGE ) THEN
-c         FILTREST_LAMRANGE(2,IFILT_BESS_V) = 5800.
-c         FILTREST_LAMRANGE(1,ifilt_BESS_R) = 5800.  
-c         FILTREST_LAMRANGE(2,ifilt_BESS_R) = 7300.
-c         FILTREST_LAMRANGE(1,ifilt_BESS_I) = 7300.
-c      ENDIF
-c xxxxxxxxxxxxxx mark delete xxxxxxxxxxx
-
       RETURN
       END
 
 C ==========================================
 +DECK,SETZPOFF.
-      SUBROUTINE SET_ZPOFF
+      SUBROUTINE SET_ZPOFF()
 c
 c Created July 17, 2011 by R.Kessler
 c Called from RDKCOR to update MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 

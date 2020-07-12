@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
@@ -15,7 +16,7 @@
 #include <gsl/gsl_spline.h>
 
 #include "sntools.h"
-#include "sntools_genGauss_asym.h"
+//#include "sntools_genGauss_asym.h"
 
 
 // ******************************

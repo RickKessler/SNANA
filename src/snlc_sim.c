@@ -28,6 +28,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
@@ -41,10 +42,10 @@
 #include <sys/stat.h>
 
 #include "fitsio.h"
-#include "sntools.h"
 #include "MWgaldust.h"
+#include "sntools.h"
 #include "snlc_sim.h"
-#include "sntools_devel.h" 
+#include "sntools_devel.h"
 #include "sntools_host.h"
 #include "sntools_weaklens.h"
 #include "sntools_stronglens.h"
@@ -58,8 +59,6 @@
 #include "sntools_trigger.h" 
 #include "sntools_grid.h"
 #include "sntools_spectrograph.h"
-#include "sntools_genGauss_asym.h"
-#include "sntools_genExpHalfGauss.h"
 #include "sntools_genPDF.h"
 #include "sntools_output.h"   // added Jan 11 2017
 #include "inoue_igm.h"        // added Jun 27 2019

@@ -42,6 +42,9 @@
 #include <stdbool.h>
 
 #include "sndata.h"
+#include "sntools_genGauss_asym.h"
+#include "sntools_genExpHalfGauss.h"
+
 #define  SNANA_VERSION_CURRENT  "v10_77h"                                
 
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
@@ -144,6 +147,7 @@ char FILTERSTRING[100] ;
 #define MXSTORE_RAN  1000  // size of each RANLIST (for each event)
 #define MXSTREAM_RAN    2  // max number of independent streams
 #define BUFSIZE_RAN   256
+
 
 // xxx typedef struct random_data random_data_def ;
 struct {
@@ -280,6 +284,7 @@ struct SIMEFFMAP_DEF {
 struct GRIDMAP  SIMEFF_GRIDMAP ;
 
 
+/* xxx mark delete July 11 2020 xxxxxxxx
 // Jun 8 2018: move GENGAUSS_ASYM from snlc_sim.h to here
 typedef struct  {
   bool   USE;       // T -> values are set (Jun 11 2020)
@@ -300,7 +305,6 @@ typedef struct  {
 
 } GENGAUSS_ASYM_DEF ;
 
-
 // March 20 2020: Generic struct for exponential and half gaussian.
 typedef struct  {
   bool   USE;          // T => values are set
@@ -310,6 +314,7 @@ typedef struct  {
   double RATIO ;       // Gauss(0)/Expon(0)
   double RANGE[2] ;    // generate random value in this RANGE
 } GEN_EXP_HALFGAUSS_DEF ;
+xxxxxxxxxx  end mark xxxxxx */
 
 
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
@@ -403,12 +408,45 @@ struct {
 }  ENVreplace_store;
 
 
+#define MXVAR_WRITE_EPOCH_LIST 8
+#define CUTMODE_REJECT -1
+#define CUTMODE_ACCEPT +1
+#define CUTTYPE_BITMASK 1
+#define CUTTYPE_WINDOW  2
+struct {
+  FILE   *FP_OUT;
+  int    NVAR;  // number of variables to apply cut
+  char   VARNAME[MXVAR_WRITE_EPOCH_LIST][40] ;
+  char   VARNAMES_LIST[200]; //
+  double CUTWIN[MXVAR_WRITE_EPOCH_LIST][2] ;
+  int    CUTMODE[MXVAR_WRITE_EPOCH_LIST] ;   // accept or reject
+  int    CUTTYPE[MXVAR_WRITE_EPOCH_LIST] ;   // window or bit-mask
+
+  char ROWKEY[20]; // REJECT: or ACCEPT:
+  int  CUTMASK_ALL ; // cutmask if all cuts are satisfied
+
+  int  NEPOCH_ALL ;    // number of epochs tested
+  int  NEPOCH_WRITE ;  // number of epochs written
+  int  NEPOCH_CUTFAIL[MXVAR_WRITE_EPOCH_LIST]; // NFAIL per cut
+  int  NEPOCH_CUTFAIL_ONLY[MXVAR_WRITE_EPOCH_LIST]; // idem, only cut
+
+} WRITE_EPOCH_LIST ;
+
 // ##############################################################
 //
 //     functions
 //
 // ##############################################################
 
+void write_epoch_list_init(char *outFile);
+void write_epoch_list_addvar(char *varName, double *CUTWIN, char *CUTMODE);
+void write_epoch_list_exec(char *CID,double MJD,char *BAND, double *VALUES);
+void write_epoch_list_summary(void);
+
+void write_epoch_list_init__(char *outFile);
+void write_epoch_list_addvar__(char *varName, double *CUTWIN, char *CUTMODE);
+void write_epoch_list_exec__(char *CID,double *MJD,char *BAND,double *VARLIST);
+void write_epoch_list_summary__(void);
 
 void catVarList_with_comma(char *varList, char *addVarName);
 

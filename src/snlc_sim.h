@@ -552,9 +552,8 @@ struct INPUTS {
   GENGAUSS_ASYM_DEF GENGAUSS_STRETCH ;
   GENGAUSS_ASYM_DEF GENGAUSS_RV ;
 
-  GEN_EXP_HALFGAUSS_DEF GENPROFILE_AV ;
-  GEN_EXP_HALFGAUSS_DEF GENPROFILE_EBV_HOST ;
-
+  GEN_EXP_HALFGAUSS_DEF  GENPROFILE_AV ;
+  GEN_EXP_HALFGAUSS_DEF  GENPROFILE_EBV_HOST ;
 
   SPECTROGRAPH_OPTIONS_DEF  SPECTROGRAPH_OPTIONS ;
   TAKE_SPECTRUM_DEF         TAKE_SPECTRUM[MXPEREVT_TAKE_SPECTRUM] ;
@@ -582,7 +581,6 @@ struct INPUTS {
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2x1 ;   
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2ALPHA ;
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2BETA ;
-  // xxx mark delete  double SALT2BETA_cPOLY[3];    // poly fun of c
   GENPOLY_DEF SALT2BETA_cPOLY;
   double BIASCOR_SALT2GAMMA_GRID[2]; // gamma range for BBC-biasCor sample
 
@@ -620,7 +618,7 @@ struct INPUTS {
   int   NPAIR_SIMSED_COV ;                 // number of input COV pairs
   float COVPAIR_SIMSED_COV[MXPAR_SIMSED];  // COV among two variables
   int   IPARPAIR_SIMSED_COV[MXPAR_SIMSED][2] ; // IPAR indices of two corr vars
-  // xxx mark delete  double **CHOLESKY_SIMSED_COV ;
+
   CHOLESKY_DECOMP_DEF SIMSED_DECOMP;
   int    IPARLIST_SIMSED_COV[MXPAR_SIMSED];  // vs. IROW
   int    IROWLIST_SIMSED_COV[MXPAR_SIMSED];  // vs. IPAR
@@ -928,11 +926,12 @@ struct GENLC {
   int    SIMSED_IPARMAP[MXPAR_SIMSED];     // IPAR list in COV mat 
   double SIMSED_PARVAL[MXPAR_SIMSED];    // params for SIMSED model
 
+
   // xxx mark delete after refactor 3/21/2020
   double AVTAU;       // 5/11/2009: added in case of z-dependence
   double AVSIG;       // Gauss sigma
   double AV0RATIO ;   // Guass/expon ratio at AV=0
-  // xxx mark end delete       
+  //  xxx mark end delete xxxxxxx */
 
   GEN_EXP_HALFGAUSS_DEF GENPROFILE_AV; // 3/2020: added by djb for z-dep
   GEN_EXP_HALFGAUSS_DEF GENPROFILE_EBV_HOST; // 3/2020: added by djb for z-dep
@@ -1134,13 +1133,6 @@ struct GENLC {
   bool OBSFLAG_WRITE[MXEPSIM];   // write these to data file
   bool OBSFLAG_PEAK[MXEPSIM] ;   // extra epochs with peak mags
   bool OBSFLAG_TEMPLATE[MXEPSIM]; // extra epochs that are templates
-
-  /* xxx mark delete
-  int USE_EPOCH[MXEPSIM];
-  int ISOBS[MXEPSIM];       // flags observed epochs
-  int ISPEAK[MXEPSIM];      // labels extra epochs that store peakmags.
-  int ISTEMPLATE[MXEPSIM];         // labels extra epochs that are templates
-  xxx */
 
   int IEPOCH_PEAK[MXFILTINDX] ; // identifies peak epoch vs. filter
   int IEPOCH_SNRMAX;            // epoch with SNRMAX (Jun 2018)
@@ -1463,7 +1455,6 @@ int OPT_SNXT               ;  // option for hostgal extinction
 #define MODEL_TWEAK_SHOCK 1 // early Shock (Kasen 2006)
 
 #define  IFLAG_GENRANDOM   1
-// xxx mark delete #define  IFLAG_GENDATA     2
 #define  IFLAG_GENGRID     4
 
 #define OPT_SNXT_CCM89  1  // use exact CCM89 model to apply host extinc
@@ -1566,7 +1557,7 @@ struct {
   int     FLAG  ;         // POLYnomial or ZBINS
   char    PARNAME[40];    // name of sim parameter to vary with z
   GENPOLY_DEF POLY;       
-  // xx mark delete  double  ZPOLY[POLYORDER_ZVAR+1];  // store poly
+
   // optional variation in z-bins to allow any functional form
   int     NZBIN;
   double  ZBIN_VALUE[MXZBIN_ZVAR];       // z-bins
@@ -1754,7 +1745,6 @@ void update_accept_counters(void);
 
 void    simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX);
 double  gen_AV(void);          // generate AV from model
-// xxx mark delete double  gen_AV_legacy(void);  
 
 double  GENAV_WV07(void);   
 double  gen_RV(void);          // generate RV from model
@@ -1803,7 +1793,6 @@ double genmodelSmear_interp(int ifilt_interp, int iep);
 double genmodel_Tshift(double T, double z);
 
 void   init_simvar(void);        // one-time init of counters, etc ..
-// xxx mark delete void   init_simRandoms(void);    // init stuff for randoms
 void   init_genmodel(void);      // init above
 void   init_genSpec(void);        // one-time init for SPECTROGRAPH
 void   init_genSEDMODEL(void); // generic init for SEDMODEL

@@ -34,12 +34,288 @@
 **********************************************************
 **********************************************************/
 
+
+void write_epoch_list_init(char *outFile) {
+
+  // July 11 2020
+  // Init utility to write epochs that pass (or fail) cuts
+  // defined by calls to write_epoch_list_addvar
+  //
+  // Initial use is to make epoch-ignore list from snana.exe,
+  // then pass this list to classifiers.
+
+  int ivar;
+  FILE *FP_OUT;
+  char fnam[] = "write_epoch_list_init" ;
+
+  // ------------- BEGIN -----------------
+  WRITE_EPOCH_LIST.NVAR = 0;
+  WRITE_EPOCH_LIST.NEPOCH_ALL   = 0 ;
+  WRITE_EPOCH_LIST.NEPOCH_WRITE = 0 ;
+  WRITE_EPOCH_LIST.CUTMASK_ALL  = 0 ;
+
+  for(ivar=0; ivar < MXVAR_WRITE_EPOCH_LIST; ivar++ ) {
+    WRITE_EPOCH_LIST.VARNAME[ivar][0]     = 0 ; 
+    WRITE_EPOCH_LIST.CUTMODE[ivar]        = 0 ; 
+    WRITE_EPOCH_LIST.NEPOCH_CUTFAIL[ivar]      = 0 ;
+    WRITE_EPOCH_LIST.NEPOCH_CUTFAIL_ONLY[ivar] = 0 ;
+  }
+
+  WRITE_EPOCH_LIST.FP_OUT = fopen(outFile,"wt");
+  if( !WRITE_EPOCH_LIST.FP_OUT ) {
+    sprintf(c1err,"Could not open outFile");
+    sprintf(c2err,"%s", outFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  sprintf(WRITE_EPOCH_LIST.VARNAMES_LIST,"CID MJD BAND ");
+  print_banner(fnam);
+  printf("    Open outFile: %s\n", outFile);
+
+  FP_OUT = WRITE_EPOCH_LIST.FP_OUT;
+  fprintf(FP_OUT,"#  CUTVAR     CUTMASK    COMMENT \n");
+  fflush(FP_OUT);
+
+  return;
+
+} // end write_epoch_list_init
+
+
+// ==========================================================
+void write_epoch_list_addvar(char *VARNAME, double *CUTWIN, 
+			     char *CUTMODE_STRING) {
+
+  // July 2020
+  // Store info about this epoch-cut variable
+  int  NVAR        = WRITE_EPOCH_LIST.NVAR ;
+  int  CUTMASK_ADD = (1 << NVAR);
+  int  CUTTYPE, CUTMODE ;
+  char CUTTYPE_STRING[3][8] = { "NULL", "BITMASK", "WINDOW" };
+  char *ptrCUTTYPE;
+  char fnam[] = "write_epoch_list_addvar" ;
+
+  // ------------- BEGIN -----------------
+
+  sprintf(WRITE_EPOCH_LIST.VARNAME[NVAR], "%s", VARNAME);
+  WRITE_EPOCH_LIST.CUTWIN[NVAR][0] = CUTWIN[0];
+  WRITE_EPOCH_LIST.CUTWIN[NVAR][1] = CUTWIN[1];
+  WRITE_EPOCH_LIST.CUTMASK_ALL |= CUTMASK_ADD ;
+
+  if ( CUTWIN[1] < 0.0 && CUTWIN[0] > 0.0 ) 
+    { CUTTYPE = CUTTYPE_BITMASK; }
+  else
+    { CUTTYPE = CUTTYPE_WINDOW; }
+  ptrCUTTYPE = CUTTYPE_STRING[CUTTYPE] ;
+
+  if ( strcmp(CUTMODE_STRING,"REJECT") == 0 ) {
+    CUTMODE = CUTMODE_REJECT;
+  }
+  else if ( strcmp(CUTMODE_STRING,"IGNORE") == 0 ) {
+    CUTMODE = CUTMODE_REJECT;
+  }
+  else if ( strcmp(CUTMODE_STRING,"ACCEPT") == 0 ) {
+    CUTMODE = CUTMODE_ACCEPT ;
+  }
+
+  printf("   Add CUTVAR %s (CUTMODE=%s, CUTTYPE=%s) \n",
+	 VARNAME, CUTMODE_STRING, ptrCUTTYPE ) ;
+  fflush(stdout);
+
+  // update comments in outFile
+  FILE *FP_OUT = WRITE_EPOCH_LIST.FP_OUT;
+  char COMMENT[80];
+  if ( CUTTYPE == CUTTYPE_BITMASK ) {
+    sprintf(COMMENT,"%s %s %d", 
+	    CUTMODE_STRING, ptrCUTTYPE, (int)CUTWIN[0] );
+  }
+  else {
+    sprintf(COMMENT,"%s %s %.2f to %.2f", 
+	    CUTMODE_STRING, ptrCUTTYPE, CUTWIN[0], CUTWIN[1] );
+  }
+
+  fprintf(FP_OUT,"# %-12.12s   %3d  %s\n", VARNAME, CUTMASK_ADD, COMMENT);
+  fflush(FP_OUT);
+
+  // update globals
+  strcat(WRITE_EPOCH_LIST.VARNAMES_LIST,VARNAME);
+  strcat(WRITE_EPOCH_LIST.VARNAMES_LIST," ");
+  WRITE_EPOCH_LIST.CUTTYPE[NVAR] = CUTTYPE ;
+  WRITE_EPOCH_LIST.CUTMODE[NVAR] = CUTMODE ;
+  sprintf(WRITE_EPOCH_LIST.ROWKEY,"%s", CUTMODE_STRING);
+  WRITE_EPOCH_LIST.NVAR++ ;
+
+  return;
+
+} // end write_epoch_list_addvar
+
+// ==========================================================
+void write_epoch_list_exec(char *CID,double MJD, char *BAND,double *VALUES) {
+
+  bool DO_WRITE = false ;
+  FILE *FP_OUT     = WRITE_EPOCH_LIST.FP_OUT;
+  int  NVAR        = WRITE_EPOCH_LIST.NVAR ;
+  int  CUTMASK_ALL = WRITE_EPOCH_LIST.CUTMASK_ALL ;
+
+  int  ivar, MASK, CUTTYPE, CUTMODE, MASK_SELECT, CUTMASK_EPOCH ;
+  double VAL, *CUTWIN ;
+  bool PASSCUT;
+  int  LDMP = 0; // (VALUES[0] > 1.01 );
+  char STRING_LINE[200], STRING_VAL[20], *VARNAME ;
+  char fnam[] = "write_epoch_list_exec" ;
+
+  // ------------- BEGIN -----------------
+
+  // on 1st event, write VARNAMES list (set in addvar)
+  if ( WRITE_EPOCH_LIST.NEPOCH_ALL == 0 ) {
+    fprintf(FP_OUT,"#\n");
+    //  fprintf(FP_OUT,"CUTMASK_ALL: %d\n", WRITE_EPOCH_LIST.CUTMASK_ALL);
+    fprintf(FP_OUT,"VARNAMES: %s CUTMASK\n", WRITE_EPOCH_LIST.VARNAMES_LIST);
+    fflush(FP_OUT);
+  }
+
+  WRITE_EPOCH_LIST.NEPOCH_ALL++ ;
+
+  if ( LDMP )
+    { printf(" xxx %s -------- CID=%s --------------- \n", fnam,CID); }
+
+  // apply cut to each variable
+  CUTMASK_EPOCH = 0 ;
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+
+    VAL     = VALUES[ivar] ;
+    CUTTYPE = WRITE_EPOCH_LIST.CUTTYPE[ivar];
+    CUTWIN  = WRITE_EPOCH_LIST.CUTWIN[ivar];
+    CUTMODE = WRITE_EPOCH_LIST.CUTMODE[ivar];
+    VARNAME = WRITE_EPOCH_LIST.VARNAME[ivar];
+
+    if ( CUTTYPE == CUTTYPE_WINDOW ) {
+      PASSCUT  = (VAL >= CUTWIN[0] && VAL <= CUTWIN[1] );
+    }
+    else {
+      MASK_SELECT = (int)CUTWIN[0];
+      MASK        = (int)VALUES[ivar] ;
+      PASSCUT     = (MASK_SELECT & MASK) == 0 ;
+    }
+    
+    // increment CUTMASK for this epoch
+    if ( PASSCUT ) { 
+      CUTMASK_EPOCH |= (1 << ivar) ; 
+    }
+    else {
+      WRITE_EPOCH_LIST.NEPOCH_CUTFAIL[ivar]++ ;
+    }
+
+    if ( LDMP ) {
+      printf(" xxx %s   %s = %.2f  PASSCUT=%d \n",
+	     fnam, VARNAME, VAL, PASSCUT); fflush(stdout);
+    }
+      
+  } // end ivar loop
+
+
+  if ( CUTMODE == CUTMODE_ACCEPT ) // all cuts must pass
+    { DO_WRITE = ( CUTMASK_EPOCH == CUTMASK_ALL) ; }
+  else 
+    { DO_WRITE = ( CUTMASK_EPOCH < CUTMASK_ALL  ) ; } // any cut fails
+
+  
+  if ( LDMP ) {
+    printf(" xxx %s: CUTMASK_EPOCH = %d, DO_WRITE=%d \n", 
+	   fnam, CUTMASK_EPOCH, DO_WRITE); fflush(stdout);
+  }
+
+  // write to file of DO_WRITE = true
+  if ( DO_WRITE ) {
+    sprintf(STRING_LINE,"%s:  %10s %10.4f %s", 
+	    WRITE_EPOCH_LIST.ROWKEY, CID, MJD, BAND );
+
+    // tack on variables
+    for(ivar=0; ivar < NVAR; ivar++ ) {
+      CUTTYPE = WRITE_EPOCH_LIST.CUTTYPE[ivar];
+      if ( CUTTYPE == CUTTYPE_BITMASK ) 
+	{ sprintf(STRING_VAL, "%6d ", (int)VALUES[ivar]) ; }
+      else
+	{ sprintf(STRING_VAL, "%.3f ", VALUES[ivar]) ; }
+      strcat(STRING_LINE,STRING_VAL);
+    }
+
+    // finally, tack on CUTMASK 
+    sprintf(STRING_VAL, "%3d ", CUTMASK_EPOCH );
+    strcat(STRING_LINE,STRING_VAL);
+
+    // print LINE to outFile
+    fprintf(FP_OUT,"%s\n", STRING_LINE);
+    fflush(FP_OUT);
+
+    WRITE_EPOCH_LIST.NEPOCH_WRITE++ ;
+  }
+
+
+  return ;
+
+} // end  write_epoch_list_exec
+
+// ==========================================================
+void write_epoch_list_summary(void) {
+
+  // Write stat summary of epochs ACCEPTED or REJECTED.
+
+  FILE *FP_OUT       = WRITE_EPOCH_LIST.FP_OUT;
+  int  NVAR          = WRITE_EPOCH_LIST.NVAR ;
+  int  NEPOCH_WRITE  = WRITE_EPOCH_LIST.NEPOCH_WRITE ;
+  int  NEPOCH_ALL    = WRITE_EPOCH_LIST.NEPOCH_ALL ;
+  char *ROWKEY       = WRITE_EPOCH_LIST.ROWKEY ; 
+  int  ivar, NCUTFAIL;
+  double frac;
+  char *VARNAME ;
+  char fnam[] = "write_epoch_list_summary" ;
+
+  // ------------- BEGIN -----------------
+
+  fprintf(FP_OUT,"\n");
+  fprintf(FP_OUT,"# Wrote %d %s epochs out of %d total epochs\n",
+	  NEPOCH_WRITE,  ROWKEY, NEPOCH_ALL );
+
+  frac = (double)NEPOCH_WRITE / (double)NEPOCH_ALL ;
+  fprintf(FP_OUT,"# %s fraction: %8.5f \n", ROWKEY, frac);
+  fflush(FP_OUT); 
+
+  // write cut stats per variable
+  for(ivar=0 ; ivar < NVAR; ivar++ ) {
+    NCUTFAIL    = WRITE_EPOCH_LIST.NEPOCH_CUTFAIL[ivar];
+    VARNAME     = WRITE_EPOCH_LIST.VARNAME[ivar];
+    frac        = (double)NCUTFAIL / (double)NEPOCH_ALL ;
+    fprintf(FP_OUT,"#    NEPOCH_CUTFAIL[%10s] =  %6d  (frac = %7.5f)\n", 
+	    VARNAME, NCUTFAIL, frac);
+  }
+
+  fprintf(FP_OUT, "#\n# Done.\n\n");
+
+  fflush(FP_OUT); fclose(FP_OUT);
+  return ;  
+
+} // end write_epoch_list_summary
+
+
+// mangled functions for fortran (snana.car)
+void write_epoch_list_init__(char *outFile)
+{ write_epoch_list_init(outFile); }
+void write_epoch_list_addvar__(char *varName, double *CUTWIN, char *CUTMODE)
+{write_epoch_list_addvar(varName,CUTWIN,CUTMODE); }
+void write_epoch_list_exec__(char *CID,double *MJD,char *BAND,double *VALUES)
+{ write_epoch_list_exec(CID,*MJD,BAND,VALUES); }
+void write_epoch_list_summary__(void)
+{ write_epoch_list_summary(); }
+
+
+// ==========================================================
 void catVarList_with_comma(char *varList, char *addVarName) {
   char comma[] = "," ;
   if ( strlen(varList) > 0 ) { strcat(varList,comma); }
   strcat(varList,addVarName);
 } 
 
+// ==========================================================
 int ivar_matchList(char *varName, int NVAR, char **varList) {
 
   // Created May 2020

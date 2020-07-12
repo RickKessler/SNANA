@@ -18664,4 +18664,25 @@
        (limit of noise-dominated spectra). When running kcor.exe,
        grep HACK <stdout> to see modified SNR.
   
+
+# ======================================================================= 
+         v10_77h (  ) 
+
+         ***** IMPORTANT(v10_77h) ***** 
+
+         ***** USEFUL(v10_77h) ***** 
+
+         ***** MISCELLANEOUS(v10_77h) ***** 
+
+    sntools_genPDF.h: 
+      + MXROW_GENPDF -> 15000 (was 5000)
+  
+    sntools.c[h]
+      + new write_epoch_list_xxx functions
+    snana.car
+      + new &SNLCINP input OUT_EPOCH_IGNORE_FILE to write
+        list of rejected epochs ... can be read by external
+        classifiers. Using write_epoch_list_xxx functions.
+
+
 END: 

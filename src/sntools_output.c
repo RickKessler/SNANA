@@ -255,10 +255,11 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   // but cannot open 2 output-hbook files or 2 output-root files.
   //
   // Oct 14 2014: call new function OPEN_TEXTFILE(...) for read-mode
-  //
+  // Jul 13 2020: declare *ENV and *FMT (used if HBOOK is NOT defined)
 
   int  OPEN_FLAG, TYPE_FLAG, OPT_Q, USE_CURRENT, IERR ;
-  char *ptrtok, local_STRINGOPT[80], ctmp[20];
+  char *ptrtok, local_STRINGOPT[80], ctmp[20] ;
+  char *FMT, *ENV ;
   char fnam[] = "TABLEFILE_OPEN" ;
 
   // ---------------------- BEGIN ---------------------

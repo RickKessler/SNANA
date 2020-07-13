@@ -4264,6 +4264,7 @@ c    to store_PARSE_WORDS()
 c
 c May 23 2019: add text:host    option ; see WRTABLEFILE_HOST_TEXT
 c Oct 30 2019: add text:errcalc option ; see WRTABLEFILE_ERRCALC_TEXT
+c Jul 13 2020: no default SNTABLEs if writing rejected epochs
 c
 c -------------------
       IMPLICIT NONE
@@ -4291,7 +4292,6 @@ c if reformating option is set, turn off all table output
       IF ( OPT_REFORMAT_SALT2 > 0 ) SNTABLE_LIST = ' '
       IF ( OPT_REFORMAT_FITS  > 0 ) SNTABLE_LIST = ' '
       IF ( OPT_REFORMAT_TEXT  > 0 ) SNTABLE_LIST = ' '
-      IF ( OUT_EPOCH_IGNORE_FILE .NE. ''  ) SNTABLE_LIST = ' '
 
 c init options to nothing created.
 
@@ -4323,6 +4323,9 @@ c If using default, replace 'DEFAULT' with actual default value.
 
       IF ( SNTABLE_LIST .EQ. 'DEFAULT' ) THEN
          SNTABLE_LIST = SNTABLE_LIST_DEFAULT
+
+c July 13, 2020: no default SNTABLEs if writing rejected epochs
+         IF ( OUT_EPOCH_IGNORE_FILE .NE. ''  ) SNTABLE_LIST = ' '
       ENDIF
 
 c by default the SNID is written out as is

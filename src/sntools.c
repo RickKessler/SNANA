@@ -9757,13 +9757,17 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
   //  **VARNAMES : list of all variables (0 to *NVAR-1)
   //
   // Jun 12 2020: new option for NVAR_SKIP < 0 -> skip first var(s).
+  // Jul 13 2020: avoid storing duplicate var names
 
-  int  NVAR_LOCAL = 0, NKEY_LOCAL = 0, IVAR=0;
+  int  NVAR_STORE = 0, NKEY_LOCAL = 0 ;
   int  FOUND_VARNAMES, ivar, ivar_start, ivar_end, ivar2, NVAR_TMP ;
-  char c_get[60], LINE[100] ;
+  int  IVAR_EXIST, LDMP = 1 ;
+  char c_get[60], LINE[100], tmpName[60] ;
   char fnam[] = "read_VARNAMES_KEYS" ;
 
   // -------------- BEGIN ------------
+
+  if ( LDMP ) { printf(" xxx %s: ---------- DUMP ------------ \n", fnam);  }
 
   while( (fscanf(fp, "%s", c_get )) != EOF) {
     FOUND_VARNAMES = ( strcmp(c_get,"VARNAMES:")==0 ) ;
@@ -9771,36 +9775,53 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
       NKEY_LOCAL++ ;
       fgets(LINE, 100, fp ); // scoop up varnames
       NVAR_TMP  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
-      // xxx mark delete      NVAR_TMP -= NVAR_SKIP ; 
+      
       ivar_start = 0; ivar_end = NVAR_TMP;
       if ( NVAR_SKIP < 0 ) { ivar_start -= NVAR_SKIP; }
       if ( NVAR_SKIP > 0 ) { ivar_end   -= NVAR_SKIP; }
-      for ( ivar=ivar_start; ivar < ivar_end; ivar++ ) {
-	// xxx mark delete  IVAR = ivar + NVAR_LOCAL ;
-	if ( IVAR < MXVAR ) { get_PARSE_WORD(0,ivar,VARNAMES[IVAR]); }
-	IVAR++ ;
+
+      if(LDMP) 	{ 
+	printf(" xxx %s: NVAR_TMP=%d ivar[start,end]=%d,%d \n", 
+	       fnam, NVAR_TMP, ivar_start, ivar_end);  fflush(stdout);
       }
-      // xxx mark delete       NVAR_LOCAL += NVAR_TMP ;
-      NVAR_LOCAL += (ivar_end - ivar_start);
+		       
+      for ( ivar=ivar_start; ivar < ivar_end; ivar++ ) {
+	get_PARSE_WORD(0, ivar, tmpName);
+	IVAR_EXIST = ivar_matchList(tmpName, NVAR_STORE, VARNAMES );
+	if ( LDMP ) {
+	  printf(" xxx %s: ivar=%d(%s) EXIST=%d  \n",
+		 fnam, ivar, tmpName, IVAR_EXIST );
+	}
+	if ( NVAR_STORE < MXVAR  &&   IVAR_EXIST < 0 ) {
+	  if(LDMP) {
+	    printf(" xxx %s: \t LOAD VARNAMES[%d] = %s \n",
+		   fnam, NVAR_STORE, tmpName); fflush(stdout);
+	  }
+	  sprintf(VARNAMES[NVAR_STORE], "%s", tmpName);
+	  NVAR_STORE++ ; // summed overal all VARNAMES
+	}
+
+      }
+      // xxx mark delete   NVAR_LOCAL += (ivar_end - ivar_start);
     } // end FOUND_VARNAMES
   } // end while    
 
 
 
-  if ( NVAR_LOCAL > MXVAR ) {
-    sprintf(c1err,"NVAR=%d exceeds MXVAR=%d", NVAR_LOCAL, MXVAR);
+  if ( NVAR_STORE >= MXVAR ) {
+    sprintf(c1err,"NVAR_STORE=%d exceeds MXVAR=%d", NVAR_STORE, MXVAR);
     sprintf(c2err,"called by %s, VARNAMES[0]=%s", callFun, VARNAMES[0] );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
   // ------------------------------------
   // load output args
-  *NVAR = NVAR_LOCAL ;
+  *NVAR = NVAR_STORE ;
   *NKEY = NKEY_LOCAL ;
 
   // check which VARNAMES are unique
   char *NAME, *NAME2 ;
-  for(ivar=0; ivar < NVAR_LOCAL; ivar++ ) {
+  for(ivar=0; ivar < NVAR_STORE; ivar++ ) {
     UNIQUE[ivar] = 1;
     NAME = VARNAMES[ivar] ;
 

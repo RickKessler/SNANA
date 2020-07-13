@@ -8,6 +8,8 @@
      + SPEC-confirmed efficiency
      + zHOST efficiency
 
+  Jul 13 2020: MXMAP_SEARCHEFF_zHOST -> 20 (was 10)
+
  **************************************************/
 
 
@@ -33,7 +35,7 @@
 #define  MXMAP_SEARCHEFF_SPEC   20   // max number of SPEC-maps
 #define  MXROW_SEARCHEFF_SPEC 30000  // temp max size of SPEC-eff map
 
-#define  MXMAP_SEARCHEFF_zHOST   10    // max number of zHOST maps
+#define  MXMAP_SEARCHEFF_zHOST   20    // max number of zHOST maps
 #define  MXROW_SEARCHEFF_zHOST  5000   // max size of each map
 #define  MXVAR_SEARCHEFF_zHOST   10    // max number of zHOST VARNAMES
 #define  IVERSION_zHOST_LEGACY    1    // legacy z-only map

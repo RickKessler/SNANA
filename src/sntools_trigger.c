@@ -2641,7 +2641,7 @@ double interp_SEARCHEFF_zHOST(void) {
   double VARDATA[MXVAR_SEARCHEFF_zHOST];
   double EFF = 0.0, PEAKMJD, *PEAKMJD_RANGE ;
   char *field_map, *field_data, *varName ;  
-  bool MATCH ;
+  bool MATCH_FIELD, MATCH_PEAKMJD ;
 
   int LDMP = 0;
   char fnam[] = "interp_SEARCHEFF_zHOST" ;
@@ -2650,19 +2650,19 @@ double interp_SEARCHEFF_zHOST(void) {
 
   // determine which map based on FIELD
   for(imap=0; imap < NMAP;  imap++ ) {
-    MATCH = false ;
+    MATCH_FIELD = MATCH_PEAKMJD = false ;
     field_map  = SEARCHEFF_zHOST[imap].FIELDLIST ;
     field_data = SEARCHEFF_DATA.FIELDNAME ;
 
     PEAKMJD_RANGE = SEARCHEFF_zHOST[imap].PEAKMJD_RANGE ;
     PEAKMJD       = SEARCHEFF_DATA.PEAKMJD ;
     
-    if ( strcmp(field_map,"ALL")      == 0    ) { MATCH = true ; }
-    if ( strstr(field_map,field_data) != NULL ) { MATCH = true ; }
+    if ( strcmp(field_map,"ALL")      == 0    ) { MATCH_FIELD = true ; }
+    if ( strstr(field_map,field_data) != NULL ) { MATCH_FIELD = true ; }
     if ( PEAKMJD >= PEAKMJD_RANGE[0] && PEAKMJD <= PEAKMJD_RANGE[1] ) 
-      { MATCH = true; }
+      { MATCH_PEAKMJD = true; }
 
-    if ( MATCH ) { IMAP = imap;  NMATCH++ ; }
+    if ( MATCH_FIELD && MATCH_PEAKMJD ) { IMAP = imap;  NMATCH++ ; }
   }
   if ( NMATCH != 1 ) {
     sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );

@@ -214,6 +214,7 @@ struct {
 struct {
   int  NVAR ;   // used by init_HOSTLIB
   char FIELDLIST[100];  // fieldList for each map
+  double PEAKMJD_RANGE[2]; // PEAKMJD range for each map (7/2020)
   char VARNAMES_HOSTLIB[MXVAR_SEARCHEFF_zHOST][40] ; 
   int  IVAR_HOSTLIB[MXVAR_SEARCHEFF_zHOST] ; // points to HOSTLIB ivar
   struct GRIDMAP GRIDMAP ;

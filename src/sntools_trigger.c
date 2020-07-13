@@ -1369,6 +1369,7 @@ void read_zHOST_FILE(FILE *fp) {
   // If using FIELDLIST, each map must start with a new VARNAMES key 
   // 
   // Dec 3 2019: fix bug by setting KEY_STOP = ""
+  // Jul 13 2020: read optional PEAKMJD
 
   int  OPT_EXTRAP = 0 ;
   int  NTAB=0;
@@ -1378,9 +1379,9 @@ void read_zHOST_FILE(FILE *fp) {
   char *ptr_VARNAMES[MXVAR_SEARCHEFF_zHOST], *VARLIST;
   char VARNAME_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST][40];
   int  IVAR_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST];
+  double PEAKMJD_RANGE[2];
   char KEY_ROW[]   = "HOSTEFF:" ;
   char KEY_STOP[]  = "" ;
-  // xxx mark delete  char KEY_STOP[]  = "BLANKLINE" ;
   char fnam[] = "read_zHOST_FILE" ;
 
   // ------------ BEGIN ----------
@@ -1391,7 +1392,10 @@ void read_zHOST_FILE(FILE *fp) {
   for(ivar=0; ivar < MXVAR_SEARCHEFF_zHOST; ivar++ ) {
     ptr_VARNAMES[ivar] = VARNAME_HOSTLIB_TMP[ivar]; 
   }
-  NMAP = NVAR = 0;    sprintf(FIELDLIST,"ALL");
+  NMAP = NVAR = 0;    
+  sprintf(FIELDLIST,"ALL");
+  PEAKMJD_RANGE[0] = 10000.0;
+  PEAKMJD_RANGE[1] = 90000.0;
 
   // -----------------------------
   while( (fscanf(fp, "%s", c_get )) != EOF) {
@@ -1403,8 +1407,13 @@ void read_zHOST_FILE(FILE *fp) {
 
     FOUND_VARNAMES = 0 ;
 
-    if ( strcmp(c_get,"OPT_EXTRAP:") == 0 ) { readint(fp,1,&OPT_EXTRAP); }
-    if ( strcmp(c_get,"FIELDLIST:" ) == 0 ) { readchar(fp,FIELDLIST); }
+    if ( strcmp(c_get,"OPT_EXTRAP:") == 0 ) 
+      { readint(fp,1,&OPT_EXTRAP); }
+    if ( strcmp(c_get,"FIELDLIST:" ) == 0 ) 
+      { readchar(fp,FIELDLIST); }
+    if ( strcmp(c_get,"PEAKMJD:") == 0 || strcmp(c_get,"PEAKMJD_RANGE:")==0 ) 
+      { readdouble(fp,2,PEAKMJD_RANGE);}
+
     if ( strcmp(c_get,"VARNAMES:"  ) == 0 ) { FOUND_VARNAMES=1; }
 
     // parse VARNAMES in map
@@ -1415,6 +1424,9 @@ void read_zHOST_FILE(FILE *fp) {
 
       // store a few things in global
       sprintf(SEARCHEFF_zHOST[NMAP].FIELDLIST,"%s", FIELDLIST);
+      SEARCHEFF_zHOST[NMAP].PEAKMJD_RANGE[0] = PEAKMJD_RANGE[0];
+      SEARCHEFF_zHOST[NMAP].PEAKMJD_RANGE[1] = PEAKMJD_RANGE[1];
+
       for(ivar=0; ivar<NVAR; ivar++ ) {
 	SEARCHEFF_zHOST[NMAP].IVAR_HOSTLIB[ivar] = IVAR_HOSTLIB_TMP[ivar];
 	sprintf(SEARCHEFF_zHOST[NMAP].VARNAMES_HOSTLIB[ivar],"%s",
@@ -1425,7 +1437,13 @@ void read_zHOST_FILE(FILE *fp) {
 		   MXROW_SEARCHEFF_zHOST, fnam,
 		   &SEARCHEFF_zHOST[NMAP].GRIDMAP ) ;
 
-      printf("\t for FIELDLIST='%s'\n", FIELDLIST); 
+      printf("\t FIELDLIST = %s \n", FIELDLIST); 
+      if ( PEAKMJD_RANGE[0] > 10001.0 ) {
+	printf("\t PEAKMJD_RANGE = %d to %d \n", 
+	       (int)PEAKMJD_RANGE[0], (int)PEAKMJD_RANGE[1] );
+      }
+      fflush(stdout);
+
       NONZERO_SEARCHEFF_zHOST++ ;
     } // end VARNAMES check
 
@@ -2615,12 +2633,15 @@ double interp_SEARCHEFF_zHOST(void) {
 
   // Mar 12 2019
   // Interpolate multi-D map to get EFF(HOSTLIB properties)
+  //
+  // July 2020: check PEAKMJD too
 
   int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
   int IMAP=0, istat, imap, NVAR, ivar, ivar_HOSTLIB, IGAL, NMATCH=0;
   double VARDATA[MXVAR_SEARCHEFF_zHOST];
-  double EFF = 0.0 ;
+  double EFF = 0.0, PEAKMJD, *PEAKMJD_RANGE ;
   char *field_map, *field_data, *varName ;  
+  bool MATCH ;
 
   int LDMP = 0;
   char fnam[] = "interp_SEARCHEFF_zHOST" ;
@@ -2629,14 +2650,23 @@ double interp_SEARCHEFF_zHOST(void) {
 
   // determine which map based on FIELD
   for(imap=0; imap < NMAP;  imap++ ) {
+    MATCH = false ;
     field_map  = SEARCHEFF_zHOST[imap].FIELDLIST ;
     field_data = SEARCHEFF_DATA.FIELDNAME ;
-    if ( strcmp(field_map,"ALL")      == 0    ) { IMAP=imap; NMATCH++ ; }
-    if ( strstr(field_map,field_data) != NULL ) { IMAP=imap; NMATCH++ ; }
+
+    PEAKMJD_RANGE = SEARCHEFF_zHOST[imap].PEAKMJD_RANGE ;
+    PEAKMJD       = SEARCHEFF_DATA.PEAKMJD ;
+    
+    if ( strcmp(field_map,"ALL")      == 0    ) { MATCH = true ; }
+    if ( strstr(field_map,field_data) != NULL ) { MATCH = true ; }
+    if ( PEAKMJD >= PEAKMJD_RANGE[0] && PEAKMJD <= PEAKMJD_RANGE[1] ) 
+      { MATCH = true; }
+
+    if ( MATCH ) { IMAP = imap;  NMATCH++ ; }
   }
   if ( NMATCH != 1 ) {
     sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
-    sprintf(c2err, "field = '%s'", field_data );
+    sprintf(c2err, "field = '%s'  PEAKMJD=%.3f", field_data, PEAKMJD );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
 

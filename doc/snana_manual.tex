@@ -3033,9 +3033,9 @@ Next, we given an example of a map with more complex function
 of {\tt HOSTLIB} properties:
 %
 \begin{Verbatim}[frame=single]
-OPT_EXTRAP: 1  # 0=> abort, 1=>use value at edge of grid.
-
-FIELDLIST:  C3+X3
+OPT_EXTRAP: 1               # default is 0=>abort; 1=>use value at grid edge
+PEAKMJD_RANGE: 55600 58900  # default is 10000 90000
+FIELDLIST:  C3+X3           # default is ALL
 VARNAMES: g_obs i_obs  HOSTEFF
 HOSTEFF:  18  20    1.
 HOSTEFF:  18  22    0.95
@@ -3051,6 +3051,7 @@ HOSTEFF:  24  22    0.7
 HOSTEFF:  24  24    0.2
 
 FIELDLIST:  C1+C2+S1+S2+X1+X2+E1+E2
+PEAKMJD_RANGE: 55600 58900 
 VARNAMES: g_obs  i_obs  HOSTEFF
 HOSTEFF:  18  20    1.
 HOSTEFF:  18  22    0.98
@@ -3074,6 +3075,7 @@ the map range. {\tt FIELDLIST} is optional for FIELD-dependent maps;
 Sub-string matching is used, and therefore ``{\tt FIELDLIST: X}'' 
 would apply to {\tt X1, X2, X3}.
 Also note that {\tt FIELDLIST} must come before the {\tt VARNAMES} key.
+{\tt PEAKMJD\_RANGE} allows for season-dependent maps.
 Finally, the first $N-1$ {\tt VARNAMES} specifies arbitrary
 {\tt HOSTLIB} propertes from the {\tt VARNAMES} key in 
 Fig.~\ref{fig:hostlib}. The last ($N$th) {\tt VARNAME} must be {\tt HOSTEFF}.

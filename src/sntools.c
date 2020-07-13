@@ -4550,7 +4550,6 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   // ----------- BEGIN -------------
 
   // create generic MAPNAME using row key and IDMAP
-  // xxx mark delete Jun 2020  sprintf(MAPNAME,"%s", KEY_ROW );
 
   // allocate arrays to monitor uniform binning.
   TMPVAL      = (double*) malloc(NVARTOT * MEMD );

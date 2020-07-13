@@ -18684,5 +18684,12 @@
         list of rejected epochs ... can be read by external
         classifiers. Using write_epoch_list_xxx functions.
 
+    sntools_output.c
+      + fix declaration bug for when CERN_DIR is not defined.
+        Not sure how SNANA compiled at NERSC without CERN_DIR ?
+
+    sntools_trigger.c
+      + in zHOST effic file, add new optional key "PEAKMJD: t0 t1"
+        before each map; allows season-dependent maps. See manual.
 
 END: 

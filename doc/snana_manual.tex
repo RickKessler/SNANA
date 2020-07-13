@@ -6417,7 +6417,7 @@ the job has finished, congratulations !
 You have fit your lightcurves with 
 CERNLIB's {\minuit} program.\footnote{\wwwMINUIT}
 To create a pdf file showing the light curve fits,
-see \S\ref{subsec:lcplot}.
+see \S\ref{sss:lcplot}.
 
 
 % ------------------------------------
@@ -7005,10 +7005,13 @@ search-efficiencies (\S\ref{subsec:simeff}).
 
 
 % ------------------------------------
-%   \clearpage
-   \subsection{Viewing Lightcurve Fits: {\tt plot\_snana.py} and 
-       {\tt mkfitplots.pl} }
-   \label{subsec:lcplot}
+ \clearpage
+ \subsection{Plot Utilities}
+   \label{subsec:plot_util}
+% --------------------------------
+
+  \subsubsection{Viewing Lightcurve Fits }
+   \label{sss:lcplot}
 % ------------------------------------
 
 There are two utilities to view light curves. 
@@ -7037,6 +7040,21 @@ There are several plotting options; see instructions with
 \begin{verbatim}
    more $SNANA_DIR/util/mkfitplots.pl
 \end{verbatim}
+
+% --------------------------------------
+  \subsubsection{{\tt ovdatamc.py}~: Plot Utility for Data/MC Overlays}
+  \label{sss:ovdatamc}
+
+Once you have an ascii {\tt FITRES} file from the data and
+MC simulation, the utility ``{\tt ovdatamc.py}'' can be used
+to plot a data/MC overlay for any variable, and with arbitrary
+cuts on any variable inside the FITRES file. If the simulation
+includes core collapse SNe, then the Ia and CC contributions
+to the simulation are overlaid separately and shown with
+different colors. To get a list of arguments and options,
+type {\tt ovdatamc.py} with no arguments. Also read comments
+at top of {\tt \$\snanadir/util/ovdatamc.py}~.
+
 
 
 % ------------------------------------
@@ -9147,10 +9165,6 @@ Here are the steps for adding a new survey:
 	If you try to convert magnitudes to {\tt FLUXCAL}, 
 	you will have problems for small \& negative fluxes.
 %
- \item To distribute survey-dependent \sndataroot\ files among 
-       collaborators working on different computer systems, 
-       see \S\ref{sss:survey_update}.
-%
  \item 	Modify a sim-input and fitter-input file by substituting
 	your survey and filters. Good luck. And don't forget to send
 	me a post-card about your experience.
@@ -11098,7 +11112,7 @@ The available output tables are
   \item SNANA (ID=7100): general variables for all SN before fitting
   \item FITRES (ID=7788): fit results for SN passing fit requirements.
       Fit residuals for each epoch can be optionally included.
-  \item SNLCPAK: used by {\tt mkfitplots.pl} (\S\ref{subsec:lcplot})
+  \item SNLCPAK: used by {\tt mkfitplots.pl} (\S\ref{sss:lcplot})
          to make light curve plots for data and best-fit model.
 \end{itemize}
 %
@@ -11525,21 +11539,6 @@ IAUC name by specifying an IAUC option in {\tt SNTABLE\_LIST},
 If any one table has the IAUC specification then
 all tables will have IAUC written into the CID column.
 
-% --------------------------------------
-  \subsubsection{{\tt ovdatamc.py}~: Plotting Utility for Data/MC Overlays}
-  \label{sss:ovdatamc}
-
-Once you have an ascii {\tt FITRES} file from the data and
-MC simulation, the utility ``{\tt ovdatamc.py}'' can be used
-to plot a data/MC overlay for any variable, and with arbitrary
-cuts on any variable inside the FITRES file. If the simulation
-includes core collapse SNe, then the Ia and CC contributions
-to the simulation are overlaid separately and shown with
-different colors. To get a list of arguments and options,
-type {\tt ovdatamc.py} with no arguments. Also read comments
-at top of {\tt \$\snanadir/util/ovdatamc.py}~.
-
-% --------------------------------------
 
 % --------------------------------------
   \subsection{General Misc. Tools}
@@ -11580,22 +11579,6 @@ you can rerun the same job as long as you
 have the original input file.
 
 
-% ----------------------------------
-  \subsubsection{Synchronizing/Updating Survey Files: survey\_update.pl}
-  \label{sss:survey_update}
-
-Collaborators within a survey who are working on different computer
-systems can keep files synchronized using the script
-\${\snanadir}{\tt /util/survey\_update.pl}.
-See usage instructions at the top of the script.
-The basic idea is that a survey expert uses the script in 
-``create tarball'' mode to create a tarball
-containing filter transmission files, K-correction tables
-and data version(s). This  tarball is then distributed
-among collaborators who use the same script in 
-``install'' mode.
-
-
 
 % --------------------------------------
   \subsubsection{Bug-Catcher: the {\tt SNANA\_tester} Script }
@@ -11628,6 +11611,53 @@ Users who use a particular feature of \snana\ should check
 if the current test-jobs provide adequate protection;
 if not, you may request additional test-jobs.
 
+
+% --------------------------------------
+  \subsubsection{Write List of Rejected Epochs}
+  \label{sss:write_epoch_list}
+% --------------------------------------
+
+The most commonly used output of the {\tt snlc\_fit.exe} fitting
+program is the ``{\tt FITRES}'' table, which includes summary
+information for each SN passing selection cuts. However, there
+may be analyses that require a list of selected epochs, such
+as the SuperNNova photometric 
+classifier\footnote{https://arxiv.org/abs/1901.06384}
+that reads light curves instead of the summary {\tt FITRES} file.
+To avoid duplicating epoch cuts in other codes, there is an
+\snana\ utility to write a list of rejected epochs,
+with the assumption that writing rejected epochs results in a 
+much smaller file compared to writing selected epochs.
+An example for the DES analysis is
+%
+\begin{verbatim}
+ &SNLCINP
+    PRIVATE_DATA_PATH  = '$DES_ROOT/lcmerge'
+    VERSION_PHOTOMETRY = 'DESALL_forcePhoto_real_snana_fits'
+    PHOTFLAG_MSKREJ  = 1016, 0     ! reject bits for PHOTFLAG columm
+    CUTWIN_PHOTPROB  = -999, 999   ! wide open -> not used here
+    CUTWIN_PSF       = 0.5,  2.75  ! PSF select window, arcsec
+    CUTWIN_ZPNPE     = 30.5, 100.  ! zeropoint select window, Npe
+    OUT_EPOCH_IGNORE_FILE = 'DES_EPOCH_IGNORE.DAT'
+ &END
+\end{verbatim}
+%
+In this example there are four epoch-based cuts on 
+{\tt PHOTFLAG}, 
+{\tt PHOTPROB},\footnote{Example {\tt PHOTPROB} uses are
+machine-learning prob or PSF fit-chi2.}
+{\tt PSF}, and zeropt. 
+The last user input, {\tt OUT\_EPOCH\_IGNORE\_FILE}, 
+writes every rejected epoch to the specified epoch-reject file. 
+The output table columns are
+\begin{verbatim}
+  VARNAMES: CID MJD BAND PHOTFLAG PHOTPROB ZP PSF CUTMASK
+\end{verbatim} 
+and the bottom of the epoch-reject file includes a commented
+statistics summary for all rejected epochs, and for each cut.
+To enable more detailed cut studies, the {\tt CUTMASK} column 
+indicates which cuts resulted in rejecting each epoch; 
+see {\tt CUTMASK} comments at top of epoch-reject file.
 
 % --------------------------------------
   \subsubsection{Restoring Bugs}

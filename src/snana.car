@@ -4291,6 +4291,7 @@ c if reformating option is set, turn off all table output
       IF ( OPT_REFORMAT_SALT2 > 0 ) SNTABLE_LIST = ' '
       IF ( OPT_REFORMAT_FITS  > 0 ) SNTABLE_LIST = ' '
       IF ( OPT_REFORMAT_TEXT  > 0 ) SNTABLE_LIST = ' '
+      IF ( OUT_EPOCH_IGNORE_FILE .NE. ''  ) SNTABLE_LIST = ' '
 
 c init options to nothing created.
 

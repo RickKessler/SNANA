@@ -26039,7 +26039,7 @@ c Feb  5, 2013: return LENLIST
 c Feb 15, 2013: set max of MXFILT = 30 filters.
 c Jun 24, 2013: ignore remapped filter(s)
 c Oct 21, 2014: add CAST as input argument
-c
+c Jul 13, 2020: MXFILT -> 15
 c ------------------------------------
 
       IMPLICIT NONE
@@ -26070,7 +26070,8 @@ C ---------------- BEGIN ----------
   
       LENMAX = LEN(VARLIST)  ! abort if larger than this
       LENSUM = 0
-      MXFILT = 30
+cc cxxx      MXFILT = 30
+      MXFILT = 15
 
       NFILT = INDEX(FILTERS,' ' ) - 1
       IF ( NFILT > MXFILT ) NFILT = MXFILT

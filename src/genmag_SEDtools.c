@@ -2335,7 +2335,7 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
 
   double  LAMOBS, LAMREST, XT_MAG, XT_FRAC, arg    ;
 
-  //  char fnam[] = "fill_TABLE_HOSTXT_SEDMODEL";
+  char fnam[] = "fill_TABLE_HOSTXT_SEDMODEL";
   
   // ------------- BEGIN ------------------
   
@@ -2362,10 +2362,9 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
   }
 
   bool update_hostxt = false;
-  if ( AV != SEDMODEL_HOSTXT_LAST.AV ){ update_hostxt = true; }
-  if ( RV != SEDMODEL_HOSTXT_LAST.RV ){ update_hostxt = true; }
-  if ( z != SEDMODEL_HOSTXT_LAST.z ){ update_hostxt = true; }
-
+  if ( AV != SEDMODEL_HOSTXT_LAST.AV ) { update_hostxt = true; }
+  if ( RV != SEDMODEL_HOSTXT_LAST.RV ) { update_hostxt = true; }
+  if ( z  != SEDMODEL_HOSTXT_LAST.z  ) { update_hostxt = true; }
   if ( !update_hostxt ) { return; } // put back, July 13 2020
 
   /*
@@ -2393,6 +2392,7 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
 
   } // ifilt
 
+  SEDMODEL_HOSTXT_LAST.RV = RV ; // 7.14.2020
   SEDMODEL_HOSTXT_LAST.AV = AV ;
   SEDMODEL_HOSTXT_LAST.z  = z ;
 

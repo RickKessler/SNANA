@@ -3816,7 +3816,13 @@ separations.  {\tt HOSTLIB\_STOREPAR} is a comma-separated
 list of parameters (case-insensitive, but no blank spaces
 before or after each comma) to store in the data files;
 these ``{\tt STOREPAR}'' paramaters are automatically propagated 
-into the SNTABLEs (ntuple or tree) and ascii fitres file.
+into the SNTABLEs  and ascii fitres file.
+{\tt HOSTLIB} variables defined in 
+{\tt SEARCHEFF\_zHOST\_FILE},
+{\tt GENPDF\_FILE}, and
+{\tt WGTMAP}
+are automatically included in the {\tt HOSTLIB\_STOREPAR} list.
+%
 {\tt HOSTLIB\_MINDAYSEP\_SAMEGAL} specifies the minimum
 {\tt PEAKMJD} separation (in days) for re-using a galaxy.
 This option can be useful, for example, in multi-year surveys 
@@ -4014,6 +4020,11 @@ which describe an arbitrary dependence on host properties.
 The last two variables must be {\tt WGT} and {\tt SNMAGSHIFT},
 where the latter is applied to the generated magnitudes if the
 4-bit is set in {\tt HOSTLIB\_MSKOPT}.
+All {\tt WGTMAP} variables are automatically included in the
+data files, equivalent to internally appending these variables to 
+{\tt HOSTLIB\_STOREPAR}. While there is no need to specify the
+same variable in both the {\tt WGTMAP} and {\tt HOSTLIB\_STOREPAR} list,
+there is no harm in doing so.
 
 If no weight map is provided, the simulation will assign
 a weight of unity to each host galaxy, with zero mag-shift.

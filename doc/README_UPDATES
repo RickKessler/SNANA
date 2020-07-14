@@ -18686,6 +18686,8 @@
       + new &SNLCINP input OUT_EPOCH_IGNORE_FILE to write
         list of rejected epochs ... can be read by external
         classifiers. Using write_epoch_list_xxx functions.
+      + for loading tables with variables vs. filter,
+        reduce MXFILT to 15 (was 30) ... mainly for low-z.
 
     sntools_output.c
       + fix declaration bug for when CERN_DIR is not defined.
@@ -18704,5 +18706,8 @@
         re-evaluating entire extinction table for every fit-iteration.
         Fixed, and now fits are almost x10 faster compared to bug.
         This bug had no impact on results; only affected speed.
+ 
+    sntools_host.c[h]
+      + automatically store WGTMAP variables in data files.
 
 END: 

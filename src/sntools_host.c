@@ -27,7 +27,6 @@
      3 msec per host (DES  with 1 Sersic profile)
      5 msec per host (LSST with 2 Sersic profiles)
  
-
   The user-input control is via the sim-input structure
   INPUTS.HOSTLIB_MSKOPT, and the bits are defined in the
   parameters HOSTLIB_MSKOPT_XXX below. To see a list of 
@@ -97,6 +96,8 @@
  Feb 26 2020: check SWAPZPHOT option to set ZTRUE = ZPHOT
  Feb 27 2020: fix index bug translating NBR_LIST.
  May 24 2020: add option to VPEC, VPEC_ERR from HOSTLIB
+ Jul 14 2020: automatically store WGTMAP variables;
+              see new function read_VARNAMES_WGTMAP
 
 =========================================================== */
 
@@ -217,9 +218,13 @@ void initvar_HOSTLIB(void) {
   // one-time init of variables used for HOSTLIB
 
   int ivar, j, igal, ifilt  ;
-  //  char fnam[] = "initvar_HOSTLIB" ;
+  char fnam[] = "initvar_HOSTLIB" ;
 
   // ----------- BEGIN -------------
+
+  sprintf(PATH_DEFAULT_HOSTLIB, "%s %s/simlib", 
+	  PATH_USER_INPUT, PATH_SNDATA_ROOT ); // Jul 14 2020
+ 
 
   NCALL_GEN_SNHOST_DRIVER = 0 ;
 
@@ -318,6 +323,7 @@ void initvar_HOSTLIB(void) {
     { TMPWORD_HOSTLIB[ivar] = (char*)malloc( 40*sizeof(char) ); }
 
   reset_SNHOSTGAL_DDLR_SORT(MXNBR_LIST);
+
 
   return ;
 
@@ -587,7 +593,6 @@ void append_HOSTLIB_STOREPAR(void) {
   // Jun 12 2020: set NVAR_zHOST after reading zHOST file
 
   char *STOREPAR  = INPUTS.HOSTLIB_STOREPAR_LIST ;
-  // xxx mark delete  int  NVAR_zHOST = SEARCHEFF_zHOST[0].NVAR ;
   int  ivar, NVAR_zHOST ;
   char *ptrVarName;
   FILE *fp ;
@@ -609,6 +614,8 @@ void append_HOSTLIB_STOREPAR(void) {
   }
 
   // - - - - - - - 
+  // check PDF maps for populations
+
   fp = fopen(INPUTS.GENPDF_FILE,"rt");
   if ( fp ) {
     int MXVAR = 50, NVAR_SKIP=-1, NVAR, NKEY, *UNIQUE;
@@ -633,10 +640,21 @@ void append_HOSTLIB_STOREPAR(void) {
       */
 
     }
-
     fclose(fp);
   }
 
+  // Jul 14 2020: check for WGTMAP variables here.
+  //  WGTMAP is read later, but possibly after reading HOSTLIB
+  //  VARNAMES where it is too late to store WGTMAP var.
+  //  Here we are well before reading HOSTLIB.
+  char VARLIST_WGTMAP[200];
+  int NVAR_WGTMAP = 0 ;
+  NVAR_WGTMAP = read_VARNAMES_WGTMAP(VARLIST_WGTMAP);
+  if ( NVAR_WGTMAP > 0 ) {
+    if ( strlen(STOREPAR) > 0 ) { strcat(STOREPAR,COMMA); }
+    strcat(STOREPAR,VARLIST_WGTMAP);
+  }
+    
   return ;
 
 } // end append_HOSTLIB_STOREPAR
@@ -696,7 +714,7 @@ void  init_OUTVAR_HOSTLIB(void) {
     ISDUPL = 0 ;
     for(ivar2=0; ivar2 < ivar; ivar2++ ) {
       varName2 = HOSTLIB_OUTVAR_EXTRA.NAME[ivar2];
-      if ( QstringMatch(varName,varName2) ) { ISDUPL=1; }
+      if ( QstringMatch(varName,varName2) ) { ISDUPL = 1 ; }
     }
     if(LDMP)
       { printf(" xxx %s: ISDUPL=%d for varName='%s' \n",fnam,ISDUPL,varName);}
@@ -721,17 +739,12 @@ void  init_OUTVAR_HOSTLIB(void) {
     sprintf(HOSTLIB_OUTVAR_EXTRA.NAME[NVAR_OUT], "%s", varName );
     HOSTLIB_OUTVAR_EXTRA.IVAR_STORE[NVAR_OUT] = IVAR_HOSTLIB(varName,1);
 
-    // set USED_IN_WGTMAP flat to zero; fill this later in read_head_HOSTLIB.
+    // set USED_IN_WGTMAP to zero; fill this later in read_head_HOSTLIB.
     HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[NVAR_OUT] = 0 ;
 
     NVAR_OUT++ ;  
 
     catVarList_with_comma(VARLIST_LOAD,varName); // for print only
-
-    /* xxxxxxxxxxxxxx mark delete May 24 2020 xxxxxxxxxx
-    if(NVAR_OUT > 1 ) { strcat(VARLIST_LOAD,"," ); }
-    strcat(VARLIST_LOAD,varName); // for stdout message.
-    xxxxxxxxxxxx */
 
   } // end ivar loop
 
@@ -799,26 +812,16 @@ void open_HOSTLIB(FILE **fp) {
   // Dec 29 2017: use snana_openTextFile utility to allow gzipped library.
 
   char libname_full[MXPATHLEN] ;
-  char PATH_DEFAULT[2*MXPATHLEN] ;
   char fnam[] = "open_HOSTLIB" ;
 
   // ----------- BEGIN ----------
 
-  sprintf(PATH_DEFAULT, "%s %s/simlib", PATH_USER_INPUT, PATH_SNDATA_ROOT );
-  *fp = snana_openTextFile(0,PATH_DEFAULT, INPUTS.HOSTLIB_FILE,
+  *fp = snana_openTextFile(0,PATH_DEFAULT_HOSTLIB, INPUTS.HOSTLIB_FILE,
 			   libname_full, &HOSTLIB.GZIPFLAG );  // <== returned
-
 
   if ( *fp == NULL ) {
     abort_openTextFile("HOSTLIB_FILE", 
-		       PATH_DEFAULT, INPUTS.HOSTLIB_FILE, fnam);
-
-    /* xxxxxxxxx mark delete Feb 1 2020 xxxxxxxxxxx
-    sprintf ( c1err, "Cannot open file :" );
-    sprintf ( c2err," '%s' ", libname_full );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    xxxxxxxxxxxx */
-
+		       PATH_DEFAULT_HOSTLIB, INPUTS.HOSTLIB_FILE, fnam);
   }
 
   sprintf(HOSTLIB.FILENAME , "%s", libname_full );
@@ -835,6 +838,8 @@ void  read_HOSTLIB_WGTMAP(void) {
   // here, then the corresponding weight-map in the HOSTLIB
   // will be ignored. Note that this function must be called
   // before read_head_HOSTLIB().
+  //
+  // July 14 2020: replace PATH_USER_INPUT with PATH_DEFAULT_HOSTLIB
 
   FILE *fp ;
   int  gzipFlag ;
@@ -848,12 +853,12 @@ void  read_HOSTLIB_WGTMAP(void) {
   ptrFile = INPUTS.HOSTLIB_WGTMAP_FILE ;
   if ( IGNOREFILE(ptrFile) )  { return ; }
 
-  fp = snana_openTextFile(0,PATH_USER_INPUT, ptrFile,
+  fp = snana_openTextFile(0, PATH_DEFAULT_HOSTLIB, ptrFile,
 			  fileName_full, &gzipFlag );  // <== returned
 
   if ( !fp ) {
       abort_openTextFile("HOSTLIB_WGTMAP_FILE", 
-			 PATH_USER_INPUT, ptrFile, fnam);
+			 PATH_DEFAULT_HOSTLIB, ptrFile, fnam);
   }
 
   // if we get here, open and read WGTMAP file.
@@ -937,7 +942,6 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
       HOSTLIB_WGTMAP.INVSPARSE_SNVAR[ivar]  = N ;
       HOSTLIB_WGTMAP.N_SNVAR++ ; 
       N_SNVAR = HOSTLIB_WGTMAP.N_SNVAR ;
-      // xxx cut-and-paste bug ???  N_SNVAR = HOSTLIB_WGTMAP.N_SNVAR++ ;
     }
 
     strcat(HOSTLIB_WGTMAP.GRIDMAP.VARLIST,VARNAME);
@@ -986,6 +990,85 @@ void parse_HOSTLIB_WGTMAP(FILE *fp, char *string) {
   return ;
 
 } // end of parse_HOSTLIB_WGTMAP
+
+// ============================================
+int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
+
+  // July 14 2020
+  // pre-HOSTLIB-read utility to fetch & return comma-sep list of
+  // VARNAMES appearing in WGTMAP so that WGTMAP variables can
+  // be automatically stored in data files.
+  // Check external WGTMAP file first; if no external WGTMAP file,
+  // then check if WGTMAP is embedded in HOSTLIB.
+  // Function returns number of WGTMAP variables found.
+
+  int NVAR   = 0 ;
+  int MXCHAR = MXPATHLEN;
+  int NWD, ivar, gzipFlag ;
+  FILE *fp ;
+  bool IS_SNVAR;
+  char FILENAME_FULL[MXPATHLEN], *WGTMAP_FILE, LINE[MXPATHLEN];
+  char c_get[60], VARNAME[60];
+  char KEY_VARNAMES[] = "VARNAMES_WGTMAP:" ;
+  char KEY_STOP[]     = "GAL:" ; // stop reading when this key is found
+  char fnam[]         = "read_VARNAMES_WGTMAP" ;
+  int  LDMP = 0 ;
+  // ------------- BEGIN ------------
+
+  VARLIST_WGTMAP[0] = 0 ;
+
+  if ( !IGNOREFILE(INPUTS.HOSTLIB_WGTMAP_FILE)  )
+    { WGTMAP_FILE = INPUTS.HOSTLIB_WGTMAP_FILE ; } // external WGTMAP 
+  else
+    { WGTMAP_FILE = INPUTS.HOSTLIB_FILE ; } // ...or check inside HOSTLIB
+  
+  if ( LDMP ) {
+    printf(" xxx \n" ) ;
+    printf(" xxx %s: PATH = '%s' \n", fnam, PATH_DEFAULT_HOSTLIB );  
+    printf(" xxx %s: WGTMAP_FILE = '%s' \n", fnam, WGTMAP_FILE );
+    printf(" xxx \n" ) ;
+  }
+
+  // open file containing WGTMAP
+  fp = snana_openTextFile(0, PATH_DEFAULT_HOSTLIB, WGTMAP_FILE,
+			  FILENAME_FULL, &gzipFlag );  // <== returned
+  
+  if ( !fp ) {
+    sprintf(c1err, "Unable to open WGTMAP file (to read VARNAMES)");
+    sprintf(c2err, "'%s'", WGTMAP_FILE);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  bool STOP_READ = false;
+  while( !STOP_READ ) { 
+    fscanf(fp, "%s", c_get); 
+
+    // avoid reading the entire HOSTLIB file if there is no WGTMAP
+    if ( strcmp(c_get,KEY_STOP) == 0 ) { STOP_READ = true; }
+
+    if ( strcmp(c_get,KEY_VARNAMES) == 0 ) {
+      STOP_READ = true ;
+      fgets(LINE, MXCHAR, fp);
+      NWD  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
+      NVAR = NWD - 2;    // exclude WGT and SNMAGSHIFT
+      for(ivar=0; ivar < NVAR; ivar++ ) {
+	get_PARSE_WORD(0,ivar,VARNAME);
+	IS_SNVAR = checkSNvar_HOSTLIB_WGTMAP(VARNAME);
+	if ( !IS_SNVAR ) 
+	  { catVarList_with_comma(VARLIST_WGTMAP,VARNAME); }
+	if ( LDMP ) 
+	  { printf(" xxx %s wgtmap var '%s'  (storeFlag=%d)\n", 
+		   fnam, VARNAME, !IS_SNVAR ); }
+      }
+
+    } // end reading VARNAMES_WGTMAP line
+  } // end STOP_READ
+  
+  if ( gzipFlag ){ pclose(fp); }     else { fclose(fp); }
+
+  return(NVAR) ;
+
+} // end read_VARNAMES_WGTMAP
 
 // ====================================
 void prep_SNVAR_HOSTLIB_WGTMAP(void) {
@@ -5999,7 +6082,6 @@ void GEN_SNHOST_NBR(int IGAL) {
   long long GALID ;
   char NBR_LIST[MXCHAR_NBR_LIST] ;
   char NO_NBR[] = "-1" ;
-  char comma[]  = ",";
   char fnam[] = "GEN_SNHOST_NBR";
 
   // ---------------- BEGIN ----------------
@@ -6029,7 +6111,7 @@ void GEN_SNHOST_NBR(int IGAL) {
   }
 
   // parse comma-sep list of HOSTLIB row numbers
-  splitString2(NBR_LIST, comma, MXNBR_LIST , &NNBR_READ, &TMPWORD_HOSTLIB[1]);
+  splitString2(NBR_LIST, COMMA, MXNBR_LIST , &NNBR_READ, &TMPWORD_HOSTLIB[1]);
 
   NNBR_READ++;    // include true host
   NNBR_STORE = 1; // start counter on stored neighbors
@@ -7297,11 +7379,11 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
   //    VAL_HOSTPAR   : array of hostpar values (filled if OPT=2)
   //
   // Function returns number of HOSTPAR params
+  // Initial use was for the sim to pass host par to BYOSED.
 
   int  NPAR=0, ivar ;
   int  NVAR_WGTMAP = HOSTLIB_WGTMAP.GRIDMAP.NDIM ;
   int  NVAR_EXTRA  = HOSTLIB_OUTVAR_EXTRA.NOUT ;
-  char comma[] = ",";
   char fnam[] = "fetch_HOSTPAR_GENMODEL";
 
   // ----------- BEGIN -----------
@@ -7311,18 +7393,23 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
     sprintf(NAMES_HOSTPAR,"RV,AV"); NPAR=2;
 
     for ( ivar=0; ivar < NVAR_WGTMAP; ivar++ ) {  
-      strcat(NAMES_HOSTPAR,comma);
-      strcat(NAMES_HOSTPAR,HOSTLIB_WGTMAP.VARNAME[ivar]); 
+      catVarList_with_comma(NAMES_HOSTPAR,HOSTLIB_WGTMAP.VARNAME[ivar]);
       NPAR++ ;
-
+      /* xxx mark delete Jul 14 2020 xxxxxx
+      strcat(NAMES_HOSTPAR,COMMA);
+      strcat(NAMES_HOSTPAR,HOSTLIB_WGTMAP.VARNAME[ivar]); 
+      xxxxx */
     }
 
     // tack on user-defined variables from sim-input HOSTLIB_STOREPAR key
     for(ivar=0; ivar < NVAR_EXTRA; ivar++ ) {
       if ( HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[ivar] ) { continue; }
+      catVarList_with_comma(NAMES_HOSTPAR,HOSTLIB_OUTVAR_EXTRA.NAME[ivar]);
+      NPAR++ ;
+      /* xxxxxx mark delete Jul 14 2020 xxxxxx
       strcat(NAMES_HOSTPAR,comma);
       strcat(NAMES_HOSTPAR,HOSTLIB_OUTVAR_EXTRA.NAME[ivar]);
-      NPAR++ ;
+      */
     }
     // add anything used in WGTMAP or HOSTLIB_STOREPAR
   }

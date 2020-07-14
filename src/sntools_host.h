@@ -125,6 +125,7 @@
 #define FILENAME_Sersic_bn  "$SNDATA_ROOT/simlib/Sersic_bn.dat" 
 
 int NCALL_GEN_SNHOST_DRIVER ;
+char PATH_DEFAULT_HOSTLIB[2*MXPATHLEN]; // e.g., $SNDATA_ROOT/simlib
 
 #define MXTMPWORD_HOSTLIB 100
 char *TMPWORD_HOSTLIB[MXTMPWORD_HOSTLIB]; // used for splitString
@@ -582,6 +583,7 @@ void   open_HOSTLIB(FILE **fp);
 void   init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END);
 void   read_HOSTLIB_WGTMAP(void);
 void   parse_HOSTLIB_WGTMAP(FILE *fp, char *string);
+int    read_VARNAMES_WGTMAP(char *VARLIST);
 bool   checkSNvar_HOSTLIB_WGTMAP(char *varName);
 void   runCheck_HOSTLIB_WGTMAP(void);
 void   malloc_HOSTLIB_WGTMAP(void); 

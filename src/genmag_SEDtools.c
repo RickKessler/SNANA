@@ -46,6 +46,10 @@
   Aug 23 2019:
     in interp_primaryFlux_SEDMODEL(), add lam-edge protection.
 
+  Jul 13 2020:
+    + fix dumb logic but in fill_TABLE_HOSTXT_SEDMODEL() so that
+      extinction table is no longer created for every iteration.
+      Fits now go almost x10 faster ... same speed as in March 2020
 
 ********************************************/
 
@@ -2321,6 +2325,10 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
   //
   // Mar 2 2017: fix to work with SPECTROGRAPH 
   // Mar 18 2020: DJB added logic for changing RV
+  // Jul 13 2020: 
+  //   + return if !update_hostxt (bug from v10_76c, Mar 2020)
+  //     fixes silly bug causing fit to be almost x10 slower.
+  //
 
   int  NLAMFILT, ilam, I8, I8p, ifilt, ifilt_obs, ifilt_min ;
   int  OPT_COLORLAW, NBSPEC ;
@@ -2357,6 +2365,8 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
   if ( AV != SEDMODEL_HOSTXT_LAST.AV ){ update_hostxt = true; }
   if ( RV != SEDMODEL_HOSTXT_LAST.RV ){ update_hostxt = true; }
   if ( z != SEDMODEL_HOSTXT_LAST.z ){ update_hostxt = true; }
+
+  if ( !update_hostxt ) { return; } // put back, July 13 2020
 
   /*
   xxx Mark Delete March 18 2020. Dealing with RV changing landmine.

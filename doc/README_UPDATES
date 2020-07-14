@@ -18670,6 +18670,9 @@
 
          ***** IMPORTANT(v10_77h) ***** 
 
+   Fix really stupid logic bug that had slowed fits by almost
+   factor of 10 ( but didn't affect results)
+
          ***** USEFUL(v10_77h) ***** 
 
          ***** MISCELLANEOUS(v10_77h) ***** 
@@ -18691,5 +18694,15 @@
     sntools_trigger.c
       + in zHOST effic file, add new optional key "PEAKMJD: t0 t1"
         before each map; allows season-dependent maps. See manual.
+
+    sntools.c: 
+      + in read_VARNAMES_KEYS, avoid exceeding bound with lots
+        of duplicates; store only unique varnames.
+
+    genmag_SEDtools.c
+      + back at v10_76c, had introduced dumb logic bug that forced
+        re-evaluating entire extinction table for every fit-iteration.
+        Fixed, and now fits are almost x10 faster compared to bug.
+        This bug had no impact on results; only affected speed.
 
 END: 

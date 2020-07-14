@@ -2660,7 +2660,7 @@ c if we get here, fit model is SALT2 and redshift was fixed in fit.
  100  CONTINUE
 
 c update fit color error (plus & minus) to include redshift uncertainty
-      c_err_add = abs(c_atmin - c_ref) ! .xyz
+      c_err_add = abs(c_atmin - c_ref) 
 
       c_err_ref = FITERR_PLUS(IPAR_COLOR,ITER)
       c_err     = sqrt(c_err_add**2 + c_err_ref**2)
@@ -13148,8 +13148,8 @@ c Return redshift (zz) for SALT2 error calculation.
 c Motivation is for photoz fit, fix zz = z(previous iteration),
 c and use zz for SALT2 error calculation. 
 c
-c Mar 24 2020: fix logic usign local DOFIT_zFIX; needed for FITRESTMAG.
-c
+c Mar 24 2020: fix logic using local DOFIT_zFIX; needed for FITRESTMAG.
+c   .xyz
 c ---------------------
       IMPLICIT NONE
 
@@ -13165,7 +13165,7 @@ c +CDE,FILTCOM.
 
 c local variables
       REAL*8  zz
-      LOGICAL DOFIT_zFIX
+      LOGICAL FIRST_ITER, DOFIT_zFIX
       LOGICAL FIRST_ITERATION   ! function
 
 c --------------- BEGIN -------------
@@ -13173,7 +13173,10 @@ c --------------- BEGIN -------------
       SALT2zz = -999.
       DOFIT_zFIX = (.NOT. DOFIT_PHOTOZ)
 
-      IF ( FIRST_ITERATION(ITER) .or. DOFIT_zFIX ) then
+c      FIRST_ITER = FIRST_ITERATION(ITER)  ! v10_76b and earlier
+      FIRST_ITER = FIRST_ITERATION(ITER) .or. DOFIT_zFIX ! >= v10_76c
+
+      IF ( FIRST_ITER ) then
         zz = z
       ELSE
          if ( DOCHI2_SIGMA .and. DOFIT_zFIX) then
@@ -13182,7 +13185,7 @@ c --------------- BEGIN -------------
              zz = FITVAL(IPAR_ZPHOT,iter-1) ! from previous iteration
          endif
       ENDIF
-    
+
       SALT2zz = zz
 
       RETURN

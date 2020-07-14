@@ -227,10 +227,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  /* xxx Mar 24 2020 mark delete (moved below ) xxxx
-  sprintf(SALT2_INFO_FILE,     "SALT2.INFO" );
-  xxxxxxxxxxxx */
-
   // summarize filter info
   filtdump_SEDMODEL();
 

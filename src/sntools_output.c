@@ -258,8 +258,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   // Jul 13 2020: declare *ENV and *FMT (used if HBOOK is NOT defined)
 
   int  OPEN_FLAG, TYPE_FLAG, OPT_Q, USE_CURRENT, IERR ;
-  char *ptrtok, local_STRINGOPT[80], ctmp[20] ;
-  char *FMT, *ENV ;
+  char *ptrtok, local_STRINGOPT[80], ctmp[20], *FMT, ENV[200] ;
   char fnam[] = "TABLEFILE_OPEN" ;
 
   // ---------------------- BEGIN ---------------------

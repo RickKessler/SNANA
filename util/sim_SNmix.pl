@@ -221,6 +221,11 @@
 #   + increment NABORT if logFile does not exist.
 #   + write PATH_SNDATA_SIM in TOTAL_SUMMARY.LOG
 #
+# Jul 14 2020: 
+#   fix $MOI4 (for version prefix) to append zeros if username
+#   has less then 4 characters. e.g., user = ab will have
+#   prefix = ab00
+#     
 # ---------------------------------------------------------
 
 use strict ;
@@ -373,10 +378,14 @@ my $JOBNAME_SIM_FULLPATH = `which $JOBNAME_SIM` ;
 
 # define temp prefix for versions that get deleted,
 # or should be deleted by user of job fails
-my $MOI  = `whoami`      ;
-my $MOI4 = substr($MOI,0,4);
-my $PREFIX_TEMP  = "TMP_${MOI4}" ;
-my $SUFFIX_DUMP_TEMP = "DUMP_TEMP" ;
+my ($MOI4, $PREFIX_TEMP, $SUFFIX_DUMP_TEMP) ;
+
+# xxxxxxx mark delete Jul 2020 xxxxxxxxx
+#my $MOI  = `whoami`  ;
+#my $MOI4 = substr($MOI,0,4);
+#my $PREFIX_TEMP  = "TMP_${MOI4}" ;
+#my $SUFFIX_DUMP_TEMP = "DUMP_TEMP" ;
+# xxxxxxxxxxxxxxxxxxxxx
 
 my $BATCH_TEMPLATE_KICP = '$SBATCH_TEMPLATES/SBATCH_kicp.TEMPLATE' ;
 
@@ -656,7 +665,7 @@ sub debug_abort {
 # ========================================================
 sub init_SIMGEN() {
 
-    my ($m, $m0) ;
+    my ($m, $m0, $LEN_USER, $NCHAR_MOI ) ;
 
     $NGENMODEL_GLOBAL = 0 ;
     $mIa                = -9 ;
@@ -666,6 +675,17 @@ sub init_SIMGEN() {
     $HOST        = $ENV{'HOST'};
     $SNDATA_ROOT = $ENV{'SNDATA_ROOT'};
     $SNANA_DIR   = $ENV{'SNANA_DIR'};
+
+# - - - - 
+    $LEN_USER = length($USER);
+    $NCHAR_MOI = 4 ;
+    $MOI4      = substr($USER,0,$NCHAR_MOI);
+    if ( $LEN_USER < $NCHAR_MOI ) 
+    {  $MOI4 .= ('0' x ($NCHAR_MOI-$LEN_USER));  }
+
+    $PREFIX_TEMP  = "TMP_${MOI4}" ;
+    $SUFFIX_DUMP_TEMP = "DUMP_TEMP" ;
+# - - - - -
 
     $PATH_SNDATA_SIM = "$SNDATA_ROOT/SIM" ;
     $USER_PATH_SNDATA_SIM = 0 ;

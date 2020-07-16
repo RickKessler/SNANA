@@ -59,15 +59,15 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
   // Jan 16 2020: pass redcovString override.
 
   FILE *fp;
-  int  gzipFlag, FOUNDMAP, NTMP, NVAR, NDIM, NFUN, ivar, igroup, ifilt ;
-  int  IDMAP, NMAP=0, imap, OPT_EXTRAP=0, LENTMP ;
+  int  gzipFlag, FOUNDMAP, NTMP, NVAR, NDIM, NFUN, ivar ;
+  int  IDMAP, NMAP=0, imap, OPT_EXTRAP=0 ;
   int  USE_REDCOV=1, USE_REDCOV_OVERRIDE=0;
   bool HAS_COLON;
   char PATH[2*MXPATHLEN], c_get[80];  
   char *fullName = FILENAME_FLUXERRMAP ;
   char *name, *fieldList, TMP_STRING[80], LINE[100];
   char MSGERR_FILE[200];
-  char colon[] = ":", hash[] = "#"  ;
+  char colon[] = ":"  ;
   char fnam[] = "INIT_FLUXERRMODEL" ;
 
   // ------------ BEGIN --------------
@@ -237,7 +237,8 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
 
       IDMAP = IDGRIDMAP_FLUXERRMODEL_OFFSET + NMAP ;
       NDIM  = NVAR-1;  NFUN=1;
-      read_GRIDMAP(fp,"ROW:", "ENDMAP:", IDMAP, NDIM, NFUN, OPT_EXTRAP,
+      read_GRIDMAP(fp, "FLUXERR", "ROW:", "ENDMAP:", 
+		   IDMAP, NDIM, NFUN, OPT_EXTRAP,
 		   MXROW_FLUXERRMAP, fnam, 
 		   &FLUXERRMAP[NMAP].MAP );  // <== returned		   
 
@@ -297,7 +298,7 @@ void  DUMP_MAP_FLUXERRMODEL(int IMAP) {
   FILE *fp;
   int  NVAR_DUMP=0, ivar, irow, OPENFLAG=0 ;
   char VARLIST[100][40];
-  char fnam[] = "DUMP_MAP_FLUXERRMODEL";
+  //  char fnam[] = "DUMP_MAP_FLUXERRMODEL";
 
   // ---------------- BEGIN ---------------
   
@@ -427,7 +428,7 @@ void parse_REDCOV_FLUXERRMODEL(char *STRING) {
   int   NKEYVAL, NKEY, NITEM, i, ikey;
   char *ptrSplit0[MXRED], *ptrSplit1[MXRED];
   char FIELD[40];
-  char space[] = " ", comma[]=  ",", colon[] = ":" ;
+  char space[] = " ", comma[]=  "," ;
   char fnam[] = "parse_REDCOV_FLUXERRMODEL" ;
   int  LDMP = 0 ;
 
@@ -714,10 +715,9 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
   // Jan 22 2020: refactor to use INDEX_MAP_FLUXERRMODEL.
   // Feb 08 2020: scale errors with SCALE_FLUXERR_DATA[TRUE]
 
-  int NMAP      = NMAP_FLUXERRMODEL; 
+  //  int NMAP      = NMAP_FLUXERRMODEL; 
   int NSPARSE[MXMAP_FLUXERRMAP];
-  int IDMAP, istat, isp, imap, MATCH_BAND, MATCH_FIELD ;
-  int NVAR, IVAR, ivar, MASK_APPLY ;
+  int IDMAP, istat, isp, imap, NVAR, IVAR, ivar, MASK_APPLY ;
   int LDMP = 0 ;
   double FLUXERR_TMP, errModelVal, parList[MXPAR_FLUXERRMAP] ;
   char *tmpString ;

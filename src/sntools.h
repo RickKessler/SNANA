@@ -27,6 +27,10 @@
                so that it is more accessible. Also define function
                get_SNANA_VERSION.
 
+  May 30 2020: 
+    MXWORDFILE_PARSE_WORDS -> 1 million (was 500k) to handle 
+    data files with lots of spectra.
+
 ********************************************************/
 
 #include <stdio.h>
@@ -38,7 +42,10 @@
 #include <stdbool.h>
 
 #include "sndata.h"
-#define  SNANA_VERSION_CURRENT  "v10_77"                         
+#include "sntools_genGauss_asym.h"
+#include "sntools_genExpHalfGauss.h"
+
+#define  SNANA_VERSION_CURRENT  "v10_77h"                                
 
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
 #define OMEGA_MATTER_DEFAULT   0.315 
@@ -59,10 +66,21 @@
 #define RADIAN    TWOPI / 360.0     // added Oct 2010
 #define ZAT10PC    2.335e-9         // redshift at 10pc (H0=70)
 #define ZMAX_SNANA 4.0              // max snana redshift, Dec 26 2016
+#define COMMA      ","              // to split comma-sep strings
+#define COLON      ":"              // to split colon-sep strings
 
+// from Planck 2018 (installed June 8 2020)
+#define  CMBapex_l  (double)264.031    // deg (RA galactic coords !!!)
+#define  CMBapex_b  (double)48.253     // deg (DEC)
+#define  CMBapex_v  (double)369.82    // km/sec
+
+
+/* xxxxx mark delete Jun 8 2020 xxxxxxx
+// probably from COBE 1996 ?
 #define  CMBapex_l  (double)264.14    // deg (RA galactic coords !!!)
 #define  CMBapex_b  (double)48.26     // deg (DECL)
 #define  CMBapex_v  (double)371.0     // km/sec
+xxxxxxxxxxxxx */
 
 #define FWHM_SIGMA_RATIO  2.3548    // FWHM/sigma for Gaussian 
 #define TEN        (double)10.0 
@@ -118,15 +136,44 @@
 
 #define PRIVATE_MODELPATH_NAME "SNANA_MODELPATH"  // name of optional env
 
+#define PARNAME_EBV "EBV" 
+#define PARNAME_AV  "AV" 
+#define PARNAME_RV  "RV" 
+
 char FILTERSTRING[100] ;
 
 // define variables for random number list
-#define MXLIST_RAN      4  // max number of lists
-#define MXSTORE_RAN  1000  //  size of each RANLIST (for each event)
-double  RANSTORE8[MXLIST_RAN+1][MXSTORE_RAN] ;
-int     NLIST_RAN;         // Number of lists
-int     NSTORE_RAN[MXLIST_RAN+1] ;
-double  RANFIRST[MXLIST_RAN+1], RANLAST[MXLIST_RAN+1]; // for syncing.
+#define MXLIST_RAN      4  // max number of lists for stream0
+#define MXSTORE_RAN  1000  // size of each RANLIST (for each event)
+#define MXSTREAM_RAN    2  // max number of independent streams
+#define BUFSIZE_RAN   256
+
+
+// xxx typedef struct random_data random_data_def ;
+struct {
+  int     NSTREAM ; // number of srandom streams (legacy is 1)
+  double  RANSTORE[MXLIST_RAN+1][MXSTORE_RAN] ;
+  int     NLIST_RAN;         // Number of lists
+  int     NSTORE_RAN[MXLIST_RAN+1] ;
+  double  RANFIRST[MXLIST_RAN+1], RANLAST[MXLIST_RAN+1]; // for syncing.
+
+  // for multi-stream randoms
+  // xxx random_data_def ranStream[MXSTREAM_RAN];
+  struct random_data  ranStream[MXSTREAM_RAN];
+  char stateBuf[MXSTREAM_RAN][BUFSIZE_RAN];
+
+  // wrap-around stats for how often each random is re-used.
+  int    NCALL_fill_RANSTATs;
+  double NWRAP_MIN[MXLIST_RAN+1] ;
+  double NWRAP_MAX[MXLIST_RAN+1] ;
+  double NWRAP_AVG[MXLIST_RAN+1] ;
+  double NWRAP_RMS[MXLIST_RAN+1] ;
+  double NWRAP[MXLIST_RAN+1] ;
+  double NWRAP_SUM[MXLIST_RAN+1] ;
+  double NWRAP_SUMSQ[MXLIST_RAN+1] ;
+
+} GENRAN_INFO ;
+
 
 // errmsg parameters 
 char c1err[200];   // for kcorerr utility 
@@ -213,6 +260,7 @@ typedef struct GRIDMAP1D {
 #define IDGRIDMAP_SPECEFF_OFFSET        30  // id = OFFSET + imap
 #define IDGRIDMAP_zHOST_OFFSET          40  // id = OFFSET + imap
 #define IDGRIDMAP_PHOTPROB_OFFSET       50  // id = OFFSET + imap
+#define IDGRIDMAP_GENPDF                60  // Jun 2020
 #define IDGRIDMAP_FLUXERRMODEL_OFFSET  100  // id = OFFSET + imap
 
 // simeff 
@@ -236,13 +284,14 @@ struct SIMEFFMAP_DEF {
 struct GRIDMAP  SIMEFF_GRIDMAP ;
 
 
+/* xxx mark delete July 11 2020 xxxxxxxx
 // Jun 8 2018: move GENGAUSS_ASYM from snlc_sim.h to here
 typedef struct  {
+  bool   USE;       // T -> values are set (Jun 11 2020)
   char   NAME[80];  // name of variable                       
   double PEAK ;     // peak prob                          
   double SIGMA[2] ; // asymmetric Gaussian sigmas 
-  double SKEW[2] ;  // hack-skew; one TrueSigma = SIGMA + SKEW*|x-PEAK| 
-  double SKEWNORMAL[3] ; // real skew (for Rachel & Elise, Aug 2016) 
+  double SKEW[2] ;  // hack-skew; TrueSigma = SIGMA + SKEW*|x-PEAK| 
   double RANGE[2] ; // allows truncation 
   int    NGRID ;      // if non-zero, snap to grid
 
@@ -252,11 +301,9 @@ typedef struct  {
   double SIGMA2[2]; // asym Gaussian sigmas of 2nd peak 
   int  FUNINDEX;    // = NFUN_GENGUASS_ASYM = unique index 
 
-  // Jun 2018
-  double RMS; // optionally filled.
+  double RMS;  // RMS of asym Gaussian
 
 } GENGAUSS_ASYM_DEF ;
-
 
 // March 20 2020: Generic struct for exponential and half gaussian.
 typedef struct  {
@@ -267,6 +314,7 @@ typedef struct  {
   double RATIO ;       // Gauss(0)/Expon(0)
   double RANGE[2] ;    // generate random value in this RANGE
 } GEN_EXP_HALFGAUSS_DEF ;
+xxxxxxxxxx  end mark xxxxxx */
 
 
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
@@ -311,7 +359,7 @@ struct {
 #define MXCHARWORD_PARSE_WORDS 60     // MXCHAR per word
 #define MXCHARLINE_PARSE_WORDS 2000   // max chars per line
 #define MXWORDLINE_PARSE_WORDS  700   // max words per line
-#define MXWORDFILE_PARSE_WORDS 500000 // max words to parse in a file
+#define MXWORDFILE_PARSE_WORDS 1000000 // max words to parse in a file
 
 #define MXWORDLINE_FLUX       10  // max words per line in SED file
 #define MXCHARLINE_FLUX      120  // max char per line to read from SED
@@ -360,12 +408,47 @@ struct {
 }  ENVreplace_store;
 
 
+#define MXVAR_WRITE_EPOCH_LIST 8
+#define CUTMODE_REJECT -1
+#define CUTMODE_ACCEPT +1
+#define CUTTYPE_BITMASK 1
+#define CUTTYPE_WINDOW  2
+struct {
+  FILE   *FP_OUT;
+  int    NVAR;  // number of variables to apply cut
+  char   VARNAME[MXVAR_WRITE_EPOCH_LIST][40] ;
+  char   VARNAMES_LIST[200]; //
+  double CUTWIN[MXVAR_WRITE_EPOCH_LIST][2] ;
+  int    CUTMODE[MXVAR_WRITE_EPOCH_LIST] ;   // accept or reject
+  int    CUTTYPE[MXVAR_WRITE_EPOCH_LIST] ;   // window or bit-mask
+
+  char ROWKEY[20]; // REJECT: or ACCEPT:
+  int  CUTMASK_ALL ; // cutmask if all cuts are satisfied
+
+  int  NEPOCH_ALL ;    // number of epochs tested
+  int  NEPOCH_WRITE ;  // number of epochs written
+  int  NEPOCH_CUTFAIL[MXVAR_WRITE_EPOCH_LIST]; // NFAIL per cut
+  int  NEPOCH_CUTFAIL_ONLY[MXVAR_WRITE_EPOCH_LIST]; // idem, only cut
+
+} WRITE_EPOCH_LIST ;
+
 // ##############################################################
 //
 //     functions
 //
 // ##############################################################
 
+void write_epoch_list_init(char *outFile);
+void write_epoch_list_addvar(char *varName, double *CUTWIN, char *CUTMODE);
+void write_epoch_list_exec(char *CID,double MJD,char *BAND, double *VALUES);
+void write_epoch_list_summary(void);
+
+void write_epoch_list_init__(char *outFile);
+void write_epoch_list_addvar__(char *varName, double *CUTWIN, char *CUTMODE);
+void write_epoch_list_exec__(char *CID,double *MJD,char *BAND,double *VARLIST);
+void write_epoch_list_summary__(void);
+
+void catVarList_with_comma(char *varList, char *addVarName);
 
 void init_Cholesky(int OPT, CHOLESKY_DECOMP_DEF *DECOMP ) ;
 void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP, 
@@ -596,7 +679,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE, int NDIM, int NFUN,
 
 int  interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun );
 
-void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP, 
+void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP, 
 		  int IDMAP, int NDIM, int NFUN, int OPT_EXTRAP, int MXROW,
 		  char *callFun, GRIDMAP *GRIDMAP_LOAD );
 void warn_NVAR_KEY(char *fileName);
@@ -633,7 +716,8 @@ double quadInterp ( double VAL, double VAL_LIST[3], double FUN_LIST[3],
 
 double polyEval(int N, double *coef, double x);
 
-void arrayStat(int N, double *array, double *AVG, double *RMS) ;
+void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN);
+void arraystat_(int *N, double *array, double *AVG, double *RMS, double *MEDIAN);
 double RMSfromSUMS(int N, double SUM, double SQSUM);
 void trim_blank_spaces(char *string) ;
 void remove_string_termination(char *STRING, int LEN) ;
@@ -657,6 +741,7 @@ double prob_chi2ndof__(double *chi2, int *Ndof);
 float edgedist(float XPIX, float YPIX,  int NXPIX, int NYPIX);  
 
 void print_banner ( const char *banner ) ;
+void fprint_banner (FILE *FP, const char *banner ) ;
 
 // shells to open text file
 FILE *open_TEXTgz(char *FILENAME, const char *mode,int *GZIPFLAG) ;
@@ -701,8 +786,11 @@ double angSep( double RA1,double DEC1,
 
 // random-number generators.
 // May 2014: snran1 -> Flatran1,  float rangen -> double FlatRan
-void   init_RANLIST(void);
-double unix_random(void) ;
+void   init_random_seed(int ISEED, int NSTREAM);
+void   fill_RANLISTs(void);
+void   sumstat_RANLISTs(int FLAG);
+double unix_random(int istream) ;
+double unix_GaussRan(int istream);
 double FlatRan (int ilist, double *range);  //return rnmd on range[0-1]
 double FlatRan1(int ilist);          // return 0 < random  < 1
 double GaussRan(int ilist);          // returns gaussian random number
@@ -711,8 +799,7 @@ int    getRan_Poisson(double mean);
 //void   FlatRan_correlated(int NDIM, double *COVRED, double *outRanList);
 
 // mangled functions for fortran
-void   randominit_(int *ISEED);  // calls native srandom(ISEED)
-double unix_random__(void) ;
+double unix_random__(int *istream) ;
 double flatran1_(int *ilist) ;          // for fortran
 double gaussran_(int *ilist);         // for fortran
 

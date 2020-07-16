@@ -529,7 +529,7 @@ void set_randomStart_LCLIB(void) {
 
   if ( NEVENT < NEVENT_MIN ) { return ; }
 
-  XEVT_START = unix_random() * (double)(NEVENT-NEVENT_MIN) ;
+  XEVT_START = unix_random(0) * (double)(NEVENT-NEVENT_MIN) ;
   IEVT_START = (int)XEVT_START ;
 
   printf("\t Skip to random LCLIB event %d of %d ... ",

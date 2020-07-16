@@ -347,14 +347,17 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   //  YIMG        list of NIMG Y separations (arcsec)
   //
   int    IDLENS_local, NIMG_local=0, img,i,j;
-  double FlatRan, GauRan, zLENS_local,zSRC_local;
+
+  double FlatRan, zLENS_local,zSRC_local;
+
+
   char fnam[] = "get_stronglens" ;
 
   // ---------------- BEGIN ---------------
 
   // always burn random
   FlatRan = FlatRan1(2);   // flat between 0 and 1
-  // GauRan  = GaussRan(2);   // Gaussian, sigma=1
+
   
   *NIMG = 0 ;
   if ( !INPUTS_STRONGLENS.USE_FLAG ) { return ; }

@@ -31,6 +31,7 @@
        computed from MAX/MIN LOGZ (no longer hard-wired)
 
  Apr 7 2020: MXWGT_HOSTLIB -> 50,000 (was 5,000)
+ May 23 2020: add VPEC & VPEC_ERR (optional)
 
 ==================================================== */
 
@@ -42,9 +43,11 @@
 #define HOSTLIB_MSKOPT_USEONCE      32 // use host galaxy only once
 #define HOSTLIB_MSKOPT_USESNPAR     64 // use SN color & shape from hostlib
 #define HOSTLIB_MSKOPT_SWAPZPHOT   128 // swap ZTRUE with ZPHOT
-#define HOSTLIB_MSKOPT_VERBOSE     256 // print extra info to screen
-#define HOSTLIB_MSKOPT_DEBUG       512 // fix a=2, b=1, rotang=0 
+#define HOSTLIB_MSKOPT_USEVPEC     512 // use VPEC from hostlib 
+
+#define HOSTLIB_MSKOPT_VERBOSE     256 // print extra info during init
 #define HOSTLIB_MSKOPT_DUMP       1024 // screen-dump for each host 
+#define HOSTLIB_MSKOPT_DUMPROW    2048 // DUMP 1 row per host for parsing
 #define HOSTLIB_MSKOPT_PLUSMAGS   8192 // compute & write host mags from host spectra
 #define HOSTLIB_MSKOPT_PLUSNBR 16384  // append list of neighbors to HOSTLIB
 
@@ -93,6 +96,8 @@
 // define optional keys
 #define HOSTLIB_VARNAME_ZPHOT        "ZPHOT"
 #define HOSTLIB_VARNAME_ZPHOT_ERR    "ZPHOT_ERR" 
+#define HOSTLIB_VARNAME_VPEC         "VPEC"         
+#define HOSTLIB_VARNAME_VPEC_ERR     "VPEC_ERR"     
 #define HOSTLIB_VARNAME_LOGMASS_TRUE "LOGMASS_TRUE"  // log10(Mgal/Msolar)
 #define HOSTLIB_VARNAME_LOGMASS_ERR  "LOGMASS_ERR" 
 #define HOSTLIB_VARNAME_LOGMASS_OBS  "LOGMASS_OBS"
@@ -120,6 +125,7 @@
 #define FILENAME_Sersic_bn  "$SNDATA_ROOT/simlib/Sersic_bn.dat" 
 
 int NCALL_GEN_SNHOST_DRIVER ;
+char PATH_DEFAULT_HOSTLIB[2*MXPATHLEN]; // e.g., $SNDATA_ROOT/simlib
 
 #define MXTMPWORD_HOSTLIB 100
 char *TMPWORD_HOSTLIB[MXTMPWORD_HOSTLIB]; // used for splitString
@@ -174,6 +180,8 @@ struct HOSTLIB_DEF {
   int IVAR_ZTRUE  ;
   int IVAR_ZPHOT ;
   int IVAR_ZPHOT_ERR  ;
+  int IVAR_VPEC ;
+  int IVAR_VPEC_ERR  ;
   int IVAR_LOGMASS_TRUE ;
   int IVAR_LOGMASS_ERR ;
   int IVAR_LOGMASS_OBS ;
@@ -197,11 +205,15 @@ struct HOSTLIB_DEF {
   double ZMIN,ZMAX ;
   double ZGAPMAX ; // max z-gap in library
   double ZGAPAVG ; // avg z-gap in library
-  double Z_ATGAPMAX[2];  //  redshift at max ZGAP (to find big holes)
+  double Z_ATGAPMAX[2];  // redshift at max ZGAP (to find big holes)
+
+  // vpec info (to print)
+  double FIX_VPEC_ERR; // optional read from header
+  double VPEC_RMS, VPEC_AVG, VPEC_MIN, VPEC_MAX; // info to print
 
   int   NZPTR;
-  int  *IZPTR;         // pointers to nearest z-bin with .01 bin-size
-  int   MINiz, MAXiz ;        // min,max valid iz arg for IZPTR
+  int  *IZPTR;            // pointers to nearest z-bin with .01 bin-size
+  int   MINiz, MAXiz ;    // min,max valid iz arg for IZPTR
 
   int NLINE_COMMENT ;
   char COMMENT[MXCOMMENT_HOSTLIB][80] ; // comment lines for README file.
@@ -256,7 +268,6 @@ struct {
 
 
 struct SAMEHOST_DEF {
-
   int REUSE_FLAG ;          // 1-> re-use host
   unsigned short  *NUSE ;     // number of times each host is used.
 
@@ -264,14 +275,12 @@ struct SAMEHOST_DEF {
   // host after NDAYDIF_SAMEGAL. Note 2-byte integers to save memory
   unsigned short **PEAKDAY_STORE ; // add PEAKMJD_STORE_OFFSET to get PEAKMJD
   int PEAKMJD_STORE_OFFSET ;       // min generated PEAKMJD
-
 } SAMEHOST ;
 
 // Sersic quantities to define galaxy profile
 // these are all defined during init
 struct SERSIC_PROFILE_DEF {
   int  NPROF ;    // number of defined Sersic/profile components  
-
   char VARNAME_a[MXSERSIC_HOSTLIB][12];     // name of major axis; i.e, a1
   char VARNAME_b[MXSERSIC_HOSTLIB][12];     // name of minor axis; i.e, b1
   char VARNAME_w[MXSERSIC_HOSTLIB][12];     // name of weight
@@ -429,6 +438,7 @@ struct SNHOSTGAL {
   double ZDIF ;      // zSN(orig) - zGAL, Nov 2015
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
   double ZSPEC, ZSPEC_ERR ;     // = zSN or z of wrong host
+  double VPEC,  VPEC_ERR  ;     // peculiar velocity
   double PEAKMJD ;
 
   int    NNBR;    // number of nearby galaxies
@@ -553,6 +563,7 @@ void   reset_SNHOSTGAL_DDLR_SORT(int MAXNBR);
 void   TRANSFER_SNHOST_REDSHIFT(int IGAL);
 void   GEN_SNHOST_GALMAG(int IGAL);
 void   GEN_SNHOST_ZPHOT(int IGAL);
+void   GEN_SNHOST_VPEC(int IGAL);
 void   GEN_SNHOST_LOGMASS(void); // Feb 2020
 int    USEHOST_GALID(int IGAL) ;
 void   FREEHOST_GALID(int IGAL) ;
@@ -561,7 +572,7 @@ void   checkAbort_HOSTLIB(void) ;
 
 void   STORE_SNHOST_MISC(int IGAL, int ibin_SNVAR);
 double modelPar_from_SNHOST(double parVal_orig, char *parName);
-void   DEBUG_1LINEDUMP_SNHOST(void) ;
+void   DUMPROW_SNHOST(void) ;
 void   DUMP_SNHOST(void);
 void   initvar_HOSTLIB(void);
 void   init_OPTIONAL_HOSTVAR(void) ;
@@ -572,10 +583,11 @@ void   open_HOSTLIB(FILE **fp);
 void   init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END);
 void   read_HOSTLIB_WGTMAP(void);
 void   parse_HOSTLIB_WGTMAP(FILE *fp, char *string);
+int    read_VARNAMES_WGTMAP(char *VARLIST);
 bool   checkSNvar_HOSTLIB_WGTMAP(char *varName);
 void   runCheck_HOSTLIB_WGTMAP(void);
 void   malloc_HOSTLIB_WGTMAP(void); 
-void   malloc_SNVAR_HOSTLIB_WGTMAP(int NGAL, int NBTOT, double ***PTR);
+// xxxvoid   malloc_SNVAR_HOSTLIB_WGTMAP(int NGAL, int NBTOT, double ***PTR);
 void   prep_SNVAR_HOSTLIB_WGTMAP(void);
 void   getVal_SNVAR_HOSTLIB_WGTMAP(int ibin, double *VAL_WGTMAP); // init
 int    getBin_SNVAR_HOSTLIB_WGTMAP(void); // for each event
@@ -606,7 +618,10 @@ void   test_Sersic_interp(void);
 double get_Sersic_bn(double n);
 void   init_OUTVAR_HOSTLIB(void) ;
 void   LOAD_OUTVAR_HOSTLIB(int IGAL) ;
-void   copy_VARNAMES_zHOST_to_HOSTLIB_STOREPAR(void);
+void   append_HOSTLIB_STOREPAR(void);
+bool   QstringMatch(char *varName0, char *varName1);
+
+// xxx void   copy_VARNAMES_zHOST_to_HOSTLIB_STOREPAR(void); // mark delete
 
 void   readme_HOSTLIB(void);
 void   check_duplicate_GALID(void);

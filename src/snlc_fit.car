@@ -559,6 +559,7 @@ c namelist input variables.
      &   ,LKCOR_STRETCH     ! T=> get Kcor from stretched template
      &   ,LKCOR_AVWARP      ! T=> get Kcor from color-warped template
      &   ,USE_MODEL_MAGERR  ! T=> use mag error from model
+     &   ,ADD_SALT2ERR_FROMz ! T=> add SALT2 param errors from zerr
      &   ,USESIM_COLOR      ! T=> use simulated color (AV,c ...)
      &   ,USESIM_AV         ! T => use sim. AV in fit (only if LSIM=T)
      &   ,USESIM_RV
@@ -760,7 +761,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,LDMPFCN, LDMPFUN, LDMPFCN_PLOTCHI2, LDMPFUN_PLOTCHI2
      &   ,LFIXPAR_ALL, LFIXPAR_ADJUST, LKCOR_AVWARP, LKCOR_STRETCH
      &   ,USE_MODEL_MAGERR, DOCHI2_SIGMA, LAMREST_MODEL_SMOOTH
-     &   ,CHECK_CRAZYFITERR, SIMEFF_FILE
+     &   ,CHECK_CRAZYFITERR, SIMEFF_FILE, ADD_SALT2ERR_FROMz
      &   ,STRETCH_TEMPLATE_FILE, SALT2_DICTFILE
      &   ,DELCHI2_REJECT, SIGNOISE_REJECT, PEAKMJD_SANITY
      &   ,FITWIN_ZPULL, FITWIN_ZPHOT
@@ -828,7 +829,7 @@ c ------
      &   ,LDMP_PHOTOZ_DROPFILTER
      &   ,LFIXPAR_ALL, LFIXPAR_ADJUST, LKCOR_AVWARP, LKCOR_STRETCH
      &   ,USE_MODEL_MAGERR, DOCHI2_SIGMA, LAMREST_MODEL_SMOOTH
-     &   ,CHECK_CRAZYFITERR, SIMEFF_FILE
+     &   ,CHECK_CRAZYFITERR, SIMEFF_FILE, ADD_SALT2ERR_FROMz
      &   ,STRETCH_TEMPLATE_FILE, SALT2_DICTFILE
      &   ,DELCHI2_REJECT, SIGNOISE_REJECT, PEAKMJD_SANITY
      &   ,FITWIN_ZPULL, FITWIN_ZPHOT
@@ -1132,6 +1133,8 @@ c
 c Aug 2 2019: pass full model name (including path) to INIT_GENMAG_SNOOPY,
 c             instead of passing only the model name without path
 c
+c Jun 17 2020: if OPT_PHOTOZ==2, set ERRMAX_BAD(zPHOT) = 1.0E-8
+c
 c -------------------------------------
       IMPLICIT NONE
 
@@ -1238,10 +1241,10 @@ c init to model that fits for extinction and MU;
 c might be changed below, for example, for SALT2 model
 
       PARNAME_STORE(IPAR_AV)      = 'AV'
+      ERRMAX_BAD(IPAR_AV)         = 0.005  ! 0.01->0.005  6/17/2020
 
-      ERRMAX_BAD(IPAR_AV)     = 0.01
       PARNAME_STORE(IPAR_DLMAG)   = 'DLMAG'
-      ERRMAX_BAD(IPAR_DLMAG)  = 0.0
+      ERRMAX_BAD(IPAR_DLMAG)      = 0.0
 
 c check for floating RV in fit
       if ( INISTP_AVRV .GT. 0.0 ) then
@@ -1261,7 +1264,11 @@ c check for floating RV in fit
         PARNAME_STORE(IPAR_ZPHOT)  = 'REDSHIFT'
       ENDIF
 
-      ERRMAX_BAD(IPAR_ZPHOT) =  0.0005 
+      IF ( OPT_PHOTOZ == 2 ) THEN
+          ERRMAX_BAD(IPAR_ZPHOT) =  1.0E-8 ! likely has specz prior, 6/2020
+      ELSE
+          ERRMAX_BAD(IPAR_ZPHOT) =  0.0005 
+      ENDIF
       ABORT_ON_BADZ           = .FALSE.
 
       IF ( LSIM_SNANA ) THEN
@@ -2325,13 +2332,16 @@ c ----- BELOW IS LAST ITERATION -------
 c check for special variable computation for SIMSED models;
       CALL SIMSED_RECON()
 
+c if not photo-z fit, increase color error to account for z-error.
+cc xxx mark delete      CALL ADD_FITPARERR_FROMz()
+
 c ------------------------------------------------------
 c compute SIMCHI2 on last iteration 
 
-      IF ( LSIM_SNANA .and. LAST ) then  
+cc      IF ( LSIM_SNANA .and. LAST ) then  
 cc 4.22.2019: disable because of problem with wrong host redshift
 cc         CALL GET_SIMCHI2_CHEAT()  
-      ENDIF
+cc      ENDIF
 
 c -------------------------------------------------
       DOLC_PLOT = DOPLOT_SNLC()
@@ -2557,8 +2567,129 @@ C ---------------- BEGIN ---------------
       RETURN
       END
 
+
 C ===============================
-+DECK,SIMSEDRECON.
++DECK,ADD_FITPARERR_FROMz.
+      SUBROUTINE ADD_FITPARERR_FROMz(ITER)
+c
+c ****** BAD IDEA ... MARK DELETE *****
+c
+c Created Jun 30 2020
+c If not photo-z fit, estimate color error from redshift error
+c and increment fitted color error. Make sure to remove incorrect
+c (du/dz)*zerr from Hubble fit error (e.g., BBC)
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM. 
++CDE,SNANAFIT.
++CDE,SNLCINP.
++CDE,SNFITCOM.
+
+      INTEGER ITER ! (I) iteration
+
+c local var
+      REAL*8  CHI2, CHI2MIN, VAL(MXFITPAR), GRAD(MXFITPAR)
+      REAL*8  CHI2_REF, z_REF, z_PLUSERR, MU_REF, MU_PLUSERR
+      REAL*8  c_REF, c_tmp, c_dif, cmax_dif, c_bin, c_atMIN
+      REAL*8  c_err, c_err_add, c_err_ref
+      INTEGER IFLAG, ipar, ic, NBINc, ic_atMIN
+      LOGICAL LDMP
+
+c functions
+      REAL*8   USRFUN, DLMAG8_REF
+      EXTERNAL USRFUN
+C ----------- BEGIN ------------
+
+      IF ( .NOT. ADD_SALT2ERR_FROMz )        RETURN
+      IF ( OPT_PHOTOZ > 0           )        RETURN
+      IF ( FITMODEL_INDEX .NE. MODEL_SALT2 ) RETURN
+      IF ( ITER < NFIT_ITERATION )           RETURN
+
+cc      LDMP = .TRUE.
+      LDMP = .FALSE.
+
+      DO IPAR = 1, NFITPAR_MN 
+         VAL(ipar)  = FITVAL(ipar,ITER) ;    GRAD(ipar) = 0.0 
+      ENDDO
+c if we get here, fit model is SALT2 and redshift was fixed in fit.
+
+      IFLAG     = FCNFLAG_USER       ! flag for FCNSNLC
+      c_REF     = VAL(IPAR_COLOR)
+      z_REF     = VAL(IPAR_zPHOT)
+      z_PLUSERR = z_REF + SNLC_REDSHIFT_ERR
+      MU_REF      = DLMAG8_REF(z_REF)
+      MU_PLUSERR  = DLMAG8_REF(z_PLUSERR)
+      CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2_REF, VAL, IFLAG, USRFUN)
+
+      cmax_dif = 0.6 * (MU_PLUSERR - MU_REF)/SALT2beta
+      NBINc    = 20
+      c_bin    = cmax_dif / dble(NBINc)
+
+      if ( LDMP ) then
+        print*,' xxx -------- DUMP ADD_FITPARERR_FROMz ----------- '
+        print*,' xxx CCID     = ', SNLC_CCID(1:10), '   ITER=',ITER
+        print*,' xxx z_REF    = ', sngl(z_REF), 
+     &             ' +_ ', SNLC_REDSHIFT_ERR
+        print*,' xxx c_REF    = ', sngl(c_REF)        
+        print*,' xxx CHI2_REF = ', sngl(CHI2_REF)
+        print*,' xxx MU       = ', SNGL(MU_REF),' -> ', SNGL(MU_PLUSERR)
+        print*,' xxx cmax_dif = ', sngl(cmax_dif)
+        print*,' xxx c_bin    = ', sngl(c_bin)
+        print*,' xxx NBINc    = ', NBINc
+      endif
+
+      VAL(IPAR_zPHOT) = z_PLUSERR
+      CHI2MIN = 1.0E9
+      c_atMIN = 999. ; ic_atMIN = -9
+      DO 100 ic = 1, NBINc
+         c_dif = -c_bin * dble(ic)
+         c_tmp = c_REF + c_dif
+         VAL(IPAR_COLOR) = c_tmp
+         CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, VAL, IFLAG, USRFUN)
+         if ( CHI2 < CHI2MIN ) then
+            CHI2MIN = CHI2
+            c_atMIN = c_tmp
+            ic_atMIN = ic
+         endif
+         if ( LDMP ) then
+            write(6,44) c_dif, chi2
+ 44         format(' xxx c_dif = ', F8.4, ' -> CHI2 = ', F9.2 )
+            call flush(6)
+         endif
+ 100  CONTINUE
+
+c update fit color error (plus & minus) to include redshift uncertainty
+      c_err_add = abs(c_atmin - c_ref) 
+
+      c_err_ref = FITERR_PLUS(IPAR_COLOR,ITER)
+      c_err     = sqrt(c_err_add**2 + c_err_ref**2)
+      FITERR_PLUS(IPAR_COLOR,ITER)  = c_err
+
+      c_err_ref = FITERR_MINUS(IPAR_COLOR,ITER)
+      c_err     = sqrt(c_err_add**2 + c_err_ref**2)
+      FITERR_MINUS(IPAR_COLOR,ITER)  = -c_err
+
+      if ( LDMP ) then
+         print*,' xxx c_err_add = ', SNGL(c_err_add)
+         print*,' xxx c_err(-) = ', sngl(c_err_ref),' -> ', sngl(c_err)
+      endif
+
+c print warning if min c is at edge of grid
+      if ( ic_atMIN == 1 .or. ic_atMIN == NBINc ) then
+         write(6,660) SNLC_CCID(1:ISNLC_LENCCID), ic_atMIN, NBINc
+ 660     format(' WARNING(',A,'): min ic=',I2,'/', I2,
+     &       'c_err(ADD) = ', F6.2 )
+      endif
+
+c restore best-fit values
+      VAL(IPAR_zPHOT) = z_REF
+      VAL(IPAR_COLOR) = c_REF
+
+      RETURN
+      END
+C ===============================
++DECK,SIMSED_RECON.
       SUBROUTINE SIMSED_RECON()
 
 c Created Jun 28, 2012
@@ -6827,6 +6958,8 @@ c scale covariance matrix.
 
       USE_MODEL_MAGERR = .TRUE.
 
+      ADD_SALT2ERR_FROMz = .FALSE.
+
 c set default Landolt option OFF 
       OPT_LANDOLT = 0
       do i = 1, 10
@@ -7271,6 +7404,10 @@ c ----------------
             i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_MJD(2)
 
 c --------------
+
+         else if ( LINE_ARGS(i) .EQ. 'ADD_SALT2ERR_FROMZ' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) ADD_SALT2ERR_FROMz
+
          else if ( LINE_ARGS(i) .EQ. 'USE_MODEL_MAGERR' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) USE_MODEL_MAGERR
 
@@ -8612,7 +8749,7 @@ c local var
       CHARACTER PARNAME*20
 
 c function
-      REAL*8 GET_DIST8, USRFUN, UNIX_RANDOM, FLATRAN1
+      REAL*8 GET_DIST8, USRFUN
       EXTERNAL USRFUN
 
 C ------------ BEGIN ----------
@@ -9989,7 +10126,7 @@ c check if this epoch is rejected
         LREJECT  = (iter > 1  .and. REJECT  > 0)
         LREJECT2 = (iter > 1  .and. REJECT2 > 0)
 
-c count rejected epochs witing TREST window
+c count rejected epochs within TREST window
         IF ( LREJECT2 .and. IREJ .EQ. 1 ) then
            NEPOCH_REJECT2 = NEPOCH_REJECT2 + 1
         ENDIF
@@ -13011,8 +13148,8 @@ c Return redshift (zz) for SALT2 error calculation.
 c Motivation is for photoz fit, fix zz = z(previous iteration),
 c and use zz for SALT2 error calculation. 
 c
-c Mar 24 2020: fix logic usign local DOFIT_zFIX; needed for FITRESTMAG.
-c
+c Mar 24 2020: fix logic using local DOFIT_zFIX; needed for FITRESTMAG.
+c   .xyz
 c ---------------------
       IMPLICIT NONE
 
@@ -13028,7 +13165,7 @@ c +CDE,FILTCOM.
 
 c local variables
       REAL*8  zz
-      LOGICAL DOFIT_zFIX
+      LOGICAL FIRST_ITER, DOFIT_zFIX
       LOGICAL FIRST_ITERATION   ! function
 
 c --------------- BEGIN -------------
@@ -13036,7 +13173,10 @@ c --------------- BEGIN -------------
       SALT2zz = -999.
       DOFIT_zFIX = (.NOT. DOFIT_PHOTOZ)
 
-      IF ( FIRST_ITERATION(ITER) .or. DOFIT_zFIX ) then
+c      FIRST_ITER = FIRST_ITERATION(ITER)  ! v10_76b and earlier
+      FIRST_ITER = FIRST_ITERATION(ITER) .or. DOFIT_zFIX ! >= v10_76c
+
+      IF ( FIRST_ITER ) then
         zz = z
       ELSE
          if ( DOCHI2_SIGMA .and. DOFIT_zFIX) then
@@ -13045,7 +13185,7 @@ c --------------- BEGIN -------------
              zz = FITVAL(IPAR_ZPHOT,iter-1) ! from previous iteration
          endif
       ENDIF
-    
+
       SALT2zz = zz
 
       RETURN
@@ -19195,7 +19335,6 @@ c ----------
       FNAM = 'FITPAR_NEARNBR_APPLY'
 
       DO 30 i = 1, NVAR_NEARNBR
-
          ! get snlc_fit IPAR  index for this NN variable index
          VARNAME  = NEARNBR_SEPMAX_VARNAME(i)
          IPAR     = IPAR_PARNAME_STORE(VARNAME)

@@ -70,6 +70,9 @@
 
  May 04 2020: add MARZ output option.
 
+ May 30 2020: include sndata.h and remove a few redundant define statements
+               in sntools_outout.h
+
 ************************************************/
 
 #include <stdio.h>
@@ -83,6 +86,7 @@
 #include <sys/stat.h>
 
 // #include "sntools.h"
+#include "sndata.h"
 #include "sntools_output.h"
 
 // include the package-specific code(s) here.
@@ -189,7 +193,7 @@ void TABLEFILE_INIT(void) {
   sprintf(SNLCPAK_OUTPUT.VERSION_PHOTOMETRY, "NULL" );
   sprintf(SNLCPAK_OUTPUT.VERSION_SNANA,      "NULL" );
   sprintf(SNLCPAK_OUTPUT.SURVEY_FILTERS,     "NULL" );
-  sprintf(SNLCPAK_OUTPUT.TEXT_FORMAT,        "" );
+  SNLCPAK_OUTPUT.TEXT_FORMAT[0] = 0;
 
 #ifdef USE_TEXT
   FILEPREFIX_TEXT[0] = 0 ;
@@ -251,7 +255,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   // but cannot open 2 output-hbook files or 2 output-root files.
   //
   // Oct 14 2014: call new function OPEN_TEXTFILE(...) for read-mode
-  //
+  // Jul 13 2020: declare *ENV and *FMT (used if HBOOK is NOT defined)
 
   int  OPEN_FLAG, TYPE_FLAG, OPT_Q, USE_CURRENT, IERR ;
   char *ptrtok, local_STRINGOPT[80], ctmp[20], *FMT, ENV[200] ;
@@ -1232,7 +1236,7 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
   //
   // Sep 12 2016: allow up to 2 pointers for each column.
 
-  int ivar, i, NVAR_TOT, NVAR_READ, VECFLAG, ISIZE, NPTR, MATCH ;
+  int ivar, i, NVAR_TOT, NVAR_READ, VECFLAG, ISIZE, NPTR, MATCH, LEN ;
   int ICAST_STORE ;
   char varName[MXCHAR_VARNAME*2], *varTmp ;
   char fnam[] = "sntable_readprep_vardef1" ;
@@ -1258,11 +1262,12 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
   parse_TABLEVAR(varName_withCast,                    // (I)
 		 varName,  &ICAST_STORE, &VECFLAG, &ISIZE);  // (O)
 
-  if ( strlen(varName) > MXCHAR_VARNAME ) {
+  LEN = strlen(varName);
+  if ( LEN > MXCHAR_VARNAME ) {
     print_preAbort_banner(fnam);
     printf("\t varName = '%s' \n", varName);
     sprintf(MSGERR1,"len(varName) = %d exceeds bound of MXCHAR_VARNAME=%d .",
-	    strlen(varName), MXCHAR_VARNAME);
+	    LEN, MXCHAR_VARNAME);
     sprintf(MSGERR2,"Try shorter name.");
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
@@ -3230,6 +3235,12 @@ void SPECPAK_DATA(char *CCID, int ID, double MJD, double Tobs, double Texpose,
   }
 
   SPECPAK_OUTPUT.NSPEC++ ;
+  if ( SPECPAK_OUTPUT.NSPEC >= MXSPEC_SPECPAK ) {
+    sprintf(MSGERR1, "NSPEC exceeds MXSPEC_SPECPAK=%d bound.", 
+	    MXSPEC_SPECPAK);
+    sprintf(MSGERR2, "Reduce NSPEC or increase MXSPEC_SPECPAK"); 
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
 
   return ;
 
@@ -3264,7 +3275,7 @@ void SPECPAK_FILL(char *CCID) {
 #endif
 
 
-  SPECPAK_CLEAR_PLOT(); // .xyz
+  SPECPAK_CLEAR_PLOT(); 
 
 }  // end  SPECPAK_FILL
 

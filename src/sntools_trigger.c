@@ -57,6 +57,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
@@ -268,14 +269,9 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
   FILE *fp;
   int   IREQUIRE, gzipFlag, imap, NMAP=0 ;
   int   FOUNDMAP_DETECT=0, FOUNDMAP_PHOTPROB=0 ;
-
-  char 
-    file_local[MXPATHLEN]
-    ,c_get[60]
-    ,*ptrFile_user
-    ,*ptrFile_final
-    ,fnam[] = "init_SEARCHEFF_PIPELINE" 
-    ;
+  char  file_local[MXPATHLEN], c_get[60], *ptrFile_user, *ptrFile_final ;   
+  char  fnam[] = "init_SEARCHEFF_PIPELINE"  ;
+    
 
   // ---------------- BEGIN ----------------
 
@@ -803,7 +799,7 @@ void check_SEARCHEFF_DETECT(int imap) {
 void check_SEARCHEFF_PHOTPROB(int imap) {
   
   // set README comment(s).
-  char fnam[] = "check_SEARCHEFF_PHOTPROB" ;
+  //  char fnam[] = "check_SEARCHEFF_PHOTPROB" ;
 
   // -------------- BEGIN ----------------
 
@@ -1172,7 +1168,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
       }
       
       ID = IDGRIDMAP_SPECEFF_OFFSET + NMAP;   NDIM = NVAR-1; NFUN=1;
-      read_GRIDMAP(fp, KEY_ROW, KEY_STOP, ID, NDIM, NFUN, 0,
+      read_GRIDMAP(fp, KEY_ROW, KEY_ROW, KEY_STOP, ID, NDIM, NFUN, 0,
 		   MXROW_SEARCHEFF_SPEC, fnam,
 		   &SEARCHEFF_SPEC[NMAP].GRIDMAP ) ;
       printf("\t for FIELDLIST=%s\n", FIELDLIST);
@@ -1339,17 +1335,8 @@ FILE *open_zHOST_FILE(int OPT) {
   // examine if there is no zHOST file
   if ( fp == NULL ) { 
     if ( IREQUIRE ) {
-
       abort_openTextFile("SEARCHEFF_zHOST_FILE",
 			 PATH_SEARCHEFF, localFile, fnam );
-
-      /* xxxxxxx mark delete Feb 2 2020 xxxxxxxxx
-      sprintf(c1err,"Could not open %s", localFile);
-      sprintf(c2err,"%s","Check 'SEARCHEFF_zHOST_FILE:' "
-	      "key in sim-input file");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-      xxxxxxxxxx */
-
     }
     else  { 
       if ( LPRINT )   { 
@@ -1382,6 +1369,7 @@ void read_zHOST_FILE(FILE *fp) {
   // If using FIELDLIST, each map must start with a new VARNAMES key 
   // 
   // Dec 3 2019: fix bug by setting KEY_STOP = ""
+  // Jul 13 2020: read optional PEAKMJD
 
   int  OPT_EXTRAP = 0 ;
   int  NTAB=0;
@@ -1391,9 +1379,9 @@ void read_zHOST_FILE(FILE *fp) {
   char *ptr_VARNAMES[MXVAR_SEARCHEFF_zHOST], *VARLIST;
   char VARNAME_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST][40];
   int  IVAR_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST];
+  double PEAKMJD_RANGE[2];
   char KEY_ROW[]   = "HOSTEFF:" ;
   char KEY_STOP[]  = "" ;
-  // xxx mark delete  char KEY_STOP[]  = "BLANKLINE" ;
   char fnam[] = "read_zHOST_FILE" ;
 
   // ------------ BEGIN ----------
@@ -1404,7 +1392,10 @@ void read_zHOST_FILE(FILE *fp) {
   for(ivar=0; ivar < MXVAR_SEARCHEFF_zHOST; ivar++ ) {
     ptr_VARNAMES[ivar] = VARNAME_HOSTLIB_TMP[ivar]; 
   }
-  NMAP = NVAR = 0;    sprintf(FIELDLIST,"ALL");
+  NMAP = NVAR = 0;    
+  sprintf(FIELDLIST,"ALL");
+  PEAKMJD_RANGE[0] = 10000.0;
+  PEAKMJD_RANGE[1] = 90000.0;
 
   // -----------------------------
   while( (fscanf(fp, "%s", c_get )) != EOF) {
@@ -1416,8 +1407,13 @@ void read_zHOST_FILE(FILE *fp) {
 
     FOUND_VARNAMES = 0 ;
 
-    if ( strcmp(c_get,"OPT_EXTRAP:") == 0 ) { readint(fp,1,&OPT_EXTRAP); }
-    if ( strcmp(c_get,"FIELDLIST:" ) == 0 ) { readchar(fp,FIELDLIST); }
+    if ( strcmp(c_get,"OPT_EXTRAP:") == 0 ) 
+      { readint(fp,1,&OPT_EXTRAP); }
+    if ( strcmp(c_get,"FIELDLIST:" ) == 0 ) 
+      { readchar(fp,FIELDLIST); }
+    if ( strcmp(c_get,"PEAKMJD:") == 0 || strcmp(c_get,"PEAKMJD_RANGE:")==0 ) 
+      { readdouble(fp,2,PEAKMJD_RANGE);}
+
     if ( strcmp(c_get,"VARNAMES:"  ) == 0 ) { FOUND_VARNAMES=1; }
 
     // parse VARNAMES in map
@@ -1428,17 +1424,26 @@ void read_zHOST_FILE(FILE *fp) {
 
       // store a few things in global
       sprintf(SEARCHEFF_zHOST[NMAP].FIELDLIST,"%s", FIELDLIST);
+      SEARCHEFF_zHOST[NMAP].PEAKMJD_RANGE[0] = PEAKMJD_RANGE[0];
+      SEARCHEFF_zHOST[NMAP].PEAKMJD_RANGE[1] = PEAKMJD_RANGE[1];
+
       for(ivar=0; ivar<NVAR; ivar++ ) {
 	SEARCHEFF_zHOST[NMAP].IVAR_HOSTLIB[ivar] = IVAR_HOSTLIB_TMP[ivar];
 	sprintf(SEARCHEFF_zHOST[NMAP].VARNAMES_HOSTLIB[ivar],"%s",
 		ptr_VARNAMES[ivar] ) ;
       }
 
-      read_GRIDMAP(fp, KEY_ROW, KEY_STOP, IDMAP, NDIM, NFUN, OPT_EXTRAP,
+      read_GRIDMAP(fp,KEY_ROW,KEY_ROW, KEY_STOP, IDMAP, NDIM, NFUN,OPT_EXTRAP,
 		   MXROW_SEARCHEFF_zHOST, fnam,
 		   &SEARCHEFF_zHOST[NMAP].GRIDMAP ) ;
 
-      printf("\t for FIELDLIST='%s'\n", FIELDLIST); 
+      printf("\t FIELDLIST = %s \n", FIELDLIST); 
+      if ( PEAKMJD_RANGE[0] > 10001.0 ) {
+	printf("\t PEAKMJD_RANGE = %d to %d \n", 
+	       (int)PEAKMJD_RANGE[0], (int)PEAKMJD_RANGE[1] );
+      }
+      fflush(stdout);
+
       NONZERO_SEARCHEFF_zHOST++ ;
     } // end VARNAMES check
 
@@ -1802,7 +1807,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, double *MJD_TRIGGER) {
   double  PHOTPROB, CUTVAL ;
   char CFILT[4];
   int LDMP  = (ID == -39 ); 
-  char fnam[] = "gen_SEARCHEFF_PIPELINE";
+  //  char fnam[] = "gen_SEARCHEFF_PIPELINE";
 
   // ------------- BEGIN -------------
 
@@ -2228,8 +2233,8 @@ void setRan_for_PHOTPROB(void) {
   double COVDIAG = 1.0;  // Cov matrix has sigma=1
 
   CHOLESKY_DECOMP_DEF DECOMP;
-  int  MEMD, istore, imap, imap1, irow, irow1, NCOV, obs, obs1 ;
-  double CORR, CORR1, FLATRAN, GAURAN, *COVTMP1D ;
+  int  MEMD, istore, imap, imap1, irow, irow1, NCOV, obs ;
+  double CORR, CORR1, FLATRAN, GAURAN ;
   double GAURAN_LIST[MXOBS_PHOTPROB], GAURANCORR_LIST[MXOBS_PHOTPROB];
   char   fnam[] = "setRan_for_PHOTPROB" ;
 
@@ -2316,19 +2321,8 @@ void setRan_for_PHOTPROB(void) {
   GaussRanCorr(&DECOMP, GAURAN_LIST, // (I)
 	       GAURANCORR_LIST);     // (O)
 
-  double tmpMat, tmpRan, x0=0.0 ;
+  double x0=0.0 ;
   for(irow=0; irow < NSTORE; irow++ ) {
-
-    /* xxx mark delete Feb 17 2020 xxxxxxx .xyz
-    GAURAN = 0.0 ;
-    obs    = OBS_PHOTPROB.OBS_LIST[irow] ;
-    for(irow1=0; irow1 < NSTORE ; irow1++ ) {
-      obs1   = OBS_PHOTPROB.OBS_LIST[irow1] ;
-      tmpMat = CHOLESKY_COV[irow1][irow] ;
-      tmpRan = SEARCHEFF_RANDOMS.GAUSS_PHOTPROB[obs1] ;  // Gauss-Ran
-      GAURAN += ( tmpMat * tmpRan) ;
-    }
-    xxxxxxxxxxxx */
 
     GAURAN = GAURANCORR_LIST[irow] ;
 
@@ -2396,7 +2390,7 @@ double get_PIPELINE_PHOTPROB(int istore) {
   int    IFILTOBS  = SEARCHEFF_DATA.IFILTOBS[obs] ;
   double SNR       = SEARCHEFF_DATA.SNR[obs] ;
   double SBMAG     = SEARCHEFF_DATA.SBMAG[IFILTOBS] ;  
-  double GALMAG    = SEARCHEFF_DATA.HOSTMAG[IFILTOBS] ;  
+  //  double GALMAG    = SEARCHEFF_DATA.HOSTMAG[IFILTOBS] ;  
   double MJD       = SEARCHEFF_DATA.MJD[obs] ;
 
   int    istat, ivar, LDMP ;
@@ -2639,12 +2633,15 @@ double interp_SEARCHEFF_zHOST(void) {
 
   // Mar 12 2019
   // Interpolate multi-D map to get EFF(HOSTLIB properties)
+  //
+  // July 2020: check PEAKMJD too
 
   int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
   int IMAP=0, istat, imap, NVAR, ivar, ivar_HOSTLIB, IGAL, NMATCH=0;
   double VARDATA[MXVAR_SEARCHEFF_zHOST];
-  double EFF = 0.0 ;
+  double EFF = 0.0, PEAKMJD, *PEAKMJD_RANGE ;
   char *field_map, *field_data, *varName ;  
+  bool MATCH_FIELD, MATCH_PEAKMJD ;
 
   int LDMP = 0;
   char fnam[] = "interp_SEARCHEFF_zHOST" ;
@@ -2653,14 +2650,23 @@ double interp_SEARCHEFF_zHOST(void) {
 
   // determine which map based on FIELD
   for(imap=0; imap < NMAP;  imap++ ) {
+    MATCH_FIELD = MATCH_PEAKMJD = false ;
     field_map  = SEARCHEFF_zHOST[imap].FIELDLIST ;
     field_data = SEARCHEFF_DATA.FIELDNAME ;
-    if ( strcmp(field_map,"ALL")      == 0    ) { IMAP=imap; NMATCH++ ; }
-    if ( strstr(field_map,field_data) != NULL ) { IMAP=imap; NMATCH++ ; }
+
+    PEAKMJD_RANGE = SEARCHEFF_zHOST[imap].PEAKMJD_RANGE ;
+    PEAKMJD       = SEARCHEFF_DATA.PEAKMJD ;
+    
+    if ( strcmp(field_map,"ALL")      == 0    ) { MATCH_FIELD = true ; }
+    if ( strstr(field_map,field_data) != NULL ) { MATCH_FIELD = true ; }
+    if ( PEAKMJD >= PEAKMJD_RANGE[0] && PEAKMJD <= PEAKMJD_RANGE[1] ) 
+      { MATCH_PEAKMJD = true; }
+
+    if ( MATCH_FIELD && MATCH_PEAKMJD ) { IMAP = imap;  NMATCH++ ; }
   }
   if ( NMATCH != 1 ) {
     sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
-    sprintf(c2err, "field = '%s'", field_data );
+    sprintf(c2err, "field = '%s'  PEAKMJD=%.3f", field_data, PEAKMJD );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
 

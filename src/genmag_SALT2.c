@@ -227,10 +227,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  /* xxx Mar 24 2020 mark delete (moved below ) xxxx
-  sprintf(SALT2_INFO_FILE,     "SALT2.INFO" );
-  xxxxxxxxxxxx */
-
   // summarize filter info
   filtdump_SEDMODEL();
 
@@ -1033,6 +1029,8 @@ void read_SALT2colorDisp(void) {
 
   fflush(stdout);
 
+  return ;
+
 } // end of read_SALT2colorDisp
 
 
@@ -1295,7 +1293,6 @@ void check_lamRange_SALT2errmap(int imap) {
   int    DISABLE = 0 ;
   char fnam[] = "check_lamRange_SALT2errmap" ;
 
-
   // ----------- BEGIN -------------
 
   if ( DISABLE ) { return ; }
@@ -1342,7 +1339,7 @@ void check_dayRange_SALT2errmap(int imap) {
   double ERRMAP_DAYMAX = SALT2_ERRMAP[imap].DAYMAX ;
   double tol = 1.1 ;
   int    DISABLE = 0 ;
-  char fnam[] = "check_dayRange_SALT2errmap" ;
+  //  char fnam[] = "check_dayRange_SALT2errmap" ;
 
   // ----------- BEGIN -------------
 
@@ -1714,7 +1711,7 @@ void genmag_SALT2(
   char fnam[] = "genmag_SALT2" ;
 
   // ----------------- BEGIN -----------------
-
+  
   // parse bit-mask options
 
   OPT_PRINT_BADFLUX = OPT_RETURN_FLUX =  0; // default flags OFF
@@ -1735,6 +1732,7 @@ void genmag_SALT2(
   ZP           = FILTER_SEDMODEL[ifilt].ZP ;
   cfilt        = FILTER_SEDMODEL[ifilt].name ;
   meanlam_rest = meanlam_obs/z1 ;
+
 
   // make sure filter-lambda range is valid
   checkLamRange_SEDMODEL(ifilt,z,fnam);

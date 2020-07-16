@@ -125,6 +125,7 @@
 # Mar 20 2020: added sntools_genExpHalfGauss (DJB)
 # Mar 23 2020: include snlc_sim.h dependence for sntools_gridgen.o
 # Apr 25 2020: include lCint for LROOT only of libCint.so exists
+# Jun 12 2020: add sntools_genPDF
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -149,7 +150,7 @@ CC   = cc
 EXTRA_FLAGS = -O1   # -ftree-vectorize -ftree-vectorizer-verbose=2
 
 # EXTRA_FLAGS = -O2 -Wall
-  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
+#  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
 
   PROFILEFLAG = 
@@ -399,6 +400,7 @@ OBJ_SIM	 = 	\
 	$(OBJ)/sntools_trigger.o  \
 	$(OBJ)/sntools_gridgen.o  \
 	$(OBJ)/sntools_spectrograph.o \
+	$(OBJ)/sntools_genPDF.o \
 	$(OBJ)/sntools_genGauss_asym.o \
         $(OBJ)/sntools_genExpHalfGauss.o \
 	$(OBJ)/inoue_igm.o \
@@ -502,10 +504,10 @@ $(BIN)/sncosmo_mcmc.exe : $(OBJ)/sncosmo_mcmc.o $(OBJ)/sntools.o
 #	$(FFC) $(SNFFLAGS) $(SRC)/sntools_eigen.F)
 
 
-$(OBJ)/SALT2mu.o : $(SRC)/SALT2mu.c $(SRC)/sntools.c $(SRC)/sntools_output.c
+$(OBJ)/SALT2mu.o : $(SRC)/SALT2mu.c $(SRC)/sntools.c $(SRC)/sntools_output.c $(SRC)/sntools_genPDF.c $(SRC)/minuit.F
 	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/SALT2mu.c ) 
 
-$(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o
+$(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o $(OBJ)/minuit.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
 	$(OBJ)/SALT2mu.o  \
 	$(OBJ)/sntools.o \
@@ -911,9 +913,16 @@ $(OBJ)/multiseason.o : $(SRC)/multiseason.c
 
 
 # -------------------------------------------------
+#  sntools_genPDF  tools (Jun 2020)
+
+$(OBJ)/sntools_genPDF.o : $(SRC)/sntools_genPDF.c  $(SRC)/sntools_genPDF.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS)  $(IGSL) $(SRC)/sntools_genPDF.c )
+
+# -------------------------------------------------
 #  sntools_genGauss_asym  tools (Sep 2016)
 
-$(OBJ)/sntools_genGauss_asym.o : $(SRC)/sntools_genGauss_asym.c  $(SRC)/sntools_genGauss_asym.h  skewNormal.c
+$(OBJ)/sntools_genGauss_asym.o : $(SRC)/sntools_genGauss_asym.c  $(SRC)/sntools_genGauss_asym.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS)  $(IGSL) $(SRC)/sntools_genGauss_asym.c )
 
@@ -923,8 +932,6 @@ $(OBJ)/sntools_genGauss_asym.o : $(SRC)/sntools_genGauss_asym.c  $(SRC)/sntools_
 $(OBJ)/sntools_genExpHalfGauss.o : $(SRC)/sntools_genExpHalfGauss.c  $(SRC)/sntools_genExpHalfGauss.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS)  $(IGSL) $(SRC)/sntools_genExpHalfGauss.c )
-
-
 
 # ------------------------------------------------
 # compile genmag_xxxx functions (.o only
@@ -975,9 +982,10 @@ $(OBJ)/genmag_LCLIB.o : $(SRC)/genmag_LCLIB.c  $(SRC)/sntools.h
 
 # -------------------------------------------------
 # Generic Lightcurve simulator 
+# $(SRC)/sntools_genPDF.c
 
 $(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c $(SRC)/sntools_gridgen.c \
-	 $(SRC)/sntools_fitsio.c $(SRC)/sntools_host.c \
+	$(SRC)/sntools_fitsio.c $(SRC)/sntools_host.c $(SRC)/sntools_genPDF.c \
 	$(SRC)/sntools_wronghost.c  $(SRC)/sntools_host.h \
 	$(SRC)/sntools_genSmear.c $(SRC)/SNcadenceFoM.c  \
 	$(SRC)/snlc_sim.h $(SRC)/sndata.h $(SRC)/sntools_kcor.c

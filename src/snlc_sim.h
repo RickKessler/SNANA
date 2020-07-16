@@ -127,7 +127,7 @@ int WRFLAG_COMPACT   ; // Jan 2018
 //#define SIMLIB_MXGEN_LIBID 10000  // stop gen on this many for one LIBID
 #define SIMLIB_MXGEN_LIBID 1000
 #define SIMLIB_MSKOPT_REPEAT_UNTIL_ACCEPT      2 // force each LIBID to accept
-#define SIMLIB_MSKOPT_BLANK                    4 // un-used (Mar 26 2018)
+#define SIMLIB_MSKOPT_QUIT_NOREWIND            4 // quit after one pass
 #define SIMLIB_MSKOPT_RANDOM_TEMPLATENOISE     8 // random template noise
 #define SIMLIB_MSKOPT_IGNORE_TEMPLATENOISE    16 // ignore template coherence
 #define SIMLIB_MSKOPT_IGNORE_FLUXERR_COR      32 // ignore FLUXERR_COR map
@@ -269,6 +269,7 @@ typedef struct {
 #define SPECTROGRAPH_OPTMASK_SNRx100     8  // multiply SNR x 100
 #define SPECTROGRAPH_OPTMASK_noTEMPLATE 16  // no template noise
 #define SPECTROGRAPH_OPTMASK_onlyTNOISE 32  // only template noise
+#define SPECTROGRAPH_OPTMASK_TEXTRAP    64  // extrap TEXPOSE outside range
 #define SPECTROGRAPH_OPTMASK_NOSPEC   2048  // skip spectra
 #define SPECTROGRAPH_OPTMASK_noNOISE 32768  // internal only: turn off noise
 
@@ -286,7 +287,7 @@ typedef struct {
 } SPECTROGRAPH_OPTIONS_DEF;
 
 
-#define MXPEREVT_TAKE_SPECTRUM 20
+#define MXPEREVT_TAKE_SPECTRUM MXSPECTRA
 int     NPEREVT_TAKE_SPECTRUM ; 
 typedef struct {
   float EPOCH_RANGE[2];    // Trest or TOBS range
@@ -379,8 +380,9 @@ struct INPUTS {
   bool RESTORE_HOSTLIB_BUGS ;   // set if DEBUG_FLAG==3 .or. RESTORE_DES3YR
   bool RESTORE_FLUXERR_BUGS ;   // set if DEBUG_FLAG==3 .or. idem
 
-  int OPT_DEVEL_BBC7D;   // temp for BBC7D development
-  int OPT_DEVEL_GENFLUX; // temp for GENFLUX_DRIVER refactor + REDCOV
+  // xxx  int OPT_DEVEL_BBC7D;   // temp for BBC7D development
+  // xxx  int OPT_DEVEL_GENFLUX; // temp for GENFLUX_DRIVER refactor + REDCOV
+  int OPT_DEVEL_GENPDF;  // temp for genPDF
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files
@@ -411,6 +413,8 @@ struct INPUTS {
   int  USE_SIMLIB_DISTANCE ;  // 1 => use distance in LIB (if it's there)
   int  USE_SIMLIB_PEAKMJD ;   // idem for optional PEAKMJD
   int  USE_SIMLIB_MAGOBS ;    // use MAGOBS column instead of SN model
+  int  USE_SIMLIB_SPECTRA;    // use TAKE_SPECTRUM keys in SIMLIB header
+  int  USE_SIMLIB_SALT2 ;     // use SALT2c and SALT2x1 from SIMLIB header
   int  SIMLIB_MSKOPT ;        // special SIMLIB options (see manaul)
 
   // ---- end simlib inputs -----
@@ -485,13 +489,20 @@ struct INPUTS {
   char GENMODEL[MXPATHLEN] ; // source model name, with optional path
   char MODELPATH[MXPATHLEN]; // path to model (formerly GENLC.MODELPATH)
   char MODELNAME[100];       // stripped from GENMODEL
+
+  char GENPDF_FILE[MXPATHLEN];   // PDF for color, stretch, etc ...
+  char GENPDF_IGNORE[MXPATHLEN]; 
+  int  GENPDF_OPTMASK;           // bit-mask of options
+  char GENPDF_FLAT[100];         // force flat PDF; e.g., SALT2x1,SALT2c,RV
+
   char GENMODEL_EXTRAP_LATETIME[MXPATHLEN];
   char GENSNXT[20] ;        // SN hostgal extinction: CCM89 or SJPAR
   int  GENMODEL_MSKOPT;     // bit-mask of model options
   char GENMODEL_ARGLIST[400] ;
   int  GENMAG_SMEAR_MSKOPT;   // bit-mask of GENSMEAR options
   unsigned int ISEED;         // random seed
- 
+  int          NSTREAM_RAN;   // number of independent random streams
+
   int    RANLIST_START_GENSMEAR;  // to pick different genSmear randoms
 
   double OMEGA_MATTER;   // used to select random Z and SN magnitudes
@@ -541,15 +552,16 @@ struct INPUTS {
   GENGAUSS_ASYM_DEF GENGAUSS_STRETCH ;
   GENGAUSS_ASYM_DEF GENGAUSS_RV ;
 
-  GEN_EXP_HALFGAUSS_DEF GENPROFILE_AV ;
-  GEN_EXP_HALFGAUSS_DEF GENPROFILE_EBV_HOST ;
-
+  GEN_EXP_HALFGAUSS_DEF  GENPROFILE_AV ;
+  GEN_EXP_HALFGAUSS_DEF  GENPROFILE_EBV_HOST ;
 
   SPECTROGRAPH_OPTIONS_DEF  SPECTROGRAPH_OPTIONS ;
   TAKE_SPECTRUM_DEF         TAKE_SPECTRUM[MXPEREVT_TAKE_SPECTRUM] ;
   float                     TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE ;
   int                       TAKE_SPECTRUM_DUMPCID;
   float                     TAKE_SPECTRUM_HOSTFRAC;
+
+  char                      WARP_SPECTRUM_STRING[200];
   int                       NWARP_TAKE_SPECTRUM ; // set internally
   int                       NHOST_TAKE_SPECTRUM ; // set internally
 
@@ -569,7 +581,6 @@ struct INPUTS {
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2x1 ;   
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2ALPHA ;
   GENGAUSS_ASYM_DEF GENGAUSS_SALT2BETA ;
-  // xxx mark delete  double SALT2BETA_cPOLY[3];    // poly fun of c
   GENPOLY_DEF SALT2BETA_cPOLY;
   double BIASCOR_SALT2GAMMA_GRID[2]; // gamma range for BBC-biasCor sample
 
@@ -607,7 +618,7 @@ struct INPUTS {
   int   NPAIR_SIMSED_COV ;                 // number of input COV pairs
   float COVPAIR_SIMSED_COV[MXPAR_SIMSED];  // COV among two variables
   int   IPARPAIR_SIMSED_COV[MXPAR_SIMSED][2] ; // IPAR indices of two corr vars
-  // xxx mark delete  double **CHOLESKY_SIMSED_COV ;
+
   CHOLESKY_DECOMP_DEF SIMSED_DECOMP;
   int    IPARLIST_SIMSED_COV[MXPAR_SIMSED];  // vs. IROW
   int    IROWLIST_SIMSED_COV[MXPAR_SIMSED];  // vs. IPAR
@@ -915,11 +926,12 @@ struct GENLC {
   int    SIMSED_IPARMAP[MXPAR_SIMSED];     // IPAR list in COV mat 
   double SIMSED_PARVAL[MXPAR_SIMSED];    // params for SIMSED model
 
+
   // xxx mark delete after refactor 3/21/2020
   double AVTAU;       // 5/11/2009: added in case of z-dependence
   double AVSIG;       // Gauss sigma
   double AV0RATIO ;   // Guass/expon ratio at AV=0
-  // xxx mark end delete       
+  //  xxx mark end delete xxxxxxx */
 
   GEN_EXP_HALFGAUSS_DEF GENPROFILE_AV; // 3/2020: added by djb for z-dep
   GEN_EXP_HALFGAUSS_DEF GENPROFILE_EBV_HOST; // 3/2020: added by djb for z-dep
@@ -1121,13 +1133,6 @@ struct GENLC {
   bool OBSFLAG_WRITE[MXEPSIM];   // write these to data file
   bool OBSFLAG_PEAK[MXEPSIM] ;   // extra epochs with peak mags
   bool OBSFLAG_TEMPLATE[MXEPSIM]; // extra epochs that are templates
-
-  /* xxx mark delete
-  int USE_EPOCH[MXEPSIM];
-  int ISOBS[MXEPSIM];       // flags observed epochs
-  int ISPEAK[MXEPSIM];      // labels extra epochs that store peakmags.
-  int ISTEMPLATE[MXEPSIM];         // labels extra epochs that are templates
-  xxx */
 
   int IEPOCH_PEAK[MXFILTINDX] ; // identifies peak epoch vs. filter
   int IEPOCH_SNRMAX;            // epoch with SNRMAX (Jun 2018)
@@ -1338,6 +1343,7 @@ struct SIMLIB_HEADER {
   int NFOUND_RA   ; // idem with valid RA
   int NFOUND_DEC  ; // idem with valid DEC
   int NFOUND_FIELD ;
+  int NFOUND_GENCUTS; // May 30 2020
 
 } SIMLIB_HEADER ;
 
@@ -1449,7 +1455,6 @@ int OPT_SNXT               ;  // option for hostgal extinction
 #define MODEL_TWEAK_SHOCK 1 // early Shock (Kasen 2006)
 
 #define  IFLAG_GENRANDOM   1
-// xxx mark delete #define  IFLAG_GENDATA     2
 #define  IFLAG_GENGRID     4
 
 #define OPT_SNXT_CCM89  1  // use exact CCM89 model to apply host extinc
@@ -1552,7 +1557,7 @@ struct {
   int     FLAG  ;         // POLYnomial or ZBINS
   char    PARNAME[40];    // name of sim parameter to vary with z
   GENPOLY_DEF POLY;       
-  // xx mark delete  double  ZPOLY[POLYORDER_ZVAR+1];  // store poly
+
   // optional variation in z-bins to allow any functional form
   int     NZBIN;
   double  ZBIN_VALUE[MXZBIN_ZVAR];       // z-bins
@@ -1646,7 +1651,7 @@ void   read_input_SIMSED_COV(FILE *fp, int OPT,  char *stringOpt );
 void   read_input_SIMSED_PARAM(FILE *fp);
 void   read_input_GENGAUSS(FILE *fp, char *string, char *varname,
 			   GENGAUSS_ASYM_DEF *genGauss );
-void   prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) ;
+// xxx mark void   prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) ;
 
 void   parse_input_GENZPHOT_OUTLIER(char *string);
 void   parse_input_FIXMAG(char *string);
@@ -1678,6 +1683,8 @@ void   sim_input_override(void) ;  // parse command-line overrides
 void   prep_user_input(void);      // prepare user input for sim.
 void   prep_user_CUTWIN(void);
 void   prep_user_SIMSED(void);
+void   prep_dustFlags(void);
+void   prep_GENPDF_FLAT(void);
 
 void   prep_genmag_offsets(void) ;
 void   prep_RANSYSTPAR(void); // called after reading user input 
@@ -1697,6 +1704,7 @@ void   gen_filtmap(int ilc);  // generate filter-maps
 void   gen_modelPar(int ilc, int OPT_FRAME);  
 void   gen_modelPar_SALT2(int OPT_FRAME); 
 void   gen_modelPar_SIMSED(int OPT_FRAME); 
+void   gen_modelPar_dust(int OPT_FRAME); 
 void   gen_MWEBV(void);       // generate MWEBV
 void   override_modelPar_from_SNHOST(void) ;
 
@@ -1737,7 +1745,7 @@ void update_accept_counters(void);
 
 void    simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX);
 double  gen_AV(void);          // generate AV from model
-double  gen_AV_legacy(void);          // generate AV from model                                             
+
 double  GENAV_WV07(void);   
 double  gen_RV(void);          // generate RV from model
 void    gen_conditions(void);  // generate conditions for each field
@@ -1785,7 +1793,6 @@ double genmodelSmear_interp(int ifilt_interp, int iep);
 double genmodel_Tshift(double T, double z);
 
 void   init_simvar(void);        // one-time init of counters, etc ..
-void   init_simRandoms(void);    // init stuff for randoms
 void   init_genmodel(void);      // init above
 void   init_genSpec(void);        // one-time init for SPECTROGRAPH
 void   init_genSEDMODEL(void); // generic init for SEDMODEL

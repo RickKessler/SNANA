@@ -28,13 +28,19 @@
  Dec 11 2019: replace lots of [40] with [MXCHAR_VARNAME]
 
  May 02 2020: add spectra format for MARZ (FITS with particular extensions)
+ May 30 2020: MXSPEC_SPECPAK -> MXSPECTRA from sndata.h
 
 *******************************************/
 
 
 // define flags for software packages
+<<<<<<< HEAD
 #define USE_HBOOKxxx  
 #define USE_ROOTxxx     
+=======
+#define USE_HBOOK  
+#define USE_ROOT    
+>>>>>>> master
 #define USE_TEXT  // always leave this on; same logic as for HBOOK,ROOT, ...
 #define USE_MARZ  // always leave this on
 
@@ -101,10 +107,11 @@ char LINE_TABLECOMMENT[MXLINE_TABLECOMMENT][MXCHAR_FILENAME];
 // -------------------------------------
 // define a few things from sntools.h so that we don't have to
 // include all of sntools.h
-#define MXFILTINDX 100   // must match value in sndata.h
-#define SEV_FATAL  4    // must match value in sntools.h, for errmsg call
-#define MXEPOCH   2000   // should match MXEPOCH in snana.car (Aug 2 2014)
-
+// #define MXFILTINDX 100    // must match value in sndata.h
+#define SEV_FATAL  4      // must match value in sntools.h, for errmsg call
+//#define MXEPOCH   2000    // should match MXEPOCH in snana.car (Aug 2 2014)
+//#define MXSPEC_SPECPAK 40 // must match MXSPECTRA in sndata.h
+#define MXSPEC_SPECPAK MXSPECTRA
 
 #define ICAST_L   16  // long long int (64 bits)
 #define ICAST_D    8  // double
@@ -267,7 +274,6 @@ struct  SNLCPAK_OUTPUT {
 
 
 // Apr 2019: create struture for multiple spectra per event (SN & HOST)
-#define MXSPEC_SPECPAK 10
 struct SPECPAK_OUTPUT {
   int  NSPEC;  // per event
   char SURVEY[60] ;

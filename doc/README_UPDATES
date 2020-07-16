@@ -1,3 +1,4 @@
+
    v9_00 [Sep 3, 2010]  
 
              ***** ACTION ITEMS for ALL SNANA USERS *****
@@ -18355,7 +18356,7 @@
 
 
 # ======================================================================= 
-         v10_77 (  ) 
+         v10_77 (May 25 2020) 
 
          ***** IMPORTANT(v10_77) ***** 
 
@@ -18371,6 +18372,8 @@
    sntools_host.c
     + in get_Sersic_info(), allow Sersic weight truncation
       error at E-3 level; renormalize wgts.
+    + fix refactor bug related to SN->GAL coord option (MSKOPT+=8)
+      (see function SORT_SNHOST_byDDLR)
 
    snlc_sim.c
     + output REAMDE includes list of each map file with MAP: key
@@ -18378,9 +18381,12 @@
     + fix minor spectrograph bug: ignore SPECTROGRAPH keys in 
       SIMLIB if spectrograph is not defined in kcor file.
     + fix a few harmless valgrind errors related to strongLens option.
+    + add VPEC option in HOSTLIB; see manual sec 4.30.1
 
    sim_SNmix.pl:
     + write PATH_SNDATA_SIM in TOTAL_SUMMARY.LOG
+    + fix false-ABORT bug if SIMGEN_INPUT_Ia is not global,
+      but specified under GENVERSION key.
 
    split_and_fit.pl:
      + fix FITRES_COMBINE_FILE feature that was broken because
@@ -18392,11 +18398,316 @@
      + add REDSHIFT_QUALITYFLAG to data structure.
        This is a survey-dependent flag on spec-z (host or SN),
        and thus there is no standard set of flag definitions.
+     + MXSPECTRUM     = 5     -> 20
+     + MXLAM_SPECTRUM = 2000  -> 20000
+     + MXTABLE1D_AVWARP -> 1.5 million for D.J (was 1 million)
 
    SALT2mu.c
      + new option CUTWIN(BIASCORONLY) to cut only on biasCor.
+     + new option fieldlist=<list> ; see instructions at top of code file.
 
    sntools_fitsio.c
      + fix bug writing SIM_STRONGLENS_XXX params 
+
+   kcor.c: 
+     + new spectrograph table inputs to catch crazy SNR values,
+          SNR_POISSON_RATIO_ABORT_vsMAGREF
+          SNR_POISSON_RATIO_ABORT_vsTEXPOSE
+       (see manual updates)
+     + fix bug related to duplicate filters with lamshift.
+
+   sntools_spectrograph.c:
+     in getSNR function, if variance < 0, return SNR=0 so that
+     sim simply ignores this wave bin. Can happen for very
+     faint mags when SNR ~ 1 and SQSIGSKY solution is not well
+     defined.
+
+
+# ======================================================================= 
+         v10_77b (June 5 2020) 
+
+         ***** IMPORTANT(v10_77b) ***** 
+    
+         ***** USEFUL(v10_77b) ***** 
+
+    SIMLIB_OUT option (snana.exe) adds TAKE_SPECTRUM keys in SIMLIB header
+    if spectra are in the data file.
+
+    Simulating spectra has new option to extrap TEXPOSE beyond defined range.
+
+    New sim option to read SIMLIB exactly once.
+
+         ***** MISCELLANEOUS(v10_77b) ***** 
+
+    snlc_sim.c[h]: 
+      + new SPECTROGRAPH_MSKOPT += 64 -> extrapolate TEXPOSE beyond 
+        range defined in spectrograph table. See updated manual 
+        section 4.25.3 SPECTROGRAPH Options
+      + remove OPT_DEVEL_BBC7D flag
+      + fux bug overriding RV from HOSTLIB
+      + new input option, USE_SIMLIB_SPECTRA: 1 (see manual)
+      + abort if USE_SIMLIB_XXX flags result in all LIBIDs rejected
+         by GENRANGE_XXX windows. Avoids infinite loop/hang.
+      + SIMLIB_MSKOPT += 4 -> stop after reading SIMLIB one time.
+      + to address ringing in simulated spectra, refactor randoms to 
+        allow two independent streams, where the 2nd stream is used 
+        for spectrograph noise. For now, default NSTREAM_RAN=1,
+        but can study impact of two streams with
+          snlc_sim.exe <inFile> NSTREAM_RAN 2 
+        Next SNANA version will likely have NSTREAM_RAN=2 by default,
+        where stream 0 stays synced to lists, while stream 1 is not.
+
+    SALT2mu_fit.pl
+     + fix obscure ABORT  message when datfile= key is missing
+        for NSPLITRAN option.
+     + on abort, write FAIL to DONE file 
+
+    SALT2mu.c
+      + for ALL surveys lumped together (no 64 bit), fix bug where
+        IDSAMPLE was not set and was thus -9; set all IDSAMPLE=0
+
+    snana.car:
+      + for SIMLIB_OUT option, include TAKE_SPECTRUM keys in
+        SIMLIB header if spectra exist in data files.
+      + fix some SPECPLOT bugs.
+      + fix SPECPAK compatibility issue with using both MARZ & TEXT tables.
+
+    sntools_output.c:
+       + include sndata.h and remove some redundant #define statements
+         from sntools_output.h .
+
+    sntools.h:
+      MXWORDFILE_PARSE_WORDS -> 1 million (was 500k) to handle data
+      files with lots of spectra.
+
+    sntools_spectrograph.h:
+        MXLAMSMEAR_SPECTROGRAPH -> 40 (was 20) for small DIEMOS bins
+
+
+# ======================================================================= 
+         v10_77c (June 5 2020) 
+
+         ***** IMPORTANT(v10_77c) ***** 
+
+    In sim, NSTREAM_RAN = 2 (was 1) so that spectrograph noise 
+    burns independent set of randoms.  Random sync changed here.
+
+         ***** USEFUL(v10_77c) ***** 
+
+         ***** MISCELLANEOUS(v10_77c) ***** 
+
+
+# ======================================================================= 
+         v10_77d (Jun 9 2020) 
+
+         ***** IMPORTANT(v10_77d) ***** 
+
+    snana.car: Fix awful bug in converting zCMB -> zHELIO;
+      OPT flag was set with wrong sign, so it was converting
+      zHELIO -> zCMB. This ONLY affects data files that have
+      zCMB but not zHELIO. No impact if both REDSHIFT_HELIO
+      and REDSHIFT_CMB are included in data files.
+      A few affected data versions are 
+          LOWZ_JRK07, SNLS_Ast06, CSPDR2
+      JLA data files have both HELIO and CMB redshift, and
+      were thus not affected by this bug.
+      Not clear when this bug was introduced.
+
+    sntools.h: update CMB_apex parameters using Planck 2018.
+
+         ***** USEFUL(v10_77d) ***** 
+
+    snana.car
+      If both REDSHIFT_HELIO and REDSHIFT_CMB are read from data files,
+      crosscheck zHELIO with internal calculation; abort if 
+      |dz/z| > zTOL_HELIO2CMB (new &SNLCINP input).
+      Goal is to catch use of approximate/additive formula.
+      See manual section 12.2.5 Crosscheck zHEL -> zCMB
+
+         ***** MISCELLANEOUS(v10_77d) ***** 
+
+    snana.car
+      + for writing TAKE_SPECTRUM keys to SIMLIB, exlcude wave bins
+         where FLUXERR/FLUXERR_MEDIAN > 50
+     
+    combine_fitres.c
+      + fix variable name match to be case insensitive.
+
+    sntools.c
+     + for FmaxClump method of initial PKMJD, sort MJD_LIST in case
+       data files are not MJD-sorted. Also check that snlc_fit works
+       on un-sorted data. Fix based on LSST-DC2 data files.
+
+    SALT2mu.c
+      + add abort traps for crazy IDSURVEY.
+
+
+# ======================================================================= 
+         v10_77e (Jun 19 2020) 
+
+         ***** IMPORTANT(v10_77e) ***** 
+
+   sim-input includes GENPDF_FILE with maps to describe populations
+   of color, stretch, AV, RV. See manaul Sec 
+   Works only in conjuction with sim-input "OPT_DEVEL_GENPDF: 1"
+   Next version will remove the OPT_DEVEL_GENPDF requirement.
+
+   Sims using asymGauss: no more using defaults, mainly for RV.
+
+         ***** USEFUL(v10_77e) ***** 
+
+         ***** MISCELLANEOUS(v10_77e) ***** 
+
+   snana.car
+     + do NOT apply zTOL check if SNLC_HELIO < 0.003 ... temp hack
+       to protect redshift truncation in DES DIFFIMG.
+
+   *.c: 
+     + fix compile with Wall warnings.
+
+   SALT2mu.c
+     + allow iflag_duplicate=0 (ignore) to operate on sims.
+     + for NSPLITRAN, include w(wfit) in summary.
+     + supress abort with surveygroup_biascor_abortflag=0
+
+   sntools_genPDF.c[h]
+     + new functions to read and implement multi-D maps of PDF
+       for color, stretch, RV, AV.
+
+   snlc_sim.c
+     + integrate init_genPDF & exec_genPDF
+     + remove OPT_DEVEL_GENFLUX and associated code.
+ 
+   sntools_host.c
+     + for WGTMAP using SN properties, abort if SN val is outside wgtmap range.
+
+   remove skewnormal.c and all obsolete/unused skewnormal code.
+
+   sntools_genGauss_asym.c:
+     require genGauss->USE = true to pick random from asym Gauss.
+
+   snlc_fit.car
+     + fix subtle bug setting ERRMAX_BAD for zPHOT when using
+       spec-z as a prior. Fixes zPHOTERR spike at 0.05.
+
+
+# ======================================================================= 
+         v10_77f (Jun 30 2020) 
+
+         ***** IMPORTANT(v10_77f) ***** 
+
+   SALT2mu: remove redshift error from muerrz calc (use only vpec).
+
+         ***** USEFUL(v10_77f) ***** 
+
+         ***** MISCELLANEOUS(v10_77f) ***** 
+ 
+    snana.car
+      + abort if SIMVAR_CUTWIN_STRING variable not found.
+
+    SALT2mu_fit.pl & SALT2mu.c:
+     + refactor/update so that NSPLITRAN output goes to
+       separate subdirs names 0001, 0002, etc ... 
+       This change allows Pippin to run CosmoMC in each subDir.
+       Interactive NSPLITRAN probably won't work,
+       so must use SALT2mu_fit.pl to launch NSPLITRAN.
+     + fix mu_true for opt_biascor += 128 (biasCor with MU)
+       to use measured redshift instead of true redshift.
+     + remove redshift error from muerrz calc (use only vpec);
+        restore_sigz=1 restores original calc.
+        Explanation in DES docDB note 15287.
+
+
+# ======================================================================= 
+         v10_77g (Jul 9 2020) 
+
+         ***** IMPORTANT(v10_77g) ***** 
+
+   snlc_sim: refactored code (for GENPDF options) now default.
+
+         ***** USEFUL(v10_77g) ***** 
+
+    Can use SALT2mu as a SUBPROCESS run by python population fit code; 
+    see below.
+
+         ***** MISCELLANEOUS(v10_77g) ***** 
+
+   SALT2mu.c
+     + abort if any IDSAMPLE has zero biasCor events passing cuts.
+
+     + add SIM_MUz array, and opt_biascor=2 is now same as 130
+       because z-only biasCor had always corrected vs. MU.
+
+     + for opt_biascor += 2(1D) or 128(muCor), biasCor true MU
+       is now computed with zHD instead of true z. For 1D biasCor,
+       here is example improvement using DES sims and host-galaxy
+       photo-z:
+            mu_true      m0-M0avg chi2/dof
+          SIM_MU(ztrue)   86.4 / 9      # old using SIM_MU(ztrue)
+          SIM_MU(zHD)     16.1 / 9      # new using SIM_MU(zHD)
+
+     + SUBPROCESS features ready to use. Get help with
+          SALT2mu.exe SUBPROCESS_HELP
+
+   snlc_sim.c
+     + add GENPDF_FLAT input; see manual.
+     + OPT_DEVEL_GENPDF=1 by default so that refactored code
+       is now default -> many SNANA_tester jobs fail (as expected)
+       because random sync has changed.
+
+   kcor.c
+     + write input file name and FILTER PATH names to output FITS header;
+       can be used later to chase down DOCANA notes.
+
+   sntools_spectrograph.c
+     + add protection against numerical roundoff when F <<< SQSIGMA
+       (limit of noise-dominated spectra). When running kcor.exe,
+       grep HACK <stdout> to see modified SNR.
+  
+
+# ======================================================================= 
+         v10_77h (  ) 
+
+         ***** IMPORTANT(v10_77h) ***** 
+
+   Fix really stupid logic bug that had slowed fits by almost
+   factor of 10 ( but didn't affect results)
+
+         ***** USEFUL(v10_77h) ***** 
+
+         ***** MISCELLANEOUS(v10_77h) ***** 
+
+    sntools_genPDF.h: 
+      + MXROW_GENPDF -> 15000 (was 5000)
+  
+    sntools.c[h]
+      + new write_epoch_list_xxx functions
+    snana.car
+      + new &SNLCINP input OUT_EPOCH_IGNORE_FILE to write
+        list of rejected epochs ... can be read by external
+        classifiers. Using write_epoch_list_xxx functions.
+      + for loading tables with variables vs. filter,
+        reduce MXFILT to 15 (was 30) ... mainly for low-z.
+
+    sntools_output.c
+      + fix declaration bug for when CERN_DIR is not defined.
+        Not sure how SNANA compiled at NERSC without CERN_DIR ?
+
+    sntools_trigger.c
+      + in zHOST effic file, add new optional key "PEAKMJD: t0 t1"
+        before each map; allows season-dependent maps. See manual.
+
+    sntools.c: 
+      + in read_VARNAMES_KEYS, avoid exceeding bound with lots
+        of duplicates; store only unique varnames.
+
+    genmag_SEDtools.c
+      + back at v10_76c, had introduced dumb logic bug that forced
+        re-evaluating entire extinction table for every fit-iteration.
+        Fixed, and now fits are almost x10 faster compared to bug.
+        This bug had no impact on results; only affected speed.
+ 
+    sntools_host.c[h]
+      + automatically store WGTMAP variables in data files.
 
 END: 

@@ -153,7 +153,7 @@ c
      &  ,MXAVBIN_KCOR = 100       ! max # AV bins for KCOR tables
      &  ,MXCBIN_AVWARP = 100      ! max color index for AVWARP table
      &  ,MXTABLE1D_KCOR   = 10 000 000  ! max number of KCOR bins
-     &  ,MXTABLE1D_AVWARP =  1 000 000  ! max number of bins for AVWARP table
+     &  ,MXTABLE1D_AVWARP =  1 500 000  ! max number of bins for AVWARP table
      &  ,MXTABLE1D_LCMAG  =  2 000 000  ! idem for LCMAG  table
      &  ,MXTABLE1D_MWXT   =  2 000 000  ! idem for MWXT table
      &  ,KCORPACK      = 1000.  ! store KCOR * KCORPACK as I*2
@@ -473,7 +473,8 @@ c global survey info
      &  ,NSTORE_DUPLICATE_MJD  ! Number stored
      &  ,N_SNFILE              ! # of SN files to read per version
      &  ,N_SNFILE_LAST         ! idem, as of last version
-     &  ,NEPOCH_TOT            ! total number of epochs read
+     &  ,NEPOCH_TOT            ! total number of epochs read from files
+     &  ,NEPOCH_USE            ! total number of used epochs   
      &  ,NEPOCH_CUT            ! total number of epochs passing cuts
      &  ,NEPOCH_BADPHOT        ! # epochs with bad PHOTFLAG (per event)
      &  ,NEPOCH_BADPHOT_SUM    ! # epochs with bad PHOTFLAG (summed)
@@ -534,7 +535,8 @@ c global survey info
      &    ,N_VERSION, N_SNLC, N_SNLC_CUTS, N_SNLC_FIT, N_SNLC_FITCUTS
      &    ,N_SNLC_COVFIX, N_SNFILE, N_SNFILE_LAST, N_DUPLICATE_CID
      &    ,N_DUPLICATE_MJD, NSTORE_DUPLICATE_MJD
-     &    ,NEPOCH_TOT, NEPOCH_CUT, NEPOCH_BADPHOT, NEPOCH_BADPHOT_SUM
+     &    ,NEPOCH_TOT, NEPOCH_USE, NEPOCH_CUT
+     &    ,NEPOCH_BADPHOT, NEPOCH_BADPHOT_SUM
      &    ,REFORMAT_SAVE_BADEPOCHS, STDOUT_UPDATE
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
      &    ,NVAR_TERSE, VARLIST_TERSE
@@ -820,6 +822,7 @@ c
      &  ,SNLC_PSF_SIG1(MXEPOCH)  ! sigma, pixels
      &  ,SNLC_PSF_SIG2(MXEPOCH)
      &  ,SNLC_PSF_RATIO(MXEPOCH)
+     &  ,SNLC_PSF_FWHM_ARCSEC(MXEPOCH) 
      &  ,SNLC_AREA_NOISE(MXEPOCH)  ! Noise-equivalent area (pixels)
      &  ,SNLC_FLUX_NSIG(MXEPOCH)   ! significance
      &  ,SNLC_FLUXCAL_OFF(MXFILT_OBS)    ! add SN light from template
@@ -891,7 +894,7 @@ c
      &    ,SNLC_AREAFRAC_AVG, SNLC_AREAFRAC
      &    ,SNLC_SKYSIG,  SNLC_SKYSIG_T
      &    ,SNLC_PSF_SIG1, SNLC_PSF_SIG2, SNLC_PSF_RATIO
-     &    ,SNLC_AREA_NOISE
+     &    ,SNLC_AREA_NOISE, SNLC_PSF_FWHM_ARCSEC
 c
      &    ,SNLC_FLUX_NSIG, SNLC_FLUXCAL_OFF
      &    ,SNLC_FLUXCAL_ERRCALC, SNLC_FLUXCAL_ERRTEST
@@ -963,8 +966,8 @@ c  Not intended for analysis.
 
       PARAMETER (
      &   MXVAR_SPECTRUM = 10   ! max number of variables after SPEC: key
-     &  ,MXSPECTRUM     = 5    ! max number of spectra to read per event
-     &  ,MXLAM_SPECTRUM = 2000 ! max number of wave bins per spectrum
+     &  ,MXSPECTRUM     = 40    ! max number of spectra to read per event
+     &  ,MXLAM_SPECTRUM = 20000 ! max number of wave bins per spectrum
      &        )
 
       LOGICAL RDFLAG_SPECTRUM
@@ -985,6 +988,7 @@ c  Not intended for analysis.
      &   ,LAMMAX_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM)
      &   ,FLAM_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM) 
      &   ,FLAMERR_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM)  
+cc     &   ,SIM_FLAM_SPECTRUM(MXLAM_SPECTRUM,MXSPECTRUM)  
 
       COMMON/SPECCOM4/ RDFLAG_SPECTRUM
      &   ,NVAR_SPECTRUM, NSPECTRUM, ID_SPECTRUM, NLAMBIN_SPECTRUM
@@ -993,8 +997,7 @@ c  Not intended for analysis.
       COMMON/SPECCOM8/ 
      &    MJD_SPECTRUM, TOBS_SPECTRUM, TEXPOSE_SPECTRUM
      &   ,LAMMIN_SPECTRUM, LAMMAX_SPECTRUM
-     &   ,FLAM_SPECTRUM, FLAMERR_SPECTRUM
-
+     &   ,FLAM_SPECTRUM, FLAMERR_SPECTRUM  ! SIM_FLAM_SPECTRUM
 
 +KEEP,SNSIMCOM.
 
@@ -1477,7 +1480,7 @@ c define hard-wired list of valid over-rides
      &   'REDSHIFT_QUALITYFLAG,zFLAG,' //
      &   'SIM_SALT2x1,SIM_SALT2c,SIM_x1,SIM_c,'      //
      &   'PEAKMJD,PKMJDINI,PEAKMJDINI,' //
-     &   'MWEBV,MWEBV_ERR '      )
+     &   'MWEBV,MWEBV_ERR,x1,c'   )
       
       INTEGER MXVAR_HEADER_OVERRIDE
       PARAMETER ( MXVAR_HEADER_OVERRIDE = 10 )
@@ -1894,7 +1897,8 @@ c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
      &  ,SNTABLE_FILTER_REMAP ! remap filters in tables
      &  ,KCOR_FILE            ! fits-formatted KCOR tables
      &  ,OVERRIDE_RESTLAM_BOUNDARY*80 ! e.g., '5100(gV) 6200(rV)'
-     &  ,EPOCH_IGNORE_FILE    ! file with epochs to ignor
+     &  ,EPOCH_IGNORE_FILE    ! read this file with epochs to ignor
+     &  ,OUT_EPOCH_IGNORE_FILE ! write this file with discarded epochs
      &  ,SNMJD_LIST_FILE      ! list of "CID MJD" to process
      &  ,SNMJD_OUT_FILE       ! MJD_LIST out file
      &  ,MNFIT_PKMJD_LOGFILE  ! separate log for PKMJD fits
@@ -1998,7 +2002,8 @@ c LC plot info
      &  SNCCID_PLOT(MXLISTNML)*(MXCHAR_CCID) ! (I) string-list of CCIDs to plot
 
       REAL 
-     &  DTOBS_MODEL_PLOT  ! (I) binning (days) for overlaid best-fit model
+     &   DTOBS_MODEL_PLOT  ! (I) binning (days) for overlaid best-fit model
+     &  ,zTOL_HELIO2CMB    ! (I) give warning if  zCMB and zHEL are off
 
 c Oct 2014: variables to check for multi-season transient activity
 
@@ -2046,7 +2051,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPTSIM_LCWIDTH, OPT_REFORMAT_TERSE, OPT_REFORMAT_TEXT
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
-     &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE, NONLINEARITY_FILE
+     &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE
+     &    , SNCID_LIST_FILE, NONLINEARITY_FILE
      &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , hfile_out, rootfile_out, textfile_prefix
@@ -2076,7 +2082,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , NSIMVAR_CUTWIN, SIMVAR_CUTWIN, SIMVAR_CUTWIN_LIST
      &    , EARLYLC_STRING, REQUIRE_EPOCHS_STRING, DUMP_STRING
      &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT, DTOBS_MODEL_PLOT
-     &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP
+     &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP, zTOL_HELIO2CMB
      &    , MULTISEASON_NREJECT_OUTLIER, MULTISEASON_CHI2RED_ACTIVE
      &    , PHOTFLAG_DETECT, PHOTFLAG_TRIGGER
      &    , CUTWIN_ZPADU, CUTWIN_ZPNPE, CUTWIN_TREST_TRUEFLUX
@@ -2097,7 +2103,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT
      &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
-     &    , EPOCH_IGNORE_FILE, SNCID_LIST_FILE, NONLINEARITY_FILE
+     &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE
+     &    , SNCID_LIST_FILE, NONLINEARITY_FILE
      &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
@@ -2116,7 +2123,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , H0_REF, OLAM_REF, OMAT_REF, W0_REF, DWDA_REF
      &    , USE_MWCOR, DOBUG_LAMRANGE
      &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT, DTOBS_MODEL_PLOT
-     &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP
+     &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP, zTOL_HELIO2CMB
      &    , MULTISEASON_NREJECT_OUTLIER, MULTISEASON_CHI2RED_ACTIVE
      &    , PHOTFLAG_DETECT, PHOTFLAG_TRIGGER
 c
@@ -2951,10 +2958,6 @@ c read optional tags
 c read optional header-override (can include vpec) 
       CALL INIT_HEADER_OVERRIDE()     ! Nov 29 2016
 
-c Oct 2013: read optional peculiar-velocity corrections 
-c Dec 2016: should use the HEADER_OVERRIDE feature instead.
-      CALL RD_VPEC_FILE(-1)
-
 c init multi-season analysis
       CALL MULTISEASON(IFLAG_INI)  ! 1 = init flag
 
@@ -3386,7 +3389,7 @@ c set namelist defaults
       CUTWIN_LAMOBS(1)       =  2000.
       CUTWIN_LAMOBS(2)       = 25000.
 
-      CUTWIN_NBAND_THRESH(1) = -9.0 !  obsolete as of Nov 15 2019
+      CUTWIN_NBAND_THRESH(1) = -9.0   !  obsolete as of Nov 15 2019
       CUTWIN_NBAND_THRESH(2) = -9.0
 
       do ifilt = 1, MXFILT_OBS
@@ -3404,6 +3407,7 @@ c Setting INGORE file to 'DEFAULT' is a flag to read
 c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
 
       EPOCH_IGNORE_FILE = 'DEFAULT' 
+      OUT_EPOCH_IGNORE_FILE = ''
 
       KCOR_FILE   = 'NULL'
       OVERRIDE_RESTLAM_BOUNDARY = ''
@@ -3569,6 +3573,8 @@ c set reference cosmo params to defaults.
       W0_REF(2)   = W0ERR_DEFAULT
       DWDA_REF(1) = DWDA_DEFAULT
       DWDA_REF(2) = DWDAERR_DEFAULT
+
+      zTOL_HELIO2CMB = 0.02   ! tolerance on dzHELIO/zHELIO
 
 c set LTEST logicals to false.
 
@@ -3893,7 +3899,9 @@ c If interactive, replace invalid pwd/ with a valid './' path.
       ENDIF
 
 c Nov 15 2019: abort on obsolete key
-      IF ( CUTWIN_NBAND_THRESH(1) > -1.0 ) then
+      IF ( CUTWIN_NBAND_THRESH(1) > -1.0 .or. 
+     &     CUTWIN_NBAND_THRESH(2) > -1.0 ) then
+         
          C1ERR = 'Remove obsolete CUTWIN_NBAND_THRESH from &SNLCINP.'
          C2ERR = 'Sorry for the inconvenience.'
          CALL MADABORT(FNAM, C1ERR, C2ERR)
@@ -4117,7 +4125,7 @@ c set strings needed for the SNLCPAK_INIT functio
          CALL SPECPAK_INIT(SURVEY_forC, VER_PHOT_forC, TEXTFMT_forC,
      &          LENSRVY, LENV1, LENFMT )
       ENDIF
-c .xyz
+
 c -------------------------------------------
 
       USE_TABLEFILE        = .FALSE.
@@ -4256,6 +4264,7 @@ c    to store_PARSE_WORDS()
 c
 c May 23 2019: add text:host    option ; see WRTABLEFILE_HOST_TEXT
 c Oct 30 2019: add text:errcalc option ; see WRTABLEFILE_ERRCALC_TEXT
+c Jul 13 2020: no default SNTABLEs if writing rejected epochs
 c
 c -------------------
       IMPLICIT NONE
@@ -4314,6 +4323,9 @@ c If using default, replace 'DEFAULT' with actual default value.
 
       IF ( SNTABLE_LIST .EQ. 'DEFAULT' ) THEN
          SNTABLE_LIST = SNTABLE_LIST_DEFAULT
+
+c July 13, 2020: no default SNTABLEs if writing rejected epochs
+         IF ( OUT_EPOCH_IGNORE_FILE .NE. ''  ) SNTABLE_LIST = ' '
       ENDIF
 
 c by default the SNID is written out as is
@@ -4466,7 +4478,8 @@ c check for options inside ()
 
 c ------------
 c if LCPLOT is not specified, set MXLC_PLOT to zero.
-      IF  ( OPT_TABLE(ITABLE_SNLCPAK) == 0 ) MXLC_PLOT = 0
+      IF  ( OPT_TABLE(ITABLE_SNLCPAK) == 0 .and.
+     &      OPT_TABLE(ITABLE_SPECPAK) == 0  )    MXLC_PLOT = 0
 
 c -------------
 c summarize 
@@ -4848,6 +4861,8 @@ c to allow multiple specifications.
 
          else if ( LINE_ARGS(i) .EQ. 'EPOCH_IGNORE_FILE' ) then
             i = i + 1  ; EPOCH_IGNORE_FILE = LINE_ARGS(i)
+         else if ( LINE_ARGS(i) .EQ. 'OUT_EPOCH_IGNORE_FILE' ) then
+            i = i + 1  ; OUT_EPOCH_IGNORE_FILE = LINE_ARGS(i)
 
          else if ( LINE_ARGS(i) .EQ. 'NFIT_ITERATION' ) then
             i = i + 1 ;  READ(LINE_ARGS(i),*) NFIT_ITERATION
@@ -5300,6 +5315,10 @@ c -------------
          else if ( LINE_ARGS(i) .EQ. 'W0_REF' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) W0_REF(1)
 
+         else if ( LINE_ARGS(i) .EQ. 'ZTOL_HELIO2CMB' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) ZTOL_HELIO2CMB
+         else if ( LINE_ARGS(i) .EQ. 'zTOL_HELIO2CMB' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) ZTOL_HELIO2CMB
 c ----
          else if ( LINE_ARGS(i) .EQ. 'ABORT_ON_BADSURVEY' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) ABORT_ON_BADSURVEY
@@ -5921,11 +5940,11 @@ c if no supernova pass cuts, look for cuts that always fail.
 
 c -----------------------------------
 
-
+cc      write(6,170) NEPOCH_BADPHOT_SUM, NEPOCH_USE
       write(6,170) NEPOCH_BADPHOT_SUM, NEPOCH_TOT
 170   format(T5,'Bad PHOTOMETRY FLAG for ',I8,' of ', I8,' epochs')
 
-         print*,' '
+      print*,' '
 c -------------------------------------------------
 c print out processing time, and process time per SN.
 
@@ -5965,7 +5984,7 @@ c print DUPLICATE-CID WARNING
 
 c print DUPLICATE-MJD WARNING
       IF ( N_DUPLICATE_MJD > 0 ) THEN
-         f_dupl = float(N_DUPLICATE_MJD)/ float(NEPOCH_TOT)
+         f_dupl = float(N_DUPLICATE_MJD)/ float(NEPOCH_USE)
          write(6,60)
          write(6,60)
          write(6,616) N_DUPLICATE_MJD, 100.*f_dupl
@@ -6115,24 +6134,6 @@ c Analysis driver for SN with sparse index ISN.
 c Move code from MAIN to here so that each SN is fit
 c right after it is read.
 c
-c Dec 4 2012: call new function USRINI2()
-c
-c Dec 11, 2012: move MON_SNANA(1) call to end after USRANA call.
-c               i.e, call monitor after everything has been analyzed.
-c
-c Jan 2 2013:
-c    if LSNCUTS=F  or LSNFITOK=F, then call MON_SNANA(1) before RETURN.
-c    Allows ntuple update for CUTFLAG=0 to allow examining
-c    why SN fails cuts.
-c
-c Jan 4, 2013: replace local ISTAT_FITANAN with global ERRFLAG_FIT
-c              so that it goes into the SNANA ntuple (7100).
-c              Invert logic so that ERRFLAG_FIT=0 is success
-c              rather than failure.
-c
-c Nov 29 2014: move USRINI2 function at end of IF-bloc, after
-c              MON_SNANA.
-c
 c Nov 29 2016: 
 c   + remove function call to PRIVATE_CHECK.
 c   + add call to EXEC_HEADER_OVERRIDE.
@@ -6183,9 +6184,6 @@ c Apr 2019: special NNtrain option to pick only EVEN CID
             if ( MOD(SNLC_CID,2) .EQ. 1 ) RETURN
          endif
       endif
-
-c check option to fetch vPec from file
-      CALL RD_VPEC_FILE(0)
 
 c check option to override header values (Nov 29 2016)
       CALL EXEC_HEADER_OVERRIDE()
@@ -6256,7 +6254,6 @@ c check dump-option for SN that fail cuts.
       ENDIF
 
        IF ( OPT_REFORMAT_TEXT  .GT. 0 ) CALL WRTEXT()
-cc       IF ( OPT_REFORMAT_SALT2 .EQ. 1 ) CALL WRSALT2_1()
        IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) CALL WRSALT2_2()
        IF ( OPT_REFORMAT_FITS  .GT. 0 ) CALL UPD_WRFITS()
 
@@ -6470,6 +6467,8 @@ c
 +CDE,NNCOM.
 
       INTEGER IERR, LENF
+      EXTERNAL write_epoch_list_summary
+
 c ----------------- BEGIN -------------
 
 c      CALL PRINT_SNSTATS
@@ -6526,6 +6525,10 @@ c close hbook file using wrapper so that we don't need CERNLIB flag here.
 
 c - - - - - - 
       CALL PRINT_SNSTATS
+
+      IF ( OUT_EPOCH_IGNORE_FILE .NE. '' ) then
+         CALL write_epoch_list_summary()
+      ENDIF
 
       call flush(6)
       print*,' ' 
@@ -8162,26 +8165,18 @@ C ============================
       character c1err*(*), c2err*(*) ! two error messages
       INTEGER ISEV_FATAL, IPROMPT, LENF, LEN1, LEN2
       PARAMETER ( ISEV_FATAL = 4, IPROMPT=0 )
-      LOGICAL LEGACY_ABORT
 
       EXTERNAL ERRMSG
       INTEGER  LENSTR
 c ----------------- BEGIN --------------
-
-      LEGACY_ABORT = .FALSE.
-
-      IF ( LEGACY_ABORT ) then
-         CALL MADABORT_LEGACY(funname,c1err,c2err)
-      ELSE
-         LENF = LENSTR(funname)
-         LEN1 = LENSTR(c1err)
-         LEN2 = LENSTR(c2err)
-         call errmsg(ISEV_FATAL, IPROMPT, 
-     &       funname(1:LENF)//char(0), 
-     &       c1err(1:LEN1)//char(0),
-     &       c2err(1:LEN2)//char(0),
-     &          LENF, LEN1, LEN2 )
-      ENDIF
+      LENF = LENSTR(funname)
+      LEN1 = LENSTR(c1err)
+      LEN2 = LENSTR(c2err)
+      call errmsg(ISEV_FATAL, IPROMPT, 
+     &     funname(1:LENF)//char(0), 
+     &     c1err(1:LEN1)//char(0),
+     &     c2err(1:LEN2)//char(0),
+     &     LENF, LEN1, LEN2 )
 
       RETURN
       END
@@ -8374,6 +8369,7 @@ c get SNANA version from C function
       ISJOB_PSNID = .FALSE.
 
       NEPOCH_TOT = 0
+      NEPOCH_USE = 0
       NEPOCH_CUT = 0
       NEPOCH_BADPHOT     = 0
       NEPOCH_BADPHOT_SUM = 0
@@ -8557,9 +8553,9 @@ c init HIDKCOR array to 0
       ISTAT = EXEC_CIDMASK(0,MXCID_CHECK)  ! init CID bit-mask
 
       DO IPAR = 1, MXFITPAR
-         ERRMAX_BAD(ipar) = 0.01  ! err < ERRMAX_BAD is labelled bad
+         ERRMAX_BAD(ipar) = 1.0E-4  ! err < ERRMAX_BAD is labelled bad
       ENDDO
-     
+
       SIMNAME_MODEL        = 'SIMNULL0'
       SIMNAME_SHAPEPAR     = 'SIM_SHAPE'  ! changed from SIMSHAPE (4/11/2017)
       SIMNAME_SHAPELAW     = 'SIMNULL1'  ! each SIMNULL has unique name
@@ -11335,6 +11331,8 @@ c
 c Mar 20 2015: call CHECK_EPOCH_IGNORE here instead of SNRECON
 c              so that ignored epochs are not even stored.
 c
+c Jul 11 2020: read ZP and PSF, and call SET_EPVAR_MISC
+c
 c -------------------------
       IMPLICIT NONE
 
@@ -11416,19 +11414,34 @@ c Mar 2015 - parse more epoch variables for CHECK_EPOCH_IGNORE
      &     INDXFITS_EPCUTS(JPAR),10,LRET)
       CALL CHECK_FITSABORT(IVERS,NRD,KEYNAME)
 
-c --- optional keys below have no call to CHECK_FITSABORT
+c --- optional keys below 
 
       KEYNAME  = "PHOTFLAG" // char(0)
       JPAR = JPAR + 1
       NRD = RD_SNFITSIO_INT(IROW, KEYNAME, ISNLC_PHOTFLAG,
-     &     INDXFITS_EPCUTS(JPAR),8,LRET)
-cc      CALL CHECK_FITSABORT(IVERS,NRD,KEYNAME)
+     &     INDXFITS_EPCUTS(JPAR), 8, LRET)
 
       KEYNAME  = "PHOTPROB" // char(0)
       JPAR = JPAR + 1
       NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SNLC_PHOTPROB,
-     &     INDXFITS_EPCUTS(JPAR),8,LRET)
-cc      CALL CHECK_FITSABORT(IVERS,NRD,KEYNAME)
+     &     INDXFITS_EPCUTS(JPAR), 8, LRET)
+
+c July 2020: read ZP and PSF too
+      KEYNAME  = "ZEROPT" // char(0)
+      JPAR = JPAR + 1
+      NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SNLC_ZEROPT,
+     &     INDXFITS_EPCUTS(JPAR), 8, LRET)
+
+      KEYNAME  = "PSF_SIG1" // char(0)
+      JPAR = JPAR + 1
+      NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SNLC_PSF_SIG1,
+     &     INDXFITS_EPCUTS(JPAR), 8, LRET)
+
+      KEYNAME  = "GAIN" // char(0)
+      JPAR = JPAR + 1
+      NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SNLC_GAIN,
+     &     INDXFITS_EPCUTS(JPAR), 8, LRET)
+
 
 c -----------------------------------------------------
 c use above info to determine which epochs to keep/reject
@@ -11440,8 +11453,10 @@ c use above info to determine which epochs to keep/reject
       DO 99 ep = 1, NRD
         MJD         = SNGL( SNLC8_MJD(ep) )
         IDFIELD     = ISNLC_IDFIELD(ep)
-        IFILT_OBS   = ISNLC_IFILT_OBS(ep)
+        IFILT_OBS   = ISNLC_IFILT_OBS(ep)        
         IFILT       = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
+        CALL SET_EPVAR_MISC(ep)   ! set SNLC_ZP (ADU or Npe) and PSF_FWHM
+
         IGNORE  = CHECK_EPOCH_IGNORE(1,ep) .and.
      &            (.not. REFORMAT_SAVE_BADEPOCHS)
         LCUT    = LCUTEPOCH(Z, PKMJD, MJD, IFILT, IDFIELD ) 
@@ -13112,6 +13127,35 @@ c The output is used for parsing and writing output.
       RETURN
       END
 
+C ==================================
++DECK,SET_EPVAR_MISC.
+      SUBROUTINE SET_EPVAR_MISC(ep)
+c Created Jul 11 2020: 
+c Compute a few misc variables from those read from data files
+c   + SNLC_ZEROPT_forCUT(ep) based on cut in ADU or Npe
+c   + SNLC_PSF_FWHM_ARCSEC(ep)
+
+      IMPLICIT NONE
+      INTEGER ep  ! (I) epoch index
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+      REAL  ZPADD_pe
+
+c -------------- BEGIN ------------
+
+      SNLC_ZEROPT_forCUT(ep) = SNLC_ZEROPT(ep) ! default is ADU
+      if ( cutwin_zpNPE(1) > 0. ) then
+         ZPADD_pe = 2.5*log10(SNLC_GAIN(ep))
+         SNLC_ZEROPT_forCUT(ep) = SNLC_ZEROPT(ep) + ZPADD_pe
+      endif
+
+      SNLC_PSF_FWHM_ARCSEC(ep) = 
+     &   SNLC_PSF_SIG1(ep) * (SNLC_PIXSIZE * 2.355)
+
+      RETURN 
+      END        ! end SET_EPVAR_MISC
+
 C =================================
 +DECK,CHECKSTRING_CCID.
       SUBROUTINE CHECKSTRING_CCID(CCID)
@@ -14202,6 +14246,9 @@ c check SPEC: line with wave and flux
          READ(cwords(3),*) LAMMAX_SPECTRUM(ilam,NSPECTRUM)
          READ(cwords(4),*) FLAM_SPECTRUM(ilam,NSPECTRUM)
          READ(cwords(5),*) FLAMERR_SPECTRUM(ilam,NSPECTRUM)
+         if ( LSIM_SNANA ) then
+cc             READ(cwords(5),*) SIM_FLAM_SPECTRUM(ilam,NSPECTRUM)
+         endif
       ENDIF
 
       IF ( CWD .EQ. 'SPECTRUM_END:' ) THEN
@@ -14752,6 +14799,8 @@ c apply epoch cut.
         IFILT_OBS = ISNLC_IFILT_OBS(EPMIN)
         IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
 
+        CALL SET_EPVAR_MISC(epmin)   ! set SNLC_ZP in ADU or Npe
+
         IGNORE  = CHECK_EPOCH_IGNORE(1,EPMIN) .and. 
      &            (.not. REFORMAT_SAVE_BADEPOCHS)
         LTMP    = LCUTEPOCH(Z, PKMJD, SNGL(MJD8), IFILT, IDFIELD)
@@ -14770,9 +14819,9 @@ c apply epoch cut.
          enddo
       endif
 
-        if ( cwd .EQ. 'GAIN:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_GAIN(EPMIN) )
-        endif
+      if ( cwd .EQ. 'GAIN:' ) then
+         CALL RDNFLOAT(cwords(2),NFILT,SNLC_GAIN(EPMIN) )
+      endif
 
         if ( cwd .EQ. 'RDNOISE:' ) then
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_RDNOISE(EPMIN) )
@@ -14784,12 +14833,6 @@ c apply epoch cut.
         if ( cwd .EQ. 'YPIXEL:' ) then
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_YPIX(EPMIN) )
         endif
-
-c xxxxxxxxxx mark delete Jun 23 2019 xxxxxxxxxxxx
-c        if ( cwd .EQ. 'SKY_AVG:' ) then
-c          CALL RDNFLOAT(cwords(2),NFILT,SNLC_SKY_AVG(EPMIN) )
-c        endif
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
         if ( cwd .EQ. 'SKY_SIG:' ) then
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_SKYSIG(EPMIN) )
@@ -14807,16 +14850,6 @@ c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         if ( cwd .EQ. 'PSF_RATIO:' ) then
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_PSF_RATIO(EPMIN) )
         endif
-
-+SELF,IF=XXXREMOVE.
-c xxxxxxxxx mark delete Jun 24 2019 xxxxxxxxxxxxxx
-        if ( cwd .EQ. 'FLUX:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_FLUX(EPMIN))
-        endif
-        if ( cwd .EQ. 'FLUX_ERRTOT:' ) then
-          CALL RDNFLOAT(cwords(2),NFILT,SNLC_FLUX_ERRTOT(EPMIN))
-        endif
-+SELF.
 
         if ( cwd .EQ. 'ZEROPT:' ) then
           CALL RDNFLOAT(cwords(2),NFILT,SNLC_ZEROPT(EPMIN))
@@ -17074,7 +17107,7 @@ c zero out the FITVAL_STORE array if fit-option is chosen
 
 
 C =======================================
-+DECK,INIT_CMASK.
++DECK,INIT_CUTMASK.
       SUBROUTINE INIT_CUTMASK ( IERR )
 c
 c Creatd Jan 31, 2006 by R.Kessler
@@ -17122,8 +17155,108 @@ C -------------- BEGIN -------------------
       print*,' INIT_CUTMASK: CUTMASK8_SN_ALL  = ',CUTMASK8_SN_ALL
       print*,' INIT_CUTMASK: CUTMASK8_MJD_ALL = ',CUTMASK8_MJD_ALL
 
+c - - - - - - - - -  -
+c July 11 2020: 
+c  check option to write list of rejected epochs 
+c   (e.g., to pass to classifier)
+
+      CALL WRITE_EPOCH_IGNORE_INIT()
+
       RETURN
-      END
+      END  ! end INIT_CUTMASK
+
+C =============================================
++DECK,WRITE_EPOCH_IGNORE_INIT.
+      SUBROUTINE WRITE_EPOCH_IGNORE_INIT()
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER LEN
+      REAL*8  CUTWIN_TMP(2)
+      CHARACTER CUTMODE*12, CUTVARNAME*20
+      EXTERNAL write_epoch_list_init, write_epoch_list_addvar
+
+C ---------- BEGIN --------
+
+      LEN = INDEX(OUT_EPOCH_IGNORE_FILE,' ') - 1
+      if ( LEN <= 0 ) RETURN
+
+      CALL write_epoch_list_init(
+     &     OUT_EPOCH_IGNORE_FILE(1:LEN)//char(0), LEN+1)
+
+      CUTMODE = 'REJECT' // char(0)
+c     start with PHOTFLAG cut
+      CUTWIN_TMP(1)  = DBLE(PHOTFLAG_MSKREJ(1))
+      CUTWIN_TMP(2)  = -9.0
+      CUTVARNAME     = 'PHOTFLAG' // char(0)
+      CALL write_epoch_list_addvar(CUTVARNAME, CUTWIN_TMP, CUTMODE,
+     &     20, 12)
+      
+c next check PHOTPROB
+      CUTWIN_TMP(1)  = CUTWIN_PHOTPROB(1)
+      CUTWIN_TMP(2)  = CUTWIN_PHOTPROB(2)
+      CUTVARNAME     = 'PHOTPROB' // char(0)
+      CALL write_epoch_list_addvar(CUTVARNAME, CUTWIN_TMP, CUTMODE,
+     &     20, 12)
+      
+c zero point
+      CUTWIN_TMP(1)  = CUTWIN_ZP(1)
+      CUTWIN_TMP(2)  = CUTWIN_ZP(2)
+      CUTVARNAME     = 'ZP' // char(0)
+      CALL write_epoch_list_addvar(CUTVARNAME, CUTWIN_TMP, CUTMODE,
+     &     20, 12)
+      
+      CUTWIN_TMP(1) = CUTWIN_PSF(1)
+      CUTWIN_TMP(2) = CUTWIN_PSF(2)
+      CUTVARNAME    = 'PSF' // char(0)
+      CALL write_epoch_list_addvar(CUTVARNAME, CUTWIN_TMP, CUTMODE,
+     &     20, 12)
+      
+c      print*,' '
+c      print*,' xxx DEBUG STOP xxx '
+c      STOP
+
+      RETURN
+      END  ! end WRITE_EPOCH_IGNORE_INIT
+
+C =============================================
++DECK,WRITE_EPOCH_IGNORE_EXEC.
+      SUBROUTINE WRITE_EPOCH_IGNORE_EXEC(ep)
+
+      IMPLICIT NONE
+
+      INTEGER ep ! index to process
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER   NVAR, IFILT_OBS
+      CHARACTER CCID*(MXCHAR_CCID), BAND*2
+      REAL*8  MJD, VALUES(20)
+      EXTERNAL write_epoch_list_exec
+
+C -------- BEGIN -----------
+      IF ( OUT_EPOCH_IGNORE_FILE .EQ. '' ) RETURN
+
+      NVAR = 0
+      
+      IFILT_OBS = ISNLC_IFILT_OBS(ep)
+      CCID = SNLC_CCID(1:ISNLC_LENCCID) // char(0)
+      MJD  = SNLC8_MJD(ep)
+      BAND = FILTDEF_STRING(ifilt_obs:ifilt_obs) // char(0)
+
+      NVAR=NVAR+1;  VALUES(NVAR) = DBLE( ISNLC_PHOTFLAG(ep) )
+      NVAR=NVAR+1;  VALUES(NVAR) = DBLE( SNLC_PHOTPROB(ep)  )
+      NVAR=NVAR+1;  VALUES(NVAR) = DBLE( SNLC_ZEROPT_forCUT(ep) )
+      NVAR=NVAR+1;  VALUES(NVAR) = DBLE( SNLC_PSF_FWHM_ARCSEC(ep) )
+
+      CALL write_epoch_list_exec(CCID, MJD, BAND, VALUES,
+     &      MXCHAR_CCID, 2 )
+
+      RETURN
+      END  ! end WRITE_EPOCH_IGNORE_EXEC
 
 C =======================================
 +DECK,INIT_CNAMES.
@@ -18209,7 +18342,8 @@ c before deciding final values for the data files.
 c Also note that the CID in the HEADER_OVERRIDE file
 c can be either the SNID or IAUC name.
 c
-
+c Jun 9 2020: for SIM, leave message and return 
+c
       IMPLICIT NONE
     
 +CDE,SNDATCOM.
@@ -18233,6 +18367,23 @@ C ------------ BEGIN -------------
       IF ( HEADER_OVERRIDE_FILE .EQ. ' '    ) RETURN
       IF ( HEADER_OVERRIDE_FILE .EQ. 'NULL' ) RETURN
       IF ( HEADER_OVERRIDE_FILE .EQ. 'NONE' ) RETURN
+
+      IF ( LSIM_SNANA ) THEN
+        print*,' '
+        print*,
+     &     ' ##########################################################'
+        print*,
+     &     ' !!!! IGNORE HEADER_OVERRIDE_FILE for SNANA SIMULATION !!!!'
+        print*,
+     &     ' ##########################################################'
+        print*,' '
+        CALL FLUSH(6)
+
+        HEADER_OVERRIDE_FILE = ''
+        RETURN
+      ENDIF
+
+      CALL RD_VPEC_FILE(-1)  ! abort is using obsolete VPEC_FILE (Jun 2020)
 
       FNAM = 'INIT_HEADER_OVERRIDE'
 
@@ -18343,12 +18494,14 @@ c May 14 2020: check for REDSHIFT_QUALITYFLAG
       CHARACTER cVARNAME*40, VARNAME*40, cDUM*20
       CHARACTER CCID_SNID*(MXCHAR_CCID), CCID_IAUC*(MXCHAR_CCID)
       CHARACTER FNAM*24
-
+      LOGICAL    MAKE_SIMLIB_OUT
 c functions
       EXTERNAL SNTABLE_AUTOSTORE_READ
 C ------------ BEGIN ------------
 
       IF ( NVAR_HEADER_OVERRIDE <= 0 ) RETURN
+
+      MAKE_SIMLIB_OUT = ( SIMLIB_OUTFILE .NE. '' ) 
 
       FNAM = 'EXEC_HEADER_OVERRIDE'
 
@@ -18441,7 +18594,7 @@ c brute-force check each possible header variable
         ELSE IF ( VARNAME(1:LENV) .EQ. 'PEAKMJDINI' ) THEN  ! same
           SNLC_SEARCH_PEAKMJD = sngl(DVAL)
 
-        ELSE
+        ELSE IF ( .NOT. MAKE_SIMLIB_OUT ) THEN           
            C1ERR = 'Unknown VARNAME = '// VARNAME(1:LENV)
            C2ERR = 'Check VARLIST_ALL_HEADER_OVERRIDE in snana.car' 
            CALL MADABORT(FNAM, c1err, c2err )
@@ -18749,131 +18902,17 @@ C --------------- BEGIN --------------
 C ========================================================
 +DECK,RD_VPEC_FILE.
       SUBROUTINE RD_VPEC_FILE(IFLAG)
-
-c Read list of peculiar velocity corrections (and errors)
-c from file VPEC_FILE.
-c Units are km/s, and are converted into a z_CMB correction for
-c the output Hubble diagram.
-c
-c !~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~
-c !~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~
-c
-c WARNING(Nov 2016): 
-c   this function may become obsolete since the same capability
-c   is in HEADER_OVERRIDE_FILE, which can include additional
-c   header variables.  
-c   Should really switch to using HEADER_OVERRIDE_FILE.
-c
-c !~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~
-c !~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~!~
-c
-c VPEC_FILE format must be 
-c
-c NVAR: <N>
-c VARNAMES:  CID  VPEC VPEC_ERR  <bla1> <bla2> etc ...
-c
-c and note that VPEC and VPEC_ERR can be anywhere on the list
-c
-c Oct 27, 2014: use refactored AUTOSTORE functions 
-c               (works on any format instead of ascii only)
-c
-c Nov 30 2016: 
-c   + pass IFLAG=-1 for init, IFLAG=0 to execute.
-c   + refactor to init and execute in same function
-c
-c Jun 8 2017:
-c  + for LSIM_SNAN, VPEC_FILE -> '' so that VPEC_FILE applies ONLY to data
-c  + allow ENV in VPEC_FILE; see ENVreplace call.
-c
 c ----------------------------
-
       IMPLICIT NONE
-
       INTEGER    IFLAG  ! (I) 
-
 c local var
-
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
-
-      INTEGER  L1, L2, L3, LENV, ISTAT
-      INTEGER  OPTMASK_STORE, NSTORE_VPEC
-      CHARACTER  
-     &   VARLIST*80
-     &  ,cFILE*(MXCHAR_FILENAME)
-     &  ,cTABLE*20
-     &  ,cVARLIST*80
-     &  ,cVARNAME*40, CCID*(MXCHAR_CCID), cDUM*20
-
-      REAL*8 DVAL 
-
-c functions
-      INTEGER  SNTABLE_AUTOSTORE_INIT
-      EXTERNAL SNTABLE_AUTOSTORE_INIT, SNTABLE_AUTOSTORE_READ
-
 C ------------- BEGIN ------------
-
-
       IF ( VPEC_FILE .EQ. '' ) RETURN
-
-      IF ( LSIM_SNANA ) THEN
-        print*,' '
-        print*,'  ############################################### '
-        print*,'  !!!! IGNORE VPEC_FILE for SNANA SIMULATION !!!! '
-        print*,'  ############################################### '
-        print*,' '
-        CALL FLUSH(6)
-
-        VPEC_FILE = ''  ! Jun 2017: no VPEC in simulation
-        RETURN
-      ENDIF
-
-      IF ( IFLAG < 0 ) THEN  ! one-time init
-  
-        CALL ENVreplace(VPEC_FILE)
-
-        GLOBAL_BANNER = 
-     &      'Read User Peculiar-Velocity Corrections (km/sec)'
-        CALL PRBANNER (GLOBAL_BANNER(1:60) )
-
-c init variables to read
-
-        OPTMASK_STORE = 7  ! 3->7 on May 11 2017
-        VARLIST = 'VPEC,VPEC_ERR '  ! hard-wird names
-
-        L1      = INDEX(VPEC_FILE,' ') - 1
-        L2      = 4
-        L3      = INDEX(VARLIST,  ' ') - 1
-
-        cFILE     = VPEC_FILE(1:L1) // char(0)
-        cTABLE    = 'VPEC'          // char(0) ! anything will work for ascii
-        cVARLIST  = VARLIST(1:L3)   // char(0)
-
-        NSTORE_VPEC = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST, 
-     &                   OPTMASK_STORE,  L1, L2, L3 )
-
-        IF ( NSTORE_VPEC == 0 ) THEN
-           C1ERR = 'NSTORE_VPEC = 0 in VPEC_FILE'
-           C2ERR = 'Check ' // VPEC_FILE(1:70)
-           CALL MADABORT("RD_VPEC_FILE",C1ERR,C2ERR)
-        ENDIF 
-
-      ELSE  ! EXECUTE
-  
-         CCID  = SNLC_CCID(1:ISNLC_LENCCID) // char(0)
-
-         cVARNAME = 'VPEC' // char(0)  ; LENV  = 4
-         CALL SNTABLE_AUTOSTORE_READ(CCID,cVarname,ISTAT,
-     &         DVAL,cDUM,  ISNLC_LENCCID, LENV, 20)
-         IF ( ISTAT == 0 ) SNLC_VPEC = sngl(DVAL)
-
-         cVARNAME = 'VPEC_ERR' // char(0)  ; LENV  = 8
-         CALL  SNTABLE_AUTOSTORE_READ(CCID,cVarname,ISTAT,
-     &         DVAL,cDUM,  ISNLC_LENCCID, LENV, 20)
-         IF ( ISTAT == 0 ) SNLC_VPEC_ERR = sngl(DVAL)
-
-      ENDIF
-
+      C1ERR = '&SNLCIP VPEC_FILE input is obsolete'
+      C2ERR = 'Use HEADER_OVERRIDE_FILE'
+      CALL MADABORT("RD_VPEC_FILE",C1ERR,C2ERR)   ! Jun 8 2020
       RETURN
       END  ! end of RD_VPEC_FILE
 
@@ -19261,12 +19300,16 @@ c This correction is done AFTER Xsig = S/N is calculated
      &       SNLC_FLUXCAL_ERRTOT(ep) * Scale
            endif
 
++SELF,IF=XXXDELETE.
+c xxxx mark delete July 11 2020 xxxxxxxx
 c Feb 2018: compute ZP quantity for cut
            SNLC_ZEROPT_forCUT(ep) = SNLC_ZEROPT(ep) ! default is ADU
            if ( cutwin_zpNPE(1) > 0. ) then
              SNLC_ZEROPT_forCUT(ep) = SNLC_ZEROPT(ep)
      &                              +  2.5*log10(SNLC_GAIN(ep))
            endif
+c xxxxxxxxxxxxx end mark xxxxxxxx
++SELF.
 
 c Mar 2018: store time since last obs: all bands, and same band
           IF ( MJD8_LASTALL > 0.0 ) THEN
@@ -19296,7 +19339,7 @@ c check MJD-exclude window to reject epochs (but keep LC)
 c Feb 2020: check PSF and ZPERR cuts here
 c           PSF cut is FWHM, arcsec. ZPERR cut in mag.
 c Mar 2 2020: fix awful PSF units bug
-          PSF  = SNLC_PSF_SIG1(EP) * (SNLC_PIXSIZE * 2.355)
+          PSF  = SNLC_PSF_FWHM_ARCSEC(EP)
           LPSF = PSF .GE. CUTWIN_PSF(1) .and. PSF.LE.CUTWIN_PSF(2)
 
           ZPERR  = SNLC_ZEROPT_ERR(EP)
@@ -19419,8 +19462,6 @@ c check option to estimate LC width
 c May 2017: load ADDCOL arrays
       CALL TABLE_ADDCOL_LOAD()
 
-      print*,' xxx NEP_USE, AREAFRAC_AVG = ', 
-     &        ISNLC_NEPOCH_USE, SUM_AREAFRAC
       IF ( ISNLC_NEPOCH_USE > 0 ) then
         SNLC_AREAFRAC_AVG = SUM_AREAFRAC/float(ISNLC_NEPOCH_USE)
       ENDIF
@@ -19430,11 +19471,18 @@ c May 2017: load ADDCOL arrays
 
 C =============================
 +DECK,SET_ZHELIO.
-      SUBROUTINE SET_ZHELIO
+      SUBROUTINE SET_ZHELIO()
 
 C Creatd Feb 25 2018
 c If SNLC_ZHELIO < 0, transform from zCMB.
 c Otherwise, do nothing.
+c
+c  Jun 8 2020
+c   + fix awful bug with sign of OPT sent to translator.
+c      was translating zHELIO -> CMB instead of zCMB -> zHELIO
+c   + if SNLC_HELIO[CMB] are both given in data file, make
+c     crosscheck here using zTOL_HELIO2CMB test on dz/z
+c ---------
 
       IMPLICIT NONE
 
@@ -19442,29 +19490,64 @@ c Otherwise, do nothing.
 +CDE,SNLCINP.
 
       INTEGER OPT
-      CHARACTER EQ*4
-      REAL*8    ZHEL8, ZCMB8
+      CHARACTER EQ*4, FNAM*12
+      REAL*8  ZHEL8, ZCMB8, DZ8, zRATIO8
 
       REAL*8 zhelio_zcmb_translator ! function
 
 C ------------- BEGIN ------------
 
-      IF ( SNLC_ZHELIO > 0 ) RETURN
-      IF ( SNLC_ZCMB   < 0 ) RETURN
+      FNAM = 'SET_ZHELIO'
 
-c now we have undefined zHELIO and valid zCMB
-      SNLC_ZHELIO_ERR = SNLC_ZCMB_ERR
+      IF ( SNLC_ZCMB  < 0 ) RETURN
 
-      OPT    = 1     ! --> convert ZHEL to ZCMB
+c now we have undefined zCMB
+
+c xxxxxxxxxxxxxx
+c      if ( RESTORE_DES3YR ) then
+c      else
+c      endif
+c xxxxxxxxxxxxxx
+
       EQ     = 'eq' // char(0)
-      ZCMB8  = DBLE ( SNLC_ZCMB )
-      ZHEL8  = 
+
+c don't apply test on VERY low redshifts to avoid silly 
+c round-off/truncation errors. This is a hack to protect
+c DES DIFFIMG that has redshifts written as %.4f. Next
+c dataFile update will have %.6 precions and then can
+c get apply test all the way down to z ~ 1E-4
+
+      IF ( SNLC_ZHELIO > 0.003 ) THEN  ! 0.003 is temp hack; should be 1E-4
+         OPT    = +1  ! --> convert ZHEL to ZCMB
+         ZHEL8 = DBLE(SNLC_ZHELIO)
+         ZCMB8 = 
+     &      zhelio_zcmb_translator(ZHEL8,SNLC8_RA,SNLC8_DEC,EQ,OPT, 4)
+         zRATIO8 = zCMB8/DBLE(SNLC_zCMB)
+         DZ8     = abs(1.0 - zRATIO8)
+         if ( DZ8 > zTOL_HELIO2CMB ) then
+            CALL PRINT_PREABORT_BANNER(FNAM(1:10)//char(0),12)
+            print*,' zHEL(dataFile) = ', SNLC_ZHELIO
+            print*,' zCMB(dataFile) = ', SNLC_ZCMB
+            print*,' zCMB(compute)  = ', ZCMB8
+            print*,' zRATIO = zCMB(compute)/zCMB(dataFile) = ', 
+     &                 sngl(zRATIO8)
+            print*,' zTOL_HELIO2CMB = ', zTOL_HELIO2CMB
+            C1ERR='Computed zCMB (from zHEL) outside tolerance w.r.t.'
+            C2ERR='REDSHIFT_CMB in data file for CID=' // SNLC_CCID
+            CALL MADABORT(FNAM,C1ERR,C2ERR)
+         endif
+      ELSE if ( SNLC_ZHELIO < 0.0 ) THEN
+         OPT    = -1 ! --> convert CMB -> zHEL
+cc         OPT    = +1 ! --> BUG
+         ZCMB8  = DBLE ( SNLC_ZCMB )
+         ZHEL8  = 
      &    zhelio_zcmb_translator(ZCMB8,SNLC8_RA,SNLC8_DEC,EQ,OPT, 4)
 
-      SNLC_ZHELIO = SNGL(ZHEL8)
-
-      SNLC_REDSHIFT     = SNLC_ZHELIO
-      SNLC_REDSHIFT_ERR = SNLC_ZHELIO_ERR
+         SNLC_ZHELIO       = SNGL(ZHEL8)
+         SNLC_ZHELIO_ERR   = SNLC_ZCMB_ERR
+         SNLC_REDSHIFT     = SNLC_ZHELIO
+         SNLC_REDSHIFT_ERR = SNLC_ZHELIO_ERR
+      ENDIF
 
       RETURN
       END
@@ -19639,41 +19722,50 @@ c Evaluate PASS_SIMCUTS based on user-input SIMVAR_CUTWIN_STRING
 c Check hard-coded SIM_xxx names, and also check SIMSED_xxx names.
 c
 c Nov 25 2019: check NEP_SIM_MAGOBS = number os SIM_MAGOBS < 99
+c Jun 23 2020: abort of VARNAME not found
 
       IMPLICIT NONE
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
+      LOGICAL FOUND
       INTEGER i, ipar, LENTMP
       REAL*8  VMIN, VMAX
-      CHARACTER VARNAME*40, CTMP*60, VARNAME_TMP*60
+      CHARACTER VARNAME*40, CTMP*60, VARNAME_TMP*60, FNAM*20
 
 C --------------- BEGIN ------------
 
       IF ( NSIMVAR_CUTWIN == 0 ) RETURN
+      FNAM = 'EVAL_SIMVAR_CUTS'
 
       DO 100 i = 1, NSIMVAR_CUTWIN
+         FOUND   = .FALSE.
          VMIN    = DBLE( SIMVAR_CUTWIN(1,i) )
          VMAX    = DBLE( SIMVAR_CUTWIN(2,i) )
          VARNAME = SIMVAR_CUTWIN_LIST(i) 
          if ( VARNAME .EQ. 'SIM_ZCMB' ) then
+            FOUND   = .TRUE.
             if ( SIM_REDSHIFT_CMB < VMIN ) PASS_SIMCUTS = .FALSE.
             if ( SIM_REDSHIFT_CMB > VMAX ) PASS_SIMCUTS = .FALSE.
 
          else if ( VARNAME .EQ. 'SIM_PEAKMJD' ) then
+            FOUND   = .TRUE.
             if ( SIM_PEAKMJD < VMIN ) PASS_SIMCUTS = .FALSE.
             if ( SIM_PEAKMJD > VMAX ) PASS_SIMCUTS = .FALSE.
 
          else if ( VARNAME .EQ. 'SIM_SALT2c' ) then
+            FOUND   = .TRUE.
             if ( SIM_COLORPAR < VMIN ) PASS_SIMCUTS = .FALSE.
             if ( SIM_COLORPAR > VMAX ) PASS_SIMCUTS = .FALSE.
 
          else if ( VARNAME .EQ. 'SIM_SALT2x1' ) then
+            FOUND   = .TRUE.
             if ( SIM_SHAPEPAR < VMIN ) PASS_SIMCUTS = .FALSE.
             if ( SIM_SHAPEPAR > VMAX ) PASS_SIMCUTS = .FALSE.     
 
          else if ( VARNAME .EQ. 'NEP_SIM_MAGOBS' ) then
+            FOUND   = .TRUE.
             if ( NEP_SIM_MAGOBS < int(VMIN) ) PASS_SIMCUTS = .FALSE.
             if ( NEP_SIM_MAGOBS > int(VMAX) ) PASS_SIMCUTS = .FALSE.     
          endif
@@ -19684,16 +19776,22 @@ c check SIMSED variables
             LENTMP  = INDEX(CTMP,' ') - 1
             VARNAME_TMP = 'SIMSED_' // CTMP(1:LENTMP)
             if ( VARNAME .EQ. VARNAME_TMP ) then
+            FOUND   = .TRUE.
                if ( SIMSED_PARVAL(ipar) < VMIN ) PASS_SIMCUTS = .FALSE.
                if ( SIMSED_PARVAL(ipar) > VMAX ) PASS_SIMCUTS = .FALSE.
             endif
          ENDDO
 
+         if ( .NOT. FOUND ) then
+            c1err = 'Could not evaluate cut on ' // VARNAME(1:20)
+            c2err = 'Check &SNLCINP  SIMVAR_CUTWIN_STRING'
+            CALL MADABORT(FNAM, c1err, c2err )
+         endif
  100  CONTINUE
 
 
       RETURN
-      END
+      END  ! ene EVAL_SIMVAR_CUTS
 
 C ======================================
 +DECK,PRIVATECUTS.
@@ -20920,7 +21018,7 @@ c print info for each required cut
 
 C ==============================
 +DECK,CHECKEPIGNORE.
-      LOGICAL FUNCTION CHECK_EPOCH_IGNORE(OPTMASK,iepoch)
+      LOGICAL FUNCTION CHECK_EPOCH_IGNORE(OPTMASK,ep)
 c
 c Returns TRUE of this epoch is to be ignored for any of
 c the following reasons:
@@ -20946,6 +21044,7 @@ c   + real MJD -> real*8 MJD8
 c
 c Dec 21 2017: add OPTMASK argument to increment global counters
 c   
+c Jul 11 2020: check ZP and PSF
 c ---------------------
 
       IMPLICIT NONE
@@ -20953,14 +21052,14 @@ c ---------------------
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 
-      INTEGER iepoch  ! (I) SN & epoch indices
+      INTEGER ep      ! (I) epoch index
       INTEGER OPTMASK ! (I) options
 c local var
 
       INTEGER MSKTMP, MSKOV, i, LL, ifilt_obs
       LOGICAL IGNORE, LMJD, LCID, LFILT, BADPHOT
       CHARACTER cflt*4, CCID*(MXCHAR_CCID)
-      REAL*8 MJD8
+      REAL*8 MJD8, ZPADD_pe, PSF, ZP
 
 c function(s)
       LOGICAL SELECT_EARLYLC
@@ -20969,6 +21068,11 @@ C ------------ BEGIN -------------
 
       IGNORE  = .FALSE.
       BADPHOT = .FALSE.
+
+c Jul 2020: check option to write list of rejected epochs
++SELF,IF=SNANA.
+           CALL WRITE_EPOCH_IGNORE_EXEC(ep)
++SELF.
 
 c May 6, 2008: first check for epochs to ignore from IGNORE file.
 
@@ -20981,11 +21085,11 @@ c May 6, 2008: first check for epochs to ignore from IGNORE file.
 
 c leave big margin for MJD check (.002 days) in case IGNORE 
 c file has round-off errors for the MJD.
-        MJD8 = SNLC8_MJD(iepoch)
+        MJD8 = SNLC8_MJD(ep)
         LMJD = ( ABS(EPOCH_IGNORE_MJD(i)-MJD8) < 0.002 )
         IF ( .NOT. LMJD ) GOTO 100
 
-        ifilt_obs = ISNLC_IFILT_OBS(iepoch)
+        ifilt_obs = ISNLC_IFILT_OBS(ep)
         cflt      = filtdef_string(ifilt_obs:ifilt_obs)
         LFILT     = EPOCH_IGNORE_FILT(i)(1:1) .EQ. CFLT(1:1)
         IF ( .NOT. LFILT ) GOTO 100
@@ -21006,7 +21110,7 @@ c and skip down to over-write part.
 
 c ----------------------------------
 c now check PHOTFLAG mask.
-      MSKTMP  = ISNLC_PHOTFLAG(iepoch)
+      MSKTMP  = ISNLC_PHOTFLAG(ep)
 
 c check OR-logic 
 c ==> reject epoch if any PHOTFLAG_MSKREJ bit is set
@@ -21031,14 +21135,27 @@ c ==> reject epoch if all PHOTFLAG_MSKREJ(2:5) bits are set
 c ----------------------
 c Check EARLY-epoch select logic (Mar 2015)
 
-      IF ( .not. SELECT_EARLYLC(iepoch) ) IGNORE = .TRUE.
+      IF ( .not. SELECT_EARLYLC(ep) ) IGNORE = .TRUE.
 
 c -------------------------------------
+c July 11 2020
+c  Check cuts on PSF and ZP ... doesn't change analysis,
+c  but allows new OUT_EPOCH_IGNORE_FILE option to work properly.
+
+      ZP = SNLC_ZEROPT_forCUT(ep) 
+      IF ( ZP < CUTWIN_ZP(1) ) IGNORE = .TRUE.
+      IF ( ZP > CUTWIN_ZP(2) ) IGNORE = .TRUE.
+
+      PSF = SNLC_PSF_SIG1(ep)
+      IF ( PSF < CUTWIN_PSF(1) ) IGNORE = .TRUE.
+      IF ( PSF > CUTWIN_PSF(2) ) IGNORE = .TRUE.
 
 600   CONTINUE
 
+c ------------------------------------------
       IF ( BTEST(OPTMASK,0) ) THEN
-        IF ( .NOT. IGNORE)  NEPOCH_TOT = NEPOCH_TOT + 1
+         NEPOCH_TOT = NEPOCH_TOT + 1
+        IF ( .NOT. IGNORE)  NEPOCH_USE = NEPOCH_USE + 1
         IF ( BADPHOT ) THEN
            NEPOCH_BADPHOT     = NEPOCH_BADPHOT     + 1
            NEPOCH_BADPHOT_SUM = NEPOCH_BADPHOT_SUM + 1
@@ -21083,16 +21200,19 @@ c +CDE,SNANAFIT.
 +CDE,SNLCINP.
 +CDE,FILTCOM.
 +CDE,SIMLIBCOM.
++CDE,SPECCOM.
++CDE,OVRIDECOM.
 
       REAL*8  MJD, GAIN, RDNOISE, SKYSIG, PSF1, PSF2, PSFRAT
       REAL*8  ZP, ZPERR, MAG, FLUX, FLUXERR, PIXSIZE, LAMOBS
-      rEAL*8  MJD_MIN, TOBS_MIN, PEAKMJD
+      REAL*8  MJD_MIN, TOBS_MIN, PEAKMJD, DVAL
       INTEGER LIBID, IFILT, IFILT_OBS, LASTEP(MXFILT_OBS)
-      INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP,i
+      INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP
+      INTEGER i, LENcMAG, ISTAT
       LOGICAL IS_REAL_DATA, WRALL_SIM_MAGOBS, WRSET_SIM_MAGOBS
       LOGICAL WR_SIM_MAGOBS
-      CHARACTER BAND*4, FNAM*20, SEDCMD*200
-      CHARACTER cMAG*10, cNCUTS*12, STR_OLD*40, STR_NEW*60
+      CHARACTER BAND*4, FNAM*20, SEDCMD*200, cDUM*20, CCID*32
+      CHARACTER cMAG*12, cNCUTS*12, STR_OLD*40, STR_NEW*60
 
 C ------------------ BEGIN ------------------
 
@@ -21266,10 +21386,21 @@ c Nov 23 2019: add more info for simulated data
       IF ( WR_SIM_MAGOBS  ) THEN
          write(LUNOUT,"('GALID: ',I9)" ) SNHOST_OBJID(1)
          write(LUNOUT,"('FIELD: ',A )" ) SNLC_FIELDLIST ! includes overlaps
-
-c         write(LUNOUT,"('SALT2x1: ',F6.3,5x,'SALT2c: ',F6.3)" )
-c     &          SIM_SHAPEPAR, SIM_COLORPAR 
       ENDIF
+
+c - - - - - - - - - - 
+c May 31 2020:  if header-override file is set, check for SALT2 fit params
+      IF ( NVAR_HEADER_OVERRIDE > 0 ) THEN
+        CCID = SNLC_CCID(1:ISNLC_LENCCID)//char(0)
+        CALL SNTABLE_AUTOSTORE_READ(CCID, "x1"//char(0), 
+     &        ISTAT, DVAL,cDUM,    MXCHAR_CCID,10,20)
+        if ( ISTAT == 0 ) write(LUNOUT,"('SALT2x1: ',F7.4)" ) DVAL
+
+        CALL SNTABLE_AUTOSTORE_READ(CCID, "c"//char(0), 
+     &        ISTAT, DVAL,cDUM,    MXCHAR_CCID,10,20)
+        if ( ISTAT == 0 ) write(LUNOUT,"('SALT2c:  ',F7.4)" ) DVAL
+      ENDIF
+
 
 c - - - - -
       CALL SET_SIMLIB_TEMPLATE_INFO()  ! Feb 5 2020
@@ -21288,6 +21419,9 @@ c - - - - -
           write(LUNOUT,"(' ')")
 
       ENDIF
+
+c May 29 2020: write TAKE_SPECTRUM keys if there are spectra
+      CALL WRITE_SIMLIB_TAKE_SPECTRUM(LUNOUT)
 
 c write column header
       WRITE(LUNOUT,110) 
@@ -21323,11 +21457,12 @@ c --------
            ZP        = SNLC_ZEROPT(ep)
            ZPERR     = SNLC_ZEROPT_ERR(ep)
 
-           cMAG      = '99'
+           cMAG      = '99' ; LENcMAG=2
            if ( WR_SIM_MAGOBS ) then
               MAG = SIM_EPMAGOBS(ep)
               if ( WRSET_SIM_MAGOBS .and. MAG > 98.0 ) goto 301
               write(cMAG,"(F8.4)") MAG
+              LENcMAG = 8
            endif
 
            IF ( PSF1 < 1.0E-5 .and. SKYSIG > 1.0E-5 ) GOTO 301
@@ -21356,7 +21491,7 @@ c Mainly for low-z sample which has no meta data.
      &        MJD, EP, BAND,    ! EP is a dummy ID
      &        GAIN, RDNOISE, 
      &        SKYSIG, PSF1, PSF2, PSFRAT,
-     &        ZP, ZPERR, cMAG
+     &        ZP, ZPERR, cMAG(1:LENcMAG)
 
 120        format('S: ', 
      &            F9.3, I4, 2x, A2, 2x,      ! MJD, ID, BAND
@@ -21732,6 +21867,120 @@ c check how close computed TMP_SKYMAG is to expected SKYMAG
       RETURN
       END      ! end COMPUTE_SIMLIB_INFO
 
+C ==================
++DECK,WRITE_SIMLIB_SPECTRUM.
+      SUBROUTINE WRITE_SIMLIB_TAKE_SPECTRUM(LUN)
+
+C Created May 29 2020
+C If there are spectra, write TAKE_SPECTRUM keys to 
+C SIMLIB header (LUNOUT)
+C
+
+      IMPLICIT NONE
+      INTEGER LUN ! (I) write to this LUN
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,SPECCOM.
+
+c discard if FLUXERR/FLUXERR_MEDIAN exceeds this value
+c --> avoid crazy large errors that result in bad FLUXUM/FLUXERRSUM.
+      REAL TOL_FLUXERR_MEDIAN_RATIO
+      PARAMETER ( TOL_FLUXERR_MEDIAN_RATIO = 50.0 ) 
+
+      REAL*8  TOBS, LAMMIN, LAMMAX, SNR
+      REAL*8  MJD, LAMMIN_BIN, LAMMAX_BIN
+      REAL*8  FLUXSUM, SQERRSUM, FLAM, FLAMERR, DLAM
+      REAL*8  FLAMERR_AVG, FLAMERR_RMS, FLAMERR_MEDIAN, RATIO
+      INTEGER ispec, NLAMBIN, ilam, NBIN_REJECT
+      INTEGER LEN_TOBS, LEN_SNR, LEN_LAMMIN, LEN_LAMMAX
+      CHARACTER 
+     &    STR_TOBS*20, STR_SNR*20, 
+     &    STR_LAMMIN*20, STR_LAMMAX*20
+
+      EXTERNAL ARRAYSTAT    
+C ----------- BEGIN --------
+ 
+      DO 222 ispec = 1, NSPECTRUM
+         MJD       = MJD_SPECTRUM(ispec)
+         TOBS      = TOBS_SPECTRUM(ispec)
+         NLAMBIN   = NLAMBIN_SPECTRUM(ispec)
+         LAMMIN    = LAMMIN_SPECTRUM(1,ispec)
+         LAMMAX    = LAMMAX_SPECTRUM(NLAMBIN,ispec)
+
+         FLUXSUM = 0.0 ; SQERRSUM = 0.0 
+       
+         CALL ARRAYSTAT(NLAMBIN, FLAMERR_SPECTRUM(1,ispec), 
+     &                  FLAMERR_AVG, FLAMERR_RMS, FLAMERR_MEDIAN)
+
+         NBIN_REJECT = 0 
+         DO ilam = 1, NLAMBIN
+             FLAM    = FLAM_SPECTRUM(ilam,ispec)
+             FLAMERR = FLAMERR_SPECTRUM(ilam,ispec)
+             LAMMIN_BIN = LAMMIN_SPECTRUM(ilam,ispec)
+             LAMMAX_BIN = LAMMAX_SPECTRUM(ilam,ispec) 
+
+             RATIO = FLAMERR/FLAMERR_MEDIAN
+             if ( RATIO > TOL_FLUXERR_MEDIAN_RATIO ) then 
+                NBIN_REJECT = NBIN_REJECT + 1
+             else
+               DLAM     = 2.0 ! LAMMAX_BIN - LAMMIN_BIN
+               FLUXSUM  = FLUXSUM  + (FLAM*DLAM)
+               SQERRSUM = SQERRSUM + (FLAMERR*DLAM)**2
+             endif
+         ENDDO
+         SNR = FLUXSUM / sqrt(SQERRSUM)
+         if ( NBIN_REJECT > 0 ) then
+            write(6,212) SNLC_CCID(1:ISNLC_LENCCID), 
+     &                 NBIN_REJECT, NLAMBIN, MJD
+ 212        format(t5, 'WARNING(',A,'): flag ', I4,' of ', I5, 2x,
+     &        'bins as FLAMERR outlier (MJD=',F9.3,')' )
+         endif
+         
+         CALL dble2string_nospace(TOBS, STR_TOBS, LEN_TOBS)
+         CALL dble2string_nospace(SNR,  STR_SNR,  LEN_SNR)
+         CALL dble2string_nospace(LAMMIN,  STR_LAMMIN, LEN_LAMMIN)
+         CALL dble2string_nospace(LAMMAX,  STR_LAMMAX, LEN_LAMMAX)
+
+         WRITE(LUN,225) 
+     &      STR_TOBS(1:LEN_TOBS), STR_SNR(1:LEN_SNR),
+     &      STR_LAMMIN(1:LEN_LAMMIN), STR_LAMMAX(1:LEN_LAMMAX)
+ 225     FORMAT('TAKE_SPECTRUM:  TOBS(', A, ')', 3x, 
+     &           'SNR(',A,')', 3x, 'SNR_LAMOBS(',A,':',A, ')' )
+
+ 222  CONTINUE
+
+      RETURN
+      END
+
+C ================================================
++DECK,DBLE2STRING_NOSPACE.
+      SUBROUTINE dble2string_nospace(VAL, STRING, LEN)
+      IMPLICIT NONE
+      REAL*8 VAL            ! (I) double value to convert
+      CHARACTER STRING*(*)  ! (O) string with float value 
+      INTEGER  LEN          ! (O) length of string
+      write(STRING,240) VAL
+ 240  format(F10.1)
+      STRING = ADJUSTL(STRING)
+      LEN = INDEX(STRING,' ') - 1
+      RETURN
+      END
++DECK,FLOAT2STRING_NOSPACE.
+      SUBROUTINE float2string_nospace(VAL, STRING, LEN)
+      IMPLICIT NONE
+      REAL VAL              ! (I) float value to convert
+      CHARACTER STRING*(*)  ! (O) string with float value 
+      INTEGER  LEN          ! (O) length of string
+
+      write(STRING,240) VAL
+ 240  format(F10.1)
+
+      STRING = ADJUSTL(STRING)
+      LEN = INDEX(STRING,' ') - 1
+
+      RETURN
+      END
 C =======================================================
 +DECK,FLUXERRCALC,IF=SNANA,SNFIT.
       SUBROUTINE FLUXERRCALC(iepoch, FLUXCAL, FLUXCAL_ERR )
@@ -23212,6 +23461,7 @@ c increment all types with ITYPE=-1 (Aug 2013)
       RETURN
       END  ! end of SET_CUTMASK
 
+
 C ==============================================
 +DECK,LCIDSELECT.
       LOGICAL FUNCTION LCIDSELECT(CID,CCID,IAUC)
@@ -23975,6 +24225,52 @@ c check list of CCIDs to plot
       RETURN
       END
 
+C =============================
++DECK,DOPLOT_SPEC.
+      LOGICAL FUNCTION DOPLOT_SPEC()
+
+C Created May 30 2020
+C Returns T to make spectra plot(s) for this SN
+C 
+C ----------
+
+      IMPLICIT NONE
++CDE,SNDATCOM. 
++CDE,SNLCINP.
+
+      INTEGER i, LENTMP
+      LOGICAL DOPLOT
+
+C ------------ BEGIN -------------
+
+      DOPLOT = .FALSE.
+      if ( OPT_TABLE(ITABLE_SPECPAK) == 0 ) goto 888  
+
+      if ( N_SNLC_PLOT < MXLC_PLOT ) THEN
+         DOPLOT = .TRUE.
+         GOTO 888
+      endif
+
+c check list of CCIDs to plot
+
+      DO 100 i = 1, NCCID_PLOT
+        LENTMP = INDEX( SNCCID_PLOT(i)//' ', ' ') - 1
+
+        IF ( LENTMP .NE. ISNLC_LENCCID ) GOTO 100
+
+        if ( SNCCID_PLOT(i) .EQ. SNLC_CCID ) then
+          DOPLOT = .TRUE.
+          GOTO 888
+        endif
+
+100   CONTINUE
+
+888   CONTINUE
+      DOPLOT_SPEC = DOPLOT
+
+      RETURN
+      END
+
 C -----------------------------------------
 +DECK,GETNLCPLOT,IF=SNANA.
       INTEGER FUNCTION SNANA_GET_NLCPLOT()
@@ -24333,13 +24629,15 @@ c
 
       INTEGER LENCCID, LENTEXT, ispec
       CHARACTER  CCID_forC*(MXCHAR_CCID)
-      LOGICAL DOPLOT_SNLC
+      LOGICAL DOPLOT_SPEC
 
       EXTERNAL SPECPAK_DATA
 C ----------------- BEGIN ---------------
 
 c check if we should make the plot
-      IF ( .NOT. DOPLOT_SNLC() ) RETURN
+      IF ( .NOT. DOPLOT_SPEC() ) RETURN
+
+      IF ( MARZFILE_OUT .NE. '' ) RETURN
 
       LENCCID = ISNLC_LENCCID
       CCID_forC = SNLC_CCID(1:LENCCID) // char(0)
@@ -24366,7 +24664,9 @@ c load each spectrum into SPECPAK C-function util
  100     CONTINUE
 
 c write out spectrum to TEXT table (HBOOK,ROOT not enabled)
-      CALL SPECPAK_FILL(CCID_forC, LENCCID)
+      IF ( NSPECTRUM > 0 ) then
+         CALL SPECPAK_FILL(CCID_forC, LENCCID)
+      ENDIF
 
       RETURN
       END
@@ -25739,7 +26039,7 @@ c Feb  5, 2013: return LENLIST
 c Feb 15, 2013: set max of MXFILT = 30 filters.
 c Jun 24, 2013: ignore remapped filter(s)
 c Oct 21, 2014: add CAST as input argument
-c
+c Jul 13, 2020: MXFILT -> 15
 c ------------------------------------
 
       IMPLICIT NONE
@@ -25770,7 +26070,8 @@ C ---------------- BEGIN ----------
   
       LENMAX = LEN(VARLIST)  ! abort if larger than this
       LENSUM = 0
-      MXFILT = 30
+cc cxxx      MXFILT = 30
+      MXFILT = 15
 
       NFILT = INDEX(FILTERS,' ' ) - 1
       IF ( NFILT > MXFILT ) NFILT = MXFILT
@@ -26036,6 +26337,10 @@ c fill table.
 40          format(A, '[z=', F5.3, ']' )
             LENCCID = LENCCID + 9
          endif
+
+         write(6,10) CCID_forC(1:LENCCID)
+ 10      format(T8,'SPECPLOT: pack CID=',A,' for MARZ table.')
+
 	 CCID_forC = CCID_forC(1:LENCCID) // char(0)
 
          CALL SPECPAK_DATA(
@@ -26052,7 +26357,6 @@ c fill table.
      &       , LENCCID )
 
           CALL SPECPAK_FILL(CCID_forC, LENCCID)
-cc xxx mark delete   CALL SNTABLE_FILL(IDTABLE)  ! generic C function
       ENDIF
 
       RETURN
@@ -29585,21 +29889,12 @@ c ----------- BEGIN -------------
 
 c check option to include buggy lambda ranges.
 
-c xxxxxxxx mark delete Apr 23 2020 xxxxxxxxxx
-c      IF ( DOBUG_LAMRANGE ) THEN
-c         FILTREST_LAMRANGE(2,IFILT_BESS_V) = 5800.
-c         FILTREST_LAMRANGE(1,ifilt_BESS_R) = 5800.  
-c         FILTREST_LAMRANGE(2,ifilt_BESS_R) = 7300.
-c         FILTREST_LAMRANGE(1,ifilt_BESS_I) = 7300.
-c      ENDIF
-c xxxxxxxxxxxxxx mark delete xxxxxxxxxxx
-
       RETURN
       END
 
 C ==========================================
 +DECK,SETZPOFF.
-      SUBROUTINE SET_ZPOFF
+      SUBROUTINE SET_ZPOFF()
 c
 c Created July 17, 2011 by R.Kessler
 c Called from RDKCOR to update MAGOBS_SHIFT_ZP_FILT(ifilt_obs) 
@@ -37828,7 +38123,11 @@ c function
 C -------------- BEGIN ------------------
 
       IERR = 0   ! set output flag to OK
-    
+ 
++SELF,IF=MINUIT.
+      CALL ADD_FITPARERR_FROMz(ITER)    ! Jun 2020
++SELF.
+   
 c store chi2
 
       FITCHI2_STORE(1)     = FITCHI2_MIN ! total chi2
@@ -37948,7 +38247,7 @@ c print results for floated parameters only
      &     .or. NFIXPAR .EQ. NFITPAR_MN 
      &     .or .IPAR    .EQ. 1             ! IPAR_ITER - Nov 2014
      &           ) then
-            CALL PR_FITPAR(SNLC_CCID, iter, ipar, 'fit' )
+            CALL PRINT_FITPAR(SNLC_CCID, iter, ipar, 'fit' )
          endif
 
 c do stuff on last iteration
@@ -38055,8 +38354,8 @@ C --------------- BEGIN -------------
       END
 
 C =======================================
-+DECK,PR_FITPAR.
-      SUBROUTINE PR_FITPAR(CCID, iter, ipar, type )
++DECK,PRINT_FITPAR.
+      SUBROUTINE PRINT_FITPAR(CCID, iter, ipar, type )
 c
 c standard print-line for fit-result or pdf-result.
 c
@@ -38124,7 +38423,7 @@ c write par value into string using format
       CALL FLUSH(6)
 
       RETURN
-      END    ! end of PR_FITPAR
+      END    ! end of PRINT_FITPAR
 
 C ==============================
 +DECK,BOOK_CONTOUR.
@@ -38271,7 +38570,7 @@ c over-write LCVAL[ERR] array with pdf-avarges
 
          if ( .NOT. FLOATPAR(ipar)  ) goto 30
 
-         CALL PR_FITPAR( SNLC_CCID, 0, ipar, 'pdf' )
+         CALL PRINT_FITPAR( SNLC_CCID, 0, ipar, 'pdf' )
          CALL FLUSH(6)
 
 30    CONTINUE
@@ -38398,7 +38697,7 @@ c check for namelist over-rides from command line.
 
       IF ( LMCMC ) THEN
         ISEED = 12345
-        CALL randominit(ISEED)  ! init randoms via C interface
+cc xxx mark delete Jun 2020  CALL randominit(ISEED)  ! init randoms via C 
       ENDIF
 
 C #################################################   

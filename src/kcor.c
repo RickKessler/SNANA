@@ -175,6 +175,13 @@
     + fix subtle bug computing lam-weighted averages in rd_filter;
       matters only for non-uniform wavelength bins.
 
+ May 22 2020:
+    in func ADDFILTERS_LAMSHIFT_GLOBAL(), load MAGSYSTEM_INDX_INPUT
+
+ Jul 8 2020:
+   + write input file name and filter paths into output FITS header ...
+     can be used later to chase down DOCANA notes.
+
 ****************************************************/
 
 #include <stdio.h>   
@@ -569,6 +576,7 @@ int rd_input(void) {
 
       NFILTPATH++ ;
       readchar ( fp_input, INPUTS.FILTPATH );
+      sprintf(INPUTS.FILTPATH_ORIG, "%s", INPUTS.FILTPATH);
       ENVreplace(INPUTS.FILTPATH,fnam,1);
 
       if ( strcmp(INPUTS.FILTPATH,INPUTS.FILTPATH_replace1) == 0 ) 
@@ -970,9 +978,9 @@ void parse_MAGSYSTEM(char *MAGSYSTEM_ARG, MAGSYSTEM_DEF *MAGSYSTEM) {
   //    MAGSYSTEM->NAME       = AB
   //    MAGSYSTEM->DO_TRANSFORM = 1 (true)
 
-  int i, i2, len, jdash;
+  int i, len, jdash;
   char TMP_ARG[60];
-  char fnam[] = "parse_MAGSYSTEM" ;
+  //  char fnam[] = "parse_MAGSYSTEM" ;
 
   // ----------- BEGIN -----------
 
@@ -1025,7 +1033,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   double OFFSET       = MAGSYSTEM->OFFSET;
   double OFFSET_INPUT = MAGSYSTEM->OFFSET_INPUT;
 
-  int NF, lenf, IFLAG_SYN, INDX_TMP ;
+  int NF, lenf, IFLAG_SYN  ;
   char FILENAME[MXPATHLEN], band[4];
   char fnam[] = "storeFilterInfo" ;
 
@@ -1093,7 +1101,8 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   FILTER[NF].FILTSYSTEM_INDX  = FILTSYSTEM->INDX ;
 
   sprintf(FILTER[NF].FILTSYSTEM_NAME,"%s", FILTSYSTEM->NAME ) ;
-  sprintf(FILTER[NF].PATH,"%s", INPUTS.FILTPATH ) ;
+  sprintf(FILTER[NF].PATH,     "%s", INPUTS.FILTPATH ) ;
+  sprintf(FILTER[NFILTPATH].PATH_ORIG,"%s", INPUTS.FILTPATH_ORIG ) ;  
   FILTER[NF].IPATH = NFILTPATH ;  // Dec 2012
   
   FILTER[NF].MAGFILTER_ZPOFF  = get_ZPOFF(filtName,NFILTPATH) ;
@@ -1650,6 +1659,7 @@ void  ADDFILTERS_LAMSHIFT_GLOBAL(void) {
   // The duplicate filter name has an asterisk (*) in front;
   // e.g. SDSS-r duplicate is *SDSS-r
   //
+  // May 22 2020: load MAGSYSTEM_INDX_INPUT
 
   int NF = NFILTDEF ;
   int ifilt, ifilt2, INDX ;
@@ -1679,7 +1689,10 @@ void  ADDFILTERS_LAMSHIFT_GLOBAL(void) {
     sprintf ( FILTER[ifilt2].file, "%s" ,  FILTER[ifilt].file );    
 
     FILTER[ifilt2].MAGSYSTEM_OFFSET = FILTER[ifilt].MAGSYSTEM_OFFSET ;
-    FILTER[ifilt2].MAGSYSTEM_INDX   = FILTER[ifilt].MAGSYSTEM_INDX ;
+
+    INDX = FILTER[ifilt].MAGSYSTEM_INDX;
+    FILTER[ifilt2].MAGSYSTEM_INDX        = INDX;
+    FILTER[ifilt2].MAGSYSTEM_INDX_INPUT  = INDX; // May 22 2020
 
     sprintf(FILTER[ifilt2].MAGSYSTEM_NAME, "%s",FILTER[ifilt].MAGSYSTEM_NAME);
     sprintf(FILTER[ifilt2].FILTSYSTEM_NAME,"%s",FILTER[ifilt].FILTSYSTEM_NAME);
@@ -4091,9 +4104,7 @@ void primarymag_zp(int iprim ) {
 
   double  arg, lam, trans, flux, wflux, wfilt, mag, ftmp, LAMMIN, LAMMAX;
   double  fluxsum[MXFILTDEF+1], filtsum[MXFILTDEF+1] ;
-  bool    USE_FILT, DO_TRANSFORM ;
-
-  char *name ;
+  bool    USE_FILT ;
   char fnam[] = "primarymag_zp" ;
 
   /* ------------------- BEGIN --------------------- */
@@ -4194,7 +4205,7 @@ void primarymag_zp2(int iprim ) {
 
   int  ifilt, INDX, INDX_INPUT ;
   double ZP_INPUT, ZP ;
-  char fnam[] = "primarymag_zp2" ;
+  //  char fnam[] = "primarymag_zp2" ;
 
   // ---------- BEGIN ------------
 
@@ -4231,7 +4242,7 @@ void primarymag_summary(int iprim) {
   char *NAME = PRIMARYSED[iprim].MAGSYSTEM_NAME ;
   int  ifilt, INDX, INDX_INPUT;
   bool USE_FILT;
-  char fnam[] = "primarymag_summary" ;
+  //  char fnam[] = "primarymag_summary" ;
 
   // ----------- BEGIN -----------
 
@@ -4431,6 +4442,13 @@ void wr_fits_HEAD(fitsfile *fp) {
   sprintf(c1err,"Write VERSION key in header" ) ;
   wr_fits_errorCheck(c1err, istat) ;
 
+  // Jul 2020: write name of input kcor file
+  istat = 0 ;
+  sprintf(KEYNAME,"INPUT_FILE");
+  sprintf(KEYVAL,"%s", INPUTS.inFile_input);
+  fits_update_key(fp, TSTRING, KEYNAME, KEYVAL,
+		  "Name of kcor-input file", &istat ); 
+
   // -----------------------------
   // write names of primary refs
 
@@ -4460,6 +4478,15 @@ void wr_fits_HEAD(fitsfile *fp) {
 		  &NFILTDEF, "Number of filters", &istat );
   sprintf(c1err,"Write NFILTERS key in header" ) ;
   wr_fits_errorCheck(c1err, istat) ;
+
+
+  // July 2020 write filter paths so other codes can find DOCANA notes
+  for(ifilt=1; ifilt <= NFILTPATH; ifilt++ ) {
+    sprintf(KEYNAME,"FILTPATH%d", ifilt);
+    istat = 0 ;
+    fits_update_key(fp, TSTRING, KEYNAME, FILTER[ifilt].PATH_ORIG,
+		    "Filter PATH", &istat );    
+  }
 
   for ( ifilt = 1; ifilt <= NFILTDEF ; ifilt++ ) {
     sprintf(KEYNAME,"FILT%3.3d", ifilt);

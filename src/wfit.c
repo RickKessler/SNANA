@@ -1965,15 +1965,12 @@ void read_mucovar(char *inFile) {
 //===================================
 void set_priors(void) {
 
-  char fnam[]="set_priors";
+  //  char fnam[]="set_priors";
 
   double rz, tmp1, tmp2;
-
   double OM = OMEGA_MATTER_DEFAULT ;
   double OE = 1 - OM ;
   double w = w0_DEFAULT ;
-
-
   Cosparam cparloc;
 
   cparloc.omm = OM ;

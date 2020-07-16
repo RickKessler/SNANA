@@ -24,9 +24,9 @@ __MODEL_BANDFLUX_SPACING = 5.0
 
 def print_err():
 	print("""
-		       ______
-		     /	  x  \\
-		    /	--------<  ABORT Python on Fatal Error.
+			   ______
+			 /	  x  \\
+			/	--------<  ABORT Python on Fatal Error.
 		__ /  _______/
 /^^^^^^^^^^^^^^/  __/
 \________________/
@@ -111,6 +111,7 @@ class genmag_BYOSED:
 
 				self.sedInterp=interp2d(self.phase,self.wave,self.flux.T,kind='linear',bounds_error=True)
 				
+				self.phase_data={}
 				
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -253,23 +254,28 @@ class genmag_BYOSED:
 		
 
 		def fetchSED_BYOSED(self,trest,maxlam=5000,external_id=1,new_event=1,hostpars='',mB_calc=False):
-
+								
 					
 			try:
 				if len(self.wave)>maxlam:
 					raise RuntimeError("Your wavelength array cannot be larger than %i but is %i"%(maxlam,len(self.wave)))
 				#iPhase = np.where(np.abs(trest-self.phase) == np.min(np.abs(trest-self.phase)))[0][0]
 				#print('HOST_PARAMS: ',hostpars)
-				if self.sn_id is None:
-					self.sn_id=external_id
+				if self.sn_id is None or external_id==self.sn_id:
 					newSN=False
-
-				elif external_id!=self.sn_id:
-					newSN=True
 					
+
 				else:
-					newSN=False
+					newSN=True
+					self.phase_data={}
+
 				self.sn_id=external_id
+				if not newSN and np.round(trest,6) in self.phase_data.keys():
+					return deepcopy(self.phase_data[np.round(trest,6)])
+						
+					
+				
+					
 				fluxsmear=self.sedInterp(trest,self.wave).flatten()
 				orig_fluxsmear=copy(fluxsmear)
 
@@ -298,7 +304,6 @@ class genmag_BYOSED:
 					
 					if newSN:
 						z=hostpars[self.host_param_names.index('z')] if 'z' in self.host_param_names else None
-						print(self.host_param_names)
 						if warp in self.sn_effects.keys():
 							self.sn_effects[warp].updateWarp_Param(z)
 							self.sn_effects[warp].updateScale_Param(z)
@@ -385,7 +390,8 @@ class genmag_BYOSED:
 			
 			if self.is_Ia:
 				fluxsmear*=self.brightness_correct_Ia()
-
+			
+			self.phase_data[np.round(trest,6)]=deepcopy(list(fluxsmear))
 			return list(fluxsmear)
 			
 		def brightness_correct_Ia(self):
@@ -476,7 +482,6 @@ class WarpModel(object):
 		self.scale_type=scale_type
 
 	def updateWarp_Param(self,z=None):
-		print(z)
 		if self.warp_distribution is not None:
 			self.warp_parameter=self.warp_distribution(z)
 
@@ -660,15 +665,15 @@ def _get_distribution(name,dist_dat,path,sn_or_host):
 	return(dist_dict)
 
 def _integration_grid(low, high, target_spacing):
-    """Divide the range between `start` and `stop` into uniform bins
-    with spacing less than or equal to `target_spacing` and return the
-    bin midpoints and the actual spacing."""
+	"""Divide the range between `start` and `stop` into uniform bins
+	with spacing less than or equal to `target_spacing` and return the
+	bin midpoints and the actual spacing."""
 
-    range_diff = high - low
-    spacing = range_diff / int(math.ceil(range_diff / target_spacing))
-    grid = np.arange(low + 0.5 * spacing, high, spacing)
+	range_diff = high - low
+	spacing = range_diff / int(math.ceil(range_diff / target_spacing))
+	grid = np.arange(low + 0.5 * spacing, high, spacing)
 
-    return grid, spacing
+	return grid, spacing
 
 def _meshgrid2(*arrs):
 	arrs = tuple(arrs)	#edit
@@ -760,7 +765,9 @@ def main():
 		#mySED.sn_effects['COLOR'].scale_parameter=.1
 		#print(np.where(mySED.wave==10000)[0][0])
 		#print(mySED.fetchParNames_BYOSED())
-		print([np.sum(mySED.fetchSED_BYOSED(p,5000,np.random.uniform(1,10),2,[1,1,1,.5])) for p in [5,5,5,5]])
+		#print([np.sum(mySED.fetchSED_BYOSED(p,5000,np.random.uniform(1,10),2,[1,1,1,.5])) for p in [5,5,5,5]])
+		print(np.sum(mySED.fetchSED_BYOSED(0,5000,0,0,[1,1,1,.5])))
+		print(np.sum(mySED.fetchSED_BYOSED(0,5000,0,0,[1,1,1,.5])))
 		sys.exit()
 
 

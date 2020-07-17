@@ -8,7 +8,10 @@ Program to take output from the SALT fitter dict files and
 
 ==USAGE 
 
-./SALT2mu <parameter input file>
+ To dump a list of all valid keys and then quit,
+    ./SALT2mu.exe KEY_DUMP
+
+./SALT2mu.exe  <parameter input file>
     file=file.fitres bins=10 zmin=0.02 zmax=1.02 u0=1 u1=1 u2=0 u3=0
     prefix=SALT2mu sigmB=0.0 sigx1=0.0 sigc=.1  p9=.73 
 
@@ -794,6 +797,9 @@ Default output files (can change names with "prefix" argument)
       continuous distribution.
     + SUBPROCESS refactoring so that SALT2mu can be called by python driver.
 
+ Jul 17 2020: new option to dump all keys and then quit
+     SALT2mu.exe KEY_DUMP
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -1345,6 +1351,7 @@ struct {
 struct INPUTS {
   int  nfile_data;
   char **dataFile;  
+  bool   KEYNAME_DUMPFLAG; // flag to dump all key names, then quit
 
   bool   cat_only;    // cat fitres files and do nothing else
   char   catfile_out[MXCHAR_FILENAME] ;
@@ -4537,6 +4544,7 @@ void set_defaults(void) {
 
   INPUTS.nfile_data = 0;
   sprintf(INPUTS.PREFIX,     "NONE" );
+  INPUTS.KEYNAME_DUMPFLAG      = false ;
 
   INPUTS.opt_biasCor           = 0 ;
   INPUTS.sigint_biasCor        = -9.0 ; 
@@ -13597,7 +13605,7 @@ void parse_parFile(char *parFile ) {
 
   FILE *fdef;
   bool SKIP, EXCEPTION;
-  char *sptr;
+  char *sptr ;
   char fnam[] = "parse_parFile" ;
 
   // ------------------ BEGIN --------------
@@ -13615,6 +13623,17 @@ void parse_parFile(char *parFile ) {
   if ( strcmp(parFile,"null")  == 0 ) return;
   if ( strcmp(parFile,"BLANK") == 0 ) return;
   
+  if ( strcmp(parFile,STRINGMATCH_KEY_DUMP) == 0 ) {
+    // prepare to dump all valid keys and quit.
+    uniqueOverlap(STRINGMATCH_KEY_DUMP,"SALT2mu-input file"); 
+    sprintf(parFile,"%s/SURVEY.DEF", PATH_SNDATA_ROOT);
+    INPUTS.KEYNAME_DUMPFLAG = true ;
+  }
+  else {
+    // normal init to read each key, and to abort on duplicate keys
+    uniqueOverlap(STRINGMATCH_INIT,"SALT2mu-input file"); 
+  }
+
   // Look for a file of default options
   fdef = fopen(parFile,"rt");
   if (!fdef) {
@@ -13623,8 +13642,6 @@ void parse_parFile(char *parFile ) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  // Just return if file does not exist
-  uniqueOverlap("INIT","SALT2mu-input file");
 
   fprintf(FP_STDOUT,
 	  "Reading SALT2mu parameter-input file '%s' : \n",  parFile);
@@ -13646,17 +13663,13 @@ void parse_parFile(char *parFile ) {
     SKIP      = ( strstr(sptr,":")             != NULL );
     EXCEPTION = ( strstr(sptr,"group_biascor") != NULL );
     if ( SKIP && !EXCEPTION ) { continue ; }
-
-    /* xxx mark delete May 19 2020 xxxxxxxx
-    if ( strstr(sptr,"group_biascor") == NULL &&
-	 strstr(sptr,":") != NULL ) { continue ; }
-    xxxxxxxx end mark xxxxxxx */
-
     ppar(sptr); // pass entire line
   }
 
   fprintf(FP_STDOUT,"\n");
   fclose(fdef);
+
+  if ( INPUTS.KEYNAME_DUMPFLAG ) { happyend(); }
 
   return ;
 
@@ -13725,7 +13738,6 @@ void override_parFile(int argc, char **argv) {
 // ********************************************
 int ppar(char* item) {
   // Parses command line or input files
-
   // Dec 08, 2014 - read new zVARNAME
   // Aug 22, 2016 - call remove_quote
   // Apr 17, 2017 - return(1) if item is found; 0 otherwise
@@ -13738,8 +13750,9 @@ int ppar(char* item) {
   char fnam[] = "ppar" ;
 
   // --------- BEGIN ----------
-
-  fprintf(FP_STDOUT, " Parse '%s' \n",item);  fflush(FP_STDOUT);
+  
+  if ( !INPUTS.KEYNAME_DUMPFLAG ) 
+    { fprintf(FP_STDOUT, " Parse '%s' \n",item);  fflush(FP_STDOUT); }
 
   if ( uniqueOverlap(item,"prefix=") )
     { sscanf(&item[7],"%s",INPUTS.PREFIX); return(1); }

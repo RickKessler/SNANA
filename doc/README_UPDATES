@@ -18675,6 +18675,10 @@
 
          ***** USEFUL(v10_77h) ***** 
 
+   new utility to dump every allowed key (see manual):
+      snlc_sim.exe KEY_DUMP
+      SALT2mu.exe  KEY_DUMP
+
          ***** MISCELLANEOUS(v10_77h) ***** 
 
     sntools_genPDF.h: 
@@ -18709,5 +18713,14 @@
  
     sntools_host.c[h]
       + automatically store WGTMAP variables in data files.
+
+    sim_SNmix.pl
+      + fix to work if user name has less than 4 characters.
+
+    snlc_sim, SALT2mu, sntools
+      + update key-matching utility to allow multiple keys in same
+        input file (e.g., NON1A), and to allow a dump of all keys
+        with "snlc_sim.exe KEY_DUMP". Use grep to select things,
+        e.g.,  snlc_sim.exe KEY_DUMP | grep VPEC
 
 END: 

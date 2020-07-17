@@ -11552,10 +11552,79 @@ all tables will have IAUC written into the CID column.
 
 
 % --------------------------------------
+%  \clearpage
   \subsection{General Misc. Tools}
   \label{subsec:MiscTools_general}
 % --------------------------------------
 
+% --------------------------------------
+  \subsubsection{List Valid Input Keys}
+  \label{sss:KEY_DUMP}
+% --------------------------------------
+
+Each \snana\ program has many input keys that are difficult to find 
+and remember. For {\tt SALT2mu} and simulation programs, the following
+results in a dump of all valid input keys and then quits:
+\begin{verbatim}
+   snlc_sim.exe KEY_DUMP
+   SALT2mu.exe  KEY_DUMP
+\end{verbatim} 
+Using grep can help find keys related to a particular topic,
+although a decent guess is needed for a sub-string.
+Examples for the simulation are:
+\begin{verbatim}
+# to find peculiar-velocity keys in the sim
+   snlc_sim.exe KEY_DUMP | grep VPEC
+       VALID_KEYNAME:   124   GENSIGMA_VPEC:  
+       VALID_KEYNAME:   125   VPEC_ERR:  
+
+# to find keys controling SALT2x1 population.
+   snlc_sim.exe KEY_DUMP | grep SALT2x1
+       VALID_KEYNAME:   200   GENPEAK_SALT2x1:  
+       VALID_KEYNAME:   201   GENMEAN_SALT2x1:  
+       VALID_KEYNAME:   202   GENSIGMA_SALT2x1:  
+       VALID_KEYNAME:   203   GENSKEW_SALT2x1:  
+       VALID_KEYNAME:   204   GENRANGE_SALT2x1:  
+       VALID_KEYNAME:   205   GENGRID_SALT2x1:  
+       VALID_KEYNAME:   206   GENPROB2_SALT2x1:  
+       VALID_KEYNAME:   207   GENPEAK2_SALT2x1:  
+       VALID_KEYNAME:   208   GENSIGMA2_SALT2x1:    
+\end{verbatim}
+
+
+\clearpage
+\noindent
+and here is a {\tt SALT2mu} example to find file-related inputs,
+\begin{verbatim}
+   SALT2mu.exe KEY_DUMP | grep file
+       VALID_KEYNAME:     1   catfile_out=  
+       VALID_KEYNAME:     9   file=  
+       VALID_KEYNAME:    10   datafile=      (same as file=)
+       VALID_KEYNAME:    11   simfile_bias=  
+       VALID_KEYNAME:    12   simfile_biascor=  
+       VALID_KEYNAME:    25   simfile_ccprior=  
+       VALID_KEYNAME:    70   cid_select_file=  
+\end{verbatim}
+
+The {\tt KEY\_DUMP} command-line option works for the C programs,
+but not for the fortran programs 
+({\tt snlc\_fit.exe}, {\tt snana.exe}, {\tt psnid.exe}).
+Instead, the fotran programs have a built-in ``name-list'' (NML) feature, 
+and the contents of each NML are printed to standard out. 
+Therefore, use grep on stdout to find NML inputs; 
+e.g., 
+\begin{verbatim}
+  snlc_fit.exe SNFIT.NML  | grep CUTWIN_TREST
+    CUTWIN_TRESTMIN= -99.000000    , -2.0000000    ,
+    CUTWIN_TRESTMAX=  10.000000    ,  9999.0000    ,
+    CUTWIN_TRESTRANGE=-9.99999996E+11, 9.99999996E+11,
+    CUTWIN_TREST= -20.000000    ,  80.000000    ,
+    CUTWIN_TREST_TRUEFLUX= 2*999.00000      ,
+    CUTWIN_TREST2=-9.99999996E+11, 9.99999996E+11,
+\end{verbatim}
+The large range values ({\tt +- 9.999E+11}) indicate that
+the NML input was not defined in the user-input file,
+but is a valid input.
 
 % --------------------------------------
   \subsubsection{Command-line Overrides}

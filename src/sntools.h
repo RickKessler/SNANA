@@ -376,11 +376,21 @@ struct {
 } PARSE_WORDS ;
 
 
-#define MXLIST_STRING_UNIQUE 200
+#define MXLIST_STRING_UNIQUE  200
+#define MXLIST_KEY_UNIQUE    1000  // for key-dump only
+#define STRINGMATCH_INIT      "INIT"
+#define STRINGMATCH_KEY_DUMP  "KEY_DUMP"
 struct {
   int  NLIST;
-  char SOURCE_of_STRING[200];
-  char STRING[MXLIST_STRING_UNIQUE][100];  
+  char SOURCE_of_STRING[200]; // for messages
+  char STRING[MXLIST_STRING_UNIQUE][60];  // list of uniqe strings
+  int  NFOUND_STRING[MXLIST_STRING_UNIQUE];  // number of times each str found
+
+  
+  bool DUMPKEY_FLAG ;
+  int  NKEY; // number of unique keys stored for dump
+  char *KEY[MXLIST_KEY_UNIQUE] ;
+  
 } STRING_UNIQUE ;
 
 struct {
@@ -613,10 +623,13 @@ void  checkArrayBound_(int *i, int *MIN, int *MAX,
 		       char *varName, char *comment, char *funName);
 
 void  check_magUndefined(double mag, char *varName, char *callFun );
-void  checkStringUnique(char *string, char *msgSource, char *callFun);
-int   uniqueMatch(char *string, char *key);
+void  checkStringUnique(int MAX, char *string, char *msgSource, char *callFun);
+bool  NstringMatch(int MAX, char *string, char *key);
+bool  uniqueMatch(char *string, char *key);
 int   uniqueOverlap(char *string, char *key);
 int   keyMatch(char *string, char *key);
+void  dumpUniqueKey(char *key) ;
+
 int   ivar_matchList(char *varName, int NVAR, char **varList);
 
 void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun, 

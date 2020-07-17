@@ -92,10 +92,11 @@ int main(int argc, char **argv) {
 
   t_start = time(NULL);
 
+  init_SNPATH();    // init PATH_SNDATA_ROOT
+
   parse_commandLine_simargs(argc, argv);
 
-  // init PATH_SNDATA_ROOT
-  init_SNPATH();
+  // xxx mark delete  init_SNPATH();    // init PATH_SNDATA_ROOT
 
   // init fortran variables
   istat = 0;
@@ -434,8 +435,17 @@ void parse_commandLine_simargs(int argc, char **argv) {
   else
     { sprintf(inFile, "snlc_sim.input" ); } // default name
 
-
   printf("\n\n"); fflush(stdout);
+
+
+  // 7.17.2020: prepare KEY_DUMP option to read a dummy file
+  if ( strcmp(inFile,"KEY_DUMP") == 0 ) {
+    INPUTS.KEYNAME_DUMPFLAG = true;  
+    sprintf(inFile,"%s/SURVEY.DEF", PATH_SNDATA_ROOT); // dummy file to read
+  }
+  else {
+    INPUTS.KEYNAME_DUMPFLAG   = false; 
+  }
 
   return ;
 
@@ -566,6 +576,7 @@ void get_user_input(void) {
   if ( !IGNOREFILE(INPUTS.INPUT_FILE_LIST[2]) ) 
     { read_input(INPUTS.INPUT_FILE_LIST[2] );  }
 
+
   // --------------------------------------------
   // check for command line overrides
   // --------------------------------------------
@@ -600,7 +611,7 @@ void set_user_defaults(void) {
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
 
-  INPUTS.DASHBOARD_DUMPFLAG = 0;
+  INPUTS.DASHBOARD_DUMPFLAG = false ;
 
   INPUTS.TRACE_MAIN = 0;
   INPUTS.DEBUG_FLAG = 0 ;
@@ -1297,7 +1308,9 @@ int read_input(char *input_file) {
   //
   // Jun 26 2019: 
   //  + for NON1ASED, allow comma-separated sigmas for MAGSMEAR column
-
+  //
+  // Jul 17 2020: replace uniqueMatch calls with NstringMatch
+  //
   FILE *fp;
 
   char  *warp_spectrum_string = INPUTS.WARP_SPECTRUM_STRING;
@@ -1309,9 +1322,9 @@ int read_input(char *input_file) {
 
   float ftmp, sigTmp[2];
   int  L_NON1ASED, L_NON1AKEY, L_PEC1AKEY, L_TMP, ITMP, NWD ;
-  int  itmp, N, j, ifilt, opt_tmp;
+  int  itmp, N, j, ifilt, opt_tmp, INIT_FLAG_STRING;
   int  key, NKEY, ovp1, ovp2, ITYPE ;
-  bool FOUNDKEY[2];
+  bool FOUNDKEY[2] ;
   int  iArg = -9;
   char  stringSource[] = "sim-input file" ;
   char  comma[] = ","; 
@@ -1329,7 +1342,13 @@ int read_input(char *input_file) {
 
   INPUTS.NREAD_INPUT_FILE++ ;
   printf(" --------------------------------------------------------\n");
-  uniqueMatch("INIT",stringSource); // 4.2019
+
+  // xxx mark  uniqueMatch("INIT",stringSource); // 4.2019
+
+  INIT_FLAG_STRING = 0 ;
+  if ( INPUTS.KEYNAME_DUMPFLAG) { INIT_FLAG_STRING = -1; }   
+  NstringMatch(INIT_FLAG_STRING, STRINGMATCH_INIT, stringSource); // 7.2020
+
   printf("  Read user input file %d: %s \n", 
 	 INPUTS.NREAD_INPUT_FILE, input_file );
 
@@ -1347,9 +1366,10 @@ int read_input(char *input_file) {
     if ( commentchar(c_get) ) 
       { ptrTmp = fgets(tmpLine, 80, fp) ; continue ; }
 
-    // multiple include files allowed, so do NOT use uniqueMatch
-    FOUNDKEY[0] = ( strcmp(c_get,"INPUT_FILE_INCLUDE:") == 0 );
-    FOUNDKEY[1] = ( strcmp(c_get,"INPUT_INCLUDE_FILE:") == 0 );
+    // multiple include files allowed,
+    FOUNDKEY[0] = NstringMatch(2, c_get, "INPUT_FILE_INCLUDE:") ;
+    FOUNDKEY[1] = NstringMatch(2, c_get, "INPUT_INCLUDE_FILE:") ;
+
     if ( FOUNDKEY[0] || FOUNDKEY[1] ) {
       if ( strlen(INPUTS.INPUT_FILE_LIST[1]) == 0 )  // 1st include file
 	{ readchar ( fp, INPUTS.INPUT_FILE_LIST[1]); }
@@ -1362,44 +1382,44 @@ int read_input(char *input_file) {
       }
     }
 
-    if ( uniqueMatch(c_get,"USE_KCOR_REFACTOR:") ) 
+    if ( NstringMatch(1,c_get,"USE_KCOR_REFACTOR:") ) 
       { readint ( fp, 1, &INPUTS.USE_KCOR_REFACTOR ); continue; }
 
-    if ( uniqueMatch(c_get,"TRACE_MAIN:") ) 
+    if ( NstringMatch(1,c_get,"TRACE_MAIN:") ) 
       { readint ( fp, 1, &INPUTS.TRACE_MAIN ); continue; }
 
-    if ( uniqueMatch(c_get,"DEBUG_FLAG:")  ) 
+    if ( NstringMatch(1,c_get,"DEBUG_FLAG:")  ) 
       { readint ( fp, 1, &INPUTS.DEBUG_FLAG );  continue ; }
 
     
-    if ( uniqueMatch(c_get,"RESTORE_DES3YR:")  )  { 
+    if ( NstringMatch(1,c_get,"RESTORE_DES3YR:")  )  { 
       readint ( fp, 1, &ITMP );  
       if ( ITMP ) { INPUTS.RESTORE_DES3YR = true; }
       continue ; 
     }
 
 
-    if ( uniqueMatch(c_get,"OPT_DEVEL_GENPDF:")  ) 
+    if ( NstringMatch(1,c_get,"OPT_DEVEL_GENPDF:")  ) 
       { readint ( fp, 1, &INPUTS.OPT_DEVEL_GENPDF );  continue ; }
 
     // --- HOSTLIB stuff
-    if ( uniqueMatch(c_get,"HOSTLIB_FILE:")   ) {
+    if ( NstringMatch(1,c_get,"HOSTLIB_FILE:")   ) {
       readchar ( fp, INPUTS.HOSTLIB_FILE );
       setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
       INPUTS.HOSTLIB_USE = 1;    // logical 
       continue ; 
     }
 
-    if ( uniqueMatch(c_get,"HOSTLIB_WGTMAP_FILE:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_WGTMAP_FILE:")  )
       {  readchar ( fp, INPUTS.HOSTLIB_WGTMAP_FILE ); continue ; }
     
-    if ( uniqueMatch(c_get,"HOSTLIB_ZPHOTEFF_FILE:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_ZPHOTEFF_FILE:")  )
       { readchar ( fp, INPUTS.HOSTLIB_ZPHOTEFF_FILE ); continue ; }
 
-    if ( uniqueMatch(c_get,"HOSTLIB_SPECBASIS_FILE:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_SPECBASIS_FILE:")  )
       { readchar ( fp, INPUTS.HOSTLIB_SPECBASIS_FILE ); continue ; }
     
-    if ( uniqueMatch(c_get,"HOSTLIB_MSKOPT:")  ) {
+    if ( NstringMatch(1,c_get,"HOSTLIB_MSKOPT:")  ) {
       readint ( fp, 1, &itmp );
       // remove USE-bit if set
       if ( itmp & HOSTLIB_MSKOPT_USE ) { itmp -= HOSTLIB_MSKOPT_USE; }
@@ -1407,83 +1427,83 @@ int read_input(char *input_file) {
       continue ; 
     }
 
-    if ( uniqueMatch(c_get,"HOSTLIB_GENZPHOT_FUDGEPAR:")  ) {
+    if ( NstringMatch(1,c_get,"HOSTLIB_GENZPHOT_FUDGEPAR:")  ) {
       readfloat ( fp, 4, INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR );
       readchar(fp, cval);
       parse_input_GENZPHOT_OUTLIER(cval);
       continue ; 
     }
-    if ( uniqueMatch(c_get,"HOSTLIB_GENZPHOT_BIAS:")  ) 
+    if ( NstringMatch(1,c_get,"HOSTLIB_GENZPHOT_BIAS:")  ) 
       { readfloat ( fp, 4, INPUTS.HOSTLIB_GENZPHOT_BIAS ); continue ; }
 
-    if ( uniqueMatch(c_get,"HOSTLIB_DZTOL:")  ) 
+    if ( NstringMatch(1,c_get,"HOSTLIB_DZTOL:")  ) 
       { readdouble ( fp, 3, INPUTS.HOSTLIB_DZTOL );  continue ; }
 
-    if ( uniqueMatch(c_get,"HOSTLIB_SERSIC_SCALE:")  ) // legacy name
+    if ( NstringMatch(1,c_get,"HOSTLIB_SERSIC_SCALE:")  ) // legacy name
       { readdouble ( fp, 1, &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); continue ; }
 
-    if ( uniqueMatch(c_get,"HOSTLIB_SCALE_SERSIC_SIZE:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_SCALE_SERSIC_SIZE:")  )
       { readdouble ( fp, 1, &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); continue ; }
 
-    if ( uniqueMatch(c_get,"HOSTLIB_SCALE_LOGMASS_ERR:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_SCALE_LOGMASS_ERR:")  )
       { readdouble ( fp, 1, &INPUTS.HOSTLIB_SCALE_LOGMASS_ERR ); continue ; }
    
     // for hostlib variables, allow STOREPAR or STOREVA
-    if ( uniqueMatch(c_get,"HOSTLIB_STOREVAR:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_STOREVAR:")  )
       { readchar ( fp, INPUTS.HOSTLIB_STOREPAR_LIST ); continue ; }
    
-    if ( uniqueMatch(c_get,"HOSTLIB_STOREPAR:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_STOREPAR:")  )
       { readchar ( fp, INPUTS.HOSTLIB_STOREPAR_LIST ); continue ; }
    
-    if ( uniqueMatch(c_get,"HOSTLIB_MAXREAD:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_MAXREAD:")  )
       { readint ( fp, 1, &INPUTS.HOSTLIB_MAXREAD ); continue ; }
    
-    if ( uniqueMatch(c_get,"HOSTLIB_GALID_NULL:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_GALID_NULL:")  )
       { readint ( fp, 1, &INPUTS.HOSTLIB_GALID_NULL ); continue ; }
    
-    if ( uniqueMatch(c_get,"HOSTLIB_GALID_PRIORITY:")  ) 
+    if ( NstringMatch(1,c_get,"HOSTLIB_GALID_PRIORITY:")  ) 
       { readint ( fp, 2, INPUTS.HOSTLIB_GALID_PRIORITY ); continue ; }
    
-    if ( uniqueMatch(c_get,"HOSTLIB_MINDAYSEP_SAMEGAL:")  ) 
+    if ( NstringMatch(1,c_get,"HOSTLIB_MINDAYSEP_SAMEGAL:")  ) 
       { readint ( fp, 1, &INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL ); continue ; }
    
-    if ( uniqueMatch(c_get,"HOSTLIB_MXINTFLUX_SNPOS:")  ) 
+    if ( NstringMatch(1,c_get,"HOSTLIB_MXINTFLUX_SNPOS:")  ) 
       { readfloat ( fp, 1, &INPUTS.HOSTLIB_MXINTFLUX_SNPOS ); continue ; }
    
-    if ( uniqueMatch(c_get,"HOSTLIB_GENRANGE_NSIGZ:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_GENRANGE_NSIGZ:")  )
       { readfloat ( fp, 2, INPUTS.HOSTLIB_GENRANGE_NSIGZ ); continue ; }
    
-    if ( uniqueMatch(c_get,"HOSTLIB_GENRANGE_RA:")  ) 
+    if ( NstringMatch(1,c_get,"HOSTLIB_GENRANGE_RA:")  ) 
       { readdouble ( fp, 2, INPUTS.HOSTLIB_GENRANGE_RA ); continue ; }
     
-    if ( uniqueMatch(c_get,"HOSTLIB_GENRANGE_DEC:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_GENRANGE_DEC:")  )
       { readdouble ( fp, 2, INPUTS.HOSTLIB_GENRANGE_DEC ); continue ; }
    
-    if ( uniqueMatch(c_get,"HOSTLIB_GENRANGE_DECL:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_GENRANGE_DECL:")  )
       { readdouble ( fp, 2, INPUTS.HOSTLIB_GENRANGE_DEC ); continue ; }
     
-    if ( uniqueMatch(c_get,"HOSTLIB_SBRADIUS:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_SBRADIUS:")  )
       { readdouble ( fp, 1, &INPUTS.HOSTLIB_SBRADIUS ); continue ; }
     
-    if ( uniqueMatch(c_get,"HOSTLIB_GALID_FORCE:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_GALID_FORCE:")  )
       { readint( fp, 1, &INPUTS.HOSTLIB_GALID_FORCE ); continue ; }
     
-    if ( uniqueMatch(c_get,"HOSTLIB_FIXRAN_RADIUS:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_FIXRAN_RADIUS:")  )
       { readdouble( fp, 1, &INPUTS.HOSTLIB_FIXRAN_RADIUS); continue ; }
     
-    if ( uniqueMatch(c_get,"HOSTLIB_FIXRAN_PHI:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_FIXRAN_PHI:")  )
       { readdouble( fp, 1, &INPUTS.HOSTLIB_FIXRAN_PHI); continue ; }
 
-    if ( uniqueMatch(c_get,"HOSTLIB_FIXSERSIC:")  )
+    if ( NstringMatch(1,c_get,"HOSTLIB_FIXSERSIC:")  )
       { readdouble( fp, 4, INPUTS.HOSTLIB_FIXSERSIC); continue ; }
    
-    if ( uniqueMatch(c_get,"FLUXERRMODEL_FILE:")   )
+    if ( NstringMatch(1,c_get,"FLUXERRMODEL_FILE:")   )
       { readchar ( fp, INPUTS.FLUXERRMODEL_FILE ); continue ; }
     
-    if ( uniqueMatch(c_get,"FLUXERRMODEL_OPTMASK:")   )
+    if ( NstringMatch(1,c_get,"FLUXERRMODEL_OPTMASK:")   )
       { readint ( fp, 1, &INPUTS.FLUXERRMODEL_OPTMASK ); continue ; }
     
-    if ( uniqueMatch(c_get,"FLUXERRMAP_IGNORE_DATAERR:")  )
+    if ( NstringMatch(1,c_get,"FLUXERRMAP_IGNORE_DATAERR:")  )
       { readchar ( fp, INPUTS.FLUXERRMAP_IGNORE_DATAERR ); continue ; }   
 
     if ( strstr(c_get,"FLUXERRMODEL_REDCOV") != NULL ) {
@@ -1498,7 +1518,7 @@ int read_input(char *input_file) {
     }
 
     // --- anomalous host-subtraction noise ------
-    if ( uniqueMatch(c_get,"HOSTNOISE_FILE:")   ) {
+    if ( NstringMatch(1,c_get,"HOSTNOISE_FILE:")   ) {
       readchar ( fp, INPUTS.HOSTNOISE_FILE );
       if ( INPUTS.HOSTLIB_USE == 0  ){
 	sprintf(c1err,"Cannot define HOSTNOISE_FILE ");
@@ -1512,7 +1532,7 @@ int read_input(char *input_file) {
     // check options for z-variation; either separate file
     // or ZPOLY key(s) in sim-input file.
     
-    if ( uniqueMatch(c_get,"ZVARIATION_FILE:")  ) {  
+    if ( NstringMatch(1,c_get,"ZVARIATION_FILE:")  ) {  
       readchar ( fp, INPUT_ZVARIATION_FILE ); 
       if ( !IGNOREFILE(INPUT_ZVARIATION_FILE) ) { USE_ZVAR_FILE = 1 ; }
       continue ; 
@@ -1545,167 +1565,167 @@ int read_input(char *input_file) {
 
     // ------
 
-    if ( uniqueMatch(c_get,"SNTYPE_Ia:")  ) {
+    if ( NstringMatch(1,c_get,"SNTYPE_Ia:")  ) {
       readint ( fp, 1, &ITYPE ) ;
       INPUTS.SNTYPE_Ia_SPEC = ITYPE ;
       INPUTS.SNTYPE_Ia_PHOT = ITYPE + OFFSET_TYPE_PHOT ;
       continue ; 
     }
-    if ( uniqueMatch(c_get,"SNTYPES_Ia:")  ) {
+    if ( NstringMatch(1,c_get,"SNTYPES_Ia:")  ) {
       readint ( fp, 1, &INPUTS.SNTYPE_Ia_SPEC);
       readint ( fp, 1, &INPUTS.SNTYPE_Ia_PHOT);
       continue ; 
     }
 
-    if ( uniqueMatch(c_get,"GENTYPE:")  ) {
+    if ( NstringMatch(1,c_get,"GENTYPE:")  ) {
       readint ( fp, 1, &ITYPE ) ;
       INPUTS.GENTYPE_SPEC = ITYPE ;
       INPUTS.GENTYPE_PHOT = ITYPE + OFFSET_TYPE_PHOT ;
       continue ;
     }
-    if ( uniqueMatch(c_get,"GENTYPES:")  ) {
+    if ( NstringMatch(1,c_get,"GENTYPES:")  ) {
       readint ( fp, 1, &INPUTS.GENTYPE_SPEC); 
       readint ( fp, 1, &INPUTS.GENTYPE_PHOT);
       continue ;
     }
 
-    if ( uniqueMatch(c_get,"NONLINEARITY_FILE:")  ) 
+    if ( NstringMatch(1,c_get,"NONLINEARITY_FILE:")  ) 
       { readchar ( fp, INPUTS.NONLINEARITY_FILE ); continue ; }    
 
-    if ( uniqueMatch(c_get,"SIMLIB_FILE:")  ) 
+    if ( NstringMatch(1,c_get,"SIMLIB_FILE:")  ) 
       { readchar ( fp, INPUTS.SIMLIB_FILE ); continue ; }
     
-    if ( uniqueMatch(c_get,"SIMLIB_FIELDLIST:")  ) {
+    if ( NstringMatch(1,c_get,"SIMLIB_FIELDLIST:")  ) {
       readchar ( fp, INPUTS.SIMLIB_FIELDLIST ); 
       INPUTS.SIMLIB_FIELDSKIP_FLAG = 1 ; // count skipped fields in NGENTOT
       continue ;
     }
-    if ( uniqueMatch(c_get,"SIMLIB_IDSTART:")  )
+    if ( NstringMatch(1,c_get,"SIMLIB_IDSTART:")  )
       { readint ( fp, 1, &INPUTS.SIMLIB_IDSTART ); continue ; }
     
-    if ( uniqueMatch(c_get,"SIMLIB_MAXRANSTART:")  )
+    if ( NstringMatch(1,c_get,"SIMLIB_MAXRANSTART:")  )
       { readint ( fp, 1, &INPUTS.SIMLIB_MAXRANSTART ); continue ; }
     
-    if ( uniqueMatch(c_get,"SIMLIB_IDLOCK:")  )
+    if ( NstringMatch(1,c_get,"SIMLIB_IDLOCK:")  )
       { readint ( fp, 1, &INPUTS.SIMLIB_IDLOCK ); continue ; }
     
-    if ( uniqueMatch(c_get,"SIMLIB_MINOBS:")  ) 
+    if ( NstringMatch(1,c_get,"SIMLIB_MINOBS:")  ) 
       { readint ( fp, 1, &INPUTS.SIMLIB_MINOBS ); continue ; }
     
-    if ( uniqueMatch(c_get,"SIMLIB_MINSEASON:")  )
+    if ( NstringMatch(1,c_get,"SIMLIB_MINSEASON:")  )
       { readdouble ( fp, 1, &INPUTS.SIMLIB_MINSEASON ); continue ; }
     
-    if ( uniqueMatch(c_get,"SIMLIB_DUMP:")  ) 
+    if ( NstringMatch(1,c_get,"SIMLIB_DUMP:")  ) 
       { readint ( fp, 1, &INPUTS.SIMLIB_DUMP ); continue ; }
     
-    if ( uniqueMatch(c_get,"SIMLIB_NREPEAT:")  ) 
+    if ( NstringMatch(1,c_get,"SIMLIB_NREPEAT:")  ) 
       { readint ( fp, 1, &INPUTS.SIMLIB_NREPEAT );  continue ; }
     
-    if ( uniqueMatch(c_get,"SIMLIB_NSKIPMJD:")  )
+    if ( NstringMatch(1,c_get,"SIMLIB_NSKIPMJD:")  )
       { readint ( fp, 1, &INPUTS.SIMLIB_NSKIPMJD ); continue ; }
     
-    if ( uniqueMatch(c_get,"SIMLIB_IDSKIP:")  ) {
+    if ( NstringMatch(1,c_get,"SIMLIB_IDSKIP:")  ) {
       N = INPUTS.NSKIP_SIMLIB ;
       readint ( fp, 1, &INPUTS.SIMLIB_IDSKIP[N] );
       INPUTS.NSKIP_SIMLIB++ ;
       continue ; 
     }
-    if ( uniqueMatch(c_get,"SIMLIB_CADENCEFOM_ANGSEP:")  ) 
+    if ( NstringMatch(1,c_get,"SIMLIB_CADENCEFOM_ANGSEP:")  ) 
       { readfloat ( fp, 1, &INPUTS.SIMLIB_CADENCEFOM_ANGSEP ); continue ; }
     
-    if ( uniqueMatch(c_get,"SIMLIB_CADENCEFOM_PARLIST:")  ) {
+    if ( NstringMatch(1,c_get,"SIMLIB_CADENCEFOM_PARLIST:")  ) {
       readdouble(fp, NPAR_SNCADENCEFOM,INPUTS.SIMLIB_CADENCEFOM_PARLIST );
       continue ; 
     }
-    if ( uniqueMatch(c_get,"USE_SIMLIB_REDSHIFT:")   ) { 
+    if ( NstringMatch(1,c_get,"USE_SIMLIB_REDSHIFT:")   ) { 
       readint ( fp, 1, &INPUTS.USE_SIMLIB_REDSHIFT ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
       continue ; 
     }
-    if ( uniqueMatch(c_get,"USE_SIMLIB_DISTANCE:")   ) { 
+    if ( NstringMatch(1,c_get,"USE_SIMLIB_DISTANCE:")   ) { 
       readint ( fp, 1, &INPUTS.USE_SIMLIB_DISTANCE ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
       continue ; 
     }
-    if ( uniqueMatch(c_get,"USE_SIMLIB_PEAKMJD:")   )  { 
+    if ( NstringMatch(1,c_get,"USE_SIMLIB_PEAKMJD:")   )  { 
       readint ( fp, 1, &INPUTS.USE_SIMLIB_PEAKMJD ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
       continue ;
     }
-    if ( uniqueMatch(c_get,"USE_SIMLIB_MAGOBS:")   )  { 
+    if ( NstringMatch(1,c_get,"USE_SIMLIB_MAGOBS:")   )  { 
       readint ( fp, 1, &INPUTS.USE_SIMLIB_MAGOBS ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
       continue ;
     }
-    if ( uniqueMatch(c_get,"USE_SIMLIB_SPECTRA:")   ) { 
+    if ( NstringMatch(1,c_get,"USE_SIMLIB_SPECTRA:")   ) { 
       readint ( fp, 1, &INPUTS.USE_SIMLIB_SPECTRA ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
       continue ; 
     }
-    if ( uniqueMatch(c_get,"USE_SIMLIB_SALT2:")   ) { 
+    if ( NstringMatch(1,c_get,"USE_SIMLIB_SALT2:")   ) { 
       readint ( fp, 1, &INPUTS.USE_SIMLIB_SALT2 ); 
       INPUTS.USE_SIMLIB_GENOPT=1;
       continue ; 
     }
 
-    if ( uniqueMatch(c_get,"SIMLIB_MSKOPT:")  ) {
+    if ( NstringMatch(1,c_get,"SIMLIB_MSKOPT:")  ) {
       readint ( fp, 1, &ITMP );   INPUTS.SIMLIB_MSKOPT+=ITMP ; 
       continue ; 
     }
     
     //  - - - 
 
-    if ( uniqueMatch(c_get,"NGEN_LC:")  ) 
+    if ( NstringMatch(1,c_get,"NGEN_LC:")  ) 
       { readint ( fp, 1, &INPUTS.NGEN_LC ); continue ; }
 
-    if ( uniqueMatch(c_get,"NGENTOT_LC:")  ) 
+    if ( NstringMatch(1,c_get,"NGENTOT_LC:")  ) 
       { readint ( fp, 1, &INPUTS.NGENTOT_LC ); continue ; }    
 
-    if ( uniqueMatch(c_get,"NGEN_SEASON:")  ) 
+    if ( NstringMatch(1,c_get,"NGEN_SEASON:")  ) 
       { readfloat ( fp, 1, &INPUTS.NGEN_SEASON ); continue ; }    
 
-    if ( uniqueMatch(c_get,"NGEN_SCALE:")  )
+    if ( NstringMatch(1,c_get,"NGEN_SCALE:")  )
       { readfloat ( fp, 1, &INPUTS.NGEN_SCALE ); continue ; }
 
-    if ( uniqueMatch(c_get,"NGEN_SCALE_NON1A:")  )
+    if ( NstringMatch(1,c_get,"NGEN_SCALE_NON1A:")  )
       { readfloat ( fp, 1, &INPUTS.NGEN_SCALE_NON1A ); continue ; }
 
-    if ( uniqueMatch(c_get,"NSUBSAMPLE_MARK:")  ) 
+    if ( NstringMatch(1,c_get,"NSUBSAMPLE_MARK:")  ) 
       { readint ( fp, 1, &INPUTS.NSUBSAMPLE_MARK ); continue ; }
 
-    if ( uniqueMatch(c_get,"CIDOFF:")  ) 
+    if ( NstringMatch(1,c_get,"CIDOFF:")  ) 
       { readint ( fp, 1, &INPUTS.CIDOFF ); continue ; }
     
-    if ( uniqueMatch(c_get,"CIDRAN_MAX:")  ) 
+    if ( NstringMatch(1,c_get,"CIDRAN_MAX:")  ) 
       { readint ( fp, 1, &INPUTS.CIDRAN_MAX ); continue ; }
     
-    if ( uniqueMatch(c_get,"CIDRAN_MIN:")  ) 
+    if ( NstringMatch(1,c_get,"CIDRAN_MIN:")  ) 
       { readint ( fp, 1, &INPUTS.CIDRAN_MIN ); continue ; }    
 
-    if ( uniqueMatch(c_get,"FORMAT_MASK:")  ) 
+    if ( NstringMatch(1,c_get,"FORMAT_MASK:")  ) 
       { readint ( fp, 1, &INPUTS.FORMAT_MASK ); continue ; }
     
-    if ( uniqueMatch(c_get,"WRFLAG_MODELPAR:")  )
+    if ( NstringMatch(1,c_get,"WRFLAG_MODELPAR:")  )
       { readint ( fp, 1, &INPUTS.WRFLAG_MODELPAR ); continue ; }
     
     // - - - -  -
 
-    if ( uniqueMatch(c_get,"NPE_PIXEL_SATURATE:")  ) 
+    if ( NstringMatch(1,c_get,"NPE_PIXEL_SATURATE:")  ) 
       { readint ( fp, 1, &INPUTS.NPE_PIXEL_SATURATE ); continue ; }
     
-    if ( uniqueMatch(c_get,"PHOTFLAG_SATURATE:")  )
+    if ( NstringMatch(1,c_get,"PHOTFLAG_SATURATE:")  )
       { readint ( fp, 1, &INPUTS.PHOTFLAG_SATURATE ); continue ; }
     
-    if ( uniqueMatch(c_get,"PHOTFLAG_SNRMAX:")  ) 
+    if ( NstringMatch(1,c_get,"PHOTFLAG_SNRMAX:")  ) 
       { readint ( fp, 1, &INPUTS.PHOTFLAG_SNRMAX ); continue ; }
     
-    if ( uniqueMatch(c_get,"PHOTFLAG_NEARPEAK:")  ) 
+    if ( NstringMatch(1,c_get,"PHOTFLAG_NEARPEAK:")  ) 
       { readint ( fp, 1, &INPUTS.PHOTFLAG_NEARPEAK ); continue ; }
 
-    if ( uniqueMatch(c_get,"PHOTFLAG_DETECT:")  ) 
+    if ( NstringMatch(1,c_get,"PHOTFLAG_DETECT:")  ) 
       { readint ( fp, 1, &INPUTS_SEARCHEFF.PHOTFLAG_DETECT ); continue ; }
     
-    if ( uniqueMatch(c_get,"PHOTFLAG_TRIGGER:")  )
+    if ( NstringMatch(1,c_get,"PHOTFLAG_TRIGGER:")  )
       { readint ( fp, 1, &INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER ); continue ; }   
 
     // -----
@@ -1717,61 +1737,70 @@ int read_input(char *input_file) {
 
     // -----------
 
-    if ( uniqueMatch(c_get,"GENVERSION:")   ) {
+    if ( NstringMatch(1, c_get,"GENVERSION:")   ) {
       readchar ( fp, INPUTS.GENVERSION );
       sprintf(INPUTS.GENPREFIX,"%s", INPUTS.GENVERSION); // default
       continue ; 
     }
-    if ( uniqueMatch(c_get,"GENPREFIX:")   ) 
+    if ( NstringMatch(1,c_get,"GENPREFIX:")   ) 
       { readchar ( fp, INPUTS.GENPREFIX ); continue ; }
 
-    if ( uniqueMatch(c_get,"CLEARPROMPT:")  )
+    if ( NstringMatch(0, c_get,"CLEARPROMPT:")  ) // abort on obsolete key
       { readint ( fp, 1, &INPUTS.CLEARPROMPT ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENSOURCE:")  )
+    if ( NstringMatch(1, c_get,"GENSOURCE:")  )
       { readchar ( fp, INPUTS.GENSOURCE ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENMODEL_MSKOPT:")  ) 
+    if ( NstringMatch(1,c_get,"GENMODEL_MSKOPT:")  ) 
       { readint ( fp, 1, &INPUTS.GENMODEL_MSKOPT ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENMODEL_ARGLIST:")  )
+    if ( NstringMatch(1,c_get,"GENMODEL_ARGLIST:")  )
       { parse_input_GENMODEL_ARGLIST(fp,&iArg); continue ; }
 
-    if ( uniqueMatch(c_get,"GENMODEL:") > 0  ) {
+    if ( NstringMatch(1,c_get,"GENMODEL:") > 0  ) {
       parse_input_GENMODEL(fp,&iArg);  //4.18.2019
       continue ;
     } // end GENMODEL
 
-    if ( uniqueMatch(c_get,"GENPDF_FILE:")  ) 
+    if ( NstringMatch(1,c_get,"GENPDF_FILE:")  ) 
       { readchar ( fp, INPUTS.GENPDF_FILE ); continue ; }
-    if ( uniqueMatch(c_get,"GENPDF_IGNORE:")  ) 
+    if ( NstringMatch(1,c_get,"GENPDF_IGNORE:")  ) 
       { readchar ( fp, INPUTS.GENPDF_IGNORE ); continue ; }
-    if ( uniqueMatch(c_get,"GENPDF_FLAT:")  ) 
+    if ( NstringMatch(1,c_get,"GENPDF_FLAT:")  ) 
       { readchar ( fp, INPUTS.GENPDF_FLAT ); continue ; }
-    if ( uniqueMatch(c_get,"GENPDF_OPTMASK:")  ) 
+    if ( NstringMatch(1,c_get,"GENPDF_OPTMASK:")  ) 
       { readint ( fp, 1, &INPUTS.GENPDF_OPTMASK ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENMODEL_EXTRAP_LATETIME:") ) 
+    if ( NstringMatch(1,c_get,"GENMODEL_EXTRAP_LATETIME:") ) 
       { readchar ( fp, INPUTS.GENMODEL_EXTRAP_LATETIME ); continue ; }
 
-    if ( uniqueMatch(c_get,"PATH_USER_INPUT:")  )
+    if ( NstringMatch(1,c_get,"PATH_USER_INPUT:")  )
       { readchar(fp, PATH_USER_INPUT ); continue ; }
 
-    if ( uniqueMatch(c_get,"PATH_SNDATA_SIM:")  )
+    if ( NstringMatch(1,c_get,"PATH_SNDATA_SIM:")  )
       { readchar(fp, INPUTS.PATH_SNDATA_SIM ); continue ; }
 
-    if ( uniqueMatch(c_get,"PATH_NON1ASED:")  )
+    if ( NstringMatch(1,c_get,"PATH_NON1ASED:")  )
       { readchar(fp, INPUTS.NON1ASED.PATH ); continue ; }
     
-    if ( uniqueMatch(c_get,"PATH_NONIASED:")  )
+    if ( NstringMatch(1,c_get,"PATH_NONIASED:")  )
       { readchar(fp, INPUTS.NON1ASED.PATH ); continue ; }
    
     L_NON1ASED = ( INPUTS.NON1A_MODELFLAG == MODEL_NON1ASED ) ;
 
+    L_NON1AKEY = (
+      NstringMatch(1,c_get,"NON1A_KEYS:")  ||
+      NstringMatch(1,c_get,"NONIA_KEYS:")  ||
+      NstringMatch(1,c_get,"NON1ASED_KEYS:") ||
+      NstringMatch(1,c_get,"NONIASED_KEYS:") 
+		  );
+
+    /* xxx mark delete Jul 17 2020 xxxxx
     L_NON1AKEY = ( strcmp(c_get,"NON1A_KEYS:")    ==0 || 
 		   strcmp(c_get,"NONIA_KEYS:")    ==0 ||
 		   strcmp(c_get,"NON1ASED_KEYS:") ==0 || 
 		   strcmp(c_get,"NONIASED_KEYS:") ==0      ) ;
+    xxxx */
 
     if ( L_NON1ASED && L_NON1AKEY ) {
       readint ( fp, 1, &NKEY );
@@ -1804,18 +1833,19 @@ int read_input(char *input_file) {
 
     } // end of NON1ASED_KEYS
 
-    if ( strcmp(c_get,"NON1A_STOP:")    ==0 ) {  INPUTS.NON1ASED.STOP = 1 ; }
-    if ( strcmp(c_get,"NON1ASED_STOP:") ==0 ) {  INPUTS.NON1ASED.STOP = 1 ; }
-    L_NON1ASED  = (INPUTS.NON1A_MODELFLAG == MODEL_NON1ASED) ;
-    L_NON1AKEY  = ( strcmp(c_get,"NON1A:")    ==0 || 
-		    strcmp(c_get,"NONIA:")    ==0 ||
-		    strcmp(c_get,"NONIASED:") ==0 ||
-		    strcmp(c_get,"NON1ASED:") ==0 ) ;
+    if ( NstringMatch(1,c_get,"NON1A_STOP:"   )) { INPUTS.NON1ASED.STOP = 1 ; }
+    if ( NstringMatch(1,c_get,"NON1ASED_STOP:")) { INPUTS.NON1ASED.STOP = 1 ; }
 
-    L_PEC1AKEY  = ( strcmp(c_get,"PEC1A:")    ==0 || 
-		    strcmp(c_get,"PECIA:")    ==0 ||
-		    strcmp(c_get,"PECIASED:") ==0 ||
-		    strcmp(c_get,"PEC1ASED:") ==0 ) ;
+    L_NON1ASED  = (INPUTS.NON1A_MODELFLAG == MODEL_NON1ASED) ;
+    L_NON1AKEY  = ( NstringMatch(MXNON1A_TYPE,c_get,"NON1A:") ||
+		    NstringMatch(MXNON1A_TYPE,c_get,"NONIA:") ||
+		    NstringMatch(MXNON1A_TYPE,c_get,"NONIASED:") ||
+		    NstringMatch(MXNON1A_TYPE,c_get,"NON1ASED:") ) ;
+   
+    L_PEC1AKEY  = ( NstringMatch(MXNON1A_TYPE,c_get,"PEC1A:") || 
+		    NstringMatch(MXNON1A_TYPE,c_get,"PECIA:") ||
+		    NstringMatch(MXNON1A_TYPE,c_get,"PECIASED:") ||
+		    NstringMatch(MXNON1A_TYPE,c_get,"PEC1ASED:") ) ;
 
     L_TMP = 
       (L_NON1ASED) && (L_NON1AKEY || L_PEC1AKEY) && 
@@ -1873,7 +1903,7 @@ int read_input(char *input_file) {
     }
 
  
-    if ( uniqueMatch(c_get,"MJD_EXPLODE:")  ) {
+    if ( NstringMatch(1,c_get,"MJD_EXPLODE:")  ) {
       readdouble(fp, 1, &INPUTS.MJD_EXPLODE );
       if ( INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE < 0 ) 
 	{ INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE = 0 ; }
@@ -1881,42 +1911,42 @@ int read_input(char *input_file) {
       INPUTS.GENRANGE_PEAKMJD[1] = INPUTS.MJD_EXPLODE ;
       continue ;
     }
-    if ( uniqueMatch(c_get,"OPTMASK_T0SHIFT_EXPLODE:")  ) {
+    if ( NstringMatch(1,c_get,"OPTMASK_T0SHIFT_EXPLODE:")  ) {
       readint(fp, 1, &INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE); 
       continue ;
     }
 
-    if ( uniqueMatch(c_get,"UVLAM_EXTRAPFLUX:")  ) {
+    if ( NstringMatch(1,c_get,"UVLAM_EXTRAPFLUX:")  ) {
       readdouble(fp, 1, &INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX); 
       continue ; 
     }
 
-    if ( uniqueMatch(c_get,"MINSLOPE_EXTRAPMAG_LATE:")  )  {
+    if ( NstringMatch(1,c_get,"MINSLOPE_EXTRAPMAG_LATE:")  )  {
       readdouble(fp, 1, &INPUTS_SEDMODEL.MINSLOPE_EXTRAPMAG_LATE); 
       continue ; 
     }
     
-    if ( uniqueMatch(c_get,"RANSEED:") ) {
+    if ( NstringMatch(1,c_get,"RANSEED:") ) {
       readint(fp, 1,  &ITMP) ;
       INPUTS.ISEED = ITMP ;     // set unsigned int
       continue ; 
     }
-    if ( uniqueMatch(c_get,"NSTREAM_RAN:") ) {
+    if ( NstringMatch(1,c_get,"NSTREAM_RAN:") ) {
       readint(fp, 1,  &INPUTS.NSTREAM_RAN) ;
       continue ; 
     }
 
 
-    if ( uniqueMatch(c_get,"RANLIST_START_GENSMEAR:") )
+    if ( NstringMatch(1,c_get,"RANLIST_START_GENSMEAR:") )
       { readint(fp, 1, &INPUTS.RANLIST_START_GENSMEAR ); continue ; }    
 
-    if ( uniqueMatch(c_get,"GENRANGE_RA:")  ) 
+    if ( NstringMatch(1,c_get,"GENRANGE_RA:")  ) 
       { readfloat ( fp, 2, INPUTS.GENRANGE_RA ); continue ; }
     
-    if ( uniqueMatch(c_get,"GENRANGE_DECL:")  )
+    if ( NstringMatch(1,c_get,"GENRANGE_DECL:")  )
       { readfloat ( fp, 2, INPUTS.GENRANGE_DEC ); continue ; }
     
-    if ( uniqueMatch(c_get,"GENRANGE_DEC:")  )
+    if ( NstringMatch(1,c_get,"GENRANGE_DEC:")  )
       { readfloat ( fp, 2, INPUTS.GENRANGE_DEC ); continue ; }
 
     if ( strstr(c_get,"SOLID_ANGLE") != NULL ) {
@@ -1924,28 +1954,28 @@ int read_input(char *input_file) {
       continue ; 
     }
 
-    if ( uniqueMatch(c_get,"GENRANGE_REDSHIFT:")  ) 
+    if ( NstringMatch(1,c_get,"GENRANGE_REDSHIFT:")  ) 
       { readdouble ( fp, 2, INPUTS.GENRANGE_REDSHIFT ); continue ; }
     
-    if ( uniqueMatch(c_get,"GENSIGMA_REDSHIFT:")  ) 
+    if ( NstringMatch(1,c_get,"GENSIGMA_REDSHIFT:")  ) 
       { readdouble ( fp, 1, &INPUTS.GENSIGMA_REDSHIFT ); continue ; }
     
-    if ( uniqueMatch(c_get,"GENBIAS_REDSHIFT:")  ) 
+    if ( NstringMatch(1,c_get,"GENBIAS_REDSHIFT:")  ) 
       { readdouble ( fp, 1, &INPUTS.GENBIAS_REDSHIFT ); continue ; }    
 
-    if ( uniqueMatch(c_get,"GENSIGMA_VPEC:")  )
+    if ( NstringMatch(1,c_get,"GENSIGMA_VPEC:")  )
       { readfloat ( fp, 1, &INPUTS.GENSIGMA_VPEC ); continue ; }
     
-    if ( uniqueMatch(c_get,"VPEC_ERR:")  )
+    if ( NstringMatch(1,c_get,"VPEC_ERR:")  )
       { readfloat ( fp, 1, &INPUTS.VPEC_ERR ); continue ; }    
 
-    if ( uniqueMatch(c_get,"VEL_CMBAPEX:")  ) 
+    if ( NstringMatch(1,c_get,"VEL_CMBAPEX:")  ) 
       { readfloat ( fp, 1, &INPUTS.VEL_CMBAPEX ); continue ; }
  
     // - - - - -- 
     // wrongHost model params
 
-    if ( uniqueMatch(c_get,"WRONGHOST_FILE:")  ) 
+    if ( NstringMatch(1,c_get,"WRONGHOST_FILE:")  ) 
       { readchar( fp, INPUTS.WRONGHOST_FILE); continue ; }
 
     // ---- read/parse RATEPAR struct -----------
@@ -1953,36 +1983,36 @@ int read_input(char *input_file) {
     read_input_RATEPAR(fp, "PEC1A",   c_get, &INPUTS.RATEPAR_PEC1A );
     // - - - - 
 
-    if ( uniqueMatch(c_get,"GENRANGE_PEAKMAG:")  )
+    if ( NstringMatch(1,c_get,"GENRANGE_PEAKMAG:")  )
       { readdouble ( fp, 2, INPUTS.GENRANGE_PEAKMAG ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENRANGE_MJD:")  )
+    if ( NstringMatch(1,c_get,"GENRANGE_MJD:")  )
       { readdouble ( fp, 2, INPUTS.GENRANGE_MJD ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENRANGE_PEAKMJD:")  ) 
+    if ( NstringMatch(1,c_get,"GENRANGE_PEAKMJD:")  ) 
       { readdouble ( fp, 2, INPUTS.GENRANGE_PEAKMJD ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENSIGMA_SEARCH_PEAKMJD:")  )  // legacy key
+    if ( NstringMatch(1,c_get,"GENSIGMA_SEARCH_PEAKMJD:")  )  // legacy key
       { readfloat ( fp, 1, &INPUTS.GENSIGMA_PEAKMJD ); continue ; }
-    if ( uniqueMatch(c_get,"GENSIGMA_PEAKMJD:")  ) 
+    if ( NstringMatch(1,c_get,"GENSIGMA_PEAKMJD:")  ) 
       { readfloat ( fp, 1, &INPUTS.GENSIGMA_PEAKMJD ); continue ; }
-    if ( uniqueMatch(c_get,"OPT_SETPKMJD:")  ) 
+    if ( NstringMatch(1,c_get,"OPT_SETPKMJD:")  ) 
       { readint ( fp, 1, &INPUTS.OPT_SETPKMJD ); continue ; }
 
-    if ( uniqueMatch(c_get,"NEWMJD_DIF:")  ) 
+    if ( NstringMatch(1,c_get,"NEWMJD_DIF:")  ) 
       { readfloat ( fp, 1, &INPUTS.NEWMJD_DIF ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENRANGE_TREST:")  ) 
+    if ( NstringMatch(1,c_get,"GENRANGE_TREST:")  ) 
       { readfloat ( fp, 2, INPUTS.GENRANGE_TREST ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENRANGE_TOBS:")  ) 
+    if ( NstringMatch(1,c_get,"GENRANGE_TOBS:")  ) 
       { readfloat ( fp, 2, INPUTS.GENRANGE_TOBS ); continue ; }
 
-    if ( uniqueMatch(c_get,"TGRIDSTEP_MODEL_INTERP:")  ) 
+    if ( NstringMatch(1,c_get,"TGRIDSTEP_MODEL_INTERP:")  ) 
       { readfloat ( fp, 1, &INPUTS.TGRIDSTEP_MODEL_INTERP ); continue ; }
 
     // contraint input file
-    if ( uniqueMatch(c_get,"GENPAR_SELECT_FILE:")  ) 
+    if ( NstringMatch(1,c_get,"GENPAR_SELECT_FILE:")  ) 
       { readchar ( fp, INPUTS.GENPAR_SELECT_FILE ); continue ; }
 
     // ----- SIMSED parameters ---------
@@ -2024,7 +2054,7 @@ int read_input(char *input_file) {
     read_input_GENGAUSS(fp, c_get, "DM15",     &INPUTS.GENGAUSS_DM15     );
     read_input_GENGAUSS(fp, c_get, "STRETCH",  &INPUTS.GENGAUSS_STRETCH  );
 
-    if ( uniqueMatch(c_get,"STRETCH_TEMPLATE_FILE:" )   )
+    if ( NstringMatch(1,c_get,"STRETCH_TEMPLATE_FILE:" )   )
       { readchar(fp, INPUTS.STRETCH_TEMPLATE_FILE ); continue ; }
 
     // read SALT2 gen parameters
@@ -2033,33 +2063,33 @@ int read_input(char *input_file) {
     read_input_GENGAUSS(fp, c_get, "SALT2ALPHA", &INPUTS.GENGAUSS_SALT2ALPHA );
     read_input_GENGAUSS(fp, c_get, "SALT2BETA",  &INPUTS.GENGAUSS_SALT2BETA  );
 
-    if ( uniqueMatch(c_get,"BIASCOR_SALT2GAMMA_GRID:")   ) 
+    if ( NstringMatch(1,c_get,"BIASCOR_SALT2GAMMA_GRID:")   ) 
       { readdouble(fp, 2, INPUTS.BIASCOR_SALT2GAMMA_GRID );  continue ; }
 
-    if ( uniqueMatch(c_get,"SALT2BETA_cPOLY:")   )  { 
+    if ( NstringMatch(1,c_get,"SALT2BETA_cPOLY:")   )  { 
       readchar(fp, cpoly);
       parse_GENPOLY(cpoly, "SALT2BETA_cPOLY", &INPUTS.SALT2BETA_cPOLY, fnam);
       continue ;
     }
 
-    if ( uniqueMatch(c_get,"SALT2mu_FILE:" )   )
+    if ( NstringMatch(1,c_get,"SALT2mu_FILE:" )   )
       { readchar(fp, INPUTS.SALT2mu_FILE ); continue ; }
 
     // read legacy SALT2 alpha & beta key, but load modern variable
-    if ( uniqueMatch(c_get,"GENALPHA_SALT2:")  ) {
+    if ( NstringMatch(1,c_get,"GENALPHA_SALT2:")  ) {
       readfloat ( fp, 1, &INPUTS.GENALPHA_SALT2 );
       INPUTS.GENGAUSS_SALT2ALPHA.PEAK     = INPUTS.GENALPHA_SALT2 ; 
       INPUTS.GENGAUSS_SALT2ALPHA.USE      = true ;
       continue ; 
     }
-    if ( uniqueMatch(c_get,"GENBETA_SALT2:")  ) {
+    if ( NstringMatch(1,c_get,"GENBETA_SALT2:")  ) {
       readfloat ( fp, 1, &INPUTS.GENBETA_SALT2 );
       INPUTS.GENGAUSS_SALT2BETA.PEAK     = INPUTS.GENBETA_SALT2 ; 
       INPUTS.GENGAUSS_SALT2BETA.USE      = true ;
       continue ; 
     }
 
-    if ( uniqueMatch(c_get,"LEGACY_colorXTMW_SALT2:")    )
+    if ( NstringMatch(1,c_get,"LEGACY_colorXTMW_SALT2:")    )
       { readint(fp, 1, &INPUTS.LEGACY_colorXTMW_SALT2); continue ; }
 
     // ---
@@ -2068,7 +2098,7 @@ int read_input(char *input_file) {
 
     read_input_GENGAUSS(fp, c_get, PARNAME_RV,  &INPUTS.GENGAUSS_RV );
 
-    if ( uniqueMatch(c_get,"GENRANGE_AV:")  ) 
+    if ( NstringMatch(1,c_get,"GENRANGE_AV:")  ) 
       { readdouble ( fp, 2, INPUTS.GENPROFILE_AV.RANGE ); 
 	INPUTS.GENRANGE_AV[0] = INPUTS.GENPROFILE_AV.RANGE[0];//legacy
 	INPUTS.GENRANGE_AV[1] = INPUTS.GENPROFILE_AV.RANGE[1];//legacy
@@ -2076,7 +2106,7 @@ int read_input(char *input_file) {
       }
 
     // allow old or new key for AV tau
-    if ( uniqueMatch(c_get,"GENTAU_AV:")||uniqueMatch(c_get,"GENEXPTAU_AV:") ) 
+    if ( NstringMatch(1,c_get,"GENTAU_AV:")||NstringMatch(1,c_get,"GENEXPTAU_AV:") ) 
       {
 	readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.EXP_TAU ); 
 	INPUTS.GENEXPTAU_AV = INPUTS.GENPROFILE_AV.EXP_TAU ; //legacy variable
@@ -2084,20 +2114,20 @@ int read_input(char *input_file) {
       }
      
 
-    if ( uniqueMatch(c_get,"GENSIG_AV:") || uniqueMatch(c_get,"GENGAUSIG_AV:") ) 
+    if ( NstringMatch(1,c_get,"GENSIG_AV:") || NstringMatch(1,c_get,"GENGAUSIG_AV:") ) 
       {
 	readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.SIGMA );
         INPUTS.GENGAUSIG_AV = INPUTS.GENPROFILE_AV.SIGMA ; //legacy variable                              
 	continue ;
       }
 
-    if ( uniqueMatch(c_get,"GENGAUPEAK_AV:")  ) 
+    if ( NstringMatch(1,c_get,"GENGAUPEAK_AV:")  ) 
       { readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.PEAK ); 
 	INPUTS.GENGAUPEAK_AV = INPUTS.GENPROFILE_AV.PEAK;//legacy
 	continue ; 
       } 
 
-    if ( uniqueMatch(c_get,"GENRATIO_AV0:")  ) 
+    if ( NstringMatch(1,c_get,"GENRATIO_AV0:")  ) 
       { 
 	readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.RATIO ); 
 	INPUTS.GENRATIO_AV0 = INPUTS.GENPROFILE_AV.RATIO ; //legacy
@@ -2106,40 +2136,40 @@ int read_input(char *input_file) {
 
     // ------- Now for EBV_HOST -------------
 
-    if ( uniqueMatch(c_get,"GENGAUPEAK_EBV_HOST:")  )
+    if ( NstringMatch(1,c_get,"GENGAUPEAK_EBV_HOST:")  )
       { readdouble ( fp, 1, &INPUTS.GENPROFILE_EBV_HOST.PEAK ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENSIG_EBV_HOST:")  )
+    if ( NstringMatch(1,c_get,"GENSIG_EBV_HOST:")  )
       { readdouble ( fp, 1, &INPUTS.GENPROFILE_EBV_HOST.SIGMA ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENTAU_EBV_HOST:")  )
+    if ( NstringMatch(1,c_get,"GENTAU_EBV_HOST:")  )
       { readdouble ( fp, 1, &INPUTS.GENPROFILE_EBV_HOST.EXP_TAU ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENRATIO_EBV0_HOST:")  )
+    if ( NstringMatch(1,c_get,"GENRATIO_EBV0_HOST:")  )
       { readdouble ( fp, 1, &INPUTS.GENPROFILE_EBV_HOST.RATIO ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENRANGE_EBV_HOST:")  )
+    if ( NstringMatch(1,c_get,"GENRANGE_EBV_HOST:")  )
       { readdouble ( fp, 2, INPUTS.GENPROFILE_EBV_HOST.RANGE ); continue ; }
     // ----------------------------------------
 
 
-    if ( uniqueMatch(c_get,"GENAV_WV07:")  ) // legacy key name
+    if ( NstringMatch(1,c_get,"GENAV_WV07:")  ) // legacy key name
       { readint ( fp, 1, &INPUTS.WV07_GENAV_FLAG ); continue ; }
-    if ( uniqueMatch(c_get,"WV07_GENAV_FLAG:")  ) 
+    if ( NstringMatch(1,c_get,"WV07_GENAV_FLAG:")  ) 
       { readint ( fp, 1, &INPUTS.WV07_GENAV_FLAG ); continue ; }
-    if ( uniqueMatch(c_get,"WV07_REWGT_EXPAV:")  ) 
+    if ( NstringMatch(1,c_get,"WV07_REWGT_EXPAV:")  ) 
       { readdouble ( fp, 1, &INPUTS.WV07_REWGT_EXPAV ); continue ; }
 
 
-    if ( uniqueMatch(c_get,"RVMW:")   ) // allow legacy key (Sep 2013)
+    if ( NstringMatch(1,c_get,"RVMW:")   ) // allow legacy key (Sep 2013)
       { readdouble ( fp, 1, &INPUTS.RV_MWCOLORLAW ); continue ; }
-    if ( uniqueMatch(c_get,"RV_MWCOLORLAW:")   )  // new key (Sep 2013)
+    if ( NstringMatch(1,c_get,"RV_MWCOLORLAW:")   )  // new key (Sep 2013)
       { readdouble ( fp, 1, &INPUTS.RV_MWCOLORLAW ); continue ; }
 
-    if ( uniqueMatch(c_get,"OPT_MWCOLORLAW:")   ) 
+    if ( NstringMatch(1,c_get,"OPT_MWCOLORLAW:")   ) 
       { readint ( fp, 1, &INPUTS.OPT_MWCOLORLAW ); continue ; }
 
-    if ( uniqueMatch(c_get,"OPT_MWEBV:")  ) {
+    if ( NstringMatch(1,c_get,"OPT_MWEBV:")  ) {
       readint ( fp, 1, &opt_tmp) ;
       INPUTS.OPT_MWEBV = abs(opt_tmp);
       if ( opt_tmp < 0 ) { INPUTS.APPLYFLAG_MWEBV=1; } // correct FLUXCAL
@@ -2147,32 +2177,32 @@ int read_input(char *input_file) {
     }
 
     // next are for systematic tests
-    if ( uniqueMatch(c_get,"GENSIGMA_MWEBV_RATIO:")  )
+    if ( NstringMatch(1,c_get,"GENSIGMA_MWEBV_RATIO:")  )
       { readdouble ( fp, 1, &INPUTS.MWEBV_SIGRATIO ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENSIGMA_MWEBV:")  )
+    if ( NstringMatch(1,c_get,"GENSIGMA_MWEBV:")  )
       { readdouble ( fp, 1, &INPUTS.MWEBV_SIG ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENSHIFT_MWEBV:")  ||
-	 uniqueMatch(c_get,"FUDGESHIFT_MWEBV:")  )
+    if ( NstringMatch(1,c_get,"GENSHIFT_MWEBV:")  ||
+	 NstringMatch(1,c_get,"FUDGESHIFT_MWEBV:")  )
       { readdouble ( fp, 1, &INPUTS.MWEBV_SHIFT ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENSCALE_MWEBV:")  ||
-	 uniqueMatch(c_get,"FUDGESCALE_MWEBV:")  )
+    if ( NstringMatch(1,c_get,"GENSCALE_MWEBV:")  ||
+	 NstringMatch(1,c_get,"FUDGESCALE_MWEBV:")  )
       { readdouble ( fp, 1, &INPUTS.MWEBV_SCALE ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENRANGE_MWEBV:")  )
+    if ( NstringMatch(1,c_get,"GENRANGE_MWEBV:")  )
       { readdouble ( fp, 2, INPUTS.GENRANGE_MWEBV ); continue ; }
 
     // ---- host -----
 
-    if ( uniqueMatch(c_get,"EXTINC_HOSTGAL:")  ) 
+    if ( NstringMatch(1,c_get,"EXTINC_HOSTGAL:")  ) 
       { readchar ( fp, INPUTS.GENSNXT );  continue ; }
 
     // ---
 
-    if ( uniqueMatch(c_get,"GENMAG_OFF_AB:")  ||   // legacy key
-	 uniqueMatch(c_get,"GENMAG_OFF_ZP:")  ) {
+    if ( NstringMatch(1,c_get,"GENMAG_OFF_AB:")  ||   // legacy key
+	 NstringMatch(1,c_get,"GENMAG_OFF_ZP:")  ) {
       if ( INPUTS.NFILTDEF_OBS == 0 ) {
 	sprintf(c1err,"Filters NOT specified: cannot read AB offsets.");
 	sprintf(c2err,"Please define filters BEFORE AB offsets.");
@@ -2183,12 +2213,12 @@ int read_input(char *input_file) {
     }
 
 
-    if ( uniqueMatch(c_get,"GENMAG_OFF_GLOBAL:")  ) 
+    if ( NstringMatch(1,c_get,"GENMAG_OFF_GLOBAL:")  ) 
       { readfloat ( fp, 1, &INPUTS.GENMAG_OFF_GLOBAL ); continue ; }
-    if ( uniqueMatch(c_get,"GENMAG_OFF_NON1A:")  ) 
+    if ( NstringMatch(1,c_get,"GENMAG_OFF_NON1A:")  ) 
       { readfloat ( fp, 1, &INPUTS.GENMAG_OFF_NON1A ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENMAG_OFF_MODEL:")  ) {
+    if ( NstringMatch(1,c_get,"GENMAG_OFF_MODEL:")  ) {
       if ( INPUTS.NFILTDEF_OBS == 0 ) {
 	sprintf(c1err,"Filters NOT specified: cannot read MODEL offsets.");
 	sprintf(c2err,"Please define filters BEFORE MODEL offsets.");
@@ -2199,18 +2229,18 @@ int read_input(char *input_file) {
     }
 
 
-    if ( uniqueMatch(c_get,"GENMODEL_ERRSCALE:")  ) 
+    if ( NstringMatch(1,c_get,"GENMODEL_ERRSCALE:")  ) 
       {  readfloat ( fp, 1, &INPUTS.GENMODEL_ERRSCALE ); continue ; }
-    if ( uniqueMatch(c_get,"GENMAG_SMEAR:")  ) {
+    if ( NstringMatch(1,c_get,"GENMAG_SMEAR:")  ) {
       readchar(fp, ctmp); 
       split2floats(ctmp, comma, INPUTS.GENMAG_SMEAR );
       continue ;
     }
 
-    if ( uniqueMatch(c_get,"GENMAG_SMEAR_ADDPHASECOR:")  ) 
+    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_ADDPHASECOR:")  ) 
       { readfloat(fp, 2, INPUTS.GENMAG_SMEAR_ADDPHASECOR );  }
 
-    if ( uniqueMatch(c_get,"GENMAG_SMEAR_USRFUN:")  ) { 
+    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_USRFUN:")  ) { 
       INPUTS.NPAR_GENSMEAR_USRFUN     = 8 ; // fix hard-wired param
       readdouble ( fp, INPUTS.NPAR_GENSMEAR_USRFUN, 
 		   INPUTS.GENMAG_SMEAR_USRFUN );
@@ -2228,10 +2258,10 @@ int read_input(char *input_file) {
     if ( strstr(c_get,"GENMAG_SMEAR_SCALE") != NULL ) 
       { parse_input_GENMAG_SMEAR_SCALE(fp, &iArg, c_get ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENMAG_SMEAR_MSKOPT:")   ) 
+    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_MSKOPT:")   ) 
       { readint(fp, 1, &INPUTS.GENMAG_SMEAR_MSKOPT ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENMAG_SMEAR_MODELNAME:")   ) {
+    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_MODELNAME:")   ) {
       modelName = INPUTS.GENMAG_SMEAR_MODELNAME  ;
       readchar(fp, modelName );
       if ( strcmp(modelName,"G10FUDGE") == 0 ) 
@@ -2242,22 +2272,22 @@ int read_input(char *input_file) {
     }
 
     // updated keys for strong & weak lensing (July 2019)
-    if ( uniqueMatch(c_get,"STRONGLENS_FILE:")   ) 
+    if ( NstringMatch(1,c_get,"STRONGLENS_FILE:")   ) 
       { readchar(fp, INPUTS.STRONGLENS_FILE); continue ; }
 
-    if ( uniqueMatch(c_get,"WEAKLENS_PROBMAP_FILE:")   ) 
+    if ( NstringMatch(1,c_get,"WEAKLENS_PROBMAP_FILE:")   ) 
       { readchar(fp, INPUTS.WEAKLENS_PROBMAP_FILE); continue ; }
-    if ( uniqueMatch(c_get,"WEAKLENS_DMUSCALE:")   ) 
+    if ( NstringMatch(1,c_get,"WEAKLENS_DMUSCALE:")   ) 
       { readfloat(fp, 1, &INPUTS.WEAKLENS_DMUSCALE); continue ; }
-    if ( uniqueMatch(c_get,"WEAKLENS_DSIGMADZ:")   ) 
+    if ( NstringMatch(1,c_get,"WEAKLENS_DSIGMADZ:")   ) 
       { readfloat(fp, 1, &INPUTS.WEAKLENS_DSIGMADZ); continue ; }
 
     // legacy keys for weak lensing (May 2017)
-    if ( uniqueMatch(c_get,"LENSING_PROBMAP_FILE:")   ) 
+    if ( NstringMatch(1,c_get,"LENSING_PROBMAP_FILE:")   ) 
       { readchar(fp, INPUTS.WEAKLENS_PROBMAP_FILE); continue ; }
-    if ( uniqueMatch(c_get,"LENSING_DMUSCALE:")   ) 
+    if ( NstringMatch(1,c_get,"LENSING_DMUSCALE:")   ) 
       { readfloat(fp, 1, &INPUTS.WEAKLENS_DMUSCALE); continue ; }
-    if ( uniqueMatch(c_get,"LENSING_DSIGMADZ:")   ) 
+    if ( NstringMatch(1,c_get,"LENSING_DSIGMADZ:")   ) 
       { readfloat(fp, 1, &INPUTS.WEAKLENS_DSIGMADZ); continue ; }
 
     int NVAL;
@@ -2273,21 +2303,21 @@ int read_input(char *input_file) {
     }
 
 
-    if ( uniqueMatch(c_get,"GENSMEAR_RANGauss_FIX:")  ) 
+    if ( NstringMatch(1,c_get,"GENSMEAR_RANGauss_FIX:")  ) 
       { readdouble ( fp, 1, &INPUTS.GENSMEAR_RANGauss_FIX ); continue ; }
-    if ( uniqueMatch(c_get,"GENSMEAR_RANGAUSS_FIX:")  ) 
+    if ( NstringMatch(1,c_get,"GENSMEAR_RANGAUSS_FIX:")  ) 
       { readdouble ( fp, 1, &INPUTS.GENSMEAR_RANGauss_FIX ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENSMEAR_RANFlat_FIX:")  ) 
+    if ( NstringMatch(1,c_get,"GENSMEAR_RANFlat_FIX:")  ) 
       { readdouble ( fp, 1, &INPUTS.GENSMEAR_RANFlat_FIX ); continue ; }
-    if ( uniqueMatch(c_get,"GENSMEAR_RANFLAT_FIX:")  ) 
+    if ( NstringMatch(1,c_get,"GENSMEAR_RANFLAT_FIX:")  ) 
       { readdouble ( fp, 1, &INPUTS.GENSMEAR_RANFlat_FIX ); continue ; }
 
-    if ( uniqueMatch(c_get,"SIGMACLIP_MAGSMEAR:")  ) 
+    if ( NstringMatch(1,c_get,"SIGMACLIP_MAGSMEAR:")  ) 
       { readfloat ( fp, 2, INPUTS.SIGMACLIP_MAGSMEAR ); continue ; }
 
 
-    if ( uniqueMatch(c_get,"GENMAG_SMEAR_FILTER:")  ) {
+    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_FILTER:")  ) {
       readchar(fp, ctmp );  // list of filters
       readchar(fp, ctmp2);  // float value or "INTERP" flag
 
@@ -2308,10 +2338,10 @@ int read_input(char *input_file) {
       continue ; 
     }
 
-    if ( uniqueMatch(c_get,"GENMODEL_ERRSCALE_OPT:")  ) 
+    if ( NstringMatch(1,c_get,"GENMODEL_ERRSCALE_OPT:")  ) 
       {  readint(fp,1,&INPUTS.GENMODEL_ERRSCALE_OPT ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENMODEL_ERRSCALE_CORRELATION:")  ) 
+    if ( NstringMatch(1,c_get,"GENMODEL_ERRSCALE_CORRELATION:")  ) 
       { readfloat(fp,1,&INPUTS.GENMODEL_ERRSCALE_CORRELATION ); continue;}
 
     // check intrinsic scatter
@@ -2324,16 +2354,16 @@ int read_input(char *input_file) {
     }
     // -----
 
-    if ( uniqueMatch(c_get,"GENRANGE_TYPE:")  ) 
+    if ( NstringMatch(1,c_get,"GENRANGE_TYPE:")  ) 
       { readint ( fp, 2, INPUTS.GENRANGE_TYPE ); continue ; }
-    if ( uniqueMatch(c_get,"GENRANGE_CID:")  ) 
+    if ( NstringMatch(1,c_get,"GENRANGE_CID:")  ) 
       { readint ( fp, 2, INPUTS.GENRANGE_CID ); continue ; }
 
 
     // check old option to specify filter-index range;
     // Users should really switch to using 'GENFILTERS: abcd'
 
-    if ( uniqueMatch(c_get,"GENRANGE_FILT:")  ) {
+    if ( NstringMatch(1,c_get,"GENRANGE_FILT:")  ) {
       sprintf(c1err,"GENRANGE_FILT: keyword no longer supported.");
       sprintf(c2err,"Must use GENFILTERS: ");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -2342,7 +2372,7 @@ int read_input(char *input_file) {
     // Aug 13, 2007: new option to read filter-string so that
     // users need not worry about indices.
 
-    if ( uniqueMatch(c_get,"GENFILTERS:")  ) {
+    if ( NstringMatch(1,c_get,"GENFILTERS:")  ) {
       readchar ( fp, INPUTS.GENFILTERS );
       // must parse this NOW to get NFILT_OBS
       INPUTS.NFILTDEF_OBS =
@@ -2351,74 +2381,74 @@ int read_input(char *input_file) {
     }
 
 
-    if ( uniqueMatch(c_get,"GENRANGE_DMPEVENT:")  ) 
+    if ( NstringMatch(1,c_get,"GENRANGE_DMPEVENT:")  ) 
       { readint ( fp, 2, INPUTS.GENRANGE_DMPEVENT ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENRANGE_DMPTREST:")   ) 
+    if ( NstringMatch(1,c_get,"GENRANGE_DMPTREST:")   ) 
       { readfloat ( fp, 2, INPUTS.GENRANGE_DMPTREST ); continue ; }
 
-    if ( uniqueMatch(c_get,"SMEARFLAG_FLUX:")  ) 
+    if ( NstringMatch(1,c_get,"SMEARFLAG_FLUX:")  ) 
       { readint ( fp, 1, &INPUTS.SMEARFLAG_FLUX ); continue ; }
-    if ( uniqueMatch(c_get,"SMEARFLAG_ZEROPT:")  ) 
+    if ( NstringMatch(1,c_get,"SMEARFLAG_ZEROPT:")  ) 
       { readint ( fp, 1, &INPUTS.SMEARFLAG_ZEROPT ); continue ; }
 
-    if ( uniqueMatch(c_get,"MAGMONITOR_SNR:")  ) 
+    if ( NstringMatch(1,c_get,"MAGMONITOR_SNR:")  ) 
       { readint ( fp, 1, &INPUTS.MAGMONITOR_SNR ); continue ; }
 
-    if ( uniqueMatch(c_get,"GENKCOR_STRETCH:")  ) 
+    if ( NstringMatch(1,c_get,"GENKCOR_STRETCH:")  ) 
       { readint ( fp, 1, &INPUTS.KCORFLAG_STRETCH ); }  
 
-    if ( uniqueMatch(c_get,"KCORFLAG_COLOR:")  ) 
+    if ( NstringMatch(1,c_get,"KCORFLAG_COLOR:")  ) 
       { readint ( fp, 1, &INPUTS.KCORFLAG_COLOR ); }  
 
-    if ( uniqueMatch(c_get,"EXPOSURE_TIME_MSKOPT:")  ) 
+    if ( NstringMatch(1,c_get,"EXPOSURE_TIME_MSKOPT:")  ) 
       { readint ( fp, 1, &INPUTS.EXPOSURE_TIME_MSKOPT ); } 
 
-    if ( uniqueMatch(c_get,"KCOR_FILE:") ) 
+    if ( NstringMatch(1,c_get,"KCOR_FILE:") ) 
       { readchar ( fp, INPUTS.KCOR_FILE ); continue ; }
 
-    if ( uniqueMatch(c_get,"OMEGA_MATTER:")  ) 
+    if ( NstringMatch(1,c_get,"OMEGA_MATTER:")  ) 
       { readdouble ( fp, 1, &INPUTS.OMEGA_MATTER ) ; continue ; }
 
-    if ( uniqueMatch(c_get,"OMEGA_LAMBDA:")  ) 
+    if ( NstringMatch(1,c_get,"OMEGA_LAMBDA:")  ) 
       { readdouble ( fp, 1, &INPUTS.OMEGA_LAMBDA ); continue ; }
 
-    if ( uniqueMatch(c_get,"W0_LAMBDA:")  )
+    if ( NstringMatch(1,c_get,"W0_LAMBDA:")  )
       { readdouble ( fp, 1, &INPUTS.W0_LAMBDA ); continue ; }
 
-    if ( uniqueMatch(c_get,"H0:")  ) 
+    if ( NstringMatch(1,c_get,"H0:")  ) 
       { readdouble ( fp, 1, &INPUTS.H0 ); continue ; }
 
     // ------
 
-    if ( uniqueMatch(c_get,"FUDGE_SNRMAX:")  ) { 
+    if ( NstringMatch(1,c_get,"FUDGE_SNRMAX:")  ) { 
       readchar ( fp,  INPUTS.STRING_FUDGE_SNRMAX ); 
       INPUTS.OPT_FUDGE_SNRMAX = 1; 
       continue ; 
     }
-    if ( uniqueMatch(c_get,"FUDGE2_SNRMAX:")  )  { 
+    if ( NstringMatch(1,c_get,"FUDGE2_SNRMAX:")  )  { 
       readchar( fp,  INPUTS.STRING_FUDGE_SNRMAX ); 
       INPUTS.OPT_FUDGE_SNRMAX = 2; 
       continue ; 
     }
 
-    if ( uniqueMatch(c_get,"FUDGESCALE_PSF:")  ) 
+    if ( NstringMatch(1,c_get,"FUDGESCALE_PSF:")  ) 
       { readfloat ( fp, 1, &INPUTS.FUDGESCALE_PSF ); continue ; }
 
-    if ( uniqueMatch(c_get,"FUDGESCALE_NOISE_SKY:")  ) 
+    if ( NstringMatch(1,c_get,"FUDGESCALE_NOISE_SKY:")  ) 
       { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_SKY ); continue ; }
-    if ( uniqueMatch(c_get,"FUDGESCALE_SKYNOISE:") ) // legacy name
+    if ( NstringMatch(1,c_get,"FUDGESCALE_SKYNOISE:") ) // legacy name
       { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_SKY ); continue ; }
 
-    if ( uniqueMatch(c_get,"FUDGESCALE_NOISE_READ:")  ) 
+    if ( NstringMatch(1,c_get,"FUDGESCALE_NOISE_READ:")  ) 
       { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_READ ); continue ; }
-    if ( uniqueMatch(c_get,"FUDGESCALE_READNOISE:")  )  // legacy name
+    if ( NstringMatch(1,c_get,"FUDGESCALE_READNOISE:")  )  // legacy name
       { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_READ ); continue ; }
 
-    if ( uniqueMatch(c_get,"FUDGESCALE_NOISE_TEMPLATE:")  ) 
+    if ( NstringMatch(1,c_get,"FUDGESCALE_NOISE_TEMPLATE:")  ) 
       { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_TEMPLATE ); continue ; }
 
-    if ( uniqueMatch(c_get,"FUDGEOPT_FLUXERR:")  )   
+    if ( NstringMatch(1,c_get,"FUDGEOPT_FLUXERR:")  )   
       { readint ( fp, 1, &INPUTS.FUDGEOPT_FLUXERR ); continue ; }
 
 
@@ -2458,37 +2488,37 @@ int read_input(char *input_file) {
     // ------
 
     // -- search eff
-    if ( uniqueMatch(c_get,"GENPERFECT:")  ) 
+    if ( NstringMatch(1,c_get,"GENPERFECT:")  ) 
       { readint ( fp, 1, &INPUTS.GENPERFECT ); continue ; }
 
-    if ( uniqueMatch(c_get,"MAGSHIFT_SPECEFF:")  ) 
+    if ( NstringMatch(1,c_get,"MAGSHIFT_SPECEFF:")  ) 
       { readdouble(fp,1,&INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF ); continue;}
 
-    if ( uniqueMatch(c_get,"SEARCHEFF_PIPELINE_LOGIC_FILE:")  ) 
+    if ( NstringMatch(1,c_get,"SEARCHEFF_PIPELINE_LOGIC_FILE:")  ) 
       { readchar(fp,INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE ); continue;}
 
     // allow two different keys here
-    if ( uniqueMatch(c_get,"SEARCHEFF_PIPELINE_FILE:")  ) 
+    if ( NstringMatch(1,c_get,"SEARCHEFF_PIPELINE_FILE:")  ) 
       { readchar ( fp, INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE );continue ; }
-    if ( uniqueMatch(c_get,"SEARCHEFF_PIPELINE_EFF_FILE:")  ) 
+    if ( NstringMatch(1,c_get,"SEARCHEFF_PIPELINE_EFF_FILE:")  ) 
       { readchar ( fp, INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE ); continue ; }
 
-    if ( uniqueMatch(c_get,"SEARCHEFF_SPEC_FILE:")  ) 
+    if ( NstringMatch(1,c_get,"SEARCHEFF_SPEC_FILE:")  ) 
       { readchar ( fp, INPUTS_SEARCHEFF.USER_SPEC_FILE ); continue ; }
-    if ( uniqueMatch(c_get,"SEARCHEFF_SPEC_SCALE:")  ) 
+    if ( NstringMatch(1,c_get,"SEARCHEFF_SPEC_SCALE:")  ) 
       { readdouble(fp,1,&INPUTS_SEARCHEFF.USER_SPECEFF_SCALE ); continue ; }
 
-    if ( uniqueMatch(c_get,"SEARCHEFF_zHOST_FILE:")  ) 
+    if ( NstringMatch(1,c_get,"SEARCHEFF_zHOST_FILE:")  ) 
       { readchar ( fp, INPUTS_SEARCHEFF.USER_zHOST_FILE ); continue ; }
     
-    if ( uniqueMatch(c_get,"APPLY_SEARCHEFF_OPT:")  ) 
+    if ( NstringMatch(1,c_get,"APPLY_SEARCHEFF_OPT:")  ) 
       { readint ( fp, 1, &INPUTS.APPLY_SEARCHEFF_OPT ); continue ; }
 
-    if ( uniqueMatch(c_get,"MINOBS_SEARCH:")  ) 
+    if ( NstringMatch(1,c_get,"MINOBS_SEARCH:")  ) 
       {  readint ( fp, 1, &INPUTS_SEARCHEFF.MINOBS ); continue ; }
 
     // --- LCLIB cut windows to select library events
-    if ( uniqueMatch(c_get,"LCLIB_CUTWIN:")   ) {
+    if ( NstringMatch(1,c_get,"LCLIB_CUTWIN:")   ) {
       N = LCLIB_CUTS.NCUTWIN ;
       readchar(fp,      LCLIB_CUTS.PARNAME[N] );
       readdouble(fp, 2, LCLIB_CUTS.CUTWIN[N] );
@@ -2496,45 +2526,45 @@ int read_input(char *input_file) {
       continue ; 
     }
 
-    if ( uniqueMatch(c_get,"LCLIB_DEBUG_DAYSCALE:")   ) 
+    if ( NstringMatch(1,c_get,"LCLIB_DEBUG_DAYSCALE:")   ) 
       { readdouble(fp, 1, &LCLIB_DEBUG.DAYSCALE ); continue ; }
-    if ( uniqueMatch(c_get,"LCLIB_DEBUG_TOBS_OFFSET:")   ) 
+    if ( NstringMatch(1,c_get,"LCLIB_DEBUG_TOBS_OFFSET:")   ) 
       { readdouble(fp, 2, LCLIB_DEBUG.TOBS_OFFSET_RANGE ); continue ; }
-    if ( uniqueMatch(c_get,"LCLIB_DEBUG_ZERO_TEMPLATE_FLUX:")   ) 
+    if ( NstringMatch(1,c_get,"LCLIB_DEBUG_ZERO_TEMPLATE_FLUX:")   ) 
       { readint(fp, 1, &LCLIB_DEBUG.ZERO_TEMPLATE_FLUX ); continue ; }
-    if ( uniqueMatch(c_get,"LCLIB_DEBUG_FORCE_NREPEAT:")   ) 
+    if ( NstringMatch(1,c_get,"LCLIB_DEBUG_FORCE_NREPEAT:")   ) 
       { readint(fp, 1, &LCLIB_DEBUG.FORCE_NREPEAT ); continue ; }
 
     // -- cut-windows
-    if ( uniqueMatch(c_get,"APPLY_CUTWIN_OPT:")  ) 
+    if ( NstringMatch(1,c_get,"APPLY_CUTWIN_OPT:")  ) 
       { readint ( fp, 1, &INPUTS.APPLY_CUTWIN_OPT ); continue ; }
 
-    if ( uniqueMatch(c_get,"EPCUTWIN_LAMREST:")  ) 
+    if ( NstringMatch(1,c_get,"EPCUTWIN_LAMREST:")  ) 
       { readfloat ( fp, 2, INPUTS.EPCUTWIN_LAMREST ); continue ; }
 
-    if ( uniqueMatch(c_get,"EPCUTWIN_SNRMIN:")   ) 
+    if ( NstringMatch(1,c_get,"EPCUTWIN_SNRMIN:")   ) 
       { readfloat ( fp, 2, INPUTS.EPCUTWIN_SNRMIN ); continue ; }
 
-    if ( uniqueMatch(c_get,"CUTWIN_REDSHIFT:")  )  // legacy 
+    if ( NstringMatch(1,c_get,"CUTWIN_REDSHIFT:")  )  // legacy 
       { readfloat ( fp, 2, INPUTS.CUTWIN_REDSHIFT_TRUE ); continue ; }
-    if ( uniqueMatch(c_get,"CUTWIN_REDSHIFT_TRUE:")  ) 
+    if ( NstringMatch(1,c_get,"CUTWIN_REDSHIFT_TRUE:")  ) 
       { readfloat ( fp, 2, INPUTS.CUTWIN_REDSHIFT_TRUE ); continue ; }
-    if ( uniqueMatch(c_get,"CUTWIN_REDSHIFT_FINAL:")  )  // measured
+    if ( NstringMatch(1,c_get,"CUTWIN_REDSHIFT_FINAL:")  )  // measured
       { readfloat ( fp, 2, INPUTS.CUTWIN_REDSHIFT_FINAL ); continue ; }
 
-    if ( uniqueMatch(c_get,"CUTWIN_HOST_PHOTOZ:")  )  // host photo-z
+    if ( NstringMatch(1,c_get,"CUTWIN_HOST_PHOTOZ:")  )  // host photo-z
       { readfloat ( fp, 2, INPUTS.CUTWIN_HOST_ZPHOT ); continue ; }
-    if ( uniqueMatch(c_get,"CUTWIN_HOST_ZPHOT:")  )  // idem
+    if ( NstringMatch(1,c_get,"CUTWIN_HOST_ZPHOT:")  )  // idem
       { readfloat ( fp, 2, INPUTS.CUTWIN_HOST_ZPHOT ); continue ; }
 
-    if ( uniqueMatch(c_get,"CUTWIN_TRESTMAX:")  ) 
+    if ( NstringMatch(1,c_get,"CUTWIN_TRESTMAX:")  ) 
       { readfloat ( fp, 2, INPUTS.CUTWIN_TRESTMAX ); continue ; }
-    if ( uniqueMatch(c_get,"CUTWIN_TRESTMIN:")  ) 
+    if ( NstringMatch(1,c_get,"CUTWIN_TRESTMIN:")  ) 
       { readfloat ( fp, 2, INPUTS.CUTWIN_TRESTMIN ); continue ; }
 
-    if ( uniqueMatch(c_get,"CUTWIN_TGAPMAX:")  ) 
+    if ( NstringMatch(1,c_get,"CUTWIN_TGAPMAX:")  ) 
       { readfloat ( fp, 2, INPUTS.CUTWIN_TGAPMAX ); continue ; }
-    if ( uniqueMatch(c_get,"CUTWIN_T0GAPMAX:")  ) 
+    if ( NstringMatch(1,c_get,"CUTWIN_T0GAPMAX:")  ) 
       { readfloat ( fp, 2, INPUTS.CUTWIN_T0GAPMAX ); continue ; }
 
     if ( keyMatch(c_get,"CUTWIN_SNRMAX:")  ) {
@@ -2546,23 +2576,23 @@ int read_input(char *input_file) {
       readfloat ( fp, 2, &INPUTS.CUTWIN_SNRMAX_TREST[N][0] );
       continue ;
     }
-    if ( uniqueMatch(c_get,"CUTWIN_NEPOCH:")  ) 
+    if ( NstringMatch(1,c_get,"CUTWIN_NEPOCH:")  ) 
       { readfloat ( fp, 2, INPUTS.CUTWIN_NEPOCH ); continue ; }
 
-    if ( uniqueMatch(c_get,"CUTWIN_NOBSDIF:")  ) 
+    if ( NstringMatch(1,c_get,"CUTWIN_NOBSDIF:")  ) 
       { readint ( fp, 2, INPUTS.CUTWIN_NOBSDIF ); continue ; }
-    if ( uniqueMatch(c_get,"CUTWIN_MJDDIF:")  ) 
+    if ( NstringMatch(1,c_get,"CUTWIN_MJDDIF:")  ) 
       { readfloat ( fp, 2, INPUTS.CUTWIN_MJDDIF ); continue ; }
 
 
-    if ( uniqueMatch(c_get,"CUTWIN_NOBS_SATURATE:")  ) { // minobs maxobs filters
+    if ( NstringMatch(1,c_get,"CUTWIN_NOBS_SATURATE:")  ) { // minobs maxobs filters
       N = INPUTS.NCUTWIN_SATURATE;  
       readint  ( fp, 2, INPUTS.CUTWIN_SATURATE_NOBS[N] ); 
       readchar ( fp,    INPUTS.CUTWIN_SATURATE_FILTERS[N] ); 
       INPUTS.NCUTWIN_SATURATE++ ;
       continue ; 
     }
-    if ( uniqueMatch(c_get,"CUTWIN_NOBS_NOSATURATE:")  ) { 
+    if ( NstringMatch(1,c_get,"CUTWIN_NOBS_NOSATURATE:")  ) { 
       N = INPUTS.NCUTWIN_NOSATURATE;  
       readint  ( fp, 2, INPUTS.CUTWIN_NOSATURATE_NOBS[N] ); 
       readchar ( fp,    INPUTS.CUTWIN_NOSATURATE_FILTERS[N] ); 
@@ -2570,15 +2600,15 @@ int read_input(char *input_file) {
       continue ; 
     }
 
-    if ( uniqueMatch(c_get,"CUTWIN_MWEBV:")  ) 
+    if ( NstringMatch(1,c_get,"CUTWIN_MWEBV:")  ) 
       { readfloat ( fp, 2, INPUTS.CUTWIN_MWEBV ); continue ; }
 
-    if ( uniqueMatch(c_get,"CUTWIN_PEAKMAG:")  ) 
+    if ( NstringMatch(1,c_get,"CUTWIN_PEAKMAG:")  ) 
       { readfloat ( fp, 2, INPUTS.CUTWIN_PEAKMAG ); continue ; }
-    if ( uniqueMatch(c_get,"CUTWIN_PEAKMAG_ALL:")  )  // require ALL filters
+    if ( NstringMatch(1,c_get,"CUTWIN_PEAKMAG_ALL:")  )  // require ALL filters
       { readfloat ( fp, 2, INPUTS.CUTWIN_PEAKMAG_ALL ); continue ; }
 
-    if ( uniqueMatch(c_get,"CUTWIN_PEAKMAG_BYFIELD:")  ) {
+    if ( NstringMatch(1,c_get,"CUTWIN_PEAKMAG_BYFIELD:")  ) {
       INPUTS.NCUTWIN_PEAKMAG_BYFIELD++ ;  N= INPUTS.NCUTWIN_PEAKMAG_BYFIELD;
       readfloat ( fp, 2, INPUTS.CUTWIN_PEAKMAG_BYFIELD[N] );
       readchar  ( fp, INPUTS.CUTWIN_BYFIELDLIST[N] );
@@ -2586,21 +2616,21 @@ int read_input(char *input_file) {
     }
 
     // CUTWIN_EPOCHS_SNRMIN: 5 20 iz # SNR>5 for < 20 days, i or z
-    if ( uniqueMatch(c_get,"CUTWIN_EPOCHS_SNRMIN:")  )  { 
+    if ( NstringMatch(1,c_get,"CUTWIN_EPOCHS_SNRMIN:")  )  { 
       readfloat ( fp, 1, &INPUTS.CUTWIN_EPOCHS_SNRMIN ); 
       readfloat ( fp, 1, &INPUTS.CUTWIN_EPOCHS_TRANGE[1] ); 
       readchar  ( fp, INPUTS.CUTWIN_EPOCHS_FILTERS ); 
       continue ; 
     }
 
-    if ( uniqueMatch(c_get,"EFFERR_STOPGEN:")  ) 
+    if ( NstringMatch(1,c_get,"EFFERR_STOPGEN:")  ) 
       { readfloat ( fp, 1, &INPUTS.EFFERR_STOPGEN ); continue ; }
 
     // - - - - - 
-    if ( uniqueMatch(c_get,"SPECTROGRAPH_OPTMASK:")  ) 
+    if ( NstringMatch(1,c_get,"SPECTROGRAPH_OPTMASK:")  ) 
       { readint ( fp, 1, &INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ); continue ; }
 
-    if ( uniqueMatch(c_get,"SPECTROGRAPH_SCALE_TEXPOSE:")  ) { 
+    if ( NstringMatch(1,c_get,"SPECTROGRAPH_SCALE_TEXPOSE:")  ) { 
       readdouble ( fp, 1, &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE ); 
       continue ; 
     }
@@ -2629,30 +2659,30 @@ int read_input(char *input_file) {
 #ifdef SNGRIDGEN
     if ( strcmp(INPUTS.GENSOURCE,"GRID") == 0 )  {
 
-      if ( uniqueMatch(c_get,"GRID_FORMAT:" )   ) 
+      if ( NstringMatch(1,c_get,"GRID_FORMAT:" )   ) 
 	{ readchar(fp, GRIDGEN_INPUTS.FORMAT ); continue ; }
 
-      if ( uniqueMatch(c_get,"NGRID_LOGZ:" )   ) 
+      if ( NstringMatch(1,c_get,"NGRID_LOGZ:" )   ) 
 	{ readint(fp,1,&GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_LOGZ]); continue ; }
 
-      if ( uniqueMatch(c_get,"NGRID_LUMIPAR:" )   )  { // legacy key	
+      if ( NstringMatch(1,c_get,"NGRID_LUMIPAR:" )   )  { // legacy key	
 	readint(fp,1,&GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_SHAPEPAR]); 
 	continue;
       }
-      if ( uniqueMatch(c_get,"NGRID_SHAPEPAR:" )   ) 	{ 
+      if ( NstringMatch(1,c_get,"NGRID_SHAPEPAR:" )   ) 	{ 
 	readint ( fp, 1, &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_SHAPEPAR] ); 
 	continue ; 
       }
 
-      if ( uniqueMatch(c_get,"NGRID_COLORPAR:" )   )  { 
+      if ( NstringMatch(1,c_get,"NGRID_COLORPAR:" )   )  { 
 	readint ( fp, 1, &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_COLORPAR] ); 
 	continue ; 
       }
-      if ( uniqueMatch(c_get,"NGRID_COLORLAW:" )   ) 	{ 
+      if ( NstringMatch(1,c_get,"NGRID_COLORLAW:" )   ) 	{ 
 	readint ( fp, 1, &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_COLORLAW] ); 
 	continue ; 
       }
-      if ( uniqueMatch(c_get,"NGRID_TREST:" )   )  { 
+      if ( NstringMatch(1,c_get,"NGRID_TREST:" )   )  { 
 	readint ( fp, 1, &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_TREST] ); 
 	continue ; 
       }
@@ -2660,25 +2690,25 @@ int read_input(char *input_file) {
 #endif
 
     // abort on legacy keys ( Jun 2016)
-    if ( uniqueMatch(c_get,"NGRID_LUMIPAR:" )   )   // legacy key
+    if ( NstringMatch(1,c_get,"NGRID_LUMIPAR:" )   )   // legacy key
       { legacyKey_abort(fnam, "NGRID_LUMIPAR:", "NGRID_SHAPEPAR:"); }
 
-    if ( uniqueMatch(c_get,"GEN_SNDATA_SIM:" )   )   // legacy key
+    if ( NstringMatch(1,c_get,"GEN_SNDATA_SIM:" )   )   // legacy key
       { legacyKey_abort(fnam, "GEN_SNDATA_SIM:", "FORMAT_MASK:"); }
 
-    if ( uniqueMatch(c_get,"EXTINC_MILKYWAY:" )   )   // legacy key
+    if ( NstringMatch(1,c_get,"EXTINC_MILKYWAY:" )   )   // legacy key
       { legacyKey_abort(fnam, "EXTINC_MILKYWAY:", "OPT_MWEBV:"); }
 
-    if ( uniqueMatch(c_get,"RVMW:" )   )   // legacy key
+    if ( NstringMatch(1,c_get,"RVMW:" )   )   // legacy key
       { legacyKey_abort(fnam, "RVMW:", "RV_MWCOLORLAW:"); }
 
-    if ( uniqueMatch(c_get,"HUMAN_SEARCHEFF_OPT:" )   )   // legacy key
+    if ( NstringMatch(1,c_get,"HUMAN_SEARCHEFF_OPT:" )   )   // legacy key
       { legacyKey_abort(fnam, "HUMAN_SEARCHEFF_OPT:", "SEARCHEFF_SPEC_FILE:");}
 
-    if ( uniqueMatch(c_get,"SPECTYPE:" )   )   // legacy key
+    if ( NstringMatch(1,c_get,"SPECTYPE:" )   )   // legacy key
       { legacyKey_abort(fnam, "SPECTYPE:", ""); }
 
-    if ( uniqueMatch(c_get,"SMEARFLAG_HOSTGAL:" )   )   // legacy key
+    if ( NstringMatch(1,c_get,"SMEARFLAG_HOSTGAL:" )   )   // legacy key
       { legacyKey_abort(fnam, "SMEARFLAG_HOSTGAL:", ""); }
 
   }  // end fscanf loop
@@ -2686,6 +2716,9 @@ int read_input(char *input_file) {
 
   fclose(fp);
   printf("\n");
+
+  if ( INPUTS.KEYNAME_DUMPFLAG ) { happyend(); }
+
   return(SUCCESS) ;
 
 } // end of read_input
@@ -2702,6 +2735,7 @@ void  read_input_RATEPAR(FILE *fp, char *WHAT, char *KEYNAME,
   // Jan 27 2017: check for turning off rate model (for PEC1A)
   // Jul 29 2017: for FLAT, set RATEPAR->NMODEL_ZRANGE = 1 
   // Mar 30 2019: parse CC_S15*[scale] to allow rate-scale for this model.
+  // Jul 17 2020: replace strcmp with NstringMatch
 
   int  ISNOMINAL = strcmp(WHAT,"NOMINAL") == 0 ;
   int  ISPEC1A   = strcmp(WHAT,"PEC1A"  ) == 0 ;
@@ -2713,28 +2747,30 @@ void  read_input_RATEPAR(FILE *fp, char *WHAT, char *KEYNAME,
 
   // ----------- BEGIN ----------
 
+  
   CONTINUE = 0 ;
   if ( strstr(KEYNAME,"DNDZ") != NULL ) { CONTINUE = 1 ; }
   if ( strstr(KEYNAME,"DNDB") != NULL ) { CONTINUE = 1 ; }
-  if ( CONTINUE == 0 ) { return ; }
+  if ( CONTINUE == 0 && !INPUTS.KEYNAME_DUMPFLAG ) { return ; }
 
+  
   // check a few misc keys
   if ( ISNOMINAL ) {
-    if ( strcmp(KEYNAME,"DNDZ_ZEXP_REWGT:")==0 ) 
+    if ( NstringMatch(1,KEYNAME,"DNDZ_ZEXP_REWGT:") ) 
       {  readdouble ( fp, 1, &RATEPAR->DNDZ_ZEXP_REWGT ); return; }
 
-    if ( strcmp(KEYNAME,"DNDZ_ZPOLY_REWGT:")==0 ) 
+    if ( NstringMatch(1,KEYNAME,"DNDZ_ZPOLY_REWGT:") ) 
       {  readdouble ( fp, 4, RATEPAR->DNDZ_ZPOLY_REWGT ); return ; }
     
-    if ( strcmp(KEYNAME,"DNDZ_SCALE:")==0 ) 
+    if ( NstringMatch(1,KEYNAME,"DNDZ_SCALE:") ) 
       { readdouble ( fp, 2, RATEPAR->DNDZ_SCALE ); return ; }
 
-    if ( strcmp(KEYNAME,"DNDZ_ALLSCALE:")==0 ) 
+    if ( NstringMatch(1,KEYNAME,"DNDZ_ALLSCALE:") ) 
       { readdouble ( fp, 1, &RATEPAR->DNDZ_ALLSCALE ); return ; }
 
     // check legacy key ...
-    if ( strcmp(KEYNAME,"DNDZ_SCALE_NON1A:")==0 ||
-	 strcmp(KEYNAME,"DNDZ_SCALE_NONIA:")==0 )  { 
+    if ( NstringMatch(1,KEYNAME,"DNDZ_SCALE_NON1A:") ||
+	 NstringMatch(1,KEYNAME,"DNDZ_SCALE_NONIA:") )  { 
       readdouble ( fp, 1, &RATEPAR->DNDZ_SCALE[1] ); return ; 
     }
   }
@@ -4192,6 +4228,7 @@ void read_input_GENGAUSS(FILE *fp, char *string, char *varName,
   // Aug 30 2016: check for SKEWNORMAL, and fill genGauss->NAME
   // Mar 29 2017: check for 2nd peak
   // Jun 12 2020: remove skewnormal (never worked)
+  // Jul 17 2020: replace strcmp with NstringMatch
 
   int FOUND=0 ;
   char KEYNAME[80];
@@ -4199,46 +4236,47 @@ void read_input_GENGAUSS(FILE *fp, char *string, char *varName,
 
   // ----------------- BEGIN ----------------
 
+  
   sprintf(KEYNAME,  "GENPEAK_%s:",  varName);
-  if ( strcmp(string, KEYNAME )==0 ) 
+  if ( NstringMatch(1,string, KEYNAME) ) 
     { readdouble ( fp, 1, &genGauss->PEAK ); FOUND=1; }
 
   sprintf(KEYNAME,  "GENMEAN_%s:",  varName);  
-  if ( strcmp(string, KEYNAME )==0 ) 
+  if ( NstringMatch(1,string, KEYNAME ) ) 
     { readdouble ( fp, 1, &genGauss->PEAK ); FOUND=1; }
 
   sprintf(KEYNAME, "GENSIGMA_%s:", varName);
-  if ( strcmp(string, KEYNAME )==0 ) {
+  if ( NstringMatch(1,string, KEYNAME ) ) {
     readdouble ( fp, 2, genGauss->SIGMA ); FOUND=1; 
     checkVal_GENGAUSS(KEYNAME, genGauss->SIGMA, fnam );
   }
 
   sprintf(KEYNAME,  "GENSKEW_%s:",  varName);
-  if ( strcmp(string, KEYNAME )==0 ) 
+  if ( NstringMatch(1,string, KEYNAME ) ) 
     { readdouble ( fp, 2, genGauss->SKEW ); FOUND=1; }
 
   sprintf(KEYNAME, "GENRANGE_%s:", varName);
-  if ( strcmp(string, KEYNAME )==0 ) {
+  if ( NstringMatch(1,string, KEYNAME ) ) {
     readdouble ( fp, 2, genGauss->RANGE ); FOUND=1; 
     checkVal_GENGAUSS(KEYNAME, genGauss->RANGE, fnam );
   }
 
   // read NGRID 
   sprintf(KEYNAME, "GENGRID_%s:",  varName); // NGRID = number of grid bins
-  if ( strcmp(string, KEYNAME )==0 ) {
+  if ( NstringMatch(1,string, KEYNAME ) ) {
     int NGRID ; readint ( fp, 1, &NGRID ); FOUND=1;
     genGauss->NGRID = NGRID ; 
   }
 
   // check for 2nd peak
   sprintf(KEYNAME,  "GENPROB2_%s:",  varName);
-  if ( strcmp(string, KEYNAME )==0 ) 
+  if ( NstringMatch(1,string, KEYNAME ) ) 
     { readdouble ( fp, 1, &genGauss->PROB2 ); FOUND=1; }
   sprintf(KEYNAME,  "GENPEAK2_%s:",  varName);
-  if ( strcmp(string, KEYNAME )==0 ) 
+  if ( NstringMatch(1,string, KEYNAME ) ) 
     { readdouble ( fp, 1, &genGauss->PEAK2 ); FOUND=1; }
   sprintf(KEYNAME, "GENSIGMA2_%s:", varName);
-  if ( strcmp(string, KEYNAME )==0 ) {
+  if ( NstringMatch(1,string, KEYNAME ) ) {
     readdouble ( fp, 2, genGauss->SIGMA2 ); FOUND=1; 
     checkVal_GENGAUSS(KEYNAME, genGauss->SIGMA2, fnam );
   }
@@ -4503,10 +4541,9 @@ void sim_input_override(void) {
       {  i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.TRACE_MAIN );  }
 
     if ( strcmp( ARGV_LIST[i], "DASHBOARD" ) == 0 ) {  
-      i++; INPUTS.DASHBOARD_DUMPFLAG = 1;   
+      i++; INPUTS.DASHBOARD_DUMPFLAG = true ;   
       INPUTS.NVAR_SIMGEN_DUMP = -9;
     }
-
 
     if ( strcmp( ARGV_LIST[i], "OPT_DEVEL_GENPDF" ) == 0 ) 
       { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_DEVEL_GENPDF );  }

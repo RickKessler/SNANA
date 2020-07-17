@@ -761,13 +761,61 @@ void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR,
 
 // ==============================================
 int keyMatch(char *string,char *key ) {
-  if ( strcmp(string,key)==0 ) 
-    { return(1); }
-  else
-    { return(0); }
+  if ( strcmp(string,key)==0 )    { return(1); }
+  else                            { return(0); }
 } // end keyMatch
 
-int   uniqueMatch(char *string,char *key ) {
+bool NstringMatch(int MAX, char *string, char *key) {
+
+  // Created July 18 2020
+  // Check for *string match to input *key, 
+  // allowing up to MAX matches. MAX=1 -> uniqueMatch.
+  //
+  // Examples:
+  // Initialize with
+  //    NstringMatch(0, "INIT", "sim input file")
+  //   
+  // allow 1 and only 1 GENVERSION: key with
+  //    NstringMatch(1, string, "GENVERSION:"); 
+  //
+  // allow up to 20 NON1A keys with
+  //    NstringMatch(20, string, "NONIA:") ; 
+  //
+  // abort on OBSOLETE: key with
+  //    NstringMatch(0, string, "OBSOLETE:") ; 
+  //
+
+  char *msgSource = STRING_UNIQUE.SOURCE_of_STRING ;
+  char fnam[] = "NstringMatch";
+
+  // ------------ BEGIN -------------
+
+  if ( strcmp(string,STRINGMATCH_INIT) == 0 ) {
+    // interpet *key  as "source of string" to store
+    printf("  Initialize %s for %s\n", fnam, key); fflush(stdout);
+    sprintf(STRING_UNIQUE.SOURCE_of_STRING, "%s", key);
+
+    // init stuff for optional key dump
+    STRING_UNIQUE.NLIST = STRING_UNIQUE.NKEY = 0 ;
+    STRING_UNIQUE.DUMPKEY_FLAG = false ;
+    if ( MAX < 0 ) { STRING_UNIQUE.DUMPKEY_FLAG = true; } 
+
+    return(0);
+  }
+
+  // check option to print EVERY key
+  if (  STRING_UNIQUE.DUMPKEY_FLAG ) { dumpUniqueKey(key);  }
+
+  if ( strcmp(string,key) == 0 )
+    { checkStringUnique(MAX,string,msgSource,fnam);  return(true); }
+  else
+    { return(false); }
+
+} // end NstringMatch
+
+/* xxx mark delete Jul 17 2020 xxxxxxxxxx
+bool uniqueMatch(char *string,char *key ) {
+  
   // April 9 2019
   // utility to check for string match, and abort on
   // duplicate string
@@ -778,15 +826,17 @@ int   uniqueMatch(char *string,char *key ) {
     // interpet *key  as "source of string" to store
     printf("  Initialize %s for %s\n", fnam, key); fflush(stdout);
     sprintf(STRING_UNIQUE.SOURCE_of_STRING, "%s", key);
-    STRING_UNIQUE.NLIST = 0;
+    STRING_UNIQUE.NLIST = STRING_UNIQUE.NKEY = 0 ;
     return(0);
   }
 
   if ( strcmp(string,key) == 0 )
-    { checkStringUnique(string,msgSource,fnam);  return(1); }
+    { checkStringUnique(1,string,msgSource,fnam);  return(true); }
   else
-    { return(0); }
+    { return(false); }
+
 }  // end uniqueMatch
+xxxxxxxxxxx end mark xxxxxxxxxxxxx */
 
 
 int uniqueOverlap (char *string,char *key ) {
@@ -805,6 +855,12 @@ int uniqueOverlap (char *string,char *key ) {
   char fnam[] = "uniqueOverlap" ;
   // ---------- BEGIN -----------
 
+  if ( strcmp(string,STRINGMATCH_INIT) == 0 )  
+    {  NstringMatch( 0, STRINGMATCH_INIT, key); return(0); }
+  if ( strcmp(string,STRINGMATCH_KEY_DUMP) == 0 )  
+    {  NstringMatch(-1, STRINGMATCH_INIT, key); return(0); }
+
+  /* xxx mark delete xxxx
   if ( strcmp(string,"INIT") == 0 ) {
     // interpet *key  as "source of string" to store
     printf("  Initialize %s for %s\n", fnam, key); fflush(stdout);
@@ -812,50 +868,99 @@ int uniqueOverlap (char *string,char *key ) {
     STRING_UNIQUE.NLIST = 0;
     return(0);
   }
+  xxxxxx */
 
   strncpy(tmpString,string,lenkey); tmpString[lenkey]='\0';
-  match = uniqueMatch(tmpString,key);
+  // xxx mark delete Jul 17 2020  match = uniqueMatch(tmpString,key);
+  match = NstringMatch(1,tmpString,key);
   return(match);
 
 } // end uniqueOverlap
  
-void  checkStringUnique(char *string, char *msgSource, char *callFun) {
+void  checkStringUnique(int MAX, char *string, char *msgSource, char *callFun) {
 
   // Apr 2019
-  // Utility to store strings and check that each new string
-  // is unique. If not unique, abort with error message.
+  // Utility to store strings and check that if input *string
+  // is unique. If *string used more than N times, 
+  // abort with error message.
   //
   // Inputs:
-  //  *string : string to check
+  //   MAX       : max number of times string allowed to repeat
+  //  *string    : string to check
   //  *msgSrouce : message about source; e.g., "sim-input file"
   //  *callFun   : name of calling function
   //
   // The latter two args are used only for error message.
   //
   // string = "INIT" -> initialize arrays.
+  // 
+  // Jul 17 2020: pass MAX arg.
 
-  int i, NLIST;
+  int i, NLIST, NFOUND=0 ;
   char *tmpString;
+  bool LDMP ;
+  char dumpString[] = "XXXZZZQQQ" ;  // "CLEAR" ;
   char fnam[] = "checkStringUnique" ;
   // --------------- BEGIN ------------
 
-  if ( strcmp(string,"INIT") == 0 ) { 
+  if ( strcmp(string,STRINGMATCH_INIT) == 0 ) { 
     printf("  Initialize %s for %s\n", fnam, msgSource); fflush(stdout);
     STRING_UNIQUE.NLIST = 0;
     return ; 
   }
 
   NLIST = STRING_UNIQUE.NLIST ;
+
+  if ( NLIST >= MXLIST_STRING_UNIQUE ) {
+    sprintf(c1err,"NLIST=%d exceeds bound for dump", NLIST);
+    sprintf(c2err,"Try increasing MXLIST_STRING_UNIQUE in sntools.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+
   for(i=0; i < NLIST; i++ ) {
+    NFOUND = 0 ;
     tmpString = STRING_UNIQUE.STRING[i];
-    if ( strcmp(tmpString,string) == 0 ) {
-      sprintf(c1err,"Duplicate '%s' not allowed in %s.", string, msgSource);
+    if ( strcmp(tmpString,string) == 0 ) { 
+      STRING_UNIQUE.NFOUND_STRING[i]++ ; 
+      NFOUND = STRING_UNIQUE.NFOUND_STRING[i] ;
+    }
+
+    LDMP = ( strstr(string,dumpString) != NULL );
+    if ( LDMP ) {
+      printf(" xxx %s: string='%s'  tmpString[%d]=%s  NFOUND=%d  MAX=%d \n", 
+	     fnam, string, i, tmpString, NFOUND, MAX); 
+    }
+
+    if ( NFOUND > MAX ) {
+      sprintf(c1err,"%d  '%s' keys exceeds limit=%d in %s.", 
+	      NFOUND, string, MAX, msgSource);
       sprintf(c2err,"Calling function is %s .", callFun);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
+
+    // even of NFOUND > 0 , return to avoid storing same string 
+    // more than onece.
+    if ( NFOUND > 0 ) { return ; }
+  }
+
+  // - - - - - 
+  // if we get here, NFOUND = 0, so add to list
+
+  /*
+  printf(" xxx %s: load UNIQUE.STRING[%d] = '%s' \n",
+	 fnam, NLIST, string); fflush(stdout);
+  */
+
+  if ( MAX == 0 ) {
+    sprintf(c1err,"Must remove obsolete '%s' key in %s", 
+	    string, msgSource);
+    sprintf(c2err,"Calling function is %s .", callFun);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
   sprintf(STRING_UNIQUE.STRING[NLIST],"%s", string);
+  STRING_UNIQUE.NFOUND_STRING[NLIST] = 1; // 7.17.2020
   STRING_UNIQUE.NLIST++ ;
 
   if ( STRING_UNIQUE.NLIST >= MXLIST_STRING_UNIQUE ) {
@@ -868,6 +973,36 @@ void  checkStringUnique(char *string, char *msgSource, char *callFun) {
   return;
 
 } // end checkStringUnique
+
+void  dumpUniqueKey(char *key) {
+  int i, NKEY = STRING_UNIQUE.NKEY ;
+  bool EXIST = false ;
+  char fnam[] = "dumpUniqueKey";
+
+  // ----------- BEGIN -------------
+
+  //  printf(" xxx %s: key = '%s' \n", fnam, key );
+
+  if ( NKEY >= MXLIST_KEY_UNIQUE ) {
+    sprintf(c1err,"NKEY=%d exceeds bound for dump", NKEY);
+    sprintf(c2err,"Try increasing MXLIST_KEY_UNIQUE in sntools.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  //printf("\n# DUMP UNIQUE KEYS for %s\n", STRING_UNIQUE.SOURCE_of_STRING );
+  for(i=0; i < NKEY; i++ ) {    
+    if ( strcmp(key,STRING_UNIQUE.KEY[i]) == 0 ) { EXIST = true; }
+  }
+  
+  if ( !EXIST ) {
+    printf(" VALID_KEYNAME:  %4d   %s  \n", NKEY, key ); fflush(stdout);    
+    STRING_UNIQUE.KEY[NKEY] = (char*) malloc( 60*sizeof(char) );
+    sprintf(STRING_UNIQUE.KEY[NKEY], "%s", key);   
+    STRING_UNIQUE.NKEY++ ;
+  }
+
+} // end void  dumpStringUniqueList
+
 
 // ==========================================
 void init_lightCurveWidth(void) {

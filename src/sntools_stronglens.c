@@ -5,6 +5,7 @@
 
   Aug 7 2019 RK - pass DUMPFLAG argument to get_stronglens
 
+  Jul 16 2020 JP - Added zSRC to DUMPFLAG
  ***************************************/
 #include <stdio.h>
 #include <stdlib.h>
@@ -188,7 +189,7 @@ void init_stronglens(char *MODEL_FILE) {
 
       	if ( iwd == INPUTS_STRONGLENS.ICOL_LENSID ) 
       	  { sscanf(tmpWord, "%d", &INPUTS_STRONGLENS.IDLENS[i]); }
-
+		
       	else if ( iwd == INPUTS_STRONGLENS.ICOL_ZLENS ) 
       	  { sscanf(tmpWord, "%f", &INPUTS_STRONGLENS.ZLENS[i]); }
 
@@ -337,7 +338,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   //   DUMPFLAG  dump flag (Aug 7 2019, RK)
   //
   // Ouptuts:
-  //  IDLENS      integer identifier for galaxy lens
+  //  IDLENS      random integer identifier for galaxy lens
   //  ZLENS       redshift of lens galaxy
   //  blend_flag  1 if blended into single LC; 0 if each image is resolved
   //  NIMG      Number of images
@@ -347,14 +348,17 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   //  YIMG        list of NIMG Y separations (arcsec)
   //
   int    IDLENS_local, NIMG_local=0, img,i,j;
-  double FlatRan, zLENS_local;
+
+  double FlatRan, zLENS_local,zSRC_local;
+
+
   char fnam[] = "get_stronglens" ;
 
   // ---------------- BEGIN ---------------
 
   // always burn random
   FlatRan = FlatRan1(2);   // flat between 0 and 1
-  // GauRan  = GaussRan(2);   // Gaussian, sigma=1
+
   
   *NIMG = 0 ;
   if ( !INPUTS_STRONGLENS.USE_FLAG ) { return ; }
@@ -364,10 +368,9 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   
   int numLens = 0;
   for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
-    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.05){
+    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN*.99 && INPUTS_STRONGLENS.ZSRC[i]<=zSN*1.01){
       ++numLens;
     }
-
   }
   if(numLens==0){
     //errmsg(SEV_FATAL, 0, fnam, "No Lenses in your library matching your source redshift."," ");
@@ -378,18 +381,20 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   int possible_lenses[numLens];
   j=0;
   for(i=0;i<INPUTS_STRONGLENS.NLENS;++i){
-    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN-0.05 && INPUTS_STRONGLENS.ZSRC[i]<=zSN+0.05){
+    if(INPUTS_STRONGLENS.ZSRC[i]>=zSN*.99 && INPUTS_STRONGLENS.ZSRC[i]<=zSN*1.01){
       possible_lenses[j]=i;
       ++j;
     }
+    
   }
 
   int random_lens_index = possible_lenses[ (int)( FlatRan*(numLens-1) ) ];
 
   IDLENS_local  = INPUTS_STRONGLENS.IDLENS[random_lens_index];
   zLENS_local   = (double)INPUTS_STRONGLENS.ZLENS[random_lens_index];  
+  zSRC_local    = (double)INPUTS_STRONGLENS.ZSRC[random_lens_index];
   NIMG_local    = INPUTS_STRONGLENS.NIMG[random_lens_index];
-
+  
   
   // strip off image-dependent quantities, and recast to double
   for(img=0 ; img < NIMG_local; img++ ) {
@@ -398,19 +403,19 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
     MAG[img]     = (double)INPUTS_STRONGLENS.MAG[random_lens_index][img];     
     DELAY[img] = (double)INPUTS_STRONGLENS.DELAY[random_lens_index][img]; 
   }
-
+  
   // load return argument scalars  
-  *IDLENS = IDLENS_local;
+  *IDLENS = IDLENS_local ; //(int)(FlatRan*10000000) ; //IDLENS_local;
   *ZLENS  = zLENS_local ;
   *NIMG = NIMG_local;
-
-
+  
+  DUMPFLAG = 1;
   if ( DUMPFLAG ) {
     printf(" xxx \n");
     printf(" xxx ------ %s DUMP -------- \n", fnam );
     printf(" xxx input zSN = %.3f \n", zSN);
-    printf(" xxx output IDLENS=%d at zLENS=%.3f \n", 
-	   IDLENS_local, zLENS_local );
+    printf(" xxx output IDLENS=%d at zLENS=%.3f and zSRC=%.3f \n", 
+	   IDLENS_local, zLENS_local, zSRC_local );
 
     for(img=0 ; img < NIMG_local; img++ ) {
       printf(" xxx output image-%d: mu=%.3f deltaT=%.2f  X,Y-offset=%f,%f\n",

@@ -101,9 +101,10 @@ void write_epoch_list_addvar(char *VARNAME, double *CUTWIN,
   WRITE_EPOCH_LIST.CUTWIN[NVAR][1] = CUTWIN[1];
   WRITE_EPOCH_LIST.CUTMASK_ALL |= CUTMASK_ADD ;
 
-  //  if ( CUTWIN[1] < 0.0 && CUTWIN[0] > 0.0 ) 
 
-  if ( strstr(VARNAME,"PHOTFLAG") != NULL ) 
+
+  //  if ( strstr(VARNAME,"PHOTFLAG") != NULL ) 
+  if ( CUTWIN[1] < 0.0 && CUTWIN[0] >= 0.0 ) 
     { CUTTYPE = CUTTYPE_BITMASK; }
   else
     { CUTTYPE = CUTTYPE_WINDOW; }

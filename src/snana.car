@@ -23317,9 +23317,6 @@ c first build TLIST array for epochs that pass MJDSELECT()
      &       ,NFTMIN, NFTMAX, NFT2                ! (O)
      &       ,TGAPMAX, T0GAPMAX )                 ! (O) 
 
-       print*,' xxx NTLIST = ', NTLIST
-       print*,' xxx TLIST = ', (TLIST(i), i=1, NTLIST)
-       print*,' xxx load TREST[MIN,MAX] = ', Tmin, Tmax
        SNLC_TGAPMAX  = TGAPMAX
        SNLC_T0GAPMAX = T0GAPMAX
 

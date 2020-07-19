@@ -18723,4 +18723,11 @@
         with "snlc_sim.exe KEY_DUMP". Use grep to select things,
         e.g.,  snlc_sim.exe KEY_DUMP | grep VPEC
 
+   first attempt to compile BYOSED with python, but running snlc_sim.exe
+   gives
+      At line 774 of file rdkcor_fits_head.f
+      Internal Error: get_unit(): Bad internal unit KIND
+   Tried compiling and running on des81, which has much newer gfortran,
+   and get the same error.
+
 END: 

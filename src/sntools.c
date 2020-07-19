@@ -101,7 +101,9 @@ void write_epoch_list_addvar(char *VARNAME, double *CUTWIN,
   WRITE_EPOCH_LIST.CUTWIN[NVAR][1] = CUTWIN[1];
   WRITE_EPOCH_LIST.CUTMASK_ALL |= CUTMASK_ADD ;
 
-  if ( CUTWIN[1] < 0.0 && CUTWIN[0] > 0.0 ) 
+  //  if ( CUTWIN[1] < 0.0 && CUTWIN[0] > 0.0 ) 
+
+  if ( strstr(VARNAME,"PHOTFLAG") != NULL ) 
     { CUTTYPE = CUTTYPE_BITMASK; }
   else
     { CUTTYPE = CUTTYPE_WINDOW; }
@@ -199,9 +201,10 @@ void write_epoch_list_exec(char *CID,double MJD, char *BAND,double *VALUES) {
     
     // increment CUTMASK for this epoch
     if ( PASSCUT ) { 
-      CUTMASK_EPOCH |= (1 << ivar) ; 
+      //      CUTMASK_EPOCH |= (1 << ivar) ; 
     }
     else {
+      CUTMASK_EPOCH |= (1 << ivar) ;  // failed cuts
       WRITE_EPOCH_LIST.NEPOCH_CUTFAIL[ivar]++ ;
     }
 
@@ -214,9 +217,9 @@ void write_epoch_list_exec(char *CID,double MJD, char *BAND,double *VALUES) {
 
 
   if ( CUTMODE == CUTMODE_ACCEPT ) // all cuts must pass
-    { DO_WRITE = ( CUTMASK_EPOCH == CUTMASK_ALL) ; }
+    { DO_WRITE = ( CUTMASK_EPOCH == 0 ) ; }
   else 
-    { DO_WRITE = ( CUTMASK_EPOCH < CUTMASK_ALL  ) ; } // any cut fails
+    { DO_WRITE = ( CUTMASK_EPOCH > 0  ) ; } // any cut fails
 
   
   if ( LDMP ) {
@@ -226,7 +229,7 @@ void write_epoch_list_exec(char *CID,double MJD, char *BAND,double *VALUES) {
 
   // write to file of DO_WRITE = true
   if ( DO_WRITE ) {
-    sprintf(STRING_LINE,"%s:  %10s %10.4f %s", 
+    sprintf(STRING_LINE,"%s:  %10s %10.4f %s ", 
 	    WRITE_EPOCH_LIST.ROWKEY, CID, MJD, BAND );
 
     // tack on variables
@@ -9896,7 +9899,7 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
 
   int  NVAR_STORE = 0, NKEY_LOCAL = 0 ;
   int  FOUND_VARNAMES, ivar, ivar_start, ivar_end, ivar2, NVAR_TMP ;
-  int  IVAR_EXIST, LDMP = 1 ;
+  int  IVAR_EXIST, LDMP = 0 ;
   char c_get[60], LINE[100], tmpName[60] ;
   char fnam[] = "read_VARNAMES_KEYS" ;
 

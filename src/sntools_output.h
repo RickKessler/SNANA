@@ -34,17 +34,10 @@
 
 
 // define flags for software packages
-<<<<<<< HEAD
-#define USE_HBOOKxxx  
-#define USE_ROOTxxx     
-=======
 #define USE_HBOOK  
 #define USE_ROOT    
->>>>>>> master
 #define USE_TEXT  // always leave this on; same logic as for HBOOK,ROOT, ...
 #define USE_MARZ  // always leave this on
-
-//#define TEXTFILE_NVAR  // read/write NVAR key in FITRES files (Dec 2018)
 
 // ---------------------------------------
 // flags to identify TABLEFILE_TYPE 

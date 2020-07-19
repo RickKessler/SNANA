@@ -14628,13 +14628,11 @@ C ----------- BEGIN ---------
           read(cwd_next,*) CTEL
           IDTEL = GET_IDTEL( CTEL )
           ISNLC_IDTEL(EPMIN) = IDTEL
-
           LTMP = DOALL_SNTEL .or. IDTEL .GT. 0
           if ( .NOT. LTMP ) then
              istat = ISTAT_SKIP
              return
-          endif
-          
+          endif          
       endif
 
 c check field (allow legacy "STRIPE:" key for SDSS)
@@ -14805,6 +14803,10 @@ c apply epoch cut.
      &            (.not. REFORMAT_SAVE_BADEPOCHS)
         LTMP    = LCUTEPOCH(Z, PKMJD, SNGL(MJD8), IFILT, IDFIELD)
      &            .and. (.not. IGNORE )
+
+        write(6,666) epmin, IFILT_OBS, SNLC8_MJD(epmin), IGNORE
+ 666    format(' xxx PARSE_EP: ep=',I3,' IFILT_OBS=',I3, 2x,
+     &          'MJD=',F9.3, 2x,'IGNORE=',L2 )
 
         if ( .NOT. LTMP ) ISTAT = ISTAT_SKIP
         return
@@ -17208,6 +17210,7 @@ c zero point
       CALL write_epoch_list_addvar(CUTVARNAME, CUTWIN_TMP, CUTMODE,
      &     20, 12)
       
+c PSF
       CUTWIN_TMP(1) = CUTWIN_PSF(1)
       CUTWIN_TMP(2) = CUTWIN_PSF(2)
       CUTVARNAME    = 'PSF' // char(0)
@@ -21146,7 +21149,8 @@ c  but allows new OUT_EPOCH_IGNORE_FILE option to work properly.
       IF ( ZP < CUTWIN_ZP(1) ) IGNORE = .TRUE.
       IF ( ZP > CUTWIN_ZP(2) ) IGNORE = .TRUE.
 
-      PSF = SNLC_PSF_SIG1(ep)
+c xxx bug !!!  PSF = SNLC_PSF_SIG1(ep)
+      PSF  = SNLC_PSF_FWHM_ARCSEC(EP)
       IF ( PSF < CUTWIN_PSF(1) ) IGNORE = .TRUE.
       IF ( PSF > CUTWIN_PSF(2) ) IGNORE = .TRUE.
 
@@ -22680,7 +22684,7 @@ c  cuts EXCEPT |cutbit|
    
 
 C ==========================================
-+DECK,GET_TRVAR.
++DECK,GET_TRESTVAR.
       SUBROUTINE GET_TRESTVAR(
      &     NTLIST, TLIST, FLIST               ! (I)
      &   , CUTWIN_TREST                       ! (I)
@@ -23313,6 +23317,9 @@ c first build TLIST array for epochs that pass MJDSELECT()
      &       ,NFTMIN, NFTMAX, NFT2                ! (O)
      &       ,TGAPMAX, T0GAPMAX )                 ! (O) 
 
+       print*,' xxx NTLIST = ', NTLIST
+       print*,' xxx TLIST = ', (TLIST(i), i=1, NTLIST)
+       print*,' xxx load TREST[MIN,MAX] = ', Tmin, Tmax
        SNLC_TGAPMAX  = TGAPMAX
        SNLC_T0GAPMAX = T0GAPMAX
 

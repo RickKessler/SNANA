@@ -18666,7 +18666,7 @@
   
 
 # ======================================================================= 
-         v10_77h (  ) 
+         v10_77h (Jul 20 2020) 
 
          ***** IMPORTANT(v10_77h) ***** 
 
@@ -18718,16 +18718,23 @@
       + fix to work if user name has less than 4 characters.
 
     snlc_sim, SALT2mu, sntools
-      + update key-matching utility to allow multiple keys in same
+     + update key-matching utility to allow multiple keys in same
         input file (e.g., NON1A), and to allow a dump of all keys
         with "snlc_sim.exe KEY_DUMP". Use grep to select things,
         e.g.,  snlc_sim.exe KEY_DUMP | grep VPEC
 
-   first attempt to compile BYOSED with python, but running snlc_sim.exe
-   gives
-      At line 774 of file rdkcor_fits_head.f
-      Internal Error: get_unit(): Bad internal unit KIND
-   Tried compiling and running on des81, which has much newer gfortran,
-   and get the same error.
+     + use keyMatch for command-line override and allow keys
+        to include or exlcude colon. Will need the colon option
+        later after submit-scripts are re-written. Either of the
+        following command-line args are now allowed:
+            snlc_sim.exe GENMAG_SMEAR 0.1
+            snlc_sim.exe GENMAG_SMEAR: 0.1
+
+     - First attempt to compile sim & BYOSED with python, but running 
+       snlc_sim.exe gives
+          At line 774 of file rdkcor_fits_head.f
+          Internal Error: get_unit(): Bad internal unit KIND
+       Tried compiling and running on des81, which has much newer
+       gfortran, and get the same error. 
 
 END: 

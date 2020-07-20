@@ -1538,7 +1538,7 @@ int read_input(char *input_file) {
       continue ; 
     }
 
-    if ( keyMatch(c_get,"ZVARIATION_POLY:")  ) { 
+    if ( keyMatch(c_get,"ZVARIATION_POLY:", "")  ) { 
 
       N = NPAR_ZVAR_USR ;
       INPUT_ZVARIATION[N].FLAG = FLAG_ZPOLY_ZVAR ;
@@ -2294,7 +2294,7 @@ int read_input(char *input_file) {
     char key[60], parName[60];
     double tmpList[MXSMEARPAR_OVERRIDE];
     // allow multiple of these keys
-    if ( keyMatch(c_get,"GENMAG_SMEARPAR_OVERRIDE:") ) { 
+    if ( keyMatch(c_get,"GENMAG_SMEARPAR_OVERRIDE:", "" ) ) { 
       readchar(fp, key);
       NVAL = nval_genSmear_override(key, parName); // return NVAL,parName
       readdouble(fp, NVAL, tmpList);               // read tmpList
@@ -2567,7 +2567,7 @@ int read_input(char *input_file) {
     if ( NstringMatch(1,c_get,"CUTWIN_T0GAPMAX:")  ) 
       { readfloat ( fp, 2, INPUTS.CUTWIN_T0GAPMAX ); continue ; }
 
-    if ( keyMatch(c_get,"CUTWIN_SNRMAX:")  ) {
+    if ( keyMatch(c_get,"CUTWIN_SNRMAX:", "")  ) {
       INPUTS.NCUTWIN_SNRMAX++ ; 
       N = INPUTS.NCUTWIN_SNRMAX ;
       readfloat ( fp, 1, &INPUTS.CUTWIN_SNRMAX[N][0] );
@@ -2636,10 +2636,10 @@ int read_input(char *input_file) {
     }
 
     // - - - - - 
-    if ( keyMatch(c_get,"WARP_SPECTRUM:")  ) 
+    if ( keyMatch(c_get,"WARP_SPECTRUM:", "")  ) 
       { readchar(fp,warp_spectrum_string);  GENSPEC.USE_WARP=1; continue ; }
 
-    if ( keyMatch(c_get,"TAKE_SPECTRUM:")  ) {       
+    if ( keyMatch(c_get,"TAKE_SPECTRUM:", "")  ) {       
       if(INPUTS.USE_SIMLIB_SPECTRA ) {
 	sprintf(c1err,"Cannot mix TAKE_SPECTRUM keys from sim-input & SIMLIB.");
 	sprintf(c2err,"Remove one of these TAKE_SPECTRUM sources.");
@@ -2648,10 +2648,10 @@ int read_input(char *input_file) {
       parse_input_TAKE_SPECTRUM(fp,warp_spectrum_string); continue ; 
     }
 
-    if ( keyMatch(c_get,"TAKE_SPECTRUM_HOSTFRAC:")  ) 
+    if ( keyMatch(c_get,"TAKE_SPECTRUM_HOSTFRAC:", "")  ) 
       {	readfloat(fp, 1, &INPUTS.TAKE_SPECTRUM_HOSTFRAC ); continue ; }
 
-    if ( keyMatch(c_get,"TAKE_SPECTRUM_DUMPCID:")  ) 
+    if ( keyMatch(c_get,"TAKE_SPECTRUM_DUMPCID:", "")  ) 
       {	readint(fp, 1, &INPUTS.TAKE_SPECTRUM_DUMPCID ); continue ; }
 
     // check NGRID values for GRID option only
@@ -4508,7 +4508,9 @@ void sim_input_override(void) {
   // Aug 13 2016: refactor to call sscanf_RATEPAR().
   // Mar 10 2017: start add 'goto INCREMENT_COUNTER' to avoid conflicts.
   // Dec 27 2018: check LCLIB_CUTWIN
+  // Jul 20 2020: start using keyMatch ... not done yet.
 
+  char KEY_APPEND_OPT[4];
   int  i, ilast, iuse, ifilt, N, j, ITMP ;
   int  ipar, opt_tmp, itype, NLOCAL_DNDZ ;
   char  ctmp[80], ctmp2[80], parname[60], cpoly[40];
@@ -4522,60 +4524,61 @@ void sim_input_override(void) {
 
   i = 2; ilast = 2 ;
   NLOCAL_DNDZ = 0 ;
+  sprintf(KEY_APPEND_OPT, "%s", COLON);
 
   while ( i < NARGV_LIST ) {
     printf("  PROCESS COMMAND LINE ARG: %s \n", ARGV_LIST[i] );
 
-    if ( strcmp( ARGV_LIST[i], "INPUT_FILE_INCLUDE" ) == 0 ||
-	 strcmp( ARGV_LIST[i], "INPUT_INCLUDE_FILE" ) == 0  ) {
+    if ( keyMatch( ARGV_LIST[i], "INPUT_FILE_INCLUDE", KEY_APPEND_OPT ) ||
+	 keyMatch( ARGV_LIST[i], "INPUT_INCLUDE_FILE", KEY_APPEND_OPT )
+	 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.INPUT_FILE_LIST[1] ); 
       INPUTS.INPUT_FILE_LIST[2][0] = 0 ; // erase 2nd include file
     }
 
-
-    if ( strcmp( ARGV_LIST[i], "USE_KCOR_REFACTOR" ) == 0 ) {  
+    if ( keyMatch(ARGV_LIST[i], "USE_KCOR_REFACTOR", KEY_APPEND_OPT ) ) {
       i++; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_KCOR_REFACTOR ); 
     }
-
-    if ( strcmp( ARGV_LIST[i], "TRACE_MAIN" ) == 0 ) 
+   
+    if ( keyMatch( ARGV_LIST[i], "TRACE_MAIN", KEY_APPEND_OPT ) ) 
       {  i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.TRACE_MAIN );  }
 
-    if ( strcmp( ARGV_LIST[i], "DASHBOARD" ) == 0 ) {  
+    if ( keyMatch( ARGV_LIST[i], "DASHBOARD", KEY_APPEND_OPT )  ) {  
       i++; INPUTS.DASHBOARD_DUMPFLAG = true ;   
       INPUTS.NVAR_SIMGEN_DUMP = -9;
     }
 
-    if ( strcmp( ARGV_LIST[i], "OPT_DEVEL_GENPDF" ) == 0 ) 
+    if ( keyMatch( ARGV_LIST[i], "OPT_DEVEL_GENPDF", KEY_APPEND_OPT ) ) 
       { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_DEVEL_GENPDF );  }
-    if ( strcmp( ARGV_LIST[i], "DEBUG_FLAG" ) == 0 ) 
+    if ( keyMatch( ARGV_LIST[i], "DEBUG_FLAG", KEY_APPEND_OPT )  ) 
       { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.DEBUG_FLAG );   }
 
     
-    if ( strcmp( ARGV_LIST[i], "RESTORE_DES3YR" ) == 0 )  {
+    if ( keyMatch( ARGV_LIST[i], "RESTORE_DES3YR", KEY_APPEND_OPT )  )  {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &ITMP );
       INPUTS.RESTORE_DES3YR = true ;
     }
 
-    if ( strcmp( ARGV_LIST[i], "NONLINEARITY_FILE" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i], "NONLINEARITY_FILE", KEY_APPEND_OPT )  ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.NONLINEARITY_FILE ); 
     }
 
-    if ( strcmp( ARGV_LIST[i], "SIMLIB_FILE" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i], "SIMLIB_FILE", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.SIMLIB_FILE ); 
     }
 
-    if ( strcmp( ARGV_LIST[i], "SIMLIB_FIELDLIST" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i], "SIMLIB_FIELDLIST", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.SIMLIB_FIELDLIST ); 
     }
 
 
-    if ( strcmp( ARGV_LIST[i], "ZVARIATION_FILE" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i], "ZVARIATION_FILE", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUT_ZVARIATION_FILE ); 
       if ( !IGNOREFILE(INPUT_ZVARIATION_FILE) )
 	{ USE_ZVAR_FILE = 1 ; }
     }
 
-    if ( strcmp( ARGV_LIST[i], "ZVARIATION_POLY" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i], "ZVARIATION_POLY", KEY_APPEND_OPT ) ) {
       N = NPAR_ZVAR_USR ;
       INPUT_ZVARIATION[N].FLAG = FLAG_ZPOLY_ZVAR ;
       INPUT_ZVARIATION[N].NZBIN = 0 ;  
@@ -4587,7 +4590,7 @@ void sim_input_override(void) {
 
 
     // ------ HOSTLIB -----
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_FILE" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_FILE", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_FILE ); 
       INPUTS.HOSTLIB_USE = 1;  
       setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
@@ -4600,38 +4603,37 @@ void sim_input_override(void) {
       }
 
     }
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_WGTMAP_FILE" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_WGTMAP_FILE", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_WGTMAP_FILE ); 
     }
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_ZPHOTEFF_FILE" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_ZPHOTEFF_FILE", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_ZPHOTEFF_FILE ); 
     }
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_SPECBASIS_FILE" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_SPECBASIS_FILE", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_SPECBASIS_FILE ); 
     }
 
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_MSKOPT" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_MSKOPT", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_MSKOPT ); 
       setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     }
-    if ( strcmp( ARGV_LIST[i], "+HOSTMAGS" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i], "+HOSTMAGS", KEY_APPEND_OPT ) ) {
       INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS ;
       i++ ;
       setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     }
 
-    if ( strcmp( ARGV_LIST[i], "+HOSTNBR" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i], "+HOSTNBR", KEY_APPEND_OPT ) ) {
       INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSNBR ;
       i++ ;
       setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
     }
-    if ( strcmp( ARGV_LIST[i], "SEPNBR_MAX" ) == 0 ) 
+    if ( keyMatch( ARGV_LIST[i], "SEPNBR_MAX", KEY_APPEND_OPT ) ) 
       { i++ ; sscanf(ARGV_LIST[i] , "%le", &HOSTLIB_NBR_WRITE.SEPNBR_MAX); }
-    if ( strcmp( ARGV_LIST[i], "NNBR_WRITE_MAX" ) == 0 ) 
+    if ( keyMatch( ARGV_LIST[i], "NNBR_WRITE_MAX", KEY_APPEND_OPT ) ) 
       { i++ ; sscanf(ARGV_LIST[i] , "%d", &HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX);}
-    
-
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_GENZPHOT_FUDGEPAR" ) == 0 ) {
+       
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_GENZPHOT_FUDGEPAR", KEY_APPEND_OPT) ) {
       for(j=0; j<4; j++ ) {
 	i++ ; sscanf(ARGV_LIST[i], "%f", 
 		     &INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[j] );	
@@ -4639,96 +4641,94 @@ void sim_input_override(void) {
       i++ ; sscanf(ARGV_LIST[i], "%s", ctmp); 
       parse_input_GENZPHOT_OUTLIER(ctmp); 
     }
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_GENZPHOT_BIAS" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_GENZPHOT_BIAS", KEY_APPEND_OPT ) ) {
       for(j=0; j<4; j++ ) {
 	i++ ; sscanf(ARGV_LIST[i] , "%f", 
 		     &INPUTS.HOSTLIB_GENZPHOT_BIAS[j] );
       }      
     }
 
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_MAXREAD" ) == 0 ) {
+    if (keyMatch(ARGV_LIST[i], "HOSTLIB_MAXREAD", KEY_APPEND_OPT )  ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_MAXREAD ); 
     }
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_GALID_NULL" ) == 0 ) {
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_GALID_NULL", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_GALID_NULL ); 
     }
 
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_GALID_PRIORITY" ) == 0 ) {
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_GALID_PRIORITY", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_GALID_PRIORITY[0] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_GALID_PRIORITY[1] ); 
     }
 
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_MINDAYSEP_SAMEGAL" ) == 0 ) {
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_MINDAYSEP_SAMEGAL", KEY_APPEND_OPT) ){
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL ); 
     }
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_MXINTFLUX_SNPOS" ) == 0 ) {
+    if (keyMatch(ARGV_LIST[i], "HOSTLIB_MXINTFLUX_SNPOS", KEY_APPEND_OPT) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.HOSTLIB_MXINTFLUX_SNPOS ); 
     }
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_GENRANGE_NSIGZ" ) == 0 ) {
+    if (keyMatch(ARGV_LIST[i], "HOSTLIB_GENRANGE_NSIGZ", KEY_APPEND_OPT) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.HOSTLIB_GENRANGE_NSIGZ[0] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.HOSTLIB_GENRANGE_NSIGZ[1] ); 
     }
 
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_GENRANGE_RA" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_GENRANGE_RA", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_RA[0] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_RA[1] ); 
     }
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_GENRANGE_DEC" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_GENRANGE_DEC", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[0] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[1] ); 
     }
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_GENRANGE_DECL" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_GENRANGE_DECL", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[0] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[1] ); 
     }
 
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_DZTOL" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_DZTOL", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_DZTOL[0] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_DZTOL[1] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_DZTOL[2] ); 
     }
 
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_SERSIC_SCALE" ) == 0 ) { // legacy name
+    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_SERSIC_SCALE", KEY_APPEND_OPT ) ) { // legacy name
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); 
     }
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_SCALE_SERSIC_SIZE" ) == 0 ) {
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_SCALE_SERSIC_SIZE", KEY_APPEND_OPT) ){
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); 
     }
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_SCALE_LOGMASS_ERR" ) == 0 ) {
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_SCALE_LOGMASS_ERR", KEY_APPEND_OPT) ){
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SCALE_LOGMASS_ERR ); 
     }
 
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_STOREPAR" ) == 0 ) {
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_STOREPAR", KEY_APPEND_OPT) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_STOREPAR_LIST ); 
     }
 
-
-
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_SBRADIUS" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_SBRADIUS", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SBRADIUS ); 
     }
 
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_GALID_FORCE" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_GALID_FORCE", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_GALID_FORCE ); 
     }
 
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_FIXRAN_RADIUS" ) == 0 ) {
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_FIXRAN_RADIUS", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXRAN_RADIUS ); 
     }
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_FIXRAN_PHI" ) == 0 ) {
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_FIXRAN_PHI", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXRAN_PHI ); 
     }
-    if ( strcmp( ARGV_LIST[i], "HOSTLIB_FIXSERSIC" ) == 0 ) {
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_FIXSERSIC", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[0] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[1] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[2] ); 
       i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[3] ); 
     }
 
-    if ( strcmp( ARGV_LIST[i], "FLUXERRMODEL_FILE" ) == 0 ) {
+    if (keyMatch( ARGV_LIST[i],"FLUXERRMODEL_FILE", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.FLUXERRMODEL_FILE ); 
     }
-    if ( strcmp( ARGV_LIST[i], "FLUXERRMODEL_OPTMASK" ) == 0 ) {
+    if (keyMatch( ARGV_LIST[i],"FLUXERRMODEL_OPTMASK", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.FLUXERRMODEL_OPTMASK ); 
     }
 
@@ -4742,15 +4742,16 @@ void sim_input_override(void) {
       if (IGNOREFILE(ctmp2)) { sprintf(INPUTS.FLUXERRMODEL_REDCOV,"NONE"); }
     }
 
-    if ( strcmp( ARGV_LIST[i], "FLUXERRMAP_IGNORE_DATAERR" ) == 0 ) {
+    if (keyMatch(ARGV_LIST[i],"FLUXERRMAP_IGNORE_DATAERR", KEY_APPEND_OPT ) ){
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.FLUXERRMAP_IGNORE_DATAERR ); 
     }
 
     // anomalous host-subtraction noise (Aug 2014)
-    if ( strcmp( ARGV_LIST[i], "HOSTNOISE_FILE" ) == 0 ) {
+    if ( keyMatch( ARGV_LIST[i], "HOSTNOISE_FILE", KEY_APPEND_OPT ) ) {
       i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTNOISE_FILE ); 
     }
 
+    // - - - - ??? - - - - 
     // --------------
 
     if ( strcmp( ARGV_LIST[i], "SNTYPE_Ia" ) == 0 ) {

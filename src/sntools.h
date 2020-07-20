@@ -627,7 +627,7 @@ void  checkStringUnique(int MAX, char *string, char *msgSource, char *callFun);
 bool  NstringMatch(int MAX, char *string, char *key);
 bool  uniqueMatch(char *string, char *key);
 int   uniqueOverlap(char *string, char *key);
-int   keyMatch(char *string, char *key);
+int   keyMatch(char *string, char *key, char *keySuffix_optional);
 void  dumpUniqueKey(char *key) ;
 
 int   ivar_matchList(char *varName, int NVAR, char **varList);

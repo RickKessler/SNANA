@@ -53,7 +53,7 @@ c parameters used by snana code
      &  ,OPT_SNXT_CCM89, OPT_SNXT_SJPAR
      &  ,OPT_MWCOLORLAW_DEFAULT, OPT_MWEBV_DEFAULT
      &  ,OPT_KCORERR_SJ, OPT_KCORERR_SJ5, OPT_KCORERR_SMOOTH
-     &  ,MXLINE_ARGS, MXEPOCH_IGNORE
+     &  ,MXLINE_ARGS, MXKEY_ARGS, MXEPOCH_IGNORE
      &  ,NPAR_ANYLC, MXPAR_SIMSED, MXPAR_LCLIB
      &  ,MXLAMBIN_SNSED, MXCUTBIT
      &  ,OPT_FILTUPD_EACHSN, OPT_FILTUPD_MAP, OPT_FILTUPD_SAMEFILT
@@ -221,7 +221,8 @@ c
      &  ,OPT_MWCOLORLAW_DEFAULT = 94    ! ODonnel 94
      &  ,OPT_MWEBV_DEFAULT      =  1    ! whatever is in the data file
 c
-     &  ,MXLINE_ARGS      = 100
+     &  ,MXLINE_ARGS      = 100  ! max number of command line args
+     &  ,MXKEY_ARGS       =   5  ! max number of args per key
      &  ,ZEROPOINT_FLUXCAL_DEFAULT  = 27.5
      &  ,MXEPOCH_IGNORE   = 1000
      &  ,NPAR_ANYLC       = 10   ! for MNFIT_PKMJD 

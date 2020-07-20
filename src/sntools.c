@@ -764,9 +764,17 @@ void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR,
 
 
 // ==============================================
-int keyMatch(char *string,char *key ) {
-  if ( strcmp(string,key)==0 )    { return(1); }
-  else                            { return(0); }
+int keyMatch(char *string,char *key, char *keySuffix_optional ) {
+  if ( strcmp(string,key)==0 )   
+    { return(1); }
+  else if ( strlen(keySuffix_optional) > 0 ) {
+    char KEY[100]; sprintf(KEY,"%s%s", key, keySuffix_optional ) ;
+    if ( strcmp(string,KEY) == 0 ) { return(1); }
+  }
+
+  // if we get here, there is no match.
+  return(0);
+
 } // end keyMatch
 
 bool NstringMatch(int MAX, char *string, char *key) {
@@ -863,16 +871,6 @@ int uniqueOverlap (char *string,char *key ) {
     {  NstringMatch( 0, STRINGMATCH_INIT, key); return(0); }
   if ( strcmp(string,STRINGMATCH_KEY_DUMP) == 0 )  
     {  NstringMatch(-1, STRINGMATCH_INIT, key); return(0); }
-
-  /* xxx mark delete xxxx
-  if ( strcmp(string,"INIT") == 0 ) {
-    // interpet *key  as "source of string" to store
-    printf("  Initialize %s for %s\n", fnam, key); fflush(stdout);
-    sprintf(STRING_UNIQUE.SOURCE_of_STRING, "%s", key);
-    STRING_UNIQUE.NLIST = 0;
-    return(0);
-  }
-  xxxxxx */
 
   strncpy(tmpString,string,lenkey); tmpString[lenkey]='\0';
   // xxx mark delete Jul 17 2020  match = uniqueMatch(tmpString,key);

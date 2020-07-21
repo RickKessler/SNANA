@@ -8628,21 +8628,24 @@ The input key for the analysis programs is
 \begin{verbatim}
    &SNLCINP
      HEADER_OVERRIDE_FILE = 'myUpdates.dat'
+         or
+     HEADER_OVERRIDE_FILE = 'myUpdates1.dat,myUpdates2.dat
 
 more myUpdates.dat
-NVAR: 5
 VARNAMES: CID  VPEC VPEC_ERR  HOSTGAL_LOGMASS HOSTGAL_LOGMASS_ERR
 SN:  1346137    78.4 150.0   10.87  0.21
 SN:  1346387   -63.0 150.0    9.44  0.33
 etc ...
 \end{verbatim}
 %
-In this example, four header values are updated:
+In the first example, four header values are updated:
 peculiar velocity correction, log of host mass,
 and the error for each. For SNe missing from the
 update file, the original values in the data file
 header are used. This feature does {\tt NOT} work
 on epoch-dependent quantities.
+The second example illustrates a comma-separated list of table files;
+the variables in each file must be unique. (except for CID)
 
 % ------------
 \clearpage

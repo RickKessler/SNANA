@@ -420,6 +420,7 @@ void parse_args(int argc, char **argv) {
 
   for( i=0; i < NARGV_LIST; i++ ) {
     USE_ARGV_LIST[i] = 0 ;
+    ARGV_LIST[i] = (char*) malloc( MXPATHLEN*sizeof(char) );
     sprintf(ARGV_LIST[i], "%s", argv[i] );
   }
 

@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
 
   init_SNPATH();    // init PATH_SNDATA_ROOT
 
-  parse_commandLine_simargs(argc, argv);
+  init_commandLine_simargs(argc, argv);
 
   // xxx mark delete  init_SNPATH();    // init PATH_SNDATA_ROOT
 
@@ -407,14 +407,21 @@ int main(int argc, char **argv) {
 
 
 // **************************
-void parse_commandLine_simargs(int argc, char **argv) {
+void init_commandLine_simargs(int argc, char **argv) {
 
   // Created April 2012.
-  // Store user command-line args.
+  //  + print full command to stdout
+  //  + Extract input_file name 
+  //  + store user command-line args in ARGV_LIST array
+  //  + check KEY_DUMP
+  // 
+  // Jul 21 2020
+  //   + malloc ARGV_LIST
+  //   + abort of NARGV_LIST >= MXARGV
 
   int i;
   char *inFile = INPUTS.INPUT_FILE_LIST[0] ;
-  //  char fnam[] = "parse_commandLine_simargs";
+  char fnam[] = "init_commandLine_simargs";
 
   // ---------------- BEGIN --------------
 
@@ -424,7 +431,14 @@ void parse_commandLine_simargs(int argc, char **argv) {
     sprintf(inFile, "%s", argv[1] );
     NARGV_LIST = argc ;
 
+    if ( NARGV_LIST >= MXARGV ) {
+      sprintf(c1err,"%d command line args exceeds MXARGV=%d", NARGV_LIST, MXARGV);
+      sprintf(c2err,"Either reduce number of args, or increase MXARGV");
+      errmsg(SEV_WARN, 0, fnam, c1err, c2err); 
+    }
+
     for ( i = 0; i < NARGV_LIST ; i++ ) {
+      ARGV_LIST[i] = (char*) malloc( MXPATHLEN*sizeof(char) );
       sprintf( ARGV_LIST[i], "%s", argv[i] );
       USE_ARGV_LIST[i] = 0 ;
       printf("%s ", argv[i]);
@@ -449,7 +463,7 @@ void parse_commandLine_simargs(int argc, char **argv) {
 
   return ;
 
-} // end of parse_commandLine_simargs
+} // end of init_commandLine_simargs
 
 
 // ***************************
@@ -471,7 +485,6 @@ void simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 	    INPUTS.GENMODEL);
     //    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     errmsg(SEV_WARN, 0, fnam, c1err, c2err);  // 9.24.2017
-    
   }
 
   END_FLUXERRMODEL();
@@ -538,10 +551,15 @@ void get_user_input(void) {
   Jun 18 2017: move prep_user_input into main, after ranSeed init
   Jul 30 2018: check input_file_include2
 
+  Jul 20 2020: 
+     + check a few command-line args before reading any files.
+     + check OPT_DEVEL_READ_INPUT
+
   ***********/
-  int i ;
+  int i, ifile ;
   bool FOUNDKEY[2];
-  //  char fnam[] = "get_user_input"    ;
+
+  char fnam[] = "get_user_input"    ;
 
   // ------------ BEGIN ---------------
 
@@ -550,39 +568,58 @@ void get_user_input(void) {
   set_user_defaults();
 
   // ------------------------------------------------
-
-
-  read_input(INPUTS.INPUT_FILE_LIST[0]);
-
-  // ------------------------------
   // check option to read 2nd input-include file
   // First check command-line args here for override of 2nd input-include...
   // This check is needed because the override list is read below after
   // the 2nd input file is alread read.
   for ( i = 2; i < NARGV_LIST ; i++ ) {   
-    FOUNDKEY[0] = ( strcmp(ARGV_LIST[i],"INPUT_FILE_INCLUDE") == 0 );
-    FOUNDKEY[1] = ( strcmp(ARGV_LIST[i],"INPUT_INCLUDE_FILE") == 0 );
+    FOUNDKEY[0] = ( keyMatch(ARGV_LIST[i],"INPUT_FILE_INCLUDE",COLON)  );
+    FOUNDKEY[1] = ( keyMatch(ARGV_LIST[i],"INPUT_INCLUDE_FILE",COLON)  );
     if ( FOUNDKEY[0] || FOUNDKEY[1] ) {
       sprintf(INPUTS.INPUT_FILE_LIST[1], "%s", ARGV_LIST[i+1] ) ; 
       INPUTS.INPUT_FILE_LIST[2][0] = 0 ; // erase 2nd include file
     }
+
+    if ( keyMatch(ARGV_LIST[i], "OPT_DEVEL_READ_INPUT", COLON)  ) 
+      { sscanf(ARGV_LIST[i+1], "%d", &INPUTS.OPT_DEVEL_READ_INPUT );  }
   } 
 
+  // set REFAC flag after checking command-line overrides
+  bool READ_INPUT_REFAC = ( INPUTS.OPT_DEVEL_READ_INPUT > 0 ) ;
+
+  for(ifile=0; ifile < MXINPUT_FILE_SIM ; ifile++ ) {
+    if ( !IGNOREFILE(INPUTS.INPUT_FILE_LIST[ifile])  ) {
+      if ( READ_INPUT_REFAC )
+	{ read_input_file(INPUTS.INPUT_FILE_LIST[ifile] ); }
+      else
+	{ read_input_file_legacy(INPUTS.INPUT_FILE_LIST[ifile] ); }
+    }
+  }
+
+  /* xxx mark delete Jul 20 2020 xxxxx
+  if ( READ_INPUT_REFAC )
+    { read_input_file(INPUTS.INPUT_FILE_LIST[0]); }
+  else
+    { read_input_file_legacy(INPUTS.INPUT_FILE_LIST[0]); }
   // check 1st include file
   if ( !IGNOREFILE(INPUTS.INPUT_FILE_LIST[1])  ) 
-    { read_input(INPUTS.INPUT_FILE_LIST[1] );  }
-
+    { read_input_file_legacy(INPUTS.INPUT_FILE_LIST[1] );  }
   // check 2nd include file
   if ( !IGNOREFILE(INPUTS.INPUT_FILE_LIST[2]) ) 
-    { read_input(INPUTS.INPUT_FILE_LIST[2] );  }
-
+    { read_input_file_legacy(INPUTS.INPUT_FILE_LIST[2] );  }
+  xxxxxxxx end mark xxxxxxx */
 
   // --------------------------------------------
   // check for command line overrides
   // --------------------------------------------
 
-  sim_input_override();
-  check_argv();
+  if ( READ_INPUT_REFAC ) 
+    { sim_input_override(); }
+  else
+    { sim_input_override_legacy(); }
+
+  // check that all command-line args were used
+  check_argv(); 
 
   // check for "PERFECT" options
   genperfect_override();
@@ -619,7 +656,8 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_DES3YR       = false; // Mar 2020
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
   INPUTS.RESTORE_FLUXERR_BUGS = false; // Jan 2020
-  INPUTS.OPT_DEVEL_GENPDF     = 1 ;
+  INPUTS.OPT_DEVEL_GENPDF      = 1 ;
+  INPUTS.OPT_DEVEL_READ_INPUT  = 0 ;
   NLINE_RATE_INFO   = 0;
 
   // don't init zero'th input file since that is the main input file
@@ -1294,1434 +1332,362 @@ void set_user_defaults_RANSYSTPAR(void) {
 
 
 // ***********************************
-int read_input(char *input_file) {
+int read_input_file(char *input_file) {
 
-  // Jan 2016: skip lines with '#' by reading entire line after each '#'
-  // Mar 1 2017: read AV,RV stuff for SIMSED model. See READ_AVRV jump.
-  // 
-  // Jul 30 2018: pass input file as argument instead of fp
-  // Apr 09 2019:
-  //  + use new uniqueMatch() util to check for UNIQUE string-match
-  //    and abort on duplicate key.
-  //  + use keyMatch() util to check for match where the same
-  //    key is allowed multiple times.
+  // Created Jul 2020 by R.Kessler
   //
-  // Jun 26 2019: 
-  //  + for NON1ASED, allow comma-separated sigmas for MAGSMEAR column
-  //
-  // Jul 17 2020: replace uniqueMatch calls with NstringMatch
-  //
+  // Re-write reading of input so that:
+  //  + use same key-parsing for file and command-line overrides
+  //  + allow command-line overrids keys to have optional colon
+  //     (to match YAML syntax for refactored submit script)
+
+  int MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_IGNORECOMMENT ;
+  int  iwd, NWD_FILE, NWD_READ, LENWD, INIT_FLAG_STRING ;
   FILE *fp;
-
-  char  *warp_spectrum_string = INPUTS.WARP_SPECTRUM_STRING;
-  char 
-    c_get[80], ctmp[80], ctmp2[80], tmpLine[200]
-    ,ckey[60], cval[40], cpoly[60]
-    ,*parname, *modelName, *ptrTmp = tmpLine
-    ;
-
-  float ftmp, sigTmp[2];
-  int  L_NON1ASED, L_NON1AKEY, L_PEC1AKEY, L_TMP, ITMP, NWD ;
-  int  itmp, N, j, ifilt, opt_tmp, INIT_FLAG_STRING;
-  int  key, NKEY, ovp1, ovp2, ITYPE ;
-  bool FOUNDKEY[2] ;
-  int  iArg = -9;
+  char tmpWord[MXPATHLEN];  
   char  stringSource[] = "sim-input file" ;
-  char  comma[] = ","; 
-  char  fnam[] = "read_input"  ;
+  char fnam[] = "read_input_file" ;
 
-  // -------------- BEGIN -------------
+  // ---------- BEGIN ----------
 
+  // unpack ENV, and make sure that input file exists
   ENVreplace(input_file,fnam,1);
   if ( (fp = fopen(input_file, "rt"))==NULL ) {       
     sprintf ( c1err, "Cannot open input file :" );
     sprintf ( c2err," '%s' ", input_file);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-
+  fclose(fp);
 
   INPUTS.NREAD_INPUT_FILE++ ;
   printf(" --------------------------------------------------------\n");
-
-  // xxx mark  uniqueMatch("INIT",stringSource); // 4.2019
-
   INIT_FLAG_STRING = 0 ;
-  if ( INPUTS.KEYNAME_DUMPFLAG) { INIT_FLAG_STRING = -1; }   
+  if ( INPUTS.KEYNAME_DUMPFLAG ) { INIT_FLAG_STRING = -1; }   
   NstringMatch(INIT_FLAG_STRING, STRINGMATCH_INIT, stringSource); // 7.2020
 
   printf("  Read user input file %d: %s \n", 
 	 INPUTS.NREAD_INPUT_FILE, input_file );
 
-  warp_spectrum_string[0] = ckey[0] = cval[0] = tmpLine[0] = 0 ;
+  NWD_FILE = store_PARSE_WORDS(MSKOPT,input_file);
+
+  // copy input file contents to another [WORDLIST] buffer because
+  // store_PARSE_WORDS may be used later to parse some of the input
+  INPUTS.NWORDLIST = NWD_FILE ;
+  INPUTS.WORDLIST  = (char**) malloc ( sizeof(char*) * NWD_FILE );
+  for(iwd=0; iwd < NWD_FILE; iwd++ ) {    
+    get_PARSE_WORD(0,iwd,tmpWord);
+    LENWD = strlen(tmpWord) ;
+    if ( LENWD < MXCHARWORD_PARSE_WORDS ) { LENWD = MXCHARWORD_PARSE_WORDS; }
+    INPUTS.WORDLIST[iwd] = (char*) malloc ( sizeof(char) * (LENWD+10) );
+    sprintf(INPUTS.WORDLIST[iwd], "%s", tmpWord );
+  }
+
+  for(iwd=0; iwd < NWD_FILE; iwd++ ) {
+    NWD_READ = parse_input_key_driver(&INPUTS.WORDLIST[iwd], KEYSOURCE_FILE);
+    iwd += NWD_READ ;
+  }
+
+  // ------------------- 
+  char msg_die[100] ;
+  sprintf(msg_die, "DEBUG DIE for refac %s: NWD = %d", fnam, NWD_FILE );
+  debugexit(msg_die) ;
+
+  return ;
+
+} // end read_input_file
+
+// ============================
+int parse_input_key_driver(char **WORDS, int keySource ) {
+
+  // Jul 20 2020
+  // examine input string(s) WORDS by comparing against all 
+  // possible keys. Input keySource indicates if key is
+  // file or command-line.
+
+  int N = 0 ;
+  FILE *fpNull = NULL ;
+  char fnam[] = "parse_input_key_driver" ;
+
+  // ------------- BEGIN -----------
+
+  // printf(" xxx %s: WORDS = '%s' \n", fnam, WORDS[0] );
+
+  if ( keyMatchSim(1, "USE_KCOR_REFACTOR", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_KCOR_REFACTOR ) ; 
+  }
+  else if ( keyMatchSim(1, "TRACE_MAIN", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.TRACE_MAIN ) ; 
+  }
+  else if ( keyMatchSim(1, "DEBUG_FLAG", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.DEBUG_FLAG) ; 
+  }
+  else if ( keyMatchSim(1, "RESTORE_DES3YR", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.RESTORE_DES3YR) ; 
+  }
+  else if ( keyMatchSim(1, "OPT_DEVEL_GENPDF", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_GENPDF ) ; 
+  }
+  else if ( keyMatchSim(1, "OPT_DEVEL_READ_INPUT", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_READ_INPUT ) ; 
+  }
+  else if ( strstr(WORDS[0],"HOSTLIB_") != NULL ) {
+    N += parse_input_HOSTLIB(WORDS, keySource);
+  }
+  // - - - - -
+  else if ( keyMatchSim(1, "FLUXERRMODEL_FILE", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.FLUXERRMODEL_FILE );
+  }
+  else if ( keyMatchSim(1, "FLUXERRMODEL_OPTMASK", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.FLUXERRMODEL_OPTMASK );
+  }
+  else if ( keyMatchSim(1, "FLUXERRMAP_IGNORE_DATAERR", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.FLUXERRMAP_IGNORE_DATAERR );
+  }
+  // ??? FLUXERRMODEL_REDCOV ???
+  else if ( keyMatchSim(1, "HOSTNOISE_FILE", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTNOISE_FILE );
+  }
+
+  // - - - - -
+  else if ( keyMatchSim(1, "SNTYPE_Ia",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SNTYPE_Ia_SPEC );
+    INPUTS.SNTYPE_Ia_PHOT = INPUTS.SNTYPE_Ia_SPEC + OFFSET_TYPE_PHOT ;
+  }
+  else if ( keyMatchSim(1, "SNTYPES_Ia",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SNTYPE_Ia_SPEC );
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SNTYPE_Ia_PHOT );
+  }
+  else if ( keyMatchSim(1, "GENTYPE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.GENTYPE_SPEC );
+    INPUTS.GENTYPE_PHOT = INPUTS.GENTYPE_SPEC + OFFSET_TYPE_PHOT ; 
+  }
+  else if ( keyMatchSim(1, "GENTYPES",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.GENTYPE_SPEC );
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.GENTYPE_PHOT );
+  }
+  // - - - - -
+  else if ( strstr(WORDS[0],"SIMLIB_") != NULL ) {
+    N += parse_input_SIMLIB(WORDS, keySource);
+  }
+  // - - - - -
+  else if ( keyMatchSim(1, "FUDGEOPT_FLUXERR",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.FUDGEOPT_FLUXERR );
+  }
+  else if ( keyMatchSim(1, "FUDGESCALE_PSF",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.FUDGESCALE_PSF );
+  }
+  else if ( keyMatchSim(1, "FUDGESCALE_SKYNOISE",  WORDS[0],keySource)||
+	    keyMatchSim(1, "FUDGESCALE_NOISE_SKY", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.FUDGESCALE_NOISE_SKY );
+  }
+  else if ( keyMatchSim(1, "FUDGESCALE_READNOISE",  WORDS[0],keySource)||
+	    keyMatchSim(1, "FUDGESCALE_NOISE_READ", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.FUDGESCALE_NOISE_READ );
+  }
+  else if ( keyMatchSim(1, "FUDGESCALE_NOISE_TEMPLATE",WORDS[0],keySource) ){
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.FUDGESCALE_NOISE_TEMPLATE );
+  }
+  //  - - - - - - - 
+  else if ( strstr(WORDS[0], "EXPOSURE_TIME") != NULL ) {
+    N += parse_input_KEY_PLUS_FILTER(WORDS, keySource, "EXPOSURE_TIME",
+				     &INPUTS.EXPOSURE_TIME, 
+				     INPUTS.EXPOSURE_TIME_FILTER) ;
+  }
+  else if ( strstr(WORDS[0], "FUDGE_MAGERR") != NULL ) {
+    N += parse_input_KEY_PLUS_FILTER(WORDS, keySource, "FUDGE_MAGERR",
+				     &INPUTS.FUDGE_MAGERR, 
+				     INPUTS.FUDGE_MAGERR_FILTER);
+  }
+  else if ( strstr(WORDS[0], "FUDGE_ZPTERR") != NULL ) {
+    N += parse_input_KEY_PLUS_FILTER(WORDS, keySource, "FUDGE_ZPTERR",
+				     &INPUTS.FUDGE_ZPTERR, 
+				     INPUTS.FUDGE_ZPTERR_FILTER);
+  }
+  else if ( strstr(WORDS[0], "FUDGESCALE_FLUXERR") != NULL ) {   
+    N += parse_input_KEY_PLUS_FILTER(WORDS, keySource, "FUDGESCALE_FLUXERR",
+				     &INPUTS.FUDGESCALE_FLUXERR, 
+				     INPUTS.FUDGESCALE_FLUXERR_FILTER );
+  }
+  else if ( strstr(WORDS[0], "FUDGESCALE_FLUXERR2") != NULL ) {   
+    N += parse_input_KEY_PLUS_FILTER(WORDS, keySource, "FUDGESCALE_FLUXERR2",
+				     &INPUTS.FUDGESCALE_FLUXERR2, 
+				     INPUTS.FUDGESCALE_FLUXERR2_FILTER );
+  }
+  else if ( strstr(WORDS[0], "FUDGESHIFT_ZPT") != NULL ) {   
+    N += parse_input_KEY_PLUS_FILTER(WORDS, keySource, "FUDGESHIFT_ZPT",
+				     &INPUTS.FUDGESHIFT_ZPT, 
+				     INPUTS.FUDGESHIFT_ZPT_FILTER);
+  }
+  else if ( strstr(WORDS[0], "MJD_TEMPLATE") != NULL ) {      
+    N += parse_input_KEY_PLUS_FILTER(WORDS, keySource, "MJD_TEMPLATE",
+				     &INPUTS.MJD_TEMPLATE, 
+				     INPUTS.MJD_TEMPLATE_FILTER);
+  }
+  // - - - - - - - - 
+  else if ( strstr(WORDS[0], "RANSYSTPAR") != NULL ) {  
+    N += parse_input_RANSYSTPAR(WORDS, keySource );
+  }
+  else if ( keyMatchSim(1, "INIT_ONLY",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.INIT_ONLY );
+  }
+  else if ( keyMatchSim(1, "NGEN_LC",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.NGEN_LC );
+  }
+  else if ( keyMatchSim(1, "NGENTOT_LC",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.NGENTOT_LC );
+  }
+  else if ( keyMatchSim(1, "NGEN_SEASON",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.NGEN_SEASON );
+  }
+  else if ( keyMatchSim(1, "NGEN_SCALE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.NGEN_SCALE );
+  }
+
+
+  else if ( keyMatchSim(1, "NGEN_SCALE_NON1A", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.NGEN_SCALE_NON1A );
+  }
+  else if ( keyMatchSim(1, "NSUBSAMPLE_MARK",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.NSUBSAMPLE_MARK );
+  }
+  else if ( keyMatchSim(1, "CIDOFF",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.CIDOFF );
+  }
+  else if ( keyMatchSim(1, "CIDRAN_MAX",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.CIDRAN_MAX );
+  }
+  else if ( keyMatchSim(1, "CIDRAN_MIN",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.CIDRAN_MIN );
+  }
+  // JOBID & NJOBTOT can be read only from command-line;
+  // NOT from sim-input file.
+  else if ( keyMatchSim(1, "JOBID",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.JOBID );
+  }
+  else if ( keyMatchSim(1, "NJOBTOT",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.NJOBTOT );
+  }
+  else if ( keyMatchSim(1, "GENVERSION",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.GENVERSION );
+  }
+  else if ( keyMatchSim(1, "GENPREFIX",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPREFIX );
+  }
+  else if ( keyMatchSim(1, "PATH_USER_INPUT",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", PATH_USER_INPUT );
+  }
+  else if ( keyMatchSim(1, "PATH_SNDATA_SIM",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", PATH_SNDATA_SIM );
+  }
+  // - - - - - 
+  else if ( keyMatchSim(1, "GENSOURCE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.GENSOURCE );
+  }
+  else if ( keyMatchSim(1, "GENMODEL_MSKOPT",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", INPUTS.GENMODEL_MSKOPT );
+  }
+  else if ( keyMatchSim(1, "GENMODEL_ARGLIST",  WORDS[0],keySource) ) {
+    N += parse_input_GENMODEL_ARGLIST(WORDS,keySource);
+  }
+  else if ( keyMatchSim(1, "GENMODEL",  WORDS[0],keySource) ) {
+    N += parse_input_GENMODEL(WORDS,keySource);
+  }
+  else if ( keyMatchSim(1,"GENMODEL_EXTRAP_LATETIME",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.GENMODEL_EXTRAP_LATETIME );
+  }
+  // - - - - -
+  else if ( keyMatchSim(1, "GENPDF_FILE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPDF_FILE );
+  }
+  else if ( keyMatchSim(1, "GENPDF_IGNORE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPDF_IGNORE );
+  }
+  else if ( keyMatchSim(1, "GENPDF_FLAT",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPDF_FLAT );
+  }
+  else if ( keyMatchSim(1, "GENPDF_OPTMASK",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.GENPDF_OPTMASK );
+  }
+  // - - - - -
+  else if ( keyMatchSim(1, "FORMAT_MASK",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.FORMAT_MASK );
+  }
+  else if ( keyMatchSim(1, "WRFLAG_MODELPAR",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.WRFLAG_MODELPAR );
+  }
+  else if ( keyMatchSim(1, "NPE_PIXEL_SATURATE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.NPE_PIXEL_SATURATE );
+  }
+  else if ( keyMatchSim(1, "PHOTFLAG_SATURATE", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.PHOTFLAG_SATURATE );
+  }
+  else if ( keyMatchSim(1, "PHOTFLAG_SNRMAX", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.PHOTFLAG_SNRMAX );
+  }
+  else if ( keyMatchSim(1, "PHOTFLAG_NEARPEAK", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.PHOTFLAG_NEARPEAK );
+  }
+  else if ( keyMatchSim(1, "PHOTFLAG_DETECT", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.PHOTFLAG_DETECT );
+  }
+  else if ( keyMatchSim(1, "PHOTFLAG_TRIGGER", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER );
+  }
+  // - - - - -
+  else if ( strstr(WORDS[0],"NONIA") != NULL  || 
+       strstr(WORDS[0],"NON1A") != NULL  ||
+       strstr(WORDS[0],"PECIA") != NULL  ||
+       strstr(WORDS[0],"PEC1A") != NULL )  {
+    N += parse_input_NON1ASED(WORDS,keySource);
+  }
+  else if ( keyMatchSim(1,"MJD_EXPLODE", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.MJD_EXPLODE );
+    if(INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE < 0 ) 
+      { INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE=0; }
+    INPUTS.GENRANGE_PEAKMJD[0] = INPUTS.MJD_EXPLODE ;
+    INPUTS.GENRANGE_PEAKMJD[1] = INPUTS.MJD_EXPLODE ;
+  }
+  else if ( keyMatchSim(1,"OPTMASK_T0SHIFT_EXPLODE", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE );
+  }
+
+  // xxx UVLAM ...
+  // .xyz
+
+  return(N);
+
+} // end parse_input_key_driver
+
+// *******************************
+bool keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource) {
+
+  // Jul 20 2020
+  // special key-match for sim-inputs based on keySource:
+  //  FILE -> match with colon, and only MXKEY keys allowed
+  //  ARG  -> match with or without colon, no limit to repeat keys
+
+  bool IS_FILE = (keySource = KEYSOURCE_FILE);
+  bool IS_ARG  = (keySource = KEYSOURCE_ARG );
+  bool match = false ;
+  char KEY_PLUS_COLON[MXPATHLEN];
+  
+  if ( IS_FILE ) { 
+    // read from file; key must have colon
+    sprintf(KEY_PLUS_COLON, "%s%s", KEY, COLON);
+    if ( NstringMatch( MXKEY, KEY_PLUS_COLON, WORD ) ) 
+      { return(true); }
+  }
+  else {
+    // read from command line arg, colon is optional
+    if ( keyMatch(WORD, KEY, COLON ) )  // allow with or without colon
+      { return(true); }
+  }
+
+  return(match);
+
+
+} // end keyMatchSim
 
-
-  NWD = 0 ;
-
-  while( (fscanf(fp, "%s", c_get)) != EOF) {
-
-    NWD++ ;
-
-    // if comment key is found, read remainder of line into dummy string
-    // so that anything after comment key is ignored (even a valid key)
-    if ( commentchar(c_get) ) 
-      { ptrTmp = fgets(tmpLine, 80, fp) ; continue ; }
-
-    // multiple include files allowed,
-    FOUNDKEY[0] = NstringMatch(2, c_get, "INPUT_FILE_INCLUDE:") ;
-    FOUNDKEY[1] = NstringMatch(2, c_get, "INPUT_INCLUDE_FILE:") ;
-
-    if ( FOUNDKEY[0] || FOUNDKEY[1] ) {
-      if ( strlen(INPUTS.INPUT_FILE_LIST[1]) == 0 )  // 1st include file
-	{ readchar ( fp, INPUTS.INPUT_FILE_LIST[1]); }
-      else if ( strlen(INPUTS.INPUT_FILE_LIST[2])==0 )  // 2nd include file
-	{ readchar ( fp, INPUTS.INPUT_FILE_LIST[2] ); } // Jul 30 2018
-      else {
-	sprintf(c1err,"Cannot specify 3 INPUT_FILE_INCLUDE keys");
-	sprintf(c2err,"Only 1 or 2 allowed.") ;
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
-    }
-
-    if ( NstringMatch(1,c_get,"USE_KCOR_REFACTOR:") ) 
-      { readint ( fp, 1, &INPUTS.USE_KCOR_REFACTOR ); continue; }
-
-    if ( NstringMatch(1,c_get,"TRACE_MAIN:") ) 
-      { readint ( fp, 1, &INPUTS.TRACE_MAIN ); continue; }
-
-    if ( NstringMatch(1,c_get,"DEBUG_FLAG:")  ) 
-      { readint ( fp, 1, &INPUTS.DEBUG_FLAG );  continue ; }
-
-    
-    if ( NstringMatch(1,c_get,"RESTORE_DES3YR:")  )  { 
-      readint ( fp, 1, &ITMP );  
-      if ( ITMP ) { INPUTS.RESTORE_DES3YR = true; }
-      continue ; 
-    }
-
-
-    if ( NstringMatch(1,c_get,"OPT_DEVEL_GENPDF:")  ) 
-      { readint ( fp, 1, &INPUTS.OPT_DEVEL_GENPDF );  continue ; }
-
-    // --- HOSTLIB stuff
-    if ( NstringMatch(1,c_get,"HOSTLIB_FILE:")   ) {
-      readchar ( fp, INPUTS.HOSTLIB_FILE );
-      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
-      INPUTS.HOSTLIB_USE = 1;    // logical 
-      continue ; 
-    }
-
-    if ( NstringMatch(1,c_get,"HOSTLIB_WGTMAP_FILE:")  )
-      {  readchar ( fp, INPUTS.HOSTLIB_WGTMAP_FILE ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"HOSTLIB_ZPHOTEFF_FILE:")  )
-      { readchar ( fp, INPUTS.HOSTLIB_ZPHOTEFF_FILE ); continue ; }
-
-    if ( NstringMatch(1,c_get,"HOSTLIB_SPECBASIS_FILE:")  )
-      { readchar ( fp, INPUTS.HOSTLIB_SPECBASIS_FILE ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"HOSTLIB_MSKOPT:")  ) {
-      readint ( fp, 1, &itmp );
-      // remove USE-bit if set
-      if ( itmp & HOSTLIB_MSKOPT_USE ) { itmp -= HOSTLIB_MSKOPT_USE; }
-      INPUTS.HOSTLIB_MSKOPT += itmp ;
-      continue ; 
-    }
-
-    if ( NstringMatch(1,c_get,"HOSTLIB_GENZPHOT_FUDGEPAR:")  ) {
-      readfloat ( fp, 4, INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR );
-      readchar(fp, cval);
-      parse_input_GENZPHOT_OUTLIER(cval);
-      continue ; 
-    }
-    if ( NstringMatch(1,c_get,"HOSTLIB_GENZPHOT_BIAS:")  ) 
-      { readfloat ( fp, 4, INPUTS.HOSTLIB_GENZPHOT_BIAS ); continue ; }
-
-    if ( NstringMatch(1,c_get,"HOSTLIB_DZTOL:")  ) 
-      { readdouble ( fp, 3, INPUTS.HOSTLIB_DZTOL );  continue ; }
-
-    if ( NstringMatch(1,c_get,"HOSTLIB_SERSIC_SCALE:")  ) // legacy name
-      { readdouble ( fp, 1, &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); continue ; }
-
-    if ( NstringMatch(1,c_get,"HOSTLIB_SCALE_SERSIC_SIZE:")  )
-      { readdouble ( fp, 1, &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); continue ; }
-
-    if ( NstringMatch(1,c_get,"HOSTLIB_SCALE_LOGMASS_ERR:")  )
-      { readdouble ( fp, 1, &INPUTS.HOSTLIB_SCALE_LOGMASS_ERR ); continue ; }
-   
-    // for hostlib variables, allow STOREPAR or STOREVA
-    if ( NstringMatch(1,c_get,"HOSTLIB_STOREVAR:")  )
-      { readchar ( fp, INPUTS.HOSTLIB_STOREPAR_LIST ); continue ; }
-   
-    if ( NstringMatch(1,c_get,"HOSTLIB_STOREPAR:")  )
-      { readchar ( fp, INPUTS.HOSTLIB_STOREPAR_LIST ); continue ; }
-   
-    if ( NstringMatch(1,c_get,"HOSTLIB_MAXREAD:")  )
-      { readint ( fp, 1, &INPUTS.HOSTLIB_MAXREAD ); continue ; }
-   
-    if ( NstringMatch(1,c_get,"HOSTLIB_GALID_NULL:")  )
-      { readint ( fp, 1, &INPUTS.HOSTLIB_GALID_NULL ); continue ; }
-   
-    if ( NstringMatch(1,c_get,"HOSTLIB_GALID_PRIORITY:")  ) 
-      { readint ( fp, 2, INPUTS.HOSTLIB_GALID_PRIORITY ); continue ; }
-   
-    if ( NstringMatch(1,c_get,"HOSTLIB_MINDAYSEP_SAMEGAL:")  ) 
-      { readint ( fp, 1, &INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL ); continue ; }
-   
-    if ( NstringMatch(1,c_get,"HOSTLIB_MXINTFLUX_SNPOS:")  ) 
-      { readfloat ( fp, 1, &INPUTS.HOSTLIB_MXINTFLUX_SNPOS ); continue ; }
-   
-    if ( NstringMatch(1,c_get,"HOSTLIB_GENRANGE_NSIGZ:")  )
-      { readfloat ( fp, 2, INPUTS.HOSTLIB_GENRANGE_NSIGZ ); continue ; }
-   
-    if ( NstringMatch(1,c_get,"HOSTLIB_GENRANGE_RA:")  ) 
-      { readdouble ( fp, 2, INPUTS.HOSTLIB_GENRANGE_RA ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"HOSTLIB_GENRANGE_DEC:")  )
-      { readdouble ( fp, 2, INPUTS.HOSTLIB_GENRANGE_DEC ); continue ; }
-   
-    if ( NstringMatch(1,c_get,"HOSTLIB_GENRANGE_DECL:")  )
-      { readdouble ( fp, 2, INPUTS.HOSTLIB_GENRANGE_DEC ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"HOSTLIB_SBRADIUS:")  )
-      { readdouble ( fp, 1, &INPUTS.HOSTLIB_SBRADIUS ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"HOSTLIB_GALID_FORCE:")  )
-      { readint( fp, 1, &INPUTS.HOSTLIB_GALID_FORCE ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"HOSTLIB_FIXRAN_RADIUS:")  )
-      { readdouble( fp, 1, &INPUTS.HOSTLIB_FIXRAN_RADIUS); continue ; }
-    
-    if ( NstringMatch(1,c_get,"HOSTLIB_FIXRAN_PHI:")  )
-      { readdouble( fp, 1, &INPUTS.HOSTLIB_FIXRAN_PHI); continue ; }
-
-    if ( NstringMatch(1,c_get,"HOSTLIB_FIXSERSIC:")  )
-      { readdouble( fp, 4, INPUTS.HOSTLIB_FIXSERSIC); continue ; }
-   
-    if ( NstringMatch(1,c_get,"FLUXERRMODEL_FILE:")   )
-      { readchar ( fp, INPUTS.FLUXERRMODEL_FILE ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"FLUXERRMODEL_OPTMASK:")   )
-      { readint ( fp, 1, &INPUTS.FLUXERRMODEL_OPTMASK ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"FLUXERRMAP_IGNORE_DATAERR:")  )
-      { readchar ( fp, INPUTS.FLUXERRMAP_IGNORE_DATAERR ); continue ; }   
-
-    if ( strstr(c_get,"FLUXERRMODEL_REDCOV") != NULL ) {
-      // note that multiple entries with same key are allowed
-      readchar ( fp, ctmp ) ;
-      strcat(INPUTS.FLUXERRMODEL_REDCOV,c_get); // store key name
-      strcat(INPUTS.FLUXERRMODEL_REDCOV," ");   // blank space
-      strcat(INPUTS.FLUXERRMODEL_REDCOV,ctmp);  // argument
-      strcat(INPUTS.FLUXERRMODEL_REDCOV," ");   // blank space
-      if (IGNOREFILE(ctmp)) { sprintf(INPUTS.FLUXERRMODEL_REDCOV,"NONE"); }
-      continue ; 
-    }
-
-    // --- anomalous host-subtraction noise ------
-    if ( NstringMatch(1,c_get,"HOSTNOISE_FILE:")   ) {
-      readchar ( fp, INPUTS.HOSTNOISE_FILE );
-      if ( INPUTS.HOSTLIB_USE == 0  ){
-	sprintf(c1err,"Cannot define HOSTNOISE_FILE ");
-	sprintf(c2err,"without first defining HOSTLIB_FILE");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
-      continue ; 
-    }
-
-    // -------
-    // check options for z-variation; either separate file
-    // or ZPOLY key(s) in sim-input file.
-    
-    if ( NstringMatch(1,c_get,"ZVARIATION_FILE:")  ) {  
-      readchar ( fp, INPUT_ZVARIATION_FILE ); 
-      if ( !IGNOREFILE(INPUT_ZVARIATION_FILE) ) { USE_ZVAR_FILE = 1 ; }
-      continue ; 
-    }
-
-    if ( keyMatch(c_get,"ZVARIATION_POLY:", "")  ) { 
-
-      N = NPAR_ZVAR_USR ;
-      INPUT_ZVARIATION[N].FLAG = FLAG_ZPOLY_ZVAR ;
-      INPUT_ZVARIATION[N].NZBIN = 0 ;
-      NPAR_ZVAR_USR++ ;  
-
-      readchar(fp, INPUT_ZVARIATION[N].PARNAME ) ;
-      readchar(fp, tmpLine);  
-      // if there is a comma, use new GENPOLY struct; else ready legacy format
-      if ( strstr(tmpLine,comma) ) {
-	// store comma-separate poly coefficients in cpoly
-	sprintf(cpoly, "%s", tmpLine);	
-      }
-      else {
-	// read LEGACY format of space-separated 3rd order poly
-	double zpoly[POLYORDER_ZVAR+2];
-	sscanf(tmpLine, "%le", &zpoly[0]); 
-	readdouble(fp, POLYORDER_ZVAR, &zpoly[1] );
-	sprintf(cpoly,"%f,%f,%f,%f", zpoly[0],zpoly[1],zpoly[2],zpoly[3]);
-      }
-      parse_GENPOLY(cpoly, "z", &INPUT_ZVARIATION[N].POLY, fnam);
-      continue ; 
-    }
-
-    // ------
-
-    if ( NstringMatch(1,c_get,"SNTYPE_Ia:")  ) {
-      readint ( fp, 1, &ITYPE ) ;
-      INPUTS.SNTYPE_Ia_SPEC = ITYPE ;
-      INPUTS.SNTYPE_Ia_PHOT = ITYPE + OFFSET_TYPE_PHOT ;
-      continue ; 
-    }
-    if ( NstringMatch(1,c_get,"SNTYPES_Ia:")  ) {
-      readint ( fp, 1, &INPUTS.SNTYPE_Ia_SPEC);
-      readint ( fp, 1, &INPUTS.SNTYPE_Ia_PHOT);
-      continue ; 
-    }
-
-    if ( NstringMatch(1,c_get,"GENTYPE:")  ) {
-      readint ( fp, 1, &ITYPE ) ;
-      INPUTS.GENTYPE_SPEC = ITYPE ;
-      INPUTS.GENTYPE_PHOT = ITYPE + OFFSET_TYPE_PHOT ;
-      continue ;
-    }
-    if ( NstringMatch(1,c_get,"GENTYPES:")  ) {
-      readint ( fp, 1, &INPUTS.GENTYPE_SPEC); 
-      readint ( fp, 1, &INPUTS.GENTYPE_PHOT);
-      continue ;
-    }
-
-    if ( NstringMatch(1,c_get,"NONLINEARITY_FILE:")  ) 
-      { readchar ( fp, INPUTS.NONLINEARITY_FILE ); continue ; }    
-
-    if ( NstringMatch(1,c_get,"SIMLIB_FILE:")  ) 
-      { readchar ( fp, INPUTS.SIMLIB_FILE ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"SIMLIB_FIELDLIST:")  ) {
-      readchar ( fp, INPUTS.SIMLIB_FIELDLIST ); 
-      INPUTS.SIMLIB_FIELDSKIP_FLAG = 1 ; // count skipped fields in NGENTOT
-      continue ;
-    }
-    if ( NstringMatch(1,c_get,"SIMLIB_IDSTART:")  )
-      { readint ( fp, 1, &INPUTS.SIMLIB_IDSTART ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"SIMLIB_MAXRANSTART:")  )
-      { readint ( fp, 1, &INPUTS.SIMLIB_MAXRANSTART ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"SIMLIB_IDLOCK:")  )
-      { readint ( fp, 1, &INPUTS.SIMLIB_IDLOCK ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"SIMLIB_MINOBS:")  ) 
-      { readint ( fp, 1, &INPUTS.SIMLIB_MINOBS ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"SIMLIB_MINSEASON:")  )
-      { readdouble ( fp, 1, &INPUTS.SIMLIB_MINSEASON ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"SIMLIB_DUMP:")  ) 
-      { readint ( fp, 1, &INPUTS.SIMLIB_DUMP ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"SIMLIB_NREPEAT:")  ) 
-      { readint ( fp, 1, &INPUTS.SIMLIB_NREPEAT );  continue ; }
-    
-    if ( NstringMatch(1,c_get,"SIMLIB_NSKIPMJD:")  )
-      { readint ( fp, 1, &INPUTS.SIMLIB_NSKIPMJD ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"SIMLIB_IDSKIP:")  ) {
-      N = INPUTS.NSKIP_SIMLIB ;
-      readint ( fp, 1, &INPUTS.SIMLIB_IDSKIP[N] );
-      INPUTS.NSKIP_SIMLIB++ ;
-      continue ; 
-    }
-    if ( NstringMatch(1,c_get,"SIMLIB_CADENCEFOM_ANGSEP:")  ) 
-      { readfloat ( fp, 1, &INPUTS.SIMLIB_CADENCEFOM_ANGSEP ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"SIMLIB_CADENCEFOM_PARLIST:")  ) {
-      readdouble(fp, NPAR_SNCADENCEFOM,INPUTS.SIMLIB_CADENCEFOM_PARLIST );
-      continue ; 
-    }
-    if ( NstringMatch(1,c_get,"USE_SIMLIB_REDSHIFT:")   ) { 
-      readint ( fp, 1, &INPUTS.USE_SIMLIB_REDSHIFT ); 
-      INPUTS.USE_SIMLIB_GENOPT=1;
-      continue ; 
-    }
-    if ( NstringMatch(1,c_get,"USE_SIMLIB_DISTANCE:")   ) { 
-      readint ( fp, 1, &INPUTS.USE_SIMLIB_DISTANCE ); 
-      INPUTS.USE_SIMLIB_GENOPT=1;
-      continue ; 
-    }
-    if ( NstringMatch(1,c_get,"USE_SIMLIB_PEAKMJD:")   )  { 
-      readint ( fp, 1, &INPUTS.USE_SIMLIB_PEAKMJD ); 
-      INPUTS.USE_SIMLIB_GENOPT=1;
-      continue ;
-    }
-    if ( NstringMatch(1,c_get,"USE_SIMLIB_MAGOBS:")   )  { 
-      readint ( fp, 1, &INPUTS.USE_SIMLIB_MAGOBS ); 
-      INPUTS.USE_SIMLIB_GENOPT=1;
-      continue ;
-    }
-    if ( NstringMatch(1,c_get,"USE_SIMLIB_SPECTRA:")   ) { 
-      readint ( fp, 1, &INPUTS.USE_SIMLIB_SPECTRA ); 
-      INPUTS.USE_SIMLIB_GENOPT=1;
-      continue ; 
-    }
-    if ( NstringMatch(1,c_get,"USE_SIMLIB_SALT2:")   ) { 
-      readint ( fp, 1, &INPUTS.USE_SIMLIB_SALT2 ); 
-      INPUTS.USE_SIMLIB_GENOPT=1;
-      continue ; 
-    }
-
-    if ( NstringMatch(1,c_get,"SIMLIB_MSKOPT:")  ) {
-      readint ( fp, 1, &ITMP );   INPUTS.SIMLIB_MSKOPT+=ITMP ; 
-      continue ; 
-    }
-    
-    //  - - - 
-
-    if ( NstringMatch(1,c_get,"NGEN_LC:")  ) 
-      { readint ( fp, 1, &INPUTS.NGEN_LC ); continue ; }
-
-    if ( NstringMatch(1,c_get,"NGENTOT_LC:")  ) 
-      { readint ( fp, 1, &INPUTS.NGENTOT_LC ); continue ; }    
-
-    if ( NstringMatch(1,c_get,"NGEN_SEASON:")  ) 
-      { readfloat ( fp, 1, &INPUTS.NGEN_SEASON ); continue ; }    
-
-    if ( NstringMatch(1,c_get,"NGEN_SCALE:")  )
-      { readfloat ( fp, 1, &INPUTS.NGEN_SCALE ); continue ; }
-
-    if ( NstringMatch(1,c_get,"NGEN_SCALE_NON1A:")  )
-      { readfloat ( fp, 1, &INPUTS.NGEN_SCALE_NON1A ); continue ; }
-
-    if ( NstringMatch(1,c_get,"NSUBSAMPLE_MARK:")  ) 
-      { readint ( fp, 1, &INPUTS.NSUBSAMPLE_MARK ); continue ; }
-
-    if ( NstringMatch(1,c_get,"CIDOFF:")  ) 
-      { readint ( fp, 1, &INPUTS.CIDOFF ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"CIDRAN_MAX:")  ) 
-      { readint ( fp, 1, &INPUTS.CIDRAN_MAX ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"CIDRAN_MIN:")  ) 
-      { readint ( fp, 1, &INPUTS.CIDRAN_MIN ); continue ; }    
-
-    if ( NstringMatch(1,c_get,"FORMAT_MASK:")  ) 
-      { readint ( fp, 1, &INPUTS.FORMAT_MASK ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"WRFLAG_MODELPAR:")  )
-      { readint ( fp, 1, &INPUTS.WRFLAG_MODELPAR ); continue ; }
-    
-    // - - - -  -
-
-    if ( NstringMatch(1,c_get,"NPE_PIXEL_SATURATE:")  ) 
-      { readint ( fp, 1, &INPUTS.NPE_PIXEL_SATURATE ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"PHOTFLAG_SATURATE:")  )
-      { readint ( fp, 1, &INPUTS.PHOTFLAG_SATURATE ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"PHOTFLAG_SNRMAX:")  ) 
-      { readint ( fp, 1, &INPUTS.PHOTFLAG_SNRMAX ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"PHOTFLAG_NEARPEAK:")  ) 
-      { readint ( fp, 1, &INPUTS.PHOTFLAG_NEARPEAK ); continue ; }
-
-    if ( NstringMatch(1,c_get,"PHOTFLAG_DETECT:")  ) 
-      { readint ( fp, 1, &INPUTS_SEARCHEFF.PHOTFLAG_DETECT ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"PHOTFLAG_TRIGGER:")  )
-      { readint ( fp, 1, &INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER ); continue ; }   
-
-    // -----
-    // check for SIMGEN_DUMP
-
-    if ( strstr(c_get,"SIMGEN_DUMP") != NULL ) {
-      parse_input_SIMGEN_DUMP(fp, &iArg, c_get ); 
-    }
-
-    // -----------
-
-    if ( NstringMatch(1, c_get,"GENVERSION:")   ) {
-      readchar ( fp, INPUTS.GENVERSION );
-      sprintf(INPUTS.GENPREFIX,"%s", INPUTS.GENVERSION); // default
-      continue ; 
-    }
-    if ( NstringMatch(1,c_get,"GENPREFIX:")   ) 
-      { readchar ( fp, INPUTS.GENPREFIX ); continue ; }
-
-    if ( NstringMatch(0, c_get,"CLEARPROMPT:")  ) // abort on obsolete key
-      { readint ( fp, 1, &INPUTS.CLEARPROMPT ); continue ; }
-
-    if ( NstringMatch(1, c_get,"GENSOURCE:")  )
-      { readchar ( fp, INPUTS.GENSOURCE ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENMODEL_MSKOPT:")  ) 
-      { readint ( fp, 1, &INPUTS.GENMODEL_MSKOPT ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENMODEL_ARGLIST:")  )
-      { parse_input_GENMODEL_ARGLIST(fp,&iArg); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENMODEL:") > 0  ) {
-      parse_input_GENMODEL(fp,&iArg);  //4.18.2019
-      continue ;
-    } // end GENMODEL
-
-    if ( NstringMatch(1,c_get,"GENPDF_FILE:")  ) 
-      { readchar ( fp, INPUTS.GENPDF_FILE ); continue ; }
-    if ( NstringMatch(1,c_get,"GENPDF_IGNORE:")  ) 
-      { readchar ( fp, INPUTS.GENPDF_IGNORE ); continue ; }
-    if ( NstringMatch(1,c_get,"GENPDF_FLAT:")  ) 
-      { readchar ( fp, INPUTS.GENPDF_FLAT ); continue ; }
-    if ( NstringMatch(1,c_get,"GENPDF_OPTMASK:")  ) 
-      { readint ( fp, 1, &INPUTS.GENPDF_OPTMASK ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENMODEL_EXTRAP_LATETIME:") ) 
-      { readchar ( fp, INPUTS.GENMODEL_EXTRAP_LATETIME ); continue ; }
-
-    if ( NstringMatch(1,c_get,"PATH_USER_INPUT:")  )
-      { readchar(fp, PATH_USER_INPUT ); continue ; }
-
-    if ( NstringMatch(1,c_get,"PATH_SNDATA_SIM:")  )
-      { readchar(fp, INPUTS.PATH_SNDATA_SIM ); continue ; }
-
-    if ( NstringMatch(1,c_get,"PATH_NON1ASED:")  )
-      { readchar(fp, INPUTS.NON1ASED.PATH ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"PATH_NONIASED:")  )
-      { readchar(fp, INPUTS.NON1ASED.PATH ); continue ; }
-   
-    L_NON1ASED = ( INPUTS.NON1A_MODELFLAG == MODEL_NON1ASED ) ;
-
-    L_NON1AKEY = (
-      NstringMatch(1,c_get,"NON1A_KEYS:")  ||
-      NstringMatch(1,c_get,"NONIA_KEYS:")  ||
-      NstringMatch(1,c_get,"NON1ASED_KEYS:") ||
-      NstringMatch(1,c_get,"NONIASED_KEYS:") 
-		  );
-
-    /* xxx mark delete Jul 17 2020 xxxxx
-    L_NON1AKEY = ( strcmp(c_get,"NON1A_KEYS:")    ==0 || 
-		   strcmp(c_get,"NONIA_KEYS:")    ==0 ||
-		   strcmp(c_get,"NON1ASED_KEYS:") ==0 || 
-		   strcmp(c_get,"NONIASED_KEYS:") ==0      ) ;
-    xxxx */
-
-    if ( L_NON1ASED && L_NON1AKEY ) {
-      readint ( fp, 1, &NKEY );
-      if ( NKEY < 2 ) {
-	sprintf(c1err,"NON1A_KEYS = %d, but must be >=2.", NKEY);
-	sprintf(c1err,"Check sim-input file." );
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
-      INPUTS.NON1ASED.NKEY = NKEY;
-      for ( key = 1; key <= NKEY; key++ ) {
-	readchar(fp, ckey );
-	sprintf(INPUTS.NON1ASED.KEYLIST[key], "%s", ckey );
-      }
-
-      // check required keys
-      ovp1 = strcmp(INPUTS.NON1ASED.KEYLIST[1],"INDEX") ;
-      ovp2 = strcmp(INPUTS.NON1ASED.KEYLIST[2],"WGT"  ) ;
-      if ( ovp1 != 0 ) {
-	sprintf(c1err,"First NON1ASED_KEY is '%s' , but must be 'INDEX' ",
-		INPUTS.NON1ASED.KEYLIST[1] ) ;
-	sprintf(c2err,"Check sim-input file.");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-      }
-      if ( ovp2 != 0 ) {
-	sprintf(c1err,"Second NON1ASED_KEY is ' %s' , but must be 'WGT' ", 
-		INPUTS.NON1ASED.KEYLIST[2]) ;
-	sprintf(c2err,"Check sim-input file.");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-      }
-
-    } // end of NON1ASED_KEYS
-
-    if ( NstringMatch(1,c_get,"NON1A_STOP:"   )) { INPUTS.NON1ASED.STOP = 1 ; }
-    if ( NstringMatch(1,c_get,"NON1ASED_STOP:")) { INPUTS.NON1ASED.STOP = 1 ; }
-
-    L_NON1ASED  = (INPUTS.NON1A_MODELFLAG == MODEL_NON1ASED) ;
-    L_NON1AKEY  = ( NstringMatch(MXNON1A_TYPE,c_get,"NON1A:") ||
-		    NstringMatch(MXNON1A_TYPE,c_get,"NONIA:") ||
-		    NstringMatch(MXNON1A_TYPE,c_get,"NONIASED:") ||
-		    NstringMatch(MXNON1A_TYPE,c_get,"NON1ASED:") ) ;
-   
-    L_PEC1AKEY  = ( NstringMatch(MXNON1A_TYPE,c_get,"PEC1A:") || 
-		    NstringMatch(MXNON1A_TYPE,c_get,"PECIA:") ||
-		    NstringMatch(MXNON1A_TYPE,c_get,"PECIASED:") ||
-		    NstringMatch(MXNON1A_TYPE,c_get,"PEC1ASED:") ) ;
-
-    L_TMP = 
-      (L_NON1ASED) && (L_NON1AKEY || L_PEC1AKEY) && 
-      (INPUTS.NON1ASED.STOP==0) ;
-
-    if ( L_TMP ) { 
-
-      INPUTS.NON1ASED.NINDEX++ ; N = INPUTS.NON1ASED.NINDEX;
-      if ( L_PEC1AKEY ) { 
-	INPUTS.NON1ASED.NPEC1A++ ;
-	INPUTS.NON1ASED.ISPEC1A[N] = 1; 
-      }
-      else { 
-	INPUTS.NON1ASED.NNON1A++ ; 
-	if ( INPUTS.NON1ASED.NPEC1A > 0 ) {
-	  sprintf(c1err, "All NON1A keys must appear before PEC1A keys");
-	  sprintf(c2err, "Check sim-input file (and INCLUDE file)");
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-	}
-      }
-
-      for ( key=1; key <= INPUTS.NON1ASED.NKEY ; key++ ) {
-
-	sprintf(ckey, "%s", INPUTS.NON1ASED.KEYLIST[key] );
-	readchar(fp, ctmp );
-
-	INPUTS.NON1ASED.KEYVAL[N][key] = ftmp ;
-
-	if ( strcmp(ckey, "INDEX") == 0 ) 
-	  { sscanf(ctmp, "%d", &INPUTS.NON1ASED.INDEX[N]); }
-	else if ( strcmp(ckey, "WGT") == 0 ) 
-	  { sscanf(ctmp, "%f", &INPUTS.NON1ASED.WGT[N]); }
-	else if ( strcmp(ckey, "MAGOFF") == 0 ) 
-	  { sscanf(ctmp, "%f", &INPUTS.NON1ASED.MAGOFF[N]); }
-	else if ( strcmp(ckey, "MAGSMEAR") == 0 ) {
-	  split2floats(ctmp, comma, sigTmp ); 
-	  INPUTS.NON1ASED.MAGSMEAR[N][0] = sigTmp[0] ;
-	  INPUTS.NON1ASED.MAGSMEAR[N][1] = sigTmp[1] ;
-	  // if non1a magsmear is nonzero, then set global GENMAG_SMEAR
-	  // so that random numbers are generated for smearing.
-	  if ( sigTmp[0] > 0.0  &&  INPUTS.GENMAG_SMEAR[0] == 0.0 ) 
-	    { INPUTS.GENMAG_SMEAR[0] = INPUTS.GENMAG_SMEAR[1] = 0.001; }
-	}
-	else if ( strcmp(ckey, "SNTYPE") == 0 ) 
-	  { sscanf(ctmp, "%d", &INPUTS.NON1ASED.SNTAG[N]); }
-	else if ( strcmp(ckey, "SNTAG") == 0 )   // same as SNTYPE
-	  { sscanf(ctmp, "%d", &INPUTS.NON1ASED.SNTAG[N]); }
-	else {
-	  sprintf(c1err, "Invalid NON1A key: '%s'", ckey );
-	  sprintf(c2err, "Valid keys are INDEX WGT MAGOFF MAGSMEAR" );
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-	}
-      }
-
-    }
-
- 
-    if ( NstringMatch(1,c_get,"MJD_EXPLODE:")  ) {
-      readdouble(fp, 1, &INPUTS.MJD_EXPLODE );
-      if ( INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE < 0 ) 
-	{ INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE = 0 ; }
-      INPUTS.GENRANGE_PEAKMJD[0] = INPUTS.MJD_EXPLODE ;
-      INPUTS.GENRANGE_PEAKMJD[1] = INPUTS.MJD_EXPLODE ;
-      continue ;
-    }
-    if ( NstringMatch(1,c_get,"OPTMASK_T0SHIFT_EXPLODE:")  ) {
-      readint(fp, 1, &INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE); 
-      continue ;
-    }
-
-    if ( NstringMatch(1,c_get,"UVLAM_EXTRAPFLUX:")  ) {
-      readdouble(fp, 1, &INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX); 
-      continue ; 
-    }
-
-    if ( NstringMatch(1,c_get,"MINSLOPE_EXTRAPMAG_LATE:")  )  {
-      readdouble(fp, 1, &INPUTS_SEDMODEL.MINSLOPE_EXTRAPMAG_LATE); 
-      continue ; 
-    }
-    
-    if ( NstringMatch(1,c_get,"RANSEED:") ) {
-      readint(fp, 1,  &ITMP) ;
-      INPUTS.ISEED = ITMP ;     // set unsigned int
-      continue ; 
-    }
-    if ( NstringMatch(1,c_get,"NSTREAM_RAN:") ) {
-      readint(fp, 1,  &INPUTS.NSTREAM_RAN) ;
-      continue ; 
-    }
-
-
-    if ( NstringMatch(1,c_get,"RANLIST_START_GENSMEAR:") )
-      { readint(fp, 1, &INPUTS.RANLIST_START_GENSMEAR ); continue ; }    
-
-    if ( NstringMatch(1,c_get,"GENRANGE_RA:")  ) 
-      { readfloat ( fp, 2, INPUTS.GENRANGE_RA ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"GENRANGE_DECL:")  )
-      { readfloat ( fp, 2, INPUTS.GENRANGE_DEC ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"GENRANGE_DEC:")  )
-      { readfloat ( fp, 2, INPUTS.GENRANGE_DEC ); continue ; }
-
-    if ( strstr(c_get,"SOLID_ANGLE") != NULL ) {
-      parse_input_SOLID_ANGLE(fp, &iArg, c_get ); 
-      continue ; 
-    }
-
-    if ( NstringMatch(1,c_get,"GENRANGE_REDSHIFT:")  ) 
-      { readdouble ( fp, 2, INPUTS.GENRANGE_REDSHIFT ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"GENSIGMA_REDSHIFT:")  ) 
-      { readdouble ( fp, 1, &INPUTS.GENSIGMA_REDSHIFT ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"GENBIAS_REDSHIFT:")  ) 
-      { readdouble ( fp, 1, &INPUTS.GENBIAS_REDSHIFT ); continue ; }    
-
-    if ( NstringMatch(1,c_get,"GENSIGMA_VPEC:")  )
-      { readfloat ( fp, 1, &INPUTS.GENSIGMA_VPEC ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"VPEC_ERR:")  )
-      { readfloat ( fp, 1, &INPUTS.VPEC_ERR ); continue ; }    
-
-    if ( NstringMatch(1,c_get,"VEL_CMBAPEX:")  ) 
-      { readfloat ( fp, 1, &INPUTS.VEL_CMBAPEX ); continue ; }
- 
-    // - - - - -- 
-    // wrongHost model params
-
-    if ( NstringMatch(1,c_get,"WRONGHOST_FILE:")  ) 
-      { readchar( fp, INPUTS.WRONGHOST_FILE); continue ; }
-
-    // ---- read/parse RATEPAR struct -----------
-    read_input_RATEPAR(fp, "NOMINAL", c_get, &INPUTS.RATEPAR );
-    read_input_RATEPAR(fp, "PEC1A",   c_get, &INPUTS.RATEPAR_PEC1A );
-    // - - - - 
-
-    if ( NstringMatch(1,c_get,"GENRANGE_PEAKMAG:")  )
-      { readdouble ( fp, 2, INPUTS.GENRANGE_PEAKMAG ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENRANGE_MJD:")  )
-      { readdouble ( fp, 2, INPUTS.GENRANGE_MJD ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENRANGE_PEAKMJD:")  ) 
-      { readdouble ( fp, 2, INPUTS.GENRANGE_PEAKMJD ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENSIGMA_SEARCH_PEAKMJD:")  )  // legacy key
-      { readfloat ( fp, 1, &INPUTS.GENSIGMA_PEAKMJD ); continue ; }
-    if ( NstringMatch(1,c_get,"GENSIGMA_PEAKMJD:")  ) 
-      { readfloat ( fp, 1, &INPUTS.GENSIGMA_PEAKMJD ); continue ; }
-    if ( NstringMatch(1,c_get,"OPT_SETPKMJD:")  ) 
-      { readint ( fp, 1, &INPUTS.OPT_SETPKMJD ); continue ; }
-
-    if ( NstringMatch(1,c_get,"NEWMJD_DIF:")  ) 
-      { readfloat ( fp, 1, &INPUTS.NEWMJD_DIF ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENRANGE_TREST:")  ) 
-      { readfloat ( fp, 2, INPUTS.GENRANGE_TREST ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENRANGE_TOBS:")  ) 
-      { readfloat ( fp, 2, INPUTS.GENRANGE_TOBS ); continue ; }
-
-    if ( NstringMatch(1,c_get,"TGRIDSTEP_MODEL_INTERP:")  ) 
-      { readfloat ( fp, 1, &INPUTS.TGRIDSTEP_MODEL_INTERP ); continue ; }
-
-    // contraint input file
-    if ( NstringMatch(1,c_get,"GENPAR_SELECT_FILE:")  ) 
-      { readchar ( fp, INPUTS.GENPAR_SELECT_FILE ); continue ; }
-
-    // ----- SIMSED parameters ---------
-
-    if ( strstr(c_get,"SIMSED") != NULL ) 
-      { read_input_SIMSED(fp,c_get); }
-
-    N       = INPUTS.NPAR_SIMSED ;
-    opt_tmp = INPUTS.GENFLAG_SIMSED[N-1];
-    if ( N >= MXPAR_SIMSED ) {
-      sprintf(c1err, "NPAR_SIMSED=%d exceeds array bound", N);
-      sprintf(c2err, "Check SIMSED_PARAM keywords in input file." );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-    }
-
-    if ( N > 0 && (opt_tmp & OPTMASK_SIMSED_PARAM ) > 0 ) {
-      parname = INPUTS.PARNAME_SIMSED[N-1];
-      read_input_GENGAUSS(fp, c_get, parname,  &INPUTS.GENGAUSS_SIMSED[N-1] );
-      INPUTS.GENGAUSS_SIMSED[N-1].FUNINDEX = N-1; 
-    }
-
-    // Jun 14, 2013
-    // to avoid key confusion (e.g., GENRANGE_AV for mlcs or for SIMSED?),
-    // skip lots of key checks if SIMSED model is set.
-    if ( INPUTS.NPAR_SIMSED > 0 ) { goto READ_AVRV ; }
-
-
-    // - - - - - - - - - - 
-    // read risetime-shift info
-    read_input_GENGAUSS(fp, c_get, "RISETIME_SHIFT",  
-			&INPUTS.GENGAUSS_RISETIME_SHIFT );
-
-    read_input_GENGAUSS(fp, c_get, "FALLTIME_SHIFT",  
-			&INPUTS.GENGAUSS_FALLTIME_SHIFT );    
-
-    // read shape par. Imput key depends on model,
-
-    read_input_GENGAUSS(fp, c_get, "DELTA",    &INPUTS.GENGAUSS_DELTA    );
-    read_input_GENGAUSS(fp, c_get, "DM15",     &INPUTS.GENGAUSS_DM15     );
-    read_input_GENGAUSS(fp, c_get, "STRETCH",  &INPUTS.GENGAUSS_STRETCH  );
-
-    if ( NstringMatch(1,c_get,"STRETCH_TEMPLATE_FILE:" )   )
-      { readchar(fp, INPUTS.STRETCH_TEMPLATE_FILE ); continue ; }
-
-    // read SALT2 gen parameters
-    read_input_GENGAUSS(fp, c_get, "SALT2c",     &INPUTS.GENGAUSS_SALT2c     );
-    read_input_GENGAUSS(fp, c_get, "SALT2x1",    &INPUTS.GENGAUSS_SALT2x1    );
-    read_input_GENGAUSS(fp, c_get, "SALT2ALPHA", &INPUTS.GENGAUSS_SALT2ALPHA );
-    read_input_GENGAUSS(fp, c_get, "SALT2BETA",  &INPUTS.GENGAUSS_SALT2BETA  );
-
-    if ( NstringMatch(1,c_get,"BIASCOR_SALT2GAMMA_GRID:")   ) 
-      { readdouble(fp, 2, INPUTS.BIASCOR_SALT2GAMMA_GRID );  continue ; }
-
-    if ( NstringMatch(1,c_get,"SALT2BETA_cPOLY:")   )  { 
-      readchar(fp, cpoly);
-      parse_GENPOLY(cpoly, "SALT2BETA_cPOLY", &INPUTS.SALT2BETA_cPOLY, fnam);
-      continue ;
-    }
-
-    if ( NstringMatch(1,c_get,"SALT2mu_FILE:" )   )
-      { readchar(fp, INPUTS.SALT2mu_FILE ); continue ; }
-
-    // read legacy SALT2 alpha & beta key, but load modern variable
-    if ( NstringMatch(1,c_get,"GENALPHA_SALT2:")  ) {
-      readfloat ( fp, 1, &INPUTS.GENALPHA_SALT2 );
-      INPUTS.GENGAUSS_SALT2ALPHA.PEAK     = INPUTS.GENALPHA_SALT2 ; 
-      INPUTS.GENGAUSS_SALT2ALPHA.USE      = true ;
-      continue ; 
-    }
-    if ( NstringMatch(1,c_get,"GENBETA_SALT2:")  ) {
-      readfloat ( fp, 1, &INPUTS.GENBETA_SALT2 );
-      INPUTS.GENGAUSS_SALT2BETA.PEAK     = INPUTS.GENBETA_SALT2 ; 
-      INPUTS.GENGAUSS_SALT2BETA.USE      = true ;
-      continue ; 
-    }
-
-    if ( NstringMatch(1,c_get,"LEGACY_colorXTMW_SALT2:")    )
-      { readint(fp, 1, &INPUTS.LEGACY_colorXTMW_SALT2); continue ; }
-
-    // ---
-
-  READ_AVRV:
-
-    read_input_GENGAUSS(fp, c_get, PARNAME_RV,  &INPUTS.GENGAUSS_RV );
-
-    if ( NstringMatch(1,c_get,"GENRANGE_AV:")  ) 
-      { readdouble ( fp, 2, INPUTS.GENPROFILE_AV.RANGE ); 
-	INPUTS.GENRANGE_AV[0] = INPUTS.GENPROFILE_AV.RANGE[0];//legacy
-	INPUTS.GENRANGE_AV[1] = INPUTS.GENPROFILE_AV.RANGE[1];//legacy
-	continue ; 
-      }
-
-    // allow old or new key for AV tau
-    if ( NstringMatch(1,c_get,"GENTAU_AV:")||NstringMatch(1,c_get,"GENEXPTAU_AV:") ) 
-      {
-	readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.EXP_TAU ); 
-	INPUTS.GENEXPTAU_AV = INPUTS.GENPROFILE_AV.EXP_TAU ; //legacy variable
-	continue ;
-      }
-     
-
-    if ( NstringMatch(1,c_get,"GENSIG_AV:") || NstringMatch(1,c_get,"GENGAUSIG_AV:") ) 
-      {
-	readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.SIGMA );
-        INPUTS.GENGAUSIG_AV = INPUTS.GENPROFILE_AV.SIGMA ; //legacy variable                              
-	continue ;
-      }
-
-    if ( NstringMatch(1,c_get,"GENGAUPEAK_AV:")  ) 
-      { readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.PEAK ); 
-	INPUTS.GENGAUPEAK_AV = INPUTS.GENPROFILE_AV.PEAK;//legacy
-	continue ; 
-      } 
-
-    if ( NstringMatch(1,c_get,"GENRATIO_AV0:")  ) 
-      { 
-	readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.RATIO ); 
-	INPUTS.GENRATIO_AV0 = INPUTS.GENPROFILE_AV.RATIO ; //legacy
-	continue ; 
-      } 
-
-    // ------- Now for EBV_HOST -------------
-
-    if ( NstringMatch(1,c_get,"GENGAUPEAK_EBV_HOST:")  )
-      { readdouble ( fp, 1, &INPUTS.GENPROFILE_EBV_HOST.PEAK ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENSIG_EBV_HOST:")  )
-      { readdouble ( fp, 1, &INPUTS.GENPROFILE_EBV_HOST.SIGMA ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENTAU_EBV_HOST:")  )
-      { readdouble ( fp, 1, &INPUTS.GENPROFILE_EBV_HOST.EXP_TAU ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENRATIO_EBV0_HOST:")  )
-      { readdouble ( fp, 1, &INPUTS.GENPROFILE_EBV_HOST.RATIO ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENRANGE_EBV_HOST:")  )
-      { readdouble ( fp, 2, INPUTS.GENPROFILE_EBV_HOST.RANGE ); continue ; }
-    // ----------------------------------------
-
-
-    if ( NstringMatch(1,c_get,"GENAV_WV07:")  ) // legacy key name
-      { readint ( fp, 1, &INPUTS.WV07_GENAV_FLAG ); continue ; }
-    if ( NstringMatch(1,c_get,"WV07_GENAV_FLAG:")  ) 
-      { readint ( fp, 1, &INPUTS.WV07_GENAV_FLAG ); continue ; }
-    if ( NstringMatch(1,c_get,"WV07_REWGT_EXPAV:")  ) 
-      { readdouble ( fp, 1, &INPUTS.WV07_REWGT_EXPAV ); continue ; }
-
-
-    if ( NstringMatch(1,c_get,"RVMW:")   ) // allow legacy key (Sep 2013)
-      { readdouble ( fp, 1, &INPUTS.RV_MWCOLORLAW ); continue ; }
-    if ( NstringMatch(1,c_get,"RV_MWCOLORLAW:")   )  // new key (Sep 2013)
-      { readdouble ( fp, 1, &INPUTS.RV_MWCOLORLAW ); continue ; }
-
-    if ( NstringMatch(1,c_get,"OPT_MWCOLORLAW:")   ) 
-      { readint ( fp, 1, &INPUTS.OPT_MWCOLORLAW ); continue ; }
-
-    if ( NstringMatch(1,c_get,"OPT_MWEBV:")  ) {
-      readint ( fp, 1, &opt_tmp) ;
-      INPUTS.OPT_MWEBV = abs(opt_tmp);
-      if ( opt_tmp < 0 ) { INPUTS.APPLYFLAG_MWEBV=1; } // correct FLUXCAL
-      continue ; 
-    }
-
-    // next are for systematic tests
-    if ( NstringMatch(1,c_get,"GENSIGMA_MWEBV_RATIO:")  )
-      { readdouble ( fp, 1, &INPUTS.MWEBV_SIGRATIO ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENSIGMA_MWEBV:")  )
-      { readdouble ( fp, 1, &INPUTS.MWEBV_SIG ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENSHIFT_MWEBV:")  ||
-	 NstringMatch(1,c_get,"FUDGESHIFT_MWEBV:")  )
-      { readdouble ( fp, 1, &INPUTS.MWEBV_SHIFT ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENSCALE_MWEBV:")  ||
-	 NstringMatch(1,c_get,"FUDGESCALE_MWEBV:")  )
-      { readdouble ( fp, 1, &INPUTS.MWEBV_SCALE ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENRANGE_MWEBV:")  )
-      { readdouble ( fp, 2, INPUTS.GENRANGE_MWEBV ); continue ; }
-
-    // ---- host -----
-
-    if ( NstringMatch(1,c_get,"EXTINC_HOSTGAL:")  ) 
-      { readchar ( fp, INPUTS.GENSNXT );  continue ; }
-
-    // ---
-
-    if ( NstringMatch(1,c_get,"GENMAG_OFF_AB:")  ||   // legacy key
-	 NstringMatch(1,c_get,"GENMAG_OFF_ZP:")  ) {
-      if ( INPUTS.NFILTDEF_OBS == 0 ) {
-	sprintf(c1err,"Filters NOT specified: cannot read AB offsets.");
-	sprintf(c2err,"Please define filters BEFORE AB offsets.");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
-      readfloat ( fp, INPUTS.NFILTDEF_OBS, INPUTS.TMPOFF_ZP);
-      continue ;
-    }
-
-
-    if ( NstringMatch(1,c_get,"GENMAG_OFF_GLOBAL:")  ) 
-      { readfloat ( fp, 1, &INPUTS.GENMAG_OFF_GLOBAL ); continue ; }
-    if ( NstringMatch(1,c_get,"GENMAG_OFF_NON1A:")  ) 
-      { readfloat ( fp, 1, &INPUTS.GENMAG_OFF_NON1A ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENMAG_OFF_MODEL:")  ) {
-      if ( INPUTS.NFILTDEF_OBS == 0 ) {
-	sprintf(c1err,"Filters NOT specified: cannot read MODEL offsets.");
-	sprintf(c2err,"Please define filters BEFORE MODEL offsets.");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
-      readfloat ( fp, INPUTS.NFILTDEF_OBS, INPUTS.TMPOFF_MODEL );
-      continue ; 
-    }
-
-
-    if ( NstringMatch(1,c_get,"GENMODEL_ERRSCALE:")  ) 
-      {  readfloat ( fp, 1, &INPUTS.GENMODEL_ERRSCALE ); continue ; }
-    if ( NstringMatch(1,c_get,"GENMAG_SMEAR:")  ) {
-      readchar(fp, ctmp); 
-      split2floats(ctmp, comma, INPUTS.GENMAG_SMEAR );
-      continue ;
-    }
-
-    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_ADDPHASECOR:")  ) 
-      { readfloat(fp, 2, INPUTS.GENMAG_SMEAR_ADDPHASECOR );  }
-
-    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_USRFUN:")  ) { 
-      INPUTS.NPAR_GENSMEAR_USRFUN     = 8 ; // fix hard-wired param
-      readdouble ( fp, INPUTS.NPAR_GENSMEAR_USRFUN, 
-		   INPUTS.GENMAG_SMEAR_USRFUN );
-      sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"USRFUN");
-
-      // turn off this option of first parameter is negative
-      if ( INPUTS.GENMAG_SMEAR_USRFUN[0] <= -1.0E-7 ) {  
-	sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"NONE"); 
-	INPUTS.NPAR_GENSMEAR_USRFUN  = 0 ;
-      }
-      continue ; 
-    }
-
-
-    if ( strstr(c_get,"GENMAG_SMEAR_SCALE") != NULL ) 
-      { parse_input_GENMAG_SMEAR_SCALE(fp, &iArg, c_get ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_MSKOPT:")   ) 
-      { readint(fp, 1, &INPUTS.GENMAG_SMEAR_MSKOPT ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_MODELNAME:")   ) {
-      modelName = INPUTS.GENMAG_SMEAR_MODELNAME  ;
-      readchar(fp, modelName );
-      if ( strcmp(modelName,"G10FUDGE") == 0 ) 
-	{ readdouble ( fp, 1, &INPUTS.GENMAG_SMEAR_USRFUN[0] );  }
-
-      if ( strstr(modelName,":")!= NULL)  { parse_GENMAG_SMEAR_MODELNAME(); }
-      continue ; 
-    }
-
-    // updated keys for strong & weak lensing (July 2019)
-    if ( NstringMatch(1,c_get,"STRONGLENS_FILE:")   ) 
-      { readchar(fp, INPUTS.STRONGLENS_FILE); continue ; }
-
-    if ( NstringMatch(1,c_get,"WEAKLENS_PROBMAP_FILE:")   ) 
-      { readchar(fp, INPUTS.WEAKLENS_PROBMAP_FILE); continue ; }
-    if ( NstringMatch(1,c_get,"WEAKLENS_DMUSCALE:")   ) 
-      { readfloat(fp, 1, &INPUTS.WEAKLENS_DMUSCALE); continue ; }
-    if ( NstringMatch(1,c_get,"WEAKLENS_DSIGMADZ:")   ) 
-      { readfloat(fp, 1, &INPUTS.WEAKLENS_DSIGMADZ); continue ; }
-
-    // legacy keys for weak lensing (May 2017)
-    if ( NstringMatch(1,c_get,"LENSING_PROBMAP_FILE:")   ) 
-      { readchar(fp, INPUTS.WEAKLENS_PROBMAP_FILE); continue ; }
-    if ( NstringMatch(1,c_get,"LENSING_DMUSCALE:")   ) 
-      { readfloat(fp, 1, &INPUTS.WEAKLENS_DMUSCALE); continue ; }
-    if ( NstringMatch(1,c_get,"LENSING_DSIGMADZ:")   ) 
-      { readfloat(fp, 1, &INPUTS.WEAKLENS_DSIGMADZ); continue ; }
-
-    int NVAL;
-    char key[60], parName[60];
-    double tmpList[MXSMEARPAR_OVERRIDE];
-    // allow multiple of these keys
-    if ( keyMatch(c_get,"GENMAG_SMEARPAR_OVERRIDE:", "" ) ) { 
-      readchar(fp, key);
-      NVAL = nval_genSmear_override(key, parName); // return NVAL,parName
-      readdouble(fp, NVAL, tmpList);               // read tmpList
-      store_genSmear_override(parName,NVAL,tmpList); 
-      continue ;
-    }
-
-
-    if ( NstringMatch(1,c_get,"GENSMEAR_RANGauss_FIX:")  ) 
-      { readdouble ( fp, 1, &INPUTS.GENSMEAR_RANGauss_FIX ); continue ; }
-    if ( NstringMatch(1,c_get,"GENSMEAR_RANGAUSS_FIX:")  ) 
-      { readdouble ( fp, 1, &INPUTS.GENSMEAR_RANGauss_FIX ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENSMEAR_RANFlat_FIX:")  ) 
-      { readdouble ( fp, 1, &INPUTS.GENSMEAR_RANFlat_FIX ); continue ; }
-    if ( NstringMatch(1,c_get,"GENSMEAR_RANFLAT_FIX:")  ) 
-      { readdouble ( fp, 1, &INPUTS.GENSMEAR_RANFlat_FIX ); continue ; }
-
-    if ( NstringMatch(1,c_get,"SIGMACLIP_MAGSMEAR:")  ) 
-      { readfloat ( fp, 2, INPUTS.SIGMACLIP_MAGSMEAR ); continue ; }
-
-
-    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_FILTER:")  ) {
-      readchar(fp, ctmp );  // list of filters
-      readchar(fp, ctmp2);  // float value or "INTERP" flag
-
-      if ( strcmp(ctmp2,"INTERP") == 0 ) 
-	{ ftmp = -1.0 ; } // any negative number -> interpolate smear
-      else
-	{ sscanf(ctmp2, "%f", &ftmp); }
-
-      if ( ftmp != 0.0 ) {
-	N = INPUTS.NFILT_SMEAR ;
-	INPUTS.NFILT_SMEAR += 
-	  PARSE_FILTLIST(ctmp, &INPUTS.IFILT_SMEAR[N+1] );
-	for ( j=N+1; j <= INPUTS.NFILT_SMEAR; j++ ) {
-	  ifilt = INPUTS.IFILT_SMEAR[j];
-	  INPUTS.GENMAG_SMEAR_FILTER[ifilt] = ftmp ;
-	}
-      }
-      continue ; 
-    }
-
-    if ( NstringMatch(1,c_get,"GENMODEL_ERRSCALE_OPT:")  ) 
-      {  readint(fp,1,&INPUTS.GENMODEL_ERRSCALE_OPT ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENMODEL_ERRSCALE_CORRELATION:")  ) 
-      { readfloat(fp,1,&INPUTS.GENMODEL_ERRSCALE_CORRELATION ); continue;}
-
-    // check intrinsic scatter
-
-    if ( strncmp(c_get,"COVMAT_SCATTER",14) == 0 ) {
-      sprintf(ckey,"%s", c_get);
-      readchar(fp, cval);
-      PARSE_COVMAT_SCATTER(ckey,cval) ;
-      continue ; 
-    }
-    // -----
-
-    if ( NstringMatch(1,c_get,"GENRANGE_TYPE:")  ) 
-      { readint ( fp, 2, INPUTS.GENRANGE_TYPE ); continue ; }
-    if ( NstringMatch(1,c_get,"GENRANGE_CID:")  ) 
-      { readint ( fp, 2, INPUTS.GENRANGE_CID ); continue ; }
-
-
-    // check old option to specify filter-index range;
-    // Users should really switch to using 'GENFILTERS: abcd'
-
-    if ( NstringMatch(1,c_get,"GENRANGE_FILT:")  ) {
-      sprintf(c1err,"GENRANGE_FILT: keyword no longer supported.");
-      sprintf(c2err,"Must use GENFILTERS: ");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-
-    // Aug 13, 2007: new option to read filter-string so that
-    // users need not worry about indices.
-
-    if ( NstringMatch(1,c_get,"GENFILTERS:")  ) {
-      readchar ( fp, INPUTS.GENFILTERS );
-      // must parse this NOW to get NFILT_OBS
-      INPUTS.NFILTDEF_OBS =
-	PARSE_FILTLIST( INPUTS.GENFILTERS, INPUTS.IFILTMAP_OBS  );
-      continue ; 
-    }
-
-
-    if ( NstringMatch(1,c_get,"GENRANGE_DMPEVENT:")  ) 
-      { readint ( fp, 2, INPUTS.GENRANGE_DMPEVENT ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENRANGE_DMPTREST:")   ) 
-      { readfloat ( fp, 2, INPUTS.GENRANGE_DMPTREST ); continue ; }
-
-    if ( NstringMatch(1,c_get,"SMEARFLAG_FLUX:")  ) 
-      { readint ( fp, 1, &INPUTS.SMEARFLAG_FLUX ); continue ; }
-    if ( NstringMatch(1,c_get,"SMEARFLAG_ZEROPT:")  ) 
-      { readint ( fp, 1, &INPUTS.SMEARFLAG_ZEROPT ); continue ; }
-
-    if ( NstringMatch(1,c_get,"MAGMONITOR_SNR:")  ) 
-      { readint ( fp, 1, &INPUTS.MAGMONITOR_SNR ); continue ; }
-
-    if ( NstringMatch(1,c_get,"GENKCOR_STRETCH:")  ) 
-      { readint ( fp, 1, &INPUTS.KCORFLAG_STRETCH ); }  
-
-    if ( NstringMatch(1,c_get,"KCORFLAG_COLOR:")  ) 
-      { readint ( fp, 1, &INPUTS.KCORFLAG_COLOR ); }  
-
-    if ( NstringMatch(1,c_get,"EXPOSURE_TIME_MSKOPT:")  ) 
-      { readint ( fp, 1, &INPUTS.EXPOSURE_TIME_MSKOPT ); } 
-
-    if ( NstringMatch(1,c_get,"KCOR_FILE:") ) 
-      { readchar ( fp, INPUTS.KCOR_FILE ); continue ; }
-
-    if ( NstringMatch(1,c_get,"OMEGA_MATTER:")  ) 
-      { readdouble ( fp, 1, &INPUTS.OMEGA_MATTER ) ; continue ; }
-
-    if ( NstringMatch(1,c_get,"OMEGA_LAMBDA:")  ) 
-      { readdouble ( fp, 1, &INPUTS.OMEGA_LAMBDA ); continue ; }
-
-    if ( NstringMatch(1,c_get,"W0_LAMBDA:")  )
-      { readdouble ( fp, 1, &INPUTS.W0_LAMBDA ); continue ; }
-
-    if ( NstringMatch(1,c_get,"H0:")  ) 
-      { readdouble ( fp, 1, &INPUTS.H0 ); continue ; }
-
-    // ------
-
-    if ( NstringMatch(1,c_get,"FUDGE_SNRMAX:")  ) { 
-      readchar ( fp,  INPUTS.STRING_FUDGE_SNRMAX ); 
-      INPUTS.OPT_FUDGE_SNRMAX = 1; 
-      continue ; 
-    }
-    if ( NstringMatch(1,c_get,"FUDGE2_SNRMAX:")  )  { 
-      readchar( fp,  INPUTS.STRING_FUDGE_SNRMAX ); 
-      INPUTS.OPT_FUDGE_SNRMAX = 2; 
-      continue ; 
-    }
-
-    if ( NstringMatch(1,c_get,"FUDGESCALE_PSF:")  ) 
-      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_PSF ); continue ; }
-
-    if ( NstringMatch(1,c_get,"FUDGESCALE_NOISE_SKY:")  ) 
-      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_SKY ); continue ; }
-    if ( NstringMatch(1,c_get,"FUDGESCALE_SKYNOISE:") ) // legacy name
-      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_SKY ); continue ; }
-
-    if ( NstringMatch(1,c_get,"FUDGESCALE_NOISE_READ:")  ) 
-      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_READ ); continue ; }
-    if ( NstringMatch(1,c_get,"FUDGESCALE_READNOISE:")  )  // legacy name
-      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_READ ); continue ; }
-
-    if ( NstringMatch(1,c_get,"FUDGESCALE_NOISE_TEMPLATE:")  ) 
-      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_TEMPLATE ); continue ; }
-
-    if ( NstringMatch(1,c_get,"FUDGEOPT_FLUXERR:")  )   
-      { readint ( fp, 1, &INPUTS.FUDGEOPT_FLUXERR ); continue ; }
-
-
-    parse_input_KEY_PLUS_FILTER(fp, &iArg, c_get, "EXPOSURE_TIME",
-				&INPUTS.EXPOSURE_TIME, 
-				INPUTS.EXPOSURE_TIME_FILTER);
-
-    parse_input_KEY_PLUS_FILTER(fp, &iArg, c_get, "FUDGE_MAGERR",
-				&INPUTS.FUDGE_MAGERR, 
-				INPUTS.FUDGE_MAGERR_FILTER);
-
-    parse_input_KEY_PLUS_FILTER(fp, &iArg, c_get, "FUDGE_ZPTERR", // Jan 2020
-				&INPUTS.FUDGE_ZPTERR, 
-				INPUTS.FUDGE_ZPTERR_FILTER);
-
-    parse_input_KEY_PLUS_FILTER(fp, &iArg, c_get, "FUDGESCALE_FLUXERR",
-				&INPUTS.FUDGESCALE_FLUXERR, 
-				INPUTS.FUDGESCALE_FLUXERR_FILTER );
-
-    parse_input_KEY_PLUS_FILTER(fp, &iArg, c_get, "FUDGESCALE_FLUXERR2",
-				&INPUTS.FUDGESCALE_FLUXERR2, 
-				INPUTS.FUDGESCALE_FLUXERR2_FILTER );
-
-    parse_input_KEY_PLUS_FILTER(fp, &iArg, c_get, "FUDGESHIFT_ZPT",
-				&INPUTS.FUDGESHIFT_ZPT, 
-				INPUTS.FUDGESHIFT_ZPT_FILTER);
-
-    parse_input_KEY_PLUS_FILTER(fp, &iArg, c_get, "MJD_TEMPLATE",
-				&INPUTS.MJD_TEMPLATE, 
-				INPUTS.MJD_TEMPLATE_FILTER);
-
-    // check for RANSYSTPAR params for systematic shifts (Jun 2017)
-    if ( strstr(c_get,"RANSYSTPAR") != NULL ) 
-      { parse_input_RANSYSTPAR(fp, &iArg, c_get ); }
-
-
-    // ------
-
-    // -- search eff
-    if ( NstringMatch(1,c_get,"GENPERFECT:")  ) 
-      { readint ( fp, 1, &INPUTS.GENPERFECT ); continue ; }
-
-    if ( NstringMatch(1,c_get,"MAGSHIFT_SPECEFF:")  ) 
-      { readdouble(fp,1,&INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF ); continue;}
-
-    if ( NstringMatch(1,c_get,"SEARCHEFF_PIPELINE_LOGIC_FILE:")  ) 
-      { readchar(fp,INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE ); continue;}
-
-    // allow two different keys here
-    if ( NstringMatch(1,c_get,"SEARCHEFF_PIPELINE_FILE:")  ) 
-      { readchar ( fp, INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE );continue ; }
-    if ( NstringMatch(1,c_get,"SEARCHEFF_PIPELINE_EFF_FILE:")  ) 
-      { readchar ( fp, INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE ); continue ; }
-
-    if ( NstringMatch(1,c_get,"SEARCHEFF_SPEC_FILE:")  ) 
-      { readchar ( fp, INPUTS_SEARCHEFF.USER_SPEC_FILE ); continue ; }
-    if ( NstringMatch(1,c_get,"SEARCHEFF_SPEC_SCALE:")  ) 
-      { readdouble(fp,1,&INPUTS_SEARCHEFF.USER_SPECEFF_SCALE ); continue ; }
-
-    if ( NstringMatch(1,c_get,"SEARCHEFF_zHOST_FILE:")  ) 
-      { readchar ( fp, INPUTS_SEARCHEFF.USER_zHOST_FILE ); continue ; }
-    
-    if ( NstringMatch(1,c_get,"APPLY_SEARCHEFF_OPT:")  ) 
-      { readint ( fp, 1, &INPUTS.APPLY_SEARCHEFF_OPT ); continue ; }
-
-    if ( NstringMatch(1,c_get,"MINOBS_SEARCH:")  ) 
-      {  readint ( fp, 1, &INPUTS_SEARCHEFF.MINOBS ); continue ; }
-
-    // --- LCLIB cut windows to select library events
-    if ( NstringMatch(1,c_get,"LCLIB_CUTWIN:")   ) {
-      N = LCLIB_CUTS.NCUTWIN ;
-      readchar(fp,      LCLIB_CUTS.PARNAME[N] );
-      readdouble(fp, 2, LCLIB_CUTS.CUTWIN[N] );
-      LCLIB_CUTS.NCUTWIN++ ;
-      continue ; 
-    }
-
-    if ( NstringMatch(1,c_get,"LCLIB_DEBUG_DAYSCALE:")   ) 
-      { readdouble(fp, 1, &LCLIB_DEBUG.DAYSCALE ); continue ; }
-    if ( NstringMatch(1,c_get,"LCLIB_DEBUG_TOBS_OFFSET:")   ) 
-      { readdouble(fp, 2, LCLIB_DEBUG.TOBS_OFFSET_RANGE ); continue ; }
-    if ( NstringMatch(1,c_get,"LCLIB_DEBUG_ZERO_TEMPLATE_FLUX:")   ) 
-      { readint(fp, 1, &LCLIB_DEBUG.ZERO_TEMPLATE_FLUX ); continue ; }
-    if ( NstringMatch(1,c_get,"LCLIB_DEBUG_FORCE_NREPEAT:")   ) 
-      { readint(fp, 1, &LCLIB_DEBUG.FORCE_NREPEAT ); continue ; }
-
-    // -- cut-windows
-    if ( NstringMatch(1,c_get,"APPLY_CUTWIN_OPT:")  ) 
-      { readint ( fp, 1, &INPUTS.APPLY_CUTWIN_OPT ); continue ; }
-
-    if ( NstringMatch(1,c_get,"EPCUTWIN_LAMREST:")  ) 
-      { readfloat ( fp, 2, INPUTS.EPCUTWIN_LAMREST ); continue ; }
-
-    if ( NstringMatch(1,c_get,"EPCUTWIN_SNRMIN:")   ) 
-      { readfloat ( fp, 2, INPUTS.EPCUTWIN_SNRMIN ); continue ; }
-
-    if ( NstringMatch(1,c_get,"CUTWIN_REDSHIFT:")  )  // legacy 
-      { readfloat ( fp, 2, INPUTS.CUTWIN_REDSHIFT_TRUE ); continue ; }
-    if ( NstringMatch(1,c_get,"CUTWIN_REDSHIFT_TRUE:")  ) 
-      { readfloat ( fp, 2, INPUTS.CUTWIN_REDSHIFT_TRUE ); continue ; }
-    if ( NstringMatch(1,c_get,"CUTWIN_REDSHIFT_FINAL:")  )  // measured
-      { readfloat ( fp, 2, INPUTS.CUTWIN_REDSHIFT_FINAL ); continue ; }
-
-    if ( NstringMatch(1,c_get,"CUTWIN_HOST_PHOTOZ:")  )  // host photo-z
-      { readfloat ( fp, 2, INPUTS.CUTWIN_HOST_ZPHOT ); continue ; }
-    if ( NstringMatch(1,c_get,"CUTWIN_HOST_ZPHOT:")  )  // idem
-      { readfloat ( fp, 2, INPUTS.CUTWIN_HOST_ZPHOT ); continue ; }
-
-    if ( NstringMatch(1,c_get,"CUTWIN_TRESTMAX:")  ) 
-      { readfloat ( fp, 2, INPUTS.CUTWIN_TRESTMAX ); continue ; }
-    if ( NstringMatch(1,c_get,"CUTWIN_TRESTMIN:")  ) 
-      { readfloat ( fp, 2, INPUTS.CUTWIN_TRESTMIN ); continue ; }
-
-    if ( NstringMatch(1,c_get,"CUTWIN_TGAPMAX:")  ) 
-      { readfloat ( fp, 2, INPUTS.CUTWIN_TGAPMAX ); continue ; }
-    if ( NstringMatch(1,c_get,"CUTWIN_T0GAPMAX:")  ) 
-      { readfloat ( fp, 2, INPUTS.CUTWIN_T0GAPMAX ); continue ; }
-
-    if ( keyMatch(c_get,"CUTWIN_SNRMAX:", "")  ) {
-      INPUTS.NCUTWIN_SNRMAX++ ; 
-      N = INPUTS.NCUTWIN_SNRMAX ;
-      readfloat ( fp, 1, &INPUTS.CUTWIN_SNRMAX[N][0] );
-      readchar  ( fp, INPUTS.CUTWIN_SNRMAX_FILTERS[N] );
-      readchar  ( fp, INPUTS.CUTWIN_SNRMAX_LOGIC[N] );
-      readfloat ( fp, 2, &INPUTS.CUTWIN_SNRMAX_TREST[N][0] );
-      continue ;
-    }
-    if ( NstringMatch(1,c_get,"CUTWIN_NEPOCH:")  ) 
-      { readfloat ( fp, 2, INPUTS.CUTWIN_NEPOCH ); continue ; }
-
-    if ( NstringMatch(1,c_get,"CUTWIN_NOBSDIF:")  ) 
-      { readint ( fp, 2, INPUTS.CUTWIN_NOBSDIF ); continue ; }
-    if ( NstringMatch(1,c_get,"CUTWIN_MJDDIF:")  ) 
-      { readfloat ( fp, 2, INPUTS.CUTWIN_MJDDIF ); continue ; }
-
-
-    if ( NstringMatch(1,c_get,"CUTWIN_NOBS_SATURATE:")  ) { // minobs maxobs filters
-      N = INPUTS.NCUTWIN_SATURATE;  
-      readint  ( fp, 2, INPUTS.CUTWIN_SATURATE_NOBS[N] ); 
-      readchar ( fp,    INPUTS.CUTWIN_SATURATE_FILTERS[N] ); 
-      INPUTS.NCUTWIN_SATURATE++ ;
-      continue ; 
-    }
-    if ( NstringMatch(1,c_get,"CUTWIN_NOBS_NOSATURATE:")  ) { 
-      N = INPUTS.NCUTWIN_NOSATURATE;  
-      readint  ( fp, 2, INPUTS.CUTWIN_NOSATURATE_NOBS[N] ); 
-      readchar ( fp,    INPUTS.CUTWIN_NOSATURATE_FILTERS[N] ); 
-      INPUTS.NCUTWIN_NOSATURATE++ ;
-      continue ; 
-    }
-
-    if ( NstringMatch(1,c_get,"CUTWIN_MWEBV:")  ) 
-      { readfloat ( fp, 2, INPUTS.CUTWIN_MWEBV ); continue ; }
-
-    if ( NstringMatch(1,c_get,"CUTWIN_PEAKMAG:")  ) 
-      { readfloat ( fp, 2, INPUTS.CUTWIN_PEAKMAG ); continue ; }
-    if ( NstringMatch(1,c_get,"CUTWIN_PEAKMAG_ALL:")  )  // require ALL filters
-      { readfloat ( fp, 2, INPUTS.CUTWIN_PEAKMAG_ALL ); continue ; }
-
-    if ( NstringMatch(1,c_get,"CUTWIN_PEAKMAG_BYFIELD:")  ) {
-      INPUTS.NCUTWIN_PEAKMAG_BYFIELD++ ;  N= INPUTS.NCUTWIN_PEAKMAG_BYFIELD;
-      readfloat ( fp, 2, INPUTS.CUTWIN_PEAKMAG_BYFIELD[N] );
-      readchar  ( fp, INPUTS.CUTWIN_BYFIELDLIST[N] );
-      continue ; 
-    }
-
-    // CUTWIN_EPOCHS_SNRMIN: 5 20 iz # SNR>5 for < 20 days, i or z
-    if ( NstringMatch(1,c_get,"CUTWIN_EPOCHS_SNRMIN:")  )  { 
-      readfloat ( fp, 1, &INPUTS.CUTWIN_EPOCHS_SNRMIN ); 
-      readfloat ( fp, 1, &INPUTS.CUTWIN_EPOCHS_TRANGE[1] ); 
-      readchar  ( fp, INPUTS.CUTWIN_EPOCHS_FILTERS ); 
-      continue ; 
-    }
-
-    if ( NstringMatch(1,c_get,"EFFERR_STOPGEN:")  ) 
-      { readfloat ( fp, 1, &INPUTS.EFFERR_STOPGEN ); continue ; }
-
-    // - - - - - 
-    if ( NstringMatch(1,c_get,"SPECTROGRAPH_OPTMASK:")  ) 
-      { readint ( fp, 1, &INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ); continue ; }
-
-    if ( NstringMatch(1,c_get,"SPECTROGRAPH_SCALE_TEXPOSE:")  ) { 
-      readdouble ( fp, 1, &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE ); 
-      continue ; 
-    }
-
-    // - - - - - 
-    if ( keyMatch(c_get,"WARP_SPECTRUM:", "")  ) 
-      { readchar(fp,warp_spectrum_string);  GENSPEC.USE_WARP=1; continue ; }
-
-    if ( keyMatch(c_get,"TAKE_SPECTRUM:", "")  ) {       
-      if(INPUTS.USE_SIMLIB_SPECTRA ) {
-	sprintf(c1err,"Cannot mix TAKE_SPECTRUM keys from sim-input & SIMLIB.");
-	sprintf(c2err,"Remove one of these TAKE_SPECTRUM sources.");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-      }
-      parse_input_TAKE_SPECTRUM(fp,warp_spectrum_string); continue ; 
-    }
-
-    if ( keyMatch(c_get,"TAKE_SPECTRUM_HOSTFRAC:", "")  ) 
-      {	readfloat(fp, 1, &INPUTS.TAKE_SPECTRUM_HOSTFRAC ); continue ; }
-
-    if ( keyMatch(c_get,"TAKE_SPECTRUM_DUMPCID:", "")  ) 
-      {	readint(fp, 1, &INPUTS.TAKE_SPECTRUM_DUMPCID ); continue ; }
-
-    // check NGRID values for GRID option only
-
-#ifdef SNGRIDGEN
-    if ( strcmp(INPUTS.GENSOURCE,"GRID") == 0 )  {
-
-      if ( NstringMatch(1,c_get,"GRID_FORMAT:" )   ) 
-	{ readchar(fp, GRIDGEN_INPUTS.FORMAT ); continue ; }
-
-      if ( NstringMatch(1,c_get,"NGRID_LOGZ:" )   ) 
-	{ readint(fp,1,&GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_LOGZ]); continue ; }
-
-      if ( NstringMatch(1,c_get,"NGRID_LUMIPAR:" )   )  { // legacy key	
-	readint(fp,1,&GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_SHAPEPAR]); 
-	continue;
-      }
-      if ( NstringMatch(1,c_get,"NGRID_SHAPEPAR:" )   ) 	{ 
-	readint ( fp, 1, &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_SHAPEPAR] ); 
-	continue ; 
-      }
-
-      if ( NstringMatch(1,c_get,"NGRID_COLORPAR:" )   )  { 
-	readint ( fp, 1, &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_COLORPAR] ); 
-	continue ; 
-      }
-      if ( NstringMatch(1,c_get,"NGRID_COLORLAW:" )   ) 	{ 
-	readint ( fp, 1, &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_COLORLAW] ); 
-	continue ; 
-      }
-      if ( NstringMatch(1,c_get,"NGRID_TREST:" )   )  { 
-	readint ( fp, 1, &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_TREST] ); 
-	continue ; 
-      }
-    }
-#endif
-
-    // abort on legacy keys ( Jun 2016)
-    if ( NstringMatch(1,c_get,"NGRID_LUMIPAR:" )   )   // legacy key
-      { legacyKey_abort(fnam, "NGRID_LUMIPAR:", "NGRID_SHAPEPAR:"); }
-
-    if ( NstringMatch(1,c_get,"GEN_SNDATA_SIM:" )   )   // legacy key
-      { legacyKey_abort(fnam, "GEN_SNDATA_SIM:", "FORMAT_MASK:"); }
-
-    if ( NstringMatch(1,c_get,"EXTINC_MILKYWAY:" )   )   // legacy key
-      { legacyKey_abort(fnam, "EXTINC_MILKYWAY:", "OPT_MWEBV:"); }
-
-    if ( NstringMatch(1,c_get,"RVMW:" )   )   // legacy key
-      { legacyKey_abort(fnam, "RVMW:", "RV_MWCOLORLAW:"); }
-
-    if ( NstringMatch(1,c_get,"HUMAN_SEARCHEFF_OPT:" )   )   // legacy key
-      { legacyKey_abort(fnam, "HUMAN_SEARCHEFF_OPT:", "SEARCHEFF_SPEC_FILE:");}
-
-    if ( NstringMatch(1,c_get,"SPECTYPE:" )   )   // legacy key
-      { legacyKey_abort(fnam, "SPECTYPE:", ""); }
-
-    if ( NstringMatch(1,c_get,"SMEARFLAG_HOSTGAL:" )   )   // legacy key
-      { legacyKey_abort(fnam, "SMEARFLAG_HOSTGAL:", ""); }
-
-  }  // end fscanf loop
-
-
-  fclose(fp);
-  printf("\n");
-
-  if ( INPUTS.KEYNAME_DUMPFLAG ) { happyend(); }
-
-  return(SUCCESS) ;
-
-} // end of read_input
 
 
 // *******************************************
@@ -3172,124 +2138,565 @@ void  parse_input_GENZPHOT_OUTLIER(char *string) {
 
 } // end parse_input_GENZPHOT_OUTLIER
 
-// ==============================================================
-void parse_input_RANSYSTPAR(FILE *fp, int *iArg, char *KEYNAME ) {
+// =========================================
+int parse_input_NON1ASED(char **WORDS, int keySource) { 
 
-  // Created Jun 2017
-  // parse RANSYSTPAR_XXX params
+  int  NKEY, key, N=0, NN;
+  float sigTmp[2] ;
+  bool IS_NON1AKEY, IS_PEC1AKEY, FOUND_KEY[4], DO_NEXT_READ ; 
+  char ckey[40], ctmp[40];
+  char fnam[] = "parse_input_NON1ASED" ;
 
-  int  i = *iArg ;
+  // ----------- BEGIN -----------
+
+  if ( keyMatchSim(1, "PATH_NON1ASED",  WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.NON1ASED.PATH );
+    return(N);
+  }
+  else if ( keyMatchSim(1, "PATH_NONIASED",  WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.NON1ASED.PATH );
+    return(N);
+  }
+  
+  if ( INPUTS.NON1A_MODELFLAG != MODEL_NON1ASED ) { return(N); }
+
+  // below works only for keys inside input file
+
+
+  // check for list of keys to define columms
+  IS_NON1AKEY = 
+    NstringMatch(1,WORDS[0],"NON1A_KEYS:")    ||
+    NstringMatch(1,WORDS[0],"NONIA_KEYS:")    ||
+    NstringMatch(1,WORDS[0],"NON1ASED_KEYS:") ||
+    NstringMatch(1,WORDS[0],"NONIASED_KEYS:") ;
+  
+  if ( IS_NON1AKEY ) {
+    if ( keySource == KEYSOURCE_ARG ) {
+      sprintf(c1err,"Cannot read NON1A keys on command line");
+      sprintf(c2err,"NON1A_KEYS and NON1ASED belong in the input file");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    N++; sscanf(WORDS[N], "%d", &NKEY) ;
+    if ( NKEY < 2 ) {
+      sprintf(c1err,"NON1A_KEYS = %d, but must be >=2.", NKEY);
+      sprintf(c1err,"Check sim-input file." );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    INPUTS.NON1ASED.NKEY = NKEY;
+    for ( key = 1; key <= NKEY; key++ ) {
+      N++; sscanf(WORDS[N], "%s", ckey) ;
+      sprintf(INPUTS.NON1ASED.KEYLIST[key], "%s", ckey );
+    }
+
+    // check required keys
+    FOUND_KEY[1] = (strcmp(INPUTS.NON1ASED.KEYLIST[1],"INDEX")==0 );
+    FOUND_KEY[2] = (strcmp(INPUTS.NON1ASED.KEYLIST[2],"WGT"  )==0 ) ;
+    if ( !FOUND_KEY[1] ) {
+      sprintf(c1err,"First NON1ASED_KEY is '%s' , but must be 'INDEX' ",
+	      INPUTS.NON1ASED.KEYLIST[1] ) ;
+      sprintf(c2err,"Check sim-input file.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+    if ( !FOUND_KEY[2] ) {
+      sprintf(c1err,"Second NON1ASED_KEY is '%s' , but must be 'WGT' ", 
+	      INPUTS.NON1ASED.KEYLIST[2]) ;
+      sprintf(c2err,"Check sim-input file.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+    
+    return(N);
+
+  } // end of NON1ASED_KEYS
+
+
+
+  if ( NstringMatch(1,WORDS[0],"NON1A_STOP:") ||
+       NstringMatch(1,WORDS[0],"NON1ASED_STOP:") ) 
+    { INPUTS.NON1ASED.STOP = 1 ;  return(N); }
+
+  // check for individual NONIA[SED] keys for each template
+
+  IS_NON1AKEY  = 
+    NstringMatch(MXNON1A_TYPE,WORDS[0],"NON1A:")    ||
+    NstringMatch(MXNON1A_TYPE,WORDS[0],"NONIA:")    ||
+    NstringMatch(MXNON1A_TYPE,WORDS[0],"NONIASED:") ||
+    NstringMatch(MXNON1A_TYPE,WORDS[0],"NON1ASED:") ;
+   
+  IS_PEC1AKEY  = 
+    NstringMatch(MXNON1A_TYPE,WORDS[0],"PEC1A:")    || 
+    NstringMatch(MXNON1A_TYPE,WORDS[0],"PECIA:")    ||
+    NstringMatch(MXNON1A_TYPE,WORDS[0],"PECIASED:") ||
+    NstringMatch(MXNON1A_TYPE,WORDS[0],"PEC1ASED:") ;
+
+
+  DO_NEXT_READ = ( (IS_NON1AKEY || IS_PEC1AKEY) && !INPUTS.NON1ASED.STOP ) ;
+
+    
+  if ( DO_NEXT_READ ) { 
+
+      INPUTS.NON1ASED.NINDEX++ ; NN = INPUTS.NON1ASED.NINDEX;
+      if ( IS_PEC1AKEY ) { 
+	INPUTS.NON1ASED.NPEC1A++ ;
+	INPUTS.NON1ASED.ISPEC1A[NN] = 1; 
+      }
+      else { 
+	INPUTS.NON1ASED.NNON1A++ ; 
+	if ( INPUTS.NON1ASED.NPEC1A > 0 ) {
+	  sprintf(c1err, "All NON1A keys must appear before PEC1A keys");
+	  sprintf(c2err, "Check sim-input file (and INCLUDE file)");
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+	}
+      }
+
+      for ( key=1; key <= INPUTS.NON1ASED.NKEY ; key++ ) {
+
+	sprintf(ckey, "%s", INPUTS.NON1ASED.KEYLIST[key] );
+	N++; sscanf(WORDS[N], "%s", ctmp);
+	// xxx mark delete	readchar(fp, ctmp );
+
+	// store float value for README file
+	sscanf(ctmp,"%f", &INPUTS.NON1ASED.KEYVAL[NN][key] );
+
+	if ( strcmp(ckey, "INDEX") == 0 ) 
+	  { sscanf(ctmp, "%d", &INPUTS.NON1ASED.INDEX[NN]); }
+	else if ( strcmp(ckey, "WGT") == 0 ) 
+	  { sscanf(ctmp, "%f", &INPUTS.NON1ASED.WGT[NN]); }
+	else if ( strcmp(ckey, "MAGOFF") == 0 ) 
+	  { sscanf(ctmp, "%f", &INPUTS.NON1ASED.MAGOFF[NN]); }
+	else if ( strcmp(ckey, "MAGSMEAR") == 0 ) {
+	  split2floats(ctmp, COMMA, sigTmp ); 
+	  INPUTS.NON1ASED.MAGSMEAR[NN][0] = sigTmp[0] ;
+	  INPUTS.NON1ASED.MAGSMEAR[NN][1] = sigTmp[1] ;
+	  // if non1a magsmear is nonzero, then set global GENMAG_SMEAR
+	  // so that random numbers are generated for smearing.
+	  if ( sigTmp[0] > 0.0  &&  INPUTS.GENMAG_SMEAR[0] == 0.0 ) 
+	    { INPUTS.GENMAG_SMEAR[0] = INPUTS.GENMAG_SMEAR[1] = 0.001; }
+	}
+	else if ( strcmp(ckey, "SNTYPE") == 0 ) 
+	  { sscanf(ctmp, "%d", &INPUTS.NON1ASED.SNTAG[NN]); }
+	else if ( strcmp(ckey, "SNTAG") == 0 )   // same as SNTYPE
+	  { sscanf(ctmp, "%d", &INPUTS.NON1ASED.SNTAG[NN]); }
+	else {
+	  sprintf(c1err, "Invalid NON1A key: '%s'", ckey );
+	  sprintf(c2err, "Valid keys are INDEX WGT MAGOFF MAGSMEAR" );
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+	}
+      }
+
+      return(N);
+  }
+
+  return(N);
+
+} // end parse_input_NON1ASED
+
+// =================================================
+int parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
+				float *VALUE_GLOBAL, float *VALUE_FILTERLIST){
+				
+
+  // Created Jul 2020 [refactor]
+  // WORDS is list of strings read from input file.
+  // KEYCHECK is the key to check.
+  //
+  // If INPUT_STRING == KEYCHECK,        then fill VALUE_GLOBAL.
+  // If INPUT_STRING == KEYCHECK_FILTER, then fill VALUE_FILTERLIST
+  //
+  // Sim-input is of the form
+  //    INPUT_STRING:  VALUE_GLOBAL   # same value for all bands
+  //        or
+  //    INPUTS_STRING_FILTER:  <filterStringList>  <values>
+  //
+  // Note that outputs are float, not double.
+  // Functions returns number of filled values.
+  //
+
+  float ftmp;
+  char cfilt[MXFILTINDX], KEY[80] ;
+  int  MAX = 5;
+  int  NTMP, ifilt_obs, ifilt, ifilt_list[MXFILTINDX];
+  //  char fnam[] = "parse_input_KEY_PLUS_FILTER_legacy" ;
+
+  // ----------- BEGIN -----------
+
+  // read from command-line args   
+  sprintf(KEY,"%s", KEYCHECK);
+
+  if ( keyMatchSim(1, KEY, WORDS[0], keySource) ) {
+    sscanf(WORDS[1] , "%f", VALUE_GLOBAL ); 
+    for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
+      { VALUE_FILTERLIST[ifilt] = *VALUE_GLOBAL ; }
+    return(1);
+  }
+
+  sprintf(KEY,"%s_FILTER", KEYCHECK);
+  if ( keyMatchSim(1, KEY, WORDS[0], keySource) ) {
+      sscanf(WORDS[1] , "%s", cfilt );
+      sscanf(WORDS[2] , "%f", &ftmp );
+      NTMP = PARSE_FILTLIST(cfilt, ifilt_list );  // return ifilt_obs
+      for ( ifilt=0; ifilt < NTMP; ifilt++ ) {
+	ifilt_obs = ifilt_list[ifilt] ;
+	VALUE_FILTERLIST[ifilt_obs] = ftmp;
+      }      
+      return(NTMP);
+  }
+
+  return(0);
+
+} // end parse_input_KEY_PLUS_FILTER
+
+
+// ======================================
+int parse_input_SIMLIB(char **WORDS, int keySource ) {
+
+  // Created July 2020
+  // parse keys containing SIMLIB_
+  int N=0;
+  char fnam[] = "parse_input_SIMLIB" ;
+
+  // ---------------- BEGIN ------------
+
+  if ( keyMatchSim(1, "SIMLIB_IDSTART",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_IDSTART );
+  }
+  else if ( keyMatchSim(1, "SIMLIB_IDLOCK",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_IDLOCK );
+  }
+  else if ( keyMatchSim(1, "SIMLIB_MAXRANSTART",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_MAXRANSTART );
+  }
+  else if ( keyMatchSim(1, "SIMLIB_MINOBS",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_MINOBS );
+  }
+  else if ( keyMatchSim(1, "SIMLIB_MINSEASON",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_MINSEASON );
+  }
+  else if ( keyMatchSim(1, "SIMLIB_DUMP",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_DUMP );
+  }
+  else if ( keyMatchSim(1, "SIMLIB_NREPEAT",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_NREPEAT );
+  }
+  else if ( keyMatchSim(1, "SIMLIB_NSKIPMJD",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_NSKIPMJD );
+  }
+  else if ( keyMatchSim(1, "USE_SIMLIB_REDSHIFT",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_REDSHIFT );
+    INPUTS.USE_SIMLIB_GENOPT=1;
+  }
+  else if ( keyMatchSim(1, "USE_SIMLIB_DISTANCE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_DISTANCE );
+    INPUTS.USE_SIMLIB_GENOPT=1;
+  }
+  else if ( keyMatchSim(1, "USE_SIMLIB_PEAKMJD",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_PEAKMJD );
+    INPUTS.USE_SIMLIB_GENOPT=1;
+  }
+  else if ( keyMatchSim(1, "USE_SIMLIB_MAGOBS",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_MAGOBS );
+    INPUTS.USE_SIMLIB_GENOPT=1;
+  }
+  else if ( keyMatchSim(1, "USE_SIMLIB_SPECTRA",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_SPECTRA );
+    INPUTS.USE_SIMLIB_GENOPT=1;
+  }
+  else if ( keyMatchSim(1, "USE_SIMLIB_SALT2",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_SALT2 );
+    INPUTS.USE_SIMLIB_GENOPT=1;
+  }
+  else if ( keyMatchSim(1, "SIMLIB_MSKOPT",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_MSKOPT );
+  }
+
+  return(N);
+} // end parse_input_SIMLIB
+
+// ======================================
+int parse_input_HOSTLIB(char **WORDS, int keySource ) {
+
+  // Created July 2020
+  // parse keys starting with HOSTLIB
+  int N=0;
+  char fnam[] = "parse_input_HOSTLIB" ;
+
+  // ------------ BEGIN ------------
+
+  if ( keyMatchSim(1, "HOSTLIB_FILE", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_FILE ) ; 
+    setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+    INPUTS.HOSTLIB_USE = 1;  
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_WGTMAP_FILE", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_WGTMAP_FILE ) ; 
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_ZPHOTEFF_FILE", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_ZPHOTEFF_FILE ) ; 
+  }
+
+  else if ( keyMatchSim(1, "HOSTLIB_SPECBASIS_FILE", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_SPECBASIS_FILE ) ; 
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_MSKOPT", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_MSKOPT ) ; 
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_GENZPHOT_FUDGEPAR",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[0] ) ; 
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[1] ) ; 
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[2] ) ; 
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[3] ) ; 
+    N++ ; parse_input_GENZPHOT_OUTLIER(WORDS[N]);
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_GENZPHOT_BIAS",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_GENZPHOT_BIAS[0] ) ; 
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_GENZPHOT_BIAS[1] ) ; 
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_GENZPHOT_BIAS[2] ) ; 
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_GENZPHOT_BIAS[3] ) ; 
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_DZTOL",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_DZTOL[0] ) ; 
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_DZTOL[1] ) ; 
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_DZTOL[2] ) ; 
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_SCALE_SERSIC",WORDS[0],keySource) ) {
+    // legacy name
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ) ;   
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_SCALE_SERSIC_SIZE",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ) ;   
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_SCALE_LOGMASS_ERR",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_SCALE_LOGMASS_ERR ) ;   
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_STOREVAR",WORDS[0],keySource) ||
+	    keyMatchSim(1, "HOSTLIB_STOREPAR",WORDS[0],keySource) ) {
+     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_STOREPAR_LIST ) ; 
+  }  
+  else if ( keyMatchSim(1, "HOSTLIB_MAXREAD",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_MAXREAD ) ;
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_GALID_NULL",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_GALID_NULL ) ;
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_GALID_PRIORITY",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_GALID_PRIORITY[0] ) ;
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_GALID_PRIORITY[1] ) ;
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_MINDAYSEP_SAMEGAL",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL);
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_MXINTFLUX_SNPOS",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_MXINTFLUX_SNPOS);
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_GENRANGE_NSIGZ",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_GENRANGE_NSIGZ[0] );
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_GENRANGE_NSIGZ[1] );
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_GENRANGE_RA",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_GENRANGE_RA[0] );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_GENRANGE_RA[1] );
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_GENRANGE_DEC", WORDS[0],keySource) ||
+	    keyMatchSim(1, "HOSTLIB_GENRANGE_DECL",WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[0] );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[1] );
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_SBRADIUS", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_SBRADIUS );
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_GALID_FORCE", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_GALID_FORCE );
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_FIXRAN_RADIUS", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXRAN_RADIUS );
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_FIXRAN_PHI", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXRAN_PHI );
+  }
+
+  else if ( keyMatchSim(1, "HOSTLIB_FIXSERSIC", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXSERSIC[0] );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXSERSIC[1] );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXSERSIC[2] );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXSERSIC[3] );
+  }
+
+
+  return(N);
+
+} // end parse_input_HOSTLIB
+
+// ======================================
+int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
+
+  // Jul 20 2020 [refactor]
+  // Parse RANSYSTPAR_XXX keys.
+  // Function returns number of WORDS that are read.
+  
+  int  N = 0 ;
   int  ifilt, NFILTDEF = INPUTS.NFILTDEF_OBS ;  
   char fnam[] = "parse_input_RANSYSTPAR" ;
+
+  // ---------- BEGIN ----------
+
+  if ( keyMatchSim(1, "RANSYSTPAR_SIGSCALE_FLUXERR", 
+		   WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR );
+  }
+  else if ( keyMatchSim(1,"RANSYSTPAR_SIGSCALE_FLUXERR2", 
+			WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 );
+  }
+  else if ( keyMatchSim(1,"RANSYSTPAR_SIGSCALE_MWEBV", 
+			WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSCALE_MWEBV );
+  }
+  else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_MWRV", 
+			WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_MWRV );
+  }
+
+  else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_OMEGA_MATTER",
+			WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER );
+  }
+
+  else if ( keyMatchSim(1,"RANSYSTPAR_RANGESHIFT_OMEGA_MATTER",
+			WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N],"%f",&INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER[0]);
+    N++;  sscanf(WORDS[N],"%f",&INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER[1]);
+  }
+  else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_W0",
+			WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_W0 );
+  }
+  else if ( keyMatchSim(1,"RANSYSTPAR_RANGESHIFT_W0",
+			WORDS[0],keySource)){
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.RANGESHIFT_W0[0] );
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.RANGESHIFT_W0[1] );
+  }
+  else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_ZP",
+			WORDS[0],keySource) ) {
+    for ( ifilt = 0; ifilt < NFILTDEF; ifilt++ ) {
+      N++; sscanf(WORDS[N],"%f",&INPUTS.RANSYSTPAR.SIGSHIFT_ZP[ifilt] ); 
+    }
+  }
+  else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_LAMFILT",
+			WORDS[0],keySource) ) {
+    for ( ifilt = 0; ifilt < NFILTDEF; ifilt++ ) {
+      N++; sscanf(WORDS[N],"%f",&INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT[ifilt]); 
+    }
+  }
+
+  return(N) ;
+
+} // end  parse_input_RANSYSTPAR
+
+// ==============================================================
+int parse_input_GENMODEL(char **WORDS, int keySource) {
+
+  // Created July 2020 [refactor]
+  // Parse GENMODEL key.
+
+  int  N=0;
+  int  jnam;
+  char *GENMODEL = INPUTS.GENMODEL ;
+  char ctmp[60], *NAME0 ;
+  bool LDMP = false ;
+  char fnam[] = "parse_input_GENMODEL" ;
   
   // ---------- BEGIN ------------
 
 
-  if ( NFILTDEF == 0 ) {
-    sprintf(c1err, "Cannot read RANSYSTPAR because NFILTDEF=0");
-    sprintf(c2err, "Make sure %s appears after GENFILTERS: key.",KEYNAME);
+  N++ ; sscanf(WORDS[N], "%s", GENMODEL ); 
+
+  // check for path + model 
+  extract_MODELNAME(GENMODEL,                   // input path/model
+		    INPUTS.MODELPATH, INPUTS.MODELNAME); // returned
+
+  // check for NONIA 
+  INPUTS.NON1A_MODELFLAG = get_NON1A_MODELFLAG(INPUTS.MODELNAME);
+  if ( INPUTS.NON1A_MODELFLAG == MODEL_NON1AGRID ) 
+    { N++ ; sscanf(WORDS[N] , "%s", INPUTS.NON1AGRID_FILE );  }
+
+
+  // check LCLIB (Galactic transients)
+  NAME0 = GENMODEL_NAME[MODEL_LCLIB][0];
+  if ( strcmp(GENMODEL,NAME0)==0 ) {
+      N++ ; sscanf(WORDS[N] , "%s", INPUTS.LCLIB_FILE ); 
+      N++ ; sscanf(WORDS[N] , "%s", INPUTS.LCLIB_TEMPLATE_EPOCHS ); 
+  }
+
+  // check BYOSED
+  NAME0 = GENMODEL_NAME[MODEL_BYOSED][0];
+  if ( strcmp(GENMODEL,NAME0)==0 ) {
+    N++ ; sscanf(WORDS[N], "%s", INPUTS.MODELPATH ); 
+  }
+
+  // check fixmag/FIXMAG
+  for(jnam=0; jnam < MXNAME_PER_MODEL; jnam++ ) {
+    NAME0  = GENMODEL_NAME[MODEL_FIXMAG][jnam];
+    if ( strcmp(GENMODEL,NAME0) == 0 ) {
+      N++ ; sscanf(WORDS[N], "%s", ctmp ); 
+      parse_input_FIXMAG(ctmp);	
+
+      // check if rest-frame or obs-frame
+      if ( strstr(GENMODEL,"mag") != NULL ) 
+	{ INPUTS.GENFRAME_FIXMAG = GENFRAME_OBS; }
+      else if ( strstr(GENMODEL,"MAG") != NULL ) 
+	{ INPUTS.GENFRAME_FIXMAG = GENFRAME_REST; }
+    }
+  }
+
+  // allow mlcs in place of mlcs2k2
+  if ( strcmp(GENMODEL,"mlcs")== 0) { sprintf(GENMODEL, "mlcs2k2"); }    
+
+  // - - - - - - - - - - - - - - - - 
+  if ( LDMP ) {
+    printf("\n xxx -------------------------------- \n");
+    printf(" xxx %s DUMP: \n", fnam );
+    printf(" xxx Input GENMODEL:  '%s' \n", GENMODEL);
+    printf(" xxx INPUTS.MODELPATH = '%s' \n", INPUTS.MODELPATH );
+    printf(" xxx INPUTS.MODELNAME = '%s' \n", INPUTS.MODELNAME );
+    debugexit(fnam);
+  }
+
+
+  return(N) ;
+
+} // end parse_input_GENMODEL
+
+
+// ==============================================================
+int parse_input_GENMODEL_ARGLIST(char **WORDS, int keySource) {
+
+  // Created July 2020 [refactor]
+  // parse GENMODEL_ARGLIST 'XX YY ZZ'
+  // which can have arbitrary number of elements between quotes.
+  // Initial use is to pass command-line overrides to BYOSED model.
+
+  int  N=0;
+  char fnam[] = "parse_input_GENMODEL_ARGLIST" ;
+  
+  // ---------- BEGIN ------------
+
+  if ( keySource == KEYSOURCE_FILE ) {
+    sprintf(c1err,"GENMODEL_ARGLIST valid only as command-line arg.");
+    sprintf(c2err,"snlc_sim.exe <inFile> "
+	    "GENMODEL_ARGLIST 'KEY1 VAL1 KEY2 VAL2 ...' ");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  INPUTS.RANSYSTPAR.USE = 1;
+  // read command-line arg
+  // (C code scoops everything within quotes)
+  N++ ;  sprintf(INPUTS.GENMODEL_ARGLIST, "%s", WORDS[N] );
 
-  if ( i < 0 ) {
-    // read from file
-    if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSCALE_FLUXERR:")==0 ) {
-      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR);
-    }
-    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSCALE_FLUXERR2:")==0 ) {
-      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2);
-    }
-    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSCALE_MWEBV:")==0 ) {
-      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSCALE_MWEBV );
-    }
-    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_MWRV:")==0 ) {
-      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSHIFT_MWRV );
-    }
+  
+  return(N) ;
 
-    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_OMEGA_MATTER:")==0 ) {
-      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER );
-    }
-    else if ( strcmp(KEYNAME,"RANSYSTPAR_RANGESHIFT_OMEGA_MATTER:")==0 ) {
-      readfloat ( fp, 2, INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER );
-    }
-    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_W0:")==0 ) {
-      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSHIFT_W0 );
-    }
-    else if ( strcmp(KEYNAME,"RANSYSTPAR_RANGESHIFT_W0:")==0 ) {
-      readfloat ( fp, 2, INPUTS.RANSYSTPAR.RANGESHIFT_W0 );
-    }
+} // end parse_input_GENMODEL_ARGLIST
 
-    // filter-dependent params
-    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_ZP:")==0 ) {
-      readfloat ( fp, NFILTDEF, INPUTS.RANSYSTPAR.SIGSHIFT_ZP );
-    }
-    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_LAMFILT:")==0 ) {
-      readfloat ( fp, NFILTDEF, INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT );
-    }
 
-  }
-  else {
-    // read command-line arg
-    if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSCALE_FLUXERR") == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR ); 
-    }
-    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSCALE_FLUXERR2") == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 ); 
-    }
-    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSCALE_MWEBV") == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.RANSYSTPAR.SIGSCALE_MWEBV ); 
-    }
-    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_MWRV") == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.RANSYSTPAR.SIGSHIFT_MWRV ); 
-    }
-
-    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_OMEGA_MATTER") == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER ); 
-    }
-    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_RANGESHIFT_OMEGA_MATTER")==0) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER[1] ); 
-    }
-
-    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_W0") == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.RANSYSTPAR.SIGSHIFT_W0 ); 
-    }
-    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_RANGESHIFT_W0") == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.RANSYSTPAR.RANGESHIFT_W0[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.RANSYSTPAR.RANGESHIFT_W0[1] ); 
-    }
-
-    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_ZP") == 0 ) {
-      for ( ifilt = 0; ifilt < NFILTDEF; ifilt++ ) {
-	i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		     &INPUTS.RANSYSTPAR.SIGSHIFT_ZP[ifilt] ); 
-      }
-    }
-    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_LAMFILT") == 0 ) {
-      for ( ifilt = 0; ifilt < NFILTDEF; ifilt++ ) {
-	i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		     &INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT[ifilt] ); 
-      }
-    }
-
-    *iArg = i ;
-  }
-
-  return ;
-
-} // end parse_input_RANSYSTPAR
 
 // ==============================================================
 void parse_input_SOLID_ANGLE(FILE *fp, int *iArg, char *KEYNAME ) {
@@ -3489,93 +2896,6 @@ void parse_input_GENMAG_SMEAR_SCALE(FILE *fp, int *iArg, char *KEYNAME ) {
 } // end parse_input_GENMAG_SMEAR_SCALE
 
 
-// ==================================================
-int parse_input_KEY_PLUS_FILTER(FILE *fp, int *iArg, 
-				char *INPUT_STRING, char *KEYCHECK,
-				float *VALUE_GLOBAL,
-				float *VALUE_FILTERLIST) {
-
-  // Created Jun 2017
-  // INPUT_STRING is current string read from input file.
-  // KEYCHECK is the key to check.
-  //
-  // If INPUT_STRING == KEYCHECK,        then fill VALUE_GLOBAL.
-  // If INPUT_STRING == KEYCHECK_FILTER, then fill VALUE_FILTERLIST
-  //
-  // Sim-input is of the form
-  //    INPUT_STRING:  VALUE_GLOBAL   # same value for all bands
-  //        or
-  //    INPUTS_STRING_FILTER:  <filterStringList>  <values>
-  //
-  // Note that outputs are float, not double.
-
-  float ftmp;
-  char cfilt[MXFILTINDX], KEY[80] ;
-  int  i, NTMP, ifilt_obs, ifilt, ifilt_list[MXFILTINDX];
-  //  char fnam[] = "parse_input_KEY_PLUS_FILTER" ;
-
-  // ----------- BEGIN -----------
-
-  i = *iArg;
-
-  if ( i < 0 ) { 
-    // read from file *fp
-    sprintf(KEY,"%s:", KEYCHECK);
-    if ( strcmp(INPUT_STRING,KEY)==0 ) { 
-      readfloat ( fp, 1, VALUE_GLOBAL );  
-      for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ )
-	{ VALUE_FILTERLIST[ifilt] = *VALUE_GLOBAL; }
-      return(1);
-    }
-    
-    sprintf(KEY,"%s_FILTER:", KEYCHECK);
-    if ( strcmp(INPUT_STRING,KEY)==0 ) { 
-      readchar  ( fp, cfilt );
-      readfloat ( fp, 1, &ftmp );
-      NTMP = PARSE_FILTLIST(cfilt, ifilt_list );  // return ifilt_list
-      
-      /*
-      printf(" xxx read %s cfilt=%s ftmp=%.2f NTMP=%d \n",
-      KEY, cfilt, ftmp, NTMP ); */
-      
-      for ( ifilt=0; ifilt < NTMP; ifilt++ ) {
-	ifilt_obs = ifilt_list[ifilt] ;
-	VALUE_FILTERLIST[ifilt_obs] = ftmp ;
-      }
-      return(NTMP);
-    }
-  }
-  else {
-    // read from command-line args   
-    sprintf(KEY,"%s", KEYCHECK);
-    if ( strcmp( ARGV_LIST[i], KEY ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", VALUE_GLOBAL ); 
-      //      printf(" xxx %s:  %s = %f \n", fnam, KEY, *VALUE_GLOBAL);
-      *iArg = i ;
-      for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
-	{ VALUE_FILTERLIST[ifilt] = *VALUE_GLOBAL ; }
-      return(1);
-    }
-
-    sprintf(KEY,"%s_FILTER", KEYCHECK);
-    if ( strcmp( ARGV_LIST[i], KEY ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", cfilt );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &ftmp );
-      *iArg = i ;
-      NTMP = PARSE_FILTLIST(cfilt, ifilt_list );  // return ifilt_obs
-      for ( ifilt=0; ifilt < NTMP; ifilt++ ) {
-	ifilt_obs = ifilt_list[ifilt] ;
-	VALUE_FILTERLIST[ifilt_obs] = ftmp;
-      }      
-      return(NTMP);
-    }
-
-
-  } // end i if-block
-
-  return(0);
-
-} // end parse_input_KEY_PLUS_FILTER
 
 // ==============================================================
 void parse_GENMAG_SMEAR_MODELNAME(void) {
@@ -3611,158 +2931,6 @@ void parse_GENMAG_SMEAR_MODELNAME(void) {
   return ;
 
 } // end parse_GENMAG_SMEAR_MODELNAME
-
-// ==============================================================
-void parse_input_GENMODEL(FILE *fp, int *iArg ) {
-
-  // Created April 18 2019 
-  //   [code moved from read_input, part of refactor ]
-  // Parse GENMODEL key.
-
-  int  i = *iArg ;
-  int  jnam;
-  char *GENMODEL = INPUTS.GENMODEL ;
-  char ctmp[60], *NAME0 ;
-  bool LDMP = false ;
-  char fnam[] = "parse_input_GENMODEL" ;
-  
-  // ---------- BEGIN ------------
-
-  if ( i < 0 ) {
-    // read from file 
-    readchar ( fp, GENMODEL );      
-    
-    // check for path/model (Feb 22 2017)
-    extract_MODELNAME(GENMODEL,                   // input path/model
-		      INPUTS.MODELPATH, INPUTS.MODELNAME); // returned
-    
-    // check for NONIA model to help parsing below
-    INPUTS.NON1A_MODELFLAG = get_NON1A_MODELFLAG(INPUTS.MODELNAME);
-    if ( INPUTS.NON1A_MODELFLAG == MODEL_NON1AGRID ) 
-      { readchar(fp, INPUTS.NON1AGRID_FILE ); }
-
-    NAME0 = GENMODEL_NAME[MODEL_LCLIB][0];
-    if ( strcmp(GENMODEL,NAME0)==0 ) {
-      readchar(fp, INPUTS.LCLIB_FILE );  
-      readchar(fp, INPUTS.LCLIB_TEMPLATE_EPOCHS );  
-    }
-
-    NAME0 = GENMODEL_NAME[MODEL_BYOSED][0];
-    if ( strcmp(GENMODEL,NAME0)==0 ) 
-      { readchar(fp, INPUTS.MODELPATH ); }
-
-    // for FIXMAG model, read value of fixed mag
-    for(jnam=0; jnam < MXNAME_PER_MODEL; jnam++ ) {
-      NAME0  = GENMODEL_NAME[MODEL_FIXMAG][jnam];
-      if ( strcmp(GENMODEL,NAME0)==0 ) {
-	readchar(fp, ctmp );
-	parse_input_FIXMAG(ctmp);
-	if ( strstr(GENMODEL,"mag") != NULL ) 
-	  { INPUTS.GENFRAME_FIXMAG = GENFRAME_OBS; }
-	else if ( strstr(GENMODEL,"MAG") != NULL ) 
-	  { INPUTS.GENFRAME_FIXMAG = GENFRAME_REST; }
-      }
-    }
-    
-    // allow mlcs in place of mlcs2k2
-    if ( strcmp(GENMODEL,"mlcs")==0 ) { sprintf(GENMODEL,"mlcs2k2"); }
-
- 
-  }
-  else {
-    // read command-line arg
-
-    i++ ; sscanf(ARGV_LIST[i] , "%s", GENMODEL ); 
-
-    // check for path + model 
-    extract_MODELNAME(GENMODEL,                   // input path/model
-		      INPUTS.MODELPATH, INPUTS.MODELNAME); // returned
-
-    // check for NONIA model to help parsing below
-    INPUTS.NON1A_MODELFLAG = get_NON1A_MODELFLAG(INPUTS.MODELNAME);
-
-    if ( INPUTS.NON1A_MODELFLAG == MODEL_NON1AGRID ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.NON1AGRID_FILE );  }
-
-    NAME0 = GENMODEL_NAME[MODEL_LCLIB][0];
-    if ( strcmp(GENMODEL,NAME0)==0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.LCLIB_FILE ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.LCLIB_TEMPLATE_EPOCHS ); 
-    }
-
-    NAME0 = GENMODEL_NAME[MODEL_BYOSED][0];
-    if ( strcmp(GENMODEL,NAME0)==0 ) {
-      i++ ; sscanf(ARGV_LIST[i], "%s", INPUTS.MODELPATH ); 
-    }
-
-    int jnam;
-    for(jnam=0; jnam < MXNAME_PER_MODEL; jnam++ ) {
-      NAME0  = GENMODEL_NAME[MODEL_FIXMAG][jnam];
-      if ( strcmp(GENMODEL,NAME0) == 0 ) {
-	i++ ; sscanf(ARGV_LIST[i], "%s", ctmp ); 
-	parse_input_FIXMAG(ctmp);	
-	if ( strstr(GENMODEL,"mag") != NULL ) 
-	  { INPUTS.GENFRAME_FIXMAG = GENFRAME_OBS; }
-	else if ( strstr(GENMODEL,"MAG") != NULL ) 
-	  { INPUTS.GENFRAME_FIXMAG = GENFRAME_REST; }
-      }
-    }
-
-    // allow mlcs in place of mlcs2k2
-    if ( strcmp(GENMODEL,"mlcs")== 0) { sprintf(GENMODEL, "mlcs2k2"); }    
-
-    *iArg = i ;
-  }
-
-
-  // - - - - - - - - - - - - - - - - 
-  if ( LDMP ) {
-    printf("\n xxx -------------------------------- \n");
-    printf(" xxx %s DUMP: \n", fnam );
-    printf(" xxx Input GENMODEL:  '%s' \n", GENMODEL);
-    printf(" xxx INPUTS.MODELPATH = '%s' \n", INPUTS.MODELPATH );
-    printf(" xxx INPUTS.MODELNAME = '%s' \n", INPUTS.MODELNAME );
-    debugexit(fnam);
-  }
-
-
-  return ;
-
-} // end parse_input_GENMODEL
-
-
-// ==============================================================
-void parse_input_GENMODEL_ARGLIST(FILE *fp, int *iArg ) {
-
-  // Created March 2019
-  // parse GENMODEL_ARGLIST 'XX YY ZZ'
-  // which can have arbitrary number of elements between quotes.
-  // Initial use is to pass command-line overrides to BYOSED model.
-
-  int  i = *iArg ;
-  char fnam[] = "parse_input_GENMODEL_ARGLIST" ;
-  
-  // ---------- BEGIN ------------
-
-  if ( i < 0 ) {
-    // read from file 
-    sprintf(c1err,"GENMODEL_ARGLIST valid only as command-line arg.");
-    sprintf(c2err,"snlc_sim.exe <inFile> "
-	    "GENMODEL_ARGLIST 'KEY1 VAL1 KEY2 VAL2 ...' ");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-    // readchar ( fp, &INPUTS.GEMMODEL_ARGLIST);
-  }
-  else {
-    // read command-line arg
-    // (C code scoops everything within quotes)
-    i++ ;  sprintf(INPUTS.GENMODEL_ARGLIST, "%s", ARGV_LIST[i]);
-    *iArg = i ;
-  }
-
-  return ;
-
-} // end parse_input_GENMODEL_ARGLIST
-
 
 
 // ==================================================
@@ -4499,1455 +3667,28 @@ int get_NON1A_MODELFLAG(char *GENMODEL) {
 // *********************************
 void sim_input_override(void) {
 
-  // Check for command-line overrides.
+  // July 2020 [refactor]
+  // Parse command-line overrides using parse_input_key_driver util.
+  //
   // argv[0] is the name of the program.
   // argv[1] is the name of the input file.
   // start parsing at argv[2].
-  //
-  // Dec  3 2013: fix to work with DNDZ POWERLAW2
-  // Aug 13 2016: refactor to call sscanf_RATEPAR().
-  // Mar 10 2017: start add 'goto INCREMENT_COUNTER' to avoid conflicts.
-  // Dec 27 2018: check LCLIB_CUTWIN
-  // Jul 20 2020: start using keyMatch ... not done yet.
 
-  char KEY_APPEND_OPT[4];
-  int  i, ilast, iuse, ifilt, N, j, ITMP ;
-  int  ipar, opt_tmp, itype, NLOCAL_DNDZ ;
-  char  ctmp[80], ctmp2[80], parname[60], cpoly[40];
-  float ftmp, tmpSmear[2];
-  char *modelName ;
-  char comma[] = "," ;
+  int IWD_START = 2,  iwd, NWD_READ, iwd_use ;
   char fnam[] = "sim_input_override" ;
-  FILE *fpNull = NULL ;
-
-  // ------------ BEGIN -----------
-
-  i = 2; ilast = 2 ;
-  NLOCAL_DNDZ = 0 ;
-  sprintf(KEY_APPEND_OPT, "%s", COLON);
-
-  while ( i < NARGV_LIST ) {
-    printf("  PROCESS COMMAND LINE ARG: %s \n", ARGV_LIST[i] );
-
-    if ( keyMatch( ARGV_LIST[i], "INPUT_FILE_INCLUDE", KEY_APPEND_OPT ) ||
-	 keyMatch( ARGV_LIST[i], "INPUT_INCLUDE_FILE", KEY_APPEND_OPT )
-	 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.INPUT_FILE_LIST[1] ); 
-      INPUTS.INPUT_FILE_LIST[2][0] = 0 ; // erase 2nd include file
-    }
-
-    if ( keyMatch(ARGV_LIST[i], "USE_KCOR_REFACTOR", KEY_APPEND_OPT ) ) {
-      i++; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_KCOR_REFACTOR ); 
-    }
-   
-    if ( keyMatch( ARGV_LIST[i], "TRACE_MAIN", KEY_APPEND_OPT ) ) 
-      {  i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.TRACE_MAIN );  }
-
-    if ( keyMatch( ARGV_LIST[i], "DASHBOARD", KEY_APPEND_OPT )  ) {  
-      i++; INPUTS.DASHBOARD_DUMPFLAG = true ;   
-      INPUTS.NVAR_SIMGEN_DUMP = -9;
-    }
-
-    if ( keyMatch( ARGV_LIST[i], "OPT_DEVEL_GENPDF", KEY_APPEND_OPT ) ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_DEVEL_GENPDF );  }
-    if ( keyMatch( ARGV_LIST[i], "DEBUG_FLAG", KEY_APPEND_OPT )  ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.DEBUG_FLAG );   }
-
-    
-    if ( keyMatch( ARGV_LIST[i], "RESTORE_DES3YR", KEY_APPEND_OPT )  )  {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &ITMP );
-      INPUTS.RESTORE_DES3YR = true ;
-    }
-
-    if ( keyMatch( ARGV_LIST[i], "NONLINEARITY_FILE", KEY_APPEND_OPT )  ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.NONLINEARITY_FILE ); 
-    }
-
-    if ( keyMatch( ARGV_LIST[i], "SIMLIB_FILE", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.SIMLIB_FILE ); 
-    }
-
-    if ( keyMatch( ARGV_LIST[i], "SIMLIB_FIELDLIST", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.SIMLIB_FIELDLIST ); 
-    }
-
-
-    if ( keyMatch( ARGV_LIST[i], "ZVARIATION_FILE", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUT_ZVARIATION_FILE ); 
-      if ( !IGNOREFILE(INPUT_ZVARIATION_FILE) )
-	{ USE_ZVAR_FILE = 1 ; }
-    }
-
-    if ( keyMatch( ARGV_LIST[i], "ZVARIATION_POLY", KEY_APPEND_OPT ) ) {
-      N = NPAR_ZVAR_USR ;
-      INPUT_ZVARIATION[N].FLAG = FLAG_ZPOLY_ZVAR ;
-      INPUT_ZVARIATION[N].NZBIN = 0 ;  
-      NPAR_ZVAR_USR++ ;  
-      i++ ; sscanf(ARGV_LIST[i] , "%s",  INPUT_ZVARIATION[N].PARNAME );
-      i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp );
-      parse_GENPOLY(ctmp, "z", &INPUT_ZVARIATION[N].POLY, fnam );
-    }  // ZVARIATION_POLY
-
-
-    // ------ HOSTLIB -----
-    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_FILE", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_FILE ); 
-      INPUTS.HOSTLIB_USE = 1;  
-      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
-
-      // check if we are just turning off the HOSTLIB
-      if ( IGNOREFILE(INPUTS.HOSTLIB_FILE)  )  { 
-	INPUTS.HOSTLIB_USE    = 0 ; 
-	INPUTS.HOSTLIB_MSKOPT = 0 ; 
-	//	HOSTLIB_MSKOPT_USE    = 0 ; 
-      }
-
-    }
-    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_WGTMAP_FILE", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_WGTMAP_FILE ); 
-    }
-    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_ZPHOTEFF_FILE", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_ZPHOTEFF_FILE ); 
-    }
-    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_SPECBASIS_FILE", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_SPECBASIS_FILE ); 
-    }
-
-    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_MSKOPT", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_MSKOPT ); 
-      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
-    }
-    if ( keyMatch( ARGV_LIST[i], "+HOSTMAGS", KEY_APPEND_OPT ) ) {
-      INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS ;
-      i++ ;
-      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
-    }
-
-    if ( keyMatch( ARGV_LIST[i], "+HOSTNBR", KEY_APPEND_OPT ) ) {
-      INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSNBR ;
-      i++ ;
-      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
-    }
-    if ( keyMatch( ARGV_LIST[i], "SEPNBR_MAX", KEY_APPEND_OPT ) ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &HOSTLIB_NBR_WRITE.SEPNBR_MAX); }
-    if ( keyMatch( ARGV_LIST[i], "NNBR_WRITE_MAX", KEY_APPEND_OPT ) ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%d", &HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX);}
-       
-    if (keyMatch( ARGV_LIST[i],"HOSTLIB_GENZPHOT_FUDGEPAR", KEY_APPEND_OPT) ) {
-      for(j=0; j<4; j++ ) {
-	i++ ; sscanf(ARGV_LIST[i], "%f", 
-		     &INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[j] );	
-      }      
-      i++ ; sscanf(ARGV_LIST[i], "%s", ctmp); 
-      parse_input_GENZPHOT_OUTLIER(ctmp); 
-    }
-    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_GENZPHOT_BIAS", KEY_APPEND_OPT ) ) {
-      for(j=0; j<4; j++ ) {
-	i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		     &INPUTS.HOSTLIB_GENZPHOT_BIAS[j] );
-      }      
-    }
-
-    if (keyMatch(ARGV_LIST[i], "HOSTLIB_MAXREAD", KEY_APPEND_OPT )  ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_MAXREAD ); 
-    }
-    if (keyMatch( ARGV_LIST[i],"HOSTLIB_GALID_NULL", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_GALID_NULL ); 
-    }
-
-    if (keyMatch( ARGV_LIST[i],"HOSTLIB_GALID_PRIORITY", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_GALID_PRIORITY[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_GALID_PRIORITY[1] ); 
-    }
-
-    if (keyMatch( ARGV_LIST[i],"HOSTLIB_MINDAYSEP_SAMEGAL", KEY_APPEND_OPT) ){
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL ); 
-    }
-    if (keyMatch(ARGV_LIST[i], "HOSTLIB_MXINTFLUX_SNPOS", KEY_APPEND_OPT) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.HOSTLIB_MXINTFLUX_SNPOS ); 
-    }
-    if (keyMatch(ARGV_LIST[i], "HOSTLIB_GENRANGE_NSIGZ", KEY_APPEND_OPT) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.HOSTLIB_GENRANGE_NSIGZ[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.HOSTLIB_GENRANGE_NSIGZ[1] ); 
-    }
-
-    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_GENRANGE_RA", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_RA[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_RA[1] ); 
-    }
-    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_GENRANGE_DEC", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[1] ); 
-    }
-    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_GENRANGE_DECL", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[1] ); 
-    }
-
-    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_DZTOL", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_DZTOL[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_DZTOL[1] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_DZTOL[2] ); 
-    }
-
-    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_SERSIC_SCALE", KEY_APPEND_OPT ) ) { // legacy name
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); 
-    }
-    if (keyMatch( ARGV_LIST[i],"HOSTLIB_SCALE_SERSIC_SIZE", KEY_APPEND_OPT) ){
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); 
-    }
-    if (keyMatch( ARGV_LIST[i],"HOSTLIB_SCALE_LOGMASS_ERR", KEY_APPEND_OPT) ){
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SCALE_LOGMASS_ERR ); 
-    }
-
-    if (keyMatch( ARGV_LIST[i],"HOSTLIB_STOREPAR", KEY_APPEND_OPT) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_STOREPAR_LIST ); 
-    }
-
-    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_SBRADIUS", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SBRADIUS ); 
-    }
-
-    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_GALID_FORCE", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_GALID_FORCE ); 
-    }
-
-    if (keyMatch( ARGV_LIST[i],"HOSTLIB_FIXRAN_RADIUS", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXRAN_RADIUS ); 
-    }
-    if (keyMatch( ARGV_LIST[i],"HOSTLIB_FIXRAN_PHI", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXRAN_PHI ); 
-    }
-    if (keyMatch( ARGV_LIST[i],"HOSTLIB_FIXSERSIC", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[1] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[2] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[3] ); 
-    }
-
-    if (keyMatch( ARGV_LIST[i],"FLUXERRMODEL_FILE", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.FLUXERRMODEL_FILE ); 
-    }
-    if (keyMatch( ARGV_LIST[i],"FLUXERRMODEL_OPTMASK", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.FLUXERRMODEL_OPTMASK ); 
-    }
-
-    if ( strstr( ARGV_LIST[i], "FLUXERRMODEL_REDCOV" ) !=NULL ) {
-      sprintf(ctmp, "%s", ARGV_LIST[i] );
-      i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp2 ); 
-      strcat(INPUTS.FLUXERRMODEL_REDCOV,ctmp);   // store key name
-      strcat(INPUTS.FLUXERRMODEL_REDCOV," ");    // blank space
-      strcat(INPUTS.FLUXERRMODEL_REDCOV,ctmp2);  // store argument
-      strcat(INPUTS.FLUXERRMODEL_REDCOV," ");    // blank space
-      if (IGNOREFILE(ctmp2)) { sprintf(INPUTS.FLUXERRMODEL_REDCOV,"NONE"); }
-    }
-
-    if (keyMatch(ARGV_LIST[i],"FLUXERRMAP_IGNORE_DATAERR", KEY_APPEND_OPT ) ){
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.FLUXERRMAP_IGNORE_DATAERR ); 
-    }
-
-    // anomalous host-subtraction noise (Aug 2014)
-    if ( keyMatch( ARGV_LIST[i], "HOSTNOISE_FILE", KEY_APPEND_OPT ) ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTNOISE_FILE ); 
-    }
-
-    // - - - - ??? - - - - 
-    // --------------
-
-    if ( strcmp( ARGV_LIST[i], "SNTYPE_Ia" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &itype );
-      INPUTS.SNTYPE_Ia_SPEC = itype ;
-      INPUTS.SNTYPE_Ia_PHOT = itype + OFFSET_TYPE_PHOT ;
-    }
-    if ( strcmp( ARGV_LIST[i], "SNTYPES_Ia" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SNTYPE_Ia_SPEC );
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SNTYPE_Ia_PHOT );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENTYPE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &itype );
-      INPUTS.GENTYPE_SPEC = itype ;
-      INPUTS.GENTYPE_PHOT = itype + OFFSET_TYPE_PHOT ;
-    }
-    if ( strcmp( ARGV_LIST[i], "GENTYPES" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENTYPE_SPEC );
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENTYPE_PHOT );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SIMLIB_IDSTART" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_IDSTART ); 
-    }
-    if ( strcmp( ARGV_LIST[i], "SIMLIB_MAXRANSTART" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_MAXRANSTART ); 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SIMLIB_IDLOCK" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_IDLOCK ); 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SIMLIB_MINOBS" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_MINOBS ); 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SIMLIB_MINSEASON" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.SIMLIB_MINSEASON ); 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SIMLIB_DUMP" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_DUMP ); 
-    }
-    if ( strcmp( ARGV_LIST[i], "SIMLIB_CADENCEFOM_ANGSEP" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.SIMLIB_CADENCEFOM_ANGSEP ); 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SIMLIB_CADENCEFOM_PARLIST" ) == 0 ) {
-      for ( j=0; j < NPAR_SNCADENCEFOM; j++ ) { 
-	  i++ ; sscanf(ARGV_LIST[i] ,"%le",
-		       &INPUTS.SIMLIB_CADENCEFOM_PARLIST[j] ); 
-      }
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SIMLIB_NREPEAT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_NREPEAT ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SIMLIB_NSKIPMJD" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_NSKIPMJD ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_REDSHIFT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_REDSHIFT ); 
-      INPUTS.USE_SIMLIB_GENOPT=1;
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_DISTANCE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_DISTANCE ); 
-      INPUTS.USE_SIMLIB_GENOPT=1;
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_PEAKMJD" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_PEAKMJD ); 
-      INPUTS.USE_SIMLIB_GENOPT=1;
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_MAGOBS" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_MAGOBS ); 
-      INPUTS.USE_SIMLIB_GENOPT=1;
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_SPECTRA" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_SPECTRA ); 
-      INPUTS.USE_SIMLIB_GENOPT=1;
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_SALT2" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_SALT2 ); 
-      INPUTS.USE_SIMLIB_GENOPT=1;
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SIMLIB_MSKOPT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_MSKOPT );       
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "FUDGEOPT_FLUXERR" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.FUDGEOPT_FLUXERR ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "FUDGESCALE_PSF" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.FUDGESCALE_PSF ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-
-    if ( strcmp( ARGV_LIST[i], "FUDGESCALE_SKYNOISE" ) == 0 ||
-	 strcmp( ARGV_LIST[i], "FUDGESCALE_NOISE_SKY" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.FUDGESCALE_NOISE_SKY ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "FUDGESCALE_READNOISE" ) == 0 ||
-	 strcmp( ARGV_LIST[i], "FUDGESCALE_NOISE_READ" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.FUDGESCALE_NOISE_READ ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "FUDGESCALE_NOISE_TEMPLATE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.FUDGESCALE_NOISE_TEMPLATE ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-
-    // check filter-dependent lists
-    parse_input_KEY_PLUS_FILTER(fpNull, &i, ARGV_LIST[i], "EXPOSURE_TIME",
-				&INPUTS.EXPOSURE_TIME, 
-				INPUTS.EXPOSURE_TIME_FILTER);
-
-    parse_input_KEY_PLUS_FILTER(fpNull, &i, ARGV_LIST[i], "FUDGE_MAGERR",
-				&INPUTS.FUDGE_MAGERR, 
-				INPUTS.FUDGE_MAGERR_FILTER);
-
-    parse_input_KEY_PLUS_FILTER(fpNull, &i, ARGV_LIST[i], "FUDGE_ZPTERR",
-				&INPUTS.FUDGE_ZPTERR, 
-				INPUTS.FUDGE_ZPTERR_FILTER);
-
-    parse_input_KEY_PLUS_FILTER(fpNull, &i, ARGV_LIST[i], "FUDGESCALE_FLUXERR",
-				&INPUTS.FUDGESCALE_FLUXERR, 
-				INPUTS.FUDGESCALE_FLUXERR_FILTER );
-
-    parse_input_KEY_PLUS_FILTER(fpNull, &i, ARGV_LIST[i],"FUDGESCALE_FLUXERR2",
-				&INPUTS.FUDGESCALE_FLUXERR2, 
-				INPUTS.FUDGESCALE_FLUXERR2_FILTER );
-
-    parse_input_KEY_PLUS_FILTER(fpNull, &i, ARGV_LIST[i], "FUDGESHIFT_ZPT",
-				&INPUTS.FUDGESHIFT_ZPT, 
-				INPUTS.FUDGESHIFT_ZPT_FILTER);
-
-    parse_input_KEY_PLUS_FILTER(fpNull, &i, ARGV_LIST[i], "MJD_TEMPLATE",
-				&INPUTS.MJD_TEMPLATE, 
-				INPUTS.MJD_TEMPLATE_FILTER);
-    
-    if ( strstr(ARGV_LIST[i],"RANSYSTPAR") != NULL ) 
-      { parse_input_RANSYSTPAR(fpNull, &i, ARGV_LIST[i] ); }
-
-
-    // ----
-
-    if ( strcmp( ARGV_LIST[i], "INIT_ONLY" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.INIT_ONLY ); 
-      goto INCREMENT_COUNTER ; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "NGEN_LC" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NGEN_LC ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "NGENTOT_LC" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NGENTOT_LC ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "NGEN_SEASON" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.NGEN_SEASON ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "NGEN_SCALE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.NGEN_SCALE ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "NGEN_SCALE_NON1A" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.NGEN_SCALE_NON1A ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "NSUBSAMPLE_MARK" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NSUBSAMPLE_MARK ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "CIDOFF" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.CIDOFF ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "CIDRAN_MAX" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.CIDRAN_MAX ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "CIDRAN_MIN" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.CIDRAN_MIN ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    // JOBID & NJOBTOT can be read only from command-line;
-    // NOT from sim-input file.
-    if ( strcmp( ARGV_LIST[i], "JOBID" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.JOBID ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "NJOBTOT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NJOBTOT ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENVERSION" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENVERSION ); 
-      sprintf(INPUTS.GENPREFIX,"%s", INPUTS.GENVERSION);
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "GENPREFIX" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPREFIX ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "PATH_USER_INPUT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", PATH_USER_INPUT );
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "PATH_SNDATA_SIM" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.PATH_SNDATA_SIM );
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "CLEARPROMPT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.CLEARPROMPT ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-
-    if ( strcmp( ARGV_LIST[i], "GENSOURCE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENSOURCE ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENMODEL_MSKOPT" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENMODEL_MSKOPT ); }
-    if ( strcmp( ARGV_LIST[i], "GENMODEL_ARGLIST" ) == 0 ) { 
-      parse_input_GENMODEL_ARGLIST(fpNull,&i);
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENMODEL" ) == 0 ) {
-      parse_input_GENMODEL(fpNull,&i);
-      goto INCREMENT_COUNTER; 
-    } // end GENMODEL key
-
-    if ( strcmp( ARGV_LIST[i], "GENPDF_FILE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPDF_FILE );
-      goto INCREMENT_COUNTER; 
-    } 
-    if ( strcmp( ARGV_LIST[i], "GENPDF_IGNORE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPDF_IGNORE );
-      goto INCREMENT_COUNTER; 
-    } 
-    if ( strcmp( ARGV_LIST[i], "GENPDF_FLAT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPDF_FLAT );
-      goto INCREMENT_COUNTER; 
-    } 
-    if ( strcmp( ARGV_LIST[i], "GENPDF_OPTMASK" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENPDF_OPTMASK );
-      goto INCREMENT_COUNTER; 
-    } 
-
-    if ( strcmp(ARGV_LIST[i], "GENMODEL_EXTRAP_LATETIME") == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENMODEL_EXTRAP_LATETIME );
-      goto INCREMENT_COUNTER;
-    }
-
-    if ( strcmp( ARGV_LIST[i], "FORMAT_MASK" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.FORMAT_MASK ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "WRFLAG_MODELPAR" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.WRFLAG_MODELPAR ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-
-    if ( strcmp( ARGV_LIST[i], "NPE_PIXEL_SATURATE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NPE_PIXEL_SATURATE ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "PHOTFLAG_SATURATE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.PHOTFLAG_SATURATE ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "PHOTFLAG_SNRMAX" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.PHOTFLAG_SNRMAX ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "PHOTFLAG_NEARPEAK" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.PHOTFLAG_NEARPEAK ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "PHOTFLAG_DETECT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS_SEARCHEFF.PHOTFLAG_DETECT);
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "PHOTFLAG_TRIGGER" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER);
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "NON1A"    ) == 0 || 
-	 strcmp( ARGV_LIST[i], "NON1ASED" ) == 0 ) {
-      INPUTS.NON1ASED.NINDEX++ ; N = INPUTS.NON1ASED.NINDEX;
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NON1ASED.INDEX[N] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.NON1ASED.WGT[N] );
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "PATH_NON1ASED" ) == 0 ||
-	 strcmp( ARGV_LIST[i], "PATH_NONIASED" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.NON1ASED.PATH );
-      goto INCREMENT_COUNTER; 
-    }
-
-
-    if ( strcmp(ARGV_LIST[i], "MJD_EXPLODE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.MJD_EXPLODE );  
-      if(INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE < 0 ) 
-	{ INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE=0; }
-      INPUTS.GENRANGE_PEAKMJD[0] = INPUTS.MJD_EXPLODE ;
-      INPUTS.GENRANGE_PEAKMJD[1] = INPUTS.MJD_EXPLODE ;
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "OPTMASK_T0SHIFT_EXPLODE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", 
-		   &INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE );  
-      goto INCREMENT_COUNTER; 
-    }
-
-
-    if ( strcmp( ARGV_LIST[i], "UVLAM_EXTRAPFLUX" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le",&INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX );
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "MINSLOPE_EXTRAPMAG_LATE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le",
-		   &INPUTS_SEDMODEL.MINSLOPE_EXTRAPMAG_LATE );
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "RANSEED" ) == 0 )  { 
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.ISEED );  
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "NSTREAM_RAN" ) == 0 )  { 
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NSTREAM_RAN );  
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "RANLIST_START_GENSMEAR" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.RANLIST_START_GENSMEAR ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_RA" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_RA[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_RA[1] ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_DECL" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_DEC[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_DEC[1] ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_DEC" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_DEC[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_DEC[1] ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-
-    if ( strstr(ARGV_LIST[i],"SOLID_ANGLE") != NULL ) { 
-      parse_input_SOLID_ANGLE(fpNull, &i, ARGV_LIST[i] ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_REDSHIFT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_REDSHIFT[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_REDSHIFT[1] ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "GENSIGMA_REDSHIFT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENSIGMA_REDSHIFT ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "GENBIAS_REDSHIFT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENBIAS_REDSHIFT ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "GENSIGMA_VPEC" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENSIGMA_VPEC ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "VPEC_ERR" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.VPEC_ERR ); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "VEL_CMBAPEX" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.VEL_CMBAPEX ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    // - - -  wrongHost model params
-    if ( strcmp( ARGV_LIST[i], "WRONGHOST_FILE")==0 ) {
-      i++ ; sscanf(ARGV_LIST[i], "%s", INPUTS.WRONGHOST_FILE );
-      goto INCREMENT_COUNTER; 
-    }
-
-    // - - - - - -  DNDZ stuff - - - - - - - - - - - -
-
-    if ( strcmp( ARGV_LIST[i], "DNDZ_ZEXP_REWGT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", 
-		   &INPUTS.RATEPAR.DNDZ_ZEXP_REWGT ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "DNDZ_ZPOLY_REWGT" ) == 0 ) {
-      for(j=0; j<4; j++ ) 
-	{ i++ ; sscanf(ARGV_LIST[i] , "%le", 
-		       &INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT[j]);  }
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "DNDZ_SCALE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.RATEPAR.DNDZ_SCALE[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.RATEPAR.DNDZ_SCALE[1] ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "DNDZ_ALLSCALE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.RATEPAR.DNDZ_ALLSCALE ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    // LEGACY KEY
-    if ( strcmp( ARGV_LIST[i], "DNDZ_SCALE_NON1A" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.RATEPAR.DNDZ_SCALE[1] ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    // -----------------------------------------------
-    // check for rate model following DNDZ key
-    sscanf_RATEPAR(&i, "NOMINAL",  &INPUTS.RATEPAR );
-    sscanf_RATEPAR(&i, "PEC1A",    &INPUTS.RATEPAR_PEC1A );
-
-    // ------------------------------------------------
-    // read RISETIME shift params
-
-    sscanf_GENGAUSS(&i, "RISETIME_SHIFT", &INPUTS.GENGAUSS_RISETIME_SHIFT ) ;
-    sscanf_GENGAUSS(&i, "FALLTIME_SHIFT", &INPUTS.GENGAUSS_FALLTIME_SHIFT ) ;
-
-    // ---
-
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_PEAKMAG" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_PEAKMAG[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_PEAKMAG[1] ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_MJD" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_MJD[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_MJD[1] ); 
-      goto INCREMENT_COUNTER;       goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_PEAKMJD" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_PEAKMJD[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_PEAKMJD[1] ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENSIGMA_SEARCH_PEAKMJD" ) == 0 ) { //legacy
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENSIGMA_PEAKMJD); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "GENSIGMA_PEAKMJD" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENSIGMA_PEAKMJD); 
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "OPT_SETPKMJD" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_SETPKMJD); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "NEWMJD_DIF" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.NEWMJD_DIF ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_TREST" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_TREST[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_TREST[1] ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "TGRIDSTEP_MODEL_INTERP" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.TGRIDSTEP_MODEL_INTERP );
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENPAR_SELECT_FILE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPAR_SELECT_FILE );
-      goto INCREMENT_COUNTER; 
-    }
-
-    // ------------------------------------------------
-    // read STRETCH parameters
-    
-    sscanf_GENGAUSS(&i, "STRETCH", &INPUTS.GENGAUSS_STRETCH   ) ;
-
-    if ( strcmp( ARGV_LIST[i], "STRETCH_TEMPLATE_FILE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.STRETCH_TEMPLATE_FILE ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-    // ------------------------------------------------
-    // read DELTA parameters
-    sscanf_GENGAUSS(&i, "DELTA",  &INPUTS.GENGAUSS_DELTA  ) ;
-
-    // ------------------------------------------------
-    // read DM15 parameters
-    sscanf_GENGAUSS(&i, "DM15",  &INPUTS.GENGAUSS_DM15  ) ;
-
-    // ------------------------------------------------
-    // read RV parameters
-    sscanf_GENGAUSS(&i, PARNAME_RV,  &INPUTS.GENGAUSS_RV  ) ;
-
-    
-
-    // xxx   if ( strcmp( ARGV_LIST[i], "GENRANGE_AV" ) == 0 ) {
-    // xxx i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_AV[0] ); 
-    // xxx i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_AV[1] ); 
-    // xxx }
-
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_AV" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.RANGE[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.RANGE[1] );
-      INPUTS.GENRANGE_AV[0] = INPUTS.GENPROFILE_AV.RANGE[0];//legacy
-      INPUTS.GENRANGE_AV[1] = INPUTS.GENPROFILE_AV.RANGE[1];//legacy
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENTAU_AV" ) == 0 || 
-	 strcmp( ARGV_LIST[i], "GENEXPTAU_AV" ) == 0 ) { 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.EXP_TAU ); 
-      INPUTS.GENEXPTAU_AV = INPUTS.GENPROFILE_AV.EXP_TAU;//legacy
-      goto INCREMENT_COUNTER; 
-    }
-
-    // xxx    if ( strcmp( ARGV_LIST[i], "GENEXPTAU_AV" ) == 0 ) 
-    // xxx  { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENEXPTAU_AV );  }
-
-    if ( strcmp( ARGV_LIST[i], "GENSIG_AV" ) == 0 || 
-	 strcmp( ARGV_LIST[i], "GENGAUSIG_AV" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.SIGMA );   
-      INPUTS.GENGAUSIG_AV = INPUTS.GENPROFILE_AV.SIGMA ;//legacy
-      goto INCREMENT_COUNTER; 
-    }
-
-    // xxx    if ( strcmp( ARGV_LIST[i], "GENGAUSIG_AV" ) == 0 ) 
-    // xxx  { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENGAUSIG_AV );   }
-
-    if ( strcmp( ARGV_LIST[i], "GENGAUPEAK_AV" ) == 0 ) { 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.PEAK );   
-      INPUTS.GENGAUPEAK_AV = INPUTS.GENPROFILE_AV.PEAK; //legacy
-      goto INCREMENT_COUNTER; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENRATIO_AV0" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.RATIO );   
-      INPUTS.GENRATIO_AV0 = INPUTS.GENPROFILE_AV.RATIO;//legacy
-      goto INCREMENT_COUNTER; 
-    }
-
-    // --------- EBV HOST ------------------------------------
-
-    if ( strcmp( ARGV_LIST[i], "GENGAUPEAK_EBV_HOST" ) == 0 )
-      { i++ ; sscanf(ARGV_LIST[i],"%le", &INPUTS.GENPROFILE_EBV_HOST.PEAK ); }
-
-    if ( strcmp( ARGV_LIST[i], "GENSIG_EBV_HOST" ) == 0 )
-      { i++ ; sscanf(ARGV_LIST[i],"%le", &INPUTS.GENPROFILE_EBV_HOST.SIGMA ); }
-
-    if ( strcmp( ARGV_LIST[i], "GENTAU_EBV_HOST" ) == 0 )
-      { i++ ; sscanf(ARGV_LIST[i],"%le", &INPUTS.GENPROFILE_EBV_HOST.EXP_TAU);}
-
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_EBV_HOST" ) == 0 ){
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.RANGE[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.RANGE[1] );
-      goto INCREMENT_COUNTER; 
-    }
-    if ( strcmp( ARGV_LIST[i], "GENRATIO_EBV0_HOST" ) == 0 ) { 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.RATIO ); 
-      goto INCREMENT_COUNTER; 
-    }
-
-
-    // -------------------------------------------------------
-
-    sscanf_GENGAUSS(&i, "SALT2c",     &INPUTS.GENGAUSS_SALT2c     ) ;
-    sscanf_GENGAUSS(&i, "SALT2x1",    &INPUTS.GENGAUSS_SALT2x1    ) ;
-    sscanf_GENGAUSS(&i, "SALT2ALPHA", &INPUTS.GENGAUSS_SALT2ALPHA );
-    sscanf_GENGAUSS(&i, "SALT2BETA",  &INPUTS.GENGAUSS_SALT2BETA  );
-
-    if ( strcmp ( ARGV_LIST[i], "BIASCOR_SALT2GAMMA_GRID" ) == 0 )  { 
-      i++; sscanf(ARGV_LIST[i] , "%le", &INPUTS.BIASCOR_SALT2GAMMA_GRID[0] );
-      i++; sscanf(ARGV_LIST[i] , "%le", &INPUTS.BIASCOR_SALT2GAMMA_GRID[1] );
-    }
-      
-
-    if ( strcmp ( ARGV_LIST[i], "SALT2BETA_cPOLY" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", cpoly);
-      parse_GENPOLY(cpoly, "SALT2BETA_cPOLY",  &INPUTS.SALT2BETA_cPOLY, fnam);
-    }
-
-    // May 2013: check option to read alpha,beta from SALT2mu-fitres file
-    if ( strcmp( ARGV_LIST[i], "SALT2mu_FILE" ) == 0 )  
-      { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.SALT2mu_FILE );   }
-    
-    // legacy variables ...
-    if ( strcmp( ARGV_LIST[i], "GENALPHA_SALT2" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENALPHA_SALT2 ); 
-      INPUTS.GENGAUSS_SALT2ALPHA.PEAK = INPUTS.GENALPHA_SALT2; 
-      INPUTS.GENGAUSS_SALT2ALPHA.USE  = true ;
-    }
-    if ( strcmp( ARGV_LIST[i], "GENBETA_SALT2" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENBETA_SALT2 ); 
-      INPUTS.GENGAUSS_SALT2BETA.PEAK = INPUTS.GENBETA_SALT2; 
-      INPUTS.GENGAUSS_SALT2BETA.USE  = true ;
-    }
-    if ( strcmp( ARGV_LIST[i], "LEGACY_colorXTMW_SALT2" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.LEGACY_colorXTMW_SALT2 ); 
-    }
-
-    // --------------
-
-    if ( strcmp( ARGV_LIST[i], "GENAV_WV07" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.WV07_GENAV_FLAG ); }
-    if ( strcmp( ARGV_LIST[i], "WV07_GENAV_FLAG" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.WV07_GENAV_FLAG );  }
-    if ( strcmp( ARGV_LIST[i], "WV07_REWGT_EXPAV" ) == 0 )  
-      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.WV07_REWGT_EXPAV ); }
-
-    if ( strcmp( ARGV_LIST[i], "RVMW" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.RV_MWCOLORLAW ); 
-    }
-    if ( strcmp( ARGV_LIST[i], "RV_MWCOLORLAW" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.RV_MWCOLORLAW ); 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "OPT_MWCOLORLAW" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_MWCOLORLAW ); 
-    }
-    if ( strcmp( ARGV_LIST[i], "OPT_MWEBV" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &opt_tmp );
-      INPUTS.OPT_MWEBV = abs(opt_tmp) ;
-      if ( opt_tmp < 0 )
-	{ INPUTS.APPLYFLAG_MWEBV=1; } // correct FLUXCAL
-      else
-	{ INPUTS.APPLYFLAG_MWEBV=0; } // turn off correction
-    }
-
-
-    if ( strcmp( ARGV_LIST[i], "GENSIGMA_MWEBV_RATIO" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.MWEBV_SIGRATIO ); 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENSIGMA_MWEBV" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.MWEBV_SIG ); 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENSHIFT_MWEBV" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.MWEBV_SHIFT ); 
-    }
-    if ( strcmp( ARGV_LIST[i], "GENSCALE_MWEBV" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.MWEBV_SCALE ); 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_MWEBV" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_MWEBV[0] ); 
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_MWEBV[1] ); 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "EXTINC_HOSTGAL" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENSNXT ); 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENMAG_OFF_AB" ) == 0 ||   // legacy key
-	 strcmp( ARGV_LIST[i], "GENMAG_OFF_ZP" ) == 0 ) {
-      for ( ifilt = 0; ifilt < INPUTS.NFILTDEF_OBS; ifilt++ ) {
-	i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.TMPOFF_ZP[ifilt] ); 
-      }
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENMAG_OFF_GLOBAL" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENMAG_OFF_GLOBAL ); 
-    }
-    if ( strcmp( ARGV_LIST[i], "GENMAG_OFF_NON1A" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENMAG_OFF_NON1A ); 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENMAG_OFF_MODEL" ) == 0 ) {
-      for ( ifilt = 0; ifilt < INPUTS.NFILTDEF_OBS; ifilt++ ) {
-	i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.TMPOFF_MODEL[ifilt] ); 
-      }
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SIGMACLIP_MAGSMEAR" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.SIGMACLIP_MAGSMEAR[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.SIGMACLIP_MAGSMEAR[1] );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_FILTER" ) == 0 ) {
-
-      i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp );
-      i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp2 );
-
-      if ( strcmp(ctmp2,"INTERP") == 0 ) 
-	{ ftmp = -1.0 ; } // any negative number -> interpolate smear
-      else
-	{ sscanf(ctmp2, "%f", &ftmp); }
-
-      // update for any value, even zero to allow override.
-
-      N = INPUTS.NFILT_SMEAR ;
-      INPUTS.NFILT_SMEAR += 
-	PARSE_FILTLIST(ctmp, &INPUTS.IFILT_SMEAR[N+1] );
-      for ( j=N+1; j <= INPUTS.NFILT_SMEAR; j++ ) {
-	ifilt = INPUTS.IFILT_SMEAR[j];
-	INPUTS.GENMAG_SMEAR_FILTER[ifilt] = ftmp ;
-      }
-
-    } // GENMAG_SMEAR_FILTER
-
-
-    if ( strcmp( ARGV_LIST[i], "GENSMEAR_RANGaussFIX" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i],"%le",&INPUTS.GENSMEAR_RANGauss_FIX );  }
-    if ( strcmp( ARGV_LIST[i], "GENSMEAR_RANGAUSSFIX" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i],"%le",&INPUTS.GENSMEAR_RANGauss_FIX );  }
-
-    if ( strcmp( ARGV_LIST[i], "GENSMEAR_RANFlatFIX" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i],"%le",&INPUTS.GENSMEAR_RANFlat_FIX );  }
-    if ( strcmp( ARGV_LIST[i], "GENSMEAR_RANFLATFIX" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i],"%le",&INPUTS.GENSMEAR_RANFlat_FIX );  }
-
-    if ( strstr( ARGV_LIST[i], "GENMAG_SMEAR_SCALE" ) != NULL )
-      { parse_input_GENMAG_SMEAR_SCALE(fpNull, &i, ARGV_LIST[i] ); }
-
-    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_MSKOPT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i], "%d", &INPUTS.GENMAG_SMEAR_MSKOPT );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_MODELNAME" ) == 0 ) {
-      modelName = INPUTS.GENMAG_SMEAR_MODELNAME ;
-      i++ ; sscanf(ARGV_LIST[i] , "%s", modelName);
-      if ( strcmp(modelName,"G10FUDGE") == 0  )  { // read sigma_coh
-	i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENMAG_SMEAR_USRFUN[0]);
-      }
-      if ( strstr(modelName,":")!= NULL)  { parse_GENMAG_SMEAR_MODELNAME();}
-    }
-
-    if ( strstr( ARGV_LIST[i], "SIGMA_COH" ) != NULL ) {
-      parse_SIGCOH_SALT2(ARGV_LIST[i],ARGV_LIST[i+1], 
-			 &GENSMEAR_SALT2.SIGCOH_LAM );
-      INPUTS.GENMAG_SMEAR_USRFUN[0] = -8.0;  // flag that SIGCOH_LAM is set
-      i++ ;
-    }
-
-    // updated keys for strong & weak lensing (July 2019)
-    if ( strcmp( ARGV_LIST[i], "STRONGLENS_FILE" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.STRONGLENS_FILE ); }
-
-    if ( strcmp( ARGV_LIST[i], "WEAKLENS_PROBMAP_FILE" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.WEAKLENS_PROBMAP_FILE ); }
-    if ( strcmp( ARGV_LIST[i], "WEAKLENS_DMUSCALE" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.WEAKLENS_DMUSCALE ); }
-    if ( strcmp( ARGV_LIST[i], "WEAKLENS_DSIGMADZ" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.WEAKLENS_DSIGMADZ );  }
-
-    // legacy keys for weak lensing 
-    if ( strcmp( ARGV_LIST[i], "LENSING_PROBMAP_FILE" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.WEAKLENS_PROBMAP_FILE ); }
-    if ( strcmp( ARGV_LIST[i], "LENSING_DMUSCALE" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.WEAKLENS_DMUSCALE ); }
-    if ( strcmp( ARGV_LIST[i], "LENSING_DSIGMADZ" ) == 0 ) 
-      { i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.WEAKLENS_DSIGMADZ );  }
-
-    // - - - - - - 
-    // check override params for genSmear models (Mar 22 2014)
-    int  NVAL;   char parName[60], ckey[60];   double tmpList[100];
-    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEARPAR_OVERRIDE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", ckey);
-      NVAL = nval_genSmear_override(ckey, parName); // return NVAL,parName
-      for(j=0; j < NVAL; j++ ) 
-	{ i++ ; sscanf(ARGV_LIST[i],"%le", &tmpList[j] ); }
-      
-      store_genSmear_override(parName,NVAL,tmpList);
-    }
-    // - - - - - - - - 
-   
-    if ( strcmp( ARGV_LIST[i], "GENMODEL_ERRSCALE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENMODEL_ERRSCALE );
-    }
-    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR" ) == 0 ) {      
-      i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp) ;
-      split2floats(ctmp, comma, tmpSmear);
-
-      // if NON1a magSmear is already set, then dont use GENMAG_SMEAR.
-      if ( INPUTS.NON1ASED.MAGSMEAR[1][0] <= 0.0 ) {
-	INPUTS.GENMAG_SMEAR[0] = tmpSmear[0]; 
-	INPUTS.GENMAG_SMEAR[1] = tmpSmear[1]; 
-      }
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_ADDPHASECOR" ) == 0 ) {      
-      i++ ; sscanf(ARGV_LIST[i], "%f", &INPUTS.GENMAG_SMEAR_ADDPHASECOR[0]) ;
-      i++ ; sscanf(ARGV_LIST[i], "%f", &INPUTS.GENMAG_SMEAR_ADDPHASECOR[1]) ;
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_USRFUN" ) == 0 ) {
-
-      INPUTS.NPAR_GENSMEAR_USRFUN = 8 ;
-      for ( j=0; j < INPUTS.NPAR_GENSMEAR_USRFUN; j++ ) {
-	i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENMAG_SMEAR_USRFUN[j] );
-	sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"USRFUN");
-      }
-      
-      // turn off if first element is negative
-      if ( INPUTS.GENMAG_SMEAR_USRFUN[0] < -0.001 ) {  
-	sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"NONE"); 
-	INPUTS.NPAR_GENSMEAR_USRFUN = 0 ;
-      }
-
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENMODEL_ERRSCALE_OPT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENMODEL_ERRSCALE_OPT );
-    }
-    if ( strcmp( ARGV_LIST[i], "GENMODEL_ERRSCALE_CORRELATION" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", 
-		   &INPUTS.GENMODEL_ERRSCALE_CORRELATION );
-    }
-
-
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_TYPE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENRANGE_TYPE[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENRANGE_TYPE[1] );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_CID" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENRANGE_CID[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENRANGE_CID[1] );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_FILT" ) == 0 ) {
-      sprintf(c1err,"GENRANGE_FILT: keyword no longer supported.");
-      sprintf(c2err,"Must use GENFILTERS: ");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENFILTERS" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENFILTERS );
-      INPUTS.NFILTDEF_OBS =
-	PARSE_FILTLIST( INPUTS.GENFILTERS, INPUTS.IFILTMAP_OBS  );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_DMPEVENT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENRANGE_DMPEVENT[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENRANGE_DMPEVENT[1] );
-    }
-    if ( strcmp( ARGV_LIST[i], "GENRANGE_DMPTREST" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_DMPTREST[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_DMPTREST[1] );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SMEARFLAG_FLUX" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SMEARFLAG_FLUX );
-    }
-    if ( strcmp( ARGV_LIST[i], "SMEARFLAG_ZEROPT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SMEARFLAG_ZEROPT );
-    }
-    if ( strcmp( ARGV_LIST[i], "MAGMONITOR_SNR" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.MAGMONITOR_SNR );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "KCORFLAG_COLOR" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.KCORFLAG_COLOR );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "EXPOSURE_TIME_MSKOPT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.EXPOSURE_TIME_MSKOPT );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "KCOR_FILE" ) == 0  || 
-	 strcmp( ARGV_LIST[i], "KCOR"      ) == 0  ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.KCOR_FILE  );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "OMEGA_MATTER" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.OMEGA_MATTER  );
-    }
-    if ( strcmp( ARGV_LIST[i], "OMEGA_LAMBDA" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.OMEGA_LAMBDA  );
-    }
-    if ( strcmp( ARGV_LIST[i], "W0_LAMBDA" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.W0_LAMBDA  );
-      
-    }
-    if ( strcmp( ARGV_LIST[i], "H0" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.H0  );
-    }
-
-    // --- search eff
-    if ( strcmp( ARGV_LIST[i], "MAGSHIFT_SPECEFF" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SEARCHEFF_PIPELINE_LOGIC_FILE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", 
-		   INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE );
-    } 
-
-    if ( strcmp( ARGV_LIST[i], "SEARCHEFF_PIPELINE_FILE"     ) == 0 ||
-	 strcmp( ARGV_LIST[i], "SEARCHEFF_PIPELINE_EFF_FILE" ) == 0 ) {	
-      i++ ; sscanf(ARGV_LIST[i] , "%s", 
-		   INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE );
-    } 
-
-    if ( strcmp( ARGV_LIST[i], "SEARCHEFF_SPEC_FILE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i],"%s",INPUTS_SEARCHEFF.USER_SPEC_FILE );     
-    } 
-    if ( strcmp( ARGV_LIST[i], "SEARCHEFF_SPEC_SCALE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i],"%le",&INPUTS_SEARCHEFF.USER_SPECEFF_SCALE);
-    } 
-
-    if ( strcmp( ARGV_LIST[i], "SEARCHEFF_zHOST_FILE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i],"%s", INPUTS_SEARCHEFF.USER_zHOST_FILE ); 
-    } 
-
-    if ( strcmp( ARGV_LIST[i], "APPLY_SEARCHEFF_OPT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.APPLY_SEARCHEFF_OPT );
-    }
-    if ( strcmp( ARGV_LIST[i], "MINOBS_SEARCH" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS_SEARCHEFF.MINOBS );
-    } 
-
-    // -- CUT WINDOWS
-    if ( strcmp( ARGV_LIST[i], "APPLY_CUTWIN_OPT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.APPLY_CUTWIN_OPT );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "EPCUTWIN_LAMREST" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.EPCUTWIN_LAMREST[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.EPCUTWIN_LAMREST[1] );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "EPCUTWIN_SNRMIN" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.EPCUTWIN_SNRMIN[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.EPCUTWIN_SNRMIN[1] );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_TRESTMAX" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_TRESTMAX[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_TRESTMAX[1] );
-    }
-
-
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_REDSHIFT" )      == 0 ||
-	 strcmp( ARGV_LIST[i], "CUTWIN_REDSHIFT_TRUE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_REDSHIFT_TRUE[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_REDSHIFT_TRUE[1] );
-    }
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_REDSHIFT_FINAL" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_REDSHIFT_FINAL[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_REDSHIFT_FINAL[1] );
-    }
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_HOST_PHOTOZ" ) == 0 ||
-	 strcmp( ARGV_LIST[i], "CUTWIN_HOST_ZPHOT"  ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_HOST_ZPHOT[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_HOST_ZPHOT[1] );
-    }
-
-
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_TRESTMIN" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_TRESTMIN[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_TRESTMIN[1] );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_TGAPMAX" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_TGAPMAX[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_TGAPMAX[1] );
-    }
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_T0GAPMAX" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_T0GAPMAX[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_T0GAPMAX[1] );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_SNRMAX" ) == 0 ) {
-
-      if ( INPUTS.OVERRIDE_CUTWIN_SNRMAX == 0 ) 
-	{ INPUTS.NCUTWIN_SNRMAX = 1; } // reset
-      else
-	{ INPUTS.NCUTWIN_SNRMAX++ ; }  //  keep adding
-
-      INPUTS.OVERRIDE_CUTWIN_SNRMAX = 1 ;
-      N = INPUTS.NCUTWIN_SNRMAX ;
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_SNRMAX[N][0]       );
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.CUTWIN_SNRMAX_FILTERS[N]   );
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.CUTWIN_SNRMAX_LOGIC[N]     );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_SNRMAX_TREST[N][0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_SNRMAX_TREST[N][1] );
-    }
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_NEPOCH" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_NEPOCH[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_NEPOCH[1] );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_NOBSDIF" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.CUTWIN_NOBSDIF[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.CUTWIN_NOBSDIF[1] );
-    }
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_MJDDIF" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_MJDDIF[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_MJDDIF[1] );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_MWEBV" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_MWEBV[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_MWEBV[1] );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_PEAKMAG" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_PEAKMAG[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_PEAKMAG[1] );
-    }
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_PEAKMAG_ALL" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_PEAKMAG_ALL[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_PEAKMAG_ALL[1] );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "CUTWIN_EPOCHS_SNRMIN" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_EPOCHS_SNRMIN );
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_EPOCHS_TRANGE[1] );
-      i++ ; sscanf(ARGV_LIST[i] , "%s",  INPUTS.CUTWIN_EPOCHS_FILTERS );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "EFFERR_STOPGEN" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.EFFERR_STOPGEN );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SPECTROGRAPH_OPTMASK" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SPECTROGRAPH_SCALE_TEXPOSE" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", 
-		   &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "TAKE_SPECTRUM_DUMPCID" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.TAKE_SPECTRUM_DUMPCID );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "TAKE_SPECTRUM_HOSTFRAC" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.TAKE_SPECTRUM_HOSTFRAC );
-    }
-
-
-    if ( strstr(ARGV_LIST[i],"SIMGEN_DUMP") != NULL ) 
-      { parse_input_SIMGEN_DUMP(fpNull, &i, ARGV_LIST[i] ); }
-
-
-    // FUDGES
-
-    if ( strcmp( ARGV_LIST[i], "FUDGE_SNRMAX" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.STRING_FUDGE_SNRMAX );
-      INPUTS.OPT_FUDGE_SNRMAX = 1; 
-    }
-    if ( strcmp( ARGV_LIST[i], "FUDGE2_SNRMAX" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.STRING_FUDGE_SNRMAX );
-      INPUTS.OPT_FUDGE_SNRMAX = 2 ; 
-    }
-
-    if ( strcmp( ARGV_LIST[i], "GENPERFECT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENPERFECT );
-    }
-
-    // - - - - -
-    if ( strcmp(ARGV_LIST[i], "LCLIB_DEBUG_DAYSCALE") == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &LCLIB_DEBUG.DAYSCALE );
-    }
-    if ( strcmp(ARGV_LIST[i], "LCLIB_DEBUG_TOBS_OFFSET") == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &LCLIB_DEBUG.TOBS_OFFSET_RANGE[0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &LCLIB_DEBUG.TOBS_OFFSET_RANGE[1] );
-    }
-    if ( strcmp(ARGV_LIST[i], "LCLIB_DEBUG_ZERO_TEMPLATE_FLUX") == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &LCLIB_DEBUG.ZERO_TEMPLATE_FLUX );
-    }
-    if ( strcmp(ARGV_LIST[i], "LCLIB_DEBUG_FORCE_NREPEAT") == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &LCLIB_DEBUG.FORCE_NREPEAT );
-    }
-    if ( strcmp(ARGV_LIST[i], "LCLIB_CUTWIN") == 0 ) {
-      N = LCLIB_CUTS.NCUTWIN ;
-      i++ ; sscanf(ARGV_LIST[i] , "%s",  LCLIB_CUTS.PARNAME[N]   );
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &LCLIB_CUTS.CUTWIN[N][0] );
-      i++ ; sscanf(ARGV_LIST[i] , "%le", &LCLIB_CUTS.CUTWIN[N][1] );
-      LCLIB_CUTS.NCUTWIN++ ;
-    }
-
-
-#ifdef SNGRIDGEN
-    // GRID input
-    if ( strcmp( ARGV_LIST[i], "GRID_FORMAT" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", GRIDGEN_INPUTS.FORMAT );
-    }
-    if ( strcmp( ARGV_LIST[i], "NGRID_LOGZ" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &N );
-      GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_LOGZ] = N;
-    }
-    if ( strcmp( ARGV_LIST[i], "NGRID_LUMIPAR" ) == 0 ) {  // legacy key
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &N );
-      GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_SHAPEPAR] = N;
-    }
-    if ( strcmp( ARGV_LIST[i], "NGRID_SHAPEPAR" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &N );
-      GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_SHAPEPAR] = N;
-    }
-    if ( strcmp( ARGV_LIST[i], "NGRID_TREST" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &N );
-      GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_TREST] = N;
-    }
-#endif
-
-    // SIMSED args
-
-    if ( strcmp( ARGV_LIST[i], "SIMSED_USE_BINARY" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_BINARY_SIMSED );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SIMSED_PATH_BINARY" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.PATH_BINARY_SIMSED );
-    }
-
-    if ( strcmp( ARGV_LIST[i], "SIMSED_GRIDONLY" ) == 0 ) {
-      i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp );
-      if ( strcmp(ctmp,"SEQUENTIAL") == 0  ) {
-	INPUTS.NPAR_SIMSED = 0 ;  // no interp pars => treat as baggage
-	INPUTS.OPTMASK_SIMSED = OPTMASK_SIMSED_GRIDONLY ;
-	// xxx mark delete  INPUTS.GENFLAG_SIMSED[0] = OPTMASK_SIMSED_GRIDONLY ;
-      }
-      else {
-	sprintf(c1err,"Invalid command-line option");
-	sprintf(c2err,"'SIMSED_GRIDONLY: %s'", ctmp);
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-      }
-    }
-
-    for ( ipar=0; ipar < INPUTS.NPAR_SIMSED; ipar++ ) {
-      opt_tmp = INPUTS.GENFLAG_SIMSED[ipar];
-      if ( (opt_tmp & OPTMASK_SIMSED_param ) > 0 ) 
-	{ continue; }  // allow only interp params 
-      sprintf(parname,"%s", INPUTS.PARNAME_SIMSED[ipar] );
-      sscanf_GENGAUSS(&i, parname, &INPUTS.GENGAUSS_SIMSED[ipar] );
-    } // ipar loop
-
-
-
-    // -------------------
-  INCREMENT_COUNTER:
-
-    if ( i > ilast ) {
-      for ( iuse = ilast; iuse <= i; iuse++ ) { USE_ARGV_LIST[iuse] = 1; }
-    }
-
-    i++ ;  ilast=i;
-
+  // --------- BEGIN ----------
+  for(iwd = IWD_START; iwd < NARGV_LIST; iwd++ ) {
+    NWD_READ = parse_input_key_driver(&ARGV_LIST[iwd],KEYSOURCE_ARG);
+
+    // set USE flag to mark valud command-line inputs
+    for(iwd_use = iwd; iwd_use < (iwd+NWD_READ); iwd_use++ ) 
+      { USE_ARGV_LIST[iwd_use] = 1; }
+
+    iwd += NWD_READ ;
   }
   return ;
 
-} // end of sim_input_override
+} // end sim_input_override
 
 
 // **********************************************
@@ -7089,8 +4830,6 @@ void  prep_GENPDF_FLAT(void) {
     }
 
     printf("\t Force flat PDF for %s \n", varName );
-
-    // .xyz
 
     if ( strcmp(varName,"SALT2x1") == 0 ) {   
       set_GENGAUSS_ASYM(PEAK, SIGMA_FLAT, RANGE, &INPUTS.GENGAUSS_SALT2x1);
@@ -29812,3 +27551,3263 @@ void test_igm(void) {
   exit(1);
 
 } // end test_igm 
+
+
+// =========================================================
+// !!!!!!! LEGACY READ_INPUT_LEGACY FUNCTIONS !!!!!!!!!!!!!!
+// =========================================================
+//.xyz
+
+// *********************************
+void sim_input_override_legacy(void) {
+
+  // Check for command-line overrides.
+  // argv[0] is the name of the program.
+  // argv[1] is the name of the input file.
+  // start parsing at argv[2].
+  //
+  // Dec  3 2013: fix to work with DNDZ POWERLAW2
+  // Aug 13 2016: refactor to call sscanf_RATEPAR().
+  // Mar 10 2017: start add 'goto INCREMENT_COUNTER' to avoid conflicts.
+  // Dec 27 2018: check LCLIB_CUTWIN
+  // Jul 20 2020: start using keyMatch ... not done yet.
+
+  char KEY_APPEND_OPT[4];
+  int  i, ilast, iuse, ifilt, N, j, ITMP ;
+  int  ipar, opt_tmp, itype, NLOCAL_DNDZ ;
+  char  ctmp[80], ctmp2[80], parname[60], cpoly[40];
+  float ftmp, tmpSmear[2];
+  char *modelName ;
+  char comma[] = "," ;
+  char fnam[] = "sim_input_override_legacy" ;
+  FILE *fpNull = NULL ;
+
+  // ------------ BEGIN -----------
+
+  i = 2; ilast = 2 ;
+  NLOCAL_DNDZ = 0 ;
+  sprintf(KEY_APPEND_OPT, "%s", COLON);
+
+  while ( i < NARGV_LIST ) {
+    printf("  PROCESS COMMAND LINE ARG: %s \n", ARGV_LIST[i] );
+
+    if ( keyMatch( ARGV_LIST[i], "INPUT_FILE_INCLUDE", KEY_APPEND_OPT ) ||
+	 keyMatch( ARGV_LIST[i], "INPUT_INCLUDE_FILE", KEY_APPEND_OPT )
+	 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.INPUT_FILE_LIST[1] ); 
+      INPUTS.INPUT_FILE_LIST[2][0] = 0 ; // erase 2nd include file
+    }
+
+    if ( keyMatch(ARGV_LIST[i], "USE_KCOR_REFACTOR", KEY_APPEND_OPT ) ) {
+      i++; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_KCOR_REFACTOR ); 
+    }
+   
+    if ( keyMatch( ARGV_LIST[i], "TRACE_MAIN", KEY_APPEND_OPT ) ) 
+      {  i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.TRACE_MAIN );  }
+
+    if ( keyMatch( ARGV_LIST[i], "DASHBOARD", KEY_APPEND_OPT )  ) {  
+      i++; INPUTS.DASHBOARD_DUMPFLAG = true ;   
+      INPUTS.NVAR_SIMGEN_DUMP = -9;
+    }
+
+    if ( keyMatch( ARGV_LIST[i], "OPT_DEVEL_GENPDF", KEY_APPEND_OPT ) ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_DEVEL_GENPDF );  }
+
+    if ( keyMatch( ARGV_LIST[i], "OPT_DEVEL_READ_INPUT", KEY_APPEND_OPT ) ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_DEVEL_READ_INPUT );  }
+
+    if ( keyMatch( ARGV_LIST[i], "DEBUG_FLAG", KEY_APPEND_OPT )  ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.DEBUG_FLAG );   }
+
+    
+    if ( keyMatch( ARGV_LIST[i], "RESTORE_DES3YR", KEY_APPEND_OPT )  )  {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &ITMP );
+      INPUTS.RESTORE_DES3YR = true ;
+    }
+
+    if ( keyMatch( ARGV_LIST[i], "NONLINEARITY_FILE", KEY_APPEND_OPT )  ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.NONLINEARITY_FILE ); 
+    }
+
+    if ( keyMatch( ARGV_LIST[i], "SIMLIB_FILE", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.SIMLIB_FILE ); 
+    }
+
+    if ( keyMatch( ARGV_LIST[i], "SIMLIB_FIELDLIST", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.SIMLIB_FIELDLIST ); 
+    }
+
+
+    if ( keyMatch( ARGV_LIST[i], "ZVARIATION_FILE", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUT_ZVARIATION_FILE ); 
+      if ( !IGNOREFILE(INPUT_ZVARIATION_FILE) )
+	{ USE_ZVAR_FILE = 1 ; }
+    }
+
+    if ( keyMatch( ARGV_LIST[i], "ZVARIATION_POLY", KEY_APPEND_OPT ) ) {
+      N = NPAR_ZVAR_USR ;
+      INPUT_ZVARIATION[N].FLAG = FLAG_ZPOLY_ZVAR ;
+      INPUT_ZVARIATION[N].NZBIN = 0 ;  
+      NPAR_ZVAR_USR++ ;  
+      i++ ; sscanf(ARGV_LIST[i] , "%s",  INPUT_ZVARIATION[N].PARNAME );
+      i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp );
+      parse_GENPOLY(ctmp, "z", &INPUT_ZVARIATION[N].POLY, fnam );
+    }  // ZVARIATION_POLY
+
+
+    // ------ HOSTLIB -----
+    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_FILE", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_FILE ); 
+      INPUTS.HOSTLIB_USE = 1;  
+      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+
+      // check if we are just turning off the HOSTLIB
+      if ( IGNOREFILE(INPUTS.HOSTLIB_FILE)  )  { 
+	INPUTS.HOSTLIB_USE    = 0 ; 
+	INPUTS.HOSTLIB_MSKOPT = 0 ; 
+	//	HOSTLIB_MSKOPT_USE    = 0 ; 
+      }
+
+    }
+    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_WGTMAP_FILE", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_WGTMAP_FILE ); 
+    }
+    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_ZPHOTEFF_FILE", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_ZPHOTEFF_FILE ); 
+    }
+    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_SPECBASIS_FILE", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_SPECBASIS_FILE ); 
+    }
+
+    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_MSKOPT", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_MSKOPT ); 
+      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+    }
+    if ( keyMatch( ARGV_LIST[i], "+HOSTMAGS", KEY_APPEND_OPT ) ) {
+      INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS ;
+      i++ ;
+      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+    }
+
+    if ( keyMatch( ARGV_LIST[i], "+HOSTNBR", KEY_APPEND_OPT ) ) {
+      INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSNBR ;
+      i++ ;
+      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+    }
+    if ( keyMatch( ARGV_LIST[i], "SEPNBR_MAX", KEY_APPEND_OPT ) ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%le", &HOSTLIB_NBR_WRITE.SEPNBR_MAX); }
+    if ( keyMatch( ARGV_LIST[i], "NNBR_WRITE_MAX", KEY_APPEND_OPT ) ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%d", &HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX);}
+       
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_GENZPHOT_FUDGEPAR", KEY_APPEND_OPT) ) {
+      for(j=0; j<4; j++ ) {
+	i++ ; sscanf(ARGV_LIST[i], "%f", 
+		     &INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[j] );	
+      }      
+      i++ ; sscanf(ARGV_LIST[i], "%s", ctmp); 
+      parse_input_GENZPHOT_OUTLIER(ctmp); 
+    }
+    if ( keyMatch( ARGV_LIST[i], "HOSTLIB_GENZPHOT_BIAS", KEY_APPEND_OPT ) ) {
+      for(j=0; j<4; j++ ) {
+	i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		     &INPUTS.HOSTLIB_GENZPHOT_BIAS[j] );
+      }      
+    }
+
+    if (keyMatch(ARGV_LIST[i], "HOSTLIB_MAXREAD", KEY_APPEND_OPT )  ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_MAXREAD ); 
+    }
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_GALID_NULL", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_GALID_NULL ); 
+    }
+
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_GALID_PRIORITY", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_GALID_PRIORITY[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_GALID_PRIORITY[1] ); 
+    }
+
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_MINDAYSEP_SAMEGAL", KEY_APPEND_OPT) ){
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL ); 
+    }
+    if (keyMatch(ARGV_LIST[i], "HOSTLIB_MXINTFLUX_SNPOS", KEY_APPEND_OPT) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.HOSTLIB_MXINTFLUX_SNPOS ); 
+    }
+    if (keyMatch(ARGV_LIST[i], "HOSTLIB_GENRANGE_NSIGZ", KEY_APPEND_OPT) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.HOSTLIB_GENRANGE_NSIGZ[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.HOSTLIB_GENRANGE_NSIGZ[1] ); 
+    }
+
+    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_GENRANGE_RA", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_RA[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_RA[1] ); 
+    }
+    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_GENRANGE_DEC", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[1] ); 
+    }
+    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_GENRANGE_DECL", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_GENRANGE_DEC[1] ); 
+    }
+
+    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_DZTOL", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_DZTOL[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_DZTOL[1] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_DZTOL[2] ); 
+    }
+
+    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_SERSIC_SCALE", KEY_APPEND_OPT ) ) { // legacy name
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); 
+    }
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_SCALE_SERSIC_SIZE", KEY_APPEND_OPT) ){
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); 
+    }
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_SCALE_LOGMASS_ERR", KEY_APPEND_OPT) ){
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SCALE_LOGMASS_ERR ); 
+    }
+
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_STOREPAR", KEY_APPEND_OPT) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTLIB_STOREPAR_LIST ); 
+    }
+
+    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_SBRADIUS", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_SBRADIUS ); 
+    }
+
+    if ( keyMatch( ARGV_LIST[i],"HOSTLIB_GALID_FORCE", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.HOSTLIB_GALID_FORCE ); 
+    }
+
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_FIXRAN_RADIUS", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXRAN_RADIUS ); 
+    }
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_FIXRAN_PHI", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXRAN_PHI ); 
+    }
+    if (keyMatch( ARGV_LIST[i],"HOSTLIB_FIXSERSIC", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[1] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[2] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.HOSTLIB_FIXSERSIC[3] ); 
+    }
+
+    if (keyMatch( ARGV_LIST[i],"FLUXERRMODEL_FILE", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.FLUXERRMODEL_FILE ); 
+    }
+    if (keyMatch( ARGV_LIST[i],"FLUXERRMODEL_OPTMASK", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.FLUXERRMODEL_OPTMASK ); 
+    }
+
+    if ( strstr( ARGV_LIST[i], "FLUXERRMODEL_REDCOV" ) !=NULL ) {
+      sprintf(ctmp, "%s", ARGV_LIST[i] );
+      i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp2 ); 
+      strcat(INPUTS.FLUXERRMODEL_REDCOV,ctmp);   // store key name
+      strcat(INPUTS.FLUXERRMODEL_REDCOV," ");    // blank space
+      strcat(INPUTS.FLUXERRMODEL_REDCOV,ctmp2);  // store argument
+      strcat(INPUTS.FLUXERRMODEL_REDCOV," ");    // blank space
+      if (IGNOREFILE(ctmp2)) { sprintf(INPUTS.FLUXERRMODEL_REDCOV,"NONE"); }
+    }
+
+    if (keyMatch(ARGV_LIST[i],"FLUXERRMAP_IGNORE_DATAERR", KEY_APPEND_OPT ) ){
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.FLUXERRMAP_IGNORE_DATAERR ); 
+    }
+
+    // anomalous host-subtraction noise (Aug 2014)
+    if ( keyMatch( ARGV_LIST[i], "HOSTNOISE_FILE", KEY_APPEND_OPT ) ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.HOSTNOISE_FILE ); 
+    }
+
+    // - - - - ??? - - - - 
+    // --------------
+
+    if ( strcmp( ARGV_LIST[i], "SNTYPE_Ia" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &itype );
+      INPUTS.SNTYPE_Ia_SPEC = itype ;
+      INPUTS.SNTYPE_Ia_PHOT = itype + OFFSET_TYPE_PHOT ;
+    }
+    if ( strcmp( ARGV_LIST[i], "SNTYPES_Ia" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SNTYPE_Ia_SPEC );
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SNTYPE_Ia_PHOT );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENTYPE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &itype );
+      INPUTS.GENTYPE_SPEC = itype ;
+      INPUTS.GENTYPE_PHOT = itype + OFFSET_TYPE_PHOT ;
+    }
+    if ( strcmp( ARGV_LIST[i], "GENTYPES" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENTYPE_SPEC );
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENTYPE_PHOT );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SIMLIB_IDSTART" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_IDSTART ); 
+    }
+    if ( strcmp( ARGV_LIST[i], "SIMLIB_MAXRANSTART" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_MAXRANSTART ); 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SIMLIB_IDLOCK" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_IDLOCK ); 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SIMLIB_MINOBS" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_MINOBS ); 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SIMLIB_MINSEASON" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.SIMLIB_MINSEASON ); 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SIMLIB_DUMP" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_DUMP ); 
+    }
+    if ( strcmp( ARGV_LIST[i], "SIMLIB_CADENCEFOM_ANGSEP" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.SIMLIB_CADENCEFOM_ANGSEP ); 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SIMLIB_CADENCEFOM_PARLIST" ) == 0 ) {
+      for ( j=0; j < NPAR_SNCADENCEFOM; j++ ) { 
+	  i++ ; sscanf(ARGV_LIST[i] ,"%le",
+		       &INPUTS.SIMLIB_CADENCEFOM_PARLIST[j] ); 
+      }
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SIMLIB_NREPEAT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_NREPEAT ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SIMLIB_NSKIPMJD" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_NSKIPMJD ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_REDSHIFT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_REDSHIFT ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_DISTANCE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_DISTANCE ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_PEAKMJD" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_PEAKMJD ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_MAGOBS" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_MAGOBS ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_SPECTRA" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_SPECTRA ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "USE_SIMLIB_SALT2" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_SIMLIB_SALT2 ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SIMLIB_MSKOPT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SIMLIB_MSKOPT );       
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "FUDGEOPT_FLUXERR" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.FUDGEOPT_FLUXERR ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "FUDGESCALE_PSF" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.FUDGESCALE_PSF ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+
+    if ( strcmp( ARGV_LIST[i], "FUDGESCALE_SKYNOISE" ) == 0 ||
+	 strcmp( ARGV_LIST[i], "FUDGESCALE_NOISE_SKY" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.FUDGESCALE_NOISE_SKY ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "FUDGESCALE_READNOISE" ) == 0 ||
+	 strcmp( ARGV_LIST[i], "FUDGESCALE_NOISE_READ" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.FUDGESCALE_NOISE_READ ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "FUDGESCALE_NOISE_TEMPLATE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.FUDGESCALE_NOISE_TEMPLATE ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+
+    // check filter-dependent lists
+    parse_input_KEY_PLUS_FILTER_legacy(fpNull, &i, ARGV_LIST[i], "EXPOSURE_TIME",
+				&INPUTS.EXPOSURE_TIME, 
+				INPUTS.EXPOSURE_TIME_FILTER);
+
+    parse_input_KEY_PLUS_FILTER_legacy(fpNull, &i, ARGV_LIST[i], "FUDGE_MAGERR",
+				&INPUTS.FUDGE_MAGERR, 
+				INPUTS.FUDGE_MAGERR_FILTER);
+
+    parse_input_KEY_PLUS_FILTER_legacy(fpNull, &i, ARGV_LIST[i], "FUDGE_ZPTERR",
+				&INPUTS.FUDGE_ZPTERR, 
+				INPUTS.FUDGE_ZPTERR_FILTER);
+
+    parse_input_KEY_PLUS_FILTER_legacy(fpNull, &i, ARGV_LIST[i], "FUDGESCALE_FLUXERR",
+				&INPUTS.FUDGESCALE_FLUXERR, 
+				INPUTS.FUDGESCALE_FLUXERR_FILTER );
+
+    parse_input_KEY_PLUS_FILTER_legacy(fpNull, &i, ARGV_LIST[i],"FUDGESCALE_FLUXERR2",
+				&INPUTS.FUDGESCALE_FLUXERR2, 
+				INPUTS.FUDGESCALE_FLUXERR2_FILTER );
+
+    parse_input_KEY_PLUS_FILTER_legacy(fpNull, &i, ARGV_LIST[i], "FUDGESHIFT_ZPT",
+				&INPUTS.FUDGESHIFT_ZPT, 
+				INPUTS.FUDGESHIFT_ZPT_FILTER);
+
+    parse_input_KEY_PLUS_FILTER_legacy(fpNull, &i, ARGV_LIST[i], "MJD_TEMPLATE",
+				&INPUTS.MJD_TEMPLATE, 
+				INPUTS.MJD_TEMPLATE_FILTER);
+    
+    if ( strstr(ARGV_LIST[i],"RANSYSTPAR") != NULL ) 
+      { parse_input_RANSYSTPAR_legacy(fpNull, &i, ARGV_LIST[i] ); }
+
+
+    // ----
+
+    if ( strcmp( ARGV_LIST[i], "INIT_ONLY" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.INIT_ONLY ); 
+      goto INCREMENT_COUNTER ; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "NGEN_LC" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NGEN_LC ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "NGENTOT_LC" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NGENTOT_LC ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "NGEN_SEASON" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.NGEN_SEASON ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "NGEN_SCALE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.NGEN_SCALE ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "NGEN_SCALE_NON1A" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.NGEN_SCALE_NON1A ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "NSUBSAMPLE_MARK" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NSUBSAMPLE_MARK ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "CIDOFF" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.CIDOFF ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "CIDRAN_MAX" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.CIDRAN_MAX ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "CIDRAN_MIN" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.CIDRAN_MIN ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    // JOBID & NJOBTOT can be read only from command-line;
+    // NOT from sim-input file.
+    if ( strcmp( ARGV_LIST[i], "JOBID" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.JOBID ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "NJOBTOT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NJOBTOT ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENVERSION" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENVERSION ); 
+      sprintf(INPUTS.GENPREFIX,"%s", INPUTS.GENVERSION);
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "GENPREFIX" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPREFIX ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "PATH_USER_INPUT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", PATH_USER_INPUT );
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "PATH_SNDATA_SIM" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.PATH_SNDATA_SIM );
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "CLEARPROMPT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.CLEARPROMPT ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+
+    if ( strcmp( ARGV_LIST[i], "GENSOURCE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENSOURCE ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENMODEL_MSKOPT" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENMODEL_MSKOPT ); }
+    if ( strcmp( ARGV_LIST[i], "GENMODEL_ARGLIST" ) == 0 ) { 
+      parse_input_GENMODEL_ARGLIST_legacy(fpNull,&i);
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENMODEL" ) == 0 ) {
+      parse_input_GENMODEL_legacy(fpNull,&i);
+      goto INCREMENT_COUNTER; 
+    } // end GENMODEL key
+
+    if ( strcmp( ARGV_LIST[i], "GENPDF_FILE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPDF_FILE );
+      goto INCREMENT_COUNTER; 
+    } 
+    if ( strcmp( ARGV_LIST[i], "GENPDF_IGNORE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPDF_IGNORE );
+      goto INCREMENT_COUNTER; 
+    } 
+    if ( strcmp( ARGV_LIST[i], "GENPDF_FLAT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPDF_FLAT );
+      goto INCREMENT_COUNTER; 
+    } 
+    if ( strcmp( ARGV_LIST[i], "GENPDF_OPTMASK" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENPDF_OPTMASK );
+      goto INCREMENT_COUNTER; 
+    } 
+
+    if ( strcmp(ARGV_LIST[i], "GENMODEL_EXTRAP_LATETIME") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENMODEL_EXTRAP_LATETIME );
+      goto INCREMENT_COUNTER;
+    }
+
+    if ( strcmp( ARGV_LIST[i], "FORMAT_MASK" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.FORMAT_MASK ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "WRFLAG_MODELPAR" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.WRFLAG_MODELPAR ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+
+    if ( strcmp( ARGV_LIST[i], "NPE_PIXEL_SATURATE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NPE_PIXEL_SATURATE ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "PHOTFLAG_SATURATE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.PHOTFLAG_SATURATE ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "PHOTFLAG_SNRMAX" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.PHOTFLAG_SNRMAX ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "PHOTFLAG_NEARPEAK" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.PHOTFLAG_NEARPEAK ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "PHOTFLAG_DETECT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS_SEARCHEFF.PHOTFLAG_DETECT);
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "PHOTFLAG_TRIGGER" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER);
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "NON1A"    ) == 0 || 
+	 strcmp( ARGV_LIST[i], "NON1ASED" ) == 0 ) {
+      INPUTS.NON1ASED.NINDEX++ ; N = INPUTS.NON1ASED.NINDEX;
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NON1ASED.INDEX[N] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.NON1ASED.WGT[N] );
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "PATH_NON1ASED" ) == 0 ||
+	 strcmp( ARGV_LIST[i], "PATH_NONIASED" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.NON1ASED.PATH );
+      goto INCREMENT_COUNTER; 
+    }
+
+
+    if ( strcmp(ARGV_LIST[i], "MJD_EXPLODE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.MJD_EXPLODE );  
+      if(INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE < 0 ) 
+	{ INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE=0; }
+      INPUTS.GENRANGE_PEAKMJD[0] = INPUTS.MJD_EXPLODE ;
+      INPUTS.GENRANGE_PEAKMJD[1] = INPUTS.MJD_EXPLODE ;
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "OPTMASK_T0SHIFT_EXPLODE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", 
+		   &INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE );  
+      goto INCREMENT_COUNTER; 
+    }
+
+
+    if ( strcmp( ARGV_LIST[i], "UVLAM_EXTRAPFLUX" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le",&INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX );
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "MINSLOPE_EXTRAPMAG_LATE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le",
+		   &INPUTS_SEDMODEL.MINSLOPE_EXTRAPMAG_LATE );
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "RANSEED" ) == 0 )  { 
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.ISEED );  
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "NSTREAM_RAN" ) == 0 )  { 
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.NSTREAM_RAN );  
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "RANLIST_START_GENSMEAR" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.RANLIST_START_GENSMEAR ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_RA" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_RA[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_RA[1] ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_DECL" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_DEC[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_DEC[1] ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_DEC" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_DEC[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_DEC[1] ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+
+    if ( strstr(ARGV_LIST[i],"SOLID_ANGLE") != NULL ) { 
+      parse_input_SOLID_ANGLE(fpNull, &i, ARGV_LIST[i] ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_REDSHIFT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_REDSHIFT[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_REDSHIFT[1] ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "GENSIGMA_REDSHIFT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENSIGMA_REDSHIFT ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "GENBIAS_REDSHIFT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENBIAS_REDSHIFT ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "GENSIGMA_VPEC" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENSIGMA_VPEC ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "VPEC_ERR" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.VPEC_ERR ); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "VEL_CMBAPEX" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.VEL_CMBAPEX ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    // - - -  wrongHost model params
+    if ( strcmp( ARGV_LIST[i], "WRONGHOST_FILE")==0 ) {
+      i++ ; sscanf(ARGV_LIST[i], "%s", INPUTS.WRONGHOST_FILE );
+      goto INCREMENT_COUNTER; 
+    }
+
+    // - - - - - -  DNDZ stuff - - - - - - - - - - - -
+
+    if ( strcmp( ARGV_LIST[i], "DNDZ_ZEXP_REWGT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", 
+		   &INPUTS.RATEPAR.DNDZ_ZEXP_REWGT ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "DNDZ_ZPOLY_REWGT" ) == 0 ) {
+      for(j=0; j<4; j++ ) 
+	{ i++ ; sscanf(ARGV_LIST[i] , "%le", 
+		       &INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT[j]);  }
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "DNDZ_SCALE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.RATEPAR.DNDZ_SCALE[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.RATEPAR.DNDZ_SCALE[1] ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "DNDZ_ALLSCALE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.RATEPAR.DNDZ_ALLSCALE ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    // LEGACY KEY
+    if ( strcmp( ARGV_LIST[i], "DNDZ_SCALE_NON1A" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.RATEPAR.DNDZ_SCALE[1] ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    // -----------------------------------------------
+    // check for rate model following DNDZ key
+    sscanf_RATEPAR(&i, "NOMINAL",  &INPUTS.RATEPAR );
+    sscanf_RATEPAR(&i, "PEC1A",    &INPUTS.RATEPAR_PEC1A );
+
+    // ------------------------------------------------
+    // read RISETIME shift params
+
+    sscanf_GENGAUSS(&i, "RISETIME_SHIFT", &INPUTS.GENGAUSS_RISETIME_SHIFT ) ;
+    sscanf_GENGAUSS(&i, "FALLTIME_SHIFT", &INPUTS.GENGAUSS_FALLTIME_SHIFT ) ;
+
+    // ---
+
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_PEAKMAG" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_PEAKMAG[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_PEAKMAG[1] ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_MJD" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_MJD[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_MJD[1] ); 
+      goto INCREMENT_COUNTER;       goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_PEAKMJD" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_PEAKMJD[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_PEAKMJD[1] ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENSIGMA_SEARCH_PEAKMJD" ) == 0 ) { //legacy
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENSIGMA_PEAKMJD); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "GENSIGMA_PEAKMJD" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENSIGMA_PEAKMJD); 
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "OPT_SETPKMJD" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_SETPKMJD); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "NEWMJD_DIF" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.NEWMJD_DIF ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_TREST" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_TREST[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_TREST[1] ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "TGRIDSTEP_MODEL_INTERP" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.TGRIDSTEP_MODEL_INTERP );
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENPAR_SELECT_FILE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENPAR_SELECT_FILE );
+      goto INCREMENT_COUNTER; 
+    }
+
+    // ------------------------------------------------
+    // read STRETCH parameters
+    
+    sscanf_GENGAUSS(&i, "STRETCH", &INPUTS.GENGAUSS_STRETCH   ) ;
+
+    if ( strcmp( ARGV_LIST[i], "STRETCH_TEMPLATE_FILE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.STRETCH_TEMPLATE_FILE ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+    // ------------------------------------------------
+    // read DELTA parameters
+    sscanf_GENGAUSS(&i, "DELTA",  &INPUTS.GENGAUSS_DELTA  ) ;
+
+    // ------------------------------------------------
+    // read DM15 parameters
+    sscanf_GENGAUSS(&i, "DM15",  &INPUTS.GENGAUSS_DM15  ) ;
+
+    // ------------------------------------------------
+    // read RV parameters
+    sscanf_GENGAUSS(&i, PARNAME_RV,  &INPUTS.GENGAUSS_RV  ) ;
+
+    
+
+    // xxx   if ( strcmp( ARGV_LIST[i], "GENRANGE_AV" ) == 0 ) {
+    // xxx i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_AV[0] ); 
+    // xxx i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_AV[1] ); 
+    // xxx }
+
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_AV" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.RANGE[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.RANGE[1] );
+      INPUTS.GENRANGE_AV[0] = INPUTS.GENPROFILE_AV.RANGE[0];//legacy
+      INPUTS.GENRANGE_AV[1] = INPUTS.GENPROFILE_AV.RANGE[1];//legacy
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENTAU_AV" ) == 0 || 
+	 strcmp( ARGV_LIST[i], "GENEXPTAU_AV" ) == 0 ) { 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.EXP_TAU ); 
+      INPUTS.GENEXPTAU_AV = INPUTS.GENPROFILE_AV.EXP_TAU;//legacy
+      goto INCREMENT_COUNTER; 
+    }
+
+    // xxx    if ( strcmp( ARGV_LIST[i], "GENEXPTAU_AV" ) == 0 ) 
+    // xxx  { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENEXPTAU_AV );  }
+
+    if ( strcmp( ARGV_LIST[i], "GENSIG_AV" ) == 0 || 
+	 strcmp( ARGV_LIST[i], "GENGAUSIG_AV" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.SIGMA );   
+      INPUTS.GENGAUSIG_AV = INPUTS.GENPROFILE_AV.SIGMA ;//legacy
+      goto INCREMENT_COUNTER; 
+    }
+
+    // xxx    if ( strcmp( ARGV_LIST[i], "GENGAUSIG_AV" ) == 0 ) 
+    // xxx  { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENGAUSIG_AV );   }
+
+    if ( strcmp( ARGV_LIST[i], "GENGAUPEAK_AV" ) == 0 ) { 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.PEAK );   
+      INPUTS.GENGAUPEAK_AV = INPUTS.GENPROFILE_AV.PEAK; //legacy
+      goto INCREMENT_COUNTER; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENRATIO_AV0" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_AV.RATIO );   
+      INPUTS.GENRATIO_AV0 = INPUTS.GENPROFILE_AV.RATIO;//legacy
+      goto INCREMENT_COUNTER; 
+    }
+
+    // --------- EBV HOST ------------------------------------
+
+    if ( strcmp( ARGV_LIST[i], "GENGAUPEAK_EBV_HOST" ) == 0 )
+      { i++ ; sscanf(ARGV_LIST[i],"%le", &INPUTS.GENPROFILE_EBV_HOST.PEAK ); }
+
+    if ( strcmp( ARGV_LIST[i], "GENSIG_EBV_HOST" ) == 0 )
+      { i++ ; sscanf(ARGV_LIST[i],"%le", &INPUTS.GENPROFILE_EBV_HOST.SIGMA ); }
+
+    if ( strcmp( ARGV_LIST[i], "GENTAU_EBV_HOST" ) == 0 )
+      { i++ ; sscanf(ARGV_LIST[i],"%le", &INPUTS.GENPROFILE_EBV_HOST.EXP_TAU);}
+
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_EBV_HOST" ) == 0 ){
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.RANGE[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.RANGE[1] );
+      goto INCREMENT_COUNTER; 
+    }
+    if ( strcmp( ARGV_LIST[i], "GENRATIO_EBV0_HOST" ) == 0 ) { 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENPROFILE_EBV_HOST.RATIO ); 
+      goto INCREMENT_COUNTER; 
+    }
+
+
+    // -------------------------------------------------------
+
+    sscanf_GENGAUSS(&i, "SALT2c",     &INPUTS.GENGAUSS_SALT2c     ) ;
+    sscanf_GENGAUSS(&i, "SALT2x1",    &INPUTS.GENGAUSS_SALT2x1    ) ;
+    sscanf_GENGAUSS(&i, "SALT2ALPHA", &INPUTS.GENGAUSS_SALT2ALPHA );
+    sscanf_GENGAUSS(&i, "SALT2BETA",  &INPUTS.GENGAUSS_SALT2BETA  );
+
+    if ( strcmp ( ARGV_LIST[i], "BIASCOR_SALT2GAMMA_GRID" ) == 0 )  { 
+      i++; sscanf(ARGV_LIST[i] , "%le", &INPUTS.BIASCOR_SALT2GAMMA_GRID[0] );
+      i++; sscanf(ARGV_LIST[i] , "%le", &INPUTS.BIASCOR_SALT2GAMMA_GRID[1] );
+    }
+      
+
+    if ( strcmp ( ARGV_LIST[i], "SALT2BETA_cPOLY" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", cpoly);
+      parse_GENPOLY(cpoly, "SALT2BETA_cPOLY",  &INPUTS.SALT2BETA_cPOLY, fnam);
+    }
+
+    // May 2013: check option to read alpha,beta from SALT2mu-fitres file
+    if ( strcmp( ARGV_LIST[i], "SALT2mu_FILE" ) == 0 )  
+      { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.SALT2mu_FILE );   }
+    
+    // legacy variables ...
+    if ( strcmp( ARGV_LIST[i], "GENALPHA_SALT2" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENALPHA_SALT2 ); 
+      INPUTS.GENGAUSS_SALT2ALPHA.PEAK = INPUTS.GENALPHA_SALT2; 
+      INPUTS.GENGAUSS_SALT2ALPHA.USE  = true ;
+    }
+    if ( strcmp( ARGV_LIST[i], "GENBETA_SALT2" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENBETA_SALT2 ); 
+      INPUTS.GENGAUSS_SALT2BETA.PEAK = INPUTS.GENBETA_SALT2; 
+      INPUTS.GENGAUSS_SALT2BETA.USE  = true ;
+    }
+    if ( strcmp( ARGV_LIST[i], "LEGACY_colorXTMW_SALT2" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.LEGACY_colorXTMW_SALT2 ); 
+    }
+
+    // --------------
+
+    if ( strcmp( ARGV_LIST[i], "GENAV_WV07" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.WV07_GENAV_FLAG ); }
+    if ( strcmp( ARGV_LIST[i], "WV07_GENAV_FLAG" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.WV07_GENAV_FLAG );  }
+    if ( strcmp( ARGV_LIST[i], "WV07_REWGT_EXPAV" ) == 0 )  
+      { i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.WV07_REWGT_EXPAV ); }
+
+    if ( strcmp( ARGV_LIST[i], "RVMW" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.RV_MWCOLORLAW ); 
+    }
+    if ( strcmp( ARGV_LIST[i], "RV_MWCOLORLAW" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.RV_MWCOLORLAW ); 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "OPT_MWCOLORLAW" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.OPT_MWCOLORLAW ); 
+    }
+    if ( strcmp( ARGV_LIST[i], "OPT_MWEBV" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &opt_tmp );
+      INPUTS.OPT_MWEBV = abs(opt_tmp) ;
+      if ( opt_tmp < 0 )
+	{ INPUTS.APPLYFLAG_MWEBV=1; } // correct FLUXCAL
+      else
+	{ INPUTS.APPLYFLAG_MWEBV=0; } // turn off correction
+    }
+
+
+    if ( strcmp( ARGV_LIST[i], "GENSIGMA_MWEBV_RATIO" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.MWEBV_SIGRATIO ); 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENSIGMA_MWEBV" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.MWEBV_SIG ); 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENSHIFT_MWEBV" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.MWEBV_SHIFT ); 
+    }
+    if ( strcmp( ARGV_LIST[i], "GENSCALE_MWEBV" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.MWEBV_SCALE ); 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_MWEBV" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_MWEBV[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENRANGE_MWEBV[1] ); 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "EXTINC_HOSTGAL" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENSNXT ); 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENMAG_OFF_AB" ) == 0 ||   // legacy key
+	 strcmp( ARGV_LIST[i], "GENMAG_OFF_ZP" ) == 0 ) {
+      for ( ifilt = 0; ifilt < INPUTS.NFILTDEF_OBS; ifilt++ ) {
+	i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.TMPOFF_ZP[ifilt] ); 
+      }
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENMAG_OFF_GLOBAL" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENMAG_OFF_GLOBAL ); 
+    }
+    if ( strcmp( ARGV_LIST[i], "GENMAG_OFF_NON1A" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENMAG_OFF_NON1A ); 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENMAG_OFF_MODEL" ) == 0 ) {
+      for ( ifilt = 0; ifilt < INPUTS.NFILTDEF_OBS; ifilt++ ) {
+	i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.TMPOFF_MODEL[ifilt] ); 
+      }
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SIGMACLIP_MAGSMEAR" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.SIGMACLIP_MAGSMEAR[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.SIGMACLIP_MAGSMEAR[1] );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_FILTER" ) == 0 ) {
+
+      i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp );
+      i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp2 );
+
+      if ( strcmp(ctmp2,"INTERP") == 0 ) 
+	{ ftmp = -1.0 ; } // any negative number -> interpolate smear
+      else
+	{ sscanf(ctmp2, "%f", &ftmp); }
+
+      // update for any value, even zero to allow override.
+
+      N = INPUTS.NFILT_SMEAR ;
+      INPUTS.NFILT_SMEAR += 
+	PARSE_FILTLIST(ctmp, &INPUTS.IFILT_SMEAR[N+1] );
+      for ( j=N+1; j <= INPUTS.NFILT_SMEAR; j++ ) {
+	ifilt = INPUTS.IFILT_SMEAR[j];
+	INPUTS.GENMAG_SMEAR_FILTER[ifilt] = ftmp ;
+      }
+
+    } // GENMAG_SMEAR_FILTER
+
+
+    if ( strcmp( ARGV_LIST[i], "GENSMEAR_RANGaussFIX" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i],"%le",&INPUTS.GENSMEAR_RANGauss_FIX );  }
+    if ( strcmp( ARGV_LIST[i], "GENSMEAR_RANGAUSSFIX" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i],"%le",&INPUTS.GENSMEAR_RANGauss_FIX );  }
+
+    if ( strcmp( ARGV_LIST[i], "GENSMEAR_RANFlatFIX" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i],"%le",&INPUTS.GENSMEAR_RANFlat_FIX );  }
+    if ( strcmp( ARGV_LIST[i], "GENSMEAR_RANFLATFIX" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i],"%le",&INPUTS.GENSMEAR_RANFlat_FIX );  }
+
+    if ( strstr( ARGV_LIST[i], "GENMAG_SMEAR_SCALE" ) != NULL )
+      { parse_input_GENMAG_SMEAR_SCALE(fpNull, &i, ARGV_LIST[i] ); }
+
+    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_MSKOPT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i], "%d", &INPUTS.GENMAG_SMEAR_MSKOPT );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_MODELNAME" ) == 0 ) {
+      modelName = INPUTS.GENMAG_SMEAR_MODELNAME ;
+      i++ ; sscanf(ARGV_LIST[i] , "%s", modelName);
+      if ( strcmp(modelName,"G10FUDGE") == 0  )  { // read sigma_coh
+	i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENMAG_SMEAR_USRFUN[0]);
+      }
+      if ( strstr(modelName,":")!= NULL)  { parse_GENMAG_SMEAR_MODELNAME();}
+    }
+
+    if ( strstr( ARGV_LIST[i], "SIGMA_COH" ) != NULL ) {
+      parse_SIGCOH_SALT2(ARGV_LIST[i],ARGV_LIST[i+1], 
+			 &GENSMEAR_SALT2.SIGCOH_LAM );
+      INPUTS.GENMAG_SMEAR_USRFUN[0] = -8.0;  // flag that SIGCOH_LAM is set
+      i++ ;
+    }
+
+    // updated keys for strong & weak lensing (July 2019)
+    if ( strcmp( ARGV_LIST[i], "STRONGLENS_FILE" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.STRONGLENS_FILE ); }
+
+    if ( strcmp( ARGV_LIST[i], "WEAKLENS_PROBMAP_FILE" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.WEAKLENS_PROBMAP_FILE ); }
+    if ( strcmp( ARGV_LIST[i], "WEAKLENS_DMUSCALE" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.WEAKLENS_DMUSCALE ); }
+    if ( strcmp( ARGV_LIST[i], "WEAKLENS_DSIGMADZ" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.WEAKLENS_DSIGMADZ );  }
+
+    // legacy keys for weak lensing 
+    if ( strcmp( ARGV_LIST[i], "LENSING_PROBMAP_FILE" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.WEAKLENS_PROBMAP_FILE ); }
+    if ( strcmp( ARGV_LIST[i], "LENSING_DMUSCALE" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.WEAKLENS_DMUSCALE ); }
+    if ( strcmp( ARGV_LIST[i], "LENSING_DSIGMADZ" ) == 0 ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.WEAKLENS_DSIGMADZ );  }
+
+    // - - - - - - 
+    // check override params for genSmear models (Mar 22 2014)
+    int  NVAL;   char parName[60], ckey[60];   double tmpList[100];
+    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEARPAR_OVERRIDE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", ckey);
+      NVAL = nval_genSmear_override(ckey, parName); // return NVAL,parName
+      for(j=0; j < NVAL; j++ ) 
+	{ i++ ; sscanf(ARGV_LIST[i],"%le", &tmpList[j] ); }
+      
+      store_genSmear_override(parName,NVAL,tmpList);
+    }
+    // - - - - - - - - 
+   
+    if ( strcmp( ARGV_LIST[i], "GENMODEL_ERRSCALE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENMODEL_ERRSCALE );
+    }
+    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR" ) == 0 ) {      
+      i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp) ;
+      split2floats(ctmp, comma, tmpSmear);
+
+      // if NON1a magSmear is already set, then dont use GENMAG_SMEAR.
+      if ( INPUTS.NON1ASED.MAGSMEAR[1][0] <= 0.0 ) {
+	INPUTS.GENMAG_SMEAR[0] = tmpSmear[0]; 
+	INPUTS.GENMAG_SMEAR[1] = tmpSmear[1]; 
+      }
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_ADDPHASECOR" ) == 0 ) {      
+      i++ ; sscanf(ARGV_LIST[i], "%f", &INPUTS.GENMAG_SMEAR_ADDPHASECOR[0]) ;
+      i++ ; sscanf(ARGV_LIST[i], "%f", &INPUTS.GENMAG_SMEAR_ADDPHASECOR[1]) ;
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENMAG_SMEAR_USRFUN" ) == 0 ) {
+
+      INPUTS.NPAR_GENSMEAR_USRFUN = 8 ;
+      for ( j=0; j < INPUTS.NPAR_GENSMEAR_USRFUN; j++ ) {
+	i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.GENMAG_SMEAR_USRFUN[j] );
+	sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"USRFUN");
+      }
+      
+      // turn off if first element is negative
+      if ( INPUTS.GENMAG_SMEAR_USRFUN[0] < -0.001 ) {  
+	sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"NONE"); 
+	INPUTS.NPAR_GENSMEAR_USRFUN = 0 ;
+      }
+
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENMODEL_ERRSCALE_OPT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENMODEL_ERRSCALE_OPT );
+    }
+    if ( strcmp( ARGV_LIST[i], "GENMODEL_ERRSCALE_CORRELATION" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.GENMODEL_ERRSCALE_CORRELATION );
+    }
+
+
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_TYPE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENRANGE_TYPE[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENRANGE_TYPE[1] );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_CID" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENRANGE_CID[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENRANGE_CID[1] );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_FILT" ) == 0 ) {
+      sprintf(c1err,"GENRANGE_FILT: keyword no longer supported.");
+      sprintf(c2err,"Must use GENFILTERS: ");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENFILTERS" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.GENFILTERS );
+      INPUTS.NFILTDEF_OBS =
+	PARSE_FILTLIST( INPUTS.GENFILTERS, INPUTS.IFILTMAP_OBS  );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_DMPEVENT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENRANGE_DMPEVENT[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENRANGE_DMPEVENT[1] );
+    }
+    if ( strcmp( ARGV_LIST[i], "GENRANGE_DMPTREST" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_DMPTREST[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.GENRANGE_DMPTREST[1] );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SMEARFLAG_FLUX" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SMEARFLAG_FLUX );
+    }
+    if ( strcmp( ARGV_LIST[i], "SMEARFLAG_ZEROPT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SMEARFLAG_ZEROPT );
+    }
+    if ( strcmp( ARGV_LIST[i], "MAGMONITOR_SNR" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.MAGMONITOR_SNR );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "KCORFLAG_COLOR" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.KCORFLAG_COLOR );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "EXPOSURE_TIME_MSKOPT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.EXPOSURE_TIME_MSKOPT );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "KCOR_FILE" ) == 0  || 
+	 strcmp( ARGV_LIST[i], "KCOR"      ) == 0  ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.KCOR_FILE  );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "OMEGA_MATTER" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.OMEGA_MATTER  );
+    }
+    if ( strcmp( ARGV_LIST[i], "OMEGA_LAMBDA" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.OMEGA_LAMBDA  );
+    }
+    if ( strcmp( ARGV_LIST[i], "W0_LAMBDA" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.W0_LAMBDA  );
+      
+    }
+    if ( strcmp( ARGV_LIST[i], "H0" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS.H0  );
+    }
+
+    // --- search eff
+    if ( strcmp( ARGV_LIST[i], "MAGSHIFT_SPECEFF" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SEARCHEFF_PIPELINE_LOGIC_FILE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", 
+		   INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE );
+    } 
+
+    if ( strcmp( ARGV_LIST[i], "SEARCHEFF_PIPELINE_FILE"     ) == 0 ||
+	 strcmp( ARGV_LIST[i], "SEARCHEFF_PIPELINE_EFF_FILE" ) == 0 ) {	
+      i++ ; sscanf(ARGV_LIST[i] , "%s", 
+		   INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE );
+    } 
+
+    if ( strcmp( ARGV_LIST[i], "SEARCHEFF_SPEC_FILE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i],"%s",INPUTS_SEARCHEFF.USER_SPEC_FILE );     
+    } 
+    if ( strcmp( ARGV_LIST[i], "SEARCHEFF_SPEC_SCALE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i],"%le",&INPUTS_SEARCHEFF.USER_SPECEFF_SCALE);
+    } 
+
+    if ( strcmp( ARGV_LIST[i], "SEARCHEFF_zHOST_FILE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i],"%s", INPUTS_SEARCHEFF.USER_zHOST_FILE ); 
+    } 
+
+    if ( strcmp( ARGV_LIST[i], "APPLY_SEARCHEFF_OPT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.APPLY_SEARCHEFF_OPT );
+    }
+    if ( strcmp( ARGV_LIST[i], "MINOBS_SEARCH" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS_SEARCHEFF.MINOBS );
+    } 
+
+    // -- CUT WINDOWS
+    if ( strcmp( ARGV_LIST[i], "APPLY_CUTWIN_OPT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.APPLY_CUTWIN_OPT );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "EPCUTWIN_LAMREST" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.EPCUTWIN_LAMREST[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.EPCUTWIN_LAMREST[1] );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "EPCUTWIN_SNRMIN" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.EPCUTWIN_SNRMIN[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.EPCUTWIN_SNRMIN[1] );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_TRESTMAX" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_TRESTMAX[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_TRESTMAX[1] );
+    }
+
+
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_REDSHIFT" )      == 0 ||
+	 strcmp( ARGV_LIST[i], "CUTWIN_REDSHIFT_TRUE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_REDSHIFT_TRUE[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_REDSHIFT_TRUE[1] );
+    }
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_REDSHIFT_FINAL" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_REDSHIFT_FINAL[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_REDSHIFT_FINAL[1] );
+    }
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_HOST_PHOTOZ" ) == 0 ||
+	 strcmp( ARGV_LIST[i], "CUTWIN_HOST_ZPHOT"  ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_HOST_ZPHOT[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_HOST_ZPHOT[1] );
+    }
+
+
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_TRESTMIN" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_TRESTMIN[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_TRESTMIN[1] );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_TGAPMAX" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_TGAPMAX[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_TGAPMAX[1] );
+    }
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_T0GAPMAX" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_T0GAPMAX[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_T0GAPMAX[1] );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_SNRMAX" ) == 0 ) {
+
+      if ( INPUTS.OVERRIDE_CUTWIN_SNRMAX == 0 ) 
+	{ INPUTS.NCUTWIN_SNRMAX = 1; } // reset
+      else
+	{ INPUTS.NCUTWIN_SNRMAX++ ; }  //  keep adding
+
+      INPUTS.OVERRIDE_CUTWIN_SNRMAX = 1 ;
+      N = INPUTS.NCUTWIN_SNRMAX ;
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_SNRMAX[N][0]       );
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.CUTWIN_SNRMAX_FILTERS[N]   );
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.CUTWIN_SNRMAX_LOGIC[N]     );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_SNRMAX_TREST[N][0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_SNRMAX_TREST[N][1] );
+    }
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_NEPOCH" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_NEPOCH[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_NEPOCH[1] );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_NOBSDIF" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.CUTWIN_NOBSDIF[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.CUTWIN_NOBSDIF[1] );
+    }
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_MJDDIF" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_MJDDIF[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_MJDDIF[1] );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_MWEBV" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_MWEBV[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_MWEBV[1] );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_PEAKMAG" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_PEAKMAG[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_PEAKMAG[1] );
+    }
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_PEAKMAG_ALL" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_PEAKMAG_ALL[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_PEAKMAG_ALL[1] );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "CUTWIN_EPOCHS_SNRMIN" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_EPOCHS_SNRMIN );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.CUTWIN_EPOCHS_TRANGE[1] );
+      i++ ; sscanf(ARGV_LIST[i] , "%s",  INPUTS.CUTWIN_EPOCHS_FILTERS );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "EFFERR_STOPGEN" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.EFFERR_STOPGEN );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SPECTROGRAPH_OPTMASK" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SPECTROGRAPH_SCALE_TEXPOSE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", 
+		   &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "TAKE_SPECTRUM_DUMPCID" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.TAKE_SPECTRUM_DUMPCID );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "TAKE_SPECTRUM_HOSTFRAC" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &INPUTS.TAKE_SPECTRUM_HOSTFRAC );
+    }
+
+
+    if ( strstr(ARGV_LIST[i],"SIMGEN_DUMP") != NULL ) 
+      { parse_input_SIMGEN_DUMP(fpNull, &i, ARGV_LIST[i] ); }
+
+
+    // FUDGES
+
+    if ( strcmp( ARGV_LIST[i], "FUDGE_SNRMAX" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.STRING_FUDGE_SNRMAX );
+      INPUTS.OPT_FUDGE_SNRMAX = 1; 
+    }
+    if ( strcmp( ARGV_LIST[i], "FUDGE2_SNRMAX" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.STRING_FUDGE_SNRMAX );
+      INPUTS.OPT_FUDGE_SNRMAX = 2 ; 
+    }
+
+    if ( strcmp( ARGV_LIST[i], "GENPERFECT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.GENPERFECT );
+    }
+
+    // - - - - -
+    if ( strcmp(ARGV_LIST[i], "LCLIB_DEBUG_DAYSCALE") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &LCLIB_DEBUG.DAYSCALE );
+    }
+    if ( strcmp(ARGV_LIST[i], "LCLIB_DEBUG_TOBS_OFFSET") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &LCLIB_DEBUG.TOBS_OFFSET_RANGE[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &LCLIB_DEBUG.TOBS_OFFSET_RANGE[1] );
+    }
+    if ( strcmp(ARGV_LIST[i], "LCLIB_DEBUG_ZERO_TEMPLATE_FLUX") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &LCLIB_DEBUG.ZERO_TEMPLATE_FLUX );
+    }
+    if ( strcmp(ARGV_LIST[i], "LCLIB_DEBUG_FORCE_NREPEAT") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &LCLIB_DEBUG.FORCE_NREPEAT );
+    }
+    if ( strcmp(ARGV_LIST[i], "LCLIB_CUTWIN") == 0 ) {
+      N = LCLIB_CUTS.NCUTWIN ;
+      i++ ; sscanf(ARGV_LIST[i] , "%s",  LCLIB_CUTS.PARNAME[N]   );
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &LCLIB_CUTS.CUTWIN[N][0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%le", &LCLIB_CUTS.CUTWIN[N][1] );
+      LCLIB_CUTS.NCUTWIN++ ;
+    }
+
+
+#ifdef SNGRIDGEN
+    // GRID input
+    if ( strcmp( ARGV_LIST[i], "GRID_FORMAT" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", GRIDGEN_INPUTS.FORMAT );
+    }
+    if ( strcmp( ARGV_LIST[i], "NGRID_LOGZ" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &N );
+      GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_LOGZ] = N;
+    }
+    if ( strcmp( ARGV_LIST[i], "NGRID_LUMIPAR" ) == 0 ) {  // legacy key
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &N );
+      GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_SHAPEPAR] = N;
+    }
+    if ( strcmp( ARGV_LIST[i], "NGRID_SHAPEPAR" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &N );
+      GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_SHAPEPAR] = N;
+    }
+    if ( strcmp( ARGV_LIST[i], "NGRID_TREST" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &N );
+      GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_TREST] = N;
+    }
+#endif
+
+    // SIMSED args
+
+    if ( strcmp( ARGV_LIST[i], "SIMSED_USE_BINARY" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.USE_BINARY_SIMSED );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SIMSED_PATH_BINARY" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.PATH_BINARY_SIMSED );
+    }
+
+    if ( strcmp( ARGV_LIST[i], "SIMSED_GRIDONLY" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", ctmp );
+      if ( strcmp(ctmp,"SEQUENTIAL") == 0  ) {
+	INPUTS.NPAR_SIMSED = 0 ;  // no interp pars => treat as baggage
+	INPUTS.OPTMASK_SIMSED = OPTMASK_SIMSED_GRIDONLY ;
+	// xxx mark delete  INPUTS.GENFLAG_SIMSED[0] = OPTMASK_SIMSED_GRIDONLY ;
+      }
+      else {
+	sprintf(c1err,"Invalid command-line option");
+	sprintf(c2err,"'SIMSED_GRIDONLY: %s'", ctmp);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+    }
+
+    for ( ipar=0; ipar < INPUTS.NPAR_SIMSED; ipar++ ) {
+      opt_tmp = INPUTS.GENFLAG_SIMSED[ipar];
+      if ( (opt_tmp & OPTMASK_SIMSED_param ) > 0 ) 
+	{ continue; }  // allow only interp params 
+      sprintf(parname,"%s", INPUTS.PARNAME_SIMSED[ipar] );
+      sscanf_GENGAUSS(&i, parname, &INPUTS.GENGAUSS_SIMSED[ipar] );
+    } // ipar loop
+
+
+
+    // -------------------
+  INCREMENT_COUNTER:
+
+    if ( i > ilast ) {
+      for ( iuse = ilast; iuse <= i; iuse++ ) { USE_ARGV_LIST[iuse] = 1; }
+    }
+
+    i++ ;  ilast=i;
+
+  }
+  return ;
+
+} // end of sim_input_override_legacy
+
+// ==============================================================
+void parse_input_GENMODEL_legacy(FILE *fp, int *iArg ) {
+
+  // Created April 18 2019 
+  //   [code moved from read_input, part of refactor ]
+  // Parse GENMODEL key.
+
+  int  i = *iArg ;
+  int  jnam;
+  char *GENMODEL = INPUTS.GENMODEL ;
+  char ctmp[60], *NAME0 ;
+  bool LDMP = false ;
+  char fnam[] = "parse_input_GENMODEL_legacy" ;
+  
+  // ---------- BEGIN ------------
+
+  if ( i < 0 ) {
+    // read from file 
+    readchar ( fp, GENMODEL );      
+    
+    // check for path/model (Feb 22 2017)
+    extract_MODELNAME(GENMODEL,                   // input path/model
+		      INPUTS.MODELPATH, INPUTS.MODELNAME); // returned
+    
+    // check for NONIA model to help parsing below
+    INPUTS.NON1A_MODELFLAG = get_NON1A_MODELFLAG(INPUTS.MODELNAME);
+    if ( INPUTS.NON1A_MODELFLAG == MODEL_NON1AGRID ) 
+      { readchar(fp, INPUTS.NON1AGRID_FILE ); }
+
+    NAME0 = GENMODEL_NAME[MODEL_LCLIB][0];
+    if ( strcmp(GENMODEL,NAME0)==0 ) {
+      readchar(fp, INPUTS.LCLIB_FILE );  
+      readchar(fp, INPUTS.LCLIB_TEMPLATE_EPOCHS );  
+    }
+
+    NAME0 = GENMODEL_NAME[MODEL_BYOSED][0];
+    if ( strcmp(GENMODEL,NAME0)==0 ) 
+      { readchar(fp, INPUTS.MODELPATH ); }
+
+    // for FIXMAG model, read value of fixed mag
+    for(jnam=0; jnam < MXNAME_PER_MODEL; jnam++ ) {
+      NAME0  = GENMODEL_NAME[MODEL_FIXMAG][jnam];
+      if ( strcmp(GENMODEL,NAME0)==0 ) {
+	readchar(fp, ctmp );
+	parse_input_FIXMAG(ctmp);
+	if ( strstr(GENMODEL,"mag") != NULL ) 
+	  { INPUTS.GENFRAME_FIXMAG = GENFRAME_OBS; }
+	else if ( strstr(GENMODEL,"MAG") != NULL ) 
+	  { INPUTS.GENFRAME_FIXMAG = GENFRAME_REST; }
+      }
+    }
+    
+    // allow mlcs in place of mlcs2k2
+    if ( strcmp(GENMODEL,"mlcs")==0 ) { sprintf(GENMODEL,"mlcs2k2"); }
+
+ 
+  }
+  else {
+    // read command-line arg
+
+    i++ ; sscanf(ARGV_LIST[i] , "%s", GENMODEL ); 
+
+    // check for path + model 
+    extract_MODELNAME(GENMODEL,                   // input path/model
+		      INPUTS.MODELPATH, INPUTS.MODELNAME); // returned
+
+    // check for NONIA model to help parsing below
+    INPUTS.NON1A_MODELFLAG = get_NON1A_MODELFLAG(INPUTS.MODELNAME);
+
+    if ( INPUTS.NON1A_MODELFLAG == MODEL_NON1AGRID ) 
+      { i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.NON1AGRID_FILE );  }
+
+    NAME0 = GENMODEL_NAME[MODEL_LCLIB][0];
+    if ( strcmp(GENMODEL,NAME0)==0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.LCLIB_FILE ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%s", INPUTS.LCLIB_TEMPLATE_EPOCHS ); 
+    }
+
+    NAME0 = GENMODEL_NAME[MODEL_BYOSED][0];
+    if ( strcmp(GENMODEL,NAME0)==0 ) {
+      i++ ; sscanf(ARGV_LIST[i], "%s", INPUTS.MODELPATH ); 
+    }
+
+    int jnam;
+    for(jnam=0; jnam < MXNAME_PER_MODEL; jnam++ ) {
+      NAME0  = GENMODEL_NAME[MODEL_FIXMAG][jnam];
+      if ( strcmp(GENMODEL,NAME0) == 0 ) {
+	i++ ; sscanf(ARGV_LIST[i], "%s", ctmp ); 
+	parse_input_FIXMAG(ctmp);	
+	if ( strstr(GENMODEL,"mag") != NULL ) 
+	  { INPUTS.GENFRAME_FIXMAG = GENFRAME_OBS; }
+	else if ( strstr(GENMODEL,"MAG") != NULL ) 
+	  { INPUTS.GENFRAME_FIXMAG = GENFRAME_REST; }
+      }
+    }
+
+    // allow mlcs in place of mlcs2k2
+    if ( strcmp(GENMODEL,"mlcs")== 0) { sprintf(GENMODEL, "mlcs2k2"); }    
+
+    *iArg = i ;
+  }
+
+
+  // - - - - - - - - - - - - - - - - 
+  if ( LDMP ) {
+    printf("\n xxx -------------------------------- \n");
+    printf(" xxx %s DUMP: \n", fnam );
+    printf(" xxx Input GENMODEL:  '%s' \n", GENMODEL);
+    printf(" xxx INPUTS.MODELPATH = '%s' \n", INPUTS.MODELPATH );
+    printf(" xxx INPUTS.MODELNAME = '%s' \n", INPUTS.MODELNAME );
+    debugexit(fnam);
+  }
+
+
+  return ;
+
+} // end parse_input_GENMODEL_legacy
+
+
+// ==============================================================
+void parse_input_GENMODEL_ARGLIST_legacy(FILE *fp, int *iArg ) {
+
+  // Created March 2019
+  // parse GENMODEL_ARGLIST 'XX YY ZZ'
+  // which can have arbitrary number of elements between quotes.
+  // Initial use is to pass command-line overrides to BYOSED model.
+
+  int  i = *iArg ;
+  char fnam[] = "parse_input_GENMODEL_ARGLIST_legacy" ;
+  
+  // ---------- BEGIN ------------
+
+  if ( i < 0 ) {
+    // read from file 
+    sprintf(c1err,"GENMODEL_ARGLIST valid only as command-line arg.");
+    sprintf(c2err,"snlc_sim.exe <inFile> "
+	    "GENMODEL_ARGLIST 'KEY1 VAL1 KEY2 VAL2 ...' ");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    // readchar ( fp, &INPUTS.GEMMODEL_ARGLIST);
+  }
+  else {
+    // read command-line arg
+    // (C code scoops everything within quotes)
+    i++ ;  sprintf(INPUTS.GENMODEL_ARGLIST, "%s", ARGV_LIST[i]);
+    *iArg = i ;
+  }
+
+  return ;
+
+} // end parse_input_GENMODEL_ARGLIST_legacy
+
+
+// ==============================================================
+void parse_input_RANSYSTPAR_legacy(FILE *fp, int *iArg, char *KEYNAME ) {
+
+  // Created Jun 2017
+  // parse RANSYSTPAR_XXX params
+
+  int  i = *iArg ;
+  int  ifilt, NFILTDEF = INPUTS.NFILTDEF_OBS ;  
+  char fnam[] = "parse_input_RANSYSTPAR_legacy" ;
+  
+  // ---------- BEGIN ------------
+
+
+  if ( NFILTDEF == 0 ) {
+    sprintf(c1err, "Cannot read RANSYSTPAR because NFILTDEF=0");
+    sprintf(c2err, "Make sure %s appears after GENFILTERS: key.",KEYNAME);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  INPUTS.RANSYSTPAR.USE = 1;
+
+  if ( i < 0 ) {
+    // read from file
+    if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSCALE_FLUXERR:")==0 ) {
+      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR);
+    }
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSCALE_FLUXERR2:")==0 ) {
+      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2);
+    }
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSCALE_MWEBV:")==0 ) {
+      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSCALE_MWEBV );
+    }
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_MWRV:")==0 ) {
+      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSHIFT_MWRV );
+    }
+
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_OMEGA_MATTER:")==0 ) {
+      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER );
+    }
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_RANGESHIFT_OMEGA_MATTER:")==0 ) {
+      readfloat ( fp, 2, INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER );
+    }
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_W0:")==0 ) {
+      readfloat ( fp, 1, &INPUTS.RANSYSTPAR.SIGSHIFT_W0 );
+    }
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_RANGESHIFT_W0:")==0 ) {
+      readfloat ( fp, 2, INPUTS.RANSYSTPAR.RANGESHIFT_W0 );
+    }
+
+    // filter-dependent params
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_ZP:")==0 ) {
+      readfloat ( fp, NFILTDEF, INPUTS.RANSYSTPAR.SIGSHIFT_ZP );
+    }
+    else if ( strcmp(KEYNAME,"RANSYSTPAR_SIGSHIFT_LAMFILT:")==0 ) {
+      readfloat ( fp, NFILTDEF, INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT );
+    }
+
+  }
+  else {
+    // read command-line arg
+    if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSCALE_FLUXERR") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR ); 
+    }
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSCALE_FLUXERR2") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 ); 
+    }
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSCALE_MWEBV") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.SIGSCALE_MWEBV ); 
+    }
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_MWRV") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.SIGSHIFT_MWRV ); 
+    }
+
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_OMEGA_MATTER") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER ); 
+    }
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_RANGESHIFT_OMEGA_MATTER")==0) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER[0] );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER[1] ); 
+    }
+
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_W0") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.SIGSHIFT_W0 ); 
+    }
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_RANGESHIFT_W0") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.RANGESHIFT_W0[0] ); 
+      i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		   &INPUTS.RANSYSTPAR.RANGESHIFT_W0[1] ); 
+    }
+
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_ZP") == 0 ) {
+      for ( ifilt = 0; ifilt < NFILTDEF; ifilt++ ) {
+	i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		     &INPUTS.RANSYSTPAR.SIGSHIFT_ZP[ifilt] ); 
+      }
+    }
+    else if ( strcmp(ARGV_LIST[i],"RANSYSTPAR_SIGSHIFT_LAMFILT") == 0 ) {
+      for ( ifilt = 0; ifilt < NFILTDEF; ifilt++ ) {
+	i++ ; sscanf(ARGV_LIST[i] , "%f", 
+		     &INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT[ifilt] ); 
+      }
+    }
+
+    *iArg = i ;
+  }
+
+  return ;
+
+} // end parse_input_RANSYSTPAR_legacy
+
+
+// ==================================================
+int parse_input_KEY_PLUS_FILTER_legacy(FILE *fp, int *iArg, 
+				       char *INPUT_STRING, char *KEYCHECK,
+				       float *VALUE_GLOBAL,
+				       float *VALUE_FILTERLIST) {
+
+  // Created Jun 2017
+  // INPUT_STRING is current string read from input file.
+  // KEYCHECK is the key to check.
+  //
+  // If INPUT_STRING == KEYCHECK,        then fill VALUE_GLOBAL.
+  // If INPUT_STRING == KEYCHECK_FILTER, then fill VALUE_FILTERLIST
+  //
+  // Sim-input is of the form
+  //    INPUT_STRING:  VALUE_GLOBAL   # same value for all bands
+  //        or
+  //    INPUTS_STRING_FILTER:  <filterStringList>  <values>
+  //
+  // Note that outputs are float, not double.
+  // Functions returns number of filled values.
+  //
+  // Jul 20 2020: use NstringMatch
+
+  float ftmp;
+  char cfilt[MXFILTINDX], KEY[80] ;
+  int  MAX = 5;
+  int  i, NTMP, ifilt_obs, ifilt, ifilt_list[MXFILTINDX];
+  //  char fnam[] = "parse_input_KEY_PLUS_FILTER_legacy" ;
+
+  // ----------- BEGIN -----------
+
+  i = *iArg;
+
+  // - - - - - - -
+  if ( i < 0 ) { 
+    // read from file *fp
+    sprintf(KEY,"%s:", KEYCHECK);
+    // xxxx mark    if ( strcmp(INPUT_STRING,KEY)==0 ) { 
+    if ( NstringMatch(1, INPUT_STRING, KEY) ) { 
+      readfloat ( fp, 1, VALUE_GLOBAL );  
+      for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ )
+	{ VALUE_FILTERLIST[ifilt] = *VALUE_GLOBAL; }
+      return ;
+    }
+    
+    sprintf(KEY,"%s_FILTER:", KEYCHECK);
+    if ( NstringMatch(MAX,INPUT_STRING,KEY) ) { 
+      readchar  ( fp, cfilt );
+      readfloat ( fp, 1, &ftmp );
+      NTMP = PARSE_FILTLIST(cfilt, ifilt_list );  // return ifilt_list
+      
+      /*
+      printf(" xxx read %s cfilt=%s ftmp=%.2f NTMP=%d \n",
+      KEY, cfilt, ftmp, NTMP ); */
+      
+      for ( ifilt=0; ifilt < NTMP; ifilt++ ) {
+	ifilt_obs = ifilt_list[ifilt] ;
+	VALUE_FILTERLIST[ifilt_obs] = ftmp ;
+      }
+      return(NTMP);
+    }
+  }
+  else {
+    // read from command-line args   
+    sprintf(KEY,"%s", KEYCHECK);
+    if ( strcmp( ARGV_LIST[i], KEY ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%f", VALUE_GLOBAL ); 
+      *iArg = i ;
+      for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ ) 
+	{ VALUE_FILTERLIST[ifilt] = *VALUE_GLOBAL ; }
+      return(1);
+    }
+
+    sprintf(KEY,"%s_FILTER", KEYCHECK);
+    if ( strcmp( ARGV_LIST[i], KEY ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%s", cfilt );
+      i++ ; sscanf(ARGV_LIST[i] , "%f", &ftmp );
+      *iArg = i ;
+      NTMP = PARSE_FILTLIST(cfilt, ifilt_list );  // return ifilt_obs
+      for ( ifilt=0; ifilt < NTMP; ifilt++ ) {
+	ifilt_obs = ifilt_list[ifilt] ;
+	VALUE_FILTERLIST[ifilt_obs] = ftmp;
+      }      
+      return(NTMP);
+    }
+
+
+  } // end i if-block
+
+  return(0);
+
+} // end parse_input_KEY_PLUS_FILTER_legacy
+
+
+// ***********************************
+int read_input_file_legacy(char *input_file) {
+
+  // Jan 2016: skip lines with '#' by reading entire line after each '#'
+  // Mar 1 2017: read AV,RV stuff for SIMSED model. See READ_AVRV jump.
+  // 
+  // Jul 30 2018: pass input file as argument instead of fp
+  // Apr 09 2019:
+  //  + use new uniqueMatch() util to check for UNIQUE string-match
+  //    and abort on duplicate key.
+  //  + use keyMatch() util to check for match where the same
+  //    key is allowed multiple times.
+  //
+  // Jun 26 2019: 
+  //  + for NON1ASED, allow comma-separated sigmas for MAGSMEAR column
+  //
+  // Jul 17 2020: replace uniqueMatch calls with NstringMatch
+  //
+  FILE *fp;
+
+  char  *warp_spectrum_string = INPUTS.WARP_SPECTRUM_STRING;
+  char 
+    c_get[80], ctmp[80], ctmp2[80], tmpLine[200]
+    ,ckey[60], cval[40], cpoly[60]
+    ,*parname, *modelName, *ptrTmp = tmpLine
+    ;
+
+  float ftmp, sigTmp[2];
+  int  L_NON1ASED, L_NON1AKEY, L_PEC1AKEY, L_TMP, ITMP, NWD ;
+  int  itmp, N, j, ifilt, opt_tmp, INIT_FLAG_STRING;
+  int  key, NKEY, ovp1, ovp2, ITYPE ;
+  bool FOUNDKEY[2] ;
+  int  iArg = -9;
+  char  stringSource[] = "sim-input file" ;
+  char  comma[] = ","; 
+  char  fnam[] = "read_input_file_legacy"  ;
+
+  // -------------- BEGIN -------------
+
+  ENVreplace(input_file,fnam,1);
+  if ( (fp = fopen(input_file, "rt"))==NULL ) {       
+    sprintf ( c1err, "Cannot open input file :" );
+    sprintf ( c2err," '%s' ", input_file);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+
+  INPUTS.NREAD_INPUT_FILE++ ;
+  printf(" --------------------------------------------------------\n");
+
+
+  INIT_FLAG_STRING = 0 ;
+  if ( INPUTS.KEYNAME_DUMPFLAG) { INIT_FLAG_STRING = -1; }   
+  NstringMatch(INIT_FLAG_STRING, STRINGMATCH_INIT, stringSource); // 7.2020
+
+  printf("  Read user input file %d: %s \n", 
+	 INPUTS.NREAD_INPUT_FILE, input_file );
+
+  warp_spectrum_string[0] = ckey[0] = cval[0] = tmpLine[0] = 0 ;
+
+
+  NWD = 0 ;
+
+  while( (fscanf(fp, "%s", c_get)) != EOF) {
+
+    NWD++ ;
+
+    // if comment key is found, read remainder of line into dummy string
+    // so that anything after comment key is ignored (even a valid key)
+    if ( commentchar(c_get) ) 
+      { ptrTmp = fgets(tmpLine, 80, fp) ; continue ; }
+
+    // multiple include files allowed,
+    FOUNDKEY[0] = NstringMatch(2, c_get, "INPUT_FILE_INCLUDE:") ;
+    FOUNDKEY[1] = NstringMatch(2, c_get, "INPUT_INCLUDE_FILE:") ;
+
+    if ( FOUNDKEY[0] || FOUNDKEY[1] ) {
+      if ( strlen(INPUTS.INPUT_FILE_LIST[1]) == 0 )  // 1st include file
+	{ readchar ( fp, INPUTS.INPUT_FILE_LIST[1]); }
+      else if ( strlen(INPUTS.INPUT_FILE_LIST[2])==0 )  // 2nd include file
+	{ readchar ( fp, INPUTS.INPUT_FILE_LIST[2] ); } // Jul 30 2018
+      else {
+	sprintf(c1err,"Cannot specify 3 INPUT_FILE_INCLUDE keys");
+	sprintf(c2err,"Only 1 or 2 allowed.") ;
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+    }
+
+    if ( NstringMatch(1,c_get,"USE_KCOR_REFACTOR:") ) 
+      { readint ( fp, 1, &INPUTS.USE_KCOR_REFACTOR ); continue; }
+
+    if ( NstringMatch(1,c_get,"TRACE_MAIN:") ) 
+      { readint ( fp, 1, &INPUTS.TRACE_MAIN ); continue; }
+
+    if ( NstringMatch(1,c_get,"DEBUG_FLAG:")  ) 
+      { readint ( fp, 1, &INPUTS.DEBUG_FLAG );  continue ; }
+
+    
+    if ( NstringMatch(1,c_get,"RESTORE_DES3YR:")  )  { 
+      readint ( fp, 1, &ITMP );  
+      if ( ITMP ) { INPUTS.RESTORE_DES3YR = true; }
+      continue ; 
+    }
+
+
+    if ( NstringMatch(1,c_get,"OPT_DEVEL_GENPDF:")  ) 
+      { readint ( fp, 1, &INPUTS.OPT_DEVEL_GENPDF );  continue ; }
+
+    // --- HOSTLIB stuff
+    if ( NstringMatch(1,c_get,"HOSTLIB_FILE:")   ) {
+      readchar ( fp, INPUTS.HOSTLIB_FILE );
+      setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+      INPUTS.HOSTLIB_USE = 1;    // logical 
+      continue ; 
+    }
+
+    if ( NstringMatch(1,c_get,"HOSTLIB_WGTMAP_FILE:")  )
+      {  readchar ( fp, INPUTS.HOSTLIB_WGTMAP_FILE ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"HOSTLIB_ZPHOTEFF_FILE:")  )
+      { readchar ( fp, INPUTS.HOSTLIB_ZPHOTEFF_FILE ); continue ; }
+
+    if ( NstringMatch(1,c_get,"HOSTLIB_SPECBASIS_FILE:")  )
+      { readchar ( fp, INPUTS.HOSTLIB_SPECBASIS_FILE ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"HOSTLIB_MSKOPT:")  ) {
+      readint ( fp, 1, &itmp );
+      // remove USE-bit if set
+      if ( itmp & HOSTLIB_MSKOPT_USE ) { itmp -= HOSTLIB_MSKOPT_USE; }
+      INPUTS.HOSTLIB_MSKOPT += itmp ;
+      continue ; 
+    }
+
+    if ( NstringMatch(1,c_get,"HOSTLIB_GENZPHOT_FUDGEPAR:")  ) {
+      readfloat ( fp, 4, INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR );
+      readchar(fp, cval);
+      parse_input_GENZPHOT_OUTLIER(cval);
+      continue ; 
+    }
+    if ( NstringMatch(1,c_get,"HOSTLIB_GENZPHOT_BIAS:")  ) 
+      { readfloat ( fp, 4, INPUTS.HOSTLIB_GENZPHOT_BIAS ); continue ; }
+
+    if ( NstringMatch(1,c_get,"HOSTLIB_DZTOL:")  ) 
+      { readdouble ( fp, 3, INPUTS.HOSTLIB_DZTOL );  continue ; }
+
+    if ( NstringMatch(1,c_get,"HOSTLIB_SERSIC_SCALE:")  ) // legacy name
+      { readdouble ( fp, 1, &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); continue ; }
+
+    if ( NstringMatch(1,c_get,"HOSTLIB_SCALE_SERSIC_SIZE:")  )
+      { readdouble ( fp, 1, &INPUTS.HOSTLIB_SCALE_SERSIC_SIZE ); continue ; }
+
+    if ( NstringMatch(1,c_get,"HOSTLIB_SCALE_LOGMASS_ERR:")  )
+      { readdouble ( fp, 1, &INPUTS.HOSTLIB_SCALE_LOGMASS_ERR ); continue ; }
+   
+    // for hostlib variables, allow STOREPAR or STOREVA
+    if ( NstringMatch(1,c_get,"HOSTLIB_STOREVAR:")  )
+      { readchar ( fp, INPUTS.HOSTLIB_STOREPAR_LIST ); continue ; }
+   
+    if ( NstringMatch(1,c_get,"HOSTLIB_STOREPAR:")  )
+      { readchar ( fp, INPUTS.HOSTLIB_STOREPAR_LIST ); continue ; }
+   
+    if ( NstringMatch(1,c_get,"HOSTLIB_MAXREAD:")  )
+      { readint ( fp, 1, &INPUTS.HOSTLIB_MAXREAD ); continue ; }
+   
+    if ( NstringMatch(1,c_get,"HOSTLIB_GALID_NULL:")  )
+      { readint ( fp, 1, &INPUTS.HOSTLIB_GALID_NULL ); continue ; }
+   
+    if ( NstringMatch(1,c_get,"HOSTLIB_GALID_PRIORITY:")  ) 
+      { readint ( fp, 2, INPUTS.HOSTLIB_GALID_PRIORITY ); continue ; }
+   
+    if ( NstringMatch(1,c_get,"HOSTLIB_MINDAYSEP_SAMEGAL:")  ) 
+      { readint ( fp, 1, &INPUTS.HOSTLIB_MINDAYSEP_SAMEGAL ); continue ; }
+   
+    if ( NstringMatch(1,c_get,"HOSTLIB_MXINTFLUX_SNPOS:")  ) 
+      { readfloat ( fp, 1, &INPUTS.HOSTLIB_MXINTFLUX_SNPOS ); continue ; }
+   
+    if ( NstringMatch(1,c_get,"HOSTLIB_GENRANGE_NSIGZ:")  )
+      { readfloat ( fp, 2, INPUTS.HOSTLIB_GENRANGE_NSIGZ ); continue ; }
+   
+    if ( NstringMatch(1,c_get,"HOSTLIB_GENRANGE_RA:")  ) 
+      { readdouble ( fp, 2, INPUTS.HOSTLIB_GENRANGE_RA ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"HOSTLIB_GENRANGE_DEC:")  )
+      { readdouble ( fp, 2, INPUTS.HOSTLIB_GENRANGE_DEC ); continue ; }
+   
+    if ( NstringMatch(1,c_get,"HOSTLIB_GENRANGE_DECL:")  )
+      { readdouble ( fp, 2, INPUTS.HOSTLIB_GENRANGE_DEC ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"HOSTLIB_SBRADIUS:")  )
+      { readdouble ( fp, 1, &INPUTS.HOSTLIB_SBRADIUS ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"HOSTLIB_GALID_FORCE:")  )
+      { readint( fp, 1, &INPUTS.HOSTLIB_GALID_FORCE ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"HOSTLIB_FIXRAN_RADIUS:")  )
+      { readdouble( fp, 1, &INPUTS.HOSTLIB_FIXRAN_RADIUS); continue ; }
+    
+    if ( NstringMatch(1,c_get,"HOSTLIB_FIXRAN_PHI:")  )
+      { readdouble( fp, 1, &INPUTS.HOSTLIB_FIXRAN_PHI); continue ; }
+
+    if ( NstringMatch(1,c_get,"HOSTLIB_FIXSERSIC:")  )
+      { readdouble( fp, 4, INPUTS.HOSTLIB_FIXSERSIC); continue ; }
+   
+    if ( NstringMatch(1,c_get,"FLUXERRMODEL_FILE:")   )
+      { readchar ( fp, INPUTS.FLUXERRMODEL_FILE ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"FLUXERRMODEL_OPTMASK:")   )
+      { readint ( fp, 1, &INPUTS.FLUXERRMODEL_OPTMASK ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"FLUXERRMAP_IGNORE_DATAERR:")  )
+      { readchar ( fp, INPUTS.FLUXERRMAP_IGNORE_DATAERR ); continue ; }   
+
+    if ( strstr(c_get,"FLUXERRMODEL_REDCOV") != NULL ) {
+      // note that multiple entries with same key are allowed
+      readchar ( fp, ctmp ) ;
+      strcat(INPUTS.FLUXERRMODEL_REDCOV,c_get); // store key name
+      strcat(INPUTS.FLUXERRMODEL_REDCOV," ");   // blank space
+      strcat(INPUTS.FLUXERRMODEL_REDCOV,ctmp);  // argument
+      strcat(INPUTS.FLUXERRMODEL_REDCOV," ");   // blank space
+      if (IGNOREFILE(ctmp)) { sprintf(INPUTS.FLUXERRMODEL_REDCOV,"NONE"); }
+      continue ; 
+    }
+
+    // --- anomalous host-subtraction noise ------
+    if ( NstringMatch(1,c_get,"HOSTNOISE_FILE:")   ) {
+      readchar ( fp, INPUTS.HOSTNOISE_FILE );
+      if ( INPUTS.HOSTLIB_USE == 0  ){
+	sprintf(c1err,"Cannot define HOSTNOISE_FILE ");
+	sprintf(c2err,"without first defining HOSTLIB_FILE");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      continue ; 
+    }
+
+    // -------
+    // check options for z-variation; either separate file
+    // or ZPOLY key(s) in sim-input file.
+    
+    if ( NstringMatch(1,c_get,"ZVARIATION_FILE:")  ) {  
+      readchar ( fp, INPUT_ZVARIATION_FILE ); 
+      if ( !IGNOREFILE(INPUT_ZVARIATION_FILE) ) { USE_ZVAR_FILE = 1 ; }
+      continue ; 
+    }
+
+    if ( keyMatch(c_get,"ZVARIATION_POLY:", "")  ) { 
+
+      N = NPAR_ZVAR_USR ;
+      INPUT_ZVARIATION[N].FLAG = FLAG_ZPOLY_ZVAR ;
+      INPUT_ZVARIATION[N].NZBIN = 0 ;
+      NPAR_ZVAR_USR++ ;  
+
+      readchar(fp, INPUT_ZVARIATION[N].PARNAME ) ;
+      readchar(fp, tmpLine);  
+      // if there is a comma, use new GENPOLY struct; else ready legacy format
+      if ( strstr(tmpLine,comma) ) {
+	// store comma-separate poly coefficients in cpoly
+	sprintf(cpoly, "%s", tmpLine);	
+      }
+      else {
+	// read LEGACY format of space-separated 3rd order poly
+	double zpoly[POLYORDER_ZVAR+2];
+	sscanf(tmpLine, "%le", &zpoly[0]); 
+	readdouble(fp, POLYORDER_ZVAR, &zpoly[1] );
+	sprintf(cpoly,"%f,%f,%f,%f", zpoly[0],zpoly[1],zpoly[2],zpoly[3]);
+      }
+      parse_GENPOLY(cpoly, "z", &INPUT_ZVARIATION[N].POLY, fnam);
+      continue ; 
+    }
+
+    // ------
+
+    if ( NstringMatch(1,c_get,"SNTYPE_Ia:")  ) {
+      readint ( fp, 1, &ITYPE ) ;
+      INPUTS.SNTYPE_Ia_SPEC = ITYPE ;
+      INPUTS.SNTYPE_Ia_PHOT = ITYPE + OFFSET_TYPE_PHOT ;
+      continue ; 
+    }
+    if ( NstringMatch(1,c_get,"SNTYPES_Ia:")  ) {
+      readint ( fp, 1, &INPUTS.SNTYPE_Ia_SPEC);
+      readint ( fp, 1, &INPUTS.SNTYPE_Ia_PHOT);
+      continue ; 
+    }
+
+    if ( NstringMatch(1,c_get,"GENTYPE:")  ) {
+      readint ( fp, 1, &ITYPE ) ;
+      INPUTS.GENTYPE_SPEC = ITYPE ;
+      INPUTS.GENTYPE_PHOT = ITYPE + OFFSET_TYPE_PHOT ;
+      continue ;
+    }
+    if ( NstringMatch(1,c_get,"GENTYPES:")  ) {
+      readint ( fp, 1, &INPUTS.GENTYPE_SPEC); 
+      readint ( fp, 1, &INPUTS.GENTYPE_PHOT);
+      continue ;
+    }
+
+    if ( NstringMatch(1,c_get,"NONLINEARITY_FILE:")  ) 
+      { readchar ( fp, INPUTS.NONLINEARITY_FILE ); continue ; }    
+
+    if ( NstringMatch(1,c_get,"SIMLIB_FILE:")  ) 
+      { readchar ( fp, INPUTS.SIMLIB_FILE ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"SIMLIB_FIELDLIST:")  ) {
+      readchar ( fp, INPUTS.SIMLIB_FIELDLIST ); 
+      INPUTS.SIMLIB_FIELDSKIP_FLAG = 1 ; // count skipped fields in NGENTOT
+      continue ;
+    }
+    if ( NstringMatch(1,c_get,"SIMLIB_IDSTART:")  )
+      { readint ( fp, 1, &INPUTS.SIMLIB_IDSTART ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"SIMLIB_MAXRANSTART:")  )
+      { readint ( fp, 1, &INPUTS.SIMLIB_MAXRANSTART ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"SIMLIB_IDLOCK:")  )
+      { readint ( fp, 1, &INPUTS.SIMLIB_IDLOCK ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"SIMLIB_MINOBS:")  ) 
+      { readint ( fp, 1, &INPUTS.SIMLIB_MINOBS ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"SIMLIB_MINSEASON:")  )
+      { readdouble ( fp, 1, &INPUTS.SIMLIB_MINSEASON ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"SIMLIB_DUMP:")  ) 
+      { readint ( fp, 1, &INPUTS.SIMLIB_DUMP ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"SIMLIB_NREPEAT:")  ) 
+      { readint ( fp, 1, &INPUTS.SIMLIB_NREPEAT );  continue ; }
+    
+    if ( NstringMatch(1,c_get,"SIMLIB_NSKIPMJD:")  )
+      { readint ( fp, 1, &INPUTS.SIMLIB_NSKIPMJD ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"SIMLIB_IDSKIP:")  ) {
+      N = INPUTS.NSKIP_SIMLIB ;
+      readint ( fp, 1, &INPUTS.SIMLIB_IDSKIP[N] );
+      INPUTS.NSKIP_SIMLIB++ ;
+      continue ; 
+    }
+    if ( NstringMatch(1,c_get,"SIMLIB_CADENCEFOM_ANGSEP:")  ) 
+      { readfloat ( fp, 1, &INPUTS.SIMLIB_CADENCEFOM_ANGSEP ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"SIMLIB_CADENCEFOM_PARLIST:")  ) {
+      readdouble(fp, NPAR_SNCADENCEFOM,INPUTS.SIMLIB_CADENCEFOM_PARLIST );
+      continue ; 
+    }
+    if ( NstringMatch(1,c_get,"USE_SIMLIB_REDSHIFT:")   ) { 
+      readint ( fp, 1, &INPUTS.USE_SIMLIB_REDSHIFT ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      continue ; 
+    }
+    if ( NstringMatch(1,c_get,"USE_SIMLIB_DISTANCE:")   ) { 
+      readint ( fp, 1, &INPUTS.USE_SIMLIB_DISTANCE ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      continue ; 
+    }
+    if ( NstringMatch(1,c_get,"USE_SIMLIB_PEAKMJD:")   )  { 
+      readint ( fp, 1, &INPUTS.USE_SIMLIB_PEAKMJD ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      continue ;
+    }
+    if ( NstringMatch(1,c_get,"USE_SIMLIB_MAGOBS:")   )  { 
+      readint ( fp, 1, &INPUTS.USE_SIMLIB_MAGOBS ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      continue ;
+    }
+    if ( NstringMatch(1,c_get,"USE_SIMLIB_SPECTRA:")   ) { 
+      readint ( fp, 1, &INPUTS.USE_SIMLIB_SPECTRA ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      continue ; 
+    }
+    if ( NstringMatch(1,c_get,"USE_SIMLIB_SALT2:")   ) { 
+      readint ( fp, 1, &INPUTS.USE_SIMLIB_SALT2 ); 
+      INPUTS.USE_SIMLIB_GENOPT=1;
+      continue ; 
+    }
+
+    if ( NstringMatch(1,c_get,"SIMLIB_MSKOPT:")  ) {
+      readint ( fp, 1, &ITMP );   INPUTS.SIMLIB_MSKOPT+=ITMP ; 
+      continue ; 
+    }
+    
+    //  - - - 
+
+    if ( NstringMatch(1,c_get,"NGEN_LC:")  ) 
+      { readint ( fp, 1, &INPUTS.NGEN_LC ); continue ; }
+
+    if ( NstringMatch(1,c_get,"NGENTOT_LC:")  ) 
+      { readint ( fp, 1, &INPUTS.NGENTOT_LC ); continue ; }    
+
+    if ( NstringMatch(1,c_get,"NGEN_SEASON:")  ) 
+      { readfloat ( fp, 1, &INPUTS.NGEN_SEASON ); continue ; }    
+
+    if ( NstringMatch(1,c_get,"NGEN_SCALE:")  )
+      { readfloat ( fp, 1, &INPUTS.NGEN_SCALE ); continue ; }
+
+    if ( NstringMatch(1,c_get,"NGEN_SCALE_NON1A:")  )
+      { readfloat ( fp, 1, &INPUTS.NGEN_SCALE_NON1A ); continue ; }
+
+    if ( NstringMatch(1,c_get,"NSUBSAMPLE_MARK:")  ) 
+      { readint ( fp, 1, &INPUTS.NSUBSAMPLE_MARK ); continue ; }
+
+    if ( NstringMatch(1,c_get,"CIDOFF:")  ) 
+      { readint ( fp, 1, &INPUTS.CIDOFF ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"CIDRAN_MAX:")  ) 
+      { readint ( fp, 1, &INPUTS.CIDRAN_MAX ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"CIDRAN_MIN:")  ) 
+      { readint ( fp, 1, &INPUTS.CIDRAN_MIN ); continue ; }    
+
+    if ( NstringMatch(1,c_get,"FORMAT_MASK:")  ) 
+      { readint ( fp, 1, &INPUTS.FORMAT_MASK ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"WRFLAG_MODELPAR:")  )
+      { readint ( fp, 1, &INPUTS.WRFLAG_MODELPAR ); continue ; }
+    
+    // - - - -  -
+
+    if ( NstringMatch(1,c_get,"NPE_PIXEL_SATURATE:")  ) 
+      { readint ( fp, 1, &INPUTS.NPE_PIXEL_SATURATE ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"PHOTFLAG_SATURATE:")  )
+      { readint ( fp, 1, &INPUTS.PHOTFLAG_SATURATE ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"PHOTFLAG_SNRMAX:")  ) 
+      { readint ( fp, 1, &INPUTS.PHOTFLAG_SNRMAX ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"PHOTFLAG_NEARPEAK:")  ) 
+      { readint ( fp, 1, &INPUTS.PHOTFLAG_NEARPEAK ); continue ; }
+
+    if ( NstringMatch(1,c_get,"PHOTFLAG_DETECT:")  ) 
+      { readint ( fp, 1, &INPUTS_SEARCHEFF.PHOTFLAG_DETECT ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"PHOTFLAG_TRIGGER:")  )
+      { readint ( fp, 1, &INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER ); continue ; }   
+
+    // -----
+    // check for SIMGEN_DUMP
+
+    if ( strstr(c_get,"SIMGEN_DUMP") != NULL ) {
+      parse_input_SIMGEN_DUMP(fp, &iArg, c_get ); 
+    }
+
+    // -----------
+
+    if ( NstringMatch(1, c_get,"GENVERSION:")   ) {
+      readchar ( fp, INPUTS.GENVERSION );
+      sprintf(INPUTS.GENPREFIX,"%s", INPUTS.GENVERSION); // default
+      continue ; 
+    }
+    if ( NstringMatch(1,c_get,"GENPREFIX:")   ) 
+      { readchar ( fp, INPUTS.GENPREFIX ); continue ; }
+
+    if ( NstringMatch(0, c_get,"CLEARPROMPT:")  ) // abort on obsolete key
+      { readint ( fp, 1, &INPUTS.CLEARPROMPT ); continue ; }
+
+    if ( NstringMatch(1, c_get,"GENSOURCE:")  )
+      { readchar ( fp, INPUTS.GENSOURCE ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENMODEL_MSKOPT:")  ) 
+      { readint ( fp, 1, &INPUTS.GENMODEL_MSKOPT ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENMODEL_ARGLIST:")  )
+      { parse_input_GENMODEL_ARGLIST_legacy(fp,&iArg); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENMODEL:") > 0  ) {
+      parse_input_GENMODEL_legacy(fp,&iArg);  //4.18.2019
+      continue ;
+    } // end GENMODEL
+
+    if ( NstringMatch(1,c_get,"GENPDF_FILE:")  ) 
+      { readchar ( fp, INPUTS.GENPDF_FILE ); continue ; }
+    if ( NstringMatch(1,c_get,"GENPDF_IGNORE:")  ) 
+      { readchar ( fp, INPUTS.GENPDF_IGNORE ); continue ; }
+    if ( NstringMatch(1,c_get,"GENPDF_FLAT:")  ) 
+      { readchar ( fp, INPUTS.GENPDF_FLAT ); continue ; }
+    if ( NstringMatch(1,c_get,"GENPDF_OPTMASK:")  ) 
+      { readint ( fp, 1, &INPUTS.GENPDF_OPTMASK ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENMODEL_EXTRAP_LATETIME:") ) 
+      { readchar ( fp, INPUTS.GENMODEL_EXTRAP_LATETIME ); continue ; }
+
+    if ( NstringMatch(1,c_get,"PATH_USER_INPUT:")  )
+      { readchar(fp, PATH_USER_INPUT ); continue ; }
+
+    if ( NstringMatch(1,c_get,"PATH_SNDATA_SIM:")  )
+      { readchar(fp, INPUTS.PATH_SNDATA_SIM ); continue ; }
+
+    // - - - - - 
+    if ( NstringMatch(1,c_get,"PATH_NON1ASED:")  )
+      { readchar(fp, INPUTS.NON1ASED.PATH ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"PATH_NONIASED:")  )
+      { readchar(fp, INPUTS.NON1ASED.PATH ); continue ; }
+   
+    L_NON1ASED = ( INPUTS.NON1A_MODELFLAG == MODEL_NON1ASED ) ;
+
+    L_NON1AKEY = (
+      NstringMatch(1,c_get,"NON1A_KEYS:")  ||
+      NstringMatch(1,c_get,"NONIA_KEYS:")  ||
+      NstringMatch(1,c_get,"NON1ASED_KEYS:") ||
+      NstringMatch(1,c_get,"NONIASED_KEYS:") 
+		  );
+
+    /* xxx mark delete Jul 17 2020 xxxxx
+    L_NON1AKEY = ( strcmp(c_get,"NON1A_KEYS:")    ==0 || 
+		   strcmp(c_get,"NONIA_KEYS:")    ==0 ||
+		   strcmp(c_get,"NON1ASED_KEYS:") ==0 || 
+		   strcmp(c_get,"NONIASED_KEYS:") ==0      ) ;
+    xxxx */
+
+    if ( L_NON1ASED && L_NON1AKEY ) {
+      readint ( fp, 1, &NKEY );
+      if ( NKEY < 2 ) {
+	sprintf(c1err,"NON1A_KEYS = %d, but must be >=2.", NKEY);
+	sprintf(c1err,"Check sim-input file." );
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      INPUTS.NON1ASED.NKEY = NKEY;
+      for ( key = 1; key <= NKEY; key++ ) {
+	readchar(fp, ckey );
+	sprintf(INPUTS.NON1ASED.KEYLIST[key], "%s", ckey );
+      }
+
+      // check required keys
+      ovp1 = strcmp(INPUTS.NON1ASED.KEYLIST[1],"INDEX") ;
+      ovp2 = strcmp(INPUTS.NON1ASED.KEYLIST[2],"WGT"  ) ;
+      if ( ovp1 != 0 ) {
+	sprintf(c1err,"First NON1ASED_KEY is '%s' , but must be 'INDEX' ",
+		INPUTS.NON1ASED.KEYLIST[1] ) ;
+	sprintf(c2err,"Check sim-input file.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+      if ( ovp2 != 0 ) {
+	sprintf(c1err,"Second NON1ASED_KEY is ' %s' , but must be 'WGT' ", 
+		INPUTS.NON1ASED.KEYLIST[2]) ;
+	sprintf(c2err,"Check sim-input file.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+
+    } // end of NON1ASED_KEYS
+
+    if ( NstringMatch(1,c_get,"NON1A_STOP:"   )) { INPUTS.NON1ASED.STOP = 1 ; }
+    if ( NstringMatch(1,c_get,"NON1ASED_STOP:")) { INPUTS.NON1ASED.STOP = 1 ; }
+
+    L_NON1ASED  = (INPUTS.NON1A_MODELFLAG == MODEL_NON1ASED) ;
+    L_NON1AKEY  = ( NstringMatch(MXNON1A_TYPE,c_get,"NON1A:") ||
+		    NstringMatch(MXNON1A_TYPE,c_get,"NONIA:") ||
+		    NstringMatch(MXNON1A_TYPE,c_get,"NONIASED:") ||
+		    NstringMatch(MXNON1A_TYPE,c_get,"NON1ASED:") ) ;
+   
+    L_PEC1AKEY  = ( NstringMatch(MXNON1A_TYPE,c_get,"PEC1A:") || 
+		    NstringMatch(MXNON1A_TYPE,c_get,"PECIA:") ||
+		    NstringMatch(MXNON1A_TYPE,c_get,"PECIASED:") ||
+		    NstringMatch(MXNON1A_TYPE,c_get,"PEC1ASED:") ) ;
+
+    L_TMP = 
+      (L_NON1ASED) && (L_NON1AKEY || L_PEC1AKEY) && 
+      (INPUTS.NON1ASED.STOP==0) ;
+
+    if ( L_TMP ) { 
+
+      INPUTS.NON1ASED.NINDEX++ ; N = INPUTS.NON1ASED.NINDEX;
+      if ( L_PEC1AKEY ) { 
+	INPUTS.NON1ASED.NPEC1A++ ;
+	INPUTS.NON1ASED.ISPEC1A[N] = 1; 
+      }
+      else { 
+	INPUTS.NON1ASED.NNON1A++ ; 
+	if ( INPUTS.NON1ASED.NPEC1A > 0 ) {
+	  sprintf(c1err, "All NON1A keys must appear before PEC1A keys");
+	  sprintf(c2err, "Check sim-input file (and INCLUDE file)");
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+	}
+      }
+
+      for ( key=1; key <= INPUTS.NON1ASED.NKEY ; key++ ) {
+
+	sprintf(ckey, "%s", INPUTS.NON1ASED.KEYLIST[key] );
+	readchar(fp, ctmp );
+
+	INPUTS.NON1ASED.KEYVAL[N][key] = ftmp ;
+
+	if ( strcmp(ckey, "INDEX") == 0 ) 
+	  { sscanf(ctmp, "%d", &INPUTS.NON1ASED.INDEX[N]); }
+	else if ( strcmp(ckey, "WGT") == 0 ) 
+	  { sscanf(ctmp, "%f", &INPUTS.NON1ASED.WGT[N]); }
+	else if ( strcmp(ckey, "MAGOFF") == 0 ) 
+	  { sscanf(ctmp, "%f", &INPUTS.NON1ASED.MAGOFF[N]); }
+	else if ( strcmp(ckey, "MAGSMEAR") == 0 ) {
+	  split2floats(ctmp, comma, sigTmp ); 
+	  INPUTS.NON1ASED.MAGSMEAR[N][0] = sigTmp[0] ;
+	  INPUTS.NON1ASED.MAGSMEAR[N][1] = sigTmp[1] ;
+	  // if non1a magsmear is nonzero, then set global GENMAG_SMEAR
+	  // so that random numbers are generated for smearing.
+	  if ( sigTmp[0] > 0.0  &&  INPUTS.GENMAG_SMEAR[0] == 0.0 ) 
+	    { INPUTS.GENMAG_SMEAR[0] = INPUTS.GENMAG_SMEAR[1] = 0.001; }
+	}
+	else if ( strcmp(ckey, "SNTYPE") == 0 ) 
+	  { sscanf(ctmp, "%d", &INPUTS.NON1ASED.SNTAG[N]); }
+	else if ( strcmp(ckey, "SNTAG") == 0 )   // same as SNTYPE
+	  { sscanf(ctmp, "%d", &INPUTS.NON1ASED.SNTAG[N]); }
+	else {
+	  sprintf(c1err, "Invalid NON1A key: '%s'", ckey );
+	  sprintf(c2err, "Valid keys are INDEX WGT MAGOFF MAGSMEAR" );
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+	}
+      }
+
+    }
+
+ 
+    if ( NstringMatch(1,c_get,"MJD_EXPLODE:")  ) {
+      readdouble(fp, 1, &INPUTS.MJD_EXPLODE );
+      if ( INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE < 0 ) 
+	{ INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE = 0 ; }
+      INPUTS.GENRANGE_PEAKMJD[0] = INPUTS.MJD_EXPLODE ;
+      INPUTS.GENRANGE_PEAKMJD[1] = INPUTS.MJD_EXPLODE ;
+      continue ;
+    }
+    if ( NstringMatch(1,c_get,"OPTMASK_T0SHIFT_EXPLODE:")  ) {
+      readint(fp, 1, &INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE); 
+      continue ;
+    }
+
+    if ( NstringMatch(1,c_get,"UVLAM_EXTRAPFLUX:")  ) {
+      readdouble(fp, 1, &INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX); 
+      continue ; 
+    }
+
+    if ( NstringMatch(1,c_get,"MINSLOPE_EXTRAPMAG_LATE:")  )  {
+      readdouble(fp, 1, &INPUTS_SEDMODEL.MINSLOPE_EXTRAPMAG_LATE); 
+      continue ; 
+    }
+    
+    if ( NstringMatch(1,c_get,"RANSEED:") ) {
+      readint(fp, 1,  &ITMP) ;
+      INPUTS.ISEED = ITMP ;     // set unsigned int
+      continue ; 
+    }
+    if ( NstringMatch(1,c_get,"NSTREAM_RAN:") ) {
+      readint(fp, 1,  &INPUTS.NSTREAM_RAN) ;
+      continue ; 
+    }
+
+
+    if ( NstringMatch(1,c_get,"RANLIST_START_GENSMEAR:") )
+      { readint(fp, 1, &INPUTS.RANLIST_START_GENSMEAR ); continue ; }    
+
+    if ( NstringMatch(1,c_get,"GENRANGE_RA:")  ) 
+      { readfloat ( fp, 2, INPUTS.GENRANGE_RA ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"GENRANGE_DECL:")  )
+      { readfloat ( fp, 2, INPUTS.GENRANGE_DEC ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"GENRANGE_DEC:")  )
+      { readfloat ( fp, 2, INPUTS.GENRANGE_DEC ); continue ; }
+
+    if ( strstr(c_get,"SOLID_ANGLE") != NULL ) {
+      parse_input_SOLID_ANGLE(fp, &iArg, c_get ); 
+      continue ; 
+    }
+
+    if ( NstringMatch(1,c_get,"GENRANGE_REDSHIFT:")  ) 
+      { readdouble ( fp, 2, INPUTS.GENRANGE_REDSHIFT ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"GENSIGMA_REDSHIFT:")  ) 
+      { readdouble ( fp, 1, &INPUTS.GENSIGMA_REDSHIFT ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"GENBIAS_REDSHIFT:")  ) 
+      { readdouble ( fp, 1, &INPUTS.GENBIAS_REDSHIFT ); continue ; }    
+
+    if ( NstringMatch(1,c_get,"GENSIGMA_VPEC:")  )
+      { readfloat ( fp, 1, &INPUTS.GENSIGMA_VPEC ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"VPEC_ERR:")  )
+      { readfloat ( fp, 1, &INPUTS.VPEC_ERR ); continue ; }    
+
+    if ( NstringMatch(1,c_get,"VEL_CMBAPEX:")  ) 
+      { readfloat ( fp, 1, &INPUTS.VEL_CMBAPEX ); continue ; }
+ 
+    // - - - - -- 
+    // wrongHost model params
+
+    if ( NstringMatch(1,c_get,"WRONGHOST_FILE:")  ) 
+      { readchar( fp, INPUTS.WRONGHOST_FILE); continue ; }
+
+    // ---- read/parse RATEPAR struct -----------
+    read_input_RATEPAR(fp, "NOMINAL", c_get, &INPUTS.RATEPAR );
+    read_input_RATEPAR(fp, "PEC1A",   c_get, &INPUTS.RATEPAR_PEC1A );
+    // - - - - 
+
+    if ( NstringMatch(1,c_get,"GENRANGE_PEAKMAG:")  )
+      { readdouble ( fp, 2, INPUTS.GENRANGE_PEAKMAG ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENRANGE_MJD:")  )
+      { readdouble ( fp, 2, INPUTS.GENRANGE_MJD ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENRANGE_PEAKMJD:")  ) 
+      { readdouble ( fp, 2, INPUTS.GENRANGE_PEAKMJD ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENSIGMA_SEARCH_PEAKMJD:")  )  // legacy key
+      { readfloat ( fp, 1, &INPUTS.GENSIGMA_PEAKMJD ); continue ; }
+    if ( NstringMatch(1,c_get,"GENSIGMA_PEAKMJD:")  ) 
+      { readfloat ( fp, 1, &INPUTS.GENSIGMA_PEAKMJD ); continue ; }
+    if ( NstringMatch(1,c_get,"OPT_SETPKMJD:")  ) 
+      { readint ( fp, 1, &INPUTS.OPT_SETPKMJD ); continue ; }
+
+    if ( NstringMatch(1,c_get,"NEWMJD_DIF:")  ) 
+      { readfloat ( fp, 1, &INPUTS.NEWMJD_DIF ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENRANGE_TREST:")  ) 
+      { readfloat ( fp, 2, INPUTS.GENRANGE_TREST ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENRANGE_TOBS:")  ) 
+      { readfloat ( fp, 2, INPUTS.GENRANGE_TOBS ); continue ; }
+
+    if ( NstringMatch(1,c_get,"TGRIDSTEP_MODEL_INTERP:")  ) 
+      { readfloat ( fp, 1, &INPUTS.TGRIDSTEP_MODEL_INTERP ); continue ; }
+
+    // contraint input file
+    if ( NstringMatch(1,c_get,"GENPAR_SELECT_FILE:")  ) 
+      { readchar ( fp, INPUTS.GENPAR_SELECT_FILE ); continue ; }
+
+    // ----- SIMSED parameters ---------
+
+    if ( strstr(c_get,"SIMSED") != NULL ) 
+      { read_input_SIMSED(fp,c_get); }
+
+    N       = INPUTS.NPAR_SIMSED ;
+    opt_tmp = INPUTS.GENFLAG_SIMSED[N-1];
+    if ( N >= MXPAR_SIMSED ) {
+      sprintf(c1err, "NPAR_SIMSED=%d exceeds array bound", N);
+      sprintf(c2err, "Check SIMSED_PARAM keywords in input file." );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
+    if ( N > 0 && (opt_tmp & OPTMASK_SIMSED_PARAM ) > 0 ) {
+      parname = INPUTS.PARNAME_SIMSED[N-1];
+      read_input_GENGAUSS(fp, c_get, parname,  &INPUTS.GENGAUSS_SIMSED[N-1] );
+      INPUTS.GENGAUSS_SIMSED[N-1].FUNINDEX = N-1; 
+    }
+
+    // Jun 14, 2013
+    // to avoid key confusion (e.g., GENRANGE_AV for mlcs or for SIMSED?),
+    // skip lots of key checks if SIMSED model is set.
+    if ( INPUTS.NPAR_SIMSED > 0 ) { goto READ_AVRV ; }
+
+
+    // - - - - - - - - - - 
+    // read risetime-shift info
+    read_input_GENGAUSS(fp, c_get, "RISETIME_SHIFT",  
+			&INPUTS.GENGAUSS_RISETIME_SHIFT );
+
+    read_input_GENGAUSS(fp, c_get, "FALLTIME_SHIFT",  
+			&INPUTS.GENGAUSS_FALLTIME_SHIFT );    
+
+    // read shape par. Imput key depends on model,
+
+    read_input_GENGAUSS(fp, c_get, "DELTA",    &INPUTS.GENGAUSS_DELTA    );
+    read_input_GENGAUSS(fp, c_get, "DM15",     &INPUTS.GENGAUSS_DM15     );
+    read_input_GENGAUSS(fp, c_get, "STRETCH",  &INPUTS.GENGAUSS_STRETCH  );
+
+    if ( NstringMatch(1,c_get,"STRETCH_TEMPLATE_FILE:" )   )
+      { readchar(fp, INPUTS.STRETCH_TEMPLATE_FILE ); continue ; }
+
+    // read SALT2 gen parameters
+    read_input_GENGAUSS(fp, c_get, "SALT2c",     &INPUTS.GENGAUSS_SALT2c     );
+    read_input_GENGAUSS(fp, c_get, "SALT2x1",    &INPUTS.GENGAUSS_SALT2x1    );
+    read_input_GENGAUSS(fp, c_get, "SALT2ALPHA", &INPUTS.GENGAUSS_SALT2ALPHA );
+    read_input_GENGAUSS(fp, c_get, "SALT2BETA",  &INPUTS.GENGAUSS_SALT2BETA  );
+
+    if ( NstringMatch(1,c_get,"BIASCOR_SALT2GAMMA_GRID:")   ) 
+      { readdouble(fp, 2, INPUTS.BIASCOR_SALT2GAMMA_GRID );  continue ; }
+
+    if ( NstringMatch(1,c_get,"SALT2BETA_cPOLY:")   )  { 
+      readchar(fp, cpoly);
+      parse_GENPOLY(cpoly, "SALT2BETA_cPOLY", &INPUTS.SALT2BETA_cPOLY, fnam);
+      continue ;
+    }
+
+    if ( NstringMatch(1,c_get,"SALT2mu_FILE:" )   )
+      { readchar(fp, INPUTS.SALT2mu_FILE ); continue ; }
+
+    // read legacy SALT2 alpha & beta key, but load modern variable
+    if ( NstringMatch(1,c_get,"GENALPHA_SALT2:")  ) {
+      readfloat ( fp, 1, &INPUTS.GENALPHA_SALT2 );
+      INPUTS.GENGAUSS_SALT2ALPHA.PEAK     = INPUTS.GENALPHA_SALT2 ; 
+      INPUTS.GENGAUSS_SALT2ALPHA.USE      = true ;
+      continue ; 
+    }
+    if ( NstringMatch(1,c_get,"GENBETA_SALT2:")  ) {
+      readfloat ( fp, 1, &INPUTS.GENBETA_SALT2 );
+      INPUTS.GENGAUSS_SALT2BETA.PEAK     = INPUTS.GENBETA_SALT2 ; 
+      INPUTS.GENGAUSS_SALT2BETA.USE      = true ;
+      continue ; 
+    }
+
+    if ( NstringMatch(1,c_get,"LEGACY_colorXTMW_SALT2:")    )
+      { readint(fp, 1, &INPUTS.LEGACY_colorXTMW_SALT2); continue ; }
+
+    // ---
+
+  READ_AVRV:
+
+    read_input_GENGAUSS(fp, c_get, PARNAME_RV,  &INPUTS.GENGAUSS_RV );
+
+    if ( NstringMatch(1,c_get,"GENRANGE_AV:")  ) 
+      { readdouble ( fp, 2, INPUTS.GENPROFILE_AV.RANGE ); 
+	INPUTS.GENRANGE_AV[0] = INPUTS.GENPROFILE_AV.RANGE[0];//legacy
+	INPUTS.GENRANGE_AV[1] = INPUTS.GENPROFILE_AV.RANGE[1];//legacy
+	continue ; 
+      }
+
+    // allow old or new key for AV tau
+    if ( NstringMatch(1,c_get,"GENTAU_AV:")||NstringMatch(1,c_get,"GENEXPTAU_AV:") ) 
+      {
+	readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.EXP_TAU ); 
+	INPUTS.GENEXPTAU_AV = INPUTS.GENPROFILE_AV.EXP_TAU ; //legacy variable
+	continue ;
+      }
+     
+
+    if ( NstringMatch(1,c_get,"GENSIG_AV:") || NstringMatch(1,c_get,"GENGAUSIG_AV:") ) 
+      {
+	readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.SIGMA );
+        INPUTS.GENGAUSIG_AV = INPUTS.GENPROFILE_AV.SIGMA ; //legacy variable                              
+	continue ;
+      }
+
+    if ( NstringMatch(1,c_get,"GENGAUPEAK_AV:")  ) 
+      { readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.PEAK ); 
+	INPUTS.GENGAUPEAK_AV = INPUTS.GENPROFILE_AV.PEAK;//legacy
+	continue ; 
+      } 
+
+    if ( NstringMatch(1,c_get,"GENRATIO_AV0:")  ) 
+      { 
+	readdouble ( fp, 1, &INPUTS.GENPROFILE_AV.RATIO ); 
+	INPUTS.GENRATIO_AV0 = INPUTS.GENPROFILE_AV.RATIO ; //legacy
+	continue ; 
+      } 
+
+    // ------- Now for EBV_HOST -------------
+
+    if ( NstringMatch(1,c_get,"GENGAUPEAK_EBV_HOST:")  )
+      { readdouble ( fp, 1, &INPUTS.GENPROFILE_EBV_HOST.PEAK ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENSIG_EBV_HOST:")  )
+      { readdouble ( fp, 1, &INPUTS.GENPROFILE_EBV_HOST.SIGMA ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENTAU_EBV_HOST:")  )
+      { readdouble ( fp, 1, &INPUTS.GENPROFILE_EBV_HOST.EXP_TAU ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENRATIO_EBV0_HOST:")  )
+      { readdouble ( fp, 1, &INPUTS.GENPROFILE_EBV_HOST.RATIO ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENRANGE_EBV_HOST:")  )
+      { readdouble ( fp, 2, INPUTS.GENPROFILE_EBV_HOST.RANGE ); continue ; }
+    // ----------------------------------------
+
+
+    if ( NstringMatch(1,c_get,"GENAV_WV07:")  ) // legacy key name
+      { readint ( fp, 1, &INPUTS.WV07_GENAV_FLAG ); continue ; }
+    if ( NstringMatch(1,c_get,"WV07_GENAV_FLAG:")  ) 
+      { readint ( fp, 1, &INPUTS.WV07_GENAV_FLAG ); continue ; }
+    if ( NstringMatch(1,c_get,"WV07_REWGT_EXPAV:")  ) 
+      { readdouble ( fp, 1, &INPUTS.WV07_REWGT_EXPAV ); continue ; }
+
+
+    if ( NstringMatch(1,c_get,"RVMW:")   ) // allow legacy key (Sep 2013)
+      { readdouble ( fp, 1, &INPUTS.RV_MWCOLORLAW ); continue ; }
+    if ( NstringMatch(1,c_get,"RV_MWCOLORLAW:")   )  // new key (Sep 2013)
+      { readdouble ( fp, 1, &INPUTS.RV_MWCOLORLAW ); continue ; }
+
+    if ( NstringMatch(1,c_get,"OPT_MWCOLORLAW:")   ) 
+      { readint ( fp, 1, &INPUTS.OPT_MWCOLORLAW ); continue ; }
+
+    if ( NstringMatch(1,c_get,"OPT_MWEBV:")  ) {
+      readint ( fp, 1, &opt_tmp) ;
+      INPUTS.OPT_MWEBV = abs(opt_tmp);
+      if ( opt_tmp < 0 ) { INPUTS.APPLYFLAG_MWEBV=1; } // correct FLUXCAL
+      continue ; 
+    }
+
+    // next are for systematic tests
+    if ( NstringMatch(1,c_get,"GENSIGMA_MWEBV_RATIO:")  )
+      { readdouble ( fp, 1, &INPUTS.MWEBV_SIGRATIO ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENSIGMA_MWEBV:")  )
+      { readdouble ( fp, 1, &INPUTS.MWEBV_SIG ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENSHIFT_MWEBV:")  ||
+	 NstringMatch(1,c_get,"FUDGESHIFT_MWEBV:")  )
+      { readdouble ( fp, 1, &INPUTS.MWEBV_SHIFT ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENSCALE_MWEBV:")  ||
+	 NstringMatch(1,c_get,"FUDGESCALE_MWEBV:")  )
+      { readdouble ( fp, 1, &INPUTS.MWEBV_SCALE ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENRANGE_MWEBV:")  )
+      { readdouble ( fp, 2, INPUTS.GENRANGE_MWEBV ); continue ; }
+
+    // ---- host -----
+
+    if ( NstringMatch(1,c_get,"EXTINC_HOSTGAL:")  ) 
+      { readchar ( fp, INPUTS.GENSNXT );  continue ; }
+
+    // ---
+
+    if ( NstringMatch(1,c_get,"GENMAG_OFF_AB:")  ||   // legacy key
+	 NstringMatch(1,c_get,"GENMAG_OFF_ZP:")  ) {
+      if ( INPUTS.NFILTDEF_OBS == 0 ) {
+	sprintf(c1err,"Filters NOT specified: cannot read AB offsets.");
+	sprintf(c2err,"Please define filters BEFORE AB offsets.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      readfloat ( fp, INPUTS.NFILTDEF_OBS, INPUTS.TMPOFF_ZP);
+      continue ;
+    }
+
+
+    if ( NstringMatch(1,c_get,"GENMAG_OFF_GLOBAL:")  ) 
+      { readfloat ( fp, 1, &INPUTS.GENMAG_OFF_GLOBAL ); continue ; }
+    if ( NstringMatch(1,c_get,"GENMAG_OFF_NON1A:")  ) 
+      { readfloat ( fp, 1, &INPUTS.GENMAG_OFF_NON1A ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENMAG_OFF_MODEL:")  ) {
+      if ( INPUTS.NFILTDEF_OBS == 0 ) {
+	sprintf(c1err,"Filters NOT specified: cannot read MODEL offsets.");
+	sprintf(c2err,"Please define filters BEFORE MODEL offsets.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      readfloat ( fp, INPUTS.NFILTDEF_OBS, INPUTS.TMPOFF_MODEL );
+      continue ; 
+    }
+
+
+    if ( NstringMatch(1,c_get,"GENMODEL_ERRSCALE:")  ) 
+      {  readfloat ( fp, 1, &INPUTS.GENMODEL_ERRSCALE ); continue ; }
+    if ( NstringMatch(1,c_get,"GENMAG_SMEAR:")  ) {
+      readchar(fp, ctmp); 
+      split2floats(ctmp, comma, INPUTS.GENMAG_SMEAR );
+      continue ;
+    }
+
+    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_ADDPHASECOR:")  ) 
+      { readfloat(fp, 2, INPUTS.GENMAG_SMEAR_ADDPHASECOR );  }
+
+    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_USRFUN:")  ) { 
+      INPUTS.NPAR_GENSMEAR_USRFUN     = 8 ; // fix hard-wired param
+      readdouble ( fp, INPUTS.NPAR_GENSMEAR_USRFUN, 
+		   INPUTS.GENMAG_SMEAR_USRFUN );
+      sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"USRFUN");
+
+      // turn off this option of first parameter is negative
+      if ( INPUTS.GENMAG_SMEAR_USRFUN[0] <= -1.0E-7 ) {  
+	sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"NONE"); 
+	INPUTS.NPAR_GENSMEAR_USRFUN  = 0 ;
+      }
+      continue ; 
+    }
+
+
+    if ( strstr(c_get,"GENMAG_SMEAR_SCALE") != NULL ) 
+      { parse_input_GENMAG_SMEAR_SCALE(fp, &iArg, c_get ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_MSKOPT:")   ) 
+      { readint(fp, 1, &INPUTS.GENMAG_SMEAR_MSKOPT ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_MODELNAME:")   ) {
+      modelName = INPUTS.GENMAG_SMEAR_MODELNAME  ;
+      readchar(fp, modelName );
+      if ( strcmp(modelName,"G10FUDGE") == 0 ) 
+	{ readdouble ( fp, 1, &INPUTS.GENMAG_SMEAR_USRFUN[0] );  }
+
+      if ( strstr(modelName,":")!= NULL)  { parse_GENMAG_SMEAR_MODELNAME(); }
+      continue ; 
+    }
+
+    // updated keys for strong & weak lensing (July 2019)
+    if ( NstringMatch(1,c_get,"STRONGLENS_FILE:")   ) 
+      { readchar(fp, INPUTS.STRONGLENS_FILE); continue ; }
+
+    if ( NstringMatch(1,c_get,"WEAKLENS_PROBMAP_FILE:")   ) 
+      { readchar(fp, INPUTS.WEAKLENS_PROBMAP_FILE); continue ; }
+    if ( NstringMatch(1,c_get,"WEAKLENS_DMUSCALE:")   ) 
+      { readfloat(fp, 1, &INPUTS.WEAKLENS_DMUSCALE); continue ; }
+    if ( NstringMatch(1,c_get,"WEAKLENS_DSIGMADZ:")   ) 
+      { readfloat(fp, 1, &INPUTS.WEAKLENS_DSIGMADZ); continue ; }
+
+    // legacy keys for weak lensing (May 2017)
+    if ( NstringMatch(1,c_get,"LENSING_PROBMAP_FILE:")   ) 
+      { readchar(fp, INPUTS.WEAKLENS_PROBMAP_FILE); continue ; }
+    if ( NstringMatch(1,c_get,"LENSING_DMUSCALE:")   ) 
+      { readfloat(fp, 1, &INPUTS.WEAKLENS_DMUSCALE); continue ; }
+    if ( NstringMatch(1,c_get,"LENSING_DSIGMADZ:")   ) 
+      { readfloat(fp, 1, &INPUTS.WEAKLENS_DSIGMADZ); continue ; }
+
+    int NVAL;
+    char key[60], parName[60];
+    double tmpList[MXSMEARPAR_OVERRIDE];
+    // allow multiple of these keys
+    if ( keyMatch(c_get,"GENMAG_SMEARPAR_OVERRIDE:", "" ) ) { 
+      readchar(fp, key);
+      NVAL = nval_genSmear_override(key, parName); // return NVAL,parName
+      readdouble(fp, NVAL, tmpList);               // read tmpList
+      store_genSmear_override(parName,NVAL,tmpList); 
+      continue ;
+    }
+
+
+    if ( NstringMatch(1,c_get,"GENSMEAR_RANGauss_FIX:")  ) 
+      { readdouble ( fp, 1, &INPUTS.GENSMEAR_RANGauss_FIX ); continue ; }
+    if ( NstringMatch(1,c_get,"GENSMEAR_RANGAUSS_FIX:")  ) 
+      { readdouble ( fp, 1, &INPUTS.GENSMEAR_RANGauss_FIX ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENSMEAR_RANFlat_FIX:")  ) 
+      { readdouble ( fp, 1, &INPUTS.GENSMEAR_RANFlat_FIX ); continue ; }
+    if ( NstringMatch(1,c_get,"GENSMEAR_RANFLAT_FIX:")  ) 
+      { readdouble ( fp, 1, &INPUTS.GENSMEAR_RANFlat_FIX ); continue ; }
+
+    if ( NstringMatch(1,c_get,"SIGMACLIP_MAGSMEAR:")  ) 
+      { readfloat ( fp, 2, INPUTS.SIGMACLIP_MAGSMEAR ); continue ; }
+
+
+    if ( NstringMatch(1,c_get,"GENMAG_SMEAR_FILTER:")  ) {
+      readchar(fp, ctmp );  // list of filters
+      readchar(fp, ctmp2);  // float value or "INTERP" flag
+
+      if ( strcmp(ctmp2,"INTERP") == 0 ) 
+	{ ftmp = -1.0 ; } // any negative number -> interpolate smear
+      else
+	{ sscanf(ctmp2, "%f", &ftmp); }
+
+      if ( ftmp != 0.0 ) {
+	N = INPUTS.NFILT_SMEAR ;
+	INPUTS.NFILT_SMEAR += 
+	  PARSE_FILTLIST(ctmp, &INPUTS.IFILT_SMEAR[N+1] );
+	for ( j=N+1; j <= INPUTS.NFILT_SMEAR; j++ ) {
+	  ifilt = INPUTS.IFILT_SMEAR[j];
+	  INPUTS.GENMAG_SMEAR_FILTER[ifilt] = ftmp ;
+	}
+      }
+      continue ; 
+    }
+
+    if ( NstringMatch(1,c_get,"GENMODEL_ERRSCALE_OPT:")  ) 
+      {  readint(fp,1,&INPUTS.GENMODEL_ERRSCALE_OPT ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENMODEL_ERRSCALE_CORRELATION:")  ) 
+      { readfloat(fp,1,&INPUTS.GENMODEL_ERRSCALE_CORRELATION ); continue;}
+
+    // check intrinsic scatter
+
+    if ( strncmp(c_get,"COVMAT_SCATTER",14) == 0 ) {
+      sprintf(ckey,"%s", c_get);
+      readchar(fp, cval);
+      PARSE_COVMAT_SCATTER(ckey,cval) ;
+      continue ; 
+    }
+    // -----
+
+    if ( NstringMatch(1,c_get,"GENRANGE_TYPE:")  ) 
+      { readint ( fp, 2, INPUTS.GENRANGE_TYPE ); continue ; }
+    if ( NstringMatch(1,c_get,"GENRANGE_CID:")  ) 
+      { readint ( fp, 2, INPUTS.GENRANGE_CID ); continue ; }
+
+
+    // check old option to specify filter-index range;
+    // Users should really switch to using 'GENFILTERS: abcd'
+
+    if ( NstringMatch(1,c_get,"GENRANGE_FILT:")  ) {
+      sprintf(c1err,"GENRANGE_FILT: keyword no longer supported.");
+      sprintf(c2err,"Must use GENFILTERS: ");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    // Aug 13, 2007: new option to read filter-string so that
+    // users need not worry about indices.
+
+    if ( NstringMatch(1,c_get,"GENFILTERS:")  ) {
+      readchar ( fp, INPUTS.GENFILTERS );
+      // must parse this NOW to get NFILT_OBS
+      INPUTS.NFILTDEF_OBS =
+	PARSE_FILTLIST( INPUTS.GENFILTERS, INPUTS.IFILTMAP_OBS  );
+      continue ; 
+    }
+
+
+    if ( NstringMatch(1,c_get,"GENRANGE_DMPEVENT:")  ) 
+      { readint ( fp, 2, INPUTS.GENRANGE_DMPEVENT ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENRANGE_DMPTREST:")   ) 
+      { readfloat ( fp, 2, INPUTS.GENRANGE_DMPTREST ); continue ; }
+
+    if ( NstringMatch(1,c_get,"SMEARFLAG_FLUX:")  ) 
+      { readint ( fp, 1, &INPUTS.SMEARFLAG_FLUX ); continue ; }
+    if ( NstringMatch(1,c_get,"SMEARFLAG_ZEROPT:")  ) 
+      { readint ( fp, 1, &INPUTS.SMEARFLAG_ZEROPT ); continue ; }
+
+    if ( NstringMatch(1,c_get,"MAGMONITOR_SNR:")  ) 
+      { readint ( fp, 1, &INPUTS.MAGMONITOR_SNR ); continue ; }
+
+    if ( NstringMatch(1,c_get,"GENKCOR_STRETCH:")  ) 
+      { readint ( fp, 1, &INPUTS.KCORFLAG_STRETCH ); }  
+
+    if ( NstringMatch(1,c_get,"KCORFLAG_COLOR:")  ) 
+      { readint ( fp, 1, &INPUTS.KCORFLAG_COLOR ); }  
+
+    if ( NstringMatch(1,c_get,"EXPOSURE_TIME_MSKOPT:")  ) 
+      { readint ( fp, 1, &INPUTS.EXPOSURE_TIME_MSKOPT ); } 
+
+    if ( NstringMatch(1,c_get,"KCOR_FILE:") ) 
+      { readchar ( fp, INPUTS.KCOR_FILE ); continue ; }
+
+    if ( NstringMatch(1,c_get,"OMEGA_MATTER:")  ) 
+      { readdouble ( fp, 1, &INPUTS.OMEGA_MATTER ) ; continue ; }
+
+    if ( NstringMatch(1,c_get,"OMEGA_LAMBDA:")  ) 
+      { readdouble ( fp, 1, &INPUTS.OMEGA_LAMBDA ); continue ; }
+
+    if ( NstringMatch(1,c_get,"W0_LAMBDA:")  )
+      { readdouble ( fp, 1, &INPUTS.W0_LAMBDA ); continue ; }
+
+    if ( NstringMatch(1,c_get,"H0:")  ) 
+      { readdouble ( fp, 1, &INPUTS.H0 ); continue ; }
+
+    // ------
+
+    if ( NstringMatch(1,c_get,"FUDGE_SNRMAX:")  ) { 
+      readchar ( fp,  INPUTS.STRING_FUDGE_SNRMAX ); 
+      INPUTS.OPT_FUDGE_SNRMAX = 1; 
+      continue ; 
+    }
+    if ( NstringMatch(1,c_get,"FUDGE2_SNRMAX:")  )  { 
+      readchar( fp,  INPUTS.STRING_FUDGE_SNRMAX ); 
+      INPUTS.OPT_FUDGE_SNRMAX = 2; 
+      continue ; 
+    }
+
+    if ( NstringMatch(1,c_get,"FUDGESCALE_PSF:")  ) 
+      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_PSF ); continue ; }
+
+    if ( NstringMatch(1,c_get,"FUDGESCALE_NOISE_SKY:")  ) 
+      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_SKY ); continue ; }
+    if ( NstringMatch(1,c_get,"FUDGESCALE_SKYNOISE:") ) // legacy name
+      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_SKY ); continue ; }
+
+    if ( NstringMatch(1,c_get,"FUDGESCALE_NOISE_READ:")  ) 
+      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_READ ); continue ; }
+    if ( NstringMatch(1,c_get,"FUDGESCALE_READNOISE:")  )  // legacy name
+      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_READ ); continue ; }
+
+    if ( NstringMatch(1,c_get,"FUDGESCALE_NOISE_TEMPLATE:")  ) 
+      { readfloat ( fp, 1, &INPUTS.FUDGESCALE_NOISE_TEMPLATE ); continue ; }
+
+    if ( NstringMatch(1,c_get,"FUDGEOPT_FLUXERR:")  )   
+      { readint ( fp, 1, &INPUTS.FUDGEOPT_FLUXERR ); continue ; }
+
+    
+    parse_input_KEY_PLUS_FILTER_legacy(fp, &iArg, c_get, "EXPOSURE_TIME",
+				&INPUTS.EXPOSURE_TIME, 
+				INPUTS.EXPOSURE_TIME_FILTER);
+
+    parse_input_KEY_PLUS_FILTER_legacy(fp, &iArg, c_get, "FUDGE_MAGERR",
+				&INPUTS.FUDGE_MAGERR, 
+				INPUTS.FUDGE_MAGERR_FILTER);
+
+    parse_input_KEY_PLUS_FILTER_legacy(fp, &iArg, c_get, "FUDGE_ZPTERR", // Jan 2020
+				&INPUTS.FUDGE_ZPTERR, 
+				INPUTS.FUDGE_ZPTERR_FILTER);
+
+    parse_input_KEY_PLUS_FILTER_legacy(fp, &iArg, c_get, "FUDGESCALE_FLUXERR",
+				&INPUTS.FUDGESCALE_FLUXERR, 
+				INPUTS.FUDGESCALE_FLUXERR_FILTER );
+
+    parse_input_KEY_PLUS_FILTER_legacy(fp, &iArg, c_get, "FUDGESCALE_FLUXERR2",
+				&INPUTS.FUDGESCALE_FLUXERR2, 
+				INPUTS.FUDGESCALE_FLUXERR2_FILTER );
+
+    parse_input_KEY_PLUS_FILTER_legacy(fp, &iArg, c_get, "FUDGESHIFT_ZPT",
+				&INPUTS.FUDGESHIFT_ZPT, 
+				INPUTS.FUDGESHIFT_ZPT_FILTER);
+
+    parse_input_KEY_PLUS_FILTER_legacy(fp, &iArg, c_get, "MJD_TEMPLATE",
+				&INPUTS.MJD_TEMPLATE, 
+				INPUTS.MJD_TEMPLATE_FILTER);
+
+    // check for RANSYSTPAR params for systematic shifts (Jun 2017)
+    if ( strstr(c_get,"RANSYSTPAR") != NULL ) 
+      { parse_input_RANSYSTPAR_legacy(fp, &iArg, c_get ); }
+
+
+    // ------
+
+    // -- search eff
+    if ( NstringMatch(1,c_get,"GENPERFECT:")  ) 
+      { readint ( fp, 1, &INPUTS.GENPERFECT ); continue ; }
+
+    if ( NstringMatch(1,c_get,"MAGSHIFT_SPECEFF:")  ) 
+      { readdouble(fp,1,&INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF ); continue;}
+
+    if ( NstringMatch(1,c_get,"SEARCHEFF_PIPELINE_LOGIC_FILE:")  ) 
+      { readchar(fp,INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE ); continue;}
+
+    // allow two different keys here
+    if ( NstringMatch(1,c_get,"SEARCHEFF_PIPELINE_FILE:")  ) 
+      { readchar ( fp, INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE );continue ; }
+    if ( NstringMatch(1,c_get,"SEARCHEFF_PIPELINE_EFF_FILE:")  ) 
+      { readchar ( fp, INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE ); continue ; }
+
+    if ( NstringMatch(1,c_get,"SEARCHEFF_SPEC_FILE:")  ) 
+      { readchar ( fp, INPUTS_SEARCHEFF.USER_SPEC_FILE ); continue ; }
+    if ( NstringMatch(1,c_get,"SEARCHEFF_SPEC_SCALE:")  ) 
+      { readdouble(fp,1,&INPUTS_SEARCHEFF.USER_SPECEFF_SCALE ); continue ; }
+
+    if ( NstringMatch(1,c_get,"SEARCHEFF_zHOST_FILE:")  ) 
+      { readchar ( fp, INPUTS_SEARCHEFF.USER_zHOST_FILE ); continue ; }
+    
+    if ( NstringMatch(1,c_get,"APPLY_SEARCHEFF_OPT:")  ) 
+      { readint ( fp, 1, &INPUTS.APPLY_SEARCHEFF_OPT ); continue ; }
+
+    if ( NstringMatch(1,c_get,"MINOBS_SEARCH:")  ) 
+      {  readint ( fp, 1, &INPUTS_SEARCHEFF.MINOBS ); continue ; }
+
+    // --- LCLIB cut windows to select library events
+    if ( NstringMatch(1,c_get,"LCLIB_CUTWIN:")   ) {
+      N = LCLIB_CUTS.NCUTWIN ;
+      readchar(fp,      LCLIB_CUTS.PARNAME[N] );
+      readdouble(fp, 2, LCLIB_CUTS.CUTWIN[N] );
+      LCLIB_CUTS.NCUTWIN++ ;
+      continue ; 
+    }
+
+    if ( NstringMatch(1,c_get,"LCLIB_DEBUG_DAYSCALE:")   ) 
+      { readdouble(fp, 1, &LCLIB_DEBUG.DAYSCALE ); continue ; }
+    if ( NstringMatch(1,c_get,"LCLIB_DEBUG_TOBS_OFFSET:")   ) 
+      { readdouble(fp, 2, LCLIB_DEBUG.TOBS_OFFSET_RANGE ); continue ; }
+    if ( NstringMatch(1,c_get,"LCLIB_DEBUG_ZERO_TEMPLATE_FLUX:")   ) 
+      { readint(fp, 1, &LCLIB_DEBUG.ZERO_TEMPLATE_FLUX ); continue ; }
+    if ( NstringMatch(1,c_get,"LCLIB_DEBUG_FORCE_NREPEAT:")   ) 
+      { readint(fp, 1, &LCLIB_DEBUG.FORCE_NREPEAT ); continue ; }
+
+    // -- cut-windows
+    if ( NstringMatch(1,c_get,"APPLY_CUTWIN_OPT:")  ) 
+      { readint ( fp, 1, &INPUTS.APPLY_CUTWIN_OPT ); continue ; }
+
+    if ( NstringMatch(1,c_get,"EPCUTWIN_LAMREST:")  ) 
+      { readfloat ( fp, 2, INPUTS.EPCUTWIN_LAMREST ); continue ; }
+
+    if ( NstringMatch(1,c_get,"EPCUTWIN_SNRMIN:")   ) 
+      { readfloat ( fp, 2, INPUTS.EPCUTWIN_SNRMIN ); continue ; }
+
+    if ( NstringMatch(1,c_get,"CUTWIN_REDSHIFT:")  )  // legacy 
+      { readfloat ( fp, 2, INPUTS.CUTWIN_REDSHIFT_TRUE ); continue ; }
+    if ( NstringMatch(1,c_get,"CUTWIN_REDSHIFT_TRUE:")  ) 
+      { readfloat ( fp, 2, INPUTS.CUTWIN_REDSHIFT_TRUE ); continue ; }
+    if ( NstringMatch(1,c_get,"CUTWIN_REDSHIFT_FINAL:")  )  // measured
+      { readfloat ( fp, 2, INPUTS.CUTWIN_REDSHIFT_FINAL ); continue ; }
+
+    if ( NstringMatch(1,c_get,"CUTWIN_HOST_PHOTOZ:")  )  // host photo-z
+      { readfloat ( fp, 2, INPUTS.CUTWIN_HOST_ZPHOT ); continue ; }
+    if ( NstringMatch(1,c_get,"CUTWIN_HOST_ZPHOT:")  )  // idem
+      { readfloat ( fp, 2, INPUTS.CUTWIN_HOST_ZPHOT ); continue ; }
+
+    if ( NstringMatch(1,c_get,"CUTWIN_TRESTMAX:")  ) 
+      { readfloat ( fp, 2, INPUTS.CUTWIN_TRESTMAX ); continue ; }
+    if ( NstringMatch(1,c_get,"CUTWIN_TRESTMIN:")  ) 
+      { readfloat ( fp, 2, INPUTS.CUTWIN_TRESTMIN ); continue ; }
+
+    if ( NstringMatch(1,c_get,"CUTWIN_TGAPMAX:")  ) 
+      { readfloat ( fp, 2, INPUTS.CUTWIN_TGAPMAX ); continue ; }
+    if ( NstringMatch(1,c_get,"CUTWIN_T0GAPMAX:")  ) 
+      { readfloat ( fp, 2, INPUTS.CUTWIN_T0GAPMAX ); continue ; }
+
+    if ( keyMatch(c_get,"CUTWIN_SNRMAX:", "")  ) {
+      INPUTS.NCUTWIN_SNRMAX++ ; 
+      N = INPUTS.NCUTWIN_SNRMAX ;
+      readfloat ( fp, 1, &INPUTS.CUTWIN_SNRMAX[N][0] );
+      readchar  ( fp, INPUTS.CUTWIN_SNRMAX_FILTERS[N] );
+      readchar  ( fp, INPUTS.CUTWIN_SNRMAX_LOGIC[N] );
+      readfloat ( fp, 2, &INPUTS.CUTWIN_SNRMAX_TREST[N][0] );
+      continue ;
+    }
+    if ( NstringMatch(1,c_get,"CUTWIN_NEPOCH:")  ) 
+      { readfloat ( fp, 2, INPUTS.CUTWIN_NEPOCH ); continue ; }
+
+    if ( NstringMatch(1,c_get,"CUTWIN_NOBSDIF:")  ) 
+      { readint ( fp, 2, INPUTS.CUTWIN_NOBSDIF ); continue ; }
+    if ( NstringMatch(1,c_get,"CUTWIN_MJDDIF:")  ) 
+      { readfloat ( fp, 2, INPUTS.CUTWIN_MJDDIF ); continue ; }
+
+
+    if ( NstringMatch(1,c_get,"CUTWIN_NOBS_SATURATE:")  ) { // minobs maxobs filters
+      N = INPUTS.NCUTWIN_SATURATE;  
+      readint  ( fp, 2, INPUTS.CUTWIN_SATURATE_NOBS[N] ); 
+      readchar ( fp,    INPUTS.CUTWIN_SATURATE_FILTERS[N] ); 
+      INPUTS.NCUTWIN_SATURATE++ ;
+      continue ; 
+    }
+    if ( NstringMatch(1,c_get,"CUTWIN_NOBS_NOSATURATE:")  ) { 
+      N = INPUTS.NCUTWIN_NOSATURATE;  
+      readint  ( fp, 2, INPUTS.CUTWIN_NOSATURATE_NOBS[N] ); 
+      readchar ( fp,    INPUTS.CUTWIN_NOSATURATE_FILTERS[N] ); 
+      INPUTS.NCUTWIN_NOSATURATE++ ;
+      continue ; 
+    }
+
+    if ( NstringMatch(1,c_get,"CUTWIN_MWEBV:")  ) 
+      { readfloat ( fp, 2, INPUTS.CUTWIN_MWEBV ); continue ; }
+
+    if ( NstringMatch(1,c_get,"CUTWIN_PEAKMAG:")  ) 
+      { readfloat ( fp, 2, INPUTS.CUTWIN_PEAKMAG ); continue ; }
+    if ( NstringMatch(1,c_get,"CUTWIN_PEAKMAG_ALL:")  )  // require ALL filters
+      { readfloat ( fp, 2, INPUTS.CUTWIN_PEAKMAG_ALL ); continue ; }
+
+    if ( NstringMatch(1,c_get,"CUTWIN_PEAKMAG_BYFIELD:")  ) {
+      INPUTS.NCUTWIN_PEAKMAG_BYFIELD++ ;  N= INPUTS.NCUTWIN_PEAKMAG_BYFIELD;
+      readfloat ( fp, 2, INPUTS.CUTWIN_PEAKMAG_BYFIELD[N] );
+      readchar  ( fp, INPUTS.CUTWIN_BYFIELDLIST[N] );
+      continue ; 
+    }
+
+    // CUTWIN_EPOCHS_SNRMIN: 5 20 iz # SNR>5 for < 20 days, i or z
+    if ( NstringMatch(1,c_get,"CUTWIN_EPOCHS_SNRMIN:")  )  { 
+      readfloat ( fp, 1, &INPUTS.CUTWIN_EPOCHS_SNRMIN ); 
+      readfloat ( fp, 1, &INPUTS.CUTWIN_EPOCHS_TRANGE[1] ); 
+      readchar  ( fp, INPUTS.CUTWIN_EPOCHS_FILTERS ); 
+      continue ; 
+    }
+
+    if ( NstringMatch(1,c_get,"EFFERR_STOPGEN:")  ) 
+      { readfloat ( fp, 1, &INPUTS.EFFERR_STOPGEN ); continue ; }
+
+    // - - - - - 
+    if ( NstringMatch(1,c_get,"SPECTROGRAPH_OPTMASK:")  ) 
+      { readint ( fp, 1, &INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ); continue ; }
+
+    if ( NstringMatch(1,c_get,"SPECTROGRAPH_SCALE_TEXPOSE:")  ) { 
+      readdouble ( fp, 1, &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE ); 
+      continue ; 
+    }
+
+    // - - - - - 
+    if ( keyMatch(c_get,"WARP_SPECTRUM:", "")  ) 
+      { readchar(fp,warp_spectrum_string);  GENSPEC.USE_WARP=1; continue ; }
+
+    if ( keyMatch(c_get,"TAKE_SPECTRUM:", "")  ) {       
+      if(INPUTS.USE_SIMLIB_SPECTRA ) {
+	sprintf(c1err,"Cannot mix TAKE_SPECTRUM keys from sim-input & SIMLIB.");
+	sprintf(c2err,"Remove one of these TAKE_SPECTRUM sources.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+      parse_input_TAKE_SPECTRUM(fp,warp_spectrum_string); continue ; 
+    }
+
+    if ( keyMatch(c_get,"TAKE_SPECTRUM_HOSTFRAC:", "")  ) 
+      {	readfloat(fp, 1, &INPUTS.TAKE_SPECTRUM_HOSTFRAC ); continue ; }
+
+    if ( keyMatch(c_get,"TAKE_SPECTRUM_DUMPCID:", "")  ) 
+      {	readint(fp, 1, &INPUTS.TAKE_SPECTRUM_DUMPCID ); continue ; }
+
+    // check NGRID values for GRID option only
+
+#ifdef SNGRIDGEN
+    if ( strcmp(INPUTS.GENSOURCE,"GRID") == 0 )  {
+
+      if ( NstringMatch(1,c_get,"GRID_FORMAT:" )   ) 
+	{ readchar(fp, GRIDGEN_INPUTS.FORMAT ); continue ; }
+
+      if ( NstringMatch(1,c_get,"NGRID_LOGZ:" )   ) 
+	{ readint(fp,1,&GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_LOGZ]); continue ; }
+
+      if ( NstringMatch(1,c_get,"NGRID_LUMIPAR:" )   )  { // legacy key	
+	readint(fp,1,&GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_SHAPEPAR]); 
+	continue;
+      }
+      if ( NstringMatch(1,c_get,"NGRID_SHAPEPAR:" )   ) 	{ 
+	readint ( fp, 1, &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_SHAPEPAR] ); 
+	continue ; 
+      }
+
+      if ( NstringMatch(1,c_get,"NGRID_COLORPAR:" )   )  { 
+	readint ( fp, 1, &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_COLORPAR] ); 
+	continue ; 
+      }
+      if ( NstringMatch(1,c_get,"NGRID_COLORLAW:" )   ) 	{ 
+	readint ( fp, 1, &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_COLORLAW] ); 
+	continue ; 
+      }
+      if ( NstringMatch(1,c_get,"NGRID_TREST:" )   )  { 
+	readint ( fp, 1, &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_TREST] ); 
+	continue ; 
+      }
+    }
+#endif
+
+    // abort on legacy keys ( Jun 2016)
+    if ( NstringMatch(1,c_get,"NGRID_LUMIPAR:" )   )   // legacy key
+      { legacyKey_abort(fnam, "NGRID_LUMIPAR:", "NGRID_SHAPEPAR:"); }
+
+    if ( NstringMatch(1,c_get,"GEN_SNDATA_SIM:" )   )   // legacy key
+      { legacyKey_abort(fnam, "GEN_SNDATA_SIM:", "FORMAT_MASK:"); }
+
+    if ( NstringMatch(1,c_get,"EXTINC_MILKYWAY:" )   )   // legacy key
+      { legacyKey_abort(fnam, "EXTINC_MILKYWAY:", "OPT_MWEBV:"); }
+
+    if ( NstringMatch(1,c_get,"RVMW:" )   )   // legacy key
+      { legacyKey_abort(fnam, "RVMW:", "RV_MWCOLORLAW:"); }
+
+    if ( NstringMatch(1,c_get,"HUMAN_SEARCHEFF_OPT:" )   )   // legacy key
+      { legacyKey_abort(fnam, "HUMAN_SEARCHEFF_OPT:", "SEARCHEFF_SPEC_FILE:");}
+
+    if ( NstringMatch(1,c_get,"SPECTYPE:" )   )   // legacy key
+      { legacyKey_abort(fnam, "SPECTYPE:", ""); }
+
+    if ( NstringMatch(1,c_get,"SMEARFLAG_HOSTGAL:" )   )   // legacy key
+      { legacyKey_abort(fnam, "SMEARFLAG_HOSTGAL:", ""); }
+
+  }  // end fscanf loop
+
+
+  fclose(fp);
+  printf("\n");
+
+  if ( INPUTS.KEYNAME_DUMPFLAG ) { happyend(); }
+
+  return(SUCCESS) ;
+
+} // end of read_input_file_legacy
+

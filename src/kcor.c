@@ -217,6 +217,7 @@ int main(int argc, char **argv) {
 
     NARGV_LIST = argc ;
     for ( i = 0; i < NARGV_LIST ; i++ ) {
+      ARGV_LIST[i] = (char*) malloc( MXPATHLEN*sizeof(char) );      
       sprintf( ARGV_LIST[i], "%s", argv[i] );
       USE_ARGV_LIST[i] = 0 ;
     }

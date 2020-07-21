@@ -84,7 +84,7 @@ c
      &  ,MXCHAR_CCID, MXCHAR_VERSION, MXCHAR_SURVEY
      &  ,MXCHAR_PATH, MXCHAR_FILENAME, MXCHAR_MODELNAME
      &  ,MXCHAR_FIELDNAME, MXCHAR_PARNAME, MXCHAR_CUTNAME
-     &  ,MXCHAR_FILEWORD
+     &  ,MXCHAR_FILEWORD, MXFILE_LIST
 c
      &  ,SNLCPAK_EPFLAG_FLUXDATA     ! DATA flux per epoch
      &  ,SNLCPAK_EPFLAG_REJECT   ! REJECT flag (1=> excluded from fit)
@@ -278,6 +278,7 @@ c
      &  ,MXCHAR_PARNAME    = 20   ! max len of parameter name
      &  ,MXCHAR_CUTNAME    = 160  ! to define cut names
      &  ,MXCHAR_FILEWORD   =  60  ! size of FILEWORD_LIST
+     &  ,MXFILE_LIST       =  4   ! max number of files in input list
 c
      &  ,SNLCPAK_EPFLAG_FLUXDATA    = 1    ! epoch-dependent
      &  ,SNLCPAK_EPFLAG_REJECT      = 2
@@ -1905,7 +1906,6 @@ c Dec 30 2012: add KCOR_FILE for fits-formatted tables (same name as in sim)
      &  ,MNFIT_PKMJD_LOGFILE  ! separate log for PKMJD fits
      &  ,USERTAGS_FILE        ! optional int user tag per SN
      &  ,VPEC_FILE            ! pec. velocity corrections
-     &  ,HEADER_OVERRIDE_FILE ! header-var overrides
      &  ,SNCID_LIST_FILE      ! list of CID's to process
      &  ,SIMLIB_OUT           ! legacy name
      &  ,SIMLIB_OUTFILE       ! write simlib entry for each event
@@ -1917,6 +1917,9 @@ c
      &  ,SIM_FLUXERRMODEL_FILE ! idem, SIM only
      &  ,MAGCOR_FILE           ! DATA ONLY: mag-cor for each CID-MJD-band
      &  ,SIM_MAGCOR_FILE       ! idem, SIM only
+
+      CHARACTER*(MXFILE_LIST*MXCHAR_FILENAME)
+     &    HEADER_OVERRIDE_FILE  ! allow comma-sep list
 
       CHARACTER  ! versions
      &   VERSION_PHOTOMETRY(MXVERS)*(MXCHAR_VERSION)   ! SN versions to read
@@ -14805,10 +14808,6 @@ c apply epoch cut.
         LTMP    = LCUTEPOCH(Z, PKMJD, SNGL(MJD8), IFILT, IDFIELD)
      &            .and. (.not. IGNORE )
 
-        write(6,666) epmin, IFILT_OBS, SNLC8_MJD(epmin), IGNORE
- 666    format(' xxx PARSE_EP: ep=',I3,' IFILT_OBS=',I3, 2x,
-     &          'MJD=',F9.3, 2x,'IGNORE=',L2 )
-
         if ( .NOT. LTMP ) ISTAT = ISTAT_SKIP
         return
       ENDIF
@@ -18338,7 +18337,7 @@ C ========================================================
       SUBROUTINE INIT_HEADER_OVERRIDE()
 
 c Created Nov 29 2016 by R.Kessler
-c Read optional list of header variables from file,
+c Read optional list of header variables from file(s),
 c to override values in data files. Useful for systematics,
 c and for development of things like host Masses and
 c peculiar velocities that may take several iterations
@@ -18346,31 +18345,43 @@ c before deciding final values for the data files.
 c Also note that the CID in the HEADER_OVERRIDE file
 c can be either the SNID or IAUC name.
 c
-c Jun 9 2020: for SIM, leave message and return 
+c &SNLCINP input HEADER_OVERRIDE_FILE is a comma-seperated list
+c allowing multiple tables to each specify different variables
+c and different CIDs.
 c
+c Jun 9 2020: for SIM, leave message and return 
+c Jul 21 2020: refactor to allow comma-sep list of header-override files.
+
       IMPLICIT NONE
     
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 +CDE,OVRIDECOM.
 
-      INTEGER iwd, NWD, LEN1, LEN2, LEN3, LENV, LEN_ALL, NROW
-      INTEGER OPTMASK_STORE,  EXIST_VAR, NVAR_ALL, NVAR
-      CHARACTER cFILE*(MXCHAR_FILENAME), cTABLE*20, cVARLIST*400 
-      CHARACTER VARNAME*60, cVARNAME*60, FNAM*24
+      INTEGER iwd, NWD, LENV, LENF, LEN_ALL
+      INTEGER NVAR_ALL, NVAR
+      INTEGER NFILE, ifile, OPTMASK_STORE
+      CHARACTER FNAM*24, cFILE*(4*MXCHAR_FILENAME), cVARLIST*400 
+      CHARACTER VARNAME*60
+      CHARACTER*(MXCHAR_FILENAME) FILE_LIST(MXFILE_LIST)
 
 c functions
-      INTEGER  SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
-      EXTERNAL SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
 
-      INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PARSE_WORDS
+      INTEGER  STORE_PARSE_WORDS, IGNOREFILE
+      EXTERNAL STORE_PARSE_WORDS, IGNOREFILE
 C ------------ BEGIN -------------
 
       NVAR_HEADER_OVERRIDE = 0
-      IF ( HEADER_OVERRIDE_FILE .EQ. ' '    ) RETURN
-      IF ( HEADER_OVERRIDE_FILE .EQ. 'NULL' ) RETURN
-      IF ( HEADER_OVERRIDE_FILE .EQ. 'NONE' ) RETURN
+
+      LENF   = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
+      cFILE  = HEADER_OVERRIDE_FILE(1:LENF) // char(0)
+      if ( IGNOREFILE(cFILE,LENF) .NE. 0 ) RETURN
+
+c xxxxxxx mark delete July 2020 xxxxx
+c      IF ( HEADER_OVERRIDE_FILE .EQ. ' '    ) RETURN
+c      IF ( HEADER_OVERRIDE_FILE .EQ. 'NULL' ) RETURN
+c      IF ( HEADER_OVERRIDE_FILE .EQ. 'NONE' ) RETURN
+c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
       IF ( LSIM_SNANA ) THEN
         print*,' '
@@ -18409,37 +18420,104 @@ c check option to list HEADER variable names that can be overwritten
         CALL EXIT(EXIT_ERRCODE)
       ENDIF
 c -------------------
-
       CALL PRBANNER('INIT_HEADER_OVERRIDE')
 
-      CALL ENVreplace(HEADER_OVERRIDE_FILE) 
-      LEN1   = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
-      cFILE  = HEADER_OVERRIDE_FILE(1:LEN1) // char(0)
+c break comma-separated list (cFILE). Store local list
+c of files so that STORE_PARSE_WORDS can be used on VARLIST
+c for each file
+      OPTMASK_STORE = MSKOPT_PARSE_WORDS_STRING
+      NFILE = STORE_PARSE_WORDS(OPTMASK_STORE,cFILE,LENF)
+      DO ifile = 1, NFILE
+        call get_PARSE_WORD_fortran(ifile,FILE_LIST(ifile),LENF)
+      ENDDO
+      
+c - - - 
+      
+      DO 900 ifile = 1, NFILE
+        CALL READ_HEADER_OVERRIDE_FILE(FILE_LIST(ifile))
+ 900  CONTINUE
+
+c check array bound
+      NVAR = NVAR_HEADER_OVERRIDE 
+      IF ( NVAR > MXVAR_HEADER_OVERRIDE ) THEN
+        write(c1err,61) NVAR
+61      format(I3,' override variables exceeds bound.' )
+        write(c2err,62) MXVAR_HEADER_OVERRIDE
+62      format('Bound is MXVAR_HEADER_OVERRIDE = ', I3 )
+        CALL MADABORT(FNAM,C1ERR,C2ERR)
+      ENDIF
+
+      print*,' ' 
+      CALL FLUSH(6)
+
+      RETURN
+      END  ! INIT_HEADER_OVERRIDE
+
+C =====================================
++DECK,READ_HEADER_OVERRIDE.
+      SUBROUTINE READ_HEADER_OVERRIDE_FILE(FILENAME)
+
+c Created Jul 21 2020
+c Read FILENAME with SNTABLE_AUTOSTORE
+
+      IMPLICIT NONE
+    
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,OVRIDECOM.
+
+c subroutine arg
+      CHARACTER FILENAME*(*) ! (I) name of file to read char(0)?
+
+c local var
+      CHARACTER 
+     &   VARNAME*60, cVARNAME*60, cVARLIST*400
+     &  ,cFILE*(MXCHAR_FILENAME), cTABLE*40, FNAM*28
+
+      INTEGER 
+     &   NROW, NVAR, NVAR_ALL, LEN1, LEN2, LEN3, iwd, EXIST_VAR
+     &  ,OPTMASK_STORE, OPTMASK_SNTABLE, LENV
+
+c functions
+      INTEGER  SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
+      EXTERNAL SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
+
+      INTEGER  STORE_PARSE_WORDS
+      EXTERNAL STORE_PARSE_WORDS
+
+C ------------- BEGIN -----------
+     
+      FNAM = 'READ_HEADER_OVERRIDE_FILE'
+      CALL ENVreplace(FILENAME) 
+
+      LEN1 = INDEX(FILENAME,' ') - 1
+      cFILE = FILENAME(1:LEN1) // char(0)
 
       cTABLE = 'OVERRIDE' // char(0) 
       LEN2   = INDEX(cTABLE,' ') - 1
 
-      OPTMASK_STORE = 4  ! 0->4 on May 11 2017
+      LEN3 = INDEX(VARLIST_ALL_HEADER_OVERRIDE,' ') - 1
+      cVARLIST = VARLIST_ALL_HEADER_OVERRIDE(1:LEN3) // char(0)
+
+      OPTMASK_SNTABLE = 4  ! 1=print, 2=abort on missin var, 4=append next file
       NROW = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST, 
-     &        OPTMASK_STORE,  LEN1, LEN2, LEN3 )
+     &        OPTMASK_SNTABLE,  LEN1, LEN2, LEN3 )
 
       write(6,20) NROW
- 20   format(/, T4,'Stored ', I8,
-     &    ' rows of header-override data ')
+ 20   format(/, T4,'Stored ', I8, ' rows of header-override data ')
 
       IF ( NROW == 0 ) THEN
         C1ERR = 'NROW = 0 in HEADER_OVERRIDE_FILE'
-        C2ERR = 'Check ' // HEADER_OVERRIDE_FILE(1:70)
+        C2ERR = 'Check ' // FILENAME(1:LEN1)
         CALL MADABORT(FNAM,C1ERR,C2ERR)
       ENDIF 
 
 c check which header variables exist in the user file
-
-      NVAR_ALL=STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,cVARLIST,400)      
-      NVAR     = 0 
+      OPTMASK_STORE = MSKOPT_PARSE_WORDS_STRING
+      NVAR_ALL = STORE_PARSE_WORDS(OPTMASK_STORE,cVARLIST,400)      
+      NVAR     = NVAR_HEADER_OVERRIDE 
 
       DO 10 iwd     = 1, NVAR_ALL
-
           call get_PARSE_WORD_fortran(iwd, VARNAME, LENV)
           cVARNAME  = VARNAME(1:LENV) // char(0)
           EXIST_VAR = EXIST_VARNAME_AUTOSTORE(cVARNAME,LENV)
@@ -18460,20 +18538,8 @@ c check which header variables exist in the user file
          CALL MADABORT(FNAM,C1ERR,C2ERR)
       ENDIF
 
-c check array bound
-      IF ( NVAR > MXVAR_HEADER_OVERRIDE ) THEN
-        write(c1err,61) NVAR
-61      format(I3,' override variables exceeds bound.' )
-        write(c2err,62) MXVAR_HEADER_OVERRIDE
-62      format('Bound is MXVAR_HEADER_OVERRIDE = ', I3 )
-        CALL MADABORT(FNAM,C1ERR,C2ERR)
-      ENDIF
-
-      print*,' ' 
-      CALL FLUSH(6)
-
       RETURN
-      END  ! INIT_HEADER_OVERRIDE
+      END    ! end READ_HEADER_OVERRIDE_FILE
 
 C ========================================================
 +DECK,EXEC_HEADER_OVERRIDE.
@@ -18538,7 +18604,8 @@ c brute-force check each possible header variable
 
         ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL' ) THEN
           z         = sngl(DVAL)
-          SNLC_ZCMB = z; SNLC_ZHELIO = z;  
+          SNLC_ZCMB = z; 
+          ! xxx mark delete SNLC_ZHELIO = z;  
           SNLC_REDSHIFT = z
         ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL_ERR' ) THEN
           zerr = sngl(DVAL)

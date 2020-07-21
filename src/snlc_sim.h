@@ -96,11 +96,16 @@ time_t t_start, t_end, t_end_init ;
 #define WRMASK_COMPACT  64   // suppress non-essential PHOT output
 #define WRMASK_FILTERS  256  // write filterTrans files (Aug 2016)
 
+#define KEYSOURCE_FILE 1
+#define KEYSOURCE_ARG  2
+
+/* xxxxx mark delete Jul 2020 xxxxxx
 // define 'istage' parameters for read_input().
 #define INPUT_DEFAULT  0  // 
 #define INPUT_USER1    1
 #define INPUT_USER2    2
 #define INPUT_USER3    3
+xxxxxxx end mark */
 
 #define IFLAG_GENSMEAR_FILT 1 // intrinsic smear at central LAMBDA of filter
 #define IFLAG_GENSMEAR_LAM  2 // intrinsic smear vs. wavelength
@@ -374,6 +379,9 @@ struct INPUTS {
   char INPUT_FILE_LIST[MXINPUT_FILE_SIM][MXPATHLEN]; // input file names
   int  NREAD_INPUT_FILE;  // number of input files read: 1,2 or 3
 
+  int  NWORDLIST ;      // number of words read from input file
+  char **WORDLIST ;     // list of words read from input file
+
   int  TRACE_MAIN;            // debug to trace progress through main loop
   int  DEBUG_FLAG ;           // arbitrary debug usage
 
@@ -383,7 +391,8 @@ struct INPUTS {
 
   // xxx  int OPT_DEVEL_BBC7D;   // temp for BBC7D development
   // xxx  int OPT_DEVEL_GENFLUX; // temp for GENFLUX_DRIVER refactor + REDCOV
-  int OPT_DEVEL_GENPDF;  // temp for genPDF
+  int OPT_DEVEL_GENPDF;      // temp for genPDF
+  int OPT_DEVEL_READ_INPUT ; // new read_input function
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files
@@ -1574,7 +1583,7 @@ char PARDEF_ZVAR[MXPAR_ZVAR+1][40] ;
 //  Declare functions
 // ------------------------------------------
 
-void   parse_commandLine_simargs(int argc, char **argv);
+void   init_commandLine_simargs(int argc, char **argv);
 int    LUPDGEN(int N);
 
 void   SIMLIB_INIT_DRIVER(void);
@@ -1646,29 +1655,44 @@ void   set_user_defaults_SPECTROGRAPH(void);
 void   set_user_defaults_RANSYSTPAR(void);  
 void   set_GENMODEL_NAME(void);
 
-int    read_input(char *inFile);   // parse this inFile
+// - - - - -  LEGACY READ FUNCTIONS (OPT_DEVEL_READ_INPUT == 0) - - - - - 
+int  read_input_file_legacy(char *inFile);   // parse this inFile
+int  parse_input_KEY_PLUS_FILTER_legacy(FILE *fp, int *i, 
+					char *INPUT_STRING, char *KEYCHECK, 
+					float *VALUE_GLOBAL, 
+					float *VALUE_FILTERLIST);
+void   parse_input_RANSYSTPAR_legacy(FILE *fp, int *iArg, char *KEYNAME );
+void   parse_input_GENMODEL_ARGLIST_legacy(FILE *fp, int *iArg );
+void   parse_input_GENMODEL_legacy(FILE *fp, int *iArg );
+void   sim_input_override_legacy(void) ;  // parse command-line overrides
+// - - - - - - - 
+
+int    read_input_file(char *inFile);          // parse this inFile
 void   read_input_SIMSED(FILE *fp, char *KEY);
 void   read_input_SIMSED_COV(FILE *fp, int OPT,  char *stringOpt );
 void   read_input_SIMSED_PARAM(FILE *fp);
 void   read_input_GENGAUSS(FILE *fp, char *string, char *varname,
 			   GENGAUSS_ASYM_DEF *genGauss );
-// xxx mark void   prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) ;
 
+int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
+bool   keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource);
 void   parse_input_GENZPHOT_OUTLIER(char *string);
 void   parse_input_FIXMAG(char *string);
-void   parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING);
-int    parse_input_KEY_PLUS_FILTER(FILE *fp, int *i, 
-				   char *INPUT_STRING, char *KEYCHECK, 
-				   float *VALUE_GLOBAL, 
-				   float *VALUE_FILTERLIST);
+int    parse_input_RANSYSTPAR(char **WORDS, int keySource );
+int    parse_input_HOSTLIB(char **WORDS, int keySource );
+int    parse_input_SIMLIB(char **WORDS, int keySource );
+int    parse_input_GENMODEL_ARGLIST(char **WORDS, int keySource );
+int    parse_input_GENMODEL(char **WORDS, int keySource );
+int    parse_input_NON1ASED(char **WORDS, int keySource );
+void   parse_GENMAG_SMEAR_MODELNAME(void);
+int    parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK, 
+				   float *VALUE_GLOBAL,float *VALUE_FILTERLIST);
 
-void   parse_input_RANSYSTPAR(FILE *fp, int *iArg, char *KEYNAME );
+void   parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING);
 void   parse_input_SIMGEN_DUMP(FILE *fp, int *iArg, char *KEYNAME );
 void   parse_input_SOLID_ANGLE(FILE *fp, int *iArg, char *KEYNAME );
-void   parse_input_GENMODEL_ARGLIST(FILE *fp, int *iArg );
-void   parse_input_GENMODEL(FILE *fp, int *iArg );
+
 void   parse_input_GENMAG_SMEAR_SCALE(FILE *fp, int *iArg, char *KEYNAME );
-void   parse_GENMAG_SMEAR_MODELNAME(void);
 
 void   read_input_RATEPAR(FILE *fp, char *WHAT, char *KEY, 
 			  RATEPAR_DEF *RATEPAR );

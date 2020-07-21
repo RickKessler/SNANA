@@ -2171,7 +2171,7 @@ void  SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR) {
 int EXIST_VARNAME_AUTOSTORE(char *varName) {
 
   // Created Nov 29 2016
-  // Returns 1 of varName exists.
+  // Returns 1 if varName exists.
   // 
   // Jan 6, 2017: check all files. 
 

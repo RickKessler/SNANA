@@ -18737,4 +18737,26 @@
        Tried compiling and running on des81, which has much newer
        gfortran, and get the same error. 
 
+
+# ======================================================================= 
+         v10_77i (  ) 
+
+         ***** IMPORTANT(v10_77i) ***** 
+
+         ***** USEFUL(v10_77i) ***** 
+
+         ***** MISCELLANEOUS(v10_77i) ***** 
+
+   snlc_sim.c
+    + long overdue refactor of reading sim-inputs
+      (for compatibility with submit-scripts re-write)
+       * allow optional colon on command-line to match file-input keys
+       * use same read-function (parse_input_key_driver) for both 
+          file and command-line arg
+       * refactor invoked by "OPT_DEVEL_READ_INPUT 1"
+
+    snana.car
+     + &SNLCINP input HEADER_OVERRIDE_FILE can now be a comma-sep
+       list to allow multiple table files.
+
 END: 

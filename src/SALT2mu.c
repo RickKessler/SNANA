@@ -18307,8 +18307,8 @@ void SUBPROCESS_PREP_NEXTITER(void) {
   // request expected iteration number to be entered as std input
   // or q to quit
 
-  printf("\n%s Enter expected ITERATION number (-1 to quit) => ",
-	 KEYNAME_SUBPROCESS_STDOUT );
+  printf("\n%s Enter expected ITERATION number (-1 to quit) => \n",
+	 KEYNAME_SUBPROCESS_STDOUT );   fflush(stdout);
   scanf( "%d", &ITER_EXPECT); // read response
   if ( ITER_EXPECT < 0 ) { SUBPROCESS_EXIT(); }
 

@@ -45,7 +45,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_77h"                                
+#define  SNANA_VERSION_CURRENT  "v10_77i"                                 
 
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
 #define OMEGA_MATTER_DEFAULT   0.315 
@@ -183,7 +183,8 @@ int  EXIT_ERRCODE;  // program error code set by program (Jan 2019)
 
 #define MXARGV 100
 int  NARGV_LIST;
-char ARGV_LIST[MXARGV][200];
+char *ARGV_LIST[MXARGV];
+// xxx mark delete Jul 2020 char ARGV_LIST[MXARGV][200];
 int  USE_ARGV_LIST[MXARGV];  // 1 => line arg was used, 0=> not used.
 
 // ---------
@@ -366,7 +367,8 @@ struct {
 
 #define MSKOPT_PARSE_WORDS_FILE    1   // parse words in a file
 #define MSKOPT_PARSE_WORDS_STRING  2   // parse string
-#define MSKOPT_PARSE_WORDS_IGNORECOMMA 4   // parse blank space; ignore comma
+#define MSKOPT_PARSE_WORDS_IGNORECOMMA    4   // parse blank space; ignore comma
+#define MSKOPT_PARSE_WORDS_IGNORECOMMENT  8   // ignore anything after comment char
 
 struct {
   char  FILENAME[MXPATHLEN];

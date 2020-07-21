@@ -768,8 +768,12 @@ int keyMatch(char *string,char *key, char *keySuffix_optional ) {
   if ( strcmp(string,key)==0 )   
     { return(1); }
   else if ( strlen(keySuffix_optional) > 0 ) {
-    char KEY[100]; sprintf(KEY,"%s%s", key, keySuffix_optional ) ;
-    if ( strcmp(string,KEY) == 0 ) { return(1); }
+    int ISTAT = 0;
+    int MEMC  = (strlen(key)+10) * sizeof(char);
+    char *KEY = (char*) malloc (MEMC);
+    sprintf(KEY,"%s%s", key, keySuffix_optional ) ;
+    if ( strcmp(string,KEY) == 0 ) { ISTAT = 1; }
+    free(KEY); return(ISTAT);
   }
 
   // if we get here, there is no match.
@@ -1395,10 +1399,12 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   //
   // Jun 26 2018: free(tmpLine) --> fix awful memory leak
   // May 09 2019: refactor to allow option for ignoring comma in strings.
+  // Jul 20 2020: new option to ignore comment char and anything after
 
-  int DO_STRING    = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
-  int DO_FILE      = ( (OPT & MSKOPT_PARSE_WORDS_FILE) > 0 );
-  int CHECK_COMMA  = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMA) == 0 );
+  bool DO_STRING       = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
+  bool DO_FILE         = ( (OPT & MSKOPT_PARSE_WORDS_FILE)   > 0 );
+  bool CHECK_COMMA     = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMA) == 0 );
+  bool IGNORE_COMMENTS = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMENT) > 0 );
   int LENF = strlen(FILENAME);
 
   int NWD, MXWD, iwdStart=0, GZIPFLAG, iwd;
@@ -1446,7 +1452,6 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
     free(tmpLine);
-
   }
   else if ( DO_FILE ) {
     // read text file
@@ -1464,9 +1469,20 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 	{ iwdStart = PARSE_WORDS.NWD; }
       splitString2(LINE, sepKey, MXWORDLINE_PARSE_WORDS, 
 		   &NWD, &PARSE_WORDS.WDLIST[iwdStart] ); // <== returned
+
+      if ( IGNORE_COMMENTS ) { // 7.2020
+	int NWD_TMP = 0 ; bool FOUND_COMMENT=false;  char *ptrWD ;
+	for(iwd = iwdStart; iwd < (iwdStart + NWD); iwd++ ) {
+	  ptrWD = PARSE_WORDS.WDLIST[iwd] ; 
+	  if ( commentchar(ptrWD) ) { FOUND_COMMENT = true ; }
+	  if ( !FOUND_COMMENT ) { NWD_TMP++; }
+	}
+	NWD = NWD_TMP; // reset NWD to ignore comments
+      }
       PARSE_WORDS.NWD += NWD;
     }
     NWD = PARSE_WORDS.NWD ;
+
 
     fclose(fp);
   }
@@ -10966,7 +10982,8 @@ int wr_filtband_float(
 // ***********************************
 void check_argv(void) {
 
-  // make sure that there are no unused command-line args
+  // ABORT if there are un-used command-line args
+  // (to catch mis-typed commands)
 
   int NBAD, i ;
   char fnam[] = "check_argv";
@@ -10985,7 +11002,9 @@ void check_argv(void) {
   }
 
   if ( NBAD > 0 ) {
-    errmsg(SEV_FATAL, 0, fnam, "Invalid command line arg(s)", "" );
+    sprintf(c1err,"%d invalid/unknown command line arg(s)", NBAD);
+    sprintf(c2err,"Check command-line args");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
 } // end check_argv

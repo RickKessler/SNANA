@@ -18311,6 +18311,7 @@ void SUBPROCESS_PREP_NEXTITER(void) {
 	 KEYNAME_SUBPROCESS_STDOUT );   fflush(stdout);
   scanf( "%d", &ITER_EXPECT); // read response
   if ( ITER_EXPECT < 0 ) { SUBPROCESS_EXIT(); }
+  SUBPROCESS.ITER = ITER_EXPECT; 
 
   prep_input_repeat();
 
@@ -18647,7 +18648,8 @@ void SUBPROCESS_OUTPUT_LOAD(void) {
 // ===========================================
 void SUBPROCESS_OUTPUT_WRITE(void) {
 
- 
+  // write SALT2mu output
+
   FILE *FP_OUT = SUBPROCESS.FP_OUT ;
   int  ITER    = SUBPROCESS.ITER ;
   int  NBIN_c  = SUBPROCESS.NBIN_c ;

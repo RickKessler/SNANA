@@ -99,14 +99,6 @@ time_t t_start, t_end, t_end_init ;
 #define KEYSOURCE_FILE 1
 #define KEYSOURCE_ARG  2
 
-/* xxxxx mark delete Jul 2020 xxxxxx
-// define 'istage' parameters for read_input().
-#define INPUT_DEFAULT  0  // 
-#define INPUT_USER1    1
-#define INPUT_USER2    2
-#define INPUT_USER3    3
-xxxxxxx end mark */
-
 #define IFLAG_GENSMEAR_FILT 1 // intrinsic smear at central LAMBDA of filter
 #define IFLAG_GENSMEAR_LAM  2 // intrinsic smear vs. wavelength
 int IFLAG_GENSMEAR ;
@@ -594,7 +586,6 @@ struct INPUTS {
   GENPOLY_DEF SALT2BETA_cPOLY;
   double BIASCOR_SALT2GAMMA_GRID[2]; // gamma range for BBC-biasCor sample
 
-  char   SALT2mu_FILE[200];        // read alpha,beta from here
   float  GENALPHA_SALT2 ; // legacy variable: same as GENMEAN_SALT2ALPHA
   float  GENBETA_SALT2 ;  // legacy variable: same as GENMEAN_SALT2BETA
 
@@ -694,9 +685,6 @@ struct INPUTS {
 
   int   DO_MODELSMEAR;  // flag to do some kind of model smearing.
 
-  int   GENRANGE_TYPE[2];    // used only for data-version as  source 
-  int   GENRANGE_CID[2];
-
   char  GENFILTERS[MXFILTINDX];        // 'gri', 'grizY', etc ...
   int   NFILTDEF_OBS;
   int   IFILTMAP_OBS[MXFILTINDX];     // converts ifilt to ifilt_obs
@@ -717,7 +705,6 @@ struct INPUTS {
   int   SMEARFLAG_ZEROPT ;      // 0,1 => off,on for zeropt smearing
   int   SMEARFLAG_HOSTGAL;      // host-gal logical flag
 
-  int   KCORFLAG_STRETCH;        // 0,1 => off,on for kcor at Trest/stretch
   int   KCORFLAG_COLOR;          //   1=> closest color, 2=>Jha color
   float EXPOSURE_TIME;           // global exposure time (1=default)
   float EXPOSURE_TIME_FILTER[MXFILTINDX]; // exposure per filter
@@ -835,9 +822,6 @@ struct INPUTS {
   double COVMAT_CHOLESKY_SCATTER[3][3];
   double COVMAT_SCATTER_SQRT[3][3] ;// Do later
   double COVMAT_SCATTER_REDUCED[3][3] ;
-
-  // optional file of constraints on generated z,PKMJD, etc ...
-  char GENPAR_SELECT_FILE[MXPATHLEN];
 
   // silly option to interpolate model on epoch grid
   // (to mimic fake overlays on DES images)
@@ -1665,17 +1649,27 @@ void   parse_input_RANSYSTPAR_legacy(FILE *fp, int *iArg, char *KEYNAME );
 void   parse_input_GENMODEL_ARGLIST_legacy(FILE *fp, int *iArg );
 void   parse_input_GENMODEL_legacy(FILE *fp, int *iArg );
 void   sim_input_override_legacy(void) ;  // parse command-line overrides
+void   parse_input_SOLID_ANGLE_legacy(FILE *fp, int *iArg, char *KEYNAME );
+void   read_input_RATEPAR_legacy(FILE *fp, char *WHAT, char *KEY, 
+			  RATEPAR_DEF *RATEPAR );
+void   sscanf_RATEPAR_legacy(int *i, char *WHAT, RATEPAR_DEF *RATEPAR);
+void   parse_input_SIMGEN_DUMP_legacy(FILE *fp, int *iArg, char *KEYNAME );
+void   read_input_SIMSED_legacy(FILE *fp, char *KEY);
+void   read_input_SIMSED_COV_legacy(FILE *fp, int OPT,  char *stringOpt );
+void   read_input_SIMSED_PARAM_legacy(FILE *fp);
+void   read_input_GENGAUSS(FILE *fp, char *string, char *varname,
+			   GENGAUSS_ASYM_DEF *genGauss );
+void parse_input_GENMAG_SMEAR_SCALE_legacy(FILE *fp,int *iArg,char *KEYNAME);
+void sscanf_GENGAUSS_legacy(int *i, char *varname, 
+		       GENGAUSS_ASYM_DEF *genGauss );
 // - - - - - - - 
 
 int    read_input_file(char *inFile);          // parse this inFile
-void   read_input_SIMSED(FILE *fp, char *KEY);
-void   read_input_SIMSED_COV(FILE *fp, int OPT,  char *stringOpt );
-void   read_input_SIMSED_PARAM(FILE *fp);
-void   read_input_GENGAUSS(FILE *fp, char *string, char *varname,
-			   GENGAUSS_ASYM_DEF *genGauss );
-
 int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
 bool   keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource);
+
+int    parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
+			    GENGAUSS_ASYM_DEF *genGauss );
 void   parse_input_GENZPHOT_OUTLIER(char *string);
 void   parse_input_FIXMAG(char *string);
 int    parse_input_RANSYSTPAR(char **WORDS, int keySource );
@@ -1687,21 +1681,21 @@ int    parse_input_NON1ASED(char **WORDS, int keySource );
 void   parse_GENMAG_SMEAR_MODELNAME(void);
 int    parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK, 
 				   float *VALUE_GLOBAL,float *VALUE_FILTERLIST);
-
+int    parse_input_SOLID_ANGLE(char **WORDS, int keySource);
+int    parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT, 
+			   RATEPAR_DEF *RATEPAR );
+int    parse_input_ZVARIATION(char **WORDS, int keySource);
+int    parse_input_SIMGEN_DUMP(char **WORDS, int keySource);
+int    parse_input_SIMSED(char **WORDS, int keySource);
+int    parse_input_SIMSED_PARAM(char **WORDS);
+int    parse_input_SIMSED_COV(char **WORDS, int keySource );
+int    parse_input_LCLIB(char **WORDS, int keySource );
+int    parse_input_CUTWIN(char **WORDS, int keySource );
 void   parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING);
-void   parse_input_SIMGEN_DUMP(FILE *fp, int *iArg, char *KEYNAME );
-void   parse_input_SOLID_ANGLE(FILE *fp, int *iArg, char *KEYNAME );
 
-void   parse_input_GENMAG_SMEAR_SCALE(FILE *fp, int *iArg, char *KEYNAME );
+bool   valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME );
+int    parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource );
 
-void   read_input_RATEPAR(FILE *fp, char *WHAT, char *KEY, 
-			  RATEPAR_DEF *RATEPAR );
-void   sscanf_RATEPAR(int *i, char *WHAT, RATEPAR_DEF *RATEPAR);
-
-int    valid_DNDZ_KEY(char *WHAT, int fromFile, char *KEYNAME );
-
-void   sscanf_GENGAUSS(int *i, char *varname, 
-		       GENGAUSS_ASYM_DEF *genGauss );
 void   checkVal_GENGAUSS(char *varName, double *val, char *fromFun ) ;
 
 void   sim_input_override(void) ;  // parse command-line overrides
@@ -2037,8 +2031,6 @@ void genmag_SALT2(int OPTMASK, int ifilt, double x0,
 double SALT2x0calc(double alpha, double beta, double x1, double c, 
 		   double dlmag);
 double SALT2mBcalc(double x0);
-
-void  read_SALT2mu_AlphaBeta(char *SALT2mu_FILE) ;
 
 int init_genmag_SIMSED(char *version, char *PATH_BINARY, 
 		       char *SURVEY, char *kcorFile, int OPTMASK );

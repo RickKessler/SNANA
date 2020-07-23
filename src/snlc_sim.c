@@ -1757,12 +1757,14 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }  
   // - - - - legacy SALT2 alpha,beta keys - - - - - - 
   else if ( keyMatchSim(1, "GENALPHA_SALT2",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", &INPUTS.GENALPHA_SALT2 );
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENALPHA_SALT2 );
+    sprintf(INPUTS.GENGAUSS_SALT2ALPHA.NAME, "SALT2ALPHA" );
     INPUTS.GENGAUSS_SALT2ALPHA.PEAK     = INPUTS.GENALPHA_SALT2 ; 
     INPUTS.GENGAUSS_SALT2ALPHA.USE      = true ;
   }
   else if ( keyMatchSim(1, "GENBETA_SALT2",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", &INPUTS.GENBETA_SALT2 );
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENBETA_SALT2 );
+    sprintf(INPUTS.GENGAUSS_SALT2BETA.NAME, "SALT2BETA" );
     INPUTS.GENGAUSS_SALT2BETA.PEAK     = INPUTS.GENBETA_SALT2 ; 
     INPUTS.GENGAUSS_SALT2BETA.USE      = true ;
   }
@@ -1781,22 +1783,22 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 			      &INPUTS.GENGAUSS_RV );  
   }
   else if ( keyMatchSim(1, "GENRANGE_AV",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPROFILE_AV.RANGE[0] ); 
-    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPROFILE_AV.RANGE[1] ); 
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENPROFILE_AV.RANGE[0] ); 
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENPROFILE_AV.RANGE[1] ); 
   }
   else if ( keyMatchSim(1, "GENTAU_AV  GENEXPTAU_AV", WORDS[0],keySource) ){
-    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPROFILE_AV.EXP_TAU ); 
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENPROFILE_AV.EXP_TAU ); 
     INPUTS.GENEXPTAU_AV = INPUTS.GENPROFILE_AV.EXP_TAU ; //legacy variable
   }
   else if ( keyMatchSim(1, "GENSIG_AV  GENGAUSIG_AV", WORDS[0],keySource) ){
-    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPROFILE_AV.SIGMA ); 
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENPROFILE_AV.SIGMA ); 
     INPUTS.GENGAUSIG_AV = INPUTS.GENPROFILE_AV.SIGMA ; //legacy variable 
   }
   else if ( keyMatchSim(1, "GENGAUPEAK_AV", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPROFILE_AV.PEAK ); 
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENPROFILE_AV.PEAK ); 
   }
   else if ( keyMatchSim(1, "GENRATIO_AV0", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", INPUTS.GENPROFILE_AV.RATIO ); 
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENPROFILE_AV.RATIO ); 
     INPUTS.GENRATIO_AV0 = INPUTS.GENPROFILE_AV.RATIO ; //legacy
   }
   // - - - - EBV for HOST - - - - 
@@ -2145,10 +2147,10 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "SPECTROGRAPH_SCALE_TEXPOSE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE );
   }
-  else if ( keyMatchSim(1, "WARP_SPECTRUM",  WORDS[0],keySource) ) {
+  else if ( keyMatchSim(10, "WARP_SPECTRUM",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", INPUTS.WARP_SPECTRUM_STRING );
   }
-  else if ( keyMatchSim(1, "TAKE_SPECTRUM",  WORDS[0],keySource) ) {
+  else if ( keyMatchSim(MXOBS_SPECTROGRAPH,"TAKE_SPECTRUM", WORDS[0],keySource) ) {
     N += parse_input_TAKE_SPECTRUM(WORDS, keySource, fpNull );
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTFRAC",  WORDS[0],keySource) ) {
@@ -8750,7 +8752,6 @@ void gen_event_driver(int ilc) {
 		     GENLC.REDSHIFT_HELIO,          // input 
 		     &GENLC.DLMU, &GENLC.LENSDMU ); // returned 
 
-
     // - - - - -   Tricky MWEBV LOGIC (Spaghetti alert) - - - - - - -
     // get MWEBV here if SNHOST_DRIVER will NOT change the SN coords; 
     // otherwise skip it here and let SNHOST_DRIVER generate MWEBV 
@@ -8801,6 +8802,7 @@ void gen_event_driver(int ilc) {
 
     if ( INPUTS.GENSIGMA_REDSHIFT >= 0.0 )
       { gen_zsmear( INPUTS.GENSIGMA_REDSHIFT ); }  
+
 
     // global mag offset + z-dependence 
     GENLC.GENMAG_OFF_GLOBAL += (double)INPUTS.GENMAG_OFF_GLOBAL
@@ -9607,13 +9609,13 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   // ---------------------------------------
   // evaluate shape with z-dependence on population, 
- 
+
+
   if ( DOSHAPE && ISFRAME_REST ) {
 
     char *snam = GENLC.SHAPEPAR_GENNAME ;
     GENGAUSS_ZVAR = 
       get_zvariation_GENGAUSS(ZCMB, snam, &INPUTS.GENGAUSS_SHAPEPAR);
-
 
     // pick random shape value from populatoin at this redshift
     if ( INPUTS.OPT_DEVEL_GENPDF ) {
@@ -9690,7 +9692,6 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
   // for SALT2, the color term is analogous to shapepar
   // so generate the 'c' and beta term here.
 
-  
   if ( ISFRAME_REST ) {
 
     if ( !SKIPc ) {
@@ -9706,18 +9707,18 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
 	GENLC.SALT2c = 
 	  exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;
       }
+
     }
 
     GENGAUSS_ZVAR = 
       get_zvariation_GENGAUSS(ZCMB,"SALT2ALPHA",&INPUTS.GENGAUSS_SALT2ALPHA);
     GENLC.SALT2alpha = 
-      exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;
-    
+      exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;   
+
     GENGAUSS_ZVAR = 
       get_zvariation_GENGAUSS(ZCMB,"SALT2BETA",&INPUTS.GENGAUSS_SALT2BETA);
     GENLC.SALT2beta = 
-      exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;
-    
+      exec_GENGAUSS_ASYM(&GENGAUSS_ZVAR) ;   
 
     // 2/29/2016: optional  beta(c) polynomial 
     // 3/23/2020: refactor using GENPOLY tools

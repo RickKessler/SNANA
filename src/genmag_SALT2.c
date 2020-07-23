@@ -752,16 +752,14 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
   //
   // May 2011: check array bound
   // Jul 2013: add array-bound check on NBTOT = NBLAM*NDAY
-  
+  // Jul 23 2020: for SALT3, remove _relative from file names
+
   int imap, NDAY, NLAM, NBTOT;
   double DUMMY[20];
 
-  char
-    tmpFile[200]
-    ,sedcomment[80]
-    ,*prefix = SALT2_PREFIX_FILENAME
-    ,fnam[] = "read_SALT2errmaps" ;
-    ;
+  char tmpFile[200], sedcomment[80], lc_string[20] ;
+  char *prefix = SALT2_PREFIX_FILENAME ;
+  char fnam[] = "read_SALT2errmaps" ;
 
   // ----------- BEGIN -----------    
 
@@ -770,10 +768,13 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
 
   NERRMAP_BAD_SALT2 = 0 ;
 
-  // hard-wire filenames for erro maps
-  sprintf(SALT2_ERRMAP_FILES[0], "%s_lc_relative_variance_0.dat", prefix );
-  sprintf(SALT2_ERRMAP_FILES[1], "%s_lc_relative_variance_1.dat", prefix );
-  sprintf(SALT2_ERRMAP_FILES[2], "%s_lc_relative_covariance_01.dat", prefix );
+  // hard-wire filenames for error maps
+  sprintf(lc_string,"lc_relative");
+  if ( ISMODEL_SALT3 ) { sprintf(lc_string,"lc"); }
+
+  sprintf(SALT2_ERRMAP_FILES[0], "%s_%s_variance_0.dat", prefix, lc_string );
+  sprintf(SALT2_ERRMAP_FILES[1], "%s_%s_variance_1.dat", prefix, lc_string );
+  sprintf(SALT2_ERRMAP_FILES[2], "%s_%s_covariance_01.dat", prefix, lc_string );
   sprintf(SALT2_ERRMAP_FILES[3], "%s_lc_dispersion_scaling.dat", prefix );
   sprintf(SALT2_ERRMAP_FILES[4], "%s_color_dispersion.dat",      prefix );
 

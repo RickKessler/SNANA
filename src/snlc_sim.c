@@ -1407,12 +1407,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   
   // ------------- BEGIN -----------
 
-  /* xxxxxxxxxxxx
-  if ( keySource == KEYSOURCE_ARG ) {
+  // xxxxxxxxxxxx
+  if ( strstr(WORDS[0],"DNDZ") != NULL ) {
     printf(" xxx %s: WORDS = '%s' and '%s' \n", fnam, WORDS[0], WORDS[1] ); 
     fflush(stdout);
   }
-  xxxxxxxx */
+  // xxxxxxxx */
 
   // printf(" xxx %s: WORDS = '%s' \n", fnam, WORDS[0] );
 
@@ -1596,11 +1596,16 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "PATH_SNDATA_SIM",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", PATH_SNDATA_SIM );
   }
+  if ( keyMatchSim(1, "PATH_NON1ASED PATH_NONIASED", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.NON1ASED.PATH );
+    return(N);
+  }
   else if ( 
-	   strstr(WORDS[0],"NONIA") != NULL  || 
-	   strstr(WORDS[0],"NON1A") != NULL  ||
-	   strstr(WORDS[0],"PECIA") != NULL  ||
-	   strstr(WORDS[0],"PEC1A") != NULL )  {
+	   // check first 5 chars to avoid other strings with NON1A after 1st char
+	   strncmp(WORDS[0],"NONIA",5) == 0  ||
+	   strncmp(WORDS[0],"NON1A",5) == 0  ||
+	   strncmp(WORDS[0],"PECIA",5) == 0  ||
+	   strncmp(WORDS[0],"PEC1A",5) == 0 ) {
     N += parse_input_NON1ASED(WORDS,keySource);
   }
   else if ( keyMatchSim(1,"MJD_EXPLODE", WORDS[0],keySource) ) {
@@ -1633,6 +1638,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // - - - - DNDZ stuff - - - - 
   else if ( strstr(WORDS[0],"DNDZ") != NULL || 
 	    strstr(WORDS[0],"DNDB") != NULL  ) {   
+    printf(" xxx %s: yo found %s \n", fnam, WORDS[0] );
     N += parse_input_RATEPAR(WORDS, keySource, "NOMINAL",
 			     &INPUTS.RATEPAR);
     N += parse_input_RATEPAR(WORDS, keySource, "PEC1A",  
@@ -2285,6 +2291,9 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 
   FOUND_PRIMARY_KEY = valid_DNDZ_KEY(WHAT, keySource, KEYNAME ) ;
 
+  printf(" xxx %s: FOUND=%d  IS_NOM/PEC1A = %d/%d \n",
+	 fnam, FOUND_PRIMARY_KEY,  IS_NOMINAL, IS_PEC1A );
+
   // --------------------
 
   if ( FOUND_PRIMARY_KEY ) {
@@ -2292,7 +2301,6 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
     N++; sscanf(WORDS[N], "%s", RATEPAR->NAME ); 
 
     if ( IGNOREFILE(RATEPAR->NAME) ) { return ; }
-
 
     // make sure that PEC1A rateModel is defined only for NON1A mode
     if ( IS_PEC1A &&  INPUTS.NON1A_MODELFLAG < 0 ) {
@@ -2472,6 +2480,8 @@ bool valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME ) {
     sprintf(KEYTEST,"%s", PRIMARY_KEYLIST[ikey] );
 
     if ( READ_INPUT_REFAC ) {
+      printf(" xxx %s: check KEYTEST = '%s'  (KEYNAME=%s)\n", 
+	     fnam, KEYTEST, KEYNAME );
       if ( keyMatchSim(2, KEYTEST, KEYNAME, keySource) ) { FOUND=true; }
     }
     else {
@@ -2609,10 +2619,6 @@ int parse_input_NON1ASED(char **WORDS, int keySource) {
 
   // ----------- BEGIN -----------
 
-  if ( keyMatchSim(1, "PATH_NON1ASED PATH_NONIASED", WORDS[0], keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", INPUTS.NON1ASED.PATH );
-    return(N);
-  }
   
   if ( INPUTS.NON1A_MODELFLAG != MODEL_NON1ASED ) { return(N); }
 
@@ -3197,7 +3203,7 @@ int parse_input_SOLID_ANGLE(char **WORDS, int keySource) {
   char *FIELDLIST = INPUTS.SIMLIB_FIELDLIST ;
   char KEYLOCAL[100], FIELDLIST_ADD[100];
   int  ADDFIELD = 0 ;
-  int  LDMP = 1; 
+  int  LDMP   = 0 ; 
   char fnam[] = "parse_input_SOLID_ANGLE" ;
 
 

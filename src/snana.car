@@ -21116,6 +21116,8 @@ c
 c Dec 21 2017: add OPTMASK argument to increment global counters
 c   
 c Jul 11 2020: check ZP and PSF
+c Jul 23 2020: ignore ZP and PSF if RESTORE_DES3YR=T
+c
 c ---------------------
 
       IMPLICIT NONE
@@ -21213,11 +21215,12 @@ c July 11 2020
 c  Check cuts on PSF and ZP ... doesn't change analysis,
 c  but allows new OUT_EPOCH_IGNORE_FILE option to work properly.
 
+      IF( RESTORE_DES3YR ) GOTO 600 ! skip ZP and PSF cut for DES3YR
+
       ZP = SNLC_ZEROPT_forCUT(ep) 
       IF ( ZP < CUTWIN_ZP(1) ) IGNORE = .TRUE.
       IF ( ZP > CUTWIN_ZP(2) ) IGNORE = .TRUE.
 
-c xxx bug !!!  PSF = SNLC_PSF_SIG1(ep)
       PSF  = SNLC_PSF_FWHM_ARCSEC(EP)
       IF ( PSF < CUTWIN_PSF(1) ) IGNORE = .TRUE.
       IF ( PSF > CUTWIN_PSF(2) ) IGNORE = .TRUE.

@@ -369,9 +369,9 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
     ISPEC1A = INP_NON1ASED->ISPEC1A[isp];
     XN      = ( wgt / WGTSUM[ISPEC1A] ) * XNGEN[ISPEC1A] ;
 
-    if ( DO_GENGRID==0 && (ISPEC1A && FRAC_PEC1A == 0.0)  ) {
+    if ( !DO_GENGRID && (ISPEC1A && FRAC_PEC1A == 0.0)  ) {
       print_preAbort_banner(fnam);
-      printf("\t Check DNDZ_PEC1A key is defined.\n");
+      printf("\t Check that DNDZ_PEC1A key is defined.\n");
       printf("\t Check that GENRANGE_REDSHIFT is not a delta function.\n");
       printf("\t Check that GENRANGE_PEAKMJD  is not a delta function.\n");
       printf("\t Check that SOLID_ANGLE > 0 \n");

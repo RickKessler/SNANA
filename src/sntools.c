@@ -10991,7 +10991,7 @@ void check_argv(void) {
   // ----------- BEGIN ---------
 
   NBAD = 0;
-  for ( i = 1; i < NARGV_LIST; i++ ) {
+  for ( i = 0; i < NARGV_LIST; i++ ) {
     if ( USE_ARGV_LIST[i] == 0 ) {
       NBAD++ ;
       if ( NBAD == 1 ) printf("  CHECK_ARGV ERRORS: \n" );
@@ -11003,7 +11003,7 @@ void check_argv(void) {
 
   if ( NBAD > 0 ) {
     sprintf(c1err,"%d invalid/unknown command line arg(s)", NBAD);
-    sprintf(c2err,"Check command-line args");
+    sprintf(c2err,"Check all %d command-line args", NARGV_LIST );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 

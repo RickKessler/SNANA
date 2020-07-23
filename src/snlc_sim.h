@@ -1662,6 +1662,7 @@ void   read_input_GENGAUSS(FILE *fp, char *string, char *varname,
 void parse_input_GENMAG_SMEAR_SCALE_legacy(FILE *fp,int *iArg,char *KEYNAME);
 void sscanf_GENGAUSS_legacy(int *i, char *varname, 
 		       GENGAUSS_ASYM_DEF *genGauss );
+void   parse_input_TAKE_SPECTRUM_legacy(FILE *fp, char *WARP_SPECTRUM_STRING);
 // - - - - - - - 
 
 int    read_input_file(char *inFile);          // parse this inFile
@@ -1691,10 +1692,12 @@ int    parse_input_SIMSED_PARAM(char **WORDS);
 int    parse_input_SIMSED_COV(char **WORDS, int keySource );
 int    parse_input_LCLIB(char **WORDS, int keySource );
 int    parse_input_CUTWIN(char **WORDS, int keySource );
-void   parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING);
-
-bool   valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME );
+int    parse_input_GRIDGEN(char **WORDS, int keySource);
+int    parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp );
 int    parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource );
+void   parse_input_OBSOLETE(char **WORDS, int keySource );
+bool   valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME );
+
 
 void   checkVal_GENGAUSS(char *varName, double *val, char *fromFun ) ;
 

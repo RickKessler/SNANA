@@ -1380,9 +1380,11 @@ int read_input_file(char *input_file) {
   // ------------------- 
   char msg_die[100] ;
   sprintf(msg_die, "DEBUG DIE for refac %s: NWD = %d", fnam, NWD_FILE );
-  debugexit(msg_die) ;
+  //  debugexit(msg_die) ;
 
-  return ;
+  if ( INPUTS.KEYNAME_DUMPFLAG ) { happyend(); }
+
+  return(SUCCESS) ;
 
 } // end read_input_file
 
@@ -1390,15 +1392,27 @@ int read_input_file(char *input_file) {
 int parse_input_key_driver(char **WORDS, int keySource ) {
 
   // Jul 20 2020
-  // examine input string(s) WORDS by comparing against all 
+  // Examine input string(s) WORDS by comparing against all 
   // possible keys. Input keySource indicates if key is
   // file or command-line.
+  //
+  // Function returns number of words read after the WOREDS[0] key.
+  // i.e., WORDS[0] is not included in the return count.
+  //
 
   int j, ITMP, NFILTDEF, NFILT, N = 0 ;
+  FILE *fpNull = NULL ;
   char strPoly[60], ctmp[60] ;
   char fnam[] = "parse_input_key_driver" ;
-
+  
   // ------------- BEGIN -----------
+
+  /* xxxxxxxxxxxx
+  if ( keySource == KEYSOURCE_ARG ) {
+    printf(" xxx %s: WORDS = '%s' and '%s' \n", fnam, WORDS[0], WORDS[1] ); 
+    fflush(stdout);
+  }
+  xxxxxxxx */
 
   // printf(" xxx %s: WORDS = '%s' \n", fnam, WORDS[0] );
 
@@ -2119,21 +2133,51 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N += parse_input_LCLIB(WORDS,keySource);
   }
   else if ( strstr(WORDS[0],"CUTWIN") != NULL ) {
-    // .xyz 
     N += parse_input_CUTWIN(WORDS,keySource);
   }
-
-  // - - - - 
+  else if ( keyMatchSim(1, "EFFERR_STOPGEN",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.EFFERR_STOPGEN );
+  }
+  // - - -  specrrograph - - - -
+  else if ( keyMatchSim(1, "SPECTROGRAPH_OPTMASK",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK );
+  }
+  else if ( keyMatchSim(1, "SPECTROGRAPH_SCALE_TEXPOSE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.SPECTROGRAPH_OPTIONS.SCALE_TEXPOSE );
+  }
+  else if ( keyMatchSim(1, "WARP_SPECTRUM",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", INPUTS.WARP_SPECTRUM_STRING );
+  }
+  else if ( keyMatchSim(1, "TAKE_SPECTRUM",  WORDS[0],keySource) ) {
+    N += parse_input_TAKE_SPECTRUM(WORDS, keySource, fpNull );
+  }
+  else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTFRAC",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", INPUTS.TAKE_SPECTRUM_HOSTFRAC );
+  }
+  else if ( keyMatchSim(1, "TAKE_SPECTRUM_DUMPCID",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", INPUTS.TAKE_SPECTRUM_DUMPCID );
+  }
+#ifdef SNGRIDGEN
+  else if ( strstr(WORDS[0],"GRID") != NULL ) {
+    N += parse_input_GRIDGEN(WORDS,keySource);
+  }
+#endif
+  // - - - - COMMAND-LINE ONLY - - - - - 
   else if ( keyMatchSim(1, "INIT_ONLY",  WORDS[0],keySource) ) {
+    // flag to quit after computing number of SN
     N++;  sscanf(WORDS[N], "%d", &INPUTS.INIT_ONLY );
   }
-  // JOBID & NJOBTOT can be read only from command-line;
-  // NOT from sim-input file.
   else if ( keyMatchSim(1, "JOBID",  WORDS[0],keySource) ) {
+    // JOBID for batch job
     N++;  sscanf(WORDS[N], "%d", &INPUTS.JOBID );
   }
   else if ( keyMatchSim(1, "NJOBTOT",  WORDS[0],keySource) ) {
+    // total number of batch jobs
     N++;  sscanf(WORDS[N], "%d", &INPUTS.NJOBTOT );
+  }
+  // - - - - ABORT ON OBSOLETE KEYS - - - - 
+  else {
+    parse_input_OBSOLETE(WORDS,keySource);
   }
 
   return(N);
@@ -2152,24 +2196,28 @@ bool keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource) {
   // E.g., KEY = "GENSMEAR GEN_SMEAR" is equivalent to two
   // calls with KEY = GENSMEAR, and again with KEY = GEN_SMEAR
 
-  bool IS_FILE = (keySource = KEYSOURCE_FILE);
-  bool IS_ARG  = (keySource = KEYSOURCE_ARG );
+  bool IS_FILE = (keySource == KEYSOURCE_FILE);
+  bool IS_ARG  = (keySource == KEYSOURCE_ARG );
   bool match = false ;
   int  MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
   int  NKEY, ikey;
-  char KEY_PLUS_COLON[MXPATHLEN];
-  
+  char KEY_PLUS_COLON[MXPATHLEN], tmpKey[60];
+  char fnam[] = "keyMatchSim";
+
+  // ------------ BEGIN --------------
+
   NKEY = store_PARSE_WORDS(MSKOPT,KEY);
   for(ikey=0; ikey < NKEY; ikey++ ) {
+    get_PARSE_WORD(0, ikey, tmpKey);
     if ( IS_FILE ) { 
       // read from file; key must have colon
-      sprintf(KEY_PLUS_COLON, "%s%s", KEY, COLON);
+      sprintf(KEY_PLUS_COLON, "%s%s", tmpKey, COLON);
       if ( NstringMatch( MXKEY, KEY_PLUS_COLON, WORD ) ) 
 	{ return(true); }
     }
     else {
       // read from command line arg, colon is optional
-      if ( keyMatch(WORD, KEY, COLON ) )  // allow with or without colon
+      if ( keyMatch(WORD, tmpKey, COLON ) )  // COLON is optional suffix
 	{ return(true); }
     }
   }
@@ -2231,11 +2279,9 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
     if ( N > 0 ) { return(N); }
   }
 
-
   // -----------------------------------
 
   FOUND_PRIMARY_KEY = valid_DNDZ_KEY(WHAT, keySource, KEYNAME ) ;
-
 
   // --------------------
 
@@ -2256,15 +2302,21 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
     if ( strcmp(RATEPAR->NAME,"ABMODEL") == 0 ) {
 	RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_AB ;
 	RATEPAR->NMODEL_ZRANGE = 1 ;  
-	N++; sscanf(WORDS[N], "%le", RATEPAR->MODEL_PARLIST[1] ); 
-	N++; sscanf(WORDS[N], "%le", RATEPAR->MODEL_PARLIST[2] ); 
+	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][0] ); 
+	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][1] ); 
 	// xxx 	readdouble ( fp, 2, RATEPAR->MODEL_PARLIST[1] ); 
     }
     else if ( strcmp(RATEPAR->NAME,"POWERLAW") == 0 ) {
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_POWERLAW ;
       RATEPAR->NMODEL_ZRANGE = 1 ;
-      N++; sscanf(WORDS[N], "%le", RATEPAR->MODEL_PARLIST[1] ); 
-      N++; sscanf(WORDS[N], "%le", RATEPAR->MODEL_PARLIST[2] ); 
+      NLOCAL = RATEPAR->NMODEL_ZRANGE ;
+      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][0] ); 
+      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][1] ); 
+
+      printf(" xxx %s: read %s params %f and %f \n",
+	     fnam, RATEPAR->NAME, RATEPAR->MODEL_PARLIST[1][1],
+	     RATEPAR->MODEL_PARLIST[1][2] );
+
       // xxxx  readdouble ( fp, 2, RATEPAR->MODEL_PARLIST[1] ); 
     }
     else if ( strcmp(RATEPAR->NAME,"POWERLAW2") == 0 ) {
@@ -2272,13 +2324,13 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_POWERLAW2 ;
       NLOCAL = RATEPAR->NMODEL_ZRANGE ;
 
-      N++; sscanf(WORDS[N], "%le", RATEPAR->MODEL_PARLIST[NLOCAL] ); 
-      N++; sscanf(WORDS[N], "%le", RATEPAR->MODEL_PARLIST[NLOCAL+1] ); 
-      N++; sscanf(WORDS[N], "%le", RATEPAR->MODEL_ZRANGE[NLOCAL] ); 
-      N++; sscanf(WORDS[N], "%le", RATEPAR->MODEL_ZRANGE[NLOCAL+1] ); 
+      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][0] ); 
+      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][1] ); 
+      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_ZRANGE[NLOCAL][0] ); 
+      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_ZRANGE[NLOCAL][1] ); 
 
       // xxxx  readdouble ( fp, 2, RATEPAR->MODEL_PARLIST[NLOCAL] ); 
-      // xxxxx  readdouble ( fp, 2, RATEPAR->MODEL_ZRANGE[NLOCAL] ); 
+      // xxxx  readdouble ( fp, 2, RATEPAR->MODEL_ZRANGE[NLOCAL] ); 
     }
     else if ( strstr(RATEPAR->NAME,RATEMODELNAME_CCS15) != NULL ) {
       parse_multiplier(RATEPAR->NAME,RATEMODELNAME_CCS15, &TMPVAL);
@@ -2330,8 +2382,8 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       RATEPAR->INDEX_MODEL   = INDEX_RATEMODEL_COSBPOLY ;
       RATEPAR->NMODEL_ZRANGE = 0 ;
 
-      for(j=1; j <= MXPOLY_GALRATE+1; j++ ) {
-	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[j] ); 
+      for(j=0; j <= MXPOLY_GALRATE; j++ ) {
+	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][j] ); 
       }
       // xxxx readdouble(fp,MXPOLY_GALRATE+1, RATEPAR->MODEL_PARLIST[1] ); 
 
@@ -2418,7 +2470,7 @@ bool valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME ) {
     sprintf(KEYTEST,"%s", PRIMARY_KEYLIST[ikey] );
 
     if ( READ_INPUT_REFAC ) {
-      if ( keyMatchSim(2, KEYNAME, KEYTEST, keySource) ) { FOUND=true; }
+      if ( keyMatchSim(2, KEYTEST, KEYNAME, keySource) ) { FOUND=true; }
     }
     else {
       // legacy 
@@ -2969,7 +3021,7 @@ int  parse_input_LCLIB(char **WORDS, int keySource ) {
 // ================================================
 int  parse_input_CUTWIN(char **WORDS, int keySource ) {
 
-  int N=0;
+  int  NCUT, N=0;
   char fnam[] = "parse_input_CUTWIN" ;
 
   // ---------- BEGIN ----------
@@ -2977,10 +3029,153 @@ int  parse_input_CUTWIN(char **WORDS, int keySource ) {
  if ( keyMatchSim(1, "APPLY_CUTWIN_OPT", WORDS[0],keySource)) {
    N++;  sscanf(WORDS[N], "%d", &INPUTS.APPLY_CUTWIN_OPT );
   }
+ else if ( keyMatchSim(1, "EPCUTWIN_LAMREST", WORDS[0],keySource)) {
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.EPCUTWIN_LAMREST[0] );
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.EPCUTWIN_LAMREST[1] );
+ } 
+ else if ( keyMatchSim(1, "EPCUTWIN_SNRMIN", WORDS[0],keySource)) {
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.EPCUTWIN_SNRMIN[0] );
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.EPCUTWIN_SNRMIN[1] );
+ }
+ else if ( keyMatchSim(1, "CUTWIN_REDSHIFT CUTWIN_REDSHIFT_TRUE", 
+		       WORDS[0],keySource)) {
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_REDSHIFT_TRUE[0] );
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_REDSHIFT_TRUE[1] );
+ }
+ else if ( keyMatchSim(1, "CUTWIN_REDSHIFT_FINAL", WORDS[0],keySource)) {
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_REDSHIFT_FINAL[0] );
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_REDSHIFT_FINAL[1] );
+ } 
+ else if ( keyMatchSim(1, "CUTWIN_HOST_PHOTOZ CUTWIN_HOST_ZPHOT",
+		       WORDS[0],keySource)) {
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_HOST_ZPHOT[0] );
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_HOST_ZPHOT[1] );
+ }
+ else if ( keyMatchSim(1, "CUTWIN_TRESTMIN", WORDS[0],keySource)) {
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_TRESTMIN[0] );
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_TRESTMIN[1] );
+ }
+ else if ( keyMatchSim(1, "CUTWIN_TRESTMAX", WORDS[0],keySource)) {
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_TRESTMAX[0] );
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_TRESTMAX[1] );
+ }
+ else if ( keyMatchSim(1, "CUTWIN_TGAPMAX", WORDS[0],keySource)) {
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_TGAPMAX[0] );
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_TGAPMAX[1] );
+ }
+ else if ( keyMatchSim(1, "CUTWIN_T0GAPMAX", WORDS[0],keySource)) {
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_T0GAPMAX[0] );
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_T0GAPMAX[1] );
+ }
+ else if ( keyMatchSim(MXCUTWIN_SNRMAX, "CUTWIN_SNRMAX", WORDS[0],keySource)) {
+   INPUTS.NCUTWIN_SNRMAX++ ;  // should refactor later to start at zero, not 1
+   NCUT = INPUTS.NCUTWIN_SNRMAX ;
+   N++ ; sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_SNRMAX[NCUT][0]       );
+   N++ ; sscanf(WORDS[N], "%s", INPUTS.CUTWIN_SNRMAX_FILTERS[NCUT]   );
+   N++ ; sscanf(WORDS[N], "%s", INPUTS.CUTWIN_SNRMAX_LOGIC[NCUT]     );
+   N++ ; sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_SNRMAX_TREST[NCUT][0] );
+   N++ ; sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_SNRMAX_TREST[NCUT][1] );
+ }
+ else if ( keyMatchSim(1, "CUTWIN_NEPOCH", WORDS[0],keySource)) {
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_NEPOCH[0] );   // NOBS cut
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_NEPOCH[1] );   // SNRMIN cut
+ }
+ else if ( keyMatchSim(1, "CUTWIN_NOBSDIF", WORDS[0],keySource)) {
+   N++;  sscanf(WORDS[N], "%d", &INPUTS.CUTWIN_NOBSDIF[0] ); 
+   N++;  sscanf(WORDS[N], "%d", &INPUTS.CUTWIN_NOBSDIF[1] ); 
+ }
+ else if ( keyMatchSim(1, "CUTWIN_MJDDIF", WORDS[0],keySource)) {
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_MJDDIF[0] ); 
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_MJDDIF[1] ); 
+ }
+ else if ( keyMatchSim(1, "CUTWIN_NOBS_SATURATE", WORDS[0],keySource)) {
+   NCUT = INPUTS.NCUTWIN_SATURATE;
+   N++ ; sscanf(WORDS[N], "%d", &INPUTS.CUTWIN_SATURATE_NOBS[NCUT][0] );
+   N++ ; sscanf(WORDS[N], "%d", &INPUTS.CUTWIN_SATURATE_NOBS[NCUT][1] );
+   N++ ; sscanf(WORDS[N], "%s",  INPUTS.CUTWIN_SATURATE_FILTERS[NCUT] );
+   INPUTS.NCUTWIN_SATURATE++ ;
+ }
+ else if ( keyMatchSim(1, "CUTWIN_NOBS_NOSATURATE", WORDS[0],keySource)) {
+   NCUT = INPUTS.NCUTWIN_NOSATURATE;
+   N++ ; sscanf(WORDS[N], "%d", &INPUTS.CUTWIN_NOSATURATE_NOBS[NCUT][0] );
+   N++ ; sscanf(WORDS[N], "%d", &INPUTS.CUTWIN_NOSATURATE_NOBS[NCUT][1] );
+   N++ ; sscanf(WORDS[N], "%s",  INPUTS.CUTWIN_NOSATURATE_FILTERS[NCUT] );
+   INPUTS.NCUTWIN_NOSATURATE++ ;
+ }
+ else if ( keyMatchSim(1, "CUTWIN_MWEBV", WORDS[0],keySource)) {
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_MWEBV[0] );
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_MWEBV[1] );
+ }
+ else if ( keyMatchSim(1, "CUTWIN_PEAKMAG", WORDS[0],keySource)) {
+   // PEAKMAG cut on brightest epoch only
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_PEAKMAG[0] );
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_PEAKMAG[1] );
+ }
+ else if ( keyMatchSim(1, "CUTWIN_PEAKMAG_ALL", WORDS[0],keySource)) {
+   // require ALL filters to satisfy PEAKMAG cut
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_PEAKMAG_ALL[0] );
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_PEAKMAG_ALL[1] );
+ }
+ else if ( keyMatchSim(1, "CUTWIN_PEAKMAG_BYFIELD", WORDS[0],keySource)) {
+   INPUTS.NCUTWIN_PEAKMAG_BYFIELD++ ;  NCUT = INPUTS.NCUTWIN_PEAKMAG_BYFIELD;
+   N++;  sscanf(WORDS[N], "%f", INPUTS.CUTWIN_PEAKMAG_BYFIELD[NCUT][0] );
+   N++;  sscanf(WORDS[N], "%f", INPUTS.CUTWIN_PEAKMAG_BYFIELD[NCUT][1] );
+   N++;  sscanf(WORDS[N], "%s", INPUTS.CUTWIN_BYFIELDLIST[NCUT] );
+ }
+ else if ( keyMatchSim(1, "CUTWIN_EPOCHS_SNRMIN", WORDS[0],keySource)) {
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_EPOCHS_SNRMIN );
+   N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_EPOCHS_TRANGE[1] );
+   N++;  sscanf(WORDS[N], "%s", INPUTS.CUTWIN_EPOCHS_FILTERS );
+ }
+
+ return(N);
+
+} // end parse_input_CUTWIN
+
+// ==================================================
+#ifdef SNGRIDGEN
+int parse_input_GRIDGEN(char **WORDS, int keySource) {
+
+  // Created July 2020
+  // read/parse input keys to generate grid of population params.
+
+  int N=0, *IPTR ;
+  char fnan[] = "parse_input_GRIDGEN";
+
+  // ------------- BEGIN -------------
+
+  // check if source is GRID
+  if ( strcmp(INPUTS.GENSOURCE,"GRID") != 0 )  { return(N); }
+
+  if ( keyMatchSim(1,"GRID_FORMAT", WORDS[0], keySource) ) {
+    N++ ; sscanf(WORDS[N], "%s", GRIDGEN_INPUTS.FORMAT );
+  }
+  else if ( keyMatchSim(1,"NGRID_LOGZ", WORDS[0], keySource) ) {
+    IPTR = &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_LOGZ] ;
+    N++ ; sscanf(WORDS[N], "%d", IPTR);
+  }
+  else if ( keyMatchSim(1,"NGRID_SHAPEPAR NGRID_LUMIPAR", WORDS[0], keySource) ) {
+    IPTR = &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_SHAPEPAR] ;
+    N++ ; sscanf(WORDS[N], "%d", IPTR);
+  }
+  else if ( keyMatchSim(1,"NGRID_COLORPAR", WORDS[0], keySource) ) {
+    IPTR = &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_COLORPAR] ;
+    N++ ; sscanf(WORDS[N], "%d", IPTR);
+  }
+  else if ( keyMatchSim(1,"NGRID_COLORLAW", WORDS[0], keySource) ) {
+    IPTR = &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_COLORLAW] ;
+    N++ ; sscanf(WORDS[N], "%d", IPTR);
+  }
+  else if ( keyMatchSim(1,"NGRID_TREST", WORDS[0], keySource) ) {
+    IPTR = &GRIDGEN_INPUTS.NBIN[IPAR_GRIDGEN_TREST] ;
+    N++ ; sscanf(WORDS[N], "%d", IPTR);
+  }
 
   return(N);
 
-} // end parse_input_CUTWIN
+}  // end parse_input_GRIDGEN
+#endif
+
 // ==============================================================
 int parse_input_SOLID_ANGLE(char **WORDS, int keySource) {
 
@@ -3172,7 +3367,7 @@ int parse_input_GENMODEL(char **WORDS, int keySource) {
   int  jnam;
   char *GENMODEL = INPUTS.GENMODEL ;
   char ctmp[60], *NAME0 ;
-  bool LDMP = false ;
+  bool LDMP   = false ;
   char fnam[] = "parse_input_GENMODEL" ;
   
   // ---------- BEGIN ------------
@@ -3223,7 +3418,7 @@ int parse_input_GENMODEL(char **WORDS, int keySource) {
 
   // - - - - - - - - - - - - - - - - 
   if ( LDMP ) {
-    printf("\n xxx -------------------------------- \n");
+    printf("\n xxx ----------------------------------------- \n");
     printf(" xxx %s DUMP: \n", fnam );
     printf(" xxx Input GENMODEL:  '%s' \n", GENMODEL);
     printf(" xxx INPUTS.MODELPATH = '%s' \n", INPUTS.MODELPATH );
@@ -3397,13 +3592,16 @@ void parse_GENMAG_SMEAR_MODELNAME(void) {
 } // end parse_GENMAG_SMEAR_MODELNAME
 
 
-// ==================================================
-void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
+// *****************************************************
+int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 
-  // Created Mar 14 2017 
+  // Created July 2020 [refactored]
   // 
   // Works with SPECTROGRAPH to specify spectra w.r.t peakMJD,
   // instead of at aboslute MJD (simlib) values.
+  //
+  // Read from file pointer if *fp != NULL; else sscanf(WORDS ...
+  // Allows reading TAKE_SPECTRUM keys from SIMLIB header using fp_SIMLIB.
   //
   // *string1 = TREST([Tmin]:[Tmax])  or
   //            TOBS([Tmin]:[Tmax])   or
@@ -3428,10 +3626,14 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
   //   + if reading SIMLIB header, skip epochs outside GENRANGE_TREST
   //
 
-  int  N = NPEREVT_TAKE_SPECTRUM ;
-  GENPOLY_DEF *GENLAMPOLY_WARP  = &INPUTS.TAKE_SPECTRUM[N].GENLAMPOLY_WARP ;
-  GENPOLY_DEF *GENZPOLY_TEXPOSE = &INPUTS.TAKE_SPECTRUM[N].GENZPOLY_TEXPOSE;
-  GENPOLY_DEF *GENZPOLY_SNR     = &INPUTS.TAKE_SPECTRUM[N].GENZPOLY_SNR ;
+  bool READ_fp = (fp != NULL);
+  int  NTAKE = NPEREVT_TAKE_SPECTRUM ;
+  GENPOLY_DEF *GENLAMPOLY_WARP  = &INPUTS.TAKE_SPECTRUM[NTAKE].GENLAMPOLY_WARP ;
+  GENPOLY_DEF *GENZPOLY_TEXPOSE = &INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_TEXPOSE;
+  GENPOLY_DEF *GENZPOLY_SNR     = &INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_SNR ;
+  char *WARP_SPECTRUM_STRING    =  INPUTS.WARP_SPECTRUM_STRING;
+  int  N=0;  // track number of WORDS read
+  
   float *ptrRange, *ptrLam ;
   char string1[80], string2[80], string3[80]; 
   char *ptrSplit[4], strValues[4][20], *ptrFrame ;
@@ -3443,21 +3645,26 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
 
   // ----------- BEGIN -----------
 
+  if ( INPUTS.USE_SIMLIB_SPECTRA ) {
+    sprintf(c1err,"Cannot mix TAKE_SPECTRUM keys in sim-input & SIMLIB.") ;
+    sprintf(c2err,"Remove one of these TAKE_SPECTRUM sources.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+ 
   // init TAKE_SPECTRUM structure 
   for(i=0; i < 2; i++)  { 
-    INPUTS.TAKE_SPECTRUM[N].EPOCH_RANGE[i]  = -99.0;
-    INPUTS.TAKE_SPECTRUM[N].SNR_LAMRANGE[i] = 0.0 ;  
+    INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[i]  = -99.0;
+    INPUTS.TAKE_SPECTRUM[NTAKE].SNR_LAMRANGE[i] = 0.0 ;  
   }
 
   init_GENPOLY(GENLAMPOLY_WARP  ) ; 
   init_GENPOLY(GENZPOLY_TEXPOSE ) ; 
   init_GENPOLY(GENZPOLY_SNR     ) ; 
 
-  INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH  = 0 ;
-  INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_LAMBDA = 0 ;
-  INPUTS.TAKE_SPECTRUM[N].OPT_TEXPOSE      = 0 ;
+  INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH  = 0 ;
+  INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_LAMBDA = 0 ;
+  INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE      = 0 ;
 
-  
   // before reading TAKE_SPECTRUM options from file, 
   // parse optional WARP_SPECTRUM_STRING that was previously read.
   if ( strlen(WARP_SPECTRUM_STRING) > 0 ) {
@@ -3472,24 +3679,27 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
     INPUTS.NWARP_TAKE_SPECTRUM++ ;
   }
   
-
-
   // ----------------------------------------------
   // read 1st arg and parse as either TREST or TOBS
-  readchar(fp,string1);
+
+  if ( READ_fp ) 
+    { N++; readchar(fp, string1); }
+  else
+    { N++ ; sscanf(WORDS[N], "%s", string1); }
+
   sprintf(stringTmp, "%s", string1);
   extractStringOpt(stringTmp,stringOpt); // return stringOpt; 
   if ( strcmp(stringTmp,"TREST") == 0 ) {
-    INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH = GENFRAME_REST ;
-    sprintf(INPUTS.TAKE_SPECTRUM[N].EPOCH_FRAME,"REST");
+    INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH = GENFRAME_REST ;
+    sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME,"REST");
   }
   else if ( strcmp(stringTmp,"TOBS") == 0 ) {
-    INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH = GENFRAME_OBS ;
-    sprintf(INPUTS.TAKE_SPECTRUM[N].EPOCH_FRAME,"OBS");
+    INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH = GENFRAME_OBS ;
+    sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME,"OBS");
   }
   else if ( strcmp(stringTmp,"HOST") == 0 ) {
-    INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH = GENFRAME_HOST ;
-    sprintf(INPUTS.TAKE_SPECTRUM[N].EPOCH_FRAME,"HOST");
+    INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH = GENFRAME_HOST ;
+    sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME,"HOST");
     IS_HOST = true ;
     INPUTS.NHOST_TAKE_SPECTRUM++ ;
   }
@@ -3503,11 +3713,10 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
     sprintf(c2err, "Expecting TREST or TOBS string" );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
-
  
   // get epoch range from colon-seperated values in stringOpt
-  ptrRange = INPUTS.TAKE_SPECTRUM[N].EPOCH_RANGE ;
-  ptrFrame = INPUTS.TAKE_SPECTRUM[N].EPOCH_FRAME ;
+  ptrRange = INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE ;
+  ptrFrame = INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME ;
 
   if ( IS_HOST ) {
     ptrRange[0] = ptrRange[1] = 9999.0 ;  
@@ -3538,7 +3747,7 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
     z    = SIMLIB_HEADER.GENRANGE_REDSHIFT[0] ;
     Tmin = INPUTS.GENRANGE_TREST[0] ;
     Tmax = INPUTS.GENRANGE_TREST[1] ;
-    OPT_FRAME = INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH ;
+    OPT_FRAME = INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH ;
     if ( OPT_FRAME == GENFRAME_OBS ) 
       { Trest = ptrRange[0] / (1.0+z); }
     else if ( OPT_FRAME == GENFRAME_REST) 
@@ -3559,16 +3768,20 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
   //  parse string2 for SNR or TEXPOSE
   // -------------------------------
 
-  readchar(fp,string2);
+  if ( READ_fp ) 
+    { N++; readchar(fp, string2); }
+  else
+    { N++ ; sscanf(WORDS[N], "%s", string2); }
+
   sprintf(stringTmp, "%s", string2);
   extractStringOpt(stringTmp,stringOpt); // return stringOpt
   if ( strcmp(stringTmp,"SNR_ZPOLY") == 0 ||
        strcmp(stringTmp,"SNR")       == 0    ) {
-    INPUTS.TAKE_SPECTRUM[N].OPT_TEXPOSE = 2;
+    INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE = 2;
     parse_GENPOLY(stringOpt, "SNR", GENZPOLY_SNR, fnam);
   }
   else if ( strcmp(stringTmp,"TEXPOSE_ZPOLY") == 0 ) {
-    INPUTS.TAKE_SPECTRUM[N].OPT_TEXPOSE = 1;
+    INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE = 1;
     parse_GENPOLY(stringOpt, "TEXPOSE", GENZPOLY_TEXPOSE, fnam);
   }
   else {
@@ -3581,9 +3794,14 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
 
   // - - - - - - - - - - - - 
   // for SNR option, also read SNR_LAMREST or SNR_LAMOBS
-  
-  if ( INPUTS.TAKE_SPECTRUM[N].OPT_TEXPOSE == 2 ) {
-    readchar(fp,string3);
+
+  if ( INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE == 2 ) {
+
+    if ( READ_fp ) 
+      { N++; readchar(fp, string3); }
+    else
+      { N++ ; sscanf(WORDS[N], "%s", string3); }
+    
     sprintf(stringTmp, "%s", string3);
     extractStringOpt(stringTmp,stringOpt); // return stringOpt
 
@@ -3592,10 +3810,10 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
 
     if ( strcmp(stringTmp,"SNR_LAMREST") == 0 ||
 	 strcmp(stringTmp,"LAMREST_SNR") == 0 ) 
-      { INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_LAMBDA = GENFRAME_REST ; }
+      { INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_LAMBDA = GENFRAME_REST ; }
     else if ( strcmp(stringTmp,"SNR_LAMOBS") == 0 ||
 	      strcmp(stringTmp,"LAMOBS_SNR") == 0   ) 
-      { INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_LAMBDA = GENFRAME_OBS ; }
+      { INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_LAMBDA = GENFRAME_OBS ; }
     else {
       sprintf(c1err,"Invalid key '%s' for LAMBDA-RANGE.", string3);
       sprintf(c2err,"Must be SNR_LAMREST or SNR_LAMOBS");
@@ -3609,7 +3827,7 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    ptrLam = INPUTS.TAKE_SPECTRUM[N].SNR_LAMRANGE ;
+    ptrLam = INPUTS.TAKE_SPECTRUM[NTAKE].SNR_LAMRANGE ;
     sscanf( strValues[0] , "%f", &ptrLam[0] );  // load LAMRANGE
     sscanf( strValues[1] , "%f", &ptrLam[1] ); 
   }  
@@ -3621,8 +3839,8 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
     printf(" xxx ----------------------- \n");
     printf(" xxx NPEREVT_TAKE_SPECTRUM = %d \n", NPEREVT_TAKE_SPECTRUM);
     printf(" xxx EPOCH_RANGE = %6.2f to %6.2f \n", 
-	   INPUTS.TAKE_SPECTRUM[N].EPOCH_RANGE[0],
-	   INPUTS.TAKE_SPECTRUM[N].EPOCH_RANGE[1] );
+	   INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[0],
+	   INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[1] );
 
     fflush(stdout);
   }
@@ -3636,9 +3854,10 @@ void parse_input_TAKE_SPECTRUM(FILE *fp, char *WARP_SPECTRUM_STRING) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  return;
+  return(N);
 
 } // end parse_input_TAKE_SPECTRUM
+
 
 // *****************************************
 int parse_input_SIMSED(char **WORDS, int keySource) {
@@ -3835,6 +4054,46 @@ int parse_input_SIMSED_COV(char **WORDS, int keySource) {
   return ;
 
 } // end parse_input_SIMSED_COV
+
+// ************************************************** 
+void parse_input_OBSOLETE(char **WORDS, int keySource ) {
+
+  // Created July 2020
+  // ABORT on obsolete keys, giving message about correct key to use.
+  //
+  // Note that abort call is via
+  //    legacyKey_abort(fnam, key_obsolete, key_new)
+  // to print name of valid key.
+
+  char fnam[] = "parse_input_OBSOLETE";
+
+  // ---------- BEGIN -------------
+
+  if ( keyMatchSim(1, "NGRID_LUMIPAR", WORDS[0], keySource) )
+    { legacyKey_abort(fnam, "NGRID_LUMIPAR:", "NGRID_SHAPEPAR:"); }
+
+  else if ( keyMatchSim(1, "GEN_SNDATA_SIM", WORDS[0], keySource) )
+    { legacyKey_abort(fnam, "GEN_SNDATA_SIM:", "FORMAT_MASK:"); }
+
+  else if ( keyMatchSim(1, "EXTINC_MILKYWAY", WORDS[0], keySource) )
+    { legacyKey_abort(fnam, "EXTINC_MILKYWAY:", "OPT_MWEBV:"); }
+
+  else if ( keyMatchSim(1, "RVMW", WORDS[0], keySource) )
+    { legacyKey_abort(fnam, "RVMW:", "RV_MWCOLORLAW:"); }
+
+  else if ( keyMatchSim(1, "HUMAN_SEARCHEFF_OPT", WORDS[0], keySource) )
+    { legacyKey_abort(fnam, "HUMAN_SEARCHEFF_OPT:", "SEARCHEFF_SPEC_FILE:");}
+
+
+  else if ( keyMatchSim(1, "SPECTYPE", WORDS[0], keySource) )
+    { legacyKey_abort(fnam, "SPECTYPE:", ""); }
+
+  else if ( keyMatchSim(1, "SMEARFLAG_HOSTGAL", WORDS[0], keySource) )
+    { legacyKey_abort(fnam, "SMEARFLAG_HOSTGAL:", ""); }
+
+  return;
+
+} // end parse_input_OBSOLETE
 
 // **************************************************
 int parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
@@ -4040,9 +4299,15 @@ void sim_input_override(void) {
   for(iwd = IWD_START; iwd < NARGV_LIST; iwd++ ) {
     NWD_READ = parse_input_key_driver(&ARGV_LIST[iwd],KEYSOURCE_ARG);
 
+    /*
+    printf(" xxx %s: iwd_use range is %d to %d (NWD_READ=%d)\n", 
+	   fnam, iwd, iwd+NWD_READ, NWD_READ );
+    */
+
     // set USE flag to mark valud command-line inputs
-    for(iwd_use = iwd; iwd_use < (iwd+NWD_READ); iwd_use++ ) 
-      { USE_ARGV_LIST[iwd_use] = 1; }
+    for(iwd_use = iwd; iwd_use < (iwd+NWD_READ+1); iwd_use++ )  { 
+      USE_ARGV_LIST[iwd_use] = 1; 
+    }
 
     iwd += NWD_READ ;
   }
@@ -9310,6 +9575,8 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   Mar 11 2020: pass OPT_FRAME = rest or obs.
 
+  Jul 23 2020: fix DOSHAPE to be false for LCLIB model.
+
   **********/
 
   bool ISFRAME_REST      = ( OPT_FRAME == OPT_FRAME_REST );
@@ -9319,9 +9586,12 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
   bool ISMODEL_FIXMAG    = ( INDEX_GENMODEL == MODEL_FIXMAG );
   bool ISMODEL_SIMLIB    = ( INDEX_GENMODEL == MODEL_SIMLIB );
   bool ISMODEL_NON1ASED  = ( INDEX_GENMODEL == MODEL_NON1ASED );
+  bool ISMODEL_NON1A     = ( INPUTS.NON1A_MODELFLAG > 0 );
+  bool ISMODEL_LCLIB     = ( INDEX_GENMODEL == MODEL_LCLIB ) ;
 
   bool SKIPx1  = SIMLIB_HEADER.GENGAUSS_SALT2x1.USE ;
-  bool DOSHAPE = ( !SKIPx1 && !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0) ;
+  bool DOSHAPE = !( SKIPx1 || ISMODEL_SIMSED || ISMODEL_NON1A || ISMODEL_LCLIB);
+  // xxx  bool DOSHAPE = ( !SKIPx1 && !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0) ;
 
   double ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   double shape;
@@ -11862,6 +12132,14 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
       }
 
     } // end of iz loop
+
+    if ( RATEPAR->ZGENWGT_MAX == 0.0 ) {
+      print_preAbort_banner(fnam);
+      printf("\t RATE MODEL = '%s' \n", RATEPAR->NAME );
+      sprintf(c1err,"Max dN/dz*wgt = 0 ?!?!?");
+      sprintf(c2err,"zmin=%f zmax=%f", zmin, zmax);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
 
     if ( FIRST ) {
       printf("  Found Max dN/dz * wgt = %e at z = %8.3f \n", 
@@ -15463,8 +15741,14 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   // - - - - - - - - - 
   // May 29 2020 : check for TAKE_SPECTRUM keys
   if ( strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
+
+    /* xxx mark delete July 23 2020 xxxxx
     char *warpString = INPUTS.WARP_SPECTRUM_STRING;
-    parse_input_TAKE_SPECTRUM(fp_SIMLIB,warpString);
+    parse_input_TAKE_SPECTRUM_legacy(fp_SIMLIB,warpString);
+    xxxxxxxxxxx */
+
+    char **NULLWORDS;
+    parse_input_TAKE_SPECTRUM( NULLWORDS, KEYSOURCE_FILE, fp_SIMLIB ); 
   }
 
   return ;
@@ -27821,6 +28105,249 @@ void test_igm(void) {
 // =========================================================
 //.xyz
 
+// ==================================================
+void parse_input_TAKE_SPECTRUM_legacy(FILE *fp, char *WARP_SPECTRUM_STRING) {
+
+  // Created Mar 14 2017 
+  // 
+  // Works with SPECTROGRAPH to specify spectra w.r.t peakMJD,
+  // instead of at aboslute MJD (simlib) values.
+  //
+  // *string1 = TREST([Tmin]:[Tmax])  or
+  //            TOBS([Tmin]:[Tmax])   or
+  //            HOST
+  //
+  // *string2 = SNR_ZPOLY([a0],[a1],[a2],,,,)  or
+  //            TEXPOSE_ZPOLY([a0],[a1],[a2],,,,) 
+  //       = a0 + a1*z + a2*z^2 + ...
+  //
+  // If WARP_SPECTRUM_STRING is not blank, parse this option
+  // to apply mis-calibration vs. wavelength using polyFun of wavelength.
+  //
+  // Note that colon denotes a range, while comma separates a list.
+  //
+  // Mar 23 2019: 
+  //  + use parse_GENPOLY to allow arbitrary poly-order.
+  //  + pass WARP_SPECTRUM_STRING
+  //
+  // June 28 2019: allow HOST argument
+  //
+  // May 29 2020: 
+  //   + if reading SIMLIB header, skip epochs outside GENRANGE_TREST
+  //
+
+  int  N = NPEREVT_TAKE_SPECTRUM ;
+  GENPOLY_DEF *GENLAMPOLY_WARP  = &INPUTS.TAKE_SPECTRUM[N].GENLAMPOLY_WARP ;
+  GENPOLY_DEF *GENZPOLY_TEXPOSE = &INPUTS.TAKE_SPECTRUM[N].GENZPOLY_TEXPOSE;
+  GENPOLY_DEF *GENZPOLY_SNR     = &INPUTS.TAKE_SPECTRUM[N].GENZPOLY_SNR ;
+  float *ptrRange, *ptrLam ;
+  char string1[80], string2[80], string3[80]; 
+  char *ptrSplit[4], strValues[4][20], *ptrFrame ;
+  int  NSPLIT, i ;
+  bool IS_HOST = false;
+  char colon[] = ":"; 
+  char stringTmp[80], stringOpt[200];
+  char fnam[] = "parse_input_TAKE_SPECTRUM_legacy" ;
+
+  // ----------- BEGIN -----------
+
+  // init TAKE_SPECTRUM structure 
+  for(i=0; i < 2; i++)  { 
+    INPUTS.TAKE_SPECTRUM[N].EPOCH_RANGE[i]  = -99.0;
+    INPUTS.TAKE_SPECTRUM[N].SNR_LAMRANGE[i] = 0.0 ;  
+  }
+
+  init_GENPOLY(GENLAMPOLY_WARP  ) ; 
+  init_GENPOLY(GENZPOLY_TEXPOSE ) ; 
+  init_GENPOLY(GENZPOLY_SNR     ) ; 
+
+  INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH  = 0 ;
+  INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_LAMBDA = 0 ;
+  INPUTS.TAKE_SPECTRUM[N].OPT_TEXPOSE      = 0 ;
+
+  
+  // before reading TAKE_SPECTRUM options from file, 
+  // parse optional WARP_SPECTRUM_STRING that was previously read.
+  if ( strlen(WARP_SPECTRUM_STRING) > 0 ) {
+    char warpOpt[100];  sprintf(warpOpt,"%s", WARP_SPECTRUM_STRING);
+    extractStringOpt(warpOpt,stringOpt); // return stringOpt
+    if ( strcmp(warpOpt,"LAMPOLY") != 0 ) {
+      sprintf(c1err, "%s is invalid WARP_SPECTRUM arg", WARP_SPECTRUM_STRING);
+      sprintf(c2err, "Expected LAMPOLY(,,,)");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+    parse_GENPOLY(stringOpt, "wave", GENLAMPOLY_WARP, fnam);
+    INPUTS.NWARP_TAKE_SPECTRUM++ ;
+  }
+  
+
+
+  // ----------------------------------------------
+  // read 1st arg and parse as either TREST or TOBS
+  readchar(fp,string1);
+  sprintf(stringTmp, "%s", string1);
+  extractStringOpt(stringTmp,stringOpt); // return stringOpt; 
+  if ( strcmp(stringTmp,"TREST") == 0 ) {
+    INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH = GENFRAME_REST ;
+    sprintf(INPUTS.TAKE_SPECTRUM[N].EPOCH_FRAME,"REST");
+  }
+  else if ( strcmp(stringTmp,"TOBS") == 0 ) {
+    INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH = GENFRAME_OBS ;
+    sprintf(INPUTS.TAKE_SPECTRUM[N].EPOCH_FRAME,"OBS");
+  }
+  else if ( strcmp(stringTmp,"HOST") == 0 ) {
+    INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH = GENFRAME_HOST ;
+    sprintf(INPUTS.TAKE_SPECTRUM[N].EPOCH_FRAME,"HOST");
+    IS_HOST = true ;
+    INPUTS.NHOST_TAKE_SPECTRUM++ ;
+  }
+  else if ( strcmp(stringTmp,"TEMPLATE_TEXPOSE_SCALE") == 0 ) {
+    sscanf(stringOpt, "%f", 
+	   &INPUTS.TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE);
+    return ;
+  }
+  else {
+    sprintf(c1err, "Cannot parse '%s' after TAKE_SPECTRUM key.",string1);
+    sprintf(c2err, "Expecting TREST or TOBS string" );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+ 
+  // get epoch range from colon-seperated values in stringOpt
+  ptrRange = INPUTS.TAKE_SPECTRUM[N].EPOCH_RANGE ;
+  ptrFrame = INPUTS.TAKE_SPECTRUM[N].EPOCH_FRAME ;
+
+  if ( IS_HOST ) {
+    ptrRange[0] = ptrRange[1] = 9999.0 ;  
+  }
+  else {
+    for(i=0; i < 4; i++ ) { ptrSplit[i] = strValues[i]; }
+
+    splitString(stringOpt, colon, 4,      // inputs               
+		&NSPLIT, ptrSplit );      // outputs             
+
+    if ( NSPLIT < 1 || NSPLIT > 2 ) {
+      sprintf(c1err, "\n   Found %d colon-separated values in '%s'", 
+	      NSPLIT, string1);
+      sprintf(c2err, "but expected 1 or 2 values.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }   
+
+    // load TREST_RANGE or TOBS_RANGE
+    sscanf( strValues[0] ,        "%f", &ptrRange[0] ); 
+    sscanf( strValues[NSPLIT-1] , "%f", &ptrRange[1] ); 
+  }
+
+
+  // - - - - - - - - - - - - -  -
+  // if reading SIMLIB header, skip epochs outside GENRANGE_TREST
+  if ( !IS_HOST && INPUTS.USE_SIMLIB_SPECTRA && INPUTS.USE_SIMLIB_REDSHIFT) {
+    double z, Tmin, Tmax, Trest=9999.;  int OPT_FRAME;
+    z    = SIMLIB_HEADER.GENRANGE_REDSHIFT[0] ;
+    Tmin = INPUTS.GENRANGE_TREST[0] ;
+    Tmax = INPUTS.GENRANGE_TREST[1] ;
+    OPT_FRAME = INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_EPOCH ;
+    if ( OPT_FRAME == GENFRAME_OBS ) 
+      { Trest = ptrRange[0] / (1.0+z); }
+    else if ( OPT_FRAME == GENFRAME_REST) 
+      { Trest = ptrRange[0] ; }
+    else {
+      sprintf(c1err, "Invalid OPT_FRAME = %d (%s)",   OPT_FRAME, ptrFrame);
+      sprintf(c2err, "epoch range: %f to %f \n", 
+	      ptrRange[0], ptrRange[1] ) ;
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
+    }
+
+    if ( Trest < Tmin ) { return; }
+    if ( Trest > Tmax ) { return; }
+
+  }  // end if block
+
+  // -------------------------------
+  //  parse string2 for SNR or TEXPOSE
+  // -------------------------------
+
+  readchar(fp,string2);
+  sprintf(stringTmp, "%s", string2);
+  extractStringOpt(stringTmp,stringOpt); // return stringOpt
+  if ( strcmp(stringTmp,"SNR_ZPOLY") == 0 ||
+       strcmp(stringTmp,"SNR")       == 0    ) {
+    INPUTS.TAKE_SPECTRUM[N].OPT_TEXPOSE = 2;
+    parse_GENPOLY(stringOpt, "SNR", GENZPOLY_SNR, fnam);
+  }
+  else if ( strcmp(stringTmp,"TEXPOSE_ZPOLY") == 0 ) {
+    INPUTS.TAKE_SPECTRUM[N].OPT_TEXPOSE = 1;
+    parse_GENPOLY(stringOpt, "TEXPOSE", GENZPOLY_TEXPOSE, fnam);
+  }
+  else {
+    sprintf(c1err, "Cannot parse '%s' after TAKE_SPECTRUM key.",string1);
+    sprintf(c2err, "Expecting SNR_ZPOLY or TEXPOSE_ZPOLY string" );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+
+
+  // - - - - - - - - - - - - 
+  // for SNR option, also read SNR_LAMREST or SNR_LAMOBS
+  
+  if ( INPUTS.TAKE_SPECTRUM[N].OPT_TEXPOSE == 2 ) {
+    readchar(fp,string3);
+    sprintf(stringTmp, "%s", string3);
+    extractStringOpt(stringTmp,stringOpt); // return stringOpt
+
+    splitString(stringOpt, colon, 5,      // inputs               
+		&NSPLIT, ptrSplit );      // outputs             
+
+    if ( strcmp(stringTmp,"SNR_LAMREST") == 0 ||
+	 strcmp(stringTmp,"LAMREST_SNR") == 0 ) 
+      { INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_LAMBDA = GENFRAME_REST ; }
+    else if ( strcmp(stringTmp,"SNR_LAMOBS") == 0 ||
+	      strcmp(stringTmp,"LAMOBS_SNR") == 0   ) 
+      { INPUTS.TAKE_SPECTRUM[N].OPT_FRAME_LAMBDA = GENFRAME_OBS ; }
+    else {
+      sprintf(c1err,"Invalid key '%s' for LAMBDA-RANGE.", string3);
+      sprintf(c2err,"Must be SNR_LAMREST or SNR_LAMOBS");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
+    if ( NSPLIT != 2 ) {
+      sprintf(c1err, "\n   Found %d colon-separated values in '%s'", 
+	      NSPLIT, string3);
+      sprintf(c2err, "but expected %d values.", 2);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
+    ptrLam = INPUTS.TAKE_SPECTRUM[N].SNR_LAMRANGE ;
+    sscanf( strValues[0] , "%f", &ptrLam[0] );  // load LAMRANGE
+    sscanf( strValues[1] , "%f", &ptrLam[1] ); 
+  }  
+
+  // - - - - - -
+
+  int LDMP = 0 ;
+  if ( LDMP ) {
+    printf(" xxx ----------------------- \n");
+    printf(" xxx NPEREVT_TAKE_SPECTRUM = %d \n", NPEREVT_TAKE_SPECTRUM);
+    printf(" xxx EPOCH_RANGE = %6.2f to %6.2f \n", 
+	   INPUTS.TAKE_SPECTRUM[N].EPOCH_RANGE[0],
+	   INPUTS.TAKE_SPECTRUM[N].EPOCH_RANGE[1] );
+
+    fflush(stdout);
+  }
+
+  NPEREVT_TAKE_SPECTRUM++ ;
+
+  if ( NPEREVT_TAKE_SPECTRUM >= MXPEREVT_TAKE_SPECTRUM ) {
+    sprintf(c1err, "%d TAKE_SPECTRUM keys exceeds bound", 
+	    NPEREVT_TAKE_SPECTRUM );
+    sprintf(c2err,"Check MXPEREVT_TAKE_SPECTRUM in snlc_sim.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  return;
+
+} // end parse_input_TAKE_SPECTRUM_legacy
+
 
 // ===================================
 void parse_input_GENMAG_SMEAR_SCALE_legacy(FILE *fp, int *iArg, char *KEYNAME ) {
@@ -31819,7 +32346,9 @@ int read_input_file_legacy(char *input_file) {
 	sprintf(c2err,"Remove one of these TAKE_SPECTRUM sources.");
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
       }
-      parse_input_TAKE_SPECTRUM(fp,warp_spectrum_string); continue ; 
+      char **NULLWORDS;
+      parse_input_TAKE_SPECTRUM(NULLWORDS, KEYSOURCE_FILE, fp); continue ; 
+      // xxx mark del parse_input_TAKE_SPECTRUM_legacy(fp,warp_spectrum_string); continue ; 
     }
 
     if ( keyMatch(c_get,"TAKE_SPECTRUM_HOSTFRAC:", "")  ) 
@@ -31867,17 +32396,11 @@ int read_input_file_legacy(char *input_file) {
     if ( NstringMatch(1,c_get,"NGRID_LUMIPAR:" )   )   // legacy key
       { legacyKey_abort(fnam, "NGRID_LUMIPAR:", "NGRID_SHAPEPAR:"); }
 
-    if ( NstringMatch(1,c_get,"GEN_SNDATA_SIM:" )   )   // legacy key
-      { legacyKey_abort(fnam, "GEN_SNDATA_SIM:", "FORMAT_MASK:"); }
-
     if ( NstringMatch(1,c_get,"EXTINC_MILKYWAY:" )   )   // legacy key
       { legacyKey_abort(fnam, "EXTINC_MILKYWAY:", "OPT_MWEBV:"); }
 
     if ( NstringMatch(1,c_get,"RVMW:" )   )   // legacy key
       { legacyKey_abort(fnam, "RVMW:", "RV_MWCOLORLAW:"); }
-
-    if ( NstringMatch(1,c_get,"HUMAN_SEARCHEFF_OPT:" )   )   // legacy key
-      { legacyKey_abort(fnam, "HUMAN_SEARCHEFF_OPT:", "SEARCHEFF_SPEC_FILE:");}
 
     if ( NstringMatch(1,c_get,"SPECTYPE:" )   )   // legacy key
       { legacyKey_abort(fnam, "SPECTYPE:", ""); }

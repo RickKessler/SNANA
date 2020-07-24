@@ -9637,6 +9637,7 @@ c Wrapper to call C-function get_PARSE_WORD to retrieve
 c iwd word stored.
 c
 c Jan 2019: use MXCHAR_FILEWORD for char array abound.
+c Jul 2020: extend WORD_C size to 4*MXCHAR_FILENAME
 c
       IMPLICIT NONE
 
@@ -9649,7 +9650,7 @@ c subroutine args
 
 c local args
       INTEGER  iwd_C
-      CHARACTER WORD_C*(MXCHAR_FILEWORD)
+      CHARACTER WORD_C*(4*MXCHAR_FILENAME)
       EXTERNAL GET_PARSE_WORD
 
 C ------------- BEGIN -----------

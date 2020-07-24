@@ -800,6 +800,8 @@ Default output files (can change names with "prefix" argument)
  Jul 17 2020: new option to dump all keys and then quit
      SALT2mu.exe KEY_DUMP
 
+  Jul 24 2020: skip reading YAML keys for re-written batch script.
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -13659,6 +13661,12 @@ void parse_parFile(char *parFile ) {
 
     sptr = strtok(line,"\n");
 
+    // July 24 2020: skip YAML CONFIG 
+    if ( strcmp(sptr,"CONFIG:")    == 0 ) { SKIP = true  ; }
+    if ( strstr(sptr,"END_YAML")   == 0 ) { SKIP = false ; }
+    if ( strstr(sptr,"END_CONFIG") == 0 ) { SKIP = false ; }
+    if ( strstr(sptr,"CONFIG_END") == 0 ) { SKIP = false ; }
+    
     // skip keys with colon that are used by a master 
     // SALT2mu_fit.pl script (RK Apr 2013)
     // Aug 24 2016: make exception for key containing group_biasCor

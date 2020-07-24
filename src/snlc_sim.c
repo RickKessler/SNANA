@@ -657,7 +657,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
   INPUTS.RESTORE_FLUXERR_BUGS = false; // Jan 2020
   INPUTS.OPT_DEVEL_GENPDF      = 1 ;
-  INPUTS.OPT_DEVEL_READ_INPUT  = 0 ;
+  INPUTS.OPT_DEVEL_READ_INPUT  = 1 ;
   NLINE_RATE_INFO   = 0;
 
   // don't init zero'th input file since that is the main input file
@@ -1400,19 +1400,19 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // i.e., WORDS[0] is not included in the return count.
   //
 
-  int j, ITMP, NFILTDEF, NFILT, N = 0 ;
+  int j, ITMP, NFILTDEF, NPAR, NFILT, N = 0 ;
   FILE *fpNull = NULL ;
-  char strPoly[60], ctmp[60] ;
+  char strPoly[60], ctmp[60], *parName ;
   char fnam[] = "parse_input_key_driver" ;
   
   // ------------- BEGIN -----------
 
-  // xxxxxxxxxxxx
+  /* xxxxxxxxxxxx
   if ( strstr(WORDS[0],"DNDZ") != NULL ) {
     printf(" xxx %s: WORDS = '%s' and '%s' \n", fnam, WORDS[0], WORDS[1] ); 
     fflush(stdout);
   }
-  // xxxxxxxx */
+  xxxxxxxx */
 
   // printf(" xxx %s: WORDS = '%s' \n", fnam, WORDS[0] );
 
@@ -1638,7 +1638,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // - - - - DNDZ stuff - - - - 
   else if ( strstr(WORDS[0],"DNDZ") != NULL || 
 	    strstr(WORDS[0],"DNDB") != NULL  ) {   
-    printf(" xxx %s: yo found %s \n", fnam, WORDS[0] );
     N += parse_input_RATEPAR(WORDS, keySource, "NOMINAL",
 			     &INPUTS.RATEPAR);
     N += parse_input_RATEPAR(WORDS, keySource, "PEC1A",  
@@ -1717,8 +1716,14 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( strstr(WORDS[0],"SIMSED") != NULL ) {
     N += parse_input_SIMSED(WORDS,keySource); 
   }
-  // ?? read asym Gauss for SIMSED params ???
-
+  else if ( keyContains_SIMSED_PARAM(WORDS[0]) ) {
+    NPAR = INPUTS.NPAR_SIMSED ;
+    ITMP = NPAR-1;
+    parName = INPUTS.PARNAME_SIMSED[ITMP];
+    N += parse_input_GENGAUSS(parName, WORDS, keySource,
+			      &INPUTS.GENGAUSS_SIMSED[ITMP] );
+    INPUTS.GENGAUSS_SIMSED[ITMP].FUNINDEX = ITMP ;
+  }
   // - - - - - - - - - - 
   // read risetime-shift info
   else if ( strstr(WORDS[0],"TIME_SHIFT") != NULL ) {
@@ -1962,7 +1967,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++ ; sscanf(WORDS[N], "%s", key);  
     NVAL = nval_genSmear_override(key, parName); // return NVAL,parName
     for(j=0; j<NVAL; j++) 
-      { N++; sscanf(WORDS[N],"%s",tmpList[j] ); } // read tmpList              
+      { N++; sscanf(WORDS[N],"%le", &tmpList[j] ); } // read tmpList 
     store_genSmear_override(parName,NVAL,tmpList);
   }
   else if ( keyMatchSim(1, "GENSMEAR_RANGauss_FIX GENSMEAR_RANGAUSS_FIX",  
@@ -2291,8 +2296,10 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 
   FOUND_PRIMARY_KEY = valid_DNDZ_KEY(WHAT, keySource, KEYNAME ) ;
 
+  /*
   printf(" xxx %s: FOUND=%d  IS_NOM/PEC1A = %d/%d \n",
 	 fnam, FOUND_PRIMARY_KEY,  IS_NOMINAL, IS_PEC1A );
+  */
 
   // --------------------
 
@@ -2322,11 +2329,6 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       NLOCAL = RATEPAR->NMODEL_ZRANGE ;
       N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][0] ); 
       N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][1] ); 
-
-      printf(" xxx %s: read %s params %f and %f \n",
-	     fnam, RATEPAR->NAME, RATEPAR->MODEL_PARLIST[1][1],
-	     RATEPAR->MODEL_PARLIST[1][2] );
-
       // xxxx  readdouble ( fp, 2, RATEPAR->MODEL_PARLIST[1] ); 
     }
     else if ( strcmp(RATEPAR->NAME,"POWERLAW2") == 0 ) {
@@ -2480,8 +2482,6 @@ bool valid_DNDZ_KEY(char *WHAT, int keySource, char *KEYNAME ) {
     sprintf(KEYTEST,"%s", PRIMARY_KEYLIST[ikey] );
 
     if ( READ_INPUT_REFAC ) {
-      printf(" xxx %s: check KEYTEST = '%s'  (KEYNAME=%s)\n", 
-	     fnam, KEYTEST, KEYNAME );
       if ( keyMatchSim(2, KEYTEST, KEYNAME, keySource) ) { FOUND=true; }
     }
     else {
@@ -2776,7 +2776,7 @@ int parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
 
   float ftmp;
   char cfilt[MXFILTINDX], KEY[80] ;
-  int  MAX = 5;
+  int  MAXKEY = 10;
   int  NTMP, ifilt_obs, ifilt, ifilt_list[MXFILTINDX];
   //  char fnam[] = "parse_input_KEY_PLUS_FILTER_legacy" ;
 
@@ -2793,7 +2793,7 @@ int parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
   }
 
   sprintf(KEY,"%s_FILTER", KEYCHECK);
-  if ( keyMatchSim(1, KEY, WORDS[0], keySource) ) {
+  if ( keyMatchSim(MAXKEY, KEY, WORDS[0], keySource) ) {
       sscanf(WORDS[1] , "%s", cfilt );
       sscanf(WORDS[2] , "%f", &ftmp );
       NTMP = PARSE_FILTLIST(cfilt, ifilt_list );  // return ifilt_obs
@@ -3361,6 +3361,8 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
     }
   }
 
+  if ( N > 0 ) {  INPUTS.RANSYSTPAR.USE = 1; }
+
   return(N) ;
 
 } // end  parse_input_RANSYSTPAR
@@ -3478,6 +3480,7 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
   int  ivar, NVAR, N=0;
   bool LRD = false ;
+  char *varName ;
   char fnam[] = "parse_input_SIMGEN_DUMP";
 
   // ------------- BEGIN ------------
@@ -3501,7 +3504,9 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
     if(NVAR <=0 ) { INPUTS.IFLAG_SIMGEN_DUMPALL=0; }
 
     for(ivar=0; ivar < NVAR; ivar++ ) {
-      N++ ; sscanf(WORDS[N], "%s", INPUTS.VARNAME_SIMGEN_DUMP[ivar] );
+      varName = INPUTS.VARNAME_SIMGEN_DUMP[ivar] ;
+      N++ ; sscanf(WORDS[N], "%s", varName );
+      checkAlternateVarNames_HOSTLIB(varName);
     }
   } // end LRD
 
@@ -3950,6 +3955,34 @@ int parse_input_SIMSED_PARAM(char **WORDS) {
   INPUTS.NPAR_SIMSED_PARAM++ ; 
   return(N) ;
 } // end of parse_input_SIMSED_PARAM
+
+// *******************************************      
+bool keyContains_SIMSED_PARAM(char *KEYNAME) {
+
+  // check if input *KEYBANE contains most recently 
+  // read SIMSED parameter;
+  // E.g. KEYNAME = "GENPEAK_MNI:" and most recent SIMSED param is MNI
+  //   --> returns true.
+
+  int NPAR    = INPUTS.NPAR_SIMSED ;
+  char *parName ;
+  char fnam[] = "keyContains_SIMSED_PARAM" ;
+
+  // ----------- BEGIN ------------
+
+  if ( NPAR == 0 ) return(false);
+
+  // require continuous distribution
+  int GENFLAG = INPUTS.GENFLAG_SIMSED[NPAR-1];
+  if ( (GENFLAG & OPTMASK_SIMSED_PARAM ) == 0 ) { return(false); }
+
+  parName = INPUTS.PARNAME_SIMSED[NPAR-1];
+  if ( strstr(KEYNAME,parName) != NULL ) 
+    { return(true); }
+  else
+    { return(false); }
+
+} // end keyContains_SIMSED_PARAM
 
 // *******************************************
 int parse_input_SIMSED_COV(char **WORDS, int keySource) {
@@ -10589,18 +10622,18 @@ int MATCH_INDEX_SIMGEN_DUMP(char *varName ) {
   // Error checking
   
   if ( NMATCH == 0 ) {
-    sprintf(c1err,"Undefined SIMGEN_DUMP variable: '%s'", varName);
-    errmsg(SEV_WARN, 0, fnam, c1err, ""); 
-    madend(0);  //  give ugly face, but do NOT abort
+    print_preAbort_banner(fnam);
     PREP_SIMGEN_DUMP(0); // print list of valid varnames, then quit
+    sprintf(c1err,"Undefined SIMGEN_DUMP variable: '%s'", varName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
   }
   
   if ( NMATCH > 1 ) {
+    print_preAbort_banner(fnam);
+    PREP_SIMGEN_DUMP(0); // print list of valid varnames, then quit
     sprintf(c1err,"SIMGEN_DUMP variable '%s'", varName);
     sprintf(c2err,"defined %d times ??", NMATCH);
-    errmsg(SEV_WARN, 0, fnam, c1err, c2err ); 
-    madend(0);  //  give ugly face, but do NOT abort
-    PREP_SIMGEN_DUMP(0); // print list of valid varnames, then quit
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
 
@@ -10625,7 +10658,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   // Note that this list is hard-wired, and that some variables
   // have more than one name (i.e, T0 and PEAKMJD are the same)
   // 
-  // OPT_DUMP = 0 => dump variable list then quit.
+  // OPT_DUMP = 0 => dump variable list, return
   // OPT_DUMP = 1 => prepare list (no output), then return
 
   // Nov 2, 2009: remove mlcs/salt2 restrictions so that we can
@@ -10652,6 +10685,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   // mar 28 2017: add IDSURVEY
   // Oct 16 2019: move MAGSMEAR_COH after SKIP1 
   // Apr 28 2020: allow list of var names for SALT2c,x1,x0 (see strList_)
+  // Jul 24 2020: for OPT_DUMP=0, do NOT quit
 
   int i, ifilt, ifilt_obs, ifilt_rest, ipar, imap, ivar, NTMP ;
   char *cptr ;
@@ -11371,7 +11405,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
     printf("\n\n");
     printf("\t Example of sim-input file syntax is \n");
     printf("\t SIMGEN_DUMP:  5  CID Z RA DEC SNRMAX \n");
-    happyend();
+    // xxx mark delete July 24 2020    happyend();
   }
 
   return;

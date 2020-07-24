@@ -1690,6 +1690,8 @@ int    parse_input_SIMGEN_DUMP(char **WORDS, int keySource);
 int    parse_input_SIMSED(char **WORDS, int keySource);
 int    parse_input_SIMSED_PARAM(char **WORDS);
 int    parse_input_SIMSED_COV(char **WORDS, int keySource );
+bool   keyContains_SIMSED_PARAM(char *KEYNAME);
+
 int    parse_input_LCLIB(char **WORDS, int keySource );
 int    parse_input_CUTWIN(char **WORDS, int keySource );
 int    parse_input_GRIDGEN(char **WORDS, int keySource);

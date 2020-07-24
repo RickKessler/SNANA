@@ -2216,6 +2216,10 @@ void SALT2mu_DRIVER_EXEC(void) {
   else
     { NJOB_SPLITRAN++ ; }  // keep going to do them all
 
+#ifdef USE_SUBPROCESS
+  if ( SUBPROCESS.USE ) { NJOB_SPLITRAN=1; } // 7/24/2020
+#endif
+
   DOFIT_FLAG = FITFLAG_CHI2 ; 
   printmsg_fitStart(FP_STDOUT);
   

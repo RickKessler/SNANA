@@ -18754,9 +18754,31 @@
        * use same read-function (parse_input_key_driver) for both 
           file and command-line arg
        * refactor invoked by "OPT_DEVEL_READ_INPUT 1"
+     + remove obsolete GENPAR_SELECT_FILE input (wasn't implemented)
+     + remove obsolute function read_SALT2mu_AlphaBeta and remove
+       obsolete sim-input SALT2mu_FILE
+     + remove obsolete INPUTS.GENRANGE_TYPE and GENRANGE_CID
+     + remove obsolete GENKCOR_STRETCH key
+     + fix so that get_random_genPDF is NOT called for LCLIB
+     + for invalid SIMGEN_DUMP variable, fix abort sequence
+       to be compatible with other aborts.
+
+       around 9:30pm on July 23, lost snlc_sim.c on FNAL cluster
+       when des41 hung up. Last GitHub update was 5hr earlier.
+       Lost some unreleased refactor deubugging for sim-inputs,
+       but didn't lose any requested updates. Submitted FNAL help
+       ticket requesting restoration of most recent sim file.
+       July 24 2020: heard nothing from Fermilab service, 
+       so I re-debugged.
 
     snana.car
      + &SNLCINP input HEADER_OVERRIDE_FILE can now be a comma-sep
        list to allow multiple table files.
+     + in CHECK_EPOCH_IGNORE(), skip ZP and PSF cuts if RESTORE_DES3YR=T.
+     + fix array bound bug in get_PARSE_WORDS_fortran
+
+    SALT2mu.c
+      + skip reading YAML keys
+      + SUBPROCESS bug fix
 
 END: 

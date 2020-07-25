@@ -3781,6 +3781,9 @@ void RD_SNFITSIO_SPECDATA(int irow,  double *METADATA, int *NLAMBIN,
   long NROW      = PTRMAX - PTRMIN + 1;
   long FIRSTROW  = PTRMIN ;
   long FIRSTELEM = 1 ;
+
+  char fnam[] = "RD_SNFITSIO_SPECDATA";
+
   // --------------- BEGIN --------------
 
   // load scalar outputs
@@ -3799,8 +3802,8 @@ void RD_SNFITSIO_SPECDATA(int irow,  double *METADATA, int *NLAMBIN,
   // transfer LAMINDEX to LAMMIN & LAMMAX
   for(ilam=0; ilam < NLAM; ilam++ ) {
     ILAM         = LAMINDEX[ilam];
-    LAMMIN[ilam] = RDSPEC_SNFITSIO_LAMINDEX.LAMMIN_LIST[ILAM];
-    LAMMAX[ilam] = RDSPEC_SNFITSIO_LAMINDEX.LAMMAX_LIST[ILAM];
+    LAMMIN[ilam] = RDSPEC_SNFITSIO_LAMINDEX.LAMMIN_LIST[ILAM] ;
+    LAMMAX[ilam] = RDSPEC_SNFITSIO_LAMINDEX.LAMMAX_LIST[ILAM] ;
   }
 
   icol=2 ;  

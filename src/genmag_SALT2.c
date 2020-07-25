@@ -2851,8 +2851,6 @@ void errorSummary_SALT2(void) {
     else
       { sprintf(cCor,"%9.3le", colorCor ); }
 
-
-
     // fractional flux error with x1=0
     get_SALT2_ERRMAP ( Trest, lam, ERRMAP );
     var0       = ERRMAP[0] ;  // sigma(S0)/S0

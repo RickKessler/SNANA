@@ -2275,8 +2275,6 @@ sub make_SUMMARY {
 
     $NDIR = scalar(@OUTDIR_SALT2mu_LIST) ;
 
-    print "\n xxx NDIR=$NDIR NVER=$NVERSION_FINAL[0]  NFITOPT=$NFITOPT_SNFIT[0] \n\n";
-
     for($idir=0 ; $idir < $NDIR; $idir++ ) {
 	$NVER   = $NVERSION_FINAL[$idir] ;
 	for ( $iver=0; $iver  < $NVER; $iver++ ) {

@@ -1554,6 +1554,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // - - - - 
   else if ( keyMatchSim(1, "GENVERSION",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENVERSION );
+    sprintf(INPUTS.GENPREFIX,"%s", INPUTS.GENVERSION);
   }
   else if ( keyMatchSim(1, "GENPREFIX",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENPREFIX );
@@ -2915,10 +2916,12 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP );
     INPUTS.HOSTLIB_MSKOPT |= ITMP; // append bits since USE-bit already set
   }
-  else if ( keyMatchSim(1, "HOSTLIB_GENZPHOT_FUDGEPAR",WORDS[0],keySource) ) {
+  else if ( keyMatchSim(1,"HOSTLIB_GENZPHOT_FUDGEPAR",WORDS[0],keySource)){
+    // read first 4 elements as float
     for(j=0; j < 4; j++ ) 
-      { N++; sscanf(WORDS[N],"%le",&INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[j]); }
-    N++ ; parse_input_GENZPHOT_OUTLIER(WORDS[N]);
+      { N++; sscanf(WORDS[N],"%f",&INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[j]); }
+    // read 5th element as string
+    N++; parse_input_GENZPHOT_OUTLIER(WORDS[N]);
   }
   else if ( keyMatchSim(1, "HOSTLIB_GENZPHOT_BIAS",WORDS[0],keySource) ) {
     for(j=0; j < 4; j++ ) 

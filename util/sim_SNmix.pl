@@ -226,6 +226,8 @@
 #   has less then 4 characters. e.g., user = ab will have
 #   prefix = ab00
 #     
+# Jul 24 2020: no longer copy SIMLIB_FILE to misc/
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -331,7 +333,7 @@ my (@CONTENTS_INFILE_Ia, @CONTENTS_INFILE_NONIa, @CONTENTS_INFILE_SIMGEN);
 my ($NARG,$SNMIX_INFILE_MASTER,$SUBMIT_FLAG, $PROMPT_FLAG );
 my ($INPUT_FILE_INCLUDE_Ia, $INPUT_FILE_INCLUDE_NONIa, @GENOPT_FILE_INCLUDE);
 my ($INPUT_FILE_ZVAR_Ia, $INPUT_FILE_ZVAR_NON1A, @INPUT_FILE_NON1AGRID );
-my ($SIMLIB_FILE, $SEARCHEFF_SPEC_FILE, $HOSTNOISE_FILE, $ZPHOTEFF_FILE );
+my ($SEARCHEFF_SPEC_FILE, $HOSTNOISE_FILE, $ZPHOTEFF_FILE );
 my ($FASTFAC, $SUFFIX_TEMP );
 my ($DO_SSH, $DO_BATCH, $SNANA_LOGIN_SETUP);
 my ($KILLJOBS_FLAG, $DEBUG_GENSTAT, $INODE_GLOBAL, $PROMPT_FLAG );
@@ -870,7 +872,6 @@ sub parse_inFile_master() {
     $INPUT_FILE_ZVAR_NON1A = "" ;
     @INPUT_FILE_NON1AGRID  = () ;
 
-    $SIMLIB_FILE           = "" ;
     $SEARCHEFF_SPEC_FILE   = "" ;
     $HOSTNOISE_FILE        = "" ;
     $ZPHOTEFF_FILE         = "" ;
@@ -1241,13 +1242,6 @@ sub parse_INFILE_Ia {
 	print "  INPUT_FILE_ZVAR_Ia = $INPUT_FILE_ZVAR_Ia \n";
     }
     
-    $key = "SIMLIB_FILE:";
-    @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_Ia);
-    if ( scalar(@tmp) > 0 ) {
-	$SIMLIB_FILE = "$tmp[0]" ;
-#	print "  SIMLIB_FILE = $SIMLIB_FILE \n";
-    }
-
     $key = "SEARCHEFF_SPEC_FILE:";
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_Ia);
     if ( scalar(@tmp) > 0 ) {
@@ -2279,13 +2273,6 @@ sub create_version {
 	}
     }
 
-    if ( $SIMLIB_FILE ne '' ) {
-	# copy file if it's there; otherwise will use public file
-	if ( -e $SIMLIB_FILE ) {
-	    $cmdcp = "cp $SIMLIB_FILE $SIMGEN_MISCDIR/";
-	    qx($cmdcp);
-	}
-    }
 
     if ( $SEARCHEFF_SPEC_FILE ne '' ) {
 	# copy file if it's there; otherwise will use public file
@@ -2811,19 +2798,6 @@ sub get_NGEN {
 	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);
     }
 
-# xxxxxxxxxx mark delete Oct 25 2019 xxxxxxxxxxxxxxxx
-#    my (@INDX, $GENOPT, @GENOPT_LIST, $indx);
-#    $key2 = "NGENTOT_LC";
-#    $GENOPT = "$GENVERSION_GENOPT[$iver][$m]" ;
-#    @GENOPT_LIST = split(' ',$GENOPT);
-#    @INDX =  grep { $GENOPT_LIST[$_] eq $key2 } 0 .. $#GENOPT_LIST ;    
-#    if ( scalar(@INDX) > 0  ) {
-#	$indx = $INDX[0];
-#	$N = $GENOPT_LIST[$indx+1];
-#	print "   Will use $key2 $N  from GENOPT override.\n";
-#   }
-# xxxxxxxxxxxx end mark xxxxxxxxx
-
     return $N ;
 
 } # end of get_NGEN
@@ -2929,12 +2903,6 @@ sub simgen {
 
     $NSIMARG++ ;
     $SIMARG_LIST[$NSIMARG]  = "$SIMARG_FORMAT" ;
-
-# xxx mark delete     $NSIMARG++ ;
-# xxx mark delete    $SIMARG_LIST[$NSIMARG]  = "$SIMARG_ZRANGE";
-
-# xxx mark delete     $NSIMARG++ ;
-# xxx mark delete  $SIMARG_LIST[$NSIMARG]  = "$GENOPT_GLOBAL" ; 
 
     $NSIMARG++ ;
     $SIMARG_LIST[$NSIMARG]  = "$TMP_GENOPT" ;

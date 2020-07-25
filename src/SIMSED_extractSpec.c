@@ -294,7 +294,7 @@ int main(int argc, char **argv) {
 
   char fnam[] = "main" ;
   int ep, i;
-
+  
   // ------------ BEGIN ------------
 
   set_EXIT_ERRCODE(EXIT_ERRCODE_UNKNOWN);
@@ -366,6 +366,7 @@ void init_inputs(void) {
 
   int ep;
   int iSNR;
+  char fnam[] = "init_inputs";
 
   INPUTS.ISEED = 12345;
   INPUTS.NEPOCH = 0;
@@ -659,6 +660,12 @@ void parse_epochs(char *epFile) {
 
   fp = fopen(epFile, "rt") ;
 
+  if ( !fp ) {
+    sprintf(c1err,"Could not open epoch file: %s", epFile);
+    sprintf(c2err,"Check --tlist argument");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
   while ( fgets (line, MXCHAR_LINE, fp) !=NULL  ) {
     // skip blank lines
     if ( strlen(line) == 0 ) { continue ; }
@@ -911,12 +918,12 @@ void init_SIMSED_PATH(void) {
     *VERSION 
     ,SNDATA_ROOT[200]
     ,PRIVATE_PATH[200] 
-    ,fnam[] = "init_SIMSED_PATH" 
     ;
 
   int EXIST_PRIVATE_PATH, EXIST_SNDATA_ROOT ;
+  char fnam[] = "init_SIMSED_PATH" ;
 
-  // ------------ BEIGN --------
+  // ------------ BEGIN --------
 
   VERSION = INPUTS.SIMSED_VERSION ;
 
@@ -950,9 +957,12 @@ void init_SIMSED_PATH(void) {
   else {
     sprintf( SIMSED_PATHMODEL, "%s/models/SIMSED/%s", 
              SNDATA_ROOT, VERSION );
-    printf("   SNDATA_ROOT = %s \n", SNDATA_ROOT );
+    printf("   %s: SNDATA_ROOT = %s \n", fnam, SNDATA_ROOT );
+    fflush(stdout);
   }
-
+  
+  printf(" xxx %s: done here. \n", fnam);
+  fflush(stdout);
 
 } // end of init_SIMSED_PATH
 

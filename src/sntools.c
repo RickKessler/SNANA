@@ -10991,7 +10991,7 @@ void check_argv(void) {
   // ----------- BEGIN ---------
 
   NBAD = 0;
-  for ( i = 0; i < NARGV_LIST; i++ ) {
+  for ( i = 1 ; i < NARGV_LIST; i++ ) {
     if ( USE_ARGV_LIST[i] == 0 ) {
       NBAD++ ;
       if ( NBAD == 1 ) printf("  CHECK_ARGV ERRORS: \n" );

@@ -13610,7 +13610,7 @@ void parse_parFile(char *parFile ) {
   //
 
   FILE *fdef;
-  bool SKIP, EXCEPTION;
+  bool SKIP, YAML, EXCEPTION;
   char *sptr ;
   char fnam[] = "parse_parFile" ;
 
@@ -13653,20 +13653,23 @@ void parse_parFile(char *parFile ) {
 	  "Reading SALT2mu parameter-input file '%s' : \n",  parFile);
 
   char line[MXCHAR_LINE];
+  YAML = false;
+
   while (fgets(line,MXCHAR_LINE,fdef)) {
 
     // skip blank lines and lines starting with comment char (RK 4/23/2012)
     if ( strlen(line) < 3 )       { continue ; }  
-    if ( commentchar(line) == 1 ) { continue ; } // see sntools.c
+    if ( !YAML && commentchar(line) == 1 ) { continue ; } // see sntools.c
 
     sptr = strtok(line,"\n");
-
-    // July 24 2020: skip YAML CONFIG 
-    if ( strcmp(sptr,"CONFIG:")    == 0 ) { SKIP = true  ; }
-    if ( strstr(sptr,"END_YAML")   == 0 ) { SKIP = false ; }
-    if ( strstr(sptr,"END_CONFIG") == 0 ) { SKIP = false ; }
-    if ( strstr(sptr,"CONFIG_END") == 0 ) { SKIP = false ; }
     
+    // July 24 2020: skip YAML CONFIG 
+    if ( strcmp(sptr,"CONFIG:")    == 0    ) { YAML = true  ; }
+    if ( strstr(sptr,"END_YAML")   != NULL ) { YAML = false ; }
+    if ( strstr(sptr,"END_CONFIG") != NULL ) { YAML = false ; }
+    if ( strstr(sptr,"CONFIG_END") != NULL ) { YAML = false ; }
+    if ( YAML ) { continue; }
+
     // skip keys with colon that are used by a master 
     // SALT2mu_fit.pl script (RK Apr 2013)
     // Aug 24 2016: make exception for key containing group_biasCor

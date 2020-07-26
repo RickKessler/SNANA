@@ -1131,7 +1131,6 @@ c Aug 2014: MXVAR_PRIVATE -> 28 (was 20)
       INTEGER   
      &   NVAR_PRIVATE        ! Number of private  variables
      &  ,NCUT_PRIVATE       
-     &  ,IVAR_PRIVATE_REDSHIFT  ! July 2015
 
 c for  the following header key
 c    PRIVATE(BLA): 44.4
@@ -1152,7 +1151,7 @@ c   VALUE   = 44.4
 
       COMMON / PRIVATE_VARCOM  / 
      &     NVAR_PRIVATE, PRIVATE_VARNAME, PRIVATE_KEYWORD
-     &    ,NCUT_PRIVATE, USE_PRIVATE_CUTWIN, IVAR_PRIVATE_REDSHIFT
+     &    ,NCUT_PRIVATE, USE_PRIVATE_CUTWIN
 
       COMMON / PRIVATECOM8 / PRIVATE_VALUE, PRIVATE_CUTWIN
     
@@ -1786,7 +1785,6 @@ c
       LOGICAL 
      &   USE_MWCOR          ! (I) T=> correct data flux for MW extinc;
                             !     F=> leave data, correct fit model for MW.
-     &  ,DOBUG_LAMRANGE     ! (I) implement old lambda-range bug
 
       REAL 
      &   REDSHIFT_FINAL_SHIFT    ! artificial shift
@@ -1809,8 +1807,7 @@ c
      &   ,NSNTYPE_LIST, NCCDNUM_LIST, NSIM_TEMPLATE_INDEX_LIST
      &   ,NSNTYPE_IGNORE, NFILT_SNRMAX, IFILT_SNRMAX
      &   ,NFILT_HOST_SBFLUX, IFILT_HOST_SBFLUX
-     &   ,PHOTFLAG_MSKREJ
-     &   ,USE_MWCOR, DOBUG_LAMRANGE
+     &   ,PHOTFLAG_MSKREJ, USE_MWCOR
      &   ,MAGOBS_SHIFT_PRIMARY, MAGOBS_SHIFT_PRIMARY_FILT
      &   ,MAGOBS_SHIFT_ZP, MAGOBS_SHIFT_ZP_FILT, FLUXSCALE_ZP_FILT
      &   ,MAGOBS_SHIFT_ZP_USER
@@ -1939,7 +1936,6 @@ c
      &  ,FILTER_REPLACE*(MXFILT_ALL)      ! e.g., 'UGRIZ -> ugriz' 
      &  ,FILTLIST_LAMSHIFT*(MXFILT_ALL)   ! list of lam-shifted filters
      &  ,PRIVATE_CUTWIN_STRING(MXCUT_PRIVATE)*(MXCHAR_CUTNAME)
-     &  ,PRIVATE_REDSHIFT_CMB*60          ! use PRIVATE variable for redshift
      &  ,SIMVAR_CUTWIN_STRING*(MXCHAR_CUTNAME) ! cuts on SIM_XXX
      &  ,EARLYLC_STRING*(MXCHAR_CUTNAME)  ! see manual
      &  ,REQUIRE_EPOCHS_STRING*100  ! e.g., 'riz 10 7 20' ! uses CUTWIN_SNRMAX
@@ -2081,7 +2077,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , SNCUT_SNRMAX, SNCUT_HOST_SBFLUX
      &    , EPCUT_SNRMIN, EPCUT_SKYSIG, EPCUT_PSFSIG
      &    , CUTWIN_LAMREST, CUTWIN_LAMOBS
-     &    , PRIVATE_CUTWIN_STRING, PRIVATE_REDSHIFT_CMB
+     &    , PRIVATE_CUTWIN_STRING
      &    , SIMVAR_CUTWIN_STRING
      &    , NSIMVAR_CUTWIN, SIMVAR_CUTWIN, SIMVAR_CUTWIN_LIST
      &    , EARLYLC_STRING, REQUIRE_EPOCHS_STRING, DUMP_STRING
@@ -2125,7 +2121,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , ABORT_ON_DUPLCID, ABORT_ON_DUPLMJD
      &    , ABORT_ON_BADHEADER, ABORT_ON_BADFILTER
      &    , H0_REF, OLAM_REF, OMAT_REF, W0_REF, DWDA_REF
-     &    , USE_MWCOR, DOBUG_LAMRANGE
+     &    , USE_MWCOR
      &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT, DTOBS_MODEL_PLOT
      &    , MULTISEASON_OPTMASK, MULTISEASON_TGAP, zTOL_HELIO2CMB
      &    , MULTISEASON_NREJECT_OUTLIER, MULTISEASON_CHI2RED_ACTIVE
@@ -2156,7 +2152,7 @@ c
      &   ,cutwin_nfilt_trestmin, cutwin_nfilt_trestmax
      &   ,cutwin_trest2, cutwin_nfilt_trest2
      &   ,cutwin_restlam, cutwin_lamrest, cutwin_lamobs
-     &   ,PRIVATE_CUTWIN_STRING, PRIVATE_REDSHIFT_CMB
+     &   ,PRIVATE_CUTWIN_STRING
      &   ,SIMVAR_CUTWIN_STRING
      &   ,EARLYLC_STRING, REQUIRE_EPOCHS_STRING, DUMP_STRING
 c
@@ -3587,8 +3583,6 @@ c set LTEST logicals to false.
       LTEST_U3BAND  = .FALSE.
       LTEST_MAG     = .FALSE.
 
-      DOBUG_LAMRANGE = .FALSE.
-
       ABORT_ON_NOEPOCHS  = .TRUE.
       ABORT_ON_BADAVWARP = .TRUE.
       ABORT_ON_BADZ      = .TRUE.
@@ -3666,7 +3660,9 @@ c read the nml
 
 c check for namelist over-rides from command line.
 
-      CALL SNLCINP_OVERRIDE(IERR)
+     
+cc      CALL SNLCINP_OVERRIDE()
+      CALL SNLCINP_OVERRIDE_LEGACY()
         IF ( IERR .NE. 0 ) RETURN
 
 c check for cut on simulated search eff;
@@ -4688,33 +4684,462 @@ c in COPT_LIST
 
 C ================================================
 +DECK,SNLCINP_OVERRIDE.
-      SUBROUTINE SNLCINP_OVERRIDE(IERR)
+      SUBROUTINE SNLCINP_OVERRIDE()
+c
+c Created July 2020 by R.Kessler [refactored]
+c Check command-line args for user-option to override
+c namelist values. Check for two styles of override:
+c
+c Legacy style is space-sparated such as    CUTWIN_SNRMAX 5 999
+c New style has equal sign and no spaces,   CUTWIN_SNRMAX=5,999
+c
+c Beware that some arguments are comma-sep lists, so need
+c to be careful about when to split by comma, and when 
+c not so split by comma.
+c ----------
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+c local var
+
+      INTEGER iArg, LL, ilast, iuse, NVERLOC
+      CHARACTER STRING_LIST*60, ARGLIST(10)*(MXCHAR_FILENAME)
+      LOGICAL LSNIGNORE
+
+c functions
+      LOGICAL MATCH_NMLKEY
+      INTEGER PARSE_INTLIST
+
+c ------------- BEGIN -------------
+
+      iArg = 2 ;   ilast = 2 ;      NVERLOC = 0
+
+      DO 4444 WHILE ( iArg .LE. NLINE_ARGS )
+
+        LL = INDEX ( LINE_ARGS(iArg), ' ' ) - 1
+        print*,'     PROCESS COMMAND LINE ARG: ',
+     &                   LINE_ARGS(iArg)(1:LL)
+        CALL FLUSH(6)
+
+cc        print*,' xxx MATCH_NMLKEY iArg = ', iArg
+
+         if ( MATCH_NMLKEY('VERSION_PHOTOMETRY',1,iArg,ARGLIST) ) then
+            NVERLOC = NVERLOC + 1
+            VERSION_PHOTOMETRY(NVERLOC) = ARGLIST(1)(1:MXCHAR_VERSION)
+
+         else if ( MATCH_NMLKEY('VERSION_REPLACE',
+     &               1, iArg, ARGLIST) ) then
+            NVERLOC = 1
+            VERSION_PHOTOMETRY(NVERLOC) = ARGLIST(1)(1:MXCHAR_VERSION)
+
+         else if(MATCH_NMLKEY('VERSION_REFORMAT_FITS',
+     &                1, iArg, ARGLIST) ) then
+            VERSION_REFORMAT_FITS = ARGLIST(1)(1:MXCHAR_VERSION)
+
+         else if ( MATCH_NMLKEY('OPT_REFORMAT_FITS',
+     &             1, iArg, ARGLIST) ) then
+             READ(ARGLIST(1),*) OPT_REFORMAT_FITS
+
+         else if ( MATCH_NMLKEY('OPT_REFORMAT_TEXT',
+     &              1, iArg, ARGLIST) ) then
+             READ(ARGLIST(1),*) OPT_REFORMAT_TEXT
+
+         else if ( MATCH_NMLKEY('PRIVATE_DATA_PATH',
+     &               1, iArg, ARGLIST) ) then 
+            PRIVATE_DATA_PATH = ARGLIST(1)(1:MXCHAR_PATH)
+
+         else if ( MATCH_NMLKEY('PRIVATE_CUTWIN_STRING',
+     &            1, iArg, ARGLIST) ) then 
+            PRIVATE_CUTWIN_STRING = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
+         else if ( MATCH_NMLKEY('EARLYLC_STRING',
+     &             1, iArg, ARGLIST) ) then 
+           EARLYLC_STRING = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
+         else if ( MATCH_NMLKEY('REQUIRE_EPOCHS_STRING',
+     &             1, iArg, ARGLIST) ) then 
+           REQUIRE_EPOCHS_STRING = ARGLIST(1)(1:100)
+
+         else if ( MATCH_NMLKEY('DUMP_STRING',
+     &             1, iArg, ARGLIST) ) then 
+           DUMP_STRING = ARGLIST(1)(1:100)
+
+         else if ( MATCH_NMLKEY('FILTER_UPDATE_PATH',
+     &             1,iArg, ARGLIST) ) then 
+           FILTER_UPDATE_PATH = ARGLIST(1)(1:MXCHAR_PATH)
+
+         else if ( MATCH_NMLKEY('NONSURVEY_FILTERS',
+     &             1, iArg, ARGLIST) ) then 
+           NONSURVEY_FILTERS = ARGLIST(1)(1:MXFILT_ALL)
+
+         else if ( MATCH_NMLKEY('FILTER_REPLACE',
+     &             1, iArg, ARGLIST) ) then 
+           FILTER_REPLACE = ARGLIST(1)(1:MXFILT_ALL)
+
+         else if ( MATCH_NMLKEY('FILTLIST_LAMSHIFT',
+     &             1, iArg, ARGLIST) ) then 
+           FILTLIST_LAMSHIFT = ARGLIST(1)(1:MXFILT_ALL)
+
+         else if ( MATCH_NMLKEY('USERTAGS_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           USERTAGS_FILE = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('VPEC_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           VPEC_FILE = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('KCOR_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           KCOR_FILE = ARGLIST(1)
+         else if ( MATCH_NMLKEY('OVERRIDE_RESTLAM_BOUNDARY',
+     &             1, iArg, ARGLIST) ) then 
+           OVERRIDE_RESTLAM_BOUNDARY = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('HEADER_OVERRIDE_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           HEADER_OVERRIDE_FILE = ARGLIST(1)
+
+c LSNIGNORE 
+
+         else if ( MATCH_NMLKEY('INTERP_OPT', 
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) INTERP_OPT
+
+         else if ( MATCH_NMLKEY('HFILE_OUT',
+     &             1, iArg, ARGLIST) ) then 
+           HFILE_OUT = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('ROOTFILE_OUT',
+     &             1, iArg, ARGLIST) ) then 
+           ROOTFILE_OUT = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('TEXTFILE_PREFIX',
+     &             1, iArg, ARGLIST) ) then 
+           TEXTFILE_PREFIX = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('MARZFILE_OUT',
+     &             1, iArg, ARGLIST) ) then 
+           MARZFILE_OUT = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('SNTABLE_LIST',
+     &             1, iArg, ARGLIST) ) then 
+           SNTABLE_LIST = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('SNTABLE_FILTER_REMAP',
+     &             1, iArg, ARGLIST) ) then 
+           SNTABLE_FILTER_REMAP = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('OPTSIM_LCWIDTH',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) OPTSIM_LCWIDTH
+
+         else if ( MATCH_NMLKEY('SNCID_IGNORE_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           SNCID_IGNORE_FILE = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('SNMJD_OUT_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           SNMJD_LIST_FILE = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('SNMJD_OUT_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           SNMJD_LIST_FILE = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('EPOCH_IGNORE_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           EPOCH_IGNORE_FILE = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('OUT_EPOCH_IGNORE_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           OUT_EPOCH_IGNORE_FILE = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('NFIT_ITERATION',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) NFIT_ITERATION
+
+         else if ( MATCH_NMLKEY('USE_MINOS',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) USE_MINOS
+
+         else if ( MATCH_NMLKEY('MINUIT_PRINT_LEVEL',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) MINUIT_PRINT_LEVEL
+
+         else if ( MATCH_NMLKEY('MXLC_PLOT',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) MXLC_PLOT
+
+         else if ( MATCH_NMLKEY('DTOBS_MODEL_PLOT',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) DTOBS_MODEL_PLOT
+
+         else if ( MATCH_NMLKEY('PHOTFLAG_MSKREJ',
+     &             2, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) PHOTFLAG_MSKREJ(1)
+           READ(ARGLIST(2),*) PHOTFLAG_MSKREJ(2)
+
+         else if ( MATCH_NMLKEY('PHOTFLAG_DETECT',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) PHOTFLAG_DETECT
+
+         else if ( MATCH_NMLKEY('PHOTFLAG_TRIGGER',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) PHOTFLAG_TRIGGER
+c - - - - - -
+         else if ( MATCH_NMLKEY('MULTISEASON_OPTMASK',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) MULTISEASON_OPTMASK
+
+         else if ( MATCH_NMLKEY('MULTISEASON_TGAP',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) MULTISEASON_TGAP
+
+         else if ( MATCH_NMLKEY('MULTISEASON_NREJECT_OUTLIER',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) MULTISEASON_NREJECT_OUTLIER
+
+         else if ( MATCH_NMLKEY('MULTISEASON_CHI2RED_ACTIVE',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) MULTISEASON_CHI2RED_ACTIVE
+
+         else if ( MATCH_NMLKEY('CUTWIN_NSEASON_ACTIVE',
+     &             2, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) CUTWIN_NSEASON_ACTIVE(1)
+           READ(ARGLIST(2),*) CUTWIN_NSEASON_ACTIVE(2)
+
+c - - - - -
+         else if ( MATCH_NMLKEY('LSIM_SEARCH_SPEC',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) LSIM_SEARCH_SPEC
+
+         else if ( MATCH_NMLKEY('LSIM_SEARCH_ZHOST',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) LSIM_SEARCH_ZHOST
+         else if ( MATCH_NMLKEY('LSIM_SEARCH_zHOST',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) LSIM_SEARCH_ZHOST
+
+         else if ( MATCH_NMLKEY('OPT_DEBUG',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) OPT_DEBUG
+
+         else if ( MATCH_NMLKEY('LDMP_SNFAIL',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) LDMP_SNFAIL
+
+         else if ( MATCH_NMLKEY('USESIM_SNIA',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) USESIM_SNIA
+         else if ( MATCH_NMLKEY('USESIM_SNCC',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) USESIM_SNCC
+
+         else if ( MATCH_NMLKEY('USE_SNHOST_ZPHOT',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) USE_SNHOST_ZPHOT
+
+         else if ( MATCH_NMLKEY('USESIM_TRUEFLUX',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) USESIM_TRUEFLUX
+
+         else if ( MATCH_NMLKEY('RESTORE_DES3YR',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) RESTORE_DES3YR
+
+         else if ( MATCH_NMLKEY('USE_MWCOR',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) USE_MWCOR
+
+c - - - - 
+         else if ( MATCH_NMLKEY('LTEST_U3BAND',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) LTEST_U3BAND
+         else if ( MATCH_NMLKEY('LTEST_MAG',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) LTEST_MAG
+         else if ( MATCH_NMLKEY('LTEST_INTERP',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) LTEST_INTERP
+         else if ( MATCH_NMLKEY('LTEST_KCOR',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) LTEST_KCOR
+
+c - - - -
+         else if ( MATCH_NMLKEY('OPT_SETPKMJD',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) OPT_SETPKMJD
+
+         else if ( MATCH_NMLKEY('MJDWIN_SETPKMJD',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) MJDWIN_SETPKMJD
+
+         else if ( MATCH_NMLKEY('SNRCUT_SETPKMJD',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) SNRCUT_SETPKMJD
+
+         else if ( MATCH_NMLKEY('SHIFT_SETPKMJD',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) SHIFT_SETPKMJD
+
+         else if ( MATCH_NMLKEY('SNCCID_LIST',
+     &             1, iArg, ARGLIST) ) then 
+           CALL PARSE_SNCCID_LIST(ARGLIST(1))
+           CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
+
+c .xyz
+c - - - 
+        else if ( MATCH_NMLKEY('CUTWIN_SNRMAX',
+     &            2, iArg, ARGLIST) ) then
+             READ(ARGLIST(1),*) CUTWIN_SNRMAX(1)
+             READ(ARGLIST(2),*) CUTWIN_SNRMAX(2)
+        endif
+
+c set logical flag for used LINE_ARGS 
+         IF ( iArg .GT. ilast ) THEN
+           DO iuse = ilast, iArg
+              USE_LINE_ARGS(iuse) = .TRUE.
+           ENDDO
+         ENDIF
+         iArg = iArg + 1 ;       ilast = iArg
+
+4444  CONTINUE
+
+      print*,' '
+      print*,' xxx ------------------------------------- '
+      print*,' xxx CUTWIN_SNRMAX = ', CUTWIN_SNRMAX
+      print*,' xxx DEBUG STOP '
+      STOP ! xxx REMOVE
+
+      RETURN
+      END  ! end SNLCINP_OVERRIDE
+
+
+C ================================================
++DECK,MATCH_NMLKEY.
+      LOGICAL FUNCTION MATCH_NMLKEY(KEYNAME,NARG,iArg,argList)
+
+c Created July 25 2020
+c 
+c Example 1:
+c   KEYNAME           = 'CUTWIN_SNRMAX'
+c   LINE_ARGS(iArg)   = 'CUTWIN_SNRMAX'
+c   LINE_ARGS(iArg+1) = '5'
+c   LINE_ARGS(iArg+2) = '9999'
+c   NARG    = 2
+c   iArg    = iArg + 2     ! <== returned
+c   ARGLIST = '5', '9999'  ! <== returned
+c
+c Example 2:
+c   KEYNAME           = 'CUTWIN_SNRMAX'
+c   LINE_ARGS(iArg)   = 'CUTWIN_SNRMAX=5,9999'
+c   NARG    = 2
+c   iArg    = iArg         ! <== returned unchanged
+c   ARGLIST = '5', '9999'  ! <== returned
+c
+c ----------------------
+c
+      IMPLICIT NONE
++CDE,SNPAR.
++CDE,SNCUTS.
+c+CDE,CTRLCOM.
++CDE,SNLCINP.
+
+c function args
+c MXCHAR_FILENAME
+      CHARACTER KEYNAME*(*)      ! (I) keyname to check
+c     CHARACTER LINE_ARGS(*)*(*) ! (I) command line argument list
+      INTEGER   NARG             ! (I) number of arguments to checl
+      INTEGER   iArg             ! (I) current index for LINE_ARGS(i)
+      CHARACTER ARGLIST(*)*(*)   ! (O) 'NARG' string args for KEYNAME
+
+c local args
+      INTEGER LENKEY, LENARG1_EQ, LENARG1_TOT, i
+      INTEGER jcomma, jlast
+      LOGICAL KEYPLUSARG_ONESTRING, LDMP
+      CHARACTER ARGSTRING*(2*MXCHAR_FILENAME)
+
+C ------------- BEGIN ------------
+
+      MATCH_NMLKEY = .false.
+      DO i = 1, NARG
+         ARGLIST(i) = 'NULL'
+      ENDDO
+      LDMP = .true.
+
+      LENKEY = INDEX(KEYNAME//' ', ' ') - 1
+
+      LENARG1_EQ  = INDEX(LINE_ARGS(iArg),'=') - 1
+      LENARG1_TOT = INDEX(LINE_ARGS(iArg),' ') - 1
+      IF ( LENARG1_EQ < 0 ) THEN
+         LENARG1_EQ = LENARG1_TOT
+         KEYPLUSARG_ONESTRING = .false. ! e.g., CUTWIN_SNRMAX 5 999
+      ELSE
+         KEYPLUSARG_ONESTRING = .true. ! e.g., CUTWIN_SNRMAX=5,999
+      ENDIF
+
+      if ( LDMP ) then
+        print*,' xxx --------- MATCH_NMLKEY DUMP ------------- '
+	print*,' xxx  LINE_ARG = ', LINE_ARGS(iArg)(1:60)
+	print*,' xxx  iArg    = ', iArg
+        print*,' xxx  LENARG1 = ', LENARG1_EQ, LENARG1_TOT
+        print*,' xxx  LENKEY  = ', LENKEY
+	print*,' xxx  KEYPLUSARG_ONESTRING=',KEYPLUSARG_ONESTRING
+      endif
+      
+      if ( LENARG1_EQ .NE. LENKEY ) RETURN
+
+      MATCH_NMLKEY = 
+     &    (LINE_ARGS(iArg)(1:LENARG1_EQ) .EQ. KEYNAME(1:LENKEY))
+      
+      IF ( .NOT. MATCH_NMLKEY ) RETURN
+
+      IF ( KEYPLUSARG_ONESTRING ) THEN        
+
+         ARGSTRING = LINE_ARGS(iArg)(LENARG1_EQ+2:LENARG1_TOT)
+
+c break comma-sep ARGSTRING into sub strings
+         jlast = 1
+         DO i = 1, NARG
+	    if ( i .EQ. NARG ) then
+               ARGLIST(i) = ARGSTRING(jlast:LENARG1_TOT)
+            else
+               jcomma     = INDEX(ARGSTRING,',') - 1
+               ARGLIST(i) = ARGSTRING(jlast:jcomma)
+	       jlast      = jcomma + 2
+            endif
+         ENDDO
+      ELSE      
+         DO i = 1, NARG
+           iArg = iArg + 1
+           ARGLIST(i) = LINE_ARGS(iArg)
+         ENDDO
+      ENDIF
+
+      RETURN
+      END    ! end MATCH_NMLKEY
+
+C ================================================
++DECK,SNLCINP_OVERRIDE_LEGACY.
+      SUBROUTINE SNLCINP_OVERRIDE_LEGACY()
 
 c Feb 7, 2007
 c
 c Check command-line args for user-option to override
 c namelist values.
 c
-c Nov 30, 2007: allow multiple photometry versions to 
-c               be specified.
-c
-c Dec 4, 2009: read multiple "SNCID_IGNORE <CID>" commands
-c
-c Nov 12 2015: fix bug and read upper bound for CUTWIN_NFILT_SNRMAX[2]
-c Apr 26 2017: add CUTWIN_PEAKMJD
-c 
 c Jan 25 2018: 
 c   use PARSE_INTLIST to parse comma-separated lists for
 c     SNCID_LIST, SNTYPE_LIST, CCDNUM_LIST, SNTYPE_IGNORE
 c
 c May 30 2019: call PARSE_NML_STRINGLIST for SNCCID_LIST
+c Jul 25 2020: remove unused IERR argument.
 c
 c ----------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
-
-      INTEGER IERR ! (O) 0 => OK
 
 c local var
 
@@ -4726,8 +5151,6 @@ c functions
       INTEGER PARSE_INTLIST
 
 C -------------- BEGIN --------------
-
-      IERR = 0
 
       i = 2
       ilast = 2
@@ -4770,9 +5193,6 @@ C -------------- BEGIN --------------
          else if ( LINE_ARGS(i) .EQ. 'PRIVATE_CUTWIN_STRING' ) then
             i = i + 1 
             PRIVATE_CUTWIN_STRING(1) = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'PRIVATE_REDSHIFT_CMB' ) then
-            i = i + 1 ; PRIVATE_REDSHIFT_CMB = LINE_ARGS(i)(1:60)
 
          else if ( LINE_ARGS(i) .EQ. 'EARLYLC_STRING' ) then
             i = i + 1 
@@ -4962,9 +5382,6 @@ c ----------
             i = i + 1 ; READ(LINE_ARGS(i),*) SNRCUT_SETPKMJD
          else if ( LINE_ARGS(i) .EQ. 'SHIFT_SETPKMJD' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) SHIFT_SETPKMJD
-
-         else if ( LINE_ARGS(i) .EQ. 'DOBUG_LAMRANGE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) DOBUG_LAMRANGE
 
          else if ( LINE_ARGS(i) .EQ. 'SNCCID_LIST' ) then 
             i = i + 1 
@@ -5372,7 +5789,7 @@ c set logical flag for used LINE_ARGS
       ENDDO
 
       RETURN
-      END  ! end of SNLCINP_OVERRIDE
+      END  ! end of SNLCINP_OVERRIDE_LEGACY
 
 C ========================================
 +DECK,MCMCINP_OVERRIDE.
@@ -8606,7 +9023,6 @@ cc      ZPOFF_FILE    = 'NULL'  ! NULL => use offsets in hid 292
       NFIT_PKMJD = 0
  
       NVAR_PRIVATE = 0
-      IVAR_PRIVATE_REDSHIFT = 0
       DO i = 1, MXVAR_PRIVATE
         PRIVATE_KEYWORD(i)  = 'UNKNOWN'
         PRIVATE_VARNAME(i)  = 'UNKNOWN'
@@ -8620,7 +9036,6 @@ cc      ZPOFF_FILE    = 'NULL'  ! NULL => use offsets in hid 292
          PRIVATE_CUTWIN_STRING(i) = ''
          USE_PRIVATE_CUTWIN(i)    = 0
       ENDDO
-      PRIVATE_REDSHIFT_CMB = ''
 
       SIMVAR_CUTWIN_STRING  = ''
       NSIMVAR_CUTWIN        = 0 
@@ -11707,6 +12122,8 @@ C =============================================
 c April 2019
 c read spectra (1 or more) for current SNID. 
 c Note that ROW numbers are read below, and thus not passed as argument.
+c
+c Jul 25 2020: return on null row range (i.e., no spectra)
 
       IMPLICIT NONE
 
@@ -11733,6 +12150,8 @@ C --------------- BEGIN ------------
 
 c retrieve HEADER row-range of spectra 
       CALL RD_SNFITSIO_SPECROWS(CCID,ROWMIN,ROWMAX)
+      if ( ROWMIN < 0 ) RETURN  ! 7.25.2020
+
       NSPECTRUM = ROWMAX - ROWMIN + 1
 
 c loop over header rows and extra spectrum for each row.
@@ -15452,6 +15871,7 @@ c For input CWORD = 'PRIVATE($VARNAME)', strip out the $VARNAME
 c and load PRIVATE_VARNAME(IVAR_PRIVATE) = $VARNAME
 c
 c Jul 23 2015: check PRIVATE_REDSHIFT_CMB key
+c Jul 25 2020: remove obsolete PRIVATE_REDSHIFT_CMB
 
       IMPLICIT NONE
 
@@ -15554,26 +15974,6 @@ c break up string into pieces
  444        format('CUT: ',G9.3,' to ', G9.3)
          endif
  400  CONTINUE
-
-
-c -----------------------------------------
-c check option to use private redshift
-c e.g., from fakes overlaid on images
-
-      LENZ = INDEX(PRIVATE_REDSHIFT_CMB,' ' ) - 1
-      IF ( LENZ .EQ. LEN_NAME .and. 
-     &     VARNAME(1:LENZ) .EQ. PRIVATE_REDSHIFT_CMB(1:LENZ) ) THEN
-         IVAR_PRIVATE_REDSHIFT = IVAR_PRIVATE
-         print*, ' '
-         print*,
-     &     '# ======================================================= '
-         write(6,30) VARNAME(1:LENZ)
- 30      format(' # NOTICE: Use PRIVATE variable ',A,
-     &          ' for REDSHIFT_CMB')
-         print*,
-     &     '# ======================================================= '
-         print*,' '
-      ENDIF
 
 c ----------------------------
 c print one-line summary

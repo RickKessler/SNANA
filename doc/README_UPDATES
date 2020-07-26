@@ -18776,6 +18776,7 @@
        list to allow multiple table files.
      + in CHECK_EPOCH_IGNORE(), skip ZP and PSF cuts if RESTORE_DES3YR=T.
      + fix array bound bug in get_PARSE_WORDS_fortran
+     + protect reading spectra when some events zero spectra
 
     SALT2mu.c
       + skip reading YAML keys

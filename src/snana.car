@@ -3663,7 +3663,6 @@ c check for namelist over-rides from command line.
      
 cc      CALL SNLCINP_OVERRIDE()
       CALL SNLCINP_OVERRIDE_LEGACY()
-        IF ( IERR .NE. 0 ) RETURN
 
 c check for cut on simulated search eff;
 c if set, then require SEARCHEFF_MASK = 3 =>
@@ -4706,7 +4705,7 @@ c local var
 
       INTEGER iArg, LL, ilast, iuse, NVERLOC
       CHARACTER STRING_LIST*60, ARGLIST(10)*(MXCHAR_FILENAME)
-      LOGICAL LSNIGNORE
+      LOGICAL LSNIGNORE, DO_STOP
 
 c functions
       LOGICAL MATCH_NMLKEY
@@ -4988,12 +4987,291 @@ c - - - -
            CALL PARSE_SNCCID_LIST(ARGLIST(1))
            CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
 
-c .xyz
-c - - - 
+         else if ( MATCH_NMLKEY('SNCID_LIST_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           SNCID_LIST_FILE = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('MXEVT_PROCESS',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) MXEVT_PROCESS
+
+         else if ( MATCH_NMLKEY('SIM_TEMPLATE_INDEX_LIST',
+     &             1, iArg, ARGLIST) ) then 
+           STRING_LIST = ARGLIST(1)(1:60)
+           NSIM_TEMPLATE_INDEX_LIST =  ! select SIM_TEMPLATE INDICE
+     &        PARSE_INTLIST(STRING_LIST,SIM_TEMPLATE_INDEX_LIST)
+
+         else if ( MATCH_NMLKEY('SIMLIB_OUT',
+     &             1, iArg, ARGLIST) ) then 
+           SIMLIB_OUT = ARGLIST(1)
+         else if ( MATCH_NMLKEY('SIMLIB_OUTFILE', ! same as SIMLIB_OUT
+     &             1, iArg, ARGLIST) ) then 
+           SIMLIB_OUTFILE = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('SIMLIB_ZPERR_LIST',
+     &             1, iArg, ARGLIST) ) then 
+           SIMLIB_ZPERR_LIST = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('OPT_SIMLIB_OUT',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) OPT_SIMLIB_OUT
+
+         else if ( MATCH_NMLKEY('SIMLIB_OUT_TMINFIX',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) SIMLIB_OUT_TMINFIX
+
+         else if ( MATCH_NMLKEY('NONLINEARITY_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           NONLINEARITY_FILE = ARGLIST(1)
+
+         else if ( MATCH_NMLKEY('SNFIELD_LIST',
+     &             1, iArg, ARGLIST) ) then 
+           SNFIELD_LIST(1) = ARGLIST(1)(1:60)
+	   SNFIELD_LIST(2) = ''
+
+         else if ( MATCH_NMLKEY('JOBSPLIT',
+     &             2, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) JOBSPLIT(1)
+           READ(ARGLIST(2),*) JOBSPLIT(2)
+
+         else if ( MATCH_NMLKEY('JOBSPLIT_EXTERNAL',
+     &             2, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) JOBSPLIT_EXTERNAL(1)
+           READ(ARGLIST(2),*) JOBSPLIT_EXTERNAL(2)
+
+         else if ( MATCH_NMLKEY('SIM_PRESCALE',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) SIM_PRESCALE
+
+        else if ( MATCH_NMLKEY('CUTWIN_CID',
+     &            2, iArg, ARGLIST) ) then
+             READ(ARGLIST(1),*) CUTWIN_CID(1)
+             READ(ARGLIST(2),*) CUTWIN_CID(2)
+
+         else if ( MATCH_NMLKEY('SNTYPE_LIST',
+     &             1, iArg, ARGLIST) ) then 
+           STRING_LIST = ARGLIST(1)(1:60)
+           NSNTYPE_LIST = PARSE_INTLIST(STRING_LIST,SNTYPE_LIST)
+
+         else if ( MATCH_NMLKEY('CCDNUM_LIST',
+     &             1, iArg, ARGLIST) ) then 
+           STRING_LIST = ARGLIST(1)(1:60)
+           NCCDNUM_LIST = PARSE_INTLIST(STRING_LIST,CCDNUM_LIST)
+
+         else if ( MATCH_NMLKEY('SNTYPE_IGNORE',
+     &             1, iArg, ARGLIST) ) then 
+           STRING_LIST = ARGLIST(1)(1:60)
+           NSNTYPE_IGNORE = PARSE_INTLIST(STRING_LIST,SNTYPE_IGNORE)
+
+        else if ( MATCH_NMLKEY('CUTWIN_NEPOCH',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_NEPOCH(1)
+          READ(ARGLIST(2),*) CUTWIN_NEPOCH(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_TRESTMIN',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_TRESTMIN(1)
+          READ(ARGLIST(2),*) CUTWIN_TRESTMIN(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_TRESTMAX',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_TRESTMAX(1)
+          READ(ARGLIST(2),*) CUTWIN_TRESTMAX(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_TRESTRANGE',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_TRESTRANGE(1)
+          READ(ARGLIST(2),*) CUTWIN_TRESTRANGE(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_TREST2',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_TREST2(1)
+          READ(ARGLIST(2),*) CUTWIN_TREST2(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_TGAPMAX',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_TGAPMAX(1)
+          READ(ARGLIST(2),*) CUTWIN_TGAPMAX(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_T0GAPMAX',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_T0GAPMAX(1)
+          READ(ARGLIST(2),*) CUTWIN_T0GAPMAX(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_TREST',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_TREST(1)
+          READ(ARGLIST(2),*) CUTWIN_TREST(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_TOBS',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_TOBS(1)
+          READ(ARGLIST(2),*) CUTWIN_TOBS(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_TOBSMIN',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_TOBSMIN(1)
+          READ(ARGLIST(2),*) CUTWIN_TOBSMIN(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_TOBSMAX',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_TOBSMAX(1)
+          READ(ARGLIST(2),*) CUTWIN_TOBSMAX(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_PEAKMJD',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_PEAKMJD(1)
+          READ(ARGLIST(2),*) CUTWIN_PEAKMJD(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_MJD',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_MJD(1)
+          READ(ARGLIST(2),*) CUTWIN_MJD(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_MJD_EXCLUDE',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_MJD_EXCLUDE(1)
+          READ(ARGLIST(2),*) CUTWIN_MJD_EXCLUDE(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_MJD_INCLUDE',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_MJD_INCLUDE(1)
+          READ(ARGLIST(2),*) CUTWIN_MJD_INCLUDE(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_REDSHIFT',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_REDSHIFT(1)
+          READ(ARGLIST(2),*) CUTWIN_REDSHIFT(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_REDSHIFT_ERR',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_REDSHIFT_ERR(1)
+          READ(ARGLIST(2),*) CUTWIN_REDSHIFT_ERR(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_NFILT_TRESTMIN',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_NFILT_TRESTMIN(1)
+          READ(ARGLIST(2),*) CUTWIN_NFILT_TRESTMIN(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_NFILT_TRESTMAX',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_NFILT_TRESTMAX(1)
+          READ(ARGLIST(2),*) CUTWIN_NFILT_TRESTMAX(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_NFILT_TREST2',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_NFILT_TREST2(1)
+          READ(ARGLIST(2),*) CUTWIN_NFILT_TREST2(2)
+
+        else if ( MATCH_NMLKEY('SNCUT_SNRMAX',
+     &            1, iArg, ARGLIST) ) then
+          SNCUT_SNRMAX = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
+        else if ( MATCH_NMLKEY('SNCUT_HOST_SBFLUX',
+     &            1, iArg, ARGLIST) ) then
+          SNCUT_HOST_SBFLUX = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
+        else if ( MATCH_NMLKEY('SIMVAR_CUTWIN_STRING',
+     &            1, iArg, ARGLIST) ) then
+          SIMVAR_CUTWIN_STRING = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
+        else if ( MATCH_NMLKEY('CUTWIN_NFILT_SNRMAX',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_NFILT_SNRMAX(1)
+          READ(ARGLIST(2),*) CUTWIN_NFILT_SNRMAX(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_NFILT_SNRMAX2',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_NFILT_SNRMAX2(1)
+          READ(ARGLIST(2),*) CUTWIN_NFILT_SNRMAX2(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_NFIELD',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_NFIELD(1)
+          READ(ARGLIST(2),*) CUTWIN_NFIELD(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_MWEBV',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_MWEBV(1)
+          READ(ARGLIST(2),*) CUTWIN_MWEBV(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_RESTLAM',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_RESTLAM(1)
+          READ(ARGLIST(2),*) CUTWIN_RESTLAM(2)
+        else if ( MATCH_NMLKEY('CUTWIN_LAMREST', ! same as CUVTIN_RESTLAM
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_LAMREST(1)
+          READ(ARGLIST(2),*) CUTWIN_LAMREST(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_LAMOBS',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_LAMOBS(1)
+          READ(ARGLIST(2),*) CUTWIN_LAMOBS(2)
+
+        else if ( MATCH_NMLKEY('EPCUT_SNRMIN',
+     &            1, iArg, ARGLIST) ) then
+          EPCUT_SNRMIN = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
+        else if ( MATCH_NMLKEY('SNRMAX_FILTERS',
+     &            1, iArg, ARGLIST) ) then
+          SNRMAX_FILTERS = ARGLIST(1)(1:MXFILT_ALL)
+
         else if ( MATCH_NMLKEY('CUTWIN_SNRMAX',
      &            2, iArg, ARGLIST) ) then
-             READ(ARGLIST(1),*) CUTWIN_SNRMAX(1)
-             READ(ARGLIST(2),*) CUTWIN_SNRMAX(2)
+          READ(ARGLIST(1),*) CUTWIN_SNRMAX(1)
+          READ(ARGLIST(2),*) CUTWIN_SNRMAX(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_SNRMAX2',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_SNRMAX2(1)
+          READ(ARGLIST(2),*) CUTWIN_SNRMAX2(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_PSF',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_PSF(1)
+          READ(ARGLIST(2),*) CUTWIN_PSF(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_ZPERR',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_ZPERR(1)
+          READ(ARGLIST(2),*) CUTWIN_ZPERR(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_PHOTPROB',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_PHOTPROB(1)
+          READ(ARGLIST(2),*) CUTWIN_PHOTPROB(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_ZPADU',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_ZPADU(1)
+          READ(ARGLIST(2),*) CUTWIN_ZPADU(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_ZPNPE',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_ZPNPE(1)
+          READ(ARGLIST(2),*) CUTWIN_ZPNPE(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_ERRTEST',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_ERRTEST(1)
+          READ(ARGLIST(2),*) CUTWIN_ERRTEST(2)
+
+        else if ( MATCH_NMLKEY('CUTWIN_TREST_TRUEFLUX',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_TREST_TRUEFLUX(1)
+          READ(ARGLIST(2),*) CUTWIN_TREST_TRUEFLUX(2)
+
+
+c .xyz
+
++SELF,IF=XXXTEMP.
+        else if ( MATCH_NMLKEY('CUTWIN_',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_(1)
+          READ(ARGLIST(2),*) CUTWIN_(2)
++SELF.
+c - - - 
         endif
 
 c set logical flag for used LINE_ARGS 
@@ -5006,11 +5284,14 @@ c set logical flag for used LINE_ARGS
 
 4444  CONTINUE
 
-      print*,' '
-      print*,' xxx ------------------------------------- '
-      print*,' xxx CUTWIN_SNRMAX = ', CUTWIN_SNRMAX
-      print*,' xxx DEBUG STOP '
-      STOP ! xxx REMOVE
+      DO_STOP = .false.
+      IF ( DO_STOP ) then
+       	 print*,' '
+         print*,' xxx ------------------------------------- '
+      	 print*,' xxx CUTWIN_SNRMAX = ', CUTWIN_SNRMAX
+ 	 print*,' xxx DEBUG STOP '
+	 STOP
+      ENDIF
 
       RETURN
       END  ! end SNLCINP_OVERRIDE
@@ -5058,7 +5339,7 @@ c local args
       INTEGER LENKEY, LENARG1_EQ, LENARG1_TOT, i
       INTEGER jcomma, jlast
       LOGICAL KEYPLUSARG_ONESTRING, LDMP
-      CHARACTER ARGSTRING*(2*MXCHAR_FILENAME)
+      CHARACTER KEY(2)*60, ARGSTRING*(2*MXCHAR_FILENAME)
 
 C ------------- BEGIN ------------
 
@@ -5066,7 +5347,7 @@ C ------------- BEGIN ------------
       DO i = 1, NARG
          ARGLIST(i) = 'NULL'
       ENDDO
-      LDMP = .true.
+      LDMP = .false.
 
       LENKEY = INDEX(KEYNAME//' ', ' ') - 1
 
@@ -8652,8 +8933,8 @@ C ------- BEGIN ------------
       print*, ' '
       print*, ' ***** ABORT ***** '
       print*, ' '
+
       CALL FLUSH(6)
-c      STOP
       CALL EXIT(EXIT_ERRCODE)
 
       RETURN
@@ -12143,6 +12424,7 @@ c external functions
 C --------------- BEGIN ------------
 
       FNAM = 'RDSNFITS_SPEC'
+      NSPECTRUM = 0
       IF ( .not. RDFLAG_SPECTRUM ) RETURN
 
       LENCCID = ISNLC_LENCCID

@@ -18782,4 +18782,8 @@
       + skip reading YAML keys
       + SUBPROCESS bug fix
 
+    genmag_SALT2.c[h]
+      + to help catch pathologicaly re-training, add abort checks on 
+        bad error map values: nan or crazy values. 
+
 END: 

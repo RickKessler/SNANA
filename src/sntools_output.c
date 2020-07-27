@@ -1179,7 +1179,7 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
   ptrtok = strtok(VARLIST_LOCAL," ");
   while ( ptrtok != NULL ) {
     sprintf(VARNAME_withCast,"%s", ptrtok);
-    istat = sntable_readprep_vardef1(VARNAME_withCast, ptr, mxlen, FLAG_VBOSE,
+    istat=sntable_readprep_vardef1(VARNAME_withCast, ptr, mxlen, FLAG_VBOSE,
 				     VARNAME_noCast );
 
     NVAR_TOT++ ;

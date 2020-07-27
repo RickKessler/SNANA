@@ -3661,8 +3661,8 @@ c read the nml
 c check for namelist over-rides from command line.
 
      
-cc      CALL SNLCINP_OVERRIDE()
-      CALL SNLCINP_OVERRIDE_LEGACY()
+cc      CALL SNLCINP_OVERRIDE()      ! refactored with MATCH_NMLKEY
+      CALL SNLCINP_OVERRIDE_LEGACY() ! ancient function
 
 c check for cut on simulated search eff;
 c if set, then require SEARCHEFF_MASK = 3 =>
@@ -5262,15 +5262,187 @@ c - - - -
           READ(ARGLIST(1),*) CUTWIN_TREST_TRUEFLUX(1)
           READ(ARGLIST(2),*) CUTWIN_TREST_TRUEFLUX(2)
 
+c - - - - 
+         else if ( MATCH_NMLKEY('MAGOBS_SHIFT_PRIMARY',
+     &             1, iArg, ARGLIST) ) then 
+           MAGOBS_SHIFT_PRIMARY = ARGLIST(1)(1:MXCHAR_CUTNAME)
 
-c .xyz
+         else if ( MATCH_NMLKEY('MAGOBS_SHIFT_ZP',
+     &             1, iArg, ARGLIST) ) then 
+           MAGOBS_SHIFT_ZP = ARGLIST(1)(1:MXCHAR_CUTNAME)
 
-+SELF,IF=XXXTEMP.
-        else if ( MATCH_NMLKEY('CUTWIN_',
-     &            2, iArg, ARGLIST) ) then
-          READ(ARGLIST(1),*) CUTWIN_(1)
-          READ(ARGLIST(2),*) CUTWIN_(2)
-+SELF.
+         else if ( MATCH_NMLKEY('MAGREST_SHIFT_PRIMARY',
+     &             1, iArg, ARGLIST) ) then 
+           MAGREST_SHIFT_PRIMARY = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
+         else if ( MATCH_NMLKEY('MAGREST_SHIFT_ZP',
+     &             1, iArg, ARGLIST) ) then 
+           MAGREST_SHIFT_ZP = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
+         else if ( MATCH_NMLKEY('FILTER_LAMSHIFT',
+     &             1, iArg, ARGLIST) ) then 
+           FILTER_LAMSHIFT = ARGLIST(1)(1:MXCHAR_CUTNAME)
+c - - - - - - 
+        else if ( MATCH_NMLKEY('MAGOBS_SHIFT_PRIMARY_PARAMS',
+     &            3, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) MAGOBS_SHIFT_PRIMARY_PARAMS(1)
+          READ(ARGLIST(2),*) MAGOBS_SHIFT_PRIMARY_PARAMS(2)
+          READ(ARGLIST(3),*) MAGOBS_SHIFT_PRIMARY_PARAMS(3)
+
+        else if ( MATCH_NMLKEY('MAGOBS_SHIFT_ZP_PARAMS',
+     &            3, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) MAGOBS_SHIFT_ZP_PARAMS(1)
+          READ(ARGLIST(2),*) MAGOBS_SHIFT_ZP_PARAMS(2)
+          READ(ARGLIST(3),*) MAGOBS_SHIFT_ZP_PARAMS(3)
+c - - - - - - - 
+         else if ( MATCH_NMLKEY('FUDGE_FLUXCAL_OFFSET',
+     &             1, iArg, ARGLIST) ) then 
+           FUDGE_FLUXCAL_OFFSET = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
+         else if ( MATCH_NMLKEY('FUDGE_FLUXCAL_ERROR',
+     &             1, iArg, ARGLIST) ) then 
+           FUDGE_FLUXCAL_ERROR = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
+         else if ( MATCH_NMLKEY('FUDGE_FLUXCAL_ERRPIX',
+     &             1, iArg, ARGLIST) ) then 
+           FUDGE_FLUXCAL_ERRPIX = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
+         else if ( MATCH_NMLKEY('FUDGE_FLUXERR_SCALE',
+     &             1, iArg, ARGLIST) ) then 
+           FUDGE_FLUXERR_SCALE = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
+         else if ( MATCH_NMLKEY('FUDGE_MAG_ERROR',
+     &             1, iArg, ARGLIST) ) then 
+           FUDGE_MAG_ERROR = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
+         else if ( MATCH_NMLKEY('FUDGE_MAG_COVERR',
+     &             1, iArg, ARGLIST) ) then 
+           FUDGE_MAG_COVERR = ARGLIST(1)(1:MXCHAR_CUTNAME)
+
+         else if ( MATCH_NMLKEY('FUDGE_HOSTNOISE_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           FUDGE_HOSTNOISE_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
+
+         else if ( MATCH_NMLKEY('FLUXERRMODEL_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           FLUXERRMODEL_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
+         else if ( MATCH_NMLKEY('SIM_FLUXERRMODEL_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           SIM_FLUXERRMODEL_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
+
+        else if ( MATCH_NMLKEY('FLUXERRMODEL_OPTMASK',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) FLUXERRMODEL_OPTMASK
+
+         else if ( MATCH_NMLKEY('MAGCOR_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           MAGCOR_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
+
+         else if ( MATCH_NMLKEY('SIM_MAGCOR_FILE',
+     &             1, iArg, ARGLIST) ) then 
+           SIM_MAGCOR_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
+
+c - - - - - - - 
+        else if ( MATCH_NMLKEY('RV_MWCOLORLAW',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) RV_MWCOLORLAW
+
+        else if ( MATCH_NMLKEY('OPT_MWCOLORLAW',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) OPT_MWCOLORLAW
+
+        else if ( MATCH_NMLKEY('OPT_MWEBV',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) OPT_MWEBV
+
+        else if ( MATCH_NMLKEY('MWEBV_SCALE',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) MWEBV_SCALE
+
+        else if ( MATCH_NMLKEY('MWEBV_SHIFT',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) MWEBV_SHIFT
+
+        else if ( MATCH_NMLKEY('MWEBV_FORCE',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) MWEBV_FORCE
+
+        else if ( MATCH_NMLKEY('REDSHIFT_FINAL_SHIFT',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) REDSHIFT_FINAL_SHIFT
+
+        else if ( MATCH_NMLKEY('VPEC_ERR_OVERRIDE',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) VPEC_ERR_OVERRIDE
+
+        else if ( MATCH_NMLKEY('FLUXERRCALC_ZPTERR',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) FLUXERRCALC_ZPTERR
+
+        else if ( MATCH_NMLKEY('H0_REF',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) H0_REF
+
+        else if ( MATCH_NMLKEY('OLAM_REF',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) OLAM_REF
+
+        else if ( MATCH_NMLKEY('OMAT_REF',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) OMAT_REF
+
+        else if ( MATCH_NMLKEY('W0_REF',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) W0_REF
+
+        else if ( MATCH_NMLKEY('ZTOL_HELIO2CMB',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) ZTOL_HELIO2CMB
+        else if ( MATCH_NMLKEY('zZTOL_HELIO2CMB', ! same, with 'z'
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) ZTOL_HELIO2CMB
+c - - - - 
+
+        else if ( MATCH_NMLKEY('ABORT_ON_BADSURVEY',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) ABORT_ON_BADSURVEY
+
+        else if ( MATCH_NMLKEY('ABORT_ON_BADFILTER',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) ABORT_ON_BADFILTER
+
+        else if ( MATCH_NMLKEY('ABORT_ON_NOEPOCHS',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) ABORT_ON_NOEPOCHS
+
+        else if ( MATCH_NMLKEY('ABORT_ON_NOPKMJD',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) ABORT_ON_NOPKMJD
+
+        else if ( MATCH_NMLKEY('ABORT_ON_BADAVWARP',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) ABORT_ON_BADAVWARP
+
+        else if ( MATCH_NMLKEY('ABORT_ON_BADKCOR',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) ABORT_ON_BADKCOR
+
+        else if ( MATCH_NMLKEY('ABORT_ON_MARGPDF0',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) ABORT_ON_MARGPDF0
+
+        else if ( MATCH_NMLKEY('ABORT_ON_TRESTCUT',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) ABORT_ON_TRESTCUT
+
+        else if ( MATCH_NMLKEY('ABORT_ON_DUPLCID',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) ABORT_ON_DUPLCID
+
+        else if ( MATCH_NMLKEY('ABORT_ON_DUPLMJD',
+     &            1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) ABORT_ON_DUPLMJD
+
 c - - - 
         endif
 

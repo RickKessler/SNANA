@@ -1135,7 +1135,6 @@ struct GENLC {
   float COVAR[MXFILT_COVAR][MXEPCOV][MXFILT_COVAR][MXEPCOV] ;  // cov matrix
   float PEAKMAGERR_MODEL[MXFILTINDX];
 
-  //  char  PATH_SEARCHEFF[MXPATHLEN];
   int     SEARCHEFF_MASK;     // search eff mask 
   double  SEARCHEFF_SPEC;     // EFF(spec-confirmed) 
   double  SEARCHEFF_zHOST;    // zHOST efficiency (only of not spec-confirmed)

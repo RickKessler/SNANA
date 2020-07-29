@@ -27,6 +27,9 @@ then for the SALT2mu input   file='mySN.fitres'
 Additional arguments below are optional:
 
 file = comma-sep list of fitres file names to analyze
+
+minos=1  ! default; minos errors
+minos=0  ! switch to MIGRAD (should be faster)
      
 nmax=100                 ! fit first 100 events only
 nmax=70(SDSS),200(PS1MD) ! fit 70 SDSS and 200 PS1MD
@@ -198,7 +201,6 @@ varname_z=zPHOT
 
 varname_gamma='HOST_LOGMASS' ! default name of variable to fit gamma=HR step
 varname_gamma='sSFR'
-
 
 p1 = alpha0 (0.13)
 p2 = beta0  (3.2)
@@ -802,6 +804,10 @@ Default output files (can change names with "prefix" argument)
 
   Jul 24 2020: skip reading YAML keys for re-written batch script.
 
+  Jul 29 2020
+    + new input option minos=0 (switch to MIGRAD errors)
+    + add CPU timer per fit, and write CPU to output fitres file
+
  ******************************************************/
 
 #include <stdio.h>      
@@ -830,6 +836,8 @@ Default output files (can change names with "prefix" argument)
 #define MXEVENT_TYPE        4
 char STRING_EVENT_TYPE[MXEVENT_TYPE][12] = 
   { "NULL", "DATA", "BIASCOR", "CCPRIOR" } ;
+
+char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 
 #define MAXPAR_MINUIT 110  // limit for MINUIT params (Sep 10 2017)
 
@@ -905,6 +913,7 @@ char    BIASCOR_NAME_LCFIT[4][4] = { "mB", "x1", "c", "mu" } ;
 int     BIASCOR_MIN_PER_CELL     = 3  ; // at least this many per 5D cell
 int     BIASCOR_MINSUM           = 10 ; // at least this many summed in 3x3x3
 double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
+
 
 
 /* Number of "cosmological" and "SN" parameters  */
@@ -1358,6 +1367,8 @@ struct INPUTS {
   bool   cat_only;    // cat fitres files and do nothing else
   char   catfile_out[MXCHAR_FILENAME] ;
 
+  int    minos;
+
   int    nmax_tot ;   // Nmax to fit for all
   int    nmax[MXIDSURVEY];   // idem by survey
   char   nmaxString[100];
@@ -1675,7 +1686,7 @@ int NVAR_ORIG ;    // NVAR from original ntuple
 int NVAR_APPEND ;  // NVAR appended from SALTmu
 char VARNAMES_APPEND[MAXPAR*10][MXCHAR_VARNAME] ;
 
-time_t t_start, t_end_init, t_end_fit, t_read_biasCor[3] ;
+time_t t_start, t_end_init, t_start_fit, t_end_fit, t_read_biasCor[3] ;
 
 // parameters for errmsg utility 
 #define SEV_INFO   1  // severity flag => give info     
@@ -2213,6 +2224,8 @@ void SALT2mu_DRIVER_EXEC(void) {
 
   // -------------- BEGIN ---------------
 
+  t_start_fit = time(NULL);
+
   if ( INPUTS.JOBID_SPLITRAN > 0 ) 
     { NJOB_SPLITRAN = INPUTS.JOBID_SPLITRAN; } // do only this one SPLIT job
   else
@@ -2265,9 +2278,18 @@ void SALT2mu_DRIVER_EXEC(void) {
     mncomd_(fcn,mcom,&icondn,&null,len);  fflush(FP_STDOUT);
 
     strcpy(mcom,"MINI");   len = strlen(mcom);
-    mncomd_(fcn,mcom,&icondn,&null,len);  fflush(FP_STDOUT);
-    //Minuit MINOS (compute errors)
-    strcpy(mcom,"MINO");   len = strlen(mcom);
+    mncomd_(fcn,mcom,&icondn,&null,len);  fflush(FP_STDOUT); 
+
+   //Minuit MINOS (compute errors)
+    strcpy(mcom,STRING_MINUIT_ERROR[INPUTS.minos]);
+
+    /* xxxx mark delete 
+    if ( INPUTS.minos )
+      {  strcpy(mcom,"MINO");   }  // default
+    else
+      {  strcpy(mcom,"MIGR");   }  // minos=0, Jul 29 2020
+    xxxx end makr*/ 
+    len = strlen(mcom); 
     mncomd_(fcn,mcom,&icondn,&null,len);  fflush(FP_STDOUT);
 
     //Final call to FCN at minimum of chi-squared
@@ -2287,6 +2309,7 @@ void SALT2mu_DRIVER_EXEC(void) {
     fflush(FP_STDOUT);  
   }   // End of fitflag_sigmb  loop
 
+  t_end_fit = time(NULL);
 
 } // end SALT2mu_DRIVER_EXEC
 
@@ -2307,25 +2330,13 @@ int SALT2mu_DRIVER_SUMMARY(void) {
     "Good fit; errors valid"
   };
 
-  char fnam[] = "SALT2mu_DRIVER_EXEC_SUMMARY" ;
+  char fnam[] = "SALT2mu_DRIVER_SUMMARY" ;
 
   // ------------ BEGIN ----------
 
   fprintf(FP_STDOUT, "\n**********Fit summary**************\n");
 
   fprintf(FP_STDOUT, "MNFIT status=%i (%s)\n", MNSTAT, COMMENT_MNSTAT[MNSTAT] );
-
-  /* xxxxxxxxxxxxxx mark delete Jul 2 2020 xxxxxxxxxxxx
-  if (istat==0) 
-    { printf("Fit status=%i (Fit invalid)\n",istat); }
-  if (istat==1) 
-    { printf("Fit status=%i (Bad fit. Diagonal errors only.)\n",istat); }
-  if (istat==2) 
-    { printf("Fit status=%i (Suspect fit.Errors forced positive.)\n",istat); }
-  if (istat==3) 
-    { printf("Fit status=%i (Good fit/Errors valid)\n",istat); }
-  xxxxxxxxxxx end mark xxxxxxxxxxxxx */
-
 
   double redChi2 = FITRESULT.CHI2SUM_MIN/(double)FITRESULT.NDOF ;
   fprintf(FP_STDOUT, "-2lnL/dof = %.2f/%i = %6.3f (%i SN) \n",
@@ -2350,6 +2361,8 @@ int SALT2mu_DRIVER_SUMMARY(void) {
   // check files to write
   outFile_driver();
 
+  // xxxx mark delete  t_end_fit = time(NULL);
+
   //---------
   if ( NJOB_SPLITRAN < INPUTS.NSPLITRAN  &&  INPUTS.JOBID_SPLITRAN<0 ) 
     { return(FLAG_EXEC_REPEAT); }
@@ -2368,16 +2381,13 @@ int SALT2mu_DRIVER_SUMMARY(void) {
   }
 #endif
 
-  
-  t_end_fit = time(NULL);
-
   SPLITRAN_SUMMARY();
   CPU_SUMMARY();
 
   
   return(FLAG_EXEC_STOP);
 
-} // end SALT2mu_DRIVER_EXEC
+} // end SALT2mu_DRIVER_SUMMARY
 
 // ********************************************
 void exec_mnparm(void) {
@@ -2480,7 +2490,9 @@ void exec_mnpout_mnerrs(void) {
   // for each fitPar and sigint.
   //
   // Jun 27 2017: REFACTOR z bins
+  // Jul 29 2020: incluce MINOS/MIGRAD string in a few places
 
+  int    minos = INPUTS.minos ;
   double PARVAL, PARERR, bnd1, bnd2, eplus,eminus,eparab, globcc;
   int    ipar, iMN, iv ;
   int    LEN_VARNAME = 10 ;
@@ -2489,7 +2501,8 @@ void exec_mnpout_mnerrs(void) {
 
   // -------------- BEGIN ----------------
 
-  fprintf(FP_STDOUT, "\nFinal parameter values and errors.\n");  
+  fprintf(FP_STDOUT, "\nFinal parameter values and %s errors.\n",
+	  STRING_MINUIT_ERROR[minos] );  
   fflush(FP_STDOUT);
 
   for (ipar=0; ipar<FITINP.NFITPAR_ALL; ipar++ )  {
@@ -2513,10 +2526,16 @@ void exec_mnpout_mnerrs(void) {
 	{ PARERR = eparab; } // Apr 15 2020 : better than nothing
 	  	
       if ( BLIND_OFFSET(ipar) == 0.0   ) {
+	char string_asymerr[40] = "";
+	if ( minos ) { 
+	  sprintf(string_asymerr,"%s (+)%7.4e (-)%7.4e ",
+		  "MINOS",  eplus, eminus );
+	}
+	
 	strcpy(format,"par %2i (%2i) %10s %11.4e +/- %.4e "
-	       "MINOS (+)%7.4e (-)%7.4e Global CC=%6.3f \n");
-	fprintf(FP_STDOUT, 
-		format, ipar,iv,text,PARVAL,eparab,eplus,eminus,globcc);
+	       "%s Global CC=%6.3f \n");
+	fprintf(FP_STDOUT,  format,
+		ipar, iv, text, PARVAL,eparab, string_asymerr, globcc);
       }
       else {
 	fprintf(FP_STDOUT, "par %2d (%2d) %10s   ***** BLINDED ***** \n",
@@ -4523,7 +4542,7 @@ double zerr_adjust(double z, double zerr, double vpecerr, char *name) {
     printf("   sqzerr[1,2,3] = %le, %le, %le \n",
 	   sqzerr1, sqzerr2, sqzerr3 );
     printf("   zpecerr_user = %f \n", zpecerr_user);
-    sprintf(c1err,"sqrt(negative number); Cannot adjust zHDERR");
+    sprintf(c1err,"sqrt(negative number); Cannot adjust zHDERR for CID=%s", name);
     sprintf(c2err,"Check pre-abort dump above.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -4548,7 +4567,8 @@ void set_defaults(void) {
   INPUTS.cat_only   = false ;
   INPUTS.catfile_out[0] = 0 ;
 
-  INPUTS.nfile_data = 0;
+  INPUTS.minos      = 1 ;
+  INPUTS.nfile_data = 0 ;
   sprintf(INPUTS.PREFIX,     "NONE" );
   INPUTS.KEYNAME_DUMPFLAG      = false ;
 
@@ -13810,6 +13830,8 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"datafile=") ) 
     { parse_datafile(&item[9]);  return(1);  }
 
+  if ( uniqueOverlap(item,"minos=") ) 
+    { sscanf(&item[6],"%i", &INPUTS.minos ); return(1); }
 
   // -------------------------
   // allow two different keys to define biasCor file name
@@ -14128,8 +14150,10 @@ int ppar(char* item) {
     return(1); 
   }
 
-  if ( uniqueOverlap(item,"pecv="))   // LEGACY key
-    { sscanf(&item[5],"%lf",&INPUTS.zpecerr);  return(1); }
+  if ( uniqueOverlap(item,"pecv=")) {  // LEGACY key
+    legacyKey_abort(fnam, "pecv", "zpecerr" ); 
+    // xxx mark delete sscanf(&item[5],"%lf",&INPUTS.zpecerr);   return(1); 
+  }
 
   // lensing term (Sep 2016)
   if ( uniqueOverlap(item,"lensing_zpar=") )
@@ -16696,12 +16720,17 @@ void write_fitres_driver(char* fileName) {
   }
   else {
     write_version_info(fout);
+    fprintf(fout,"# %s\n", STRING_MINUIT_ERROR[INPUTS.minos]);
+    fprintf(fout,"# CPU: %.2f minutes\n",
+	    (t_end_fit-t_start_fit)/60.0  );
     if ( INPUTS.blindFlag > 0 && ISDATA_REAL ) 
       { write_blindFlag_message(fout); }      
     fprintf(fout,"# MU-RESIDUAL NOTE: MURES = MU-(MUMODEL+M0DIF) \n");
     write_NWARN(fout,1);
     write_MUERR_INCLUDE(fout);
   }
+
+  // - - - - -
 
   if ( INPUTS.cutmask_write != -9 ) { 
     // write standard header keys
@@ -18682,6 +18711,15 @@ void SUBPROCESS_OUTPUT_WRITE(void) {
 
   fprintf(FP_OUT,"# ITERATION: %d\n#\n", ITER);
   fflush(FP_OUT);
+
+  // CPU summary  (July 29 2020)
+  double t_min = (t_end_fit-t_start_fit)/60.0;
+  double t_per_event = (t_end_fit-t_start_fit)/(double)FITRESULT.NSNFIT;
+  fprintf(FP_OUT, "# CPU:           %.2f minutes  \n", t_min );
+  fprintf(FP_OUT, "# CPU_PER_EVENT: %.1f msec/event  \n", t_per_event*1000.);
+  //  fprintf(FP_OUT, "#\n");
+  fflush(FP_OUT);
+
 
   fprintf(FP_OUT,"# NSNFIT: %d \n", FITRESULT.NSNFIT);
   fflush(FP_OUT);

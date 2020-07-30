@@ -5975,8 +5975,8 @@ double unix_random(int istream) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
 #else
     random_r(&GENRAN_INFO.ranStream[istream], &JRAN); 
-  }
 #endif
+  }
 
   double r8 = (double)JRAN / (double)RAND_MAX ;  // 0 < r8 < 1 
   return(r8);

@@ -70,7 +70,7 @@
 #include "SNcadenceFoM.c"
 
 #define SNGRIDGEN
-
+#define TWO_RANDONE_STREAMS
 
 // ******************************************
 int main(int argc, char **argv) {
@@ -683,8 +683,14 @@ void set_user_defaults(void) {
   GENLC.NFILTDEF_OBS = 0;
 
   INPUTS.ISEED       = 1 ;
-  INPUTS.NSTREAM_RAN = 2 ; // June 6 2020 (2nd stream for spectro noise)
+
   INPUTS.RANLIST_START_GENSMEAR = 1 ;
+
+#ifdef ONE_RANDOM_STREAM
+  INPUTS.NSTREAM_RAN = 1 ; // for Mac (7.30.2020
+#else
+  INPUTS.NSTREAM_RAN = 2 ; // June 6 2020 (2nd stream for spectro noise)
+#endif
 
   INPUTS.NGEN_SCALE         =  1.0 ;
   INPUTS.NGEN_SCALE_NON1A   =  1.0 ;
@@ -3641,6 +3647,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   // May 29 2020: 
   //   + if reading SIMLIB header, skip epochs outside GENRANGE_TREST
   //
+  // Jul 30 2020: fix ABORT logic for TAKE_SPECTRUM keys.
 
   bool READ_fp = (fp != NULL);
   int  NTAKE = NPEREVT_TAKE_SPECTRUM ;
@@ -3661,7 +3668,9 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 
   // ----------- BEGIN -----------
 
-  if ( INPUTS.USE_SIMLIB_SPECTRA ) {
+  // fp==NULL means reading words from sim-input file
+  // fp!=NULL means reading directly from SIMLIB file
+  if ( fp == NULL && INPUTS.USE_SIMLIB_SPECTRA ) {
     sprintf(c1err,"Cannot mix TAKE_SPECTRUM keys in sim-input & SIMLIB.") ;
     sprintf(c2err,"Remove one of these TAKE_SPECTRUM sources.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
@@ -15796,12 +15805,6 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   // - - - - - - - - - 
   // May 29 2020 : check for TAKE_SPECTRUM keys
   if ( strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
-
-    /* xxx mark delete July 23 2020 xxxxx
-    char *warpString = INPUTS.WARP_SPECTRUM_STRING;
-    parse_input_TAKE_SPECTRUM_legacy(fp_SIMLIB,warpString);
-    xxxxxxxxxxx */
-
     char **NULLWORDS;
     parse_input_TAKE_SPECTRUM( NULLWORDS, KEYSOURCE_FILE, fp_SIMLIB ); 
   }

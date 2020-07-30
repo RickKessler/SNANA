@@ -19454,9 +19454,10 @@ c brute-force check each possible header variable
           SNLC_VPEC_ERR = sngl(DVAL)
 
         ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL' ) THEN
-          z         = sngl(DVAL)
-          SNLC_ZCMB = z; 
-          ! xxx mark delete SNLC_ZHELIO = z;  
+          z            = sngl(DVAL)
+          SNLC_ZCMB    = z; 
+	  SNLC_ZHELIO  = -9.0 ! flag to compute zHEL from zCMB
+          CALL SET_ZHELIO()  ! compute zHEL from zCMB  (7.30.2020)
           SNLC_REDSHIFT = z
         ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL_ERR' ) THEN
           zerr = sngl(DVAL)
@@ -20423,19 +20424,12 @@ C ------------- BEGIN ------------
 
 c now we have undefined zCMB
 
-c xxxxxxxxxxxxxx
-c      if ( RESTORE_DES3YR ) then
-c      else
-c      endif
-c xxxxxxxxxxxxxx
-
       EQ     = 'eq' // char(0)
 
-c don't apply test on VERY low redshifts to avoid silly 
-c round-off/truncation errors. This is a hack to protect
-c DES DIFFIMG that has redshifts written as %.4f. Next
-c dataFile update will have %.6 precions and then can
-c get apply test all the way down to z ~ 1E-4
+c don't apply test on VERY low redshifts to avoid silly round-off
+c or truncation errors. This is a hack to protect DES DIFFIMG that 
+c has redshifts written as %.4f. Next dataFile update will have %.6 
+c precisions and then can apply test all the way down to z ~ 1E-4
 
       IF ( SNLC_ZHELIO > 0.003 ) THEN  ! 0.003 is temp hack; should be 1E-4
          OPT    = +1  ! --> convert ZHEL to ZCMB

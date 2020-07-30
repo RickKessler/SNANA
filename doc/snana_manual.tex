@@ -777,6 +777,7 @@ and the radiation term is ignored. Time-varying $w$
 is currently not implemented.
 
 % ------------------------------------
+   \clearpage
    \subsection{Synchronizing Random Numbers}
    \label{subsec:sim_ransync}
 % ------------------------------------
@@ -785,33 +786,57 @@ The simulation is designed to preserve the random number sequence
 when input parameters and options are changed. This feature allows
 generating the exact same SNe (redshift, sky-coords, SN properties)
 when making changes such as the 
-\simlib, exposure time, mag-offsets, intrinsic smearing, and 
+\simlib, \hostlib, exposure time, mag-offsets, intrinsic smearing, and 
 model parameters.
 To ensure that different simulations are synchronized to the
 same random numbers, use the same random seed ({\tt RANSEED} key)
+in each simulation job, 
 and verify that the following output to the README file
 is identical:
 \begin{verbatim}
   Random Number Sync: 
-         RANDOM SEED: 123459  
-         FIRST/LAST Random Number (List=1): 0.181881 0.150452  
-         FIRST/LAST Random Number (List=2): 0.196079 0.139981  
+   RANDOM SEED: 128473   (RANLIST_START_GENSMEAR: 1)
+   FIRST/LAST Random Number (List=1): 0.816247 0.216962  AVG(wrap) = 0.7 +_ 0.2 
+   FIRST/LAST Random Number (List=2): 0.622194 0.875059  AVG(wrap) = 0.6 +_ 0.1 
 \end{verbatim}
 The first list is for the nominal generation, 
-and the second list is for the intrinsic scatter models.
+the second list is for the intrinsic scatter models,
 The optional sim-input key {\tt RANLIST\_START\_GENSMEAR} 
 can be used to pick different random numbers for the intrinsic
 scatter without affecting the main random sequence.
-Note that this key value is an offset in a list (not a SEED).
-Since each scatter model typically uses $\sim 10$
-randoms per SN, {\tt RANLIST\_START\_GENSMEAR} 
-should be set to multiples of about 10.
+Note that {\tt RANLIST\_START\_GENSMEAR} is an offset 
+in a list (not a SEED).
+The {\tt AVG(wrap)} numbers is the average number of times
+that each finite list of randoms is re-used each event.
+Ideally, {\tt AVG(wrap)}$<1$ so that randoms are not re-used.
 
 Selection cuts may result in a different number of generated
 SNe, and hence a different last random number; in this case
 use the {\tt SIMGEN\_DUMP} option (\S\ref{sss:simgen_dump})
 to verify the sync.
 
+For simulating spectra (\S\ref{subsec:sim_spec}), the number
+of randoms can be too large for practical storage;
+e.g., events with several spectra, each with $\sim 10^4$ wavelength bins.
+A  list of randoms that is too small results in obvious spectral ringing.
+To avoid this problem, two independent streams are used:
+1st stream for generation and intrinsic scatter (List=1,2),
+and 2nd stream for unlimited spectral noise. The number of
+streams is controlled by sim-input ``{\tt NSTREAM\_RAN: 2}''
+and the default is 2. Only values of 1 or 2 are allowed.
+
+The native C functions needed for two streams result in 
+failed compilation on Macbook, although it works on many
+other platforms including Fermilab, NERSC, and U.Chicago RCC.
+For Mac, enable the pre-processor flag
+\begin{verbatim}
+   #define  ONE_RANDOM_STREAM   // enable for Mac only, in sntools.h
+\end{verbatim}
+in {\tt sntools.h}, which will force one and only one random
+stream, and avoid the native functions that don't work on Mac.
+The default Github release has this flag commented out. 
+Enabling {\tt ONE\_RANDOM\_STREAM} should work fine, 
+but the random-sync feature won't work if spectra are generated.
 
 % -------------------------------------------------
   \clearpage

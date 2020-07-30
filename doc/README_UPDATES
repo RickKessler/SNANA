@@ -18793,4 +18793,26 @@
         bad error map values: nan or crazy values.  Mainly to help
         SALT3 development.
 
+
+# ======================================================================= 
+         v10_77j (  ) 
+
+         ***** IMPORTANT(v10_77j) ***** 
+
+         ***** USEFUL(v10_77j) ***** 
+
+         ***** MISCELLANEOUS(v10_77j) ***** 
+
+    SALT2mu.c
+     + write CPU time in output fitres file
+     + new input minos=0 for much faster MIGRAD; default is minos=1
+
+   snlc_sim.c
+     + for INIT_ONLY=1, write NGENTOT_RATECALC key for easier parsing
+       but submit-batch script.
+     + fix bug aborting on mixing TAKE_SPECTRUM keys
+
+   sntools.h
+     + optional ONE_RANDOM_STREAM pre-proc flag; see manual.
+
 END: 

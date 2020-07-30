@@ -31,6 +31,10 @@
     MXWORDFILE_PARSE_WORDS -> 1 million (was 500k) to handle 
     data files with lots of spectra.
 
+  Jul 30 2020: 
+    + optional pre-proc flag ONE_RANDOM_STREAM to disable 2nd
+      stream for Mac compilation. Default is still 2 streams.
+
 ********************************************************/
 
 #include <stdio.h>
@@ -46,6 +50,7 @@
 #include "sntools_genExpHalfGauss.h"
 
 #define  SNANA_VERSION_CURRENT  "v10_77j"                                  
+//#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
 #define OMEGA_MATTER_DEFAULT   0.315 

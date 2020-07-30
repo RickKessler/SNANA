@@ -5826,13 +5826,19 @@ void init_random_seed(int ISEED, int NSTREAM) {
   int i ;
   int ISEED2 = ISEED * 7 + 137; // for 2nd stream, if requested
   int ISEED_LIST[MXSTREAM_RAN] = { ISEED, ISEED2 } ;
-  //  char fnam[] = "init_random_seed" ;
+  char fnam[] = "init_random_seed" ;
 
   // ----------- BEGIN ----------------
 
   if ( NSTREAM == 1 ) 
     {   srandom(ISEED); }
   else {
+
+#ifdef ONE_RANDOM_STREAM
+    sprintf(c1err,"Invalid NSTREAM_RAN=%d because", NSTREAM);
+    sprintf(c2err,"ONE_RANDOM_STREAM pre-proc flag is set in sntools.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+#else
     for(i=0; i < NSTREAM; i++ ) {
       memset( &GENRAN_INFO.ranStream[i], 0,  
 	      sizeof(GENRAN_INFO.ranStream[i]) ) ;
@@ -5840,6 +5846,7 @@ void init_random_seed(int ISEED, int NSTREAM) {
 		  &GENRAN_INFO.ranStream[i] ); 
       srandom_r( ISEED_LIST[i], &GENRAN_INFO.ranStream[i] ); 
     }
+#endif
   }
 
   fill_RANLISTs(); 

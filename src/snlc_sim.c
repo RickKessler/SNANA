@@ -2271,7 +2271,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   CONTINUE = false ;
   if ( strstr(KEYNAME,"DNDZ") != NULL ) { CONTINUE = true ; }
   if ( strstr(KEYNAME,"DNDB") != NULL ) { CONTINUE = true ; }
-  if ( !CONTINUE  && !INPUTS.KEYNAME_DUMPFLAG ) { return ; }
+  if ( !CONTINUE  && !INPUTS.KEYNAME_DUMPFLAG ) { return(N) ; }
 
   // check a few misc keys
   if ( IS_NOMINAL ) {
@@ -2314,7 +2314,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 
     N++; sscanf(WORDS[N], "%s", RATEPAR->NAME ); 
 
-    if ( IGNOREFILE(RATEPAR->NAME) ) { return ; }
+    if ( IGNOREFILE(RATEPAR->NAME) ) { return(N) ; }
 
     // make sure that PEC1A rateModel is defined only for NON1A mode
     if ( IS_PEC1A &&  INPUTS.NON1A_MODELFLAG < 0 ) {
@@ -3731,7 +3731,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   else if ( strcmp(stringTmp,"TEMPLATE_TEXPOSE_SCALE") == 0 ) {
     sscanf(stringOpt, "%f", 
 	   &INPUTS.TAKE_SPECTRUM_TEMPLATE_TEXPOSE_SCALE);
-    return ;
+    return(N) ;
   }
   else {
     sprintf(c1err, "Cannot parse '%s' after TAKE_SPECTRUM key.",string1);
@@ -3784,8 +3784,8 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
     }
 
-    if ( Trest < Tmin ) { return; }
-    if ( Trest > Tmax ) { return; }
+    if ( Trest < Tmin ) { return(N); }
+    if ( Trest > Tmax ) { return(N); }
 
   }  // end if block
 
@@ -4104,7 +4104,7 @@ int parse_input_SIMSED_COV(char **WORDS, int keySource) {
  COUNT:
   INPUTS.NPAIR_SIMSED_COV++ ;
 
-  return ;
+  return(N) ;
 
 } // end parse_input_SIMSED_COV
 
@@ -31017,7 +31017,7 @@ int parse_input_KEY_PLUS_FILTER_legacy(FILE *fp, int *iArg,
       readfloat ( fp, 1, VALUE_GLOBAL );  
       for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ )
 	{ VALUE_FILTERLIST[ifilt] = *VALUE_GLOBAL; }
-      return ;
+      return(1) ;
     }
     
     sprintf(KEY,"%s_FILTER:", KEYCHECK);

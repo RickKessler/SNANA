@@ -154,7 +154,6 @@ char FILTERSTRING[100] ;
 #define BUFSIZE_RAN   256
 
 
-// xxx typedef struct random_data random_data_def ;
 struct {
   int     NSTREAM ; // number of srandom streams (legacy is 1)
   double  RANSTORE[MXLIST_RAN+1][MXSTORE_RAN] ;

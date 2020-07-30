@@ -5958,14 +5958,25 @@ double unix_random(int istream) {
   // Created Jun 9 2018
   // Input istream is the random stream: 0 or 1
   // Return random between 0 and 1.
+  //
+  // Jul 30 2020: check pre-proc flag ONE_RANDOM_STREAM
 
   int NSTREAM = GENRAN_INFO.NSTREAM ;
   int JRAN ;
+  char fnam[] = "unix_random";
   // ------------ BEGIN ----------------
-  if ( NSTREAM == 1 ) 
-    { JRAN = random(); }
-  else
-    { random_r(&GENRAN_INFO.ranStream[istream], &JRAN); }
+  if ( NSTREAM == 1 )  { 
+    JRAN = random(); 
+  }
+  else {
+#ifdef ONE_RANDOM_STREAM
+    sprintf(c1err,"Cannot use 2nd random stream because");
+    sprintf(c1err,"ONE_RANDOM_STREAM pre-proc flag is set in sntools.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+#else
+    random_r(&GENRAN_INFO.ranStream[istream], &JRAN); 
+  }
+#endif
 
   double r8 = (double)JRAN / (double)RAND_MAX ;  // 0 < r8 < 1 
   return(r8);

@@ -4703,8 +4703,10 @@ c ----------
 
 c local var
 
+c ?? BEWARE ?? need to define parameter MXARGLIST=6
+
       INTEGER iArg, LL, ilast, iuse, NVERLOC
-      CHARACTER STRING_LIST*60, ARGLIST(10)*(MXCHAR_FILENAME)
+      CHARACTER STRING_LIST*60, ARGLIST(6)*(MXCHAR_FILENAME)
       LOGICAL LSNIGNORE, DO_STOP
 
 c functions
@@ -19232,12 +19234,6 @@ C ------------ BEGIN -------------
       cFILE  = HEADER_OVERRIDE_FILE(1:LENF) // char(0)
       if ( IGNOREFILE(cFILE,LENF) .NE. 0 ) RETURN
 
-c xxxxxxx mark delete July 2020 xxxxx
-c      IF ( HEADER_OVERRIDE_FILE .EQ. ' '    ) RETURN
-c      IF ( HEADER_OVERRIDE_FILE .EQ. 'NULL' ) RETURN
-c      IF ( HEADER_OVERRIDE_FILE .EQ. 'NONE' ) RETURN
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
       IF ( LSIM_SNANA ) THEN
         print*,' '
         print*,
@@ -20198,8 +20194,6 @@ c convert sim-mag to SIM_FLUXCA
  
 +SELF,IF=SNANA,SNFIT.
           CALL FLUXERRCALC( ep, Fluxcal, Fluxcal_err )
-c compute relative area of rectangle containing pixel location
-ccc xxx mark delete; see below   CALL CCD_AREAFRAC(ep)   ! 8.07.2014
 +SELF.
 
 c compute significance.

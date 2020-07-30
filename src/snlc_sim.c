@@ -6112,6 +6112,16 @@ void init_RateModel(void) {
   for ( i=0; i< NLINE_RATE_INFO; i++ ) 
     { printf("%s\n", LINE_RATE_INFO[i] ); }
 
+  // July 30 2020
+  // for INIT_ONLY mode, write explcit NGENTOT_CALC: <NGENTOT>
+  // so that submit-batch script can parse a clean key and
+  // avoid parsing awkwared human-readable text.
+  if ( INPUTS.INIT_ONLY == 1 ) { 
+    int NSN = (int)INPUTS.RATEPAR.SEASON_COUNT ;
+    int NPEC1A = (int)INPUTS.RATEPAR_PEC1A.SEASON_COUNT ;
+    int NGENTOT_CALC = NSN + NPEC1A ;
+    printf("NGENTOT_RATECALC: %d\n", NGENTOT_CALC);
+  }
 
   return ;
 

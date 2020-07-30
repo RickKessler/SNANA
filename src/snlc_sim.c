@@ -6117,8 +6117,8 @@ void init_RateModel(void) {
   // so that submit-batch script can parse a clean key and
   // avoid parsing awkwared human-readable text.
   if ( INPUTS.INIT_ONLY == 1 ) { 
-    int NSN = (int)INPUTS.RATEPAR.SEASON_COUNT ;
-    int NPEC1A = (int)INPUTS.RATEPAR_PEC1A.SEASON_COUNT ;
+    int NSN     = (int)(INPUTS.RATEPAR.SEASON_COUNT+0.5) ;
+    int NPEC1A  = (int)(INPUTS.RATEPAR_PEC1A.SEASON_COUNT+0.5) ;
     int NGENTOT_CALC = NSN + NPEC1A ;
     printf("NGENTOT_RATECALC: %d\n", NGENTOT_CALC);
   }
@@ -12764,7 +12764,8 @@ void SIMLIB_INIT_DRIVER(void) {
 
   // --------------- BEGIN --------------
 
-  
+  if ( INPUTS.INIT_ONLY == 1 ) { return; } // July 30 2020
+
   SIMLIB_initGlobalHeader();        // generic init of SIMLIB_GLOBAL_HEADER
 
   SIMLIB_readGlobalHeader_TEXT();   // open and read global header

@@ -39,14 +39,16 @@
 
 *********************************************************/
 
+/*
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
 #include <math.h>
-#include "fitsio.h"
+*/
 
+#include "fitsio.h"
 #include "sntools.h"
 #include "sntools_spectrograph.h"
 #include "sntools_fitsio.h"

@@ -810,19 +810,22 @@ Default output files (can change names with "prefix" argument)
 
  ******************************************************/
 
+#include "sntools.h" 
+#include "sntools_output.h" 
+
+/*
 #include <stdio.h>      
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
-#include <gsl/gsl_fit.h>  // Jun 13 2016
+*/
 
+#include <gsl/gsl_fit.h>  // Jun 13 2016
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "sntools.h" 
-#include "sntools_output.h" 
 
 // ==============================================
 // define data types to track selection cuts

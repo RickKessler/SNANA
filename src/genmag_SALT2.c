@@ -71,11 +71,6 @@
 
 *************************************/
 
-
-#include <stdio.h> 
-#include <math.h>     // log10, pow, ceil, floor
-#include <stdlib.h>   // includes exit(),atof()
-
 #include "sntools.h"           // community tools
 #include "sntools_genSmear.h"
 #include "sntools_spectrograph.h"

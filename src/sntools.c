@@ -1,5 +1,6 @@
 // sntools.c
 
+/*
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -7,6 +8,9 @@
 #include <time.h>
 #include <math.h>
 #include <ctype.h>
+*/
+
+#include "sntools.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -19,8 +23,6 @@
 
 #include <gsl/gsl_rng.h>      // for Poisson generator
 #include <gsl/gsl_randist.h>  // idem
-
-#include "sntools.h"
 
 #include "eispack.h"
 #include "eispack.c"
@@ -1400,6 +1402,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   // Jun 26 2018: free(tmpLine) --> fix awful memory leak
   // May 09 2019: refactor to allow option for ignoring comma in strings.
   // Jul 20 2020: new option to ignore comment char and anything after
+  // Jul 31 2020: add abort trap on too-long string length
 
   bool DO_STRING       = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
   bool DO_FILE         = ( (OPT & MSKOPT_PARSE_WORDS_FILE)   > 0 );
@@ -1437,15 +1440,29 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
    
     char *tmpLine = (char*) malloc( (LENF+10)*sizeof(char) );
     sprintf(tmpLine, "%s", FILENAME); // Mar 13 2019
-    if ( CHECK_COMMA && strchr(tmpLine,',') != NULL ) 
-      { sprintf(sepKey,","); }
+    if ( CHECK_COMMA && strchr(tmpLine,COMMA[0]) != NULL ) 
+      { sprintf(sepKey,"%s", COMMA); }
 
     malloc_PARSE_WORDS() ;    MXWD = PARSE_WORDS.BUFSIZE ;
 
     splitString2(tmpLine, sepKey, MXWD,
 		 &NWD, &PARSE_WORDS.WDLIST[0] ); // <== returned
     PARSE_WORDS.NWD = NWD ;
-
+    
+    // check that string lengths don't overwrite bounds (July 2020)
+    for(iwd=0; iwd < NWD; iwd++ ) {
+      int lwd = strlen(PARSE_WORDS.WDLIST[iwd]);
+      if ( lwd >= MXCHARWORD_PARSE_WORDS ) {
+	print_preAbort_banner(fnam); 
+	printf("  split tmpLine = \n '%s' \n", tmpLine);
+	sprintf(c1err,"split string len = %d for iwd=%d " 
+		"(see tmpLine above)",	 lwd, iwd);
+	sprintf(c2err,"Check MXCHARWORD_PARSE_WORDS=%d", 
+		MXCHARWORD_PARSE_WORDS);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+    }
+    
     if ( NWD >= MXWD ) {
       sprintf(c1err,"NWD=%d exceeds bound.", NWD);
       sprintf(c2err,"Check PARSE_WORDS.BUFSIZE=%d", MXWD);

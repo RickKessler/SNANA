@@ -9,13 +9,15 @@
 
 ***************************************************/
 
+/*
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
-#include "fitsio.h"
+*/
 
+#include "fitsio.h"
 #include "sntools.h"
 #include "sntools_fitsio.h"
 #include "sntools_kcor.h" 

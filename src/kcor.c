@@ -184,6 +184,7 @@
 
 ****************************************************/
 
+/*
 #include <stdio.h>   
 #include <stdlib.h>
 #include <string.h>  
@@ -192,9 +193,9 @@
 #include <errno.h>   
 #include <math.h>       // need this for log10 function 
 #include <ctype.h>
+*/
 
 #include "fitsio.h"
-
 #include "kcor.h"       // kcor-specific definitions 
 #include "sntools.h"    // defines some general tools
 #include "MWgaldust.h"

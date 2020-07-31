@@ -26,6 +26,7 @@
 
 ********************************************/
 
+/*
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -34,12 +35,7 @@
 #include <time.h>
 #include <math.h>
 #include <ctype.h>
-
-#include <gsl/gsl_linalg.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_sort.h>
-
-#include <sys/stat.h>
+*/
 
 #include "fitsio.h"
 #include "MWgaldust.h"
@@ -65,6 +61,11 @@
 
 #include "genmag_ALL.h"
 #include "MWgaldust.h" 
+
+#include <gsl/gsl_linalg.h>
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_sort.h>
+#include <sys/stat.h>
 
 // include C code
 #include "SNcadenceFoM.c"

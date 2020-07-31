@@ -91,22 +91,25 @@
 
 **********************************/
 
+/*
 #include <stdio.h> 
 #include <string.h>
 #include <stdlib.h>   // includes exit(),atof()
 #include <unistd.h>
 #include <math.h>     // log10, pow, ceil, floor
+*/
+
 #include "fitsio.h"
-
-#include <gsl/gsl_linalg.h>
-#include <gsl/gsl_matrix.h>
-
 #include "sntools.h"
 #include "genmag_SEDtools.h"
 #include "genmag_SALT2.h"
 #include "sntools_genSmear.h"
 #include "MWgaldust.h"
 #include "sntools_fitsio.h"
+
+#include <gsl/gsl_linalg.h>
+#include <gsl/gsl_matrix.h>
+
 
 // ===========================================================
 //

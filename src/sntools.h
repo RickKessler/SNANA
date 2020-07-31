@@ -35,15 +35,20 @@
     + optional pre-proc flag ONE_RANDOM_STREAM to disable 2nd
       stream for Mac compilation. Default is still 2 streams.
 
+  Jul 31 2020: 
+    + MXCHARWORD_PARSE_WORDS -> MXPATHLEN=300  (was 60) to handle file names
+
 ********************************************************/
+
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
-#include <stdbool.h>
+#include <ctype.h>
 
 #include "sndata.h"
 #include "sntools_genGauss_asym.h"
@@ -153,6 +158,7 @@ char FILTERSTRING[100] ;
 #define MXSTREAM_RAN    2  // max number of independent streams
 #define BUFSIZE_RAN   256
 
+// struct random_data { int idum; };  // ??? needed for Mac ???
 
 struct {
   int     NSTREAM ; // number of srandom streams (legacy is 1)
@@ -361,10 +367,10 @@ struct {
 
 
 #define ADDBUF_PARSE_WORDS 10000
-#define MXCHARWORD_PARSE_WORDS 60     // MXCHAR per word
-#define MXCHARLINE_PARSE_WORDS 2000   // max chars per line
-#define MXWORDLINE_PARSE_WORDS  700   // max words per line
-#define MXWORDFILE_PARSE_WORDS 1000000 // max words to parse in a file
+#define MXCHARWORD_PARSE_WORDS MXPATHLEN // MXCHAR per word
+#define MXCHARLINE_PARSE_WORDS 2000      // max chars per line
+#define MXWORDLINE_PARSE_WORDS  700      // max words per line
+#define MXWORDFILE_PARSE_WORDS 1000000   // max words to parse in a file
 
 #define MXWORDLINE_FLUX       10  // max words per line in SED file
 #define MXCHARLINE_FLUX      120  // max char per line to read from SED

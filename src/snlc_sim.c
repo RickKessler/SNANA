@@ -24167,6 +24167,8 @@ void readme_doc(int iflag_readme) {
   // May 27 2019: print PEAKMJD-estimate method
   // Feb 16 2020: write SIMULATION key at top for Pippin.
   // Feb 20 2020: write PHOTPROB info
+  // Jul 31 2020: for batch jobs (JOBID>0), write keys for monitor task
+  //
 
   char ctmp[MXPATHLEN], cfilt[2], cwd[MXPATHLEN] ;
   char *cptr;
@@ -24754,6 +24756,18 @@ void readme_doc(int iflag_readme) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"\t Wrote     %5d simulated spectra to SNDATA files \n",
 	    NGENSPEC_WRITE );
+  }
+
+  // for batch job process, leave clear keys for submit-monitor taks
+  if ( INPUTS.JOBID > 0 ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr, "NGENLC_TOT:   %d\n",  NGENLC_TOT);
+
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"NGENLC_WRITE: %d\n",  NGENLC_WRITE);
+
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"CPU_MINUTES:  %.2f\n", t_gen/60.0 );
   }
 
   // spectroscopic tags

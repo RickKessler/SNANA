@@ -18811,8 +18811,17 @@
      + for INIT_ONLY=1, write NGENTOT_RATECALC key for easier parsing
        but submit-batch script.
      + fix bug aborting on mixing TAKE_SPECTRUM keys
+     + for JOBID>0 (i.e., batch job), write script-parsible keys
+       to README to avoiding parsing human-readable output.
+
+   snana.car
+     + when passing JOBSPLIT (from batch-submit script), automatically
+       create [VERSION].YAML file with stats ... avoids having to 
+       parse huge log files.
 
    sntools.h
      + optional ONE_RANDOM_STREAM pre-proc flag; see manual.
+     + MXCHARWORD_PARSE_WORDS -> 300 (was 60) to handle long file names
+         (fixes segFault found by R.Chen using HEADER_OVERRIDE feature)
 
 END: 

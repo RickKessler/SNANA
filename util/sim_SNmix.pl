@@ -1761,19 +1761,6 @@ sub PROCESS_GENOPT_LINE {
 	    $GENVERSION_GENOPT[$iver][$m] = "$GENOPT $tmpArg" ;
 	}
     }
-
-# xxxxxxx mark delete Oct 25 2019 xxxxxxxx
-    # Jan 2018: check for include in the GENOPT so that it
-    #    can be copied to /misc later 
-#    my ($indx, @INDX, @WDLIST );
-#    @WDLIST   = split(/\s+/,$tmpArg) ;
-#    @INDX = grep{$WDLIST[$_] eq "INPUT_FILE_INCLUDE"} 0 .. $#WDLIST ;	
-#    if ( scalar(@INDX) > 0  ) {
-#	$indx = $INDX[0];
-#	$GENOPT_FILE_INCLUDE[$iver] = $WDLIST[$indx+1] ;
-#    }
-# xxxxxxxxx mark delete xxxxxxxxxxxxxx
-
     
     return ;
 

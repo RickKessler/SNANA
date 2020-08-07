@@ -4,7 +4,7 @@ c Program to read light curves and apply user selection
 c cuts specified in the &SNLCINP namelist.
 c Can also fit function to estimate time of peak brightness.
 c
-c  
+c   
 
                      CHANGES
           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -439,6 +439,7 @@ c
      &  ,LSIM_MAGOBS   ! data-like, but with SIM_MAGOBS (e.g. fakes on images)
      &  ,ISJOB_SNANA          ! =T for snana.exe only.
      &  ,ISJOB_PSNID
+     &  ,ISJOB_BATCH          ! true if JOBSPLIT passed on command line (Aug 2020)
      &  ,REFORMAT_SAVE_BADEPOCHS  ! set if bit2 is set on any OPT_REFORMAT
      &  ,STDOUT_UPDATE         ! T => update event to screen
      &  ,DOFUDGE_HOSTNOISE     ! T => FUDGE_HOSTNOISE_FILE is set
@@ -527,7 +528,7 @@ c global survey info
      &    ,NSURVEY_LIST, IDSURVEY, IDSUBSURVEY, IDSURVEY_LIST
      &    ,SURVEY_FILTERS
      &    ,SURVEY_FIELDNAME, SURVEY_IDFIELD, NFIELD_SURVEY
-     &    ,ISJOB_SNANA, ISJOB_PSNID, ZEROPOINT_FLUXCAL
+     &    ,ISJOB_SNANA, ISJOB_PSNID, ISJOB_BATCH, ZEROPOINT_FLUXCAL
      &    ,NACCEPT_CUT, NACCEPT_CID, NACCEPT_TYPE
      &    ,NACCEPT_Z, NACCEPT_ZERR
      &    ,DO_FIT, DO_FLUXERRCALC, NVAR_NEARNBR 
@@ -1964,10 +1965,10 @@ c
       LOGICAL 
      &   LSIM_SEARCH_SPEC   ! (I) T => require simulated SPEC-tag
      &  ,LSIM_SEARCH_ZHOST  ! (I) T => require simulated zHOST
-     &  ,LTEST_INTERP  ! (I) T => calls TEST_KCOR
-     &  ,LTEST_KCOR    ! (I) T => calls TEST_INTERP
-     &  ,LTEST_MAG     ! (I) T => test GET_MAGLC  and GET_MWXT
-     &  ,LTEST_U3BAND  ! (I) T => require exactly 3 bands that include U
+     &  ,LTEST_INTERP       ! (I) T => calls TEST_KCOR
+     &  ,LTEST_KCOR         ! (I) T => calls TEST_INTERP
+     &  ,LTEST_MAG          ! (I) T => test GET_MAGLC  and GET_MWXT
+     &  ,LTEST_U3BAND       ! (I) T => require exactly 3 bands that include U
      &  ,USE_LINE_ARGS(MXLINE_ARGS)
      &  ,USE_SNHOST_ZPHOT    ! (I) T=> replace SNLC_REDSHIFT -> SNHOST_ZPHOT
 c
@@ -5035,7 +5036,7 @@ c - - - -
      &             2, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) JOBSPLIT(1)
            READ(ARGLIST(2),*) JOBSPLIT(2)
-
+           ISJOB_BATCH = .TRUE.
          else if ( MATCH_NMLKEY('JOBSPLIT_EXTERNAL',
      &             2, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) JOBSPLIT_EXTERNAL(1)
@@ -5887,7 +5888,7 @@ c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
          else if ( LINE_ARGS(i) .EQ. 'JOBSPLIT' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) JOBSPLIT(1)
             i = i + 1 ; READ(LINE_ARGS(i),*) JOBSPLIT(2)
-
+            ISJOB_BATCH = .TRUE.
          else if ( LINE_ARGS(i) .EQ. 'JOBSPLIT_EXTERNAL' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) JOBSPLIT_EXTERNAL(1)
             i = i + 1 ; READ(LINE_ARGS(i),*) JOBSPLIT_EXTERNAL(2)
@@ -6746,8 +6747,10 @@ C ------------ BEGIN --------------
 
 c ----------------------------------------------
 c Start with Npasscut vs. ICUT, and for each type.
-
       CALL PRINT_NPASSCUTS()
+
+c Aug 7 2020: for batch job, write stats to separate YAML file for easy parsing
+      CALL PRINT_JOBSPLIT_OUT()
 
 c ------------------------
       write(6,48) N_SNLC_CUTS, N_SNLC
@@ -7000,6 +7003,64 @@ c for fit, write number passing fit cuts.
       RETURN
       END
 
+C ==================================
++DECK,PRSPLIT_OUT.
+      SUBROUTINE PRINT_JOBSPLIT_OUT()
+
+c Created Aug 7 2020
+c If submitted by batch job (i.e., JOBSPLIT is set), 
+c create output file
+c    [VERSION].YAML
+c and write stats for batch process to read.
+c This avoids submit_batch script having to parse 
+c potentially large log files.
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,SNANAFIT.
+
+      INTEGER LVER, JDIFF
+      REAL    T_CPU
+      CHARACTER OUTFILE*(MXCHAR_FILENAME)
+
+C ------------- BEGIN -------------
+
+      IF ( .NOT. ISJOB_BATCH ) RETURN
+
+      LVER = INDEX(VERSION_PHOTOMETRY(1),' ' ) - 1
+      OUTFILE = VERSION_PHOTOMETRY(1)(1:LVER) // '.YAML'
+
+      write(6,40) OUTFILE(1:LVER+5)
+40    format(' Write stats to YAML output: ', A )
+
+      OPEN(   UNIT   = LUNDAT 
+     &      , FILE   = OUTFILE
+     &      , STATUS = 'UNKNOWN'
+     &           )
+
+      JDIFF = JTIME_LOOPEND - JTIME_LOOPSTART
+      T_CPU = float(JDIFF)/60. 
+
+c for snana job: N_SNLC_CUTS, N_SNLC
+c      if ( N_SNLC_FIT .GT. 0 ) then
+c        write(6,49) N_SNLC_FITCUTS
+c49      format(T5,'Finished processing ',I6,
+c     &   ' SN after fitter cuts' )
+
+      write(LUNDAT,20) 'NEVT_TOT:        ', N_SNLC
+      write(LUNDAT,20) 'NEVT_SNANA_CUTS: ', N_SNLC_CUTS 
+      write(LUNDAT,20) 'NEVT_LCFIT_CUTS: ', N_SNLC_FITCUTS 
+      write(LUNDAT,21) 'CPU_TIME:        ', T_CPU
+20    format(A, I8)
+21    format(A, F8.1)
+
+
+      CLOSE ( UNIT = LUNDAT ) 
+C .xyz
+      RETURN
+      END
 C ======================================
 +DECK,SNANA_DRIVER.
       SUBROUTINE SNANA_DRIVER(ISN)
@@ -7400,7 +7461,8 @@ c close hbook file using wrapper so that we don't need CERNLIB flag here.
       CALL END_MAGCOR()  ! check for warnings
 
 c - - - - - - 
-      CALL PRINT_SNSTATS
+      CALL PRINT_SNSTATS()
+
 
       IF ( OUT_EPOCH_IGNORE_FILE .NE. '' ) then
          CALL write_epoch_list_summary()
@@ -9243,6 +9305,7 @@ c get SNANA version from C function
 
       ISJOB_SNANA = .FALSE.
       ISJOB_PSNID = .FALSE.
+      ISJOB_BATCH = .FALSE.
 
       NEPOCH_TOT = 0
       NEPOCH_USE = 0

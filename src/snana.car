@@ -7021,7 +7021,7 @@ c potentially large log files.
 +CDE,SNLCINP.
 +CDE,SNANAFIT.
 
-      INTEGER LVER, JDIFF
+      INTEGER LEN, JDIFF
       REAL    T_CPU
       CHARACTER OUTFILE*(MXCHAR_FILENAME)
 
@@ -7029,11 +7029,13 @@ C ------------- BEGIN -------------
 
       IF ( .NOT. ISJOB_BATCH ) RETURN
 
-      LVER = INDEX(VERSION_PHOTOMETRY(1),' ' ) - 1
-      OUTFILE = VERSION_PHOTOMETRY(1)(1:LVER) // '.YAML'
+      LEN     = INDEX(TEXTFILE_PREFIX,' ' ) - 1
+      OUTFILE = TEXTFILE_PREFIX(1:LEN) // '.YAML'
 
-      write(6,40) OUTFILE(1:LVER+5)
+      write(6,40) OUTFILE(1:LEN+5)
 40    format(' Write stats to YAML output: ', A )
+
+C .xyz
 
       OPEN(   UNIT   = LUNDAT 
      &      , FILE   = OUTFILE
@@ -7043,12 +7045,6 @@ C ------------- BEGIN -------------
       JDIFF = JTIME_LOOPEND - JTIME_LOOPSTART
       T_CPU = float(JDIFF)/60. 
 
-c for snana job: N_SNLC_CUTS, N_SNLC
-c      if ( N_SNLC_FIT .GT. 0 ) then
-c        write(6,49) N_SNLC_FITCUTS
-c49      format(T5,'Finished processing ',I6,
-c     &   ' SN after fitter cuts' )
-
       write(LUNDAT,20) 'NEVT_TOT:        ', N_SNLC
       write(LUNDAT,20) 'NEVT_SNANA_CUTS: ', N_SNLC_CUTS 
       write(LUNDAT,20) 'NEVT_LCFIT_CUTS: ', N_SNLC_FITCUTS 
@@ -7056,9 +7052,8 @@ c     &   ' SN after fitter cuts' )
 20    format(A, I8)
 21    format(A, F8.1)
 
-
       CLOSE ( UNIT = LUNDAT ) 
-C .xyz
+
       RETURN
       END
 C ======================================

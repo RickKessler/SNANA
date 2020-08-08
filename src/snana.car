@@ -3083,7 +3083,7 @@ c Aug 14 2014: move after CDTOPDIR call.
          IF ( IERR .NE. 0 ) GOTO 666 
            
 c check command-line args after all inits
-      CALL CHECK_LINE_ARGS 
+      CALL CHECK_LINE_ARGS()
 
 c pak global survey info after all initialization (Mar 24 2013)
       IF ( USE_TABLEFILE .and. NFIT_PER_SN>0 ) CALL SNLCPAK_SURVEY() 
@@ -7027,7 +7027,8 @@ c potentially large log files.
 
 C ------------- BEGIN -------------
 
-      IF ( .NOT. ISJOB_BATCH ) RETURN
+      IF ( .NOT. ISJOB_BATCH       ) RETURN
+      IF ( TEXTFILE_PREFIX .EQ. '' ) RETURN
 
       LEN     = INDEX(TEXTFILE_PREFIX,' ' ) - 1
       OUTFILE = TEXTFILE_PREFIX(1:LEN) // '.YAML'
@@ -9174,22 +9175,25 @@ C ------- BEGIN ------------
 
 C ======================================
 +DECK,CHCKLINE_ARGS.
-      SUBROUTINE CHECK_LINE_ARGS
+      SUBROUTINE CHECK_LINE_ARGS()
 c
 c Feb 7, 2007
 c Check that all NLINE_ARG command-line args
 c were used. If any were not used, then give
 c error message and abort.
 c 
+c Aug 2020: use MADABORT for consistent error messaging
+c
 
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
       INTEGER i, LL, NBAD
-
+      CHARACTER FNAM*16
 C ------------------ BEGIN --------------
 
       NBAD = 0
+      FNAM = 'CHECK_LINE_ARGS'
 
       DO i = 2, NLINE_ARGS
 
@@ -9198,8 +9202,7 @@ C ------------------ BEGIN --------------
             NBAD = NBAD + 1
 
             if ( NBAD .EQ. 1 ) then
-              print*,' '
-              print*,' CHECK_LINE_ARGS ERROR: '
+              CALL PRINT_PREABORT_BANNER(FNAM//char(0),20)
             endif
             print*,' ERROR: Detected un-used command-line argument: ',
      &                 '"' , LINE_ARGS(i)(1:LL), '"'
@@ -9207,8 +9210,12 @@ C ------------------ BEGIN --------------
       ENDDO
 
       IF ( NBAD .GT. 0 ) THEN
-         print*,' ***** ABORT ***** '
-         CALL EXIT(EXIT_ERRCODE)
+         write(C1ERR,61) NBAD
+61       format('Detected ', I3,' unknown command line arguments')
+         C2ERR = 'Check args ERROR messages above'
+         CALL MADABORT(FNAM, C1ERR, C2ERR)
+
+ccc xxx mark         CALL EXIT(EXIT_ERRCODE)
       ENDIF
 
       RETURN

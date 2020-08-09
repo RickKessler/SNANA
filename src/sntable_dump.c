@@ -203,7 +203,7 @@ int main(int argc, char **argv) {
 
   if ( INPUTS.SNTABLE_NEVT ) {
     int NEVT = SNTABLE_NEVT(TFILE,TID);  // Aug 2020
-    printf(" NEVT=%d \n", NEVT);   // no spaces so that scripts can parse NEVT=
+    printf(" NEVT:  %d \n", NEVT);   // script-parsable output
   }
   else if ( NVAR == 0 ) {
     // no input variables --> list variable names

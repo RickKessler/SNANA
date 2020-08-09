@@ -18818,10 +18818,15 @@
      + when passing JOBSPLIT (from batch-submit script), automatically
        create [VERSION].YAML file with stats ... avoids having to 
        parse huge log files.
-
+     + fix CHECK_LINE_ARGS to use current MADABORT error handler.
+       
    sntools.h
      + optional ONE_RANDOM_STREAM pre-proc flag; see manual.
      + MXCHARWORD_PARSE_WORDS -> 300 (was 60) to handle long file names
          (fixes segFault found by R.Chen using HEADER_OVERRIDE feature)
+
+   sntable_dump.pl[c]
+     + add NEVT option to print number of events in table.
+       Needed in refactored submit scripts to verify table merge.
 
 END: 

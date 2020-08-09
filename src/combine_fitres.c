@@ -149,8 +149,6 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN);
 void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN); 
 void  freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN); 
 
-// declare functions in sntools_output_text.c
-// xxxx mark dele int  SNTABLE_NEVT_APPROX_TEXT(char *FILENAME, int NVAR);
 
 // ================================
 // Global variables
@@ -530,10 +528,7 @@ void ADD_FITRES(int ifile) {
       { NVARSTR++ ; }
   }
 
-  // get approx number of SN for memory allocation
-
-  // NEVT_APPROX = SNTABLE_NEVT_APPROX_TEXT(INPUTS.FFILE[ifile], NVARALL);
-  //xx NEVT_APPROX = SNTABLE_NEVT_TEXT(INPUTS.FFILE[ifile]);
+  // get number of SN for memory allocation
   NEVT_APPROX = SNTABLE_NEVT(INPUTS.FFILE[ifile],"TABLE");
 
   if ( NEVT_APPROX >= MXSN-1 ) { 

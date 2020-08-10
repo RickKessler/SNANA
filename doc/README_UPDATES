@@ -18811,8 +18811,8 @@
      + for INIT_ONLY=1, write NGENTOT_RATECALC key for easier parsing
        but submit-batch script.
      + fix bug aborting on mixing TAKE_SPECTRUM keys
-     + for JOBID>0 (i.e., batch job), write script-parsible keys
-       to README to avoiding parsing human-readable output.
+     + for batch mode (JOBID>0), write [VERSION].YAML file so that
+       submit script parses YAML for stats, rather parsing than stdout.
 
    snana.car
      + when passing JOBSPLIT (from batch-submit script), automatically

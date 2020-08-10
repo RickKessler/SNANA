@@ -145,6 +145,7 @@ typedef struct {
   FILE *FP_README;  char  README[MXPATHLEN] ;
   FILE *FP_IGNORE;  char  IGNORE[MXPATHLEN] ;
   FILE *FP_DUMP;    char  DUMP[MXPATHLEN] ;
+  FILE *FP_YAML;    char  YAML[MXPATHLEN] ;  // Aug 10 2020, for batch mode only
   char PATH_FILTERS[MXPATHLEN]; // directory instead of file
 
   // optional outputs (just filename, not pointer)
@@ -426,8 +427,8 @@ struct INPUTS {
   int  CIDRAN_MAX ;         // max CID (used for random CID only)
   int  CIDRAN_MIN ;         // min CID (used for random CID only)
 
-  int  JOBID;       // command-line only, to compute SIMLIB_IDSTART
-  int  NJOBTOT;     // idel, for sim_SNmix only
+  int  JOBID;       // command-line only, for batch mode and to compute SIMLIB_IDSTART
+  int  NJOBTOT;     // idem, for submit_batch_jobs.py or sim_SNmix
 
   int  HOSTLIB_USE ;            // 1=> used; 0 => not used (internal)
   char HOSTLIB_FILE[MXPATHLEN]; // lib of Ztrue, Zphot, Zerr ...
@@ -1923,6 +1924,8 @@ void test_zcmb_dLmag_invert(void);
 void wr_HOSTLIB_info(void);    // write hostgal info
 void wr_SIMGEN_FITLERS(char *path);
 void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
+void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX);
+
 int  MATCH_INDEX_SIMGEN_DUMP(char *varName ) ;
 void PREP_SIMGEN_DUMP(int OPT_DUMP );
 void PREP_SIMGEN_DUMP_TAKE_SPECTRUM(void);

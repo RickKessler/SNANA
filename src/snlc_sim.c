@@ -10359,10 +10359,36 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
 
   }  // end of ifilt loop
 
+  return ;
 
 } // end of wr_SIMGEN_FILTERS
 
-// ***********************************
+// ***********************************************
+void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX) {
+  
+  FILE *fp ;
+  char *ptrFile  = SIMFILE_AUX->YAML ;
+  char fnam[] = "wr_SIMGEN_YAML" ;
+  double t_gen   = (t_end - t_end_init); // total gen time after init
+
+  // ------------ BEGIN ---------------
+    if ( (fp = fopen(ptrFile, "wt")) == NULL ) {       
+      sprintf ( c1err, "Cannot open SIMGEN YAML file :" );
+      sprintf ( c2err," '%s' ", ptrFile );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    fprintf(fp, "NGENLC_TOT:      %d\n",    NGENLC_TOT     );
+    fprintf(fp, "NGENLC_WRITE:    %d\n",    NGENLC_WRITE   );
+    fprintf(fp, "NGENSPEC_WRITE:  %d\n",    NGENSPEC_WRITE );
+    fprintf(fp, "CPU_MINUTES:     %.2f\n",  t_gen/60.0     );
+    fprintf(fp, "ABORT_IF_ZERO:   %d\n",    NGENLC_WRITE   );
+    fclose(fp);
+
+    return;
+
+} // end wr_SIMGEN_YAML
+
+// ***********************************************
 void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   /***
@@ -10385,14 +10411,6 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   OPT_DUMP =  3  => close file (end of job)
 
        HISTORY
-
-  Feb 13 2014: case insensitive string checks.
-
-  Jul 30 2014; allow string ; see *str
-
-  Aug 19 2014: pass SIMFILE_AUX struct.
-
-  Feb 05, 2015: for r*8, write specific formats for MJD, RA, DEC.
 
   Mar 16, 2017: write each line to strig SIMFILE_AUX->OUTLINE,
                 then make single write per line instead of per value.
@@ -24758,6 +24776,7 @@ void readme_doc(int iflag_readme) {
 	    NGENSPEC_WRITE );
   }
 
+  /* xxxxxxx mark delete Aug 10 2020 xxxxxxxx
   // for batch job process, leave clear keys for submit-monitor taks
   if ( INPUTS.JOBID > 0 ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
@@ -24769,6 +24788,7 @@ void readme_doc(int iflag_readme) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"CPU_MINUTES:  %.2f\n", t_gen/60.0 );
   }
+  xxxxxxxxxxxxx */
 
   // spectroscopic tags
 
@@ -26022,6 +26042,10 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   sprintf(SIMFILE_AUX->ZVAR,       "%s.ZVARIATION",  prefix );
   sprintf(SIMFILE_AUX->GRIDGEN,    "%s.GRID",        prefix );
 
+  // Aug 10 2020: for batch mode, write YAML file locally so that
+  //              it is easily found by batch script.
+  sprintf(SIMFILE_AUX->YAML,  "%s.YAML",  INPUTS.GENVERSION ); // Aug 10, 2020
+
 
   // create mandatory files.
   SIMFILE_AUX->FP_LIST   = fopen(SIMFILE_AUX->LIST,   "wt") ;  
@@ -26074,6 +26098,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   if ( WRFLAG_FILTERS ) 
     { wr_SIMGEN_FILTERS(SIMFILE_AUX->PATH_FILTERS); }
  
+  return ;
 
 } // end of init_simFiles
 
@@ -26092,7 +26117,6 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   char fnam[] = "update_simFiles";
 
   // ------------ BEGIN -------------
-
 
 #ifdef SNGRIDGEN
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) {
@@ -26150,6 +26174,8 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // update LIST file
   fprintf(SIMFILE_AUX->FP_LIST,"%s\n", SNDATA.snfile_output);
 
+  return ;
+
 } // end of upd_simFiles
 
 
@@ -26187,6 +26213,9 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   printf("  %s \n", SIMFILE_AUX->LIST );
   printf("  %s \n", SIMFILE_AUX->README );
 
+  if ( INPUTS.JOBID > 0 ) 
+    { printf("  %s \n", SIMFILE_AUX->YAML ); }  // for batch mode, Aug 10 2020
+
   if ( WRFLAG_FILTERS ) 
     { printf("  %s \n", SIMFILE_AUX->PATH_FILTERS ); }  // it's a subdir
 
@@ -26198,7 +26227,6 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   for ( i = N1; i <= N2; i++ )
     {  fprintf(SIMFILE_AUX->FP_README, "%s", VERSION_INFO.README_DOC[i] ); }
 
-
   // close files.
   fclose(SIMFILE_AUX->FP_LIST);
   fclose(SIMFILE_AUX->FP_README);
@@ -26208,8 +26236,6 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // close out SIMGEN_DUMP file if it exists
   if ( INPUTS.NVAR_SIMGEN_DUMP > 0 ) {
     wr_SIMGEN_DUMP(3,SIMFILE_AUX);
-    // xxx mark delete    fclose(SIMFILE_AUX->FP_DUMP);
-    // xxx mark delete    printf("  %s \n", SIMFILE_AUX->DUMP );
   }
 
 
@@ -26218,6 +26244,9 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
     cp_zvariation(SIMFILE_AUX->ZVAR);  
     printf("  %s\n", SIMFILE_AUX->ZVAR);
   }
+
+  // Aug 10 2020: in batch mode, write few stats to YAML formatted file
+  if ( INPUTS.JOBID > 0 ) {  wr_SIMGEN_YAML(SIMFILE_AUX); } 
 
 #ifdef SNGRIDGEN
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) {
@@ -29754,7 +29783,7 @@ void sim_input_override_legacy(void) {
     }
 
     // JOBID & NJOBTOT can be read only from command-line;
-    // NOT from sim-input file.
+    // NOT from sim-input file. Valid JOBID is > 0.
     if ( strcmp( ARGV_LIST[i], "JOBID" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.JOBID ); 
       goto INCREMENT_COUNTER; 

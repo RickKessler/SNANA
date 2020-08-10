@@ -7008,12 +7008,15 @@ C ==================================
       SUBROUTINE PRINT_JOBSPLIT_OUT()
 
 c Created Aug 7 2020
-c If submitted by batch job (i.e., JOBSPLIT is set), 
-c create output file
+c If snana job is submitted by batch job (i.e., JOBSPLIT is set), 
+c create supplmental output file
 c    [VERSION].YAML
 c and write stats for batch process to read.
-c This avoids submit_batch script having to parse 
-c potentially large log files.
+c This YAML file avoids submit_batch script having to parse 
+c potentially large log files. Also note that ABORT_IF_ZERO
+c is a standard key telling batch script to ABORT if its
+c value is zero; this avoids the batch script having to know
+c program-specific keys for NEVT_what?
 
       IMPLICIT NONE
 
@@ -7036,8 +7039,6 @@ C ------------- BEGIN -------------
       write(6,40) OUTFILE(1:LEN+5)
 40    format(' Write stats to YAML output: ', A )
 
-C .xyz
-
       OPEN(   UNIT   = LUNDAT 
      &      , FILE   = OUTFILE
      &      , STATUS = 'UNKNOWN'
@@ -7049,6 +7050,7 @@ C .xyz
       write(LUNDAT,20) 'NEVT_TOT:        ', N_SNLC
       write(LUNDAT,20) 'NEVT_SNANA_CUTS: ', N_SNLC_CUTS 
       write(LUNDAT,20) 'NEVT_LCFIT_CUTS: ', N_SNLC_FITCUTS 
+      write(LUNDAT,20) 'ABORT_IF_ZERO:   ', N_SNLC_FITCUTS 
       write(LUNDAT,21) 'CPU_TIME:        ', T_CPU
 20    format(A, I8)
 21    format(A, F8.1)

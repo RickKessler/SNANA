@@ -16313,6 +16313,14 @@ void outFile_driver(void) {
     sprintf(tmpFile1,"%s.fitres", prefix ); 
     sprintf(tmpFile2,"%s.M0DIF",  prefix ); 
 
+    // Aug 12 2020 temp HACK: 
+    // if YAML output is specified, it's from the new
+    // submit_batch_jobs script. Write output fitres file with
+    // .FITRES instead of .fitres to avoid the silly file-move
+    // in batch script. Should fix this permanenetly, but need to 
+    // check/fix SALT2mu_fit.pl.
+    if ( INPUTS.write_yaml ) { sprintf(tmpFile1,"%s.FITRES", prefix ); }
+    
     prep_blindVal_strings();
     write_fitres_driver(tmpFile1);  // write result for each SN
     write_M0(tmpFile2);      // write M0 vs. redshift

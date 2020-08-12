@@ -808,6 +808,10 @@ Default output files (can change names with "prefix" argument)
     + new input option minos=0 (switch to MIGRAD errors)
     + add CPU timer per fit, and write CPU to output fitres file
 
+ Aug 12 2020:
+    + new input flag write_yaml=1 to produce YAML file for
+      batch-submit script. 
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1368,7 +1372,9 @@ struct INPUTS {
   bool   KEYNAME_DUMPFLAG; // flag to dump all key names, then quit
 
   bool   cat_only;    // cat fitres files and do nothing else
-  char   catfile_out[MXCHAR_FILENAME] ;
+  char   cat_file_out[MXCHAR_FILENAME] ;
+
+  int    write_yaml;  // used by submit_batch_jobs.py
 
   int    minos;
 
@@ -1884,6 +1890,7 @@ int selectCID_data(char *cid); //djb
 void  write_fitres_driver(char *fileName);
 void  write_fitres_misc(FILE *fout);
 void  write_version_info(FILE *fp) ;
+void  write_yaml_info(char *fileName);
 void  define_varnames_append(void) ;
 int   write_fitres_line(int indx, int ifile, char *line, FILE *fout) ;
 void  write_fitres_line_append(FILE *fp, int indx);
@@ -2173,7 +2180,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   compute_more_INFO_DATA();  
 
   if( INPUTS.cat_only ) 
-    { write_fitres_driver(INPUTS.catfile_out);  exit(0); }
+    { write_fitres_driver(INPUTS.cat_file_out);  exit(0); }
 
   // abort if there are any duplicate SNIDs
   check_duplicate_SNID();
@@ -4568,7 +4575,8 @@ void set_defaults(void) {
   sprintf( PATH_SNDATA_ROOT, "%s", getenv("SNDATA_ROOT") );
 
   INPUTS.cat_only   = false ;
-  INPUTS.catfile_out[0] = 0 ;
+  INPUTS.cat_file_out[0] = 0 ;
+  INPUTS.write_yaml = 0 ;
 
   INPUTS.minos      = 1 ;
   INPUTS.nfile_data = 0 ;
@@ -13195,8 +13203,10 @@ void print_eventStats(int event_type) {
   // ----------------------------
   *NSN_PASS = NSN_TOT - NSN_REJ ;
 
-  fprintf(FP_STDOUT, "\n#%s\n", dashLine);
-  fprintf(FP_STDOUT, " %s STAT SUMMARY: %d(TOTAL) = %d(ACCEPT) + %d(REJECT) \n",
+  fprintf(FP_STDOUT, 
+	  "\n#%s\n", dashLine);
+  fprintf(FP_STDOUT, 
+	  " %s STAT SUMMARY: %d(TOTAL) = %d(ACCEPT) + %d(REJECT) \n",
 	 STRTYPE, NSN_TOT, *NSN_PASS, NSN_REJ);
 
   for(bit=0; bit < MXCUTBIT; bit++ ) {
@@ -13795,10 +13805,23 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"prefix=") )
     { sscanf(&item[7],"%s",INPUTS.PREFIX); return(1); }
 
-  if ( uniqueOverlap(item,"catfile_out=") ) {
-    s = INPUTS.catfile_out ;
+  // - - - 
+  if ( uniqueOverlap(item,"catfile_out=") ) {  // legacy key name
+    s = INPUTS.cat_file_out ;
     sscanf(&item[12],"%s",s); remove_quote(s); return(1);
   }
+  if ( uniqueOverlap(item,"cat_file_out=") ) {
+    s = INPUTS.cat_file_out ;
+    sscanf(&item[13],"%s",s); remove_quote(s); return(1);
+  }
+
+  // Aug 2020: check for flag to write YAML formatted output; 
+  // intended for submit_batch_jobs
+  if ( uniqueOverlap(item,"write_yaml=") ) {
+    sscanf(&item[11],"%d", &INPUTS.write_yaml);  return(1);
+  }
+
+  // - - - -
 
 #ifdef USE_SUBPROCESS
   if ( uniqueOverlap(item,"SUBPROCESS_HELP") ) {
@@ -16271,7 +16294,8 @@ void outFile_driver(void) {
   int  JOBID     = INPUTS.JOBID_SPLITRAN ;
   int  NSPLITRAN = INPUTS.NSPLITRAN ;
   char *prefix   = INPUTS.PREFIX ;
-  char tmpFile1[200], tmpFile2[200], tmpFile3[200];
+
+  char tmpFile1[200], tmpFile2[200], tmpFile3[200], yamlFile[200];
   char fnam[] = "outFile_driver" ; 
 
   // --------------- BEGIN -------------
@@ -16301,6 +16325,11 @@ void outFile_driver(void) {
       SPLITRAN_write_fitpar(tmpFile3); 
     }
 
+    if ( INPUTS.write_yaml ) {
+      sprintf(yamlFile,"%s.YAML", prefix );
+      write_yaml_info(yamlFile);
+    }
+
   } 
   else {  
     fprintf(FP_STDOUT, "\n PREFIX not specified --> no fitres output.\n");
@@ -16321,6 +16350,60 @@ void write_version_info(FILE *fp) {
 
 } // end write_version_info
 
+// ******************************************
+void write_yaml_info(char *fileName) {
+
+  // Aug 12, 2020
+  // Write summary info to YAML file; 
+  // to be used by batch-sumit script.
+
+  int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
+  bool USE_DATA    = true ;
+  bool USE_BIASCOR = (INPUTS.nfile_biasCor > 0) ;
+  bool USE_CCPRIOR = (INPUTS.nfile_CCprior > 0) ;
+  bool USE_EVENT_TYPE[MXEVENT_TYPE] = 
+    { false, USE_DATA, USE_BIASCOR, USE_CCPRIOR };
+
+  double t_cpu = (t_end_fit-t_start)/60.0 ;
+
+  FILE *fp;
+  int  NSN_PASS, event_type ;
+  char KEY[60], *str ;
+  char fnam[] = "write_yaml_info" ;
+
+  // -------------- BEGIN ----------------
+
+  print_banner(fnam);
+
+  fp = fopen(fileName,"wt");
+  if ( !fp )  {
+    sprintf(c1err,"Could not open YAML summary file:");
+    sprintf(c2err,"%s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  for(event_type=1; event_type < MXEVENT_TYPE; event_type++ ) {
+    bool USE = USE_EVENT_TYPE[event_type];
+    if ( USE )
+      { NSN_PASS  =  *NPASS_CUTMASK_POINTER[event_type]; }  // pass cuts
+    else
+      { NSN_PASS = 0 ; }
+    str       =   STRING_EVENT_TYPE[event_type] ;
+    sprintf(KEY,"NEVT_%s:", str);
+    fprintf(fp,"%-22.22s %d \n", KEY, NSN_PASS );
+  }
+
+  sprintf(KEY,"NEVT_REJECT_BIASCOR:");
+  fprintf(fp,"%-22.22s %d\n", KEY, NDATA_REJECT_BIASCOR );
+
+  sprintf(KEY,"CPU_MINUTES:");
+  fprintf(fp,"%-22.22s %.2f\n", KEY, t_cpu);
+
+  fclose(fp);
+
+  return;
+
+} // end write_yaml_info
 
 // ******************************************
 void  write_M0(char *fileName) {
@@ -16708,8 +16791,8 @@ void write_fitres_driver(char* fileName) {
   fout = fopen(fileName,"wt");
   if (!fout ) {
     if ( INPUTS.cat_only ) {
-      sprintf(c1err,"Could not open catfile_out='%s'", INPUTS.catfile_out);
-      sprintf(c2err,"Check catfile_out key." );
+      sprintf(c1err,"Could not open catfile_out='%s'", INPUTS.cat_file_out);
+      sprintf(c2err,"Check cat_file_out key." );
     }
     else {
       sprintf(c1err,"Could not open output fitres file");

@@ -16358,6 +16358,7 @@ void write_yaml_info(char *fileName) {
   // to be used by batch-sumit script.
 
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
+  int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
   bool USE_DATA    = true ;
   bool USE_BIASCOR = (INPUTS.nfile_biasCor > 0) ;
   bool USE_CCPRIOR = (INPUTS.nfile_CCprior > 0) ;
@@ -16395,6 +16396,9 @@ void write_yaml_info(char *fileName) {
 
   sprintf(KEY,"NEVT_REJECT_BIASCOR:");
   fprintf(fp,"%-22.22s %d\n", KEY, NDATA_REJECT_BIASCOR );
+
+  sprintf(KEY,"ABORT_IF_ZERO:");
+  fprintf(fp,"%-22.22s %d\n", KEY, NDATA_PASS );
 
   sprintf(KEY,"CPU_MINUTES:");
   fprintf(fp,"%-22.22s %.2f\n", KEY, t_cpu);

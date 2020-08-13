@@ -700,7 +700,8 @@ struct INPUTS {
 
   int  FORMAT_MASK ;         ;  // 1=verbose, 2=text, 32=FITS ...
   int  WRITE_MASK ;          ;  // computed from FORMAT_MASK
-  int  WRFLAG_MODELPAR; // write model pars to data files (e.g,SIMSED,LCLIB)
+  int  WRFLAG_MODELPAR;    // write model pars to data files (e.g,SIMSED,LCLIB)
+  int  WRFLAG_YAML_FILE ;  // write YAML file (Aug 12 2020)
 
   int   SMEARFLAG_FLUX ;        // 0,1 => off,on for photo-stat smearing
   int   SMEARFLAG_ZEROPT ;      // 0,1 => off,on for zeropt smearing

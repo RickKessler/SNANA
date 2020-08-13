@@ -954,7 +954,8 @@ void set_user_defaults(void) {
 
   INPUTS.FORMAT_MASK      = 32 ;                   // 2=TEXT  32=FITS
   INPUTS.WRITE_MASK       = WRITE_MASK_SIM_SNANA ; // default
-  INPUTS.WRFLAG_MODELPAR  = 1; // default is yes
+  INPUTS.WRFLAG_MODELPAR  = 1;  // default is yes
+  INPUTS.WRFLAG_YAML_FILE = 0;  // batch-sumbit scripts should set this
 
   INPUTS.NPE_PIXEL_SATURATE = 1000000000; // billion
   INPUTS.PHOTFLAG_SATURATE = 0 ;
@@ -1534,6 +1535,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "WRFLAG_MODELPAR",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.WRFLAG_MODELPAR );
+  }
+  else if ( keyMatchSim(1, "WRFLAG_YAML_FILE",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.WRFLAG_YAML_FILE );
   }
   // - - - -
   else if ( keyMatchSim(1, "NPE_PIXEL_SATURATE",  WORDS[0],keySource) ) {
@@ -26213,7 +26217,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   printf("  %s \n", SIMFILE_AUX->LIST );
   printf("  %s \n", SIMFILE_AUX->README );
 
-  if ( INPUTS.JOBID > 0 ) 
+  if ( INPUTS.WRFLAG_YAML_FILE > 0 ) 
     { printf("  %s \n", SIMFILE_AUX->YAML ); }  // for batch mode, Aug 10 2020
 
   if ( WRFLAG_FILTERS ) 
@@ -26246,7 +26250,7 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   }
 
   // Aug 10 2020: in batch mode, write few stats to YAML formatted file
-  if ( INPUTS.JOBID > 0 ) {  wr_SIMGEN_YAML(SIMFILE_AUX); } 
+  if ( INPUTS.WRFLAG_YAML_FILE > 0 ) {  wr_SIMGEN_YAML(SIMFILE_AUX); } 
 
 #ifdef SNGRIDGEN
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID ) {
@@ -29866,6 +29870,10 @@ void sim_input_override_legacy(void) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.WRFLAG_MODELPAR ); 
       goto INCREMENT_COUNTER; 
     }
+    if ( strcmp( ARGV_LIST[i], "WRFLAG_YAML_FILE" ) == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.WRFLAG_YAML_FILE ); 
+      goto INCREMENT_COUNTER; 
+    }
 
 
     if ( strcmp( ARGV_LIST[i], "NPE_PIXEL_SATURATE" ) == 0 ) {
@@ -31521,6 +31529,9 @@ int read_input_file_legacy(char *input_file) {
     
     if ( NstringMatch(1,c_get,"WRFLAG_MODELPAR:")  )
       { readint ( fp, 1, &INPUTS.WRFLAG_MODELPAR ); continue ; }
+
+    if ( NstringMatch(1,c_get,"WRFLAG_YAML_FILE:")  )
+      { readint ( fp, 1, &INPUTS.WRFLAG_YAML_FILE ); continue ; }
     
     // - - - -  -
 

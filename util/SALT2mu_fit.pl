@@ -304,7 +304,6 @@ my  $JOBNAME_WFIT       =  "wfit.exe" ;
 my  $JOBMEMORY          =  "2000mb" ;
 
 my  $OUTPUT_SUFFIX_fitres = "fitres" ;  # output from SALT2mu
-my  $OUTPUT_SUFFIX_log    = "log"    ;  # output from SALT2mu
 my  $OUTPUT_SUFFIX_mudif  = "M0DIF"  ;
 
 # files/dirs already created by split_and_fit.pl

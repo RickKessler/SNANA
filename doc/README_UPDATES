@@ -18806,13 +18806,18 @@
     SALT2mu.c
      + write CPU time in output fitres file
      + new input minos=0 for much faster MIGRAD; default is minos=1
+     + new input write_yaml=1 for batch-sumbit script
+
+   SALT2mu_fit.c
+     + check for INCLUDE file in GENOPT_GLOBAL'
 
    snlc_sim.c
      + for INIT_ONLY=1, write NGENTOT_RATECALC key for easier parsing
        but submit-batch script.
      + fix bug aborting on mixing TAKE_SPECTRUM keys
-     + for batch mode (JOBID>0), write [VERSION].YAML file so that
-       submit script parses YAML for stats, rather parsing than stdout.
+     + add new input "WRFLAG_YAML_FILE 1"  so that batch-submit scruot  
+       can request YAML output with summary stats needed for MERGE proc.
+       This avoids fragile parsing of stdout.
 
    snana.car
      + when passing JOBSPLIT (from batch-submit script), automatically

@@ -219,6 +219,10 @@
     + DJB added cmb_sim and bao_sim flags to set cosmology of priors to 
       same as default cosmology in sntools
 
+ Aug 15 2020
+   + new input  -cospar_yaml <outFile> to write results in yaml format.
+     Motivation is for easier parsing with batch scripts.
+
 *****************************************************************************/
 
 int compare_double_reverse (const void *, const void *);
@@ -235,6 +239,14 @@ void getname(char *basename, char *tempname, int nrun);
 double get_minwOM( double *w_atchimin, double *OM_atchimin );
 void set_priors(void);
 
+typedef struct {
+  double  w_out, wsig, wsig_upper, wsig_lower ;
+  double  omm_out, omm_sig,  chi2_final ;
+  double  sigmu_int, wrand,  ommrand ;
+  char    label_cospar[40];
+  int     Ndof ;
+} RESULTS_DEF ;  // Aug 15 2020
+
 double *mu, *mu_sig, *mu_ref, *mu_sqsig, *z, *z_sig;
 int    *snnbin; // to allow for binning of SNe. default is 1. [JLM]
 
@@ -242,7 +254,8 @@ double mu_offset ;
 double omm_stepsize, w_stepsize, h_stepsize;
 int    cidindex(char *cid);
 
-void write_output_cospar(void);
+void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS, 
+			 int usemarg, int format_cospar );
 void write_output_resid(void);
 void write_output_contour(void);
 
@@ -404,7 +417,8 @@ int main(int argc,char *argv[]){
     "   -ommin/-ommax/-omsteps\tOM grid [0,1.0,81]",
     "",
     " Output:",
-    "   -cospar\tname of output file with fit cosmological params",
+    "   -cospar\tname of output LEGACY file with fit cosmological params",
+    "   -cospar_yaml\tname of output YAML file with fit cosmo params",
     "   -resid\tname of output file with mu-residuals",
     "   -chi2grid\tname of output file containing chi2-grid",
     "   -label\t string-label for cospar file.",
@@ -417,6 +431,7 @@ int main(int argc,char *argv[]){
   char infile[2000];
   char cosparfile[1000] = "";
   char cosparfilevar[1000] = "";
+  int  format_cospar = 1;  // 1=legacy, 2=YAML (RK Aug 15, 2020)
   char residfile[1000]= "";
   char residfilevar[1000]="";
   char chi2gridfile[1000]="";
@@ -452,6 +467,7 @@ int main(int argc,char *argv[]){
   double wrand, ommrand;
   int Ndof;
 
+  RESULTS_DEF RESULTS ;
   double muoff_tmp, sqmusig_tmp, musig_tmp, snchi_tmp, extchi_tmp, chidif; 
   
   /* flags */
@@ -654,6 +670,10 @@ int main(int argc,char *argv[]){
  	{ strcpy(cosparfilevar, argv[++iarg]); }      
       else if (strcasecmp(argv[iarg]+1,"cospar")==0) 
  	{ strcpy(cosparfilevar, argv[++iarg]); }      
+
+      else if (strcasecmp(argv[iarg]+1,"cospar_yaml")==0) 
+ 	{ strcpy(cosparfilevar, argv[++iarg]); format_cospar=2; }      
+
       else if (strcasecmp(argv[iarg]+1,"label")==0) 
  	{ sprintf(label_cospar,"%s", argv[++iarg]); }      
 
@@ -1286,6 +1306,22 @@ int main(int argc,char *argv[]){
     char sep[] = " ";
     if ( csv_out ) { sprintf(sep,","); }
 
+    RESULTS.w_out       = w_out ;
+    RESULTS.wsig        = wsig  ;
+    RESULTS.wsig_upper  = wsig_upper  ;
+    RESULTS.wsig_lower  = wsig_lower  ;
+    RESULTS.omm_out     = omm_out;
+    RESULTS.omm_sig     = omm_sig;
+    RESULTS.chi2_final  = chi2_final;
+    RESULTS.Ndof        = Ndof ;
+    RESULTS.sigmu_int   = sigmu_int ;
+    RESULTS.wrand       = wrand;
+    RESULTS.ommrand     = ommrand ;
+    sprintf(RESULTS.label_cospar, "%s", label_cospar);
+      
+    write_output_cospar(fpcospar, &RESULTS, usemarg, format_cospar);
+
+    /* xxxx
     if ( !usemarg  ) {
       fprintf(fpcospar,"# w%s wsig_marg%s OM%s OM_sig%s chi2%s Ndof%s "
 	      "sigint%s wran%s OMran%s label \n",
@@ -1306,6 +1342,7 @@ int main(int argc,char *argv[]){
 	      , omm_out,sep, omm_sig,sep, chi2_final,sep
 	      , Ndof,sep, sigmu_int,sep, wrand,sep, ommrand,sep, label_cospar);
     }
+    xxxxxxxx    */
 
     fclose(fpcospar);
 
@@ -2562,10 +2599,69 @@ int cidindex(char *cid) {
 
 
 // ********************************
-void write_output_cospar(void) {
+void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS, 
+			 int usemarg, int format_cospar ) {
 
+  // Created Aug 15 2020
+  // format_cospar = 1 : legacy csv format
+  // format_cospar = 2 : YAML format
+
+  char sep[] = " " ;
   // ----------- BEGIN -------------
+
+  if ( format_cospar == 1 ) {
+    // legacy format
+    if ( !usemarg ) {
+      fprintf(fp,"# w%s wsig_marg%s OM%s OM_sig%s chi2%s Ndof%s "
+	      "sigint%s wran%s OMran%s label \n",
+	      sep, sep, sep, sep, sep, sep, sep, sep, sep );
+      fprintf(fp,"%8.4f%s %7.4f%s %7.4f%s %7.4f%s %8.1f%s "
+	      "%5d%s %6.3f%s %.2f%s %.2f%s %s\n"
+	      , RESULTS->w_out, sep
+	      , RESULTS->wsig,  sep
+	      , RESULTS->omm_out, sep
+	      , RESULTS->omm_sig, sep 
+	      , RESULTS->chi2_final, sep
+	      , RESULTS->Ndof, sep
+	      , RESULTS->sigmu_int, sep
+	      , RESULTS->wrand,   sep
+	      , RESULTS->ommrand, sep
+	      , RESULTS->label_cospar );
+    } else {
+      fprintf(fp,"# w%s wsig_up%s wsig_low%s OM%s OM_sig%s chi2%s "
+	      "Ndof%s sigint%s wran%s OMran%s label\n",
+	      sep, sep, sep, sep, sep, sep, sep, sep, sep, sep );
+      
+      fprintf(fp,"%8.4f%s %7.4f%s %7.4f%s %7.4f%s %7.4f%s %8.1f%s "
+	      "%5d%s %6.3f%s  %.2f%s %.2f%s  %s\n"
+	      , RESULTS->w_out, sep
+	      , RESULTS->wsig_upper, sep
+	      , RESULTS->wsig_lower, sep
+	      , RESULTS->omm_out, sep
+	      , RESULTS->omm_sig, sep
+	      , RESULTS->chi2_final, sep
+	      , RESULTS->Ndof, sep
+	      , RESULTS->sigmu_int, sep
+	      , RESULTS->wrand, sep
+	      , RESULTS->ommrand, sep
+	      , RESULTS->label_cospar);
+    }
+  }
+  else {
+    // YAML format
+    fprintf(fp, "w:        %.4f \n", RESULTS->w_out );
+    fprintf(fp, "wsig:     %.4f \n", RESULTS->wsig  );
+    fprintf(fp, "omm:      %.4f \n", RESULTS->omm_out );
+    fprintf(fp, "omm_sig:  %.4f \n", RESULTS->omm_sig );    
+    fprintf(fp, "chis:     %.1f \n", RESULTS->chi2_final ); 
+    fprintf(fp, "sigint:   %.4f \n", RESULTS->sigmu_int );    
+    fprintf(fp, "wrand:    %.4f \n", RESULTS->wrand );    
+    fprintf(fp, "ommrand:  %.4f \n", RESULTS->ommrand );  
+    fprintf(fp, "label:    %s \n", RESULTS->label_cospar );    
+  }
+
   return ;
+
 } // end write_output_cospar
 
 // ********************************

@@ -228,6 +228,8 @@
 #     
 # Jul 24 2020: no longer copy SIMLIB_FILE to misc/
 #
+# Aug 15 2020: check GENOPT_GLOBAL for include file.
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -1229,6 +1231,20 @@ sub parse_INFILE_Ia {
 	@CONTENTS_INFILE_Ia = (@CONTENTS_INFILE_Ia, @INCLUDE);
     }
 
+    # Aug 15 2020: check GENOPT_GLOBAL for include file
+    @wdlist  = split(/\s+/,$GENOPT_GLOBAL) ;
+    $key = "INPUT_FILE_INCLUDE";
+    @tmp = sntools::parse_array($key,1, $OPT_QUIET, @wdlist);
+    if ( scalar(@tmp) > 0 ) {
+	$INPUT_FILE_INCLUDE_Ia = "$tmp[0]" ;
+        $INPUT_FILE_INCLUDE_Ia = qx(echo $INPUT_FILE_INCLUDE_Ia);
+	#print "  xxx INPUT_FILE_INCLUDE_Ia = $INPUT_FILE_INCLUDE_Ia \n";  
+        my (@INCLUDE);
+	sntools::loadArray_fromFile($INPUT_FILE_INCLUDE_Ia,\@INCLUDE);
+        @CONTENTS_INFILE_Ia = (@CONTENTS_INFILE_Ia, @INCLUDE);
+    }
+
+
     $key = "GENFILTERS:";
     @tmp = sntools::parse_array($key,1,$OPT_ABORT,@CONTENTS_INFILE_Ia);
     $GENFILTERS = $tmp[0];
@@ -1324,7 +1340,19 @@ sub parse_INFILE_NONIa {
 	sntools::loadArray_fromFile($INPUT_FILE_INCLUDE_NONIa,\@INCLUDE);
 	@CONTENTS_INFILE_NONIa = (@CONTENTS_INFILE_NONIa, @INCLUDE);
     }
-    
+
+    # Aug 15 2020: check GENOPT_GLOBAL for include file
+    @wdlist         = split(/\s+/,$GENOPT_GLOBAL) ;
+    $key = "INPUT_FILE_INCLUDE";
+    @tmp = sntools::parse_array($key,1, $OPT_QUIET, @wdlist);
+    if ( scalar(@tmp) > 0 ) {
+        $INPUT_FILE_INCLUDE_NONIa = $tmp[0];
+        $INPUT_FILE_INCLUDE_NONIa = qx(echo $INPUT_FILE_INCLUDE_NONIa);
+        my (@INCLUDE) ;
+	sntools::loadArray_fromFile($INPUT_FILE_INCLUDE_NONIa,\@INCLUDE);
+        @CONTENTS_INFILE_NONIa = (@CONTENTS_INFILE_NONIa, @INCLUDE);
+    }
+
     $key = "GENFILTERS:";
     @tmp = sntools::parse_array($key,1,$OPT_ABORT,@CONTENTS_INFILE_NONIa);
     if ( $NFILT > 0  &&  "$tmp[0]" ne "$GENFILTERS" ) {

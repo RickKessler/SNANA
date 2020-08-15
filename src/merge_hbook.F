@@ -62,7 +62,6 @@ c Initialize Hbook
       call Hlimit( LQPAW )
 
 c Do the merge
-
       call Hmerge( nfiles, infiles, outfile )
 
       call EXIT(0)

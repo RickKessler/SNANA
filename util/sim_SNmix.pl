@@ -1232,16 +1232,18 @@ sub parse_INFILE_Ia {
     }
 
     # Aug 15 2020: check GENOPT_GLOBAL for include file
-    @wdlist  = split(/\s+/,$GENOPT_GLOBAL) ;
-    $key = "INPUT_FILE_INCLUDE";
-    @tmp = sntools::parse_array($key,1, $OPT_QUIET, @wdlist);
-    if ( scalar(@tmp) > 0 ) {
-	$INPUT_FILE_INCLUDE_Ia = "$tmp[0]" ;
-        $INPUT_FILE_INCLUDE_Ia = qx(echo $INPUT_FILE_INCLUDE_Ia);
-	#print "  xxx INPUT_FILE_INCLUDE_Ia = $INPUT_FILE_INCLUDE_Ia \n";  
-        my (@INCLUDE);
-	sntools::loadArray_fromFile($INPUT_FILE_INCLUDE_Ia,\@INCLUDE);
-        @CONTENTS_INFILE_Ia = (@CONTENTS_INFILE_Ia, @INCLUDE);
+    if ( length($GENOPT_GLOBAL) > 0  ) {
+	@wdlist  = split(/\s+/,$GENOPT_GLOBAL) ;
+	$key = "INPUT_FILE_INCLUDE";
+	@tmp = sntools::parse_array($key,1, $OPT_QUIET, @wdlist);
+	if ( scalar(@tmp) > 0 ) {
+	    $INPUT_FILE_INCLUDE_Ia = "$tmp[0]" ;
+	    $INPUT_FILE_INCLUDE_Ia = qx(echo $INPUT_FILE_INCLUDE_Ia);
+	    #print "  xxx INPUT_FILE_INCLUDE_Ia = $INPUT_FILE_INCLUDE_Ia \n";  
+	    my (@INCLUDE);
+	    sntools::loadArray_fromFile($INPUT_FILE_INCLUDE_Ia,\@INCLUDE);
+	    @CONTENTS_INFILE_Ia = (@CONTENTS_INFILE_Ia, @INCLUDE);
+	}
     }
 
 
@@ -1342,15 +1344,17 @@ sub parse_INFILE_NONIa {
     }
 
     # Aug 15 2020: check GENOPT_GLOBAL for include file
-    @wdlist         = split(/\s+/,$GENOPT_GLOBAL) ;
-    $key = "INPUT_FILE_INCLUDE";
-    @tmp = sntools::parse_array($key,1, $OPT_QUIET, @wdlist);
-    if ( scalar(@tmp) > 0 ) {
-        $INPUT_FILE_INCLUDE_NONIa = $tmp[0];
-        $INPUT_FILE_INCLUDE_NONIa = qx(echo $INPUT_FILE_INCLUDE_NONIa);
-        my (@INCLUDE) ;
-	sntools::loadArray_fromFile($INPUT_FILE_INCLUDE_NONIa,\@INCLUDE);
-        @CONTENTS_INFILE_NONIa = (@CONTENTS_INFILE_NONIa, @INCLUDE);
+    if ( length($GENOPT_GLOBAL) > 0  ) {
+	@wdlist         = split(/\s+/,$GENOPT_GLOBAL) ;
+	$key = "INPUT_FILE_INCLUDE";
+	@tmp = sntools::parse_array($key,1, $OPT_QUIET, @wdlist);
+	if ( scalar(@tmp) > 0 ) {
+	    $INPUT_FILE_INCLUDE_NONIa = $tmp[0];
+	    $INPUT_FILE_INCLUDE_NONIa = qx(echo $INPUT_FILE_INCLUDE_NONIa);
+	    my (@INCLUDE) ;
+	    sntools::loadArray_fromFile($INPUT_FILE_INCLUDE_NONIa,\@INCLUDE);
+	    @CONTENTS_INFILE_NONIa = (@CONTENTS_INFILE_NONIa, @INCLUDE);
+	}
     }
 
     $key = "GENFILTERS:";

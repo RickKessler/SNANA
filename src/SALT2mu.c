@@ -1913,7 +1913,7 @@ void  write_NWARN(FILE *fp, int FLAG) ;
 int   SPLITRAN_ACCEPT(int isn, int snid);
 void  SPLITRAN_cutmask(void);
 void  SPLITRAN_SUMMARY(void); 
-void  SPLITRAN_write_fitpar(char *fileName);
+void  SPLITRAN_write_fitpar_legacy(char *fileName);
 void  SPLITRAN_read_fitpar(int isplit);
 int   SPLITRAN_read_wfit(int isplit);
 
@@ -16288,7 +16288,7 @@ void outFile_driver(void) {
 
   // Created Nov 30 2017
   // [move code out of main]
-  // May 29 2019: call SPLITRAN_write_fitpar
+  // May 29 2019: call SPLITRAN_write_fitpar_legacy
   // Jun 24 2020: remove SPLIT[nnn] from NSPLITRAN file names.
 
   int  JOBID     = INPUTS.JOBID_SPLITRAN ;
@@ -16330,7 +16330,7 @@ void outFile_driver(void) {
     // can be scooped up later to make summary.
     if ( JOBID >=1 && JOBID <= NSPLITRAN )  { 
       sprintf(tmpFile3,"%s.fitpar", prefix );  
-      SPLITRAN_write_fitpar(tmpFile3); 
+      SPLITRAN_write_fitpar_legacy(tmpFile3); 
     }
 
     if ( INPUTS.write_yaml ) {
@@ -16411,6 +16411,34 @@ void write_yaml_info(char *fileName) {
   sprintf(KEY,"CPU_MINUTES:");
   fprintf(fp,"%-22.22s %.2f\n", KEY, t_cpu);
 
+  fprintf(fp,"\n") ;
+
+  fprintf(fp,"BBCFIT_RESULTS:\n") ;
+
+  fprintf(fp,"  - NSNFIT:       %d\n",   FITRESULT.NSNFIT ) ;
+  fprintf(fp,"  - SIGINT:       %.5f\n", FITINP.COVINT_PARAM_FIX ) ;
+
+  //fprintf(fp,"\n") ;
+  
+  bool ISFLOAT, ISM0;
+  int n;   double VAL,ERR;  char tmpName[40];
+  for ( n=0; n < FITINP.NFITPAR_ALL ; n++ ) {
+
+    ISFLOAT = FITINP.ISFLOAT[n] ;
+    ISM0    = n >= MXCOSPAR ; // it's z-binned M0
+    if ( !ISFLOAT ) { continue ; }
+    if ( ISM0     ) { continue ; }
+
+    VAL = FITRESULT.PARVAL[NJOB_SPLITRAN][n] ;
+    ERR = FITRESULT.PARERR[NJOB_SPLITRAN][n] ;
+    sprintf(tmpName, "%s", FITRESULT.PARNAME[n]);
+    trim_blank_spaces(tmpName);       strcat(tmpName,":") ;
+    // if ( ERR < 0.0 ) { continue ; }
+    
+    fprintf(fp,"  - %-12.12s  %.5f  %.5f \n", tmpName, VAL, ERR ) ;
+  }
+
+    //.xyz
   fclose(fp);
 
   return;
@@ -16538,20 +16566,24 @@ void  write_M0(char *fileName) {
 
 
 // ******************************************
-void SPLITRAN_write_fitpar(char *fileName) {
+void SPLITRAN_write_fitpar_legacy(char *fileName) {
 
   // May 29 2019
   // Write fit params to machine-parsable file so that they 
   // can be read back later for summary file.
+  //
+  // Aug 17 2020: mark as legacy; should use yaml file.
 
   FILE *fout;
   int n, ISFLOAT, ISM0, iz ;
   double VAL, ERR ;
   char tmpName[60] ;
   char KEY[]  = "FITPAR:" ;
-  char fnam[] = "SPLITRAN_write_fitpar";
+  char fnam[] = "SPLITRAN_write_fitpar_legacy";
 
   // ------------- BEGIN -------------
+
+  if ( INPUTS.write_yaml ) { return; } // Aug 17 2020
 
   fprintf(FP_STDOUT, " %s: open %s \n", fnam, fileName);
   fout = fopen(fileName,"wt");
@@ -16600,7 +16632,7 @@ void SPLITRAN_write_fitpar(char *fileName) {
   fclose(fout);
   return ;
 
-} // end SPLITRAN_write_fitpar
+} // end SPLITRAN_write_fitpar_legacy
 
 // ******************************************
 void SPLITRAN_read_fitpar(int isplit) {

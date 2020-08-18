@@ -1,0 +1,264 @@
+(cd ../obj; cc -c -static -m64 -g -fbounds-check   -I/cvmfs/des.opensciencegrid.org/2015_Q2/eeups/SL6/eups/packages/Linux64/gsl/1.15+0/include -I//cvmfs/des.opensciencegrid.org/2015_Q2/eeups/SL6/eups/packages/Linux64/cfitsio/3.370+0/include  ../src/snlc_sim.c )
+In file included from ../src/snlc_sim.c:45:
+../src/sntools_genGauss_asym.h:11: error: expected specifier-qualifier-list before ‘bool’
+In file included from ../src/snlc_sim.c:46:
+../src/sntools_genExpHalfGauss.h:4: error: expected specifier-qualifier-list before ‘bool’
+../src/snlc_sim.c: In function ‘set_user_defaults’:
+../src/snlc_sim.c:735: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:736: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:737: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:744: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:745: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:746: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:747: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:748: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:751: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:752: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:753: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:754: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:755: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:758: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:759: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:762: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:763: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:794: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:795: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:797: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:798: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c: In function ‘read_input’:
+../src/snlc_sim.c:2005: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘FUNINDEX’
+../src/snlc_sim.c:2052: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:2053: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:2058: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:2059: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:2073: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:2074: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:2075: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:2082: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘EXP_TAU’
+../src/snlc_sim.c:2083: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘EXP_TAU’
+../src/snlc_sim.c:2090: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:2091: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:2096: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:2097: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:2103: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RATIO’
+../src/snlc_sim.c:2104: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RATIO’
+../src/snlc_sim.c:2111: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:2114: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:2117: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘EXP_TAU’
+../src/snlc_sim.c:2120: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RATIO’
+../src/snlc_sim.c:2123: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c: In function ‘read_input_SIMSED_COV’:
+../src/snlc_sim.c:4122: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:4123: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:4129: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘NAME’
+../src/snlc_sim.c: In function ‘read_input_GENGAUSS’:
+../src/snlc_sim.c:4205: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:4209: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:4213: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:4214: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:4219: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SKEW’
+../src/snlc_sim.c:4223: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:4224: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:4231: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘NGRID’
+../src/snlc_sim.c:4237: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PROB2’
+../src/snlc_sim.c:4240: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK2’
+../src/snlc_sim.c:4243: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA2’
+../src/snlc_sim.c:4244: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA2’
+../src/snlc_sim.c: In function ‘sscanf_GENGAUSS’:
+../src/snlc_sim.c:4277: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:4282: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:4288: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:4289: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:4292: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:4298: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SKEW’
+../src/snlc_sim.c:4299: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SKEW’
+../src/snlc_sim.c:4304: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:4305: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:4308: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:4317: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘NGRID’
+../src/snlc_sim.c:4323: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PROB2’
+../src/snlc_sim.c:4327: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK2’
+../src/snlc_sim.c:4331: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA2’
+../src/snlc_sim.c:4332: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA2’
+../src/snlc_sim.c:4335: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c: In function ‘sim_input_override’:
+../src/snlc_sim.c:5270: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:5271: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:5272: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:5273: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:5279: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘EXP_TAU’
+../src/snlc_sim.c:5280: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘EXP_TAU’
+../src/snlc_sim.c:5289: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:5290: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:5298: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:5299: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:5304: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RATIO’
+../src/snlc_sim.c:5305: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RATIO’
+../src/snlc_sim.c:5312: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:5315: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:5318: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘EXP_TAU’
+../src/snlc_sim.c:5321: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:5322: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:5326: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RATIO’
+../src/snlc_sim.c:5356: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:5357: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:5361: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:5362: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c: In function ‘prep_user_input’:
+../src/snlc_sim.c:6164: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:6167: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:6168: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:6185: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:6186: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:6256: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:6257: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:6258: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:6259: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:6260: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:6261: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:6505: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:6506: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:6511: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:6513: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:6513: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:6515: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:6515: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c: In function ‘prep_user_SIMSED’:
+../src/snlc_sim.c:6858: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:6864: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c: In function ‘prep_dustFlags’:
+../src/snlc_sim.c:6925: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:6936: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:6936: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:6950: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:6951: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘USE’
+../src/snlc_sim.c: In function ‘read_SALT2mu_AlphaBeta’:
+../src/snlc_sim.c:7154: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:7155: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c: In function ‘genperfect_override’:
+../src/snlc_sim.c:7712: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:7713: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c: In function ‘genshift_risefalltimes’:
+../src/snlc_sim.c:11230: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:11234: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c: In function ‘gen_modelPar’:
+../src/snlc_sim.c:11266: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:11336: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c: In function ‘gen_modelPar_SALT2’:
+../src/snlc_sim.c:11356: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c: In function ‘gen_modelPar_SIMSED’:
+../src/snlc_sim.c:11503: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:11504: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:11505: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c: In function ‘gen_AV’:
+../src/snlc_sim.c:14213: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:14216: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘EXP_TAU’
+../src/snlc_sim.c:14218: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘EXP_TAU’
+../src/snlc_sim.c:14218: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘EXP_TAU’
+../src/snlc_sim.c:14221: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:14223: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:14223: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:14226: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RATIO’
+../src/snlc_sim.c:14226: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RATIO’
+../src/snlc_sim.c:14233: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:14237: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘EXP_TAU’
+../src/snlc_sim.c:14237: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘EXP_TAU’
+../src/snlc_sim.c:14240: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:14240: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:14243: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RATIO’
+../src/snlc_sim.c:14243: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RATIO’
+../src/snlc_sim.c:14253: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:14257: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c: In function ‘keep_SIMLIB_HEADER’:
+../src/snlc_sim.c:15650: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:15731: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:15748: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:15750: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:15757: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:15759: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c: In function ‘parse_SIMLIB_GENRANGES’:
+../src/snlc_sim.c:17341: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:17342: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:17343: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:17344: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:17351: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:17352: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:17368: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:17369: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:17370: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:17371: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:17377: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:17378: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:17391: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:17392: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:17393: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:17394: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:17400: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:17401: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c: In function ‘regen_SIMLIB_GENRANGES’:
+../src/snlc_sim.c:17503: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:17514: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:17519: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:17520: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:17524: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:17529: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:17530: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:17551: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:17552: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c: In function ‘get_zvariation_GENGAUSS’:
+../src/snlc_sim.c:18424: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:18427: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:18432: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SKEW’
+../src/snlc_sim.c:18438: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:18444: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:18447: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:18453: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PROB2’
+../src/snlc_sim.c:18456: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK2’
+../src/snlc_sim.c:18461: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA2’
+../src/snlc_sim.c: In function ‘checkpar_SIMSED’:
+../src/snlc_sim.c:18780: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:18781: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:18817: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:18818: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:18825: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:18826: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:18855: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:18861: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:18865: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:18871: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:18875: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c: In function ‘readme_doc’:
+../src/snlc_sim.c:26090: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:26091: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:26092: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:26097: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:26098: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:26099: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:26123: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘USE’
+../src/snlc_sim.c:26125: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘USE’
+../src/snlc_sim.c: In function ‘readme_doc_hostxt’:
+../src/snlc_sim.c:27370: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘NAME’
+../src/snlc_sim.c:27390: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:27390: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:27394: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘EXP_TAU’
+../src/snlc_sim.c:27395: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘RATIO’
+../src/snlc_sim.c:27396: error: ‘GEN_EXP_HALFGAUSS_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c: In function ‘sprintf_GENGAUSS’:
+../src/snlc_sim.c:27495: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:27497: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:27498: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:27501: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:27501: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SIGMA’
+../src/snlc_sim.c:27508: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SKEW’
+../src/snlc_sim.c:27508: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘SKEW’
+../src/snlc_sim.c:27511: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:27511: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c: In function ‘SIMLIB_DUMP_makeTable’:
+../src/snlc_sim.c:29143: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:29146: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c: In function ‘DUMP_GENMAG_DRIVER’:
+../src/snlc_sim.c:29468: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:29469: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘RANGE’
+../src/snlc_sim.c:29555: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+../src/snlc_sim.c:29556: error: ‘GENGAUSS_ASYM_DEF’ has no member named ‘PEAK’
+make: *** [../obj/snlc_sim.o] Error 1

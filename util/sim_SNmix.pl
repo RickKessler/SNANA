@@ -221,6 +221,15 @@
 #   + increment NABORT if logFile does not exist.
 #   + write PATH_SNDATA_SIM in TOTAL_SUMMARY.LOG
 #
+# Jul 14 2020: 
+#   fix $MOI4 (for version prefix) to append zeros if username
+#   has less then 4 characters. e.g., user = ab will have
+#   prefix = ab00
+#     
+# Jul 24 2020: no longer copy SIMLIB_FILE to misc/
+#
+# Aug 15 2020: check GENOPT_GLOBAL for include file.
+#
 # ---------------------------------------------------------
 
 use strict ;
@@ -326,7 +335,7 @@ my (@CONTENTS_INFILE_Ia, @CONTENTS_INFILE_NONIa, @CONTENTS_INFILE_SIMGEN);
 my ($NARG,$SNMIX_INFILE_MASTER,$SUBMIT_FLAG, $PROMPT_FLAG );
 my ($INPUT_FILE_INCLUDE_Ia, $INPUT_FILE_INCLUDE_NONIa, @GENOPT_FILE_INCLUDE);
 my ($INPUT_FILE_ZVAR_Ia, $INPUT_FILE_ZVAR_NON1A, @INPUT_FILE_NON1AGRID );
-my ($SIMLIB_FILE, $SEARCHEFF_SPEC_FILE, $HOSTNOISE_FILE, $ZPHOTEFF_FILE );
+my ($SEARCHEFF_SPEC_FILE, $HOSTNOISE_FILE, $ZPHOTEFF_FILE );
 my ($FASTFAC, $SUFFIX_TEMP );
 my ($DO_SSH, $DO_BATCH, $SNANA_LOGIN_SETUP);
 my ($KILLJOBS_FLAG, $DEBUG_GENSTAT, $INODE_GLOBAL, $PROMPT_FLAG );
@@ -373,10 +382,14 @@ my $JOBNAME_SIM_FULLPATH = `which $JOBNAME_SIM` ;
 
 # define temp prefix for versions that get deleted,
 # or should be deleted by user of job fails
-my $MOI  = `whoami`      ;
-my $MOI4 = substr($MOI,0,4);
-my $PREFIX_TEMP  = "TMP_${MOI4}" ;
-my $SUFFIX_DUMP_TEMP = "DUMP_TEMP" ;
+my ($MOI4, $PREFIX_TEMP, $SUFFIX_DUMP_TEMP) ;
+
+# xxxxxxx mark delete Jul 2020 xxxxxxxxx
+#my $MOI  = `whoami`  ;
+#my $MOI4 = substr($MOI,0,4);
+#my $PREFIX_TEMP  = "TMP_${MOI4}" ;
+#my $SUFFIX_DUMP_TEMP = "DUMP_TEMP" ;
+# xxxxxxxxxxxxxxxxxxxxx
 
 my $BATCH_TEMPLATE_KICP = '$SBATCH_TEMPLATES/SBATCH_kicp.TEMPLATE' ;
 
@@ -656,7 +669,7 @@ sub debug_abort {
 # ========================================================
 sub init_SIMGEN() {
 
-    my ($m, $m0) ;
+    my ($m, $m0, $LEN_USER, $NCHAR_MOI ) ;
 
     $NGENMODEL_GLOBAL = 0 ;
     $mIa                = -9 ;
@@ -666,6 +679,17 @@ sub init_SIMGEN() {
     $HOST        = $ENV{'HOST'};
     $SNDATA_ROOT = $ENV{'SNDATA_ROOT'};
     $SNANA_DIR   = $ENV{'SNANA_DIR'};
+
+# - - - - 
+    $LEN_USER = length($USER);
+    $NCHAR_MOI = 4 ;
+    $MOI4      = substr($USER,0,$NCHAR_MOI);
+    if ( $LEN_USER < $NCHAR_MOI ) 
+    {  $MOI4 .= ('0' x ($NCHAR_MOI-$LEN_USER));  }
+
+    $PREFIX_TEMP  = "TMP_${MOI4}" ;
+    $SUFFIX_DUMP_TEMP = "DUMP_TEMP" ;
+# - - - - -
 
     $PATH_SNDATA_SIM = "$SNDATA_ROOT/SIM" ;
     $USER_PATH_SNDATA_SIM = 0 ;
@@ -850,7 +874,6 @@ sub parse_inFile_master() {
     $INPUT_FILE_ZVAR_NON1A = "" ;
     @INPUT_FILE_NON1AGRID  = () ;
 
-    $SIMLIB_FILE           = "" ;
     $SEARCHEFF_SPEC_FILE   = "" ;
     $HOSTNOISE_FILE        = "" ;
     $ZPHOTEFF_FILE         = "" ;
@@ -1208,6 +1231,22 @@ sub parse_INFILE_Ia {
 	@CONTENTS_INFILE_Ia = (@CONTENTS_INFILE_Ia, @INCLUDE);
     }
 
+    # Aug 15 2020: check GENOPT_GLOBAL for include file
+    if ( length($GENOPT_GLOBAL) > 0  ) {
+	@wdlist  = split(/\s+/,$GENOPT_GLOBAL) ;
+	$key = "INPUT_FILE_INCLUDE";
+	@tmp = sntools::parse_array($key,1, $OPT_QUIET, @wdlist);
+	if ( scalar(@tmp) > 0 ) {
+	    $INPUT_FILE_INCLUDE_Ia = "$tmp[0]" ;
+	    $INPUT_FILE_INCLUDE_Ia = qx(echo $INPUT_FILE_INCLUDE_Ia);
+	    #print "  xxx INPUT_FILE_INCLUDE_Ia = $INPUT_FILE_INCLUDE_Ia \n";  
+	    my (@INCLUDE);
+	    sntools::loadArray_fromFile($INPUT_FILE_INCLUDE_Ia,\@INCLUDE);
+	    @CONTENTS_INFILE_Ia = (@CONTENTS_INFILE_Ia, @INCLUDE);
+	}
+    }
+
+
     $key = "GENFILTERS:";
     @tmp = sntools::parse_array($key,1,$OPT_ABORT,@CONTENTS_INFILE_Ia);
     $GENFILTERS = $tmp[0];
@@ -1221,13 +1260,6 @@ sub parse_INFILE_Ia {
 	print "  INPUT_FILE_ZVAR_Ia = $INPUT_FILE_ZVAR_Ia \n";
     }
     
-    $key = "SIMLIB_FILE:";
-    @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_Ia);
-    if ( scalar(@tmp) > 0 ) {
-	$SIMLIB_FILE = "$tmp[0]" ;
-#	print "  SIMLIB_FILE = $SIMLIB_FILE \n";
-    }
-
     $key = "SEARCHEFF_SPEC_FILE:";
     @tmp = sntools::parse_array($key,1,$OPT_QUIET,@CONTENTS_INFILE_Ia);
     if ( scalar(@tmp) > 0 ) {
@@ -1310,7 +1342,21 @@ sub parse_INFILE_NONIa {
 	sntools::loadArray_fromFile($INPUT_FILE_INCLUDE_NONIa,\@INCLUDE);
 	@CONTENTS_INFILE_NONIa = (@CONTENTS_INFILE_NONIa, @INCLUDE);
     }
-    
+
+    # Aug 15 2020: check GENOPT_GLOBAL for include file
+    if ( length($GENOPT_GLOBAL) > 0  ) {
+	@wdlist         = split(/\s+/,$GENOPT_GLOBAL) ;
+	$key = "INPUT_FILE_INCLUDE";
+	@tmp = sntools::parse_array($key,1, $OPT_QUIET, @wdlist);
+	if ( scalar(@tmp) > 0 ) {
+	    $INPUT_FILE_INCLUDE_NONIa = $tmp[0];
+	    $INPUT_FILE_INCLUDE_NONIa = qx(echo $INPUT_FILE_INCLUDE_NONIa);
+	    my (@INCLUDE) ;
+	    sntools::loadArray_fromFile($INPUT_FILE_INCLUDE_NONIa,\@INCLUDE);
+	    @CONTENTS_INFILE_NONIa = (@CONTENTS_INFILE_NONIa, @INCLUDE);
+	}
+    }
+
     $key = "GENFILTERS:";
     @tmp = sntools::parse_array($key,1,$OPT_ABORT,@CONTENTS_INFILE_NONIa);
     if ( $NFILT > 0  &&  "$tmp[0]" ne "$GENFILTERS" ) {
@@ -1747,19 +1793,6 @@ sub PROCESS_GENOPT_LINE {
 	    $GENVERSION_GENOPT[$iver][$m] = "$GENOPT $tmpArg" ;
 	}
     }
-
-# xxxxxxx mark delete Oct 25 2019 xxxxxxxx
-    # Jan 2018: check for include in the GENOPT so that it
-    #    can be copied to /misc later 
-#    my ($indx, @INDX, @WDLIST );
-#    @WDLIST   = split(/\s+/,$tmpArg) ;
-#    @INDX = grep{$WDLIST[$_] eq "INPUT_FILE_INCLUDE"} 0 .. $#WDLIST ;	
-#    if ( scalar(@INDX) > 0  ) {
-#	$indx = $INDX[0];
-#	$GENOPT_FILE_INCLUDE[$iver] = $WDLIST[$indx+1] ;
-#    }
-# xxxxxxxxx mark delete xxxxxxxxxxxxxx
-
     
     return ;
 
@@ -2259,13 +2292,6 @@ sub create_version {
 	}
     }
 
-    if ( $SIMLIB_FILE ne '' ) {
-	# copy file if it's there; otherwise will use public file
-	if ( -e $SIMLIB_FILE ) {
-	    $cmdcp = "cp $SIMLIB_FILE $SIMGEN_MISCDIR/";
-	    qx($cmdcp);
-	}
-    }
 
     if ( $SEARCHEFF_SPEC_FILE ne '' ) {
 	# copy file if it's there; otherwise will use public file
@@ -2791,19 +2817,6 @@ sub get_NGEN {
 	sntools::FATAL_ERROR_STAMP($DONE_STAMP,@MSGERR);
     }
 
-# xxxxxxxxxx mark delete Oct 25 2019 xxxxxxxxxxxxxxxx
-#    my (@INDX, $GENOPT, @GENOPT_LIST, $indx);
-#    $key2 = "NGENTOT_LC";
-#    $GENOPT = "$GENVERSION_GENOPT[$iver][$m]" ;
-#    @GENOPT_LIST = split(' ',$GENOPT);
-#    @INDX =  grep { $GENOPT_LIST[$_] eq $key2 } 0 .. $#GENOPT_LIST ;    
-#    if ( scalar(@INDX) > 0  ) {
-#	$indx = $INDX[0];
-#	$N = $GENOPT_LIST[$indx+1];
-#	print "   Will use $key2 $N  from GENOPT override.\n";
-#   }
-# xxxxxxxxxxxx end mark xxxxxxxxx
-
     return $N ;
 
 } # end of get_NGEN
@@ -2909,12 +2922,6 @@ sub simgen {
 
     $NSIMARG++ ;
     $SIMARG_LIST[$NSIMARG]  = "$SIMARG_FORMAT" ;
-
-# xxx mark delete     $NSIMARG++ ;
-# xxx mark delete    $SIMARG_LIST[$NSIMARG]  = "$SIMARG_ZRANGE";
-
-# xxx mark delete     $NSIMARG++ ;
-# xxx mark delete  $SIMARG_LIST[$NSIMARG]  = "$GENOPT_GLOBAL" ; 
 
     $NSIMARG++ ;
     $SIMARG_LIST[$NSIMARG]  = "$TMP_GENOPT" ;

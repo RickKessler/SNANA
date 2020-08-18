@@ -17,7 +17,6 @@ struct {
   float **DELAY ; // time delay of each image (days)
   float **MAG; //magnification of each image
   
-
   char VARNAME_LENSID[40];
   char VARNAME_ZSRC[40];
   char VARNAME_ZLENS[40];
@@ -38,7 +37,7 @@ struct {
 void init_stronglens(char *MODEL_FILE);
 void malloc_stronglens(int NLENS);
 
-void get_stronglens(double zSN, double *hostpar, int LDMP, 
+void get_stronglens(double zSN, double *hostpar, int LDMP,
 		    int *IDLENS, double *ZLENS, 
 		    int *blend_flag, int *NIMG,
 		    double *DELAY, double *MAG, double *XIMG, double *YIMG);

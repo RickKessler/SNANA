@@ -226,7 +226,6 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   double *SED  = Event_BYOSED.SED ;
 
   int  ifilt  = IFILTMAP_SEDMODEL[IFILT_OBS] ; // sparse filter index
-  char *cfilt = FILTER_SEDMODEL[ifilt].name ;
   double  ZP  = FILTER_SEDMODEL[ifilt].ZP ;    // ZP for flux->mag
   double x0   = pow(10.0,-0.4*MU);             // dimming from dist. mod.
   int    NEWEVT_FLAG = 0 ;
@@ -345,11 +344,13 @@ int fetchParNames_BYOSED(char **parNameList) {
   //
   // Called once during init stage.
 
-  int NPAR,ipar;
-  char fnam[] = "fetchParNames_BYOSED" ;
+  int NPAR = 0 ;
+  //  char fnam[] = "fetchParNames_BYOSED" ;
+
 #ifdef USE_PYTHON
   // python declarations here
   
+  int ipar;
   PyObject *parnamesmeth,*pNames,*pNPARmeth,*pNPAR,*pnamesitem;
   PyListObject *arrNames;
   printf("fetching parameter names from Python\n");
@@ -394,8 +395,8 @@ void fetchParVal_BYOSED(double *parVal) {
 #endif
   double val;
   char **parNameList;
-  int NPAR,ipar;
-  char fnam[] = "fetchParVal_BYOSED" ;
+  int NPAR, ipar;
+  //  char fnam[] = "fetchParVal_BYOSED" ;
 
   // ------------- BEGIN ------------------
 
@@ -417,6 +418,12 @@ void fetchParVal_BYOSED(double *parVal) {
   Py_DECREF(parvalmeth);
 #endif
   
+#ifndef USE_PYTHON
+  for(ipar=0; ipar < NPAR; ipar++ ) {
+    val = -999.0; parVal[ipar] = val;
+  }
+#endif
+
   return ;
 
 } // end fetchParVal_BYOSED
@@ -583,10 +590,9 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
   int    ifilt          = IFILTMAP_SEDMODEL[ifilt_obs] ;
   int    NLAMFILT       = FILTER_SEDMODEL[ifilt].NLAM ;
   int   DO_SPECTROGRAPH = ( ifilt_obs == JFILT_SPECTROGRAPH ) ;
-  double meanlam_obs    = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda
+
   double z1             = 1.0 + zHEL ;
   double Trest          = Tobs/z1 ;
-  double meanlam_rest   = meanlam_obs/z1 ;
   double minlam_filt    = FILTER_SEDMODEL[ifilt].lammin ;
   double maxlam_filt    = FILTER_SEDMODEL[ifilt].lammax ;
   double lamstep_filt   = FILTER_SEDMODEL[ifilt].lamstep ;
@@ -596,17 +602,16 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
   double MODELNORM_Finteg  = lamstep_filt / hc8 ;
   double MODELNORM_Fspec   = lamstep_filt ;
 
-  int    LABORT, ilamobs, ilamsed, ISTAT_SMEAR ;
-  double TRANS, MWXT_FRAC, HOSTXT_FRAC, FLUXSUM = 0.0 ;
+  int    ilamobs, ilamsed, ISTAT_SMEAR ;
+  double TRANS, MWXT_FRAC, HOSTXT_FRAC;
   double LAMOBS, LAMSED, LAMSED_MIN, LAMSED_MAX;
   double LAMSED_STEP, LAMSPEC_STEP, LAMRATIO ;
   double TMPLAM[3], TMPSED[3];
   double lam[MXBIN_LAMFILT_SEDMODEL], magSmear[MXBIN_LAMFILT_SEDMODEL];
   double Fbin_forFlux, Fbin_forSpec, FTMP, arg, FSMEAR ; 
   double Finteg_filter=0.0, Finteg_spec=0.0 ;
-  char *cfilt  = FILTER_SEDMODEL[ifilt].name ;
 
-  int  LDMP = 0 ;
+  //  int  LDMP = 0 ;
   char fnam[]  = "INTEG_zSED_BYOSED" ;
 
   // ------------- BEGIN -----------
@@ -745,13 +750,10 @@ void genSpec_BYOSED(double Tobs, double zHEL, double MU,
   double hc8   = (double)hc ;
   double z1    = 1.0 + zHEL ;
   double x0    = pow(TEN,-0.4*MU);
-  double Trest = Tobs/z1 ;
   int NBLAM    = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
-  int NEWEVT_FLAG = 0;
-
   int ilam ;
   double Finteg_ignore, FTMP, MAG, ZP, LAM ;
-  char fnam[] = "genSpec_BYOSED" ;
+  //  char fnam[] = "genSpec_BYOSED" ;
 
   // --------- BEGIN ------------
 
@@ -797,7 +799,7 @@ void  read_SALT2_template0(void) {
   double Trange[2] = { -40.0,  100.0   } ;
   double Lrange[2] = { 2000.0, 9200.0  } ;
   char   MODELNAME_SALT2[] = "SALT2.JLA-B14" ;
-  char fnam[] = "read_SALT2_template0" ;
+  //  char fnam[] = "read_SALT2_template0" ;
 
   // ------------- BEGIN -------------
 

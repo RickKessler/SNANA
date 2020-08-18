@@ -109,7 +109,7 @@ void CLOSE_MARZFILE(char *FILENAME) {
 
   int istat = 0;
   char msg[200];
-  char fnam[] = "CLOSE_MARZFILE" ;
+  //  char fnam[] = "CLOSE_MARZFILE" ;
   // -------------- BEGIN -------------
 
   WRITE_TABLES_MARZ(FILENAME);
@@ -143,7 +143,7 @@ void WRITE_TABLES_MARZ(char *FILENAME) {
   
   char extName[40], **varNames, **formats, **units;
   char tblName[40], msg[100] ;
-  char fnam[] = "WRITE_TABLES_MARZ" ;
+  //  char fnam[] = "WRITE_TABLES_MARZ" ;
 
   // ------------ BEGIN ------------
 

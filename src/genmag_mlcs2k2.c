@@ -55,13 +55,14 @@
  Dec 29 2017: use open_TEXTgz() to allow reading gzipped text files.
       
 *******************************************************************/
-
+/*
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-#include "sntools.h"
+*/
 
+#include "sntools.h"
 #include "genmag_mlcs2k2.h"
 
 // -------------------------------------------------------------

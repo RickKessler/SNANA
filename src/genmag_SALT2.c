@@ -71,11 +71,6 @@
 
 *************************************/
 
-
-#include <stdio.h> 
-#include <math.h>     // log10, pow, ceil, floor
-#include <stdlib.h>   // includes exit(),atof()
-
 #include "sntools.h"           // community tools
 #include "sntools_genSmear.h"
 #include "sntools_spectrograph.h"
@@ -208,6 +203,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   int  ised, LEGACY_colorXTMW ;
   int  retval = 0   ;
   int  ABORT_on_LAMRANGE_ERROR = 0;
+  int  ABORT_on_BADVALUE_ERROR = 1;
   char BANNER[120], tmpFile[200], sedcomment[40], version[60]  ;
   char fnam[] = "init_genmag_SALT2" ;
 
@@ -226,10 +222,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     sprintf(c2err,"Need to call init_filter_SEDMODEL");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-
-  /* xxx Mar 24 2020 mark delete (moved below ) xxxx
-  sprintf(SALT2_INFO_FILE,     "SALT2.INFO" );
-  xxxxxxxxxxxx */
 
   // summarize filter info
   filtdump_SEDMODEL();
@@ -355,13 +347,14 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   // ========== read error maps with same format as SED flux
   read_SALT2errmaps(Trange,Lrange);  
 
-
-  // ------------------
+  // ------------------ 
   // Read color-dispersion vs. wavelength
   read_SALT2colorDisp();
-
+  
   // abort if any ERRMAP has invalid wavelength range (Sep 2019)
   if ( ABORT_on_LAMRANGE_ERROR ) { check_lamRange_SALT2errmap(-1); }
+  if ( ABORT_on_BADVALUE_ERROR ) { check_BADVAL_SALT2errmap(-1); }
+  
 
   // fill/calculate color-law table vs. color and rest-lambda
   fill_SALT2_TABLE_COLORLAW();
@@ -756,28 +749,30 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
   //
   // May 2011: check array bound
   // Jul 2013: add array-bound check on NBTOT = NBLAM*NDAY
-  
+  // Jul 23 2020: for SALT3, remove _relative from file names
+
   int imap, NDAY, NLAM, NBTOT;
   double DUMMY[20];
 
-  char
-    tmpFile[200]
-    ,sedcomment[80]
-    ,*prefix = SALT2_PREFIX_FILENAME
-    ,fnam[] = "read_SALT2errmaps" ;
-    ;
+  char tmpFile[200], sedcomment[80], lc_string[20] ;
+  char *prefix = SALT2_PREFIX_FILENAME ;
+  char fnam[] = "read_SALT2errmaps" ;
 
   // ----------- BEGIN -----------    
 
   printf("\n Read SALT2 ERROR MAPS: \n");
   fflush(stdout);
 
-  NERRMAP_BAD_SALT2 = 0 ;
+  NERRMAP_BADRANGE_SALT2 = 0 ;
+  NERRMAP_BADVALUE_SALT2 = 0 ; // July 2020
 
-  // hard-wire filenames for erro maps
-  sprintf(SALT2_ERRMAP_FILES[0], "%s_lc_relative_variance_0.dat", prefix );
-  sprintf(SALT2_ERRMAP_FILES[1], "%s_lc_relative_variance_1.dat", prefix );
-  sprintf(SALT2_ERRMAP_FILES[2], "%s_lc_relative_covariance_01.dat", prefix );
+  // hard-wire filenames for error maps
+  sprintf(lc_string,"lc_relative");
+  if ( ISMODEL_SALT3 ) { sprintf(lc_string,"lc"); }
+
+  sprintf(SALT2_ERRMAP_FILES[0], "%s_%s_variance_0.dat", prefix, lc_string );
+  sprintf(SALT2_ERRMAP_FILES[1], "%s_%s_variance_1.dat", prefix, lc_string );
+  sprintf(SALT2_ERRMAP_FILES[2], "%s_%s_covariance_01.dat", prefix, lc_string );
   sprintf(SALT2_ERRMAP_FILES[3], "%s_lc_dispersion_scaling.dat", prefix );
   sprintf(SALT2_ERRMAP_FILES[4], "%s_color_dispersion.dat",      prefix );
 
@@ -785,11 +780,13 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
   sprintf(SALT2_ERRMAP_COMMENT[1],  "VAR1" );
   sprintf(SALT2_ERRMAP_COMMENT[2],  "COVAR" );
   sprintf(SALT2_ERRMAP_COMMENT[3],  "ERRSCALE" );
-  sprintf(SALT2_ERRMAP_COMMENT[4],  "COLOR-DISPERSION" );
+  sprintf(SALT2_ERRMAP_COMMENT[4],  "COLOR-DISP" ); // 10 chars long
 
-
+  
   for ( imap=0; imap < NERRMAP; imap++ ) {
 
+    init_BADVAL_SALT2errmap(imap);
+     
     if ( imap >= INDEX_ERRMAP_COLORDISP ) { continue ; } // read elsewhere
 
     sprintf(tmpFile, "%s/%s", SALT2_MODELPATH, SALT2_ERRMAP_FILES[imap] );
@@ -818,7 +815,8 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
 
     NBTOT = NLAM*NDAY ;
     if ( NBTOT >= MXBIN_VAR_SALT2 ) {
-      sprintf(c1err,"NLAM*NDAY=%d*%d = %d exceeds bound of MXBIN_VAR_SALT2=%d",
+      sprintf(c1err,"NLAM*NDAY=%d*%d = %d exceeds bound of "
+	      "MXBIN_VAR_SALT2=%d",
 	      NLAM, NDAY, NBTOT, MXBIN_VAR_SALT2);
       sprintf(c2err,"See '%s'", tmpFile);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
@@ -828,6 +826,7 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
     // Sep 2019: make sure wave range covers SED wave range
     check_lamRange_SALT2errmap(imap);
     check_dayRange_SALT2errmap(imap);
+    check_BADVAL_SALT2errmap(imap);
 
     fflush(stdout);
 
@@ -986,8 +985,7 @@ void read_SALT2colorDisp(void) {
   rd2columnFile( tmpFile, MXBIN
 		,&SALT2_ERRMAP[imap].NLAM
 		,SALT2_ERRMAP[imap].LAM
-		,SALT2_ERRMAP[imap].VALUE
-		);
+		,SALT2_ERRMAP[imap].VALUE   );
 
   NLAM = SALT2_ERRMAP[imap].NLAM ;
 
@@ -1030,6 +1028,7 @@ void read_SALT2colorDisp(void) {
   SALT2_ERRMAP[imap].LAMMAX = SALT2_ERRMAP[imap].LAM[NLAM-1] ;
 
   check_lamRange_SALT2errmap(imap);
+  check_BADVAL_SALT2errmap(imap); // July 2020
 
   fflush(stdout);
 
@@ -1097,7 +1096,8 @@ void read_SALT2_INFO_FILE(void) {
   INPUT_SALT2_INFO.INTERP_SEDREBIN_DAY    = 5 ;
   INPUT_SALT2_INFO.SEDFLUX_INTERP_OPT = 2 ; // 1=linear,   2=> Spline
   INPUT_SALT2_INFO.ERRMAP_INTERP_OPT  = 2 ; // 1=>linear,  2=> spline
-  INPUT_SALT2_INFO.ERRMAP_KCOR_OPT    = 1 ; // 1=>ON
+  INPUT_SALT2_INFO.ERRMAP_KCOR_OPT    = 1 ; // 1=>ON 
+  INPUT_SALT2_INFO.ERRMAP_BADVAL_ABORT= 1 ; // 1=>ON (July 2020)
   INPUT_SALT2_INFO.COLORLAW_VERSION   = IVER = 0;
   INPUT_SALT2_INFO.NCOLORLAW_PARAMS   = 4;
   INPUT_SALT2_INFO.COLOR_OFFSET       = 0.0 ;
@@ -1177,6 +1177,10 @@ void read_SALT2_INFO_FILE(void) {
 
     if ( strcmp(c_get, "ERRMAP_KCOR_OPT:") == 0 ) {
       readint(fp, 1, &INPUT_SALT2_INFO.ERRMAP_KCOR_OPT );
+    }
+
+    if ( strcmp(c_get, "ERRMAP_BADVAL_ABORT:") == 0 ) {
+      readint(fp, 1, &INPUT_SALT2_INFO.ERRMAP_BADVAL_ABORT );
     }
 
     if ( strcmp(c_get, "RESTLAM_FORCEZEROFLUX:") == 0 ) {
@@ -1274,6 +1278,8 @@ void read_SALT2_INFO_FILE(void) {
   OPT = INPUT_SALT2_INFO.ERRMAP_KCOR_OPT;
   printf("\t ERRMAP_KCOR_OPT:     %d  (%s) \n", OPT, CHAR_OFFON[OPT] );
 
+  OPT = INPUT_SALT2_INFO.ERRMAP_BADVAL_ABORT ;
+  printf("\t ERRMAP_BADVAL_ABORT: %d  (%s) \n", OPT, CHAR_OFFON[OPT] );
 
   printf("\n");    fflush(stdout);
 
@@ -1285,8 +1291,8 @@ void check_lamRange_SALT2errmap(int imap) {
 
   // Sep 6 2019
   // If imap>=0, print ERROR message if ERRMAP wave range
-  // does not cover SED wave range. Also increment NERRMAP_BAD_SALT2.
-  // If imap < 0 && NERRMAP_BAD_SALT2>0, abort.
+  // does not cover SED wave range. Also increment NERRMAP_BADRANGE_SALT2.
+  // If imap < 0 && NERRMAP_BADRANGE_SALT2>0, abort.
 
   double SED_LAMMIN = SALT2_TABLE.LAMMIN ;
   double SED_LAMMAX = SALT2_TABLE.LAMMAX ;
@@ -1297,15 +1303,14 @@ void check_lamRange_SALT2errmap(int imap) {
   int    DISABLE = 0 ;
   char fnam[] = "check_lamRange_SALT2errmap" ;
 
-
   // ----------- BEGIN -------------
 
   if ( DISABLE ) { return ; }
 
   if ( imap < 0 ) {
-    if ( NERRMAP_BAD_SALT2 > 0 ) {
+    if ( NERRMAP_BADRANGE_SALT2 > 0 ) {
       sprintf(c1err,"%d ERRMAPs have invalid wavelength range.",
-	      NERRMAP_BAD_SALT2 );
+	      NERRMAP_BADRANGE_SALT2 );
       sprintf(c2err,"grep stdout for 'ERRMAP:'  to see all errors.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
@@ -1317,7 +1322,7 @@ void check_lamRange_SALT2errmap(int imap) {
   ERRMAP_LAMMAX = SALT2_ERRMAP[imap].LAMMAX ;
 
   if ( ERRMAP_LAMMIN-tol > SED_LAMMIN || ERRMAP_LAMMAX+tol < SED_LAMMAX ) {
-    NERRMAP_BAD_SALT2++ ;
+    NERRMAP_BADRANGE_SALT2++ ;
     printf("\nERRMAP: WARNING for ERRMAP file %d: %s\n", 
 	   imap, SALT2_ERRMAP_FILES[imap] );
     printf("ERRMAP:     SED_LAMRANGE:    %.1f to %.1f A\n", 
@@ -1336,7 +1341,7 @@ void check_dayRange_SALT2errmap(int imap) {
 
   // Sep 6 2019
   // Give error warning if ERRMAP[imap] day-range does not
-  // cover SED day range, and increment NERRMAP_BAD_SALT2.
+  // cover SED day range, and increment NERRMAP_BADRANGE_SALT2.
 
   double SED_DAYMIN    = SALT2_TABLE.DAYMIN ;
   double SED_DAYMAX    = SALT2_TABLE.DAYMAX ;
@@ -1344,14 +1349,14 @@ void check_dayRange_SALT2errmap(int imap) {
   double ERRMAP_DAYMAX = SALT2_ERRMAP[imap].DAYMAX ;
   double tol = 1.1 ;
   int    DISABLE = 0 ;
-  char fnam[] = "check_dayRange_SALT2errmap" ;
+  //  char fnam[] = "check_dayRange_SALT2errmap" ;
 
   // ----------- BEGIN -------------
 
   if ( DISABLE ) { return ; }
 
   if ( ERRMAP_DAYMIN-tol > SED_DAYMIN || ERRMAP_DAYMAX+tol < SED_DAYMAX ) {
-    NERRMAP_BAD_SALT2++ ;
+    NERRMAP_BADRANGE_SALT2++ ;
     printf("\nERRMAP: WARNING for ERRMAP file: %s\n", 
 	   SALT2_ERRMAP_FILES[imap] );
     printf("ERRMAP:     SED_DAYRANGE:    %.1f to %.1f days\n", 
@@ -1365,6 +1370,171 @@ void check_dayRange_SALT2errmap(int imap) {
 
 } // end check_dayRange_SALT2errmap
 
+
+// ==========================================================
+void  init_BADVAL_SALT2errmap(imap) {
+
+  // Created July 26 2020
+  // Init stuff to count bad values in error maps.
+  // Goal is to quickly catch retraining pathologies.
+
+  SALT2_ERRMAP[imap].NBADVAL_NAN   = 0 ;
+  SALT2_ERRMAP[imap].NBADVAL_CRAZY = 0 ;
+  SALT2_ERRMAP[imap].RANGE_FOUND[0] = +1.0E8 ; 
+  SALT2_ERRMAP[imap].RANGE_FOUND[1] = -1.0E8 ;
+  SALT2_ERRMAP[imap].RANGE_VALID[0] = -1.0E5 ; 
+  SALT2_ERRMAP[imap].RANGE_VALID[1] =  1.0E5 ;
+
+  // - - - - - - - - 
+  // set valid ranges for SALT2
+  if ( imap == INDEX_ERRMAP_VAR0 ) {
+    SALT2_ERRMAP[imap].RANGE_VALID[0] =  -1.0E1 ; 
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =   5.0E2 ;
+  }
+  else if ( imap == INDEX_ERRMAP_VAR1 ) {
+    SALT2_ERRMAP[imap].RANGE_VALID[0] = -1.0E1 ; 
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  5.0E2 ;
+  }
+  else if ( imap == INDEX_ERRMAP_COVAR01 ) {
+    SALT2_ERRMAP[imap].RANGE_VALID[0] = -1.0E1 ; 
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  1.0E2 ;
+  }
+  else if ( imap == INDEX_ERRMAP_SCAL ) {
+    SALT2_ERRMAP[imap].RANGE_VALID[0] =  0.0 ;
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  200. ;
+  }
+  else if ( imap == INDEX_ERRMAP_COLORDISP ) {
+    SALT2_ERRMAP[imap].RANGE_VALID[0] =  0.0 ;
+    SALT2_ERRMAP[imap].RANGE_VALID[1] =  3.0 ;
+  }
+
+  // - - - - - - - - 
+  // make valid range adjustments for SALT3 
+  if ( ISMODEL_SALT3 ) { 
+    // for D'Arcy, David, Mi
+
+  }
+
+  return ;
+
+} // end init_check_BADVAL_SALT2errmap 
+
+// ==========================================================
+void  check_BADVAL_SALT2errmap(imap) {
+
+  // July 2020
+  // check errmap values for NaN and crazy values
+  // Will likely need this protection as retraining ramps up.
+  //   imap >= 0 --> check entire map for bad values
+  //   imap <  0 --> abort on any bad values; print stats for each map
+
+  int    iday, ilam, jtmp, NDAY, NLAM ;
+  double ERRTMP, NERR_LOCAL = 0 ;
+  double *RANGE_FOUND = SALT2_ERRMAP[imap].RANGE_FOUND ;
+  double *RANGE_VALID = SALT2_ERRMAP[imap].RANGE_VALID ;
+  int    BADVAL_ABORT = INPUT_SALT2_INFO.ERRMAP_BADVAL_ABORT;
+
+  double DAYMIN       = SALT2_ERRMAP[0].DAYMIN ; // fixed map index
+  double DAYMAX       = SALT2_ERRMAP[0].DAYMAX ;
+  double DAYEDGE_TOLERANCE = 9.0; // crazy check this far from boundary
+  double DAYMIN_CRAZY = DAYMIN + DAYEDGE_TOLERANCE - 0.001 ;
+  double DAYMAX_CRAZY = DAYMAX - DAYEDGE_TOLERANCE + 0.001;
+
+  double day, lam;
+  double DO_CRAZY_CHECK ;
+  char fnam[] = "check_BADVAL_SALT2errmap" ;
+
+  // ----------- BEGIN --------------
+
+  if ( imap < 0 ) {
+    printf("\n");
+    printf("              NBADVAL NBADVAL       "
+	   "ERRMAP-value    ERRMAP-value\n");
+    printf("    ERRMAP     (NaN)  (crazy^)      "
+	   "actual-range^   [valid-range]\n");
+    printf("# --------------------------------------"
+	   "---------------------------------\n");
+
+    int NBAD_NAN, NBAD_CRAZY;  char *COMMENT;
+    for(jtmp = 0; jtmp < NERRMAP; jtmp++ ) {
+      NBAD_NAN    = SALT2_ERRMAP[jtmp].NBADVAL_NAN; 
+      NBAD_CRAZY  = SALT2_ERRMAP[jtmp].NBADVAL_CRAZY; 
+      COMMENT     = SALT2_ERRMAP_COMMENT[jtmp];
+      RANGE_FOUND = SALT2_ERRMAP[jtmp].RANGE_FOUND ;
+      RANGE_VALID = SALT2_ERRMAP[jtmp].RANGE_VALID ;
+      printf(" %10s  %5d    %5d    %8.1f - %8.1f  [%8.1f - %8.1f]\n",
+	     COMMENT, NBAD_NAN, NBAD_CRAZY, 
+	     RANGE_FOUND[0], RANGE_FOUND[1],
+	     RANGE_VALID[0], RANGE_VALID[1]);
+      fflush(stdout);
+    }
+    printf("# --------------------------------------"
+	   "---------------------------------\n");
+    printf("#         ^restricted to %.1f < DAY < %.1f days\n",
+	   DAYMIN_CRAZY, DAYMAX_CRAZY);
+    printf("\n"); fflush(stdout);
+
+    if ( NERRMAP_BADVALUE_SALT2 > 0 && BADVAL_ABORT ) {
+      print_preAbort_banner(fnam);       
+      sprintf(c1err,"%d bad ERRMAP values (NaN and/or crazy)", 
+	      NERRMAP_BADVALUE_SALT2);
+      sprintf(c2err,"Check bad-value stats above");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+    
+    return ;
+  }
+
+  // - - - - -
+  NDAY = SALT2_ERRMAP[imap].NDAY ;
+  NLAM = SALT2_ERRMAP[imap].NLAM ; 
+  if  (imap == INDEX_ERRMAP_COLORDISP) { NDAY=1; } // only wave bins
+
+  for ( iday=0; iday <  NDAY ; iday++ ) {
+    for ( ilam=0; ilam < NLAM ; ilam++ ) {
+      day    = SALT2_ERRMAP[imap].DAY[iday] ;
+      lam    = SALT2_ERRMAP[imap].LAM[ilam] ;
+
+      jtmp   = NLAM *iday + ilam ;
+      ERRTMP = SALT2_ERRMAP[imap].VALUE[jtmp] ;
+
+      // always check for NaN
+      if ( isnan(ERRTMP) ) { 
+	SALT2_ERRMAP[imap].NBADVAL_NAN++ ; NERR_LOCAL++; 
+	continue ;
+      }
+
+      // check crazy values at least 5 days away from 
+      // min/max day ... because the edge value really are crazy.
+      DO_CRAZY_CHECK = ( day > DAYMIN_CRAZY && day < DAYMAX_CRAZY ) ;
+      if ( NDAY == 1 ) { DO_CRAZY_CHECK = true; }
+      if ( DO_CRAZY_CHECK ) {
+	if ( ERRTMP < RANGE_VALID[0] || ERRTMP > RANGE_VALID[1] ) {
+	  SALT2_ERRMAP[imap].NBADVAL_CRAZY++ ; NERR_LOCAL++; 
+	}
+	if ( ERRTMP < RANGE_FOUND[0] )  { RANGE_FOUND[0] = ERRTMP ; }
+	if ( ERRTMP > RANGE_FOUND[1] )  { RANGE_FOUND[1] = ERRTMP ; }
+      }
+
+    } // end ilam
+  }   // end iday
+
+  NERRMAP_BADVALUE_SALT2 += NERR_LOCAL ;
+
+  int LDMP = 0 ;
+  if ( LDMP ) {
+    printf(" xxx %s ---------------------------------- \n", fnam);
+    printf(" xxx %s: NDAY = %d   NLAM=%d \n", fnam, NDAY, NLAM);
+    printf(" xxx %s: imap=%d  RANGE = %.2f to %.2f  NERR_LOCAL=%d \n",
+	   fnam, imap, RANGE_VALID[0], RANGE_VALID[1], NERR_LOCAL );
+    printf(" xxx %s: RANGE_FOUND = %f to %f \n", 
+	   fnam, 
+	   SALT2_ERRMAP[imap].RANGE_FOUND[0],
+	   SALT2_ERRMAP[imap].RANGE_FOUND[1] );
+  }
+
+  return;
+} // end check_BADVAL_SALT2errmap
 
 // ==========================================================
 void init_extrap_latetime_SALT2(void) {
@@ -1716,7 +1886,7 @@ void genmag_SALT2(
   char fnam[] = "genmag_SALT2" ;
 
   // ----------------- BEGIN -----------------
-
+  
   // parse bit-mask options
 
   OPT_PRINT_BADFLUX = OPT_RETURN_FLUX =  0; // default flags OFF
@@ -1737,6 +1907,7 @@ void genmag_SALT2(
   ZP           = FILTER_SEDMODEL[ifilt].ZP ;
   cfilt        = FILTER_SEDMODEL[ifilt].name ;
   meanlam_rest = meanlam_obs/z1 ;
+
 
   // make sure filter-lambda range is valid
   checkLamRange_SEDMODEL(ifilt,z,fnam);
@@ -2853,8 +3024,6 @@ void errorSummary_SALT2(void) {
       { sprintf(cCor,"%7.3f", colorCor ); }
     else
       { sprintf(cCor,"%9.3le", colorCor ); }
-
-
 
     // fractional flux error with x1=0
     get_SALT2_ERRMAP ( Trest, lam, ERRMAP );

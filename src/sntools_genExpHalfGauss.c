@@ -4,13 +4,14 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
 #include <ctype.h>
 
 #include "sntools.h"
-#include "sntools_genExpHalfGauss.h"
+//#include "sntools_genExpHalfGauss.h"
 
 
 // ******************************
@@ -18,7 +19,7 @@ void init_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, double VAL
   // Created March 20 2020 by R.Kessler and D.Brout
   // Init all genGasuss parameter values to VAL .
   
-  char fnam[] = "init_GEN_EXP_HALFGAUSS" ;
+  //  char fnam[] = "init_GEN_EXP_HALFGAUSS" ;
   
   gen_EXP_HALFGAUSS->USE = false;
 
@@ -33,17 +34,34 @@ void init_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, double VAL
 
 }
 
+void set_GEN_EXPON(double tau, double *range,
+		   GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS) {
+
+  // Jul 8 2020
+  // Utility to set EXPONENT-only for EXP_HALFGAUSS ... ignore Gaussian.
+  gen_EXP_HALFGAUSS->USE      = true ;
+  gen_EXP_HALFGAUSS->EXP_TAU  = tau ;
+  gen_EXP_HALFGAUSS->RANGE[0] = range[0];
+  gen_EXP_HALFGAUSS->RANGE[1] = range[1];
+
+  // ignore Gaussian part
+  gen_EXP_HALFGAUSS->PEAK     = 0.0 ;
+  gen_EXP_HALFGAUSS->SIGMA    = 0.0 ;
+  gen_EXP_HALFGAUSS->RATIO    = 0.0 ;
+}
+
+
 void copy_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *inp_EXP_HALFGAUSS, GEN_EXP_HALFGAUSS_DEF *out_EXP_HALFGAUSS){
   out_EXP_HALFGAUSS->USE = inp_EXP_HALFGAUSS->USE;
 
   sprintf(out_EXP_HALFGAUSS->NAME,"%s",inp_EXP_HALFGAUSS->NAME);
 
-  out_EXP_HALFGAUSS->PEAK = inp_EXP_HALFGAUSS->PEAK;
-  out_EXP_HALFGAUSS->SIGMA = inp_EXP_HALFGAUSS->SIGMA;
-  out_EXP_HALFGAUSS->EXP_TAU = inp_EXP_HALFGAUSS->EXP_TAU;
+  out_EXP_HALFGAUSS->PEAK     = inp_EXP_HALFGAUSS->PEAK;
+  out_EXP_HALFGAUSS->SIGMA    = inp_EXP_HALFGAUSS->SIGMA;
+  out_EXP_HALFGAUSS->EXP_TAU  = inp_EXP_HALFGAUSS->EXP_TAU;
   out_EXP_HALFGAUSS->RANGE[0] = inp_EXP_HALFGAUSS->RANGE[0];
   out_EXP_HALFGAUSS->RANGE[1] = inp_EXP_HALFGAUSS->RANGE[1];
-  out_EXP_HALFGAUSS->RATIO = inp_EXP_HALFGAUSS->RATIO;
+  out_EXP_HALFGAUSS->RATIO    = inp_EXP_HALFGAUSS->RATIO;
 }
 
 
@@ -110,14 +128,10 @@ double exec_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   double ran_EXPON = FlatRan1(1) ;                                 
   double ran_GAUSS = GaussRan(1);
   double ran_WGT   = FlatRan1(1) ;  
-
   double epsilon = 1.0E-14;
+  double ranval = -9.0 ; //output random value
 
-  double ranval; //output random value
-
-  // saveforlater if ( INPUTS.WV07_GENAV_FLAG )  { AV = GENAV_WV07(); return(AV); }
-
-  
+  // saveforlater if(INPUTS.WV07_GENAV_FLAG) { AV=GENAV_WV07();return(AV); }
 
   // ----- BEGIN ---------------------
 

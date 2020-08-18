@@ -31,18 +31,31 @@
     MXWORDFILE_PARSE_WORDS -> 1 million (was 500k) to handle 
     data files with lots of spectra.
 
+  Jul 30 2020: 
+    + optional pre-proc flag ONE_RANDOM_STREAM to disable 2nd
+      stream for Mac compilation. Default is still 2 streams.
+
+  Jul 31 2020: 
+    + MXCHARWORD_PARSE_WORDS -> MXPATHLEN=300  (was 60) to handle file names
+
 ********************************************************/
+
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
-#include <stdbool.h>
+#include <ctype.h>
 
 #include "sndata.h"
-#define  SNANA_VERSION_CURRENT  "v10_77d"                            
+#include "sntools_genGauss_asym.h"
+#include "sntools_genExpHalfGauss.h"
+
+#define  SNANA_VERSION_CURRENT  "v10_77j"                                  
+//#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
 #define OMEGA_MATTER_DEFAULT   0.315 
@@ -63,10 +76,21 @@
 #define RADIAN    TWOPI / 360.0     // added Oct 2010
 #define ZAT10PC    2.335e-9         // redshift at 10pc (H0=70)
 #define ZMAX_SNANA 4.0              // max snana redshift, Dec 26 2016
+#define COMMA      ","              // to split comma-sep strings
+#define COLON      ":"              // to split colon-sep strings
 
+// from Planck 2018 (installed June 8 2020)
+#define  CMBapex_l  (double)264.031    // deg (RA galactic coords !!!)
+#define  CMBapex_b  (double)48.253     // deg (DEC)
+#define  CMBapex_v  (double)369.82    // km/sec
+
+
+/* xxxxx mark delete Jun 8 2020 xxxxxxx
+// probably from COBE 1996 ?
 #define  CMBapex_l  (double)264.14    // deg (RA galactic coords !!!)
 #define  CMBapex_b  (double)48.26     // deg (DECL)
 #define  CMBapex_v  (double)371.0     // km/sec
+xxxxxxxxxxxxx */
 
 #define FWHM_SIGMA_RATIO  2.3548    // FWHM/sigma for Gaussian 
 #define TEN        (double)10.0 
@@ -122,6 +146,10 @@
 
 #define PRIVATE_MODELPATH_NAME "SNANA_MODELPATH"  // name of optional env
 
+#define PARNAME_EBV "EBV" 
+#define PARNAME_AV  "AV" 
+#define PARNAME_RV  "RV" 
+
 char FILTERSTRING[100] ;
 
 // define variables for random number list
@@ -130,9 +158,9 @@ char FILTERSTRING[100] ;
 #define MXSTREAM_RAN    2  // max number of independent streams
 #define BUFSIZE_RAN   256
 
-typedef struct random_data random_data ;
+// struct random_data { int idum; };  // ??? needed for Mac ???
+
 struct {
-  
   int     NSTREAM ; // number of srandom streams (legacy is 1)
   double  RANSTORE[MXLIST_RAN+1][MXSTORE_RAN] ;
   int     NLIST_RAN;         // Number of lists
@@ -140,7 +168,8 @@ struct {
   double  RANFIRST[MXLIST_RAN+1], RANLAST[MXLIST_RAN+1]; // for syncing.
 
   // for multi-stream randoms
-  random_data ranStream[MXSTREAM_RAN];
+  // xxx random_data_def ranStream[MXSTREAM_RAN];
+  struct random_data  ranStream[MXSTREAM_RAN];
   char stateBuf[MXSTREAM_RAN][BUFSIZE_RAN];
 
   // wrap-around stats for how often each random is re-used.
@@ -164,7 +193,8 @@ int  EXIT_ERRCODE;  // program error code set by program (Jan 2019)
 
 #define MXARGV 100
 int  NARGV_LIST;
-char ARGV_LIST[MXARGV][200];
+char *ARGV_LIST[MXARGV];
+// xxx mark delete Jul 2020 char ARGV_LIST[MXARGV][200];
 int  USE_ARGV_LIST[MXARGV];  // 1 => line arg was used, 0=> not used.
 
 // ---------
@@ -241,6 +271,7 @@ typedef struct GRIDMAP1D {
 #define IDGRIDMAP_SPECEFF_OFFSET        30  // id = OFFSET + imap
 #define IDGRIDMAP_zHOST_OFFSET          40  // id = OFFSET + imap
 #define IDGRIDMAP_PHOTPROB_OFFSET       50  // id = OFFSET + imap
+#define IDGRIDMAP_GENPDF                60  // Jun 2020
 #define IDGRIDMAP_FLUXERRMODEL_OFFSET  100  // id = OFFSET + imap
 
 // simeff 
@@ -264,13 +295,14 @@ struct SIMEFFMAP_DEF {
 struct GRIDMAP  SIMEFF_GRIDMAP ;
 
 
+/* xxx mark delete July 11 2020 xxxxxxxx
 // Jun 8 2018: move GENGAUSS_ASYM from snlc_sim.h to here
 typedef struct  {
+  bool   USE;       // T -> values are set (Jun 11 2020)
   char   NAME[80];  // name of variable                       
   double PEAK ;     // peak prob                          
   double SIGMA[2] ; // asymmetric Gaussian sigmas 
-  double SKEW[2] ;  // hack-skew; one TrueSigma = SIGMA + SKEW*|x-PEAK| 
-  double SKEWNORMAL[3] ; // real skew (for Rachel & Elise, Aug 2016) 
+  double SKEW[2] ;  // hack-skew; TrueSigma = SIGMA + SKEW*|x-PEAK| 
   double RANGE[2] ; // allows truncation 
   int    NGRID ;      // if non-zero, snap to grid
 
@@ -280,11 +312,9 @@ typedef struct  {
   double SIGMA2[2]; // asym Gaussian sigmas of 2nd peak 
   int  FUNINDEX;    // = NFUN_GENGUASS_ASYM = unique index 
 
-  // Jun 2018
-  double RMS; // optionally filled.
+  double RMS;  // RMS of asym Gaussian
 
 } GENGAUSS_ASYM_DEF ;
-
 
 // March 20 2020: Generic struct for exponential and half gaussian.
 typedef struct  {
@@ -295,6 +325,7 @@ typedef struct  {
   double RATIO ;       // Gauss(0)/Expon(0)
   double RANGE[2] ;    // generate random value in this RANGE
 } GEN_EXP_HALFGAUSS_DEF ;
+xxxxxxxxxx  end mark xxxxxx */
 
 
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
@@ -336,17 +367,18 @@ struct {
 
 
 #define ADDBUF_PARSE_WORDS 10000
-#define MXCHARWORD_PARSE_WORDS 60     // MXCHAR per word
-#define MXCHARLINE_PARSE_WORDS 2000   // max chars per line
-#define MXWORDLINE_PARSE_WORDS  700   // max words per line
-#define MXWORDFILE_PARSE_WORDS 1000000 // max words to parse in a file
+#define MXCHARWORD_PARSE_WORDS MXPATHLEN // MXCHAR per word
+#define MXCHARLINE_PARSE_WORDS 2000      // max chars per line
+#define MXWORDLINE_PARSE_WORDS  700      // max words per line
+#define MXWORDFILE_PARSE_WORDS 1000000   // max words to parse in a file
 
 #define MXWORDLINE_FLUX       10  // max words per line in SED file
 #define MXCHARLINE_FLUX      120  // max char per line to read from SED
 
 #define MSKOPT_PARSE_WORDS_FILE    1   // parse words in a file
 #define MSKOPT_PARSE_WORDS_STRING  2   // parse string
-#define MSKOPT_PARSE_WORDS_IGNORECOMMA 4   // parse blank space; ignore comma
+#define MSKOPT_PARSE_WORDS_IGNORECOMMA    4   // parse blank space; ignore comma
+#define MSKOPT_PARSE_WORDS_IGNORECOMMENT  8   // ignore anything after comment char
 
 struct {
   char  FILENAME[MXPATHLEN];
@@ -356,11 +388,21 @@ struct {
 } PARSE_WORDS ;
 
 
-#define MXLIST_STRING_UNIQUE 200
+#define MXLIST_STRING_UNIQUE  200
+#define MXLIST_KEY_UNIQUE    1000  // for key-dump only
+#define STRINGMATCH_INIT      "INIT"
+#define STRINGMATCH_KEY_DUMP  "KEY_DUMP"
 struct {
   int  NLIST;
-  char SOURCE_of_STRING[200];
-  char STRING[MXLIST_STRING_UNIQUE][100];  
+  char SOURCE_of_STRING[200]; // for messages
+  char STRING[MXLIST_STRING_UNIQUE][60];  // list of uniqe strings
+  int  NFOUND_STRING[MXLIST_STRING_UNIQUE];  // number of times each str found
+
+  
+  bool DUMPKEY_FLAG ;
+  int  NKEY; // number of unique keys stored for dump
+  char *KEY[MXLIST_KEY_UNIQUE] ;
+  
 } STRING_UNIQUE ;
 
 struct {
@@ -388,12 +430,45 @@ struct {
 }  ENVreplace_store;
 
 
+#define MXVAR_WRITE_EPOCH_LIST 8
+#define CUTMODE_REJECT -1
+#define CUTMODE_ACCEPT +1
+#define CUTTYPE_BITMASK 1
+#define CUTTYPE_WINDOW  2
+struct {
+  FILE   *FP_OUT;
+  int    NVAR;  // number of variables to apply cut
+  char   VARNAME[MXVAR_WRITE_EPOCH_LIST][40] ;
+  char   VARNAMES_LIST[200]; //
+  double CUTWIN[MXVAR_WRITE_EPOCH_LIST][2] ;
+  int    CUTMODE[MXVAR_WRITE_EPOCH_LIST] ;   // accept or reject
+  int    CUTTYPE[MXVAR_WRITE_EPOCH_LIST] ;   // window or bit-mask
+
+  char ROWKEY[20]; // REJECT: or ACCEPT:
+  int  CUTMASK_ALL ; // cutmask if all cuts are satisfied
+
+  int  NEPOCH_ALL ;    // number of epochs tested
+  int  NEPOCH_WRITE ;  // number of epochs written
+  int  NEPOCH_CUTFAIL[MXVAR_WRITE_EPOCH_LIST]; // NFAIL per cut
+  int  NEPOCH_CUTFAIL_ONLY[MXVAR_WRITE_EPOCH_LIST]; // idem, only cut
+
+} WRITE_EPOCH_LIST ;
+
 // ##############################################################
 //
 //     functions
 //
 // ##############################################################
 
+void write_epoch_list_init(char *outFile);
+void write_epoch_list_addvar(char *varName, double *CUTWIN, char *CUTMODE);
+void write_epoch_list_exec(char *CID,double MJD,char *BAND, double *VALUES);
+void write_epoch_list_summary(void);
+
+void write_epoch_list_init__(char *outFile);
+void write_epoch_list_addvar__(char *varName, double *CUTWIN, char *CUTMODE);
+void write_epoch_list_exec__(char *CID,double *MJD,char *BAND,double *VARLIST);
+void write_epoch_list_summary__(void);
 
 void catVarList_with_comma(char *varList, char *addVarName);
 
@@ -560,10 +635,13 @@ void  checkArrayBound_(int *i, int *MIN, int *MAX,
 		       char *varName, char *comment, char *funName);
 
 void  check_magUndefined(double mag, char *varName, char *callFun );
-void  checkStringUnique(char *string, char *msgSource, char *callFun);
-int   uniqueMatch(char *string, char *key);
+void  checkStringUnique(int MAX, char *string, char *msgSource, char *callFun);
+bool  NstringMatch(int MAX, char *string, char *key);
+bool  uniqueMatch(char *string, char *key);
 int   uniqueOverlap(char *string, char *key);
-int   keyMatch(char *string, char *key);
+int   keyMatch(char *string, char *key, char *keySuffix_optional);
+void  dumpUniqueKey(char *key) ;
+
 int   ivar_matchList(char *varName, int NVAR, char **varList);
 
 void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun, 
@@ -626,7 +704,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE, int NDIM, int NFUN,
 
 int  interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun );
 
-void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP, 
+void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP, 
 		  int IDMAP, int NDIM, int NFUN, int OPT_EXTRAP, int MXROW,
 		  char *callFun, GRIDMAP *GRIDMAP_LOAD );
 void warn_NVAR_KEY(char *fileName);
@@ -688,6 +766,7 @@ double prob_chi2ndof__(double *chi2, int *Ndof);
 float edgedist(float XPIX, float YPIX,  int NXPIX, int NYPIX);  
 
 void print_banner ( const char *banner ) ;
+void fprint_banner (FILE *FP, const char *banner ) ;
 
 // shells to open text file
 FILE *open_TEXTgz(char *FILENAME, const char *mode,int *GZIPFLAG) ;

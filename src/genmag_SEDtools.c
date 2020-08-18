@@ -46,12 +46,18 @@
   Aug 23 2019:
     in interp_primaryFlux_SEDMODEL(), add lam-edge protection.
 
+  Jul 13 2020:
+    + fix dumb logic but in fill_TABLE_HOSTXT_SEDMODEL() so that
+      extinction table is no longer created for every iteration.
+      Fits now go almost x10 faster ... same speed as in March 2020
 
 ********************************************/
 
+/*
 #include <stdio.h> 
 #include <math.h>     // log10, pow, ceil, floor
 #include <stdlib.h>   // includes exit(),atof()
+*/
 
 #include "sntools.h"           // community tools
 #include "sntools_spectrograph.h"
@@ -1608,7 +1614,7 @@ double get_magerr_SEDMODEL( int ISED, int ifilt_obs,
   double DAYMAX  = TEMP_SEDMODEL.DAYMAX ;
   int    ifilt, EP, ILAM, jflux ;
   double FRAC, LAMSED, LAMDIF, FLUX, FLUXERR, magerr = 0.10 ;
-  char fnam[] = "get_magerr_SEDMODEL";
+  //  char fnam[] = "get_magerr_SEDMODEL";
 
   // -------------- BEGIN --------------
 
@@ -2321,13 +2327,17 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
   //
   // Mar 2 2017: fix to work with SPECTROGRAPH 
   // Mar 18 2020: DJB added logic for changing RV
+  // Jul 13 2020: 
+  //   + return if !update_hostxt (bug from v10_76c, Mar 2020)
+  //     fixes silly bug causing fit to be almost x10 slower.
+  //
 
   int  NLAMFILT, ilam, I8, I8p, ifilt, ifilt_obs, ifilt_min ;
   int  OPT_COLORLAW, NBSPEC ;
 
   double  LAMOBS, LAMREST, XT_MAG, XT_FRAC, arg    ;
 
-  //  char fnam[] = "fill_TABLE_HOSTXT_SEDMODEL";
+  char fnam[] = "fill_TABLE_HOSTXT_SEDMODEL";
   
   // ------------- BEGIN ------------------
   
@@ -2354,9 +2364,10 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
   }
 
   bool update_hostxt = false;
-  if ( AV != SEDMODEL_HOSTXT_LAST.AV ){ update_hostxt = true; }
-  if ( RV != SEDMODEL_HOSTXT_LAST.RV ){ update_hostxt = true; }
-  if ( z != SEDMODEL_HOSTXT_LAST.z ){ update_hostxt = true; }
+  if ( AV != SEDMODEL_HOSTXT_LAST.AV ) { update_hostxt = true; }
+  if ( RV != SEDMODEL_HOSTXT_LAST.RV ) { update_hostxt = true; }
+  if ( z  != SEDMODEL_HOSTXT_LAST.z  ) { update_hostxt = true; }
+  if ( !update_hostxt ) { return; } // put back, July 13 2020
 
   /*
   xxx Mark Delete March 18 2020. Dealing with RV changing landmine.
@@ -2383,6 +2394,7 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
 
   } // ifilt
 
+  SEDMODEL_HOSTXT_LAST.RV = RV ; // 7.14.2020
   SEDMODEL_HOSTXT_LAST.AV = AV ;
   SEDMODEL_HOSTXT_LAST.z  = z ;
 

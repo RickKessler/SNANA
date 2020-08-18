@@ -38,11 +38,14 @@
 
 *********************************/
 
+/*
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
+*/
 
 #include "sntools.h"      // general snana stuff
 #include "fitsio.h"
@@ -229,8 +232,8 @@ void init0_GRIDsource(void) {
     GENRANGE_LOCAL[IPAR2][0] = INPUTS.GENGAUSS_RV.RANGE[0] ;
     GENRANGE_LOCAL[IPAR2][1] = INPUTS.GENGAUSS_RV.RANGE[1] ;
 
-    sprintf(SNGRID_WRITE.NAME[IPAR],  "%s", "AV" );
-    sprintf(SNGRID_WRITE.NAME[IPAR2], "%s", "RV" );
+    sprintf(SNGRID_WRITE.NAME[IPAR],  "%s", PARNAME_AV );
+    sprintf(SNGRID_WRITE.NAME[IPAR2], "%s", PARNAME_RV );
   }
 
 

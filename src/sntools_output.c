@@ -193,7 +193,7 @@ void TABLEFILE_INIT(void) {
   sprintf(SNLCPAK_OUTPUT.VERSION_PHOTOMETRY, "NULL" );
   sprintf(SNLCPAK_OUTPUT.VERSION_SNANA,      "NULL" );
   sprintf(SNLCPAK_OUTPUT.SURVEY_FILTERS,     "NULL" );
-  sprintf(SNLCPAK_OUTPUT.TEXT_FORMAT,        "" );
+  SNLCPAK_OUTPUT.TEXT_FORMAT[0] = 0;
 
 #ifdef USE_TEXT
   FILEPREFIX_TEXT[0] = 0 ;
@@ -255,7 +255,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   // but cannot open 2 output-hbook files or 2 output-root files.
   //
   // Oct 14 2014: call new function OPEN_TEXTFILE(...) for read-mode
-  //
+  // Jul 13 2020: declare *ENV and *FMT (used if HBOOK is NOT defined)
 
   int  OPEN_FLAG, TYPE_FLAG, OPT_Q, USE_CURRENT, IERR ;
   char *ptrtok, local_STRINGOPT[80], ctmp[20], *FMT, ENV[200] ;
@@ -1179,7 +1179,7 @@ int SNTABLE_READPREP_VARDEF(char *VARLIST, void *ptr,
   ptrtok = strtok(VARLIST_LOCAL," ");
   while ( ptrtok != NULL ) {
     sprintf(VARNAME_withCast,"%s", ptrtok);
-    istat = sntable_readprep_vardef1(VARNAME_withCast, ptr, mxlen, FLAG_VBOSE,
+    istat=sntable_readprep_vardef1(VARNAME_withCast, ptr, mxlen, FLAG_VBOSE,
 				     VARNAME_noCast );
 
     NVAR_TOT++ ;
@@ -1236,7 +1236,7 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
   //
   // Sep 12 2016: allow up to 2 pointers for each column.
 
-  int ivar, i, NVAR_TOT, NVAR_READ, VECFLAG, ISIZE, NPTR, MATCH ;
+  int ivar, i, NVAR_TOT, NVAR_READ, VECFLAG, ISIZE, NPTR, MATCH, LEN ;
   int ICAST_STORE ;
   char varName[MXCHAR_VARNAME*2], *varTmp ;
   char fnam[] = "sntable_readprep_vardef1" ;
@@ -1262,11 +1262,12 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
   parse_TABLEVAR(varName_withCast,                    // (I)
 		 varName,  &ICAST_STORE, &VECFLAG, &ISIZE);  // (O)
 
-  if ( strlen(varName) > MXCHAR_VARNAME ) {
+  LEN = strlen(varName);
+  if ( LEN > MXCHAR_VARNAME ) {
     print_preAbort_banner(fnam);
     printf("\t varName = '%s' \n", varName);
     sprintf(MSGERR1,"len(varName) = %d exceeds bound of MXCHAR_VARNAME=%d .",
-	    strlen(varName), MXCHAR_VARNAME);
+	    LEN, MXCHAR_VARNAME);
     sprintf(MSGERR2,"Try shorter name.");
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
@@ -2170,7 +2171,7 @@ void  SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR) {
 int EXIST_VARNAME_AUTOSTORE(char *varName) {
 
   // Created Nov 29 2016
-  // Returns 1 of varName exists.
+  // Returns 1 if varName exists.
   // 
   // Jan 6, 2017: check all files. 
 
@@ -2379,6 +2380,7 @@ int SNTABLE_NEVT(char *FILENAME, char *TABLENAME) {
   if ( ISOPEN_DEJA || ISTYPE_HBOOK ) {
     ID   = TABLEID_HBOOK(TABLENAME) ;
     NEVT = SNTABLE_NEVT_HBOOK(FILENAME,ID) ; 
+    return(NEVT);
   }
 #endif
 
@@ -2388,15 +2390,16 @@ int SNTABLE_NEVT(char *FILENAME, char *TABLENAME) {
   ISTYPE_ROOT = ISFILE_ROOT(FILENAME) ;
   if ( ISOPEN_DEJA || ISTYPE_ROOT )  { 
     NEVT = SNTABLE_NEVT_ROOT(FILENAME,TABLENAME); 
+    return(NEVT);
   }
 #endif
 
 #ifdef USE_TEXT
   ISOPEN_DEJA = USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT] ;
-  //  ISTYPE_TEXT = (ISTYPE_HBOOK==0 && ISTYPE_ROOT==0);
-  ISTYPE_TEXT = ISFILE_TEXT(FILENAME);
+  ISTYPE_TEXT = ISFILE_TEXT(FILENAME); 
   if ( ISOPEN_DEJA || ISTYPE_TEXT ) {
     NEVT = SNTABLE_NEVT_TEXT(FILENAME); 
+    return(NEVT);
   }
 #endif
 

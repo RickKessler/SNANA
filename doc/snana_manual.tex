@@ -112,6 +112,7 @@
 \newcommand{\zmax}{Z_{\rm max}}
 \newcommand{\zhelio}{z_{\rm hel}}
 \newcommand{\zcmb}{z_{\rm cmb}}
+\newcommand{\zsun}{z_{\odot}}
 \newcommand{\vpec}{{\rm v}_{\rm pec}}
 
 \newcommand{\Nseason}{N_{\rm season}}
@@ -410,7 +411,7 @@ the $\lambda$-shifted band(s) in the fitting program.
 
 A \SPEC\ instrument is defined as a list of SNR-vs-wavelength,
 $\SNRlam$, for two distinct magnitudes. 
-$\SNRlam$ is defined for two mag values so that in each
+$\SNRlam$ is defined for two (and only two) mag values so that in each
 $\lam$-bin an effective zero point and skyNoise is 
 computed analytically, allowing $\SNRlam$ to computed for any mag.
 For each \spec\ bin-center, the zeropoint ($\ZP$) and skyNoise ($\sigSky$) 
@@ -442,13 +443,12 @@ in Fig.~\ref{fig:spectro_table}.
 \begin{Verbatim}[frame=single]
 # required keys:
 INSTRUMENT: MYSPECDEVICE
-MAGREF_LIST:  20 28           # used to define SNR1 and SNR2
-TEXPOSE_LIST: 300 1000 2000   # seconds
+MAGREF_LIST:  20 28           # defines SNR1 and SNR2 (ony 2 allowed)
+TEXPOSE_LIST: 300 1000 2000   # seconds (arbitrary list size)
 
 # optional keys to check for bad SNR inputs
 SNR_POISSON_RATIO_ABORT_vsMAGREF:  5     # default
 SNR_POISSON_RATIO_ABORT_vsTEXPOSE: 1.2   # default
-
 
 #         LAM   LAM   LAM
 #         MIN   MAX   RES    SNR1 SNR2      SNR1 SNR2      SNR1 SNR2
@@ -777,6 +777,7 @@ and the radiation term is ignored. Time-varying $w$
 is currently not implemented.
 
 % ------------------------------------
+   \clearpage
    \subsection{Synchronizing Random Numbers}
    \label{subsec:sim_ransync}
 % ------------------------------------
@@ -785,33 +786,57 @@ The simulation is designed to preserve the random number sequence
 when input parameters and options are changed. This feature allows
 generating the exact same SNe (redshift, sky-coords, SN properties)
 when making changes such as the 
-\simlib, exposure time, mag-offsets, intrinsic smearing, and 
+\simlib, \hostlib, exposure time, mag-offsets, intrinsic smearing, and 
 model parameters.
 To ensure that different simulations are synchronized to the
 same random numbers, use the same random seed ({\tt RANSEED} key)
+in each simulation job, 
 and verify that the following output to the README file
 is identical:
 \begin{verbatim}
   Random Number Sync: 
-         RANDOM SEED: 123459  
-         FIRST/LAST Random Number (List=1): 0.181881 0.150452  
-         FIRST/LAST Random Number (List=2): 0.196079 0.139981  
+   RANDOM SEED: 128473   (RANLIST_START_GENSMEAR: 1)
+   FIRST/LAST Random Number (List=1): 0.816247 0.216962  AVG(wrap) = 0.7 +_ 0.2 
+   FIRST/LAST Random Number (List=2): 0.622194 0.875059  AVG(wrap) = 0.6 +_ 0.1 
 \end{verbatim}
 The first list is for the nominal generation, 
-and the second list is for the intrinsic scatter models.
+the second list is for the intrinsic scatter models,
 The optional sim-input key {\tt RANLIST\_START\_GENSMEAR} 
 can be used to pick different random numbers for the intrinsic
 scatter without affecting the main random sequence.
-Note that this key value is an offset in a list (not a SEED).
-Since each scatter model typically uses $\sim 10$
-randoms per SN, {\tt RANLIST\_START\_GENSMEAR} 
-should be set to multiples of about 10.
+Note that {\tt RANLIST\_START\_GENSMEAR} is an offset 
+in a list (not a SEED).
+The {\tt AVG(wrap)} numbers is the average number of times
+that each finite list of randoms is re-used each event.
+Ideally, {\tt AVG(wrap)}$<1$ so that randoms are not re-used.
 
 Selection cuts may result in a different number of generated
 SNe, and hence a different last random number; in this case
 use the {\tt SIMGEN\_DUMP} option (\S\ref{sss:simgen_dump})
 to verify the sync.
 
+For simulating spectra (\S\ref{subsec:sim_spec}), the number
+of randoms can be too large for practical storage;
+e.g., events with several spectra, each with $\sim 10^4$ wavelength bins.
+A  list of randoms that is too small results in obvious spectral ringing.
+To avoid this problem, two independent streams are used:
+1st stream for generation and intrinsic scatter (List=1,2),
+and 2nd stream for unlimited spectral noise. The number of
+streams is controlled by sim-input ``{\tt NSTREAM\_RAN: 2}''
+and the default is 2. Only values of 1 or 2 are allowed.
+
+The native C functions needed for two streams result in 
+failed compilation on Macbook, although it works on many
+other platforms including Fermilab, NERSC, and U.Chicago RCC.
+For Mac, enable the pre-processor flag
+\begin{verbatim}
+   #define  ONE_RANDOM_STREAM   // enable for Mac only, in sntools.h
+\end{verbatim}
+in {\tt sntools.h}, which will force one and only one random
+stream, and avoid the native functions that don't work on Mac.
+The default Github release has this flag commented out. 
+Enabling {\tt ONE\_RANDOM\_STREAM} should work fine, 
+but the random-sync feature won't work if spectra are generated.
 
 % -------------------------------------------------
   \clearpage
@@ -3033,9 +3058,9 @@ Next, we given an example of a map with more complex function
 of {\tt HOSTLIB} properties:
 %
 \begin{Verbatim}[frame=single]
-OPT_EXTRAP: 1  # 0=> abort, 1=>use value at edge of grid.
-
-FIELDLIST:  C3+X3
+OPT_EXTRAP: 1               # default is 0=>abort; 1=>use value at grid edge
+PEAKMJD_RANGE: 55600 58900  # default is 10000 90000
+FIELDLIST:  C3+X3           # default is ALL
 VARNAMES: g_obs i_obs  HOSTEFF
 HOSTEFF:  18  20    1.
 HOSTEFF:  18  22    0.95
@@ -3051,6 +3076,7 @@ HOSTEFF:  24  22    0.7
 HOSTEFF:  24  24    0.2
 
 FIELDLIST:  C1+C2+S1+S2+X1+X2+E1+E2
+PEAKMJD_RANGE: 55600 58900 
 VARNAMES: g_obs  i_obs  HOSTEFF
 HOSTEFF:  18  20    1.
 HOSTEFF:  18  22    0.98
@@ -3074,6 +3100,7 @@ the map range. {\tt FIELDLIST} is optional for FIELD-dependent maps;
 Sub-string matching is used, and therefore ``{\tt FIELDLIST: X}'' 
 would apply to {\tt X1, X2, X3}.
 Also note that {\tt FIELDLIST} must come before the {\tt VARNAMES} key.
+{\tt PEAKMJD\_RANGE} allows for season-dependent maps.
 Finally, the first $N-1$ {\tt VARNAMES} specifies arbitrary
 {\tt HOSTLIB} propertes from the {\tt VARNAMES} key in 
 Fig.~\ref{fig:hostlib}. The last ($N$th) {\tt VARNAME} must be {\tt HOSTEFF}.
@@ -3814,7 +3841,13 @@ separations.  {\tt HOSTLIB\_STOREPAR} is a comma-separated
 list of parameters (case-insensitive, but no blank spaces
 before or after each comma) to store in the data files;
 these ``{\tt STOREPAR}'' paramaters are automatically propagated 
-into the SNTABLEs (ntuple or tree) and ascii fitres file.
+into the SNTABLEs  and ascii fitres file.
+{\tt HOSTLIB} variables defined in 
+{\tt SEARCHEFF\_zHOST\_FILE},
+{\tt GENPDF\_FILE}, and
+{\tt WGTMAP}
+are automatically included in the {\tt HOSTLIB\_STOREPAR} list.
+%
 {\tt HOSTLIB\_MINDAYSEP\_SAMEGAL} specifies the minimum
 {\tt PEAKMJD} separation (in days) for re-using a galaxy.
 This option can be useful, for example, in multi-year surveys 
@@ -4012,6 +4045,11 @@ which describe an arbitrary dependence on host properties.
 The last two variables must be {\tt WGT} and {\tt SNMAGSHIFT},
 where the latter is applied to the generated magnitudes if the
 4-bit is set in {\tt HOSTLIB\_MSKOPT}.
+All {\tt WGTMAP} variables are automatically included in the
+data files, equivalent to internally appending these variables to 
+{\tt HOSTLIB\_STOREPAR}. While there is no need to specify the
+same variable in both the {\tt WGTMAP} and {\tt HOSTLIB\_STOREPAR} list,
+there is no harm in doing so.
 
 If no weight map is provided, the simulation will assign
 a weight of unity to each host galaxy, with zero mag-shift.
@@ -4893,7 +4931,6 @@ time is extended to give the requested SNR:
 \end{equation}
 and a similar equation is used for requested {\tt SNR} below
 the minimum-defined {\tt SNR\_MIN}.
-% .xyz
 
 
 The last option ({\tt SCALE\_TEXPOSE})
@@ -5266,6 +5303,102 @@ The output {\tt README} includes summary information as follows:
 Note that mixing the two methods is not allowed;
 e.g, the sim will abort if {\tt VPEC} is defined in the {\tt HOSTLIB} 
 while ``{\tt VPEC\_ERR:}'' is defined in the sim-input file.
+
+
+% ------------------------------------
+   \clearpage
+   \subsection{Population Parameters: Stretch, Color, Dust}
+   \label{subsec:genPDF}
+% ------------------------------------
+\newcommand{\AG}{{\tt AG}}
+
+For SNIa models, the stretch and color parameters are each drawn from a
+probability distribution function (PDF), also called a parent population.
+The PDF is a best estimate of the complete population without selection
+biases. Examples: 
+for SALT2, a PDF is needed for color ($c$), stretch ($x_1$),
+and possibly host-galaxy dust parameters $A_V$ and $R_V$;
+{\mlcs} needs $A_V$, $R_V$, and shape-parameter ($\Delta$);
+SNCC models need $A_V$ and $R_V$.
+
+There are two methods for describing each PDF:
+i) analytical function using asymmetric Gaussian (\AG) or exponential, and
+ii) multi-dimensional map including aribtrary dependence on
+{\tt HOSTLIB} parameters.
+{\AG} sim-inputs are shown in \S\ref{subsec:salt2} for the SALT2 model,
+and exponential models for extinction ($A_V$)
+are shown in \S\ref{subsec:host_extinct}.
+
+An illustration of a map with SALT2x1 dependence on host-galaxy mass
+is shown in Fig.~\ref{fig:genpdf_file}. Multiple maps can be defined
+in the same file, where a new {\tt VARNAMES} key is the start
+of each map. Any {\tt HOSTLIB} parameter(s) can be included in the map.
+The first variable (e..g, {\tt SALT2x1}) is name of the variable
+to be generated by the simulation; the last variable must be {\tt PROB}
+to indicate ``probability.'' The simulation internally normalizes the
+PDF so that the max {\tt PROB} value is 1.0; however, it is recommended
+to create properly normalized maps to simplify debugging if visual
+inspetion of the maps is needed.
+A combination of \AG\ and PDF maps can be used;
+e.g., \AG\ for RV, and PDF maps for x1 and c. 
+
+\begin{figure} [ht] 
+\begin{center}
+\begin{Verbatim}[frame=single]
+VARNAMES: SALT2x1  LOGMASS  PROB 
+PDF:   -3.000    7.00   0.00387 
+PDF:   -3.000    7.20   0.00388
+PDF:   -3.000    7.40   0.00389 
+etc ...
+\end{Verbatim}
+\end{center}
+\vspace{-0.8cm}
+\caption{
+  Example PDF map for simulating distribution of SALT2x1 parameter.
+ }
+\label{fig:genpdf_file}
+\end{figure}
+
+Sim-input keys controlling PDF maps are as follows:
+\begin{Verbatim}[frame=single]
+   GENPDF_FILE:     <fileName>
+   GENPDF_IGNORE:   <comma-sep list of map(s) to ignore>
+   GENPDF_OPTMASK:  <optMask>
+
+   GENPDF_FLAT:    SALT2x1(-4:4),SALT2c(-0.4:0.5)
+        or
+   GENPDF_FLAT:    SALT2x1(-4:4),SALT2c(-0.4:0.5),RV(1:4),AV(0:2) 
+\end{Verbatim}
+%
+Only one map-file can be specified, so all maps must reside in this file.
+{\tt GENPDF\_IGNORE} disables a map, and allows for using an \AG\
+without creating a separate map file which excludes
+the relevant map. For example,
+\begin{verbatim}
+   snlc_sim.exe <inputFile> GENPDF_IGNORE RV  \
+        GENPEAK_RV 2.2 GENSIGMA_RV .2 .3
+\end{verbatim}
+%
+disables the RV-PDF map, and instead uses an \AG\ for 
+$R_V$:  peak at 2.2, $\sigma_{-/+} -= 0.2/0.3$.
+If both the analytical \AG\ and PDF map are defined for the same
+parameter, the simulation will abort. 
+
+\clearpage
+{\tt GENPDF\_FLAT} forces a flat distribution for an arbitrary
+set of SALT2-related (x1,c) and dust-related (RV,AV,EBV) variables.
+Variable names are comma-separated, 
+and the colon-separated numbers in parentheses are the 
+min \& max generated value for each variable.
+This option overrides other PDF options based on
+maps, asymmetric Gaussians (x1,c,RV), and exponential (EBV,AV).
+
+\medskip\noindent
+{\tt GENPDF\_OPTMASK} options:
+\begin{itemize}
+  \item {+= 1:} for {\tt HOSTLIB} parameters outside map range,
+       extrapolate instead of abort. 
+\end{itemize}  
 
 
 % ------------------------------------
@@ -6319,7 +6452,7 @@ the job has finished, congratulations !
 You have fit your lightcurves with 
 CERNLIB's {\minuit} program.\footnote{\wwwMINUIT}
 To create a pdf file showing the light curve fits,
-see \S\ref{subsec:lcplot}.
+see \S\ref{sss:lcplot}.
 
 
 % ------------------------------------
@@ -6907,10 +7040,13 @@ search-efficiencies (\S\ref{subsec:simeff}).
 
 
 % ------------------------------------
-%   \clearpage
-   \subsection{Viewing Lightcurve Fits: {\tt plot\_snana.py} and 
-       {\tt mkfitplots.pl} }
-   \label{subsec:lcplot}
+ \clearpage
+ \subsection{Plot Utilities}
+   \label{subsec:plot_util}
+% --------------------------------
+
+  \subsubsection{Viewing Lightcurve Fits }
+   \label{sss:lcplot}
 % ------------------------------------
 
 There are two utilities to view light curves. 
@@ -6939,6 +7075,21 @@ There are several plotting options; see instructions with
 \begin{verbatim}
    more $SNANA_DIR/util/mkfitplots.pl
 \end{verbatim}
+
+% --------------------------------------
+  \subsubsection{{\tt ovdatamc.py}~: Plot Utility for Data/MC Overlays}
+  \label{sss:ovdatamc}
+
+Once you have an ascii {\tt FITRES} file from the data and
+MC simulation, the utility ``{\tt ovdatamc.py}'' can be used
+to plot a data/MC overlay for any variable, and with arbitrary
+cuts on any variable inside the FITRES file. If the simulation
+includes core collapse SNe, then the Ia and CC contributions
+to the simulation are overlaid separately and shown with
+different colors. To get a list of arguments and options,
+type {\tt ovdatamc.py} with no arguments. Also read comments
+at top of {\tt \$\snanadir/util/ovdatamc.py}~.
+
 
 
 % ------------------------------------
@@ -8501,21 +8652,24 @@ The input key for the analysis programs is
 \begin{verbatim}
    &SNLCINP
      HEADER_OVERRIDE_FILE = 'myUpdates.dat'
+         or
+     HEADER_OVERRIDE_FILE = 'myUpdates1.dat,myUpdates2.dat
 
 more myUpdates.dat
-NVAR: 5
 VARNAMES: CID  VPEC VPEC_ERR  HOSTGAL_LOGMASS HOSTGAL_LOGMASS_ERR
 SN:  1346137    78.4 150.0   10.87  0.21
 SN:  1346387   -63.0 150.0    9.44  0.33
 etc ...
 \end{verbatim}
 %
-In this example, four header values are updated:
+In the first example, four header values are updated:
 peculiar velocity correction, log of host mass,
 and the error for each. For SNe missing from the
 update file, the original values in the data file
 header are used. This feature does {\tt NOT} work
 on epoch-dependent quantities.
+The second example illustrates a comma-separated list of table files;
+the variables in each file must be unique. (except for CID)
 
 % ------------
 \clearpage
@@ -9048,10 +9202,6 @@ Here are the steps for adding a new survey:
 	{\tt FLUX} $\to$ {\tt FLUXCAL} for each measurement.
 	If you try to convert magnitudes to {\tt FLUXCAL}, 
 	you will have problems for small \& negative fluxes.
-%
- \item To distribute survey-dependent \sndataroot\ files among 
-       collaborators working on different computer systems, 
-       see \S\ref{sss:survey_update}.
 %
  \item 	Modify a sim-input and fitter-input file by substituting
 	your survey and filters. Good luck. And don't forget to send
@@ -11000,7 +11150,7 @@ The available output tables are
   \item SNANA (ID=7100): general variables for all SN before fitting
   \item FITRES (ID=7788): fit results for SN passing fit requirements.
       Fit residuals for each epoch can be optionally included.
-  \item SNLCPAK: used by {\tt mkfitplots.pl} (\S\ref{subsec:lcplot})
+  \item SNLCPAK: used by {\tt mkfitplots.pl} (\S\ref{sss:lcplot})
          to make light curve plots for data and best-fit model.
 \end{itemize}
 %
@@ -11427,27 +11577,81 @@ IAUC name by specifying an IAUC option in {\tt SNTABLE\_LIST},
 If any one table has the IAUC specification then
 all tables will have IAUC written into the CID column.
 
-% --------------------------------------
-  \subsubsection{{\tt ovdatamc.py}~: Plotting Utility for Data/MC Overlays}
-  \label{sss:ovdatamc}
-
-Once you have an ascii {\tt FITRES} file from the data and
-MC simulation, the utility ``{\tt ovdatamc.py}'' can be used
-to plot a data/MC overlay for any variable, and with arbitrary
-cuts on any variable inside the FITRES file. If the simulation
-includes core collapse SNe, then the Ia and CC contributions
-to the simulation are overlaid separately and shown with
-different colors. To get a list of arguments and options,
-type {\tt ovdatamc.py} with no arguments. Also read comments
-at top of {\tt \$\snanadir/util/ovdatamc.py}~.
 
 % --------------------------------------
-
-% --------------------------------------
+%  \clearpage
   \subsection{General Misc. Tools}
   \label{subsec:MiscTools_general}
 % --------------------------------------
 
+% --------------------------------------
+  \subsubsection{List Valid Input Keys}
+  \label{sss:KEY_DUMP}
+% --------------------------------------
+
+Each \snana\ program has many input keys that are difficult to find 
+and remember. For {\tt SALT2mu} and simulation programs, the following
+results in a dump of all valid input keys and then quits:
+\begin{verbatim}
+   snlc_sim.exe KEY_DUMP
+   SALT2mu.exe  KEY_DUMP
+\end{verbatim} 
+Using grep can help find keys related to a particular topic,
+although a decent guess is needed for a sub-string.
+Examples for the simulation are:
+\begin{verbatim}
+# to find peculiar-velocity keys in the sim
+   snlc_sim.exe KEY_DUMP | grep VPEC
+       VALID_KEYNAME:   124   GENSIGMA_VPEC:  
+       VALID_KEYNAME:   125   VPEC_ERR:  
+
+# to find keys controling SALT2x1 population.
+   snlc_sim.exe KEY_DUMP | grep SALT2x1
+       VALID_KEYNAME:   200   GENPEAK_SALT2x1:  
+       VALID_KEYNAME:   201   GENMEAN_SALT2x1:  
+       VALID_KEYNAME:   202   GENSIGMA_SALT2x1:  
+       VALID_KEYNAME:   203   GENSKEW_SALT2x1:  
+       VALID_KEYNAME:   204   GENRANGE_SALT2x1:  
+       VALID_KEYNAME:   205   GENGRID_SALT2x1:  
+       VALID_KEYNAME:   206   GENPROB2_SALT2x1:  
+       VALID_KEYNAME:   207   GENPEAK2_SALT2x1:  
+       VALID_KEYNAME:   208   GENSIGMA2_SALT2x1:    
+\end{verbatim}
+
+
+\clearpage
+\noindent
+and here is a {\tt SALT2mu} example to find file-related inputs,
+\begin{verbatim}
+   SALT2mu.exe KEY_DUMP | grep file
+       VALID_KEYNAME:     1   catfile_out=  
+       VALID_KEYNAME:     9   file=  
+       VALID_KEYNAME:    10   datafile=      (same as file=)
+       VALID_KEYNAME:    11   simfile_bias=  
+       VALID_KEYNAME:    12   simfile_biascor=  
+       VALID_KEYNAME:    25   simfile_ccprior=  
+       VALID_KEYNAME:    70   cid_select_file=  
+\end{verbatim}
+
+The {\tt KEY\_DUMP} command-line option works for the C programs,
+but not for the fortran programs 
+({\tt snlc\_fit.exe}, {\tt snana.exe}, {\tt psnid.exe}).
+Instead, the fotran programs have a built-in ``name-list'' (NML) feature, 
+and the contents of each NML are printed to standard out. 
+Therefore, use grep on stdout to find NML inputs; 
+e.g., 
+\begin{verbatim}
+  snlc_fit.exe SNFIT.NML  | grep CUTWIN_TREST
+    CUTWIN_TRESTMIN= -99.000000    , -2.0000000    ,
+    CUTWIN_TRESTMAX=  10.000000    ,  9999.0000    ,
+    CUTWIN_TRESTRANGE=-9.99999996E+11, 9.99999996E+11,
+    CUTWIN_TREST= -20.000000    ,  80.000000    ,
+    CUTWIN_TREST_TRUEFLUX= 2*999.00000      ,
+    CUTWIN_TREST2=-9.99999996E+11, 9.99999996E+11,
+\end{verbatim}
+The large range values ({\tt +- 9.999E+11}) indicate that
+the NML input was not defined in the user-input file,
+but is a valid input.
 
 % --------------------------------------
   \subsubsection{Command-line Overrides}
@@ -11480,22 +11684,6 @@ The command-line options are printed to stdout,
 and therefore if you pipe your job to a log-file,
 you can rerun the same job as long as you
 have the original input file.
-
-
-% ----------------------------------
-  \subsubsection{Synchronizing/Updating Survey Files: survey\_update.pl}
-  \label{sss:survey_update}
-
-Collaborators within a survey who are working on different computer
-systems can keep files synchronized using the script
-\${\snanadir}{\tt /util/survey\_update.pl}.
-See usage instructions at the top of the script.
-The basic idea is that a survey expert uses the script in 
-``create tarball'' mode to create a tarball
-containing filter transmission files, K-correction tables
-and data version(s). This  tarball is then distributed
-among collaborators who use the same script in 
-``install'' mode.
 
 
 
@@ -11532,6 +11720,53 @@ if not, you may request additional test-jobs.
 
 
 % --------------------------------------
+  \subsubsection{Write List of Rejected Epochs}
+  \label{sss:write_epoch_list}
+% --------------------------------------
+
+The most commonly used output of the {\tt snlc\_fit.exe} fitting
+program is the ``{\tt FITRES}'' table, which includes summary
+information for each SN passing selection cuts. However, there
+may be analyses that require a list of selected epochs, such
+as the SuperNNova photometric 
+classifier\footnote{https://arxiv.org/abs/1901.06384}
+that reads light curves instead of the summary {\tt FITRES} file.
+To avoid duplicating epoch cuts in other codes, there is an
+\snana\ utility to write a list of rejected epochs,
+with the assumption that writing rejected epochs results in a 
+much smaller file compared to writing selected epochs.
+An example for the DES analysis is
+%
+\begin{verbatim}
+ &SNLCINP
+    PRIVATE_DATA_PATH  = '$DES_ROOT/lcmerge'
+    VERSION_PHOTOMETRY = 'DESALL_forcePhoto_real_snana_fits'
+    PHOTFLAG_MSKREJ  = 1016, 0     ! reject bits for PHOTFLAG columm
+    CUTWIN_PHOTPROB  = -999, 999   ! wide open -> not used here
+    CUTWIN_PSF       = 0.5,  2.75  ! PSF select window, arcsec
+    CUTWIN_ZPNPE     = 30.5, 100.  ! zeropoint select window, Npe
+    OUT_EPOCH_IGNORE_FILE = 'DES_EPOCH_IGNORE.DAT'
+ &END
+\end{verbatim}
+%
+In this example there are four epoch-based cuts on 
+{\tt PHOTFLAG}, 
+{\tt PHOTPROB},\footnote{Example {\tt PHOTPROB} uses are
+machine-learning prob or PSF fit-chi2.}
+{\tt PSF}, and zeropt. 
+The last user input, {\tt OUT\_EPOCH\_IGNORE\_FILE}, 
+writes every rejected epoch to the specified epoch-reject file. 
+The output table columns are
+\begin{verbatim}
+  VARNAMES: CID MJD BAND PHOTFLAG PHOTPROB ZP PSF CUTMASK
+\end{verbatim} 
+and the bottom of the epoch-reject file includes a commented
+statistics summary for all rejected epochs, and for each cut.
+To enable more detailed cut studies, the {\tt CUTMASK} column 
+indicates which cuts resulted in rejecting each epoch; 
+see {\tt CUTMASK} comments at top of epoch-reject file.
+
+% --------------------------------------
   \subsubsection{Restoring Bugs}
   \label{sss:restore_bugs}
 % --------------------------------------
@@ -11551,6 +11786,32 @@ published Winter 2019:
    &SNLCINP
       RESTORE_DES3YR = T  # LC fit input
 \end{verbatim}
+
+
+% --------------------------------------
+ \clearpage 
+  \subsubsection{Crosscheck $\zhelio \rightarrow \zcmb$ in Data Files}
+  \label{sss:check_ztranslate}
+% --------------------------------------
+
+In some data files, the CMB-frame redshift has been evaluated
+using the additive approximation, $\zcmb = \zhelio + \zsun$,
+instead of the exact formula, $1+ \zcmb =  (1+\zhelio)/(1-\zsun)$.
+If both {\tt REDSHIFT\_HELIO} and {\tt REDSHIFT\_CMB} are included
+in the data files, the snana code can run a crosscheck with the
+following input,
+\begin{verbatim}
+  &SNLCINP
+     ZTOL_HELIO2CMB = 0.001  ! abort if dz/zCMB > 0.001 (default=0.02)
+
+  or command-line arg:
+    snana.exe <inpFile> ZTOL_HELIO2CMB 0.001
+\end{verbatim}
+The \snana\ code computes $\zcmb$ from $\zhelio$ and compares
+with {\tt REDSHIFT\_CMB} in the data file; if the difference
+({\tt dz}) satisfies {\tt dz/zCMB > ZTOL\_HELIO2CMB}, the code aborts.
+The default tolerance is 0.02, which may catch severe bugs, 
+but will not catch the additive approximation.
 
 
 % --------------------------------------

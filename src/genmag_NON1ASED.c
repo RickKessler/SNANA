@@ -27,11 +27,14 @@
 
 ****************************************************/
 
+/*
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <math.h>
 #include <string.h>
+*/
+
 #include <sys/stat.h>
 
 #include "sntools.h" 
@@ -70,7 +73,7 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED) {
   int ifilt, ifilt_obs, NZBIN, NON1A_INDEX ;
   double Trange[2], Lrange[2] ;
   char sedcomment[40], *sedFile ;
-  char fnam[] = "init_genmag_NON1ASED"  ;
+  //  char fnam[] = "init_genmag_NON1ASED"  ;
 
   // ------------- BEGIN -------------
 
@@ -189,7 +192,7 @@ void genmag_NON1ASED (
   double  z1, ZP, meanlam_obs, meanlam_rest, Tobs, Trest ;
   double  AV_MW, XT_MW, XT_HOST, flux, FLUX, magerr, magobs;
   char *cfilt;
-  char fnam[] = "genmag_NON1ASED" ;
+  //  char fnam[] = "genmag_NON1ASED" ;
 
   // --------- BEGIN ----------
 
@@ -369,9 +372,9 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
     ISPEC1A = INP_NON1ASED->ISPEC1A[isp];
     XN      = ( wgt / WGTSUM[ISPEC1A] ) * XNGEN[ISPEC1A] ;
 
-    if ( DO_GENGRID==0 && (ISPEC1A && FRAC_PEC1A == 0.0)  ) {
+    if ( !DO_GENGRID && (ISPEC1A && FRAC_PEC1A == 0.0)  ) {
       print_preAbort_banner(fnam);
-      printf("\t Check DNDZ_PEC1A key is defined.\n");
+      printf("\t Check that DNDZ_PEC1A key is defined.\n");
       printf("\t Check that GENRANGE_REDSHIFT is not a delta function.\n");
       printf("\t Check that GENRANGE_PEAKMJD  is not a delta function.\n");
       printf("\t Check that SOLID_ANGLE > 0 \n");

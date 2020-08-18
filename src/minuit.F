@@ -3671,6 +3671,13 @@ CC             11: EXIT or STOP command
 CC             12: RETURN command
       LK = LEN(COMAND)
       IF (LK .GT. MAXCWD) LK=MAXCWD
+
+c xxx RK xxx
+c      WRITE (ISYSWR,'(".xyz MNEXCM ",A,2x,F6.2,2x,I4)' )  
+c     &      COMAND, PLIST(1), ISW(5)
+c      call flush(ISYSWR) ! xxx REMOVE
+c xxxxx
+
       CWORD = COMAND(1:LK)
 C              get upper case
       DO 16 ICOL= 1, LK
@@ -3822,7 +3829,12 @@ C                                        . . (also release) ....
          LFREED = .TRUE.
       ENDIF
       GO TO 950
-  930 WRITE (ISYSWR,'(A,I4,A,A)') ' PARAMETER',IEXT,CHWHY,' IGNORED.'
+
+  930 CONTINUE 
+      if ( ISW(5) .GE. 0 ) THEN  ! RK, 7.2020
+        WRITE (ISYSWR,'(A,I4,A,A)') ' PARAMETER',IEXT,CHWHY,' IGNORED.'
+      endif
+
   950 CONTINUE
       IF (LFREED .OR. LFIXED)  CALL MNRSET(0)
       IF (LFREED)  THEN
@@ -6498,8 +6510,12 @@ C                   determine machine accuracy epsmac
    33 CONTINUE
       EPSTRY = 1.0E-7
       EPSMAC = 4.0*EPSTRY
-      WRITE (ISYSWR,'(A,A,E10.2)') ' MNINIT UNABLE TO DETERMINE',
-     + ' ARITHMETIC PRECISION. WILL ASSUME:',EPSMAC
+
+      if ( ISYSWR > 0 ) then
+        WRITE (ISYSWR,'(A,A,E10.2)') ' MNINIT UNABLE TO DETERMINE',
+     +   ' ARITHMETIC PRECISION. WILL ASSUME:',EPSMAC
+      endif
+
    35 EPSMAC = 8.0 * EPSTRY
       EPSMA2 = 2.0 * SQRT(EPSMAC)
 C                 the vlims are a non-negligible distance from pi/2
@@ -6509,8 +6525,13 @@ C         used by MNPINT to set variables "near" the physical limits
       VLIMHI =  PIBY2 - DISTNN
       VLIMLO = -PIBY2 + DISTNN
       CALL MNCLER
-      WRITE (ISYSWR,'(3A,I3,A,I3,A,E10.2)')  '  MINUIT RELEASE ',CVRSN,
-     +' INITIALIZED.   DIMENSIONS ',MNE,'/',MNI,'  EPSMAC=',EPSMAC
+
+      if ( ISYSWR > 0 ) then
+         WRITE (ISYSWR,'(3A,I3,A,I3,A,E10.2)')  
+     +     '  MINUIT RELEASE ',CVRSN,
+     +     ' INITIALIZED.   DIMENSIONS ',MNE,'/',MNI,'  EPSMAC=',EPSMAC
+      endif
+
       RETURN
       END
 *
@@ -8579,6 +8600,7 @@ C                                      . . .print heading
         WRITE (ISYSWR,61)
         LPHEAD = .FALSE.
       ENDIF
+
    61 FORMAT(/' PARAMETER DEFINITIONS:'/
      +        '    NO.   NAME         VALUE      STEP SIZE      LIMITS')
       IF (WK .GT. ZERO)  GO TO 122
@@ -10009,8 +10031,10 @@ C      call eigen (p,p,maxint,npar,pstar,-npar)
   215 CONTINUE
       PMAX = MAX(ABS(PMAX), ONE)
       IF ((PMIN .LE. ZERO .AND. LWARN) .OR.  ISW(5) .GE. 2) THEN
-         WRITE (ISYSWR,550)
-         WRITE (ISYSWR,551) (PSTAR(IP),IP=1,NPAR)
+         if ( ISYSWR > 0 ) then ! RK
+           WRITE (ISYSWR,550)
+           WRITE (ISYSWR,551) (PSTAR(IP),IP=1,NPAR)
+        endif
       ENDIF
       IF (PMIN .GT. EPSPDF*PMAX)  GO TO 217
       IF (ISW(2) .EQ. 3)  ISW(2)=2
@@ -13274,7 +13298,7 @@ C
 C             Either print warning or put in buffer
       IF (COPT .EQ. 'W')  THEN
         ITYP = 1
-        IF (LWARN) THEN
+        IF (LWARN .and. ISYSWR > 0 ) THEN ! RK
           WRITE (ISYSWR,'(A,A/A,A)') ' MINUIT WARNING IN ',CORG,
      +              ' ============== ',CMES
           CALL FLUSH(6)

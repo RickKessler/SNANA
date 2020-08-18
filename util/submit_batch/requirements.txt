@@ -1,0 +1,6 @@
+numpy
+pyyaml
+coloredlogs
+psutil
+f90nml
+

@@ -48,6 +48,9 @@
 #   sntable_dump.pl <inFile>  <tableID>  OBS
 #     (dump each observation, mainly for fluxerrmap)
 #
+#   sntable_dump.pl <inFile>  <tableID>  NEVT
+#     (print number of events in table)
+#
 #  Note that -[v,o,a] and -[V,O,A] are accpeted (both lower,upper case)
 #
 #
@@ -71,6 +74,8 @@
 #   To look more python-like, allow -v (as well as legacy --v),
 #   -a (and --a), etc ...
 #
+# Aug 08 2020: new NEVT option to print number of events
+#
 # ------------------------------------------
 
 use FindBin qw($Bin);
@@ -90,7 +95,7 @@ my @VALID_SUFFIX_ROOT  = ( ".ROOT" ) ;
 # inputs
 my ($TABLE_INFILE, $TABLE_ID, @TABLE_VARLIST, $NVARLIST);
 my ($OUTFILE_TEXT, $OPT_HEAD, $TEXTFILE_APPEND);
-my (@OUTLIER_NSIGMA, $KEY_OUTLIER, $FORMAT_OUTFILE, $OPTOBS );
+my (@OUTLIER_NSIGMA, $KEY_OUTLIER, $FORMAT_OUTFILE, $OPT_OBS, $OPT_NEVT );
 
 
 # misc. globals
@@ -158,8 +163,8 @@ sub parse_args {
     
     @OUTLIER_NSIGMA = ( -9, -9 );
     $KEY_OUTLIER    = "xxx" ;
-    $OPTOBS         = 0 ;
-
+    $OPT_OBS        = 0 ;
+    $OPT_NEVT       = 0 ;
     $FORMAT_OUTFILE = "DEFAULT" ; # default is key format
 
     $NBAD = 0;
@@ -213,7 +218,12 @@ sub parse_args {
 
 	if ( lc($ARGV[$i]) eq "obs" )  { 
 	    $USE=1; 
-	    $OPTOBS = 1;
+	    $OPT_OBS = 1;
+	}
+
+	if ( lc($ARGV[$i]) eq "nevt" )  { 
+	    $USE=1; 
+	    $OPT_NEVT = 1;
 	}
 
 	if ( $USE == 0 ) {
@@ -234,7 +244,7 @@ sub parse_args {
 	$OUTFILE_TEXT = "sntable_dump_${TABLE_ID}.fitres"; 
 	if ( $OUTLIER_NSIGMA[0] >= 0 ) 
 	{ $OUTFILE_TEXT = "sntable_dump_${KEY_OUTLIER}.fitres"; }
-	if ( $OPTOBS ) 
+	if ( $OPT_OBS ) 
 	{ $OUTFILE_TEXT = "sntable_dump_obs.fitres"; }
     }
     
@@ -274,7 +284,7 @@ sub insert_ccid_varlist {
     # don't add CID for outlier option since CID will be added 
     # internally by sntable_dump.exe (Aug 4 2014)
     if ( $OUTLIER_NSIGMA[0] >= 0 ) { return ; }
-    if ( $OPTOBS                 ) { return ; }
+    if ( $OPT_OBS                ) { return ; }
 
     my ($VAR);
     my @TMPLIST = @TABLE_VARLIST ;
@@ -304,8 +314,12 @@ sub make_dump_command {
 	$CMD_DUMP = "$CMD_DUMP -o $OUTFILE_TEXT" ; 
     }
 
-    if ( $OPTOBS ) {
+    if ( $OPT_OBS ) {
 	$CMD_DUMP = "$CMD_DUMP  OBS  -o $OUTFILE_TEXT" ; 
+    }
+
+    if ( $OPT_NEVT ) {
+	$CMD_DUMP = "$CMD_DUMP  NEVT" ; 
     }
 
     if ( $FORMAT_OUTFILE ne "DEFAULT" ) {

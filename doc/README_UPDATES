@@ -1,3 +1,4 @@
+
    v9_00 [Sep 3, 2010]  
 
              ***** ACTION ITEMS for ALL SNANA USERS *****
@@ -18497,18 +18498,38 @@
 
 
 # ======================================================================= 
-         v10_77d (  ) 
+         v10_77d (Jun 9 2020) 
 
          ***** IMPORTANT(v10_77d) ***** 
 
+    snana.car: Fix awful bug in converting zCMB -> zHELIO;
+      OPT flag was set with wrong sign, so it was converting
+      zHELIO -> zCMB. This ONLY affects data files that have
+      zCMB but not zHELIO. No impact if both REDSHIFT_HELIO
+      and REDSHIFT_CMB are included in data files.
+      A few affected data versions are 
+          LOWZ_JRK07, SNLS_Ast06, CSPDR2
+      JLA data files have both HELIO and CMB redshift, and
+      were thus not affected by this bug.
+      Not clear when this bug was introduced.
+
+    sntools.h: update CMB_apex parameters using Planck 2018.
+
          ***** USEFUL(v10_77d) ***** 
+
+    snana.car
+      If both REDSHIFT_HELIO and REDSHIFT_CMB are read from data files,
+      crosscheck zHELIO with internal calculation; abort if 
+      |dz/z| > zTOL_HELIO2CMB (new &SNLCINP input).
+      Goal is to catch use of approximate/additive formula.
+      See manual section 12.2.5 Crosscheck zHEL -> zCMB
 
          ***** MISCELLANEOUS(v10_77d) ***** 
 
     snana.car
-      for writing TAKE_SPECTRUM keys to SIMLIB, exlcude wave bins
-      where FLUXERR/FLUXERR_MEDIAN > 50
-
+      + for writing TAKE_SPECTRUM keys to SIMLIB, exlcude wave bins
+         where FLUXERR/FLUXERR_MEDIAN > 50
+     
     combine_fitres.c
       + fix variable name match to be case insensitive.
 
@@ -18517,4 +18538,304 @@
        data files are not MJD-sorted. Also check that snlc_fit works
        on un-sorted data. Fix based on LSST-DC2 data files.
 
+    SALT2mu.c
+      + add abort traps for crazy IDSURVEY.
+
+
+# ======================================================================= 
+         v10_77e (Jun 19 2020) 
+
+         ***** IMPORTANT(v10_77e) ***** 
+
+   sim-input includes GENPDF_FILE with maps to describe populations
+   of color, stretch, AV, RV. See manaul Sec 
+   Works only in conjuction with sim-input "OPT_DEVEL_GENPDF: 1"
+   Next version will remove the OPT_DEVEL_GENPDF requirement.
+
+   Sims using asymGauss: no more using defaults, mainly for RV.
+
+         ***** USEFUL(v10_77e) ***** 
+
+         ***** MISCELLANEOUS(v10_77e) ***** 
+
+   snana.car
+     + do NOT apply zTOL check if SNLC_HELIO < 0.003 ... temp hack
+       to protect redshift truncation in DES DIFFIMG.
+
+   *.c: 
+     + fix compile with Wall warnings.
+
+   SALT2mu.c
+     + allow iflag_duplicate=0 (ignore) to operate on sims.
+     + for NSPLITRAN, include w(wfit) in summary.
+     + supress abort with surveygroup_biascor_abortflag=0
+
+   sntools_genPDF.c[h]
+     + new functions to read and implement multi-D maps of PDF
+       for color, stretch, RV, AV.
+
+   snlc_sim.c
+     + integrate init_genPDF & exec_genPDF
+     + remove OPT_DEVEL_GENFLUX and associated code.
+ 
+   sntools_host.c
+     + for WGTMAP using SN properties, abort if SN val is outside wgtmap range.
+
+   remove skewnormal.c and all obsolete/unused skewnormal code.
+
+   sntools_genGauss_asym.c:
+     require genGauss->USE = true to pick random from asym Gauss.
+
+   snlc_fit.car
+     + fix subtle bug setting ERRMAX_BAD for zPHOT when using
+       spec-z as a prior. Fixes zPHOTERR spike at 0.05.
+
+
+# ======================================================================= 
+         v10_77f (Jun 30 2020) 
+
+         ***** IMPORTANT(v10_77f) ***** 
+
+   SALT2mu: remove redshift error from muerrz calc (use only vpec).
+
+         ***** USEFUL(v10_77f) ***** 
+
+         ***** MISCELLANEOUS(v10_77f) ***** 
+ 
+    snana.car
+      + abort if SIMVAR_CUTWIN_STRING variable not found.
+
+    SALT2mu_fit.pl & SALT2mu.c:
+     + refactor/update so that NSPLITRAN output goes to
+       separate subdirs names 0001, 0002, etc ... 
+       This change allows Pippin to run CosmoMC in each subDir.
+       Interactive NSPLITRAN probably won't work,
+       so must use SALT2mu_fit.pl to launch NSPLITRAN.
+     + fix mu_true for opt_biascor += 128 (biasCor with MU)
+       to use measured redshift instead of true redshift.
+     + remove redshift error from muerrz calc (use only vpec);
+        restore_sigz=1 restores original calc.
+        Explanation in DES docDB note 15287.
+
+
+# ======================================================================= 
+         v10_77g (Jul 9 2020) 
+
+         ***** IMPORTANT(v10_77g) ***** 
+
+   snlc_sim: refactored code (for GENPDF options) now default.
+
+         ***** USEFUL(v10_77g) ***** 
+
+    Can use SALT2mu as a SUBPROCESS run by python population fit code; 
+    see below.
+
+         ***** MISCELLANEOUS(v10_77g) ***** 
+
+   SALT2mu.c
+     + abort if any IDSAMPLE has zero biasCor events passing cuts.
+
+     + add SIM_MUz array, and opt_biascor=2 is now same as 130
+       because z-only biasCor had always corrected vs. MU.
+
+     + for opt_biascor += 2(1D) or 128(muCor), biasCor true MU
+       is now computed with zHD instead of true z. For 1D biasCor,
+       here is example improvement using DES sims and host-galaxy
+       photo-z:
+            mu_true      m0-M0avg chi2/dof
+          SIM_MU(ztrue)   86.4 / 9      # old using SIM_MU(ztrue)
+          SIM_MU(zHD)     16.1 / 9      # new using SIM_MU(zHD)
+
+     + SUBPROCESS features ready to use. Get help with
+          SALT2mu.exe SUBPROCESS_HELP
+
+   snlc_sim.c
+     + add GENPDF_FLAT input; see manual.
+     + OPT_DEVEL_GENPDF=1 by default so that refactored code
+       is now default -> many SNANA_tester jobs fail (as expected)
+       because random sync has changed.
+
+   kcor.c
+     + write input file name and FILTER PATH names to output FITS header;
+       can be used later to chase down DOCANA notes.
+
+   sntools_spectrograph.c
+     + add protection against numerical roundoff when F <<< SQSIGMA
+       (limit of noise-dominated spectra). When running kcor.exe,
+       grep HACK <stdout> to see modified SNR.
+  
+
+# ======================================================================= 
+         v10_77h (Jul 20 2020) 
+
+         ***** IMPORTANT(v10_77h) ***** 
+
+   Fix really stupid logic bug that had slowed fits by almost
+   factor of 10 ( but didn't affect results)
+
+         ***** USEFUL(v10_77h) ***** 
+
+   new utility to dump every allowed key (see manual):
+      snlc_sim.exe KEY_DUMP
+      SALT2mu.exe  KEY_DUMP
+
+         ***** MISCELLANEOUS(v10_77h) ***** 
+
+    sntools_genPDF.h: 
+      + MXROW_GENPDF -> 15000 (was 5000)
+  
+    sntools.c[h]
+      + new write_epoch_list_xxx functions
+    snana.car
+      + new &SNLCINP input OUT_EPOCH_IGNORE_FILE to write
+        list of rejected epochs ... can be read by external
+        classifiers. Using write_epoch_list_xxx functions.
+      + for loading tables with variables vs. filter,
+        reduce MXFILT to 15 (was 30) ... mainly for low-z.
+
+    sntools_output.c
+      + fix declaration bug for when CERN_DIR is not defined.
+        Not sure how SNANA compiled at NERSC without CERN_DIR ?
+
+    sntools_trigger.c
+      + in zHOST effic file, add new optional key "PEAKMJD: t0 t1"
+        before each map; allows season-dependent maps. See manual.
+
+    sntools.c: 
+      + in read_VARNAMES_KEYS, avoid exceeding bound with lots
+        of duplicates; store only unique varnames.
+
+    genmag_SEDtools.c
+      + back at v10_76c, had introduced dumb logic bug that forced
+        re-evaluating entire extinction table for every fit-iteration.
+        Fixed, and now fits are almost x10 faster compared to bug.
+        This bug had no impact on results; only affected speed.
+ 
+    sntools_host.c[h]
+      + automatically store WGTMAP variables in data files.
+
+    sim_SNmix.pl
+      + fix to work if user name has less than 4 characters.
+
+    snlc_sim, SALT2mu, sntools
+     + update key-matching utility to allow multiple keys in same
+        input file (e.g., NON1A), and to allow a dump of all keys
+        with "snlc_sim.exe KEY_DUMP". Use grep to select things,
+        e.g.,  snlc_sim.exe KEY_DUMP | grep VPEC
+
+     + use keyMatch for command-line override and allow keys
+        to include or exlcude colon. Will need the colon option
+        later after submit-scripts are re-written. Either of the
+        following command-line args are now allowed:
+            snlc_sim.exe GENMAG_SMEAR 0.1
+            snlc_sim.exe GENMAG_SMEAR: 0.1
+
+     - First attempt to compile sim & BYOSED with python, but running 
+       snlc_sim.exe gives
+          At line 774 of file rdkcor_fits_head.f
+          Internal Error: get_unit(): Bad internal unit KIND
+       Tried compiling and running on des81, which has much newer
+       gfortran, and get the same error. 
+
+
+# ======================================================================= 
+         v10_77i (July 26 2020) 
+
+         ***** IMPORTANT(v10_77i) ***** 
+
+    new ERRMAP checks/ABORT in genmag_SALT2.c
+
+         ***** USEFUL(v10_77i) ***** 
+
+         ***** MISCELLANEOUS(v10_77i) ***** 
+
+   snlc_sim.c
+    + begin long overdue refactor of reading sim-inputs
+      (for compatibility with submit-scripts re-write)
+       * allow optional colon on command-line to match file-input keys
+       * use same read-function (parse_input_key_driver) for both 
+          file and command-line arg
+       * refactor is NOT yet default, but is invoked by 
+           "OPT_DEVEL_READ_INPUT 1"
+     + remove obsolete GENPAR_SELECT_FILE input (wasn't implemented)
+     + remove obsolute function read_SALT2mu_AlphaBeta and remove
+       obsolete sim-input SALT2mu_FILE
+     + remove obsolete INPUTS.GENRANGE_TYPE and GENRANGE_CID
+     + remove obsolete GENKCOR_STRETCH key
+     + fix so that get_random_genPDF is NOT called for LCLIB
+     + for invalid SIMGEN_DUMP variable, fix abort sequence
+       to be compatible with other aborts.
+
+       around 9:30pm on July 23, lost snlc_sim.c on FNAL cluster
+       when des41 hung up. Last GitHub update was 5hr earlier.
+       Lost some unreleased refactor deubugging for sim-inputs,
+       but didn't lose any requested updates. Submitted FNAL help
+       ticket requesting restoration of most recent sim file.
+       July 24 2020: heard nothing from Fermilab service, 
+       so I re-debugged.
+
+    snana.car
+     + &SNLCINP input HEADER_OVERRIDE_FILE can now be a comma-sep
+       list to allow multiple table files.
+     + in CHECK_EPOCH_IGNORE(), skip ZP and PSF cuts if RESTORE_DES3YR=T.
+     + fix array bound bug in get_PARSE_WORDS_fortran
+     + protect reading spectra when some events zero spectra
+     + begin refactor to read command-line args with equal signs;
+       e.g., CUTWIN_SNRMAX=5,99. Refactor NOT yet default.
+
+    SALT2mu.c
+      + add logic to skip reading YAML keys 
+         (YAML will be for submit script)
+      + SUBPROCESS bug fix
+
+    genmag_SALT2.c[h]
+      + to help catch pathologicaly re-training, add abort checks on 
+        bad error map values: nan or crazy values.  Mainly to help
+        SALT3 development.
+
+
+# ======================================================================= 
+         v10_77j (  ) 
+
+         ***** IMPORTANT(v10_77j) ***** 
+
+   Add submit_batch_jobs.py[sh] ... for integration with pippin.
+
+         ***** USEFUL(v10_77j) ***** 
+
+         ***** MISCELLANEOUS(v10_77j) ***** 
+
+    SALT2mu.c
+     + write CPU time in output fitres file
+     + new input minos=0 for much faster MIGRAD; default is minos=1
+     + new input write_yaml=1 for batch-sumbit script
+
+   SALT2mu_fit.c
+     + check for INCLUDE file in GENOPT_GLOBAL'
+
+   snlc_sim.c
+     + for INIT_ONLY=1, write NGENTOT_RATECALC key for easier parsing
+       but submit-batch script. Also, allow missing GENVERSION arg
+       since there is no output.
+     + fix bug aborting on mixing TAKE_SPECTRUM keys
+     + add new input "WRFLAG_YAML_FILE 1"  so that batch-submit scruot  
+       can request YAML output with summary stats needed for MERGE proc.
+       This avoids fragile parsing of stdout.
+    
+   snana.car
+     + when passing JOBSPLIT (from batch-submit script), automatically
+       create [VERSION].YAML file with stats ... avoids having to 
+       parse huge log files.
+     + fix CHECK_LINE_ARGS to use current MADABORT error handler.
+       
+   sntools.h
+     + optional ONE_RANDOM_STREAM pre-proc flag; see manual.
+     + MXCHARWORD_PARSE_WORDS -> 300 (was 60) to handle long file names
+         (fixes segFault found by R.Chen using HEADER_OVERRIDE feature)
+
+   sntable_dump.pl[c]
+     + add NEVT option to print number of events in table.
+       Needed in refactored submit scripts to verify table merge.
+
+  
 END: 

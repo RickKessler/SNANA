@@ -25,6 +25,7 @@ struct {
   int    NREBIN_LAM;      // rebin by this integer value (Sep 2 2016)
   double SNR_POISSON_RATIO_ABORT_vsMAGREF ;
   double SNR_POISSON_RATIO_ABORT_vsTEXPOSE ;
+  double MAGSNR_TOLERANCE_ABORT ; // tolerance on (m1-m0) - 2.5log(SNR0/SNR1)
 
   // define spectro table read from input file: 
   // needs to be malloced with NBIN_xxx

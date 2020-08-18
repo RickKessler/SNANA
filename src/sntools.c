@@ -1,5 +1,6 @@
 // sntools.c
 
+/*
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -7,6 +8,9 @@
 #include <time.h>
 #include <math.h>
 #include <ctype.h>
+*/
+
+#include "sntools.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -20,8 +24,6 @@
 #include <gsl/gsl_rng.h>      // for Poisson generator
 #include <gsl/gsl_randist.h>  // idem
 
-#include "sntools.h"
-
 #include "eispack.h"
 #include "eispack.c"
 
@@ -34,12 +36,292 @@
 **********************************************************
 **********************************************************/
 
+
+void write_epoch_list_init(char *outFile) {
+
+  // July 11 2020
+  // Init utility to write epochs that pass (or fail) cuts
+  // defined by calls to write_epoch_list_addvar
+  //
+  // Initial use is to make epoch-ignore list from snana.exe,
+  // then pass this list to classifiers.
+
+  int ivar;
+  FILE *FP_OUT;
+  char fnam[] = "write_epoch_list_init" ;
+
+  // ------------- BEGIN -----------------
+  WRITE_EPOCH_LIST.NVAR = 0;
+  WRITE_EPOCH_LIST.NEPOCH_ALL   = 0 ;
+  WRITE_EPOCH_LIST.NEPOCH_WRITE = 0 ;
+  WRITE_EPOCH_LIST.CUTMASK_ALL  = 0 ;
+
+  for(ivar=0; ivar < MXVAR_WRITE_EPOCH_LIST; ivar++ ) {
+    WRITE_EPOCH_LIST.VARNAME[ivar][0]     = 0 ; 
+    WRITE_EPOCH_LIST.CUTMODE[ivar]        = 0 ; 
+    WRITE_EPOCH_LIST.NEPOCH_CUTFAIL[ivar]      = 0 ;
+    WRITE_EPOCH_LIST.NEPOCH_CUTFAIL_ONLY[ivar] = 0 ;
+  }
+
+  WRITE_EPOCH_LIST.FP_OUT = fopen(outFile,"wt");
+  if( !WRITE_EPOCH_LIST.FP_OUT ) {
+    sprintf(c1err,"Could not open outFile");
+    sprintf(c2err,"%s", outFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  sprintf(WRITE_EPOCH_LIST.VARNAMES_LIST,"CID MJD BAND ");
+  print_banner(fnam);
+  printf("    Open outFile: %s\n", outFile);
+
+  FP_OUT = WRITE_EPOCH_LIST.FP_OUT;
+  fprintf(FP_OUT,"#  CUTVAR     CUTMASK    COMMENT \n");
+  fflush(FP_OUT);
+
+  return;
+
+} // end write_epoch_list_init
+
+
+// ==========================================================
+void write_epoch_list_addvar(char *VARNAME, double *CUTWIN, 
+			     char *CUTMODE_STRING) {
+
+  // July 2020
+  // Store info about this epoch-cut variable
+  int  NVAR        = WRITE_EPOCH_LIST.NVAR ;
+  int  CUTMASK_ADD = (1 << NVAR);
+  int  CUTTYPE, CUTMODE ;
+  char CUTTYPE_STRING[3][8] = { "NULL", "BITMASK", "WINDOW" };
+  char *ptrCUTTYPE;
+  char fnam[] = "write_epoch_list_addvar" ;
+
+  // ------------- BEGIN -----------------
+
+  sprintf(WRITE_EPOCH_LIST.VARNAME[NVAR], "%s", VARNAME);
+  WRITE_EPOCH_LIST.CUTWIN[NVAR][0] = CUTWIN[0];
+  WRITE_EPOCH_LIST.CUTWIN[NVAR][1] = CUTWIN[1];
+  WRITE_EPOCH_LIST.CUTMASK_ALL |= CUTMASK_ADD ;
+
+
+
+  //  if ( strstr(VARNAME,"PHOTFLAG") != NULL ) 
+  if ( CUTWIN[1] < 0.0 && CUTWIN[0] >= 0.0 ) 
+    { CUTTYPE = CUTTYPE_BITMASK; }
+  else
+    { CUTTYPE = CUTTYPE_WINDOW; }
+  ptrCUTTYPE = CUTTYPE_STRING[CUTTYPE] ;
+
+  if ( strcmp(CUTMODE_STRING,"REJECT") == 0 ) {
+    CUTMODE = CUTMODE_REJECT;
+  }
+  else if ( strcmp(CUTMODE_STRING,"IGNORE") == 0 ) {
+    CUTMODE = CUTMODE_REJECT;
+  }
+  else if ( strcmp(CUTMODE_STRING,"ACCEPT") == 0 ) {
+    CUTMODE = CUTMODE_ACCEPT ;
+  }
+
+  printf("   Add CUTVAR %s (CUTMODE=%s, CUTTYPE=%s) \n",
+	 VARNAME, CUTMODE_STRING, ptrCUTTYPE ) ;
+  fflush(stdout);
+
+  // update comments in outFile
+  FILE *FP_OUT = WRITE_EPOCH_LIST.FP_OUT;
+  char COMMENT[80];
+  if ( CUTTYPE == CUTTYPE_BITMASK ) {
+    sprintf(COMMENT,"%s %s %d", 
+	    CUTMODE_STRING, ptrCUTTYPE, (int)CUTWIN[0] );
+  }
+  else {
+    sprintf(COMMENT,"%s %s %.2f to %.2f", 
+	    CUTMODE_STRING, ptrCUTTYPE, CUTWIN[0], CUTWIN[1] );
+  }
+
+  fprintf(FP_OUT,"# %-12.12s   %3d  %s\n", VARNAME, CUTMASK_ADD, COMMENT);
+  fflush(FP_OUT);
+
+  // update globals
+  strcat(WRITE_EPOCH_LIST.VARNAMES_LIST,VARNAME);
+  strcat(WRITE_EPOCH_LIST.VARNAMES_LIST," ");
+  WRITE_EPOCH_LIST.CUTTYPE[NVAR] = CUTTYPE ;
+  WRITE_EPOCH_LIST.CUTMODE[NVAR] = CUTMODE ;
+  sprintf(WRITE_EPOCH_LIST.ROWKEY,"%s", CUTMODE_STRING);
+  WRITE_EPOCH_LIST.NVAR++ ;
+
+  return;
+
+} // end write_epoch_list_addvar
+
+// ==========================================================
+void write_epoch_list_exec(char *CID,double MJD, char *BAND,double *VALUES) {
+
+  bool DO_WRITE = false ;
+  FILE *FP_OUT     = WRITE_EPOCH_LIST.FP_OUT;
+  int  NVAR        = WRITE_EPOCH_LIST.NVAR ;
+  int  CUTMASK_ALL = WRITE_EPOCH_LIST.CUTMASK_ALL ;
+
+  int  ivar, MASK, CUTTYPE, CUTMODE, MASK_SELECT, CUTMASK_EPOCH ;
+  double VAL, *CUTWIN ;
+  bool PASSCUT;
+  int  LDMP = 0; // (VALUES[0] > 1.01 );
+  char STRING_LINE[200], STRING_VAL[20], *VARNAME ;
+  char fnam[] = "write_epoch_list_exec" ;
+
+  // ------------- BEGIN -----------------
+
+  // on 1st event, write VARNAMES list (set in addvar)
+  if ( WRITE_EPOCH_LIST.NEPOCH_ALL == 0 ) {
+    fprintf(FP_OUT,"#\n");
+    //  fprintf(FP_OUT,"CUTMASK_ALL: %d\n", WRITE_EPOCH_LIST.CUTMASK_ALL);
+    fprintf(FP_OUT,"VARNAMES: %s CUTMASK\n", WRITE_EPOCH_LIST.VARNAMES_LIST);
+    fflush(FP_OUT);
+  }
+
+  WRITE_EPOCH_LIST.NEPOCH_ALL++ ;
+
+  if ( LDMP )
+    { printf(" xxx %s -------- CID=%s --------------- \n", fnam,CID); }
+
+  // apply cut to each variable
+  CUTMASK_EPOCH = 0 ;
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+
+    VAL     = VALUES[ivar] ;
+    CUTTYPE = WRITE_EPOCH_LIST.CUTTYPE[ivar];
+    CUTWIN  = WRITE_EPOCH_LIST.CUTWIN[ivar];
+    CUTMODE = WRITE_EPOCH_LIST.CUTMODE[ivar];
+    VARNAME = WRITE_EPOCH_LIST.VARNAME[ivar];
+
+    if ( CUTTYPE == CUTTYPE_WINDOW ) {
+      PASSCUT  = (VAL >= CUTWIN[0] && VAL <= CUTWIN[1] );
+    }
+    else {
+      MASK_SELECT = (int)CUTWIN[0];
+      MASK        = (int)VALUES[ivar] ;
+      PASSCUT     = (MASK_SELECT & MASK) == 0 ;
+    }
+    
+    // increment CUTMASK for this epoch
+    if ( PASSCUT ) { 
+      //      CUTMASK_EPOCH |= (1 << ivar) ; 
+    }
+    else {
+      CUTMASK_EPOCH |= (1 << ivar) ;  // failed cuts
+      WRITE_EPOCH_LIST.NEPOCH_CUTFAIL[ivar]++ ;
+    }
+
+    if ( LDMP ) {
+      printf(" xxx %s   %s = %.2f  PASSCUT=%d \n",
+	     fnam, VARNAME, VAL, PASSCUT); fflush(stdout);
+    }
+      
+  } // end ivar loop
+
+
+  if ( CUTMODE == CUTMODE_ACCEPT ) // all cuts must pass
+    { DO_WRITE = ( CUTMASK_EPOCH == 0 ) ; }
+  else 
+    { DO_WRITE = ( CUTMASK_EPOCH > 0  ) ; } // any cut fails
+
+  
+  if ( LDMP ) {
+    printf(" xxx %s: CUTMASK_EPOCH = %d, DO_WRITE=%d \n", 
+	   fnam, CUTMASK_EPOCH, DO_WRITE); fflush(stdout);
+  }
+
+  // write to file of DO_WRITE = true
+  if ( DO_WRITE ) {
+    sprintf(STRING_LINE,"%s:  %10s %10.4f %s ", 
+	    WRITE_EPOCH_LIST.ROWKEY, CID, MJD, BAND );
+
+    // tack on variables
+    for(ivar=0; ivar < NVAR; ivar++ ) {
+      CUTTYPE = WRITE_EPOCH_LIST.CUTTYPE[ivar];
+      if ( CUTTYPE == CUTTYPE_BITMASK ) 
+	{ sprintf(STRING_VAL, "%6d ", (int)VALUES[ivar]) ; }
+      else
+	{ sprintf(STRING_VAL, "%.3f ", VALUES[ivar]) ; }
+      strcat(STRING_LINE,STRING_VAL);
+    }
+
+    // finally, tack on CUTMASK 
+    sprintf(STRING_VAL, "%3d ", CUTMASK_EPOCH );
+    strcat(STRING_LINE,STRING_VAL);
+
+    // print LINE to outFile
+    fprintf(FP_OUT,"%s\n", STRING_LINE);
+    fflush(FP_OUT);
+
+    WRITE_EPOCH_LIST.NEPOCH_WRITE++ ;
+  }
+
+
+  return ;
+
+} // end  write_epoch_list_exec
+
+// ==========================================================
+void write_epoch_list_summary(void) {
+
+  // Write stat summary of epochs ACCEPTED or REJECTED.
+
+  FILE *FP_OUT       = WRITE_EPOCH_LIST.FP_OUT;
+  int  NVAR          = WRITE_EPOCH_LIST.NVAR ;
+  int  NEPOCH_WRITE  = WRITE_EPOCH_LIST.NEPOCH_WRITE ;
+  int  NEPOCH_ALL    = WRITE_EPOCH_LIST.NEPOCH_ALL ;
+  char *ROWKEY       = WRITE_EPOCH_LIST.ROWKEY ; 
+  int  ivar, NCUTFAIL;
+  double frac;
+  char *VARNAME ;
+  char fnam[] = "write_epoch_list_summary" ;
+
+  // ------------- BEGIN -----------------
+
+  fprintf(FP_OUT,"\n");
+  fprintf(FP_OUT,"# Wrote %d %s epochs out of %d total epochs\n",
+	  NEPOCH_WRITE,  ROWKEY, NEPOCH_ALL );
+
+  frac = (double)NEPOCH_WRITE / (double)NEPOCH_ALL ;
+  fprintf(FP_OUT,"# %s fraction: %8.5f \n", ROWKEY, frac);
+  fflush(FP_OUT); 
+
+  // write cut stats per variable
+  for(ivar=0 ; ivar < NVAR; ivar++ ) {
+    NCUTFAIL    = WRITE_EPOCH_LIST.NEPOCH_CUTFAIL[ivar];
+    VARNAME     = WRITE_EPOCH_LIST.VARNAME[ivar];
+    frac        = (double)NCUTFAIL / (double)NEPOCH_ALL ;
+    fprintf(FP_OUT,"#    NEPOCH_CUTFAIL[%10s] =  %6d  (frac = %7.5f)\n", 
+	    VARNAME, NCUTFAIL, frac);
+  }
+
+  fprintf(FP_OUT, "#\n# Done.\n\n");
+
+  fflush(FP_OUT); fclose(FP_OUT);
+  return ;  
+
+} // end write_epoch_list_summary
+
+
+// mangled functions for fortran (snana.car)
+void write_epoch_list_init__(char *outFile)
+{ write_epoch_list_init(outFile); }
+void write_epoch_list_addvar__(char *varName, double *CUTWIN, char *CUTMODE)
+{write_epoch_list_addvar(varName,CUTWIN,CUTMODE); }
+void write_epoch_list_exec__(char *CID,double *MJD,char *BAND,double *VALUES)
+{ write_epoch_list_exec(CID,*MJD,BAND,VALUES); }
+void write_epoch_list_summary__(void)
+{ write_epoch_list_summary(); }
+
+
+// ==========================================================
 void catVarList_with_comma(char *varList, char *addVarName) {
   char comma[] = "," ;
   if ( strlen(varList) > 0 ) { strcat(varList,comma); }
   strcat(varList,addVarName);
 } 
 
+// ==========================================================
 int ivar_matchList(char *varName, int NVAR, char **varList) {
 
   // Created May 2020
@@ -114,7 +396,7 @@ void GaussRanCorr(CHOLESKY_DECOMP_DEF *DECOMP,
   int MATSIZE   = DECOMP->MATSIZE;
   double GAURAN, tmpMat, tmpRan ;
   int irow0, irow1;
-  char fnam[] = "GaussRanCorr" ;
+  //  char fnam[] = "GaussRanCorr" ;
 
   // ------------- BEGIN ------------
 
@@ -343,8 +625,6 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    printf(" xxx %s: ---------------- \n", fnam );
-
     if ( LDMP ) {
       printf(" xxx ITER=%d : omin,omax=%3d-%3d   MJDWIN=%.1f-%.1f"
 	     " SNRCUT=%.1f \n", 
@@ -373,9 +653,6 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 	sprintf(c2err,"NOBS=%d", NOBS);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
       }
-
-      printf(" xxx %s: MJD=%9.3f  o=%d o_sort=%d \n",
-	     fnam, MJD, o, o_sort); fflush(stdout);
 
       IMJD = (int)MJD;    
       if ( IMJD    < 40000   ) { continue; }
@@ -489,14 +766,74 @@ void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR,
 
 
 // ==============================================
-int keyMatch(char *string,char *key ) {
-  if ( strcmp(string,key)==0 ) 
+int keyMatch(char *string,char *key, char *keySuffix_optional ) {
+  if ( strcmp(string,key)==0 )   
     { return(1); }
-  else
-    { return(0); }
+  else if ( strlen(keySuffix_optional) > 0 ) {
+    int ISTAT = 0;
+    int MEMC  = (strlen(key)+10) * sizeof(char);
+    char *KEY = (char*) malloc (MEMC);
+    sprintf(KEY,"%s%s", key, keySuffix_optional ) ;
+    if ( strcmp(string,KEY) == 0 ) { ISTAT = 1; }
+    free(KEY); return(ISTAT);
+  }
+
+  // if we get here, there is no match.
+  return(0);
+
 } // end keyMatch
 
-int   uniqueMatch(char *string,char *key ) {
+bool NstringMatch(int MAX, char *string, char *key) {
+
+  // Created July 18 2020
+  // Check for *string match to input *key, 
+  // allowing up to MAX matches. MAX=1 -> uniqueMatch.
+  //
+  // Examples:
+  // Initialize with
+  //    NstringMatch(0, "INIT", "sim input file")
+  //   
+  // allow 1 and only 1 GENVERSION: key with
+  //    NstringMatch(1, string, "GENVERSION:"); 
+  //
+  // allow up to 20 NON1A keys with
+  //    NstringMatch(20, string, "NONIA:") ; 
+  //
+  // abort on OBSOLETE: key with
+  //    NstringMatch(0, string, "OBSOLETE:") ; 
+  //
+
+  char *msgSource = STRING_UNIQUE.SOURCE_of_STRING ;
+  char fnam[] = "NstringMatch";
+
+  // ------------ BEGIN -------------
+
+  if ( strcmp(string,STRINGMATCH_INIT) == 0 ) {
+    // interpet *key  as "source of string" to store
+    printf("  Initialize %s for %s\n", fnam, key); fflush(stdout);
+    sprintf(STRING_UNIQUE.SOURCE_of_STRING, "%s", key);
+
+    // init stuff for optional key dump
+    STRING_UNIQUE.NLIST = STRING_UNIQUE.NKEY = 0 ;
+    STRING_UNIQUE.DUMPKEY_FLAG = false ;
+    if ( MAX < 0 ) { STRING_UNIQUE.DUMPKEY_FLAG = true; } 
+
+    return(0);
+  }
+
+  // check option to print EVERY key
+  if (  STRING_UNIQUE.DUMPKEY_FLAG ) { dumpUniqueKey(key);  }
+
+  if ( strcmp(string,key) == 0 )
+    { checkStringUnique(MAX,string,msgSource,fnam);  return(true); }
+  else
+    { return(false); }
+
+} // end NstringMatch
+
+/* xxx mark delete Jul 17 2020 xxxxxxxxxx
+bool uniqueMatch(char *string,char *key ) {
+  
   // April 9 2019
   // utility to check for string match, and abort on
   // duplicate string
@@ -507,15 +844,17 @@ int   uniqueMatch(char *string,char *key ) {
     // interpet *key  as "source of string" to store
     printf("  Initialize %s for %s\n", fnam, key); fflush(stdout);
     sprintf(STRING_UNIQUE.SOURCE_of_STRING, "%s", key);
-    STRING_UNIQUE.NLIST = 0;
+    STRING_UNIQUE.NLIST = STRING_UNIQUE.NKEY = 0 ;
     return(0);
   }
 
   if ( strcmp(string,key) == 0 )
-    { checkStringUnique(string,msgSource,fnam);  return(1); }
+    { checkStringUnique(1,string,msgSource,fnam);  return(true); }
   else
-    { return(0); }
+    { return(false); }
+
 }  // end uniqueMatch
+xxxxxxxxxxx end mark xxxxxxxxxxxxx */
 
 
 int uniqueOverlap (char *string,char *key ) {
@@ -534,57 +873,102 @@ int uniqueOverlap (char *string,char *key ) {
   char fnam[] = "uniqueOverlap" ;
   // ---------- BEGIN -----------
 
-  if ( strcmp(string,"INIT") == 0 ) {
-    // interpet *key  as "source of string" to store
-    printf("  Initialize %s for %s\n", fnam, key); fflush(stdout);
-    sprintf(STRING_UNIQUE.SOURCE_of_STRING, "%s", key);
-    STRING_UNIQUE.NLIST = 0;
-    return(0);
-  }
+  if ( strcmp(string,STRINGMATCH_INIT) == 0 )  
+    {  NstringMatch( 0, STRINGMATCH_INIT, key); return(0); }
+  if ( strcmp(string,STRINGMATCH_KEY_DUMP) == 0 )  
+    {  NstringMatch(-1, STRINGMATCH_INIT, key); return(0); }
 
   strncpy(tmpString,string,lenkey); tmpString[lenkey]='\0';
-  match = uniqueMatch(tmpString,key);
+  // xxx mark delete Jul 17 2020  match = uniqueMatch(tmpString,key);
+  match = NstringMatch(1,tmpString,key);
   return(match);
 
 } // end uniqueOverlap
  
-void  checkStringUnique(char *string, char *msgSource, char *callFun) {
+void  checkStringUnique(int MAX, char *string, char *msgSource, char *callFun) {
 
   // Apr 2019
-  // Utility to store strings and check that each new string
-  // is unique. If not unique, abort with error message.
+  // Utility to store strings and check that if input *string
+  // is unique. If *string used more than N times, 
+  // abort with error message.
   //
   // Inputs:
-  //  *string : string to check
+  //   MAX       : max number of times string allowed to repeat
+  //  *string    : string to check
   //  *msgSrouce : message about source; e.g., "sim-input file"
   //  *callFun   : name of calling function
   //
   // The latter two args are used only for error message.
   //
   // string = "INIT" -> initialize arrays.
+  // 
+  // Jul 17 2020: pass MAX arg.
 
-  int i, NLIST;
+  int i, NLIST, NFOUND=0 ;
   char *tmpString;
+  bool LDMP ;
+  char dumpString[] = "XXXZZZQQQ" ;  // "CLEAR" ;
   char fnam[] = "checkStringUnique" ;
   // --------------- BEGIN ------------
 
-  if ( strcmp(string,"INIT") == 0 ) { 
+  if ( strcmp(string,STRINGMATCH_INIT) == 0 ) { 
     printf("  Initialize %s for %s\n", fnam, msgSource); fflush(stdout);
     STRING_UNIQUE.NLIST = 0;
     return ; 
   }
 
   NLIST = STRING_UNIQUE.NLIST ;
+
+  if ( NLIST >= MXLIST_STRING_UNIQUE ) {
+    sprintf(c1err,"NLIST=%d exceeds bound for dump", NLIST);
+    sprintf(c2err,"Try increasing MXLIST_STRING_UNIQUE in sntools.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+
   for(i=0; i < NLIST; i++ ) {
+    NFOUND = 0 ;
     tmpString = STRING_UNIQUE.STRING[i];
-    if ( strcmp(tmpString,string) == 0 ) {
-      sprintf(c1err,"Duplicate '%s' not allowed in %s.", string, msgSource);
+    if ( strcmp(tmpString,string) == 0 ) { 
+      STRING_UNIQUE.NFOUND_STRING[i]++ ; 
+      NFOUND = STRING_UNIQUE.NFOUND_STRING[i] ;
+    }
+
+    LDMP = ( strstr(string,dumpString) != NULL );
+    if ( LDMP ) {
+      printf(" xxx %s: string='%s'  tmpString[%d]=%s  NFOUND=%d  MAX=%d \n", 
+	     fnam, string, i, tmpString, NFOUND, MAX); 
+    }
+
+    if ( NFOUND > MAX ) {
+      sprintf(c1err,"%d  '%s' keys exceeds limit=%d in %s.", 
+	      NFOUND, string, MAX, msgSource);
       sprintf(c2err,"Calling function is %s .", callFun);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
+
+    // even of NFOUND > 0 , return to avoid storing same string 
+    // more than onece.
+    if ( NFOUND > 0 ) { return ; }
+  }
+
+  // - - - - - 
+  // if we get here, NFOUND = 0, so add to list
+
+  /*
+  printf(" xxx %s: load UNIQUE.STRING[%d] = '%s' \n",
+	 fnam, NLIST, string); fflush(stdout);
+  */
+
+  if ( MAX == 0 ) {
+    sprintf(c1err,"Must remove obsolete '%s' key in %s", 
+	    string, msgSource);
+    sprintf(c2err,"Calling function is %s .", callFun);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
   sprintf(STRING_UNIQUE.STRING[NLIST],"%s", string);
+  STRING_UNIQUE.NFOUND_STRING[NLIST] = 1; // 7.17.2020
   STRING_UNIQUE.NLIST++ ;
 
   if ( STRING_UNIQUE.NLIST >= MXLIST_STRING_UNIQUE ) {
@@ -597,6 +981,36 @@ void  checkStringUnique(char *string, char *msgSource, char *callFun) {
   return;
 
 } // end checkStringUnique
+
+void  dumpUniqueKey(char *key) {
+  int i, NKEY = STRING_UNIQUE.NKEY ;
+  bool EXIST = false ;
+  char fnam[] = "dumpUniqueKey";
+
+  // ----------- BEGIN -------------
+
+  //  printf(" xxx %s: key = '%s' \n", fnam, key );
+
+  if ( NKEY >= MXLIST_KEY_UNIQUE ) {
+    sprintf(c1err,"NKEY=%d exceeds bound for dump", NKEY);
+    sprintf(c2err,"Try increasing MXLIST_KEY_UNIQUE in sntools.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  //printf("\n# DUMP UNIQUE KEYS for %s\n", STRING_UNIQUE.SOURCE_of_STRING );
+  for(i=0; i < NKEY; i++ ) {    
+    if ( strcmp(key,STRING_UNIQUE.KEY[i]) == 0 ) { EXIST = true; }
+  }
+  
+  if ( !EXIST ) {
+    printf(" VALID_KEYNAME:  %4d   %s  \n", NKEY, key ); fflush(stdout);    
+    STRING_UNIQUE.KEY[NKEY] = (char*) malloc( 60*sizeof(char) );
+    sprintf(STRING_UNIQUE.KEY[NKEY], "%s", key);   
+    STRING_UNIQUE.NKEY++ ;
+  }
+
+} // end void  dumpStringUniqueList
+
 
 // ==========================================
 void init_lightCurveWidth(void) {
@@ -845,7 +1259,6 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
 
 
   int nm = MATSIZE ;
-  //  int matz = 1;
   bool matz  ;
   int l, k, m, ierr, ipar, NBAD_EIGVAL ;
   int LDMP = 0; // (strcmp(name,"4249392") == 0);
@@ -889,7 +1302,7 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
   if(LDMP){ printf("\t 1. xxx %s \n", fnam); fflush(stdout); }
 
   matz = true;
-  ierr = rs(nm, &covMat[0][0], eigval, &matz, &eigvec[0][0] );
+  ierr = rs(nm, &covMat[0][0], eigval, matz, &eigvec[0][0] );
 
   if(LDMP){ printf("\t 2. xxx %s \n", fnam); fflush(stdout); }
 
@@ -988,10 +1401,13 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   //
   // Jun 26 2018: free(tmpLine) --> fix awful memory leak
   // May 09 2019: refactor to allow option for ignoring comma in strings.
+  // Jul 20 2020: new option to ignore comment char and anything after
+  // Jul 31 2020: add abort trap on too-long string length
 
-  int DO_STRING    = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
-  int DO_FILE      = ( (OPT & MSKOPT_PARSE_WORDS_FILE) > 0 );
-  int CHECK_COMMA  = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMA) == 0 );
+  bool DO_STRING       = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
+  bool DO_FILE         = ( (OPT & MSKOPT_PARSE_WORDS_FILE)   > 0 );
+  bool CHECK_COMMA     = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMA) == 0 );
+  bool IGNORE_COMMENTS = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMENT) > 0 );
   int LENF = strlen(FILENAME);
 
   int NWD, MXWD, iwdStart=0, GZIPFLAG, iwd;
@@ -1024,22 +1440,35 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
    
     char *tmpLine = (char*) malloc( (LENF+10)*sizeof(char) );
     sprintf(tmpLine, "%s", FILENAME); // Mar 13 2019
-    if ( CHECK_COMMA && strchr(tmpLine,',') != NULL ) 
-      { sprintf(sepKey,","); }
+    if ( CHECK_COMMA && strchr(tmpLine,COMMA[0]) != NULL ) 
+      { sprintf(sepKey,"%s", COMMA); }
 
     malloc_PARSE_WORDS() ;    MXWD = PARSE_WORDS.BUFSIZE ;
 
     splitString2(tmpLine, sepKey, MXWD,
 		 &NWD, &PARSE_WORDS.WDLIST[0] ); // <== returned
     PARSE_WORDS.NWD = NWD ;
-
+    
+    // check that string lengths don't overwrite bounds (July 2020)
+    for(iwd=0; iwd < NWD; iwd++ ) {
+      int lwd = strlen(PARSE_WORDS.WDLIST[iwd]);
+      if ( lwd >= MXCHARWORD_PARSE_WORDS ) {
+	print_preAbort_banner(fnam); 
+	printf("  split tmpLine = \n '%s' \n", tmpLine);
+	sprintf(c1err,"split string len = %d for iwd=%d " 
+		"(see tmpLine above)",	 lwd, iwd);
+	sprintf(c2err,"Check MXCHARWORD_PARSE_WORDS=%d", 
+		MXCHARWORD_PARSE_WORDS);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+    }
+    
     if ( NWD >= MXWD ) {
       sprintf(c1err,"NWD=%d exceeds bound.", NWD);
       sprintf(c2err,"Check PARSE_WORDS.BUFSIZE=%d", MXWD);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
     free(tmpLine);
-
   }
   else if ( DO_FILE ) {
     // read text file
@@ -1057,9 +1486,20 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 	{ iwdStart = PARSE_WORDS.NWD; }
       splitString2(LINE, sepKey, MXWORDLINE_PARSE_WORDS, 
 		   &NWD, &PARSE_WORDS.WDLIST[iwdStart] ); // <== returned
+
+      if ( IGNORE_COMMENTS ) { // 7.2020
+	int NWD_TMP = 0 ; bool FOUND_COMMENT=false;  char *ptrWD ;
+	for(iwd = iwdStart; iwd < (iwdStart + NWD); iwd++ ) {
+	  ptrWD = PARSE_WORDS.WDLIST[iwd] ; 
+	  if ( commentchar(ptrWD) ) { FOUND_COMMENT = true ; }
+	  if ( !FOUND_COMMENT ) { NWD_TMP++; }
+	}
+	NWD = NWD_TMP; // reset NWD to ignore comments
+      }
       PARSE_WORDS.NWD += NWD;
     }
     NWD = PARSE_WORDS.NWD ;
+
 
     fclose(fp);
   }
@@ -3865,7 +4305,7 @@ void arrayStat(int N, double *array, double *AVG, double *RMS, double *MEDIAN) {
   // Jun 2 2020: include MEDIAN in output
 
   int i;
-  double XN, val, avg, sum, sqsum, rms, median, tmpdif ;
+  double XN, val, avg, sum, sqsum, rms, median ;
 
   // ----------- BEGIN ------------
 
@@ -4227,7 +4667,7 @@ void split2floats(char *string, char *sep, float *fval) {
 
 
 // ********************************************************
-void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP, 
+void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP, 
 		  int IDMAP, int NDIM, int NFUN, int OPT_EXTRAP, int MXROW,
                   char *callFun, GRIDMAP *GRIDMAP_LOAD ) {
 
@@ -4239,6 +4679,7 @@ void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP,
   //
   // Inputs:
   //   *fp        : already-opened file to read
+  //  MAPNAME     : name of map
   //  KEY_ROW     : NVAR columns follows this row-key
   //  KEY_STOP    : stop reading when this key is reached;
   //              " default is to stop reading on blank line.
@@ -4254,6 +4695,7 @@ void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP,
   //
   //
   // Apr 12 2019: abort if 10 or more rows read without valid key
+  // Jun 12 2020: pass MAPNAME as input arg.
 
   int   READ_NEXTLINE = 1 ;
   int   NROW_READ     = 0 ;
@@ -4272,14 +4714,12 @@ void read_GRIDMAP(FILE *fp, char *KEY_ROW, char *KEY_STOP,
 
   int   ivar, NWD, ISKEY_ROW, EXTRA_WORD_OK ;
   int   LDIF1, LDIF2, ivar2, NROW_SKIP=0 ;
-  char  LINE[200], word[40], MAPNAME[100] ;
+  char  LINE[200], word[40] ;
   char fnam[] = "read_GRIDMAP" ;
  
   // ----------- BEGIN -------------
 
   // create generic MAPNAME using row key and IDMAP
-  //  sprintf(MAPNAME,"%s%3.3d", KEY_ROW, IDMAP );
-  sprintf(MAPNAME,"%s", KEY_ROW );
 
   // allocate arrays to monitor uniform binning.
   TMPVAL      = (double*) malloc(NVARTOT * MEMD );
@@ -4833,7 +5273,6 @@ int  get_1DINDEX(int ID, int NDIM, int *indx ) {
 
   //  printf(" xxxx %s called with ID = %d \n", fnam, ID) ;
 
-  // xxx mark delete  if ( OFFSET_1DINDEX[ID][0] == 0 ) {
   if ( NPT_PERDIM_1DINDEX[ID][0] == 0 ) {
     sprintf(c1err,"ID=%d  is not defined.", ID );
     sprintf(c2err,"%s", "Must first call init_1DINDEX()");
@@ -5401,7 +5840,7 @@ void init_random_seed(int ISEED, int NSTREAM) {
   // NSTREAM = 2 -> two independent streams, use srandom_r
 
   GENRAN_INFO.NSTREAM = NSTREAM ;
-  int i, size ;
+  int i ;
   int ISEED2 = ISEED * 7 + 137; // for 2nd stream, if requested
   int ISEED_LIST[MXSTREAM_RAN] = { ISEED, ISEED2 } ;
   char fnam[] = "init_random_seed" ;
@@ -5411,6 +5850,12 @@ void init_random_seed(int ISEED, int NSTREAM) {
   if ( NSTREAM == 1 ) 
     {   srandom(ISEED); }
   else {
+
+#ifdef ONE_RANDOM_STREAM
+    sprintf(c1err,"Invalid NSTREAM_RAN=%d because", NSTREAM);
+    sprintf(c2err,"ONE_RANDOM_STREAM pre-proc flag is set in sntools.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+#else
     for(i=0; i < NSTREAM; i++ ) {
       memset( &GENRAN_INFO.ranStream[i], 0,  
 	      sizeof(GENRAN_INFO.ranStream[i]) ) ;
@@ -5418,6 +5863,7 @@ void init_random_seed(int ISEED, int NSTREAM) {
 		  &GENRAN_INFO.ranStream[i] ); 
       srandom_r( ISEED_LIST[i], &GENRAN_INFO.ranStream[i] ); 
     }
+#endif
   }
 
   fill_RANLISTs(); 
@@ -5510,7 +5956,7 @@ void sumstat_RANLISTs(int FLAG) {
   }
   else {
     // compute final AVG and RMS
-    double AVG, RMS, SUM, SUMSQ ;
+    double SUM, SUMSQ ;
     for (ilist = 1; ilist <= NLIST_RAN; ilist++ ) { 
       SUM   = GENRAN_INFO.NWRAP_SUM[ilist] ;
       SUMSQ = GENRAN_INFO.NWRAP_SUMSQ[ilist] ;
@@ -5529,14 +5975,25 @@ double unix_random(int istream) {
   // Created Jun 9 2018
   // Input istream is the random stream: 0 or 1
   // Return random between 0 and 1.
+  //
+  // Jul 30 2020: check pre-proc flag ONE_RANDOM_STREAM
 
   int NSTREAM = GENRAN_INFO.NSTREAM ;
   int JRAN ;
+  char fnam[] = "unix_random";
   // ------------ BEGIN ----------------
-  if ( NSTREAM == 1 ) 
-    { JRAN = random(); }
-  else
-    { random_r(&GENRAN_INFO.ranStream[istream], &JRAN); }
+  if ( NSTREAM == 1 )  { 
+    JRAN = random(); 
+  }
+  else {
+#ifdef ONE_RANDOM_STREAM
+    sprintf(c1err,"Cannot use 2nd random stream because");
+    sprintf(c1err,"ONE_RANDOM_STREAM pre-proc flag is set in sntools.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+#else
+    random_r(&GENRAN_INFO.ranStream[istream], &JRAN); 
+#endif
+  }
 
   double r8 = (double)JRAN / (double)RAND_MAX ;  // 0 < r8 < 1 
   return(r8);
@@ -6258,7 +6715,7 @@ int rd_sedFlux(
   double daystep_last, daystep, daystep_dif ;
   double lamstep_last, lamstep, lamstep_dif ;
   int iep, ilam, iflux, ival, LAMFILLED, OKBOUND_LAM, OKBOUND_DAY, NBIN ;
-  int  NRDLINE, NRDWORD, GZIPFLAG, FIRST_NONZEROFLUX, NONZEROFLUX ;
+  int  NRDLINE, NRDWORD, GZIPFLAG, FIRST_NONZEROFLUX, NONZEROFLUX, LEN ;
   bool OPT_READ_FLUXERR, OPT_FIX_DAYSTEP;
 
   // define tolerances for binning uniformity (Aug 2017)
@@ -6311,13 +6768,14 @@ int rd_sedFlux(
   line[0] = lastLine[0] = 0 ;
 
   while ( fgets (line, MXCHARLINE_FLUX+10, fpsed ) != NULL  ) {
-
-    if ( strlen(line) > MXCHARLINE_FLUX ) {
+    
+    LEN = strlen(line);
+    if ( LEN > MXCHARLINE_FLUX ) {
       print_preAbort_banner(fnam);
       printf("   sedFile: %s \n", sedFile);
       printf("   current  line: '%s' \n", line);
       sprintf(c1err,"Line length=%d exceeds bound of %d",
-	      strlen(line), MXCHARLINE_FLUX );
+	      LEN, MXCHARLINE_FLUX );
       sprintf(c2err,"Either increase MXCHARLINE_FLUX, or reduce line len");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
     }
@@ -8487,34 +8945,26 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
    = SINH (  )               if  magfun = "asinh"
 
 
-  Mar 2 2013: float -> double and FLUXCAL_SCALE -> ZEROPOINT_FLUXCAL
+  Inputs:
+     iepoch : epoch index for SNDATA.XXX arrays
+     magfun : log10 or asinh
+     opt    : 0 or 1 -> add ZP_sig uncertainty
+                   2 -> do not add ZP_sig term (error added earlier)
 
-  Mar 14, 2014:  remove requirement of asinh mag < 28; 
-                 keep extreme negative fluxes
-
+           HISTORY 
+        ~~~~~~~~~~~~
   Sep 5 2016: magfun = asinh is now obsolete
 
   Jan 3 2018: check for saturation
   Jan 23 2020: 
-    pass opt argument:
-    opt == 0 or 1 -> keep ZP error added in quadratyre
-    opt &  2 -> refactor --> remove ZP_sig term; ZP error added earlier.
+    pass opt argument to control use of ZP_sig in flux uncertainty.
    
   *********/
 
-
-  double
-     mag, mag_err, mag_tmp
-    ,ZP, ZP_err, ZP_scale, ZP_sig
-    ,flux, flux_err
-    ,fluxcal, fluxcal_err
-    ,ferrp, ferrm
-    ,tmperr, arg
-    ,sqerrtmp, relerr
-    ;
-
+  double mag, mag_err, mag_tmp, ZP, ZP_err, ZP_scale, ZP_sig;
+  double flux, flux_err, fluxcal, fluxcal_err, ferrp, ferrm;
+  double tmperr, arg, sqerrtmp, relerr;
   int VALID_MAGFUN, IFILT, LTMP;
-
   char fnam[] = "fluxcal_SNDATA" ;
 
   // ------------- BEGIN ----------------
@@ -8588,7 +9038,7 @@ int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
       fluxcal_err = flux_err * ZP_scale ;
 
       if (opt <= 1 ) {
-	// add ZP error here for FLUXCAL; 
+	// add ZP_sig uncertainty here for FLUXCAL; 
 	// note that flux in ADU does not have this ZP error.
 	relerr      = powf(TEN,0.4*ZP_sig) - 1.0 ;
 	tmperr      = fluxcal * relerr ;
@@ -9483,7 +9933,9 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
   // Inputs
   //   fp      : file pointer to read
   //    MXVAR  : max number of variables to return after VARNAMES keys.
-  //    NVAR_SKIP : number of variables to skip at end of list
+  //    NVAR_SKIP : number of variables to skip:
+  //          postive  -> remove from end of list
+  //          negative -> remove from start of list
   //  *callFun : name of calling function; for error message only
   //
   // Output:
@@ -9491,14 +9943,19 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
   //   *NKEY     : total number of VARNAMES keys found
   //   *UNIQUE   : for each variable, 1=> unique, 0=> duplicate from previous
   //  **VARNAMES : list of all variables (0 to *NVAR-1)
+  //
+  // Jun 12 2020: new option for NVAR_SKIP < 0 -> skip first var(s).
+  // Jul 13 2020: avoid storing duplicate var names
 
-  int  NVAR_LOCAL = 0 ;
-  int  NKEY_LOCAL = 0 ;
-  int  FOUND_VARNAMES, IVAR, ivar, ivar2, NVAR_TMP ;
-  char c_get[60], LINE[100] ;
+  int  NVAR_STORE = 0, NKEY_LOCAL = 0 ;
+  int  FOUND_VARNAMES, ivar, ivar_start, ivar_end, ivar2, NVAR_TMP ;
+  int  IVAR_EXIST, LDMP = 0 ;
+  char c_get[60], LINE[100], tmpName[60] ;
   char fnam[] = "read_VARNAMES_KEYS" ;
 
   // -------------- BEGIN ------------
+
+  if ( LDMP ) { printf(" xxx %s: ---------- DUMP ------------ \n", fnam);  }
 
   while( (fscanf(fp, "%s", c_get )) != EOF) {
     FOUND_VARNAMES = ( strcmp(c_get,"VARNAMES:")==0 ) ;
@@ -9506,31 +9963,53 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
       NKEY_LOCAL++ ;
       fgets(LINE, 100, fp ); // scoop up varnames
       NVAR_TMP  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);
-      NVAR_TMP -= NVAR_SKIP ;
-      for ( ivar=0; ivar < NVAR_TMP; ivar++ ) {
-	IVAR = ivar+NVAR_LOCAL ;
-	if ( IVAR < MXVAR ) { get_PARSE_WORD(0,ivar,VARNAMES[IVAR]); }
+      
+      ivar_start = 0; ivar_end = NVAR_TMP;
+      if ( NVAR_SKIP < 0 ) { ivar_start -= NVAR_SKIP; }
+      if ( NVAR_SKIP > 0 ) { ivar_end   -= NVAR_SKIP; }
+
+      if(LDMP) 	{ 
+	printf(" xxx %s: NVAR_TMP=%d ivar[start,end]=%d,%d \n", 
+	       fnam, NVAR_TMP, ivar_start, ivar_end);  fflush(stdout);
       }
-      NVAR_LOCAL += NVAR_TMP ;
+		       
+      for ( ivar=ivar_start; ivar < ivar_end; ivar++ ) {
+	get_PARSE_WORD(0, ivar, tmpName);
+	IVAR_EXIST = ivar_matchList(tmpName, NVAR_STORE, VARNAMES );
+	if ( LDMP ) {
+	  printf(" xxx %s: ivar=%d(%s) EXIST=%d  \n",
+		 fnam, ivar, tmpName, IVAR_EXIST );
+	}
+	if ( NVAR_STORE < MXVAR  &&   IVAR_EXIST < 0 ) {
+	  if(LDMP) {
+	    printf(" xxx %s: \t LOAD VARNAMES[%d] = %s \n",
+		   fnam, NVAR_STORE, tmpName); fflush(stdout);
+	  }
+	  sprintf(VARNAMES[NVAR_STORE], "%s", tmpName);
+	  NVAR_STORE++ ; // summed overal all VARNAMES
+	}
+
+      }
+      // xxx mark delete   NVAR_LOCAL += (ivar_end - ivar_start);
     } // end FOUND_VARNAMES
   } // end while    
 
 
 
-  if ( NVAR_LOCAL > MXVAR ) {
-    sprintf(c1err,"NVAR=%d exceeds MXVAR=%d", NVAR_LOCAL, MXVAR);
+  if ( NVAR_STORE >= MXVAR ) {
+    sprintf(c1err,"NVAR_STORE=%d exceeds MXVAR=%d", NVAR_STORE, MXVAR);
     sprintf(c2err,"called by %s, VARNAMES[0]=%s", callFun, VARNAMES[0] );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
   // ------------------------------------
   // load output args
-  *NVAR = NVAR_LOCAL ;
+  *NVAR = NVAR_STORE ;
   *NKEY = NKEY_LOCAL ;
 
   // check which VARNAMES are unique
   char *NAME, *NAME2 ;
-  for(ivar=0; ivar < NVAR_LOCAL; ivar++ ) {
+  for(ivar=0; ivar < NVAR_STORE; ivar++ ) {
     UNIQUE[ivar] = 1;
     NAME = VARNAMES[ivar] ;
 
@@ -10538,7 +11017,8 @@ int wr_filtband_float(
 // ***********************************
 void check_argv(void) {
 
-  // make sure that there are no unused command-line args
+  // ABORT if there are un-used command-line args
+  // (to catch mis-typed commands)
 
   int NBAD, i ;
   char fnam[] = "check_argv";
@@ -10546,7 +11026,7 @@ void check_argv(void) {
   // ----------- BEGIN ---------
 
   NBAD = 0;
-  for ( i = 1; i < NARGV_LIST; i++ ) {
+  for ( i = 1 ; i < NARGV_LIST; i++ ) {
     if ( USE_ARGV_LIST[i] == 0 ) {
       NBAD++ ;
       if ( NBAD == 1 ) printf("  CHECK_ARGV ERRORS: \n" );
@@ -10557,7 +11037,9 @@ void check_argv(void) {
   }
 
   if ( NBAD > 0 ) {
-    errmsg(SEV_FATAL, 0, fnam, "Invalid command line arg(s)", "" );
+    sprintf(c1err,"%d invalid/unknown command line arg(s)", NBAD);
+    sprintf(c2err,"Check all %d command-line args", NARGV_LIST );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
 } // end check_argv
@@ -10633,7 +11115,6 @@ void errmsg(
 *************************************/
 {
   char c_severe[40];  // char string for serverity 
-  char cmsg[200];
 
         /* ------- begin function execution ------- */
 
@@ -10646,12 +11127,6 @@ void errmsg(
      }
 
    if ( isev == SEV_FATAL ) {  madend(0); }
-
-   /* xxxxx mark delete 
-   // print SEVERITY, FUNCTION name, and 1st message. 
-   sprintf(cmsg, "%s[%s]: \n\t %s", c_severe, fnam, msg1 );
-   printf("\n %s \n", cmsg );
-   xxxxxxxx */
 
    // print severity and name of function
    printf(" %s called by %s\n", c_severe, fnam);
@@ -10678,8 +11153,7 @@ void madend(int flag) {
 
    char cmsg[40] = { "ABORT program on Fatal Error." };
 
-   printf("\n");
-   printf("\n");
+   //   printf("\n");   printf("\n");
    printf("\n   `|```````|`    ");
    printf("\n   <| o\\ /o |>    ");
    printf("\n    | ' ; ' |     ");
@@ -10862,13 +11336,16 @@ void readchar(FILE *fp, char *clist)
 
 // ************************************************
 void print_banner (const char *banner ) {
-
   printf("\n ********************************************"
 	 "********************** \n");
-  printf("   %s  \n" , banner );
-  fflush(stdout);
-
+  printf("   %s  \n" , banner );   fflush(stdout);
 }
+void fprint_banner (FILE *FP, const char *banner ) {
+  fprintf(FP, "\n ********************************************"
+	 "********************** \n");
+  fprintf(FP, "   %s  \n" , banner );   fflush(FP);
+}
+
 void debugexit(char *string) {
   printf("\n xxx DEBUG EXIT: %s \n", string);
   fflush(stdout);

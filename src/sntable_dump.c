@@ -35,6 +35,9 @@
     sntable_dump.exe <tableFile>  <tableName>  -o  <outFile> -format csv
         (csv format)
 
+    sntable_dump.exe <tableFile>  <tableName>  NEVT
+        (print number of events in table)
+
     sntable_dump.exe <tableFile>  <tableName>  -outlier 3 4
     sntable_dump.exe <tableFile>  <tableName>  -outlier_sim 3 4
        (print 3-4 sigma outliers: '-outlier' for fit-data,
@@ -104,6 +107,8 @@
 
  May 13 2020: replace --v with -v, etc ...
 
+ Aug 08 2020: new NEVT option to print number of events
+
 ********************************************/
 
 #include <stdio.h>
@@ -141,6 +146,7 @@ struct INPUTS {
   char  OUTLIER_VARNAME_FLUXCAL[40]; // FLUXCAL_MODEL or FLUXCAL_SIM
 
   int   OPT_OBS ;
+  bool  SNTABLE_NEVT ;
 
   char  COMMENT_FLUXREF[40];
 } INPUTS ;
@@ -195,7 +201,11 @@ int main(int argc, char **argv) {
   }
 
 
-  if ( NVAR == 0 ) {
+  if ( INPUTS.SNTABLE_NEVT ) {
+    int NEVT = SNTABLE_NEVT(TFILE,TID);  // Aug 2020
+    printf(" NEVT:  %d \n", NEVT);   // script-parsable output
+  }
+  else if ( NVAR == 0 ) {
     // no input variables --> list variable names
     SNTABLE_DUMP_VARNAMES(TFILE,TID);  
   }
@@ -207,7 +217,7 @@ int main(int argc, char **argv) {
 				  LINEKEY_DUMP, SEPKEY_DUMP );
 
     if ( DO_IGNORE ) { write_IGNORE_FILE(); }
-  }
+  } 
   else {
     // dump variable values to ascii/fitres file.
     NDUMP = SNTABLE_DUMP_VALUES(TFILE, TID, NVAR, TLIST, 
@@ -246,6 +256,7 @@ void parse_args(int NARG, char **argv) {
   INPUTS.OUTLIER_NSIGMA[0]  = -9.0 ;
   INPUTS.OUTLIER_NSIGMA[1]  = -9.0 ;
   INPUTS.OPT_OBS      = 0 ;
+  INPUTS.SNTABLE_NEVT = false;
 
   sprintf(LINEKEY_DUMP, "SN:");
   SEPKEY_DUMP[0] = 0;
@@ -282,7 +293,11 @@ void parse_args(int NARG, char **argv) {
       LINEKEY_DUMP[0] = 0;
     }
 
-    
+
+    if ( strcmp_ignoreCase(argv[i],"nevt" ) == 0 ) {
+      INPUTS.SNTABLE_NEVT = true ;  // Aug 2020
+    }
+
     if ( strcmp_ignoreCase(argv[i],"-outlier" ) == 0 ) {
       sscanf(argv[i+1], "%f", &INPUTS.OUTLIER_NSIGMA[0] );
       sscanf(argv[i+2], "%f", &INPUTS.OUTLIER_NSIGMA[1] );

@@ -1,9 +1,12 @@
 // =============================
 //   sntools_genGauss_asym.h
+//
+//  Jun 12 2020: remove obsolete/unused skewnormal code
 // =============================
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
@@ -13,8 +16,7 @@
 #include <gsl/gsl_spline.h>
 
 #include "sntools.h"
-#include "sntools_genGauss_asym.h"
-#include "skewNormal.c"
+//#include "sntools_genGauss_asym.h"
 
 
 // ******************************
@@ -25,7 +27,7 @@ void init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL ) {
 
   sprintf(genGauss->NAME,"NULL");
 
-  genGauss->FUNINDEX  = -9 ;  // Feb 18 2018
+  genGauss->USE       = false ;
   genGauss->PEAK      = VAL ;
 
   genGauss->RANGE[0]  = VAL ;
@@ -37,9 +39,6 @@ void init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL ) {
   // SKEW params = 0 regardless of VAL
   genGauss->SKEW[0]       = 0.0 ; 
   genGauss->SKEW[1]       = 0.0 ;  
-  genGauss->SKEWNORMAL[0] = 0.0 ;
-  genGauss->SKEWNORMAL[1] = 0.0 ;
-  genGauss->SKEWNORMAL[2] = 0.0 ;
 
   genGauss->NGRID     = 0 ;
   genGauss->FUNINDEX  = 0;
@@ -50,9 +49,7 @@ void init_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss, double VAL ) {
   genGauss->SIGMA2[0] = 0.0 ;
   genGauss->SIGMA2[1] = 0.0 ;
 
-
-  // Jun 2018 RMS
-  genGauss->RMS = 0.0 ;
+  genGauss->RMS       = 0.0 ;
 
 } // end init_GENGAUSS_ASYM
 
@@ -63,6 +60,8 @@ void copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
   // Aug 30 2016
   // copy contents of genGauss1 into genGauss2
   int i ;
+
+  genGauss2->USE = genGauss1->USE ;
 
   sprintf(genGauss2->NAME,"%s", genGauss1->NAME );
 
@@ -75,9 +74,6 @@ void copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
     genGauss2->SKEW[i]   = genGauss1->SKEW[i] ;
   }
 
-  for(i=0; i < 3; i++ ) 
-    { genGauss2->SKEWNORMAL[i] = genGauss1->SKEWNORMAL[i] ; }
-  
   genGauss2->FUNINDEX = genGauss1->FUNINDEX ;
 
   // 2nd peak
@@ -86,10 +82,68 @@ void copy_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss1,
   genGauss2->SIGMA2[0]  =  genGauss1->SIGMA2[0] ;
   genGauss2->SIGMA2[1]  =  genGauss1->SIGMA2[1] ;
 
+  genGauss2->RMS        =  genGauss1->RMS ;
 
   return ;
 
 } // end copy_GENGAUSS_ASYM
+
+
+// ================================================
+void set_GENGAUSS_ASYM(double peak, double *sigma, double *range,
+		       GENGAUSS_ASYM_DEF *genGauss) {
+
+  // July 2020
+  // Utility to set Asymmetric Gauss params of genGauss.
+  // Does not set 2nd peak, nor sew.
+
+  genGauss->USE      = true ;
+  genGauss->PEAK     = peak;
+  genGauss->SIGMA[0] = sigma[0] ;
+  genGauss->SIGMA[1] = sigma[1] ;
+  genGauss->RANGE[0] = range[0] ;
+  genGauss->RANGE[1] = range[1] ;
+
+  // turn off 2nd peak, skew ...
+  genGauss->PROB2      =  0.0 ;
+  genGauss->PEAK2      =  0.0 ;
+  genGauss->SIGMA2[0]  =  0.0 ;
+  genGauss->SIGMA2[1]  =  0.0 ;
+  genGauss->RMS        =  0.0 ;
+  genGauss->SKEW[0]    =  0.0 ;
+  genGauss->SKEW[1]    =  0.0 ;
+
+} // end set_GENGAUSS_ASYM
+
+// ======================================
+void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
+
+  // Created Sep 2 2016
+  // Store NAME and increment index.
+  // Called by readFile routine and command-line read function.
+  //
+  // Jun 11 2020: moved from snlc_sim.h, and set USE=true.
+
+  char *ptrName = genGauss->NAME;
+  //  char fnam[] = "prepIndex_GENGAUSS" ;
+  // ---------- BEGIN ---------
+
+  // if genGauss name is not set, then set name and FUNINDEX
+  if ( strcmp(ptrName,varName) != 0 ) {
+    genGauss->USE      = true ;
+    genGauss->FUNINDEX = NFUN_GENGAUSS_ASYM ;
+    NFUN_GENGAUSS_ASYM++;  
+    sprintf(genGauss->NAME, "%s", varName);  
+  }
+
+  // copy each GENGAUSS_ASYM struct into master list in case
+  // some kind of global operation or init is needed.
+
+  int FUNINDEX = genGauss->FUNINDEX ;
+  copy_GENGAUSS_ASYM( genGauss, &GENGAUSS_ASYM_LIST[FUNINDEX] );
+
+} // end prepIndex_GENGAUSS
+
 
 // **********************************
 double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
@@ -107,19 +161,37 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   // Oct 02 2016: compute rangeDif after DO_GRID if-block (bug fix)
   // Mar 29 2017: check for 2nd peak
   // Feb 28 2018: check for correlated randoms (see 'redCor')
-  //
+  // Jun 12 2020: 
+  //   + remove skewnormal (never worked)
+  //   + return -9 if !USE
+  // 
+  
   double peak, lo, hi, siglo, sighi, skewlo, skewhi, xlo, xhi ; 
-  double gridsize, grid0, skewNormal[3] ;
-  int NTRY, DO_SKEWSIGMA, DO_SKEWNORMAL, DO_GRID;
+  double gridsize, grid0;
+  int NTRY, DO_SKEWSIGMA, DO_GRID;
   int NGRID, FUNINDEX, j ;
   int USE_PEAK1=1, MXTRY = 1000, LDMP=0 ;
-  double ranval=0.0, rangeDif, RANGE[2], sigmax, ran1, ran2, PROB2 ;
+  double ranval=-9.0, rangeDif, RANGE[2], sigmax, ran1, ran2, PROB2 ;
+  char *NAME  = genGauss->NAME;
   char fnam[] = "exec_GENGAUSS_ASYM" ;
 
   // ---------- BEGIN -------------
 
+  //  LDMP = (strstr(NAME,"SALT2") != NULL ); // xxx REMOVE
+
   // always burn random to stay synced.
   ran1 = FlatRan1(1) ;
+
+  if ( !genGauss->USE ) {  return(ranval);  }
+
+  /*
+  if ( !genGauss->USE ) {  
+    printf(" xxx %s: undefined '%s' PEAK=%f  RANGE = %f to %f\n", 
+    	   fnam, NAME, genGauss->PEAK,
+	   genGauss->RANGE[0], genGauss->RANGE[1] ); 
+    return(ranval); 
+  }
+  */
 
   // check optional 2nd peak (Mar 2017)
   PROB2 = genGauss->PROB2 ;
@@ -130,7 +202,6 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
       siglo       = genGauss->SIGMA2[0] ;
       sighi       = genGauss->SIGMA2[1] ;
       skewlo = skewhi = 0.0 ;
-      for(j=0;j<3;j++) { skewNormal[j] = 0.0 ; }
       USE_PEAK1   = 0;
     }
   }
@@ -141,7 +212,6 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
     sighi       = genGauss->SIGMA[1] ;
     skewlo      = genGauss->SKEW[0] ;
     skewhi      = genGauss->SKEW[1] ;
-    for(j=0;j<3;j++) { skewNormal[j]  = genGauss->SKEWNORMAL[j]; }
   }
 
   lo          = genGauss->RANGE[0] ;
@@ -176,19 +246,10 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   NTRY  = 0;
   sigmax = 10.*rangeDif ;
   DO_SKEWSIGMA  = ( fabs(skewlo)  > 1.0E-9 || fabs(skewhi) > 1.0E-9 ) ;
-  DO_SKEWNORMAL = ( skewNormal[1] > 1.0E-9 ) ;
 
-
-  if ( DO_SKEWSIGMA && DO_SKEWNORMAL ) { 
-    sprintf(c1err,"Cannot generate SKEWSIG and SKEWNORMAL");
-    sprintf(c2err,"SKEW=%.3f,%.3f  SKEWNORMAL=%.3f,%.3f,%.3f",
-	    skewlo,skewhi, skewNormal[0],skewNormal[2],skewNormal[2] );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-  }
-
-
+  
   if ( LDMP ) {
-    printf("\t xxx ----------------- %s ------------ \n", genGauss->NAME);
+    printf("\t xxx ----------------- %s ------------ \n", NAME);
     printf("\t xxx peak = %f \n", peak);
     printf("\t xxx range(lo,hi) = %f, %f \n", lo, hi );
     printf("\t xxx sigma(lo,hi) = %f, %f \n", siglo, sighi );
@@ -211,11 +272,10 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
     if ( NTRY > MXTRY ) {
       print_preAbort_banner(fnam);
       dump_GENGAUSS_ASYM(genGauss);
-      printf(" DO_SKEW[SIGMA,NORMAL] = %d, %d \n", 
-	     DO_SKEWSIGMA, DO_SKEWNORMAL);
+      printf(" DO_SKEW[SIGMA] = %d, %d \n",  DO_SKEWSIGMA);
 
       sprintf(c1err,"Could not find %s RANDOM after %d tries ", 
-	      genGauss->NAME, NTRY );
+	      NAME, NTRY );
       sprintf(c2err,"Something is crazy.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
     }
@@ -225,23 +285,8 @@ double exec_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
       xhi = hi - peak ;
       ranval = peak + skewGaussRan(xlo,xhi,siglo,sighi,skewlo,skewhi); 
     }
-    else if ( DO_SKEWNORMAL ) {
-
-      sprintf(c1err,"SKEWNORMAL no longer supported.");
-      sprintf(c2err,"Need to pass SEED");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-
-      /* xxxx  Jun 8, 2018
-	 removed include snlc_sim.h, hence no INPUTS.SEED
-
-      // Pass seed and 3 parameters defining skewNormal
-      ranval  = skewNormalRan(INPUTS.ISEED, 
-			      skewNormal[0], skewNormal[1], skewNormal[2] );
-      */
-    }
     else { 
       ranval = peak + biGaussRan(siglo,sighi) ; 
-
     }
     
     if ( ranval < lo ) { goto GENVAL;  } 
@@ -294,11 +339,7 @@ void dump_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
 
   ptrVal = genGauss->SIGMA; 
   printf("\t SIGMA(-/+) = %.3f / %.3f \n", ptrVal[0], ptrVal[1] );
-	 
-  ptrVal = genGauss->SKEWNORMAL ; 
-  printf("\t SKEWNORMAL(LOC,SCALE,SKEW) = %.3f , %.3f , %.3f\n", 
-	 ptrVal[0], ptrVal[1], ptrVal[2] );
- 
+	  
   printf(" END %s \n", fnam );
   printf("# ------------------------------------------- \n");
 

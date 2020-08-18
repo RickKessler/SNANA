@@ -55,6 +55,9 @@ struct SALT2_ERRMAP {
   int     INDEX_SPLINE ;   
   int     ISGN[MXBIN_VAR_SALT2];  // sign of value since log10|err| is stored
 
+  int NBADVAL_NAN, NBADVAL_CRAZY; // July 2020 (for retraining)
+  double  RANGE_VALID[2] ;  // valid range for each map
+  double  RANGE_FOUND[2] ;  // actual min/max for each map
 } SALT2_ERRMAP[NERRMAP]; // SALT2_VAR[2], SALT2_COVAR, SALT2_ERRSCALE ;
 
 
@@ -71,6 +74,7 @@ struct INPUT_SALT2_INFO {
   int SEDFLUX_INTERP_OPT;    // 1=>linear,  2=> spline
   int ERRMAP_INTERP_OPT ;    // 1=>linear,  2=> spline in log10 space
   int ERRMAP_KCOR_OPT   ;    // turn KCOR erro on(default) or off
+  int ERRMAP_BADVAL_ABORT ;  // 1=> abort on bad errmap values (default)
 
   // rebin factor for SED-interp option
   int INTERP_SEDREBIN_LAM ; 
@@ -130,7 +134,8 @@ int    ifiltB_SALT2;
 // define filenames that contain model-error information
 char SALT2_ERRMAP_FILES[NERRMAP][60] ;
 char SALT2_ERRMAP_COMMENT[NERRMAP][40] ;
-int  NERRMAP_BAD_SALT2;
+int  NERRMAP_BADRANGE_SALT2;  // bad wave and/or day range
+int  NERRMAP_BADVALUE_SALT2 ; // bad map value: nan or crazy value
 
 // 4/30/2011: define SALT2 tables on same lambda grid as SED templates
 // These table-lookups are used to speed the integrations.
@@ -209,6 +214,8 @@ void read_SALT2colorDisp(void);
 
 void check_lamRange_SALT2errmap(int imap);
 void check_dayRange_SALT2errmap(int imap);
+void check_BADVAL_SALT2errmap(int imap);  // check for Nan & crazy values
+void init_BADVAL_SALT2errmap(int imap);  
 
 void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP );
 

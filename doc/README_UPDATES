@@ -18815,12 +18815,13 @@
 
    snlc_sim.c
      + for INIT_ONLY=1, write NGENTOT_RATECALC key for easier parsing
-       but submit-batch script.
+       but submit-batch script. Also, allow missing GENVERSION arg
+       since there is no output.
      + fix bug aborting on mixing TAKE_SPECTRUM keys
      + add new input "WRFLAG_YAML_FILE 1"  so that batch-submit scruot  
        can request YAML output with summary stats needed for MERGE proc.
        This avoids fragile parsing of stdout.
-
+    
    snana.car
      + when passing JOBSPLIT (from batch-submit script), automatically
        create [VERSION].YAML file with stats ... avoids having to 

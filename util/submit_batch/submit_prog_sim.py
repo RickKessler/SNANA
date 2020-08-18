@@ -47,14 +47,14 @@ SIMGEN_INPUT_LISTFILE = "INPUT_FILE.LIST" # contains list of input files
 
 # Define keys to read from each underlying sim-input file
 SIMGEN_INFILE_KEYCHECK = { # Narg  Required	 Verify
-	"GENMODEL"			:	 [ 1,	True,	  False ],
-	"NGENTOT_LC"		:	 [ 1,	True,	  False ],
-	"FORMAT_MASK"		:	 [ 1,	False,	  True	],
-	"GENFILTERS"		:	 [ 1,	True,	  True	],
-	"PATH_USER_INPUT"	:	 [ 1,	False,	  True	],
+	"GENMODEL"	    :	 [ 1,	True,	  False ],
+	"NGENTOT_LC"	    :	 [ 1,	False,	  False ],
+	"FORMAT_MASK"	    :	 [ 1,	False,	  True	],
+	"GENFILTERS"	    :	 [ 1,	True,	  True	],
+	"PATH_USER_INPUT"   :	 [ 1,	False,	  True	],
 	"GENRANGE_REDSHIFT" :	 [ 2,	True,	  True	],
-	"GENRANGE_PEAKMJD"	:	 [ 2,	True,	  True	],
-	"SOLID_ANGLE"		:	 [ 1,	True,	  True	]	}
+	"GENRANGE_PEAKMJD"  :	 [ 2,	True,	  True	],
+	"SOLID_ANGLE"  	    :	 [ 1,	True,	  True	]    }
 
 FORMAT_MASK_TEXT   = 2
 FORMAT_MASK_FITS   = 32

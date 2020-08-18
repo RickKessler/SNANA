@@ -7,6 +7,7 @@
 #   - more elegant HELP menu per program?
 #   - implement ssh (on FNAL cluster)
 #   - translate legacy input file (w/Justin)
+#   - write time to SUBMIT.INFO, and print total WALL time in MERGE.LOG
 #  SIM:
 #   - for sim, leave symbolic links for redundant sim job
 #   - problem reading SIMGEN-input file when SIMGEN_DUMP breaks
@@ -14,6 +15,7 @@
 #
 #  FIT:
 #   - track down why NEVT(HBOOK) sometimes fails
+#   - FITRES_COMBINE_FILE option
 #  BBC
 #
 # - - - - - - - - - -

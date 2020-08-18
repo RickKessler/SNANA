@@ -4978,9 +4978,9 @@ void prep_user_input(void) {
   prep_GENPDF_FLAT();    // Jul 2020: GENPDF
 
   // check for required input;
-  // Allow exceptions for GRID option
+  // Allow exceptions for GRID option and INIT_ONLY
 
-  if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID ) {
+  if ( !INPUTS.INIT_ONLY && GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID ) {
     sprintf(c2err,"Check input file: %s ", input_file );
 
     IBLANK = strcmp(INPUTS.GENVERSION,"BLANK");

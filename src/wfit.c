@@ -509,6 +509,11 @@ int main(int argc,char *argv[]){
     exit(0);
   }
 
+  // Aug 15 2020: print full command 
+  printf(" Full command: \n   ");
+  for(i=0; i < argc; i++ ) { printf(" %s", argv[i] );  }
+  printf("\n\n"); fflush(stdout);
+
   /** Initialize parameters **/
   /* Cosmological params */
 

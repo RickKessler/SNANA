@@ -18799,6 +18799,8 @@
 
          ***** IMPORTANT(v10_77j) ***** 
 
+   Add submit_batch_jobs.py[sh] ... for integration with pippin.
+
          ***** USEFUL(v10_77j) ***** 
 
          ***** MISCELLANEOUS(v10_77j) ***** 
@@ -18834,4 +18836,5 @@
      + add NEVT option to print number of events in table.
        Needed in refactored submit scripts to verify table merge.
 
+  
 END: 

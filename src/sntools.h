@@ -54,7 +54,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_77j"                                  
+#define  SNANA_VERSION_CURRENT  "v10_78"                                  
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)

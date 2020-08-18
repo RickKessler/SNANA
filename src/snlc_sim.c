@@ -597,19 +597,6 @@ void get_user_input(void) {
     }
   }
 
-  /* xxx mark delete Jul 20 2020 xxxxx
-  if ( READ_INPUT_REFAC )
-    { read_input_file(INPUTS.INPUT_FILE_LIST[0]); }
-  else
-    { read_input_file_legacy(INPUTS.INPUT_FILE_LIST[0]); }
-  // check 1st include file
-  if ( !IGNOREFILE(INPUTS.INPUT_FILE_LIST[1])  ) 
-    { read_input_file_legacy(INPUTS.INPUT_FILE_LIST[1] );  }
-  // check 2nd include file
-  if ( !IGNOREFILE(INPUTS.INPUT_FILE_LIST[2]) ) 
-    { read_input_file_legacy(INPUTS.INPUT_FILE_LIST[2] );  }
-  xxxxxxxx end mark xxxxxxx */
-
   // --------------------------------------------
   // check for command line overrides
   // --------------------------------------------
@@ -658,7 +645,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
   INPUTS.RESTORE_FLUXERR_BUGS = false; // Jan 2020
   INPUTS.OPT_DEVEL_GENPDF      = 1 ;
-  INPUTS.OPT_DEVEL_READ_INPUT  = 0 ;
+  INPUTS.OPT_DEVEL_READ_INPUT  = 0 ; // enable, Aug 18 2020
   NLINE_RATE_INFO   = 0;
 
   // don't init zero'th input file since that is the main input file
@@ -4363,12 +4350,16 @@ void sim_input_override(void) {
     */
 
     // set USE flag to mark valud command-line inputs
-    for(iwd_use = iwd; iwd_use < (iwd+NWD_READ+1); iwd_use++ )  { 
-      USE_ARGV_LIST[iwd_use] = 1; 
+    if ( NWD_READ > 0 ) {
+      for(iwd_use = iwd; iwd_use < (iwd+NWD_READ+1); iwd_use++ )  { 
+	USE_ARGV_LIST[iwd_use] = 1; 
+      }
     }
 
     iwd += NWD_READ ;
   }
+
+  // debugexit(fnam); // xxx REMOVE
   return ;
 
 } // end sim_input_override

@@ -102,11 +102,11 @@ def _add_keyword_to_dict(current_dict,key,value,legacy_type):
 			except:
 				kv_list[1] = kv_list[1].strip()
 		if kv_list[0].strip() in SIM_multi_option_list:
-			current_dict[key][kv_list[0].strip()] = [value.strip()] if\
+			current_dict[key][kv_list[0].strip()] = [value.replace(kv_list[0],'').strip()] if\
 													len(kv_list) > 2 else\
 													[kv_list[1]]
 		else:
-			current_dict[key][kv_list[0].strip()] = value.strip() if\
+			current_dict[key][kv_list[0].strip()] = value.replace(kv_list[0],'').strip() if\
 													len(kv_list) > 2 else\
 													kv_list[1]
 	else:

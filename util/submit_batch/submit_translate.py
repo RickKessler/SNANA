@@ -9,7 +9,6 @@ import os, sys, yaml, re
 import psutil
 import numpy	as np
 from   copy		import copy
-from   optparse import OptionParser
 
 # definitions
 SIM_default_yaml_sections__ = \
@@ -413,7 +412,7 @@ def SIM_legacy_to_refac(legacy_filename,refactored_filename):
 			o.write("# Translated automatically from " \
 					"legacy input file %s\n" % legacy_filename )
 			yaml.dump(legacy_dict, o, default_flow_style=False,
-				  sort_keys=False, Dumper=_MyDumper)
+					  sort_keys=False, Dumper=_MyDumper,width=1000)
 			o.write('\n#END_YAML')
 
 #  - - - - - 
@@ -443,7 +442,7 @@ def FIT_legacy_to_refac(legacy_filename,refactored_filename):
 		o.write('# Automatic translation for legacy LCFIT file %s\n\n' \
 				% legacy_filename)
 		yaml.dump(legacy_header_dict, o, default_flow_style=False,
-				  sort_keys=False, Dumper=_MyDumper)
+				  sort_keys=False, Dumper=_MyDumper,width=1000)
 
 		o.write('\n#END_YAML\n\n')
 		for line in nml_lines:
@@ -472,7 +471,7 @@ def BBC_legacy_to_refac(legacy_filename,refactored_filename ):
 		o.write('# Automatic translation for legacy BBC file %s\n\n' \
 				% legacy_filename)
 		yaml.dump(legacy_dict, o, default_flow_style=False, 
-				  sort_keys=False, Dumper=_MyDumper)
+				  sort_keys=False, Dumper=_MyDumper,width=1000)
 		o.write('\n#END_YAML\n\n')
 		for line in bbc_input:
 			o.write(line)

@@ -7,7 +7,6 @@
 
 import os, sys, yaml, re
 import psutil
-import numpy	as np
 from   copy		import copy
 
 # definitions
@@ -91,7 +90,8 @@ def _add_keyword_to_dict(current_dict,key,value,legacy_type):
 	"""
 
 	kv_list = value.split()
-	if len(kv_list)>1 and key not in SIM_ignore_dict_setup__ and legacy_type=='SIM':
+	if len(kv_list)>1 and key not in SIM_ignore_dict_setup__ and\
+									 legacy_type=='SIM':
 		if key not in current_dict.keys():
 			current_dict[key]={}
 		if kv_list[1].strip().isnumeric():
@@ -101,11 +101,14 @@ def _add_keyword_to_dict(current_dict,key,value,legacy_type):
 				kv_list[1] = float(kv_list[1].strip())
 			except:
 				kv_list[1] = kv_list[1].strip()
-		print(kv_list[0].strip())
 		if kv_list[0].strip() in SIM_multi_option_list:
-			current_dict[key][kv_list[0].strip()] = [kv_list[1]]
+			current_dict[key][kv_list[0].strip()] = [value.strip()] if\
+													len(kv_list) > 2 else\
+													[kv_list[1]]
 		else:
-			current_dict[key][kv_list[0].strip()] = kv_list[1]
+			current_dict[key][kv_list[0].strip()] = value.strip() if\
+													len(kv_list) > 2 else\
+													kv_list[1]
 	else:
 		if value.strip().isnumeric():
 			value = int(value.strip())
@@ -119,7 +122,7 @@ def _add_keyword_to_dict(current_dict,key,value,legacy_type):
 				current_dict[key] = [current_dict[key]]
 		
 			current_dict[key].append(value)
-		elif len(kv_list)>1 or not np.any([key in tempList \
+		elif len(kv_list) > 1 or not any([key in tempList \
 										   for tempList in [SIM_multi_option_list,
 															FIT_multi_option_list,
 															BBC_multi_option_list]]):
@@ -130,33 +133,37 @@ def _add_keyword_to_dict(current_dict,key,value,legacy_type):
 	return(current_dict)
 
 def _make_yaml_translation(key,value,yaml_key,yaml_value):
+	"""
+	Helper function that replaces keys between legacy and refactored
+	"""
+
 	yaml_key_final = copy(yaml_key)
 	yaml_value_final = copy(yaml_value)
 	if '*' in yaml_key:
 		split_key = yaml_key.split('*')
 		split_key_subs = [x for x in split_key if len(x) > 0]
-		if not np.all([substring in key for substring in split_key_subs]):
+		if not all([substring in key for substring in split_key_subs]):
 			actual_key = None
 		else:
-			if len(split_key[0])==0:
-				if len(split_key[-1])==0:
+			if len(split_key[0]) == 0:
+				if len(split_key[-1]) == 0:
 					actual_key=copy(key)
 				else:
 					actual_key = key[:key.find(split_key_subs[-1])+len(split_key_subs[-1])]			
-			elif len(split_key[-1])==0:
+			elif len(split_key[-1]) == 0:
 				actual_key = key[key.find(split_key_subs[0]):]
 			else:	
 				actual_key = key[key.find(split_key_subs[0]):key.find(split_key_subs[-1])+len(split_key_subs[-1])]
-		if not np.all([substring in value for substring in split_key_subs]):
+		if not all([substring in value for substring in split_key_subs]):
 			actual_value = None
 		else:
 			
-			if len(split_key[0])==0:
-				if len(split_key[-1])==0:
+			if len(split_key[0]) == 0:
+				if len(split_key[-1]) == 0:
 					actual_value=copy(value)
 				else:
 					actual_value = value[:value.find(split_key_subs[-1])+len(split_key_subs[-1])]
-			elif len(split_key[-1])==0:
+			elif len(split_key[-1]) == 0:
 				actual_value = value[value.find(split_key_subs[0]):]
 			else:	
 				actual_value = value[value.find(split_key_subs[0]):value.find(split_key_subs[-1])+len(split_key_subs[-1])]
@@ -174,7 +181,7 @@ def _make_yaml_translation(key,value,yaml_key,yaml_value):
 			yaml_value_final = yaml_value_final.strip('*')
 		else:
 			for i in range(len(split_key)-1):
-				if len(split_key[i])==0:
+				if len(split_key[i]) == 0:
 					if actual_key is not None:
 						if '*' in yaml_key_final:
 							yaml_key_final[wildcard_inds_key[i]]=\
@@ -189,7 +196,7 @@ def _make_yaml_translation(key,value,yaml_key,yaml_value):
 						if '*' in yaml_value_final:
 							yaml_value_final[wildcard_inds_value[i]]=\
 								actual_value[:actual_value.find(split_key[i+1])]
-				elif len(split_key[i+1])==0:
+				elif len(split_key[i+1]) == 0:
 					if actual_key is not None:
 						if '*' in yaml_key_final:
 							yaml_key_final[wildcard_inds_key[i]]=\

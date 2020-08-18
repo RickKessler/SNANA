@@ -18795,15 +18795,21 @@
 
 
 # ======================================================================= 
-         v10_77j (  ) 
+         v10_78 (Aug 18 2020) 
 
-         ***** IMPORTANT(v10_77j) ***** 
+         ***** IMPORTANT(v10_78) ***** 
 
-   Add submit_batch_jobs.py[sh] ... for integration with pippin.
+   + Add submit_batch_jobs.py[sh] ... for testing
 
-         ***** USEFUL(v10_77j) ***** 
+   + enable refactored command line input for sim and fit ;
+     allows command line input to look like input file.
+     e.g., snlc_sim.exe <inputFile> NGENTOT_LC: 400
+           snlc_fit.exe >inputFile> CUTWIN_SNRMAX=6,999
+     Beware of sudden bugs.
 
-         ***** MISCELLANEOUS(v10_77j) ***** 
+         ***** USEFUL(v10_78) ***** 
+
+         ***** MISCELLANEOUS(v10_78) ***** 
 
     SALT2mu.c
      + write CPU time in output fitres file
@@ -18837,5 +18843,4 @@
      + add NEVT option to print number of events in table.
        Needed in refactored submit scripts to verify table merge.
 
-  
 END: 

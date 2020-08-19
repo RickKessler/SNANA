@@ -911,7 +911,7 @@ class LightCurveFit(Program):
                     row[COLNUM_NEVT2]  = sum_stats['nevt_sum_cut_lcfit']
                     row[COLNUM_CPU]    = sum_stats['cpu_sum']
 
-                    if fitopt_num in list_FITOPT000_list:
+                    if fitopt_num in link_FITOPT000_list :
                         row[COLNUM_CPU] = 0.0 # zero CPU for sym links
 
                     row_list_merge_new[irow] = row  # update new row

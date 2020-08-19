@@ -82,6 +82,10 @@ class Program:
     def merge_reset(self,output_dir):
         raise NotImplementedError()
 
+    @abstractmethod       
+    def get_merge_COLNUM_CPU(self):
+        raise NotImplementedError()
+
     def parse_batch_info(self,config_yaml,config_prep):
     
         # check of SSH or BATCH, and parse relevant strings
@@ -313,11 +317,13 @@ class Program:
         CONFIG          = self.config_yaml['CONFIG']
         n_job_tot       = self.config_prep['n_job_tot']
         n_job_split     = self.config_prep['n_job_split']
+        n_core          = self.config_prep['n_core']
         simlog_dir      = self.config_prep['output_dir']
         script_dir      = self.config_prep['script_dir']
         done_stamp_list = self.config_prep['done_stamp_list']
         Nsec            = seconds_since_midnight
         tnow            = datetime.datetime.now()
+
 
         cleanup_flag = 1     # default
         if 'CLEANUP_FLAG' in CONFIG :
@@ -343,8 +349,10 @@ class Program:
 
         comment = "njob to merge per task after processing"
         f.write(f"N_JOB_SPLIT:      {n_job_split}     # ({comment})\n")
+
+        comment = "number of cores"
+        f.write(f"N_CORE:           {n_core}     # ({comment})\n")
             
-        
         # append program-specific information
         f.write("\n")
         self.append_info_file(f)
@@ -482,7 +490,7 @@ class Program:
         # read SUBMIT.INFO passed from original submit job... 
         # this info never changes
         logging.info(f"# {fnam}: read {SUBMIT_INFO_FILE}")
-        INFO_PATHFILE        = (f"{output_dir}/{SUBMIT_INFO_FILE}")
+        INFO_PATHFILE    = (f"{output_dir}/{SUBMIT_INFO_FILE}")
         submit_info_yaml = util.extract_yaml(INFO_PATHFILE)
         self.config_prep['submit_info_yaml'] = submit_info_yaml
 
@@ -607,10 +615,13 @@ class Program:
             if nfail_tot == 0 :
                 logging.info(f"\n# {fnam}: ALL JOBS DONE -> " \
                              f"BEGIN FINAL CLEANUP ")
-                if cleanup_flag: self.merge_cleanup_final()  # remove, tar, gzip, move ...
+                if cleanup_flag: 
+                    self.merge_cleanup_final()  # remove, tar, gzip, move ...
                 STRING_STATUS = STRING_SUCCESS
             else:
                 STRING_STATUS = STRING_FAIL
+
+            self.write_proctime_info() # write proc time info to MERGE.LOG
 
             done_stamp_list = submit_info_yaml['DONE_STAMP_LIST']
             util.write_done_stamp(output_dir, done_stamp_list, STRING_STATUS)
@@ -782,6 +793,55 @@ class Program:
             
         # end merge_check_time_stamp    
     
+    def write_proctime_info(self):
+        # write proc time info to MERGE.LOG file including
+        #  + wall time
+        #  + EFF(CPU) = average CPU/core divided by wall-time 
+
+        output_dir        = self.config_prep['output_dir']
+        submit_info_yaml  = self.config_prep['submit_info_yaml']
+        n_core   = submit_info_yaml['N_CORE']
+        t_start  = submit_info_yaml['TIME_STAMP_START']
+        t_now    = datetime.datetime.now()
+        t_dif    = t_now - t_start
+        MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")   
+        
+        t_seconds = t_dif.total_seconds()
+        if t_seconds < 3000.0 :
+            t_unit = 60.0;      unit = "minutes"
+        else:
+            t_unit = 3600.0 ;    unit = "hours"
+
+        t_wall = t_seconds/t_unit
+        msg_time = []
+        msg_time.append(f"\nWALL_TIME:  {t_wall:.2f}    # {unit} ")
+
+        # if there is a CPU column, compute total CPU and avg CPU/core/T_wal
+        colnum_cpu = self.get_merge_COLNUM_CPU()
+        if colnum_cpu > 0 :
+            cpu_sum    = 0.0
+            MERGE_INFO_CONTENTS,comment_lines = \
+                util.read_merge_file(MERGE_LOG_PATHFILE)
+            for row in MERGE_INFO_CONTENTS[TABLE_MERGE] :
+                cpu = row[colnum_cpu]
+                cpu_sum += cpu  # units are minutes, not seconds
+
+            cpu_sum *= 60.0/t_unit
+            cpu_avg  = cpu_sum / n_core
+            eff_cpu  = cpu_avg / t_wall
+
+            msg_time.append(f"CPU_SUM:    {cpu_sum:.3f}   # {unit}")
+            msg_time.append(f"EFFIC_CPU:  {eff_cpu:.3f}   # CPU/core/T_wall")
+
+        # - - - -
+        # .xyz
+        # append proc time info to bottom of MERGE.LOG
+        with open(MERGE_LOG_PATHFILE,"a") as f:
+            for msg in msg_time :
+                f.write(f"{msg} \n")
+
+        # end write_proctime_info
+
     def check_file_exists(self,file_name,msg_user):
         # abort if file does not exist and use self.log_assert
         # that writes error message to MERGE.LOG and FAIL to done stamp

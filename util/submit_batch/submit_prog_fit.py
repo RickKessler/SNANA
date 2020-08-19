@@ -1533,3 +1533,5 @@ class LightCurveFit(Program):
         return flag
         # end force_merge_table_fail
 
+    def get_merge_COLNUM_CPU(self):
+        return COLNUM_FIT_MERGE_CPU

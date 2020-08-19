@@ -1972,4 +1972,7 @@ class Simulation(Program):
 
     # end merge_cleanup_final
 
+    def get_merge_COLNUM_CPU(self):
+        return COLNUM_SIM_MERGE_CPU
+
 # ======= END ======

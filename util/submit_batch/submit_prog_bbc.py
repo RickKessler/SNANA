@@ -1305,5 +1305,8 @@ class BBC(Program):
 
         # end bbc_prefix
 
+    def get_merge_COLNUM_CPU(self):
+        return -9  # there is no CPU column
+
 
 

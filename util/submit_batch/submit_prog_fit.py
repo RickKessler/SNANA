@@ -2,7 +2,6 @@
 #
 # To-DO
 #   - validate APPEND_FITRES_TEXT before submit ??
-#   - sym link -> FITOPT000
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -850,7 +849,7 @@ class LightCurveFit(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_job_split      = submit_info_yaml['N_JOB_SPLIT']
-
+        link_FITOPT000_list = submit_info_yaml['LINK_FITOPT000_LIST']
         COLNUM_STATE   = COLNUM_FIT_MERGE_STATE 
         COLNUM_VERS    = COLNUM_FIT_MERGE_VERSION 
         COLNUM_FITOPT  = COLNUM_FIT_MERGE_FITOPT
@@ -911,6 +910,10 @@ class LightCurveFit(Program):
                     row[COLNUM_NEVT1]  = sum_stats['nevt_sum_cut_snana']
                     row[COLNUM_NEVT2]  = sum_stats['nevt_sum_cut_lcfit']
                     row[COLNUM_CPU]    = sum_stats['cpu_sum']
+
+                    if fitopt_num in list_FITOPT000_list:
+                        row[COLNUM_CPU] = 0.0 # zero CPU for sym links
+
                     row_list_merge_new[irow] = row  # update new row
                     n_state_change += 1             # assume nevt changes
 

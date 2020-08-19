@@ -5,9 +5,12 @@
 # TO-DO LIST for
 #  BASE/util: 
 #   - more elegant HELP menu per program?
-#   - implement ssh (on FNAL cluster)
-#   - translate legacy input file (w/Justin)
 #   - write time to SUBMIT.INFO, and print total WALL time in MERGE.LOG
+#   + implement ssh (on FNAL cluster)
+#   + translate legacy input file (w/Justin)
+#   + allow .exe to be missing for 1 minute in case of make
+#        while [ ! -f /tmp/sleep.txt ]; do sleep 1; done
+#
 #  SIM:
 #   - for sim, leave symbolic links for redundant sim job
 #   - problem reading SIMGEN-input file when SIMGEN_DUMP breaks
@@ -16,6 +19,7 @@
 #  FIT:
 #   - track down why NEVT(HBOOK) sometimes fails
 #   - FITRES_COMBINE_FILE option
+#
 #  BBC
 #
 # - - - - - - - - - -

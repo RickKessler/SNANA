@@ -423,7 +423,8 @@ def wait_for_files(n_file_wait, wait_dir, wait_files):
         n_file_exist    = len(wait_file_list)
         tnow            = datetime.datetime.now()
         tstr            = tnow.strftime("%Y-%m-%d %H:%M:%S") 
-        logging.info(f"\t Found {n_file_exist} of {n_file_wait} files ({tstr})")
+        msg = (f"\t Found {n_file_exist} of {n_file_wait} files ({tstr})")
+        logging.info(msg)
 
     # end wait_for_file
 
@@ -441,10 +442,18 @@ def write_job_info(f,JOB_INFO,icpu):
 
     if len(job_dir) > 1 :
         f.write(f"# ---------------------------------------------------- \n")
-        f.write(f"cd {job_dir} \n")
+        f.write(f"cd {job_dir} \n\n")
+
+    # for bash, wait for program to appear if SNANA make is in progress.
+    # Not sure how to do this in csh.
+    if 'bash' in SHELL :
+        program_plus_path = shutil.which(program)
+        wait_for_code = (f"while [ ! -f {program_plus_path} ]; " \
+                         f"do sleep 5; done")
+        f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
+        f.write(f"{wait_for_code}\n")
 
     f.write(f"{program} {input_file} \\\n")
-
     # write each arg on separte line for easier viewing
     for arg in arg_list :  
         if arg != '' :

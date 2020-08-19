@@ -24,6 +24,7 @@ FASTFAC = 10
 # - - - - - - 
 SNANA_DIR        = os.environ['SNANA_DIR']
 SNDATA_ROOT      = os.environ['SNDATA_ROOT']
+SHELL            = os.environ['SHELL']
 
 # generic program types to control batch flow
 PROGRAM_TYPE_SIM  = "SIM"  # simulation

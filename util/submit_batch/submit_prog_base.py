@@ -7,7 +7,7 @@
 #import argparse
 import os, sys, shutil, yaml
 import logging, coloredlogs
-import datetime, time
+import datetime, time, subprocess
 import getpass, ntpath, glob
 
 from   abc import ABC, abstractmethod
@@ -157,6 +157,7 @@ class Program:
         batch_file_list   = []   # batch file name, no patch
         COMMAND_FILE_LIST = []   # includes full path
         BATCH_FILE_LIST   = []   # idem
+        cmdlog_file_list  = []
 
         # loop over each core and create CPU[nnn]_JOBS.CMD that
         # are used for either batch or ssh. For batch, also 
@@ -166,10 +167,12 @@ class Program:
             cpu_name      = (f"CPU{icpu:04d}")
             prefix        = (f"CPU{icpu:04d}_JOBLIST_{node}")
             command_file  = (f"{prefix}.CMD")
+            log_file      = (f"{prefix}.LOG")
             COMMAND_FILE  = (f"{script_dir}/{command_file}")
             print(f"\t Create {command_file}")
 
             command_file_list.append(command_file)
+            cmdlog_file_list.append(log_file)
             COMMAND_FILE_LIST.append(COMMAND_FILE)
 
             # write few global things to COMMAND_FILE
@@ -187,13 +190,13 @@ class Program:
             if ( submit_mode == SUBMIT_MODE_BATCH ):
                 batch_file = (f"{prefix}.BATCH")
                 BATCH_FILE = (f"{script_dir}/{batch_file}")
-                log_file   = (f"{prefix}.LOG")
                 batch_file_list.append(batch_file)
                 BATCH_FILE_LIST.append(BATCH_FILE)
                 self.write_batch_file(batch_file,log_file,
                                       command_file,cpu_name)
 
         # store few thigs for later
+        self.config_prep['cmdlog_file_list']  = cmdlog_file_list
         self.config_prep['command_file_list'] = command_file_list
         self.config_prep['COMMAND_FILE_LIST'] = COMMAND_FILE_LIST
         self.config_prep['batch_file_list']   = batch_file_list
@@ -314,6 +317,7 @@ class Program:
         script_dir      = self.config_prep['script_dir']
         done_stamp_list = self.config_prep['done_stamp_list']
         Nsec            = seconds_since_midnight
+        tnow            = datetime.datetime.now()
 
         cleanup_flag = 1     # default
         if 'CLEANUP_FLAG' in CONFIG :
@@ -327,7 +331,8 @@ class Program:
         f.write("\n# Required info \n")
 
         comment = "submit time; Nsec since midnight"
-        f.write(f"NSEC_TIME_STAMP:  {Nsec}    # ({comment})\n")
+        f.write(f"TIME_STAMP_NSEC:  {Nsec}    # ({comment})\n")
+        f.write(f"TIME_STAMP_START: {tnow}    \n")
 
         f.write(f"SCRIPT_DIR:       {script_dir} \n")
         f.write(f"DONE_STAMP_LIST:  {done_stamp_list} \n")
@@ -409,29 +414,33 @@ class Program:
         script_dir     = self.config_prep['script_dir']
         cddir          = (f"cd {script_dir}")
 
-        # lower case if file name without path; upper case includes path/name
-        #COMMAND_FILE_LIST = self.config_prep['COMMAND_FILE_LIST']
-        #BATCH_FILE_LIST   = self.config_prep['BATCH_FILE_LIST']
-
         if submit_mode == SUBMIT_MODE_BATCH :
             batch_command    = self.config_prep['batch_command'] 
             batch_file_list  = self.config_prep['batch_file_list']
             for batch_file in batch_file_list :
                 cmd = (f"{cddir} ; {batch_command} {batch_file}")
-                #print(f"\t xxx {batch_command} {batch_file}")
                 os.system(cmd)
         else:
             n_core         = self.config_prep['n_core']
             node_list      = self.config_prep['node_list']
             command_file_list = self.config_prep['command_file_list']
-            for inode in range(0,n_core):
-                node     = node_list[inode]
-                cmd_file = command_file_list[inode]    
-                # ?? see sim_SNmix.pl to finish (search 'ssh -x') ??
-                cmd = (f"ssh -x {node} ; {cddir} ; source {cmd_file}")
-                sys.exit(f"\n Graceful ABORT: ssh not working yet ...\n")
+            cmdlog_file_list  = self.config_prep['cmdlog_file_list'] 
 
-        # end lauch_jobs
+            qq = '"'
+            for inode in range(0,n_core):
+                node       = node_list[inode]
+                log_file   = cmdlog_file_list[inode]
+                cmd_file   = command_file_list[inode]
+                cmd_source = (f"{cddir} ; source {cmd_file} >& {log_file} &")
+
+                #ret = subprocess.call(["ssh", node, cmd_source] )
+
+                ret = subprocess.Popen(["ssh", "-x", node, cmd_source ],
+                                       stdout = subprocess.PIPE,
+                                       stderr = subprocess.PIPE)
+                #print(f" xxx {node} ret = {ret}")
+
+        # end launch_jobs
 
     def merge_driver(self):
 
@@ -733,7 +742,7 @@ class Program:
 
         submit_info_yaml  = self.config_prep['submit_info_yaml']
         #output_dir        = self.config_prep['output_dir']
-        time_stamp_submit = submit_info_yaml['NSEC_TIME_STAMP']
+        time_stamp_submit = submit_info_yaml['TIME_STAMP_NSEC']
         done_stamp_list   = submit_info_yaml['DONE_STAMP_LIST']
         Nsec_now          = seconds_since_midnight
 

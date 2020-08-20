@@ -645,7 +645,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
   INPUTS.RESTORE_FLUXERR_BUGS = false; // Jan 2020
   INPUTS.OPT_DEVEL_GENPDF      = 1 ;
-  INPUTS.OPT_DEVEL_READ_INPUT  = 0 ; // enable, Aug 18 2020
+  INPUTS.OPT_DEVEL_READ_INPUT  = 1 ; // enable, Aug 19 2020
   NLINE_RATE_INFO   = 0;
 
   // don't init zero'th input file since that is the main input file
@@ -17161,6 +17161,9 @@ void checkpar_SIMSED(void) {
   //  Fix bug from last July. Use ipar_model instead of ipar_user
   //  for SIMSED lookups.
   //
+  // Aug 19 2020: for GRIDONLY, set  INPUTS.GENGAUSS_SIMSED[].USE=true
+  //                (bug fix)
+  //
 
   int  GENFLAG, ipar, ipar_model, ipar_user, ipar_tmp
     ,IPAR_MODEL_USED[MXPAR_SIMSED]
@@ -17227,6 +17230,10 @@ void checkpar_SIMSED(void) {
       range_user[0] = SEDMODEL.PARVAL_MIN[ipar_model] - 0.5*bin_user ;
       range_user[1] = SEDMODEL.PARVAL_MAX[ipar_model] + 0.5*bin_user;
 
+      sprintf(INPUTS.GENGAUSS_SIMSED[ipar_user].NAME, "%s",
+              SEDMODEL.PARNAMES[ipar_model] );
+      INPUTS.GENGAUSS_SIMSED[ipar_user].USE      = true  ; // Aug 19 2020
+ 
       INPUTS.GENGAUSS_SIMSED[ipar_user].RANGE[0] = range_user[0] ;
       INPUTS.GENGAUSS_SIMSED[ipar_user].RANGE[1] = range_user[1] ;
     }

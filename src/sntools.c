@@ -5400,33 +5400,48 @@ int file_timeDif(char *file1, char *file2) {
   // Dif > 0 if  file1 is  more  recent
   // Dif < 0 if  file1 is  older.
   //
-  
+  // Aug 18 2020: Allow for .gz in either file.
+
   char fnam[] = "file_timeDif" ;
 
-  struct stat statbuf1;
-  struct stat statbuf2;
+  char file1gz[MXPATHLEN], file2gz[MXPATHLEN];
+  struct stat statbuf1, statbuf1gz;
+  struct stat statbuf2, statbuf2gz;
 
-  int j1, j2, t1,  t2 ;
+  int j1, j2, j1gz, j2gz, t1,  t2 ;
 
   // ------------ BEGIN ----------------
 
   j1 = stat(file1, &statbuf1); // returns 0 if file exists
   j2 = stat(file2, &statbuf2);
 
-  if ( j1 !=0 ) {
+  sprintf(file1gz, "%s.gz", file1);
+  sprintf(file2gz, "%s.gz", file2);
+  j1gz = stat( file1gz, &statbuf1gz); 
+  j2gz = stat( file2gz, &statbuf2gz);
+
+  if ( j1 !=0 && j1gz != 0 ) {
     sprintf(c1err,"istat returned %d  for", j1);
     sprintf(c2err,"file1='%s' ", file1);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
-  if ( j2 !=0 ) {
+  if ( j2 !=0  && j2gz != 0 ) {
     sprintf(c1err,"istat returned %d  for", j2);
     sprintf(c2err,"file2='%s' ", file2);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
-  t1 = statbuf1.st_mtime ;
-  t2 = statbuf2.st_mtime ;
+  if ( j1 == 0 )
+    { t1 = statbuf1.st_mtime ; }
+  else
+    { t1 = statbuf1gz.st_mtime ; }
+
+  if ( j2 == 0 ) 
+    { t2 = statbuf2.st_mtime ; }
+  else
+    { t2 = statbuf2gz.st_mtime ; }
+
   return t1 - t2 ;
 
 } // end of  file_timeDif

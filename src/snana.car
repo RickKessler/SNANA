@@ -3662,8 +3662,8 @@ c read the nml
 c check for namelist over-rides from command line.
 
      
-cc      CALL SNLCINP_OVERRIDE()  ! refactored with MATCH_NMLKEY (Enable Aug 18 2020)
-      CALL SNLCINP_OVERRIDE_LEGACY() ! ancient function
+      CALL SNLCINP_OVERRIDE()  ! refact with MATCH_NMLKEY (Enable 8.19.2020)
+cc      CALL SNLCINP_OVERRIDE_LEGACY() ! ancient function
 
 c check for cut on simulated search eff;
 c if set, then require SEARCHEFF_MASK = 3 =>

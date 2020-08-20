@@ -132,6 +132,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
   // OPTMASK +=  1 --> create binary file
   // OPTMASK += 64 --> test mode only, no binary, no time-stamp checks
+  //
+  // Aug 18 2020: check kcor file with .gz
 
   int 
     OPT_BINARY, OPT_TESTMODE, NZBIN, IZSIZE
@@ -149,7 +151,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     ,sedFile[MXPATHLEN]
     ,bin1File[MXPATHLEN]  // SED binary file
     ,bin2File[MXPATHLEN]  // flux-table binary file
-    ,sedcomment[40], version[60]
+    ,sedcomment[40], version[60], kcorFile_gz[MXPATHLEN]
     ;
 
   FILE *fpbin1, *fpbin2 ;
@@ -175,7 +177,11 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
   // get full path of kcor file ... as passed or in $SNDATA_ROOT/kcor
   if ( BINARYFLAG_KCORFILENAME && OPT_TESTMODE==0 ) {
-    if ( access(kcorFile,F_OK) == 0 ) 
+    sprintf(kcorFile_gz, "%s.gz", kcorFile);
+    bool ACCESS_KCOR = ( access(kcorFile,   F_OK) == 0 || 
+			 access(kcorFile_gz,F_OK) == 0 );
+
+    if ( ACCESS_KCOR ) 
       { sprintf(SIMSED_KCORFILE,"%s", kcorFile); }
     else {
       sprintf(SIMSED_KCORFILE,"%s/kcor/%s", 

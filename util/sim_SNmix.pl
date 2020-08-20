@@ -384,13 +384,6 @@ my $JOBNAME_SIM_FULLPATH = `which $JOBNAME_SIM` ;
 # or should be deleted by user of job fails
 my ($MOI4, $PREFIX_TEMP, $SUFFIX_DUMP_TEMP) ;
 
-# xxxxxxx mark delete Jul 2020 xxxxxxxxx
-#my $MOI  = `whoami`  ;
-#my $MOI4 = substr($MOI,0,4);
-#my $PREFIX_TEMP  = "TMP_${MOI4}" ;
-#my $SUFFIX_DUMP_TEMP = "DUMP_TEMP" ;
-# xxxxxxxxxxxxxxxxxxxxx
-
 my $BATCH_TEMPLATE_KICP = '$SBATCH_TEMPLATES/SBATCH_kicp.TEMPLATE' ;
 
 my $OPT_GENSTAT_TABLE_plusLINKS = 1;

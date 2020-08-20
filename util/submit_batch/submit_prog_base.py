@@ -12,6 +12,7 @@ import getpass, ntpath, glob
 
 from   abc import ABC, abstractmethod
 from   submit_params import *
+
 import submit_util as util
 
 
@@ -137,6 +138,36 @@ class Program:
     
     # end parse_batch_info
 
+    def kill_jobs(self):
+
+        # create_output_dir sets dir names, but won't create anything
+        # because kill flag is set
+        self.create_output_dir()
+        output_dir  = self.config_prep['output_dir']
+        done_list   = self.config_prep['done_stamp_list']
+        submit_mode = self.config_prep['submit_mode'] 
+        time_now    = datetime.datetime.now()
+
+        if submit_mode == SUBMIT_MODE_SSH :
+            node_list   = self.config_prep['node_list']
+            for node in node_list :
+                print(f" Kill jobs on {node}")
+                cmd_kill  = "kill -KILL -1"                
+                ret = subprocess.call(["ssh", node, cmd_kill] )
+        else:
+            print(f"\n Sorry, cant' kill jobs defined by BATCH_INFO key.")
+            return 
+
+        # - - - - - - - - 
+        # leave notice in both MERGE.LOG and ALL.DONE files
+        MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
+        with open(MERGE_LOG_PATHFILE, 'a') as f:
+            f.write(f"\n !!! JOBS KILLED at {time_now} !!! \n")
+
+        util.write_done_stamp(output_dir, done_list, STRING_STOP)
+
+        # end kill_jobs
+
     def write_script_driver(self):
 
         # For each CPU, create batch script (CPU*.BATCH) which sources
@@ -181,7 +212,15 @@ class Program:
 
             # write few global things to COMMAND_FILE
             with open(COMMAND_FILE, 'w') as f :
+
+                # write linux command to echo start time in python-like
+                # format so that python merge process can read it back
+                # and measure time pending in batch queue.
+                f.write(f"echo TIME_START: " \
+                        f"`date +%Y-%m-%d` `date +%H:%M:%S` \n")
+                f.write(f"echo '#END_YAML' \n\n")
                 f.write(f"echo 'Begin {command_file}' \n\n")
+
                 if STOP_ALL_ON_MERGE_ERROR :
                     f.write(f"set -e \n") 
                 if 'SNANA_LOGIN_SETUP' in CONFIG:
@@ -322,7 +361,7 @@ class Program:
         script_dir      = self.config_prep['script_dir']
         done_stamp_list = self.config_prep['done_stamp_list']
         Nsec            = seconds_since_midnight
-        tnow            = datetime.datetime.now()
+        time_now        = datetime.datetime.now()
 
 
         cleanup_flag = 1     # default
@@ -337,8 +376,8 @@ class Program:
         f.write("\n# Required info \n")
 
         comment = "submit time; Nsec since midnight"
-        f.write(f"TIME_STAMP_NSEC:  {Nsec}    # ({comment})\n")
-        f.write(f"TIME_STAMP_START: {tnow}    \n")
+        f.write(f"TIME_STAMP_NSEC:   {Nsec}    # ({comment})\n")
+        f.write(f"TIME_STAMP_SUBMIT: {time_now}    \n")
 
         f.write(f"SCRIPT_DIR:       {script_dir} \n")
         f.write(f"DONE_STAMP_LIST:  {done_stamp_list} \n")
@@ -367,6 +406,7 @@ class Program:
         # to make sure full path is included. Then create output_dir.
         # if output_dir already exists, clobber it.
 
+        kill = self.config_yaml['args'].kill
         output_dir_temp,script_subdir = self.set_output_dir_name()
         
         if '/' not in output_dir_temp :
@@ -374,28 +414,35 @@ class Program:
         else:
             output_dir = output_dir_temp
 
+        # define script_dir based on script_subdir
+        if ( len(script_subdir) > 2 ):
+            script_dir = (f"{output_dir}/{script_subdir}")
+        else:
+            script_dir = output_dir 
+
+        # store dir names 
+        self.config_prep['output_dir'] = output_dir
+        self.config_prep['script_dir'] = script_dir
+
+        # fetch & store done stamp file(s)
+        CONFIG          = self.config_yaml['CONFIG']
+        done_stamp_list = [ DEFAULT_DONE_FILE ]  # always write default ALL.DONE
+        done_stamp_file,Found = util.parse_done_stamp(output_dir,CONFIG)
+        if Found : done_stamp_list.append(done_stamp_file)  # check for another
+        self.config_prep['done_stamp_list'] = done_stamp_list
+
+        # - - - - - - - - - 
+        if kill : return
+        # - - - - - - - - - 
+
         logging.info(f" Create output dir:\n   {output_dir}")
         if  os.path.exists(output_dir) :
             shutil.rmtree(output_dir)
         os.mkdir(output_dir)
 
         # next create subdir for scripts, unless subDir is ./
-        if ( len(script_subdir) > 2 ):
-            script_dir = (f"{output_dir}/{script_subdir}")
+        if script_dir != output_dir :
             os.mkdir(script_dir)
-        else:
-            script_dir = output_dir
-
-        # store output_dir 
-        self.config_prep['output_dir'] = output_dir
-        self.config_prep['script_dir'] = script_dir
-
-        # fetch & store done stamp file(s)
-        CONFIG = self.config_yaml['CONFIG']
-        done_stamp_list = [ DEFAULT_DONE_FILE ]  # always write default ALL.DONE
-        done_stamp_file,Found = util.parse_done_stamp(output_dir,CONFIG)
-        if Found : done_stamp_list.append(done_stamp_file)  # check for another
-        self.config_prep['done_stamp_list'] = done_stamp_list
             
         # end create_output_dir
 
@@ -442,7 +489,7 @@ class Program:
                 cmd_source = (f"{cddir} ; source {cmd_file} >& {log_file} &")
 
                 #ret = subprocess.call(["ssh", node, cmd_source] )
-
+                logging.info(f"  Submit jobs via ssh -x {node}")
                 ret = subprocess.Popen(["ssh", "-x", node, cmd_source ],
                                        stdout = subprocess.PIPE,
                                        stderr = subprocess.PIPE)
@@ -474,9 +521,9 @@ class Program:
         # - - - - - -
         # collect time/date info to clearly mark updates in
         # CPU*.LOG file(s)
-        Nsec = seconds_since_midnight  # current Nsec, not from submit info
-        tnow = datetime.datetime.now()
-        tstr = tnow.strftime("%Y-%m-%d %H:%M:%S") 
+        Nsec     = seconds_since_midnight  # current Nsec, not from submit info
+        time_now = datetime.datetime.now()
+        tstr     = time_now.strftime("%Y-%m-%d %H:%M:%S") 
         fnam = "merge_driver"
 
         logging.info(f"\n")
@@ -797,25 +844,57 @@ class Program:
         # write proc time info to MERGE.LOG file including
         #  + wall time
         #  + EFF(CPU) = average CPU/core divided by wall-time 
+        #
+        # Note that time_xxx are datetime objects;
+        # t_xxx is a computed time (float)
 
         output_dir        = self.config_prep['output_dir']
         submit_info_yaml  = self.config_prep['submit_info_yaml']
-        n_core   = submit_info_yaml['N_CORE']
-        t_start  = submit_info_yaml['TIME_STAMP_START']
-        t_now    = datetime.datetime.now()
-        t_dif    = t_now - t_start
+        script_dir        = submit_info_yaml['SCRIPT_DIR'] 
+        n_core            = submit_info_yaml['N_CORE']
+        time_submit       = submit_info_yaml['TIME_STAMP_SUBMIT']
+        time_now          = datetime.datetime.now()
+        time_dif          = time_now - time_submit
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")   
         
-        t_seconds = t_dif.total_seconds()
+        t_seconds = time_dif.total_seconds()
         if t_seconds < 3000.0 :
             t_unit = 60.0;      unit = "minutes"
         else:
             t_unit = 3600.0 ;    unit = "hours"
 
-        t_wall = t_seconds/t_unit
+        t_wall   = t_seconds/t_unit
         msg_time = []
-        msg_time.append(f"\nWALL_TIME:  {t_wall:.2f}    # {unit} ")
+        msg_time.append(f"\nWALL_TIME:      {t_wall:.2f}    # {unit} ")
 
+        # - - - - - - - - 
+        # read TIME_START yaml key from each CPU*LOG file, and measure
+        # min & max time pending in batch queue. First line of CPU*LOG  
+        # should be of the form TIME_START: YYYY-MM-DD HH:MM:SS,
+        # and 2nd line should be #END_YAML
+        # .xyz
+        cpu_wildcard  = "CPU*.LOG"
+        cpu_log_list  = sorted(glob.glob1(script_dir,cpu_wildcard))
+        t_pend_list   = []
+        for cpu_log_file in cpu_log_list :            
+            LOG_FILE = (f"{script_dir}/{cpu_log_file}")
+            #msg_time.append(" xxx ----------------------------- ")
+            #msg_time.append(f" xxx examine {cpu_log_file}")
+            log_info_yaml  = util.extract_yaml(LOG_FILE)
+            time_start_cpu = log_info_yaml['TIME_START']
+            t_sec          = (time_start_cpu - time_submit).total_seconds()
+            t_sec         += 1.0  # avoid violating casality
+            t_pend         = t_sec/t_unit
+            #msg_time.append(f" xxx time_start_cpu = {time_start_cpu} "\
+            #                f" t_pend={t_pend} ")
+            t_pend_list.append(t_pend)
+
+        t_pend_min = min(t_pend_list)
+        t_pend_max = max(t_pend_list)
+        msg_time.append(f"TMIN_PENDING:   {t_pend_min:.02f}    # {unit}")
+        msg_time.append(f"TMAX_PENDING:   {t_pend_max:.02f}    # {unit}")
+
+        # - - - - - - - - 
         # if there is a CPU column, compute total CPU and avg CPU/core/T_wal
         colnum_cpu = self.get_merge_COLNUM_CPU()
         if colnum_cpu > 0 :
@@ -830,12 +909,11 @@ class Program:
             cpu_avg  = cpu_sum / n_core
             eff_cpu  = cpu_avg / t_wall
 
-            msg_time.append(f"CPU_SUM:    {cpu_sum:.3f}   # {unit}")
-            msg_time.append(f"EFFIC_CPU:  {eff_cpu:.3f}   # CPU/core/T_wall")
+            msg_time.append(f"CPU_SUM:        {cpu_sum:.3f}   # {unit}")
+            msg_time.append(f"EFFIC_CPU:      {eff_cpu:.3f}   # CPU/core/T_wall")
 
         # - - - -
-        # .xyz
-        # append proc time info to bottom of MERGE.LOG
+        # write everything at bottom of MERGE.LOG
         with open(MERGE_LOG_PATHFILE,"a") as f:
             for msg in msg_time :
                 f.write(f"{msg} \n")

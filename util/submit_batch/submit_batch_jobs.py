@@ -5,16 +5,14 @@
 # TO-DO LIST for
 #  BASE/util: 
 #   - more elegant HELP menu per program?
-#   - write time to SUBMIT.INFO, and print total WALL time in MERGE.LOG
-#   + implement ssh (on FNAL cluster)
-#   + translate legacy input file (w/Justin)
-#   + allow .exe to be missing for 1 minute in case of make
-#        while [ ! -f /tmp/sleep.txt ]; do sleep 1; done
+#   - test kill_jobs for ssh
 #
 #  SIM:
 #   - for sim, leave symbolic links for redundant sim job
 #   - problem reading SIMGEN-input file when SIMGEN_DUMP breaks
 #      to another line that is not YAML compatible
+#   for SIMnorm job, remove clearly un-needed args from GENOPT_GLOBAL;
+#     SIMGEN_DUMP, HOSTLIB_ANYTHING, etc ...
 #
 #  FIT:
 #   - track down why NEVT(HBOOK) sometimes fails
@@ -218,12 +216,14 @@ if __name__ == "__main__":
     # check merge options
     if config_yaml['args'].merge_flag :
         program.merge_driver()
-        print('  Done with merge process in Main -> exit.')
+        print('  Done with merge process -> exit Main.')
         exit(0)
 
     # check option to kill jobs 
-    if config_yaml['args'].kill :
-        kill_jobs(config_prep)
+    if config_yaml['args'].kill : 
+        program.kill_jobs()
+        print('  Done killing jobs -> exit Main.')
+        exit(0)
 
     # create output dir
     program.create_output_dir()

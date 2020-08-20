@@ -421,8 +421,8 @@ def wait_for_files(n_file_wait, wait_dir, wait_files):
         time.sleep(5)  # sleep time should be param, or passed as arg??
         wait_file_list  = glob.glob1(wait_dir,wait_files)
         n_file_exist    = len(wait_file_list)
-        tnow            = datetime.datetime.now()
-        tstr            = tnow.strftime("%Y-%m-%d %H:%M:%S") 
+        time_now        = datetime.datetime.now()
+        tstr            = time_now.strftime("%Y-%m-%d %H:%M:%S") 
         msg = (f"\t Found {n_file_exist} of {n_file_wait} files ({tstr})")
         logging.info(msg)
 

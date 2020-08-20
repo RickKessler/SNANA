@@ -47,14 +47,20 @@ SIMGEN_INPUT_LISTFILE = "INPUT_FILE.LIST" # contains list of input files
 
 # Define keys to read from each underlying sim-input file
 SIMGEN_INFILE_KEYCHECK = { # Narg  Required     Verify
-    "GENMODEL"        :     [ 1,    True,      False ],
-    "NGENTOT_LC"        :     [ 1,    False,      False ],
-    "FORMAT_MASK"        :     [ 1,    False,      True    ],
+    "GENMODEL"          :     [ 1,    True,      False   ],
+    "NGENTOT_LC"        :     [ 1,    False,     False   ],
+    "FORMAT_MASK"       :     [ 1,    False,     True    ],
     "GENFILTERS"        :     [ 1,    True,      True    ],
-    "PATH_USER_INPUT"   :     [ 1,    False,      True    ],
+    "PATH_USER_INPUT"   :     [ 1,    False,     True    ],
     "GENRANGE_REDSHIFT" :     [ 2,    True,      True    ],
     "GENRANGE_PEAKMJD"  :     [ 2,    True,      True    ],
-    "SOLID_ANGLE"          :     [ 1,    True,      True    ]    }
+    "SOLID_ANGLE"       :     [ 1,    True,      True    ]    }
+
+# define GENOPT_GLOBAL key subStrings to ignore in the SIMnorm process;
+# makes no difference in result, but in case of debug there is no need
+# to sift thru so many unused arguments.
+GENOPT_GLOBAL_IGNORE_SIMnorm = [
+    "SIMGEN_DUMP", "HOSTLIB_", "SEARCHEFF_" ,  "GENMODEL_EXTRAP" ]
 
 FORMAT_MASK_TEXT   = 2
 FORMAT_MASK_FITS   = 32
@@ -180,14 +186,27 @@ class Simulation(Program):
         # sim_prep_index_lists
 
     def sim_prep_GENOPT_GLOBAL(self):
-        
-        GENOPT_GLOBAL_STRING = ""
+
+        # there is a separate GENOPT_GLOBLA for SIMnorm jobs
+        # to simplify debugging if needed.
+
+        IGNORE_SIMnorm = GENOPT_GLOBAL_IGNORE_SIMnorm
+
+        GENOPT_GLOBAL_STRING  = ""  # nominal
+        GENOPT_GLOBAL_SIMnorm = ""  # for SIMnorm, leave stuff out
+
         if 'GENOPT_GLOBAL' in self.config_yaml :
             GENOPT_GLOBAL  = self.config_yaml['GENOPT_GLOBAL']
             for key,value in GENOPT_GLOBAL.items():
                 GENOPT_GLOBAL_STRING += (f"{key} {value}  ")
 
-        self.config_prep['genopt_global']  = GENOPT_GLOBAL_STRING
+                SKIP_SIMnorm = \
+                    any(substring in key for substring in IGNORE_SIMnorm)
+                if not SKIP_SIMnorm :
+                    GENOPT_GLOBAL_SIMnorm += (f"{key} {value}  ")
+
+        self.config_prep['genopt_global']          = GENOPT_GLOBAL_STRING
+        self.config_prep['genopt_global_SIMnorm']  = GENOPT_GLOBAL_SIMnorm
 
         # end sim_prep_genopt_global
 
@@ -461,7 +480,8 @@ class Simulation(Program):
         infile        = self.config_prep['infile_list2d'][iver][ifile]
         program        = self.config_prep['program']
         output_dir    = self.config_prep['output_dir']
-        genopt_global = self.config_prep['genopt_global']
+        #genopt_global = self.config_prep['genopt_global']
+        genopt_global = self.config_prep['genopt_global_SIMnorm']
         cddir        = (f"cd {output_dir}")
         ngentot        = 0
         

@@ -10,6 +10,7 @@ import logging, coloredlogs
 import datetime, time, subprocess
 import getpass, ntpath, glob
 
+#from   datetime import datetime
 from   abc import ABC, abstractmethod
 from   submit_params import *
 
@@ -96,7 +97,8 @@ class Program:
         submit_mode   = "NULL"
         node_list     = []
         memory        = MEMORY_DEFAULT
-        
+        kill_flag     = config_yaml['args'].kill
+
         CONFIG = config_yaml['CONFIG']
 
         if 'NODELIST' in CONFIG  :
@@ -104,11 +106,12 @@ class Program:
             n_core      = len(NODELIST.split())
             submit_mode = SUBMIT_MODE_SSH
             config_prep['nodelist'] = NODELIST
-            logging.info(f"\t ssh to {n_core} nodes: {NODELIST} " )
+
+            if not kill_flag :
+                logging.info(f"\t ssh to {n_core} nodes: {NODELIST} " )
             
             for node in NODELIST.split():
                 node_list.append(node)
-                #            print(" xxx Found node '%s' " % node)
 
         elif  'BATCH_INFO' in CONFIG  :
             BATCH_INFO  = CONFIG['BATCH_INFO'].split()
@@ -156,6 +159,8 @@ class Program:
                 ret = subprocess.call(["ssh", node, cmd_kill] )
         else:
             print(f"\n Sorry, cant' kill jobs defined by BATCH_INFO key.")
+            print(f" If using sbatch, try")
+            print(f"    scancel --user=<userName>")
             return 
 
         # - - - - - - - - 
@@ -218,7 +223,6 @@ class Program:
                 # and measure time pending in batch queue.
                 f.write(f"echo TIME_START: " \
                         f"`date +%Y-%m-%d` `date +%H:%M:%S` \n")
-                f.write(f"echo '#END_YAML' \n\n")
                 f.write(f"echo 'Begin {command_file}' \n\n")
 
                 if STOP_ALL_ON_MERGE_ERROR :
@@ -406,7 +410,7 @@ class Program:
         # to make sure full path is included. Then create output_dir.
         # if output_dir already exists, clobber it.
 
-        kill = self.config_yaml['args'].kill
+        kill_flag = self.config_yaml['args'].kill
         output_dir_temp,script_subdir = self.set_output_dir_name()
         
         if '/' not in output_dir_temp :
@@ -432,7 +436,7 @@ class Program:
         self.config_prep['done_stamp_list'] = done_stamp_list
 
         # - - - - - - - - - 
-        if kill : return
+        if kill_flag : return
         # - - - - - - - - - 
 
         logging.info(f" Create output dir:\n   {output_dir}")
@@ -868,31 +872,44 @@ class Program:
         msg_time.append(f"\nWALL_TIME:      {t_wall:.2f}    # {unit} ")
 
         # - - - - - - - - 
-        # read TIME_START yaml key from each CPU*LOG file, and measure
-        # min & max time pending in batch queue. First line of CPU*LOG  
-        # should be of the form TIME_START: YYYY-MM-DD HH:MM:SS,
-        # and 2nd line should be #END_YAML
-        # .xyz
+        # Read TIME_START value from each CPU*LOG file, and measure
+        # min & max time pending in batch queue. First or 2nd line of 
+        # CPU*LOG should be of the form
+        #         TIME_START: YYYY-MM-DD HH:MM:SS
+        # Ideally this key would be read as YAML file, but unfortunately
+        # the batch systems write non-YAML output at the top of the 
+        # CPU*LOG files. The TIME_START argument has to be read as a
+        # string and converted to a datetime object ... hence the ugly code.
         cpu_wildcard  = "CPU*.LOG"
         cpu_log_list  = sorted(glob.glob1(script_dir,cpu_wildcard))
         t_pend_list   = []
         for cpu_log_file in cpu_log_list :            
             LOG_FILE = (f"{script_dir}/{cpu_log_file}")
-            #msg_time.append(" xxx ----------------------------- ")
-            #msg_time.append(f" xxx examine {cpu_log_file}")
-            log_info_yaml  = util.extract_yaml(LOG_FILE)
-            time_start_cpu = log_info_yaml['TIME_START']
-            t_sec          = (time_start_cpu - time_submit).total_seconds()
-            t_sec         += 1.0  # avoid violating casality
-            t_pend         = t_sec/t_unit
-            #msg_time.append(f" xxx time_start_cpu = {time_start_cpu} "\
-            #                f" t_pend={t_pend} ")
-            t_pend_list.append(t_pend)
+            found_time = False
+            #print(f" xxx -------------------------------------- ")
+            #print(f" xxx examine {cpu_log_file}")
+            with open(LOG_FILE,'r') as f :
+                for line in f :
+                    word_list = (line.rstrip("\n")).split()
+                    if len(word_list) == 0 : continue 
+                    key       = word_list[0]
+                    if key == "TIME_START:" :
+                        found_time       = True
+                        t_str            = (f"{word_list[1]} {word_list[2]}")
+                        time_start_cpu   = \
+                            datetime.datetime.strptime(t_str, '%Y-%m-%d %H:%M:%S')  
+                        t_sec = (time_start_cpu - time_submit).total_seconds()
+                        t_sec         += 1.0  # avoid violating causality
+                        t_pend         = t_sec/t_unit
+                        t_pend_list.append(t_pend)
+                    if found_time : break
 
-        t_pend_min = min(t_pend_list)
-        t_pend_max = max(t_pend_list)
-        msg_time.append(f"TMIN_PENDING:   {t_pend_min:.02f}    # {unit}")
-        msg_time.append(f"TMAX_PENDING:   {t_pend_max:.02f}    # {unit}")
+        # .xyz
+        if len(t_pend_list) > 0 :
+            t_pend_min = min(t_pend_list)
+            t_pend_max = max(t_pend_list)
+            msg_time.append(f"TMIN_PENDING:   {t_pend_min:.02f}    # {unit}")
+            msg_time.append(f"TMAX_PENDING:   {t_pend_max:.02f}    # {unit}")
 
         # - - - - - - - - 
         # if there is a CPU column, compute total CPU and avg CPU/core/T_wal

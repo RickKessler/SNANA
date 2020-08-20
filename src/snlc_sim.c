@@ -1913,8 +1913,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     split2floats(ctmp, COMMA, INPUTS.GENMAG_SMEAR );
   }
   else if ( keyMatchSim(1, "GENMAG_SMEAR_ADDPHASECOR", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", INPUTS.GENMAG_SMEAR_ADDPHASECOR[0] );
-    N++;  sscanf(WORDS[N], "%f", INPUTS.GENMAG_SMEAR_ADDPHASECOR[1] );
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMAG_SMEAR_ADDPHASECOR[0] );
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMAG_SMEAR_ADDPHASECOR[1] );
   }
   else if ( keyMatchSim(1, "GENMAG_SMEAR_USRFUN", WORDS[0],keySource) ) {
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"USRFUN");

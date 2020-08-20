@@ -2927,7 +2927,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "HOSTLIB_DZTOL",WORDS[0],keySource) ) {
     for(j=0; j < 3; j++ ) 
-      { N++; sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_DZTOL[0] ) ; }
+      { N++; sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_DZTOL[j] ) ; }
   }
   else if ( keyMatchSim(1, "HOSTLIB_SCALE_SERSIC_SIZE  HOSTLIB_SCALE_SERSIC",
 			WORDS[0],keySource) ) {

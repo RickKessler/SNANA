@@ -5,8 +5,9 @@
 # TO-DO LIST for
 #  BASE/util: 
 #   - more elegant HELP menu per program?
-#   - test kill_jobs for ssh
-#
+#   - run merge task immediately after launch so that
+#     some of the WAIT -> RUN
+# 
 #  SIM:
 #   - for sim, leave symbolic links for redundant sim job
 #   - problem reading SIMGEN-input file when SIMGEN_DUMP breaks

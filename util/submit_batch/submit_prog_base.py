@@ -663,6 +663,8 @@ class Program:
         if n_done == n_job_merge :
             nfail_tot = self.failure_summary()
 
+            self.write_proctime_info() # write proc time info to MERGE.LOG
+
             if nfail_tot == 0 :
                 logging.info(f"\n# {fnam}: ALL JOBS DONE -> " \
                              f"BEGIN FINAL CLEANUP ")
@@ -671,8 +673,6 @@ class Program:
                 STRING_STATUS = STRING_SUCCESS
             else:
                 STRING_STATUS = STRING_FAIL
-
-            self.write_proctime_info() # write proc time info to MERGE.LOG
 
             done_stamp_list = submit_info_yaml['DONE_STAMP_LIST']
             util.write_done_stamp(output_dir, done_stamp_list, STRING_STATUS)

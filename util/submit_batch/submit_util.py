@@ -452,7 +452,7 @@ def write_job_info(f,JOB_INFO,icpu):
                          f"do sleep 5; done" )
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
         f.write(f"{wait_for_code}\n")
-        f.write(f"echo {program} exists.")
+        f.write(f"echo {program} exists. \n\n")
 
     f.write(f"{program} {input_file} \\\n")
     # write each arg on separte line for easier viewing

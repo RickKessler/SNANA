@@ -12,12 +12,11 @@
 #   - for sim, leave symbolic links for redundant sim job
 #   - problem reading SIMGEN-input file when SIMGEN_DUMP breaks
 #      to another line that is not YAML compatible
-#   for SIMnorm job, remove clearly un-needed args from GENOPT_GLOBAL;
-#     SIMGEN_DUMP, HOSTLIB_ANYTHING, etc ...
 #
 #  FIT:
 #   - track down why NEVT(HBOOK) sometimes fails
-#   - FITRES_COMBINE_FILE option
+#   + FITRES_COMBINE_FILE option
+#   - validate APPEND_TABLE_VARLIST before submitting jobs ???
 #
 #  BBC
 #

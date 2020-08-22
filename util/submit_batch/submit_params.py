@@ -121,8 +121,8 @@ OBSOLETE_CONFIG_KEYS = \
 [ 'TOPDIR_OVERRIDE', 'DOSKIP_DUPLICATE_SIMJOBS', 'CONVERT_SIMGEN_DUMP',
   'SALT2mu_INFILE', 'SALT2mu_SIMVERSION_INPUT', 'SALT2mu_BIASCOR_PATH',
   'SALT2mu_CCPRIOR_PATH', 'DO_FITOPT000', 'DELAY_SUBMIT', 'GZIP_FLAG',
-  'H2ROOT_FLAG', 'APPEND_FITRES' 'MIN_SNANA_VERSION', 'VERSION_AFTERBURNER',
-  'PLOTOPT' ]
+  'H2ROOT_FLAG', 'APPEND_FITRES', 'APPEND_TABLE_TEXT', 'FITRES_COMBINE_FILE', 
+  'MIN_SNANA_VERSION', 'VERSION_AFTERBURNER', 'PLOTOPT' ]
   
 # ================================================
 #   HELP_CONFIG
@@ -220,53 +220,62 @@ GENOPT_GLOBAL:   # OPTIONAL commands applied to all GENVERSIONs
 
 
 HELP_CONFIG_FIT = f"""    
-    ***** HELP/MENU for LightCurveFit YAML Input *****
+   ***** HELP/MENU for LightCurveFit YAML Input *****
 
     All YAML input must go above &SNLCINP nameList block.
 
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
-   OUTDIR:  [outdir]              # all output goes here
-   VERSION:
-   - MY_DATA    # in $SNDATA_ROOT/lcmerge, or PRIVATE_DATA_PATH 
-   - MY_SIMDATA 
-   - MY_SIMBIASCOR_*     # wildcard allowed
-   - etc ... 
-   FITOPT:
-   - /ZPCAL/    MAGOBS_SHIFT_ZP g .01  # optional ZPCAL label for other codes
-   - /ZPCAL/    MAGOBS_SHIFT_ZP r .01
-   - /ZPCAL/    MAGOBS_SHIFT_ZP i .01 
-   - /ZPCAL/    MAGOBS_SHIFT_ZP z .01 
-   - /RETRAIN/  FITMODEL_NAME  SALT2.retrain1 
-   - /RETRAIN/  FITMODEL_NAME  SALT2.retrain2 
-   - /RETRAIN/  FITMODEL_NAME  SALT2.retrain3 
-   - CUTWIN_SNRMAX 6 999  \t\t\t# no label needed
-   - CUTWIN_SNRMAX 6 999  CUTWIN_SNRMAX2 4 999  # multiple options allowed   
-   - USE_MINOS
-   - FITOPT000     # no fit; ln -s FITOPT000.[SUFFIX] FITOPT011.[SUFFIX]
-   - FITOPT000     # another synLink for FITOPT012
-   - etc ... 
+  OUTDIR:  [outdir]              # all output goes here
+  VERSION:
+  - MY_DATA    # in $SNDATA_ROOT/lcmerge, or PRIVATE_DATA_PATH 
+  - MY_SIMDATA 
+  - MY_SIMBIASCOR_*     # wildcard allowed
+  - etc ... 
+  FITOPT:
+  - /ZPCAL/    MAGOBS_SHIFT_ZP g .01  # optional ZPCAL label for other codes
+  - /ZPCAL/    MAGOBS_SHIFT_ZP r .01
+  - /ZPCAL/    MAGOBS_SHIFT_ZP i .01 
+  - /ZPCAL/    MAGOBS_SHIFT_ZP z .01 
+  - /RETRAIN/  FITMODEL_NAME  SALT2.retrain1 
+  - /RETRAIN/  FITMODEL_NAME  SALT2.retrain2 
+  - /RETRAIN/  FITMODEL_NAME  SALT2.retrain3 
+  - CUTWIN_SNRMAX 6 999  \t\t\t# no label needed
+  - CUTWIN_SNRMAX 6 999  CUTWIN_SNRMAX2 4 999  # multiple options allowed   
+  - USE_MINOS
+  - FITOPT000     # no fit; ln -s FITOPT000.[SUFFIX] FITOPT011.[SUFFIX]
+  - FITOPT000     # another synLink for FITOPT012
+  - etc ... 
 
 # Sym Link Notes for FITOPT000: this feature is useful for systematics
 # with multiple surveys. For example above, FITOPT011 and FITOP012 could 
 # be calibration variatios for a different survey, so here the sym link
 # uses the default LCFIT (FITOPT000) without wasting CPU.
 
-   # optional extraction from root/hbook into TEXT table
-   APPEND_TABLE_TEXT: SNRMAX_g SNRMAX_r SNRMAX_i SNRMAX_z
+  # optional append variables from root/hbook into FITRES-TEXT table.
+  #  (in old split_and_fit script, this key was APPEND_TABLE_TEXT)
+  # To see full list of varables to append,
+  #     stable_dump.pl <hbook_or_root_file> FITRES
+   APPEND_TABLE_VARLIST: SNRMAX_g SNRMAX_r SNRMAX_i SNRMAX_z
 
-   # debug options to force failure in table-merge:
-   FORCE_MERGE_TABLE_MISSING(HBOOK):  force missing HBOOK merge\n" \
-   - DES_TEST1_FITOPT001
-   - DES_TEST2_FITOPT001
-   FORCE_MERGE_TABLE_CORRUPT(ROOT): # force corrupt ROOT file
-   - DES_TEST3_FITOPT002
+  # optional append variables from external file into FITRES-TEXT table.
+  #  (in old split_and_fit script, this key was FITRES_COMBINE_FILE)
+  # E.g., supplement list of host properties, v_pec, etc ...
+  APPEND_TABLE_TEXTFILE:  APPEND_THIS_FILE.FITRES
+
+  # debug options to force failure in table-merge:
+  FORCE_MERGE_TABLE_MISSING(HBOOK):  force missing HBOOK merge
+  - DES_TEST1_FITOPT001
+  - DES_TEST2_FITOPT001
+  FORCE_MERGE_TABLE_CORRUPT(ROOT): # force corrupt ROOT file
+  - DES_TEST3_FITOPT002
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # * Namelists below are used by snana.exe, psnid.exe, snlc_fit.exe.
 # * Supplemental input files (e.g., KCOR_FILE) are copied to
 #     {SUBDIR_SCRIPTS_FIT} if path is not included in file name.
 # * HFILE_OUT and ROOTFILE_OUT are logical flags for batch script.
+
   &SNLCINP
    ! input for snana.exe, psnid.exe, snlc_fit.exe
     HFILE_OUT    = 'XYZ.HBOOK' # any name is logical flag for batch job

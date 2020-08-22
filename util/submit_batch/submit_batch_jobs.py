@@ -7,7 +7,10 @@
 #   - more elegant HELP menu per program?
 #   - run merge task immediately after launch so that
 #     some of the WAIT -> RUN
-# 
+#   - need --CLEAN option to remove all script_subDirs (using find)
+#     and remove LCPLOT avove a certain size
+#       (analog of split_and_fit CLEAN)
+ 
 #  SIM:
 #   - for sim, leave symbolic links for redundant sim job
 #   - problem reading SIMGEN-input file when SIMGEN_DUMP breaks
@@ -17,6 +20,8 @@
 #   - track down why NEVT(HBOOK) sometimes fails
 #   + FITRES_COMBINE_FILE option
 #   - validate APPEND_TABLE_VARLIST before submitting jobs ???
+#   - N-core jobs per task to balance load among CPUs
+#        (need max_split in case we ever get 1000 cores)
 #
 #  BBC
 #
@@ -125,8 +130,10 @@ def check_legacy_input_file(input_file):
         for item in flat_word_list :
             key = item.rstrip(':')
             if key in OBSOLETE_CONFIG_KEYS :
-                msgerr = []
+                msgerr  = []
+                comment = OBSOLETE_CONFIG_KEYS[key]
                 msgerr.append(f" Obsolete key '{key}' no longer valid.")
+                msgerr.append(f" Comment: {comment}")
                 util.log_assert(False,msgerr)
 
         return  # file ok, do nothing.

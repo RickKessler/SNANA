@@ -115,15 +115,36 @@ COLNUM_FITOPT_NUM   = 0   # e.g., FITOPT001
 COLNUM_FITOPT_LABEL = 1   # optional user label
 COLNUM_FITOPT_ARG   = 2   # command-line args for fit job
 
-# abort on any of these obsolete CONFIG keys 
-#  (both sim and fit included in same list)
+# abort on any of these obsolete CONFIG keys (list includes sim, fit, bbc)
+# Obsolete Dictionary includes comment printed to screen.
+COMMENT_NOMORE_SALT2mu = "No more SALT2mu from FIT-input; use BBC input."
+COMMENT_MAYBE_LATER    = "Might add this feature later."
+COMMENT_NOT_NEEDED     = "No longer needed or relevant."
 OBSOLETE_CONFIG_KEYS = \
-[ 'TOPDIR_OVERRIDE', 'DOSKIP_DUPLICATE_SIMJOBS', 'CONVERT_SIMGEN_DUMP',
-  'SALT2mu_INFILE', 'SALT2mu_SIMVERSION_INPUT', 'SALT2mu_BIASCOR_PATH',
-  'SALT2mu_CCPRIOR_PATH', 'DO_FITOPT000', 'DELAY_SUBMIT', 'GZIP_FLAG',
-  'H2ROOT_FLAG', 'APPEND_FITRES', 'APPEND_TABLE_TEXT', 'FITRES_COMBINE_FILE', 
-  'MIN_SNANA_VERSION', 'VERSION_AFTERBURNER', 'PLOTOPT' ]
-  
+{ 
+    'SALT2mu_INFILE'            : COMMENT_NOMORE_SALT2mu ,
+    'SALT2mu_SIMVERSION_INPUT'  : COMMENT_NOMORE_SALT2mu ,
+    'SALT2mu_BIASCOR_PATH'      : COMMENT_NOMORE_SALT2mu ,
+    'SALT2mu_CCPRIOR_PATH'      : COMMENT_NOMORE_SALT2mu ,
+    'DO_FITOPT000'              : COMMENT_MAYBE_LATER ,
+    'DOSKIP_DUPLICATE_SIMJOBS'  : COMMENT_MAYBE_LATER ,
+    'VERSION_AFTERBURNER'       : COMMENT_MAYBE_LATER ,
+    'PLOTOPT'                   : COMMENT_MAYBE_LATER ,
+    'CONVERT_SIMGEN_DUMP'       : COMMENT_NOT_NEEDED ,
+    'DELAY_SUBMIT'              : COMMENT_NOT_NEEDED , 
+    'H2ROOT_FLAG'               : COMMENT_NOT_NEEDED , 
+    'MIN_SNANA_VERSION'         : COMMENT_NOT_NEEDED , 
+    'TOPDIR_OVERRIDE'           : COMMENT_NOT_NEEDED ,
+    'OUTDIR_OVERRIDE'           : "Use OUTDIR key instead (same key as FIT-input)" ,
+    'GZIP_FLAG'                 : "gzip automatic; see CLEANUP_FLAG to NOT gzip",
+    'APPEND_FITRES'             : "see APPEND_TABLE_VARLIST with -H FIT" , 
+    'APPEND_TABLE_TEXT'         : "see APPEND_TABLE_VARLIST with -H FIT" , 
+    'FITRES_COMBINE_FILE'       : "see APPEND_TABLE_TEXTFILE with -H FIT" , 
+    'DUMMY'                     : "no comma here"
+}
+
+
+
 # ================================================
 #   HELP_CONFIG
 

@@ -165,8 +165,8 @@ class Simulation(Program):
 
         n_genversion  = self.config_prep['n_genversion']
         infile_list2d = self.config_prep['infile_list2d']
-        n_job_split      = self.config_prep['n_job_split']
-        n_job_tot      = 0
+        n_job_split   = self.config_prep['n_job_split']
+        n_job_tot     = 0
         iver_list=[];  ifile_list=[];  isplit_list=[]
 
         for iver in range(0,n_genversion) :
@@ -367,7 +367,7 @@ class Simulation(Program):
             if key in CONFIG:
                 nkey_found    += 1                
                 RANSEED_KEY     = key
-                RANSEED_LIST = CONFIG[key]
+                RANSEED_LIST    = CONFIG[key]
                 n_job_split     = int(RANSEED_LIST.split()[0])
                 ranseed         = int(RANSEED_LIST.split()[1])
                 if key == 'RANSEED_REPEAT' :
@@ -389,9 +389,9 @@ class Simulation(Program):
             msgerr.append(f" (and note that RANSEED: is not valid)")
             self.log_assert(False,msgerr)
 
-        self.config_prep['n_job_split']        = n_job_split 
-        self.config_prep['ranseed_list']    = ranseed_list
-        self.config_prep['ranseed_key']        = RANSEED_KEY
+        self.config_prep['n_job_split']         = n_job_split 
+        self.config_prep['ranseed_list']        = ranseed_list
+        self.config_prep['ranseed_key']         = RANSEED_KEY
         self.config_prep['genversion_list_all'] = genversion_list_all
         self.config_prep['igenver_list_all']    = igenver_list_all
 

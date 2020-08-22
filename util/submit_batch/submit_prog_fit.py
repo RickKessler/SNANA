@@ -22,6 +22,7 @@ TABLE_SUFFIX_LIST  = [ 'TEXT', 'HBOOK', 'ROOT' ]
 TABLE_SNLCINP_LIST = [ 'TEXTFILE_PREFIX', 'HFILE_OUT', 'ROOTFILE_OUT' ]
 NTABLE_FORMAT = len(TABLE_SUFFIX_LIST)
 
+
 # list of supplemental file inputs to copy IF no path is specified.
 COPY_SNLCINP_FILES = \
     [ "KCOR_FILE", "FLUXERRMODEL_FILE", "HEADER_OVERRIDE_FILE", \
@@ -594,7 +595,7 @@ class LightCurveFit(Program):
         # open CMD file for this icpu
         f = open(COMMAND_FILE, 'a') 
 
-        n_job_local = 0
+        n_job_local = 0 ;   n_job_real=0 
 
         for job in range(0,n_job_tot):
             iver   = iver_list[job]
@@ -604,10 +605,11 @@ class LightCurveFit(Program):
                 'iver':iver, 'iopt':iopt, 'isplit':isplit, 'icpu':icpu
             }  
             n_job_local += 1
-
             if self.is_sym_link(fitopt_arg_list[iopt]) : continue
+            n_job_real += 1  # use this to avoid load imbalance with sym links
 
-            if ( (n_job_local-1) % n_core ) == icpu :
+            #if ( (n_job_local-1) % n_core ) == icpu :
+            if ( (n_job_real-1) % n_core ) == icpu :
                 last_job   = (n_job_tot - n_job_local) < n_core            
 
                 job_info_fit   = self.prep_JOB_INFO_fit(index_dict)

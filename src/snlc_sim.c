@@ -1888,10 +1888,10 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
       { N++;  sscanf(WORDS[N], "%f", INPUTS.TMPOFF_ZP[j] ); }
   }
   else if ( keyMatchSim(1, "GENMAG_OFF_GLOBAL", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", INPUTS.GENMAG_OFF_GLOBAL );
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMAG_OFF_GLOBAL );
   }
   else if ( keyMatchSim(1, "GENMAG_OFF_NON1A", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", INPUTS.GENMAG_OFF_NON1A );
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.GENMAG_OFF_NON1A );
   }
 
   else if ( keyMatchSim(1, "GENMAG_OFF_ZP  GENMAG_OFF_ZP", 

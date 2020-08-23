@@ -18799,7 +18799,7 @@
 
          ***** IMPORTANT(v10_78) ***** 
 
-   + Add submit_batch_jobs.py[sh] ... for testing
+   + Release submit_batch_jobs.py[sh] ... for testing
 
    + enable refactored command line input for sim and fit ;
      allows command line input to look like input file.
@@ -18808,7 +18808,7 @@
      Beware of sudden bugs.
 
   + Fix bug using GRIDONLY feature with SIMSED models (Found by M.Vincenzi).
-    Bug introduced Jun 19 2020 in v10_77e; related to requiring an
+    Bug introduced Jun 19 2020 in v10_77e; related to code requiring an
     explicit USE flag to select from AsymGaus.
 
          ***** USEFUL(v10_78) ***** 

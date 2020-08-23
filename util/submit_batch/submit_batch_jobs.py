@@ -3,13 +3,13 @@
 # Created July 2020 by R.Kessler & S. Hinton
 #
 # TO-DO LIST for
+#
+#   SNDATA_ROOT -> separate git repo ??
+#
 #  BASE/util: 
 #   - more elegant HELP menu per program?
 #   - run merge task immediately after launch so that
 #     some of the WAIT -> RUN
-#   - need --purge option to remove all script_subDirs (using find)
-#     and remove LCPLOT avove a certain size
-#       (analog of split_and_fit CLEAN)
 # 
 #  SIM:
 #   - for sim, leave symbolic links for redundant sim job

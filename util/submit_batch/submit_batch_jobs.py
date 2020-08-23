@@ -7,10 +7,10 @@
 #   - more elegant HELP menu per program?
 #   - run merge task immediately after launch so that
 #     some of the WAIT -> RUN
-#   - need --CLEAN option to remove all script_subDirs (using find)
+#   - need --purge option to remove all script_subDirs (using find)
 #     and remove LCPLOT avove a certain size
 #       (analog of split_and_fit CLEAN)
- 
+# 
 #  SIM:
 #   - for sim, leave symbolic links for redundant sim job
 #   - problem reading SIMGEN-input file when SIMGEN_DUMP breaks
@@ -18,20 +18,14 @@
 #
 #  FIT:
 #   - track down why NEVT(HBOOK) sometimes fails
-#   + FITRES_COMBINE_FILE option
 #   - validate APPEND_TABLE_VARLIST before submitting jobs ???
-#   - N-core jobs per task to balance load among CPUs
-#        (need max_split in case we ever get 1000 cores)
 #
 #  BBC
 #
 # - - - - - - - - - -
 
 #import os
-import sys
-import yaml
-import argparse
-import logging
+import sys, yaml, argparse, subprocess, logging
 import submit_util as util
 
 from   submit_params   import *
@@ -43,28 +37,35 @@ from   argparse import Namespace
 # =====================================
 def get_args():
     parser = argparse.ArgumentParser()
+
+    msg = "HELP with input file config(s); then exit"
+    parser.add_argument("-H", "--HELP", help=msg, default=None, type=str, \
+            choices=["SIM", "FIT", "BBC"])
     
     msg = "name of input file"
     parser.add_argument("input_file", help=msg, nargs="?", default=None)
 
     # misc user args
-    msg = "increase output verbosity"
-    parser.add_argument("-v", "--verbose", help=msg, action="store_true")
-
-    msg = "KILL jobs"
-    parser.add_argument("-k", "--kill", help=msg, action="store_true")
-
     msg = "Create & init outdir, but do NOT submit jobs"
     parser.add_argument("-n", "--nosubmit", help=msg, action="store_true")
 
     msg = "process x10 fewer events for sim,fit,bbc (applies only to sim data)"
     parser.add_argument("--fast", help=msg, action="store_true")
 
-    msg = "debug mode: submit jobs, but skip merge process"
+    msg = "Use 'find' to locate and remove non-essential output."
+    parser.add_argument("--purge", help=msg, action="store_true")
+
+    # - - - 
+    msg = "increase output verbosity (default=True)"
+    parser.add_argument("-v", "--verbose", help=msg, action="store_true")
+
+    msg = "kill current jobs"
+    parser.add_argument("-k", "--kill", help=msg, action="store_true")
+
+    msg = "DEBUG MODE: submit jobs, but skip merge process"
     parser.add_argument("--nomerge", help=msg, action="store_true")
 
-    msg = (f"debug mode: reset merge process (nevt->0, rm merged files ...)"\
-           f" to allow interactive -m")
+    msg = (f"DEBUG MODE: reset merge process ")
     parser.add_argument("--merge_reset", help=msg, action="store_true")
 
     # args passed internally from command files
@@ -78,12 +79,9 @@ def get_args():
            " merge process examines correct output_dir"
     parser.add_argument('-t', nargs='+', help=msg, type=int )
 
-    msg = "INTERNAL: cpu number "
+    msg = "INTERNAL: cpu number to for BUSY-merge file-name"
     parser.add_argument('--cpunum', nargs='+', help=msg, type=int )
 
-    msg = "HELP with input file config(s)"
-    parser.add_argument("-H", "--HELP", help=msg, default=None, type=str, \
-            choices=["SIM", "FIT", "BBC"])
     args = parser.parse_args()
 
     return parser.parse_args()
@@ -188,14 +186,33 @@ def print_nosubmit_messages(config_yaml):
 
     # end print_nosubmit_messages
 
+def purge_old_submit_output():
+    
+    REMOVE_LIST = [ SUBDIR_SCRIPTS_FIT, SUBDIR_SCRIPTS_BBC, "*.LCPLOT" ]
+
+    util.find_and_remove(f"{SUBDIR_SCRIPTS_FIT}*")
+    util.find_and_remove(f"{SUBDIR_SCRIPTS_BBC}*")
+    util.find_and_remove(f"FITOPT*.LCPLOT*")
+    util.find_and_remove(f"FITOPT*.HBOOK*")
+    util.find_and_remove(f"FITOPT*.ROOT*")
+
+    # end purge_old_submit_output
+
 # =============================================
 if __name__ == "__main__":
     args  = get_args()
     store = util.setup_logging(args)
 
     if args.HELP :
+        print(f" !!! ************************************************ !!!")
+        print(f" !!! ************************************************ !!!")
+        print(f" !!! ************************************************ !!!")
         print(f"{HELP_CONFIG[args.HELP]}")
-        sys.exit(' Done')
+        sys.exit(' Scroll up to see full HELP menu.\n Done: exiting Main.')
+
+    if args.purge :
+        purge_old_submit_output()
+        sys.exit(' Done: exiting Main.')
 
     # check for legacy input; if so, translate and quit
     check_legacy_input_file(args.input_file)

@@ -10,6 +10,51 @@ from   submit_params import *
 
 # =================================================
 
+def find_and_remove(find_arg):
+
+    # Called as part of purge option:
+    # + search for 'find_arg' files using linux find command
+    # + print each file, along with size (MB)
+    # + ask user to remove (y/[n])
+    #
+    # Make sure that input find_arg includes appropriate wildcards;
+    # e.g, SPLIT_JOBS_LCFIT* to include tar files.
+    
+    remove_list = []
+    remove_size = []
+    cmd_find     = (f"find . -name {find_arg}") + " -exec du -mc {} +"
+    find_list    = subprocess.check_output(cmd_find, shell=True)
+    find_list    = (find_list.rstrip()).decode('utf-8')
+    find_list    = find_list.split()
+    remove_size += find_list[0::2]  # every other element is size (MB)
+    remove_list += find_list[1::2]  # every other elment if file or dir
+
+    # - - - - - - 
+    print(f"# ======================================================== ")
+
+    # print summary of files/directories to remove (but don't remove, yet)
+    n_file = len(remove_list) - 1  # leave out the 'total' line
+    for i in range(0,n_file+1):    # include 'total' line for summary
+        remove_file = remove_list[i]
+        size        = remove_size[i]
+        print(f"   Found {remove_file}  ({size} MB)")
+
+    if n_file < 0 :
+        print(f"  No files found to remove for {find_arg} ")
+        return
+
+    response = input(f"\n   Remove {n_file} {find_arg} files above y/[n] ? ")
+    if response == 'y' :
+        print(f"\t Removing {n_file} files ... ")
+        for i in range(0,n_file):
+            remove_file = remove_list[i]
+            cmd_rm = (f"rm -r {remove_file}")
+            os.system(cmd_rm)
+    else:
+        print(f"\t Do not remove {find_arg} files")
+
+    # end find_and_remove
+
 def get_stat_dict(value_list):
     # For input list of values_list, return dictionary of
     # 'AVG, 'ERR_AVG', 'RMS', 'ERR_RMS'

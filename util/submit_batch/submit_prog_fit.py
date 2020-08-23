@@ -515,7 +515,7 @@ class LightCurveFit(Program):
         self.config_prep['isplit_list']   = isplit_list
 
         # store number of jobs that are simply symbolic links
-        n_job_link = n_version * n_fitopt_link
+        n_job_link = n_version * n_fitopt_link * n_job_split
         self.config_prep['n_job_link']    = n_job_link
 
         # end fit_prep_index_lists

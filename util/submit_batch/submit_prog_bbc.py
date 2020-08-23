@@ -583,6 +583,7 @@ class BBC(Program):
 
         self.config_prep['n_job_split'] = n_job_split
         self.config_prep['n_job_tot']   = n_job_tot
+        self.config_prep['n_done_tot']  = n_job_tot
         self.config_prep['use_wfit']    = use_wfit
 
         # open CMD file for this icpu  

@@ -359,6 +359,7 @@ class Program:
 
         CONFIG          = self.config_yaml['CONFIG']
         n_job_tot       = self.config_prep['n_job_tot']
+        n_done_tot      = self.config_prep['n_done_tot']
         n_job_split     = self.config_prep['n_job_split']
         n_core          = self.config_prep['n_core']
         simlog_dir      = self.config_prep['output_dir']
@@ -380,21 +381,24 @@ class Program:
         f.write("\n# Required info \n")
 
         comment = "submit time; Nsec since midnight"
-        f.write(f"TIME_STAMP_NSEC:   {Nsec}    # ({comment})\n")
+        f.write(f"TIME_STAMP_NSEC:   {Nsec}    # {comment}\n")
         f.write(f"TIME_STAMP_SUBMIT: {time_now}    \n")
 
         f.write(f"SCRIPT_DIR:       {script_dir} \n")
         f.write(f"DONE_STAMP_LIST:  {done_stamp_list} \n")
         f.write(f"CLEANUP_FLAG:     {cleanup_flag} \n")
 
-        comment = "total number of jobs on all CPUs"
-        f.write(f"N_JOB_TOT:        {n_job_tot}     # ({comment})\n")
+        comment = "total number of jobs (excludes sym links)"
+        f.write(f"N_JOB_TOT:        {n_job_tot}     # {comment}\n")
+
+        comment = "total number of done files (includes sym links)"
+        f.write(f"N_DONE_TOT:       {n_done_tot}     # {comment}\n")
 
         comment = "njob to merge per task after processing"
-        f.write(f"N_JOB_SPLIT:      {n_job_split}     # ({comment})\n")
+        f.write(f"N_JOB_SPLIT:      {n_job_split}     # {comment}\n")
 
         comment = "number of cores"
-        f.write(f"N_CORE:           {n_core}     # ({comment})\n")
+        f.write(f"N_CORE:           {n_core}     # {comment} \n")
             
         # append program-specific information
         f.write("\n")
@@ -578,10 +582,11 @@ class Program:
         # files since there will be no more chances to merge.
         if self.config_yaml['args'].MERGE :
             n_job_tot        = submit_info_yaml['N_JOB_TOT']
+            n_done_tot       = submit_info_yaml['N_DONE_TOT']
             jobfile_wildcard = submit_info_yaml['JOBFILE_WILDCARD']
             script_dir       = submit_info_yaml['SCRIPT_DIR'] 
             done_wildcard    = (f"{jobfile_wildcard}.DONE")
-            util.wait_for_files(n_job_tot, script_dir, done_wildcard) 
+            util.wait_for_files(n_done_tot, script_dir, done_wildcard) 
 
         self.merge_config_prep(output_dir)  # restore config_prep
 

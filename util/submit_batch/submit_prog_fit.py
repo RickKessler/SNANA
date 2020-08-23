@@ -444,11 +444,12 @@ class LightCurveFit(Program):
         logging.info(f"  Found {n_fitopt-1} FITOPT variations.")
         logging.info(f"  link_FITOPT000_list: {link_FITOPT000_list}")
 
-        self.config_prep['n_fitopt']          = n_fitopt
-        self.config_prep['fitopt_num_list']   = fitopt_num_list
-        self.config_prep['fitopt_arg_list']   = fitopt_arg_list
-        self.config_prep['fitopt_label_list'] = fitopt_label_list
+        self.config_prep['n_fitopt']            = n_fitopt
+        self.config_prep['fitopt_num_list']     = fitopt_num_list
+        self.config_prep['fitopt_arg_list']     = fitopt_arg_list
+        self.config_prep['fitopt_label_list']   = fitopt_label_list
         self.config_prep['link_FITOPT000_list'] = link_FITOPT000_list
+        self.config_prep['n_fitopt_link']       = len(link_FITOPT000_list)
 
         self.write_legacy_FITOPT_README()
 
@@ -464,44 +465,59 @@ class LightCurveFit(Program):
         #                                                  
         # These 1D arrays can be used in 1D loops in range(0,n_job_tot)
         # instead of 3D for blocks.
-
+        #
+        # Notation warning: 
+        #   n_job_tot is number of real jobs that are NOT sym links.
+        #   n_fitopt  is total number of FITOPS that includes sym links
+        #   n_fitopt_link is number of FITOPTs that are sym links
+        #
         n_version        = self.config_prep['n_version']
-        n_fitopt         = self.config_prep['n_fitopt']
+        n_fitopt_tot     = self.config_prep['n_fitopt']  # all FITOPT
+        n_fitopt_link    = self.config_prep['n_fitopt_link'] # links to FITOPT000
         version_list     = self.config_prep['version_list']
         fitopt_arg_list  = self.config_prep['fitopt_arg_list']
         n_core           = self.config_prep['n_core']
         do_dump = True
 
         # first figure out how many split jobs
-        n_job_tmp   = n_version * n_fitopt  # N_job if no splitting
-        n_job_split = int(n_core/n_job_tmp)
-        if n_job_split == 0 :
-            n_job_split = 1
+        n_fitopt_tmp = n_fitopt_tot - n_fitopt_link # number of FITOPTs to process
+        n_job_tmp    = n_version * n_fitopt_tmp  # N_job if no splitting
+        n_job_split  = int(n_core/n_job_tmp)
+        if n_job_split == 0 : n_job_split = 1
 
+        # note that n_job_tot does NOT include symbolic links
         n_job_tot = n_job_split * n_job_tmp
 
-
-        logging.info(f"  Determine number of split jobs:")
-        logging.info(f"    n_version x n_fitopt = {n_version} x {n_fitopt} "\
-                     f"= {n_job_tmp}")
+        logging.info(f"  Determine number of split jobs that are not sym links:")
+        logging.info(f"    n_version x n_fitopt = {n_version} x {n_fitopt_tmp} "\
+                     f"= {n_job_tmp}   # excludes sym links")
         logging.info(f"    n_job[tot,split] = {n_job_tot},{n_job_split}" \
-                     f" for {n_core} cores" )
+                     f" for {n_core} cores   # excludes sym links" )
         logging.info("")
 
+        # create sparse index lists that include sym links
         iver_list=[] ;  iopt_list=[];   isplit_list=[]
+        size_sparse_list = 0
         for iver in range(0,n_version):
-            for iopt in range(0,n_fitopt):
+            for iopt in range(0,n_fitopt_tot):
                 for isplit in range(0,n_job_split):
                     iver_list.append(iver)
                     iopt_list.append(iopt)
                     isplit_list.append(isplit)
-            
-        self.config_prep['n_job_tot']     = n_job_tot
+                    size_sparse_list += 1  # n_job(proc+links)
+
+        self.config_prep['size_sparse_list'] = size_sparse_list
+        self.config_prep['n_job_tot']     = n_job_tot  # does NOT include symLinks
+        self.config_prep['n_done_tot']    = size_sparse_list # proc+links
         self.config_prep['n_job_split']   = n_job_split
         self.config_prep['iver_list']     = iver_list
         self.config_prep['iopt_list']     = iopt_list
         self.config_prep['isplit_list']   = isplit_list
-        
+
+        # store number of jobs that are simply symbolic links
+        n_job_link = n_version * n_fitopt_link
+        self.config_prep['n_job_link']    = n_job_link
+
         # end fit_prep_index_lists
 
     def fit_prep_table_options(self):
@@ -580,7 +596,8 @@ class LightCurveFit(Program):
     def write_command_file(self,icpu,COMMAND_FILE):
         
         # loop over version, fitopt
-        n_job_tot        = self.config_prep['n_job_tot']
+        size_sparse_list = self.config_prep['size_sparse_list'] 
+        n_job_tot        = self.config_prep['n_job_tot']  # does NOT include symlinks
         iver_list        = self.config_prep['iver_list']
         iopt_list        = self.config_prep['iopt_list']
         isplit_list      = self.config_prep['isplit_list']
@@ -597,7 +614,7 @@ class LightCurveFit(Program):
 
         n_job_local = 0 ;   n_job_real=0 
 
-        for job in range(0,n_job_tot):
+        for job in range(0,size_sparse_list):  # n_job(proc+links)
             iver   = iver_list[job]
             iopt   = iopt_list[job]
             isplit = isplit_list[job]
@@ -606,11 +623,12 @@ class LightCurveFit(Program):
             }  
             n_job_local += 1
             if self.is_sym_link(fitopt_arg_list[iopt]) : continue
-            n_job_real += 1  # use this to avoid load imbalance with sym links
+            n_job_real += 1  # use this to skip links
 
             #if ( (n_job_local-1) % n_core ) == icpu :
             if ( (n_job_real-1) % n_core ) == icpu :
-                last_job   = (n_job_tot - n_job_local) < n_core            
+                # xxx last_job   = (n_job_tot - n_job_local) < n_core            
+                last_job   = (n_job_tot - n_job_real) < n_core
 
                 job_info_fit   = self.prep_JOB_INFO_fit(index_dict)
                 util.write_job_info(f, job_info_fit, icpu)
@@ -619,7 +637,7 @@ class LightCurveFit(Program):
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
 
-        if n_job_local != n_job_tot :
+        if n_job_real != n_job_tot :
             msgerr = []
             msgerr.append(f"Expected {n_job_tot} total jobs;")
             msgerr.append(f"but found {n_job_local} jobs.")
@@ -658,7 +676,7 @@ class LightCurveFit(Program):
         fitopt_arg    = self.config_prep['fitopt_arg_list'][iopt]
         fitopt_num    = self.config_prep['fitopt_num_list'][iopt]
         use_table_format = self.config_prep['use_table_format']
-        n_job_tot     = self.config_prep['n_job_tot']
+        #n_job_tot     = self.config_prep['n_job_tot']
         n_job_split   = self.config_prep['n_job_split']
         split_num     = (f"SPLIT{isplit:03d}")
         prefix        = (f"{version}_{fitopt_num}_{split_num}")
@@ -779,8 +797,9 @@ class LightCurveFit(Program):
         # downstream scripts.
 
         CONFIG            = self.config_yaml['CONFIG']
-        n_job_tot         = self.config_prep['n_job_tot']
-        n_job_split       = self.config_prep['n_job_split']
+        #n_job_tot         = self.config_prep['n_job_tot']
+        #n_job_split       = self.config_prep['n_job_split']
+        n_job_link        = self.config_prep['n_job_link']
         output_dir        = self.config_prep['output_dir']
         n_fitopt          = self.config_prep['n_fitopt']
         version_list      = self.config_prep['version_list']
@@ -791,6 +810,8 @@ class LightCurveFit(Program):
         use_table_format  = self.config_prep['use_table_format']
 
         f.write(f"\n# Fit info\n")
+        f.write(f"N_JOB_LINK:          {n_job_link}   " \
+                f"# Njob with link to FITOPT000\n")
         f.write(f"JOBFILE_WILDCARD:    '*SPLIT*' \n")
         f.write(f"TABLE_FORMATS:       {TABLE_SUFFIX_LIST} \n")
         f.write(f"USE_TABLE_FORMAT:    {use_table_format} \n")

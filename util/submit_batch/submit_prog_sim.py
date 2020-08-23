@@ -179,9 +179,10 @@ class Simulation(Program):
                     isplit_list.append(isplit)
 
         self.config_prep['n_job_tot']    = n_job_tot
+        self.config_prep['n_done_tot']   = n_job_tot # same as n_job_tot
         self.config_prep['iver_list']    = iver_list
-        self.config_prep['ifile_list']    = ifile_list
-        self.config_prep['isplit_list'] = isplit_list
+        self.config_prep['ifile_list']   = ifile_list
+        self.config_prep['isplit_list']  = isplit_list
 
         # sim_prep_index_lists
 

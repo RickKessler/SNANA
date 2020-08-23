@@ -905,16 +905,16 @@ class BBC(Program):
                 if NLOG > 0:
                     NEW_STATE = SUBMIT_STATE_RUN
                 if NDONE == n_job_split :
-                    NEW_STATE=SUBMIT_STATE_DONE
-                    bbc_stats=self.get_bbc_stats(script_dir,log_list,yaml_list)
+                    NEW_STATE = SUBMIT_STATE_DONE
+                    bbc_stats = self.get_bbc_stats(script_dir,log_list,yaml_list)
                     
                     # check for failures in snlc_fit jobs.
                     nfail = bbc_stats['nfail_sum']
                     if nfail > 0 :
                         NEW_STATE = SUBMIT_STATE_FAIL
                  
-                # update row if state has changed
-                if NEW_STATE != STATE :
+                    # update row if state has changed
+                #if NEW_STATE != STATE :
                     row[COLNUM_STATE]     = NEW_STATE
                     row[COLNUM_NDATA]     = bbc_stats['nevt_data']
                     row[COLNUM_NBIASCOR]  = bbc_stats['nevt_biascor']

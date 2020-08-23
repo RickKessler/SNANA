@@ -12,8 +12,8 @@ import time
 import getpass
 
 # start with flags that should be switched to command-line args
-#NCPU_MERGE_DISTRIBUTE  = 10000  # default: use all CPUs to merge
-NCPU_MERGE_DISTRIBUTE  = 0  # 0 -> merge only with CPU=0 (no conflict issues)
+NCPU_MERGE_DISTRIBUTE  = 10000  # default: use all CPUs to merge
+#NCPU_MERGE_DISTRIBUTE  = 0  # 0 -> merge only with CPU=0 (no conflict issues)
 
 # debug feature: copy each MERGE.LOG to MERGE.LOG_{Nsec}
 KEEP_EVERY_MERGELOG = False  

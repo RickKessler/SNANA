@@ -126,6 +126,15 @@ def set_merge_flag(config):
     return merge_flag
 
 def check_legacy_input_file(input_file, opt_translate):
+
+    # if there is no 'CONFIG:' key, this is a legacy input file ;
+    # translate using file-name convention based on user input
+    # --opt_translate. See opt_translate details with
+    #   submit_batch_jobs.sh -H TRANSLATE
+    #
+    # Function returns name of input file ... original of already
+    # in correct YAML format, or translated.
+
     msgerr = []
     with open(input_file,"r") as f:
         flat_word_list=[word for line in f for word in line.split()]
@@ -141,7 +150,7 @@ def check_legacy_input_file(input_file, opt_translate):
                 msgerr.append(f" Comment: {comment}")
                 util.log_assert(False,msgerr)
 
-        return  # file ok, do nothing.
+        return input_file    # file ok, do nothing.
 
     # - - - -  -
 

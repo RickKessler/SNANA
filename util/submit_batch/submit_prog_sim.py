@@ -111,10 +111,9 @@ class Simulation(Program):
         return output_dir_name,SUBDIR_SCRIPTS_SIM
         # set_output_dir_name
         
-    def translate_input_file(self,legacy_input_file):
-        logging.info(f"\n TRANSLATE LEGACY sim_SNmix INPUT FILE: {legacy_input_file}")
-
-        refac_input_file = (f"REFAC_{legacy_input_file}")
+    def translate_input_file(self,legacy_input_file, refac_input_file):
+        logging.info(f"\n TRANSLATE LEGACY sim_SNmix INPUT FILE: " \
+                     f"{legacy_input_file}")
         tr.SIM_legacy_to_refac( legacy_input_file, refac_input_file )
         # end translate_input_file
 

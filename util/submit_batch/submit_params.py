@@ -169,6 +169,51 @@ CONFIG:
   DONE_STAMP_FILE: $MYPATH/PIPE_STAGE4.DONE
 """
 
+
+HELP_CONFIG_TRANSLATE = f"""
+          TRANSLATING LEGACY INPUT FILES 
+
+  The 'LEGACY' input files for [sim_SNmix, split_and_fit, SALT2mu_fit]
+  will not work with submit_batch_jobs.py, and therefore submit_batch_jobs
+  includes an automatic translation of the input file. Command line option
+     --opt_translate <opt>
+  controls the file-name convention, and also whether to exit or continue 
+  after translation. Note that opt_translate is a bit mask. LEGACY input 
+  files are automatically detected by the lack of a 'CONFIG:' key. If a 
+  CONFIG key exists, opt_translate is ignored.
+
+  opt_translate +=1 ->
+    This default behavior produces a translated input file with name
+    REFAC_[input_file]. The original input file is not modified.
+
+  opt_translate +=2 -> 
+   The original input file is saved as LEGACY_[input_file], and the
+   translated input file has the original name. If the original
+   input file already has a 'LEGACY_' prefix, the file is not modified
+   and the translated input file has the 'LEGACY_'  prefix removed.
+   Example 1: input_file = abc.input is saved as LEGACY_abc.input;
+              translated input file is abc.input
+   Example 2: input_file = LEGACY_abc.input is not modified;
+              translated input file is abc.input.
+
+  opt_translate += 4 ->
+    continue running submit_batch_jobs using translated input file.
+
+  Setting opt_translate to 1 or 2 results in translation followed
+  by exiting submit_batch_jobs. This option enables visual inspection
+  of translated input file before launching batch jobs. 
+
+  Setting opt_tranlate = 5 (1+4) or 6 (2+4) results in translation
+  following by executation of the batch script. This option enables
+  pipelines to run without interruption.
+
+  If the input file is already in the correct YAML format, opt_translate
+  is ignored; therefore it is safe to always include an opt_translate 
+  argument.
+
+  """
+
+
 HELP_CONFIG_SIM =  f"""
   ***** HELP/MENU for Simulation YAML Input ***** 
 
@@ -351,7 +396,8 @@ HELP_CONFIG_BBC = f"""
 HELP_CONFIG = { 
     'SIM' : HELP_CONFIG_SIM,
     'FIT' : HELP_CONFIG_FIT,
-    'BBC' : HELP_CONFIG_BBC
+    'BBC' : HELP_CONFIG_BBC,
+    'TRANSLATE' : HELP_CONFIG_TRANSLATE
 }
 
 # === END ===

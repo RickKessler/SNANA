@@ -93,10 +93,9 @@ class LightCurveFit(Program):
         return output_dir_name,SUBDIR_SCRIPTS_FIT
         # end set_output_dir_name
 
-    def translate_input_file(self,legacy_input_file):
+    def translate_input_file(self, legacy_input_file, refac_input_file):
         logging.info(f"\n TRANSLATE LEGACY split_and_fit INPUT FILE: " \
                      f"{legacy_input_file}")
-        refac_input_file = (f"REFAC_{legacy_input_file}")
         tr.FIT_legacy_to_refac(legacy_input_file, refac_input_file)
 
     def submit_prepare_driver(self):

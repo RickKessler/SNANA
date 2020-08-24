@@ -26,7 +26,8 @@
 
 #import os
 import sys, yaml, argparse, subprocess, logging
-import submit_util as util
+import submit_util      as util
+import submit_translate as tr
 
 from   submit_params   import *
 from   submit_prog_sim import Simulation
@@ -40,7 +41,7 @@ def get_args():
 
     msg = "HELP with input file config(s); then exit"
     parser.add_argument("-H", "--HELP", help=msg, default=None, type=str, \
-            choices=["SIM", "FIT", "BBC"])
+                        choices=["SIM", "FIT", "BBC", "TRANSLATE" ])
     
     msg = "name of input file"
     parser.add_argument("input_file", help=msg, nargs="?", default=None)
@@ -61,6 +62,12 @@ def get_args():
 
     msg = "kill current jobs"
     parser.add_argument("-k", "--kill", help=msg, action="store_true")
+
+    msg = "+=1 -> new input file has REFAC_ prefix; " + \
+          "+=2 -> old input file has LEGACY_ prefix ; " + \
+          "+=4 -> continue submit with new file. "
+    #parser.add_argument('--opt_translate', nargs='+', help=msg, type=int )
+    parser.add_argument('--opt_translate' , help=msg, type=int, default=1 )
 
     msg = "DEBUG MODE: submit jobs, but skip merge process"
     parser.add_argument("--nomerge", help=msg, action="store_true")
@@ -118,42 +125,75 @@ def set_merge_flag(config):
                  config['args'].merge_reset
     return merge_flag
 
-def check_legacy_input_file(input_file):
+def check_legacy_input_file(input_file, opt_translate):
+    msgerr = []
     with open(input_file,"r") as f:
         flat_word_list=[word for line in f for word in line.split()]
         #f_read = f.read()
 
     if 'CONFIG:' in flat_word_list :
-        # check for obsolete keys
+        # check for obsolete keys that are not translated
         for item in flat_word_list :
             key = item.rstrip(':')
             if key in OBSOLETE_CONFIG_KEYS :
-                msgerr  = []
                 comment = OBSOLETE_CONFIG_KEYS[key]
                 msgerr.append(f" Obsolete key '{key}' no longer valid.")
                 msgerr.append(f" Comment: {comment}")
                 util.log_assert(False,msgerr)
 
         return  # file ok, do nothing.
-    else:
-        # define fake config_yaml, and pass to program driver
-        config_yaml = \
-            { 'args' : Namespace(input_file=input_file, legacy_input=True) }
 
-    if  'GENVERSION:' in flat_word_list :
-        program = Simulation(config_yaml)  
+    # - - - -  -
 
-    elif 'VERSION:' in flat_word_list :
-        program = LightCurveFit(config_yaml) 
-
-    elif 'u1=' in str(flat_word_list) :  # check for u1= substring
-        program = BBC(config_yaml) 
-    else:
-        print(f" xxx word_list = {flat_word_list}")
-        msgerr = ['Unrecognized legacy input file:', input_file ]
+    #if opt_translate is None:  opt_translate = 1
+    
+    # prepare options 
+    rename_refac_file    = (opt_translate & 1 ) > 0
+    rename_legacy_file   = (opt_translate & 2 ) > 0
+    exit_after_translate = (opt_translate & 4 ) == 0 # default is to exit
+    
+    if rename_refac_file :
+        legacy_input_file = input_file
+        refac_input_file  = (f"REFAC_{input_file}")
+    elif rename_legacy_file :
+        if input_file[0:7] == 'LEGACY_' :  # don't add another LEGACY prefix
+            legacy_input_file = input_file
+            refac_input_file  = input_file[7:]
+        else :
+            legacy_input_file = (f"LEGACY_{input_file}")
+            refac_input_file  = input_file
+            cmd_mv = (f"mv {input_file} {legacy_input_file}")
+            print(f" Save {input_file} as {legacy_input_file}")
+            os.system(cmd_mv)
+    else :
+        msgerr.append(f" Must invalid opt_transate = {opt_translate} ")
+        msgerr.append(f" Must have either ")
+        msgerr.append(f"     opt_translate & 1 (rename refac file) or ")
+        msgerr.append(f"     opt_translate & 2 (rename legacy file) ")
         util.log_assert(False,msgerr)
 
-    #sys.exit("\n xxx DEBUG DIE check legacy xxx ")
+    msg_translate = (f"\n TRANSLATE LEGACY INPUT file for ")
+    print(f" opt_translate = {opt_translate}")
+
+    if  'GENVERSION:' in flat_word_list :
+        logging.info(f"{msg_translate} sim_SNmix.pl :")
+        tr.SIM_legacy_to_refac( legacy_input_file, refac_input_file )
+
+    elif 'VERSION:' in flat_word_list :
+        logging.info(f"{msg_translate} split_and_fit.pl :")
+        tr.FIT_legacy_to_refac( legacy_input_file, refac_input_file )
+
+    elif 'u1=' in str(flat_word_list) :  # check for u1= substring
+        logging.info(f"{msg_translate} SALT2mu_fit.pl: ")
+        tr.BBC_legacy_to_refac( legacy_input_file, refac_input_file )
+    #    program = BBC(config_yaml) 
+    else:
+        msgerr = ['Unrecognized legacy input file:', input_file ]
+        util.log_assert(False,msgerr)
+    
+    if exit_after_translate :
+        sys.exit("\n Exit after input file translation.")
+
     # end check_legacy_input_file
 
 def print_submit_messages(config_yaml):
@@ -204,9 +244,8 @@ if __name__ == "__main__":
     store = util.setup_logging(args)
 
     if args.HELP :
-        print(f" !!! ************************************************ !!!")
-        print(f" !!! ************************************************ !!!")
-        print(f" !!! ************************************************ !!!")
+        see_me = (f" !!! ************************************************ !!!")
+        print(f"\n{see_me}\n{see_me}\n{see_me}")
         print(f"{HELP_CONFIG[args.HELP]}")
         sys.exit(' Scroll up to see full HELP menu.\n Done: exiting Main.')
 
@@ -215,7 +254,7 @@ if __name__ == "__main__":
         sys.exit(' Done: exiting Main.')
 
     # check for legacy input; if so, translate and quit
-    check_legacy_input_file(args.input_file)
+    check_legacy_input_file(args.input_file, args.opt_translate )
 
     # Here we know it's got a CONFIG block, so read the YAML input
     config_yaml = util.extract_yaml(args.input_file)

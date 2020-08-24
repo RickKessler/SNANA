@@ -29,10 +29,11 @@ class Program:
         self.config_prep   = config_prep
         self.config        = None
 
-        if config_yaml['args'].legacy_input :
-            input_file  = config_yaml['args'].input_file 
-            self.translate_input_file(input_file) # translate and quit
-            sys.exit('Done')
+        #if config_yaml['args'].legacy_input :
+        #    input_file  = config_yaml['args'].input_file 
+        #    # ?? examine opt_translate mask xxx .xyz
+        #    self.translate_input_file(input_file) # translate and quit
+        #    sys.exit('Done')
 
         CONFIG = config_yaml['CONFIG']
         if 'JOBNAME' in CONFIG :

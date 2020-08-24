@@ -81,10 +81,9 @@ class BBC(Program):
 
         return output_dir_name,SUBDIR_SCRIPTS_BBC
 
-    def translate_input_file(self, legacy_input_file):
+    def translate_input_file(self, legacy_input_file, refac_input_file ):
         logging.info(f"\n TRANSLATE LEGACY SALT2mu_fit INPUT FILE: " \
                      f"{legacy_input_file}")
-        refac_input_file = (f"REFAC_{legacy_input_file}")
         tr.BBC_legacy_to_refac(legacy_input_file,refac_input_file)
         # end translate_input_file
 

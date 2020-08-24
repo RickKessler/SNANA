@@ -883,7 +883,7 @@ sub parse_inFile_master() {
     $FORMAT_MASK = 0 ;
 
     $WRFLAG_CIDRAN = 0;
-
+    
     # ---- start parsing
 
     $DONE_STAMP      = '' ;

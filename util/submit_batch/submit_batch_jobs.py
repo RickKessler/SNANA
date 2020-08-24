@@ -195,7 +195,7 @@ def check_legacy_input_file(input_file, opt_translate):
         sys.exit("\n Exit after input file translation.")
 
 
-    return rename_legacy_file
+    return refac_input_file
 
     # end check_legacy_input_file
 

@@ -194,6 +194,9 @@ def check_legacy_input_file(input_file, opt_translate):
     if exit_after_translate :
         sys.exit("\n Exit after input file translation.")
 
+
+    return rename_legacy_file
+
     # end check_legacy_input_file
 
 def print_submit_messages(config_yaml):
@@ -253,8 +256,8 @@ if __name__ == "__main__":
         purge_old_submit_output()
         sys.exit(' Done: exiting Main.')
 
-    # check for legacy input; if so, translate and quit
-    check_legacy_input_file(args.input_file, args.opt_translate )
+    # check to translate legacy input
+    args.input_file = check_legacy_input_file(args.input_file, args.opt_translate )
 
     # Here we know it's got a CONFIG block, so read the YAML input
     config_yaml = util.extract_yaml(args.input_file)

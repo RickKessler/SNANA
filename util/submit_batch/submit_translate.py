@@ -14,7 +14,8 @@ SIM_default_yaml_sections__ = \
 		['CONFIG','GENVERSION_LIST','GENOPT_GLOBAL']
 SIM_ignore_dict_setup__	  = \
 		['BATCH_INFO','RANSEED_REPEAT', 'RANSEED_CHANGE', 'RESET_CIDOFF', 
-                 'CLEANUP_FLAG', 'GENPREFIX:', 'NGEN_UNIT', 'FORMAT_MASK' ]
+                 'CLEANUP_FLAG', 'GENPREFIX:', 'NGEN_UNIT', 'FORMAT_MASK',
+                 'INPUT_FILE_INCLUDE', 'INPUT_INCLUDE_FILE' ]
 
 SIM_yaml_translation_dict__ = { 'LEGACY':'REFAC' }
 

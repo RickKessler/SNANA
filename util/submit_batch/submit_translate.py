@@ -24,7 +24,7 @@ SIM_multi_option_list = \
 
 FIT_yaml_translation_dict__ = {'[*]':'/*/', 'LEGACY':'REFAC' }
 
-FIT_multi_option_list = ['FITOPT']
+FIT_multi_option_list = [ 'VERSION', 'FITOPT']
 
 BBC_yaml_translation_dict__ = {'XXX*':'blank', 'LEGACY':'REFAC' }
 

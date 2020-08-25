@@ -90,7 +90,6 @@ def _add_keyword_to_dict(current_dict,key,value,legacy_type):
 	"""
 	Helper function to create nested dictionaries for YAML.
 	"""
-
 	kv_list = value.split()
 	if len(kv_list)>1 and key not in SIM_ignore_dict_setup__ and\
 									 legacy_type=='SIM':
@@ -124,14 +123,12 @@ def _add_keyword_to_dict(current_dict,key,value,legacy_type):
 				current_dict[key] = [current_dict[key]]
 		
 			current_dict[key].append(value)
-		elif len(kv_list) == 1 or not any([key in tempList \
-										   for tempList in [SIM_multi_option_list,
-															FIT_multi_option_list,
-															BBC_multi_option_list]]):
-			current_dict[key] = value
-
-		else:
+		elif any([key in tempList for tempList in [SIM_multi_option_list,
+												   FIT_multi_option_list,
+												   BBC_multi_option_list]]):
 			current_dict[key] = [value]
+		else:
+			current_dict[key] = value
 
 	return(current_dict)
 
@@ -294,6 +291,9 @@ def _legacy_snana_sim_input_to_dictionary(basefilename,verbose):
 				yaml_dict['CONFIG'] = _add_keyword_to_dict(yaml_dict['CONFIG'],
 														   kw.strip(),kv,'SIM')
 	
+	for top_level in list(yaml_dict.keys()):
+		if len(yaml_dict[top_level])==0:
+			yaml_dict.pop(top_level)
 	return(yaml_dict)
 
 def _legacy_snana_NML_to_dictionary(basefilename,verbose):
@@ -347,6 +347,7 @@ def _legacy_snana_NML_to_dictionary(basefilename,verbose):
 						FIT_yaml_translation_dict__[yaml_key])
 
 		header['CONFIG'] = _add_keyword_to_dict(header['CONFIG'],key,value,'FIT')
+
 	return(header,nml_lines)
 
 
@@ -394,6 +395,9 @@ def _legacy_snana_bbc_to_dictionary(basefilename,verbose):
 		elif '=' in line and not line.strip().startswith('#'):
 			bbc_lines.append(line)
 	
+	for top_level in list(yaml_dict.keys()):
+		if len(yaml_dict[top_level])==0:
+			yaml_dict.pop(top_level)
 	return(yaml_dict,bbc_lines)
 
 

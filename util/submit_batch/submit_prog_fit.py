@@ -626,13 +626,14 @@ class LightCurveFit(Program):
 
             #if ( (n_job_local-1) % n_core ) == icpu :
             if ( (n_job_real-1) % n_core ) == icpu :
-                # xxx last_job   = (n_job_tot - n_job_local) < n_core            
-                last_job   = (n_job_tot - n_job_real) < n_core
 
                 job_info_fit   = self.prep_JOB_INFO_fit(index_dict)
                 util.write_job_info(f, job_info_fit, icpu)
 
-                job_info_merge = self.prep_JOB_INFO_merge(icpu,last_job) 
+                # xx last_job   = (n_job_tot - n_job_real) < n_core
+                # xx job_info_merge = self.prep_JOB_INFO_merge(icpu,last_job) 
+
+                job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_real) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
 

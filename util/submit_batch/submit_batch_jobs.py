@@ -10,7 +10,11 @@
 #   - more elegant HELP menu per program?
 #   - run merge task immediately after launch so that
 #     some of the WAIT -> RUN
-# 
+#   - if 1 task per CPU*.CMD, final merge task may never run because
+#     one CPU locks merge process with only a few DONE files,
+#     and all other CPU*.CMD tasks end during partial merge ... 
+#     hence nobody left to complete the merge tasks.
+#
 #  SIM:
 #   - for sim, leave symbolic links for redundant sim job
 #   - problem reading SIMGEN-input file when SIMGEN_DUMP breaks
@@ -41,7 +45,7 @@ def get_args():
 
     msg = "HELP with input file config(s); then exit"
     parser.add_argument("-H", "--HELP", help=msg, default=None, type=str, \
-                        choices=["SIM", "FIT", "BBC", "TRANSLATE" ])
+                        choices = ["SIM", "FIT", "BBC", "TRANSLATE", "MERGE"])
     
     msg = "name of input file"
     parser.add_argument("input_file", help=msg, nargs="?", default=None)
@@ -76,11 +80,11 @@ def get_args():
     parser.add_argument("--merge_reset", help=msg, action="store_true")
 
     # args passed internally from command files
-    msg = "INTERNAL: launch merge process"
+    msg = "INTERNAL:  merge process"
     parser.add_argument("-m", "--merge", help=msg, action="store_true")
 
-    msg = "INTERNAL: launch merge when all done files exist"
-    parser.add_argument("-M", "--MERGE", help=msg, action="store_true")
+    msg = "INTERNAL: last merge process when all done files exist"
+    parser.add_argument("-M", "--MERGE_LAST", help=msg, action="store_true")
 
     msg = "INTERNAL: time stamp (Nsec since midnight) to verify" \
            " merge process examines correct output_dir"
@@ -121,7 +125,7 @@ def which_program_class(config):
 
 def set_merge_flag(config):
     merge_flag = config['args'].merge  or \
-                 config['args'].MERGE  or \
+                 config['args'].MERGE_LAST  or \
                  config['args'].merge_reset
     return merge_flag
 
@@ -258,7 +262,7 @@ if __name__ == "__main__":
     if args.HELP :
         see_me = (f" !!! ************************************************ !!!")
         print(f"\n{see_me}\n{see_me}\n{see_me}")
-        print(f"{HELP_CONFIG[args.HELP]}")
+        print(f"{HELP_MENU[args.HELP]}")
         sys.exit(' Scroll up to see full HELP menu.\n Done: exiting Main.')
 
     if args.purge :

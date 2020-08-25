@@ -170,7 +170,7 @@ CONFIG:
 """
 
 
-HELP_CONFIG_TRANSLATE = f"""
+HELP_TRANSLATE = f"""
           TRANSLATING LEGACY INPUT FILES 
 
   The 'LEGACY' input files for [sim_SNmix, split_and_fit, SALT2mu_fit]
@@ -393,11 +393,115 @@ HELP_CONFIG_BBC = f"""
 
 """
 
-HELP_CONFIG = { 
+HELP_MERGE = f"""
+          MERGE LOGIC
+
+While there are no merge options, this help section may be useful in case
+debugging is needed for a merge process that doesn't finish properly.
+'MERGE' refers to tasks run after a science job (SciJob). For SIM, the merge
+process combines sim data files from multiple split jobs into a single
+data version. For FIT, the merge process combines tables from the split
+jobs into a single table (per FITOPT). For BBC, there is no merging since
+a BBC job cannot be split among multiple cores. Merge tasks also include
+organization of science files (e.g. FITRES tables), such as moving them 
+to a more appropriate location outside of the messy script-directory where 
+jobs had run.
+
+The general merge strategy is that each CPU launches a merge process
+after each SciJob has finished. Thus each merge process must wake
+up, figure out what (if any) action is needed, and take action. The
+advantages of this strategy are 
+  1:) distribute merge task load among multiple CPUs.
+  2:) merge tasks are done in batch job, not on login node.
+  3:) if batch jobs are killed, no lingering background jobs on login node.
+Difficulties are 
+  1:( collect adequate information.
+  2:( avoid conflict when mutliple merge tasks are launched simultaneously.
+  3:( ensure merge process runs when all is finished.
+
+In the CPU*.CMD files, each SciJob is followed by a merge
+task as follows
+   python submit_batch_jobs.py <inputFile> -m -t 21014 --cpunum 0 
+
+where -m tells the batch script to function as a merge task (instead of 
+submit task), the -t argument is a time stamp (Nsec since midnight)
+to verify against time stamp in OUTDIR, and --cpunum is used to label
+BUSY files. 
+
+The difficulties are addressed as follows:
+
+1:(
+Each merge task collects information from two required files under OUTDIR
+that are created before batch jobs are submitted: 
+     SUBMIT.INFO    # fixed info, never changes
+     MERGE.LOG      # state of each SciJob: WAIT, RUN, DONE, FAIL
+ 
+The merge process analyzes these two files and decides what action is
+necessary. After taking action, MERGE.LOG is updated so that the next 
+merge process knows not to repeat already finished merge tasks. When all 
+SciJobs and merge tasks have finished, a final "cleanup" task is run to 
+do things like compress files and create a summary file.
+
+2:(
+Merge conflicts are avoided using busy files named
+   BUSY_MERGE_CPU[cpunum].LOCK
+A merge process exits immediately if a BUSY*.LOCK file exists; otherwise 
+it creates a BUSY file to lock out other merge processes. The BUSY*LOCK
+file is removed after the merge process has finished and updated MERGE.LOG.
+It is possible that multiple BUSY*LOCK files are created simultaneously. 
+To handle this situation, after a BUSY*LOCK file is created the merge 
+process waits a few seconds and then checks again for a list of BUSY*LOCK 
+files. If more than 1 exists, only the first in the sorted list remains 
+active, while the others exit. For example, suppose
+       BUSY_MERGE_CPU0002.LOCK  
+       BUSY_MERGE_CPU0006.LOCK  
+both exist; CPU0006 merge process will exit while CPU0002 merge process 
+remains to carry out its merge tasks.
+
+
+3:(
+The last issue is that all merge tasks can exit before finishing. For example,
+consider 30 jobs on 30 CPUs, and suppose that CPU-4 SciJob finishes first. 
+Next, suppose that the merge process performs a few tasks, and during these 
+tasks all other CPUs finish and exit because of the BUSY_MERGE_CPU0004.LOCK 
+file. In summary, a single LOCK file can result in no remaiming merge task 
+when all SciJobs finish.
+
+To ensure a final merge process after all SciJobs finish, the merge task 
+after the last SciJob gets a -M argument instead of -m. The -M argument is 
+an instruction to wait for all expected DONE files, and to wait for any 
+remaining BUSY*LOCK files to clear. Beware that the last SciJob does not 
+always run last due to different wait times in the batch queue. For example, 
+consider 3 SciJobs submitted to 2 CPUs (CPU000, CPU001). CPU000 has SciJob 
+1 & 3, while CPU001 has SciJob 2. If CPU000 runs before CPU001, the last 
+SciJob (3) can finish long before SciJob 2. In this scenario, here is the
+expected sequence of events:
+  + CPU000 runs, while CPU001 waits in the queue.
+  + SciJob 1 finishes on CPU000.
+  + merge proc 1 (-m) runs after SciJob 1
+  + SciJob 3 finishes on CPU000.
+  + merge proc 3 (-M) sees only 2 DONE files, so does nothing while waiting 
+    for 3rd DONE file.
+  + CPU001 finally runs
+  + SciJob 2 finishes on CPU001.
+  + merge proc 2 (-m) runs arter SciJob 3 and runs merge tasks for everything,
+    including unfinished tasks from CPU000. It skips cleanup because only
+    the last merge proc can do cleanup.
+  + waiting merge proc 3 (CPU000) sees all 3 DONE files, and also sees that
+    all merge tasks are done. It runs only the cleanup to compress and 
+    create summary file(s).
+
+    
+
+"""
+
+# - - - - - - - 
+HELP_MENU = { 
     'SIM' : HELP_CONFIG_SIM,
     'FIT' : HELP_CONFIG_FIT,
     'BBC' : HELP_CONFIG_BBC,
-    'TRANSLATE' : HELP_CONFIG_TRANSLATE
+    'TRANSLATE' : HELP_TRANSLATE,
+    'MERGE'     : HELP_MERGE
 }
 
 # === END ===

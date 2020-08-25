@@ -1163,13 +1163,15 @@ class Simulation(Program):
             n_job_local += 1
             if ( (n_job_local-1) % n_core ) == icpu :
                 n_job_cpu += 1
-                last_job   = (n_job_tot - n_job_local) < n_core
 
                 # define sim job and merge job; then glue together
                 job_info_sim   = self.prep_JOB_INFO_sim(index_dict)
                 util.write_job_info(f, job_info_sim, icpu)
 
-                job_info_merge = self.prep_JOB_INFO_merge(icpu,last_job) 
+                # xxx last_job   = (n_job_tot - n_job_local) < n_core
+                # xxx job_info_merge = self.prep_JOB_INFO_merge(icpu,last_job) 
+
+                job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
                 JOB_INFO   = {}

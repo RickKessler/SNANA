@@ -602,7 +602,6 @@ class BBC(Program):
                   'isplitran': isplitran }
 
             if ( (n_job_local-1) % n_core ) == icpu :
-                last_job   = (n_job_tot - n_job_local) < n_core            
 
                 job_info_bbc   = self.prep_JOB_INFO_bbc(index_dict)
                 util.write_job_info(f, job_info_bbc, icpu)
@@ -611,7 +610,10 @@ class BBC(Program):
                     job_info_wfit  = self.prep_JOB_INFO_wfit(index_dict)
                     util.write_job_info(f, job_info_wfit, icpu)
 
-                job_info_merge = self.prep_JOB_INFO_merge(icpu,last_job) 
+                # xx last_job   = (n_job_tot - n_job_local) < n_core 
+                # xx job_info_merge = self.prep_JOB_INFO_merge(icpu,last_job) 
+
+                job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
                 # write JOB_INFO to file f

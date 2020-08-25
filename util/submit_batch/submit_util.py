@@ -460,10 +460,12 @@ def wait_for_files(n_file_wait, wait_dir, wait_files):
     #  wait_dir        = directory to search for wait_files
     #  wait_files      = file specifier with wildcare; e.g, TMP*.DONE
 
+    T_SLEEP = 20  # sleep time until next file-exist check
+ 
     logging.info(f"  Wait for {n_file_wait} {wait_files} files")
     n_file_exist = 0
     while  n_file_exist < n_file_wait :
-        time.sleep(5)  # sleep time should be param, or passed as arg??
+        time.sleep(T_SLEEP) 
         wait_file_list  = glob.glob1(wait_dir,wait_files)
         n_file_exist    = len(wait_file_list)
         time_now        = datetime.datetime.now()

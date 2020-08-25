@@ -29,12 +29,6 @@ class Program:
         self.config_prep   = config_prep
         self.config        = None
 
-        #if config_yaml['args'].legacy_input :
-        #    input_file  = config_yaml['args'].input_file 
-        #    # ?? examine opt_translate mask xxx .xyz
-        #    self.translate_input_file(input_file) # translate and quit
-        #    sys.exit('Done')
-
         CONFIG = config_yaml['CONFIG']
         if 'JOBNAME' in CONFIG :
             config_prep['program'] = CONFIG['JOBNAME']
@@ -313,19 +307,24 @@ class Program:
             remove_cmd = (f"rm {BATCH_FILE_TEMP}")
             os.system(remove_cmd)
 
-    def prep_JOB_INFO_merge(self,icpu,last_job):
-        # Return dictionary of strings to run merge process.
+    def prep_JOB_INFO_merge(self,icpu,ijob):
+        # Return JOB_INFO dictionary of strings to run merge process.
+        # Inputs:
+        #   icpu = 0 to n_core-1
+        #   ijob = 1 to n_job_tot
+        #
         # Merge task must is the form
         #   python <thisScript> <inputFile> arg_list
         # arg_list includes
         #  -m -> merge and quit or
         #  -M -> wait for all DONE files to appear, then merge it all.
-        #
         #  -t <Nsec>   time stamp to verify merge and submit jobs
         #  --cpunum <cpunum>  in case specific CPU needs to be identified    
 
         input_file     = self.config_yaml['args'].input_file
         no_merge       = self.config_yaml['args'].nomerge
+        n_core         = self.config_prep['n_core']
+        n_job_tot      = self.config_prep['n_job_tot']
         Nsec           = seconds_since_midnight
 
         JOB_INFO = {}
@@ -335,9 +334,20 @@ class Program:
             JOB_INFO['merge_arg_list']   = ""
             return JOB_INFO
 
+        # - - - - 
+        # determine if this is last job for this cpu
+        last_job_cpu  = (n_job_tot - ijob) < n_core
+ 
+        # check where to flag last merge process with -M
+        if NCPU_MERGE_DISTRIBUTE == 0 :
+            # cpu=0 has last merge process
+            last_merge =  last_job_cpu and icpu == 0
+        else:
+            # last merge is after last job, regardless of cpunum
+            last_merge =  ijob == n_job_tot
+
         m_arg = "-m"
-        if last_job and NCPU_MERGE_DISTRIBUTE == 0 :
-            m_arg = "-M"  # merge only with CPU=0
+        if last_merge :  m_arg = "-M" 
 
         arg_list = (f"{m_arg} -t {Nsec} --cpunum {icpu}")
         JOB_INFO['merge_input_file']  = input_file
@@ -534,6 +544,7 @@ class Program:
         time_now = datetime.datetime.now()
         tstr     = time_now.strftime("%Y-%m-%d %H:%M:%S") 
         fnam = "merge_driver"
+        MERGE_LAST  = self.config_yaml['args'].MERGE_LAST
 
         logging.info(f"\n")
         logging.info(f"# ================================================== ")
@@ -565,6 +576,10 @@ class Program:
         # make sure time stamps are consistent
         self.merge_check_time_stamp(output_dir)
 
+        # if last merge call (-M), then must wait for all of the done
+        # files since there will be no more chances to merge.
+        if MERGE_LAST : self.merge_last_wait()
+
         # set busy lock file to prevent a simultaneous  merge task
         self.set_merge_busy_lock(+1)
 
@@ -578,16 +593,6 @@ class Program:
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
         MERGE_INFO_CONTENTS,comment_lines = \
             util.read_merge_file(MERGE_LOG_PATHFILE)
-
-        # if last merge call, then must wait for all of the done
-        # files since there will be no more chances to merge.
-        if self.config_yaml['args'].MERGE :
-            n_job_tot        = submit_info_yaml['N_JOB_TOT']
-            n_done_tot       = submit_info_yaml['N_DONE_TOT']
-            jobfile_wildcard = submit_info_yaml['JOBFILE_WILDCARD']
-            script_dir       = submit_info_yaml['SCRIPT_DIR'] 
-            done_wildcard    = (f"{jobfile_wildcard}.DONE")
-            util.wait_for_files(n_done_tot, script_dir, done_wildcard) 
 
         self.merge_config_prep(output_dir)  # restore config_prep
 
@@ -662,11 +667,8 @@ class Program:
 
         logging.info(f"# {fnam}: finished {n_wrapup} wrapup tasks ")
 
-        # check final tasks when all is finished:
-        #   + cleanup
-        #   + write done stamp
-        cleanup_flag  = submit_info_yaml['CLEANUP_FLAG']
-        if n_done == n_job_merge :
+        # Only last merge process does cleanup tasks and DONE stamps
+        if MERGE_LAST and n_done == n_job_merge :
             nfail_tot = self.failure_summary()
 
             self.write_proctime_info() # write proc time info to MERGE.LOG
@@ -674,8 +676,8 @@ class Program:
             if nfail_tot == 0 :
                 logging.info(f"\n# {fnam}: ALL JOBS DONE -> " \
                              f"BEGIN FINAL CLEANUP ")
-                if cleanup_flag: 
-                    self.merge_cleanup_final()  # remove, tar, gzip, move ...
+                cleanup_flag  = submit_info_yaml['CLEANUP_FLAG']
+                if cleanup_flag:  self.merge_cleanup_final()  
                 STRING_STATUS = STRING_SUCCESS
             else:
                 STRING_STATUS = STRING_FAIL
@@ -690,6 +692,34 @@ class Program:
         self.set_merge_busy_lock(-1)
         
         # end merge_driver
+
+    def merge_last_wait(self):
+
+        # called after last science job (jobid = n_job_tot), but beware 
+        # that other jobs may run later due to pending in queue. 
+        # Here we wait for
+        #  + all DONE files to exist
+        #  + no BUSY files from other merge process
+        # 
+
+        submit_info_yaml = self.config_prep['submit_info_yaml'] 
+        n_job_tot        = submit_info_yaml['N_JOB_TOT']
+        n_done_tot       = submit_info_yaml['N_DONE_TOT']
+        jobfile_wildcard = submit_info_yaml['JOBFILE_WILDCARD']
+        script_dir       = submit_info_yaml['SCRIPT_DIR'] 
+        done_wildcard    = (f"{jobfile_wildcard}.DONE")
+        util.wait_for_files(n_done_tot, script_dir, done_wildcard) 
+
+        time.sleep(1)
+
+        # sleep until there are no more busy files.
+        n_busy,busy_list = self.get_busy_list()
+        while n_busy > 0 :
+            logging.info("\t Wait for {busy_list} to clear}")
+            time.sleep(5)
+            n_busy,busy_list = self.get_busy_list()
+
+        # end merge_last_wait
 
     def merge_cleanup_script_dir(self):
         # Tar of CPU* files, then tar+gzip script_dir
@@ -727,12 +757,13 @@ class Program:
 
         busy_file     = (f"{BUSY_FILE_PREFIX}{cpunum:04d}.{BUSY_FILE_SUFFIX}")
         BUSY_FILE     = (f"{output_dir}/{busy_file}")
-        busy_wildcard = (f"{BUSY_FILE_PREFIX}*.{BUSY_FILE_SUFFIX}")
+        # xxx busy_wildcard = (f"{BUSY_FILE_PREFIX}*.{BUSY_FILE_SUFFIX}")
 
         if flag > 0 :
             # check for other busy files to avoid conflict
-            busy_list  = sorted(glob.glob1(output_dir,busy_wildcard))
-            n_busy     = len(busy_list)
+            # xxx busy_list  = sorted(glob.glob1(output_dir,busy_wildcard))
+            # xxx n_busy     = len(busy_list)
+            n_busy,busy_list = self.get_busy_list()
             if n_busy > 0 :
                 msg = (f"\n Found existing {busy_list[0]} --> "\
                        f"exit merge process.")
@@ -745,8 +776,9 @@ class Program:
                 # check for simultaneously created busy file(s);
                 # --> avoid conflict by keeping only first one in sort list
                 time.sleep(1)
-                busy_list  = sorted(glob.glob1(output_dir,busy_wildcard))
-                n_busy     = len(busy_list)
+                n_busy,busy_list = self.get_busy_list()
+                # xxx busy_list  = sorted(glob.glob1(output_dir,busy_wildcard))
+                # xxxn_busy     = len(busy_list)
                 if n_busy > 1 and busy_file != busy_list[0] :
                     cmd_rm = (f"rm {BUSY_FILE}")
                     os.system(cmd_rm)
@@ -760,6 +792,15 @@ class Program:
             os.system(cmd_rm)
 
         # end set_merge_busy_lock
+
+    def get_busy_list(self):
+        # return numbrer of busy files,  and sorted list of busy files.
+        output_dir     = self.config_prep['output_dir']
+        busy_wildcard  = (f"{BUSY_FILE_PREFIX}*.{BUSY_FILE_SUFFIX}")
+        busy_list  = sorted(glob.glob1(output_dir,busy_wildcard))
+        n_busy     = len(busy_list)
+        return n_busy, busy_list
+        # end get_busy_list
 
     def get_merge_done_list(self, mask_check, MERGE_INFO_CONTENTS):
 
@@ -910,7 +951,6 @@ class Program:
                         t_pend_list.append(t_pend)
                     if found_time : break
 
-        # .xyz
         if len(t_pend_list) > 0 :
             t_pend_min = min(t_pend_list)
             t_pend_max = max(t_pend_list)

@@ -11,26 +11,18 @@ from   copy		import copy
 
 # definitions
 SIM_default_yaml_sections__ = \
-		['CONFIG','GENVERSION_LIST','GENOPT_GLOBAL']
-SIM_ignore_dict_setup__	  = \
-		['BATCH_INFO','RANSEED_REPEAT', 'RANSEED_CHANGE', 'RESET_CIDOFF', 
-                 'CLEANUP_FLAG', 'GENPREFIX:', 'NGEN_UNIT', 'FORMAT_MASK' ]
+							['CONFIG','GENVERSION_LIST','GENOPT_GLOBAL']
+SIM_ignore_dict_setup__  = \
+						['BATCH_INFO','RANSEED_REPEAT', 'RANSEED_CHANGE', 'RESET_CIDOFF', 
+						 'CLEANUP_FLAG', 'GENPREFIX:', 'NGEN_UNIT', 'FORMAT_MASK' ]
 
 SIM_yaml_translation_dict__ = { 'LEGACY':'REFAC' }
 
-#SIM_multi_option_list = ['SIMGEN_INFILE_Ia','INPUT_FILE_INCLUDE']
-SIM_multi_option_list = \
-        ['SIMGEN_INFILE_Ia','SIMGEN_INFILE_SNIa', 
-         'SIMGEN_INFILE_NONIa', 'SIMGEN_INFILE_NON1a' ]
+SIM_multi_option_list = ['SIMGEN_INFILE_Ia','INPUT_FILE_INCLUDE']
 
-FIT_yaml_translation_dict__ = \
-        {'[*]' : '/*/', 
-         'LEGACY' : 'REFAC',  
-         'APPEND_TABLE_TEXT'   : 'APPEND_TABLE_VARLIST', 
-         'FITRES_COMBINE_FILE' : 'APPEND_TABLE_TEXTFILE'
-        }
+FIT_yaml_translation_dict__ = {'[*]':'/*/', 'LEGACY':'REFAC' }
 
-FIT_multi_option_list = []
+FIT_multi_option_list = ['FITOPT']
 
 BBC_yaml_translation_dict__ = {'XXX*':'blank', 'LEGACY':'REFAC' }
 
@@ -130,11 +122,12 @@ def _add_keyword_to_dict(current_dict,key,value,legacy_type):
 				current_dict[key] = [current_dict[key]]
 		
 			current_dict[key].append(value)
-		elif len(kv_list) > 1 or not any([key in tempList \
+		elif len(kv_list) == 1 or not any([key in tempList \
 										   for tempList in [SIM_multi_option_list,
 															FIT_multi_option_list,
 															BBC_multi_option_list]]):
 			current_dict[key] = value
+
 		else:
 			current_dict[key] = [value]
 

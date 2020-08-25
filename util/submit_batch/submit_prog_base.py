@@ -715,7 +715,7 @@ class Program:
         # sleep until there are no more busy files.
         n_busy,busy_list = self.get_busy_list()
         while n_busy > 0 :
-            logging.info("\t Wait for {busy_list} to clear}")
+            logging.info(f"\t Wait for {busy_list} to clear")
             time.sleep(5)
             n_busy,busy_list = self.get_busy_list()
 

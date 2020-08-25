@@ -20,9 +20,13 @@ SIM_yaml_translation_dict__ = { 'LEGACY':'REFAC' }
 
 SIM_multi_option_list = \
         ['SIMGEN_INFILE_Ia', 'SIMGEN_INFILE_SNIa', 'SIMGEN_INFILE_NONIa' ]
-# xxx mark delete RK      'INPUT_FILE_INCLUDE'
 
-FIT_yaml_translation_dict__ = {'[*]':'/*/', 'LEGACY':'REFAC' }
+FIT_yaml_translation_dict__ = \
+         {'[*]' : '/*/', 
+          'LEGACY' : 'REFAC',  
+          'APPEND_TABLE_TEXT'   : 'APPEND_TABLE_VARLIST', 
+          'FITRES_COMBINE_FILE' : 'APPEND_TABLE_TEXTFILE'
+         }
 
 FIT_multi_option_list = [ 'VERSION', 'FITOPT']
 

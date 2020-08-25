@@ -69,6 +69,9 @@ FORMAT_MASK_CIDRAN = 16
 FORMAT_TEXT = "TEXT"
 FORMAT_FITS = "FITS"
 
+# define max ranseed to avoid exceed 4-byte limit of snlc_sim storage
+RANSEED_MAX = 1000000000   # 1 billion
+
 # - - - - - - - - - - - - - - - - - - -     -
 class Simulation(Program):
     def __init__(self, config_yaml) :
@@ -352,9 +355,11 @@ class Simulation(Program):
         # then re-combines into one effective sim job.
         # RANSEED_CHANGE splits into sub-jobs; does NOT re-combine.
 
-        CONFIG         = self.config_yaml['CONFIG']
-        nkey_found     = 0  # local: number of valid RANSEED_XXX keys
+        CONFIG       = self.config_yaml['CONFIG']
+        input_file   = self.config_yaml['args'].input_file     # for msgerr
+        nkey_found   = 0  # local: number of valid RANSEED_XXX keys
         ranseed_list = [] # array vs. split index
+        msgerr       = []
 
         if 'RANSEED' in CONFIG:
             msgerr.append(f"Invalid RANSEED: key")
@@ -370,6 +375,13 @@ class Simulation(Program):
                 RANSEED_LIST    = CONFIG[key]
                 n_job_split     = int(RANSEED_LIST.split()[0])
                 ranseed         = int(RANSEED_LIST.split()[1])
+                if ranseed > RANSEED_MAX :
+                    msgerr.append(f"ranseed = {ranseed} is too big.")
+                    msgerr.append(f"ranseed must be under {RANSEED_MAX} " \
+                                  f"to store as 4 byte integer.")
+                    msgerr.append(f"Check {key} in {input_file}")
+                    self.log_assert(False,msgerr)                    
+
                 if key == 'RANSEED_REPEAT' :
                     ranseed_list = [ranseed] * n_job_split
                 else:

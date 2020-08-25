@@ -250,7 +250,7 @@ class LightCurveFit(Program):
         for v_tmp in version_list_tmp :  # may include wild cards
             found = False
             for path in path_check_list :
-                v_list  = sorted(glob.glob(f"{path}/{v_tmp}*"))
+                v_list  = sorted(glob.glob(f"{path}/{v_tmp}"))
                 for v in v_list:
                     found   = True
                     j_slash = v.rindex('/')
@@ -574,7 +574,7 @@ class LightCurveFit(Program):
         # and that it has a full path.
         key = KEY_APPEND_TABLE_TEXTFILE
         if key in CONFIG :
-            text_file = CONFIG[key]
+            text_file = os.path.expandvars(CONFIG[key])
             msg = (f"  Every output FITRES file will be appended with: \n"\
                    f"    {text_file} ")
             logging.info(msg)

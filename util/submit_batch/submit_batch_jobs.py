@@ -10,12 +10,15 @@
 #   - more elegant HELP menu per program?
 #   - run merge task immediately after launch so that
 #     some of the WAIT -> RUN
-#   - if 1 task per CPU*.CMD, final merge task may never run because
+#   + if 1 task per CPU*.CMD, final merge task may never run because
 #     one CPU locks merge process with only a few DONE files,
 #     and all other CPU*.CMD tasks end during partial merge ... 
 #     hence nobody left to complete the merge tasks.
 #
 #  SIM:
+#   + sim-input can have two INPUT_INCLUDE_FILE keys, but yaml parsing
+#     only picks up one of them, causing INFILE_verify to fail.
+#
 #   - for sim, leave symbolic links for redundant sim job
 #   - problem reading SIMGEN-input file when SIMGEN_DUMP breaks
 #      to another line that is not YAML compatible

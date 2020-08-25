@@ -12,7 +12,7 @@
 #
 #    + FAIL-REPEAT scripts for failed jobs
 #
-# TO-DO ...
+# MAYBE, TO-DO ...
 #    - bug: turn off gzip if there are failures before last job
 #    - if SIMLOGS exists with no done file, give warning 
 #    - NOPROMPT option to skip warnings
@@ -455,8 +455,8 @@ class Simulation(Program):
     def get_ngentot_from_input(self,iver,ifile):
 
         INFILE_KEYS      = self.config_prep['INFILE_KEYS']
-        genopt_list2d = self.config_prep['genopt_list2d']
-        genopt          = genopt_list2d[iver][ifile]
+        genopt_list2d    = self.config_prep['genopt_list2d']
+        genopt           = genopt_list2d[iver][ifile]
         key_ngentot      = "NGENTOT_LC"
 
         # default NGENTOT_LC is from the sim-input file
@@ -486,25 +486,26 @@ class Simulation(Program):
         # or SOLID_ANGLE.
         
         msgerr        = []
-        key_ngentot = "NGENTOT_RATECALC:"
+        key_ngentot   = "NGENTOT_RATECALC:"
         genversion    = self.config_prep['genversion_list'][iver]
-        model        = self.config_prep['model_list2d'][iver][ifile] # SNIa or NONIa
+        model         = self.config_prep['model_list2d'][iver][ifile] # SNIa or NONIa
         infile        = self.config_prep['infile_list2d'][iver][ifile]
-        program        = self.config_prep['program']
+        program       = self.config_prep['program']
         output_dir    = self.config_prep['output_dir']
-        #genopt_global = self.config_prep['genopt_global']
         genopt_global = self.config_prep['genopt_global_SIMnorm']
-        cddir        = (f"cd {output_dir}")
-        ngentot        = 0
+        genopt        = self.config_prep['genopt_list2d'][iver][ifile]
+
+        cddir         = (f"cd {output_dir}")
+        ngentot       = 0
         
-        prefix      = (f"SIMnorm_{genversion}_{model}MODEL{ifile}")
-        log_file  = (f"{prefix}.LOG")
-        LOG_FILE  = (f"{output_dir}/{log_file}")
+        prefix        = (f"SIMnorm_{genversion}_{model}MODEL{ifile}")
+        log_file      = (f"{prefix}.LOG")
+        LOG_FILE      = (f"{output_dir}/{log_file}")
 
         arg_list  = ""
         arg_list += (f"INIT_ONLY 1 ")
-        arg_list += (f"{genopt_global} ")  # might have instrument INCLUDE file
-        #arg_list += (f"{genopt} ") ??
+        arg_list += (f"{genopt} ")
+        arg_list += (f"{genopt_global} ") 
 
         # contruct two sets of strings.
         # cmd_string is passed to os.system
@@ -541,13 +542,20 @@ class Simulation(Program):
                         ngentot = int(words[1])
                         found_key = True
 
+        # - - - - - -
+        msgerr = []
         if not found_key:
-            msgerr = []
             msgerr.append(f"Unable to find {key_ngentot} key in {log_file} ;")
             msgerr.append(f"LOG created from sim normalization commands :")
             msgerr += cmd_stdout
             self.log_assert(False,msgerr)
 
+        if ngentot == 0 :
+            msgerr.append(f"ngentot=0 in {log_file} ;")
+            msgerr.append(f"LOG created from sim normalization commands :")
+            msgerr += cmd_stdout
+            self.log_assert(False,msgerr)
+            
         print(f"  Compute NGENTOT={ngentot:6d} for {prefix}")
 
         return ngentot
@@ -965,47 +973,71 @@ class Simulation(Program):
 
         key_list_include = ["INPUT_INCLUDE_FILE", "INPUT_FILE_INCLUDE"]
         key_list         = SIMGEN_INFILE_KEYCHECK # keys to read
-        input_lines         = [] ;
-        do_dump             = False 
+        input_lines      = [] ;
+        input_word_list  = []
+        do_dump          = False
 
         # first make sure that infile exists
         msgerr = [ (f"Check SIMGEN_INFILE_SNIa[NONIa] keys") ]
         util.check_file_exists(infile,msgerr)
 
+
         # read everything as YAML (take advantage of KEY: [VALUE] syntax)
         with open(infile, 'r') as f :
-            for line in f:
+            for line in f: 
                 input_lines.append(line)
+                input_word_list += line.split()
+                #flat_word_list = [word for line in f for word in line.split()]
         input_yaml = yaml.safe_load("\n".join(input_lines))
 
-        if do_dump:
-            print(f" xxx ------------------------- ")
-            print(f" xxx read keys from {infile}")
-            print(f" xxx nlines(infile) = {len(input_lines)}")
+        # search input_word_list for include file keys the old-fashion 
+        # way because this key can appear multiple times and thus can 
+        # fail YAML read.
+        inc_file       = ''
+        inc_file_list  = []
+        index_inc_list = []
+        for key in key_list_include :
+            key_raw = key + ':'
+            index_inc_list += \
+                [i for i, x in enumerate(input_word_list) if x == key_raw ]
+        for indx in index_inc_list :
+            inc_file = os.path.expandvars(input_word_list[indx+1])
+            if inc_file not in inc_file_list: 
+                inc_file_list.append(inc_file)
 
+        if do_dump:
+            print(f" 1.xxx ------------------------- ")
+            print(f" 1.xxx read keys from {infile}")
+            print(f" 1.xxx nlines(infile) = {len(input_lines)}")
+            print(f" 1.xxx INCLUDE key indices = {index_inc_list} ")
+            print(f" 1.xxx inc_file_list = {inc_file_list} ")
+
+
+        # xxxxxxxxx mark delete xxxxxxx
         # check for include file(s), and make sure they exist.
         # Also, append input_lines with contents of INCLUDE file(s).
-        include_file      = ''
-        include_file_list = []
-        for key in key_list_include :  # check contents of infile
-            if key in input_yaml:
-                include_file = os.path.expandvars(input_yaml[key])
-                include_file_list.append(include_file)
+        #include_file      = ''
+        #include_file_list = []
+        #for key in key_list_include :  # check contents of infile
+        #    if key in input_yaml:
+        #        include_file = os.path.expandvars(input_yaml[key])
+        #        include_file_list.append(include_file)
+        # xxxxxxxx end mark xxxxxxxxxx
 
         # check for INCLUDE file in GENOPT
         GENOPT_GLOBAL = self.config_prep['genopt_global'].split()
         for key in key_list_include :  # check contents of GENOPT_GLOBAL
             if key in GENOPT_GLOBAL :
                 j = GENOPT_GLOBAL.index(key)
-                include_file = os.path.expandvars(GENOPT_GLOBAL[j+1])
-                if include_file not in include_file_list :
-                    include_file_list.append(include_file)
+                inc_file = os.path.expandvars(GENOPT_GLOBAL[j+1])
+                if inc_file not in inc_file_list :
+                    inc_file_list.append(inc_file)
 
         #print(f" xxx {infile} : include_file_list = {include_file_list} ")
-        for include_file in include_file_list :
-            util.check_file_exists(include_file,
+        for inc_file in inc_file_list :
+            util.check_file_exists(inc_file,
                                    [(f"Check INCLUDE files in {infile}")] )
-            with open(include_file, 'r') as finc :
+            with open(inc_file, 'r') as finc :
                 for line in finc:
                     input_lines.append(line)
 
@@ -1021,11 +1053,11 @@ class Simulation(Program):
                 input_dict[key] = input2_yaml[key]
 
         if do_dump:
-            print(f" xxx include file = {include_file}" )
-            print(f" xxx nlines(infile+include) = {len(input_lines)}")
-            print(f" xxx PATH_USER_INPUT = {input_dict['PATH_USER_INPUT']} ")
+            print(f" 2.xxx include file = {inc_file_list}" )
+            print(f" 2.xxx nlines(infile+include) = {len(input_lines)}")
+            sys.exit("\n xxx DEBUG DIE xxx \n")
 
-        return input_dict, include_file_list
+        return input_dict, inc_file_list
 
         # end sim_prep_SIMGEN_INFILE_read
 

@@ -18799,13 +18799,17 @@
 
          ***** IMPORTANT(v10_78) ***** 
 
-   + Add submit_batch_jobs.py[sh] ... for testing
+   + Release submit_batch_jobs.py[sh] ... for testing
 
    + enable refactored command line input for sim and fit ;
      allows command line input to look like input file.
      e.g., snlc_sim.exe <inputFile> NGENTOT_LC: 400
            snlc_fit.exe >inputFile> CUTWIN_SNRMAX=6,999
      Beware of sudden bugs.
+
+  + Fix bug using GRIDONLY feature with SIMSED models (Found by M.Vincenzi).
+    Bug introduced Jun 19 2020 in v10_77e; related to code requiring an
+    explicit USE flag to select from AsymGaus.
 
          ***** USEFUL(v10_78) ***** 
 
@@ -18827,7 +18831,8 @@
      + add new input "WRFLAG_YAML_FILE 1"  so that batch-submit scruot  
        can request YAML output with summary stats needed for MERGE proc.
        This avoids fragile parsing of stdout.
-    
+     + bug fix for GRIDONLY feature using SIMSED model.
+
    snana.car
      + when passing JOBSPLIT (from batch-submit script), automatically
        create [VERSION].YAML file with stats ... avoids having to 

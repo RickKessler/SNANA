@@ -10,6 +10,51 @@ from   submit_params import *
 
 # =================================================
 
+def find_and_remove(find_arg):
+
+    # Called as part of purge option:
+    # + search for 'find_arg' files using linux find command
+    # + print each file, along with size (MB)
+    # + ask user to remove (y/[n])
+    #
+    # Make sure that input find_arg includes appropriate wildcards;
+    # e.g, SPLIT_JOBS_LCFIT* to include tar files.
+    
+    remove_list = []
+    remove_size = []
+    cmd_find     = (f"find . -name {find_arg}") + " -exec du -mc {} +"
+    find_list    = subprocess.check_output(cmd_find, shell=True)
+    find_list    = (find_list.rstrip()).decode('utf-8')
+    find_list    = find_list.split()
+    remove_size += find_list[0::2]  # every other element is size (MB)
+    remove_list += find_list[1::2]  # every other elment if file or dir
+
+    # - - - - - - 
+    print(f"# ======================================================== ")
+
+    # print summary of files/directories to remove (but don't remove, yet)
+    n_file = len(remove_list) - 1  # leave out the 'total' line
+    for i in range(0,n_file+1):    # include 'total' line for summary
+        remove_file = remove_list[i]
+        size        = remove_size[i]
+        print(f"   Found {remove_file}  ({size} MB)")
+
+    if n_file < 0 :
+        print(f"  No files found to remove for {find_arg} ")
+        return
+
+    response = input(f"\n   Remove {n_file} {find_arg} files above y/[n] ? ")
+    if response == 'y' :
+        print(f"\t Removing {n_file} files ... ")
+        for i in range(0,n_file):
+            remove_file = remove_list[i]
+            cmd_rm = (f"rm -r {remove_file}")
+            os.system(cmd_rm)
+    else:
+        print(f"\t Do not remove {find_arg} files")
+
+    # end find_and_remove
+
 def get_stat_dict(value_list):
     # For input list of values_list, return dictionary of
     # 'AVG, 'ERR_AVG', 'RMS', 'ERR_RMS'
@@ -415,15 +460,18 @@ def wait_for_files(n_file_wait, wait_dir, wait_files):
     #  wait_dir        = directory to search for wait_files
     #  wait_files      = file specifier with wildcare; e.g, TMP*.DONE
 
+    T_SLEEP = 20  # sleep time until next file-exist check
+ 
     logging.info(f"  Wait for {n_file_wait} {wait_files} files")
     n_file_exist = 0
     while  n_file_exist < n_file_wait :
-        time.sleep(5)  # sleep time should be param, or passed as arg??
+        time.sleep(T_SLEEP) 
         wait_file_list  = glob.glob1(wait_dir,wait_files)
         n_file_exist    = len(wait_file_list)
-        tnow            = datetime.datetime.now()
-        tstr            = tnow.strftime("%Y-%m-%d %H:%M:%S") 
-        logging.info(f"\t Found {n_file_exist} of {n_file_wait} files ({tstr})")
+        time_now        = datetime.datetime.now()
+        tstr            = time_now.strftime("%Y-%m-%d %H:%M:%S") 
+        msg = (f"\t Found {n_file_exist} of {n_file_wait} files ({tstr})")
+        logging.info(msg)
 
     # end wait_for_file
 
@@ -441,10 +489,19 @@ def write_job_info(f,JOB_INFO,icpu):
 
     if len(job_dir) > 1 :
         f.write(f"# ---------------------------------------------------- \n")
-        f.write(f"cd {job_dir} \n")
+        f.write(f"cd {job_dir} \n\n")
+
+    # for bash, wait for program to appear if SNANA make is in progress.
+    # Not sure how to do this in csh.
+    if 'bash' in SHELL :
+        program_plus_path = shutil.which(program)
+        wait_for_code = (f"while [ ! -f {program_plus_path} ]; " \
+                         f"do sleep 5; done" )
+        f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
+        f.write(f"{wait_for_code}\n")
+        f.write(f"echo {program} exists. \n\n")
 
     f.write(f"{program} {input_file} \\\n")
-
     # write each arg on separte line for easier viewing
     for arg in arg_list :  
         if arg != '' :

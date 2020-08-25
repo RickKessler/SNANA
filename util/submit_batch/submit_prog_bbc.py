@@ -81,10 +81,9 @@ class BBC(Program):
 
         return output_dir_name,SUBDIR_SCRIPTS_BBC
 
-    def translate_input_file(self, legacy_input_file):
+    def translate_input_file(self, legacy_input_file, refac_input_file ):
         logging.info(f"\n TRANSLATE LEGACY SALT2mu_fit INPUT FILE: " \
                      f"{legacy_input_file}")
-        refac_input_file = (f"REFAC_{legacy_input_file}")
         tr.BBC_legacy_to_refac(legacy_input_file,refac_input_file)
         # end translate_input_file
 
@@ -583,6 +582,7 @@ class BBC(Program):
 
         self.config_prep['n_job_split'] = n_job_split
         self.config_prep['n_job_tot']   = n_job_tot
+        self.config_prep['n_done_tot']  = n_job_tot
         self.config_prep['use_wfit']    = use_wfit
 
         # open CMD file for this icpu  
@@ -602,7 +602,6 @@ class BBC(Program):
                   'isplitran': isplitran }
 
             if ( (n_job_local-1) % n_core ) == icpu :
-                last_job   = (n_job_tot - n_job_local) < n_core            
 
                 job_info_bbc   = self.prep_JOB_INFO_bbc(index_dict)
                 util.write_job_info(f, job_info_bbc, icpu)
@@ -611,7 +610,10 @@ class BBC(Program):
                     job_info_wfit  = self.prep_JOB_INFO_wfit(index_dict)
                     util.write_job_info(f, job_info_wfit, icpu)
 
-                job_info_merge = self.prep_JOB_INFO_merge(icpu,last_job) 
+                # xx last_job   = (n_job_tot - n_job_local) < n_core 
+                # xx job_info_merge = self.prep_JOB_INFO_merge(icpu,last_job) 
+
+                job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
                 # write JOB_INFO to file f
@@ -904,16 +906,16 @@ class BBC(Program):
                 if NLOG > 0:
                     NEW_STATE = SUBMIT_STATE_RUN
                 if NDONE == n_job_split :
-                    NEW_STATE=SUBMIT_STATE_DONE
-                    bbc_stats=self.get_bbc_stats(script_dir,log_list,yaml_list)
+                    NEW_STATE = SUBMIT_STATE_DONE
+                    bbc_stats = self.get_bbc_stats(script_dir,log_list,yaml_list)
                     
                     # check for failures in snlc_fit jobs.
                     nfail = bbc_stats['nfail_sum']
                     if nfail > 0 :
                         NEW_STATE = SUBMIT_STATE_FAIL
                  
-                # update row if state has changed
-                if NEW_STATE != STATE :
+                    # update row if state has changed
+                #if NEW_STATE != STATE :
                     row[COLNUM_STATE]     = NEW_STATE
                     row[COLNUM_NDATA]     = bbc_stats['nevt_data']
                     row[COLNUM_NBIASCOR]  = bbc_stats['nevt_biascor']
@@ -1304,6 +1306,9 @@ class BBC(Program):
         return prefix_orig, prefix_final
 
         # end bbc_prefix
+
+    def get_merge_COLNUM_CPU(self):
+        return -9  # there is no CPU column
 
 
 

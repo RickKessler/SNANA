@@ -23,7 +23,8 @@
 #   + replace a few "ERROR:" messages with FATAL_ERROR util.
 #   + update FATAL_ERROR to look similar to C code error util.
 #
-
+# Aug 24 2020:  loadArray_fromFile aborts on CONFIG: key
+#
 package sntools ;
 use List::Util qw(min max);
 use strict ;
@@ -271,11 +272,6 @@ sub loadArray_fromFile(@) {
 
     print " Read/store contents of $inFile \n" ;
 
-# xxxxxxx mark delete 
-#    $msgerr =  "ERROR: Cannot open '$inFile' \n from loadArray_fromFile\n" ;
-#     open PTR_INFILE_TEMP, $inFile or die "\n $msgerr\n ";
-# xxxxxxxxx
-
     $inFile     =~ s/\s+$// ;  # remove trailing spaces
     if ( !(-e $inFile ) ) {
 	$MSGERR[0] = "Cannot open input file" ;
@@ -299,6 +295,17 @@ sub loadArray_fromFile(@) {
 	@$contents = ( @$contents, "ENDLINE" ) ;
 #	print " xxx LINE = '$LINE' \n";
 
+    }
+
+    # Aug 2020: abort on CONFIG key   
+    my $OPT_QUIET = 2 ;
+    my @FOUND_CONFIG = sntools::parse_array("CONFIG:", 1, $OPT_QUIET, 
+					    @$contents);
+    if ( scalar(@FOUND_CONFIG) > 0 ) {
+	$MSGERR[0] = "$0" ;
+	$MSGERR[1] = "cannot process refactored input file." ;
+	$MSGERR[2] = "Use submit_batch_jobs.sh" ;
+	sntools::FATAL_ERROR(@MSGERR);	
     }
 
     return ;

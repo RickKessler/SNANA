@@ -12,8 +12,8 @@ import time
 import getpass
 
 # start with flags that should be switched to command-line args
-#NCPU_MERGE_DISTRIBUTE  = 10000  # default: use all CPUs to merge
-NCPU_MERGE_DISTRIBUTE  = 0  # 0 -> merge only with CPU=0 (no conflict issues)
+NCPU_MERGE_DISTRIBUTE  = 10000  # default: use all CPUs to merge
+#NCPU_MERGE_DISTRIBUTE  = 0  # 0 -> merge only with CPU=0 (no conflict issues)
 
 # debug feature: copy each MERGE.LOG to MERGE.LOG_{Nsec}
 KEEP_EVERY_MERGELOG = False  
@@ -24,6 +24,7 @@ FASTFAC = 10
 # - - - - - - 
 SNANA_DIR        = os.environ['SNANA_DIR']
 SNDATA_ROOT      = os.environ['SNDATA_ROOT']
+SHELL            = os.environ['SHELL']
 
 # generic program types to control batch flow
 PROGRAM_TYPE_SIM  = "SIM"  # simulation
@@ -114,15 +115,36 @@ COLNUM_FITOPT_NUM   = 0   # e.g., FITOPT001
 COLNUM_FITOPT_LABEL = 1   # optional user label
 COLNUM_FITOPT_ARG   = 2   # command-line args for fit job
 
-# abort on any of these obsolete CONFIG keys 
-#  (both sim and fit included in same list)
+# abort on any of these obsolete CONFIG keys (list includes sim, fit, bbc)
+# Obsolete Dictionary includes comment printed to screen.
+COMMENT_NOMORE_SALT2mu = "No more SALT2mu from FIT-input; use BBC input."
+COMMENT_MAYBE_LATER    = "Might add this feature later."
+COMMENT_NOT_NEEDED     = "No longer needed or relevant."
 OBSOLETE_CONFIG_KEYS = \
-[ 'TOPDIR_OVERRIDE', 'DOSKIP_DUPLICATE_SIMJOBS', 'CONVERT_SIMGEN_DUMP',
-  'SALT2mu_INFILE', 'SALT2mu_SIMVERSION_INPUT', 'SALT2mu_BIASCOR_PATH',
-  'SALT2mu_CCPRIOR_PATH', 'DO_FITOPT000', 'DELAY_SUBMIT', 'GZIP_FLAG',
-  'H2ROOT_FLAG', 'APPEND_FITRES' 'MIN_SNANA_VERSION', 'VERSION_AFTERBURNER',
-  'PLOTOPT' ]
-  
+{ 
+    'SALT2mu_INFILE'            : COMMENT_NOMORE_SALT2mu ,
+    'SALT2mu_SIMVERSION_INPUT'  : COMMENT_NOMORE_SALT2mu ,
+    'SALT2mu_BIASCOR_PATH'      : COMMENT_NOMORE_SALT2mu ,
+    'SALT2mu_CCPRIOR_PATH'      : COMMENT_NOMORE_SALT2mu ,
+    'DO_FITOPT000'              : COMMENT_MAYBE_LATER ,
+    'DOSKIP_DUPLICATE_SIMJOBS'  : COMMENT_MAYBE_LATER ,
+    'VERSION_AFTERBURNER'       : COMMENT_MAYBE_LATER ,
+    'PLOTOPT'                   : COMMENT_MAYBE_LATER ,
+    'CONVERT_SIMGEN_DUMP'       : COMMENT_NOT_NEEDED ,
+    'DELAY_SUBMIT'              : COMMENT_NOT_NEEDED , 
+    'H2ROOT_FLAG'               : COMMENT_NOT_NEEDED , 
+    'MIN_SNANA_VERSION'         : COMMENT_NOT_NEEDED , 
+    'TOPDIR_OVERRIDE'           : COMMENT_NOT_NEEDED ,
+    'OUTDIR_OVERRIDE'           : "Use OUTDIR key instead (same key as FIT-input)" ,
+    'GZIP_FLAG'                 : "gzip automatic; see CLEANUP_FLAG to NOT gzip",
+    'APPEND_FITRES'             : "see APPEND_TABLE_VARLIST with -H FIT" , 
+    'APPEND_TABLE_TEXT'         : "see APPEND_TABLE_VARLIST with -H FIT" , 
+    'FITRES_COMBINE_FILE'       : "see APPEND_TABLE_TEXTFILE with -H FIT" , 
+    'DUMMY'                     : "no comma here"
+}
+
+
+
 # ================================================
 #   HELP_CONFIG
 
@@ -146,6 +168,51 @@ CONFIG:
   # an optional/additionl done file anywhere
   DONE_STAMP_FILE: $MYPATH/PIPE_STAGE4.DONE
 """
+
+
+HELP_TRANSLATE = f"""
+          TRANSLATING LEGACY INPUT FILES 
+
+  The 'LEGACY' input files for [sim_SNmix, split_and_fit, SALT2mu_fit]
+  will not work with submit_batch_jobs.py, and therefore submit_batch_jobs
+  includes an automatic translation of the input file. Command line option
+     --opt_translate <opt>
+  controls the file-name convention, and also whether to exit or continue 
+  after translation. Note that opt_translate is a bit mask. LEGACY input 
+  files are automatically detected by the lack of a 'CONFIG:' key. If a 
+  CONFIG key exists, opt_translate is ignored.
+
+  opt_translate +=1 ->
+    This default behavior produces a translated input file with name
+    REFAC_[input_file]. The original input file is not modified.
+
+  opt_translate +=2 -> 
+   The original input file is saved as LEGACY_[input_file], and the
+   translated input file has the original name. If the original
+   input file already has a 'LEGACY_' prefix, the file is not modified
+   and the translated input file has the 'LEGACY_'  prefix removed.
+   Example 1: input_file = abc.input is saved as LEGACY_abc.input;
+              translated input file is abc.input
+   Example 2: input_file = LEGACY_abc.input is not modified;
+              translated input file is abc.input.
+
+  opt_translate += 4 ->
+    continue running submit_batch_jobs using translated input file.
+
+  Setting opt_translate to 1 or 2 results in translation followed
+  by exiting submit_batch_jobs. This option enables visual inspection
+  of translated input file before launching batch jobs. 
+
+  Setting opt_tranlate = 5 (1+4) or 6 (2+4) results in translation
+  following by executation of the batch script. This option enables
+  pipelines to run without interruption.
+
+  If the input file is already in the correct YAML format, opt_translate
+  is ignored; therefore it is safe to always include an opt_translate 
+  argument.
+
+  """
+
 
 HELP_CONFIG_SIM =  f"""
   ***** HELP/MENU for Simulation YAML Input ***** 
@@ -219,53 +286,62 @@ GENOPT_GLOBAL:   # OPTIONAL commands applied to all GENVERSIONs
 
 
 HELP_CONFIG_FIT = f"""    
-    ***** HELP/MENU for LightCurveFit YAML Input *****
+   ***** HELP/MENU for LightCurveFit YAML Input *****
 
     All YAML input must go above &SNLCINP nameList block.
 
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
-   OUTDIR:  [outdir]              # all output goes here
-   VERSION:
-   - MY_DATA    # in $SNDATA_ROOT/lcmerge, or PRIVATE_DATA_PATH 
-   - MY_SIMDATA 
-   - MY_SIMBIASCOR_*     # wildcard allowed
-   - etc ... 
-   FITOPT:
-   - /ZPCAL/    MAGOBS_SHIFT_ZP g .01  # optional ZPCAL label for other codes
-   - /ZPCAL/    MAGOBS_SHIFT_ZP r .01
-   - /ZPCAL/    MAGOBS_SHIFT_ZP i .01 
-   - /ZPCAL/    MAGOBS_SHIFT_ZP z .01 
-   - /RETRAIN/  FITMODEL_NAME  SALT2.retrain1 
-   - /RETRAIN/  FITMODEL_NAME  SALT2.retrain2 
-   - /RETRAIN/  FITMODEL_NAME  SALT2.retrain3 
-   - CUTWIN_SNRMAX 6 999  \t\t\t# no label needed
-   - CUTWIN_SNRMAX 6 999  CUTWIN_SNRMAX2 4 999  # multiple options allowed   
-   - USE_MINOS
-   - FITOPT000     # no fit; ln -s FITOPT000.[SUFFIX] FITOPT011.[SUFFIX]
-   - FITOPT000     # another synLink for FITOPT012
-   - etc ... 
+  OUTDIR:  [outdir]              # all output goes here
+  VERSION:
+  - MY_DATA    # in $SNDATA_ROOT/lcmerge, or PRIVATE_DATA_PATH 
+  - MY_SIMDATA 
+  - MY_SIMBIASCOR_*     # wildcard allowed
+  - etc ... 
+  FITOPT:
+  - /ZPCAL/    MAGOBS_SHIFT_ZP g .01  # optional ZPCAL label for other codes
+  - /ZPCAL/    MAGOBS_SHIFT_ZP r .01
+  - /ZPCAL/    MAGOBS_SHIFT_ZP i .01 
+  - /ZPCAL/    MAGOBS_SHIFT_ZP z .01 
+  - /RETRAIN/  FITMODEL_NAME  SALT2.retrain1 
+  - /RETRAIN/  FITMODEL_NAME  SALT2.retrain2 
+  - /RETRAIN/  FITMODEL_NAME  SALT2.retrain3 
+  - CUTWIN_SNRMAX 6 999  \t\t\t# no label needed
+  - CUTWIN_SNRMAX 6 999  CUTWIN_SNRMAX2 4 999  # multiple options allowed   
+  - USE_MINOS
+  - FITOPT000     # no fit; ln -s FITOPT000.[SUFFIX] FITOPT011.[SUFFIX]
+  - FITOPT000     # another synLink for FITOPT012
+  - etc ... 
 
 # Sym Link Notes for FITOPT000: this feature is useful for systematics
 # with multiple surveys. For example above, FITOPT011 and FITOP012 could 
 # be calibration variatios for a different survey, so here the sym link
 # uses the default LCFIT (FITOPT000) without wasting CPU.
 
-   # optional extraction from root/hbook into TEXT table
-   APPEND_TABLE_TEXT: SNRMAX_g SNRMAX_r SNRMAX_i SNRMAX_z
+  # optional append variables from root/hbook into FITRES-TEXT table.
+  #  (in old split_and_fit script, this key was APPEND_TABLE_TEXT)
+  # To see full list of varables to append,
+  #     stable_dump.pl <hbook_or_root_file> FITRES
+   APPEND_TABLE_VARLIST: SNRMAX_g SNRMAX_r SNRMAX_i SNRMAX_z
 
-   # debug options to force failure in table-merge:
-   FORCE_MERGE_TABLE_MISSING(HBOOK):  force missing HBOOK merge\n" \
-   - DES_TEST1_FITOPT001
-   - DES_TEST2_FITOPT001
-   FORCE_MERGE_TABLE_CORRUPT(ROOT): # force corrupt ROOT file
-   - DES_TEST3_FITOPT002
+  # optional append variables from external file into FITRES-TEXT table.
+  #  (in old split_and_fit script, this key was FITRES_COMBINE_FILE)
+  # E.g., supplement list of host properties, v_pec, etc ...
+  APPEND_TABLE_TEXTFILE:  APPEND_THIS_FILE.FITRES
+
+  # debug options to force failure in table-merge:
+  FORCE_MERGE_TABLE_MISSING(HBOOK):  force missing HBOOK merge
+  - DES_TEST1_FITOPT001
+  - DES_TEST2_FITOPT001
+  FORCE_MERGE_TABLE_CORRUPT(ROOT): # force corrupt ROOT file
+  - DES_TEST3_FITOPT002
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # * Namelists below are used by snana.exe, psnid.exe, snlc_fit.exe.
 # * Supplemental input files (e.g., KCOR_FILE) are copied to
 #     {SUBDIR_SCRIPTS_FIT} if path is not included in file name.
 # * HFILE_OUT and ROOTFILE_OUT are logical flags for batch script.
+
   &SNLCINP
    ! input for snana.exe, psnid.exe, snlc_fit.exe
     HFILE_OUT    = 'XYZ.HBOOK' # any name is logical flag for batch job
@@ -317,10 +393,115 @@ HELP_CONFIG_BBC = f"""
 
 """
 
-HELP_CONFIG = { 
+HELP_MERGE = f"""
+          MERGE LOGIC
+
+While there are no merge options, this help section may be useful in case
+debugging is needed for a merge process that doesn't finish properly.
+'MERGE' refers to tasks run after a science job (SciJob). For SIM, the merge
+process combines sim data files from multiple split jobs into a single
+data version. For FIT, the merge process combines tables from the split
+jobs into a single table (per FITOPT). For BBC, there is no merging since
+a BBC job cannot be split among multiple cores. Merge tasks also include
+organization of science files (e.g. FITRES tables), such as moving them 
+to a more appropriate location outside of the messy script-directory where 
+jobs had run.
+
+The general merge strategy is that each CPU launches a merge process
+after each SciJob has finished. Thus each merge process must wake
+up, figure out what (if any) action is needed, and take action. The
+advantages of this strategy are 
+  1:) distribute merge task load among multiple CPUs.
+  2:) merge tasks are done in batch job, not on login node.
+  3:) if batch jobs are killed, no lingering background jobs on login node.
+Difficulties are 
+  1:( collect adequate information.
+  2:( avoid conflict when mutliple merge tasks are launched simultaneously.
+  3:( ensure merge process runs when all is finished.
+
+In the CPU*.CMD files, each SciJob is followed by a merge
+task as follows
+   python submit_batch_jobs.py <inputFile> -m -t 21014 --cpunum 0 
+
+where -m tells the batch script to function as a merge task (instead of 
+submit task), the -t argument is a time stamp (Nsec since midnight)
+to verify against time stamp in OUTDIR, and --cpunum is used to label
+BUSY files. 
+
+The difficulties are addressed as follows:
+
+1:(
+Each merge task collects information from two required files under OUTDIR
+that are created before batch jobs are submitted: 
+     SUBMIT.INFO    # fixed info, never changes
+     MERGE.LOG      # state of each SciJob: WAIT, RUN, DONE, FAIL
+ 
+The merge process analyzes these two files and decides what action is
+necessary. After taking action, MERGE.LOG is updated so that the next 
+merge process knows not to repeat already finished merge tasks. When all 
+SciJobs and merge tasks have finished, a final "cleanup" task is run to 
+do things like compress files and create a summary file.
+
+2:(
+Merge conflicts are avoided using busy files named
+   BUSY_MERGE_CPU[cpunum].LOCK
+A merge process exits immediately if a BUSY*.LOCK file exists; otherwise 
+it creates a BUSY file to lock out other merge processes. The BUSY*LOCK
+file is removed after the merge process has finished and updated MERGE.LOG.
+It is possible that multiple BUSY*LOCK files are created simultaneously. 
+To handle this situation, after a BUSY*LOCK file is created the merge 
+process waits a few seconds and then checks again for a list of BUSY*LOCK 
+files. If more than 1 exists, only the first in the sorted list remains 
+active, while the others exit. For example, suppose
+       BUSY_MERGE_CPU0002.LOCK  
+       BUSY_MERGE_CPU0006.LOCK  
+both exist; CPU0006 merge process will exit while CPU0002 merge process 
+remains to carry out its merge tasks.
+
+
+3:(
+The last issue is that all merge tasks can exit before finishing. For example,
+consider 30 jobs on 30 CPUs, and suppose that CPU-4 SciJob finishes first. 
+Next, suppose that the merge process performs a few tasks, and during these 
+tasks all other CPUs finish and exit because of the BUSY_MERGE_CPU0004.LOCK 
+file. In summary, a single LOCK file can result in no remaiming merge task 
+when all SciJobs finish.
+
+To ensure a final merge process after all SciJobs finish, the merge task 
+after the last SciJob gets a -M argument instead of -m. The -M argument is 
+an instruction to wait for all expected DONE files, and to wait for any 
+remaining BUSY*LOCK files to clear. Beware that the last SciJob does not 
+always run last due to different wait times in the batch queue. For example, 
+consider 3 SciJobs submitted to 2 CPUs (CPU000, CPU001). CPU000 has SciJob 
+1 & 3, while CPU001 has SciJob 2. If CPU000 runs before CPU001, the last 
+SciJob (3) can finish long before SciJob 2. In this scenario, here is the
+expected sequence of events:
+  + CPU000 runs, while CPU001 waits in the queue.
+  + SciJob 1 finishes on CPU000.
+  + merge proc 1 (-m) runs after SciJob 1
+  + SciJob 3 finishes on CPU000.
+  + merge proc 3 (-M) sees only 2 DONE files, so does nothing while waiting 
+    for 3rd DONE file.
+  + CPU001 finally runs
+  + SciJob 2 finishes on CPU001.
+  + merge proc 2 (-m) runs arter SciJob 3 and runs merge tasks for everything,
+    including unfinished tasks from CPU000. It skips cleanup because only
+    the last merge proc can do cleanup.
+  + waiting merge proc 3 (CPU000) sees all 3 DONE files, and also sees that
+    all merge tasks are done. It runs only the cleanup to compress and 
+    create summary file(s).
+
+    
+
+"""
+
+# - - - - - - - 
+HELP_MENU = { 
     'SIM' : HELP_CONFIG_SIM,
     'FIT' : HELP_CONFIG_FIT,
-    'BBC' : HELP_CONFIG_BBC
+    'BBC' : HELP_CONFIG_BBC,
+    'TRANSLATE' : HELP_TRANSLATE,
+    'MERGE'     : HELP_MERGE
 }
 
 # === END ===

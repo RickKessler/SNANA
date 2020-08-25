@@ -3,11 +3,18 @@
 # Created July 2020 by R.Kessler & S. Hinton
 #
 # TO-DO LIST for
+#
+#   SNDATA_ROOT -> separate git repo ??
+#
 #  BASE/util: 
 #   - more elegant HELP menu per program?
-#   - implement ssh (on FNAL cluster)
-#   - translate legacy input file (w/Justin)
-#   - write time to SUBMIT.INFO, and print total WALL time in MERGE.LOG
+#   - run merge task immediately after launch so that
+#     some of the WAIT -> RUN
+#   - if 1 task per CPU*.CMD, final merge task may never run because
+#     one CPU locks merge process with only a few DONE files,
+#     and all other CPU*.CMD tasks end during partial merge ... 
+#     hence nobody left to complete the merge tasks.
+#
 #  SIM:
 #   - for sim, leave symbolic links for redundant sim job
 #   - problem reading SIMGEN-input file when SIMGEN_DUMP breaks
@@ -15,17 +22,16 @@
 #
 #  FIT:
 #   - track down why NEVT(HBOOK) sometimes fails
-#   - FITRES_COMBINE_FILE option
+#   - validate APPEND_TABLE_VARLIST before submitting jobs ???
+#
 #  BBC
 #
 # - - - - - - - - - -
 
 #import os
-import sys
-import yaml
-import argparse
-import logging
-import submit_util as util
+import sys, yaml, argparse, subprocess, logging
+import submit_util      as util
+import submit_translate as tr
 
 from   submit_params   import *
 from   submit_prog_sim import Simulation
@@ -36,47 +42,57 @@ from   argparse import Namespace
 # =====================================
 def get_args():
     parser = argparse.ArgumentParser()
+
+    msg = "HELP with input file config(s); then exit"
+    parser.add_argument("-H", "--HELP", help=msg, default=None, type=str, \
+                        choices = ["SIM", "FIT", "BBC", "TRANSLATE", "MERGE"])
     
     msg = "name of input file"
     parser.add_argument("input_file", help=msg, nargs="?", default=None)
 
     # misc user args
-    msg = "increase output verbosity"
-    parser.add_argument("-v", "--verbose", help=msg, action="store_true")
-
-    msg = "KILL jobs"
-    parser.add_argument("-k", "--kill", help=msg, action="store_true")
-
     msg = "Create & init outdir, but do NOT submit jobs"
     parser.add_argument("-n", "--nosubmit", help=msg, action="store_true")
 
     msg = "process x10 fewer events for sim,fit,bbc (applies only to sim data)"
     parser.add_argument("--fast", help=msg, action="store_true")
 
-    msg = "debug mode: submit jobs, but skip merge process"
+    msg = "Use 'find' to locate and remove non-essential output."
+    parser.add_argument("--purge", help=msg, action="store_true")
+
+    # - - - 
+    msg = "increase output verbosity (default=True)"
+    parser.add_argument("-v", "--verbose", help=msg, action="store_true")
+
+    msg = "kill current jobs"
+    parser.add_argument("-k", "--kill", help=msg, action="store_true")
+
+    msg = "+=1 -> new input file has REFAC_ prefix; " + \
+          "+=2 -> old input file has LEGACY_ prefix ; " + \
+          "+=4 -> continue submit with new file. "
+    #parser.add_argument('--opt_translate', nargs='+', help=msg, type=int )
+    parser.add_argument('--opt_translate' , help=msg, type=int, default=1 )
+
+    msg = "DEBUG MODE: submit jobs, but skip merge process"
     parser.add_argument("--nomerge", help=msg, action="store_true")
 
-    msg = (f"debug mode: reset merge process (nevt->0, rm merged files ...)"\
-           f" to allow interactive -m")
+    msg = (f"DEBUG MODE: reset merge process ")
     parser.add_argument("--merge_reset", help=msg, action="store_true")
 
     # args passed internally from command files
-    msg = "INTERNAL: launch merge process"
+    msg = "INTERNAL:  merge process"
     parser.add_argument("-m", "--merge", help=msg, action="store_true")
 
-    msg = "INTERNAL: launch merge when all done files exist"
-    parser.add_argument("-M", "--MERGE", help=msg, action="store_true")
+    msg = "INTERNAL: last merge process when all done files exist"
+    parser.add_argument("-M", "--MERGE_LAST", help=msg, action="store_true")
 
     msg = "INTERNAL: time stamp (Nsec since midnight) to verify" \
            " merge process examines correct output_dir"
     parser.add_argument('-t', nargs='+', help=msg, type=int )
 
-    msg = "INTERNAL: cpu number "
+    msg = "INTERNAL: cpu number to for BUSY-merge file-name"
     parser.add_argument('--cpunum', nargs='+', help=msg, type=int )
 
-    msg = "HELP with input file config(s)"
-    parser.add_argument("-H", "--HELP", help=msg, default=None, type=str, \
-            choices=["SIM", "FIT", "BBC"])
     args = parser.parse_args()
 
     return parser.parse_args()
@@ -109,44 +125,91 @@ def which_program_class(config):
 
 def set_merge_flag(config):
     merge_flag = config['args'].merge  or \
-                 config['args'].MERGE  or \
+                 config['args'].MERGE_LAST  or \
                  config['args'].merge_reset
     return merge_flag
 
-def check_legacy_input_file(input_file):
+def check_legacy_input_file(input_file, opt_translate):
+
+    # if there is no 'CONFIG:' key, this is a legacy input file ;
+    # translate using file-name convention based on user input
+    # --opt_translate. See opt_translate details with
+    #   submit_batch_jobs.sh -H TRANSLATE
+    #
+    # Function returns name of input file ... original of already
+    # in correct YAML format, or translated.
+
+    msgerr = []
     with open(input_file,"r") as f:
         flat_word_list=[word for line in f for word in line.split()]
         #f_read = f.read()
 
     if 'CONFIG:' in flat_word_list :
-        # check for obsolete keys
+        # check for obsolete keys that are not translated
         for item in flat_word_list :
             key = item.rstrip(':')
             if key in OBSOLETE_CONFIG_KEYS :
-                msgerr = []
+                comment = OBSOLETE_CONFIG_KEYS[key]
                 msgerr.append(f" Obsolete key '{key}' no longer valid.")
+                msgerr.append(f" Comment: {comment}")
                 util.log_assert(False,msgerr)
 
-        return  # file ok, do nothing.
-    else:
-        # define fake config_yaml, and pass to program driver
-        config_yaml = \
-            { 'args' : Namespace(input_file=input_file, legacy_input=True) }
+        return input_file    # file ok, do nothing.
 
-    if  'GENVERSION:' in flat_word_list :
-        program = Simulation(config_yaml)  
+    # - - - -  -
 
-    elif 'VERSION:' in flat_word_list :
-        program = LightCurveFit(config_yaml) 
-
-    elif 'u1=' in str(flat_word_list) :  # check for u1= substring
-        program = BBC(config_yaml) 
-    else:
-        print(f" xxx word_list = {flat_word_list}")
-        msgerr = ['Unrecognized legacy input file:', input_file ]
+    #if opt_translate is None:  opt_translate = 1
+    
+    # prepare options 
+    rename_refac_file    = (opt_translate & 1 ) > 0
+    rename_legacy_file   = (opt_translate & 2 ) > 0
+    exit_after_translate = (opt_translate & 4 ) == 0 # default is to exit
+    
+    if rename_refac_file :
+        legacy_input_file = input_file
+        refac_input_file  = (f"REFAC_{input_file}")
+    elif rename_legacy_file :
+        if input_file[0:7] == 'LEGACY_' :  # don't add another LEGACY prefix
+            legacy_input_file = input_file
+            refac_input_file  = input_file[7:]
+        else :
+            legacy_input_file = (f"LEGACY_{input_file}")
+            refac_input_file  = input_file
+            cmd_mv = (f"mv {input_file} {legacy_input_file}")
+            print(f" Save {input_file} as {legacy_input_file}")
+            os.system(cmd_mv)
+    else :
+        msgerr.append(f" Must invalid opt_transate = {opt_translate} ")
+        msgerr.append(f" Must have either ")
+        msgerr.append(f"     opt_translate & 1 (rename refac file) or ")
+        msgerr.append(f"     opt_translate & 2 (rename legacy file) ")
         util.log_assert(False,msgerr)
 
-    #sys.exit("\n xxx DEBUG DIE check legacy xxx ")
+    msg_translate = (f"\n TRANSLATE LEGACY INPUT file for ")
+    print(f" opt_translate = {opt_translate}")
+
+    if  'GENVERSION:' in flat_word_list :
+        logging.info(f"{msg_translate} sim_SNmix.pl :")
+        tr.SIM_legacy_to_refac( legacy_input_file, refac_input_file )
+
+    elif 'VERSION:' in flat_word_list :
+        logging.info(f"{msg_translate} split_and_fit.pl :")
+        tr.FIT_legacy_to_refac( legacy_input_file, refac_input_file )
+
+    elif 'u1=' in str(flat_word_list) :  # check for u1= substring
+        logging.info(f"{msg_translate} SALT2mu_fit.pl: ")
+        tr.BBC_legacy_to_refac( legacy_input_file, refac_input_file )
+    #    program = BBC(config_yaml) 
+    else:
+        msgerr = ['Unrecognized legacy input file:', input_file ]
+        util.log_assert(False,msgerr)
+    
+    if exit_after_translate :
+        sys.exit("\n Exit after input file translation.")
+
+
+    return refac_input_file
+
     # end check_legacy_input_file
 
 def print_submit_messages(config_yaml):
@@ -179,17 +242,35 @@ def print_nosubmit_messages(config_yaml):
 
     # end print_nosubmit_messages
 
+def purge_old_submit_output():
+    
+    REMOVE_LIST = [ SUBDIR_SCRIPTS_FIT, SUBDIR_SCRIPTS_BBC, "*.LCPLOT" ]
+
+    util.find_and_remove(f"{SUBDIR_SCRIPTS_FIT}*")
+    util.find_and_remove(f"{SUBDIR_SCRIPTS_BBC}*")
+    util.find_and_remove(f"FITOPT*.LCPLOT*")
+    util.find_and_remove(f"FITOPT*.HBOOK*")
+    util.find_and_remove(f"FITOPT*.ROOT*")
+
+    # end purge_old_submit_output
+
 # =============================================
 if __name__ == "__main__":
     args  = get_args()
     store = util.setup_logging(args)
 
     if args.HELP :
-        print(f"{HELP_CONFIG[args.HELP]}")
-        sys.exit(' Done')
+        see_me = (f" !!! ************************************************ !!!")
+        print(f"\n{see_me}\n{see_me}\n{see_me}")
+        print(f"{HELP_MENU[args.HELP]}")
+        sys.exit(' Scroll up to see full HELP menu.\n Done: exiting Main.')
 
-    # check for legacy input; if so, translate and quit
-    check_legacy_input_file(args.input_file)
+    if args.purge :
+        purge_old_submit_output()
+        sys.exit(' Done: exiting Main.')
+
+    # check to translate legacy input
+    args.input_file = check_legacy_input_file(args.input_file, args.opt_translate )
 
     # Here we know it's got a CONFIG block, so read the YAML input
     config_yaml = util.extract_yaml(args.input_file)
@@ -214,12 +295,14 @@ if __name__ == "__main__":
     # check merge options
     if config_yaml['args'].merge_flag :
         program.merge_driver()
-        print('  Done with merge process in Main -> exit.')
+        print('  Done with merge process -> exit Main.')
         exit(0)
 
     # check option to kill jobs 
-    if config_yaml['args'].kill :
-        kill_jobs(config_prep)
+    if config_yaml['args'].kill : 
+        program.kill_jobs()
+        print('  Done killing jobs -> exit Main.')
+        exit(0)
 
     # create output dir
     program.create_output_dir()

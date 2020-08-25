@@ -491,7 +491,6 @@ expected sequence of events:
     all merge tasks are done. It runs only the cleanup to compress and 
     create summary file(s).
 
-    
 
 """
 

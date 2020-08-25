@@ -18,7 +18,9 @@ SIM_ignore_dict_setup__  = \
 
 SIM_yaml_translation_dict__ = { 'LEGACY':'REFAC' }
 
-SIM_multi_option_list = ['SIMGEN_INFILE_Ia','INPUT_FILE_INCLUDE']
+SIM_multi_option_list = \
+        ['SIMGEN_INFILE_Ia', 'SIMGEN_INFILE_SNIa', 'SIMGEN_INFILE_NONIa' ]
+# xxx mark delete RK      'INPUT_FILE_INCLUDE'
 
 FIT_yaml_translation_dict__ = {'[*]':'/*/', 'LEGACY':'REFAC' }
 

@@ -122,11 +122,12 @@ def _add_keyword_to_dict(current_dict,key,value,legacy_type):
 				current_dict[key] = [current_dict[key]]
 		
 			current_dict[key].append(value)
-		elif len(kv_list) > 1 and not any([key in tempList \
+		elif len(kv_list) == 1 or not any([key in tempList \
 										   for tempList in [SIM_multi_option_list,
 															FIT_multi_option_list,
 															BBC_multi_option_list]]):
 			current_dict[key] = value
+
 		else:
 			current_dict[key] = [value]
 

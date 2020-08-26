@@ -696,12 +696,12 @@ class Simulation(Program):
 
             cidoff_list3d[iver][ifile][isplit] = cidoff
 
-            ngentot         = ngentot_list2d[iver][ifile] # per split job
+            ngentot      = ngentot_list2d[iver][ifile] # per split job
             ngentot_sum += ngentot    # increment total number generated
             if reset_cidoff > 0 :
-                cidadd       = int(ngentot*1.1) # leave safety margin
-                cidoff      += cidadd              # for random CIDs in snlc_sim
-                cidran_max = cidoff
+                cidadd       = int(ngentot*1.1)+1   # leave safety margin
+                cidoff      += cidadd               # for random CIDs in snlc_sim
+                cidran_max   = cidoff
             else:
                 cidoff += ngentot
                 

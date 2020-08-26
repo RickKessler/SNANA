@@ -917,7 +917,7 @@ class LightCurveFit(Program):
         key_lcfit, key_lcfit_sum, key_lcfit_list = \
                 self.keynames_for_job_stats('NEVT_LCFIT_CUTS')
         key_cpu, key_cpu_sum, key_cpu_list = \
-                self.keynames_for_job_stats('CPU_TIME')
+                self.keynames_for_job_stats('CPU_MINUTES')
         key_list  = [ key_tot, key_snana, key_lcfit, key_cpu ]
 
         row_list_merge   = MERGE_INFO_CONTENTS[TABLE_MERGE]

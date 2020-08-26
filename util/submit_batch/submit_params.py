@@ -511,11 +511,29 @@ there is no failure, but a naive check on AIZ=0 would result in a false failure.
 On the other hand, if 50 SNIa jobs result in AIZ>10000 on 49 cores and AIZ=0
 on 1 core, this should result in a failure.
 
-The AIZ abort logic is as follows in the merge process. If any AIZ > 10, the 
-naive logic applies where any AIZ=0 flags a failure. If all AIZ < 10 (grep
+The AIZ abort logic is as follows in the merge process. If any AIZ >= 30, the 
+naive logic applies where any AIZ=0 flags a failure. If all AIZ < 30 (grep
 for aiz_thresh), the low-stat Poisson regime is assumed and a subset of AIZ=0 
 is allowed without flagging a failure. If all AIZ=0, failure is flagged.
 
+Determining aiz_thresh:
+A false failure occurs if the true <AIZ> is below aiz_thresh, at least one job
+has AIZ=0 (with probabilithy P_0), and at least one job has AIZ >= aiz_thresh
+(with prob P_thresh). For 'Nsplit' jobs, the false failure probability is
+       P_FF = [1-(1-P_0)**Nsplit)] x [1-(1-P_thresh)**Nsplit)]
+
+With Nsplit = 100, the table below shows P_FF values where the mean aiz is 
+taken to be <aiz> = aiz_thresh/2:
+
+    aiz_thresh <aiz>    P_0     P_thresh    P_FF
+     -----------------------------------------------
+       10        5     6.74E03  3.18E-2   0.47
+       20       10     4.54E-5  3.45E-3   1.32E-3
+       24       12     6.14E-6  1.47E-3   8.42E-5
+       30       15     3.06E-7  4.18E-4   1.25E-6
+     -----------------------------------------------
+
+A reasonable choice is aiz_thresh=30 so that P_FF ~ E-6
 
 """
 

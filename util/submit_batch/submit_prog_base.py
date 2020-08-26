@@ -1355,8 +1355,10 @@ class Program:
         # aiz < aiz_thresh and a subset of aiz=0; in this case, aiz += 1
         # to suppress failure from aiz=0. Note that aiz = -9 -> -8,
         # and still fails since YAML output wasn't found.
-        
-        aiz_thresh    = 10
+        #
+
+        aiz_thresh  = 30  # P_FF ~ E-6; submit_batch_jobs.sh -H AIZ 
+
         subset_aiz_zero = n_aiz_zero>0 and n_aiz_zero < n_split # some 0, not all
         if aiz_max < aiz_thresh and subset_aiz_zero :
             for i in range(0,n_split): aiz_list[i] += 1

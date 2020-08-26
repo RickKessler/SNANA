@@ -7081,7 +7081,7 @@ C ------------- BEGIN -------------
       write(LUNDAT,20) 'NEVT_SNANA_CUTS: ', N_SNLC_CUTS 
       write(LUNDAT,20) 'NEVT_LCFIT_CUTS: ', N_SNLC_FITCUTS 
       write(LUNDAT,20) 'ABORT_IF_ZERO:   ', N_SNLC_FITCUTS 
-      write(LUNDAT,21) 'CPU_TIME:        ', T_CPU
+      write(LUNDAT,21) 'CPU_MINUTES:     ', T_CPU
 20    format(A, I8)
 21    format(A, F8.1)
 

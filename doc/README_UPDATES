@@ -18848,4 +18848,9 @@
      + add NEVT option to print number of events in table.
        Needed in refactored submit scripts to verify table merge.
 
+   sntools.pm:
+     loadArray_fromFile aborts on 'CONFIG:' key with message to 
+     use submit_batch_jobs.sh. Protects legacy batch scripts
+     sim_SNmix.pl, split_and_fit.pl, SALT2mu_fit.pl.
+
 END: 

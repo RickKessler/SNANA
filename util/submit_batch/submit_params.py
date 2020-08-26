@@ -494,13 +494,39 @@ expected sequence of events:
 
 """
 
+HELP_AIZ = f"""
+    LOGIC for "ABORT IF ZERO" (AIZ) 
+
+There are many mistakes which can result in zero output events. To trap such
+mistakes (or code bugs), the YAML output for each science job includes 
+ABORT_IF_ZERO (AIZ), which is the number of events processed; AIZ=0 is a 
+failure flag for the merge process.
+
+However, care is needed to avoid aborting on low-stat jobs where Poisson 
+fluctuations result in zero events for a subset of the split jobs. For example, 
+consider a Kilonova simulation where there are 50 total events (after trigger), 
+and the sim job is split over 50 cores. The average number per core is 1, 
+meaning that about 1/3 of the split jobs will have zero events. In this case, 
+there is no failure, but a naive check on AIZ=0 would result in a false failure.
+On the other hand, if 50 SNIa jobs result in AIZ>10000 on 49 cores and AIZ=0
+on 1 core, this should result in a failure.
+
+The AIZ abort logic is as follows in the merge process. If any AIZ > 10, the 
+naive logic applies where any AIZ=0 flags a failure. If all AIZ < 10 (grep
+for aiz_thresh), the low-stat Poisson regime is assumed and a subset of AIZ=0 
+is allowed without flagging a failure. If all AIZ=0, failure is flagged.
+
+
+"""
+
 # - - - - - - - 
 HELP_MENU = { 
     'SIM' : HELP_CONFIG_SIM,
     'FIT' : HELP_CONFIG_FIT,
     'BBC' : HELP_CONFIG_BBC,
     'TRANSLATE' : HELP_TRANSLATE,
-    'MERGE'     : HELP_MERGE
+    'MERGE'     : HELP_MERGE,
+    'AIZ'       : HELP_AIZ     # ABORT_IF_ZERO
 }
 
 # === END ===

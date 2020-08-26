@@ -1524,20 +1524,29 @@ class Simulation(Program):
         row_list_merge     = MERGE_INFO_CONTENTS[TABLE_MERGE]
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
-        simlog_dir     = submit_info_yaml['SIMLOG_DIR']
-        Nsec_time_stamp     = submit_info_yaml['TIME_STAMP_NSEC']
-        ranseed_key     = submit_info_yaml['RANSEED_KEY']
+        simlog_dir       = submit_info_yaml['SIMLOG_DIR']
+        Nsec_time_stamp  = submit_info_yaml['TIME_STAMP_NSEC']
+        ranseed_key      = submit_info_yaml['RANSEED_KEY']
         n_job_split      = submit_info_yaml['N_JOB_SPLIT']
         n_genversion     = submit_info_yaml['N_GENVERSION']
-        msgerr         = []
+        msgerr           = []
         COLNUM_STATE     = COLNUM_SIM_MERGE_STATE
-        COLNUM_IVER     = COLNUM_SIM_MERGE_IVER
-        COLNUM_GENV     = COLNUM_SIM_MERGE_GENVERSION
-        COLNUM_NSPLIT     = COLNUM_SIM_MERGE_NSPLIT
-        COLNUM_NGEN     = COLNUM_SIM_MERGE_NGEN
-        COLNUM_NWRITE     = COLNUM_SIM_MERGE_NWRITE
-        COLNUM_CPU     = COLNUM_SIM_MERGE_CPU
-        
+        COLNUM_IVER      = COLNUM_SIM_MERGE_IVER
+        COLNUM_GENV      = COLNUM_SIM_MERGE_GENVERSION
+        COLNUM_NSPLIT    = COLNUM_SIM_MERGE_NSPLIT
+        COLNUM_NGEN      = COLNUM_SIM_MERGE_NGEN
+        COLNUM_NWRITE    = COLNUM_SIM_MERGE_NWRITE
+        COLNUM_CPU       = COLNUM_SIM_MERGE_CPU
+
+        # define keys to read and sum from YAML file produced by science job
+        key_ngen, key_ngen_sum, key_ngen_list = \
+                    self.keynames_for_job_stats('NGENLC_TOT')
+        key_nwrite, key_nwrite_sum, key_nwrite_list = \
+                    self.keynames_for_job_stats('NGENLC_WRITE')
+        key_cpu, key_cpu_sum, key_cpu_list = \
+                    self.keynames_for_job_stats('CPU_MINUTES')
+        KEY_YAML_LIST   = [ key_ngen, key_nwrite, key_cpu ]
+
         # init outputs of function
         n_state_change     = 0
         row_split_new     = []
@@ -1579,18 +1588,18 @@ class Simulation(Program):
                     NEW_STATE = SUBMIT_STATE_DONE
 
                     # update sim stats and check for errors
-                    split_stat = \
-                        self.split_sum_stats(TMP_LOG_LIST,TMP_YAML_LIST)
+                    job_stats = self.get_job_stats(simlog_dir, 
+                                                   TMP_LOG_LIST, TMP_YAML_LIST,
+                                                   KEY_YAML_LIST)
 
                     # check for failures
-                    nfail = split_stat['nfail_sum']
-                    if nfail > 0 :
-                        NEW_STATE = SUBMIT_STATE_FAIL
+                    nfail = job_stats['nfail']
+                    if nfail > 0 : NEW_STATE = SUBMIT_STATE_FAIL
 
                     # update stats for SPLIT table; same for REPEAT or CHANGE
-                    row[COLNUM_NGEN]   = split_stat['ngen_sum']
-                    row[COLNUM_NWRITE] = split_stat['nwrite_sum']
-                    row[COLNUM_CPU]       = split_stat['cpu_sum']
+                    row[COLNUM_NGEN]   = job_stats[key_ngen_sum]
+                    row[COLNUM_NWRITE] = job_stats[key_nwrite_sum]
+                    row[COLNUM_CPU]    = job_stats[key_cpu_sum]
                     row_split_new[irow_split] = row     # update split stats
 
                     # move data files and updat combine table depending
@@ -1599,27 +1608,27 @@ class Simulation(Program):
                         row_merge  = row_list_merge[IVER]
                         GENV_MERGE = row_merge[COLNUM_GENV]
                         self.move_sim_data_files(TMP_GENV,GENV_MERGE, nfail)
-                        row_merge[COLNUM_NGEN]     += split_stat['ngen_sum']
-                        row_merge[COLNUM_NWRITE] += split_stat['nwrite_sum']
-                        row_merge[COLNUM_CPU]     += split_stat['cpu_sum']
+                        row_merge[COLNUM_NGEN]   += job_stats[key_ngen_sum]
+                        row_merge[COLNUM_NWRITE] += job_stats[key_nwrite_sum]
+                        row_merge[COLNUM_CPU]    += job_stats[key_cpu_sum]
                         row_merge_new[IVER] = row_merge
                     else:
                         for isplit in range(0,n_job_split):
                             Nsec   = Nsec_time_stamp
                             suffix = self.genversion_split_suffix(isplit+1,Nsec)
                             iver_all    = isplit + IVER*n_job_split
-                            row_merge    = row_list_merge[iver_all]
+                            row_merge   = row_list_merge[iver_all]
                             tmp_genv    = (f"{row[COLNUM_GENV]}-{suffix}")
-                            genv_merge    = row_merge[COLNUM_GENV]
+                            genv_merge  = row_merge[COLNUM_GENV]
 
                             self.move_sim_data_files(tmp_genv,genv_merge,nfail)
 
                             row_merge[COLNUM_NGEN] += \
-                                    split_stat['ngen_list'][isplit]
+                                    job_stats[key_ngen_list][isplit]
                             row_merge[COLNUM_NWRITE] += \
-                                    split_stat['nwrite_list'][isplit]
+                                    job_stats[key_nwrite_list][isplit]
                             row_merge[COLNUM_CPU] += \
-                                    split_stat['cpu_list'][isplit]
+                                    job_stats[key_cpu_list][isplit]
                             row_merge_new[iver_all] = row_merge
 
                 if NEW_STATE != STATE :
@@ -1635,14 +1644,14 @@ class Simulation(Program):
 
         # Check which split jobs are done for all models,
         # and also which jobs are running for any model
-        iver_done_flag     = [ True ] * n_genversion
+        iver_done_flag    = [ True ] * n_genversion
         iver_run_flag     = [ False] * n_genversion
-        iver_fail_flag     = [ False] * n_genversion
+        iver_fail_flag    = [ False] * n_genversion
         for row in row_split_new :
-            cpu                = float(row[COLNUM_CPU])
+            cpu             = float(row[COLNUM_CPU])
             row[COLNUM_CPU] = float(f"{cpu:.1f}")    # e.g., 45.2
 
-            STATE      = row[COLNUM_STATE]
+            STATE     = row[COLNUM_STATE]
             iver      = row[COLNUM_IVER]
             if STATE != SUBMIT_STATE_DONE :
                 iver_done_flag[iver] = False # at least 1 model NOT done
@@ -1654,7 +1663,7 @@ class Simulation(Program):
         # check which merged genversions are done
         iver_all = 0
         for row in row_merge_new:
-            cpu                = float(row[COLNUM_CPU])
+            cpu             = float(row[COLNUM_CPU])
             row[COLNUM_CPU] = float(f"{cpu:.1f}")    # e.g., 45.2
 
             iver = row[COLNUM_IVER] 
@@ -1818,6 +1827,8 @@ class Simulation(Program):
 
     def split_sum_stats(self, log_file_list, yaml_file_list ):
 
+        # XXXXXXXXX OBSOLETE: MARK DELETE XXXXXXXXXXXXXXXX
+
         # Loop over input log_file_list and for each file,
         #    + check if yaml file exists
         #    + if yaml exists, read & extract stats
@@ -1834,23 +1845,23 @@ class Simulation(Program):
         simlog_dir         = submit_info_yaml['SIMLOG_DIR']
         script_dir         = submit_info_yaml['SCRIPT_DIR']
 
+        # XXXXXXXXX OBSOLETE: MARK DELETE XXXXXXXXXXXXXXXX
         ngen        = 0
-        nwrite        = 0
-        cpu            = 0.0
-        key_ngen    = "NGENLC_TOT:"       # ngen is after this key
-        key_nwrite    = "NGENLC_WRITE:"  # nwrite is after this key
-        key_cpu        = "CPU_MINUTES:"
+        nwrite      = 0
+        cpu         = 0.0
 
         n_split = len(log_file_list)
         split_stats = {
             'ngen_sum'      : 0,     # sum over split jobs
-            'nwrite_sum'  : 0,
-            'cpu_sum'      : 0.0,
-            'ngen_list'      : [ 0      ] * n_split,
-            'nwrite_list' : [ 0      ] * n_split,
+            'nwrite_sum'    : 0,
+            'cpu_sum'       : 0.0,
+            'ngen_list'     : [ 0   ] * n_split,
+            'nwrite_list'   : [ 0   ] * n_split,
             'cpu_list'      : [ 0.0 ] * n_split,
-            'nfail_sum'      : 0
+            'nfail_sum'     : 0
         }
+
+        # XXXXXXXXX OBSOLETE: MARK DELETE XXXXXXXXXXXXXXXX
 
         for isplit in range(0,n_split):
             log_file  = log_file_list[isplit]
@@ -1861,17 +1872,18 @@ class Simulation(Program):
             abort_if_zero = -9
             if os.path.isfile(YAML_FILE) :
                 stats_yaml      = util.extract_yaml(YAML_FILE)
-                ngen          = stats_yaml['NGENLC_TOT']
+                ngen            = stats_yaml['NGENLC_TOT']
                 nwrite          = stats_yaml['NGENLC_WRITE']
-                cpu              = stats_yaml['CPU_MINUTES']
-                abort_if_zero = stats_yaml['ABORT_IF_ZERO'] # same as nwrite
-                split_stats['ngen_sum']      += ngen
-                split_stats['nwrite_sum'] += nwrite
+                cpu             = stats_yaml['CPU_MINUTES']
+                abort_if_zero   = stats_yaml['ABORT_IF_ZERO'] # same as nwrite
+                split_stats['ngen_sum']     += ngen
+                split_stats['nwrite_sum']   += nwrite
                 split_stats['cpu_sum']      += cpu
                 split_stats['ngen_list'][isplit]   += ngen 
                 split_stats['nwrite_list'][isplit] += nwrite
                 split_stats['cpu_list'][isplit]       += cpu
 
+        # XXXXXXXXX OBSOLETE: MARK DELETE XXXXXXXXXXXXXXXX
             
             # Check for failure (and pass fortran-like isplit index)
             found_fail = \
@@ -1882,6 +1894,7 @@ class Simulation(Program):
 
         return split_stats
         # end split_sum_stats
+        # XXXXXXXXX OBSOLETE: END MARK DELETE XXXXXXXXXXXXXXXX
 
     def merge_job_wrapup(self,iver_all,MERGE_INFO_CONTENTS):
 

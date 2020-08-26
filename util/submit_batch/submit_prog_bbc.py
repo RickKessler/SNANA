@@ -869,6 +869,16 @@ class BBC(Program):
         COLNUM_NBIASCOR  = COLNUM_BBC_MERGE_NEVT_BIASCOR
         COLNUM_NCCPRIOR  = COLNUM_BBC_MERGE_NEVT_CCPRIOR
 
+        # keynames_for_job_stats returns 3 keynames : 
+        #   {base}, {base}_sum, {base}_list
+        key_ndata, key_ndata_sum, key_ndata_list = \
+                self.keynames_for_job_stats('NEVT_DATA')
+        key_nbiascor, key_nbiascor_sum, key_nbiascor_list = \
+                 self.keynames_for_job_stats('NEVT_BIASCOR')
+        key_nccprior, key_nccprior_sum, key_nccprior_list = \
+                 self.keynames_for_job_stats('NEVT_CCPRIOR')
+        key_list = [ key_ndata, key_nbiascor, key_nccprior  ] 
+
         row_list_merge   = MERGE_INFO_CONTENTS[TABLE_MERGE]
 
         # init outputs of function
@@ -907,19 +917,20 @@ class BBC(Program):
                     NEW_STATE = SUBMIT_STATE_RUN
                 if NDONE == n_job_split :
                     NEW_STATE = SUBMIT_STATE_DONE
-                    bbc_stats = self.get_bbc_stats(script_dir,log_list,yaml_list)
+
+                    bbc_stats = self.get_job_stats(script_dir,
+                                                   log_list, yaml_list, key_list)
+
+                    #bbc_stats = self.get_bbc_stats(script_dir,log_list,yaml_list)
                     
                     # check for failures in snlc_fit jobs.
-                    nfail = bbc_stats['nfail_sum']
-                    if nfail > 0 :
-                        NEW_STATE = SUBMIT_STATE_FAIL
+                    nfail = bbc_stats['nfail']
+                    if nfail > 0 :  NEW_STATE = SUBMIT_STATE_FAIL
                  
-                    # update row if state has changed
-                #if NEW_STATE != STATE :
                     row[COLNUM_STATE]     = NEW_STATE
-                    row[COLNUM_NDATA]     = bbc_stats['nevt_data']
-                    row[COLNUM_NBIASCOR]  = bbc_stats['nevt_biascor']
-                    row[COLNUM_NCCPRIOR]  = bbc_stats['nevt_ccprior']
+                    row[COLNUM_NDATA]     = bbc_stats[key_ndata_sum]
+                    row[COLNUM_NBIASCOR]  = bbc_stats[key_nbiascor_sum]
+                    row[COLNUM_NCCPRIOR]  = bbc_stats[key_nccprior_sum]
                     
                     row_list_merge_new[irow] = row  # update new row
                     n_state_change += 1             # assume nevt changes
@@ -932,6 +943,7 @@ class BBC(Program):
         # end merge_update_state
 
     def get_bbc_stats(self, search_dir, log_list, yaml_list):
+        # xxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxxx
         submit_info_yaml = self.config_prep['submit_info_yaml']
         n_log_file       = len(log_list)
         split_stats = {
@@ -941,6 +953,8 @@ class BBC(Program):
             'nfail_sum'           : 0
         }
         
+        # xxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxxx
+
         for isplit in range(0,n_log_file):            
             yaml_file = yaml_list[isplit]            
             nevt_test = -9        # used to search for failures
@@ -962,8 +976,10 @@ class BBC(Program):
                     split_stats['nfail_sum'] += 1
 
         return split_stats
-
+        # xxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxxx
         # end get_bbc_stats
+
+
         
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
 

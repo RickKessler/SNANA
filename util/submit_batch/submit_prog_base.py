@@ -1288,6 +1288,98 @@ class Program:
 
         # end failure_summary
 
+    def get_job_stats(self, script_dir, log_file_list, yaml_file_list, 
+                      yaml_key_list):
+        
+        # Called when all DONE files exist.
+        # Loop over input log_file_list and for each file,
+        #    + check if yaml file exists
+        #    + if yaml exists, read & extract stats for each
+        #       yaml_key_list
+        #
+        # Store both stat sums and a stat-list overy YAML files.
+        #
+        # Only yaml files are parsed here; log_file is passed to
+        # check_for_failures so that ABORT message can be
+        # extracted elsewhere .
+        #
+        
+        n_key              = len(yaml_key_list)
+        n_split            = len(log_file_list)
+        key_AIZ            = 'ABORT_IF_ZERO'
+        aiz_list           = [ -9 ] * n_split
+        aiz_max            = 0
+        n_aiz_zero         = 0
+        
+        # init output dictionary
+        job_stats = { 'nfail' : 0 }
+        for key in yaml_key_list :
+            key_sum  = (f"{key}_sum")   # store sum
+            key_list = (f"{key}_list")  # store stats for each split job
+            job_stats[key_list] = [ 0 ] * n_split
+            job_stats[key_sum]  =   0
+    
+        for isplit in range(0,n_split):
+            log_file  = log_file_list[isplit]
+            yaml_file = yaml_file_list[isplit]
+            LOG_FILE  = (f"{script_dir}/{log_file}")
+            YAML_FILE = (f"{script_dir}/{yaml_file}")
+
+            if os.path.isfile(YAML_FILE) :
+                stats_yaml       = util.extract_yaml(YAML_FILE)
+            
+                aiz              = stats_yaml[key_AIZ]
+                aiz_list[isplit] = aiz
+                if aiz > aiz_max : aiz_max = aiz
+                if aiz == 0 : n_aiz_zero += 1
+            
+                for item in yaml_key_list :
+                    key, key_sum, key_list  = self.keynames_for_job_stats(item)
+                    job_stats[key_list][isplit] = stats_yaml[key]
+                    job_stats[key_sum]         += stats_yaml[key]
+                
+                    # fix format for CPU
+                    if 'CPU' in key :
+                        cpu_sum = (f"{job_stats[key_sum]:.1f}")
+                        job_stats[key_sum] = float(cpu_sum)
+
+        # - - - - - - - - - - - - - - - - - - - - a
+        # Examine failures. If there is no output YAML file, aiz=-9 flags
+        # a clear failure -> abort.
+        # If any aiz == 0, it's tricky because very low-stat jobs (e.g., KN)
+        # can result in aiz=0 due to random Poisson fluctuations. Goal is to
+        # abort only if aiz=0 cannot be due to low-stat random fluctuation.
+        #
+        # If any aiz > aiz_thresh, then abort if any aiz=0; otherwise abort 
+        # only if all aiz=0. The logic is to intervene only if all 
+        # aiz < aiz_thresh and a subset of aiz=0; in this case, aiz += 1
+        # to suppress failure from aiz=0. Note that aiz = -9 -> -8,
+        # and still fails since YAML output wasn't found.
+        
+        aiz_thresh    = 10
+        subset_aiz_zero = n_aiz_zero>0 and n_aiz_zero < n_split # some 0, not all
+        if aiz_max < aiz_thresh and subset_aiz_zero :
+            for i in range(0,n_split): aiz_list[i] += 1
+            msg = (f"\t max({key_AIZ})={aiz_max} -> suppress abort from AIZ=0.")
+            logging.info(msg)
+
+        # loop again over split jobs and check for failures.
+        for isplit in range(0,n_split):
+            log_file   = log_file_list[isplit]
+            aiz        = aiz_list[isplit]
+            found_fail =  self.check_for_failure(log_file, aiz, isplit+1)
+            if found_fail : job_stats['nfail'] += 1
+
+        return job_stats
+
+        # end get_job_stats
+
+    def keynames_for_job_stats(self,keyname_base):
+        keyname_sum  = (f"{keyname_base}_sum")
+        keyname_list = (f"{keyname_base}_list")
+        return keyname_base, keyname_sum, keyname_list
+        # end keynames_for_job_stats
+
     def log_assert(self,condition, msgerr):
         # same as log_assert in util, except here it also
         # + writes FAIL to done_stamp_file
@@ -1307,7 +1399,7 @@ class Program:
                         f.write(f"#   {msg}\n")
                     f.write(f"#\n")
 
-            util.log_assert(condition, msgerr)
-        
+            util.log_assert(condition, msgerr)        
+
 # ======= END OF FILE =========
 

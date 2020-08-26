@@ -910,6 +910,16 @@ class LightCurveFit(Program):
         COLNUM_NEVT2   = COLNUM_FIT_MERGE_NEVT_LCFIT_CUTS
         COLNUM_CPU     = COLNUM_FIT_MERGE_CPU
 
+        key_tot, key_tot_sum, key_list = \
+                self.keynames_for_job_stats('NEVT_TOT')
+        key_snana, key_snana_sum, key_snana_list = \
+                self.keynames_for_job_stats('NEVT_SNANA_CUTS')
+        key_lcfit, key_lcfit_sum, key_lcfit_list = \
+                self.keynames_for_job_stats('NEVT_LCFIT_CUTS')
+        key_cpu, key_cpu_sum, key_cpu_list = \
+                self.keynames_for_job_stats('CPU_TIME')
+        key_list  = [ key_tot, key_snana, key_lcfit, key_cpu ]
+
         row_list_merge   = MERGE_INFO_CONTENTS[TABLE_MERGE]
 
         # init outputs of function
@@ -947,21 +957,19 @@ class LightCurveFit(Program):
                     NEW_STATE = SUBMIT_STATE_RUN
                 if NDONE == n_job_split :
                     NEW_STATE = SUBMIT_STATE_DONE
-                    split_stat = self.split_sum_stats(True,log_list,yaml_list)
                     
+                    job_stats = self.get_job_stats(script_dir, 
+                                                   log_list, yaml_list, key_list)
                     # check for failures in snlc_fit jobs.
-                    nfail = split_stat['nfail_sum']
-                    if nfail > 0 :
-                        NEW_STATE = SUBMIT_STATE_FAIL
+                    nfail = job_stats['nfail']
+                    if nfail > 0 :  NEW_STATE = SUBMIT_STATE_FAIL
                 
-                # always update stats with whatever YAML output is there
-                if NEW_STATE != SUBMIT_STATE_WAIT :
-                    sum_stats = self.split_sum_stats(False,log_list,yaml_list)
+                    # xxx sum_stats=self.split_sum_stats(False,log_list,yaml_list)
                     row[COLNUM_STATE]  = NEW_STATE
-                    row[COLNUM_NEVT0]  = sum_stats['nevt_sum_tot']
-                    row[COLNUM_NEVT1]  = sum_stats['nevt_sum_cut_snana']
-                    row[COLNUM_NEVT2]  = sum_stats['nevt_sum_cut_lcfit']
-                    row[COLNUM_CPU]    = sum_stats['cpu_sum']
+                    row[COLNUM_NEVT0]  = job_stats[key_tot_sum]
+                    row[COLNUM_NEVT1]  = job_stats[key_snana_sum]
+                    row[COLNUM_NEVT2]  = job_stats[key_lcfit_sum]
+                    row[COLNUM_CPU]    = job_stats[key_cpu_sum]
 
                     if fitopt_num in link_FITOPT000_list :
                         row[COLNUM_CPU] = 0.0 # zero CPU for sym links
@@ -978,6 +986,8 @@ class LightCurveFit(Program):
         # end merge_update_state
 
     def split_sum_stats(self, search_failure_flag, log_list, yaml_list):
+
+        # xxxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxx
 
         # Return statistics sums for yaml_list files.
         # If search_failure_flag = Flase, then examine only the yaml_list
@@ -996,9 +1006,11 @@ class LightCurveFit(Program):
             'nfail_sum'           : 0
         }
 
+        # xxxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxx
+
         for isplit in range(0,n_log_file):            
             yaml_file = yaml_list[isplit]            
-            nevt_test = -9  # sued to search for failures
+            nevt_test = -9  # used to search for failures
             if yaml_file :
                 YAML_FILE = (f"{script_dir}/{yaml_file}")
                 yaml_data = util.extract_yaml(YAML_FILE)
@@ -1014,6 +1026,8 @@ class LightCurveFit(Program):
                 # test value for failure testing below
                 nevt_test = yaml_data['ABORT_IF_ZERO'] 
 
+        # xxxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxx
+
             # check flag to check for failure.        
             if search_failure_flag and nevt_test <= 0 :
                 log_file   = log_list[isplit]
@@ -1024,7 +1038,7 @@ class LightCurveFit(Program):
         return split_stats
 
         # end split_sum_stats
-
+        # xxxxxxxxxx END OBSOLETE MARK DELETE xxxxxxxxxxx
 
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
         # irow is the row to wrapup in MERGE_INFO_CONTENTS

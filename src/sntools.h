@@ -57,6 +57,10 @@
 #define  SNANA_VERSION_CURRENT  "v10_78"                                  
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 
+#define KEYNAME_DOCANA_REQUIRED  "DOCUMENTATION:"
+#define OPENMASK_VERBOSE        1  // see snana_openTextFile
+#define OPENMASK_REQUIRE_DOCANA 2  // see snana_openTextFile
+
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
 #define OMEGA_MATTER_DEFAULT   0.315 
 #define OMEGA_LAMBDA_DEFAULT   0.685 
@@ -83,14 +87,6 @@
 #define  CMBapex_l  (double)264.031    // deg (RA galactic coords !!!)
 #define  CMBapex_b  (double)48.253     // deg (DEC)
 #define  CMBapex_v  (double)369.82    // km/sec
-
-
-/* xxxxx mark delete Jun 8 2020 xxxxxxx
-// probably from COBE 1996 ?
-#define  CMBapex_l  (double)264.14    // deg (RA galactic coords !!!)
-#define  CMBapex_b  (double)48.26     // deg (DECL)
-#define  CMBapex_v  (double)371.0     // km/sec
-xxxxxxxxxxxxx */
 
 #define FWHM_SIGMA_RATIO  2.3548    // FWHM/sigma for Gaussian 
 #define TEN        (double)10.0 
@@ -770,11 +766,12 @@ void fprint_banner (FILE *FP, const char *banner ) ;
 
 // shells to open text file
 FILE *open_TEXTgz(char *FILENAME, const char *mode,int *GZIPFLAG) ;
-FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName, 
+FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName, 
 			  char *fullName, int *gzipFlag ); 
 void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
 void abort_openTextFile(char *keyName, char *PATH_LIST, 
 			char *fileName, char *funCall);
+void check_docana(FILE *fp, char *fileName);
 
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
 void ENVrestore(char *fileName_noENV, char *fileName_orig);

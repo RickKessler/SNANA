@@ -1,15 +1,5 @@
 // sntools.c
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <time.h>
-#include <math.h>
-#include <ctype.h>
-*/
-
 #include "sntools.h"
 
 #include <sys/types.h>
@@ -10807,7 +10797,7 @@ void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG) {
 
 
 // *************************************************
-FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName, 
+FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName, 
 			  char *fullName, int *gzipFlag ) {
 
   /* ----------------------------------------------
@@ -10824,23 +10814,37 @@ FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName,
     This allows user to easily over-ride default
     with private version.
 
-   Function returns file pointer and gzipFile.
+   Inputs
+     + OPTMASK :
+         += 1 -> verbose mode
+         += 2 -> abort if DOCUMENTATION is not first string in file
+     + PATH_LIST   : optional space-separated list of paths to check
+     + fileName    : name of file to option
+   Outputs
+     + fullName : full name of file, including path
+     + gzipFlag : 1 if gzipped, 0 otherwise
+
+   Function returns file pointer.
 
    Dec 29 2017: use open_TEXTgz to allow reading gzipped files.
    Jan 11 2018: add gzipFile output arg
    Mar 20 2019: padd vboseFlag to print comment to stdout
    Feb 01 2020: SNPATH -> PATH_LIST (space separated)
+   Aug 26 2020: change vboseflag to more generic OPTMASK
+
   ----------------------------------------------- */
 
 #define TEXTMODE_read "rt"
 #define MXPATH_CHECK 4
 
-  int LDMP = (vboseFlag>0) ;
+  bool VBOSE          = ( (OPTMASK & OPENMASK_VERBOSE)        > 0 ) ;
+  bool REQUIRE_DOCANA = ( (OPTMASK & OPENMASK_REQUIRE_DOCANA) > 0 ) ;
+
   int ipath, NPATH ;
   bool IS_OPEN = false ;
   char *PATH[MXPATH_CHECK], sepKey[]= " " ; 
   FILE *fp ;
-  //  char fnam[] = "snana_openTextFile" ;
+  char fnam[] = "snana_openTextFile" ;
 
   // --------------- BEGIN ----------------
 
@@ -10848,13 +10852,11 @@ FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName,
 
   sprintf(fullName, "%s", fileName );
 
-  //  printf("xxx %s : fileName = '%s' \n", fnam, fullName); // DDDDDDDDDD
-
-  //  fp = fopen(fullName, "rt");
   fp = open_TEXTgz(fullName,TEXTMODE_read, gzipFlag );
   if ( fp != NULL ) {       
-    if ( LDMP )  { printf("\t Opened : %s \n", fullName ); }
-    return fp;
+    if ( VBOSE )  { printf("\t Opened : %s \n", fullName ); }
+    goto DONE ;
+    // xxx return fp;
   } 
 
   // if we get here, try paths in PATH_LIST
@@ -10869,12 +10871,11 @@ FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName,
     if ( IS_OPEN ) { continue ; }
 
     sprintf(fullName, "%s/%s", PATH[ipath],  fileName );
-    //   fp = fopen(fullName, "rt") ;
     fp = open_TEXTgz(fullName,TEXTMODE_read, gzipFlag );
 
     if ( fp != NULL ) {
       IS_OPEN = true ;
-      if ( LDMP ) { printf("\t Opened : %s \n", fullName ); }
+      if ( VBOSE ) { printf("\t Opened : %s \n", fullName ); }
     }
 
   } // end ipath
@@ -10882,11 +10883,43 @@ FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName,
   // free memory
   for(ipath=0; ipath < MXPATH_CHECK; ipath++ )   { free(PATH[ipath]); }
 
+ DONE:
+
+  if ( REQUIRE_DOCANA ) {  check_docana(fp,fullName); }
+
   // return pointer regardless of status
   return fp;
 
 }  // end of snana_openTextFile
 
+
+// *************************************
+void check_docana(FILE *fp, char *fileName) {
+
+  // Created Aug 26 2020
+  // Abort if first word in file is not a DOCANA key.
+  char key[60];
+  char fnam[] = "check_docana";
+  // ------------- BEGIN --------
+
+  fscanf(fp, "%s", key);
+  if ( strcmp(key,KEYNAME_DOCANA_REQUIRED) != 0 ) {
+    print_preAbort_banner(fnam);
+
+    printf("  Missing required %s key in \n", KEYNAME_DOCANA_REQUIRED);
+    printf("  %s \n", fileName);
+    printf("  See DOCANA examples with linux command: \n");
+    printf("    grep -R DOCUMENTATION_END $SNDATA_ROOT \n") ;
+    printf("  File must begin with 'DOCUMENTATION:' key\n");
+
+    sprintf(c1err,"See DOCANA error above. Must add DOCUMENTATION block to");
+    sprintf(c2err,"%s", fileName );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+  }
+  
+  return;
+
+} // end check_docana
 
 // *****************************************************
 void abort_openTextFile(char *keyName, char *PATH_LIST,

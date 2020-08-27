@@ -811,7 +811,8 @@ struct INPUTS {
   // separate method using MAG-GRID
   char NON1AGRID_FILE[MXPATHLEN];  // FITS file with mag vs. Epoch & z.
 
-  int CLEARPROMPT; // 1 => prompt before removing old version
+  int  CLEARPROMPT; // 1 => prompt before removing old version
+  int  REQUIRE_DOCANA ;  // 1 => require DOCUMENTATION keys in maps
 
   int  NVAR_SIMGEN_DUMP;  // number of SIMGEN variables to write to fitres file
   char VARNAME_SIMGEN_DUMP[MXSIMGEN_DUMP][40] ; // var-names

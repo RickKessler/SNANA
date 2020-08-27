@@ -53,6 +53,11 @@
 
   Feb 25 2020: store README LINES from 0 to N-1 instead of 1 to N.
 
+  Aug 26 2020: 
+    + pass OPTMASK to snana_openTextFile to check DOCANA; If the new
+      sim-input "REQUIRE_DOCANA: 1" is set, then code aborts if first
+      key is NOT a DOCUMENTATION key.
+
 ************************************/
 
 /*
@@ -268,7 +273,10 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
   // Mar 7 2018: refactor to include MAPNAME & FIELD keys,
   //             and new SEARCHEFF_DETECT structure.
   //
+  // Aug 26 2020: pass OPTMASK to snana_open to check for DOCANA
+  //
 
+  int   OPTMASK = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
   FILE *fp;
   int   IREQUIRE, gzipFlag, imap, NMAP=0 ;
   int   FOUNDMAP_DETECT=0, FOUNDMAP_PHOTPROB=0 ;
@@ -304,7 +312,7 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
   }
 
   // use utility to check local dir and path.
-  fp = snana_openTextFile(0,PATH_SEARCHEFF, file_local, 
+  fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, file_local, 
 			  ptrFile_final, &gzipFlag ); // returned
 
   if ( fp == NULL ) { 
@@ -312,13 +320,6 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
     if ( IREQUIRE ) {
       abort_openTextFile("SEARCHEFF_PIPELINE_EFF_FILE", 
 			 PATH_SEARCHEFF, file_local, fnam);
-
-      /* xxxxxx mark delete Feb 1 2020
-      sprintf(c1err,"Could not open %s", file_local);
-      sprintf(c2err,"%s",
-	      "Check 'SEARCHEFF_PIPELINE_EFF_FILE:' key in sim-input file");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-      xxxxx */
     }
     else { 
       printf("\n  Optional SEARCHEFF_PIPELINE_FILE not found -> skip. \n");
@@ -844,7 +845,9 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
   //
   // Dec 27 2015: check for default logic file name, or user-input
   //
+  // Aug 26 2020: pass OPTMASK to snana_open to check DOCANA
 
+  int OPTMASK = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
   int NMJD, i, gzipFlag ;
 
   FILE *fp ;
@@ -875,7 +878,8 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
 
   //  printf(" xxx logic file -> '%s' \n", logicFile); 
 
-  fp = snana_openTextFile(0, PATH_SEARCHEFF, logicFile,
+  printf(" xxx %s:  OPTMASK = %d\n", fnam, OPTMASK);
+  fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, logicFile,
 			  ptrFile_final, &gzipFlag ); // returned
 
   if ( !fp ) {
@@ -1056,6 +1060,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
   char  *VARNAME, *VARLIST ; 
   char  FIELDLIST[100] ;
 
+  int    OPTMASK       = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
   double SPECEFF_SCALE = INPUTS_SEARCHEFF.USER_SPECEFF_SCALE ;
 
   // ------------ BEGIN --------------
@@ -1112,20 +1117,13 @@ void  init_SEARCHEFF_SPEC(char *survey) {
 
 
   // use utility to check local dir and path.
-  fp = snana_openTextFile(0,PATH_SEARCHEFF, effspec_file_local, 
+  fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, effspec_file_local, 
 			  ptrFile_final, &gzipFlag ); // returned
 
   if ( fp == NULL ) { 
     if ( IREQUIRE ) {
       abort_openTextFile("SEARCHEFF_SPEC_FILE",
 			 PATH_SEARCHEFF, effspec_file_local, fnam );
-
-      /* xxxxxxxx mark delete Feb 1 2020 xxxxxxxxx
-      sprintf(c1err,"Could not open %s", effspec_file_local);
-      sprintf(c2err,"%s","Check 'SEARCHEFF_SPEC_FILE:' key in sim-input file");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-      xxxxxxxxx */
-
     }
     else  { 
       printf("\n  Optional SEARCHEFF_SPEC_FILE not specified -> skip. \n");
@@ -1295,6 +1293,7 @@ FILE *open_zHOST_FILE(int OPT) {
   // OPT = +1 -> normal init called from trigger code
   // OPT = -1 -> called from init_HOSTLIB to get VARNAMES
 
+  int OPTMASK_OPEN  = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
   int LPRINT = ( OPT > 0 ) ; // stdout printing
   int IREQUIRE, gzipFlag ;
   char *ptrFile_user ;
@@ -1332,7 +1331,7 @@ FILE *open_zHOST_FILE(int OPT) {
 
 
   // use utility to check local dir and path.
-  fp = snana_openTextFile(0,PATH_SEARCHEFF, localFile, 
+  fp = snana_openTextFile(OPTMASK_OPEN, PATH_SEARCHEFF, localFile, 
 			  ptrFile_final, &gzipFlag); // returned
   
   // examine if there is no zHOST file

@@ -1111,6 +1111,7 @@ void set_user_defaults(void) {
   INPUTS_SEARCHEFF.MINOBS       = 2 ;  // at least 2 obs for search trigger
   INPUTS_SEARCHEFF.PHOTFLAG_DETECT  = 0 ;
   INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER = 0 ;
+  INPUTS_SEARCHEFF.OPTMASK_OPENFILE = 0 ;
   sprintf(INPUTS_SEARCHEFF.USER_SPEC_FILE, "NONE");
   sprintf(INPUTS_SEARCHEFF.USER_zHOST_FILE,"NONE");
 
@@ -1230,8 +1231,8 @@ void set_user_defaults(void) {
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_FALLTIME_SHIFT, zero );
 
   // default is to NOT prompt user before clearing (removing) old version 
-  INPUTS.CLEARPROMPT = 0;
-
+  INPUTS.CLEARPROMPT      = 0 ;
+  INPUTS.REQUIRE_DOCANA   = 0 ;
   INPUTS.NVAR_SIMGEN_DUMP = -9 ; // note that 0 => list variables & quit
   INPUTS.IFLAG_SIMGEN_DUMPALL = 0 ; // dump only SN written to data file.
   INPUTS.PRESCALE_SIMGEN_DUMP = 1 ; // prescale
@@ -1559,6 +1560,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(0, "CLEARPROMPT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.CLEARPROMPT );
+  }
+  else if ( keyMatchSim(0, "REQUIRE_DOCANA",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.REQUIRE_DOCANA );
   }
   else if ( keyMatchSim(1, "GENSOURCE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENSOURCE );
@@ -4423,6 +4427,9 @@ void prep_user_input(void) {
 
   if ( INPUTS.USE_KCOR_REFACTOR == 2 )  { INPUTS.USE_KCOR_LEGACY = 0 ; }
 
+  if ( INPUTS.REQUIRE_DOCANA ) 
+    { INPUTS_SEARCHEFF.OPTMASK_OPENFILE = OPENMASK_REQUIRE_DOCANA ; }
+    
   // Feb 2015: replace ENV names in inputs
   ENVreplace(INPUTS.KCOR_FILE,fnam,1);  
   ENVreplace(INPUTS.SIMLIB_FILE,fnam,1);

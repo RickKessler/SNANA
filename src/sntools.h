@@ -373,8 +373,9 @@ struct {
 
 #define MSKOPT_PARSE_WORDS_FILE    1   // parse words in a file
 #define MSKOPT_PARSE_WORDS_STRING  2   // parse string
-#define MSKOPT_PARSE_WORDS_IGNORECOMMA    4   // parse blank space; ignore comma
-#define MSKOPT_PARSE_WORDS_IGNORECOMMENT  8   // ignore anything after comment char
+#define MSKOPT_PARSE_WORDS_IGNORECOMMA    4  // parse blank space; ignore comma
+#define MSKOPT_PARSE_WORDS_IGNORECOMMENT  8  // ignore anything after comment char
+#define MSKOPT_PARSE_WORDS_FIRSTLINE     16  // read only 1st line only
 
 struct {
   char  FILENAME[MXPATHLEN];
@@ -772,6 +773,8 @@ void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
 void abort_openTextFile(char *keyName, char *PATH_LIST, 
 			char *fileName, char *funCall);
 void check_docana(FILE *fp, char *fileName);
+void abort_missing_docana(char *fileName);
+void abort_missing_docana__(char *fileName);
 
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
 void ENVrestore(char *fileName_noENV, char *fileName_orig);

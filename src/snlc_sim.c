@@ -5140,8 +5140,8 @@ void prep_user_input(void) {
 
   // Feb 2018:
   // if using FLUXERRMODEL, make sure none of the legacy options are used
-  if ( IGNOREFILE(INPUTS.FLUXERRMODEL_FILE) == 0 ) {
-    if ( IGNOREFILE(INPUTS.HOSTNOISE_FILE) == 0 ) {
+  if ( !IGNOREFILE(INPUTS.FLUXERRMODEL_FILE)  ) {
+    if ( !IGNOREFILE(INPUTS.HOSTNOISE_FILE)  ) {
       sprintf(c1err,"Cannot mix FLUXERRMODEL_FILE with HOSTNOISE_FILE");
       sprintf(c2err,"Pick one, not both.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -5152,6 +5152,10 @@ void prep_user_input(void) {
       sprintf(c2err,"Pick one, not both.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
+
+    // Aug 26 2020: check for option to require DOCANA
+    if ( INPUTS.REQUIRE_DOCANA ) 
+      { INPUTS.FLUXERRMODEL_OPTMASK += MASK_REQUIRE_DOCANA_FLUXERRMAP; }
   }
 
   if ( INPUTS.RESTORE_DES3YR ) {

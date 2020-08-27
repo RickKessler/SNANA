@@ -1393,11 +1393,13 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   // May 09 2019: refactor to allow option for ignoring comma in strings.
   // Jul 20 2020: new option to ignore comment char and anything after
   // Jul 31 2020: add abort trap on too-long string length
+  // Aug 26 2020: new FIRSTLINE option to read only 1st line of file.
 
   bool DO_STRING       = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
   bool DO_FILE         = ( (OPT & MSKOPT_PARSE_WORDS_FILE)   > 0 );
   bool CHECK_COMMA     = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMA) == 0 );
   bool IGNORE_COMMENTS = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMENT) > 0 );
+  bool FIRSTLINE       = ( (OPT & MSKOPT_PARSE_WORDS_FIRSTLINE) > 0 );
   int LENF = strlen(FILENAME);
 
   int NWD, MXWD, iwdStart=0, GZIPFLAG, iwd;
@@ -1487,9 +1489,9 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 	NWD = NWD_TMP; // reset NWD to ignore comments
       }
       PARSE_WORDS.NWD += NWD;
-    }
+      if ( FIRSTLINE ) { break; }
+    } // end while
     NWD = PARSE_WORDS.NWD ;
-
 
     fclose(fp);
   }
@@ -10895,31 +10897,39 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
 
 // *************************************
 void check_docana(FILE *fp, char *fileName) {
-
   // Created Aug 26 2020
   // Abort if first word in file is not a DOCANA key.
+  // A separate abort function is available to both C and fortran.
+
   char key[60];
   char fnam[] = "check_docana";
   // ------------- BEGIN --------
-
   fscanf(fp, "%s", key);
-  if ( strcmp(key,KEYNAME_DOCANA_REQUIRED) != 0 ) {
-    print_preAbort_banner(fnam);
-
-    printf("  Missing required %s key in \n", KEYNAME_DOCANA_REQUIRED);
-    printf("  %s \n", fileName);
-    printf("  See DOCANA examples with linux command: \n");
-    printf("    grep -R DOCUMENTATION_END $SNDATA_ROOT \n") ;
-    printf("  File must begin with 'DOCUMENTATION:' key\n");
-
-    sprintf(c1err,"See DOCANA error above. Must add DOCUMENTATION block to");
-    sprintf(c2err,"%s", fileName );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-  }
+  if ( strcmp(key,KEYNAME_DOCANA_REQUIRED) != 0 ) 
+    { abort_missing_docana(fileName); }
   
   return;
-
 } // end check_docana
+
+void abort_missing_docana(char *fileName) {
+  char fnam[] = "abort_missing_docana" ;
+
+  print_preAbort_banner(fnam);
+  printf("\n");
+  printf("  Missing required '%s'  key in \n", KEYNAME_DOCANA_REQUIRED);
+  printf("    %s \n", fileName);
+  printf("  See DOCANA examples with linux command: \n");
+  printf("    grep -R DOCUMENTATION_END $SNDATA_ROOT \n") ;
+  printf("  File must begin with 'DOCUMENTATION:' key\n");
+  
+  sprintf(c1err,"See DOCANA error above. Must add DOCUMENTATION block to");
+  sprintf(c2err,"%s", fileName );
+  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+}
+
+void abort_missing_docana__(char *fileName) 
+{ abort_missing_docana(fileName); }
+
 
 // *****************************************************
 void abort_openTextFile(char *keyName, char *PATH_LIST,

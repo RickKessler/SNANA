@@ -68,6 +68,8 @@ c parameters used by snana code
      &  ,MSKOPT_PARSE_WORDS_STRING
      &  ,MSKOPT_PARSE_WORDS_FILE
      &  ,MSKOPT_PARSE_WORDS_IGNORECOMMA
+     &  ,MSKOPT_PARSE_WORDS_IGNORECOMMENT
+     &  ,MSKOPT_PARSE_WORDS_FIRSTLINE
 c
      &  ,MODEL_STRETCH
      &  ,MODEL_STRETCH2
@@ -85,6 +87,7 @@ c
      &  ,MXCHAR_PATH, MXCHAR_FILENAME, MXCHAR_MODELNAME
      &  ,MXCHAR_FIELDNAME, MXCHAR_PARNAME, MXCHAR_CUTNAME
      &  ,MXCHAR_FILEWORD, MXFILE_LIST
+     &  ,FLAG_DOCANA_START, FLAG_DOCANA_END, FLAG_DOCANA_ERROR
 c
      &  ,SNLCPAK_EPFLAG_FLUXDATA     ! DATA flux per epoch
      &  ,SNLCPAK_EPFLAG_REJECT   ! REJECT flag (1=> excluded from fit)
@@ -251,7 +254,9 @@ c
      &  ,OPT_PARSTORE_TEXTTABLE = 1  ! tag subset for TEXT table.
      &  ,MSKOPT_PARSE_WORDS_FILE    = 1   ! parse file
      &  ,MSKOPT_PARSE_WORDS_STRING  = 2   ! for store_PARSE_WORDS: string
-     &  ,MSKOPT_PARSE_WORDS_IGNORECOMMA = 4 ! ignore comma for string
+     &  ,MSKOPT_PARSE_WORDS_IGNORECOMMA   = 4  ! ignore comma for string
+     &  ,MSKOPT_PARSE_WORDS_IGNORECOMMENT = 8  ! ignore comment lines
+     &  ,MSKOPT_PARSE_WORDS_FIRSTLINE     = 16 ! read only 1st line of file
 c 
      &  ,MODEL_STRETCH    = 1
      &  ,MODEL_STRETCH2   = 2
@@ -280,6 +285,10 @@ c
      &  ,MXCHAR_FILEWORD   =  60  ! size of FILEWORD_LIST
      &  ,MXFILE_LIST       =  4   ! max number of files in input list
 c
+     &  ,FLAG_DOCANA_START  =  1  ! flags DOCUMENTATION key
+     &  ,FLAG_DOCANA_END    =  2  ! flags DOCUMENTATION_END 
+     &  ,FLAG_DOCANA_ERROR  = -1  ! flags missing DOCANA keys
+
      &  ,SNLCPAK_EPFLAG_FLUXDATA    = 1    ! epoch-dependent
      &  ,SNLCPAK_EPFLAG_REJECT      = 2
      &  ,SNLCPAK_EPFLAG_CHI2        = 3
@@ -1960,7 +1969,8 @@ c
      &  ,PHOTFLAG_TRIGGER        ! determine MJD(trigger) for survey
      &  ,FLUXERRMODEL_OPTMASK
      &  ,OPT_SIMLIB_OUT          ! bit mask of SIMLIB_OUT options
-     &  ,SIMLIB_OUT_TMINFIX      ! choose PEAKMJD such that min(MJD-PEAKMJ) = TMINFIX
+     &  ,SIMLIB_OUT_TMINFIX  ! choose PEAKMJD such that min(MJD-PEAKMJ) = TMINFIX
+     &  ,REQUIRE_DOCANA
 
       LOGICAL 
      &   LSIM_SEARCH_SPEC   ! (I) T => require simulated SPEC-tag
@@ -2069,7 +2079,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
-     &    , RESTORE_DES3YR
+     &    , RESTORE_DES3YR, REQUIRE_DOCANA
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -2115,7 +2125,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
-     &    , RESTORE_DES3YR
+     &    , RESTORE_DES3YR, REQUIRE_DOCANA
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -3533,6 +3543,7 @@ c default is to reject nothing (accept everything)
       USESIM_TRUEFLUX = .FALSE.
 
       RESTORE_DES3YR = .FALSE.
+      REQUIRE_DOCANA = 0   ! use integer to match sim usage
 
       USE_SNHOST_ZPHOT = .FALSE.
       USE_MWCOR        = .FALSE.  ! apply MWCOR to fit-model
@@ -4951,6 +4962,10 @@ c - - - - -
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) RESTORE_DES3YR
 
+         else if ( MATCH_NMLKEY('REQUIRE_DOCANA',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) REQUIRE_DOCANA
+
          else if ( MATCH_NMLKEY('USE_MWCOR',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) USE_MWCOR
@@ -5839,6 +5854,9 @@ c ----------
          else if ( LINE_ARGS(i) .EQ. 'RESTORE_DES3YR' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) RESTORE_DES3YR
 
+         else if ( LINE_ARGS(i) .EQ. 'REQUIRE_DOCANA' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) REQUIRE_DOCANA
+
          else if ( LINE_ARGS(i) .EQ. 'USE_MWCOR' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) USE_MWCOR
 
@@ -6670,9 +6688,10 @@ c --------
 +CDE,SNLCINP.
 
       CHARACTER CCID*(MXCHAR_CCID), cFILE*(MXCHAR_FILENAME)
-      INTEGER i, NIGNORE, LENFILE, LENCID, NWD
+      INTEGER i, NIGNORE, LENFILE, LENCID, NWD, FLAG_DOCANA
+      LOGICAL FOUND_DOCANA_END
 
-      INTEGER  STORE_PARSE_WORDS
+      INTEGER  STORE_PARSE_WORDS, ISTAT_FILE_DOCANA
       EXTERNAL STORE_PARSE_WORDS
 C ------------- BEGIN ---------
 
@@ -6686,16 +6705,25 @@ C ------------- BEGIN ---------
       LENCID = INDEX(CCID,' ')-1
 
       NIGNORE = 0
+      FOUND_DOCANA_END=.FALSE.
 
-      DO i = 1, NWD
+      DO 200 i = 1, NWD
 
          CALL get_PARSE_WORD_fortran(i, CCID, LENCID)
 
+	 IF ( REQUIRE_DOCANA > 0 .and. .NOT. FOUND_DOCANA_END) THEN
+            FLAG_DOCANA = ISTAT_FILE_DOCANA(i,CCID)
+            if(FLAG_DOCANA<0) CALL ABORT_MISSING_DOCANA(cFILE,LENFILE)
+	    IF ( FLAG_DOCANA==FLAG_DOCANA_END ) FOUND_DOCANA_END=.TRUE.
+            goto 200
+         ENDIF
+
          NCCID_IGNORE = NCCID_IGNORE + 1
-cc xxx mark delete     SNCCID_IGNORE(NCCID_IGNORE) = CCID
          SNCCID_IGNORE_ALL(NCCID_IGNORE) = CCID
 
          NIGNORE = NIGNORE + 1
+  
+         print*,' xxx IGNORE CCID = ', CCID
 
          IF ( NCCID_IGNORE > MXIGNORE_LIST ) then
            write(c1err,661 ) NCCID_IGNORE
@@ -6705,13 +6733,51 @@ cc xxx mark delete     SNCCID_IGNORE(NCCID_IGNORE) = CCID
 661        format('NCCID_IGNORE=',I4,' exceeds bound.')
 662        format('Check limit MXIGNORE_LIST = ', I4 )
         
-      ENDDO
+200   CONTINUE
 
       print*,' '
       print*,' ------------------------------------------------ '
       print*,' Loaded ', NIGNORE,' IGNORE-candidates from '
       print*, '  ', SNCID_IGNORE_FILE(1:LENFILE)
       print*,' '
+
+      RETURN
+      END
+
+C ====================================
++DECK,ISTAT_FILE_DOCANA.
+      INTEGER FUNCTION ISTAT_FILE_DOCANA(iwd,string)
+
+c use this utility for files where DOCANA keys break the
+c file structure (e.g., SNCID_IGNORE_FILE). This utility
+c easily enables skipping the DOCANA stuff.
+c
+c   Returns  1 if STRING = 'DOCUMENTATION:'
+c   Returns  2 if STRING = 'DOCUMENTATION_END:'
+c   Returns -1 if first word is not 'DOCUMENTATION:' 
+c        (this flags calling function to abort)
+c
+c - - - - - 
+
+      IMPLICIT NONE
+
++CDE,SNPAR.
+
+      INTEGER   IWD          ! (I) word number in file
+      CHARACTER STRING*(*)   ! (I)  string to check for DOCANA keys
+c ---------- BEGIN -----------
+
+      ISTAT_FILE_DOCANA = 0
+      if ( STRING .EQ. 'DOCUMENTATION:'    ) then
+	   ISTAT_FILE_DOCANA = FLAG_DOCANA_START
+       endif
+       if ( STRING .EQ. 'DOCUMENTATION_END:'    ) then
+	   ISTAT_FILE_DOCANA = FLAG_DOCANA_END
+       endif
+
+      if ( IWD == 1 .and. ISTAT_FILE_DOCANA .NE. 1 ) then
+	  ISTAT_FILE_DOCANA = FLAG_DOCANA_ERROR
+      endif
 
       RETURN
       END
@@ -12909,12 +12975,14 @@ c SNDATA_PREFIX
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER LEN_VERS, istat, L1, L2, L3
+      INTEGER LEN_VERS, istat, L1, L2, L3, NWD, LWD, MSKOPT
       CHARACTER*(2*MXCHAR_FILENAME)
      &   VERSION, PATH, LIST_FILE, README_FILE
+      CHARACTER FIRST_WORD*60
 
-      INTEGER   GETINFO_PHOTOMETRY_VERSION
-      EXTERNAL  GETINFO_PHOTOMETRY_VERSION
+      INTEGER   GETINFO_PHOTOMETRY_VERSION, STORE_PARSE_WORDS
+      EXTERNAL  GETINFO_PHOTOMETRY_VERSION, STORE_PARSE_WORDS
+      EXTERNAL  ABORT_MISSING_DOCANA
 
 C ----------------- BEGIN --------------
 
@@ -12970,6 +13038,16 @@ C ----------------- BEGIN --------------
       ENDIF
       SNREADME_FILE(IVERS) = README_FILE(1:L3)  ! fill global
 
+c check option to check DOCANA (Aug 26 2020)
+      IF ( REQUIRE_DOCANA  .NE. 0 ) THEN
+         MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_FIRSTLINE
+         NWD = STORE_PARSE_WORDS(MSKOPT,README_FILE,L3)
+         CALL get_PARSE_WORD_fortran(1, first_word, LWD )
+	 if ( first_word .NE. 'DOCUMENTATION:' ) then
+	    CALL ABORT_MISSING_DOCANA(README_FILE)
+         endif
+      ENDIF  !.xyz
+      
 c construct prefix = path/[version]
       SNDATA_PREFIX = SNDATA_PATH(1:L1) // 
      &       '/'  // VERSION(1:LEN_VERS) 
@@ -12977,35 +13055,6 @@ c construct prefix = path/[version]
       RETURN
       END   ! end of GETINFO_PHOTOMETRY
 
-
-C ======================================
-+DECK,SNANAVERS.
-      SUBROUTINE GETxx_SNANA_VERSIONS(VERSION_SNANA, VERSION_PHOTOM)
-      IMPLICIT NONE
-C ---------------------------------------------------------
-C
-C  !!! OBSOLETE !!!!
-C
-C Created Dec 2, 2012
-C C-callable function to return snana version string and
-C photometry version.
-C Allows lower-level C functions (called by snana) to access version.
-C ---------------------------------------------------------
-      CHARACTER VERSION_SNANA*8            ! (O) snana version string
-      CHARACTER VERSION_PHOTOM*200         ! (O) 
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-
-      INTEGER LV
-C --------------- BEGIN ------------
-      LV = INDEX(SNANA_VERSION,' ') - 1
-      VERSION_SNANA = SNANA_VERSION(1:LV) // char(0)
-
-      LV = INDEX(VERSION_PHOTOMETRY(1),' ') - 1
-      VERSION_PHOTOM = VERSION_PHOTOMETRY(1)(1:LV) // char(0)
-
-      RETURN
-      END
 
 C ================================================
 +DECK,RDVERTEXT.
@@ -20923,7 +20972,14 @@ c Apr 2017: check nonlinearity from user-supplied map
 
 c ------------------------------
 c Feb 2018: check FLUXERRMAPs for DATA
+
       OPTMASK = FLUXERRMODEL_OPTMASK
+      if ( REQUIRE_DOCANA .NE. 0 ) then
+c   note that MASK_REQUIRE_DOCANA_FLUXERRMAP=1024 
+c   in sntools_fluxErrModels.h      
+         FLUXERRMODEL_OPTMASK = FLUXERRMODEL_OPTMASK + 1024 
+      endif
+
       CALL ENVreplace(FLUXERRMODEL_FILE);
       LL    = INDEX(FLUXERRMODEL_FILE,' ')-1
       cFILE = FLUXERRMODEL_FILE(1:LL) // char(0)

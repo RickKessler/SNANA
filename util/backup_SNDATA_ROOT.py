@@ -157,7 +157,7 @@ def update_backup_log(backup_dict) :
         b.write(f"   BACKUP_OWNER:  {USERNAME} \n")
         b.write(f"   BACKUP_SIZE:   {tar_size}   # MB\n")
         b.write(f"   BACKUP_FILE:   {TAR_FILE}.gz\n")
-        b.write(f"   ZENODO_UPLOAD: *** READY(NOT_DONE) *** \n")
+        b.write(f"   ZENODO_UPLOAD:    READY(NOT_DONE)  \n")
         b.write(f"\n")
 
     print(f"\n Finished updating   \n     {BACKUP_LOGFILE}\n")

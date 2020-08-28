@@ -24199,7 +24199,7 @@ void readme_doc(int iflag_readme) {
   // Feb 16 2020: write SIMULATION key at top for Pippin.
   // Feb 20 2020: write PHOTPROB info
   // Jul 31 2020: for batch jobs (JOBID>0), write keys for monitor task
-  //
+  // Aug 26 2020: use DOCANA structure at top of file
 
   char ctmp[MXPATHLEN], cfilt[2], cwd[MXPATHLEN] ;
   char *cptr;
@@ -24224,19 +24224,14 @@ void readme_doc(int iflag_readme) {
   //--- brief description
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"SIMULATION: \n" ); // Feb 2020
+  sprintf(cptr,"%s \n", KEYNAME_DOCANA_REQUIRED ); 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  BRIEF_DESCRIPTION: simulate %s SNe with GENMODEL = %s \n", 
-	  INPUTS.GENSOURCE, INPUTS.MODELNAME );
-
-  /* xxxx
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n");
-  xxxx */
+  sprintf(cptr,"  BRIEF_DESCRIPTION: simulate %s SURVEY with GENMODEL = %s \n", 
+	  GENLC.SURVEY_NAME, INPUTS.MODELNAME );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  HOST MACHINE: %s \n", getenv("HOST") );
+  sprintf(cptr,"  HOST_MACHINE: %s \n", getenv("HOST") );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf( cptr, "  USERNAME:  %s \n", getenv("USER") );
@@ -24251,8 +24246,11 @@ void readme_doc(int iflag_readme) {
   // write current directory (Sep 5 2013)
   if ( getcwd(cwd,MXPATHLEN) != NULL ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"  Current Dir:  %s \n", cwd );
+    sprintf(cptr,"  CWD:   %s \n", cwd );
   }
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s \n", KEYNAME2_DOCANA_REQUIRED ); 
 
   // -----------------------------
 

@@ -10887,7 +10887,7 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
 
  DONE:
 
-  if ( REQUIRE_DOCANA ) {  check_docana(fp,fullName); }
+  if ( REQUIRE_DOCANA ) {  check_openFile_docana(fp,fullName); }
 
   // return pointer regardless of status
   return fp;
@@ -10896,20 +10896,43 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
 
 
 // *************************************
-void check_docana(FILE *fp, char *fileName) {
+void check_openFile_docana(FILE *fp, char *fileName) {
   // Created Aug 26 2020
-  // Abort if first word in file is not a DOCANA key.
+  // For already open file (fp), abort if first word in file is not 
+  // a DOCANA key.
   // A separate abort function is available to both C and fortran.
 
   char key[60];
-  char fnam[] = "check_docana";
+  char fnam[] = "check_openFile_docana";
   // ------------- BEGIN --------
   fscanf(fp, "%s", key);
   if ( strcmp(key,KEYNAME_DOCANA_REQUIRED) != 0 ) 
     { abort_missing_docana(fileName); }
   
   return;
-} // end check_docana
+} // end check_openFile_docana
+
+// *************************************
+void check_file_docana(char *fileName) {
+  // Created Aug 26 2020
+  // Open and read first line if fileName; abort if no DOCANA key.
+  // A separate abort function is available to both C and fortran.
+
+  int MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_FIRSTLINE ;
+  int  langFlag=0, iwd0=0, NWD;
+  char key[60];
+  char fnam[] = "check_file_docana";
+  // ------------- BEGIN --------
+
+  NWD = store_PARSE_WORDS(MSKOPT, fileName);
+  get_PARSE_WORD(langFlag, iwd0, key);
+
+  if ( strcmp(key,KEYNAME_DOCANA_REQUIRED) != 0 ) 
+    { abort_missing_docana(fileName); }
+  
+  return;
+} // end check_file_docana
+
 
 void abort_missing_docana(char *fileName) {
   char fnam[] = "abort_missing_docana" ;
@@ -10929,7 +10952,8 @@ void abort_missing_docana(char *fileName) {
 
 void abort_missing_docana__(char *fileName) 
 { abort_missing_docana(fileName); }
-
+void check_file_docana__(char *fileName) 
+{ check_file_docana(fileName); }
 
 // *****************************************************
 void abort_openTextFile(char *keyName, char *PATH_LIST,

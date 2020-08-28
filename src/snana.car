@@ -5084,7 +5084,7 @@ c - - - -
            STRING_LIST    = ARGLIST(1)(1:60)
            NSNTYPE_IGNORE = PARSE_INTLIST(STRING_LIST,SNTYPE_IGNORE)
 
-         else if ( MATCH_NMLKEY('SNCID_LIST',  ! .xyz Aug 18 2020
+         else if ( MATCH_NMLKEY('SNCID_LIST',  ! Aug 18 2020
      &             1, iArg, ARGLIST) ) then 
            STRING_LIST = ARGLIST(1)(1:60)
            NCID_LIST   = PARSE_INTLIST(STRING_LIST,SNCID_LIST)
@@ -6722,8 +6722,6 @@ C ------------- BEGIN ---------
          SNCCID_IGNORE_ALL(NCCID_IGNORE) = CCID
 
          NIGNORE = NIGNORE + 1
-  
-         print*,' xxx IGNORE CCID = ', CCID
 
          IF ( NCCID_IGNORE > MXIGNORE_LIST ) then
            write(c1err,661 ) NCCID_IGNORE
@@ -6743,6 +6741,7 @@ C ------------- BEGIN ---------
 
       RETURN
       END
+
 
 C ====================================
 +DECK,ISTAT_FILE_DOCANA.
@@ -11802,7 +11801,8 @@ c
 c  where <FILTER> is 'g' or 'r' or 'i' etc ...
 c
 c
-c Jun 28, 2011: if IVERS>1 reads the same file then stop reading and return.
+c Aug 27 2020: for externally supplied .IGNORE  file, make DOCANA check.
+c
 c ----------------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -11816,6 +11816,7 @@ c local var
 
       INTEGER LL, LL1, LL2, LL3, LV, LF
       INTEGER iwd, NWD, N, LUN, NREAD_IGNORE
+      LOGICAL DOCHECK_DOCANA
       REAL*8 MJD8
       CHARACTER 
      &   LOCAL_FILENAME*(MXCHAR_FILENAME)
@@ -11842,12 +11843,14 @@ C ------------- BEGIN ----------
       if ( EPOCH_IGNORE_FILE(1:4) .EQ. 'NULL' ) GOTO 8000
 
 c check if file is default, or if provided by user.
-
+      
       IF ( EPOCH_IGNORE_FILE(1:7) .EQ. 'DEFAULT' ) THEN
         LL = INDEX( SNDATA_PREFIX, ' ' ) - 1
         LOCAL_FILENAME = SNDATA_PREFIX(1:LL) // '.IGNORE'
+	DOCHECK_DOCANA = .FALSE. ! not needed because it's in README file
       ELSE
         LOCAL_FILENAME = EPOCH_IGNORE_FILE
+	DOCHECK_DOCANA = ( REQUIRE_DOCANA > 0 )
       ENDIF
 
 c for multiple versions, don't bother re-reading  the same
@@ -11865,8 +11868,12 @@ c Now start reading file
 
       LL = INDEX( LOCAL_FILENAME, ' ' ) - 1
       NAME_forC = LOCAL_FILENAME(1:LL)//char(0)
-      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LL)
 
+c - - - - Aug 27 2020 - - - - - -
+cc ??   IF ( DOCHECK_DOCANA ) CALL CHECK_FILE_DOCANA(NAME_forC,LL)
+c - - - - - - - - - - - - - - - - -
+
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LL)
 
       write(6,50) LOCAL_FILENAME(1:LL)
 50    format(T5,'Read epochs to ignore from: ', /, T5, A)
@@ -12979,10 +12986,10 @@ c SNDATA_PREFIX
       CHARACTER*(2*MXCHAR_FILENAME)
      &   VERSION, PATH, LIST_FILE, README_FILE
       CHARACTER FIRST_WORD*60
+      LOGICAL LSIM_TEMP
 
-      INTEGER   GETINFO_PHOTOMETRY_VERSION, STORE_PARSE_WORDS
-      EXTERNAL  GETINFO_PHOTOMETRY_VERSION, STORE_PARSE_WORDS
-      EXTERNAL  ABORT_MISSING_DOCANA
+      INTEGER   GETINFO_PHOTOMETRY_VERSION
+      EXTERNAL  GETINFO_PHOTOMETRY_VERSION, CHECK_FILE_DOCANA
 
 C ----------------- BEGIN --------------
 
@@ -13038,16 +13045,17 @@ C ----------------- BEGIN --------------
       ENDIF
       SNREADME_FILE(IVERS) = README_FILE(1:L3)  ! fill global
 
+c - - - - - - - 
 c check option to check DOCANA (Aug 26 2020)
-      IF ( REQUIRE_DOCANA  .NE. 0 ) THEN
-         MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_FIRSTLINE
-         NWD = STORE_PARSE_WORDS(MSKOPT,README_FILE,L3)
-         CALL get_PARSE_WORD_fortran(1, first_word, LWD )
-	 if ( first_word .NE. 'DOCUMENTATION:' ) then
-	    CALL ABORT_MISSING_DOCANA(README_FILE)
-         endif
-      ENDIF  !.xyz
-      
+c Avoid checking sim README with this temporary hack since LSIM_SNANA
+c is not set yet. Remove LSIM_TEMP hack when proper DOCANA key is
+c propagated to sim README
+      LSIM_TEMP = ( INDEX(SNDATA_PATH,'SIM') > 0 )
+      IF ( .NOT.LSIM_TEMP .and. REQUIRE_DOCANA > 0 ) THEN
+         CALL CHECK_FILE_DOCANA(README_FILE, MXCHAR_FILENAME)
+      ENDIF 
+
+c - - - - - - - -       
 c construct prefix = path/[version]
       SNDATA_PREFIX = SNDATA_PATH(1:L1) // 
      &       '/'  // VERSION(1:LEN_VERS) 
@@ -19456,7 +19464,9 @@ C =====================================
 
 c Created Jul 21 2020
 c Read FILENAME with SNTABLE_AUTOSTORE
-
+c
+c Aug 27 2020: check REQUIRE_DOCANA
+c
       IMPLICIT NONE
     
 +CDE,SNDATCOM.
@@ -19480,7 +19490,7 @@ c functions
       EXTERNAL SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
 
       INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PARSE_WORDS
+      EXTERNAL STORE_PARSE_WORDS, CHECK_FILE_DOCANA
 
 C ------------- BEGIN -----------
      
@@ -19495,6 +19505,12 @@ C ------------- BEGIN -----------
 
       LEN3 = INDEX(VARLIST_ALL_HEADER_OVERRIDE,' ') - 1
       cVARLIST = VARLIST_ALL_HEADER_OVERRIDE(1:LEN3) // char(0)
+
+c - - - - - -  -
+      IF ( REQUIRE_DOCANA > 0 ) THEN  ! Aug 27 2020
+        CALL CHECK_FILE_DOCANA(cFILE,LEN1)  ! C function
+      ENDIF
+c - - - - - -  -
 
       OPTMASK_SNTABLE = 4  ! 1=print, 2=abort on missin var, 4=append next file
       NROW = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST, 

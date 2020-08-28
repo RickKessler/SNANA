@@ -78,6 +78,9 @@ my $TESTMODE = 0 ;
 
 # =============== BEGIN MAIN =================
 
+
+die "\n ***** OBSOLETE: please use backup_SNDATA_ROOT.py  ***** \n" ;
+
 # hard-wired initializations
 &miscInit();
 

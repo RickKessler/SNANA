@@ -5,41 +5,54 @@
 #  + find and write list of new files since last backup
 #  + update BACKUPS.LOG
 #
-# Legacy perl script backup_SNDATA_ROOT.pl should no
-# longer be used.
-#
+# Beware that this script makes a local backup in the same 
+# top-dir as SNDATA_ROOT. Backups to other locations
+# (e.g., zenodo) must be done manually, or with another script.
+# 
 # =================================
 
-import os, sys, shutil, subprocess, yaml
-import datetime
+import os, sys, yaml, datetime
 
+USERNAME      = os.environ['USER']
 SNDATA_ROOT   = os.environ['SNDATA_ROOT']
 
 backup_logdir  = 'backup_logs'
 BACKUP_LOGDIR  = (f"{SNDATA_ROOT}/{backup_logdir}")
 BACKUP_LOGFILE = (f"{BACKUP_LOGDIR}/BACKUPS.LOG")
 
-TAR_SUBDIR_LIST = 'filters kcor lcmerge models MWDUST sample_input_files ' \
-                  'SIM simlib snsed standards'
-
+# explicitly define directories to include in backup tar file
+TAR_SUBDIR_LIST = \
+    'filters kcor lcmerge models MWDUST sample_input_files ' \
+    'SIM simlib snsed standards'
 #TAR_SUBDIR_LIST = 'SIM snsed'  # xxx REMOVE
 
 # specify content to exclude from tar file
 EXCLUDE_FROM_TAR = [ 'SIM/*' ]
 
+BACKUP_SIZE_ALARM = 1500  # give warning of backup tar file exceeds this size
+
 # specify content to exclude from list of new files
-EXCLUDE_FROM_NEW_FILES = [ './SIM/*', './SNANA_TESTS/*', (f"./{backup_logdir}/*") ]
+EXCLUDE_FROM_NEW_FILES = \
+    [ './SIM/*', './SNANA_TESTS/*', (f"./{backup_logdir}/*") ]
 
-
+# define date stamp to mark backup version
 tnow       = datetime.datetime.now()
 DATE_STAMP = ('%4.4d-%2.2d-%2.2d' % (tnow.year,tnow.month,tnow.day) )
 
 # ================================================
 def get_tar_file_name():
-    tar_file    = (f"SNDATA_ROOT_{DATE_STAMP}.tar")
+
+    # backup path is $SNDATA_ROOT up to last slash so that
+    # SNDATA_ROOT and its backup are viewable together with ls
     jslash      = SNDATA_ROOT.rindex('/')
     path_backup = SNDATA_ROOT[0:jslash]
+
+    tar_file    = (f"SNDATA_ROOT_{DATE_STAMP}.tar")
     TAR_FILE    = (f"{path_backup}/{tar_file}")
+
+    print(f" TAR_FILE    : {TAR_FILE} ")
+    print(f" tar_file    : {tar_file} ")
+
     return TAR_FILE,tar_file
 
 def create_tar_file(backup_dict):
@@ -72,6 +85,12 @@ def create_tar_file(backup_dict):
 
     print(f" Size is {size_mb} MB")
 
+    if size_mb > BACKUP_SIZE_ALARM :
+        print(f"\n")
+        print(f" ****** BACKUP SIZE ALARM: {size_mb} MB ***** ")
+        print(f" ****** BACKUP SIZE ALARM: {size_mb} MB ***** ")
+        print(f" ****** BACKUP SIZE ALARM: {size_mb} MB ***** ")
+
     # end create_tar_file
 
 def find_new_files(backup_dict) :
@@ -82,7 +101,7 @@ def find_new_files(backup_dict) :
     backup_log_contents = backup_dict['backup_log_contents']
 
     last_backup_key  = list(backup_log_contents.keys())[-1]
-    last_backup_date = backup_log_contents[last_backup_key]['DATE']
+    last_backup_date = backup_log_contents[last_backup_key]['BACKUP_DATE']
     
     x_string = ''
     for x in EXCLUDE_FROM_NEW_FILES:
@@ -118,10 +137,12 @@ def read_backup_log():
     config = yaml.safe_load("\n".join(lines))
     return config
 
+
 def update_backup_log(backup_dict) :
     # for name of new yaml block, remove .tar from tar_file name
     tar_file     = backup_dict['tar_file']
-    n_file_new   = backup_dict['n_file_new']
+    TAR_FILE     = backup_dict['TAR_FILE']    # includes full path
+    n_file_new   = backup_dict['n_file_new']  
     tar_size     = backup_dict['tar_size'] 
     NEW_LOG_FILE = backup_dict['NEW_LOG_FILE']
 
@@ -130,9 +151,13 @@ def update_backup_log(backup_dict) :
 
     with open(BACKUP_LOGFILE,"a") as b :
         b.write(f"{yaml_block_name}: \n")
-        b.write(f"   DATE:       {DATE_STAMP} \n")
-        b.write(f"   NFILE_NEW:  {n_file_new} \n")
-        b.write(f"   SIZE:       {tar_size}   # MB\n")
+        b.write(f"   NFILE_NEW:     {n_file_new}   " \
+                f"# new file count since last backup\n")
+        b.write(f"   BACKUP_DATE:   {DATE_STAMP} \n")
+        b.write(f"   BACKUP_OWNER:  {USERNAME} \n")
+        b.write(f"   BACKUP_SIZE:   {tar_size}   # MB\n")
+        b.write(f"   BACKUP_FILE:   {TAR_FILE}.gz\n")
+        b.write(f"   ZENODO_UPLOAD: *** READY(NOT_DONE) *** \n")
         b.write(f"\n")
 
     print(f"\n Finished updating   \n     {BACKUP_LOGFILE}\n")
@@ -142,12 +167,11 @@ def update_backup_log(backup_dict) :
 # ==================================================
 if __name__ == "__main__":
 
+    print(f"\n")
+    print(f" SNDATA_ROOT : {SNDATA_ROOT}")
+
     TAR_FILE,tar_file = get_tar_file_name()
     
-    print(f" SNDATA_ROOT : {SNDATA_ROOT}")
-    print(f" TAR_FILE    : {TAR_FILE} ")
-    print(f" tar_file    : {tar_file} ")
-
     backup_dict = {}
     backup_dict['tar_file'] = tar_file
     backup_dict['TAR_FILE'] = TAR_FILE

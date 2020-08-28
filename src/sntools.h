@@ -57,7 +57,8 @@
 #define  SNANA_VERSION_CURRENT  "v10_78"                                  
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 
-#define KEYNAME_DOCANA_REQUIRED  "DOCUMENTATION:"
+#define KEYNAME_DOCANA_REQUIRED   "DOCUMENTATION:"
+#define KEYNAME2_DOCANA_REQUIRED  "DOCUMENTATION_END:"
 #define OPENMASK_VERBOSE        1  // see snana_openTextFile
 #define OPENMASK_REQUIRE_DOCANA 2  // see snana_openTextFile
 
@@ -772,9 +773,11 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
 void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
 void abort_openTextFile(char *keyName, char *PATH_LIST, 
 			char *fileName, char *funCall);
-void check_docana(FILE *fp, char *fileName);
+void check_openFile_docana(FILE *fp, char *fileName); // check file already open
+void check_file_docana(char *fileName);           // open file and check
 void abort_missing_docana(char *fileName);
 void abort_missing_docana__(char *fileName);
+void check_file_docana__(char *fileName);
 
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
 void ENVrestore(char *fileName_noENV, char *fileName_orig);

@@ -5,6 +5,13 @@
 #  + find and write list of new files since last backup
 #  + update BACKUPS.LOG
 #
+# Can re-run this script multiple times and previous output 
+# (tar file and BACKUPS.LOG) from same calendar date will be 
+# overwritten. Thus if this script needs to be re-run (same day)
+# after some SNDATA_ROOT updates,  there is no need to remove or 
+# alter previous script output. If you wait until next day, new
+# output will be created.
+#
 # Beware that this script makes a local backup in the same 
 # top-dir as SNDATA_ROOT. Backups to other locations
 # (e.g., zenodo) must be done manually, or with another script.
@@ -18,7 +25,9 @@ SNDATA_ROOT   = os.environ['SNDATA_ROOT']
 
 backup_logdir  = 'backup_logs'
 BACKUP_LOGDIR  = (f"{SNDATA_ROOT}/{backup_logdir}")
-BACKUP_LOGFILE = (f"{BACKUP_LOGDIR}/BACKUPS.LOG")
+
+backup_logfile = "BACKUPS.LOG"
+BACKUP_LOGFILE = (f"{BACKUP_LOGDIR}/{backup_logfile}")
 
 # explicitly define directories to include in backup tar file
 TAR_SUBDIR_LIST = \
@@ -40,20 +49,25 @@ tnow       = datetime.datetime.now()
 DATE_STAMP = ('%4.4d-%2.2d-%2.2d' % (tnow.year,tnow.month,tnow.day) )
 
 # ================================================
-def get_tar_file_name():
+def get_tar_file_name(backup_dict):
 
     # backup path is $SNDATA_ROOT up to last slash so that
     # SNDATA_ROOT and its backup are viewable together with ls
     jslash      = SNDATA_ROOT.rindex('/')
     path_backup = SNDATA_ROOT[0:jslash]
 
+    prefix      = (f"SNDATA_ROOT_{DATE_STAMP}")
     tar_file    = (f"SNDATA_ROOT_{DATE_STAMP}.tar")
     TAR_FILE    = (f"{path_backup}/{tar_file}")
 
     print(f" TAR_FILE    : {TAR_FILE} ")
     print(f" tar_file    : {tar_file} ")
 
-    return TAR_FILE,tar_file
+    backup_dict['tar_prefix'] = prefix
+    backup_dict['tar_file']   = tar_file
+    backup_dict['TAR_FILE']   = TAR_FILE
+
+    # end get_tar_file_name
 
 def create_tar_file(backup_dict):
     
@@ -98,10 +112,10 @@ def find_new_files(backup_dict) :
     # Use linux find command with os.system.
     # Finally, write NEW_FILES_[date].DAT
 
-    backup_log_contents = backup_dict['backup_log_contents']
+    backup_log_yaml = backup_dict['backup_log_yaml']
 
-    last_backup_key  = list(backup_log_contents.keys())[-1]
-    last_backup_date = backup_log_contents[last_backup_key]['BACKUP_DATE']
+    last_backup_key  = list(backup_log_yaml.keys())[-1]
+    last_backup_date = backup_log_yaml[last_backup_key]['BACKUP_DATE']
     
     x_string = ''
     for x in EXCLUDE_FROM_NEW_FILES:
@@ -129,14 +143,36 @@ def find_new_files(backup_dict) :
     #find . -type f -newermt '7/11/2020' ! -path "./SIM/*" ! -path "./SNANA_TESTS/*"
     # end find_new_files
 
-def read_backup_log():
-    lines = []
+def read_backup_log(backup_dict):
+    line_list = []
     with open(BACKUP_LOGFILE, "r") as f:
         for line in f:
-            lines.append(line)
-    config = yaml.safe_load("\n".join(lines))
-    return config
+            line_list.append(line)
 
+    backup_yaml = yaml.safe_load("\n".join(line_list))
+    backup_dict['backup_log_lines']   = line_list   # verbatim lines
+    backup_dict['backup_log_yaml']    = backup_yaml
+
+    # if backup log includes yaml block with current date,
+    # re-write log EXCLUDING this block so that it can be
+    # over-written. I.e., we don't want multiple yaml blocks
+    # with the same date.
+    tar_prefix = backup_dict['tar_prefix']
+    word_stop  = tar_prefix + ':'  # stop writing log at this word
+    flag_stop  = False 
+    if tar_prefix in backup_yaml :
+        print(f"\n  !! Remove already existing {tar_prefix} " \
+              f"from {backup_logfile} !! \n")
+
+        with open(BACKUP_LOGFILE, "w") as f:
+            for line in line_list :
+                line = line.rstrip("\n")
+                if len(line) > 0 :
+                    word_list = line.split()
+                    if word_list[0] == word_stop: flag_stop = True
+                if flag_stop is False : f.write(f"{line}\n")
+    
+    # end  read_backup_log
 
 def update_backup_log(backup_dict) :
     # for name of new yaml block, remove .tar from tar_file name
@@ -144,20 +180,20 @@ def update_backup_log(backup_dict) :
     TAR_FILE     = backup_dict['TAR_FILE']    # includes full path
     n_file_new   = backup_dict['n_file_new']  
     tar_size     = backup_dict['tar_size'] 
+    tar_prefix   = backup_dict['tar_prefix']
     NEW_LOG_FILE = backup_dict['NEW_LOG_FILE']
-
     jdot            = tar_file.rindex('.')
     yaml_block_name = tar_file[0:jdot]
 
     with open(BACKUP_LOGFILE,"a") as b :
-        b.write(f"{yaml_block_name}: \n")
+        b.write(f"{tar_prefix}: \n")
         b.write(f"   NFILE_NEW:     {n_file_new}   " \
                 f"# new file count since last backup\n")
         b.write(f"   BACKUP_DATE:   {DATE_STAMP} \n")
         b.write(f"   BACKUP_OWNER:  {USERNAME} \n")
         b.write(f"   BACKUP_SIZE:   {tar_size}   # MB\n")
         b.write(f"   BACKUP_FILE:   {TAR_FILE}.gz\n")
-        b.write(f"   ZENODO_UPLOAD:    READY(NOT_DONE)  \n")
+        b.write(f"   ZENODO_UPLOAD: '*** READY(NOT_DONE) ***' \n")
         b.write(f"\n")
 
     print(f"\n Finished updating   \n     {BACKUP_LOGFILE}\n")
@@ -170,14 +206,12 @@ if __name__ == "__main__":
     print(f"\n")
     print(f" SNDATA_ROOT : {SNDATA_ROOT}")
 
-    TAR_FILE,tar_file = get_tar_file_name()
-    
     backup_dict = {}
-    backup_dict['tar_file'] = tar_file
-    backup_dict['TAR_FILE'] = TAR_FILE
+
+    get_tar_file_name(backup_dict)
 
     # read backup log for all previous backups
-    backup_dict['backup_log_contents'] = read_backup_log()
+    read_backup_log(backup_dict)
 
     # make list of all new files since last backup; 
     # return name of log file with list of new files.

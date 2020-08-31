@@ -196,8 +196,11 @@ opt_translate is ignored.
     Example 2: input_file = LEGACY_abc.input is not modified;
                translated input file is abc.input.
 
-  opt_translate += 4 ->
+  opt_translate +=4 ->
     continue running submit_batch_jobs using translated input file.
+
+  opt_translate +=8 ->
+    always exit, regardless of whether input file is legacy or not.
 
 Setting opt_translate to 1 or 2 results in translation followed by exiting 
 submit_batch_jobs. This option enables visual inspection of translated input 

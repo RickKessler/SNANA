@@ -143,6 +143,8 @@ def check_legacy_input_file(input_file, opt_translate):
     # Function returns name of input file ... original of already
     # in correct YAML format, or translated.
 
+    exit_always = (opt_translate & 8 ) > 0 # exit for legacy or refac file
+
     msgerr = []
     with open(input_file,"r") as f:
         flat_word_list=[word for line in f for word in line.split()]
@@ -157,6 +159,9 @@ def check_legacy_input_file(input_file, opt_translate):
                 msgerr.append(f" Obsolete key '{key}' no longer valid.")
                 msgerr.append(f" Comment: {comment}")
                 util.log_assert(False,msgerr)
+
+        if exit_always :
+            sys.exit("\n Input file already translated; exit anyway.")
 
         return input_file    # file ok, do nothing.
 

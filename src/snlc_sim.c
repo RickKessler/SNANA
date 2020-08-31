@@ -9645,8 +9645,8 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   Mar 11 2020: pass OPT_FRAME = rest or obs.
 
-  Jul 23 2020: fix DOSHAPE to be false for LCLIB model.
-
+  Jul 23 2020: DOSHAPE = F for LCLIB model.
+  Aug 31 2020: DOSHAPE = F for BYOSED model
   **********/
 
   bool ISFRAME_REST      = ( OPT_FRAME == OPT_FRAME_REST );
@@ -9658,9 +9658,11 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
   bool ISMODEL_NON1ASED  = ( INDEX_GENMODEL == MODEL_NON1ASED );
   bool ISMODEL_NON1A     = ( INPUTS.NON1A_MODELFLAG > 0 );
   bool ISMODEL_LCLIB     = ( INDEX_GENMODEL == MODEL_LCLIB ) ;
-
+  bool ISMODEL_BYOSED    = ( INDEX_GENMODEL == MODEL_BYOSED ) ;
   bool SKIPx1  = SIMLIB_HEADER.GENGAUSS_SALT2x1.USE ;
-  bool DOSHAPE = !( SKIPx1 || ISMODEL_SIMSED || ISMODEL_NON1A || ISMODEL_LCLIB);
+  bool DOSHAPE = !( SKIPx1 || ISMODEL_SIMSED || ISMODEL_NON1A || 
+		    ISMODEL_LCLIB || ISMODEL_BYOSED );
+
   // xxx  bool DOSHAPE = ( !SKIPx1 && !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0) ;
 
   double ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations

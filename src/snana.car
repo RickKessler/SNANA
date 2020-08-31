@@ -7414,7 +7414,7 @@ c Beware that SNANA table gets filled after FITRES table.
       RETURN
       END         ! end of SNANA_DRIVER
 
-C ==============================
+C =====================================================
 +DECK,SNANA_ERRFLAG,IF=SNFIT.
       SUBROUTINE SNANA_ERRFLAG_FIT(ITER,ERRFLAG)
 
@@ -7441,7 +7441,7 @@ C ------------ BEGIN ----------
       if ( LAST_ITER ) then  
          if ( ERRFLAG == 0 ) then
             N_SNLC_FITCUTS = N_SNLC_FITCUTS + 1
-            CUTFLAG_SNANA = IBSET(CUTFLAG_SNANA,1) ! for SNANA ntuple
+            CUTFLAG_SNANA  = IBSET(CUTFLAG_SNANA,1) ! for SNANA ntuple
             NPASSCUT_FIT(ISNLC_TYPE) = NPASSCUT_FIT(ISNLC_TYPE)+1
             NPASSCUT_FIT(-1)         = NPASSCUT_FIT(-1)+1 ! all types
          endif

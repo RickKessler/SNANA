@@ -153,6 +153,8 @@ EXTRA_FLAGS = -O1   # -ftree-vectorize -ftree-vectorizer-verbose=2
 #  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
   PROFILEFLAG = 
+
+# after running code with -pg, "gprof $SNANA_DIR/bin/[code].exe"
 #  PROFILEFLAG = -pg
 # ------------------------
 # compile default storage options for both ROOT and HBOOK ....

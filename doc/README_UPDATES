@@ -18795,7 +18795,7 @@
 
 
 # ======================================================================= 
-         v10_78 (Aug 18 2020) 
+         v10_78 (Sep 01 2020) 
 
          ***** IMPORTANT(v10_78) ***** 
 
@@ -18857,6 +18857,10 @@
      + optional ONE_RANDOM_STREAM pre-proc flag; see manual.
      + MXCHARWORD_PARSE_WORDS -> 300 (was 60) to handle long file names
          (fixes segFault found by R.Chen using HEADER_OVERRIDE feature)
+
+   snlc_fit.car
+     + fix CUTFLAG_SNANA for FITRES table. No impact on fits, 
+       but fix avoids confusion.
 
    sntable_dump.pl[c]
      + add NEVT option to print number of events in table.

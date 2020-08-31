@@ -1524,6 +1524,8 @@ struct INPUTS {
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
   int debug_flag;    // for internal testing/refactoring
   
+  int nthread ; // number of threads (default = 0 -> no threads)
+
 } INPUTS ;
 
 
@@ -1989,10 +1991,7 @@ void exec_mnparm(void); // local shell function to call mnparm_
 void exec_mnpout_mnerrs(void); // loop over params and store VAL and ERR
 
 void mnseti_(const char ctitle[], int nctitle);
-/*
-void mnexcm_(double fcn, const char chcom[], const double arglis[],
-	     const int* narg, int* ierflg, void*, int nchcom);
-*/
+
 void mnpout_(const int* num, char chnam[], double* val, double* error,
 	     double* bnd1, double* bnd2, int* ivarbl, int nchnam);
 
@@ -3459,10 +3458,10 @@ void printmsg_repeatFit(char *msg) {
 
 // ******************************************
 void fcn(int *npar, double grad[], double *fval, double xval[],
-	 int *iflag, void *not)
+	 int *iflag, void *not_used)
 {
   // function to be minimized by MINUIT
-  //c flat=1 read input, flag 2=gradient, flag=3 is final value
+  //  flag=1 read input, flag 2=gradient, flag=3 is final value
   double M0, alpha, beta, gamma, alpha0, beta0, gamma0;
   double da_dz, db_dz, dg_dz, da_dm, db_dm ;
   double scalePCC, scalePIa, scalePROB_fitpar, nsnfitIa, nsnfitcc;
@@ -4777,6 +4776,7 @@ void set_defaults(void) {
   INPUTS.SNID_MUCOVDUMP[0] = 0 ;
   INPUTS.debug_flag        = 0 ;
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
+  INPUTS.nthread           = 0 ;
 
   // === set blind-par values to be used if blindflag=2 (Aug 2017)
   ISDATA_REAL = 1 ;
@@ -14228,6 +14228,9 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"debug_flag=")) 
     { sscanf(&item[11],"%d", &INPUTS.debug_flag); return(1); }
+
+  if ( uniqueOverlap(item,"nthread=")) 
+    { sscanf(&item[11],"%d", &INPUTS.nthread); return(1); }
 
   return(0);
   

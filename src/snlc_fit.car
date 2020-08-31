@@ -2211,6 +2211,8 @@ c Feb 28 2020:
 c   set ERRFLAG = -1 (repeat iter) if both ITER1_MAXFRAC and 
 c   DELCHI2_REJECT are set. Fixes long-standing bug.
 c
+c Aug 28 2020: if ERRFLAG=0 then set CUTFLAG_SNANA += 2 so that
+c              correct CUTFLAG_SNANA shows up in FITRES table.
 c --------------------------------------------------
 
       IMPLICIT NONE
@@ -2403,6 +2405,10 @@ c back to topdir
           CALL CDTOPDIR_OUTPUT()
           RETURN
       ENDIF
+
+c - - - - - - - 
+c Aug 28 2020: if we get here, set CUTFLAG_SNANA bit for fit success.
+      CUTFLAG_SNANA  = IBSET(CUTFLAG_SNANA,1) ! for SNANA tree
 
 c ---------------------------------------------------------
 c book plots for this SN; all plots are vs. relative epoch

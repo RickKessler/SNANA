@@ -1597,7 +1597,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", PATH_USER_INPUT );
   }
   else if ( keyMatchSim(1, "PATH_SNDATA_SIM",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", PATH_SNDATA_SIM );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.PATH_SNDATA_SIM );
   }
   if ( keyMatchSim(1, "PATH_NON1ASED PATH_NONIASED", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.NON1ASED.PATH );

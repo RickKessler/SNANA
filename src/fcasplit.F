@@ -17,6 +17,8 @@
 * Revision 1.1.1.1  1996/02/15 17:54:16  mclareni
 *
 * Stolen from kerngen/obsolete
+*
+* Sep 1 2020: fix obsolete fortran state near 24
 
       PROGRAM FCASPLIT
 
@@ -277,10 +279,13 @@ C--       Length of the option strings = true length + 2 (blanks)
 
    21 DO  24  JJ=1,7
       DO  23  J=MXLENG,1,-1
-      IF (CHOPT(JJ)(J:J).NE.' ')     GO TO 24
+      IF (CHOPT(JJ)(J:J).NE.' ')   GO TO 22  ! xxx GO TO 24
    23 CONTINUE
       J = 0
-   24 NCHOPT(JJ) = J + 2
+ 22   NCHOPT(JJ) = J + 2    
+ 24   CONTINUE               ! RK
+cc xxx   24 NCHOPT(JJ) = J + 2
+
       NCHFIN     = NCHFIN - 2
 #if defined(CERNLIB_QMVAX)
       NCHOPT(4)  = NCHOPT(4) - 2

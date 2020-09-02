@@ -1,5 +1,7 @@
 *   Jun 24 2017: MNI->80 (was 50) for SALT2mu program
 *   Sep 11 2017: MNI->110
+*   Sep 01 2020: fix obsolete fortan; DO and GOTO must point to CONTINUE
+*      (needed for gcc 9.2 on Midway)
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
@@ -618,14 +620,18 @@ C
       NFCN = NFCN + 1
       DO 200 I= 1, NPAR
       GRD(I) = 0.
-         DO 200 J= 1, NPAR
+         DO 201 J= 1, NPAR
          M = MAX(I,J)
          N = MIN(I,J)
          NDEX = M*(M-1)/2 + N
-  200    GRD(I) = GRD(I) + VTHMAT(NDEX) * (XT(J)-PVEC(J))
+         GRD(I) = GRD(I) + VTHMAT(NDEX) * (XT(J)-PVEC(J))
+ 201     CONTINUE
+ 200     CONTINUE
       DENOM = 0.
       DO 210 I= 1, NPAR
-  210 DENOM = DENOM + GRD(I) * (XT(I)-PVEC(I))
+      DENOM = DENOM + GRD(I) * (XT(I)-PVEC(I))
+ 210  CONTINUE
+
       IF (DENOM .LE. ZERO)  THEN
          DCOVAR = 1.
          ISW(2) = 0
@@ -762,7 +768,9 @@ C
       U(I) = 0.0
       CPNAM(I) = CUNDEF
       NVARL(I) = -1
-   10 NIOFEX(I) = 0
+      NIOFEX(I) = 0
+ 10   CONTINUE
+
       CALL MNRSET(1)
       CFROM = 'CLEAR   '
       NFCNFR = NFCN
@@ -1480,12 +1488,17 @@ C               ..................... save some values before fixing
       MPAR=NPAR
       NFMXIN = NFCNMX
       DO 125 I= 1, MPAR
-  125 XT(I) = X(I)
+      XT(I) = X(I)
+ 125  CONTINUE
+
       DO 130 J= 1, MPAR*(MPAR+1)/2
-  130 VTHMAT(J) = VHMAT(J)
+      VTHMAT(J) = VHMAT(J)
+ 130  CONTINUE
+
       DO 135 I= 1, MPAR
       GCC(I) = GLOBCC(I)
-  135 W(I) = WERR(I)
+      W(I) = WERR(I)
+ 135  CONTINUE
 C                           fix the two parameters in question
       KINTS = NIOFEX(KE1)
       CALL MNFIXP (KINTS,IERR)
@@ -1588,11 +1601,15 @@ C                                    . . contour finished. reset v
       CALL MNFREE(1)
       CALL MNFREE(1)
       DO 1100 J= 1, MPAR*(MPAR+1)/2
- 1100 VHMAT(J) = VTHMAT(J)
+      VHMAT(J) = VTHMAT(J)
+ 1100 CONTINUE
+
       DO 1120 I= 1, MPAR
       GLOBCC(I) = GCC(I)
       WERR(I) = W(I)
- 1120 X(I) = XT(I)
+      X(I) = XT(I)
+ 1120 CONTINUE
+
       CALL MNINEX (X)
       EDM = SIGSAV
       AMIN = ABEST
@@ -1795,6 +1812,7 @@ C                                  end loop over numeric fields
       IF (LNC .LE. 0)  LNC=1
       RETURN
       END
+
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
@@ -2368,7 +2386,9 @@ C
               NDEX = I*(I-1)/2
               DO 554 J=1,I-1
               NDEX = NDEX + 1
-  554         VHMAT(NDEX) = 0.
+              VHMAT(NDEX) = 0.
+ 554          CONTINUE
+
             NDEX = NDEX + 1
             IF (G2(I) .LE. ZERO)  THEN
               WINT = WERR(I)
@@ -2841,7 +2861,9 @@ C
       IF(L .LT. 1) GO TO 25
 C
       DO 20 K = 1,L
-   20 GL = GL+A(I,K)**2
+      GL = GL+A(I,K)**2
+ 20   CONTINUE
+
    25 H = GL + F**2
 C
       IF(GL .GT. TOL) GO TO 30
@@ -2863,13 +2885,16 @@ C
       A(J,I) = A(I,J)/H
       GL = ZERO
       DO 40 K = 1,J
-   40 GL = GL+A(J,K)*A(I,K)
+      GL = GL+A(J,K)*A(I,K)
+ 40   CONTINUE
 C
       IF(J .GE. L) GO TO 47
 C
       J1 = J+1
       DO 45 K = J1,L
-   45 GL = GL+A(K,J)*A(I,K)
+      GL = GL+A(K,J)*A(I,K)
+ 45   CONTINUE
+
    47 WORK(N+J) = GL/H
       F = F+GL*A(J,I)
    50 CONTINUE
@@ -2878,9 +2903,10 @@ C
       F = A(I,J)
       GL = WORK(N+J)-HH*F
       WORK(N+J) = GL
-      DO 60 K = 1,J
+      DO 61 K = 1,J
       A(J,K) = A(J,K)-F*WORK(N+K)-GL*A(I,K)
-   60 CONTINUE
+ 61   CONTINUE
+ 60   CONTINUE
       WORK(I) = H
    65 I = I-1
    70 CONTINUE
@@ -2894,10 +2920,14 @@ C
       DO 90 J = 1,L
       GL = ZERO
       DO 80 K = 1,L
-   80 GL = GL+A(I,K)*A(K,J)
-      DO 90 K = 1,L
+      GL = GL+A(I,K)*A(K,J)
+ 80   CONTINUE
+
+      DO 91 K = 1,L
       A(K,J) = A(K,J)-GL*A(K,I)
-   90 CONTINUE
+ 91   CONTINUE
+ 90   CONTINUE
+
   100 WORK(I) = A(I,I)
       A(I,I) = ONE
 C
@@ -2913,7 +2943,9 @@ C
       N1 = N-1
       DO 130 I = 2,N
       I0 = N+I-1
-  130 WORK(I0) = WORK(I0+1)
+      WORK(I0) = WORK(I0+1)
+ 130  CONTINUE
+
       WORK(N+N) = ZERO
       B = ZERO
       F = ZERO
@@ -2943,7 +2975,8 @@ C
 C
       H = WORK(L)-WORK(N+L)/PR
       DO 170 I=L,N
-  170 WORK(I) = WORK(I)-H
+      WORK(I) = WORK(I)-H
+ 170  CONTINUE
       F = F+H
       PT = WORK(M)
       C = ONE
@@ -2971,11 +3004,12 @@ C
       C = ONE/R
   190 PT = C*WORK(I)-S*GL
       WORK(J) = H+S*(C*GL+S*WORK(I))
-      DO 200 K = 1,N
+      DO 201 K = 1,N
       H = A(K,J)
       A(K,J) = S*A(K,I)+C*H
       A(K,I) = C*A(K,I)-S*H
-  200 CONTINUE
+ 201  CONTINUE
+ 200  CONTINUE
       WORK(N+L) = S*PT
       WORK(L) = C*PT
 C
@@ -3672,12 +3706,6 @@ CC             12: RETURN command
       LK = LEN(COMAND)
       IF (LK .GT. MAXCWD) LK=MAXCWD
 
-c xxx RK xxx
-c      WRITE (ISYSWR,'(".xyz MNEXCM ",A,2x,F6.2,2x,I4)' )  
-c     &      COMAND, PLIST(1), ISW(5)
-c      call flush(ISYSWR) ! xxx REMOVE
-c xxxxx
-
       CWORD = COMAND(1:LK)
 C              get upper case
       DO 16 ICOL= 1, LK
@@ -4001,7 +4029,8 @@ C                                      . . . . . . . . . . jump
       DO 2620 I= 1, NPAR
         CALL MNRN15(RNO,IZERO)
         RNO = 2.0*RNO - 1.0
- 2620   X(I) = X(I) + RNO*STEP*WERR(I)
+        X(I) = X(I) + RNO*STEP*WERR(I)
+ 2620   CONTINUE
       CALL MNINEX(X)
       CALL MNAMIN(FCN,FUTIL)
       CALL MNRSET(0)
@@ -4350,7 +4379,9 @@ C                    remove one row and one column from variance matrix
       M = MAX(I,IINT)
       N = MIN(I,IINT)
       NDEX = M*(M-1)/2 + N
-  260 YY(I)=VHMAT(NDEX)
+      YY(I)=VHMAT(NDEX)
+ 260  CONTINUE
+
       YYOVER = 1.0/YY(IINT)
       KNEW = 0
       KOLD = 0
@@ -4363,7 +4394,7 @@ C                    remove one row and one column from variance matrix
   292 CONTINUE
   294 CONTINUE
   300 RETURN
-      END
+      END 
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
@@ -4711,13 +4742,17 @@ C
       IF (WORD7(1) .GT. ZERO)  GO TO 2000
 C                  get user-calculated first derivatives from FCN
       DO 30 I= 1, NU
-   30 GIN(I) = UNDEFI
+      GIN(I) = UNDEFI
+ 30   CONTINUE
+
       CALL MNINEX(X)
       CALL FCN(NPARX,GIN,FZERO,U,2,FUTIL)
       NFCN = NFCN + 1
       CALL MNDERI(FCN,FUTIL)
       DO 40 I= 1, NPAR
-   40 GF(I) = GRD(I)
+      GF(I) = GRD(I)
+ 40   CONTINUE
+
 C                    get MINUIT-calculated first derivatives
       ISW(3) = 0
       ISTSAV = ISTRAT
@@ -5719,7 +5754,9 @@ C         AIMSAG is the sagitta we are aiming for in second deriv calc.
 C         Zero the second derivative matrix
       NPAR2 = NPAR*(NPAR+1)/2
       DO 10 I= 1,NPAR2
-   10 VHMAT(I) = 0.
+      VHMAT(I) = 0.
+ 10   CONTINUE
+
 C
 C         Loop over variable parameters for second derivatives
       IDRV = 2
@@ -5834,8 +5871,9 @@ C                  verify matrix positive-definite
       DO 219 J= 1, I
       NDEX = I*(I-1)/2 + J
       P(I,J) = VHMAT(NDEX)
-  219 P(J,I) = P(I,J)
-  220 CONTINUE
+      P(J,I) = P(I,J)
+ 219  CONTINUE
+ 220  CONTINUE
       CALL MNVERT(P,MAXINT,MAXINT,NPAR,IFAIL)
       IF (IFAIL .GT. 0)  THEN
         CALL MNWARN('W','HESSE', 'Matrix inversion fails.')
@@ -5850,7 +5888,8 @@ C                              off-diagonal elements
           NDEX = NDEX + 1
           ZTEMP = 2.0 * P(I,J)
           EDM = EDM + GRD(I)*ZTEMP*GRD(J)
-  225     VHMAT(NDEX) = ZTEMP
+          VHMAT(NDEX) = ZTEMP
+ 225      CONTINUE
 C                              diagonal elements
         NDEX = NDEX + 1
         VHMAT(NDEX) = 2.0 * P(I,I)
@@ -5869,11 +5908,14 @@ C                              failure to invert 2nd deriv matrix
       NDEX = I*(I-1)/2
       DO 394 J= 1, I-1
       NDEX = NDEX + 1
-  394 VHMAT(NDEX) = 0.0
+      VHMAT(NDEX) = 0.0
+ 394  CONTINUE
       NDEX = NDEX +1
       G2I = G2(I)
       IF (G2I .LE. ZERO)  G2I = 1.0
-  395 VHMAT(NDEX) = 2.0/G2I
+      VHMAT(NDEX) = 2.0/G2I
+ 395  CONTINUE
+
   900 RETURN
       END
 *
@@ -6018,25 +6060,31 @@ C
          DO 2 I= 1, NPAR
          XT(I) = X(I)
          DSAV(I) = WERR(I)
-           DO 2 J = 1, I
+           DO 3 J = 1, I
            NDEX = I*(I-1)/2 + J
            P(I,J) = VHMAT(NDEX)
-    2      P(J,I) = P(I,J)
+          P(J,I) = P(I,J)
+ 3        CONTINUE
+ 2     CONTINUE
+
       CALL MNVERT(P,MAXINT,MAXINT,NPAR,IFAIL)
       IF (IFAIL .GE. 1)  GO TO 280
 C               Save inverted matrix in VT
          DO 12 I= 1, NPAR
          NDEX = I*(I-1)/2
-           DO 12 J= 1, I
+           DO 11 J= 1, I
            NDEX = NDEX + 1
-   12      VTHMAT(NDEX) = P(I,J)
+           VTHMAT(NDEX) = P(I,J)
+ 11        CONTINUE
+ 12        CONTINUE
       LOOP = 0
-C
+C 
    20 CONTINUE
          DO 25 I= 1, NPAR
          DIRIN(I) = 2.0*DSAV(I)
          CALL MNRN15(RNUM,ISEED)
-   25    X(I) = XT(I) + 2.0*DIRIN(I)*(RNUM-0.5)
+         X(I) = XT(I) + 2.0*DIRIN(I)*(RNUM-0.5)
+ 25      CONTINUE
       LOOP = LOOP + 1
       REG = 2.0
       IF (ISW(5) .GE. 0)   WRITE (ISYSWR, 1040) LOOP
@@ -6061,7 +6109,8 @@ C                                        . . . . set up  random simplex
             JH = I
          ENDIF
             DO 40 J= 1, NPAR
-   40       P(J,I) = X(J)
+            P(J,I) = X(J)
+ 40         CONTINUE
          P(I,NPARP1) = XI
          X(I) = XI
    45    CONTINUE
@@ -6080,15 +6129,21 @@ C         calculate new point * by reflection
       DO 60 I= 1, NPAR
       PB = 0.
       DO 59 J= 1, NPARP1
-   59 PB = PB + WG * P(I,J)
+      PB = PB + WG * P(I,J)
+ 59   CONTINUE
+
       PBAR(I) = PB - WG * P(I,JH)
-   60 PSTAR(I)=(1.+ALPHA)*PBAR(I)-ALPHA*P(I,JH)
+      PSTAR(I)=(1.+ALPHA)*PBAR(I)-ALPHA*P(I,JH)
+ 60   CONTINUE
+
       CALL MNCALF(FCN,PSTAR,YCALF,FUTIL)
       YSTAR = YCALF
       IF(YSTAR.GE.AMIN) GO TO 70
 C         point * better than jl, calculate new point **
       DO 61 I=1,NPAR
-   61 PSTST(I)=GAMMA*PSTAR(I)+(1.-GAMMA)*PBAR(I)
+      PSTST(I)=GAMMA*PSTAR(I)+(1.-GAMMA)*PBAR(I)
+ 61   CONTINUE
+
       CALL MNCALF(FCN,PSTST,YCALF,FUTIL)
       YSTST = YCALF
    66 IF (YSTST .LT. Y(JL))  GO TO 67
@@ -6102,8 +6157,12 @@ C         point * is not as good as jl
       CALL MNRAZZ(YSTAR,PSTAR,Y,JH,JL)
       IF (JHOLD .NE. JH)  GO TO 50
 C         calculate new point **
-   73 DO 74 I=1,NPAR
-   74 PSTST(I)=BETA*P(I,JH)+(1.-BETA)*PBAR(I)
+ 73   CONTINUE
+      DO 74 I=1,NPAR
+      PSTST(I)=BETA*P(I,JH)+(1.-BETA)*PBAR(I)
+ 74   CONTINUE
+
+c
       CALL MNCALF(FCN,PSTST,YCALF,FUTIL)
       YSTST = YCALF
       IF(YSTST.GT.Y(JH)) GO TO 30
@@ -6150,9 +6209,13 @@ C                                        . . . return to previous region
   280 IF (ISW(5) .GT. 0) WRITE (ISYSWR,1020)
       GO TO 325
   300 ISW(1) = 1
-  325 DO 330 I= 1, NPAR
+
+ 325  CONTINUE
+      DO 330 I= 1, NPAR
       DIRIN(I) = 0.01*DSAV(I)
-  330 X(I) = XT(I)
+      X(I) = XT(I)
+ 330  CONTINUE
+
       AMIN = APSI
       EDM = SIGSAV
   350 CALL MNINEX(X)
@@ -6482,7 +6545,9 @@ C                      =-1 for originally interactive temporarily batch
       IF (INTRAC(DUMMY))  ISW(6) = 1
 C        DEBUG options set to default values
       DO 10 IDB= 0, MAXDBG
-   10 IDBG(IDB) = 0
+      IDBG(IDB) = 0
+ 10   CONTINUE
+
       LREPOR = .FALSE.
       LWARN  = .TRUE.
       LIMSET = .FALSE.
@@ -7204,7 +7269,9 @@ C               SLAMIN = smallest possible value of ABS(SLAM)
       RATIO = ABS(START(I)/STEP(I))
       IF (SLAMIN .EQ. ZERO)     SLAMIN = RATIO
       IF (RATIO .LT. SLAMIN)  SLAMIN = RATIO
-   20 X(I) = START(I) + STEP(I)
+      X(I) = START(I) + STEP(I)
+ 20   CONTINUE
+
       IF (SLAMIN .EQ. ZERO)  SLAMIN = EPSMAC
       SLAMIN = SLAMIN*EPSMA2
       NPARX = NPAR
@@ -7239,7 +7306,9 @@ C     IF (DENOM .EQ. ZERO)  DENOM = -0.1*SLOPE
       IF (ABS(SLAM-1.0).LT.TOLER8) SLAM = 1.0+TOLER8
       IF (NXYPT .GE. MAXPT) GO TO 65
       DO 30 I= 1, NPAR
-   30 X(I) = START(I) + SLAM*STEP(I)
+      X(I) = START(I) + SLAM*STEP(I)
+ 30   CONTINUE
+
       CALL MNINEX(X)
       CALL FCN(NPAR,GIN,F2,U,4,FUTIL)
       NFCN = NFCN + 1
@@ -7295,7 +7364,10 @@ C               come here if step was cut below
 C                take the step
       IF (NXYPT .GE. MAXPT) GO TO 65
       DO 60 I= 1, NPAR
-   60 X(I) = START(I)+SLAM*STEP(I)
+      X(I) = START(I)+SLAM*STEP(I)
+ 60   CONTINUE
+
+c .OK.
       CALL MNINEX(X)
       CALL FCN(NPARX,GIN,F3,U,4,FUTIL)
       NFCN = NFCN + 1
@@ -7351,7 +7423,8 @@ C            stop because within tolerance
       AMIN = FVMIN
       DO 120 I= 1, NPAR
       DIRIN(I) = STEP(I)*XVMIN
-  120 X(I) = START(I) + DIRIN(I)
+      X(I) = START(I) + DIRIN(I)
+ 120  CONTINUE
       CALL MNINEX(X)
       IF (XVMIN .LT. 0.)      CALL MNWARN('D','MNLINE',
      +                   ' LINE MINIMUM IN BACKWARDS DIRECTION')
@@ -7519,7 +7592,8 @@ C     NCOEF is number of coeff. that fit on one line, not to exceed 20
            N = MIN(I,J)
            NDEX = M*(M-1)/2 + N
            NDJ = J*(J+1)/2
-  170      VLINE(J) = VHMAT(NDEX)/SQRT(ABS(VHMAT(NDI)*VHMAT(NDJ)))
+           VLINE(J) = VHMAT(NDEX)/SQRT(ABS(VHMAT(NDI)*VHMAT(NDJ)))
+ 170       CONTINUE
          NPARM = MIN(NPAR,NCOEF)
          WRITE (ISYSWR,171)   IX, GLOBCC(I), (VLINE(IT),IT=1,NPARM)
   171    FORMAT (6X,I3,2X,F7.5,1X,20F6.3)
@@ -7743,7 +7817,8 @@ C                           make diagonal error matrix
          NDEX = I*(I-1)/2
            DO 7 J=1,I-1
            NDEX = NDEX + 1
-    7      VHMAT(NDEX) = 0.
+           VHMAT(NDEX) = 0.
+ 7         CONTINUE
          NDEX = NDEX + 1
          IF (G2(I) .LE. ZERO)  G2(I) = 1.
          VHMAT(NDEX) = 2./G2(I)
@@ -7767,9 +7842,12 @@ C                                        . . . get EDM and set up loop
          NDEX = I*(I-1)/2
            DO 17 J= 1, I-1
            NDEX = NDEX + 1
-   17      EDM = EDM + GS(I)*VHMAT(NDEX)*GS(J)
+           EDM = EDM + GS(I)*VHMAT(NDEX)*GS(J)
+ 17        CONTINUE
          NDEX = NDEX + 1
-   18    EDM = EDM + 0.5 * GS(I)**2 *VHMAT(NDEX)
+         EDM = EDM + 0.5 * GS(I)**2 *VHMAT(NDEX)
+ 18      CONTINUE
+
       EDM = EDM * 0.5 * (1.0+3.0*DCOVAR)
         IF (EDM .LT. ZERO)  THEN
         CALL MNWARN('W','MIGRAD','STARTING MATRIX NOT POS-DEFINITE.')
@@ -7795,9 +7873,12 @@ C                                        . . . . .  start main loop
            M = MAX(I,J)
            N = MIN(I,J)
            NDEX = M*(M-1)/2 + N
-   25      RI = RI + VHMAT(NDEX) *GS(J)
+           RI = RI + VHMAT(NDEX) *GS(J)
+ 25        CONTINUE
          STEP(I) = -0.5*RI
-   30    GDEL = GDEL + STEP(I)*GS(I)
+         GDEL = GDEL + STEP(I)*GS(I)
+ 30      CONTINUE
+
       IF (GSSQ .EQ. ZERO)  THEN
           CALL MNWARN('D','MIGRAD',
      +             ' FIRST DERIVATIVES OF FCN ARE ALL ZERO')
@@ -7838,13 +7919,16 @@ C                                         . calculate new EDM
            N = MIN(I,J)
            NDEX = M*(M-1)/2 + N
            VGI = VGI + VHMAT(NDEX)*(GRD(J)-GS(J))
-   90      RI  =  RI + VHMAT(NDEX)* GRD(J)
+           RI  =  RI + VHMAT(NDEX)* GRD(J)
+ 90        CONTINUE
       VG(I) = VGI*0.5
       GAMI = GRD(I) - GS(I)
       GDGSSQ = GDGSSQ + GAMI**2
       GVG = GVG + GAMI*VG(I)
       DELGAM = DELGAM + DIRIN(I)*GAMI
-  100 EDM = EDM + GRD(I)*RI*0.5
+      EDM = EDM + GRD(I)*RI*0.5
+ 100  CONTINUE
+
       EDM = EDM * 0.5 * (1.0 + 3.0*DCOVAR)
 C                          . if EDM negative,  not positive-definite
       IF (EDM .LT. ZERO .OR. GVG .LE. ZERO)  THEN
@@ -7872,13 +7956,16 @@ C                                        .  update covariance matrix
       DSUM = 0.
       VSUM = 0.
          DO  120  I=1, NPAR
-           DO  120  J=1, I
+           DO  121  J=1, I
            D = DIRIN(I)*DIRIN(J)/DELGAM - VG(I)*VG(J)/GVG
            DSUM = DSUM + ABS(D)
            NDEX = I*(I-1)/2 + J
            VHMAT(NDEX) = VHMAT(NDEX) + 2.0*D
            VSUM = VSUM + ABS(VHMAT(NDEX))
-  120      CONTINUE
+ 121    CONTINUE
+ 120  CONTINUE
+
+c .OK.
 C                smooth local fluctuations by averaging DCOVAR
       DCOVAR = 0.5*(DCOVAR + DSUM/VSUM)
       IF (ISWTR.GE.3 .OR. LDEBUG) WRITE (ISYSWR,'(A,F5.1,A)')
@@ -7887,11 +7974,16 @@ C                smooth local fluctuations by averaging DCOVAR
      +             (VHMAT(KK),KK=1,10)
       IF (DELGAM .LE. GVG)  GO TO 135
       DO 125 I= 1, NPAR
-  125 FLNU(I) = DIRIN(I)/DELGAM - VG(I)/GVG
+      FLNU(I) = DIRIN(I)/DELGAM - VG(I)/GVG
+ 125  CONTINUE
+
       DO 130 I= 1, NPAR
-      DO 130 J= 1, I
+      DO 131 J= 1, I
       NDEX = I*(I-1)/2 + J
-  130 VHMAT(NDEX) = VHMAT(NDEX) + 2.0*GVG*FLNU(I)*FLNU(J)
+      VHMAT(NDEX) = VHMAT(NDEX) + 2.0*GVG*FLNU(I)*FLNU(J)
+ 131  CONTINUE
+ 130  CONTINUE
+
   135 CONTINUE
 C                                              and see if converged
       IF (EDM .LT. 0.1*RHOTOL)  GO TO 300
@@ -7916,7 +8008,9 @@ C                                         . . fails to improve . .
   200 IF (ISWTR .GE. 1)  WRITE (ISYSWR,'(A)')
      +           ' MIGRAD FAILS TO FIND IMPROVEMENT'
       DO 210 I= 1, NPAR
-  210 X(I) = XXS(I)
+      X(I) = XXS(I)
+ 210  CONTINUE
+
       IF (EDM .LT. RHOTOL)  GO TO 300
       IF (EDM .LT. ABS(EPSMA2*AMIN))  THEN
          IF (ISWTR .GE. 0)  WRITE (ISYSWR, '(A)')
@@ -8281,12 +8375,18 @@ C                                        . . save and prepare start vals
       MPAR=NPAR
       NFMXIN = NFCNMX
       DO 125 I= 1, MPAR
-  125 XT(I) = X(I)
+      XT(I) = X(I)
+ 125  CONTINUE
+
       DO 130 J= 1, MPAR*(MPAR+1)/2
-  130 VTHMAT(J) = VHMAT(J)
+      VTHMAT(J) = VHMAT(J)
+ 130  CONTINUE
+
       DO 135 I= 1, MPAR
       GCC(I) = GLOBCC(I)
-  135 W(I) = WERR(I)
+      W(I) = WERR(I)
+ 135  CONTINUE
+
       IT = NIOFEX(ILAX)
       ERP(IT) = 0.
       ERN(IT) = 0.
@@ -8340,7 +8440,8 @@ C         stop if already at limit with negligible step size
       IF (ABS(DELU)/(ABS(UT)+ABS(U(ILAX))) .LT. EPSMAC)  GO TO 440
       FAC = DELU/W(IT)
          DO 185 I= 1, NPAR
-  185    X(I) = XT(I) + FAC*XDEV(I)
+         X(I) = XT(I) + FAC*XDEV(I)
+ 185     CONTINUE
       IF (ISW(5) .GT. 1) WRITE (ISYSWR,801)  ILAX,UT,DELU,U(ILAX)
   801 FORMAT (/' PARAMETER',I4,' SET TO',E11.3,' + ',E10.3,' = ',E12.3)
 C                                        loop to hit AMIN+UP
@@ -8391,11 +8492,16 @@ C                       normal termination
       ITAUR = 1
       CALL MNFREE(1)
       DO 550 J= 1, MPAR*(MPAR+1)/2
-  550 VHMAT(J) = VTHMAT(J)
+      VHMAT(J) = VTHMAT(J)
+ 550  CONTINUE
+
       DO 595 I= 1, MPAR
       WERR(I) = W(I)
       GLOBCC(I) = GCC(I)
-  595 X(I) = XT(I)
+      X(I) = XT(I)
+ 595  CONTINUE
+
+c .OK.
       CALL MNINEX (X)
       EDM = SIGSAV
       AMIN = ABEST
@@ -9008,14 +9114,17 @@ C   method : chi**2 = min equation solved explicitly
       DIMENSION CZ(3)
 C
       DO 3  I=1,3
-    3 CZ(I)=0.
+      CZ(I)=0.
+ 3    CONTINUE
       SDEV2P=0.
       IF(NPAR2P.LT.3) GO TO 10
       F=NPAR2P
 C--- center x values for reasons of machine precision
       XM=0.
       DO 2  I=1,NPAR2P
-    2 XM=XM+PARX2P(I)
+      XM=XM+PARX2P(I)
+ 2    CONTINUE
+
       XM=XM/F
       X2=0.
       X3=0.
@@ -9049,7 +9158,9 @@ C--- center x values for reasons of machine precision
       CZ(2)=CZ(2)-2.*XM*CZ(3)
    10 CONTINUE
       DO 11  I=1,3
-   11 COEF2P(I)=CZ(I)
+      COEF2P(I)=CZ(I)
+ 11   CONTINUE
+
       RETURN
       END
 *
@@ -9328,7 +9439,9 @@ C         find scale constants
 C         convert points to grid positions
       DO 300 I= 1, NXYPT
       XPT(I) = AX*XPT(I) + BX
-  300 YPT(I) = ANY-AY*YPT(I) - BY
+      YPT(I) = ANY-AY*YPT(I) - BY
+ 300  CONTINUE
+
       NXBEST = AX*XBEST + BX
       NYBEST = ANY  - AY*YBEST - BY
 C         print the points
@@ -9339,13 +9452,16 @@ C         print the points
       OVERPR=.FALSE.
       DO 400 I= 1, NY
       DO 310 IBK= 1, NX
-  310 CLINE (IBK:IBK) = CBLANK
+      CLINE (IBK:IBK) = CBLANK
+ 310  CONTINUE
+
       CLINE(1:1) = CDOT
       CLINE(NX:NX) = CDOT
       CLINE(NXBEST:NXBEST) = CDOT
       IF (I.NE.1 .AND. I.NE.NYBEST .AND. I.NE.NY)  GO TO 320
       DO 315 J= 1, NX
-  315 CLINE(J:J) = CDOT
+      CLINE(J:J) = CDOT
+ 315  CONTINUE
   320 CONTINUE
       YPRT = YMAX - FLOAT(I-1)*BWIDY
       IF (ISP1 .GT. NXYPT)  GO TO 350
@@ -9383,7 +9499,9 @@ C         print labels on x-axis every ten columns
       WRITE (NUNIT, '(18X,A)')       CLINE(:NX)
 C
       DO 430 IBK= 1, 12
-  430 XVALUS(IBK) = XMIN + FLOAT(IBK-1)*10.*BWIDX
+      XVALUS(IBK) = XMIN + FLOAT(IBK-1)*10.*BWIDX
+ 430  CONTINUE
+
       ITEN = (NX+9) / 10
       WRITE (NUNIT,'(12X,12G10.4)')  (XVALUS(IBK), IBK=1,ITEN)
       CHMESS = ' '
@@ -9705,7 +9823,8 @@ C                  get value of IKODE based in INKODE, ISW(2)
 C                  set 'default' column headings
       DO 5 K= 1, 6
       COLHDU(K) = 'UNDEFINED'
-    5 COLHDL(K) = 'COLUMN HEAD'
+      COLHDL(K) = 'COLUMN HEAD'
+ 5    CONTINUE
 C              print title if Minos errors, and title exists.
       IF (IKODE.EQ.4 .AND. CTITL.NE.CUNDEF)
      +            WRITE (ISYSWR,'(/A,A)')  ' MINUIT TASK: ',CTITL
@@ -9993,6 +10112,7 @@ C
       EPSMIN = 1.0E-6
       EPSPDF = MAX(EPSMIN, EPSMA2)
       DGMIN = VHMAT(1)
+C .OK.
 C                        Check if negative or zero on diagonal
       DO 200 I= 1, NPAR
       NDEX = I*(I+1)/2
@@ -10018,9 +10138,12 @@ C                    Store VHMAT in P, make sure diagonal pos.
       VHMAT(NDEXD) = VHMAT(NDEXD) + DG
       IF (VHMAT(NDEXD) .LE. ZERO)   VHMAT(NDEXD) = 1.0
       S(I) = 1.0/SQRT(VHMAT(NDEXD))
-      DO 213 J= 1, I
+      DO 212 J= 1, I
       NDEX =  NDEX + 1
-  213 P(I,J) = VHMAT(NDEX) * S(I)*S(J)
+      P(I,J) = VHMAT(NDEX) * S(I)*S(J)
+ 212  CONTINUE
+ 213  CONTINUE
+
 C      call eigen (p,p,maxint,npar,pstar,-npar)
       CALL MNEIG(P,MAXINT,NPAR,MAXINT,PSTAR,EPSPDF,IFAULT)
       PMIN = PSTAR(1)
@@ -10041,7 +10164,9 @@ C      call eigen (p,p,maxint,npar,pstar,-npar)
       PADD = 1.0E-3*PMAX - PMIN
       DO 216 IP= 1, NPAR
       NDEX = IP*(IP+1)/2
-  216 VHMAT(NDEX) = VHMAT(NDEX) *(1.0 + PADD)
+      VHMAT(NDEX) = VHMAT(NDEX) *(1.0 + PADD)
+ 216  CONTINUE
+
       CSTATU= 'NOT POSDEF'
       WRITE (CHBUFF,'(G12.5)') PADD
       CALL MNWARN('W',CFROM,
@@ -10174,11 +10299,14 @@ C
       LOGICAL   LWARN, LREPOR, LIMSET, LNOLIM, LNEWMN, LPHEAD
       DIMENSION PNEW(*), Y(*)
       DO 10 I=1,NPAR
-   10 P(I,JH) = PNEW(I)
+      P(I,JH) = PNEW(I)
+ 10   CONTINUE
+
       Y(JH)=YNEW
       IF(YNEW .LT. AMIN) THEN
         DO 15 I=1,NPAR
-   15   X(I) = PNEW(I)
+        X(I) = PNEW(I)
+ 15     CONTINUE
         CALL MNINEX(X)
         AMIN = YNEW
         CSTATU = 'PROGRESS  '
@@ -10186,7 +10314,8 @@ C
       ENDIF
       JH = 1
       NPARP1 = NPAR+1
-   20 DO 25 J=2,NPARP1
+ 20   CONTINUE
+      DO 25 J=2,NPARP1
       IF (Y(J) .GT. Y(JH))  JH = J
    25 CONTINUE
       EDM = Y(JH) - Y(JL)
@@ -10378,6 +10507,8 @@ C                 CUPBUF is the first few characters in upper case
    11    CONTINUE
    12 CONTINUE
    13 CONTINUE
+
+C .OK.
 C                                           . .   preemptive commands
       LEOF = .FALSE.
       IF (INDEX(CUPBUF,'*EOF') .EQ. 1)    THEN
@@ -11307,14 +11438,17 @@ C              parameter with limits
          IF (ABS(DIRIN(IPAR)).GT.TWOPI)  DIRIN(IPAR)=TWOPI
          ENDIF
       XMID(IPAR) = X(IPAR)
-   10 XBEST(IPAR) = X(IPAR)
+      XBEST(IPAR) = X(IPAR)
+ 10   CONTINUE
+
 C                              search loop
       DO 500 ISTEP= 1, MXSTEP
       IF (IFAIL .GE. MXFAIL)  GO TO 600
         DO 100 IPAR= 1, NPAR
         CALL MNRN15(RNUM1,ISEED)
         CALL MNRN15(RNUM2,ISEED)
-  100   X(IPAR) = XMID(IPAR) + 0.5*(RNUM1+RNUM2-1.)*DIRIN(IPAR)
+        X(IPAR) = XMID(IPAR) + 0.5*(RNUM1+RNUM2-1.)*DIRIN(IPAR)
+ 100    CONTINUE
       CALL MNINEX(X)
       CALL FCN(NPARX,GIN,FTRY,U,4,FUTIL)
       NFCN = NFCN + 1
@@ -11323,7 +11457,9 @@ C                              search loop
             CSTATU = 'IMPROVEMNT'
             AMIN = FTRY
             DO 200 IB= 1, NPAR
-  200       XBEST(IB) = X(IB)
+            XBEST(IB) = X(IB)
+ 200        CONTINUE
+
             IFAIL = 0
             IF (ISW(5) .GE. 2) CALL MNPRIN(2,AMIN)
             ENDIF
@@ -11347,7 +11483,9 @@ C                               end search loop
       IF (ISW(5) .GT. 1) WRITE (ISYSWR,601) IFAIL
   601 FORMAT(' MNSEEK:',I5,' SUCCESSIVE UNSUCCESSFUL TRIALS.')
       DO 700 IB= 1, NPAR
-  700 X(IB) = XBEST(IB)
+      X(IB) = XBEST(IB)
+ 700  CONTINUE
+
       CALL MNINEX(X)
       IF (ISW(5) .GE. 1)  CALL MNPRIN(2,AMIN)
       IF (ISW(5) .EQ. 0)  CALL MNPRIN(0,AMIN)
@@ -11617,7 +11755,9 @@ C                                        . . . . . . . . . . set errdef
       ENDIF
       DO 95 I= 1, NPAR
       ERN(I) = 0.
-   95 ERP(I) = 0.
+      ERP(I) = 0.
+ 95   CONTINUE
+
       CALL MNWERR
       GO TO 4000
 C                                        . . . . . . . . . . set input
@@ -11692,7 +11832,8 @@ C                                        . . . . . . . . . . set debug
       ELSE
 C             SET DEBUG -1  sets all debug options
           DO 285 ID= 0, NUMDBG
-  285     IDBG(ID) = ISET
+          IDBG(ID) = ISET
+ 285      CONTINUE
       ENDIF
       LREPOR = (IDBG(0) .GE. 1)
       CALL MNWARN('D','SHO','SHO')
@@ -11848,7 +11989,9 @@ C                                        . . . . . . show nodebug, debug
       DO 1285 ID= 0, NUMDBG
       COPT = 'OFF'
       IF (IDBG(ID) .GE. 1)  COPT = 'ON '
- 1285 WRITE (ISYSWR,1286) ID, COPT, CDBOPT(ID)
+      WRITE (ISYSWR,1286) ID, COPT, CDBOPT(ID)
+ 1285 CONTINUE
+
  1286 FORMAT (10X,'DEBUG OPTION',I3,' IS ',A3,' :',A)
       IF (.NOT. LREPOR) CALL MNWARN('D','SHO','SHO')
       GO TO 4000
@@ -12204,13 +12347,17 @@ C         local minimum found in ith direction
       IF (AMING .LT. ABSMIN)  ABSMIN = AMING
       X(I) = BESTX
       DO 9 K= 1, NPAR
-    9 P(K,I) = X(K)
+      P(K,I) = X(K)
+ 9    CONTINUE
+
    10 CONTINUE
       JH = NPARP1
       AMIN=Y(JL)
       CALL MNRAZZ(YNPP1,PBAR,Y,JH,JL)
       DO 20 I= 1, NPAR
-   20 X(I) = P(I,JL)
+      X(I) = P(I,JL)
+ 20   CONTINUE
+
       CALL MNINEX(X)
       IF (ISW(5) .GE. 1)  CALL MNPRIN(5,AMIN)
       EDM = BIGEDM
@@ -12225,9 +12372,13 @@ C         calculate new point * by reflection
       DO 60 I= 1, NPAR
       PB = 0.
       DO 59 J= 1, NPARP1
-   59 PB = PB + WG * P(I,J)
+      PB = PB + WG * P(I,J)
+ 59   CONTINUE
       PBAR(I) = PB - WG * P(I,JH)
-   60 PSTAR(I)=(1.+ALPHA)*PBAR(I)-ALPHA*P(I,JH)
+      PSTAR(I)=(1.+ALPHA)*PBAR(I)-ALPHA*P(I,JH)
+ 60   CONTINUE
+
+c .OK.
       CALL MNINEX(PSTAR)
       CALL FCN(NPARX,GIN,YSTAR,U,4,FUTIL)
       NFCN=NFCN+1
@@ -12235,7 +12386,9 @@ C         calculate new point * by reflection
 C         point * better than jl, calculate new point **
       CSTATU = 'PROGRESS  '
       DO 61 I=1,NPAR
-   61 PSTST(I)=GAMMA*PSTAR(I)+(1.-GAMMA)*PBAR(I)
+      PSTST(I)=GAMMA*PSTAR(I)+(1.-GAMMA)*PBAR(I)
+ 61   CONTINUE
+
       CALL MNINEX(PSTST)
       CALL FCN(NPARX,GIN,YSTST,U,4,FUTIL)
       NFCN=NFCN+1
@@ -12246,7 +12399,9 @@ C         try a parabola through ph, pstar, pstst.  min = prho
       IF (RHO .LT. RHOMIN)  GO TO 66
       IF (RHO .GT. RHOMAX)  RHO = RHOMAX
       DO 64 I= 1, NPAR
-   64 PRHO(I) = RHO*PBAR(I) + (1.0-RHO)*P(I,JH)
+      PRHO(I) = RHO*PBAR(I) + (1.0-RHO)*P(I,JH)
+ 64   CONTINUE
+
       CALL MNINEX(PRHO)
       CALL FCN(NPARX,GIN,YRHO, U,4,FUTIL)
       NFCN = NFCN + 1
@@ -12271,8 +12426,11 @@ C         point * is not as good as jl
       CALL MNRAZZ(YSTAR,PSTAR,Y,JH,JL)
       IF (JHOLD .NE. JH)  GO TO 50
 C         calculate new point **
-   73 DO 74 I=1,NPAR
-   74 PSTST(I)=BETA*P(I,JH)+(1.-BETA)*PBAR(I)
+ 73   CONTINUE
+      DO 74 I=1,NPAR
+      PSTST(I)=BETA*P(I,JH)+(1.-BETA)*PBAR(I)
+ 74   CONTINUE
+
       CALL MNINEX (PSTST)
       CALL FCN(NPARX,GIN,YSTST,U,4,FUTIL)
       NFCN=NFCN+1
@@ -12292,11 +12450,17 @@ C                                        . . . . . .  end main loop
       CSTATU= 'CALL LIMIT'
       ISW(4) = -1
       ISW(1) = 1
-   80 DO 82 I=1,NPAR
+
+ 80   CONTINUE
+      DO 82 I=1,NPAR
       PB = 0.
       DO 81 J=1,NPARP1
-   81 PB = PB + WG * P(I,J)
-   82 PBAR(I) = PB - WG * P(I,JH)
+      PB = PB + WG * P(I,J)
+ 81   CONTINUE
+      PBAR(I) = PB - WG * P(I,JH)
+ 82   CONTINUE
+
+C .OK.
       CALL MNINEX(PBAR)
       CALL FCN(NPARX,GIN,YPBAR,U,4,FUTIL)
       NFCN=NFCN+1
@@ -13106,16 +13270,22 @@ C ------------------------------ replace arithmetic IF
 c      IF (SI) 100,100,8
       IF( SI .LT. 0 ) GOTO 100
       IF( SI .EQ. 0 ) GOTO 100
-      IF( SI .GT. 0 ) GOTO 8
+cc xxx      IF( SI .GT. 0 ) GOTO 8  ! RK  
 C ------------------------------
 
+      S(I) = 1.0/SQRT(SI)
+ 8    CONTINUE
 
-    8 S(I) = 1.0/SQRT(SI)
+c - - - -
       DO 20 I= 1, N
-      DO 20 J= 1, N
-   20 A(I,J) = A(I,J) *S(I)*S(J)
+      DO 21 J= 1, N
+      A(I,J) = A(I,J) *S(I)*S(J)
+ 21   CONTINUE
+ 20   CONTINUE
+
+C .OK.
 C                                        . . . start main loop . . . .
-      DO 65 I=1,N
+      DO 64 I=1,N
       K = I
 C                   preparation for elimination step1
       IF (A(K,K) .EQ. ZERO)  GO TO 100
@@ -13135,29 +13305,41 @@ C ------------------------------
    40 DO 49 J=1,KM1
       PP(J)=A(J,K)
       Q(J)=A(J,K)*Q(K)
-   49 A(J,K)=0.
+      A(J,K)=0.
+ 49   CONTINUE
 
 C ------------------------------ replace arithmetic IF
    50 CONTINUE
 c     IF(K-N)51,60,100
       IF ( (K-N) .LT. 0 ) GOTO 51
       IF ( (K-N) .EQ. 0 ) GOTO 60
-      IF ( (K-N) .GT. 0 ) GOTO 100
+      IF ( (K-N) .GT. 0 ) GOTO 100 
 C --------------------------------------
-
-   51 DO 59 J=KP1,N
+ 51   CONTINUE
+      DO 59 J=KP1,N
       PP(J)=A(K,J)
       Q(J)=-A(K,J)*Q(K)
-   59 A(K,J)=0.0
+      A(K,J)=0.0
+ 59   CONTINUE
+
 C                   elimination proper
-   60 DO 65 J=1,N
-      DO 65 K=J,N
-   65 A(J,K)=A(J,K)+PP(J)*Q(K)
+ 60   CONTINUE
+
+      DO 65 J=1,N
+      DO 66 K=J,N
+       A(J,K)=A(J,K)+PP(J)*Q(K)
+ 66   CONTINUE
+ 65   CONTINUE
+
+ 64   CONTINUE   ! end main loop
+
 C                   elements of left diagonal and unscaling
       DO 70 J= 1, N
-      DO 70 K= 1, J
+      DO 71 K= 1, J
       A(K,J) = A(K,J) *S(K)*S(J)
-   70 A(J,K) = A(K,J)
+      A(J,K) = A(K,J)
+ 71   CONTINUE
+ 70   CONTINUE
       RETURN
 C                   failure return
   100 IFAIL=1
@@ -13357,7 +13539,7 @@ C             'SHO WARnings', ask if any suppressed mess in buffer
       ENDIF
       RETURN
       END
-*
+*  .OK.
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
 *
 * $Log: minuit.F,v $
@@ -13499,10 +13681,13 @@ C                          global correlation coefficients
          DO 130 I= 1, NPAR
             GLOBCC(I) = 0.
             K1 = I*(I-1)/2
-            DO 130 J= 1, I
+            DO 131 J= 1, I
                K = K1 + J
                P(I,J) = VHMAT(K)
-  130          P(J,I) = P(I,J)
+               P(J,I) = P(I,J)
+ 131           CONTINUE
+ 130           CONTINUE
+
          CALL MNVERT(P,MAXINT,MAXINT,NPAR,IERR)
          IF (IERR .EQ. 0)   THEN
             DO 150 IIN= 1, NPAR

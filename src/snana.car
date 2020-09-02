@@ -10289,7 +10289,7 @@ c ---------------------
       INTEGER   IWD, NWD, LEN, LEN2, j, N_BADNAME, N_BADCHAR
       CHARACTER 
      &   CCID*(MXCHAR_CCID)
-     &  ,CCID_TMP*(MXCHAR_CCID)
+     &  ,CCID_TMP*(MXCHAR_CCID+2)
      &  ,CTMP*60
      &  ,BADCHARS*12, C1
      &  ,NAME_forC*200
@@ -12135,7 +12135,7 @@ c local var
 +CDE,SPECCOM.
 
       INTEGER ISTAT, LRET, FLAG
-      CHARACTER KEYNAME*80, KEYVAL*80, DATATYPE*20
+      CHARACTER KEYNAME*80, KEYVAL*(MXFILT_ALL), DATATYPE*20
       LOGICAL LRDFILT
 
 c C functions
@@ -12178,7 +12178,7 @@ c --------------------------------------------------------
       IF ( LRDFILT ) THEN
         KEYNAME   = "FILTERS" // char(0)
         ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 7, LRET )
-        LRET  = INDEX(KEYVAL,char(0)) -1
+        LRET  = INDEX(KEYVAL,char(0)) - 1
         SURVEY_FILTERS = KEYVAL(1:LRET)
       ENDIF
 
@@ -24975,7 +24975,10 @@ C ---------- BEGIN ----------
       MM = MIN0(MMMM, 20)
       M = MM - 1
       DO 1780 I= 1, MM
- 1780    COF(I) = F(I)
+         COF(I) = F(I)
+ 1780 CONTINUE
+cc xxx obsolete  1780    COF(I) = F(I)
+
       DO 1800 I= 1, M
       DO 1790 J= I, M
          JNDEX = MM - J
@@ -36025,12 +36028,13 @@ c  ..
           hh(i) = h(i)
   10    continue
         h(1) = 0.
-        do 20 i=1,j
+        do 21 i=1,j
           li = l+i
           lj = li-j
           f = hh(i)/(t(li)-t(lj))
           h(i) = h(i)+f*(t(li)-x)
           h(i+1) = f*(x-t(lj))
+  21  continue
   20  continue
       return
       end
@@ -36212,8 +36216,9 @@ c  find ncof, the number of b-spline coefficients.
 c  initialize the observation matrix a.
         do 140 i=1,ncof
           f(i) = 0.
-          do 140 j=1,iband
+          do 141 j=1,iband
             a(i,j) = 0.
+ 141    continue   ! RK
  140    continue
 c  initialize the sum of squared residuals.
         fp = 0.
@@ -36313,8 +36318,9 @@ c  check whether there is sufficient working space
         if(lwrk.lt.lwest) go to 780
         do 290 i=1,ncof
           ff(i) = f(i)
-          do 290 j=1,iband
+          do 291 j=1,iband
             q(i,j) = a(i,j)
+ 291    continue   ! RK
  290    continue
         lf =1
         lh = lf+ncof
@@ -36489,15 +36495,16 @@ c  store the triangularized observation matrix into q.
             q(i,j) = a(i,j)
  470      continue
           ibb = iband+1
-          do 480 j=ibb,iband4
+          do 481 j=ibb,iband4
             q(i,j) = 0.
+ 481    continue
  480    continue
         if(nk1y.eq.ky1) go to 560
 c  extend the observation matrix with the rows of a matrix, expressing
 c  that for x=cst. sp(x,y) must be a polynomial in y of degree ky.
         do 550 i=ky2,nk1y
           ii = i-ky1
-          do 550 j=1,nk1x
+          do 551 j=1,nk1x  ! RK
 c  initialize the new row.
             do 490 l=1,iband
               h(l) = 0.
@@ -36515,16 +36522,16 @@ c  square roots.
               piv = h(1)
               i2 = min0(iband1,ncof-irot)
               if(piv.eq.0.) then
-ccc                 if(i2) 550,550,520 ! obsolete
-                 if ( i2 .LT. 0 ) goto 550
-                 if ( i2 .EQ. 0 ) goto 550
+
+                 if ( i2 .LT. 0 ) goto 551  ! RK 550 -> 551
+                 if ( i2 .EQ. 0 ) goto 550  ! RK 550 -> 551
                  if ( i2 .GT. 0 ) goto 520
               endif
 c  calculate the parameters of the givens transformation.
               call fpgivs(piv,q(irot,1),cos,sin)
 c  apply that givens transformation to the right hand side.
               call fprota(cos,sin,zi,ff(irot))
-              if(i2.eq.0) go to 550
+              if(i2.eq.0) go to 551  ! RK 550 -> 551
 c  apply that givens transformation to the left hand side.
               do 510 l=1,i2
                 l1 = l+1
@@ -36535,13 +36542,15 @@ c  apply that givens transformation to the left hand side.
  530          continue
               h(i2+1) = 0.
  540        continue
+ 
+ 551    continue
  550    continue
  560    if(nk1x.eq.kx1) go to 640
 c  extend the observation matrix with the rows of a matrix expressing
 c  that for y=cst. sp(x,y) must be a polynomial in x of degree kx.
         do 630 i=kx2,nk1x
           ii = i-kx1
-          do 630 j=1,nk1y
+          do 631 j=1,nk1y
 c  initialize the new row
             do 570 l=1,iband4
               h(l) = 0.
@@ -36560,16 +36569,16 @@ c  rotate the new row into triangle by givens transformations .
               piv = h(1)
               i2 = min0(iband3,ncof-irot)
               if(piv.eq.0.) then
-cccc              if(i2) 630,630,600 ! obsolete
-                if ( i2 .LT. 0 ) goto 630
-                if ( i2 .EQ. 0 ) goto 630
+
+                if ( i2 .LT. 0 ) goto 631 ! RK 630 -> 631
+                if ( i2 .EQ. 0 ) goto 631
                 if ( i2 .GT. 0 ) goto 600
               endif
 c  calculate the parameters of the givens transformation.
               call fpgivs(piv,q(irot,1),cos,sin)
 c  apply that givens transformation to the right hand side.
               call fprota(cos,sin,zi,ff(irot))
-              if(i2.eq.0) go to 630
+              if(i2.eq.0) go to 631  ! RK
 c  apply that givens transformation to the left hand side.
               do 590 l=1,i2
                 l1 = l+1
@@ -36580,6 +36589,7 @@ c  apply that givens transformation to the left hand side.
  610          continue
               h(i2+1) = 0.
  620        continue
+ 631    continue  ! RK
  630    continue
 c  find dmax, the maximum value for the diagonal elements in the
 c  reduced triangle.
@@ -36688,10 +36698,11 @@ c  if not, interchange x and y once more.
       l1 = 1
       do 840 i=1,nk1x
         l2 = i
-        do 840 j=1,nk1y
+        do 841 j=1,nk1y
           f(l2) = c(l1)
           l1 = l1+1
           l2 = l2+nk1x
+ 841  continue    ! RK
  840  continue
       do 850 i=1,ncof
         c(i) = f(i)
@@ -36886,8 +36897,9 @@ c  g denotes the vector obtained from the old right hand side f, by
 c  removing the elements corresponding to a zero diagonal element of a.
 c  initialization.
       do 100 i=1,rank
-        do 100 j=1,m
+        do 101 j=1,m
           aa(i,j) = 0.
+ 101  continue  ! RK
  100  continue
 c  form in aa the upper triangular matrix obtained from a by
 c  removing rows and columns with zero diagonal elements. form in ff
@@ -40929,7 +40941,7 @@ C evaluate covariances
 
       DO 400 idim  = 1, NDIM
          ipar      = ipar_dim(idim) 
-      DO 400 idim2 = 1, NDIM
+      DO 401 idim2 = 1, NDIM
          ipar2     = ipar_dim(idim2) 
 
          E12   = PDFWSUMCOR(ipar,ipar2)/PDFSUM 
@@ -40951,7 +40963,7 @@ C evaluate covariances
      &         ' at NPASS=',I1,'  NGRID=',I2 )
          endif
 +SELF.
-
+401   CONTINUE
 400   CONTINUE
 
 

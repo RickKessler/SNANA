@@ -514,7 +514,7 @@ $(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o 
 	$(OBJ)/sntools.o \
 	$(OBJ)/sntools_output.o \
 	$(OBJ)/minuit.o 	\
-	$(LCERN) $(LROOT) -lm $(LGSL) $(LCFITSIO) $(CPPLIB)
+	$(LCERN) $(LROOT) -lm $(LGSL) $(LCFITSIO) $(CPPLIB) -lpthread
 	(cd $(OBJ);  rm SALT2mu.o ) 
 
 # -----------------------------------------------------

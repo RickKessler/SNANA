@@ -18871,4 +18871,20 @@
      use submit_batch_jobs.sh. Protects legacy batch scripts
      sim_SNmix.pl, split_and_fit.pl, SALT2mu_fit.pl.
 
+
+# ======================================================================= 
+         v10_78b (  ) 
+
+         ***** IMPORTANT(v10_78b) ***** 
+
+   Tried v9.2 gcc on Midway, and get lots of 
+      Fix Warning: Fortran 2018 deleted feature: 
+      Shared DO termination label 630 at (1)
+   Fixed these in old fortran codes pulled from CERNLIB;
+     UTILEX in snana.car, and minuit.F
+
+         ***** USEFUL(v10_78b) ***** 
+
+         ***** MISCELLANEOUS(v10_78b) ***** 
+
 END: 

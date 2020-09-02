@@ -150,7 +150,7 @@ CC   = cc
 EXTRA_FLAGS = -O1   # -ftree-vectorize -ftree-vectorizer-verbose=2
 
 # EXTRA_FLAGS = -O2 -Wall
-#  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
+  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
   PROFILEFLAG = 
 

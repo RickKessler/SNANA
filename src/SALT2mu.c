@@ -824,7 +824,7 @@ Default output files (can change names with "prefix" argument)
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#define USE_THREAD   // Sep 2020
+// #define USE_THREAD   // Sep 2020
 
 #ifdef USE_THREAD
 #include <pthread.h>

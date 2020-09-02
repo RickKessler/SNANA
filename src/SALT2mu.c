@@ -811,6 +811,10 @@ Default output files (can change names with "prefix" argument)
  Aug 12 2020:
     + new input flag write_yaml=1 to produce YAML file for
       batch-submit script. 
+ 
+ Sep 2 2020:
+   + refactor print_contam_CCprior to be computed after the fit,
+     instead of during, so that it doesn't need threading logic.
 
  ******************************************************/
 
@@ -820,7 +824,7 @@ Default output files (can change names with "prefix" argument)
 #include <sys/types.h>
 #include <sys/stat.h>
 
-// #define USE_THREAD   // Sep 2020
+#define USE_THREAD   // Sep 2020
 
 #ifdef USE_THREAD
 #include <pthread.h>
@@ -1622,11 +1626,6 @@ typedef struct {
   double true_ratio[MXz];
 } CONTAM_INFO_DEF ;
 
-// xxxxxxxx delete when REFACTORED contam works
-int LEGACY_CONTAM = 0 ;
-CONTAM_INFO_DEF LEGACY_CONTAM_MURES_BINS;
-CONTAM_INFO_DEF LEGACY_CONTAM_REDSHIFT_BINS;
-// xxxxxxxxxx */
 
 
 // Aug 31 2020: define typedef for threads
@@ -1824,8 +1823,6 @@ void   setup_MUZMAP_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 void   setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 			    MUZMAP_DEF *MUZMAP );
 
-void print_contam_CCprior_legacy(FILE *fp, CONTAM_INFO_DEF *CONTAM_INFO);
-void setup_contam_CCprior_legacy(void);
 
 void print_contam_CCprior(FILE *fp);
 void print_table_CONTAM_INFO(FILE *fp,  CONTAM_INFO_DEF *CONTAM_INFO);
@@ -3596,12 +3593,6 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   nsnfit      = nsnfit_truecc = 0 ;
   nsnfitIa = nsnfitcc = 0.0 ;
 
-  // xxxxxx prep for delete xxxxxxx
-  if ( LEGACY_CONTAM ) {
-    zero_contam_CCprior(&LEGACY_CONTAM_MURES_BINS);
-    zero_contam_CCprior(&LEGACY_CONTAM_REDSHIFT_BINS);
-  }
-  // xxxxx 
 
   FITRESULT.NSNFIT = 0;
   FITRESULT.NSNFIT_TRUECC = 0;
@@ -3843,15 +3834,6 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 	
 	if ( *iflag == 3 ) {
 	  INFO_DATA.probcc_beams[n] = ProbRatio_CC;
-
-	  // xxxxx prep for delete xxxxx
-	  if ( LEGACY_CONTAM ) {
-	    sum_contam_CCprior(&LEGACY_CONTAM_MURES_BINS, ProbRatio_Ia, mures,
-			       SIM_NONIA_INDEX); 
-	    sum_contam_CCprior(&LEGACY_CONTAM_REDSHIFT_BINS, ProbRatio_Ia, z,
-			       SIM_NONIA_INDEX); 
-	  }
-	  // xxx prep for delete xxxxx
 	}
 
 	Prob_SUM    *= (0.15/PIFAC)  ;  
@@ -12615,9 +12597,6 @@ void prepare_CCprior(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
   }
 
-  // setup MURES bins and z bins for storing binned contamination info. 
-  if ( LEGACY_CONTAM ) 
-    { setup_contam_CCprior_legacy(); }
 
   if ( USE_CCPRIOR_H11 ) { 
     sprintf(BANNER,"%s: use CC mu-vs-z prior from Hlozek 2011", fnam);
@@ -13216,60 +13195,6 @@ void  dump_DMUPDF_CCprior(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) {
   
 } // end dump_DMUPDF_CCprior
 
-// =======================
-void  setup_contam_CCprior_legacy(void) {
-
-  // Sep 26 2019
-  // setup MURES bins and z bins for storing binned contamination info. 
-  // Global CONTAM_INFO structures are filled.
-  // This information is used to monitor contamination after the fit,
-  // but is not used in the fit.
-
-  int nb, i;
-  double lo[MXz], hi[MXz];
-  double tmp_lo, tmp_hi, tmp_avg, tmp_binsize;
-  //  char fnam[] = "setup_contam_CCprior_legacy";
-
-  // -------------- BEGIN ----------------
-
-  // store with three hard-coded MURES bins
-
-  sprintf(LEGACY_CONTAM_MURES_BINS.BININFO.varName,"MURES");
-  nb=0;
-  lo[nb] = -4.0;  hi[nb] = -0.5;  nb++ ; 
-  lo[nb] = -0.5;  hi[nb] = +0.5;  nb++ ;
-  lo[nb] = +0.5;  hi[nb] = +4.0;  nb++ ;
-
-  for(i=0; i < nb; i++  ) {
-    tmp_lo  = lo[i]; tmp_hi=hi[i];  tmp_binsize=tmp_hi-tmp_lo;
-    tmp_avg = 0.5*(tmp_hi+tmp_lo);
-    LEGACY_CONTAM_MURES_BINS.BININFO.lo[i]      = tmp_lo;
-    LEGACY_CONTAM_MURES_BINS.BININFO.hi[i]      = tmp_hi;
-    LEGACY_CONTAM_MURES_BINS.BININFO.avg[i]     = tmp_avg;
-  }
-  LEGACY_CONTAM_MURES_BINS.BININFO.nbin    = nb;
-  LEGACY_CONTAM_MURES_BINS.BININFO.binSize = -9.0;  // N/A
-
-  // next store redshift bins
-  sprintf(LEGACY_CONTAM_REDSHIFT_BINS.BININFO.varName,"REDSHIFT");
-  nb=4;
-  double zbin = (INPUTS.zmax - INPUTS.zmin) / (double)nb;
-  for(i=0; i < nb; i++  ) {
-    tmp_lo  = INPUTS.zmin + zbin*(double)i;
-    tmp_hi  = tmp_lo + zbin;
-    tmp_avg = 0.5*(tmp_lo + tmp_hi);
-
-    LEGACY_CONTAM_REDSHIFT_BINS.BININFO.lo[i]      = tmp_lo;
-    LEGACY_CONTAM_REDSHIFT_BINS.BININFO.hi[i]      = tmp_hi;
-    LEGACY_CONTAM_REDSHIFT_BINS.BININFO.avg[i]     = tmp_avg;
-  }
-  LEGACY_CONTAM_REDSHIFT_BINS.BININFO.nbin    = nb;
-  LEGACY_CONTAM_REDSHIFT_BINS.BININFO.binSize = zbin;
-
-  return ;
-
-} // end setup_contam_CCprior_legacy
-
 
 // =====================================================
 void  setup_contam_CCprior(char *which, CONTAM_INFO_DEF *CONTAM_INFO) {
@@ -13410,77 +13335,6 @@ void sum_contam_CCprior(CONTAM_INFO_DEF *CONTAM_INFO, double Prob_Ia,
   return ;
 
 } // end sum_contam_CCprior
-
-void print_contam_CCprior_legacy(FILE *fp, CONTAM_INFO_DEF *CONTAM_INFO) {
-
-  // print contamination total, and table vs. variable in BININFO.
-  //
-  // E.g.
-  //   varName Range    CC/TOT(SUMPROB)     CC/TOT(NTRUE)
-  //    ALL  
-  //   -4.0 to -0.5
-  //   -0.5 to +0.5
-  //
-  int  nbin     = CONTAM_INFO->BININFO.nbin;
-  char *varName = CONTAM_INFO->BININFO.varName;
-  int   IS_SIM  =  (INFO_DATA.TABLEVAR.IS_SIM == true) ;
-  int  i;
-  double lo, hi, xnIa, xncc, ratio, true_ratio;
-  int    ntrue_cc, ntrue_Ia;
-  char cRange[40], str_contam_data[80], str_contam_true[80];
-  //  char fnam[] = "print_contam_CCprior_legacy";
-
-  // -------------- BEGIN --------------
-
-  
-  fprintf(fp,"\n# CC Contamination vs. %s \n", varName);
-
-  fprintf(fp,"#  %8s Range     CC/TOT(SUMPROB)         CC/TOT(TRUE) \n", 
-	  varName);
-  fprintf(fp,"# %s \n", dashLine);
-  for(i=-1; i < nbin; i++ ) {  // -1 ==> all 
-    str_contam_data[0]  =  str_contam_true[0] = 0 ;
-
-    if ( i < 0 ) {
-      // total sum
-      sprintf(cRange, "TOTAL");
-      xncc  = CONTAM_INFO->SUMPROB_TOT_CC ;
-      xnIa  = CONTAM_INFO->SUMPROB_TOT_IA ;
-      ratio = CONTAM_INFO->SUMPROB_TOT_RATIO ;
-      ntrue_cc   = CONTAM_INFO->NTRUE_TOT_CC;
-      ntrue_Ia   = CONTAM_INFO->NTRUE_TOT_IA;
-      true_ratio = CONTAM_INFO->TRUE_TOT_RATIO ;
-    } else {
-      // specific bin of varName
-      lo = CONTAM_INFO->BININFO.lo[i] ;
-      hi = CONTAM_INFO->BININFO.hi[i] ;
-      sprintf(cRange,"%5.2f to %5.2f", lo, hi); 
-      xncc  = CONTAM_INFO->sumProb_cc[i] ;
-      xnIa  = CONTAM_INFO->sumProb_Ia[i] ;
-      ratio = CONTAM_INFO->sumProb_ratio[i] ;
-
-      ntrue_cc   = CONTAM_INFO->ntrue_cc[i];
-      ntrue_Ia   = CONTAM_INFO->ntrue_Ia[i];
-      true_ratio = CONTAM_INFO->true_ratio[i] ;
-    }
-
-    sprintf(str_contam_data,"%4.1f/%7.1f = %.3f", 
-	    xncc, xnIa+xncc, ratio);
-
-    if ( IS_SIM ) {
-      sprintf(str_contam_true,"%4d/%7d = %.3f", 
-	      ntrue_cc, ntrue_Ia+ntrue_cc, true_ratio);
-    }
-
-    fprintf(fp,"#  %14s   %s    %s\n", 
-	    cRange, str_contam_data, str_contam_true);
-
-  } // end loop over bins
-
-  fprintf(fp,"# %s \n\n", dashLine);
-  fflush(fp);
-
-} // end print_contam_CCprior_legacy
 
 
 void print_contam_CCprior(FILE *fp) {
@@ -17717,15 +17571,7 @@ void write_fitres_driver(char* fileName) {
   fflush(fout);
 
   // print contamination tables if CC prior is used
-  if ( INFO_CCPRIOR.USE ) {
-    if ( LEGACY_CONTAM ) {
-      print_contam_CCprior_legacy(fout, &LEGACY_CONTAM_MURES_BINS);
-      print_contam_CCprior_legacy(fout, &LEGACY_CONTAM_REDSHIFT_BINS);
-    }
-    else {
-      print_contam_CCprior(fout);
-    }
-  }
+  if ( INFO_CCPRIOR.USE ) { print_contam_CCprior(fout);  }
 
   // check option to NOT write each SN to have smaller file
   // with only the fit results

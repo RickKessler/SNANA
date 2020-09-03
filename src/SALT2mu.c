@@ -293,6 +293,7 @@ redchi2_tol   or sig1tol = tolerance (0.02) on chi2/dof-1
 
 prescale_simdata=<preScale>  # pre scale for sim data
 prescale_simcc=<preScale>    # pre-scale only the simulated CC
+nthread=<n>                  # use pthread for multiple cores on same node
 
 NSPLITRAN=[NRAN] = number of independent sub-samples to run SALT2mu.
                   A separate fitres file is created for each sub-sample.
@@ -816,6 +817,9 @@ Default output files (can change names with "prefix" argument)
    + refactor print_contam_CCprior to be computed after the fit,
      instead of during, so that it doesn't need threading logic.
 
+   + new nthread=<n> argument breaks up chi2 calc into threads
+     using pthread_create. Default nthread=1 does not use pthread.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -824,7 +828,7 @@ Default output files (can change names with "prefix" argument)
 #include <sys/types.h>
 #include <sys/stat.h>
 
-// #define USE_THREAD   // Sep 2020
+#define USE_THREAD   // Sep 2020
 
 #ifdef USE_THREAD
 #include <pthread.h>
@@ -836,6 +840,7 @@ Default output files (can change names with "prefix" argument)
 //#define BBC_VERSION  2
 //#define BBC_VERSION  3   // Jul 3 2020: add SUBPROCESS functions
 #define BBC_VERSION  4     // Sep 2020: add pthread option
+#define MXTHREAD    20
 
 #define EVENT_TYPE_DATA     1
 #define EVENT_TYPE_BIASCOR  2
@@ -3922,7 +3927,6 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
   int  nthread     = INPUTS.nthread ;
   int  NFITPAR_ALL = FITINP.NFITPAR_ALL ; // Ncospar + Nzbin
 
-#define MXTHREAD 20
   pthread_t thread[MXTHREAD];
   thread_chi2sums_def  thread_chi2sums[MXTHREAD];
 
@@ -3955,19 +3959,30 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 #ifdef USE_THREAD
     else  { 
       rc = pthread_create(&thread[t], NULL, MNCHI2FUN, 
-			  &thread_chi2sums[t]); 
+			  &thread_chi2sums[t] ) ; 
     }
 #endif
   }  // end t loop over threads
 
   // - - - - - - - 
 #ifdef USE_THREAD
+  int NERR=0;
   // for threads, wait for them all to finish
   if ( nthread > 1 ) {
-    for ( t = 0; t < nthread; t++ ) { pthread_join(thread[t], NULL); }
-  }
-#endif
+    for ( t = 0; t < nthread; t++ ) { 
+      rc = pthread_join(thread[t], NULL); 
+      if ( rc != 0 ) {
+	NERR++; 
+	printf(" ERROR: thread return errcode=%d for t=%d\n", rc,t); }
+    }
 
+    if ( NERR > 0 ) {
+      sprintf(c1err,"%d thread return code errors", NERR);
+      sprintf(c2err,"NCALL_FCN=%d", FITRESULT.NCALL_FCN );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);  
+    }  
+  } // end ntrhread>1
+#endif
 
   // ===============================================
   // ============= WRAP UP =========================
@@ -4065,8 +4080,6 @@ void *MNCHI2FUN(void *thread) {
   // -------------- BEGIN ------------
 
   //Set input cosmology parameters
-
-  
   alpha0       = xval[IPAR_ALPHA0] ;
   beta0        = xval[IPAR_BETA0] ;
   da_dz        = xval[3] ;
@@ -4125,9 +4138,7 @@ void *MNCHI2FUN(void *thread) {
   for ( n = id_thread; n < NSN_DATA; n += nthread ) {
 
     cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n] ; 
-
     if ( cutmask ) { continue; }
-
     // - - - - -
 
     INFO_DATA.mures[n]     = -999. ;
@@ -4418,9 +4429,18 @@ void *MNCHI2FUN(void *thread) {
   thread_chi2sums->chi2sum_tot   = chi2sum_tot ;
   thread_chi2sums->chi2sum_Ia    = chi2sum_Ia  ;
 
+  // check CPU-load balance on first FCN call
+  if ( FITRESULT.NCALL_FCN == 1 && nthread > 1 ) {
+    printf("\t %s-%3.3d: id_thread = %d of %d  nsnfit=%d \n", 
+	   fnam, FITRESULT.NCALL_FCN, id_thread, nthread, nsnfit );
+    fflush(stdout);
+  }
+
+
 #ifdef USE_THREAD
   if ( nthread > 1 ) {  pthread_exit(NULL); }
 #endif
+
 
   return ;
 
@@ -14801,7 +14821,7 @@ int ppar(char* item) {
     { sscanf(&item[11],"%d", &INPUTS.debug_flag); return(1); }
 
   if ( uniqueOverlap(item,"nthread=")) 
-    { sscanf(&item[11],"%d", &INPUTS.nthread); return(1); }
+    { sscanf(&item[8],"%d", &INPUTS.nthread); return(1); }
 
   return(0);
   
@@ -16077,10 +16097,12 @@ void prep_input_driver(void) {
   fflush(FP_STDOUT);
 
   if ( INPUTS.prescale_simData > 1.0 ) {
-    fprintf(FP_STDOUT, "PRE-SCALE SIMDATA by %.1f \n", INPUTS.prescale_simData);
+    fprintf(FP_STDOUT, "PRE-SCALE SIMDATA by %.1f \n", 
+	    INPUTS.prescale_simData);
   }
   if ( INPUTS.prescale_simCC > 1.0 ) {
-    fprintf(FP_STDOUT, "PRE-SCALE SIMCC by %.1f \n", INPUTS.prescale_simCC);
+    fprintf(FP_STDOUT, "PRE-SCALE SIMCC by %.1f \n", 
+	    INPUTS.prescale_simCC);
   }
 
   int  ISFILE_BIASCOR = ( INPUTS.nfile_biasCor > 0 );
@@ -16234,6 +16256,30 @@ void prep_input_driver(void) {
   INFO_DATA.TABLEVAR.EVENT_TYPE    = EVENT_TYPE_DATA ;
   INFO_BIASCOR.TABLEVAR.EVENT_TYPE = EVENT_TYPE_BIASCOR ;
   INFO_CCPRIOR.TABLEVAR.EVENT_TYPE = EVENT_TYPE_CCPRIOR ;
+
+  // Sep 2020: thread checks
+  int nthread = INPUTS.nthread ;
+  double PS   = INPUTS.prescale_simData ; int IPS=(int)PS;
+  if ( nthread > 1 ) {
+    if ( nthread >= MXTHREAD ) {
+      sprintf(c1err, "nthread=%d exceeds bound of MXTHREAD=%d", 
+	      nthread, MXTHREAD );
+      sprintf(c2err, "Either reduce nthread or increase MXTHREAD");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    // if prescale is a multiple of nthread, the entire CPU load
+    // is on just one thread and thus gives no performance boost->
+    // abort with warning
+    bool DIVISIBLE = ( IPS % nthread == 0 || nthread % IPS == 0 );
+    if ( IPS > 1 && DIVISIBLE ) { 
+      sprintf(c1err, "prescale_simdata=%d is a multiple of nthread=%d" 
+	      " (or vice-versa)",  IPS, nthread );
+      sprintf(c2err, "chi2 calc on subset of threads --> "
+	      "inefficient use of CPU.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
+    }
+  }
 
   return ;
 
@@ -16818,7 +16864,7 @@ double next_covFitPar(double redchi2, double parval_orig, double parval_step) {
 // ******************************************
 void conflict_check() {
 
-  // abort on conflict between inputs.
+  // abort on conflict between incompatible inputs.
 
   char var1[200], var2[200];
   int  NERR = 0, i ;

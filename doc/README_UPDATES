@@ -18877,13 +18877,20 @@
 
          ***** IMPORTANT(v10_78b) ***** 
 
-   Tried v9.2 gcc on Midway, and get lots of 
-      Fix Warning: Fortran 2018 deleted feature: 
-      Shared DO termination label 630 at (1)
-   Fixed these in old fortran codes pulled from CERNLIB;
-     UTILEX in snana.car, and minuit.F
+   Tried v9.2 gcc on Midway, and got lots of compile warnings:
+      "Fix Warning: Fortran 2018 deleted feature: 
+       Shared DO termination label 630 at (1)"
+   Fixed these warnings in old fortran codes pulled from CERNLIB;
+   UTILEX in snana.car, and minuit.F. Using gcc 9.2.0, SNANA now 
+   compiles without warnings.
 
          ***** USEFUL(v10_78b) ***** 
+
+   SALT2mu.c: 
+     new "nthread=<n>" argument splits chi2 calc using pthread_create.
+     Default nthread=1 does not use pthread. Beware to allocate 
+     tasks_per_node for batch jobs. Also beware of re-factored chi2
+     function (fcn).
 
          ***** MISCELLANEOUS(v10_78b) ***** 
 

@@ -1636,6 +1636,7 @@ typedef struct {
 // Aug 31 2020: define typedef for threads
 typedef struct {
   int id_thread, nthread;
+  int isn_min, isn_max;
 
   double  xval_fcn[MAXPAR] ;
   int     npar_fcn, iflag_fcn ;
@@ -3476,6 +3477,8 @@ void printmsg_repeatFit(char *msg) {
 void fcn(int *npar, double grad[], double *fval, double xval[],
 	 int *iflag, void *not_used)
 {
+  // !!! ORIGINAL fcn before threads ... slated to be removed !!!
+  //
   // function to be minimized by MINUIT
   //  flag=1 read input, flag 2=gradient, flag=3 is final value
   double M0, alpha, beta, gamma, alpha0, beta0, gamma0;
@@ -3923,13 +3926,13 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 void fcn(int *npar, double grad[], double *fval, double xval[],
 	 int *iflag, void *not_used) {
 
-  int  ipar, t, rc ;
+  int  NSN_DATA    = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  nthread     = INPUTS.nthread ;
   int  NFITPAR_ALL = FITINP.NFITPAR_ALL ; // Ncospar + Nzbin
+  int  ipar, t, rc, NERR, NSN_per_thread, isn_min, isn_max ;
 
   pthread_t thread[MXTHREAD];
   thread_chi2sums_def  thread_chi2sums[MXTHREAD];
-
   char fnam[] = "fnam";
 
   // ----------- BEGIN ----------------
@@ -3942,11 +3945,23 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     if ( isinf(xval[ipar]) ) { *fval = 1.0E14; return; }
   }
 
+  if ( nthread == 1 ) 
+    { NSN_per_thread = NSN_DATA; }
+  else
+    { NSN_per_thread = (int)( (float)NSN_DATA/(float)nthread )  + 1 ; } 
+
   // - - - - - - - - - - - - - - - - - - -
   for ( t = 0; t < nthread; t++ ) {
 
+    isn_min = t    * NSN_per_thread;
+    isn_max = (t+1)* NSN_per_thread;
+    if ( isn_max > NSN_DATA ) { isn_max = NSN_DATA; }
+
     thread_chi2sums[t].nthread   = nthread;
     thread_chi2sums[t].id_thread = t ;
+    thread_chi2sums[t].isn_min   = isn_min ;
+    thread_chi2sums[t].isn_max   = isn_max ;
+    
 
     // load fcn args to typedef struct
     thread_chi2sums[t].npar_fcn  = *npar ;
@@ -3966,9 +3981,9 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
 
   // - - - - - - - 
 #ifdef USE_THREAD
-  int NERR=0;
   // for threads, wait for them all to finish
   if ( nthread > 1 ) {
+    NERR = 0 ;
     for ( t = 0; t < nthread; t++ ) { 
       rc = pthread_join(thread[t], NULL); 
       if ( rc != 0 ) {
@@ -4042,6 +4057,8 @@ void *MNCHI2FUN(void *thread) {
   double *xval   = thread_chi2sums->xval_fcn ;
   int  nthread   = thread_chi2sums->nthread;
   int  id_thread = thread_chi2sums->id_thread ;
+  int  isn_min   = thread_chi2sums->isn_min ;
+  int  isn_max   = thread_chi2sums->isn_max ;
   char fnam[]    = "MNCHI2FUN" ;
   char *name ;
 
@@ -4135,7 +4152,8 @@ void *MNCHI2FUN(void *thread) {
   nsnfitIa    = nsnfitcc      = 0.0 ;
 
   // - - - - - - - - - - - - - - - - -
-  for ( n = id_thread; n < NSN_DATA; n += nthread ) {
+  // for ( n = id_thread; n < NSN_DATA; n += nthread ) {
+  for ( n = isn_min; n < isn_max; n++ ) {
 
     cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n] ; 
     if ( cutmask ) { continue; }
@@ -16268,6 +16286,7 @@ void prep_input_driver(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
+    /* xxxxxxx mark delete xxxxxxxx
     // if prescale is a multiple of nthread, the entire CPU load
     // is on just one thread and thus gives no performance boost->
     // abort with warning
@@ -16279,6 +16298,8 @@ void prep_input_driver(void) {
 	      "inefficient use of CPU.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
     }
+    xxxxxxxxx end mark xxxxxx */
+
   }
 
   return ;

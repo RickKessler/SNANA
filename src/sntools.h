@@ -56,6 +56,7 @@
 
 #define  SNANA_VERSION_CURRENT  "v10_78b"                                   
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
+//#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
 #define KEYNAME_DOCANA_REQUIRED   "DOCUMENTATION:"
 #define KEYNAME2_DOCANA_REQUIRED  "DOCUMENTATION_END:"
@@ -155,8 +156,6 @@ char FILTERSTRING[100] ;
 #define MXSTREAM_RAN    2  // max number of independent streams
 #define BUFSIZE_RAN   256
 
-// struct random_data { int idum; };  // ??? needed for Mac ???
-
 struct {
   int     NSTREAM ; // number of srandom streams (legacy is 1)
   double  RANSTORE[MXLIST_RAN+1][MXSTORE_RAN] ;
@@ -166,6 +165,11 @@ struct {
 
   // for multi-stream randoms
   // xxx random_data_def ranStream[MXSTREAM_RAN];
+
+#ifdef MACOS
+  struct random_data { int someInteger; };  // from D.Jones, Sep 2020
+#endif
+
   struct random_data  ranStream[MXSTREAM_RAN];
   char stateBuf[MXSTREAM_RAN][BUFSIZE_RAN];
 

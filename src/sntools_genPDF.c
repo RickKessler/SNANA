@@ -71,10 +71,10 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   // -----------
 
   FILE *fp;
-  int gzipFlag, NMAP=0, NVAR=0, ivar, imap, IDMAP=0, NDIM, NFUN, NROW ;
+  int gzipFlag, NMAP=0, NVAR=0, ivar, imap=-9, IDMAP=0, NDIM, NFUN ;
   bool IGNORE_MAP ;
   char c_get[60], fileName_full[MXPATHLEN], LINE[100], varName[60];
-  char *MAPNAME, *VARLIST, *ptrVar;
+  char *MAPNAME, *ptrVar;
   char KEY_ROW[]  = "PDF:", KEY_STOP[] = "", PATH[] = "" ;
   char fnam[]     = "init_genPDF";
 
@@ -144,7 +144,6 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 
       IDMAP  = IDGRIDMAP_GENPDF + NMAP ;
       MAPNAME = GENPDF[NMAP].MAPNAME;
-      VARLIST = GENPDF[NMAP].GRIDMAP.VARLIST ;
       NFUN   = 1  ; // for now, assume only one PROB column
       NDIM   = NVAR - NFUN ;
       read_GRIDMAP(fp, MAPNAME, KEY_ROW, KEY_STOP, 
@@ -152,7 +151,8 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 		   MXROW_GENPDF, fnam, &GENPDF[NMAP].GRIDMAP );
 
       /*
-      NROW = GENPDF[NMAP].GRIDMAP.NROW;
+      int NROW = GENPDF[NMAP].GRIDMAP.NROW;
+      char *VARLIST = GENPDF[NMAP].GRIDMAP.VARLIST ;
       printf(" Found PROB(%s)  NDIM=%d, NROW=%d \n",  VARLIST, NDIM, NROW);
       */
 
@@ -200,7 +200,7 @@ void assign_VARNAME_GENPDF(int imap, int ivar, char *varName) {
 
   char *MAPNAME = GENPDF[imap].MAPNAME ;
   char *VARLIST = GENPDF[imap].GRIDMAP.VARLIST;
-  char fnam[] = "assign_VARNAME_GENPDF";
+  //  char fnam[] = "assign_VARNAME_GENPDF";
   // ---------- BEGIN ------------
 
   if ( ivar == 0 )  { 

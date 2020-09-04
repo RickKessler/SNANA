@@ -3543,7 +3543,7 @@ c default is to reject nothing (accept everything)
       USESIM_TRUEFLUX = .FALSE.
 
       RESTORE_DES3YR = .FALSE.
-      REQUIRE_DOCANA = 0   ! use integer to match sim usage
+      REQUIRE_DOCANA =  0   ! use integer to match sim usage
 
       USE_SNHOST_ZPHOT = .FALSE.
       USE_MWCOR        = .FALSE.  ! apply MWCOR to fit-model

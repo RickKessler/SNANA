@@ -3223,6 +3223,7 @@ c TMP_FITMODEL has the special end-string char(0) need for C functions.
       IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
 
         OPTMASK = 0
+        IF ( REQUIRE_DOCANA > 0 ) OPTMASK = 2  ! Sep 4 2020
         ISTAT = INIT_GENMAG_SALT2( TMP_FITMODEL, BLANK, OPTMASK, 
      &            LEN_NAME, 0 )
 

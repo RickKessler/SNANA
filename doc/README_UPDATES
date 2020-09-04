@@ -18894,4 +18894,7 @@
 
          ***** MISCELLANEOUS(v10_78b) ***** 
 
+   snlc_sim:
+     + Implement DOCANA check for SIMLIB and HOSTLIB
+
 END: 

@@ -99,6 +99,8 @@
  Jul 14 2020: automatically store WGTMAP variables;
               see new function read_VARNAMES_WGTMAP
 
+ Sep 04 2020 : implement REQUIRE_DOCANA 
+
 =========================================================== */
 
 #include <stdio.h>
@@ -139,6 +141,10 @@ void INIT_HOSTLIB(void) {
 
   TIME_INIT_HOSTLIB[0]  = time(NULL);
   print_banner("INIT_HOSTLIB(): Read host-galaxy library.");
+
+  OPTMASK_OPENFILE_HOSTLIB = 0;
+  if ( INPUTS.REQUIRE_DOCANA ) 
+    { OPTMASK_OPENFILE_HOSTLIB = OPENMASK_REQUIRE_DOCANA; }
 
   // check for spectral templates to determin host spectrum
   read_specbasis_HOSTLIB();
@@ -816,7 +822,8 @@ void open_HOSTLIB(FILE **fp) {
 
   // ----------- BEGIN ----------
 
-  *fp = snana_openTextFile(0,PATH_DEFAULT_HOSTLIB, INPUTS.HOSTLIB_FILE,
+  *fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
+			   PATH_DEFAULT_HOSTLIB, INPUTS.HOSTLIB_FILE,
 			   libname_full, &HOSTLIB.GZIPFLAG );  // <== returned
 
   if ( *fp == NULL ) {
@@ -853,7 +860,8 @@ void  read_HOSTLIB_WGTMAP(void) {
   ptrFile = INPUTS.HOSTLIB_WGTMAP_FILE ;
   if ( IGNOREFILE(ptrFile) )  { return ; }
 
-  fp = snana_openTextFile(0, PATH_DEFAULT_HOSTLIB, ptrFile,
+  fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
+			  PATH_DEFAULT_HOSTLIB, ptrFile,
 			  fileName_full, &gzipFlag );  // <== returned
 
   if ( !fp ) {
@@ -1030,7 +1038,8 @@ int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
   }
 
   // open file containing WGTMAP
-  fp = snana_openTextFile(0, PATH_DEFAULT_HOSTLIB, WGTMAP_FILE,
+  fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
+			  PATH_DEFAULT_HOSTLIB, WGTMAP_FILE,
 			  FILENAME_FULL, &gzipFlag );  // <== returned
   
   if ( !fp ) {
@@ -1293,7 +1302,8 @@ void  read_specbasis_HOSTLIB(void) {
   // - - - - - - - - - - - - - -
   // read until VARNAMES key in case there are supplemental keys
 
-  fp = snana_openTextFile(0, PATH_USER_INPUT, ptrFile,
+  fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
+			  PATH_USER_INPUT, ptrFile,
 			  fileName_full, &gzipFlag );  // <== returned
   if ( !fp ) {
       abort_openTextFile("HOSTLIB_SPECBASIS_FILE", 

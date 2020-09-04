@@ -130,6 +130,8 @@ char PATH_DEFAULT_HOSTLIB[2*MXPATHLEN]; // e.g., $SNDATA_ROOT/simlib
 #define MXTMPWORD_HOSTLIB 100
 char *TMPWORD_HOSTLIB[MXTMPWORD_HOSTLIB]; // used for splitString
 
+int OPTMASK_OPENFILE_HOSTLIB ;
+
 struct HOSTLIB_DEF {
   char FILENAME[MXPATHLEN] ; // full file name of HOSTLIB
   int  GZIPFLAG;

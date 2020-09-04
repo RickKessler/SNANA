@@ -49,6 +49,7 @@ SIMGEN_INPUT_LISTFILE = "INPUT_FILE.LIST" # contains list of input files
 SIMGEN_INFILE_KEYCHECK = { # Narg  Required     Verify
     "GENMODEL"          :     [ 1,    True,      False   ],
     "NGENTOT_LC"        :     [ 1,    False,     False   ],
+    "TAKE_SPECTRUM"     :     [ 1,    False,     False   ],
     "FORMAT_MASK"       :     [ 1,    False,     True    ],
     "GENFILTERS"        :     [ 1,    True,      True    ],
     "PATH_USER_INPUT"   :     [ 1,    False,     True    ],
@@ -152,6 +153,9 @@ class Simulation(Program):
         # determine CIDRAN parameters to ensure unique randoms
         self.sim_prep_FORMAT_MASK()
         self.sim_prep_CIDRAN()
+
+        # abort on conflicts
+        self.sim_check_conflicts()
 
         # end submit_prepare_driver (for sim)
 
@@ -412,14 +416,15 @@ class Simulation(Program):
 
     def sim_prep_NGENTOT_LC(self):
 
-        CONFIG          = self.config_yaml['CONFIG']
+        CONFIG        = self.config_yaml['CONFIG']
         fast          = self.config_yaml['args'].fast
         n_genversion  = self.config_prep['n_genversion']
         infile_list2d = self.config_prep['infile_list2d']
-        INFILE_KEYS      = self.config_prep['INFILE_KEYS']
-        n_core          = self.config_prep['n_core']
-        n_job_split      = self.config_prep['n_job_split']
+        INFILE_KEYS   = self.config_prep['INFILE_KEYS']
+        n_core        = self.config_prep['n_core']
+        n_job_split   = self.config_prep['n_job_split']
         key_ngen_unit = "NGEN_UNIT"
+        ngentot_sum   = 0 
 
         # check for NGEN_UNIT
         if key_ngen_unit in CONFIG:
@@ -438,17 +443,18 @@ class Simulation(Program):
                 else:
                     ngentmp = self.get_ngentot_from_rate(iver,ifile) 
                     ngentot = int(ngen_unit * ngentmp)
-                # xxx ngentot_per_splitjob = int(ngentot/n_job_split)
 
                 # finally, check for fast option to divide by 10
                 if fast:  ngentot = int(ngentot/FASTFAC)
 
                 ngentot_list.append(ngentot) # append ifile dimension
+                ngentot_sum += ngentot
 
             ngentot_list2d.append(ngentot_list)     # fill iver dimension
 
         self.config_prep['ngentot_list2d'] = ngentot_list2d
-        self.config_prep['ngen_unit']       = ngen_unit
+        self.config_prep['ngen_unit']      = ngen_unit
+        self.config_prep['ngentot_sum']    = ngentot_sum
 
         # end sim_prep_NGENTOT_LC
 
@@ -581,7 +587,7 @@ class Simulation(Program):
             nkey += 1
 
         if key in genopt_global :
-            jindx        = genopt_global.index(key)
+            jindx       = genopt_global.index(key)
             format_mask = int(genopt_global[jindx+1])
             nkey += 1
 
@@ -611,7 +617,7 @@ class Simulation(Program):
         print(f"  FORMAT_MASK = {format_mask} ({format}) ")
 
         self.config_prep['format_mask'] = format_mask
-        self.config_prep['format']        = format_type        # TEXT or FITS
+        self.config_prep['format']      = format_type        # TEXT or FITS
 
         # end sim_prep_FORMAT_MASK
 
@@ -637,27 +643,27 @@ class Simulation(Program):
         #
         # ------------
 
-        CONFIG           = self.config_yaml['CONFIG']
-        INFILE_KEYS       = self.config_prep['INFILE_KEYS']
+        CONFIG         = self.config_yaml['CONFIG']
+        INFILE_KEYS    = self.config_prep['INFILE_KEYS']
         genopt_global  = self.config_prep['genopt_global'].split()
-        format_mask       = self.config_prep['format_mask']
-        do_cidran       = (format_mask & FORMAT_MASK_CIDRAN) > 0
+        format_mask    = self.config_prep['format_mask']
+        do_cidran      = (format_mask & FORMAT_MASK_CIDRAN) > 0
         ngentot_list2d = self.config_prep['ngentot_list2d'] # per split job
         infile_list2d  = self.config_prep['infile_list2d']
 
-        iver_list       = self.config_prep['iver_list']
-        ifile_list       = self.config_prep['ifile_list']
-        isplit_list       = self.config_prep['isplit_list']
+        iver_list      = self.config_prep['iver_list']
+        ifile_list     = self.config_prep['ifile_list']
+        isplit_list    = self.config_prep['isplit_list']
 
         n_genversion   = self.config_prep['n_genversion']
-        n_job_tot       = self.config_prep['n_job_tot']
-        n_job_split       = self.config_prep['n_job_split']
-        n_file_max       =  6 # ??? need to evaluate
+        n_job_tot      = self.config_prep['n_job_tot']
+        n_job_split    = self.config_prep['n_job_split']
+        n_file_max     =  6 # ??? need to evaluate
         cidoff_list3d  = [[[0 for k in range(0,n_job_split)] for j in range(0,n_file_max)] for i in range(0,n_genversion)]
-        cidran_max_list     = [0] * n_genversion
-        cidran_min     =    0
-        cidran_max     =    0
-        reset_cidoff =    0
+        cidran_max_list = [0] * n_genversion
+        cidran_min      =    0
+        cidran_max      =    0
+        reset_cidoff    =    0
 
         # check for optional min CIDOFF = CIDRAN_MIN
         key = 'CIDRAN_MIN'
@@ -680,7 +686,7 @@ class Simulation(Program):
              reset_cidoff = 1
 
         # - - - - - 
-        ngentot_sum = 0
+        # xxx ngentot_sum = 0
         cidoff        = cidran_min
         for job in range(0,n_job_tot) :
             iver   = iver_list[job]
@@ -697,10 +703,10 @@ class Simulation(Program):
             cidoff_list3d[iver][ifile][isplit] = cidoff
 
             ngentot      = ngentot_list2d[iver][ifile] # per split job
-            ngentot_sum += ngentot    # increment total number generated
+            # xxx ngentot_sum += ngentot    # increment total number generated
             if reset_cidoff > 0 :
                 cidadd       = int(ngentot*1.1)+10   # leave safety margin
-                cidoff      += cidadd               # for random CIDs in snlc_sim
+                cidoff      += cidadd        # for random CIDs in snlc_sim
                 cidran_max   = cidoff
             else:
                 cidoff += ngentot
@@ -714,29 +720,61 @@ class Simulation(Program):
             cidran_max_list = [cidran_max] * n_genversion
 
         # store info
-        self.config_prep['reset_cidoff']     = reset_cidoff
-        self.config_prep['cidran_min']         = cidran_min
-        self.config_prep['cidran_max_list']     = cidran_max_list
+        self.config_prep['reset_cidoff']      = reset_cidoff
+        self.config_prep['cidran_min']        = cidran_min
+        self.config_prep['cidran_max_list']   = cidran_max_list
         self.config_prep['cidoff_list3d']     = cidoff_list3d
         self.config_prep['n_job_tot']         = n_job_tot
-        self.config_prep['ngentot_sum']         = ngentot_sum
+        # xxxself.config_prep['ngentot_sum']         = ngentot_sum
 
         self.sim_prep_dump_cidoff()
 
         # end sim_prep_CIDRAN
 
+    def sim_check_conflicts(self):
+
+        # misc conflict checks/aborts.
+        
+        INFILE_KEYS    = self.config_prep['INFILE_KEYS']
+        ngentot_sum    = self.config_prep['ngentot_sum']
+        n_genversion   = self.config_prep['n_genversion']
+        infile_list2d  = self.config_prep['infile_list2d']
+        TAKE_SPECTRUM  = False 
+        msgerr         = []
+
+        # - - - - - - -
+        # avoid generating spectra for very large jobs such as biasCor.
+        for iver in range(0,n_genversion):
+            n_infile   = len(infile_list2d[iver])
+            for ifile in range(0,n_infile):
+                if 'TAKE_SPECTRUM' in INFILE_KEYS[iver][ifile]:
+                    TAKE_SPECTRUM = True
+
+        MXGENTOT_TAKE_SPECTRUM = 200000
+        if TAKE_SPECTRUM and ngentot_sum > MXGENTOT_TAKE_SPECTRUM :
+            msgerr.append(f"ngentot_sum = {ngentot_sum} is too large " \
+                          f"with TAKE_SPECTRUM keys.")
+            msgerr.append(f"MXGENTOT_TAKE_SPECTRUM = {MXGENTOT_TAKE_SPECTRUM}")
+            msgerr.append(f"Are spectra really needed for such " \
+                          f"a large sample?")
+            self.log_assert( False , msgerr)
+
+        # - - - - - 
+
+        # end sim_check_conflicts
+
     def sim_prep_dump_cidoff(self):
         # debug dump of cidoff for each genversion and model/file
-        n_genversion     = self.config_prep['n_genversion']
-        genversion_list     = self.config_prep['genversion_list']
+        n_genversion      = self.config_prep['n_genversion']
+        genversion_list   = self.config_prep['genversion_list']
         infile_list2d     = self.config_prep['infile_list2d']
-        model_list2d     = self.config_prep['model_list2d']
+        model_list2d      = self.config_prep['model_list2d']
         cidoff_list3d     = self.config_prep['cidoff_list3d']
-        reset_cidoff     = self.config_prep['reset_cidoff']
-        cidran_min         = self.config_prep['cidran_min']
-        cidran_max_list     = self.config_prep['cidran_max_list']
+        reset_cidoff      = self.config_prep['reset_cidoff']
+        cidran_min        = self.config_prep['cidran_min']
+        cidran_max_list   = self.config_prep['cidran_max_list']
         n_job_tot         = self.config_prep['n_job_tot']
-        ngentot_sum         = self.config_prep['ngentot_sum']
+        ngentot_sum       = self.config_prep['ngentot_sum']
 
         print(f"")
         #print(f" DUMP CIDOFF vs. GENVERSION and MODEL/INFILE")
@@ -1090,12 +1128,12 @@ class Simulation(Program):
         # strip off list of input files, and keys inside each file
         infile_list2d  = self.config_prep['infile_list2d']
         model_list2d   = self.config_prep['model_list2d']
-        INFILE_KEYS       = self.config_prep['INFILE_KEYS']
+        INFILE_KEYS    = self.config_prep['INFILE_KEYS']
         INFILE_PAIRS   = self.config_prep['INFILE_PAIRS_VERIFY_ERROR']
         n_infile       = len(infile_list2d[iver])
         narg           = SIMGEN_INFILE_KEYCHECK[keycheck][0]
-        do_require       = SIMGEN_INFILE_KEYCHECK[keycheck][1]
-        do_verify       = SIMGEN_INFILE_KEYCHECK[keycheck][2]
+        do_require     = SIMGEN_INFILE_KEYCHECK[keycheck][1]
+        do_verify      = SIMGEN_INFILE_KEYCHECK[keycheck][2]
 
         nerr   = 0 
         nfound = 0
@@ -1110,9 +1148,10 @@ class Simulation(Program):
             # first make check on required keys
             if keycheck in INFILE_KEYS[iver][ifile] :
                 nfound      += 1
-                key_exists = True 
+                key_exists   = True 
+                    
             elif do_require :
-                nerr += 1
+                nerr      += 1
                 key_exists = False 
                 msg=(f"ERROR: required key {keycheck} missing in {infile_ref}")
                 msgerr.append(msg)
@@ -1244,30 +1283,30 @@ class Simulation(Program):
         icpu   = job_index_dict['icpu']
 
         # pick off a few globals
-        CONFIG        = self.config_yaml['CONFIG']
+        CONFIG       = self.config_yaml['CONFIG']
         GENPREFIX    = CONFIG['GENPREFIX']
-        no_merge    = self.config_yaml['args'].nomerge
+        no_merge     = self.config_yaml['args'].nomerge
 
-        program             = self.config_prep['program'] 
-        n_job_split         = self.config_prep['n_job_split']
-        output_dir         = self.config_prep['output_dir']
+        program           = self.config_prep['program'] 
+        n_job_split       = self.config_prep['n_job_split']
+        output_dir        = self.config_prep['output_dir']
         infile_list2d     = self.config_prep['infile_list2d']
-        model_list2d     = self.config_prep['model_list2d']
-        INFILE_KEYS         = self.config_prep['INFILE_KEYS']
-        n_genversion     = self.config_prep['n_genversion']
-        genversion_list     = self.config_prep['genversion_list']
+        model_list2d      = self.config_prep['model_list2d']
+        INFILE_KEYS       = self.config_prep['INFILE_KEYS']
+        n_genversion      = self.config_prep['n_genversion']
+        genversion_list   = self.config_prep['genversion_list']
         genopt_list2d     = self.config_prep['genopt_list2d']
-        ngentot_list2d     = self.config_prep['ngentot_list2d']
-        ranseed_list     = self.config_prep['ranseed_list']
+        ngentot_list2d    = self.config_prep['ngentot_list2d']
+        ranseed_list      = self.config_prep['ranseed_list']
         genopt_global     = self.config_prep['genopt_global']
-        user_path_sndata = self.config_prep['user_path_sndata_sim']
-        path_sndata         = self.config_prep['path_sndata_sim']
-        format_mask         = self.config_prep['format_mask']
+        user_path_sndata  = self.config_prep['user_path_sndata_sim']
+        path_sndata       = self.config_prep['path_sndata_sim']
+        format_mask       = self.config_prep['format_mask']
         Nsec  = seconds_since_midnight
 
-        reset_cidoff    = self.config_prep['reset_cidoff']
-        cidran_min        = self.config_prep['cidran_min']
-        cidran_max_list = self.config_prep['cidran_max_list']
+        reset_cidoff     = self.config_prep['reset_cidoff']
+        cidran_min       = self.config_prep['cidran_min']
+        cidran_max_list  = self.config_prep['cidran_max_list']
         cidoff_list3d    = self.config_prep['cidoff_list3d']
 
         # init JOB_INFO dictionary. Note that sim job runs in same
@@ -1276,16 +1315,16 @@ class Simulation(Program):
         # issues.
 
         JOB_INFO = {}
-        JOB_INFO['job_dir']        = output_dir  # where to run job
-        JOB_INFO['program']        = program
+        JOB_INFO['job_dir']   = output_dir  # where to run job
+        JOB_INFO['program']   = program
 
-        isplit1         = isplit+1               # for TMP-genversion names 
-        genversion     = genversion_list[iver]
-        genopt         = genopt_list2d[iver][ifile]
-        ranseed         = ranseed_list[isplit]
-        infile         = infile_list2d[iver][ifile]
-        model         = model_list2d[iver][ifile]
-        ngentot         = ngentot_list2d[iver][ifile]
+        isplit1      = isplit+1               # for TMP-genversion names 
+        genversion   = genversion_list[iver]
+        genopt       = genopt_list2d[iver][ifile]
+        ranseed      = ranseed_list[isplit]
+        infile       = infile_list2d[iver][ifile]
+        model        = model_list2d[iver][ifile]
+        ngentot      = ngentot_list2d[iver][ifile]
         Nsec         = seconds_since_midnight
 
         split_string = (f"{isplit1:04d}")          # e.g., 0010
@@ -1295,7 +1334,7 @@ class Simulation(Program):
         tmp2       = self.genversion_split_suffix(isplit1,Nsec)
         # xxx mark delete tmp2         = (f"{split_string}_{Nsec}")
 
-        tmp_ver       = (f"{tmp1}-{tmp2}")        # temp GENVERSION
+        tmp_ver    = (f"{tmp1}-{tmp2}")        # temp GENVERSION
         log_file   = (f"{tmp_ver}.LOG")
         done_file  = (f"{tmp_ver}.DONE")
         genprefix  = (f"{GENPREFIX}_{model_string}-{split_string}")
@@ -1330,11 +1369,11 @@ class Simulation(Program):
         arg_list.append(f"{genopt_global}")     # user global args
 
         JOB_INFO['input_file']    = infile
-        JOB_INFO['log_file']    = log_file
-        JOB_INFO['done_file']    = done_file
-        JOB_INFO['arg_list']    = arg_list
+        JOB_INFO['log_file']      = log_file
+        JOB_INFO['done_file']     = done_file
+        JOB_INFO['arg_list']      = arg_list
         JOB_INFO['tmp_genversion_split']  = tmp_ver
-        JOB_INFO['tmp_genversion']          = tmp1    # combined genv
+        JOB_INFO['tmp_genversion']        = tmp1    # combined genv
         
         return JOB_INFO
 
@@ -1351,12 +1390,12 @@ class Simulation(Program):
         CONFIG            = self.config_yaml['CONFIG']
         simlog_dir        = self.config_prep['output_dir']
         script_dir        = self.config_prep['script_dir']
-        path_sndata_sim = self.config_prep['path_sndata_sim']
-        n_genversion    = self.config_prep['n_genversion']
-        ngentot_sum        = self.config_prep['ngentot_sum']
-        format_mask        = self.config_prep['format_mask']
-        ranseed_key        = self.config_prep['ranseed_key'] 
-        ngen_unit        = self.config_prep['ngen_unit']
+        path_sndata_sim   = self.config_prep['path_sndata_sim']
+        n_genversion      = self.config_prep['n_genversion']
+        ngentot_sum       = self.config_prep['ngentot_sum']
+        format_mask       = self.config_prep['format_mask']
+        ranseed_key       = self.config_prep['ranseed_key'] 
+        ngen_unit         = self.config_prep['ngen_unit']
 
         # - - - - - - - 
         f.write("\n# Original user input \n")

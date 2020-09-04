@@ -12866,9 +12866,14 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
   // Re-factored Aug 2017
   // Open SIMLIB file and read global header into
   // SIMLIB_GLOBAL_HEADER structure.
+  //
+  // Sep 3 2020: check REQUIRE_DOCANA
 
   char PATH_DEFAULT[2*MXPATHLEN];
-  char *OPENFILE = INPUTS.SIMLIB_OPENFILE;
+  char *OPENFILE      = INPUTS.SIMLIB_OPENFILE;
+  int  REQUIRE_DOCANA = INPUTS.REQUIRE_DOCANA ; 
+  int  OPENMASK       = OPENMASK_VERBOSE ;
+  if (REQUIRE_DOCANA) { OPENMASK += OPENMASK_REQUIRE_DOCANA; }
   char c_get[80];
   int  NTMP, NFILT;
   char fnam[] = "SIMLIB_readGlobalHeader_TEXT" ;
@@ -12878,17 +12883,11 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
   print_banner(fnam);
 
   sprintf(PATH_DEFAULT, "%s %s/simlib",  PATH_USER_INPUT, PATH_SNDATA_ROOT );
-  fp_SIMLIB = snana_openTextFile(1,PATH_DEFAULT, INPUTS.SIMLIB_FILE, 
+  fp_SIMLIB = snana_openTextFile(OPENMASK,PATH_DEFAULT, INPUTS.SIMLIB_FILE, 
 				 OPENFILE, &INPUTS.SIMLIB_GZIPFLAG );
   
   if ( fp_SIMLIB == NULL ) {
     abort_openTextFile("SIMLIB_FILE", PATH_DEFAULT, INPUTS.SIMLIB_FILE, fnam);
-
-    /* xxxxx Mark delete Feb 1 2020 xxxxxx
-    sprintf ( c1err, "Cannot open file SIMLIB_FILE" );
-    sprintf ( c2err," '%s' ", INPUTS.SIMLIB_FILE );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    xxxx */ 
   }
 
   // - - - - - - - - - - - - - - - -

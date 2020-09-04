@@ -13810,8 +13810,10 @@ void print_eventStats(int event_type) {
   for(bit=0; bit < MXCUTBIT; bit++ ) {
     NCUT = NBIT[bit] ;
     if ( NCUT > 0 ) {
-      fprintf(FP_STDOUT, " %s NCUT[%2.2d] = %6d(ALL) %6d(onlyCut)   [%s] \n",
-	     STRTYPE, bit, NCUT, NCUT_SOLO[bit], CUTSTRING_LIST[bit] );
+      fprintf(FP_STDOUT, " %s NCUT[2**%2.2d=%5d] = "
+	      "%6d(ALL) %6d(onlyCut)   [%s] \n",
+	      STRTYPE, bit, CUTMASK_LIST[bit], 
+	      NCUT, NCUT_SOLO[bit], CUTSTRING_LIST[bit] );
     }
   }
 

@@ -260,6 +260,62 @@ class Program:
     def write_batch_file(self, batch_file, log_file, command_file, cpu_name):
 
         # Create batch_file that executes "source command_file"
+        # BATCH_TEMPLATE file is read, and lines are modified using
+        # string replacements for
+        #   REPLACE_NAME, REPLACE_LOGFILE, REPLACE_MEM, REPLACE_JOB
+        # with job-specific info.
+        # Note that lower-case xxx_file has no path; 
+        # upper case XXX_FILE includes full path
+
+        BATCH_TEMPLATE  = self.config_prep['BATCH_TEMPLATE'] 
+        script_dir      = self.config_prep['script_dir']
+        replace_memory  = self.config_prep['memory']
+        input_file      = self.config_yaml['args'].input_file 
+        debug_batch     = self.config_yaml['args'].debug_batch
+
+        BATCH_FILE      = (f"{script_dir}/{batch_file}")
+
+        with open(BATCH_TEMPLATE,"r") as f:
+            template_batch_lines = f.readlines()
+
+        #print(f" xxx template_batch_lines = {template_batch_lines} ")
+
+        # get strings to replace 
+
+        # job name in queue include name of input file for Pippin
+        replace_job_name   = (f"{input_file}-{cpu_name}") 
+
+        # nothing to change for log file
+        replace_log_file   = log_file  
+
+        replace_job_cmd = (f"cd {script_dir} \nsource {command_file}")
+
+        # - - - define list of strings to replace - - - - 
+        batch_lines = []            
+        REPLACE_KEY_LIST = [ 'REPLACE_NAME', 'REPLACE_MEM',
+                             'REPLACE_LOGFILE', 'REPLACE_JOB' ]
+        replace_string_list = [ replace_job_name, replace_memory,
+                                replace_log_file, replace_job_cmd ]
+        NKEY = len(REPLACE_KEY_LIST)
+
+        # replace strings in batch_lines
+        for line in template_batch_lines:
+            for ikey in range(0,NKEY):
+                REPLACE_KEY    = REPLACE_KEY_LIST[ikey]
+                replace_string = replace_string_list[ikey] 
+                line           = line.replace(REPLACE_KEY,replace_string)
+            batch_lines.append(line)
+
+        with open(BATCH_FILE,"w") as f:
+            f.write("".join(batch_lines))
+
+        # end write_batch_file
+
+    def write_batch_file_legacy(self, batch_file, log_file, command_file, cpu_name):
+
+        # xxxxxx MARK DELETE Sep 7 xxxxxxxx
+        #
+        # Create batch_file that executes "source command_file"
         # BATCH_TEMPLATE file is copied to script_dir destination, 
         # and then sed linux utility is used to substitute 
         #   REPLACE_NAME, REPLACE_LOGFILE, REPLACE_MEM, REPLACE_JOB
@@ -271,7 +327,7 @@ class Program:
         script_dir      = self.config_prep['script_dir']
         replace_memory  = self.config_prep['memory']
         input_file      = self.config_yaml['args'].input_file 
-        debug_sed_batch = self.config_yaml['args'].debug_sed_batch
+        debug_batch     = self.config_yaml['args'].debug_batch
 
         batch_file_temp = (f"{batch_file}_TEMP")
         BATCH_FILE      = (f"{script_dir}/{batch_file}")
@@ -280,6 +336,8 @@ class Program:
         # copy batch template file to temp file in script_dir
         # (below it is modified with sed)
         shutil.copy(BATCH_TEMPLATE, BATCH_FILE_TEMP)
+
+        # xxxxxx MARK DELETE Sep 7 xxxxxxxx
 
         # use sed utility to replace strings in batch file
 
@@ -313,6 +371,8 @@ class Program:
         if ( rm_temp ) :  
             remove_cmd = (f"rm {BATCH_FILE_TEMP}")
             os.system(remove_cmd)
+        # xxxxxx MARK DELETE Sep 7 xxxxxxxx
+
 
     def prep_JOB_INFO_merge(self,icpu,ijob):
         # Return JOB_INFO dictionary of strings to run merge process.

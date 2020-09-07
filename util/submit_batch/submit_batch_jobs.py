@@ -83,8 +83,8 @@ def get_args():
     msg = (f"DEBUG MODE: reset merge process ")
     parser.add_argument("--merge_reset", help=msg, action="store_true")
 
-    msg = (f"DEBUG MODE: print sed command to make batch file ")
-    parser.add_argument("--debug_sed_batch", help=msg, action="store_true")
+    msg = (f"DEBUG MODE: debug creation of batch files ")
+    parser.add_argument("--debug_batch", help=msg, action="store_true")
 
     # args passed internally from command files
     msg = "INTERNAL:  merge process"

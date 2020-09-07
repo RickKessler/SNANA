@@ -271,6 +271,9 @@ class Program:
         script_dir      = self.config_prep['script_dir']
         replace_memory  = self.config_prep['memory']
         input_file      = self.config_yaml['args'].input_file 
+        debug_sed_batch = self.config_yaml['args'].debug_sed_batch
+
+        batch_file_temp = (f"{batch_file}_TEMP")
         BATCH_FILE      = (f"{script_dir}/{batch_file}")
         BATCH_FILE_TEMP = (f"{BATCH_FILE}_TEMP")  # for sed utility
 
@@ -288,22 +291,26 @@ class Program:
 
         # for script_dir, replace slash (/) with \/ for sed.
         script_dir_sed  = script_dir.replace("/","\/")
-        replace_job_cmd = (f"cd {script_dir_sed}\\\n\\\nsource {command_file}")
+        replace_job_cmd = (f"cd {script_dir_sed} \\\nsource {command_file}")
 
-        # construct sed command to replace the REPALCE_XXX keys in 
+        # construct sed command to replace the REPLACE_XXX keys in 
         # the batch template file
-        sed_command = 'sed '
+        sed_command  = (f"cd {script_dir}; sed ")
         sed_command += (f"-e 's/REPLACE_NAME/{replace_job_name}/g' ")
         sed_command += (f"-e 's/REPLACE_MEM/{replace_memory}mb/g' ")
         sed_command += (f"-e 's/REPLACE_LOGFILE/{replace_log_file}/g' ")
         sed_command += (f"-e 's/REPLACE_JOB/{replace_job_cmd}/g' ")
-        sed_command += (f" {BATCH_FILE_TEMP} > {BATCH_FILE}") 
+        sed_command += (f" {batch_file_temp} > {batch_file}") 
+        #sed_command += (f" {BATCH_FILE_TEMP} > {BATCH_FILE}") 
 
-#        print(f" xxx sed_command = {sed_command}")
+        if debug_sed_batch : 
+            util.print_debug_line(f" sed_command = {sed_command}")
+            #util.print_debug_line(f" replace_job_cmd = {replace_job_cmd}")
         os.system(sed_command)
 
-        # remove TEMP file
-        if ( len(BATCH_FILE_TEMP) > 5 ) :  # avoid stupidity with rm
+        # remove TEMP file, but avoid stupidity with rm
+        rm_temp = len(BATCH_FILE_TEMP) > 5  and not debug_sed_batch
+        if ( rm_temp ) :  
             remove_cmd = (f"rm {BATCH_FILE_TEMP}")
             os.system(remove_cmd)
 

@@ -426,6 +426,7 @@ class BBC(Program):
             ff             = (f"{fitopt_num}.{SUFFIX_FITRES}")
             input_ff       = "INPUT_" + ff
             cat_file_out   = (f"{V_DIR}/{input_ff}")
+            cat_file_log   = (f"{output_dir}/cat_FITRES_SALT2mu.LOG")
             nrow = self.exec_cat_fitres(cat_list, cat_file_out)
             logging.info(f"\t Catenate {n_inpdir} {ff} files"\
                          f" -> {nrow} events ")
@@ -438,10 +439,14 @@ class BBC(Program):
             cmd_gzip = (f"cd {vout_dir}; gzip INPUT_FITOPT*.{SUFFIX_FITRES}")
             os.system(cmd_gzip)
 
+        # remove cat log file
+        rm_log = (f"cd {output_dir}; rm {cat_file_log}")
+        os.system(rm_log)
+
         # end bbc_prep_combine_tables
     
         
-    def exec_cat_fitres(self,cat_list, cat_file_out):
+    def exec_cat_fitres(self,cat_list, cat_file_out, cat_file_log):
 
         # prepare & execute catenate command for this cat_list 
         # (comma-sep list of files) into cat_file_out.
@@ -451,8 +456,6 @@ class BBC(Program):
         # .gz extensions.
         #
         # function returns number of rows in catenated file
-
-        cat_file_log = "cat_FITRES_SALT2mu.LOG"
 
         cmd_cat = (f"SALT2mu.exe  " \
                    f"cat_only  "    \

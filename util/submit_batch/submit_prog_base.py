@@ -923,7 +923,7 @@ class Program:
 
         t_wall   = t_seconds/t_unit
         msg_time = [ ' ' ]
-        msg_time.append(f"CPU_UNIT:       {unit} ")
+        msg_time.append(f"UNIT_TIME:      {unit} ")
         msg_time.append(f"WALL_TIME:      {t_wall:.2f}  ")
 
         # - - - - - - - - 

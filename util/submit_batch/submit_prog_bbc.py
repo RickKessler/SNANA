@@ -1050,7 +1050,7 @@ class BBC(Program):
         logging.info(f"  BBC cleanup: compress {JOB_SUFFIX_TAR_LIST}")
         for suffix in JOB_SUFFIX_TAR_LIST :
             wildcard = (f"{jobfile_wildcard}*.{suffix}") 
-            util.compress_files(+1, script_dir, wildcard, suffix )
+            util.compress_files(+1, script_dir, wildcard, suffix, "" )
 
         self.merge_cleanup_script_dir()
 
@@ -1262,10 +1262,10 @@ class BBC(Program):
         logging.info(f"  {fnam}: uncompress {JOB_SUFFIX_TAR_LIST}")
         for suffix in JOB_SUFFIX_TAR_LIST :
             wildcard = (f"{jobfile_wildcard}*.{suffix}") 
-            util.compress_files(-1, script_dir, wildcard, suffix )
+            util.compress_files(-1, script_dir, wildcard, suffix, "" )
 
         logging.info(f"  {fnam}: uncompress CPU* files")
-        util.compress_files(-1, script_dir, "CPU*", "CPU" )
+        util.compress_files(-1, script_dir, "CPU*", "CPU", "" )
 
         logging.info(f"  {fnam}: restore {SUFFIX_MOVE_LIST} to {script_subdir}")
         for vout in vout_list : 

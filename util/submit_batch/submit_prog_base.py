@@ -282,7 +282,9 @@ class Program:
 
         # get strings to replace 
 
-        # job name in queue include name of input file for Pippin
+        # job name in queue include name of input file for Pippin.
+        # Remove everything up to last slash so that only the base
+        # input file name is used in job name.
         replace_job_name   = (f"{input_file}-{cpu_name}") 
 
         # nothing to change for log file
@@ -310,69 +312,6 @@ class Program:
             f.write("".join(batch_lines))
 
         # end write_batch_file
-
-    def write_batch_file_legacy(self, batch_file, log_file, command_file, cpu_name):
-
-        # xxxxxx MARK DELETE Sep 7 xxxxxxxx
-        #
-        # Create batch_file that executes "source command_file"
-        # BATCH_TEMPLATE file is copied to script_dir destination, 
-        # and then sed linux utility is used to substitute 
-        #   REPLACE_NAME, REPLACE_LOGFILE, REPLACE_MEM, REPLACE_JOB
-        # with job-specific info in copied BATCH_TEMPLATE file.
-        # Note that lower-case xxx_file has no path; 
-        # upper case XXX_FILE includes full path
-
-        BATCH_TEMPLATE  = self.config_prep['BATCH_TEMPLATE'] 
-        script_dir      = self.config_prep['script_dir']
-        replace_memory  = self.config_prep['memory']
-        input_file      = self.config_yaml['args'].input_file 
-        debug_batch     = self.config_yaml['args'].debug_batch
-
-        batch_file_temp = (f"{batch_file}_TEMP")
-        BATCH_FILE      = (f"{script_dir}/{batch_file}")
-        BATCH_FILE_TEMP = (f"{BATCH_FILE}_TEMP")  # for sed utility
-
-        # copy batch template file to temp file in script_dir
-        # (below it is modified with sed)
-        shutil.copy(BATCH_TEMPLATE, BATCH_FILE_TEMP)
-
-        # xxxxxx MARK DELETE Sep 7 xxxxxxxx
-
-        # use sed utility to replace strings in batch file
-
-        # job name in queue include name of input file for Pippin
-        replace_job_name   = (f"{input_file}-{cpu_name}") 
-
-        # nothing to change for log file
-        replace_log_file   = log_file  
-
-        # for script_dir, replace slash (/) with \/ for sed.
-        script_dir_sed  = script_dir.replace("/","\/")
-        replace_job_cmd = (f"cd {script_dir_sed} \\\nsource {command_file}")
-
-        # construct sed command to replace the REPLACE_XXX keys in 
-        # the batch template file
-        sed_command  = (f"cd {script_dir}; sed ")
-        sed_command += (f"-e 's/REPLACE_NAME/{replace_job_name}/g' ")
-        sed_command += (f"-e 's/REPLACE_MEM/{replace_memory}mb/g' ")
-        sed_command += (f"-e 's/REPLACE_LOGFILE/{replace_log_file}/g' ")
-        sed_command += (f"-e 's/REPLACE_JOB/{replace_job_cmd}/g' ")
-        sed_command += (f" {batch_file_temp} > {batch_file}") 
-        #sed_command += (f" {BATCH_FILE_TEMP} > {BATCH_FILE}") 
-
-        if debug_sed_batch : 
-            util.print_debug_line(f" sed_command = {sed_command}")
-            #util.print_debug_line(f" replace_job_cmd = {replace_job_cmd}")
-        os.system(sed_command)
-
-        # remove TEMP file, but avoid stupidity with rm
-        rm_temp = len(BATCH_FILE_TEMP) > 5  and not debug_sed_batch
-        if ( rm_temp ) :  
-            remove_cmd = (f"rm {BATCH_FILE_TEMP}")
-            os.system(remove_cmd)
-        # xxxxxx MARK DELETE Sep 7 xxxxxxxx
-
 
     def prep_JOB_INFO_merge(self,icpu,ijob):
         # Return JOB_INFO dictionary of strings to run merge process.
@@ -793,15 +732,16 @@ class Program:
         # Beware that after this task, nothing more can be written
         # to the CPU*LOG files.
 
-        submit_info_yaml = self.config_prep['submit_info_yaml']
-        script_dir       = submit_info_yaml['SCRIPT_DIR'] 
+        cpunum            = self.config_yaml['args'].cpunum[0]
+        submit_info_yaml  = self.config_prep['submit_info_yaml']
+        script_dir        = submit_info_yaml['SCRIPT_DIR'] 
 
-        logging.info(f"  Standard cleanup: compress CPU* files")
-        util.compress_files(+1, script_dir, "CPU*", "CPU" )
+        log_file_keep  = (f"CPU{cpunum:04d}*.LOG")
+        logging.info(f"  Standard cleanup: compress CPU* files " \
+                     f"except for {log_file_keep}")
+        util.compress_files(+1, script_dir, "CPU*", "CPU", log_file_keep )
 
         # tar and zip the script dir
-        # This last info text won't appear because CPU*LOG files are
-        # removed above.
         logging.info(f"  Standard cleanup: compress {script_dir}")
         util.compress_subdir(+1, f"{script_dir}" )
 
@@ -982,8 +922,9 @@ class Program:
             t_unit = 3600.0 ;    unit = "hours"
 
         t_wall   = t_seconds/t_unit
-        msg_time = []
-        msg_time.append(f"\nWALL_TIME:      {t_wall:.2f}    # {unit} ")
+        msg_time = [ ' ' ]
+        msg_time.append(f"CPU_UNIT:       {unit} ")
+        msg_time.append(f"WALL_TIME:      {t_wall:.2f}  ")
 
         # - - - - - - - - 
         # Read TIME_START value from each CPU*LOG file, and measure
@@ -1021,8 +962,8 @@ class Program:
         if len(t_pend_list) > 0 :
             t_pend_min = min(t_pend_list)
             t_pend_max = max(t_pend_list)
-            msg_time.append(f"TMIN_PENDING:   {t_pend_min:.02f}    # {unit}")
-            msg_time.append(f"TMAX_PENDING:   {t_pend_max:.02f}    # {unit}")
+            msg_time.append(f"TMIN_PENDING:   {t_pend_min:.02f} ")
+            msg_time.append(f"TMAX_PENDING:   {t_pend_max:.02f} ")
 
         # - - - - - - - - 
         # if there is a CPU column, compute total CPU and avg CPU/core/T_wal
@@ -1039,7 +980,7 @@ class Program:
             cpu_avg  = cpu_sum / n_core
             eff_cpu  = cpu_avg / t_wall
 
-            msg_time.append(f"CPU_SUM:        {cpu_sum:.3f}   # {unit}")
+            msg_time.append(f"CPU_SUM:        {cpu_sum:.3f} ")
             msg_time.append(f"EFFIC_CPU:      {eff_cpu:.3f}   # CPU/core/T_wall")
 
         # - - - -

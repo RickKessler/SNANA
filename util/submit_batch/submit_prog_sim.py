@@ -393,17 +393,21 @@ class Simulation(Program):
                         ranseed_tmp = ranseed + 10000*job + job*job + 13
                         ranseed_list.append(ranseed_tmp)
 
-        genv_list = self.config_prep['genversion_list']
-        genversion_list_all,igenver_list_all = \
-            self.genversion_expand_list(genv_list,RANSEED_KEY,n_job_split) 
-
+        # - - - - - - -
+        # require 1 and only 1 RANSEED_XXX key; otherwise abort.
         if nkey_found != 1 :
             msgerr.append(f"Found {nkey_found} RANSEED keys -> INVALID.")
-            msgerr.append(f"Must specify 1 key: "
+            msgerr.append(f"Must specify either: "
                           "RANSEED_REPEAT or RANSEED_CHANGE")
             msgerr.append(f"in YAML CONFIG.")
             msgerr.append(f" (and note that RANSEED: is not valid)")
             self.log_assert(False,msgerr)
+
+        # - - - - - - - 
+        # expand list of versions based on ranseed key
+        genv_list = self.config_prep['genversion_list']
+        genversion_list_all,igenver_list_all = \
+            self.genversion_expand_list(genv_list,RANSEED_KEY,n_job_split) 
 
         self.config_prep['n_job_split']         = n_job_split 
         self.config_prep['ranseed_list']        = ranseed_list
@@ -1946,13 +1950,12 @@ class Simulation(Program):
         # Input 'iver_all' is a reminder that this function works
         # for both RANSEED_REPEAT and RANSEED_CHANGE
 
-        input_file         = self.config_yaml['args'].input_file
-
-        submit_info_yaml = self.config_prep['submit_info_yaml']
+        input_file          = self.config_yaml['args'].input_file
+        submit_info_yaml    = self.config_prep['submit_info_yaml']
         path_sndata_sim     = submit_info_yaml['PATH_SNDATA_SIM'] 
-        simlog_dir     = submit_info_yaml['SIMLOG_DIR'] 
-        ranseed_key     = submit_info_yaml['RANSEED_KEY'] 
-        cleanup_flag     = submit_info_yaml['CLEANUP_FLAG']
+        simlog_dir          = submit_info_yaml['SIMLOG_DIR'] 
+        ranseed_key         = submit_info_yaml['RANSEED_KEY'] 
+        cleanup_flag        = submit_info_yaml['CLEANUP_FLAG']
         Nsec_time_stamp     = submit_info_yaml['TIME_STAMP_NSEC']          
         Nsec_now  = seconds_since_midnight # current time since midnight
 

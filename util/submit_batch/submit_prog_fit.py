@@ -253,8 +253,8 @@ class LightCurveFit(Program):
                 v_list  = sorted(glob.glob(f"{path}/{v_tmp}"))
                 for v in v_list:
                     found   = True
-                    j_slash = v.rindex('/')
-                    version = v[j_slash+1:]
+                    #j_slash = v.rindex('/');    version = v[j_slash+1:]
+                    version = os.path.basename(v)
                     # avoid tar files and gz files
                     if '.tar' in v : continue
                     if '.gz'  in v : continue
@@ -1535,28 +1535,25 @@ class LightCurveFit(Program):
         # if we get here, table-merging seems to have worked so tar and zip
 
         logging.info(f" FIT cleanup: tar up files under {subdir}/")
-        util.compress_files(+1, script_dir, "*SPLIT*.LOG",  "LOG" )
-        util.compress_files(+1, script_dir, "*SPLIT*.YAML", "YAML" )
-        util.compress_files(+1, script_dir, "*SPLIT*.DONE", "DONE" )
+        util.compress_files(+1, script_dir, "*SPLIT*.LOG",  "LOG", "" )
+        util.compress_files(+1, script_dir, "*SPLIT*.YAML", "YAML", "" )
+        util.compress_files(+1, script_dir, "*SPLIT*.DONE", "DONE", "" )
 
         for itable in range(0,NTABLE_FORMAT):
             use    = use_table_format[itable]
             suffix = TABLE_SUFFIX_LIST[itable]
             if use :
                 wildcard = (f"*SPLIT*.{suffix}")
-                util.compress_files(+1, script_dir, wildcard, suffix )
+                util.compress_files(+1, script_dir, wildcard, suffix, "" )
                 # ?? at some point, should delete these since merged table is there ??
 
         logging.info(f" FIT cleanup: gzip merged tables.")
         cmd_gzip = (f"cd {output_dir} ; gzip */FITOPT* 2>/dev/null")
         os.system(cmd_gzip)
 
-        #logging.info(f" Cleanup: compress {subdir}/")
-        #util.compress_subdir(+1, script_dir )
-
         self.merge_cleanup_script_dir() 
 
-        logging.info(f" FIT cleanup: Done.")
+        # xxx nothing to write to? logging.info(f" FIT cleanup: Done.")
 
         # end merge_cleanup_final
 

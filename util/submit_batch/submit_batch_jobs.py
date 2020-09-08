@@ -4,8 +4,6 @@
 #
 # TO-DO LIST for
 #
-#   SNDATA_ROOT -> separate git repo ??
-#
 #  BASE/util: 
 #   - more elegant HELP menu per program?
 #   - run merge task immediately after launch so that
@@ -102,7 +100,13 @@ def get_args():
 
     args = parser.parse_args()
 
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit()
+
     return parser.parse_args()
+
+    # end get_args
 
 def which_program_class(config):
 
@@ -135,6 +139,17 @@ def set_merge_flag(config):
                  config['args'].MERGE_LAST  or \
                  config['args'].merge_reset
     return merge_flag
+
+def check_input_file_name(args):
+
+    #args.INPUT_FILE = util.standardize_path(args.input_file,CWD)
+    #args.input_file = os.path.basename(args.INPUT_FILE)    
+
+    # check to translate legacy input
+    args.input_file = check_legacy_input_file(args.input_file, 
+                                              args.opt_translate )
+
+    #end check_input_file_name
 
 def check_legacy_input_file(input_file, opt_translate):
 
@@ -176,7 +191,15 @@ def check_legacy_input_file(input_file, opt_translate):
     rename_refac_file    = (opt_translate & 1 ) > 0
     rename_legacy_file   = (opt_translate & 2 ) > 0
     exit_after_translate = (opt_translate & 4 ) == 0 # default is to exit
-    
+
+    if '/' in input_file:
+        msgerr.append(f"Will not translate input file in another directory.")
+        msgerr.append(f"Recommend")
+        msgerr.append(f"  cd {os.path.dirname(input_file)}")
+        msgerr.append(f"  {os.path.basename(sys.argv[0])} " \
+                      f"{os.path.basename(input_file)}")
+        util.log_assert(False,msgerr)
+
     if rename_refac_file :
         legacy_input_file = input_file
         refac_input_file  = (f"REFAC_{input_file}")
@@ -281,8 +304,7 @@ if __name__ == "__main__":
         purge_old_submit_output()
         sys.exit(' Done: exiting Main.')
 
-    # check to translate legacy input
-    args.input_file = check_legacy_input_file(args.input_file, args.opt_translate )
+    check_input_file_name(args)
 
     # Here we know it's got a CONFIG block, so read the YAML input
     config_yaml = util.extract_yaml(args.input_file)

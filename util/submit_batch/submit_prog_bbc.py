@@ -427,7 +427,7 @@ class BBC(Program):
             input_ff       = "INPUT_" + ff
             cat_file_out   = (f"{V_DIR}/{input_ff}")
             cat_file_log   = (f"{output_dir}/cat_FITRES_SALT2mu.LOG")
-            nrow = self.exec_cat_fitres(cat_list, cat_file_out)
+            nrow = self.exec_cat_fitres(cat_list, cat_file_out, cat_file_log)
             logging.info(f"\t Catenate {n_inpdir} {ff} files"\
                          f" -> {nrow} events ")
 

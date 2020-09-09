@@ -72,8 +72,10 @@ def get_args():
     msg = "+=1 -> new input file has REFAC_ prefix; " + \
           "+=2 -> old input file has LEGACY_ prefix ; " + \
           "+=4 -> continue submit with new file. "
-    #parser.add_argument('--opt_translate', nargs='+', help=msg, type=int )
     parser.add_argument('--opt_translate' , help=msg, type=int, default=1 )
+
+    msg = "abort on missing DOCANA keys in maps & libraries"
+    parser.add_argument("--require_docana", help=msg, action="store_true")
 
     msg = "DEBUG MODE: submit jobs, but skip merge process"
     parser.add_argument("--nomerge", help=msg, action="store_true")

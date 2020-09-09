@@ -630,13 +630,10 @@ class LightCurveFit(Program):
                 job_info_fit   = self.prep_JOB_INFO_fit(index_dict)
                 util.write_job_info(f, job_info_fit, icpu)
 
-                # xx last_job   = (n_job_tot - n_job_real) < n_core
-                # xx job_info_merge = self.prep_JOB_INFO_merge(icpu,last_job) 
-
                 job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_real) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
-
+        # - - - - 
         if n_job_real != n_job_tot :
             msgerr = []
             msgerr.append(f"Expected {n_job_tot} total jobs;")
@@ -699,6 +696,9 @@ class LightCurveFit(Program):
         # check fast option to prescale sims by 10 (data never pre-scaled)
         if self.config_yaml['args'].fast :
             arg_list.append(f"  SIM_PRESCALE {FASTFAC}")
+
+        if self.config_yaml['args'].require_docana :
+            arg_list.append(f"  REQUIRE_DOCANA 1")
 
         # tack on outFile for each table format. For TEXT, do NOT
         # include suffix in TEXTFILE_PREFIX argument

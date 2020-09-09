@@ -12715,7 +12715,7 @@ double GENAV_WV07(void) {
   // ----------- BEGIN -----------
 
   AEXP = 1./tau;
-  BEXP = 1./sqrtf(sqsigma * 2. * 3.14159) ;
+  BEXP = 1./sqrt(sqsigma * 2. * 3.14159) ;
 
   if ( REWGT_AEXP > -1.0E-9 ) { AEXP *= REWGT_AEXP; } // April 2018
 

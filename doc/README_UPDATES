@@ -18873,7 +18873,7 @@
 
 
 # ======================================================================= 
-         v10_78b (  ) 
+         v10_78b (Sep 9, 2020) 
 
          ***** IMPORTANT(v10_78b) ***** 
 
@@ -18896,5 +18896,8 @@
 
    snlc_sim:
      + Implement DOCANA check for SIMLIB and HOSTLIB
+
+   submit_batch :
+     + working but not yet integrated into Pippin.
 
 END: 

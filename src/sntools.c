@@ -503,8 +503,8 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   double SNRCUT_BACKUP   = INPUTS_OBS_atFLUXMAX.SNRCUT_BACKUP;
   double MJDSTEP_SNRCUT  = 10.0 ; // hard wired param
 
-  int USE_MJDatFLUXMAX  = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX );
-  int USE_MJDatFLUXMAX2 = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2);
+  int USE_MJDatFLUXMAX  = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX ); // naive max flux
+  int USE_MJDatFLUXMAX2 = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2); // fmax-clump method
   int USE_BACKUP_SNRCUT, ITER, NITER, IMJD, IMJDMAX=0 ;
   int NOBS_SNRCUT=0, NSNRCUT_MAXSUM=0;
   int IFILTOBS, o, omin, omax, omin2, omax2, o_sort, NOTHING ;
@@ -521,9 +521,9 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   // ------------ BEGIN -------------
 
   NITER  = 1 ;         // always do max flux on 1st iter
-  omin2  = omax2 = -9 ;
-  NSNRCUT_MAXSUM = 0 ;
-  USE_BACKUP_SNRCUT = 0;
+  omin2  = omax2    = -9 ;
+  NSNRCUT_MAXSUM    = 0 ;
+  USE_BACKUP_SNRCUT = 0 ;
 
   // sort by MJD (needed for FmaxClump method)
   MEMI = NOBS*sizeof(int) ;
@@ -567,6 +567,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     USE_BACKUP_SNRCUT = 1;
   }
   else if ( USE_MJDatFLUXMAX2 ) {
+    // fmax-clump method
     NITER   = 2 ;
     IMJDMAX = 0;
     SNRCUT  = SNRCUT_USER;
@@ -576,7 +577,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
       NSNRCUT     = (int*)malloc(MEMI);
       oMIN_SNRCUT = (int*)malloc(MEMI);
       oMAX_SNRCUT = (int*)malloc(MEMI);     
-      MALLOC = 1; 
+      MALLOC      = 1 ; 
     }
     // initialize quantities in each 10-day bin
     for(o=0; o < MXWIN_SNRCUT; o++ ) {

@@ -68,6 +68,8 @@ c parameters used by snana code
      &  ,MSKOPT_PARSE_WORDS_STRING
      &  ,MSKOPT_PARSE_WORDS_FILE
      &  ,MSKOPT_PARSE_WORDS_IGNORECOMMA
+     &  ,MSKOPT_PARSE_WORDS_IGNORECOMMENT
+     &  ,MSKOPT_PARSE_WORDS_FIRSTLINE
 c
      &  ,MODEL_STRETCH
      &  ,MODEL_STRETCH2
@@ -85,6 +87,7 @@ c
      &  ,MXCHAR_PATH, MXCHAR_FILENAME, MXCHAR_MODELNAME
      &  ,MXCHAR_FIELDNAME, MXCHAR_PARNAME, MXCHAR_CUTNAME
      &  ,MXCHAR_FILEWORD, MXFILE_LIST
+     &  ,FLAG_DOCANA_START, FLAG_DOCANA_END, FLAG_DOCANA_ERROR
 c
      &  ,SNLCPAK_EPFLAG_FLUXDATA     ! DATA flux per epoch
      &  ,SNLCPAK_EPFLAG_REJECT   ! REJECT flag (1=> excluded from fit)
@@ -251,7 +254,9 @@ c
      &  ,OPT_PARSTORE_TEXTTABLE = 1  ! tag subset for TEXT table.
      &  ,MSKOPT_PARSE_WORDS_FILE    = 1   ! parse file
      &  ,MSKOPT_PARSE_WORDS_STRING  = 2   ! for store_PARSE_WORDS: string
-     &  ,MSKOPT_PARSE_WORDS_IGNORECOMMA = 4 ! ignore comma for string
+     &  ,MSKOPT_PARSE_WORDS_IGNORECOMMA   = 4  ! ignore comma for string
+     &  ,MSKOPT_PARSE_WORDS_IGNORECOMMENT = 8  ! ignore comment lines
+     &  ,MSKOPT_PARSE_WORDS_FIRSTLINE     = 16 ! read only 1st line of file
 c 
      &  ,MODEL_STRETCH    = 1
      &  ,MODEL_STRETCH2   = 2
@@ -280,6 +285,10 @@ c
      &  ,MXCHAR_FILEWORD   =  60  ! size of FILEWORD_LIST
      &  ,MXFILE_LIST       =  4   ! max number of files in input list
 c
+     &  ,FLAG_DOCANA_START  =  1  ! flags DOCUMENTATION key
+     &  ,FLAG_DOCANA_END    =  2  ! flags DOCUMENTATION_END 
+     &  ,FLAG_DOCANA_ERROR  = -1  ! flags missing DOCANA keys
+
      &  ,SNLCPAK_EPFLAG_FLUXDATA    = 1    ! epoch-dependent
      &  ,SNLCPAK_EPFLAG_REJECT      = 2
      &  ,SNLCPAK_EPFLAG_CHI2        = 3
@@ -1960,7 +1969,8 @@ c
      &  ,PHOTFLAG_TRIGGER        ! determine MJD(trigger) for survey
      &  ,FLUXERRMODEL_OPTMASK
      &  ,OPT_SIMLIB_OUT          ! bit mask of SIMLIB_OUT options
-     &  ,SIMLIB_OUT_TMINFIX      ! choose PEAKMJD such that min(MJD-PEAKMJ) = TMINFIX
+     &  ,SIMLIB_OUT_TMINFIX  ! choose PEAKMJD such that min(MJD-PEAKMJ) = TMINFIX
+     &  ,REQUIRE_DOCANA
 
       LOGICAL 
      &   LSIM_SEARCH_SPEC   ! (I) T => require simulated SPEC-tag
@@ -2069,7 +2079,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
-     &    , RESTORE_DES3YR
+     &    , RESTORE_DES3YR, REQUIRE_DOCANA
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -2115,7 +2125,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
-     &    , RESTORE_DES3YR
+     &    , RESTORE_DES3YR, REQUIRE_DOCANA
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -3533,6 +3543,7 @@ c default is to reject nothing (accept everything)
       USESIM_TRUEFLUX = .FALSE.
 
       RESTORE_DES3YR = .FALSE.
+      REQUIRE_DOCANA =  0   ! use integer to match sim usage
 
       USE_SNHOST_ZPHOT = .FALSE.
       USE_MWCOR        = .FALSE.  ! apply MWCOR to fit-model
@@ -4951,6 +4962,10 @@ c - - - - -
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) RESTORE_DES3YR
 
+         else if ( MATCH_NMLKEY('REQUIRE_DOCANA',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) REQUIRE_DOCANA
+
          else if ( MATCH_NMLKEY('USE_MWCOR',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) USE_MWCOR
@@ -5069,7 +5084,7 @@ c - - - -
            STRING_LIST    = ARGLIST(1)(1:60)
            NSNTYPE_IGNORE = PARSE_INTLIST(STRING_LIST,SNTYPE_IGNORE)
 
-         else if ( MATCH_NMLKEY('SNCID_LIST',  ! .xyz Aug 18 2020
+         else if ( MATCH_NMLKEY('SNCID_LIST',  ! Aug 18 2020
      &             1, iArg, ARGLIST) ) then 
            STRING_LIST = ARGLIST(1)(1:60)
            NCID_LIST   = PARSE_INTLIST(STRING_LIST,SNCID_LIST)
@@ -5838,6 +5853,9 @@ c ----------
 
          else if ( LINE_ARGS(i) .EQ. 'RESTORE_DES3YR' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) RESTORE_DES3YR
+
+         else if ( LINE_ARGS(i) .EQ. 'REQUIRE_DOCANA' ) then
+            i = i + 1 ; READ(LINE_ARGS(i),*) REQUIRE_DOCANA
 
          else if ( LINE_ARGS(i) .EQ. 'USE_MWCOR' ) then
             i = i + 1 ; READ(LINE_ARGS(i),*) USE_MWCOR
@@ -6670,9 +6688,10 @@ c --------
 +CDE,SNLCINP.
 
       CHARACTER CCID*(MXCHAR_CCID), cFILE*(MXCHAR_FILENAME)
-      INTEGER i, NIGNORE, LENFILE, LENCID, NWD
+      INTEGER i, NIGNORE, LENFILE, LENCID, NWD, FLAG_DOCANA
+      LOGICAL FOUND_DOCANA_END
 
-      INTEGER  STORE_PARSE_WORDS
+      INTEGER  STORE_PARSE_WORDS, ISTAT_FILE_DOCANA
       EXTERNAL STORE_PARSE_WORDS
 C ------------- BEGIN ---------
 
@@ -6686,13 +6705,20 @@ C ------------- BEGIN ---------
       LENCID = INDEX(CCID,' ')-1
 
       NIGNORE = 0
+      FOUND_DOCANA_END=.FALSE.
 
-      DO i = 1, NWD
+      DO 200 i = 1, NWD
 
          CALL get_PARSE_WORD_fortran(i, CCID, LENCID)
 
+	 IF ( REQUIRE_DOCANA > 0 .and. .NOT. FOUND_DOCANA_END) THEN
+            FLAG_DOCANA = ISTAT_FILE_DOCANA(i,CCID)
+            if(FLAG_DOCANA<0) CALL ABORT_MISSING_DOCANA(cFILE,LENFILE)
+	    IF ( FLAG_DOCANA==FLAG_DOCANA_END ) FOUND_DOCANA_END=.TRUE.
+            goto 200
+         ENDIF
+
          NCCID_IGNORE = NCCID_IGNORE + 1
-cc xxx mark delete     SNCCID_IGNORE(NCCID_IGNORE) = CCID
          SNCCID_IGNORE_ALL(NCCID_IGNORE) = CCID
 
          NIGNORE = NIGNORE + 1
@@ -6705,13 +6731,52 @@ cc xxx mark delete     SNCCID_IGNORE(NCCID_IGNORE) = CCID
 661        format('NCCID_IGNORE=',I4,' exceeds bound.')
 662        format('Check limit MXIGNORE_LIST = ', I4 )
         
-      ENDDO
+200   CONTINUE
 
       print*,' '
       print*,' ------------------------------------------------ '
       print*,' Loaded ', NIGNORE,' IGNORE-candidates from '
       print*, '  ', SNCID_IGNORE_FILE(1:LENFILE)
       print*,' '
+
+      RETURN
+      END
+
+
+C ====================================
++DECK,ISTAT_FILE_DOCANA.
+      INTEGER FUNCTION ISTAT_FILE_DOCANA(iwd,string)
+
+c use this utility for files where DOCANA keys break the
+c file structure (e.g., SNCID_IGNORE_FILE). This utility
+c easily enables skipping the DOCANA stuff.
+c
+c   Returns  1 if STRING = 'DOCUMENTATION:'
+c   Returns  2 if STRING = 'DOCUMENTATION_END:'
+c   Returns -1 if first word is not 'DOCUMENTATION:' 
+c        (this flags calling function to abort)
+c
+c - - - - - 
+
+      IMPLICIT NONE
+
++CDE,SNPAR.
+
+      INTEGER   IWD          ! (I) word number in file
+      CHARACTER STRING*(*)   ! (I)  string to check for DOCANA keys
+c ---------- BEGIN -----------
+
+      ISTAT_FILE_DOCANA = 0
+      if ( STRING .EQ. 'DOCUMENTATION:'    ) then
+	   ISTAT_FILE_DOCANA = FLAG_DOCANA_START
+       endif
+       if ( STRING .EQ. 'DOCUMENTATION_END:'    ) then
+	   ISTAT_FILE_DOCANA = FLAG_DOCANA_END
+       endif
+
+      if ( IWD == 1 .and. ISTAT_FILE_DOCANA .NE. 1 ) then
+	  ISTAT_FILE_DOCANA = FLAG_DOCANA_ERROR
+      endif
 
       RETURN
       END
@@ -7081,7 +7146,7 @@ C ------------- BEGIN -------------
       write(LUNDAT,20) 'NEVT_SNANA_CUTS: ', N_SNLC_CUTS 
       write(LUNDAT,20) 'NEVT_LCFIT_CUTS: ', N_SNLC_FITCUTS 
       write(LUNDAT,20) 'ABORT_IF_ZERO:   ', N_SNLC_FITCUTS 
-      write(LUNDAT,21) 'CPU_TIME:        ', T_CPU
+      write(LUNDAT,21) 'CPU_MINUTES:     ', T_CPU
 20    format(A, I8)
 21    format(A, F8.1)
 
@@ -7349,7 +7414,7 @@ c Beware that SNANA table gets filled after FITRES table.
       RETURN
       END         ! end of SNANA_DRIVER
 
-C ==============================
+C =====================================================
 +DECK,SNANA_ERRFLAG,IF=SNFIT.
       SUBROUTINE SNANA_ERRFLAG_FIT(ITER,ERRFLAG)
 
@@ -7376,7 +7441,7 @@ C ------------ BEGIN ----------
       if ( LAST_ITER ) then  
          if ( ERRFLAG == 0 ) then
             N_SNLC_FITCUTS = N_SNLC_FITCUTS + 1
-            CUTFLAG_SNANA = IBSET(CUTFLAG_SNANA,1) ! for SNANA ntuple
+            CUTFLAG_SNANA  = IBSET(CUTFLAG_SNANA,1) ! for SNANA ntuple
             NPASSCUT_FIT(ISNLC_TYPE) = NPASSCUT_FIT(ISNLC_TYPE)+1
             NPASSCUT_FIT(-1)         = NPASSCUT_FIT(-1)+1 ! all types
          endif
@@ -10224,7 +10289,7 @@ c ---------------------
       INTEGER   IWD, NWD, LEN, LEN2, j, N_BADNAME, N_BADCHAR
       CHARACTER 
      &   CCID*(MXCHAR_CCID)
-     &  ,CCID_TMP*(MXCHAR_CCID)
+     &  ,CCID_TMP*(MXCHAR_CCID+2)
      &  ,CTMP*60
      &  ,BADCHARS*12, C1
      &  ,NAME_forC*200
@@ -11736,7 +11801,8 @@ c
 c  where <FILTER> is 'g' or 'r' or 'i' etc ...
 c
 c
-c Jun 28, 2011: if IVERS>1 reads the same file then stop reading and return.
+c Aug 27 2020: for externally supplied .IGNORE  file, make DOCANA check.
+c
 c ----------------------------------
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -11750,6 +11816,7 @@ c local var
 
       INTEGER LL, LL1, LL2, LL3, LV, LF
       INTEGER iwd, NWD, N, LUN, NREAD_IGNORE
+      LOGICAL DOCHECK_DOCANA
       REAL*8 MJD8
       CHARACTER 
      &   LOCAL_FILENAME*(MXCHAR_FILENAME)
@@ -11776,12 +11843,14 @@ C ------------- BEGIN ----------
       if ( EPOCH_IGNORE_FILE(1:4) .EQ. 'NULL' ) GOTO 8000
 
 c check if file is default, or if provided by user.
-
+      
       IF ( EPOCH_IGNORE_FILE(1:7) .EQ. 'DEFAULT' ) THEN
         LL = INDEX( SNDATA_PREFIX, ' ' ) - 1
         LOCAL_FILENAME = SNDATA_PREFIX(1:LL) // '.IGNORE'
+	DOCHECK_DOCANA = .FALSE. ! not needed because it's in README file
       ELSE
         LOCAL_FILENAME = EPOCH_IGNORE_FILE
+	DOCHECK_DOCANA = ( REQUIRE_DOCANA > 0 )
       ENDIF
 
 c for multiple versions, don't bother re-reading  the same
@@ -11799,8 +11868,12 @@ c Now start reading file
 
       LL = INDEX( LOCAL_FILENAME, ' ' ) - 1
       NAME_forC = LOCAL_FILENAME(1:LL)//char(0)
-      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LL)
 
+c - - - - Aug 27 2020 - - - - - -
+cc ??   IF ( DOCHECK_DOCANA ) CALL CHECK_FILE_DOCANA(NAME_forC,LL)
+c - - - - - - - - - - - - - - - - -
+
+      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LL)
 
       write(6,50) LOCAL_FILENAME(1:LL)
 50    format(T5,'Read epochs to ignore from: ', /, T5, A)
@@ -12062,7 +12135,7 @@ c local var
 +CDE,SPECCOM.
 
       INTEGER ISTAT, LRET, FLAG
-      CHARACTER KEYNAME*80, KEYVAL*80, DATATYPE*20
+      CHARACTER KEYNAME*80, KEYVAL*(MXFILT_ALL), DATATYPE*20
       LOGICAL LRDFILT
 
 c C functions
@@ -12105,7 +12178,7 @@ c --------------------------------------------------------
       IF ( LRDFILT ) THEN
         KEYNAME   = "FILTERS" // char(0)
         ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 7, LRET )
-        LRET  = INDEX(KEYVAL,char(0)) -1
+        LRET  = INDEX(KEYVAL,char(0)) - 1
         SURVEY_FILTERS = KEYVAL(1:LRET)
       ENDIF
 
@@ -12909,12 +12982,14 @@ c SNDATA_PREFIX
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER LEN_VERS, istat, L1, L2, L3
+      INTEGER LEN_VERS, istat, L1, L2, L3, NWD, LWD, MSKOPT
       CHARACTER*(2*MXCHAR_FILENAME)
      &   VERSION, PATH, LIST_FILE, README_FILE
+      CHARACTER FIRST_WORD*60
+      LOGICAL LSIM_TEMP
 
       INTEGER   GETINFO_PHOTOMETRY_VERSION
-      EXTERNAL  GETINFO_PHOTOMETRY_VERSION
+      EXTERNAL  GETINFO_PHOTOMETRY_VERSION, CHECK_FILE_DOCANA
 
 C ----------------- BEGIN --------------
 
@@ -12970,6 +13045,17 @@ C ----------------- BEGIN --------------
       ENDIF
       SNREADME_FILE(IVERS) = README_FILE(1:L3)  ! fill global
 
+c - - - - - - - 
+c check option to check DOCANA (Aug 26 2020)
+c Avoid checking sim README with this temporary hack since LSIM_SNANA
+c is not set yet. Remove LSIM_TEMP hack when proper DOCANA key is
+c propagated to sim README
+      LSIM_TEMP = ( INDEX(SNDATA_PATH,'SIM') > 0 )
+      IF ( .NOT.LSIM_TEMP .and. REQUIRE_DOCANA > 0 ) THEN
+         CALL CHECK_FILE_DOCANA(README_FILE, MXCHAR_FILENAME)
+      ENDIF 
+
+c - - - - - - - -       
 c construct prefix = path/[version]
       SNDATA_PREFIX = SNDATA_PATH(1:L1) // 
      &       '/'  // VERSION(1:LEN_VERS) 
@@ -12977,35 +13063,6 @@ c construct prefix = path/[version]
       RETURN
       END   ! end of GETINFO_PHOTOMETRY
 
-
-C ======================================
-+DECK,SNANAVERS.
-      SUBROUTINE GETxx_SNANA_VERSIONS(VERSION_SNANA, VERSION_PHOTOM)
-      IMPLICIT NONE
-C ---------------------------------------------------------
-C
-C  !!! OBSOLETE !!!!
-C
-C Created Dec 2, 2012
-C C-callable function to return snana version string and
-C photometry version.
-C Allows lower-level C functions (called by snana) to access version.
-C ---------------------------------------------------------
-      CHARACTER VERSION_SNANA*8            ! (O) snana version string
-      CHARACTER VERSION_PHOTOM*200         ! (O) 
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-
-      INTEGER LV
-C --------------- BEGIN ------------
-      LV = INDEX(SNANA_VERSION,' ') - 1
-      VERSION_SNANA = SNANA_VERSION(1:LV) // char(0)
-
-      LV = INDEX(VERSION_PHOTOMETRY(1),' ') - 1
-      VERSION_PHOTOM = VERSION_PHOTOMETRY(1)(1:LV) // char(0)
-
-      RETURN
-      END
 
 C ================================================
 +DECK,RDVERTEXT.
@@ -19407,7 +19464,9 @@ C =====================================
 
 c Created Jul 21 2020
 c Read FILENAME with SNTABLE_AUTOSTORE
-
+c
+c Aug 27 2020: check REQUIRE_DOCANA
+c
       IMPLICIT NONE
     
 +CDE,SNDATCOM.
@@ -19431,7 +19490,7 @@ c functions
       EXTERNAL SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
 
       INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PARSE_WORDS
+      EXTERNAL STORE_PARSE_WORDS, CHECK_FILE_DOCANA
 
 C ------------- BEGIN -----------
      
@@ -19446,6 +19505,12 @@ C ------------- BEGIN -----------
 
       LEN3 = INDEX(VARLIST_ALL_HEADER_OVERRIDE,' ') - 1
       cVARLIST = VARLIST_ALL_HEADER_OVERRIDE(1:LEN3) // char(0)
+
+c - - - - - -  -
+      IF ( REQUIRE_DOCANA > 0 ) THEN  ! Aug 27 2020
+        CALL CHECK_FILE_DOCANA(cFILE,LEN1)  ! C function
+      ENDIF
+c - - - - - -  -
 
       OPTMASK_SNTABLE = 4  ! 1=print, 2=abort on missin var, 4=append next file
       NROW = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST, 
@@ -20923,7 +20988,14 @@ c Apr 2017: check nonlinearity from user-supplied map
 
 c ------------------------------
 c Feb 2018: check FLUXERRMAPs for DATA
+
       OPTMASK = FLUXERRMODEL_OPTMASK
+      if ( REQUIRE_DOCANA .NE. 0 ) then
+c   note that MASK_REQUIRE_DOCANA_FLUXERRMAP=1024 
+c   in sntools_fluxErrModels.h      
+         FLUXERRMODEL_OPTMASK = FLUXERRMODEL_OPTMASK + 1024 
+      endif
+
       CALL ENVreplace(FLUXERRMODEL_FILE);
       LL    = INDEX(FLUXERRMODEL_FILE,' ')-1
       cFILE = FLUXERRMODEL_FILE(1:LL) // char(0)
@@ -24903,7 +24975,10 @@ C ---------- BEGIN ----------
       MM = MIN0(MMMM, 20)
       M = MM - 1
       DO 1780 I= 1, MM
- 1780    COF(I) = F(I)
+         COF(I) = F(I)
+ 1780 CONTINUE
+cc xxx obsolete  1780    COF(I) = F(I)
+
       DO 1800 I= 1, M
       DO 1790 J= I, M
          JNDEX = MM - J
@@ -35953,12 +36028,13 @@ c  ..
           hh(i) = h(i)
   10    continue
         h(1) = 0.
-        do 20 i=1,j
+        do 21 i=1,j
           li = l+i
           lj = li-j
           f = hh(i)/(t(li)-t(lj))
           h(i) = h(i)+f*(t(li)-x)
           h(i+1) = f*(x-t(lj))
+  21  continue
   20  continue
       return
       end
@@ -36140,8 +36216,9 @@ c  find ncof, the number of b-spline coefficients.
 c  initialize the observation matrix a.
         do 140 i=1,ncof
           f(i) = 0.
-          do 140 j=1,iband
+          do 141 j=1,iband
             a(i,j) = 0.
+ 141    continue   ! RK
  140    continue
 c  initialize the sum of squared residuals.
         fp = 0.
@@ -36241,8 +36318,9 @@ c  check whether there is sufficient working space
         if(lwrk.lt.lwest) go to 780
         do 290 i=1,ncof
           ff(i) = f(i)
-          do 290 j=1,iband
+          do 291 j=1,iband
             q(i,j) = a(i,j)
+ 291    continue   ! RK
  290    continue
         lf =1
         lh = lf+ncof
@@ -36417,15 +36495,16 @@ c  store the triangularized observation matrix into q.
             q(i,j) = a(i,j)
  470      continue
           ibb = iband+1
-          do 480 j=ibb,iband4
+          do 481 j=ibb,iband4
             q(i,j) = 0.
+ 481    continue
  480    continue
         if(nk1y.eq.ky1) go to 560
 c  extend the observation matrix with the rows of a matrix, expressing
 c  that for x=cst. sp(x,y) must be a polynomial in y of degree ky.
         do 550 i=ky2,nk1y
           ii = i-ky1
-          do 550 j=1,nk1x
+          do 551 j=1,nk1x  ! RK
 c  initialize the new row.
             do 490 l=1,iband
               h(l) = 0.
@@ -36443,16 +36522,16 @@ c  square roots.
               piv = h(1)
               i2 = min0(iband1,ncof-irot)
               if(piv.eq.0.) then
-ccc                 if(i2) 550,550,520 ! obsolete
-                 if ( i2 .LT. 0 ) goto 550
-                 if ( i2 .EQ. 0 ) goto 550
+
+                 if ( i2 .LT. 0 ) goto 551  ! RK 550 -> 551
+                 if ( i2 .EQ. 0 ) goto 550  ! RK 550 -> 551
                  if ( i2 .GT. 0 ) goto 520
               endif
 c  calculate the parameters of the givens transformation.
               call fpgivs(piv,q(irot,1),cos,sin)
 c  apply that givens transformation to the right hand side.
               call fprota(cos,sin,zi,ff(irot))
-              if(i2.eq.0) go to 550
+              if(i2.eq.0) go to 551  ! RK 550 -> 551
 c  apply that givens transformation to the left hand side.
               do 510 l=1,i2
                 l1 = l+1
@@ -36463,13 +36542,15 @@ c  apply that givens transformation to the left hand side.
  530          continue
               h(i2+1) = 0.
  540        continue
+ 
+ 551    continue
  550    continue
  560    if(nk1x.eq.kx1) go to 640
 c  extend the observation matrix with the rows of a matrix expressing
 c  that for y=cst. sp(x,y) must be a polynomial in x of degree kx.
         do 630 i=kx2,nk1x
           ii = i-kx1
-          do 630 j=1,nk1y
+          do 631 j=1,nk1y
 c  initialize the new row
             do 570 l=1,iband4
               h(l) = 0.
@@ -36488,16 +36569,16 @@ c  rotate the new row into triangle by givens transformations .
               piv = h(1)
               i2 = min0(iband3,ncof-irot)
               if(piv.eq.0.) then
-cccc              if(i2) 630,630,600 ! obsolete
-                if ( i2 .LT. 0 ) goto 630
-                if ( i2 .EQ. 0 ) goto 630
+
+                if ( i2 .LT. 0 ) goto 631 ! RK 630 -> 631
+                if ( i2 .EQ. 0 ) goto 631
                 if ( i2 .GT. 0 ) goto 600
               endif
 c  calculate the parameters of the givens transformation.
               call fpgivs(piv,q(irot,1),cos,sin)
 c  apply that givens transformation to the right hand side.
               call fprota(cos,sin,zi,ff(irot))
-              if(i2.eq.0) go to 630
+              if(i2.eq.0) go to 631  ! RK
 c  apply that givens transformation to the left hand side.
               do 590 l=1,i2
                 l1 = l+1
@@ -36508,6 +36589,7 @@ c  apply that givens transformation to the left hand side.
  610          continue
               h(i2+1) = 0.
  620        continue
+ 631    continue  ! RK
  630    continue
 c  find dmax, the maximum value for the diagonal elements in the
 c  reduced triangle.
@@ -36616,10 +36698,11 @@ c  if not, interchange x and y once more.
       l1 = 1
       do 840 i=1,nk1x
         l2 = i
-        do 840 j=1,nk1y
+        do 841 j=1,nk1y
           f(l2) = c(l1)
           l1 = l1+1
           l2 = l2+nk1x
+ 841  continue    ! RK
  840  continue
       do 850 i=1,ncof
         c(i) = f(i)
@@ -36814,8 +36897,9 @@ c  g denotes the vector obtained from the old right hand side f, by
 c  removing the elements corresponding to a zero diagonal element of a.
 c  initialization.
       do 100 i=1,rank
-        do 100 j=1,m
+        do 101 j=1,m
           aa(i,j) = 0.
+ 101  continue  ! RK
  100  continue
 c  form in aa the upper triangular matrix obtained from a by
 c  removing rows and columns with zero diagonal elements. form in ff
@@ -40857,7 +40941,7 @@ C evaluate covariances
 
       DO 400 idim  = 1, NDIM
          ipar      = ipar_dim(idim) 
-      DO 400 idim2 = 1, NDIM
+      DO 401 idim2 = 1, NDIM
          ipar2     = ipar_dim(idim2) 
 
          E12   = PDFWSUMCOR(ipar,ipar2)/PDFSUM 
@@ -40879,7 +40963,7 @@ C evaluate covariances
      &         ' at NPASS=',I1,'  NGRID=',I2 )
          endif
 +SELF.
-
+401   CONTINUE
 400   CONTINUE
 
 

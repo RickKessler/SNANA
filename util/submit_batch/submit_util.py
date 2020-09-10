@@ -10,6 +10,23 @@ from   submit_params import *
 
 # =================================================
 
+def standardise_path(path,cwd):
+    if "$" in path:
+        path = os.path.expandvars(path)
+        if "$" in path:
+            msgerr = []
+            msgerr.append(f"Unable to resolve ENV in {path}")
+            msgerr.append(f"Check how your ENV is set.")
+            log_assert(False,msgerr)
+
+    if not path.startswith("/"):
+        path = os.path.join(cwd, path)
+
+    return path
+
+def print_debug_line(line):
+    print(f"\n DEBUG_DUMP: \n {line} \n DEBUG_DUMP_END: \n")
+
 def find_and_remove(find_arg):
 
     # Called as part of purge option:
@@ -111,11 +128,18 @@ def merge_table_reset(merge_file, table_name, colnum_state, colnum_zero_list):
 
     # end merge_table_reset
 
-def compress_files(flag, dir_name, wildcard, name_backup ):
+def compress_files(flag, dir_name, wildcard, name_backup, wildcard_keep ):
 
     # name of tar file is BACKUP_{name_backup}.tar
-
+    # Inputs
+    #  flag > 0 -> compress
+    #  flag < 0 -> uncompress
+    #  dir_name -> cd to this directory
+    #  wildcard -> include these files in tar file
+    #  name_backup -> tar file name is BACKUP_{name_backup}.tar
+    #  wildcard_keep -> do NOT remove these files
     #
+
     tar_file   = (f"BACKUP_{name_backup}.tar")
     targz_file = (f"{tar_file}.gz")
     cddir      = (f"cd {dir_name}")
@@ -131,14 +155,21 @@ def compress_files(flag, dir_name, wildcard, name_backup ):
     if flag > 0 :
         cmd_tar  = (f"tar -cf {tar_file} {wildcard} ")
         cmd_gzip = (f"gzip {tar_file}")
-        cmd_rm   = (f"rm {wildcard}")
+
+        if len(wildcard_keep) == 0 :
+            cmd_rm   = (f"rm {wildcard}")
+        else:
+            # remove all wildcard files EXCEPT for wildcard_keep
+            cmd_rm = (f"find {wildcard} ! -name '{wildcard_keep}' ") + \
+                      "-type f -exec rm {} +"
+
         cmd_all  = (f"{cddir} ; {cmd_tar} ; {cmd_gzip} ; {cmd_rm} ")
     else:
         cmd_unpack = (f"tar -xzf {targz_file}")
         cmd_rm     = (f"rm {targz_file}")
-        cmd_all  = (f"{cddir} ; {cmd_unpack} ; {cmd_rm} ")
+        cmd_all    = (f"{cddir} ; {cmd_unpack} ; {cmd_rm} ")
 
-    #print(f" xxx cmd_all = {cmd_all}")
+    #logging.info(f"\n xxx cmd_all = {cmd_all}\n")
     os.system(cmd_all)
 
     # end compress_files
@@ -156,12 +187,17 @@ def compress_subdir(flag,dir_name):
     # Initial use is for cleanup_job_files(flag=1) and 
     # merge_reset(flag=-1)
 
-    jdot        = dir_name.rindex("/")
-    topdir_name = dir_name[0:jdot]
-    subdir_name = dir_name[jdot+1:]
+    # xxxx mark delete xxxxx
+    #j_slash     = dir_name.rindex("/")
+    #topdir_name = dir_name[0:j_slash]
+    #subdir_name = dir_name[j_slash+1:]
+    # xxxxxxxxxxxx
 
-    #print(f" xxx topdir_name = {topdir_name}")
-    #print(f" xxx subdir_name = {subdir_name}")
+    topdir_name = os.path.dirname(dir_name)
+    subdir_name = os.path.basename(dir_name)
+
+    #logging.info(f" xxx topdir_name = {topdir_name}")
+    #logging.info(f" xxx subdir_name = {subdir_name}")
 
     cddir        = (f"cd {topdir_name}")
     tar_file     = (f"{subdir_name}.tar")
@@ -170,14 +206,14 @@ def compress_subdir(flag,dir_name):
     if flag > 0:  # compress
         cmd_tar    = (f"tar -cf {tar_file} {subdir_name}")
         cmd_gzip   = (f"gzip {tar_file}")
-        cmd_rmdir  = (f"rm -r {subdir_name}")
+        cmd_rmdir  = (f"rm -rf {subdir_name}")
         cmd_all    = (f"{cddir} ; {cmd_tar}; {cmd_gzip} ; {cmd_rmdir}")
     else:  # uncompress
         cmd_unpack = (f"tar -xzf {targz_file}")
         cmd_rmgz   = (f"rm {targz_file}")
         cmd_all    = (f"{cddir} ; {cmd_unpack}; {cmd_rmgz} ")
 
-    #print(f" xxxx {cmd_all}")
+    #logging.info(f" xxxx {cmd_all}")
     os.system(cmd_all)
 
     # end compress_subdir
@@ -491,9 +527,11 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"# ---------------------------------------------------- \n")
         f.write(f"cd {job_dir} \n\n")
 
-    # for bash, wait for program to appear if SNANA make is in progress.
-    # Not sure how to do this in csh.
-    if 'bash' in SHELL :
+    CHECK_CODE_EXISTS = True
+    CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO 
+
+    if CHECK_CODE_EXISTS :
+        # wait for program to appear in case SNANA make is in progress
         program_plus_path = shutil.which(program)
         wait_for_code = (f"while [ ! -f {program_plus_path} ]; " \
                          f"do sleep 5; done" )
@@ -501,6 +539,18 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"{wait_for_code}\n")
         f.write(f"echo {program} exists. \n\n")
 
+    if CHECK_ALL_DONE :
+        # if ALL.DONE file exists, something else failed ... so no
+        # point in continuing.
+        all_done_file = JOB_INFO['all_done_file']  # exists only on failure
+        f.write(f"if [ -f {all_done_file} ] ; then \n")
+        f.write(f"  echo '  Found pre-mature {DEFAULT_DONE_FILE} -> "\
+                f"something FAILED.'\n")
+        f.write(f"  echo '  STOP everything on this CPU.' \n")
+        f.write(f"  exit \n")
+        f.write(f"fi \n\n")
+
+    # - - - - - - - - - 
     f.write(f"{program} {input_file} \\\n")
     # write each arg on separte line for easier viewing
     for arg in arg_list :  
@@ -661,7 +711,7 @@ def log_assert(condition, message):
             f"\n   `|```````|`    "
             f"\n   <| o\\ /o |>   "
             f"\n    | ' ; ' |     "
-            f"\n    |  ___  |     ABORT program on Fatal Error. "
+            f"\n    |  ___  |     ABORT submit on Fatal Error. "
             f"\n    | |' '| |     "         
             f"\n    | `---' |     "
             f"\n    \\_______/    " 

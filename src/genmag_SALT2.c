@@ -193,6 +193,7 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
  Nov 7 2019: for SALT3, remove x1*M1/M0 term in error; see ISMODEL_SALT3.
  Jan 19 2020: in INTEG_zSED_SALT2, fix memory leak related to local magSmear.
  Mar 24 2020: if ISMODEL_SALT3, then read SALT3.INFO 
+ Sep 03 2020: check REQUIRE_DOCANA
 
 ****************************************************************/
 
@@ -202,6 +203,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   double Trange[2], Lrange[2]     ;
   int  ised, LEGACY_colorXTMW ;
   int  retval = 0   ;
+  int  REQUIRE_DOCANA = 0 ;
   int  ABORT_on_LAMRANGE_ERROR = 0;
   int  ABORT_on_BADVALUE_ERROR = 1;
   char BANNER[120], tmpFile[200], sedcomment[40], version[60]  ;
@@ -210,6 +212,8 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   // -------------- BEGIN --------------
 
   // extrac OPTMASK options
+
+  REQUIRE_DOCANA          = ( OPTMASK & OPENMASK_REQUIRE_DOCANA );
   ABORT_on_LAMRANGE_ERROR = ( OPTMASK &  64 ) ; // Sep 9 2019
   LEGACY_colorXTMW        = ( OPTMASK & 128 ) ;
 
@@ -284,7 +288,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   else
     { sprintf(SALT2_INFO_FILE,  "SALT2.INFO" ); }
 
-  read_SALT2_INFO_FILE();  
+  read_SALT2_INFO_FILE(REQUIRE_DOCANA);  
 
   // check option to override late-time extrap model from sim-input file
   if ( strlen(MODEL_EXTRAP_LATETIME) > 0 ) { 
@@ -1038,7 +1042,7 @@ void read_SALT2colorDisp(void) {
 
 
 // =================================
-void read_SALT2_INFO_FILE(void) {
+void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
 
   // March 18, 2010 R.Kessler
   // read SALT2.INFO file, and fill SALT2_INFO structure
@@ -1047,6 +1051,7 @@ void read_SALT2_INFO_FILE(void) {
   // May  2, 2011: read SEDFLUX_INTERP_OPT 
   // Nov 24, 2011: read MAG_OFFSET
   // Oct 25, 2015: read optional RESTLAM_FORCEZEROFLUX
+  // Sep 03, 2020: pass REQUIRE_DOCANA arg
 
   char
      infoFile[MXPATHLEN]
@@ -1072,7 +1077,8 @@ void read_SALT2_INFO_FILE(void) {
 
   sprintf(infoFile, "%s/%s", SALT2_MODELPATH, SALT2_INFO_FILE );
 
- 
+  if ( REQUIRE_DOCANA ) { check_file_docana(infoFile); }
+
   if (( fp = fopen(infoFile, "rt")) == NULL ) {
     print_preAbort_banner(fnam);
     printf("\t SALT2_MODELPATH = '%s' \n", SALT2_MODELPATH);

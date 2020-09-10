@@ -6,8 +6,6 @@ import os, sys, shutil, yaml, glob
 import logging, coloredlogs
 import datetime, time, subprocess
 import f90nml
-#import getpass
-#import ntpath
 import submit_util as util
 import submit_translate as tr
 from   submit_params import *
@@ -139,6 +137,10 @@ class LightCurveFit(Program):
         #  + make sure that it exists (abort if not)
         #  + copy to SPLIT_JOBS_LCFIT where split-jobs run
         #
+        # If ignore null strings so that things like
+        #    MY_WHATEVER_FILE = ''
+        # are ignored and doesn't abort.
+        #
         # Full paths should be included for all input files defined
         # inside &SNLCINP, in which case this function does nothing.
         # For testing, however, it may be convenient to work with
@@ -152,15 +154,17 @@ class LightCurveFit(Program):
         # always copy primary input file
         shutil.copy(input_file,script_dir)
 
-        msgerr=[]
+        msgerr = []
         copy_list_string = ""  # arg of cp
         for key_infile in COPY_SNLCINP_FILES :
             if key_infile in snlcinp :
                 infile     = snlcinp[key_infile]
                 no_path    = "/" not in infile
-                if no_path :
+                if no_path and len(infile) > 0 : 
                     if not os.path.isfile(infile):
-                        msgerr.append(f" Missing &SNLCINP input file {infile}")
+                        msgerr.append(f" Missing input file for "\
+                                      f"{key_infile} = '{infile}'")
+                        msgerr.append(f"Check &SNLCINP in {input_file}")
                         self.log_assert(False,msgerr)
                     copy_list_string += (f"{infile} ")
 
@@ -253,8 +257,8 @@ class LightCurveFit(Program):
                 v_list  = sorted(glob.glob(f"{path}/{v_tmp}"))
                 for v in v_list:
                     found   = True
-                    j_slash = v.rindex('/')
-                    version = v[j_slash+1:]
+                    #j_slash = v.rindex('/');    version = v[j_slash+1:]
+                    version = os.path.basename(v)
                     # avoid tar files and gz files
                     if '.tar' in v : continue
                     if '.gz'  in v : continue
@@ -630,13 +634,10 @@ class LightCurveFit(Program):
                 job_info_fit   = self.prep_JOB_INFO_fit(index_dict)
                 util.write_job_info(f, job_info_fit, icpu)
 
-                # xx last_job   = (n_job_tot - n_job_real) < n_core
-                # xx job_info_merge = self.prep_JOB_INFO_merge(icpu,last_job) 
-
                 job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_real) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
-
+        # - - - - 
         if n_job_real != n_job_tot :
             msgerr = []
             msgerr.append(f"Expected {n_job_tot} total jobs;")
@@ -691,6 +692,7 @@ class LightCurveFit(Program):
         JOB_INFO['input_file']  = input_file
         JOB_INFO['log_file']    = log_file
         JOB_INFO['done_file']   = done_file
+        JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
 
         # set command line arguments
         arg_list.append(f"  VERSION_PHOTOMETRY {version}")
@@ -699,6 +701,9 @@ class LightCurveFit(Program):
         # check fast option to prescale sims by 10 (data never pre-scaled)
         if self.config_yaml['args'].fast :
             arg_list.append(f"  SIM_PRESCALE {FASTFAC}")
+
+        if self.config_yaml['args'].require_docana :
+            arg_list.append(f"  REQUIRE_DOCANA 1")
 
         # tack on outFile for each table format. For TEXT, do NOT
         # include suffix in TEXTFILE_PREFIX argument
@@ -910,6 +915,16 @@ class LightCurveFit(Program):
         COLNUM_NEVT2   = COLNUM_FIT_MERGE_NEVT_LCFIT_CUTS
         COLNUM_CPU     = COLNUM_FIT_MERGE_CPU
 
+        key_tot, key_tot_sum, key_list = \
+                self.keynames_for_job_stats('NEVT_TOT')
+        key_snana, key_snana_sum, key_snana_list = \
+                self.keynames_for_job_stats('NEVT_SNANA_CUTS')
+        key_lcfit, key_lcfit_sum, key_lcfit_list = \
+                self.keynames_for_job_stats('NEVT_LCFIT_CUTS')
+        key_cpu, key_cpu_sum, key_cpu_list = \
+                self.keynames_for_job_stats('CPU_MINUTES')
+        key_list  = [ key_tot, key_snana, key_lcfit, key_cpu ]
+
         row_list_merge   = MERGE_INFO_CONTENTS[TABLE_MERGE]
 
         # init outputs of function
@@ -947,21 +962,19 @@ class LightCurveFit(Program):
                     NEW_STATE = SUBMIT_STATE_RUN
                 if NDONE == n_job_split :
                     NEW_STATE = SUBMIT_STATE_DONE
-                    split_stat = self.split_sum_stats(True,log_list,yaml_list)
                     
+                    job_stats = self.get_job_stats(script_dir, 
+                                                   log_list, yaml_list, key_list)
                     # check for failures in snlc_fit jobs.
-                    nfail = split_stat['nfail_sum']
-                    if nfail > 0 :
-                        NEW_STATE = SUBMIT_STATE_FAIL
+                    nfail = job_stats['nfail']
+                    if nfail > 0 :  NEW_STATE = SUBMIT_STATE_FAIL
                 
-                # always update stats with whatever YAML output is there
-                if NEW_STATE != SUBMIT_STATE_WAIT :
-                    sum_stats = self.split_sum_stats(False,log_list,yaml_list)
+                    # xxx sum_stats=self.split_sum_stats(False,log_list,yaml_list)
                     row[COLNUM_STATE]  = NEW_STATE
-                    row[COLNUM_NEVT0]  = sum_stats['nevt_sum_tot']
-                    row[COLNUM_NEVT1]  = sum_stats['nevt_sum_cut_snana']
-                    row[COLNUM_NEVT2]  = sum_stats['nevt_sum_cut_lcfit']
-                    row[COLNUM_CPU]    = sum_stats['cpu_sum']
+                    row[COLNUM_NEVT0]  = job_stats[key_tot_sum]
+                    row[COLNUM_NEVT1]  = job_stats[key_snana_sum]
+                    row[COLNUM_NEVT2]  = job_stats[key_lcfit_sum]
+                    row[COLNUM_CPU]    = job_stats[key_cpu_sum]
 
                     if fitopt_num in link_FITOPT000_list :
                         row[COLNUM_CPU] = 0.0 # zero CPU for sym links
@@ -978,6 +991,8 @@ class LightCurveFit(Program):
         # end merge_update_state
 
     def split_sum_stats(self, search_failure_flag, log_list, yaml_list):
+
+        # xxxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxx
 
         # Return statistics sums for yaml_list files.
         # If search_failure_flag = Flase, then examine only the yaml_list
@@ -996,9 +1011,11 @@ class LightCurveFit(Program):
             'nfail_sum'           : 0
         }
 
+        # xxxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxx
+
         for isplit in range(0,n_log_file):            
             yaml_file = yaml_list[isplit]            
-            nevt_test = -9  # sued to search for failures
+            nevt_test = -9  # used to search for failures
             if yaml_file :
                 YAML_FILE = (f"{script_dir}/{yaml_file}")
                 yaml_data = util.extract_yaml(YAML_FILE)
@@ -1014,6 +1031,8 @@ class LightCurveFit(Program):
                 # test value for failure testing below
                 nevt_test = yaml_data['ABORT_IF_ZERO'] 
 
+        # xxxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxx
+
             # check flag to check for failure.        
             if search_failure_flag and nevt_test <= 0 :
                 log_file   = log_list[isplit]
@@ -1024,7 +1043,7 @@ class LightCurveFit(Program):
         return split_stats
 
         # end split_sum_stats
-
+        # xxxxxxxxxx END OBSOLETE MARK DELETE xxxxxxxxxxx
 
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
         # irow is the row to wrapup in MERGE_INFO_CONTENTS
@@ -1521,28 +1540,25 @@ class LightCurveFit(Program):
         # if we get here, table-merging seems to have worked so tar and zip
 
         logging.info(f" FIT cleanup: tar up files under {subdir}/")
-        util.compress_files(+1, script_dir, "*SPLIT*.LOG",  "LOG" )
-        util.compress_files(+1, script_dir, "*SPLIT*.YAML", "YAML" )
-        util.compress_files(+1, script_dir, "*SPLIT*.DONE", "DONE" )
+        util.compress_files(+1, script_dir, "*SPLIT*.LOG",  "LOG", "" )
+        util.compress_files(+1, script_dir, "*SPLIT*.YAML", "YAML", "" )
+        util.compress_files(+1, script_dir, "*SPLIT*.DONE", "DONE", "" )
 
         for itable in range(0,NTABLE_FORMAT):
             use    = use_table_format[itable]
             suffix = TABLE_SUFFIX_LIST[itable]
             if use :
                 wildcard = (f"*SPLIT*.{suffix}")
-                util.compress_files(+1, script_dir, wildcard, suffix )
+                util.compress_files(+1, script_dir, wildcard, suffix, "" )
                 # ?? at some point, should delete these since merged table is there ??
 
         logging.info(f" FIT cleanup: gzip merged tables.")
         cmd_gzip = (f"cd {output_dir} ; gzip */FITOPT* 2>/dev/null")
         os.system(cmd_gzip)
 
-        #logging.info(f" Cleanup: compress {subdir}/")
-        #util.compress_subdir(+1, script_dir )
-
         self.merge_cleanup_script_dir() 
 
-        logging.info(f" FIT cleanup: Done.")
+        # xxx nothing to write to? logging.info(f" FIT cleanup: Done.")
 
         # end merge_cleanup_final
 

@@ -426,7 +426,8 @@ class BBC(Program):
             ff             = (f"{fitopt_num}.{SUFFIX_FITRES}")
             input_ff       = "INPUT_" + ff
             cat_file_out   = (f"{V_DIR}/{input_ff}")
-            nrow = self.exec_cat_fitres(cat_list, cat_file_out)
+            cat_file_log   = (f"{output_dir}/cat_FITRES_SALT2mu.LOG")
+            nrow = self.exec_cat_fitres(cat_list, cat_file_out, cat_file_log)
             logging.info(f"\t Catenate {n_inpdir} {ff} files"\
                          f" -> {nrow} events ")
 
@@ -438,10 +439,14 @@ class BBC(Program):
             cmd_gzip = (f"cd {vout_dir}; gzip INPUT_FITOPT*.{SUFFIX_FITRES}")
             os.system(cmd_gzip)
 
+        # remove cat log file
+        rm_log = (f"cd {output_dir}; rm {cat_file_log}")
+        os.system(rm_log)
+
         # end bbc_prep_combine_tables
     
         
-    def exec_cat_fitres(self,cat_list, cat_file_out):
+    def exec_cat_fitres(self,cat_list, cat_file_out, cat_file_log):
 
         # prepare & execute catenate command for this cat_list 
         # (comma-sep list of files) into cat_file_out.
@@ -451,8 +456,6 @@ class BBC(Program):
         # .gz extensions.
         #
         # function returns number of rows in catenated file
-
-        cat_file_log = "cat_FITRES_SALT2mu.LOG"
 
         cmd_cat = (f"SALT2mu.exe  " \
                    f"cat_only  "    \
@@ -610,9 +613,6 @@ class BBC(Program):
                     job_info_wfit  = self.prep_JOB_INFO_wfit(index_dict)
                     util.write_job_info(f, job_info_wfit, icpu)
 
-                # xx last_job   = (n_job_tot - n_job_local) < n_core 
-                # xx job_info_merge = self.prep_JOB_INFO_merge(icpu,last_job) 
-
                 job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
@@ -667,6 +667,7 @@ class BBC(Program):
         JOB_INFO['job_dir']     = script_dir
         JOB_INFO['log_file']    = (f"{prefix_orig}.LOG")
         JOB_INFO['done_file']   = (f"{prefix_orig}.DONE")
+        JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
 
         # if wfit job will run, suppress DONE file here and wait for
         # wfit to finish before writing DONE files. This logic avoids
@@ -869,6 +870,16 @@ class BBC(Program):
         COLNUM_NBIASCOR  = COLNUM_BBC_MERGE_NEVT_BIASCOR
         COLNUM_NCCPRIOR  = COLNUM_BBC_MERGE_NEVT_CCPRIOR
 
+        # keynames_for_job_stats returns 3 keynames : 
+        #   {base}, {base}_sum, {base}_list
+        key_ndata, key_ndata_sum, key_ndata_list = \
+                self.keynames_for_job_stats('NEVT_DATA')
+        key_nbiascor, key_nbiascor_sum, key_nbiascor_list = \
+                 self.keynames_for_job_stats('NEVT_BIASCOR')
+        key_nccprior, key_nccprior_sum, key_nccprior_list = \
+                 self.keynames_for_job_stats('NEVT_CCPRIOR')
+        key_list = [ key_ndata, key_nbiascor, key_nccprior  ] 
+
         row_list_merge   = MERGE_INFO_CONTENTS[TABLE_MERGE]
 
         # init outputs of function
@@ -907,19 +918,20 @@ class BBC(Program):
                     NEW_STATE = SUBMIT_STATE_RUN
                 if NDONE == n_job_split :
                     NEW_STATE = SUBMIT_STATE_DONE
-                    bbc_stats = self.get_bbc_stats(script_dir,log_list,yaml_list)
+
+                    bbc_stats = self.get_job_stats(script_dir,
+                                                   log_list, yaml_list, key_list)
+
+                    #bbc_stats = self.get_bbc_stats(script_dir,log_list,yaml_list)
                     
                     # check for failures in snlc_fit jobs.
-                    nfail = bbc_stats['nfail_sum']
-                    if nfail > 0 :
-                        NEW_STATE = SUBMIT_STATE_FAIL
+                    nfail = bbc_stats['nfail']
+                    if nfail > 0 :  NEW_STATE = SUBMIT_STATE_FAIL
                  
-                    # update row if state has changed
-                #if NEW_STATE != STATE :
                     row[COLNUM_STATE]     = NEW_STATE
-                    row[COLNUM_NDATA]     = bbc_stats['nevt_data']
-                    row[COLNUM_NBIASCOR]  = bbc_stats['nevt_biascor']
-                    row[COLNUM_NCCPRIOR]  = bbc_stats['nevt_ccprior']
+                    row[COLNUM_NDATA]     = bbc_stats[key_ndata_sum]
+                    row[COLNUM_NBIASCOR]  = bbc_stats[key_nbiascor_sum]
+                    row[COLNUM_NCCPRIOR]  = bbc_stats[key_nccprior_sum]
                     
                     row_list_merge_new[irow] = row  # update new row
                     n_state_change += 1             # assume nevt changes
@@ -932,6 +944,7 @@ class BBC(Program):
         # end merge_update_state
 
     def get_bbc_stats(self, search_dir, log_list, yaml_list):
+        # xxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxxx
         submit_info_yaml = self.config_prep['submit_info_yaml']
         n_log_file       = len(log_list)
         split_stats = {
@@ -941,6 +954,8 @@ class BBC(Program):
             'nfail_sum'           : 0
         }
         
+        # xxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxxx
+
         for isplit in range(0,n_log_file):            
             yaml_file = yaml_list[isplit]            
             nevt_test = -9        # used to search for failures
@@ -962,8 +977,10 @@ class BBC(Program):
                     split_stats['nfail_sum'] += 1
 
         return split_stats
-
+        # xxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxxx
         # end get_bbc_stats
+
+
         
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
 
@@ -1034,7 +1051,7 @@ class BBC(Program):
         logging.info(f"  BBC cleanup: compress {JOB_SUFFIX_TAR_LIST}")
         for suffix in JOB_SUFFIX_TAR_LIST :
             wildcard = (f"{jobfile_wildcard}*.{suffix}") 
-            util.compress_files(+1, script_dir, wildcard, suffix )
+            util.compress_files(+1, script_dir, wildcard, suffix, "" )
 
         self.merge_cleanup_script_dir()
 
@@ -1246,10 +1263,10 @@ class BBC(Program):
         logging.info(f"  {fnam}: uncompress {JOB_SUFFIX_TAR_LIST}")
         for suffix in JOB_SUFFIX_TAR_LIST :
             wildcard = (f"{jobfile_wildcard}*.{suffix}") 
-            util.compress_files(-1, script_dir, wildcard, suffix )
+            util.compress_files(-1, script_dir, wildcard, suffix, "" )
 
         logging.info(f"  {fnam}: uncompress CPU* files")
-        util.compress_files(-1, script_dir, "CPU*", "CPU" )
+        util.compress_files(-1, script_dir, "CPU*", "CPU", "" )
 
         logging.info(f"  {fnam}: restore {SUFFIX_MOVE_LIST} to {script_subdir}")
         for vout in vout_list : 

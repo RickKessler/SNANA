@@ -4,6 +4,7 @@
 #  Constant parameters & names for submit script.
 #  Giant HELP_CONFIG per task are at the bottom.
 #
+#
 # ==============================================
 
 import os
@@ -173,43 +174,45 @@ CONFIG:
 HELP_TRANSLATE = f"""
           TRANSLATING LEGACY INPUT FILES 
 
-  The 'LEGACY' input files for [sim_SNmix, split_and_fit, SALT2mu_fit]
-  will not work with submit_batch_jobs.py, and therefore submit_batch_jobs
-  includes an automatic translation of the input file. Command line option
+The 'LEGACY' input files for [sim_SNmix, split_and_fit, SALT2mu_fit] will 
+not work with submit_batch_jobs.py, and therefore submit_batch_jobs includes 
+an automatic translation of the input file. Command line option
      --opt_translate <opt>
-  controls the file-name convention, and also whether to exit or continue 
-  after translation. Note that opt_translate is a bit mask. LEGACY input 
-  files are automatically detected by the lack of a 'CONFIG:' key. If a 
-  CONFIG key exists, opt_translate is ignored.
+controls the file-name convention, and also whether to exit or continue after 
+translation. Note that opt_translate is a bit mask. LEGACY input files are 
+automatically detected by the lack of a 'CONFIG:' key. If a CONFIG key exists,
+opt_translate is ignored.
 
   opt_translate +=1 ->
     This default behavior produces a translated input file with name
     REFAC_[input_file]. The original input file is not modified.
 
   opt_translate +=2 -> 
-   The original input file is saved as LEGACY_[input_file], and the
-   translated input file has the original name. If the original
-   input file already has a 'LEGACY_' prefix, the file is not modified
-   and the translated input file has the 'LEGACY_'  prefix removed.
-   Example 1: input_file = abc.input is saved as LEGACY_abc.input;
-              translated input file is abc.input
-   Example 2: input_file = LEGACY_abc.input is not modified;
-              translated input file is abc.input.
+    The original input file is saved as LEGACY_[input_file]; the translated 
+    input file has the original name. If the original input file already has 
+    a 'LEGACY_' prefix, the file name is not modified and the translated input
+    file has the 'LEGACY_'  prefix removed.
+    Example 1: input_file = abc.input is saved as LEGACY_abc.input;
+               translated input file is abc.input
+    Example 2: input_file = LEGACY_abc.input is not modified;
+               translated input file is abc.input.
 
-  opt_translate += 4 ->
+  opt_translate +=4 ->
     continue running submit_batch_jobs using translated input file.
 
-  Setting opt_translate to 1 or 2 results in translation followed
-  by exiting submit_batch_jobs. This option enables visual inspection
-  of translated input file before launching batch jobs. 
+  opt_translate +=8 ->
+    always exit, regardless of whether input file is legacy or not.
 
-  Setting opt_tranlate = 5 (1+4) or 6 (2+4) results in translation
-  following by executation of the batch script. This option enables
-  pipelines to run without interruption.
+Setting opt_translate to 1 or 2 results in translation followed by exiting 
+submit_batch_jobs. This option enables visual inspection of translated input 
+file before launching batch jobs. 
 
-  If the input file is already in the correct YAML format, opt_translate
-  is ignored; therefore it is safe to always include an opt_translate 
-  argument.
+Setting opt_tranlate = 5 (1+4) or 6 (2+4) results in translation that is 
+immediately followed by executation of the batch script (no questions asked). 
+This option enables pipelines to run without interruption.
+
+If the input file is already in the correct YAML format, opt_translate is 
+ignored; therefore it is safe to always include an opt_translate argument.
 
   """
 
@@ -232,7 +235,8 @@ HELP_CONFIG_SIM =  f"""
   RANGE(z,PKMJD) \n\t\t\t and SOLID_ANGLE
     (if no NGEN_UNIT, use NGENTOT_LC from sim-input or from GENOPT)
   GENPREFIX:    DES  # out_file name prefix (please keep it short)
-                     # and suffix to default SIMLOGS_[GENPREFIX] 
+                     # and default log dir is SIMLOGS_[GENPREFIX] 
+  LOGDIR:   MY_LOGS  # override default SIMLOGS_[GENPREFIX]
   CLEANUP_FLAG:  0   # turn off default cleanup (for debug)
 
   SIMGEN_INFILE_SNIa:  # default SNIa input file(s) for all GENVERSIONs
@@ -456,7 +460,8 @@ active, while the others exit. For example, suppose
        BUSY_MERGE_CPU0002.LOCK  
        BUSY_MERGE_CPU0006.LOCK  
 both exist; CPU0006 merge process will exit while CPU0002 merge process 
-remains to carry out its merge tasks.
+remains to carry out its merge tasks. To track the occurance of multiple 
+BUSY*LOCK files, "grep simultaneous CPU*.LOG"
 
 
 3:(
@@ -494,13 +499,57 @@ expected sequence of events:
 
 """
 
+HELP_AIZ = f"""
+    LOGIC for "ABORT IF ZERO" (AIZ) 
+
+There are many mistakes which can result in zero output events. To trap such
+mistakes (or code bugs), the YAML output for each science job includes 
+ABORT_IF_ZERO (AIZ), which is the number of events processed; AIZ=0 is a 
+failure flag for the merge process.
+
+However, care is needed to avoid aborting on low-stat jobs where Poisson 
+fluctuations result in zero events for a subset of the split jobs. For example, 
+consider a Kilonova simulation where there are 50 total events (after trigger), 
+and the sim job is split over 50 cores. The average number per core is 1, 
+meaning that about 1/3 of the split jobs will have zero events. In this case, 
+there is no failure, but a naive check on AIZ=0 would result in a false failure.
+On the other hand, if 50 SNIa jobs result in AIZ>10000 on 49 cores and AIZ=0
+on 1 core, this should result in a failure.
+
+The AIZ abort logic is as follows in the merge process. If any AIZ >= 30, the 
+naive logic applies where any AIZ=0 flags a failure. If all AIZ < 30 (grep
+for aiz_thresh), the low-stat Poisson regime is assumed and a subset of AIZ=0 
+is allowed without flagging a failure. If all AIZ=0, failure is flagged.
+
+Determining aiz_thresh:
+A false failure occurs if the true <AIZ> is below aiz_thresh, at least one job
+has AIZ=0 (with probabilithy P_0), and at least one job has AIZ >= aiz_thresh
+(with prob P_thresh). For 'Nsplit' jobs, the false failure probability is
+       P_FF = [1-(1-P_0)**Nsplit)] x [1-(1-P_thresh)**Nsplit)]
+
+With Nsplit = 100, the table below shows P_FF values where the mean aiz is 
+taken to be <aiz> = aiz_thresh/2:
+
+    aiz_thresh <aiz>    P_0     P_thresh    P_FF
+     -----------------------------------------------
+       10        5     6.74E03  3.18E-2   0.47
+       20       10     4.54E-5  3.45E-3   1.32E-3
+       24       12     6.14E-6  1.47E-3   8.42E-5
+       30       15     3.06E-7  4.18E-4   1.25E-6
+     -----------------------------------------------
+
+A reasonable choice is aiz_thresh=30 so that P_FF ~ E-6
+
+"""
+
 # - - - - - - - 
 HELP_MENU = { 
     'SIM' : HELP_CONFIG_SIM,
     'FIT' : HELP_CONFIG_FIT,
     'BBC' : HELP_CONFIG_BBC,
     'TRANSLATE' : HELP_TRANSLATE,
-    'MERGE'     : HELP_MERGE
+    'MERGE'     : HELP_MERGE,
+    'AIZ'       : HELP_AIZ     # ABORT_IF_ZERO
 }
 
 # === END ===

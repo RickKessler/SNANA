@@ -54,8 +54,14 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_78"                                  
+#define  SNANA_VERSION_CURRENT  "v10_78b"                                   
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
+//#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
+
+#define KEYNAME_DOCANA_REQUIRED   "DOCUMENTATION:"
+#define KEYNAME2_DOCANA_REQUIRED  "DOCUMENTATION_END:"
+#define OPENMASK_VERBOSE        1  // see snana_openTextFile
+#define OPENMASK_REQUIRE_DOCANA 2  // see snana_openTextFile
 
 // default cosmo params from Planck 2018 (https://arxiv.org/abs/1807.06209)
 #define OMEGA_MATTER_DEFAULT   0.315 
@@ -83,14 +89,6 @@
 #define  CMBapex_l  (double)264.031    // deg (RA galactic coords !!!)
 #define  CMBapex_b  (double)48.253     // deg (DEC)
 #define  CMBapex_v  (double)369.82    // km/sec
-
-
-/* xxxxx mark delete Jun 8 2020 xxxxxxx
-// probably from COBE 1996 ?
-#define  CMBapex_l  (double)264.14    // deg (RA galactic coords !!!)
-#define  CMBapex_b  (double)48.26     // deg (DECL)
-#define  CMBapex_v  (double)371.0     // km/sec
-xxxxxxxxxxxxx */
 
 #define FWHM_SIGMA_RATIO  2.3548    // FWHM/sigma for Gaussian 
 #define TEN        (double)10.0 
@@ -158,8 +156,6 @@ char FILTERSTRING[100] ;
 #define MXSTREAM_RAN    2  // max number of independent streams
 #define BUFSIZE_RAN   256
 
-// struct random_data { int idum; };  // ??? needed for Mac ???
-
 struct {
   int     NSTREAM ; // number of srandom streams (legacy is 1)
   double  RANSTORE[MXLIST_RAN+1][MXSTORE_RAN] ;
@@ -169,6 +165,11 @@ struct {
 
   // for multi-stream randoms
   // xxx random_data_def ranStream[MXSTREAM_RAN];
+
+#ifdef MACOS
+  struct random_data { int someInteger; };  // from D.Jones, Sep 2020
+#endif
+
   struct random_data  ranStream[MXSTREAM_RAN];
   char stateBuf[MXSTREAM_RAN][BUFSIZE_RAN];
 
@@ -377,8 +378,9 @@ struct {
 
 #define MSKOPT_PARSE_WORDS_FILE    1   // parse words in a file
 #define MSKOPT_PARSE_WORDS_STRING  2   // parse string
-#define MSKOPT_PARSE_WORDS_IGNORECOMMA    4   // parse blank space; ignore comma
-#define MSKOPT_PARSE_WORDS_IGNORECOMMENT  8   // ignore anything after comment char
+#define MSKOPT_PARSE_WORDS_IGNORECOMMA    4  // parse blank space; ignore comma
+#define MSKOPT_PARSE_WORDS_IGNORECOMMENT  8  // ignore anything after comment char
+#define MSKOPT_PARSE_WORDS_FIRSTLINE     16  // read only 1st line only
 
 struct {
   char  FILENAME[MXPATHLEN];
@@ -770,11 +772,16 @@ void fprint_banner (FILE *FP, const char *banner ) ;
 
 // shells to open text file
 FILE *open_TEXTgz(char *FILENAME, const char *mode,int *GZIPFLAG) ;
-FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName, 
+FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName, 
 			  char *fullName, int *gzipFlag ); 
 void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
 void abort_openTextFile(char *keyName, char *PATH_LIST, 
 			char *fileName, char *funCall);
+void check_openFile_docana(FILE *fp, char *fileName); // check file already open
+void check_file_docana(char *fileName);           // open file and check
+void abort_missing_docana(char *fileName);
+void abort_missing_docana__(char *fileName);
+void check_file_docana__(char *fileName);
 
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
 void ENVrestore(char *fileName_noENV, char *fileName_orig);

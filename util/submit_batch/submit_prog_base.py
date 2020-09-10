@@ -1,7 +1,7 @@
 # ============================================
 # Created July 2020 by R.Kessler & S. Hinton
 #
-#  base class Program
+# Base class Program
 # ============================================
 
 #import argparse
@@ -216,14 +216,15 @@ class Program:
                 # write linux command to echo start time in python-like
                 # format so that python merge process can read it back
                 # and measure time pending in batch queue.
+                f.write(f"#!/usr/bin/env bash \n")
                 f.write(f"echo TIME_START: " \
                         f"`date +%Y-%m-%d` `date +%H:%M:%S` \n")
                 f.write(f"echo 'Begin {command_file}' \n\n")
 
                 if STOP_ALL_ON_MERGE_ERROR :
                     f.write(f"set -e \n") 
-                if 'SNANA_LOGIN_SETUP' in CONFIG:
-                    f.write(f"{CONFIG['SNANA_LOGIN_SETUP']} \n")
+                #if 'SNANA_LOGIN_SETUP' in CONFIG:
+                #    f.write(f"{CONFIG['SNANA_LOGIN_SETUP']} \n")
 
             # write program-specific content
             self.write_command_file(icpu,COMMAND_FILE)
@@ -255,15 +256,20 @@ class Program:
         print(f" BATCH DRIVER JOB COUNT SUMMARY:",
               f"{n_job_tot} {program} jobs on {n_core} cores")
 
+        
+        # check option to force crash (to test higher level pipelines)
+        if self.config_yaml['args'].force_crash_prep :
+            printf(" xxx force batch-prep crash with C-like printf xxx \n")
+
         # end write_script_driver
 
     def write_batch_file(self, batch_file, log_file, command_file, cpu_name):
 
         # Create batch_file that executes "source command_file"
-        # BATCH_TEMPLATE file is copied to script_dir destination, 
-        # and then sed linux utility is used to substitute 
+        # BATCH_TEMPLATE file is read, and lines are modified using
+        # string replacements for
         #   REPLACE_NAME, REPLACE_LOGFILE, REPLACE_MEM, REPLACE_JOB
-        # with job-specific info in copied BATCH_TEMPLATE file.
+        # with job-specific info.
         # Note that lower-case xxx_file has no path; 
         # upper case XXX_FILE includes full path
 
@@ -271,41 +277,48 @@ class Program:
         script_dir      = self.config_prep['script_dir']
         replace_memory  = self.config_prep['memory']
         input_file      = self.config_yaml['args'].input_file 
+        debug_batch     = self.config_yaml['args'].debug_batch
+
         BATCH_FILE      = (f"{script_dir}/{batch_file}")
-        BATCH_FILE_TEMP = (f"{BATCH_FILE}_TEMP")  # for sed utility
 
-        # copy batch template file to temp file in script_dir
-        # (below it is modified with sed)
-        shutil.copy(BATCH_TEMPLATE, BATCH_FILE_TEMP)
+        with open(BATCH_TEMPLATE,"r") as f:
+            template_batch_lines = f.readlines()
 
-        # use sed utility to replace strings in batch file
+        #print(f" xxx template_batch_lines = {template_batch_lines} ")
 
-        # job name in queue include name of input file for Pippin
+        # get strings to replace 
+
+        # job name in queue include name of input file for Pippin.
+        # Remove everything up to last slash so that only the base
+        # input file name is used in job name.
         replace_job_name   = (f"{input_file}-{cpu_name}") 
 
         # nothing to change for log file
         replace_log_file   = log_file  
 
-        # for script_dir, replace slash (/) with \/ for sed.
-        script_dir_sed  = script_dir.replace("/","\/")
-        replace_job_cmd = (f"cd {script_dir_sed}\\\n\\\nsource {command_file}")
+        #replace_job_cmd = (f"cd {script_dir} \nsource {command_file}")
+        replace_job_cmd = (f"cd {script_dir} \nsh {command_file}")
 
-        # construct sed command to replace the REPALCE_XXX keys in 
-        # the batch template file
-        sed_command = 'sed '
-        sed_command += (f"-e 's/REPLACE_NAME/{replace_job_name}/g' ")
-        sed_command += (f"-e 's/REPLACE_MEM/{replace_memory}mb/g' ")
-        sed_command += (f"-e 's/REPLACE_LOGFILE/{replace_log_file}/g' ")
-        sed_command += (f"-e 's/REPLACE_JOB/{replace_job_cmd}/g' ")
-        sed_command += (f" {BATCH_FILE_TEMP} > {BATCH_FILE}") 
+        # - - - define list of strings to replace - - - - 
+        batch_lines = []            
+        REPLACE_KEY_LIST = [ 'REPLACE_NAME', 'REPLACE_MEM',
+                             'REPLACE_LOGFILE', 'REPLACE_JOB' ]
+        replace_string_list = [ replace_job_name, replace_memory,
+                                replace_log_file, replace_job_cmd ]
+        NKEY = len(REPLACE_KEY_LIST)
 
-#        print(f" xxx sed_command = {sed_command}")
-        os.system(sed_command)
+        # replace strings in batch_lines
+        for line in template_batch_lines:
+            for ikey in range(0,NKEY):
+                REPLACE_KEY    = REPLACE_KEY_LIST[ikey]
+                replace_string = replace_string_list[ikey] 
+                line           = line.replace(REPLACE_KEY,replace_string)
+            batch_lines.append(line)
 
-        # remove TEMP file
-        if ( len(BATCH_FILE_TEMP) > 5 ) :  # avoid stupidity with rm
-            remove_cmd = (f"rm {BATCH_FILE_TEMP}")
-            os.system(remove_cmd)
+        with open(BATCH_FILE,"w") as f:
+            f.write("".join(batch_lines))
+
+        # end write_batch_file
 
     def prep_JOB_INFO_merge(self,icpu,ijob):
         # Return JOB_INFO dictionary of strings to run merge process.
@@ -410,7 +423,12 @@ class Program:
 
         comment = "number of cores"
         f.write(f"N_CORE:           {n_core}     # {comment} \n")
-            
+
+        force_crash_prep  = self.config_yaml['args'].force_crash_prep
+        force_crash_merge = self.config_yaml['args'].force_crash_merge
+        f.write(f"FORCE_CRASH_PREP:    {force_crash_prep} \n")
+        f.write(f"FORCE_CRASH_MERGE:   {force_crash_merge}\n")
+  
         # append program-specific information
         f.write("\n")
         self.append_info_file(f)
@@ -499,13 +517,22 @@ class Program:
             node_list      = self.config_prep['node_list']
             command_file_list = self.config_prep['command_file_list']
             cmdlog_file_list  = self.config_prep['cmdlog_file_list'] 
+            CONFIG            = self.config_yaml['CONFIG']
+            if 'SNANA_LOGIN_SETUP' in CONFIG:
+                login_setup = (f"{CONFIG['SNANA_LOGIN_SETUP']}")
+            else:
+                login_setup = ""
 
+            logging.info(f"  login_setup (for ssh):  {login_setup} ")
             qq = '"'
             for inode in range(0,n_core):
                 node       = node_list[inode]
                 log_file   = cmdlog_file_list[inode]
                 cmd_file   = command_file_list[inode]
-                cmd_source = (f"{cddir} ; source {cmd_file} >& {log_file} &")
+
+                #cmd_source = (f"{cddir} ; source {cmd_file} >& {log_file} &")
+                cmd_source = (f"{login_setup}; {cddir} ; " \
+                              f"sh {cmd_file} >& {log_file} &")
 
                 #ret = subprocess.call(["ssh", node, cmd_source] )
                 logging.info(f"  Submit jobs via ssh -x {node}")
@@ -545,6 +572,7 @@ class Program:
         tstr     = time_now.strftime("%Y-%m-%d %H:%M:%S") 
         fnam = "merge_driver"
         MERGE_LAST  = self.config_yaml['args'].MERGE_LAST
+        cpunum      = self.config_yaml['args'].cpunum[0]
 
         logging.info(f"\n")
         logging.info(f"# ================================================== ")
@@ -605,6 +633,10 @@ class Program:
         row_list_split, row_list_merge, n_change = \
                    self.merge_update_state(MERGE_INFO_CONTENTS)
         
+        # check option to force crash (to test higher level pipelines)
+        if submit_info_yaml['FORCE_CRASH_MERGE'] and cpunum == 0 :
+            printf(" xxx force merge crash with C-like printf xxx \n")
+
         use_split = len(row_list_split) > 0
         use_merge = len(row_list_merge) > 0
 
@@ -715,7 +747,7 @@ class Program:
         # sleep until there are no more busy files.
         n_busy,busy_list = self.get_busy_list()
         while n_busy > 0 :
-            logging.info("\t Wait for {busy_list} to clear}")
+            logging.info(f"\t Wait for {busy_list} to clear")
             time.sleep(5)
             n_busy,busy_list = self.get_busy_list()
 
@@ -726,15 +758,16 @@ class Program:
         # Beware that after this task, nothing more can be written
         # to the CPU*LOG files.
 
-        submit_info_yaml = self.config_prep['submit_info_yaml']
-        script_dir       = submit_info_yaml['SCRIPT_DIR'] 
+        cpunum            = self.config_yaml['args'].cpunum[0]
+        submit_info_yaml  = self.config_prep['submit_info_yaml']
+        script_dir        = submit_info_yaml['SCRIPT_DIR'] 
 
-        logging.info(f"  Standard cleanup: compress CPU* files")
-        util.compress_files(+1, script_dir, "CPU*", "CPU" )
+        log_file_keep  = (f"CPU{cpunum:04d}*.LOG")
+        logging.info(f"  Standard cleanup: compress CPU* files " \
+                     f"except for {log_file_keep}")
+        util.compress_files(+1, script_dir, "CPU*", "CPU", log_file_keep )
 
         # tar and zip the script dir
-        # This last info text won't appear because CPU*LOG files are
-        # removed above.
         logging.info(f"  Standard cleanup: compress {script_dir}")
         util.compress_subdir(+1, f"{script_dir}" )
 
@@ -915,8 +948,9 @@ class Program:
             t_unit = 3600.0 ;    unit = "hours"
 
         t_wall   = t_seconds/t_unit
-        msg_time = []
-        msg_time.append(f"\nWALL_TIME:      {t_wall:.2f}    # {unit} ")
+        msg_time = [ ' ' ]
+        msg_time.append(f"UNIT_TIME:      {unit} ")
+        msg_time.append(f"WALL_TIME:      {t_wall:.2f}  ")
 
         # - - - - - - - - 
         # Read TIME_START value from each CPU*LOG file, and measure
@@ -954,8 +988,8 @@ class Program:
         if len(t_pend_list) > 0 :
             t_pend_min = min(t_pend_list)
             t_pend_max = max(t_pend_list)
-            msg_time.append(f"TMIN_PENDING:   {t_pend_min:.02f}    # {unit}")
-            msg_time.append(f"TMAX_PENDING:   {t_pend_max:.02f}    # {unit}")
+            msg_time.append(f"TMIN_PENDING:   {t_pend_min:.02f} ")
+            msg_time.append(f"TMAX_PENDING:   {t_pend_max:.02f} ")
 
         # - - - - - - - - 
         # if there is a CPU column, compute total CPU and avg CPU/core/T_wal
@@ -972,7 +1006,7 @@ class Program:
             cpu_avg  = cpu_sum / n_core
             eff_cpu  = cpu_avg / t_wall
 
-            msg_time.append(f"CPU_SUM:        {cpu_sum:.3f}   # {unit}")
+            msg_time.append(f"CPU_SUM:        {cpu_sum:.3f} ")
             msg_time.append(f"EFFIC_CPU:      {eff_cpu:.3f}   # CPU/core/T_wall")
 
         # - - - -
@@ -1288,6 +1322,100 @@ class Program:
 
         # end failure_summary
 
+    def get_job_stats(self, script_dir, log_file_list, yaml_file_list, 
+                      yaml_key_list):
+        
+        # Called when all DONE files exist.
+        # Loop over input log_file_list and for each file,
+        #    + check if yaml file exists
+        #    + if yaml exists, read & extract stats for each
+        #       yaml_key_list
+        #
+        # Store both stat sums and a stat-list overy YAML files.
+        #
+        # Only yaml files are parsed here; log_file is passed to
+        # check_for_failures so that ABORT message can be
+        # extracted elsewhere .
+        #
+        
+        n_key              = len(yaml_key_list)
+        n_split            = len(log_file_list)
+        key_AIZ            = 'ABORT_IF_ZERO'
+        aiz_list           = [ -9 ] * n_split
+        aiz_max            = 0
+        n_aiz_zero         = 0
+        
+        # init output dictionary
+        job_stats = { 'nfail' : 0 }
+        for key in yaml_key_list :
+            key_sum  = (f"{key}_sum")   # store sum
+            key_list = (f"{key}_list")  # store stats for each split job
+            job_stats[key_list] = [ 0 ] * n_split
+            job_stats[key_sum]  =   0
+    
+        for isplit in range(0,n_split):
+            log_file  = log_file_list[isplit]
+            yaml_file = yaml_file_list[isplit]
+            LOG_FILE  = (f"{script_dir}/{log_file}")
+            YAML_FILE = (f"{script_dir}/{yaml_file}")
+
+            if os.path.isfile(YAML_FILE) :
+                stats_yaml       = util.extract_yaml(YAML_FILE)
+            
+                aiz              = stats_yaml[key_AIZ]
+                aiz_list[isplit] = aiz
+                if aiz > aiz_max : aiz_max = aiz
+                if aiz == 0 : n_aiz_zero += 1
+            
+                for item in yaml_key_list :
+                    key, key_sum, key_list  = self.keynames_for_job_stats(item)
+                    job_stats[key_list][isplit] = stats_yaml[key]
+                    job_stats[key_sum]         += stats_yaml[key]
+                
+                    # fix format for CPU
+                    if 'CPU' in key :
+                        cpu_sum = (f"{job_stats[key_sum]:.1f}")
+                        job_stats[key_sum] = float(cpu_sum)
+
+        # - - - - - - - - - - - - - - - - - - - - a
+        # Examine failures. If there is no output YAML file, aiz=-9 flags
+        # a clear failure -> abort.
+        # If any aiz == 0, it's tricky because very low-stat jobs (e.g., KN)
+        # can result in aiz=0 due to random Poisson fluctuations. Goal is to
+        # abort only if aiz=0 cannot be due to low-stat random fluctuation.
+        #
+        # If any aiz > aiz_thresh, then abort if any aiz=0; otherwise abort 
+        # only if all aiz=0. The logic is to intervene only if all 
+        # aiz < aiz_thresh and a subset of aiz=0; in this case, aiz += 1
+        # to suppress failure from aiz=0. Note that aiz = -9 -> -8,
+        # and still fails since YAML output wasn't found.
+        #
+
+        aiz_thresh  = 30  # P_FF ~ E-6; submit_batch_jobs.sh -H AIZ 
+
+        subset_aiz_zero = n_aiz_zero>0 and n_aiz_zero < n_split # some 0, not all
+        if aiz_max < aiz_thresh and subset_aiz_zero :
+            for i in range(0,n_split): aiz_list[i] += 1
+            msg = (f"\t max({key_AIZ})={aiz_max} -> suppress abort from AIZ=0.")
+            logging.info(msg)
+
+        # loop again over split jobs and check for failures.
+        for isplit in range(0,n_split):
+            log_file   = log_file_list[isplit]
+            aiz        = aiz_list[isplit]
+            found_fail =  self.check_for_failure(log_file, aiz, isplit+1)
+            if found_fail : job_stats['nfail'] += 1
+
+        return job_stats
+
+        # end get_job_stats
+
+    def keynames_for_job_stats(self,keyname_base):
+        keyname_sum  = (f"{keyname_base}_sum")
+        keyname_list = (f"{keyname_base}_list")
+        return keyname_base, keyname_sum, keyname_list
+        # end keynames_for_job_stats
+
     def log_assert(self,condition, msgerr):
         # same as log_assert in util, except here it also
         # + writes FAIL to done_stamp_file
@@ -1307,7 +1435,7 @@ class Program:
                         f.write(f"#   {msg}\n")
                     f.write(f"#\n")
 
-            util.log_assert(condition, msgerr)
-        
+            util.log_assert(condition, msgerr)        
+
 # ======= END OF FILE =========
 

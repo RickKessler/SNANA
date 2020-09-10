@@ -1,7 +1,10 @@
 # SNANA
 Supernova Analysis package.
 
-Read documentation in /doc.
+Public data/filters/models/etc are in SNDATA_ROOT (~1 GB):
+   https://zenodo.org/record/4015325
+
+Read documentation in SNANA/doc.
 
 SNANA code moved from snana.uchicago.edu to Git (May 2019).
 

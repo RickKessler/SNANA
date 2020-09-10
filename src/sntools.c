@@ -1,15 +1,5 @@
 // sntools.c
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <time.h>
-#include <math.h>
-#include <ctype.h>
-*/
-
 #include "sntools.h"
 
 #include <sys/types.h>
@@ -513,8 +503,8 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   double SNRCUT_BACKUP   = INPUTS_OBS_atFLUXMAX.SNRCUT_BACKUP;
   double MJDSTEP_SNRCUT  = 10.0 ; // hard wired param
 
-  int USE_MJDatFLUXMAX  = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX );
-  int USE_MJDatFLUXMAX2 = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2);
+  int USE_MJDatFLUXMAX  = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX ); // naive max flux
+  int USE_MJDatFLUXMAX2 = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2); // fmax-clump method
   int USE_BACKUP_SNRCUT, ITER, NITER, IMJD, IMJDMAX=0 ;
   int NOBS_SNRCUT=0, NSNRCUT_MAXSUM=0;
   int IFILTOBS, o, omin, omax, omin2, omax2, o_sort, NOTHING ;
@@ -531,9 +521,9 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   // ------------ BEGIN -------------
 
   NITER  = 1 ;         // always do max flux on 1st iter
-  omin2  = omax2 = -9 ;
-  NSNRCUT_MAXSUM = 0 ;
-  USE_BACKUP_SNRCUT = 0;
+  omin2  = omax2    = -9 ;
+  NSNRCUT_MAXSUM    = 0 ;
+  USE_BACKUP_SNRCUT = 0 ;
 
   // sort by MJD (needed for FmaxClump method)
   MEMI = NOBS*sizeof(int) ;
@@ -577,6 +567,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     USE_BACKUP_SNRCUT = 1;
   }
   else if ( USE_MJDatFLUXMAX2 ) {
+    // fmax-clump method
     NITER   = 2 ;
     IMJDMAX = 0;
     SNRCUT  = SNRCUT_USER;
@@ -586,7 +577,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
       NSNRCUT     = (int*)malloc(MEMI);
       oMIN_SNRCUT = (int*)malloc(MEMI);
       oMAX_SNRCUT = (int*)malloc(MEMI);     
-      MALLOC = 1; 
+      MALLOC      = 1 ; 
     }
     // initialize quantities in each 10-day bin
     for(o=0; o < MXWIN_SNRCUT; o++ ) {
@@ -1403,11 +1394,13 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
   // May 09 2019: refactor to allow option for ignoring comma in strings.
   // Jul 20 2020: new option to ignore comment char and anything after
   // Jul 31 2020: add abort trap on too-long string length
+  // Aug 26 2020: new FIRSTLINE option to read only 1st line of file.
 
   bool DO_STRING       = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
   bool DO_FILE         = ( (OPT & MSKOPT_PARSE_WORDS_FILE)   > 0 );
   bool CHECK_COMMA     = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMA) == 0 );
   bool IGNORE_COMMENTS = ( (OPT & MSKOPT_PARSE_WORDS_IGNORECOMMENT) > 0 );
+  bool FIRSTLINE       = ( (OPT & MSKOPT_PARSE_WORDS_FIRSTLINE) > 0 );
   int LENF = strlen(FILENAME);
 
   int NWD, MXWD, iwdStart=0, GZIPFLAG, iwd;
@@ -1497,9 +1490,9 @@ int store_PARSE_WORDS(int OPT, char *FILENAME) {
 	NWD = NWD_TMP; // reset NWD to ignore comments
       }
       PARSE_WORDS.NWD += NWD;
-    }
+      if ( FIRSTLINE ) { break; }
+    } // end while
     NWD = PARSE_WORDS.NWD ;
-
 
     fclose(fp);
   }
@@ -10807,7 +10800,7 @@ void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG) {
 
 
 // *************************************************
-FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName, 
+FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName, 
 			  char *fullName, int *gzipFlag ) {
 
   /* ----------------------------------------------
@@ -10824,23 +10817,37 @@ FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName,
     This allows user to easily over-ride default
     with private version.
 
-   Function returns file pointer and gzipFile.
+   Inputs
+     + OPTMASK :
+         += 1 -> verbose mode
+         += 2 -> abort if DOCUMENTATION is not first string in file
+     + PATH_LIST   : optional space-separated list of paths to check
+     + fileName    : name of file to option
+   Outputs
+     + fullName : full name of file, including path
+     + gzipFlag : 1 if gzipped, 0 otherwise
+
+   Function returns file pointer.
 
    Dec 29 2017: use open_TEXTgz to allow reading gzipped files.
    Jan 11 2018: add gzipFile output arg
    Mar 20 2019: padd vboseFlag to print comment to stdout
    Feb 01 2020: SNPATH -> PATH_LIST (space separated)
+   Aug 26 2020: change vboseflag to more generic OPTMASK
+
   ----------------------------------------------- */
 
 #define TEXTMODE_read "rt"
 #define MXPATH_CHECK 4
 
-  int LDMP = (vboseFlag>0) ;
+  bool VBOSE          = ( (OPTMASK & OPENMASK_VERBOSE)        > 0 ) ;
+  bool REQUIRE_DOCANA = ( (OPTMASK & OPENMASK_REQUIRE_DOCANA) > 0 ) ;
+
   int ipath, NPATH ;
   bool IS_OPEN = false ;
   char *PATH[MXPATH_CHECK], sepKey[]= " " ; 
   FILE *fp ;
-  //  char fnam[] = "snana_openTextFile" ;
+  char fnam[] = "snana_openTextFile" ;
 
   // --------------- BEGIN ----------------
 
@@ -10848,13 +10855,11 @@ FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName,
 
   sprintf(fullName, "%s", fileName );
 
-  //  printf("xxx %s : fileName = '%s' \n", fnam, fullName); // DDDDDDDDDD
-
-  //  fp = fopen(fullName, "rt");
   fp = open_TEXTgz(fullName,TEXTMODE_read, gzipFlag );
   if ( fp != NULL ) {       
-    if ( LDMP )  { printf("\t Opened : %s \n", fullName ); }
-    return fp;
+    if ( VBOSE )  { printf("\t Opened : %s \n", fullName ); }
+    goto DONE ;
+    // xxx return fp;
   } 
 
   // if we get here, try paths in PATH_LIST
@@ -10869,12 +10874,11 @@ FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName,
     if ( IS_OPEN ) { continue ; }
 
     sprintf(fullName, "%s/%s", PATH[ipath],  fileName );
-    //   fp = fopen(fullName, "rt") ;
     fp = open_TEXTgz(fullName,TEXTMODE_read, gzipFlag );
 
     if ( fp != NULL ) {
       IS_OPEN = true ;
-      if ( LDMP ) { printf("\t Opened : %s \n", fullName ); }
+      if ( VBOSE ) { printf("\t Opened : %s \n", fullName ); }
     }
 
   } // end ipath
@@ -10882,11 +10886,75 @@ FILE *snana_openTextFile (int vboseFlag, char *PATH_LIST, char *fileName,
   // free memory
   for(ipath=0; ipath < MXPATH_CHECK; ipath++ )   { free(PATH[ipath]); }
 
+ DONE:
+
+  if ( REQUIRE_DOCANA ) {  check_openFile_docana(fp,fullName); }
+
   // return pointer regardless of status
   return fp;
 
 }  // end of snana_openTextFile
 
+
+// *************************************
+void check_openFile_docana(FILE *fp, char *fileName) {
+  // Created Aug 26 2020
+  // For already open file (fp), abort if first word in file is not 
+  // a DOCANA key.
+  // A separate abort function is available to both C and fortran.
+
+  char key[60];
+  char fnam[] = "check_openFile_docana";
+  // ------------- BEGIN --------
+  fscanf(fp, "%s", key);
+  if ( strcmp(key,KEYNAME_DOCANA_REQUIRED) != 0 ) 
+    { abort_missing_docana(fileName); }
+  
+  return;
+} // end check_openFile_docana
+
+// *************************************
+void check_file_docana(char *fileName) {
+  // Created Aug 26 2020
+  // Open and read first line if fileName; abort if no DOCANA key.
+  // A separate abort function is available to both C and fortran.
+
+  int MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_FIRSTLINE ;
+  int  langFlag=0, iwd0=0, NWD;
+  char key[60];
+  char fnam[] = "check_file_docana";
+  // ------------- BEGIN --------
+
+  NWD = store_PARSE_WORDS(MSKOPT, fileName);
+  get_PARSE_WORD(langFlag, iwd0, key);
+
+  if ( strcmp(key,KEYNAME_DOCANA_REQUIRED) != 0 ) 
+    { abort_missing_docana(fileName); }
+  
+  return;
+} // end check_file_docana
+
+
+void abort_missing_docana(char *fileName) {
+  char fnam[] = "abort_missing_docana" ;
+
+  print_preAbort_banner(fnam);
+  printf("\n");
+  printf("  Missing required '%s'  key in \n", KEYNAME_DOCANA_REQUIRED);
+  printf("    %s \n", fileName);
+  printf("  See DOCANA examples with linux command: \n");
+  printf("    grep -R DOCUMENTATION_END $SNDATA_ROOT \n") ;
+  printf("  File must begin with 'DOCUMENTATION:' key\n");
+  
+  sprintf(c1err,"See DOCANA error above. Must add DOCUMENTATION block to");
+  sprintf(c2err,"%s", fileName );
+  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+}
+
+void abort_missing_docana__(char *fileName) 
+{ abort_missing_docana(fileName); }
+void check_file_docana__(char *fileName) 
+{ check_file_docana(fileName); }
 
 // *****************************************************
 void abort_openTextFile(char *keyName, char *PATH_LIST,

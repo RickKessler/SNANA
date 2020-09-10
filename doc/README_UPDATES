@@ -18795,7 +18795,7 @@
 
 
 # ======================================================================= 
-         v10_78 (Aug 18 2020) 
+         v10_78 (Sep 01 2020) 
 
          ***** IMPORTANT(v10_78) ***** 
 
@@ -18832,20 +18832,72 @@
        can request YAML output with summary stats needed for MERGE proc.
        This avoids fragile parsing of stdout.
      + bug fix for GRIDONLY feature using SIMSED model.
+     + new sim-input REQUIRE_DOCANA. Now it is 0, but later will be 1.
 
    snana.car
      + when passing JOBSPLIT (from batch-submit script), automatically
        create [VERSION].YAML file with stats ... avoids having to 
        parse huge log files.
      + fix CHECK_LINE_ARGS to use current MADABORT error handler.
-       
+     + add input REQUIRE_DOCANA (default = 0 -> false), and implement
+       for SNCID_IGNORE_FILE, HEADER_OVERRIDE_FILE, data version README
+     + new util ISTAT_FILE_DOCANA to track DOCUMENTATION and DOCUMENTATION_END
+       keys; needed to parse particular input files (e.g., SNCID_IGNORE_LIST)
+       where reading DOCANA keys would corrupt the parsing.
+
+   sntools.c
+     + If new sim-input REQUIRE_DOCANA=1, pass flag to snana_openText 
+       to call check_openFile_docana.
+     + new utility funcs check_file_docana() and check_openFile_docana().
+
+   sntools_trigger.c
+     + implement REQUIRE_DOCANA (if option is set)
+
    sntools.h
      + optional ONE_RANDOM_STREAM pre-proc flag; see manual.
      + MXCHARWORD_PARSE_WORDS -> 300 (was 60) to handle long file names
          (fixes segFault found by R.Chen using HEADER_OVERRIDE feature)
 
+   snlc_fit.car
+     + fix CUTFLAG_SNANA for FITRES table. No impact on fits, 
+       but fix avoids confusion.
+
    sntable_dump.pl[c]
      + add NEVT option to print number of events in table.
        Needed in refactored submit scripts to verify table merge.
+
+   sntools.pm:
+     loadArray_fromFile aborts on 'CONFIG:' key with message to 
+     use submit_batch_jobs.sh. Protects legacy batch scripts
+     sim_SNmix.pl, split_and_fit.pl, SALT2mu_fit.pl.
+
+
+# ======================================================================= 
+         v10_78b (Sep 9, 2020) 
+
+         ***** IMPORTANT(v10_78b) ***** 
+
+   Tried v9.2 gcc on Midway, and got lots of compile warnings:
+      "Fix Warning: Fortran 2018 deleted feature: 
+       Shared DO termination label 630 at (1)"
+   Fixed these warnings in old fortran codes pulled from CERNLIB;
+   UTILEX in snana.car, and minuit.F. Using gcc 9.2.0, SNANA now 
+   compiles without warnings.
+
+         ***** USEFUL(v10_78b) ***** 
+
+   SALT2mu.c: 
+     new "nthread=<n>" argument splits chi2 calc using pthread_create.
+     Default nthread=1 does not use pthread. Beware to allocate 
+     tasks_per_node for batch jobs. Also beware of re-factored chi2
+     function (fcn).
+
+         ***** MISCELLANEOUS(v10_78b) ***** 
+
+   snlc_sim:
+     + Implement DOCANA check for SIMLIB and HOSTLIB
+
+   submit_batch :
+     + working but not yet integrated into Pippin.
 
 END: 

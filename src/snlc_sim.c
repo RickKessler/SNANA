@@ -1111,6 +1111,7 @@ void set_user_defaults(void) {
   INPUTS_SEARCHEFF.MINOBS       = 2 ;  // at least 2 obs for search trigger
   INPUTS_SEARCHEFF.PHOTFLAG_DETECT  = 0 ;
   INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER = 0 ;
+  INPUTS_SEARCHEFF.OPTMASK_OPENFILE = 0 ;
   sprintf(INPUTS_SEARCHEFF.USER_SPEC_FILE, "NONE");
   sprintf(INPUTS_SEARCHEFF.USER_zHOST_FILE,"NONE");
 
@@ -1230,8 +1231,8 @@ void set_user_defaults(void) {
   init_GENGAUSS_ASYM( &INPUTS.GENGAUSS_FALLTIME_SHIFT, zero );
 
   // default is to NOT prompt user before clearing (removing) old version 
-  INPUTS.CLEARPROMPT = 0;
-
+  INPUTS.CLEARPROMPT      = 0 ;
+  INPUTS.REQUIRE_DOCANA   = 0 ;
   INPUTS.NVAR_SIMGEN_DUMP = -9 ; // note that 0 => list variables & quit
   INPUTS.IFLAG_SIMGEN_DUMPALL = 0 ; // dump only SN written to data file.
   INPUTS.PRESCALE_SIMGEN_DUMP = 1 ; // prescale
@@ -1560,6 +1561,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(0, "CLEARPROMPT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.CLEARPROMPT );
   }
+  else if ( keyMatchSim(0, "REQUIRE_DOCANA",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.REQUIRE_DOCANA );
+  }
   else if ( keyMatchSim(1, "GENSOURCE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENSOURCE );
   }
@@ -1593,7 +1597,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", PATH_USER_INPUT );
   }
   else if ( keyMatchSim(1, "PATH_SNDATA_SIM",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%s", PATH_SNDATA_SIM );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.PATH_SNDATA_SIM );
   }
   if ( keyMatchSim(1, "PATH_NON1ASED PATH_NONIASED", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.NON1ASED.PATH );
@@ -4423,6 +4427,9 @@ void prep_user_input(void) {
 
   if ( INPUTS.USE_KCOR_REFACTOR == 2 )  { INPUTS.USE_KCOR_LEGACY = 0 ; }
 
+  if ( INPUTS.REQUIRE_DOCANA ) 
+    { INPUTS_SEARCHEFF.OPTMASK_OPENFILE = OPENMASK_REQUIRE_DOCANA ; }
+    
   // Feb 2015: replace ENV names in inputs
   ENVreplace(INPUTS.KCOR_FILE,fnam,1);  
   ENVreplace(INPUTS.SIMLIB_FILE,fnam,1);
@@ -5133,8 +5140,8 @@ void prep_user_input(void) {
 
   // Feb 2018:
   // if using FLUXERRMODEL, make sure none of the legacy options are used
-  if ( IGNOREFILE(INPUTS.FLUXERRMODEL_FILE) == 0 ) {
-    if ( IGNOREFILE(INPUTS.HOSTNOISE_FILE) == 0 ) {
+  if ( !IGNOREFILE(INPUTS.FLUXERRMODEL_FILE)  ) {
+    if ( !IGNOREFILE(INPUTS.HOSTNOISE_FILE)  ) {
       sprintf(c1err,"Cannot mix FLUXERRMODEL_FILE with HOSTNOISE_FILE");
       sprintf(c2err,"Pick one, not both.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -5145,6 +5152,10 @@ void prep_user_input(void) {
       sprintf(c2err,"Pick one, not both.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
+
+    // Aug 26 2020: check for option to require DOCANA
+    if ( INPUTS.REQUIRE_DOCANA ) 
+      { INPUTS.FLUXERRMODEL_OPTMASK += MASK_REQUIRE_DOCANA_FLUXERRMAP; }
   }
 
   if ( INPUTS.RESTORE_DES3YR ) {
@@ -9634,8 +9645,8 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   Mar 11 2020: pass OPT_FRAME = rest or obs.
 
-  Jul 23 2020: fix DOSHAPE to be false for LCLIB model.
-
+  Jul 23 2020: DOSHAPE = F for LCLIB model.
+  Aug 31 2020: DOSHAPE = F for BYOSED model
   **********/
 
   bool ISFRAME_REST      = ( OPT_FRAME == OPT_FRAME_REST );
@@ -9647,9 +9658,11 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
   bool ISMODEL_NON1ASED  = ( INDEX_GENMODEL == MODEL_NON1ASED );
   bool ISMODEL_NON1A     = ( INPUTS.NON1A_MODELFLAG > 0 );
   bool ISMODEL_LCLIB     = ( INDEX_GENMODEL == MODEL_LCLIB ) ;
-
+  bool ISMODEL_BYOSED    = ( INDEX_GENMODEL == MODEL_BYOSED ) ;
   bool SKIPx1  = SIMLIB_HEADER.GENGAUSS_SALT2x1.USE ;
-  bool DOSHAPE = !( SKIPx1 || ISMODEL_SIMSED || ISMODEL_NON1A || ISMODEL_LCLIB);
+  bool DOSHAPE = !( SKIPx1 || ISMODEL_SIMSED || ISMODEL_NON1A || 
+		    ISMODEL_LCLIB || ISMODEL_BYOSED );
+
   // xxx  bool DOSHAPE = ( !SKIPx1 && !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0) ;
 
   double ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
@@ -12702,7 +12715,7 @@ double GENAV_WV07(void) {
   // ----------- BEGIN -----------
 
   AEXP = 1./tau;
-  BEXP = 1./sqrtf(sqsigma * 2. * 3.14159) ;
+  BEXP = 1./sqrt(sqsigma * 2. * 3.14159) ;
 
   if ( REWGT_AEXP > -1.0E-9 ) { AEXP *= REWGT_AEXP; } // April 2018
 
@@ -12853,9 +12866,14 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
   // Re-factored Aug 2017
   // Open SIMLIB file and read global header into
   // SIMLIB_GLOBAL_HEADER structure.
+  //
+  // Sep 3 2020: check REQUIRE_DOCANA
 
   char PATH_DEFAULT[2*MXPATHLEN];
-  char *OPENFILE = INPUTS.SIMLIB_OPENFILE;
+  char *OPENFILE      = INPUTS.SIMLIB_OPENFILE;
+  int  REQUIRE_DOCANA = INPUTS.REQUIRE_DOCANA ; 
+  int  OPENMASK       = OPENMASK_VERBOSE ;
+  if (REQUIRE_DOCANA) { OPENMASK += OPENMASK_REQUIRE_DOCANA; }
   char c_get[80];
   int  NTMP, NFILT;
   char fnam[] = "SIMLIB_readGlobalHeader_TEXT" ;
@@ -12865,17 +12883,11 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
   print_banner(fnam);
 
   sprintf(PATH_DEFAULT, "%s %s/simlib",  PATH_USER_INPUT, PATH_SNDATA_ROOT );
-  fp_SIMLIB = snana_openTextFile(1,PATH_DEFAULT, INPUTS.SIMLIB_FILE, 
+  fp_SIMLIB = snana_openTextFile(OPENMASK,PATH_DEFAULT, INPUTS.SIMLIB_FILE, 
 				 OPENFILE, &INPUTS.SIMLIB_GZIPFLAG );
   
   if ( fp_SIMLIB == NULL ) {
     abort_openTextFile("SIMLIB_FILE", PATH_DEFAULT, INPUTS.SIMLIB_FILE, fnam);
-
-    /* xxxxx Mark delete Feb 1 2020 xxxxxx
-    sprintf ( c1err, "Cannot open file SIMLIB_FILE" );
-    sprintf ( c2err," '%s' ", INPUTS.SIMLIB_FILE );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    xxxx */ 
   }
 
   // - - - - - - - - - - - - - - - -
@@ -20478,6 +20490,7 @@ void init_genmodel(void) {
     // model-specific init
     OPTMASK = 0; 
     if ( INPUTS.LEGACY_colorXTMW_SALT2 ) { OPTMASK += 128 ; }
+    if ( INPUTS.REQUIRE_DOCANA   ) { OPTMASK += OPENMASK_REQUIRE_DOCANA;}
     //xxx mark delete:  if ( INPUTS.DEBUG_FLAG == 64 )       { OPTMASK +=  64 ; } // ABORT on bad lamRange
  
     istat = init_genmag_SALT2(GENMODEL, GENMODEL_EXTRAP, OPTMASK) ;
@@ -24188,7 +24201,7 @@ void readme_doc(int iflag_readme) {
   // Feb 16 2020: write SIMULATION key at top for Pippin.
   // Feb 20 2020: write PHOTPROB info
   // Jul 31 2020: for batch jobs (JOBID>0), write keys for monitor task
-  //
+  // Aug 26 2020: use DOCANA structure at top of file
 
   char ctmp[MXPATHLEN], cfilt[2], cwd[MXPATHLEN] ;
   char *cptr;
@@ -24213,19 +24226,14 @@ void readme_doc(int iflag_readme) {
   //--- brief description
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"SIMULATION: \n" ); // Feb 2020
+  sprintf(cptr,"%s \n", KEYNAME_DOCANA_REQUIRED ); 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  BRIEF_DESCRIPTION: simulate %s SNe with GENMODEL = %s \n", 
-	  INPUTS.GENSOURCE, INPUTS.MODELNAME );
-
-  /* xxxx
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n");
-  xxxx */
+  sprintf(cptr,"  BRIEF_DESCRIPTION: simulate %s SURVEY with GENMODEL = %s \n", 
+	  GENLC.SURVEY_NAME, INPUTS.MODELNAME );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  HOST MACHINE: %s \n", getenv("HOST") );
+  sprintf(cptr,"  HOST_MACHINE: %s \n", getenv("HOST") );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf( cptr, "  USERNAME:  %s \n", getenv("USER") );
@@ -24240,8 +24248,11 @@ void readme_doc(int iflag_readme) {
   // write current directory (Sep 5 2013)
   if ( getcwd(cwd,MXPATHLEN) != NULL ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"  Current Dir:  %s \n", cwd );
+    sprintf(cptr,"  CWD:   %s \n", cwd );
   }
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"%s \n", KEYNAME2_DOCANA_REQUIRED ); 
 
   // -----------------------------
 

@@ -208,7 +208,7 @@ double SALT2magerr(double Trest, double lamRest,  double z,
 double SALT2colorDisp(double lam, char *callFun);
 
 void getFileName_SALT2colorDisp(char *fileName) ;
-void read_SALT2_INFO_FILE(void);
+void read_SALT2_INFO_FILE(int REQUIRE_DOCANA);
 void read_SALT2errmaps(double Trange[2], double Lrange[2] );
 void read_SALT2colorDisp(void);
 

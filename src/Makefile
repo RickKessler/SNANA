@@ -153,6 +153,8 @@ EXTRA_FLAGS = -O1   # -ftree-vectorize -ftree-vectorizer-verbose=2
 #  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
   PROFILEFLAG = 
+
+# after running code with -pg, "gprof $SNANA_DIR/bin/[code].exe"
 #  PROFILEFLAG = -pg
 # ------------------------
 # compile default storage options for both ROOT and HBOOK ....
@@ -512,7 +514,7 @@ $(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o 
 	$(OBJ)/sntools.o \
 	$(OBJ)/sntools_output.o \
 	$(OBJ)/minuit.o 	\
-	$(LCERN) $(LROOT) -lm $(LGSL) $(LCFITSIO) $(CPPLIB)
+	$(LCERN) $(LROOT) -lm $(LGSL) $(LCFITSIO) $(CPPLIB) -lpthread
 	(cd $(OBJ);  rm SALT2mu.o ) 
 
 # -----------------------------------------------------

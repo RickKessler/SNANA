@@ -123,6 +123,8 @@ struct  {
   // option to hack z-dependent efficiency function (for debugging)
   int    FUNEFF_DEBUG ;  
 
+  int  OPTMASK_OPENFILE ;
+
 } INPUTS_SEARCHEFF ;
 
 

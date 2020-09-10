@@ -112,12 +112,12 @@ double exec_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
 
   char fnam[] = "exec_GEN_EXP_HALFGAUSS";
   
-  double sig = gen_EXP_HALFGAUSS->SIGMA ;//half gaussian sigma
-  double peak = gen_EXP_HALFGAUSS->PEAK ; //half gaussian peak
-  double tau = gen_EXP_HALFGAUSS->EXP_TAU;//exponential
+  double sig   = gen_EXP_HALFGAUSS->SIGMA ;//half gaussian sigma
+  double peak  = gen_EXP_HALFGAUSS->PEAK ; //half gaussian peak
+  double tau   = gen_EXP_HALFGAUSS->EXP_TAU;//exponential
   double ratio = gen_EXP_HALFGAUSS->RATIO;//ratio GAUSS/EXP at zero
   double *range = gen_EXP_HALFGAUSS->RANGE;//generate random within this range
-  char *name = gen_EXP_HALFGAUSS->NAME;
+  char *name   = gen_EXP_HALFGAUSS->NAME;
 
   bool LDMP = false;
   
@@ -138,7 +138,8 @@ double exec_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   
   // sanity check
   if ( (range[1] > range[0]) && (tau<epsilon && sig<epsilon) ) {
-    sprintf(c1err,"GENRANGE(%s) = %.3f to %.3f, but EXP_TAU=0 and SIG=0", name, range[0], range[1]);
+    sprintf(c1err,"GENRANGE(%s) = %.3f to %.3f, but EXP_TAU=0 and SIG=0", 
+	    name, range[0], range[1]);
     sprintf(c2err,"EXP_TAU and/or SIG must not be zero");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
@@ -156,18 +157,16 @@ double exec_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
     { ranval = range[0] + (range[1] - range[0]) * ran_EXPON ; goto DONE ; }
 
 
-  // check for pure exponential or pure Gaussian                                                                                
-
+  // check for pure exponential or pure Gaussian
   DOFUN_EXPON = ( tau > epsilon &&  sig < epsilon );
   DOFUN_GAUSS = ( sig > epsilon &&  tau < epsilon );
 
-
-  // check for mixed.                                                                                                                                                                                                                         
+  // check for mixed. 
   if ( tau > epsilon && sig > epsilon && ratio > epsilon ) {
     double WGT_EXPON, WGT_GAUSS, WGT_SUM ;
     WGT_EXPON = 1.0 / tau ;
     WGT_GAUSS = 0.5*ratio / sqrt(TWOPI * sig*sig);
-    WGT_SUM = WGT_EXPON + WGT_GAUSS ;
+    WGT_SUM   = WGT_EXPON + WGT_GAUSS ;
     if ( ran_WGT < WGT_EXPON/WGT_SUM )
       { DOFUN_EXPON = true; DOFUN_GAUSS = false ;}
     else

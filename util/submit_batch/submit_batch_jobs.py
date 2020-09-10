@@ -2,20 +2,16 @@
 #
 # Created July 2020 by R.Kessler & S. Hinton
 #
+#
 # TO-DO LIST for
 #
-#   SNDATA_ROOT -> separate git repo ??
-#
 #  BASE/util: 
+#   - if ALL.DONE exists with FAIL , STOP EVERYTHING ?!?!
 #   - more elegant HELP menu per program?
 #   - run merge task immediately after launch so that
 #     some of the WAIT -> RUN
-#   - if 1 task per CPU*.CMD, final merge task may never run because
-#     one CPU locks merge process with only a few DONE files,
-#     and all other CPU*.CMD tasks end during partial merge ... 
-#     hence nobody left to complete the merge tasks.
 #
-#  SIM:
+#  SIM:#
 #   - for sim, leave symbolic links for redundant sim job
 #   - problem reading SIMGEN-input file when SIMGEN_DUMP breaks
 #      to another line that is not YAML compatible
@@ -45,7 +41,8 @@ def get_args():
 
     msg = "HELP with input file config(s); then exit"
     parser.add_argument("-H", "--HELP", help=msg, default=None, type=str, \
-                        choices = ["SIM", "FIT", "BBC", "TRANSLATE", "MERGE"])
+                        choices = ["SIM", "FIT", "BBC", "TRANSLATE", 
+                                   "MERGE", "AIZ" ])
     
     msg = "name of input file"
     parser.add_argument("input_file", help=msg, nargs="?", default=None)
@@ -70,14 +67,24 @@ def get_args():
     msg = "+=1 -> new input file has REFAC_ prefix; " + \
           "+=2 -> old input file has LEGACY_ prefix ; " + \
           "+=4 -> continue submit with new file. "
-    #parser.add_argument('--opt_translate', nargs='+', help=msg, type=int )
     parser.add_argument('--opt_translate' , help=msg, type=int, default=1 )
+
+    msg = "abort on missing DOCANA keys in maps & libraries"
+    parser.add_argument("--require_docana", help=msg, action="store_true")
 
     msg = "DEBUG MODE: submit jobs, but skip merge process"
     parser.add_argument("--nomerge", help=msg, action="store_true")
 
     msg = (f"DEBUG MODE: reset merge process ")
     parser.add_argument("--merge_reset", help=msg, action="store_true")
+
+    msg = (f"DEBUG MODE: debug creation of batch files ")
+    parser.add_argument("--debug_batch", help=msg, action="store_true")
+
+    msg = (f"DEBUG MODE: force crash in batch-prep ")
+    parser.add_argument("--force_crash_prep", help=msg, action="store_true")
+    msg = (f"DEBUG MODE: force crash in merge ")
+    parser.add_argument("--force_crash_merge", help=msg, action="store_true")
 
     # args passed internally from command files
     msg = "INTERNAL:  merge process"
@@ -95,7 +102,13 @@ def get_args():
 
     args = parser.parse_args()
 
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit()
+
     return parser.parse_args()
+
+    # end get_args
 
 def which_program_class(config):
 
@@ -129,6 +142,17 @@ def set_merge_flag(config):
                  config['args'].merge_reset
     return merge_flag
 
+def check_input_file_name(args):
+
+    #args.INPUT_FILE = util.standardize_path(args.input_file,CWD)
+    #args.input_file = os.path.basename(args.INPUT_FILE)    
+
+    # check to translate legacy input
+    args.input_file = check_legacy_input_file(args.input_file, 
+                                              args.opt_translate )
+
+    #end check_input_file_name
+
 def check_legacy_input_file(input_file, opt_translate):
 
     # if there is no 'CONFIG:' key, this is a legacy input file ;
@@ -138,6 +162,8 @@ def check_legacy_input_file(input_file, opt_translate):
     #
     # Function returns name of input file ... original of already
     # in correct YAML format, or translated.
+
+    exit_always = (opt_translate & 8 ) > 0 # exit for legacy or refac file
 
     msgerr = []
     with open(input_file,"r") as f:
@@ -154,6 +180,9 @@ def check_legacy_input_file(input_file, opt_translate):
                 msgerr.append(f" Comment: {comment}")
                 util.log_assert(False,msgerr)
 
+        if exit_always :
+            sys.exit("\n Input file already translated; exit anyway.")
+
         return input_file    # file ok, do nothing.
 
     # - - - -  -
@@ -164,7 +193,15 @@ def check_legacy_input_file(input_file, opt_translate):
     rename_refac_file    = (opt_translate & 1 ) > 0
     rename_legacy_file   = (opt_translate & 2 ) > 0
     exit_after_translate = (opt_translate & 4 ) == 0 # default is to exit
-    
+
+    if '/' in input_file:
+        msgerr.append(f"Will not translate input file in another directory.")
+        msgerr.append(f"Recommend")
+        msgerr.append(f"  cd {os.path.dirname(input_file)}")
+        msgerr.append(f"  {os.path.basename(sys.argv[0])} " \
+                      f"{os.path.basename(input_file)}")
+        util.log_assert(False,msgerr)
+
     if rename_refac_file :
         legacy_input_file = input_file
         refac_input_file  = (f"REFAC_{input_file}")
@@ -230,6 +267,9 @@ def print_submit_messages(config_yaml):
     if config_yaml['args'].fast :
         print(f" REMEMBER: fast option will process 1/{FASTFAC} of request.")
 
+    if config_yaml['args'].force_crash_merge :
+        print(f" REMEMBER: there is a forced crash in MERGE process.")
+
     # end print_submit_messages
 
 def print_nosubmit_messages(config_yaml):
@@ -269,8 +309,7 @@ if __name__ == "__main__":
         purge_old_submit_output()
         sys.exit(' Done: exiting Main.')
 
-    # check to translate legacy input
-    args.input_file = check_legacy_input_file(args.input_file, args.opt_translate )
+    check_input_file_name(args)
 
     # Here we know it's got a CONFIG block, so read the YAML input
     config_yaml = util.extract_yaml(args.input_file)
@@ -294,32 +333,42 @@ if __name__ == "__main__":
 
     # check merge options
     if config_yaml['args'].merge_flag :
-        program.merge_driver()
-        print('  Done with merge process -> exit Main.')
-        exit(0)
-
+        try:
+            program.merge_driver()
+            logging.info('  Done with merge process -> exit Main.')
+            exit(0)
+        except Exception as e:
+            cpunum = config_yaml['args'].cpunum[0]
+            msg    = (f"Check CPU{cpunum:04d}*.LOG for merge crash")
+            program.log_assert(False, [ msg ] )
+            
     # check option to kill jobs 
     if config_yaml['args'].kill : 
         program.kill_jobs()
         print('  Done killing jobs -> exit Main.')
         exit(0)
 
-    # create output dir
-    program.create_output_dir()
+    try:
+        # create output dir
+        program.create_output_dir()
 
-    # prepare files, lists, program args
-    program.submit_prepare_driver() 
+        # prepare files, lists, program args
+        program.submit_prepare_driver() 
 
-    # write .BATCH and .CMD scripts
-    program.write_script_driver()
+        # write .BATCH and .CMD scripts
+        program.write_script_driver()
     
-    # Create MERGE.LOG file with all jobs in WAIT state.          
-    # This file gets updated later by merge process.
-    program.create_merge_file()
+        # Create MERGE.LOG file with all jobs in WAIT state.          
+        # This file gets updated later by merge process.
+        program.create_merge_file()
 
-    # create SUBMIT.INFO file for merge process ... 
-    # unlike MERGE.LOG, this file never changes.
-    program.create_info_file()
+        # create SUBMIT.INFO file for merge process ... 
+        # unlike MERGE.LOG, this file never changes.
+        program.create_info_file()
+
+    except Exception as e:
+        msg    = [ "Crashed while preparing batch jobs.", "Check Traceback" ]
+        program.log_assert(False, msg )
 
     if args.nosubmit :
         print_nosubmit_messages(config_yaml)

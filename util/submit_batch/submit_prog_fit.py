@@ -139,6 +139,10 @@ class LightCurveFit(Program):
         #  + make sure that it exists (abort if not)
         #  + copy to SPLIT_JOBS_LCFIT where split-jobs run
         #
+        # If ignore null strings so that things like
+        #    MY_WHATEVER_FILE = ''
+        # are ignored and doesn't abort.
+        #
         # Full paths should be included for all input files defined
         # inside &SNLCINP, in which case this function does nothing.
         # For testing, however, it may be convenient to work with
@@ -152,13 +156,13 @@ class LightCurveFit(Program):
         # always copy primary input file
         shutil.copy(input_file,script_dir)
 
-        msgerr=[]
+        msgerr = []
         copy_list_string = ""  # arg of cp
         for key_infile in COPY_SNLCINP_FILES :
             if key_infile in snlcinp :
                 infile     = snlcinp[key_infile]
                 no_path    = "/" not in infile
-                if no_path :
+                if no_path and len(infile) > 0 : 
                     if not os.path.isfile(infile):
                         msgerr.append(f" Missing input file for "\
                                       f"{key_infile} = '{infile}'")

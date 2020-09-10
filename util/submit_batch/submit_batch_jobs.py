@@ -330,10 +330,15 @@ if __name__ == "__main__":
 
     # check merge options
     if config_yaml['args'].merge_flag :
-        program.merge_driver()
-        print('  Done with merge process -> exit Main.')
-        exit(0)
-
+        try:
+            program.merge_driver()
+            logging.info('  Done with merge process -> exit Main.')
+            exit(0)
+        except Exception as e:
+            cpunum = config_yaml['args'].cpunum[0]
+            msg    = (f"Check CPU{cpunum:04d}*.LOG for merge crash")
+            program.log_assert(False, [ msg ] )
+            
     # check option to kill jobs 
     if config_yaml['args'].kill : 
         program.kill_jobs()

@@ -697,7 +697,7 @@ def log_assert(condition, message):
             f"\n   `|```````|`    "
             f"\n   <| o\\ /o |>   "
             f"\n    | ' ; ' |     "
-            f"\n    |  ___  |     ABORT program on Fatal Error. "
+            f"\n    |  ___  |     ABORT submit on Fatal Error. "
             f"\n    | |' '| |     "         
             f"\n    | `---' |     "
             f"\n    \\_______/    " 

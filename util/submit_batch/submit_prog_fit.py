@@ -160,7 +160,9 @@ class LightCurveFit(Program):
                 no_path    = "/" not in infile
                 if no_path :
                     if not os.path.isfile(infile):
-                        msgerr.append(f" Missing &SNLCINP input file {infile}")
+                        msgerr.append(f" Missing input file for "\
+                                      f"{key_infile} = '{infile}'")
+                        msgerr.append(f"Check &SNLCINP in {input_file}")
                         self.log_assert(False,msgerr)
                     copy_list_string += (f"{infile} ")
 

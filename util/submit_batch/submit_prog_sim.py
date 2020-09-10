@@ -224,12 +224,12 @@ class Simulation(Program):
         # If '(ARG)' is not given, the associated GENOPT is applied
         # to all sim-input infiles for the specified GENVERSION.
 
-        GENVERSION_LIST        = self.config_yaml['GENVERSION_LIST']
-        merge_flag            = self.config_yaml['args'].merge_flag
-        path_sndata_sim        = self.config_prep['path_sndata_sim']  
-        n_genversion        = self.config_prep['n_genversion'] 
-        infile_list2d        = self.config_prep['infile_list2d'] 
-        model_list2d        = self.config_prep['model_list2d'] 
+        GENVERSION_LIST   = self.config_yaml['GENVERSION_LIST']
+        merge_flag        = self.config_yaml['args'].merge_flag
+        path_sndata_sim   = self.config_prep['path_sndata_sim']  
+        n_genversion      = self.config_prep['n_genversion'] 
+        infile_list2d     = self.config_prep['infile_list2d'] 
+        model_list2d      = self.config_prep['model_list2d'] 
 
         genopt_list2d = []    # init array to load below
         verbose          = (not merge_flag)
@@ -507,7 +507,8 @@ class Simulation(Program):
         cddir         = (f"cd {output_dir}")
         ngentot       = 0
         
-        prefix        = (f"SIMnorm_{genversion}_{model}MODEL{ifile}")
+        model_string  = self.model_string_suffix(model,ifile)
+        prefix        = (f"SIMnorm_{genversion}_{model_string}")
         log_file      = (f"{prefix}.LOG")
         LOG_FILE      = (f"{output_dir}/{log_file}")
 
@@ -840,11 +841,11 @@ class Simulation(Program):
             if len(tmp_list) > 0 :
                 infile_list2d_NONIa[iver] = tmp_list
 
-            n_SNIa = len(infile_list2d_SNIa[iver])
+            n_SNIa  = len(infile_list2d_SNIa[iver])
             n_NONIa = len(infile_list2d_NONIa[iver])
 
             infile_list = infile_list2d_SNIa[iver] + infile_list2d_NONIa[iver]
-            model_list    = [MODEL_SNIa]*n_SNIa + [MODEL_NONIa] * n_NONIa
+            model_list  = [MODEL_SNIa]*n_SNIa + [MODEL_NONIa] * n_NONIa
             infile_list2d.append(infile_list)
             model_list2d.append(model_list)
 
@@ -856,7 +857,7 @@ class Simulation(Program):
                 
         # read a few keys from each INFILE, including INCLUDE file(s).
         # ?? for duplicate infile, copy key_dict instead of re-reading ??
-        INFILE_KEYS          = []
+        INFILE_KEYS              = []
         include_file_list_unique = [] # needed later to copy files
         for iver in range(0,n_genversion):
             keyval_dict_list = []
@@ -1211,7 +1212,7 @@ class Simulation(Program):
             list2d = [['' for j in range(0,10)] for i in range(0,n_genv)]
             self.config_prep['TMP_genversion'] = list2d
     
-        TMP_list2d = self.config_prep['TMP_genversion']
+        TMP_list2d = self.config_prep['TMP_genversion']  # init array
 
         # loop over ALL jobs, and pick out the ones for this ICPU
         n_job_local = 0
@@ -1315,11 +1316,10 @@ class Simulation(Program):
         Nsec         = seconds_since_midnight
 
         split_string = (f"{isplit1:04d}")          # e.g., 0010
-        model_string = (f"{model}MODEL{ifile}")      # e.g., SNIaMODEL0
+        model_string = self.model_string_suffix(model,ifile)
 
         tmp1       = (f"TMP_{USER4}_{genversion}_{model_string}" )
         tmp2       = self.genversion_split_suffix(isplit1,Nsec)
-        # xxx mark delete tmp2         = (f"{split_string}_{Nsec}")
 
         tmp_ver    = (f"{tmp1}-{tmp2}")        # temp GENVERSION
         log_file   = (f"{tmp_ver}.LOG")
@@ -1369,6 +1369,11 @@ class Simulation(Program):
         return JOB_INFO
 
         # end prep_JOB_INFO_sim
+
+    def model_string_suffix(self,model,ifile):
+        model_string = (f"{model}MODEL{ifile}")      # e.g., SNIaMODEL0
+        return model_string
+        # end model_string_suffix
 
     def genversion_split_suffix(self,isplit,Nsec):
         suffix = (f"{isplit:04d}_{Nsec}")
@@ -1439,12 +1444,17 @@ class Simulation(Program):
         infile_list2d        = self.config_prep['infile_list2d']
         model_list2d         = self.config_prep['model_list2d']
         ranseed_key          = self.config_prep['ranseed_key']
+        IS_REPEAT            = 'REPEAT' in ranseed_key
+        IS_CHANGE            = 'CHANGE' in ranseed_key
+
+        n_all = len(genversion_list_all)
 
         TMP_genversion_list2d  = self.config_prep['TMP_genversion_list2d']
 
-
+        # create SPLIT table
         # write TMP_ genversions per SNIa/NONIa model
-        header_line = " STATE  IVER     GENVERSION              NGEN NWRITE    CPU        NSPLIT"
+        header_line = " STATE  IVER     GENVERSION              " \
+                      "NGEN NWRITE    CPU        NSPLIT"
         MERGE_INFO = { 
             'primary_key' : TABLE_SPLIT,
             'header_line' : header_line,
@@ -1452,7 +1462,7 @@ class Simulation(Program):
         }
         STATE = SUBMIT_STATE_WAIT # all start in WAIT state
         for iver in range(0,n_genversion):
-            n_file = len(infile_list2d[iver]) 
+            n_file     = len(infile_list2d[iver]) 
             genversion = genversion_list[iver]
             for ifile in range(0,n_file):
                 TMP_genv = TMP_genversion_list2d[iver][ifile]
@@ -1461,6 +1471,7 @@ class Simulation(Program):
                 MERGE_INFO['row_list'].append(ROW)    
         util.write_merge_file(f, MERGE_INFO, [] ) 
 
+        # - - - - - - 
         # finally, the combined versions (remove NSPLIT column)
         header_line = " STATE     IVER  GENVERSION      NGEN NWRITE  CPU"
         MERGE_INFO = { 
@@ -1471,7 +1482,6 @@ class Simulation(Program):
 
         # for combined versions, use genversion_list_all to account
         # RANSEED_REPEAT or RANSEED_CHANGE
-        n_all = len(genversion_list_all)
         for iver_all in range(0,n_all):
             genversion = genversion_list_all[iver_all]
             iver       = igenver_list_all[iver_all]
@@ -1590,10 +1600,10 @@ class Simulation(Program):
         irow_split = 0
         for row in row_list_split:
             row_split_new.append(row)  # default output is same as input
-            STATE         = row[COLNUM_STATE]
+            STATE        = row[COLNUM_STATE]
             IVER         = row[COLNUM_IVER]
             TMP_GENV     = row[COLNUM_GENV] + "*" + str(Nsec_time_stamp)
-            NSPLIT         = row[COLNUM_NSPLIT]
+            NSPLIT       = row[COLNUM_NSPLIT]
 
             # if not done, update the STATE
             Finished = (STATE == SUBMIT_STATE_DONE) or \
@@ -1879,45 +1889,54 @@ class Simulation(Program):
         row_list_split  = MERGE_INFO_CONTENTS[TABLE_SPLIT]
         genversion      = row_list_merge[iver_all][COLNUM_SIM_MERGE_GENVERSION]
         iver            = row_list_merge[iver_all][COLNUM_SIM_MERGE_IVER]
-        misc_subdir     = "misc"
+        path_genv       = (f"{path_sndata_sim}/{genversion}")
 
+        IS_REPEAT = 'REPEAT' in ranseed_key  # do 2nd stage merge
+        IS_CHANGE = 'CHANGE' in ranseed_key  # do NOT do 2nd stage
+
+        misc_subdir   = "misc"
+        misc_dir      = (f"{path_genv}/{misc_subdir}")
+
+        # - - - - - - - -
         msg = (f"    Perform wrap-up tasks for {genversion} ({Nsec_now})")
         logging.info(msg)
 
         # - - - - - - - - 
-        # start with GENVERSION README file, and copy TMP*READMEs to
-        # misc/ subdir
+        # create and write README file
         msg = (f"\t Create README for {genversion}")
         logging.info(msg)
-
-        path_genv     = (f"{path_sndata_sim}/{genversion}")
         readme_file   = (f"{path_genv}/{genversion}.README")
-        misc_dir      = (f"{path_genv}/{misc_subdir}")
-        os.mkdir(misc_dir)
-
         with open(readme_file,"w") as f : 
             self.merge_write_readme(f, iver_all, MERGE_INFO_CONTENTS)
 
-        # move misc files
-        if 'REPEAT' in ranseed_key:
-            for row in row_list_split :
-                if iver == row[COLNUM_SIM_MERGE_IVER] :
-                    TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
-                    TMP_GENV   += (f"*{Nsec_time_stamp}" ) 
-                    readme_list = (f"{path_sndata_sim}/{TMP_GENV}/TMP*README")
-                    mv_readme   = (f"mv {readme_list} {misc_dir}/")
-                    os.system(mv_readme)
+        # move README files to misc/ for REPEAT only
+        os.mkdir(misc_dir)
+        TMP_GENV_LIST = []
+        for row in row_list_split :
+            if iver == row[COLNUM_SIM_MERGE_IVER] :
+                if IS_CHANGE: 
+                    suffix = (f"-{genversion[-4:]}") # strip split-job number
+                else:
+                    suffix = ""
+
+                TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION] + suffix
+                TMP_GENV   += (f"*{Nsec_time_stamp}" ) 
+                TMP_GENV_LIST.append(TMP_GENV)
+                readme_list = (f"{path_sndata_sim}/{TMP_GENV}/TMP*README")
+                mv_readme   = (f"mv {readme_list} {misc_dir}/")
+                os.system(mv_readme)
 
         # - - - - - - - - - - 
         # copy input files to misc/
-        infile_list_2copy = [ (f"{simlog_dir}/{input_file}") ]
-        infile_list2d     = self.config_prep['infile_list2d']
-        n_file            = len(infile_list2d[iver])
-        for ifile in range(0,n_file) :
-            infile = infile_list2d[iver][ifile]
-            infile_list_2copy.append(f"{simlog_dir}/{infile}")
+        if IS_REPEAT:
+            infile_list_2copy = [ (f"{simlog_dir}/{input_file}") ]
+            infile_list2d     = self.config_prep['infile_list2d']
+            n_file            = len(infile_list2d[iver])
+            for ifile in range(0,n_file) :
+                infile = infile_list2d[iver][ifile]
+                infile_list_2copy.append(f"{simlog_dir}/{infile}")
 
-        util.copy_input_files(infile_list_2copy,misc_dir,"")
+            util.copy_input_files(infile_list_2copy,misc_dir,"")
 
         # - - - - - - - - - - 
         # remove TMP versions for this iver ... if CLEANUP_FLAG is set
@@ -1933,12 +1952,11 @@ class Simulation(Program):
 
             msg = (f"\t Remove TMP_ GENVERSIONs")
             logging.info(msg)
-            for row in row_list_split :
-                if iver == row[COLNUM_SIM_MERGE_IVER] :
-                    TMP_GENV  = row[COLNUM_SIM_MERGE_GENVERSION]
-                    TMP_GENV += (f"*{Nsec_time_stamp}")
-                    rm_TMP      = (f"rm -rf {path_sndata_sim}/{TMP_GENV} ")
-                    os.system(rm_TMP)
+            for TMP_GENV in TMP_GENV_LIST:
+                rm_TMP      = (f"rm -rf {path_sndata_sim}/{TMP_GENV} ")
+                os.system(rm_TMP)
+
+        #if iver_all == 1 :   sys.exit("\n xxx DEBUG DIE xxx \n")
 
         # end merge_job_wrapup
 
@@ -1954,7 +1972,6 @@ class Simulation(Program):
         cleanup_flag        = submit_info_yaml['CLEANUP_FLAG']
         Nsec_time_stamp     = submit_info_yaml['TIME_STAMP_NSEC'] 
 
-     
         Nsec_now  = seconds_since_midnight # current time since midnight
 
         row_list_merge  = MERGE_INFO_CONTENTS[TABLE_MERGE]
@@ -1966,6 +1983,10 @@ class Simulation(Program):
         nwrite = row_list_merge[iver_all][COLNUM_SIM_MERGE_NWRITE]
         cpu    = row_list_merge[iver_all][COLNUM_SIM_MERGE_CPU]
 
+        IS_REPEAT =  'REPEAT' in ranseed_key
+        IS_CHANGE =  'CHANGE' in ranseed_key
+
+        # - - - - - -
         f.write(f"DOCUMENTATION:\n")
         f.write(f"  GENVERSION: {genversion} \n")  
         f.write(f"\n#                      NGEN     NWRITE  CPU(minutes)\n")
@@ -1973,19 +1994,19 @@ class Simulation(Program):
         f.write(f"  - {'TOTAL':<12}    {ngen:8}   {nwrite:6}   {cpu}\n")
 
         # write out same info for each model ... only for RANSEED_REPEAT
-        if 'REPEAT' in ranseed_key:
+        if IS_REPEAT :
             g0 = len("TMP_" + USER4) + len(genversion) + 2
             for row in row_list_split :
                 if iver == row[COLNUM_SIM_MERGE_IVER] :
                     TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
-                    g1            = len(TMP_GENV)
+                    g1          = len(TMP_GENV)
                     genv   = (f"{TMP_GENV[g0:g1]}") # e.g. SNIaMODEL0
                     ngen   = row[COLNUM_SIM_MERGE_NGEN]
                     nwrite = row[COLNUM_SIM_MERGE_NWRITE]
                     cpu    = row[COLNUM_SIM_MERGE_CPU]
                     f.write(f"  - {genv:<12}    " \
                             f"{ngen:8}   {nwrite:6}   {cpu}\n")
-
+        # - - - -
         f.write(f"\n")
         f.write(f"  INPUT_FILES:\n")
         f.write(f"  - {'MASTER':<8}  {input_file} \n")

@@ -14761,16 +14761,25 @@ c already been assigned to SNLC_ZCMB below
 
 c --------
 
+c read CMB redshift ...
       RETSTR  = '+ERR'
-      ZKEY    = 'REDSHIFT_FINAL'
+
+
+      ZKEY    = 'REDSHIFT_CMB'
       LZTMP   = READ_HEADKEY(isnlc, cwords, ZKEY, RET8, RETSTR )
+
+c if no explicit CMB redshift, try REDSHIFT_FINAL (should also be CMB)
+      if ( .not. LZTMP ) THEN
+         ZKEY    = 'REDSHIFT_FINAL'
+         LZTMP   = READ_HEADKEY(isnlc, cwords, ZKEY, RET8, RETSTR )
+      endif
 
       IF ( LZTMP ) THEN
         HEADMASK = IBSET(HEADMASK, HEADBIT_Z)
         Z    = RET8(1)  + REDSHIFT_FINAL_SHIFT
         ZERR = RET8(2) 
 
-        SNLC_ZCMB      = Z     ! used for Hubble diagram/fitres file
+        SNLC_ZCMB      = Z     ! does NOT include VPEC
         SNLC_ZCMB_ERR  = ZERR
 
 c protect against crazy Z for photoZ fits.
@@ -18909,7 +18918,8 @@ c brute-force check each possible header variable
         ELSE IF ( VARNAME(1:LENV) .EQ. 'VPEC_ERR' ) THEN
           SNLC_VPEC_ERR = sngl(DVAL)
 
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL' ) THEN
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL' .or. 
+     &            VARNAME(1:LENV) .EQ. 'REDSHIFT_CMB'  ) THEN
           z            = sngl(DVAL)
           SNLC_ZCMB    = z; 
 	  SNLC_ZHELIO  = -9.0 ! flag to compute zHEL from zCMB

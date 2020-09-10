@@ -7,7 +7,7 @@
 
 import os, sys, yaml, re
 import psutil
-from   copy		import copy
+from   copy  import copy
 
 # definitions
 SIM_default_yaml_sections__ = \

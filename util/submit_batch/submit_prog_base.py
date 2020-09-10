@@ -1,7 +1,7 @@
 # ============================================
 # Created July 2020 by R.Kessler & S. Hinton
 #
-#  base class Program
+# Base class Program
 # ============================================
 
 #import argparse

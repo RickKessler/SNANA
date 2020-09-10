@@ -43,6 +43,9 @@ SIMGEN_MASTERFILE_KEYLIST_NONIa = [
 
 SIMGEN_INPUT_LISTFILE = "INPUT_FILE.LIST" # contains list of input files
 
+
+RANSEED_KEYLIST = [ 'RANSEED_REPEAT', 'RANSEED_CHANGE' ]
+
 # Define keys to read from each underlying sim-input file
 SIMGEN_INFILE_KEYCHECK = { # Narg  Required     Verify
     "GENMODEL"          :     [ 1,    True,      False   ],
@@ -328,11 +331,13 @@ class Simulation(Program):
         # read and store each genversion, and remove pre-existing
         # output directory
 
-        GENVERSION_LIST        = self.config_yaml['GENVERSION_LIST']
-        path_sndata_sim        = self.config_prep['path_sndata_sim']      
+        CONFIG              = self.config_yaml['CONFIG']
+        GENVERSION_LIST     = self.config_yaml['GENVERSION_LIST']
         nosubmit            = self.config_yaml['args'].nosubmit
-        merge_flag            = self.config_yaml['args'].merge_flag
-        genversion_list = []
+        merge_flag          = self.config_yaml['args'].merge_flag
+        path_sndata_sim     = self.config_prep['path_sndata_sim']  
+        genversion_list     = []
+        IS_RANSEED_CHANGE   = 'RANSEED_CHANGE' in CONFIG
 
         for GENV in GENVERSION_LIST :
             GENVERSION     = GENV['GENVERSION']
@@ -340,17 +345,20 @@ class Simulation(Program):
 
             # if GENVERSION exists on disk, remove it ... 
             # unless nosubmit or merge_flag flag is set
-
             if nosubmit is False and merge_flag is False :
-                genv_dir = (f"{path_sndata_sim}/{GENVERSION}")
-                if os.path.exists(genv_dir) :
-                    shutil.rmtree(genv_dir)
+                if IS_RANSEED_CHANGE :
+                    wildcard_genversion = (f"{GENVERSION}-*")
+                else:
+                    wildcard_genversion = (f"{GENVERSION}")
 
-        self.config_prep['genversion_list']         = genversion_list
-        self.config_prep['n_genversion']         = len(genversion_list)
+                v_list = glob.glob1(path_sndata_sim,wildcard_genversion)
+                for v in v_list:
+                    shutil.rmtree(f"{path_sndata_sim}/{v}")
+
+        self.config_prep['genversion_list']  = genversion_list
+        self.config_prep['n_genversion']     = len(genversion_list)
 
     # end sim_prep_GENVERSION_LIST
-
 
     def sim_prep_RANSEED(self):
         # Parse randon seed(s) and determine number of split jobs.
@@ -369,9 +377,8 @@ class Simulation(Program):
             msgerr.append(f"Use RANSEED_REPEAT: or RANSEED_CHANGE:")
             self.log_assert(False,msgerr)
 
-        KEYLIST = ['RANSEED_REPEAT', 'RANSEED_CHANGE' ]
         RANSEED_KEY = ""
-        for key in KEYLIST:
+        for key in RANSEED_KEYLIST:
             if key in CONFIG:
                 nkey_found    += 1                
                 RANSEED_KEY     = key
@@ -1719,7 +1726,6 @@ class Simulation(Program):
 
         # end merge_update_state
 
-
     def move_sim_data_files(self,genversion_split, genversion_combine, nfail):
 
         # Move sim data files from genversion_split to genversion_combine,
@@ -1789,8 +1795,10 @@ class Simulation(Program):
         
         tmp_FITS  = (f"*{MODEL_SNIa}MODEL*HEAD.FITS*")
         ls_SNIa      = (f"ls {tmp_FITS}  >     {list_file} 2>/dev/null")
+
         tmp_FITS  = (f"*{MODEL_NONIa}MODEL*HEAD.FITS*")
         ls_NONIa  = (f"ls {tmp_FITS} >> {list_file} 2>/dev/null")
+
         ls_LIST      = (f"{ls_SNIa} {ls_NONIa}")
 
         # gzip FITS files, and remove .gz extensions in LIST file

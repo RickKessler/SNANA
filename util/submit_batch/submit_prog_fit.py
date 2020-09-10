@@ -6,8 +6,6 @@ import os, sys, shutil, yaml, glob
 import logging, coloredlogs
 import datetime, time, subprocess
 import f90nml
-#import getpass
-#import ntpath
 import submit_util as util
 import submit_translate as tr
 from   submit_params import *

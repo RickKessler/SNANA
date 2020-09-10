@@ -25,6 +25,7 @@ from   submit_params    import *
 from   submit_prog_base import Program
 import submit_translate as tr
 
+
 # define columns of MERGE.LOG 
 COLNUM_SIM_MERGE_STATE        = 0     # current state; e.g., WAIT, RUN, DONE
 COLNUM_SIM_MERGE_IVER         = 1     # GENVERSION index

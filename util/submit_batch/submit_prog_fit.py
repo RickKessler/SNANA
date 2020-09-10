@@ -694,6 +694,7 @@ class LightCurveFit(Program):
         JOB_INFO['input_file']  = input_file
         JOB_INFO['log_file']    = log_file
         JOB_INFO['done_file']   = done_file
+        JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
 
         # set command line arguments
         arg_list.append(f"  VERSION_PHOTOMETRY {version}")

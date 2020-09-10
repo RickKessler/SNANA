@@ -234,7 +234,8 @@ HELP_CONFIG_SIM =  f"""
   RANGE(z,PKMJD) \n\t\t\t and SOLID_ANGLE
     (if no NGEN_UNIT, use NGENTOT_LC from sim-input or from GENOPT)
   GENPREFIX:    DES  # out_file name prefix (please keep it short)
-                     # and suffix to default SIMLOGS_[GENPREFIX] 
+                     # and default log dir is SIMLOGS_[GENPREFIX] 
+  LOGDIR:   MY_LOGS  # override default SIMLOGS_[GENPREFIX]
   CLEANUP_FLAG:  0   # turn off default cleanup (for debug)
 
   SIMGEN_INFILE_SNIa:  # default SNIa input file(s) for all GENVERSIONs

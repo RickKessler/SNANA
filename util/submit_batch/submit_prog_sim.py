@@ -1241,9 +1241,11 @@ class Simulation(Program):
                 job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
-                JOB_INFO   = {}
-                JOB_INFO.update(job_info_sim)    # glue
-                JOB_INFO.update(job_info_merge) # glue
+                # xxxx mark delete Sep 10
+                #JOB_INFO   = {}
+                #JOB_INFO.update(job_info_sim)    # glue
+                #JOB_INFO.update(job_info_merge) # glue
+                # xxxx 
 
                 # store TMP_VERSION for later
                 TMP_list2d[iver][ifile] = job_info_sim['tmp_genversion']
@@ -1371,8 +1373,9 @@ class Simulation(Program):
         JOB_INFO['done_file']     = done_file
         JOB_INFO['arg_list']      = arg_list
         JOB_INFO['tmp_genversion_split']  = tmp_ver
-        JOB_INFO['tmp_genversion']        = tmp1    # combined genv
-        
+        JOB_INFO['tmp_genversion']        = tmp1    # combined genv        
+        JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
+
         return JOB_INFO
 
         # end prep_JOB_INFO_sim
@@ -1495,6 +1498,8 @@ class Simulation(Program):
             ROW = [ STATE, iver, genversion, 0, 0, 0 ]
             MERGE_INFO['row_list'].append(ROW)    
         util.write_merge_file(f, MERGE_INFO, [] )
+
+        #printf(" xxx force crash with C-like printf xxx \n")
 
         # end create_merge_table
 

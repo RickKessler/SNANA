@@ -216,14 +216,15 @@ class Program:
                 # write linux command to echo start time in python-like
                 # format so that python merge process can read it back
                 # and measure time pending in batch queue.
+                f.write(f"#!/usr/bin/env bash \n")
                 f.write(f"echo TIME_START: " \
                         f"`date +%Y-%m-%d` `date +%H:%M:%S` \n")
                 f.write(f"echo 'Begin {command_file}' \n\n")
 
                 if STOP_ALL_ON_MERGE_ERROR :
                     f.write(f"set -e \n") 
-                if 'SNANA_LOGIN_SETUP' in CONFIG:
-                    f.write(f"{CONFIG['SNANA_LOGIN_SETUP']} \n")
+                #if 'SNANA_LOGIN_SETUP' in CONFIG:
+                #    f.write(f"{CONFIG['SNANA_LOGIN_SETUP']} \n")
 
             # write program-specific content
             self.write_command_file(icpu,COMMAND_FILE)
@@ -254,6 +255,11 @@ class Program:
         n_job_tot   = self.config_prep['n_job_tot']
         print(f" BATCH DRIVER JOB COUNT SUMMARY:",
               f"{n_job_tot} {program} jobs on {n_core} cores")
+
+        
+        # check option to force crash (to test higher level pipelines)
+        if self.config_yaml['args'].force_crash_prep :
+            printf(" xxx force batch-prep crash with C-like printf xxx \n")
 
         # end write_script_driver
 
@@ -290,7 +296,8 @@ class Program:
         # nothing to change for log file
         replace_log_file   = log_file  
 
-        replace_job_cmd = (f"cd {script_dir} \nsource {command_file}")
+        #replace_job_cmd = (f"cd {script_dir} \nsource {command_file}")
+        replace_job_cmd = (f"cd {script_dir} \nsh {command_file}")
 
         # - - - define list of strings to replace - - - - 
         batch_lines = []            
@@ -416,7 +423,12 @@ class Program:
 
         comment = "number of cores"
         f.write(f"N_CORE:           {n_core}     # {comment} \n")
-            
+
+        force_crash_prep  = self.config_yaml['args'].force_crash_prep
+        force_crash_merge = self.config_yaml['args'].force_crash_merge
+        f.write(f"FORCE_CRASH_PREP:    {force_crash_prep} \n")
+        f.write(f"FORCE_CRASH_MERGE:   {force_crash_merge}\n")
+  
         # append program-specific information
         f.write("\n")
         self.append_info_file(f)
@@ -505,13 +517,22 @@ class Program:
             node_list      = self.config_prep['node_list']
             command_file_list = self.config_prep['command_file_list']
             cmdlog_file_list  = self.config_prep['cmdlog_file_list'] 
+            CONFIG            = self.config_yaml['CONFIG']
+            if 'SNANA_LOGIN_SETUP' in CONFIG:
+                login_setup = (f"{CONFIG['SNANA_LOGIN_SETUP']}")
+            else:
+                login_setup = ""
 
+            logging.info(f"  login_setup (for ssh):  {login_setup} ")
             qq = '"'
             for inode in range(0,n_core):
                 node       = node_list[inode]
                 log_file   = cmdlog_file_list[inode]
                 cmd_file   = command_file_list[inode]
-                cmd_source = (f"{cddir} ; source {cmd_file} >& {log_file} &")
+
+                #cmd_source = (f"{cddir} ; source {cmd_file} >& {log_file} &")
+                cmd_source = (f"{login_setup}; {cddir} ; " \
+                              f"sh {cmd_file} >& {log_file} &")
 
                 #ret = subprocess.call(["ssh", node, cmd_source] )
                 logging.info(f"  Submit jobs via ssh -x {node}")
@@ -551,6 +572,7 @@ class Program:
         tstr     = time_now.strftime("%Y-%m-%d %H:%M:%S") 
         fnam = "merge_driver"
         MERGE_LAST  = self.config_yaml['args'].MERGE_LAST
+        cpunum      = self.config_yaml['args'].cpunum[0]
 
         logging.info(f"\n")
         logging.info(f"# ================================================== ")
@@ -611,6 +633,10 @@ class Program:
         row_list_split, row_list_merge, n_change = \
                    self.merge_update_state(MERGE_INFO_CONTENTS)
         
+        # check option to force crash (to test higher level pipelines)
+        if submit_info_yaml['FORCE_CRASH_MERGE'] and cpunum == 0 :
+            printf(" xxx force merge crash with C-like printf xxx \n")
+
         use_split = len(row_list_split) > 0
         use_merge = len(row_list_merge) > 0
 

@@ -521,6 +521,7 @@ def write_job_info(f,JOB_INFO,icpu):
     input_file = JOB_INFO['input_file'] # input file name
     log_file   = JOB_INFO['log_file']   # pipe stdout here
     done_file  = JOB_INFO['done_file']  # DONE stamp for monitor tasks
+    all_done_file = JOB_INFO['all_done_file']  # exists only on failure
     arg_list   = JOB_INFO['arg_list']   # argumets of program
 
     if len(job_dir) > 1 :
@@ -528,8 +529,10 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"cd {job_dir} \n\n")
 
     # for bash, wait for program to appear if SNANA make is in progress.
-    # Not sure how to do this in csh.
-    if 'bash' in SHELL :
+    SANITY_CHECKS = True
+    #SANITY_CHECKS = 'bash' in SHELL
+
+    if SANITY_CHECKS :
         program_plus_path = shutil.which(program)
         wait_for_code = (f"while [ ! -f {program_plus_path} ]; " \
                          f"do sleep 5; done" )
@@ -537,6 +540,16 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"{wait_for_code}\n")
         f.write(f"echo {program} exists. \n\n")
 
+        # if ALL.DONE file exists, something else failed ... so no
+        # point in continuing.
+        f.write(f"if [ -f {all_done_file} ] ; then \n")
+        f.write(f"  echo '  Found pre-mature {DEFAULT_DONE_FILE} -> "\
+                f"something FAILED.'\n")
+        f.write(f"  echo '  STOP everything on this CPU.' \n")
+        f.write(f"  exit \n")
+        f.write(f"fi \n\n")
+
+    # - - - - - - - - - 
     f.write(f"{program} {input_file} \\\n")
     # write each arg on separte line for easier viewing
     for arg in arg_list :  

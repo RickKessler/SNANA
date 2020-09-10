@@ -5,18 +5,12 @@
 # TO-DO LIST for
 #
 #  BASE/util: 
+#   - if ALL.DONE exists with FAIL , STOP EVERYTHING ?!?!
 #   - more elegant HELP menu per program?
 #   - run merge task immediately after launch so that
 #     some of the WAIT -> RUN
-#   + if 1 task per CPU*.CMD, final merge task may never run because
-#     one CPU locks merge process with only a few DONE files,
-#     and all other CPU*.CMD tasks end during partial merge ... 
-#     hence nobody left to complete the merge tasks.
 #
-#  SIM:
-#   + sim-input can have two INPUT_INCLUDE_FILE keys, but yaml parsing
-#     only picks up one of them, causing INFILE_verify to fail.
-#
+#  SIM:#
 #   - for sim, leave symbolic links for redundant sim job
 #   - problem reading SIMGEN-input file when SIMGEN_DUMP breaks
 #      to another line that is not YAML compatible
@@ -85,6 +79,11 @@ def get_args():
 
     msg = (f"DEBUG MODE: debug creation of batch files ")
     parser.add_argument("--debug_batch", help=msg, action="store_true")
+
+    msg = (f"DEBUG MODE: force crash in batch-prep ")
+    parser.add_argument("--force_crash_prep", help=msg, action="store_true")
+    msg = (f"DEBUG MODE: force crash in merge ")
+    parser.add_argument("--force_crash_merge", help=msg, action="store_true")
 
     # args passed internally from command files
     msg = "INTERNAL:  merge process"
@@ -267,6 +266,9 @@ def print_submit_messages(config_yaml):
     if config_yaml['args'].fast :
         print(f" REMEMBER: fast option will process 1/{FASTFAC} of request.")
 
+    if config_yaml['args'].force_crash_merge :
+        print(f" REMEMBER: there is a forced crash in MERGE process.")
+
     # end print_submit_messages
 
 def print_nosubmit_messages(config_yaml):
@@ -345,22 +347,27 @@ if __name__ == "__main__":
         print('  Done killing jobs -> exit Main.')
         exit(0)
 
-    # create output dir
-    program.create_output_dir()
+    try:
+        # create output dir
+        program.create_output_dir()
 
-    # prepare files, lists, program args
-    program.submit_prepare_driver() 
+        # prepare files, lists, program args
+        program.submit_prepare_driver() 
 
-    # write .BATCH and .CMD scripts
-    program.write_script_driver()
+        # write .BATCH and .CMD scripts
+        program.write_script_driver()
     
-    # Create MERGE.LOG file with all jobs in WAIT state.          
-    # This file gets updated later by merge process.
-    program.create_merge_file()
+        # Create MERGE.LOG file with all jobs in WAIT state.          
+        # This file gets updated later by merge process.
+        program.create_merge_file()
 
-    # create SUBMIT.INFO file for merge process ... 
-    # unlike MERGE.LOG, this file never changes.
-    program.create_info_file()
+        # create SUBMIT.INFO file for merge process ... 
+        # unlike MERGE.LOG, this file never changes.
+        program.create_info_file()
+
+    except Exception as e:
+        msg    = [ "Crashed while preparing batch jobs.", "Check Traceback" ]
+        program.log_assert(False, msg )
 
     if args.nosubmit :
         print_nosubmit_messages(config_yaml)

@@ -613,9 +613,6 @@ class BBC(Program):
                     job_info_wfit  = self.prep_JOB_INFO_wfit(index_dict)
                     util.write_job_info(f, job_info_wfit, icpu)
 
-                # xx last_job   = (n_job_tot - n_job_local) < n_core 
-                # xx job_info_merge = self.prep_JOB_INFO_merge(icpu,last_job) 
-
                 job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
@@ -670,6 +667,7 @@ class BBC(Program):
         JOB_INFO['job_dir']     = script_dir
         JOB_INFO['log_file']    = (f"{prefix_orig}.LOG")
         JOB_INFO['done_file']   = (f"{prefix_orig}.DONE")
+        JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
 
         # if wfit job will run, suppress DONE file here and wait for
         # wfit to finish before writing DONE files. This logic avoids

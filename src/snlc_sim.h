@@ -384,8 +384,8 @@ struct INPUTS {
 
   // xxx  int OPT_DEVEL_BBC7D;   // temp for BBC7D development
   // xxx  int OPT_DEVEL_GENFLUX; // temp for GENFLUX_DRIVER refactor + REDCOV
-  int OPT_DEVEL_GENPDF;      // temp for genPDF
-  int OPT_DEVEL_READ_INPUT ; // new read_input function
+  // xxx  int OPT_DEVEL_GENPDF;      // temp for genPDF
+
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files

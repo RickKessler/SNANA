@@ -737,6 +737,7 @@ class BBC(Program):
         JOB_INFO['done_file']   = wfit_done_file
         JOB_INFO['job_dir']     = ""  # same job dir as SALT2mu.exe job
         JOB_INFO['arg_list']    = arg_list
+        JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
 
         return JOB_INFO
 

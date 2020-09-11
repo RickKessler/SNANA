@@ -576,6 +576,7 @@ struct INPUTS {
   double GENGAUPEAK_AV;       // location of Gauss peak (degfault=0)
   double GENRATIO_AV0;        // Expon/Gauss ratio at AV0
   int    DO_AV ;
+  int    OPT_SNXT ;  // option for hostgal extinction
 
   int    WV07_GENAV_FLAG;   //  1=> use published ESSENCE-WV07 distrib.
   double WV07_REWGT_EXPAV;   //  re-weight exp component (default=1)   
@@ -1445,8 +1446,7 @@ int GENFRAME_OPT;        // one of below, based on model option
 int INDEX_GENMODEL         ;  // index for model
 int INDEX_GENMODEL_TWEAK   ;  // index for model tweak
 int LGEN_SNIA              ;  // =1  => generating a IA model
-int OPT_SNXT               ;  // option for hostgal extinction
-
+bool IS_PySEDMODEL         ;  // python SED model (BYOSED, SNEMO)
 
 #define MODEL_TWEAK_SHOCK 1 // early Shock (Kasen 2006)
 

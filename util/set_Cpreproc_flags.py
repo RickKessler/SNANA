@@ -12,22 +12,20 @@
 #              private/debug compile without overwriting 
 #              official SNANA install.
 #
+# Sep 10 2020: minor refactor with BYOSED -> PySEDMODEL
 
 import os
 import sys 
 
 # GLOBALS
-SNANA_DIR      = os.environ['SNANA_DIR']
-INCFILE_OUTPUT = '../src/sntools_output.h'
-INCFILE_BYOSED = '../src/genmag_BYOSED.h'
-
-#INCFILE_OUTPUT = SNANA_DIR + '/src/sntools_output.h'
-#INCFILE_BYOSED = SNANA_DIR + '/src/genmag_BYOSED.h'
+SNANA_DIR          = os.environ['SNANA_DIR']
+INCFILE_OUTPUT     = '../src/sntools_output.h'
+INCFILE_PySEDMODEL = '../src/genmag_PySEDMODEL.h'
 
 LIST_CFLAG     = [ 'USE_HBOOK' , 'USE_ROOT' , 'USE_PYTHON' ]
-#LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'USE_BYOSED' ] 
+#LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'USE_PySEDMODEL' ] 
 LIST_ENV       = [ 'CERN_DIR'  , 'ROOT_DIR' , 'SNANA_PYTHON_DIR' ] 
-LIST_INCFILE   = [ INCFILE_OUTPUT, INCFILE_OUTPUT, INCFILE_BYOSED ]
+LIST_INCFILE   = [ INCFILE_OUTPUT, INCFILE_OUTPUT, INCFILE_PySEDMODEL ]
 NCFLAG         = len(LIST_CFLAG)
 
 

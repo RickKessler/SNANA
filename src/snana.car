@@ -78,6 +78,7 @@ c
      &  ,MODEL_SALT2, MODEL_SALT3
      &  ,MODEL_SIMSED
      &  ,MODEL_BYOSED
+     &  ,MODEL_SNEMO
      &  ,MODEL_NON1A
      &  ,MODEL_LCLIB    ! Sep 2017
      &  ,MODEL_FIXMAG   ! force mags to user-value
@@ -266,6 +267,7 @@ c
      &  ,MODEL_SALT3      = 9 ! May 31 2019
      &  ,MODEL_SIMSED     = 7
      &  ,MODEL_BYOSED     = 8 
+     &  ,MODEL_SNEMO      = 9
      &  ,MODEL_NON1A      = 10
      &  ,MODEL_LCLIB      = 12
      &  ,MODEL_FIXMAG     = 20
@@ -1038,7 +1040,7 @@ c simulation parameters (if FAKE=2)
      &  ,SIM_EPMAGREST(MXEPOCH)     ! true rest-frame mag
      &  ,SIM_EPFLUXCAL_HOSTERR(MXEPOCH) ! true error from host noise
      &  ,SIMSED_PARVAL(MXPAR_SIMSED)
-     &  ,BYOSED_PARVAL(MXPAR_SIMSED)    ! Dec 10 2018
+     &  ,PySEDMODEL_PARVAL(MXPAR_SIMSED)    ! Dec 10 2018
      &  ,LCLIB_PARVAL(MXPAR_LCLIB)
      &  ,SIM_HOSTLIB_PARVAL(MXPAR_SIMSED) ! HOSTLIB params
      &  ,SIM_MAGSMEAR_COH
@@ -1063,7 +1065,7 @@ c
      &  ,SIMOPT_MWCOLORLAW    ! option for MW color law
      &  ,SIMOPT_MWEBV         ! option to modify MWEBV_SFD map
      &  ,NPAR_SIMSED
-     &  ,NPAR_BYOSED
+     &  ,NPAR_PySEDMODEL      ! BYOSED, SNEMO ...
      &  ,NPAR_LCLIB
      &  ,NPAR_SIM_HOSTLIB
      &  ,SIM_EPFILTREST(MXEPOCH)
@@ -1085,8 +1087,9 @@ c
      &  ,SIMLIB_FILENAME*200  ! SIMLIB file used to generate sim
      &  ,SIMSED_KEYWORD(MXPAR_SIMSED)*80 ! full keyname in header
      &  ,SIMSED_PARNAME(MXPAR_SIMSED)*20 ! parname for fitres and ntuple
-     &  ,BYOSED_KEYWORD(MXPAR_SIMSED)*80 ! full keyname in header
-     &  ,BYOSED_PARNAME(MXPAR_SIMSED)*20 ! parname for fitres and ntuple
+     &  ,PySEDMODEL_NAME*20              ! e.g., 'BYOSED' , 'SNEMO'
+     &  ,PySEDMODEL_KEYWORD(MXPAR_SIMSED)*80 ! full keyname in header
+     &  ,PySEDMODEL_PARNAME(MXPAR_SIMSED)*20 ! parname for fitres and ntuple
      &  ,LCLIB_KEYWORD(MXPAR_LCLIB)*80 ! full keyname in header
      &  ,LCLIB_PARNAME(MXPAR_LCLIB)*20 ! parname for fitres and ntuple
      &  ,SIM_HOSTLIB_KEYWORD(MXPAR_SIMSED)*60 ! full keyname
@@ -1116,8 +1119,9 @@ c
       COMMON / SIMSEDCOM /
      &  NPAR_SIMSED, SIMSED_PARVAL, SIMSED_PARNAME, SIMSED_KEYWORD
 
-      COMMON / BYOSEDCOM /
-     &   NPAR_BYOSED, BYOSED_PARVAL, BYOSED_PARNAME, BYOSED_KEYWORD
+      COMMON / PySEDCOM /
+     &   PySEDMODEL_NAME, NPAR_PySEDMODEL, PySEDMODEL_PARVAL, 
+     &   PySEDMODEL_PARNAME, PySEDMODEL_KEYWORD
 
       COMMON / LCLIBCOM / 
      &   NPAR_LCLIB, LCLIB_PARVAL, LCLIB_KEYWORD, LCLIB_PARNAME
@@ -8909,7 +8913,7 @@ cc      ZPOFF_FILE    = 'NULL'  ! NULL => use offsets in hid 292
 
 
       NPAR_SIMSED      = 0
-      NPAR_BYOSED      = 0
+      NPAR_PySEDMODEL  = 0
       NPAR_LCLIB       = 0
  
       NPAR_SIM_HOSTLIB = 0
@@ -10302,7 +10306,7 @@ c local variables.
 
       INTEGER 
      &   LL, L1, L2, iwd, iwd2, i, NWD, NWD_LOAD, LWD0, ID
-     &  ,IFAKE, IPAR_SIMSED, IPAR_BYOSED, IPAR_LCLIB
+     &  ,IFAKE, IPAR_SIMSED, IPAR_PySEDMODEL, IPAR_LCLIB
      &  ,IPAR_SIM_HOSTLIB
 
       character   
@@ -10337,13 +10341,13 @@ c read name of first text file from [VERSION].LIST file
       LL = INDEX(SNDATA_FILE_CURRENT,' ') - 1
       print*,'   Examine header from: ', SNDATA_FILE_CURRENT(1:LL)
 
-      NPAR_SIMSED   = 0
-      NPAR_BYOSED   = 0
-      NPAR_LCLIB    = 0 
+      NPAR_SIMSED       = 0
+      NPAR_PySEDMODEL   = 0
+      NPAR_LCLIB        = 0 
 
-      IPAR_SIMSED   = 0
-      IPAR_BYOSED   = 0
-      IPAR_LCLIB    = 0
+      IPAR_SIMSED      = 0
+      IPAR_PySEDMODEL  = 0
+      IPAR_LCLIB       = 0
 
       NPAR_SIM_HOSTLIB = 0
       IPAR_SIM_HOSTLIB = 0
@@ -10453,7 +10457,8 @@ c global parameters for Galactic extinction
         endif
 
         CALL PARSE_MODELPAR_TEXT(cwdList, MODEL_SIMSED, IPAR_SIMSED)
-        CALL PARSE_MODELPAR_TEXT(cwdList, MODEL_BYOSED, IPAR_BYOSED)
+        CALL PARSE_MODELPAR_TEXT(cwdList, MODEL_BYOSED, IPAR_PySEDMODEL)
+        CALL PARSE_MODELPAR_TEXT(cwdList, MODEL_SNEMO,  IPAR_PySEDMODEL)
         CALL PARSE_MODELPAR_TEXT(cwdList, MODEL_LCLIB,  IPAR_LCLIB )
 
 c check for SIM_HOSTLIB params (Feb 2014)
@@ -11536,9 +11541,10 @@ c   be back-compatible with older snana versions (Dec 27 2015)
          LRET      = INDEX(KEYVAL,char(0)) - 1
          READ( KEYVAL(1:LRET), * ) SIM_NSUBSAMPLE_MARK
 
-         CALL RDFITSHEAD_SIMSED()  ! check for SIMSED model params
-         CALL RDFITSHEAD_BYOSED()  ! check for BYOSED model params
-         CALL RDFITSHEAD_LCLIB()   ! check for LCLIB model Feb 28 2018
+         CALL RDFITSHEAD_SIMSED()      ! check for SIMSED model params
+         CALL RDFITSHEAD_PySEDMODEL('BYOSED') 
+         CALL RDFITSHEAD_PySEDMODEL('SNEMO') 
+         CALL RDFITSHEAD_LCLIB()       ! check for LCLIB model Feb 28 2018
          CALL RDFITSHEAD_SIM_HOSTLIB()
 
          KEYNAME   = "SIM_VARNAME_SNRMON" // char(0)
@@ -13637,53 +13643,71 @@ c xxxxxxxxxxxxx
       END  ! end of RDFITSHEAD_SIMSED
 
 C =======================================
-+DECK,RDFHEAD_BYOSED.
-      SUBROUTINE RDFITSHEAD_BYOSED()
++DECK,RDFHEAD_PySEDMODEL.
+      SUBROUTINE RDFITSHEAD_PySEDMODEL(MODEL_NAME)
 
 c Created Dec 10 2018
-c Read/parse BYOSED keys from header if NPAR_BYOSED exists.
-c
+c Read/parse PySEDMODEL keys from header if NPAR_[BYOSED,SNEMO] exists.
+c Sep 11 2020: renane RDFITSHEAD_BYOSED -> RDFITSHEAD_PySEDMODEL() 
 
       IMPLICIT NONE
 
+      CHARACTER MODEL_NAME*(*) ! e.g., 'BYOSED', 'SNEMO'
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER   ISTAT, LRET, ipar, LENKEY
+      INTEGER   ISTAT, LRET, ipar, LENKEY, NPAR_LOCAL
       CHARACTER KEYNAME*80, KEYVAL*80, c2*2, PARNAME*60
-
+      LOGICAL   LDMP
 c C functions
       INTEGER   RD_SNFITSIO_GLOBAL
       EXTERNAL  RD_SNFITSIO_GLOBAL
 
 C -------------- BEGIN ---------------
 
-      KEYNAME   = "BYOSED_NPAR" // char(0)
+
+      KEYNAME   = MODEL_NAME // "_NPAR" // char(0)
       LENKEY    = INDEX(KEYNAME, char(0) ) - 1
       ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, LENKEY, LRET )
       LRET      = INDEX(KEYVAL,char(0)) - 1
-      READ( KEYVAL(1:LRET), * ) NPAR_BYOSED
-      IF ( NPAR_BYOSED .LE. 0 ) RETURN
+
+      LDMP = .FALSE.
+      IF ( LDMP ) THEN
+         print*,' xxx -------------------------------------- '
+         print*,' xxx **** DUMP RDFITSHEAD_PySEDMODEL ***** '
+         print*,' xxx MODEL_NAME = ', MODEL_NAME
+         print*,' xxx KEYNAME    = ', KEYNAME(1:LENKEY)
+         print*,' xxx KEYVAL     = ', KEYVAL(1:LRET)
+         print*,' xxx ISTAT      = ', ISTAT
+      ENDIF
+
+      READ( KEYVAL(1:LRET), * ) NPAR_LOCAL
+      IF ( NPAR_LOCAL .LE. 0 ) RETURN
 
 c ----------------------------------------------
 
-      DO 100 ipar = 1, NPAR_BYOSED
+
+c load global NPAR and MODEL_NAME
+      NPAR_PySEDMODEL = NPAR_LOCAL
+      PySEDMODEL_NAME = MODEL_NAME
+
+      DO 100 ipar = 1, NPAR_PySEDMODEL
         write(c2,22) ipar-1
 22      format(I2.2)
-        KEYNAME = "BYOSED_PAR" // C2 // char(0)
+        KEYNAME = MODEL_NAME // "_PAR" // C2 // char(0)
         ISTAT   = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 12, LRET )
         LRET    = INDEX(KEYVAL,char(0)) -1
 
         CALL PARSE_PARENTHESES(KEYVAL(1:LRET), PARNAME)
-        BYOSED_KEYWORD(IPAR) = KEYVAL(1:LRET) ! key(varname)
-        BYOSED_PARNAME(IPAR) = PARNAME(1:20)  ! extracted varname
+        PySEDMODEL_KEYWORD(IPAR) = KEYVAL(1:LRET) ! key(varname)
+        PySEDMODEL_PARNAME(IPAR) = PARNAME(1:20)  ! extracted varname
 
 100   CONTINUE
 
       CALL FLUSH(6)
 
       RETURN
-      END  ! end of RDFITSHEAD_BYOSED
+      END  ! end of RDFITSHEAD_PySEDMODEL
 
 
 C =======================================
@@ -13855,12 +13879,14 @@ C ==================================
 +DECK,PARSE_MODELPAR_TEXT.
       SUBROUTINE PARSE_MODELPAR_TEXT(CWORD, MODEL_CLASS, IPAR_MODEL)
 c
-c Check for SIMSED parameters in the header (text format only).
+c Check for MODEL_CLASS parameters in the header (text format only).
 c First read 'SIMSED_NPAR:' key and store value in NPAR_SIMSED.
 c Next read and store each full SIMSED keyword in 
 c SIMSED_KEYWORD(IPAR_SIMSED) and store the parameter name 
 c in SIMSED_PARNAME(IPAR_SIMSED).
 c
+c Sep 11 2020: update to handle PySEDMODELs
+
       IMPLICIT NONE
 
 c subroutine args.
@@ -13882,12 +13908,13 @@ C ----------------- BEGIN --------------
       MODEL_NAME = ''
       IF ( MODEL_CLASS == MODEL_SIMSED ) MODEL_NAME = 'SIMSED'
       IF ( MODEL_CLASS == MODEL_BYOSED ) MODEL_NAME = 'BYOSED'
+      IF ( MODEL_CLASS == MODEL_SNEMO  ) MODEL_NAME = 'SNEMO'
       IF ( MODEL_CLASS == MODEL_LCLIB  ) MODEL_NAME = 'LCLIB'
 
       IF ( MODEL_NAME .EQ. '' ) THEN
            write(c1err,551) MODEL_CLASS
 551        format('Invalid MODEL_CLASS = ', I3)
-           c2err = 'Should be either SIMSED, BYOSED, or LCLIB'
+           c2err = 'Should be either SIMSED, BYOSED, SNEMO, LCLIB'
            CALL MADABORT(FNAM, c1err, c2err)
       ENDIF
    
@@ -13896,9 +13923,10 @@ C ----------------- BEGIN --------------
 
       IF ( CWORD(1) .EQ.  MODEL_NAME(1:LNAME)//'_NPAR:' ) THEN
         READ(CWORD(2),*) NPAR
-        IF ( MODEL_CLASS == MODEL_SIMSED ) NPAR_SIMSED = NPAR
-        IF ( MODEL_CLASS == MODEL_BYOSED ) NPAR_BYOSED = NPAR
-        IF ( MODEL_CLASS == MODEL_LCLIB  ) NPAR_LCLIB  = NPAR
+        IF ( MODEL_CLASS == MODEL_SIMSED ) NPAR_SIMSED     = NPAR
+        IF ( MODEL_CLASS == MODEL_BYOSED ) NPAR_PySEDMODEL = NPAR
+        IF ( MODEL_CLASS == MODEL_SNEMO  ) NPAR_PySEDMODEL = NPAR
+        IF ( MODEL_CLASS == MODEL_LCLIB  ) NPAR_LCLIB      = NPAR
 
         if ( NPAR .GT. MXPAR_SIMSED ) then
            write(c1err,661) MODEL_NAME(1:LNAME), NPAR
@@ -13913,12 +13941,13 @@ C ----------------- BEGIN --------------
 
 c figure out which NPAR
       IF ( MODEL_CLASS == MODEL_SIMSED ) NPAR = NPAR_SIMSED
-      IF ( MODEL_CLASS == MODEL_BYOSED ) NPAR = NPAR_BYOSED 
+      IF ( MODEL_CLASS == MODEL_BYOSED ) NPAR = NPAR_PySEDMODEL
+      IF ( MODEL_CLASS == MODEL_SNEMO  ) NPAR = NPAR_PySEDMODEL
       IF ( MODEL_CLASS == MODEL_LCLIB  ) NPAR = NPAR_LCLIB  
 
       IF ( NPAR .LE. 0 ) RETURN
 
-c Now we have a SIMSED keyword.
+c Now we have a MODEL_CLASS keyword.
 
       LK  = INDEX(CWORD(1),':') - 1  ! length without exclude colon
       KEY = CWORD(1)(1:LK)           ! KEY = SIMSED_PARAM(PARNAME)
@@ -13930,9 +13959,11 @@ c Now we have a SIMSED keyword.
       IF ( MODEL_CLASS == MODEL_SIMSED ) THEN
         SIMSED_KEYWORD(IPAR_MODEL) = KEY
         SIMSED_PARNAME(IPAR_MODEL) = PARNAME(1:20)
-      ELSE IF ( MODEL_CLASS == MODEL_BYOSED ) THEN
-        BYOSED_KEYWORD(IPAR_MODEL) = KEY
-        BYOSED_PARNAME(IPAR_MODEL) = PARNAME(1:20)
+      ELSE IF ( NPAR_PySEDMODEL > 0 ) THEN  ! BYOSED or SNEMO
+        PySEDMODEL_NAME = MODEL_NAME
+        PySEDMODEL_KEYWORD(IPAR_MODEL) = KEY
+        PySEDMODEL_PARNAME(IPAR_MODEL) = PARNAME(1:20)
+
       ELSE IF ( MODEL_CLASS == MODEL_LCLIB ) THEN
         LCLIB_KEYWORD(IPAR_MODEL) = KEY
         LCLIB_PARNAME(IPAR_MODEL) = PARNAME(1:20)
@@ -15406,14 +15437,15 @@ C ----------- BEGIN ---------
       LPARSE = .FALSE.
       if ( CWORDS(1)(1:3) .EQ. 'SIM'    ) LPARSE = .TRUE.
       if ( CWORDS(1)(1:6) .EQ. 'BYOSED' ) LPARSE = .TRUE.
+      if ( CWORDS(1)(1:5) .EQ. 'SNEMO'  ) LPARSE = .TRUE.
       if ( CWORDS(1)(1:6) .EQ. 'LCLIB'  ) LPARSE = .TRUE.
 
       if ( .not. LPARSE ) RETURN
 
 c -----------------
       RETSTR = 'STRING'
-      KEY  = 'SIM_MODEL_NAME'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      KEY    = 'SIM_MODEL_NAME'
+      LTMP   = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
       IF ( LTMP ) THEN
          SIMNAME_MODEL = RETSTR(1:32)
       ENDIF
@@ -15685,13 +15717,12 @@ c read SIMSED parameters
          ENDIF
 401   CONTINUE  ! end IPAR
 
-c read BYOSED parameters 
-
-      DO 402 IPAR = 1, NPAR_BYOSED
-         KEY  = BYOSED_KEYWORD(IPAR)(1:60)
-         LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )     
+c read  PySEDMODEL parameters (BYOSED,SNEMO ...)
+      DO 402 IPAR = 1, NPAR_PySEDMODEL
+         KEY  = PySEDMODEL_KEYWORD(IPAR)(1:60)
+         LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
          IF ( LTMP ) THEN
-           BYOSED_PARVAL(IPAR) = SNGL(RET8(1))
+            PySEDMODEL_PARVAL(IPAR) = SNGL(RET8(1))
          ENDIF
 402   CONTINUE  ! end IPAR
 
@@ -26254,6 +26285,7 @@ c Dec 10, 2018: add BYOSED params
 c Feb 01, 2019: add SIM_LCWIDTH
 c Feb 27, 2020: add SIM_HOSTLIB_GALID
 c Mar 19, 2020: add SIM_RV  to table
+c Sep 11, 2020: add PySEDMODEL = BYOSED or SNEMO
 
       IMPLICIT  NONE
       INTEGER   ID          ! (I) table id
@@ -26267,7 +26299,7 @@ c local var
       CHARACTER 
      &    CTMP*(MXCHAR_FILEWORD)
      &  , VARLIST*400, CBLOCK*40
-      INTEGER LENLIST, IPAR, LENBLOCK, LENTMP, ITEXT
+      INTEGER LENLIST, IPAR, LENBLOCK, LENTMP, LENM, ITEXT
 
       EXTERNAL SNTABLE_ADDCOL
 
@@ -26411,18 +26443,20 @@ c  Apr 28 2015: set DOTEXT flag to 1
          CTMP    = SIMSED_PARNAME(ipar)
          LENTMP  = INDEX(CTMP,' ') - 1
          VARLIST = 'SIMSED_' // CTMP(1:LENTMP) // ':F' // char(0)
-         CALL SNTABLE_ADDCOL(ID,CBLOCK, SIMSED_PARVAL(ipar),VARLIST,1,
-     &        LENBLOCK, LENLIST)
+         CALL SNTABLE_ADDCOL(ID,CBLOCK, SIMSED_PARVAL(ipar),
+     &        VARLIST, 1, LENBLOCK, LENLIST)
       ENDDO
 
 
-c Dec 2018: BYOSED model params 
-      DO IPAR    = 1, NPAR_BYOSED
-         CTMP    = BYOSED_PARNAME(ipar)
+c PySEDMODEL model params (BYOSED, SNEMO, ...)
+      DO IPAR    = 1, NPAR_PySEDMODEL
+         LENM    = INDEX(PySEDMODEL_NAME,' ') - 1
+         CTMP    = PySEDMODEL_PARNAME(ipar)
          LENTMP  = INDEX(CTMP,' ') - 1
-         VARLIST = 'BYOSED_' // CTMP(1:LENTMP) // ':F' // char(0)
-         CALL SNTABLE_ADDCOL(ID,CBLOCK, BYOSED_PARVAL(ipar),VARLIST,1,
-     &          LENBLOCK, LENLIST)
+         VARLIST = PySEDMODEL_NAME(1:LENM) // '_' 
+     &             // CTMP(1:LENTMP) // ':F' // char(0) 
+         CALL SNTABLE_ADDCOL(ID,CBLOCK, PySEDMODEL_PARVAL(ipar),
+     &        VARLIST, 1, LENBLOCK, LENLIST)
       ENDDO
 
 c Feb 2018: LCLIB model params 

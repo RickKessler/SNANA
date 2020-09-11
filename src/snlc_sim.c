@@ -97,8 +97,6 @@ int main(int argc, char **argv) {
 
   init_commandLine_simargs(argc, argv);
 
-  // xxx mark delete  init_SNPATH();    // init PATH_SNDATA_ROOT
-
   // init fortran variables
   istat = 0;
   init_snvar__(&istat); 
@@ -963,7 +961,7 @@ void set_user_defaults(void) {
   sprintf(INPUTS.KCOR_FILE, "NONE" );
 
   sprintf(INPUTS.GENSNXT, "CCM89" );
-  OPT_SNXT = OPT_SNXT_CCM89;
+  INPUTS.OPT_SNXT = OPT_SNXT_CCM89;
 
   GENLC.IFLAG_GENSOURCE = 0;
 
@@ -3380,12 +3378,21 @@ int parse_input_GENMODEL(char **WORDS, int keySource) {
       N++ ; sscanf(WORDS[N] , "%s", INPUTS.LCLIB_TEMPLATE_EPOCHS ); 
   }
 
-  // check BYOSED
+  // - - - - - - - - - - - - - - - - - - -
+  // check python models: BYOSED & SNEMO
   NAME0 = GENMODEL_NAME[MODEL_BYOSED][0];
   if ( strcmp(GENMODEL,NAME0)==0 ) {
-    N++ ; sscanf(WORDS[N], "%s", INPUTS.MODELPATH ); 
+    N++ ; sscanf(WORDS[N], "%s", INPUTS.MODELPATH );
+    IS_PySEDMODEL = true;
   }
 
+  NAME0 = GENMODEL_NAME[MODEL_SNEMO][0];  // Sep 2020
+  if ( strcmp(GENMODEL,NAME0)==0 ) {
+    N++ ; sscanf(WORDS[N], "%s", INPUTS.MODELPATH ); 
+    IS_PySEDMODEL = true;
+  }
+
+  // - - - - - - - - - - - - - - - - - - -
   // check fixmag/FIXMAG
   for(jnam=0; jnam < MXNAME_PER_MODEL; jnam++ ) {
     NAME0  = GENMODEL_NAME[MODEL_FIXMAG][jnam];
@@ -4499,9 +4506,9 @@ void prep_user_input(void) {
 
   // set OPT_SNXT
   if ( strcmp(INPUTS.GENSNXT,"CCM89") == 0 ) 
-    { OPT_SNXT = OPT_SNXT_CCM89; }
+    { INPUTS.OPT_SNXT = OPT_SNXT_CCM89; }
   else if ( strcmp(INPUTS.GENSNXT,"SJPAR") == 0 ) 
-    { OPT_SNXT = OPT_SNXT_SJPAR; }
+    { INPUTS.OPT_SNXT = OPT_SNXT_SJPAR; }
   else {
     sprintf(c1err,"'%s' is invalid option for EXTINC_HOSTGAL",INPUTS.GENSNXT );
     errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
@@ -4613,10 +4620,10 @@ void prep_user_input(void) {
     GENFRAME_OPT   = GENFRAME_OBS;
     INPUTS.GENGAUSS_SHAPEPAR.RANGE[0] = -1.0 ; // anything non-zero
     INPUTS.GENGAUSS_SHAPEPAR.RANGE[1] = +1.0 ;
-    prep_user_SIMSED(); // Feb 26 2018
+    prep_user_SIMSED(); 
   }
 
-  else if ( INDEX_GENMODEL == MODEL_BYOSED ) {
+  else if ( IS_PySEDMODEL ) {
 
     GENFRAME_OPT   = GENFRAME_OBS;
 
@@ -6619,6 +6626,8 @@ void  set_GENMODEL_NAME(void) {
     }
   }
 
+  IS_PySEDMODEL = false ;
+
   // hard-wire list of valid GENMODELs
   // Note that some models allow for two different user-strings
 
@@ -6635,7 +6644,9 @@ void  set_GENMODEL_NAME(void) {
 
   sprintf(GENMODEL_NAME[MODEL_S11DM15][0], "%s", "S11DM15" );
 
-  sprintf(GENMODEL_NAME[MODEL_BYOSED][0],  "%s", "BYOSED"  );
+  sprintf(GENMODEL_NAME[MODEL_BYOSED][0],  "%s", "BYOSED"  ); // pyModel
+
+  sprintf(GENMODEL_NAME[MODEL_SNEMO][0],   "%s", "SNEMO"   ); // pyModel
 
   sprintf(GENMODEL_NAME[MODEL_SIMSED][0],  "%s", "SIMSED"  );
 
@@ -7311,7 +7322,7 @@ void  init_genSpec(void) {
   if ( INDEX_GENMODEL == MODEL_SALT2     ||
        INDEX_GENMODEL == MODEL_NON1ASED  ||
        INDEX_GENMODEL == MODEL_SIMSED    || 
-       INDEX_GENMODEL == MODEL_BYOSED         ) {
+       IS_PySEDMODEL         ) {
     int     NB = INPUTS_SPECTRO.NBIN_LAM ;
     double *L0 = INPUTS_SPECTRO.LAMMIN_LIST ;
     double *L1 = INPUTS_SPECTRO.LAMMAX_LIST ;
@@ -7828,16 +7839,16 @@ void GENSPEC_TRUE(int imjd) {
 		     GENSPEC.GENMAG_LIST[imjd]       // (O) magGen per bin
 		     ); 
   }
-  else if ( INDEX_GENMODEL == MODEL_BYOSED ) {
+  else if ( IS_PySEDMODEL ) {
     
     
-    genSpec_BYOSED(TOBS, 
-		   GENLC.REDSHIFT_HELIO,            // (I) helio redshift
-		   GENLC.DLMU,                      // (I) dist. mod.
-		   GENLC.MWEBV, GENLC.RV, GENLC.AV, // (I)		     
-		   GENSPEC.GENFLUX_LIST[imjd],      // (O) fluxGen per bin 
-		   GENSPEC.GENMAG_LIST[imjd]        // (O) magGen per bin
-		   );		
+    genSpec_PySEDMODEL(TOBS, 
+		       GENLC.REDSHIFT_HELIO,            // (I) helio redshift
+		       GENLC.DLMU,                      // (I) dist. mod.
+		       GENLC.MWEBV, GENLC.RV, GENLC.AV, // (I)		     
+		       GENSPEC.GENFLUX_LIST[imjd],      // (O) fluxGen per bin 
+		       GENSPEC.GENMAG_LIST[imjd]        // (O) magGen per bin
+		       );		
    
   }
   else { 
@@ -9631,10 +9642,9 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
   bool ISMODEL_NON1ASED  = ( INDEX_GENMODEL == MODEL_NON1ASED );
   bool ISMODEL_NON1A     = ( INPUTS.NON1A_MODELFLAG > 0 );
   bool ISMODEL_LCLIB     = ( INDEX_GENMODEL == MODEL_LCLIB ) ;
-  bool ISMODEL_BYOSED    = ( INDEX_GENMODEL == MODEL_BYOSED ) ;
   bool SKIPx1  = SIMLIB_HEADER.GENGAUSS_SALT2x1.USE ;
   bool DOSHAPE = !( SKIPx1 || ISMODEL_SIMSED || ISMODEL_NON1A || 
-		    ISMODEL_LCLIB || ISMODEL_BYOSED );
+		    ISMODEL_LCLIB || IS_PySEDMODEL );
 
   // xxx  bool DOSHAPE = ( !SKIPx1 && !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0) ;
 
@@ -9947,20 +9957,6 @@ void gen_modelPar_dust(int OPT_FRAME) {
   GENLC.AV = gen_AV() ;  //DJB March 20 2020:  EBV.      
 
   //  printf(" xxx %s: AV=%f  RV=%f \n", fnam, GENLC.AV, GENLC.RV);
-
-  /* xxxx mark delete Jun 12 2020 xxxxxxxx
-  int ISNON1A = ( INDEX_GENMODEL == MODEL_NON1ASED  ||
-		  INDEX_GENMODEL == MODEL_NON1AGRID  );
-  int ISMISC  = ( INDEX_GENMODEL == MODEL_SALT2   ||
-		  INDEX_GENMODEL == MODEL_SIMSED  ||
-		  INDEX_GENMODEL == MODEL_S11DM15 ||
-		  INDEX_GENMODEL == MODEL_BYOSED 	     );    
-  if ( (ISREST || ISNON1A || ISMISC) && INPUTS.DO_AV ) {
-    GENLC.RV = gen_RV() ; 
-    GENLC.AV = gen_AV() ;  //DJB March 20 2020:  EBV.      
-  }
-  xxxxxxxxx end mark xxxxxxxxxx */
-
 
   return;
 
@@ -11046,11 +11042,11 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   }
 
 
-  if ( INDEX_GENMODEL == MODEL_BYOSED ) {
-    for( ipar=0 ;  ipar < Event_BYOSED.NPAR; ipar++ ) {
+  if ( IS_PySEDMODEL ) {
+    for( ipar=0 ;  ipar < Event_PySEDMODEL.NPAR; ipar++ ) {
       cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-      sprintf(cptr, "%s", Event_BYOSED.PARNAME[ipar] );
-      SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &Event_BYOSED.PARVAL[ipar]; 
+      sprintf(cptr, "%s", Event_PySEDMODEL.PARNAME[ipar] );
+      SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &Event_PySEDMODEL.PARVAL[ipar]; 
       NVAR_SIMGEN_DUMP++ ; 
     }
   }
@@ -19371,17 +19367,18 @@ void snlc_to_SNDATA(int FLAG) {
   } // model = MODEL_SIMSED
 
 
-  // load BYOSED info  (Dec 2018)
-  if ( INDEX_GENMODEL == MODEL_BYOSED ) {
-    NPAR = Event_BYOSED.NPAR ;
-    SNDATA.NPAR_BYOSED = NPAR ; 
+  // load PySEDMODEL info  (Dec 2018)
+  if ( IS_PySEDMODEL ) {
+    NPAR = Event_PySEDMODEL.NPAR ;
+    SNDATA.NPAR_PySEDMODEL = NPAR ; 
     for ( ipar=0; ipar < NPAR; ipar++ ) {
-      tmpName = Event_BYOSED.PARNAME[ipar];
-      sprintf(SNDATA.BYOSED_PARNAME[ipar], "%s", tmpName ) ;
-      sprintf(SNDATA.BYOSED_KEYWORD[ipar], "BYOSED_PARAM(%s)", tmpName);
-      SNDATA.BYOSED_PARVAL[ipar]  = Event_BYOSED.PARVAL[ipar];
+      tmpName = Event_PySEDMODEL.PARNAME[ipar];
+      sprintf(SNDATA.PySEDMODEL_PARNAME[ipar], "%s", tmpName ) ;
+      sprintf(SNDATA.PySEDMODEL_KEYWORD[ipar], 
+	      "%s_PARAM(%s)", INPUTS_PySEDMODEL.MODEL_NAME, tmpName); 
+      SNDATA.PySEDMODEL_PARVAL[ipar]  = Event_PySEDMODEL.PARVAL[ipar];
     }
-  } // model = MODEL_BYOSED
+  } 
 
 
   // load LCLIB info 
@@ -20018,6 +20015,7 @@ void genmag_boost(void) {
 
   *****/
 
+  int     OPT_SNXT = INPUTS.OPT_SNXT ;
   double  AVwarp[4], AV, RV, z, Trest,  x[10];
   double  mag[4], lamdif[4], mag_obs, kcor    ;
 
@@ -20363,7 +20361,6 @@ void init_genmodel(void) {
 
   char *GENMODEL        = INPUTS.GENMODEL;
   char *GENMODEL_EXTRAP = INPUTS.GENMODEL_EXTRAP_LATETIME ;
-
   char  covFile[] = ""  ;
   char *ARGLIST ;
   int istat, OPTMASK,  ifilt, ifilt_obs, ifilt_rest ;
@@ -20387,7 +20384,7 @@ void init_genmodel(void) {
 
   LGEN_SNIA = 0 ;
 
-    // =========================
+  // =========================
 
   if ( INDEX_GENMODEL == MODEL_STRETCH ) {
 
@@ -20485,7 +20482,7 @@ void init_genmodel(void) {
     LGEN_SNIA = 0 ;  // July 2017
   }
 
-  else if ( INDEX_GENMODEL == MODEL_BYOSED ) {
+  else if ( IS_PySEDMODEL ) {
 
     OPTMASK  = INPUTS.GENMODEL_MSKOPT;
     ARGLIST  = INPUTS.GENMODEL_ARGLIST;
@@ -20494,7 +20491,9 @@ void init_genmodel(void) {
 
     // init generic part of any SEDMODEL (filter & primary ref)
     init_genSEDMODEL();
-    init_genmag_BYOSED( INPUTS.MODELPATH, OPTMASK, ARGLIST, NAMES_HOSTPAR );
+
+    // init_genmag_BYOSED( INPUTS.MODELPATH, OPTMASK, ARGLIST, NAMES_HOSTPAR );
+    init_genmag_PySEDMODEL(INPUTS.MODELPATH, OPTMASK, ARGLIST, NAMES_HOSTPAR);
   }
 
   else if ( INDEX_GENMODEL == MODEL_NON1ASED ) {
@@ -20759,7 +20758,7 @@ void check_model_default(int index_model ) {
   if ( index_model == MODEL_FIXMAG    ) return ;
   if ( index_model == MODEL_SIMLIB    ) return ;
   if ( index_model == MODEL_LCLIB     ) return ;
-  if ( index_model == MODEL_BYOSED    ) return ;
+  if ( IS_PySEDMODEL                  ) return ;
 
   sprintf(model, "%s", INPUTS.MODELNAME );
 
@@ -20926,10 +20925,10 @@ void init_kcor_legacy(char *kcorFile) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
-    if ( OPT_SNXT  == OPT_SNXT_CCM89 ) {
-      init_xthost__(&OPT_SNXT);
+    if ( INPUTS.OPT_SNXT  == OPT_SNXT_CCM89 ) {
+      init_xthost__(&INPUTS.OPT_SNXT);
     }
-    else if ( OPT_SNXT  == OPT_SNXT_SJPAR ) {
+    else if ( INPUTS.OPT_SNXT  == OPT_SNXT_SJPAR ) {
       print_banner("Init HOST-GALAXY Extinction Parameters");
       sprintf(xtDir, "%s ",INPUTS.MODELPATH); // leave blank space for fortran
       rdxtpar_(xtDir, strlen(xtDir) );      
@@ -22637,11 +22636,9 @@ void genmodel(
 
   ***********/
 
-  int
-    istat, ifilt_tmp, ifilt_rest, iep
-    ,NEPFILT, NGRID, NEPFILT_SAVE
-    ,index, isp, OPTMASK, NPAR
-    ;
+  int istat, ifilt_tmp, ifilt_rest, iep ;
+  int NEPFILT, NGRID, NEPFILT_SAVE ;
+  int index, isp, OPTMASK, NPAR; 
 
   double 
     z, zz, mu, stretch[2], delta, dm15, av, RV, AV, tmpdif
@@ -22651,7 +22648,6 @@ void genmodel(
     ;
 
   char  model[40], cfilt_obs[2], cfilt_rest[2]    ;
-
   char fnam[] = "genmodel" ;
 
   // -------- BEGIN ---------
@@ -22908,26 +22904,27 @@ void genmodel(
 
   }
 
-  else if ( INDEX_GENMODEL  == MODEL_BYOSED ) {
+  else if ( IS_PySEDMODEL ) {
 
+    // python-based SED model: BYOSED or SNEMO
     int NHOSTPAR; char *NAMES_HOSTPAR = NULL; 
-    double VAL_HOSTPAR[MXHOSTPAR_BYOSED];
+    double VAL_HOSTPAR[MXHOSTPAR_PySEDMODEL];
     NHOSTPAR = fetch_HOSTPAR_GENMODEL(2, NAMES_HOSTPAR, VAL_HOSTPAR);
 
-    genmag_BYOSED(
-		  GENLC.CID
-		  ,GENLC.REDSHIFT_HELIO  // (I) heliocentric redshift 
-		  ,GENLC.REDSHIFT_CMB    // (I) CMB redshift
-		  ,GENLC.DLMU            // (I) distance modulus
-		  ,mwebv               // (I) E(B-V) for Milky Way
-		  ,NHOSTPAR            // (I) number of host params to pass
-		  ,VAL_HOSTPAR         // (I) host property values
-		  ,ifilt_obs           // (I) filter index
-		  ,NEPFILT             // (I) number of epochs
-		  ,ptr_epoch           // (I) rest-frame time (days)
-		  ,ptr_genmag        // (O) mag vs. Tobs
-		  ,ptr_generr        // (O) ideal rest mag-errs
-		  );		  
+    genmag_PySEDMODEL(
+		      GENLC.CID
+		      ,GENLC.REDSHIFT_HELIO  // (I) heliocentric redshift 
+		      ,GENLC.REDSHIFT_CMB    // (I) CMB redshift
+		      ,GENLC.DLMU            // (I) distance modulus
+		      ,mwebv               // (I) E(B-V) for Milky Way
+		      ,NHOSTPAR            // (I) number of host params to pass
+		      ,VAL_HOSTPAR         // (I) host property values
+		      ,ifilt_obs           // (I) filter index
+		      ,NEPFILT             // (I) number of epochs
+		      ,ptr_epoch           // (I) rest-frame time (days)
+		      ,ptr_genmag        // (O) mag vs. Tobs
+		      ,ptr_generr        // (O) ideal rest mag-errs
+		      );		  
     
   }
 

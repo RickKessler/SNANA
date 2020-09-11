@@ -1,11 +1,14 @@
 /*****************************************
   Created Sep 2018
-  BYOSED = Build Your Own SED
+  Sep 10 2020: rename BYOSED -> more generic name PySEDMODEL 
 
-  Lots of options to mangle and tweak an inital SED sequence
-  such as Hsiao. Example options are to add random stretch,
-  apply color law, add spectral features, correlate with
-  host properties, etc ...
+  C-wrapper to call python function that returns rest-frame SED,
+  snd then C functions compute & return observer-frame magnitudes
+  to the simulation. Also returns obs-frame spectra if requested.
+
+  Each PySEDMODEL is associated with a separate gensed_[model].py :
+     gensed_BYOSED.py : Build Your Own SED  (J.Pierel)
+     gensed_SNEMO.py  : SNFactory model (??)
 
   Initial motivation is to build underlying "true" SED model to
   test SNIa model training. However, this function could in 
@@ -22,15 +25,14 @@
   Apr 11 2019 RK - check for intrinsic scatter models (e.g., C11, G10 ...)
   Jul 12 2019 RK - store inputs in INPUTS_BYOSED struct, and add 
                    internal DUMPFLAG_HOSTPAR in genmag_BYOSED().
+  Sep 11 2020 RK - major refactor for BYOSED -> PySEDMODEL
 
  *****************************************/
-
 
 #include  <stdio.h> 
 #include  <math.h>     
 #include  <stdlib.h>   
 #include  <sys/stat.h>
-
 
 #include  "sntools.h"           // SNANA community tools
 #include  "sntools_genSmear.h"
@@ -38,13 +40,13 @@
 #include  "MWgaldust.h"
 #include  "genmag_SEDtools.h"
 #include  "genmag_SIMSED.h"
-#include  "genmag_BYOSED.h"
+#include  "genmag_PySEDMODEL.h"
 
 #ifdef USE_PYTHON
 #include  <Python.h>
 //#include <numpy/arrayobject.h>
 //#include <numpy/ndarrayobject.h>
-PyObject *geninit_BYOSED;
+PyObject *geninit_PySEDMODEL ;
 
 //int init_numpy(){
 //  import_array(); // PyError if not successful
@@ -53,9 +55,29 @@ PyObject *geninit_BYOSED;
 
 #endif
 
+// ===============================================
+
+void load_PySEDMODEL_CHOICE_LIST(void) {
+  
+  int N=0;
+  char fnam[] = "load_PySEDMODEL_CHOICE_LIST" ;
+
+  // generic utility to store all possible PySEDMODEL names.
+  // Used by sim, parsing, etc ...
+  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_BYOSED); N++ ;
+  sprintf(PySEDMODEL_CHOICE_LIST[N], "%s", MODEL_NAME_SNEMO ); N++ ;
+
+  if ( N != NCHOICE_PySEDMODEL ) {
+    sprintf(c1err,"Expected %d PySEDMODEL choices");
+    sprintf(c2err,"but loaded %d", N);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+} // end load_PySEDMODEL_CHOICE_LIST
+
+
 // =========================================================
-void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
-			char *NAMES_HOSTPAR  ) {
+void init_genmag_PySEDMODEL(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
+			    char *NAMES_HOSTPAR  ) {
 
   // Read input directory file(s) for parameters characterizing 
   // how to build your SED.
@@ -80,47 +102,62 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   PyObject *genmod, *genclass, *pargs;
 #endif
 
+  char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
+  char *PyFUN_NAME = INPUTS_PySEDMODEL.PyFUN_NAME ;
   int  L, ipar, NPAR ;
   int  MEMD   = sizeof(double);
   int  MEMC   = sizeof(char);
   char comma[] = ",";
-  char fnam[] = "init_genmag_BYOSED" ;
+  char fnam[] = "init_genmag_PySEDMODEL" ;
 
   // -------------- BEGIN ------------------
 
   sprintf(BANNER, "%s", fnam);
   print_banner(BANNER);
-  printf("   BYOSED PATH    = '%s' \n",  PATH_VERSION);
-  printf("   BYOSED OPTMASK = %d \n",    OPTMASK );	
-  printf("   BYOSED ARGLIST = '%s' \n",  ARGLIST );	
-  printf("   BYOSED HOSTPAR = '%s' \n",  NAMES_HOSTPAR);
+
+  // check which model from PATH_VERSION
+  get_MODEL_NAME_PySEDMODEL(PATH_VERSION, MODEL_NAME);
+  sprintf(PyFUN_NAME, "genmag_%s", MODEL_NAME) ;
+
+  printf("   %s PATH    = '%s' \n",  MODEL_NAME, PATH_VERSION); 
+  printf("   %s OPTMASK = %d \n",    MODEL_NAME, OPTMASK );	
+  printf("   %s ARGLIST = '%s' \n",  MODEL_NAME, ARGLIST );	
+  printf("   %s HOSTPAR = '%s' \n",  MODEL_NAME, NAMES_HOSTPAR );
   fflush(stdout);
 
   // - - - - - - - - - - -
   // store inputs in global (RK - Jul 12 2019)
-  L=strlen(PATH_VERSION)+4;  INPUTS_BYOSED.PATH    = (char*)malloc(L*MEMC);
-  L=strlen(ARGLIST)+4;       INPUTS_BYOSED.ARGLIST = (char*)malloc(L*MEMC);
-  L=strlen(NAMES_HOSTPAR)+4; INPUTS_BYOSED.NAMES_HOSTPAR=(char*)malloc(L*MEMC);
-  INPUTS_BYOSED.OPTMASK = OPTMASK;
-  sprintf(INPUTS_BYOSED.PATH,          "%s", PATH_VERSION);
-  sprintf(INPUTS_BYOSED.ARGLIST,       "%s", ARGLIST );
-  sprintf(INPUTS_BYOSED.NAMES_HOSTPAR, "%s", NAMES_HOSTPAR );
+  L=strlen(PATH_VERSION)+4;  
+  INPUTS_PySEDMODEL.PATH    = (char*)malloc(L*MEMC);
+
+  L=strlen(ARGLIST)+4;    
+  INPUTS_PySEDMODEL.ARGLIST = (char*)malloc(L*MEMC);
+
+  L=strlen(NAMES_HOSTPAR)+4; 
+  INPUTS_PySEDMODEL.NAMES_HOSTPAR=(char*)malloc(L*MEMC);
+
+  INPUTS_PySEDMODEL.OPTMASK = OPTMASK;
+
+  sprintf(INPUTS_PySEDMODEL.PATH,          "%s", PATH_VERSION);
+  sprintf(INPUTS_PySEDMODEL.ARGLIST,       "%s", ARGLIST );
+  sprintf(INPUTS_PySEDMODEL.NAMES_HOSTPAR, "%s", NAMES_HOSTPAR );
 
   // split comma-separated HOSTPAR_NAMES and store each 
   // name separately (for debug dumps)
-  for(ipar=0; ipar < MXHOSTPAR_BYOSED; ipar++ ) 
-    { INPUTS_BYOSED.NAME_ARRAY_HOSTPAR[ipar] = (char*)malloc(60*MEMC);  }
-  splitString(NAMES_HOSTPAR, comma, MXHOSTPAR_BYOSED, 
-	      &NPAR, INPUTS_BYOSED.NAME_ARRAY_HOSTPAR );
+  for(ipar=0; ipar < MXHOSTPAR_PySEDMODEL; ipar++ ) 
+    { INPUTS_PySEDMODEL.NAME_ARRAY_HOSTPAR[ipar] = (char*)malloc(60*MEMC);  }
+
+  splitString(NAMES_HOSTPAR, comma, MXHOSTPAR_PySEDMODEL, 
+	      &NPAR, INPUTS_PySEDMODEL.NAME_ARRAY_HOSTPAR );
   
   // - - - - - - - - - - -
   // print summary of filter info
   filtdump_SEDMODEL();
 
   // init a few C struct items
-  Event_BYOSED.LAST_EXTERNAL_ID = -9;
-  Event_BYOSED.LAM  = (double*) malloc( MXLAM_BYOSED*MEMD ) ;
-  Event_BYOSED.SED  = (double*) malloc( MXLAM_BYOSED*MEMD ) ;
+  Event_PySEDMODEL.LAST_EXTERNAL_ID = -9;
+  Event_PySEDMODEL.LAM  = (double*) malloc( MXLAM_PySEDMODEL*MEMD ) ;
+  Event_PySEDMODEL.SED  = (double*) malloc( MXLAM_PySEDMODEL*MEMD ) ;
 
   SEDMODEL_MWEBV_LAST     = -999.   ;
   SEDMODEL_HOSTXT_LAST.AV = -999.   ;
@@ -134,22 +171,26 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
 
 #endif
 
-
+  
 #ifdef USE_PYTHON
-  printf("\t Begin python-init from C code ... \n");
+  printf("\t Begin %s python-init from C code ... \n", MODEL_NAME );
   Py_Initialize();
   int nResult1 = PyRun_SimpleStringFlags("import numpy", NULL);
   int nResult2 = PyRun_SimpleStringFlags("import os", NULL);
   int nResult3 = PyRun_SimpleStringFlags("import optparse",NULL);
   int nResult4 = PyRun_SimpleStringFlags("import configparser",NULL);
-  genmod = PyImport_ImportModule("genmag_BYOSED");
+
+  // xxxx  genmod = PyImport_ImportModule("genmag_BYOSED"); 
+  genmod = PyImport_ImportModule(PyFUN_NAME); 
+
   if (genmod == NULL) {
-    sprintf(c1err,"Could not import class genmag_BYOSED");
+    sprintf(c1err,"Could not import class %s", PyFUN_NAME); 
     sprintf(c2err,"2nd message ??");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  genclass = PyObject_GetAttrString(genmod, "genmag_BYOSED");
+  // xxxx  genclass = PyObject_GetAttrString(genmod, "genmag_BYOSED"); 
+  genclass = PyObject_GetAttrString(genmod, PyFUN_NAME); 
   if (genclass == NULL) {
     sprintf(c1err,"Could not import PyObject_GetAttrString module");
     sprintf(c2err,"2nd message ??");
@@ -157,8 +198,8 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   }
 
   pargs  = Py_BuildValue("(siss)",PATH_VERSION,OPTMASK,ARGLIST,NAMES_HOSTPAR);
-  geninit_BYOSED = PyEval_CallObject(genclass, pargs);
-  if (geninit_BYOSED == NULL) {
+  geninit_PySEDMODEL = PyEval_CallObject(genclass, pargs);
+  if (geninit_PySEDMODEL == NULL) {
     sprintf(c1err,"Could not run PyEval_CallObject module");
     sprintf(c2err,"2nd message ??");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
@@ -168,37 +209,66 @@ void init_genmag_BYOSED(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   Py_DECREF(genclass);
   Py_DECREF(pargs);
 
-  printf("\t Finished python-init from C code \n");
-#endif
-  
+  printf("\t Finished %s python-init from C code \n", MODEL_NAME );
+#endif  
+
   // -----------------------------------------------------
   // set SED par names and allocate arrays for parameters
-  Event_BYOSED.PARVAL  = (double*) malloc ( MXPAR_BYOSED*MEMD );
-  Event_BYOSED.PARNAME = (char**)  malloc ( MXPAR_BYOSED*sizeof(char*) );
-  Event_BYOSED.NPAR    = 0 ;
-  for(ipar=0; ipar < MXPAR_BYOSED; ipar++ ) 
-    { Event_BYOSED.PARNAME[ipar] = (char*) malloc(40*MEMC);  }
+  Event_PySEDMODEL.PARVAL  = (double*) malloc(MXPAR_PySEDMODEL*MEMD );
+  Event_PySEDMODEL.PARNAME = (char**)  malloc(MXPAR_PySEDMODEL*sizeof(char*) );
+  Event_PySEDMODEL.NPAR    = 0 ;
+  for(ipar=0; ipar < MXPAR_PySEDMODEL; ipar++ ) 
+    { Event_PySEDMODEL.PARNAME[ipar] = (char*) malloc(40*MEMC);  }
 
 #ifdef USE_PYTHON
-  NPAR = fetchParNames_BYOSED(Event_BYOSED.PARNAME);
-  Event_BYOSED.NPAR = NPAR;
-  printf("\t BYOSED parameters to store in data files:\n");
-  for(ipar=0; ipar < NPAR; ipar++ ) 
-    { printf("\t\t %s \n", Event_BYOSED.PARNAME[ipar] ); }
+  NPAR = fetchParNames_PySEDMODEL(Event_PySEDMODEL.PARNAME);
+#else
+  NPAR = 2;  // test with C code only
+  sprintf(Event_PySEDMODEL.PARNAME[0],"TEST0");
+  sprintf(Event_PySEDMODEL.PARNAME[1],"TEST1");
 #endif
+
+  Event_PySEDMODEL.NPAR = NPAR;
+  printf("\t %s parameters to store in data files:\n", MODEL_NAME); 
+  for(ipar=0; ipar < NPAR; ipar++ ) 
+    { printf("\t\t %s \n", Event_PySEDMODEL.PARNAME[ipar] ); }
 
   // - - - - 
   printf("\n\t Done with %s \n", fnam);
 
   return ;
 
-} // end init_BYOSED
+} // end init_genmag_PySEDMODEL
 
 // =========================================================
-void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double zCMB, double MU, 
-		   double MWEBV, int NHOSTPAR, double *HOSTPAR_LIST,
-		   int IFILT_OBS, int NOBS, double *TOBS_list, 
-		   double *MAGOBS_list, double *MAGERR_list ) {
+void get_MODEL_NAME_PySEDMODEL(char *PATH,char *MODEL_NAME) {
+
+  // For input PATH, return MODEL_NAME
+
+  int i;
+  char *ptrModel;
+  char fnam[] = "get_MODEL_NAME_PySEDMODEL" ;
+  // ----------- BEGIN -----------
+
+  // load all possible model choices
+  load_PySEDMODEL_CHOICE_LIST();
+
+  MODEL_NAME[0] = 0;
+  for ( i=0; i < NCHOICE_PySEDMODEL; i++  ) {
+    ptrModel = PySEDMODEL_CHOICE_LIST[i] ;
+    if ( strstr(PATH,ptrModel) ) { sprintf(MODEL_NAME, "%s", ptrModel); }
+  }
+
+  if ( strlen(MODEL_NAME) == 0 ) {   }
+
+  return;
+} // end get_MODEL_NAME
+
+// =========================================================
+void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU, 
+		       double MWEBV, int NHOSTPAR, double *HOSTPAR_LIST,
+		       int IFILT_OBS, int NOBS, double *TOBS_list, 
+		       double *MAGOBS_list, double *MAGERR_list ) {
 
   // Created Sep 2018
   //
@@ -218,12 +288,15 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   //   MAGERR_list   : list of mag errors (place-holder, in case)
   //
 
+  char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
+  char *PyFUN_NAME = INPUTS_PySEDMODEL.PyFUN_NAME ;
+
   double RV_host = HOSTPAR_LIST[0];
   double AV_host = HOSTPAR_LIST[1];
   double FLUXSUM_MIN = 1.0E-30 ;
   double z1    = 1.0 + zHEL ;
-  double *LAM  = Event_BYOSED.LAM;
-  double *SED  = Event_BYOSED.SED ;
+  double *LAM  = Event_PySEDMODEL.LAM;
+  double *SED  = Event_PySEDMODEL.SED ;
 
   int  ifilt  = IFILTMAP_SEDMODEL[IFILT_OBS] ; // sparse filter index
   double  ZP  = FILTER_SEDMODEL[ifilt].ZP ;    // ZP for flux->mag
@@ -234,7 +307,7 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   int    NLAM, o, ipar ;
   double Tobs, Trest, FLUXSUM_OBS, FspecDUM[2], magobs ; 
   char   pyFORMAT_STRING_HOSTPAR[100] ;;
-  char fnam[] = "genmag_BYOSED" ;
+  char fnam[] = "genmag_PySEDMODEL" ;
 
    #ifdef USE_PYTHON
   // python declarations here
@@ -247,7 +320,7 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
 
   // check of this is a new event, or same event
   // with different epoch
-  if ( EXTERNAL_ID != Event_BYOSED.LAST_EXTERNAL_ID )
+  if ( EXTERNAL_ID != Event_PySEDMODEL.LAST_EXTERNAL_ID )
     { NEWEVT_FLAG=1; }
 
 
@@ -258,7 +331,7 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
 	   fnam, EXTERNAL_ID);
     for(ipar=0; ipar < NHOSTPAR; ipar++ ) {
       printf(" xxx (%2d) %-20s = %f \n", ipar,
-	     INPUTS_BYOSED.NAME_ARRAY_HOSTPAR[ipar], 
+	     INPUTS_PySEDMODEL.NAME_ARRAY_HOSTPAR[ipar], 
 	     HOSTPAR_LIST[ipar] );
     }
     fflush(stdout);
@@ -293,15 +366,16 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
     Tobs  = TOBS_list[o];
     Trest = Tobs/z1;
 
-    fetchSED_BYOSED(EXTERNAL_ID, NEWEVT_FLAG, Trest, 
-		    MXLAM_BYOSED, HOSTPAR_LIST, &NLAM, LAM, SED, pyFORMAT_STRING_HOSTPAR);  
-    Event_BYOSED.NLAM = NLAM ;
+    fetchSED_PySEDMODEL(EXTERNAL_ID, NEWEVT_FLAG, Trest, 
+			MXLAM_PySEDMODEL, HOSTPAR_LIST, &NLAM, LAM, SED, 
+			pyFORMAT_STRING_HOSTPAR);  
+    Event_PySEDMODEL.NLAM = NLAM ;
 
     // integrate redshifted SED to get observer-frame flux in IFILT_OBS band.
     // FLUXSUM_OBS is returned (ignore FspecDUM)
-    INTEG_zSED_BYOSED(0, IFILT_OBS, Tobs, zHEL, x0,RV_host,AV_host, 
-		      NLAM, LAM, SED, 
-		      &FLUXSUM_OBS, FspecDUM ); // <= returned 
+    INTEG_zSED_PySEDMODEL(0, IFILT_OBS, Tobs, zHEL, x0,RV_host,AV_host, 
+			  NLAM, LAM, SED, 
+			  &FLUXSUM_OBS, FspecDUM ); // <= returned 
 
     // convert calibrated flux into true magnitude
     if ( FLUXSUM_OBS > FLUXSUM_MIN ) 
@@ -317,16 +391,16 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   // write them to data files
   // hack
   if ( NEWEVT_FLAG ) { 
-    fetchParVal_BYOSED(Event_BYOSED.PARVAL); 
+    fetchParVal_PySEDMODEL(Event_PySEDMODEL.PARVAL); 
   }
 
   // keep track of last ID
-  Event_BYOSED.LAST_EXTERNAL_ID = EXTERNAL_ID ;
+  Event_PySEDMODEL.LAST_EXTERNAL_ID = EXTERNAL_ID ;
 
   return ;
 
 
-} // end genmag_BYOSED
+} // end genmag_PySEDMODEL
 
 
 // ============================================================
@@ -335,7 +409,7 @@ void genmag_BYOSED(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
 
 
 // ================================================
-int fetchParNames_BYOSED(char **parNameList) {
+int fetchParNames_PySEDMODEL(char **parNameList) {
 
   // Pass name of each parameter to calling function, so that
   // these parameters can be included in the data files.
@@ -344,8 +418,10 @@ int fetchParNames_BYOSED(char **parNameList) {
   //
   // Called once during init stage.
 
+  char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
+  char pyfun_tmp[80];
   int NPAR = 0 ;
-  //  char fnam[] = "fetchParNames_BYOSED" ;
+  //  char fnam[] = "fetchParNames_PySEDMODEL" ;
 
 #ifdef USE_PYTHON
   // python declarations here
@@ -355,8 +431,18 @@ int fetchParNames_BYOSED(char **parNameList) {
   PyListObject *arrNames;
   printf("fetching parameter names from Python\n");
   // David: need your python magic to return these string names.
-  parnamesmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchParNames_BYOSED");
-  pNPARmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchNParNames_BYOSED");
+
+
+  sprintf(pyfun_tmp, "fetchParNames_%s", MODEL_NAME); 
+  parnamesmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
+  //xx  parnamesmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, 
+  //xx					 "fetchParNames_BYOSED"); 
+
+  sprintf(pyfun_tmp, "fetchNParNames_%s", MODEL_NAME ); 
+  pNPARmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
+  // xxx  pNPARmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, 
+  // xxx			      "fetchNParNames_BYOSED"); 
+
   pNames  = PyEval_CallObject(parnamesmeth, NULL);
   pNPAR  = PyEval_CallObject(pNPARmeth, NULL);
 
@@ -379,10 +465,10 @@ int fetchParNames_BYOSED(char **parNameList) {
   
   return(NPAR) ;
 
-} // fetchParNames_BYOSED
+} // fetchParNames_PySEDMODEL
 
 
-void fetchParVal_BYOSED(double *parVal) {
+void fetchParVal_PySEDMODEL(double *parVal) {
 
   // return list of parameters to calling function (sim)
   // so that these parameters can be included in the
@@ -393,18 +479,23 @@ void fetchParVal_BYOSED(double *parVal) {
 #ifdef USE_PYTHON  
   PyObject *parvalmeth,*pParVal,*pargs;
 #endif
+  char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
   double val;
-  char **parNameList;
+  char **parNameList, pyfun_tmp[60] ;
   int NPAR, ipar;
-  //  char fnam[] = "fetchParVal_BYOSED" ;
+  //  char fnam[] = "fetchParVal_PySEDMODEL" ;
 
   // ------------- BEGIN ------------------
 
-  NPAR = Event_BYOSED.NPAR; //fetchParNames_BYOSED(parNameList);
-  parNameList = Event_BYOSED.PARNAME;
+  NPAR = Event_PySEDMODEL.NPAR; 
+  parNameList = Event_PySEDMODEL.PARNAME;
   // David: need python function to return these values.
 #ifdef USE_PYTHON
-  parvalmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchParVals_BYOSED_4SNANA");
+
+  sprintf(pyfun_tmp, "fetchParVals_%s_4SNANA", MODEL_NAME ); 
+  parvalmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
+  // xxx  parvalmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, 
+  // xxx			       "fetchParVals_BYOSED_4SNANA"); 
 
   for(ipar=0; ipar < NPAR; ipar++ ) {
     pargs  = Py_BuildValue("(s)",parNameList[ipar]);
@@ -420,19 +511,19 @@ void fetchParVal_BYOSED(double *parVal) {
   
 #ifndef USE_PYTHON
   for(ipar=0; ipar < NPAR; ipar++ ) {
-    val = -999.0; parVal[ipar] = val;
+    val = 100.0 + (double)ipar ; parVal[ipar] = val;
   }
 #endif
 
   return ;
 
-} // end fetchParVal_BYOSED
+} // end fetchParVal_PySEDMODEL
 
 // =================================================
-void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
-		     double *HOSTPAR_LIST, int *NLAM_SED, 
-		     double *LAM_SED, double *FLUX_SED,
-		     char *pyFORMAT_STRING_HOSTPAR) {
+void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
+			 double *HOSTPAR_LIST, int *NLAM_SED, 
+			 double *LAM_SED, double *FLUX_SED,
+			 char *pyFORMAT_STRING_HOSTPAR) {
 
   // return rest-frame SED to calling function; 
   // Inputs:
@@ -449,7 +540,9 @@ void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
   //               Note that this is flux, not dF/dLam
   //
 
-  char fnam[] = "fetchSED_BYOSED" ;
+  char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
+  char pyfun_tmp[60];
+  char fnam[] = "fetchSED_PySEDMODEL" ;
 
   // ------------ BEGIN -----------
 
@@ -462,10 +555,15 @@ void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
   PyObject *pylamitem, *pyfluxitem;
   //int numpy_initialized =  init_numpy();
 
-  // python declarations here
-  pmeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_BYOSED");
-  plammeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_LAM");
-  pnlammeth  = PyObject_GetAttrString(geninit_BYOSED, "fetchSED_NLAM");
+  // python declarations here  
+  sprintf(pyfun_tmp, "fetchSED_%s", MODEL_NAME );
+  pmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
+
+  // xxx  pmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, 
+  // xxx			  "fetchSED_BYOSED"); // .xyz
+
+  plammeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchSED_LAM");
+  pnlammeth = PyObject_GetAttrString(geninit_PySEDMODEL, "fetchSED_NLAM");
 
   pargs = PyTuple_New(5);
   pargs2 = PyTuple_New(sizeof(HOSTPAR_LIST));
@@ -489,11 +587,11 @@ void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
   NLAM = PyFloat_AsDouble(pNLAM);
   Py_DECREF(pNLAM);
   
-  arrLAM = (PyListObject *)(pLAM);
+  arrLAM  = (PyListObject *)(pLAM);
   arrFLUX = (PyListObject *)(pFLUX);
   for(ilam=0; ilam < NLAM; ilam++ ) {
     // interpolate flux to Trest
-    pylamitem = PyList_GetItem(arrLAM,ilam);
+    pylamitem  = PyList_GetItem(arrLAM,ilam);
     pyfluxitem = PyList_GetItem(arrFLUX,ilam);
 
     LAM_SED[ilam]  = PyFloat_AsDouble(pylamitem);
@@ -551,15 +649,15 @@ void fetchSED_BYOSED(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
 
   return;
 
-} // end fetchSED_BYOSED
+} // end fetchSED_PySEDMODEL
 
 
 // =====================================================
-void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs, 
-		       double zHEL, double x0, 
-		       double RV_host, double AV_host,
-		       int NLAM, double *LAM, double *SED,
-		       double *Finteg, double *Fspec ) {
+void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs, 
+			   double zHEL, double x0, 
+			   double RV_host, double AV_host,
+			   int NLAM, double *LAM, double *SED,
+			   double *Finteg, double *Fspec ) {
 
   // Created Dec 2018 by R.K.
   // Return integrated obs-frame flux in filter passband 
@@ -612,7 +710,7 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
   double Finteg_filter=0.0, Finteg_spec=0.0 ;
 
   //  int  LDMP = 0 ;
-  char fnam[]  = "INTEG_zSED_BYOSED" ;
+  char fnam[]  = "INTEG_zSED_PySEDMODEL" ;
 
   // ------------- BEGIN -----------
 
@@ -686,7 +784,7 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
     // loop over rest-frame lambda (for SPECTROGRAPH)
     for(LAMSED = LAMSED_MIN; LAMSED <= LAMSED_MAX; LAMSED+=LAMSED_STEP ) {
 
-      // find rest-frame bin for BYOSED ... note that non-uniform
+      // find rest-frame bin for PySEDMODEL ... note that non-uniform
       // bins are allowed, but non-uniform might lead to trouble elsewhere.
       ilamsed = quickBinSearch(LAMSED, NLAM,LAM, fnam);
       if ( ilamsed >= NLAM-2 ) { ilamsed=NLAM-3; }
@@ -733,18 +831,18 @@ void INTEG_zSED_BYOSED(int OPT_SPEC, int ifilt_obs, double Tobs,
 
   return;
 
-} // end INTEG_zSED_BYOSED
+} // end INTEG_zSED_PySEDMODEL
 
 
 // ====================================================
-void genSpec_BYOSED(double Tobs, double zHEL, double MU,
-		    double MWEBV,                   // (I) galactic 
-		    double RV_host, double AV_host, // (I) host	     
-		    double *GENFLUX_LIST,           // (O) fluxGen per bin 
-		    double *GENMAG_LIST ) {         // (O) magGen per bin
+void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
+			double MWEBV,                   // (I) galactic 
+			double RV_host, double AV_host, // (I) host	     
+			double *GENFLUX_LIST,           // (O) fluxGen per bin 
+			double *GENMAG_LIST ) {         // (O) magGen per bin
 
   // March 2019
-  // Return BYOSED spectrum in SPECTROGRAPH bins
+  // Return PySEDMODEL spectrum in SPECTROGRAPH bins
   //
 
   double hc8   = (double)hc ;
@@ -753,19 +851,19 @@ void genSpec_BYOSED(double Tobs, double zHEL, double MU,
   int NBLAM    = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   int ilam ;
   double Finteg_ignore, FTMP, MAG, ZP, LAM ;
-  //  char fnam[] = "genSpec_BYOSED" ;
+  //  char fnam[] = "genSpec_PySEDMODEL" ;
 
   // --------- BEGIN ------------
 
   // init entire spectum to zero.
   for(ilam=0; ilam < NBLAM; ilam++ ) { GENFLUX_LIST[ilam] = 0.0 ; }
 
-  INTEG_zSED_BYOSED(1, JFILT_SPECTROGRAPH, Tobs, zHEL, x0, 
-		    RV_host, AV_host, 
-		    Event_BYOSED.NLAM,
-		    Event_BYOSED.LAM, 
-		    Event_BYOSED.SED, 
-		    &Finteg_ignore, GENFLUX_LIST ); // <= returned 
+  INTEG_zSED_PySEDMODEL(1, JFILT_SPECTROGRAPH, Tobs, zHEL, x0, 
+			RV_host, AV_host, 
+			Event_PySEDMODEL.NLAM,
+			Event_PySEDMODEL.LAM, 
+			Event_PySEDMODEL.SED, 
+			&Finteg_ignore, GENFLUX_LIST ); // <= returned 
 
 
   // convert generated fluxes into mags
@@ -785,7 +883,7 @@ void genSpec_BYOSED(double Tobs, double zHEL, double MU,
 
   return ;
 
-} // end genSpec_BYOSED
+} // end genSpec_PySEDMODEL
 
 
 // =====================================

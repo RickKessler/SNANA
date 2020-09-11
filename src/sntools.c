@@ -8372,14 +8372,15 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
       }
     }
 
-    // BYOSED info (Dec 2018) 
-    if ( SNDATA.NPAR_BYOSED > 0 ) {
+    // PySEDMODEL info for BYOSED, SNEMO
+    if ( SNDATA.NPAR_PySEDMODEL > 0 ) {
       fprintf(fp,"\n");
-      fprintf(fp,"BYOSED_NPAR: %d \n", SNDATA.NPAR_BYOSED );
-      for ( ipar = 0; ipar < SNDATA.NPAR_BYOSED; ipar++ ) {
+      fprintf(fp,"%s_NPAR: %d \n",   // .xyz
+	      SNDATA.SIM_MODEL_NAME, SNDATA.NPAR_PySEDMODEL ); // .xyz
+      for ( ipar = 0; ipar < SNDATA.NPAR_PySEDMODEL; ipar++ ) {
 	fprintf(fp,"%s:  %f \n"
-		,SNDATA.BYOSED_KEYWORD[ipar]
-		,SNDATA.BYOSED_PARVAL[ipar] );
+		,SNDATA.PySEDMODEL_KEYWORD[ipar]
+		,SNDATA.PySEDMODEL_PARVAL[ipar] );
       }
     }
 

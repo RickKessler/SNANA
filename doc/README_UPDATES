@@ -18900,4 +18900,32 @@
    submit_batch :
      + working but not yet integrated into Pippin.
 
+
+# ======================================================================= 
+         v10_78c (  ) 
+
+         ***** IMPORTANT(v10_78c) ***** 
+
+         ***** USEFUL(v10_78c) ***** 
+
+         ***** MISCELLANEOUS(v10_78c) ***** 
+
+   snana.car
+     + remove MADABORT_LEGACY, SNLCINP_OVERRIDE_LEGACY
+     + remove CUTBIT_USRCUTS
+     + refactor LCUTEPOCH to accep EPOCH index
+     + new &SNLCINP  CUTWIN_SNR_NODETECT
+     + for text format, allow REDSHIFT_CMB or REDSHIFT_FINAL
+         (FITS format still has REDSHIFT_HELIO and REDSHIFT_FINAL)
+
+   snlc_sim.c
+     + remove OPT_DEVEL_GENPDF[READ_INPUT]  
+     + remove legacy input-reading functions 
+
+   genmag_BYOSED.c[h] renamed -> genmag_PySEDMODEL.cp[h]
+     + generalize to allow genmag_BYOSED.py and genmag_SNEMO.py
+     + declare and parse new model SNEMO (but no SNEMO functions yet)
+     + checked that PySEDMODEL params propagate to data files and 
+       output tables.
+
 END: 

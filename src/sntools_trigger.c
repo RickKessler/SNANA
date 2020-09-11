@@ -878,7 +878,6 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
 
   //  printf(" xxx logic file -> '%s' \n", logicFile); 
 
-  printf(" xxx %s:  OPTMASK = %d\n", fnam, OPTMASK);
   fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, logicFile,
 			  ptrFile_final, &gzipFlag ); // returned
 

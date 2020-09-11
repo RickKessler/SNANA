@@ -78,6 +78,7 @@ c
      &  ,MODEL_SALT2, MODEL_SALT3
      &  ,MODEL_SIMSED
      &  ,MODEL_BYOSED
+     &  ,MODEL_SNEMO
      &  ,MODEL_NON1A
      &  ,MODEL_LCLIB    ! Sep 2017
      &  ,MODEL_FIXMAG   ! force mags to user-value
@@ -266,6 +267,7 @@ c
      &  ,MODEL_SALT3      = 9 ! May 31 2019
      &  ,MODEL_SIMSED     = 7
      &  ,MODEL_BYOSED     = 8 
+     &  ,MODEL_SNEMO      = 9
      &  ,MODEL_NON1A      = 10
      &  ,MODEL_LCLIB      = 12
      &  ,MODEL_FIXMAG     = 20
@@ -771,7 +773,6 @@ c
      &  ,ISNLC_NFIELD_OVP       ! number of fields (>=2 for overlap)
      &  ,ISNLC_CUTFLAG_REQEP        ! idem
      &  ,ISNLC_CUTFLAG_PRIVATE      ! idem for private var cuts
-     &  ,ISNLC_CUTFLAG_USRCUTS      ! idem for USRCUTS
      &  ,ISNLC_CUTFLAG_SIMVAR       ! idem for SIMVAR cuts
      &  ,ISNLC_WRMASK_FLUXCOR_SNANA   ! write if fudges applied to data
      &  ,ISNLC_RDMASK_FLUXCOR_SNANA   ! read if SNANA fudges applied to data
@@ -934,7 +935,7 @@ c
      &    ,ISNLC_NFILT_TREST2
      &    ,ISNLC_IDTEL, ISNLC_IDFIELD, ISNLC_NFIELD_OVP
      &    ,ISNLC_CUTFLAG_REQEP
-     &    ,ISNLC_CUTFLAG_PRIVATE, ISNLC_CUTFLAG_USRCUTS
+     &    ,ISNLC_CUTFLAG_PRIVATE
      &    ,ISNLC_CUTFLAG_SIMVAR
      &    ,ISNLC_WRMASK_FLUXCOR_SNANA, ISNLC_RDMASK_FLUXCOR_SNANA
 
@@ -1039,7 +1040,7 @@ c simulation parameters (if FAKE=2)
      &  ,SIM_EPMAGREST(MXEPOCH)     ! true rest-frame mag
      &  ,SIM_EPFLUXCAL_HOSTERR(MXEPOCH) ! true error from host noise
      &  ,SIMSED_PARVAL(MXPAR_SIMSED)
-     &  ,BYOSED_PARVAL(MXPAR_SIMSED)    ! Dec 10 2018
+     &  ,PySEDMODEL_PARVAL(MXPAR_SIMSED)    ! Dec 10 2018
      &  ,LCLIB_PARVAL(MXPAR_LCLIB)
      &  ,SIM_HOSTLIB_PARVAL(MXPAR_SIMSED) ! HOSTLIB params
      &  ,SIM_MAGSMEAR_COH
@@ -1064,7 +1065,7 @@ c
      &  ,SIMOPT_MWCOLORLAW    ! option for MW color law
      &  ,SIMOPT_MWEBV         ! option to modify MWEBV_SFD map
      &  ,NPAR_SIMSED
-     &  ,NPAR_BYOSED
+     &  ,NPAR_PySEDMODEL      ! BYOSED, SNEMO ...
      &  ,NPAR_LCLIB
      &  ,NPAR_SIM_HOSTLIB
      &  ,SIM_EPFILTREST(MXEPOCH)
@@ -1086,8 +1087,9 @@ c
      &  ,SIMLIB_FILENAME*200  ! SIMLIB file used to generate sim
      &  ,SIMSED_KEYWORD(MXPAR_SIMSED)*80 ! full keyname in header
      &  ,SIMSED_PARNAME(MXPAR_SIMSED)*20 ! parname for fitres and ntuple
-     &  ,BYOSED_KEYWORD(MXPAR_SIMSED)*80 ! full keyname in header
-     &  ,BYOSED_PARNAME(MXPAR_SIMSED)*20 ! parname for fitres and ntuple
+     &  ,PySEDMODEL_NAME*20              ! e.g., 'BYOSED' , 'SNEMO'
+     &  ,PySEDMODEL_KEYWORD(MXPAR_SIMSED)*80 ! full keyname in header
+     &  ,PySEDMODEL_PARNAME(MXPAR_SIMSED)*20 ! parname for fitres and ntuple
      &  ,LCLIB_KEYWORD(MXPAR_LCLIB)*80 ! full keyname in header
      &  ,LCLIB_PARNAME(MXPAR_LCLIB)*20 ! parname for fitres and ntuple
      &  ,SIM_HOSTLIB_KEYWORD(MXPAR_SIMSED)*60 ! full keyname
@@ -1117,8 +1119,9 @@ c
       COMMON / SIMSEDCOM /
      &  NPAR_SIMSED, SIMSED_PARVAL, SIMSED_PARNAME, SIMSED_KEYWORD
 
-      COMMON / BYOSEDCOM /
-     &   NPAR_BYOSED, BYOSED_PARVAL, BYOSED_PARNAME, BYOSED_KEYWORD
+      COMMON / PySEDCOM /
+     &   PySEDMODEL_NAME, NPAR_PySEDMODEL, PySEDMODEL_PARVAL, 
+     &   PySEDMODEL_PARNAME, PySEDMODEL_KEYWORD
 
       COMMON / LCLIBCOM / 
      &   NPAR_LCLIB, LCLIB_PARVAL, LCLIB_KEYWORD, LCLIB_PARNAME
@@ -1528,7 +1531,6 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_REQEP          ! required epochs (to select short events)
      &  ,CUTBIT_PRIVATE        ! all private-var cuts together (Nov 3 2014)
      &  ,CUTBIT_SIMVAR         ! SIMVAR cuts
-     &  ,CUTBIT_USRCUTS        ! user cuts from private code (Aug 2015)
      &  ,CUTBIT_OFFSET_SBFLUX  ! host surface brightness
      &  ,CUTBIT_OFFSET_SNRMAX  ! SNRMAX cuts in each filter     
      &  ,CUTBIT_MJD_MARKER     ! things above do NOT depend on epoch
@@ -1579,9 +1581,9 @@ c User must fill cutwin_XXX arrays in main routine.
      &  ,CUTBIT_REQEP          = 30  ! required epochs (9/17/2017)
      &  ,CUTBIT_PRIVATE        = 31  ! all private-var cuts
      &  ,CUTBIT_SIMVAR         = 32  ! 
-     &  ,CUTBIT_USRCUTS        = 33  ! PASS_USRCUTS=T
-     &  ,CUTBIT_OFFSET_SBFLUX  = 34  ! Mar 2012
-     &  ,CUTBIT_OFFSET_SNRMAX  = 34 + MXFILT_SNRMAX
+cc xxx     &  ,CUTBIT_USRCUTS        = 33  ! PASS_USRCUTS=T
+     &  ,CUTBIT_OFFSET_SBFLUX  = 33  ! Mar 2012
+     &  ,CUTBIT_OFFSET_SNRMAX  = 33 + MXFILT_SNRMAX
      &  ,CUTBIT_MJD_MARKER     = CUTBIT_OFFSET_SNRMAX + MXFILT_SNRMAX
      &  ,NCUTBIT_SNLC          = CUTBIT_MJD_MARKER
 c SN-dependent cuts above
@@ -1612,7 +1614,6 @@ c Define cut-masks with 64-BIT integers
 
       LOGICAL
      &   LSNCUTS       ! T=> passes cuts 1 to CUTBIT_MJD_MARKER
-     &  ,PASS_USRCUTS  ! T=> user cuts with private code (Oct 2014)
      &  ,PASS_PRIVCUTS ! T=> pass cuts on private var in data header
      &  ,PASS_SIMCUTS  ! T=> pass cuts on SIMVAR
     
@@ -1684,7 +1685,6 @@ c define namelist cuts
      &  ,cutwin_cutflag_reqep(2)       ! for internal use only
      &  ,cutwin_cutflag_private(2)     ! for internal use only
      &  ,cutwin_cutflag_simvar(2)      ! for internal use only
-     &  ,cutwin_cutflag_usrcuts(2)     ! for internal use only
      &  ,cutwin_nfilt_snrmax(2)  ! Nfilt passing global SNRMAX cut
      &  ,cutwin_nfilt_snrmax2(2) ! Nfilt passing 2nd-best SNRMAX
      &  ,cutwin_nfilt_trestmin(2)! Nfilt passing Trestmin cut
@@ -1723,6 +1723,7 @@ c  Below are Epoch-dependent cuts
      &  ,cutwin_restlam(2)                ! cut on <LAMREST>, no cutBit
      &  ,cutwin_lamrest(2)                ! same as above
      &  ,cutwin_lamobs(2)                 ! cut on <LAMOBS>, no cutBit
+     &  ,cutwin_snr_nodetect(2)    ! SNR cut for non-detections (Sep 2020)
 c
 c define character strings to specify cuts and filters
 c 'SNCUT' specifies cut on each SN
@@ -1805,7 +1806,7 @@ c
      &   ,cutwin_var, cutvar_name
      &   ,snlc_cutvar, snep_cutvar
      &   ,cutwin_snrmin_filt, LSNCUTS
-     &   ,PASS_USRCUTS, PASS_PRIVCUTS, PASS_SIMCUTS
+     &   ,PASS_PRIVCUTS, PASS_SIMCUTS
      &   ,CUTFLAG_SNANA , ERRFLAG_FIT 
      &   ,NCCID_LIST, NCCID_IGNORE, NCID_LIST, NCID_IGNORE
      &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST, SNCCID_LIST_ALL
@@ -1883,7 +1884,6 @@ ccc mark delete      COMMON / CIDMASKCOM / MJDMASK,CIDMASK
      &   ,( cutwin_var(1,cutbit_reqep),        cutwin_cutflag_reqep)
      &   ,( cutwin_var(1,cutbit_private),      cutwin_cutflag_private)
      &   ,( cutwin_var(1,cutbit_simvar),       cutwin_cutflag_simvar)
-     &   ,( cutwin_var(1,cutbit_usrcuts),      cutwin_cutflag_usrcuts)
      &   ,( cutwin_var(1,cutbit_offset_sbflux+1), cutwin_sbflux_filt)
      &   ,( cutwin_var(1,cutbit_offset_snrmax+1), cutwin_snrmax_filt)
 c
@@ -1965,11 +1965,11 @@ c
      &  ,JOBSPLIT(2)             ! process (1)-range of (2)=TOTAL
      &  ,JOBSPLIT_EXTERNAL(2)    ! passed by split_and_fit for text format 
      &  ,MXLC_FIT                ! stop after this many fits passing all cuts
-     &  ,PHOTFLAG_DETECT         ! used to count NOBS_DETECT and TLIVE_DETECT
+     &  ,PHOTFLAG_DETECT         ! used to count NEPOCH_DETECT and TLIVE_DETECT
      &  ,PHOTFLAG_TRIGGER        ! determine MJD(trigger) for survey
      &  ,FLUXERRMODEL_OPTMASK
      &  ,OPT_SIMLIB_OUT          ! bit mask of SIMLIB_OUT options
-     &  ,SIMLIB_OUT_TMINFIX  ! choose PEAKMJD such that min(MJD-PEAKMJ) = TMINFIX
+     &  ,SIMLIB_OUT_TMINFIX  ! choose PEAKMJD so that min(MJD-PEAKMJD)=TMINFIX
      &  ,REQUIRE_DOCANA
 
       LOGICAL 
@@ -2087,9 +2087,8 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , ABORT_ON_BADHEADER, ABORT_ON_BADFILTER
      &    , SNCUT_SNRMAX, SNCUT_HOST_SBFLUX
      &    , EPCUT_SNRMIN, EPCUT_SKYSIG, EPCUT_PSFSIG
-     &    , CUTWIN_LAMREST, CUTWIN_LAMOBS
-     &    , PRIVATE_CUTWIN_STRING
-     &    , SIMVAR_CUTWIN_STRING
+     &    , CUTWIN_LAMREST, CUTWIN_LAMOBS, cutwin_snr_nodetect
+     &    , PRIVATE_CUTWIN_STRING, SIMVAR_CUTWIN_STRING
      &    , NSIMVAR_CUTWIN, SIMVAR_CUTWIN, SIMVAR_CUTWIN_LIST
      &    , EARLYLC_STRING, REQUIRE_EPOCHS_STRING, DUMP_STRING
      &    , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT, DTOBS_MODEL_PLOT
@@ -2163,8 +2162,8 @@ c
      &   ,cutwin_nfilt_trestmin, cutwin_nfilt_trestmax
      &   ,cutwin_trest2, cutwin_nfilt_trest2
      &   ,cutwin_restlam, cutwin_lamrest, cutwin_lamobs
-     &   ,PRIVATE_CUTWIN_STRING
-     &   ,SIMVAR_CUTWIN_STRING
+     &   ,cutwin_snr_nodetect
+     &   ,PRIVATE_CUTWIN_STRING, SIMVAR_CUTWIN_STRING
      &   ,EARLYLC_STRING, REQUIRE_EPOCHS_STRING, DUMP_STRING
 c
      &   ,SNCUT_SNRMAX, SNCUT_HOST_SBFLUX
@@ -3569,9 +3568,6 @@ c hard-wire cut on private cut-flag (Nov 4 2014)
       CUTWIN_CUTFLAG_SIMVAR(1) = 0.99
       CUTWIN_CUTFLAG_SIMVAR(2) = 1.01
 
-      CUTWIN_CUTFLAG_USRCUTS(1) = 0.99
-      CUTWIN_CUTFLAG_USRCUTS(2) = 1.01
-
 c set reference cosmo params to defaults.
       H0_REF(1)   = H0_DEFAULT    * (1.0E6 * Parsec)
       H0_REF(2)   = H0ERR_DEFAULT * (1.0E6 * Parsec)
@@ -3674,7 +3670,6 @@ c check for namelist over-rides from command line.
 
      
       CALL SNLCINP_OVERRIDE()  ! refact with MATCH_NMLKEY (Enable 8.19.2020)
-cc      CALL SNLCINP_OVERRIDE_LEGACY() ! ancient function
 
 c check for cut on simulated search eff;
 c if set, then require SEARCHEFF_MASK = 3 =>
@@ -5256,6 +5251,11 @@ c - - - -
           READ(ARGLIST(1),*) CUTWIN_SNRMAX2(1)
           READ(ARGLIST(2),*) CUTWIN_SNRMAX2(2)
 
+        else if ( MATCH_NMLKEY('CUTWIN_SNR_NODETECT',
+     &            2, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*) CUTWIN_SNR_NODETECT(1)
+          READ(ARGLIST(2),*) CUTWIN_SNR_NODETECT(2)
+
         else if ( MATCH_NMLKEY('CUTWIN_PSF',
      &            2, iArg, ARGLIST) ) then
           READ(ARGLIST(1),*) CUTWIN_PSF(1)
@@ -5619,681 +5619,6 @@ c break comma-sep ARGSTRING into sub strings
       RETURN
       END    ! end MATCH_NMLKEY
 
-C ================================================
-+DECK,SNLCINP_OVERRIDE_LEGACY.
-      SUBROUTINE SNLCINP_OVERRIDE_LEGACY()
-
-c Feb 7, 2007
-c
-c Check command-line args for user-option to override
-c namelist values.
-c
-c Jan 25 2018: 
-c   use PARSE_INTLIST to parse comma-separated lists for
-c     SNCID_LIST, SNTYPE_LIST, CCDNUM_LIST, SNTYPE_IGNORE
-c
-c May 30 2019: call PARSE_NML_STRINGLIST for SNCCID_LIST
-c Jul 25 2020: remove unused IERR argument.
-c
-c ----------------------------
-      IMPLICIT NONE
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-
-c local var
-
-      INTEGER i, LL, ilast, iuse, NVERSLOC
-      CHARACTER STRING_LIST*60
-      LOGICAL LSNIGNORE
-
-c functions
-      INTEGER PARSE_INTLIST
-
-C -------------- BEGIN --------------
-
-      i = 2
-      ilast = 2
-      NVERSLOC = 0
-
-      DO WHILE ( i .LT. NLINE_ARGS )
-
-        LL = INDEX ( LINE_ARGS(i), ' ' ) - 1
-        print*,'     PROCESS COMMAND LINE ARG: ', LINE_ARGS(i)(1:LL)
-        CALL FLUSH(6)
-
-         LSNIGNORE = ( LINE_ARGS(i) .EQ. 'SNCID_IGNORE' ) .or.
-     &               ( LINE_ARGS(i) .EQ. 'SNCCID_IGNORE' )
-
-         if ( LINE_ARGS(i) .EQ. 'VERSION_PHOTOMETRY' ) then
-            i = i + 1   
-            NVERSLOC = NVERSLOC + 1
-            VERSION_PHOTOMETRY(NVERSLOC) = 
-     &           LINE_ARGS(i)(1:MXCHAR_VERSION)
-
-         else if ( LINE_ARGS(i) .EQ. 'VERSION_REPLACE' ) then
-            i = i + 1   
-            NVERSLOC = 1  ! ignore previous VERSION_PHOTOMETRY commands
-            VERSION_PHOTOMETRY(NVERSLOC) = 
-     &           LINE_ARGS(i)(1:MXCHAR_VERSION)
-
-         else if ( LINE_ARGS(i) .EQ. 'VERSION_REFORMAT_FITS' ) then
-            i = i + 1 ;
-            VERSION_REFORMAT_FITS = LINE_ARGS(i)(1:MXCHAR_VERSION)
-         else if ( LINE_ARGS(i) .EQ. 'OPT_REFORMAT_FITS' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) OPT_REFORMAT_FITS
-
-         else if ( LINE_ARGS(i) .EQ. 'OPT_REFORMAT_TEXT' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) OPT_REFORMAT_TEXT
-
-         else if ( LINE_ARGS(i) .EQ. 'PRIVATE_DATA_PATH' ) then
-            i = i + 1
-            PRIVATE_DATA_PATH = LINE_ARGS(i)(1:MXCHAR_PATH)
-
-         else if ( LINE_ARGS(i) .EQ. 'PRIVATE_CUTWIN_STRING' ) then
-            i = i + 1 
-            PRIVATE_CUTWIN_STRING(1) = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'EARLYLC_STRING' ) then
-            i = i + 1 
-            EARLYLC_STRING = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'REQUIRE_EPOCHS_STRING' ) then
-            i = i + 1 
-            REQUIRE_EPOCHS_STRING = LINE_ARGS(i)(1:100)
-
-         else if ( LINE_ARGS(i) .EQ. 'DUMP_STRING' ) then
-            i = i + 1 
-            DUMP_STRING = LINE_ARGS(i)(1:100)
-
-         else if ( LINE_ARGS(i) .EQ. 'FILTER_UPDATE_PATH' ) then
-            i = i + 1 
-            FILTER_UPDATE_PATH = LINE_ARGS(i)(1:MXCHAR_PATH)
-
-         else if ( LINE_ARGS(i) .EQ. 'NONSURVEY_FILTERS' ) then
-            i = i + 1 
-            NONSURVEY_FILTERS = LINE_ARGS(i)(1:MXFILT_ALL)
-
-         else if ( LINE_ARGS(i) .EQ. 'FILTER_REPLACE' ) then
-            i = i + 1 ; FILTER_REPLACE = LINE_ARGS(i)(1:MXFILT_ALL)
-
-         else if ( LINE_ARGS(i) .EQ. 'FILTLIST_LAMSHIFT' ) then
-            i = i + 1 ; FILTLIST_LAMSHIFT = LINE_ARGS(i)(1:MXFILT_ALL)
-
-cc         else if ( LINE_ARGS(i) .EQ. 'ZPOFF_FILE' ) then
-cc            i = i + 1 ; ZPOFF_FILE = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'USERTAGS_FILE' ) then
-            i = i + 1 ; USERTAGS_FILE = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'VPEC_FILE' ) then
-            i = i + 1 ; VPEC_FILE = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'HEADER_OVERRIDE_FILE' ) then
-            i = i + 1 ; HEADER_OVERRIDE_FILE = LINE_ARGS(i)
-
-         else if ( LSNIGNORE ) then
-
-c add SNCID_IGNORE, using similar logic to VERSION_PHOTOMETRY
-c to allow multiple specifications.
-
-            i = i + 1   
-            NCCID_IGNORE = NCCID_IGNORE + 1
-            READ(LINE_ARGS(i),*) SNCCID_IGNORE_ALL(NCCID_IGNORE)
-            if ( NCCID_IGNORE .GT. MXLISTNML ) then
-               write(622,C1ERR) NCCID_IGNORE
-622            format('NCCID_IGNORE=',I3,' exceeds array bound')
-               C2ERR = 'Check SNCID_IGNORE and SNCCID_IGNORE args'
-               CALL  MADABORT("SNLCINP_OVERRIDE", C1ERR, C2ERR)
-            endif
- 
-         else if ( LINE_ARGS(i) .EQ. 'INTERP_OPT' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) INTERP_OPT
-
-         else if ( LINE_ARGS(i) .EQ. 'KCOR_FILE' ) then
-            i = i + 1 ; KCOR_FILE = LINE_ARGS(i)
-         else if (LINE_ARGS(i).EQ.'OVERRIDE_RESTLAM_BOUNDARY') then
-            i = i + 1 ; OVERRIDE_RESTLAM_BOUNDARY = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'HFILE_OUT' ) then
-            i = i + 1 ; HFILE_OUT = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'ROOTFILE_OUT' ) then
-            i = i + 1 ; ROOTFILE_OUT = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'TEXTFILE_PREFIX' ) then
-            i = i + 1 ; TEXTFILE_PREFIX = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'MARZFILE_OUT' ) then
-            i = i + 1 ; MARZFILE_OUT = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'SNTABLE_LIST' ) then
-            i = i + 1 ; SNTABLE_LIST = LINE_ARGS(i)
-         else if ( LINE_ARGS(i) .EQ. 'SNTABLE_FILTER_REMAP' ) then
-            i = i + 1 ; SNTABLE_FILTER_REMAP = LINE_ARGS(i)
-         else if ( LINE_ARGS(i) .EQ. 'OPTSIM_LCWIDTH' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) OPTSIM_LCWIDTH
-
-         else if ( LINE_ARGS(i) .EQ. 'SNCID_IGNORE_FILE' ) then
-            i = i + 1 ; SNCID_IGNORE_FILE = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'SNMJD_LIST_FILE' ) then
-            i = i + 1 ; SNMJD_LIST_FILE = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'SNMJD_OUT_FILE' ) then
-            i = i + 1 ; SNMJD_OUT_FILE = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'EPOCH_IGNORE_FILE' ) then
-            i = i + 1  ; EPOCH_IGNORE_FILE = LINE_ARGS(i)
-         else if ( LINE_ARGS(i) .EQ. 'OUT_EPOCH_IGNORE_FILE' ) then
-            i = i + 1  ; OUT_EPOCH_IGNORE_FILE = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'NFIT_ITERATION' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) NFIT_ITERATION
-
-         else if ( LINE_ARGS(i) .EQ. 'USE_MINOS' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) USE_MINOS
-
-         else if ( LINE_ARGS(i) .EQ. 'MINUIT_PRINT_LEVEL' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MINUIT_PRINT_LEVEL
-
-         else if ( LINE_ARGS(i) .EQ. 'MXLC_PLOT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MXLC_PLOT
-
-         else if ( LINE_ARGS(i) .EQ. 'DTOBS_MODEL_PLOT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) DTOBS_MODEL_PLOT
-
-         else if ( LINE_ARGS(i) .EQ. 'PHOTFLAG_MSKREJ' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTFLAG_MSKREJ(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTFLAG_MSKREJ(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'PHOTFLAG_DETECT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTFLAG_DETECT
-         else if ( LINE_ARGS(i) .EQ. 'PHOTFLAG_TRIGGER' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTFLAG_TRIGGER
-
-c -----------
-         else if ( LINE_ARGS(i) .EQ. 'MULTISEASON_OPTMASK' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MULTISEASON_OPTMASK
-
-         else if ( LINE_ARGS(i) .EQ. 'MULTISEASON_TGAP' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MULTISEASON_TGAP
-
-         else if ( LINE_ARGS(i).EQ.'MULTISEASON_NREJECT_OUTLIER')then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MULTISEASON_NREJECT_OUTLIER
-
-         else if ( LINE_ARGS(i).EQ.'MULTISEASON_CHI2RED_ACTIVE')then
-            i=i+1 ; READ(LINE_ARGS(i),*) MULTISEASON_CHI2RED_ACTIVE
-
-         else if ( LINE_ARGS(i).EQ.'CUTWIN_NSEASON_ACTIVE')then
-            i=i+1 ; READ(LINE_ARGS(i),*) CUTWIN_NSEASON_ACTIVE(1)
-            i=i+1 ; READ(LINE_ARGS(i),*) CUTWIN_NSEASON_ACTIVE(2)
-
-c ----------
-
-         else if ( LINE_ARGS(i) .EQ. 'LSIM_SEARCH_SPEC' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LSIM_SEARCH_SPEC
-
-         else if ( LINE_ARGS(i) .EQ. 'LSIM_SEARCH_ZHOST' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LSIM_SEARCH_ZHOST
-         else if ( LINE_ARGS(i) .EQ. 'LSIM_SEARCH_zHOST' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LSIM_SEARCH_ZHOST
-
-         else if ( LINE_ARGS(i) .EQ. 'OPT_DEBUG' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_DEBUG
-
-         else if ( LINE_ARGS(i) .EQ. 'LDMP_SNFAIL' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LDMP_SNFAIL
-
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_SNIA' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) USESIM_SNIA
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_SNCC' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) USESIM_SNCC
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_TRUEFLUX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) USESIM_TRUEFLUX
-
-         else if ( LINE_ARGS(i) .EQ. 'RESTORE_DES3YR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) RESTORE_DES3YR
-
-         else if ( LINE_ARGS(i) .EQ. 'REQUIRE_DOCANA' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) REQUIRE_DOCANA
-
-         else if ( LINE_ARGS(i) .EQ. 'USE_MWCOR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) USE_MWCOR
-
-         else if ( LINE_ARGS(i) .EQ. 'USE_SNHOST_ZPHOT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) USE_SNHOST_ZPHOT
-
-         else if ( LINE_ARGS(i) .EQ. 'LTEST_U3BAND' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LTEST_U3BAND
-
-         else if ( LINE_ARGS(i) .EQ. 'LTEST_MAG' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LTEST_MAG
-
-         else if ( LINE_ARGS(i) .EQ. 'LTEST_INTERP' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LTEST_INTERP
-
-         else if ( LINE_ARGS(i) .EQ. 'LTEST_KCOR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LTEST_KCOR
-
-         else if ( LINE_ARGS(i) .EQ. 'OPT_SETPKMJD' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_SETPKMJD
-
-         else if ( LINE_ARGS(i) .EQ. 'MJDWIN_SETPKMJD' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MJDWIN_SETPKMJD
-         else if ( LINE_ARGS(i) .EQ. 'SNRCUT_SETPKMJD' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) SNRCUT_SETPKMJD
-         else if ( LINE_ARGS(i) .EQ. 'SHIFT_SETPKMJD' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) SHIFT_SETPKMJD
-
-         else if ( LINE_ARGS(i) .EQ. 'SNCCID_LIST' ) then 
-            i = i + 1 
-            CALL PARSE_SNCCID_LIST(LINE_ARGS(i)) ! May 30 2019
-            CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
-
-         else if ( LINE_ARGS(i) .EQ. 'SNCID_LIST' ) then
-            i = i + 1 ; STRING_LIST = LINE_ARGS(i)(1:60)
-            NCID_LIST = PARSE_INTLIST(STRING_LIST,SNCID_LIST)
-            if ( SNCID_LIST(1) > 0 ) then
-	       CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
-            endif
-
-         else if ( LINE_ARGS(i) .EQ. 'SNCID_LIST_FILE' ) then
-            i = i + 1 ; SNCID_LIST_FILE = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'MXEVT_PROCESS' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MXEVT_PROCESS
-
-         else if ( LINE_ARGS(i) .EQ. 'SIM_TEMPLATE_INDEX_LIST' ) then
-            i = i + 1 ; STRING_LIST = LINE_ARGS(i)(1:60)
-            NSIM_TEMPLATE_INDEX_LIST = 
-     &          PARSE_INTLIST(STRING_LIST,SIM_TEMPLATE_INDEX_LIST)
-
-         else if ( LINE_ARGS(i) .EQ. 'SIMLIB_OUT' ) then
-            i = i + 1 ; SIMLIB_OUTFILE = LINE_ARGS(i)
-         else if ( LINE_ARGS(i) .EQ. 'SIMLIB_OUTFILE' ) then
-            i = i + 1 ; SIMLIB_OUTFILE = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'SIMLIB_ZPERR_LIST' ) then
-            i = i + 1 ; SIMLIB_ZPERR_LIST = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'OPT_SIMLIB_OUT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_SIMLIB_OUT
-
-         else if ( LINE_ARGS(i) .EQ. 'SIMLIB_OUT_TMINFIX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) SIMLIB_OUT_TMINFIX
-
-         else if ( LINE_ARGS(i) .EQ. 'NONLINEARITY_FILE' ) then
-            i = i + 1 ; NONLINEARITY_FILE = LINE_ARGS(i)
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-c         else if ( LINE_ARGS(i) .EQ. 'SNTEL_LIST' ) then
-c           i = i + 1 ; SNTEL_LIST(1) = LINE_ARGS(i)(1:20)
-c            SNTEL_LIST(2) = ' '
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-         else if ( LINE_ARGS(i) .EQ. 'SNFIELD_LIST' ) then
-            i = i + 1 ; SNFIELD_LIST(1) = LINE_ARGS(i)(1:60)
-            SNFIELD_LIST(2) = ' '
-
-         else if ( LINE_ARGS(i) .EQ. 'JOBSPLIT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) JOBSPLIT(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) JOBSPLIT(2)
-            ISJOB_BATCH = .TRUE.
-         else if ( LINE_ARGS(i) .EQ. 'JOBSPLIT_EXTERNAL' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) JOBSPLIT_EXTERNAL(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) JOBSPLIT_EXTERNAL(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'SIM_PRESCALE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) SIM_PRESCALE
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_CID' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_CID(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_CID(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'SNTYPE_LIST' ) then
-            i = i + 1 ; STRING_LIST = LINE_ARGS(i)(1:60)
-            NSNTYPE_LIST = PARSE_INTLIST(STRING_LIST,SNTYPE_LIST)
-
-         else if ( LINE_ARGS(i) .EQ. 'CCDNUM_LIST' ) then
-            i = i + 1 ; STRING_LIST = LINE_ARGS(i)(1:60)
-            NCCDNUM_LIST = PARSE_INTLIST(STRING_LIST,CCDNUM_LIST)
-
-         else if ( LINE_ARGS(i) .EQ. 'SNTYPE_IGNORE' ) then
-            i = i + 1 ; STRING_LIST = LINE_ARGS(i)(1:60)
-            NSNTYPE_IGNORE = PARSE_INTLIST(STRING_LIST,SNTYPE_IGNORE)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_NEPOCH' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_NEPOCH(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_NEPOCH(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TRESTMIN' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TRESTMIN(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TRESTMIN(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TRESTMAX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TRESTMAX(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TRESTMAX(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TRESTRANGE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TRESTRANGE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TRESTRANGE(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TREST2' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TREST2(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TREST2(2)
-
-c ---
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TGAPMAX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TGAPMAX(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TGAPMAX(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_T0GAPMAX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_T0GAPMAX(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_T0GAPMAX(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TREST' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TREST(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TREST(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TOBS' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TOBS(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TOBS(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_PEAKMJD' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_PEAKMJD(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_PEAKMJD(2)
-
-c -----
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_MJD' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_MJD(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_MJD(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_MJD_EXCLUDE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_MJD_EXCLUDE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_MJD_EXCLUDE(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_MJD_INCLUDE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_MJD_INCLUDE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_MJD_INCLUDE(2)
-c ---
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TOBSMIN' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TOBSMIN(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TOBSMIN(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TOBSMAX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TOBSMAX(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TOBSMAX(2)
-c ---
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_REDSHIFT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_REDSHIFT(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_REDSHIFT(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_REDSHIFT_ERR' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) CUTWIN_REDSHIFT_ERR(1)
-            i = i + 1 ;  READ(LINE_ARGS(i),*) CUTWIN_REDSHIFT_ERR(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_NFILT_TRESTMIN' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_NFILT_TRESTMIN(1)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_NFILT_TRESTMAX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_NFILT_TRESTMAX(1)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_NFILT_TREST2' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_NFILT_TREST2(1)
-
-         else if ( LINE_ARGS(i) .EQ. 'SNCUT_SNRMAX' ) then
-            i = i + 1
-            SNCUT_SNRMAX = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'SNCUT_HOST_SBFLUX' ) then
-            i = i + 1 
-            SNCUT_HOST_SBFLUX = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'SIMVAR_CUTWIN_STRING' ) then
-            i = i + 1 
-            SIMVAR_CUTWIN_STRING = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_NFILT_SNRMAX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_NFILT_SNRMAX(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_NFILT_SNRMAX(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_NFILT_SNRMAX2' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_NFILT_SNRMAX2(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_NFILT_SNRMAX2(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_NFIELD' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_NFIELD(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_NFIELD(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_MWEBV' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_MWEBV(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_MWEBV(2)
-
-c - - - - - -
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_RESTLAM' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_RESTLAM(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_RESTLAM(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_LAMREST' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_LAMREST(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_LAMREST(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_LAMOBS' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_LAMOBS(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*)  CUTWIN_LAMOBS(2)
-c - - - - - - - -
-
-         else if ( LINE_ARGS(i) .EQ. 'EPCUT_SNRMIN' ) then
-            i = i + 1 
-            EPCUT_SNRMIN = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'SNRMAX_FILTERS' ) then
-            i = i + 1 
-            SNRMAX_FILTERS = LINE_ARGS(i)(1:MXFILT_ALL)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_SNRMAX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_SNRMAX(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_SNRMAX(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_SNRMAX2' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_SNRMAX2(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_SNRMAX2(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_PSF' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_PSF(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_PSF(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_ZPERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPERR(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPERR(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_PHOTPROB' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_PHOTPROB(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_PHOTPROB(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_ZPADU' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPADU(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPADU(2)
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_ZPNPE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPNPE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ZPNPE(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_ERRTEST' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ERRTEST(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_ERRTEST(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_TREST_TRUEFLUX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TREST_TRUEFLUX(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) CUTWIN_TREST_TRUEFLUX(2)
-
-c ------------
-         else if ( LINE_ARGS(i) .EQ. 'MAGOBS_SHIFT_PRIMARY' ) then
-            i = i + 1 
-            MAGOBS_SHIFT_PRIMARY = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'MAGOBS_SHIFT_ZP' ) then
-            i = i + 1 
-            MAGOBS_SHIFT_ZP = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-c --
-         else if ( LINE_ARGS(i) .EQ. 'MAGREST_SHIFT_PRIMARY' ) then
-            i = i + 1 
-            MAGREST_SHIFT_PRIMARY = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'MAGREST_SHIFT_ZP' ) then
-            i = i + 1 
-            MAGREST_SHIFT_ZP = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'FILTER_LAMSHIFT' ) then
-            i = i + 1 
-            FILTER_LAMSHIFT = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-c --
-         else if ( LINE_ARGS(i).EQ.'MAGOBS_SHIFT_PRIMARY_PARAMS' ) then
-           i=i+1 ; READ(LINE_ARGS(i),*) MAGOBS_SHIFT_PRIMARY_PARAMS(1)
-           i=i+1 ; READ(LINE_ARGS(i),*) MAGOBS_SHIFT_PRIMARY_PARAMS(2)
-           i=i+1 ; READ(LINE_ARGS(i),*) MAGOBS_SHIFT_PRIMARY_PARAMS(3)
-
-         else if ( LINE_ARGS(i) .EQ. 'MAGOBS_SHIFT_ZP_PARAMS' ) then
-           i=i+1 ; READ(LINE_ARGS(i),*) MAGOBS_SHIFT_ZP_PARAMS(1)
-           i=i+1 ; READ(LINE_ARGS(i),*) MAGOBS_SHIFT_ZP_PARAMS(2)
-           i=i+1 ; READ(LINE_ARGS(i),*) MAGOBS_SHIFT_ZP_PARAMS(3)
-
-c --------------
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_FLUXCAL_OFFSET' ) then
-            i = i + 1  
-            FUDGE_FLUXCAL_OFFSET = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_FLUXCAL_ERROR' ) then
-            i = i + 1 
-            FUDGE_FLUXCAL_ERROR = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_FLUXCAL_ERRPIX' ) then
-            i = i + 1 
-            FUDGE_FLUXCAL_ERRPIX = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_FLUXERR_SCALE' ) then
-            i = i + 1 
-            FUDGE_FLUXERR_SCALE = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_MAG_ERROR' ) then
-            i = i + 1 
-            FUDGE_MAG_ERROR = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_MAG_COVERR' ) then
-            i = i + 1 
-            FUDGE_MAG_COVERR = LINE_ARGS(i)(1:MXCHAR_CUTNAME)
-
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_HOSTNOISE_FILE' ) then
-            i = i + 1 
-            FUDGE_HOSTNOISE_FILE = LINE_ARGS(i)(1:MXCHAR_CUTNAME)  
-
-         else if ( LINE_ARGS(i) .EQ. 'FLUXERRMODEL_FILE' ) then
-            i = i + 1 
-            FLUXERRMODEL_FILE = LINE_ARGS(i)(1:MXCHAR_FILENAME)  
-         else if ( LINE_ARGS(i) .EQ. 'SIM_FLUXERRMODEL_FILE' ) then
-            i = i + 1 
-            SIM_FLUXERRMODEL_FILE = LINE_ARGS(i)(1:MXCHAR_FILENAME)  
-
-         else if ( LINE_ARGS(i) .EQ. 'FLUXERRMODEL_OPTMASK' ) then
-            i = i + 1 
-            READ(LINE_ARGS(i),*) FLUXERRMODEL_OPTMASK
-
-         else if ( LINE_ARGS(i) .EQ. 'MAGCOR_FILE' ) then
-            i = i + 1 ; 
-            MAGCOR_FILE = LINE_ARGS(i)(1:MXCHAR_FILENAME)
-         else if ( LINE_ARGS(i) .EQ. 'SIM_MAGCOR_FILE' ) then
-            i = i + 1 ; 
-            SIM_MAGCOR_FILE = LINE_ARGS(i)(1:MXCHAR_FILENAME)
-c -------------
-
-         else if ( LINE_ARGS(i) .EQ. 'RV_MWCOLORLAW' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) RV_MWCOLORLAW
-         else if ( LINE_ARGS(i) .EQ. 'OPT_MWCOLORLAW' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_MWCOLORLAW
-         else if ( LINE_ARGS(i) .EQ. 'OPT_MWEBV' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_MWEBV
-
-         else if ( LINE_ARGS(i) .EQ. 'MWEBV_SCALE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MWEBV_SCALE
-
-         else if ( LINE_ARGS(i) .EQ. 'MWEBV_SHIFT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MWEBV_SHIFT
-
-         else if ( LINE_ARGS(i) .EQ. 'MWEBV_FORCE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MWEBV_FORCE
-
-         else if ( LINE_ARGS(i) .EQ. 'REDSHIFT_FINAL_SHIFT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) REDSHIFT_FINAL_SHIFT
-
-         else if ( LINE_ARGS(i) .EQ. 'VPEC_ERR_OVERRIDE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) VPEC_ERR_OVERRIDE
-
-         else if ( LINE_ARGS(i) .EQ. 'FLUXERRCALC_ZPTERR' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FLUXERRCALC_ZPTERR 
-
-         else if ( LINE_ARGS(i) .EQ. 'H0_REF' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) H0_REF(1)
-
-         else if ( LINE_ARGS(i) .EQ. 'OLAM_REF' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OLAM_REF(1)
-
-         else if ( LINE_ARGS(i) .EQ. 'OMAT_REF' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OMAT_REF(1)
-
-         else if ( LINE_ARGS(i) .EQ. 'W0_REF' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) W0_REF(1)
-
-         else if ( LINE_ARGS(i) .EQ. 'ZTOL_HELIO2CMB' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ZTOL_HELIO2CMB
-         else if ( LINE_ARGS(i) .EQ. 'zTOL_HELIO2CMB' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ZTOL_HELIO2CMB
-c ----
-         else if ( LINE_ARGS(i) .EQ. 'ABORT_ON_BADSURVEY' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ABORT_ON_BADSURVEY
-
-         else if ( LINE_ARGS(i) .EQ. 'ABORT_ON_BADFILTER' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ABORT_ON_BADFILTER
-
-         else if ( LINE_ARGS(i) .EQ. 'ABORT_ON_NOEPOCHS' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ABORT_ON_NOEPOCHS
-
-         else if ( LINE_ARGS(i) .EQ. 'ABORT_ON_NOPKMJD' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ABORT_ON_NOPKMJD
-
-         else if ( LINE_ARGS(i) .EQ. 'ABORT_ON_BADAVWARP' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ABORT_ON_BADAVWARP
-
-         else if ( LINE_ARGS(i) .EQ. 'ABORT_ON_BADKCOR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ABORT_ON_BADKCOR
-
-         else if ( LINE_ARGS(i) .EQ. 'ABORT_ON_MARGPDF0' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ABORT_ON_MARGPDF0
-
-         else if ( LINE_ARGS(i) .EQ. 'ABORT_ON_TRESTCUT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ABORT_ON_TRESTCUT
-
-         else if ( LINE_ARGS(i) .EQ. 'ABORT_ON_DUPLCID' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ABORT_ON_DUPLCID
-
-         else if ( LINE_ARGS(i) .EQ. 'ABORT_ON_DUPLMJD' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ABORT_ON_DUPLMJD
-
-c ---
-
-         endif
-
-c set logical flag for used LINE_ARGS
- 
-         IF ( i .GT. ilast ) THEN
-           DO iuse = ilast, i
-              USE_LINE_ARGS(iuse) = .TRUE.
-           ENDDO
-         ENDIF
-
-         i = i + 1
-         ilast = i
-
-      ENDDO
-
-      RETURN
-      END  ! end of SNLCINP_OVERRIDE_LEGACY
 
 C ========================================
 +DECK,MCMCINP_OVERRIDE.
@@ -7254,7 +6579,7 @@ c check for SN-dependent filter response
 c compute quantities, apply AB offsets, set cut-mask
       CALL SNRECON()       ! compute variables, apply AB offsets
       CALL U3BAND()        ! special U-band test
-      CALL USRCUTS(IERR)   ! user code to set PASS_USRCUTS=F (Aug 2015)
+cc xxx mark delete 9/2020      CALL USRCUTS(IERR)   
       CALL SET_CUTMASK()   ! set cutmask 
 
 
@@ -9230,45 +8555,6 @@ C ---------- BEGIN -------------
       RETURN
       END
 
-C ===========================================
-+DECK,MADABORT_LEGACY.
-c
-c Jan 2019: replace STOP with EXIT for well-defined return code.
-c
-      SUBROUTINE MADABORT_LEGACY(funname,c1err,c2err)
-      IMPLICIT NONE
-+CDE,SNPAR.
-+CDE,CTRLCOM.
-      character funname*(*)          ! name of function calling MADABORT
-      character c1err*(*), c2err*(*) ! two error messages
-
-C ------- BEGIN ------------
-
-      print*,' '
-      print*, ' '
-      print*,' '
-      print*,"   `|```````|`    "
-      print*,"   <| o\\ /o |>   "
-      print*,"    | ' ; ' |     "
-      print*,"    |  ___  |     "
-      print*,"    | |' '| |     "
-      print*,"    | `---' |     "
-      print*,"    \_______/    "
-      print*,""
-
-      print*,' FATAL ERROR in function : ', FUNNAME
-      print*,' ',  c1err(1:76)
-      print*,' ',  c2err(1:76)
-      print*, ' '
-      print*, ' ***** ABORT ***** '
-      print*, ' '
-
-      CALL FLUSH(6)
-      CALL EXIT(EXIT_ERRCODE)
-
-      RETURN
-      END  ! end MADABORT_LEGACY
-
 
 C ======================================
 +DECK,CHCKLINE_ARGS.
@@ -9627,7 +8913,7 @@ cc      ZPOFF_FILE    = 'NULL'  ! NULL => use offsets in hid 292
 
 
       NPAR_SIMSED      = 0
-      NPAR_BYOSED      = 0
+      NPAR_PySEDMODEL  = 0
       NPAR_LCLIB       = 0
  
       NPAR_SIM_HOSTLIB = 0
@@ -11020,7 +10306,7 @@ c local variables.
 
       INTEGER 
      &   LL, L1, L2, iwd, iwd2, i, NWD, NWD_LOAD, LWD0, ID
-     &  ,IFAKE, IPAR_SIMSED, IPAR_BYOSED, IPAR_LCLIB
+     &  ,IFAKE, IPAR_SIMSED, IPAR_PySEDMODEL, IPAR_LCLIB
      &  ,IPAR_SIM_HOSTLIB
 
       character   
@@ -11055,13 +10341,13 @@ c read name of first text file from [VERSION].LIST file
       LL = INDEX(SNDATA_FILE_CURRENT,' ') - 1
       print*,'   Examine header from: ', SNDATA_FILE_CURRENT(1:LL)
 
-      NPAR_SIMSED   = 0
-      NPAR_BYOSED   = 0
-      NPAR_LCLIB    = 0 
+      NPAR_SIMSED       = 0
+      NPAR_PySEDMODEL   = 0
+      NPAR_LCLIB        = 0 
 
-      IPAR_SIMSED   = 0
-      IPAR_BYOSED   = 0
-      IPAR_LCLIB    = 0
+      IPAR_SIMSED      = 0
+      IPAR_PySEDMODEL  = 0
+      IPAR_LCLIB       = 0
 
       NPAR_SIM_HOSTLIB = 0
       IPAR_SIM_HOSTLIB = 0
@@ -11171,7 +10457,8 @@ c global parameters for Galactic extinction
         endif
 
         CALL PARSE_MODELPAR_TEXT(cwdList, MODEL_SIMSED, IPAR_SIMSED)
-        CALL PARSE_MODELPAR_TEXT(cwdList, MODEL_BYOSED, IPAR_BYOSED)
+        CALL PARSE_MODELPAR_TEXT(cwdList, MODEL_BYOSED, IPAR_PySEDMODEL)
+        CALL PARSE_MODELPAR_TEXT(cwdList, MODEL_SNEMO,  IPAR_PySEDMODEL)
         CALL PARSE_MODELPAR_TEXT(cwdList, MODEL_LCLIB,  IPAR_LCLIB )
 
 c check for SIM_HOSTLIB params (Feb 2014)
@@ -11276,7 +10563,7 @@ c local variables.
      &  ,LWD0, LWD1, LWD2, LWD3
 
       character 
-     &   cwd*60, cwd_next*60, cwd_next2*60, cwd_next3*60
+     &   FNAM*12, cwd*60, cwd_next*60, cwd_next2*60, cwd_next3*60
      &  ,cfilt1*2, SURVEY_TMP*(MXCHAR_SURVEY)
      &  ,SURVEYFILE*(MXCHAR_FILENAME)
      &  ,NAME_forC*(MXCHAR_FILENAME)
@@ -11290,9 +10577,9 @@ c functions
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
 
-
 C ------------------- BEGIN --------------
 
+      FNAM            = 'INIT_SURVEY'
       IERR            = 0
       IDSURVEY        = 0
       NFIELD_SURVEY   = 0
@@ -11361,10 +10648,16 @@ c create IFILTDEF_MAP_SURVEY
           IFILTDEF_INVMAP_SURVEY(ifilt_obs) = i
 
           if ( IFILT_OBS .LE. 0 ) then
+            CALL PRINT_PREABORT_BANNER("INIT_SURVEY"//char(0),40)
+	    print*,'   i = ', i,' of NFILTDEF_SURVEY=', NFILTDEF_SURVEY
+	    print*,'   IFILT_OBS = ', IFILT_OBS
+	    print*,'   CFILT1    = ', cfilt1
+
             c1err = 'FILTER = ' // cfilt1 // 
      &         ' is invalid for SURVEY=' // SURVEY_NAME(1:LNAM)
-            c2err = 'SURVEY_FILTERS = |' // SURVEY_FILTERS(1:L2) // '|'
-            CALL MADABORT("INIT_SURVEY", c1err, c2err )
+            c2err = 'SURVEY_FILTERS = |' // 
+     &              SURVEY_FILTERS(1:NFILTDEF_SURVEY) // '|'
+            CALL MADABORT(FNAM, c1err, c2err )
           endif
 
        enddo
@@ -11467,7 +10760,7 @@ c check SN field
              write(c1err,681) MXIDFIELD
  681         format('NSURVEY_FIELD exceeds bound of ', I4)
              c2err = 'Check MXIDFIELD and SURVEY.DEF file.'
-             CALL MADABORT("INIT_SURVEY", c1err, c2err )
+             CALL MADABORT(FNAM, c1err, c2err )
           ENDIF
 
 c now compare with user request, and convert everything to upper case
@@ -11498,7 +10791,7 @@ c print some info to stdout
         c1err = 'Could not find IDSURVEY for SURVEY=' 
      &        // SURVEY_NAME(1:LNAM)
         c2err = 'Check ' // SURVEYFILE(1:72)
-        CALL MADABORT("INIT_SURVEY", c1err, c2err )
+        CALL MADABORT(FNAM, c1err, c2err )
       endif
 
 
@@ -11530,7 +10823,7 @@ c but if 'ALL' option is set, don't bother checking.
              LL = index( ctel, ' ' ) - 1
              c1err = 'Unknown TELESCOPE: ' // ctel(1:LL)
              c2err = 'Check namelist variable SNTEL_LIST '
-             CALL MADABORT("INIT_SURVEY", c1err, c2err )
+             CALL MADABORT(FNAM, c1err, c2err )
           endif
         ENDDO
       ENDIF
@@ -11543,7 +10836,7 @@ c but if 'ALL' option is set, don't bother checking.
              LL = index( cfield, ' ' ) - 1
              c1err = 'Unknown FIELD: ' // cfield(1:LL)
              c2err = 'Check namelist variable SNFIELD_LIST '
-             CALL MADABORT("INIT_SURVEY", c1err, c2err )
+             CALL MADABORT(FNAM, c1err, c2err )
           endif
         ENDDO
       ENDIF
@@ -11551,7 +10844,6 @@ c but if 'ALL' option is set, don't bother checking.
 
 c ---------------------------------
 c check for FILTER_REPLACE option
-
 
       CALL INIT_FILTER_REPLACE()
 
@@ -12249,9 +11541,10 @@ c   be back-compatible with older snana versions (Dec 27 2015)
          LRET      = INDEX(KEYVAL,char(0)) - 1
          READ( KEYVAL(1:LRET), * ) SIM_NSUBSAMPLE_MARK
 
-         CALL RDFITSHEAD_SIMSED()  ! check for SIMSED model params
-         CALL RDFITSHEAD_BYOSED()  ! check for BYOSED model params
-         CALL RDFITSHEAD_LCLIB()   ! check for LCLIB model Feb 28 2018
+         CALL RDFITSHEAD_SIMSED()      ! check for SIMSED model params
+         CALL RDFITSHEAD_PySEDMODEL('BYOSED') 
+         CALL RDFITSHEAD_PySEDMODEL('SNEMO') 
+         CALL RDFITSHEAD_LCLIB()       ! check for LCLIB model Feb 28 2018
          CALL RDFITSHEAD_SIM_HOSTLIB()
 
          KEYNAME   = "SIM_VARNAME_SNRMON" // char(0)
@@ -12403,7 +11696,7 @@ c local variables
 
 c  functions
 +CDE,FITSCOM.
-      LOGICAL LCUTEPOCH, CHECK_EPOCH_IGNORE
+      LOGICAL LCUTEPOCH, LCUTEPOCH_LEGACY, CHECK_EPOCH_IGNORE
 
 C -------------- BEGIN --------------
 
@@ -12504,8 +11797,12 @@ c use above info to determine which epochs to keep/reject
 
         IGNORE  = CHECK_EPOCH_IGNORE(1,ep) .and.
      &            (.not. REFORMAT_SAVE_BADEPOCHS)
-        LCUT    = LCUTEPOCH(Z, PKMJD, MJD, IFILT, IDFIELD ) 
-     &            .and. (.not. IGNORE )
+
+c xxxxxxx mark delete xxxxxxxxx
+c        LCUT    = LCUTEPOCH_LEGACY(Z, PKMJD, MJD, IFILT, IDFIELD ) 
+c     &            .and. (.not. IGNORE )
+c xxxxxxxxxx
+        LCUT  = LCUTEPOCH(0, Z, PKMJD, EP) .and. (.not. IGNORE )
 
         IF ( LCUT ) then
           EPOCH_RDMASK_SNFITSIO(ep) = 1
@@ -14346,53 +13643,71 @@ c xxxxxxxxxxxxx
       END  ! end of RDFITSHEAD_SIMSED
 
 C =======================================
-+DECK,RDFHEAD_BYOSED.
-      SUBROUTINE RDFITSHEAD_BYOSED()
++DECK,RDFHEAD_PySEDMODEL.
+      SUBROUTINE RDFITSHEAD_PySEDMODEL(MODEL_NAME)
 
 c Created Dec 10 2018
-c Read/parse BYOSED keys from header if NPAR_BYOSED exists.
-c
+c Read/parse PySEDMODEL keys from header if NPAR_[BYOSED,SNEMO] exists.
+c Sep 11 2020: renane RDFITSHEAD_BYOSED -> RDFITSHEAD_PySEDMODEL() 
 
       IMPLICIT NONE
 
+      CHARACTER MODEL_NAME*(*) ! e.g., 'BYOSED', 'SNEMO'
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER   ISTAT, LRET, ipar, LENKEY
+      INTEGER   ISTAT, LRET, ipar, LENKEY, NPAR_LOCAL
       CHARACTER KEYNAME*80, KEYVAL*80, c2*2, PARNAME*60
-
+      LOGICAL   LDMP
 c C functions
       INTEGER   RD_SNFITSIO_GLOBAL
       EXTERNAL  RD_SNFITSIO_GLOBAL
 
 C -------------- BEGIN ---------------
 
-      KEYNAME   = "BYOSED_NPAR" // char(0)
+
+      KEYNAME   = MODEL_NAME // "_NPAR" // char(0)
       LENKEY    = INDEX(KEYNAME, char(0) ) - 1
       ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, LENKEY, LRET )
       LRET      = INDEX(KEYVAL,char(0)) - 1
-      READ( KEYVAL(1:LRET), * ) NPAR_BYOSED
-      IF ( NPAR_BYOSED .LE. 0 ) RETURN
+
+      LDMP = .FALSE.
+      IF ( LDMP ) THEN
+         print*,' xxx -------------------------------------- '
+         print*,' xxx **** DUMP RDFITSHEAD_PySEDMODEL ***** '
+         print*,' xxx MODEL_NAME = ', MODEL_NAME
+         print*,' xxx KEYNAME    = ', KEYNAME(1:LENKEY)
+         print*,' xxx KEYVAL     = ', KEYVAL(1:LRET)
+         print*,' xxx ISTAT      = ', ISTAT
+      ENDIF
+
+      READ( KEYVAL(1:LRET), * ) NPAR_LOCAL
+      IF ( NPAR_LOCAL .LE. 0 ) RETURN
 
 c ----------------------------------------------
 
-      DO 100 ipar = 1, NPAR_BYOSED
+
+c load global NPAR and MODEL_NAME
+      NPAR_PySEDMODEL = NPAR_LOCAL
+      PySEDMODEL_NAME = MODEL_NAME
+
+      DO 100 ipar = 1, NPAR_PySEDMODEL
         write(c2,22) ipar-1
 22      format(I2.2)
-        KEYNAME = "BYOSED_PAR" // C2 // char(0)
+        KEYNAME = MODEL_NAME // "_PAR" // C2 // char(0)
         ISTAT   = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 12, LRET )
         LRET    = INDEX(KEYVAL,char(0)) -1
 
         CALL PARSE_PARENTHESES(KEYVAL(1:LRET), PARNAME)
-        BYOSED_KEYWORD(IPAR) = KEYVAL(1:LRET) ! key(varname)
-        BYOSED_PARNAME(IPAR) = PARNAME(1:20)  ! extracted varname
+        PySEDMODEL_KEYWORD(IPAR) = KEYVAL(1:LRET) ! key(varname)
+        PySEDMODEL_PARNAME(IPAR) = PARNAME(1:20)  ! extracted varname
 
 100   CONTINUE
 
       CALL FLUSH(6)
 
       RETURN
-      END  ! end of RDFITSHEAD_BYOSED
+      END  ! end of RDFITSHEAD_PySEDMODEL
 
 
 C =======================================
@@ -14564,12 +13879,14 @@ C ==================================
 +DECK,PARSE_MODELPAR_TEXT.
       SUBROUTINE PARSE_MODELPAR_TEXT(CWORD, MODEL_CLASS, IPAR_MODEL)
 c
-c Check for SIMSED parameters in the header (text format only).
+c Check for MODEL_CLASS parameters in the header (text format only).
 c First read 'SIMSED_NPAR:' key and store value in NPAR_SIMSED.
 c Next read and store each full SIMSED keyword in 
 c SIMSED_KEYWORD(IPAR_SIMSED) and store the parameter name 
 c in SIMSED_PARNAME(IPAR_SIMSED).
 c
+c Sep 11 2020: update to handle PySEDMODELs
+
       IMPLICIT NONE
 
 c subroutine args.
@@ -14591,12 +13908,13 @@ C ----------------- BEGIN --------------
       MODEL_NAME = ''
       IF ( MODEL_CLASS == MODEL_SIMSED ) MODEL_NAME = 'SIMSED'
       IF ( MODEL_CLASS == MODEL_BYOSED ) MODEL_NAME = 'BYOSED'
+      IF ( MODEL_CLASS == MODEL_SNEMO  ) MODEL_NAME = 'SNEMO'
       IF ( MODEL_CLASS == MODEL_LCLIB  ) MODEL_NAME = 'LCLIB'
 
       IF ( MODEL_NAME .EQ. '' ) THEN
            write(c1err,551) MODEL_CLASS
 551        format('Invalid MODEL_CLASS = ', I3)
-           c2err = 'Should be either SIMSED, BYOSED, or LCLIB'
+           c2err = 'Should be either SIMSED, BYOSED, SNEMO, LCLIB'
            CALL MADABORT(FNAM, c1err, c2err)
       ENDIF
    
@@ -14605,9 +13923,10 @@ C ----------------- BEGIN --------------
 
       IF ( CWORD(1) .EQ.  MODEL_NAME(1:LNAME)//'_NPAR:' ) THEN
         READ(CWORD(2),*) NPAR
-        IF ( MODEL_CLASS == MODEL_SIMSED ) NPAR_SIMSED = NPAR
-        IF ( MODEL_CLASS == MODEL_BYOSED ) NPAR_BYOSED = NPAR
-        IF ( MODEL_CLASS == MODEL_LCLIB  ) NPAR_LCLIB  = NPAR
+        IF ( MODEL_CLASS == MODEL_SIMSED ) NPAR_SIMSED     = NPAR
+        IF ( MODEL_CLASS == MODEL_BYOSED ) NPAR_PySEDMODEL = NPAR
+        IF ( MODEL_CLASS == MODEL_SNEMO  ) NPAR_PySEDMODEL = NPAR
+        IF ( MODEL_CLASS == MODEL_LCLIB  ) NPAR_LCLIB      = NPAR
 
         if ( NPAR .GT. MXPAR_SIMSED ) then
            write(c1err,661) MODEL_NAME(1:LNAME), NPAR
@@ -14622,12 +13941,13 @@ C ----------------- BEGIN --------------
 
 c figure out which NPAR
       IF ( MODEL_CLASS == MODEL_SIMSED ) NPAR = NPAR_SIMSED
-      IF ( MODEL_CLASS == MODEL_BYOSED ) NPAR = NPAR_BYOSED 
+      IF ( MODEL_CLASS == MODEL_BYOSED ) NPAR = NPAR_PySEDMODEL
+      IF ( MODEL_CLASS == MODEL_SNEMO  ) NPAR = NPAR_PySEDMODEL
       IF ( MODEL_CLASS == MODEL_LCLIB  ) NPAR = NPAR_LCLIB  
 
       IF ( NPAR .LE. 0 ) RETURN
 
-c Now we have a SIMSED keyword.
+c Now we have a MODEL_CLASS keyword.
 
       LK  = INDEX(CWORD(1),':') - 1  ! length without exclude colon
       KEY = CWORD(1)(1:LK)           ! KEY = SIMSED_PARAM(PARNAME)
@@ -14639,9 +13959,11 @@ c Now we have a SIMSED keyword.
       IF ( MODEL_CLASS == MODEL_SIMSED ) THEN
         SIMSED_KEYWORD(IPAR_MODEL) = KEY
         SIMSED_PARNAME(IPAR_MODEL) = PARNAME(1:20)
-      ELSE IF ( MODEL_CLASS == MODEL_BYOSED ) THEN
-        BYOSED_KEYWORD(IPAR_MODEL) = KEY
-        BYOSED_PARNAME(IPAR_MODEL) = PARNAME(1:20)
+      ELSE IF ( NPAR_PySEDMODEL > 0 ) THEN  ! BYOSED or SNEMO
+        PySEDMODEL_NAME = MODEL_NAME
+        PySEDMODEL_KEYWORD(IPAR_MODEL) = KEY
+        PySEDMODEL_PARNAME(IPAR_MODEL) = PARNAME(1:20)
+
       ELSE IF ( MODEL_CLASS == MODEL_LCLIB ) THEN
         LCLIB_KEYWORD(IPAR_MODEL) = KEY
         LCLIB_PARNAME(IPAR_MODEL) = PARNAME(1:20)
@@ -15470,16 +14792,25 @@ c already been assigned to SNLC_ZCMB below
 
 c --------
 
+c read CMB redshift ...
       RETSTR  = '+ERR'
-      ZKEY    = 'REDSHIFT_FINAL'
+
+
+      ZKEY    = 'REDSHIFT_CMB'
       LZTMP   = READ_HEADKEY(isnlc, cwords, ZKEY, RET8, RETSTR )
+
+c if no explicit CMB redshift, try REDSHIFT_FINAL (should also be CMB)
+      if ( .not. LZTMP ) THEN
+         ZKEY    = 'REDSHIFT_FINAL'
+         LZTMP   = READ_HEADKEY(isnlc, cwords, ZKEY, RET8, RETSTR )
+      endif
 
       IF ( LZTMP ) THEN
         HEADMASK = IBSET(HEADMASK, HEADBIT_Z)
         Z    = RET8(1)  + REDSHIFT_FINAL_SHIFT
         ZERR = RET8(2) 
 
-        SNLC_ZCMB      = Z     ! used for Hubble diagram/fitres file
+        SNLC_ZCMB      = Z     ! does NOT include VPEC
         SNLC_ZCMB_ERR  = ZERR
 
 c protect against crazy Z for photoZ fits.
@@ -15644,7 +14975,7 @@ c local var
 
 c functions
       INTEGER GET_IDTEL, GET_IDFIELD, FILTINDX
-      LOGICAL LCUTEPOCH, CHECK_EPOCH_IGNORE
+      LOGICAL LCUTEPOCH, LCUTEPOCH_LEGACY, CHECK_EPOCH_IGNORE
 
 C ----------- BEGIN ---------
 
@@ -15699,16 +15030,17 @@ c for epoch, make Trest/MJD cut immediately to save memory storage
           Z        = SNLC_REDSHIFT
           PKMJD    = SNLC_SEARCH_PEAKMJD
 
-c Use utility function to apply MJD/Trest cut,  but ignore 
-c cut on IDTEL and IDFIELD; these last two cuts are applied 
-c later if/when their values are read.
-          LTMP    = LCUTEPOCH(Z, PKMJD, SNGL(MJD8), 999,999)
-
 c always load MJD in case we need to flag an error somewhere
 c in the parsing. If Trest fails cut, SNLC8_MJD will get over-written.
 
           SNLC8_MJD(EPMIN) = MJD8
 
+c Use utility function to apply MJD/Trest cut,  but ignore 
+c cut on IDTEL and IDFIELD; these last two cuts are applied 
+c later if/when their values are read.
+cc xxxx mark delete  LTMP  = LCUTEPOCH_LEGACY(Z, PKMJD, SNGL(MJD8), 999,999)
+          LTMP  = LCUTEPOCH(1, Z, PKMJD, EPMIN)
+        
           if ( .NOT. LTMP ) then
             istat = ISTAT_SKIP
             return
@@ -15835,8 +15167,13 @@ c apply epoch cut.
 
         IGNORE  = CHECK_EPOCH_IGNORE(1,EPMIN) .and. 
      &            (.not. REFORMAT_SAVE_BADEPOCHS)
-        LTMP    = LCUTEPOCH(Z, PKMJD, SNGL(MJD8), IFILT, IDFIELD)
-     &            .and. (.not. IGNORE )
+
+c xxxxxxxxxxx mark delete xxxxxxx
+c        LTMP    = LCUTEPOCH_LEGACY(Z,PKMJD,SNGL(MJD8),IFILT,IDFIELD)
+c     &            .and. (.not. IGNORE )
+c xxxxxxxxxxxxxx
+
+        LTMP  = LCUTEPOCH(0,Z,PKMJD,EPMIN) .and. (.not. IGNORE )
 
         if ( .NOT. LTMP ) ISTAT = ISTAT_SKIP
         return
@@ -16100,14 +15437,15 @@ C ----------- BEGIN ---------
       LPARSE = .FALSE.
       if ( CWORDS(1)(1:3) .EQ. 'SIM'    ) LPARSE = .TRUE.
       if ( CWORDS(1)(1:6) .EQ. 'BYOSED' ) LPARSE = .TRUE.
+      if ( CWORDS(1)(1:5) .EQ. 'SNEMO'  ) LPARSE = .TRUE.
       if ( CWORDS(1)(1:6) .EQ. 'LCLIB'  ) LPARSE = .TRUE.
 
       if ( .not. LPARSE ) RETURN
 
 c -----------------
       RETSTR = 'STRING'
-      KEY  = 'SIM_MODEL_NAME'
-      LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
+      KEY    = 'SIM_MODEL_NAME'
+      LTMP   = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
       IF ( LTMP ) THEN
          SIMNAME_MODEL = RETSTR(1:32)
       ENDIF
@@ -16379,13 +15717,12 @@ c read SIMSED parameters
          ENDIF
 401   CONTINUE  ! end IPAR
 
-c read BYOSED parameters 
-
-      DO 402 IPAR = 1, NPAR_BYOSED
-         KEY  = BYOSED_KEYWORD(IPAR)(1:60)
-         LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )     
+c read  PySEDMODEL parameters (BYOSED,SNEMO ...)
+      DO 402 IPAR = 1, NPAR_PySEDMODEL
+         KEY  = PySEDMODEL_KEYWORD(IPAR)(1:60)
+         LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
          IF ( LTMP ) THEN
-           BYOSED_PARVAL(IPAR) = SNGL(RET8(1))
+            PySEDMODEL_PARVAL(IPAR) = SNGL(RET8(1))
          ENDIF
 402   CONTINUE  ! end IPAR
 
@@ -18082,7 +17419,6 @@ c zero out the FITVAL_STORE array if fit-option is chosen
       ENDDO
 
       LSNCUTS       = .FALSE.
-      PASS_USRCUTS  = .TRUE.
       PASS_PRIVCUTS = .TRUE.
       PASS_SIMCUTS  = .TRUE.
       CUTFLAG_SNANA =  0
@@ -18096,7 +17432,6 @@ c zero out the FITVAL_STORE array if fit-option is chosen
 
       ISNLC_CUTFLAG_REQEP    = 1
       ISNLC_CUTFLAG_PRIVATE  = 1
-      ISNLC_CUTFLAG_USRCUTS  = 1
       ISNLC_CUTFLAG_SIMVAR   = 1
       ISNLC_WRMASK_FLUXCOR_SNANA = 0 
       ISNLC_RDMASK_FLUXCOR_SNANA = 0 
@@ -18324,7 +17659,6 @@ c hard-wire names of cut variables (maxchar = 28)
       cutvar_name(CUTBIT_REQEP)        = 'REQEP_CUTFLAG:'
       cutvar_name(CUTBIT_PRIVATE)      = 'PRIVATEVAR_CUTS:'
       cutvar_name(CUTBIT_SIMVAR)       = 'SIMVAR_CUTS:'
-      cutvar_name(CUTBIT_USRCUTS)      = 'USRCUTS:'
       cutvar_name(CUTBIT_TREST)        = 'Trest:'
       cutvar_name(CUTBIT_TOBS)         = 'Tobs:'
       cutvar_name(CUTBIT_ERRTEST)      = 'ERR(CALC)/ERR(TRUE):'
@@ -19615,7 +18949,8 @@ c brute-force check each possible header variable
         ELSE IF ( VARNAME(1:LENV) .EQ. 'VPEC_ERR' ) THEN
           SNLC_VPEC_ERR = sngl(DVAL)
 
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL' ) THEN
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL' .or. 
+     &            VARNAME(1:LENV) .EQ. 'REDSHIFT_CMB'  ) THEN
           z            = sngl(DVAL)
           SNLC_ZCMB    = z; 
 	  SNLC_ZHELIO  = -9.0 ! flag to compute zHEL from zCMB
@@ -24213,7 +23548,6 @@ c init common block var output
       ENDIF
 
 c check privat-var cuts and user cuts from private code
-      IF ( .not. PASS_USRCUTS  ) ISNLC_CUTFLAG_USRCUTS = 0 
       IF ( .not. PASS_PRIVCUTS ) ISNLC_CUTFLAG_PRIVATE = 0 
       IF ( .not. PASS_SIMCUTS  ) ISNLC_CUTFLAG_SIMVAR  = 0 
 
@@ -24368,9 +23702,6 @@ c so that NEWMJD_CUTS can be evaluated correctly.
          SNLC_CUTVAR(CUTBIT_PRIVATE)  = 
      &        float( ISNLC_CUTFLAG_PRIVATE )   ! added Nov 3 2014
 
-         SNLC_CUTVAR(CUTBIT_USRCUTS)  = 
-     &        float( ISNLC_CUTFLAG_USRCUTS)    ! added Aug 2015
-
          SNLC_CUTVAR(CUTBIT_SIMVAR)  = 
      &        float( ISNLC_CUTFLAG_SIMVAR )    ! added Dec 2018
 
@@ -24510,7 +23841,7 @@ c set cut-bit if cut is satisfied
 
 c set SN cut-logical
 
-      IF ( CUTMASK8_SN .EQ. CUTMASK8_SN_ALL .and. PASS_USRCUTS ) THEN
+      IF ( CUTMASK8_SN .EQ. CUTMASK8_SN_ALL  ) THEN
          LSNCUTS       = .TRUE.
          CUTFLAG_SNANA = IBSET(CUTFLAG_SNANA,0)
          N_SNLC_CUTS   = N_SNLC_CUTS + 1
@@ -25066,41 +24397,62 @@ c find starting bin for grid interpolation
 
 C =========================================
 +DECK,LCUTEPOCH.
-      LOGICAL FUNCTION LCUTEPOCH(Z, PKMJD, MJD, IFILT, IDFIELD)
+      LOGICAL FUNCTION LCUTEPOCH(OPT,Z,PKMJD,EP)
 
 c ------------------------------------------- 
 c Created Jun 18, 2011
 c Return TRUE if this epoch passes epoch-cuts.
 c The input are the epoch values rather than the SN ID.
 c
+c  OPT   = 0 -> apply all cuts
+c  OPT   = 1 -> apply only Trest cut
+c  z     = redshift
+c  PKMJD = peakMJD estimate
+c  EP    = epoch index
+c
 c May 2012: ZZ=1 if z<0 to avoid ZZ=0
 c May 29 2019: do NOT apply Trest cut if OPT_SETPKMJD > 0
 c Mar 01 2020: 
 c   Replace IDTEL with IFILT, and reject if SNRMIN cut >= 100.
 c   Allows rejecting bands using, e.g.,  EPCUT_SNRMIN = 'g 100 r 100'
+c
+c Sep 9, 2020: refactor to accept EPOCH-index argument.
+c              
 c ------------------------------------------
 
       IMPLICIT NONE
 
-      REAL 
-     &   Z, PKMJD      ! (I) redshift and time of peak brightness
-     &  ,MJD           ! (I) MJD of epoch 
-
-      INTEGER IFILT       ! (I) sparse filter index
-      INTEGER IDFIELD     ! (I) FIELD ID
+      REAL  Z, PKMJD      ! (I) redshift and time of peak brightness
+      INTEGER OPT, EP     ! (I) options, and epoch index
 
 c local variables
 
-+CDE,SNPAR.
-+CDE,SNCUTS.
++CDE,SNDATCOM.
 +CDE,SNLCINP.
++CDE,FILTCOM.
 
-      REAL TREST, ZZ
-      LOGICAL LTMP, LTREST, LMJD, LXMJD
+c+CDE,SNPAR.
+c+CDE,SNCUTS.
+c+CDE,SNLCINP.
+
+      REAL    MJD,  TREST, ZZ, SNR
+      INTEGER IFILT, IFILT_OBS, IDFIELD, PHOTFLAG
+      LOGICAL LTMP, LTREST, LMJD, LXMJD, NO_DETECT
 
 C --------------- BEGIN -----------
 
       LCUTEPOCH = .FALSE.
+      MJD       = SNGL( SNLC8_MJD(EP) )
+      IDFIELD   = ISNLC_IDFIELD(EP)  
+      IFILT_OBS = ISNLC_IFILT_OBS(EP)
+      IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
+      PHOTFLAG  = ISNLC_PHOTFLAG(EP)
+
+c      print*,' xxx ----------------------------- '
+c      print*,' xxx LCUTEPOCH DUMP xxx '
+c      print*,' xxx z=', z, '   PKMJD=', PKMJD
+c      print*,' xxx EP=', EP, '  IFILT_OBS, IDFIELD=', IFILT_OBS, IDFIELD
+c      print*,' xxx MJD=', MJD, '  PHOTFLAG=', PHOTFLAG
 
       IF ( Z .GT. 0.0 ) then
          ZZ    = 1.0 + Z
@@ -25131,22 +24483,125 @@ c  use PEAKMJD from data file, go ahead with TREST cut
       LTMP = LTREST .and. LMJD .and. (.not. LXMJD)
       IF ( .NOT. LTMP ) RETURN
 
+      if ( BTEST(OPT,0) ) GOTO 800
+
+c - - - - - - - - - - - - 
+
       if ( IFILT < 900 ) then
         LTMP = CUTWIN_SNRMIN_FILT(1,IFILT) < 99.9999
         IF ( .NOT. LTMP ) RETURN
       endif
 
-c xxxxxxxxx mark delete Mar 1 2020
-c check selected telescope
-c      LTMP = DOALL_SNTEL   .or. IDTEL .GT. 0
-c      IF ( .NOT. LTMP ) RETURN
-c xxxxxxxxxx end mark xxxxxxxxxxxx
-
 c check selected field.
-      LTMP = DOALL_SNFIELD .or. IDFIELD .GT. 0          
+      LTMP = DOALL_SNFIELD .or. (IDFIELD > 0)
       IF ( .NOT. LTMP ) RETURN
 
-      LCUTEPOCH = .TRUE.
+c Sep 2020: apply SNR cut for non-detections - to reject crazy fluxes.
+      IF ( PHOTFLAG_DETECT > 0 ) THEN
+         NO_DETECT = ( IAND(PHOTFLAG,PHOTFLAG_DETECT) == 0 )
+         SNR       = SNLC_FLUXCAL(EP) / SNLC_FLUXCAL_ERRTOT(EP)
+         if ( NO_DETECT ) then
+            if ( SNR < CUTWIN_SNR_NODETECT(1)  ) RETURN
+            if ( SNR > CUTWIN_SNR_NODETECT(2)  ) RETURN
+         endif
+      ENDIF
+
+ 800  CONTINUE
+      LCUTEPOCH  = .TRUE.
+
+      RETURN
+      END      ! LCUTEPOCH
+
+
+C =========================================
++DECK,LCUTEPOCH_LEGACY.
+      LOGICAL FUNCTION LCUTEPOCH_LEGACY(Z,PKMJD,MJD,IFILT,IDFIELD)
+
+c ------------------------------------------- 
+c
+c !!! xxxx MARK OSOLETE SEP 10 2020 xxxxx !!!!!
+c
+c Created Jun 18, 2011
+c Return TRUE if this epoch passes epoch-cuts.
+c The input are the epoch values rather than the SN ID.
+c
+c May 2012: ZZ=1 if z<0 to avoid ZZ=0
+c May 29 2019: do NOT apply Trest cut if OPT_SETPKMJD > 0
+c Mar 01 2020: 
+c   Replace IDTEL with IFILT, and reject if SNRMIN cut >= 100.
+c   Allows rejecting bands using, e.g.,  EPCUT_SNRMIN = 'g 100 r 100'
+c ------------------------------------------
+
+      IMPLICIT NONE
+
+      REAL 
+     &   Z, PKMJD      ! (I) redshift and time of peak brightness
+     &  ,MJD           ! (I) MJD of epoch 
+
+      INTEGER IFILT       ! (I) sparse filter index
+      INTEGER IDFIELD     ! (I) FIELD ID
+
+c !!! xxxx MARK OSOLETE SEP 10 2020 xxxxx !!!!!
+
+c local variables
+
++CDE,SNPAR.
++CDE,SNCUTS.
++CDE,SNLCINP.
+
+      REAL TREST, ZZ
+      LOGICAL LTMP, LTREST, LMJD, LXMJD
+
+C --------------- BEGIN -----------
+
+      LCUTEPOCH_LEGACY = .FALSE.
+
+      IF ( Z .GT. 0.0 ) then
+         ZZ    = 1.0 + Z
+      ELSE
+         ZZ    = 1.0
+      ENDIF
+
+c !!! xxxx MARK OSOLETE SEP 10 2020 xxxxx !!!!!
+
+      LTMP = ( PKMJD < 40000. .or. OPT_SETPKMJD > 0  )
+      IF ( RESTORE_DES3YR ) LTMP = ( PKMJD < 40000. )
+
+c evaluate epoch cut in rest-frame
+      IF ( LTMP ) THEN
+c       PKMJD not yet determined, so no TREST cut
+         LTrest = .TRUE.
+      ELSE
+c  use PEAKMJD from data file, go ahead with TREST cut
+         Trest = (MJD - PKMJD) / ZZ
+         LTrest = ( Trest .GE. cutwin_Trest(1) .and. 
+     &              TRest .LE. cutwin_Trest(2) )
+      ENDIF
+
+c !!! xxxx MARK OSOLETE SEP 10 2020 xxxxx !!!!!
+
+      LXMJD = ( MJD .GE. CUTWIN_MJD_EXCLUDE(1) .and.
+     &          MJD .LE. CUTWIN_MJD_EXCLUDE(2) )
+
+      LMJD = ( MJD .GE. cutwin_MJD(1) .and.
+     &         MJD .LE. cutwin_MJD(2) )
+
+      LTMP = LTREST .and. LMJD .and. (.not. LXMJD)
+      IF ( .NOT. LTMP ) RETURN
+
+      if ( IFILT < 900 ) then
+        LTMP = CUTWIN_SNRMIN_FILT(1,IFILT) < 99.9999
+        IF ( .NOT. LTMP ) RETURN
+      endif
+
+c !!! xxxx MARK OSOLETE SEP 10 2020 xxxxx !!!!!
+
+c check selected field.
+      LTMP = DOALL_SNFIELD .or. (IDFIELD > 0)
+      IF ( .NOT. LTMP ) RETURN
+
+      LCUTEPOCH_LEGACY = .TRUE.
+c !!! xxxx MARK OSOLETE SEP 10 2020 xxxxx !!!!!
 
       RETURN
       END
@@ -26830,6 +26285,7 @@ c Dec 10, 2018: add BYOSED params
 c Feb 01, 2019: add SIM_LCWIDTH
 c Feb 27, 2020: add SIM_HOSTLIB_GALID
 c Mar 19, 2020: add SIM_RV  to table
+c Sep 11, 2020: add PySEDMODEL = BYOSED or SNEMO
 
       IMPLICIT  NONE
       INTEGER   ID          ! (I) table id
@@ -26843,7 +26299,7 @@ c local var
       CHARACTER 
      &    CTMP*(MXCHAR_FILEWORD)
      &  , VARLIST*400, CBLOCK*40
-      INTEGER LENLIST, IPAR, LENBLOCK, LENTMP, ITEXT
+      INTEGER LENLIST, IPAR, LENBLOCK, LENTMP, LENM, ITEXT
 
       EXTERNAL SNTABLE_ADDCOL
 
@@ -26987,18 +26443,20 @@ c  Apr 28 2015: set DOTEXT flag to 1
          CTMP    = SIMSED_PARNAME(ipar)
          LENTMP  = INDEX(CTMP,' ') - 1
          VARLIST = 'SIMSED_' // CTMP(1:LENTMP) // ':F' // char(0)
-         CALL SNTABLE_ADDCOL(ID,CBLOCK, SIMSED_PARVAL(ipar),VARLIST,1,
-     &        LENBLOCK, LENLIST)
+         CALL SNTABLE_ADDCOL(ID,CBLOCK, SIMSED_PARVAL(ipar),
+     &        VARLIST, 1, LENBLOCK, LENLIST)
       ENDDO
 
 
-c Dec 2018: BYOSED model params 
-      DO IPAR    = 1, NPAR_BYOSED
-         CTMP    = BYOSED_PARNAME(ipar)
+c PySEDMODEL model params (BYOSED, SNEMO, ...)
+      DO IPAR    = 1, NPAR_PySEDMODEL
+         LENM    = INDEX(PySEDMODEL_NAME,' ') - 1
+         CTMP    = PySEDMODEL_PARNAME(ipar)
          LENTMP  = INDEX(CTMP,' ') - 1
-         VARLIST = 'BYOSED_' // CTMP(1:LENTMP) // ':F' // char(0)
-         CALL SNTABLE_ADDCOL(ID,CBLOCK, BYOSED_PARVAL(ipar),VARLIST,1,
-     &          LENBLOCK, LENLIST)
+         VARLIST = PySEDMODEL_NAME(1:LENM) // '_' 
+     &             // CTMP(1:LENTMP) // ':F' // char(0) 
+         CALL SNTABLE_ADDCOL(ID,CBLOCK, PySEDMODEL_PARVAL(ipar),
+     &        VARLIST, 1, LENBLOCK, LENLIST)
       ENDDO
 
 c Feb 2018: LCLIB model params 

@@ -6,7 +6,9 @@
 # TO-DO LIST for
 #
 #  BASE/util: 
-#   - if ALL.DONE exists with FAIL , STOP EVERYTHING ?!?!
+#   + if ALL.DONE exists with FAIL , STOP EVERYTHING ?!?!
+#   - print(e) on crash
+#   - pass ALL.DONE file to sim and fit job; STOP if it exists.
 #   - more elegant HELP menu per program?
 #   - run merge task immediately after launch so that
 #     some of the WAIT -> RUN
@@ -296,41 +298,44 @@ def purge_old_submit_output():
 
 # =============================================
 if __name__ == "__main__":
+
     args  = get_args()
     store = util.setup_logging(args)
 
+    # option for long HELP menus
     if args.HELP :
         see_me = (f" !!! ************************************************ !!!")
         print(f"\n{see_me}\n{see_me}\n{see_me}")
         print(f"{HELP_MENU[args.HELP]}")
         sys.exit(' Scroll up to see full HELP menu.\n Done: exiting Main.')
 
+    # check option to "purge" un-needed files with linux find and rm;
+    # removes tarred script-dirs, root & hbook files, etc ...
     if args.purge :
         purge_old_submit_output()
-        sys.exit(' Done: exiting Main.')
+        sys.exit(' Done with purge: exiting Main.')
 
+    # check input file: does it have a path? Does it need to be translated?
     check_input_file_name(args)
 
-    # Here we know it's got a CONFIG block, so read the YAML input
+    # Here we know there's a CONFIG block, so read the YAML input
     config_yaml = util.extract_yaml(args.input_file)
-    config_yaml['args'] = args
+    config_yaml['args'] = args  # store args here for convenience
 
-    #sys.exit(f" xxx config_yaml = {config_yaml} ")
-
-    # set merge flag before running program_class
+    # set logical merge flag before running program_class
     config_yaml['args'].merge_flag   = set_merge_flag(config_yaml)
-    config_yaml['args'].legacy_input = False
+    # xxx mark delete config_yaml['args'].legacy_input = False
 
-    logging.debug(config_yaml)
+    logging.debug(config_yaml)  # ???
 
     # - - - - - -
     # determine which program class (sim, fit, bbc)
     program_class = which_program_class(config_yaml)
 
-    # - - - - - -
     # run the class
     program = program_class(config_yaml)  # calls __init only
 
+    # - - - - - - - -
     # check merge options
     if config_yaml['args'].merge_flag :
         try:
@@ -338,16 +343,20 @@ if __name__ == "__main__":
             logging.info('  Done with merge process -> exit Main.')
             exit(0)
         except Exception as e:
-            cpunum = config_yaml['args'].cpunum[0]
-            msg    = (f"Check CPU{cpunum:04d}*.LOG for merge crash")
-            program.log_assert(False, [ msg ] )
+            logging.exception(e, exc_info=True)
+            cpunum   = config_yaml['args'].cpunum[0]
+            cpu_file = (f"CPU{cpunum:04d}*.LOG")
+            msg      = [e, f"Check {cpu_file} for merge crash" ]
+            program.log_assert(False, msg )
             
+    # - - - - - - 
     # check option to kill jobs 
     if config_yaml['args'].kill : 
         program.kill_jobs()
         print('  Done killing jobs -> exit Main.')
         exit(0)
 
+    # - - - - - -
     try:
         # create output dir
         program.create_output_dir()
@@ -362,28 +371,28 @@ if __name__ == "__main__":
         # This file gets updated later by merge process.
         program.create_merge_file()
 
-        # create SUBMIT.INFO file for merge process ... 
-        # unlike MERGE.LOG, this file never changes.
+        # create static SUBMIT.INFO file for merge process 
+        # (unlike MERGE.LOG, SUBMIT.INFO never changes)
         program.create_info_file()
 
     except Exception as e:
-        msg    = [ "Crashed while preparing batch jobs.", "Check Traceback" ]
+        logging.exception(e, exc_info=True)
+        msg    = [ e, "Crashed while preparing batch jobs.", 
+                   "Check Traceback" ]
         program.log_assert(False, msg )
 
+    # - - - - - -
     if args.nosubmit :
-        print_nosubmit_messages(config_yaml)
-        exit(0)
+        print_nosubmit_messages(config_yaml);   exit(0)
+    else :
+        program.launch_jobs() # submit via batch or ssh
 
-    # submit jobs via batch or ssh
-    program.launch_jobs()
-
+    # - - - - - - -
     # Print any warnings or errors that we captured at the end to make
-    # sure they arent missed
+    # sure they aren't missed
     store.print_warnings()
-    store.print_errors()
-    
-    print_submit_messages(config_yaml)
-
-    exit(0)
+    store.print_errors()    
+    print_submit_messages(config_yaml) # final stuff for user to REMEMBER
+    exit(0)                            # bye bye.
 
 # === END ===

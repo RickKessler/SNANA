@@ -126,6 +126,7 @@
 # Mar 23 2020: include snlc_sim.h dependence for sntools_gridgen.o
 # Apr 25 2020: include lCint for LROOT only of libCint.so exists
 # Jun 12 2020: add sntools_genPDF
+# Sep 10 2020: BYOSED renamed to more generic PySEDMODEL
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -160,7 +161,6 @@ EXTRA_FLAGS = -O1   # -ftree-vectorize -ftree-vectorizer-verbose=2
 # compile default storage options for both ROOT and HBOOK ....
 USE_ROOT   = 1
 USE_HBOOK  = 1
-USE_PYTHON = 1
 
 # ... unless the product is not installed.
 ifndef CERN_DIR
@@ -171,9 +171,6 @@ ifndef ROOT_DIR
    USE_ROOT = 0
 endif
 
-#ifndef SNANA_PYTHON_DIR
-#   USE_PYTHON = 0
-#endif
 
 # ------------------------------------------
 # default lib-subdir name is just 'lib'.
@@ -351,7 +348,7 @@ OBJ_GENMAG_SIM =	\
 	$(OBJ)/genmag_NON1ASED.o \
 	$(OBJ)/genmag_NON1AGRID.o \
 	$(OBJ)/genmag_LCLIB.o	\
-	$(OBJ)/genmag_BYOSED.o
+	$(OBJ)/genmag_PySEDMODEL.o
 
 OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools.o 	\
@@ -957,9 +954,9 @@ $(OBJ)/genmag_SIMSED.o : $(SRC)/genmag_SIMSED.c  $(SRC)/genmag_SEDtools.c
 	(cd $(OBJ); \
 	$(CC)  $(SNCFLAGS) $(SRC)/genmag_SIMSED.c )
 
-$(OBJ)/genmag_BYOSED.o : $(SRC)/genmag_BYOSED.c  $(SRC)/genmag_SEDtools.c 
+$(OBJ)/genmag_PySEDMODEL.o : $(SRC)/genmag_PySEDMODEL.c  $(SRC)/genmag_SEDtools.c 
 	(cd $(OBJ); \
-	$(CC)  $(SNCFLAGS) $(IPY) $(SRC)/genmag_BYOSED.c )
+	$(CC)  $(SNCFLAGS) $(IPY) $(SRC)/genmag_PySEDMODEL.c )
 
 $(OBJ)/genmag_snoopy.o : $(SRC)/genmag_snoopy.c  $(SRC)/genmag_snoopy.h $(SRC)/sntools.h
 	(cd $(OBJ); \

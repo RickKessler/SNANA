@@ -358,11 +358,13 @@ struct SNDATA {
   char  SIMSED_PARNAME[100][40]; // SIMSED parameter names
   float SIMSED_PARVAL[100];      // SIMSED parameter values
 
-  int   NPAR_BYOSED;
-  char  BYOSED_KEYWORD[100][80]; // BYOSED keyword for data files
-  char  BYOSED_PARNAME[100][40]; // BYOSED parameter names
-  float BYOSED_PARVAL[100];      // BYOSED parameter values
-
+  // Python SED models: BYOSED, SNEMO ...
+  int   NPAR_PySEDMODEL;
+  char  PySEDMODEL_KEYWORD[100][80]; // keyword for data files
+  char  PySEDMODEL_PARNAME[100][40]; // parameter names
+  float PySEDMODEL_PARVAL[100];      // parameter values
+  char  PySEDMODEL_NAME[60];         // e.g., BYOSED, SNEMO
+  
   int   NPAR_LCLIB;
   char  LCLIB_KEYWORD[100][40]; // LCLIB keyword for data file
   char  LCLIB_PARNAME[100][40]; // LCLIB parameter names

@@ -117,7 +117,7 @@ void init_genmag_PySEDMODEL(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
 
   // check which model from PATH_VERSION
   get_MODEL_NAME_PySEDMODEL(PATH_VERSION, MODEL_NAME);
-  sprintf(PyFUN_NAME, "genmag_%s", MODEL_NAME) ;
+  sprintf(PyFUN_NAME, "gensed_%s", MODEL_NAME) ;
 
   printf("   %s PATH    = '%s' \n",  MODEL_NAME, PATH_VERSION); 
   printf("   %s OPTMASK = %d \n",    MODEL_NAME, OPTMASK );	
@@ -184,7 +184,7 @@ void init_genmag_PySEDMODEL(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   genmod = PyImport_ImportModule(PyFUN_NAME); 
 
   if (genmod == NULL) {
-    sprintf(c1err,"Could not import class %s", PyFUN_NAME); 
+    sprintf(c1err,"Could not import module %s", PyFUN_NAME); 
     sprintf(c2err,"2nd message ??");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
@@ -192,7 +192,7 @@ void init_genmag_PySEDMODEL(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   // xxxx  genclass = PyObject_GetAttrString(genmod, "genmag_BYOSED"); 
   genclass = PyObject_GetAttrString(genmod, PyFUN_NAME); 
   if (genclass == NULL) {
-    sprintf(c1err,"Could not import PyObject_GetAttrString module");
+    sprintf(c1err,"Could not import PyObject_GetAttrString class");
     sprintf(c2err,"2nd message ??");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }

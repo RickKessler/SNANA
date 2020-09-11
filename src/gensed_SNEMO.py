@@ -21,11 +21,7 @@ class gensed_SNEMO:
 			try:
 				self.verbose = OPTMASK & (1 << mask_bit_locations['verbose']) > 0
 
-				self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
-
 				self.host_param_names = [x.upper() for x in HOST_PARAM_NAMES.split(',')]
-
-				self.PATH_VERSION = os.path.dirname(PATH_VERSION)
 
 				self.dump = OPTMASK & (1 << mask_bit_locations['dump'])>0
 

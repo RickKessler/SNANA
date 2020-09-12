@@ -34,7 +34,7 @@ def print_err():
 	raise RuntimeError
 
 
-class genmag_BYOSED:
+class gensed_BYOSED:
 		def __init__(self,PATH_VERSION,OPTMASK,ARGLIST,HOST_PARAM_NAMES):
 			#print('LIST: ',OPTMASK)
 			#print('HOST_PARAM_NAMES: ',HOST_PARAM_NAMES)
@@ -54,7 +54,7 @@ class genmag_BYOSED:
 
 				self.PATH_VERSION = os.path.expandvars(os.path.dirname(PATH_VERSION))
 				#self.host_param_names=HOST_PARAM_NAMES
-
+				
 				if os.path.exists(os.path.join(self.PATH_VERSION,'BYOSED.params')):
 					self.paramfile = os.path.join(self.PATH_VERSION,'BYOSED.params')
 				elif os.path.exists(os.path.join(self.PATH_VERSION,'byosed.params')):
@@ -116,7 +116,7 @@ class genmag_BYOSED:
 			except Exception as e:
 				exc_type, exc_obj, exc_tb = sys.exc_info()
 				print('Python Error :',e)
-				print('genmag_BYOSED.py, line number: %i'%exc_tb.tb_lineno)
+				print('gensed_BYOSED.py, line number: %i'%exc_tb.tb_lineno)
 				print_err()
 
 			return
@@ -744,7 +744,7 @@ def main():
 		#print(test(np.array([[10,5000],[10,6000]])))
 		import matplotlib.pyplot as plt
 		#sys.exit()
-		mySED=genmag_BYOSED('$WFIRST_ROOT/SALT3/examples/wfirst/byosed/',2,[],'z,AGE,ZCMB,METALLICITY')
+		mySED=gensed_BYOSED('$WFIRST_ROOT/SALT3/examples/wfirst/byosed/',2,[],'z,AGE,ZCMB,METALLICITY')
 		mySED.sn_id=1
 		'''
 		hist=[]

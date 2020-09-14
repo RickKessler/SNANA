@@ -5,9 +5,10 @@
 # their refactored versions with YAML. Input files are
 # for Simulation, LightCurveFit, and SALT2mu/BBC.
 
-import os, sys, yaml, re
+import os, sys, ruamel.yaml, re, yaml
 import psutil
 from   copy  import copy
+
 
 # definitions
 SIM_default_yaml_sections__ = \
@@ -25,7 +26,8 @@ FIT_yaml_translation_dict__ = \
          {'[*]' : '/*/', 
           'LEGACY' : 'REFAC',  
           'APPEND_TABLE_TEXT'   : 'APPEND_TABLE_VARLIST', 
-          'FITRES_COMBINE_FILE' : 'APPEND_TABLE_TEXTFILE'
+          'FITRES_COMBINE_FILE' : 'APPEND_TABLE_TEXTFILE',
+		  '->' : ''
          }
 
 FIT_multi_option_list = [ 'VERSION', 'FITOPT']
@@ -44,7 +46,6 @@ class _MyDumper(yaml.SafeDumper):
 
 		if len(self.indents) == 1:
 			super().write_line_break()
-
 
 def _finput_abspath(finput):
 	"""
@@ -122,6 +123,7 @@ def _add_keyword_to_dict(current_dict,key,value,legacy_type):
 				value = float(value.strip())
 			except:
 				value = value.strip()
+
 		if key in current_dict.keys():
 			if not isinstance(current_dict[key],list):
 				current_dict[key] = [current_dict[key]]
@@ -275,6 +277,10 @@ def _legacy_snana_sim_input_to_dictionary(basefilename,verbose):
 			kwline = line.split(":",maxsplit=1)
 			kw = kwline[0]
 			kv = kwline[1]
+			if '#' in kw:
+				kw = kw[:kw.find('#')]
+			if '#' in kv:
+				kv = kv[:kv.find('#')]
 			for yaml_key in SIM_yaml_translation_dict__.keys():
 				kw,kv=_make_yaml_translation(kw,kv,yaml_key, SIM_yaml_translation_dict__[yaml_key])
 			if "#" in kwline[1]:
@@ -347,9 +353,13 @@ def _legacy_snana_NML_to_dictionary(basefilename,verbose):
 		key = line.split(':')[0].replace(' ','')
 		value = line.split(':')[1].replace('\n','')
 		for yaml_key in FIT_yaml_translation_dict__.keys():
-			key,value=_make_yaml_translation(key,value,yaml_key,
+			key,value = _make_yaml_translation(key,value,yaml_key,
 						FIT_yaml_translation_dict__[yaml_key])
-
+		if '#' in key:
+			key = key[:key.find('#')]
+		if '#' in value:
+			value = value[:value.find('#')]
+					
 		header['CONFIG'] = _add_keyword_to_dict(header['CONFIG'],key,value,'FIT')
 
 	return(header,nml_lines)
@@ -388,8 +398,11 @@ def _legacy_snana_bbc_to_dictionary(basefilename,verbose):
 			kwline = line.split(":",maxsplit=1)
 			kw = kwline[0]
 			kv = kwline[1]
-			if "#" in kwline[1]:
-				kv = kwline[1].split("#")[0].strip()
+			if '#' in kw:
+				kw = kw[:kw.find('#')]
+			if '#' in kv:
+				kv = kv[:kv.find('#')]
+
 			for yaml_key in BBC_yaml_translation_dict__.keys():
 				kw,kv=_make_yaml_translation(kw,kv,yaml_key,
 											 BBC_yaml_translation_dict__[yaml_key])

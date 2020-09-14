@@ -63,8 +63,11 @@ def get_args():
     msg = "increase output verbosity (default=True)"
     parser.add_argument("-v", "--verbose", help=msg, action="store_true")
 
-    msg = "kill current jobs"
+    msg = "kill current jobs (requires input file as 1st arg)"
     parser.add_argument("-k", "--kill", help=msg, action="store_true")
+
+    msg = "kill jobs if FAIL is detected"
+    parser.add_argument("--kill_on_fail", help=msg, action="store_true")
 
     msg = "+=1 -> new input file has REFAC_ prefix; " + \
           "+=2 -> old input file has LEGACY_ prefix ; " + \

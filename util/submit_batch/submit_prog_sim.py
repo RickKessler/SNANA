@@ -1242,12 +1242,6 @@ class Simulation(Program):
                 job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
-                # xxxx mark delete Sep 10
-                #JOB_INFO   = {}
-                #JOB_INFO.update(job_info_sim)    # glue
-                #JOB_INFO.update(job_info_merge) # glue
-                # xxxx 
-
                 # store TMP_VERSION for later
                 TMP_list2d[iver][ifile] = job_info_sim['tmp_genversion']
 
@@ -1284,7 +1278,7 @@ class Simulation(Program):
         CONFIG       = self.config_yaml['CONFIG']
         GENPREFIX    = CONFIG['GENPREFIX']
         no_merge     = self.config_yaml['args'].nomerge
-
+        kill_on_fail = self.config_yaml['args'].kill_on_fail
         program           = self.config_prep['program'] 
         n_job_split       = self.config_prep['n_job_split']
         output_dir        = self.config_prep['output_dir']
@@ -1300,6 +1294,7 @@ class Simulation(Program):
         user_path_sndata  = self.config_prep['user_path_sndata_sim']
         path_sndata       = self.config_prep['path_sndata_sim']
         format_mask       = self.config_prep['format_mask']
+        
         Nsec  = seconds_since_midnight
 
         reset_cidoff     = self.config_prep['reset_cidoff']
@@ -1376,6 +1371,7 @@ class Simulation(Program):
         JOB_INFO['tmp_genversion_split']  = tmp_ver
         JOB_INFO['tmp_genversion']        = tmp1    # combined genv        
         JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
+        JOB_INFO['kill_on_fail']  = kill_on_fail
 
         return JOB_INFO
 

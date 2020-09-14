@@ -94,6 +94,9 @@ class Program:
         memory        = MEMORY_DEFAULT
         kill_flag     = config_yaml['args'].kill
 
+        config_prep['nodelist']       = ''
+        config_prep['batch_command']  = ''
+
         CONFIG = config_yaml['CONFIG']
 
         if 'NODELIST' in CONFIG  :
@@ -141,32 +144,89 @@ class Program:
         # create_output_dir sets dir names, but won't create anything
         # because kill flag is set
         self.create_output_dir()
-        output_dir  = self.config_prep['output_dir']
-        done_list   = self.config_prep['done_stamp_list']
-        submit_mode = self.config_prep['submit_mode'] 
-        time_now    = datetime.datetime.now()
 
-        if submit_mode == SUBMIT_MODE_SSH :
-            node_list   = self.config_prep['node_list']
-            for node in node_list :
-                print(f" Kill jobs on {node}")
-                cmd_kill  = "kill -KILL -1"                
-                ret = subprocess.call(["ssh", node, cmd_kill] )
+        output_dir    = self.config_prep['output_dir']
+        done_list     = self.config_prep['done_stamp_list']
+        submit_mode   = self.config_prep['submit_mode'] 
+        batch_command = self.config_prep['batch_command'] 
+        IS_SSH        = submit_mode == SUBMIT_MODE_SSH
+        IS_BATCH      = submit_mode == SUBMIT_MODE_BATCH
+
+        if IS_SSH :
+            self.kill_ssh_jobs()
+
+        elif IS_BATCH and batch_command == 'sbatch' :
+            self.kill_sbatch_jobs()
+
         else:
-            print(f"\n Sorry, cant' kill jobs defined by BATCH_INFO key.")
-            print(f" If using sbatch, try")
-            print(f"    scancel --user=<userName>")
-            return 
+            msgerr = []
+            msgerr.append(f"Unable to kill jobs for:")
+            msgerr.append(f"  submit_mode   = '{submit_mode} ")
+            msgerr.append(f"  batch_command = '{batch_command}")
+            util.log_assert(False,msgerr)
 
         # - - - - - - - - 
-        # leave notice in both MERGE.LOG and ALL.DONE files
+        # if we get here, leave notice in both MERGE.LOG and ALL.DONE files
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
+        time_now            = datetime.datetime.now()
         with open(MERGE_LOG_PATHFILE, 'a') as f:
             f.write(f"\n !!! JOBS KILLED at {time_now} !!! \n")
 
         util.write_done_stamp(output_dir, done_list, STRING_STOP)
 
         # end kill_jobs
+
+    def kill_ssh_jobs(self):
+        node_list   = self.config_prep['node_list']
+        for node in node_list :
+            print(f" Kill jobs on {node}")
+            cmd_kill  = "kill -KILL -1"                
+            ret       = subprocess.call(["ssh", node, cmd_kill] )
+
+        # end kill_ssh_jobs
+
+
+    def kill_sbatch_jobs(self):
+        
+        # kill sbatch jobs in slurm.
+        # Read sbatch info from SUBMIT.INFO:
+        #   list of CPUNUM, PID, JOB_NAME
+        # Then loop over list and execute 'scancel --name=JOBNAME'
+        # If cpunum is an argument, kill this cpu last.
+
+        output_dir       = self.config_prep['output_dir']
+        INFO_PATHFILE    = (f"{output_dir}/{SUBMIT_INFO_FILE}")
+        submit_info_yaml = util.extract_yaml(INFO_PATHFILE)
+
+        # if cpunum is an argument, this cpu is kill last.
+        cpunum_last = -9;  job_name_last = ''
+        if self.config_yaml['args'].cpunum is not None :
+            cpunum_last = self.config_yaml['args'].cpunum[0]
+
+        SBATCH_LIST  = submit_info_yaml['SBATCH_LIST'] 
+        njob_kill    = len(SBATCH_LIST)
+        for item in SBATCH_LIST :
+            cpunum     = item[0]
+            pid        = item[1]
+            job_name   = item[2]
+            if cpunum == cpunum_last : job_name_last = job_name; continue 
+            cmd_kill   = (f"scancel --name={job_name}")
+            logging.info(f"\t {cmd_kill}")
+            os.system(cmd_kill)
+            
+        # check to kill job on cpunum_last
+        if cpunum_last >= 0 :
+            cmd_kill   = (f"scancel --name={job_name_last}")
+            logging.info(f"\t {cmd_kill}")
+            os.system(cmd_kill)
+
+        logging.info(f" Done cancelling {njob_kill} batch jobs.")
+        logging.info(f" Check remaining {USERNAME} jobs ... ")
+        time.sleep(3)
+        os.system(f"squeue -u {USERNAME}")
+        logging.info(f"\n Beware that batch jobs might remain from other submits.")
+
+        # end kill_sbatch_jobs
 
     def write_script_driver(self):
 
@@ -180,6 +240,7 @@ class Program:
         #
         
         CONFIG      = self.config_yaml['CONFIG']
+        input_file  = self.config_yaml['args'].input_file 
         output_dir  = self.config_prep['output_dir']
         script_dir  = self.config_prep['script_dir']
         n_core      = self.config_prep['n_core']
@@ -193,6 +254,7 @@ class Program:
         COMMAND_FILE_LIST = []   # includes full path
         BATCH_FILE_LIST   = []   # idem
         cmdlog_file_list  = []
+        job_name_list     = []
 
         # loop over each core and create CPU[nnn]_JOBS.CMD that
         # are used for either batch or ssh. For batch, also 
@@ -200,6 +262,7 @@ class Program:
         for icpu in range(0,n_core) :
             node          = node_list[icpu]
             cpu_name      = (f"CPU{icpu:04d}")
+            job_name      = (f"{input_file}-{cpu_name}") 
             prefix        = (f"CPU{icpu:04d}_JOBLIST_{node}")
             command_file  = (f"{prefix}.CMD")
             log_file      = (f"{prefix}.LOG")
@@ -209,6 +272,7 @@ class Program:
             command_file_list.append(command_file)
             cmdlog_file_list.append(log_file)
             COMMAND_FILE_LIST.append(COMMAND_FILE)
+            job_name_list.append(job_name)
 
             # write few global things to COMMAND_FILE
             with open(COMMAND_FILE, 'w') as f :
@@ -235,13 +299,14 @@ class Program:
                 BATCH_FILE = (f"{script_dir}/{batch_file}")
                 batch_file_list.append(batch_file)
                 BATCH_FILE_LIST.append(BATCH_FILE)
-                self.write_batch_file(batch_file,log_file,
-                                      command_file,cpu_name)
+                self.write_batch_file(batch_file, log_file,
+                                      command_file, job_name)
 
         # store few thigs for later
         self.config_prep['cmdlog_file_list']  = cmdlog_file_list
         self.config_prep['command_file_list'] = command_file_list
         self.config_prep['COMMAND_FILE_LIST'] = COMMAND_FILE_LIST
+        self.config_prep['job_name_list']     = job_name_list
         self.config_prep['batch_file_list']   = batch_file_list
         self.config_prep['BATCH_FILE_LIST']   = BATCH_FILE_LIST
 
@@ -263,7 +328,7 @@ class Program:
 
         # end write_script_driver
 
-    def write_batch_file(self, batch_file, log_file, command_file, cpu_name):
+    def write_batch_file(self, batch_file, log_file, command_file, job_name):
 
         # Create batch_file that executes "source command_file"
         # BATCH_TEMPLATE file is read, and lines are modified using
@@ -276,7 +341,6 @@ class Program:
         BATCH_TEMPLATE  = self.config_prep['BATCH_TEMPLATE'] 
         script_dir      = self.config_prep['script_dir']
         replace_memory  = self.config_prep['memory']
-        input_file      = self.config_yaml['args'].input_file 
         debug_batch     = self.config_yaml['args'].debug_batch
 
         BATCH_FILE      = (f"{script_dir}/{batch_file}")
@@ -287,11 +351,7 @@ class Program:
         #print(f" xxx template_batch_lines = {template_batch_lines} ")
 
         # get strings to replace 
-
-        # job name in queue include name of input file for Pippin.
-        # Remove everything up to last slash so that only the base
-        # input file name is used in job name.
-        replace_job_name   = (f"{input_file}-{cpu_name}") 
+        replace_job_name   = job_name
 
         # nothing to change for log file
         replace_log_file   = log_file  
@@ -386,7 +446,7 @@ class Program:
         n_done_tot      = self.config_prep['n_done_tot']
         n_job_split     = self.config_prep['n_job_split']
         n_core          = self.config_prep['n_core']
-        simlog_dir      = self.config_prep['output_dir']
+        output_dir      = self.config_prep['output_dir']
         script_dir      = self.config_prep['script_dir']
         done_stamp_list = self.config_prep['done_stamp_list']
         Nsec            = seconds_since_midnight
@@ -398,7 +458,7 @@ class Program:
             cleanup_flag = CONFIG['CLEANUP_FLAG']  # override deault
 
         print(f"  Create {SUBMIT_INFO_FILE}")
-        INFO_PATHFILE  = (f"{simlog_dir}/{SUBMIT_INFO_FILE}")
+        INFO_PATHFILE  = (f"{output_dir}/{SUBMIT_INFO_FILE}")
         f = open(INFO_PATHFILE, 'w') 
 
         # required info for all tasks
@@ -485,7 +545,7 @@ class Program:
 
 
     def create_merge_file(self):
-        output_dir      = self.config_prep['output_dir']            
+        output_dir      = self.config_prep['output_dir'] 
         logging.info(f"  Create {MERGE_LOG_FILE}")
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
         f = open(MERGE_LOG_PATHFILE, 'w') 
@@ -511,7 +571,15 @@ class Program:
             batch_file_list  = self.config_prep['batch_file_list']
             for batch_file in batch_file_list :
                 cmd = (f"{cddir} ; {batch_command} {batch_file}")
-                os.system(cmd)
+                #os.system(cmd)
+
+                ret = subprocess.run( [ batch_command, batch_file], 
+                                      cwd=script_dir,
+                                      capture_output=True, text=True )
+                #print(f" xxx launch {batch_file} -> '{ret.stdout}' ")
+
+            self.fetch_slurm_pid_list()
+
         else:
             n_core         = self.config_prep['n_core']
             node_list      = self.config_prep['node_list']
@@ -542,6 +610,42 @@ class Program:
                 #print(f" xxx {node} ret = {ret}")
 
         # end launch_jobs
+
+    def fetch_slurm_pid_list(self):
+
+        # for sbatch, fetch process id for each CPU; otherwise do nothing.
+        # 
+        batch_command    = self.config_prep['batch_command']
+        output_dir       = self.config_prep['output_dir']
+        script_dir       = self.config_prep['script_dir']
+        job_name_list    = self.config_prep['job_name_list']
+        msgerr = []
+        if batch_command != 'sbatch' : return
+
+        # prep squeue command with format: i=pid, j=jobname            
+        cmd = (f"squeue -u {USERNAME} -h -o '%i %j' ")
+        ret = subprocess.run( [cmd], shell=True, 
+                              capture_output=True, text=True )
+        pid_all = ret.stdout.split()
+        
+        INFO_PATHFILE  = (f"{output_dir}/{SUBMIT_INFO_FILE}")
+        f = open(INFO_PATHFILE, 'a') 
+        f.write(f"\nSBATCH_LIST:  # [CPU,PID,JOB_NAME] \n")
+
+        for job_name in job_name_list :
+            j_job    = pid_all.index(job_name)
+            if j_job <= 0 :
+                msgerr.append(f"Could not find pid for job = {job_name}")
+                msgerr.append(f"Check for sbatch problem")
+                self.log_assert(False, msgerr)
+
+            pid      = pid_all[j_job-1]
+            cpunum   = int(job_name[-4:])
+            print(f"\t pid = {pid} for {job_name}")
+            f.write(f"  - [ {cpunum:3d}, {pid}, {job_name} ] \n")
+        f.close()
+        
+        # end fetch_slurm_pid_list
 
     def merge_driver(self):
 
@@ -794,8 +898,6 @@ class Program:
 
         if flag > 0 :
             # check for other busy files to avoid conflict
-            # xxx busy_list  = sorted(glob.glob1(output_dir,busy_wildcard))
-            # xxx n_busy     = len(busy_list)
             n_busy,busy_list = self.get_busy_list()
             if n_busy > 0 :
                 msg = (f"\n Found existing {busy_list[0]} --> "\
@@ -810,8 +912,6 @@ class Program:
                 # --> avoid conflict by keeping only first one in sort list
                 time.sleep(1)
                 n_busy,busy_list = self.get_busy_list()
-                # xxx busy_list  = sorted(glob.glob1(output_dir,busy_wildcard))
-                # xxxn_busy     = len(busy_list)
                 if n_busy > 1 and busy_file != busy_list[0] :
                     cmd_rm = (f"rm {BUSY_FILE}")
                     os.system(cmd_rm)

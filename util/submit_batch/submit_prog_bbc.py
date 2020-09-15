@@ -55,6 +55,10 @@ COLNUM_BBC_MERGE_NEVT_CCPRIOR = 6
 JOB_SUFFIX_TAR_LIST  = [ 'YAML', 'DONE', 'LOG'  ]
 SUFFIX_MOVE_LIST = [ SUFFIX_FITRES, SUFFIX_M0DIF ]
 
+# hard-wire output subDir name if there is 1-and-only-1 version
+SUBDIR_OUTPUT_ONE_VERSION = "OUTPUT_BBCFIT"
+
+# name of quick-and-dirty cosmology fitting program
 PROGRAM_wfit = "wfit.exe"
 
 #SPLITRAN_SUMMARY_FILE = "SPLITRAN_SUMMARY.FITRES"
@@ -259,8 +263,10 @@ class BBC(Program):
                 v = version_list2d[0][0]
                 self.config_prep['n_version_out']            = 1
                 self.config_prep['version_orig_sort_list2d'] = version_list2d
-                self.config_prep['version_out_sort_list2d']  = version_list2d
-                self.config_prep['version_out_list']         = [v]
+                self.config_prep['version_out_sort_list2d']  = \
+                                        [[SUBDIR_OUTPUT_ONE_VERSION]]
+                self.config_prep['version_out_list'] = \
+                                        [SUBDIR_OUTPUT_ONE_VERSION]
                 return
             else :
                 msgerr.append(f"Only one VERSION per INPDIR allowed because {key}")

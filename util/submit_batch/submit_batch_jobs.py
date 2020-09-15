@@ -6,23 +6,19 @@
 # TO-DO LIST for
 #
 #  BASE/util: 
-#   + if ALL.DONE exists with FAIL , STOP EVERYTHING ?!?!
-#   - print(e) on crash
 #   - pass ALL.DONE file to sim and fit job; STOP if it exists.
 #   - more elegant HELP menu per program?
 #   - run merge task immediately after launch so that
 #     some of the WAIT -> RUN
 #
-#  SIM:#
+#  SIM:
 #   - for sim, leave symbolic links for redundant sim job
-#   - problem reading SIMGEN-input file when SIMGEN_DUMP breaks
-#      to another line that is not YAML compatible
 #
 #  FIT:
 #   - track down why NEVT(HBOOK) sometimes fails
-#   - validate APPEND_TABLE_VARLIST before submitting jobs ???
 #
 #  BBC
+#   - trap wfit errors
 #
 # - - - - - - - - - -
 

@@ -6677,15 +6677,16 @@ Fig.~\ref{fig:SETPKMJD}.
    OPT_SETPKMJD += 2    #  Bazin fit with 2nd order poly (see below)
    OPT_SETPKMJD += 4    #  do NOT abort when PKMJD cannot be found
    OPT_SETPKMJD += 8    #  PKMJD -> MJD at max-flux (no fit)
-   OPT_SETPKMJD += 16   #  Fmax-clump method (see below)
-   OPT_SETPKMJD += 32   #  PKMJD = MJD_TRIGGER (must set PHOTFLAG bit)
+   OPT_SETPKMJD += 16   #  Fmax-clump method, wgt=1 per obs (see below)
+   OPT_SETPKMJD += 32   #  Fmax-clump method, wgt=log10(SNR) per obs (see below)
+   OPT_SETPKMJD += 64   #  PKMJD = MJD_TRIGGER (must set PHOTFLAG bit)
    OPT_SETPKMJD += 512  #  save fit-PKMJD params (each band) in SNANA table
    OPT_SETPKMJD += 1024 #  DUMP info for each SN
 
    SNRCUT_SETPKMJD  = 5    # for Fmax-clump method only (default=5)
    MJDWIN_SETPKMJD  = 60   # for Fmax-clump method only (default=60)
    PHOTFLAG_TRIGGER = MASK # for MJD_TRIGGER method (MASK set by survey)
-   CUTWIN_TOBS = -999,999  # After finding MJD(Fmax), apply TOBS cut for Bazin fit.
+   CUTWIN_TOBS = -999,999  # Find MJD(Fmax), then apply TOBS cut for Bazin fit.
 
    SHIFT_SETPKMJD = 5.0    # syst test to shift initial PKMJD by 5 days (default=0)
 \end{Verbatim}
@@ -6696,7 +6697,7 @@ Fig.~\ref{fig:SETPKMJD}.
 $t_0$ to be the corresponding {\tt MJD}. This estimate, however,
 is subject to catastrophic errors if there is just a single outlier
 flux. To limit impact from outliers, the ``Fmax-clump'' method
-({\tt OPT\_SETPKMJD=16}) finds max flux in the densest clump of 
+({\tt OPT\_SETPKMJD=16} or {32}) finds max flux in the densest clump of 
 SNR-detections.
 Each SNR-detection is defined by user-input {\tt SNRCUT\_SETPKMJD},
 and {\tt MJDWIN\_SETPKMJD} defines the size of the time window to 
@@ -6705,14 +6706,16 @@ search for detections. The window is analyzed in sliding steps of
 e.g., for a 1000-day survey, 96 10-day windows are analyzed,
 and each window 50 days long. The last 4 windows (97-100) 
 are skipped because they contain no additional information.
-The window containing the maximum number of SNR-detections is used 
+The window containing the maximum weight-sum among SNR-detections is used 
 to determine max flux, and $t_0$ is MJD of the max flux observation.
-If there are no \obss\ wit {\tt SNR}$>${\tt SNRCUT\_SETPKMJD},
+Each weight is 1.0 per detection for {\tt OPT\_SETPKMJD=16},
+and weight is $\log_{10}(SNR)$ for {\tt OPT\_SETPKMJD=32}.
+If there are no \obss\ with {\tt SNR}$>${\tt SNRCUT\_SETPKMJD},
 the process is repeated with {\tt SNRCUT\_SETPKMJD}$\to 3$.
 The CPU time for this max-flux method is ${\sim}10$~milliseconds per event.
 
 
-{\tt OPT\_SETPKMJD=32} sets $\toApprox$ to the MJD when the survey
+{\tt OPT\_SETPKMJD=64} sets $\toApprox$ to the MJD when the survey
 trigger is satisfied; e.g., MJD of the 2nd detection for a 
 trigger requiring two detections. This option requires that the
 survey sets a {\tt PHOTFLAG} mask for the observation when the

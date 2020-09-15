@@ -416,8 +416,11 @@ struct {
 
 
 #define OPTMASK_SETPKMJD_FLUXMAX   8 // naive max flux
-#define OPTMASK_SETPKMJD_FLUXMAX2 16 // Fmax-clump method
-#define OPTMASK_SETPKMJD_TRIGGER  32 // return MJD_TRIGGER
+#define OPTMASK_SETPKMJD_FLUXMAX2 16 // Fmax-clump method, wgt=1 per obs
+#define OPTMASK_SETPKMJD_FLUXMAX3 32 // idem, with wgt=log(SNR) per obs
+#define OPTMASK_SETPKMJD_TRIGGER  64 // return MJD_TRIGGER
+// xxx mark delete 9/2020 #define OPTMASK_SETPKMJD_TRIGGER 32 //return MJD_TRIGGER
+
 struct {
   int    OPTMASK;
   double SNRCUT, SNRCUT_BACKUP;

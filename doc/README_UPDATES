@@ -18917,6 +18917,8 @@
      + new &SNLCINP  CUTWIN_SNR_NODETECT
      + for text format, allow REDSHIFT_CMB or REDSHIFT_FINAL
          (FITS format still has REDSHIFT_HELIO and REDSHIFT_FINAL)
+     + new OPT_SETPKMJD option (+32) to use Fmax-clump method with
+         wgt=log10(SNR) instead of wgt=1  (see manual)
 
    snlc_sim.c
      + remove OPT_DEVEL_GENPDF[READ_INPUT]  
@@ -18927,5 +18929,12 @@
      + declare and parse new model SNEMO (but no SNEMO functions yet)
      + checked that PySEDMODEL params propagate to data files and 
        output tables.
+
+   combine_fitres.c
+     + new input -nullval_float <val> to override default -888
+
+   wfit.c
+    + read fitres file with openTextFile util to allow gzip input,
+      and to trap error on non-existing file.
 
 END: 

@@ -115,7 +115,8 @@
    + new input -nullval_float 0 (override default -888). Initial use is
      for Pippin to set classifier PROB_CC=0 when classifier returns
      no value.
- 
+   + allow 1 or 2 dashes in front of input args to allow pythonic structure.
+
 ******************************/
 
 #include <stdio.h>

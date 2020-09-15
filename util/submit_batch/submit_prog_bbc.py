@@ -643,8 +643,9 @@ class BBC(Program):
         #print(f" xxx iver={iver}, ifit={ifit}, imu={imu} ", \
             #flush=True)
 
-        input_file  = self.config_yaml['args'].input_file 
-        fast        = self.config_yaml['args'].fast
+        input_file    = self.config_yaml['args'].input_file 
+        fast          = self.config_yaml['args'].fast
+        kill_on_fail  = self.config_yaml['args'].kill_on_fail
 
         program     = self.config_prep['program']
         output_dir  = self.config_prep['output_dir']
@@ -662,12 +663,13 @@ class BBC(Program):
         input_ff    = (f"INPUT_{fitopt_num}.{SUFFIX_FITRES}") 
 
         JOB_INFO = {}
-        JOB_INFO['program']     = program
-        JOB_INFO['input_file']  = input_file
-        JOB_INFO['job_dir']     = script_dir
-        JOB_INFO['log_file']    = (f"{prefix_orig}.LOG")
-        JOB_INFO['done_file']   = (f"{prefix_orig}.DONE")
+        JOB_INFO['program']       = program
+        JOB_INFO['input_file']    = input_file
+        JOB_INFO['job_dir']       = script_dir
+        JOB_INFO['log_file']      = (f"{prefix_orig}.LOG")
+        JOB_INFO['done_file']     = (f"{prefix_orig}.DONE")
         JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
+        JOB_INFO['kill_on_fail']  = kill_on_fail
 
         # if wfit job will run, suppress DONE file here and wait for
         # wfit to finish before writing DONE files. This logic avoids

@@ -528,7 +528,7 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"cd {job_dir} \n\n")
 
     CHECK_CODE_EXISTS = True
-    CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO 
+    CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO and 'kill_on_fail' in JOB_INFO
 
     if CHECK_ALL_DONE :
         # if ALL.DONE file exists, something else failed ... 

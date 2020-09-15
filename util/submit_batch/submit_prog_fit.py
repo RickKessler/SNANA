@@ -670,6 +670,7 @@ class LightCurveFit(Program):
         icpu   = index_dict['icpu']
 
         input_file    = self.config_yaml['args'].input_file 
+        kill_on_fail  = self.config_yaml['args'].kill_on_fail
         program       = self.config_prep['program']
         output_dir    = self.config_prep['output_dir']
         script_dir    = self.config_prep['script_dir']
@@ -693,6 +694,7 @@ class LightCurveFit(Program):
         JOB_INFO['log_file']    = log_file
         JOB_INFO['done_file']   = done_file
         JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
+        JOB_INFO['kill_on_fail']  = kill_on_fail
 
         # set command line arguments
         arg_list.append(f"  VERSION_PHOTOMETRY {version}")

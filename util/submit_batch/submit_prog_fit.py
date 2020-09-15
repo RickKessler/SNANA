@@ -617,10 +617,15 @@ class LightCurveFit(Program):
 
         n_job_local = 0 ;   n_job_real=0 
 
-        for job in range(0,size_sparse_list):  # n_job(proc+links)
-            iver   = iver_list[job]
-            iopt   = iopt_list[job]
-            isplit = isplit_list[job]
+        for iver,iopt,isplit in zip(iver_list,iopt_list,isplit_list):
+
+        # xxxx mark delete xxxxxx
+        #for job in range(0,size_sparse_list):  # n_job(proc+links)
+            #iver   = iver_list[job]
+            #iopt   = iopt_list[job]
+            #isplit = isplit_list[job]
+            # xxxxx end mark xxxxxxxx
+
             index_dict = {
                 'iver':iver, 'iopt':iopt, 'isplit':isplit, 'icpu':icpu
             }  

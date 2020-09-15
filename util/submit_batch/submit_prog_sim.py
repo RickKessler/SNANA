@@ -700,10 +700,14 @@ class Simulation(Program):
         # - - - - - 
         # xxx ngentot_sum = 0
         cidoff        = cidran_min
-        for job in range(0,n_job_tot) :
-            iver   = iver_list[job]
-            ifile  = ifile_list[job]
-            isplit = isplit_list[job]
+        for iver,ifile,isplit in zip(iver_list,ifile_list,isplit_list):
+
+        # xxx mark delete 
+        #for job in range(0,n_job_tot) :
+            #iver   = iver_list[job]
+            #ifile  = ifile_list[job]
+            #isplit = isplit_list[job]
+            # xxx end mark xxxxxx
 
             new_version = (ifile == 0 and isplit==0)
             if reset_cidoff < 2 and new_version :
@@ -1224,10 +1228,15 @@ class Simulation(Program):
 
         # loop over ALL jobs, and pick out the ones for this ICPU
         n_job_local = 0
-        for jobid in range(0,n_job_tot):
-            iver       = iver_list[jobid]
-            ifile      = ifile_list[jobid]
-            isplit     = isplit_list[jobid]  # internal indices
+        for iver,ifile,isplit in zip(iver_list,ifile_list,isplit_list):
+
+        # xxxx mark delete xxxxxxx
+        #for jobid in range(0,n_job_tot):
+            #iver       = iver_list[jobid]
+            #ifile      = ifile_list[jobid]
+            #isplit     = isplit_list[jobid]  # internal indices
+            # xxx mark delete xxxxxx
+
             index_dict = {
                 'iver':iver, 'ifile':ifile, 'isplit':isplit, 'icpu':icpu
             }  
@@ -1515,7 +1524,7 @@ class Simulation(Program):
         #
         #      iver_list_all = 0,0,0, 1,1,1
         #
-        genversion_list_all = []
+        genversion_list_all  = []
         iver_list_all        = []
         n_ver                = len(genversion_list)
 

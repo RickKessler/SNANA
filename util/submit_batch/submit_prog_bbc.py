@@ -253,14 +253,18 @@ class BBC(Program):
 
         if stringmatch_ignore[0] == 'IGNORE' :
             if all_one :
+                logging.info("  Found one and only one version -> "\
+                             f"STRINGMATCH_IGNORE = {stringmatch_ignore}")
                 # store original arrays as sorted since there is nothing to sort
+                v = version_list2d[0][0]
                 self.config_prep['n_version_out']            = 1
                 self.config_prep['version_orig_sort_list2d'] = version_list2d
                 self.config_prep['version_out_sort_list2d']  = version_list2d
+                self.config_prep['version_out_list']         = [v]
                 return
             else :
                 msgerr.append(f"Only one VERSION per INPDIR allowed because {key}")
-                msgerr.append(f"is not defined (or is set to IGNORE) in CONFIG block.")
+                msgerr.append(f"is not defined (or set to IGNORE) in CONFIG block.")
                 msgerr.append(f"n_version_list = {n_version_list} for ")
                 msgerr += inpdir_list
                 self.log_assert(False,msgerr)
@@ -335,6 +339,12 @@ class BBC(Program):
                 version_out_sort_list2d[idir][isort]  = v_out
                 #print(f" xxx idir,iver={idir},{iver}; {v_orig}->{v_out}")
 
+                valid_v_out = len(v_out)>0
+                msgerr = []
+                msgerr.append(f"idir,iver={idir},{iver}; {v_orig}->'{v_out}'")
+                msgerr.append(f"Check STRINGMATCH_IGNORE")
+                self.log_assert(valid_v_out, msgerr)
+
         self.config_prep['n_version_out']            = n_version_out
         self.config_prep['version_out_list']         = version_out_list
         self.config_prep['version_orig_sort_list2d'] = version_orig_sort_list2d
@@ -407,9 +417,14 @@ class BBC(Program):
         iver_list2 = self.config_prep['iver_list2'] 
         ifit_list2 = self.config_prep['ifit_list2']
 
-        for i2d in range(0,n2d_index):
-            iver  = iver_list2[i2d]
-            ifit  = ifit_list2[i2d]
+        for iver,ifit in zip(iver_list2, ifit_list2):
+
+        # xxx mark delete xxxxxxxxxxxxxxxxx
+        #for i2d in range(0,n2d_index):
+            #iver  = iver_list2[i2d]
+            #ifit  = ifit_list2[i2d]
+            # xxxxxxx end mark xxxxxxxx
+
             idir0 = 0  # some things just need first INPDIR index
 
             # create version-output directory on first INPDIR
@@ -593,11 +608,16 @@ class BBC(Program):
 
         n_job_local = 0
 
-        for i4d in range(0,n4d_index):
-            iver      = iver_list4[i4d]
-            ifit      = ifit_list4[i4d]
-            imu       = imu_list4[i4d]
-            isplitran = isplitran_list4[i4d]
+        for iver,ifit,imu,isplitran in \
+            zip(iver_list4,ifit_list4,imu_list4,isplitran_list4):
+
+        # xxx mark delete xxxxxx
+        #for i4d in range(0,n4d_index):
+            #iver      = iver_list4[i4d]
+            #ifit      = ifit_list4[i4d]
+            #imu       = imu_list4[i4d]
+            #isplitran = isplitran_list4[i4d]
+            # xxxx mark delete
 
             n_job_local += 1
             index_dict = \
@@ -814,11 +834,16 @@ class BBC(Program):
             'row_list'    : []   }
 
         STATE = SUBMIT_STATE_WAIT # all start in WAIT state
-        for i4d in range(0,n4d_index):
-            iver      = iver_list4[i4d]
-            ifit      = ifit_list4[i4d]
-            imu       = imu_list4[i4d]
-            isplitran = isplitran_list4[i4d]
+
+        for iver,ifit,imu,isplitran in \
+            zip(iver_list4,ifit_list4,imu_list4,isplitran_list4):
+        # xxx mark delete 
+        #for i4d in range(0,n4d_index):
+            #iver      = iver_list4[i4d]
+            #ifit      = ifit_list4[i4d]
+            #imu       = imu_list4[i4d]
+            #isplitran = isplitran_list4[i4d]
+            # xxx end mark
 
             version    = self.config_prep['version_out_list'][iver]
             fitopt_num = (f"FITOPT{ifit:03d}")

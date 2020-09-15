@@ -2752,7 +2752,7 @@ int parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK,
   char cfilt[MXFILTINDX], KEY[80] ;
   int  MAXKEY = 10;
   int  NTMP, ifilt_obs, ifilt, ifilt_list[MXFILTINDX];
-  //  char fnam[] = "parse_input_KEY_PLUS_FILTER_legacy" ;
+  //  char fnam[] = "parse_input_KEY_PLUS_FILTER" ;
 
   // ----------- BEGIN -----------
 
@@ -21364,7 +21364,7 @@ void gen_fluxNoise_randoms(void) {
 }   // end of gen_fluxNoise_randoms
 
 
-// *********************a****************
+// *************************************
 void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
 
   // Created Dec 27 2019
@@ -21412,15 +21412,15 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
 
   sprintf(band, "%c", FILTERSTRING[ifilt_obs] );
 
-
   NERR=0;
   if ( zpt     < 10.0   ) { NERR++ ; }
   if ( psfsig1 < 0.0001 ) { NERR++ ; }
-  if ( skysig  < 0.0001 ) { NERR++ ; }
+  if ( skysig  < 0.0001 ) { NERR++ ; } //.xyz
   if ( NERR > 0 ) {
     sprintf(c1err,"%d invalid observing conditions for ep=%d, band=%s",
 	    NERR, epoch, band);
-    sprintf(c2err,"zpt=%.2f, psf=%.3f, skysig=%.2f", zpt, psfsig1, skysig);
+    sprintf(c2err,"mjd=%.3f zpt=%.2f, psf=%.3f, skysig=%.2f", 
+	    mjd, zpt, psfsig1, skysig);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 

@@ -355,42 +355,40 @@ void  PARSE_ARGV(int argc, char **argv) {
     
     // check for optional args
 
-    if ( strcmp(argv[i],"--outprefix") == 0 ) {
+    if ( strcmp(argv[i],"--outprefix") == 0 || 
+	 strcmp(argv[i],"-outprefix") == 0  ) {
       i++ ; sprintf(INPUTS.OUTPREFIX_COMBINE,"%s", argv[i]);
       continue ;
     }
-    if ( strcmp(argv[i],"-outprefix") == 0 ) {
-      i++ ; sprintf(INPUTS.OUTPREFIX_COMBINE,"%s", argv[i]);
-      continue ;
-    }
+
     if ( strcmp(argv[i],"-outPrefix") == 0 ) { // allow Fermi-spell
       i++ ; sprintf(INPUTS.OUTPREFIX_COMBINE,"%s", argv[i]);
       continue ;
     }
 
 
-    if ( strcmp(argv[i],"-outfile_text") == 0 ) { 
-      i++ ; sprintf(INPUTS.OUTFILE_TEXT,"%s", argv[i]);
-      continue ;
-    }
-    if ( strcmp(argv[i],"--outfile_text") == 0 ) { 
+    if ( strcmp(argv[i],"-outfile_text") == 0 || 
+	 strcmp(argv[i],"--outfile_text") == 0 ) { 
       i++ ; sprintf(INPUTS.OUTFILE_TEXT,"%s", argv[i]);
       continue ;
     }
 
-    if ( strcmp(argv[i],"-mxrow") == 0 ) {
+    if ( strcmp(argv[i],"-mxrow") == 0 || 
+	 strcmp(argv[i],"--mxrow") == 0  ) {
       i++ ; sscanf(argv[i], "%d", &INPUTS.MXROW_READ);
       continue ;
     }
 
-    if ( strcmp(argv[i],"-zcut") == 0 ) {
+    if ( strcmp(argv[i],"-zcut") == 0 || 
+	 strcmp(argv[i],"--zcut") == 0  ) {
       i++ ; sscanf(argv[i], "%le", &INPUTS.CUTWIN_zHD[0] );
       i++ ; sscanf(argv[i], "%le", &INPUTS.CUTWIN_zHD[1] );
       INPUTS.DOzCUT = 1; 
       continue ;
     }
 
-    if ( strcmp(argv[i],"-nullval_float") == 0 ) {
+    if ( strcmp(argv[i],"-nullval_float") == 0 ||
+	 strcmp(argv[i],"--nullval_float") == 0   ) {
       i++ ; sscanf(argv[i], "%f", &INPUTS.NULLVAL_FLOAT);
       continue ;
     }

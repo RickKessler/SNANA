@@ -1052,7 +1052,8 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
   // Nov 24, 2011: read MAG_OFFSET
   // Oct 25, 2015: read optional RESTLAM_FORCEZEROFLUX
   // Sep 03, 2020: pass REQUIRE_DOCANA arg
-
+  // Sep 17, 2020: read and use NPAR_POLY from COLORLAW line
+  
   char
      infoFile[MXPATHLEN]
     ,c_get[60]
@@ -1065,7 +1066,7 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
 
   double *errtmp, *ptrpar;
   double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX ;
-  int     OPT, ipar, NPAR_READ, IVER, i ;
+  int     OPT, ipar, NPAR_READ, NPAR_POLY, IVER, i ;
   FILE  *fp ;
 
   // ------- BEGIN ---------
@@ -1112,8 +1113,8 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
     { INPUT_SALT2_INFO.COLORLAW_PARAMS[ipar] = 0.0 ; }
 
   // Jul 2, 2010: 1st two parameters are reference wavelengths
-  INPUT_SALT2_INFO.COLORLAW_PARAMS[0] = B_WAVELENGTH ;
-  INPUT_SALT2_INFO.COLORLAW_PARAMS[1] = V_WAVELENGTH ;
+  INPUT_SALT2_INFO.COLORLAW_PARAMS[ICLPAR_REFLAM_CL0] = B_WAVELENGTH ;
+  INPUT_SALT2_INFO.COLORLAW_PARAMS[ICLPAR_REFLAM_CL1] = V_WAVELENGTH ;
 
   INPUT_SALT2_INFO.RESTLAM_FORCEZEROFLUX[0] = 0.0 ;
   INPUT_SALT2_INFO.RESTLAM_FORCEZEROFLUX[1] = 0.0 ;
@@ -1150,9 +1151,14 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
     if ( strcmp(c_get, "COLORLAW_PARAMS:") == 0 ||  // new key
 	 strcmp(c_get, "COLORCOR_PARAMS:") == 0     // allow old key
 	 ) {
-      // read all but B,V_WAVELENGTH
-      NPAR_READ = INPUT_SALT2_INFO.NCOLORLAW_PARAMS - 2 ; 
-      readdouble(fp, NPAR_READ, &INPUT_SALT2_INFO.COLORLAW_PARAMS[2] );
+
+      // read LAM_MIN, LAM_MAX, NPAR_POLY
+      readdouble(fp, 3, &INPUT_SALT2_INFO.COLORLAW_PARAMS[ICLPAR_LAM_MIN] );
+      NPAR_POLY = (int)INPUT_SALT2_INFO.COLORLAW_PARAMS[ICLPAR_NPAR_POLY];
+
+      // read CL poly param
+      readdouble(fp, NPAR_POLY, &INPUT_SALT2_INFO.COLORLAW_PARAMS[ICLPAR_POLY]);
+
     }
     if ( strcmp(c_get, "COLOR_OFFSET:") == 0 ) {
       readdouble(fp, 1, &INPUT_SALT2_INFO.COLOR_OFFSET );
@@ -1217,13 +1223,15 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
 	 B_WAVELENGTH,  V_WAVELENGTH );
 
   if ( IVER == 0 ) {
-    printf("\t    Polynomial params: %f %f \n", *(ptrpar+2), *(ptrpar+3) );
+    printf("\t    Polynomial params: %f %f \n", ptrpar[2], ptrpar[3] );
   }
   else if ( IVER == 1 ) {
-    printf("\t    INTERP LAMBDA RANGE: %7.1f - %7.1f \n", 
-	   *(ptrpar+2), *(ptrpar+3) );
-    printf("\t    Polynomial params: %6.3f %6.3f %6.3f %6.3f \n", 
-	   *(ptrpar+5), *(ptrpar+6), *(ptrpar+7), *(ptrpar+8) );
+    printf("\t    INTERP LAMBDA RANGE: %7.1f - %7.1f \n", ptrpar[2], ptrpar[3] );
+    int ipar, NPAR = (int)ptrpar[4] ;
+    printf("\t    CL-polynomial params: ");
+    for(ipar=0; ipar < NPAR; ipar++ ) 
+      { printf("%6.3f ", ptrpar[5+ipar] ); }
+    printf("\n"); fflush(stdout);
   }
 
   
@@ -3069,7 +3077,6 @@ void test_SALT2colorlaw1(void) {
   double c[NCTEST] ;
   double claw[NCTEST] ;
   double colorPar[20];
-
   double lambda;
 
   int i, irow ;
@@ -3264,3 +3271,236 @@ int getspec_band_salt2__(int *ifilt_obs, float *Tobs, float *z,
 			     *x0, *x1, *c, *mwebv, LAMLIST, FLUXLIST ) ;
   return(NBLAM);
 } 
+
+
+// ======================================================
+//  COLOR LAW FUNCTIONS
+//  (moved back here from sntools.c, Sep 2020)
+// ======================================================
+
+
+double SALT2colorlaw0(double lam_rest, double c, double *colorPar ) {
+
+  // Jul 2, 2010
+  // Returns 10^[.4*c*C(lambda)] as defined in Guy 2007 SALT2 paper.
+  //
+  // *colorPar is an array of five parameters:
+  // LAMBDA_B, LAMBDA_V, color-offset and two polynomial parameters
+  // This code is moved from genamg_SALT2.c to allow more access.
+  //
+  // Aug 2, 2010: remove C_OFF parameter (previously 3rd colorPar arg)
+
+
+  // define local args for *colorPar inputs
+  double LAM_B, LAM_V, COR0, COR1 ;
+
+  // local args
+  double arg, lr, lr2, lr3, numerator, denominator, CLAM  ;
+
+  char fnam[] = "SALT2colorlaw0" ;
+
+  // -------- BEGIN ---------
+
+  // strip off color law parameters
+  LAM_B = *(colorPar+0); // mean lambda of B filter
+  LAM_V = *(colorPar+1); // mean labmda of V filter
+  COR0  = *(colorPar+2); // 1st fitted poly param from training
+  COR1  = *(colorPar+3); // 2nd "    "
+
+  // --------------------------------------
+  // make a few sanity checks on passed parameters
+
+  sprintf(c2err,"Check colorlaw parameters");
+
+  if ( LAM_B < 4000 || LAM_B > 4500 ) {
+    sprintf(c1err, "insane LAM_B = %6.0f", LAM_B );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  if ( LAM_V < 5000 || LAM_V >6000 ) {
+    sprintf(c1err, "insane LAM_V = %6.0f", LAM_V );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  if ( COR0 < -0.4 || COR0 > -0.1 ) {
+    sprintf(c1err, "insane COR0 = %6.3f", COR0 );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+  if ( COR1 < -0.1 || COR1 > +0.1 ) {
+    sprintf(c1err, "insane COR1 = %6.3f", COR1 );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  // --------------------------------------
+  lr = (lam_rest - LAM_B)/( LAM_V - LAM_B );
+  lr2 = lr * lr;
+  lr3 = lr * lr2 ;
+
+  numerator   = lr + lr2*COR0 + lr3*COR1 ;
+  denominator = 1.0 + COR0 + COR1 ;
+  CLAM        = numerator/denominator ;
+  arg         = 0.4 * c * CLAM ;
+
+  return  pow(10.0,arg);
+
+
+} // end of  SALT2colorlaw0
+
+
+// *************************************************************
+double SALT2colorlaw1(double lambda, double c, double *colorPar ) {
+
+  // Created Jul 31, 2010 by R.Kessler and J.Guy
+  // Returns 10^[.4*c*C(lambda)] as defined in 
+  // Guy 2010 SALT2/SNLS3 paper.
+  //
+  // *colorPar is an array of parameters as defined below.
+  // Code is from Julien, with slight modifications for
+  // SNANA compatibility.
+  // 
+  // Mar 3, 2011: fix dumb bug causing crazy value at lam = LAM_MIN
+  
+  // Sep 2020: use checkval_D to check values.
+
+  double LAM_B, LAM_V, LAM_MIN, LAM_MAX, XN, params[10] ;
+  int nparams, i  ;
+  double constant = log(10.0)/2.5 ;
+  double alpha    = 1 ;
+  double val      = 0 ;
+  double rl, rlmin, rlmax, tmp ;
+  char fnam[] = "SALT2colorlaw1" ;
+
+  // --------------- BEGIN ------------
+
+  sprintf(c2err,"Check colorlaw parameters");
+
+  // strip of colorPar values into local variables.
+  LAM_B   = colorPar[ICLPAR_REFLAM_CL0] ;   // mean lambda of B filter
+  LAM_V   = colorPar[ICLPAR_REFLAM_CL1] ;   // mean labmda of V filter
+  LAM_MIN = colorPar[ICLPAR_LAM_MIN] ;   // special extrap function below this
+  LAM_MAX = colorPar[ICLPAR_LAM_MAX] ;   // idem for upper wavelength
+  XN      = colorPar[ICLPAR_NPAR_POLY] ;   // Number of parameters for function
+
+  nparams = (int)XN ;        // number of parameters to follow
+  for ( i=0; i < nparams; i++ ) {
+    tmp       = *(colorPar+5+i); 
+    params[i] = tmp;
+    if ( fabs(tmp) > 10.0 ) {
+      sprintf(c1err, "insane params[%d] = %f", i, tmp );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+  }
+
+  // --------------------------------------
+  // make a few sanity checks on passed parameters
+
+  checkval_D("CL1-LAM_B",   1, &LAM_B,   4000.0,  4500.0 );
+  checkval_D("CL1-LAM_V",   1, &LAM_V,   5000.0,  6000.0 );
+  checkval_D("CL1-LAM_MIN", 1, &LAM_MIN, 1000.0,  6000.0 );
+  checkval_D("CL1-LAM_MAX", 1, &LAM_MAX, 6000.0, 18000.0 );
+
+  /* xxxxx mark delete 
+  if ( LAM_B < 4000 || LAM_B > 4500 ) {
+    sprintf(c1err, "insane LAM_B = %6.0f", LAM_B );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  if ( LAM_V < 5000 || LAM_V >6000 ) {
+    sprintf(c1err, "insane LAM_V = %6.0f", LAM_V );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  if ( LAM_MIN < 1000 || LAM_MIN > 6000 ) {
+    sprintf(c1err, "insane LAM_MIN = %6.0f", LAM_MIN );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+  if ( LAM_MAX < 6000 || LAM_MAX > 16000 ) {
+    sprintf(c1err, "insane LAM_MAX = %6.0f", LAM_MAX );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+  xxxxx */
+
+  // ------------------------------
+
+  for(i=0; i < nparams; i++)
+    { alpha = alpha - params[i]; }
+
+  // compute reduced wavelengths
+  rl    = (lambda  - LAM_B) / ( LAM_V - LAM_B );
+  rlmin = (LAM_MIN - LAM_B) / ( LAM_V - LAM_B );
+  rlmax = (LAM_MAX - LAM_B) / ( LAM_V - LAM_B );
+
+  if(lambda >= LAM_MIN  && lambda <= LAM_MAX ) {
+    val = SALT2colorfun_pol(rl,nparams,params,alpha) ;
+  }
+  else if(lambda < LAM_MIN ) {
+    // extrapolate to UV
+      double Pmin  = SALT2colorfun_pol(rlmin,nparams,params,alpha);
+      double dPmin = SALT2colorfun_dpol(rlmin,nparams,params,alpha);
+      val =  Pmin + dPmin* (rl-rlmin);
+  } 
+  else {
+    // extrapolate to IR
+    double Pmax  = SALT2colorfun_pol(rlmax,nparams,params,alpha);
+    double dPmax = SALT2colorfun_dpol(rlmax,nparams,params,alpha);
+    val =  Pmax + dPmax* (rl-rlmax);
+  }
+
+  double CL = exp(c*constant*val);
+  return CL ;
+
+} // end of SALT2colorlaw1
+
+
+// ===================================================
+double SALT3colorlaw(double lam_rest, double c, 
+		     SALT3_COLORPAR_DEF *COLORPAR ) {
+
+  // Created Sep 17 2020 by R.Kessler .
+  // Returns 10^[.4*c*C(lambda)] as defined in 
+  // python SALT3 training code written by D.Kenworthy and D.Jones.
+  //   ?? Maybe someday ??
+
+  double REFLAM_CL0   = COLORPAR->REFLAM_CL0 ;     // CL=0 at roughly B_WAVE
+  double REFLAM_CL1   = COLORPAR->REFLAM_CL1 ;     // CL=1 at roughly C_WAVE
+  double LAM_MIN      = COLORPAR->LAMCEN_RANGE[0]; // min UV lam of filter
+  double LAM_MAX      = COLORPAR->LAMCEN_RANGE[1]; // max IR lam of filter
+  GENPOLY_DEF LAMPOLY_CL  = COLORPAR->LAMPOLY_CL ;
+  char fnam[] = "SALT3colorlaw" ;
+
+  // compute reduced wavelengths
+  double REFLAM_DIF = REFLAM_CL1 - REFLAM_CL0 ;
+  double rl    = (lam_rest - REFLAM_CL0) / REFLAM_DIF ;
+  double rlmin = (LAM_MIN  - REFLAM_CL0) / REFLAM_DIF ;
+  double rlmax = (LAM_MAX  - REFLAM_CL0) / REFLAM_DIF ;
+
+  // ------------- BEGIN --------------
+
+  return;
+
+} // end SALT3colorlaw
+
+double SALT2colorfun_dpol(const double rl, int nparams, 
+			  const double *params, const double alpha) {
+  double v = alpha;
+  double rlp = rl;
+  int i;
+  for(i=0; i<nparams; i++) {
+    v += (i+2)*params[i]*rlp;
+    rlp *= rl; 
+  }
+  return v;
+}
+
+double SALT2colorfun_pol(const double rl, int nparams, 
+			 const double *params, const double alpha) {
+  double v   = alpha*rl;
+  double rlp = rl*rl;  
+  int i;
+  for(i =0; i<nparams; i++) {
+    v += params[i]*rlp; // v = alpha*rl + rl^2*( sum_i p_i*rl^i)
+    rlp *= rl; // rl^(i+2)
+  }
+  return v;
+} 
+

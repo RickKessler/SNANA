@@ -426,6 +426,8 @@ void init_obs_atFLUXMAX(int OPTMASK, double *PARLIST, int VBOSE) {
   INPUTS_OBS_atFLUXMAX.SNRCUT         = PARLIST[1];
   INPUTS_OBS_atFLUXMAX.SNRCUT_BACKUP  = PARLIST[2];
 
+  cmethod[0] = 0;
+
   if ( VBOSE ) {
     if ( DO_FMAX )  { 
       sprintf(cmethod,"max-flux");  
@@ -10397,13 +10399,7 @@ double SALT2colorlaw0(double lam_rest, double c, double *colorPar ) {
   double LAM_B, LAM_V, COR0, COR1 ;
 
   // local args
-  double 
-    arg
-    ,lr, lr2, lr3
-    ,numerator 
-    ,denominator 
-    ,CLAM
-    ;
+  double arg, lr, lr2, lr3, numerator, denominator, CLAM  ;
 
   char fnam[] = "SALT2colorlaw0" ;
 
@@ -10469,21 +10465,12 @@ double SALT2colorlaw1(double lambda, double c, double *colorPar ) {
   // Mar 3, 2011: fix dumb bug causing crazy value at lam = LAM_MIN
 
   // define local args for *colorPar inputs
-  double 
-    LAM_B, LAM_V
-    ,LAM_MIN, LAM_MAX
-    ,XN, params[10]
-    ;
-
-  int nparams  ;
-
+  double LAM_B, LAM_V, LAM_MIN, LAM_MAX, XN, params[10] ;
+  int nparams, i  ;
   double constant = log(10.0)/2.5 ;
   double alpha    = 1 ;
   double val      = 0 ;
-
   double rl, rlmin, rlmax, tmp ;
-  int i;
-
   char fnam[] = "SALT2colorlaw1" ;
 
   // --------------- BEGIN ------------

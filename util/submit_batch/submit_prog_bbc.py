@@ -659,8 +659,10 @@ class BBC(Program):
         key_nsplitran = 'NSPLITRAN'
         n_splitran    = 1
         if key_nsplitran in CONFIG : 
+            # check YAML block input, NSPLITRAN:  <nsplitran> 
             n_splitran = CONFIG[key_nsplitran]
         else :
+            # check alternate C-code input, NSPLITRAN=<nsplitran>
             input_file_dict =  self.config_prep['input_file_dict']
             if key_nsplitran in input_file_dict :
                 n_splitran = int(input_file_dict[key_nsplitran])

@@ -6,10 +6,8 @@
 # TO-DO LIST for
 #
 #  BASE/util: 
-#   - pass ALL.DONE file to sim and fit job; STOP if it exists.
 #   - more elegant HELP menu per program?
-#   - run merge task immediately after launch so that
-#     some of the WAIT -> RUN
+#   - run merge task immediately after launch so that  WAIT -> RUN
 #
 #  SIM:
 #   - for sim, leave symbolic links for redundant sim job

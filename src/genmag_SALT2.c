@@ -1056,19 +1056,17 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
   char
      infoFile[MXPATHLEN]
     ,c_get[60]
-    ,fnam[]        = "read_SALT2_INFO_FILE" 
+    ,fnam[]             = "read_SALT2_INFO_FILE" 
     ,CHAR_ERROPT[3][20] = { "OFF", "Linear", "Spline" }
-  ,CHAR_SEDOPT[3][20] = { "OFF", "Linear", "Spline" }
-  ,CHAR_OFFON[2][8]  = { "OFF", "ON" }
-  ,ctmp[100]
-     ;
-
-  double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX;
-
-  int     OPT, ipar, NPAR_READ, IVER, i ;
+    ,CHAR_SEDOPT[3][20] = { "OFF", "Linear", "Spline" }
+    ,CHAR_OFFON[2][8]   = { "OFF", "ON" }
+    ,ctmp[100]
+       ;
 
   double *errtmp, *ptrpar;
-  FILE *fp;
+  double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX ;
+  int     OPT, ipar, NPAR_READ, IVER, i ;
+  FILE  *fp ;
 
   // ------- BEGIN ---------
 

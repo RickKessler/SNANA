@@ -66,8 +66,10 @@ struct INPUT_SALT2_INFO {
   double RESTLAMMAX_FILTERCEN ;
   int    COLORLAW_VERSION;
   int    NCOLORLAW_PARAMS ;
-  double COLORLAW_PARAMS[MXCOLORPAR] ;
+  double COLORLAW_PARAMS[MXCOLORPAR] ; // for IVER=1 (SALT2.Guy10,JLA-B14)
   double COLOR_OFFSET  ;   // separate from COLORLAW_PARAMS (Aug 2, 2010)
+
+  // COLORLAW3_PARAMS_DEF COLORLAW3_PARAMS;
 
   double MAG_OFFSET; // global mag offset (Nov 24, 2011)
 

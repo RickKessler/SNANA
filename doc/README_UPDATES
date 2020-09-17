@@ -18902,11 +18902,14 @@
 
 
 # ======================================================================= 
-         v10_78c (  ) 
+         v10_78c (Sep 17 2020) 
 
          ***** IMPORTANT(v10_78c) ***** 
 
          ***** USEFUL(v10_78c) ***** 
+
+   genmag_BYOSED.c[h] renamed -> genmag_PySEDMODEL.cp[h]
+     (and add gensed_SNEMO.py)
 
          ***** MISCELLANEOUS(v10_78c) ***** 
 
@@ -18936,5 +18939,8 @@
    wfit.c
     + read fitres file with openTextFile util to allow gzip input,
       and to trap error on non-existing file.
+
+   Rename SNANA_CodeTests.py -> SNANA_code_tests.py
+     (to prepare for SNANA_submit_tests.py)
 
 END: 

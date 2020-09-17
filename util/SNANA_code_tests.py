@@ -7,12 +7,12 @@
 # Regression testing on SNANA codes (replaces SNANA_tester.pl)
 #
 # Usage:
-#   SNANA_CodeTests.py REF  ! launch to get reference values
-#   SNANA_CodeTests.py      ! launch to test against reference values
-#   SNANA_CodeTests.py STOP ! send signal to STOP all jobs
+#   SNANA_code_tests.py REF  ! launch to get reference values
+#   SNANA_code_tests.py      ! launch to test against reference values
+#   SNANA_code_tests.py STOP ! send signal to STOP all jobs
 #
 # Internal usage:
-#   SNANA_CodeTests.py -cpunum <num> -logDir <dir>
+#   SNANA_code_tests.py -cpunum <num> -logDir <dir>
 #
 # Sep 4 2019: run SNANA_SETUP for batch mode (bug fix)
 #
@@ -39,7 +39,7 @@ INPUT_DIR        = ('%s/%s' % (SNANA_TESTS_DIR, "inputs") )
 LOG_TOPDIR       = ('%s/%s' % (SNANA_TESTS_DIR, "logs") )
 USERNAME         = os.environ['USER']
 USERNAME_TAG     = USERNAME[0:4]       # suffix for logdir name
-LIST_TESTS_FILE_DEFAULT = ('%s/%s' % (SNANA_TESTS_DIR,"SNANA_CodeTests.LIST"))
+LIST_TESTS_FILE_DEFAULT = ('%s/%s' % (SNANA_TESTS_DIR,"SNANA_code_tests.LIST"))
 CPU_FILE_DEFAULT        = 'CPU_ASSIGN.DAT'  
 RESULT_TASKS_FILE       = 'RESULTS_TASKS.DAT'
 RESULT_DIFF_FILE        = 'RESULTS_DIFF.DAT'

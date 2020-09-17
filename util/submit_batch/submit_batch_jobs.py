@@ -19,6 +19,9 @@
 #
 #  BBC
 #   - trap wfit errors
+#   + parse NSPLITRAN=4 outside of YAML block
+#   + automate for RANSEED_CHANGE if STRINGMATCH_IGNORE isn't given
+#      (match suffixes -0001, -0002, etc ...)
 #
 # - - - - - - - - - -
 

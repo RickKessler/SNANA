@@ -23,8 +23,6 @@ import logging, coloredlogs
 import submit_util as util
 from   submit_params    import *
 from   submit_prog_base import Program
-# xxx import submit_translate as tr
-
 
 # define columns of MERGE.LOG 
 COLNUM_SIM_MERGE_STATE        = 0     # current state; e.g., WAIT, RUN, DONE
@@ -118,14 +116,6 @@ class Simulation(Program):
         return output_dir_name,SUBDIR_SCRIPTS_SIM
         # set_output_dir_name
  
-# xxxxxxxx mark delete xxxxxxx       
-#    def translate_input_file(self,legacy_input_file, refac_input_file):
-#        logging.info(f"\n TRANSLATE LEGACY sim_SNmix INPUT FILE: " \
-#                     f"{legacy_input_file}")
-#        tr.SIM_legacy_to_refac( legacy_input_file, refac_input_file )
-        # end translate_input_file
-# xxxxxxxxxxxx
-
     def submit_prepare_driver(self):
         # July 2020
         # prepare simulation arguments for each GENVERSION

@@ -31,7 +31,6 @@ import os, sys, shutil, yaml, glob
 import logging, coloredlogs
 import datetime, time
 import submit_util as util
-# xxx import submit_translate as tr
 
 from submit_params    import *
 from submit_prog_base import Program
@@ -84,16 +83,11 @@ class BBC(Program):
 
         return output_dir_name,SUBDIR_SCRIPTS_BBC
 
-# xxxxxxxxx mark delete xxxxxx
-#    def translate_input_file(self, legacy_input_file, refac_input_file ):
-#        logging.info(f"\n TRANSLATE LEGACY SALT2mu_fit INPUT FILE: " \
-#                     f"{legacy_input_file}")
-#        tr.BBC_legacy_to_refac(legacy_input_file,refac_input_file)
-        # end translate_input_file
-# xxxxxxx
-
     def submit_prepare_driver(self):
         print("")
+        
+        # read C code inputs (not YAML block)
+        self.bbc_read_input_file()
 
         # store list of BBC MUOPTs
         self.bbc_prep_muopt_list()
@@ -120,6 +114,38 @@ class BBC(Program):
         logging.info("")
         #sys.exit("\n xxx DEBUG DIE in bbc prepare_driver")
         # end submit_prepare_driver
+
+    def bbc_read_input_file(self):
+
+        # read and store input file contents AFTER yaml block.
+        # For each abc=xyz, store dictionary element.
+
+        CONFIG     = self.config_yaml['CONFIG']
+        input_file = self.config_yaml['args'].input_file
+        FOUND_END_YAML = False
+        contents_local = [] 
+        input_file_dict = { } 
+        with open(input_file,"r") as f:
+            for line in f:
+                word_list = (line.rstrip("\n")).split()
+                if len(word_list) == 0 : continue
+                word = word_list[0]
+                if word    == '#END_YAML' : FOUND_END_YAML = True
+                if word[0] == '#'  : continue
+                if FOUND_END_YAML is False : continue 
+                contents_local.append(word)
+                if '=' in word :
+                    jeq = word.index("=")
+                    key = word[0:jeq] ; val = word[jeq+1:]
+                    input_file_dict.update( {key:val} )
+                
+        #print(f" xxx contents_local = {contents_local}\n")
+        #print(f" xxx input_file_dict = {input_file_dict} \n")
+        #sys.exit(" xxx DEBUG DIE xxx \n")
+
+        self.config_prep['input_file_dict'] = input_file_dict
+
+        # end bbc_read_input_file
 
     def bbc_prep_version_list(self):
         # read/store list of versions for each INPDIR+.
@@ -245,12 +271,8 @@ class BBC(Program):
         inpdir_list      = self.config_prep['inpdir_list']
         n_version_list   = self.config_prep['n_version_list']
         version_list2d   = self.config_prep['version_list2d']
-
         msgerr = []
         key    = 'STRINGMATCH_IGNORE'
-
-        # check if there is 1 and only 1 in every inpdir
-        all_one = len(set(n_version_list)) == 1 and n_version_list[0] == 1
         
         # if STRINGMATCH is not defined, then there must be
         # 1 and only one version in each inpdir ... if not, abort.
@@ -259,25 +281,11 @@ class BBC(Program):
         else:
             stringmatch_ignore = [ 'IGNORE' ]
 
+        # - - - - 
         if stringmatch_ignore[0] == 'IGNORE' :
-            if all_one :
-                logging.info("  Found one and only one version -> "\
-                             f"STRINGMATCH_IGNORE = {stringmatch_ignore}")
-                # store original arrays as sorted since there is nothing to sort
-                v = version_list2d[0][0]
-                self.config_prep['n_version_out']            = 1
-                self.config_prep['version_orig_sort_list2d'] = version_list2d
-                self.config_prep['version_out_sort_list2d']  = \
-                                        [[SUBDIR_OUTPUT_ONE_VERSION]]
-                self.config_prep['version_out_list'] = \
-                                        [SUBDIR_OUTPUT_ONE_VERSION]
-                return
-            else :
-                msgerr.append(f"Only one VERSION per INPDIR allowed because {key}")
-                msgerr.append(f"is not defined (or set to IGNORE) in CONFIG block.")
-                msgerr.append(f"n_version_list = {n_version_list} for ")
-                msgerr += inpdir_list
-                self.log_assert(False,msgerr)
+            self.bbc_prep_1version_match()
+            return
+
         # - - - - -
         logging.info(f" STRINGMATCH_IGNORE = {stringmatch_ignore} \n")
 
@@ -285,9 +293,9 @@ class BBC(Program):
         # Versions that have nothing replaced are tossed.
 
         version_orig_list2d = [] * n_inpdir  # version_list minus unmatched versions
-        version_out_list2d = [] * n_inpdir 
-        n_version_out_list = []  
-        isort_list2d       = [] * n_inpdir 
+        version_out_list2d  = [] * n_inpdir 
+        n_version_out_list  = []  
+        isort_list2d        = [] * n_inpdir 
 
         for idir in range(0,n_inpdir) :
             n_version = n_version_list[idir]
@@ -361,6 +369,91 @@ class BBC(Program):
         self.config_prep['version_out_sort_list2d']  = version_out_sort_list2d
 
         # end bbc_prep_version_match
+
+    def bbc_prep_1version_match(self):
+
+        # STRINGMATCH_IGNORE is not set (i.e., ignored), so try auto-match.
+        # Match is trivial for sims generated by RANSEED_REPEAT, but tricky
+        # for RANSEED_CHANGE that has multiple version with -nnnn extensions.
+
+        key              = 'STRINGMATCH_IGNORE'
+        n_version_list   = self.config_prep['n_version_list']
+        version_list2d   = self.config_prep['version_list2d'] # [idir][iver]
+        inpdir_list      = self.config_prep['inpdir_list']
+        n_inpdir         = self.config_prep['n_inpdir']
+
+        logging.info(f"  {key} = IGNORE -> " \
+                     f"Attempt auto-match version(s) in each INPDIR")
+
+        # - - - - - - - - - - -
+        # check easy case with 1 and only 1 version per INPDIR
+        all_one = len(set(n_version_list)) == 1 and n_version_list[0] == 1
+        if all_one :
+            logging.info(f"  Auto-match success: " \
+                         f"found one and only one version per INPDIR")
+            self.config_prep['n_version_out']            = 1
+            self.config_prep['version_orig_sort_list2d'] = version_list2d
+            self.config_prep['version_out_sort_list2d']  = \
+                            [[SUBDIR_OUTPUT_ONE_VERSION]]
+            self.config_prep['version_out_list'] = \
+                            [SUBDIR_OUTPUT_ONE_VERSION]
+            return
+
+        # - - - - - - - - 
+        # Tricky case: there are multiple verions, so check for RANSEED_CHANGE 
+        # sim that has suffix index per version. 
+        # Example:  RANSEED_CHANGE: 3 123345 results in
+        #   TEST_DES-001
+        #   TEST_DES-002
+        #   TEST_DES-003
+        # and similarly with DES replaced by LOWZ. For this case, there is 
+        # really just one simulated version with many "splitsim" versions 
+        # that can be matched by the splitsim index. Note that splitsim is 
+        # different than splitran used elsewhere.
+
+        n_version        = n_version_list[0]
+        all_one_splitsim = True
+        version_out_sort_list2d = \
+            [['' for i in range(n_version)] for j in range(n_inpdir)]
+        version_out_list = [] 
+
+        for iver in range(0,n_version):
+            suffix_expect = self.suffix_splitran(n_version,iver+1) # e.g. -0001
+            len_suffix    = len(suffix_expect)
+            v_out         = SUBDIR_OUTPUT_ONE_VERSION + suffix_expect
+            version_out_list.append(v_out)
+            for idir in range(0,n_inpdir):
+                version_out_sort_list2d[idir][iver] = v_out
+                version = version_list2d[idir][iver]
+                match   = version[-len_suffix:] == suffix_expect
+                if not match:   all_one_splitsim = False
+
+        if all_one_splitsim :
+            logging.info(f"  Auto-match success: one split-sim version " \
+                         f"(from RANSEED_CHANGE) per INPDIR")
+            self.config_prep['n_version_out']            = n_version
+            self.config_prep['version_orig_sort_list2d'] = version_list2d
+            self.config_prep['version_out_sort_list2d']  = version_out_sort_list2d
+            self.config_prep['version_out_list'] = version_out_list
+            return
+                
+        # - - - - - 
+        # if we get here, there is no way to auto-compute the matching
+        # and therefore abort with message saying that STRINGMATCH_IGNORE 
+        # is needed.
+        CONFIG     = self.config_yaml['CONFIG']
+        input_file = self.config_yaml['args'].input_file  # for msgerr
+        msg        = []
+        msg.append(f"Cannot auto-match data versions and therefore {key} key")
+        msg.append(f"is needed in {input_file}")
+        msg.append(f"\t(for details: submit_batch_jobs.sh -H BBC)" )
+        msg.append(f"For auto-match, only 1 VERSION per INPDIR is allowed,")
+        msg.append(f"or 1 sim version using RANSEED_CHANGE.")
+        msg.append(f"n_version_list = {n_version_list} for ")
+        msg += inpdir_list
+        self.log_assert(False,msg)
+
+        # end bbc_prep_1version_match
 
     def bbc_prep_index_lists(self):
         # construct sparse 1D lists to loop over version and FITOPT
@@ -443,6 +536,8 @@ class BBC(Program):
         n_splitran      = self.config_prep['n_splitran']
         USE_SPLITRAN    = n_splitran > 1
 
+        cat_file_log   = (f"{output_dir}/cat_FITRES_SALT2mu.LOG")
+
         logging.info("\n  Prepare input FITRES files")
 
         for iver,ifit in zip(iver_list2, ifit_list2):
@@ -461,7 +556,6 @@ class BBC(Program):
             ff             = (f"{fitopt_num}.{SUFFIX_FITRES}")
             input_ff       = "INPUT_" + ff
             cat_file_out   = (f"{V_DIR}/{input_ff}")
-            cat_file_log   = (f"{output_dir}/cat_FITRES_SALT2mu.LOG")
             nrow = self.exec_cat_fitres(cat_list, cat_file_out, cat_file_log)
             logging.info(f"\t Catenate {n_inpdir} {ff} files"\
                          f" -> {nrow} events ")
@@ -563,11 +657,15 @@ class BBC(Program):
         # Running on sim data, this feature is useful to measure
         # rms on cosmo params, and compare with fitted error.
         key_nsplitran = 'NSPLITRAN'
+        n_splitran    = 1
         if key_nsplitran in CONFIG : 
             n_splitran = CONFIG[key_nsplitran]
         else :
-            n_splitran = 1
+            input_file_dict =  self.config_prep['input_file_dict']
+            if key_nsplitran in input_file_dict :
+                n_splitran = int(input_file_dict[key_nsplitran])
 
+        # - - - 
         self.config_prep['n_splitran']  = n_splitran
 
         # end bbc_prep_splitran
@@ -1155,14 +1253,19 @@ class BBC(Program):
         for yaml_file in yaml_list :
             YAML_FILE = (f"{script_dir}/{yaml_file}")
             tmp_yaml  = util.extract_yaml(YAML_FILE)
+            n_var     = len(tmp_yaml['BBCFIT_RESULTS'])
             bbc_results_yaml.append(tmp_yaml)
+
+        if use_wfit :  n_var += 1 ;  
 
         # Make list of varnames[ivar] and value_list2d[ivar][isplitran]
         # Trick is to convert [isplitran][ivar] -> [ivar][isplitran]
         #   (I hate this code)
-        n_var = len(bbc_results_yaml)
-        if use_wfit :  n_var += 1 ;  
         
+        #print(f" xxx -----------------------")
+        #print(f" xxx bbc_results_yaml = {bbc_results_yaml} ")
+        #print(f" xxx n_var = {n_var} ")
+
         varname_list = []
         value_list2d = [ 0.0 ] * n_var  # [ivar][isplitran]
         for ivar in range(0,n_var): value_list2d[ivar] = []
@@ -1170,9 +1273,9 @@ class BBC(Program):
         
         for results in bbc_results_yaml:  # loop over splitran
             BBCFIT_RESULTS = results['BBCFIT_RESULTS']
-            #print(f"\n xxx BBCFIT_RESULTS = {BBCFIT_RESULTS}")
             ivar = 0 
             for item in BBCFIT_RESULTS:  # loop over variables
+                #print(f" xxx check item({ivar}) = {item}")
                 for key,val in item.items() :
                     str_val = str(val).split()[0]
                     value_list2d[ivar].append(float(str_val))
@@ -1196,7 +1299,7 @@ class BBC(Program):
             yaml_list     = glob.glob(f"{v_wildcard}/{yaml_file}")
 
             #print(f" xxx wildcard = {v_wildcard}/{yaml_file}")
-            #print(f" xxx yaml_list = {yaml_list} ")  # .xyz
+            #print(f" xxx yaml_list = {yaml_list} ") 
 
             for yaml_file in yaml_list :
                 tmp_yaml  = util.extract_yaml(yaml_file)

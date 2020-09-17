@@ -7,7 +7,7 @@ import logging, coloredlogs
 import datetime, time, subprocess
 import f90nml
 import submit_util as util
-# xxx import submit_translate as tr
+
 from   submit_params import *
 from   submit_prog_base import Program
 
@@ -90,13 +90,6 @@ class LightCurveFit(Program):
 
         return output_dir_name,SUBDIR_SCRIPTS_FIT
         # end set_output_dir_name
-
-# xxxxxxxx mark delete xxxxxxx
-#    def translate_input_file(self, legacy_input_file, refac_input_file):
-#        logging.info(f"\n TRANSLATE LEGACY split_and_fit INPUT FILE: " \
-#                     f"{legacy_input_file}")
-#        tr.FIT_legacy_to_refac(legacy_input_file, refac_input_file)
-# xxxxxxxxxxxx
 
     def submit_prepare_driver(self):
 

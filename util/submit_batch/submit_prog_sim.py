@@ -23,7 +23,7 @@ import logging, coloredlogs
 import submit_util as util
 from   submit_params    import *
 from   submit_prog_base import Program
-import submit_translate as tr
+# xxx import submit_translate as tr
 
 
 # define columns of MERGE.LOG 
@@ -117,12 +117,14 @@ class Simulation(Program):
         self.config_yaml['CONFIG']['OUTDIR'] = OUTDIR
         return output_dir_name,SUBDIR_SCRIPTS_SIM
         # set_output_dir_name
-        
-    def translate_input_file(self,legacy_input_file, refac_input_file):
-        logging.info(f"\n TRANSLATE LEGACY sim_SNmix INPUT FILE: " \
-                     f"{legacy_input_file}")
-        tr.SIM_legacy_to_refac( legacy_input_file, refac_input_file )
+ 
+# xxxxxxxx mark delete xxxxxxx       
+#    def translate_input_file(self,legacy_input_file, refac_input_file):
+#        logging.info(f"\n TRANSLATE LEGACY sim_SNmix INPUT FILE: " \
+#                     f"{legacy_input_file}")
+#        tr.SIM_legacy_to_refac( legacy_input_file, refac_input_file )
         # end translate_input_file
+# xxxxxxxxxxxx
 
     def submit_prepare_driver(self):
         # July 2020

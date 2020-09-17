@@ -31,7 +31,7 @@ import os, sys, shutil, yaml, glob
 import logging, coloredlogs
 import datetime, time
 import submit_util as util
-import submit_translate as tr
+# xxx import submit_translate as tr
 
 from submit_params    import *
 from submit_prog_base import Program
@@ -45,11 +45,10 @@ COLNUM_FIT_MERGE_VERSION = 1  # same param in submit_prog_fit.py -> fragile
 COLNUM_BBC_MERGE_VERSION      = 1
 COLNUM_BBC_MERGE_FITOPT       = 2
 COLNUM_BBC_MERGE_MUOPT        = 3
-COLNUM_BBC_MERGE_SPLITRAN     = -1
 COLNUM_BBC_MERGE_NEVT_DATA    = 4
 COLNUM_BBC_MERGE_NEVT_BIASCOR = 5
 COLNUM_BBC_MERGE_NEVT_CCPRIOR = 6
-
+COLNUM_BBC_MERGE_SPLITRAN     = 7
 
 # list used in wrapup, cleanup, and merge_reset
 JOB_SUFFIX_TAR_LIST  = [ 'YAML', 'DONE', 'LOG'  ]
@@ -85,11 +84,13 @@ class BBC(Program):
 
         return output_dir_name,SUBDIR_SCRIPTS_BBC
 
-    def translate_input_file(self, legacy_input_file, refac_input_file ):
-        logging.info(f"\n TRANSLATE LEGACY SALT2mu_fit INPUT FILE: " \
-                     f"{legacy_input_file}")
-        tr.BBC_legacy_to_refac(legacy_input_file,refac_input_file)
+# xxxxxxxxx mark delete xxxxxx
+#    def translate_input_file(self, legacy_input_file, refac_input_file ):
+#        logging.info(f"\n TRANSLATE LEGACY SALT2mu_fit INPUT FILE: " \
+#                     f"{legacy_input_file}")
+#        tr.BBC_legacy_to_refac(legacy_input_file,refac_input_file)
         # end translate_input_file
+# xxxxxxx
 
     def submit_prepare_driver(self):
         print("")
@@ -107,6 +108,9 @@ class BBC(Program):
 
         # convet 2D and 4D nested loops into 1D loops
         self.bbc_prep_index_lists()
+
+        # create output dir for each version or each version-splitran
+        self.bbc_prep_mkdir()
 
         # copy & combine tables from INPDIR+ directories
         self.bbc_prep_combine_tables()
@@ -401,44 +405,54 @@ class BBC(Program):
 
         # end bbc_prep_index_lists
 
+    def bbc_prep_mkdir(self):
+
+        # create version-output directory(s).
+        # For NSPLITRAN, split outdir into outdir per splitran.
+
+        output_dir       = self.config_prep['output_dir']  
+        version_out_list =  self.config_prep['version_out_list']
+        n_splitran       = self.config_prep['n_splitran']
+        USE_SPLITRAN     = n_splitran > 1
+
+        logging.info("\n  Create BBC output directories:")
+        for v_out in version_out_list :
+            for i in range(0,n_splitran):
+                isplitran = i + 1  # 1 to n_splitran
+                v_dir     = v_out + self.suffix_splitran(n_splitran,isplitran)
+                V_DIR     = (f"{output_dir}/{v_dir}")
+                logging.info(f"    Create BBC output dir {v_dir} ")
+                os.mkdir(V_DIR)
+
+        # end bbc_prep_outdirs
+
     def bbc_prep_combine_tables(self):
-        # create subdir for each version_out (after stringmatch_ignore)
-        # catenate FITRES files from INPDIR+ so that each copied
+
+        # Catenate FITRES files from INPDIR+ so that each copied
         # FITRES file includes multiple surveys
+        # For NSPLITRAN, copy only to first split-dir to avoid
+        # duplicate copies of input FITRES files.
 
         output_dir      = self.config_prep['output_dir']  
-        n_version       = self.config_prep['n_version_out']  
+        #n_version       = self.config_prep['n_version_out']  
         n_inpdir        = self.config_prep['n_inpdir']  
-        v_orig_list     = self.config_prep['version_orig_sort_list2d']
         v_out_list      = self.config_prep['version_out_sort_list2d']
-        n_fitopt        = self.config_prep['n_fitopt']
-        inpdir_list     = self.config_prep['inpdir_list']
         fitopt_num_list = self.config_prep['fitopt_num_list']
+        iver_list2      = self.config_prep['iver_list2'] 
+        ifit_list2      = self.config_prep['ifit_list2']
+        n_splitran      = self.config_prep['n_splitran']
+        USE_SPLITRAN    = n_splitran > 1
 
-        CONFIG        = self.config_yaml['CONFIG']
-        OUTDIR        = CONFIG['OUTDIR']
-        input_file    = self.config_yaml['args'].input_file 
-
-        n2d_index  = self.config_prep['n2d_index']
-        iver_list2 = self.config_prep['iver_list2'] 
-        ifit_list2 = self.config_prep['ifit_list2']
+        logging.info("\n  Prepare input FITRES files")
 
         for iver,ifit in zip(iver_list2, ifit_list2):
 
-        # xxx mark delete xxxxxxxxxxxxxxxxx
-        #for i2d in range(0,n2d_index):
-            #iver  = iver_list2[i2d]
-            #ifit  = ifit_list2[i2d]
-            # xxxxxxx end mark xxxxxxxx
-
             idir0 = 0  # some things just need first INPDIR index
 
-            # create version-output directory on first INPDIR
-            if ifit == 0 :
-                v_dir   = v_out_list[idir0][iver]
-                V_DIR   = (f"{output_dir}/{v_dir}")
-                logging.info(f"  Create output dir {OUTDIR}/{v_dir} ")
-                os.mkdir(V_DIR)
+            # get output dir name
+            v_dir   = v_out_list[idir0][iver]
+            v_dir  += self.suffix_splitran(n_splitran,1)
+            V_DIR   = (f"{output_dir}/{v_dir}")
 
             cat_list   = self.make_cat_fitres_list(iver,ifit)
 
@@ -452,13 +466,10 @@ class BBC(Program):
             logging.info(f"\t Catenate {n_inpdir} {ff} files"\
                          f" -> {nrow} events ")
 
+        # - - - - - 
         logging.info("   gzip the catenated FITRES files.")
-        vout_list  = self.config_prep['version_out_list']
-        script_dir = self.config_prep['script_dir']
-        for vout in vout_list :
-            vout_dir = (f"{output_dir}/{vout}")
-            cmd_gzip = (f"cd {vout_dir}; gzip INPUT_FITOPT*.{SUFFIX_FITRES}")
-            os.system(cmd_gzip)
+        cmd_gzip = (f"cd {output_dir}; gzip */INPUT_FITOPT*.{SUFFIX_FITRES}")
+        os.system(cmd_gzip)
 
         # remove cat log file
         rm_log = (f"cd {output_dir}; rm {cat_file_log}")
@@ -490,6 +501,7 @@ class BBC(Program):
 
         # check number of rows
         nrow = util.nrow_table_TEXT(cat_file_out, "SN:")
+
         return nrow
 
         # end exec_cat_fitres
@@ -551,35 +563,21 @@ class BBC(Program):
         # Running on sim data, this feature is useful to measure
         # rms on cosmo params, and compare with fitted error.
         key_nsplitran = 'NSPLITRAN'
-        n_splitran = 1
-        if key_nsplitran in CONFIG : n_splitran = CONFIG[key_nsplitran]
-
-        # squeeze in another splitran column
-        self.add_COLNUM_BBC_MERGE_SPLITRAN(n_splitran)
+        if key_nsplitran in CONFIG : 
+            n_splitran = CONFIG[key_nsplitran]
+        else :
+            n_splitran = 1
 
         self.config_prep['n_splitran']  = n_splitran
 
         # end bbc_prep_splitran
 
-    def add_COLNUM_BBC_MERGE_SPLITRAN(self,n_splitran):
-        # if n_splitran > 1, need to squeeze in another MERGE.LOG column
-        if n_splitran == 1 : return
-        global COLNUM_BBC_MERGE_SPLITRAN
-        global COLNUM_BBC_MERGE_NEVT_DATA
-        global COLNUM_BBC_MERGE_NEVT_BIASCOR
-        global COLNUM_BBC_MERGE_NEVT_CCPRIOR
-
-        COLNUM_BBC_MERGE_SPLITRAN      = COLNUM_BBC_MERGE_MUOPT + 1
-        COLNUM_BBC_MERGE_NEVT_DATA    += 1
-        COLNUM_BBC_MERGE_NEVT_BIASCOR += 1
-        COLNUM_BBC_MERGE_NEVT_CCPRIOR += 1
-
-        # end adjust_COLNUM_BBC_MERGE
 
     def bbc_prep_copy_files(self):
         input_file    = self.config_yaml['args'].input_file 
-        script_dir = self.config_prep['script_dir']
+        script_dir    = self.config_prep['script_dir']
         shutil.copy(input_file,script_dir)
+
         # end prep_bbc_copy_files
 
     def write_command_file(self, icpu, COMMAND_FILE):
@@ -673,18 +671,20 @@ class BBC(Program):
         fast          = self.config_yaml['args'].fast
         kill_on_fail  = self.config_yaml['args'].kill_on_fail
 
-        program     = self.config_prep['program']
-        output_dir  = self.config_prep['output_dir']
-        script_dir  = self.config_prep['script_dir']
-        version     = self.config_prep['version_out_list'][iver]
-        fitopt_num  = self.config_prep['fitopt_num_list'][ifit] # e.g FITOPT002
-        muopt_num   = self.config_prep['muopt_num_list'][imu] # e.g MUOPT003
-        muopt_arg   = self.config_prep['muopt_arg_list'][imu]
-        n_splitran  = self.config_prep['n_splitran']
-        use_wfit    = self.config_prep['use_wfit']
+        program      = self.config_prep['program']
+        output_dir   = self.config_prep['output_dir']
+        script_dir   = self.config_prep['script_dir']
+        version      = self.config_prep['version_out_list'][iver]
+        fitopt_num   = self.config_prep['fitopt_num_list'][ifit] #e.g FITOPT002
+        muopt_num    = self.config_prep['muopt_num_list'][imu] # e.g MUOPT003
+        muopt_arg    = self.config_prep['muopt_arg_list'][imu]
+        n_splitran   = self.config_prep['n_splitran']
+        USE_SPLITRAN = n_splitran > 1
+        use_wfit     = self.config_prep['use_wfit']
 
         # construct row mimicking MERGE.LOG
-        row         = [ None, version, fitopt_num, muopt_num, isplitran ]
+        
+        row = [ None, version, fitopt_num, muopt_num, 0,0,0, isplitran ]
         prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
         input_ff    = (f"INPUT_{fitopt_num}.{SUFFIX_FITRES}") 
 
@@ -705,10 +705,15 @@ class BBC(Program):
 
         arg_list = []
         arg_list.append(f"  prefix={prefix_orig}")
-        arg_list.append(f"  datafile=../{version}/{input_ff}")
+
+        # get data file from ../version, or for splitran,
+        # get data file from first splitran directory
+        version_datafile = version + self.suffix_splitran(n_splitran,1)
+        arg_list.append(f"  datafile=../{version_datafile}/{input_ff}")
+
         arg_list.append(f"  write_yaml=1")
 
-        if n_splitran > 1 :
+        if USE_SPLITRAN :
             # note that fortran-like isplitran index is used here
             arg = (f"NSPLITRAN={n_splitran} JOBID_SPLITRAN={isplitran}")
             arg_list.append(f"  {arg}")
@@ -742,8 +747,7 @@ class BBC(Program):
         fitopt_num    = self.config_prep['fitopt_num_list'][ifit] 
         muopt_num     = self.config_prep['muopt_num_list'][imu] # e.g MUOPT003
 
-        row         = [ None, version, fitopt_num, muopt_num, isplitran ]
-
+        row = [ None, version, fitopt_num, muopt_num, 0,0,0, isplitran ]
         prefix_bbc_orig,  prefix_bbc_final  = self.bbc_prefix("bbc",  row)
         prefix_wfit_orig, prefix_wfit_final = self.bbc_prefix("wfit", row)
     
@@ -819,21 +823,19 @@ class BBC(Program):
 
     def create_merge_table(self,f):
 
-        n4d_index   = self.config_prep['n4d_index']
-        iver_list4  = self.config_prep['iver_list4'] 
-        ifit_list4  = self.config_prep['ifit_list4']
-        imu_list4   = self.config_prep['imu_list4']
+        n4d_index       = self.config_prep['n4d_index']
+        iver_list4      = self.config_prep['iver_list4'] 
+        ifit_list4      = self.config_prep['ifit_list4']
+        imu_list4       = self.config_prep['imu_list4']
         isplitran_list4 = self.config_prep['isplitran_list4']
-        n_splitran  = self.config_prep['n_splitran']
+        n_splitran      = self.config_prep['n_splitran']
+        USE_SPLITRAN    = n_splitran > 1
 
         # create only MERGE table ... no need for SPLIT table
 
-        header_splitran = ""
-        if n_splitran > 1 :   header_splitran = "SPLITRAN  "
-
         header_line_merge = \
-            (f" STATE   VERSION  FITOPT  MUOPT {header_splitran}" \
-             f"NEVT_DATA  NEVT_BIASCOR  NEVT_CCPRIOR " )
+            (f" STATE   VERSION  FITOPT  MUOPT " \
+             f"NEVT_DATA  NEVT_BIASCOR  NEVT_CCPRIOR  SPLITRAN" )
 
         INFO_MERGE = { 
             'primary_key' : TABLE_MERGE, 'header_line' : header_line_merge,
@@ -843,15 +845,9 @@ class BBC(Program):
 
         for iver,ifit,imu,isplitran in \
             zip(iver_list4,ifit_list4,imu_list4,isplitran_list4):
-        # xxx mark delete 
-        #for i4d in range(0,n4d_index):
-            #iver      = iver_list4[i4d]
-            #ifit      = ifit_list4[i4d]
-            #imu       = imu_list4[i4d]
-            #isplitran = isplitran_list4[i4d]
-            # xxx end mark
 
             version    = self.config_prep['version_out_list'][iver]
+            version   += self.suffix_splitran(n_splitran,isplitran)
             fitopt_num = (f"FITOPT{ifit:03d}")
             muopt_num  = (f"MUOPT{imu:03d}")
 
@@ -861,10 +857,13 @@ class BBC(Program):
             ROW_MERGE.append(version)
             ROW_MERGE.append(fitopt_num)
             ROW_MERGE.append(muopt_num)
-            if n_splitran > 1 : ROW_MERGE.append(isplitran)
             ROW_MERGE.append(0)    # NEVT_DATA
             ROW_MERGE.append(0)    # NEVT_BIASCOR
             ROW_MERGE.append(0)    # NEVT_CCPRIOR
+            if USE_SPLITRAN :
+                ROW_MERGE.append(isplitran)
+            else:
+                ROW_MERGE.append(None)
 
             INFO_MERGE['row_list'].append(ROW_MERGE)  
         util.write_merge_file(f, INFO_MERGE, [] ) 
@@ -881,7 +880,6 @@ class BBC(Program):
 
         self.config_prep['version_out_list'] = vout_list
         self.config_prep['n_splitran']       = n_splitran
-        self.add_COLNUM_BBC_MERGE_SPLITRAN(n_splitran)
 
         # end merge_config_prep
 
@@ -902,6 +900,7 @@ class BBC(Program):
         COLNUM_NDATA     = COLNUM_BBC_MERGE_NEVT_DATA
         COLNUM_NBIASCOR  = COLNUM_BBC_MERGE_NEVT_BIASCOR
         COLNUM_NCCPRIOR  = COLNUM_BBC_MERGE_NEVT_CCPRIOR
+        NROW_DUMP   = 0
 
         # keynames_for_job_stats returns 3 keynames : 
         #   {base}, {base}_sum, {base}_list
@@ -928,8 +927,15 @@ class BBC(Program):
             # strip off row info
             STATE       = row[COLNUM_STATE]
 
-            prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
+            prefix_orig, prefix_final = self.bbc_prefix("bbc", row)            
             search_wildcard = (f"{prefix_orig}*")
+
+
+            if irow < NROW_DUMP  :
+                print(f" xxx ------------------------ ") 
+                print(f" xxx DUMP merge_update_state for irow = {irow} ")
+                print(f" xxx   prefix_orig  = {prefix_orig}  ->")
+                print(f" xxx   prefix_final = {prefix_final}   ")
 
             # check if DONE or FAIL ; i.e., if Finished
             Finished = (STATE == SUBMIT_STATE_DONE) or \
@@ -947,6 +953,9 @@ class BBC(Program):
                 NDONE  = sum(x is not None for x in done_list)  
                 NYAML  = sum(x is not None for x in yaml_list)  
 
+                if irow < NROW_DUMP:
+                    print(f" xxx N(LOG,DONE,YAML) = {NLOG} {NDONE} {NYAML} ")
+
                 if NLOG > 0:
                     NEW_STATE = SUBMIT_STATE_RUN
                 if NDONE == n_job_split :
@@ -954,8 +963,6 @@ class BBC(Program):
 
                     bbc_stats = self.get_job_stats(script_dir,
                                                    log_list, yaml_list, key_list)
-
-                    #bbc_stats = self.get_bbc_stats(script_dir,log_list,yaml_list)
                     
                     # check for failures in snlc_fit jobs.
                     nfail = bbc_stats['nfail']
@@ -976,44 +983,6 @@ class BBC(Program):
 
         # end merge_update_state
 
-    def get_bbc_stats(self, search_dir, log_list, yaml_list):
-        # xxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxxx
-        submit_info_yaml = self.config_prep['submit_info_yaml']
-        n_log_file       = len(log_list)
-        split_stats = {
-            'nevt_data'           : 0, 
-            'nevt_biascor'        : 0,
-            'nevt_ccprior'        : 0,
-            'nfail_sum'           : 0
-        }
-        
-        # xxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxxx
-
-        for isplit in range(0,n_log_file):            
-            yaml_file = yaml_list[isplit]            
-            nevt_test = -9        # used to search for failures
-            if yaml_file :
-                YAML_FILE = (f"{search_dir}/{yaml_file}")
-                yaml_data = util.extract_yaml(YAML_FILE)
-                split_stats['nevt_data']     += yaml_data['NEVT_DATA']
-                split_stats['nevt_biascor']  += yaml_data['NEVT_BIASCOR']
-                split_stats['nevt_ccprior']  += yaml_data['NEVT_CCPRIOR']
-
-                # test value for failure testing below
-                nevt_test = yaml_data['ABORT_IF_ZERO'] 
-
-            # check flag to check for failure.        
-            if nevt_test <= 0 :
-                log_file   = log_list[isplit]
-                found_fail = self.check_for_failure(log_file,nevt_test,isplit+1)
-                if found_fail :
-                    split_stats['nfail_sum'] += 1
-
-        return split_stats
-        # xxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxxx
-        # end get_bbc_stats
-
-
         
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
 
@@ -1031,7 +1000,7 @@ class BBC(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         use_wfit         = submit_info_yaml['USE_WFIT']
 
-        row   = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
+        row     = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
         version = row[COLNUM_BBC_MERGE_VERSION]
         prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
 
@@ -1098,6 +1067,7 @@ class BBC(Program):
 
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
+        n_splitran       = submit_info_yaml['NSPLITRAN']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         use_wfit         = submit_info_yaml['USE_WFIT']
         vout_list        = submit_info_yaml['VERSION_OUT_LIST']
@@ -1120,8 +1090,12 @@ class BBC(Program):
             muopt_num  = row[COLNUM_BBC_MERGE_MUOPT]   # e.g., MUOPT003
             isplitran  = row[COLNUM_BBC_MERGE_SPLITRAN]
             
+            # remove suffix from version to get base version
+            suffix = self.suffix_splitran(n_splitran,isplitran)
+            version_base = version.rstrip(suffix)
+
             # get indices for summary file
-            iver = vout_list.index(version)
+            iver = vout_list.index(version_base)
             ifit = (f"{fitopt_num[6:]}")
             imu  = (f"{muopt_num[5:]}")
 
@@ -1130,7 +1104,7 @@ class BBC(Program):
             if isplitran > 1 : continue
             nrow += 1  # for row number in summary file
 
-            # the ugly code is in get_splitran_values
+            # the ugly code is in get_splitran_values 
             varname_list,value_list2d = self.get_splitran_values(row)
 
             # for each list of values, get statistics, then print to table.
@@ -1162,14 +1136,18 @@ class BBC(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         use_wfit         = submit_info_yaml['USE_WFIT']
+        n_splitran       = submit_info_yaml['NSPLITRAN']
+        split_string     = self.suffix_splitran(n_splitran,1)
 
-        version         = row[COLNUM_BBC_MERGE_VERSION]
+        version          = row[COLNUM_BBC_MERGE_VERSION]
+        version_base     = version.rstrip(split_string) # remove "-0001"
         prefix_orig,prefix_final = self.bbc_prefix("bbc", row)
 
         # scoop up YAML files. Be careful that '-{isplitran} is the
         # part we need to exlude from prefix, but we don't want to 
         # remove other dashes in version name.
-        prefix_search = prefix_orig.rsplit('-',1)[0]  # remove isplitran number
+
+        prefix_search = prefix_orig.replace(split_string,'*')
         wildcard_yaml = (f"{prefix_search}*.YAML")
         yaml_list     = glob.glob1(script_dir, wildcard_yaml)
 
@@ -1205,24 +1183,23 @@ class BBC(Program):
         # - - - - - - - - 
         # check option to include w(wfit)
         # Note that wfit_*YAML files have already been moved to 
-        # ../version and had version string removed from file name;
-        # therefore, use prefix_final instead of prefix_orig
+        # ../version-[splitran] and had version string removed from 
+        # file name; therefore, use prefix_final instead of prefix_orig
 
         if use_wfit :
             ivar = n_var - 1
             w_list = [] ; 
             varname_list.append("w_wfit")
-
             prefix_orig,prefix_final = self.bbc_prefix("wfit", row)
-            prefix_search = prefix_final.rsplit('-',1)[0] 
-            wildcard_yaml = (f"{prefix_search}*.YAML")
-            
-            v_dir         = (f"{output_dir}/{version}")
-            yaml_list     = glob.glob1(v_dir, wildcard_yaml)
+            yaml_file     = (f"{prefix_final}.YAML"  )
+            v_wildcard    = (f"{output_dir}/{version_base}*" )
+            yaml_list     = glob.glob(f"{v_wildcard}/{yaml_file}")
+
+            #print(f" xxx wildcard = {v_wildcard}/{yaml_file}")
+            #print(f" xxx yaml_list = {yaml_list} ")  # .xyz
 
             for yaml_file in yaml_list :
-                YAML_FILE = (f"{v_dir}/{yaml_file}")
-                tmp_yaml  = util.extract_yaml(YAML_FILE)
+                tmp_yaml  = util.extract_yaml(yaml_file)
                 w         = tmp_yaml['w']
                 w_list.append(w)
             value_list2d[ivar] = w_list
@@ -1339,14 +1316,16 @@ class BBC(Program):
         fitopt_num    = row[COLNUM_BBC_MERGE_FITOPT]
         muopt_num     = row[COLNUM_BBC_MERGE_MUOPT]
 
-        prefix_orig   = (f"{version}_{fitopt_num}_{muopt_num}")
-        prefix_final  = (f"{fitopt_num}_{muopt_num}")
-
         n_splitran    = self.config_prep['n_splitran']
-        if n_splitran > 1 :
-            isplitran      = row[COLNUM_BBC_MERGE_SPLITRAN]
-            prefix_orig   += (f"-{isplitran:03d}")
-            prefix_final  += (f"-{isplitran:03d}")
+        isplitran     = 1  # default is no splitran
+        if n_splitran > 1 : isplitran  = row[COLNUM_BBC_MERGE_SPLITRAN]
+        suffix        = self.suffix_splitran(n_splitran,isplitran)
+
+        # if suffix is already part of version, don't re-apply it.
+        if len(suffix) > 3 and suffix in version :   suffix = ''
+
+        prefix_orig   = (f"{version}{suffix}_{fitopt_num}_{muopt_num}")
+        prefix_final  = (f"{fitopt_num}_{muopt_num}")
 
         # check for adding 'wfit' to prefix
         if program.lower() == 'wfit' :
@@ -1356,6 +1335,11 @@ class BBC(Program):
         return prefix_orig, prefix_final
 
         # end bbc_prefix
+
+    def suffix_splitran(self,n_splitran,isplitran):
+        suffix = ''
+        if n_splitran > 1 : suffix = (f"-{isplitran:04d}")
+        return suffix
 
     def get_merge_COLNUM_CPU(self):
         return -9  # there is no CPU column

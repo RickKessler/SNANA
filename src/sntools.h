@@ -54,7 +54,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_78c"                                    
+#define  SNANA_VERSION_CURRENT  "v10_78d"                                     
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -416,8 +416,11 @@ struct {
 
 
 #define OPTMASK_SETPKMJD_FLUXMAX   8 // naive max flux
-#define OPTMASK_SETPKMJD_FLUXMAX2 16 // Fmax-clump method
-#define OPTMASK_SETPKMJD_TRIGGER  32 // return MJD_TRIGGER
+#define OPTMASK_SETPKMJD_FLUXMAX2 16 // Fmax-clump method, wgt=1 per obs
+#define OPTMASK_SETPKMJD_FLUXMAX3 32 // idem, with wgt=log(SNR) per obs
+#define OPTMASK_SETPKMJD_TRIGGER  64 // return MJD_TRIGGER
+// xxx mark delete 9/2020 #define OPTMASK_SETPKMJD_TRIGGER 32 //return MJD_TRIGGER
+
 struct {
   int    OPTMASK;
   double SNRCUT, SNRCUT_BACKUP;
@@ -847,17 +850,6 @@ double skewGauss(double x, double siglo,double sighi,
 
 void   init_GaussIntegral(void);
 double GaussIntegral(double nsig1, double nsig2);
-
-// SALT2 color law - version 0 from Guy 2007
-double SALT2colorlaw0(double lam_rest, double c, double *colorPar );
-
-// SALT2 color law - version 1 from Guy 2010
-double SALT2colorlaw1(double lam_rest, double c, double *colorPar );
-
-double SALT2colorfun_dpol(const double rl, int nparams, 
-			  const double *params, const double alpha);
-double SALT2colorfun_pol(const double rl, int nparams, 
-			 const double *params, const double alpha);
 
 
 // ------ index mapping

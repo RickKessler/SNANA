@@ -6,23 +6,20 @@
 # TO-DO LIST for
 #
 #  BASE/util: 
-#   + if ALL.DONE exists with FAIL , STOP EVERYTHING ?!?!
-#   - print(e) on crash
-#   - pass ALL.DONE file to sim and fit job; STOP if it exists.
 #   - more elegant HELP menu per program?
-#   - run merge task immediately after launch so that
-#     some of the WAIT -> RUN
+#   - run merge task immediately after launch so that  WAIT -> RUN
 #
-#  SIM:#
+#  SIM:
 #   - for sim, leave symbolic links for redundant sim job
-#   - problem reading SIMGEN-input file when SIMGEN_DUMP breaks
-#      to another line that is not YAML compatible
 #
 #  FIT:
 #   - track down why NEVT(HBOOK) sometimes fails
-#   - validate APPEND_TABLE_VARLIST before submitting jobs ???
 #
 #  BBC
+#   - trap wfit errors
+#   + parse NSPLITRAN=4 outside of YAML block
+#   + automate for RANSEED_CHANGE if STRINGMATCH_IGNORE isn't given
+#      (match suffixes -0001, -0002, etc ...)
 #
 # - - - - - - - - - -
 
@@ -63,8 +60,11 @@ def get_args():
     msg = "increase output verbosity (default=True)"
     parser.add_argument("-v", "--verbose", help=msg, action="store_true")
 
-    msg = "kill current jobs"
+    msg = "kill current jobs (requires input file as 1st arg)"
     parser.add_argument("-k", "--kill", help=msg, action="store_true")
+
+    msg = "kill jobs if FAIL is detected"
+    parser.add_argument("--kill_on_fail", help=msg, action="store_true")
 
     msg = "+=1 -> new input file has REFAC_ prefix; " + \
           "+=2 -> old input file has LEGACY_ prefix ; " + \

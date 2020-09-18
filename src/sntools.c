@@ -412,9 +412,11 @@ void init_obs_atFLUXMAX(int OPTMASK, double *PARLIST, int VBOSE) {
   // using only flux and fluxerr.
   //
 
-  char cmethod[100];
+  char cmethod[100], cwgt[20] ;
   char fnam[] = "init_obs_atFLUXMAX" ;
-
+  bool DO_FMAX       = ( (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX)  > 0 );
+  bool DO_FMAXCLUMP2 = ( (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2) > 0 );
+  bool DO_FMAXCLUMP3 = ( (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX3) > 0 );
   // ------------- BEGIN ------------
 
   if ( OPTMASK == 0 ) { return ; }
@@ -424,15 +426,20 @@ void init_obs_atFLUXMAX(int OPTMASK, double *PARLIST, int VBOSE) {
   INPUTS_OBS_atFLUXMAX.SNRCUT         = PARLIST[1];
   INPUTS_OBS_atFLUXMAX.SNRCUT_BACKUP  = PARLIST[2];
 
+  cmethod[0] = 0;
+
   if ( VBOSE ) {
-    if ( (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX) > 0 )  { 
+    if ( DO_FMAX )  { 
       sprintf(cmethod,"max-flux");  
     }
-    else if ( (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2) > 0 )  { 
-      sprintf(cmethod, "Fmax-clump [SNRCUT=%.1f(%.1f), MJDWIN=%.1f]"
+    else if ( DO_FMAXCLUMP2 || DO_FMAXCLUMP3 ) {
+      if ( DO_FMAXCLUMP2 ) { sprintf(cwgt,"wgt=1"); }
+      else                 { sprintf(cwgt,"wgt=log(SNR)"); }
+
+      sprintf(cmethod, "Fmax-clump [SNRCUT=%.1f(%.1f), MJDWIN=%.1f, %s]"
 	      ,INPUTS_OBS_atFLUXMAX.SNRCUT        
 	      ,INPUTS_OBS_atFLUXMAX.SNRCUT_BACKUP
-	      ,INPUTS_OBS_atFLUXMAX.MJDWIN	      );    
+	      ,INPUTS_OBS_atFLUXMAX.MJDWIN, cwgt   );    
     }
     else if ( (OPTMASK & OPTMASK_SETPKMJD_TRIGGER) > 0 )  { 
 
@@ -479,7 +486,8 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   //  the smaller 10-day window is to improve speed of calculation.
   //
   //  OPTMASK = 8  --> return naive Fmax over all observatins
-  //  OPTMASK = 16 --> use Fmax-clump method describe above.
+  //  OPTMASK = 16 --> use Fmax-clump method, wgt=1
+  //  OPTMASK = 32 --> use Fmax-clump method, wgt=log10(SNR)
   //
   // Inputs:
   //   CCID         : SN id, for error message
@@ -494,8 +502,15 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   //
   // Jul 2 2019: fix bug computing MJDMIN/MAX to work with unsorted MJD_LIST.
   // Jun 7 2020: sort by MJD to handle unsorted data files (e.g., LSST DC2)
+  //
+  // Sep 15 2020: 
+  //  + replace int NSNRCUT with double WGT_SNRCUT to allow playing
+  //    with different weights per event. 
+  //  + Replace equal wieght per point with log10(SNR) to fix 
+  //    problems near season boundary
+  //
 
-  int    OPTMASK         = INPUTS_OBS_atFLUXMAX.OPTMASK ;
+  int  OPTMASK         = INPUTS_OBS_atFLUXMAX.OPTMASK ;
   if ( OPTMASK == 0 ) { return ; }
 
   double MJDWIN_USER     = INPUTS_OBS_atFLUXMAX.MJDWIN ;
@@ -503,26 +518,34 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   double SNRCUT_BACKUP   = INPUTS_OBS_atFLUXMAX.SNRCUT_BACKUP;
   double MJDSTEP_SNRCUT  = 10.0 ; // hard wired param
 
-  int USE_MJDatFLUXMAX  = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX ); // naive max flux
-  int USE_MJDatFLUXMAX2 = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2); // fmax-clump method
+  // naive max flux
+  int USE_MJDatFLUXMAX  = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX ); 
+  // fmax-clump method with wgt=1 per obs
+  int USE_MJDatFLUXMAX2 = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX2); 
+  // fmax-clump method with wgt=log(SNR) per obs
+  int USE_MJDatFLUXMAX3 = (OPTMASK & OPTMASK_SETPKMJD_FLUXMAX3); 
+
+  int USE_MJDatFMAXCLUMP = (USE_MJDatFLUXMAX2 || USE_MJDatFLUXMAX3) ;
+
   int USE_BACKUP_SNRCUT, ITER, NITER, IMJD, IMJDMAX=0 ;
-  int NOBS_SNRCUT=0, NSNRCUT_MAXSUM=0;
+  int     NOBS_SNRCUT=0, NSNRCUT_MAXSUM=0, *NSNRCUT;
+  double  WGT_SNRCUT_MAXSUM, WGT_SNRCUT_SUM, *WGT_SNRCUT ; 
   int IFILTOBS, o, omin, omax, omin2, omax2, o_sort, NOTHING ;
   int MALLOC=0 ;
   double SNR, SNRCUT=0.0, SNRMAX=0.0, FLUXMAX[MXFILTINDX] ;
   double MJD, MJDMIN, MJDMAX, FLUX, FLUXERR;
 
-  int   *NSNRCUT = NULL;      // Number of obs in each 10-day window
   int   *oMIN_SNRCUT=NULL, *oMAX_SNRCUT=NULL ;
-  int    NWIN_COMBINE, MXWIN_SNRCUT, MEMI;
-  int    LDMP = 0; // t(strcmp(CCID,"3530")==0 ) ;
+  int    NWIN_COMBINE, MXWIN_SNRCUT, MEMI, MEMD ;
+  int    LDMP = 0 ; // t(strcmp(CCID,"3530")==0 ) ;
   char fnam[] = "get_obs_atFLUXMAX" ;
 
   // ------------ BEGIN -------------
 
   NITER  = 1 ;         // always do max flux on 1st iter
   omin2  = omax2    = -9 ;
-  NSNRCUT_MAXSUM    = 0 ;
+  NSNRCUT_MAXSUM    = 0 ; // ??
+  WGT_SNRCUT_MAXSUM = 0.0;
   USE_BACKUP_SNRCUT = 0 ;
 
   // sort by MJD (needed for FmaxClump method)
@@ -551,7 +574,8 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  MEMI  = sizeof(int) * MXWIN_SNRCUT ;
+  MEMI  = sizeof(int)    * MXWIN_SNRCUT ;
+  MEMD  = sizeof(double) * MXWIN_SNRCUT ;
 
  START:
 
@@ -566,7 +590,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     SNRCUT  = SNRCUT_BACKUP;
     USE_BACKUP_SNRCUT = 1;
   }
-  else if ( USE_MJDatFLUXMAX2 ) {
+  else if ( USE_MJDatFMAXCLUMP ) {
     // fmax-clump method
     NITER   = 2 ;
     IMJDMAX = 0;
@@ -574,18 +598,20 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     if ( USE_BACKUP_SNRCUT ) { SNRCUT = SNRCUT_BACKUP; }
 
     if ( MALLOC == 0 ) {
-      NSNRCUT     = (int*)malloc(MEMI);
-      oMIN_SNRCUT = (int*)malloc(MEMI);
-      oMAX_SNRCUT = (int*)malloc(MEMI);     
-      MALLOC      = 1 ; 
+      NSNRCUT       = (int*)malloc(MEMI);
+      WGT_SNRCUT    = (double*)malloc(MEMD);
+      oMIN_SNRCUT   = (int*)malloc(MEMI);
+      oMAX_SNRCUT   = (int*)malloc(MEMI);     
+      MALLOC        = 1 ; 
     }
     // initialize quantities in each 10-day bin
     for(o=0; o < MXWIN_SNRCUT; o++ ) {
-      NSNRCUT[o]     =  0 ;
-      oMIN_SNRCUT[o] = oMAX_SNRCUT[o] = -9 ;
+      NSNRCUT[o]       =  0 ;
+      WGT_SNRCUT[o]    = 0.0 ;
+      oMIN_SNRCUT[o]   = oMAX_SNRCUT[o] = -9 ;
     }
 
-  } // end if-block over USE_MJDatFLUXMAX2
+  } // end if-block over USE_MJDatFMAXCLUMP
 
 
   //  - - - - - - - - - - - - -- - - - - 
@@ -605,9 +631,16 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 
     if ( omin<0 || omax<0 || omin>= NOBS || omax>= NOBS ) {
       print_preAbort_banner(fnam);
-      printf("\t NSNRCUT_MAXSUM = %d \n", NSNRCUT_MAXSUM);
-      printf("\t NSNRCUT[]      = %d, %d, %d, %d, %d ... \n",
+
+      printf("\t WGT_SNRCUT_MAXSUM = %d \n", WGT_SNRCUT_MAXSUM);
+      printf("\t WGT_SNRCUT[]  = %.2f, %.2f, %.2f, %.2f, %.2f ... \n",
+	     WGT_SNRCUT[0], WGT_SNRCUT[1], WGT_SNRCUT[2],
+	     WGT_SNRCUT[3], WGT_SNRCUT[4]);
+
+      printf("\t NSNRCUT_MAXSUM    = %d \n", NSNRCUT_MAXSUM);
+      printf("\t NSNRCUT[]  = %d, %d, %d, %d, %d ... \n",
 	     NSNRCUT[0],NSNRCUT[1],NSNRCUT[2],NSNRCUT[3],NSNRCUT[4]);
+
       printf("\t NOBS_SNRCUT    = %d \n", NOBS_SNRCUT );
       printf("\t SNRMAX         = %.2f \n", SNRMAX );
       printf("\t IMJDMAX        = %d  \n",  IMJDMAX);      
@@ -619,7 +652,8 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     if ( LDMP ) {
       printf(" xxx ITER=%d : omin,omax=%3d-%3d   MJDWIN=%.1f-%.1f"
 	     " SNRCUT=%.1f \n", 
-	     ITER,omin,omax, MJDMIN, MJDMAX, SNRCUT ); 
+	     ITER,omin,omax, MJD_LIST[omin], MJD_LIST[omax], SNRCUT ); 
+      // xxx mark     ITER,omin,omax, MJDMIN, MJDMAX, SNRCUT ); 
       fflush(stdout);
     }
 
@@ -665,7 +699,7 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 
 
       // count number of SNR>cut epochs in sliding 10-day windows
-      if ( USE_MJDatFLUXMAX2 && ITER==1 ) {
+      if ( USE_MJDatFMAXCLUMP && ITER==1 ) {
       
 	IMJD = (int)((MJD - MJDMIN)/MJDSTEP_SNRCUT) ;
 	IMJDMAX = IMJD ;
@@ -677,6 +711,9 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
 	}							  
 	NSNRCUT[IMJD]++ ;
+	WGT_SNRCUT[IMJD] += 1.0; // original from May 2019
+	if(USE_MJDatFLUXMAX3) {WGT_SNRCUT[IMJD] += log10(SNR);} // Sep 2020
+
 	if ( oMIN_SNRCUT[IMJD] < 0 ) { oMIN_SNRCUT[IMJD] = o; }
 	if ( oMAX_SNRCUT[IMJD] < o ) { oMAX_SNRCUT[IMJD] = o; }
       } // end FmaxClump 
@@ -705,9 +742,10 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
     int iwin, iwin_shift, iwin_max, iwin_start;
     int oMIN_TMP, oMAX_TMP, NSNRCUT_SUM ;
 
-    if ( USE_MJDatFLUXMAX2 && ITER==1 ) {
+    if ( USE_MJDatFMAXCLUMP && ITER==1 ) {
       //   check sliding combined windows for max NSNRCUT
-      NSNRCUT_MAXSUM = 0 ;
+      NSNRCUT_MAXSUM = 0 ; // ??
+      WGT_SNRCUT_MAXSUM = 0.0;
       iwin_max = IMJDMAX - (NWIN_COMBINE-1) ;
       if ( iwin_max < 0 ) { iwin_max = 0 ; }
     
@@ -715,21 +753,31 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
 
 	// combine multiple 10-day windows to get a MJDWIN-day window
 	NSNRCUT_SUM = 0; oMIN_TMP = oMAX_TMP = -9;
+	WGT_SNRCUT_SUM = 0.0 ;
 
 	for(iwin_shift = 0; iwin_shift<NWIN_COMBINE; iwin_shift++ ) {
 	  iwin = iwin_start + iwin_shift ;
 	  if ( iwin >= MXWIN_SNRCUT ) { continue; }
 	  if ( NSNRCUT[iwin] > 0 ) {
 	    NSNRCUT_SUM += NSNRCUT[iwin] ;
+	    WGT_SNRCUT_SUM += WGT_SNRCUT[iwin];
 	    if ( oMIN_TMP < 0 ) { oMIN_TMP = oMIN_SNRCUT[iwin]; }
 	    oMAX_TMP = oMAX_SNRCUT[iwin];
 	  }
 	}
 
-	if ( NSNRCUT_SUM > NSNRCUT_MAXSUM ) {
-	  NSNRCUT_MAXSUM = NSNRCUT_SUM ;
+	//	if ( NSNRCUT_SUM > NSNRCUT_MAXSUM ) {
+	if ( WGT_SNRCUT_SUM > WGT_SNRCUT_MAXSUM ) {
+	  WGT_SNRCUT_MAXSUM = WGT_SNRCUT_SUM ;
+	  NSNRCUT_MAXSUM = NSNRCUT_SUM ; // ??
 	  omin2 = oMIN_TMP ;
 	  omax2 = oMAX_TMP ;
+
+	  if ( LDMP ) {
+	    printf("\t xxx NSNRCUT_SUM=%3d for MJDWIN= %.1f to %.1f \n",
+		   NSNRCUT_SUM, MJD_LIST[oMIN_TMP], MJD_LIST[oMAX_TMP] );
+	    fflush(stdout);
+	  }
 	}
 
       } // end loop over iwin_start
@@ -738,7 +786,10 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   } // end ITER loop
 
  FREE:
-  if ( MALLOC ) { free(NSNRCUT);  free(oMIN_SNRCUT); free(oMAX_SNRCUT);  }
+  if ( MALLOC ) { 
+    free(NSNRCUT);     free(WGT_SNRCUT);
+    free(oMIN_SNRCUT); free(oMAX_SNRCUT);  
+  }
   free(INDEX_SORT);  
   
   return;
@@ -10332,227 +10383,6 @@ int Landolt_ini(
 /**********************************************
   SALT-II color correction formula
 **********************************************/
-double SALT2colorlaw0(double lam_rest, double c, double *colorPar ) {
-
-  // Jul 2, 2010
-  // Returns 10^[.4*c*C(lambda)] as defined in Guy 2007 SALT2 paper.
-  //
-  // *colorPar is an array of five parameters:
-  // LAMBDA_B, LAMBDA_V, color-offset and two polynomial parameters
-  // This code is moved from genamg_SALT2.c to allow more access.
-  //
-  // Aug 2, 2010: remove C_OFF parameter (previously 3rd colorPar arg)
-
-
-  // define local args for *colorPar inputs
-  double LAM_B, LAM_V, COR0, COR1 ;
-
-  // local args
-  double 
-    arg
-    ,lr, lr2, lr3
-    ,numerator 
-    ,denominator 
-    ,CLAM
-    ;
-
-  char fnam[] = "SALT2colorlaw0" ;
-
-  // -------- BEGIN ---------
-
-  // strip off color law parameters
-  LAM_B = *(colorPar+0); // mean lambda of B filter
-  LAM_V = *(colorPar+1); // mean labmda of V filter
-  COR0  = *(colorPar+2); // 1st fitted poly param from training
-  COR1  = *(colorPar+3); // 2nd "    "
-
-  // --------------------------------------
-  // make a few sanity checks on passed parameters
-
-  sprintf(c2err,"Check colorlaw parameters");
-
-  if ( LAM_B < 4000 || LAM_B > 4500 ) {
-    sprintf(c1err, "insane LAM_B = %6.0f", LAM_B );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  if ( LAM_V < 5000 || LAM_V >6000 ) {
-    sprintf(c1err, "insane LAM_V = %6.0f", LAM_V );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  if ( COR0 < -0.4 || COR0 > -0.1 ) {
-    sprintf(c1err, "insane COR0 = %6.3f", COR0 );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-  if ( COR1 < -0.1 || COR1 > +0.1 ) {
-    sprintf(c1err, "insane COR1 = %6.3f", COR1 );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  // --------------------------------------
-  lr = (lam_rest - LAM_B)/( LAM_V - LAM_B );
-  lr2 = lr * lr;
-  lr3 = lr * lr2 ;
-
-  numerator   = lr + lr2*COR0 + lr3*COR1 ;
-  denominator = 1.0 + COR0 + COR1 ;
-  CLAM        = numerator/denominator ;
-  arg         = 0.4 * c * CLAM ;
-
-  return  pow(10.0,arg);
-
-
-} // end of  SALT2colorlaw0
-
-
-// *************************************************************
-double SALT2colorlaw1(double lambda, double c, double *colorPar ) {
-
-  // Created Jul 31, 2010 by R.Kessler and J.Guy
-  // Returns 10^[.4*c*C(lambda)] as defined in 
-  // Guy 2010 SALT2/SNLS3 paper.
-  //
-  // *colorPar is an array of parameters as defined below.
-  // Code is from Julien, with slight modifications for
-  // SNANA compatibility.
-  // 
-  // Mar 3, 2011: fix dumb bug causing crazy value at lam = LAM_MIN
-
-  // define local args for *colorPar inputs
-  double 
-    LAM_B, LAM_V
-    ,LAM_MIN, LAM_MAX
-    ,XN, params[10]
-    ;
-
-  int nparams  ;
-
-  double constant = log(10.0)/2.5 ;
-  double alpha    = 1 ;
-  double val      = 0 ;
-
-  double rl, rlmin, rlmax, tmp ;
-  int i;
-
-  char fnam[] = "SALT2colorlaw1" ;
-
-  // --------------- BEGIN ------------
-
-  sprintf(c2err,"Check colorlaw parameters");
-
-  // strip of colorPar values into local variables.
-  LAM_B   = *(colorPar+0);   // mean lambda of B filter
-  LAM_V   = *(colorPar+1);   // mean labmda of V filter
-  LAM_MIN = *(colorPar+2);   // special extrap function below this
-  LAM_MAX = *(colorPar+3);   // idem for upper wavelength
-  XN      = *(colorPar+4);   // Number of parameters for function
-
-  nparams = (int)XN ;        // number of parameters to follow
-  for ( i=0; i < nparams; i++ ) {
-    tmp       = *(colorPar+5+i); 
-    params[i] = tmp;
-    if ( fabs(tmp) > 10.0 ) {
-      sprintf(c1err, "insane params[%d] = %f", i, tmp );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-    }
-  }
-
-  // --------------------------------------
-  // make a few sanity checks on passed parameters
-
-  if ( LAM_B < 4000 || LAM_B > 4500 ) {
-    sprintf(c1err, "insane LAM_B = %6.0f", LAM_B );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  if ( LAM_V < 5000 || LAM_V >6000 ) {
-    sprintf(c1err, "insane LAM_V = %6.0f", LAM_V );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-
-  if ( LAM_MIN < 1000 || LAM_MIN > 6000 ) {
-    sprintf(c1err, "insane LAM_MIN = %6.0f", LAM_MIN );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-  if ( LAM_MAX < 6000 || LAM_MAX > 16000 ) {
-    sprintf(c1err, "insane LAM_MAX = %6.0f", LAM_MAX );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-
-  // ------------------------------
-
-  for(i=0; i < nparams; i++)
-    { alpha = alpha - params[i]; }
-
-  // compute reduced wavelengths
-  rl    = (lambda  - LAM_B) / ( LAM_V - LAM_B );
-  rlmin = (LAM_MIN - LAM_B) / ( LAM_V - LAM_B );
-  rlmax = (LAM_MAX - LAM_B) / ( LAM_V - LAM_B );
-
-  if(lambda >= LAM_MIN  && lambda <= LAM_MAX ) {
-    val = SALT2colorfun_pol(rl,nparams,params,alpha);
-
-  }else{
-
-    if(lambda < LAM_MIN ) {
-      double Pmin  = SALT2colorfun_pol(rlmin,nparams,params,alpha);
-      double dPmin = SALT2colorfun_dpol(rlmin,nparams,params,alpha);
-      val =  Pmin + dPmin* (rl-rlmin);
-    }else{
-      double Pmax  = SALT2colorfun_pol(rlmax,nparams,params,alpha);
-      double dPmax = SALT2colorfun_dpol(rlmax,nparams,params,alpha);
-      val =  Pmax + dPmax* (rl-rlmax);
-
-      /*
-      printf(" xxx lambda=%6.0f rl=%5.2f rlmax=%5.2f alpha=%6.2f Pmax=%6.2f dPmax=%6.2f nparam=%d val=%f \n",
-	     lambda, rl, rlmax, alpha, Pmax, dPmax, nparams, val );
-      */
-    }
-  }
-
-
-
-  /*
-  if ( fabs(lambda-2271.) < 2.0 && abs(c+0.4) < 0.1 ) {
-    printf(" xxx %s : lam=%6.1f c=%5.2f -> const=%f val=%f (LAM_MIN=%5.0f) \n",
-	   fnam, lambda, c, constant, val, LAM_MIN);
-    fflush(stdout);
-  }
-  */
-
-  return  exp(c*constant*val);
-
-} // end of SALT2colorlaw1
-
-
-
-double SALT2colorfun_dpol(const double rl, int nparams, 
-			  const double *params, const double alpha) {
-  double v = alpha;
-  double rlp = rl;
-  int i;
-  for(i=0; i<nparams; i++) {
-    v += (i+2)*params[i]*rlp;
-    rlp *= rl; 
-  }
-  return v;
-}
-
-double SALT2colorfun_pol(const double rl, int nparams, 
-			 const double *params, const double alpha) {
-  double v   = alpha*rl;
-  double rlp = rl*rl;  
-  int i;
-  for(i =0; i<nparams; i++) {
-    v += params[i]*rlp; // v = alpha*rl + rl^2*( sum_i p_i*rl^i)
-    rlp *= rl; // rl^(i+2)
-  }
-  return v;
-} 
-
 
 
 // ********************************

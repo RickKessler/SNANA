@@ -23,8 +23,6 @@ import logging, coloredlogs
 import submit_util as util
 from   submit_params    import *
 from   submit_prog_base import Program
-import submit_translate as tr
-
 
 # define columns of MERGE.LOG 
 COLNUM_SIM_MERGE_STATE        = 0     # current state; e.g., WAIT, RUN, DONE
@@ -117,13 +115,7 @@ class Simulation(Program):
         self.config_yaml['CONFIG']['OUTDIR'] = OUTDIR
         return output_dir_name,SUBDIR_SCRIPTS_SIM
         # set_output_dir_name
-        
-    def translate_input_file(self,legacy_input_file, refac_input_file):
-        logging.info(f"\n TRANSLATE LEGACY sim_SNmix INPUT FILE: " \
-                     f"{legacy_input_file}")
-        tr.SIM_legacy_to_refac( legacy_input_file, refac_input_file )
-        # end translate_input_file
-
+ 
     def submit_prepare_driver(self):
         # July 2020
         # prepare simulation arguments for each GENVERSION
@@ -700,10 +692,14 @@ class Simulation(Program):
         # - - - - - 
         # xxx ngentot_sum = 0
         cidoff        = cidran_min
-        for job in range(0,n_job_tot) :
-            iver   = iver_list[job]
-            ifile  = ifile_list[job]
-            isplit = isplit_list[job]
+        for iver,ifile,isplit in zip(iver_list,ifile_list,isplit_list):
+
+        # xxx mark delete 
+        #for job in range(0,n_job_tot) :
+            #iver   = iver_list[job]
+            #ifile  = ifile_list[job]
+            #isplit = isplit_list[job]
+            # xxx end mark xxxxxx
 
             new_version = (ifile == 0 and isplit==0)
             if reset_cidoff < 2 and new_version :
@@ -1224,10 +1220,15 @@ class Simulation(Program):
 
         # loop over ALL jobs, and pick out the ones for this ICPU
         n_job_local = 0
-        for jobid in range(0,n_job_tot):
-            iver       = iver_list[jobid]
-            ifile      = ifile_list[jobid]
-            isplit     = isplit_list[jobid]  # internal indices
+        for iver,ifile,isplit in zip(iver_list,ifile_list,isplit_list):
+
+        # xxxx mark delete xxxxxxx
+        #for jobid in range(0,n_job_tot):
+            #iver       = iver_list[jobid]
+            #ifile      = ifile_list[jobid]
+            #isplit     = isplit_list[jobid]  # internal indices
+            # xxx mark delete xxxxxx
+
             index_dict = {
                 'iver':iver, 'ifile':ifile, 'isplit':isplit, 'icpu':icpu
             }  
@@ -1241,12 +1242,6 @@ class Simulation(Program):
 
                 job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
-
-                # xxxx mark delete Sep 10
-                #JOB_INFO   = {}
-                #JOB_INFO.update(job_info_sim)    # glue
-                #JOB_INFO.update(job_info_merge) # glue
-                # xxxx 
 
                 # store TMP_VERSION for later
                 TMP_list2d[iver][ifile] = job_info_sim['tmp_genversion']
@@ -1284,7 +1279,7 @@ class Simulation(Program):
         CONFIG       = self.config_yaml['CONFIG']
         GENPREFIX    = CONFIG['GENPREFIX']
         no_merge     = self.config_yaml['args'].nomerge
-
+        kill_on_fail = self.config_yaml['args'].kill_on_fail
         program           = self.config_prep['program'] 
         n_job_split       = self.config_prep['n_job_split']
         output_dir        = self.config_prep['output_dir']
@@ -1300,6 +1295,7 @@ class Simulation(Program):
         user_path_sndata  = self.config_prep['user_path_sndata_sim']
         path_sndata       = self.config_prep['path_sndata_sim']
         format_mask       = self.config_prep['format_mask']
+        
         Nsec  = seconds_since_midnight
 
         reset_cidoff     = self.config_prep['reset_cidoff']
@@ -1376,6 +1372,7 @@ class Simulation(Program):
         JOB_INFO['tmp_genversion_split']  = tmp_ver
         JOB_INFO['tmp_genversion']        = tmp1    # combined genv        
         JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
+        JOB_INFO['kill_on_fail']  = kill_on_fail
 
         return JOB_INFO
 
@@ -1519,7 +1516,7 @@ class Simulation(Program):
         #
         #      iver_list_all = 0,0,0, 1,1,1
         #
-        genversion_list_all = []
+        genversion_list_all  = []
         iver_list_all        = []
         n_ver                = len(genversion_list)
 

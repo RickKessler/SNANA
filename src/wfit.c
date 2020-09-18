@@ -1578,6 +1578,8 @@ void read_fitres(char *inFile) {
    Apr 1 2019: fix to work without NVAR key; beware that code is fragile.
    Apr 3 2019: remove LEGACY check; only reads FITRES-formatted files.
 
+   Sep 15 2020: use snana_openTextFile to handle gzipped inputs
+
   *************/
 
   char ctmp[80] ,ctmp2[80], VARLIST[200] ;
@@ -1586,9 +1588,9 @@ void read_fitres(char *inFile) {
   int IWD_MUDIF, IWD_MUDIFERR ;
   int IWD_GTYPE, IWD_SNTYPE, IWD_NBIN;
 
-  char CID[12];
+  char CID[12], inFile_opened[200];
   double Z, ZERR, MU, MUERR, MUREF ;
-  int TID, GTYPE, STYPE, LCUT, i, NRDTOT, NBIN, ISROWKEY ;
+  int TID, GTYPE, STYPE, LCUT, i, NRDTOT, NBIN, ISROWKEY, gzipFlag ;
 
   FILE *fp;
   char fnam[] = "read_fitres";
@@ -1596,12 +1598,19 @@ void read_fitres(char *inFile) {
   // -------- BEGIN --------
 
   printf(" Open fitres file: %s \n", inFile);
-  fp = fopen(inFile,"rt");
+
+  // xxx mark delete fp = fopen(inFile,"rt");
+  int OPENMASK = OPENMASK_VERBOSE ;
+  fp = snana_openTextFile(OPENMASK, "", inFile, 
+			  inFile_opened, &gzipFlag );
 
   NCIDLIST = NCUT = NRDTOT = NSNE_NBIN = NBIN = 0;
+
+  /* xxxx mark delete 
   printf(" Reading fitres file: NCIDLIST %d, NSNE_NBIN %d \n", 
 	 NCIDLIST, NSNE_NBIN);
- 
+  */
+
   MUERR_INCLUDE_zERR=0;
   MUERR_INCLUDE_LENS=0;
 

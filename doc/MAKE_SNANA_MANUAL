@@ -1,5 +1,5 @@
-pslatex snana_manual
-pslatex snana_manual
+latex snana_manual
+latex snana_manual
 dvips -P pdf -G0 snana_manual
 ps2pdf snana_manual.ps
 rm *.aux *.dvi *.log *.toc snana_manual.ps

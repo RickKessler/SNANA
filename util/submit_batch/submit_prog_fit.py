@@ -7,7 +7,7 @@ import logging, coloredlogs
 import datetime, time, subprocess
 import f90nml
 import submit_util as util
-import submit_translate as tr
+
 from   submit_params import *
 from   submit_prog_base import Program
 
@@ -90,11 +90,6 @@ class LightCurveFit(Program):
 
         return output_dir_name,SUBDIR_SCRIPTS_FIT
         # end set_output_dir_name
-
-    def translate_input_file(self, legacy_input_file, refac_input_file):
-        logging.info(f"\n TRANSLATE LEGACY split_and_fit INPUT FILE: " \
-                     f"{legacy_input_file}")
-        tr.FIT_legacy_to_refac(legacy_input_file, refac_input_file)
 
     def submit_prepare_driver(self):
 
@@ -424,19 +419,30 @@ class LightCurveFit(Program):
         fitopt_label_list = [ 'DEFAULT' ] + ['']*(n_fitopt-1)
         link_FITOPT000_list = []
 
+        print(f" xxx ")
         # prepare fitnum FITOPT[nnn]
         for i in range(0,n_fitopt):
             fitopt_num_list[i] = (f"FITOPT{i:03d}")
-            word_list          = fitopt_arg_list[i].split()
-            if len(word_list) > 0 :
-                has_label =  word_list[0][0] == '/'
-                if has_label :
-                    label = word_list[0].strip('/')                    
-                    fitopt_label_list[i] = label
-                    fitopt_arg_list[i]   = " ".join(word_list[1:])
-                else :
-                    fitopt_label_list[i] = 'None' 
-                    fitopt_arg_list[i]   = " ".join(word_list)
+
+            # extract optional label
+            if i > 0 :
+                label,arg_list = \
+                    util.separate_label_from_arg(fitopt_arg_list[i])
+                fitopt_label_list[i] = label
+                fitopt_arg_list[i]   = arg_list
+
+            # xxxxxxxxxxx mark delete xxxxxxxxx
+            #word_list          = fitopt_arg_list[i].split()
+            #if len(word_list) > 0 :
+            #    has_label =  word_list[0][0] == '/'
+            #    if has_label :
+            #        label = word_list[0].strip('/')                    
+            #        fitopt_label_list[i] = label
+            #        fitopt_arg_list[i]   = " ".join(word_list[1:])
+            #    else :
+            #        fitopt_label_list[i] = 'None' 
+            #        fitopt_arg_list[i]   = " ".join(word_list)
+            # xxxxxxxxxx end mark xxxxxxxx
 
             # update list for symbolic links to FITOPT000 [DEFAULT]
             if self.is_sym_link(fitopt_arg_list[i]) :
@@ -617,10 +623,15 @@ class LightCurveFit(Program):
 
         n_job_local = 0 ;   n_job_real=0 
 
-        for job in range(0,size_sparse_list):  # n_job(proc+links)
-            iver   = iver_list[job]
-            iopt   = iopt_list[job]
-            isplit = isplit_list[job]
+        for iver,iopt,isplit in zip(iver_list,iopt_list,isplit_list):
+
+        # xxxx mark delete xxxxxx
+        #for job in range(0,size_sparse_list):  # n_job(proc+links)
+            #iver   = iver_list[job]
+            #iopt   = iopt_list[job]
+            #isplit = isplit_list[job]
+            # xxxxx end mark xxxxxxxx
+
             index_dict = {
                 'iver':iver, 'iopt':iopt, 'isplit':isplit, 'icpu':icpu
             }  
@@ -670,6 +681,7 @@ class LightCurveFit(Program):
         icpu   = index_dict['icpu']
 
         input_file    = self.config_yaml['args'].input_file 
+        kill_on_fail  = self.config_yaml['args'].kill_on_fail
         program       = self.config_prep['program']
         output_dir    = self.config_prep['output_dir']
         script_dir    = self.config_prep['script_dir']
@@ -693,6 +705,7 @@ class LightCurveFit(Program):
         JOB_INFO['log_file']    = log_file
         JOB_INFO['done_file']   = done_file
         JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
+        JOB_INFO['kill_on_fail']  = kill_on_fail
 
         # set command line arguments
         arg_list.append(f"  VERSION_PHOTOMETRY {version}")

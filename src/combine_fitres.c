@@ -53,6 +53,9 @@
   >  combine_fitres.exe <fitres1> <fitres2> .. t   ! [outPrefix].text
       (create only text output; disable default hbook output)
 
+  >  combine_fitres.exe  <fitres1> <fitres2> ... -nullval_float -12345
+         (override default nullval_float = -888)
+
  WARNINGS/NOTES:
  * If fitres files contain different SN, then first
    fitres file determines the list of SN; extra SN
@@ -108,7 +111,12 @@
    + match variables with ignore-case so that zCMB and ZCMB are
      written out as zCMB and ZCMB_2.
 
- 
+ Sep 15 2020: 
+   + new input -nullval_float 0 (override default -888). Initial use is
+     for Pippin to set classifier PROB_CC=0 when classifier returns
+     no value.
+   + allow 1 or 2 dashes in front of input args to allow pythonic structure.
+
 ******************************/
 
 #include <stdio.h>
@@ -159,8 +167,15 @@ void  freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN);
 #define MXSN     5000000   // max SN to read per fitres file
 #define MXVAR_PERFILE  50  // max number of NTUP variables per file
 #define MXVAR_TOT  MXVAR_TABLE     // max number of combined NTUP variables
-#define INIVAL_COMBINE_FLT  -888.0
-#define INIVAL_COMBINE_STR  "NULL" 
+
+/* xxx mark delete Sep 2020 
+#define INIVAL_COMBINE_FLT  -888.0 // default float value
+#define INIVAL_COMBINE_STR  "NULL" // default string value
+xxxxxxx  end mark xxxx */
+
+#define DEFAULT_NULLVAL_FLOAT  -888.0 // default float value
+#define DEFAULT_NULLVAL_STRING  "NULL" // default string value
+
 #define MXSTRLEN       MXCHAR_VARNAME  // changed from 28 (Sep 20 2019)
 #define MXSTRLEN_BAND      4
 #define MXSTRLEN_CID      20
@@ -198,6 +213,7 @@ struct INPUTS {
   int  MATCHFLAG ;
   double CUTWIN_zHD[2];
   int    DOzCUT;
+  float  NULLVAL_FLOAT ; // Sep 2020
 } INPUTS ;
 
 
@@ -334,43 +350,47 @@ void  PARSE_ARGV(int argc, char **argv) {
   INPUTS.CUTWIN_zHD[1] = +9.0 ; 
   INPUTS.DOzCUT = 0 ;
   sprintf(INPUTS.OUTPREFIX_COMBINE, "combine_fitres" );
+  INPUTS.NULLVAL_FLOAT =  DEFAULT_NULLVAL_FLOAT ;
 
   for ( i = 1; i < NARGV_LIST ; i++ ) {
     
     // check for optional args
 
-    if ( strcmp(argv[i],"--outprefix") == 0 ) {
+    if ( strcmp(argv[i],"--outprefix") == 0 || 
+	 strcmp(argv[i],"-outprefix") == 0  ) {
       i++ ; sprintf(INPUTS.OUTPREFIX_COMBINE,"%s", argv[i]);
       continue ;
     }
-    if ( strcmp(argv[i],"-outprefix") == 0 ) {
-      i++ ; sprintf(INPUTS.OUTPREFIX_COMBINE,"%s", argv[i]);
-      continue ;
-    }
+
     if ( strcmp(argv[i],"-outPrefix") == 0 ) { // allow Fermi-spell
       i++ ; sprintf(INPUTS.OUTPREFIX_COMBINE,"%s", argv[i]);
       continue ;
     }
 
 
-    if ( strcmp(argv[i],"-outfile_text") == 0 ) { 
-      i++ ; sprintf(INPUTS.OUTFILE_TEXT,"%s", argv[i]);
-      continue ;
-    }
-    if ( strcmp(argv[i],"--outfile_text") == 0 ) { 
+    if ( strcmp(argv[i],"-outfile_text") == 0 || 
+	 strcmp(argv[i],"--outfile_text") == 0 ) { 
       i++ ; sprintf(INPUTS.OUTFILE_TEXT,"%s", argv[i]);
       continue ;
     }
 
-    if ( strcmp(argv[i],"-mxrow") == 0 ) {
+    if ( strcmp(argv[i],"-mxrow") == 0 || 
+	 strcmp(argv[i],"--mxrow") == 0  ) {
       i++ ; sscanf(argv[i], "%d", &INPUTS.MXROW_READ);
       continue ;
     }
 
-    if ( strcmp(argv[i],"-zcut") == 0 ) {
+    if ( strcmp(argv[i],"-zcut") == 0 || 
+	 strcmp(argv[i],"--zcut") == 0  ) {
       i++ ; sscanf(argv[i], "%le", &INPUTS.CUTWIN_zHD[0] );
       i++ ; sscanf(argv[i], "%le", &INPUTS.CUTWIN_zHD[1] );
       INPUTS.DOzCUT = 1; 
+      continue ;
+    }
+
+    if ( strcmp(argv[i],"-nullval_float") == 0 ||
+	 strcmp(argv[i],"--nullval_float") == 0   ) {
+      i++ ; sscanf(argv[i], "%f", &INPUTS.NULLVAL_FLOAT);
       continue ;
     }
 
@@ -934,8 +954,8 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
 
     for ( isn=0; isn < MAXLEN; isn++ ) {
       USEDCID[isn] = false ;
-      FITRES_VALUES.FLT_TMP[ivar][isn]     = INIVAL_COMBINE_FLT ;
-      FITRES_VALUES.FLT_ALL[IVAR_ALL][isn] = INIVAL_COMBINE_FLT ;
+      FITRES_VALUES.FLT_TMP[ivar][isn]     = INPUTS.NULLVAL_FLOAT ;
+      FITRES_VALUES.FLT_ALL[IVAR_ALL][isn] = INPUTS.NULLVAL_FLOAT ;
     }
   }
 
@@ -992,8 +1012,8 @@ void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN) {
     for ( isn=0; isn < MAXLEN; isn++ ) {
       FITRES_VALUES.STR_TMP[ivar][isn]     = (char*)malloc(MEMC);
       FITRES_VALUES.STR_ALL[IVAR_ALL][isn] = (char*)malloc(MEMC);
-      sprintf(FITRES_VALUES.STR_TMP[ivar][isn],"%s"    , INIVAL_COMBINE_STR) ;
-      sprintf(FITRES_VALUES.STR_ALL[IVAR_ALL][isn],"%s", INIVAL_COMBINE_STR) ;
+      sprintf(FITRES_VALUES.STR_TMP[ivar][isn],"%s"    , DEFAULT_NULLVAL_STRING) ;
+      sprintf(FITRES_VALUES.STR_ALL[IVAR_ALL][isn],"%s", DEFAULT_NULLVAL_STRING) ;
    
     } // isn
   }  // ivar

@@ -2794,6 +2794,7 @@ c define bits for user option-mask OPT_SETPKMJD  (lsb = 0 )
      &  ,OPTBIT_SETPKMJD_FLUXMAX
      &  ,OPTBIT_SETPKMJD_SAVEPAR
      &  ,OPTBIT_SETPKMJD_FLUXMAX2
+     &  ,OPTBIT_SETPKMJD_FLUXMAX3
      &  ,OPTBIT_SETPKMJD_TRIGGER
      &  ,OPTBIT_SETPKMJD_DUMP
      &  ,OPTBIT_SETPKMJD_SIM
@@ -2804,7 +2805,9 @@ c define bits for user option-mask OPT_SETPKMJD  (lsb = 0 )
      & ,OPTBIT_SETPKMJD_NOABORT = 2  ! (=4) do not abort if can't find PKMJD 
      & ,OPTBIT_SETPKMJD_FLUXMAX = 3  ! (=8) PEAKMJD=MJD(maxFlux) like JG
      & ,OPTBIT_SETPKMJD_FLUXMAX2= 4  ! (=16) PKMJD for Fmax clump
-     & ,OPTBIT_SETPKMJD_TRIGGER = 5  ! (=32) PKMJD = MJD_TRIGGER 
+     & ,OPTBIT_SETPKMJD_FLUXMAX3= 5  ! (=32) idem, but log10(SNR) weight
+c xxx     & ,OPTBIT_SETPKMJD_TRIGGER = 5  ! (=32) PKMJD = MJD_TRIGGER 
+     & ,OPTBIT_SETPKMJD_TRIGGER = 6  ! (=64) PKMJD = MJD_TRIGGER 
      & ,OPTBIT_SETPKMJD_SAVEPAR = 9  ! (=512) save fit params to SNANA table
      & ,OPTBIT_SETPKMJD_DUMP    =10  !(=1024) extra screen dump per SN/filter
      & ,OPTBIT_SETPKMJD_SIM     =11  !(=2048) PKMJDINI = SIM_PEAKMJD
@@ -36961,7 +36964,8 @@ c -------------------------------------------------------------
       LOGICAL 
      &    LSET, LDMP, LDMP_USER, NOABORT, LABORT
      &   ,USEFILT(MXFILT_ALL)
-     &   ,USE_MJDatFLUXMAX, USE_MJDatFLUXMAX2, USE_MJDatTRIGGER
+     &   ,USE_MJDatFLUXMAX, USE_MJDatFMAXCLUMP
+     &   ,USE_MJDatTRIGGER
      &   ,USE_SIMPKMJD
      &   ,FIRST_INIT, DOFIT, NOFIT
 
@@ -36992,7 +36996,9 @@ C ---------------- BEGIN ----------------
 
 c July 12 2013: check option to use MJD at max flux (no fitting)
       USE_MJDatFLUXMAX  = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_FLUXMAX)
-      USE_MJDatFLUXMAX2 = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_FLUXMAX2)
+      USE_MJDatFMAXCLUMP = 
+     &           BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_FLUXMAX2)
+     &     .or.  BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_FLUXMAX3)
       USE_MJDatTRIGGER  = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_TRIGGER)
       USE_SIMPKMJD      = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_SIM)
       DOFIT = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_ANYFUN) .or. ! Bazin09
@@ -37032,7 +37038,7 @@ c  + open separate log file to dump MNFIT stuff for each SN
          if ( USE_MJDatFLUXMAX ) then
             write(6,80) 'MJD at max flux' ; LSET=.TRUE.
             METHOD = '(FLuxMax)'
-         else if ( USE_MJDatFLUXMAX2 ) then
+         else if ( USE_MJDatFMAXCLUMP ) then
             write(6,80) 
      &         'MJD at max flux in dense clump of SNR-detections.'
             LSET=.TRUE.
@@ -37045,7 +37051,7 @@ c  + open separate log file to dump MNFIT stuff for each SN
          if( DOFIT ) then
             write(6,80) 'Bazin fit' ; LSET=.TRUE.
             METHOD = '(FluxMax+BazinFit)'
-            if (USE_MJDatFLUXMAX2) METHOD = '(FmaxClump+BazinFit)'
+            if ( USE_MJDatFMAXCLUMP ) METHOD = '(FmaxClump+BazinFit)'
          endif
  80      format(' SET_PEAKMJD method: ', A)
          print*,' ' 
@@ -37059,7 +37065,7 @@ c  + open separate log file to dump MNFIT stuff for each SN
             CALL MADABORT(FNAM, c1err,c2err ) 
          endif
 
-         VBOSE = 0
+         VBOSE = 1
          PARLIST(1) = MJDWIN_SETPKMJD    ! user MJDWIN from &SNLCINP
          PARLIST(2) = SNRCUT_SETPKMJD    ! user SNRCUT from &SNLCINP
          PARLIST(3) = SNRMIN_forFLUXMAX  ! backup SNRCUT if above always fails
@@ -37164,7 +37170,7 @@ c use EP at max flux to set FLUXMAX, MJD at max, SNR at max.
 c -------------------------------------
 c check option to use MJD at max-flux or at TRIGGER
       IF ( NOFIT ) THEN
-         IF ( USE_MJDatFLUXMAX .or. USE_MJDatFLUXMAX2) THEN
+         IF ( USE_MJDatFLUXMAX .or. USE_MJDatFMAXCLUMP ) THEN
             PKMJD  = MJDatFLUXMAX(0) 
          ELSE IF ( USE_MJDatTRIGGER ) THEN
             PKMJD  = SNLC8_MJD_TRIGGER

@@ -14,6 +14,14 @@
 #define V_WAVELENGTH  5428.55  // idem
 #define R_WAVELENGTH  6500.
 
+// Sep 2020: define indices for values read after COLORCOR_PARAMS key
+#define ICLPAR_REFLAM_CL0  0  // aka, B_WAVE
+#define ICLPAR_REFLAM_CL1  1  // aka, V_WAVE
+#define ICLPAR_LAM_MIN     2
+#define ICLPAR_LAM_MAX     3
+#define ICLPAR_NPAR_POLY   4
+#define ICLPAR_POLY        5 // starts here
+
 #define RVMW_SALT2_DEFAULT  3.1 
 #define MXCOLORPAR  20
 
@@ -42,6 +50,16 @@ double RVMW_SALT2 ;
 #define INDEX_ERRMAP_SCAL     3
 #define INDEX_ERRMAP_COLORDISP  4 // color  dispersion vs. lambda
 
+
+// Sep 2020: define color law params for python-trained SALT3
+typedef struct {
+  double REFLAM_CL0 ; // lam where CL=0  a.k.a B_WAVE
+  double REFLAM_CL1 ; // lam where CL=1  a.k.a V_WAVE
+  GENPOLY_DEF LAMPOLY_CL; // color law poly fun vs. wave
+  double LAMCEN_RANGE[2]; // min, max wave (rest-frame) of filt-mean
+} SALT3_COLORPAR_DEF ;
+
+
 struct SALT2_ERRMAP {
   int     NDAY, NLAM;
   double  LAMMIN, LAMMAX, LAMSTEP;
@@ -66,8 +84,11 @@ struct INPUT_SALT2_INFO {
   double RESTLAMMAX_FILTERCEN ;
   int    COLORLAW_VERSION;
   int    NCOLORLAW_PARAMS ;
-  double COLORLAW_PARAMS[MXCOLORPAR] ;
+  double COLORLAW_PARAMS[MXCOLORPAR] ; // for IVER=1 (SALT2.Guy10,JLA-B14)
   double COLOR_OFFSET  ;   // separate from COLORLAW_PARAMS (Aug 2, 2010)
+
+  // COLORLAW3_PARAMS_DEF COLORLAW3_PARAMS;
+  SALT3_COLORPAR_DEF COLORPAR3 ;
 
   double MAG_OFFSET; // global mag offset (Nov 24, 2011)
 
@@ -258,6 +279,18 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
 int getSpec_band_SALT2(int ifilt_obs, float Tobs, float z,
 		       float x0, float x1, float c, float mwebv,
 		       float *LAMLIST, float *FLUXLIST);
+
+// SALT2 color laws
+// colorlaw0 - version 0 from Guy 2007  
+// colorlaw1 - version 1 from Guy 2010
+double SALT2colorlaw0(double lam_rest, double c, double *colorPar );
+double SALT2colorlaw1(double lam_rest, double c, double *colorPar );
+double SALT3colorlaw(double lam_rest, double c, SALT3_COLORPAR_DEF *COLORPAR3 );
+
+double SALT2colorfun_dpol(const double rl, int nparams,
+                          const double *params, const double alpha);
+double SALT2colorfun_pol(const double rl, int nparams,
+                         const double *params, const double alpha);
 
 // END
 

@@ -10,6 +10,29 @@ from   submit_params import *
 
 # =================================================
 
+
+def separate_label_from_arg(input_arg_list):
+
+    # If input_arg_list = /LABEL/ x1min=-2.0 nzbin=20
+    # then return
+    #   label = LABEL
+    #   arg_list = x1min=-2.0 nzbin=20
+    #
+    #  If there is no label, return label = None
+
+    # init output for no label
+    label = None ;   arg_list = input_arg_list
+    
+    if len(input_arg_list) > 0 :
+        word_list = input_arg_list.split()
+        has_label = word_list[0][0] == '/'
+        if has_label :
+            label      = word_list[0].strip('/') 
+            arg_list   = " ".join(word_list[1:])
+            
+    return label,arg_list
+    # end separate_label_from_arg
+
 def standardise_path(path,cwd):
     if "$" in path:
         path = os.path.expandvars(path)
@@ -516,19 +539,40 @@ def write_job_info(f,JOB_INFO,icpu):
     # write job program plus arguemnts to file pointer f.
     # All job-info are passed via JOB_INFO.
 
-    job_dir    = JOB_INFO['job_dir']    # cd here; where job runs
-    program    = JOB_INFO['program']    # name of program; e.g, snlc_sim.exe
-    input_file = JOB_INFO['input_file'] # input file name
-    log_file   = JOB_INFO['log_file']   # pipe stdout here
-    done_file  = JOB_INFO['done_file']  # DONE stamp for monitor tasks
-    arg_list   = JOB_INFO['arg_list']   # argumets of program
+    job_dir      = JOB_INFO['job_dir']    # cd here; where job runs
+    program      = JOB_INFO['program']    # name of program; e.g, snlc_sim.exe
+    input_file   = JOB_INFO['input_file'] # input file name
+    log_file     = JOB_INFO['log_file']   # pipe stdout here
+    done_file    = JOB_INFO['done_file']  # DONE stamp for monitor tasks
+    arg_list     = JOB_INFO['arg_list']   # argumets of program
 
     if len(job_dir) > 1 :
         f.write(f"# ---------------------------------------------------- \n")
         f.write(f"cd {job_dir} \n\n")
 
     CHECK_CODE_EXISTS = True
-    CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO 
+    CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO and 'kill_on_fail' in JOB_INFO
+
+    if CHECK_ALL_DONE :
+        # if ALL.DONE file exists, something else failed ... 
+        # so no point in continuing.
+        all_done_file = JOB_INFO['all_done_file']  # exists only on failure
+        kill_on_fail  = JOB_INFO['kill_on_fail']
+        f.write(f"if [ -f {all_done_file} ] ; then \n")
+        msg_echo = (f"Found pre-mature {DEFAULT_DONE_FILE} -> something FAILED.")
+        f.write(f"  echo '  {msg_echo}' \n")
+        if kill_on_fail :
+            msg_echo = (f"Kill all remaining jobs.")
+            cmd_kill = (f"  cd {CWD}\n"\
+                        f"  {sys.argv[0]} \\\n" \
+                        f"     {sys.argv[1]} --cpunum {icpu} -k " )
+                        # f"  exit")
+        else:
+            msg_echo = "Continue with next job."
+
+        f.write(f"  echo '  {msg_echo}' \n")
+        if kill_on_fail: f.write(f"{cmd_kill} \n")
+        f.write(f"fi \n\n")
 
     if CHECK_CODE_EXISTS :
         # wait for program to appear in case SNANA make is in progress
@@ -538,17 +582,6 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
         f.write(f"{wait_for_code}\n")
         f.write(f"echo {program} exists. \n\n")
-
-    if CHECK_ALL_DONE :
-        # if ALL.DONE file exists, something else failed ... so no
-        # point in continuing.
-        all_done_file = JOB_INFO['all_done_file']  # exists only on failure
-        f.write(f"if [ -f {all_done_file} ] ; then \n")
-        f.write(f"  echo '  Found pre-mature {DEFAULT_DONE_FILE} -> "\
-                f"something FAILED.'\n")
-        f.write(f"  echo '  STOP everything on this CPU.' \n")
-        f.write(f"  exit \n")
-        f.write(f"fi \n\n")
 
     # - - - - - - - - - 
     f.write(f"{program} {input_file} \\\n")
@@ -582,7 +615,7 @@ def write_jobmerge_info(f,JOB_INFO,icpu):
     if match_cpu and do_merge :
         merge_task = (f"{sys.argv[0]} {merge_input_file} {merge_arg_list}")
         f.write(f"cd {CWD} \n")
-        f.write(f"python {merge_task} \n")
+        f.write(f"{merge_task} \n")
         f.write(f"echo $?")
         f.write(f"\n")
 

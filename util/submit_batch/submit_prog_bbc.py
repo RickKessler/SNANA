@@ -628,24 +628,29 @@ class BBC(Program):
 
     def bbc_prep_muopt_list(self):
         
-        CONFIG        = self.config_yaml['CONFIG']
-        input_file    = self.config_yaml['args'].input_file 
-        n_muopt        = 1
-        muopt_arg_list = [ '' ]  # always include MUOPT000 with no overrides
-        muopt_num_list = [ 'MUOPT000' ] 
+        CONFIG           = self.config_yaml['CONFIG']
+        input_file       = self.config_yaml['args'].input_file 
+        n_muopt          = 1
+        muopt_arg_list   = [ '' ]  # always include MUOPT000 with no overrides
+        muopt_num_list   = [ 'MUOPT000' ] 
+        muopt_label_list = [ 'DEFAULT' ]
+
         key = 'MUOPT'
         if key in CONFIG :
-            for muopt in CONFIG[key] :
+            for muopt_raw in CONFIG[key] : # might include label
                 num = (f"MUOPT{n_muopt:03d}")
+                label, muopt = util.separate_label_from_arg(muopt_raw)
                 muopt_arg_list.append(muopt)
                 muopt_num_list.append(num)
+                muopt_label_list.append(label)
                 n_muopt += 1
                 
         logging.info(f" Store {n_muopt-1} BBC options from MUOPT keys")
 
-        self.config_prep['n_muopt']        = n_muopt
-        self.config_prep['muopt_arg_list'] = muopt_arg_list
-        self.config_prep['muopt_num_list'] = muopt_num_list
+        self.config_prep['n_muopt']          = n_muopt
+        self.config_prep['muopt_arg_list']   = muopt_arg_list
+        self.config_prep['muopt_num_list']   = muopt_num_list
+        self.config_prep['muopt_label_list'] = muopt_label_list
 
         # end bbc_prep_muopt_list
 
@@ -883,7 +888,8 @@ class BBC(Program):
         n_muopt           = self.config_prep['n_muopt']
         muopt_arg_list    = self.config_prep['muopt_arg_list']
         muopt_num_list    = self.config_prep['muopt_num_list']
-
+        muopt_label_list  = self.config_prep['muopt_label_list']
+        inpdir_list       = self.config_prep['inpdir_list']
         n_splitran        = self.config_prep['n_splitran']
         use_wfit          = self.config_prep['use_wfit']
         
@@ -905,16 +911,21 @@ class BBC(Program):
                 f"# option to run wfit on BBC output\n")
 
         f.write("\n")
+        f.write("INPDIR_LIST:\n")
+        for inpdir in inpdir_list:
+            f.write(f"  - {inpdir}\n")
+
+        f.write("\n")
         f.write("VERSION_OUT_LIST:\n")
         for v in vout_list :
             f.write(f"  - {v}\n")
 
         f.write("\n")
-        f.write("MUOPT_LIST: \n")
+        f.write("MUOPT_LIST:  # 'internal_Label'  'user_label'  'user_args'\n")
         for imu in range(0,n_muopt):
             num   = muopt_num_list[imu]
-            label = None             # later need to allow labels ??
-            arg   = muopt_arg_list[imu]
+            arg   = muopt_arg_list[imu] 
+            label = muopt_label_list[imu]
             row   = [ num, label, arg ]
             f.write(f"  - {row} \n")
         f.write("\n")

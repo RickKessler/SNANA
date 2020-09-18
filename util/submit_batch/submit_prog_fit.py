@@ -419,19 +419,30 @@ class LightCurveFit(Program):
         fitopt_label_list = [ 'DEFAULT' ] + ['']*(n_fitopt-1)
         link_FITOPT000_list = []
 
+        print(f" xxx ")
         # prepare fitnum FITOPT[nnn]
         for i in range(0,n_fitopt):
             fitopt_num_list[i] = (f"FITOPT{i:03d}")
-            word_list          = fitopt_arg_list[i].split()
-            if len(word_list) > 0 :
-                has_label =  word_list[0][0] == '/'
-                if has_label :
-                    label = word_list[0].strip('/')                    
-                    fitopt_label_list[i] = label
-                    fitopt_arg_list[i]   = " ".join(word_list[1:])
-                else :
-                    fitopt_label_list[i] = 'None' 
-                    fitopt_arg_list[i]   = " ".join(word_list)
+
+            # extract optional label
+            if i > 0 :
+                label,arg_list = \
+                    util.separate_label_from_arg(fitopt_arg_list[i])
+                fitopt_label_list[i] = label
+                fitopt_arg_list[i]   = arg_list
+
+            # xxxxxxxxxxx mark delete xxxxxxxxx
+            #word_list          = fitopt_arg_list[i].split()
+            #if len(word_list) > 0 :
+            #    has_label =  word_list[0][0] == '/'
+            #    if has_label :
+            #        label = word_list[0].strip('/')                    
+            #        fitopt_label_list[i] = label
+            #        fitopt_arg_list[i]   = " ".join(word_list[1:])
+            #    else :
+            #        fitopt_label_list[i] = 'None' 
+            #        fitopt_arg_list[i]   = " ".join(word_list)
+            # xxxxxxxxxx end mark xxxxxxxx
 
             # update list for symbolic links to FITOPT000 [DEFAULT]
             if self.is_sym_link(fitopt_arg_list[i]) :

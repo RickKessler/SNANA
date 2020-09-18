@@ -10,6 +10,29 @@ from   submit_params import *
 
 # =================================================
 
+
+def separate_label_from_arg(input_arg_list):
+
+    # If input_arg_list = /LABEL/ x1min=-2.0 nzbin=20
+    # then return
+    #   label = LABEL
+    #   arg_list = x1min=-2.0 nzbin=20
+    #
+    #  If there is no label, return label = None
+
+    # init output for no label
+    label = None ;   arg_list = input_arg_list
+    
+    if len(input_arg_list) > 0 :
+        word_list = input_arg_list.split()
+        has_label = word_list[0][0] == '/'
+        if has_label :
+            label      = word_list[0].strip('/') 
+            arg_list   = " ".join(word_list[1:])
+            
+    return label,arg_list
+    # end separate_label_from_arg
+
 def standardise_path(path,cwd):
     if "$" in path:
         path = os.path.expandvars(path)

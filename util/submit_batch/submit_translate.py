@@ -5,7 +5,7 @@
 # their refactored versions with YAML. Input files are
 # for Simulation, LightCurveFit, and SALT2mu/BBC.
 
-import os, sys, ruamel.yaml, re, yaml
+import os, sys, re, yaml
 import psutil
 from   copy  import copy
 

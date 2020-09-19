@@ -5,7 +5,8 @@
 # their refactored versions with YAML. Input files are
 # for Simulation, LightCurveFit, and SALT2mu/BBC.
 
-import os, sys, re, yaml, psutil
+import os, sys, re, yaml
+import psutil
 from   copy  import copy
 
 
@@ -31,9 +32,10 @@ FIT_yaml_translation_dict__ = \
 
 FIT_multi_option_list = [ 'VERSION', 'FITOPT']
 
-BBC_yaml_translation_dict__ = {'XXX*':'blank', 'LEGACY':'REFAC' }
+BBC_yaml_translation_dict__ = {'XXX*':'blank', 'LEGACY':'REFAC',
+							   '[*]':'/*/'}
 
-BBC_multi_option_list = []
+BBC_multi_option_list = ['MUOPT']
 
 # ====================================
 

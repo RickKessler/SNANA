@@ -15899,16 +15899,6 @@ int regen_SIMLIB_GENRANGES(void) {
     if ( tmpVal < INPUTS.GENGAUSS_SALT2c.RANGE[0] ) { return(REJECT); }
     if ( tmpVal > INPUTS.GENGAUSS_SALT2c.RANGE[1] ) { return(REJECT); }
   }
-
-
-  /* xxxxxx mark delete Jun 12 2020 xxxxxxxxxxxx
-  // re-compute x0 and mB for SALT2 model
-  if ( INDEX_GENMODEL == MODEL_SALT2 ) {
-    GENLC.SALT2x0 = SALT2x0calc(GENLC.SALT2alpha, GENLC.SALT2beta, 
-				GENLC.SALT2x1, GENLC.SALT2c, GENLC.DLMU ) ;
-    GENLC.SALT2mB = SALT2mBcalc(GENLC.SALT2x0) ;
-  }
-  xxxxxxxxxx end mark xxxxxxxxx */
   
 
   if ( LTRACE ) {

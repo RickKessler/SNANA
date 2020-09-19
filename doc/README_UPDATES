@@ -18964,4 +18964,8 @@
     snlc_sim.c
       + fix bug parsing DNDZ ZPOLY
 
+    SNANA_submit_tests.py :
+      + new script to test submit_batch_jobs; 
+          see $SNANA_TESTS/inputs_submit_batch
+
 END: 

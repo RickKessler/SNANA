@@ -3188,7 +3188,7 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
     ZP      = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
     FTMP    = (LAM/(hc8*z1)) * GENFLUX;
     if ( ZP > 0.0 && FTMP > 0.0 )   { 
-      MAG = -2.5*log10(FTMP) + ZP;     // xxx  + MAG_OFFSET ;  
+      MAG = -2.5*log10(FTMP) + ZP; 
     }
     else  { 
       MAG = MAG_UNDEFINED ;  // model undefined

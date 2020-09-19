@@ -3473,10 +3473,11 @@ double SALT3colorlaw(double lam_rest, double c,
   double rl    = (lam_rest - REFLAM_CL0) / REFLAM_DIF ;
   double rlmin = (LAM_MIN  - REFLAM_CL0) / REFLAM_DIF ;
   double rlmax = (LAM_MAX  - REFLAM_CL0) / REFLAM_DIF ;
+  double CL = 0.0 ;
 
   // ------------- BEGIN --------------
 
-  return;
+  return(CL);
 
 } // end SALT3colorlaw
 

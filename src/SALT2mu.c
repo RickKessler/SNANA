@@ -2063,9 +2063,12 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT);
 int  SUBPROCESS_IVAR_TABLE(char *varName_GENPDF);
 void SUBPROCESS_INIT_DUMP(void);
 void SUBPROCESS_INIT_RANFLAT(void);
-void SUBPROCESS_OUTPUT_PREP(void);
-void SUBPROCESS_OUTPUT_LOAD(void);
-void SUBPROCESS_OUTPUT_WRITE(void); // write output
+void SUBPROCESS_OUTPUT_TABLE_PREP(int itable);
+void SUBPROCESS_OUTPUT_TABLE_LOAD(void);
+void SUBPROCESS_OUTPUT_WRITE(void); // write oe
+
+void SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY(void);
+void SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY(void);
 void SUBPROCESS_EXIT(void);
 
 #include "sntools_genPDF.h" 
@@ -2081,9 +2084,11 @@ struct {
   // INPUT_xxx are read directory from command line
   char  *INPUT_FILES ; // comma-sep list of INPFILE,OUTFILE,STDOUT_FILE
   char  *INPUT_VARNAMES_GENPDF_STRING;
-  char  *INPUT_CID_REWGT_DUMP;
-  int    INPUT_ISEED; // random seed
-
+  char  *INPUT_CID_REWGT_DUMP ;
+  char **INPUT_OUTPUT_TABLE ; 
+  int    N_OUTPUT_TABLE ;
+  int    INPUT_ISEED;         // random seed
+  
   // variables below are computed/extracted from INPPUT_xxx
   char  *INPFILE ; // read PDF map from here
   char  *OUTFILE ; // write info back to python driver
@@ -2105,7 +2110,8 @@ struct {
   int  ITER;
   bool *KEEP_AFTER_REWGT;
 
-  // below are variables filled by OUTPUT_LOAD at end of each subproc iter
+  // below are variables filled by OUTPUT_TABLE_LOAD at end of 
+  // each subproc iter
   char    LINE_VARNAMES[200];
   int     NBIN_c ;
   int    *NEVT_c ;
@@ -14444,6 +14450,12 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"SUBPROCESS_ISEED=") ) {
     sscanf(&item[17], "%d", &SUBPROCESS.INPUT_ISEED ); 
   }
+  if ( uniqueOverlap(item,"SUBPROCESS_OUTPUT_TABLE=") ) {
+    int N = SUBPROCESS.N_OUTPUT_TABLE ;
+    sscanf(&item[24], "%s", SUBPROCESS.INPUT_OUTPUT_TABLE[N] ); 
+    SUBPROCESS.N_OUTPUT_TABLE++ ;
+  }
+
 #endif
 
   if ( uniqueOverlap(item,"cutmask_write=") )
@@ -16932,8 +16944,15 @@ void outFile_driver(void) {
 
 #ifdef USE_SUBPROCESS
   if ( SUBPROCESS.USE ) {
-    SUBPROCESS_OUTPUT_LOAD();
+    if ( SUBPROCESS.N_OUTPUT_TABLE == 0 ) {
+      SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY();
+    }
+    else {
+      SUBPROCESS_OUTPUT_TABLE_LOAD();
+    }
+
     SUBPROCESS_OUTPUT_WRITE();
+
     return ;
   }
 #endif
@@ -18800,17 +18819,28 @@ void lubksb(const double* a, const int n, const int ndim,
 void SUBPROCESS_MALLOC_INPUTS(void) {
   // malloc SUBPROCESS.INPUT_xxx arrays; called just before reading
   // SUBPROCESS_FILES argument
+  int i;
 
-    SUBPROCESS.INPUT_FILES = (char*) malloc( MXCHAR_FILENAME*3*sizeof(char) );
-    SUBPROCESS.INPUT_CID_REWGT_DUMP =
-      (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
-    SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING = 
-      (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
+  SUBPROCESS.INPUT_FILES = 
+    (char*) malloc( MXCHAR_FILENAME*3*sizeof(char) );
 
-    SUBPROCESS.INPUT_FILES[0] = 0;
-    SUBPROCESS.INPUT_CID_REWGT_DUMP[0] = 0 ;
-    SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING[0] = 0;
+  SUBPROCESS.INPUT_CID_REWGT_DUMP =
+    (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
 
+  SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING = 
+    (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
+
+  SUBPROCESS.N_OUTPUT_TABLE = 0 ;
+  SUBPROCESS.INPUT_OUTPUT_TABLE =  (char**) malloc( 10*sizeof(char*) );
+  for(i=0; i < 10; i++ ) {
+    SUBPROCESS.INPUT_OUTPUT_TABLE[i] =  (char*) malloc( 100*sizeof(char) );
+    SUBPROCESS.INPUT_OUTPUT_TABLE[i][0] =  0;
+  }
+
+  SUBPROCESS.INPUT_FILES[0]          = 0;
+  SUBPROCESS.INPUT_CID_REWGT_DUMP[0] = 0 ;
+  SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING[0] = 0;
+  
     return ;
 } // end SUBPROCESS_MALLOC_INPUTS
 
@@ -18862,7 +18892,7 @@ void  SUBPROCESS_INIT(void) {
 
   int NSN_DATA   = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  MEMC      =  MXCHAR_FILENAME * sizeof(char) ;
-  int  NSPLIT ;
+  int  NSPLIT, itable ;
   char *tmpFiles[3];
   char fnam[] = "SUBPROCESS_INIT" ;
 
@@ -18876,9 +18906,9 @@ void  SUBPROCESS_INIT(void) {
   SUBPROCESS.INPFILE     = (char*) malloc(MEMC);
   SUBPROCESS.OUTFILE     = (char*) malloc(MEMC);
   SUBPROCESS.STDOUT_FILE = (char*) malloc(MEMC);
-  tmpFiles[0] = SUBPROCESS.INPFILE ;
-  tmpFiles[1] = SUBPROCESS.OUTFILE ;
-  tmpFiles[2] = SUBPROCESS.STDOUT_FILE ;
+  tmpFiles[0]   = SUBPROCESS.INPFILE ;
+  tmpFiles[1]   = SUBPROCESS.OUTFILE ;
+  tmpFiles[2]   = SUBPROCESS.STDOUT_FILE ;
   splitString(SUBPROCESS.INPUT_FILES, ",", 3, &NSPLIT, tmpFiles);
   
   // open INPFILE in read mode, but only for sim data.
@@ -18926,8 +18956,14 @@ void  SUBPROCESS_INIT(void) {
   // prepare optional dumps
   SUBPROCESS_INIT_DUMP();
 
-  // prep/malloc arrays for output
-  SUBPROCESS_OUTPUT_PREP();
+  // prep output tables
+  if ( SUBPROCESS.N_OUTPUT_TABLE == 0 ) {
+    SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY();
+  }
+  else {
+    for(itable=0; itable < SUBPROCESS.N_OUTPUT_TABLE; itable++ )
+      { SUBPROCESS_OUTPUT_TABLE_PREP(itable) ; }
+  }
 
   // prep flat random for each event
   SUBPROCESS_INIT_RANFLAT();
@@ -19331,7 +19367,31 @@ void SUBPROCESS_INIT_DUMP(void) {
 } // end SUBPROCESS_INIT_DUMP
 
 // =======================================
-void SUBPROCESS_OUTPUT_PREP(void) {
+void SUBPROCESS_OUTPUT_TABLE_PREP(int itable) {
+
+  // Sep 17 2020
+  // prep output tables.
+
+#define MXDIM_TABLE 3
+
+  int  NDIM ;
+  char *TABLE_STRING = SUBPROCESS.INPUT_OUTPUT_TABLE[itable];
+  char BININFO_STRING[40];
+  char fnam[] = "SUBPROCESS_OUTPUT_TABLE_PREP" ;
+
+  // ----------- BEGIN -----------
+
+  // first split by % to get each dimension
+
+  //    sscanf(&item[24], "%s", SUBPROCESS.INPUT_OUTPUT_TABLE[N] ); 
+  //  SUBPROCESS.N_OUTPUT_TABLE++ ;
+
+  debugexit(fnam);
+
+} // end SUBPROCESS_OUTPUT_TABLE_PREP
+
+// =======
+void SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY(void) {
 
   // July 3 2020
   // prep arrays used to load output.
@@ -19340,10 +19400,9 @@ void SUBPROCESS_OUTPUT_PREP(void) {
   int    ic, NBIN_c = 20 ;
   double RANGE_c[2] = { -0.4, 0.6} ;
   double c, cbin ;
-  //  char fnam[] = "SUBPROCESS_OUTPUT_PREP" ;
+  //  char fnam[] = "SUBPROCESS_OUTPUT_PREP_LEGACY" ;
 
-  // ----------- BEGIN -----------
-
+  // - - - - -
   cbin = (RANGE_c[1]-RANGE_c[0])/ (double)NBIN_c ;
   SUBPROCESS.NBIN_c     = NBIN_c ;
   SUBPROCESS.RANGE_c[0] = RANGE_c[0] ;
@@ -19372,10 +19431,21 @@ void SUBPROCESS_OUTPUT_PREP(void) {
 
   return ;
 
-} // end SUBPROCESS_OUTPUT_PREP
+} // end SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY
 
 // ===========================================
-void SUBPROCESS_OUTPUT_LOAD(void) {
+void SUBPROCESS_OUTPUT_TABLE_LOAD(void) {
+
+  char fnam[] = "SUBPROCESS_OUTPUT_TABLE_LOAD" ;
+
+  // ---------- BEGIN ----------
+
+  return;
+
+} // end SUBPROCESS_OUTPUT_TABLE_LOAD
+
+// ===========================================
+void SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY(void) {
 
   // called after each fit, load output struct.
   int NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
@@ -19389,10 +19459,9 @@ void SUBPROCESS_OUTPUT_LOAD(void) {
   char *CCID;
   //  BININFO_DEF *BININFO ;
 
-  char fnam[] = "SUBPROCESS_OUTPUT_LOAD";
+  char fnam[] = "SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY";
 
   // ---------- BEGIN ----------
-
 
   for(i=0; i < NBIN_c; i++ ) {
     SUBPROCESS.NEVT_c[i]      = 0 ;
@@ -19426,7 +19495,7 @@ void SUBPROCESS_OUTPUT_LOAD(void) {
 
   return ;
 
-} // end  SUBPROCESS_OUTPUT_LOAD
+} // end  SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY
 
 // ===========================================
 void SUBPROCESS_OUTPUT_WRITE(void) {
@@ -19497,7 +19566,6 @@ void SUBPROCESS_OUTPUT_WRITE(void) {
     fflush(FP_OUT);
   }
 
-  
 
   return ;
 

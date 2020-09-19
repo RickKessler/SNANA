@@ -2355,10 +2355,9 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
     else if ( strcmp(RATEPAR->NAME,"ZPOLY") == 0 ) {
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_ZPOLY ;
       RATEPAR->NMODEL_ZRANGE = 1 ;
-      for(j=1; j <=4; j++ ) {
-	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[j] ); 
+      for(j=0; j < 4; j++ ) {
+	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][j] ); 
       }
-      // xxxx      readdouble ( fp, 4, RATEPAR->MODEL_PARLIST[1] ); 
     }
     else if ( strcmp(RATEPAR->NAME,"HUBBLE") == 0 ) {
       // Jun 20 2016: set powerlaw model with alpha=0 to avoid abort later
@@ -6319,13 +6318,14 @@ void init_DNDZ_Rate(void) {
     }
   }
   else if ( IMODEL_ZPOLY ) {
-    i++;    iz=1;
+    i++;    iz=1;  double rscale=1.0E-5;
     sprintf(LINE_RATE_INFO[i],
-	    "\t dN/dz = %.2f + %.2f*z + %.2f*z^2 + %.2f*z^3"
-	    ,INPUTS.RATEPAR.MODEL_PARLIST[iz][0]
-	    ,INPUTS.RATEPAR.MODEL_PARLIST[iz][1]
-	    ,INPUTS.RATEPAR.MODEL_PARLIST[iz][2]
-	    ,INPUTS.RATEPAR.MODEL_PARLIST[iz][3] );
+	    "\t dN/dz = %6.1e x (%.2f + %.2f*z + %.2f*z^2 + %.2f*z^3)"
+	    ,rscale
+	    ,INPUTS.RATEPAR.MODEL_PARLIST[iz][0]/rscale
+	    ,INPUTS.RATEPAR.MODEL_PARLIST[iz][1]/rscale
+	    ,INPUTS.RATEPAR.MODEL_PARLIST[iz][2]/rscale
+	    ,INPUTS.RATEPAR.MODEL_PARLIST[iz][3]/rscale );
   }
   else if ( IMODEL_FLAT ) {
     i++; 
@@ -12506,8 +12506,8 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
     rate = A * pow(z1,B);
   }
   else if ( RATEPAR->INDEX_MODEL == INDEX_RATEMODEL_ZPOLY ) {
-    // put something here to avoid abort; this isn't really a rate
-    rate = 3.0E-5 * polyEval(4, RATEPAR->MODEL_PARLIST[1], z);
+    rate = polyEval(4, RATEPAR->MODEL_PARLIST[1], z);
+    // xxx mark 9.18.2020 rate=3.0E-5*polyEval(4,RATEPAR->MODEL_PARLIST[1],z);
   }
   else {
     sprintf(c1err,"Invalid model: '%s'", cptr);

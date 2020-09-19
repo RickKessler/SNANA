@@ -18943,4 +18943,25 @@
    Rename SNANA_CodeTests.py -> SNANA_code_tests.py
      (to prepare for SNANA_submit_tests.py)
 
+
+# ======================================================================= 
+         v10_78d (  ) 
+
+         ***** IMPORTANT(v10_78d) ***** 
+
+         ***** USEFUL(v10_78d) ***** 
+
+         ***** MISCELLANEOUS(v10_78d) ***** 
+
+    genmag_SALT2.c:
+      + move SALT2colorlaw0 and SALT2colorlaw1 functions out of
+        sntools, and into genmag_SALT2.c
+      + fix reading SALT2.INFO file so that NPAR for CL poly is
+        respected; previously 9 params were read regardless of
+        NPAR_POLY param. This fix is for SALT3 and doesn't 
+        affect the already-existing SALT2 models.
+
+    snlc_sim.c
+      + fix bug parsing DNDZ ZPOLY
+
 END: 

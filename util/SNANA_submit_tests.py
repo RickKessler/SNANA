@@ -79,7 +79,8 @@ def extract_yaml(input_file):
  
 def get_outdir_list(config):
 
-    # for each submit-input file, read & store OUTDIR
+    # for each submit-input file, read & store output.
+    # Under CONFIG yaml block, read either OUTDIR or LOGDIR key.
 
     outdir_list = []
     
@@ -87,8 +88,9 @@ def get_outdir_list(config):
         #print(f" xxx submit  = {submit} ")
         set_list = ''
         for infile in submit.split() :
+            INFILE = (f"{SNANA_TESTS_DIR}/{infile}")
             #print(f" xxx infile = {infile} ")
-            input_yaml = extract_yaml(infile)
+            input_yaml = extract_yaml(INFILE)
             CONFIG     = input_yaml['CONFIG']
             outdir = None 
             if 'OUTDIR' in CONFIG :

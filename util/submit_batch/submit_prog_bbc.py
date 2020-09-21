@@ -59,8 +59,9 @@ SUBDIR_OUTPUT_ONE_VERSION = "OUTPUT_BBCFIT"
 # name of quick-and-dirty cosmology fitting program
 PROGRAM_wfit = "wfit.exe"
 
-#SPLITRAN_SUMMARY_FILE = "SPLITRAN_SUMMARY.FITRES"
 SPLITRAN_SUMMARY_FILE = "BBC_SUMMARY_SPLITRAN.FITRES"
+WFIT_SUMMARY_FILE     = "BBC_SUMMARY_wfit.FITRES"
+ROW_KEY               = "ROW:"
 
 # - - - - - - - - - - - - - - - - - - -  -
 class BBC(Program):
@@ -1154,12 +1155,16 @@ class BBC(Program):
         jobfile_wildcard = submit_info_yaml['JOBFILE_WILDCARD']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_splitran       = submit_info_yaml['NSPLITRAN']
+        use_wfit         = submit_info_yaml['USE_WFIT']
         script_subdir    = SUBDIR_SCRIPTS_BBC
 
+        if use_wfit :
+            logging.info(f"  BBC cleanup: create {WFIT_SUMMARY_FILE}")
+            self.make_wfit_summary()
+            
         if n_splitran > 1 :
             logging.info(f"  BBC cleanup: create {SPLITRAN_SUMMARY_FILE}")
             self.make_splitran_summary()
-            #return   # xxxx REMOVE 
 
         logging.info(f"  BBC cleanup: compress {JOB_SUFFIX_TAR_LIST}")
         for suffix in JOB_SUFFIX_TAR_LIST :
@@ -1169,6 +1174,63 @@ class BBC(Program):
         self.merge_cleanup_script_dir()
 
         # end merge_cleanup_final
+
+    def make_wfit_summary(self):
+        
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        use_wfit         = submit_info_yaml['USE_WFIT']
+        n_splitran       = submit_info_yaml['NSPLITRAN']
+
+        # - - - 
+        SUMMARYF_FILE     = (f"{output_dir}/{WFIT_SUMMARY_FILE}")
+        f = open(SUMMARYF_FILE,"w") 
+
+        varnames = (f"VARNAMES: ROW VERSION FITOPT MUOPT  " \
+                    f"w w_sig  omm omm_sig  "\
+                    f"chi2 sigint wrand ommrand  \n" )
+        f.write(f"{varnames}\n")
+
+        # read the whole MERGE.LOG file to figure out where things are
+        MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
+        MERGE_INFO_CONTENTS,comment_lines = \
+            util.read_merge_file(MERGE_LOG_PATHFILE)
+
+        nrow = 0 
+        for row in MERGE_INFO_CONTENTS[TABLE_MERGE]:
+            nrow += 1
+            version    = row[COLNUM_BBC_MERGE_VERSION] # sim data version
+            fitopt_num = row[COLNUM_BBC_MERGE_FITOPT]  # e.g., FITOPT002
+            muopt_num  = row[COLNUM_BBC_MERGE_MUOPT]   # e.g., MUOPT003
+            isplitran  = row[COLNUM_BBC_MERGE_SPLITRAN]
+            
+            # get indices for summary file
+            ifit = (f"{fitopt_num[6:]}")
+            imu  = (f"{muopt_num[5:]}")
+            
+            # figure out name of wfit-YAML file and read it
+            prefix_orig,prefix_final = self.bbc_prefix("wfit", row)
+            YAML_FILE  = (f"{output_dir}/{version}/{prefix_final}.YAML")
+            wfit_yaml  = util.extract_yaml(YAML_FILE)
+
+            # extract wfit values into local variables
+            w   = wfit_yaml['w']   ; w_sig   = wfit_yaml['w_sig']
+            omm = wfit_yaml['omm'] ; omm_sig = wfit_yaml['omm_sig']
+            chi2  = wfit_yaml['chi2'] ;  sigint= wfit_yaml['sigint']
+            wrand   = int(wfit_yaml['wrand']) 
+            ommrand = int(wfit_yaml['ommrand'])
+
+            string_values = \
+                (f"{nrow:3d}  {version} {ifit} {imu} " \
+                 f"{w:7.4f} {w_sig:6.4f}  {omm:6.4f} {omm_sig:6.4f} " \
+                 f"{chi2:.1f} {sigint:.3f} {wrand} {ommrand} ")
+
+            f.write(f"{ROW_KEY} {string_values}\n")
+
+        f.close()
+
+        # end make_wfit_summary
 
     def make_splitran_summary(self):
 
@@ -1189,7 +1251,7 @@ class BBC(Program):
         self.write_splitran_comments(f)
         self.write_splitran_header(f)
 
-        # read the whole MERGE.LOG file to figure out where things ae
+        # read the whole MERGE.LOG file to figure out where things are
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")
         MERGE_INFO_CONTENTS,comment_lines = \
             util.read_merge_file(MERGE_LOG_PATHFILE)
@@ -1226,9 +1288,12 @@ class BBC(Program):
                 stat_dict  = util.get_stat_dict(value_list)
                 AVG = stat_dict['AVG'] ;  ERR_AVG = stat_dict['ERR_AVG']
                 RMS = stat_dict['RMS'] ;  ERR_RMS = stat_dict['ERR_RMS']
-                f.write(f"ROW: {nrow:3d} {iver} {ifit} {imu} {varname:<10} " \
-                        f"{AVG:8.4f} {ERR_AVG:8.4f} "\
-                        f"{RMS:8.4f} {ERR_RMS:8.4f} \n") 
+                string_values = \
+                    (f"{nrow:3d} {iver} {ifit} {imu} {varname:<10} "\
+                     f"{AVG:8.4f} {ERR_AVG:8.4f} "\
+                     f"{RMS:8.4f} {ERR_RMS:8.4f} ") 
+
+                f.write(f"{ROW_KEY} {string_values}\n")
 
             f.write(f"\n")
 

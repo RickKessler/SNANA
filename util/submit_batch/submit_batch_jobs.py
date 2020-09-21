@@ -49,10 +49,20 @@ def get_args():
     # misc user args
     msg = "Create & init outdir, but do NOT submit jobs"
     parser.add_argument("-n", "--nosubmit", help=msg, action="store_true")
-
+    
+    # - - - - - 
+    # reduce processing
     msg = "process x10 fewer events for sim,fit,bbc (applies only to sim data)"
     parser.add_argument("--fast", help=msg, action="store_true")
 
+    msg = "ignore FITOPT (LC & BBC fits)"
+    parser.add_argument("--ignore_fitopt", help=msg, action="store_true")
+
+    msg = "ignore MUOPT for BBC fit"
+    parser.add_argument("--ignore_muopt", help=msg, action="store_true")
+
+    # - - - - 
+    # purge files
     msg = "Use 'find' to locate and remove non-essential output."
     parser.add_argument("--purge", help=msg, action="store_true")
 
@@ -60,6 +70,7 @@ def get_args():
     msg = "increase output verbosity (default=True)"
     parser.add_argument("-v", "--verbose", help=msg, action="store_true")
 
+    # - - - - 
     msg = "kill current jobs (requires input file as 1st arg)"
     parser.add_argument("-k", "--kill", help=msg, action="store_true")
 

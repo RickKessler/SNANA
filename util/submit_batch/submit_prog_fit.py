@@ -411,9 +411,12 @@ class LightCurveFit(Program):
 
         output_dir        = self.config_prep['output_dir']
         CONFIG            = self.config_yaml['CONFIG']
+        ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
         KEYLIST           = [ 'FITOPT' ]    # key under CONFIG
         fitopt_arg_list   = [ '' ]  # FITOPT000 is always blank
-        fitopt_arg_list  += (util.get_YAML_key_values(CONFIG,KEYLIST))
+
+        if not ignore_fitopt: 
+            fitopt_arg_list  += (util.get_YAML_key_values(CONFIG,KEYLIST))
         n_fitopt          = len(fitopt_arg_list)
         fitopt_num_list   = [ '' ] * n_fitopt
         fitopt_label_list = [ 'DEFAULT' ] + ['']*(n_fitopt-1)
@@ -826,6 +829,7 @@ class LightCurveFit(Program):
         fitopt_label_list = self.config_prep['fitopt_label_list']
         link_FITOPT000_list = self.config_prep['link_FITOPT000_list']
         use_table_format  = self.config_prep['use_table_format']
+        ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
 
         f.write(f"\n# Fit info\n")
         f.write(f"N_JOB_LINK:          {n_job_link}   " \
@@ -833,6 +837,7 @@ class LightCurveFit(Program):
         f.write(f"JOBFILE_WILDCARD:    '*SPLIT*' \n")
         f.write(f"TABLE_FORMATS:       {TABLE_SUFFIX_LIST} \n")
         f.write(f"USE_TABLE_FORMAT:    {use_table_format} \n")
+        f.write(f"IGNORE_FITOPT:       {ignore_fitopt}\n")
 
         key_misc_list = [ KEY_APPEND_TABLE_VARLIST, KEY_APPEND_TABLE_TEXTFILE]
         for key in key_misc_list :

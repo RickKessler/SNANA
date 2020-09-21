@@ -153,10 +153,12 @@ class BBC(Program):
         # Make sure it exists, along with MERGE.LOG and SUBMIT.INFO
         # Store list of versions, and list of FITOPTs for each version.
 
+        CONFIG          = self.config_yaml['CONFIG']
+        input_file      = self.config_yaml['args'].input_file 
+        ignore_fitopt   = self.config_yaml['args'].ignore_fitopt
         msgerr = []
-        CONFIG        = self.config_yaml['CONFIG']
-        input_file    = self.config_yaml['args'].input_file 
 
+        # - - - -
         key = 'INPDIR+'
         if key not in CONFIG :
             msgerr.append(f"Missing require key = {key} under CONFIG block")
@@ -216,6 +218,12 @@ class BBC(Program):
             # read FITOPT table from FIT job's submit info file
             fit_info_yaml = util.extract_yaml(INFO_PATHFILE)
             fitopt_table  = fit_info_yaml['FITOPT_LIST']
+            
+            if ignore_fitopt:
+                print(f" xxx .xyz ALL  fitopt_table = {fitopt_table} ... \n")
+                fitopt_table = fitopt_table[0:1]
+                print(f" xxx .xyz SPLI fitopt_table = {fitopt_table} ... \n")
+
             n_fitopt      = len(fitopt_table)
 
             # udpates lists vs. idir
@@ -635,9 +643,11 @@ class BBC(Program):
         muopt_arg_list   = [ '' ]  # always include MUOPT000 with no overrides
         muopt_num_list   = [ 'MUOPT000' ] 
         muopt_label_list = [ 'DEFAULT' ]
+        ignore_muopt     = self.config_yaml['args'].ignore_muopt
 
+        
         key = 'MUOPT'
-        if key in CONFIG :
+        if key in CONFIG and not ignore_muopt :
             for muopt_raw in CONFIG[key] : # might include label
                 num = (f"MUOPT{n_muopt:03d}")
                 label, muopt = util.separate_label_from_arg(muopt_raw)
@@ -893,23 +903,28 @@ class BBC(Program):
         inpdir_list       = self.config_prep['inpdir_list']
         n_splitran        = self.config_prep['n_splitran']
         use_wfit          = self.config_prep['use_wfit']
-        
+        ignore_muopt      = self.config_yaml['args'].ignore_muopt
+        ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
+
         f.write(f"\n# BBC info\n")
 
         # beware that LOG,DONE,YAML files are not under script_dir,
         # but under ../[VERSION]
         f.write(f"JOBFILE_WILDCARD:  '*FITOPT*MUOPT*' \n")
 
-        f.write(f"NVERSION:   {n_version}      " \
+        f.write(f"NVERSION:       {n_version}      " \
                 f"# number of data VERSIONs\n")
-        f.write(f"NFITOPT:    {n_fitopt}      " \
+        f.write(f"NFITOPT:        {n_fitopt}      " \
                 f"# number of FITOPTs\n")
-        f.write(f"NMUOPT:     {n_muopt}      " \
+        f.write(f"NMUOPT:         {n_muopt}      " \
                 f"# number of BBC options\n")
-        f.write(f"NSPLITRAN:  {n_splitran}      " \
+        f.write(f"NSPLITRAN:      {n_splitran}      " \
                 f"# number of random sub-samples\n")
-        f.write(f"USE_WFIT:   {use_wfit}     " \
+        f.write(f"USE_WFIT:       {use_wfit}     " \
                 f"# option to run wfit on BBC output\n")
+
+        f.write(f"IGNORE_FITOPT:  {ignore_fitopt}\n")
+        f.write(f"IGNORE_MUOPT:   {ignore_muopt}\n")
 
         f.write("\n")
         f.write("INPDIR_LIST:\n")

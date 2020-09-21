@@ -2664,10 +2664,10 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
   else {
     // YAML format
     fprintf(fp, "w:        %.4f \n", RESULTS->w_out );
-    fprintf(fp, "wsig:     %.4f \n", RESULTS->wsig  );
+    fprintf(fp, "w_sig:    %.4f \n", RESULTS->wsig  );
     fprintf(fp, "omm:      %.4f \n", RESULTS->omm_out );
     fprintf(fp, "omm_sig:  %.4f \n", RESULTS->omm_sig );    
-    fprintf(fp, "chis:     %.1f \n", RESULTS->chi2_final ); 
+    fprintf(fp, "chi2:     %.1f \n", RESULTS->chi2_final ); 
     fprintf(fp, "sigint:   %.4f \n", RESULTS->sigmu_int );    
     fprintf(fp, "wrand:    %.4f \n", RESULTS->wrand );    
     fprintf(fp, "ommrand:  %.4f \n", RESULTS->ommrand );  

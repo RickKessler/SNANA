@@ -223,6 +223,8 @@
    + new input  -cospar_yaml <outFile> to write results in yaml format.
      Motivation is for easier parsing with batch scripts.
 
+ Sep 21 2020: few fixes for YAML output.
+
 *****************************************************************************/
 
 int compare_double_reverse (const void *, const void *);

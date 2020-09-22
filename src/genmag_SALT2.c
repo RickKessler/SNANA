@@ -1384,7 +1384,7 @@ void check_dayRange_SALT2errmap(int imap) {
 
 
 // ==========================================================
-void  init_BADVAL_SALT2errmap(imap) {
+void  init_BADVAL_SALT2errmap(int imap) {
 
   // Created July 26 2020
   // Init stuff to count bad values in error maps.
@@ -1432,7 +1432,7 @@ void  init_BADVAL_SALT2errmap(imap) {
 } // end init_check_BADVAL_SALT2errmap 
 
 // ==========================================================
-void  check_BADVAL_SALT2errmap(imap) {
+void  check_BADVAL_SALT2errmap(int imap) {
 
   // July 2020
   // check errmap values for NaN and crazy values

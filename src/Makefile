@@ -127,6 +127,11 @@
 # Apr 25 2020: include lCint for LROOT only of libCint.so exists
 # Jun 12 2020: add sntools_genPDF
 # Sep 10 2020: BYOSED renamed to more generic PySEDMODEL
+# Sep 22 2020:
+#     +  CC = cc -> gcc
+#     +  add -ltbb for root 6.0
+#     +  specify EXTRA_FLAGS for gcc v10 or higher
+#
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -146,13 +151,23 @@ endif
 # ================================
 
 FFC  = gfortran
-CC   = cc
+#CC   = cc
+CC   = gcc
 
-EXTRA_FLAGS = -O1   # -ftree-vectorize -ftree-vectorizer-verbose=2
+# check if gcc version is 10 or higher (9.2020)
+GCCVERSION10 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 10)
+
+ifeq ($(GCCVERSION10),0)
+   FORTRAN_FLAGS  = 
+else 
+# for gcc v10, allow argument-mismatch errors (9.2020)
+   FORTRAN_FLAGS = -fallow-argument-mismatch -fcommon
+endif
 
 # EXTRA_FLAGS = -O2 -Wall
 #  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
+  EXTRA_FLAGS = -O1   # -ftree-vectorize -ftree-vectorizer-verbose=2
   PROFILEFLAG = 
 
 # after running code with -pg, "gprof $SNANA_DIR/bin/[code].exe"
@@ -199,6 +214,7 @@ endif
   ICFITSIO =  -I/$(CFITSIO_DIR)/include
 
 # ---------------
+
 ifeq ($(USE_HBOOK),0)
   LCERN  = 
 else
@@ -222,10 +238,11 @@ else
    ROOT_LIBDIR = lib
 
 # include lCint if it exists (root v5), and exclude if not (root v6)
+# 9/22/2020; need -ltbb for root 6
    LCINT = -lCint
    LIBCINT_ROOT5 = $(ROOT_DIR)/$(ROOT_LIBDIR)/libCint.so
    ifeq (,$(wildcard $(LIBCINT_ROOT5)))
-	LCINT = 
+	LCINT =  -ltbb
    endif	 
 
    LROOT = -L$(ROOT_DIR)/$(ROOT_LIBDIR) -lCore -lRIO -lNet -lHist -lGraf -lGraf3d -lGpad -lTree -lRint -lPostscript -lMatrix -lPhysics -lMathCore -lThread -ldl $(LCINT)
@@ -248,11 +265,11 @@ endif
 # --------------------------------------------
 # set compile flags.
 ifeq ($(BITNESS),i686)
-   SNFFLAGS  = -c -static -fno-automatic -fsecond-underscore $(EXTRA_FLAGS)
+   SNFFLAGS  = -c -static -fno-automatic -fsecond-underscore $(EXTRA_FLAGS) $(FORTRAN_FLAGS)
    SNCFLAGS  = -c -static -m64 $(EXTRA_FLAGS)
    SNLDFLAGS = -m64 -lg2c -lpthread $(PROFILEFLAG)
 else
-   SNFFLAGS  = -c -static -fno-automatic -m64  -fsecond-underscore $(EXTRA_FLAGS)
+   SNFFLAGS  = -c -static -fno-automatic -m64 -fsecond-underscore $(EXTRA_FLAGS) $(FORTRAN_FLAGS)
    SNCFLAGS  = -c -static -m64 $(EXTRA_FLAGS)
    SNLDFLAGS = -m64 -lpthread $(PROFILEFLAG)
 endif

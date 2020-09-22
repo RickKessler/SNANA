@@ -377,7 +377,7 @@ HELP_CONFIG_BBC = f"""
   # there is no need for this string-match key.
   STRINGMATCH_IGNORE:   _DES  _LOWZ 
     
-  # BBC variations
+  # BBC variations (for each VERSION and each FITOPT)
   MUOPT: 
   - p1=0.2 p2=3.3 
   - redchi2_tol=.02
@@ -389,6 +389,17 @@ HELP_CONFIG_BBC = f"""
   # run "wfit.exe" with no args. Output cosmology fit params are 
   # in YAML format.
   WFITMUDIF_OPT: <argList>
+
+  # Process subset of FITOPT x MUOPT matrix. Examples are
+  FITOPTxMUOPT: 0+0   # process only FITOPT=000 or  MUOPT=000
+  FITOPTxMUOPT: 2+3   # process only FITOPT=002 or  MUOPT=003
+  FITOPTxMUOPT: 0&0   # process only FITOPT=000 and MUOPT=000
+  FITOPTxMUOPT: 2&3   # process only FITOPT=002 and MUOPT=003
+  # For first two examples, the number of BBC jobs per version is
+  # NFITOPT + NMUOPT + 1. For next 2 examples, just 1 BBC job per version.
+  # This key cannot be configured to mimic command line args 
+  # --ignore_fitopt or --ignore_muopt.  However, "FITOPTxMUOPT: 0&0" is 
+  # equivalent to setting both with "--ignore_fitopt --ignore_muopt"
 
   # process M independent random sum-samples; useful to compare RMS vs. errors.
   # Be careful that every VERSION+FITOPT+MUOPT is divided into NSPLITRAN jobs.

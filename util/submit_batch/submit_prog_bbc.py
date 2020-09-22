@@ -63,6 +63,8 @@ SPLITRAN_SUMMARY_FILE = "BBC_SUMMARY_SPLITRAN.FITRES"
 WFIT_SUMMARY_FILE     = "BBC_SUMMARY_wfit.FITRES"
 ROW_KEY               = "ROW:"
 
+KEY_FITOPTxMUOPT  = 'FITOPTxMUOPT'
+
 # - - - - - - - - - - - - - - - - - - -  -
 class BBC(Program):
     def __init__(self, config_yaml):
@@ -155,7 +157,6 @@ class BBC(Program):
 
         CONFIG          = self.config_yaml['CONFIG']
         input_file      = self.config_yaml['args'].input_file 
-        ignore_fitopt   = self.config_yaml['args'].ignore_fitopt
         msgerr = []
 
         # - - - -
@@ -217,13 +218,7 @@ class BBC(Program):
 
             # read FITOPT table from FIT job's submit info file
             fit_info_yaml = util.extract_yaml(INFO_PATHFILE)
-            fitopt_table  = fit_info_yaml['FITOPT_LIST']
-            
-            if ignore_fitopt:
-                print(f" xxx .xyz ALL  fitopt_table = {fitopt_table} ... \n")
-                fitopt_table = fitopt_table[0:1]
-                print(f" xxx .xyz SPLI fitopt_table = {fitopt_table} ... \n")
-
+            fitopt_table  = fit_info_yaml['FITOPT_LIST']            
             n_fitopt      = len(fitopt_table)
 
             # udpates lists vs. idir
@@ -476,11 +471,16 @@ class BBC(Program):
         n2d_index = n_version * n_fitopt
         n4d_index = n_version * n_fitopt * n_muopt * n_splitran
 
+        # fetch matrix for which ifit x imu to use
+        n_use2d,use_matrix2d,use_fitopt = self.get_matrix_FITOPTxMUOPT()
+
+        # ---------------------------
         # create 2D index lists used to prepare inputs
         # (create subdirs, catenate input FITRES files)
         iver_list2=[]; ifit_list2=[]; 
         for iver in range(0,n_version):
             for ifit in range(0,n_fitopt):
+                if not use_fitopt[ifit]: continue
                 iver_list2.append(iver)
                 ifit_list2.append(ifit)
 
@@ -489,6 +489,7 @@ class BBC(Program):
         for iver in range(0,n_version):
             for ifit in range(0,n_fitopt):
                 for imu in range(0,n_muopt):
+                    if not use_matrix2d[ifit][imu] : continue
                     for isplitran in range(0,n_splitran):
                         iver_list4.append(iver)
                         ifit_list4.append(ifit)
@@ -505,7 +506,99 @@ class BBC(Program):
         self.config_prep['imu_list4']  = imu_list4
         self.config_prep['isplitran_list4']  = isplitran_list4
 
+        self.config_prep['use_matrix2d']    = use_matrix2d
+        self.config_prep['use_fitopt']      = use_fitopt
+        self.config_prep['n_use_matrix2d']  = n_use2d
+
         # end bbc_prep_index_lists
+
+    def get_matrix_FITOPTxMUOPT(self):
+
+        # return use_matrix2d (ifit x imu) for which matrix elements
+        # are used (True) or ignored (False).
+        # use_matrix1d is a 1D array of which ifit are used.
+        #
+        # See more info with submit_batch_jobs.sh -H BBC
+
+        n_fitopt        = self.config_prep['n_fitopt']
+        n_muopt         = self.config_prep['n_muopt']
+        CONFIG          = self.config_yaml['CONFIG']
+        ignore_fitopt   = self.config_yaml['args'].ignore_fitopt
+        ignore_muopt    = self.config_yaml['args'].ignore_muopt
+        msgerr        = []
+        ALL_FLAG      = False
+        or_char       = '+'
+        and_char      = '&'
+
+        ifit_logic = -9;  imu_logic = -9
+
+        if KEY_FITOPTxMUOPT in CONFIG :
+
+            if ignore_fitopt:
+                msgerr.append(f"Cannot mix {KEY_FITOPTxMUOPT} key with " \
+                              f"command line arg --ignore_fitopt")
+                self.log_assert(False,msgerr)
+
+            if ignore_muopt:
+                msgerr.append(f"Cannot mix {KEY_FITOPTxMUOPT} key with " \
+                              f"command line arg --ignore_muopt")
+                self.log_assert(False,msgerr)
+
+            FITOPTxMUOPT = CONFIG[KEY_FITOPTxMUOPT]
+            if or_char in FITOPTxMUOPT: 
+                oper_logic = or_char ; oper_string = "or"
+            elif and_char in FITOPTxMUOPT:
+                oper_logic = and_char ; oper_string = "and"
+            else:
+                msgerr.append(f"Invalid {KEY_FITOPTxMUOPT}: {FITOPTxMUOPT}")
+                msgerr.append(f"Must have {or_char} or {and_char} symbol ")
+                self.log_assert(False,msgerr)
+                
+            j_oper       = FITOPTxMUOPT.index(oper_logic)    
+            ifit_logic   = int(FITOPTxMUOPT[0:j_oper])   # fitopt number
+            imu_logic    = int(FITOPTxMUOPT[j_oper+1:])  # muopt number
+
+            msg = (f"  {KEY_FITOPTxMUOPT} logic: " \
+                   f"FITOPT={ifit_logic} {oper_string} "\
+                   f"MUOPT={imu_logic}  (oper_logic = '{oper_logic}')")
+            logging.info(msg)
+        else:
+            ALL_FLAG     = True
+            CONFIG[KEY_FITOPTxMUOPT] = 'ALL'
+
+        # - - - - - - - - - - 
+        n_use2d = 0
+        use_matrix2d = \
+            [[ False for i in range(n_muopt)] for j in range(n_fitopt)]
+        use_matrix1d = [ False ]  * n_fitopt
+        
+        for ifit in range(0,n_fitopt):
+            for imu in range(0,n_muopt):
+                use_ifit = (ifit == ifit_logic )
+                use_imu  = (imu  == imu_logic  )
+                use2d = False ; 
+                if ALL_FLAG:
+                    use2d = True
+                elif oper_logic == or_char :
+                    use2d = use_ifit or use_imu
+                elif oper_logic == and_char :
+                    use2d = use_ifit and use_imu
+
+                if ignore_fitopt : use2d = (ifit == 0)
+                if ignore_muopt  : use2d = (use2d and imu==0)
+
+                if use2d :
+                    use_matrix2d[ifit][imu] = True
+                    use_matrix1d[ifit]      = True
+                    n_use2d += 1
+
+        #print(f"  xxx use_matrix2d = \n\t {use_matrix2d} ")
+        #print(f"  xxx use_matrix1d = \n\t {use_matrix1d} ")
+        #sys.exit(f"\n xxx DEBUG DIE xxx\n")
+
+        return n_use2d, use_matrix2d, use_matrix1d
+
+        # end get_matrix_FITOPTxMUOPT
 
     def bbc_prep_mkdir(self):
 
@@ -643,11 +736,9 @@ class BBC(Program):
         muopt_arg_list   = [ '' ]  # always include MUOPT000 with no overrides
         muopt_num_list   = [ 'MUOPT000' ] 
         muopt_label_list = [ 'DEFAULT' ]
-        ignore_muopt     = self.config_yaml['args'].ignore_muopt
-
         
         key = 'MUOPT'
-        if key in CONFIG and not ignore_muopt :
+        if key in CONFIG  :
             for muopt_raw in CONFIG[key] : # might include label
                 num = (f"MUOPT{n_muopt:03d}")
                 label, muopt = util.separate_label_from_arg(muopt_raw)
@@ -712,10 +803,13 @@ class BBC(Program):
         imu_list4        = self.config_prep['imu_list4']
         isplitran_list4  = self.config_prep['isplitran_list4']
 
+        n_use_matrix2d = self.config_prep['n_use_matrix2d'] # FITOPT x MUOPT
+
         CONFIG   = self.config_yaml['CONFIG']
         use_wfit = 'WFITMUDIF_OPT' in CONFIG  # check follow-up job after bbc
 
-        n_job_tot   = n_version * n_fitopt * n_muopt * n_splitran
+        #n_job_tot   = n_version * n_fitopt * n_muopt * n_splitran
+        n_job_tot   = n_version * n_use_matrix2d * n_splitran
         n_job_split = 1     # cannot break up BBC job as with sim or fit
 
         self.config_prep['n_job_split'] = n_job_split
@@ -730,14 +824,6 @@ class BBC(Program):
 
         for iver,ifit,imu,isplitran in \
             zip(iver_list4,ifit_list4,imu_list4,isplitran_list4):
-
-        # xxx mark delete xxxxxx
-        #for i4d in range(0,n4d_index):
-            #iver      = iver_list4[i4d]
-            #ifit      = ifit_list4[i4d]
-            #imu       = imu_list4[i4d]
-            #isplitran = isplitran_list4[i4d]
-            # xxxx mark delete
 
             n_job_local += 1
             index_dict = \
@@ -906,6 +992,9 @@ class BBC(Program):
         ignore_muopt      = self.config_yaml['args'].ignore_muopt
         ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
 
+        CONFIG            = self.config_yaml['CONFIG']
+        FITOPTxMUOPT      = CONFIG[KEY_FITOPTxMUOPT]
+
         f.write(f"\n# BBC info\n")
 
         # beware that LOG,DONE,YAML files are not under script_dir,
@@ -923,8 +1012,9 @@ class BBC(Program):
         f.write(f"USE_WFIT:       {use_wfit}     " \
                 f"# option to run wfit on BBC output\n")
 
-        f.write(f"IGNORE_FITOPT:  {ignore_fitopt}\n")
-        f.write(f"IGNORE_MUOPT:   {ignore_muopt}\n")
+        f.write(f"IGNORE_FITOPT:  {ignore_fitopt} \n")
+        f.write(f"IGNORE_MUOPT:   {ignore_muopt} \n")
+        f.write(f"{KEY_FITOPTxMUOPT}:   {FITOPTxMUOPT} \n")
 
         f.write("\n")
         f.write("INPDIR_LIST:\n")
@@ -1056,7 +1146,6 @@ class BBC(Program):
 
             prefix_orig, prefix_final = self.bbc_prefix("bbc", row)            
             search_wildcard = (f"{prefix_orig}*")
-
 
             if irow < NROW_DUMP  :
                 print(f" xxx ------------------------ ") 
@@ -1279,8 +1368,12 @@ class BBC(Program):
             isplitran  = row[COLNUM_BBC_MERGE_SPLITRAN]
             
             # remove suffix from version to get base version
-            suffix = self.suffix_splitran(n_splitran,isplitran)
-            version_base = version.rstrip(suffix)
+            suffix       = self.suffix_splitran(n_splitran,isplitran)
+            len_base     = len(version) - len(suffix)
+            version_base = version[0:len_base]
+            print(f" xxx version_base = {version_base} (v={version} " \
+                  f"s={suffix} )") #.xyz
+            sys.stdout.flush()
 
             # get indices for summary file
             iver = vout_list.index(version_base)

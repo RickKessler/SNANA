@@ -84,6 +84,8 @@
 #define ZMAX_SNANA 4.0              // max snana redshift, Dec 26 2016
 #define COMMA      ","              // to split comma-sep strings
 #define COLON      ":"              // to split colon-sep strings
+#define PERCENT    "%"              // idem for %-sep strings
+#define PLUS       "+"
 
 // from Planck 2018 (installed June 8 2020)
 #define  CMBapex_l  (double)264.031    // deg (RA galactic coords !!!)
@@ -591,7 +593,6 @@ int  header_merge(FILE *fp, char *auxheader_file);
 int sort_epochs_bymjd(void);
 
 int   WRSTAT ( int wrflag, float value ) ;
-// xxx mark delete Jan 23 2018 int   IDTELESCOPE ( char *telescope );
 
 int   Landolt_ini(int opt, float *mag, float *kshift);
 int   landolt_ini__(int *opt, float *mag, float *kshift);

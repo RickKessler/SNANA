@@ -3916,8 +3916,6 @@ int init_SIMEFFMAP(char *file, char *varnamesList) {
   //  printf("\t EFF(MAX) = %6.4f \n", SIMEFFMAP.EFFMAX);
 
   // init multi-dimensional interpolation
-
-
   init_interp_GRIDMAP(IDGRIDMAP_SIMEFFMAP, "SIMEFF",
 		      NBINTOT, NGENVAR, NFUN, 0,
 		      SIMEFFMAP.TMPVAL, &SIMEFFMAP.TMPEFF,

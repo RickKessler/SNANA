@@ -127,13 +127,10 @@
 # Apr 25 2020: include lCint for LROOT only of libCint.so exists
 # Jun 12 2020: add sntools_genPDF
 # Sep 10 2020: BYOSED renamed to more generic PySEDMODEL
-#
 # Sep 22 2020:
 #     +  CC = cc -> gcc
 #     +  add -ltbb for root 6.0
 #     +  specify EXTRA_FLAGS for gcc v10 or higher
-#     +  remove "ar r" commands to put C functions in libsnana.a
-#          (libsnana.a is now just fortran code)
 #
 # ---------------------------------------------------------------------
 
@@ -167,12 +164,11 @@ else
    FORTRAN_FLAGS = -fallow-argument-mismatch -fcommon
 endif
 
-  EXTRA_FLAGS = -O1   # -ftree-vectorize -ftree-vectorizer-verbose=2
-  PROFILEFLAG = 
-
 # EXTRA_FLAGS = -O2 -Wall
 #  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
+  EXTRA_FLAGS = -O1   # -ftree-vectorize -ftree-vectorizer-verbose=2
+  PROFILEFLAG = 
 
 # after running code with -pg, "gprof $SNANA_DIR/bin/[code].exe"
 #  PROFILEFLAG = -pg
@@ -385,6 +381,7 @@ OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/MWgaldust.o	\
 	$(OBJ)/multiseason.o
 
+# add forclose(): OBJ_OUTPUT = $(OBJ)/sntools_output.o  $(LIB)/libsnana.a
 OBJ_OUTPUT = $(OBJ)/sntools_output.o
 
 # now the program-specific lists
@@ -661,6 +658,7 @@ $(BIN)/psnid.exe : $(OBJ_PSNID)
 	$(LCERN)  $(LROOT) -lm  $(CPPLIB)
 	(cd $(OBJ); rm psnid.o)
 
+##	$(LIB)/libsnana.a  	\
 # -------------------------------------------------
 # K corrections and LC templates 
 
@@ -689,9 +687,6 @@ $(BIN)/kcordump.exe : $(OBJ)/kcordump.o $(OBJ)/MWgaldust.o
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/kcordump.o 	\
 	$(LIB)/libsnana.a  	\
-	$(OBJ)/sntools.o 	\
-	$(OBJ)/sntools_kcor.o 	\
-	$(OBJ)/sntools_fitsio.o \
 	$(LCFITSIO)  $(LGSL) 	\
 	$(LCERN)  -lm
 	(cd $(OBJ); rm kcordump.o)
@@ -785,7 +780,7 @@ $(BIN)/nearnbr_apply.exe :  \
 $(OBJ)/sntools.o : $(SRC)/sntools.c $(SRC)/sntools.h $(SRC)/sndata.h 
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/sntools.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools.o
+	ar r $(LIB)/libsnana.a  $(OBJ)/sntools.o
 
 # -------------------------------------------------
 # compile sntools_genSmear (.o only)
@@ -793,7 +788,7 @@ $(OBJ)/sntools.o : $(SRC)/sntools.c $(SRC)/sntools.h $(SRC)/sndata.h
 $(OBJ)/sntools_genSmear.o : $(SRC)/sntools_genSmear.c $(SRC)/sntools_genSmear.h $(SRC)/sntools.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/sntools_genSmear.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_genSmear.o
+	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_genSmear.o
 
 # -------------------------------------------------
 # Apr 26 2016: non-linearity package
@@ -801,7 +796,7 @@ $(OBJ)/sntools_genSmear.o : $(SRC)/sntools_genSmear.c $(SRC)/sntools_genSmear.h 
 $(OBJ)/sntools_nonlinearity.o : $(SRC)/sntools_nonlinearity.c $(SRC)/sntools_nonlinearity.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_nonlinearity.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_nonlinearity.o
+	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_nonlinearity.o
 
 # -------------------------------------------------
 # Oct 2015: fluxErr model
@@ -809,13 +804,13 @@ $(OBJ)/sntools_nonlinearity.o : $(SRC)/sntools_nonlinearity.c $(SRC)/sntools_non
 $(OBJ)/sntools_fluxErrModels.o : $(SRC)/sntools_fluxErrModels.c $(SRC)/sntools_fluxErrModels.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_fluxErrModels.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_fluxErrModels.o
+	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_fluxErrModels.o
 
 
 $(OBJ)/sntools_fluxErrModels_legacy.o : $(SRC)/sntools_fluxErrModels_legacy.c $(SRC)/sntools_fluxErrModels_legacy.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_fluxErrModels_legacy.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_fluxErrModels_legacy.o
+	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_fluxErrModels_legacy.o
 
 # -------------------------------------------------
 # compile sntools_fitsio (.o only)
@@ -823,12 +818,12 @@ $(OBJ)/sntools_fluxErrModels_legacy.o : $(SRC)/sntools_fluxErrModels_legacy.c $(
 $(OBJ)/sntools_fitsio.o : $(SRC)/sntools_fitsio.c $(SRC)/sntools_fitsio.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_fitsio.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_fitsio.o
+	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_fitsio.o
 
 $(OBJ)/sntools_kcor.o : $(SRC)/sntools_kcor.c $(SRC)/sntools_kcor.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_kcor.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_kcor.o
+	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_kcor.o
 
 
 $(OBJ)/sntools_gridgen.o : $(SRC)/sntools_gridgen.c $(SRC)/sntools_grid.h $(SRC)/sndata.h $(SRC)/snlc_sim.h
@@ -838,7 +833,7 @@ $(OBJ)/sntools_gridgen.o : $(SRC)/sntools_gridgen.c $(SRC)/sntools_grid.h $(SRC)
 $(OBJ)/sntools_gridread.o : $(SRC)/sntools_gridread.c $(SRC)/sntools_grid.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_gridread.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_gridread.o
+	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_gridread.o
 
 # -------------------------------------------------
 # compile sntools_host (.o only)
@@ -903,12 +898,12 @@ $(OBJ)/sntools_spectrograph.o : $(SRC)/sntools_spectrograph.c  $(SRC)/sntools_sp
 $(OBJ)/sntools_nearnbr.o : $(SRC)/sntools_nearnbr.c $(SRC)/sntools_nearnbr.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS)  $(SRC)/sntools_nearnbr.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_nearnbr.o
+	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_nearnbr.o
 
 $(OBJ)/kdtree.o : $(SRC)/kdtree.c $(SRC)/kdtree.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS)  $(SRC)/kdtree.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/kdtree.o
+	ar r $(LIB)/libsnana.a  $(OBJ)/kdtree.o
 
 # -------------------------------------------------
 # compile sntools_output (.o only)
@@ -1083,7 +1078,6 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/SIMSED_fudge.o  \
 	$(OBJ)/sntools.o  \
-	$(OBJ)/sntools_fitsio.o  \
 	$(OBJ)/genmag_SEDtools.o \
 	$(OBJ)/genmag_SIMSED.o   \
 	$(OBJ)/genmag_SALT2.o   \

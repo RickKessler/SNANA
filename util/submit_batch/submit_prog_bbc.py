@@ -31,6 +31,8 @@ import os, sys, shutil, yaml, glob
 import logging, coloredlogs
 import datetime, time
 import submit_util as util
+import numpy  as np
+import pandas as pd
 
 from submit_params    import *
 from submit_prog_base import Program
@@ -546,21 +548,20 @@ class BBC(Program):
 
             FITOPTxMUOPT = CONFIG[KEY_FITOPTxMUOPT]
             if or_char in FITOPTxMUOPT: 
-                oper_logic = or_char ; oper_string = "or"
+                bool_logic = or_char ; bool_string = "or"
             elif and_char in FITOPTxMUOPT:
-                oper_logic = and_char ; oper_string = "and"
+                bool_logic = and_char ; bool_string = "and"
             else:
                 msgerr.append(f"Invalid {KEY_FITOPTxMUOPT}: {FITOPTxMUOPT}")
                 msgerr.append(f"Must have {or_char} or {and_char} symbol ")
                 self.log_assert(False,msgerr)
                 
-            j_oper       = FITOPTxMUOPT.index(oper_logic)    
-            ifit_logic   = int(FITOPTxMUOPT[0:j_oper])   # fitopt number
-            imu_logic    = int(FITOPTxMUOPT[j_oper+1:])  # muopt number
+            j_bool       = FITOPTxMUOPT.index(bool_logic)    
+            ifit_logic   = int(FITOPTxMUOPT[0:j_bool])   # fitopt number
+            imu_logic    = int(FITOPTxMUOPT[j_bool+1:])  # muopt number
 
-            msg = (f"  {KEY_FITOPTxMUOPT} logic: " \
-                   f"FITOPT={ifit_logic} {oper_string} "\
-                   f"MUOPT={imu_logic}  (oper_logic = '{oper_logic}')")
+            msg = (f"  {KEY_FITOPTxMUOPT} logic: process only " \
+                   f"FITOPT={ifit_logic} {bool_string} MUOPT={imu_logic} ")
             logging.info(msg)
         else:
             ALL_FLAG     = True
@@ -579,9 +580,9 @@ class BBC(Program):
                 use2d = False ; 
                 if ALL_FLAG:
                     use2d = True
-                elif oper_logic == or_char :
+                elif bool_logic == or_char :
                     use2d = use_ifit or use_imu
-                elif oper_logic == and_char :
+                elif bool_logic == and_char :
                     use2d = use_ifit and use_imu
 
                 if ignore_fitopt : use2d = (ifit == 0)
@@ -1252,7 +1253,6 @@ class BBC(Program):
     def merge_cleanup_final(self):
 
         # Every SALT2mu job succeeded, so here we simply compress output.
-
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         vout_list        = submit_info_yaml['VERSION_OUT_LIST']
@@ -1270,14 +1270,73 @@ class BBC(Program):
             logging.info(f"  BBC cleanup: create {SPLITRAN_SUMMARY_FILE}")
             self.make_splitran_summary()
 
+        for vout in vout_list :
+            self.make_reject_summary(vout)
+
         logging.info(f"  BBC cleanup: compress {JOB_SUFFIX_TAR_LIST}")
         for suffix in JOB_SUFFIX_TAR_LIST :
             wildcard = (f"{jobfile_wildcard}*.{suffix}") 
             util.compress_files(+1, script_dir, wildcard, suffix, "" )
 
+        logging.info("")
+
         self.merge_cleanup_script_dir()
 
         # end merge_cleanup_final
+
+    def make_reject_summary(self,vout):
+
+        # get list of all FITRES files in /vout, then find number
+        # of matches for each SN. Finally, write file with
+        #   VARNAMES: CID  NJOB_REJECT
+        # where NJOB_REJECT is the number of FITRES files where
+        # CID was rejected.
+        # Goal is to use this file in 2nd round of BBC and include
+        # only events that pass in all FITOPT and MUOPTs.
+
+        output_dir    = self.config_prep['output_dir']
+        wildcard      = "FITOPT*MUOPT*.FITRES.gz"
+        VOUT          = (f"{output_dir}/{vout}")
+        fitres_list   = glob.glob1(VOUT, wildcard )
+        reject_file   = "BBC_REJECT_SUMMARY.LIST"
+        REJECT_FILE   = (f"{VOUT}/{reject_file}")
+
+        logging.info(f"  BBC cleanup: create {vout}/{reject_file}")
+
+        n_ff     = len(fitres_list) # number of FITRES files
+        cid_list = []
+        for ff in fitres_list:
+            FF       = (f"{VOUT}/{ff}")
+            df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
+            cid_list = np.concatenate((cid_list, df.CID.astype(str)))
+            #zhd_list = np.concatenate((cid_list, df.zhd.astype(float)))
+            cid_unique, n_count = np.unique(cid_list, return_counts=True)
+            n_reject        = n_ff - n_count
+
+            #cid_all_pass    = cid_unique[n_count == n_ff]
+            cid_some_fail   = cid_unique[n_count <  n_ff]
+            n_all           = len(cid_unique)
+            n_some_fail     = len(cid_some_fail)
+            f_some_fail     = float(n_some_fail)/float(n_all)
+            str_some_fail   = (f"{f_some_fail:.4f}")
+
+            with open(REJECT_FILE,"wt") as f:
+                f.write(f"# BBC-FF = BBC FITRES file.\n")
+                f.write(f"# Total number of BBC-FF: " \
+                        f"{n_ff} (FITOPT x MUOPT). \n")
+                f.write(f"# {n_some_fail} of {n_all} CIDs ({str_some_fail}) "\
+                        f"fail cuts in 1 or more BBC-FF\n")
+                f.write(f"#  and also pass cuts in 1 or more BBC-FF.\n#\n")
+                f.write(f"# These CIDs can be rejected in SALT2mu.exe with\n")
+                f.write(f"#    reject_list_file={reject_file} \n")
+                f.write(f"\n")
+                f.write(f"VARNAMES: CID NJOB_REJECT \n")
+                for cid,nrej in zip(cid_unique,n_reject) :
+                    if nrej>0: f.write(f"SN:  {cid:<12}   {nrej:3d} \n")
+                f.write(f"\n")
+        # .xyz
+
+        # end make_reject_summary
 
     def make_wfit_summary(self):
         

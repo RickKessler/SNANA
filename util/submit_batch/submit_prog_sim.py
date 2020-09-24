@@ -471,10 +471,11 @@ class Simulation(Program):
         # default NGENTOT_LC is from the sim-input file
         ngentot       = INFILE_KEYS[iver][ifile][key_ngentot]
 
-        # check for GENOPT override 
-        if key_ngentot in genopt:
-            jindx       = genopt.rindex(key_ngentot) # last key
-            ngentot       = genopt[jindx+1] 
+        # check for GENOPT override                                             
+        genopt_words = genopt.split()
+        if key_ngentot in genopt_words :
+            jindx       = genopt_words.index(key_ngentot)
+            ngentot     = int(genopt_words[jindx+1])
 
         return ngentot
 

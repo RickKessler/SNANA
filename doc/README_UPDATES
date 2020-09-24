@@ -18968,4 +18968,18 @@
       + new script to test submit_batch_jobs; 
           see $SNANA_TESTS/inputs_submit_batch
 
+    Makefile: 
+     + cc -> gcc (recommended by Midway admin for higher gcc versions)
+     + for gcc v10 and higher, tack on FORTRAN_FLAGS to allow arg-mismatch.
+        (preparation for moving to gcc 10.1.0 on midway)
+
+    snana.car
+      + few benign updates to reduce warnings from gcc v10.
+         e.g., passing array instead of scalar to few functions.
+
+    SALT2mu.c :
+      + add new key  cid_reject_file, analogous to cid_select_file
+      + both of the above can be FITRES format or un-keyed list format.
+
+  
 END: 

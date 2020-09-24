@@ -26,14 +26,18 @@ then for the SALT2mu input   file='mySN.fitres'
 
 Additional arguments below are optional:
 
-file = comma-sep list of fitres file names to analyze
-
+file=<comma-sep list of fitres file names to analyze>
+datafile=<same as file=>
+ 
 minos=1  ! default; minos errors
 minos=0  ! switch to MIGRAD (should be faster)
      
 nmax=100                 ! fit first 100 events only
 nmax=70(SDSS),200(PS1MD) ! fit 70 SDSS and 200 PS1MD
 nmax=300,200(PS1MD)      ! fit 300 total, with 200 in PS1MD sub-sample
+
+cid_select_file=<file with CID 'accept-only' list  (FITRES or unkeyed list format)>
+cid_reject_file=<file with CID reject list (FITRES or unkeyed format)>
 
 uzsim=1                  ! cheat and use true zCMB for redshift
 
@@ -822,6 +826,11 @@ Default output files (can change names with "prefix" argument)
 
  Sep 23 2020: finish subprocess OUTPUT_TABLEs
 
+ Sep 24 2020: 
+    + new key cid_reject_file
+    + cid_reject_file and cid_select_file can be either FITRES format
+      or list without any keys or commas.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1373,9 +1382,11 @@ struct {
 #define MXSURVEY_ZPOLY_COVMAT 10 
 
 struct INPUTS {
+
+  bool   KEYNAME_DUMPFLAG; // flag to dump all key names, then quit
+
   int  nfile_data;
   char **dataFile;  
-  bool   KEYNAME_DUMPFLAG; // flag to dump all key names, then quit
 
   bool   cat_only;    // cat fitres files and do nothing else
   char   cat_file_out[MXCHAR_FILENAME] ;
@@ -1462,11 +1473,11 @@ struct INPUTS {
   int  sntype[MXSNTYPE]; // list of sntype(s) to select
   char sntypeString[100]; // comma-separated string from input file
 
-  // CID select for data only (data can be real or sim) djb
+  // CID select or reject for data only (data can be real or sim)
   char   cidFile_data[MXCHAR_FILENAME];
   char  **cidList_data; //2d array to be allocated later
-  int   ncidList_data; //number of cids provided in listfile
-  
+  int   ncidList_data;  //number of cids provided in listfile
+  int   acceptFlag_cidFile_data ; // +1 to accept, -1 to reject
 
   // - - - - - - redshift bins - - - - - - 
   int     nzbin ;    // number of uniform-spaced redshift bins
@@ -1762,7 +1773,8 @@ int  usesim_CUTWIN(char *varName) ;
 int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
 
 void parse_sntype(char *item);
-void parse_cidFile_data(char *item); //djb
+void parse_cidFile_data_LEGACY(char *item);
+void parse_cidFile_data(int OPT, char *item); 
 void parse_prescale_biascor(char *item);
 void parse_powzbin(char *item) ;
 void parse_IDSAMPLE_SELECT(char *item);
@@ -5256,9 +5268,12 @@ void set_defaults(void) {
   INPUTS.Nsntype = 0 ;
   sprintf(INPUTS.sntypeString,"NULL");
 
-  INPUTS.nmaxString[0] = 0 ;
+  INPUTS.nmaxString[0]   = 0 ;
+
   INPUTS.cidFile_data[0] = 0;
-  INPUTS.ncidList_data = 0; //djb
+  INPUTS.ncidList_data   = 0; //djb
+  INPUTS.acceptFlag_cidFile_data = 0 ;
+
   INPUTS.nmax_tot = 999888777 ;
   for(isurvey=0; isurvey<MXIDSURVEY; isurvey++ ) 
     { INPUTS.nmax[isurvey] = 999888777 ; }
@@ -14121,29 +14136,42 @@ void setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
 
 } // end setbit_CUTMASK 
 
+
+// ===========================================
 int selectCID_data(char *cid){
+
   // Created Sep 5 2019 by D.Brout
   // for file= data. determines if cid is in cidlist_data
+  //
+  // Sep 2020 RK - Refactor to accept or reject based on user input.
 
-  //  char fnam[] = "selectCID_data";
-
-  int ACCEPT = 1;
-  int i;
+  int ncidList   = INPUTS.ncidList_data ;
+  int acceptFlag = INPUTS.acceptFlag_cidFile_data ;
+  int ACCEPT = 1, REJECT = 0, i ;
+  bool MATCH ;
   char *tmpCID;
+  //  char fnam[] = "selectCID_data";
 
   // ------- BEGIN -------------
 
-  if (strlen(INPUTS.cidFile_data) == 0) { return ACCEPT; }
+  if ( ncidList == 0 ) { return ACCEPT ; }
 
-  for (i=0;i<INPUTS.ncidList_data;i++) {
+  for (i = 0; i < ncidList; i++) {
     tmpCID = INPUTS.cidList_data[i];
-    if (strcmp(cid,tmpCID)==0) {
-      return ACCEPT;
+    MATCH = (strcmp(cid,tmpCID)==0) ;
+    if ( MATCH ) {
+      if ( acceptFlag > 0 )  { return ACCEPT; }
+      else     	             { return REJECT; }
     }
-  }
-  ACCEPT = 0;
+  } // end i loop over cids
 
-  return ACCEPT;
+  // - - - - - - 
+  // if there are no cid matches to file:
+  //   REJECT if mode is to accept only CIDs in file
+  //   ACCEPT if mode is to reject only CIDs in file
+  if ( acceptFlag > 0 ) { return REJECT ; }
+  else                  { return ACCEPT ; }
+
 } // END selectCID_data
 
 // =============================================
@@ -14711,9 +14739,14 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"idsample_select=") ) 
     {  sscanf(&item[16], "%s", INPUTS.idsample_select );  return(1); } 
 
-  if ( uniqueOverlap(item,"cid_select_file=") ) // djb
-    {  sscanf(&item[16], "%s", INPUTS.cidFile_data );  return(1); }
-
+  if ( uniqueOverlap(item,"cid_select_file=") )  {  
+    sscanf(&item[16], "%s", INPUTS.cidFile_data );  
+    INPUTS.acceptFlag_cidFile_data = +1; return(1); 
+  }
+  if ( uniqueOverlap(item,"cid_reject_file=") ) {
+    sscanf(&item[16], "%s", INPUTS.cidFile_data );  
+    INPUTS.acceptFlag_cidFile_data = -1; return(1); 
+  }
 
   if ( uniqueOverlap(item,"sntype=") )  
     { parse_sntype(&item[7]); return(1); }
@@ -14978,8 +15011,134 @@ void parse_simfile_CCprior(char *item) {
 
 } // parse_simfile_CCprior
 
-// **************************************************                                                                                  
-void parse_cidFile_data(char *filename) {
+// **************************************************     
+void parse_cidFile_data(int OPT, char *fileName) {
+
+  // Created Sep 23 2020 
+  // Read inpt fileName for list of CIDs to accept or reject 
+  // based on
+  //
+  //    OPT > 0 -> list to accept
+  //    OPT < 0 -> list to reject
+  //
+  // Checks if fileName is keyed-FITRES format, or just a list
+  // of CIDs without any keys.
+  //
+
+  char *cid, tmpWord[60] ;
+  int iwd, isn, NCID, NWD, MEMC, MEMC2, MSKOPT ;
+  int LDMP = 0 ;
+  bool FORMAT_FITRES, LOAD_CID ;
+  char fnam[] = "parse_cidFile_data";
+
+  // ------ BEGIN --------------
+
+  if ( IGNOREFILE(fileName) ) { return; }
+
+
+  // check if keyed FITRES file; NCID>0 for FITRES; otherwise NCID=0.
+  NCID = SNTABLE_NEVT_TEXT(fileName);
+
+  // scoop up all words in file, regardless of format.
+  MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_IGNORECOMMENT;
+  NWD  = store_PARSE_WORDS(MSKOPT,fileName); 
+
+  if ( NCID > 0 ) { 
+    // FITRES format
+    FORMAT_FITRES = true ;
+  }
+  else {
+    // not FITRES format ; read list of CIDs
+    NCID = NWD ;
+    FORMAT_FITRES = false ;
+  }
+
+  // - - - - -
+  // for an array of strings this is a 2d array
+  MEMC    = NCID        * sizeof(char*);
+  MEMC2   = MXCHAR_CCID * sizeof(char);
+  INPUTS.cidList_data =  (char**)malloc(MEMC);
+
+  // malloc memory for CID strings
+  for(isn=0; isn < NCID; isn++ ) { 
+    INPUTS.cidList_data[isn] = (char*)malloc(MEMC2); 
+    INPUTS.cidList_data[isn][0] = 0;
+  }
+
+  // - - - - - - - - - - - - 
+  isn = 0 ;
+
+  // check every word in file, regardless of format
+  for ( iwd=0; iwd < NWD; iwd++ ) { 
+
+    get_PARSE_WORD(0,iwd,tmpWord);
+    LOAD_CID = false;
+
+    if ( LDMP ) {
+      printf(" xxx -------------------------------------------- \n");
+      printf(" xxx %s: iwd=%d of %d (NCID=%d) tmpWord='%s' \n",
+	     fnam, iwd, NWD, NCID, tmpWord); fflush(stdout);
+    }
+
+    if ( FORMAT_FITRES ) {
+      if ( validRowKey_TEXT(tmpWord) ) { 
+	cid = INPUTS.cidList_data[isn];
+	get_PARSE_WORD(0,iwd+1,cid); 
+	LOAD_CID = true;
+      }
+    }
+    else {
+      // every word is a CID, so just load it without checking keys
+      cid = INPUTS.cidList_data[isn];
+      sprintf(cid, "%s", tmpWord);
+      LOAD_CID = true;
+    }
+
+    if ( LOAD_CID ) {
+      isn++ ;
+      if (LDMP) { printf (" xxx %s: select cid = %s \n", fnam, cid ); }
+      
+      if ( strstr(cid,COMMA) != NULL || strstr(cid,COLON) != NULL || 
+	   strstr(cid,"=")   != NULL )   {
+	sprintf(c1err,"Invalid cid string = '%s'",cid);
+	sprintf(c2err,"Check cid_select_file %s",fileName);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      }
+    } // end LOAD_CID
+
+  } // end iwd loop
+
+
+  // - - - - - - -
+
+
+  if ( isn != NCID ) {
+    sprintf(c1err,"isn=%d but expected isn = NCID = %d", isn, NCID);
+    sprintf(c2err,"Something is really messed up.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+
+  INPUTS.ncidList_data = NCID;
+ 
+
+  printf("\n");
+  if ( OPT > 0 ) {
+    printf("  %s: Accept only the %d CIDs in %s\n", fnam, NCID, fileName);
+  }
+  else {
+    printf("  %s: Reject any of the %d  CIDs in %s\n", fnam, NCID, fileName);
+  }
+  fflush(stdout);
+
+  return ;
+
+} // END of parse_cidFile_data()
+
+
+// **************************************************     
+void parse_cidFile_data_LEGACY(char *filename) {
+
   // Created Sep 5 2019 - Dillon Brout        
 
   int NCID    = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,filename);
@@ -14989,10 +15148,9 @@ void parse_cidFile_data(char *filename) {
   char *cid ;
   int i;
   int LDMP = 0 ;
-  char fnam[]="parse_cidFile_data";
+  char fnam[] = "parse_cidFile_data_LEGACY";
 
   // ------ BEGIN --------------
-
 
   // for an array of strings this is a 2d array
   INPUTS.cidList_data =  (char**)malloc(MEMC);
@@ -15019,7 +15177,7 @@ void parse_cidFile_data(char *filename) {
  
   return ;
 
-} // END of parse_cidFile_data()
+} // END of parse_cidFile_data_LEGACY()
 
 
 
@@ -16012,7 +16170,7 @@ void prep_input_driver(void) {
 
   // May 9 2019: check INPUTS.fixpar_all
 
-  int i,  NFITPAR, ifile, NTMP=0, USE_CCPRIOR, USE_CCPRIOR_H11 ;
+  int i,  NFITPAR, ifile, NTMP=0, USE_CCPRIOR, USE_CCPRIOR_H11, OPT ;
   char usage[10];
   char *varname_pIa = INPUTS.varname_pIa;
   char fnam[] = "prep_input_driver";
@@ -16291,7 +16449,8 @@ void prep_input_driver(void) {
 
   prep_input_nmax(INPUTS.nmaxString);
 
-  parse_cidFile_data(INPUTS.cidFile_data); // djb
+  OPT = INPUTS.acceptFlag_cidFile_data;
+  parse_cidFile_data(OPT , INPUTS.cidFile_data);  
 
   prep_input_varname_missing();
 

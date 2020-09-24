@@ -169,7 +169,9 @@ if __name__ == "__main__":
         print(f"   outdir set: {outdir_set}")
         sys.stdout.flush()
 
-    print("\n# - - - - - -\n"); sys.stdout.flush()
+    print(f"\n# - - - - - - - - - - - - - - - - - - \n"); 
+    print(f" Output subDirs under \n  {SNANA_TESTS_DIR}\n")
+    sys.stdout.flush()
 
     for infile_set,outdir_set in zip(infile_submit_list,outdir_submit_list) :
         infile_list  = infile_set.split()

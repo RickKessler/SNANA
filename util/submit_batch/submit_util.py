@@ -404,10 +404,14 @@ def copy_input_files(infile_copy_list,output_dir,list_file):
             done_copy_list_nopath.append(infile_nopath)
 
     # check option to write all input file names to a list file
+    # make sure to write only the base name without path, otherwise
+    # the merge process will delete the input file from $PATH.
+
     if list_file != '' :
         LIST_FILE = (f"{output_dir}/{list_file}")
         with open(LIST_FILE, 'w') as f : 
             for infile in done_copy_list:
+                infile_base = os.path.basename(infile) # exclude path           
                 f.write(f"{infile}\n")
 
     # end copy_input_files

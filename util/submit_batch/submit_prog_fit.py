@@ -1,5 +1,13 @@
 # Created July 2020 by R.Kessler & S. Hinton
 #
+# Upgrades w.r.t. split_and_fit.pl:
+#
+#  + NEVT summed from YAML output -> more robust
+#  + each merged table examined to ensure NEVT in merged table.
+#  + error results in FAIL_SUMMARY.LOG and FAIL_REPEAT scripts
+#  + error results in killing all other jobs
+#  + options to force failure ... to check how Pippin reacts
+#  + CPU diagnostics added to MERGE.LOG
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob

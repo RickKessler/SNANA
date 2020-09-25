@@ -1,8 +1,10 @@
 # Created July 2020 by R.Kessler
 #
 # Improvements w.r.t. SALT2mu_fit.pl:
+#
 #  + if there is 1 and only 1 version per INPDIR, there is no
-#    need to specify STRINGMATCH or STRINGMATCH_IGNORE.
+#    need to specify STRINGMATCH or STRINGMATCH_IGNORE ... works
+#    for RANSEED_REPEAT and RANSEED_CHANGE.
 #
 #  + If no errors are detected, everything is gzipped by default.
 #
@@ -14,15 +16,21 @@
 #
 #  + NSPLITRAN runs on all FITOPT & MUOPT ... beware of large N_JOB_TOT
 #
+#  + new FITOPTxMUOPT input to select subset of FITOPTxMUOPT matrix.
+#     (see help with -H BBC args)
+#
+#  + Automatically creates summary files:
+#     BBC_REJECT_SUMMRY.LIST      -> SN rejected by some FITOPT/MUOPT
+#     BBC_SUMMARY_wfit.FITRES     -> summary of wfit results
+#     BBC_SUMMARY_SPLITRAN.FITRES -> NSPLITRAN summary of AVG, RMS, ...
+#
+#  + CPU diagnostics added to MERGE.LOG 
+#
 # - - - - 
 # Potential Upgrades:
 #   read list of BIASCOR outdirs from fit process, and automatically 
 #   fill in simfile_biascor arg. Same for simfile_ccprior.
 #
-# Issues:
-#   Does anybody use FITJOBS_SUMMARY.DAT or FITJOBS_SUMMARY.LOG ??
-#   Includes grepping results for alpha,beta,etc ... This info could
-#   go into YAML output for easier parsing.
 #
 # - - - - - - - - - -
 
@@ -1239,6 +1247,11 @@ class BBC(Program):
             prefix_orig, prefix_final = self.bbc_prefix("wfit", row)
             suffix_move = "YAML"
             orig_file = (f"{prefix_orig}.{suffix_move}")
+
+            EXIST_ORIG_FILE = os.path.isfile(f"{script_dir}/{orig_file}")
+            msgerr = [ f"{prefix_orig} problem", "No YAML output" ] 
+            self.log_assert( EXIST_ORIG_FILE, msgerr )
+
             move_file = (f"{prefix_final}.{suffix_move}")
             cmd_move  = (f"{cddir}; mv {orig_file} ../{version}/{move_file}")
             cmd_all   = (f"{cmd_move}")

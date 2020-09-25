@@ -4,6 +4,8 @@
 # Batch control for class Simulation; replaces lagacy sim_SNmix.pl
 #
 # Upgrades over legacy sim_SNmix.pl :
+#    + can run multiple SNIa jobs/models, analogous to SNCC
+#
 #    + SIMLOGS_XXX/MERGE.LOG is updated regularly with current state
 #      (WAIT, RUN, DONE) and statistics. YAML format parsable by Pippin.
 #      
@@ -11,6 +13,8 @@
 #      leave explicit record of jobs
 #
 #    + FAIL-REPEAT scripts for failed jobs
+#
+#    + CPU diagnostics added to MERGE.LOG   
 #
 # MAYBE, TO-DO ...
 #    - if SIMLOGS exists with no done file, give warning 
@@ -87,7 +91,7 @@ class Simulation(Program):
         # set CONFIG['OUTDIR'] here.
 
         CONFIG       = self.config_yaml['CONFIG']
-        input_file = self.config_yaml['args'].input_file
+        input_file   = self.config_yaml['args'].input_file
         msgerr       = []
         if 'LOGDIR' in CONFIG :
             OUTDIR = CONFIG['LOGDIR']

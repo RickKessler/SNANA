@@ -6385,6 +6385,10 @@ Here are examples of available options for the sim-input file:
   # filter-dependent variants:
    RANSYSTPAR_SIGSHIFT_LAMFILT:  8 10 7 6           # filter shifts (A)
    RANSYSTPAR_SIGSHIFT_ZP: 0.014 0.013 0.022 0.012  # random ZP off
+
+  # after ransyst params are picked, reset randoms with fixed seed
+  # to suppress random fluctuations between GENVERSIONS
+   RANSYSTPAR_RANSEED_GEN: 12345  
 \end{Verbatim}
 %
 {\tt SIGSCALE\_XXX} parameters are interpreted as follows.
@@ -6418,6 +6422,9 @@ of shifts.
   \item {\tt RANSYSTPAR\_SIGSHIFT\_LAMFILT} applies a Gaussian-random shift
           to each filter bandpass.
 %
+  \item {\tt RANSYSTPAR\_RANSEED\_GEN} allows fixing the generation seed
+        after systematic variations are selected. This removes statistical
+        fluctuations from multiple GENVERSIONs.
 \end{itemize}
 
 

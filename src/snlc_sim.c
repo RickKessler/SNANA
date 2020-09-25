@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
   if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID  ) 
     { init_random_seed(INPUTS.ISEED, INPUTS.NSTREAM_RAN); }
 
-  // prepare user input after init_simRandoms to allow 
+  // prepare user input after init_random_seed to allow 
   // random systematic shifts.
   prep_user_input();
 
@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
     errmsg(SEV_FATAL, 0, fnam, c1err, "" ); 
   }
 
-  // prepare randome systematic shifts after reading SURVEY from SIMLIB
+  // prepare random systematic shifts after reading SURVEY from SIMLIB
   prep_RANSYSTPAR() ;
 
   // abort on NGEN=0 after printing N per season (init_DNDZ_Rate above)
@@ -1275,10 +1275,12 @@ void set_user_defaults_SPECTROGRAPH(void) {
 // *******************************************
 void set_user_defaults_RANSYSTPAR(void) {
 
-  int ifilt; 
+  int ifilt ; 
 
   INPUTS.RANSYSTPAR.USE = 0 ;
 
+  INPUTS.RANSYSTPAR.RANSEED_GEN = 0 ;
+  
   // coherent (all bands) scale of flux-errors
   INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR  = 0.0 ; // true & measured 
   INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 = 0.0 ; // measured only
@@ -3287,7 +3289,11 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
 
   // ---------- BEGIN ----------
 
-  if ( keyMatchSim(1, "RANSYSTPAR_SIGSCALE_FLUXERR", 
+  if ( keyMatchSim(1, "RANSYSTPAR_RANSEED_GEN", 
+		   WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.RANSYSTPAR.RANSEED_GEN );
+  }
+  else if ( keyMatchSim(1, "RANSYSTPAR_SIGSCALE_FLUXERR", 
 		   WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR );
   }
@@ -5669,8 +5675,20 @@ void  prep_RANSYSTPAR(void) {
     }
   }
 
-  
-  printf("   %d Systematic Errors have been set. \n\n", NSET);
+
+  printf("   %d Systematic Errors have been set. \n", NSET);
+
+  // - - - - - - - - - - - -
+  // check option to reset randoms with fixed random seed
+  // so that there are no stat fluctuations between
+  // GENVERSIONs with different systematics.
+  int RANSEED_GEN = INPUTS.RANSYSTPAR.RANSEED_GEN;
+  if ( RANSEED_GEN > 0 ) {
+    printf("   Re-init randoms with RANSEED = %d\n", RANSEED_GEN ) ;
+    init_random_seed(RANSEED_GEN, INPUTS.NSTREAM_RAN); 
+  }
+
+  printf("\n");
 
   return ;
 

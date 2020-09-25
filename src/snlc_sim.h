@@ -210,6 +210,7 @@ typedef struct {
 typedef struct {
   int   USE ;
 
+  int   RANSEED_GEN;         // fix ranseed for generation AFTER picking syst params
   float SIGSHIFT_ZP[MXFILTINDX];
   float SIGSHIFT_LAMFILT[MXFILTINDX]; // filterTrans shifts, Ang 
   float SIGSCALE_FLUXERR;    // scale true & measured errors by 1+Gran*SIG

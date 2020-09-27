@@ -718,6 +718,7 @@ struct INPUTS {
 
 
   // define fudges on seeing conditions
+  float FORCEVAL_PSF ;         // force PSF value if > 0
   float FUDGESCALE_PSF ;       // scale PSF
   float FUDGESCALE_NOISE_SKY ;  // scale SKY noise
   float FUDGESCALE_NOISE_READ ; // scale CCD/readout noise

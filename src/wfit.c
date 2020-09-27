@@ -695,9 +695,8 @@ int main(int argc,char *argv[]){
       else if (strcasecmp(argv[iarg]+1,"outfile_chi2grid")==0)  
 	{ strcpy(chi2gridfilevar,argv[++iarg]); }
       
-
       else {
-	printf("Jen Bad arg: %s\n", argv[iarg]);
+	printf("Bad arg: %s\n", argv[iarg]);
 	exit(EXIT_ERRCODE_wfit);
       }
     }

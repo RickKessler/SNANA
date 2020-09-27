@@ -109,11 +109,11 @@ maxprobcc_for_sigint --> compute sigInt from chi2=Ndof for
 # to force P(SNIa)=1 and P(CC)=0 for spectroscopic-confirmed subset,
 type_list_probcc0=1,2,11 
      (list of integer TYPE values in data header)
-idsurvey_list_probcc=5,50,51,53 
+idsurvey_list_probcc0=5,50,51,53 
        or
-idsurvey_list_probcc=CSP,JRK07,KAIT,CFA3
+idsurvey_list_probcc0=CSP,JRK07,KAIT,CFA3
        or
-idsurvey_list_probcc=CSP,JRK07,51,53
+idsurvey_list_probcc0=CSP,JRK07,51,53
    (list of survey names and/or integers from SURVEY.DEF file)
 
     grep Force <stdout>  # to verify parsing
@@ -2008,6 +2008,8 @@ void   J1D_invert_I(int IDSAMPLE, int J1D, int *ia, int *ib, int *ig,
 		    int *iz, int *im, int *ix1, int *ic);
 void   get_J1DNBR_LIST(int IDSAMPLE, int J1D, int *NJ1DNBR, int *J1DNBR_LIST) ;
 double WGT_biasCor(int opt, int ievt, char *msg);
+
+int validRowKey_TEXT(char *string) ; // see sntools_output_text.c
 
 //Eigenvalue routine
 void rs_(void *n, int *nm,double *err,double *w, bool *matz,
@@ -15037,7 +15039,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
 
 
   // check if keyed FITRES file; NCID>0 for FITRES; otherwise NCID=0.
-  NCID = SNTABLE_NEVT_TEXT(fileName);
+  NCID = SNTABLE_NEVT(fileName,TABLENAME_FITRES);
 
   // scoop up all words in file, regardless of format.
   MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_IGNORECOMMENT;
@@ -16511,7 +16513,7 @@ void prep_input_probcc0(void) {
   //   type_list_probcc0=3,33  
   //        (list of int TYPE values in data header)
   //
-  //   idsurvey_list_probcc=DES,52,53 
+  //   idsurvey_list_probcc0=DES,52,53 
   //       (list of string and/or ID from SURVEY.DEF file)
   //
   //  The type and idsurvey lists correspond to spec-confirmed

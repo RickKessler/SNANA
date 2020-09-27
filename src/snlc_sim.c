@@ -1061,6 +1061,7 @@ void set_user_defaults(void) {
   INPUTS.IFILTOBS_FUDGE_SNRMAX = -1 ;
   INPUTS.STRING_FUDGE_SNRMAX[0] = 0 ;
 
+  INPUTS.FORCEVAL_PSF              = -9.0 ;
   INPUTS.FUDGESCALE_PSF            = 1.0 ;
   INPUTS.FUDGESCALE_NOISE_SKY      = 1.0 ;
   INPUTS.FUDGESCALE_NOISE_READ     = 1.0 ;
@@ -2038,6 +2039,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "FUDGE2_SNRMAX", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%s", INPUTS.STRING_FUDGE_SNRMAX );
     INPUTS.OPT_FUDGE_SNRMAX = 2 ;
+  }
+  else if ( keyMatchSim(1, "FORCEVAL_PSF",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.FORCEVAL_PSF );
   }
   else if ( keyMatchSim(1, "FUDGESCALE_PSF",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.FUDGESCALE_PSF );
@@ -13884,6 +13888,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.ZPTADU[ISTORE]   );  
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.ZPTERR[ISTORE]   );  
       readdouble ( fp_SIMLIB, 1, &SIMLIB_OBS_RAW.MAG[ISTORE]      );
+
+      if ( INPUTS.FORCEVAL_PSF > 0.001 )  // Sep 2020
+	{ SIMLIB_OBS_RAW.PSFSIG1[ISTORE] = INPUTS.FORCEVAL_PSF; 
+	}
 
       // check MAG column for SIMLIB model (Nov 2019)
       MAG = SIMLIB_OBS_RAW.MAG[ISTORE];

@@ -928,6 +928,10 @@ class Simulation(Program):
         KEYLIST = SIMGEN_MASTERFILE_KEYLIST_NONIa
         infile_list_NONIa = util.get_YAML_key_values(CONFIG,KEYLIST)
 
+        # fix partial paths by adding CWD if needed.
+        infile_list_SNIa  = util.fix_partial_path(infile_list_SNIa)
+        infile_list_NONIa = util.fix_partial_path(infile_list_NONIa)
+
         n_infile_SNIa  = len(infile_list_SNIa)
         n_infile_NONIa = len(infile_list_NONIa)
         n_infile       = n_infile_SNIa + n_infile_NONIa
@@ -950,6 +954,7 @@ class Simulation(Program):
 
         #end sim_prep_SIMGEN_INFILE_defaults
 
+    
     def sim_prep_SIMGEN_INFILE_genversion(self):
 
         # load 2D list of infile[version][ifile] for
@@ -970,7 +975,11 @@ class Simulation(Program):
                                      
             KEYLIST = SIMGEN_MASTERFILE_KEYLIST_NONIa
             infile_list_NONIa = util.get_YAML_key_values(GENV,KEYLIST)
-                                     
+        
+            # fix partial paths by adding CWD if needed.
+            infile_list_SNIa  = util.fix_partial_path(infile_list_SNIa)
+            infile_list_NONIa = util.fix_partial_path(infile_list_NONIa)
+                             
             # store list of lists (list for each GENVERSION)
             infile_list2d_SNIa.append(infile_list_SNIa)
             infile_list2d_NONIa.append(infile_list_NONIa)

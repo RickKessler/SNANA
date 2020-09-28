@@ -93,7 +93,7 @@ To check sample stats for each surveyGroup and fieldGroup,
  - - - - -  CCprior options - - - - -  
 simfile_ccprior=name    ! sim fitres file to compute CC prior and
                         !  flag to to a BEAMS-like fit
-simfile_ccprior=same  --> use same file as simfile_bias
+simfile_ccprior=same  --> use same file(s) as simfile_bias
 simfile_ccprior=name1,name2,etc  ! comma-sep list
 simfile_ccprior=H11   --> no sim; use CC MU-z function from Hlozek 2011
   BEWARE: must use 5D biasCor with simfile_ccprior option;
@@ -1408,7 +1408,8 @@ struct INPUTS {
 
   // optional sim-files with corrections/maps
   int  nfile_biasCor;        // number of biascor files
-  char **simFile_biasCor ;   // sim info for BBC method
+  char **simFile_biasCor ;   // comma-sep list of biasCor inputs
+  char *simFile_biasCor_arg;  // store input string in case CCprior needs it
   int  opt_biasCor ;
   int  prescale_biasCor[2] ; // subset use [0] of [1]
   double sigint_biasCor ;     // force sigint instead of autocompute
@@ -1430,6 +1431,7 @@ struct INPUTS {
   int  nfile_CCprior;
   char **simFile_CCprior;    // to get CC prior, dMU vs. z
   char   varname_pIa[100];
+  bool   sameFile_flag_CCprior; // True -> same file(s) as biasCor
 
   char   append_varname_missing[100]; // force missing varname(s) with -9
 
@@ -5234,6 +5236,8 @@ void set_defaults(void) {
   // stuff for CC prior
   INPUTS.nfile_CCprior  = 0 ;
   INPUTS.varname_pIa[0] = 0 ;
+  INPUTS.sameFile_flag_CCprior = false ;
+
   sprintf(INPUTS.append_varname_missing,"PROB*");
   INPUTS.force_pIa      = -9.0;
   INPUTS.perfect_pIa    = false ;
@@ -12660,7 +12664,8 @@ void prepare_CCprior(void) {
   // usage in fit likelihood.
   //
   // Jun 20 2018: abort on 1D biasCor.
-  
+  // Sep 28 2020: check option to use "same" file(s) as for biasCor
+
   int  EVENT_TYPE   = EVENT_TYPE_CCPRIOR ;
   int  NSAMPLE      = NSAMPLE_BIASCOR ;
   int  NDIM_BIASCOR = INFO_BIASCOR.NDIM ;
@@ -12669,6 +12674,7 @@ void prepare_CCprior(void) {
 
   // ------------- BEGIN -------------
 
+  // check for H11 polynomial prior that does use sim files
   USE_CCPRIOR_H11 = INFO_CCPRIOR.USEH11;
 
   if ( INPUTS.nfile_CCprior == 0 ) { return; }
@@ -14953,11 +14959,16 @@ void parse_simfile_biasCor(char *item) {
   // Created May 15 2019
   // parse comma-separate list of biascor files names.
 
-  int ifile;
+  int ifile, lenf ;
   int MEMC = MXCHAR_FILENAME*sizeof(char);
   //  char fnam[]  = "parse_simfile_biasCor" ;
 
   // ------------------ BEGIN -----------------
+
+  // store item in case CCprior needs to use same file list
+  lenf = strlen(item) + 10 ;
+  INPUTS.simFile_biasCor_arg = (char*) malloc(lenf * sizeof(char) );
+  sprintf(INPUTS.simFile_biasCor_arg, "%s", item);
 
   // first allocate memory for file names
   INPUTS.simFile_biasCor = (char**)malloc( MXFILE_BIASCOR*sizeof(char*));
@@ -14984,9 +14995,15 @@ void parse_simfile_CCprior(char *item) {
 
   int ifile;
   int MEMC           = MXCHAR_FILENAME*sizeof(char);
-  //  char fnam[]  = "parse_simfile_CCprior" ;
+  char fnam[]  = "parse_simfile_CCprior" ;
 
   // ------------------ BEGIN -----------------
+
+  // 9.28.2020:check "same" option
+  if ( strcmp(item,"same") == 0 ) {
+    sprintf(item, "%s",  INPUTS.simFile_biasCor_arg); 
+    INPUTS.sameFile_flag_CCprior = true; 
+  }
 
   // first allocate memory for file names
   INPUTS.simFile_CCprior = (char**)malloc( MXFILE_CCPRIOR*sizeof(char*));
@@ -19597,7 +19614,6 @@ void SUBPROCESS_OUTPUT_TABLE_PREP(int itable) {
   for(ivar=0; ivar < MXVAR; ivar++ ) 
     { free(ptrVarDef[ivar]);  }
 
-  // .xyz
 
 } // end SUBPROCESS_OUTPUT_TABLE_PREP
 

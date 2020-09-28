@@ -18981,5 +18981,6 @@
     SALT2mu.c :
       + add new key  cid_reject_file, analogous to cid_select_file
       + both of the above can be FITRES format or un-keyed list format.
+      + fix option for  simfile_ccprior=same [-> same as simfile_biascor]
 
 END: 

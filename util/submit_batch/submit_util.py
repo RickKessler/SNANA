@@ -10,7 +10,21 @@ from   submit_params import *
 
 # =================================================
 
+def fix_partial_path(file_list):
 
+    # if any file in file_list has a partial path, tack on CWD
+    # e.g., file = sim/abc.input, then out_file_list has
+    # [CWD]/sim/abc.input
+    
+    out_file_list = [] 
+    for f0 in file_list :
+        f1 = f0  # default out file name is same as input file name.
+        if '/' in f0 and f0[0] != '/' :  f1 = (f"{CWD}/{f0}")
+        out_file_list.append(f1)
+
+    return out_file_list
+    # end fix_partial_path
+        
 def separate_label_from_arg(input_arg_list):
 
     # If input_arg_list = /LABEL/ x1min=-2.0 nzbin=20
@@ -210,11 +224,6 @@ def compress_subdir(flag,dir_name):
     # Initial use is for cleanup_job_files(flag=1) and 
     # merge_reset(flag=-1)
 
-    # xxxx mark delete xxxxx
-    #j_slash     = dir_name.rindex("/")
-    #topdir_name = dir_name[0:j_slash]
-    #subdir_name = dir_name[j_slash+1:]
-    # xxxxxxxxxxxx
 
     topdir_name = os.path.dirname(dir_name)
     subdir_name = os.path.basename(dir_name)
@@ -392,7 +401,8 @@ def copy_input_files(infile_copy_list,output_dir,list_file):
             shutil.copy(infile,output_dir)
             done_copy_list.append(infile)
 
-            infile_nopath = ntpath.split(infile)[1]
+            infile_nopath = os.path.basename(infile)
+            # xxx infile_nopath = ntpath.split(infile)[1]
             if infile_nopath in done_copy_list_nopath:
                 j = done_copy_list_nopath.index(infile_nopath)
                 msgerr.append(f"Cannot define duplicate input/include file names")

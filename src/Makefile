@@ -135,6 +135,10 @@
 #     +  remove "ar r" commands to put C functions in libsnana.a
 #          (libsnana.a is now just fortran code)
 #
+# Sep 28 2020: 
+#   refactor EXTRA_FLAGS into EXTRA_FLAGS_FORTRAN and EXTRA_FLAGS_C
+#   Difference matters for gcc version 10
+#        
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -157,22 +161,23 @@ FFC  = gfortran
 #CC   = cc
 CC   = gcc
 
-# check if gcc version is 10 or higher (9.2020)
-GCCVERSION10 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 10)
-
-ifeq ($(GCCVERSION10),0)
-   FORTRAN_FLAGS  = 
-else 
-# for gcc v10, allow argument-mismatch errors (9.2020)
-   FORTRAN_FLAGS = -fallow-argument-mismatch -fcommon
-endif
-
   EXTRA_FLAGS = -O1   # -ftree-vectorize -ftree-vectorizer-verbose=2
   PROFILEFLAG = 
 
 # EXTRA_FLAGS = -O2 -Wall
 #  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
+# check if gcc version is 10 or higher (9.2020)
+GCCVERSION10 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 10)
+
+ifeq ($(GCCVERSION10),0)
+   EXTRA_FLAGS_FORTRAN  = $(EXTRA_FLAGS)
+   EXTRA_FLAGS_C        = $(EXTRA_FLAGS)
+else 
+# for gcc v10, allow argument-mismatch errors (9.2020)
+   EXTRA_FLAGS_FORTRAN = $(EXTRA_FLAGS) -fallow-argument-mismatch -fcommon
+   EXTRA_FLAGS_C       = $(EXTRA_FLAGS) -fcommon
+endif
 
 # after running code with -pg, "gprof $SNANA_DIR/bin/[code].exe"
 #  PROFILEFLAG = -pg
@@ -269,12 +274,12 @@ endif
 # --------------------------------------------
 # set compile flags.
 ifeq ($(BITNESS),i686)
-   SNFFLAGS  = -c -static -fno-automatic -fsecond-underscore $(EXTRA_FLAGS) $(FORTRAN_FLAGS)
+   SNFFLAGS  = -c -static -fno-automatic -fsecond-underscore $(EXTRA_FLAGS_FORTRAN)
    SNCFLAGS  = -c -static -m64 $(EXTRA_FLAGS)
    SNLDFLAGS = -m64 -lg2c -lpthread $(PROFILEFLAG)
 else
-   SNFFLAGS  = -c -static -fno-automatic -m64 -fsecond-underscore $(EXTRA_FLAGS) $(FORTRAN_FLAGS)
-   SNCFLAGS  = -c -static -m64 $(EXTRA_FLAGS)
+   SNFFLAGS  = -c -static -fno-automatic -m64 -fsecond-underscore $(EXTRA_FLAGS_FORTRAN)
+   SNCFLAGS  = -c -static -m64 $(EXTRA_FLAGS_C)
    SNLDFLAGS = -m64 -lpthread $(PROFILEFLAG)
 endif
 

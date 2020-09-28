@@ -20980,7 +20980,7 @@ void init_kcor_legacy(char *kcorFile) {
 
   // check for optional SPECTROGRPH info
   
-  read_spectrograph_fits(kcorFile) ;   
+  read_spectrograph_fits(KCORFILE) ;   
   if ( SPECTROGRAPH_USEFLAG ) {
     printf("   Found %d synthetic spectrograph filters (%s) \n",
 	   GENLC.NFILTDEF_SPECTROGRAPH, GENLC.FILTERLIST_SPECTROGRAPH );

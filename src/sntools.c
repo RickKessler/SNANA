@@ -10573,7 +10573,7 @@ void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCal
     jstat_gz = stat(tmpName_gz, &statbuf_gz); // returns 0 if file exists
 
     if ( jstat==0 || jstat_gz==0 ) 
-      { FOUNDIT = true ;   sprintf(FILENAME, "%s", tmpName);  }
+      { FOUNDIT = true ;   sprintf(FILENAME, "%s", tmpName);  break; }
 
   } // end ipath
   

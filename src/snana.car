@@ -30430,34 +30430,6 @@ c -------------
       INTEGER IFILT, IFILT_OBS, jlen
       LOGICAL DO_ZPOFF
 
-+SELF,IF=MARKDELETE.
-
-c xxxxx mark delete Dec 7 2019 xxxxxxxxxxxxxx
-c -----------------------------------------------
-c set legacy SDSS_web2001 AB offsets if ZPOFF file has not
-c been specified in the KCOR file (as hid 252 or 292), 
-c and if ZPOFF values have not already been read.
-c This logic is needed to read the really old KCOR files
-c that do not have the SDSS AB offsets included.
-
-      if (  ZPOFF_FILE .EQ. 'NULL' 
-     &  .and. .not. LRDZPOFF         ! not read from KCOR hbook file
-     &  .and.  SURVEY_NAME(1:4) .EQ. 'SDSS' ) then
-          jlen = INDEX(SNDATA_ROOT,' ') - 1
-          ZPOFF_FILE = SNDATA_ROOT(1:jlen) // 
-     &       '/filters/SDSS_web2001/ZPOFF.DAT'
-      endif
-
-      DO_ZPOFF   = ( ZPOFF_FILE .NE. 'NULL' ) .and. 
-     &             ( NCALL_RDKCOR .EQ. 1 ) 
-
-      IF ( DO_ZPOFF ) THEN
-         LRDZPOFF = .TRUE.
-         CALL RD_ZPOFF(ZPOFF_FILE, FILTOBS_ZPOFF_SNPHOT)  ! return ZPOFF
-      ENDIF
-c xxxxxxxxxx end mark xxxxxxxxxxx
-+SELF.
-
 c update ZP-shift for each filter (i.e., add to user-shift)
       DO ifilt  = 1, NFILTDEF_SURVEY
           ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)

@@ -4876,6 +4876,13 @@ void prep_user_input(void) {
     { INPUTS.FORMAT_MASK = 0;  DOCHECK_FORMAT_MASK=0; }
 
 
+
+  // 9.28.2020: find kcor file and update INPUTS.KCOR_FILE if needed
+  char PATH_KCOR_LIST[2*MXPATHLEN], kcorFile[MXPATHLEN];
+  sprintf(kcorFile, "%s", INPUTS.KCOR_FILE);
+  sprintf(PATH_KCOR_LIST, "%s %s/kcor",  PATH_USER_INPUT, PATH_SNDATA_ROOT );
+  find_pathfile(kcorFile, PATH_KCOR_LIST, INPUTS.KCOR_FILE, fnam ); 
+
   // --------------------------------------
   //----------- PRINT SUMMARY -------------
   // --------------------------------------
@@ -20866,7 +20873,6 @@ void init_kcor_legacy(char *kcorFile) {
   int ierrstat, ifilt, ifilt_obs, OPT, NKCOR=0 ;
   float tmpoff_kcor[MXFILTINDX] ;
   char   copt[40], xtDir[MXPATHLEN], cfilt[4];
-  char KCORFILE[MXPATHLEN], PATH_KCOR_LIST[2*MXPATHLEN];
   char fnam[] = "init_kcor_legacy" ;
 
   // -------------- BEGIN --------------
@@ -20881,12 +20887,7 @@ void init_kcor_legacy(char *kcorFile) {
 		,strlen(GENLC.SURVEY_NAME)   
 		);
 
-  // read K-cor and mag tables (vs. Z, epoch, AV)
-  sprintf(PATH_KCOR_LIST, "%s %s/kcor",  PATH_USER_INPUT, PATH_SNDATA_ROOT );
-  find_pathfile(kcorFile, PATH_KCOR_LIST, KCORFILE, fnam ); //return KCORFILE
-
-  // xxxx  rdkcor_(kcorFile, &ierrstat, strlen(kcorFile) );
-  rdkcor_(KCORFILE, &ierrstat, strlen(KCORFILE) ); // .xyz
+  rdkcor_(kcorFile, &ierrstat, strlen(kcorFile) );
 
   if ( ierrstat != 0 ) {
     sprintf(c1err, "Could not open kcor file: '%s'", kcorFile);
@@ -20980,7 +20981,7 @@ void init_kcor_legacy(char *kcorFile) {
 
   // check for optional SPECTROGRPH info
   
-  read_spectrograph_fits(KCORFILE) ;   
+  read_spectrograph_fits(kcorFile) ;   
   if ( SPECTROGRAPH_USEFLAG ) {
     printf("   Found %d synthetic spectrograph filters (%s) \n",
 	   GENLC.NFILTDEF_SPECTROGRAPH, GENLC.FILTERLIST_SPECTROGRAPH );

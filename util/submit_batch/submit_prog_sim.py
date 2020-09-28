@@ -1958,8 +1958,9 @@ class Simulation(Program):
             infile_list2d     = self.config_prep['infile_list2d']
             n_file            = len(infile_list2d[iver])
             for ifile in range(0,n_file) :
-                infile = infile_list2d[iver][ifile]
-                infile_list_2copy.append(f"{simlog_dir}/{infile}")
+                infile      = infile_list2d[iver][ifile]
+                infile_base = os.path.basename(infile)
+                infile_list_2copy.append(f"{simlog_dir}/{infile_base}")
 
             util.copy_input_files(infile_list_2copy,misc_dir,"")
 

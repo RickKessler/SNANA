@@ -20855,6 +20855,10 @@ void init_kcor_legacy(char *kcorFile) {
      + get_kcor_mwpar() -> get_kcor_info(), and NKCOR is returned. 
      + for rest-frame model, abort if NKCOR==0.
 
+   Sep 28 2020: 
+     + use new function find_pathfile(...) to find kcor_file by searching
+       current, SNDATA_ROOT and PATH_USER_INPUT.
+
   *********/
 
   int ISMODEL_FIXMAG = ( INDEX_GENMODEL == MODEL_FIXMAG );
@@ -20862,6 +20866,7 @@ void init_kcor_legacy(char *kcorFile) {
   int ierrstat, ifilt, ifilt_obs, OPT, NKCOR=0 ;
   float tmpoff_kcor[MXFILTINDX] ;
   char   copt[40], xtDir[MXPATHLEN], cfilt[4];
+  char KCORFILE[MXPATHLEN], PATH_KCOR_LIST[2*MXPATHLEN];
   char fnam[] = "init_kcor_legacy" ;
 
   // -------------- BEGIN --------------
@@ -20877,7 +20882,11 @@ void init_kcor_legacy(char *kcorFile) {
 		);
 
   // read K-cor and mag tables (vs. Z, epoch, AV)
-  rdkcor_(kcorFile, &ierrstat, strlen(kcorFile) );
+  sprintf(PATH_KCOR_LIST, "%s %s/kcor",  PATH_USER_INPUT, PATH_SNDATA_ROOT );
+  find_pathfile(kcorFile, PATH_KCOR_LIST, KCORFILE, fnam ); //return KCORFILE
+
+  // xxxx  rdkcor_(kcorFile, &ierrstat, strlen(kcorFile) );
+  rdkcor_(KCORFILE, &ierrstat, strlen(KCORFILE) ); // .xyz
 
   if ( ierrstat != 0 ) {
     sprintf(c1err, "Could not open kcor file: '%s'", kcorFile);

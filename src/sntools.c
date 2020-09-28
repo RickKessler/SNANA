@@ -8424,8 +8424,8 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
     // PySEDMODEL info for BYOSED, SNEMO
     if ( SNDATA.NPAR_PySEDMODEL > 0 ) {
       fprintf(fp,"\n");
-      fprintf(fp,"%s_NPAR: %d \n",   // .xyz
-	      SNDATA.SIM_MODEL_NAME, SNDATA.NPAR_PySEDMODEL ); // .xyz
+      fprintf(fp,"%s_NPAR: %d \n",  
+	      SNDATA.SIM_MODEL_NAME, SNDATA.NPAR_PySEDMODEL ); 
       for ( ipar = 0; ipar < SNDATA.NPAR_PySEDMODEL; ipar++ ) {
 	fprintf(fp,"%s:  %f \n"
 		,SNDATA.PySEDMODEL_KEYWORD[ipar]
@@ -10530,6 +10530,71 @@ float edgedist ( float X, float Y, int NXPIX, int NYPIX ) {
 
 } // end of edgedist
 
+
+// ==================================
+void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCall){
+
+  // Created Sep 28 2020
+  // For input *fileName, check if it exists in CWD, or in any
+  // path in (space-separated) PATH_LIST.
+  // Return FILENAME that includes full path (if needed).
+  // Abort if file not found.
+
+  // ------------ BEGIN ----------------
+
+#define MXPATH_CHECK 4
+
+  struct stat statbuf, statbuf_gz;
+  bool FOUNDIT = false;
+  int  jstat, jstat_gz, ipath, NPATH ;
+  char *path, *PATH[MXPATH_CHECK], sepKey[] = " ";
+  char  tmpName[MXPATHLEN], tmpName_gz[MXPATHLEN] ;
+  char fnam[] = "find_pathfile";
+
+  // ------------- BEGIN -----------
+
+  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
+    { PATH[ipath] = (char*) malloc(MXPATHLEN*sizeof(char) ); }
+
+  splitString(PATH_LIST, sepKey, MXPATH_CHECK,
+	       &NPATH, &PATH[1] ); // <== returned
+
+  NPATH++; sprintf(PATH[0],"");
+
+  for ( ipath=0; ipath < NPATH; ipath++ ) {
+    path = PATH[ipath] ;
+    if ( strlen(path) == 0 ) 
+      { sprintf(tmpName,"%s", fileName); }
+    else
+      { sprintf(tmpName,"%s/%s", path, fileName); }
+
+    sprintf(tmpName_gz, "%s.gz", tmpName);
+    jstat    = stat(tmpName,    &statbuf);    // returns 0 if file exists
+    jstat_gz = stat(tmpName_gz, &statbuf_gz); // returns 0 if file exists
+
+    if ( jstat==0 || jstat_gz==0 ) 
+      { FOUNDIT = true ;   sprintf(FILENAME, "%s", tmpName);  }
+
+  } // end ipath
+  
+  // - - - - - - - - - - 
+  if ( !FOUNDIT ) {
+    print_preAbort_banner(fnam);
+    printf("   Called by function %s \n", funCall);
+    for ( ipath=1; ipath < NPATH; ipath++ ) 
+      { printf("   File not in path: %s \n", PATH[ipath] ); }
+    sprintf(c1err,"Could not find file in paths listed above:");
+    sprintf(c2err,"fileName = %s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);   
+  }
+
+  //  debugexit(fnam);
+
+  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )  { free(PATH[ipath]); }
+
+
+  return;
+} // end find_pathfile
 
 // ==================================
 FILE *open_TEXTgz(char *FILENAME, const char *mode, int *GZIPFLAG ) {

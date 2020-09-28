@@ -27165,7 +27165,6 @@ c there are no K-corrections (i.e, for SALT2)
       Zrange_KCOR(2) = CUTWIN_REDSHIFT(2)
       Zbinsize_KCOR  = 0.0
 
-
       DO IFILT = 1, MXFILT_ALL
         MAG_PRIMARY_RDKCOR(IFILT)     = 0.0
         ZPOFF_PRIMARY_RDKCOR(ifilt)  = 0.0
@@ -27196,7 +27195,6 @@ C ====================
 
 C Created Dec 2012 by R.Kesseler
 C Read calib/kcor file in fits format.
-C Long-term goal is to replace HBOOK files with kcor-fits files.
 
       IMPLICIT NONE
  

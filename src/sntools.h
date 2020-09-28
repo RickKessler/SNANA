@@ -776,6 +776,8 @@ void print_banner ( const char *banner ) ;
 void fprint_banner (FILE *FP, const char *banner ) ;
 
 // shells to open text file
+void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *callFun);
+
 FILE *open_TEXTgz(char *FILENAME, const char *mode,int *GZIPFLAG) ;
 FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName, 
 			  char *fullName, int *gzipFlag ); 

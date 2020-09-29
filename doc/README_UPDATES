@@ -18945,9 +18945,12 @@
 
 
 # ======================================================================= 
-         v10_78d (  ) 
+         v10_78d (Sep 29 2020) 
 
          ***** IMPORTANT(v10_78d) ***** 
+
+    SALT2mu: require central biasCor cell (containing data point)
+             to have valid biasCor stats and be used for interpolation.
 
          ***** USEFUL(v10_78d) ***** 
 
@@ -18964,7 +18967,9 @@
     snlc_sim.c
       + fix bug parsing DNDZ ZPOLY
       + new input RANSYSTPAR_RANSEED_GEN
- 
+      + check if KCOR_FILE exists in PATH_USER_INPUT 
+          (see new find_pathfile function in sntools)
+
     SNANA_submit_tests.py :
       + new script to test submit_batch_jobs; 
           see $SNANA_TESTS/inputs_submit_batch
@@ -18982,5 +18987,23 @@
       + add new key  cid_reject_file, analogous to cid_select_file
       + both of the above can be FITRES format or un-keyed list format.
       + fix option for  simfile_ccprior=same [-> same as simfile_biascor]
-
+      + require center cell to have enough stats to be used in biasCor
+        used in biasCor. From SNANA_code_test, CCPRIOR sample looses
+        few percent, and DATA lose < 1%. Here are old-vs-new comparisons:
+       TASK094_SALT2mu_DES_BBC5D_noCC    :  mis-match (REF != TEST)
+           ==> REF:  fit-Beta = 3.0157e+00 +/- 1.5007e-01
+           ==> TEST: fit-Beta = 3.0149e+00 +/- 1.5171e-01
+       TASK096_SALT2mu_DES3YR_BBC5D   :  mis-match (REF != TEST)
+          ==> REF:  fit-Gamma = 3.3660e-02 +/- 1.8623e-02
+          ==> TEST: fit-Gamma = 3.4020e-02 +/- 1.8714e-02
+       TASK097_SALT2mu_DESNN_BBC5D       :  mis-match (REF != TEST)
+          ==> REF:  fit-Beta = 3.0760e+00 +/- 5.3857e-02
+          ==> TEST: fit-Beta = 3.0831e+00 +/- 5.5887e-02
+       TASK098_SALT2mu_DESNN_BBC5D+OPT128   :  mis-match (REF != TEST)
+          ==> REF:  fit-Beta = 3.1028e+00 +/- 2.2045e-02
+          ==> TEST: fit-Beta = 3.1046e+00 +/- 2.2501e-02
+       TASK099_SALT2mu_DESNN_H11BBC5D   :  mis-match (REF != TEST)
+          ==> REF:  fit-Beta = 3.0895e+00 +/- 8.2675e-02
+          ==> TEST: fit-Beta = 3.0822e+00 +/- 8.4002e-02
+        
 END: 

@@ -2242,6 +2242,8 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   // check for conflicts between input variables
   conflict_check();
 
+  TABLEFILE_INIT();  // call before prep_input_driver , 9.28.2020
+
   // prepare input
   prep_input_driver();
 
@@ -2250,7 +2252,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
 
   // --------------------------------------
   //Read input data from SALT2 fit
-  TABLEFILE_INIT();
+  // xxx mark delete 9.28.2020  TABLEFILE_INIT();
 
   read_data(); 
   compute_more_INFO_DATA();  

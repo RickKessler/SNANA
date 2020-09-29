@@ -831,6 +831,8 @@ Default output files (can change names with "prefix" argument)
     + cid_reject_file and cid_select_file can be either FITRES format
       or list without any keys or commas.
 
+ Sep 29 2020: few tweaks to get_fitParBias
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1892,7 +1894,7 @@ void  store_iaib_biasCor(void) ;
 
 void  zero_FITPARBIAS(FITPARBIAS_DEF *FITPARBIAS) ;
 int   get_fitParBias(char *CID, BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
-		     FITPARBIAS_DEF *FITPARBIAS);
+		     char *callFun, FITPARBIAS_DEF *FITPARBIAS);
 int get_muCOVscale(char *cid,  BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
 		   double *muCOVscale ) ;
 
@@ -9858,7 +9860,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     
     //    DUMPFLAG = ( isp < 5 ); // xxxx REMOVE
     istat_bias = 
-      get_fitParBias(name, &BIASCORLIST, DUMPFLAG,
+      get_fitParBias(name, &BIASCORLIST, DUMPFLAG, fnam, 
 		     &FITPARBIAS[ia][ib][ig] ); // <== returned
 
     //  DUMPFLAG = 0 ; // xxx REMOVE
@@ -11374,7 +11376,7 @@ int  storeDataBias(int n, int DUMPFLAG) {
 	BIASCORLIST.gammadm  = (*BININFO_SIM_GAMMADM).avg[ig];
 
 	istat_bias = 
-	  get_fitParBias(name, &BIASCORLIST, DUMPFLAG,             // in
+	  get_fitParBias(name, &BIASCORLIST, DUMPFLAG, fnam,            // in
 			 &INFO_DATA.FITPARBIAS_ALPHABETA[n][ia][ib][ig]);//out
 
 	if ( DUMPFLAG ) {
@@ -11430,7 +11432,7 @@ int  storeBias_CCprior(int n) {
 
   BIASCORLIST_DEF BIASCORLIST ;
 
-  int    DUMPFLAG = ( n < -4 );
+  int    DUMPFLAG = 0; // (strcmp(name,"184000") == 0) ;
   int    ia, ib, ig, istat_bias ;
   char   fnam[] = "storeBias_CCprior" ;
 
@@ -11475,7 +11477,7 @@ int  storeBias_CCprior(int n) {
       BIASCORLIST.gammadm  = INFO_BIASCOR.BININFO_SIM_GAMMADM.avg[ig];
 
       istat_bias =
-	get_fitParBias(name, &BIASCORLIST, DUMPFLAG,
+	get_fitParBias(name, &BIASCORLIST, DUMPFLAG, fnam, 
 		       &INFO_CCPRIOR.FITPARBIAS_ALPHABETA[n][ia][ib][ig] );
 
       /* 
@@ -11500,7 +11502,7 @@ int  storeBias_CCprior(int n) {
 
 // ======================================================
 int get_fitParBias(char *cid, 
-		   BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
+		   BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG, char *callFun,
 		   FITPARBIAS_DEF  *FITPARBIAS) {
 
   // Created May 2016
@@ -11513,6 +11515,10 @@ int get_fitParBias(char *cid,
   // Apr 18 2017: enhance dump output.
   //
   // Nov 18 2019: check option to interpolate biasCor vs. logMass.
+  //
+  // Sep 29 2020:
+  //   + pass callFun for error message
+  //   + requier central cell is used; see USE_CENTER_CELL
   //
   // -----------------------------------------
   // strip BIASCORLIST inputs into local variables
@@ -11548,6 +11554,7 @@ int get_fitParBias(char *cid,
   int IZMIN, IZMAX, IMMIN, IMMAX, ICMIN, ICMAX, IX1MIN, IX1MAX ;
   int j1d, ia, ib, ig, iz, im, ix1, ic, ipar ;
   int NperCell, NSUM_Cell, NCELL_INTERP_TOT, NCELL_INTERP_USE ;
+  bool USE_CENTER_CELL;
 
   double WGT, SUM_WGT, BINSIZE;
   double AVG_z, AVG_m, AVG_x1, AVG_c, avg_z, avg_m, avg_x1, avg_c ;
@@ -11556,7 +11563,7 @@ int get_fitParBias(char *cid,
   double VAL, ERR, RMS, dif, Dc, Dz, Dm, Dx1 ;
 
   double DEBUG_LIST_DIF[4][50];
-  int    DEBUG_LIST_INDX[4][50];
+  int    DEBUG_LIST_INDX[4][50], DEBUG_LIST_NPERCELL[50];
   double DEBUG_LIST_WGT[50];
   BININFO_DEF *BININFO_SIM_ALPHA, *BININFO_SIM_BETA, *BININFO_SIM_GAMMADM ;
 
@@ -11720,6 +11727,8 @@ int get_fitParBias(char *cid,
   // ----------------------------------------------
   // -------- start 4D loop over cells -------------
   
+  USE_CENTER_CELL = false;
+
   for(iz = IZMIN; iz <= IZMAX; iz++ ) {    
     for(im = IMMIN; im <= IMMAX; im++ ) {    
       for(ix1 = IX1MIN; ix1 <= IX1MAX; ix1++ ) {
@@ -11740,8 +11749,10 @@ int get_fitParBias(char *cid,
 	  NperCell = CELLINFO_BIASCOR[ID].NperCell[j1d] ;
 	  if ( NperCell < BIASCOR_MIN_PER_CELL  ) { continue; }
 	  
+	  if ( iz==IZ && im==IM && ix1==IX1 && ic==IC ) 
+	    { USE_CENTER_CELL = true ; }
+
 	  // get distance between current data value and wgted-avg in bin
-	  
 	  dif = z - CELLINFO_BIASCOR[ID].AVG_z[j1d] ;
 	  Dz  = fabs(dif/BINSIZE_z) ;
 
@@ -11770,7 +11781,8 @@ int get_fitParBias(char *cid,
 	  DEBUG_LIST_INDX[2][NCELL_INTERP_USE] = ix1 ;
 	  DEBUG_LIST_INDX[3][NCELL_INTERP_USE] = ic ;
 	  DEBUG_LIST_WGT[NCELL_INTERP_USE]     = WGT ;
-	  
+	  DEBUG_LIST_NPERCELL[NCELL_INTERP_USE] = NperCell ;
+
 	  if ( WGT < 0.0 ) { WGT = 0.0 ; }
 	
 	  SUM_WGT   += WGT ;
@@ -11821,6 +11833,7 @@ int get_fitParBias(char *cid,
 
    // require enough cells for interpolation (July 2016)
    if ( NCELL_INTERP_USE < 3 ) { return(0); } 
+   if ( !USE_CENTER_CELL     ) { return(0); } // 9.29.2020
 
    // require both z-bins to be used.
    int ISKIP = 0 ;
@@ -11852,17 +11865,21 @@ int get_fitParBias(char *cid,
   if ( SUM_WGT <= 1.0E-9 ) {
     int icell ;
     print_preAbort_banner(fnam);
+    printf("  Called by function: %s \n", callFun );
     printf("  IZMIN/MAX=%d/%d   IMMIN/MAX=%d,%d  "
 	   "IX1MIN/MAX=%d/%d   ICMIN/MAX=%d/%d\n",	   
 	   IZMIN,IZMAX,  IMMIN, IMMAX, IX1MIN,IX1MAX,   ICMIN, ICMAX);
-    printf("  BINSIZE(z,m,x1,c) = %.3f, %.3f, %.3f, %.3f \n",
+    printf("  VALUE(z,m,x1,c)   = %.4f, %.4f, %.4f, %.4f \n",
+	   z, m, x1, c );
+    printf("  BINSIZE(z,m,x1,c) = %.4f, %.4f, %.4f, %.4f \n",
 	   BINSIZE_z, BINSIZE_m, BINSIZE_x1, BINSIZE_c );
     
     printf("\n");
-    printf("   cell   iz im ix1 ic    Dz     Dm     Dx1     Dc     WGT \n");
+    printf("   cell   iz im ix1 ic    Dz     Dm     Dx1     Dc  "
+	   "Ncell  WGT \n");
     
     for(icell=0; icell < NCELL_INTERP_USE; icell++ ) {
-      printf("    %3d   %2d %2d %2d %2d   %6.3f %6.3f %6.3f %6.3f   %.3f\n"
+      printf("    %3d   %2d %2d %2d %2d   %6.3f %6.3f %6.3f %6.3f  %2d  %.3le\n"
 	     ,icell
 	     ,DEBUG_LIST_INDX[0][icell]
 	     ,DEBUG_LIST_INDX[1][icell]
@@ -11872,9 +11889,10 @@ int get_fitParBias(char *cid,
 	     ,DEBUG_LIST_DIF[1][icell]
 	     ,DEBUG_LIST_DIF[2][icell]
 	     ,DEBUG_LIST_DIF[3][icell]
+	     ,DEBUG_LIST_NPERCELL[icell]
 	     ,DEBUG_LIST_WGT[icell] );
     }
-    sprintf(c1err,"SUM_WGT=%f for  CID=%s", SUM_WGT, cid) ;
+    sprintf(c1err,"SUM_WGT=%le for  CID=%s", SUM_WGT, cid) ;
     sprintf(c2err,"a=%.3f b=%.2f gDM=%.3f  "
 	    "z=%.4f  m=%.2f mB=%.4f x1=%.4f c=%.4f", 
 	    a, b, gDM, z, m, mB, x1, c ) ;
@@ -15056,6 +15074,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
 
   if ( IGNOREFILE(fileName) ) { return; }
 
+  ENVreplace(fileName,fnam,1);
 
   // check if keyed FITRES file; NCID>0 for FITRES; otherwise NCID=0.
   NCID = SNTABLE_NEVT(fileName,TABLENAME_FITRES);

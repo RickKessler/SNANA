@@ -235,15 +235,22 @@ def check_legacy_input_file(input_file, opt_translate):
     msg_translate = (f"\n TRANSLATE LEGACY INPUT file for ")
     print(f" opt_translate = {opt_translate}")
 
-    if  'GENVERSION:' in flat_word_list :
+    IS_SIM = False;   IS_FIT = False;  IS_BBC = False
+
+    if  'GENVERSION:' in flat_word_list :  IS_SIM = True
+    if  'VERSION:'    in flat_word_list :  IS_FIT = True 
+    if  '&SNLCINP'    in flat_word_list :  IS_FIT = True 
+    if  'u1='    in str(flat_word_list) :  IS_BBC = True 
+
+    if  IS_SIM :
         logging.info(f"{msg_translate} sim_SNmix.pl :")
         tr.SIM_legacy_to_refac( legacy_input_file, refac_input_file )
 
-    elif 'VERSION:' in flat_word_list :
+    elif IS_FIT :
         logging.info(f"{msg_translate} split_and_fit.pl :")
         tr.FIT_legacy_to_refac( legacy_input_file, refac_input_file )
 
-    elif 'u1=' in str(flat_word_list) :  # check for u1= substring
+    elif IS_BBC :
         logging.info(f"{msg_translate} SALT2mu_fit.pl: ")
         tr.BBC_legacy_to_refac( legacy_input_file, refac_input_file )
     #    program = BBC(config_yaml) 

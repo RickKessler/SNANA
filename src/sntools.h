@@ -54,7 +54,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_78d"                                     
+#define  SNANA_VERSION_CURRENT  "v10_78e"                                      
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -788,6 +788,7 @@ void check_openFile_docana(FILE *fp, char *fileName); // check file already open
 void check_file_docana(char *fileName);           // open file and check
 void abort_missing_docana(char *fileName);
 void abort_missing_docana__(char *fileName);
+void abort_bad_input(char *key,  char *word, int iArg, char *callFun);
 void check_file_docana__(char *fileName);
 
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);

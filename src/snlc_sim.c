@@ -431,7 +431,8 @@ void init_commandLine_simargs(int argc, char **argv) {
     NARGV_LIST = argc ;
 
     if ( NARGV_LIST >= MXARGV ) {
-      sprintf(c1err,"%d command line args exceeds MXARGV=%d", NARGV_LIST, MXARGV);
+      sprintf(c1err,"%d command line args exceeds MXARGV=%d", 
+	      NARGV_LIST, MXARGV);
       sprintf(c2err,"Either reduce number of args, or increase MXARGV");
       errmsg(SEV_WARN, 0, fnam, c1err, c2err); 
     }
@@ -2242,7 +2243,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   bool  IS_PEC1A   = (strcmp(WHAT,"PEC1A"  ) == 0 ) ;
 
   bool FOUND_PRIMARY_KEY, CONTINUE ;
-  int  N=0, j, NLOCAL ;
+  int  N=0, j, NLOCAL, nread ;
   double l=0.0, b=0.0, bmax, R=0.0, TMPVAL ;
   char KEYNAME[40];
   char fnam[] = "parse_input_RATEPAR" ;
@@ -2262,8 +2263,10 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       N++; sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_ZEXP_REWGT ); 
     }
     else if ( keyMatchSim(1, "DNDZ_ZPOLY_REWGT", KEYNAME, keySource) ) {
-      for(j=0; j < 4; j++ ) 
-	{ N++; sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_ZPOLY_REWGT[j] ); }
+      for(j=0; j < 4; j++ ) { 
+	N++; nread=sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_ZPOLY_REWGT[j] ); 
+	if(nread!=1) { abort_bad_input(KEYNAME, WORDS[N], j, fnam); }
+      }
     }
     else if ( keyMatchSim(1, "DNDZ_SCALE", KEYNAME, keySource) ) {
       N++ ; sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_SCALE[0] ); 
@@ -2310,7 +2313,6 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 	RATEPAR->NMODEL_ZRANGE = 1 ;  
 	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][0] ); 
 	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][1] ); 
-	// xxx 	readdouble ( fp, 2, RATEPAR->MODEL_PARLIST[1] ); 
     }
     else if ( strcmp(RATEPAR->NAME,"POWERLAW") == 0 ) {
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_POWERLAW ;
@@ -2318,20 +2320,17 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       NLOCAL = RATEPAR->NMODEL_ZRANGE ;
       N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][0] ); 
       N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][1] ); 
-      // xxxx  readdouble ( fp, 2, RATEPAR->MODEL_PARLIST[1] ); 
     }
     else if ( strcmp(RATEPAR->NAME,"POWERLAW2") == 0 ) {
       RATEPAR->NMODEL_ZRANGE++ ;
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_POWERLAW2 ;
       NLOCAL = RATEPAR->NMODEL_ZRANGE ;
 
-      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][0] ); 
-      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][1] ); 
-      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_ZRANGE[NLOCAL][0] ); 
-      N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_ZRANGE[NLOCAL][1] ); 
-
-      // xxxx  readdouble ( fp, 2, RATEPAR->MODEL_PARLIST[NLOCAL] ); 
-      // xxxx  readdouble ( fp, 2, RATEPAR->MODEL_ZRANGE[NLOCAL] ); 
+      N++; nread=sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][0] ); 
+      N++; nread=sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[NLOCAL][1] ); 
+      N++; nread=sscanf(WORDS[N], "%le", &RATEPAR->MODEL_ZRANGE[NLOCAL][0] ); 
+      N++; nread=sscanf(WORDS[N], "%le", &RATEPAR->MODEL_ZRANGE[NLOCAL][1] ); 
+      if(nread!=1) { abort_bad_input(KEYNAME, WORDS[N], 3, fnam); }
     }
     else if ( strstr(RATEPAR->NAME,RATEMODELNAME_CCS15) != NULL ) {
       parse_multiplier(RATEPAR->NAME,RATEMODELNAME_CCS15, &TMPVAL);
@@ -2349,20 +2348,19 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       RATEPAR->NMODEL_ZRANGE = 1 ;
       // read rate at z=0
       N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][0] ); 
-      // xxx readdouble ( fp, 1, &RATEPAR->MODEL_PARLIST[1][0] ); 
     }
     else if ( strcmp(RATEPAR->NAME,RATEMODELNAME_MD14) == 0 ) {
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_MD14 ;
       RATEPAR->NMODEL_ZRANGE = 1 ;
       // read rate at z=0
       N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][0] ); 
-      // xxxx readdouble ( fp, 1, &RATEPAR->MODEL_PARLIST[1][0] ); 
     }
     else if ( strcmp(RATEPAR->NAME,"ZPOLY") == 0 ) {
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_ZPOLY ;
       RATEPAR->NMODEL_ZRANGE = 1 ;
       for(j=0; j < 4; j++ ) {
-	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][j] ); 
+	N++; nread = sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][j] ); 
+	if(nread!=1) { abort_bad_input("ZPOLY", WORDS[N], j, fnam); }
       }
     }
     else if ( strcmp(RATEPAR->NAME,"HUBBLE") == 0 ) {
@@ -2383,9 +2381,9 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       RATEPAR->NMODEL_ZRANGE = 0 ;
 
       for(j=0; j <= MXPOLY_GALRATE; j++ ) {
-	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][j] ); 
+	N++; nread = sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][j] );
+	if(nread!=1) { abort_bad_input("COSBPOLY", WORDS[N], j, fnam); } 
       }
-      // xxxx readdouble(fp,MXPOLY_GALRATE+1, RATEPAR->MODEL_PARLIST[1] ); 
 
       // get max rate (vs. b) for weighting
       for(b=0.0; b < 90.0; b+=1.0 ) {
@@ -2397,9 +2395,9 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       RATEPAR->INDEX_MODEL   = INDEX_RATEMODEL_BPOLY ;
       RATEPAR->NMODEL_ZRANGE = 0 ;
       for(j=1; j <= MXPOLY_GALRATE+1; j++ ) {
-	N++; sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[j] ); 
+	N++; nread = sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[j] ); 
+	if(nread!=1) { abort_bad_input("BPOLY", WORDS[N], j, fnam); } 
       }
-      // xxxx readdouble(fp,MXPOLY_GALRATE+1, RATEPAR->MODEL_PARLIST[1] ); 
 
       // get max rate (vs. b) for weighting
       for(b=0.0; b < 90.0; b+=1.0 ) {
@@ -2415,7 +2413,6 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
     }
     
   } // DNDZ
-
 
   return(N);
 
@@ -2870,7 +2867,8 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
 
   // Created July 2020
   // parse keys starting with HOSTLIB
-  int  j, ITMP, N=0;
+
+  int  j, ITMP, N=0, nread ;
   char fnam[] = "parse_input_HOSTLIB" ;
 
   // ------------ BEGIN ------------
@@ -2896,8 +2894,10 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1,"HOSTLIB_GENZPHOT_FUDGEPAR",WORDS[0],keySource)){
     // read first 4 elements as float
-    for(j=0; j < 4; j++ ) 
-      { N++; sscanf(WORDS[N],"%f",&INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[j]); }
+    for(j=0; j < 4; j++ )  {
+      N++; nread = sscanf(WORDS[N],"%f",&INPUTS.HOSTLIB_GENZPHOT_FUDGEPAR[j]);
+      if ( nread != 1 ) { abort_bad_input(WORDS[0], WORDS[N], j, fnam); }
+    }
     // read 5th element as string
     N++; parse_input_GENZPHOT_OUTLIER(WORDS[N]);
   }
@@ -2906,8 +2906,10 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
       { N++; sscanf(WORDS[N],"%le",&INPUTS.HOSTLIB_GENZPHOT_BIAS[j]) ; }
   }
   else if ( keyMatchSim(1, "HOSTLIB_DZTOL",WORDS[0],keySource) ) {
-    for(j=0; j < 3; j++ ) 
-      { N++; sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_DZTOL[j] ) ; }
+    for(j=0; j < 3; j++ ) { 
+      N++; nread = sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_DZTOL[j] ) ; 
+      if ( nread != 1 ) { abort_bad_input(WORDS[0], WORDS[N], j, fnam); }
+    }
   }
   else if ( keyMatchSim(1, "HOSTLIB_SCALE_SERSIC_SIZE  HOSTLIB_SCALE_SERSIC",
 			WORDS[0],keySource) ) {
@@ -2962,8 +2964,10 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXRAN_PHI );
   }
   else if ( keyMatchSim(1, "HOSTLIB_FIXSERSIC", WORDS[0],keySource) ) {
-    for(j=0; j < 4; j++ ) 
-      { N++; sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXSERSIC[0] ); }
+    for(j=0; j < 4; j++ ) {
+      N++; nread = sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXSERSIC[0] ); 
+      if ( nread != 1 ) { abort_bad_input(WORDS[0], WORDS[N], j, fnam); }
+    }
   }
 
 

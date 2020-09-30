@@ -13,10 +13,8 @@
 #   - for sim, leave symbolic links for redundant sim job
 #
 #  FIT:
-#   - track down why NEVT(HBOOK) sometimes fails
 #
 #  BBC
-#   - trap wfit errors
 #
 # - - - - - - - - - -
 
@@ -154,12 +152,19 @@ def set_merge_flag(config):
 
 def check_input_file_name(args):
 
-    #args.INPUT_FILE = util.standardize_path(args.input_file,CWD)
-    #args.input_file = os.path.basename(args.INPUT_FILE)    
+    input_file    = args.input_file
+    opt_translate = args.opt_translate
+
+    # abort if path is included in the input file name.
+    if '/' in input_file :
+        msgerr = []
+        msgerr.append(f"Invalid input file: {input_file}")
+        msgerr.append(f"because path not allowed as part of name.")
+        msgerr.append(f"Must submit in same dir as input_file.")
+        util.log_assert(False,msgerr)
 
     # check to translate legacy input
-    args.input_file = check_legacy_input_file(args.input_file, 
-                                              args.opt_translate )
+    args.input_file = check_legacy_input_file(input_file, opt_translate)
 
     #end check_input_file_name
 

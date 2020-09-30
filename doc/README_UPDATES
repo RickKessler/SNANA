@@ -18987,9 +18987,9 @@
       + add new key  cid_reject_file, analogous to cid_select_file
       + both of the above can be FITRES format or un-keyed list format.
       + fix option for  simfile_ccprior=same [-> same as simfile_biascor]
-      + require center cell to have enough stats to be used in biasCor
-        used in biasCor. From SNANA_code_test, CCPRIOR sample looses
-        few percent, and DATA lose < 1%. Here are old-vs-new comparisons:
+      + require center cell to have enough stats to be used in biasCor.
+        From SNANA_code_test, CCPRIOR sample looses few percent, and DATA 
+        loses < 1%. Here are old-vs-new comparisons:
        TASK094_SALT2mu_DES_BBC5D_noCC    :  mis-match (REF != TEST)
            ==> REF:  fit-Beta = 3.0157e+00 +/- 1.5007e-01
            ==> TEST: fit-Beta = 3.0149e+00 +/- 1.5171e-01
@@ -19006,4 +19006,20 @@
           ==> REF:  fit-Beta = 3.0895e+00 +/- 8.2675e-02
           ==> TEST: fit-Beta = 3.0822e+00 +/- 8.4002e-02
         
+
+# ======================================================================= 
+         v10_78e (  ) 
+
+         ***** IMPORTANT(v10_78e) ***** 
+
+         ***** USEFUL(v10_78e) ***** 
+
+         ***** MISCELLANEOUS(v10_78e) ***** 
+
+   snlc_sim.c
+     + In parse_input_HOSTLIB, replace a few sscanf with
+        nread = sscanf and abort if nread != 1. Apply to keys
+        with mutliple arguments in case user makes mistake.
+
+       
 END: 

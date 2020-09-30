@@ -10829,6 +10829,12 @@ void check_file_docana(char *fileName) {
 } // end check_file_docana
 
 
+void abort_bad_input(char *key, char *word, int iArg, char *callFun) {
+  sprintf(c1err,"Could not read arg[%d] = '%s'", iArg, word);
+  sprintf(c2err,"for KEY = %s (check N_arg after input key)", key );
+  errmsg(SEV_FATAL, 0, callFun, c1err, c2err ) ;
+} // end abort_bad_input
+
 void abort_missing_docana(char *fileName) {
   char fnam[] = "abort_missing_docana" ;
 

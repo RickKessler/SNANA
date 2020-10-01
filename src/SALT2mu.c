@@ -17237,8 +17237,9 @@ void write_version_info(FILE *fp) {
 void write_yaml_info(char *fileName) {
 
   // Aug 12, 2020
-  // Write summary info to YAML file; 
-  // to be used by batch-sumit script.
+  // Write summary info to YAML file; to be used by batch-sumit script.
+  // Write value and error for every entry; if no error, write error=0.
+  // 
 
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
   int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
@@ -17290,8 +17291,12 @@ void write_yaml_info(char *fileName) {
 
   fprintf(fp,"BBCFIT_RESULTS:\n") ;
 
-  fprintf(fp,"  - NSNFIT:       %d\n",   FITRESULT.NSNFIT ) ;
-  fprintf(fp,"  - SIGINT:       %.5f\n", FITINP.COVINT_PARAM_FIX ) ;
+  int SIG_NSNFIT = (int)(sqrt(FITRESULT.NSNFIT)+0.5);
+  fprintf(fp,"  - NSNFIT:       %5d     %d\n",   
+	  FITRESULT.NSNFIT, SIG_NSNFIT ) ;
+
+  fprintf(fp,"  - SIGINT:       %.5f    0.0\n", 
+	  FITINP.COVINT_PARAM_FIX ) ;
 
   //fprintf(fp,"\n") ;
   

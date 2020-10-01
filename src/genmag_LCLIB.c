@@ -147,13 +147,19 @@ void init_genmag_LCLIB(char *lcLibFile, char *STRING_TEMPLATE_EPOCHS,
 // ===============================
 void open_LCLIB(char *lcLibFile) {
 
+  // Sep 30 2020:
+  // remove check for ENV PRIVATE_MODELPATH_NAME, and instead
+  // check user input PATH_USER_INPUT.
+
   FILE *fp;
-  char MODELPATH[MXPATHLEN];
+  int  OPTMASK_OPEN = 1;  // 1=verbose
+  char MODELPATH_LIST[2*MXPATHLEN];
   char *LCLIB_FILE = LCLIB_INFO.FILENAME ;
   char fnam[] = "open_LCLIB" ;
 
   // ------------ BEGIN ---------------
 
+  /* xxxx mark delete 9.30.2020 xxxxxx
   if ( getenv(PRIVATE_MODELPATH_NAME) != NULL ) {
     sprintf( MODELPATH, "%s", 
 	     getenv(PRIVATE_MODELPATH_NAME) );    
@@ -162,9 +168,14 @@ void open_LCLIB(char *lcLibFile) {
     // default location under $SNDATA_ROOT
     sprintf( MODELPATH, "%s/models/LCLIB", getenv("SNDATA_ROOT") );
   }
-  
+  xxxxxxxxxx end mark xxxxxxx */
+
+
+  sprintf( MODELPATH_LIST, "%s %s/models/LCLIB", 
+	   PATH_USER_INPUT, PATH_SNDATA_ROOT);
+
   printf("\n");
-  fp = snana_openTextFile(1,MODELPATH, lcLibFile, 
+  fp = snana_openTextFile(OPTMASK_OPEN, MODELPATH_LIST, lcLibFile, 
 			  LCLIB_FILE, &LCLIB_INFO.GZIPFLAG ); // <=== returned
   
   if ( fp == NULL ) {

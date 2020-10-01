@@ -109,28 +109,32 @@ def find_and_remove(find_arg):
 
     # end find_and_remove
 
-def get_stat_dict(value_list):
+def get_stat_dict(value_list,error_list):
     # For input list of values_list, return dictionary of
-    # 'AVG, 'ERR_AVG', 'RMS', 'ERR_RMS'
+    # 'AVG_VAL', 'ERR_AVG',  "AVG_ERR',  'RMS', 'ERR_RMS'
 
     n_val    = len(value_list)
     
     if n_val > 0 :
-        sumval   = 0.0 ; sqsumval = 0.0
-        for val in value_list :
+        sumval   = 0.0 ; sqsumval = 0.0;  sumerr=0.0
+        for val,err in zip(value_list,error_list) :
             sumval   += val
             sqsumval += val*val
+            sumerr   += err
             
-            AVG = sumval / n_val
-            RMS = math.sqrt( sqsumval/n_val - AVG*AVG )
-            
+            AVG_VAL = sumval / n_val
+            RMS     = math.sqrt( sqsumval/n_val - AVG_VAL*AVG_VAL )
+            AVG_ERR = sumerr / n_val
+
             ERR_AVG = RMS/math.sqrt(n_val)
             ERR_RMS = ERR_AVG / 1.414   # sigma/sqrt(2*n)
             
     else:
-        AVG = 0.0; ERR_AVG = 0.0; RMS=0.0; ERR_RMS=0.0
+        AVG_VAL = 0.0; AVG_ERR=0.0; ERR_AVG = 0.0; RMS=0.0; ERR_RMS=0.0
 
-    stat_dict = { 'AVG':AVG, 'ERR_AVG':ERR_AVG, 'RMS':RMS, 'ERR_RMS': ERR_RMS }
+    stat_dict = { 'AVG_VAL': AVG_VAL,  'AVG_ERR': AVG_ERR,
+                  'ERR_AVG': ERR_AVG,  'RMS': RMS, 'ERR_RMS': ERR_RMS }
+
     return stat_dict
 
     # end get_stat_dict

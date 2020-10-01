@@ -3809,7 +3809,7 @@ the sim-input file (or via command-line override):
    HOSTLIB_GENRANGE_DECL:  xxx yyy    # default= -999 to +999)   
    HOSTLIB_STOREPAR:  var1,var2,var3  # default = ''
    HOSTLIB_MINDAYSEP_SAMEGAL: xxx     # default=9999999
-   HOSTLIB_DZTOL:        a0  a1  a2   # default=0.002 0.040  0
+   HOSTLIB_DZTOL:  a0,a1,a2,,,aN      # default=0.002,0.040
    HOSTLIB_GALID_PRIORITY: xxx yyy    # default= 0 0 
    HOSTLIB_GENZPHOT_FUDGEPAR: a0 a1 a2 bprob b1 # default = all -9
    HOSTLIB_GENZPHOT_BIAS:     b0 b1 b2 b3  # 3rd order poly(ztrue)
@@ -3860,21 +3860,25 @@ A redshift tolerance,
 $\dztol \equiv {\rm max}|z_{\rm SN} - z_{\rm GAL}|$,
 sets a limit on the max difference between the SN redshift
 and the redshift of the host galaxy picked from the {\tt HOSTLIB}.
-This is needed because for each generated SN redshift there is not
-a host with the exact same redshift. Requiring stricter
+This tolerance is needed because for each generated SN redshift there 
+is no host with the exact same redshift. Requiring stricter
 z-tolerance (and allowing only 1 SN per host) generally
 requires a larger {\tt HOSTLIB} to avoid running out of
 hosts and aborting. The input key {\tt HOSTLIB\_DZTOL}
-defines $\dztol$ as a 2nd order polynomial function of redshift:
-$a_0 + a_1z + a_2z^2$, where $a_{0,1,2}$ are three parameters
+defines $\dztol$ as a polynomial function of redshift:
+$a_0 + a_1z + a_2z^2 ... + a_Nz^N$, 
+where $a_{0,1,2,,,N}$ are $N+1$ comma-separated parameters
 following the {\tt HOSTLIB\_DZTOL} key.
-The default is $a_{0,1,2} = 0.002, 0.040, 0$ so that
+The default is $0.002,0.040$ so that
 $\dztol=  0.002$ at $z=0$ and increases to $\dztol= 0.042$ at $z=1$.
 To require a fixed 0.01 $z$-dif tolerance at all redshifts set
-``{\tt HOSTLIB\_DZTOL: 0.01 0 0}.''
+``{\tt HOSTLIB\_DZTOL: 0.01}.''
 To monitor $z_{\rm SN} - z_{\rm GAL}$,
 include {\tt GALZDIF} in the {\tt SIMGEN\_DUMP} list
 (\S\ref{sss:simgen_dump}).
+The legacy syntax of space-separated $a_i$ values is allowed,
+but only for a 2nd-order polynomial: 
+{\tt HOSTLIB\_DZTOL: a0 a1 a2}.
 
 %\clearpage
 {\tt HOSTLIB\_GALID\_PRIORITY} allows giving priority to a
@@ -4498,9 +4502,10 @@ Highly distorted redshift distribution for special tests
 can be obtained with
 %
 \begin{verbatim}
-  DNDZ:  FLAT                       # dN/dz = constant
+  DNDZ:  FLAT                   # dN/dz = constant
      or
-  DNDZ: ZPOLY <a0> <a1> <a2> <a3>   # dN/dz = 3rd order polynom
+  DNDZ: ZPOLY a0,a1,,,,aN       # dN/dz = N'th-order polymon
+  DNDZ: ZPOLY a0 a1 a2 a3       # LEGACY dN/dz = 3rd order polynom
      or
   DNDZ: CC_S15           # CC-Rate(z) from Strolger 2015 (Fig 6, green line)
      or
@@ -4510,12 +4515,13 @@ can be obtained with
      or
   DNDZ_ZEXP_REWGT:  -2.0             # dN/dz *= 1/z^2
      or
-  DNDZ_ZPOLY_REWGT: 1.0 -0.2 0.003 -4E-6   # dN/dz *= [3rd prder polynom]
+  DNDZ_ZPOLY_REWGT: a0,a1,,,,aN      # dN/dz *= [N'th prder polynom]
+  DNDZ_ZPOLY_REWGT: a0 a1 a2 a3      # LEGACY dN/dz *= [3rd prder polynom]
 \end{verbatim}
 %
 The ``{\tt FLAT}'' command results in a flat redshift distribution,
 and the {\tt ZPOLY} option specifies the redshift distribution with
-a 3rd-order polynomial function of redshift.
+an $N'th$-order polynomial function of redshift.
 {\tt CC\_S15} is the HST-measured CC rate.
 {\tt MD14} is the Star-formation rate, and there is one user-input 
 parameter to define the rate (yr$^{-1}$Mpc$^{-3}$) at $z=0$.
@@ -4591,16 +4597,19 @@ to {\tt NON1ASED} and {\tt NON1AGRID} models.
 For the {\tt LCLIB} model, the rate is defined as a function
 of Galactic coordinates ($l$ and $b$). Current option is
 \begin{verbatim}
-   DNDB:  COSBPOLY  <b0>  <b1>  <b2>  <b3> <b4> <b5>
+   DNDB:  COSBPOLY  b0,b1,b2,,,,bN     # Nth order polynomial in cos(b)
+   DNDB:  COSBPOLY  b0 b1 b2 b3 b4 b5  # legacy input for 5th order polynom
       or
-   DNDB:  BPOLY      <b0>  <b1>  <b2>  <b3> <b4> <b5>
+   DNDB:  BPOLY     b0,b1,b2,,,,bN     # Nth order polynomial in b
+   DNDB:  BPOLY     b0 b1 b2 b3 b4 b5  # legacy input for 5th order polynom 
 
-# ------- example -------
-   DNDB:  COSBPOLY    1     0     0     0   0    0  # isotropic
+# ------- examples -------
+   DNDB:  COSBPOLY   1       # isotropic
+   DNDB:  COSBPOLY   1,0.3   # 1 + 0.3*cos(b)
 \end{verbatim}
 %
-which defines the $b$-dependence with a 
-5th-order polynomial function of $\cos(b)$ or $b$.
+which defines the $b$-dependence with an $N'th$-order
+polynomial function of $\cos(b)$ or $b$.
 The absolute number of generated events is given by
 {\tt NGENTOT\_LC}. To reduce reading of the \simlib,
 and thus reduce processing time, 

@@ -19020,6 +19020,22 @@
      + In parse_input_HOSTLIB, replace a few sscanf with
         nread = sscanf and abort if nread != 1. Apply to keys
         with mutliple arguments in case user makes mistake.
+     + use new read_genpoly() util to refactor reading polynomial 
+       coefficients as either comma-sep (new default) or
+       space-sep (legacy). The following sim-inputs are now 
+       comma-sep, but allow legacy space-sep input (see manual):
+         HOSTLIB_DZTOL:    <arg>
+         ZVARIATION_POLY:  <arg>
+         DNDZ_ZPOLY_REWGT: <arg>
+         DNDZ: ZPOLY       <arg>
+         DNDB: BPOLY       <arg>  # revice LCLIB
+         DNDB: COSBPOLY    <arg>
 
+   genmag_LCLIB.c
+     + check for LCLIB file in PATH_USER_INPUT instead of obsolete ENV.
        
+   sntools.c
+     + new utility read_genpoly(...) to read comma-sep poly with arbitrary
+       order, or to read legacy space-sep poly coeffs with fixed order. 
+
 END: 

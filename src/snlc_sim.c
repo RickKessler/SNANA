@@ -26,17 +26,6 @@
 
 ********************************************/
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <string.h>
-#include <time.h>
-#include <math.h>
-#include <ctype.h>
-*/
-
 #include "fitsio.h"
 #include "MWgaldust.h"
 #include "sntools.h"
@@ -581,7 +570,6 @@ void get_user_input(void) {
     }
   } 
 
-
   for(ifile=0; ifile < MXINPUT_FILE_SIM ; ifile++ ) {
     if ( !IGNOREFILE(INPUTS.INPUT_FILE_LIST[ifile])  ) {
        read_input_file(INPUTS.INPUT_FILE_LIST[ifile] ); 
@@ -619,11 +607,12 @@ void set_user_defaults(void) {
   int i, iz;
   float x;
   double zero = 0.0 ;
-  //  char fnam[] = "set_user_defaults" ;
+  char fnam[] = "set_user_defaults" ;
   // --------------- BEGIN ---------------
 
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
+  INPUTS.OPT_DEVEL_READ_GENPOLY = 1 ;
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
 
@@ -1026,12 +1015,17 @@ void set_user_defaults(void) {
   HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX  = 10;   // write up to 10 NBRs
   //  HOSTLIB_NBR.MXCHAR_NBR_LIST = 80;   // max string-length of list
 
-  // Nov 23 2015
   // define polynom function of ztrue for zSN-zGAL tolerance.
-  // Default is close to what we had before, which is quite big
-  INPUTS.HOSTLIB_DZTOL[0] = 0.002 ;
-  INPUTS.HOSTLIB_DZTOL[1] = 0.040 ;
-  INPUTS.HOSTLIB_DZTOL[2] = 0.0   ;
+  if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
+    char CPOLY_DZTOL[] = "0.002,0.04" ;
+    init_GENPOLY(&INPUTS.HOSTLIB_GENPOLY_DZTOL);
+    parse_GENPOLY(CPOLY_DZTOL, "DZTOL", &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam);
+  }
+  else {
+    INPUTS.HOSTLIB_DZTOL[0] = 0.002 ; 
+    INPUTS.HOSTLIB_DZTOL[1] = 0.040 ; 
+    INPUTS.HOSTLIB_DZTOL[2] = 0.0   ; 
+  }
 
   // debug options
   INPUTS.HOSTLIB_GALID_FORCE   = -9;
@@ -1358,6 +1352,7 @@ int read_input_file(char *input_file) {
     sprintf(INPUTS.WORDLIST[iwd], "%s", tmpWord );
   }
 
+
   for(iwd=0; iwd < NWD_FILE; iwd++ ) {
     NWD_READ = parse_input_key_driver(&INPUTS.WORDLIST[iwd], KEYSOURCE_FILE);
     iwd += NWD_READ ;
@@ -1393,13 +1388,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   
   // ------------- BEGIN -----------
 
-  /* xxxxxxxxxxxx
-  if ( strstr(WORDS[0],"DNDZ") != NULL ) {
-    printf(" xxx %s: WORDS = '%s' and '%s' \n", fnam, WORDS[0], WORDS[1] ); 
-    fflush(stdout);
-  }
-  xxxxxxxx */
-
   // printf(" xxx %s: WORDS = '%s' \n", fnam, WORDS[0] );
 
   if ( keyMatchSim(2, "INPUT_FILE_INCLUDE", WORDS[0], keySource) ||
@@ -1416,6 +1404,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "USE_KCOR_REFACTOR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_KCOR_REFACTOR ) ; 
+  }
+  else if ( keyMatchSim(1, "OPT_DEVEL_READ_GENPOLY", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_READ_GENPOLY ) ; 
   }
   else if ( keyMatchSim(1, "TRACE_MAIN", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.TRACE_MAIN ) ; 
@@ -1445,7 +1436,10 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTNOISE_FILE );
   }
   else if ( strstr(WORDS[0],"ZVARIATION_") != NULL ) {
-    N += parse_input_ZVARIATION(WORDS,keySource);
+    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) 
+      { N += parse_input_ZVARIATION(WORDS,keySource); }
+    else
+      { N += parse_input_ZVARIATION_LEGACY(WORDS,keySource); }
   }
   // - - - - -
   else if ( keyMatchSim(1, "SNTYPE_Ia",  WORDS[0],keySource) ) {
@@ -2243,7 +2237,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   bool  IS_PEC1A   = (strcmp(WHAT,"PEC1A"  ) == 0 ) ;
 
   bool FOUND_PRIMARY_KEY, CONTINUE ;
-  int  N=0, j, NLOCAL, nread ;
+  int  N=0, n, j, NLOCAL, nread ;
   double l=0.0, b=0.0, bmax, R=0.0, TMPVAL ;
   char KEYNAME[40];
   char fnam[] = "parse_input_RATEPAR" ;
@@ -2263,10 +2257,19 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       N++; sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_ZEXP_REWGT ); 
     }
     else if ( keyMatchSim(1, "DNDZ_ZPOLY_REWGT", KEYNAME, keySource) ) {
-      for(j=0; j < 4; j++ ) { 
-	N++; nread=sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_ZPOLY_REWGT[j] ); 
-	if(nread!=1) { abort_bad_input(KEYNAME, WORDS[N], j, fnam); }
+
+      if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
+	N += read_genpoly(KEYNAME, &WORDS[N+1], 3, &RATEPAR->DNDZ_ZPOLY_REWGT);
       }
+      else {
+	// legacy
+	for(j=0; j < 4; j++ ) { 
+	  N++; nread=sscanf(WORDS[N], "%le", 
+			    &RATEPAR->DNDZ_ZPOLY_REWGT_LEGACY[j] ); 
+	  if(nread!=1) { abort_bad_input(KEYNAME, WORDS[N], j, fnam); }
+	}
+      }
+
     }
     else if ( keyMatchSim(1, "DNDZ_SCALE", KEYNAME, keySource) ) {
       N++ ; sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_SCALE[0] ); 
@@ -2358,9 +2361,16 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
     else if ( strcmp(RATEPAR->NAME,"ZPOLY") == 0 ) {
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_ZPOLY ;
       RATEPAR->NMODEL_ZRANGE = 1 ;
-      for(j=0; j < 4; j++ ) {
-	N++; nread = sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][j] ); 
-	if(nread!=1) { abort_bad_input("ZPOLY", WORDS[N], j, fnam); }
+
+      if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
+	N += read_genpoly(RATEPAR->NAME, &WORDS[N+1], 3, 
+			  &RATEPAR->MODEL_ZPOLY);
+      }
+      else {
+	for(j=0; j < 4; j++ ) {
+	  N++; nread = sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][j] ); 
+	  if(nread!=1) { abort_bad_input("ZPOLY", WORDS[N], j, fnam); }
+	}
       }
     }
     else if ( strcmp(RATEPAR->NAME,"HUBBLE") == 0 ) {
@@ -2380,9 +2390,17 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       RATEPAR->INDEX_MODEL   = INDEX_RATEMODEL_COSBPOLY ;
       RATEPAR->NMODEL_ZRANGE = 0 ;
 
-      for(j=0; j <= MXPOLY_GALRATE; j++ ) {
-	N++; nread = sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][j] );
-	if(nread!=1) { abort_bad_input("COSBPOLY", WORDS[N], j, fnam); } 
+      if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
+	N += read_genpoly(RATEPAR->NAME, &WORDS[N+1], 5,
+			  &RATEPAR->MODEL_BPOLY );
+      }
+      else {
+	// legacy
+	for(j=0; j <= MXPOLY_GALRATE; j++ ) {
+	  N++; nread = sscanf(WORDS[N], "%le", 
+			      &RATEPAR->MODEL_PARLIST[1][j] );
+	  if(nread!=1) { abort_bad_input("COSBPOLY", WORDS[N], j, fnam); } 
+	}
       }
 
       // get max rate (vs. b) for weighting
@@ -2394,9 +2412,15 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
     else if ( strcmp(RATEPAR->NAME,"BPOLY") == 0 ) {
       RATEPAR->INDEX_MODEL   = INDEX_RATEMODEL_BPOLY ;
       RATEPAR->NMODEL_ZRANGE = 0 ;
-      for(j=1; j <= MXPOLY_GALRATE+1; j++ ) {
-	N++; nread = sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[j] ); 
-	if(nread!=1) { abort_bad_input("BPOLY", WORDS[N], j, fnam); } 
+      if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
+	N += read_genpoly(RATEPAR->NAME, &WORDS[N+1], 5,
+			  &RATEPAR->MODEL_BPOLY );
+      }
+      else {
+	for(j=0; j <= MXPOLY_GALRATE; j++ ) {
+	  N++; nread = sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][j] ); 
+	  if(nread!=1) { abort_bad_input("BPOLY", WORDS[N], j, fnam); } 
+	}
       }
 
       // get max rate (vs. b) for weighting
@@ -2404,6 +2428,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 	R = GALrate_model(l,b, RATEPAR);
 	if ( R > RATEPAR->RATEMAX ) { RATEPAR->RATEMAX=R; bmax=b; }
       }
+
     }
     else {
       sprintf(c1err,"'%s %s' is invalid", KEYNAME, RATEPAR->NAME );
@@ -2906,10 +2931,16 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
       { N++; sscanf(WORDS[N],"%le",&INPUTS.HOSTLIB_GENZPHOT_BIAS[j]) ; }
   }
   else if ( keyMatchSim(1, "HOSTLIB_DZTOL",WORDS[0],keySource) ) {
-    for(j=0; j < 3; j++ ) { 
-      N++; nread = sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_DZTOL[j] ) ; 
-      if ( nread != 1 ) { abort_bad_input(WORDS[0], WORDS[N], j, fnam); }
+
+    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
+      N += read_genpoly(WORDS[0], &WORDS[1], 2, &INPUTS.HOSTLIB_GENPOLY_DZTOL);
     }
+    else {
+      for(j=0; j < 3; j++ ) { 
+	N++; nread = sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_DZTOL[j] ) ; 
+	if ( nread != 1 ) { abort_bad_input(WORDS[0], WORDS[N], j, fnam); }
+      }
+    } // end legacy check
   }
   else if ( keyMatchSim(1, "HOSTLIB_SCALE_SERSIC_SIZE  HOSTLIB_SCALE_SERSIC",
 			WORDS[0],keySource) ) {
@@ -3242,9 +3273,47 @@ int parse_input_SOLID_ANGLE(char **WORDS, int keySource) {
 // ==============================
 int parse_input_ZVARIATION(char **WORDS, int keySource) {
 
+  // Created Sep 30 2020
+  // Parse ZVARIATION file, or polynomial ... latter using read_genpoly.
+
+  int  N=0, NPAR ;
+  char *parName, polyVarName[60] ;
+  char fnam[] = "parse_input_ZVARIATION" ;
+
+  // ------------ BEGIN -----------
+
+  if ( keyMatchSim(1,"ZVARIATION_FILE", WORDS[0], keySource)  ) {  
+    N++; sscanf(WORDS[N], "%s", INPUT_ZVARIATION_FILE ); 
+    if ( !IGNOREFILE(INPUT_ZVARIATION_FILE) ) { USE_ZVAR_FILE = 1 ; }
+  }
+
+  if ( keyMatchSim(10, "ZVARIATION_POLY", WORDS[0], keySource) ) { 
+      NPAR = NPAR_ZVAR_USR ;
+      INPUT_ZVARIATION[NPAR].FLAG = FLAG_ZPOLY_ZVAR ;
+      INPUT_ZVARIATION[NPAR].NZBIN = 0 ;
+      NPAR_ZVAR_USR++ ;  
+      
+      parName = INPUT_ZVARIATION[NPAR].PARNAME ;
+      N++; sscanf(WORDS[N], "%s", parName );
+
+      // read either comma-sep poly of arbitrary order,
+      // or read legacy space-sep poly with order = POLYORDER_ZVAR.
+      N += read_genpoly(WORDS[0], &WORDS[2], POLYORDER_ZVAR, 
+			&INPUT_ZVARIATION[NPAR].POLY);
+    }
+
+  return(N);
+
+} // end parse_input_ZVARIATION
+
+// ==============================
+int parse_input_ZVARIATION_LEGACY(char **WORDS, int keySource) {
+
+  // Sep 2020: LEGACY -> does not use read_genpoly(...)
+
   int N=0, j, NPAR ;
   char tmpLine[60], cpoly[60];
-  char fnam[] = "parse_input_ZVARIATION" ;
+  char fnam[] = "parse_input_ZVARIATION_LEGACY" ;
 
   // ------------ BEGIN -----------
 
@@ -3273,7 +3342,7 @@ int parse_input_ZVARIATION(char **WORDS, int keySource) {
 	sscanf(tmpLine, "%le", &zpoly[0]); 
 	for(j=1; j <= POLYORDER_ZVAR; j++ ) 
 	  { N++; sscanf(WORDS[N], "%le", &zpoly[j] ); }
-	// xxx mark delete  readdouble(fp, POLYORDER_ZVAR, &zpoly[1] );
+
 	sprintf(cpoly,"%f,%f,%f,%f", zpoly[0],zpoly[1],zpoly[2],zpoly[3]);
       }
       parse_GENPOLY(cpoly, "z", &INPUT_ZVARIATION[NPAR].POLY, fnam);
@@ -3282,7 +3351,7 @@ int parse_input_ZVARIATION(char **WORDS, int keySource) {
 
   return(N);
 
-} // end parse_input_ZVARIATION
+} // end parse_input_ZVARIATION_LEGACY
 
 // ======================================
 int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
@@ -4746,9 +4815,15 @@ void prep_user_input(void) {
     // Nov 2019
     GENFRAME_OPT    = GENFRAME_OBS ; 
 
-    INPUTS.HOSTLIB_DZTOL[0] = 0.05;
-    INPUTS.HOSTLIB_DZTOL[1] = 0.0;
-    INPUTS.HOSTLIB_DZTOL[2] = 0.0;
+    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
+      char CPOLY_DZTOL[] = "0.05" ;
+      parse_GENPOLY(CPOLY_DZTOL, "DZTOL", &INPUTS.HOSTLIB_GENPOLY_DZTOL,fnam);
+    }
+    else {
+      INPUTS.HOSTLIB_DZTOL[0] = 0.05;
+      INPUTS.HOSTLIB_DZTOL[1] = 0.0;
+      INPUTS.HOSTLIB_DZTOL[2] = 0.0;
+    }
 
     GENLC.ptr_SHAPEPAR = &GENLC.SALT2x1 ; 
     sprintf(INPUTS_SEARCHEFF.USER_zHOST_FILE, "NONE" );
@@ -6324,8 +6399,16 @@ void init_DNDZ_Rate(void) {
 
   // re-wgt flags
   IFLAG_REWGT_ZEXP  = ( INPUTS.RATEPAR.DNDZ_ZEXP_REWGT != 0.0 ) ;
-  IFLAG_REWGT_ZPOLY = ( INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT[1] != 0.0  ||
-			INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT[2] != 0.0     );
+
+  if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
+    IFLAG_REWGT_ZPOLY = (INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.ORDER >= 0 );
+  }
+  else {
+    // legacy
+    IFLAG_REWGT_ZPOLY = 
+      ( INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT_LEGACY[1] != 0.0  ||
+	INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT_LEGACY[2] != 0.0  );
+  }
 
   // ----------------------------
 
@@ -6351,14 +6434,21 @@ void init_DNDZ_Rate(void) {
     }
   }
   else if ( IMODEL_ZPOLY ) {
-    i++;    iz=1;  double rscale=1.0E-5;
-    sprintf(LINE_RATE_INFO[i],
-	    "\t dN/dz = %6.1e x (%.2f + %.2f*z + %.2f*z^2 + %.2f*z^3)"
-	    ,rscale
-	    ,INPUTS.RATEPAR.MODEL_PARLIST[iz][0]/rscale
-	    ,INPUTS.RATEPAR.MODEL_PARLIST[iz][1]/rscale
-	    ,INPUTS.RATEPAR.MODEL_PARLIST[iz][2]/rscale
-	    ,INPUTS.RATEPAR.MODEL_PARLIST[iz][3]/rscale );
+    i++; 
+    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
+      sprintf(LINE_RATE_INFO[i],"\t dN/dz = ZPOLY(%s)", 
+	      INPUTS.RATEPAR.MODEL_ZPOLY.STRING) ;
+    }
+    else {
+      iz=1;  double rscale=1.0E-5;
+      sprintf(LINE_RATE_INFO[i],  // legacy
+	      "\t dN/dz = %6.1e x (%.2f + %.2f*z + %.2f*z^2 + %.2f*z^3)"
+	      ,rscale
+	      ,INPUTS.RATEPAR.MODEL_PARLIST[iz][0]/rscale
+	      ,INPUTS.RATEPAR.MODEL_PARLIST[iz][1]/rscale
+	      ,INPUTS.RATEPAR.MODEL_PARLIST[iz][2]/rscale
+	      ,INPUTS.RATEPAR.MODEL_PARLIST[iz][3]/rscale );
+    }
   }
   else if ( IMODEL_FLAT ) {
     i++; 
@@ -6413,12 +6503,20 @@ void init_DNDZ_Rate(void) {
   }
   else if ( IFLAG_REWGT_ZPOLY ) {
     i++; 
-    sprintf(LINE_RATE_INFO[i],
-	    "\t Reweight dN/dz by %.2f + %.2f*z + %.2f*z^2 + %.2f*z^3 "
-	    ,INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT[0]
-	    ,INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT[1]
-	    ,INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT[2]
-	    ,INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT[3]   );
+
+    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
+      sprintf(LINE_RATE_INFO[i],"\t Reweight dN/dz by ZPOLY(%s)",
+	      INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.STRING);
+    }
+    else {
+      // legacy
+      sprintf(LINE_RATE_INFO[i],
+	      "\t Reweight dN/dz by %.2f + %.2f*z + %.2f*z^2 + %.2f*z^3 "
+	      ,INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT_LEGACY[0]
+	      ,INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT_LEGACY[1]
+	      ,INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT_LEGACY[2]
+	      ,INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT_LEGACY[3]   );
+    }
   }
 
 
@@ -6524,16 +6622,24 @@ void init_DNDB_Rate(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
     
-    i++ ; sprintf(LINE_RATE_INFO[i], 
-	    "\t dN/d%s = %.2f ", varName, PARLIST[0] );
-    for(j=1; j <= MXPOLY_GALRATE; j++ ) {
-      if( PARLIST[j] != 0.0 ) {
-	i++ ; sprintf(LINE_RATE_INFO[i],
-		      "\t    + %14.6le * %s^%d ", PARLIST[j], varName, j );
-      }
-    }
 
-  }
+    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
+      i++ ;
+      sprintf(LINE_RATE_INFO[i],"\t dN/d%s = POLY(%s)",
+	      varName, INPUTS.RATEPAR.MODEL_BPOLY.STRING);
+    }
+    else {
+      // legacy
+      i++ ; sprintf(LINE_RATE_INFO[i], 
+		    "\t dN/d%s = %.2f ", varName, PARLIST[0] );
+      for(j=1; j <= MXPOLY_GALRATE; j++ ) {
+	  i++ ; sprintf(LINE_RATE_INFO[i],
+			"\t    + %14.6le * %s^%d ", PARLIST[j], varName, j );
+      }
+
+    } // end OPT_DEVEL
+
+  } // end MODEL_LCLIB
 
   // - - - - - - - 
 
@@ -12142,6 +12248,8 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
 
  Nov 24 2019: if zmin == zmax, return immediately
 
+ Sep 30 2020: check OPT_DEVEL_READ_GENPOLY to use eval_GENPOLY().
+
   *****************/
 
   double z, zran, z_atmax, dz, H0, OM, OL, W0, w, wgt, wran1 ;
@@ -12196,7 +12304,10 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
       z = zmin + dz * (double)(iz-1) ;
 
       if ( ISPOLY ) {
-	w = polyEval(4, RATEPAR->MODEL_PARLIST[1], z);
+	if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) 
+	  { wgt = eval_GENPOLY(z, &RATEPAR->MODEL_ZPOLY, fnam) ; }
+	else
+	  { w = polyEval(4, RATEPAR->MODEL_PARLIST[1], z); }
       }
       else {
 	w = dVdz ( H0, OM, OL, W0, z );
@@ -12246,7 +12357,12 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
   }
   else if ( ISPOLY ) {
     // user-specified polynomial function of redshift
-    wgt = polyEval(4, RATEPAR->MODEL_PARLIST[1], zran) / RATEPAR->ZGENWGT_MAX ;
+    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) 
+      { wgt = eval_GENPOLY(zran, &RATEPAR->MODEL_ZPOLY, fnam) ; }
+    else
+      { wgt = polyEval(4, RATEPAR->MODEL_PARLIST[1], zran) ; }
+
+    wgt /= RATEPAR->ZGENWGT_MAX ;
   }
   else if ( INPUTS.USE_SIMLIB_DISTANCE ) {
     wgt = 1.0 ;
@@ -12294,7 +12410,7 @@ double genz_wgt(double z, RATEPAR_DEF *RATEPAR ) {
   *******/
 
   double w, zexp, wpoly ;
-  //  char fnam[] = "genz_wgt" ;
+  char fnam[] = "genz_wgt" ;
 
   // ------ BEGIN ---------
 
@@ -12312,7 +12428,11 @@ double genz_wgt(double z, RATEPAR_DEF *RATEPAR ) {
   if ( zexp != 0.0 ) w *= pow(z,zexp);
 
   //check polynominal re-weight
-  wpoly = polyEval(4, RATEPAR->DNDZ_ZPOLY_REWGT, z) ;
+  if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) 
+    { wpoly = eval_GENPOLY(z, &RATEPAR->DNDZ_ZPOLY_REWGT, fnam) ; }
+  else 
+    { wpoly = polyEval(4, RATEPAR->DNDZ_ZPOLY_REWGT_LEGACY, z) ; }
+
   w *= wpoly ;
 
   // global rate scale for all models.
@@ -12333,7 +12453,7 @@ double genz_wgt(double z, RATEPAR_DEF *RATEPAR ) {
 void  init_RATEPAR ( RATEPAR_DEF *RATEPAR ) {
 
   int i;
-  //  char fnam[] = "init_RATPAR" ;
+  char fnam[] = "init_RATEPAR" ;
 
   // ------------- BEGIN -------------
 
@@ -12343,8 +12463,16 @@ void  init_RATEPAR ( RATEPAR_DEF *RATEPAR ) {
   RATEPAR->DNDZ_ALLSCALE       = 1.0 ; // Aug 30 2017
   RATEPAR->RATEMAX = 0.0 ;
 
-  RATEPAR->DNDZ_ZPOLY_REWGT[0] = 1.0 ;
-  for(i=1; i<4; i++ ) { RATEPAR->DNDZ_ZPOLY_REWGT[i] = 0.0 ;  }
+  init_GENPOLY(&RATEPAR->MODEL_ZPOLY);
+  init_GENPOLY(&RATEPAR->MODEL_BPOLY);
+
+  // init REWGT to 1.000
+  parse_GENPOLY("1", "DNDZ_ZPOLY_REWGT", &RATEPAR->DNDZ_ZPOLY_REWGT, fnam);
+
+  // xxx mark delete when OPT_DEVEL_READ_GENPOLY=1 by default
+  RATEPAR->DNDZ_ZPOLY_REWGT_LEGACY[0] = 1.0 ;
+  for(i=1; i<4; i++ ) { RATEPAR->DNDZ_ZPOLY_REWGT_LEGACY[i] = 0.0 ;  }
+  // xxxx mark delete
 
   sprintf(RATEPAR->NAME, "HUBBLE"); 
   RATEPAR->NMODEL_ZRANGE  = 0 ;
@@ -12540,7 +12668,6 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
   }
   else if ( RATEPAR->INDEX_MODEL == INDEX_RATEMODEL_ZPOLY ) {
     rate = polyEval(4, RATEPAR->MODEL_PARLIST[1], z);
-    // xxx mark 9.18.2020 rate=3.0E-5*polyEval(4,RATEPAR->MODEL_PARLIST[1],z);
   }
   else {
     sprintf(c1err,"Invalid model: '%s'", cptr);
@@ -12562,29 +12689,38 @@ double GALrate_model(double l, double b, RATEPAR_DEF *RATEPAR ) {
   // Return Galactic rate for input b and l
   //
   // May 25 2018: Fix order of l,b arguments.
+  // Sep 30 2020: switch to using polyEval or eval_GENPOLY
 
-  double Rate=0.0, cosb, bb;
-  double BPOW[MXPOLY_GALRATE+1], COSBPOW[MXPOLY_GALRATE+1] ;
+  double Rate=0.0, b_val ;
+  double BPOW[MXPOLY_GALRATE+1], COSBPOW[MXPOLY_GALRATE+1], Rtest=0.0 ;
   int i;
   char fnam[] = "GALrate_model" ;
 
   // -------------- BEGIN ---------------
 
   if ( strcmp(RATEPAR->NAME,"COSBPOLY") == 0 ) {
-    cosb = cos(b*RADIAN);
+    b_val = cos(b*RADIAN);
+
+    /* xxx mark delete 9.30.2020 xxxx
     COSBPOW[0] = 1.0 ;
     for(i=0;  i <= MXPOLY_GALRATE; i++ ) {
       if( i > 0 ) { COSBPOW[i] = COSBPOW[i-1] * cosb ; }
       Rate += ( COSBPOW[i] * RATEPAR->MODEL_PARLIST[1][i] ) ;
     }
+    xxxxxx */
+
   }
   else if ( strcmp(RATEPAR->NAME,"BPOLY") == 0 ) {
-    bb      = fabs(b);
+    b_val     = fabs(b);
+
+    /* xxxxxxx 9.30.2020 mark delete xxxxx
     BPOW[0] = 1.0 ;    
     for(i=0;  i <= MXPOLY_GALRATE; i++ ) {
-      if( i > 0 ) { BPOW[i] = BPOW[i-1] * bb ; }
-      Rate += ( BPOW[i] * RATEPAR->MODEL_PARLIST[1][i] ) ;
+      if( i > 0 ) { BPOW[i] = BPOW[i-1] * b_val ; }
+      Rtest += ( BPOW[i] * RATEPAR->MODEL_PARLIST[1][i] ) ;
     }
+     xxxxxxxx end mark xxxxx*/
+
   }
 
   else {
@@ -12593,9 +12729,18 @@ double GALrate_model(double l, double b, RATEPAR_DEF *RATEPAR ) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
+  // - - - - - - - - - - 
+  // evaluate polynomial functon
+  if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) 
+    { Rate = eval_GENPOLY(b_val, &RATEPAR->MODEL_BPOLY, fnam) ; }
+  else 
+    { Rate = polyEval(6, RATEPAR->MODEL_PARLIST[1], b_val) ;  } // legacy
+
+
   return(Rate);
 
 } // end GALrate_model
+
 
 // ***********************************
 double gen_AV(void) {
@@ -16582,8 +16727,6 @@ void init_zvariation(void) {
 
     printf("   %s for %s(%s)   method=%s\n", 
 	   fnam, ptrparname, ptrPoly, method );
-
-    // xxx 
 
     // ========== IDIOT CHECKS ===============
 

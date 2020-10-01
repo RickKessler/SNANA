@@ -2740,10 +2740,17 @@ void sortz_HOSTLIB(void) {
   if ( VBOSE )  { 
     printf("\t Sort HOSTLIB by redshift (%.4f to %.4f) \n",
 	   HOSTLIB.ZMIN , HOSTLIB.ZMAX );   
-    printf("\t |zSN-zGAL| tolerance: %.3f + %.3f*z + %.4f*z^2 \n"
-	   ,INPUTS.HOSTLIB_DZTOL[0]
-	   ,INPUTS.HOSTLIB_DZTOL[1]
-	   ,INPUTS.HOSTLIB_DZTOL[2] );
+
+    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
+      printf("\t |zSN-zGAL| tolerance zpoly: %s \n",
+	     INPUTS.HOSTLIB_GENPOLY_DZTOL.STRING );
+    }
+    else {
+      printf("\t |zSN-zGAL| tolerance: %.3f + %.3f*z + %.4f*z^2 \n"
+	     ,INPUTS.HOSTLIB_DZTOL[0]
+	     ,INPUTS.HOSTLIB_DZTOL[1]
+	     ,INPUTS.HOSTLIB_DZTOL[2] );
+    }
     fflush(stdout); 
   }
 
@@ -4818,10 +4825,14 @@ void GEN_SNHOST_GALID(double ZGEN) {
   IGAL_SELECT = -9 ; 
 
   // compute zSN-zGAL tolerance for this ZGEN = zSN
-  dztol = INPUTS.HOSTLIB_DZTOL[0]
-    +     INPUTS.HOSTLIB_DZTOL[1]*(ZGEN)
-    +     INPUTS.HOSTLIB_DZTOL[2]*(ZGEN*ZGEN) ;
-
+  if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
+    dztol = eval_GENPOLY(ZGEN, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam);
+  }
+  else {
+    dztol = INPUTS.HOSTLIB_DZTOL[0]
+      +     INPUTS.HOSTLIB_DZTOL[1]*(ZGEN)
+      +     INPUTS.HOSTLIB_DZTOL[2]*(ZGEN*ZGEN) ;
+  }
   
   // find start zbin 
   LOGZGEN = log10(ZGEN);

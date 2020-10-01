@@ -1443,8 +1443,6 @@ class BBC(Program):
             suffix       = self.suffix_splitran(n_splitran,isplitran)
             len_base     = len(version) - len(suffix)
             version_base = version[0:len_base]
-            print(f" xxx version_base = {version_base} (v={version} " \
-                  f"s={suffix} )") #.xyz
             sys.stdout.flush()
 
             # get indices for summary file
@@ -1458,20 +1456,25 @@ class BBC(Program):
             nrow += 1  # for row number in summary file
 
             # the ugly code is in get_splitran_values 
-            varname_list,value_list2d = self.get_splitran_values(row)
+            varname_list, value_list2d, error_list2d = \
+                    self.get_splitran_values(row)
 
             # for each list of values, get statistics, then print to table.
             n_var = len(varname_list)
             for ivar in range(0,n_var):
                 varname    = varname_list[ivar]
                 value_list = value_list2d[ivar]
-                stat_dict  = util.get_stat_dict(value_list)
-                AVG = stat_dict['AVG'] ;  ERR_AVG = stat_dict['ERR_AVG']
-                RMS = stat_dict['RMS'] ;  ERR_RMS = stat_dict['ERR_RMS']
+                error_list = error_list2d[ivar]
+                stat_dict  = util.get_stat_dict(value_list,error_list)
+                AVG_VAL    = stat_dict['AVG_VAL'] # avg fit value
+                AVG_ERR    = stat_dict['AVG_ERR'] # avg fit error
+                ERR_AVG    = stat_dict['ERR_AVG'] # error on mean 
+                RMS        = stat_dict['RMS']     # RMS on fit values
+                ERR_RMS    = stat_dict['ERR_RMS'] # error on RMS
                 string_values = \
                     (f"{nrow:3d} {iver} {ifit} {imu} {varname:<10} "\
-                     f"{AVG:8.4f} {ERR_AVG:8.4f} "\
-                     f"{RMS:8.4f} {ERR_RMS:8.4f} ") 
+                     f"{AVG_VAL:8.4f} {ERR_AVG:8.4f} " \
+                     f"{AVG_ERR:8.4f} {RMS:8.4f} {ERR_RMS:8.4f} ") 
 
                 f.write(f"{ROW_KEY} {string_values}\n")
 
@@ -1526,7 +1529,11 @@ class BBC(Program):
 
         varname_list = []
         value_list2d = [ 0.0 ] * n_var  # [ivar][isplitran]
-        for ivar in range(0,n_var): value_list2d[ivar] = []
+        error_list2d = [ 0.0 ] * n_var
+
+        for ivar in range(0,n_var): 
+            value_list2d[ivar] = []
+            error_list2d[ivar] = []
         isplitran    = 0
         
         for results in bbc_results_yaml:  # loop over splitran
@@ -1536,7 +1543,9 @@ class BBC(Program):
                 #print(f" xxx check item({ivar}) = {item}")
                 for key,val in item.items() :
                     str_val = str(val).split()[0]
+                    str_err = str(val).split()[1]
                     value_list2d[ivar].append(float(str_val))
+                    error_list2d[ivar].append(float(str_err))
                     if isplitran == 0 : varname_list.append(key)
                 ivar += 1
             isplitran += 1
@@ -1549,7 +1558,7 @@ class BBC(Program):
 
         if use_wfit :
             ivar = n_var - 1
-            w_list = [] ; 
+            w_list = [] ;  werr_list = []
             varname_list.append("w_wfit")
             prefix_orig,prefix_final = self.bbc_prefix("wfit", row)
             yaml_file     = (f"{prefix_final}.YAML"  )
@@ -1562,10 +1571,13 @@ class BBC(Program):
             for yaml_file in yaml_list :
                 tmp_yaml  = util.extract_yaml(yaml_file)
                 w         = tmp_yaml['w']
+                w_sig     = tmp_yaml['w_sig']
                 w_list.append(w)
+                werr_list.append(w_sig)
             value_list2d[ivar] = w_list
-
-        return varname_list, value_list2d
+            error_list2d[ivar] = werr_list
+        
+        return varname_list, value_list2d, error_list2d
 
         # end get_splitran_values
 
@@ -1597,16 +1609,19 @@ class BBC(Program):
             f.write(f"# {muopt_num}: {muopt_arg} \n")
 
         f.write(f"#\n")
-        f.write(f"# ERR_AVG = RMS/sqrt(NSNFIT) \n")
-        f.write(f"# ERR_RMS = RMS/sqrt(2*NSNFIT) \n")
-        f.write(f"# ========================================= \n\n")
+        f.write(f"# AVG_VAL = sum[VALUES]/NSNFIT   # avg fit value \n")
+        f.write(f"# AVG_ERR = sum[ERRORS]/NSNFIT   # avg fit error \n")
+        f.write(f"# RMS     = r.m.s of VALUES      # rms if fit values \n")
+        f.write(f"# ERR_AVG = RMS/sqrt(NSNFIT)     # error on mean \n")
+        f.write(f"# ERR_RMS = RMS/sqrt(2*NSNFIT)   # error on rms  \n")
+        f.write(f"# ============================================== \n\n")
 
         #end write_splitran_comments
 
     def write_splitran_header(self, f):
         # write header using names under BBCFIT_RESULTS
-        f.write("VARNAMES: ROW IVER FITOPT MUOPT  FITPAR  " \
-                f"AVG  ERR_AVG RMS  ERR_RMS \n")
+        f.write("VARNAMES: ROW IVER FITOPT MUOPT  PARNAME  " \
+                f"AVG_VAL  ERR_AVG  AVG_ERR  RMS  ERR_RMS \n")
 
     def merge_reset(self,output_dir):
 

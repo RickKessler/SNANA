@@ -299,39 +299,6 @@ struct SIMEFFMAP_DEF {
 struct GRIDMAP  SIMEFF_GRIDMAP ;
 
 
-/* xxx mark delete July 11 2020 xxxxxxxx
-// Jun 8 2018: move GENGAUSS_ASYM from snlc_sim.h to here
-typedef struct  {
-  bool   USE;       // T -> values are set (Jun 11 2020)
-  char   NAME[80];  // name of variable                       
-  double PEAK ;     // peak prob                          
-  double SIGMA[2] ; // asymmetric Gaussian sigmas 
-  double SKEW[2] ;  // hack-skew; TrueSigma = SIGMA + SKEW*|x-PEAK| 
-  double RANGE[2] ; // allows truncation 
-  int    NGRID ;      // if non-zero, snap to grid
-
-  // Mar 29 2017; add 2nd peak params (for low-z x1)      
-  double PROB2;     // prob of generating 2nd peak (default=0.0) 
-  double PEAK2;     // location of 2nd peak 
-  double SIGMA2[2]; // asym Gaussian sigmas of 2nd peak 
-  int  FUNINDEX;    // = NFUN_GENGUASS_ASYM = unique index 
-
-  double RMS;  // RMS of asym Gaussian
-
-} GENGAUSS_ASYM_DEF ;
-
-// March 20 2020: Generic struct for exponential and half gaussian.
-typedef struct  {
-  bool   USE;          // T => values are set
-  char   NAME[80];     // name of variable
-  double EXP_TAU ;     // exponential compoent: exp(-x/EXP_TAU)
-  double PEAK, SIGMA ; // peak & sigma of half gaussian component
-  double RATIO ;       // Gauss(0)/Expon(0)
-  double RANGE[2] ;    // generate random value in this RANGE
-} GEN_EXP_HALFGAUSS_DEF ;
-xxxxxxxxxx  end mark xxxxxx */
-
-
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
 #define MXORDER_GENPOLY 20
 typedef struct  {
@@ -680,6 +647,9 @@ void  readlong(FILE *fp, int nint, long long *list) ;
 void  readfloat(FILE *fp, int nint, float *list);
 void  readdouble(FILE *fp, int nint, double *list);
 void  readchar(FILE *fp, char *clist) ;
+
+int read_genpoly(char *KEYNAME, char **WORDS, int order_legacy,
+                 GENPOLY_DEF *POLY) ;
 
 void  read_SURVEYDEF(void);
 int   get_IDSURVEY(char *SURVEY);

@@ -240,7 +240,9 @@ typedef struct  {
 typedef struct {
   char   NAME[40] ;           // filled internally             
   double DNDZ_ZEXP_REWGT;     // re-wgt dN/dz by z^ZEXP_REWGT  
-  double DNDZ_ZPOLY_REWGT[4]; // re-wgt dN/dz by A0 + A1*z + A2*z^2 + A3*z^3
+  double DNDZ_ZPOLY_REWGT_LEGACY[4]; // xxx legacy var
+  GENPOLY_DEF DNDZ_ZPOLY_REWGT ;     // poly(z) to reweight rate-vs-z
+
   double DNDZ_SCALE[2] ;      // scale DNDZ for Ia and NON1A (4/19/2017)
   double DNDZ_ALLSCALE ;      // scale all SN models (Ia, SIMSED, etc ... )
 
@@ -248,6 +250,8 @@ typedef struct {
   int    NMODEL_ZRANGE;     // number of rate models glued together  
   double MODEL_PARLIST[MXRATEPAR_ZRANGE+1][20];
   double MODEL_ZRANGE[MXRATEPAR_ZRANGE+1][2];  // z-range of rate model 
+  GENPOLY_DEF MODEL_ZPOLY;  // some models are polynom functions of z
+  GENPOLY_DEF MODEL_BPOLY;  // rate vs. Galact b or cosb (LCLIB model)
   int    INDEX_MODEL ;  //            
 
   double RATEMAX;  // used with DNDB (Galactic models)
@@ -383,10 +387,7 @@ struct INPUTS {
   bool RESTORE_HOSTLIB_BUGS ;   // set if DEBUG_FLAG==3 .or. RESTORE_DES3YR
   bool RESTORE_FLUXERR_BUGS ;   // set if DEBUG_FLAG==3 .or. idem
 
-  // xxx  int OPT_DEVEL_BBC7D;   // temp for BBC7D development
-  // xxx  int OPT_DEVEL_GENFLUX; // temp for GENFLUX_DRIVER refactor + REDCOV
-  // xxx  int OPT_DEVEL_GENPDF;      // temp for genPDF
-
+  int OPT_DEVEL_READ_GENPOLY;  // use read_genpoly
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files
@@ -452,7 +453,10 @@ struct INPUTS {
   double HOSTLIB_GENRANGE_RA[2];
   double HOSTLIB_GENRANGE_DEC[2];
   double HOSTLIB_SBRADIUS ; // arcsec, determine SB using this radius
-  double HOSTLIB_DZTOL[3] ; // define zSN-zGAL tolerance vs. redshift 
+
+  double HOSTLIB_DZTOL[3] ; // define zSN-zGAL tol vs z xxx mark delete  
+  GENPOLY_DEF HOSTLIB_GENPOLY_DZTOL; // zSN-zGAL tol vs zPOLY
+
   double HOSTLIB_SCALE_LOGMASS_ERR ; // default is 1.0
   double HOSTLIB_SCALE_SERSIC_SIZE ; // default is 1.0
   char   HOSTLIB_STOREPAR_LIST[MXPATHLEN]; // (I) comma-sep list 
@@ -1690,6 +1694,7 @@ int    parse_input_SOLID_ANGLE(char **WORDS, int keySource);
 int    parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT, 
 			   RATEPAR_DEF *RATEPAR );
 int    parse_input_ZVARIATION(char **WORDS, int keySource);
+int    parse_input_ZVARIATION_LEGACY(char **WORDS, int keySource);
 int    parse_input_SIMGEN_DUMP(char **WORDS, int keySource);
 int    parse_input_SIMSED(char **WORDS, int keySource);
 int    parse_input_SIMSED_PARAM(char **WORDS);

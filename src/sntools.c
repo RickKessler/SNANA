@@ -1860,8 +1860,12 @@ double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun) {
   for(o=0; o <= ORDER; o++ ) {
     COEFF_RANGE[0] = GENPOLY->COEFF_RANGE[o][0];
     COEFF_RANGE[1] = GENPOLY->COEFF_RANGE[o][1];
-    RANCOEFF = FlatRan ( 2, COEFF_RANGE ) ;
-    // RANCOEFF = COEFF_RANGE[0];
+
+    if ( COEFF_RANGE[0] < COEFF_RANGE[1] ) 
+      { RANCOEFF = FlatRan ( 2, COEFF_RANGE ) ; }
+    else
+      { RANCOEFF = COEFF_RANGE[0]; }
+
     VALPOLY += RANCOEFF * VALPOW ;
     VALPOW = VALPOW * VAL;
   }
@@ -6542,22 +6546,13 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
 
 // ************************************************
 double polyEval(int N, double *coef, double x) {
-
   // evaluate polynomial function sum_1^N coef[i] * x^i
   // and avoid using the slow pow function.
-
-  double F, xpow ;
+  // Note that poly order is N-1, not N. N is total number of terms.
+  double F=0.0, xpow=1.0 ;
   int i;
-
-  F = 0. ;   xpow = 1.0 ;
-
-  for(i=0; i<N; i++ ) {
-    F += coef[i] * xpow ;
-    xpow *= x ;
-  }
-
+  for(i=0; i<N; i++ ) { F += coef[i] * xpow ;  xpow *= x ; }
   return F ;
-
 } // end of polyEval
 
 
@@ -11172,6 +11167,65 @@ void  print_preAbort_banner(char *fnam) {
 void  print_preabort_banner__(char *fnam) 
 {  print_preAbort_banner(fnam); }
  
+
+// *************************************************
+int read_genpoly(char *KEYNAME, char **WORDS, int order_legacy, 
+		 GENPOLY_DEF *POLY) {
+
+  // Created Sep 30 2020
+  // Parse polynomial as either comma-sep or space sep; e.g,
+  //
+  //   1.01,0.3,0.04   # 2nd order, command sep
+  //      or
+  //   1.01 0.3 0.04   # same, but space sparated -> legacy
+  //
+  //   Comma sep can have any order, while space-sep is
+  //   restricted to order_legacy passed as argument.
+  //
+  int  MEMD, nread, j, N=0;
+  double *zpoly_legacy ;
+  char first_word[60], cpoly[60] ;
+  char fnam[] = "read_genpoly" ;
+
+  // -------------- BEGIN -----------
+
+  /*
+  printf(" xxx %s: WORDS = %s %s %s   order=%d \n",
+	 fnam, WORDS[0], WORDS[1], WORDS[2], order_legacy );
+  */
+
+  sscanf(WORDS[N], "%s", first_word); N++ ;
+
+  // if there is a comma, read comma-sep poly coefficients in one read
+  if ( strstr(first_word,COMMA) ) {
+    sprintf(cpoly, "%s", first_word);
+  }
+  else {
+    // read zpoly_legacy as space-separated, and check that each
+    // each coeff is indeed float and not a string
+    cpoly[0] = 0;
+    MEMD = (order_legacy+2)*sizeof(double);
+    zpoly_legacy = (double*) malloc(MEMD);
+
+    nread = sscanf(first_word, "%le", &zpoly_legacy[0]);
+    catVarList_with_comma(cpoly,first_word); 
+
+    for(j=1; j <= order_legacy; j++ ) { 
+      nread = sscanf(WORDS[N], "%le", &zpoly_legacy[j] ); 
+      if ( nread != 1 ) { abort_bad_input(KEYNAME,WORDS[N],j,fnam); }
+      catVarList_with_comma(cpoly,WORDS[N]); 
+      N++ ;
+    }
+
+    free(zpoly_legacy);
+  }
+
+  // parse POLY struct
+  parse_GENPOLY(cpoly, KEYNAME, POLY, fnam);
+
+  return N ;
+
+} // end read_genpoly
 
 // ************************************************
 void readint(FILE *fp, int nint, int *list)   

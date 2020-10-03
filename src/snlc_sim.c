@@ -24807,6 +24807,7 @@ void readme_doc(int iflag_readme) {
   }
   
 
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\n  %s \n", COMMENT_README_TRIGGER);
 
   // print SNTYPE values for SPEC and PHOT Ia-subsets 

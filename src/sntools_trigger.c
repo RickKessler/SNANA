@@ -1066,7 +1066,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
 
   N = 0 ;  cptr = SEARCHEFF_SPEC_INFO.README[N] ;
   sprintf(cptr, "\t %s", "No spec-eff option specified ==> 100% efficiency.");
-  SEARCHEFF_SPEC_INFO.NLINE_README = N ;  N++;
+  N++;  SEARCHEFF_SPEC_INFO.NLINE_README = N ;  
 
   INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO=0;
   SEARCHEFF_SPEC_INFO.IVARTYPE_MASK = 0 ;

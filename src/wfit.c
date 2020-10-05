@@ -223,6 +223,8 @@
    + new input  -cospar_yaml <outFile> to write results in yaml format.
      Motivation is for easier parsing with batch scripts.
 
+ Sep 21 2020: few fixes for YAML output.
+
 *****************************************************************************/
 
 int compare_double_reverse (const void *, const void *);
@@ -693,9 +695,8 @@ int main(int argc,char *argv[]){
       else if (strcasecmp(argv[iarg]+1,"outfile_chi2grid")==0)  
 	{ strcpy(chi2gridfilevar,argv[++iarg]); }
       
-
       else {
-	printf("Jen Bad arg: %s\n", argv[iarg]);
+	printf("Bad arg: %s\n", argv[iarg]);
 	exit(EXIT_ERRCODE_wfit);
       }
     }
@@ -1326,32 +1327,7 @@ int main(int argc,char *argv[]){
       
     write_output_cospar(fpcospar, &RESULTS, usemarg, format_cospar);
 
-    /* xxxx
-    if ( !usemarg  ) {
-      fprintf(fpcospar,"# w%s wsig_marg%s OM%s OM_sig%s chi2%s Ndof%s "
-	      "sigint%s wran%s OMran%s label \n",
-	      sep, sep, sep, sep, sep, sep, sep, sep, sep );
-      fprintf(fpcospar,"%8.4f%s %7.4f%s %7.4f%s %7.4f%s %8.1f%s "
-	      "%5d%s %6.3f%s %.2f%s %.2f%s %s\n"
-	      , w_out,sep, wsig,sep, omm_out,sep, omm_sig,sep, chi2_final,sep
-	      , Ndof,sep, sigmu_int,sep, wrand,sep, ommrand,sep
-	      , label_cospar );
-    } else {
-      fprintf(fpcospar,"# w%s wsig_up%s wsig_low%s OM%s OM_sig%s chi2%s "
-	      "Ndof%s sigint%s wran%s OMran%s label\n",
-	      sep, sep, sep, sep, sep, sep, sep, sep, sep, sep );
-
-      fprintf(fpcospar,"%8.4f%s %7.4f%s %7.4f%s %7.4f%s %7.4f%s %8.1f%s "
-	      "%5d%s %6.3f%s  %.2f%s %.2f%s  %s\n"
-	      , w_out,sep, wsig_upper,sep, wsig_lower,sep
-	      , omm_out,sep, omm_sig,sep, chi2_final,sep
-	      , Ndof,sep, sigmu_int,sep, wrand,sep, ommrand,sep, label_cospar);
-    }
-    xxxxxxxx    */
-
     fclose(fpcospar);
-
-
 
     /*********************************************/
     /*** Write out the prob dist using cfitsio ***/
@@ -1586,11 +1562,11 @@ void read_fitres(char *inFile) {
   int NVAR, IWD ;
   int IWD_CID, IWD_Z, IWD_ZERR, IWD_MU, IWD_MUERR, IWD_MUREF=-9, IWD_TID ;
   int IWD_MUDIF, IWD_MUDIFERR ;
-  int IWD_GTYPE, IWD_SNTYPE, IWD_NBIN;
+  int IWD_GTYPE, IWD_SNTYPE, IWD_NBIN, IWD_NFIT ;
 
   char CID[12], inFile_opened[200];
   double Z, ZERR, MU, MUERR, MUREF ;
-  int TID, GTYPE, STYPE, LCUT, i, NRDTOT, NBIN, ISROWKEY, gzipFlag ;
+  int TID, GTYPE, STYPE, LCUT, i, NRDTOT, NBIN, NFIT, ISROWKEY, gzipFlag ;
 
   FILE *fp;
   char fnam[] = "read_fitres";
@@ -1618,7 +1594,7 @@ void read_fitres(char *inFile) {
   IWD_CID   =  0 ;  // CID is always the first word
   IWD_Z = IWD_ZERR = IWD_MU = IWD_MUERR = IWD_TID = -9;
   IWD_MUDIF = IWD_MUDIFERR = -9 ;
-  IWD_GTYPE = IWD_SNTYPE = IWD_NBIN = -9 ;
+  IWD_GTYPE = IWD_SNTYPE = IWD_NBIN = IWD_NFIT = -9 ;
 
   IWD = 0;
 
@@ -1705,6 +1681,8 @@ void read_fitres(char *inFile) {
     if ( strcmp(ctmp,"SNTYPE")  == 0 ) IWD_SNTYPE  = IWD;
 
     if ( strcmp(ctmp,"NBIN")  == 0 )   IWD_NBIN  = IWD;
+
+    if ( strcmp(ctmp,"NFIT")  == 0 )   IWD_NFIT  = IWD;
     
   } // end of IWD-varname read loop
 
@@ -1757,6 +1735,7 @@ void read_fitres(char *inFile) {
     if ( IWD == IWD_GTYPE)   sscanf ( ctmp, "%i", &GTYPE );
     if ( IWD == IWD_SNTYPE)  sscanf ( ctmp, "%i", &STYPE );
     if ( IWD == IWD_NBIN)    sscanf ( ctmp, "%i", &NBIN );
+    if ( IWD == IWD_NFIT)    sscanf ( ctmp, "%i", &NFIT );
 
     IWD++ ; 
 
@@ -1764,23 +1743,6 @@ void read_fitres(char *inFile) {
     // and store variables needed for cosmology fit
 
     if ( IWD == NVAR ) {
-
-      // sanity checks
-      if ( (Z < 0.0 && fabs(Z+9.0)>.001 )  || Z > 5.0 ) 
-	{ printf(" Found INSANE Z = %f  ==> ABORT \n", Z ); exit(ERR); }
-
-      if ( ZERR < 0.0 || ZERR > 10.0 ) 
-	{ printf(" Found INSANE ZERR = %f  ==> ABORT \n", ZERR ); exit(ERR); }
-
-      if ( mudif_flag == 0 ) {
-	if ( MU < 0.0 || MU > 100.0 ) 
-	  { printf(" Found INSANE MU = %f  ==> ABORT \n", MU ); exit(ERR); }
-      }
-      else {
-	if ( fabs(MU) > 2. && fabs(MU/MUERR) > 3.0 ) 
-	  { printf(" Found INSANE MUDIF = %f += %f  ==> ABORT \n",
-		   MU, MUERR ); exit(ERR); }
-      }
 
       // check cuts
       LCUT = 1;
@@ -1793,13 +1755,38 @@ void read_fitres(char *inFile) {
       if ( CUTSELECT.SNTYPE > 0 && 
 	   STYPE != CUTSELECT.SNTYPE ) { LCUT = 0; }
 
+      
       if ( NCIDLIST >= CUTSELECT.MXSNFIT ) { LCUT = 0 ; }
 
       if ( MUERR > 100.0 ) { LCUT = 0; } // Jun 26 2017
 
+      if ( mudif_flag && NFIT <= 1 ) { LCUT=0; } // Sep 21 2020
+
+
+      // sanity checks
+      if ( LCUT ) {
+	if ( (Z < 0.0 && fabs(Z+9.0)>.001 )  || Z > 5.0 ) 
+	  { printf(" Found INSANE Z = %f  ==> ABORT \n", Z ); exit(ERR); }
+
+	if ( ZERR < 0.0 || ZERR > 10.0 ) 
+	  { printf(" Found INSANE ZERR = %f  ==> ABORT \n",ZERR ); exit(ERR);}
+
+	if ( mudif_flag == 0 ) {
+	  if ( MU < 0.0 || MU > 100.0 ) 
+	    { printf(" Found INSANE MU = %f  ==> ABORT \n", MU ); exit(ERR); }
+	}
+	else {
+	  if ( fabs(MU) > 2. && fabs(MU/MUERR) > 3.0 ) 
+	    { printf(" Found INSANE MUDIF = %f += %f  ==> ABORT \n",
+		     MU, MUERR ); exit(ERR); }
+	}
+      } // end LCUT 
+
+      // xxx move check cuts above (9.21.2020) xxxx
+
       NRDTOT++ ;
 
-      if ( LCUT == 1 ) {
+      if ( LCUT  ) {
 	NCIDLIST++ ;  i = NCIDLIST-1;
 	sprintf(CIDLIST[i],"%s", CID);
 	z[i]       = Z;
@@ -2664,10 +2651,10 @@ void write_output_cospar(FILE *fp, RESULTS_DEF *RESULTS,
   else {
     // YAML format
     fprintf(fp, "w:        %.4f \n", RESULTS->w_out );
-    fprintf(fp, "wsig:     %.4f \n", RESULTS->wsig  );
+    fprintf(fp, "w_sig:    %.4f \n", RESULTS->wsig  );
     fprintf(fp, "omm:      %.4f \n", RESULTS->omm_out );
     fprintf(fp, "omm_sig:  %.4f \n", RESULTS->omm_sig );    
-    fprintf(fp, "chis:     %.1f \n", RESULTS->chi2_final ); 
+    fprintf(fp, "chi2:     %.1f \n", RESULTS->chi2_final ); 
     fprintf(fp, "sigint:   %.4f \n", RESULTS->sigmu_int );    
     fprintf(fp, "wrand:    %.4f \n", RESULTS->wrand );    
     fprintf(fp, "ommrand:  %.4f \n", RESULTS->ommrand );  

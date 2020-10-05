@@ -13,13 +13,8 @@
 #   - for sim, leave symbolic links for redundant sim job
 #
 #  FIT:
-#   - track down why NEVT(HBOOK) sometimes fails
 #
 #  BBC
-#   - trap wfit errors
-#   + parse NSPLITRAN=4 outside of YAML block
-#   + automate for RANSEED_CHANGE if STRINGMATCH_IGNORE isn't given
-#      (match suffixes -0001, -0002, etc ...)
 #
 # - - - - - - - - - -
 
@@ -49,10 +44,20 @@ def get_args():
     # misc user args
     msg = "Create & init outdir, but do NOT submit jobs"
     parser.add_argument("-n", "--nosubmit", help=msg, action="store_true")
-
+    
+    # - - - - - 
+    # reduce processing
     msg = "process x10 fewer events for sim,fit,bbc (applies only to sim data)"
     parser.add_argument("--fast", help=msg, action="store_true")
 
+    msg = "ignore FITOPT (LC & BBC fits)"
+    parser.add_argument("--ignore_fitopt", help=msg, action="store_true")
+
+    msg = "ignore MUOPT for BBC fit"
+    parser.add_argument("--ignore_muopt", help=msg, action="store_true")
+
+    # - - - - 
+    # purge files
     msg = "Use 'find' to locate and remove non-essential output."
     parser.add_argument("--purge", help=msg, action="store_true")
 
@@ -60,6 +65,7 @@ def get_args():
     msg = "increase output verbosity (default=True)"
     parser.add_argument("-v", "--verbose", help=msg, action="store_true")
 
+    # - - - - 
     msg = "kill current jobs (requires input file as 1st arg)"
     parser.add_argument("-k", "--kill", help=msg, action="store_true")
 
@@ -146,12 +152,19 @@ def set_merge_flag(config):
 
 def check_input_file_name(args):
 
-    #args.INPUT_FILE = util.standardize_path(args.input_file,CWD)
-    #args.input_file = os.path.basename(args.INPUT_FILE)    
+    input_file    = args.input_file
+    opt_translate = args.opt_translate
+
+    # abort if path is included in the input file name.
+    if '/' in input_file :
+        msgerr = []
+        msgerr.append(f"Invalid input file: {input_file}")
+        msgerr.append(f"because path not allowed as part of name.")
+        msgerr.append(f"Must submit in same dir as input_file.")
+        util.log_assert(False,msgerr)
 
     # check to translate legacy input
-    args.input_file = check_legacy_input_file(args.input_file, 
-                                              args.opt_translate )
+    args.input_file = check_legacy_input_file(input_file, opt_translate)
 
     #end check_input_file_name
 
@@ -227,15 +240,22 @@ def check_legacy_input_file(input_file, opt_translate):
     msg_translate = (f"\n TRANSLATE LEGACY INPUT file for ")
     print(f" opt_translate = {opt_translate}")
 
-    if  'GENVERSION:' in flat_word_list :
+    IS_SIM = False;   IS_FIT = False;  IS_BBC = False
+
+    if  'GENVERSION:' in flat_word_list :  IS_SIM = True
+    if  'VERSION:'    in flat_word_list :  IS_FIT = True 
+    if  '&SNLCINP'    in flat_word_list :  IS_FIT = True 
+    if  'u1='    in str(flat_word_list) :  IS_BBC = True 
+
+    if  IS_SIM :
         logging.info(f"{msg_translate} sim_SNmix.pl :")
         tr.SIM_legacy_to_refac( legacy_input_file, refac_input_file )
 
-    elif 'VERSION:' in flat_word_list :
+    elif IS_FIT :
         logging.info(f"{msg_translate} split_and_fit.pl :")
         tr.FIT_legacy_to_refac( legacy_input_file, refac_input_file )
 
-    elif 'u1=' in str(flat_word_list) :  # check for u1= substring
+    elif IS_BBC :
         logging.info(f"{msg_translate} SALT2mu_fit.pl: ")
         tr.BBC_legacy_to_refac( legacy_input_file, refac_input_file )
     #    program = BBC(config_yaml) 

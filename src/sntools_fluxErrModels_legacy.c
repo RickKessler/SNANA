@@ -301,7 +301,7 @@ void INIT_NOISEMODEL_HOST_LEGACY(char *HOSTNOISE_FILE) {
   print_banner(msg);
 
   // use utility to check local dir and path.        
-  sprintf(PATH_SIMLIB, "%s/simlib", PATH_SNDATA_ROOT);
+  sprintf(PATH_SIMLIB, "%s %s/simlib",  PATH_USER_INPUT, PATH_SNDATA_ROOT);
   fp = snana_openTextFile(1,PATH_SIMLIB, ptrFile,
 			  NOISEMODEL_FILE, &gzipFlag ); // returned (and fill global)
 

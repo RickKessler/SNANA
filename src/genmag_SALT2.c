@@ -1384,7 +1384,7 @@ void check_dayRange_SALT2errmap(int imap) {
 
 
 // ==========================================================
-void  init_BADVAL_SALT2errmap(imap) {
+void  init_BADVAL_SALT2errmap(int imap) {
 
   // Created July 26 2020
   // Init stuff to count bad values in error maps.
@@ -1432,7 +1432,7 @@ void  init_BADVAL_SALT2errmap(imap) {
 } // end init_check_BADVAL_SALT2errmap 
 
 // ==========================================================
-void  check_BADVAL_SALT2errmap(imap) {
+void  check_BADVAL_SALT2errmap(int imap) {
 
   // July 2020
   // check errmap values for NaN and crazy values
@@ -3188,7 +3188,7 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
     ZP      = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
     FTMP    = (LAM/(hc8*z1)) * GENFLUX;
     if ( ZP > 0.0 && FTMP > 0.0 )   { 
-      MAG = -2.5*log10(FTMP) + ZP;     // xxx  + MAG_OFFSET ;  
+      MAG = -2.5*log10(FTMP) + ZP; 
     }
     else  { 
       MAG = MAG_UNDEFINED ;  // model undefined
@@ -3473,10 +3473,11 @@ double SALT3colorlaw(double lam_rest, double c,
   double rl    = (lam_rest - REFLAM_CL0) / REFLAM_DIF ;
   double rlmin = (LAM_MIN  - REFLAM_CL0) / REFLAM_DIF ;
   double rlmax = (LAM_MAX  - REFLAM_CL0) / REFLAM_DIF ;
+  double CL = 0.0 ;
 
   // ------------- BEGIN --------------
 
-  return;
+  return(CL);
 
 } // end SALT3colorlaw
 

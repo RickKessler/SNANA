@@ -4,6 +4,8 @@
 # Batch control for class Simulation; replaces lagacy sim_SNmix.pl
 #
 # Upgrades over legacy sim_SNmix.pl :
+#    + can run multiple SNIa jobs/models, analogous to SNCC
+#
 #    + SIMLOGS_XXX/MERGE.LOG is updated regularly with current state
 #      (WAIT, RUN, DONE) and statistics. YAML format parsable by Pippin.
 #      
@@ -11,6 +13,8 @@
 #      leave explicit record of jobs
 #
 #    + FAIL-REPEAT scripts for failed jobs
+#
+#    + CPU diagnostics added to MERGE.LOG   
 #
 # MAYBE, TO-DO ...
 #    - if SIMLOGS exists with no done file, give warning 
@@ -87,7 +91,7 @@ class Simulation(Program):
         # set CONFIG['OUTDIR'] here.
 
         CONFIG       = self.config_yaml['CONFIG']
-        input_file = self.config_yaml['args'].input_file
+        input_file   = self.config_yaml['args'].input_file
         msgerr       = []
         if 'LOGDIR' in CONFIG :
             OUTDIR = CONFIG['LOGDIR']
@@ -471,10 +475,11 @@ class Simulation(Program):
         # default NGENTOT_LC is from the sim-input file
         ngentot       = INFILE_KEYS[iver][ifile][key_ngentot]
 
-        # check for GENOPT override 
-        if key_ngentot in genopt:
-            jindx       = genopt.rindex(key_ngentot) # last key
-            ngentot       = genopt[jindx+1] 
+        # check for GENOPT override                                             
+        genopt_words = genopt.split()
+        if key_ngentot in genopt_words :
+            jindx       = genopt_words.index(key_ngentot)
+            ngentot     = int(genopt_words[jindx+1])
 
         return ngentot
 
@@ -923,6 +928,10 @@ class Simulation(Program):
         KEYLIST = SIMGEN_MASTERFILE_KEYLIST_NONIa
         infile_list_NONIa = util.get_YAML_key_values(CONFIG,KEYLIST)
 
+        # fix partial paths by adding CWD if needed.
+        infile_list_SNIa  = util.fix_partial_path(infile_list_SNIa)
+        infile_list_NONIa = util.fix_partial_path(infile_list_NONIa)
+
         n_infile_SNIa  = len(infile_list_SNIa)
         n_infile_NONIa = len(infile_list_NONIa)
         n_infile       = n_infile_SNIa + n_infile_NONIa
@@ -945,6 +954,7 @@ class Simulation(Program):
 
         #end sim_prep_SIMGEN_INFILE_defaults
 
+    
     def sim_prep_SIMGEN_INFILE_genversion(self):
 
         # load 2D list of infile[version][ifile] for
@@ -965,7 +975,11 @@ class Simulation(Program):
                                      
             KEYLIST = SIMGEN_MASTERFILE_KEYLIST_NONIa
             infile_list_NONIa = util.get_YAML_key_values(GENV,KEYLIST)
-                                     
+        
+            # fix partial paths by adding CWD if needed.
+            infile_list_SNIa  = util.fix_partial_path(infile_list_SNIa)
+            infile_list_NONIa = util.fix_partial_path(infile_list_NONIa)
+                             
             # store list of lists (list for each GENVERSION)
             infile_list2d_SNIa.append(infile_list_SNIa)
             infile_list2d_NONIa.append(infile_list_NONIa)
@@ -1944,8 +1958,9 @@ class Simulation(Program):
             infile_list2d     = self.config_prep['infile_list2d']
             n_file            = len(infile_list2d[iver])
             for ifile in range(0,n_file) :
-                infile = infile_list2d[iver][ifile]
-                infile_list_2copy.append(f"{simlog_dir}/{infile}")
+                infile      = infile_list2d[iver][ifile]
+                infile_base = os.path.basename(infile)
+                infile_list_2copy.append(f"{simlog_dir}/{infile_base}")
 
             util.copy_input_files(infile_list_2copy,misc_dir,"")
 

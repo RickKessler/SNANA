@@ -10,7 +10,21 @@ from   submit_params import *
 
 # =================================================
 
+def fix_partial_path(file_list):
 
+    # if any file in file_list has a partial path, tack on CWD
+    # e.g., file = sim/abc.input, then out_file_list has
+    # [CWD]/sim/abc.input
+    
+    out_file_list = [] 
+    for f0 in file_list :
+        f1 = f0  # default out file name is same as input file name.
+        if '/' in f0 and f0[0] != '/' :  f1 = (f"{CWD}/{f0}")
+        out_file_list.append(f1)
+
+    return out_file_list
+    # end fix_partial_path
+        
 def separate_label_from_arg(input_arg_list):
 
     # If input_arg_list = /LABEL/ x1min=-2.0 nzbin=20
@@ -95,28 +109,32 @@ def find_and_remove(find_arg):
 
     # end find_and_remove
 
-def get_stat_dict(value_list):
+def get_stat_dict(value_list,error_list):
     # For input list of values_list, return dictionary of
-    # 'AVG, 'ERR_AVG', 'RMS', 'ERR_RMS'
+    # 'AVG_VAL', 'ERR_AVG',  "AVG_ERR',  'RMS', 'ERR_RMS'
 
     n_val    = len(value_list)
     
     if n_val > 0 :
-        sumval   = 0.0 ; sqsumval = 0.0
-        for val in value_list :
+        sumval   = 0.0 ; sqsumval = 0.0;  sumerr=0.0
+        for val,err in zip(value_list,error_list) :
             sumval   += val
             sqsumval += val*val
+            sumerr   += err
             
-            AVG = sumval / n_val
-            RMS = math.sqrt( sqsumval/n_val - AVG*AVG )
-            
+            AVG_VAL = sumval / n_val
+            RMS     = math.sqrt( sqsumval/n_val - AVG_VAL*AVG_VAL )
+            AVG_ERR = sumerr / n_val
+
             ERR_AVG = RMS/math.sqrt(n_val)
             ERR_RMS = ERR_AVG / 1.414   # sigma/sqrt(2*n)
             
     else:
-        AVG = 0.0; ERR_AVG = 0.0; RMS=0.0; ERR_RMS=0.0
+        AVG_VAL = 0.0; AVG_ERR=0.0; ERR_AVG = 0.0; RMS=0.0; ERR_RMS=0.0
 
-    stat_dict = { 'AVG':AVG, 'ERR_AVG':ERR_AVG, 'RMS':RMS, 'ERR_RMS': ERR_RMS }
+    stat_dict = { 'AVG_VAL': AVG_VAL,  'AVG_ERR': AVG_ERR,
+                  'ERR_AVG': ERR_AVG,  'RMS': RMS, 'ERR_RMS': ERR_RMS }
+
     return stat_dict
 
     # end get_stat_dict
@@ -210,11 +228,6 @@ def compress_subdir(flag,dir_name):
     # Initial use is for cleanup_job_files(flag=1) and 
     # merge_reset(flag=-1)
 
-    # xxxx mark delete xxxxx
-    #j_slash     = dir_name.rindex("/")
-    #topdir_name = dir_name[0:j_slash]
-    #subdir_name = dir_name[j_slash+1:]
-    # xxxxxxxxxxxx
 
     topdir_name = os.path.dirname(dir_name)
     subdir_name = os.path.basename(dir_name)
@@ -392,7 +405,8 @@ def copy_input_files(infile_copy_list,output_dir,list_file):
             shutil.copy(infile,output_dir)
             done_copy_list.append(infile)
 
-            infile_nopath = ntpath.split(infile)[1]
+            infile_nopath = os.path.basename(infile)
+            # xxx infile_nopath = ntpath.split(infile)[1]
             if infile_nopath in done_copy_list_nopath:
                 j = done_copy_list_nopath.index(infile_nopath)
                 msgerr.append(f"Cannot define duplicate input/include file names")
@@ -404,11 +418,15 @@ def copy_input_files(infile_copy_list,output_dir,list_file):
             done_copy_list_nopath.append(infile_nopath)
 
     # check option to write all input file names to a list file
+    # make sure to write only the base name without path, otherwise
+    # the merge process will delete the input file from $PATH.
+
     if list_file != '' :
         LIST_FILE = (f"{output_dir}/{list_file}")
         with open(LIST_FILE, 'w') as f : 
             for infile in done_copy_list:
-                f.write(f"{infile}\n")
+                infile_base = os.path.basename(infile) # exclude path           
+                f.write(f"{infile_base}\n")
 
     # end copy_input_files
 
@@ -522,9 +540,10 @@ def wait_for_files(n_file_wait, wait_dir, wait_files):
     T_SLEEP = 20  # sleep time until next file-exist check
  
     logging.info(f"  Wait for {n_file_wait} {wait_files} files")
-    n_file_exist = 0
+    n_file_exist = 0; n_try=0
     while  n_file_exist < n_file_wait :
-        time.sleep(T_SLEEP) 
+        n_try += 1
+        if n_try > 1:  time.sleep(T_SLEEP) 
         wait_file_list  = glob.glob1(wait_dir,wait_files)
         n_file_exist    = len(wait_file_list)
         time_now        = datetime.datetime.now()

@@ -54,7 +54,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_78d"                                     
+#define  SNANA_VERSION_CURRENT  "v10_78e"                                      
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -84,6 +84,8 @@
 #define ZMAX_SNANA 4.0              // max snana redshift, Dec 26 2016
 #define COMMA      ","              // to split comma-sep strings
 #define COLON      ":"              // to split colon-sep strings
+#define PERCENT    "%"              // idem for %-sep strings
+#define PLUS       "+"
 
 // from Planck 2018 (installed June 8 2020)
 #define  CMBapex_l  (double)264.031    // deg (RA galactic coords !!!)
@@ -295,39 +297,6 @@ struct SIMEFFMAP_DEF {
 } SIMEFFMAP ;
 
 struct GRIDMAP  SIMEFF_GRIDMAP ;
-
-
-/* xxx mark delete July 11 2020 xxxxxxxx
-// Jun 8 2018: move GENGAUSS_ASYM from snlc_sim.h to here
-typedef struct  {
-  bool   USE;       // T -> values are set (Jun 11 2020)
-  char   NAME[80];  // name of variable                       
-  double PEAK ;     // peak prob                          
-  double SIGMA[2] ; // asymmetric Gaussian sigmas 
-  double SKEW[2] ;  // hack-skew; TrueSigma = SIGMA + SKEW*|x-PEAK| 
-  double RANGE[2] ; // allows truncation 
-  int    NGRID ;      // if non-zero, snap to grid
-
-  // Mar 29 2017; add 2nd peak params (for low-z x1)      
-  double PROB2;     // prob of generating 2nd peak (default=0.0) 
-  double PEAK2;     // location of 2nd peak 
-  double SIGMA2[2]; // asym Gaussian sigmas of 2nd peak 
-  int  FUNINDEX;    // = NFUN_GENGUASS_ASYM = unique index 
-
-  double RMS;  // RMS of asym Gaussian
-
-} GENGAUSS_ASYM_DEF ;
-
-// March 20 2020: Generic struct for exponential and half gaussian.
-typedef struct  {
-  bool   USE;          // T => values are set
-  char   NAME[80];     // name of variable
-  double EXP_TAU ;     // exponential compoent: exp(-x/EXP_TAU)
-  double PEAK, SIGMA ; // peak & sigma of half gaussian component
-  double RATIO ;       // Gauss(0)/Expon(0)
-  double RANGE[2] ;    // generate random value in this RANGE
-} GEN_EXP_HALFGAUSS_DEF ;
-xxxxxxxxxx  end mark xxxxxx */
 
 
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
@@ -591,7 +560,6 @@ int  header_merge(FILE *fp, char *auxheader_file);
 int sort_epochs_bymjd(void);
 
 int   WRSTAT ( int wrflag, float value ) ;
-// xxx mark delete Jan 23 2018 int   IDTELESCOPE ( char *telescope );
 
 int   Landolt_ini(int opt, float *mag, float *kshift);
 int   landolt_ini__(int *opt, float *mag, float *kshift);
@@ -680,6 +648,9 @@ void  readfloat(FILE *fp, int nint, float *list);
 void  readdouble(FILE *fp, int nint, double *list);
 void  readchar(FILE *fp, char *clist) ;
 
+int read_genpoly(char *KEYNAME, char **WORDS, int order_legacy,
+                 GENPOLY_DEF *POLY) ;
+
 void  read_SURVEYDEF(void);
 int   get_IDSURVEY(char *SURVEY);
 
@@ -761,7 +732,7 @@ void split2floats(char *string, char *sep, float *fval) ;
 
 void remove_quote(char *string);
 void extractStringOpt ( char *string, char *stringOpt) ;
-void extractstringopt_ ( char *string, char *stringOpt) ;
+void extractstringopt_( char *string, char *stringOpt) ;
 void extract_MODELNAME(char *STRING, char *MODELPATH, char *MODELNAME);
 void extract_modelname__(char *STRING, char *MODELPATH, char *MODELNAME);
 
@@ -775,6 +746,8 @@ void print_banner ( const char *banner ) ;
 void fprint_banner (FILE *FP, const char *banner ) ;
 
 // shells to open text file
+void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *callFun);
+
 FILE *open_TEXTgz(char *FILENAME, const char *mode,int *GZIPFLAG) ;
 FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName, 
 			  char *fullName, int *gzipFlag ); 
@@ -785,6 +758,7 @@ void check_openFile_docana(FILE *fp, char *fileName); // check file already open
 void check_file_docana(char *fileName);           // open file and check
 void abort_missing_docana(char *fileName);
 void abort_missing_docana__(char *fileName);
+void abort_bad_input(char *key,  char *word, int iArg, char *callFun);
 void check_file_docana__(char *fileName);
 
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);

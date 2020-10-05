@@ -1860,8 +1860,12 @@ double eval_GENPOLY(double VAL, GENPOLY_DEF *GENPOLY, char *callFun) {
   for(o=0; o <= ORDER; o++ ) {
     COEFF_RANGE[0] = GENPOLY->COEFF_RANGE[o][0];
     COEFF_RANGE[1] = GENPOLY->COEFF_RANGE[o][1];
-    RANCOEFF = FlatRan ( 2, COEFF_RANGE ) ;
-    // RANCOEFF = COEFF_RANGE[0];
+
+    if ( COEFF_RANGE[0] < COEFF_RANGE[1] ) 
+      { RANCOEFF = FlatRan ( 2, COEFF_RANGE ) ; }
+    else
+      { RANCOEFF = COEFF_RANGE[0]; }
+
     VALPOLY += RANCOEFF * VALPOW ;
     VALPOW = VALPOW * VAL;
   }
@@ -3916,8 +3920,6 @@ int init_SIMEFFMAP(char *file, char *varnamesList) {
   //  printf("\t EFF(MAX) = %6.4f \n", SIMEFFMAP.EFFMAX);
 
   // init multi-dimensional interpolation
-
-
   init_interp_GRIDMAP(IDGRIDMAP_SIMEFFMAP, "SIMEFF",
 		      NBINTOT, NGENVAR, NFUN, 0,
 		      SIMEFFMAP.TMPVAL, &SIMEFFMAP.TMPEFF,
@@ -6544,22 +6546,13 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
 
 // ************************************************
 double polyEval(int N, double *coef, double x) {
-
   // evaluate polynomial function sum_1^N coef[i] * x^i
   // and avoid using the slow pow function.
-
-  double F, xpow ;
+  // Note that poly order is N-1, not N. N is total number of terms.
+  double F=0.0, xpow=1.0 ;
   int i;
-
-  F = 0. ;   xpow = 1.0 ;
-
-  for(i=0; i<N; i++ ) {
-    F += coef[i] * xpow ;
-    xpow *= x ;
-  }
-
+  for(i=0; i<N; i++ ) { F += coef[i] * xpow ;  xpow *= x ; }
   return F ;
-
 } // end of polyEval
 
 
@@ -8426,8 +8419,8 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
     // PySEDMODEL info for BYOSED, SNEMO
     if ( SNDATA.NPAR_PySEDMODEL > 0 ) {
       fprintf(fp,"\n");
-      fprintf(fp,"%s_NPAR: %d \n",   // .xyz
-	      SNDATA.SIM_MODEL_NAME, SNDATA.NPAR_PySEDMODEL ); // .xyz
+      fprintf(fp,"%s_NPAR: %d \n",  
+	      SNDATA.SIM_MODEL_NAME, SNDATA.NPAR_PySEDMODEL ); 
       for ( ipar = 0; ipar < SNDATA.NPAR_PySEDMODEL; ipar++ ) {
 	fprintf(fp,"%s:  %f \n"
 		,SNDATA.PySEDMODEL_KEYWORD[ipar]
@@ -10534,6 +10527,71 @@ float edgedist ( float X, float Y, int NXPIX, int NYPIX ) {
 
 
 // ==================================
+void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCall){
+
+  // Created Sep 28 2020
+  // For input *fileName, check if it exists in CWD, or in any
+  // path in (space-separated) PATH_LIST.
+  // Return FILENAME that includes full path (if needed).
+  // Abort if file not found.
+
+  // ------------ BEGIN ----------------
+
+#define MXPATH_CHECK 4
+
+  struct stat statbuf, statbuf_gz;
+  bool FOUNDIT = false;
+  int  jstat, jstat_gz, ipath, NPATH ;
+  char *path, *PATH[MXPATH_CHECK], sepKey[] = " ";
+  char  tmpName[MXPATHLEN], tmpName_gz[MXPATHLEN] ;
+  char fnam[] = "find_pathfile";
+
+  // ------------- BEGIN -----------
+
+  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
+    { PATH[ipath] = (char*) malloc(MXPATHLEN*sizeof(char) ); }
+
+  splitString(PATH_LIST, sepKey, MXPATH_CHECK,
+	       &NPATH, &PATH[1] ); // <== returned
+
+  NPATH++; sprintf(PATH[0],"");
+
+  for ( ipath=0; ipath < NPATH; ipath++ ) {
+    path = PATH[ipath] ;
+    if ( strlen(path) == 0 ) 
+      { sprintf(tmpName,"%s", fileName); }
+    else
+      { sprintf(tmpName,"%s/%s", path, fileName); }
+
+    sprintf(tmpName_gz, "%s.gz", tmpName);
+    jstat    = stat(tmpName,    &statbuf);    // returns 0 if file exists
+    jstat_gz = stat(tmpName_gz, &statbuf_gz); // returns 0 if file exists
+
+    if ( jstat==0 || jstat_gz==0 ) 
+      { FOUNDIT = true ;   sprintf(FILENAME, "%s", tmpName);  break; }
+
+  } // end ipath
+  
+  // - - - - - - - - - - 
+  if ( !FOUNDIT ) {
+    print_preAbort_banner(fnam);
+    printf("   Called by function %s \n", funCall);
+    for ( ipath=1; ipath < NPATH; ipath++ ) 
+      { printf("   File not in path: %s \n", PATH[ipath] ); }
+    sprintf(c1err,"Could not find file in paths listed above:");
+    sprintf(c2err,"fileName = %s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);   
+  }
+
+  //  debugexit(fnam);
+
+  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )  { free(PATH[ipath]); }
+
+
+  return;
+} // end find_pathfile
+
+// ==================================
 FILE *open_TEXTgz(char *FILENAME, const char *mode, int *GZIPFLAG ) {
 
   // Dec 1 2017:
@@ -10765,6 +10823,12 @@ void check_file_docana(char *fileName) {
   return;
 } // end check_file_docana
 
+
+void abort_bad_input(char *key, char *word, int iArg, char *callFun) {
+  sprintf(c1err,"Could not read arg[%d] = '%s'", iArg, word);
+  sprintf(c2err,"for KEY = %s (check N_arg after input key)", key );
+  errmsg(SEV_FATAL, 0, callFun, c1err, c2err ) ;
+} // end abort_bad_input
 
 void abort_missing_docana(char *fileName) {
   char fnam[] = "abort_missing_docana" ;
@@ -11103,6 +11167,65 @@ void  print_preAbort_banner(char *fnam) {
 void  print_preabort_banner__(char *fnam) 
 {  print_preAbort_banner(fnam); }
  
+
+// *************************************************
+int read_genpoly(char *KEYNAME, char **WORDS, int order_legacy, 
+		 GENPOLY_DEF *POLY) {
+
+  // Created Sep 30 2020
+  // Parse polynomial as either comma-sep or space sep; e.g,
+  //
+  //   1.01,0.3,0.04   # 2nd order, command sep
+  //      or
+  //   1.01 0.3 0.04   # same, but space sparated -> legacy
+  //
+  //   Comma sep can have any order, while space-sep is
+  //   restricted to order_legacy passed as argument.
+  //
+  int  MEMD, nread, j, N=0;
+  double *zpoly_legacy ;
+  char first_word[60], cpoly[60] ;
+  char fnam[] = "read_genpoly" ;
+
+  // -------------- BEGIN -----------
+
+  /*
+  printf(" xxx %s: WORDS = %s %s %s   order=%d \n",
+	 fnam, WORDS[0], WORDS[1], WORDS[2], order_legacy );
+  */
+
+  sscanf(WORDS[N], "%s", first_word); N++ ;
+
+  // if there is a comma, read comma-sep poly coefficients in one read
+  if ( strstr(first_word,COMMA) ) {
+    sprintf(cpoly, "%s", first_word);
+  }
+  else {
+    // read zpoly_legacy as space-separated, and check that each
+    // each coeff is indeed float and not a string
+    cpoly[0] = 0;
+    MEMD = (order_legacy+2)*sizeof(double);
+    zpoly_legacy = (double*) malloc(MEMD);
+
+    nread = sscanf(first_word, "%le", &zpoly_legacy[0]);
+    catVarList_with_comma(cpoly,first_word); 
+
+    for(j=1; j <= order_legacy; j++ ) { 
+      nread = sscanf(WORDS[N], "%le", &zpoly_legacy[j] ); 
+      if ( nread != 1 ) { abort_bad_input(KEYNAME,WORDS[N],j,fnam); }
+      catVarList_with_comma(cpoly,WORDS[N]); 
+      N++ ;
+    }
+
+    free(zpoly_legacy);
+  }
+
+  // parse POLY struct
+  parse_GENPOLY(cpoly, KEYNAME, POLY, fnam);
+
+  return N ;
+
+} // end read_genpoly
 
 // ************************************************
 void readint(FILE *fp, int nint, int *list)   

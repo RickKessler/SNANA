@@ -26,14 +26,18 @@ then for the SALT2mu input   file='mySN.fitres'
 
 Additional arguments below are optional:
 
-file = comma-sep list of fitres file names to analyze
-
+file=<comma-sep list of fitres file names to analyze>
+datafile=<same as file=>
+ 
 minos=1  ! default; minos errors
 minos=0  ! switch to MIGRAD (should be faster)
      
 nmax=100                 ! fit first 100 events only
 nmax=70(SDSS),200(PS1MD) ! fit 70 SDSS and 200 PS1MD
 nmax=300,200(PS1MD)      ! fit 300 total, with 200 in PS1MD sub-sample
+
+cid_select_file=<file with CID 'accept-only' list  (FITRES or unkeyed list format)>
+cid_reject_file=<file with CID reject list (FITRES or unkeyed format)>
 
 uzsim=1                  ! cheat and use true zCMB for redshift
 
@@ -89,7 +93,7 @@ To check sample stats for each surveyGroup and fieldGroup,
  - - - - -  CCprior options - - - - -  
 simfile_ccprior=name    ! sim fitres file to compute CC prior and
                         !  flag to to a BEAMS-like fit
-simfile_ccprior=same  --> use same file as simfile_bias
+simfile_ccprior=same  --> use same file(s) as simfile_bias
 simfile_ccprior=name1,name2,etc  ! comma-sep list
 simfile_ccprior=H11   --> no sim; use CC MU-z function from Hlozek 2011
   BEWARE: must use 5D biasCor with simfile_ccprior option;
@@ -105,11 +109,11 @@ maxprobcc_for_sigint --> compute sigInt from chi2=Ndof for
 # to force P(SNIa)=1 and P(CC)=0 for spectroscopic-confirmed subset,
 type_list_probcc0=1,2,11 
      (list of integer TYPE values in data header)
-idsurvey_list_probcc=5,50,51,53 
+idsurvey_list_probcc0=5,50,51,53 
        or
-idsurvey_list_probcc=CSP,JRK07,KAIT,CFA3
+idsurvey_list_probcc0=CSP,JRK07,KAIT,CFA3
        or
-idsurvey_list_probcc=CSP,JRK07,51,53
+idsurvey_list_probcc0=CSP,JRK07,51,53
    (list of survey names and/or integers from SURVEY.DEF file)
 
     grep Force <stdout>  # to verify parsing
@@ -820,6 +824,15 @@ Default output files (can change names with "prefix" argument)
    + new nthread=<n> argument breaks up chi2 calc into threads
      using pthread_create. Default nthread=1 does not use pthread.
 
+ Sep 23 2020: finish subprocess OUTPUT_TABLEs
+
+ Sep 24 2020: 
+    + new key cid_reject_file
+    + cid_reject_file and cid_select_file can be either FITRES format
+      or list without any keys or commas.
+
+ Sep 29 2020: few tweaks to get_fitParBias
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -966,7 +979,6 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define MXCUTWIN 20 // max number of CUTWIN definitions in input file.
 
 #define MXCHAR_LINE 2000 // max character per line of fitres file
-
 
 // define CUTBIT for each type of cut (lsb=0)
 // (bit0->1, bit4->16, bit6->64, bit8->256, bit10->1024,  bit12 --> 4096
@@ -1372,9 +1384,11 @@ struct {
 #define MXSURVEY_ZPOLY_COVMAT 10 
 
 struct INPUTS {
+
+  bool   KEYNAME_DUMPFLAG; // flag to dump all key names, then quit
+
   int  nfile_data;
   char **dataFile;  
-  bool   KEYNAME_DUMPFLAG; // flag to dump all key names, then quit
 
   bool   cat_only;    // cat fitres files and do nothing else
   char   cat_file_out[MXCHAR_FILENAME] ;
@@ -1396,7 +1410,8 @@ struct INPUTS {
 
   // optional sim-files with corrections/maps
   int  nfile_biasCor;        // number of biascor files
-  char **simFile_biasCor ;   // sim info for BBC method
+  char **simFile_biasCor ;   // comma-sep list of biasCor inputs
+  char *simFile_biasCor_arg;  // store input string in case CCprior needs it
   int  opt_biasCor ;
   int  prescale_biasCor[2] ; // subset use [0] of [1]
   double sigint_biasCor ;     // force sigint instead of autocompute
@@ -1418,6 +1433,7 @@ struct INPUTS {
   int  nfile_CCprior;
   char **simFile_CCprior;    // to get CC prior, dMU vs. z
   char   varname_pIa[100];
+  bool   sameFile_flag_CCprior; // True -> same file(s) as biasCor
 
   char   append_varname_missing[100]; // force missing varname(s) with -9
 
@@ -1461,11 +1477,11 @@ struct INPUTS {
   int  sntype[MXSNTYPE]; // list of sntype(s) to select
   char sntypeString[100]; // comma-separated string from input file
 
-  // CID select for data only (data can be real or sim) djb
+  // CID select or reject for data only (data can be real or sim)
   char   cidFile_data[MXCHAR_FILENAME];
   char  **cidList_data; //2d array to be allocated later
-  int   ncidList_data; //number of cids provided in listfile
-  
+  int   ncidList_data;  //number of cids provided in listfile
+  int   acceptFlag_cidFile_data ; // +1 to accept, -1 to reject
 
   // - - - - - - redshift bins - - - - - - 
   int     nzbin ;    // number of uniform-spaced redshift bins
@@ -1761,7 +1777,8 @@ int  usesim_CUTWIN(char *varName) ;
 int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
 
 void parse_sntype(char *item);
-void parse_cidFile_data(char *item); //djb
+void parse_cidFile_data_LEGACY(char *item);
+void parse_cidFile_data(int OPT, char *item); 
 void parse_prescale_biascor(char *item);
 void parse_powzbin(char *item) ;
 void parse_IDSAMPLE_SELECT(char *item);
@@ -1877,7 +1894,7 @@ void  store_iaib_biasCor(void) ;
 
 void  zero_FITPARBIAS(FITPARBIAS_DEF *FITPARBIAS) ;
 int   get_fitParBias(char *CID, BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
-		     FITPARBIAS_DEF *FITPARBIAS);
+		     char *callFun, FITPARBIAS_DEF *FITPARBIAS);
 int get_muCOVscale(char *cid,  BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
 		   double *muCOVscale ) ;
 
@@ -1996,6 +2013,8 @@ void   J1D_invert_I(int IDSAMPLE, int J1D, int *ia, int *ib, int *ig,
 void   get_J1DNBR_LIST(int IDSAMPLE, int J1D, int *NJ1DNBR, int *J1DNBR_LIST) ;
 double WGT_biasCor(int opt, int ievt, char *msg);
 
+int validRowKey_TEXT(char *string) ; // see sntools_output_text.c
+
 //Eigenvalue routine
 void rs_(void *n, int *nm,double *err,double *w, bool *matz,
            double *z,double *fv1,double *fv2,int *ierr);  
@@ -2063,10 +2082,21 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT);
 int  SUBPROCESS_IVAR_TABLE(char *varName_GENPDF);
 void SUBPROCESS_INIT_DUMP(void);
 void SUBPROCESS_INIT_RANFLAT(void);
-void SUBPROCESS_OUTPUT_PREP(void);
+void SUBPROCESS_OUTPUT_TABLE_PREP(int itable);
 void SUBPROCESS_OUTPUT_LOAD(void);
-void SUBPROCESS_OUTPUT_WRITE(void); // write output
+void SUBPROCESS_OUTPUT_TABLE_LOAD(int isn, int itable);
+void SUBPROCESS_OUTPUT_TABLE_RESET(int itable) ;
+void SUBPROCESS_OUTPUT_WRITE(void); 
+void SUBPROCESS_OUTPUT_TABLE_WRITE(int itable);
+
+void SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY(void);
+void SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY(void);
+void SUBPROCESS_OUTPUT_WRITE_LEGACY(void);
 void SUBPROCESS_EXIT(void);
+
+void SUBPROCESS_STORE_BININFO(int itable, int ivar, char *string);
+void SUBPROCESS_MAP1D_BININFO(int itable);
+void SUBPROCESS_OUTPUT_TABLE_HEADER(int itable);
 
 #include "sntools_genPDF.h" 
 #include "sntools_genPDF.c"
@@ -2074,6 +2104,29 @@ void SUBPROCESS_EXIT(void);
 #define KEYNAME_SUBPROCESS_STDOUT          "SALT2mu_SUBPROCESS:"
 #define KEYNAME_SUBPROCESS_ITERATION_BEGIN "ITERATION_BEGIN:"
 #define KEYNAME_SUBPROCESS_ITERATION_END   "ITERATION_END:"
+#define MXTABLE_SUBPROCESS        6  // max number of output tables
+#define MXVAR_TABLE_SUBPROCESS    3  // max number of dimensions per table
+
+typedef struct {
+
+  // info stored before fit
+  int NVAR;
+  int IVAR_FITRES[MXVAR_TABLE_SUBPROCESS];
+  BININFO_DEF BININFO[MXVAR_TABLE_SUBPROCESS];
+  float  *PTRVAL[MXVAR_TABLE_SUBPROCESS] ;
+
+  char VARNAMES_HEADER[200]; // varnames list for table header
+
+  int  NBINTOT; // total number of multi-dimensional bins
+  int *INDEX_BININFO[MXVAR_TABLE_SUBPROCESS] ; // for 0 to NBINTOT-1
+
+  // info computed for each iteration.
+  // Each array is malloced with NBINTOT storage
+  int    *NEVT;   
+  double *MURES_SQSUM, *MURES_SUM; // to reconstruct MU-bias and MU-RMS
+
+} SUBPROCESS_TABLE_DEF ;
+
 
 struct {
   bool  USE;
@@ -2081,10 +2134,12 @@ struct {
   // INPUT_xxx are read directory from command line
   char  *INPUT_FILES ; // comma-sep list of INPFILE,OUTFILE,STDOUT_FILE
   char  *INPUT_VARNAMES_GENPDF_STRING;
-  char  *INPUT_CID_REWGT_DUMP;
-  int    INPUT_ISEED; // random seed
-
-  // variables below are computed/extracted from INPPUT_xxx
+  char  *INPUT_CID_REWGT_DUMP ;
+  char **INPUT_OUTPUT_TABLE ; 
+  int    N_OUTPUT_TABLE ;
+  int    INPUT_ISEED;         // random seed
+  
+  // variables below are computed/extracted from INPUT_xxx
   char  *INPFILE ; // read PDF map from here
   char  *OUTFILE ; // write info back to python driver
   char  *STDOUT_FILE ; // direct stdout here (used only for visual debug)
@@ -2105,7 +2160,11 @@ struct {
   int  ITER;
   bool *KEEP_AFTER_REWGT;
 
-  // below are variables filled by OUTPUT_LOAD at end of each subproc iter
+  // define info for each SALT2mu-output table.
+  SUBPROCESS_TABLE_DEF OUTPUT_TABLE[MXTABLE_SUBPROCESS] ;
+
+  // below are LEGAY variables filled by OUTPUT_TABLE_LOAD 
+  // at end of each subproc iter
   char    LINE_VARNAMES[200];
   int     NBIN_c ;
   int    *NEVT_c ;
@@ -2185,6 +2244,8 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   // check for conflicts between input variables
   conflict_check();
 
+  TABLEFILE_INIT();  // call before prep_input_driver , 9.28.2020
+
   // prepare input
   prep_input_driver();
 
@@ -2193,7 +2254,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
 
   // --------------------------------------
   //Read input data from SALT2 fit
-  TABLEFILE_INIT();
+  // xxx mark delete 9.28.2020  TABLEFILE_INIT();
 
   read_data(); 
   compute_more_INFO_DATA();  
@@ -2631,14 +2692,13 @@ void setup_BININFO_userz(void) {
   int MEMC = 20*sizeof(char);
   double zlo, zhi, zmin=-9.0, zmax=-9.0 ;
   char *ptr_z[MXz];
-  char comma[] = ",";
   char fnam[] = "setup_BININFO_userz" ;
 
   // --------------- BEGIN -------------
 
   for(iz=0; iz < MXz; iz++ ) { ptr_z[iz] = (char*)malloc(MEMC); }
 
-  splitString(INPUTS.zbinuser, comma, MXz,    // inputs
+  splitString(INPUTS.zbinuser, COMMA, MXz,    // inputs
 	      &Nsplit, ptr_z );                    // outputs
   nzbin  = Nsplit-1 ;
 
@@ -5180,6 +5240,8 @@ void set_defaults(void) {
   // stuff for CC prior
   INPUTS.nfile_CCprior  = 0 ;
   INPUTS.varname_pIa[0] = 0 ;
+  INPUTS.sameFile_flag_CCprior = false ;
+
   sprintf(INPUTS.append_varname_missing,"PROB*");
   INPUTS.force_pIa      = -9.0;
   INPUTS.perfect_pIa    = false ;
@@ -5216,9 +5278,12 @@ void set_defaults(void) {
   INPUTS.Nsntype = 0 ;
   sprintf(INPUTS.sntypeString,"NULL");
 
-  INPUTS.nmaxString[0] = 0 ;
+  INPUTS.nmaxString[0]   = 0 ;
+
   INPUTS.cidFile_data[0] = 0;
-  INPUTS.ncidList_data = 0; //djb
+  INPUTS.ncidList_data   = 0; //djb
+  INPUTS.acceptFlag_cidFile_data = 0 ;
+
   INPUTS.nmax_tot = 999888777 ;
   for(isurvey=0; isurvey<MXIDSURVEY; isurvey++ ) 
     { INPUTS.nmax[isurvey] = 999888777 ; }
@@ -6607,7 +6672,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   if ( INPUTS.USE_GAMMA0 && IVAR_GAMMA >= 0 )
     { logmass = (double)TABLEVAR->CUTVAL[IVAR_GAMMA][ISN]; }
   else
-    { logmass = INPUTS.parval[IPAR_LOGMASS_CEN]; }
+    { logmass = INPUTS.parval[IPAR_LOGMASS_CEN]; } // avoid failing cut
 
   TABLEVAR->logmass[ISN] = logmass;
 
@@ -7577,11 +7642,10 @@ void set_FIELDGROUP_biasCor(void) {
 
   if ( USE_FIELDGROUP == 0 ) { return ; }
 
-  char comma[] = "," ;
   for(i=0; i < MXNUM_SAMPLE; i++ ) 
     { ptrFIELD[i] = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[i] ; }
   
-  splitString(INPUTS.fieldGroup_biasCor, comma, MXNUM_SAMPLE, // inputs
+  splitString(INPUTS.fieldGroup_biasCor, COMMA, MXNUM_SAMPLE, // inputs
 	      &NGRP, ptrFIELD );   // outputs
 
   INPUTS_SAMPLE_BIASCOR.NFIELDGROUP_USR = NGRP;
@@ -7615,8 +7679,6 @@ void  set_SURVEYGROUP_biasCor(void) {
   int  USE_SURVEYGROUP = INPUTS.use_surveyGroup_biasCor ;
   int  i, i2, NGRP, ID, NEVT ;
   char *ptrSURVEY[MXNUM_SAMPLE], *S ;
-  char comma[] = "," ;
-  char plus[]  = "+" ;
   char fnam[] = "set_SURVEYGROUP_biasCor" ;
 
   // ------------- BEGIN -------------
@@ -7627,7 +7689,7 @@ void  set_SURVEYGROUP_biasCor(void) {
     for(i=0; i < MXNUM_SAMPLE; i++ ) 
       { ptrSURVEY[i] = INPUTS_SAMPLE_BIASCOR.SURVEYGROUP_LIST[i] ; }
 
-    splitString(INPUTS.surveyGroup_biasCor, comma, MXNUM_SAMPLE, // inputs
+    splitString(INPUTS.surveyGroup_biasCor, COMMA, MXNUM_SAMPLE, // inputs
 		&NGRP, ptrSURVEY ); // outputs
     INPUTS_SAMPLE_BIASCOR.NSURVEYGROUP_USR = NGRP ;
   }
@@ -7649,7 +7711,7 @@ void  set_SURVEYGROUP_biasCor(void) {
 		     INPUTS_SAMPLE_BIASCOR.SURVEYGROUP_OPTLIST[i] ); 
 
     splitString(INPUTS_SAMPLE_BIASCOR.SURVEYGROUP_LIST[i], 
-		plus, MXNUM_SAMPLE, // (I) 
+		PLUS, MXNUM_SAMPLE, // (I) 
 		&INPUTS_SAMPLE_BIASCOR.NSURVEY_PER_GROUP[i], ptrTmp ); // (O)
 
     // store integer IDSURVEY for each plus-separated SURVEY 
@@ -9549,7 +9611,7 @@ void  J1D_invert_D(int IDSAMPLE, int J1D,
 void  J1D_invert_I(int IDSAMPLE, int J1D, int *ja, int *jb, int *jg,
 		   int *jz, int *jm, int *jx1, int *jc) {
 
-  // May 2016: for input J1D index, return doubles a,b,z,x1,c
+  // May 2016: for input J1D index, return int indices for a,b,z,x1,c
 
   int ID = IDSAMPLE;
   int NBINa, NBINb, NBINg, NBINz, NBINm, NBINx1, NBINc;
@@ -9798,7 +9860,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     
     //    DUMPFLAG = ( isp < 5 ); // xxxx REMOVE
     istat_bias = 
-      get_fitParBias(name, &BIASCORLIST, DUMPFLAG,
+      get_fitParBias(name, &BIASCORLIST, DUMPFLAG, fnam, 
 		     &FITPARBIAS[ia][ib][ig] ); // <== returned
 
     //  DUMPFLAG = 0 ; // xxx REMOVE
@@ -11314,7 +11376,7 @@ int  storeDataBias(int n, int DUMPFLAG) {
 	BIASCORLIST.gammadm  = (*BININFO_SIM_GAMMADM).avg[ig];
 
 	istat_bias = 
-	  get_fitParBias(name, &BIASCORLIST, DUMPFLAG,             // in
+	  get_fitParBias(name, &BIASCORLIST, DUMPFLAG, fnam,            // in
 			 &INFO_DATA.FITPARBIAS_ALPHABETA[n][ia][ib][ig]);//out
 
 	if ( DUMPFLAG ) {
@@ -11370,7 +11432,7 @@ int  storeBias_CCprior(int n) {
 
   BIASCORLIST_DEF BIASCORLIST ;
 
-  int    DUMPFLAG = ( n < -4 );
+  int    DUMPFLAG = 0; // (strcmp(name,"184000") == 0) ;
   int    ia, ib, ig, istat_bias ;
   char   fnam[] = "storeBias_CCprior" ;
 
@@ -11415,7 +11477,7 @@ int  storeBias_CCprior(int n) {
       BIASCORLIST.gammadm  = INFO_BIASCOR.BININFO_SIM_GAMMADM.avg[ig];
 
       istat_bias =
-	get_fitParBias(name, &BIASCORLIST, DUMPFLAG,
+	get_fitParBias(name, &BIASCORLIST, DUMPFLAG, fnam, 
 		       &INFO_CCPRIOR.FITPARBIAS_ALPHABETA[n][ia][ib][ig] );
 
       /* 
@@ -11440,7 +11502,7 @@ int  storeBias_CCprior(int n) {
 
 // ======================================================
 int get_fitParBias(char *cid, 
-		   BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
+		   BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG, char *callFun,
 		   FITPARBIAS_DEF  *FITPARBIAS) {
 
   // Created May 2016
@@ -11453,6 +11515,10 @@ int get_fitParBias(char *cid,
   // Apr 18 2017: enhance dump output.
   //
   // Nov 18 2019: check option to interpolate biasCor vs. logMass.
+  //
+  // Sep 29 2020:
+  //   + pass callFun for error message
+  //   + requier central cell is used; see USE_CENTER_CELL
   //
   // -----------------------------------------
   // strip BIASCORLIST inputs into local variables
@@ -11488,6 +11554,7 @@ int get_fitParBias(char *cid,
   int IZMIN, IZMAX, IMMIN, IMMAX, ICMIN, ICMAX, IX1MIN, IX1MAX ;
   int j1d, ia, ib, ig, iz, im, ix1, ic, ipar ;
   int NperCell, NSUM_Cell, NCELL_INTERP_TOT, NCELL_INTERP_USE ;
+  bool USE_CENTER_CELL;
 
   double WGT, SUM_WGT, BINSIZE;
   double AVG_z, AVG_m, AVG_x1, AVG_c, avg_z, avg_m, avg_x1, avg_c ;
@@ -11496,7 +11563,7 @@ int get_fitParBias(char *cid,
   double VAL, ERR, RMS, dif, Dc, Dz, Dm, Dx1 ;
 
   double DEBUG_LIST_DIF[4][50];
-  int    DEBUG_LIST_INDX[4][50];
+  int    DEBUG_LIST_INDX[4][50], DEBUG_LIST_NPERCELL[50];
   double DEBUG_LIST_WGT[50];
   BININFO_DEF *BININFO_SIM_ALPHA, *BININFO_SIM_BETA, *BININFO_SIM_GAMMADM ;
 
@@ -11660,6 +11727,8 @@ int get_fitParBias(char *cid,
   // ----------------------------------------------
   // -------- start 4D loop over cells -------------
   
+  USE_CENTER_CELL = false;
+
   for(iz = IZMIN; iz <= IZMAX; iz++ ) {    
     for(im = IMMIN; im <= IMMAX; im++ ) {    
       for(ix1 = IX1MIN; ix1 <= IX1MAX; ix1++ ) {
@@ -11680,8 +11749,10 @@ int get_fitParBias(char *cid,
 	  NperCell = CELLINFO_BIASCOR[ID].NperCell[j1d] ;
 	  if ( NperCell < BIASCOR_MIN_PER_CELL  ) { continue; }
 	  
+	  if ( iz==IZ && im==IM && ix1==IX1 && ic==IC ) 
+	    { USE_CENTER_CELL = true ; }
+
 	  // get distance between current data value and wgted-avg in bin
-	  
 	  dif = z - CELLINFO_BIASCOR[ID].AVG_z[j1d] ;
 	  Dz  = fabs(dif/BINSIZE_z) ;
 
@@ -11710,7 +11781,8 @@ int get_fitParBias(char *cid,
 	  DEBUG_LIST_INDX[2][NCELL_INTERP_USE] = ix1 ;
 	  DEBUG_LIST_INDX[3][NCELL_INTERP_USE] = ic ;
 	  DEBUG_LIST_WGT[NCELL_INTERP_USE]     = WGT ;
-	  
+	  DEBUG_LIST_NPERCELL[NCELL_INTERP_USE] = NperCell ;
+
 	  if ( WGT < 0.0 ) { WGT = 0.0 ; }
 	
 	  SUM_WGT   += WGT ;
@@ -11761,6 +11833,7 @@ int get_fitParBias(char *cid,
 
    // require enough cells for interpolation (July 2016)
    if ( NCELL_INTERP_USE < 3 ) { return(0); } 
+   if ( !USE_CENTER_CELL     ) { return(0); } // 9.29.2020
 
    // require both z-bins to be used.
    int ISKIP = 0 ;
@@ -11792,17 +11865,21 @@ int get_fitParBias(char *cid,
   if ( SUM_WGT <= 1.0E-9 ) {
     int icell ;
     print_preAbort_banner(fnam);
+    printf("  Called by function: %s \n", callFun );
     printf("  IZMIN/MAX=%d/%d   IMMIN/MAX=%d,%d  "
 	   "IX1MIN/MAX=%d/%d   ICMIN/MAX=%d/%d\n",	   
 	   IZMIN,IZMAX,  IMMIN, IMMAX, IX1MIN,IX1MAX,   ICMIN, ICMAX);
-    printf("  BINSIZE(z,m,x1,c) = %.3f, %.3f, %.3f, %.3f \n",
+    printf("  VALUE(z,m,x1,c)   = %.4f, %.4f, %.4f, %.4f \n",
+	   z, m, x1, c );
+    printf("  BINSIZE(z,m,x1,c) = %.4f, %.4f, %.4f, %.4f \n",
 	   BINSIZE_z, BINSIZE_m, BINSIZE_x1, BINSIZE_c );
     
     printf("\n");
-    printf("   cell   iz im ix1 ic    Dz     Dm     Dx1     Dc     WGT \n");
+    printf("   cell   iz im ix1 ic    Dz     Dm     Dx1     Dc  "
+	   "Ncell  WGT \n");
     
     for(icell=0; icell < NCELL_INTERP_USE; icell++ ) {
-      printf("    %3d   %2d %2d %2d %2d   %6.3f %6.3f %6.3f %6.3f   %.3f\n"
+      printf("    %3d   %2d %2d %2d %2d   %6.3f %6.3f %6.3f %6.3f  %2d  %.3le\n"
 	     ,icell
 	     ,DEBUG_LIST_INDX[0][icell]
 	     ,DEBUG_LIST_INDX[1][icell]
@@ -11812,9 +11889,10 @@ int get_fitParBias(char *cid,
 	     ,DEBUG_LIST_DIF[1][icell]
 	     ,DEBUG_LIST_DIF[2][icell]
 	     ,DEBUG_LIST_DIF[3][icell]
+	     ,DEBUG_LIST_NPERCELL[icell]
 	     ,DEBUG_LIST_WGT[icell] );
     }
-    sprintf(c1err,"SUM_WGT=%f for  CID=%s", SUM_WGT, cid) ;
+    sprintf(c1err,"SUM_WGT=%le for  CID=%s", SUM_WGT, cid) ;
     sprintf(c2err,"a=%.3f b=%.2f gDM=%.3f  "
 	    "z=%.4f  m=%.2f mB=%.4f x1=%.4f c=%.4f", 
 	    a, b, gDM, z, m, mB, x1, c ) ;
@@ -12606,7 +12684,8 @@ void prepare_CCprior(void) {
   // usage in fit likelihood.
   //
   // Jun 20 2018: abort on 1D biasCor.
-  
+  // Sep 28 2020: check option to use "same" file(s) as for biasCor
+
   int  EVENT_TYPE   = EVENT_TYPE_CCPRIOR ;
   int  NSAMPLE      = NSAMPLE_BIASCOR ;
   int  NDIM_BIASCOR = INFO_BIASCOR.NDIM ;
@@ -12615,6 +12694,7 @@ void prepare_CCprior(void) {
 
   // ------------- BEGIN -------------
 
+  // check for H11 polynomial prior that does use sim files
   USE_CCPRIOR_H11 = INFO_CCPRIOR.USEH11;
 
   if ( INPUTS.nfile_CCprior == 0 ) { return; }
@@ -13675,6 +13755,7 @@ int IBINFUN(double VAL, BININFO_DEF *BIN, int OPT, char *MSG_ABORT ) {
   // and bins defined by struct *BIN.
   // If VAL is outside range, return -9
   // 
+  // If OPT == 0  return =9 if VAL is outside range
   // If OPT == 1  abort if VAL is outside range
   // If OPT == 2  if VAL is outside, return edge bin (do not abort)
   // If OPT == 7  dump
@@ -14083,29 +14164,42 @@ void setbit_CUTMASK(int isn, int bitnum, TABLEVAR_DEF *TABLEVAR ) {
 
 } // end setbit_CUTMASK 
 
+
+// ===========================================
 int selectCID_data(char *cid){
+
   // Created Sep 5 2019 by D.Brout
   // for file= data. determines if cid is in cidlist_data
+  //
+  // Sep 2020 RK - Refactor to accept or reject based on user input.
 
-  //  char fnam[] = "selectCID_data";
-
-  int ACCEPT = 1;
-  int i;
+  int ncidList   = INPUTS.ncidList_data ;
+  int acceptFlag = INPUTS.acceptFlag_cidFile_data ;
+  int ACCEPT = 1, REJECT = 0, i ;
+  bool MATCH ;
   char *tmpCID;
+  //  char fnam[] = "selectCID_data";
 
   // ------- BEGIN -------------
 
-  if (strlen(INPUTS.cidFile_data) == 0) { return ACCEPT; }
+  if ( ncidList == 0 ) { return ACCEPT ; }
 
-  for (i=0;i<INPUTS.ncidList_data;i++) {
+  for (i = 0; i < ncidList; i++) {
     tmpCID = INPUTS.cidList_data[i];
-    if (strcmp(cid,tmpCID)==0) {
-      return ACCEPT;
+    MATCH = (strcmp(cid,tmpCID)==0) ;
+    if ( MATCH ) {
+      if ( acceptFlag > 0 )  { return ACCEPT; }
+      else     	             { return REJECT; }
     }
-  }
-  ACCEPT = 0;
+  } // end i loop over cids
 
-  return ACCEPT;
+  // - - - - - - 
+  // if there are no cid matches to file:
+  //   REJECT if mode is to accept only CIDs in file
+  //   ACCEPT if mode is to reject only CIDs in file
+  if ( acceptFlag > 0 ) { return REJECT ; }
+  else                  { return ACCEPT ; }
+
 } // END selectCID_data
 
 // =============================================
@@ -14442,8 +14536,17 @@ int ppar(char* item) {
     sscanf(&item[26],"%s",s); remove_quote(s); return(1);
   }
   if ( uniqueOverlap(item,"SUBPROCESS_ISEED=") ) {
-    sscanf(&item[17], "%d", &SUBPROCESS.INPUT_ISEED ); 
+    sscanf(&item[17], "%d", &SUBPROCESS.INPUT_ISEED ); return(1);
   }
+  if (  !strncmp(item,"SUBPROCESS_OUTPUT_TABLE=",24) ) {
+    int N = SUBPROCESS.N_OUTPUT_TABLE ;
+    sscanf(&item[24], "%s", SUBPROCESS.INPUT_OUTPUT_TABLE[N] ); 
+    //printf(" xxx %s: N_OUTPUT_TABLE = %d  VARDEF = '%s' \n", 
+    //	   fnam, N, SUBPROCESS.INPUT_OUTPUT_TABLE[N] ); 
+    SUBPROCESS.N_OUTPUT_TABLE++ ;
+    return(1) ;
+  }
+
 #endif
 
   if ( uniqueOverlap(item,"cutmask_write=") )
@@ -14664,9 +14767,14 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"idsample_select=") ) 
     {  sscanf(&item[16], "%s", INPUTS.idsample_select );  return(1); } 
 
-  if ( uniqueOverlap(item,"cid_select_file=") ) // djb
-    {  sscanf(&item[16], "%s", INPUTS.cidFile_data );  return(1); }
-
+  if ( uniqueOverlap(item,"cid_select_file=") )  {  
+    sscanf(&item[16], "%s", INPUTS.cidFile_data );  
+    INPUTS.acceptFlag_cidFile_data = +1; return(1); 
+  }
+  if ( uniqueOverlap(item,"cid_reject_file=") ) {
+    sscanf(&item[16], "%s", INPUTS.cidFile_data );  
+    INPUTS.acceptFlag_cidFile_data = -1; return(1); 
+  }
 
   if ( uniqueOverlap(item,"sntype=") )  
     { parse_sntype(&item[7]); return(1); }
@@ -14845,7 +14953,6 @@ void parse_datafile(char *item) {
 
   int ifile;
   int MEMC = MXCHAR_FILENAME*sizeof(char);
-  char comma[] = ",";
   //  char fnam[]  = "parse_dataFile" ;
 
   // ------------------ BEGIN -----------------
@@ -14856,7 +14963,7 @@ void parse_datafile(char *item) {
     { INPUTS.dataFile[ifile] = (char*)malloc(MEMC); }
 
   // split item string
-  splitString(item, comma, MXFILE_DATA,    // inputs
+  splitString(item, COMMA, MXFILE_DATA,    // inputs
 	      &INPUTS.nfile_data, INPUTS.dataFile ); // outputs 
   
   char *f0 = INPUTS.dataFile[0];
@@ -14872,12 +14979,16 @@ void parse_simfile_biasCor(char *item) {
   // Created May 15 2019
   // parse comma-separate list of biascor files names.
 
-  int ifile;
+  int ifile, lenf ;
   int MEMC = MXCHAR_FILENAME*sizeof(char);
-  char comma[] = ",";
   //  char fnam[]  = "parse_simfile_biasCor" ;
 
   // ------------------ BEGIN -----------------
+
+  // store item in case CCprior needs to use same file list
+  lenf = strlen(item) + 10 ;
+  INPUTS.simFile_biasCor_arg = (char*) malloc(lenf * sizeof(char) );
+  sprintf(INPUTS.simFile_biasCor_arg, "%s", item);
 
   // first allocate memory for file names
   INPUTS.simFile_biasCor = (char**)malloc( MXFILE_BIASCOR*sizeof(char*));
@@ -14885,7 +14996,7 @@ void parse_simfile_biasCor(char *item) {
     { INPUTS.simFile_biasCor[ifile] = (char*)malloc(MEMC); }
 
   // split item string
-  splitString(item, comma, MXFILE_BIASCOR,    // inputs
+  splitString(item, COMMA, MXFILE_BIASCOR,    // inputs
 	      &INPUTS.nfile_biasCor, INPUTS.simFile_biasCor ); // outputs 
   
   char *f0 = INPUTS.simFile_biasCor[0];
@@ -14904,10 +15015,15 @@ void parse_simfile_CCprior(char *item) {
 
   int ifile;
   int MEMC           = MXCHAR_FILENAME*sizeof(char);
-  char comma[] = ",";
-  //  char fnam[]  = "parse_simfile_CCprior" ;
+  char fnam[]  = "parse_simfile_CCprior" ;
 
   // ------------------ BEGIN -----------------
+
+  // 9.28.2020:check "same" option
+  if ( strcmp(item,"same") == 0 ) {
+    sprintf(item, "%s",  INPUTS.simFile_biasCor_arg); 
+    INPUTS.sameFile_flag_CCprior = true; 
+  }
 
   // first allocate memory for file names
   INPUTS.simFile_CCprior = (char**)malloc( MXFILE_CCPRIOR*sizeof(char*));
@@ -14915,7 +15031,7 @@ void parse_simfile_CCprior(char *item) {
     { INPUTS.simFile_CCprior[ifile] = (char*)malloc(MEMC); }
 
   // split item string
-  splitString(item, comma, MXFILE_BIASCOR,    // inputs
+  splitString(item, COMMA, MXFILE_BIASCOR,    // inputs
 	      &INPUTS.nfile_CCprior,
 	      INPUTS.simFile_CCprior ); // outputs  
 
@@ -14934,8 +15050,135 @@ void parse_simfile_CCprior(char *item) {
 
 } // parse_simfile_CCprior
 
-// **************************************************                                                                                  
-void parse_cidFile_data(char *filename) {
+// **************************************************     
+void parse_cidFile_data(int OPT, char *fileName) {
+
+  // Created Sep 23 2020 
+  // Read inpt fileName for list of CIDs to accept or reject 
+  // based on
+  //
+  //    OPT > 0 -> list to accept
+  //    OPT < 0 -> list to reject
+  //
+  // Checks if fileName is keyed-FITRES format, or just a list
+  // of CIDs without any keys.
+  //
+
+  char *cid, tmpWord[60] ;
+  int iwd, isn, NCID, NWD, MEMC, MEMC2, MSKOPT ;
+  int LDMP = 0 ;
+  bool FORMAT_FITRES, LOAD_CID ;
+  char fnam[] = "parse_cidFile_data";
+
+  // ------ BEGIN --------------
+
+  if ( IGNOREFILE(fileName) ) { return; }
+
+  ENVreplace(fileName,fnam,1);
+
+  // check if keyed FITRES file; NCID>0 for FITRES; otherwise NCID=0.
+  NCID = SNTABLE_NEVT(fileName,TABLENAME_FITRES);
+
+  // scoop up all words in file, regardless of format.
+  MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_IGNORECOMMENT;
+  NWD  = store_PARSE_WORDS(MSKOPT,fileName); 
+
+  if ( NCID > 0 ) { 
+    // FITRES format
+    FORMAT_FITRES = true ;
+  }
+  else {
+    // not FITRES format ; read list of CIDs
+    NCID = NWD ;
+    FORMAT_FITRES = false ;
+  }
+
+  // - - - - -
+  // for an array of strings this is a 2d array
+  MEMC    = NCID        * sizeof(char*);
+  MEMC2   = MXCHAR_CCID * sizeof(char);
+  INPUTS.cidList_data =  (char**)malloc(MEMC);
+
+  // malloc memory for CID strings
+  for(isn=0; isn < NCID; isn++ ) { 
+    INPUTS.cidList_data[isn] = (char*)malloc(MEMC2); 
+    INPUTS.cidList_data[isn][0] = 0;
+  }
+
+  // - - - - - - - - - - - - 
+  isn = 0 ;
+
+  // check every word in file, regardless of format
+  for ( iwd=0; iwd < NWD; iwd++ ) { 
+
+    get_PARSE_WORD(0,iwd,tmpWord);
+    LOAD_CID = false;
+
+    if ( LDMP ) {
+      printf(" xxx -------------------------------------------- \n");
+      printf(" xxx %s: iwd=%d of %d (NCID=%d) tmpWord='%s' \n",
+	     fnam, iwd, NWD, NCID, tmpWord); fflush(stdout);
+    }
+
+    if ( FORMAT_FITRES ) {
+      if ( validRowKey_TEXT(tmpWord) ) { 
+	cid = INPUTS.cidList_data[isn];
+	get_PARSE_WORD(0,iwd+1,cid); 
+	LOAD_CID = true;
+      }
+    }
+    else {
+      // every word is a CID, so just load it without checking keys
+      cid = INPUTS.cidList_data[isn];
+      sprintf(cid, "%s", tmpWord);
+      LOAD_CID = true;
+    }
+
+    if ( LOAD_CID ) {
+      isn++ ;
+      if (LDMP) { printf (" xxx %s: select cid = %s \n", fnam, cid ); }
+      
+      if ( strstr(cid,COMMA) != NULL || strstr(cid,COLON) != NULL || 
+	   strstr(cid,"=")   != NULL )   {
+	sprintf(c1err,"Invalid cid string = '%s'",cid);
+	sprintf(c2err,"Check cid_select_file %s",fileName);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      }
+    } // end LOAD_CID
+
+  } // end iwd loop
+
+
+  // - - - - - - -
+
+
+  if ( isn != NCID ) {
+    sprintf(c1err,"isn=%d but expected isn = NCID = %d", isn, NCID);
+    sprintf(c2err,"Something is really messed up.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+
+  INPUTS.ncidList_data = NCID;
+ 
+
+  printf("\n");
+  if ( OPT > 0 ) {
+    printf("  %s: Accept only the %d CIDs in %s\n", fnam, NCID, fileName);
+  }
+  else {
+    printf("  %s: Reject any of the %d  CIDs in %s\n", fnam, NCID, fileName);
+  }
+  fflush(stdout);
+
+  return ;
+
+} // END of parse_cidFile_data()
+
+
+// **************************************************     
+void parse_cidFile_data_LEGACY(char *filename) {
+
   // Created Sep 5 2019 - Dillon Brout        
 
   int NCID    = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,filename);
@@ -14945,10 +15188,9 @@ void parse_cidFile_data(char *filename) {
   char *cid ;
   int i;
   int LDMP = 0 ;
-  char fnam[]="parse_cidFile_data";
+  char fnam[] = "parse_cidFile_data_LEGACY";
 
   // ------ BEGIN --------------
-
 
   // for an array of strings this is a 2d array
   INPUTS.cidList_data =  (char**)malloc(MEMC);
@@ -14975,7 +15217,7 @@ void parse_cidFile_data(char *filename) {
  
   return ;
 
-} // END of parse_cidFile_data()
+} // END of parse_cidFile_data_LEGACY()
 
 
 
@@ -14994,7 +15236,6 @@ void prep_input_nmax(char *item) {
   int  i, NARG, nmax, ID ;
   char stringArg[MXARG_nmax][MXCHAR_VARNAME];
   char *ptrArg[MXARG_nmax];
-  char comma[] = "," ;
   char survey[60], tmpString[MXCHAR_VARNAME] ;
   char fnam[] = "prep_input_nmax" ;
 
@@ -15004,7 +15245,7 @@ void prep_input_nmax(char *item) {
 
   for(i=0; i < MXARG_nmax; i++ ) {  ptrArg[i] = stringArg[i]; }
 
-  splitString(item, comma, MXARG_nmax,    // inputs
+  splitString(item, COMMA, MXARG_nmax,    // inputs
 	      &NARG, ptrArg );            // outputs
 
 
@@ -15085,7 +15326,6 @@ void parse_powzbin(char *item) {
   int  NARG, MXARG=3;
   char stringArg[2][20];
   char *ptrArg[2] = { stringArg[0], stringArg[1] } ;
-  char comma[] = "," ;
   //  char fnam[] = "parse_powzbin" ;
 
   // ------------- BEGIN ---------------
@@ -15093,7 +15333,7 @@ void parse_powzbin(char *item) {
   INPUTS.powzbin =  0.0 ;  
   INPUTS.znhalf  = -9.0 ;
 
-  splitString(item, comma, MXARG,    // inputs
+  splitString(item, COMMA, MXARG,    // inputs
 	      &NARG, ptrArg );       // outputs
 
   sscanf(ptrArg[0], "%le", &INPUTS.powzbin); 
@@ -15121,7 +15361,6 @@ void parse_blindpar(char *item) {
   int  ipar=-9, NARG, MXARG=3;
   char stringArg[2][20], item_local[60] ;
   char *ptrArg[2] = { stringArg[0], stringArg[1] } ;
-  char comma[] = "," ;
   char fnam[] = "parse_blindpar" ;
 
   // ------------- BEGIN ---------------
@@ -15136,7 +15375,7 @@ void parse_blindpar(char *item) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  splitString(item_local, comma, MXARG,    // inputs
+  splitString(item_local, COMMA, MXARG,    // inputs
 	      &NARG, ptrArg );            // outputs
 
   sscanf(ptrArg[0], "%le", &INPUTS.blind_cosinePar[ipar][0] ); 
@@ -15207,7 +15446,6 @@ void parse_IDSAMPLE_SELECT(char *item) {
 
   int  NTMP, i, ID ; 
   char itemLocal[60], *ptrID[MXNUM_SAMPLE], strID[MXNUM_SAMPLE][4] ;
-  char plus[] = "+" ;
   char fnam[] = "parse_IDSAMPLE_SELECT" ;
 
   // --------- BEGIN -----------
@@ -15223,7 +15461,7 @@ void parse_IDSAMPLE_SELECT(char *item) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  splitString(itemLocal, plus, MXNUM_SAMPLE,      // inputs
+  splitString(itemLocal, PLUS, MXNUM_SAMPLE,      // inputs
 	      &NTMP, ptrID );                   // outputs
 
   // reset all DOFLAGs to zero
@@ -15265,7 +15503,7 @@ void parse_sigint_fix(char *item) {
   int  NSAMPLE = NSAMPLE_BIASCOR ;
   int  idsample, Nsigint, i ;
   double sigint;
-  char *name, comma[] = "," ;
+  char *name ;
   char fnam[] = "parse_sigint_fix";
   char itemLocal[200], *ptrSIG[MXNUM_SAMPLE], strSIG[MXNUM_SAMPLE][8] ;
 
@@ -15274,7 +15512,7 @@ void parse_sigint_fix(char *item) {
   if ( strlen(item) == 0 ) { return ;}
 
   // check for comma
-  if ( strstr(item,comma) == NULL ) {
+  if ( strstr(item,COMMA) == NULL ) {
     // no comma --> fix same sigint for all IDSAMPLE
     sscanf(item, "%le", &sigint) ;
     for(idsample=0; idsample<NSAMPLE; idsample++ ) 
@@ -15284,7 +15522,7 @@ void parse_sigint_fix(char *item) {
     // strip sigint for each IDSAMPLE
     for(i=0; i < MXNUM_SAMPLE; i++ ) { ptrSIG[i] = strSIG[i]; }
     sprintf(itemLocal,"%s", item);
-    splitString(itemLocal, comma, MXNUM_SAMPLE,      // inputs
+    splitString(itemLocal, COMMA, MXNUM_SAMPLE,      // inputs
 		&Nsigint, ptrSIG );                    // outputs
     if ( Nsigint != NSAMPLE ) {
       sprintf(c1err,"Nsiginit=%d != N_IDSAMPLE=%d", Nsigint, NSAMPLE);
@@ -15520,7 +15758,6 @@ void parse_FIELDLIST(char *item) {
 
   int  i ;
   int LDMP = 0 ;
-  char comma[] = "," ;
   char fnam[] = "parse_FIELDLIST" ;
 
   // ------------ BEGIN ------------
@@ -15528,7 +15765,7 @@ void parse_FIELDLIST(char *item) {
   for(i=0; i < MXFIELD_OVERLAP; i++ ) 
     { INPUTS.FIELDLIST[i] = (char*) malloc(20*sizeof(char) ); }
 
-  splitString(item, comma, MXFIELD_OVERLAP,               // inputs
+  splitString(item, COMMA, MXFIELD_OVERLAP,               // inputs
 	      &INPUTS.NFIELD, INPUTS.FIELDLIST ); // outputs
   
   if ( LDMP ) {
@@ -15973,7 +16210,7 @@ void prep_input_driver(void) {
 
   // May 9 2019: check INPUTS.fixpar_all
 
-  int i,  NFITPAR, ifile, NTMP=0, USE_CCPRIOR, USE_CCPRIOR_H11 ;
+  int i,  NFITPAR, ifile, NTMP=0, USE_CCPRIOR, USE_CCPRIOR_H11, OPT ;
   char usage[10];
   char *varname_pIa = INPUTS.varname_pIa;
   char fnam[] = "prep_input_driver";
@@ -16252,7 +16489,8 @@ void prep_input_driver(void) {
 
   prep_input_nmax(INPUTS.nmaxString);
 
-  parse_cidFile_data(INPUTS.cidFile_data); // djb
+  OPT = INPUTS.acceptFlag_cidFile_data;
+  parse_cidFile_data(OPT , INPUTS.cidFile_data);  
 
   prep_input_varname_missing();
 
@@ -16313,7 +16551,7 @@ void prep_input_probcc0(void) {
   //   type_list_probcc0=3,33  
   //        (list of int TYPE values in data header)
   //
-  //   idsurvey_list_probcc=DES,52,53 
+  //   idsurvey_list_probcc0=DES,52,53 
   //       (list of string and/or ID from SURVEY.DEF file)
   //
   //  The type and idsurvey lists correspond to spec-confirmed
@@ -16326,7 +16564,6 @@ void prep_input_probcc0(void) {
   int  DO_PROBCC0, i, itype, id, nval, NERR=0 ;
   int  NUSE, NUSE_IDSURVEY[MXIDSURVEY];
   char *str_values[MXPROBCC_ZERO], *surveyName ;
-  char comma[] = "," ;
   char fnam[]  = "prep_input_probcc0" ;
 
   // ---------------- BEGIN ------------------
@@ -16344,7 +16581,7 @@ void prep_input_probcc0(void) {
 
   // check TYPE from data header
   if ( LEN_type_list > 0 ) {
-    splitString(str_type_list, comma, MXPROBCC_ZERO,    // inputs
+    splitString(str_type_list, COMMA, MXPROBCC_ZERO,    // inputs
 		&nval, str_values ) ;                    // outputs    
     INPUTS_PROBCC_ZERO.ntype = nval ;
     for(i=0; i < nval; i++ ) {
@@ -16358,7 +16595,7 @@ void prep_input_probcc0(void) {
 
   // check survey ID from $SNDATA_ROOT/SURVEY.DEF
   if ( LEN_idsurvey_list > 0 ) {
-    splitString(str_idsurvey_list, comma, MXPROBCC_ZERO,    // inputs
+    splitString(str_idsurvey_list, COMMA, MXPROBCC_ZERO,    // inputs
 		&nval, str_values ) ;                    // outputs    
     INPUTS_PROBCC_ZERO.nidsurvey = nval ;
 
@@ -16534,8 +16771,7 @@ void  prep_input_varname_missing(void) {
 
   char *varname_missing = INPUTS.append_varname_missing ;
   char *varname_pIa     = INPUTS.varname_pIa ;
-  char tmpName[100];
-  char comma[] = ",", *ptrTmp ;
+  char tmpName[100], *ptrTmp ;
   int  MXVAR = MXVARNAME_MISSING ;
   int  MEMC  = 60*sizeof(char);
   int  ndef, i, LEN ; 
@@ -16560,7 +16796,7 @@ void  prep_input_varname_missing(void) {
   for(i=0; i < MXVAR; i++ ) 
     { INPUTS_VARNAME_MISSING.varname_list[i] = (char*)malloc(MEMC); }
 
-  splitString(varname_missing, comma, MXVAR,         // inputs
+  splitString(varname_missing, COMMA, MXVAR,         // inputs
 	      &INPUTS_VARNAME_MISSING.ndef,             //output
 	      INPUTS_VARNAME_MISSING.varname_list ) ;   //output
 
@@ -16926,17 +17162,26 @@ void outFile_driver(void) {
   char *prefix   = INPUTS.PREFIX ;
 
   char tmpFile1[200], tmpFile2[200], tmpFile3[200], yamlFile[200];
-  //  char fnam[] = "outFile_driver" ; 
+  char fnam[] = "outFile_driver" ; 
 
   // --------------- BEGIN -------------
 
 #ifdef USE_SUBPROCESS
   if ( SUBPROCESS.USE ) {
-    SUBPROCESS_OUTPUT_LOAD();
-    SUBPROCESS_OUTPUT_WRITE();
+ 
+    if ( SUBPROCESS.N_OUTPUT_TABLE == 0 ) {
+      SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY();
+      SUBPROCESS_OUTPUT_WRITE_LEGACY();
+    }
+    else {
+      SUBPROCESS_OUTPUT_LOAD();
+      SUBPROCESS_OUTPUT_WRITE();
+    }
+
     return ;
   }
 #endif
+ 
 
   if ( strlen(prefix) > 0 && !IGNOREFILE(prefix)  ) {
 
@@ -16992,8 +17237,9 @@ void write_version_info(FILE *fp) {
 void write_yaml_info(char *fileName) {
 
   // Aug 12, 2020
-  // Write summary info to YAML file; 
-  // to be used by batch-sumit script.
+  // Write summary info to YAML file; to be used by batch-sumit script.
+  // Write value and error for every entry; if no error, write error=0.
+  // 
 
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
   int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
@@ -17045,8 +17291,12 @@ void write_yaml_info(char *fileName) {
 
   fprintf(fp,"BBCFIT_RESULTS:\n") ;
 
-  fprintf(fp,"  - NSNFIT:       %d\n",   FITRESULT.NSNFIT ) ;
-  fprintf(fp,"  - SIGINT:       %.5f\n", FITINP.COVINT_PARAM_FIX ) ;
+  int SIG_NSNFIT = (int)(sqrt(FITRESULT.NSNFIT)+0.5);
+  fprintf(fp,"  - NSNFIT:       %5d     %d\n",   
+	  FITRESULT.NSNFIT, SIG_NSNFIT ) ;
+
+  fprintf(fp,"  - SIGINT:       %.5f    0.0\n", 
+	  FITINP.COVINT_PARAM_FIX ) ;
 
   //fprintf(fp,"\n") ;
   
@@ -17068,7 +17318,6 @@ void write_yaml_info(char *fileName) {
     fprintf(fp,"  - %-12.12s  %.5f  %.5f \n", tmpName, VAL, ERR ) ;
   }
 
-    //.xyz
   fclose(fp);
 
   return;
@@ -18800,17 +19049,28 @@ void lubksb(const double* a, const int n, const int ndim,
 void SUBPROCESS_MALLOC_INPUTS(void) {
   // malloc SUBPROCESS.INPUT_xxx arrays; called just before reading
   // SUBPROCESS_FILES argument
+  int i;
 
-    SUBPROCESS.INPUT_FILES = (char*) malloc( MXCHAR_FILENAME*3*sizeof(char) );
-    SUBPROCESS.INPUT_CID_REWGT_DUMP =
-      (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
-    SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING = 
-      (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
+  SUBPROCESS.INPUT_FILES = 
+    (char*) malloc( MXCHAR_FILENAME*3*sizeof(char) );
 
-    SUBPROCESS.INPUT_FILES[0] = 0;
-    SUBPROCESS.INPUT_CID_REWGT_DUMP[0] = 0 ;
-    SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING[0] = 0;
+  SUBPROCESS.INPUT_CID_REWGT_DUMP =
+    (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
 
+  SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING = 
+    (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
+
+  SUBPROCESS.N_OUTPUT_TABLE = 0 ;
+  SUBPROCESS.INPUT_OUTPUT_TABLE =  (char**) malloc( 10*sizeof(char*) );
+  for(i=0; i < 10; i++ ) {
+    SUBPROCESS.INPUT_OUTPUT_TABLE[i] =  (char*) malloc( 100*sizeof(char) );
+    SUBPROCESS.INPUT_OUTPUT_TABLE[i][0] =  0;
+  }
+
+  SUBPROCESS.INPUT_FILES[0]          = 0;
+  SUBPROCESS.INPUT_CID_REWGT_DUMP[0] = 0 ;
+  SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING[0] = 0;
+  
     return ;
 } // end SUBPROCESS_MALLOC_INPUTS
 
@@ -18862,7 +19122,7 @@ void  SUBPROCESS_INIT(void) {
 
   int NSN_DATA   = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  MEMC      =  MXCHAR_FILENAME * sizeof(char) ;
-  int  NSPLIT ;
+  int  NSPLIT, itable ;
   char *tmpFiles[3];
   char fnam[] = "SUBPROCESS_INIT" ;
 
@@ -18876,9 +19136,9 @@ void  SUBPROCESS_INIT(void) {
   SUBPROCESS.INPFILE     = (char*) malloc(MEMC);
   SUBPROCESS.OUTFILE     = (char*) malloc(MEMC);
   SUBPROCESS.STDOUT_FILE = (char*) malloc(MEMC);
-  tmpFiles[0] = SUBPROCESS.INPFILE ;
-  tmpFiles[1] = SUBPROCESS.OUTFILE ;
-  tmpFiles[2] = SUBPROCESS.STDOUT_FILE ;
+  tmpFiles[0]   = SUBPROCESS.INPFILE ;
+  tmpFiles[1]   = SUBPROCESS.OUTFILE ;
+  tmpFiles[2]   = SUBPROCESS.STDOUT_FILE ;
   splitString(SUBPROCESS.INPUT_FILES, ",", 3, &NSPLIT, tmpFiles);
   
   // open INPFILE in read mode, but only for sim data.
@@ -18926,8 +19186,17 @@ void  SUBPROCESS_INIT(void) {
   // prepare optional dumps
   SUBPROCESS_INIT_DUMP();
 
-  // prep/malloc arrays for output
-  SUBPROCESS_OUTPUT_PREP();
+  printf("\n");
+
+  // prep output tables
+  if ( SUBPROCESS.N_OUTPUT_TABLE == 0 ) {
+    SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY();
+  }
+  else {
+    for(itable=0; itable < SUBPROCESS.N_OUTPUT_TABLE; itable++ )
+      { SUBPROCESS_OUTPUT_TABLE_PREP(itable) ; }
+    // debugexit(fnam);
+  }
 
   // prep flat random for each event
   SUBPROCESS_INIT_RANFLAT();
@@ -18966,7 +19235,6 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   char *VARNAMES_STRING = SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING ; 
   int  LEN_MALLOC       = TABLEVAR->LEN_MALLOC ;
   int  MEMF             = LEN_MALLOC*sizeof(float) ;
-  char comma[] = ",";
   char *ptrVarAll[MXVAR_GENPDF], *varName, varCast[60] ;
   char *VARLIST_READ = (char*) malloc(100*sizeof(char));
   int  VBOSE  = 3; // print each var; abort on missing var
@@ -18991,7 +19259,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     { ptrVarAll[ivar] = (char*)malloc(MXCHAR_VARNAME*sizeof(char) ); }
 
   
-  splitString(VARNAMES_STRING, comma, MXVAR_GENPDF,    // inputs
+  splitString(VARNAMES_STRING, COMMA, MXVAR_GENPDF,    // inputs
 	      &NVAR_ALL, ptrVarAll );              // outputs
 
   // Store each FITRES column used by GENPDF maps.
@@ -19297,7 +19565,6 @@ void SUBPROCESS_INIT_DUMP(void) {
   int NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
   int MXSPLIT=20, NSPLIT=0, isn, i, SNID ;
   bool MATCH, PICK_isn;
-  char comma[] = "," ;
   char *ptrSNID[20], *name ;
   char *string = SUBPROCESS.INPUT_CID_REWGT_DUMP ;
   //   char fnam[] = "SUBPROCESS_INIT_DUMP" ;
@@ -19310,7 +19577,7 @@ void SUBPROCESS_INIT_DUMP(void) {
     for(i=0; i < MXSPLIT; i++ ) 
       { ptrSNID[i] = (char*) malloc( 20*sizeof(char) ); }
     
-    splitString(string, comma, MXSPLIT,    // inputs
+    splitString(string, COMMA, MXSPLIT,    // inputs
 		&NSPLIT, ptrSNID );        // outputs
   }
 
@@ -19331,7 +19598,250 @@ void SUBPROCESS_INIT_DUMP(void) {
 } // end SUBPROCESS_INIT_DUMP
 
 // =======================================
-void SUBPROCESS_OUTPUT_PREP(void) {
+void SUBPROCESS_OUTPUT_TABLE_PREP(int itable) {
+
+  // Sep 17 2020
+  // prep output tables.
+
+
+  // strup string from user input; e.g, 'x1(10,-4:4)%c(6,-0.3:0.3)'
+  char *TABLE_STRING = SUBPROCESS.INPUT_OUTPUT_TABLE[itable]; 
+  int  MXVAR         = MXVAR_TABLE_SUBPROCESS ;
+  int  NVAR, ivar ;
+  char *ptrVarDef[MXVAR]; 
+  char BININFO_STRING[40];
+  char fnam[] = "SUBPROCESS_OUTPUT_TABLE_PREP" ;
+
+  // ----------- BEGIN -----------
+
+  SUBPROCESS.OUTPUT_TABLE[itable].NVAR = 0 ;
+
+  // first split by % to get each variable/dimension
+  for(ivar=0; ivar < MXVAR; ivar++ ) 
+    { ptrVarDef[ivar] = (char*) malloc( 60*sizeof(char) ); }
+  
+  splitString(TABLE_STRING, PERCENT, MXVAR,       // inputs
+	      &NVAR, ptrVarDef );               // outputs
+
+  // - - - - 
+  // Now we have [VARNAME]([nbin],[min]:[max])
+  // so extract varname and bin-info from ()
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+    SUBPROCESS_STORE_BININFO(itable, ivar, ptrVarDef[ivar] ) ;
+  }
+  
+  // convert N-D tables into 1D arrays for each access later.
+  SUBPROCESS_MAP1D_BININFO(itable);
+
+  // construct VARNAMES list for table header
+  SUBPROCESS_OUTPUT_TABLE_HEADER(itable);
+
+  // - - - - - 
+  for(ivar=0; ivar < MXVAR; ivar++ ) 
+    { free(ptrVarDef[ivar]);  }
+
+
+} // end SUBPROCESS_OUTPUT_TABLE_PREP
+
+
+// ==============================================
+void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
+
+  // Input VARDEF_STRING is of the form
+  //    'x1(10,-4:4)'
+  //
+  // Parse VARDEF_STRING and load info into global 
+  //     SUBPROCESS.OUTPUT_TABLE[ITABLE][IVAR]
+  // with all info related to this VARDEF.
+  //
+
+  bool LDMP = false ;
+  int    NSPLIT, nbin, i, IVAR_FITRES ;
+  double xmin, xmax, lo, hi, binSize ;
+  char VARNAME[40], stringOpt[40], *ptrSplit[2], *ptrRange[2] ;
+  char fnam[] = "SUBPROCESS_STORE_BININFO" ;
+
+  // ------------ BEGIN ------------
+
+  // extract varname out (), and bin info inside ()
+  sprintf(VARNAME,"%s", VARDEF_STRING);
+  extractStringOpt(VARNAME, stringOpt); // return stringOpt
+
+  for(i=0;  i < 2; i++ ) {
+    ptrSplit[i]  = (char*)malloc(40*sizeof(char) ) ;
+    ptrRange[i]  = (char*)malloc(40*sizeof(char) ) ;
+  }
+
+  // split by comma to get nbin and xmin:xmax
+  splitString(stringOpt, COMMA, 2,       // inputs
+	      &NSPLIT, ptrSplit );        // outputs
+
+  sscanf(ptrSplit[0], "%d", &nbin);
+
+  if ( nbin >= MXz ) {
+    sprintf(c1err,"NBIN(%s) = %d exceeds bound of %d", VARNAME, nbin, MXz) ;
+    sprintf(c2err,"Check SUBPROCESS_OUTPUT_TABLE args") ;
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  // split xmin:xmax by colon
+  splitString(ptrSplit[1], COLON, 2,       // inputs
+	      &NSPLIT, ptrRange );        // outputs
+
+  sscanf(ptrRange[0], "%le", &xmin) ;
+  sscanf(ptrRange[1], "%le", &xmax) ;
+  binSize = (xmax - xmin)/(double)nbin;
+  
+  // - - - - 
+  printf("%s  TABLE-%d  VARNAME = %s  NBIN=%d  RANGE=%.3f to %.3f \n",
+	 KEYNAME_SUBPROCESS_STDOUT, ITABLE, VARNAME, nbin, xmin, xmax );
+  fflush(stdout);
+
+ 
+  // - - - - - - - - - - - 
+  // load global info  
+  SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR++ ;
+  SUBPROCESS.OUTPUT_TABLE[ITABLE].IVAR_FITRES[IVAR] = -9; //IVAR_FITRES ;
+
+  BININFO_DEF *BININFO = &SUBPROCESS.OUTPUT_TABLE[ITABLE].BININFO[IVAR];
+  sprintf(BININFO->varName, "%s", VARNAME);
+  BININFO->nbin    = nbin ;
+  BININFO->binSize = binSize ;
+
+  for(i=0; i < nbin; i++ ) {
+    lo = xmin + binSize * (double)i ;
+    hi = lo + binSize;
+    BININFO->lo[i]  = lo ;
+    BININFO->hi[i]  = hi ;
+    BININFO->avg[i] = 0.5*(lo+hi) ;
+    BININFO->n_perbin[i] = 0;
+  }
+
+
+  // - - - - - - - - - - - - - - -
+  // Assign float pointer to INFO_DATA.TABLEVAR array
+  // For now it's hard-wired, but later should match based
+  // on column name and column index.
+
+  float *PTRVAL ; 
+
+  if ( strcmp(VARNAME,"x1") == 0  ) 
+    { PTRVAL = INFO_DATA.TABLEVAR.fitpar[INDEX_x1];  }
+  else if ( strcmp(VARNAME,"c") == 0  ) 
+    { PTRVAL = INFO_DATA.TABLEVAR.fitpar[INDEX_c];   }
+  else if ( strcmp(VARNAME,"zhd") == 0     || 
+	    strcmp(VARNAME,"zHD") == 0  ) 
+    { PTRVAL = INFO_DATA.TABLEVAR.zhd ; }
+  else if ( strcmp(VARNAME,"HOST_LOGMASS") == 0  ) 
+    { PTRVAL = INFO_DATA.TABLEVAR.logmass;  }
+  else {
+    sprintf(c1err,"Unknown output table var = '%s'", VARNAME);
+    sprintf(c2err,"Check SUBPROCESS_OUTPUT_TABLE args");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR] = PTRVAL ;
+
+  // free local memory
+  for(i=0; i < 2; i++ ) { free(ptrSplit[i]);  free(ptrRange[i]); }
+
+  return ;
+
+} // end SUBPROCESS_STORE_BININFO
+
+// ===============================
+void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
+
+  // Convert multi-D tables into 1D arrays for easy access.
+  // 
+  int NVAR = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
+  int i, ivar, NBINTOT=1, nbin, nbin_per_var[MXVAR_TABLE_SUBPROCESS];
+  int MEMI, MEMD, IB1D, ib0, ib1, ib2, ib_per_var[MXVAR_TABLE_SUBPROCESS];
+  int  IDMAP = 10 + ITABLE;
+  int  *INDEX_BININFO[MXVAR_TABLE_SUBPROCESS];
+
+  // ------------ BEGIN ------------
+
+  // store array with nbin per ivar
+  for(ivar=0; ivar < MXVAR_TABLE_SUBPROCESS; ivar++ )  { 
+    nbin = 1;
+    if(ivar<NVAR) 
+      { nbin = SUBPROCESS.OUTPUT_TABLE[ITABLE].BININFO[ivar].nbin ; }
+    nbin_per_var[ivar] = nbin; 
+    NBINTOT *= nbin;
+  }
+
+  // utility for N-dim -> 1-Dim map
+  init_1DINDEX(IDMAP, NVAR, nbin_per_var);
+
+  // allocate NBINTOT memory for each variable/dimension
+  SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT = NBINTOT;
+  MEMI = NBINTOT * sizeof(int);
+  MEMD = NBINTOT * sizeof(double);
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar] = (int*)malloc(MEMI);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT        = (int   *)malloc(MEMI);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM = (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM   = (double*)malloc(MEMD);
+
+    INDEX_BININFO[ivar] = SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar];
+    for(i=0; i < NBINTOT; i++ )  { INDEX_BININFO[ivar][i] = -9 ; }
+  }
+
+  // Clumsy: hard-wire 3D -> 1D index map, even if NVAR<3.
+  // Note that there are more elegant methods for arbitrary dimensions.
+  for (ib0=0; ib0 < nbin_per_var[0]; ib0++ ) {
+    for (ib1=0; ib1 < nbin_per_var[1]; ib1++ ) {
+      for (ib2=0; ib2 < nbin_per_var[2]; ib2++ ) {
+	ib_per_var[0] = ib0;
+	ib_per_var[1] = ib1;
+	ib_per_var[2] = ib2;
+	IB1D = get_1DINDEX(IDMAP, NVAR, ib_per_var);
+	
+	//	  printf(" 5. xxx %s ib[0,1,2] = %d, %d, %d IB1D = %d \n", 
+	//	 fnam, ib0, ib1, ib2, IB1D ); fflush(stdout);
+	
+	for(ivar=0; ivar < NVAR; ivar++ )
+	  { INDEX_BININFO[ivar][IB1D] = ib_per_var[ivar]; }
+	
+      } // end ib2
+    } // end ib1
+  }  // end ib0
+  
+
+  return;
+
+} // end SUBPROCESS_MAP1D_BININFO
+
+
+// ====================================
+void SUBPROCESS_OUTPUT_TABLE_HEADER(int ITABLE) {
+
+  int NVAR = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
+  int ivar;
+  char VARNAMES[200], varName[40] ;
+  char VARNAMES_FIX[] = "NEVT MURES_SUM MURES_SQSUM" ;
+  BININFO_DEF *BININFO;
+
+  // ----------- BEGIN ---------
+
+  sprintf(VARNAMES,"ROW ");
+
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+    BININFO = &SUBPROCESS.OUTPUT_TABLE[ITABLE].BININFO[ivar];
+    sprintf(varName,"ibin_%s ", BININFO->varName);
+    strcat(VARNAMES,varName);
+  }
+  strcat(VARNAMES,VARNAMES_FIX);
+
+  sprintf(SUBPROCESS.OUTPUT_TABLE[ITABLE].VARNAMES_HEADER,"%s", VARNAMES);
+
+  return ;
+} // SUBPROCESS_TABLE_HEADER
+
+// ==============================================
+void SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY(void) {
 
   // July 3 2020
   // prep arrays used to load output.
@@ -19340,10 +19850,9 @@ void SUBPROCESS_OUTPUT_PREP(void) {
   int    ic, NBIN_c = 20 ;
   double RANGE_c[2] = { -0.4, 0.6} ;
   double c, cbin ;
-  //  char fnam[] = "SUBPROCESS_OUTPUT_PREP" ;
+  //  char fnam[] = "SUBPROCESS_OUTPUT_PREP_LEGACY" ;
 
-  // ----------- BEGIN -----------
-
+  // - - - - -
   cbin = (RANGE_c[1]-RANGE_c[0])/ (double)NBIN_c ;
   SUBPROCESS.NBIN_c     = NBIN_c ;
   SUBPROCESS.RANGE_c[0] = RANGE_c[0] ;
@@ -19372,10 +19881,100 @@ void SUBPROCESS_OUTPUT_PREP(void) {
 
   return ;
 
-} // end SUBPROCESS_OUTPUT_PREP
+} // end SUBPROCESS_OUTPUT_TABLE_PREP_LEGACY
 
 // ===========================================
 void SUBPROCESS_OUTPUT_LOAD(void) {
+
+  // driver function to load output tables after subprocess iteration
+  int  NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int  N_TABLE       = SUBPROCESS.N_OUTPUT_TABLE;
+  int  isn, ITABLE, cutmask ;
+  char *TABLE_NAME ;
+  char fnam[] = "SUBPROCESS_OUTPUT_LOAD" ;
+
+  // ---------- BEGIN ----------
+
+  for(ITABLE=0; ITABLE < N_TABLE; ITABLE++ ) {
+
+    SUBPROCESS_OUTPUT_TABLE_RESET(ITABLE);
+
+    for(isn=0; isn < NSN_DATA; isn++ ) {
+      cutmask = INFO_DATA.TABLEVAR.CUTMASK[isn]; 
+      if ( !keep_cutmask(cutmask)  ) { continue; }
+
+      SUBPROCESS_OUTPUT_TABLE_LOAD(isn,ITABLE);
+    }  // end isn
+
+  } // end ITABLE
+  
+  return ;
+
+} // end SUBPROCESS_OUTPUT_LOAD
+
+
+// =====================================================
+void  SUBPROCESS_OUTPUT_TABLE_RESET(int ITABLE) {
+
+  // For each 1D bin in ITABLE, zero NEVT and MURES sums.
+  int NBINTOT   = SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT ;
+  int  ibin1d;
+  // ----------- BEGIN ---------
+  for ( ibin1d=0; ibin1d < NBINTOT; ibin1d++ ) {
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT[ibin1d] = 0;
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM[ibin1d]  = 0.0 ;
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM[ibin1d]    = 0.0 ;
+  }
+  return;
+} // end  SUBPROCESS_OUTPUT_TABLE_RESET
+
+// ============================
+void SUBPROCESS_OUTPUT_TABLE_LOAD(int ISN, int ITABLE) {
+
+  // increment table info for event index ISN and table index ITABLE.
+
+  char *TABLE_NAME  = SUBPROCESS.INPUT_OUTPUT_TABLE[ITABLE];
+  int  NVAR         = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
+  int  NBINTOT      = SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT ;
+  double   mures    = INFO_DATA.mures[ISN] ;
+
+  int   ibin_per_var[MXVAR_TABLE_SUBPROCESS];
+  int   IBIN1D, IVAR, OPT_BININFO=2;
+  float FVAL;        double DVAL ;
+  BININFO_DEF *BININFO ;
+
+  char fnam[] = "SUBPROCESS_OUTPUT_TABLE_LOAD" ;
+
+  // ---------- BEGIN -----------
+
+  for(IVAR=0; IVAR < NVAR; IVAR++ ) {
+    BININFO = &SUBPROCESS.OUTPUT_TABLE[ITABLE].BININFO[IVAR];
+
+    // get data value for this variable and ISN event number  
+    FVAL = SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR][ISN] ;
+    DVAL = (double)FVAL ;   
+
+    // convert data value to table index
+    ibin_per_var[IVAR] = IBINFUN(DVAL, BININFO, OPT_BININFO, fnam );	
+
+  } // end ivar      
+
+  
+  // - - - - 
+  // convert multiple table indices to global 1D index for table
+  IBIN1D = get_1DINDEX(10+ITABLE, NVAR, ibin_per_var);
+  
+  // increment table contents
+  SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT[IBIN1D]++ ;
+  SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM[IBIN1D]    += mures ;
+  SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM[IBIN1D]  += (mures*mures) ;
+
+  return;
+
+} // end SUBPROCESS_OUTPUT_TABLE_LOAD
+
+// ===========================================
+void SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY(void) {
 
   // called after each fit, load output struct.
   int NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
@@ -19389,10 +19988,9 @@ void SUBPROCESS_OUTPUT_LOAD(void) {
   char *CCID;
   //  BININFO_DEF *BININFO ;
 
-  char fnam[] = "SUBPROCESS_OUTPUT_LOAD";
+  char fnam[] = "SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY";
 
   // ---------- BEGIN ----------
-
 
   for(i=0; i < NBIN_c; i++ ) {
     SUBPROCESS.NEVT_c[i]      = 0 ;
@@ -19426,10 +20024,126 @@ void SUBPROCESS_OUTPUT_LOAD(void) {
 
   return ;
 
-} // end  SUBPROCESS_OUTPUT_LOAD
+} // end  SUBPROCESS_OUTPUT_TABLE_LOAD_LEGACY
 
 // ===========================================
 void SUBPROCESS_OUTPUT_WRITE(void) {
+
+  // write SALT2mu output:
+  //   + fit params
+  //   + tables
+
+  FILE *FP_OUT = SUBPROCESS.FP_OUT ;
+  int  ITER    = SUBPROCESS.ITER ;
+  int  N_TABLE = SUBPROCESS.N_OUTPUT_TABLE ;
+
+  char tmpName[40];
+  int  ISFLOAT, ISM0, itable, n ;
+  double VAL, ERR;
+  char fnam[] = "SUBPROCESS_OUTPUT_WRITE" ;
+
+  // ----------- BEGIN -------------
+
+  printf("%s write SALT2mu output\n",  KEYNAME_SUBPROCESS_STDOUT );
+  fflush(stdout);
+
+  fprintf(FP_OUT,"# ITERATION: %d\n#\n", ITER);
+  fflush(FP_OUT);
+
+  // CPU summary  (July 29 2020)
+  double t_min = (t_end_fit-t_start_fit)/60.0;
+  double t_per_event = (t_end_fit-t_start_fit)/(double)FITRESULT.NSNFIT;
+  fprintf(FP_OUT, "# CPU:           %.2f minutes  \n", t_min );
+  fprintf(FP_OUT, "# CPU_PER_EVENT: %.1f msec/event  \n", t_per_event*1000.);
+  //  fprintf(FP_OUT, "#\n");
+  fflush(FP_OUT);
+
+
+  fprintf(FP_OUT,"# NSNFIT: %d \n", FITRESULT.NSNFIT);
+  fflush(FP_OUT);
+
+  // always write fitted nuisance params 
+  for ( n=0; n < FITINP.NFITPAR_ALL ; n++ ) {
+
+    ISFLOAT = FITINP.ISFLOAT[n] ;
+    ISM0    = (n >= MXCOSPAR) ; // it's z-binned M0
+
+    if ( ISFLOAT && !ISM0 ) {
+      VAL = FITRESULT.PARVAL[1][n] ;
+      ERR = FITRESULT.PARERR[1][n] ;
+      sprintf(tmpName,"%s", FITRESULT.PARNAME[n]);
+      fprintf(FP_OUT, "# FITPAR:  %-14s = %10.5f +- %8.5f \n",
+	      tmpName, VAL, ERR );
+    }
+  } // end loop over SALT2mu fit params
+
+  fflush(FP_OUT);
+
+  // - - - - - - 
+
+  for(itable=0; itable < N_TABLE; itable++ )
+    { SUBPROCESS_OUTPUT_TABLE_WRITE(itable); }
+
+  return ;
+
+} // end SUBPROCESS_OUTPUT_WRITE
+
+// ===================
+void SUBPROCESS_OUTPUT_TABLE_WRITE(int ITABLE) {
+
+  // Write table contents for ITABLE.
+  // Write to global output file pointer SUBPROCESS.FP_OUT.
+
+  FILE *FP_OUT       = SUBPROCESS.FP_OUT ;
+  char *TABLE_NAME   = SUBPROCESS.INPUT_OUTPUT_TABLE[ITABLE];
+  int   NVAR         = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
+  int   NBINTOT      = SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT ;
+  char *VARNAMES     = SUBPROCESS.OUTPUT_TABLE[ITABLE].VARNAMES_HEADER ;
+
+  int  ivar, ibin1d, IBIN1D, NEVT, NEVT_SUM=0 ;
+  double MURES_SUM, MURES_SQSUM;
+  char cLINE[200], cVAL[100];
+  char fnam[]  = "SUBPROCESS_OUTPUT_TABLE_WRITE" ;
+
+  // ----------- BEGIN ------------
+
+  fprintf(FP_OUT,"\n");
+  fprintf(FP_OUT,"TABLE_NAME: %s\n", TABLE_NAME);
+  fprintf(FP_OUT,"VARNAMES: %s\n", VARNAMES);
+  fflush(FP_OUT);
+
+  for(IBIN1D=0; IBIN1D < NBINTOT; IBIN1D++ ) {
+    cLINE[0] = 0 ;
+
+    MURES_SUM   = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM[IBIN1D];
+    MURES_SQSUM = SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM[IBIN1D];
+    NEVT        = SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT[IBIN1D];
+    NEVT_SUM   += NEVT; // diagnostic
+
+    for(ivar=0; ivar < NVAR; ivar++ ) {
+      // get 1D bin for this variable
+      ibin1d = SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar][IBIN1D];
+      sprintf(cVAL,"%3d ", ibin1d);
+      strcat(cLINE,cVAL);
+    } // end ivar
+
+
+    sprintf(cVAL," %5d  %12.4le  %12.4le", NEVT, MURES_SUM, MURES_SQSUM);
+    strcat(cLINE,cVAL);
+
+    fprintf(FP_OUT,"ROW: %4.4d %s\n", IBIN1D, cLINE);
+
+  } // end IBIN1D
+  
+  fprintf(FP_OUT,"NEVT_SUM: %d  # diagnostic\n", NEVT_SUM);
+  fflush(FP_OUT);
+ 
+  return ;
+
+} //  end SUBPROCESS_OUTPUT_TABLE_WRITE
+
+// ===========================================
+void SUBPROCESS_OUTPUT_WRITE_LEGACY(void) {
 
   // write SALT2mu output
 
@@ -19497,11 +20211,10 @@ void SUBPROCESS_OUTPUT_WRITE(void) {
     fflush(FP_OUT);
   }
 
-  
 
   return ;
 
-} // end SUBPROCESS_OUTPUT_WRITE
+} // end SUBPROCESS_OUTPUT_WRITE_LEGACY
 
 
 // ===============================

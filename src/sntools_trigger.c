@@ -60,17 +60,6 @@
 
 ************************************/
 
-/*
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <string.h>
-#include <time.h>
-#include <math.h>
-*/
-
-
 #include "sntools.h"
 #include "sntools_trigger.h"
 #include "sntools_host.h" 
@@ -1066,7 +1055,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
 
   N = 0 ;  cptr = SEARCHEFF_SPEC_INFO.README[N] ;
   sprintf(cptr, "\t %s", "No spec-eff option specified ==> 100% efficiency.");
-  SEARCHEFF_SPEC_INFO.NLINE_README = N ;  N++;
+  N++;  SEARCHEFF_SPEC_INFO.NLINE_README = N ;  
 
   INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO=0;
   SEARCHEFF_SPEC_INFO.IVARTYPE_MASK = 0 ;
@@ -1504,7 +1493,9 @@ int parse_VARNAMES_zHOST(FILE *fp, int *ivar_HOSTLIB,
   for ( ivar=0; ivar < NVAR; ivar++ ) {
     varName_H = varName_HOSTLIB[ivar];
     ivar_H    = &ivar_HOSTLIB[ivar];
+
     get_PARSE_WORD(0,ivar,varName_H);
+    checkAlternateVarNames_HOSTLIB(varName_H); // 10.03.2020
     *ivar_H  = IVAR_HOSTLIB(varName_H,0);
     
     if (LDMP ) {

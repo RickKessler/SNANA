@@ -7420,7 +7420,8 @@ c --- Pixel location
       ENDIF
 
 c -------------------
-      DVAL = -9.0
+c xxx mark delete       DVAL = -9.0
+      DARRAY(1) = -9.0
 c -------------------
 
 c ---- FILTER ----
@@ -7436,7 +7437,7 @@ c ---- FILTER ----
          LEN_STR   = LEN_STR + 2
       ENDDO
       STRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
-      CALL set_sndata(KEY,NEP, STRINGVAL, DVAL, LEN_KEY,LEN_STR) 
+      CALL set_sndata(KEY,NEP, STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
 
 c ---- FIELD ----
       KEY       = 'FIELD' // char(0)
@@ -7452,7 +7453,7 @@ c ---- FIELD ----
       LEN_STR = LEN_STR - 1
       STRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
 
-      CALL set_sndata(KEY,NEP, STRINGVAL, DVAL, LEN_KEY, LEN_STR) 
+      CALL set_sndata(KEY,NEP, STRINGVAL, DARRAY, LEN_KEY, LEN_STR) 
 
 c ---- TELESCOPE ----
       KEY       = 'TELESCOPE' // char(0)
@@ -7467,7 +7468,7 @@ c ---- TELESCOPE ----
       ENDDO
       LEN_STR = LEN_STR - 1
       STRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
-      CALL set_sndata(KEY,NEP, STRINGVAL, DVAL, LEN_KEY, LEN_STR) 
+      CALL set_sndata(KEY,NEP, STRINGVAL, DARRAY, LEN_KEY, LEN_STR) 
 
 c -------------------------------------------------
 c Aug 6 2014: optional SIM_MAGOBS if it's there 
@@ -7613,15 +7614,15 @@ C ===============================
 c local var
       CHARACTER cKEY*80, cSTRINGVAL*80
       INTEGER ONE, LEN_KEY, LEN_STR
-      REAL*8  DVAL
+      REAL*8  DVAL(10)
 C -------------- BEGIN -------------
       ONE = 1
 c add blank space at end in case there isn't one already there
-      LEN_KEY   = INDEX(KEY       // ' ', ' ') - 1
-      LEN_STR   = INDEX(STRINGVAL // ' ', ' ') - 1     
+      LEN_KEY    = INDEX(KEY       // ' ', ' ') - 1
+      LEN_STR    = INDEX(STRINGVAL // ' ', ' ') - 1     
       cKEY       = KEY(1:LEN_KEY) // char(0)
       cSTRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
-      DVAL      = -9.0
+      DVAL(1)    = -9.0
       CALL set_sndata(cKEY, ONE, cSTRINGVAL, DVAL, 
      &                LEN_KEY, LEN_STR ) 
       RETURN
@@ -7639,7 +7640,7 @@ c if  NVAR_PRIVATE > 0 then set SNDATA.PRIVATE_VAR_NAME in sndata.h
 
       INTEGER IVAR, LEN_KEY, LEN_NAME
       CHARACTER KEY*80, cKEY*80, NAME*80, cNAME*80
-      REAL*8 DVAL
+      REAL*8 DVAL(10)
 C --------------- BEGIN ---------------
 
       IF ( NVAR_PRIVATE .LE. 0 ) RETURN
@@ -7652,7 +7653,7 @@ C --------------- BEGIN ---------------
          NAME = PRIVATE_KEYWORD(IVAR)
          LEN_NAME = INDEX(NAME  // ' ', ' ') - 1  
          cNAME    = NAME(1:LEN_NAME) // char(0)
-         DVAL     = -9.0
+         DVAL(1)  = -9.0
 
          CALL set_sndata(cKEY, ONE, cNAME, DVAL, 
      &                   LEN_KEY, LEN_NAME ) 
@@ -7672,6 +7673,7 @@ C =======================================
 c local var
       CHARACTER cKEY*80, cSTRINGVAL*80
       INTEGER ONE, LEN_KEY, LEN_STR
+      REAL*8  DARRAY(10)
 
 C -------------- BEGIN -------------
       ONE = 1
@@ -7680,9 +7682,9 @@ c add blank space at end in case there isn't one already there
       cKEY       = KEY(1:LEN_KEY) // char(0)
 
       cSTRINGVAL = "NULL" // char(0)
-      LEN_STR   = INDEX(cSTRINGVAL // ' ', ' ') - 1     
-
-      CALL set_sndata(cKEY, ONE, cSTRINGVAL, DVAL, 
+      LEN_STR    = INDEX(cSTRINGVAL // ' ', ' ') - 1     
+      DARRAY(1)  = DVAL  ! avoid warnings with gcc v10
+      CALL set_sndata(cKEY, ONE, cSTRINGVAL, DARRAY, 
      &                LEN_KEY, LEN_STR ) 
 
       RETURN
@@ -9982,48 +9984,6 @@ C ------------- BEGIN -----------
       RETURN
       END
 
-C ================================
-+DECK,EXTRACTSTRINGOPT_fortran.
-      SUBROUTINE EXTRACTSTRINGOPT_fortran(string, stringOpt)
-
-c Apr 23 2020:
-c Wrapper to call C function extractStringOpt
-c
-c If input string = 'xyz(argOpt)' then 
-c   output string    = xyz
-c   output stringOpt = argOpt
-c
-c If input string = 'xyz' then 
-c   output string    = xyz
-c   output stringOpt = ''
-c
-c ----------------------
-      IMPLICIT NONE
-
-      CHARACTER STRING*(*)       ! (I/O)
-      CHARACTER STRINGOPT*(*)    ! (O)
-
-c local var
-      INTEGER   j, LENS, LENOPT
-      CHARACTER STR_LOCAL*100, STROPT_LOCAL*100
-      EXTERNAL  EXTRACTSTRINGOPT
-
-c -------- BEGIN -----------
-
-      STRINGOPT = ''      
-      j = index(string,'(')
-      if ( j <= 0 ) return
-
-      LENS = index(string,' ') - 1
-      STR_LOCAL = string(1:LENS) // char(0)
-      CALL extractStringOpt(STR_LOCAL,STROPT_LOCAL, LENS, LENOPT)
-
-c load output arguments
-      STRING    = STR_LOCAL(1:LENS)
-      STRINGOPT = STROPT_LOCAL(1:LENOPT)
-
-      RETURN
-      END
 
 C ======================
 +DECK,UPCASE.
@@ -16845,12 +16805,12 @@ c --------------------------
 
            IF ( DO_RETSTR ) THEN
              NRET = RD_SNFITSIO_STR(IROW, KEY_SEARCH, TMPSTR, 
-     &              INDXFITS_HEAD(IPARFITS_HEAD), LENKEY2, LRET )
+     &                INDXFITS_HEAD(IPARFITS_HEAD), LENKEY2, LRET )
              LRET   = INDEX(TMPSTR,char(0)) -1  
              RETSTR = TMPSTR(1:LRET)
            ELSE
              NRET = RD_SNFITSIO_DBL(IROW, KEY_SEARCH, RET8(IRD), 
-     &              INDXFITS_HEAD(IPARFITS_HEAD), LENKEY2, LRET )
+     &                INDXFITS_HEAD(IPARFITS_HEAD), LRET )
            ENDIF
      
            IF ( NRET .GT. 0 ) READ_HEADKEY = .TRUE.
@@ -21615,6 +21575,9 @@ c
 c
 c Oct 15, 2019: fix format for SKYSIG : 6.2f -> 7.2f
 c Nov 22, 2019: adapt to work on fakes and sims, and write MAG column.
+c Oct 05, 2020: add ZP requirement to compute metadata; see FOUND_METADATA
+c
+c --------------------------
 
       IMPLICIT NONE
 
@@ -21635,7 +21598,7 @@ c +CDE,SNANAFIT.
       INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP
       INTEGER i, LENcMAG, ISTAT
       LOGICAL IS_REAL_DATA, WRALL_SIM_MAGOBS, WRSET_SIM_MAGOBS
-      LOGICAL WR_SIM_MAGOBS
+      LOGICAL WR_SIM_MAGOBS, FOUND_METADATA
       CHARACTER BAND*4, FNAM*20, SEDCMD*200, cDUM*20, CCID*32
       CHARACTER cMAG*12, cNCUTS*12, STR_OLD*40, STR_NEW*60
 
@@ -21894,7 +21857,12 @@ c --------
 
 c if simlib info is not available, estimate it from FLUX and FLUXERR.
 c Mainly for low-z sample which has no meta data. 
-           IF ( PSF1 < 1.0E-5 .and.  SKYSIG < 1.0E-5 ) THEN
+
+           FOUND_METADATA = 
+     &       ( PSF1 > 1.0E-5 .and. SKYSIG > 1.0E-5 .and. ZP > 1.0)
+
+cc xxxx remove   IF ( PSF1 < 1.0E-5 .and.  SKYSIG < 1.0E-5 ) THEN
+           IF ( .not. FOUND_METADATA ) THEN
               GAIN    = 1.0 ;  RDNOISE = 1.0 
               ZPERR   = DBLE( SIMLIB_ZPERR(ifilt_obs) )
               PSF2    = 0.0 ;  PSFRAT  = 0.0           
@@ -26518,6 +26486,7 @@ c Plot list of CIDs with light curve plots.
 c Fits that fail have CID=-9.
 c Used by the lc-plotting tool
 c
+c Sep 22 2020: fix swapped args in SNTABLE_CREATE
 c ----------------------------------------------------
 
       IMPLICIT NONE
@@ -26544,7 +26513,8 @@ C ------------ BEGIN ------------
         CNAME    = 'CIDPTR' // char(0)
         LENNAME  = INDEX(CNAME,' ') - 1
         TEXTFMT  = ' ' // char(0)  ! never make a text table 
-        CALL SNTABLE_CREATE(ID, CNAME, LENNAME, TEXTFMT, 1 )  ! C function
+cc xxx mark CALL SNTABLE_CREATE(ID, CNAME, LENNAME, TEXTFMT, 1 )  ! C fun
+        CALL SNTABLE_CREATE(ID, CNAME, TEXTFMT, LENNAME, 1 )  ! C function
 
         CBLOCK = 'IPLOT' // char(0)
         LENBLOCK = INDEX(CBLOCK,' ') - 1
@@ -27203,7 +27173,6 @@ c there are no K-corrections (i.e, for SALT2)
       Zrange_KCOR(2) = CUTWIN_REDSHIFT(2)
       Zbinsize_KCOR  = 0.0
 
-
       DO IFILT = 1, MXFILT_ALL
         MAG_PRIMARY_RDKCOR(IFILT)     = 0.0
         ZPOFF_PRIMARY_RDKCOR(ifilt)  = 0.0
@@ -27234,7 +27203,6 @@ C ====================
 
 C Created Dec 2012 by R.Kesseler
 C Read calib/kcor file in fits format.
-C Long-term goal is to replace HBOOK files with kcor-fits files.
 
       IMPLICIT NONE
  
@@ -30469,34 +30437,6 @@ c -------------
 
       INTEGER IFILT, IFILT_OBS, jlen
       LOGICAL DO_ZPOFF
-
-+SELF,IF=MARKDELETE.
-
-c xxxxx mark delete Dec 7 2019 xxxxxxxxxxxxxx
-c -----------------------------------------------
-c set legacy SDSS_web2001 AB offsets if ZPOFF file has not
-c been specified in the KCOR file (as hid 252 or 292), 
-c and if ZPOFF values have not already been read.
-c This logic is needed to read the really old KCOR files
-c that do not have the SDSS AB offsets included.
-
-      if (  ZPOFF_FILE .EQ. 'NULL' 
-     &  .and. .not. LRDZPOFF         ! not read from KCOR hbook file
-     &  .and.  SURVEY_NAME(1:4) .EQ. 'SDSS' ) then
-          jlen = INDEX(SNDATA_ROOT,' ') - 1
-          ZPOFF_FILE = SNDATA_ROOT(1:jlen) // 
-     &       '/filters/SDSS_web2001/ZPOFF.DAT'
-      endif
-
-      DO_ZPOFF   = ( ZPOFF_FILE .NE. 'NULL' ) .and. 
-     &             ( NCALL_RDKCOR .EQ. 1 ) 
-
-      IF ( DO_ZPOFF ) THEN
-         LRDZPOFF = .TRUE.
-         CALL RD_ZPOFF(ZPOFF_FILE, FILTOBS_ZPOFF_SNPHOT)  ! return ZPOFF
-      ENDIF
-c xxxxxxxxxx end mark xxxxxxxxxxx
-+SELF.
 
 c update ZP-shift for each filter (i.e., add to user-shift)
       DO ifilt  = 1, NFILTDEF_SURVEY
@@ -37449,7 +37389,7 @@ c Dec 9, 2011: keep track of min-error and  wgted error for
 c              T0 and F0err/F0.
 c
 c May 28 2019: add FITWIN_MJD argument to restrict range of epochs fit.
-c
+c Sep 22 2020: MNARG -> MNARG(10) to avoid warnings with gcc v10
 c ----------------------------
 
       IMPLICIT NONE
@@ -37486,7 +37426,7 @@ c MINUIT stuff
       LOGICAL USE_ANYFUN, USE_POLYCOR 
 
       REAL*8 
-     &   MNARG
+     &   MNARG(10)  
      &  ,FIXLIST(NPAR_ANYLC)
      &  ,INIBND(2,NPAR_ANYLC)
      &  ,INISTP(NPAR_ANYLC)
@@ -37525,10 +37465,10 @@ c ------------------------
 +SELF,IF=MINUIT.
       CALL MNINIT(IUNIN,IUOUT,IUWRI)  ! init MINUIT
 
-      MNARG = dble(0.0) 
+      MNARG(1) = dble(0.0) 
       CALL MNEXCM(FCNANYLC, 'SET NOWarnings', MNARG,0,IERR, ANYLCFUN)
 
-      MNARG = DBLE(MINUIT_PRINT_LEVEL)
+      MNARG(1) = DBLE(MINUIT_PRINT_LEVEL)
       CALL MNEXCM(FCNANYLC, 'SET PRI', MNARG, 1, IERR, ANYLCFUN )
 +SELF.
 
@@ -37624,7 +37564,7 @@ c keep track of fixed parameters
 +SELF,IF=MINUIT.
       CALL MNEXCM(FCNANYLC, 'FIX', FIXLIST, NFIXPAR, IERR, ANYLCFUN )
 
-      MNARG = dble(30000.0)  ! MAXCALLS
+      MNARG(1) = dble(30000.0)  ! MAXCALLS
       CALL MNEXCM(FCNANYLC, 'MINIMIZE', MNARG, 0, IERR, ANYLCFUN )
 +SELF.
 
@@ -37642,7 +37582,8 @@ c keep track of fixed parameters
       ENDDO
 
 +SELF,IF=MINUIT.
-      CALL MNEXCM ( FCNANYLC, 'EXIT',  ZERO8, 0, IERR, ANYLCFUN )
+      MNARG(1) = ZERO8
+      CALL MNEXCM ( FCNANYLC, 'EXIT',  MNARG, 0, IERR, ANYLCFUN )
 **      PRINT *,'  MNFIT_PKMJD: EXIT returns IERR = ', IERR
 +SELF.
 

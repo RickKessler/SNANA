@@ -130,13 +130,15 @@ OBSOLETE_CONFIG_KEYS = \
     'DO_FITOPT000'              : COMMENT_MAYBE_LATER ,
     'DOSKIP_DUPLICATE_SIMJOBS'  : COMMENT_MAYBE_LATER ,
     'VERSION_AFTERBURNER'       : COMMENT_MAYBE_LATER ,
+    'VERSION+FITOPT'            : COMMENT_MAYBE_LATER ,
     'PLOTOPT'                   : COMMENT_MAYBE_LATER ,
     'CONVERT_SIMGEN_DUMP'       : COMMENT_NOT_NEEDED ,
     'DELAY_SUBMIT'              : COMMENT_NOT_NEEDED , 
     'H2ROOT_FLAG'               : COMMENT_NOT_NEEDED , 
     'MIN_SNANA_VERSION'         : COMMENT_NOT_NEEDED , 
     'TOPDIR_OVERRIDE'           : COMMENT_NOT_NEEDED ,
-    'OUTDIR_OVERRIDE'           : "Use OUTDIR key instead (same key as FIT-input)" ,
+    'TOTAL_WAIT_ABORT'          : COMMENT_NOT_NEEDED ,
+    'OUTDIR_OVERRIDE'           : "Use OUTDIR key instead (same key as in FIT input)" ,
     'GZIP_FLAG'                 : "gzip automatic; see CLEANUP_FLAG to NOT gzip",
     'APPEND_FITRES'             : "see APPEND_TABLE_VARLIST with -H FIT" , 
     'APPEND_TABLE_TEXT'         : "see APPEND_TABLE_VARLIST with -H FIT" , 
@@ -377,7 +379,7 @@ HELP_CONFIG_BBC = f"""
   # there is no need for this string-match key.
   STRINGMATCH_IGNORE:   _DES  _LOWZ 
     
-  # BBC variations
+  # BBC variations (for each VERSION and each FITOPT)
   MUOPT: 
   - p1=0.2 p2=3.3 
   - redchi2_tol=.02
@@ -389,6 +391,17 @@ HELP_CONFIG_BBC = f"""
   # run "wfit.exe" with no args. Output cosmology fit params are 
   # in YAML format.
   WFITMUDIF_OPT: <argList>
+
+  # Process subset of FITOPT x MUOPT matrix. Examples are
+  FITOPTxMUOPT: 0+0   # process only FITOPT=000 or  MUOPT=000
+  FITOPTxMUOPT: 2+3   # process only FITOPT=002 or  MUOPT=003
+  FITOPTxMUOPT: 0&0   # process only FITOPT=000 and MUOPT=000
+  FITOPTxMUOPT: 2&3   # process only FITOPT=002 and MUOPT=003
+  # For first two examples, the number of BBC jobs per version is
+  # NFITOPT + NMUOPT + 1. For next 2 examples, just 1 BBC job per version.
+  # This key cannot be configured to mimic command line args 
+  # --ignore_fitopt or --ignore_muopt.  However, "FITOPTxMUOPT: 0&0" is 
+  # equivalent to setting both with "--ignore_fitopt --ignore_muopt"
 
   # process M independent random sum-samples; useful to compare RMS vs. errors.
   # Be careful that every VERSION+FITOPT+MUOPT is divided into NSPLITRAN jobs.

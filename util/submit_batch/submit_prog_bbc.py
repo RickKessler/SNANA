@@ -1471,6 +1471,7 @@ class BBC(Program):
                 ERR_AVG    = stat_dict['ERR_AVG'] # error on mean 
                 RMS        = stat_dict['RMS']     # RMS on fit values
                 ERR_RMS    = stat_dict['ERR_RMS'] # error on RMS
+
                 string_values = \
                     (f"{nrow:3d} {iver} {ifit} {imu} {varname:<10} "\
                      f"{AVG_VAL:8.4f} {ERR_AVG:8.4f} " \

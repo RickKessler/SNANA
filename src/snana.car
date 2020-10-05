@@ -21575,6 +21575,9 @@ c
 c
 c Oct 15, 2019: fix format for SKYSIG : 6.2f -> 7.2f
 c Nov 22, 2019: adapt to work on fakes and sims, and write MAG column.
+c Oct 05, 2020: add ZP requirement to compute metadata; see FOUND_METADATA
+c
+c --------------------------
 
       IMPLICIT NONE
 
@@ -21595,7 +21598,7 @@ c +CDE,SNANAFIT.
       INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP
       INTEGER i, LENcMAG, ISTAT
       LOGICAL IS_REAL_DATA, WRALL_SIM_MAGOBS, WRSET_SIM_MAGOBS
-      LOGICAL WR_SIM_MAGOBS
+      LOGICAL WR_SIM_MAGOBS, FOUND_METADATA
       CHARACTER BAND*4, FNAM*20, SEDCMD*200, cDUM*20, CCID*32
       CHARACTER cMAG*12, cNCUTS*12, STR_OLD*40, STR_NEW*60
 
@@ -21854,7 +21857,12 @@ c --------
 
 c if simlib info is not available, estimate it from FLUX and FLUXERR.
 c Mainly for low-z sample which has no meta data. 
-           IF ( PSF1 < 1.0E-5 .and.  SKYSIG < 1.0E-5 ) THEN
+
+           FOUND_METADATA = 
+     &       ( PSF1 > 1.0E-5 .and. SKYSIG > 1.0E-5 .and. ZP > 1.0)
+
+cc xxxx remove   IF ( PSF1 < 1.0E-5 .and.  SKYSIG < 1.0E-5 ) THEN
+           IF ( .not. FOUND_METADATA ) THEN
               GAIN    = 1.0 ;  RDNOISE = 1.0 
               ZPERR   = DBLE( SIMLIB_ZPERR(ifilt_obs) )
               PSF2    = 0.0 ;  PSFRAT  = 0.0           

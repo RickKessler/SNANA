@@ -25,7 +25,10 @@ def get_args():
     msg = "comma separated list of variable names"
     parser.add_argument("-v", "--varname", help=msg, type=str, default=None)
 
+    if len(sys.argv) == 1:  parser.print_help(); sys.exit()
+
     args = parser.parse_args()
+
     return args
 
     # end get_args
@@ -47,7 +50,11 @@ def parse_inputs(args):
     assert exist_cid_list, msgerr_cid
     assert exist_var_list, msgerr_var
 
-    cid_list   = args.cid.split(",")
+    if args.cid is not None :    
+        cid_list = args.cid.split(",")
+    else:
+        cid_list = []
+
     nrow       = args.nrow
     var_list   = args.varname.split(",")
 
@@ -73,17 +80,16 @@ def read_fitres_file(ff, var_list):
 def print_info(df, cid_list, nrow):
 
     # Inputs:
-    #   df = data frame for input fitres file
+    #   df       = data frame for input fitres file
     #   cid_list = comma-sep list of cids
     #   nrow     = number of rows to fetch CID
 
     # check option to use CIDs from first 'nrow' rows
     if nrow > 0 :
-        cid_rows = df['CID'].iloc[:nrow].values
-        print(f" xxx cid_rows = {cid_rows} ")
-        #cid_list += cid_rows
-
-    print(" xxx - - - - - - - - \n ")
+        cid_rows = df['CID'].head(nrow).tolist()
+        #print(f" xxx cid_rows = {cid_rows}   ty={type(cid_rows)}")
+        cid_list += cid_rows
+        cid_list = list(set(cid_list))
 
     pd.set_option("display.max_columns", len(df.columns) + 1, 
                   "display.width", 1000)

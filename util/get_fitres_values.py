@@ -12,93 +12,98 @@ import pandas as pd
 # =====================================
 def get_args():
     parser = argparse.ArgumentParser()
-
     
     msg = "name of fitres file"
     parser.add_argument("-f", "--file", help=msg, type=str, default="")
 
     msg = "comma separated list of CIDs"
-    parser.add_argument("-c", "--cid", help=msg, type=str, default="")
+    parser.add_argument("-c", "--cid", help=msg, type=str, default=None)
+
+    msg = "number of rows to fetch CIDs (no need to know CIDs)"
+    parser.add_argument("--nrow", help=msg, type=int, default=0)
 
     msg = "comma separated list of variable names"
-    parser.add_argument("-v", "--varname", help=msg, type=str, default="")
+    parser.add_argument("-v", "--varname", help=msg, type=str, default=None)
 
     args = parser.parse_args()
     return args
 
     # end get_args
 
-def parse_inputs(inputs_dict):
+def parse_inputs(args):
 
     # parse comma-sep list of cid(s) and varname(s)
 
-    cid_string = inputs_dict['args'].cid
-    var_string = inputs_dict['args'].varname
+    exist_ff   = os.path.exists(args.file)
+    msgerr_ff  = (f"fitres file {args.file} does not exist.")
 
-    if cid_string == '' :
-        sys.exit(f"\n ERROR: missing -c argument.")
+    exist_cid_list = (args.cid is not None) or (args.nrow > 0 )
+    msgerr_cid     = "Must cid list using --cid or --nrow arg"
 
-    if var_string == '' :
-        sys.exit(f"\n ERROR: missing -v argument.")
+    exist_var_list = args.varname is not None
+    msgerr_var     = "Must specify varnames using -v arg"
 
-    cid_list   = cid_string.split(",")
-    var_list   = var_string.split(",")
-    
-    inputs_dict['cid_list'] = cid_list
-    inputs_dict['var_list'] = var_list
+    assert exist_ff,       msgerr_ff
+    assert exist_cid_list, msgerr_cid
+    assert exist_var_list, msgerr_var
+
+    cid_list   = args.cid.split(",")
+    nrow       = args.nrow
+    var_list   = args.varname.split(",")
+
+    return args.file, cid_list, nrow, var_list
 
     # end parse_inputs
 
-def read_fitres_file(inputs_dict):
+def read_fitres_file(ff, var_list):
 
-    ffile    = inputs_dict['args'].file
-    var_list = inputs_dict['var_list']
+    # inputs:
+    #   ff       = name of fitres file
+    #   var_list = list of variables to parse
 
     var_list_local = ['CID'] + var_list
-    df  = pd.read_csv(ffile, comment="#", delim_whitespace=True, 
+    df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
                       usecols=var_list_local)
     df["CID"] = df["CID"].astype(str)
     df        = df.set_index("CID", drop=False)
-    inputs_dict['df'] = df 
+    return df
 
     # end read_fitres_file
 
-def print_info(inputs_dict):
+def print_info(df, cid_list, nrow):
 
-    cid_list = inputs_dict['cid_list']
-    var_list = inputs_dict['var_list']
-    df       = inputs_dict['df']
+    # Inputs:
+    #   df = data frame for input fitres file
+    #   cid_list = comma-sep list of cids
+    #   nrow     = number of rows to fetch CID
 
-    pd.set_option("display.max_columns", len(var_list) + 1, "display.width", 1000)
+    # check option to use CIDs from first 'nrow' rows
+    if nrow > 0 :
+        cid_rows = df['CID'].iloc[:nrow].values
+        print(f" xxx cid_rows = {cid_rows} ")
+        #cid_list += cid_rows
+
+    print(" xxx - - - - - - - - \n ")
+
+    pd.set_option("display.max_columns", len(df.columns) + 1, 
+                  "display.width", 1000)
     print(df.loc[cid_list, var_list].__repr__())
-
-
-    #for cid in cid_list:
-    #    row = df.loc[cid, :]
-    #    print("# - - - - - - - - - - - - - - -")
-    #    for var in var_list:
-    #        val = row[var]
-    #        print(f" CID={cid}  {var:<12} = {val} ")
-
     # end print_info
 
 # =============================================
 if __name__ == "__main__":
 
-    inputs_dict = {}
-
     # read command-line arguments
     args  = get_args()
-    inputs_dict.update( { 'args' : args } )
 
     # parse comma-sep lists
-    parse_inputs(inputs_dict)
+    ff, cid_list, nrow, var_list = parse_inputs(args)
 
     # read fitres file
-    read_fitres_file(inputs_dict)
+    df = read_fitres_file(ff, var_list)
 
     # print requested info
-    print_info(inputs_dict)
+    print_info(df,cid_list, nrow)
 
     # end main
 

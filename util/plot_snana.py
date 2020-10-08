@@ -194,10 +194,16 @@ def read_lc(cid, base_name, plotter_choice, tmin, tmax, filter_list):
                         float(temp[varnames.index('cERR')]),
                 )
                 fit['params'] = datadict
-				break
-	
-	sn={k:np.array(sn[k]) for k in sn.keys()}
-	fit={k:np.array(fit[k]) if k !='params' else fit['params'] for k in fit.keys()}
+                break
+
+    sn = {k: np.array(sn[k]) for k in sn.keys()}
+    fit_arrays = {}
+    for k, v in fit.items():
+        if k == 'params':
+            fit_arrays[k] = v
+        else:
+            fit_arrays[k] = np.array(k)
+    
 	if len(fit['filter'])>0:
 		fits={k:interp1d(fit['time'][fit['filter']==k],
 					 fit['flux'][fit['filter']==k]) for k in np.unique(fit['filter'])}

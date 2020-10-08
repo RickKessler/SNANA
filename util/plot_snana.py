@@ -163,17 +163,37 @@ def read_lc(cid, base_name, plotter_choice, tmin, tmax, filter_list):
                 fitted = True
                 fit["time"].append(tObs)
                 fit["flux"].append(float(temp[varnames.index("FLUXCAL")]))
-                fit["filter"].append(band)	
-    
+                fit["filter"].append(band)
+
     if fitted and plotter_choice=='salt2':
-		with open(base_name+".FITRES.TEXT",'rb') as f:
-			dat=f.readlines()
-		for line in dat:
-			temp=line.split()
-			if len(temp)>0 and b'VARNAMES:' in temp:
-				varnames=[str(x.decode('utf-8')) for x in temp]
-			elif len(temp)>0 and b'SN:' in temp and str(temp[varnames.index('CID')].decode('utf-8')) in cid: 
-				fit['params']={p:(float(temp[varnames.index(p)]),float(temp[varnames.index(p+'ERR')])) if p in ['x0','x1','c'] else float(temp[varnames.index(p)]) for p in ['x0','x1','c','NDOF','FITCHI2']}
+        with open(base_name+".FITRES.TEXT",'rb') as f:
+            dat = f.readlines()
+        for line in dat:
+            temp = line.split()
+            if len(temp) <= 0:
+                continue
+            if b'VARNAMES:' in temp:
+                varnames = [str(x.decode('utf-8')) for x in temp]
+                tCid = str(temp[varnames.index('CID')].decode('utf-8'))
+
+            elif b'SN:' in temp and tCid in cid:
+                datadict = {}
+                
+                datadict['NDOF'] = float(temp[varnames.index('NDOF')])
+                datadict['FITCHI2'] = float(temp[varnames.index('FITCHI2')])
+                datadict['x0'] = (
+                        float(temp[varnames.index('x0')]),
+                        float(temp[varnames.index('x0ERR')]),
+                ) 
+                datadict['x1'] = (
+                        float(temp[varnames.index('x1')]),
+                        float(temp[varnames.index('x1ERR')]),
+                ) 
+                datadict['c'] = (
+                        float(temp[varnames.index('c')]),
+                        float(temp[varnames.index('cERR')]),
+                )
+                fit['params'] = datadict
 				break
 	
 	sn={k:np.array(sn[k]) for k in sn.keys()}

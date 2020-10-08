@@ -20,49 +20,85 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.interpolate import interp1d
 
-__band_order__=np.append(['u','b','g','v','r','i','z','y','j','h','k'],
-	 [x.upper() for x in ['u','b','g','v','r','i','z','y','j','h','k']])
+BANDS = ["u", "b", "g", "v", "r", "i", "z", "y", "j", "h", "k"]
+__band_order__ = np.append(BANDS, [x.upper() for x in BANDS])
 
-def read_spec(cid,base_name):
-	names=['wave','flux','fluxerr','tobs','mjd']
-	id_to_obs=dict([])
-	mjds=[]
-	with open(base_name+".SPECLIST.TEXT",'rb') as f:
-		dat=f.readlines()
-	for line in dat:
-		temp=line.split()
-		if len(temp)>0 and b'VARNAMES:' in temp:
-			varnames=[str(x.decode('utf-8')) for x in temp]
-		else:
-			id_to_obs[int(temp[varnames.index('ID')])]=float(temp[varnames.index('TOBS')])
-			mjds.append(float(temp[varnames.index('MJD')]))
+def read_spec(cid, base_name):
+    """Function that reads the spectra of a single object
 
-	sn={k:[] for k in names}
+    Parameters
+    ----------
+    cid: 
 
-	with open(base_name+".SPECPLOT.TEXT",'rb') as f:
-		dat=f.readlines()
-	temp_id=None
-	mjd_ind=0
-	for line in dat:
-		temp=line.split()
-		
-		
-		if len(temp)>0 and b'VARNAMES:' in temp:
-			varnames=[str(x.decode('utf-8')) for x in temp]
-		elif len(temp)>0 and b'OBS:' in temp and\
-			 str(temp[varnames.index('CID')].decode('utf-8'))in cid:
-			if temp_id is None:
-				temp_id=int(temp[varnames.index('ID')])
-			if temp_id!=int(temp[varnames.index('ID')]):	
-				mjd_ind+=1
-			temp_id=int(temp[varnames.index('ID')])
-			sn['wave'].append((float(temp[varnames.index('LAMMAX')])+float(temp[varnames.index('LAMMIN')]))/2.)
-			sn['flux'].append(float(temp[varnames.index('FLAM')]))
-			sn['fluxerr'].append(float(temp[varnames.index('FLAMERR')]))
-			sn['tobs'].append(id_to_obs[int(temp[varnames.index('ID')])])
-			sn['mjd'].append(mjds[mjd_ind])
-	sn={k:np.array(sn[k]) for k in sn.keys()}
-	return(sn)
+    base_name:
+
+    Returns
+    -------
+    sn: a dictionary, with following keys
+    - 'wave': wavelength, 
+    - 'flux': fluxes in , 
+    - 'fluxerr': flux error, 
+    - 'tobs': time of observation, 
+    - 'mjd': Median Julian Date
+
+    """
+    mjds = []
+    names = ["wave", "flux", "fluxerr", "tobs", "mjd"]
+    sn = {k: [] for k in names}
+    id_to_obs = dict([])
+
+    with open(base_name + ".SPECLIST.TEXT", "rb") as f:
+        dat = f.readlines()
+    for line in dat:
+        temp = line.split()
+        if len(temp) > 0 and b"VARNAMES:" in temp:
+            varnames = [str(x.decode("utf-8")) for x in temp]
+        else:
+            the_id = int(temp[varnames.index("ID")])
+            id_to_obs[the_id] = float(temp[varnames.index("TOBS")])
+            mjds.append(float(temp[varnames.index("MJD")]))
+
+    with open(base_name + ".SPECPLOT.TEXT", "rb") as f:
+        dat = f.readlines()
+    temp_id = None
+    mjd_ind = 0
+
+    for line in dat:
+        temp = line.split()
+
+        if len(temp) > 0 and b"VARNAMES:" in temp:
+            varnames = [str(x.decode("utf-8")) for x in temp]
+
+        elif (
+            len(temp) > 0
+            and b"OBS:" in temp
+            and str(temp[varnames.index("CID")].decode("utf-8")) in cid
+        ):
+
+            if temp_id is None:
+                temp_id = int(temp[varnames.index("ID")])
+
+            if temp_id != int(temp[varnames.index("ID")]):
+                mjd_ind += 1
+
+            temp_id = int(temp[varnames.index("ID")])
+
+            sn["flux"].append(float(temp[varnames.index("FLAM")]))
+            sn["fluxerr"].append(float(temp[varnames.index("FLAMERR")]))
+            sn["tobs"].append(id_to_obs[int(temp[varnames.index("ID")])])
+            sn["mjd"].append(mjds[mjd_ind])
+            sn["wave"].append(
+                (
+                    float(temp[varnames.index("LAMMAX")])
+                    + float(temp[varnames.index("LAMMIN")])
+                )
+                / 2.0
+            )
+
+    sn = {k: np.array(sn[k]) for k in sn.keys()}
+
+    return sn
+
 def read_lc(cid,base_name,plotter_choice,tmin,tmax,filter_list):
 	names=['time','flux','fluxerr','filter','chi2']
 	peak=None

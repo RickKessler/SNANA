@@ -103,6 +103,7 @@ def read_spec(cid, base_name):
 
     return sn
 
+
 def read_lc(cid,base_name,plotter_choice,tmin,tmax,filter_list):
 	names=['time','flux','fluxerr','filter','chi2']
 	peak=None
@@ -184,25 +185,29 @@ def read_fitres(fitres_filename,param):
 	
 	return(fit)
 
-def read_snana(snana_filename,cid,param):
-	if isinstance(cid,(list,tuple,np.ndarray)) and len(cid)==1:
-		cid=cid[0]
 
-	with open(snana_filename+'.SNANA.TEXT','r') as f:
-		dat=f.readlines()
-	for line in dat:
-		temp=line.split()
-		if len(temp)>0 and 'VARNAMES:' in temp:
-			varnames=temp
-		if len(temp)>0 and 'SN:' in temp and str(cid) in temp:
-			try:
-				ind=varnames.index(param)
-			except:
-				print('Either format of SNANA.TEXT file is wrong and no varnames, or %s not in file'%param)
-			return(temp[ind],temp[ind+1])
+def read_snana(snana_filename, cid, param):
+    if isinstance(cid, (list, tuple, np.ndarray)) and len(cid) == 1:
+        cid = cid[0]
 
-	print('%s not found in SNANA.TEXT file.'%(str(cid)))
-	return
+    with open(snana_filename + ".SNANA.TEXT", "r") as f:
+        dat = f.readlines()
+    for line in dat:
+        temp = line.split()
+        if len(temp) > 0 and "VARNAMES:" in temp:
+            varnames = temp
+        if len(temp) > 0 and "SN:" in temp and str(cid) in temp:
+            try:
+                ind = varnames.index(param)
+            except:
+                print(
+                    "Either format of SNANA.TEXT file is wrong and no varnames, or %s not in file"
+                    % param
+                )
+            return (temp[ind], temp[ind + 1])
+
+    print("%s not found in SNANA.TEXT file." % (str(cid)))
+    return
 
 def plot_spec(cid,bin_size,base_name,noGrid,zname):
 	sn=read_spec(cid,base_name)

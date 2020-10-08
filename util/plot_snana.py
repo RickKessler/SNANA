@@ -104,45 +104,68 @@ def read_spec(cid, base_name):
     return sn
 
 
-def read_lc(cid,base_name,plotter_choice,tmin,tmax,filter_list):
-	names=['time','flux','fluxerr','filter','chi2']
-	peak=None
-	sn={k:[] for k in names} 
-	fit={k:[] for k in ['time','flux','filter']}
-	with open(base_name+".LCPLOT.TEXT",'rb') as f:
-		dat=f.readlines()
-	fitted=False
-	mintime=np.inf
-	maxtime=-np.inf
-	for line in dat:
-		temp=line.split()
-		if len(temp)>0 and b'VARNAMES:' in temp:
-			varnames=[str(x.decode('utf-8')) for x in temp]
-		elif len(temp)>0 and b'OBS:' in temp and str(temp[varnames.index('CID')].decode('utf-8')) in cid:
-			if float(temp[varnames.index('Tobs')])<tmin or float(temp[varnames.index('Tobs')])>tmax:
-				continue
-			
-			if filter_list is not None and str(temp[varnames.index('BAND')].decode('utf-8')) not in filter_list:
-				continue
-			if int(temp[varnames.index('DATAFLAG')])==1:
-				if peak is None:
-					peak=float(temp[varnames.index('MJD')])-float(temp[varnames.index('Tobs')])
-				t=float(temp[varnames.index('Tobs')])
-				if t>maxtime:
-					maxtime=t
-				if t<mintime:
-					mintime=t
-				sn['time'].append(t)
-				sn['flux'].append(float(temp[varnames.index('FLUXCAL')]))
-				sn['fluxerr'].append(float(temp[varnames.index('FLUXCAL_ERR')]))
-				sn['filter'].append(str(temp[varnames.index('BAND')].decode('utf-8')))
-				sn['chi2'].append(float(temp[varnames.index('CHI2')]))
-			elif int(temp[varnames.index('DATAFLAG')])==0:
-				fitted=True
-				fit['time'].append(float(temp[varnames.index('Tobs')]))
-				fit['flux'].append(float(temp[varnames.index('FLUXCAL')]))
-				fit['filter'].append(str(temp[varnames.index('BAND')].decode('utf-8')))
-	if fitted and plotter_choice=='salt2':
+def read_lc(cid, base_name, plotter_choice, tmin, tmax, filter_list):
+    """Function to read a light curve.
+
+    Parameters
+    ----------
+
+
+    Returns
+    -------
+
+    """
+    peak = None
+    fitted = False
+    mintime = np.inf
+    maxtime = -np.inf
+
+    names = ["time", "flux", "fluxerr", "filter", "chi2"]
+    sn = {k: [] for k in names}
+    fit = {k: [] for k in ["time", "flux", "filter"]}
+
+    with open(base_name + ".LCPLOT.TEXT", "rb") as f:
+        dat = f.readlines()
+
+    for line in dat:
+        temp = line.split()
+        if len(temp) <= 0:
+            continue
+
+        if b"VARNAMES:" in temp:
+            varnames = [str(x.decode("utf-8")) for x in temp]
+            tCid = str(temp[varnames.index("CID")].decode("utf-8"))
+
+        elif (b"OBS:" in temp and tCid in cid):
+            tObs = float(temp[varnames.index("Tobs")])
+            band = str(temp[varnames.index("BAND")].decode("utf-8"))
+            dataflag = int(temp[varnames.index("DATAFLAG")])
+
+            if not (tmin < tObs < tmax):
+                continue
+            if (filter_list is not None and band not in filter_list):
+                continue
+
+            if dataflag == 1:
+                if peak is None:
+                    peak = float(temp[varnames.index("MJD")]) - tObs
+                if tObs > maxtime:
+                    maxtime = tObs
+                if tObs < mintime:
+                    mintime = tObs
+                sn["time"].append(tObs)
+                sn["flux"].append(float(temp[varnames.index("FLUXCAL")]))
+                sn["fluxerr"].append(float(temp[varnames.index("FLUXCAL_ERR")]))
+                sn["filter"].append(band)
+                sn["chi2"].append(float(temp[varnames.index("CHI2")]))
+
+            elif dataflag == 0:
+                fitted = True
+                fit["time"].append(tObs)
+                fit["flux"].append(float(temp[varnames.index("FLUXCAL")]))
+                fit["filter"].append(band)	
+    
+    if fitted and plotter_choice=='salt2':
 		with open(base_name+".FITRES.TEXT",'rb') as f:
 			dat=f.readlines()
 		for line in dat:
@@ -166,7 +189,6 @@ def read_lc(cid,base_name,plotter_choice,tmin,tmax,filter_list):
 	else:
 		fits=[]
 	return(sn,fits,peak,(mintime,maxtime))
-
 
 
 def read_fitres(fitres_filename, param):

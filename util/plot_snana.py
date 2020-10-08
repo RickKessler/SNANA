@@ -167,23 +167,45 @@ def read_lc(cid,base_name,plotter_choice,tmin,tmax,filter_list):
 		fits=[]
 	return(sn,fits,peak,(mintime,maxtime))
 
-def read_fitres(fitres_filename,param):
-	fit={}
-	with open(fitres_filename,'rb') as f:
-		dat=f.readlines()
-	for line in dat:
-		temp=line.split()
-		if len(temp)>0 and b'VARNAMES:' in temp:
-			varnames=[str(x.decode('utf-8')) for x in temp]
-		elif len(temp)>0 and b'SN:' in temp: 
-			fit[str(temp[varnames.index('CID')].decode('utf-8'))]={p:(float(temp[varnames.index(p)]),float(temp[varnames.index(p+'ERR')])) if p in ['x0','x1','c'] else float(temp[varnames.index(p)]) for p in ['x0','x1','c','NDOF','FITCHI2']}
-			if param is not None:
-				if param not in varnames:
-					raise RuntimeError("Parameter %s given for joint distribution but not found in FITRES file %s"%(param,fitres_filename))
-				fit[str(temp[varnames.index('CID')].decode('utf-8'))][param]=float(temp[varnames.index(param)])
-			
-	
-	return(fit)
+
+
+def read_fitres(fitres_filename, param):
+    fit = {}
+    with open(fitres_filename, "rb") as f:
+        dat = f.readlines()
+    for line in dat:
+        temp = line.split()
+        if len(temp) > 0 and b"VARNAMES:" in temp:
+            varnames = [str(x.decode("utf-8")) for x in temp]
+        elif len(temp) > 0 and b"SN:" in temp:
+            datadict = {}
+
+            datadict['NDOF'] = float(temp[varnames.index('NDOF')])
+            datadict['FITCHI2'] = float(temp[varnames.index('FITCHI2')])
+            datadict['x0'] = (
+                    float(temp[varnames.index('x0')]),
+                    float(temp[varnames.index('x0ERR')]),
+            ) 
+            datadict['x1'] = (
+                    float(temp[varnames.index('x1')]),
+                    float(temp[varnames.index('x1ERR')]),
+            ) 
+            datadict['c'] = (
+                    float(temp[varnames.index('c')]),
+                    float(temp[varnames.index('cERR')]),
+            ) 
+
+            cid = str(temp[varnames.index("CID")].decode("utf-8"))
+            fit[cid] = datadict
+            
+            if param is not None:
+                if param not in varnames:
+                    raise RuntimeError(
+                        "Parameter %s given for joint distribution but not found in FITRES file %s"
+                        % (param, fitres_filename)
+                    )
+                fit[cid][param] = float(temp[varnames.index(param)])
+    return fit
 
 
 def read_snana(snana_filename, cid, param):
@@ -208,6 +230,7 @@ def read_snana(snana_filename, cid, param):
 
     print("%s not found in SNANA.TEXT file." % (str(cid)))
     return
+
 
 def plot_spec(cid,bin_size,base_name,noGrid,zname):
 	sn=read_spec(cid,base_name)
@@ -297,6 +320,7 @@ def plot_spec(cid,bin_size,base_name,noGrid,zname):
 		plt.close()
 	#plt.savefig('SNANA_SPEC_%s.pdf'%'_'.join(cid),format='pdf',overwrite=True)
 	return(figs)
+
 
 def plot_lc(cid,base_name,noGrid,plotter_choice,tmin,tmax,filter_list,plot_all,zname):
 	if tmin is None:
@@ -409,6 +433,7 @@ def plot_lc(cid,base_name,noGrid,plotter_choice,tmin,tmax,filter_list,plot_all,z
 
 	return(figs,fits)
 
+
 def plot_cmd(genversion,cid_list,nml,isdist,private):
 	plotter='normal'
 	if nml is not None:
@@ -472,6 +497,7 @@ def plot_cmd(genversion,cid_list,nml,isdist,private):
 		all_cids=cid_list
 	return(plotter,'OUT_TEMP_'+rand,all_cids)
 
+
 def read_existing(nml):
 	files=glob.glob('OUT_TEMP_*')
 	unq_ids=np.unique([f[f.rfind('_')+1:f.find('.')] for f in files])
@@ -511,6 +537,7 @@ def read_existing(nml):
 		
 	return(plotter,base_name,','.join(cids),genversion)
 
+
 def output_fit_res(fitres,filename):
 	with open(os.path.splitext(filename)[0]+'.fitres','w') as f:
 		f.write("VARNAMES: CID x0 x0err x1 x1err c cerr\n")
@@ -522,6 +549,7 @@ def output_fit_res(fitres,filename):
 												fitres[cid]['x1'][1],
 												fitres[cid]['c'][0],
 												fitres[cid]['c'][1]))
+
 
 def create_dists(fitres,param,joint_type):
 	try:
@@ -583,9 +611,6 @@ def find_files(version,cid_list):
 				return(list_files)
 
 
-
-
-
 def main():
 
 	parser = OptionParser()
@@ -620,8 +645,7 @@ def main():
 	parser.add_option("--existing",help="All: Use existing output files for plotting (Must have only 1 set in directory)",action="store_true",dest="existing",default=False)
 	parser.add_option("--noclean",help='All: Leave intermediate files for debugging',action="store_true",dest="noclean",default=False)
 	parser.add_option("--silent",help="All: Do not print anything",action="store_true",dest="silent",default=False)
-	
-	
+
 	
 	#parser.add_option("--help",action="store_true",dest='help',default=False)
 	(options,args)=parser.parse_args()

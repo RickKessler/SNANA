@@ -4,15 +4,21 @@
 #Plotter tool for SNANA LCs and Spectra
 
 from __future__ import print_function
-import numpy as np
+
 import matplotlib as mpl
+import numpy as np
+
 mpl.use('Agg')
+import glob
+import math
+import os
+import sys
+import textwrap
+from optparse import SUPPRESS_HELP, OptionParser
+
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-import os,glob,math,sys,textwrap
-from optparse import OptionParser,SUPPRESS_HELP
 from scipy.interpolate import interp1d
-
 
 __band_order__=np.append(['u','b','g','v','r','i','z','y','j','h','k'],
 	 [x.upper() for x in ['u','b','g','v','r','i','z','y','j','h','k']])

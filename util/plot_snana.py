@@ -165,7 +165,7 @@ def read_lc(cid, base_name, plotter_choice, tmin, tmax, filter_list):
                 fit["flux"].append(float(temp[varnames.index("FLUXCAL")]))
                 fit["filter"].append(band)
 
-    if fitted and plotter_choice=='salt2':
+    if fitted and plotter_choice == 'salt2':
         with open(base_name+".FITRES.TEXT",'rb') as f:
             dat = f.readlines()
         for line in dat:
@@ -178,7 +178,6 @@ def read_lc(cid, base_name, plotter_choice, tmin, tmax, filter_list):
 
             elif b'SN:' in temp and tCid in cid:
                 datadict = {}
-                
                 datadict['NDOF'] = float(temp[varnames.index('NDOF')])
                 datadict['FITCHI2'] = float(temp[varnames.index('FITCHI2')])
                 datadict['x0'] = (
@@ -202,19 +201,30 @@ def read_lc(cid, base_name, plotter_choice, tmin, tmax, filter_list):
         if k == 'params':
             fit_arrays[k] = v
         else:
-            fit_arrays[k] = np.array(k)
-    
-	if len(fit['filter'])>0:
-		fits={k:interp1d(fit['time'][fit['filter']==k],
-					 fit['flux'][fit['filter']==k]) for k in np.unique(fit['filter'])}
-		if 'params' in fit.keys():
-			fits['params']=fit['params']
-		else:
-			fits['params']={}
-		fits['trange']={k:[np.min(fit['time'][fit['filter']==k]),np.max(fit['time'][fit['filter']==k])] for k in np.unique(fit['filter'])}
-	else:
-		fits=[]
-	return(sn,fits,peak,(mintime,maxtime))
+            fit_arrays[k] = np.array(v)
+    fit = fit_arrays
+
+    if len(fit['filter']) > 0:
+        fits = {}
+        tranges = {}
+        for afilter in np.unique(fit['filter']):
+            fits[afilter] = interp1d(
+                fit['time'][fit['filter'] == afilter],
+                fit['flux'][fit['filter'] == afilter]
+            )
+            tranges[afilter] = [
+                np.min(fit['time'][fit['filter'] == afilter]),
+                np.max(fit['time'][fit['filter'] == afilter])
+            ]
+        fits['trange'] = tranges
+
+        if 'params' in fit.keys():
+            fits['params'] = fit['params']
+        else:
+            fits['params'] = {}
+    else:
+        fits = []
+    return(sn, fits, peak, (mintime, maxtime))
 
 
 def read_fitres(fitres_filename, param):

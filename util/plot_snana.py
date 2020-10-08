@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 #
-#June 2019 J. Pierel
-#Plotter tool for SNANA LCs and Spectra
+#  June 2019 J. Pierel
+#  Aug 2020 B. Sanchez
+#  Plotter tool for SNANA LCs and Spectra
 
 from __future__ import print_function
 
 import matplotlib as mpl
 import numpy as np
 
-mpl.use('Agg')
 import glob
 import math
 import os
@@ -20,25 +20,29 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.interpolate import interp1d
 
+mpl.use('Agg')
+
+
 BANDS = ["u", "b", "g", "v", "r", "i", "z", "y", "j", "h", "k"]
 __band_order__ = np.append(BANDS, [x.upper() for x in BANDS])
+
 
 def read_spec(cid, base_name):
     """Function that reads the spectra of a single object
 
     Parameters
     ----------
-    cid: 
+    cid:
 
     base_name:
 
     Returns
     -------
     sn: a dictionary, with following keys
-    - 'wave': wavelength, 
-    - 'flux': fluxes in , 
-    - 'fluxerr': flux error, 
-    - 'tobs': time of observation, 
+    - 'wave': wavelength
+    - 'flux': fluxes in 
+    - 'fluxerr': flux error
+    - 'tobs': time of observation
     - 'mjd': Median Julian Date
 
     """

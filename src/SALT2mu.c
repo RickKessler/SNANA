@@ -15573,10 +15573,13 @@ void parse_CUTWIN(char *item) {
   //   INPUTS.CUTWIN_NAME
   //   INPUTS.CUTWIN_RANGE
   //   INPUTS.CUTWIN_ABORTFLAG   ! 9.29.2016
+  //
+  // Oct 8 2020: check for bad input
+  //
 
   char  *ptrtok, local_item[200], stringOpt[60], KEY[60] ;
-  int   ICUT, i ;
-  //  char  fnam[] = "parse_CUTWIN" ;
+  int   ICUT, i, nread ;
+  char  fnam[] = "parse_CUTWIN" ;
 
   // ---------- BEGIN ------------
 
@@ -15606,17 +15609,31 @@ void parse_CUTWIN(char *item) {
 	{ INPUTS.LCUTWIN_BIASCORONLY[ICUT] = true ; } // cut on sim & biascor
     }
 
-    if ( i == 1 ) 
-      { sscanf ( ptrtok, "%s", INPUTS.CUTWIN_NAME[ICUT] ); } 
+    if ( i == 1 ) { 
+      nread = sscanf ( ptrtok, "%s", INPUTS.CUTWIN_NAME[ICUT] ); 
+      if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
+    } 
         
-    if ( i == 2 ) 
-      { sscanf ( ptrtok, "%le", &INPUTS.CUTWIN_RANGE[ICUT][0] ); } 
+    if ( i == 2 ) {
+      nread = sscanf ( ptrtok, "%le", &INPUTS.CUTWIN_RANGE[ICUT][0] ); 
+      if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
+    } 
 
-    if ( i == 3 ) 
-      { sscanf ( ptrtok, "%le", &INPUTS.CUTWIN_RANGE[ICUT][1] ); } 
+    if ( i == 3 ) {
+      nread = sscanf ( ptrtok, "%le", &INPUTS.CUTWIN_RANGE[ICUT][1] ); 
+      if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
+    } 
 
     ptrtok = strtok(NULL, " ");
-  }
+
+    // Oct 8 2020: check for missing CUTWIN element
+    if ( i < 3 && ptrtok == NULL ) {
+      sprintf(c1err,"Problem reading CUTWIN element i=%d", i+1 );
+      sprintf(c2err,"for item = '%s' ", item);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+
+  } // end i loop
 
   fprintf(FP_STDOUT, 
 	 "\t Will apply CUTWIN on %12s from %10.4f to %10.4f  (ABORTFLAG=%d)\n"

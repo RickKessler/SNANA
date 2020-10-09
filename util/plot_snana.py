@@ -340,24 +340,30 @@ def plot_spec(cid, bin_size, base_name, noGrid, zname):
                     # sn = (
                     #   sn.group_by(np.trunc(sn['wave']/bin_size))
                     # ).groups.aggregate(np.mean)
-				
-				if np.unique(sn['mjd'])[j]<0:
-					spec_label='HOST'
-				else:
-					spec_label='SN:%.2f' % np.unique(sn['tobs'])[j]
-				ax[j].plot(binned_wave,binned_flux,color='k',label=spec_label)
-				ylim=ax[j].get_ylim()
-				ax[j].fill_between(binned_wave,binned_flux-binned_fluxerr,binned_flux+binned_fluxerr,
-							 color='r',alpha=.3,label=r'$1\sigma$ Error')
-				ax[j].plot([binned_wave[0],binned_wave[-1]],[0,0],'k--',alpha=.5)
-				ax[j].set_ylim(ylim)
-				ax[j].legend(fontsize=12)
 
-			
-				ax[j].set_ylabel(r'$F_\lambda$',fontsize=16)
-				if not noGrid:
-					ax[j].grid()
-				m+=1
+                if np.unique(sn["mjd"])[j] < 0:
+                    spec_label = "HOST"
+                else:
+                    spec_label = "SN:%.2f" % np.unique(sn["tobs"])[j]
+                ax[j].plot(binned_wave, binned_flux, color="k", label=spec_label)
+                ylim = ax[j].get_ylim()
+                ax[j].fill_between(
+                    binned_wave,
+                    binned_flux - binned_fluxerr,
+                    binned_flux + binned_fluxerr,
+                    color="r",
+                    alpha=0.3,
+                    label=r"$1\sigma$ Error",
+                )
+                ax[j].plot([binned_wave[0], binned_wave[-1]], [0, 0], "k--", alpha=0.5)
+                ax[j].set_ylim(ylim)
+                ax[j].legend(fontsize=12)
+
+                ax[j].set_ylabel(r"$F_\lambda$", fontsize=16)
+                if not noGrid:
+                    ax[j].grid()
+                m += 1
+
 			ax[j].set_xlabel('Observer Frame Wavelength ($\AA$)',fontsize=16)
 			
 			figs.append(fig)

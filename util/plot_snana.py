@@ -355,7 +355,8 @@ def plot_spec(cid, bin_size, base_name, noGrid, zname):
                     alpha=0.3,
                     label=r"$1\sigma$ Error",
                 )
-                ax[j].plot([binned_wave[0], binned_wave[-1]], [0, 0], "k--", alpha=0.5)
+                ax[j].plot([binned_wave[0], binned_wave[-1]],
+                           [0, 0], "k--", alpha=0.5)
                 ax[j].set_ylim(ylim)
                 ax[j].legend(fontsize=12)
 
@@ -364,10 +365,10 @@ def plot_spec(cid, bin_size, base_name, noGrid, zname):
                     ax[j].grid()
                 m += 1
 
-			ax[j].set_xlabel('Observer Frame Wavelength ($\AA$)',fontsize=16)
-			
-			figs.append(fig)
-			plt.close()
+            ax[j].set_xlabel("Observer Frame Wavelength ($\AA$)", fontsize=16)
+
+            figs.append(fig)
+            plt.close()
 	else:
 		fig=plt.figure(figsize=(10,8))
 		

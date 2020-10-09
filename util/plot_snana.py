@@ -295,41 +295,56 @@ def plot_spec(cid, bin_size, base_name, noGrid, zname):
 
     if len(sn["tobs"]) == 0:
         return []
-    if len(np.unique(sn["tobs"])) > 1:
+    uniq_tobs = np.unique(sn["tobs"])
+
+    if len(uniq_tobs) > 1:
         figs = []
         m = 0
-        for nfig in range(int(math.ceil(len(np.unique(sn["tobs"])) / 4.0))):
+        for nfig in range(math.ceil(len(uniq_tobs) / 4.0)):
             fig, ax = plt.subplots(
-                nrows=min(len(np.unique(sn["tobs"])), 4),
+                nrows=min(len(uniq_tobs), 4),
                 ncols=1,
                 figsize=(8, 8),
                 sharex=True,
             )
-			ax[0].set_title('SNID=%s'%cid[0],fontsize=16)
-			for j in range(min(len(np.unique(sn['tobs'])[m:]),4)):
-				
-				temp_sn=np.where(sn['tobs']==np.unique(sn['tobs'])[m])[0]
-				if bin_size!=0:
-					
-					#bins=np.digitize(np.array(sn['wave']),np.arange(sn['wave'][0],sn['wave'][-1],bin_size))
-					binned_wave=[]
-					binned_flux=[]
-					binned_fluxerr=[]
-					bins=np.trunc(sn['wave'][temp_sn]/bin_size)
-					for i in np.unique(bins):
-						binned_wave=np.append(binned_wave,np.mean(sn['wave'][temp_sn][bins==i]))
-						binned_flux=np.append(binned_flux,np.mean(sn['flux'][temp_sn][bins==i]))
-						binned_fluxerr=np.append(binned_fluxerr,np.mean(sn['fluxerr'][temp_sn][bins==i]))
-				else:
-					binned_wave=sn['wave'][temp_sn]
-					binned_flux=sn['flux'][temp_sn]
-					binned_fluxerr=sn['fluxerr'][temp_sn]
-					#sn=(sn.group_by(np.trunc(sn['wave']/bin_size))).groups.aggregate(np.mean)
+            ax[0].set_title('SNID=%s' % cid[0], fontsize=16)
+            for j in range(min(len(uniq_tobs[m:]), 4)):
+                temp_sn = np.where(sn["tobs"] == uniq_tobs[m])[0]
+                if bin_size != 0:
+                    #  bins = np.digitize(np.array(sn['wave']),
+                    #                     np.arange(sn['wave'][0],
+                    #                               sn['wave'][-1],
+                    #                               bin_size)
+                    # )
+                    binned_wave = []
+                    binned_flux = []
+                    binned_fluxerr = []
+                    bins = np.trunc(sn["wave"][temp_sn] / bin_size)
+                    for i in np.unique(bins):
+                        binned_wave = np.append(
+                            binned_wave, 
+                            np.mean(sn["wave"][temp_sn][bins == i])
+                        )
+                        binned_flux = np.append(
+                            binned_flux, 
+                            np.mean(sn["flux"][temp_sn][bins == i])
+                        )
+                        binned_fluxerr = np.append(
+                            binned_fluxerr, 
+                            np.mean(sn["fluxerr"][temp_sn][bins == i])
+                        )
+                else:
+                    binned_wave = sn["wave"][temp_sn]
+                    binned_flux = sn["flux"][temp_sn]
+                    binned_fluxerr = sn["fluxerr"][temp_sn]
+                    # sn = (
+                    #   sn.group_by(np.trunc(sn['wave']/bin_size))
+                    # ).groups.aggregate(np.mean)
 				
 				if np.unique(sn['mjd'])[j]<0:
 					spec_label='HOST'
 				else:
-					spec_label='SN:%.2f'%np.unique(sn['tobs'])[j]
+					spec_label='SN:%.2f' % np.unique(sn['tobs'])[j]
 				ax[j].plot(binned_wave,binned_flux,color='k',label=spec_label)
 				ylim=ax[j].get_ylim()
 				ax[j].fill_between(binned_wave,binned_flux-binned_fluxerr,binned_flux+binned_fluxerr,

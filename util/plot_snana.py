@@ -422,66 +422,93 @@ def plot_spec(cid, bin_size, base_name, noGrid, zname):
     return(figs)
 
 
-def plot_lc(cid,base_name,noGrid,plotter_choice,tmin,tmax,filter_list,plot_all,zname):
-	if tmin is None:
-		tmin=-np.inf
-	if tmax is None:
-		tmax=np.inf
-		
-	sn,fits,peak,minmaxtime=read_lc(cid,base_name,plotter_choice,tmin,tmax,filter_list)
-	z=read_snana(base_name,cid,zname)
-	if len(sn['time'])==0:
-		return [[],[]]
-	rows=int(math.ceil(len(np.unique(sn['filter']))))
-	figs=[]
-	all_bands=np.append([x for x in __band_order__ if x in np.unique(sn['filter'])],
-						[x for x in np.unique(sn['filter']) if x not in __band_order__])
-	
-	j=0
-	minx=np.min(sn['time'])
-	maxx=np.max(sn['time'])
-	if minx<0:
-		minx=min(minx*1.1,minx-5)
-	else:
-		minx=min(minx*.9,minx-5)
-	if maxx<0:
-		maxx=max(maxx*.9,maxx+5)
-	else:
-		maxx=max(maxx*1.1,maxx+5)
-	
-	xlims=(minx,maxx)
-	
-	sharedx=True
-	for nfig in range(int(math.ceil(rows/4.))): 
-		fig,ax=plt.subplots(nrows=min(len(all_bands),4),ncols=1,figsize=(8,8),sharex=sharedx)
-		ax[0].set_title('SNID=%s'%cid[0],fontsize=16)
-		fit_print=False
-		for i in range(min(len(all_bands[j:]),4)):
-			temp_sn={k:sn[k][np.where(sn['filter']==all_bands[j])[0]] for k in sn.keys()}
-			chi2=np.mean(temp_sn['chi2'])
-			if chi2>0:
-				lab=r'%s: $\chi^2_{red}$=%.1f'%(all_bands[j],np.mean(temp_sn['chi2']))
-				leg_size=10
-			else:
-				lab=all_bands[j]
-				leg_size=12
-			
-			ax[i].errorbar(temp_sn['time'],temp_sn['flux'],yerr=temp_sn['fluxerr'],
-						  fmt='.',markersize=8,color='k',
-						  label=lab)
-			
-			if len(fits)>0:
-				if not plot_all:
-					
-					fit_time=np.arange(np.min(temp_sn['time'])-5,np.max(temp_sn['time'])+5,1)
+def plot_lc(cid, base_name, noGrid, plotter_choice,
+            tmin, tmax, filter_list, plot_all, zname):
+    if tmin is None:
+        tmin = -np.inf
+    if tmax is None:
+        tmax = np.inf
 
-					
-				else:
-					fit_time=np.arange(fits['trange'][all_bands[j]][0],fits['trange'][all_bands[j]][1],1)
-				
-				fit_time=fit_time[np.where(np.logical_and(fit_time>=minx,fit_time<=maxx))[0]]
-				ax[i].plot(fit_time,fits[all_bands[j]](fit_time),color='r',label='Best Fit',linewidth=3)
+    sn, fits, peak, minmaxtime = read_lc(
+        cid, base_name, plotter_choice, tmin, tmax, filter_list
+    )
+    z = read_snana(base_name, cid, zname)
+    if len(sn["time"]) == 0:
+        return [[], []]
+    rows = int(math.ceil(len(np.unique(sn["filter"]))))
+    figs = []
+    all_bands = np.append(
+        [x for x in __band_order__ if x in np.unique(sn["filter"])],
+        [x for x in np.unique(sn["filter"]) if x not in __band_order__],
+    )
 
+    j = 0
+    minx = np.min(sn["time"])
+    maxx = np.max(sn["time"])
+    if minx < 0:
+        minx = min(minx * 1.1, minx - 5)
+    else:
+        minx = min(minx * 0.9, minx - 5)
+    if maxx < 0:
+        maxx = max(maxx * 0.9, maxx + 5)
+    else:
+        maxx = max(maxx * 1.1, maxx + 5)
+
+    xlims = (minx, maxx)
+    sharedx = True
+    for nfig in range(int(math.ceil(rows / 4.0))):
+        fig, ax = plt.subplots(
+            nrows=min(len(all_bands), 4), ncols=1,
+            figsize=(8, 8), sharex=sharedx
+        )
+        ax[0].set_title("SNID=%s" % cid[0], fontsize=16)
+        fit_print = False
+
+        for i in range(min(len(all_bands[j:]), 4)):
+            idx = np.where(sn["filter"] == all_bands[j])[0]
+            temp_sn = {k: sn[k][idx] for k in sn.keys()}
+            chi2 = np.mean(temp_sn["chi2"])
+            if chi2 > 0:
+                lab = r"%s: $\chi^2_{red}$=%.1f" % (
+                    all_bands[j],
+                    np.mean(temp_sn["chi2"]),
+                )
+                leg_size = 10
+            else:
+                lab = all_bands[j]
+                leg_size = 12
+
+            ax[i].errorbar(
+                temp_sn["time"],
+                temp_sn["flux"],
+                yerr=temp_sn["fluxerr"],
+                fmt=".",
+                markersize=8,
+                color="k",
+                label=lab,
+            )
+            if len(fits) > 0:
+                if not plot_all:
+                    fit_time = np.arange(
+                        np.min(temp_sn["time"]) - 5,
+                        np.max(temp_sn["time"]) + 5, 1)
+                else:
+                    fit_time = np.arange(
+                        fits["trange"][all_bands[j]][0],
+                        fits["trange"][all_bands[j]][1], 1)
+
+                fit_time = fit_time[
+                    np.where(
+                        np.logical_and(fit_time >= minx, fit_time <= maxx)
+                        )[0]
+                ]
+                ax[i].plot(
+                    fit_time,
+                    fits[all_bands[j]](fit_time),
+                    color="r",
+                    label="Best Fit",
+                    linewidth=3,
+                )
 				if not fit_print:
 					to_print=[]
 					for fit_key in fits['params'].keys():

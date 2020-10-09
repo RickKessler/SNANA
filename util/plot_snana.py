@@ -522,59 +522,68 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
                             to_print.append(
                                 ['$%s: %.2f' % (fit_key, val), '%.2f$\n' % err]
                             )
-						elif fit_key == 'NDOF':
+                        elif fit_key == 'NDOF':
                             chi2 = fits['params']['FITCHI2']
                             ndof = fits['params'][fit_key]
-							to_print.append(
+                            to_print.append(
                                 'CHI2/NDOF: %.2f/%.2f\n' % (chi2, ndof)
                             )
-						else:
-							pass
-					if z is not None:
+                        else:
+                            pass
+                    if z is not None:
                         z, zerr = float(z[0]), float(z[1])
                         sz, szerr = str(z[0]), str(z[1])
-						if np.any([
+                        if np.any([
                             d!='0' for d in szerr[
                                 szerr.find('.')+1:szerr.find('.')+4
                                 ]
                             ]):
-							print(szerr)
-							to_print.append('z: %.2f'%z+r'$\pm$'+'%.3f'%zerr)
-						else:
-							to_print.append('z: %.2f'%z)
+                            print(szerr)
+                            to_print.append('z: %.2f'%z+r'$\pm$'+'%.3f'%zerr)
+                        else:
+                            to_print.append('z: %.2f'%z)
+                    
+                    if isinstance(x, list):
+                        annotation = ''.join(x[0]+r'\pm'+x[1])
+                    else:
+                        annotation = ''.join(to_print)
+                    ax[i].annotate(annotation, xy=(0.02, 0.55),
+                                   xycoords='axes fraction', fontsize=6)
+                fit_print=True
 
-					ax[i].annotate(''.join([x[0]+r'\pm'+x[1] if isinstance(x,list) else x for x in to_print]),xy=(.02,.55),xycoords='axes fraction',fontsize=6)
-				fit_print=True
+            ax[i].legend(fontsize=leg_size)
+            ax[i].set_ylabel('Flux', fontsize=16)
 
-			ax[i].legend(fontsize=leg_size)
-			ax[i].set_ylabel('Flux',fontsize=16)
-			
-			if len(fits)>0:
-				try:
-					maxFlux=max(np.max(temp_sn['flux']),np.max(fits[all_bands[j]](fit_time)))
-				except:
-					maxFlux=np.max(temp_sn['flux'])	
-			else:
-				maxFlux=np.max(temp_sn['flux'])
-			
-			ax[i].set_ylim((-.1*np.max(temp_sn['flux']),1.1*maxFlux))
-			if not noGrid:
-				ax[i].grid()
-			j+=1
-			#i+=1
-		for k in range(i+1,min(len(all_bands),4)):
-			fig.delaxes(ax[k])
-		ax[i].tick_params(axis='x',labelbottom=True,bottom=True)
-		ax[i].set_xlabel('MJD-%.2f'%peak,fontsize=16)
-		ax[i].set_xlim(xlims)
-		figs.append(fig)
-		plt.close()
-	#fig.text(0.5, 0.02, 'Time (Rest Frame Days)', ha='center',fontsize=16)
-	#fig.text(0.04, .5, 'Flux', va='center', rotation='vertical',fontsize=16)
-		
-	#plt.savefig('SNANA_LC_%s.pdf'%'_'.join(cid),format='pdf',overwrite=True)
+            if len(fits) > 0:
+                try:
+                    maxFlux = max(
+                        np.max(temp_sn["flux"]),
+                        np.max(fits[all_bands[j]](fit_time))
+                    )
+                except:
+                    maxFlux = np.max(temp_sn["flux"])
+            else:
+                maxFlux = np.max(temp_sn["flux"])
 
-	return(figs,fits)
+            ax[i].set_ylim((-0.1 * np.max(temp_sn["flux"]), 1.1 * maxFlux))
+            if not noGrid:
+                ax[i].grid()
+            j += 1
+            # i+=1
+        for k in range(i + 1, min(len(all_bands), 4)):
+            fig.delaxes(ax[k])
+        ax[i].tick_params(axis="x", labelbottom=True, bottom=True)
+        ax[i].set_xlabel("MJD-%.2f" % peak, fontsize=16)
+        ax[i].set_xlim(xlims)
+        figs.append(fig)
+        plt.close()
+        
+    # fig.text(0.5, 0.02, 'Time (Rest Frame Days)', ha='center',fontsize=16)
+    # fig.text(0.04, .5, 'Flux', va='center', rotation='vertical',fontsize=16)
+    # plt.savefig('SNANA_LC_%s.pdf'%'_'.join(cid),format='pdf',overwrite=True)
+
+    return (figs, fits)
+
 
 
 def plot_cmd(genversion,cid_list,nml,isdist,private):

@@ -549,7 +549,7 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
                         annotation = ''.join(to_print)
                     ax[i].annotate(annotation, xy=(0.02, 0.55),
                                    xycoords='axes fraction', fontsize=6)
-                fit_print=True
+                fit_print = True
 
             ax[i].legend(fontsize=leg_size)
             ax[i].set_ylabel('Flux', fontsize=16)
@@ -577,7 +577,7 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
         ax[i].set_xlim(xlims)
         figs.append(fig)
         plt.close()
-        
+
     # fig.text(0.5, 0.02, 'Time (Rest Frame Days)', ha='center',fontsize=16)
     # fig.text(0.04, .5, 'Flux', va='center', rotation='vertical',fontsize=16)
     # plt.savefig('SNANA_LC_%s.pdf'%'_'.join(cid),format='pdf',overwrite=True)
@@ -585,28 +585,26 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
     return (figs, fits)
 
 
+def plot_cmd(genversion, cid_list, nml, isdist, private):
+    plotter = "normal"
+    if nml is not None:
+        if os.path.splitext(nml)[1].upper() != ".NML":
+            nml = os.path.splitext(nml)[0] + ".NML"
+        with open(nml, "r") as f:
+            p = f.readlines()
 
-def plot_cmd(genversion,cid_list,nml,isdist,private):
-	plotter='normal'
-	if nml is not None:
-		if os.path.splitext(nml)[1].upper()!='.NML':
-			nml=os.path.splitext(nml)[0]+'.NML'
-		with open(nml,'r') as f:
-			p=f.readlines()
-	
-		for line in p:
-			if 'FITMODEL_NAME' in line:
-				if 'SALT2' in line:
-					plotter='salt2'
-				
-		
-	rand=str(np.random.randint(10000,100000))
-	if private is not None:
-		private_path=" PRIVATE_DATA_PATH %s"%private
-	else:
-		private_path=""
-	genversion+=private_path
-	
+        for line in p:
+            if "FITMODEL_NAME" in line:
+                if "SALT2" in line:
+                    plotter = "salt2"		
+
+    rand = str(np.random.randint(10000, 100000))
+    if private is not None:
+        private_path = " PRIVATE_DATA_PATH %s" % private
+    else:
+        private_path = ""
+    genversion += private_path
+
 	if nml is not None:
 		if cid_list is not None:
 			cmd="snlc_fit.exe "+nml+" VERSION_PHOTOMETRY "+genversion+\
@@ -651,43 +649,44 @@ def plot_cmd(genversion,cid_list,nml,isdist,private):
 
 
 def read_existing(nml):
-	files=glob.glob('OUT_TEMP_*')
-	unq_ids=np.unique([f[f.rfind('_')+1:f.find('.')] for f in files])
+    files = glob.glob("OUT_TEMP_*")
+    unq_ids = np.unique([f[f.rfind("_") + 1 : f.find(".")] for f in files])
 
-	if len(unq_ids)>1:
-		print('For existing files, must have only one set of OUT_TEMP_ files in directory...')
-		sys.exit(1)
-	plotter='normal'
-	if nml is not None:
-		if os.path.splitext(nml)[1].upper()!='.NML':
-			nml=os.path.splitext(nml)[0]+'.NML'
-		with open(nml,'r') as f:
-			p=f.readlines()
-	
-		for line in p:
-			if 'FITMODEL_NAME' in line:
-				if 'SALT2' in line:
-					plotter='salt2'
-	base_name='OUT_TEMP_'+unq_ids[0]
-	with open(base_name+".LCLIST.TEXT",'r') as f:
-		dat=f.readlines()
+    if len(unq_ids) > 1:
+        print(
+            "For existing files, must have only one set of OUT_TEMP_ files in directory..."
+        )
+        sys.exit(1)
+    plotter = "normal"
+    if nml is not None:
+        if os.path.splitext(nml)[1].upper() != ".NML":
+            nml = os.path.splitext(nml)[0] + ".NML"
+        with open(nml, "r") as f:
+            p = f.readlines()
 
-	cids=[]
-	for line in dat:
-		temp=line.split()
-		if len(temp)>0 and temp[0]=='SN:':
-			cids.append(temp[1])
-		
+        for line in p:
+            if "FITMODEL_NAME" in line:
+                if "SALT2" in line:
+                    plotter = "salt2"
+    base_name = "OUT_TEMP_" + unq_ids[0]
+    with open(base_name + ".LCLIST.TEXT", "r") as f:
+        dat = f.readlines()
 
-	with open(base_name+'.LOG','r') as f:
-		dat=f.readlines()
-	for line in dat:
-		temp=line.split()
-		if len(temp)>0 and 'snlc' in line:
-			split_line=line.split()
-			genversion=split_line[split_line.index('VERSION_PHOTOMETRY')+1]
-		
-	return(plotter,base_name,','.join(cids),genversion)
+    cids = []
+    for line in dat:
+        temp = line.split()
+        if len(temp) > 0 and temp[0] == "SN:":
+            cids.append(temp[1])
+
+    with open(base_name + ".LOG", "r") as f:
+        dat = f.readlines()
+    for line in dat:
+        temp = line.split()
+        if len(temp) > 0 and "snlc" in line:
+            split_line = line.split()
+            genversion = split_line[split_line.index("VERSION_PHOTOMETRY") + 1]
+
+    return (plotter, base_name, ",".join(cids), genversion)
 
 
 def output_fit_res(fitres,filename):

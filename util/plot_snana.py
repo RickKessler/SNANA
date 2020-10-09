@@ -509,23 +509,39 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
                     label="Best Fit",
                     linewidth=3,
                 )
-				if not fit_print:
-					to_print=[]
-					for fit_key in fits['params'].keys():
-						if fit_key =='x0':
-							to_print.append(['$%s: %.2e'%(fit_key,fits['params'][fit_key][0]),'%.2e$\n'%fits['params'][fit_key][1]])
-						elif fit_key in ['x1','c']:
-							to_print.append(['$%s: %.2f'%(fit_key,fits['params'][fit_key][0]),'%.2f$\n'%fits['params'][fit_key][1]])
-						elif fit_key=='NDOF':
-							to_print.append('CHI2/NDOF: %.2f/%.2f\n'%(fits['params']['FITCHI2'],fits['params'][fit_key]))
+                if not fit_print:
+                    to_print = []
+                    for fit_key in fits["params"].keys():
+                        if fit_key == "x0":
+                            val, err = fits["params"][fit_key]
+                            to_print.append(
+                                ["$%s: %.2e" % (fit_key, val), "%.2e$\n" % err]
+                            )
+                        elif fit_key in ['x1', 'c']:
+                            val, err = fits["params"][fit_key]
+                            to_print.append(
+                                ['$%s: %.2f' % (fit_key, val), '%.2f$\n' % err]
+                            )
+						elif fit_key == 'NDOF':
+                            chi2 = fits['params']['FITCHI2']
+                            ndof = fits['params'][fit_key]
+							to_print.append(
+                                'CHI2/NDOF: %.2f/%.2f\n' % (chi2, ndof)
+                            )
 						else:
 							pass
 					if z is not None:
-						if np.any([x!='0' for x in str(z[1])[str(z[1]).find('.')+1:str(z[1]).find('.')+4]]):
-							print(str(z[1]))
-							to_print.append('z: %.2f'%float(z[0])+r'$\pm$'+'%.3f'%float(z[1]))
+                        z, zerr = float(z[0]), float(z[1])
+                        sz, szerr = str(z[0]), str(z[1])
+						if np.any([
+                            d!='0' for d in szerr[
+                                szerr.find('.')+1:szerr.find('.')+4
+                                ]
+                            ]):
+							print(szerr)
+							to_print.append('z: %.2f'%z+r'$\pm$'+'%.3f'%zerr)
 						else:
-							to_print.append('z: %.2f'%float(z[0]))
+							to_print.append('z: %.2f'%z)
 
 					ax[i].annotate(''.join([x[0]+r'\pm'+x[1] if isinstance(x,list) else x for x in to_print]),xy=(.02,.55),xycoords='axes fraction',fontsize=6)
 				fit_print=True

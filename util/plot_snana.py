@@ -290,16 +290,21 @@ def read_snana(snana_filename, cid, param):
     return
 
 
-def plot_spec(cid,bin_size,base_name,noGrid,zname):
-	sn=read_spec(cid,base_name)
+def plot_spec(cid, bin_size, base_name, noGrid, zname):
+    sn = read_spec(cid, base_name)
 
-	if len(sn['tobs'])==0:
-		return []
-	if len(np.unique(sn['tobs']))>1:
-		figs=[]
-		m=0
-		for nfig in range(int(math.ceil(len(np.unique(sn['tobs']))/4.))):
-			fig,ax=plt.subplots(nrows=min(len(np.unique(sn['tobs'])),4),ncols=1,figsize=(8,8),sharex=True)
+    if len(sn["tobs"]) == 0:
+        return []
+    if len(np.unique(sn["tobs"])) > 1:
+        figs = []
+        m = 0
+        for nfig in range(int(math.ceil(len(np.unique(sn["tobs"])) / 4.0))):
+            fig, ax = plt.subplots(
+                nrows=min(len(np.unique(sn["tobs"])), 4),
+                ncols=1,
+                figsize=(8, 8),
+                sharex=True,
+            )
 			ax[0].set_title('SNID=%s'%cid[0],fontsize=16)
 			for j in range(min(len(np.unique(sn['tobs'])[m:]),4)):
 				

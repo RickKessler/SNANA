@@ -707,64 +707,82 @@ def output_fit_res(fitres, filename):
             )
 
 
-def create_dists(fitres,param,joint_type):
-	try:
-		import seaborn as sns
-	except:
-		print("For distribution plotting, seaborn is needed.")
-		sys.exit(1)
-		
-	res={p:[] for p in ['x0','x1','c']}
-	reserr={p:[] for p in ['x0','x1','c']}
-	if param is not None:
-		res[param] = []
-	for cid in fitres.keys():
-		for p in ['x0','x1','c']:
-			try:
-				res[p].append(fitres[cid][p][0])
-				reserr[p].append(fitres[cid][p][1])
-			except RuntimeError:
-				print("Skipping %s for distributions..."%cid)
-		if param is not None:
-			res[param].append(fitres[cid][param])
-	figs=[]
-	for p in ['x0','x1','c']:
-		
-		if param is not None:
-			mean_valx=np.mean(res[p])
-			mean_valy=np.mean(res[param])
-			std_valx=np.std(res[p])
-			std_valy=np.std(res[param])
-			ax = sns.jointplot(x=res[p], y=res[param], kind=joint_type)
-			fig=plt.gcf()
-			if joint_type in ['reg','scatter']:
-				plt.errorbar(res[p],res[param],xerr=reserr[p],fmt='.',markersize=5)
-			fig.set_size_inches(10, 8)
-			if joint_type=='kde':
-				ax.ax_marg_x.set_xlim(mean_valx-3*std_valx, mean_valx+3*std_valx)
-				ax.ax_marg_y.set_ylim(mean_valy-3*std_valy, mean_valy+3*std_valy)
-			ax.set_axis_labels("%s Parameter"%p,"Simulated %s"%(' '.join([x[0]+x[1:].lower() for x in param.split('_')])),fontsize=16)
-			
-		else:
-			fig=plt.figure(figsize=(10,8))
-			plt.hist(res[p])
-			plt.xlabel("%s Parameter"%p,fontsize=16)
-			plt.ylabel("N SN",fontsize=16)
-		figs.append(fig)
+def create_dists(fitres, param, joint_type):
+    try:
+        import seaborn as sns
+    except:
+        print("For distribution plotting, seaborn is needed.")
+        sys.exit(1)  # really necessary to kill the whole VMachine ??
 
-	return(figs)
+    res = {p: [] for p in ["x0", "x1", "c"]}
+    reserr = {p: [] for p in ["x0", "x1", "c"]}
+    if param is not None:
+        res[param] = []
+
+    for cid in fitres.keys():
+        for p in ["x0", "x1", "c"]:
+            try:
+                res[p].append(fitres[cid][p][0])
+                reserr[p].append(fitres[cid][p][1])
+            except RuntimeError:
+                print(f"Skipping {cid} for distributions...")
+        if param is not None:
+            res[param].append(fitres[cid][param])
+
+    figs = []
+    for p in ["x0", "x1", "c"]:
+        if param is not None:
+            mean_valx = np.mean(res[p])
+            mean_valy = np.mean(res[param])
+            std_valx = np.std(res[p])
+            std_valy = np.std(res[param])
+            ax = sns.jointplot(x=res[p], y=res[param], kind=joint_type)
+            fig = plt.gcf()
+
+            if joint_type in ["reg", "scatter"]:
+                plt.errorbar(res[p], res[param], 
+                             xerr=reserr[p], fmt=".", markersize=5)
+            fig.set_size_inches(10, 8)
+
+            if joint_type == "kde":
+                ax.ax_marg_x.set_xlim(
+                    mean_valx - 3 * std_valx, mean_valx + 3 * std_valx
+                )
+                ax.ax_marg_y.set_ylim(
+                    mean_valy - 3 * std_valy, mean_valy + 3 * std_valy
+                )
+            ax.set_axis_labels(
+                "%s Parameter" % p,
+                "Simulated %s"
+                % (" ".join([x[0] + x[1:].lower() for x in param.split("_")])),
+                fontsize=16,
+            )
+
+        else:
+            fig = plt.figure(figsize=(10, 8))
+            plt.hist(res[p])
+            plt.xlabel("%s Parameter" % p, fontsize=16)
+            plt.ylabel("N SN", fontsize=16)
+        figs.append(fig)
+
+    return figs
 
 
-def find_files(version,cid_list):
-	cid_list=[] if cid_list is None else cid_list
-	for dirpath,dirnames,filenames in os.walk(os.environ["SNDATA_ROOT"]):
-		for dirname in dirnames:
-			
-			if dirname == version:
-				list_files={os.path.splitext(x)[0][os.path.splitext(x)[0].rfind('_SN')+3:].lstrip('0'):os.path.join(dirpath,dirname,x) for x in np.loadtxt(os.path.join(dirpath,os.path.join(dirname,version+'.LIST')),dtype=str) if os.path.splitext(x)[0][os.path.splitext(x)[0].rfind('_SN')+3:].lstrip('0') in cid_list or len(cid_list)==0}
-								
-				
-				return(list_files)
+def find_files(version, cid_list=[]):
+    for dirpath, dirnames, filenames in os.walk(PATH):
+        dirpath = Path(dirpath)
+        for sub_dirname in dirnames:
+            if sub_dirname == version:
+                listpath = dirpath / sub_dirname / f"{version}.LIST"
+
+                list_files = {}
+                for x in np.loadtxt(str(listpath), dtype=str):
+                    head = os.path.splitext(x)[0]
+                    idx = head.rfind("_SN") + 3
+                    val = head[idx:].lstrip("0")
+                    if val in cid_list or len(cid_list) == 0:
+                        list_files[val] = dirpath / sub_dirname / x
+                return list_files
 
 
 def main():

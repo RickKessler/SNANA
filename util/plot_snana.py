@@ -312,10 +312,7 @@ def plot_spec(cid, bin_size, base_name, noGrid, zname):
                 temp_sn = np.where(sn["tobs"] == uniq_tobs[m])[0]
                 if bin_size != 0:
                     #  bins = np.digitize(np.array(sn['wave']),
-                    #                     np.arange(sn['wave'][0],
-                    #                               sn['wave'][-1],
-                    #                               bin_size)
-                    # )
+                    #   np.arange(sn['wave'][0], sn['wave'][-1], bin_size))
                     binned_wave = []
                     binned_flux = []
                     binned_fluxerr = []
@@ -369,42 +366,60 @@ def plot_spec(cid, bin_size, base_name, noGrid, zname):
 
             figs.append(fig)
             plt.close()
-	else:
-		fig=plt.figure(figsize=(10,8))
-		
-		if bin_size!=0:
-			
-			#bins=np.digitize(np.array(sn['wave']),np.arange(sn['wave'][0],sn['wave'][-1],bin_size))
-			binned_wave=[]
-			binned_flux=[]
-			binned_fluxerr=[]
-			bins=np.trunc(sn['wave']/bin_size)
-			for i in np.unique(bins):
-				binned_wave=np.append(binned_wave,np.mean(sn['wave'][bins==i]))
-				binned_flux=np.append(binned_flux,np.mean(sn['flux'][bins==i]))
-				binned_fluxerr=np.append(binned_fluxerr,np.mean(sn['fluxerr'][bins==i]))
-		else:
-			binned_wave=sn['wave']
-			binned_flux=sn['flux']
-			binned_fluxerr=sn['fluxerr']
-			#sn=(sn.group_by(np.trunc(sn['wave']/bin_size))).groups.aggregate(np.mean)
-		ind=np.argsort(binned_wave)	
-		plt.plot(binned_wave[ind],binned_flux[ind],color='k',label='TOBS:%.2f'%np.unique(sn['tobs'])[0])
-		ylim=plt.ylim()
-		plt.fill_between(binned_wave[ind],binned_flux[ind]-binned_fluxerr[ind],binned_flux[ind]+binned_fluxerr[ind],
-						 color='r',alpha=.3,label=r'$1\sigma$ Error')
-		plt.plot([binned_wave[0],binned_wave[-1]],[0,0],'k--',alpha=.5)
-		plt.ylim(ylim)
-		plt.legend(fontsize=12)
-		plt.xlabel('Observer Frame Wavelength ($\AA$)',fontsize=16)
-		plt.ylabel('Flux',fontsize=16)
-		plt.title('SN%s'%cid[0],fontsize=16)
-		if not noGrid:
-			plt.grid()
-		figs=[fig]
-		plt.close()
-	#plt.savefig('SNANA_SPEC_%s.pdf'%'_'.join(cid),format='pdf',overwrite=True)
-	return(figs)
+    else:
+        fig = plt.figure(figsize=(10, 8))
+
+        if bin_size != 0:
+            #  bins = np.digitize(np.array(sn['wave']),
+            #   np.arange(sn['wave'][0], sn['wave'][-1], bin_size))     
+            binned_wave = []
+            binned_flux = []
+            binned_fluxerr = []
+            bins = np.trunc(sn['wave'] / bin_size)
+            for i in np.unique(bins):
+                binned_wave = np.append(
+                    binned_wave, np.mean(sn['wave'][bins == i])
+                    )
+                binned_flux = np.append(
+                    binned_flux, np.mean(sn['flux'][bins == i])
+                    )
+                binned_fluxerr = np.append(
+                    binned_fluxerr, np.mean(sn['fluxerr'][bins == i])
+                    )
+        else:
+            binned_wave = sn['wave']
+            binned_flux = sn['flux']
+            binned_fluxerr = sn['fluxerr']
+            # sn = (sn.group_by(np.trunc(sn['wave']/bin_size))
+            #       ).groups.aggregate(np.mean)
+        ind = np.argsort(binned_wave)
+        plt.plot(
+            binned_wave[ind],
+            binned_flux[ind],
+            color="k",
+            label="TOBS:%.2f" % np.unique(sn["tobs"])[0],
+        )
+        ylim = plt.ylim()
+        plt.fill_between(
+            binned_wave[ind],
+            binned_flux[ind] - binned_fluxerr[ind],
+            binned_flux[ind] + binned_fluxerr[ind],
+            color="r",
+            alpha=0.3,
+            label=r"$1\sigma$ Error",
+        )
+        plt.plot([binned_wave[0], binned_wave[-1]], [0, 0], "k--", alpha=0.5)
+        plt.ylim(ylim)
+        plt.legend(fontsize=12)
+        plt.xlabel("Observer Frame Wavelength ($\AA$)", fontsize=16)
+        plt.ylabel("Flux", fontsize=16)
+        plt.title("SN%s" % cid[0], fontsize=16)
+        if not noGrid:
+            plt.grid()
+        figs = [fig]
+        plt.close()
+    # plt.savefig('SNANA_SPEC_%s.pdf'%'_'.join(cid),format='pdf',overwrite=True)
+    return(figs)
 
 
 def plot_lc(cid,base_name,noGrid,plotter_choice,tmin,tmax,filter_list,plot_all,zname):

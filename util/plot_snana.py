@@ -689,17 +689,22 @@ def read_existing(nml):
     return (plotter, base_name, ",".join(cids), genversion)
 
 
-def output_fit_res(fitres,filename):
-	with open(os.path.splitext(filename)[0]+'.fitres','w') as f:
-		f.write("VARNAMES: CID x0 x0err x1 x1err c cerr\n")
-		for cid in fitres.keys():
-			f.write("SN: %s %f %f %f %f %f %f\n"%(cid,
-												fitres[cid]['x0'][0],
-												fitres[cid]['x0'][1],
-												fitres[cid]['x1'][0],
-												fitres[cid]['x1'][1],
-												fitres[cid]['c'][0],
-												fitres[cid]['c'][1]))
+def output_fit_res(fitres, filename):
+    with open(os.path.splitext(filename)[0] + ".fitres", "w") as f:
+        f.write("VARNAMES: CID x0 x0err x1 x1err c cerr\n")
+        for cid in fitres.keys():
+            f.write(
+                "SN: %s %f %f %f %f %f %f\n"
+                % (
+                    cid,
+                    fitres[cid]["x0"][0],
+                    fitres[cid]["x0"][1],
+                    fitres[cid]["x1"][0],
+                    fitres[cid]["x1"][1],
+                    fitres[cid]["c"][0],
+                    fitres[cid]["c"][1],
+                )
+            )
 
 
 def create_dists(fitres,param,joint_type):

@@ -19038,4 +19038,10 @@
      + new utility read_genpoly(...) to read comma-sep poly with arbitrary
        order, or to read legacy space-sep poly coeffs with fixed order. 
 
+   ../util:  rm backup_INTERNAL.pl backup_SNDATA_ROOT.pl
+
+   snana.car
+     + fix bug implementing SNCID_IGNORE_FILE (see function LCIDSELECT)
+     + for HEADER_OVERRIDE_FILE, abort if NFILE > MXFILE_ABORT
+
 END: 

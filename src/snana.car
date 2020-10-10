@@ -6002,10 +6002,6 @@ c This is designed for the thousands of SDSS-II candidates,
 c so that large numbers of candidates can be ignored from a 
 c list file.
 c
-c Dec 4 2012: 
-c  read char CCID intead of float CID, and increment nml array
-c  SNCCID_IGNORE. WARNING: not tested.
-c
 c Sep 2 2019: allow up to MXIGNORE_LIST=500 (instead of 52)
 c
 c --------
@@ -6015,8 +6011,8 @@ c --------
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      CHARACTER CCID*(MXCHAR_CCID), cFILE*(MXCHAR_FILENAME)
-      INTEGER i, NIGNORE, LENFILE, LENCID, NWD, FLAG_DOCANA
+      CHARACTER CCID*(MXCHAR_CCID), cFILE*(MXCHAR_FILENAME), FNAM*12
+      INTEGER i, LENFILE, LENCID, NWD, FLAG_DOCANA
       LOGICAL FOUND_DOCANA_END
 
       INTEGER  STORE_PARSE_WORDS, ISTAT_FILE_DOCANA
@@ -6025,6 +6021,7 @@ C ------------- BEGIN ---------
 
       IF ( SNCID_IGNORE_FILE .EQ. ' ' ) RETURN
 
+      FNAM = 'RDSNIGNORE'
       CALL ENVreplace(SNCID_IGNORE_FILE)
       LENFILE   = INDEX(SNCID_IGNORE_FILE,' ') - 1
       cFILE     = SNCID_IGNORE_FILE(1:LENFILE)//char(0)
@@ -6032,7 +6029,6 @@ C ------------- BEGIN ---------
 
       LENCID = INDEX(CCID,' ')-1
 
-      NIGNORE = 0
       FOUND_DOCANA_END=.FALSE.
 
       DO 200 i = 1, NWD
@@ -6049,21 +6045,18 @@ C ------------- BEGIN ---------
          NCCID_IGNORE = NCCID_IGNORE + 1
          SNCCID_IGNORE_ALL(NCCID_IGNORE) = CCID
 
-         NIGNORE = NIGNORE + 1
-
          IF ( NCCID_IGNORE > MXIGNORE_LIST ) then
            write(c1err,661 ) NCCID_IGNORE
            write(c2err,662 ) MXIGNORE_LIST
-           CALL  MADABORT("RDSNIGNORE", C1ERR, C2ERR)
+           CALL  MADABORT(FNAM, C1ERR, C2ERR)
          endif
 661        format('NCCID_IGNORE=',I4,' exceeds bound.')
 662        format('Check limit MXIGNORE_LIST = ', I4 )
         
 200   CONTINUE
 
-      print*,' '
-      print*,' ------------------------------------------------ '
-      print*,' Loaded ', NIGNORE,' IGNORE-candidates from '
+      CALL PRBANNER(FNAM)
+      print*,' Loaded ', NCCID_IGNORE,' IGNORE-candidates from '
       print*, '  ', SNCID_IGNORE_FILE(1:LENFILE)
       print*,' '
 
@@ -18657,8 +18650,9 @@ c &SNLCINP input HEADER_OVERRIDE_FILE is a comma-seperated list
 c allowing multiple tables to each specify different variables
 c and different CIDs.
 c
-c Jun 9 2020: for SIM, leave message and return 
+c Jun 09 2020: for SIM, leave message and return 
 c Jul 21 2020: refactor to allow comma-sep list of header-override files.
+c Oct 10 2020: abort if NFILE > MXFILE_LIST 
 
       IMPLICIT NONE
     
@@ -18700,7 +18694,7 @@ C ------------ BEGIN -------------
         RETURN
       ENDIF
 
-      CALL RD_VPEC_FILE(-1)  ! abort is using obsolete VPEC_FILE (Jun 2020)
+      CALL RD_VPEC_FILE(-1)  ! abort if using obsolete VPEC_FILE (Jun 2020)
 
       FNAM = 'INIT_HEADER_OVERRIDE'
 
@@ -18729,6 +18723,13 @@ c of files so that STORE_PARSE_WORDS can be used on VARLIST
 c for each file
       OPTMASK_STORE = MSKOPT_PARSE_WORDS_STRING
       NFILE = STORE_PARSE_WORDS(OPTMASK_STORE,cFILE,LENF)
+      if ( NFILE > MXFILE_LIST ) then
+        write(c1err,51) NFILE, MXFILE_LIST
+51      format('NFILE=',I2,' exceeds bound of MXFILE_LIST=',I2)
+        C2ERR = 'Increase MXFILE_LIST in snana.car, or reduce NFILE'
+        CALL MADABORT(FNAM,C1ERR,C2ERR)
+      endif
+
       DO ifile = 1, NFILE
         call get_PARSE_WORD_fortran(ifile,FILE_LIST(ifile),LENF)
       ENDDO
@@ -23863,18 +23864,14 @@ c  SNCID_LIST     (integer list of CID to accept)
 c  SNCCID_LIST    (char list of CCID to accept)
 c
 c and is NOT rejected by
-c  SNCID_IGNORE   (integer list of CID to ignore)
-c  SNCCID_IGNORE  (char list of CCID to ignore)
+c  SNCID_IGNORE       (integer list of CID to ignore)
+c  SNCCID_IGNORE_ALL  (char list of CCID to ignore)
 c
 c This function replaces much of the obsolete CIDMASK(CID) array
 c to avoid declaring such a large array.
 c
-c Nov 12, 2013: process SNCID_LIST_ALL instead of SNCID_LIST to include
-c               CIDs from user text file SNCID_LIST_FILE.
 c
-c Dec 2 2015: new input arg IAUC to check for user-list option
-c             Change input CCID -> IAUC if there is IAUC name match.
-c
+c Oct 10 2020: fix bug checking SNCCID_IGNORE_ALL
 C ---------------------------
 
       IMPLICIT NONE
@@ -23909,9 +23906,10 @@ c first check IGNORE Lists
 30    CONTINUE
 
       DO 40 i = 1, NCCID_IGNORE
-        LEN   = INDEX(SNCCID_IGNORE(i),' ') - 1
+      ! xxxx bug LEN   = INDEX(SNCCID_IGNORE(i),' ') - 1
+        LEN   = INDEX(SNCCID_IGNORE_ALL(i),' ') - 1
         IF ( LEN .NE. LENCCID ) GOTO 40
-        if ( CCID(1:LEN) .EQ.SNCCID_IGNORE_ALL(i)(1:LEN)) GOTO 800
+        if ( CCID(1:LEN) .EQ. SNCCID_IGNORE_ALL(i)(1:LEN)) GOTO 800
 40    CONTINUE
 
 c -----------------------------
@@ -23973,11 +23971,11 @@ c Dec 2015: also check match with IAUC name
 
 240   CONTINUE
 
-
 800   CONTINUE
 
       RETURN
-      END
+      END   ! end LCIDSELECT
+
 
 C ====================================
 +DECK,STRINGMATCH.

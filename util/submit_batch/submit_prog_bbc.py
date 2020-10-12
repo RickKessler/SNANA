@@ -176,7 +176,9 @@ class BBC(Program):
             msgerr.append(f"Check {input_file}")
             self.log_assert(False,msgerr)
 
-        n_inpdir = len(CONFIG[key])
+        CONFIG_INPDIR = CONFIG[key]
+        is_list       = isinstance(CONFIG_INPDIR, list)
+        n_inpdir      = len(CONFIG_INPDIR)
         inpdir_list         = [ ]
         inpdir_list_orig    = [ ]  # before expandvar
         version_list2d = [ ] * n_inpdir  # vs. inpdir, iver
@@ -186,7 +188,10 @@ class BBC(Program):
         n_version_list      = [ ]
         idir = 0; 
 
-        for path_orig in CONFIG[key] :            
+        config_inpdir_list, config_label_list = \
+                    self.get_inpdir_list(CONFIG_INPDIR)
+
+        for path_orig in config_inpdir_list: 
             logging.info(f"  Prepare INPDIR {path_orig}")
             path_expand        = os.path.expandvars(path_orig)
             MERGE_LOG_PATHFILE = (f"{path_expand}/{MERGE_LOG_FILE}")
@@ -264,6 +269,7 @@ class BBC(Program):
         # store the goodies
         self.config_prep['n_inpdir']        = n_inpdir
         self.config_prep['inpdir_list']     = inpdir_list
+        self.config_prep['label_inpdir_list'] = config_label_list
         self.config_prep['version_list2d']  = version_list2d    # vs. idir,iver
         self.config_prep['n_version_list']  = n_version_list
         self.config_prep['n_fitopt']        = n_fitopt_list[0]  # per idir
@@ -271,6 +277,39 @@ class BBC(Program):
         self.config_prep['fitopt_num_list']     = fitopt_num_list
 
         # end bbc_prep_version_list
+
+    def get_inpdir_list(self,CONFIG_INPDIR):
+        # for input CONFIG_INPDIR (arg of INPDIR+ key), return
+        # inpdir_list, label_list.
+        # CONFIG_INPDIR can either be an unlabelled list,
+        #   INPDIR+:
+        #     - path1
+        #     - path2
+        #
+        # or a dictionary with labels,
+        #   INPDIR+:
+        #     - SURVEY1: path1
+        #     - SURVEY2: path2
+        
+        is_list     = isinstance(CONFIG_INPDIR, list)
+        n_inpdir    = len(CONFIG_INPDIR)
+
+        if is_list :
+            inpdir_list = CONFIG_INPDIR
+            label_list  = [ None ] * n_inpdir
+        else :
+            inpdir_list = [ ]
+            label_list  = [ ] 
+            for label in CONFIG_INPDIR:
+                path = CONFIG_INPDIR[label]
+                inpdir_list.append(path)
+                label_list.append(label)
+
+        #sys.exit(" xxx DEBUG DIE xxx ")
+
+        return inpdir_list, label_list
+
+        # end get_inpdir_list
 
     def bbc_prep_version_match(self):
         # using input IGNORE_STRING to figure out which version in each

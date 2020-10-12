@@ -3328,6 +3328,11 @@ void merge_duplicates(int NDUPL, int *isnList) {
   // Beware that output FITRES file does not have the
   // SALT2 parameters changed.
   //
+  // Oct 12 2020:
+  //   found numerical problem where two COV terms have opposite
+  //   signs with nearly equal abs value ... summing gives ~zero,
+  //   and then taking inverse results in insanely HUGE cov.
+  //
   //   *** WARNING: need to refactor ****
 
   int i, isn, ipar, ipar2, ISN_SAVE ;
@@ -3359,7 +3364,7 @@ void merge_duplicates(int NDUPL, int *isnList) {
     isn = isnList[i] ;
 
     // keep first duplicate; remove the rest
-    if ( i>0 ) { setbit_CUTMASK(isn, CUTBIT_DUPL, &INFO_DATA.TABLEVAR); }
+    if ( i > 0 ) { setbit_CUTMASK(isn, CUTBIT_DUPL, &INFO_DATA.TABLEVAR); }
 
     for(ipar=0; ipar < NLCPAR; ipar++ ) {     // mB,x1,c
       sqerr = INFO_DATA.TABLEVAR.covmat_tot[isn][ipar][ipar] ;
@@ -4917,7 +4922,7 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
   //
   // Jun 19 2018: pass dumpFlag argument.
   
-  double muerrsq, sqtmp, dmuz, dmuLens, VEC[NLCPAR];
+  double muerrsq, sqtmp, dmuz, dmuLens, VEC[NLCPAR], COVMU[NLCPAR][NLCPAR];
   int    i,j ;
   char VECNAME[3][8] = { "ONE  ", "ALPHA", "-BETA" } ;
   
@@ -4941,8 +4946,9 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
   muerrsq = 0.0 ;
   for(i=0; i<NLCPAR; i++ ) {
     for(j=0; j<NLCPAR; j++ ) {
-      sqtmp    = VEC[j] * COV[i][j] * VEC[i] ;
-      muerrsq += sqtmp ;
+      sqtmp       = VEC[j] * COV[i][j] * VEC[i] ;
+      COVMU[i][j] = sqtmp;  // for diagnostic only
+      muerrsq    += sqtmp ;
 
       if(dumpFlag) {
 	printf(" xxx mucov += %13.6le (= %s * %s * %13.6le) \n",
@@ -4977,9 +4983,27 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
 
     
   if (muerrsq  <= 0.0 )  {
+    print_preAbort_banner(fnam);
+
+    printf("   COV(SALT2) = \n" );
+    for(i=0; i<NLCPAR; i++ ) {      
+      for(j=0; j<NLCPAR; j++ )
+	{ printf(" %12.6f ", COV[i][j] ); }
+      printf("\n");
+    }
+
+    printf("   COV(MU) = \n" );
+    for(i=0; i<NLCPAR; i++ ) {      
+      for(j=0; j<NLCPAR; j++ )
+	{ printf(" %12.6f ", COVMU[i][j] ); }
+      printf("\n");
+    }
+
+    printf("   dmuz    = %f (zerr=%f)\n", dmuz, zerr);
+    printf("   dmuLens = %f \n", dmuLens);
+    printf("   alpha  = %f  beta=%f \n", alpha, beta);
     sprintf(c1err,"non-positive muerrsq = %le", muerrsq);	
-    sprintf(c2err,"for SN = %s  alpha=%f  beta=%f", 
-	    name, alpha, beta );   
+    sprintf(c2err,"for SN = %s ", name);   
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 

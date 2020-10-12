@@ -4415,7 +4415,7 @@ c compute data SNR with/without fudged error
 c set local dump logicals = namelist flag .and. (debug option)     
 
          LDMPFCN_LOC = LDMPFCN(ifilt_obs) 
-     &        .and. LFITDATA .and. FIRST_ITERATION(ITER) 
+     &        .and. LFITDATA  ! .and. FIRST_ITERATION(ITER) 
   
          if(DOFIT_IDEAL .and. ITER<3 ) LDMPFCN_LOC = .FALSE. ! xxx DEBUG ONLY
  
@@ -4426,7 +4426,8 @@ c set local dump logicals = namelist flag .and. (debug option)
 
 c dumpe header just once per filter.
 
-         if ( LDMPFCN_LOC .and. FIRSTFILT ) then      
+cc xxx mark delete Oct 2020   if ( LDMPFCN_LOC .and. FIRSTFILT ) then      
+         if ( LDMPFCN_LOC ) then
 
               print*,' '
               print*,' -------------------------------------- '

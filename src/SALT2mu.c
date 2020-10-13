@@ -833,6 +833,8 @@ Default output files (can change names with "prefix" argument)
 
  Sep 29 2020: few tweaks to get_fitParBias
 
+ Oct 12 2020: fix rare numerical artifact for COV in merge_duplicates
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -3332,13 +3334,16 @@ void merge_duplicates(int NDUPL, int *isnList) {
   //   found numerical problem where two COV terms have opposite
   //   signs with nearly equal abs value ... summing gives ~zero,
   //   and then taking inverse results in insanely HUGE cov.
+  //   If SIGN_CHANGE = True, take average COV to avoid artifact.
   //
-  //   *** WARNING: need to refactor ****
+  //   *** WARNING: need to refactor ??? ****
 
   int i, isn, ipar, ipar2, ISN_SAVE ;
   double fitpar[NLCPAR], fiterr[NLCPAR];
   double COVFIT_INV[NLCPAR][NLCPAR], COVINT[NLCPAR][NLCPAR];
-  double wgt, sqerr, wgtsum[NLCPAR], covfit, covtot, fitpar_tmp  ;
+  double COVFIT_SUM[NLCPAR][NLCPAR] ;
+  double wgt, sqerr, wgtsum[NLCPAR], covfit, covfit0, covtot, fitpar_tmp  ;
+  bool   SIGN_CHANGE[NLCPAR][NLCPAR], sign_change ;
   char stringList_fitparOrig[NLCPAR][100], *name ;
   //  char fnam[] = "merge_duplicates" ;
 
@@ -3353,32 +3358,38 @@ void merge_duplicates(int NDUPL, int *isnList) {
 
   for(ipar=0; ipar < NLCPAR; ipar++ ) {
     fitpar[ipar] = fiterr[ipar] = wgtsum[ipar] = 0.0 ;
-    for(ipar2=0; ipar2 < NLCPAR; ipar2++ ) 
-      { COVFIT_INV[ipar][ipar2] = 0.0 ;  }
+    for(ipar2=0; ipar2 < NLCPAR; ipar2++ ) {
+      COVFIT_INV[ipar][ipar2] = COVFIT_SUM[ipar][ipar2] = 0.0 ;  
+      SIGN_CHANGE[ipar][ipar2] = false ;
+    }
 
     stringList_fitparOrig[ipar][0] = 0 ;
   }
 
+  int  isn0 = isnList[0] ;
 
   for(i=0; i < NDUPL; i++ ) {
-    isn = isnList[i] ;
-
+    isn  = isnList[i] ;
     // keep first duplicate; remove the rest
     if ( i > 0 ) { setbit_CUTMASK(isn, CUTBIT_DUPL, &INFO_DATA.TABLEVAR); }
 
     for(ipar=0; ipar < NLCPAR; ipar++ ) {     // mB,x1,c
-      sqerr = INFO_DATA.TABLEVAR.covmat_tot[isn][ipar][ipar] ;
-      wgt    = 1.0/sqerr;
+      sqerr  = INFO_DATA.TABLEVAR.covmat_tot[isn][ipar][ipar] ;
+      wgt    = 1.0/sqerr ;
       fitpar_tmp = INFO_DATA.TABLEVAR.fitpar[ipar][isn];
       wgtsum[ipar] += wgt ;
-      fitpar[ipar] += wgt * fitpar_tmp;
+      fitpar[ipar] += wgt * fitpar_tmp ;
 
       sprintf(stringList_fitparOrig[ipar],"%s %6.3f",
 	      stringList_fitparOrig[ipar], fitpar_tmp );
 
       for(ipar2=0; ipar2 < NLCPAR; ipar2++ ) {
-	covfit = INFO_DATA.TABLEVAR.covmat_fit[isn][ipar][ipar2];
+	covfit  = INFO_DATA.TABLEVAR.covmat_fit[isn][ipar][ipar2];
+	covfit0 = INFO_DATA.TABLEVAR.covmat_fit[isn0][ipar][ipar2];
+	sign_change = ( covfit*covfit0 < 0.0 ) ;
+	if ( sign_change ) { SIGN_CHANGE[ipar][ipar2] = true; }
 	COVFIT_INV[ipar][ipar2] += 1.0/covfit ;
+	COVFIT_SUM[ipar][ipar2] += covfit ; // backup in case of sign change
       }
     } // loop over mB,x1,c
   }
@@ -3390,7 +3401,10 @@ void merge_duplicates(int NDUPL, int *isnList) {
     fiterr[ipar]  = sqrt(1.0/wgtsum[ipar]);
     INFO_DATA.TABLEVAR.fitpar[ipar][ISN_SAVE] = fitpar[ipar] ;
     for(ipar2=0; ipar2 < NLCPAR; ipar2++ ) { 
-      covfit = 1.0 / COVFIT_INV[ipar][ipar2] ; 
+      if ( SIGN_CHANGE[ipar][ipar2] ) 
+	{ covfit = COVFIT_SUM[ipar][ipar2] / (double)NDUPL ; }
+      else
+	{ covfit = 1.0 / COVFIT_INV[ipar][ipar2] ; }
       covtot = covfit + COVINT[ipar][ipar2] ; 
       INFO_DATA.TABLEVAR.covmat_fit[ISN_SAVE][ipar][ipar2] = covfit ;
       INFO_DATA.TABLEVAR.covmat_tot[ISN_SAVE][ipar][ipar2] = covtot ;

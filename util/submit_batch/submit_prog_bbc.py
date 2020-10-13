@@ -73,7 +73,9 @@ SPLITRAN_SUMMARY_FILE = "BBC_SUMMARY_SPLITRAN.FITRES"
 WFIT_SUMMARY_FILE     = "BBC_SUMMARY_wfit.FITRES"
 ROW_KEY               = "ROW:"
 
-KEY_FITOPTxMUOPT  = 'FITOPTxMUOPT'
+KEY_FITOPTxMUOPT      = 'FITOPTxMUOPT'
+BLOCKNAME_FITOPT_MAP  = 'FITOPT_MAP'
+
 
 # - - - - - - - - - - - - - - - - - - -  -
 class BBC(Program):
@@ -113,6 +115,9 @@ class BBC(Program):
         # figure out which versions to combine and create sorted lists
         self.bbc_prep_version_match() 
 
+        # determine output FITOPTs based on FITOPT_MAP, or input FITOPTs
+        self.bbc_prep_fitopt_outlist()
+
         # convet 2D and 4D nested loops into 1D loops
         self.bbc_prep_index_lists()
 
@@ -125,7 +130,7 @@ class BBC(Program):
         self.bbc_prep_copy_files()
 
         logging.info("")
-        #sys.exit("\n xxx DEBUG DIE in bbc prepare_driver")
+        #sys.exit(f"\n xxx DEBUG DIE xxx \n")
         # end submit_prepare_driver
 
     def bbc_read_input_file(self):
@@ -167,6 +172,7 @@ class BBC(Program):
 
         CONFIG          = self.config_yaml['CONFIG']
         input_file      = self.config_yaml['args'].input_file 
+        IS_FITOPT_MAP   = BLOCKNAME_FITOPT_MAP in self.config_yaml
         msgerr = []
 
         # - - - -
@@ -180,8 +186,9 @@ class BBC(Program):
         is_list       = isinstance(CONFIG_INPDIR, list)
         n_inpdir      = len(CONFIG_INPDIR)
         inpdir_list         = [ ]
+        survey_list         = [ ]    # for each inpdir
         inpdir_list_orig    = [ ]  # before expandvar
-        version_list2d = [ ] * n_inpdir  # vs. inpdir, iver
+        version_list2d      = [ ] * n_inpdir  # vs. inpdir, iver
         fitopt_table_list2d = [ ] * n_inpdir
         fitopt_num_list     = [ ]
         n_fitopt_list       = [ ]
@@ -231,6 +238,9 @@ class BBC(Program):
                 if version not in version_list :
                     version_list.append(version)
 
+            survey = MERGE_INFO['SURVEY']
+            survey_list.append(survey)
+
             # read FITOPT table from FIT job's submit info file
             fit_info_yaml = util.extract_yaml(INFO_PATHFILE)
             fitopt_table  = fit_info_yaml['FITOPT_LIST']            
@@ -249,16 +259,21 @@ class BBC(Program):
             #print(f" xxx version_list = {version_list} \n xxx in {path} ") 
             #print(f" xxx fitopt_list({n_fitopt}) = {fitopt_table}")
 
-        # - - - -
+
+
+        # xxxxxxxx mark obsolete 10-13-2020 xxxx
         # strip off fitopt_num_list from fitopt_table
-        for ifit in range(0,n_fitopt) :
-            fitopt_table   = fitopt_table_list2d[0][ifit]
-            fitopt_num     = fitopt_table[COLNUM_FITOPT_NUM]
-            fitopt_num_list.append(fitopt_num)
+        #for ifit in range(0,n_fitopt) :
+        #    fitopt_table   = fitopt_table_list2d[0][ifit]
+        #    fitopt_num     = fitopt_table[COLNUM_FITOPT_NUM]
+        #    fitopt_num_list.append(fitopt_num)
+        # xxxxxxxxxx
+
 
         # - - - - -
         # abort if n_fitopt is different for any INPDIR
-        if len(set(n_fitopt_list)) != 1 :
+        SAME_N_FITOPT = len(set(n_fitopt_list)) == 1
+        if not SAME_N_FITOPT and not IS_FITOPT_MAP :
             msgerr = []
             msgerr.append(f"Mis-match number of FITOPT; "\
                           f"n_fitopt = {n_fitopt_list} for") 
@@ -267,18 +282,20 @@ class BBC(Program):
             self.log_assert(False,msgerr)
 
         # store the goodies
-        self.config_prep['n_inpdir']        = n_inpdir
-        self.config_prep['inpdir_list']     = inpdir_list
+        self.config_prep['n_inpdir']          = n_inpdir
+        self.config_prep['inpdir_list']       = inpdir_list
+        self.config_prep['survey_list']       = survey_list
         self.config_prep['label_inpdir_list'] = config_label_list
-        self.config_prep['version_list2d']  = version_list2d    # vs. idir,iver
-        self.config_prep['n_version_list']  = n_version_list
-        self.config_prep['n_fitopt']        = n_fitopt_list[0]  # per idir
+        self.config_prep['version_list2d']    = version_list2d    # vs. idir,iver
+        self.config_prep['n_version_list']    = n_version_list
+        self.config_prep['n_fitopt_inplist']    = n_fitopt_list
         self.config_prep['fitopt_table_list2d'] = fitopt_table_list2d
-        self.config_prep['fitopt_num_list']     = fitopt_num_list
+        # xxxself.config_prep['fitopt_num_inplist']     = fitopt_num_list
 
         # end bbc_prep_version_list
 
     def get_inpdir_list(self,CONFIG_INPDIR):
+
         # for input CONFIG_INPDIR (arg of INPDIR+ key), return
         # inpdir_list, label_list.
         # CONFIG_INPDIR can either be an unlabelled list,
@@ -305,8 +322,6 @@ class BBC(Program):
                 inpdir_list.append(path)
                 label_list.append(label)
 
-        #sys.exit(" xxx DEBUG DIE xxx ")
-
         return inpdir_list, label_list
 
         # end get_inpdir_list
@@ -320,7 +335,6 @@ class BBC(Program):
 
         CONFIG           = self.config_yaml['CONFIG']
         n_inpdir         = self.config_prep['n_inpdir']
-        n_fitopt         = self.config_prep['n_fitopt']
         inpdir_list      = self.config_prep['inpdir_list']
         n_version_list   = self.config_prep['n_version_list']
         version_list2d   = self.config_prep['version_list2d']
@@ -508,6 +522,81 @@ class BBC(Program):
 
         # end bbc_prep_1version_match
 
+    def bbc_prep_fitopt_outlist(self):
+
+        # Determine output fitopts in 1 of 2 ways:
+        #  1) no FITOPT_MAP in the input file -->
+        #     output FITOPT list = input FITOPT list
+        #  2) use FITOPT_MAP (likely created by Pippin)
+        #
+
+        IS_FITOPT_MAP = BLOCKNAME_FITOPT_MAP in self.config_yaml
+        n_inpdir            = self.config_prep['n_inpdir']
+        n_fitopt_inplist    = self.config_prep['n_fitopt_inplist']  
+        fitopt_table_list2d = self.config_prep['fitopt_table_list2d'] #idir,ifit
+        survey_list         = self.config_prep['survey_list'] 
+
+        fitopt_num_outlist     = []
+        fitopt_num_outlist_map = [] #  [] * n_inpdir ]
+
+        if IS_FITOPT_MAP :
+            FITOPT_MAP = self.config_yaml[BLOCKNAME_FITOPT_MAP]
+
+        else :
+            # there is no input FITOPT_MAP, so create a trivial map where
+            # each output FITOPT maps onto the input FITOPTs with the
+            # same FITOPT num-index
+            n_fitopt   = n_fitopt_inplist[0] # same for all INPDIR
+            FITOPT_MAP = {}
+            for ifit in range(0,n_fitopt) :
+                fitopt_row   = fitopt_table_list2d[0][ifit]
+                fitopt_num   = fitopt_row[COLNUM_FITOPT_NUM] # e.g. FITOP004
+                fitopt_list  = f"{fitopt_num} " * n_inpdir
+                FITOPT_MAP[fitopt_num] = fitopt_list
+                
+        # - - - - -
+        #print(f" xxx USE ME: FITOPT_MAP = {FITOPT_MAP}")
+
+        # Create outlist arrays for submit logic.
+        # Count n_fitopt explicitly in case FITOPT_MAP contains
+        # other keys that are not FITOPT; e.g., SURVEY_LIST
+        n_fitopt = 0
+        for fitopt_num in FITOPT_MAP :
+            if fitopt_num[0:6] != 'FITOPT' : continue
+            fitopt_num_outlist.append(fitopt_num)
+            
+            # for each INPDIR, load map of original FITOPT needed to copy
+            # original FITRES file
+            fitopt_map = FITOPT_MAP[fitopt_num].split()
+            fitopt_num_outlist_map.append(fitopt_map)
+
+            n_fitopt    += 1
+            
+            # .xyz
+
+        #print(f"\n xxx map = {fitopt_num_outlist_map} \n")
+
+        # - - - - - - - - - 
+        print(f"\n Prepare output FITOPT list:")
+        for survey,n in zip(survey_list,n_fitopt_inplist):
+            print(f"   Found {n:3d} FITOPTs for SURVEY = {survey}")
+
+        if IS_FITOPT_MAP :
+            print(f"   Found {BLOCKNAME_FITOPT_MAP}  ")
+        else :
+            print(f"   Did not find {BLOCKNAME_FITOPT_MAP}  ")
+
+        print(f"   --> {n_fitopt} output FITOPTs")            
+
+        # store *outlist arrays
+        self.config_prep['n_fitopt']               = n_fitopt
+        self.config_prep['fitopt_num_outlist']     = fitopt_num_outlist
+        self.config_prep['fitopt_num_outlist_map'] = fitopt_num_outlist_map
+
+        #sys.exit("\n XXX DEBUG DIE XXX \n")
+
+        # end bbc_prep_fitopt_outlist(self)
+
     def bbc_prep_index_lists(self):
         # construct sparse 1D lists to loop over version and FITOPT
 
@@ -676,19 +765,19 @@ class BBC(Program):
         # For NSPLITRAN, copy only to first split-dir to avoid
         # duplicate copies of input FITRES files.
 
-        output_dir      = self.config_prep['output_dir']  
-        #n_version       = self.config_prep['n_version_out']  
-        n_inpdir        = self.config_prep['n_inpdir']  
-        v_out_list      = self.config_prep['version_out_sort_list2d']
-        fitopt_num_list = self.config_prep['fitopt_num_list']
-        iver_list2      = self.config_prep['iver_list2'] 
-        ifit_list2      = self.config_prep['ifit_list2']
-        n_splitran      = self.config_prep['n_splitran']
-        USE_SPLITRAN    = n_splitran > 1
+        output_dir         = self.config_prep['output_dir']  
+        n_inpdir           = self.config_prep['n_inpdir']  
+        v_out_list         = self.config_prep['version_out_sort_list2d']
+        iver_list2         = self.config_prep['iver_list2'] 
+        ifit_list2         = self.config_prep['ifit_list2']
+        fitopt_num_outlist = self.config_prep['fitopt_num_outlist']
+        n_splitran         = self.config_prep['n_splitran']
+        USE_SPLITRAN       = n_splitran > 1
 
         cat_file_log   = (f"{output_dir}/cat_FITRES_SALT2mu.LOG")
 
         logging.info("\n  Prepare input FITRES files")
+        iver_last = -9
 
         for iver,ifit in zip(iver_list2, ifit_list2):
 
@@ -701,12 +790,20 @@ class BBC(Program):
 
             cat_list   = self.make_cat_fitres_list(iver,ifit)
 
+            #print(" xxx ---------------------------------- " )
+            #print(f" xxx iver={iver} ifit={ifit} :")
+            #print(f" xxx cat_list = {cat_list} ")
+
             # execute the FITRES catenation
-            fitopt_num     = fitopt_num_list[ifit]
+            fitopt_num     = fitopt_num_outlist[ifit]
             ff             = (f"{fitopt_num}.{SUFFIX_FITRES}")
             input_ff       = "INPUT_" + ff
             cat_file_out   = (f"{V_DIR}/{input_ff}")
             nrow = self.exec_cat_fitres(cat_list, cat_file_out, cat_file_log)
+
+            if iver != iver_last : logging.info(f"    {v_dir}: ")
+            iver_last = iver
+
             logging.info(f"\t Catenate {n_inpdir} {ff} files"\
                          f" -> {nrow} events ")
 
@@ -750,7 +847,7 @@ class BBC(Program):
 
         # end exec_cat_fitres
 
-    def make_cat_fitres_list(self,iver, ifit ):
+    def make_cat_fitres_list(self, iver, ifit ):
         
         # Use input indices for version (iver) and fitopt (ifit)
         # to construct comma-sep list of fitres files over INPDIRs.
@@ -760,15 +857,17 @@ class BBC(Program):
         n_inpdir        = self.config_prep['n_inpdir']  
         v_orig_list     = self.config_prep['version_orig_sort_list2d']
         inpdir_list     = self.config_prep['inpdir_list']
-        fitopt_num_list = self.config_prep['fitopt_num_list'] 
-        # xxx fitopt_table_list2d = self.config_prep['fitopt_table_list2d']
+        fitopt_num_list = self.config_prep['fitopt_num_outlist'] 
+        fitopt_num_map  = self.config_prep['fitopt_num_outlist_map'] 
 
         cat_list = ''
-        fitopt_num   = fitopt_num_list[ifit]
-        for idir in range(0,n_inpdir):
+        fitopt_num_out   = fitopt_num_list[ifit]
+        for idir in range(0,n_inpdir):  
             inpdir       = inpdir_list[idir]
             v_orig       = v_orig_list[idir][iver]
-            ff    = (f"{v_orig}/{fitopt_num}.{SUFFIX_FITRES}")
+            fitopt_num_inp  = fitopt_num_map[ifit][idir] 
+
+            ff    = (f"{v_orig}/{fitopt_num_inp}.{SUFFIX_FITRES}")
             FF    = (f"{inpdir}/{ff}")
             cat_list += (f"{FF},")
         cat_list = cat_list.rstrip(",")  # remove trailing comma
@@ -783,7 +882,8 @@ class BBC(Program):
         n_muopt          = 1
         muopt_arg_list   = [ '' ]  # always include MUOPT000 with no overrides
         muopt_num_list   = [ 'MUOPT000' ] 
-        muopt_label_list = [ 'DEFAULT' ]
+        muopt_label_list = [ None ]
+        # xxxx muopt_label_list = [ 'DEFAULT' ]
         
         key = 'MUOPT'
         if key in CONFIG  :
@@ -833,7 +933,7 @@ class BBC(Program):
         script_dir    = self.config_prep['script_dir']
         shutil.copy(input_file,script_dir)
 
-        # end prep_bbc_copy_files
+        # end bbc_prep_copy_files
 
     def write_command_file(self, icpu, COMMAND_FILE):
 
@@ -925,7 +1025,7 @@ class BBC(Program):
         output_dir   = self.config_prep['output_dir']
         script_dir   = self.config_prep['script_dir']
         version      = self.config_prep['version_out_list'][iver]
-        fitopt_num   = self.config_prep['fitopt_num_list'][ifit] #e.g FITOPT002
+        fitopt_num = self.config_prep['fitopt_num_outlist'][ifit] #e.g FITOPT002
         muopt_num    = self.config_prep['muopt_num_list'][imu] # e.g MUOPT003
         muopt_arg    = self.config_prep['muopt_arg_list'][imu]
         n_splitran   = self.config_prep['n_splitran']
@@ -994,7 +1094,7 @@ class BBC(Program):
         output_dir    = self.config_prep['output_dir']
         script_dir    = self.config_prep['script_dir']
         version       = self.config_prep['version_out_list'][iver]
-        fitopt_num    = self.config_prep['fitopt_num_list'][ifit] 
+        fitopt_num    = self.config_prep['fitopt_num_outlist'][ifit] 
         muopt_num     = self.config_prep['muopt_num_list'][imu] # e.g MUOPT003
 
         row = [ None, version, fitopt_num, muopt_num, 0,0,0, isplitran ]
@@ -1035,6 +1135,7 @@ class BBC(Program):
         muopt_num_list    = self.config_prep['muopt_num_list']
         muopt_label_list  = self.config_prep['muopt_label_list']
         inpdir_list       = self.config_prep['inpdir_list']
+        survey_list       = self.config_prep['survey_list']
         n_splitran        = self.config_prep['n_splitran']
         use_wfit          = self.config_prep['use_wfit']
         ignore_muopt      = self.config_yaml['args'].ignore_muopt
@@ -1066,25 +1167,103 @@ class BBC(Program):
 
         f.write("\n")
         f.write("INPDIR_LIST:\n")
-        for inpdir in inpdir_list:
-            f.write(f"  - {inpdir}\n")
+        for inpdir in inpdir_list:  f.write(f"  - {inpdir}\n")
+
+        f.write("\n")
+        f.write("SURVEY_LIST:\n")
+        for survey in survey_list:    f.write(f"  - {survey}\n")
 
         f.write("\n")
         f.write("VERSION_OUT_LIST:\n")
-        for v in vout_list :
-            f.write(f"  - {v}\n")
+        for v in vout_list :   f.write(f"  - {v}\n")
+
+        # writing output FITOPTs is tricky, so use special function
+        self.append_fitopt_info_file(f)
 
         f.write("\n")
-        f.write("MUOPT_LIST:  # 'internal_Label'  'user_label'  'user_args'\n")
-        for imu in range(0,n_muopt):
-            num   = muopt_num_list[imu]
-            arg   = muopt_arg_list[imu] 
-            label = muopt_label_list[imu]
+        f.write("MUOPT_OUT_LIST:  " \
+                "# 'MUOPTNUM'  'user_label'  'user_args'\n")
+        for num,arg,label in zip(muopt_num_list,muopt_arg_list,
+                                 muopt_label_list):
             row   = [ num, label, arg ]
             f.write(f"  - {row} \n")
         f.write("\n")
 
         # end append_info_file
+
+    def append_fitopt_info_file(self,f):
+
+        # write list of output FITOPTS to filt pointer f, and include
+        #   FIOPTmmm  SURVEY  LABEL ARG
+        #
+        # where
+        #   SURVEY = GLOBAL if every INPDIR has valid arg
+        #   SURVEY = <survey> if only one INPDIR has valid arg
+        #   LABEL  = user label back in LC fit stage
+        #   ARG    = FITOPT argList used in LC fit
+        #
+        # The logic & code here is nasty because we have input FITOPTs
+        # in the LC fit stage, and output FITOPTs from FITOPT_MAP.
+
+        fitopt_table_list2d = self.config_prep['fitopt_table_list2d'] #iver,ifit
+        fitopt_num_list = self.config_prep['fitopt_num_outlist'] 
+        fitopt_num_map  = self.config_prep['fitopt_num_outlist_map'] 
+        inpdir_list     = self.config_prep['inpdir_list']
+        n_inpdir        = self.config_prep['n_inpdir']
+        survey_list     = self.config_prep['survey_list']
+        dump_flag = False  # local dump flag
+
+        f.write("\n")
+        f.write("FITOPT_OUT_LIST:  # 'FITOPTNUM'  'SURVEY'  " \
+                f"'user_label'   'user_args'\n")
+        ifit_out = 0
+        for fitopt_num_out in fitopt_num_list:            
+
+            if dump_flag :
+                print(" xxx ---------------------------------------- ")
+            # check if this FITOPT is global, or specific to one survey
+            fitopt_num_inplist  = fitopt_num_map[ifit_out][0:n_inpdir]
+
+            n_arg_none = 0 ;  n_arg_FITOPT000 = 0; n_arg_define = 0
+            survey_store = 'ERROR' ;  label_store = None; arg_store = None 
+            for idir in range(0,n_inpdir):          
+                survey = survey_list[idir]   
+                fitopt_num_inp = fitopt_num_inplist[idir]
+                ifit_inp       = int(fitopt_num_inp[6:])
+                row    = fitopt_table_list2d[idir][ifit_inp]
+                num    = row[COLNUM_FITOPT_NUM]  # e.g., FITOPT003
+                label  = row[COLNUM_FITOPT_LABEL]
+                arg    = row[COLNUM_FITOPT_ARG]
+                if arg == '' : # only for FITOPT000
+                    n_arg_none  += 1
+                elif arg == 'FITOPT000' : # sym link back to FITOPT000
+                    n_arg_FITOPT000 += 1  
+                else :                    # genuine LC fit arg list
+                    survey_store = survey
+                    arg_store    = arg
+                    label_store  = label
+                    n_arg_define += 1
+
+                if dump_flag :
+                    print(f" xxx {fitopt_num_out}: idir={idir} num={num} " \
+                          f"label={label} arg='{arg}'")
+
+            # - - - - - - - - - - - - - - - - - - - - - 
+            # if all args are valid, set survey_store to GLOBAL
+            if n_arg_define == n_inpdir or ifit_out == 0 :
+                survey_store = 'GLOBAL'
+
+            ifit_out += 1
+
+            # construct and write yaml-compliant info list
+            item_list = []
+            item_list.append(fitopt_num_out)
+            item_list.append(survey_store)
+            item_list.append(label_store)
+            item_list.append(arg_store)
+            f.write(f"  - {item_list}\n")
+
+        # end append_fitopt_info_file
 
     def create_merge_table(self,f):
 
@@ -1628,7 +1807,7 @@ class BBC(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         use_wfit         = submit_info_yaml['USE_WFIT']
         vout_list        = submit_info_yaml['VERSION_OUT_LIST']
-        muopt_list       = submit_info_yaml['MUOPT_LIST']
+        muopt_list       = submit_info_yaml['MUOPT_OUT_LIST']
         n_splitran       = submit_info_yaml['NSPLITRAN']
 
         f.write(f"# ========================================= \n")
@@ -1758,13 +1937,16 @@ class BBC(Program):
         return suffix
 
     def get_misc_merge_info(self):
-        # return misc info to write into MERGE.LOG file  
-        info = []
-        return info
+        # return misc info lines to write into MERGE.LOG file  
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        survey_list      = submit_info_yaml['SURVEY_LIST']
+
+        info_lines = []
+        info_lines.append(f"SURVEY_LIST:  {survey_list}")
+        return info_lines
         # end get_misc_merge_info 
 
     def get_merge_COLNUM_CPU(self):
         return -9  # there is no CPU column
-
 
 

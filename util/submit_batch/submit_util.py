@@ -513,13 +513,9 @@ def write_merge_file(f, MERGE_INFO, comment_lines ):
 
     f.write(f"#{header_line} \n")
     f.write(f"{primary_key}: \n")
-    for row in row_list :
-        f.write(f"  - {row}\n")
+    for row in row_list :  f.write(f"  - {row}\n")
     f.write("\n")
-
-    for comment in comment_lines :
-        f.write(f"#{comment}\n")
-
+    for comment in comment_lines :  f.write(f"#{comment}\n")
     # end write_merge_file
 
 def backup_merge_file(merge_file):

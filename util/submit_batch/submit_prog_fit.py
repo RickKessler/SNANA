@@ -1627,10 +1627,20 @@ class LightCurveFit(Program):
         # end force_merge_table_fail
 
     def get_misc_merge_info(self):
-        # return misc info to write into MERGE.LOG file 
-        info = []
-        return info
+        # return misc info lines to write into MERGE.LOG file .
+        # Each line is of the form
+        #   KEYNAM:  VALUE
+
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        survey,idsurvey  = util.get_survey_info(script_dir)
+
+        info_lines  = []
+        info_lines.append(f"SURVEY:         {survey}")
+        info_lines.append(f"IDSURVEY:       {idsurvey}")
+        return info_lines
         # end get_misc_merge_info    
 
     def get_merge_COLNUM_CPU(self):
         return COLNUM_FIT_MERGE_CPU
+

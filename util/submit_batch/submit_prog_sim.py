@@ -2095,19 +2095,18 @@ class Simulation(Program):
     # end merge_cleanup_final
 
     def get_misc_merge_info(self):
-        # return misc info to write into MERGE.LOG file
-        output_dir    = self.config_prep['output_dir']
-        info          = []
+        # return misc info lines to write into MERGE.LOG file.
+        # Each info line must be of the form
+        #  KEYNAME:  VALUE
 
-        # grab first yaml file to get SURVEY info
-        yaml_list = glob.glob(f"{output_dir}/*.YAML") 
-        yaml_info = util.extract_yaml(yaml_list[0])
-        survey    = yaml_info['SURVEY']
-        idsurvey  = yaml_info['IDSURVEY']
-        info.append(f"SURVEY:         {survey}")
-        info.append(f"IDSURVEY:       {idsurvey}")
+        output_dir      = self.config_prep['output_dir']
+        survey,idsurvey = util.get_survey_info(output_dir)
 
-        return info
+        info_lines   = []
+        info_lines.append(f"SURVEY:         {survey}")
+        info_lines.append(f"IDSURVEY:       {idsurvey}")
+
+        return info_lines
         # end get_misc_merge_info
 
     def get_merge_COLNUM_CPU(self):

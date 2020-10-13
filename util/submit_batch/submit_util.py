@@ -665,6 +665,21 @@ def get_YAML_key_values(YAML_BLOCK, KEYLIST):
     return value_list
     # end get_YAML_key_values
 
+def get_survey_info(yaml_path):
+    # Read SURVEY (string) and IDSURVEY (int) from YAML file,
+    # and return these quantities.
+    # If yaml_path is a directory, read first file in glob list;
+    # if yaml_path is a file, read this particular file.
+
+    if '.' in yaml_path :
+        yaml_file = yaml_path
+    else :
+        yaml_list = glob.glob(f"{yaml_path}/*.YAML")
+        yaml_file = yaml_list[0]
+
+    yaml_info = extract_yaml(yaml_file)    
+    return yaml_info['SURVEY'], yaml_info['IDSURVEY']
+    # end get_survey_info
 
 def kill_jobs(config_prep):
 

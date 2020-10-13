@@ -83,6 +83,10 @@ class Program:
     def get_merge_COLNUM_CPU(self):
         raise NotImplementedError()
 
+    @abstractmethod
+    def get_misc_merge_info(self):
+        raise NotImplementedError()
+
     def parse_batch_info(self,config_yaml,config_prep):
     
         # check of SSH or BATCH, and parse relevant strings
@@ -807,7 +811,10 @@ class Program:
         if MERGE_LAST and n_done == n_job_merge :
             nfail_tot = self.failure_summary()
 
-            self.write_proctime_info() # write proc time info to MERGE.LOG
+            #self.merge_write_misc_info()     # write task-specific info
+            misc_info     = self.get_misc_merge_info()
+            proctime_info = self.get_proctime_info() 
+            self.append_merge_file(misc_info+proctime_info)
 
             if nfail_tot == 0 :
                 logging.info(f"\n# {fnam}: ALL JOBS DONE -> " \
@@ -1024,21 +1031,38 @@ class Program:
             
         # end merge_check_time_stamp    
     
-    def write_proctime_info(self):
-        # write proc time info to MERGE.LOG file including
+    def append_merge_file(self,info_list):
+        # append extra keys to merge log file
+        # Each info line is of the form
+        #   "KEY: VALUE"
+
+        output_dir          = self.config_prep['output_dir']
+        MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")   
+        
+        print(f" xxx MERGE_LOG_PATHFILE = {MERGE_LOG_PATHFILE} ")
+
+        #  append to bottom of MERGE.LOG
+        with open(MERGE_LOG_PATHFILE,"a") as f:
+            for line in info_list:  f.write(f"{line} \n")
+
+        # end append_merge_file
+
+    def get_proctime_info(self):
+        # return proc time info for MERGE.LOG file including
         #  + wall time
         #  + EFF(CPU) = average CPU/core divided by wall-time 
         #
         # Note that time_xxx are datetime objects;
         # t_xxx is a computed time (float)
 
-        output_dir        = self.config_prep['output_dir']
         submit_info_yaml  = self.config_prep['submit_info_yaml']
         script_dir        = submit_info_yaml['SCRIPT_DIR'] 
         n_core            = submit_info_yaml['N_CORE']
         time_submit       = submit_info_yaml['TIME_STAMP_SUBMIT']
         time_now          = datetime.datetime.now()
         time_dif          = time_now - time_submit
+
+        output_dir          = self.config_prep['output_dir']
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")   
         
         t_seconds = time_dif.total_seconds()
@@ -1048,7 +1072,7 @@ class Program:
             t_unit = 3600.0 ;    unit = "hours"
 
         t_wall   = t_seconds/t_unit
-        msg_time = [ ' ' ]
+        msg_time = [ ]
         msg_time.append(f"UNIT_TIME:      {unit} ")
         msg_time.append(f"WALL_TIME:      {t_wall:.2f}  ")
 
@@ -1109,13 +1133,10 @@ class Program:
             msg_time.append(f"CPU_SUM:        {cpu_sum:.3f} ")
             msg_time.append(f"EFFIC_CPU:      {eff_cpu:.3f}   # CPU/core/T_wall")
 
-        # - - - -
-        # write everything at bottom of MERGE.LOG
-        with open(MERGE_LOG_PATHFILE,"a") as f:
-            for msg in msg_time :
-                f.write(f"{msg} \n")
 
-        # end write_proctime_info
+        return msg_time
+
+        # end get_proctime_info
 
     def check_file_exists(self,file_name,msg_user):
         # abort if file does not exist and use self.log_assert

@@ -19020,6 +19020,7 @@
      + In parse_input_HOSTLIB, replace a few sscanf with
         nread = sscanf and abort if nread != 1. Apply to keys
         with mutliple arguments in case user makes mistake.
+     + write SURVEY and IDSURVEY to YAML file.
      + use new read_genpoly() util to refactor reading polynomial 
        coefficients as either comma-sep (new default) or
        space-sep (legacy). The following sim-inputs are now 
@@ -19043,5 +19044,11 @@
    snana.car
      + fix bug implementing SNCID_IGNORE_FILE (see function LCIDSELECT)
      + for HEADER_OVERRIDE_FILE, abort if NFILE > MXFILE_ABORT
+     + new &SNLCINP input OPT_YAML to force output YAML file when
+        it's not a batch job
+
+   submit_batch:
+     + write SURVEY and IDSURVEY to MERGE.LOG for sim, and to
+       YAML file for snana.exe.
 
 END: 

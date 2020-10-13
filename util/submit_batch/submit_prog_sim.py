@@ -50,7 +50,7 @@ SIMGEN_INPUT_LISTFILE = "INPUT_FILE.LIST" # contains list of input files
 RANSEED_KEYLIST = [ 'RANSEED_REPEAT', 'RANSEED_CHANGE' ]
 
 # Define keys to read from each underlying sim-input file
-SIMGEN_INFILE_KEYCHECK = { # Narg  Required     Verify
+SIMGEN_INFILE_KEYCHECK = { # Narg  Required     sync-Verify
     "GENMODEL"          :     [ 1,    True,      False   ],
     "NGENTOT_LC"        :     [ 1,    False,     False   ],
     "TAKE_SPECTRUM"     :     [ 1,    False,     False   ],
@@ -1584,8 +1584,8 @@ class Simulation(Program):
         #    MERGE_INFO_CONTENTS : contents of MERGE log file
         #
 
-        row_list_split     = MERGE_INFO_CONTENTS[TABLE_SPLIT]
-        row_list_merge     = MERGE_INFO_CONTENTS[TABLE_MERGE]
+        row_list_split   = MERGE_INFO_CONTENTS[TABLE_SPLIT]
+        row_list_merge   = MERGE_INFO_CONTENTS[TABLE_MERGE]
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         simlog_dir       = submit_info_yaml['SIMLOG_DIR']
@@ -1610,9 +1610,10 @@ class Simulation(Program):
         key_cpu, key_cpu_sum, key_cpu_list = \
                     self.keynames_for_job_stats('CPU_MINUTES')
         KEY_YAML_LIST   = [ key_ngen, key_nwrite, key_cpu ]
+        # xxxx 'SURVEY', 'IDSURVEY' ]
 
         # init outputs of function
-        n_state_change     = 0
+        n_state_change    = 0
         row_split_new     = []
         row_merge_new     = []
 
@@ -1655,7 +1656,6 @@ class Simulation(Program):
                     job_stats = self.get_job_stats(simlog_dir, 
                                                    TMP_LOG_LIST, TMP_YAML_LIST,
                                                    KEY_YAML_LIST)
-
                     # check for failures
                     nfail = job_stats['nfail']
                     if nfail > 0 : NEW_STATE = SUBMIT_STATE_FAIL
@@ -2058,8 +2058,8 @@ class Simulation(Program):
         # Everything that gets tarred is also removed; therefore
         # specify each item in tar_list and be careful wild cards.
 
-        submit_info_yaml = self.config_prep['submit_info_yaml']
-        ngen_unit         = submit_info_yaml['NGEN_UNIT']
+        submit_info_yaml   = self.config_prep['submit_info_yaml']
+        ngen_unit          = submit_info_yaml['NGEN_UNIT']
         simlog_dir         = submit_info_yaml['SIMLOG_DIR']
         
         msg = "\n SIM Clean up SIMLOGS (tar+gzip)"
@@ -2083,16 +2083,32 @@ class Simulation(Program):
                 infile.strip("\n")
                 tar_list += (f"{infile} ")
                                 
-        tar_file  = "SIMLOGS.tar"
-        cd_log      = (f"cd {simlog_dir}")
-        cmd_tar   = (f"tar -cf {tar_file} {tar_list}")
-        cmd_gzip  = (f"gzip {tar_file}")
-        cmd_rm      = (f"rm -rf {tar_list} {tar_file}")
-        CMD      = (f"{cd_log}; {cmd_tar}; {cmd_gzip}; {cmd_rm} ")
+        tar_file   = "SIMLOGS.tar"
+        cd_log     = (f"cd {simlog_dir}")
+        cmd_tar    = (f"tar -cf {tar_file} {tar_list}")
+        cmd_gzip   = (f"gzip {tar_file}")
+        cmd_rm     = (f"rm -rf {tar_list} {tar_file}")
+        CMD        = (f"{cd_log}; {cmd_tar}; {cmd_gzip}; {cmd_rm} ")
         os.system(CMD)
 
 
     # end merge_cleanup_final
+
+    def get_misc_merge_info(self):
+        # return misc info to write into MERGE.LOG file
+        output_dir    = self.config_prep['output_dir']
+        info          = []
+
+        # grab first yaml file to get SURVEY info
+        yaml_list = glob.glob(f"{output_dir}/*.YAML") 
+        yaml_info = util.extract_yaml(yaml_list[0])
+        survey    = yaml_info['SURVEY']
+        idsurvey  = yaml_info['IDSURVEY']
+        info.append(f"SURVEY:         {survey}")
+        info.append(f"IDSURVEY:       {idsurvey}")
+
+        return info
+        # end get_misc_merge_info
 
     def get_merge_COLNUM_CPU(self):
         return COLNUM_SIM_MERGE_CPU

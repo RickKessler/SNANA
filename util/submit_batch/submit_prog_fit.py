@@ -1016,61 +1016,6 @@ class LightCurveFit(Program):
 
         # end merge_update_state
 
-    def split_sum_stats(self, search_failure_flag, log_list, yaml_list):
-
-        # xxxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxx
-
-        # Return statistics sums for yaml_list files.
-        # If search_failure_flag = Flase, then examine only the yaml_list
-        # and do not check for failures.
-        # When all DONE files exist, this function is called with
-        # search_failure_flag=True so that failures are examined too.
-
-        submit_info_yaml = self.config_prep['submit_info_yaml']
-        script_dir       = submit_info_yaml['SCRIPT_DIR']
-        n_log_file       = len(log_list)
-        split_stats = {
-            'nevt_sum_tot'        : 0, 
-            'nevt_sum_cut_snana'  : 0,
-            'nevt_sum_cut_lcfit'  : 0,
-            'cpu_sum'             : 0.0,
-            'nfail_sum'           : 0
-        }
-
-        # xxxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxx
-
-        for isplit in range(0,n_log_file):            
-            yaml_file = yaml_list[isplit]            
-            nevt_test = -9  # used to search for failures
-            if yaml_file :
-                YAML_FILE = (f"{script_dir}/{yaml_file}")
-                yaml_data = util.extract_yaml(YAML_FILE)
-                split_stats['nevt_sum_tot']       += yaml_data['NEVT_TOT']
-                split_stats['nevt_sum_cut_snana'] += yaml_data['NEVT_SNANA_CUTS']
-                split_stats['nevt_sum_cut_lcfit'] += yaml_data['NEVT_LCFIT_CUTS']
-                split_stats['cpu_sum']            += yaml_data['CPU_TIME']
-
-                # fix cpu format
-                cpu = (f"{split_stats['cpu_sum']:.1f}")
-                split_stats['cpu_sum']  = float(cpu)
-
-                # test value for failure testing below
-                nevt_test = yaml_data['ABORT_IF_ZERO'] 
-
-        # xxxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxx
-
-            # check flag to check for failure.        
-            if search_failure_flag and nevt_test <= 0 :
-                log_file   = log_list[isplit]
-                found_fail = self.check_for_failure(log_file,nevt_test,isplit+1)
-                if found_fail :
-                    split_stats['nfail_sum'] += 1
-
-        return split_stats
-
-        # end split_sum_stats
-        # xxxxxxxxxx END OBSOLETE MARK DELETE xxxxxxxxxxx
-
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
         # irow is the row to wrapup in MERGE_INFO_CONTENTS
         # One row corresonds to one VERSION and one FITOPT;
@@ -1680,6 +1625,12 @@ class LightCurveFit(Program):
                         logging.info(msg)
         return flag
         # end force_merge_table_fail
+
+    def get_misc_merge_info(self):
+        # return misc info to write into MERGE.LOG file 
+        info = []
+        return info
+        # end get_misc_merge_info    
 
     def get_merge_COLNUM_CPU(self):
         return COLNUM_FIT_MERGE_CPU

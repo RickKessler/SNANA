@@ -10479,6 +10479,9 @@ void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX) {
       sprintf ( c2err," '%s' ", ptrFile );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
+
+    fprintf(fp, "SURVEY:          %s\n",    GENLC.SURVEY_NAME   );
+    fprintf(fp, "IDSURVEY:        %d\n",    GENLC.IDSURVEY );
     fprintf(fp, "NGENLC_TOT:      %d\n",    NGENLC_TOT     );
     fprintf(fp, "NGENLC_WRITE:    %d\n",    NGENLC_WRITE   );
     fprintf(fp, "NGENSPEC_WRITE:  %d\n",    NGENSPEC_WRITE );
@@ -24346,9 +24349,18 @@ void readme_doc(int iflag_readme) {
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%s \n", KEYNAME_DOCANA_REQUIRED ); 
 
+  /* xxxxxxx mark delete Oct 12 2020 xxxxxxxxxxxxxxxxx
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  BRIEF_DESCRIPTION: simulate %s SURVEY with GENMODEL = %s \n", 
+  sprintf(cptr,"  BRIEF_DESCRIPTION: simulate %s SURVEY with "
+	  "GENMODEL = %s \n", 
 	  GENLC.SURVEY_NAME, INPUTS.MODELNAME );
+  xxxxxx */
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"  SURVEY:       %s\n",  GENLC.SURVEY_NAME);
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"  GENMODEL:     %s \n", INPUTS.MODELNAME);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"  HOST_MACHINE: %s \n", getenv("HOST") );

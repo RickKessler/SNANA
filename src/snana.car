@@ -1956,6 +1956,7 @@ c
      &  ,MINUIT_PRINT_LEVEL   ! -1 -> none
      &  ,INTERP_OPT           ! (I)  interp option (see INTERP_XXX params)
      &  ,NLINE_ARGS       
+     &  ,OPT_YAML                ! T=> write YAML out even if not batch job
      &  ,OPT_REFORMAT_TEXT       ! T=> re-write SNDATA files in text format
      &  ,OPT_REFORMAT_TERSE      ! T=> legacy key for text format
      &  ,OPT_REFORMAT_FITS       ! T=> re-write  in FITSformat (data only)
@@ -2059,6 +2060,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , PRIVATE_DATA_PATH, FILTER_UPDATE_PATH
      &    , NONSURVEY_FILTERS, SNRMAX_FILTERS, VPEC_ERR_OVERRIDE
      &    , FILTER_REPLACE, FILTLIST_LAMSHIFT
+     &    , OPT_YAML
      &    , OPTSIM_LCWIDTH, OPT_REFORMAT_TERSE, OPT_REFORMAT_TEXT
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
@@ -2106,6 +2108,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , NONSURVEY_FILTERS, SNRMAX_FILTERS, VPEC_ERR_OVERRIDE
      &    , FILTER_REPLACE, FILTLIST_LAMSHIFT
      &    , JOBSPLIT, JOBSPLIT_EXTERNAL, SIM_PRESCALE, MXLC_FIT
+     &    , OPT_YAML
      &    , OPTSIM_LCWIDTH, OPT_REFORMAT_TERSE, OPT_REFORMAT_TEXT
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
@@ -3340,6 +3343,7 @@ c set namelist defaults
 
       PRIVATE_DATA_PATH  = ' '
       FILTER_UPDATE_PATH = ' '
+      OPT_YAML              = 0
       OPT_REFORMAT_SALT2    = 0 
       OPT_REFORMAT_TERSE    = 0
       OPT_REFORMAT_TEXT     = 0
@@ -6433,6 +6437,8 @@ c potentially large log files. Also note that ABORT_IF_ZERO
 c is a standard key telling batch script to ABORT if its
 c value is zero; this avoids the batch script having to know
 c program-specific keys for NEVT_what?
+c
+c Oct 12 2020: check OPT_YAML 
 
       IMPLICIT NONE
 
@@ -6446,11 +6452,23 @@ c program-specific keys for NEVT_what?
 
 C ------------- BEGIN -------------
 
-      IF ( .NOT. ISJOB_BATCH       ) RETURN
-      IF ( TEXTFILE_PREFIX .EQ. '' ) RETURN
+c if user does NOT request YAML file, then check default
+c to create YAML file only if this is a batch job.
+
+      print*,' xxx OPT_YAML = ', OPT_YAML
+      IF ( OPT_YAML <= 0 ) THEN
+        IF ( .NOT. ISJOB_BATCH       ) RETURN
+        IF ( TEXTFILE_PREFIX .EQ. '' ) RETURN
+      ENDIF
 
       LEN     = INDEX(TEXTFILE_PREFIX,' ' ) - 1
       OUTFILE = TEXTFILE_PREFIX(1:LEN) // '.YAML'
+
+c if TEXTFILE_PREFIX is not defined, then use VERSION_PHOTOMETRY
+      if ( LEN == 0 ) then
+         LEN = INDEX(VERSION_PHOTOMETRY(1),' ') - 1
+         OUTFILE = VERSION_PHOTOMETRY(1)(1:LEN) // '.YAML'
+      endif
 
       write(6,40) OUTFILE(1:LEN+5)
 40    format(' Write stats to YAML output: ', A )
@@ -6463,11 +6481,14 @@ C ------------- BEGIN -------------
       JDIFF = JTIME_LOOPEND - JTIME_LOOPSTART
       T_CPU = float(JDIFF)/60. 
 
+      write(LUNDAT,19) 'SURVEY:          ', SURVEY_NAME
+      write(LUNDAT,20) 'IDSURVEY:        ', IDSURVEY
       write(LUNDAT,20) 'NEVT_TOT:        ', N_SNLC
       write(LUNDAT,20) 'NEVT_SNANA_CUTS: ', N_SNLC_CUTS 
       write(LUNDAT,20) 'NEVT_LCFIT_CUTS: ', N_SNLC_FITCUTS 
       write(LUNDAT,20) 'ABORT_IF_ZERO:   ', N_SNLC_FITCUTS 
       write(LUNDAT,21) 'CPU_MINUTES:     ', T_CPU
+19    format(A, A)
 20    format(A, I8)
 21    format(A, F8.1)
 

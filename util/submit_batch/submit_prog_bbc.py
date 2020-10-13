@@ -1757,6 +1757,12 @@ class BBC(Program):
         if n_splitran > 1 : suffix = (f"-{isplitran:04d}")
         return suffix
 
+    def get_misc_merge_info(self):
+        # return misc info to write into MERGE.LOG file  
+        info = []
+        return info
+        # end get_misc_merge_info 
+
     def get_merge_COLNUM_CPU(self):
         return -9  # there is no CPU column
 

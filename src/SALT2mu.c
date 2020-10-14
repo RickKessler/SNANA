@@ -15189,7 +15189,6 @@ void parse_cidFile_data(int OPT, char *fileName) {
 
   // - - - - - - -
 
-
   if ( isn != NCID ) {
     sprintf(c1err,"isn=%d but expected isn = NCID = %d", isn, NCID);
     sprintf(c2err,"Something is really messed up.");

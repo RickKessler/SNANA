@@ -1889,13 +1889,12 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   // your own memory, or if you need a fortran interface.
   // 
   // Inputs:
-  //  *OPT       : 0 -> just one file; 1 -> append NVAR 
   //  *fileName  : name of file, any format (root, hbook or ascii)
   //  *tableName : name of table to read
   //  *varList   : comma-separated list of variables to read/store
   //               varList = 'ALL' --> read everything.
   //   optMask   : mask of options (was vboseflag)
-  //      1=print, 2=abort on missing var, 4=append next file
+  //      1=print, 2=abort if var matches, 4=append next file
   //
   // Output:
   //   Function returns number of table entries/rows.
@@ -1918,11 +1917,16 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   //               last element (CCID) has priority if both are defined.
   //               Needed to work with ML_APPLY in NN pipeline.
   //
+  // Oct 14 2020: 
+  //   + fix ABORT feature if no variable name matches
+  //   + use catVarList_with_comma util
 
-  int  IFILETYPE, APPEND_FLAG, NF, ICAST, UNIQUE ;
+  bool APPEND_FLAG, ABORT_FLAG;
+  int  IFILETYPE, NF, ICAST, UNIQUE ;
   int  NVAR_USR, ivar, NROW, i, indx ;
   char *ptrtok, *tmpVar, varName_withCast[MXCHAR_VARNAME];
-  char varList_local[MXCHAR_VARLIST], varName[MXCHAR_VARNAME] ;
+  char *varList_table, *varList_table_ptrtok;
+  char varName[MXCHAR_VARNAME] ;
   char readOpt[] = "read";
   char blankFile[] = "" ;
   void *ptrStore;
@@ -1935,9 +1939,14 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   print_banner(fnam) ;
 
   // check option to store multiple files
+  ABORT_FLAG  = ( optMask & 2 ) ;
   APPEND_FLAG = ( optMask & 4 ) ; // append more variables
   if ( APPEND_FLAG || NFILE_AUTOSTORE==0 ) { NFILE_AUTOSTORE++ ; }
 	
+
+  varList_table        = (char*) malloc( MXCHAR_VARLIST * sizeof(char) );
+  varList_table_ptrtok = (char*) malloc( MXCHAR_VARLIST * sizeof(char) );
+  varList_table[0] = 0;
 
   NF = NFILE_AUTOSTORE-1;  // file index
   SNTABLE_AUTOSTORE[NF].NVAR = 0 ;
@@ -1948,22 +1957,22 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   IFILETYPE = TABLEFILE_OPEN(fileName,readOpt) ;
   SNTABLE_READPREP(IFILETYPE,tableName );
 
-  if ( strcmp(varList,"ALL") == 0 ) {
-    // skip CID
-    sprintf(varList_local,"%s", READTABLE_POINTERS.VARNAME[1] );
-    for( ivar = 2 ; ivar < READTABLE_POINTERS.NVAR_TOT; ivar++ ) {    
-      tmpVar = READTABLE_POINTERS.VARNAME[ivar];  
-      sprintf(varList_local,"%s,%s", varList_local, tmpVar);
-    }
+  // make comma-sep list of variables in table header;
+  // skip CID by starting at ivar=1
+  for( ivar = 1 ; ivar < READTABLE_POINTERS.NVAR_TOT; ivar++ ) {    
+    tmpVar = READTABLE_POINTERS.VARNAME[ivar];  
+    catVarList_with_comma(varList_table, tmpVar); 
   }
-  else {
-    sprintf(varList_local, "%s", varList);
-  }
+
+  if ( strcmp(varList,"ALL") == 0 ) 
+    { sprintf(varList_table_ptrtok, "%s", varList_table); }
+  else
+    { sprintf(varList_table_ptrtok, "%s", varList); }
 
   // printf("\n xxx varList = '%s' \n\n", varList_local); fflush(stdout);
 
   // get list of variables
-  ptrtok = strtok(varList_local,",");
+  ptrtok = strtok(varList_table_ptrtok,",");
   NVAR_USR = 0 ;
   while ( ptrtok != NULL ) {
     sprintf(varName, "%s",   ptrtok );
@@ -1984,6 +1993,19 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
     sprintf(SNTABLE_AUTOSTORE[NF].VARNAME[NVAR_USR],"%s", varName);
     NVAR_USR++ ;
+  }
+
+
+  // abort if no variables are found .xyz
+  if ( ABORT_FLAG && NVAR_USR == 0 ) {
+    print_preAbort_banner(fnam);
+
+    printf("\n Requested variables to find:\n\t%s\n", varList);   
+    printf("\n Available VARNAMES in file: \n\t%s\n", varList_table);
+
+    sprintf(MSGERR1,"Found no varName matches in");
+    sprintf(MSGERR2,"%s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
   }
 
   // get number of rows needed to allocate memory
@@ -2079,6 +2101,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   LASTREAD_AUTOSTORE.IROW  = -9;
   sprintf(LASTREAD_AUTOSTORE.CCID,"XXX");
 
+  free(varList_table); free(varList_table_ptrtok);
 
   return NROW ;
 

@@ -6455,7 +6455,6 @@ C ------------- BEGIN -------------
 c if user does NOT request YAML file, then check default
 c to create YAML file only if this is a batch job.
 
-      print*,' xxx OPT_YAML = ', OPT_YAML
       IF ( OPT_YAML <= 0 ) THEN
         IF ( .NOT. ISJOB_BATCH       ) RETURN
         IF ( TEXTFILE_PREFIX .EQ. '' ) RETURN
@@ -18682,7 +18681,7 @@ c Oct 10 2020: abort if NFILE > MXFILE_LIST
 +CDE,OVRIDECOM.
 
       INTEGER iwd, NWD, LENV, LENF, LEN_ALL
-      INTEGER NVAR_ALL, NVAR
+      INTEGER NVAR_ALL, NVAR, ivar
       INTEGER NFILE, ifile, OPTMASK_STORE
       CHARACTER FNAM*24, cFILE*(4*MXCHAR_FILENAME), cVARLIST*400 
       CHARACTER VARNAME*60
@@ -18761,6 +18760,14 @@ c - - -
         CALL READ_HEADER_OVERRIDE_FILE(FILE_LIST(ifile))
  900  CONTINUE
 
+      print*,' '
+      print*,' HEADER_OVERRIDE SUMMARY:'
+      DO ivar = 1, NVAR_HEADER_OVERRIDE
+          write(6,110) VARLIST_HEADER_OVERRIDE(ivar)
+110       format(T10,'--> Override header variable: ', A)
+      END DO
+      CALL FLUSH(6)
+
 c check array bound
       NVAR = NVAR_HEADER_OVERRIDE 
       IF ( NVAR > MXVAR_HEADER_OVERRIDE ) THEN
@@ -18831,12 +18838,14 @@ c - - - - - -  -
       ENDIF
 c - - - - - -  -
 
-      OPTMASK_SNTABLE = 4  ! 1=print, 2=abort on missin var, 4=append next file
+      OPTMASK_SNTABLE = 
+     &     2 +  ! 2 -> abort if no var matches
+     &     4    ! 4 -> append next file
       NROW = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST, 
      &        OPTMASK_SNTABLE,  LEN1, LEN2, LEN3 )
 
       write(6,20) NROW
- 20   format(/, T4,'Stored ', I8, ' rows of header-override data ')
+ 20   format(T4,'Stored ', I8, ' rows of header-override data ')
 
       IF ( NROW == 0 ) THEN
         C1ERR = 'NROW = 0 in HEADER_OVERRIDE_FILE'
@@ -18847,15 +18856,19 @@ c - - - - - -  -
 c check which header variables exist in the user file
       OPTMASK_STORE = MSKOPT_PARSE_WORDS_STRING
       NVAR_ALL = STORE_PARSE_WORDS(OPTMASK_STORE,cVARLIST,400)      
-      NVAR     = NVAR_HEADER_OVERRIDE 
+      NVAR     = 0  ! xxx mark delete NVAR_HEADER_OVERRIDE 
 
       DO 10 iwd     = 1, NVAR_ALL
           call get_PARSE_WORD_fortran(iwd, VARNAME, LENV)
           cVARNAME  = VARNAME(1:LENV) // char(0)
           EXIST_VAR = EXIST_VARNAME_AUTOSTORE(cVARNAME,LENV)
           if ( EXIST_VAR > 0 ) then
-            write(6,110) VARNAME(1:LENV)
-110         format(T10,'--> Override header variable: ', A)
+
+c xxxxxxx mark delete Oct 2020 xxxxxx
+cc            write(6,110) VARNAME(1:LENV)
+cc110         format(T10,'--> Override header variable: ', A)
+c xxxxxx
+
             NVAR = NVAR + 1
             if ( NVAR .LE. MXVAR_HEADER_OVERRIDE ) then
               VARLIST_HEADER_OVERRIDE(NVAR) = VARNAME(1:40)
@@ -18863,6 +18876,7 @@ c check which header variables exist in the user file
           endif
  10   CONTINUE
       NVAR_HEADER_OVERRIDE = NVAR
+      call flush(6)
 
       IF ( NVAR == 0 ) THEN
          c1err = 'Found no valid variables in HEADER_OVERRIDE_FILE.' 

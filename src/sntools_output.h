@@ -369,6 +369,8 @@ extern"C" {
   void  trim_blank_spaces(char *string) ;
   int   strcmp_ignoreCase(char *str1, char *str2) ;
 
+  void catVarList_with_comma(char *varList, char *addVarName);
+
   void  checkval_I(char *varname,int nval,int   *iptr, int imin, int imax );
   void  checkval_F(char *varname,int nval,float *fptr,float fmin,float fmax);
   void  checkval_D(char *varname, int nval, 

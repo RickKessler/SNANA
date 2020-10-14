@@ -19039,16 +19039,25 @@
      + new utility read_genpoly(...) to read comma-sep poly with arbitrary
        order, or to read legacy space-sep poly coeffs with fixed order. 
 
+   sntools_output.c
+     + restore ABORT option in optMask.
+
    ../util:  rm backup_INTERNAL.pl backup_SNDATA_ROOT.pl
 
    snana.car
      + fix bug implementing SNCID_IGNORE_FILE (see function LCIDSELECT)
      + for HEADER_OVERRIDE_FILE, abort if NFILE > MXFILE_ABORT
+       Also, pass abort flat to AUTOSTORE_INIT so that it aborts if
+       no variables are matched.
      + new &SNLCINP input OPT_YAML to force output YAML file when
         it's not a batch job
 
    submit_batch:
      + write SURVEY and IDSURVEY to MERGE.LOG for sim, and to
        YAML file for snana.exe.
+
+   SALT2mu.c:
+     + allow comma-sep list for cid_reject_file and cid_select_file
+     + start using parse_commaSepList utility
 
 END: 

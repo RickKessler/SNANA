@@ -2330,6 +2330,45 @@ void extract_modelname__(char *STRING, char *MODELPATH, char *MODELNAME) {
   extract_MODELNAME(STRING, MODELPATH, MODELNAME);
 }
 
+// ************************************
+void parse_commaSepList(char *item_name, char *item, int MAX_ITEM, int MXCHAR,
+			int *n_item, char ***arrayList ) {
+
+  // Created Oct 2020
+  // Utility to split comma-sep string *item and return number of 
+  // items (n_item) and char arrayList[i]
+  //  Inputs:
+  //    *item_name : descriptor (for error message)
+  //    *item      : comma-sep list
+  //    MAX_ITEM   : abort if more than this many items
+  //    MXCHAR     : allocate MXCHAR length per item
+  //
+  //  Output
+  //    *n_item   : number of items in *item
+  //    arrayList : array of individual items
+  //
+  // - - - -
+  int i;
+  int MEMC = MXCHAR * sizeof(char);
+  char fnam[] = "parse_commaSepList" ;
+
+  // ---------- BEGIN --------------
+  // first allocate memory for file names 
+  *arrayList = (char**)malloc( MAX_ITEM*sizeof(char*));
+  for(i=0; i < MAX_ITEM; i++ ) 
+    { (*arrayList)[i] = (char*)malloc(MEMC); }
+
+  // split item string
+  splitString(item, COMMA, MAX_ITEM,    // inputs
+	      n_item, *arrayList );      // outputs 
+  
+  char *f0 = *arrayList[0];
+  if ( IGNOREFILE(f0) ) { *n_item = 0 ; }
+
+} // end parse_commaSepList
+
+
+// *****************************************************
 void FILTER_REMAP_INIT(char *remapString, char *VALID_FILTERLIST,
 		       int *NFILT_REMAP,
                        int *IFILTLIST_REMAP, char *FILTLIST_REMAP) {

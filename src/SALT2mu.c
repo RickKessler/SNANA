@@ -834,6 +834,10 @@ Default output files (can change names with "prefix" argument)
  Sep 29 2020: few tweaks to get_fitParBias
 
  Oct 12 2020: fix rare numerical artifact for COV in merge_duplicates
+ Oct 14 2020
+    + allow comma-sep list for cid_select_file and cid_reject_file
+    + refactor parsing comma-sep lists using new sntools utility
+       parse_commaSep_list(...)
 
  ******************************************************/
 
@@ -1480,9 +1484,10 @@ struct INPUTS {
   char sntypeString[100]; // comma-separated string from input file
 
   // CID select or reject for data only (data can be real or sim)
-  char   cidFile_data[MXCHAR_FILENAME];
-  char  **cidList_data; //2d array to be allocated later
-  int   ncidList_data;  //number of cids provided in listfile
+  int   ncidFile_data;  // number of cid-select files in comma-sep list
+  char  **cidFile_data ; // list of cidFiles
+  char  **cidList_data; // cid list
+  int   ncidList_data;  //number of cids provided in listfile(s)
   int   acceptFlag_cidFile_data ; // +1 to accept, -1 to reject
 
   // - - - - - - redshift bins - - - - - - 
@@ -1765,6 +1770,7 @@ void fcn(int* npar, double grad[], double* fval,
 
 void parse_parFile(char *parFile );
 void override_parFile(int argc, char **argv);
+
 void parse_datafile(char *item);
 void parse_simfile_biasCor(char *item);
 void parse_simfile_CCprior(char *item);
@@ -1779,7 +1785,6 @@ int  usesim_CUTWIN(char *varName) ;
 int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
 
 void parse_sntype(char *item);
-void parse_cidFile_data_LEGACY(char *item);
 void parse_cidFile_data(int OPT, char *item); 
 void parse_prescale_biascor(char *item);
 void parse_powzbin(char *item) ;
@@ -5318,8 +5323,8 @@ void set_defaults(void) {
 
   INPUTS.nmaxString[0]   = 0 ;
 
-  INPUTS.cidFile_data[0] = 0;
-  INPUTS.ncidList_data   = 0; //djb
+  INPUTS.ncidFile_data   = 0;
+  INPUTS.ncidList_data   = 0;
   INPUTS.acceptFlag_cidFile_data = 0 ;
 
   INPUTS.nmax_tot = 999888777 ;
@@ -14480,13 +14485,13 @@ void override_parFile(int argc, char **argv) {
   ntmp = 0;
   fprintf(FP_STDOUT, "\n Parse command-line options: \n");
   uniqueOverlap("INIT","SALT2mu command-line override");
-
+  
   for (i=2; i < argc; ++i) {
 
     item = argv[i];
     ntmp++;
 
-    //  if ( strcmp(item,"CUTWIN") == 0 ) {
+
     if ( !strncmp(item,"CUTWIN",6) ) {  // allow CUTWIN(option)
       // glue together 4 contiguous words into one string
       sprintf(tmpLine,"%s %s %s %s", argv[i],argv[i+1],argv[i+2],argv[i+3] ) ;
@@ -14524,8 +14529,10 @@ int ppar(char* item) {
   // Jun 18, 2018 - fix INPUTS.ipar for H11 option
   // Apr 10, 2019 - replace !strcmp with uniqueOverlap function
   //                which aborts on duplicate key.
-  
-  int  ipar, len ;  
+  //
+  // Oct 14 2020: refactor to use parse_commaSepList utility
+  //
+  int  ipar, len, ikey ;  
   char key[MXCHAR_VARNAME], *s, tmpString[60];
   char fnam[] = "ppar" ;
 
@@ -14592,20 +14599,46 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"errmask_write=") ) // allow legacy name
     { sscanf(&item[14],"%i", &INPUTS.cutmask_write ); return(1); }
 
-  if ( uniqueOverlap(item,"file=") )
-    { parse_datafile(&item[5]);  return(1);  }
-  if ( uniqueOverlap(item,"datafile=") ) 
-    { parse_datafile(&item[9]);  return(1);  }
-
   if ( uniqueOverlap(item,"minos=") ) 
     { sscanf(&item[6],"%i", &INPUTS.minos ); return(1); }
 
-  // -------------------------
+
+  // - - - - - -
+  // allow two different keys for data file name
+  char keyList_data[2][12] = { "file=", "datafile=" } ;
+  for ( ikey=0; ikey < 2; ikey++ ) {
+    len = strlen( keyList_data[ikey] );
+    if ( uniqueOverlap(item,keyList_data[ikey]) ) {
+      parse_commaSepList("DATAFILE", &item[len], MXFILE_DATA, MXCHAR_FILENAME, 
+			 &INPUTS.nfile_data, &INPUTS.dataFile );
+      return(1);
+    }
+  }
+
+  // - - - - - - - 
   // allow two different keys to define biasCor file name
+  char keyList_biasCor[2][20] = { "simfile_bias=", "simfile_biascor=" } ;
+  for ( ikey=0; ikey < 2; ikey++ ) {
+    len = strlen( keyList_biasCor[ikey] );
+    if ( uniqueOverlap(item,keyList_biasCor[ikey]) ) {
+
+      // save biasCor arg in case simfile_ccprior = 'same'
+      INPUTS.simFile_biasCor_arg = (char*) malloc(strlen(item)*sizeof(char));
+      sprintf(INPUTS.simFile_biasCor_arg, "%s", &item[len]);
+
+      parse_commaSepList("SIMFILE_BIASCOR", &item[len], 
+			 MXFILE_BIASCOR, MXCHAR_FILENAME, 
+			 &INPUTS.nfile_biasCor, &INPUTS.simFile_biasCor );
+      return(1);
+    }
+  }
+
+  /* xxxxxxx mark delete Oct 14 2020 xxxxxxxxxx
   if ( uniqueOverlap(item,"simfile_bias=") ) 
     { parse_simfile_biasCor(&item[13]);  return(1);  }
   if ( uniqueOverlap(item,"simfile_biascor=") ) 
     { parse_simfile_biasCor(&item[16]);  return(1); }
+  xxxxxxxx end mark xxxxxx */
 
   // - - - - - - 
 
@@ -14660,8 +14693,10 @@ int ppar(char* item) {
     { sscanf(&item[19],"%le", &INPUTS.sigma_cell_biasCor); return(1); }
   
   // -------- CC prior ------------
-  if ( uniqueOverlap(item,"simfile_ccprior=")  ) 
-    { parse_simfile_CCprior(&item[16]); return(1);  }
+  if ( uniqueOverlap(item,"simfile_ccprior=") )   { 
+    parse_simfile_CCprior(&item[16]); 
+    return(1);  
+  }
 
   if ( uniqueOverlap(item,"nzbin_ccprior=")) 
     { sscanf(&item[14],"%i",&INPUTS.nzbin_ccprior); return(1); }
@@ -14806,11 +14841,14 @@ int ppar(char* item) {
     {  sscanf(&item[16], "%s", INPUTS.idsample_select );  return(1); } 
 
   if ( uniqueOverlap(item,"cid_select_file=") )  {  
-    sscanf(&item[16], "%s", INPUTS.cidFile_data );  
-    INPUTS.acceptFlag_cidFile_data = +1; return(1); 
+    parse_commaSepList("CID_SELECT_FILE", &item[16], 6, MXCHAR_FILENAME, 
+		       &INPUTS.ncidFile_data, &INPUTS.cidFile_data );
+    INPUTS.acceptFlag_cidFile_data = +1;   return(1); 
   }
+
   if ( uniqueOverlap(item,"cid_reject_file=") ) {
-    sscanf(&item[16], "%s", INPUTS.cidFile_data );  
+    parse_commaSepList("CID_REJECT_FILE", &item[16], 6, MXCHAR_FILENAME, 
+		       &INPUTS.ncidFile_data, &INPUTS.cidFile_data );
     INPUTS.acceptFlag_cidFile_data = -1; return(1); 
   }
 
@@ -14983,8 +15021,11 @@ int ppar(char* item) {
 } // end ppar
 
 
+
 // **************************************************
 void parse_datafile(char *item) {
+
+  // xxxxxxxx Oct 14 2020: mark obsolete xxxxxxxxx
 
   // Created June 4 2019
   // parse comma-separate list of data files names.
@@ -15009,10 +15050,14 @@ void parse_datafile(char *item) {
 
   return;
 
-} // parse_datafile
+} // parse_datafile xxxxxxxxxx obsolete xxxxxxxxx
+
+
 
 // **************************************************
 void parse_simfile_biasCor(char *item) {
+
+  // xxxxxxxxx mark obsolete Oct 14 2020 xxxxxxxxx
 
   // Created May 15 2019
   // parse comma-separate list of biascor files names.
@@ -15042,11 +15087,57 @@ void parse_simfile_biasCor(char *item) {
 
   return;
 
-} // parse_simfile_biasCor
+} // parse_simfile_biasCor xxxxxxxxxx obsolete xxxxxxxxxx
 
 
 // **************************************************
 void parse_simfile_CCprior(char *item) {
+
+  // Created May 16 2019
+  // Refactored Oct 2020 to use parse_commaSepList utility.
+  // Parse comma-separate list of CCprior files names.
+  //
+  // Use item_local instead of item, so that we don't overwrite
+  // input item and clobber other arguments.
+
+  int ifile;
+  int MEMC     = MXCHAR_FILENAME*sizeof(char);
+  char *item_local = (char*) malloc(MEMC);
+  char fnam[]  = "parse_simfile_CCprior" ;
+
+  // ------------------ BEGIN -----------------
+
+  // 9.28.2020:check "same" option
+  if ( strcmp(item,"same") == 0 ) {
+    sprintf(item_local, "%s",  INPUTS.simFile_biasCor_arg); 
+    INPUTS.sameFile_flag_CCprior = true; 
+  }
+  else {
+    sprintf(item_local, "%s", item); 
+  }
+
+  parse_commaSepList("SIMFILE_CCPRIOR", item_local, 
+		     MXFILE_CCPRIOR, MXCHAR_FILENAME, 
+		     &INPUTS.nfile_CCprior, &INPUTS.simFile_CCprior );
+
+  char *f0 = INPUTS.simFile_CCprior[0] ;
+  if ( IGNOREFILE(f0) ) { 
+    INPUTS.ipar[IPAR_scalePCC]  = 0 ; // make sure scalePCC is not floated
+  }
+  else {
+    INFO_CCPRIOR.USE = 1;
+    if ( strcmp(f0,"H11") == 0 ) { INFO_CCPRIOR.USEH11 =  1; }
+  }
+
+  return ;
+
+} // parse_simfile_CCprior
+
+
+// **************************************************
+void parse_simfile_CCprior_LEGACY(char *item) {
+
+  // xxxxxxxx OBSOLETE xxxxxxxx
 
   // Created May 16 2019
   // parse comma-separate list of CCprior files names.
@@ -15086,7 +15177,8 @@ void parse_simfile_CCprior(char *item) {
 
   return ;
 
-} // parse_simfile_CCprior
+} // parse_simfile_CCprior_LEGACY  xxxxxxx OBSOLETE xxxxxx
+
 
 // **************************************************     
 void parse_cidFile_data(int OPT, char *fileName) {
@@ -15102,8 +15194,9 @@ void parse_cidFile_data(int OPT, char *fileName) {
   // of CIDs without any keys.
   //
 
+  int  ncidList_data = INPUTS.ncidList_data  ;
   char *cid, tmpWord[60] ;
-  int iwd, isn, NCID, NWD, MEMC, MEMC2, MSKOPT ;
+  int iwd, isn, NCID_EXPECT, NCID_LOAD, NCID_TOT, NWD, MEMC, MEMC2, MSKOPT ;
   int LDMP = 0 ;
   bool FORMAT_FITRES, LOAD_CID ;
   char fnam[] = "parse_cidFile_data";
@@ -15115,36 +15208,41 @@ void parse_cidFile_data(int OPT, char *fileName) {
   ENVreplace(fileName,fnam,1);
 
   // check if keyed FITRES file; NCID>0 for FITRES; otherwise NCID=0.
-  NCID = SNTABLE_NEVT(fileName,TABLENAME_FITRES);
+  NCID_EXPECT = SNTABLE_NEVT(fileName,TABLENAME_FITRES);
 
   // scoop up all words in file, regardless of format.
   MSKOPT = MSKOPT_PARSE_WORDS_FILE + MSKOPT_PARSE_WORDS_IGNORECOMMENT;
   NWD  = store_PARSE_WORDS(MSKOPT,fileName); 
 
-  if ( NCID > 0 ) { 
+  if ( NCID_EXPECT > 0 ) { 
     // FITRES format
     FORMAT_FITRES = true ;
   }
   else {
     // not FITRES format ; read list of CIDs
-    NCID = NWD ;
+    NCID_EXPECT = NWD ;
     FORMAT_FITRES = false ;
   }
 
   // - - - - -
-  // for an array of strings this is a 2d array
-  MEMC    = NCID        * sizeof(char*);
-  MEMC2   = MXCHAR_CCID * sizeof(char);
-  INPUTS.cidList_data =  (char**)malloc(MEMC);
+  // malloc/realloc global cidList_data array
+  NCID_TOT = (ncidList_data + NCID_EXPECT);
+  MEMC     = NCID_TOT * sizeof(char*);
+  MEMC2    = MXCHAR_CCID * sizeof(char);
+  if ( ncidList_data == 0 ) 
+    { INPUTS.cidList_data =  (char**)malloc(MEMC);  }
+  else 
+    { INPUTS.cidList_data =  (char**)realloc(INPUTS.cidList_data,MEMC);  }
 
-  // malloc memory for CID strings
-  for(isn=0; isn < NCID; isn++ ) { 
-    INPUTS.cidList_data[isn] = (char*)malloc(MEMC2); 
+  // malloc memory for each CID strings
+  for(isn = ncidList_data; isn < NCID_TOT; isn++ ) { 
+    INPUTS.cidList_data[isn]    = (char*)malloc(MEMC2); 
     INPUTS.cidList_data[isn][0] = 0;
   }
 
   // - - - - - - - - - - - - 
-  isn = 0 ;
+  isn = ncidList_data  ;
+  NCID_LOAD = 0;
 
   // check every word in file, regardless of format
   for ( iwd=0; iwd < NWD; iwd++ ) { 
@@ -15155,7 +15253,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
     if ( LDMP ) {
       printf(" xxx -------------------------------------------- \n");
       printf(" xxx %s: iwd=%d of %d (NCID=%d) tmpWord='%s' \n",
-	     fnam, iwd, NWD, NCID, tmpWord); fflush(stdout);
+	     fnam, iwd, NWD, NCID_EXPECT, tmpWord); fflush(stdout);
     }
 
     if ( FORMAT_FITRES ) {
@@ -15173,7 +15271,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
     }
 
     if ( LOAD_CID ) {
-      isn++ ;
+      isn++ ;  NCID_LOAD++ ;
       if (LDMP) { printf (" xxx %s: select cid = %s \n", fnam, cid ); }
       
       if ( strstr(cid,COMMA) != NULL || strstr(cid,COLON) != NULL || 
@@ -15189,73 +15287,31 @@ void parse_cidFile_data(int OPT, char *fileName) {
 
   // - - - - - - -
 
-  if ( isn != NCID ) {
-    sprintf(c1err,"isn=%d but expected isn = NCID = %d", isn, NCID);
+  if ( NCID_EXPECT != NCID_LOAD ) {
+    sprintf(c1err,"NCID_LOAD=%d but  NCID_EXPECT = %d", 
+	    NCID_LOAD, NCID_EXPECT );
     sprintf(c2err,"Something is really messed up.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
 
-  INPUTS.ncidList_data = NCID;
+  INPUTS.ncidList_data += NCID_EXPECT;
  
 
-  printf("\n");
+
   if ( OPT > 0 ) {
-    printf("  %s: Accept only the %d CIDs in %s\n", fnam, NCID, fileName);
+    printf("  %s: Accept only %d CIDs in %s\n", 
+	   fnam, NCID_EXPECT, fileName);
   }
   else {
-    printf("  %s: Reject any of the %d  CIDs in %s\n", fnam, NCID, fileName);
+    printf("  %s: Reject %d  CIDs in %s\n", 
+	   fnam, NCID_EXPECT, fileName);
   }
   fflush(stdout);
 
   return ;
 
 } // END of parse_cidFile_data()
-
-
-// **************************************************     
-void parse_cidFile_data_LEGACY(char *filename) {
-
-  // Created Sep 5 2019 - Dillon Brout        
-
-  int NCID    = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE,filename);
-  int MEMC    = NCID        * sizeof(char*);
-  int MEMC2   = MXCHAR_CCID * sizeof(char);
-
-  char *cid ;
-  int i;
-  int LDMP = 0 ;
-  char fnam[] = "parse_cidFile_data_LEGACY";
-
-  // ------ BEGIN --------------
-
-  // for an array of strings this is a 2d array
-  INPUTS.cidList_data =  (char**)malloc(MEMC);
-
-  for(i=0; i<NCID; i++ ) { 
-    INPUTS.cidList_data[i] = (char*)malloc(MEMC2); 
-    cid = INPUTS.cidList_data[i];
-    get_PARSE_WORD(0,i,cid); // fill the list
-
-    if ( strstr(cid,",") != NULL || 
-	 strstr(cid,":") != NULL || 
-	 strstr(cid,"=") != NULL ) {
-      sprintf(c1err,"Invalid cid string = '%s'",cid);
-      sprintf(c2err,"Check cid_select_file %s",filename);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-    }
-
-    if (LDMP) {
-      printf ("xxx %s: select cid = %s \n", fnam, INPUTS.cidList_data[i]);
-    }
-  }
-
-  INPUTS.ncidList_data = NCID;
- 
-  return ;
-
-} // END of parse_cidFile_data_LEGACY()
-
 
 
 // **************************************************
@@ -15828,8 +15884,6 @@ void parse_FIELDLIST(char *item) {
 	     fnam, INPUTS.FIELDLIST[i] ); fflush(stdout);
     }
   }
-
-  //  debugexit(fnam); // xxxx REMOVE
 
   return ;
 
@@ -16543,9 +16597,13 @@ void prep_input_driver(void) {
 
   prep_input_nmax(INPUTS.nmaxString);
 
-  OPT = INPUTS.acceptFlag_cidFile_data;
-  parse_cidFile_data(OPT , INPUTS.cidFile_data);  
-
+  if ( INPUTS.ncidFile_data > 0 ) {
+    printf("\n");
+    OPT = INPUTS.acceptFlag_cidFile_data;
+    for(ifile=0; ifile < INPUTS.ncidFile_data; ifile++ ) 
+      { parse_cidFile_data(OPT, INPUTS.cidFile_data[ifile] );  }
+    printf("\n"); fflush(stdout);
+  }
   prep_input_varname_missing();
 
   // check for fast lookup option if all cosmo params are fixed.

@@ -677,6 +677,8 @@ void set_user_defaults(void) {
   INPUTS.OMEGA_LAMBDA  =  (double)OMEGA_LAMBDA_DEFAULT ;
   INPUTS.W0_LAMBDA     =  (double)w0_DEFAULT ;
   INPUTS.H0            =  (double)H0_SALT2 ;
+  INPUTS.MUSHIFT       =   0.0 ;
+  INPUTS.GENPDF_FILE[0] = 0;
 
   INPUTS.GENRANGE_RA[0]   = -360.0  ;
   INPUTS.GENRANGE_RA[1]   = +360.0  ;
@@ -2025,6 +2027,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "H0", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.H0 );
+  }
+  else if ( keyMatchSim(1, "MUSHIFT", WORDS[0],keySource) ) {
+    N++ ; sscanf(WORDS[N], "%le", &INPUTS.MUSHIFT );
+  }
+  else if ( keyMatchSim(1, "GENHD_FILE", WORDS[0],keySource) ) {
+    N++ ; sscanf(WORDS[N], "%s", INPUTS.GENHD_FILE );
   }
   // - - - 
   else if ( keyMatchSim(1, "FUDGE_SNRMAX", WORDS[0],keySource) ) {
@@ -4985,12 +4993,16 @@ void prep_user_input(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  printf("\t OMEGA_(MATTER,LAMBDA)= %5.3f, %5.3f,    W= %5.2f   H0=%5.1f \n"
-	 ,INPUTS.OMEGA_MATTER
-	 ,INPUTS.OMEGA_LAMBDA
-	 ,INPUTS.W0_LAMBDA
-	 ,INPUTS.H0 	 );
-
+  if ( IGNOREFILE(INPUTS.GENHD_FILE) ) {
+    printf("\t OMEGA_(MATTER,LAMBDA)= %5.3f, %5.3f,    w0= %5.2f   H0=%5.1f \n"
+	   ,INPUTS.OMEGA_MATTER
+	   ,INPUTS.OMEGA_LAMBDA
+	   ,INPUTS.W0_LAMBDA
+	   ,INPUTS.H0 	 );
+  }
+  else {
+    printf("\t GENHD from file: %s \n", INPUTS.GENHD_FILE);
+  }
 
   printf("\t KCOR  file : %s \n", INPUTS.KCOR_FILE );
 
@@ -5857,11 +5869,12 @@ void genmag_offsets(void) {
     
     // mag offset is :
     MAGOFF = 
-      + GENLC.GENMAG_OFF_GLOBAL              // user-defined global offset
-      + INPUTS.GENMAG_OFF_MODEL[ifilt_obs]   // user-defined model offs
-      - INPUTS.GENMAG_OFF_ZP[ifilt_obs]      // user-defined ZP offsets
-      + GENLC.LENSDMU                        // lensing correction
-      + GENLC.SALT2gammaDM                   // gamma from SN-host corr
+      + GENLC.GENMAG_OFF_GLOBAL             // user-defined global offset
+      + INPUTS.GENMAG_OFF_MODEL[ifilt_obs]  // user-defined model offs
+      - INPUTS.GENMAG_OFF_ZP[ifilt_obs]     // user-defined ZP offsets
+      + GENLC.LENSDMU                       // lensing correction
+      + INPUTS.MUSHIFT                      // user distance offset (Oct 2020)
+      + GENLC.SALT2gammaDM                  // gamma from SN-host corr
     ;
 
 

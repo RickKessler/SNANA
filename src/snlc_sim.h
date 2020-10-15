@@ -517,6 +517,9 @@ struct INPUTS {
   double OMEGA_LAMBDA;
   double W0_LAMBDA;
   double H0;           // km/s per MPc
+  double MUSHIFT;      // coherebt MU shift at all redshifts (Oct 2020) 
+  char   GENHD_FILE[MXPATHLEN];  // 2 column file with zCMB MU(theory)
+  double *GENHD_zCMB, *GENHD_MU; // store contents of GENHD_FILE
 
   float GENRANGE_RA[2];     // RA range (deg) to generate
   float GENRANGE_DEC[2];   // idem for DEC

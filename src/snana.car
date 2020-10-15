@@ -24448,9 +24448,9 @@ C --------------- BEGIN -----------
       LCUTEPOCH = .FALSE.
       MJD       = SNGL( SNLC8_MJD(EP) )
       IDFIELD   = ISNLC_IDFIELD(EP)  
+      PHOTFLAG  = ISNLC_PHOTFLAG(EP)
       IFILT_OBS = ISNLC_IFILT_OBS(EP)
       IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
-      PHOTFLAG  = ISNLC_PHOTFLAG(EP)
 
 c      print*,' xxx ----------------------------- '
 c      print*,' xxx LCUTEPOCH DUMP xxx '

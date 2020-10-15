@@ -4772,6 +4772,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   //  NDIM        : number of dimensions of map
   //  NFUN        : number of functions of map
   //  OPT_EXTRAP  : flag for extrapolation outside map range
+  //                1-> extrap, 0->return error, -1->abort outside range
   //  MXROW       : abort if NROW > MXROW 
   //  callFun     : name of calling function (for error messages)
   //
@@ -4958,6 +4959,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
   // (I) MAPSIZE   total number of bins in gridmap
   // (I) NDIM      number of dimensions = number of variables
   // (I) NFUN      Number of functions on same GRID
+  // (I) OPT_EXTRAP  1=>extrap, 0=>return error, -1=>ABORT
   // (I) **GRIDMAP_INPUT[idim][i=0 to MAPSIZE-1] 
   // (I) **GRIDFUN_INPUT[ifun][i=0 to MAPSIZE-1] = function values
   // (O) *gridmap  structure to return 
@@ -5141,7 +5143,7 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
   // Mar 15 2020: allow numerical glitches in TMPMIN and TMPMAX
 
   int 
-    ivar, ifun, NFUN, NVAR, ID, igrid, MSK, NBIN
+    ivar, ifun, NFUN, NVAR, ID, igrid, MSK, NBIN, OPT_EXTRAP
     ,NCORNERS, icorner, igrid_tmp, igrid_1D, g
     ,igrid_cell[100], igrid_var[100], IGRID_VAR[100]
     ;
@@ -5154,7 +5156,8 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
 
   double EPSILON = 1.0E-8 ;
 
-  int  LDMP=0;
+  int  LDMP=0 ;
+  bool outside_bound, too_lo, too_hi ;
   char fnam[] = "interp_GRIDMAP" ;
 
   // ---------- BEGIN ------------
@@ -5162,6 +5165,7 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
   ID   = gridmap->ID ;
   NVAR = gridmap->NDIM ;
   NFUN = gridmap->NFUN ;
+  OPT_EXTRAP = gridmap->OPT_EXTRAP ;
 
   for  ( ifun=0; ifun < NFUN; ifun++ )   {  
     *(interpFun + ifun) = 0.0 ; 
@@ -5184,12 +5188,25 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
     TMPMAX += (1.0E-14*TMPRANGE);
     TMPMIN -= (1.0E-14*TMPRANGE);
 
-    // check extrap option
-    if ( gridmap->OPT_EXTRAP ) {
-      if ( TMPVAL < TMPMIN ) { TMPVAL = TMPMIN + (TMPRANGE*1.0E-12); }
-      if ( TMPVAL > TMPMAX ) { TMPVAL = TMPMAX - (TMPRANGE*1.0E-12); }	
-    }
+    too_lo        = ( TMPVAL < TMPMIN ) ;
+    too_hi        = ( TMPVAL > TMPMAX ) ;
+    outside_bound = ( too_lo || too_hi );
 
+    if ( outside_bound ) {
+      // check extrap option
+      if ( OPT_EXTRAP > 0 ) {
+	if ( too_lo ) { TMPVAL = TMPMIN + (TMPRANGE*1.0E-12); }
+	if ( too_hi ) { TMPVAL = TMPMAX - (TMPRANGE*1.0E-12); }
+      }
+      else if ( OPT_EXTRAP < 0 ) {
+	// ??
+      }
+      else 
+	{ return(ERROR); }
+	
+    } // end outside_bound
+
+ 
     /*
     if ( TMPVAL < TMPMIN  || TMPVAL > TMPMAX ) {
       printf(" %s ERROR: TMPVAL=%le not between %le and %le \n",
@@ -5199,9 +5216,10 @@ int interp_GRIDMAP(GRIDMAP *gridmap, double *data, double *interpFun ) {
     } 
     */
 
+    /* xxxx mark delete  Oct 15 2020 xxxxxxxxx
     if ( TMPVAL < TMPMIN ) { return(ERROR) ; }
     if ( TMPVAL > TMPMAX ) { return(ERROR) ; }
-
+    xxxx */
 
     TMPDIF  = TMPVAL - TMPMIN ;
     if ( TMPBIN == 0.0 )
@@ -7458,16 +7476,12 @@ double dLmag ( double H0, double OM, double OL, double W,
   //
   double rz, dl, arg, mu ;
   double zero = 0.0 ;
-
   // ----------- BEGIN -----------
-
   rz     = Hzinv_integral ( H0, OM, OL, W, zero, zCMB );
   dl     = ( 1.0 + zHEL ) * rz ;
   arg    = (double)10.0 * PC_km / dl ;
   mu     = -5.0 * log10( arg );
-
   return mu ;
-
 }  // end of dLmag
 
 double dlmag_ (double *H0, double *OM, double *OL, double *W,

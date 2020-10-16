@@ -14,6 +14,10 @@
 // ***********************************
 void init_HzFUN_INFO(double *cosPar, char *fileName, HzFUN_INFO_DEF *HzFUN) {
 
+  // initialize input struct HzFUN with either
+  //  * wCDM params in cosPar (analytic cosmology theory)
+  //  * Hz vs. z map read from fileName (used for interpolation)
+
   int ipar;
   char fnam[] = "init_HzFUN_INFO";
 
@@ -106,9 +110,9 @@ double SFRfun_BG03(double H0, double z) {
 
   /***
       Compute sfr(z) = (a+b*z)/(1+(z/c)^d)*h solar_mass/yr/Mpc^3
-      where presumably h = H0/(100 km/s/Mpc)
+      where H0 unit is km/s/Mpc and  h = H0/(100 km/s/Mpc)
      
-     Oct 16 2020: rename SFRfun -> SFRfun_BG03
+      Oct 16 2020: rename SFRfun -> SFRfun_BG03
   ***/
 
   // -- Baldry and Glazebrook IMF --
@@ -127,8 +131,7 @@ double SFRfun_BG03(double H0, double z) {
   h    = H0 / 100. ; 
   SFRLOC = h * tmp1 / tmp2 ;
   return(SFRLOC) ;
-
-}
+}  // end SFRfun_BG03
 
 // *******************************************
 double SFRfun_MD14(double z, double *params) {
@@ -146,8 +149,8 @@ double SFRfun_MD14(double z, double *params) {
   double z1     = 1.0 + z;
   double top    = A*pow(z1,C);
   double bottom = 1.0 + pow( (z1/B), D );
-
-  return( top / bottom );  // also see Eq 8+9 of Strolger 2015          
+  double SFR    = top/bottom; // also see Eq 8+9 of Strolger 2015 
+  return(SFR);
 
 } // end SFRfun_MD14
 

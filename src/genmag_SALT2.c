@@ -194,6 +194,7 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
  Jan 19 2020: in INTEG_zSED_SALT2, fix memory leak related to local magSmear.
  Mar 24 2020: if ISMODEL_SALT3, then read SALT3.INFO 
  Sep 03 2020: check REQUIRE_DOCANA
+ Oct 16 2020: refactor SALT2magerr to handle SALT3 vs. SALT2 vartot
 
 ****************************************************************/
 
@@ -1880,7 +1881,7 @@ void genmag_SALT2(
   double 
     meanlam_obs,  meanlam_rest, ZP, z1
     ,Tobs, Tobs_interp, Trest, Trest_interp, flux, flux_interp
-    ,arg, magerr, Finteg, Finteg_ratio, FspecDum[10]
+    ,arg, magerr, Finteg, Finteg_noMW, Fratio_noMW, FspecDum[10]
     ,lamrest_forErr, Trest_forErr, z1_forErr, magobs
     ;
 
@@ -1956,7 +1957,7 @@ void genmag_SALT2(
     // brute force integration
     Tobs_interp = Trest_interp * z1 ;
     INTEG_zSED_SALT2(0,ifilt_obs, z, Tobs_interp, x0,x1,c, RV_host, AV_host,
-		     &Finteg, &Finteg_ratio, FspecDum ); // returned
+		     &Finteg, &Finteg_noMW, &Fratio_noMW, FspecDum); // returned
     flux_interp = Finteg ;
 
     // ------------------------
@@ -1976,7 +1977,7 @@ void genmag_SALT2(
       flux_edge  = flux_interp ;
       Tobs_tmp   = Trest_tmp * z1 ;
       INTEG_zSED_SALT2(0,ifilt_obs,z,Tobs_tmp, x0,x1,c, RV_host,AV_host,
-		       &Finteg, &Finteg_ratio, FspecDum ); // returned
+		       &Finteg, &Finteg_noMW,&Fratio_noMW,FspecDum); // return
       flux_tmp = Finteg;
       
       slope_flux = -(flux_tmp - flux_edge)/nday_slope ;
@@ -2038,12 +2039,14 @@ void genmag_SALT2(
     // -------- END OF DEBUG DUMP  ------------
 
     // get the mag error and pass the LDMP_DEBUG flag from above.
+    // Fratio_noMW is used by SALT2
+    // Finteg_noMW/x0 is used by SALT3
     if ( OPT_DOERR ) {
       z1_forErr      = (1.0 + z_forErr);
       Trest_forErr   = Tobs / z1_forErr ;
       lamrest_forErr = meanlam_obs / z1_forErr ;
       magerr = SALT2magerr(Trest_forErr, lamrest_forErr, z_forErr,
-			   x1_forErr, Finteg_ratio, LDMP_DEBUG );
+			   x1_forErr, Finteg_noMW/x0, Fratio_noMW, LDMP_DEBUG);
     }
     else
       { magerr = 0.0 ; }
@@ -2062,7 +2065,8 @@ void genmag_SALT2(
 
 // *****************************************
 double SALT2magerr(double Trest, double lamRest, double z,
-		   double x1, double Finteg_ratio, int LDMP ) {
+		   double x1, double Finteg_noMW, double Fratio_noMW, 
+		   int LDMP ) {
 
   // Created Jun 2011 by R.Kessler
   // return mag-error for this epoch and rest-frame <lamRest>.
@@ -2072,7 +2076,9 @@ double SALT2magerr(double Trest, double lamRest, double z,
   //   - lamRest : <lamObs>/(1+z) = mean wavelength in rest-frame
   //   - z       : redshift
   //   - x1      : stretch parameter.
-  //   - Finteg_ratio : flux-ratio between the surfaces,
+  //   - Finteg_noMW : model flux (M0 + x1*M1) used for SALT3 covar
+  //
+  //   - Fratio_noMW : for SALT2, flux-ratio between the surfaces,
   //                     Finteg[1] / Finteg[0]
   //
   //   - LDMP : dump-and-exit flag
@@ -2080,17 +2086,16 @@ double SALT2magerr(double Trest, double lamRest, double z,
   // Nov 7 2019: for SALT3 (retraining), set relx1=0. We don't understand
   //             the origin of this term, so scrap it for SALT3.
   // 
+  // Oct 16 2020: vartot 
+  //   + pass new arg Finteg_noMW
+  //   + vartot_flux for SALT3 (relative for SALT2)
+  //
+
   double 
-     ERRMAP[NERRMAP]
-    ,Trest_tmp
-    ,vartot, var0, var1
-    ,relsig0, relsig1, relx1
-    ,covar01, rho, errscale
-    ,fracerr_snake
-    ,fracerr_kcor
-    ,fracerr_TOT
-    ,magerr_model, magerr
-    ,lamObs
+     ERRMAP[NERRMAP], Trest_tmp
+    ,vartot_rel, vartot_flux, flux_c0, var0, var1, relsig0, relsig1, relx1
+    ,covar01, rho, errscale, fracerr_snake, fracerr_kcor, fracerr_TOT
+    ,magerr_model, magerr, lamObs
     ,ONE = 1.0
     ;
 
@@ -2098,6 +2103,8 @@ double SALT2magerr(double Trest, double lamRest, double z,
 
   // ---------------- BEGIN ---------------
   
+  lamObs = lamRest * ( 1. + z );
+
   // Make sure that Trest is within range of map.
 
   if ( Trest > SALT2_ERRMAP[0].DAYMAX ) 
@@ -2115,19 +2122,32 @@ double SALT2magerr(double Trest, double lamRest, double z,
   covar01  = ERRMAP[INDEX_ERRMAP_COVAR01] ;  // 
   errscale = ERRMAP[INDEX_ERRMAP_SCAL] ;  // error fudge  
 
-  relx1    = x1 * Finteg_ratio ;
-  if ( ISMODEL_SALT3 ) { relx1 = 0.0 ; } 
+  // xxxx  if ( ISMODEL_SALT3 ) { relx1 = 0.0 ; } 
+  vartot_rel = vartot_flux = 0.0 ;
 
-  // compute fractional error as in  Guy's ModelRelativeError function
-  vartot  = var0 + var1*x1*x1 + (2.0 * x1* covar01) ;
-  //  if ( vartot < 0 ) { vartot = -vartot ; }  // protect in wierd cases
-  if ( vartot < 0 ) { vartot = 0.01*0.01 ; }  // Jul 9 2013: follow JG 
-  
-  fracerr_snake = errscale * sqrt(vartot)/fabs(ONE + relx1) ;   
-  fracerr_kcor  = SALT2colorDisp(lamRest,fnam); 
+  if ( ISMODEL_SALT3 ) {
+    // Dave and D'Arcy's vartot has flux units (M0+x1*M1), not relative units
+    relx1 = 0.0 ;
+    vartot_flux = var0 + var1*x1*x1 + (2.0 * x1* covar01) ;
+    flux_c0     = Finteg_noMW ;  // no Gal extinc and c=0
+
+    if ( vartot_flux < 0   ) { vartot_flux = -vartot_flux ; } // W.A.G
+    if ( flux_c0     < 0.0 ) { flux_c0     = -flux_c0 ; }     // W.A.G
+    fracerr_snake = sqrt(vartot_flux)/flux_c0 ;
+  }
+  else {
+    // SALT2: fractional error as in  Guy's ModelRelativeError function
+    relx1       = x1 * Fratio_noMW ;
+    vartot_rel  = var0 + var1*x1*x1 + (2.0 * x1* covar01) ;
+    if ( vartot_rel < 0 ) { vartot_rel = 0.01*0.01 ; } // 7/2013: follow JG 
+    fracerr_snake = errscale * sqrt(vartot_rel)/fabs(ONE + relx1) ;   
+  }
+
+  // kcor/color error is the same for SALT2,SALT3
+  fracerr_kcor = SALT2colorDisp(lamRest,fnam); 
 
   // get total fractional  error.
-  fracerr_TOT = sqrt( pow(fracerr_snake,2.0) + pow(fracerr_kcor,2.0) ) ;
+  fracerr_TOT  = sqrt( pow(fracerr_snake,2.0) + pow(fracerr_kcor,2.0) ) ;
 
   // convert frac-error to mag-error, and load return array
   if ( fracerr_TOT > .999 ) 
@@ -2138,7 +2158,6 @@ double SALT2magerr(double Trest, double lamRest, double z,
   }
 
   // check for error fudges
-  lamObs = lamRest * ( 1. + z );
   magerr = magerrFudge_SALT2(magerr_model, lamObs, lamRest );
 
 
@@ -2154,8 +2173,11 @@ double SALT2magerr(double Trest, double lamRest, double z,
     printf(" xxxx Trest=%6.2f  lamRest = %6.0f   z=%6.4f\n", 
 	   Trest, lamRest, z );
 
-    printf(" xxxx var0=%le  var1=%le  vartot=%le  \n", 
-	   var0, var1, vartot );
+    printf(" xxx Fratio_noMW = %le,  Finteg_noMW = %le \n",
+	   Fratio_noMW, Finteg_noMW );
+
+    printf(" xxxx var0=%le  var1=%le  vartot_[rel,flux]=%le,%le  \n", 
+	   var0, var1, vartot_rel, vartot_flux );
 
     printf(" xxxx relsig0=%f  relsig1=%f  rho=%f  scale=%f\n", 
 	   relsig0, relsig1, rho, errscale );
@@ -2227,7 +2249,8 @@ double magerrFudge_SALT2(double magerr_model,
 void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 
 		      double x0, double x1, double c,
 		      double RV_host, double AV_host,
-		      double *Finteg, double *Fratio, double *Fspec ) {
+		      double *Finteg, double *Finteg_noMW, double *Fratio, 
+		      double *Fspec ) {
 
   // May 2011
   // obs-frame integration of SALT2 flux.
@@ -2280,6 +2303,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   // Jan 19 2020:
   //   replace local magSmear[ilam] with global GENSMEAR.MAGSMEAR_LIST
   //   so that it works properly with repeat function.
+  //
+  // Oct 16 2020: include outpout arg Finteg_noMW (for SALT3)
 
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
@@ -2307,14 +2332,11 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
   // ----------- BEGIN ---------------
 
-  *Fratio   = 0.0 ;
-  *Finteg   = 0.0 ;
+  *Finteg = *Finteg_noMW = *Fratio = 0.0 ;
   Fspec[0] = 0.0 ; // init only first element
 
-  Finteg_filter[0]  = 0.0 ;
-  Finteg_filter[1]  = 0.0 ;
-  Finteg_forErr[0] = 0.0 ;
-  Finteg_forErr[1] = 0.0 ;
+  for(ised=0; ised<2; ised++ ) 
+    { Finteg_filter[ised]  = Finteg_forErr[ised] = 0.0 ;  }
 
   ifilt     = IFILTMAP_SEDMODEL[ifilt_obs] ;
   NLAMFILT  = FILTER_SEDMODEL[ifilt].NLAM ;
@@ -2787,7 +2809,7 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
     COV_TMP,  COV_DIAG
     ,meanlam_obs, meanlam_rest, invZ1
     ,cDisp[MXFILT_SEDMODEL]
-    ,Finteg, Fratio, FspecDum[10], magerr
+    ,Finteg, Finteg_noMW, Fratio_noMW, FspecDum[10], magerr
     ,Tobs, Trest, Trest_tmp
     ,Trest_row, Trest_col
     ,FAC = 1.17882   //  [ 2.5/ln(10) ]^2
@@ -2864,9 +2886,10 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
 
 	INTEG_zSED_SALT2(0,ifilt_row,z,Tobs, x0, x1, c,    // input
 			 RV_host, AV_host,               // input
-			 &Finteg, &Fratio, FspecDum);    // returned
+			 &Finteg, &Finteg_noMW, &Fratio_noMW,FspecDum); // returned
 	
-	magerr = SALT2magerr(Trest, meanlam_rest, z, x1, Fratio, LDMP );
+	magerr = SALT2magerr(Trest, meanlam_rest, z, x1, 
+			     Finteg_noMW, Fratio_noMW, LDMP );
 	COV_DIAG = magerr*magerr ;
 	COV_TMP = COV_DIAG ;
       }
@@ -2890,7 +2913,7 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
 	  printf(" xxx ----------------- \n");
 	  printf(" xxx COV_DIAGON[ %s , %s ] = %le \n", cdum0,cdum1, COV_DIAG);
 	  printf(" xxx meanlam_rest = %f  z=%f  x1=%f  Fratio=%f \n",
-		 meanlam_rest, z, x1, Fratio );
+		 meanlam_rest, z, x1, Fratio_noMW );
 	  printf(" xxx ----------------- \n");
 	}
 
@@ -3158,7 +3181,8 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
   double MAG_OFFSET = INPUT_SALT2_INFO.MAG_OFFSET ;  
 
   int ilam ;  
-  double Trest, Fratio, Finteg, FTMP, GENFLUX, ZP, MAG, LAM, z1, FSCALE_ZP ;
+  double Trest, Fratio, Finteg, Finteg_noMW;
+  double FTMP, GENFLUX, ZP, MAG, LAM, z1, FSCALE_ZP ;
   double hc8 = (double)hc ;
   //  char fnam[] = "genSpec_SALT2" ;
 
@@ -3175,7 +3199,7 @@ void genSpec_SALT2(double x0, double x1, double c, double mwebv,
 	
   INTEG_zSED_SALT2(1, JFILT_SPECTROGRAPH, z, Tobs, 
 		   x0, x1, c,	RV_host, AV_host,
-		   &Finteg, &Fratio, GENFLUX_LIST ) ;
+		   &Finteg, &Finteg_noMW, &Fratio, GENFLUX_LIST ) ;
 
   FSCALE_ZP = pow(TEN,-0.4*MAG_OFFSET);
 
@@ -3218,7 +3242,7 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   int NBLAM      = FILTER_SEDMODEL[ifilt].NLAM ;
   int MEMD   = NBLAM * sizeof(double);
   int ilam ;
-  double LAMOBS, LAMREST, z1, Finteg, Finteg_check, Fratio, TRANS ;
+  double LAMOBS, LAMREST, z1, Finteg, Finteg_noMW, Finteg_check, Fratio, TRANS ;
   double RV_host=-9.0, AV_host=0.0 ;
 
   double Tobs  = (double)Tobs_f ;
@@ -3238,7 +3262,7 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
 
   INTEG_zSED_SALT2(1, ifilt_obs, z, Tobs,         // (I)
 		   x0, x1, c, RV_host, AV_host,   // (I)
-		   &Finteg, &Fratio, FLUXLIST ) ; // (O)
+		   &Finteg, &Finteg_noMW, &Fratio, FLUXLIST ) ; // (O)
   
   Finteg_check = 0.0 ;  z1=1.0+z ;
   for(ilam=0; ilam < NBLAM; ilam++ ) {

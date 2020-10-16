@@ -224,7 +224,7 @@ double SALT2x0calc(double alpha, double beta, double x1, double c,
 double SALT2mBcalc(double x0); 
 
 double SALT2magerr(double Trest, double lamRest,  double z,
-		   double x1, double Finteg_ratio, int  LDMP );
+		   double x1, double Finteg_noMW, double Fratio_noMW, int LDMP);
 
 double SALT2colorDisp(double lam, char *callFun);
 
@@ -254,7 +254,8 @@ void  init_SALT2interp_ERRMAP(void);
 void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 
 		      double x0, double x1, double c,
 		      double RV_host, double AV_host,
-		      double *Finteg, double *Fratio, double *Fspec );
+		      double *Finteg, double *Finteg_noMW, 
+		      double *Fratio, double *Fspec );
 
 void get_fluxRest_SALT2(double lamRest_min, double lamRest_max,
 			double *fluxRest );

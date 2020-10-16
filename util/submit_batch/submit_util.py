@@ -18,8 +18,8 @@ def fix_partial_path(file_list):
     
     out_file_list = [] 
     for f0 in file_list :
-        f1 = f0  # default out file name is same as input file name.
-        if '/' in f0 and f0[0] != '/' :  f1 = (f"{CWD}/{f0}")
+        f1 = os.path.expandvars(f0)
+        if '/' in f1 and f1[0] != '/' :  f1 = (f"{CWD}/{f0}")
         out_file_list.append(f1)
 
     return out_file_list

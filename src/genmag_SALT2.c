@@ -2559,6 +2559,10 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   *Finteg  = x0 * ( Finteg_filter[0] + x1 * Finteg_filter[1] );
   *Finteg *= MODELNORM_Finteg ;
 
+  // repeat, but without MW extinction ... used later for error.
+  *Finteg_noMW  = x0 * ( Finteg_forErr[0] + x1 * Finteg_forErr[1] );
+  *Finteg_noMW *= MODELNORM_Finteg ;
+
   // May 6 2014:
   // Compute flux-ratio without Galactic extinction
   // (bug found by R. Biswas, and fixed at v10_35b)

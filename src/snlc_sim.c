@@ -2245,14 +2245,17 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   // Created July 21 2020 [refactor]
   // read input file for DNDZ or DNDB keys.
   // *WHAT = 'NOMINAL' or 'PEC1A'
+  //
+  // Oct 16 2020: abort on multiple rate models. Note that same model
+  //              key name can appear more than once; e.g., POWERLAW2.
 
   bool  IS_NOMINAL = (strcmp(WHAT,"NOMINAL") == 0 ) ;
   bool  IS_PEC1A   = (strcmp(WHAT,"PEC1A"  ) == 0 ) ;
 
   bool FOUND_PRIMARY_KEY, CONTINUE ;
-  int  N=0, n, j, NLOCAL, nread ;
+  int  N=0, n, j, NLOCAL, nread, NMODEL_LIST ;
   double l=0.0, b=0.0, bmax, R=0.0, TMPVAL ;
-  char KEYNAME[40];
+  char KEYNAME[40], TMPNAME[60];
   char fnam[] = "parse_input_RATEPAR" ;
 
   // ------------ BEGIN ------------
@@ -2313,9 +2316,18 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 
   if ( FOUND_PRIMARY_KEY ) {
 
-    N++; sscanf(WORDS[N], "%s", RATEPAR->NAME ); 
+    N++; sscanf(WORDS[N], "%s", TMPNAME ); 
 
-    if ( IGNOREFILE(RATEPAR->NAME) ) { return(N) ; }
+    // abort on multiple rate models
+    if ( !IGNOREFILE(RATEPAR->NAME) ) { 
+      if ( strcmp(RATEPAR->NAME,TMPNAME) != 0 ) {
+	sprintf(c1err,"cannot mix multiple rate models with %s", KEYNAME);
+	sprintf(c2err,"%s and %s (pick one)", RATEPAR->NAME, TMPNAME);
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+    }
+    
+    sprintf(RATEPAR->NAME, "%s", TMPNAME);
 
     // make sure that PEC1A rateModel is defined only for NON1A mode
     if ( IS_PEC1A &&  INPUTS.NON1A_MODELFLAG < 0 ) {
@@ -12517,7 +12529,6 @@ void  init_RATEPAR ( RATEPAR_DEF *RATEPAR ) {
 
   int i;
   char fnam[] = "init_RATEPAR" ;
-
   // ------------- BEGIN -------------
 
   RATEPAR->DNDZ_ZEXP_REWGT     = 0.0 ;
@@ -12535,9 +12546,8 @@ void  init_RATEPAR ( RATEPAR_DEF *RATEPAR ) {
   // xxx mark delete when OPT_DEVEL_READ_GENPOLY=1 by default
   RATEPAR->DNDZ_ZPOLY_REWGT_LEGACY[0] = 1.0 ;
   for(i=1; i<4; i++ ) { RATEPAR->DNDZ_ZPOLY_REWGT_LEGACY[i] = 0.0 ;  }
-  // xxxx mark delete
 
-  sprintf(RATEPAR->NAME, "HUBBLE"); 
+  sprintf(RATEPAR->NAME, "NONE"); 
   RATEPAR->NMODEL_ZRANGE  = 0 ;
   RATEPAR->INDEX_MODEL    = 0 ;
 

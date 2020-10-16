@@ -19081,4 +19081,18 @@
    sntools.c[h]:
       move cosmology functions to sntools_cosmology.c[h]
 
+
+# ======================================================================= 
+         v10_79 (  ) 
+
+         ***** IMPORTANT(v10_79) ***** 
+
+         ***** USEFUL(v10_79) ***** 
+
+         ***** MISCELLANEOUS(v10_79) ***** 
+
+   genmag_SALT2.c
+     + refactor SALT2magerr to treat SALT3 vartot as flux,
+       but SALT2 vartot as relative flux. 
+
 END: 

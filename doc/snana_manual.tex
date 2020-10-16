@@ -9813,6 +9813,7 @@ Examples are
    # models based on file; no restriction on PATH or fileName
    GENMODEL:  LCLIB      [PATH]/fileName
    GENMODEL:  NONIAGRID  [PATH]/fileName
+   GENMODEL:  SIMLIB     # use MAG column in SIMLIB_FILE argument
 \end{Verbatim}
 %
 An environement variable can be used as part of the{\tt [PATH]};
@@ -10535,6 +10536,11 @@ An example use of this feature is to simulate mags of
 ``fake'' SN overlaid on images. The redshift, peakMJD, and GALID
 are automatically read from the \simlib\ headers, and the
 original GALID is used to model host noise.
+Sim-input file syntax:
+\begin{verbatim}
+   GENMODEL:  SIMLIB     # use MAG column in SIMLIB_FILE argument
+\end{verbatim}
+
 
 % -----------------------------------------
 \subsection{{\LCLIB}: Galactic Transients}

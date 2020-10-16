@@ -769,12 +769,14 @@ void ENVrestore(char *fileName_noENV, char *fileName_orig);
 
 // cosmology functions
 
+/* xxx mark delete Oct 2020 xxxxx
 double SFR_integral( double H0, double OM, double OL, double W, double Z );
 double SFRfun(double H0, double z) ;
 double SFRfun_MD14(double z, double *params);
 
 double dVdz_integral ( double H0, double OM, double OL, double W, 
 		       double Zmax, int wgtopt ) ;
+
 double dvdz_integral__ ( double *H0, double *OM, double *OL, double *W, 
 			 double *Zmax, int *wgtopt ) ;
 
@@ -788,14 +790,28 @@ double Hainv_integral ( double H0, double OM, double OL, double W,
 double Hzfun ( double H0, double OM, double OL, double W, double Z ) ;
 double dLmag ( double H0, double OM, double OL, double W, 
 	       double zCMB, double zHEL ) ;
-double dlmag_ (double *H0, double *OM, double *OL, double *W, 
-	       double *zCMB, double *zHEL ) ;
 
 double zcmb_dLmag_invert(double H0, double OM, double OL, double W, double MU);
 
+double zhelio_zcmb_translator (double z_input, double RA, double DECL, 
+			       char *coordSys, int OPT ) ;
+double zhelio_zcmb_translator__ (double *z_input, double *RA, double *DECL, 
+				 char *coordSys, int *OPT ) ;
+
+xxxxx end mark xxxxxxxxxx*/
+
+// SLALIB functions translated by D. Cinabro
+void slaEqgal ( double dr, double dd, double *dl, double *db );
+void slaDcs2c ( double a, double b, double v[3] );
+void slaDmxv ( double dm[3][3], double va[3], double vb[3] );
+void slaDcc2s ( double v[3], double *a, double *b );
+double slaDrange ( double angle );
+double slaDranrm ( double angle );
+
+// - - - - - 
+
 double angSep( double RA1,double DEC1,
 	       double RA2,double DEC2, double  scale);
-
 
 // random-number generators.
 // May 2014: snran1 -> Flatran1,  float rangen -> double FlatRan
@@ -827,7 +843,6 @@ double skewGauss(double x, double siglo,double sighi,
 
 void   init_GaussIntegral(void);
 double GaussIntegral(double nsig1, double nsig2);
-
 
 // ------ index mapping
 void clear_1DINDEX(int ID);
@@ -865,20 +880,6 @@ void sortint_(int *NSORT, int *ARRAY, int *ORDER,
 void invertMatrix (int  N, int  n, double *Matrix ) ;
 void invertmatrix_(int *N, int *n, double *Matrix ) ;
 
-double zhelio_zcmb_translator (double z_input, double RA, double DECL, 
-			       char *coordSys, int OPT ) ;
-double zhelio_zcmb_translator__ (double *z_input, double *RA, double *DECL, 
-				 char *coordSys, int *OPT ) ;
-double Z2CMB (double z_helio, double RA, double DECL, char *coordSys ) ;
-double z2cmb_(double *z_helio, double *RA, double *DECL, char *coordSys );
-
-// SLALIB functions translated by D. Cinabro
-void slaEqgal ( double dr, double dd, double *dl, double *db );
-void slaDcs2c ( double a, double b, double v[3] );
-void slaDmxv ( double dm[3][3], double va[3], double vb[3] );
-void slaDcc2s ( double v[3], double *a, double *b );
-double slaDrange ( double angle );
-double slaDranrm ( double angle );
 
 // functions for user-define PATH_SNDATA_SIM
 #define MXPATH_SNDATA_SIM 20

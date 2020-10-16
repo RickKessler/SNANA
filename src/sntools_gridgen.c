@@ -48,6 +48,7 @@
 */
 
 #include "sntools.h"      // general snana stuff
+#include "sntools_cosmology.h"
 #include "fitsio.h"
 #include "sntools_grid.h"
 #include "snlc_sim.h"

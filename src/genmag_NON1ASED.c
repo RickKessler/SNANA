@@ -38,6 +38,7 @@
 #include <sys/stat.h>
 
 #include "sntools.h" 
+#include "sntools_cosmology.h" 
 #include "fitsio.h"
 #include "sntools_grid.h"
 #include "snlc_sim.h"      // need the typedefs only

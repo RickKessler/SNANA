@@ -842,6 +842,7 @@ Default output files (can change names with "prefix" argument)
  ******************************************************/
 
 #include "sntools.h" 
+#include "sntools_cosmology.h" 
 #include "sntools_output.h" 
 #include <gsl/gsl_fit.h>  // Jun 13 2016
 #include <sys/types.h>
@@ -18932,7 +18933,6 @@ double rombint(double f(double z, double *cosPar),
 double inc(double z, double *cosPar) {
 
   // Nov 22 2017: speed things up a little with fabs checks on zzpow and wa
-
   double hubble, rhode, omega_m, omega_k, omega_l, wde, wa ;
   double zz, zzpow;
   
@@ -18955,7 +18955,7 @@ double inc(double z, double *cosPar) {
   hubble = sqrt( (omega_m*(zz*zz*zz)) + rhode + (omega_k*(zz*zz)) );
   
   return(1.0/hubble);
-					  
+
 } // end inc
 
 

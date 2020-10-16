@@ -10,6 +10,7 @@
 
 #include "wfit.h"
 #include "sntools.h"
+#include "sntools_cosmology.h"
 #include "sntools_output.h"
 
 /***************************************************************************** 
@@ -2547,7 +2548,6 @@ void test_codist() {
 
     ra = Hainv_integral ( H0, cpar.omm, cpar.ome, cpar.w0,
 			  atmp, amax );
-
 
     rz *= H0/LIGHT_km ;
     ra *= H0/LIGHT_km ;

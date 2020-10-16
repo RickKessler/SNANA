@@ -29,6 +29,7 @@
 #include "fitsio.h"
 #include "MWgaldust.h"
 #include "sntools.h"
+#include "sntools_cosmology.h"
 #include "snlc_sim.h"
 #include "sntools_devel.h"
 #include "sntools_host.h"
@@ -109,6 +110,9 @@ int main(int argc, char **argv) {
   // check for random CID option (after randoms are inited above)
   init_CIDRAN();
 
+  // prepare random systematic shifts after reading SURVEY from SIMLIB
+  prep_RANSYSTPAR() ; // moved BEFORE init_RateModel (Oct 16 2020)
+
   // init based on GENSOURCE
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
     init_RANDOMsource();
@@ -127,9 +131,10 @@ int main(int argc, char **argv) {
   }
 
   // prepare random systematic shifts after reading SURVEY from SIMLIB
-  prep_RANSYSTPAR() ;
+  // xxx prep_RANSYSTPAR() ; // .xyz move before init_RateModel ??
 
-  // abort on NGEN=0 after printing N per season (init_DNDZ_Rate above)
+
+  // abort on NGEN=0 after printing N per season (init_Rate above)
   if ( INPUTS.NGEN_LC <= 0 && INPUTS.NGENTOT_LC <= 0 ) {
     sprintf(c1err,"NGEN_LC=0 & NGENTOT_LC=0" );
     errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
@@ -678,7 +683,7 @@ void set_user_defaults(void) {
   INPUTS.W0_LAMBDA     =  (double)w0_DEFAULT ;
   INPUTS.H0            =  (double)H0_SALT2 ;
   INPUTS.MUSHIFT       =   0.0 ;
-  INPUTS.GENPDF_FILE[0] = 0;
+  INPUTS.HzFUN_FILE[0] = 0 ;
 
   INPUTS.GENRANGE_RA[0]   = -360.0  ;
   INPUTS.GENRANGE_RA[1]   = +360.0  ;
@@ -2032,7 +2037,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.MUSHIFT );
   }
   else if ( keyMatchSim(1, "GENHD_FILE", WORDS[0],keySource) ) {
-    N++ ; sscanf(WORDS[N], "%s", INPUTS.GENHD_FILE );
+    N++ ; sscanf(WORDS[N], "%s", INPUTS.HzFUN_FILE );
   }
   // - - - 
   else if ( keyMatchSim(1, "FUDGE_SNRMAX", WORDS[0],keySource) ) {
@@ -4481,6 +4486,7 @@ void prep_user_input(void) {
   Feb 15 2019: turn off INPUTS.GENMAG_SMEAR_MODELNAME for SIMSED model.
   Dec 01 2019: allow COH scatter gmodel for NON1ASED and SIMSED models.
   Feb 06 2020: set DO_AV for GRIDGEN
+  Oct 16 2020: call prep_user_cosmology()
 
   *******************/
 
@@ -4533,6 +4539,8 @@ void prep_user_input(void) {
   ENVreplace(INPUT_ZVARIATION_FILE,fnam,1);
 
   INDEX_GENMODEL = 0 ;
+
+  prep_user_cosmology(); // Oct 16 2020 ... for next SNANA version
 
   sprintf(GENLC.SHAPEPAR_NAME,    "NULL");
   sprintf(GENLC.SHAPEPAR_GENNAME, "NULL");
@@ -4993,16 +5001,18 @@ void prep_user_input(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  if ( IGNOREFILE(INPUTS.GENHD_FILE) ) {
+  
+  // xxxxxxxx mark delete when init_HzFUN_INFO is used xxxxxxx
+  if ( IGNOREFILE(INPUTS.HzFUN_FILE) ) {
     printf("\t OMEGA_(MATTER,LAMBDA)= %5.3f, %5.3f,    w0= %5.2f   H0=%5.1f \n"
-	   ,INPUTS.OMEGA_MATTER
-	   ,INPUTS.OMEGA_LAMBDA
-	   ,INPUTS.W0_LAMBDA
-	   ,INPUTS.H0 	 );
+	   ,INPUTS.OMEGA_MATTER, INPUTS.OMEGA_LAMBDA
+	   ,INPUTS.W0_LAMBDA, INPUTS.H0  );
   }
   else {
-    printf("\t GENHD from file: %s \n", INPUTS.GENHD_FILE);
+    printf("\t HzFUN from file: %s \n", INPUTS.HzFUN_FILE);
   }
+  // xxxxxxxxx
+
 
   printf("\t KCOR  file : %s \n", INPUTS.KCOR_FILE );
 
@@ -5257,6 +5267,43 @@ void prep_user_input(void) {
   return ;
 
 } // end of prep_user_input().
+
+
+// ===================================
+void prep_user_cosmology(void) {
+
+  // Created Oct 2020
+  // Call init_HzFUN_INFO to either store user-input cosmology params,
+  // or to read z,H(z) from 2-column input file.
+  //
+ 
+  double cosPar[NCOSPAR_HzFUN];
+  char  *HzFUN_FILE = INPUTS.HzFUN_FILE ;
+  int ipar;
+  char fnam[] = "prep_user_cosmology";
+
+  // ------- BEGIN ----------
+  
+  if ( IGNOREFILE(HzFUN_FILE) ) {
+    cosPar[ICOSPAR_HzFUN_H0] = INPUTS.H0;
+    cosPar[ICOSPAR_HzFUN_OM] = INPUTS.OMEGA_MATTER ;
+    cosPar[ICOSPAR_HzFUN_OL] = INPUTS.OMEGA_LAMBDA ;
+    cosPar[ICOSPAR_HzFUN_w0] = INPUTS.W0_LAMBDA ;
+    cosPar[ICOSPAR_HzFUN_wa] = 0.0 ;
+  }
+  else  { 
+    // set wCDM params to -9 if using H(z) map from file
+    for(ipar=0; ipar<NCOSPAR_HzFUN; ipar++) 
+      { cosPar[ipar] = -9.0; } 
+  }
+
+  // init structure that gets passed later to cosmology functions
+  init_HzFUN_INFO(cosPar, HzFUN_FILE, 
+		  &INPUTS.HzFUN_INFO ); // <== returned 
+
+  return;
+
+} // end prep_user_cosmology
 
 // ===================================
 void prep_user_CUTWIN(void) {
@@ -12664,11 +12711,11 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
     H0=INPUTS.H0 ;
     OM=INPUTS.OMEGA_MATTER; OL=INPUTS.OMEGA_LAMBDA ;  W=INPUTS.W0_LAMBDA;
 
-    // get star formation rate    
-    sfr    = SFRfun(H0,z);
+    // get star formation rate 
+    sfr    = SFRfun_BG03(H0,z);
 
     // determine integrated stellar mass 
-    sfrint = SFR_integral ( H0, OM, OL, W, z ) ;
+    sfrint = SFR_integral( H0, OM, OL, W, z ) ;
 
     // compute rate from 2-component model
     rate = A * sfrint  +  B * sfr ;

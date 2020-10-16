@@ -517,9 +517,9 @@ struct INPUTS {
   double OMEGA_LAMBDA;
   double W0_LAMBDA;
   double H0;           // km/s per MPc
-  double MUSHIFT;      // coherebt MU shift at all redshifts (Oct 2020) 
-  char   GENHD_FILE[MXPATHLEN];  // 2 column file with zCMB MU(theory)
-  double *GENHD_zCMB, *GENHD_MU; // store contents of GENHD_FILE
+  double MUSHIFT;      // coherent MU shift at all redshifts (Oct 2020) 
+  char   HzFUN_FILE[MXPATHLEN];  // 2 column file with zCMB H(z,theory)
+  HzFUN_INFO_DEF HzFUN_INFO;     // store cosmo theory info here.
 
   float GENRANGE_RA[2];     // RA range (deg) to generate
   float GENRANGE_DEC[2];   // idem for DEC
@@ -1717,6 +1717,7 @@ void   checkVal_GENGAUSS(char *varName, double *val, char *fromFun ) ;
 
 void   sim_input_override(void) ;  // parse command-line overrides
 void   prep_user_input(void);      // prepare user input for sim.
+void   prep_user_cosmology(void);
 void   prep_user_CUTWIN(void);
 void   prep_user_SIMSED(void);
 void   prep_dustFlags(void);

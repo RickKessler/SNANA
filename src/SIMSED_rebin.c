@@ -41,6 +41,7 @@
 #include <math.h>
 
 #include "sntools.h"
+//#include "sntools_cosmology.h"
 #include "MWgaldust.h"
 
 #include "genmag_SIMSED.h"

@@ -2691,6 +2691,293 @@ double angSep( double RA1,double DEC1,
 } // end of angSep
 
 
+// ==============================================================
+// Altered from the fortran SLALIB by David Cinabro, June 2006.
+// Translates equatorial coordinats (RA,DEC) to galactic
+// longitude and latitude.  All in degrees and double precision.
+// All the subroutines needed are included below.
+// Usage: 
+//    slaEqgal ( double RA, double DEC, double *GalLat, double *GalLong );
+// ==============================================================
+
+void slaEqgal ( double dr, double dd, double *dl, double *db )
+/*
+**  - - - - - - - - -
+**   s l a E q g a l
+**  - - - - - - - - -
+**
+**  Transformation from J2000.0 equatorial coordinates to
+**  IAU 1958 Galactic coordinates.
+**
+**  (double precision)
+**
+**  Given:
+**     dr,dd       double       J2000.0 RA,Dec
+**
+**  Returned:
+**     *dl,*db     double       Galactic longitude and latitude l2,b2
+**
+**  (all arguments were radians, but translation from and to degrees done below)
+**
+**  Called:
+**     slaDcs2c, slaDmxv, slaDcc2s, slaDranrm, slaDrange
+**
+**  Note:
+**     The equatorial coordinates are J2000.0.  Use the routine
+**     slaEg50 if conversion from B1950.0 'FK4' coordinates is
+**     required.
+**
+**  Reference:
+**     Blaauw et al, Mon.Not.R.astron.Soc.,121,123 (1960)
+**
+**  Last revision:   21 September 1998
+**
+**  Copyright P.T.Wallace.  All rights reserved.
+*/
+{
+   double v1[3], v2[3];
+   double drr, ddr;
+   double DPI = 3.1415926535897932384626433832795028841971693993751;
+
+/*
+**  l2,b2 system of Galactic coordinates
+**
+**  p = 192.25       RA of Galactic north pole (mean B1950.0)
+**  q =  62.6        inclination of Galactic to mean B1950.0 equator
+**  r =  33          longitude of ascending node
+**
+**  p,q,r are degrees
+**
+**  Equatorial to Galactic rotation matrix (J2000.0), obtained by
+**  applying the standard FK4 to FK5 transformation, for zero proper
+**  motion in FK5, to the columns of the B1950 equatorial to
+**  Galactic rotation matrix:
+*/
+   static double rmat[3][3];
+
+   rmat[0][0] = -0.054875539726;
+   rmat[0][1] = -0.873437108010;
+   rmat[0][2] = -0.483834985808;
+   rmat[1][0] =  0.494109453312;
+   rmat[1][1] = -0.444829589425;
+   rmat[1][2] =  0.746982251810;
+   rmat[2][0] = -0.867666135858;
+   rmat[2][1] = -0.198076386122;
+   rmat[2][2] =  0.455983795705;
+
+   // Translate to radians
+   drr = dr*DPI/180.0;
+   ddr = dd*DPI/180.0;
+
+/* Spherical to Cartesian */
+   slaDcs2c ( drr, ddr, v1 );
+
+/* Equatorial to Galactic */
+   slaDmxv ( rmat, v1, v2 );
+
+/* Cartesian to spherical */
+   slaDcc2s ( v2, dl, db );
+
+/* Express in conventional ranges */
+   *dl = slaDranrm ( *dl );
+   *db = slaDrange ( *db );
+   // Translate back to degrees
+   *dl = *dl*180.0/DPI;
+   *db = *db*180.0/DPI;
+   return ;
+}
+
+void slaDcs2c ( double a, double b, double v[3] )
+/*
+**  - - - - - - - - -
+**   s l a D c s 2 c
+**  - - - - - - - - -
+**
+**  Spherical coordinates to direction cosines (double precision)
+**
+**  Given:
+**     a,b       double      spherical coordinates in radians
+**                           (RA,Dec), (long,lat) etc
+**
+**  Returned:
+**     v         double[3]   x,y,z unit vector
+**
+**  The spherical coordinates are longitude (+ve anticlockwise looking
+**  from the +ve latitude pole) and latitude.  The Cartesian coordinates
+**  are right handed, with the x axis at zero longitude and latitude,
+**  and the z axis at the +ve latitude pole.
+**
+**  Last revision:   22 July 2004
+**
+**  Copyright P.T.Wallace.  All rights reserved.
+*/
+{
+   double cosb;
+   cosb = cos ( b );
+   v[0] = cos ( a ) * cosb;
+   v[1] = sin ( a ) * cosb;
+   v[2] = sin ( b );
+   return ;
+}
+
+void slaDmxv ( double dm[3][3], double va[3], double vb[3] )
+/*
+**  - - - - - - - -
+**   s l a D m x v
+**  - - - - - - - -
+**
+**  Performs the 3-d forward unitary transformation:
+**     vector vb = matrix dm * vector va
+**
+**  (double precision)
+**
+**  Given:
+**     dm       double[3][3]    matrix
+**     va       double[3]       vector
+**
+**  Returned:
+**     vb       double[3]       result vector
+**
+**  Note:  va and vb may be the same array.
+**
+**  Last revision:   22 July 2004
+**
+**  Copyright P.T.Wallace.  All rights reserved.
+*/
+{
+   int i, j;
+   double w, vw[3];
+
+
+/* Matrix dm * vector va -> vector vw. */
+   for ( j = 0; j < 3; j++ ) {
+      w = 0.0;
+      for ( i = 0; i < 3; i++ ) {
+         w += dm[j][i] * va[i];
+      }
+      vw[j] = w;
+   }
+
+/* Vector vw -> vector vb. */
+   for ( j = 0; j < 3; j++ ) {
+      vb[j] = vw[j];
+   }
+
+   return ;
+}
+
+void slaDcc2s ( double v[3], double *a, double *b )
+/*
+**  - - - - - - - - -
+**   s l a D c c 2 s
+**  - - - - - - - - -
+**
+**  Cartesian to spherical coordinates.
+**
+**  (double precision)
+**
+**  Given:
+**     v       double[3]   x,y,z vector
+**
+**  Returned:
+**     *a,*b   double      spherical coordinates in radians
+**
+**  The spherical coordinates are longitude (+ve anticlockwise looking
+**  from the +ve latitude pole) and latitude.  The Cartesian coordinates
+**  are right handed, with the x axis at zero longitude and latitude,
+**  and the z axis at the +ve latitude pole.
+**
+**  If v is null, zero a and b are returned.  At either pole, zero a is
+**  returned.
+**
+**  Last revision:   22 July 2004
+**
+**  Copyright P.T.Wallace.  All rights reserved.
+*/
+{
+   double x, y, z, r;
+
+   x = v[0];
+   y = v[1];
+   z = v[2];
+   r = sqrt ( x * x + y * y );
+
+   *a = ( r != 0.0 ) ? atan2 ( y, x ) : 0.0;
+   *b = ( z != 0.0 ) ? atan2 ( z, r ) : 0.0;
+   return ;
+}
+
+double slaDranrm ( double angle )
+/*
+**  - - - - - - - - - -
+**   s l a D r a n r m
+**  - - - - - - - - - -
+**
+**  Normalize angle into range 0-2 pi.
+**
+**  (double precision)
+**
+**  Given:
+**     angle     double      the angle in radians
+**
+**  The result is angle expressed in the range 0-2 pi (double).
+**
+**  Defined in slamac.h:  D2PI, dmod
+**
+**  Last revision:   19 March 1996
+**
+**  Copyright P.T.Wallace.  All rights reserved.
+*/
+{
+   double w;
+   double D2PI = 6.2831853071795864769252867665590057683943387987502;
+/* dmod(A,B) - A modulo B (double) */
+#define dmod(A,B) ((B)!=0.0?((A)*(B)>0.0?(A)-(B)*floor((A)/(B))\
+                                        :(A)+(B)*floor(-(A)/(B))):(A))
+
+   w = dmod ( angle, D2PI );
+   return ( w >= 0.0 ) ? w : w + D2PI;
+}
+
+double slaDrange ( double angle )
+/*
+**  - - - - - - - - - -
+**   s l a D r a n g e
+**  - - - - - - - - - -
+**
+**  Normalize angle into range +/- pi.
+**
+**  (double precision)
+**
+**  Given:
+**     angle     double      the angle in radians
+**
+**  The result is angle expressed in the range +/- pi.
+**
+**  Defined in slamac.h:  DPI, D2PI, dmod
+**
+**  Last revision:   22 July 2004
+**
+**  Copyright P.T.Wallace.  All rights reserved.
+*/
+{
+  double w;
+  double DPI = 3.1415926535897932384626433832795028841971693993751;
+  double D2PI = 6.2831853071795864769252867665590057683943387987502;
+/* dmod(A,B) - A modulo B (double) */
+#define dmod(A,B) ((B)!=0.0?((A)*(B)>0.0?(A)-(B)*floor((A)/(B))\
+                                        :(A)+(B)*floor(-(A)/(B))):(A))
+/* dsign(A,B) - magnitude of A with sign of B (double) */
+#define dsign(A,B) ((B)<0.0?-(A):(A))
+
+  w = dmod ( angle, D2PI );
+  return ( fabs ( w ) < DPI ) ? w : w - dsign ( D2PI, angle );
+}
+
+// =======================================
+//      end of SLALIB functions
+// =======================================
+
 int ENVreplace(char *fileName, char *callFun, int ABORTFLAG) {
 
   // Feb 2015 [major overhaul Mar 30 2019]
@@ -7144,401 +7431,6 @@ float effective_aperture ( float PSF_sigma, int VBOSE ) {
 
 
 
-
-// ****************************
-double SFR_integral( double H0, double OM, double OL, double W, double Z ) {
-
-  /***
-   Integrate SFR(t) from 0 to current time.
-   For convenience, integrate  over 'a' instead of redshift
-   [since z goes to infinity]
- 
-        /a
-       |   SFR(a') 
-     c |  ----------- da'
-       |  a' * H(a')
-       /0
-
-
-  ***/
-
-  int    ia, NABIN = 100 ;
-  double AMIN, AMAX, ABIN, atmp, ztmp, xa, tmp  ;
-  double sum, sfr, aH ;
-
-  double SECONDS_PER_YEAR = 3600. * 24. * 365. ;
-
-  // ---------- BEGIN ------------
-
-  AMIN = 0.0 ;
-  AMAX = 1. / (1. + Z) ;
-  ABIN = (AMAX - AMIN) / (double)NABIN ;
-
-  sum = 0.0 ;
-
-  for ( ia=1; ia <= NABIN; ia++ ) {
-    xa   = (double)ia ;
-    atmp = AMIN + ABIN * ( xa - 0.5 ) ;
-    ztmp = (1. / atmp) - 1.0 ;
-
-    sfr = SFRfun(H0,ztmp);
-    aH  = atmp * Hzfun(H0,OM,OL,W,ztmp) ;
-    sum += sfr / aH ;
-  }
-
-  // convert H (km/s/Mpc) to H(/year)
-
-  tmp = (1.0E6 * PC_km) / SECONDS_PER_YEAR ;
-  sum *= (ABIN * tmp) ;
-  return sum ;
-
-}  // end of function SFR_integral
-
-
-
-// ****************************
-double SFRfun(double H0, double z) {
-
-  /***
-      Compute sfr(z) = (a+b*z)/(1+(z/c)^d)*h solar_mass/yr/Mpc^3
-      where presumably h = H0/(100 km/s/Mpc)
-  ***/
-
-  // -- Baldry and Glazebrook IMF --
-  double a = 0.0118 ;
-  double b = 0.08 ;
-  double c = 3.3 ;
-  double d = 5.2 ;
-
-  double tmp1, tmp2, zc, h, SFRLOC;
-
-  // ------------ BEGIN --------------
-
-  zc   = z/c ;
-  tmp1 = a + b*z ;
-  tmp2 = 1.0 + pow(zc,d) ;
-  h    = H0 / 100. ;
-
-  SFRLOC = h * tmp1 / tmp2 ;
-
-  return(SFRLOC) ;
-
-}
-
-// *******************************************
-double SFRfun_MD14(double z, double *params) {
-
-  // Created Dec 2016 by R.Kessler
-  // use function from  Madau & Dickoson 2014,
-  // that was also used in Strolger 2015 for CC rate.
-  // This function intended for CC rate, so beware
-  // using for other purposes (e.g., no H0 factor here).
-
-  double A = params[0];
-  double B = params[1];
-  double C = params[2];
-  double D = params[3];
-  double z1     = 1.0 + z;
-  double top    = A*pow(z1,C);
-  double bottom = 1.0 + pow( (z1/B), D );
-
-  return( top / bottom );  // also see Eq 8+9 of Strolger 2015          
-
-} // end SFRfun_MD14
-
-// *******************************************
-double dVdz_integral
-( 
-  double H0    // (I) km/s per MPc
-  ,double OM    // (I) Omega_matter
-  ,double OL    // (I) Omega_lamba
-  ,double W     //  (I) w = rho/p
-  ,double Zmax  //  (I) integrate up to this redshift
-  ,int wgtopt   //  (I) weight integral by z^wgtopt
- ) {
-
-  //
-  // return integral of dV/dz = r(z)^2/H(z) dz
-  // wgtopt = 0:  returns standard volume integral
-  // wgtopt = 1:  returns  z-wgted integral
-
-  double sum, tmp, dz, Ztmp, wz, xz ;
-  int NZbin, iz;
-
-  // ---- BEGIN ----------
-
-  // compute exact integral
-
-  NZbin = (int)( Zmax * 1000.0 ) ;
-  if ( NZbin < 10 ) { NZbin = 10 ; }
-  dz   = Zmax / (float)NZbin ;   // integration binsize
-  sum = 0.0;
-
-  for ( iz=1; iz <= NZbin; iz++ ) {
-    xz   = (double)iz ;
-    Ztmp = dz * (xz - 0.5) ;
-    tmp  = dVdz ( H0, OM, OL, W, Ztmp );
-
-    wz = pow(Ztmp,(double)wgtopt);
-    sum += wz * tmp;
-
-  }
-
-  sum *= dz ;
-
-  //  printf(" xxxx dVdz_integral = %e (approx=%e) \n", sum, sumtmp  );
-
-  return sum ;
-
-}  // end of dVdz_integral
-
-
-double dvdz_integral__(double *H0, double *OM, double *OL, double *W,
-		       double *Zmax, int *wgtopt) {
-  return dVdz_integral(*H0,*OM,*OL,*W,*Zmax,*wgtopt);
-}
-
-
-
-
-// **********************************
-double dVdz 
-( 
-  double H0    // (I) km/s per MPc
- ,double OM    // (I) Omega_matter
- ,double OL    // (I) Omega_lamba
- ,double W    //  (I) w = rho/p
- ,double Z    //  (I) redshift
- ) {
-
-  // returns dV/dz = r(z)^2 / H(z)
-
-  double r, H, tmp ;
-  double zero = 0.0;
-
-  r = Hzinv_integral ( H0, OM, OL, W, zero, Z );
-  H = Hzfun ( H0, OM, OL, W, Z );
-
-  tmp = LIGHT_km * r * r / H ;
-
-  return tmp;
-
-}  // end of dVdz
-
-
-// ******************************************
-double Hzinv_integral 
-( 
- double H0     // (I) km/s per MPc
- ,double OM     // (I) Omega_matter
- ,double OL     // (I) Omega_lamba
- ,double W      //  (I) w = rho/p
- ,double Zmin   //  (I) min integ bin
- ,double Zmax   //  (I) integrate up to this redshift
- ) {
-
-  // 
-  // Jun 2016: bug fix, (float)NZbin -> (double)NZbin
-
-  int iz, NZbin ;
-  double dz, Hz, xz, Ztmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
-
-  // ------ return integral c*r(z) = int c*dz/H(z) -------------
-  // Note that D_L = (1+z)*Hzinv_integral
-
-  sum = 0.0;
-
-  NZbin = (int)( (Zmax-Zmin) * 1000.0 ) ;
-  if ( NZbin < 10 ) { NZbin = 10 ; }
-  dz  = (Zmax-Zmin) / (double)NZbin ;      // integration binsize
-
-  for ( iz=1; iz <= NZbin; iz++ ) {
-    xz   = (double)iz ;
-    Ztmp = Zmin + dz * (xz - 0.5) ;
-    Hz   = Hzfun ( H0, OM, OL, W, Ztmp );
-    sum += (1.0/Hz) ;
-  }
-
-  // remove H0 factor from inetgral before checking curvature.
-
-  sum *= (dz * H0) ;
-
-  // check for curvature
-  KAPPA      = 1.0 - OM - OL ; 
-  SQRT_KAPPA = sqrt(fabs(KAPPA));
-
-  if ( KAPPA < -0.00001 ) 
-    { Hzinv = sin( SQRT_KAPPA * sum ) / SQRT_KAPPA ; }
-  else if ( KAPPA > 0.00001 ) 
-    { Hzinv = sinh( SQRT_KAPPA * sum ) / SQRT_KAPPA ; }
-  else
-    { Hzinv = sum ; }
-
-
-  // return Hzinv with c/H0 factor
-  return (Hzinv * LIGHT_km / H0 ) ;
-
-} // end of Hzinv_integral
-
-
-// ******************************************
-double Hainv_integral 
-( 
- double H0     // (I) km/s per MPc
- ,double OM     // (I) Omega_matter
- ,double OL     // (I) Omega_lamba
- ,double W      //  (I) w = rho/p
- ,double amin   //  (I) min integ bin
- ,double amax   //  (I) integrate up to this redshift
- ) {
-
-  // May 29, 2008: same as Hzinv_integral, but integrate over a
-  // instead of over z.
-  // dz/E(z) :  z=1/a-1   dz = -da/a^2
-
-  int ia, Nabin ;
-  double da, Hz, xa, atmp, Ztmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
-
-  // ------ return integral c*r(z) = int c*dz/H(z) -------------
-  // Note that D_L = (1+z)*Hzinv_integral
-
-  sum = 0.0;
-
-  Nabin = (int)( (amax-amin) * 1000.0 ) ;
-  if ( Nabin < 10 ) { Nabin = 10 ; }
-  da   = (amax-amin) / (double)Nabin ;   // integration binsize
-
-  for ( ia=1; ia <= Nabin; ia++ ) {
-    xa   = (double)ia ;
-    atmp = amin + da * (xa - 0.5) ;
-    Ztmp = 1./atmp - 1.0 ;
-    Hz   = Hzfun ( H0, OM, OL, W, Ztmp );
-    sum += 1.0/( Hz * atmp * atmp) ;
-  }
-
-  // remove H0 factor from inetgral before checking curvature.
-
-  sum *= (da * H0) ;
-
-  // check for curvature
-  KAPPA      = 1.0 - OM - OL ; 
-  SQRT_KAPPA = sqrt(fabs(KAPPA));
-
-  if ( KAPPA < -0.00001 ) 
-    { Hzinv = sin( SQRT_KAPPA * sum ) / SQRT_KAPPA ; }
-  else if ( KAPPA > 0.00001 ) 
-    { Hzinv = sinh( SQRT_KAPPA * sum ) / SQRT_KAPPA ; }
-  else
-    { Hzinv = sum ; }
-
-
-  // return Hzinv with c/H0 factor
-  return (Hzinv * LIGHT_km / H0 ) ;
-
-} // end of Hainv_integral
-
-
-// ******************************************
-double Hzfun ( double H0, double OM, double OL, double W, double Z ) {
-
-  //  int iz, NZbin ;
-  double sqHz, Hz, ZZ, Z2, Z3, ZL, WW, KAPPA ;
-
-  // ------ returns H(z) -------------
-
-  KAPPA = 1.0 - OM - OL ;  // curvature
-
-  ZZ  = 1.0 + Z ;
-  Z2  = ZZ * ZZ ;  // avoid pow fun
-  Z3  = Z2 * ZZ ; 
-
-  WW  = 3.0 * (1.0 + W) ;
-  ZL  = pow(ZZ,WW) ;
-
-  sqHz = OM*Z3  +  OL*ZL  + KAPPA*Z2 ;
-
-  Hz = H0 * sqrt ( sqHz ) ;
-
-  return Hz ;
-
-} // end of Hzfun
-
-
-// ******************************************
-double dLmag ( double H0, double OM, double OL, double W, 
-	       double zCMB, double zHEL ) {
-
-  // returns luminosity distance in mags:
-  //   dLmag = 5 * log10(DL/10pc)
-  //
-  // BEWARE that input H0 is 1/seconds (not km/s/Mpc!)
-  // Jan 5 2015: pass zCMB and zHEL
-  //
-  double rz, dl, arg, mu ;
-  double zero = 0.0 ;
-  // ----------- BEGIN -----------
-  rz     = Hzinv_integral ( H0, OM, OL, W, zero, zCMB );
-  dl     = ( 1.0 + zHEL ) * rz ;
-  arg    = (double)10.0 * PC_km / dl ;
-  mu     = -5.0 * log10( arg );
-  return mu ;
-}  // end of dLmag
-
-double dlmag_ (double *H0, double *OM, double *OL, double *W,
-               double *zCMB, double *zHEL ) {
-  double mu = dLmag(*H0,*OM,*OL,*W,*zCMB,*zHEL);
-  return(mu);
-}
-
-
-double zcmb_dLmag_invert( double H0, double OM, double OL, double W, double MU ) {
-
-  // Created Jan 4 2018
-  // for input distance modulus (MU), solve for zCMB.
-  // Beware that H0 unit is km/s/pc (not per Mpc)
-
-  double zCMB, zCMB_start, dmu, DMU, mutmp, DL ;
-  double DMU_CONVERGE = 1.0E-4 ;
-  int    NITER=0;
-  char fnam[] = "zcmb_dLmag_invert" ;
-
-  // ---------- BEGIN ----------
-
-  // use naive Hubble law to estimate zCMB_start
-  DL    = pow( 10.0,(MU/5.0) ) * 1.0E-5 ; // Mpc
-  zCMB_start = (70.0*DL)/LIGHT_km ;
-  zCMB_start *= exp(-zCMB_start/6.0); // very ad-hoc estimate
-
-  zCMB = zCMB_start ;
-  DMU = 9999.0 ;
-  while ( DMU > DMU_CONVERGE ) {
-    mutmp  = dLmag(H0,OM,OL,W, zCMB, zCMB); // MU for trial zCMB
-    dmu    = mutmp - MU ;             // error on mu
-    DMU    = fabs(dmu);
-    zCMB  *= exp(-dmu/2.0); 
-
-    NITER++ ;
-    if ( NITER > 500 ) {
-      sprintf(c1err,"Could not solve for zCMB after NITER=%d", NITER);
-      sprintf(c2err,"MU=%f  dmu=%f  ztmp=%f", MU, dmu, zCMB);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-    }
-  } // end dz                                                                   
-
-  int LDMP=0 ;
-  if ( LDMP ) {
-    printf(" xxx --------------------------------------------- \n");
-    printf(" xxx MU=%.4f -> DL = %.2f Mpc  zCMB(start) = %.5f \n",
-	   MU, DL, zCMB_start );
-    printf(" xxx zCMB -> %.5f  DMU=%f after %d iterations \n",
-	   zCMB, DMU, NITER);
-  }
-
-  return(zCMB);
-
-} // end zcmb_dLmag_invert
-
-
 // ***************************************************
 void clr_VERSION ( char *version, int prompt ) {
 
@@ -11401,6 +11293,7 @@ void readdouble(FILE *fp, int nint, double *list)
 
 
 
+
 // ************************************************
 void readchar(FILE *fp, char *clist)    
 /*****
@@ -11443,12 +11336,403 @@ void debugexit(char *string) {
 }
 
 
+
+#ifdef OLD_COSMOLOGY
+// ********************
+//    COSMOLOGY FUNCTIONS TO MOVE  .xyz
+// ********************
+
+
+
+// ****************************
+double SFR_integral( double H0, double OM, double OL, double W, double Z ) {
+
+  //***
+  // Integrate SFR(t) from 0 to current time.
+  //  For convenience, integrate  over 'a' instead of redshift
+  //  [since z goes to infinity]
+  // 
+  //        /a
+  //   |   SFR(a') 
+  //   c |  ----------- da'
+  //     |  a' * H(a')
+  //     /0
+  //
+  //
+  // ***
+
+  int    ia, NABIN = 100 ;
+  double AMIN, AMAX, ABIN, atmp, ztmp, xa, tmp  ;
+  double sum, sfr, aH ;
+
+  double SECONDS_PER_YEAR = 3600. * 24. * 365. ;
+
+  // ---------- BEGIN ------------
+
+  AMIN = 0.0 ;
+  AMAX = 1. / (1. + Z) ;
+  ABIN = (AMAX - AMIN) / (double)NABIN ;
+
+  sum = 0.0 ;
+
+  for ( ia=1; ia <= NABIN; ia++ ) {
+    xa   = (double)ia ;
+    atmp = AMIN + ABIN * ( xa - 0.5 ) ;
+    ztmp = (1. / atmp) - 1.0 ;
+
+    sfr = SFRfun(H0,ztmp);
+    aH  = atmp * Hzfun(H0,OM,OL,W,ztmp) ;
+    sum += sfr / aH ;
+  }
+
+  // convert H (km/s/Mpc) to H(/year)
+
+  tmp = (1.0E6 * PC_km) / SECONDS_PER_YEAR ;
+  sum *= (ABIN * tmp) ;
+  return sum ;
+
+}  // end of function SFR_integral
+
+
+
+// ****************************
+double SFRfun(double H0, double z) {
+
+  //      Compute sfr(z) = (a+b*z)/(1+(z/c)^d)*h solar_mass/yr/Mpc^3
+  //    where presumably h = H0/(100 km/s/Mpc)
+
+  // -- Baldry and Glazebrook IMF --
+  double a = 0.0118 ;
+  double b = 0.08 ;
+  double c = 3.3 ;
+  double d = 5.2 ;
+
+  double tmp1, tmp2, zc, h, SFRLOC;
+
+  // ------------ BEGIN --------------
+
+  zc   = z/c ;
+  tmp1 = a + b*z ;
+  tmp2 = 1.0 + pow(zc,d) ;
+  h    = H0 / 100. ;
+
+  SFRLOC = h * tmp1 / tmp2 ;
+
+  return(SFRLOC) ;
+
+}
+
+// *******************************************
+double SFRfun_MD14(double z, double *params) {
+
+  // Created Dec 2016 by R.Kessler
+  // use function from  Madau & Dickoson 2014,
+  // that was also used in Strolger 2015 for CC rate.
+  // This function intended for CC rate, so beware
+  // using for other purposes (e.g., no H0 factor here).
+
+  double A = params[0];
+  double B = params[1];
+  double C = params[2];
+  double D = params[3];
+  double z1     = 1.0 + z;
+  double top    = A*pow(z1,C);
+  double bottom = 1.0 + pow( (z1/B), D );
+
+  return( top / bottom );  // also see Eq 8+9 of Strolger 2015          
+
+} // end SFRfun_MD14
+
+// *******************************************
+double dVdz_integral
+( 
+  double H0    // (I) km/s per MPc
+  ,double OM    // (I) Omega_matter
+  ,double OL    // (I) Omega_lamba
+  ,double W     //  (I) w = rho/p
+  ,double Zmax  //  (I) integrate up to this redshift
+  ,int wgtopt   //  (I) weight integral by z^wgtopt
+ ) {
+
+  //
+  // return integral of dV/dz = r(z)^2/H(z) dz
+  // wgtopt = 0:  returns standard volume integral
+  // wgtopt = 1:  returns  z-wgted integral
+
+  double sum, tmp, dz, Ztmp, wz, xz ;
+  int NZbin, iz;
+
+  // ---- BEGIN ----------
+
+  // compute exact integral
+
+  NZbin = (int)( Zmax * 1000.0 ) ;
+  if ( NZbin < 10 ) { NZbin = 10 ; }
+  dz   = Zmax / (float)NZbin ;   // integration binsize
+  sum = 0.0;
+
+  for ( iz=1; iz <= NZbin; iz++ ) {
+    xz   = (double)iz ;
+    Ztmp = dz * (xz - 0.5) ;
+    tmp  = dVdz ( H0, OM, OL, W, Ztmp );
+
+    wz = pow(Ztmp,(double)wgtopt);
+    sum += wz * tmp;
+
+  }
+
+  sum *= dz ;
+
+  //  printf(" xxxx dVdz_integral = %e (approx=%e) \n", sum, sumtmp  );
+
+  return sum ;
+
+}  // end of dVdz_integral
+
+
+double dvdz_integral__(double *H0, double *OM, double *OL, double *W,
+		       double *Zmax, int *wgtopt) {
+  return dVdz_integral(*H0,*OM,*OL,*W,*Zmax,*wgtopt);
+}
+
+
+
+// **********************************
+double dVdz 
+( 
+  double H0    // (I) km/s per MPc
+ ,double OM    // (I) Omega_matter
+ ,double OL    // (I) Omega_lamba
+ ,double W    //  (I) w = rho/p
+ ,double Z    //  (I) redshift
+ ) {
+
+  // returns dV/dz = r(z)^2 / H(z)
+
+  double r, H, tmp ;
+  double zero = 0.0;
+
+  r = Hzinv_integral ( H0, OM, OL, W, zero, Z );
+  H = Hzfun ( H0, OM, OL, W, Z );
+
+  tmp = LIGHT_km * r * r / H ;
+
+  return tmp;
+
+}  // end of dVdz
+
+
+// ******************************************
+double Hzinv_integral 
+( 
+ double H0     // (I) km/s per MPc
+ ,double OM     // (I) Omega_matter
+ ,double OL     // (I) Omega_lamba
+ ,double W      //  (I) w = rho/p
+ ,double Zmin   //  (I) min integ bin
+ ,double Zmax   //  (I) integrate up to this redshift
+ ) {
+
+  // 
+  // Jun 2016: bug fix, (float)NZbin -> (double)NZbin
+
+  int iz, NZbin ;
+  double dz, Hz, xz, Ztmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
+
+  // ------ return integral c*r(z) = int c*dz/H(z) -------------
+  // Note that D_L = (1+z)*Hzinv_integral
+
+  sum = 0.0;
+
+  NZbin = (int)( (Zmax-Zmin) * 1000.0 ) ;
+  if ( NZbin < 10 ) { NZbin = 10 ; }
+  dz  = (Zmax-Zmin) / (double)NZbin ;      // integration binsize
+
+  for ( iz=1; iz <= NZbin; iz++ ) {
+    xz   = (double)iz ;
+    Ztmp = Zmin + dz * (xz - 0.5) ;
+    Hz   = Hzfun ( H0, OM, OL, W, Ztmp );
+    sum += (1.0/Hz) ;
+  }
+
+  // remove H0 factor from inetgral before checking curvature.
+
+  sum *= (dz * H0) ;
+
+  // check for curvature
+  KAPPA      = 1.0 - OM - OL ; 
+  SQRT_KAPPA = sqrt(fabs(KAPPA));
+
+  if ( KAPPA < -0.00001 ) 
+    { Hzinv = sin( SQRT_KAPPA * sum ) / SQRT_KAPPA ; }
+  else if ( KAPPA > 0.00001 ) 
+    { Hzinv = sinh( SQRT_KAPPA * sum ) / SQRT_KAPPA ; }
+  else
+    { Hzinv = sum ; }
+
+
+  // return Hzinv with c/H0 factor
+  return (Hzinv * LIGHT_km / H0 ) ;
+
+} // end of Hzinv_integral
+
+
+// ******************************************
+double Hainv_integral 
+( 
+ double H0     // (I) km/s per MPc
+ ,double OM     // (I) Omega_matter
+ ,double OL     // (I) Omega_lamba
+ ,double W      //  (I) w = rho/p
+ ,double amin   //  (I) min integ bin
+ ,double amax   //  (I) integrate up to this redshift
+ ) {
+
+  // May 29, 2008: same as Hzinv_integral, but integrate over a
+  // instead of over z.
+  // dz/E(z) :  z=1/a-1   dz = -da/a^2
+
+  int ia, Nabin ;
+  double da, Hz, xa, atmp, Ztmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
+
+  // ------ return integral c*r(z) = int c*dz/H(z) -------------
+  // Note that D_L = (1+z)*Hzinv_integral
+
+  sum = 0.0;
+
+  Nabin = (int)( (amax-amin) * 1000.0 ) ;
+  if ( Nabin < 10 ) { Nabin = 10 ; }
+  da   = (amax-amin) / (double)Nabin ;   // integration binsize
+
+  for ( ia=1; ia <= Nabin; ia++ ) {
+    xa   = (double)ia ;
+    atmp = amin + da * (xa - 0.5) ;
+    Ztmp = 1./atmp - 1.0 ;
+    Hz   = Hzfun ( H0, OM, OL, W, Ztmp );
+    sum += 1.0/( Hz * atmp * atmp) ;
+  }
+
+  // remove H0 factor from inetgral before checking curvature.
+
+  sum *= (da * H0) ;
+
+  // check for curvature
+  KAPPA      = 1.0 - OM - OL ; 
+  SQRT_KAPPA = sqrt(fabs(KAPPA));
+
+  if ( KAPPA < -0.00001 ) 
+    { Hzinv = sin( SQRT_KAPPA * sum ) / SQRT_KAPPA ; }
+  else if ( KAPPA > 0.00001 ) 
+    { Hzinv = sinh( SQRT_KAPPA * sum ) / SQRT_KAPPA ; }
+  else
+    { Hzinv = sum ; }
+
+
+  // return Hzinv with c/H0 factor
+  return (Hzinv * LIGHT_km / H0 ) ;
+
+} // end of Hainv_integral
+
+
+// ******************************************
+double Hzfun ( double H0, double OM, double OL, double W, double Z ) {
+
+  //  int iz, NZbin ;
+  double sqHz, Hz, ZZ, Z2, Z3, ZL, WW, KAPPA ;
+
+  // ------ returns H(z) -------------
+
+  KAPPA = 1.0 - OM - OL ;  // curvature
+
+  ZZ  = 1.0 + Z ;
+  Z2  = ZZ * ZZ ;  // avoid pow fun
+  Z3  = Z2 * ZZ ; 
+
+  WW  = 3.0 * (1.0 + W) ;
+  ZL  = pow(ZZ,WW) ;
+
+  sqHz = OM*Z3  +  OL*ZL  + KAPPA*Z2 ;
+
+  Hz = H0 * sqrt ( sqHz ) ;
+
+  return Hz ;
+
+} // end of Hzfun
+
+
+// ******************************************
+double dLmag ( double H0, double OM, double OL, double W, 
+	       double zCMB, double zHEL ) {
+
+  // returns luminosity distance in mags:
+  //   dLmag = 5 * log10(DL/10pc)
+  //
+  // BEWARE that input H0 is 1/seconds (not km/s/Mpc!)
+  // Jan 5 2015: pass zCMB and zHEL
+  //
+  double rz, dl, arg, mu ;
+  double zero = 0.0 ;
+  // ----------- BEGIN -----------
+  rz     = Hzinv_integral ( H0, OM, OL, W, zero, zCMB );
+  dl     = ( 1.0 + zHEL ) * rz ;
+  arg    = (double)10.0 * PC_km / dl ;
+  mu     = -5.0 * log10( arg );
+  return mu ;
+}  // end of dLmag
+
+double zcmb_dLmag_invert( double H0, double OM, double OL, double W, double MU ) {
+
+  // Created Jan 4 2018
+  // for input distance modulus (MU), solve for zCMB.
+  // Beware that H0 unit is km/s/pc (not per Mpc)
+
+  double zCMB, zCMB_start, dmu, DMU, mutmp, DL ;
+  double DMU_CONVERGE = 1.0E-4 ;
+  int    NITER=0;
+  char fnam[] = "zcmb_dLmag_invert" ;
+
+  // ---------- BEGIN ----------
+
+  // use naive Hubble law to estimate zCMB_start
+  DL    = pow( 10.0,(MU/5.0) ) * 1.0E-5 ; // Mpc
+  zCMB_start = (70.0*DL)/LIGHT_km ;
+  zCMB_start *= exp(-zCMB_start/6.0); // very ad-hoc estimate
+
+  zCMB = zCMB_start ;
+  DMU = 9999.0 ;
+  while ( DMU > DMU_CONVERGE ) {
+    mutmp  = dLmag(H0,OM,OL,W, zCMB, zCMB); // MU for trial zCMB
+    dmu    = mutmp - MU ;             // error on mu
+    DMU    = fabs(dmu);
+    zCMB  *= exp(-dmu/2.0); 
+
+    NITER++ ;
+    if ( NITER > 500 ) {
+      sprintf(c1err,"Could not solve for zCMB after NITER=%d", NITER);
+      sprintf(c2err,"MU=%f  dmu=%f  ztmp=%f", MU, dmu, zCMB);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+  } // end dz                                                                   
+
+  int LDMP=0 ;
+  if ( LDMP ) {
+    printf(" xxx --------------------------------------------- \n");
+    printf(" xxx MU=%.4f -> DL = %.2f Mpc  zCMB(start) = %.5f \n",
+	   MU, DL, zCMB_start );
+    printf(" xxx zCMB -> %.5f  DMU=%f after %d iterations \n",
+	   zCMB, DMU, NITER);
+  }
+
+  return(zCMB);
+
+} // end zcmb_dLmag_invert
+
+
 // ************************************************
 double zhelio_zcmb_translator (double z_input, double RA, double DEC, 
 			       char *coordSys, int OPT ) {
 
   /**********************
-
    Created Dec 2013 by R.Kessler
    General redshift-translator function to between helio and cmb frame.
    [replaces Z2CMB that translated only in 1 direction]
@@ -11537,99 +11821,6 @@ double zhelio_zcmb_translator (double z_input, double RA, double DEC,
 double zhelio_zcmb_translator__ (double *z_input, double *RA, double *DEC,
                                  char *coordSys, int *OPT ) {
   return zhelio_zcmb_translator(*z_input, *RA, *DEC, coordSys, *OPT) ;
-}
-
-// **********************************
-double Z2CMB(
-	     double z_helio   // (I) heliocentric redshift
-	     ,double RA       // (I) RA, deg
-	     ,double DEC      // (I) DEC, deg
-	     ,char *coordSys  // (I) 'eq' or 'gal' or 'J2000'
-	     ) {
-
-  /**********
-
- 
-   Feb 28, 2011 (R.Kessler)
-   General function to translate z_helio into z_cmb (return arg).
-   Allows input coords in either J2000 or equatorial.
-
-   l = longitude = RA (deg)
-   b = lattitue  = DEC (deg)
-
-   Use exact formuala,
-   
-    1 + z_cmb = ( 1 + z_helio ) / ( 1 - V0 . nhat/c )
-
-   where V0 is the CMB velocity vector, 
-   nhat is the unit vector between us and the SN,
-   and c = 3E5 km/s.
-
-   Note that the NED-calculator used in JRK07 is 
-   an approximation, z_cmb = z_helio + V0.nhat/c,
-   that is OK when z_helio << 1.
-
-   Installed in sntools.c on Oct 29 2013 by RK : NOT TESTED YET !!!
- 
-  Nov 18 2013: tested ! Note that David's slaEqgal has all args in 
-               degrees instead of radians.
-
-  Dec 6 2013: for negative redshift, do nothing and return z_helio
-
-  *************/
-
-  double 
-     ra_gal, dec_gal
-    ,ss, ccc, c1, c2, c3, vdotn, z_cmb
-    ;
-
-  // define location and velocity of CMB dipole
-  double  l_CMBapex  = 264.14 ;   // deg (RA galactic coords !!!)
-  double  b_CMBapex  = 48.26 ;    // deg (DEC)
-  double  v_CMBapex  = 371.0 ;    // km/sec
-
-  char fnam[] = "Z2CMB";
-
-  // --------------- BEGIN ------------
-
-  if ( z_helio < 0 ) { return z_helio ; }
-
-  if ( strcmp(coordSys,"eq"   ) == 0 || 
-       strcmp(coordSys,"J2000") == 0 ) {
-
-    // input and output in degrees
-    slaEqgal( RA, DEC, &ra_gal, &dec_gal ) ;
-  }
-  else if ( strcmp(coordSys,"gal") == 0 ) {
-    ra_gal  = RA ;
-    dec_gal = DEC;
-  }
-  else {
-    sprintf(c1err,"coordSys = '%s' is invalid", coordSys );
-    errmsg(SEV_FATAL, 0, fnam, c1err, BLANK_STRING );
-  }
-
-  // get projection
-
-  ss  = sin(RADIAN*dec_gal) * sin(RADIAN*b_CMBapex);
-
-  c1  = cos(RADIAN*dec_gal) ;
-  c2  = cos(RADIAN*b_CMBapex) ;
-  c3  = cos(RADIAN*(ra_gal-l_CMBapex));
-  ccc = c1 * c2 * c3 ;
-
-  vdotn = v_CMBapex * ( ss + ccc ) / LIGHT_km ;
-
-  z_cmb    = ( 1. + z_helio ) / ( 1. - vdotn ) - 1. ; // exact
-
-  // z_cmb = z_helio + vdotn;  // approx xxxxx
-   
-  return z_cmb ;
-
-}   //  end of Z2CMB
-
-double z2cmb_(double *z_helio, double *RA, double *DEC, char *coordSys) {
-  return Z2CMB(*z_helio, *RA ,*DEC, coordSys);
 }
 
 
@@ -11910,3 +12101,4 @@ double slaDrange ( double angle )
   return ( fabs ( w ) < DPI ) ? w : w - dsign ( D2PI, angle );
 }
 
+#endif

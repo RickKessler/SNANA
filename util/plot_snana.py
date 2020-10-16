@@ -786,139 +786,358 @@ def find_files(version, cid_list=[]):
 
 
 def main():
+    import argparse
 
-	parser = OptionParser()
+    DESC = "Plot utility for SNANA lightcurves and parameter distributions"
+    EPIL = "This produces graphic plots in various formats"
+    parser = argparse.ArgumentParser(description=DESC, epilog=EPIL)
 
-	parser.add_option("-B",help='Spectra: Bin size for spectral plotting',action="store",type="float",dest='bin_size',default=0)
+    #parser = OptionParser()
 
-	parser.add_option("--spec",help='LC and Spectra: Plot only spectra',action="store_true",dest="spec",default=False)
-	parser.add_option("--lc",help='LC and Spectra: Plot only LC',action="store_true",dest="lc",default=False)
-	parser.add_option("--nogrid",help="LC and Spectra: Do not add a grid to the plots.",action="store_true",dest="noGrid",default=False)
-	
-	parser.add_option("-a",help="LC: tmin for lc plotting (Phase).",action="store",dest="tmin",type='float',default=None)
-	parser.add_option("-b",help="LC: tmax for lc plotting (Phase).",action="store",dest="tmax",type='float',default=None)
-	parser.add_option("-t",help="LC: comma separated list of filters to plot (default all)",action="store",dest='filt_list',type="string",default=None)
-	parser.add_option("--plotFull",help="LC: plots full model range if fitting (default data range)",action="store_true",dest='plot_all2',default=False)
-	parser.add_option("--plotAll",help=SUPPRESS_HELP,action="store_true",dest='plot_all',default=False)
-	parser.add_option("-n",help="LC: comma separated list of variables to print to plot.",action="store",dest='plot_text',type="string",default=None)
+    parser.add_argument(
+        "-B",
+        help="Spectra: Bin size for spectral plotting",
+        action="store",
+        type=float,
+        dest="bin_size",
+        default=0,
+    )
 
-	parser.add_option("-f",help='LC and Distributions: .NML filename',action="store",type='string',dest='nml_filename',default=None)
-	parser.add_option("--fitres",help="LC and Distributions: Output a file containing fit results.",action="store_true",dest="res_out",default=False)
-	
-	parser.add_option("-F",help='Distributions: fitres filename, used to create distributions of SALT2 fitting parameters.',
-				action="store",type='string',dest='fitres_filename',default=None)
-	parser.add_option("-s",help='Distributions: Name of parameter to view in joint distribution with SALT2 fitting parameters',
-				action="store",type='string',dest='joint_param',default=None)
-	parser.add_option("-k",help='Distributions: Joint plot type (scatter,reg,resid,kde,hex)',action="store",type='string',dest='joint_type',default='kde')
-	parser.add_option("--dist",help="Distributions: Fit and then plot the distributions of fitting parameters.",action="store_true",dest="dist",default=False)	
+    parser.add_argument(
+        "--spec",
+        help="LC and Spectra: Plot only spectra",
+        action="store_true",
+        dest="spec",
+        default=False,
+    )
+    parser.add_argument(
+        "--lc",
+        help="LC and Spectra: Plot only LC",
+        action="store_true",
+        dest="lc",
+        default=False,
+    )
+    parser.add_argument(
+        "--nogrid",
+        help="LC and Spectra: Do not add a grid to the plots.",
+        action="store_true",
+        dest="noGrid",
+        default=False,
+    )
 
-	parser.add_option("-i",help='All: CID(s) as comma separated list or range (1-10)',action="store",type="string",dest="CID",default="None")
-	parser.add_option("-p",help='All: Private Data Path',action="store",type='string',dest='private_path',default=None)
-	parser.add_option("-v",help='All: Version',action="store",type='string',dest='version',default=None)
-	parser.add_option("-z",help='All: Name of redshift parameter to read',action="store",type='string',dest='zname',default='zCMB')
-	parser.add_option("--existing",help="All: Use existing output files for plotting (Must have only 1 set in directory)",action="store_true",dest="existing",default=False)
-	parser.add_option("--noclean",help='All: Leave intermediate files for debugging',action="store_true",dest="noclean",default=False)
-	parser.add_option("--silent",help="All: Do not print anything",action="store_true",dest="silent",default=False)
+    parser.add_argument(
+        "-a",
+        help="LC: tmin for lc plotting (Phase).",
+        action="store",
+        dest="tmin",
+        type=float,
+        default=None,
+    )
+    parser.add_argument(
+        "-b",
+        help="LC: tmax for lc plotting (Phase).",
+        action="store",
+        dest="tmax",
+        type=float,
+        default=None,
+    )
+    parser.add_argument(
+        "-t",
+        help="LC: comma separated list of filters to plot (default all)",
+        action="store",
+        dest="filt_list",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--plotFull",
+        help="LC: plots full model range if fitting (default data range)",
+        action="store_true",
+        dest="plot_all2",
+        default=False,
+    )
+    parser.add_argument(
+        "--plotAll",
+        help=SUPPRESS_HELP,
+        action="store_true",
+        dest="plot_all",
+        default=False,
+    )
+    parser.add_argument(
+        "-n",
+        help="LC: comma separated list of variables to print to plot.",
+        action="store",
+        dest="plot_text",
+        type=str,
+        default=None,
+    )
 
-	
-	#parser.add_option("--help",action="store_true",dest='help',default=False)
-	(options,args)=parser.parse_args()
+    parser.add_argument(
+        "-f",
+        help="LC and Distributions: .NML filename",
+        action="store",
+        type=str,
+        dest="nml_filename",
+        default=None,
+    )
+    parser.add_argument(
+        "--fitres",
+        help="LC and Distributions: Output a file containing fit results.",
+        action="store_true",
+        dest="res_out",
+        default=False,
+    )
 
-	if len(sys.argv)==1:
-		parser.print_help(sys.stderr)
-		sys.exit()
-	options.plot_all=options.plot_all or options.plot_all2
-	if not options.existing:
-		if options.version is None:
-			if options.fitres_filename is None:
-				raise RuntimeError("Need to define genversion")
-		if options.CID=="None":
-			if options.dist or options.fitres_filename is not None:
-				print("No CID given, assuming all for distributions, then first 5 for LC/SPEC plotting...")
-			else:
-				print("No CID given, assuming first 5...")
-			options.CID=None
-			all_cid=True
-		elif '-' in options.CID:
-			options.CID = ','.join([str(i) for i in range(int(options.CID[:options.CID.find('-')]),
-														int(options.CID[options.CID.find('-')+1:])+1)])
-			all_cid=True
-		else:
-			all_cid=False
-	else:
-		all_cid=True
-	
-	if options.dist and options.nml_filename is None:
-		raise RuntimeError("If you use the 'dist' option, you must provide an NML filename with the -f flag.")
-	
-	if options.joint_type not in ['scatter','reg','resid','kde','hex']:
-		print("Joint plot type not recognized (see help), setting to kde")
-		options.joint_type='kde'
-	if options.fitres_filename is None:
-		if not options.existing:
-			plotter_choice,options.base_name,options.CID=plot_cmd(options.version,options.CID,options.nml_filename,options.dist,options.private_path)
-		else:
-			plotter_choice,options.base_name,options.CID,options.version=read_existing(options.nml_filename)
-		options.CID=options.CID.split(',')
-		if options.filt_list is not None:
-			options.filt_list=options.filt_list.split(',')
-		filename=options.version+'.pdf'
-		num=0
-		if os.path.exists(filename):
-			filename=os.path.splitext(filename)[0]+'_'+str(num)+'.pdf'
-		while os.path.exists(filename):
-			num+=1
-			filename=os.path.splitext(filename)[0][:-1]+str(num)+'.pdf'
-		if options.dist:
-			fitres=read_fitres(options.base_name+'.FITRES.TEXT',options.joint_param)
-			figs=create_dists(fitres,options.joint_param,options.joint_type)
-		else:
-			figs=[]
-		if all_cid:
-			options.CID=options.CID[:5]
-		with PdfPages(filename) as pdf:
-			for f in figs:
-				pdf.savefig(f)
-			for cid in options.CID:
-				if not options.silent:
-					print("Plotting SN %s"%cid)
-				if options.spec:
-					figs=plot_spec([cid],options.bin_size,options.base_name,options.noGrid,options.zname)
-					for f in figs:
-						pdf.savefig(f)
-				elif options.lc:
-					figs,fits=plot_lc([cid],options.base_name,options.noGrid,plotter_choice,options.tmin,options.tmax,options.filt_list,options.plot_all,options.zname)
-					for f in figs:
-						pdf.savefig(f)
-				else:
-					figs=plot_spec([cid],options.bin_size,options.base_name,options.noGrid,options.zname)
-					for f in figs:
-						pdf.savefig(f)
-					figs,fits=plot_lc([cid],options.base_name,options.noGrid,plotter_choice,options.tmin,options.tmax,options.filt_list,options.plot_all,options.zname)
-					for f in figs:
-						pdf.savefig(f)
-					
-		if options.res_out:
-			output_fit_res(fitres,filename)
-		if not options.noclean:
-			for x in glob.glob(options.base_name+'*'):
-				os.remove(x)
-	else:
-		print("Creating distributions from FITRES file...")
-		filename=options.version+'.pdf' if options.version is not None else os.path.splitext(options.fitres_filename)[0]+'.pdf'
-		num=0
-		if os.path.exists(filename):
-			filename=os.path.splitext(filename)[0]+'_'+str(num)+'.pdf'
-		while os.path.exists(filename):
-			num+=1
-			filename=os.path.splitext(filename)[0][:-1]+str(num)+'.pdf'
-		fitres=read_fitres(options.fitres_filename,options.joint_param)
-		figs=create_dists(fitres,options.joint_param,options.joint_type)
-		with PdfPages(filename) as pdf:
-			for f in figs:
-				pdf.savefig(f)
-	if not options.silent:
-		print('Done.')
+    parser.add_argument(
+        "-F",
+        help="Distributions: fitres filename, used to create distributions of SALT2 fitting parameters.",
+        action="store",
+        type=str,
+        dest="fitres_filename",
+        default=None,
+    )
+    parser.add_argument(
+        "-s",
+        help="Distributions: Name of parameter to view in joint distribution with SALT2 fitting parameters",
+        action="store",
+        type=str,
+        dest="joint_param",
+        default=None,
+    )
+    parser.add_argument(
+        "-k",
+        help="Distributions: Joint plot type (scatter,reg,resid,kde,hex)",
+        action="store",
+        type=str,
+        dest="joint_type",
+        default="kde",
+    )
+    parser.add_argument(
+        "--dist",
+        help="Distributions: Fit and then plot the distributions of fitting parameters.",
+        action="store_true",
+        dest="dist",
+        default=False,
+    )
 
-if __name__=='__main__':
-	main()
+    parser.add_argument(
+        "-i",
+        help="All: CID(s) as comma separated list or range (1-10)",
+        action="store",
+        type=str,
+        dest="CID",
+        default="None",
+    )
+    parser.add_argument(
+        "-p",
+        help="All: Private Data Path",
+        action="store",
+        type=str,
+        dest="private_path",
+        default=None,
+    )
+    parser.add_argument(
+        "-v",
+        help="All: Version",
+        action="store",
+        type=str,
+        dest="version",
+        default=None,
+    )
+    parser.add_argument(
+        "-z",
+        help="All: Name of redshift parameter to read",
+        action="store",
+        type=str,
+        dest="zname",
+        default="zCMB",
+    )
+    parser.add_argument(
+        "--existing",
+        help="All: Use existing output files for plotting (Must have only 1 set in directory)",
+        action="store_true",
+        dest="existing",
+        default=False,
+    )
+    parser.add_argument(
+        "--noclean",
+        help="All: Leave intermediate files for debugging",
+        action="store_true",
+        dest="noclean",
+        default=False,
+    )
+    parser.add_argument(
+        "--silent",
+        help="All: Do not print anything",
+        action="store_true",
+        dest="silent",
+        default=False,
+    )
+
+    # parser.add_argument("--help",action="store_true",dest='help',default=False)
+    #breakpoint()
+    #(options, args) = parser.parse_args()
+    options = parser.parse_args()
+    
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit()
+    options.plot_all = options.plot_all or options.plot_all2
+    
+    if not options.existing:
+        if options.version is None:
+            if options.fitres_filename is None:
+                raise RuntimeError("Need to define genversion")
+        if options.CID == "None":
+            if options.dist or options.fitres_filename is not None:
+                print(
+                    """No CID given, assuming all for distributions, 
+                    then first 5 for LC/SPEC plotting..."""
+                )
+            else:
+                print("No CID given, assuming first 5...")
+            options.CID = None
+            all_cid = True
+        elif "-" in options.CID:
+            options.CID = ",".join(
+                [
+                    str(i)
+                    for i in range(
+                        int(options.CID[: options.CID.find("-")]),
+                        int(options.CID[options.CID.find("-") + 1 :]) + 1,
+                    )
+                ]
+            )
+            all_cid = True
+        else:
+            all_cid = False
+    else:
+        all_cid = True
+
+    if options.dist and options.nml_filename is None:
+        raise RuntimeError(
+            """If you use the 'dist' option, you must provide an 
+            NML filename with the -f flag."""
+        )
+
+    if options.joint_type not in ["scatter", "reg", "resid", "kde", "hex"]:
+        print("Joint plot type not recognized (see help), setting to kde")
+        options.joint_type = "kde"
+    if options.fitres_filename is None:
+        if not options.existing:
+            plotter_choice, options.base_name, options.CID = plot_cmd(
+                options.version,
+                options.CID,
+                options.nml_filename,
+                options.dist,
+                options.private_path
+            )
+        else:
+            (
+                plotter_choice,
+                options.base_name,
+                options.CID,
+                options.version,
+            ) = read_existing(options.nml_filename)
+        options.CID = options.CID.split(",")
+        if options.filt_list is not None:
+            options.filt_list = options.filt_list.split(",")
+        filename = options.version + ".pdf"
+        num = 0
+        if os.path.exists(filename):
+            filename = os.path.splitext(filename)[0] + "_" + str(num) + ".pdf"
+        while os.path.exists(filename):
+            num += 1
+            filename = os.path.splitext(filename)[0][:-1] + str(num) + ".pdf"
+        if options.dist:
+            fitres = read_fitres(
+                options.base_name + ".FITRES.TEXT", options.joint_param
+            )
+            figs = create_dists(fitres, options.joint_param, options.joint_type)
+        else:
+            figs = []
+        if all_cid:
+            options.CID = options.CID[:5]
+        with PdfPages(filename) as pdf:
+            for f in figs:
+                pdf.savefig(f)
+            for cid in options.CID:
+                if not options.silent:
+                    print("Plotting SN %s" % cid)
+                if options.spec:
+                    figs = plot_spec(
+                        [cid],
+                        options.bin_size,
+                        options.base_name,
+                        options.noGrid,
+                        options.zname,
+                    )
+                    for f in figs:
+                        pdf.savefig(f)
+                elif options.lc:
+                    figs, fits = plot_lc(
+                        [cid],
+                        options.base_name,
+                        options.noGrid,
+                        plotter_choice,
+                        options.tmin,
+                        options.tmax,
+                        options.filt_list,
+                        options.plot_all,
+                        options.zname,
+                    )
+                    for f in figs:
+                        pdf.savefig(f)
+                else:
+                    figs = plot_spec(
+                        [cid],
+                        options.bin_size,
+                        options.base_name,
+                        options.noGrid,
+                        options.zname,
+                    )
+                    for f in figs:
+                        pdf.savefig(f)
+                    figs, fits = plot_lc(
+                        [cid],
+                        options.base_name,
+                        options.noGrid,
+                        plotter_choice,
+                        options.tmin,
+                        options.tmax,
+                        options.filt_list,
+                        options.plot_all,
+                        options.zname,
+                    )
+                    for f in figs:
+                        pdf.savefig(f)
+
+        if options.res_out:
+            output_fit_res(fitres, filename)
+        if not options.noclean:
+            for x in glob.glob(options.base_name + "*"):
+                os.remove(x)
+    else:
+        print("Creating distributions from FITRES file...")
+        filename = (
+            options.version + ".pdf"
+            if options.version is not None
+            else os.path.splitext(options.fitres_filename)[0] + ".pdf"
+        )
+        num = 0
+        if os.path.exists(filename):
+            filename = os.path.splitext(filename)[0] + "_" + str(num) + ".pdf"
+        while os.path.exists(filename):
+            num += 1
+            filename = os.path.splitext(filename)[0][:-1] + str(num) + ".pdf"
+        fitres = read_fitres(options.fitres_filename, options.joint_param)
+        figs = create_dists(fitres, options.joint_param, options.joint_type)
+        with PdfPages(filename) as pdf:
+            for f in figs:
+                pdf.savefig(f)
+    if not options.silent:
+        print("Done.")
+
+
+if __name__ == "__main__":
+    main()

@@ -974,9 +974,6 @@ def main():
         default=False,
     )
 
-    # parser.add_argument("--help",action="store_true",dest='help',default=False)
-    #breakpoint()
-    #(options, args) = parser.parse_args()
     options = parser.parse_args()
     
     if len(sys.argv) == 1:

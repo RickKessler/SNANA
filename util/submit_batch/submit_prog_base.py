@@ -1159,7 +1159,7 @@ class Program:
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         cleanup_flag     = submit_info_yaml['CLEANUP_FLAG']
-        MXSPLIT_FAIL_REPEAT = 2       # max isplit to make FAIL_REPEAT script
+        MXSPLIT_FAIL_REPEAT = 4       # max isplit to make FAIL_REPEAT script
         
         fail_no_output   = (nevt <  0)  # no output
         fail_zero_evt    = (nevt == 0)  # zero events 

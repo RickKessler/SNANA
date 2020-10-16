@@ -406,6 +406,28 @@ HELP_CONFIG_BBC = f"""
   # process M independent random sum-samples; useful to compare RMS vs. errors.
   # Be careful that every VERSION+FITOPT+MUOPT is divided into NSPLITRAN jobs.
   NSPLITRAN: <nsplitran>
+
+  # Optional FITOPT map of SURVEY x FITOPT(LCFIT) for each output FITOPT(BBC).
+  # For each FITOPT(BBC), this map gives instructions for which FITRES file 
+  # (from LCFIT task) to catenate from each INPDIR. This map is designed to
+  # be created automatically by Pippin, but there may be cases where users 
+  # create this map manually, or with a different script. The order of
+  # LCFIT-FITOPTs follows the INPDIR order. With this map feature, links to 
+  # FITOPT000 are NOT needed in LCFIT task. Batch init process for BBC writes
+  # FITOPT_OUT_LIST (yaml block) to SUBMIT.INFO file with summary of labels 
+  # and args for each FITOPT(BBC). Beware that LCFIT FITOPT numbers do not 
+  # align with BBC's FITOPT_OUT_LIST numbers.
+  FITOPT_MAP:
+    SURVEY_LIST:  LOWZ  DES  PS1              # human-readable table header
+    FITOPT000: FITOPT000 FITOPT000 FITOPT000  # global default
+    FITOPT001: FITOPT001 FITOPT001 FITOPT001  # global (e.g., MWEBV_SCALE)
+    FITOPT002: FITOPT002 FITOPT000 FITOPT000  # change only LOWZ (e.g., calib)
+    FITOPT003: FITOPT003 FITOPT000 FITOPT000  # change only LOWZ
+    FITOPT004: FITOPT000 FITOPT002 FITOPT000  # change only DES
+    FITOPT005: FITOPT000 FITOPT003 FITOPT000  # change only DES
+    FITOPT006: FITOPT000 FITOPT000 FITOPT002  # change only PS1
+    FITOPT007: FITOPT000 FITOPT000 FITOPT003  # change only PS1
+
 #END_YAML
 
 """

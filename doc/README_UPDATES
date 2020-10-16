@@ -19021,6 +19021,7 @@
         nread = sscanf and abort if nread != 1. Apply to keys
         with mutliple arguments in case user makes mistake.
      + write SURVEY and IDSURVEY to YAML file.
+     + new input MUSHIFT (distance offset)
      + use new read_genpoly() util to refactor reading polynomial 
        coefficients as either comma-sep (new default) or
        space-sep (legacy). The following sim-inputs are now 
@@ -19059,5 +19060,8 @@
    SALT2mu.c:
      + allow comma-sep list for cid_reject_file and cid_select_file
      + start using parse_commaSepList utility
+
+   sntools_trigger.c :
+     + fix error message when interpolation fails for zHOST map
 
 END: 

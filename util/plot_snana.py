@@ -69,15 +69,13 @@ def read_spec(cid, base_name):
 
     for line in dat:
         temp = line.split()
-
-        if len(temp) > 0 and b"VARNAMES:" in temp:
+        if len(temp) <= 0:
+            continue
+        if b"VARNAMES:" in temp:
             varnames = [str(x.decode("utf-8")) for x in temp]
+            i_cid = varnames.index("CID")
 
-        elif (
-            len(temp) > 0
-            and b"OBS:" in temp
-            and str(temp[varnames.index("CID")].decode("utf-8")) in cid
-        ):
+        elif (b"OBS:" in temp and str(temp[i_cid].decode("utf-8")) in cid):
 
             if temp_id is None:
                 temp_id = int(temp[varnames.index("ID")])
@@ -134,9 +132,10 @@ def read_lc(cid, base_name, plotter_choice, tmin, tmax, filter_list):
 
         if b"VARNAMES:" in temp:
             varnames = [str(x.decode("utf-8")) for x in temp]
-            tCid = str(temp[varnames.index("CID")].decode("utf-8"))
+            i_cid = varnames.index("CID")
 
-        elif (b"OBS:" in temp and tCid in cid):
+        elif (b"OBS:" in temp and str(temp[i_cid].decode("utf-8")) in cid):
+            tCid = str(temp[i_cid].decode("utf-8"))
             tObs = float(temp[varnames.index("Tobs")])
             band = str(temp[varnames.index("BAND")].decode("utf-8"))
             dataflag = int(temp[varnames.index("DATAFLAG")])
@@ -176,7 +175,7 @@ def read_lc(cid, base_name, plotter_choice, tmin, tmax, filter_list):
                 varnames = [str(x.decode('utf-8')) for x in temp]
                 tCid = str(temp[varnames.index('CID')].decode('utf-8'))
 
-            elif b'SN:' in temp and tCid in cid:
+            elif b'SN:' in temp and str(temp[i_cid].decode("utf-8")) in cid:
                 datadict = {}
                 datadict['NDOF'] = float(temp[varnames.index('NDOF')])
                 datadict['FITCHI2'] = float(temp[varnames.index('FITCHI2')])
@@ -531,7 +530,7 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
                         else:
                             pass
                     if z is not None:
-                        z, zerr = float(z[0]), float(z[1])
+                        fz, fzerr = float(z[0]), float(z[1])
                         sz, szerr = str(z[0]), str(z[1])
                         if np.any([
                             d!='0' for d in szerr[
@@ -539,14 +538,17 @@ def plot_lc(cid, base_name, noGrid, plotter_choice,
                                 ]
                             ]):
                             print(szerr)
-                            to_print.append('z: %.2f'%z+r'$\pm$'+'%.3f'%zerr)
+                            to_print.append('z: %.2f'%fz+r'$\pm$'+'%.3f'%fzerr)
                         else:
-                            to_print.append('z: %.2f'%z)
-                    
-                    if isinstance(x, list):
-                        annotation = ''.join(x[0]+r'\pm'+x[1])
-                    else:
-                        annotation = ''.join(to_print)
+                            to_print.append('z: %.2f'%fz)
+
+                    bits = []
+                    for aval in to_print:
+                        if isinstance(aval, list):
+                            bits.append(aval[0]+r'\pm'+aval[1])
+                        else:
+                            bits.append(aval)
+                    annotation = "".join(bits)
                     ax[i].annotate(annotation, xy=(0.02, 0.55),
                                    xycoords='axes fraction', fontsize=6)
                 fit_print = True
@@ -596,7 +598,7 @@ def plot_cmd(genversion, cid_list, nml, isdist, private):
         for line in p:
             if "FITMODEL_NAME" in line:
                 if "SALT2" in line:
-                    plotter = "salt2"		
+                    plotter = "salt2"
 
     rand = str(np.random.randint(10000, 100000))
     if private is not None:
@@ -605,47 +607,88 @@ def plot_cmd(genversion, cid_list, nml, isdist, private):
         private_path = ""
     genversion += private_path
 
-	if nml is not None:
-		if cid_list is not None:
-			cmd="snlc_fit.exe "+nml+" VERSION_PHOTOMETRY "+genversion+\
-				" SNCCID_LIST "+cid_list+\
-				" CUTWIN_CID 0 0 SNTABLE_LIST 'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX 'OUT_TEMP_"+rand+\
-				"' > OUT_TEMP_"+rand+".LOG"
-		elif isdist:
-			cmd="snlc_fit.exe "+nml+" VERSION_PHOTOMETRY "+genversion+" SNTABLE_LIST "+\
-				"'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX OUT_TEMP_"+rand+" > OUT_TEMP_"+rand+".LOG"
-		else:
-			cmd="snlc_fit.exe "+nml+" VERSION_PHOTOMETRY "+genversion+" MXEVT_PROCESS 5 SNTABLE_LIST "+\
-				"'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX OUT_TEMP_"+rand+" > OUT_TEMP_"+rand+".LOG"
-	else:
-		cmd="snana.exe NOFILE VERSION_PHOTOMETRY "+genversion+\
-			" SNCCID_LIST "+cid_list+\
-			" CUTWIN_CID 0 0 SNTABLE_LIST 'SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX 'OUT_TEMP_"+rand+\
-			"' > OUT_TEMP_"+rand+".LOG"
-	
-	os.system(cmd)
-	with open('OUT_TEMP_'+rand+'.LOG','rb+') as f:
-		content=f.read()
-		f.seek(0,0)
-		f.write(b'SNANA COMMAND:\n\n'+bytearray(textwrap.fill(cmd,80),encoding='utf-8')+b'\n'+content)
-	if len(glob.glob('OUT_TEMP_'+rand+'*.TEXT'))==0:
-		print("There was an error in retrieving your SN")
-		sys.exit()
+    if nml is not None:
+        if cid_list is not None:
+            cmd = (
+                "snlc_fit.exe "
+                + nml
+                + " VERSION_PHOTOMETRY "
+                + genversion
+                + " SNCCID_LIST "
+                + cid_list
+                + " CUTWIN_CID 0 0 SNTABLE_LIST 'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX 'OUT_TEMP_"
+                + rand
+                + "' > OUT_TEMP_"
+                + rand
+                + ".LOG"
+            )
+        elif isdist:
+            cmd = (
+                "snlc_fit.exe "
+                + nml
+                + " VERSION_PHOTOMETRY "
+                + genversion
+                + " SNTABLE_LIST "
+                + "'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX OUT_TEMP_"
+                + rand
+                + " > OUT_TEMP_"
+                + rand
+                + ".LOG"
+            )
+        else:
+            cmd = (
+                "snlc_fit.exe "
+                + nml
+                + " VERSION_PHOTOMETRY "
+                + genversion
+                + " MXEVT_PROCESS 5 SNTABLE_LIST "
+                + "'FITRES(text:key) SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX OUT_TEMP_"
+                + rand
+                + " > OUT_TEMP_"
+                + rand
+                + ".LOG"
+            )
+    else:
+        cmd = (
+            "snana.exe NOFILE VERSION_PHOTOMETRY "
+            + genversion
+            + " SNCCID_LIST "
+            + cid_list
+            + " CUTWIN_CID 0 0 SNTABLE_LIST 'SNANA(text:key) LCPLOT(text:key) SPECPLOT(text:key)' TEXTFILE_PREFIX 'OUT_TEMP_"
+            + rand
+            + "' > OUT_TEMP_"
+            + rand
+            + ".LOG"
+        )
 
-	if cid_list is None:
-		with open("OUT_TEMP_"+rand+".FITRES.TEXT",'rb') as f:
-			all_dat=f.readlines()
-		all_cids=[]
-		for line in all_dat:
-			temp=line.split()
-			if len(temp)>0 and b'VARNAMES:' in temp:
-				varnames=[str(x.decode('utf-8')) for x in temp]
-			elif len(temp)>0 and b"SN:" in temp:
-				all_cids.append(str(temp[varnames.index('CID')].decode('utf-8')))
-		all_cids=','.join(all_cids)
-	else:
-		all_cids=cid_list
-	return(plotter,'OUT_TEMP_'+rand,all_cids)
+    os.system(cmd)
+    with open("OUT_TEMP_" + rand + ".LOG", "rb+") as f:
+        content = f.read()
+        f.seek(0, 0)
+        f.write(
+            b"SNANA COMMAND:\n\n"
+            + bytearray(textwrap.fill(cmd, 80), encoding="utf-8")
+            + b"\n"
+            + content
+        )
+    if len(glob.glob("OUT_TEMP_" + rand + "*.TEXT")) == 0:
+        print("There was an error in retrieving your SN")
+        sys.exit()
+
+    if cid_list is None:
+        with open("OUT_TEMP_" + rand + ".FITRES.TEXT", "rb") as f:
+            all_dat = f.readlines()
+        all_cids = []
+        for line in all_dat:
+            temp = line.split()
+            if len(temp) > 0 and b"VARNAMES:" in temp:
+                varnames = [str(x.decode("utf-8")) for x in temp]
+            elif len(temp) > 0 and b"SN:" in temp:
+                all_cids.append(str(temp[varnames.index("CID")].decode("utf-8")))
+        all_cids = ",".join(all_cids)
+    else:
+        all_cids = cid_list
+    return (plotter, "OUT_TEMP_" + rand, all_cids)
 
 
 def read_existing(nml):

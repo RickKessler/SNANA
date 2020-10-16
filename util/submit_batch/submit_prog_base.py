@@ -95,9 +95,9 @@ class Program:
         n_core        = 0
         submit_mode   = "NULL"
         node_list     = []
-        memory        = MEMORY_DEFAULT
+        memory        = BATCH_MEM_DEFAULT
         kill_flag     = config_yaml['args'].kill
-
+        msgerr        = []
         config_prep['nodelist']       = ''
         config_prep['batch_command']  = ''
 
@@ -128,12 +128,18 @@ class Program:
             logging.info(f"\t Batch template: {template}" )
             logging.info(f"\t Batch n_core:   {n_core}" )
         else :
-            log_assert(False, f"Could not find BATCH_INFO or NODELIST")
+            msgerr.append(f"Could not find BATCH_INFO or NODELIST")
+            self.log_assert(False, msgerr)
 
         # check optional memory spec
         if 'BATCH_MEM' in CONFIG :
-            memory = CONFIG['BATCH_MEM']
-        
+            memory = str(CONFIG['BATCH_MEM'])
+
+            #if isinstance(memory,int) :
+            #    msgerr.append(f"Missing memory units")
+            #    msgerr.append(f"Try  BATCH_MEM: {memory}Mb")
+            #    self.log_assert(False, msgerr)
+
         sys.stdout.flush()
 
         config_prep['n_core']      = n_core 

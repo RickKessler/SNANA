@@ -2917,6 +2917,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
 
   // Created July 2020
   // parse keys starting with HOSTLIB
+  // Oct 16 2020: check IGNOREFILE(HOSTLIB_FILE)
 
   int  j, ITMP, N=0, nread ;
   char fnam[] = "parse_input_HOSTLIB" ;
@@ -2925,8 +2926,10 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
 
   if ( keyMatchSim(1, "HOSTLIB_FILE", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_FILE ) ; 
-    setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
-    INPUTS.HOSTLIB_USE = 1;  
+    if ( IGNOREFILE(INPUTS.HOSTLIB_FILE) ) 
+      { INPUTS.HOSTLIB_MSKOPT = INPUTS.HOSTLIB_USE = 0;  }
+    else 
+      { setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE); INPUTS.HOSTLIB_USE = 1; }
   }
   else if ( keyMatchSim(1, "HOSTLIB_WGTMAP_FILE", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_WGTMAP_FILE ) ; 

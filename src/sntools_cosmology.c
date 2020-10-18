@@ -12,44 +12,83 @@
 #include "sntools_cosmology.h"
 
 // ***********************************
-void init_HzFUN_INFO(double *cosPar, char *fileName, HzFUN_INFO_DEF *HzFUN) {
+void init_HzFUN_INFO(int VBOSE, double *cosPar, char *fileName, 
+		     HzFUN_INFO_DEF *HzFUN_INFO) {
 
-  // initialize input struct HzFUN with either
+  // initialize input struct HzFUN_INFO with either
   //  * wCDM params in cosPar (analytic cosmology theory)
   //  * Hz vs. z map read from fileName (used for interpolation)
+  //
+  // If fileName contains string OUT or out, then interpret
+  // as output file to write H(z) using cosPar params, and
+  // then read it back.
 
   int ipar;
+  int MEMD   = MXMAP_HzFUN * sizeof(double);
+  bool WR_OUTFILE;
   char fnam[] = "init_HzFUN_INFO";
 
   // ----------- BEGIN ------------
 
-  print_banner(fnam);
+  if ( VBOSE ) {  print_banner(fnam); }
 
+  // always store COSPAR_LIST ... even for map where analytic H(z,COSPAR)
+  // is used at very low redshifts for integrals starting from z=0.
   for(ipar=0; ipar < NCOSPAR_HzFUN; ipar++ ) 
-    { HzFUN->COSPAR_LIST[ipar] = -9.0; }
+    { HzFUN_INFO->COSPAR_LIST[ipar] = cosPar[ipar]; }
 
-  HzFUN->Nzbin_MAP = 0;
+  HzFUN_INFO->Nzbin_MAP = 0;
 
   // - - - - - - 
-  HzFUN->USE_MAP = !IGNOREFILE(fileName) ;
-  if ( HzFUN->USE_MAP ) {
+  HzFUN_INFO->USE_MAP = !IGNOREFILE(fileName) ;
+  WR_OUTFILE = (strstr(fileName,"OUT") != NULL || 
+		strstr(fileName,"out") != NULL ) ;
 
-    
+  if ( HzFUN_INFO->USE_MAP ) {
+
+    HzFUN_INFO->FILENAME = (char*) malloc( MXPATHLEN * sizeof(char) );
+    sprintf(HzFUN_INFO->FILENAME, "%s", fileName);
+
+    // check debug option to write H(z) to file using COSPAR_LIST,
+    // and then read it like any other HzFUN file
+    if ( WR_OUTFILE ) { write_HzFUN_FILE(HzFUN_INFO);  }
+
+    // read 2 column map of H(z)
+    printf("   Read H(z) map from: %s \n", fileName );
+    HzFUN_INFO->zCMB_MAP  = (double*) malloc(MEMD);
+    HzFUN_INFO->HzFUN_MAP = (double*) malloc(MEMD);
+    rd2columnFile(fileName, MXMAP_HzFUN, &HzFUN_INFO->Nzbin_MAP,
+		  HzFUN_INFO->zCMB_MAP, HzFUN_INFO->HzFUN_MAP  );
+
+    int Nzbin   = HzFUN_INFO->Nzbin_MAP;
+    double zmin = HzFUN_INFO->zCMB_MAP[0]  ;
+    double zmax = HzFUN_INFO->zCMB_MAP[Nzbin-1]  ;
+
+    printf("\t Found %d redshift bins from %f to %f \n",
+	   Nzbin, zmin, zmax ); fflush(stdout);
+
+    // require first z-element to be zero
+    if ( zmin != 0.0 ) {
+      sprintf(c1err,"zCMB_min=%f, but must be zero.", zmin );
+      sprintf(c2err,"Check H(z) map.") ;
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
   }
   else {
-    for(ipar=0; ipar < NCOSPAR_HzFUN; ipar++ ) 
-      { HzFUN->COSPAR_LIST[ipar] = cosPar[ipar]; }
-    
-    double H0 = HzFUN->COSPAR_LIST[ICOSPAR_HzFUN_H0] ;
-    double OM = HzFUN->COSPAR_LIST[ICOSPAR_HzFUN_OM] ;
-    double OL = HzFUN->COSPAR_LIST[ICOSPAR_HzFUN_OL] ;
-    double w0 = HzFUN->COSPAR_LIST[ICOSPAR_HzFUN_w0] ;
-    double wa = HzFUN->COSPAR_LIST[ICOSPAR_HzFUN_wa] ;
-    double Ok = 1.0 - OM - OL ;
-    printf("\t H0         = %.2f      # km/s/Mpc \n",  H0);
-    printf("\t OM, OL, Ok = %7.5f, %7.5f, %7.5f \n", OM, OL, Ok );
-    printf("\t w0, wa     = %6.3f, %6.3f \n", w0, wa);
-    fflush(stdout) ;
+    // COSPAR_LIST already loaded above.
+    if ( VBOSE ) {
+      double H0 = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_H0] ;
+      double OM = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OM] ;
+      double OL = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OL] ;
+      double w0 = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_w0] ;
+      double wa = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_wa] ;
+      double Ok = 1.0 - OM - OL ;
+      printf("\t H0         = %.2f      # km/s/Mpc \n",  H0);
+      printf("\t OM, OL, Ok = %7.5f, %7.5f, %7.5f \n", OM, OL, Ok );
+      printf("\t w0, wa     = %6.3f, %6.3f \n", w0, wa);
+      fflush(stdout) ;
+    }
+
   }
 
   return ;
@@ -57,8 +96,81 @@ void init_HzFUN_INFO(double *cosPar, char *fileName, HzFUN_INFO_DEF *HzFUN) {
 } // end init_HzFUN_INFO
 
 
+// ****************************************
+void write_HzFUN_FILE(HzFUN_INFO_DEF *HzFUN_INFO ) {
+
+  // BEWARE: FOR DEBUG ONLY !
+  // write 2-column H(z) to text file, which is used
+  // to test reading H(z) file. Write in log(z) bins
+  // to make sure it can read non-uniform bins.
+  // Goal is to compare analytic Hzfun_wCDM with Hzfun_interp.
+  //
+  char *outFile = HzFUN_INFO->FILENAME;
+  double zCMB_min = 0.005;
+  double zCMB_max = ZMAX_SNANA ;
+  double logz_min = log10(zCMB_min);
+  double logz_max = log10(zCMB_max);
+  int    Nzbin    = 200 ;
+  double logz_bin = (logz_max - logz_min) / (double)Nzbin;
+
+  FILE *fp; 
+  double logz, z, Hz ;
+  int  iz;
+  char fnam[] = "write_HzFUN_FILE" ;
+  
+  // ---------- BEGIN ------------
+
+  printf("   Write H(z) to %s \n", outFile); 
+  printf("\t %d bins for zCMB = %.4f to %.4f \n", 
+	 Nzbin, zCMB_min, zCMB_max);
+  printf("\t logz(min,max,bin) = %f, %f, %f \n",
+	 logz_min, logz_max, logz_bin );
+  fflush(stdout);
+
+  fp = fopen(outFile,"wt");
+  if ( !fp ) {
+    sprintf(c1err,"Unable to open '%s' in write-text mode");
+    sprintf(c2err,"Check permisssions and if file already exists.") ;
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+
+  // write documentation keys
+  fprintf(fp,"DOCUMENTATION: \n");
+  fprintf(fp,"  NOTES: \n");
+  fprintf(fp,"  - Auto generated by snlc_sim.exe  \n");
+  fprintf(fp,"  COSPAR: \n");
+  fprintf(fp,"    H0: %.2f \n" ,HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_H0] );
+  fprintf(fp,"    OM: %.4f \n" ,HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OM] );
+  fprintf(fp,"    OL: %.4f \n" ,HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OL] );
+  fprintf(fp,"    w0: %.2f \n" ,HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_w0] );
+  fprintf(fp,"    wa: %.2f \n" ,HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_wa] );
+  fprintf(fp, "DOCUMENTATION_END: \n\n");
+
+  // turn off map use temporarily so that COSPAR is used in Hzfun().
+
+  HzFUN_INFO->USE_MAP = false ;
+  for(iz=0; iz < Nzbin; iz++ ) {
+    if ( iz == 0 )
+      { z = 0.0 ; }
+    else {
+      logz = logz_min + logz_bin * (double)(iz-1) ;
+      z    = pow(TEN,logz);
+    }
+    Hz   = Hzfun(z,HzFUN_INFO);
+    fprintf(fp," %7.5f  %9.4f\n", z, Hz);
+  }
+
+  fclose(fp);
+  HzFUN_INFO->USE_MAP = true ; // restore using map
+
+  return ;
+
+} // end write_HzFUN_FILE
+
+
 // ****************************
-double SFR_integral( double H0, double OM, double OL, double W, double Z ) {
+double SFR_integral(double z, HzFUN_INFO_DEF *HzFUN_INFO) {
 
   /***
    Integrate SFR(t) from 0 to current time.
@@ -73,6 +185,7 @@ double SFR_integral( double H0, double OM, double OL, double W, double Z ) {
 
   ***/
 
+  double H0 = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_H0];
   int    ia, NABIN = 100 ;
   double AMIN, AMAX, ABIN, atmp, ztmp, xa, tmp  ;
   double sum, sfr, aH ;
@@ -82,7 +195,7 @@ double SFR_integral( double H0, double OM, double OL, double W, double Z ) {
   // ---------- BEGIN ------------
 
   AMIN = 0.0 ;
-  AMAX = 1. / (1. + Z) ;
+  AMAX = 1. / (1. + z) ;
   ABIN = (AMAX - AMIN) / (double)NABIN ;
 
   sum = 0.0 ;
@@ -92,21 +205,23 @@ double SFR_integral( double H0, double OM, double OL, double W, double Z ) {
     atmp = AMIN + ABIN * ( xa - 0.5 ) ;
     ztmp = (1. / atmp) - 1.0 ;
 
-    sfr = SFRfun_BG03(H0,ztmp);
-    aH  = atmp * Hzfun(H0,OM,OL,W,ztmp) ;
+    sfr = SFRfun_BG03(ztmp,H0);
+    aH  = atmp * Hzfun(ztmp, HzFUN_INFO);
     sum += sfr / aH ;
   }
 
   // convert H (km/s/Mpc) to H(/year)
 
   tmp = (1.0E6 * PC_km) / SECONDS_PER_YEAR ;
+  // xxx tmp = 1.0 / SECONDS_PER_YEAR ;
   sum *= (ABIN * tmp) ;
   return sum ;
 
 }  // end of function SFR_integral
 
+
 // ****************************
-double SFRfun_BG03(double H0, double z) {
+double SFRfun_BG03(double z, double H0) {
 
   /***
       Compute sfr(z) = (a+b*z)/(1+(z/c)^d)*h solar_mass/yr/Mpc^3
@@ -133,6 +248,7 @@ double SFRfun_BG03(double H0, double z) {
   return(SFRLOC) ;
 }  // end SFRfun_BG03
 
+
 // *******************************************
 double SFRfun_MD14(double z, double *params) {
 
@@ -154,40 +270,37 @@ double SFRfun_MD14(double z, double *params) {
 
 } // end SFRfun_MD14
 
+
+
 // *******************************************
-double dVdz_integral
-( 
-  double H0    // (I) km/s per MPc
-  ,double OM    // (I) Omega_matter
-  ,double OL    // (I) Omega_lamba
-  ,double W     //  (I) w = rho/p
-  ,double Zmax  //  (I) integrate up to this redshift
-  ,int wgtopt   //  (I) weight integral by z^wgtopt
- ) {
+double dVdz_integral(int OPT, double zmax, HzFUN_INFO_DEF *HzFUN_INFO) {
 
   //
   // return integral of dV/dz = r(z)^2/H(z) dz
-  // wgtopt = 0:  returns standard volume integral
-  // wgtopt = 1:  returns  z-wgted integral
+  // OPT = 0:  returns standard volume integral
+  // OPT = 1:  returns  z-wgted integral
 
-  double sum, tmp, dz, Ztmp, wz, xz ;
-  int NZbin, iz;
+  double sum, tmp, dz, ztmp, wz, xz ;
+  int Nzbin, iz;
 
   // ---- BEGIN ----------
 
   // compute exact integral
 
-  NZbin = (int)( Zmax * 1000.0 ) ;
-  if ( NZbin < 10 ) { NZbin = 10 ; }
-  dz   = Zmax / (float)NZbin ;   // integration binsize
+  Nzbin = (int)( zmax * 1000.0 ) ;
+  if ( Nzbin < 10 ) { Nzbin = 10 ; }
+  dz   = zmax / (float)Nzbin ;   // integration binsize
   sum = 0.0;
 
-  for ( iz=1; iz <= NZbin; iz++ ) {
+  for ( iz=0; iz < Nzbin; iz++ ) {
     xz   = (double)iz ;
-    Ztmp = dz * (xz - 0.5) ;
-    tmp  = dVdz ( H0, OM, OL, W, Ztmp );
+    ztmp = dz * (xz + 0.5) ;
+    tmp  = dVdz(ztmp,HzFUN_INFO);
 
-    wz = pow(Ztmp,(double)wgtopt);
+    wz = 1.0;
+    if ( OPT == 1 ) { wz = ztmp; }
+    // xxx mark delete     wz = pow(ztmp,(double)OPT);
+
     sum += wz * tmp;
 
   }
@@ -201,68 +314,55 @@ double dVdz_integral
 }  // end of dVdz_integral
 
 
-double dvdz_integral__(double *H0, double *OM, double *OL, double *W,
-		       double *Zmax, int *wgtopt) {
-  return dVdz_integral(*H0,*OM,*OL,*W,*Zmax,*wgtopt);
+double dvdz_integral__(int *OPT, double *zmax, double *COSPAR) {
+		       
+  HzFUN_INFO_DEF HzFUN_INFO;
+  int ipar;
+
+  HzFUN_INFO.USE_MAP = false ;
+  for (ipar=0; ipar < NCOSPAR_HzFUN; ipar++ ) 
+    { HzFUN_INFO.COSPAR_LIST[ipar] = COSPAR[ipar]; }
+
+  return dVdz_integral(*OPT, *zmax, &HzFUN_INFO);
 }
 
 
-
 // **********************************
-double dVdz 
-( 
-  double H0    // (I) km/s per MPc
- ,double OM    // (I) Omega_matter
- ,double OL    // (I) Omega_lamba
- ,double W    //  (I) w = rho/p
- ,double Z    //  (I) redshift
- ) {
-
+double dVdz(double z, HzFUN_INFO_DEF *HzFUN_INFO) {
   // returns dV/dz = r(z)^2 / H(z)
-
   double r, H, tmp ;
-  double zero = 0.0;
-
-  r = Hzinv_integral ( H0, OM, OL, W, zero, Z );
-  H = Hzfun ( H0, OM, OL, W, Z );
-
+  double zmin = 0.0;
+  r = Hzinv_integral (zmin, z, HzFUN_INFO);
+  H = Hzfun ( z, HzFUN_INFO);
   tmp = LIGHT_km * r * r / H ;
-
   return tmp;
-
 }  // end of dVdz
 
 
 // ******************************************
-double Hzinv_integral 
-( 
- double H0      // (I) km/s per MPc
- ,double OM     // (I) Omega_matter
- ,double OL     // (I) Omega_lamba
- ,double W      //  (I) w = rho/p
- ,double Zmin   //  (I) min integ bin
- ,double Zmax   //  (I) integrate up to this redshift
- ) {
+double Hzinv_integral(double zmin, double zmax, HzFUN_INFO_DEF *HzFUN_INFO) {
 
-  // 
-  // Jun 2016: bug fix, (float)NZbin -> (double)NZbin
+  double H0 = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_H0];
+  double H0_per_sec = H0 / ( 1.0E6 * PC_km);
+  double OM = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OM];
+  double OL = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OL];
 
-  int iz, NZbin ;
-  double dz, Hz, xz, Ztmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
+  int iz, Nzbin ;
+  double dz, Hz, xz, ztmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
 
   // ------ return integral c*r(z) = int c*dz/H(z) -------------
   // Note that D_L = (1+z)*Hzinv_integral
 
   sum = 0.0;
 
-  NZbin = (int)( (Zmax-Zmin) * 1000.0 ) ;
-  if ( NZbin < 10 ) { NZbin = 10 ; }
-  dz  = (Zmax-Zmin) / (double)NZbin ;      // integration binsize
+  Nzbin = (int)( (zmax-zmin) * 1000.0 ) ;
+  if ( Nzbin < 10 ) { Nzbin = 10 ; }
+  dz  = (zmax-zmin) / (double)Nzbin ;      // integration binsize
 
-  for ( iz=1; iz <= NZbin; iz++ ) {
+  for ( iz=0; iz < Nzbin; iz++ ) {
     xz   = (double)iz ;
-    Ztmp = Zmin + dz * (xz - 0.5) ;
-    Hz   = Hzfun ( H0, OM, OL, W, Ztmp );
+    ztmp = zmin + dz * (xz + 0.5) ;
+    Hz   = Hzfun (ztmp, HzFUN_INFO);
     sum += (1.0/Hz) ;
   }
 
@@ -289,22 +389,18 @@ double Hzinv_integral
 
 
 // ******************************************
-double Hainv_integral 
-( 
- double H0     // (I) km/s per MPc
- ,double OM     // (I) Omega_matter
- ,double OL     // (I) Omega_lamba
- ,double W      //  (I) w = rho/p
- ,double amin   //  (I) min integ bin
- ,double amax   //  (I) integrate up to this redshift
- ) {
+double Hainv_integral(double amin, double amax, HzFUN_INFO_DEF *HzFUN_INFO) {
 
-  // May 29, 2008: same as Hzinv_integral, but integrate over a
-  // instead of over z.
+  // Same as Hzinv_integral, but integrate over a instead of over z.
   // dz/E(z) :  z=1/a-1   dz = -da/a^2
 
+  double H0 = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_H0];
+  double H0_per_sec = H0 / ( 1.0E6 * PC_km);
+  double OM = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OM];
+  double OL = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OL];
+
   int ia, Nabin ;
-  double da, Hz, xa, atmp, Ztmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
+  double da, Hz, xa, atmp, ztmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
 
   // ------ return integral c*r(z) = int c*dz/H(z) -------------
   // Note that D_L = (1+z)*Hzinv_integral
@@ -315,11 +411,11 @@ double Hainv_integral
   if ( Nabin < 10 ) { Nabin = 10 ; }
   da   = (amax-amin) / (double)Nabin ;   // integration binsize
 
-  for ( ia=1; ia <= Nabin; ia++ ) {
+  for ( ia=0; ia < Nabin; ia++ ) {
     xa   = (double)ia ;
-    atmp = amin + da * (xa - 0.5) ;
-    Ztmp = 1./atmp - 1.0 ;
-    Hz   = Hzfun ( H0, OM, OL, W, Ztmp );
+    atmp = amin + da * (xa + 0.5) ;
+    ztmp = 1./atmp - 1.0 ;
+    Hz   = Hzfun (ztmp, HzFUN_INFO);
     sum += 1.0/( Hz * atmp * atmp) ;
   }
 
@@ -345,65 +441,91 @@ double Hainv_integral
 } // end of Hainv_integral
 
 
-// ******************************************
-double Hzfun ( double H0, double OM, double OL, double W, double Z ) {
 
-  //  int iz, NZbin ;
-  double sqHz, Hz, ZZ, Z2, Z3, ZL, WW, KAPPA ;
+// ******************************************
+double Hzfun(double zCMB, HzFUN_INFO_DEF *HzFUN_INFO ) {
+
+  // Driver to return H(zCMB) from analytic wCDM, or from interpolating map.
+  bool   USE_MAP = HzFUN_INFO->USE_MAP ;
+  double Hz ;
+  char fnam[] = "Hzfun" ;
 
   // ------ returns H(z) -------------
-
-  KAPPA = 1.0 - OM - OL ;  // curvature
-
-  ZZ  = 1.0 + Z ;
-  Z2  = ZZ * ZZ ;  // avoid pow fun
-  Z3  = Z2 * ZZ ; 
-
-  WW  = 3.0 * (1.0 + W) ;
-  ZL  = pow(ZZ,WW) ;
-
-  sqHz = OM*Z3  +  OL*ZL  + KAPPA*Z2 ;
-
-  Hz = H0 * sqrt ( sqHz ) ;
+  
+  if ( USE_MAP ) {
+    // interpolate from map read from file.
+    Hz = Hzfun_interp(zCMB, HzFUN_INFO);
+  }
+  else {
+    Hz = Hzfun_wCDM(zCMB, HzFUN_INFO);
+  }
 
   return Hz ;
 
 } // end of Hzfun
 
+// *************************************************
+double Hzfun_wCDM(double zCMB, HzFUN_INFO_DEF *HzFUN_INFO) {
+
+  // Created Oct 2020
+  // Refactor using HzFUN_INFO struct, and also use wa.
+
+  double H0 = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_H0] ; // km/s/Mpc
+  double OM = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OM] ;
+  double OL = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OL] ;
+  double w0 = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_w0] ;
+  double wa = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_wa] ;
+  double Hz, sqHz, w, a, ZZ, Z2, Z3, ZL, WW, KAPPA ;
+    
+  KAPPA = 1.0 - OM - OL ;  // curvature
+  ZZ    = 1.0 + zCMB ;    Z2=ZZ*ZZ ;   Z3=Z2*ZZ ; 
+  a     = 1.0/ZZ;
+  w     = w0 + wa*(1.0-a);
+  WW    = 3.0 * (1.0 + w) ;
+  ZL    = pow(ZZ,WW) ;
+  sqHz  = OM*Z3  +  OL*ZL  + KAPPA*Z2 ;
+  Hz    = H0 * sqrt ( sqHz ) ;
+  return(Hz);
+
+} // end Hzfun_wCDM
+
 
 // ******************************************
-double dLmag ( double H0, double OM, double OL, double W, 
-	       double zCMB, double zHEL ) {
+double Hzfun_interp(double zCMB, HzFUN_INFO_DEF *HzFUN_INFO) {
 
+    int OPT_INTERP = 1; // 1=linear; 2=quadratic
+    int Nzbin      = HzFUN_INFO->Nzbin_MAP;
+    double *zMAP   = HzFUN_INFO->zCMB_MAP ;   // zCMB array from map
+    double *HzMAP  = HzFUN_INFO->HzFUN_MAP ;  // H(z) array from map
+    double Hz;
+    char fnam[] = "Hzfun_interp";
+
+    Hz = interp_1DFUN(OPT_INTERP, zCMB, Nzbin, zMAP, HzMAP, fnam);
+    return(Hz);
+
+} // end Hzfun_interp
+
+// ******************************************
+double dLmag ( double zCMB, double zHEL, HzFUN_INFO_DEF *HzFUN_INFO) {
+	       	       
   // returns luminosity distance in mags:
   //   dLmag = 5 * log10(DL/10pc)
   //
-  // BEWARE that input H0 is 1/seconds (not km/s/Mpc!)
-  // Jan 5 2015: pass zCMB and zHEL
-  //
-  double rz, dl, arg, mu ;
-  double zero = 0.0 ;
+  double rz, dl, arg, mu, zero=0.0 ;
   // ----------- BEGIN -----------
-  rz     = Hzinv_integral ( H0, OM, OL, W, zero, zCMB );
+  rz     = Hzinv_integral(zero,zCMB,HzFUN_INFO) ;
+  rz    *= (1.0E6*PC_km);  // H -> 1/sec units
   dl     = ( 1.0 + zHEL ) * rz ;
   arg    = (double)10.0 * PC_km / dl ;
   mu     = -5.0 * log10( arg );
   return mu ;
 }  // end of dLmag
 
-/* xxxx mark delete xxxxx
-double dlmag_ (double *H0, double *OM, double *OL, double *W,
-               double *zCMB, double *zHEL ) {
-  double mu = dLmag(*H0,*OM,*OL,*W,*zCMB,*zHEL);
-  return(mu);
-}
-xxxxxxxx */
 
-double zcmb_dLmag_invert( double H0, double OM, double OL, double W, double MU ) {
+double zcmb_dLmag_invert( double MU, HzFUN_INFO_DEF *HzFUN_INFO) {
 
   // Created Jan 4 2018
   // for input distance modulus (MU), solve for zCMB.
-  // Beware that H0 unit is km/s/pc (not per Mpc)
 
   double zCMB, zCMB_start, dmu, DMU, mutmp, DL ;
   double DMU_CONVERGE = 1.0E-4 ;
@@ -420,7 +542,7 @@ double zcmb_dLmag_invert( double H0, double OM, double OL, double W, double MU )
   zCMB = zCMB_start ;
   DMU = 9999.0 ;
   while ( DMU > DMU_CONVERGE ) {
-    mutmp  = dLmag(H0,OM,OL,W, zCMB, zCMB); // MU for trial zCMB
+    mutmp  = dLmag(zCMB, zCMB, HzFUN_INFO); // MU for trial zCMB
     dmu    = mutmp - MU ;             // error on mu
     DMU    = fabs(dmu);
     zCMB  *= exp(-dmu/2.0); 

@@ -1003,7 +1003,6 @@ int SNTABLE_NEVT_TEXT(char *FILENAME) {
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
-
   while ( fgets(LINE,MXCHAR_LINE, fp) != NULL ) {
     ptrtok = strtok(LINE, " ");
     if ( validRowKey_TEXT(ptrtok) ) { NROW++ ; }

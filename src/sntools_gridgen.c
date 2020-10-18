@@ -858,7 +858,7 @@ void wrhead_GRIDfile_fits(void) {
   fits_update_key(fp_GRIDGEN_FITS, TFLOAT, "Omega_DE", 
 		  &ftmpval, "Simulated Dark Energy content.", &istat);
 
-  ftmpval = INPUTS.W0_LAMBDA;
+  ftmpval = INPUTS.w0_LAMBDA;
   fits_update_key(fp_GRIDGEN_FITS, TFLOAT, "w0", 
 		  &ftmpval, "Simulated w for DE.", &istat);
 

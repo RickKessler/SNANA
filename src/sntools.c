@@ -5880,13 +5880,12 @@ int rd2columnFile(
   // Returns SUCCESS flag upon completion
   // Skips rows that have comments starting with #, !, %
   //
-  //
   // Dec 29 2017: use open_TEXTgz() to allow for gzipped file.
+  // Oct 17 2020: skip optional DOCUMENTATION lines
 
   FILE *fp ;
-  int  n, GZIPFLAG ;
-  double tmp1, tmp2;
-
+  int  n, GZIPFLAG, IS_DOCANA=0 ;
+  double tmp1, tmp2;  
   char line[MXPATHLEN], tmpline[MXPATHLEN], s1[40], s2[40] ;
   char *ptrtok ;
   char fnam[] = "rd2columnFile" ;
@@ -5916,6 +5915,14 @@ int rd2columnFile(
     // skip comment-lines
     if ( commentchar(s1) == 1 ) { continue ; }
 
+    // skip DOCUMENTATION lines (Oct 2020)
+    if (strcmp(s1,KEYNAME_DOCANA_REQUIRED)  == 0 ) 
+      { IS_DOCANA = 1; }
+    if (strcmp(s1,KEYNAME2_DOCANA_REQUIRED) == 0 ) 
+      { IS_DOCANA = 0; continue; }
+
+    if (IS_DOCANA) { continue; }
+
     // get 2nd string 
     sscanf ( ptrtok, "%s", s2 );
     ptrtok = strtok(NULL, " ");
@@ -5924,15 +5931,20 @@ int rd2columnFile(
     sscanf(s1, "%le" , &tmp1 ) ;
     sscanf(s2, "%le" , &tmp2 ) ;
 
+    column1[n] = tmp1 ;
+    column2[n] = tmp2 ;
+
     n++ ;
-    if ( n > MXROW ) {
+    if ( n >= MXROW ) {
       sprintf(c1err,"Nrow exceeds MXROW=%d for file", MXROW );
       sprintf(c2err,"%s", file);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
     }
 
-    *(column1 + n - 1) = tmp1 ;
-    *(column2 + n - 1) = tmp2 ;
+    // xxxx mark delete Oct 17 2020 xxxxx
+    //    *(column1 + n - 1) = tmp1 ;
+    //  *(column2 + n - 1) = tmp2 ;
+    // xxxxxxxxx
 
   } // end of while loop
 
@@ -10810,9 +10822,7 @@ void abort_openTextFile(char *keyName, char *PATH_LIST,
   char *PATH[MXPATH_CHECK], sepKey[] = " " ;
 
   // -------------- BEGIN ----------------
-
   print_preAbort_banner(funCall);
-
 
   // append path(s) from PATH_LIST
   for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
@@ -10837,7 +10847,6 @@ void abort_openTextFile(char *keyName, char *PATH_LIST,
   return ;
 
 } // end abort_openTextFile
-
 
 // ***************************
 int INTFILTER ( char *cfilt ) {

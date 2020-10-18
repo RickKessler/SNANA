@@ -680,7 +680,8 @@ void set_user_defaults(void) {
   // Mar 2020: use updated cosmoparameters defined in sntools.h
   INPUTS.OMEGA_MATTER  =  (double)OMEGA_MATTER_DEFAULT ; 
   INPUTS.OMEGA_LAMBDA  =  (double)OMEGA_LAMBDA_DEFAULT ;
-  INPUTS.W0_LAMBDA     =  (double)w0_DEFAULT ;
+  INPUTS.w0_LAMBDA     =  (double)w0_DEFAULT ;
+  INPUTS.wa_LAMBDA     =  (double)wa_DEFAULT ;
   INPUTS.H0            =  (double)H0_SALT2 ;
   INPUTS.MUSHIFT       =   0.0 ;
   INPUTS.HzFUN_FILE[0] = 0 ;
@@ -2027,8 +2028,11 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "OMEGA_LAMBDA", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.OMEGA_LAMBDA );
   }
-  else if ( keyMatchSim(1, "W0_LAMBDA", WORDS[0],keySource) ) {
-    N++ ; sscanf(WORDS[N], "%le", &INPUTS.W0_LAMBDA );
+  else if ( keyMatchSim(1, "W0_LAMBDA w0_LAMBDA", WORDS[0],keySource) ) {
+    N++ ; sscanf(WORDS[N], "%le", &INPUTS.w0_LAMBDA );
+  }
+  else if ( keyMatchSim(1, "Wa_LAMBDA wa_LAMBDA", WORDS[0],keySource) ) {
+    N++ ; sscanf(WORDS[N], "%le", &INPUTS.wa_LAMBDA );
   }
   else if ( keyMatchSim(1, "H0", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.H0 );
@@ -2036,7 +2040,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "MUSHIFT", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.MUSHIFT );
   }
-  else if ( keyMatchSim(1, "GENHD_FILE", WORDS[0],keySource) ) {
+  else if ( keyMatchSim(1, "HzFUN_FILE", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%s", INPUTS.HzFUN_FILE );
   }
   // - - - 
@@ -4555,8 +4559,6 @@ void prep_user_input(void) {
 
   INDEX_GENMODEL = 0 ;
 
-  prep_user_cosmology(); // Oct 16 2020 ... for next SNANA version
-
   sprintf(GENLC.SHAPEPAR_NAME,    "NULL");
   sprintf(GENLC.SHAPEPAR_GENNAME, "NULL");
   sprintf(GENLC.COLORPAR_NAME,    "NULL");
@@ -4993,6 +4995,8 @@ void prep_user_input(void) {
   sprintf(PATH_KCOR_LIST, "%s %s/kcor",  PATH_USER_INPUT, PATH_SNDATA_ROOT );
   find_pathfile(kcorFile, PATH_KCOR_LIST, INPUTS.KCOR_FILE, fnam ); 
 
+  prep_user_cosmology(); // Oct 16 2020 
+
   // --------------------------------------
   //----------- PRINT SUMMARY -------------
   // --------------------------------------
@@ -5017,17 +5021,14 @@ void prep_user_input(void) {
   }
 
   
-  // xxxxxxxx mark delete when init_HzFUN_INFO is used xxxxxxx
   if ( IGNOREFILE(INPUTS.HzFUN_FILE) ) {
     printf("\t OMEGA_(MATTER,LAMBDA)= %5.3f, %5.3f,    w0= %5.2f   H0=%5.1f \n"
 	   ,INPUTS.OMEGA_MATTER, INPUTS.OMEGA_LAMBDA
-	   ,INPUTS.W0_LAMBDA, INPUTS.H0  );
+	   ,INPUTS.w0_LAMBDA, INPUTS.H0  );
   }
   else {
     printf("\t HzFUN from file: %s \n", INPUTS.HzFUN_FILE);
   }
-  // xxxxxxxxx
-
 
   printf("\t KCOR  file : %s \n", INPUTS.KCOR_FILE );
 
@@ -5298,22 +5299,16 @@ void prep_user_cosmology(void) {
   char fnam[] = "prep_user_cosmology";
 
   // ------- BEGIN ----------
-  
-  if ( IGNOREFILE(HzFUN_FILE) ) {
-    cosPar[ICOSPAR_HzFUN_H0] = INPUTS.H0;
-    cosPar[ICOSPAR_HzFUN_OM] = INPUTS.OMEGA_MATTER ;
-    cosPar[ICOSPAR_HzFUN_OL] = INPUTS.OMEGA_LAMBDA ;
-    cosPar[ICOSPAR_HzFUN_w0] = INPUTS.W0_LAMBDA ;
-    cosPar[ICOSPAR_HzFUN_wa] = 0.0 ;
-  }
-  else  { 
-    // set wCDM params to -9 if using H(z) map from file
-    for(ipar=0; ipar<NCOSPAR_HzFUN; ipar++) 
-      { cosPar[ipar] = -9.0; } 
-  }
 
+  cosPar[ICOSPAR_HzFUN_H0] = INPUTS.H0;
+  cosPar[ICOSPAR_HzFUN_OM] = INPUTS.OMEGA_MATTER ;
+  cosPar[ICOSPAR_HzFUN_OL] = INPUTS.OMEGA_LAMBDA ;
+  cosPar[ICOSPAR_HzFUN_w0] = INPUTS.w0_LAMBDA ;
+  cosPar[ICOSPAR_HzFUN_wa] = INPUTS.wa_LAMBDA ;
+  
   // init structure that gets passed later to cosmology functions
-  init_HzFUN_INFO(cosPar, HzFUN_FILE, 
+  int VBOSE = 1;
+  init_HzFUN_INFO(VBOSE, cosPar, HzFUN_FILE, 
 		  &INPUTS.HzFUN_INFO ); // <== returned 
 
   return;
@@ -5762,16 +5757,16 @@ void  prep_RANSYSTPAR(void) {
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_W0 ;
   if ( tmpSigma != 0.0 ) { 
     NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
-    INPUTS.W0_LAMBDA += tmp ;
-    printf("\t W0_LAMBDA  = %.3f \n", INPUTS.W0_LAMBDA );
+    INPUTS.w0_LAMBDA += tmp ;
+    printf("\t w0_LAMBDA  = %.3f \n", INPUTS.w0_LAMBDA );
   }
 
   tmpRange = INPUTS.RANSYSTPAR.RANGESHIFT_W0 ;
   if ( tmpRange[1] > tmpRange[0] ) { 
     NSET++; Range = tmpRange[1] - tmpRange[0];
     tmp = tmpRange[0] + Range * FlatRan1(ILIST_RAN);
-    INPUTS.W0_LAMBDA += tmp ;
-    printf("\t W0_LAMBDA  = %.3f \n", INPUTS.W0_LAMBDA );
+    INPUTS.w0_LAMBDA += tmp ;
+    printf("\t w0_LAMBDA  = %.3f \n", INPUTS.w0_LAMBDA );
   }
 
 
@@ -6275,7 +6270,7 @@ void init_RateModel(void) {
 
   // Created Nov 26 2017
   int i;
-  //  char fnam[] = "init_RateModel" ;
+  char fnam[] = "init_RateModel" ;
 
   // -------------- BEGIN ---------------
 
@@ -6284,6 +6279,7 @@ void init_RateModel(void) {
   else
     { init_DNDB_Rate(); } // Rate vs. Gal coords l & b
   
+
   // --------------------------------------
   // now print info to stdout
 
@@ -6300,6 +6296,8 @@ void init_RateModel(void) {
     int NGENTOT_CALC = NSN + NPEC1A ;
     printf("NGENTOT_RATECALC: %d\n", NGENTOT_CALC);
   }
+
+  // debugexit(fnam); // xxx REMOVE
 
   return ;
 
@@ -6324,29 +6322,31 @@ void init_DNDZ_Rate(void) {
 
   *****/
 
-  double 
-    H0, OM, OL, W0, Z0, Z1, Z_AVG, ZVtmp[2]
-    ,ZVint[2], ZVOL, VT
-    ,dOmega, dOmega_user, dphi, dth, sin0, sin1
-    ,delMJD, Tyear, Tcomoving, SNsum, PEC1Asum, TOTsum
-    ,ztmp, rtmp, rtmp1, rtmp2, FRAC_PEC1A
-    ;
+  double Z0, Z1, Z_AVG, ZVtmp[2], ZVint[2], ZVOL, VT;
+  double dOmega, dOmega_user, dphi, dth, sin0, sin1;
+  double delMJD, Tyear, Tcomoving, SNsum, PEC1Asum, TOTsum;
+  double ztmp, rtmp, rtmp1, rtmp2, FRAC_PEC1A;
 
-  int i, iz ;
-  char ch[8], cnum[20];
+  int i, iz, OPT_DVDZ ;
+  char cH0[8], cnum[20];
   char fnam[] = "init_DNDZ_Rate" ;
 
   // ----------- BEGIN ------------
 
+  /* xxxx mark delete xxxxxxx
   H0 = INPUTS.H0 ;
   OM = INPUTS.OMEGA_MATTER ;
   OL = INPUTS.OMEGA_LAMBDA ;
   W0 = INPUTS.W0_LAMBDA  ;
+  xxxxx end mark xxxx*/
+
+
   Z0 = INPUTS.GENRANGE_REDSHIFT[0] ;
   Z1 = INPUTS.GENRANGE_REDSHIFT[1] ;
 
-  ZVint[0] = dVdz_integral ( H0, OM, OL, W0, Z0, 0 );
-  ZVint[1] = dVdz_integral ( H0, OM, OL, W0, Z1, 0 );
+  OPT_DVDZ = 0;
+  ZVint[0] = dVdz_integral( OPT_DVDZ, Z0, &INPUTS.HzFUN_INFO );
+  ZVint[1] = dVdz_integral( OPT_DVDZ, Z1, &INPUTS.HzFUN_INFO );
 
   // compute solid angle for stripe 82
   dphi   = INPUTS.GENRANGE_RA[1]   - INPUTS.GENRANGE_RA[0] ;
@@ -6362,18 +6362,23 @@ void init_DNDZ_Rate(void) {
   }
   dOmega  = INPUTS.SOLID_ANGLE ; 
 
-
   // get volume in (MPc/h)^3
   ZVOL = dOmega * ( ZVint[1] - ZVint[0] ) ;
 
-  // compute average <z> wgted by volume (last arge = 1)
-  ZVtmp[0] = dVdz_integral ( H0, OM, OL, W0, Z0, 1 );
-  ZVtmp[1] = dVdz_integral ( H0, OM, OL, W0, Z1, 1 );
+  // compute average <z> wgted by volume
+  OPT_DVDZ = 1;  // z-wgted option
+  ZVtmp[0] = dVdz_integral( OPT_DVDZ, Z0, &INPUTS.HzFUN_INFO);  
+  ZVtmp[1] = dVdz_integral( OPT_DVDZ, Z1, &INPUTS.HzFUN_INFO);
+
+  /*
+  printf(" xxx %s: ZVint = %f, %f \n", fnam, ZVint[0], ZVint[1] );
+  printf(" xxx %s: ZVtmp = %f, %f \n", fnam, ZVtmp[0], ZVtmp[1] );
+  */
 
   if ( Z0 == Z1 ) 
     { Z_AVG = Z1 ; }
   else
-    { Z_AVG    = (ZVtmp[1]-ZVtmp[0]) / (ZVint[1] - ZVint[0]); }
+    { Z_AVG    = (ZVtmp[1] - ZVtmp[0]) / (ZVint[1] - ZVint[0]); }
 
 
   // get time in years
@@ -6382,7 +6387,8 @@ void init_DNDZ_Rate(void) {
   Tcomoving = Tyear / ( 1.0 + Z_AVG ) ;
   VT        = ZVOL * Tcomoving ;
 
-  sprintf(ch, "h%d" , (int)H0 );
+  sprintf(cH0, "h%d" , (int)INPUTS.H0 );
+
 
   // ---------------------------------------------------
   // compute expected number of SN per season (SNsum):
@@ -6434,7 +6440,7 @@ void init_DNDZ_Rate(void) {
 	 "\t <redsfhit>     = %7.4f  (volume-weighted) ", Z_AVG ) ;
 
   i++; sprintf(LINE_RATE_INFO[i],
-	 "\t Survey Volume  = %8.4e  sr*(MPc/%s)^3 ", ZVOL, ch );
+	 "\t Survey Volume  = %8.4e  sr*(MPc/%s)^3 ", ZVOL, cH0 );
 
   i++; sprintf(LINE_RATE_INFO[i],
 	 "\t Survey Time    = %7.4f  years/season ", Tyear );
@@ -6444,7 +6450,7 @@ void init_DNDZ_Rate(void) {
 	       Tcomoving );
 
   i++; sprintf(LINE_RATE_INFO[i],
-	 "\t Co-moving V*T  = %8.4e  sr*(MPc/%s)^3 * yr / season ", VT, ch );
+	 "\t Co-moving V*T  = %8.4e  sr*(MPc/%s)^3 * yr / season ", VT, cH0 );
 
 
   // June 4, 2012 - dNdz and rate info moved from README_doc()
@@ -6656,6 +6662,7 @@ void init_DNDZ_Rate(void) {
   i++; LINE_RATE_INFO[i][0] = 0 ;
 
   NLINE_RATE_INFO = i+1 ;
+
 
   return ;
 
@@ -12261,13 +12268,8 @@ double gen_dLmag(double zCMB, double zHEL ) {
   // Note that INPUTS.H0 ~ 70 km/s/Mpc, and H0 -> ~2E-18
 
   double mu ;
-  double H0 = INPUTS.H0 / ( 1.0E6 * PC_km) ;
-  double OM = INPUTS.OMEGA_MATTER ;
-  double OL = INPUTS.OMEGA_LAMBDA ;
-  double w0 = INPUTS.W0_LAMBDA ;
-
   if ( zCMB <= 1.0E-10 ) { return 0.0 ; }  // avoid inf, May 2013
-  mu = dLmag (H0,OM,OL,w0, zCMB, zHEL);
+  mu = dLmag (zCMB, zHEL, &INPUTS.HzFUN_INFO);
 
   return(mu) ;
 
@@ -12330,7 +12332,7 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
 
   *****************/
 
-  double z, zran, z_atmax, dz, H0, OM, OL, W0, w, wgt, wran1 ;
+  double z, zran, z_atmax, dz, w, wgt, wran1 ; // xxx H0, OM, OL, W0, 
   double zrange[2] = { zmin, zmax } ;
   int iz, NZ, ISFLAT, ISPOLY, ilist, NEWZRANGE, FIRST ;
   char fnam[] = "genz_hubble" ;
@@ -12346,10 +12348,12 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
 
   if ( zmin == zmax ) { return(zmin); }
 
+  /* xxxx mark delete xxxx
   H0   = INPUTS.H0 / ( 1.0E6 * PC_km) ;
   OM   = INPUTS.OMEGA_MATTER ;
   OL   = INPUTS.OMEGA_LAMBDA ;
   W0   = INPUTS.W0_LAMBDA ;   
+  xxxxxx end mark xxxx*/
 
   ISFLAT = ( strcmp(RATEPAR->NAME,"FLAT" ) == 0 ) ;
   ISPOLY = ( strcmp(RATEPAR->NAME,"ZPOLY") == 0 ) ;
@@ -12388,7 +12392,8 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
 	  { w = polyEval(4, RATEPAR->MODEL_PARLIST[1], z); }
       }
       else {
-	w = dVdz ( H0, OM, OL, W0, z );
+	// xxx mark delete	w = dVdz ( H0, OM, OL, W0, z );
+	w = dVdz (z, &INPUTS.HzFUN_INFO);
 	w /= (1.0+z);          // Dec 2006: time dilation factor
 	w *= genz_wgt(z,RATEPAR) ;
       }
@@ -12447,7 +12452,7 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
   }
   else {
     // physical distribution
-    w    = dVdz ( H0, OM, OL, W0, zran );
+    w    = dVdz (zran, &INPUTS.HzFUN_INFO);
     w   /= (1.0+zran);  
     w   *= genz_wgt(zran,RATEPAR);
     if ( w > RATEPAR->ZGENWGT_MAX )  { RATEPAR->ZGENWGT_MAX = w ; }
@@ -12579,7 +12584,7 @@ double SNcount_model(double zMIN, double zMAX, RATEPAR_DEF *RATEPAR ) {
   // Sep 4 2016: add missing return(SNsum)
 
   double SNsum, dz, ztmp, vtmp, rtmp, tmp ;
-  double H0, OM, OL, W0 ;
+  // xxx mark delete  double H0, OM, OL, W0 ;
   int NBZ, iz;
   //  char fnam[] = "SNcount_model" ;
 
@@ -12587,18 +12592,13 @@ double SNcount_model(double zMIN, double zMAX, RATEPAR_DEF *RATEPAR ) {
 
   SNsum = 0.0 ;
 
-  H0   = INPUTS.H0 ; 
-  OM   = INPUTS.OMEGA_MATTER ;
-  OL   = INPUTS.OMEGA_LAMBDA ;
-  W0   = INPUTS.W0_LAMBDA ;   
-
   NBZ = (int)( (zMAX - zMIN ) * 1000. ) ;
   if ( NBZ < 10 ) { NBZ = 10; }
   dz  = ( zMAX - zMIN ) / (double)NBZ ;
 
   for ( iz=1; iz <= NBZ; iz++ ) {
     ztmp   = zMIN + dz * ((double)iz - 0.5 ) ;
-    vtmp   = dVdz ( H0, OM, OL, W0, ztmp );
+    vtmp   = dVdz (ztmp, &INPUTS.HzFUN_INFO);
     rtmp   = genz_wgt(ztmp,RATEPAR) ;   // rate * user-rewegt fudge
     tmp    = rtmp * vtmp / ( 1.0 + ztmp );
     SNsum += tmp ;
@@ -12633,7 +12633,7 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
     Dec     2016: add Strolger 2015 CC rate
   ***/
 
-  double sfr, sfrint, h, H0, OM, OL, W, z1, rate ;
+  double sfr, sfrint, h, H0, OM, OL, w0, wa, z1, rate ;
   double A, B, k, zmin, zmax, z2,z3,z4,z5, arg ;
   double MD14parList[8], R0;
   double zero=0.0 ;
@@ -12721,14 +12721,17 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
       sprintf(c2err,"A=%e  B=%e", A, B );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
+
+    /* xxxxxx  mark delete 
     H0=INPUTS.H0 ;
-    OM=INPUTS.OMEGA_MATTER; OL=INPUTS.OMEGA_LAMBDA ;  W=INPUTS.W0_LAMBDA;
+    OM=INPUTS.OMEGA_MATTER; OL=INPUTS.OMEGA_LAMBDA ;  w0=INPUTS.w0_LAMBDA;
+    xxxxxxxx */
 
     // get star formation rate 
-    sfr    = SFRfun_BG03(H0,z);
+    sfr    = SFRfun_BG03(INPUTS.H0,z);
 
     // determine integrated stellar mass 
-    sfrint = SFR_integral( H0, OM, OL, W, z ) ;
+    sfrint = SFR_integral( z, &INPUTS.HzFUN_INFO);
 
     // compute rate from 2-component model
     rate = A * sfrint  +  B * sfr ;
@@ -15937,11 +15940,15 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   if ( strcmp(KEY,"DISTANCE:")==0 && RDFLAG_DISTANCE ) {
     readdouble ( fp_SIMLIB, 1, &dist );  // Lumi-distance (D_L), Mpc (Jan 2018)
     MU = 5.0*log10(dist/1.0E-5);  // 10pc = 1.0E-5 Mpc
+
+
+    /* xxxx mark delete xxxxxxxxx
     double H0 = INPUTS.H0 / ( 1.0E6 * PC_km) ;
     double OM = INPUTS.OMEGA_MATTER;
     double OL = INPUTS.OMEGA_LAMBDA;
     double w0 = INPUTS.W0_LAMBDA ;
-    TMPVAL = zcmb_dLmag_invert(H0, OM, OL, w0, MU); // returns zCMB
+    xxxxxxxxx end mark xxxxxx */
+    TMPVAL = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO); // returns zCMB
     TMPRANGE[0] = TMPRANGE[1] = TMPVAL;  LTMP=1;
   }
 
@@ -20392,7 +20399,7 @@ void genmag_boost(void) {
 
     }
 
-      // store Kcor info to include in SNDATA files
+    // store Kcor info to include in SNDATA files
 
     sprintf(GENLC.kcornam[epoch], "K_%c%c"
 	    ,FILTERSTRING[ifilt_rest1]
@@ -20418,10 +20425,10 @@ void genmag_boost(void) {
 
     GENLC.generr_obs[epoch] = GENLC.generr_rest[epoch] ;
 
-
   } // end of epoch loop
 
- 
+  return ;
+
 }  // end of genmag_boost
 
 
@@ -20809,7 +20816,7 @@ void init_genmodel(void) {
       GENLC.IFILTINVMAP_REST[ifilt_rest] = ifilt;
     }
 
-    if ( INDEX_GENMODEL == MODEL_MLCS2k2 )   init_covar_mlcs2k2(); 
+    if ( INDEX_GENMODEL == MODEL_MLCS2k2 ) { init_covar_mlcs2k2(); }
 
   }
 
@@ -24830,8 +24837,9 @@ void readme_doc(int iflag_readme) {
   sprintf(cptr,"\t H0 = %6.2f km/s per MPc \n", INPUTS.H0 );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t Omega_{M,L} = %5.2f, %5.2f   w = %5.2f  \n",
-	  INPUTS.OMEGA_MATTER, INPUTS.OMEGA_LAMBDA, INPUTS.W0_LAMBDA );
+  sprintf(cptr,"\t Omega_{M,L} = %5.2f, %5.2f   w0,wa = %5.2f,%5.3f  \n",
+	  INPUTS.OMEGA_MATTER, INPUTS.OMEGA_LAMBDA, 
+	  INPUTS.w0_LAMBDA, INPUTS.wa_LAMBDA );
 
 
 
@@ -28313,15 +28321,18 @@ void test_fortran(void) {
 // ******************************
 void test_zcmb_dLmag_invert(void) {
 
+  /* xxxx mark delete 
   double H0 = INPUTS.H0 / ( 1.0E6 * PC_km) ;
   double OM = INPUTS.OMEGA_MATTER;
   double OL = INPUTS.OMEGA_LAMBDA;
   double w0 = INPUTS.W0_LAMBDA ;
+  xxxxxx end mark xxxx*/
+
   char fnam[] = "test_zcmb_dLmag_invert" ;
   double MU, zCMB;
   // ----------- RETURN ------------
   for(MU=32.0; MU < 49.0; MU+=1.0 ) {
-    zCMB = zcmb_dLmag_invert(H0, OM, OL, w0, MU); 
+    zCMB = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO);
   }
   debugexit(fnam);
   return ;

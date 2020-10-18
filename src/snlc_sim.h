@@ -515,7 +515,8 @@ struct INPUTS {
 
   double OMEGA_MATTER;   // used to select random Z and SN magnitudes
   double OMEGA_LAMBDA;
-  double W0_LAMBDA;
+  double w0_LAMBDA;
+  double wa_LAMBDA;    // w = w0 + wa*(1-a)
   double H0;           // km/s per MPc
   double MUSHIFT;      // coherent MU shift at all redshifts (Oct 2020) 
   char   HzFUN_FILE[MXPATHLEN];  // 2 column file with zCMB H(z,theory)

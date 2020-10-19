@@ -3911,6 +3911,14 @@ c If interactive, replace invalid pwd/ with a valid './' path.
          PRIVATE_DATA_PATH = '.'
       ENDIF
 
+c if PRIVATE_DATA_PATH points to public $SNDATA_ROOT/lcmerge,
+c disalbe PRIVATE_DATA_PATH.
+      LL = INDEX(SNDATA_ROOT,' ' ) - 1
+      IF ( PRIVATE_DATA_PATH.EQ.SNDATA_ROOT(1:LL)//'/lcmerge')THEN
+          PRIVATE_DATA_PATH = ' '
+      ENDIF
+
+
 c Nov 15 2019: abort on obsolete key
       IF ( CUTWIN_NBAND_THRESH(1) > -1.0 .or. 
      &     CUTWIN_NBAND_THRESH(2) > -1.0 ) then

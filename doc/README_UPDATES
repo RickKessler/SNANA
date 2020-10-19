@@ -19091,8 +19091,24 @@
 
          ***** MISCELLANEOUS(v10_79) ***** 
 
+   sntools_cosmology.c[h]: 
+     + refactor to use HzINFO_INFO typedef.
+
+   sntools.c
+     + skip/ignore DOCUMENTATION keys in rd2column(...)
+
    genmag_SALT2.c
      + refactor SALT2magerr to treat SALT3 vartot as flux,
        but SALT2 vartot as relative flux. 
+
+   snlc_sim.c
+     + check NONE argument for HOSTLIB_FILE 
+     + fix confusing error message for multiple DNDZ args
+     + refactor to pass HzINFO to cosmology functions.
+     + new arg wa_LAMBDA (see manual)
+
+   snana.car, submit_prog_fit.py:
+     + allow user mistake setting PRIVATE_DATA_PATH = '$SNDATA_ROOT/lcmerge'
+       (but still aborts if PRIVATE_DATA_PATH='$SNDATA_ROOT/SIM')
 
 END: 

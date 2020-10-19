@@ -214,7 +214,9 @@ class LightCurveFit(Program):
         key = 'private_data_path'
         if key in snlcinp :
             path = os.path.expandvars(snlcinp[key])
-            path_check_list.append(path) 
+            skip_path = False 
+            if path == path_data_default: skip_path=True # allow user mistake
+            if not skip_path : path_check_list.append(path) 
 
         with open(path_sim_list_file,"r") as f :
             for line in f:

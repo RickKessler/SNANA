@@ -763,18 +763,27 @@ For specific analyses requiring different cosmo parameters,
 use the following sim-input keys:
 %
 \begin{Verbatim}[frame=single]
-  OMEGA_MATTER:  <value>
-  OMEGA_LAMBDA:  <value>
-  W0_LAMBDA:     <value>
-  H0:            <value>
+  OMEGA_MATTER:  <value>  # default = OMEGA_MATTER_LCDM
+  OMEGA_LAMBDA:  <value>  # default = OMEGA_LAMBDA_LCDM
+  w0_LAMBDA:     <value>  # default = -1.0  [legacy W0_LAMBDA accepted too]
+  wa_LAMBDA:     <value>  # default =  0.0
+  H0:            <value>  # default = 70(SALT2), 65(MLCS)
+    or
+  HzFUN_FILE:  <fileName>  # non-wCDM:  2 columns with  z  H(z)
 \end{Verbatim}
 %
-It is recommended to use the defaults so that global updates
-are easily propagated thru Github updates rather than modifying
-numerous sim-input files.
-The curvature is computing internally as $\Ok = 1 - \OM - \OL$,
+It is recommended to {\it NOT} specify cosmological parameters and thus
+use the defaults; global default updates are easily propagated thru 
+Github rather than modifying numerous sim-input files.
+The curvature is computed internally as $\Ok = 1 - \OM - \OL$,
 and the radiation term is ignored. Time-varying $w$
 is currently not implemented.
+
+For non-standard $H(z$), {\tt HzFUN\_FILE} specifies an aribtrary
+function with 2-columns: $z$ and $H(z)$. 
+The $z$-bins need not be uniform; i.e., $\log(z)$-binning. 
+Since some of the cosmology functions integrate from $z=0$, 
+the first map bin must have $z=0$ (sim aborts if not satisfied).
 
 % ------------------------------------
    \clearpage

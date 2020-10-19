@@ -4422,15 +4422,9 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
     idir++ ;
   }
 
-  /* xxxxx mark delete Sep 12 2019 (see below) xxxxxxxxxxx
-  // always tack on SIM dir to check
-  sprintf(tmpDir[idir],  "%s/SIM/%s" , SNDATA_ROOT,  VERSION );
-  sprintf(tmpFile[idir], "%s/%s.LIST", tmpDir[idir], VERSION  );
-  idir++ ;
-  xxxxxxxxxxxxx end mark xxxxxxxxxxxxxx  */
-
   // - - - - - - - - - - - - - - - - - - - - - 
-  // Nov 18 2017: check for user-defined SIM-output dirs
+  // Nov 18 2017: check for user-defined SIM-output dirs 
+  //              based on PATH_SNDATA_SIM
   int ipath, NPATH;
   char **PATHLIST;
 

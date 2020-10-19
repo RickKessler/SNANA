@@ -30,7 +30,7 @@
 
 int  NCALL_DBUG_SALT2 ; 
 int  RELAX_IDIOT_CHECK_SALT2;
-bool ISMODEL_SALT3 ;
+bool ISMODEL_SALT2, ISMODEL_SALT3 ;
 
 /**********************************************
   Init Information
@@ -51,6 +51,7 @@ double RVMW_SALT2 ;
 #define INDEX_ERRMAP_COLORDISP  4 // color  dispersion vs. lambda
 
 
+/* xxxx mark delete xxxxxx
 // Sep 2020: define color law params for python-trained SALT3
 typedef struct {
   double REFLAM_CL0 ; // lam where CL=0  a.k.a B_WAVE
@@ -58,7 +59,7 @@ typedef struct {
   GENPOLY_DEF LAMPOLY_CL; // color law poly fun vs. wave
   double LAMCEN_RANGE[2]; // min, max wave (rest-frame) of filt-mean
 } SALT3_COLORPAR_DEF ;
-
+xxxxxx end mark xxxxxxxxx */
 
 struct SALT2_ERRMAP {
   int     NDAY, NLAM;
@@ -87,9 +88,6 @@ struct INPUT_SALT2_INFO {
   double COLORLAW_PARAMS[MXCOLORPAR] ; // for IVER=1 (SALT2.Guy10,JLA-B14)
   double COLOR_OFFSET  ;   // separate from COLORLAW_PARAMS (Aug 2, 2010)
 
-  // COLORLAW3_PARAMS_DEF COLORLAW3_PARAMS;
-  SALT3_COLORPAR_DEF COLORPAR3 ;
-
   double MAG_OFFSET; // global mag offset (Nov 24, 2011)
 
   int SEDFLUX_INTERP_OPT;    // 1=>linear,  2=> spline
@@ -109,9 +107,15 @@ struct INPUT_SALT2_INFO {
   // option to force g-band flux to zero at high redshift (Oct 2015)
   double RESTLAM_FORCEZEROFLUX[2];
 
-
 } INPUT_SALT2_INFO ;
 
+
+// Oct 2020: info specific to SALT3
+struct INPUT_SALT3_INFO {
+  //  SALT3_COLORPAR_DEF COLORPAR3 ; // color law params
+  double FNORM_ERROR[MXFILTINDX]; // convert flux to Flux/Angstron for error
+
+} INPUT_SALT3_INFO;
 
 // define model parameter for late-time mag-extrapolation
 #define MXLAMBIN_EXTRAP_LATETIME 20
@@ -224,7 +228,7 @@ double SALT2x0calc(double alpha, double beta, double x1, double c,
 double SALT2mBcalc(double x0); 
 
 double SALT2magerr(double Trest, double lamRest,  double z,
-		   double x1, double Finteg_noMW, double Fratio_noMW, int LDMP);
+		   double x1, double Finteg_errPar, int LDMP);
 
 double SALT2colorDisp(double lam, char *callFun);
 
@@ -254,11 +258,8 @@ void  init_SALT2interp_ERRMAP(void);
 void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 
 		      double x0, double x1, double c,
 		      double RV_host, double AV_host,
-		      double *Finteg, double *Finteg_noMW, 
-		      double *Fratio, double *Fspec );
-
-void get_fluxRest_SALT2(double lamRest_min, double lamRest_max,
-			double *fluxRest );
+		      double *Finteg, double *Finteg_errPar, 
+		      double *Fspec );
 
 int gencovar_SALT2(int MATSIZE, int *ifilt_obs, double *epobs, 
 		   double z, double x0, double x1, double c, double mwebv, 
@@ -286,7 +287,8 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs, float z,
 // colorlaw1 - version 1 from Guy 2010
 double SALT2colorlaw0(double lam_rest, double c, double *colorPar );
 double SALT2colorlaw1(double lam_rest, double c, double *colorPar );
-double SALT3colorlaw(double lam_rest, double c, SALT3_COLORPAR_DEF *COLORPAR3 );
+// xxx double SALT3colorlaw(double lam_rest, double c, 
+// xxx SALT3_COLORPAR_DEF *COLORPAR3 );
 
 double SALT2colorfun_dpol(const double rl, int nparams,
                           const double *params, const double alpha);

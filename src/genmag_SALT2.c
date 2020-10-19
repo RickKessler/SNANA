@@ -2566,26 +2566,9 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
       Fspec[ilamobs] *= MODELNORM_Fspec ;
     }
    
-    Fnorm_SALT3  += (TRANS * LAMOBS * LAMFILT_STEP ); 
+    Fnorm_SALT3  += (TRANS * LAMOBS ); 
 
   } // end ilamobs loop over obs filter
-
-
-  /* xxxxxxx mark delete xxxxxxxx
-  int i;
-  double LAMSTEP, Fnorm_check = 0.0 ; // .xyz
-  for(i=0; i < FILTER_SEDMODEL[ifilt].NLAM; i++ ) {
-    TRANS  = FILTER_SEDMODEL[ifilt].transSN[i];
-    LAMOBS = FILTER_SEDMODEL[ifilt].lam[i];
-    LAMSTEP = FILTER_SEDMODEL[ifilt].lamstep ;
-    Fnorm_check += (TRANS * LAMOBS * LAMSTEP);
-  }
-  double ratio = Fnorm_SALT3/Fnorm_check;
-  printf(" xxx ifilt=%d: Fnorm_SALT3/Fnorm_check = %f/%f = %f \n", 
-	 ifilt, Fnorm_SALT3, Fnorm_check, ratio );
-  fflush(stdout);
-  xxxxxx end mark xxxxxxxxxxx */
-
 
   // - - - - - - - - - - 
   // compute total flux in filter

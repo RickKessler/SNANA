@@ -24432,13 +24432,6 @@ void readme_doc(int iflag_readme) {
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"%s \n", KEYNAME_DOCANA_REQUIRED ); 
 
-  /* xxxxxxx mark delete Oct 12 2020 xxxxxxxxxxxxxxxxx
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  BRIEF_DESCRIPTION: simulate %s SURVEY with "
-	  "GENMODEL = %s \n", 
-	  GENLC.SURVEY_NAME, INPUTS.MODELNAME );
-  xxxxxx */
-
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"  SURVEY:       %s\n",  GENLC.SURVEY_NAME);
 
@@ -25102,16 +25095,18 @@ void readme_doc(int iflag_readme) {
 
 
   // give SN-stats with cuts
-  XN   = (INPUTS.RATEPAR.SEASON_COUNT  + INPUTS.RATEPAR_PEC1A.SEASON_COUNT) ;
-  XN  *= GENLC.GENEFF ; // multiply by cut-efficiency
-  if ( NGENLC_WRITE > 0 ) 
-    { XNERR = XN/sqrt((double)NGENLC_WRITE); }
-  else
-    { XNERR = 0.0 ; }
-
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n  Number of SNe per season AFTER CUTS : %6.0f +- %5.0f \n", 
-	  XN, XNERR );
+  if ( NLINE_RATE_INFO > 0 ) {
+    XN   = (INPUTS.RATEPAR.SEASON_COUNT  + INPUTS.RATEPAR_PEC1A.SEASON_COUNT) ;
+    XN  *= GENLC.GENEFF ; // multiply by cut-efficiency
+    if ( NGENLC_WRITE > 0 ) 
+      { XNERR = XN/sqrt((double)NGENLC_WRITE); }
+    else
+      { XNERR = 0.0 ; }
+    
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"\n  Number of SNe per season AFTER CUTS : "
+	    "%6.0f +- %5.0f \n", XN, XNERR );
+  }
 
 
   // NON1ASED

@@ -6274,12 +6274,13 @@ void init_RateModel(void) {
 
   // -------------- BEGIN ---------------
 
+  if ( INDEX_GENMODEL == MODEL_SIMLIB ) { return; } // Oct 2020
+
   if ( INPUTS.GENRANGE_REDSHIFT[1] > 1.0E-8 )     
     { init_DNDZ_Rate(); } // Rate vs. redshift
   else
     { init_DNDB_Rate(); } // Rate vs. Gal coords l & b
   
-
   // --------------------------------------
   // now print info to stdout
 
@@ -9852,6 +9853,8 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   Jul 23 2020: DOSHAPE = F for LCLIB model.
   Aug 31 2020: DOSHAPE = F for BYOSED model
+  Oct 20 2020: skip get_random_PDF for SIMLIB model
+
   **********/
 
   bool ISFRAME_REST      = ( OPT_FRAME == OPT_FRAME_REST );
@@ -9865,7 +9868,7 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
   bool ISMODEL_LCLIB     = ( INDEX_GENMODEL == MODEL_LCLIB ) ;
   bool SKIPx1  = SIMLIB_HEADER.GENGAUSS_SALT2x1.USE ;
   bool DOSHAPE = !( SKIPx1 || ISMODEL_SIMSED || ISMODEL_NON1A || 
-		    ISMODEL_LCLIB || IS_PySEDMODEL );
+		    ISMODEL_LCLIB || IS_PySEDMODEL || ISMODEL_SIMLIB );
 
   // xxx  bool DOSHAPE = ( !SKIPx1 && !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0) ;
 

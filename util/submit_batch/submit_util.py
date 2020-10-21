@@ -667,9 +667,10 @@ def get_survey_info(yaml_path):
     # If yaml_path is a directory, read first file in glob list;
     # if yaml_path is a file, read this particular file.
 
-    if '.' in yaml_path :
+    if  os.path.isfile(yaml_path) :
         yaml_file = yaml_path
     else :
+        # it's a directory
         yaml_list = glob.glob(f"{yaml_path}/*.YAML")
         yaml_file = yaml_list[0]
 

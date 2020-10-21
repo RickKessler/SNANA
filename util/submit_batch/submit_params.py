@@ -50,7 +50,7 @@ MODEL_NONIa = "NONIa"
 
 HOSTNAME = os.uname()[1].split('.')[0]
 
-MEMORY_DEFAULT = "2000"  # default memory request for batch jobs
+BATCH_MEM_DEFAULT = "2000"   # default memory request for batch jobs
 
 USERNAME = getpass.getuser()
 USER4    = USERNAME[0:4]
@@ -162,7 +162,7 @@ CONFIG:
   JOBNAME: $MY_PATH/snlc_sim.exe 
 
   # optional memory request (default is 2 GB)
-  BATCH_MEM: 4000     # 4GB (e..g, extra mem for big SIMSED models)
+  BATCH_MEM: 4000Mb     # 4GB (e..g, extra mem for big SIMSED models)
 
   # optional switch from using default $SNANA_DIR/bin/snlc_fit.exe
   JOBNAME: $MY_PATH/snlc_fit.exe 

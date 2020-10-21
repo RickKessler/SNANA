@@ -3911,6 +3911,14 @@ c If interactive, replace invalid pwd/ with a valid './' path.
          PRIVATE_DATA_PATH = '.'
       ENDIF
 
+c if PRIVATE_DATA_PATH points to public $SNDATA_ROOT/lcmerge,
+c disalbe PRIVATE_DATA_PATH.
+      LL = INDEX(SNDATA_ROOT,' ' ) - 1
+      IF ( PRIVATE_DATA_PATH.EQ.SNDATA_ROOT(1:LL)//'/lcmerge')THEN
+          PRIVATE_DATA_PATH = ' '
+      ENDIF
+
+
 c Nov 15 2019: abort on obsolete key
       IF ( CUTWIN_NBAND_THRESH(1) > -1.0 .or. 
      &     CUTWIN_NBAND_THRESH(2) > -1.0 ) then
@@ -18839,8 +18847,10 @@ c - - - - - -  -
 c - - - - - -  -
 
       OPTMASK_SNTABLE = 
-     &     2 +  ! 2 -> abort if no var matches
      &     4    ! 4 -> append next file
+cc xxx mark delete      &     2 +  ! 2 -> abort if no var matches
+cc xxx because later SIMLIB_OUT checks for optional x1 and c
+
       NROW = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST, 
      &        OPTMASK_SNTABLE,  LEN1, LEN2, LEN3 )
 
@@ -21632,7 +21642,7 @@ c +CDE,SNANAFIT.
       REAL*8  MJD_MIN, TOBS_MIN, PEAKMJD, DVAL
       INTEGER LIBID, IFILT, IFILT_OBS, LASTEP(MXFILT_OBS)
       INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP
-      INTEGER i, LENcMAG, ISTAT
+      INTEGER i, LENcMAG, ISTAT, LENF
       LOGICAL IS_REAL_DATA, WRALL_SIM_MAGOBS, WRSET_SIM_MAGOBS
       LOGICAL WR_SIM_MAGOBS, FOUND_METADATA
       CHARACTER BAND*4, FNAM*20, SEDCMD*200, cDUM*20, CCID*32
@@ -21809,7 +21819,8 @@ c check option to force TMIN
 c Nov 23 2019: add more info for simulated data
       IF ( WR_SIM_MAGOBS  ) THEN
          write(LUNOUT,"('GALID: ',I9)" ) SNHOST_OBJID(1)
-         write(LUNOUT,"('FIELD: ',A )" ) SNLC_FIELDLIST ! includes overlaps
+	 LENF = INDEX(SNLC_FIELDLIST,' ') - 1
+         write(LUNOUT,"('FIELD: ',A )" ) SNLC_FIELDLIST(1:LENF) ! includes overlaps
       ENDIF
 
 c - - - - - - - - - - 
@@ -26799,6 +26810,8 @@ c          will have lots of extra padding in the ntuple.
 c
 c OPT > 0 --> add termination
 c OPT < 0 --> remove termination
+c
+c Oct 20 2020: fix index for removing termination char
 
       IMPLICIT NONE
 
@@ -26821,8 +26834,14 @@ C ------------ BEGIN --------------
            SNLC_FIELDLIST = SNLC_FIELDLIST(1:LENFLD) // char(0)
          ELSE
            ! remove termination char 
-           SNLC_CCID(LENCID+1:LENCID+1)      = ' '
-           SNLC_FIELDLIST(LENFLD+1:LENFLD+1) = ' '
+
+c xxxxxx mark delete Oct 20 2020 xxxxxxxxxxx
+c xxx           SNLC_CCID(LENCID+1:LENCID+1)      = ' '
+c xxx           SNLC_FIELDLIST(LENFLD+1:LENFLD+1) = ' '
+c xxxxxxxxxxxxxxxxxxxxxxx
+
+           SNLC_CCID(LENCID:LENCID)      = ' '
+           SNLC_FIELDLIST(LENFLD:LENFLD) = ' '
          ENDIF
       ENDIF
 

@@ -112,6 +112,7 @@
 #include <math.h>
 
 #include "sntools.h"
+#include "sntools_cosmology.h"
 #include "sntools_trigger.h"
 #include "snlc_sim.h" 
 #include "sntools_host.h"
@@ -6565,12 +6566,6 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
     GENLC.REDSHIFT_CMB   = zCMB ;   // store adjusted zCMB
     gen_distanceMag(zCMB, zHEL,
 		    &GENLC.DLMU, &GENLC.LENSDMU ); // <== returned
-
-    /* xxxxxx mark delete May 25 2020 xxxx
-    GENLC.REDSHIFT_HELIO = ZTRUE ;  // preserve this
-    SNHOSTGAL.ZSPEC      = ZTRUE ; 
-    xxxxxxxxxx */
-
   }
 
   // - - - - - - - - - - - - - - - - - - - - - 

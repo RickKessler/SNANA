@@ -534,10 +534,11 @@ class BBC(Program):
         n_inpdir            = self.config_prep['n_inpdir']
         n_fitopt_inplist    = self.config_prep['n_fitopt_inplist']  
         fitopt_table_list2d = self.config_prep['fitopt_table_list2d'] #idir,ifit
-        survey_list         = self.config_prep['survey_list'] 
+        survey_inplist      = self.config_prep['survey_list'] 
 
         fitopt_num_outlist     = []
         fitopt_num_outlist_map = [] #  [] * n_inpdir ]
+        msgerr = []
 
         if IS_FITOPT_MAP :
             FITOPT_MAP = self.config_yaml[BLOCKNAME_FITOPT_MAP]
@@ -557,6 +558,18 @@ class BBC(Program):
         # - - - - -
         #print(f" xxx USE ME: FITOPT_MAP = {FITOPT_MAP}")
 
+        # if FITOPT_MAP includes SURVEY_LIST, check that order matches
+        # that of INPDIRs
+        if 'SURVEY_LIST' in FITOPT_MAP :
+            survey_maplist = FITOPT_MAP['SURVEY_LIST'].split()
+            if survey_maplist != survey_inplist :
+                msgerr.append(f"SURVEY_LIST mis-match.")
+                msgerr.append(f"  SURVEY_LIST(INPDIR+)    = {survey_inplist}")
+                msgerr.append(f"  SURVEY_LIST(FITOPT_MAP) = {survey_maplist}")
+                msgerr.append(f"SURVEY_LIST order in INPDIR+ and FITOPT_MAP "
+                              f"must match.")
+                self.log_assert(False,msgerr)
+
         # Create outlist arrays for submit logic.
         # Count n_fitopt explicitly in case FITOPT_MAP contains
         # other keys that are not FITOPT; e.g., SURVEY_LIST
@@ -569,7 +582,6 @@ class BBC(Program):
             # original FITRES file
             fitopt_map = FITOPT_MAP[fitopt_num].split()
             fitopt_num_outlist_map.append(fitopt_map)
-
             n_fitopt    += 1
             
             # .xyz
@@ -578,7 +590,7 @@ class BBC(Program):
 
         # - - - - - - - - - 
         print(f"\n Prepare output FITOPT list:")
-        for survey,n in zip(survey_list,n_fitopt_inplist):
+        for survey,n in zip(survey_inplist,n_fitopt_inplist):
             print(f"   Found {n:3d} FITOPTs for SURVEY = {survey}")
 
         if IS_FITOPT_MAP :
@@ -862,6 +874,8 @@ class BBC(Program):
 
         cat_list = ''
         fitopt_num_out   = fitopt_num_list[ifit]
+        nmissing         = 0 ; msgerr=[]
+
         for idir in range(0,n_inpdir):  
             inpdir       = inpdir_list[idir]
             v_orig       = v_orig_list[idir][iver]
@@ -869,8 +883,20 @@ class BBC(Program):
 
             ff    = (f"{v_orig}/{fitopt_num_inp}.{SUFFIX_FITRES}")
             FF    = (f"{inpdir}/{ff}")
+            FFgz  = (f"{FF}.gz")
             cat_list += (f"{FF},")
+
+            EXIST_FF = os.path.isfile(FF) or os.path.isfile(FFgz)
+            if not EXIST_FF:
+                logging.info(f" ERROR: missing {FF}")
+                nmissing += 1
+
         cat_list = cat_list.rstrip(",")  # remove trailing comma
+
+        if nmissing > 0 :
+            msgerr.append(f"missing {nmissing} input {SUFFIX_FITRES} files")
+            self.log_assert(False,msgerr)
+
         return cat_list
 
         # end make_cat_fitres_list

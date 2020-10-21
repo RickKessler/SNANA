@@ -10,6 +10,7 @@
 
 #include "wfit.h"
 #include "sntools.h"
+#include "sntools_cosmology.h"
 #include "sntools_output.h"
 
 /***************************************************************************** 
@@ -224,6 +225,7 @@
      Motivation is for easier parsing with batch scripts.
 
  Sep 21 2020: few fixes for YAML output.
+ Oct 17 2020: pass HzFUN typedef to refactored Hainv_integral function.
 
 *****************************************************************************/
 
@@ -240,6 +242,9 @@ void getname(char *basename, char *tempname, int nrun);
 
 double get_minwOM( double *w_atchimin, double *OM_atchimin );
 void set_priors(void);
+
+void set_HzFUN_for_wfit(double H0, double OM, double OE, double w,
+                        HzFUN_INFO_DEF *HzFUN ) ;
 
 typedef struct {
   double  w_out, wsig, wsig_upper, wsig_lower ;
@@ -2030,14 +2035,32 @@ void set_priors(void) {
 
   if ( usecmb == 2) {
     //recompute Rbest
-    rz = Hainv_integral ( ONE, OM, OE, w, acmb, ONE ) / LIGHT_km;
+    HzFUN_INFO_DEF HzFUN;
+    set_HzFUN_for_wfit(ONE, OM, OE, w, &HzFUN);
+    // xxx mark delete rz=Hainv_integral(ONE,OM,OE,w,acmb, ONE ) / LIGHT_km;
+    rz = Hainv_integral ( acmb, ONE, &HzFUN ) / LIGHT_km;
     Rcmb_best = sqrt(OM) * rz ;
   }
-
 
   return;
 
 } //end of set_priors()
+
+// ==================================
+void set_HzFUN_for_wfit(double H0, double OM, double OE, double w,
+			HzFUN_INFO_DEF *HzFUN ) {
+
+  double COSPAR_LIST[10];  int VBOSE=0;
+  // ---------- BEGIN ----------
+
+  COSPAR_LIST[ICOSPAR_HzFUN_H0] = 1.0;
+  COSPAR_LIST[ICOSPAR_HzFUN_OM] = OM ;
+  COSPAR_LIST[ICOSPAR_HzFUN_OL] = OE ;
+  COSPAR_LIST[ICOSPAR_HzFUN_w0] = w ;
+  COSPAR_LIST[ICOSPAR_HzFUN_wa] = 0.0 ;
+  init_HzFUN_INFO(VBOSE, COSPAR_LIST, "", HzFUN);
+    
+} // end set_HzFUN_for_wfit
 
 // ==================================
 void invert_mucovar(double sqmurms_add) {
@@ -2229,7 +2252,10 @@ void get_chi2wOM (
   // May 29, 2008 RSK - add CMB prior if requested
   if (usecmb) {
 
-    rz = Hainv_integral ( ONE, OM, OE, w, acmb, ONE ) / LIGHT_km;
+    HzFUN_INFO_DEF HzFUN;
+    set_HzFUN_for_wfit(ONE, OM, OE, w, &HzFUN);
+    // xxx mark rz = Hainv_integral ( ONE, OM, OE, w, acmb, ONE ) / LIGHT_km;
+    rz = Hainv_integral ( acmb, ONE, &HzFUN ) / LIGHT_km;
     Rcmb = sqrt(OM) * rz ;
     nsig = (Rcmb - Rcmb_best)/sigma_Rcmb ;
     *chi2tot += pow( nsig, TWO );
@@ -2528,6 +2554,8 @@ void test_codist() {
   cpar.w0   = -1.0;
   cpar.wa   =  0.0;
 
+  HzFUN_INFO_DEF HzFUN;
+  set_HzFUN_for_wfit(H0, cpar.omm, cpar.ome, cpar.w0, &HzFUN);
 
   printf(" test_codist with O(M,E) = %4.2f %4.2f,  w=%4.2f \n",
 	 cpar.omm, cpar.ome, cpar.w0 );
@@ -2545,9 +2573,8 @@ void test_codist() {
     */
     rz = 1.;
 
-    ra = Hainv_integral ( H0, cpar.omm, cpar.ome, cpar.w0,
-			  atmp, amax );
-
+    // xxx ra = Hainv_integral(H0, cpar.omm, cpar.ome, cpar.w0, atmp, amax );
+    ra = Hainv_integral ( atmp, amax, &HzFUN );
 
     rz *= H0/LIGHT_km ;
     ra *= H0/LIGHT_km ;

@@ -139,6 +139,8 @@
 #   refactor EXTRA_FLAGS into EXTRA_FLAGS_FORTRAN and EXTRA_FLAGS_C
 #   Difference matters for gcc version 10
 #        
+# Oct 15 2020: add sntools_cosmology
+#
 # ---------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -388,6 +390,7 @@ OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools_output.o  \
 	$(OBJ)/minuit.o		\
 	$(OBJ)/MWgaldust.o	\
+	$(OBJ)/sntools_cosmology.o \
 	$(OBJ)/multiseason.o
 
 OBJ_OUTPUT = $(OBJ)/sntools_output.o
@@ -496,9 +499,9 @@ $(OBJ)/minuit.o :  minuit.F
 $(OBJ)/wfit.o : $(SRC)/wfit.c $(SRC)/sntools.c
 	(cd $(OBJ);  $(CC)  $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/wfit.c ) 
 
-$(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/sntools.o
+$(BIN)/wfit.exe : $(OBJ)/wfit.o $(OBJ)/sntools.o $(OBJ)/sntools_cosmology.o
 	$(FFC) -o  $@ $(SNLDFLAGS) \
-	$(OBJ)/wfit.o  $(OBJ)/sntools.o \
+	$(OBJ)/wfit.o  $(OBJ)/sntools.o  $(OBJ)/sntools_cosmology.o \
 	$(LCFITSIO)  \
 	-lm $(LGSL) 
 	(cd $(OBJ);  rm wfit.o )
@@ -672,10 +675,11 @@ $(BIN)/psnid.exe : $(OBJ_PSNID)
 $(OBJ)/kcor.o : $(SRC)/kcor.c $(SRC)/kcor.h  $(SRC)/sntools_spectrograph.c
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(ICFITSIO)  $(IGSL) $(SRC)/kcor.c )
 
-$(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_fitsio.o
+$(BIN)/kcor.exe : $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o $(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_fitsio.o $(OBJ)/sntools_cosmology.o
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/kcor.o $(OBJ)/sntools.o  $(OBJ)/MWgaldust.o \
 	$(OBJ)/sntools_spectrograph.o $(OBJ)/sntools_fitsio.o \
+	$(OBJ)/sntools_cosmology.o \
 	$(LCFITSIO)  $(LGSL) $(LCERN)
 	(cd $(OBJ); rm kcor.o )
 
@@ -814,13 +818,17 @@ $(OBJ)/sntools_nonlinearity.o : $(SRC)/sntools_nonlinearity.c $(SRC)/sntools_non
 $(OBJ)/sntools_fluxErrModels.o : $(SRC)/sntools_fluxErrModels.c $(SRC)/sntools_fluxErrModels.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_fluxErrModels.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_fluxErrModels.o
-
 
 $(OBJ)/sntools_fluxErrModels_legacy.o : $(SRC)/sntools_fluxErrModels_legacy.c $(SRC)/sntools_fluxErrModels_legacy.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_fluxErrModels_legacy.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_fluxErrModels_legacy.o
+
+# -------------------------------------------------
+# Oct 2020: cosmology util (extracted from sntools.c)
+
+$(OBJ)/sntools_cosmology.o : $(SRC)/sntools_cosmology.c $(SRC)/sntools_cosmology.h $(SRC)/sntools_cosmology.h
+	(cd $(OBJ); \
+	$(CC) $(SNCFLAGS) $(SRC)/sntools_cosmology.c )
 
 # -------------------------------------------------
 # compile sntools_fitsio (.o only)
@@ -828,7 +836,6 @@ $(OBJ)/sntools_fluxErrModels_legacy.o : $(SRC)/sntools_fluxErrModels_legacy.c $(
 $(OBJ)/sntools_fitsio.o : $(SRC)/sntools_fitsio.c $(SRC)/sntools_fitsio.h $(SRC)/sndata.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(SRC)/sntools_fitsio.c )
-#	ar r $(LIB)/libsnana.a  $(OBJ)/sntools_fitsio.o
 
 $(OBJ)/sntools_kcor.o : $(SRC)/sntools_kcor.c $(SRC)/sntools_kcor.h $(SRC)/sndata.h
 	(cd $(OBJ); \
@@ -1009,11 +1016,12 @@ $(OBJ)/genmag_LCLIB.o : $(SRC)/genmag_LCLIB.c  $(SRC)/sntools.h
 # Generic Lightcurve simulator 
 # $(SRC)/sntools_genPDF.c
 
-$(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c $(SRC)/sntools_gridgen.c \
+$(OBJ)/snlc_sim.o : $(SRC)/snlc_sim.c \
+	$(SRC)/sntools.c $(SRC)/sntools_cosmology.c $(SRC)/sntools_gridgen.c \
 	$(SRC)/sntools_fitsio.c $(SRC)/sntools_host.c $(SRC)/sntools_genPDF.c \
-	$(SRC)/sntools_wronghost.c  $(SRC)/sntools_host.h \
+	$(SRC)/sntools_wronghost.c  $(SRC)/sntools_host.c \
 	$(SRC)/sntools_genSmear.c $(SRC)/SNcadenceFoM.c  \
-	$(SRC)/snlc_sim.h $(SRC)/sndata.h $(SRC)/sntools_kcor.c
+	$(SRC)/snlc_sim.h $(SRC)/sndata.h 
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(IPY) $(SRC)/snlc_sim.c )
 
 $(BIN)/snlc_sim.exe : $(OBJ_SIM)  $(LIB)/libsnana.a
@@ -1035,6 +1043,7 @@ $(BIN)/simlib_coadd.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/simlib_coadd.o  \
 	$(OBJ)/sntools.o \
+	$(OBJ)/sntools_cosmology.o \
 	$(OBJ)/MWgaldust.o \
 	$(LGSL) 
 	(cd $(OBJ); rm simlib_coadd.o )
@@ -1088,6 +1097,7 @@ $(BIN)/SIMSED_fudge.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/SIMSED_fudge.o  \
 	$(OBJ)/sntools.o  \
+	$(OBJ)/sntools_cosmology.o  \
 	$(OBJ)/sntools_fitsio.o  \
 	$(OBJ)/genmag_SEDtools.o \
 	$(OBJ)/genmag_SIMSED.o   \
@@ -1113,6 +1123,7 @@ $(BIN)/SIMSED_extractSpec.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/SIMSED_extractSpec.o  \
 	$(OBJ)/sntools.o  \
+	$(OBJ)/sntools_cosmology.o  \
 	$(OBJ)/MWgaldust.o  \
 	$(OBJ)/genmag_SEDtools.o  \
 	-lm $(LGSL)
@@ -1131,6 +1142,7 @@ $(BIN)/SIMSED_rebin.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/SIMSED_rebin.o  \
 	$(OBJ)/sntools.o  \
+	$(OBJ)/sntools_cosmology.o  \
 	$(OBJ)/MWgaldust.o  \
 	$(OBJ)/genmag_SEDtools.o  \
 	-lm $(LGSL)
@@ -1149,6 +1161,7 @@ $(BIN)/SIMSED_check.exe : \
 	$(FFC) -o $@ $(SNLDFLAGS) \
 	$(OBJ)/SIMSED_check.o  \
 	$(OBJ)/sntools.o  \
+	$(OBJ)/sntools_cosmology.o  \
 	$(OBJ)/MWgaldust.o  \
 	$(OBJ)/genmag_SEDtools.o  \
 	$(OBJ)/genmag_SIMSED.o  \

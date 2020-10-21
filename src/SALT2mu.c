@@ -842,6 +842,7 @@ Default output files (can change names with "prefix" argument)
  ******************************************************/
 
 #include "sntools.h" 
+#include "sntools_cosmology.h" 
 #include "sntools_output.h" 
 #include <gsl/gsl_fit.h>  // Jun 13 2016
 #include <sys/types.h>
@@ -6973,6 +6974,9 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
   // Main goal is to allow missing classifier PROB columns for 
   // spec-confirmed samples like LOWZ. However, can also be used
   // if a subset of samples have extra columns from APPEND_FITRES.
+  //
+  // Oct 20 2020:
+  //   Clarify error message for undefined pIa; give explicit idsurvey and names.
 
   char *INPFILE     = TABLEVAR->INPUT_FILE[ifile];
   int   FIRST_EVENT = TABLEVAR->EVENT_RANGE[ifile][0];
@@ -6982,6 +6986,7 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
   bool USE_PROBCC_ZERO = (INPUTS_PROBCC_ZERO.nidsurvey > 0 );
 
   int evt, sntype, idsurvey, NFORCE, NOTFORCE ;
+  int NIDSURVEY_NOTFORCE[MXIDSURVEY];
   char fnam[] = "store_input_varnames" ;
 
   // ------------ BEGIN --------------
@@ -6990,6 +6995,9 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
   printf(" xxx %s hello, IVAR_pIa=%d  N_PCC_ZERO=%d\n",
 	 fnam, IVAR_pIa, INPUTS_PROBCC_ZERO.nidsurvey );
   */
+
+  for(idsurvey=0; idsurvey < MXIDSURVEY; idsurvey++ ) 
+    { NIDSURVEY_NOTFORCE[idsurvey] = 0 ; }
 
   if ( strlen(varname_pIa) > 0 ) {
 
@@ -7010,7 +7018,7 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
 	if ( force_probcc0(sntype,idsurvey) ) 
 	  { NFORCE++; }
 	else
-	  { NOTFORCE++ ; }
+	  { NOTFORCE++ ; NIDSURVEY_NOTFORCE[idsurvey]++; }
       }
       fprintf(FP_STDOUT,"\t Force pIa=1.0 for %d events from %s\n",
 	     NFORCE, INPFILE); fflush(FP_STDOUT);
@@ -7020,9 +7028,19 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
     // which don't have forced pIa=1.
     if (  IVAR_pIa < 0 && NOTFORCE > 0 ) {
       print_preAbort_banner(fnam);
-      printf("\t input file: %s \n", INPFILE);
-      printf("\t has %d events with forced pIa=1\n", NFORCE);
-      printf("\t and %d unforced-pIa events.\n", NOTFORCE);
+      printf("   input file: %s \n", INPFILE);
+      printf("   has %d events with forced pIa=1\n", NFORCE);
+      printf("   and %d undefined-pIa events.\n", NOTFORCE);
+      printf("   Breakdown :\n");
+
+      for(idsurvey=0; idsurvey < MXIDSURVEY; idsurvey++ ) {
+	int NID = NIDSURVEY_NOTFORCE[idsurvey];
+	if ( NID > 0 ) {
+	  printf("\t %d undefined-pIa have IDSURVEY=%d (%s) \n",
+		 NID, idsurvey, SURVEY_INFO.SURVEYDEF_LIST[idsurvey] );
+	}
+      }
+
       sprintf(c1err,"Missing column varname_pIa='%s' .",  varname_pIa);
       sprintf(c2err,"Either add this column, or check type_list_probcc0");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
@@ -18932,7 +18950,6 @@ double rombint(double f(double z, double *cosPar),
 double inc(double z, double *cosPar) {
 
   // Nov 22 2017: speed things up a little with fabs checks on zzpow and wa
-
   double hubble, rhode, omega_m, omega_k, omega_l, wde, wa ;
   double zz, zzpow;
   
@@ -18955,7 +18972,7 @@ double inc(double z, double *cosPar) {
   hubble = sqrt( (omega_m*(zz*zz*zz)) + rhode + (omega_k*(zz*zz)) );
   
   return(1.0/hubble);
-					  
+
 } // end inc
 
 

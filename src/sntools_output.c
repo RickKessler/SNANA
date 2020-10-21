@@ -2280,15 +2280,18 @@ void SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   // If *VARNAME is double, return *DVAL
   // If *VARNAME is char,   return *CVAL
   //
-  // *ISTAT is returned as  0  if CCID is found;
-  // *ISTAT is returned as -1  if CCID is NOT found 
-  //     (and function returns -99999 if CCID is not found)
+  // *ISTAT =  0  if CCID is found;
+  // *ISTAT = -1  if CCID is NOT found 
+  // *ISTAT = -2  if VARNAME is NOT found
+  //
   //
   // Jan 6, 2017: 
   //   + check each autoStore file for varName.
   //   + refactor to return both double (DVAL) and char (CVAL), 
   //     but only one is set according to the cast of VARNAME.
   //
+  // Oct 20 2020:
+  //   + do NOT abort on missing varname; instead, return ISTAT = -2
 
   int IVAR_READ, IFILE_READ, ivar, i ;
   int NVAR_USR, NROW_TOT, ICAST, LENCCID, IROW ;
@@ -2312,12 +2315,16 @@ void SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   }
 
 
+  if ( IVAR_READ < 0  || IFILE_READ < 0 ) { *ISTAT = -2; return ; }
+
+  /* xxx mark delete Oct 20 2020 xxxxxxxx
   if ( IVAR_READ < 0  || IFILE_READ < 0 ) {
     sprintf(MSGERR1, "Could not find varName='%s'", VARNAME);
     sprintf(MSGERR2, "Check VARLIST in table='%s' " , 
 	    READTABLE_POINTERS.TABLENAME);
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );    
   }
+  xxxxxxxx */
 
  FIND_CCID:
 

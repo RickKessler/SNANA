@@ -14570,8 +14570,7 @@ c +CDE,SNLCINP.
      &   PEAKMJD, MJD, FLUXCAL(2), MAGTMP(2), Tobs, Trest
      &  ,FLUXCAL_atmax(2), Trest_atmax(2), mag_atmax(2)
      &  ,FLUXCAL_TMP, FLUXCAL_ERR, MAG_ERR, KCOR
-     &  ,MAGDIF, MAG, MAGLIM, zmax, Vmax
-     &  ,H0,OM,OL,w0
+     &  ,MAGDIF, MAG, MAGLIM, zmax, Vmax, COSPAR(10)
      &  ,z_save, d_save, shape, color, d0, d
 
 c function
@@ -14738,12 +14737,20 @@ cc            print*,'          x0 = ' , LCVAL_STORE(IPAR_DLMAG)
 c ------------------------------
 c compute volume out to zmax
 
-      H0     = H0_REF(1) * 1.0E6 * Parsec  ! km/s/Mpc
-      OM     = OMAT_REF(1)
-      OL     = OLAM_REF(1)
-      w0     = W0_REF(1)
-      OPTWGT = 0
-      Vmax   = 4.*PI*DVDZ_INTEGRAL(H0, OM, OL, W0, zmax, OPTWGT)
+c xxxxxxxxxxx mark delete Oct 16 2020 xxxx
+c      H0     = H0_REF(1) * 1.0E6 * Parsec  ! km/s/Mpc
+c      OM     = OMAT_REF(1)
+c      OL     = OLAM_REF(1)
+c      w0     = W0_REF(1)
+c xxxxxxxxx end mark xxxxxx
+
+      OPTWGT    = 0  ! do NOT weight by redshift
+      COSPAR(1) = H0_REF(1)
+      COSPAR(2) = OMAT_REF(1)
+      COSPAR(3) = OLAM_REF(1)
+      COSPAR(4) = W0_REF(1)
+      COSPAR(5) = 0.0        ! wa
+      Vmax   = 4.0 * PI * DVDZ_INTEGRAL(OPTWGT, zmax, COSPAR )
 
 c -----------
 c store results in globals

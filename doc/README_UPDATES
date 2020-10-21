@@ -19008,11 +19008,25 @@
         
 
 # ======================================================================= 
-         v10_78e (  ) 
+         v10_78e (Oct 16 2020) 
 
          ***** IMPORTANT(v10_78e) ***** 
 
+   Fix bug in placement of init_RANSYSTPAR; now it is before init_RateModel
+   instead of after. Previously, random cosmology variations were used to
+   generate SN mags, but NOT used in rate models.
+
+   sim cosmology functions moved to sntools_cosmology.c[h] and refactored
+   to prepare struct HzFUN_INFO. Next SNANA version will use this typedef
+   in all cosmology function so that it can use either wCDM model (default), 
+   or use arbitrary model read from 2-column text file. 
+
          ***** USEFUL(v10_78e) ***** 
+
+  SALT2mu allows comma-sep list for cid_reject_file and cid_select_file
+
+  Several space-separated polynominal inputs can now be input as either
+  space-sep or comma-sep; latter allows arbitrary poly-order.
 
          ***** MISCELLANEOUS(v10_78e) ***** 
 
@@ -19048,7 +19062,7 @@
    snana.car
      + fix bug implementing SNCID_IGNORE_FILE (see function LCIDSELECT)
      + for HEADER_OVERRIDE_FILE, abort if NFILE > MXFILE_ABORT
-       Also, pass abort flat to AUTOSTORE_INIT so that it aborts if
+       Also, pass abort flag to AUTOSTORE_INIT so that it aborts if
        no variables are matched.
      + new &SNLCINP input OPT_YAML to force output YAML file when
         it's not a batch job
@@ -19063,5 +19077,38 @@
 
    sntools_trigger.c :
      + fix error message when interpolation fails for zHOST map
+
+   sntools.c[h]:
+      move cosmology functions to sntools_cosmology.c[h]
+
+
+# ======================================================================= 
+         v10_79 (  ) 
+
+         ***** IMPORTANT(v10_79) ***** 
+
+         ***** USEFUL(v10_79) ***** 
+
+         ***** MISCELLANEOUS(v10_79) ***** 
+
+   sntools_cosmology.c[h]: 
+     + refactor to use HzINFO_INFO typedef.
+
+   sntools.c
+     + skip/ignore DOCUMENTATION keys in rd2column(...)
+
+   genmag_SALT2.c
+     + refactor SALT2magerr to treat SALT3 vartot as flux,
+       but SALT2 vartot as relative flux. 
+
+   snlc_sim.c
+     + check NONE argument for HOSTLIB_FILE 
+     + fix confusing error message for multiple DNDZ args
+     + refactor to pass HzINFO to cosmology functions.
+     + new arg wa_LAMBDA (see manual)
+
+   snana.car, submit_prog_fit.py:
+     + allow user mistake setting PRIVATE_DATA_PATH = '$SNDATA_ROOT/lcmerge'
+       (but still aborts if PRIVATE_DATA_PATH='$SNDATA_ROOT/SIM')
 
 END: 

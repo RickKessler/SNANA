@@ -1939,7 +1939,7 @@ c
      &  ,FILTER_UPDATE_PATH*(MXCHAR_PATH)   ! SN-dependent filter response
 
       CHARACTER  ! misc
-     &   LINE_ARGS(MXLINE_ARGS)*(MXCHAR_FILENAME)    ! command line args
+     &   LINE_ARGS(MXLINE_ARGS)*(2*MXCHAR_FILENAME)    ! command line args
      &  ,REFORMAT_KEYS*(MXCHAR_FILENAME)  ! global reformat info
      &  ,NONSURVEY_FILTERS*(MXFILT_ALL)   ! non-survey filters to add
      &  ,SNRMAX_FILTERS*(MXFILT_ALL)      ! list of filters for SNRMAX cuts
@@ -4717,6 +4717,11 @@ c
 c Beware that some arguments are comma-sep lists, so need
 c to be careful about when to split by comma, and when 
 c not so split by comma.
+c
+c Oct 22 2020: 
+c   + double string length for LINE_ARGS and ARGLIST to allow for
+c     long comma-sep strings.
+c 
 c ----------
 
       IMPLICIT NONE
@@ -4725,10 +4730,8 @@ c ----------
 
 c local var
 
-c ?? BEWARE ?? need to define parameter MXARGLIST=6
-
       INTEGER iArg, LL, ilast, iuse, NVERLOC
-      CHARACTER STRING_LIST*60, ARGLIST(6)*(MXCHAR_FILENAME)
+      CHARACTER STRING_LIST*60, ARGLIST(MXKEY_ARGS)*(2*MXCHAR_FILENAME)
       LOGICAL LSNIGNORE, DO_STOP, FOUND_MATCH_LEGACY, FOUND_MATCH_REFAC
 
 c functions

@@ -19097,6 +19097,10 @@
    sntools.c
      + skip/ignore DOCUMENTATION keys in rd2column(...)
 
+   sntools_output.c
+     + EXEC_AUTOSTORE_READ no longer aborts on missing var;
+        instead it returns *ISTAT = -2
+
    genmag_SALT2.c
      + refactor SALT2magerr to treat SALT3 vartot as flux,
        but SALT2 vartot as relative flux. 
@@ -19110,5 +19114,9 @@
    snana.car, submit_prog_fit.py:
      + allow user mistake setting PRIVATE_DATA_PATH = '$SNDATA_ROOT/lcmerge'
        (but still aborts if PRIVATE_DATA_PATH='$SNDATA_ROOT/SIM')
+     + bug fix in TABLE_STRING_TERMINATION
+
+   SALT2mu.c:
+     + clarify error message for undefined pIa (store_input_varnames)
 
 END: 

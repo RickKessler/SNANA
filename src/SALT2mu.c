@@ -6985,6 +6985,7 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
   char *varname_pIa = INPUTS.varname_pIa ;
   bool USE_PROBCC_ZERO = (INPUTS_PROBCC_ZERO.nidsurvey > 0 );
 
+  char *survey, survey_missing_list[200];
   int evt, sntype, idsurvey, NFORCE, NOTFORCE ;
   int NIDSURVEY_NOTFORCE[MXIDSURVEY];
   char fnam[] = "store_input_varnames" ;
@@ -6996,6 +6997,7 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
 	 fnam, IVAR_pIa, INPUTS_PROBCC_ZERO.nidsurvey );
   */
 
+  survey_missing_list[0] = 0 ;
   for(idsurvey=0; idsurvey < MXIDSURVEY; idsurvey++ ) 
     { NIDSURVEY_NOTFORCE[idsurvey] = 0 ; }
 
@@ -7031,18 +7033,21 @@ void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) {
       printf("   input file: %s \n", INPFILE);
       printf("   has %d events with forced pIa=1\n", NFORCE);
       printf("   and %d undefined-pIa events.\n", NOTFORCE);
-      printf("   Breakdown :\n");
+      printf("   Breakdown : \n");
 
       for(idsurvey=0; idsurvey < MXIDSURVEY; idsurvey++ ) {
 	int NID = NIDSURVEY_NOTFORCE[idsurvey];
 	if ( NID > 0 ) {
+	  survey = SURVEY_INFO.SURVEYDEF_LIST[idsurvey] ;
 	  printf("\t %d undefined-pIa have IDSURVEY=%d (%s) \n",
-		 NID, idsurvey, SURVEY_INFO.SURVEYDEF_LIST[idsurvey] );
+		 NID, idsurvey, survey );
+	  catVarList_with_comma(survey_missing_list,survey);
 	}
       }
 
       sprintf(c1err,"Missing column varname_pIa='%s' .",  varname_pIa);
-      sprintf(c2err,"Either add this column, or check type_list_probcc0");
+      sprintf(c2err,"Try adding %s to check type_list_probcc0",
+	      survey_missing_list) ;
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
     }
 

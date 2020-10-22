@@ -315,7 +315,7 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 	  }	  
 	  sprintf(c1err,"N_ITER=%d exceeds bound (prob_ref=%f)", 
 		  N_ITER, prob_ref );
-	  sprintf(c2err,"Check %s or increase MAX_ITER", MAPNAME );
+	  sprintf(c2err,"Check %s or increase MXITER_GENPDF", MAPNAME );
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
 	}
 

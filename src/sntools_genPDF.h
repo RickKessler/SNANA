@@ -1,12 +1,14 @@
 /********************************
   Created Jun 12 2020 by R.Kessler
 
+  Oct 22 2020: MXITER_GENPDF -> 1000 (was 200)
+
  *******************************/
 
 #define MXMAP_GENPDF    8  // max number of maps per file
 #define MXVAR_GENPDF    6  // max varnames per mape
 #define MXROW_GENPDF 15000   // max number of rows per map
-#define MXITER_GENPDF  200   // max number of iterations for genPDF
+#define MXITER_GENPDF  1000   // max number of iterations for genPDF
 
 #define  OPTMASK_GENPDF_EXTRAP       1
 #define  OPTMASK_GENPDF_EXTERNAL_FP  8

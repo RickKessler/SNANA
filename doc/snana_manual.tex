@@ -8700,13 +8700,17 @@ the variables in each file must be unique. (except for CID)
 
 % ------------
 \clearpage
-\subsubsection{Over-Riding Light Curve Information}
-\label{sss:lc_override}
+\subsubsection{Epoch-Dependent Mag Corrections}
+\label{sss:magcor}
 
-Epoch-dependent mag-corrections can be applied via an external
-text file in order to avoid re-making data files with each
-iteration of calibration offsets. These corrections are
-applied only to the {\tt FLUXCAL}, and not the {\tt FLUXCAL\_ERR},
+Since photometry is typically performed separately for each passband,
+SED-dependent corrections are often missing for internal data
+releases. If SED-based corrections are computed as an after-burner
+task, it may be convenient to avoid re-making data files and instead
+read a supplemental {\tt MAGCOR} file until a final data release is ready.
+
+External epoch-dependent mag-corrections are applied to the {\tt FLUXCAL}, 
+but not to {\tt FLUXCAL\_ERR},
 and thus there is an implicit assumption that changes
 are small ($\sim 1$\%).
 For large changes, the data files should be re-made 
@@ -8754,6 +8758,16 @@ the corrections can be removed with
 where the minus sign in front is a command to subtract.
 This subtract option works only with the {\tt VERSION\_ADD} key.
 
+\medskip
+
+Since these correction typically require an SED, the SALT2-fitted 
+model SED can be extracted for each epoch and stored in a 
+ROOT file with
+\begin{verbatim}
+  SNTABLE_LIST = 'MODELSPEC'
+\end{verbatim}
+and see \S\ref{subsec:anavar} for details.
+% .xyz
 
 % ------------------------------------------------
 %\clearpage

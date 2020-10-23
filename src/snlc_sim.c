@@ -485,7 +485,6 @@ void simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   end_simFiles(SIMFILE_AUX);
 
-
   if ( NAVWARP_OVERFLOW[0] > 0 ) 
     { printf("%s", WARNING_AVWARP_OVERFLOW ); }
 
@@ -26416,9 +26415,10 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // ------------ BEGIN -------------
 
+  iter_summary_genPDF();
+
   // fill post-sim part of readme
   readme_doc(2); 
-
 
   // always dump entire readme contents to screen
   print_banner("DUMP README CONTENTS TO SCREEN\n");

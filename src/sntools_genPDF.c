@@ -15,6 +15,8 @@
   does NOT define USE_SUBPROCESS, and therefore all of the code
   below is used for the simulation.
 
+  Oct 23 2020: use get_VAL_RANGE_genPDF() 
+
  ****************************************************/
 
 #ifndef USE_SUBPROCESS
@@ -150,6 +152,10 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 		   IDMAP, NDIM, NFUN, OPT_EXTRAP_GENPDF, 
 		   MXROW_GENPDF, fnam, &GENPDF[NMAP].GRIDMAP );
 
+      GENPDF[NMAP].N_CALL      = 0 ;
+      GENPDF[NMAP].N_ITER_SUM  = 0 ;
+      GENPDF[NMAP].N_ITER_MAX  = 0 ;
+
       /*
       int NROW = GENPDF[NMAP].GRIDMAP.NROW;
       char *VARLIST = GENPDF[NMAP].GRIDMAP.VARLIST ;
@@ -229,8 +235,8 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
   int    N_EVAL = 0, IDMAP, ivar, NDIM, istat, itmp ;
   int    IVAR_HOSTLIB, IGAL = SNHOSTGAL.IGAL;
   double val_inputs[MXVAR_GENPDF], prob_ref, prob, r = 0.0 ;
-  double PAR_RANGE[2], FUNMAX, prob_ratio ;
-  int    LDMP = 0 ;
+  double VAL_RANGE[2], FUNMAX, prob_ratio ;
+  int    LDMP = 0 ;  
   char   *MAPNAME ;
   char fnam[] = "get_random_genPDF";
   
@@ -242,29 +248,35 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
     if ( IDMAP >= 0 ) {
       N_EVAL++ ; NCALL_GENPDF++ ;
       MAPNAME       = GENPDF[IDMAP].MAPNAME ;
-      PAR_RANGE[0]  = GENPDF[IDMAP].GRIDMAP.VALMIN[0] ;
-      PAR_RANGE[1]  = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ;
+      //      VAL_RANGE[0]  = GENPDF[IDMAP].GRIDMAP.VALMIN[0] ;
+      //      VAL_RANGE[1]  = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ;
       FUNMAX        = GENPDF[IDMAP].GRIDMAP.FUNMAX[0] ;
       NDIM          = GENPDF[IDMAP].GRIDMAP.NDIM ;
       prob_ref=1.0; prob=0.0;
 
-      // LDMP = (NCALL_GENPDF > 10 && NCALL_GENPDF < 15 );
+      // tack on optional dependence on HOSTLIB
+      // Leave var_inputs[0] to be filled below inside while loop
+      for(ivar=1; ivar < NDIM; ivar++ ) {
+	IVAR_HOSTLIB = GENPDF[IDMAP].IVAR_HOSTLIB[ivar];
+	val_inputs[ivar] = get_VALUE_HOSTLIB(IVAR_HOSTLIB,IGAL);
+      }
+
+      // get min/max VALUE range for random selection;
+      // function here returns VAL_RANGE
+      get_VAL_RANGE_genPDF(IDMAP, val_inputs, VAL_RANGE);
+
+      // - - - - - -
+      LDMP = 0; // (NCALL_GENPDF < 5 );
       if ( LDMP ) {
 	printf(" xxx \n");
 	printf(" xxx %s -------- (%.3f < %s < %.3f )--------------- \n", 
-	       fnam, PAR_RANGE[0], parName, PAR_RANGE[1] );	       
+	       fnam, VAL_RANGE[0], parName, VAL_RANGE[1] );	       
       }
 
       while ( prob < prob_ref ) {
 	prob_ref      = FlatRan1(ILIST_RAN); 
-	r             = FlatRan( ILIST_RAN, PAR_RANGE);
+	r             = FlatRan(ILIST_RAN, VAL_RANGE);
 	val_inputs[0] = r ;  
-
-	// tack on optional dependence on HOSTLIB
-	for(ivar=1; ivar < NDIM; ivar++ ) {
-	  IVAR_HOSTLIB = GENPDF[IDMAP].IVAR_HOSTLIB[ivar];
-	  val_inputs[ivar] = get_VALUE_HOSTLIB(IVAR_HOSTLIB,IGAL);
-	}
 
 	istat = interp_GRIDMAP(&GENPDF[IDMAP].GRIDMAP, val_inputs, &prob);
 	if ( istat != SUCCESS ) {
@@ -322,6 +334,13 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
       } // end while loop over prob
 
     } // end IDMAP >= 0
+
+    // track N_ITER stats
+    GENPDF[IDMAP].N_CALL++ ;
+    GENPDF[IDMAP].N_ITER_SUM += (double)N_ITER;
+    if ( N_ITER > GENPDF[IDMAP].N_ITER_MAX ) 
+      { GENPDF[IDMAP].N_ITER_MAX = N_ITER; }
+    
   } // end genPDF 
 
   // - - - - - -
@@ -345,7 +364,66 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 
 } // end get_random_genPDF
 
-// ====================================
+// ========================================
+void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs, double *VAL_RANGE) {
+
+  // Created Oct 23 2020
+  // Return VAL_RANGE for random selection.
+  // Default is the extreme min & max of map.
+  // For better efficiency, however, this function checks the
+  // val_inputs[0] range for which PROB > 0, and returns
+  //
+  //  VAL_RANGE[0] = min(val_inputs[0]) for which PROB > 0
+  //  VAL_RANGE[1] = max(val_inputs[0]) for which PROB > 0
+  //
+  // Inputs:
+  //   IDMAP  : integr ID of GRIDMAP
+  //   val_inputs : includes HOSTLIB and PROB elements 1 to NDIM
+  //                 val_inputs[0] is varied to see where PROB>0.
+  //
+  // The full VALUE range is divided int NBIN_CHECKPROB0 bins,
+  // and min,max VALUE is stored for which PROB > 0.
+  //
+  bool   CHECK_PROB0 = true;
+  int    NBIN_CHECKPROB0 = 10 ;
+  double XNBIN = (double)NBIN_CHECKPROB0;
+  
+  double VAL_RANGE_PROB[2], VAL_TMP, VAL_BINSIZE, prob ;
+  int itmp, istat;
+  char fnam[] = "get_VAL_RANGE_genPDF" ;
+  // ----------- BEGIN ------------
+
+  VAL_RANGE[0]  = GENPDF[IDMAP].GRIDMAP.VALMIN[0] ;
+  VAL_RANGE[1]  = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ;
+
+  if ( !CHECK_PROB0 ) { return; }
+
+  VAL_RANGE_PROB[0] = 9.0E12;  VAL_RANGE_PROB[1] = -9.0E12 ;
+  VAL_BINSIZE = (VAL_RANGE[1] - VAL_RANGE[0]) / XNBIN; 
+  for(itmp=0; itmp <= NBIN_CHECKPROB0; itmp++ ) {
+    VAL_TMP       = VAL_RANGE[0] + VAL_BINSIZE*(double)itmp ;
+    val_inputs[0] = VAL_TMP;
+    istat = interp_GRIDMAP(&GENPDF[IDMAP].GRIDMAP, val_inputs, &prob);
+    if ( prob > 1.0E-12 ) {
+      // increment min range only once
+      if (VAL_RANGE_PROB[0] > 8.0E12 )  { VAL_RANGE_PROB[0] = VAL_TMP; }
+
+      VAL_RANGE_PROB[1] = VAL_TMP ; // always increment max range
+    }      
+  } // end itmp
+  VAL_RANGE[0] = VAL_RANGE_PROB[0] ;
+  VAL_RANGE[1] = VAL_RANGE_PROB[1] ;
+
+  if ( VAL_RANGE[0] > 8.0E12 || VAL_RANGE[1] < -8.0E12 ) {
+    sprintf(c1err,"Unable to get VAL_RANGE for IDMAP=%d", IDMAP);
+    sprintf(c2err,"Something is really messed up.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  return;
+} // end get_VAL_RANGE_genPDF
+
+// ========================================
 int IDMAP_GENPDF(char *parName) {
 
   // return IDMAP for this input parName.
@@ -361,6 +439,36 @@ int IDMAP_GENPDF(char *parName) {
   return(ID);
 
 } // end IDMAP_GENPDF
+
+// =============================
+void iter_summary_genPDF(void) {
+
+  // Created Oct 23 2020
+  // for each genPDF map, summarize mean number of iteration,
+  // and max number.
+
+  int imap, N_CALL, N_ITER_SUM, N_ITER_MAX ;
+  double SUM, XNCALL, MEAN ;
+  char *MAPNAME ;
+
+  if ( NMAP_GENPDF == 0 ) { return; }
+
+  printf("\n   N_ITER Summary for GENPDF_FILE:\n");
+
+  for ( imap=0; imap < NMAP_GENPDF; imap++ ) {
+    MAPNAME     = GENPDF[imap].MAPNAME ;
+    N_ITER_MAX  = GENPDF[imap].N_ITER_MAX ;
+    N_CALL      = GENPDF[imap].N_CALL ;
+    N_ITER_SUM  = GENPDF[imap].N_ITER_SUM ;
+    MEAN        = (double)N_ITER_SUM / (double)N_CALL ;
+
+    printf("\t%-12.12s : N_ITER[MEAN,MAX] = %.1f, %d \n",
+	   MAPNAME, MEAN, N_ITER_MAX );
+
+    fflush(stdout);
+  }
+
+} // end iter_summary_genPDF
 
 #endif
 

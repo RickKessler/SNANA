@@ -19150,4 +19150,8 @@
 
          ***** MISCELLANEOUS(v10_79b) ***** 
 
+   sntools_genPDF.c[h]:
+     + improve random selection efficiency by ignoring ranges
+       where PROB=0. End of sim job writes N_ITER[MEAN,MAX] summary.
+
 END: 

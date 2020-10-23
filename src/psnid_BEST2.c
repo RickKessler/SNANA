@@ -18,6 +18,7 @@
 
 #include "fitsio.h"
 #include "sntools.h"      // snana stuff
+#include "sntools_cosmology.h"
 #include "sntools_grid.h"
 #include "sntools_output.h"
 #include "sntools_nearnbr.h"

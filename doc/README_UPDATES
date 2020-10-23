@@ -19083,11 +19083,16 @@
 
 
 # ======================================================================= 
-         v10_79 (  ) 
+         v10_79 (Oct 23 2020) 
 
          ***** IMPORTANT(v10_79) ***** 
 
          ***** USEFUL(v10_79) ***** 
+
+   + sim-input cosmology allows wa_LAMBDA, or map file with H(z).
+   + analysis command-line args: max string length -> 600 (was 200)
+      (e.g., useful for comma-sep list of HEADER_OVERRIDE_FILES)
+   + sync SALT3 error treatment with new training code
 
          ***** MISCELLANEOUS(v10_79) ***** 
 
@@ -19115,8 +19120,24 @@
      + allow user mistake setting PRIVATE_DATA_PATH = '$SNDATA_ROOT/lcmerge'
        (but still aborts if PRIVATE_DATA_PATH='$SNDATA_ROOT/SIM')
      + bug fix in TABLE_STRING_TERMINATION
+     + DLMAG8_REF uses dlmag_fortC  in sntools_cosmology.c
+         (fortran DLZ8 function now obsolete)
 
    SALT2mu.c:
      + clarify error message for undefined pIa (store_input_varnames)
+
+   snlc_fit.car, snana.car, psnid.car, kcordump.cra
+     + refactor reading command-line overrides with MATCH_NMLKEY.
+     + define MXCHAR_ARG=600 as max string length for any one
+       command line arg (previous string-length limit was 200)
+     + remove global array LINE_ARGS(100)*200
+
+  psnid*
+    + refactor to use new cosmology functions
+
+  NOTE: SNANA_codetest results in 10 very small differences 
+         because the old DLMAG function had c=3E5, while the
+         new function has exact value. This slightly affects
+         initial fit-par estaimates, particularly for photo-z fits.
 
 END: 

@@ -86,6 +86,12 @@ void init_HzFUN_INFO(int VBOSE, double *cosPar, char *fileName,
       printf("\t H0         = %.2f      # km/s/Mpc \n",  H0);
       printf("\t OM, OL, Ok = %7.5f, %7.5f, %7.5f \n", OM, OL, Ok );
       printf("\t w0, wa     = %6.3f, %6.3f \n", w0, wa);
+
+      checkval_D("H0", 1, &H0,  30.0, 100.0 );
+      checkval_D("OM", 1, &OM,  0.0,  1.0 );
+      checkval_D("OL", 1, &OM,  0.0,  1.0 );
+      checkval_D("wa", 1, &wa, -3.0,  1.0 );
+
       fflush(stdout) ;
     }
 
@@ -516,10 +522,41 @@ double dLmag ( double zCMB, double zHEL, HzFUN_INFO_DEF *HzFUN_INFO) {
   rz     = Hzinv_integral(zero,zCMB,HzFUN_INFO) ;
   rz    *= (1.0E6*PC_km);  // H -> 1/sec units
   dl     = ( 1.0 + zHEL ) * rz ;
-  arg    = (double)10.0 * PC_km / dl ;
-  mu     = -5.0 * log10( arg );
+  arg    = dl / (10.0 * PC_km);
+  mu     = 5.0 * log10( arg );
   return mu ;
 }  // end of dLmag
+
+
+// ******************************************
+double dlmag_fortc__(double *zCMB, double *zHEL, double *H0,
+		     double *OM, double *OL, double *w0, double *wa) {
+	       	     
+  // C interface to fortran;
+  // returns luminosity distance in mags:   dLmag = 5 * log10(DL/10pc)
+  //
+  double mu;
+  HzFUN_INFO_DEF HzFUN_INFO ;
+  // ----------- BEGIN -----------
+
+  HzFUN_INFO.COSPAR_LIST[ICOSPAR_HzFUN_H0] = *H0 ;
+  HzFUN_INFO.COSPAR_LIST[ICOSPAR_HzFUN_OM] = *OM ;
+  HzFUN_INFO.COSPAR_LIST[ICOSPAR_HzFUN_OL] = *OL ;
+  HzFUN_INFO.COSPAR_LIST[ICOSPAR_HzFUN_w0] = *w0 ;
+  HzFUN_INFO.COSPAR_LIST[ICOSPAR_HzFUN_wa] = *wa ;
+  HzFUN_INFO.USE_MAP = false ;
+
+  mu = dLmag(*zCMB, *zHEL, &HzFUN_INFO);
+
+  /* xxx
+  printf(" xxx dlmag_fortc: z=%.3f/%.3f,  H0=%.2f OM,OL=%.3f,%.3f \n",
+	 *zCMB, *zHEL, *H0, *OM, *OL); fflush(stdout);
+	printf(" xxx dlmag_fortc: mu = %f \n", mu);
+	 xxx */
+
+  return mu ;
+
+}  // end of dlmag_fort__
 
 
 double zcmb_dLmag_invert( double MU, HzFUN_INFO_DEF *HzFUN_INFO) {

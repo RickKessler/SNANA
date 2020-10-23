@@ -577,7 +577,6 @@ c namelist input variables.
      &   ,LPLOTCHI2         ! T=> plot chi2 vs. each fitpar & filter
      &   ,DOCHI2_SIGMA      ! T=> add chi2 from model-error
      &   ,CHECK_CRAZYFITERR ! T=> check for crazy fit errors (default)
-     &   ,DUMB_DEBUG        ! T=> internal debugging such as restore bug
 
 c option to compute Zmax/Vmax for 1/Vmax method (Jun 2013)
       CHARACTER MAGLIM_VMAX*60   ! e.g., 'r 21.5  i 22.0'
@@ -657,8 +656,6 @@ c
      &  ,SCALE_COVAR      ! scale entire covariance matrix by this factor
      &  ,LANDOLT_COLOR_SHIFT(10)  ! shifts in color terms (if OPT_LANDOLT>0)
      &  ,ZSCALE_SIMEFF     ! scale redshift for SIMEFF call.
-     &  ,FITRES_ADDERR_DLMAG  ! add to DLMAG error for fitres file only
-     &  ,FITRES_ADDERR_REDSHIFT  ! idem for redshift
      &  ,TREST_PEAKRENORM(2)   ! Trest-range to renorm peakFlux for FPKRAT
      &  ,TREST_DMPFUN(2)       ! Trest-range for FILTLIST_DMPFUN
      &  ,SCALE_PLOTCHI2        ! for HFUNMIN
@@ -751,7 +748,7 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
       COMMON / FITINP / 
      &    FITMODEL_NAME, RESTLAMBDA_FITRANGE, UVLAM_EXTRAPFLUX
      &   ,FILTLIST_FIT
-     &   ,FILTLIST_DMPFCN, FILTER_FITMAGDIF, DUMB_DEBUG
+     &   ,FILTLIST_DMPFCN, FILTER_FITMAGDIF
      &   ,FILTLIST_FITRESTMAG, LUMIFIX_FITRESTMAG, SHAPEFIX_FITRESTMAG
      &   ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG, DLAMTOL_FITRESTMAG
      &   ,FILTLIST_DMPFUN, TREST_DMPFUN, SCALE_PLOTCHI2
@@ -808,7 +805,6 @@ c allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
      &   ,FUDGEALL_MAXFRAC, FUDGEALL_ITER1_MAXFRAC
      &   ,FUDGE_DATAERR_SCALE, FUDGE_MODELERR_SCALE
      &   ,FITCOVAR_FILE
-     &   ,FITRES_ADDERR_DLMAG, FITRES_ADDERR_REDSHIFT
      &   ,TREST_PEAKRENORM
      &   ,SALT2alpha, SALT2beta, OPT_SALT2FIT
      &   ,PHOTODZ_REJECT, PHOTODZ1Z_REJECT
@@ -820,7 +816,7 @@ c ------
       NAMELIST / FITINP / 
      &    FITMODEL_NAME, RESTLAMBDA_FITRANGE, UVLAM_EXTRAPFLUX
      &   ,FILTLIST_FIT
-     &   ,FILTLIST_DMPFCN, FILTER_FITMAGDIF, DUMB_DEBUG
+     &   ,FILTLIST_DMPFCN, FILTER_FITMAGDIF
      &   ,FILTLIST_FITRESTMAG, LUMIFIX_FITRESTMAG, SHAPEFIX_FITRESTMAG
      &   ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG, DLAMTOL_FITRESTMAG
      &   ,FILTLIST_DMPFUN, TREST_DMPFUN, SCALE_PLOTCHI2
@@ -877,7 +873,6 @@ c ------
      &   ,FUDGEALL_MAXFRAC, FUDGEALL_ITER1_MAXFRAC
      &   ,FUDGE_DATAERR_SCALE, FUDGE_MODELERR_SCALE
      &   ,FITCOVAR_FILE
-     &   ,FITRES_ADDERR_DLMAG, FITRES_ADDERR_REDSHIFT
      &   ,TREST_PEAKRENORM
      &   ,SALT2alpha, SALT2beta , OPT_SALT2FIT
      &   ,PHOTODZ_REJECT, PHOTODZ1Z_REJECT
@@ -6779,14 +6774,9 @@ C ------------------- BEGIN ---------------------
       LPLOTCHI2 = .FALSE.
       IPAR_PLOTCHI2 = 0
 
-      DUMB_DEBUG = .FALSE.
-
 c init namelist defaults
 
       FITMODEL_NAME       = ' '
-
-      FITRES_ADDERR_DLMAG    = 0.0
-      FITRES_ADDERR_REDSHIFT = 0.0
 
       RESTLAMBDA_FITRANGE(1) =     0.0
       RESTLAMBDA_FITRANGE(2) = 25000.0
@@ -7334,8 +7324,10 @@ C ========================================
       INTEGER IERR ! (O) 0 => OK
 
 c local var
-
+      CHARACTER ARG*(MXCHAR_ARG), ARGLIST(MXKEY_ARGS)*(MXCHAR_ARG)
       INTEGER i, LL, ilast, iuse
+
+      LOGICAL MATCH_NMLKEY
 
 C -------------- BEGIN --------------
 
@@ -7346,544 +7338,480 @@ C -------------- BEGIN --------------
 
       DO WHILE ( i .LT. NLINE_ARGS )
 
-        LL = INDEX ( LINE_ARGS(i), ' ' ) - 1
+        CALL GETARG(i,ARG)
+        LL = INDEX ( ARG, ' ' ) - 1
+cc xxxx        LL = INDEX ( LINE_ARGS(i), ' ' ) - 1
 
-         if ( LINE_ARGS(i) .EQ. 'FITMODEL_NAME' ) then
-            i = i + 1 ; FITMODEL_NAME = LINE_ARGS(i)
+        if ( MATCH_NMLKEY('FITMODEL_NAME', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) FITMODEL_NAME
 
-         else if ( LINE_ARGS(i) .EQ. 'STRETCH_TEMPLATE_FILE' ) then
-            i = i + 1 ; STRETCH_TEMPLATE_FILE = LINE_ARGS(i)
+        else if ( MATCH_NMLKEY('SALT2alpha', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) SALT2alpha
 
-         else if ( LINE_ARGS(i) .EQ. 'SALT2_DICTFILE' ) then
-            i = i + 1 ; SALT2_DICTFILE = LINE_ARGS(i)
+        else if ( MATCH_NMLKEY('SALT2beta', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) SALT2beta
 
-         else if ( LINE_ARGS(i) .EQ. 'SALT2alpha' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) SALT2alpha
+        else if ( MATCH_NMLKEY('OPT_SALT2FIT', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) OPT_SALT2FIT
 
-         else if ( LINE_ARGS(i) .EQ. 'SALT2beta' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) SALT2beta
+        else if ( MATCH_NMLKEY('FILTLAM_SHIFT', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) FILTLAM_SHIFT 
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_SALT2FIT' ) then
-            i = i + 1; READ(LINE_ARGS(i),*) OPT_SALT2FIT
-c -----
+        else if ( MATCH_NMLKEY('SIMEFF_FILE', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) SIMEFF_FILE
 
-         else if ( LINE_ARGS(i) .EQ. 'FILTLAM_SHIFT' ) then
-            i = i + 1 ; FILTLAM_SHIFT = LINE_ARGS(i)
+        else if ( MATCH_NMLKEY('TREST_PEAKRENORM', 2,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) TREST_PEAKRENORM(1)
+            READ(ARGLIST(2),*) TREST_PEAKRENORM(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITRES_ADDERR_DLMAG' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITRES_ADDERR_DLMAG
+        else if ( MATCH_NMLKEY('DELCHI2_REJECT', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) DELCHI2_REJECT
 
-         else if ( LINE_ARGS(i) .EQ. 'FITRES_ADDERR_REDSHIFT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITRES_ADDERR_REDSHIFT
-
-         else if ( LINE_ARGS(i) .EQ. 'SIMEFF_FILE' ) then
-            i = i + 1 ; SIMEFF_FILE = LINE_ARGS(i)
-
-         else if ( LINE_ARGS(i) .EQ. 'TREST_PEAKRENORM' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) TREST_PEAKRENORM(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) TREST_PEAKRENORM(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'DELCHI2_REJECT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) DELCHI2_REJECT
-
-         else if ( LINE_ARGS(i) .EQ. 'SIGNOISE_REJECT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) SIGNOISE_REJECT
+        else if ( MATCH_NMLKEY('SIGNOISE_REJECT', 1,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) SIGNOISE_REJECT
 
 c --- keep legacy variables TREST_REJECT and MJD_REJECT
 
-         else if ( LINE_ARGS(i) .EQ. 'TREST_REJECT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) TREST_REJECT(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) TREST_REJECT(2)
+        else if ( MATCH_NMLKEY('TREST_REJECT', 2,i,ARGLIST) ) then
+            READ(ARGLIST(1),*) TREST_REJECT(1)
+            READ(ARGLIST(2),*) TREST_REJECT(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'MJD_REJECT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MJD_REJECT(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) MJD_REJECT(2)
-c ----------------
+        else if ( MATCH_NMLKEY('MJD_REJECT', 2, i,ARGLIST) ) then
+            READ(ARGLIST(1),*) MJD_REJECT(1)
+            READ(ARGLIST(2),*) MJD_REJECT(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_TREST_FILTER' ) then
-            i = i + 1 ; FITWIN_TREST_FILTER = LINE_ARGS(i) 
+        else if (MATCH_NMLKEY('FITWIN_TREST_FILTER',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_TREST_FILTER
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_TREST' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_TREST(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_TREST(2)
+        else if ( MATCH_NMLKEY('FITWIN_TREST', 2, i, ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_TREST(1)
+            READ(ARGLIST(2),*) FITWIN_TREST(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_MJD' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_MJD(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_MJD(2)
+        else if ( MATCH_NMLKEY('FITWIN_MJD', 2, i, ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_MJD(1)
+            READ(ARGLIST(2),*) FITWIN_MJD(2)
 
-c --------------
+        else if ( MATCH_NMLKEY('ADD_SALT2ERR_FROMZ', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) ADD_SALT2ERR_FROMz
 
-         else if ( LINE_ARGS(i) .EQ. 'ADD_SALT2ERR_FROMZ' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ADD_SALT2ERR_FROMz
+        else if ( MATCH_NMLKEY('USE_MODEL_MAGERR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USE_MODEL_MAGERR
 
-         else if ( LINE_ARGS(i) .EQ. 'USE_MODEL_MAGERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) USE_MODEL_MAGERR
+        else if ( MATCH_NMLKEY('FUDGE_MAGERR_MODEL', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGE_MAGERR_MODEL
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_MAGERR_MODEL' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_MAGERR_MODEL
+        else if ( MATCH_NMLKEY('FUDGE_DATAERR_SCALE', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGE_DATAERR_SCALE
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_DATAERR_SCALE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_DATAERR_SCALE
+        else if (MATCH_NMLKEY('FUDGE_MODELERR_SCALE',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGE_MODELERR_SCALE
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_MODELERR_SCALE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_MODELERR_SCALE
+        else if (MATCH_NMLKEY('FUDGE_FITERR_MAXFRAC',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGE_FITERR_MAXFRAC
 
-c ----
+        else if (MATCH_NMLKEY('FUDGE_FITERR_TREST', 4,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGE_FITERR_TREST(1)
+            READ(ARGLIST(2),*) FUDGE_FITERR_TREST(2)
+            READ(ARGLIST(3),*) FUDGE_FITERR_TREST(3)
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_FITERR_MAXFRAC' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_FITERR_MAXFRAC
+        else if (MATCH_NMLKEY('FUDGE_FITERR_RESTLAM', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGE_FITERR_RESTLAM(1)
+            READ(ARGLIST(2),*) FUDGE_FITERR_RESTLAM(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_FITERR_TREST' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_FITERR_TREST(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_FITERR_TREST(2)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_FITERR_TREST(3)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_FITERR_TREST(4)
+        else if(MATCH_NMLKEY('FUDGE_FITERR_PASSBANDS',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGE_FITERR_PASSBANDS
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_FITERR_RESTLAM' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_FITERR_RESTLAM(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGE_FITERR_RESTLAM(2)
+        else if(MATCH_NMLKEY('FUDGEALL_MAXFRAC',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGEALL_MAXFRAC
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGE_FITERR_PASSBANDS' ) then
-            i = i + 1 ; FUDGE_FITERR_PASSBANDS = LINE_ARGS(i)
+        else if(MATCH_NMLKEY('FUDGEALL_ITER1_MAXFRAC',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FUDGEALL_ITER1_MAXFRAC
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGEALL_MAXFRAC' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGEALL_MAXFRAC
+        else if(MATCH_NMLKEY('MAX_INTEGPDF',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) MAX_INTEGPDF
 
-         else if ( LINE_ARGS(i) .EQ. 'FUDGEALL_ITER1_MAXFRAC' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FUDGEALL_ITER1_MAXFRAC
+        else if ( MATCH_NMLKEY('FITWIN_PROB', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_PROB(1)
+            READ(ARGLIST(2),*) FITWIN_PROB(2)
 
-c --------------
+        else if ( MATCH_NMLKEY('FITWIN_NOMARG_PROB',2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_NOMARG_PROB(1)
+            READ(ARGLIST(2),*) FITWIN_NOMARG_PROB(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'MAX_INTEGPDF' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MAX_INTEGPDF
+        else if ( MATCH_NMLKEY('FITWIN_CHI2SIGMA', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_CHI2SIGMA(1)
+            READ(ARGLIST(2),*) FITWIN_CHI2SIGMA(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_PROB' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_PROB(1)
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_PROB(2)
+        else if ( MATCH_NMLKEY('FITWIN_TREST', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_TREST(1)
+            READ(ARGLIST(2),*) FITWIN_TREST(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_NOMARG_PROB' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_NOMARG_PROB(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_NOMARG_PROB(2)
+        else if ( MATCH_NMLKEY('FITWIN_MJD', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_MJD(1)
+            READ(ARGLIST(2),*) FITWIN_MJD(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_CHI2SIGMA' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_CHI2SIGMA(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_CHI2SIGMA(2)
+        else if ( MATCH_NMLKEY('FITWIN_ZPULL', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_ZPULL(1)
+            READ(ARGLIST(2),*) FITWIN_ZPULL(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_TREST' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_TREST(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_TREST(2)
+        else if ( MATCH_NMLKEY('FITWIN_ZPHOT', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_ZPHOT(1)
+            READ(ARGLIST(2),*) FITWIN_ZPHOT(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_MJD' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_MJD(1)
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_MJD(2)
+        else if ( MATCH_NMLKEY('FITWIN_SHAPE', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_SHAPE(1)
+            READ(ARGLIST(2),*) FITWIN_SHAPE(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_ZPULL' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_ZPULL(1)
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_ZPULL(2)
+        else if ( MATCH_NMLKEY('FITWIN_COLOR', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_COLOR(1)
+            READ(ARGLIST(2),*) FITWIN_COLOR(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_ZPHOT' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_ZPHOT(1)
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_ZPHOT(2)
+        else if ( MATCH_NMLKEY('FITWIN_COV_OFFDIAG',2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_COV_OFFDIAG(1)
+            READ(ARGLIST(2),*) FITWIN_COV_OFFDIAG(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_SHAPE' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_SHAPE(1)
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_SHAPE(2)
+        else if ( MATCH_NMLKEY('FITWIN_PEAKMJD_ERR', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_PEAKMJD_ERR(1)
+            READ(ARGLIST(2),*) FITWIN_PEAKMJD_ERR(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_COLOR' ) then
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_COLOR(1)
-            i = i + 1 ;  READ(LINE_ARGS(i),*) FITWIN_COLOR(2)
+        else if ( MATCH_NMLKEY('FITWIN_MB_ERR', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_MB_ERR(1)
+            READ(ARGLIST(2),*) FITWIN_MB_ERR(2)
 
-c - - - -
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_COV_OFFDIAG' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_COV_OFFDIAG(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_COV_OFFDIAG(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_PEAKMJD_ERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_PEAKMJD_ERR(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_PEAKMJD_ERR(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_MB_ERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_MB_ERR(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_MB_ERR(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_SHAPE_ERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_SHAPE_ERR(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_SHAPE_ERR(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_COLOR_ERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_COLOR_ERR(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_COLOR_ERR(2)
-c - - - - 
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_PEAKMJD_ERRz1' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_PEAKMJD_ERRz1(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_PEAKMJD_ERRz1(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_MB_ERRz1' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_MB_ERRz1(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_MB_ERRz1(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_SHAPE_ERRz1' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_SHAPE_ERRz1(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_SHAPE_ERRz1(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'FITWIN_COLOR_ERRz1' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_COLOR_ERRz1(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) FITWIN_COLOR_ERRz1(2)
-
-c - - - - 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_ZERRSCALE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_ZERRSCALE
-
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_MUERRSCALE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_MUERRSCALE
-
-         else if ( LINE_ARGS(i) .EQ. 'OPT_MNSTAT_COV' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_MNSTAT_COV
+        else if ( MATCH_NMLKEY('FITWIN_SHAPE_ERR', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_SHAPE_ERR(1)
+            READ(ARGLIST(2),*) FITWIN_SHAPE_ERR(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_PRIOR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_PRIOR
+        else if ( MATCH_NMLKEY('FITWIN_COLOR_ERR', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_COLOR_ERR(1)
+            READ(ARGLIST(2),*) FITWIN_COLOR_ERR(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_PRIOR_AV' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_PRIOR_AV
+        else if (MATCH_NMLKEY('FITWIN_PEAKMJD_ERRz1',2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_PEAKMJD_ERRz1(1)
+            READ(ARGLIST(2),*) FITWIN_PEAKMJD_ERRz1(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_PHOTOZ' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_PHOTOZ
+        else if (MATCH_NMLKEY('FITWIN_MB_ERRz1', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_MB_ERRz1(1)
+            READ(ARGLIST(2),*) FITWIN_MB_ERRz1(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'PHOTODZ_REJECT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTODZ_REJECT
+        else if (MATCH_NMLKEY('FITWIN_SHAPE_ERRz1', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_SHAPE_ERRz1(1)
+            READ(ARGLIST(2),*) FITWIN_SHAPE_ERRz1(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'PHOTODZ1Z_REJECT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTODZ1Z_REJECT
+        else if (MATCH_NMLKEY('FITWIN_COLOR_ERRz1', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FITWIN_COLOR_ERRz1(1)
+            READ(ARGLIST(2),*) FITWIN_COLOR_ERRz1(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'PHOTOZ_ITER1_LAMRANGE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTOZ_ITER1_LAMRANGE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTOZ_ITER1_LAMRANGE(2)
+        else if (MATCH_NMLKEY('PRIOR_ZERRSCALE', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_ZERRSCALE
 
-         else if ( LINE_ARGS(i) .EQ. 'PHOTOZ_BOUND' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTOZ_BOUND(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PHOTOZ_BOUND(2)
+        else if (MATCH_NMLKEY('PRIOR_MUERRSCALE', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_MUERRSCALE
 
-         else if ( LINE_ARGS(i) .EQ. 'ISCALE_COURSEBIN_PHOTOZ' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ISCALE_COURSEBIN_PHOTOZ
+        else if (MATCH_NMLKEY('OPT_MNSTAT_COV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_MNSTAT_COV
 
-         else if ( LINE_ARGS(i) .EQ. 'PARLIST_MCMC_PHOTOZ' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(2)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(3)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(4)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PARLIST_MCMC_PHOTOZ(5)
+        else if (MATCH_NMLKEY('OPT_PRIOR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_PRIOR
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_MJDSIG' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_MJDSIG
+        else if (MATCH_NMLKEY('OPT_PRIOR_AV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_PRIOR_AV
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_AVEXP' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_AVEXP(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_AVEXP(2)
+        else if (MATCH_NMLKEY('OPT_PHOTOZ', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_PHOTOZ
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_AVWGT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_AVWGT(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_AVWGT(2)
+        else if (MATCH_NMLKEY('PHOTODZ_REJECT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PHOTODZ_REJECT
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_AVRES' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_AVRES
+        else if (MATCH_NMLKEY('PHOTODZ1Z_REJECT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PHOTODZ1Z_REJECT
 
-c --- legacy ----
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_LUMIPAR_RANGE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_LUMIPAR_RANGE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_LUMIPAR_RANGE(2)
+        else if (MATCH_NMLKEY('PHOTOZ_ITER1_LAMRANGE',2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PHOTOZ_ITER1_LAMRANGE(1)
+            READ(ARGLIST(2),*) PHOTOZ_ITER1_LAMRANGE(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_LUMIPAR_SIGMA' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_LUMIPAR_SIGMA
-c ----------
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_SHAPE_RANGE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_SHAPE_RANGE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_SHAPE_RANGE(2)
+        else if (MATCH_NMLKEY('PHOTOZ_BOUND', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PHOTOZ_BOUND(1)
+            READ(ARGLIST(2),*) PHOTOZ_BOUND(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_SHAPE_SIGMA' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_SHAPE_SIGMA
+        else if (MATCH_NMLKEY('ISCALE_COURSEBIN_PHOTOZ',
+     &              1, i, ARGLIST) ) then
+            READ(ARGLIST(1),*) ISCALE_COURSEBIN_PHOTOZ
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_DELTA_PROFILE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_DELTA_PROFILE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_DELTA_PROFILE(2)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_DELTA_PROFILE(3)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_DELTA_PROFILE(4)
-c - - - - 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_COLOR_RANGE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_COLOR_RANGE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_COLOR_RANGE(2)
+        else if (MATCH_NMLKEY('PARLIST_MCMC_PHOTOZ',5,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PARLIST_MCMC_PHOTOZ(1)
+            READ(ARGLIST(2),*) PARLIST_MCMC_PHOTOZ(2)
+            READ(ARGLIST(3),*) PARLIST_MCMC_PHOTOZ(3)
+            READ(ARGLIST(4),*) PARLIST_MCMC_PHOTOZ(4)
+            READ(ARGLIST(5),*) PARLIST_MCMC_PHOTOZ(5)
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIOR_COLOR_SIGMA' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) PRIOR_COLOR_SIGMA
-c - - - -
+        else if (MATCH_NMLKEY('PRIOR_MJDSIG', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_MJDSIG
 
-         else if ( LINE_ARGS(i) .EQ. 'NGRID_PDF' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) NGRID_PDF
+        else if (MATCH_NMLKEY('PRIOR_AVEXP', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_AVEXP(1)
+            READ(ARGLIST(2),*) PRIOR_AVEXP(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'NSIGMA_PDF' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) NSIGMA_PDF
+        else if (MATCH_NMLKEY('PRIOR_AVWGT', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_AVWGT(1)
+            READ(ARGLIST(2),*) PRIOR_AVWGT(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_COVAR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_COVAR
-         else if ( LINE_ARGS(i) .EQ. 'OPT_COVAR_FLUX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_COVAR_FLUX
+        else if (MATCH_NMLKEY('PRIOR_AVRES', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_AVRES
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_COVAR_LCFIT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_COVAR_LCFIT
+c -------- legacy --------
+        else if (MATCH_NMLKEY('PRIOR_LUMIPAR_RANGE', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_LUMIPAR_RANGE(1)
+            READ(ARGLIST(2),*) PRIOR_LUMIPAR_RANGE(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_COVAR_MWXTERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_COVAR_MWXTERR
+        else if (MATCH_NMLKEY('PRIOR_LUMIPAR_SIGMA', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_LUMIPAR_SIGMA
+c -------------------------
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_XTMW_ERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_XTMW_ERR  ! legacy variable
+        else if (MATCH_NMLKEY('PRIOR_SHAPE_RANGE', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_SHAPE_RANGE(1)
+            READ(ARGLIST(2),*) PRIOR_SHAPE_RANGE(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'SCALE_COVAR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) SCALE_COVAR
+        else if (MATCH_NMLKEY('PRIOR_SHAPE_SIGMA', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_SHAPE_SIGMA
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_SNXT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_SNXT
+        else if (MATCH_NMLKEY('PRIOR_DELTA_PROFILE', 4,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_DELTA_PROFILE(1)
+            READ(ARGLIST(2),*) PRIOR_DELTA_PROFILE(2)
+            READ(ARGLIST(3),*) PRIOR_DELTA_PROFILE(3)
+            READ(ARGLIST(4),*) PRIOR_DELTA_PROFILE(4)
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_NEARFILT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_NEARFILT
+        else if (MATCH_NMLKEY('PRIOR_COLOR_RANGE', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_COLOR_RANGE(1)
+            READ(ARGLIST(2),*) PRIOR_COLOR_RANGE(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_KCORERR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_KCORERR
+        else if (MATCH_NMLKEY('PRIOR_COLOR_SIGMA', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) PRIOR_COLOR_SIGMA
 
-         else if ( LINE_ARGS(i) .EQ. 'ZSCALE_SIMEFF' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) ZSCALE_SIMEFF
+        else if (MATCH_NMLKEY('NGRID_PDF', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) NGRID_PDF
 
-         else if ( LINE_ARGS(i) .EQ. 'LKCOR_AVWARP' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LKCOR_AVWARP
+        else if (MATCH_NMLKEY('NSIGMA_PDF', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) NSIGMA_PDF
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_LANDOLT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_LANDOLT
+        else if (MATCH_NMLKEY('OPT_COVAR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_COVAR
 
-         else if ( LINE_ARGS(i) .EQ. 'UCOR_BXB' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) UCOR_BXB
+        else if (MATCH_NMLKEY('OPT_COVAR_FLUX', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_COVAR_FLUX
 
-         else if ( LINE_ARGS(i) .EQ. 'RESTLAMBDA_FITRANGE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) RESTLAMBDA_FITRANGE(1)
-            i = i + 1 ; READ(LINE_ARGS(i),*) RESTLAMBDA_FITRANGE(2)
+        else if (MATCH_NMLKEY('OPT_COVAR_LCFIT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_COVAR_LCFIT
 
-         else if ( LINE_ARGS(i) .EQ. 'UVLAM_EXTRAPFLUX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) UVLAM_EXTRAPFLUX
+        else if (MATCH_NMLKEY('OPT_COVAR_MWXTERR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_COVAR_MWXTERR
 
-         else if ( LINE_ARGS(i) .EQ. 'SIMFIT_IDEAL_PRESCALE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) SIMFIT_IDEAL_PRESCALE
+        else if (MATCH_NMLKEY('OPT_XTMW_ERR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_XTMW_ERR    ! legacy variable
 
-c ----------
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_COLOR' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) USESIM_COLOR
+        else if (MATCH_NMLKEY('SCALE_COVAR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) SCALE_COVAR
 
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_AV' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) USESIM_AV
+        else if (MATCH_NMLKEY('OPT_SNXT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_SNXT
 
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_RV' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) USESIM_RV
+        else if (MATCH_NMLKEY('OPT_NEARFILT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_NEARFILT
+
+        else if (MATCH_NMLKEY('OPT_KCORERR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_KCORERR
+
+        else if (MATCH_NMLKEY('ZSCALE_SIMEFF', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) ZSCALE_SIMEFF
+
+        else if (MATCH_NMLKEY('LKCOR_AVWARP', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LKCOR_AVWARP
+
+        else if (MATCH_NMLKEY('OPT_LANDOLT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_LANDOLT
+
+        else if (MATCH_NMLKEY('UCOR_BXB', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) UCOR_BXB
+
+        else if (MATCH_NMLKEY('RESTLAMBDA_FITRANGE', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) RESTLAMBDA_FITRANGE(1)
+            READ(ARGLIST(2),*) RESTLAMBDA_FITRANGE(2)
+
+        else if (MATCH_NMLKEY('UVLAM_EXTRAPFLUX', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) UVLAM_EXTRAPFLUX
+
+        else if(MATCH_NMLKEY('SIMFIT_IDEAL_PRESCALE',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) SIMFIT_IDEAL_PRESCALE
+
+        else if(MATCH_NMLKEY('USESIM_COLOR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_COLOR
+
+        else if(MATCH_NMLKEY('USESIM_AV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_AV
+
+        else if(MATCH_NMLKEY('USESIM_RV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_RV
 
 c ------------- legacy variable
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_LUMIPAR' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) USESIM_LUMIPAR
-c ------------
+        else if(MATCH_NMLKEY('USESIM_LUMIPAR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_LUMIPAR
+c -------------
+        else if(MATCH_NMLKEY('USESIM_SHAPE', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_SHAPE
 
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_SHAPE' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) USESIM_SHAPE
+        else if(MATCH_NMLKEY('USESIM_PEAKMJD', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_PEAKMJD
 
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_PEAKMJD' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) USESIM_PEAKMJD
+        else if(MATCH_NMLKEY('USESIM_DLMAG', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) USESIM_DLMAG
 
-         else if ( LINE_ARGS(i) .EQ. 'USESIM_DLMAG' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) USESIM_DLMAG
+        else if(MATCH_NMLKEY('INIVAL_RV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_RV
 
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_RV' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INIVAL_RV
+        else if(MATCH_NMLKEY('INIVAL_AVRV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_AVRV
 
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_RV' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INISTP_RV
+        else if(MATCH_NMLKEY('INISTP_AVRV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_AVRV
 
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_AVRV' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INIVAL_AVRV
+        else if(MATCH_NMLKEY('INISTP_PEAKMJD', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_PEAKMJD
 
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_AVRV' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INISTP_AVRV
+        else if(MATCH_NMLKEY('INIVAL_PEAKMJD', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_PEAKMJD
 
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_PEAKMJD' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INISTP_PEAKMJD
+        else if(MATCH_NMLKEY('INIVAL_PEAKMJD_SHIFT',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_PEAKMJD_SHIFT
 
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_PEAKMJD' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INIVAL_PEAKMJD
+        else if(MATCH_NMLKEY('INISTP_SHAPE',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_SHAPE
 
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_PEAKMJD_SHIFT' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INIVAL_PEAKMJD_SHIFT
+        else if(MATCH_NMLKEY('INISTP_DLMAG',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_DLMAG
 
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_SHAPE' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INISTP_SHAPE
+        else if(MATCH_NMLKEY('INISTP_X0',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_X0
 
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_DLMAG' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INISTP_DLMAG
+        else if(MATCH_NMLKEY('LANDOLT_COLOR_SHIFT',5,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LANDOLT_COLOR_SHIFT(1)  ! k0
+            READ(ARGLIST(2),*) LANDOLT_COLOR_SHIFT(2)  ! k1
+            READ(ARGLIST(3),*) LANDOLT_COLOR_SHIFT(3)  ! k2
+            READ(ARGLIST(4),*) LANDOLT_COLOR_SHIFT(4)  ! k3
+            READ(ARGLIST(5),*) LANDOLT_COLOR_SHIFT(5)  ! k4
 
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_X0' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) INISTP_X0
+        else if(MATCH_NMLKEY('CHECK_CRAZYFITERR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) CHECK_CRAZYFITERR
 
-c ----------------
+        else if(MATCH_NMLKEY('DOFIT_PHOTOZ', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) DOFIT_PHOTOZ
 
-         else if ( LINE_ARGS(i) .EQ. 'LANDOLT_COLOR_SHIFT' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) LANDOLT_COLOR_SHIFT(1)  ! k0
-            i = i + 1
-            READ(LINE_ARGS(i),*) LANDOLT_COLOR_SHIFT(2)  ! k1
-            i = i + 1
-            READ(LINE_ARGS(i),*) LANDOLT_COLOR_SHIFT(3)  ! k2
-            i = i + 1
-            READ(LINE_ARGS(i),*) LANDOLT_COLOR_SHIFT(4)  ! k3
-            i = i + 1
-            READ(LINE_ARGS(i),*) LANDOLT_COLOR_SHIFT(5)  ! k4
-c ----------
-         else if ( LINE_ARGS(i) .EQ. 'CHECK_CRAZYFITERR' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) CHECK_CRAZYFITERR
+        else if(MATCH_NMLKEY('SKIP_PHOTOZ_INIT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) SKIP_PHOTOZ_INIT
 
-c ---------------
-         else if ( LINE_ARGS(i) .EQ. 'DOFIT_PHOTOZ' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) DOFIT_PHOTOZ
+        else if(MATCH_NMLKEY('LDMP_PHOTOZ_DROPFILTER',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LDMP_PHOTOZ_DROPFILTER
 
-         else if ( LINE_ARGS(i) .EQ. 'SKIP_PHOTOZ_INIT' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) SKIP_PHOTOZ_INIT
+        else if(MATCH_NMLKEY('DOCHI2_SIGMA', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) DOCHI2_SIGMA
 
-         else if ( LINE_ARGS(i) .EQ. 'LDMP_PHOTOZ_DROPFILTER' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) LDMP_PHOTOZ_DROPFILTER
+        else if(MATCH_NMLKEY('LAMREST_MODEL_SMOOTH',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LAMREST_MODEL_SMOOTH
 
-         else if ( LINE_ARGS(i) .EQ. 'DUMB_DEBUG' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) DUMB_DEBUG
+        else if(MATCH_NMLKEY('FILTER_FITMAGDIF',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FILTER_FITMAGDIF
 
-         else if ( LINE_ARGS(i) .EQ. 'DOCHI2_SIGMA' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) DOCHI2_SIGMA
+        else if(MATCH_NMLKEY('FILTLIST_FITRESTMAG',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FILTLIST_FITRESTMAG
 
-         else if ( LINE_ARGS(i) .EQ. 'LAMREST_MODEL_SMOOTH' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) LAMREST_MODEL_SMOOTH
+        else if(MATCH_NMLKEY('LUMIFIX_FITRESTMAG',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LUMIFIX_FITRESTMAG   ! legacy
 
-c --------------
-         else if ( LINE_ARGS(i) .EQ. 'FILTER_FITMAGDIF' ) then
-            i = i + 1
-            FILTER_FITMAGDIF = LINE_ARGS(i)
-c --------------
-         else if ( LINE_ARGS(i) .EQ. 'FILTLIST_FITRESTMAG' ) then
-            i = i + 1
-            FILTLIST_FITRESTMAG = LINE_ARGS(i)
+        else if(MATCH_NMLKEY('SHAPEFIX_FITRESTMAG', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) SHAPEFIX_FITRESTMAG 
 
-         else if ( LINE_ARGS(i) .EQ. 'LUMIFIX_FITRESTMAG' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*)  LUMIFIX_FITRESTMAG 
+        else if(MATCH_NMLKEY('LAMEXTRAP_FITRESTMAG', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LAMEXTRAP_FITRESTMAG
 
-         else if ( LINE_ARGS(i) .EQ. 'SHAPEFIX_FITRESTMAG' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*)  SHAPEFIX_FITRESTMAG 
+        else if(MATCH_NMLKEY('DLAMTOL_FITRESTMAG', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) DLAMTOL_FITRESTMAG 
 
-         else if ( LINE_ARGS(i) .EQ. 'LAMEXTRAP_FITRESTMAG' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*)  LAMEXTRAP_FITRESTMAG 
+        else if(MATCH_NMLKEY('FILTLIST_FIT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FILTLIST_FIT
 
-         else if ( LINE_ARGS(i) .EQ. 'DLAMTOL_FITRESTMAG' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) DLAMTOL_FITRESTMAG 
+        else if(MATCH_NMLKEY('FILTLIST_DMPFCN', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FILTLIST_DMPFCN
 
-c --------
-         else if ( LINE_ARGS(i) .EQ. 'FILTLIST_FIT' ) then
-            i = i + 1 ; FILTLIST_FIT = LINE_ARGS(i)
-c ----
-         else if ( LINE_ARGS(i) .EQ. 'FILTLIST_DMPFCN' ) then
-            i = i + 1 ; FILTLIST_DMPFCN = LINE_ARGS(i)
+        else if(MATCH_NMLKEY('FILTLIST_DMPFUN', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FILTLIST_DMPFUN
 
-         else if ( LINE_ARGS(i) .EQ. 'FILTLIST_DMPFUN' ) then
-            i = i + 1 ; FILTLIST_DMPFUN = LINE_ARGS(i)
+        else if(MATCH_NMLKEY('TREST_DMPFUN', 2,i,ARGLIST)) then
+            READ(ARGLIST(1),*) TREST_DMPFUN(1) 
+            READ(ARGLIST(2),*) TREST_DMPFUN(2) 
 
-         else if ( LINE_ARGS(i) .EQ. 'TREST_DMPFUN' ) then
-            i = i + 1
-            READ(LINE_ARGS(i),*) TREST_DMPFUN(1) 
-            i = i + 1
-            READ(LINE_ARGS(i),*) TREST_DMPFUN(2) 
+        else if(MATCH_NMLKEY('NEARFILT_IGNORE_REST',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) NEARFILT_IGNORE_REST
 
-         else if ( LINE_ARGS(i) .EQ. 'NEARFILT_IGNORE_REST' ) then
-            i = i + 1 ; NEARFILT_IGNORE_REST = LINE_ARGS(i)
+        else if(MATCH_NMLKEY('LTRACE',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LTRACE
 
-         else if ( LINE_ARGS(i) .EQ. 'LTRACE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LTRACE
+        else if(MATCH_NMLKEY('LFIXPAR_ALL',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LFIXPAR_ALL
 
-         else if ( LINE_ARGS(i) .EQ. 'LFIXPAR_ALL' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LFIXPAR_ALL
+        else if(MATCH_NMLKEY('LFIXPAR_ADJUST',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LFIXPAR_ADJUST
 
-         else if ( LINE_ARGS(i) .EQ. 'LFIXPAR_ADJUST' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LFIXPAR_ADJUST
+        else if(MATCH_NMLKEY('LPLOTCHI2',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) LPLOTCHI2
 
-         else if ( LINE_ARGS(i) .EQ. 'LPLOTCHI2' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) LPLOTCHI2
+        else if(MATCH_NMLKEY('IPAR_PLOTCHI2',1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) IPAR_PLOTCHI2
 
-         else if ( LINE_ARGS(i) .EQ. 'IPAR_PLOTCHI2' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) IPAR_PLOTCHI2
+        else if(MATCH_NMLKEY('MINOS_ERRMAX_BAD', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) MINOS_ERRMAX_BAD
 
-         else if ( LINE_ARGS(i) .EQ. 'MINOS_ERRMAX_BAD' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) MINOS_ERRMAX_BAD
-c ---
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_SHAPE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INIVAL_SHAPE
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_SHAPE' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INISTP_SHAPE
+        else if(MATCH_NMLKEY('INIVAL_SHAPE', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_SHAPE
 
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_SHIFT_ERRFRAC' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INIVAL_SHIFT_ERRFRAC
+        else if(MATCH_NMLKEY('INISTP_SHAPE', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_SHAPE
 
-         else if ( LINE_ARGS(i) .EQ. 'FRACERRDIF_REPEATFIT' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) FRACERRDIF_REPEATFIT
-c ---
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_AV' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INIVAL_AV
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_AV' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INISTP_AV
-c --
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_COLOR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INIVAL_COLOR
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_COLOR' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INISTP_COLOR
+        else if(MATCH_NMLKEY('INIVAL_SHIFT_ERRFRAC', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_SHIFT_ERRFRAC
 
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_X0' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INIVAL_X0
+        else if(MATCH_NMLKEY('FRACERRDIF_REPEATFIT', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) FRACERRDIF_REPEATFIT
 
-c --
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_DLMAG' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INIVAL_DLMAG
+        else if(MATCH_NMLKEY('INIVAL_AV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_AV
 
-         else if ( LINE_ARGS(i) .EQ. 'INIVAL_PHOTOZ' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INIVAL_PHOTOZ
-         else if ( LINE_ARGS(i) .EQ. 'INISTP_PHOTOZ' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) INISTP_PHOTOZ
+        else if(MATCH_NMLKEY('INISTP_AV', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_AV
+
+        else if(MATCH_NMLKEY('INIVAL_COLOR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_COLOR
+
+        else if(MATCH_NMLKEY('INISTP_COLOR', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_COLOR
+
+        else if(MATCH_NMLKEY('INIVAL_X0', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_X0
+
+        else if(MATCH_NMLKEY('INIVAL_DLMAG', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_DLMAG
+
+        else if(MATCH_NMLKEY('INIVAL_PHOTOZ', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INIVAL_PHOTOZ
+
+        else if(MATCH_NMLKEY('INISTP_PHOTOZ', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) INISTP_PHOTOZ
 
 c --- Vmax
-         else if ( LINE_ARGS(i) .EQ. 'MAGLIM_VMAX' ) then
-            i = i + 1 ; MAGLIM_VMAX = LINE_ARGS(i)
-         else if ( LINE_ARGS(i) .EQ. 'OPT_VMAX' ) then
-            i = i + 1 ; READ(LINE_ARGS(i),*) OPT_VMAX
+
+        else if(MATCH_NMLKEY('MAGLIM_VMAX', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) MAGLIM_VMAX
+
+        else if(MATCH_NMLKEY('OPT_VMAX', 1,i,ARGLIST)) then
+            READ(ARGLIST(1),*) OPT_VMAX
 
          endif
 

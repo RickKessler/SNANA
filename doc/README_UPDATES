@@ -19154,4 +19154,8 @@
      + improve random selection efficiency by ignoring ranges
        where PROB=0. End of sim job writes N_ITER[MEAN,MAX] summary.
 
+   snlc_sim.c[h]
+    + new SIMSED_GRIDONLY option to select list of indices.
+      See manual.
+
 END: 

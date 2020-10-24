@@ -616,7 +616,8 @@ void set_user_defaults(void) {
 
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
-  INPUTS.OPT_DEVEL_READ_GENPOLY = 1 ;
+  INPUTS.OPT_DEVEL_READ_GENPOLY    = 1 ;
+  INPUTS.OPT_DEVEL_SIMSED_GRIDONLY = 1 ;
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
 
@@ -1414,6 +1415,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "OPT_DEVEL_READ_GENPOLY", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_READ_GENPOLY ) ; 
+  }
+  else if ( keyMatchSim(1, "OPT_DEVEL_SIMSED_GRIDONLY", WORDS[0],keySource)) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_SIMSED_GRIDONLY ) ; 
   }
   else if ( keyMatchSim(1, "TRACE_MAIN", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.TRACE_MAIN ) ; 
@@ -3978,10 +3982,11 @@ int parse_input_SIMSED(char **WORDS, int keySource) {
 
   int MXPAR = MXPAR_SIMSED ;
   int NPAR, N=0;
-  char ctmp[60];
+  char PARNAME[60], SIMSED_STRINGOPT[80];
   char fnam[] = "parse_input_SIMSED" ;
 
   // ----------- BEGIN -----------
+
 
   if ( keyMatchSim(1, "SIMSED_USE_BINARY", WORDS[0], keySource) ) {
     N++ ; sscanf(WORDS[N], "%d", &INPUTS.USE_BINARY_SIMSED );
@@ -4006,24 +4011,31 @@ int parse_input_SIMSED(char **WORDS, int keySource) {
   }
 
   else if ( keyMatchSim(MXPAR,"SIMSED_GRIDONLY", WORDS[0],keySource) ) {
-    N++ ; sscanf(WORDS[N],"%s", ctmp);
-    if ( strcmp(ctmp,"SEQUENTIAL") == 0  ) {
+    N++ ; sscanf(WORDS[N],"%s", PARNAME);
+
+    // in case we have VARNAME(STRINGOPT), extract optional STRINGOPT
+    extractStringOpt(PARNAME,SIMSED_STRINGOPT);
+
+    if ( strcmp(PARNAME,"SEQUENTIAL") == 0  ) {
       INPUTS.NPAR_SIMSED = 0 ;  // no interp pars => treat as baggage
       INPUTS.OPTMASK_SIMSED    = OPTMASK_SIMSED_GRIDONLY ;
     }
     else {
-      // ctmp is one of the SIMSED params, but GRIDONLY
+      // PARNAME is one of the SIMSED params, but GRIDONLY
       NPAR = INPUTS.NPAR_SIMSED ;
-      sprintf(INPUTS.PARNAME_SIMSED[NPAR], "%s", ctmp );
+      sprintf(INPUTS.PARNAME_SIMSED[NPAR], "%s", PARNAME );
       INPUTS.GENFLAG_SIMSED[NPAR] = 
 	OPTMASK_SIMSED_PARAM + OPTMASK_SIMSED_GRIDONLY ;
       sprintf(INPUTS.KEYWORD_SIMSED[NPAR],"SIMSED_GRIDONLY");
 
       INPUTS.NPAR_SIMSED++ ; 
       INPUTS.NPAR_SIMSED_GRIDONLY++ ; 
+
+      parse_input_SIMSED_SUBSET(PARNAME,SIMSED_STRINGOPT) ;
     }
 
   } // end SIMSED_GRIDONLY 
+
   else if ( keyMatchSim(1,"SIMSED_REDCOR SIMSED_COV", WORDS[0], keySource) ) {
     N += parse_input_SIMSED_COV(WORDS, keySource);
   }
@@ -4056,6 +4068,43 @@ int parse_input_SIMSED_PARAM(char **WORDS) {
   INPUTS.NPAR_SIMSED_PARAM++ ; 
   return(N) ;
 } // end of parse_input_SIMSED_PARAM
+
+
+// *******************************************      
+void parse_input_SIMSED_SUBSET(char *parName, char *stringOpt) {
+
+  // if stringOpt = 2,4,5,6 then split string and load
+  // each grid index into global array.
+
+  // USE parse_commaSepList(...)
+
+  int NINDEX_SUBSET = 0;  // number of indices for subset
+  int MXINDEX_SUBSET = MXPAR_SIMSED;
+  int i, INDEX_SUBSET ;
+  char **ptrSplit;
+  char fnam[] = "parse_input_SIMSED_SUBSET";
+  // ------ BEGIN ------
+
+  INPUTS.NINDEX_SUBSET_SIMSED_GRIDONLY = 0 ;
+  if ( strlen(stringOpt) == 0 ) { return ; }
+
+  if ( !IS_INDEX_SIMSED(parName) )  {
+    sprintf(c1err,"Cannot specify index subset for parName = %s", parName);
+    sprintf(c2err,"parName string must include INDEX/INDX/index/indx");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  parse_commaSepList("GRINDONLY_SUBSET", stringOpt, MXINDEX_SUBSET, 8,
+		     &NINDEX_SUBSET, &ptrSplit) ;
+
+  for(i=0; i < NINDEX_SUBSET; i++ ) {
+    sscanf(ptrSplit[i], "%d", &INDEX_SUBSET);
+    INPUTS.INDEX_SUBSET_SIMSED_GRIDONLY[i] = INDEX_SUBSET ;
+  }
+
+  INPUTS.NINDEX_SUBSET_SIMSED_GRIDONLY = NINDEX_SUBSET ;
+
+} // end parse_input_SIMSED_SUBSET
 
 // *******************************************      
 bool keyContains_SIMSED_PARAM(char *KEYNAME) {
@@ -10129,7 +10178,10 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 
     if ( opt_interp ) {
 
-      if ( irow_COV >= 0 ) {
+      if ( opt_gridonly && INPUTS.OPT_DEVEL_SIMSED_GRIDONLY ) {
+	parVal = pick_gridval_SIMSED(ipar_model); 
+      }
+      else if ( irow_COV >= 0 ) {
 	// correlated random, Gaussian only
 	parVal = CORRVAL[irow_COV] ; 
       }
@@ -10141,13 +10193,15 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 	parVal = exec_GENGAUSS_ASYM( &GENGAUSS_ZVAR );
       }
 
-      if ( opt_gridonly  ) {
+      // check LEGACY option to snap to nearest GRID value
+      if ( opt_gridonly && !INPUTS.OPT_DEVEL_SIMSED_GRIDONLY ) {
 	parVal_old = parVal ;
 	parVal = nearest_gridval_SIMSED(ipar_model,parVal_old);
       }
+
     } // opt_interp
     
-    //    printf(" xxx %s: PARVAL[%d] = %f \n", fnam, ipar, parVal);
+    //  printf(" xxx %s: PARVAL[%d] = %f \n", fnam, ipar, parVal);
     GENLC.SIMSED_PARVAL[ipar]  = parVal ;
 
   }  // end ipar
@@ -10161,6 +10215,57 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
   return;
 
 } // end gen_modelPar_SIMSED
+
+// ***********************************
+double pick_gridval_SIMSED(int ipar_model) {
+
+  // Created Oct 23 2020
+  // pick SIMSED value from grid using 1 of 2 options:
+  //  1) default option is pick random SED within GENRANGE_XXX
+  //  2) select from user-specified indices
+
+  bool PICK_SUBSET  = (INPUTS.NINDEX_SUBSET_SIMSED_GRIDONLY > 0) ;
+  int  nsed=0, ised_ran=-9, itmp=-9 ;
+  double flatRan  = FlatRan1(2); // random between 0-1
+  double PARVAL, PARVAL_TMP ;
+  int    LDMP = 0 ;
+  char fnam[]  = "pick_gridval_SIMSED" ;
+
+  // ---------- BEGIN ----------
+
+  if ( PICK_SUBSET )  {
+    // pick random index from user-defined subset;
+    // SIMSED_GRIDONLY:  INDEX_NAME(a,b,c,...)
+    nsed = INPUTS.NINDEX_SUBSET_SIMSED_GRIDONLY ; 
+    if ( ipar_model != SEDMODEL.IPAR_NON1A_INDEX ) {
+      char *parName = SEDMODEL.PARNAMES[ipar_model];
+      sprintf(c1err,"Cannot select GRIDONLY subset for %s", parName) ;
+      sprintf(c2err,"Check SIMSED_XXX keys in sim-input file.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+    itmp    = (int) ( flatRan * (double)nsed ) ;
+    PARVAL  = (double)INPUTS.INDEX_SUBSET_SIMSED_GRIDONLY[itmp] ;
+  }
+  else { 
+    // pick random sed. Use GENGAUSS struct to enable 
+    // selecting parameter range.
+    PARVAL_TMP = exec_GENGAUSS_ASYM(&INPUTS.GENGAUSS_SIMSED[ipar_model]);
+    PARVAL     = nearest_gridval_SIMSED(ipar_model,PARVAL_TMP);
+  }
+
+  // - - - - -
+  if ( LDMP ) {
+    printf(" xxx %s DUMP ---------------------- \n", fnam );
+    printf(" xxx %s: ipar_model = %d\n", fnam, ipar_model);
+    printf(" xxx %s: PICK_SUBSET=%d  nsed=%d itmp=%d ised_ran=%d\n",	   
+	   fnam, PICK_SUBSET, nsed, itmp, ised_ran);
+    printf(" xxx %s: PARVAL = %f \n", fnam, PARVAL );
+    fflush(stdout);
+  }
+
+  return(PARVAL);
+
+} // end pick_gridval_SIMSED
 
 // ***********************************
 void gen_modelPar_dust(int OPT_FRAME) {

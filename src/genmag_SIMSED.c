@@ -783,12 +783,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
       for ( ipar=0; ipar < SEDMODEL.NPAR; ipar++ ) {
 	readchar(fp, tmpName);
 	sprintf(SEDMODEL.PARNAMES[ipar],"%s", tmpName);
-
-	if ( strstr(tmpName,"INDEX") != NULL ||
-	     strstr(tmpName,"INDX")  != NULL ||
-	     strstr(tmpName,"index") != NULL ||
-	     strstr(tmpName,"indx")  != NULL  )
-	  { SEDMODEL.IPAR_NON1A_INDEX = ipar; }
+	if ( IS_INDEX_SIMSED(tmpName) ) { SEDMODEL.IPAR_NON1A_INDEX=ipar; }
       }
     }
 
@@ -850,6 +845,17 @@ int read_simsed_info__(char *PATHMODEL ) {
   int NSED = read_SIMSED_INFO(PATHMODEL);
   return(NSED);
 }
+
+// ===============================
+int IS_INDEX_SIMSED(char *parName) {
+
+  int IS_INDEX = 0 ;
+  if ( strstr(parName,"INDEX") != NULL ) { IS_INDEX = 1; }
+  if ( strstr(parName,"INDX" ) != NULL ) { IS_INDEX = 1; }
+  if ( strstr(parName,"index") != NULL ) { IS_INDEX = 1; }
+  if ( strstr(parName,"indx" ) != NULL ) { IS_INDEX = 1; }
+  return(IS_INDEX);
+} // end IS_INDEX_SIMSED
 
 // ===================================
 int count_SIMSED_INFO(char *PATHMODEL ) {

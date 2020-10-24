@@ -10187,39 +10187,45 @@ SIMSED_PARAM:  MNI         # mass of Ni56
 GENPEAK_MNI:  0.9          # mean of bifurcated Gaussian
 GENRANGE_MNI: 0.47 1.26    # generation range
 GENSIGMA_MNI: 0.4  0.25    # bifurcated Gaussian
-
+   and/or 
 SIMSED_GRIDONLY:  COSANGLE        # cosine of viewing angle
 GENPEAK_COSANGLE:   0
 GENRANGE_COSANGLE: -0.96  0.96
 GENSIGMA_COSANGLE:  1.E7  1.E7   # large sigmas => flat distribution
 
+# optional covariances among parameters
 SIMSED_REDCOR(MNI,COSANGLE):  -0.26  # optional reduced covar; -1 to +1
     or
 SIMSED_COV(MNI,COSANGLE):  -1.34  # optional covar
+
+# other GRIDONLY options=
+SIMSED_GRIDONLY: SEQUENTIAL  # sequential generation of grid values
+     or
+SIMSED_GRIDONLY: KN_INDEX    # pick random KN_INDEX
+    or
+SIMSED_GRIDONLY: KN_INDEX(3,5,6,9) # pick random among these KN_INDEX values
 
 SIMSED_PATH_BINARY:   <path for flux-table binary file>
 \end{Verbatim}
 %
 Specify only those parameters that are used in the generation.
 For the {\tt SIMSED\_PARAM} keyword ({\tt MNI}), the simulation 
-will interpolate magnitudes as a function of the
-explosion-model parameter, resulting in a continuous
+interpolates synthetic light curve magnitudes as a function of
+the explosion-model parameter {\tt MNI}, resulting in a continuous
 distribution of the specified bifurcated Gaussian.
 For the {\tt SIMSED\_GRIDONLY} keyword ({\tt COSANGLE}), 
 only values at the grid nodes are generated,
 and the specified bi-Gaussian distribution is respected;
 each randomly chosen parameter is 'snapped' to 
-the nearest grid value.
+the nearest grid value. If bi-Gaussian is not specified,
+a flat {\tt COSANGLE} distribution is generated.
 This {\tt GRIDONLY} option may be useful in cases such as a
 flag that specifies a random ignition point, 
 and therefore continuous interpolation makes no sense. 
-To simulate a flat-random distribution, set the {\tt GENSIGMA\_XXX}
-values $\ge 10^7$.
 Un-specified parameters are treated as ``baggage''parameters. 
 These parameters are ignored in the generation, but the 
 interpolated values are computed and stored along
 with the other parameters.
-
 
 A correlation between any pair of parameters can be introduced
 with either a reduced correlation key ({\tt SIMSED\_REDCOR}) or a
@@ -10234,24 +10240,28 @@ For example, correlations between 3 parameters require
 require 6 correlation keys.
 
 \medskip
-To step through each grid-value sequentially,
-\begin{verbatim}
-  SIMSED_GRIDONLY: SEQUENTIAL  # sequential generation of grid values
-\end{verbatim}
-and  there is no need to specify parameter names or their 
-distributions.
+``{\tt SIMSED\_GRIDONLY: SEQUENTIAL}''
+steps through each grid-value sequentially,
+and  there is no need to specify parameter names or their distributions.
 The first generated SN  uses the first SED on the grid, 
 the second SN uses the second value, etc.  
 The number of generated SNe is internally set to be the 
 number of SEDs.
 
+While ``{\tt SIMSED\_GRIDONLY: KN\_INDEX}'' selects a random 
+{\tt KN\_INDEX} among the entire SED set, \\
+``{\tt SIMSED\_GRIDONLY: KN\_INDEX(3,5,6,9)}'' selects a random 
+{\tt KN\_INDEX} among the subset 3,5,6,9. 
+The subset feature works only if the column name includes
+and index sub-string ({\tt INDEX} or {\tt index} or {\tt INDX}),
+and if the values are integers. Attemping the subset feature on
+{\tt MNI}, for example, results in an abort.
 
 All SIMSED parameters (``baggage'' and for generation)
 are automatically included in the output table(s) and
 in the {\tt SIMGEN\_DUMP} list (\S\ref{sss:simgen_dump}).
-If you specify a SIMSED parameter in the {\tt SIMGEN\_DUMP} 
-list the simulation will abort because of a redundant parameter.
-
+An explicitly defined SIMSED parameter in the {\tt SIMGEN\_DUMP} 
+list will cause the simulation to abort because of a redundant parameter.
 
 A binary flux-table (see below) is created in your current
 directory by default. Since these binary files can be quite

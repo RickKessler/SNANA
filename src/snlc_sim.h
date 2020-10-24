@@ -388,6 +388,7 @@ struct INPUTS {
   bool RESTORE_FLUXERR_BUGS ;   // set if DEBUG_FLAG==3 .or. idem
 
   int OPT_DEVEL_READ_GENPOLY;  // use read_genpoly
+  int OPT_DEVEL_SIMSED_GRIDONLY ;
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files
@@ -454,7 +455,7 @@ struct INPUTS {
   double HOSTLIB_GENRANGE_DEC[2];
   double HOSTLIB_SBRADIUS ; // arcsec, determine SB using this radius
 
-  double HOSTLIB_DZTOL[3] ; // define zSN-zGAL tol vs z xxx mark delete  
+  double HOSTLIB_DZTOL[3] ; // define zSN-zGAL tol vs z 
   GENPOLY_DEF HOSTLIB_GENPOLY_DZTOL; // zSN-zGAL tol vs zPOLY
 
   double HOSTLIB_SCALE_LOGMASS_ERR ; // default is 1.0
@@ -625,6 +626,9 @@ struct INPUTS {
   int   GENFLAG_SIMSED[MXPAR_SIMSED];      // bitmask corresponding to above
   char  PARNAME_SIMSED[MXPAR_SIMSED][40];
   int   OPTMASK_SIMSED; // argument for genmag_SIMSED (Dec 2018)
+
+  int   NINDEX_SUBSET_SIMSED_GRIDONLY ;
+  int   INDEX_SUBSET_SIMSED_GRIDONLY[MXPAR_SIMSED]; 
 
   // inputs for SIMSED covariances among parameters in SED.INFO file
   int   NPAIR_SIMSED_COV ;                 // number of input COV pairs
@@ -934,12 +938,10 @@ struct GENLC {
   int    SIMSED_IPARMAP[MXPAR_SIMSED];     // IPAR list in COV mat 
   double SIMSED_PARVAL[MXPAR_SIMSED];    // params for SIMSED model
 
-
-  // xxx mark delete after refactor 3/21/2020
-  double AVTAU;       // 5/11/2009: added in case of z-dependence
+  double AVTAU;       // exponential tau for host extinction
   double AVSIG;       // Gauss sigma
   double AV0RATIO ;   // Guass/expon ratio at AV=0
-  //  xxx mark end delete xxxxxxx */
+
 
   GEN_EXP_HALFGAUSS_DEF GENPROFILE_AV; // 3/2020: added by djb for z-dep
   GEN_EXP_HALFGAUSS_DEF GENPROFILE_EBV_HOST; // 3/2020: added by djb for z-dep
@@ -1651,32 +1653,6 @@ void   set_user_defaults_SPECTROGRAPH(void);
 void   set_user_defaults_RANSYSTPAR(void);  
 void   set_GENMODEL_NAME(void);
 
-// - - - - -  LEGACY READ FUNCTIONS (OPT_DEVEL_READ_INPUT == 0) - - - - - 
-int  read_input_file_legacy(char *inFile);   // parse this inFile
-int  parse_input_KEY_PLUS_FILTER_legacy(FILE *fp, int *i, 
-					char *INPUT_STRING, char *KEYCHECK, 
-					float *VALUE_GLOBAL, 
-					float *VALUE_FILTERLIST);
-void   parse_input_RANSYSTPAR_legacy(FILE *fp, int *iArg, char *KEYNAME );
-void   parse_input_GENMODEL_ARGLIST_legacy(FILE *fp, int *iArg );
-void   parse_input_GENMODEL_legacy(FILE *fp, int *iArg );
-void   sim_input_override_legacy(void) ;  // parse command-line overrides
-void   parse_input_SOLID_ANGLE_legacy(FILE *fp, int *iArg, char *KEYNAME );
-void   read_input_RATEPAR_legacy(FILE *fp, char *WHAT, char *KEY, 
-			  RATEPAR_DEF *RATEPAR );
-void   sscanf_RATEPAR_legacy(int *i, char *WHAT, RATEPAR_DEF *RATEPAR);
-void   parse_input_SIMGEN_DUMP_legacy(FILE *fp, int *iArg, char *KEYNAME );
-void   read_input_SIMSED_legacy(FILE *fp, char *KEY);
-void   read_input_SIMSED_COV_legacy(FILE *fp, int OPT,  char *stringOpt );
-void   read_input_SIMSED_PARAM_legacy(FILE *fp);
-void   read_input_GENGAUSS(FILE *fp, char *string, char *varname,
-			   GENGAUSS_ASYM_DEF *genGauss );
-void parse_input_GENMAG_SMEAR_SCALE_legacy(FILE *fp,int *iArg,char *KEYNAME);
-void sscanf_GENGAUSS_legacy(int *i, char *varname, 
-		       GENGAUSS_ASYM_DEF *genGauss );
-void   parse_input_TAKE_SPECTRUM_legacy(FILE *fp, char *WARP_SPECTRUM_STRING);
-// - - - - - - - 
-
 int    read_input_file(char *inFile);          // parse this inFile
 int    parse_input_key_driver(char **WORDLIST, int keySource); // Jul 20 2020
 bool   keyMatchSim(int MXKEY, char *KEY, char *WORD, int keySource);
@@ -1703,6 +1679,8 @@ int    parse_input_SIMGEN_DUMP(char **WORDS, int keySource);
 int    parse_input_SIMSED(char **WORDS, int keySource);
 int    parse_input_SIMSED_PARAM(char **WORDS);
 int    parse_input_SIMSED_COV(char **WORDS, int keySource );
+void   parse_input_SIMSED_SUBSET(char *PARNAME, char *STRINGOPT);
+
 bool   keyContains_SIMSED_PARAM(char *KEYNAME);
 
 int    parse_input_LCLIB(char **WORDS, int keySource );
@@ -1742,6 +1720,7 @@ void   gen_filtmap(int ilc);  // generate filter-maps
 void   gen_modelPar(int ilc, int OPT_FRAME);  
 void   gen_modelPar_SALT2(int OPT_FRAME); 
 void   gen_modelPar_SIMSED(int OPT_FRAME); 
+double pick_gridval_SIMSED(int ipar);
 void   gen_modelPar_dust(int OPT_FRAME); 
 void   gen_MWEBV(void);       // generate MWEBV
 void   override_modelPar_from_SNHOST(void) ;

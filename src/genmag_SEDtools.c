@@ -2007,8 +2007,6 @@ int get_SEDMODEL_INDICES( int IPAR, double LUMIPAR,
   // return SED indices (I0SED and I1SED) that 
   // bracket this LUMIPAR value.
   //
-  // Apr 2011: fix dumb bug: ILOSED and IHISED were switched !!!
-  //
 
   int ised;
   double     parval ,dif1, mindif1, dif0, mindif0  ;
@@ -2026,13 +2024,11 @@ int get_SEDMODEL_INDICES( int IPAR, double LUMIPAR,
     if ( dif1 >= 0.0  &&  dif1 < mindif1 ) {
       mindif1 = dif1 ;
       *IHISED = ised ;
-      //      *ILOSED = ised ;
     }
     dif0 = LUMIPAR - parval ;
     if ( dif0 >= 0.0  &&  dif0 < mindif0 ) {
       mindif0 = dif0 ;
       *ILOSED = ised ;
-      //      *IHISED = ised ;
     }
   }
 
@@ -2050,7 +2046,7 @@ int get_SEDMODEL_INDICES( int IPAR, double LUMIPAR,
 double gridval_SIMSED(int ipar, int ibin) {
   
   // Return PARVAL for ipar and bin 'ibin'.
-  // ibin = 1, 2 ...
+  // ibin = 0, 1, 2 ...
   // If ibin exceeds NBIN for this ipar, then take fmod
   // so that the parameter bin wraps around.
 
@@ -2064,7 +2060,8 @@ double gridval_SIMSED(int ipar, int ibin) {
   BIN    = SEDMODEL.PARVAL_BIN[ipar] ; 
   XN     = (double)SEDMODEL.NBIN_PARVAL[ipar]  ;
 
-  xbin   = (double)(ibin-1) ; 
+  // xxx mark delete   xbin   = (double)(ibin-1) ; 
+  xbin   = (double)ibin ; 
   x      = fmod(xbin,XN) ;
   PARVAL = PMIN + x*BIN;
 
@@ -2093,7 +2090,6 @@ double nearest_gridval_SIMSED (int ipar, double lumipar ) {
   double  parval0, parval1, frac, lumigrid ;
 
   // -------------- BEGIN --------------
-
 
   // get SED indices that bound the input lumipar
   istat = get_SEDMODEL_INDICES( ipar, lumipar, &I0SED, &I1SED ); 

@@ -81,4 +81,6 @@ void checkBinary_SIMSED(char *binaryFile); // abort if earlier than SED.INFO
 
 void read_SIMSED_flux(char *sedFile, char *sedComment) ;
 
+int IS_INDEX_SIMSED(char *parName) ;
+
 // END

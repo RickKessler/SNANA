@@ -396,7 +396,7 @@ sub clean_gzipSALT2mu ;
 
 # ================== BEGIN MAIN ====================
 
-sntools::request_submit_batch_jobs($0,"2020-10-25");
+sntools::request_submit_batch_jobs($0,"2020-10-26");
 
 $T_START = time() ; # gmtime();
 

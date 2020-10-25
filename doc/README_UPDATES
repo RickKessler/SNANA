@@ -19142,13 +19142,16 @@
 
 
 # ======================================================================= 
-         v10_79b (  ) 
+         v11_01 (  ) 
 
-         ***** IMPORTANT(v10_79b) ***** 
+         ***** IMPORTANT(v11_01) ***** 
 
-         ***** USEFUL(v10_79b) ***** 
+   DISABLED perl batch scripts :
+       sim_SNmix.pl, split_and_fit.pl, SALT2mu_fit.pl
 
-         ***** MISCELLANEOUS(v10_79b) ***** 
+         ***** USEFUL(v11_01) ***** 
+
+         ***** MISCELLANEOUS(v11_01) ***** 
 
    sntools_genPDF.c[h]:
      + improve random selection efficiency by ignoring ranges
@@ -19157,5 +19160,10 @@
    snlc_sim.c[h]
     + new SIMSED_GRIDONLY option to select list of indices.
       See manual.
+
+   sim_SNmix.pl, split_and_fit.pl, SALT2mu_fit.pl
+     + write message to use submit_batch_jobs.sh, then abort.
+
+   remove get_fitresValue.pl ; use newer get_fitres_values.py
 
 END: 

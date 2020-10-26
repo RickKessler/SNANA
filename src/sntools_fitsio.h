@@ -56,7 +56,9 @@ fitsfile  *fp_snfitsFile[MXTYPE_SNFITSIO] ;
 char  snfitsFile[MXFILE_SNFITSIO][MXTYPE_SNFITSIO][MXPATHLEN];   
 char  snfitsFile_plusPath[MXFILE_SNFITSIO][MXTYPE_SNFITSIO][MXPATHLEN]; 
 
-int   SNFITSIO_CODE_IVERSION ; // internal: for back-compatibility
+int   SNFITSIO_CODE_IVERSION  ; // internal: for back-compatibility
+char  SNFITSIO_SNANA_VERSION[12]   ; // e.g, v10_79b (Oct 2020)
+
 char  SNFITSIO_DATA_PATH[MXPATHLEN];
 char  SNFITSIO_PHOT_VERSION[MXPATHLEN];
 char  SNFITSIO_LISTFILE[MXPATHLEN];   // for read-back only

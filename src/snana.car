@@ -449,14 +449,17 @@ c
      &  ,LSIM_MAGOBS   ! data-like, but with SIM_MAGOBS (e.g. fakes on images)
      &  ,ISJOB_SNANA          ! =T for snana.exe only.
      &  ,ISJOB_PSNID
-     &  ,ISJOB_BATCH          ! true if JOBSPLIT passed on command line (Aug 2020)
+     &  ,ISJOB_BATCH  ! true if JOBSPLIT passed on command line (Aug 2020)
      &  ,REFORMAT_SAVE_BADEPOCHS  ! set if bit2 is set on any OPT_REFORMAT
      &  ,STDOUT_UPDATE         ! T => update event to screen
      &  ,DOFUDGE_HOSTNOISE     ! T => FUDGE_HOSTNOISE_FILE is set
      &  ,DOFUDGE_NONLIN        ! T => NONLINEARITY_FILE is set
      &  ,DOFUDGE_FLUXERRMODEL  ! T => FLUXERRMODEL_FILE
+     &  ,CORRECT_SIGN_VPEC     ! T => data has correct VPEC sign (10/2020)
 
-      CHARACTER SNANA_VERSION*12
+      CHARACTER
+     &    SNANA_VERSION*12
+     &   ,SNANA_VERSION_DATA*12   ! SNANA version used create FITS data
 
 c global survey info
       CHARACTER
@@ -533,7 +536,8 @@ c global survey info
       CHARACTER VARLIST_TERSE(MXLISTNML)*(MXCHAR_CCID) ! TERSE variable names
 
       COMMON / CTRLCOM / 
-     &     SNANA_VERSION, SURVEY_NAME, SURVEY_NAME_LIST
+     &     SNANA_VERSION, SNANA_VERSION_DATA
+     &    ,SURVEY_NAME, SURVEY_NAME_LIST
      &    ,SUBSURVEY_NAME, SUBSURVEY_NAME_LIST
      &    ,NSURVEY_LIST, IDSURVEY, IDSUBSURVEY, IDSURVEY_LIST
      &    ,SURVEY_FILTERS
@@ -550,7 +554,7 @@ c global survey info
      &    ,N_DUPLICATE_MJD, NSTORE_DUPLICATE_MJD
      &    ,NEPOCH_TOT, NEPOCH_USE, NEPOCH_CUT
      &    ,NEPOCH_BADPHOT, NEPOCH_BADPHOT_SUM
-     &    ,REFORMAT_SAVE_BADEPOCHS, STDOUT_UPDATE
+     &    ,REFORMAT_SAVE_BADEPOCHS, STDOUT_UPDATE, CORRECT_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
      &    ,NVAR_TERSE, VARLIST_TERSE
      &    ,ITERSE_MJD, ITERSE_FILTER, ITERSE_FIELD   
@@ -2003,6 +2007,7 @@ c
      &  ,USESIM_SNCC         ! default True -> process simulated SNCC
      &  ,USESIM_TRUEFLUX     ! SNLC_FLUXCAL -> SIM_FLUXCAL 
      &  ,RESTORE_DES3YR      ! restore code from DES3YR
+     &  ,RESTORE_WRONG_VPEC  ! restore incorrect VPEC sign correction
 
 c LC plot info
 
@@ -2080,7 +2085,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LDMP_AVWARP, LDMP_KCORFUN, LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
-     &    , RESTORE_DES3YR, REQUIRE_DOCANA
+     &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, REQUIRE_DOCANA
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -2126,7 +2131,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LDMP_SNFAIL, LDMP_SNANA_VERSION
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
-     &    , RESTORE_DES3YR, REQUIRE_DOCANA
+     &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, REQUIRE_DOCANA
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -2277,18 +2282,17 @@ c Define index-lookup arrays used for faster reading of fits files
      &  ,INDXFITS_EPCUTS(MXFITSPAR)  ! used in RDSNFITS_EPCUTS
      &  ,INDXFITS_PHOT(MXFITSPAR)    ! used in RDSNFITS_PHOT
      &  ,IPARFITS_HEAD
-     &  ,CODE_IVERSION     ! version used to write data
+     &  ,SNFITSIO_CODE_IVERSION     ! FITSIO version used to write data
 
 c defin epoch mask for which 
      
       INTEGER 
      &   EPOCH_RDMASK_SNFITSIO(MXEPOCH)  ! epochs to keep/reject
 
-
 c define long fits-string returned by RD_SNFITSIO_STR
       CHARACTER STRFITS*(MXLEN_EPSTRING)
 
-      COMMON / FITSCOM /  CODE_IVERSION
+      COMMON / FITSCOM /  SNFITSIO_CODE_IVERSION
      &  ,INDXFITS_HEAD, INDXFITS_EPCUTS, INDXFITS_PHOT
      &  ,IPARFITS_HEAD
      &  ,EPOCH_RDMASK_SNFITSIO, STRFITS
@@ -3549,8 +3553,9 @@ c default is to reject nothing (accept everything)
       USESIM_SNCC   = .TRUE.
       USESIM_TRUEFLUX = .FALSE.
 
-      RESTORE_DES3YR = .FALSE.
-      REQUIRE_DOCANA =  0   ! use integer to match sim usage
+      RESTORE_DES3YR     = .FALSE.
+      RESTORE_WRONG_VPEC = .TRUE.  ! Oct 26 2020
+      REQUIRE_DOCANA     =  0      ! use integer to match sim usage
 
       USE_SNHOST_ZPHOT = .FALSE.
       USE_MWCOR        = .FALSE.  ! apply MWCOR to fit-model
@@ -3826,7 +3831,7 @@ c count number of photometry versions
       END DO
 
 c xxxxxxxxx mark delete xxxxxxxxxxx
-c check units of H0 .xyz
+c check units of H0 
 c      if ( H0_REF(1) > 10.0 ) then
 c          H0_REF(1) = H0_REF(1) / ( 1.0E6 * Parsec )
 c          H0_REF(2) = H0_REF(2) / ( 1.0E6 * Parsec )
@@ -4985,6 +4990,10 @@ c - - - - -
          else if ( MATCH_NMLKEY('RESTORE_DES3YR',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) RESTORE_DES3YR
+
+         else if ( MATCH_NMLKEY('RESTORE_WRONG_VPEC',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) RESTORE_WRONG_VPEC
 
          else if ( MATCH_NMLKEY('REQUIRE_DOCANA',
      &             1, iArg, ARGLIST) ) then 
@@ -10282,7 +10291,7 @@ c local variables.
 +CDE,FILTCOM.
 
       INTEGER 
-     &   LL, L1, L2, iwd, iwd2, i, NWD, NWD_LOAD, LWD0, ID
+     &   LL, L1, L2, LV, iwd, iwd2, i, NWD, NWD_LOAD, LWD0, ID
      &  ,IFAKE, IPAR_SIMSED, IPAR_PySEDMODEL, IPAR_LCLIB
      &  ,IPAR_SIM_HOSTLIB
 
@@ -10298,8 +10307,9 @@ c local variables.
      &  ,L_SURVEY, L_FILTERS, L_GENMODEL
      &  ,ISKEY_VARLIST, ALLOW_NOEPOCHS
 
+      REAL     get_SNANA_VERSION_FLOAT
       INTEGER  STORE_PARSE_WORDS
-      EXTERNAL STORE_PARSE_WORDS
+      EXTERNAL STORE_PARSE_WORDS, get_SNANA_VERSION_FLOAT
 
 C ------------- BEGIN ----------------
 
@@ -10317,6 +10327,13 @@ c read name of first text file from [VERSION].LIST file
 
       LL = INDEX(SNDATA_FILE_CURRENT,' ') - 1
       print*,'   Examine header from: ', SNDATA_FILE_CURRENT(1:LL)
+
+c Oct 26 2020: 
+c  text format does NOT include SNANA version in header, so set
+c  SNANA_VERSION_DATA using current SNANA_VERSION.
+c  Also assume that VPEC sign is correct since there is no way to trace it.
+      SNANA_VERSION_DATA = SNANA_VERSION
+      CORRECT_SIGN_VPEC  = .TRUE.
 
       NPAR_SIMSED       = 0
       NPAR_PySEDMODEL   = 0
@@ -11389,7 +11406,8 @@ c
 c Dec 27 2015: SIMLIB -> SIMLIB_FILE and read SIMLIB_MSKOPT
 c Jun 16 2017: check for NSUBSAMPLE_MARK
 c Mar 18 2018: read SIM__VARNAME_SNRMON
-c Dec 26 2018: read CODE_IVERSION
+c Dec 26 2018: read SNFITSIO_CODE_IVERSION
+c Oct 26 2020: read SNANA_DATA_VERSION
 c -----------------------------------
 
       IMPLICIT NONE
@@ -11408,8 +11426,9 @@ c local var
       LOGICAL LRDFILT
 
 c C functions
+      LOGICAL   correct_sign_vpec_data
       INTEGER   RD_SNFITSIO_GLOBAL
-      EXTERNAL  RD_SNFITSIO_GLOBAL
+      EXTERNAL  RD_SNFITSIO_GLOBAL, correct_sign_vpec_data
 
 C ------------- BEGIN ------------
 
@@ -11438,7 +11457,18 @@ c check for code version used to write fits file.
       ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 14, LRET )
       LRET  = INDEX(KEYVAL,char(0)) - 1
       IF(LRET>0) THEN
-         READ( KEYVAL(1:LRET), * ) CODE_IVERSION
+         READ( KEYVAL(1:LRET), * ) SNFITSIO_CODE_IVERSION
+      ENDIF
+
+c Oct 26 2020: check for SNANA_VERSION in fits header
+      KEYNAME  = "SNANA_VERSION" // char(0)
+      ISTAT = RD_SNFITSIO_GLOBAL(KEYNAME, KEYVAL, 20, LRET )
+      LRET  = INDEX(KEYVAL,char(0)) - 1
+      IF(LRET > 0) THEN
+         READ( KEYVAL(1:LRET), * ) SNANA_VERSION_DATA
+         CORRECT_SIGN_VPEC = correct_sign_vpec_data(SNANA_VERSION_DATA)
+	 print*,' xxx SNANA_VERSION_DATA = ', 
+     &    SNANA_VERSION_DATA, CORRECT_SIGN_VPEC
       ENDIF
 
 c --------------------------------------------------------
@@ -13561,7 +13591,7 @@ c Dec 2011
 c Read/parse SIMSED keys from header if NPAR_SIMSED exists.
 c
 c Feb 2014: renamed from RDSIMSED_FITS
-c Dec 2018: read SIMSED params based on CODE_IVERSION;
+c Dec 2018: read SIMSED params based on SNFITSIO_CODE_IVERSION;
 c           read 0 to NPAR-1; if legacy read 1 to NPAR.
 c
       IMPLICIT NONE
@@ -13592,7 +13622,9 @@ c For back compatibility, check for SIMSED_PAR00/
 
       DO 100 ipar = 1, NPAR_SIMSED
         ipar_read = ipar-1   ! default C-like index
-        if ( CODE_IVERSION < 8 ) ipar_read = ipar  ! legacy 1-N indices
+        if ( SNFITSIO_CODE_IVERSION < 8 ) then
+           ipar_read = ipar  ! legacy 1-N indices
+        endif
         write(c2,22) ipar_read
 22      format(I2.2)
         KEYNAME = "SIMSED_PAR" // C2 // char(0)
@@ -14729,7 +14761,7 @@ c subroutine args.
 c local var
       character CWD_ZERR*60, ZKEY*24, RETSTR*80
       REAL     Z, ZERR, ZMAX
-      LOGICAL  LZTMP
+      LOGICAL  LZTMP, FIX_WRONG_SIGN_VPEC, WRONG_SIGN_VPEC
       REAL*8   RET8(MXFILT_OBS)
 
 c functions
@@ -14816,6 +14848,14 @@ c Jan 2018: read optional VPEC & its error
          if ( RET8(2) .NE. IGNORE_HEADVAL) then
            SNLC_VPEC_ERR = SNGL ( RET8(2) )
          endif
+
+c Oct 26 2020: check option to fix VPEC sign convention in older FITS data
+        FIX_WRONG_SIGN_VPEC = (.not. RESTORE_WRONG_VPEC) ! user intent
+        WRONG_SIGN_VPEC     = (.not. CORRECT_SIGN_VPEC)  ! has wrog sing
+        if ( WRONG_SIGN_VPEC .and. FIX_WRONG_SIGN_VPEC ) then
+           SNLC_VPEC = -1.0 * SNLC_VPEC
+        endif
+
       ENDIF
 
       IF (  abs(VPEC_ERR_OVERRIDE) > .001 ) THEN
@@ -19380,9 +19420,15 @@ c             Davis 2012 [https://arxiv.org/pdf/1012.2912.pdf]
          ZPEC     = ( SNLC_VPEC     / CLIGHT )
          ZPECERR  = ( SNLC_VPEC_ERR / CLIGHT )
 
-         SNLC_ZHD = (1.0+SNLC_ZCMB) * (1.0+ZPEC) - 1.0 
+         if ( RESTORE_WRONG_VPEC ) then
+c    use incorrect VPEC convention
+            SNLC_ZHD = (1.0+SNLC_ZCMB) * (1.0+ZPEC) - 1.0  ! Jan 2018;
+         else
+c    use correct VPEC convention
+            SNLC_ZHD = (1.0+SNLC_ZCMB) / (1.0+ZPEC) - 1.0  ! Oct 2020
+         endif
 
-         ZERR1 = SNLC_ZCMB_ERR
+         ZERR1 = SNLC_ZCMB_ERR  
          ZERR2 = ZPECERR * (1.0 + SNLC_ZCMB) ! Eq A1, Davis 2012
          SNLC_ZHD_ERR = sqrt(ZERR1*ZERR1 + ZERR2*ZERR2)
       ENDIF

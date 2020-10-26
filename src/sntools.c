@@ -1916,11 +1916,37 @@ int getRan_Poisson(double mean){
 
 } // end getRan_Poisson
 
-void get_SNANA_VERSION(char *snana_version) 
+void get_SNANA_VERSION(char *snana_version) // pass global declaration
 { sprintf(snana_version, "%s", SNANA_VERSION_CURRENT); } 
 void get_snana_version__(char *snana_version) 
 {  get_SNANA_VERSION(snana_version); }
 
+
+float get_SNANA_VERSION_FLOAT(char *snana_version) {
+  // Oct 26 2020
+  // Convert *snana_version string to float.
+  // e.g. *snana_version = v10_78c -> return 10.78
+  double dval0 = atof(&snana_version[1]) ;
+  double dval1 = atof(&snana_version[4]) ;
+  float  fval = (float)(dval0 + dval1/100.0) ;
+  return(fval);
+} // end get_SNANA_VERSION_FLOAT
+
+float get_snana_version_float__(char *snana_version)
+{ return get_SNANA_VERSION_FLOAT(snana_version); }
+
+
+bool correct_sign_vpec_data(char *snana_version_data) {
+  float version_f = get_SNANA_VERSION_FLOAT(snana_version_data);
+  if ( version_f < 11.01 )
+    { return false; } // VPEC in FITS data has wrong sign convention
+  else
+    { return true; }  // has correct convention
+
+} // end correct_sign_vpec_data
+
+bool correct_sign_vpec_data__(char *snana_version_data) 
+{ return correct_sign_vpec_data(snana_version_data); }
 
 
 void INIT_SNANA_DUMP(char *STRING) {

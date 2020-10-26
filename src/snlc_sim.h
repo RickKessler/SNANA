@@ -386,6 +386,7 @@ struct INPUTS {
   bool RESTORE_DES3YR;          // restore DES3YR bugs
   bool RESTORE_HOSTLIB_BUGS ;   // set if DEBUG_FLAG==3 .or. RESTORE_DES3YR
   bool RESTORE_FLUXERR_BUGS ;   // set if DEBUG_FLAG==3 .or. idem
+  bool RESTORE_WRONG_VPEC   ;   // restore incorrect VPEC sign convention
 
   int OPT_DEVEL_READ_GENPOLY;  // use read_genpoly
   int OPT_DEVEL_SIMSED_GRIDONLY ;

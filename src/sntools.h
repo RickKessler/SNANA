@@ -54,7 +54,7 @@
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_79b"                                        
+#define  SNANA_VERSION_CURRENT  "v11_01" 
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -478,6 +478,11 @@ int intrac_() ;  // needed by fortran minuit
 void get_SNANA_VERSION(char *snana_version); // Dec 2017
 void get_snana_version__(char *snana_version);
 
+float get_SNANA_VERSION_FLOAT(char *snana_version); // Oct 2020
+float get_snana_version_float__(char *snana_version);
+
+bool correct_sign_vpec_data(char *snana_version_data);
+bool correct_sign_vpec_data__(char *snana_version_data);
 
 void print_KEYwarning(int ISEV, char *key_old, char *key_new);
 void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) ;

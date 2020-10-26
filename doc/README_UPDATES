@@ -19142,28 +19142,50 @@
 
 
 # ======================================================================= 
-         v11_01 (  ) 
+         v11_01 (Oct 26 2020) 
 
          ***** IMPORTANT(v11_01) ***** 
 
    DISABLED perl batch scripts :
-       sim_SNmix.pl, split_and_fit.pl, SALT2mu_fit.pl
+       sim_SNmix.pl / split_and_fit.pl / SALT2mu_fit.pl
 
          ***** USEFUL(v11_01) ***** 
 
+   For SIMSED model with XYZ_INDEX column, can select subset of indices.
+
          ***** MISCELLANEOUS(v11_01) ***** 
+
+   sntools_fitsio.c[h]:
+     + read back SNANA_VERSION in fits header, and convert to float.
+     
+   snana.car:
+      + read SNANA_VERSION_FLOAT 
+          (might need later to switch VPEC sign convention)
 
    sntools_genPDF.c[h]:
      + improve random selection efficiency by ignoring ranges
        where PROB=0. End of sim job writes N_ITER[MEAN,MAX] summary.
 
    snlc_sim.c[h]
-    + new SIMSED_GRIDONLY option to select list of indices.
-      See manual.
+    + new SIMSED_GRIDONLY option to select list of indices; See manual.
 
    sim_SNmix.pl, split_and_fit.pl, SALT2mu_fit.pl
      + write message to use submit_batch_jobs.sh, then abort.
+     - When these obsolete batch-scripts are removed, should also remove
+         - wait_for_files.pl
+         - NEARNBR_pipeline.pl
+         - split_version.pl
 
-   remove get_fitresValue.pl ; use newer get_fitres_values.py
+   Removed the following obsolete scripts:
+      - get_fitresValue.pl ; use newer get_fitres_values.py
+      - convertsnana2salt2.pl (convert SNANA format to snpca format)
+      - convertcsv2snana.pl  ; use new convertcsv2snana.py
+      - sednon1a_prep.pl
+      - HOSTLIB_randomizer.pl 
+      
+   Scripts that should be re-written in python (future SNANA versions):
+     - convertcsv2snana.pl   -> convert_text_format.py (csv <-> SNANA)
+     - ypatchy.pl            -> ypatchy.py
+     - startSNANAversion.pl  -> startSNANAversion.py
 
 END: 

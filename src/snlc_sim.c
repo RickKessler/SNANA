@@ -627,6 +627,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_DES3YR       = false; // Mar 2020
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
   INPUTS.RESTORE_FLUXERR_BUGS = false; // Jan 2020
+  INPUTS.RESTORE_WRONG_VPEC   = true ; // Oct 2020 (VPEC sign convention)
   NLINE_RATE_INFO   = 0;
 
   // don't init zero'th input file since that is the main input file
@@ -1428,6 +1429,10 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "RESTORE_DES3YR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
     if (ITMP) { INPUTS.RESTORE_DES3YR = true; }    
+  }
+  else if ( keyMatchSim(1, "RESTORE_WRONG_VPEC", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &ITMP);  
+    INPUTS.RESTORE_WRONG_VPEC = ( ITMP > 0 );
   }
   else if ( strstr(WORDS[0],"HOSTLIB_") != NULL ) {
     N += parse_input_HOSTLIB(WORDS, keySource);
@@ -4812,7 +4817,6 @@ void prep_user_input(void) {
   else if ( INDEX_GENMODEL == MODEL_LCLIB ) {
     GENFRAME_OPT = GENFRAME_OBS ;
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"NONE");    // no SNIa scatter model
-
 
     LCLIB_INFO.HOSTLIB_MSKOPT = INPUTS.HOSTLIB_MSKOPT ; 
     INPUTS.HOSTLIB_MSKOPT = INPUTS.HOSTLIB_USE = 0;
@@ -12213,6 +12217,7 @@ void gen_zsmear(double zerr) {
   // Oct 18 2017:  add INPUTS.GENBIAS_REDSHIFT to zsmear
   // Jan 05 2018:  compute GENLC.VPEC_SMEAR
   // Apr 20 2018:  bail for FIXMAG model where z=zerr=0
+  // Oct 26 2020:  implement RESTORE_WRONG_VPEC logic
 
   int    i, NZRAN ;
   double zsmear, zerr_loc;
@@ -12305,8 +12310,8 @@ void gen_zsmear(double zerr) {
   bool   APPLY_VPEC_SMEAR = 
     ( USE_HOSTLIB_VPEC || INPUTS.VPEC_ERR < INPUTS.GENSIGMA_VPEC );
   double GAURAN_VPEC = GENLC.REDSHIFT_RAN[MXZRAN-1];
-  double VPEC_ERR ;
-  GENLC.VPEC_SMEAR   = 0.0; // default is no vpec correction
+  double VPEC_ERR, SGN_VPEC ;
+  GENLC.VPEC_SMEAR   = 0.0; // default is no vpec estimate
 
   if ( APPLY_VPEC_SMEAR ) {
     if ( USE_HOSTLIB_VPEC )
@@ -12314,7 +12319,12 @@ void gen_zsmear(double zerr) {
     else
       { VPEC_ERR = INPUTS.VPEC_ERR; }     // from sim-input file
 	  
-    GENLC.VPEC_SMEAR = -GENLC.VPEC + (VPEC_ERR * GAURAN_VPEC) ; 
+    if ( INPUTS.RESTORE_WRONG_VPEC ) 
+      { SGN_VPEC = -1.0; }  // Jan 2018: incorrect sign convention
+    else
+      { SGN_VPEC = +1.0; }  // Oct 2020: correct sign convention
+
+    GENLC.VPEC_SMEAR =  (SGN_VPEC*GENLC.VPEC) + (VPEC_ERR * GAURAN_VPEC) ; 
   }
 
   return ;
@@ -24708,15 +24718,20 @@ void readme_doc(int iflag_readme) {
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  bool   USE_HOSTLIB_VPEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC );
+  bool  USE_HOSTLIB_VPEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC );
   if ( USE_HOSTLIB_VPEC  ) {
-    sprintf(cptr,"\t Peculiar Velocity HOSTLIB RMS : %.1f km/sec\n", 
+    sprintf(cptr,"\t Peculiar Velocity (VPEC) HOSTLIB RMS : %.1f km/sec\n", 
 	    HOSTLIB.VPEC_RMS );
   }
   else {
-    sprintf(cptr,"\t Peculiar Velocity Gauss sigma: %.1f km/sec\n", 
+    sprintf(cptr,"\t Peculiar Velocity (VPEC) Gauss sigma: %.1f km/sec\n", 
 	    INPUTS.GENSIGMA_VPEC );
   }
+  if ( INPUTS.RESTORE_WRONG_VPEC ) {
+    i++ ; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"\t\t (RESTORE wrong VPEC sign convention)\n") ;
+  }
+
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\t %s   ZP   offsets : ", INPUTS.GENFILTERS);

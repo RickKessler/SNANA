@@ -1494,6 +1494,8 @@ c define hard-wired list of valid over-rides
      &   'HOSTGAL_sSFR,HOSTGAL_sSFR_ERR,HOSTGAL_DDLR,' // 
      &   'HOSTGAL_PHOTOZ,HOSTGAL_PHOTOZ_ERR,' // 
      &   'VPEC,VPEC_ERR,REDSHIFT_FINAL,REDSHIFT_FINAL_ERR,' //
+     &   'REDSHIFT_CMB,REDSHIFT_CMB_ERR,'      //   ! Oct 27 2020
+     &   'REDSHIFT_HELIO,REDSHIFT_HELIO_ERR,'   //  ! Oct 27 2020
      &   'REDSHIFT_QUALITYFLAG,zFLAG,' //
      &   'SIM_SALT2x1,SIM_SALT2c,SIM_x1,SIM_c,'      //
      &   'PEAKMJD,PKMJDINI,PEAKMJDINI,' //
@@ -18826,7 +18828,8 @@ c Created Jul 21 2020
 c Read FILENAME with SNTABLE_AUTOSTORE
 c
 c Aug 27 2020: check REQUIRE_DOCANA
-c
+c Oct 27 2020: if no variables found, print list as part of abort message.
+
       IMPLICIT NONE
     
 +CDE,SNDATCOM.
@@ -18899,12 +18902,6 @@ c check which header variables exist in the user file
           cVARNAME  = VARNAME(1:LENV) // char(0)
           EXIST_VAR = EXIST_VARNAME_AUTOSTORE(cVARNAME,LENV)
           if ( EXIST_VAR > 0 ) then
-
-c xxxxxxx mark delete Oct 2020 xxxxxx
-cc            write(6,110) VARNAME(1:LENV)
-cc110         format(T10,'--> Override header variable: ', A)
-c xxxxxx
-
             NVAR = NVAR + 1
             if ( NVAR .LE. MXVAR_HEADER_OVERRIDE ) then
               VARLIST_HEADER_OVERRIDE(NVAR) = VARNAME(1:40)
@@ -18914,9 +18911,17 @@ c xxxxxx
       NVAR_HEADER_OVERRIDE = NVAR
       call flush(6)
 
+c - - - - - - - - 
       IF ( NVAR == 0 ) THEN
+         CALL PRINT_PREABORT_BANNER(FNAM(1:28)//char(0),28)
+         write(6,166) NVAR_ALL
+ 166     format(T3,'List of ',I4,' valid HEADER_OVERRIDE variables:')
+         DO 16 iwd     = 1, NVAR_ALL
+           call get_PARSE_WORD_fortran(iwd, VARNAME, LENV)
+           print*,'     ', VARNAME(1:LENV) 
+ 16      CONTINUE
          c1err = 'Found no valid variables in HEADER_OVERRIDE_FILE.' 
-         c2err = 'Check VARLIST_ALL_HEADER_OVERRIDE in snana.car'
+         c2err = 'Check valid HEADER_OVERRIDE variables list above.'
          CALL MADABORT(FNAM,C1ERR,C2ERR)
       ENDIF
 
@@ -18933,6 +18938,7 @@ c
 c Aug  7 2019: fix bug setting SNLC_ZCMB_ERR to zerr instead of z.
 c Nov 22 2019: check for HOSTGAL_OBJID, SIM_SALT2x1[c]
 c May 14 2020: check for REDSHIFT_QUALITYFLAG
+c Oct 27 2020: add REDSHIFT_CMB_ERR, REDSHIFT_HELIO[_ERR] to list
 
       IMPLICIT NONE
     
@@ -18991,7 +18997,8 @@ c brute-force check each possible header variable
           SNLC_ZHELIO  = -9.0 ! flag to compute zHEL from zCMB
           CALL SET_ZHELIO()  ! compute zHEL from zCMB  (7.30.2020)
           SNLC_REDSHIFT = z
-        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL_ERR' ) THEN
+        ELSE IF ( VARNAME(1:LENV) .EQ. 'REDSHIFT_FINAL_ERR' .or.
+     &            VARNAME(1:LENV) .EQ. 'REDSHIFT_CMB_ERR' ) THEN
           zerr = sngl(DVAL)
           SNLC_ZCMB_ERR     = zerr    ! bugfix z 
           SNLC_ZHELIO_ERR   = zerr

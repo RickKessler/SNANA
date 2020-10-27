@@ -2197,14 +2197,22 @@ int EXIST_VARNAME_AUTOSTORE(char *varName) {
   // Returns 1 if varName exists.
   // 
   // Jan 6, 2017: check all files. 
+  // Oct 27 2020: if varName == LIST, list all varNames and return 0
 
   int ivar, ifile, NVAR_USR ;
+  char *varName_autostore;
+  bool PRINT_LIST = ( strcmp(varName,"LIST") == 0 ) ;
 
   ifile = 0;
   for(ifile=0; ifile < NFILE_AUTOSTORE; ifile++ ) {
     NVAR_USR = SNTABLE_AUTOSTORE[ifile].NVAR ;
     for(ivar=0; ivar < NVAR_USR; ivar++ ) {
-      if ( strcmp(SNTABLE_AUTOSTORE[ifile].VARNAME[ivar],varName)==0 ) {
+      varName_autostore = SNTABLE_AUTOSTORE[ifile].VARNAME[ivar];
+      if ( PRINT_LIST ) {
+	printf("\t VARNAME[ifile=%d,ivar=%2.2d] = %s\n", 
+	       ifile, ivar, varName_autostore); fflush(stdout);
+      }
+      if ( strcmp(varName_autostore,varName)==0 ) {
 	if ( SNTABLE_AUTOSTORE[ifile].EXIST[ivar] ) { return(1) ; }
       }
     }

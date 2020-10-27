@@ -870,34 +870,34 @@ C ----------------- BEGIN -------------
          LL = INDEX ( ARG, ' ' ) - 1
 
        if ( MATCH_NMLKEY('METHOD_NAME', 1,i,ARGLIST) ) then
-            READ(ARGLIST(1),*) METHOD_NAME
+            METHOD_NAME = ARGLIST(1)
 
         else if ( MATCH_NMLKEY('FILTLIST_FIT', 1,i,ARGLIST) ) then
-            READ(ARGLIST(1),*) FILTLIST_FIT
+            FILTLIST_FIT = ARGLIST(1)
 
         else if ( MATCH_NMLKEY('FILTLIST_PEAKMAG_STORE', 
      &             1, i, ARGLIST) ) then
-            READ(ARGLIST(1),*) FILTLIST_PEAKMAG_STORE
+            FILTLIST_PEAKMAG_STORE = ARGLIST(1)
 
         else if ( MATCH_NMLKEY('TEMPLATES_SNIa TEMPLATES_SNIA', 
      &             1, i, ARGLIST) ) then
-            READ(ARGLIST(1),*) TEMPLATES_SNIa
+            TEMPLATES_SNIa = ARGLIST(1)
 
         else if ( MATCH_NMLKEY('TEMPLATES_NONIa TEMPLATES_NONIA', 
      &             1, i, ARGLIST) ) then
-            READ(ARGLIST(1),*) TEMPLATES_NONIa
+            TEMPLATES_NONIa = ARGLIST(1)
 
         else if(MATCH_NMLKEY('PRIVATE_TEMPLATES_PATH',1,i,ARGLIST))then
-            READ(ARGLIST(1),*) PRIVATE_TEMPLATES_PATH
+            PRIVATE_TEMPLATES_PATH = ARGLIST(1)
 
         else if(MATCH_NMLKEY('MODELNAME_MAGERR', 1,i,ARGLIST))then
             READ(ARGLIST(1),*) MODELNAME_MAGERR
 
         else if(MATCH_NMLKEY('TEMPLATES_NONIA_LIST', 1,i,ARGLIST))then
-            READ(ARGLIST(1),*) TEMPLATES_NONIA_LIST
+            TEMPLATES_NONIA_LIST = ARGLIST(1)
 
         else if(MATCH_NMLKEY('TEMPLATES_NONIA_IGNORE', 1,i,ARGLIST))then
-            READ(ARGLIST(1),*) TEMPLATES_NONIA_IGNORE
+            TEMPLATES_NONIA_IGNORE = ARGLIST(1)
 
         else if(MATCH_NMLKEY('AV_TAU', 1,i,ARGLIST))then
             READ(ARGLIST(1),*) AV_TAU

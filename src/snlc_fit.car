@@ -7343,7 +7343,7 @@ C -------------- BEGIN --------------
 cc xxxx        LL = INDEX ( LINE_ARGS(i), ' ' ) - 1
 
         if ( MATCH_NMLKEY('FITMODEL_NAME', 1,i,ARGLIST) ) then
-            READ(ARGLIST(1),*) FITMODEL_NAME
+            FITMODEL_NAME = ARGLIST(1)
 
         else if ( MATCH_NMLKEY('SALT2alpha', 1,i,ARGLIST) ) then
             READ(ARGLIST(1),*) SALT2alpha
@@ -7419,7 +7419,7 @@ c --- keep legacy variables TREST_REJECT and MJD_REJECT
             READ(ARGLIST(2),*) FUDGE_FITERR_RESTLAM(2)
 
         else if(MATCH_NMLKEY('FUDGE_FITERR_PASSBANDS',1,i,ARGLIST)) then
-            READ(ARGLIST(1),*) FUDGE_FITERR_PASSBANDS
+            FUDGE_FITERR_PASSBANDS = ARGLIST(1)
 
         else if(MATCH_NMLKEY('FUDGEALL_MAXFRAC',1,i,ARGLIST)) then
             READ(ARGLIST(1),*) FUDGEALL_MAXFRAC
@@ -7718,10 +7718,10 @@ c -------------
             READ(ARGLIST(1),*) LAMREST_MODEL_SMOOTH
 
         else if(MATCH_NMLKEY('FILTER_FITMAGDIF',1,i,ARGLIST)) then
-            READ(ARGLIST(1),*) FILTER_FITMAGDIF
+            FILTER_FITMAGDIF = ARGLIST(1)
 
         else if(MATCH_NMLKEY('FILTLIST_FITRESTMAG',1,i,ARGLIST)) then
-            READ(ARGLIST(1),*) FILTLIST_FITRESTMAG
+            FILTLIST_FITRESTMAG = ARGLIST(1)
 
         else if(MATCH_NMLKEY('LUMIFIX_FITRESTMAG',1,i,ARGLIST)) then
             READ(ARGLIST(1),*) LUMIFIX_FITRESTMAG   ! legacy
@@ -7736,20 +7736,20 @@ c -------------
             READ(ARGLIST(1),*) DLAMTOL_FITRESTMAG 
 
         else if(MATCH_NMLKEY('FILTLIST_FIT', 1,i,ARGLIST)) then
-            READ(ARGLIST(1),*) FILTLIST_FIT
+            FILTLIST_FIT = ARGLIST(1)
 
         else if(MATCH_NMLKEY('FILTLIST_DMPFCN', 1,i,ARGLIST)) then
-            READ(ARGLIST(1),*) FILTLIST_DMPFCN
+            FILTLIST_DMPFCN = ARGLIST(1)
 
         else if(MATCH_NMLKEY('FILTLIST_DMPFUN', 1,i,ARGLIST)) then
-            READ(ARGLIST(1),*) FILTLIST_DMPFUN
+            FILTLIST_DMPFUN = ARGLIST(1)
 
         else if(MATCH_NMLKEY('TREST_DMPFUN', 2,i,ARGLIST)) then
             READ(ARGLIST(1),*) TREST_DMPFUN(1) 
             READ(ARGLIST(2),*) TREST_DMPFUN(2) 
 
         else if(MATCH_NMLKEY('NEARFILT_IGNORE_REST',1,i,ARGLIST)) then
-            READ(ARGLIST(1),*) NEARFILT_IGNORE_REST
+            NEARFILT_IGNORE_REST = ARGLIST(1)
 
         else if(MATCH_NMLKEY('LTRACE',1,i,ARGLIST)) then
             READ(ARGLIST(1),*) LTRACE

@@ -1816,7 +1816,7 @@ class Simulation(Program):
         tmp_FITS  = (f"*{MODEL_NONIa}MODEL*HEAD.FITS*")
         ls_NONIa  = (f"ls {tmp_FITS} >> {list_file} 2>/dev/null")
 
-        ls_LIST      = (f"{ls_SNIa} {ls_NONIa}")
+        ls_LIST      = (f"{ls_SNIa};  {ls_NONIa}")
 
         # gzip FITS files, and remove .gz extensions in LIST file
         gzip_FITS = (f"gzip *.FITS")

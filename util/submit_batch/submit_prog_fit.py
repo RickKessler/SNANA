@@ -69,6 +69,7 @@ SCRIPT_SNTABLE_DUMP    = "sntable_dump.pl"  # ?? convert to python ??
 
 # define program to merge text-fitres files
 PROGRAM_COMBINE_FITRES = "combine_fitres.exe"
+NULLVAL_COMBINE_FITRES = -9191   # value for missing CID in extern file
 
 # flags for debug utility to force table-merge failure
 FLAG_FORCE_MERGE_TABLE_MISSING = 1
@@ -1307,7 +1308,9 @@ class LightCurveFit(Program):
 
         cddir = (f"cd {script_dir}")
         cmd1  = (f"{PROGRAM_COMBINE_FITRES} {orig_file} {external_file} " \
-                 f"-outfile_text {out_file} >& {log_file}" )
+                 f"-outfile_text {out_file} " \
+                 f"-nullval_float {NULLVAL_COMBINE_FITRES} " \
+                 f">& {log_file} " )
         cmd2  = (f"mv {out_file} {orig_file}")
         cmd3  = (f"rm {log_file}")
         cmd   = (f"{cddir} ; {cmd1} ; {cmd2} ; {cmd3}")

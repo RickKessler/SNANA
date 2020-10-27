@@ -18919,6 +18919,7 @@ c - - - - - - - -
          DO 16 iwd     = 1, NVAR_ALL
            call get_PARSE_WORD_fortran(iwd, VARNAME, LENV)
            print*,'     ', VARNAME(1:LENV) 
+           call flush(6)
  16      CONTINUE
          c1err = 'Found no valid variables in HEADER_OVERRIDE_FILE.' 
          c2err = 'Check valid HEADER_OVERRIDE variables list above.'

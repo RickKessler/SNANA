@@ -263,7 +263,7 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 
       // get min/max VALUE range for random selection;
       // function here returns VAL_RANGE
-      get_VAL_RANGE_genPDF(IDMAP, val_inputs, VAL_RANGE);
+      get_VAL_RANGE_genPDF(IDMAP, val_inputs, VAL_RANGE, 0 );
 
       // - - - - - -
       LDMP = 0; // (NCALL_GENPDF < 5 );
@@ -325,6 +325,7 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 		   "RATIO=%.4f, %s=%8.5f \n", 
 		   itmp, prob, prob_ref, prob_ratio, parName, r);
 	  }	  
+	  get_VAL_RANGE_genPDF(IDMAP, val_inputs, VAL_RANGE, 1 );
 	  sprintf(c1err,"N_ITER=%d exceeds bound (prob_ref=%f)", 
 		  N_ITER, prob_ref );
 	  sprintf(c2err,"Check %s or increase MXITER_GENPDF", MAPNAME );
@@ -365,7 +366,8 @@ double get_random_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
 } // end get_random_genPDF
 
 // ========================================
-void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs, double *VAL_RANGE) {
+void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs, 
+			  double *VAL_RANGE, int dumpFlag ) {
 
   // Created Oct 23 2020
   // Return VAL_RANGE for random selection.
@@ -404,11 +406,18 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs, double *VAL_RANGE) {
     VAL_TMP       = VAL_RANGE[0] + VAL_BINSIZE*(double)itmp ;
     val_inputs[0] = VAL_TMP;
     istat = interp_GRIDMAP(&GENPDF[IDMAP].GRIDMAP, val_inputs, &prob);
-    if ( prob > 1.0E-12 ) {
+
+    if ( dumpFlag ) {
+      printf("\t %s: prob(%.3f) = %le \n", fnam, VAL_TMP, prob);
+      fflush(stdout);
+    }
+
+    if ( prob > PROBMAX_REJECT_GENPDF ) {
       // increment min range only once
       if (VAL_RANGE_PROB[0] > 8.0E12 )  { VAL_RANGE_PROB[0] = VAL_TMP; }
 
-      VAL_RANGE_PROB[1] = VAL_TMP ; // always increment max range
+      // always increment max range
+      VAL_RANGE_PROB[1] = VAL_TMP ; 
     }      
   } // end itmp
   VAL_RANGE[0] = VAL_RANGE_PROB[0] ;

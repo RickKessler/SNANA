@@ -117,6 +117,8 @@
      no value.
    + allow 1 or 2 dashes in front of input args to allow pythonic structure.
 
+ Oct 27 2020: fix a few warnings from -Wall flag 
+
 ******************************/
 
 #include <stdio.h>
@@ -503,7 +505,7 @@ void ADD_FITRES(int ifile) {
   int 
     ivar, ivarstr, j, isn, isn2
     ,NVARALL, NVARSTR, NVAR, NTAG_DEJA, NLIST, ICAST
-    ,index, REPEATCID, NEVT_APPROX, IFILETYPE, iappend
+    ,index=-9, REPEATCID, NEVT_APPROX, IFILETYPE, iappend
     ;
 
   char 
@@ -798,7 +800,7 @@ void ADD_FITRES_VARLIST(int ifile, int isn, int isn2) {
   int  LTMP = 0 ;
   int  MXUPDATE = 50;
   int  ivarstr, IVARSTR, IVARTOT, ivar, ICAST, TMPMOD ;
-  char ccid2[MXSTRLEN_CID], *VARNAME ;
+  char ccid2[MXSTRLEN_CID];
   char fnam[] = "ADD_FITRES_VARLIST" ;
 
   // --------- BEGIN ------------
@@ -826,7 +828,7 @@ void ADD_FITRES_VARLIST(int ifile, int isn, int isn2) {
 
     if ( SKIP_VARNAME(ifile, ivar) ) { continue ; }
 
-    VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
+    // VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
     ICAST   = READTABLE_POINTERS.ICAST_STORE[ivar] ;
 
     if ( ICAST != ICAST_C )  {   // not a string
@@ -920,7 +922,7 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
   // NVAR is the number of variables to read from this fitres file.
   // MAXLEN is an estimate of the max array length to allocate.
 
-  int ivar, isn, IVAR_ALL, NTOT, MEMF, MEMD ;
+  int ivar, isn, IVAR_ALL, NTOT, MEMF ;
   //  char fnam[] = "fitres_malloc_flt" ;
 
   // ---------- BEGIN ------------
@@ -930,7 +932,6 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
 
   // redo malloc on TMP arrays for each fitres file
   MEMF      = (NVAR+1) * sizeof(float*) ;
-  MEMD      = (NVAR+1) * sizeof(double*) ;
   FITRES_VALUES.FLT_TMP = (float **)malloc(MEMF) ;
 
   // -----------------------------------
@@ -946,7 +947,6 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
   for ( ivar=0; ivar < NVAR; ivar++ ) {
 
     MEMF = sizeof(float  ) * MAXLEN ;
-    MEMD = sizeof(double ) * MAXLEN ;
     IVAR_ALL = NVARALL_FITRES + ivar ;
 
     FITRES_VALUES.FLT_TMP[ivar]     = (float  *)malloc(MEMF);
@@ -1067,13 +1067,12 @@ void WRITE_SNTABLE(void) {
 
   double zHD;
   int GZIPFLAG = 0 ;
-  int ivar, ivarstr, isn, IERR, ICAST, CIDint ;
+  int ivar, ivarstr, isn, ICAST, CIDint ;
   int IFILETYPE, NOUT, out, SKIP ;
 
   // char  fnam[] = "WRITE_SNTABLE" ;
   // --------------- BEGIN ------------
 
-  IERR = -9 ;
   NOUT = 0 ;
   OUTFILE[NOUT][0] = 0 ;
   NWRITE_SNTABLE = 0 ;
@@ -1241,7 +1240,7 @@ void WRITE_SNTABLE(void) {
 
   // check gzip option
   if ( GZIPFLAG )  { 
-    char cmd[200];
+    char cmd[400];
     sprintf(cmd,"gzip %s", INPUTS.OUTFILE_TEXT);
     system(cmd); 
   }

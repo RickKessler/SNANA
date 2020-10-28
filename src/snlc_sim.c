@@ -27287,7 +27287,7 @@ void SIMLIB_DUMP_DRIVER(void) {
 
     NVAR = 10 + 4*GENLC.NFILTDEF_OBS ; 
 
-    fprintf(fpdmp0,"NVAR: %d \n", NVAR );
+    // xxxx    fprintf(fpdmp0,"NVAR: %d \n", NVAR );
     fprintf(fpdmp0,"VARNAMES: ROW LIBID RA DEC FIELD MWEBV GAPMAX GAPAVG "
 	    "NOBS MJDMIN MJDMAX ");
 
@@ -27316,7 +27316,7 @@ void SIMLIB_DUMP_DRIVER(void) {
     fpdmp1 = fopen(SIMLIB_DUMPFILE_OBS, "wt") ; 
 
     NVAR = 11 ;
-    fprintf(fpdmp1,"NVAR: %d \n", NVAR );
+    // xxxx mark    fprintf(fpdmp1,"NVAR: %d \n", NVAR );
     fprintf(fpdmp1,"VARNAMES: ROW "
 	    "LIBID RA DEC MJD BAND ZP_pe SKYMAG PSF M5SIG MJD_DIF\n");
     fprintf(fpdmp1,"\n");

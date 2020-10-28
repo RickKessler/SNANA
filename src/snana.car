@@ -284,7 +284,7 @@ c
      &  ,MXCHAR_CUTNAME    = 160  ! to define cut names
      &  ,MXCHAR_FILEWORD   =  60  ! size of FILEWORD_LIST
      &  ,MXCHAR_ARG        = 600  ! max lenth of command line arg
-     &  ,MXFILE_LIST       =  4   ! max number of files in input list
+     &  ,MXFILE_LIST       =  10  ! max number of files in input list
 c
      &  ,FLAG_DOCANA_START  =  1  ! flags DOCUMENTATION key
      &  ,FLAG_DOCANA_END    =  2  ! flags DOCUMENTATION_END 

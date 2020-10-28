@@ -289,8 +289,9 @@ vpecerr = error on peculiar velocity (km/sec), replaces orig vpec.
 pecv = LEGACY key for zpecerr [should switch to zpecerr]
 if zpecerr==0 then compute zpecerr from biasCor RMS(SIM_VPEC)
 
-zmax_vpec_check=0.05 [default] -> compute RMS(HR) for z<0.05 using zHD and again
-      with vpec sign-flip; abort if sign-flip RMS(HR) is smaller than no flip.
+zwin_vpec_check=0.01,0.05 [default] -> compute RMS(HR) for 0.01<z<0.05 
+     using zHD and again with vpec sign-flip; 
+     abort if sign-flip RMS(HR) is smaller than no flip.
 
 lensing_zpar --> add  "z*lensing_zpar" to sigma_int
 
@@ -842,7 +843,7 @@ Default output files (can change names with "prefix" argument)
     + refactor parsing comma-sep lists using new sntools utility
        parse_commaSep_list(...)
 
- Oct 28 2020: new input zmax_vpec_check
+ Oct 28 2020: new input zwin_vpec_check
 
  ******************************************************/
 
@@ -1529,7 +1530,7 @@ struct INPUTS {
 
   double zpecerr ;     // replace obsolete pecv (Sep 9 2016)
   double lensing_zpar; // describes lensing constribution to sigma_int
-  double zmax_vpec_check; // check vpec sign below this z-range
+  double zwin_vpec_check[2]; // check vpec sign in this z-range
 
   int    uave;       // flag to use avg mag from cosmology (not nommag0)
   int    uM0 ;       // flag to float the M0 (default=true)
@@ -1779,8 +1780,6 @@ void fcn(int* npar, double grad[], double* fval,
 void parse_parFile(char *parFile );
 void override_parFile(int argc, char **argv);
 
-void parse_datafile(char *item);
-void parse_simfile_biasCor(char *item);
 void parse_simfile_CCprior(char *item);
 void parse_ZPOLY_COVMAT(char *item);
 void load_ZPOLY_COVMAT(int IDSURVEY, double Z ) ;
@@ -3184,11 +3183,11 @@ void applyCut_chi2(void) {
 void check_vpec_sign(void) {
 
   // Created Oct 28 2020
-  // For z < zmax_vpec_check, measure Hubble rms twice:
+  // For z in zwin_vpec_check, measure Hubble rms twice:
   // with current zHD, and with zHD recomputed with vpec sign flip.
   // if the sign flip has smaller RMS, abort with error message.
 
-  double zmax_vpec_check = INPUTS.zmax_vpec_check ;
+  double *zwin           = INPUTS.zwin_vpec_check ;
   double alpha           = INPUTS.parval[IPAR_ALPHA0] ;
   double beta            = INPUTS.parval[IPAR_BETA0] ;
   int    NSN_ALL         = INFO_DATA.TABLEVAR.NSN_ALL ;
@@ -3200,7 +3199,7 @@ void check_vpec_sign(void) {
 
   // ------- BEGIN -------
 
-  if ( zmax_vpec_check < 0.0001 ) { return; }
+  if ( zwin[1] < 0.0001 ) { return; }
 
   for(i=0; i < 2; i++ ) 
     { SUM_MURES[i] = SUM_SQMURES[i] = 0.0 ;  }
@@ -3210,7 +3209,8 @@ void check_vpec_sign(void) {
     zHD      = (double)INFO_DATA.TABLEVAR.zhd[isn] ;
 
     if ( cutmask ) { continue; }
-    if ( zHD > zmax_vpec_check ) { continue; }
+    if ( zHD > zwin[1] ) { continue; }
+    if ( zHD < zwin[0] ) { continue; }
 
     zCMB = (double)INFO_DATA.TABLEVAR.zcmb[isn] ;
     mB   = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_mB][isn] ;
@@ -3251,8 +3251,8 @@ void check_vpec_sign(void) {
     rms[i]  = RMSfromSUMS(NSN_SUM, SUM_MURES[i], SUM_SQMURES[i]);
   }
 
-  printf("\n %s with RMS(MURES) using N(z<%.3f) = %d events:\n", 
-	 fnam, zmax_vpec_check, NSN_SUM);
+  printf("\n %s with RMS(MURES) using N(%.3f<z<%.3f) = %d events:\n", 
+	 fnam, zwin[0], zwin[1], NSN_SUM);
   printf("\t RMS(MURES,nominal)   = %.4f \n", rms[0] );
   printf("\t RMS(MURES,flip-vpec) = %.4f \n", rms[1] );
   fflush(stdout);
@@ -5467,7 +5467,9 @@ void set_defaults(void) {
   //Defaults
   INPUTS.zpecerr = 0.;     // error on v/c
   INPUTS.lensing_zpar = 0.0 ;
-  INPUTS.zmax_vpec_check = 0.05 ;  // Oct 28 2020
+
+  INPUTS.zwin_vpec_check[0] = 0.01 ;  // Oct 28 2020
+  INPUTS.zwin_vpec_check[1] = 0.05 ; 
 
   INPUTS.fitflag_sigmb       = 0;     // option to repeat fit until chi2/dof=1
   INPUTS.redchi2_tol         = 0.02;  // tolerance on chi2.dof
@@ -14646,7 +14648,7 @@ int ppar(char* item) {
   //
   // Oct 14 2020: refactor to use parse_commaSepList utility
   //
-  int  ipar, len, ikey ;  
+  int  ipar, len, ikey, ntmp ;  
   char key[MXCHAR_VARNAME], *s, tmpString[60];
   char fnam[] = "ppar" ;
 
@@ -14746,13 +14748,6 @@ int ppar(char* item) {
       return(1);
     }
   }
-
-  /* xxxxxxx mark delete Oct 14 2020 xxxxxxxxxx
-  if ( uniqueOverlap(item,"simfile_bias=") ) 
-    { parse_simfile_biasCor(&item[13]);  return(1);  }
-  if ( uniqueOverlap(item,"simfile_biascor=") ) 
-    { parse_simfile_biasCor(&item[16]);  return(1); }
-  xxxxxxxx end mark xxxxxx */
 
   // - - - - - - 
 
@@ -15013,18 +15008,6 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"betaHost=")) 
     { sscanf(&item[9],"%lf",&INPUTS.parval[16]); return(1); }
 
-
-  /* xxx mark delete (params read below) xxxxxx
-  // check for H11 fitpar options
-  for(j=0; j < NPAR_H11_TOT; j++ ) {
-    ipar = IPAR_H11 + j;
-    sprintf(tmpString,"p%2.2d=", ipar);  len=strlen(tmpString);
-    if (!strncmp(item,tmpString,len))  { 
-      sscanf(&item[len],"%lf",&INPUTS.parval[ipar]); return(1); 
-    }
-  }
-  xxxxxxxx */
-
   // ---
 
   // read initial step sizes for parameters in fit
@@ -15068,15 +15051,22 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"vpecerr="))  { 
     sscanf(&item[8],"%lf",&INPUTS.zpecerr); 
-    INPUTS.zpecerr /= LIGHT_km ;    return(1); 
+    INPUTS.zpecerr /= LIGHT_km ;  return(1); 
   }
 
-  if ( uniqueOverlap(item,"zmax_vpec_check=")) 
-    { sscanf(&item[16],"%lf",&INPUTS.zmax_vpec_check);  return(1); }
+
+  sprintf(key,"zwin_vpec_check=");
+  if ( uniqueOverlap(item,key)) { 
+    sscanf(&item[16], "%s", tmpString) ;
+    char **str_zwin;
+    parse_commaSepList(key, tmpString, 2, 10, &ntmp, &str_zwin);
+    sscanf(str_zwin[0], "%le", &INPUTS.zwin_vpec_check[0]);
+    sscanf(str_zwin[1], "%le", &INPUTS.zwin_vpec_check[1]);
+    return(1); 
+  }
 
   if ( uniqueOverlap(item,"pecv=")) {  // LEGACY key
     legacyKey_abort(fnam, "pecv", "zpecerr" ); 
-    // xxx mark delete sscanf(&item[5],"%lf",&INPUTS.zpecerr);   return(1); 
   }
 
   // lensing term (Sep 2016)
@@ -15133,75 +15123,6 @@ int ppar(char* item) {
   return(0);
   
 } // end ppar
-
-
-
-// **************************************************
-void parse_datafile(char *item) {
-
-  // xxxxxxxx Oct 14 2020: mark obsolete xxxxxxxxx
-
-  // Created June 4 2019
-  // parse comma-separate list of data files names.
-
-  int ifile;
-  int MEMC = MXCHAR_FILENAME*sizeof(char);
-  //  char fnam[]  = "parse_dataFile" ;
-
-  // ------------------ BEGIN -----------------
-
-  // first allocate memory for file names 
-  INPUTS.dataFile = (char**)malloc( MXFILE_DATA*sizeof(char*));
-  for(ifile=0; ifile < MXFILE_DATA; ifile++ ) 
-    { INPUTS.dataFile[ifile] = (char*)malloc(MEMC); }
-
-  // split item string
-  splitString(item, COMMA, MXFILE_DATA,    // inputs
-	      &INPUTS.nfile_data, INPUTS.dataFile ); // outputs 
-  
-  char *f0 = INPUTS.dataFile[0];
-  if ( IGNOREFILE(f0) ) { INPUTS.nfile_data = 0 ; }
-
-  return;
-
-} // parse_datafile xxxxxxxxxx obsolete xxxxxxxxx
-
-
-
-// **************************************************
-void parse_simfile_biasCor(char *item) {
-
-  // xxxxxxxxx mark obsolete Oct 14 2020 xxxxxxxxx
-
-  // Created May 15 2019
-  // parse comma-separate list of biascor files names.
-
-  int ifile, lenf ;
-  int MEMC = MXCHAR_FILENAME*sizeof(char);
-  //  char fnam[]  = "parse_simfile_biasCor" ;
-
-  // ------------------ BEGIN -----------------
-
-  // store item in case CCprior needs to use same file list
-  lenf = strlen(item) + 10 ;
-  INPUTS.simFile_biasCor_arg = (char*) malloc(lenf * sizeof(char) );
-  sprintf(INPUTS.simFile_biasCor_arg, "%s", item);
-
-  // first allocate memory for file names
-  INPUTS.simFile_biasCor = (char**)malloc( MXFILE_BIASCOR*sizeof(char*));
-  for(ifile=0; ifile < MXFILE_BIASCOR; ifile++ ) 
-    { INPUTS.simFile_biasCor[ifile] = (char*)malloc(MEMC); }
-
-  // split item string
-  splitString(item, COMMA, MXFILE_BIASCOR,    // inputs
-	      &INPUTS.nfile_biasCor, INPUTS.simFile_biasCor ); // outputs 
-  
-  char *f0 = INPUTS.simFile_biasCor[0];
-  if ( IGNOREFILE(f0) ) { INPUTS.nfile_biasCor = 0 ; }
-
-  return;
-
-} // parse_simfile_biasCor xxxxxxxxxx obsolete xxxxxxxxxx
 
 
 // **************************************************

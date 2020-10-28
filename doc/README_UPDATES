@@ -19094,6 +19094,7 @@
       (e.g., useful for comma-sep list of HEADER_OVERRIDE_FILES)
    + sync SALT3 error treatment with new training code
 
+
          ***** MISCELLANEOUS(v10_79) ***** 
 
    sntools_cosmology.c[h]: 
@@ -19149,6 +19150,9 @@
    DISABLED perl batch scripts :
        sim_SNmix.pl / split_and_fit.pl / SALT2mu_fit.pl
 
+   SALT2mu automatically aborts on vpec sign error.
+     (preparing to fix vpec sign convention)
+
          ***** USEFUL(v11_01) ***** 
 
    For SIMSED model with XYZ_INDEX column, can select subset of indices.
@@ -19161,6 +19165,7 @@
    snana.car:
       + read SNANA_VERSION_FLOAT 
           (might need later to switch VPEC sign convention)
+      + MXFILE_LIST -> 10 (was 4) for number of HEADER_OVERRIDE files.
 
    sntools_genPDF.c[h]:
      + improve random selection efficiency by ignoring ranges
@@ -19169,6 +19174,8 @@
    snlc_sim.c[h]
     + new SIMSED_GRIDONLY option to select list of indices; See manual.
 
+   SALT2mu: new inputs zmax_vpec_check=xxx to check vpec sign.
+ 
    sim_SNmix.pl, split_and_fit.pl, SALT2mu_fit.pl
      + write message to use submit_batch_jobs.sh, then abort.
      - When these obsolete batch-scripts are removed, should also remove

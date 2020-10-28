@@ -1938,7 +1938,7 @@ float get_snana_version_float__(char *snana_version)
 
 bool correct_sign_vpec_data(char *snana_version_data) {
   float version_f = get_SNANA_VERSION_FLOAT(snana_version_data);
-  if ( version_f < 11.01 )
+  if ( version_f < 11.02 )
     { return false; } // VPEC in FITS data has wrong sign convention
   else
     { return true; }  // has correct convention

@@ -289,6 +289,9 @@ vpecerr = error on peculiar velocity (km/sec), replaces orig vpec.
 pecv = LEGACY key for zpecerr [should switch to zpecerr]
 if zpecerr==0 then compute zpecerr from biasCor RMS(SIM_VPEC)
 
+zmax_vpec_check=0.05 [default] -> compute RMS(HR) for z<0.05 using zHD and again
+      with vpec sign-flip; abort if sign-flip RMS(HR) is smaller than no flip.
+
 lensing_zpar --> add  "z*lensing_zpar" to sigma_int
 
 fitflag_sigmb or sig1fit = 1 -->  find sigmB giving chi2/N = 1
@@ -839,6 +842,8 @@ Default output files (can change names with "prefix" argument)
     + refactor parsing comma-sep lists using new sntools utility
        parse_commaSep_list(...)
 
+ Oct 28 2020: new input zmax_vpec_check
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1086,8 +1091,8 @@ typedef struct {
   char   **name, **field ; 
   float  *fitpar[NLCPAR+1], *fitpar_err[NLCPAR+1], *x0, *x0err ;
   float  *COV_x0x1, *COV_x0c, *COV_x1c ;
-  float  *zhd,    *zhel,    *vpec ;
-  float  *zhderr, *zhelerr, *zmuerr, *vpecerr  ;
+  float  *zhd,    *zcmb,    *vpec ;
+  float  *zhderr, *zcmberr, *zmuerr, *vpecerr  ;
   float  *logmass, *pIa, *snrmax ;
   short int  *IDSURVEY, *SNTYPE, *OPT_PHOTOZ ; 
   float  *fitpar_ideal[NLCPAR+1], *x0_ideal;
@@ -1524,6 +1529,7 @@ struct INPUTS {
 
   double zpecerr ;     // replace obsolete pecv (Sep 9 2016)
   double lensing_zpar; // describes lensing constribution to sigma_int
+  double zmax_vpec_check; // check vpec sign below this z-range
 
   int    uave;       // flag to use avg mag from cosmology (not nommag0)
   int    uM0 ;       // flag to float the M0 (default=true)
@@ -1757,6 +1763,7 @@ int  SALT2mu_DRIVER_SUMMARY(void);
 
 void apply_blindpar(void);
 void check_duplicate_SNID(void);
+void check_vpec_sign(void);
 void applyCut_nmax(void);
 void applyCut_chi2(void);
 void merge_duplicates(int N, int *isnList);
@@ -2262,8 +2269,6 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
 
   // --------------------------------------
   //Read input data from SALT2 fit
-  // xxx mark delete 9.28.2020  TABLEFILE_INIT();
-
   read_data(); 
   compute_more_INFO_DATA();  
 
@@ -2272,6 +2277,9 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
 
   // abort if there are any duplicate SNIDs
   check_duplicate_SNID();
+
+  // sanity check vpec sign convention (Oct 28 2020)
+  check_vpec_sign();
 
   // setup BBC redshift bins.
   setup_BININFO_redshift();
@@ -3172,6 +3180,94 @@ void applyCut_chi2(void) {
 
 } // end applyCut_chi2
 
+// ******************************************
+void check_vpec_sign(void) {
+
+  // Created Oct 28 2020
+  // For z < zmax_vpec_check, measure Hubble rms twice:
+  // with current zHD, and with zHD recomputed with vpec sign flip.
+  // if the sign flip has smaller RMS, abort with error message.
+
+  double zmax_vpec_check = INPUTS.zmax_vpec_check ;
+  double alpha           = INPUTS.parval[IPAR_ALPHA0] ;
+  double beta            = INPUTS.parval[IPAR_BETA0] ;
+  int    NSN_ALL         = INFO_DATA.TABLEVAR.NSN_ALL ;
+
+  int isn, i, cutmask, NSN_SUM=0;
+  double SUM_MURES[2], SUM_SQMURES[2], mean[2], rms[0], sgn_flip ;
+  double zHD, zCMB, zHD_tmp, mB, x1, c, mumodel, mures, vpec, zpec, dl ;
+  char fnam[] = "check_vpec_sign" ;
+
+  // ------- BEGIN -------
+
+  if ( zmax_vpec_check < 0.0001 ) { return; }
+
+  for(i=0; i < 2; i++ ) 
+    { SUM_MURES[i] = SUM_SQMURES[i] = 0.0 ;  }
+
+  for(isn=0; isn < NSN_ALL; isn++ ) {
+    cutmask  = INFO_DATA.TABLEVAR.CUTMASK[isn] ; 
+    zHD      = (double)INFO_DATA.TABLEVAR.zhd[isn] ;
+
+    if ( cutmask ) { continue; }
+    if ( zHD > zmax_vpec_check ) { continue; }
+
+    zCMB = (double)INFO_DATA.TABLEVAR.zcmb[isn] ;
+    mB   = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_mB][isn] ;
+    x1   = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_x1][isn] ;
+    c    = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_c][isn] ;
+    vpec = (double)INFO_DATA.TABLEVAR.vpec[isn] ; 
+    zpec = fabs(vpec / LIGHT_km) ;
+    if ( vpec == 0.0 ) { continue; }
+
+    if (zHD < zCMB)
+      { sgn_flip = +1.0 ; }
+    else
+      { sgn_flip = -1.0 ; }
+
+    NSN_SUM++ ;  
+    for(i=0; i < 2; i++ ) {
+
+      if ( i ==0 ) 
+	{ zHD_tmp = zHD;  } // nominal
+      else 
+	{ zHD_tmp += (sgn_flip*2.0*zpec); } // flip vpec sign
+
+      dl = cosmodl_forFit(zHD_tmp,INPUTS.COSPAR);
+      mumodel        = 5.0*log10(dl) + 25.0 ;
+      mures          = mB  + alpha*x1 - beta*c - M0_DEFAULT - mumodel;
+      SUM_MURES[i]   += mures ;
+      SUM_SQMURES[i] += (mures*mures) ;
+    }
+
+  } // end isn loop
+
+  // - - - -
+
+  if ( NSN_SUM < 10 )   { return; }
+
+  for(i=0; i < 2; i++ ) {
+    mean[i] = SUM_MURES[i] / (double)NSN_SUM ;
+    rms[i]  = RMSfromSUMS(NSN_SUM, SUM_MURES[i], SUM_SQMURES[i]);
+  }
+
+  printf("\n %s with RMS(MURES) using N(z<%.3f) = %d events:\n", 
+	 fnam, zmax_vpec_check, NSN_SUM);
+  printf("\t RMS(MURES,nominal)   = %.4f \n", rms[0] );
+  printf("\t RMS(MURES,flip-vpec) = %.4f \n", rms[1] );
+  fflush(stdout);
+
+  if ( rms[1] < rms[0] ) {
+    sprintf(c1err,"RMS(MURES) is smaller with vpec sign-flip.");
+    sprintf(c2err,"See RMS(MURES) values above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  //  debugexit(fnam);
+
+  return ;
+
+} // end check_vpec_sign
 
 // ******************************************
 void check_duplicate_SNID(void) {
@@ -3198,12 +3294,6 @@ void check_duplicate_SNID(void) {
 
   IS_SIM  = INFO_DATA.TABLEVAR.IS_SIM ;
   nsn     = INFO_DATA.TABLEVAR.NSN_ALL ;
-
-  /* xxxxx mark delete Jun 11 2020
-  // for simulation there is only one duplicate option: abort
-  if ( IS_SIM == true )  { INPUTS.iflag_duplicate = IFLAG_DUPLICATE_ABORT; }
-  xxxxxxxx  */
-
 
   // Jun 11 2020: for sims, don't bother tracking duplicates
   if ( IS_SIM &&  iflag == IFLAG_DUPLICATE_IGNORE ) { return; }
@@ -5377,6 +5467,7 @@ void set_defaults(void) {
   //Defaults
   INPUTS.zpecerr = 0.;     // error on v/c
   INPUTS.lensing_zpar = 0.0 ;
+  INPUTS.zmax_vpec_check = 0.05 ;  // Oct 28 2020
 
   INPUTS.fitflag_sigmb       = 0;     // option to repeat fit until chi2/dof=1
   INPUTS.redchi2_tol         = 0.02;  // tolerance on chi2.dof
@@ -5915,8 +6006,8 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->zhd           = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->zhderr        = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->zmuerr        = (float *) malloc(MEMF); MEMTOT+=MEMF; // 6/2020
-    TABLEVAR->zhel          = (float *) malloc(MEMF); MEMTOT+=MEMF;
-    TABLEVAR->zhelerr       = (float *) malloc(MEMF); MEMTOT+=MEMF;
+    TABLEVAR->zcmb          = (float *) malloc(MEMF); MEMTOT+=MEMF;
+    TABLEVAR->zcmberr       = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->vpec          = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->vpecerr       = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->logmass       = (float *) malloc(MEMF); MEMTOT+=MEMF; 
@@ -5982,8 +6073,8 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     free(TABLEVAR->zhd);
     free(TABLEVAR->zhderr);
     free(TABLEVAR->zmuerr);
-    free(TABLEVAR->zhel);
-    free(TABLEVAR->zhelerr);
+    free(TABLEVAR->zcmb);
+    free(TABLEVAR->zcmberr);
     free(TABLEVAR->vpec);
     free(TABLEVAR->vpecerr);
     free(TABLEVAR->snrmax);
@@ -6335,8 +6426,8 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->zhd[irow]        = -9.0 ;
     TABLEVAR->zhderr[irow]     = -9.0 ;
     TABLEVAR->zmuerr[irow]     = -9.0 ;
-    TABLEVAR->zhel[irow]       = -9.0 ;
-    TABLEVAR->zhelerr[irow]    = -9.0 ;
+    TABLEVAR->zcmb[irow]       = -9.0 ;
+    TABLEVAR->zcmberr[irow]    = -9.0 ;
     TABLEVAR->snrmax[irow]     =  0.0 ;
     TABLEVAR->warnCov[irow]    =  false ;
 
@@ -6393,11 +6484,11 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   SNTABLE_READPREP_VARDEF(str_zerr, &TABLEVAR->zhderr[ISTART], 
 			  LEN, VBOSE);
 
-  sprintf(vartmp,"zHEL:F"); 
-  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zhel[ISTART], 
+  sprintf(vartmp,"zCMB:F"); 
+  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zcmb[ISTART], 
 			  LEN, VBOSE);
-  sprintf(vartmp,"zHELERR:F"); 
-  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zhelerr[ISTART], 
+  sprintf(vartmp,"zCMBERR:F"); 
+  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zcmberr[ISTART], 
 			  LEN, VBOSE);
 
   sprintf(vartmp,"VPEC:F" );
@@ -14972,16 +15063,16 @@ int ppar(char* item) {
 
   // ------------
   // check peculiar velocity error
-  if ( uniqueOverlap(item,"zpecerr="))  { 
-    sscanf(&item[8],"%lf",&INPUTS.zpecerr);   
-    return(1); 
-  }
+  if ( uniqueOverlap(item,"zpecerr=")) 
+    { sscanf(&item[8],"%lf",&INPUTS.zpecerr);  return(1);   }
 
   if ( uniqueOverlap(item,"vpecerr="))  { 
     sscanf(&item[8],"%lf",&INPUTS.zpecerr); 
-    INPUTS.zpecerr /= LIGHT_km ;
-    return(1); 
+    INPUTS.zpecerr /= LIGHT_km ;    return(1); 
   }
+
+  if ( uniqueOverlap(item,"zmax_vpec_check=")) 
+    { sscanf(&item[16],"%lf",&INPUTS.zmax_vpec_check);  return(1); }
 
   if ( uniqueOverlap(item,"pecv=")) {  // LEGACY key
     legacyKey_abort(fnam, "pecv", "zpecerr" ); 

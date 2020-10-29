@@ -983,7 +983,7 @@ C ----------------- BEGIN -------------
             enddo
 
         else if(MATCH_NMLKEY('TMAX_STEP', MXITER_PSNID,i,ARGLIST) )then
-            do iter = 1, MXITER
+            do iter = 1, MXITER_PSNID
                READ(ARGLIST(iter),*) TMAX_STEP(iter)
             enddo
 

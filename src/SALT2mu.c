@@ -1789,7 +1789,7 @@ void parse_CUTWIN(char *item);
 void parse_FIELDLIST(char *item);
 int  apply_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST);
 int  usesim_CUTWIN(char *varName) ;
-int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
+int  set_DOFLAG_CUTWIN(char *varName, int ivar, int icut, int isData );
 
 void parse_sntype(char *item);
 void parse_cidFile_data(int OPT, char *item); 
@@ -6559,14 +6559,16 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     if ( !usesim_CUTWIN(vartmp)  ) { continue ; }
 
     if ( RDFLAG ) {
-      ivar = SNTABLE_READPREP_VARDEF(vartmp,&TABLEVAR->CUTVAL[icut][ISTART], 
+      ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->CUTVAL[icut][ISTART], 
 				     LEN, VBOSE );
     }
     else {
-      ivar = IVAR_READTABLE_POINTER(cutname); // May 8 2020 
+      ivar = IVAR_READTABLE_POINTER(cutname) ;   // May 8 2020 
     }
-    TABLEVAR->DOFLAG_CUTWIN[icut] = set_DOFLAG_CUTWIN(ivar,icut,IS_DATA);
-  }
+    TABLEVAR->DOFLAG_CUTWIN[icut] = 
+      set_DOFLAG_CUTWIN(vartmp, ivar, icut, IS_DATA) ;
+
+  } // end icut
 
 
   // - - - - - - - - SIM_XXX - - - - - - - - - -
@@ -15831,9 +15833,11 @@ int apply_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {
 } // end apply_CUTWIN
 
 // **************************************************
-int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
+int set_DOFLAG_CUTWIN(char *varName, int ivar, int icut, int isData) {
 
-  // return 1 if ivar>=0.
+  // Return 1 if ivar>=0 -> apply this cut.
+  // Return 0 to ignore this cut.
+  //
   // If ivar<0 and abortflag is set for icut, then abort.
   // isData=1 for datafile argument (real or sim dat);
   // isData=0 for biasCor sample.
@@ -15845,11 +15849,13 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   // May 18 2020:
   //   + check BIASCORONLY flag.
   //
+  // Oct 28 2020: add varName arg to check for PROB
 
   bool  NOVAR       = ( ivar < 0 );
   bool  ABORTFLAG   = INPUTS.LCUTWIN_ABORTFLAG[icut];
   bool  DATAONLY    = INPUTS.LCUTWIN_DATAONLY[icut];
   bool  BIASCORONLY = INPUTS.LCUTWIN_BIASCORONLY[icut];
+  bool  ISVAR_PROB  = (strstr(varName,"PROB_") != NULL ); // Oct 2020
   int   ISTAT ;
   char *VARNAME   = INPUTS.CUTWIN_NAME[icut];
   char  fnam[] = "set_DOFLAG_CUTWIN" ;
@@ -15858,6 +15864,13 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   
   if ( DATAONLY    && !isData ) { return(0) ; } // Oct 23 2018
   if ( BIASCORONLY &&  isData ) { return(0) ; } // May 18 2020
+
+  // Oct 28 2020: Apply cut for biasCor if varname doesn't exist
+  //    and starts with PROB. This assumes that idsurvey_list_probcc0
+  //    is will set pIa=1 ... if not, all these events will be
+  //    rejected. This logic is not needed for data because the
+  //    data-catenate process ensures existing PROB columns.
+  if ( !isData && ivar < 0 && ISVAR_PROB ) { return(1); }
 
   if ( NOVAR && ABORTFLAG ) {
     sprintf(c1err,"Invalid CUTWIN on '%s' (ivar=%d, icut=%d, isData=%d)", 

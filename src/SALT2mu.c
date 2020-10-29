@@ -165,9 +165,11 @@ sntype = list of types to select. Examples are
 CUTWIN  <VARNAME>  <MIN> <MAX>
 CUTWIN  FITPROB  .01 1.0
 CUTWIN  SNRMAX3   8  999999
-CUTWIN(NOABORT)  SIM_x1  -2 2    ! do not abort if SIM_x1 isn't there
+CUTWIN(NOABORT)  SIM_x1  -2 2       ! do not abort if SIM_x1 isn't there
 CUTWIN(DATAONLY)    LOGMASS  5 12   ! cut on data only (not on biasCor)
 CUTWIN(BIASCORONLY) BLA_LOGMASS  5 12 ! cut on biasCor (not on data)
+CUTWIN varname_pIa  0.9 1.0   ! substitute argument of varname_pIa, and 
+                              ! easy to change varname_pIa on command line
 
 #select field(s) for data and biasCor with
 fieldlist=X1,X2   # X1 and X2
@@ -843,7 +845,11 @@ Default output files (can change names with "prefix" argument)
     + refactor parsing comma-sep lists using new sntools utility
        parse_commaSep_list(...)
 
- Oct 28 2020: new input zwin_vpec_check
+ Oct 28 2020:
+   +  new input zwin_vpec_check
+   +  modify set_DOFLAG_CUTWIN to allow CUTWIN on non-existing 
+      PROB* variable for BiasCor sample.
+   +  allow "CUTWIN varname_pIa xxx yyy", and make substitution internally
 
  ******************************************************/
 
@@ -1108,7 +1114,8 @@ typedef struct {
   // scalar flags & counters computed from above
   bool   IS_DATA, IS_SIM ;
   int    DOFLAG_CUTWIN[MXCUTWIN]; // flag to apply each cutwin
-  int    ICUTWIN_GAMMA;           // CUTVAL index for gamma-variable
+  int    ICUTWIN_GAMMA;           // CUTWIN index for gamma-variable
+  int    ICUTWIN_VARNAME_PIA ;      // CUTWIN index for varname_pIa
   int    IVAR_VPEC, IVAR_SIM_VPEC, IVAR_OPT_PHOTOZ ; // logicals
   int    IVAR_SNTYPE, IVAR_SIM_GAMMADM;
   int    IVAR_pIa[MXFILE_DATA]; // track this variable for each file 
@@ -1789,7 +1796,7 @@ void parse_CUTWIN(char *item);
 void parse_FIELDLIST(char *item);
 int  apply_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST);
 int  usesim_CUTWIN(char *varName) ;
-int  set_DOFLAG_CUTWIN(char *varName, int ivar, int icut, int isData );
+int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
 
 void parse_sntype(char *item);
 void parse_cidFile_data(int OPT, char *item); 
@@ -6023,7 +6030,8 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->IZBIN         = (short int *) malloc(MEMS); MEMTOT+=MEMS;
     TABLEVAR->CUTMASK       = (int *) malloc(MEMI); MEMTOT+=MEMI;
 
-    TABLEVAR->ICUTWIN_GAMMA = -9 ;
+    TABLEVAR->ICUTWIN_GAMMA       = -9 ;
+    TABLEVAR->ICUTWIN_VARNAME_PIA = -9 ;
     for(i=0; i < INPUTS.NCUTWIN; i++ ) 
       { MEMTOT += malloc_TABLEVAR_CUTVAL(LEN_MALLOC,i, TABLEVAR ); }
   
@@ -6129,10 +6137,13 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
 int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
 			     TABLEVAR_DEF *TABLEVAR ) {
 
+  // Oct 29 2020: make substitution if CUTNAME = "varname_pIa"
+
   int MEMTOT = 0;
   int MEMF   = LEN_MALLOC * sizeof(float);
   char *CUTNAME = INPUTS.CUTWIN_NAME[icut] ;
-  //  char fnam[] = "malloc_TABLEVAR_CUTVAL" ;
+  char *varname_pIa = INPUTS.varname_pIa ;
+  char fnam[] = "malloc_TABLEVAR_CUTVAL" ;
 
   // --------------- BEGIN -----------------
 
@@ -6158,16 +6169,24 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
   else if ( strcmp(CUTNAME,"zERR") == 0 )
     { TABLEVAR->CUTVAL[icut] = TABLEVAR->zhderr; }
 
-  else if ( strcmp(CUTNAME,INPUTS.varname_pIa) == 0 )
+  else if ( strcmp(CUTNAME,varname_pIa) == 0 )
     { TABLEVAR->CUTVAL[icut] = TABLEVAR->pIa; }
+
+  else if ( strcmp(CUTNAME,"varname_pIa") == 0 )  {  // Oct 29 2020
+    TABLEVAR->CUTVAL[icut] = TABLEVAR->pIa; 
+    TABLEVAR->ICUTWIN_VARNAME_PIA = icut;  
+    sprintf(CUTNAME, "%s", varname_pIa) ;
+  }
 
   // IDSURVEY and SNTYPE are int ??
 
   else {
     INPUTS.LCUTWIN_RDFLAG[icut] = true ;
     TABLEVAR->CUTVAL[icut] = (float*)malloc(MEMF);  MEMTOT += MEMF ; 
+
     if ( strcmp(CUTNAME,INPUTS.varname_gamma) == 0 ) 
       { TABLEVAR->ICUTWIN_GAMMA = icut;       }
+
   }
 
 
@@ -6566,7 +6585,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
       ivar = IVAR_READTABLE_POINTER(cutname) ;   // May 8 2020 
     }
     TABLEVAR->DOFLAG_CUTWIN[icut] = 
-      set_DOFLAG_CUTWIN(vartmp, ivar, icut, IS_DATA) ;
+      set_DOFLAG_CUTWIN(ivar, icut, IS_DATA) ;
 
   } // end icut
 
@@ -14820,6 +14839,7 @@ int ppar(char* item) {
     sscanf(&item[12],"%s",s); remove_quote(s);  return(1);
   }
 
+
   if ( uniqueOverlap(item,"append_varname_missing=")  ) {
     s = INPUTS.append_varname_missing ;    s[0]=0; // clobber default
     sscanf(&item[23],"%s",s); remove_quote(s);  return(1);
@@ -15833,7 +15853,7 @@ int apply_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {
 } // end apply_CUTWIN
 
 // **************************************************
-int set_DOFLAG_CUTWIN(char *varName, int ivar, int icut, int isData) {
+int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
 
   // Return 1 if ivar>=0 -> apply this cut.
   // Return 0 to ignore this cut.
@@ -15849,15 +15869,15 @@ int set_DOFLAG_CUTWIN(char *varName, int ivar, int icut, int isData) {
   // May 18 2020:
   //   + check BIASCORONLY flag.
   //
-  // Oct 28 2020: add varName arg to check for PROB
+  // Oct 28 2020: new ISVAR_PROB logic
 
   bool  NOVAR       = ( ivar < 0 );
   bool  ABORTFLAG   = INPUTS.LCUTWIN_ABORTFLAG[icut];
   bool  DATAONLY    = INPUTS.LCUTWIN_DATAONLY[icut];
   bool  BIASCORONLY = INPUTS.LCUTWIN_BIASCORONLY[icut];
-  bool  ISVAR_PROB  = (strstr(varName,"PROB_") != NULL ); // Oct 2020
+  char *VARNAME     = INPUTS.CUTWIN_NAME[icut];
+  bool  ISVAR_PROB  = (strstr(VARNAME,"PROB_") != NULL ); // Oct 2020
   int   ISTAT ;
-  char *VARNAME   = INPUTS.CUTWIN_NAME[icut];
   char  fnam[] = "set_DOFLAG_CUTWIN" ;
 
   // ------------- BEGIN -------------
@@ -15871,6 +15891,7 @@ int set_DOFLAG_CUTWIN(char *varName, int ivar, int icut, int isData) {
   //    rejected. This logic is not needed for data because the
   //    data-catenate process ensures existing PROB columns.
   if ( !isData && ivar < 0 && ISVAR_PROB ) { return(1); }
+
 
   if ( NOVAR && ABORTFLAG ) {
     sprintf(c1err,"Invalid CUTWIN on '%s' (ivar=%d, icut=%d, isData=%d)", 
@@ -16366,9 +16387,12 @@ void prep_input_driver(void) {
 
   // May 9 2019: check INPUTS.fixpar_all
 
-  int i,  NFITPAR, ifile, NTMP=0, USE_CCPRIOR, USE_CCPRIOR_H11, OPT ;
-  char usage[10];
-  char *varname_pIa = INPUTS.varname_pIa;
+  int ICUTWIN_VARNAME_PIA = INFO_DATA.TABLEVAR.ICUTWIN_VARNAME_PIA;
+  char *varname_pIa       = INPUTS.varname_pIa ;
+
+  int i, icut;
+  int  NFITPAR, ifile, NTMP=0, USE_CCPRIOR, USE_CCPRIOR_H11, OPT ;
+  char usage[10], *tmpName ;
   char fnam[] = "prep_input_driver";
 
   // ------------ BEGIN -----------
@@ -16627,7 +16651,6 @@ void prep_input_driver(void) {
   // sanity checks on fitting for GAMMA0 (mag step across host logmass)
   if ( INPUTS.USE_GAMMA0 ) {
     double TAU   = INPUTS.parval[IPAR_LOGMASS_TAU] ;
-
     if ( TAU < 0.001 ) {
       sprintf(c1err,"Invalid LOGMASS_TAU = %.4f for gammma0 fit", TAU);  
       sprintf(c2err,"logmasss_tau(p8) should be at least .01");
@@ -16635,6 +16658,8 @@ void prep_input_driver(void) {
     }
   }
 
+
+  // - - - - -
   prep_input_load_COSPAR();
 
   INPUTS.FLOAT_COSPAR=0;
@@ -16652,11 +16677,9 @@ void prep_input_driver(void) {
       { parse_cidFile_data(OPT, INPUTS.cidFile_data[ifile] );  }
     printf("\n"); fflush(stdout);
   }
+
+
   prep_input_varname_missing();
-
-  // check for fast lookup option if all cosmo params are fixed.
-  // arg, not needed.  prep_cosmodl_lookup();
-
   
   fprintf(FP_STDOUT, "\n"); fflush(FP_STDOUT);
 
@@ -16673,21 +16696,6 @@ void prep_input_driver(void) {
       sprintf(c2err, "Either reduce nthread or increase MXTHREAD");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
-
-    /* xxxxxxx mark delete xxxxxxxx
-    // if prescale is a multiple of nthread, the entire CPU load
-    // is on just one thread and thus gives no performance boost->
-    // abort with warning
-    bool DIVISIBLE = ( IPS % nthread == 0 || nthread % IPS == 0 );
-    if ( IPS > 1 && DIVISIBLE ) { 
-      sprintf(c1err, "prescale_simdata=%d is a multiple of nthread=%d" 
-	      " (or vice-versa)",  IPS, nthread );
-      sprintf(c2err, "chi2 calc on subset of threads --> "
-	      "inefficient use of CPU.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
-    }
-    xxxxxxxxx end mark xxxxxx */
-
   }
 
   return ;
@@ -16879,23 +16887,22 @@ void  prep_input_gamma(void) {
   // check if varname_gamma is already on CUTWIN list;
   // if not, then add it to ensure that varname_gamma is read
   // from data file.
-  int icut, FOUND=0;
+  // Oct 29 2020: also replace varname_pIa with actual name
+  int icut, FOUND_GAMMA=0;
   int NCUTWIN = INPUTS.NCUTWIN ;
   char *tmpName;
   for(icut=0; icut < NCUTWIN; icut++ ) {
     tmpName = INPUTS.CUTWIN_NAME[icut] ;
-    if ( strcmp(varname_gamma,tmpName) == 0 ) { FOUND=1; }
+    if ( strcmp(tmpName,varname_gamma) == 0 ) { FOUND_GAMMA=1; }
   }
   if ( LDMP ) {
-    if ( FOUND ) {
-      printf("\t %s already on CUTWIN list. \n", varname_gamma );
-    }
-    else {
-      printf("\t Append %s to CUTWIN list. \n", varname_gamma );
-    }
+    if ( FOUND_GAMMA ) 
+      { printf("\t %s already on CUTWIN list. \n", varname_gamma ); }
+    else 
+      { printf("\t Append %s to CUTWIN list. \n", varname_gamma ); }
   }
 
-  if ( FOUND == 0 ) {
+  if ( FOUND_GAMMA == 0 ) {
     INPUTS.NCUTWIN++ ;
     icut = INPUTS.NCUTWIN - 1;
     sprintf(INPUTS.CUTWIN_NAME[icut],"%s", varname_gamma);       

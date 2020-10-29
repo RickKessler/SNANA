@@ -312,7 +312,8 @@ HELP_CONFIG_FIT = f"""
   - /RETRAIN/  FITMODEL_NAME  SALT2.retrain1 
   - /RETRAIN/  FITMODEL_NAME  SALT2.retrain2 
   - /RETRAIN/  FITMODEL_NAME  SALT2.retrain3 
-  - CUTWIN_SNRMAX 6 999  \t\t\t# no label needed
+  - /NOREJECT_misc/  CUTWIN_MJD 56550 57040    # not in 2nd-iter BBC reject
+  - CUTWIN_SNRMAX 6 999                        # no label needed
   - CUTWIN_SNRMAX 6 999  CUTWIN_SNRMAX2 4 999  # multiple options allowed   
   - USE_MINOS
   - FITOPT000     # no fit; ln -s FITOPT000.[SUFFIX] FITOPT011.[SUFFIX]
@@ -323,6 +324,8 @@ HELP_CONFIG_FIT = f"""
 # with multiple surveys. For example above, FITOPT011 and FITOP012 could 
 # be calibration variatios for a different survey, so here the sym link
 # uses the default LCFIT (FITOPT000) without wasting CPU.
+# Labels with NOREJECT are used by BBC to exlcude these tests in 
+# determining reject list in 2nd BBC fit iteration.
 
   # optional append variables from root/hbook into FITRES-TEXT table.
   #  (in old split_and_fit script, this key was APPEND_TABLE_TEXT)
@@ -379,13 +382,14 @@ HELP_CONFIG_BBC = f"""
   # there is no need for this string-match key.
   STRINGMATCH_IGNORE:   _DES  _LOWZ 
     
-  # BBC variations (for each VERSION and each FITOPT)
+  # BBC variations (for each VERSION and each FITOPT). Note that the
+  # NOREJECT label excludes this MUOPT from defining reject.list.
   MUOPT: 
-  - p1=0.2 p2=3.3 
-  - redchi2_tol=.02
-  - sig1=0.14
-  - simfile_biascor=[something_else]
-
+  - /SYST_ab/   p1=0.2 p2=3.3 
+  - /SYST_tol/  redchi2_tol=.02
+  - /SYST_sig1/ sig1=0.14
+  - /NOREJECT/  simfile_biascor=[something_else]
+  
   # Option to run wfit (fast, but ancient) as merge process. Useful
   # for quick cosmology cross-checks. To get help on argList, 
   # run "wfit.exe" with no args. Output cosmology fit params are 

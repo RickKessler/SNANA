@@ -1045,7 +1045,7 @@ class Program:
         output_dir          = self.config_prep['output_dir']
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")   
         
-        print(f" xxx MERGE_LOG_PATHFILE = {MERGE_LOG_PATHFILE} ")
+        #print(f" xxx MERGE_LOG_PATHFILE = {MERGE_LOG_PATHFILE} ")
 
         #  append to bottom of MERGE.LOG
         with open(MERGE_LOG_PATHFILE,"a") as f:

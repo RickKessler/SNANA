@@ -1552,11 +1552,12 @@ class BBC(Program):
         # only events that pass in all FITOPT and MUOPTs.
 
         output_dir    = self.config_prep['output_dir']
-        wildcard      = "FITOPT*MUOPT*.FITRES.gz"
         VOUT          = (f"{output_dir}/{vout}")
-        fitres_list   = glob.glob1(VOUT, wildcard )
+        fitres_list   = self.get_fflist_reject_summary(VOUT)
+
         reject_file   = "BBC_REJECT_SUMMARY.LIST"
         REJECT_FILE   = (f"{VOUT}/{reject_file}")
+
 
         logging.info(f"  BBC cleanup: create {vout}/{reject_file}")
 
@@ -1591,9 +1592,49 @@ class BBC(Program):
                 for cid,nrej in zip(cid_unique,n_reject) :
                     if nrej>0: f.write(f"SN:  {cid:<12}   {nrej:3d} \n")
                 f.write(f"\n")
-        # .xyz
 
         # end make_reject_summary
+
+    def get_fflist_reject_summary(self,VOUT):
+
+        # Oct 29 2020
+        # get list of fitres_files needed to create reject summary.
+        # Default is all files using wildcard. However, if NOREJECT
+        # string is part of user label, then remove associated fitres
+        # file(s) from list. This allows adding  FITOPT /NOREJECT_TEST/
+        # to FITOPT /SYST_BLA/, and the NOREJECT tests won't affect the 
+        # reject.list used in Pippin's 2nd BBC iteration.
+
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        FITOPT_OUT_LIST  = submit_info_yaml['FITOPT_OUT_LIST']
+        MUOPT_OUT_LIST   = submit_info_yaml['MUOPT_OUT_LIST']
+
+        wildcard          = "FITOPT*MUOPT*.FITRES.gz"
+        fitres_list_all   = sorted(glob.glob1(VOUT,wildcard))
+        fitres_list       = []
+        NOREJECT_list     = []
+        NOREJECT_string   = "NOREJECT"
+
+        for row in FITOPT_OUT_LIST:
+            fitnum = row[0]
+            label  = row[2]
+            if NOREJECT_string in label : NOREJECT_list.append(fitnum)
+
+        for row in MUOPT_OUT_LIST:
+            munum = row[0]
+            label = row[1]
+            if NOREJECT_string in label : NOREJECT_list.append(munum)
+
+        # loop thru fitres_list and remove anything on NOREJECT_list
+        for ff in fitres_list_all :
+            EXCLUDE = False
+            for string in NOREJECT_list :
+                if string in ff:  EXCLUDE = True
+            if not EXCLUDE : fitres_list.append(ff)
+
+        return fitres_list
+
+        # end get_fflist_reject_summary
 
     def make_wfit_summary(self):
         

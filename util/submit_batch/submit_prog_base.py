@@ -128,8 +128,9 @@ class Program:
             logging.info(f"\t Batch template: {template}" )
             logging.info(f"\t Batch n_core:   {n_core}" )
         else :
-            msgerr.append(f"Could not find BATCH_INFO or NODELIST")
-            self.log_assert(False, msgerr)
+            msgerr.append(f"Could not find BATCH_INFO or NODELIST.")
+            msgerr.append(f"Check CONFIG block in the input file.")
+            util.log_assert(False, msgerr)
 
         # check optional memory spec
         if 'BATCH_MEM' in CONFIG :

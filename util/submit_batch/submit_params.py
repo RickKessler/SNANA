@@ -41,9 +41,10 @@ SUBMIT_MODE_BATCH = "BATCH"
 SUBMIT_MODE_SSH   = "SSH"
 
 # define subDir for batch scripts
-SUBDIR_SCRIPTS_SIM = "" 
-SUBDIR_SCRIPTS_FIT = "SPLIT_JOBS_LCFIT"
-SUBDIR_SCRIPTS_BBC = "SCRIPTS_BBCFIT"
+SUBDIR_SCRIPTS_SIM   = "" 
+SUBDIR_SCRIPTS_FIT   = "SPLIT_JOBS_LCFIT"
+SUBDIR_SCRIPTS_BBC   = "SCRIPTS_BBCFIT"
+SUBDIR_SCRIPTS_TRAIN = "SCRIPTS_TRAIN"
 
 MODEL_SNIa  = "SNIa"
 MODEL_NONIa = "NONIa"
@@ -161,11 +162,11 @@ CONFIG:
   # optional switch from using default $SNANA_DIR/bin/snlc_sim.exe
   JOBNAME: $MY_PATH/snlc_sim.exe 
 
-  # optional memory request (default is 2 GB)
-  BATCH_MEM: 4000Mb     # 4GB (e..g, extra mem for big SIMSED models)
-
   # optional switch from using default $SNANA_DIR/bin/snlc_fit.exe
   JOBNAME: $MY_PATH/snlc_fit.exe 
+
+  # optional memory request (default is 2 GB)
+  BATCH_MEM: 4000Mb     # 4GB (e..g, extra mem for big SIMSED models)
 
   # default ALL.DONE is created under OUTDIR; here can specify
   # an optional/additionl done file anywhere

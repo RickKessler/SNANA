@@ -16,6 +16,8 @@
 #
 #  BBC
 #
+# Oct 29 2020: add SALT2train framework
+#
 # - - - - - - - - - -
 
 #import os
@@ -23,10 +25,11 @@ import sys, yaml, argparse, subprocess, logging
 import submit_util      as util
 import submit_translate as tr
 
-from   submit_params   import *
-from   submit_prog_sim import Simulation
-from   submit_prog_fit import LightCurveFit
-from   submit_prog_bbc import BBC
+from   submit_params      import *
+from   submit_prog_sim    import Simulation
+from   submit_prog_fit    import LightCurveFit
+from   submit_prog_bbc    import BBC
+from   submit_train_SALT2 import train_SALT2
 from   argparse import Namespace
 
 # =====================================
@@ -126,17 +129,24 @@ def which_program_class(config):
     program_class = None 
     input_file    = config['args'].input_file
     merge_flag    = config_yaml['args'].merge_flag
-
+    CONFIG        = config['CONFIG'] 
     if "GENVERSION_LIST" in config :
         program_class = Simulation
-    elif "VERSION" in config['CONFIG'] :
+    elif "VERSION" in CONFIG :
         program_class = LightCurveFit
-    else:
-        # BBC does not have a unique required batch key,
-        # so instead check for unique input key for code
-        with open(input_file, 'r') as f :    
-            if 'u1=' in f.read():
-                program_class = BBC
+    elif "INPDIR+" in CONFIG :
+        program_class = BBC
+    elif "SALT2_BASE" in CONFIG :
+        program_class = train_SALT2
+    else :
+        sys.exit("\nERROR: Could not determine program_class")
+
+    # xxxx mark delete Oct 29 2020 xxxxxxxxx
+    #else:
+    #    with open(input_file, 'r') as f :    
+    #        if 'u1=' in f.read():
+    #            program_class = BBC
+    # xxxxxxxxxxxxxxxx
 
     # keep quiet for merge process
     if not merge_flag :

@@ -15,7 +15,9 @@
 # BEWARE: only --MINUS_VPEC works now ... 
 #         later need to implement updFile and var_list.
 #
-import os, sys, argparse, shutil
+# BEWARE: works only on gzipped input files
+#
+import os, sys, argparse, shutil, gzip
 import pandas as pd
 
 SNDATA_ROOT = os.environ['SNDATA_ROOT']
@@ -102,14 +104,11 @@ def make_outdir(path_data):
     print(f" Create output dir: {version}")
     os.mkdir(version)
     
-    # copy everything
-    cmd_copy = (f"rsync {path_data}/*.* {version}/")
-    #cmd_copy = (f"rsync {path_data}/{version}*2016*.* {version}/")
-    cmd_unzip = (f"cd {version}; gunzip *.gz")
+    # copy auxillary files
+    cmd_copy = (f"rsync {path_data}/{version}.* {version}/")
 
-    print(f" Copy orginal data files ... ")
+    print(f" Copy auxillary files ... ")
     os.system(cmd_copy)
-    os.system(cmd_unzip)
 
 # --------------
 def update_data_file(upd_dict):
@@ -118,6 +117,7 @@ def update_data_file(upd_dict):
     # upd_df is the list of variables to update from upd_file.
 
     outdir     = upd_dict['version']
+    path_data  = upd_dict['path_data']
     data_file  = upd_dict['data_file']
     upd_df     = upd_dict['upd_df']
     var_list   = upd_dict['var_list']
@@ -128,17 +128,24 @@ def update_data_file(upd_dict):
     else:
         print(f"   Update {var_list} for {data_file}")
 
-    DATA_FILE = (f"{outdir}/{data_file}")
-    KEY_SNID  = "SNID:"
-    KEY_VPEC  = "VPEC:"
+    DATA_FILE_ORIG = (f"{path_data}/{data_file}")
+    if not os.path.exists(DATA_FILE_ORIG) :
+        DATA_FILE_ORIG += '.gz'
+
+    DATA_FILE_OUT  = (f"{version}/{data_file}.gz")
+    KEY_SNID       = "SNID:"
+    KEY_VPEC       = "VPEC:"
 
     if upd_df is not None :
         cid_upd_list   = upd_df['CID'].head().tolist()
 
-    with open(DATA_FILE,"rt") as d :
+    nline = 0
+    with gzip.open(DATA_FILE_ORIG,"r") as d :
         contents     = d.readlines()
         contents_new = []
-        for line in contents :
+        for line_orig in contents :
+            nline += 1
+            line   = line_orig.decode('utf-8')
             wdlist = line.split()
             if KEY_SNID in wdlist :
                 j    = wdlist.index(KEY_SNID)
@@ -155,8 +162,8 @@ def update_data_file(upd_dict):
             contents_new.append(line)
 
 
-    out_file = DATA_FILE
-    with open(out_file, "wt") as o :        
+    out_file = DATA_FILE_OUT
+    with gzip.open(out_file, "wt") as o :
         o.write("".join(contents_new))
 
     #sys.exit("\n xxx DEBUG DIE xxx \n")
@@ -183,6 +190,7 @@ if __name__ == "__main__":
         "upd_df"     : upd_df,
         "var_list"   : args.var_list,
         "MINUS_VPEC" : args.MINUS_VPEC,
+        "path_data"  : path_data,
         "data_file"  : "bla"
     }
 

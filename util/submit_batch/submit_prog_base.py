@@ -36,7 +36,17 @@ class Program:
         if config_yaml['args'].merge_flag :  # bail for merge process
             return
 
-        logging.info(f" Program name: {config_prep['program']}")
+        # - - - - -
+        program = config_prep['program']
+        logging.info(f" Program name: {program}")
+
+        if program == PROGRAM_NAME_UNKNOWN :
+            input_file  = self.config_yaml['args'].input_file 
+            msgerr      = []
+            msgerr.append(f"Unknown program name.")
+            msgerr.append(f"Must define program with JOBNAME key")
+            msgerr.append(f"in {input_file}")
+            util.log_assert(False,msgerr)
 
         # unpack BATCH_INFO or NODELIST keys; update config_prep
         self.parse_batch_info(config_yaml,config_prep)
@@ -330,7 +340,7 @@ class Program:
 
         n_job_tot   = self.config_prep['n_job_tot']
         print(f" BATCH DRIVER JOB COUNT SUMMARY:",
-              f"{n_job_tot} {program} jobs on {n_core} cores")
+              f"{n_job_tot} jobs on {n_core} cores")
 
         
         # check option to force crash (to test higher level pipelines)

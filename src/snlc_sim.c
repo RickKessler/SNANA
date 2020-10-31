@@ -3399,64 +3399,119 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
   // Jul 20 2020 [refactor]
   // Parse RANSYSTPAR_XXX keys.
   // Function returns number of WORDS that are read.
-  
+  // 
+  // Oct 30 2020: 
+  //   + check for filter list in parentheses for SIGZP and SIGLAMFILT.
+  //
+
+  int  NFILTDEF = INPUTS.NFILTDEF_OBS ;  
   int  N = 0 ;
-  int  ifilt, NFILTDEF = INPUTS.NFILTDEF_OBS ;  
+  int  i, ifilt, ifilt_obs, NFILT_SYST ;
+  double tmpVal;
+  char KEYNAME[60], SYST_OPT[40], FILTLIST_SYST[MXFILTINDX] ;
+  char *e, cfilt[2];
   char fnam[] = "parse_input_RANSYSTPAR" ;
 
   // ---------- BEGIN ----------
 
+  // if WORDS[0] of of the for RANSYSTPAR_XYZ(BLA), then return
+  // KEYNAME = "RANSYSTPAR_XYZ" and SYST_OPT = "BLA"
+  sprintf(KEYNAME, "%s", WORDS[0]);   
+  extractStringOpt(KEYNAME,SYST_OPT);
+
+  // for filter-dependent RANSYST, use all by default
+  sprintf(FILTLIST_SYST,"%s", INPUTS.GENFILTERS);
+  NFILT_SYST = NFILTDEF;
+
+  if ( strlen(SYST_OPT) > 0 ) {
+    sprintf(FILTLIST_SYST, "%s", SYST_OPT) ;
+    NFILT_SYST = strlen(FILTLIST_SYST) ;
+  }
+
+  /* xxxx
+  printf(" xxx %s: SYST_OPT = '%s'   NFILT_SYST=%d \n",
+	 fnam, SYST_OPT, NFILT_SYST); 
+  xxxx */
+
+  // - - - - - - 
+
   if ( keyMatchSim(1, "RANSYSTPAR_RANSEED_GEN", 
-		   WORDS[0], keySource) ) {
+		   KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.RANSYSTPAR.RANSEED_GEN );
   }
   else if ( keyMatchSim(1, "RANSYSTPAR_SIGSCALE_FLUXERR", 
-		   WORDS[0], keySource) ) {
+		   KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR );
   }
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSCALE_FLUXERR2", 
-			WORDS[0], keySource) ) {
+			KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 );
   }
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSCALE_MWEBV", 
-			WORDS[0], keySource) ) {
+			KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSCALE_MWEBV );
   }
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_MWRV", 
-			WORDS[0], keySource) ) {
+			KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_MWRV );
   }
 
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_OMEGA_MATTER",
-			WORDS[0],keySource) ) {
+			KEYNAME,keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER );
   }
 
   else if ( keyMatchSim(1,"RANSYSTPAR_RANGESHIFT_OMEGA_MATTER",
-			WORDS[0],keySource) ) {
+			KEYNAME,keySource) ) {
     N++;  sscanf(WORDS[N],"%f",&INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER[0]);
     N++;  sscanf(WORDS[N],"%f",&INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER[1]);
   }
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_W0",
-			WORDS[0],keySource) ) {
+			KEYNAME,keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_W0 );
   }
   else if ( keyMatchSim(1,"RANSYSTPAR_RANGESHIFT_W0",
-			WORDS[0],keySource)){
+			KEYNAME,keySource)){
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.RANGESHIFT_W0[0] );
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.RANGESHIFT_W0[1] );
   }
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_ZP",
-			WORDS[0],keySource) ) {
-    for ( ifilt = 0; ifilt < NFILTDEF; ifilt++ ) {
-      N++; sscanf(WORDS[N],"%f",&INPUTS.RANSYSTPAR.SIGSHIFT_ZP[ifilt] ); 
+			KEYNAME,keySource) ) {
+    if ( NFILTDEF == 0 ) {
+      sprintf(c1err,"Must define GENFILTERS before %s", WORDS[0]);
+      sprintf(c2err,"Check key order in sim-input file");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
+    
+    for ( i = 0; i < NFILT_SYST; i++ ) {
+      sprintf(cfilt, "%c", FILTLIST_SYST[i] );
+      e         = strstr(INPUTS.GENFILTERS,cfilt);
+      ifilt     = (int)(e-INPUTS.GENFILTERS);
+      N++; sscanf(WORDS[N], "%le", &tmpVal );
+      INPUTS.RANSYSTPAR.SIGSHIFT_ZP[ifilt] = tmpVal ;
+      //printf(" xxx load i=%d  ifilt=%d   SIGZP(%s)=%.3f \n",  
+      //     i, ifilt, cfilt, tmpVal ) ; fflush(stdout);
+    } 
+
   }
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_LAMFILT",
-			WORDS[0],keySource) ) {
-    for ( ifilt = 0; ifilt < NFILTDEF; ifilt++ ) {
-      N++; sscanf(WORDS[N],"%f",&INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT[ifilt]); 
+			KEYNAME,keySource) ) {
+    if ( NFILTDEF == 0 ) {
+      sprintf(c1err,"Must define GENFILTERS before %s", WORDS[0]);
+      sprintf(c2err,"Check key order in sim-input file");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
+
+    for ( i = 0; i < NFILT_SYST; i++ ) {
+      sprintf(cfilt, "%c", FILTLIST_SYST[i] );
+      e         = strstr(INPUTS.GENFILTERS,cfilt);
+      ifilt     = (int)(e-INPUTS.GENFILTERS);
+      N++; sscanf(WORDS[N], "%le", &tmpVal );
+      INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT[ifilt] = tmpVal ;
+      //printf(" xxx load i=%d  ifilt=%d   SIGLAM(%s)=%.3f \n",  
+      //     i, ifilt, cfilt, tmpVal ) ; fflush(stdout);
+    } 
+    //    debugexit(fnam); // xxxx REMOVE
   }
 
   if ( N > 0 ) {  INPUTS.RANSYSTPAR.USE = 1; }

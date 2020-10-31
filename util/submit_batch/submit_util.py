@@ -565,7 +565,7 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"# ---------------------------------------------------- \n")
         f.write(f"cd {job_dir} \n\n")
 
-    CHECK_CODE_EXISTS = True
+    CHECK_CODE_EXISTS = '.exe' in program
     CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO and 'kill_on_fail' in JOB_INFO
 
     if CHECK_ALL_DONE :
@@ -597,6 +597,10 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
         f.write(f"{wait_for_code}\n")
         f.write(f"echo {program} exists. \n\n")
+
+    # check optional ENV to set before running program
+    if 'setenv' in JOB_INFO :
+        f.write(f"{JOB_INFO['setenv']} \n")
 
     # - - - - - - - - - 
     f.write(f"{program} {input_file} \\\n")

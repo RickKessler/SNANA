@@ -33,9 +33,10 @@ PROGRAM_TYPE_FIT  = "FIT"  # light curve fit (e.g., SALT2, PSNID, ...)
 PROGRAM_TYPE_BBC  = "BBC"  # BEAMS with bias corrections
 
 # default program names ... can be changed by user
-PROGRAM_NAME_SIM  =  "snlc_sim.exe"
-PROGRAM_NAME_FIT  =  "snlc_fit.exe"
-PROGRAM_NAME_BBC  =  "SALT2mu.exe"
+PROGRAM_NAME_SIM   =  "snlc_sim.exe"
+PROGRAM_NAME_FIT   =  "snlc_fit.exe"
+PROGRAM_NAME_BBC   =  "SALT2mu.exe"
+PROGRAM_NAME_UNKNOWN =  "UNKNOWN"     # must be specified by JOBNAME key
 
 SUBMIT_MODE_BATCH = "BATCH"
 SUBMIT_MODE_SSH   = "SSH"

@@ -6400,8 +6400,12 @@ Here are examples of available options for the sim-input file:
    RANSYSTPAR_RANGESHIFT_OMEGA_MATTER: -0.2 0.4   # flat shift range for OM
 
   # filter-dependent variants:
-   RANSYSTPAR_SIGSHIFT_LAMFILT:  8 10 7 6           # filter shifts (A)
+   RANSYSTPAR_SIGSHIFT_LAMFILT:     8 10 7 6      # filter shifts (A)
+   RANSYSTPAR_SIGSHIFT_LAMFILT(i):  7             # shift i-band only
+
    RANSYSTPAR_SIGSHIFT_ZP: 0.014 0.013 0.022 0.012  # random ZP off
+   RANSYSTPAR_SIGSHIFT_ZP(r):  0.013                 # shift ZP-r only
+   RANSYSTPAR_SIGSHIFT_ZP(ri): 0.013 0.02            # shift r & i
 
   # after ransyst params are picked, reset randoms with fixed seed
   # to suppress random fluctuations between GENVERSIONS

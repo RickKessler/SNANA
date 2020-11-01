@@ -38,8 +38,8 @@ def get_args():
 
     msg = "HELP with input file config(s); then exit"
     parser.add_argument("-H", "--HELP", help=msg, default=None, type=str, \
-                        choices = ["SIM", "FIT", "BBC", "TRANSLATE", 
-                                   "MERGE", "AIZ" ])
+                        choices = ["SIM", "FIT", "BBC", "TRAIN_SALT2", \
+                                   "TRANSLATE", "MERGE", "AIZ" ])
     
     msg = "name of input file"
     parser.add_argument("input_file", help=msg, nargs="?", default=None)
@@ -136,7 +136,7 @@ def which_program_class(config):
         program_class = LightCurveFit
     elif "INPDIR+" in CONFIG :
         program_class = BBC
-    elif "SALTPATH_BASE" in CONFIG :
+    elif "PATH_INPUT_TRAIN" in CONFIG :
         program_class = train_SALT2
     else :
         sys.exit("\nERROR: Could not determine program_class")

@@ -1,5 +1,16 @@
-# Created Oct 29 2020
-
+# Created Oct 31 2020
+#
+# Remaining issues:
+#   * how to specify and implement TRAINOPT in CONFIG block
+#   * how are MAG_OFFSET and SIGMA_INT determined ??
+#   * can train_SALT2_37_mw.py  produce YAML output for submit_batch ?
+#       NEVT:           348
+#       ABORT_IF_ZERO:  348
+#       CPU_MINUTES:    137.3
+#       ANYTHING_ELSE:  ??
+#   * how is SUCCESS determined ? Existence of salt2_template_[01].dat ?
+#   * fast option ?
+# 
 import os, sys, shutil, yaml, glob
 import logging, coloredlogs
 import datetime, time, subprocess
@@ -8,18 +19,42 @@ from   submit_params    import *
 from   submit_prog_base import Program
 
 TRAINOPT_STRING = "TRAINOPT"
-SALTPATH_STRING = "SALTPATH"
+SALTPATH_STRING = "SALTPATH"  # env name of calib path for snpca
 SALTPATH_FILES  = [ 'fitmodel.card',  'Instruments',  'MagSys' ]
 
-KEY_MODEL_SUFFIX     = "MODEL_SUFFIX"
-MODEL_SUFFIX_DEFAULT = "TRAIN"
+# define subdirs to contain outputs of snpca that are not used by LC fitters
+SUBDIR_CALIB    = "CALIB_TRAIN"    # a.k.a SALTPATH
+SUBDIR_TRAIN    = "OUTPUT_TRAIN"
 
-SUBDIR_TRAIN = "TRAIN"
-SUBDIR_MODEL = "MODEL"
+# define keys for CONFIG inputs
+KEY_PATH_INPUT_TRAIN = "PATH_INPUT_TRAIN"  # required (data,conf files)
+KEY_PATH_INPUT_CALIB = "PATH_INPUT_CALIB"  # required (a.k.a, SALTPATH)
+KEY_MODEL_SUFFIX     = "MODEL_SUFFIX"      # optional: change MODEL suffix
 
-COLNUM_TRAIN_MERGE_TRAINOPT       = 1
-COLNUM_TRAIN_MERGE_NEVT           = 2
-COLNUM_TRAIN_MERGE_CPU            = 3
+# Define suffix for output model used by LC fitters.
+# Default output dirs are SALT2.MODEL000, SALT2.MODEL001, ...
+MODEL_SUFFIX_DEFAULT = "MODEL"        
+
+# define content for SALT2_INFO file
+SALT2_INFO_FILE    = "SALT2.INFO"    # created for SNANA programs
+SALT2_MAG_OFFSET   = 0.27
+SALT2_SIGMA_INT    = 0.106 
+SALT2_COLOR_OFFSET = 0.0
+
+SALT2_INFO_INCLUDE = f"""
+SEDFLUX_INTERP_OPT: 2  # 1=>linear,    2=>spline
+ERRMAP_INTERP_OPT:  1  # 0=snake off;  1=>linear  2=>spline
+ERRMAP_KCOR_OPT:    1  # 1/0 => on/off
+
+MAGERR_FLOOR:   0.005            # model-error floor
+MAGERR_LAMOBS:  0.0  2000  4000  # magerr minlam maxlam
+MAGERR_LAMREST: 0.1   100   200  # magerr minlam maxlam
+"""
+
+# Define columns in MERGE.LOG. Column 0 is always the STATE.
+COLNUM_TRAIN_MERGE_TRAINOPT    = 1
+COLNUM_TRAIN_MERGE_NEVT        = 2
+COLNUM_TRAIN_MERGE_CPU         = 3
 
 # ====================================================
 #    BEGIN FUNCTIONS
@@ -89,16 +124,16 @@ class train_SALT2(Program):
         
     def get_path_trainopt(self,which,trainopt):
         output_dir    = self.config_prep['output_dir']
-        model_suffix  = self.config_prep['model_suffix']
-        nnn           = trainopt[-3:]
         path          = ""
         # print(f" xxx trainopt={trainopt}  nnn={nnn}")
-        if which == SALTPATH_STRING :
-            path = (f"{output_dir}/{SALTPATH_STRING}/{trainopt}")
-        elif which == SUBDIR_MODEL :
-            path = (f"{output_dir}/SALT2.{model_suffix}{nnn}")
+        if which == SUBDIR_CALIB :
+            path = (f"{output_dir}/{SUBDIR_CALIB}/{trainopt}")
         elif which == SUBDIR_TRAIN :
             path = (f"{output_dir}/{SUBDIR_TRAIN}/{trainopt}")
+        elif which == "MODEL" :
+            model_suffix  = self.config_prep['model_suffix']
+            nnn           = trainopt[-3:]
+            path = (f"{output_dir}/SALT2.{model_suffix}{nnn}")
             
         return path
         # end get_path_trainopt
@@ -118,41 +153,42 @@ class train_SALT2(Program):
             model_suffix = MODEL_SUFFIX_DEFAULT
         self.config_prep['model_suffix']  = model_suffix 
         
-        outdir_saltpath_list   = []
-        outdir_train_list      = []
-        outdir_model_list      = []
+        outdir_calib_list  = []
+        outdir_train_list  = []
+        outdir_model_list  = []
 
-        topdir_saltpath = (f"{output_dir}/{SALTPATH_STRING}")
+        topdir_calib    = (f"{output_dir}/{SUBDIR_CALIB}")
         topdir_train    = (f"{output_dir}/{SUBDIR_TRAIN}")
-        os.mkdir(topdir_saltpath)
+        os.mkdir(topdir_calib)
         os.mkdir(topdir_train)
 
         for trainopt,arg in zip(trainopt_num_list,trainopt_arg_list) :
-            outdir_saltpath = self.get_path_trainopt(SALTPATH_STRING,trainopt)
-            outdir_train    = self.get_path_trainopt(SUBDIR_TRAIN,trainopt)
-            outdir_model    = self.get_path_trainopt(SUBDIR_MODEL,trainopt)
-            outdir_saltpath_list.append(outdir_saltpath)
+            outdir_calib   = self.get_path_trainopt(SUBDIR_CALIB,trainopt)
+            outdir_train   = self.get_path_trainopt(SUBDIR_TRAIN,trainopt)
+            outdir_model   = self.get_path_trainopt("MODEL",trainopt)
+            outdir_calib_list.append(outdir_calib)
             outdir_train_list.append(outdir_train)
             outdir_model_list.append(outdir_model)
-            os.mkdir(outdir_saltpath)
+            os.mkdir(outdir_calib)
             os.mkdir(outdir_train)
             os.mkdir(outdir_model)
-            self.train_prep_SALTPATH(outdir_saltpath,trainopt,arg)
+            self.train_prep_SALTPATH(outdir_calib,trainopt,arg)
             
-        self.config_prep['outdir_saltpath_list']  =  outdir_saltpath_list
-        self.config_prep['outdir_train_list']     =  outdir_train_list
-        self.config_prep['outdir_model_list']     =  outdir_model_list
+        self.config_prep['outdir_calib_list']  =  outdir_calib_list
+        self.config_prep['outdir_train_list']  =  outdir_train_list
+        self.config_prep['outdir_model_list']  =  outdir_model_list
 
         # end train_prep_paths
 
-    def train_prep_SALTPATH(self,outdir_saltpath,num,arg):
+    def train_prep_SALTPATH(self,outdir_calib,num,arg):
 
+        # prepare calibration (pointed to by ENV $SALTPATH)
         CONFIG           = self.config_yaml['CONFIG']
-        SALTPATH_BASE    = CONFIG['SALTPATH_BASE']
+        PATH_INPUT_CALIB = CONFIG[KEY_PATH_INPUT_CALIB] # aka SALTPATH
 
-        logging.info(f"\t Prepare {SALTPATH_STRING}/{num}")
+        logging.info(f"\t Prepare {SUBDIR_CALIB}/{num}")
         for item in SALTPATH_FILES :
-            cmd_rsync = (f"rsync -r {SALTPATH_BASE}/{item} {outdir_saltpath}")
+            cmd_rsync = (f"rsync -r {PATH_INPUT_CALIB}/{item} {outdir_calib}")
             os.system(cmd_rsync)
 
         # insert code here from Georgie/Chris to modify outdir_saltpath
@@ -199,8 +235,8 @@ class train_SALT2(Program):
         output_dir        = self.config_prep['output_dir']
         trainopt_num_list = self.config_prep['trainopt_num_list']
         trainopt_arg_list = self.config_prep['trainopt_arg_list']
-        saltpath_list     = self.config_prep['outdir_saltpath_list']
-        saltpath          = saltpath_list[itrain]
+        path_calib_list   = self.config_prep['outdir_calib_list']
+        path_calib        = path_calib_list[itrain]
         prefix            = trainopt_num_list[itrain]
         arg_list          = [ ]
 
@@ -208,12 +244,13 @@ class train_SALT2(Program):
         self.create_trainDir_file(itrain,trainDir_file)
 
         JOB_INFO = {}
-        JOB_INFO['setenv']        = (f"export {SALTPATH_STRING}={saltpath}")
+        JOB_INFO['setenv']        = (f"export {SALTPATH_STRING}={path_calib}")
         JOB_INFO['program']       = (f"python {program}")
         JOB_INFO['input_file']    = "" 
         JOB_INFO['job_dir']       = script_dir
         JOB_INFO['log_file']      = (f"{prefix}.LOG")
         JOB_INFO['done_file']     = (f"{prefix}.DONE")
+        JOB_INFO['start_file']    = (f"{prefix}.START")
         JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
         JOB_INFO['kill_on_fail']  = kill_on_fail
         JOB_INFO['arg_list']      = arg_list
@@ -238,7 +275,7 @@ class train_SALT2(Program):
         outdir_train_list    = self.config_prep['outdir_train_list']
         outdir_model_list    = self.config_prep['outdir_model_list']
 
-        PATH_SALT2_BASE   = os.path.expandvars(CONFIG['PATH_SALT2_BASE'])
+        PATH_INPUT_TRAIN  = os.path.expandvars(CONFIG[KEY_PATH_INPUT_TRAIN])
         outdir_train      = outdir_train_list[itrain]
         outdir_model      = outdir_model_list[itrain]
 
@@ -246,7 +283,7 @@ class train_SALT2(Program):
         TRAINDIR_FILE     = (f"{script_dir}/{trainDir_file}")
 
         with open(TRAINDIR_FILE, "wt") as f :
-            f.write(f"initDir      {PATH_SALT2_BASE} \n")
+            f.write(f"initDir      {PATH_INPUT_TRAIN} \n")
             f.write(f"trainingDir  {outdir_train} \n")
             f.write(f"outputDir    {outdir_model} \n")
 
@@ -279,16 +316,18 @@ class train_SALT2(Program):
 
     def append_info_file(self,f):
 
-        # add info to SUBMIT.INFO file; use passed file pointer f
+        # append info to SUBMIT.INFO file; use passed file pointer f
 
-        n_trainopt = self.config_prep['n_trainopt'] 
-        num_list   = self.config_prep['trainopt_num_list']
-        arg_list   = self.config_prep['trainopt_arg_list'] 
-        label_list = self.config_prep['trainopt_label_list']
+        n_trainopt   = self.config_prep['n_trainopt'] 
+        num_list     = self.config_prep['trainopt_num_list']
+        arg_list     = self.config_prep['trainopt_arg_list'] 
+        label_list   = self.config_prep['trainopt_label_list']
+        model_suffix = self.config_prep['model_suffix']
 
         f.write(f"# train_SALT2 info \n")
         f.write(f"JOBFILE_WILDCARD: {TRAINOPT_STRING}* \n")
-        f.write(f"MODEL_SUFFIX: {model_suffix} \n")
+        f.write(f"MODEL_SUFFIX: {model_suffix}   " \
+                f"# -> create SALT2.{model_suffix}nnn/ \n")
 
         f.write(f"\n")
         f.write(f"TRAINOPT_OUT_LIST:  " \
@@ -396,15 +435,15 @@ class train_SALT2(Program):
         output_dir       = self.config_prep['output_dir']
         script_dir       = self.config_prep['script_dir']
 
-        model_dir  = self.get_path_trainopt(SUBDIR_MODEL,trainopt)
+        model_dir  = self.get_path_trainopt("MODEL",trainopt)
         train_dir  = self.get_path_trainopt(SUBDIR_TRAIN,trainopt)
 
         s0_file    = (f"{model_dir}/salt2_template_0.dat")
         s1_file    = (f"{model_dir}/salt2_template_1.dat")
 
-        # get process time between original AAA_README and DONE file
+        # get process time between START and DONE files
         done_file  = (f"{script_dir}/{trainopt}.DONE")
-        start_file = (f"{train_dir}/AAA_README")
+        start_file = (f"{script_dir}/{trainopt}.START")
         tdone      = os.path.getmtime(done_file)
         tstart     = os.path.getmtime(start_file)
         tproc      = int((tdone - tstart)/60.0)
@@ -430,36 +469,96 @@ class train_SALT2(Program):
         row      = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
         trainopt = row[COLNUM_TRAIN_MERGE_TRAINOPT]
 
-        model_dir = self.get_path_trainopt(SUBDIR_MODEL,trainopt)
-        train_dir = self.get_path_trainopt(SUBDIR_TRAIN,trainopt)
+        self.merge_create_SALT2_INFO_file(trainopt)
+
+        model_dir  = self.get_path_trainopt("MODEL",trainopt)
+        train_dir  = self.get_path_trainopt(SUBDIR_TRAIN,trainopt)
+        calib_dir  = self.get_path_trainopt(SUBDIR_CALIB,trainopt)
 
         logging.info(f"    Compress output for {trainopt} :")
 
-        # make tar file from SALTPATH
-        logging.info(f"\t Compress {SALTPATH_STRING}/{trainopt}")
-        cmd_cddir = (f"cd {output_dir}/{SALTPATH_STRING}")
-        cmd_tar   = (f"tar -cf {trainopt}.tar {trainopt}; gzip {trainopt}.tar")
-        cmd_rm    = (f"rm -r {trainopt}")
-        cmd       = (f"{cmd_cddir}; {cmd_tar} ; {cmd_rm}")
-        os.system(cmd)
+        # make tar file from CALIB/TRAINOPTnnn  (aka SALTPATH)
+        logging.info(f"\t Compress {SUBDIR_CALIB}/{trainopt}")
+        util.compress_subdir(+1,calib_dir)
 
-        # Gzip contents of TRAIN and TRAIN -> TRAIN.tar
+        # Gzip contents of TRAINOPT, then  TRAINOPTnnn -> TRAINOPTnnn.tar.gz
         logging.info(f"\t Compress {SUBDIR_TRAIN}/{trainopt}")
-        cmd_rmfits = (f"cd {train_dir}; rm *.fits")
-        cmd_gzip   = (f"cd {train_dir}; gzip *.dat *.list")
-        cmd_tar    = (f"cd {train_dir}/../ ; " \
-                      f"tar -cf {trainopt}.tar {trainopt} ; " \
-                      f"rm -r {trainopt}" )
-        os.system(cmd_rmfits)
-        os.system(cmd_gzip)
-        os.system(cmd_tar)
+        cmd_clean = (f"cd {train_dir}; rm *.fits; gzip *.dat *.list")
+        os.system(cmd_clean)
+        util.compress_subdir(+1,train_dir)
 
-        # gzip contents of MODEL, leave directory
+        # gzip contents of MODEL, leave directory intact for LC fitter
         logging.info(f"\t gzip contents of {model_dir}")
         cmd = (f"cd {model_dir}; gzip salt2*.dat")
         os.system(cmd)
 
         # end merge_job_wrapup
+
+    def merge_create_SALT2_INFO_file(self,trainopt):
+        # create SALT2.INFO file read by SNANA programs
+        # (snlc_sim.exe & snlc_fit.exe)
+
+        model_dir    = self.get_path_trainopt("MODEL",trainopt)
+        info_file    = (f"{model_dir}/{SALT2_INFO_FILE}")
+
+        color_law_dict = self.get_color_law(model_dir)
+        min_lambda   = color_law_dict['min_lambda']
+        max_lambda   = color_law_dict['max_lambda']
+        range_lambda = (f"{min_lambda} {max_lambda}")
+        npar         = color_law_dict['npar']
+        par_list     = " ".join(color_law_dict['par_list'])
+
+        print(f"    Create {SALT2_INFO_FILE}")
+        with open(info_file,"wt") as f:
+
+            f.write(f"RESTLAMBDA_RANGE: {range_lambda}\n")
+            f.write(f"COLORLAW_VERSION: {color_law_dict['version']} \n")
+            f.write(f"COLORCOR_PARAMS:  {range_lambda} {npar} {par_list}\n")
+            f.write(f"\n")
+
+            f.write(f"MAG_OFFSET:    {SALT2_MAG_OFFSET} \n")
+            f.write(f"SIGMA_INT:     {SALT2_SIGMA_INT}  \n")
+            f.write(f"COLOR_OFFSET:  {SALT2_COLOR_OFFSET} \n")
+
+            f.write(f"{SALT2_INFO_INCLUDE}\n")
+
+            f.write(f"# {trainopt} \n")
+            f.write(f"# ?? calib option keys for SNANA ... ?? \n")
+            
+        # #end merge_create_SALT2_INFO_file
+        
+    def get_color_law(self,model_dir):
+        file_name = (f"{model_dir}/salt2_color_correction.dat")
+        color_law_dict = {}
+
+        nline = 0; npar_tot = -1; npar_read=0; cpar_list = []
+
+        with open(file_name,"r") as f:
+            for line in f:
+                nline += 1
+                word_list = (line.rstrip("\n")).split()
+                #print(f" xxx colorlaw line = {word_list} ")
+                if nline == 1:
+                    npar_tot = int(word_list[0])
+                elif npar_read < npar_tot :
+                    npar_read += 1
+                    cpar_list.append(word_list[0])
+                elif 'version' in word_list[0] :
+                    version = int(word_list[1])
+                elif 'min_lambda' in word_list[0] :
+                    min_lambda = int(word_list[1])
+                elif 'max_lambda' in word_list[0] :
+                    max_lambda = int(word_list[1])
+        # - - - - - 
+        color_law_dict['npar']        = npar_tot
+        color_law_dict['par_list']    = cpar_list
+        color_law_dict['version']     = version
+        color_law_dict['min_lambda']  = min_lambda
+        color_law_dict['max_lambda']  = max_lambda
+        #print(f" xxx color_law_dict = {color_law_dict} ")
+
+        return color_law_dict
+        # end get_color_law
 
     def merge_cleanup_final(self):
 
@@ -473,7 +572,7 @@ class train_SALT2(Program):
         util.compress_files(+1, script_dir, f"{prefix}*", prefix, "" )
 
         # - - - - - -
-        # maybe later, SALTPATH -> SALTPATH.tar and TRAIN -> TRAIN.tar
+        # maybe later, CALIB -> CALIB.tar and TRAIN -> TRAIN.tar
 
         # end merge_cleanup_final
 

@@ -602,6 +602,9 @@ def write_job_info(f,JOB_INFO,icpu):
     if 'setenv' in JOB_INFO :
         f.write(f"{JOB_INFO['setenv']} \n")
 
+    # check optional start-file stamp (alternate way to get CPU time)
+    if 'start_file' in JOB_INFO :
+        f.write(f"touch {JOB_INFO['start_file']} \n")
     # - - - - - - - - - 
     f.write(f"{program} {input_file} \\\n")
     # write each arg on separte line for easier viewing

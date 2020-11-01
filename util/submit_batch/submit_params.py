@@ -159,12 +159,6 @@ CONFIG:
   BATCH_INFO: sbatch [batch_template_file]  [n_core] 
      or 
   NODELIST: [node1] [node2] ...  # for ssh 
-  
-  # optional switch from using default $SNANA_DIR/bin/snlc_sim.exe
-  JOBNAME: $MY_PATH/snlc_sim.exe 
-
-  # optional switch from using default $SNANA_DIR/bin/snlc_fit.exe
-  JOBNAME: $MY_PATH/snlc_fit.exe 
 
   # optional memory request (default is 2 GB)
   BATCH_MEM: 4000Mb     # 4GB (e..g, extra mem for big SIMSED models)
@@ -226,6 +220,9 @@ HELP_CONFIG_SIM =  f"""
 
   """ +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
+  # optional switch from using default $SNANA_DIR/bin/snlc_sim.exe
+  JOBNAME: $MY_PATH/snlc_sim.exe 
+
   # option to re-route data files (default is $SNDATA_ROOT/SIM)
   PATH_SNDATA_SIM:  $SCRATCH_SIMDIR 
 
@@ -300,6 +297,9 @@ HELP_CONFIG_FIT = f"""
 
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
+  # optional switch from using default $SNANA_DIR/bin/snlc_fit.exe
+  JOBNAME: $MY_PATH/snlc_fit.exe 
+
   OUTDIR:  [outdir]              # all output goes here
   VERSION:
   - MY_DATA    # in $SNDATA_ROOT/lcmerge, or PRIVATE_DATA_PATH 
@@ -369,6 +369,9 @@ HELP_CONFIG_BBC = f"""
     ***** HELP/MENU for BBC YAML Input *****
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
+  # optional switch from using default $SNANA_DIR/bin/SALT2mu.exe
+  JOBNAME: $MY_PATH/SALT2mu.exe 
+
   INPDIR+: 
   - dirSurvey1  # LCFIT OUTDIR for Survey1
   - dirSurvey2  # LCFIT OUTDIR for Survey2
@@ -437,6 +440,27 @@ HELP_CONFIG_BBC = f"""
 #END_YAML
 
 """
+
+
+HELP_CONFIG_TRAIN_SALT2 = f"""
+    ***** HELP/MENU for TRAIN_SALT2 YAML Input *****
+  """  +  (f"{HELP_CONFIG_GENERIC}") +  \
+  f"""
+  # Must specify name of training script (because it's outside SNANA)
+  JOBNAME: [train_script_name]
+
+  PATH_INPUT_TRAIN: [path]  # input data files and config for snpca
+
+  PATH_INPUT_CALIB: [path] # input Instrument and MagSys (aka SALTPATH)
+
+  TRAINOPT:
+  - ZPSHIFT   SDSS g 0.01  # NOT YET WORKING
+  - ZPSHIFT   CFA4 B 0.01  # NOT YET WORKING
+  - WAVESHIFT SDSS r 10.0  # NOT YET WORKING
+
+  OUTDIR:   [outdir]   # all output goes here
+"""
+
 
 HELP_MERGE = f"""
           MERGE LOGIC
@@ -585,12 +609,13 @@ A reasonable choice is aiz_thresh=30 so that P_FF ~ E-6
 
 # - - - - - - - 
 HELP_MENU = { 
-    'SIM' : HELP_CONFIG_SIM,
-    'FIT' : HELP_CONFIG_FIT,
-    'BBC' : HELP_CONFIG_BBC,
-    'TRANSLATE' : HELP_TRANSLATE,
-    'MERGE'     : HELP_MERGE,
-    'AIZ'       : HELP_AIZ     # ABORT_IF_ZERO
+    'SIM'         : HELP_CONFIG_SIM,
+    'FIT'         : HELP_CONFIG_FIT,
+    'BBC'         : HELP_CONFIG_BBC,
+    'TRAIN_SALT2' : HELP_CONFIG_TRAIN_SALT2,
+    'TRANSLATE'   : HELP_TRANSLATE,
+    'MERGE'       : HELP_MERGE,
+    'AIZ'         : HELP_AIZ     # ABORT_IF_ZERO
 }
 
 # === END ===

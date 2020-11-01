@@ -1016,8 +1016,7 @@ class BBC(Program):
                 job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
-                # write JOB_INFO to file f
-
+        # - - - - 
         f.close()
 
         # end write_command_file

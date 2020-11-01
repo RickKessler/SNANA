@@ -136,7 +136,7 @@ def which_program_class(config):
         program_class = LightCurveFit
     elif "INPDIR+" in CONFIG :
         program_class = BBC
-    elif "SALT2_MODEL_BASE" in CONFIG :
+    elif "SALTPATH_BASE" in CONFIG :
         program_class = train_SALT2
     else :
         sys.exit("\nERROR: Could not determine program_class")

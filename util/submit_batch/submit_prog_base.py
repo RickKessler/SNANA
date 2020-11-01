@@ -82,6 +82,10 @@ class Program:
         raise NotImplementedError()
 
     @abstractmethod       
+    def merge_config_prep(self,output_dir):
+        raise NotImplementedError()
+
+    @abstractmethod       
     def merge_cleanup_final(self):
         raise NotImplementedError()
 
@@ -331,11 +335,11 @@ class Program:
         self.config_prep['batch_file_list']   = batch_file_list
         self.config_prep['BATCH_FILE_LIST']   = BATCH_FILE_LIST
 
-        # make all CMD files group-executable with g+x.
+        # make all CMD files group-executable with +x.
         # Python os.chmod is tricky because it may only apply 
         # permission to user, or wipe out group privs. 
         # To make things easier here, we just use os.system().
-        cmd_chmod = (f"chmod g+x {script_dir}/CPU*.CMD")
+        cmd_chmod = (f"chmod +x {script_dir}/CPU*.CMD")
         os.system(cmd_chmod);
 
         n_job_tot   = self.config_prep['n_job_tot']

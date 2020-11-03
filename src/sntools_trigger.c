@@ -714,7 +714,7 @@ void check_SEARCHEFF_DETECT(int imap) {
 
   char 
     *ptr_effname 
-    ,cline[100]
+    ,cline[MXPATHLEN]
     ,fnam[] = "check_SEARCHEFF_DETECT" 
     ;
 
@@ -842,7 +842,7 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
   FILE *fp ;
 
   char 
-     cline[100]
+     cline[MXPATHLEN]
     ,logic[60]
     ,c_get[60]
     ,surveykey[60]

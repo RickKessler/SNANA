@@ -19211,4 +19211,20 @@
 
    submit_train_SALT2.py:  new method for submit_batch.
    
+
+# ======================================================================= 
+         v11_02 (  ) 
+
+         ***** IMPORTANT(v11_02) ***** 
+
+   + change VPEC sign convention codes, and in public data versions.
+
+         ***** USEFUL(v11_02) ***** 
+
+         ***** MISCELLANEOUS(v11_02) ***** 
+
+    + snana.car:   RESTORE_WRONG_VPEC = .FALSE.
+    + snlc_sim.c:  INPUTS.RESTORE_WRONG_VPEC = false ;
+    + get_vpec.py: change sign of returned vpec 
+
 END: 

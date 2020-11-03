@@ -3556,7 +3556,8 @@ c default is to reject nothing (accept everything)
       USESIM_TRUEFLUX = .FALSE.
 
       RESTORE_DES3YR     = .FALSE.
-      RESTORE_WRONG_VPEC = .TRUE.  ! Oct 26 2020
+cc xxx      RESTORE_WRONG_VPEC = .TRUE.  ! Oct 26 2020
+      RESTORE_WRONG_VPEC = .FALSE.  ! Nov 3 2020
       REQUIRE_DOCANA     =  0      ! use integer to match sim usage
 
       USE_SNHOST_ZPHOT = .FALSE.

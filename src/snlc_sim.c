@@ -26752,6 +26752,7 @@ void append_SNPHOT_TEXT(void) {
   //   + use strcat in instead of sprintf(tmpLine,"%sxx", tmpLine ...)
   //
   // Jan 23 2020: include AVwarp and Kcor for rest-frame models
+  // Nov 03 2020: increment NVAR_TEXT for WRFLAG_BLINDTEST == 0
 
   FILE *fp;
   int ISMODEL_FIXMAG    = ( INDEX_GENMODEL == MODEL_FIXMAG );
@@ -26780,6 +26781,8 @@ void append_SNPHOT_TEXT(void) {
 
   if ( WRFLAG_BLINDTEST  ) 
     { NVAR_TEXT -= 4 ; } // exclude sim info
+  else 
+    { NVAR_TEXT += 1 ; } // bug fix, Nov 3 2020
 
   if ( APPEND_MAGREST    ) 
     { NVAR_TEXT += 4 ; } // rest-filter, rest-mag, AVwarp, kcor

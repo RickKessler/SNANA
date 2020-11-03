@@ -19197,7 +19197,7 @@
 
 
 # ======================================================================= 
-         v11_01b (  ) 
+         v11_01b (Nov 2 2020) 
 
          ***** IMPORTANT(v11_01b) ***** 
 
@@ -19209,4 +19209,6 @@
      + "CUTWIN varname_pIa xx yy" will substitute with arg of varname_pIa.
        Enables easy command-line override of which varname_pIa to use.
 
+   submit_train_SALT2.py:  new method for submit_batch.
+   
 END: 

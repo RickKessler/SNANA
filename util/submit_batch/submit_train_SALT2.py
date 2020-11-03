@@ -26,6 +26,10 @@ SALTPATH_FILES  = [ 'fitmodel.card',  'Instruments',  'MagSys' ]
 SUBDIR_CALIB    = "CALIB_TRAIN"    # a.k.a SALTPATH
 SUBDIR_TRAIN    = "OUTPUT_TRAIN"
 
+# define subdirs under SUBDIR_CALIB ($SALTPATH)
+SUBDIR_MAGSYS   = "MagSys"
+SUBDIR_INSTR    = "Instruments"
+
 # define keys for CONFIG inputs
 KEY_PATH_INPUT_TRAIN = "PATH_INPUT_TRAIN"  # required (data,conf files)
 KEY_PATH_INPUT_CALIB = "PATH_INPUT_CALIB"  # required (a.k.a, SALTPATH)
@@ -34,6 +38,12 @@ KEY_MODEL_SUFFIX     = "MODEL_SUFFIX"      # optional: change MODEL suffix
 # Define suffix for output model used by LC fitters.
 # Default output dirs are SALT2.MODEL000, SALT2.MODEL001, ...
 MODEL_SUFFIX_DEFAULT = "MODEL"        
+
+# Define list of trained SALT2 model files to check for existence;
+# their existence defines SUCCESS/FAIL of training job.
+COLORLAW_FILE   = "salt2_color_correction.dat"
+CHECK_FILE_LIST = [ "salt2_template_0.dat", "salt2_template_1.dat", 
+                    COLORLAW_FILE ]
 
 # define content for SALT2_INFO file
 SALT2_INFO_FILE    = "SALT2.INFO"    # created for SNANA programs
@@ -182,20 +192,186 @@ class train_SALT2(Program):
 
     def train_prep_SALTPATH(self,outdir_calib,num,arg):
 
-        # prepare calibration (pointed to by ENV $SALTPATH)
+        # prepare calibration file(s) pointed to by ENV $SALTPATH.
+        # First copy base calibration files, then check input arg
+        # (from TRAINOPT input) for instructions on modifying 
+        # calibration file(s).
+
         CONFIG           = self.config_yaml['CONFIG']
         PATH_INPUT_CALIB = CONFIG[KEY_PATH_INPUT_CALIB] # aka SALTPATH
+        msgerr = []
 
         logging.info(f"\t Prepare {SUBDIR_CALIB}/{num}")
         for item in SALTPATH_FILES :
             cmd_rsync = (f"rsync -r {PATH_INPUT_CALIB}/{item} {outdir_calib}")
             os.system(cmd_rsync)
 
-        # insert code here from Georgie/Chris to modify outdir_saltpath
-        # based on user {arg} passed from input file.
+        if arg == '' : return
+
+        #return # xxxx REMOVE
+
+        if 'MAGSHIFT' in arg :
+            mag_file, mag_arg_list, mag_shift = \
+                    self.parse_MAGSHIFT(outdir_calib,arg)
+            nchange = \
+                self.update_file_shift_mag(mag_file,mag_arg_list,mag_shift)
+            if nchange != 1:
+                msgerr.append(f"Applied {nchange} mag changes, but expect 1.")
+                msgerr.append(f"Check user TRAINOPT '{arg}' ")
+                msgerr.append(f"and check mag file")
+                msgerr.append(f"   {mag_file}")
+                self.log_assert(False,msgerr)
+
+        elif 'WAVESHIFT' in arg :
+            filter_file, wave_shift = \
+                    self.parse_WAVESHIFT(outdir_calib,arg)
+            status = self.update_file_shift_wave(filter_file, wave_shift)
+            if status != 0 :
+                msgerr.append(f"Unable to open filter-transmissino file")
+                msgerr.append(f"  {filter_file}")
+                self.log_assert(False,msgerr)            
+        else :
+            pass
 
         # end train_prep_SALTPATH
 
+    def parse_MAGSHIFT(self,outdir_calib,arg):
+        # parse TRAINOPT arg and return 
+        #  1) mag file name to modify
+        #  2) list of keys to identify row to modify
+        #  3) mag shift to add
+
+        arg_split    = arg.split()
+        survey       = arg_split[1]
+        band         = arg_split[2]
+        mag_shift    = float(arg_split[3])
+        mag_arg_list = [ survey, band ]
+
+        # use map to convert survey/band into file .xyz
+        mag_file = (f"{outdir_calib}/{SUBDIR_MAGSYS}/SDSS-AB-off.dat")
+
+        print(f"\n XXX TEST CHANGE IN MAG-FILE {mag_file}")
+        return mag_file, mag_arg_list, mag_shift
+        # end parse_MAGSHIFT
+
+    def parse_WAVESHIFT(self,outdir_calib,arg):
+        # parse TRAINOPT arg and return 
+        #  1) filter-transmission file name to modify
+        #  2) wave shift.
+
+        arg_split    = arg.split()
+        survey       = arg_split[1]
+        band         = arg_split[2]
+        wave_shift   = float(arg_split[3])
+
+        # use map to convert survey/band into file name .xyz
+        filter_file  = outdir_calib 
+        filter_file += (f"/{SUBDIR_INSTR}/Keplercam/{band}_Keplercam.txt")
+
+        print(f"\n XXX TEST CHANGE IN FILTER-FILE {filter_file}")
+        return filter_file, wave_shift
+        # end parse_WAVESHIFT
+
+    def update_file_shift_wave(self,filter_file, wave_shift):
+        # modify filter_file to have wavelength shift of wave_shift. 
+        if not os.path.exists(filter_file): return -1
+        msgerr     = []
+        line_list_out = []
+        line_list_inp = []
+        line_list_out.append(f"# wave_shift = {wave_shift} A has been " \
+                             "applied by\n")
+        line_list_out.append(f"#    {sys.argv[0]}\n")
+
+        # scoop up lines in file
+        with open(filter_file,"rt") as f:
+            for line in f:
+                line_list_inp.append(line)
+
+        # shift value in first column
+        for line in line_list_inp:
+            word_list = line.split()
+            line_list_out.append(line) # default new line = old line
+
+            if line[0] == '#' : continue
+            word_list = (line.rstrip("\n")).split()
+            if len(word_list) < 2 : continue
+            wave_orig = float(word_list[0])
+            wave_out  = wave_orig + wave_shift
+            new_line  = str(wave_out) + "  " + " ".join(word_list[1:])
+            line_list_out[-1:] = (f" {new_line} \n")
+
+        # - - - - - - - -
+        with open(filter_file,"wt") as f:
+            f.write("".join(line_list_out))
+
+        return 0
+        # end update_file_shift_wave
+
+    def update_file_shift_mag(self, file_name, key_list, mag_shift ):
+
+        # for input file_name, search for key_list sequence and 
+        # shift value by mag_shift.
+        # Example: key_list = [ SDSS, u ] and mag_shift = 0.01
+        # If file_name includes a line with
+        #    SDSS u 0.022
+        # then modify the file line to be
+        #    SDSS u 0.032  #  0.022 + 0.01
+        #
+        # F
+        # If file_name does not exist, return -1.
+        #
+        # Perhaps move to submit_util?
+
+        if not os.path.exists(file_name): return -1
+
+        nchange    = 0
+        nkey       = len(key_list)  # number of key strings to match
+        key_string = " ".join(key_list)
+        msgerr     = []
+        line_list_out = []
+        line_list_inp = []
+        line_list_out.append(f"# This file has been modified by\n")
+        line_list_out.append(f"#    {sys.argv[0]}\n\n")
+
+        # scoop up lines in file
+        with open(file_name,"rt") as f:
+            for line in f:
+                line_list_inp.append(line)
+
+        # look for line(s) to modify
+        for line in line_list_inp:
+            line_list_out.append(line) # default new line = old line
+            nmatch_key = 0
+            if line[0] == '#' : continue
+            word_list = (line.rstrip("\n")).split()
+            if len(word_list) < nkey + 1 : continue
+
+            for i in range(0,nkey):
+                if key_list[i] == word_list[i] : nmatch_key += 1
+            if nmatch_key == nkey:
+                strval = word_list[nkey] 
+                try :
+                    value = float(strval)
+                except:
+                    msgerr.append(f"Expected float after '{key_string}'" )
+                    msgerr.append(f"but found {strval}")
+                    msgerr.append(f"Check file: {file_name}")
+                    self.log_assert(False,msgerr)
+
+                new_value  = value + mag_shift
+                new_line   = (f"{key_string} {new_value:.6f}" \
+                              f"   # {value} + {mag_shift} \n")
+                line_list_out[-1:] = new_line  # overwrite last line_out
+                nchange += 1
+
+        # modify file with line_list_out
+        if nchange > 0 :
+            with open(file_name,"wt") as f:
+                f.write("".join(line_list_out))
+
+        return nchange
+        # end shift_float_value
+    
     def write_command_file(self, icpu, COMMAND_FILE):
 
         n_core          = self.config_prep['n_core']
@@ -423,23 +599,19 @@ class train_SALT2(Program):
 
     def get_train_status(self,trainopt):
 
-        # for input trainopt (e.g., TRAINOPT001), check if SALT2
-        # training succeeded (returns True) or failed (returns False).
-        # Initial check (Halloween, 2020) is existance of
-        #   output_dir/trainopt/MODEL/salt2_template_0.dat
-        #   output_dir/trainopt/MODEL/salt2_template_1.dat
+        # For input trainopt (e.g., TRAINOPT001), check if SALT2
+        # training succeeds and return status = True or False.
+        # Initial check (Halloween, 2020) is existance of files in
+        # global CHECK_FILE_LIST array.
         #
-        # Function returns success(True or False),tproc (process time, minutes)
+        # Also get CPU process time (tproc) based on START and DONE files.
+        # Function returns 
+        #     status,tproc
 
-        #submit_info_yaml = self.config_prep['submit_info_yaml']
-        output_dir       = self.config_prep['output_dir']
-        script_dir       = self.config_prep['script_dir']
-
-        model_dir  = self.get_path_trainopt("MODEL",trainopt)
-        train_dir  = self.get_path_trainopt(SUBDIR_TRAIN,trainopt)
-
-        s0_file    = (f"{model_dir}/salt2_template_0.dat")
-        s1_file    = (f"{model_dir}/salt2_template_1.dat")
+        output_dir   = self.config_prep['output_dir']
+        script_dir   = self.config_prep['script_dir']
+        model_dir    = self.get_path_trainopt("MODEL",trainopt)
+        train_dir    = self.get_path_trainopt(SUBDIR_TRAIN,trainopt)
 
         # get process time between START and DONE files
         done_file  = (f"{script_dir}/{trainopt}.DONE")
@@ -448,16 +620,23 @@ class train_SALT2(Program):
         tstart     = os.path.getmtime(start_file)
         tproc      = int((tdone - tstart)/60.0)
 
-        if not os.path.exists(s0_file) : return False,tproc
-        if not os.path.exists(s1_file) : return False,tproc
+        # check for existence of SALT2 model files
+        nerr = 0
+        for check_file in CHECK_FILE_LIST:
+            CHECK_FILE = (f"{model_dir}/{check_file}")
+            if os.path.exists(CHECK_FILE) : 
+                # make sure each file has something in it
+                num_lines = sum(1 for line in open(CHECK_FILE))
+                if num_lines < 3 : 
+                    nerr += 1
+                    logging.info(f" ERROR: only {num_lines} in {CHECK_FILE}")
+            else:
+                nerr += 1
+                logging.info(f" ERROR: missing {CHECK_FILE}")
 
-        # make sure each file has something in it
-        num_lines_s0 = sum(1 for line in open(s0_file))
-        num_lines_s1 = sum(1 for line in open(s1_file))
-        if num_lines_s0 < 100 : return False,tproc
-        if num_lines_s1 < 100 : return False,tproc
-
-        return True,tproc
+        # - - - - - - - - -
+        status = (nerr == 0)
+        return status,tproc
         # end get_train_status
 
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
@@ -528,7 +707,7 @@ class train_SALT2(Program):
         # #end merge_create_SALT2_INFO_file
         
     def get_color_law(self,model_dir):
-        file_name = (f"{model_dir}/salt2_color_correction.dat")
+        file_name = (f"{model_dir}/{COLORLAW_FILE}")
         color_law_dict = {}
 
         nline = 0; npar_tot = -1; npar_read=0; cpar_list = []

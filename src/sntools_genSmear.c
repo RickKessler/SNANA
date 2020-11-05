@@ -1059,6 +1059,9 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // Aug 28 2019:
   //  + add GENRANGE_REDSHIFT argument, and abort on potential gen-errors.
   //  + add logic for last NODE bin
+  //
+  // Nov 4 2020: allow for salt2 or salt3 in file name for 
+  //             salt2[3]_color_dispersions
 
   //  double SED_LAMMIN =  SALT2_TABLE.LAMMIN;
   double SED_LAMMAX =  SALT2_TABLE.LAMMAX;  
@@ -1102,8 +1105,12 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   }
 
   // --------------------------------------------
-  // read dispersion vs. lambda   
-  sprintf(dispFile, "%s/salt2_color_dispersion.dat", versionSALT2);
+  // read dispersion vs. lambda : 
+  // Use already-determine filename that allows for salt2 or salt3
+
+  // xxx  sprintf(dispFile, "%s/salt2_color_dispersion.dat", versionSALT2);
+  sprintf(dispFile, "%s/%s", 
+	  versionSALT2, SALT2_ERRMAP_FILES[INDEX_ERRMAP_COLORDISP]);
   read_genSmear_SALT2disp(dispFile) ;
 
   // ----
@@ -1236,7 +1243,7 @@ void read_genSmear_SALT2sigcoh(char *versionSALT2,
   //
   // May 30 2018: refactor to fill struct SIGCOH_LAM (sigcoh vs. lam)
   //
-
+  // Fix INFO_FILE to work with SALT2 or SALT3
 
   FILE *fp ;
   char INFO_FILE[MXPATHLEN], *keyName, c_get[60], keyArg[80] ;
@@ -1246,7 +1253,8 @@ void read_genSmear_SALT2sigcoh(char *versionSALT2,
 
   // --------- BEGIN -------
 
-  sprintf(INFO_FILE, "%s/SALT2.INFO", versionSALT2);
+  // xxx  sprintf(INFO_FILE, "%s/SALT2.INFO", versionSALT2);
+  sprintf(INFO_FILE, "%s/%s", versionSALT2, SALT2_INFO_FILE ); // 11.04.2020
 
   if ( (fp = fopen(INFO_FILE, "rt")) == NULL ) { 
       sprintf(c1err,"Cannot open infoFile " );

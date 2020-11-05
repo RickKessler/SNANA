@@ -6253,12 +6253,6 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   }
   a_half /= WTOT;  b_half /= WTOT;
 
-  /* xxxxxxx mark delete Jan 14 2020 xxxxxxxxx
-  j    = 0;     // what about multi-component profile ??
-  a_half   = SERSIC.a[j]; // half-light radius, major axis
-  b_half   = SERSIC.b[j]; // half-light radius, minor axis
-  xxxxxxxxx end mark xxxxxxxxxxx */
-
   a_rot    = SERSIC.a_rot ;   // rot angle (deg) w.r.t. RA
 
   // for DLR calc, move to frame where RA=DEC=0 for galaxy center
@@ -6277,8 +6271,9 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   cosTH   = DOTPROD/(LEN_SN*a_half);
 
   if ( fabs(cosTH) > 1.0000 ) {
-    sprintf(c1err,"Invalid cosTH = %f", cosTH);
-    sprintf(c1err,"LEN_SN = %f, a_half=%f, DOT=%f \n",
+    sprintf(c1err,"Invalid cosTH = %f for GALID=%lld", 
+	    cosTH, SNHOSTGAL.GALID);
+    sprintf(c2err,"LEN_SN = %f, a_half=%f, DOT=%f ",
 	    LEN_SN, a_half, DOTPROD);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }

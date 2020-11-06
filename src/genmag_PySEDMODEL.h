@@ -44,8 +44,8 @@ struct {
 // function declarations
 void load_PySEDMODEL_CHOICE_LIST(void);
 
-void init_genmag_PySEDMODEL(char *PATH_VERSION, int OPTMASK, char *ARGLIST, 
-			    char *NAMES_HOSTPAR ) ;
+void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, 
+			    int OPTMASK, char *ARGLIST, char *NAMES_HOSTPAR);
 
 void get_MODEL_NAME_PySEDMODEL(char *PATH,char *MODEL_NAME);
 

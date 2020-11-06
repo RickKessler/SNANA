@@ -259,7 +259,11 @@ void get_MODEL_NAME_PySEDMODEL(char *PATH,char *MODEL_NAME) {
     if ( strstr(PATH,ptrModel) ) { sprintf(MODEL_NAME, "%s", ptrModel); }
   }
 
-  if ( strlen(MODEL_NAME) == 0 ) {   }
+  if ( strlen(MODEL_NAME) == 0 ) {  
+    sprintf(c1err,"Could not determine MODEL_NAME from") ;
+    sprintf(c2err,"PATH='%s' ", PATH );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
 
   return;
 } // end get_MODEL_NAME

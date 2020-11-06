@@ -7391,6 +7391,8 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
   //
   // Function returns number of HOSTPAR params
   // Initial use was for the sim to pass host par to BYOSED.
+  //
+  // Nov 5 2020: add REDSHIFT to list.
 
   int  NPAR=0, ivar ;
   int  NVAR_WGTMAP = HOSTLIB_WGTMAP.GRIDMAP.NDIM ;
@@ -7401,15 +7403,12 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
 
   if ( OPT == 1 ) {
     // always start with RV and AV    
-    sprintf(NAMES_HOSTPAR,"RV,AV"); NPAR=2;
+    // xxx more delete    sprintf(NAMES_HOSTPAR,"RV,AV"); NPAR=2;
+    sprintf(NAMES_HOSTPAR,"RV,AV,REDSHIFT");  NPAR=3;
 
     for ( ivar=0; ivar < NVAR_WGTMAP; ivar++ ) {  
       catVarList_with_comma(NAMES_HOSTPAR,HOSTLIB_WGTMAP.VARNAME[ivar]);
       NPAR++ ;
-      /* xxx mark delete Jul 14 2020 xxxxxx
-      strcat(NAMES_HOSTPAR,COMMA);
-      strcat(NAMES_HOSTPAR,HOSTLIB_WGTMAP.VARNAME[ivar]); 
-      xxxxx */
     }
 
     // tack on user-defined variables from sim-input HOSTLIB_STOREPAR key
@@ -7417,17 +7416,14 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
       if ( HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[ivar] ) { continue; }
       catVarList_with_comma(NAMES_HOSTPAR,HOSTLIB_OUTVAR_EXTRA.NAME[ivar]);
       NPAR++ ;
-      /* xxxxxx mark delete Jul 14 2020 xxxxxx
-      strcat(NAMES_HOSTPAR,comma);
-      strcat(NAMES_HOSTPAR,HOSTLIB_OUTVAR_EXTRA.NAME[ivar]);
-      */
     }
     // add anything used in WGTMAP or HOSTLIB_STOREPAR
   }
   else if ( OPT ==  2 ) {
-    VAL_HOSTPAR[0] = GENLC.RV;
-    VAL_HOSTPAR[1] = GENLC.AV;
-    NPAR=2;
+    VAL_HOSTPAR[0] = GENLC.RV ;
+    VAL_HOSTPAR[1] = GENLC.AV ;
+    VAL_HOSTPAR[2] = GENLC.REDSHIFT_CMB ;
+    NPAR = 3 ; 
 
     for ( ivar=0; ivar < NVAR_WGTMAP; ivar++ ) {  
       VAL_HOSTPAR[NPAR] = SNHOSTGAL.WGTMAP_VALUES[ivar] ;

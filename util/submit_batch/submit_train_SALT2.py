@@ -11,16 +11,18 @@
 #   * how is SUCCESS determined ? Existence of salt2_template_[01].dat ?
 #   * fast option ?
 # 
-import os, sys, shutil, yaml, glob
-import logging, coloredlogs
-import datetime, time, subprocess
-import submit_util as util
-from   submit_params    import *
-from   submit_prog_base import Program
 
-TRAINOPT_STRING = "TRAINOPT"
-SALTPATH_STRING = "SALTPATH"  # env name of calib path for snpca
-SALTPATH_FILES  = [ 'fitmodel.card',  'Instruments',  'MagSys' ]
+import  os, sys, shutil, yaml, glob
+import  logging, coloredlogs
+import  datetime, time, subprocess
+import  submit_util as util
+from    submit_params    import *
+from    submit_prog_base import Program
+
+TRAINOPT_STRING  = "TRAINOPT"
+SALTPATH_STRING  = "SALTPATH"  # env name of calib path for snpca
+SALTPATH_FILES   = [ 'fitmodel.card',  'Instruments',  'MagSys' ]
+FILTERWHEEL_FILE = "FilterWheel"
 
 # define subdirs to contain outputs of snpca that are not used by LC fitters
 SUBDIR_CALIB    = "CALIB_TRAIN"    # a.k.a SALTPATH
@@ -34,6 +36,9 @@ SUBDIR_INSTR    = "Instruments"
 KEY_PATH_INPUT_TRAIN = "PATH_INPUT_TRAIN"  # required (data,conf files)
 KEY_PATH_INPUT_CALIB = "PATH_INPUT_CALIB"  # required (a.k.a, SALTPATH)
 KEY_MODEL_SUFFIX     = "MODEL_SUFFIX"      # optional: change MODEL suffix
+
+KEY_MAGSHIFT  = "MAGSHIFT"
+KEY_WAVESHIFT = "WAVESHIFT"
 
 # Define suffix for output model used by LC fitters.
 # Default output dirs are SALT2.MODEL000, SALT2.MODEL001, ...
@@ -96,13 +101,35 @@ class train_SALT2(Program):
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file 
 
+        # read survey map to magSys and Instruments
+        self.train_prep_survey_map()
+
         # scoop up TRAINOPT list from user CONFIG
         self.train_prep_trainopt_list()
 
-        # foreach training, prepare path for SALTPATH and for training output
+        # foreach training, prepare output paths
         self.train_prep_paths()
 
         # end submit_prepare_driver
+
+    def train_prep_survey_map(self):
+
+        # read survey.yaml map so that user-input calibration shifts
+        # can be converted into a specific file & key-value to modify.
+        # This map is NOT used for nominal training; it is used only
+        # for systematic variations in the calibration.
+
+        CONFIG           = self.config_yaml['CONFIG']
+        PATH_INPUT_CALIB = CONFIG[KEY_PATH_INPUT_CALIB] # aka SALTPATH
+
+        # survey_map_file = (f"{PATH_INPUT_CALIB}/survey.yaml")
+        survey_map_file = (f"survey.yaml")
+        survey_yaml     = util.extract_yaml(survey_map_file)
+        
+        self.config_prep['survey_yaml'] = survey_yaml
+        #sys.exit(f"\n xxx survey_yaml = {survey_yaml}")
+
+        # end train_prep_survey_map
 
     def train_prep_trainopt_list(self):
         CONFIG           = self.config_yaml['CONFIG']
@@ -135,7 +162,6 @@ class train_SALT2(Program):
     def get_path_trainopt(self,which,trainopt):
         output_dir    = self.config_prep['output_dir']
         path          = ""
-        # print(f" xxx trainopt={trainopt}  nnn={nnn}")
         if which == SUBDIR_CALIB :
             path = (f"{output_dir}/{SUBDIR_CALIB}/{trainopt}")
         elif which == SUBDIR_TRAIN :
@@ -166,6 +192,7 @@ class train_SALT2(Program):
         outdir_calib_list  = []
         outdir_train_list  = []
         outdir_model_list  = []
+        update_calib_info  = []
 
         topdir_calib    = (f"{output_dir}/{SUBDIR_CALIB}")
         topdir_train    = (f"{output_dir}/{SUBDIR_TRAIN}")
@@ -182,99 +209,264 @@ class train_SALT2(Program):
             os.mkdir(outdir_calib)
             os.mkdir(outdir_train)
             os.mkdir(outdir_model)
-            self.train_prep_SALTPATH(outdir_calib,trainopt,arg)
-            
+            info = self.train_prep_SALTPATH(outdir_calib,trainopt,arg)
+            if info is not None : update_calib_info += info
+
         self.config_prep['outdir_calib_list']  =  outdir_calib_list
         self.config_prep['outdir_train_list']  =  outdir_train_list
         self.config_prep['outdir_model_list']  =  outdir_model_list
+        self.config_prep['update_calib_info' ] =  update_calib_info
+
+        logging.info("")
+
+        #sys.exit(f"\n xxx DEBUG EXIT xxxx\n")
 
         # end train_prep_paths
 
-    def train_prep_SALTPATH(self,outdir_calib,num,arg):
+    def train_prep_SALTPATH(self,outdir_calib,trainopt,arg):
 
         # prepare calibration file(s) pointed to by ENV $SALTPATH.
-        # First copy base calibration files, then check input arg
-        # (from TRAINOPT input) for instructions on modifying 
-        # calibration file(s).
+        # First copy base calibration files, then examine input arg
+        # (passed from TRAINOPT input) and modify calibratoin files
+        # (MagSys and Instrument filters) accordingly.
+        #
+        # Function returns calib_updates, a diagnostic info array for 
+        # the SUBMIT_INFO file to enable humans to trace changes.
+        # Note that calib_updates is strictly for diagnostics and
+        # not used here internally.
 
         CONFIG           = self.config_yaml['CONFIG']
         PATH_INPUT_CALIB = CONFIG[KEY_PATH_INPUT_CALIB] # aka SALTPATH
-        msgerr = []
+        msgerr           = []
+        calib_updates    = []
 
-        logging.info(f"\t Prepare {SUBDIR_CALIB}/{num}")
+        logging.info(f"   Prepare {SUBDIR_CALIB}/{trainopt}")
         for item in SALTPATH_FILES :
             cmd_rsync = (f"rsync -r {PATH_INPUT_CALIB}/{item} {outdir_calib}")
             os.system(cmd_rsync)
 
         if arg == '' : return
+        arg_list = arg.split()
 
-        #return # xxxx REMOVE
+        # search each item in arg_list to allow for multiple sets
+        # of MAGSHIFT or WAVESHIFT in a given TRAINOPT
+        iarg = 0
+        for item in arg_list :
+            if item == KEY_MAGSHIFT or item == KEY_WAVESHIFT :
+                arg_sublist = arg_list[iarg:iarg+4]
+                key         = item
+                survey      = arg_sublist[1]
+                band_list   = arg_sublist[2].split(",")
+                shift_list  = arg_sublist[3].split(",")
+                if key == KEY_MAGSHIFT :
+                    magsys_file,Instr_list = \
+                        self.get_magsys_file(outdir_calib, survey)
 
-        if 'MAGSHIFT' in arg :
-            mag_file, mag_arg_list, mag_shift = \
-                    self.parse_MAGSHIFT(outdir_calib,arg)
-            nchange = \
-                self.update_file_shift_mag(mag_file,mag_arg_list,mag_shift)
-            if nchange != 1:
-                msgerr.append(f"Applied {nchange} mag changes, but expect 1.")
-                msgerr.append(f"Check user TRAINOPT '{arg}' ")
-                msgerr.append(f"and check mag file")
-                msgerr.append(f"   {mag_file}")
-                self.log_assert(False,msgerr)
+                    info = \
+                        self.update_magsys_file(magsys_file, Instr_list, 
+                                                band_list, shift_list)
+                    calib_updates += info
+                    
+                elif key == KEY_WAVESHIFT :
+                    for band,shift in zip(band_list,shift_list):
+                        shift = float(shift)
+                        filter_file_list,Instr_list = \
+                            self.get_filter_file(outdir_calib, survey, band)
+                        for filter_file in filter_file_list:
+                            info = self.update_filter_file(filter_file, shift)
+                            calib_updates += info
+                else:
+                    pass # probably should abort 
 
-        elif 'WAVESHIFT' in arg :
-            filter_file, wave_shift = \
-                    self.parse_WAVESHIFT(outdir_calib,arg)
-            status = self.update_file_shift_wave(filter_file, wave_shift)
-            if status != 0 :
-                msgerr.append(f"Unable to open filter-transmissino file")
-                msgerr.append(f"  {filter_file}")
-                self.log_assert(False,msgerr)            
-        else :
-            pass
+            # - - - -
+            iarg += 1
 
+        # ---------------------
+        # prepend trainopt to each calib_updates item
+        calib_updates_final = []
+        for item in calib_updates:
+            calib_updates_final.append( [trainopt] + item)
+
+        return calib_updates_final
         # end train_prep_SALTPATH
 
-    def parse_MAGSHIFT(self,outdir_calib,arg):
-        # parse TRAINOPT arg and return 
-        #  1) mag file name to modify
-        #  2) list of keys to identify row to modify
-        #  3) mag shift to add
+    def get_magsys_file(self,outdir_calib,survey):
 
-        arg_split    = arg.split()
-        survey       = arg_split[1]
-        band         = arg_split[2]
-        mag_shift    = float(arg_split[3])
-        mag_arg_list = [ survey, band ]
+        # for input outdir_calib and survey, return full name of
+        # magsys_file, and also return Instrument list.
 
-        # use map to convert survey/band into file .xyz
-        mag_file = (f"{outdir_calib}/{SUBDIR_MAGSYS}/SDSS-AB-off.dat")
+        survey_yaml = self.config_prep['survey_yaml']
+        magsys_file = "null"
+        Instr       = "Null"
+        msgerr      = []
 
-        print(f"\n XXX TEST CHANGE IN MAG-FILE {mag_file}")
-        return mag_file, mag_arg_list, mag_shift
-        # end parse_MAGSHIFT
+        if survey in survey_yaml :
+            Instr_list       = survey_yaml[survey]['Instrument']
+            magsys_file_base = survey_yaml[survey]['MagSys_filename']
+            magsys_dir  = (f"{outdir_calib}/{SUBDIR_MAGSYS}")
+            magsys_file = (f"{magsys_dir}/{magsys_file_base}")
+            if not os.path.exists(magsys_file):
+                msgerr.append(f"Cannot find MagSys file:")
+                msgerr.append(f"  {magsys_file} ")
+                msgerr.append(f"for survey = {survey} and " \
+                              f"Instrument = {Instr_list} ")
+                self.log_assert(False,msgerr)
+        else:
+            input_file  = self.config_yaml['args'].input_file 
+            msgerr.append(f"Invalid TRAINOPT survey: {survey}")
+            msgerr.append(f"Check TRAINOPT in {input_file}")
+            self.log_assert(False,msgerr)
+    
+        return magsys_file, Instr_list
+        # end get_magsys_file
 
-    def parse_WAVESHIFT(self,outdir_calib,arg):
-        # parse TRAINOPT arg and return 
-        #  1) filter-transmission file name to modify
-        #  2) wave shift.
+    def update_magsys_file(self, magsys_file, Instr_list,band_list,shift_list):
 
-        arg_split    = arg.split()
-        survey       = arg_split[1]
-        band         = arg_split[2]
-        wave_shift   = float(arg_split[3])
+        # Edit/update magsys_file : search for row containing 
+        # instrument in Intr_list and band in band_list;
+        # shift mag value by shift_list.
+        #
+        # E.g., 
+        #   Instr_list = [STANDARD, LANDOLT]
+        #   band_list  = U,I
+        #   shift_list = -0.01, 0.01
+        #
+        # Mag values are shifted by -0.01 for U band, and +0.01 for I-band.
+        # These shifts are done for Instrument names STANDARD & LANDOLT.
+        #
+        # Function return human-readable "info" array destined for 
+        # SUBMIT.INFO file.
 
-        # use map to convert survey/band into file name .xyz
-        filter_file  = outdir_calib 
-        filter_file += (f"/{SUBDIR_INSTR}/Keplercam/{band}_Keplercam.txt")
+        info = []
+        if not os.path.exists(magsys_file): return info
 
-        print(f"\n XXX TEST CHANGE IN FILTER-FILE {filter_file}")
-        return filter_file, wave_shift
-        # end parse_WAVESHIFT
+        magsys_base = os.path.basename(magsys_file)
 
-    def update_file_shift_wave(self,filter_file, wave_shift):
-        # modify filter_file to have wavelength shift of wave_shift. 
-        if not os.path.exists(filter_file): return -1
+        msgerr     = []
+        nchange    = 0
+        line_list_out = []
+        line_list_inp = []
+        line_list_out.append(f"# This file has been modified by\n")
+        line_list_out.append(f"#    {sys.argv[0]}\n\n")
+
+        # scoop up lines in file
+        with open(magsys_file,"rt") as f:
+            for line in f:
+                line_list_inp.append(line)
+
+        # look for line(s) to modify
+        for line in line_list_inp:
+            line_list_out.append(line) # default new line = old line
+            if line[0] == '#' : continue
+
+            word_list = (line.rstrip("\n")).split()
+            if len(word_list) < 3 : continue
+
+            for band, shift in zip(band_list,shift_list):
+                Instr = word_list[0]
+                match = (Instr in Instr_list and word_list[1] == band)
+                if not match : continue 
+                strval = word_list[2] 
+                try :
+                    value = float(strval)
+                except:
+                    msgerr.append(f"Expected float after '{key_string}'" )
+                    msgerr.append(f"but found {strval}")
+                    msgerr.append(f"Check file: {file_name}")
+                    self.log_assert(False,msgerr)
+
+                new_value  = value + float(shift)
+                new_line   = (f"{Instr} {band} {new_value:.6f}" \
+                              f"   # {value} + {shift} \n")
+                line_list_out[-1:] = new_line  # overwrite last line_out
+                nchange += 1
+                val_string = (f"{Instr}-{band} = {value} -> {new_value:.6f}")
+                logging.info(f"\t Update {magsys_base}: {val_string}" )
+                info.append( [magsys_base,val_string])
+
+        # modify file with line_list_out
+        if nchange > 0 :
+            with open(magsys_file,"wt") as f:
+                f.write("".join(line_list_out))
+
+        return info
+
+        # end update_magsys_file
+
+    def get_filter_file(self,outdir_calib, survey, band ):
+        
+        # Return list if filter-transmission files corresponding to
+        # inputs
+        #   + outdir_calib  : full dir name within SALTPATH
+        #   + survey        : name of survey (e..g, CfA1)
+        #   + band          : band char
+        #
+        # Note that more than one filter-trans file can be returned;
+        # hence a list. Instrument list is also returned.
+
+        survey_yaml = self.config_prep['survey_yaml']
+        FILTER_FILE = "NULL"
+        filter_file = "null"
+        Instr       = "Null"
+        filter_file_list = []
+        Instr_list       = []
+
+        if survey in survey_yaml :
+            subdir_list = survey_yaml[survey]['Instrument_subdir']
+            Instr_list  = survey_yaml[survey]['Instrument']
+
+            for subdir in subdir_list:
+                filter_dir  = (f"{outdir_calib}/{SUBDIR_INSTR}/{subdir}")
+                FilterWheel = (f"{filter_dir}/{FILTERWHEEL_FILE}")
+                filter_file = self.parse_FilterWheel(FilterWheel,band)
+                if filter_file is not None:
+                    filter_file_list.append(f"{filter_dir}/{filter_file}")
+        else:
+            msgerr      = []
+            input_file  = self.config_yaml['args'].input_file 
+            msgerr.append(f"Invalid TRAINOPT survey: {survey}")
+            msgerr.append(f"Check TRAINOPT in {input_file}")
+            self.log_assert(False,msgerr)
+    
+        return filter_file_list, Instr_list
+
+        # end get_filter_file
+
+    def parse_FilterWheel(self,FilterWheel,band):
+
+        # parse FilterWheel file and for band return name of
+        # filter transmission file. File format is
+        #   band filter_name fileName  
+        # Note that filter_name is ignore here.
+        #
+        # Beware that FilterWheel can have 2 or 3 columns,
+        # so filter_file is last column.
+
+        filter_file = None
+        with open(FilterWheel,"rt") as f:
+            for line in f:
+                word_list = line.split()
+                if word_list[0] == band:
+                    filter_file = word_list[-1]
+    
+        return filter_file
+        # end parse_FilterWheel
+
+    def update_filter_file(self, filter_file, wave_shift):
+        # Modify filter_file to have wavelength shift of wave_shift. 
+        # Function returns human-readable "info" array destined for 
+        # SUBMIT.INFO file.
+
+        if not os.path.exists(filter_file): 
+            msgerr = []
+            msgerr.append(f"Cannot update non-existent filter_file:")
+            msgerr.append(f"{filter_file}")
+            self.log_assert(False,msgerr)
+
+        filter_base = os.path.basename(filter_file)
+        logging.info(f"\t Update {filter_base} with {wave_shift} A shift.")
+        info = [ [ filter_base, f"{wave_shift} A shift" ] ]
+
         msgerr     = []
         line_list_out = []
         line_list_inp = []
@@ -303,75 +495,10 @@ class train_SALT2(Program):
         # - - - - - - - -
         with open(filter_file,"wt") as f:
             f.write("".join(line_list_out))
+            
+        return info
+        # end update_filter_file
 
-        return 0
-        # end update_file_shift_wave
-
-    def update_file_shift_mag(self, file_name, key_list, mag_shift ):
-
-        # for input file_name, search for key_list sequence and 
-        # shift value by mag_shift.
-        # Example: key_list = [ SDSS, u ] and mag_shift = 0.01
-        # If file_name includes a line with
-        #    SDSS u 0.022
-        # then modify the file line to be
-        #    SDSS u 0.032  #  0.022 + 0.01
-        #
-        # F
-        # If file_name does not exist, return -1.
-        #
-        # Perhaps move to submit_util?
-
-        if not os.path.exists(file_name): return -1
-
-        nchange    = 0
-        nkey       = len(key_list)  # number of key strings to match
-        key_string = " ".join(key_list)
-        msgerr     = []
-        line_list_out = []
-        line_list_inp = []
-        line_list_out.append(f"# This file has been modified by\n")
-        line_list_out.append(f"#    {sys.argv[0]}\n\n")
-
-        # scoop up lines in file
-        with open(file_name,"rt") as f:
-            for line in f:
-                line_list_inp.append(line)
-
-        # look for line(s) to modify
-        for line in line_list_inp:
-            line_list_out.append(line) # default new line = old line
-            nmatch_key = 0
-            if line[0] == '#' : continue
-            word_list = (line.rstrip("\n")).split()
-            if len(word_list) < nkey + 1 : continue
-
-            for i in range(0,nkey):
-                if key_list[i] == word_list[i] : nmatch_key += 1
-            if nmatch_key == nkey:
-                strval = word_list[nkey] 
-                try :
-                    value = float(strval)
-                except:
-                    msgerr.append(f"Expected float after '{key_string}'" )
-                    msgerr.append(f"but found {strval}")
-                    msgerr.append(f"Check file: {file_name}")
-                    self.log_assert(False,msgerr)
-
-                new_value  = value + mag_shift
-                new_line   = (f"{key_string} {new_value:.6f}" \
-                              f"   # {value} + {mag_shift} \n")
-                line_list_out[-1:] = new_line  # overwrite last line_out
-                nchange += 1
-
-        # modify file with line_list_out
-        if nchange > 0 :
-            with open(file_name,"wt") as f:
-                f.write("".join(line_list_out))
-
-        return nchange
-        # end shift_float_value
-    
     def write_command_file(self, icpu, COMMAND_FILE):
 
         n_core          = self.config_prep['n_core']
@@ -513,6 +640,12 @@ class train_SALT2(Program):
             f.write(f"  - {row} \n")
         f.write("\n")
         
+        # write which calib files were modified for systematics
+        update_calib_info = self.config_prep['update_calib_info' ]
+        f.write(f"CALIB_UPDATES: # TRAINOPT    file          comment\n")
+        for item in update_calib_info:
+            f.write(f"  - {item}\n")
+
         # end append_info_file
 
     def merge_config_prep(self,output_dir):
@@ -687,7 +820,7 @@ class train_SALT2(Program):
         npar         = color_law_dict['npar']
         par_list     = " ".join(color_law_dict['par_list'])
 
-        print(f"    Create {SALT2_INFO_FILE}")
+        logging.info(f"    Create {SALT2_INFO_FILE}")
         with open(info_file,"wt") as f:
 
             f.write(f"RESTLAMBDA_RANGE: {range_lambda}\n")
@@ -716,7 +849,6 @@ class train_SALT2(Program):
             for line in f:
                 nline += 1
                 word_list = (line.rstrip("\n")).split()
-                #print(f" xxx colorlaw line = {word_list} ")
                 if nline == 1:
                     npar_tot = int(word_list[0])
                 elif npar_read < npar_tot :
@@ -734,7 +866,6 @@ class train_SALT2(Program):
         color_law_dict['version']     = version
         color_law_dict['min_lambda']  = min_lambda
         color_law_dict['max_lambda']  = max_lambda
-        #print(f" xxx color_law_dict = {color_law_dict} ")
 
         return color_law_dict
         # end get_color_law

@@ -204,7 +204,7 @@ class Program:
     def kill_ssh_jobs(self):
         node_list   = self.config_prep['node_list']
         for node in node_list :
-            print(f" Kill jobs on {node}")
+            logging.info(f" Kill jobs on {node}")
             cmd_kill  = "kill -KILL -1"                
             ret       = subprocess.call(["ssh", node, cmd_kill] )
 
@@ -284,6 +284,9 @@ class Program:
         # loop over each core and create CPU[nnn]_JOBS.CMD that
         # are used for either batch or ssh. For batch, also 
         # create batch_file using BATCH_TEMPLATE
+        
+        logging.info(f"  Create command files:")
+
         for icpu in range(0,n_core) :
             node          = node_list[icpu]
             cpu_name      = (f"CPU{icpu:04d}")
@@ -292,7 +295,7 @@ class Program:
             command_file  = (f"{prefix}.CMD")
             log_file      = (f"{prefix}.LOG")
             COMMAND_FILE  = (f"{script_dir}/{command_file}")
-            print(f"\t Create {command_file}")
+            logging.info(f"\t Create {command_file}")
 
             command_file_list.append(command_file)
             cmdlog_file_list.append(log_file)
@@ -343,8 +346,8 @@ class Program:
         os.system(cmd_chmod);
 
         n_job_tot   = self.config_prep['n_job_tot']
-        print(f" BATCH DRIVER JOB COUNT SUMMARY:",
-              f"{n_job_tot} jobs on {n_core} cores")
+        logging.info(f" BATCH DRIVER JOB COUNT SUMMARY: " \
+                     f"{n_job_tot} jobs on {n_core} cores")
 
         
         # check option to force crash (to test higher level pipelines)
@@ -482,7 +485,7 @@ class Program:
         if 'CLEANUP_FLAG' in CONFIG :
             cleanup_flag = CONFIG['CLEANUP_FLAG']  # override deault
 
-        print(f"  Create {SUBMIT_INFO_FILE}")
+        logging.info(f"  Create {SUBMIT_INFO_FILE}")
         INFO_PATHFILE  = (f"{output_dir}/{SUBMIT_INFO_FILE}")
         f = open(INFO_PATHFILE, 'w') 
 
@@ -601,7 +604,6 @@ class Program:
                 ret = subprocess.run( [ batch_command, batch_file], 
                                       cwd=script_dir,
                                       capture_output=True, text=True )
-                #print(f" xxx launch {batch_file} -> '{ret.stdout}' ")
 
             self.fetch_slurm_pid_list()
 
@@ -666,7 +668,7 @@ class Program:
 
             pid      = pid_all[j_job-1]
             cpunum   = int(job_name[-4:])
-            print(f"\t pid = {pid} for {job_name}")
+            logging.info(f"\t pid = {pid} for {job_name}")
             f.write(f"  - [ {cpunum:3d}, {pid}, {job_name} ] \n")
         f.close()
         

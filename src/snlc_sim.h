@@ -20,6 +20,9 @@
  Jul 30 2018: define input_file_include2
  Jan 06 2020: genmag8 -> genmag, same for epoch8 & peakmag8
  Mar 20 2020: Dillon: MXPAR_ZVAR -> 150 (was 100) 
+
+ Nov 05 2020: MXEPSIM_PERFILT -> 1000 (was 500) for ZTF sims.
+
 ********************************************/
 
 
@@ -29,7 +32,7 @@ time_t t_start, t_end, t_end_init ;
 
 #define  MXINPUT_FILE_SIM   3       // 1 input file + 2 includes
 #define  MXCID_SIM  299999999   // max sim CID and max number of SN
-#define  MXEPSIM_PERFILT  500       // 
+#define  MXEPSIM_PERFILT  1000       // 
 #define  MXEPSIM       10000  // really big for sntools_grid
 #define  MXLAMSIM      4000   // mx number of lambda bins
 #define  MXCUTWIN_SNRMAX 5    // mx number of SNRMAX cuts

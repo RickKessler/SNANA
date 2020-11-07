@@ -6199,6 +6199,8 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   //
   // If there are multiple Sersic terms, a & b are wgted average
   // among Sersic terms (Jan 2020)
+  //
+  // Nov 7 2020: Protect cosTH = 1 + tiny
 
   int IVAR_RA     = HOSTLIB.IVAR_RA ;
   int IVAR_DEC    = HOSTLIB.IVAR_DEC ;
@@ -6270,13 +6272,17 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   DOTPROD = VEC_aHALF[0]*VEC_SN[0] + VEC_aHALF[1]*VEC_SN[1];
   cosTH   = DOTPROD/(LEN_SN*a_half);
 
-  if ( fabs(cosTH) > 1.0000 ) {
-    sprintf(c1err,"Invalid cosTH = %f for GALID=%lld", 
+  if ( fabs(cosTH) > 1.000001 ) {
+    sprintf(c1err,"Invalid cosTH = %le for GALID=%lld", 
 	    cosTH, SNHOSTGAL.GALID);
     sprintf(c2err,"LEN_SN = %f, a_half=%f, DOT=%f ",
 	    LEN_SN, a_half, DOTPROD);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
+  
+  if (cosTH >  1.00) { cosTH = +1.0 - 1.0E-9 ; }
+  if (cosTH < -1.00) { cosTH = -1.0 + 1.0E-9 ; }
 
   sqcos  = cosTH*cosTH;   sqsin = 1.0 - sqcos;
   top    = ( a_half * b_half ) ;

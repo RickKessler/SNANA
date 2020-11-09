@@ -3407,7 +3407,7 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
 
   int  NFILTDEF = INPUTS.NFILTDEF_OBS ;  
   int  N = 0 ;
-  int  i, igrp, ifilt, ifilt_obs, NFILTGROUP, NFILT_PER_GROUP[20] ;
+  int  i, igrp, ifilt, ifilt_obs, NFILTGROUP, NFILT_PER_GROUP[MXFILTINDX] ;
   double tmpVal;
   float *ptrShift ;
   char KEYNAME[60], FILTGROUP_STRING[MXFILTINDX+10], **FILTGROUP_LIST ;

@@ -3480,8 +3480,14 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
     else 
       { return ; }
 
-    if ( strlen(FILTGROUP_STRING) == 0 ) 
-      { sprintf(FILTGROUP_STRING,"%s", INPUTS.GENFILTERS); }
+
+    // if no filter argument, then assume all filters are specified.
+    if ( strlen(FILTGROUP_STRING) == 0 ) { 
+      for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
+	sprintf(cfilt, "%c", INPUTS.GENFILTERS[ifilt] ); 
+	catVarList_with_comma(FILTGROUP_STRING,cfilt); 
+      }
+    }
 
     parse_commaSepList("RANSYSTPAR-OPT", FILTGROUP_STRING, 
 		       MXFILTINDX,MXFILTINDX, &NFILTGROUP, &FILTGROUP_LIST);

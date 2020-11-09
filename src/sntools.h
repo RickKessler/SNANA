@@ -743,6 +743,7 @@ void extract_modelname__(char *STRING, char *MODELPATH, char *MODELNAME);
 
 void parse_commaSepList(char *item_name, char *item, int MAX_ITEM, int MXCHAR,
 			int *n_item, char ***arrayList );
+int  index_charString(char *c, char *s);
 
 double PROB_Chi2Ndof(double chi2, int Ndof); // replace CERNLIB's PROB function
 double prob_chi2ndof__(double *chi2, int *Ndof);

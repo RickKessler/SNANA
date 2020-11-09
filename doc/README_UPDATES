@@ -19213,7 +19213,7 @@
    
 
 # ======================================================================= 
-         v11_02 (  ) 
+         v11_02 (Nov 3 2020) 
 
          ***** IMPORTANT(v11_02) ***** 
 
@@ -19226,5 +19226,29 @@
     + snana.car:   RESTORE_WRONG_VPEC = .FALSE.
     + snlc_sim.c:  INPUTS.RESTORE_WRONG_VPEC = false ;
     + get_vpec.py: change sign of returned vpec 
+
+
+# ======================================================================= 
+         v11_02b (  ) 
+
+         ***** IMPORTANT(v11_02b) ***** 
+
+         ***** USEFUL(v11_02b) ***** 
+
+         ***** MISCELLANEOUS(v11_02b) ***** 
+
+   backup_SNDATA_ROOT.py
+     + add SURVEY.DEF to subdir list for tar file.
+       Previous SNDATA_ROOT backups on Zenodo won't work without SURVEY.DEF
+
+  sntools_genSmear.c:
+    + fix to work with salt2 or salt3 files.
+
+  sntools_host.c
+     + in GEN_SNHOST_DDLR(), protect numerical round-off causing
+       cosTH = 1 + tiny, resulting in abort.
+ 
+  snlc_sim.c
+    + refactor RANSYSTPAR_SIGSHIFT_[ZP,LAMFILT] to allow groups of bands.
 
 END: 

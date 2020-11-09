@@ -3532,6 +3532,7 @@ Galactic extinction:
   # for systematic tests:
   GENSIGMA_MWEBV:       0.0      # smear by fixed sig(MWEBV) 
   GENSHIFT_MWEBV:       0.0      # fixed shift relative to dust map
+  GENSCALE_MWEBV:       1.0      # scale MWEBV 
   GENRANGE_MWEBV:  xxx yyy       # genrate flat distrib between xxx and yyy
 \end{Verbatim}
 %
@@ -6400,12 +6401,12 @@ Here are examples of available options for the sim-input file:
    RANSYSTPAR_RANGESHIFT_OMEGA_MATTER: -0.2 0.4   # flat shift range for OM
 
   # filter-dependent variants:
-   RANSYSTPAR_SIGSHIFT_LAMFILT:     8 10 7 6      # filter shifts (A)
-   RANSYSTPAR_SIGSHIFT_LAMFILT(i):  7             # shift i-band only
+   RANSYSTPAR_SIGSHIFT_ZP: 0.014                  # same sigma per band
+   RANSYSTPAR_SIGSHIFT_ZP(gr,iz):   0.013 0.02    # sig(g&r)=0.013, sig(i&z.02
+   RANSYSTPAR_SIGSHIFT_ZP(g,r,i,z): 0.01 .02 .03 .04  # diff sigma per band
 
-   RANSYSTPAR_SIGSHIFT_ZP: 0.014 0.013 0.022 0.012  # random ZP off
-   RANSYSTPAR_SIGSHIFT_ZP(r):  0.013                 # shift ZP-r only
-   RANSYSTPAR_SIGSHIFT_ZP(ri): 0.013 0.02            # shift r & i
+   RANSYSTPAR_SIGSHIFT_LAMFILT:          10         # sig=10 A for each band
+   RANSYSTPAR_SIGSHIFT_LAMFILT(g,r,i,z): 8 7 10 9   # sigma per band
 
   # after ransyst params are picked, reset randoms with fixed seed
   # to suppress random fluctuations between GENVERSIONS
@@ -6875,7 +6876,7 @@ are determined by the {\tt \&SNLCINP} namelist parameters
       OPT_MWEBV      = 1   ! default: read E(B-V) from data header
 
       MWEBV_SCALE = 1.0   ! default: scale all MWEBV values
-      MWEBV_SHIFT = 0.0   ! default: shift all MWEBV values
+      MWEBV_SHIFT = 0.0   ! default: shift all MWEBV values      
       USE_MWCOR = F  ! default: do NOT correct data, include in fit-model 
 \end{Verbatim}
 %

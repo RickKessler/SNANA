@@ -4918,6 +4918,17 @@ void trim_blank_spaces(char *string) {
   
 } // end of trim_blank_spaces
 
+int index_charString(char *c, char *s) {
+  // Nov 9 2020
+  // Return index of character *c in string *s
+  int indx  = -9;
+  char *e   = strstr(s,c);
+  if ( e != NULL ) { indx = (int)(e-s); }
+
+  return(indx);
+
+} // index_charString
+
 void splitString(char *string, char *sep, int MXsplit,
 		 int *Nsplit, char **ptrSplit) {
 

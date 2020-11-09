@@ -1,0 +1,758 @@
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013) (format=latex 2020.8.20)  8 NOV 2020 20:08
+entering extended mode
+ restricted \write18 enabled.
+ %&-line parsing enabled.
+**snana_manual
+(./snana_manual.tex
+LaTeX2e <2011/06/27>
+Babel <v3.8m> and hyphenation patterns for english, dumylang, nohyphenation, lo
+aded.
+(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2007/10/19 v1.4h Standard LaTeX document class
+(/usr/share/texlive/texmf-dist/tex/latex/base/size12.clo
+File: size12.clo 2007/10/19 v1.4h Standard LaTeX file (size option)
+)
+\c@part=\count79
+\c@section=\count80
+\c@subsection=\count81
+\c@subsubsection=\count82
+\c@paragraph=\count83
+\c@subparagraph=\count84
+\c@figure=\count85
+\c@table=\count86
+\abovecaptionskip=\skip41
+\belowcaptionskip=\skip42
+\bibindent=\dimen102
+)
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/epsfig.sty
+Package: epsfig 1999/02/16 v1.7a (e)psfig emulation (SPQR)
+
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphicx.sty
+Package: graphicx 1999/02/16 v1.0f Enhanced LaTeX Graphics (DPC,SPQR)
+
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/keyval.sty
+Package: keyval 1999/03/16 v1.13 key=value parser (DPC)
+\KV@toks@=\toks14
+)
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/graphics.sty
+Package: graphics 2009/02/05 v1.0o Standard LaTeX Graphics (DPC,SPQR)
+
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/trig.sty
+Package: trig 1999/03/16 v1.09 sin cos tan (DPC)
+)
+(/usr/share/texlive/texmf-dist/tex/latex/latexconfig/graphics.cfg
+File: graphics.cfg 2010/04/23 v1.9 graphics configuration of TeX Live
+)
+Package graphics Info: Driver file: dvips.def on input line 91.
+
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/dvips.def
+File: dvips.def 1999/02/16 v3.0i Driver-dependant file (DPC,SPQR)
+))
+\Gin@req@height=\dimen103
+\Gin@req@width=\dimen104
+)
+\epsfxsize=\dimen105
+\epsfysize=\dimen106
+)
+(/usr/share/texlive/texmf-dist/tex/latex/base/fontenc.sty
+Package: fontenc 2005/09/27 v1.99g Standard LaTeX package
+
+(/usr/share/texlive/texmf-dist/tex/latex/base/t1enc.def
+File: t1enc.def 2005/09/27 v1.99g Standard LaTeX file
+LaTeX Font Info:    Redeclaring font encoding T1 on input line 43.
+))
+(/usr/share/texlive/texmf-dist/tex/latex/fancyvrb/fancyvrb.sty
+Package: fancyvrb 2008/02/07
+
+Style option: `fancyvrb' v2.7a, with DG/SPQR fixes, and firstline=lastline fix 
+<2008/02/07> (tvz)
+\FV@CodeLineNo=\count87
+\FV@InFile=\read1
+\FV@TabBox=\box26
+\c@FancyVerbLine=\count88
+\FV@StepNumber=\count89
+\FV@OutFile=\write3
+) (/usr/share/texlive/texmf-dist/tex/latex/graphics/color.sty
+Package: color 2005/11/14 v1.0j Standard LaTeX Color (DPC)
+(/usr/share/texlive/texmf-dist/tex/latex/latexconfig/color.cfg
+File: color.cfg 2007/01/18 v1.5 color configuration of teTeX/TeXLive
+)
+Package color Info: Driver file: dvips.def on input line 130.
+
+(/usr/share/texlive/texmf-dist/tex/latex/graphics/dvipsnam.def
+File: dvipsnam.def 1999/02/16 v3.0i Driver-dependant file (DPC,SPQR)
+))
+(./snana_manual.aux)
+\openout1 = `snana_manual.aux'.
+
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 147.
+LaTeX Font Info:    ... okay on input line 147.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 147.
+LaTeX Font Info:    ... okay on input line 147.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 147.
+LaTeX Font Info:    ... okay on input line 147.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 147.
+LaTeX Font Info:    ... okay on input line 147.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 147.
+LaTeX Font Info:    ... okay on input line 147.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 147.
+LaTeX Font Info:    ... okay on input line 147.
+LaTeX Font Info:    Try loading font information for T1+cmtt on input line 149.
+
+ (/usr/share/texlive/texmf-dist/tex/latex/base/t1cmtt.fd
+File: t1cmtt.fd 1999/05/25 v2.5h Standard LaTeX font definitions
+)
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <14.4> on input line 149.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <7> on input line 149.
+
+(./snana_manual.toc
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <12> on input line 3.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <8> on input line 3.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <6> on input line 3.
+ [1
+
+] [2] [3] [4] [5])
+\tf@toc=\write4
+\openout4 = `snana_manual.toc'.
+
+ [6] [7
+
+] [8]
+LaTeX Font Info:    Try loading font information for OMS+cmr on input line 343.
+
+
+(/usr/share/texlive/texmf-dist/tex/latex/base/omscmr.fd
+File: omscmr.fd 1999/05/25 v2.5h Standard LaTeX font definitions
+)
+LaTeX Font Info:    Font shape `OMS/cmr/m/n' in size <12> not available
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 343.
+
+Overfull \hbox (12.68336pt too wide) in paragraph at lines 389--389
+[]   \T1/cmtt/m/n/12 kcor.exe  myKcor.Input  FILTER_LAMSHIFT  r 2.1  i 3.2  OUT
+FILE kcor_lamshift.fits[] 
+ []
+
+[9
+
+] [10
+
+] [11] [12
+
+] [13]
+Overfull \hbox (22.56158pt too wide) in paragraph at lines 720--733
+\T1/cmr/m/n/12 is checked un-der \T1/cmtt/m/n/12 $SNDATA_ROOT/kcor\T1/cmr/m/n/1
+2 , trig-ger files are checked un-der \T1/cmtt/m/n/12 $SNDATA_ROOT/models/searc
+heff\T1/cmr/m/n/12 ,
+ []
+
+[14] [15
+
+]
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <5> on input line 859.
+ [16
+
+] [17
+
+]
+Overfull \hbox (11.46202pt too wide) in paragraph at lines 1035--1044
+\OML/cmm/m/it/12 ^^[[] \OT1/cmr/m/n/12 = []$ \T1/cmr/m/n/12 and $\OML/cmm/m/it/
+12 ^^[[] \OT1/cmr/m/n/12 = []$\T1/cmr/m/n/12 . \T1/cmr/bx/n/12 RA-TIO \T1/cmr/m
+/n/12 refers to the ra-tio at the ori-gin, PSF2(origin)/PSF1(origin).
+ []
+
+[18] [19] [20
+
+] [21] [22
+
+] [23
+
+]
+Overfull \hbox (15.94917pt too wide) in paragraph at lines 1381--1388
+[]\T1/cmr/m/n/12 Finally, the to-tal num-ber of sat-u-rated/unsaturated ob-ser-
+va-tions can be in-cluded in the \T1/cmtt/m/n/12 SIMGEN_DUMP
+ []
+
+[24
+
+] [25
+
+]
+Overfull \hbox (20.02562pt too wide) in paragraph at lines 1484--1487
+\T1/cmr/m/n/12 By de-fault all fields are an-a-lyzed when run-ning the fit-ting
+ pro-gram. The sec-ond op-tion is \T1/cmtt/m/n/12 CUTWIN_NFIELD
+ []
+
+[26] [27
+
+] [28
+
+] [29
+
+] [30
+
+] [31
+
+] [32]
+Overfull \hbox (10.14879pt too wide) in paragraph at lines 1912--1923
+[]\T1/cmr/m/n/12 Reduced co-vari-ances are spec-i-fied with \T1/cmtt/m/n/12 RED
+COV \T1/cmr/m/n/12 keys (Fig. 4[]). The first key (\T1/cmtt/m/n/12 REDCOV: g:0.
+3,r:0.5\T1/cmr/m/n/12 )
+ []
+
+
+Overfull \hbox (1.85678pt too wide) in paragraph at lines 1933--1939
+\T1/cmr/m/n/12 where \T1/cmtt/m/n/12 DEEP \T1/cmr/m/n/12 and \T1/cmtt/m/n/12 SH
+ALLOW \T1/cmr/m/n/12 are con-ve-nient \T1/cmtt/m/n/12 FIELDGROUP \T1/cmr/m/n/12
+ def-i-ni-tions in Fig. 4[]. Note that the \T1/cmtt/m/n/12 FIELDGROUP\T1/cmr/m/
+n/12 s
+ []
+
+
+Overfull \hbox (3.37881pt too wide) in paragraph at lines 1959--1963
+\T1/cmr/m/n/12 Just as mul-ti-ple \T1/cmtt/m/n/12 REDCOV \T1/cmr/m/n/12 keys ar
+e al-lowed in the \T1/cmtt/m/n/12 FLUXERRMODEL_FILE\T1/cmr/m/n/12 , mul-ti-ple 
+\T1/cmtt/m/n/12 FLUXERRMODEL_REDCOV
+ []
+
+[33
+
+] [34
+
+] [35
+
+] [36
+
+] [37
+
+]
+Overfull \hbox (24.62634pt too wide) in paragraph at lines 2299--2310
+\T1/cmr/m/n/12 K-corrections and syn-thetic mags are read from a lookup ta-ble 
+gen-er-ated with \T1/cmtt/m/n/12 SNANA_DIR/bin/kcor.exe\T1/cmr/m/n/12 .
+ []
+
+[38
+
+] [39
+
+] [40] [41] [42
+
+] [43]
+Overfull \hbox (0.43791pt too wide) in paragraph at lines 2683--2702
+\T1/cmtt/m/n/12 PHOTPROB \T1/cmr/m/n/12 cor-re-la-tions are in-tro-duced with t
+he key ``\T1/cmtt/m/n/12 REDUCED_CORR: <rho>\T1/cmr/m/n/12 ,'' where \T1/cmtt/m
+/n/12 -1 < rho < +1.
+ []
+
+[44
+
+] [45]
+Overfull \hbox (49.72432pt too wide) in paragraph at lines 2819--2819
+[]\T1/cmtt/m/n/12 SEARCHEFF_PIPELINE_LOGIC_FILE:  $SNDATA_ROOT/models/searcheff
+/SEARCHEFF_PIPELINE_LOGIC.DAT[] 
+ []
+
+[46
+
+] [47] [48] [49
+
+] [50
+
+] [51
+
+] [52
+
+]
+Overfull \hbox (17.48862pt too wide) in paragraph at lines 3304--3309
+\T1/cmtt/m/n/12 CUTWIN_PHOTPROB \T1/cmr/m/n/12 can be used to re-ject poor-qual
+ity ob-ser-va-tions. For sim-u-la-tions, de-fault \T1/cmtt/m/n/12 PHOTPROB=1\T1
+/cmr/m/n/12 ,
+ []
+
+[53
+
+]
+Overfull \hbox (8.19106pt too wide) in paragraph at lines 3366--3379
+\T1/cmtt/m/n/12 EPCUTWIN_XXX \T1/cmr/m/n/12 re-quire-ments are used to eval-u-a
+te cuts on global light curve prop-er-ties. \T1/cmtt/m/n/12 CUTWIN_NEPOCH
+ []
+
+[54
+
+]
+Overfull \hbox (11.22705pt too wide) in paragraph at lines 3392--3405
+[]\T1/cmr/m/n/12 The \T1/cmtt/m/n/12 TGAPMAX \T1/cmr/m/n/12 re-quire-ment ap-pl
+ies to ob-ser-va-tions be-tween the lower-\T1/cmtt/m/n/12 TRESTMIN \T1/cmr/m/n/
+12 and upper-\T1/cmtt/m/n/12 TRESTMAX
+ []
+
+
+Overfull \hbox (1.5611pt too wide) in paragraph at lines 3447--3452
+\T1/cmr/m/n/12 sim-u-la-tion to gen-er-ate 100 lightcurves that pass the SEARCH
+-TRIGGER & CUTWIN-SELECTION
+ []
+
+[55] [56
+
+] [57
+
+] [58
+
+] [59
+
+]
+
+LaTeX Warning: No positions in optional float specifier.
+               Default added (so using `!tbp') on input line 3755.
+
+[60
+
+] [61
+
+]
+Overfull \hbox (35.99382pt too wide) in paragraph at lines 3959--3963
+\T1/cmr/m/n/12 de-scribe a 3rd or-der poly-no-mial func-tion of true red-shift.
+ This bias ap-plies to \T1/cmtt/m/n/12 HOSTLIB_GENZPHOT_FUDGEPAR
+ []
+
+[62] [63]
+Overfull \hbox (16.76144pt too wide) in paragraph at lines 4127--4131
+\T1/cmr/m/n/12 For a given hostlib en-try, each ba-sis spec-trum ``\T1/cmtt/m/n
+/12 specbasis[nn]\T1/cmr/m/n/12 '' is mul-ti-plied by \T1/cmtt/m/n/12 coeff_spe
+cbasis[nn]\T1/cmr/m/n/12 ,
+ []
+
+[64
+
+] [65
+
+]
+Overfull \hbox (33.3992pt too wide) in paragraph at lines 4307--4319
+\T1/cmtt/m/n/12 SIM_HOSTLIB_XXX\T1/cmr/m/n/12 , cor-re-sponds to the user-selec
+ted pa-ram-e-ters from the sim-input key \T1/cmtt/m/n/12 HOSTLIB_STOREPAR\T1/cm
+r/m/n/12 .
+ []
+
+[66] [67] [68
+
+] [69
+
+]
+Overfull \hbox (17.73924pt too wide) in paragraph at lines 4552--4566
+\T1/cmr/m/n/12 cal-cu-lated value de-pends on the MJD range (\T1/cmtt/m/n/12 GE
+NRANGE_PEAKMJD\T1/cmr/m/n/12 ), red-shift range (\T1/cmtt/m/n/12 GENRANGE_REDSH
+IFT\T1/cmr/m/n/12 ),
+ []
+
+[70
+
+]
+Overfull \hbox (7.5915pt too wide) in paragraph at lines 4591--4599
+\T1/cmr/m/n/12 This op-tion is also use-ful for \T1/cmtt/m/n/12 sim_SNmix\T1/cm
+r/m/n/12 : e.g., to add a large Ia-biasCor sam-ple, ``\T1/cmtt/m/n/12 GENOPT: D
+NDZ_SCALE
+ []
+
+[71]
+Overfull \hbox (14.62534pt too wide) in paragraph at lines 4632--4638
+\T1/cmr/m/n/12 The $\OML/cmm/m/it/12 b$\T1/cmr/m/n/12 -weight is thus im-ple-me
+nted by how many times each \T1/cmtt/m/n/12 SIMLIB \T1/cmr/m/n/12 en-try is rea
+d. Since \T1/cmtt/m/n/12 SIMLIB_NREPEAT
+ []
+
+[72
+
+] [73
+
+]
+Overfull \hbox (3.08185pt too wide) in paragraph at lines 4740--4755
+[]\T1/cmr/m/n/12 The \T1/cmtt/m/n/12 SPECTRO_FLUX \T1/cmr/m/n/12 ta-ble con-tai
+ns in-for-ma-tion for ev-ery spec-tral bin for ev-ery SN: $\OML/cmm/m/it/12 ^^U
+$ \T1/cmr/m/n/12 bin \T1/cmtt/m/n/12 LAMINDEX\T1/cmr/m/n/12 ,
+ []
+
+[74
+
+] [75]
+Overfull \hbox (40.21567pt too wide) in paragraph at lines 4804--4806
+[]\T1/cmr/m/n/12 The tem-plate ex-po-sure time is de-fined in the \T1/cmtt/m/n/
+12 SIMLIB \T1/cmr/m/n/12 file with the key \T1/cmtt/m/n/12 TEMPLATE_TEXPOSE_SPE
+CTROGRAPH\T1/cmr/m/n/12 . 
+ []
+
+[76
+
+] [77] [78
+
+] [79] [80
+
+] [81
+
+] [82
+
+] [83
+
+] [84
+
+] [85
+
+] [86
+
+] [87
+
+]
+Overfull \hbox (21.06621pt too wide) in paragraph at lines 5537--5540
+[]\T1/cmr/m/n/12 To check resid-u-als with \T1/cmtt/m/n/12 SIMGEN_DUMP \T1/cmr/
+m/n/12 fea-ture, add vari-ables \T1/cmtt/m/n/12 PEAKMJD \T1/cmr/m/n/12 (true va
+lue) and \T1/cmtt/m/n/12 PEAKMJD_SMEAR
+ []
+
+[88] [89] [90] [91] [92
+
+] [93]
+Overfull \hbox (24.17041pt too wide) in paragraph at lines 5947--5956
+\T1/cmr/m/n/12 shows how many \T1/cmtt/m/n/12 SIMLIB \T1/cmr/m/n/12 en-tries ar
+e ex-cluded by the se-lec-tion ranges in your sim-input file. \T1/cmtt/m/n/12 C
+UT-WARNINGs
+ []
+
+
+Overfull \hbox (29.73213pt too wide) in paragraph at lines 5958--5965
+[]\T1/cmr/m/n/12 In ad-di-tion to the screen-dump, a one-line sum-mary for each
+ \T1/cmtt/m/n/12 LIBID \T1/cmr/m/n/12 is writ-ten to \T1/cmtt/m/n/12 DUMP_LIBID
+-[simlib]
+ []
+
+[94
+
+]
+Overfull \hbox (1.07115pt too wide) in paragraph at lines 6022--6026
+\T1/cmtt/m/n/12 SIMGEN_DUMP[ALL] \T1/cmr/m/n/12 pro-duces an aux-il-iary file \
+T1/cmtt/m/n/12 [VERSION].DUMP \T1/cmr/m/n/12 in the same di-rec-tory as the SND
+ATA
+ []
+
+[95]
+Overfull \hbox (53.47029pt too wide) in paragraph at lines 6065--6071
+\T1/cmr/m/n/12 out-put text file and then the sim-u-la-tion stops. The name of 
+the out-put file is \T1/cmtt/m/n/12 DUMP_GENMAG_[MODELNAME].TEXT\T1/cmr/m/n/12 
+,
+ []
+
+[96] [97
+
+] [98] [99] [100
+
+]
+Overfull \hbox (22.04791pt too wide) in paragraph at lines 6416--6425
+\T1/cmtt/m/n/12 SIGSCALE_XXX \T1/cmr/m/n/12 pa-ram-e-ters are in-ter-preted as 
+fol-lows. A Gaus-sian sigma is de-fined as $\OML/cmm/m/it/12 ^^[ \OT1/cmr/m/n/1
+2 = []$\T1/cmr/m/n/12 ,
+ []
+
+[101
+
+] [102]
+Overfull \hbox (5.80446pt too wide) in paragraph at lines 6499--6504
+\T1/cmr/m/n/12 namelist vari-able \T1/cmtt/m/n/12 VERSION_PHOTOMETRY \T1/cmr/m/
+n/12 is re-ally point-ing to an ex-ist-ing ver-sion in $\T1/cmtt/m/n/12 SNDATA_
+ROOT/SIM\T1/cmr/m/n/12 .
+ []
+
+[103
+
+]
+Overfull \hbox (15.40352pt too wide) in paragraph at lines 6562--6579
+\T1/cmtt/m/n/12 FUDGEALL_ITER1_MAXFRAC \T1/cmr/m/n/12 for fi-nal fits, or at le
+ast as a cross-check, along with \T1/cmtt/m/n/12 NFIT_ITERATION=3\T1/cmr/m/n/12
+ . 
+ []
+
+
+Overfull \hbox (4.67824pt too wide) in paragraph at lines 6579--6590
+[]\T1/cmr/bx/n/12 MARGINALIZATION \T1/cmr/m/n/12 us-ing multi-dimensional in-te
+-gra-tion in \T1/cmtt/m/n/12 SNANA \T1/cmr/m/n/12 func-tion \T1/cmtt/m/n/12 MAR
+G_DRIVER\T1/cmr/m/n/12 .
+ []
+
+[104]
+Overfull \hbox (22.46538pt too wide) in paragraph at lines 6621--6633
+[]\T1/cmr/m/n/12 Roughly $\OMS/cmsy/m/n/12 ^^X \OT1/cmr/m/n/12 1$\T1/cmr/m/n/12
+ % of light curve fits with the SALT2 model re-sult in a co-vari-ance ma-trix, 
+$[]\OT1/cmr/m/n/12 (\OML/cmm/m/it/12 m[]; x[]; c\OT1/cmr/m/n/12 )$\T1/cmr/m/n/1
+2 ,
+ []
+
+[105
+
+] [106
+
+]
+Overfull \hbox (19.39482pt too wide) in paragraph at lines 6807--6816
+\T1/cmr/m/n/12 word in the data files, and then run \T1/cmr/m/sc/12 salt-ii \T1
+/cmr/m/n/12 fits with \T1/cmtt/m/n/12 OPT_SETPKMJD=0\T1/cmr/m/n/12 , which sets
+ $[] \OT1/cmr/m/n/12 = []$\T1/cmr/m/n/12 .
+ []
+
+[107] [108] [109
+
+] [110
+
+] [111] [112
+
+] [113]
+Overfull \hbox (3.35942pt too wide) in paragraph at lines 7261--7278
+[]\T1/cmr/m/n/12 To switch from a constrained-photoZ fit to a 5-parameter cosmo
+logy-photoZ fit, set \T1/cmtt/m/n/12 INISTP_DLMAG
+ []
+
+[114
+
+] [115] [116] [117
+
+] [118] [119] [120] [121] [122
+
+] [123] [124
+
+] [125
+
+]
+Overfull \hbox (4.37082pt too wide) in paragraph at lines 8146--8162
+\T1/cmr/m/n/12 where $\OML/cmm/m/it/12 T[]$ \T1/cmr/m/n/12 is the filter-transm
+ission for fil-ter $\OML/cmm/m/it/12 X \OT1/cmr/m/n/12 = \OML/cmm/m/it/12 U; B;
+ V$\T1/cmr/m/n/12 , and $\OML/cmm/m/it/12 s[]$ \T1/cmr/m/n/12 is re-placed by \
+T1/cmtt/m/n/12 SHAPEFIX_FITRESTMAG
+ []
+
+[126]
+Overfull \hbox (18.49548pt too wide) in paragraph at lines 8245--8252
+\T1/cmr/m/n/12 Internally all CIDs are strings. If the CIDs are in-te-gers then
+ you can use \T1/cmtt/m/n/12 SNCID_LIST \T1/cmr/m/n/12 and \T1/cmtt/m/n/12 SNCI
+D_IGNORE\T1/cmr/m/n/12 ,
+ []
+
+[127]
+Overfull \hbox (26.20645pt too wide) in paragraph at lines 8265--8268
+[]\T1/cmr/m/n/12 Using any of the ``\T1/cmtt/m/n/12 _LIST\T1/cmr/m/n/12 '' op-t
+ions (e.g., \T1/cmtt/m/n/12 SNCID_LIST\T1/cmr/m/n/12 ), the anal-y-sis codes in
+-ter-nally set \T1/cmtt/m/n/12 CUTWIN_CID=0,0
+ []
+
+[128] [129]
+Overfull \hbox (11.0265pt too wide) in paragraph at lines 8503--8507
+\T1/cmr/m/n/12 files. The er-ror fudges are added/subtracted in quadra-ture bas
+ed on the sign of \T1/cmtt/m/n/12 FUDGE_FLUXCAL_ERROR\T1/cmr/m/n/12 . 
+ []
+
+[130] [131]
+Overfull \hbox (1.08833pt too wide) in paragraph at lines 8629--8636
+\T1/cmr/m/n/12 lists the marginal-ized distance-modulus for each fit-ted light 
+curve. Works for any fit-parameter:
+ []
+
+[132] [133] [134
+
+] [135
+
+]
+Overfull \hbox (58.03998pt too wide) in paragraph at lines 8845--8851
+[]\T1/cmr/m/n/12 The 3rd op-tion re-quires at least 3 ob-ser-va-tions with true
+ flux$\OML/cmm/m/it/12 > \OT1/cmr/m/n/12 0$\T1/cmr/m/n/12 . The last op-tion (\
+T1/cmtt/m/n/12 CUTWIN_TREST_TRUEFLUX\T1/cmr/m/n/12 )
+ []
+
+[136] [137
+
+]
+Overfull \hbox (33.6324pt too wide) in paragraph at lines 8944--8948
+\T1/cmr/m/n/12 should re-sult in a pri-vate ex-e-cutable file in your di-rec-to
+ry: \T1/cmtt/m/n/12 snana_private.exe \T1/cmr/m/n/12 or \T1/cmtt/m/n/12 snlc_fi
+t_private.exe\T1/cmr/m/n/12 .
+ []
+
+[138
+
+] [139] [140] [141
+
+]
+Overfull \hbox (15.49208pt too wide) in paragraph at lines 9304--9310
+\T1/cmr/m/n/12 If no K-corrections are de-fined, then $\OML/cmm/m/it/12 B$ \T1/
+cmr/m/n/12 is de-fined twice as an observer-frame fil-ter and the \T1/cmtt/m/n/
+12 snlc_fit.exe
+ []
+
+[142] [143
+
+] [144] [145
+
+]
+Overfull \hbox (18.33308pt too wide) in paragraph at lines 9582--9592
+\T1/cmr/m/n/12 where the above ta-ble shows which red-shift key from the data h
+eader is used. Note that \T1/cmtt/m/n/12 REDSHIFT_FINAL
+ []
+
+[146
+
+] [147
+
+] [148
+
+] [149] [150
+
+] [151
+
+] [152
+
+] [153
+
+] [154] [155
+
+] [156
+
+] [157
+
+]
+Overfull \hbox (14.22888pt too wide) in paragraph at lines 10271--10275
+\T1/cmr/m/n/12 files can be quite large, a sep-a-rate binary-table di-rec-tory 
+can be spec-i-fied with the \T1/cmtt/m/n/12 SIMSED_PATH_BINARY
+ []
+
+[158]
+Underfull \hbox (badness 10000) in paragraph at lines 10357--10359
+
+ []
+
+
+Overfull \hbox (22.40192pt too wide) in paragraph at lines 10361--10367
+[]\T1/cmr/m/n/12 As ex-plained be-low, the user se-lects \T1/cmtt/m/n/12 NONIAS
+ED \T1/cmr/m/n/12 tem-plates us-ing the in-te-ger in-dices in the NON1A.LIST
+ []
+
+[159
+
+]
+Overfull \hbox (4.03542pt too wide) in paragraph at lines 10490--10496
+[]\T1/cmr/m/n/12 In the sim-input file, the rate-vs-redshift model for peculiar
+-Ia is de-fined with the `\T1/cmtt/m/n/12 DNDZ_PEC1A:\T1/cmr/m/n/12 '
+ []
+
+[160] [161] [162] [163] [164] [165]
+Overfull \hbox (22.11269pt too wide) in paragraph at lines 10830--10830
+[]\T1/cmr/bx/n/17.28 Computing Dis-tance Mod-uli from BBC Method: \T1/cmtt/m/n/
+17.28 SALT2mu.exe 
+ []
+
+
+Overfull \hbox (18.63896pt too wide) in paragraph at lines 10855--10857
+\T1/cmr/m/n/12 and a de-scrip-tion of all input-file op-tions are given at the 
+top of the code in \T1/cmtt/m/n/12 $SNANA_DIR/src/SALT2mu.c\T1/cmr/m/n/12 . 
+ []
+
+[166
+
+]
+Overfull \hbox (5.05049pt too wide) in paragraph at lines 10865--10876
+\T1/cmtt/m/n/12 SNANA \T1/cmr/m/n/12 codes per-form light-curve fit-ting and si
+m-u-la-tions sep-a-rately for each sam-ple, the \T1/cmtt/m/n/12 SALT2mu\T1/cmr/
+m/n/12 /BBC
+ []
+
+
+Overfull \hbox (8.52461pt too wide) in paragraph at lines 10887--10896
+\T1/cmr/m/n/12 As an ex-am-ple, con-sider an anal-y-sis com-bin-ing a spec-conf
+irmed LOWZ sam-ple and a photometrically-
+ []
+
+[167
+
+] [168
+
+] [169
+
+] [170
+
+] [171
+
+] [172] [173
+
+] [174
+
+]
+LaTeX Font Info:    Try loading font information for OML+cmr on input line 1150
+1.
+
+(/usr/share/texlive/texmf-dist/tex/latex/base/omlcmr.fd
+File: omlcmr.fd 1999/05/25 v2.5h Standard LaTeX font definitions
+)
+LaTeX Font Info:    Font shape `OML/cmr/m/n' in size <12> not available
+(Font)              Font shape `OML/cmm/m/it' tried instead on input line 11501
+.
+ [175]
+Overfull \hbox (5.0171pt too wide) in paragraph at lines 11567--11567
+ [] \T1/cmtt/m/n/12 sntable_dump.pl  myjob.root   FITRES --outlier_Sim  3  99 -
+-v FITPROB SNRMAX3[] 
+ []
+
+[176] [177] [178
+
+] [179] [180] [181
+
+] [182
+
+] [183] [184] [185] [186
+
+]
+Overfull \hbox (13.87927pt too wide) in paragraph at lines 12281--12290
+\T1/cmtt/m/n/12 NGENTOT_LC \T1/cmr/m/n/12 events so that \T1/cmtt/m/n/12 NGENTO
+T_LC \T1/cmr/m/n/12 events are gen-er-ated within the \T1/cmtt/m/n/12 GENRANGE_
+REDSHIFT[PEAKMJD]
+ []
+
+
+Overfull \hbox (14.47844pt too wide) in paragraph at lines 12291--12297
+\T1/cmr/m/n/12 file. Be-ware that over-lap-ping fields are not treated prop-erl
+y, so it is rec-om-mended to set \T1/cmtt/m/n/12 CUTWIN_NFIELD
+ []
+
+[187] [188
+
+] [189
+
+] [190
+
+] [191]
+Overfull \hbox (24.80772pt too wide) in paragraph at lines 12577--12585
+\T1/cmr/m/n/12 that fu-ture anal-y-ses need not worry about us-ing the \T1/cmtt
+/m/n/12 SNANA \T1/cmr/m/n/12 flux-modify op-tions. \T1/cmtt/m/n/12 VERSION_REFO
+RMAT_FITS
+ []
+
+[192
+
+] [193
+
+] [194
+
+] [195
+
+] [196] [197] [198
+
+] (./snana_manual.bbl) [199
+
+]
+(./snana_manual.aux) ) 
+Here is how much of TeX's memory you used:
+ 1853 strings out of 495064
+ 24374 string characters out of 3182224
+ 74720 words of memory out of 3000000
+ 5037 multiletter control sequences out of 15000+200000
+ 22092 words of font info for 54 fonts, out of 3000000 for 9000
+ 14 hyphenation exceptions out of 8191
+ 32i,10n,21p,620b,369s stack positions out of 5000i,500n,10000p,200000b,50000s
+
+Output written on snana_manual.dvi (199 pages, 768684 bytes).

@@ -221,6 +221,7 @@ typedef struct {
   float SIGSCALE_MWEBV;      // scale Galactic extinction by 1+Gran*SIG
   float SIGSHIFT_MWRV;       // shift RV
   float SIGSHIFT_REDSHIFT;   // shift redshift PA 2020
+  char GENMODEL_WILDCARD[MXPATHLEN]; // choose between wildcard models PA 2020
 
   float SIGSHIFT_OMEGA_MATTER ;
   float SIGSHIFT_W0 ;

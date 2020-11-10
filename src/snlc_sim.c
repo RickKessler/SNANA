@@ -3445,7 +3445,10 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
 			KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_MWRV );
   }
-
+  else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_REDSHIFT", 
+			KEYNAME, keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT ); // PA 2020
+  }
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_OMEGA_MATTER",
 			KEYNAME,keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER );
@@ -5848,7 +5851,14 @@ void  prep_RANSYSTPAR(void) {
     INPUTS.RV_MWCOLORLAW += tmp ;
     printf("\t RV_MWCOLORLAW  = %.3f \n", INPUTS.RV_MWCOLORLAW );
   }
-
+  
+  // Redhsift PA 2020 .xyz
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT;
+  if ( tmpSigma != 0.0 ) { 
+    NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+    INPUTS.GENBIAS_REDSHIFT = tmp ;
+    printf("\t GENBIAS_REDSHIFT  = %f \n", INPUTS.GENBIAS_REDSHIFT );
+  }
   // cosmology params (Aug 2019)
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER ;
   if ( tmpSigma != 0.0 ) { 

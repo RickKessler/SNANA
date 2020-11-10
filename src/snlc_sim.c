@@ -1293,6 +1293,9 @@ void set_user_defaults_RANSYSTPAR(void) {
   INPUTS.RANSYSTPAR.SIGSCALE_MWEBV    = 0.0 ;
   INPUTS.RANSYSTPAR.SIGSHIFT_MWRV     = 0.0 ;
 
+  INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT = 0.0 ; // PA 2020
+  INPUTS.RANSYSTPAR.GENMODEL_WILDCARD[0] = 0; // PA 2020
+
   INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER  = 0.0 ;
   INPUTS.RANSYSTPAR.SIGSHIFT_W0            = 0.0 ;
 
@@ -3445,9 +3448,14 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
 			KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_MWRV );
   }
+
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_REDSHIFT", 
 			KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT ); // PA 2020
+  }
+  else if ( keyMatchSim(1,"RANSYSTPAR_GENMODEL_WILDCARD", 
+			KEYNAME, keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.RANSYSTPAR.GENMODEL_WILDCARD ); // PA 2020
   }
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_OMEGA_MATTER",
 			KEYNAME,keySource) ) {
@@ -5852,13 +5860,29 @@ void  prep_RANSYSTPAR(void) {
     printf("\t RV_MWCOLORLAW  = %.3f \n", INPUTS.RV_MWCOLORLAW );
   }
   
-  // Redhsift PA 2020 .xyz
+  // Redshift PA 2020 .xyz
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT;
   if ( tmpSigma != 0.0 ) { 
     NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
     INPUTS.GENBIAS_REDSHIFT = tmp ;
     printf("\t GENBIAS_REDSHIFT  = %f \n", INPUTS.GENBIAS_REDSHIFT );
+   }
+
+  // GENMODEL Wildcard PA 2020
+  char *wildcard = INPUTS.RANSYSTPAR.GENMODEL_WILDCARD;
+  if ( strlen(wildcard) > 0 ) {
+      // .xyz
+      ENVreplace(wildcard,fnam,1);
+      int n_files = 12; // Dummy variable - replace with glob
+      double rand_num = FlatRan1(ILIST_RAN);
+      int ifile_ran = (int)(rand_num * (double)n_files); // generate random index between 0 and n_files
+      if ( ifile_ran < 0 || ifile_ran >= n_files ) {
+        sprintf(c1err,"Invalid ifile_ran = %d", ifile_ran);
+        sprintf(c2err,"Expected ifile_ran between 0 and %d", n_files - 1);
+        errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
   }
+
   // cosmology params (Aug 2019)
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER ;
   if ( tmpSigma != 0.0 ) { 

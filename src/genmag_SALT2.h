@@ -74,7 +74,7 @@ struct SALT2_ERRMAP {
 #define MXSHIFT_CALIB_SALT2 100
 typedef struct {
   int    WHICH ;  // specifies MAGSHIFT or WAVESHIFT
-  char   SURVEY[60];
+  char   SURVEY_STRING[60];  // e.g., 'CFA3,CFA3S,CFA3K'
   char   BAND[2];
   double SHIFT ;  
 } SHIFT_CALIB_SALT2_DEF ;
@@ -257,7 +257,9 @@ double magerrFudge_SALT2(double magerr,
 void  init_SALT2interp_SEDFLUX(void);
 void  init_SALT2interp_ERRMAP(void);
 void  init_calib_shift_SALT2train(void) ;
-bool  match_SALT2train(int which, int ifilt) ;
+bool  match_SALT2train(char *survey_calib, char *band_calib, int ifilt) ;
+int copy_filter_trans_SALT2(int ifilt, double **lam, double **trans, 
+			    double **transREF) ;
 
 // obs-frame integration (filter-lambda bins)
 void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 

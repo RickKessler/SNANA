@@ -1223,7 +1223,7 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
     if ( WHICH > 0 ) {
       NSHIFT = INPUT_SALT2_INFO.NSHIFT_CALIB;
       INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].WHICH = WHICH ;
-      readchar(fp, INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].SURVEY );
+      readchar(fp, INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].SURVEY_STRING );
       readchar(fp, INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].BAND );
       readdouble(fp, 1, &INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].SHIFT );
       INPUT_SALT2_INFO.NSHIFT_CALIB++ ;
@@ -1334,7 +1334,7 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
     printf("\t Apply %s=%7.4f for SURVEY=%s, BAND=%s\n",
 	   KEY_SHIFT[WHICH],
 	   INPUT_SALT2_INFO.SHIFT_CALIB[i].SHIFT,
-	   INPUT_SALT2_INFO.SHIFT_CALIB[i].SURVEY,
+	   INPUT_SALT2_INFO.SHIFT_CALIB[i].SURVEY_STRING,
 	   INPUT_SALT2_INFO.SHIFT_CALIB[i].BAND );
   }
 
@@ -1838,10 +1838,11 @@ void init_calib_shift_SALT2train(void) {
 
   // Nov 10 2020
   // apply training-calibration shifts from SALT2.INFO file
-
+  // Works for MAGSHIFT and WAVESHIFT keys in SALT2.INFO file.
+  
   int  NSHIFT = INPUT_SALT2_INFO.NSHIFT_CALIB ;
-  int  i, which, ifilt, ifilt_obs, NLAM, ilam, MEMD ;
-  char *survey, *band, *filter_name ;
+  int  i, which, n_survey, isurvey, ifilt, ifilt_obs, NLAM, ilam, MEMD ;
+  char **survey_list, *survey_string, *survey, *band, *filter_name ;
   double shift, magprimary, mag_shift, lam_shift;
   double *lam, *trans, *transREF ;
   bool MATCH ;
@@ -1859,75 +1860,99 @@ void init_calib_shift_SALT2train(void) {
   set_FILTERSTRING(FILTERSTRING);
 
   for(i=0; i < NSHIFT; i++ ) {
-    which  = INPUT_SALT2_INFO.SHIFT_CALIB[i].WHICH ;
-    survey = INPUT_SALT2_INFO.SHIFT_CALIB[i].SURVEY ;
-    band   = INPUT_SALT2_INFO.SHIFT_CALIB[i].BAND ;
-    shift  = INPUT_SALT2_INFO.SHIFT_CALIB[i].SHIFT ;
+    which         = INPUT_SALT2_INFO.SHIFT_CALIB[i].WHICH ;
+    survey_string = INPUT_SALT2_INFO.SHIFT_CALIB[i].SURVEY_STRING ;
+    band          = INPUT_SALT2_INFO.SHIFT_CALIB[i].BAND ;
+    shift         = INPUT_SALT2_INFO.SHIFT_CALIB[i].SHIFT ;
    
-    for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
+    mag_shift = lam_shift = 0.0 ;
+    if ( which == CALIB_SALT2_MAGSHIFT ) 
+      {  mag_shift = shift ; }
+    else 
+      {  lam_shift = shift;  }	
+
+    // extract array of surveys for comma-sep input:
+    // e.g., survey_string = 'CFA3,CFA3S,CFA3K' ->
+    // survey_list = 'CFA3', 'CFA3S', 'CFA3K'
+    parse_commaSepList(fnam,survey_string, 10, 40, 
+		       &n_survey, &survey_list);
+
+    for(isurvey=0; isurvey < n_survey; isurvey++ ) {
+      survey = survey_list[isurvey] ;
       
-      MATCH  = match_SALT2train(i,ifilt);
-      if ( !MATCH ) { continue; }
-
-      mag_shift = lam_shift = 0.0 ;
-      if ( which == CALIB_SALT2_MAGSHIFT ) 
-	{  mag_shift = shift ; }
-      else 
-	{  lam_shift = shift;  }
-
-      NLAM          = FILTER_SEDMODEL[ifilt].NLAM ;
-      MEMD          = NLAM * sizeof(double);
-
-      // store current filter trans in separate array so that
-      // original array can be modified.
-      lam           = (double*) malloc(MEMD);
-      trans         = (double*) malloc(MEMD);
-      transREF      = (double*) malloc(MEMD);
-      for(ilam=0; ilam < NLAM; ilam++ ) {
-	lam[ilam]      = FILTER_SEDMODEL[ifilt].lam[ilam];
-	trans[ilam]    = FILTER_SEDMODEL[ifilt].transSN[ilam];
-	transREF[ilam] = FILTER_SEDMODEL[ifilt].transREF[ilam];
-      }
-
-      magprimary    = FILTER_SEDMODEL[ifilt].magprimary ;
-      filter_name   = FILTER_SEDMODEL[ifilt].name ;
-      ifilt_obs     = INTFILTER(filter_name);
-
-      printf("\t Update %s(%d) with %s = %.3f \n",
-	     filter_name, ifilt_obs, string_shift[which], shift); 
-      fflush(stdout);
+      for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
       
-      init_filter_SEDMODEL(ifilt_obs, filter_name, survey, 
-			   magprimary+mag_shift, 
-			   NLAM, lam, trans, transREF, lam_shift );
-      
-      free(lam); free(trans); free(transREF);
-    } // end ifilt
+	MATCH  = match_SALT2train(survey,band,ifilt);
+	if ( !MATCH ) { continue; }
+
+	// store current filter trans in separate array so that
+	// original array can be modified.
+	NLAM = copy_filter_trans_SALT2(ifilt, &lam, &trans, &transREF);
+
+	magprimary    = FILTER_SEDMODEL[ifilt].magprimary ;
+	filter_name   = FILTER_SEDMODEL[ifilt].name ;
+	ifilt_obs     = INTFILTER(filter_name);
+	
+	printf("\t Update %s(%d) with %s = %.3f \n",
+	       filter_name, ifilt_obs, string_shift[which], shift); 
+	fflush(stdout);
+	
+	init_filter_SEDMODEL(ifilt_obs, filter_name, survey, 
+			     magprimary+mag_shift, 
+			     NLAM, lam, trans, transREF, lam_shift );
+	
+	free(lam); free(trans); free(transREF);
+      } // end ifilt
+
+    } // end isurvey loop
     
   } // end i loop over NSHIFT
 
   filtdump_SEDMODEL();
   //debugexit(fnam); // xxx REMOVE
-  // .xyz
 
   return ;
 
 } // end init_calib_shift_SALT2train
 
 
+// =========================================
+int copy_filter_trans_SALT2(int ifilt, double **lam, double **trans, 
+			    double **transREF) {
+
+  // Created Nov 11 2020
+  // malloc arrays and copy filter info for 'ifilt'.
+
+  int  NLAM          = FILTER_SEDMODEL[ifilt].NLAM ;
+  int  MEMD          = NLAM * sizeof(double);
+  int  ilam ;
+  char fnam[] = "copy_filter_trans_SALT2" ;
+  // ----------- BEGIN ------------
+
+  *lam           = (double*) malloc(MEMD) ;
+  *trans         = (double*) malloc(MEMD) ;
+  *transREF      = (double*) malloc(MEMD) ;
+  for(ilam=0; ilam < NLAM; ilam++ ) {
+    (*lam)[ilam]      = FILTER_SEDMODEL[ifilt].lam[ilam];
+    (*trans)[ilam]    = FILTER_SEDMODEL[ifilt].transSN[ilam];
+    (*transREF)[ilam] = FILTER_SEDMODEL[ifilt].transREF[ilam];
+  }
+  
+  return NLAM;
+
+} // end copy_filter_trans_SALT2
+
 // ========================================
-bool match_SALT2train(int icalib, int ifilt) {
+  bool match_SALT2train(char *survey_calib, char *band_calib, int ifilt) {
 
   // Created Nov 10 2020
   // return true if input "icalib" calibration shift matches ifilt.
   
-  bool MATCH_SURVEY, MATCH_BAND ;
-  char *survey_calib = INPUT_SALT2_INFO.SHIFT_CALIB[icalib].SURVEY ;
   char *survey_filt  = FILTER_SEDMODEL[ifilt].survey ;
   char *filter_name  = FILTER_SEDMODEL[ifilt].name ;
-  char *band_calib   = INPUT_SALT2_INFO.SHIFT_CALIB[icalib].BAND ;
   char  band_filt[2];
   int   j_band, j_slash ;
+  bool  MATCH_SURVEY, MATCH_BAND ;
   int   LDMP = 0 ;
   char fnam[] = "match_SALT2train";
 
@@ -1940,13 +1965,23 @@ bool match_SALT2train(int icalib, int ifilt) {
   j_slash      = index_charString("/", filter_name) ;
   if ( j_slash > 0 ) { j_band = j_slash - 1; }
   sprintf(band_filt, "%c", filter_name[j_band] );
-  MATCH_BAND = ( strcmp(band_filt,band_calib) == 0 ) ;
 
-  if ( LDMP && MATCH_BAND ) {
+  // matching band requires:
+  // 1) survey name is part of full filter name (FRAGILE ALERT !!!)
+  // 2) band_calib is last character, or last char before slash
+  // .xyz FRAGILE ALERT: need to include SURVEY in kcor file
+  MATCH_BAND = 
+    ( strstr(filter_name,survey_filt) != NULL ) && 
+    ( strcmp(band_filt,band_calib) == 0 ) ;
+
+  if ( LDMP ) {
     printf(" xxx ----------------------------------------- \n");
-    printf(" xxx %s: icalib=%d, ifilt=%d, "
-	   "survey=%s filter=%s band_calib=%s\n",
-	   fnam, icalib, ifilt, survey_filt, filter_name, band_calib);
+    printf(" xxx %s: survey_calib=%s, band_calib=%s \n",
+	   fnam, survey_calib, band_calib );
+
+    printf(" xxx %s: ifilt=%d  survey_filt=%s  filter=%s \n",
+	   fnam, ifilt, survey_filt, filter_name );
+
     printf(" xxx %s: j_[band,slash]=%d,%d  MATCH_BAND=%d \n",
 	   fnam, j_band, j_slash, MATCH_BAND);
     fflush(stdout);

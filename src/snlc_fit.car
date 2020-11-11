@@ -3103,11 +3103,9 @@ c local var
      &  ,ZMIN, ZMAX, LOGZDIF, RVMW
 
       CHARACTER 
-     &   tmpname*20
+     &   tmpname*20, SURVEY_NAME_LOCAL*(MXCHAR_SURVEY)
      &  ,TMP_FITMODEL*(MXCHAR_FILENAME)
-     &  ,BLANK*8
-     &  ,CFILT1*2
-     &  ,cfilt*(MXFILT_ALL)
+     &  ,BLANK*8, CFILT1*2, cfilt*(MXFILT_ALL)
 
       LOGICAL LBX
 
@@ -3134,7 +3132,14 @@ C ------------------- BEGIN ---------------
 
       IERR = 0
       LEN_NAME   = INDEX(FITMODEL_NAME,' ') - 1
-      LEN_SURVEY = INDEX(SURVEY_NAME,  ' ') - 1
+
+c Nov 11 2020: get SURVEY name, or SUBSURVEY name
+      IF ( SUBSURVEY_NAME .EQ. '' ) THEN
+        SURVEY_NAME_LOCAL = SURVEY_NAME
+      ELSE
+        SURVEY_NAME_LOCAL = SUBSURVEY_NAME
+      ENDIF
+      LEN_SURVEY = INDEX(SURVEY_NAME_LOCAL,  ' ') - 1
  
 c reset SEDMODEL to init and/or erase previous instance
       ISTAT = RESET_SEDMODEL()
@@ -3194,7 +3199,7 @@ c VALa = transSN, VALb = transREF8
 
          LEN1  = INDEX(cfilt,' ' ) - 1
          ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, cfilt, 
-     &              SURVEY_NAME(1:LEN_SURVEY)//char(0),
+     &              SURVEY_NAME_LOCAL(1:LEN_SURVEY)//char(0),
      &              MAGPRIM, NLAM, LAM, VALa, VALb, LAMSHIFT,
      &              LEN1, LEN_SURVEY )
 

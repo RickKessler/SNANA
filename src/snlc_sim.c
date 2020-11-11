@@ -20901,8 +20901,7 @@ void init_genmodel(void) {
     // model-specific init
     OPTMASK = 0; 
     if ( INPUTS.LEGACY_colorXTMW_SALT2 ) { OPTMASK += 128 ; }
-    if ( INPUTS.REQUIRE_DOCANA   ) { OPTMASK += OPENMASK_REQUIRE_DOCANA;}
-    //xxx mark delete:  if ( INPUTS.DEBUG_FLAG == 64 )       { OPTMASK +=  64 ; } // ABORT on bad lamRange
+    if ( INPUTS.REQUIRE_DOCANA   ) { OPTMASK += OPENMASK_REQUIRE_DOCANA; }
  
     istat = init_genmag_SALT2(GENMODEL, GENMODEL_EXTRAP, OPTMASK) ;
 

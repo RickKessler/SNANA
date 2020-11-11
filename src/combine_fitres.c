@@ -170,11 +170,6 @@ void  freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN);
 #define MXVAR_PERFILE  50  // max number of NTUP variables per file
 #define MXVAR_TOT  MXVAR_TABLE     // max number of combined NTUP variables
 
-/* xxx mark delete Sep 2020 
-#define INIVAL_COMBINE_FLT  -888.0 // default float value
-#define INIVAL_COMBINE_STR  "NULL" // default string value
-xxxxxxx  end mark xxxx */
-
 #define DEFAULT_NULLVAL_FLOAT  -888.0 // default float value
 #define DEFAULT_NULLVAL_STRING  "NULL" // default string value
 

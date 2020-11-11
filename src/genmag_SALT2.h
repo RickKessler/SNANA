@@ -51,16 +51,6 @@ double RVMW_SALT2 ;
 #define INDEX_ERRMAP_COLORDISP  4 // color  dispersion vs. lambda
 
 
-/* xxxx mark delete xxxxxx
-// Sep 2020: define color law params for python-trained SALT3
-typedef struct {
-  double REFLAM_CL0 ; // lam where CL=0  a.k.a B_WAVE
-  double REFLAM_CL1 ; // lam where CL=1  a.k.a V_WAVE
-  GENPOLY_DEF LAMPOLY_CL; // color law poly fun vs. wave
-  double LAMCEN_RANGE[2]; // min, max wave (rest-frame) of filt-mean
-} SALT3_COLORPAR_DEF ;
-xxxxxx end mark xxxxxxxxx */
-
 struct SALT2_ERRMAP {
   int     NDAY, NLAM;
   double  LAMMIN, LAMMAX, LAMSTEP;
@@ -78,6 +68,16 @@ struct SALT2_ERRMAP {
   double  RANGE_VALID[2] ;  // valid range for each map
   double  RANGE_FOUND[2] ;  // actual min/max for each map
 } SALT2_ERRMAP[NERRMAP]; // SALT2_VAR[2], SALT2_COVAR, SALT2_ERRSCALE ;
+
+#define CALIB_SALT2_MAGSHIFT  1
+#define CALIB_SALT2_WAVESHIFT 2
+#define MXSHIFT_CALIB_SALT2 100
+typedef struct {
+  int    WHICH ;  // specifies MAGSHIFT or WAVESHIFT
+  char   SURVEY[60];
+  char   BAND[2];
+  double SHIFT ;  
+} SHIFT_CALIB_SALT2_DEF ;
 
 
 struct INPUT_SALT2_INFO {
@@ -106,6 +106,9 @@ struct INPUT_SALT2_INFO {
 
   // option to force g-band flux to zero at high redshift (Oct 2015)
   double RESTLAM_FORCEZEROFLUX[2];
+
+  int NSHIFT_CALIB;
+  SHIFT_CALIB_SALT2_DEF SHIFT_CALIB[MXSHIFT_CALIB_SALT2];
 
 } INPUT_SALT2_INFO ;
 
@@ -253,6 +256,8 @@ double magerrFudge_SALT2(double magerr,
 
 void  init_SALT2interp_SEDFLUX(void);
 void  init_SALT2interp_ERRMAP(void);
+void  init_calib_shift_SALT2train(void) ;
+bool  match_SALT2train(int which, int ifilt) ;
 
 // obs-frame integration (filter-lambda bins)
 void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 

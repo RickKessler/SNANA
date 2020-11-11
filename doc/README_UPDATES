@@ -19237,9 +19237,9 @@
 
          ***** MISCELLANEOUS(v11_02b) ***** 
 
-   backup_SNDATA_ROOT.py
-     + add SURVEY.DEF to subdir list for tar file.
-       Previous SNDATA_ROOT backups on Zenodo won't work without SURVEY.DEF
+  backup_SNDATA_ROOT.py
+    + add SURVEY.DEF to subdir list for tar file.
+      Previous SNDATA_ROOT backups on Zenodo won't work without SURVEY.DEF
 
   sntools_genSmear.c:
     + fix to work with salt2 or salt3 files.
@@ -19250,5 +19250,11 @@
  
   snlc_sim.c
     + refactor RANSYSTPAR_SIGSHIFT_[ZP,LAMFILT] to allow groups of bands.
+    + new RANSYSTPAR_SIGSHIFT_REDSHIFT
+    + start RANSYSTPAR_GENMODEL_WILDCARD
+
+  genmag_SALT2.c
+    + read optional MAGSHIFT & WAVESHIFT keys from SALT2.INFO file and
+      implement calibration shifts from training.
 
 END: 

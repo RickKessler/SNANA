@@ -10883,7 +10883,7 @@ void abort_openTextFile(char *keyName, char *PATH_LIST,
 int INTFILTER ( char *cfilt ) {
 
   // returns absolute filter index  for string *cfilt
-  // Oct 29 2019: use last char if cfilt to work with arbitrary string
+  // Oct 29 2019: use last char of cfilt to work with arbitrary string
 
   int len = strlen(cfilt);
   int ifilt, itmp;

@@ -2050,8 +2050,8 @@ void genmag_SIMSED(int OPTMASK, int ifilt, double x0,
 // ------------------------------------
 // generic functions for SEDMODELs
 
-int init_filter_SEDMODEL(int ifilt, char *filtname, double magprimary, 
-			 int NLAM, double *lam, 
+int init_filter_SEDMODEL(int ifilt, char *filter_name, char *survey_name,
+			 double magprimary, int NLAM, double *lam, 
 			 double *transSN, double *transREF, double lamshift);
 
 int init_primary_SEDMODEL(char *refname, int NLAM, 

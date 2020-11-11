@@ -453,10 +453,12 @@ HELP_CONFIG_TRAIN_SALT2 = f"""
 
   PATH_INPUT_CALIB: [path] # input Instrument and MagSys (aka SALTPATH)
 
+  # calibration systematics per band or for groups of bands.
+  # An independent training is done for each TRAINOPT argument.
   TRAINOPT:
-  - ZPSHIFT   SDSS g 0.01  # NOT YET WORKING
-  - ZPSHIFT   CFA4 B 0.01  # NOT YET WORKING
-  - WAVESHIFT SDSS r 10.0  # NOT YET WORKING
+  - MAGSHIFT  SDSS g 0.01
+  - MAGSHIFT  SDSS g,z 0.01,-0.01    MAGSHIFT CfA2 B 0.01
+  - WAVESHIFT CfA3 r,i 10,10         MAGSHIFT CfA3 U .01
 
   OUTDIR:   [outdir]   # all output goes here
 """

@@ -21069,7 +21069,8 @@ void init_genSEDMODEL(void) {
   //
   // --------------------
   char  fnam[] = "init_genSEDMODEL" ;
-  char  filtName[40], cfilt[2]    ;
+  char   filtName[40], cfilt[2]    ;
+  char  *survey = GENLC.SURVEY_NAME ;
 
   int 
     ifilt, ifilt_obs
@@ -21092,7 +21093,6 @@ void init_genSEDMODEL(void) {
   genSEDMODEL.primaryFlux = (double*) malloc( MEMD );
   genSEDMODEL.TransSN     = (double*) malloc( MEMD );
   genSEDMODEL.TransREF    = (double*) malloc( MEMD );
-
 
   // -----------
   sprintf(GENLC.primary,"%s", "NULL");
@@ -21185,7 +21185,7 @@ void init_genSEDMODEL(void) {
     }
 
     lamshift = 0.0 ;
-    init_filter_SEDMODEL(ifilt_obs, filtName, magprim, NLAM, 
+    init_filter_SEDMODEL(ifilt_obs, filtName, survey, magprim, NLAM, 
 			 genSEDMODEL.lam, 
 			 genSEDMODEL.TransSN, 
 			 genSEDMODEL.TransREF, 

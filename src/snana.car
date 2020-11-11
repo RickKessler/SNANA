@@ -4762,9 +4762,8 @@ c ------------- BEGIN -------------
 
         CALL GETARG(iArg, ARG)
         LL = INDEX (ARG, ' ' ) - 1
-c xxx mark delete         LL = INDEX ( LINE_ARGS(iArg), ' ' ) - 1
+
         print*,'     PROCESS COMMAND LINE ARG: ', ARG(1:LL)
-cc xxx     &                   LINE_ARGS(iArg)(1:LL)
 
         CALL FLUSH(6)
 
@@ -5579,9 +5578,8 @@ c+CDE,CTRLCOM.
 
 c function args
 c MXCHAR_FILENAME
-      CHARACTER KEYNAME*(*)       ! (I) keyname to check
-c     CHARACTER LINE_ARGS(*)*(*) ! (I) command line argument list
-      INTEGER   NARG             ! (I) number of arguments to checl
+      CHARACTER KEYNAME*(*)      ! (I) keyname to check
+      INTEGER   NARG             ! (I) number of arguments to check
       INTEGER   iArg             ! (I) current index for LINE_ARGS(i)
       CHARACTER ARGLIST(*)*(*)   ! (O) 'NARG' string args for KEYNAME
 
@@ -5598,12 +5596,9 @@ C ------------- BEGIN ------------
          ARGLIST(i) = 'NULL'
       ENDDO
       LDMP = .false.
-c      LDMP =  ( KEYNAME(1:10) .EQ. 'CUTWIN_CID'  ) 
+c      LDMP =  ( KEYNAME(1:8) .EQ. 'FITMODEL'  ) 
 
       LENKEY = INDEX(KEYNAME//' ', ' ') - 1
-
-c xxx      LENARG1_EQ  = INDEX(LINE_ARGS(iArg),'=') - 1
-c xxx      LENARG1_TOT = INDEX(LINE_ARGS(iArg),' ') - 1
 
       CALL GETARG(iArg,ARG)
       LENARG1_EQ  = INDEX(ARG,'=') - 1
@@ -5618,7 +5613,6 @@ c xxx      LENARG1_TOT = INDEX(LINE_ARGS(iArg),' ') - 1
 
       if ( LDMP ) then
         print*,' xxx --------- MATCH_NMLKEY DUMP ------------- '
-c xxxx  print*,' xxx  LINE_ARG  = ', LINE_ARGS(iArg)(1:60)
         print*,' xxx  LINE_ARG  = ', ARG(1:60)
         print*,' xxx  KEYNAME   = ', KEYNAME(1:LENKEY)
         print*,' xxx  iArg,NARG = ', iArg, NARG
@@ -5628,9 +5622,6 @@ c xxxx  print*,' xxx  LINE_ARG  = ', LINE_ARGS(iArg)(1:60)
       endif
       
       if ( LENARG1_EQ .NE. LENKEY ) RETURN
-
-c xxx      MATCH_NMLKEY = 
-c xxx    &    (LINE_ARGS(iArg)(1:LENARG1_EQ) .EQ. KEYNAME(1:LENKEY))
 
       MATCH_NMLKEY = ( ARG(1:LENARG1_EQ) .EQ. KEYNAME(1:LENKEY) )
 
@@ -11470,8 +11461,6 @@ c Oct 26 2020: check for SNANA_VERSION in fits header
       IF(LRET > 0) THEN
          READ( KEYVAL(1:LRET), * ) SNANA_VERSION_DATA
          CORRECT_SIGN_VPEC = correct_sign_vpec_data(SNANA_VERSION_DATA)
-	 print*,' xxx SNANA_VERSION_DATA = ', 
-     &    SNANA_VERSION_DATA, CORRECT_SIGN_VPEC
       ENDIF
 
 c --------------------------------------------------------

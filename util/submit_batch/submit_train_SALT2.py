@@ -50,6 +50,15 @@ COLORLAW_FILE   = "salt2_color_correction.dat"
 CHECK_FILE_LIST = [ "salt2_template_0.dat", "salt2_template_1.dat", 
                     COLORLAW_FILE ]
 
+ICOL_INFO_TRAINOPT    = 0
+ICOL_INFO_FILE        = 1
+ICOL_INFO_KEY         = 2
+ICOL_INFO_SURVEY      = 3
+ICOL_INFO_BAND        = 4
+ICOL_INFO_SHIFT       = 5
+ICOL_INFO_COMMENT     = 6
+
+
 # define content for SALT2_INFO file
 SALT2_INFO_FILE    = "SALT2.INFO"    # created for SNANA programs
 SALT2_MAG_OFFSET   = 0.27
@@ -262,10 +271,15 @@ class train_SALT2(Program):
                     magsys_file,Instr_list = \
                         self.get_magsys_file(outdir_calib, survey)
 
-                    info = \
-                        self.update_magsys_file(magsys_file, Instr_list, 
-                                                band_list, shift_list)
-                    calib_updates += info
+                    magsys_dict = {
+                        'magsys_file' :  magsys_file,
+                        'survey'      :  survey,
+                        'Instr_list'  :  Instr_list,
+                        'band_list'   :  band_list,
+                        'shift_list'  :  shift_list
+                    }
+                    info = self.update_magsys_file(magsys_dict)
+                    calib_updates += info 
                     
                 elif key == KEY_WAVESHIFT :
                     for band,shift in zip(band_list,shift_list):
@@ -273,7 +287,13 @@ class train_SALT2(Program):
                         filter_file_list,Instr_list = \
                             self.get_filter_file(outdir_calib, survey, band)
                         for filter_file in filter_file_list:
-                            info = self.update_filter_file(filter_file, shift)
+                            filter_dict = {
+                                'filter_file' :  filter_file,
+                                'survey'      :  survey,
+                                'band'        :  band,
+                                'shift'       :  shift
+                            }
+                            info = self.update_filter_file(filter_dict)
                             calib_updates += info
                 else:
                     pass # probably should abort 
@@ -320,7 +340,7 @@ class train_SALT2(Program):
         return magsys_file, Instr_list
         # end get_magsys_file
 
-    def update_magsys_file(self, magsys_file, Instr_list,band_list,shift_list):
+    def update_magsys_file(self, magsys_dict):
 
         # Edit/update magsys_file : search for row containing 
         # instrument in Intr_list and band in band_list;
@@ -336,6 +356,12 @@ class train_SALT2(Program):
         #
         # Function return human-readable "info" array destined for 
         # SUBMIT.INFO file.
+
+        magsys_file = magsys_dict['magsys_file']
+        survey      = magsys_dict['survey']
+        Instr_list  = magsys_dict['Instr_list']
+        band_list   = magsys_dict['band_list']
+        shift_list  = magsys_dict['shift_list']
 
         info = []
         if not os.path.exists(magsys_file): return info
@@ -380,9 +406,10 @@ class train_SALT2(Program):
                               f"   # {value} + {shift} \n")
                 line_list_out[-1:] = new_line  # overwrite last line_out
                 nchange += 1
-                val_string = (f"{Instr}-{band} = {value} -> {new_value:.6f}")
-                logging.info(f"\t Update {magsys_base}: {val_string}" )
-                info.append( [magsys_base,val_string])
+                comment  = (f"{Instr}-{band} = {value} -> {new_value:.6f}")
+                logging.info(f"\t Update {magsys_base}: {comment}" )
+                info.append( [magsys_base, KEY_MAGSHIFT, 
+                              survey, band, str(shift), comment] )
 
         # modify file with line_list_out
         if nchange > 0 :
@@ -452,10 +479,16 @@ class train_SALT2(Program):
         return filter_file
         # end parse_FilterWheel
 
-    def update_filter_file(self, filter_file, wave_shift):
+    def update_filter_file(self, filter_dict):
         # Modify filter_file to have wavelength shift of wave_shift. 
         # Function returns human-readable "info" array destined for 
         # SUBMIT.INFO file.
+
+        filter_file = filter_dict['filter_file']
+        survey      = filter_dict['survey']
+        band        = filter_dict['band']
+        shift       = filter_dict['shift']  # wave shift, A
+
 
         if not os.path.exists(filter_file): 
             msgerr = []
@@ -464,13 +497,16 @@ class train_SALT2(Program):
             self.log_assert(False,msgerr)
 
         filter_base = os.path.basename(filter_file)
-        logging.info(f"\t Update {filter_base} with {wave_shift} A shift.")
-        info = [ [ filter_base, f"{wave_shift} A shift" ] ]
+        comment     = (f"{shift} A shift")
+        logging.info(f"\t Update {filter_base} with {comment}.")
+
+        info = [ [ filter_base, KEY_WAVESHIFT, 
+                   survey, band, str(shift), comment ] ]
 
         msgerr     = []
         line_list_out = []
         line_list_inp = []
-        line_list_out.append(f"# wave_shift = {wave_shift} A has been " \
+        line_list_out.append(f"# wave_shift = {shift} A has been " \
                              "applied by\n")
         line_list_out.append(f"#    {sys.argv[0]}\n")
 
@@ -488,7 +524,7 @@ class train_SALT2(Program):
             word_list = (line.rstrip("\n")).split()
             if len(word_list) < 2 : continue
             wave_orig = float(word_list[0])
-            wave_out  = wave_orig + wave_shift
+            wave_out  = wave_orig + shift
             new_line  = str(wave_out) + "  " + " ".join(word_list[1:])
             line_list_out[-1:] = (f" {new_line} \n")
 
@@ -640,13 +676,54 @@ class train_SALT2(Program):
             f.write(f"  - {row} \n")
         f.write("\n")
         
-        # write which calib files were modified for systematics
+        # write which calib files were modified for systematics 
+        # (human readable)
         update_calib_info = self.config_prep['update_calib_info' ]
         f.write(f"CALIB_UPDATES: # TRAINOPT    file          comment\n")
-        for item in update_calib_info:
+        for item_full in update_calib_info:
+            item = [ item_full[ICOL_INFO_TRAINOPT], item_full[ICOL_INFO_FILE],
+                     item_full[ICOL_INFO_COMMENT] ]
             f.write(f"  - {item}\n")
+        f.write("\n")
+
+        # write info for SNANA's SALT2.INFO file
+        f.write(f"SNANA_SALT2_INFO: \n")
+        for item_full in update_calib_info:
+            survey_snana, band_snana = self.get_SNANA_INFO(item_full)
+            item_full[ICOL_INFO_SURVEY] = survey_snana
+            item_full[ICOL_INFO_BAND]   = band_snana
+            trainopt  = item_full[ICOL_INFO_TRAINOPT]
+            key_snana = item_full[ICOL_INFO_KEY]
+            arg_snana = " ".join(item_full[3:6])
+            item = [ trainopt, key_snana, arg_snana ]
+            f.write(f"  - {item} \n")
+        f.write("\n")
 
         # end append_info_file
+
+    def get_SNANA_INFO(self,info_list):
+
+        survey_yaml  = self.config_prep['survey_yaml']
+        survey_train = info_list[ICOL_INFO_SURVEY]
+        band_train   =  info_list[ICOL_INFO_BAND]
+
+        survey_snana = None 
+        band_snana   = None         
+
+        key_snana = 'SNANA_INSTR'
+        if key_snana in survey_yaml[survey_train]:
+            temp_list    = survey_yaml[survey_train][key_snana]
+            survey_snana = ",".join(temp_list)
+
+        key_snana = 'SNANA_BANDS'
+        if key_snana in survey_yaml[survey_train]:
+            band_list_train = survey_yaml[survey_train]['Bands']
+            band_list_snana = survey_yaml[survey_train][key_snana]
+            j               = band_list_train.index(band_train)
+            band_snana      = band_list_snana[j]
+
+        return survey_snana, band_snana
+        # end get_SNANA_INFO
 
     def merge_config_prep(self,output_dir):
         submit_info_yaml = self.config_prep['submit_info_yaml']
@@ -820,6 +897,9 @@ class train_SALT2(Program):
         npar         = color_law_dict['npar']
         par_list     = " ".join(color_law_dict['par_list'])
 
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        SNANA_SALT2_INFO = submit_info_yaml['SNANA_SALT2_INFO']
+
         logging.info(f"    Create {SALT2_INFO_FILE}")
         with open(info_file,"wt") as f:
 
@@ -835,8 +915,13 @@ class train_SALT2(Program):
             f.write(f"{SALT2_INFO_INCLUDE}\n")
 
             f.write(f"# {trainopt} \n")
-            f.write(f"# ?? calib option keys for SNANA ... ?? \n")
-            
+            for item in SNANA_SALT2_INFO :
+                if trainopt == item[0] :
+                    key   = item[1]
+                    arg   = item[2]
+                    f.write(f"{key}: {arg} \n")
+            #.xyz
+
         # #end merge_create_SALT2_INFO_file
         
     def get_color_law(self,model_dir):

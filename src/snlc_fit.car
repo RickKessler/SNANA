@@ -1353,7 +1353,6 @@ c set FITMODEL_INDEX, FITMODEL_PATH and FITMODEL_VERSION
       LEN_VERS = INDEX(FITMODEL_VERSION, ' ' ) - 1
       LEN_NAME = INDEX(FITMODEL_NAME,' ') - 1
 
-cc xxx mark delete      tmpName  = FITMODEL_VERSION(1:LEN_VERS) // char(0)
       tmpName  = FITMODEL_NAME(1:LEN_NAME) // char(0)
       
 c set rest-frame filter ranges.
@@ -3092,7 +3091,7 @@ c local var
 +CDE,SNLCINP.
 
       INTEGER 
-     &   IFILT_OBS, IFILT, ILAM
+     &   IFILT_OBS, IFILT, ILAM, LEN_SURVEY
      &  ,LEN1, LEN_NAME, ISTAT, NLAM, OPTMASK
      &  ,NZBIN, OPT_FILTER_UPDATE_SAVE
 
@@ -3105,7 +3104,6 @@ c local var
 
       CHARACTER 
      &   tmpname*20
-cc xxxx     &  ,TMP_FITMODEL*(MXCHAR_MODELNAME)
      &  ,TMP_FITMODEL*(MXCHAR_FILENAME)
      &  ,BLANK*8
      &  ,CFILT1*2
@@ -3135,8 +3133,9 @@ c functions
 C ------------------- BEGIN ---------------
 
       IERR = 0
-      LEN_NAME = INDEX(FITMODEL_NAME,' ') - 1
-      
+      LEN_NAME   = INDEX(FITMODEL_NAME,' ') - 1
+      LEN_SURVEY = INDEX(SURVEY_NAME,  ' ') - 1
+ 
 c reset SEDMODEL to init and/or erase previous instance
       ISTAT = RESET_SEDMODEL()
 
@@ -3195,7 +3194,9 @@ c VALa = transSN, VALb = transREF8
 
          LEN1  = INDEX(cfilt,' ' ) - 1
          ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, cfilt, 
-     &              MAGPRIM, NLAM, LAM, VALa, VALb, LAMSHIFT, LEN1)
+     &              SURVEY_NAME(1:LEN_SURVEY)//char(0),
+     &              MAGPRIM, NLAM, LAM, VALa, VALb, LAMSHIFT,
+     &              LEN1, LEN_SURVEY )
 
       CALL FLUSH(6)
 
@@ -7336,11 +7337,10 @@ C -------------- BEGIN --------------
       i = 2
       ilast = 2
 
-      DO WHILE ( i .LT. NLINE_ARGS )
+      DO WHILE ( i .LE. NLINE_ARGS )
 
         CALL GETARG(i,ARG)
         LL = INDEX ( ARG, ' ' ) - 1
-cc xxxx        LL = INDEX ( LINE_ARGS(i), ' ' ) - 1
 
         if ( MATCH_NMLKEY('FITMODEL_NAME', 1,i,ARGLIST) ) then
             FITMODEL_NAME = ARGLIST(1)

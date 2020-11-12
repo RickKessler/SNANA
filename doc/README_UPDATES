@@ -19268,5 +19268,7 @@
 
   SALT2mu.c
     + new input ndump_nobiascor
+    + add MUERR_VPEC to output ; MUERR contributioN from VPEC_ERR
+    + for vpec-flip test, require at least 70 events (was 10)
 
 END: 

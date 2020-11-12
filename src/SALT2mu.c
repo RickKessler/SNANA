@@ -1263,7 +1263,8 @@ typedef struct {
 struct {
   TABLEVAR_DEF TABLEVAR;
 
-  double *mumodel, *M0, *mu, *muerr, *muerr_raw,  *mures, *mupull;
+  double *mumodel, *M0, *mu, *muerr, *muerr_raw, *muerr_vpec;
+  double *mures, *mupull;
   double *muerr_last, *muerrsq_last, *sigCC_last, *sqsigCC_last ;
   double *muCOVscale, *muBias, *muBiasErr, *muBias_zinterp; 
   double *chi2, *probcc_beams;
@@ -3257,7 +3258,7 @@ void check_vpec_sign(void) {
 
   // - - - -
 
-  if ( NSN_SUM < 10 )   { return; }
+  if ( NSN_SUM < 70 )   { return; }
 
   for(i=0; i < 2; i++ ) {
     mean[i] = SUM_MURES[i] / (double)NSN_SUM ;
@@ -3764,7 +3765,6 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     ProbRatio_Ia = ProbRatio_CC = 0.0 ;
   }
 
-
   // -------------------------------
   // For biasCor, get INTERP weights for alpha and beta grid.
   // Beware that this is not quite right for z-dependent alpha,beta,
@@ -3778,8 +3778,6 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     // check for hostmass-dependent alpha or beta (April 2 2018)
     if ( INPUTS.ipar[15] || INPUTS.ipar[16] ) { INTERPFLAG_abg = 2; } 
   }
-
-
 
   // -------------------------------
   chi2sum_tot = chi2sum_Ia = 0.0;
@@ -3802,7 +3800,8 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     INFO_DATA.mupull[n]    = -999. ;
     INFO_DATA.mu[n]        = -999. ;
     INFO_DATA.muerr[n]     = -999. ;    
-    INFO_DATA.muerr_raw[n] = -999. ;  // no scale and no sigInt
+    INFO_DATA.muerr_raw[n] = -999. ;   // no scale and no sigInt
+    INFO_DATA.muerr_vpec[n]= -999. ;   // muerr from vpec only (Nov 2020)
     name     = INFO_DATA.TABLEVAR.name[n] ;
     idsample = (int)INFO_DATA.TABLEVAR.IDSAMPLE[n] ;
     z        = (double)INFO_DATA.TABLEVAR.zhd[n] ;     
@@ -4054,13 +4053,14 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
       }
       muerrsq_raw = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit, z,zmuerr,0);
       muerr_raw   = sqrt(muerrsq_raw);
-      INFO_DATA.muerr_raw[n] = muerr_raw;   
+      INFO_DATA.muerr_raw[n]  = muerr_raw;   
+      INFO_DATA.muerr_vpec[n] = fcn_muerrz(1, z, zmuerr); // Nov 2020
 
       // check user dump with total error (Jun 19 2018)
       dumpFlag_muerrsq = ( strcmp(name,INPUTS.SNID_MUCOVDUMP) == 0 );
       if ( dumpFlag_muerrsq ) {
-	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit,z,zmuerr,1) ;
-	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_tot,z,zmuerr,1) ;
+	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit,z,zmuerr,1);
+	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_tot,z,zmuerr,1);
       }
       
       if ( IS_SIM && SIM_NONIA_INDEX > 0 ) { nsnfit_truecc++ ; } 
@@ -4345,6 +4345,7 @@ void *MNCHI2FUN(void *thread) {
     INFO_DATA.mu[n]        = -999. ;
     INFO_DATA.muerr[n]     = -999. ;    
     INFO_DATA.muerr_raw[n] = -999. ;  // no scale and no sigInt
+    INFO_DATA.muerr_vpec[n] = -999. ;  // muerr from vpec only
     name     = INFO_DATA.TABLEVAR.name[n] ;
     idsample = (int)INFO_DATA.TABLEVAR.IDSAMPLE[n] ;
     z        = (double)INFO_DATA.TABLEVAR.zhd[n] ;     
@@ -4592,6 +4593,7 @@ void *MNCHI2FUN(void *thread) {
       muerrsq_raw = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit, z,zmuerr,0);
       muerr_raw   = sqrt(muerrsq_raw);
       INFO_DATA.muerr_raw[n] = muerr_raw;   
+      INFO_DATA.muerr_vpec[n] = fcn_muerrz(1, z, zmuerr); // Nov 2020
 
       // check user dump with total error (Jun 19 2018)
       dumpFlag_muerrsq = ( strcmp(name,INPUTS.SNID_MUCOVDUMP) == 0 );
@@ -5156,7 +5158,6 @@ double fcn_muerrz(int OPT, double z, double zerr) {
   // --------------- BEGIN --------------
 
   if ( OPT == 1 ) {
-
     zerrtot = zerr ;
     muerr    = FAC*(zerrtot/z) * (1.0+z)/(1.0+z/2.0);
   }
@@ -5742,6 +5743,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
     INFO_DATA.mu             = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.muerr          = (double*) malloc(MEMD); MEMTOT+=MEMD; 
     INFO_DATA.muerr_raw      = (double*) malloc(MEMD); MEMTOT+=MEMD;
+    INFO_DATA.muerr_vpec     = (double*) malloc(MEMD); MEMTOT+=MEMD; // 11.2020
     INFO_DATA.mures          = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.mupull         = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.muerr_last     = (double*) malloc(MEMD); MEMTOT+=MEMD;
@@ -5779,6 +5781,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
     free(INFO_DATA.mu);
     free(INFO_DATA.muerr);
     free(INFO_DATA.muerr_raw);
+    free(INFO_DATA.muerr_vpec);
     free(INFO_DATA.mures);
     free(INFO_DATA.mupull);
     free(INFO_DATA.muerr_last);
@@ -6788,6 +6791,13 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   }
 
 
+  // - - - - - - - - - - - - - - - - - -   
+  // 6.29.2020: load zmuerr used for muerr += dmu/dz x zerr
+  if ( INPUTS.restore_sigz ) 
+    { TABLEVAR->zmuerr[ISN] = zhderr; } // legacy: full zerr
+  else
+    { TABLEVAR->zmuerr[ISN] = vpecerr/LIGHT_km; } // only vpec component
+
   // increment IDSURVEY-dependent stuff
   TABLEVAR->NSN_PER_SURVEY[IDSURVEY]++ ;
   zMIN = TABLEVAR->zMIN_PER_SURVEY[IDSURVEY] ;
@@ -6874,7 +6884,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     // if cosmo params are fixed, then store mumodel for each event.
     if ( INPUTS.FLOAT_COSPAR == 0 ) {
       dl = cosmodl_forFit(zhd,INPUTS.COSPAR);
-      TABLEVAR->mumodel[ISN] = (float)(5.0*log10(dl) + 25.0);
+      TABLEVAR->mumodel[ISN]    = (float)(5.0*log10(dl) + 25.0);
     }
 
     // check z-cheat option 
@@ -6951,13 +6961,6 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     }
 
   }  // end not-DATA
-
-  // - - - - - - - - - - - - - - - - - -   
-  // 6.29.2020: load zmuerr used for muerr += dmu/dz x zerr
-  if ( INPUTS.restore_sigz ) 
-    { TABLEVAR->zmuerr[ISN] = TABLEVAR->zhderr[ISN]; } // legacy: full zerr
-  else
-    { TABLEVAR->zmuerr[ISN] = vpecerr/LIGHT_km; } // only vpec component
 
 
 
@@ -18124,6 +18127,8 @@ int write_fitres_line(int indx, int ifile, char *line, FILE *fout) {
 // ===============================================
 void define_varnames_append(void) {
 
+  // Nov 12 2020: add MUERR_VPEC
+
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   int   NSN_BIASCOR       =  INFO_BIASCOR.TABLEVAR.NSN_ALL;
   char  tmpName[MXCHAR_VARNAME];
@@ -18139,6 +18144,7 @@ void define_varnames_append(void) {
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUMODEL");     NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR");       NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_RAW");   NVAR_APPEND++ ;  
+  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_VPEC");  NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MURES");       NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUPULL");      NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"M0DIF");       NVAR_APPEND++ ;  
@@ -18529,9 +18535,10 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   // Sep 26 2019: write probcc_beams
   // Apr 18 2020: write extra digit of precision for bias(mb,c,mu)
   // May 13 2020: write to char line, then single fprintf for entire line.
+  // Nov 12 2020: write muerr_vpec for Dan.
 
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
-  double mu, muerr, muerr2, mumodel, mures, pull, M0DIF ;
+  double mu, muerr, muerr_raw, muerr_vpec, mumodel, mures, pull, M0DIF ;
   double muBias=0.0, muBiasErr=0.0,  muCOVscale=0.0, chi2=0.0 ;
   double fitParBias[NLCPAR] = { 0.0, 0.0, 0.0 } ;
   int    n, cutmask, NWR, NSN_BIASCOR, idsample ;
@@ -18545,16 +18552,17 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   NSN_BIASCOR =  INFO_BIASCOR.TABLEVAR.NSN_ALL;
   //  z        = INFO_DATA.TABLEVAR.zhd[n] ;  
   //  zerr     = INFO_DATA.TABLEVAR.zhderr[n] ;
-  mumodel  = INFO_DATA.mumodel[n];
-  mu       = INFO_DATA.mu[n] - FITRESULT.SNMAG0; 
-  muerr    = INFO_DATA.muerr[n];
-  muerr2   = INFO_DATA.muerr_raw[n] ;
-  mures    = INFO_DATA.mures[n] ;
-  pull     = INFO_DATA.mupull[n] ;
-  M0DIF    = INFO_DATA.M0[n] - FITRESULT.AVEMAG0 ;
-  chi2     = INFO_DATA.chi2[n] ;
-  cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n]  ;
-  idsample = INFO_DATA.TABLEVAR.IDSAMPLE[n]  ;
+  mumodel    = INFO_DATA.mumodel[n];
+  mu         = INFO_DATA.mu[n] - FITRESULT.SNMAG0; 
+  muerr      = INFO_DATA.muerr[n];
+  muerr_raw  = INFO_DATA.muerr_raw[n] ;
+  muerr_vpec = INFO_DATA.muerr_vpec[n] ;
+  mures      = INFO_DATA.mures[n] ;
+  pull       = INFO_DATA.mupull[n] ;
+  M0DIF      = INFO_DATA.M0[n] - FITRESULT.AVEMAG0 ;
+  chi2       = INFO_DATA.chi2[n] ;
+  cutmask    = INFO_DATA.TABLEVAR.CUTMASK[n]  ;
+  idsample   = INFO_DATA.TABLEVAR.IDSAMPLE[n]  ;
   //  sim_mb   = INFO_DATA.TABLEVAR.SIM_FITPAR[INDEX_mB][n] ;
   //  sim_mu   = INFO_DATA.TABLEVAR.SIM_MU[n] ;
 
@@ -18576,7 +18584,8 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   sprintf(word, "%7.4f ", mu     );   NWR++ ; strcat(line,word);
   sprintf(word, "%7.4f ", mumodel);   NWR++ ; strcat(line,word);
   sprintf(word, "%7.4f ", muerr  );   NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", muerr2 );   NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", muerr_raw );   NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", muerr_vpec );  NWR++ ; strcat(line,word);
   sprintf(word, "%7.4f ", mures  );   NWR++ ; strcat(line,word);
   sprintf(word, "%6.3f ", pull   );   NWR++ ; strcat(line,word);
   sprintf(word, "%7.4f ", M0DIF  );   NWR++ ; strcat(line,word);

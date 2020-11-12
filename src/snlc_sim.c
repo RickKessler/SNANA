@@ -5870,12 +5870,22 @@ void  prep_RANSYSTPAR(void) {
 
   // GENMODEL Wildcard PA 2020
   char *wildcard = INPUTS.RANSYSTPAR.GENMODEL_WILDCARD;
+  char **genmodel_list;
   if ( strlen(wildcard) > 0 ) {
       // .xyz
       ENVreplace(wildcard,fnam,1);
-      int n_files = 12; // Dummy variable - replace with glob
+
+      int n_files = glob_file_list(wildcard, &genmodel_list);
+      int i;
+      /* xxx mark delete 12/11/2020
+      for (i=0; i<n_files; i++) {
+        printf("xxx%s: i=%d genmodel=%s\n", fnam, i, genmodel_list[i]);
+      }
+      */
       double rand_num = FlatRan1(ILIST_RAN);
       int ifile_ran = (int)(rand_num * (double)n_files); // generate random index between 0 and n_files
+      printf("\t Select GENMODEL %d of %d\n", ifile_ran, n_files);
+      sprintf(INPUTS.GENMODEL, "%s", genmodel_list[ifile_ran]);
       if ( ifile_ran < 0 || ifile_ran >= n_files ) {
         sprintf(c1err,"Invalid ifile_ran = %d", ifile_ran);
         sprintf(c2err,"Expected ifile_ran between 0 and %d", n_files - 1);

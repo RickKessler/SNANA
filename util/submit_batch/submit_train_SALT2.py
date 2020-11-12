@@ -687,15 +687,20 @@ class train_SALT2(Program):
         f.write("\n")
 
         # write info for SNANA's SALT2.INFO file
-        f.write(f"SNANA_SALT2_INFO: \n")
+        n_item = 0
         for item_full in update_calib_info:
             survey_snana, band_snana = self.get_SNANA_INFO(item_full)
+            if survey_snana is None : continue 
+
             item_full[ICOL_INFO_SURVEY] = survey_snana
             item_full[ICOL_INFO_BAND]   = band_snana
             trainopt  = item_full[ICOL_INFO_TRAINOPT]
             key_snana = item_full[ICOL_INFO_KEY]
             arg_snana = " ".join(item_full[3:6])
-            item = [ trainopt, key_snana, arg_snana ]
+            item      = [ trainopt, key_snana, arg_snana ]
+
+            n_item += 1
+            if n_item == 1 : f.write(f"SNANA_SALT2_INFO: \n")
             f.write(f"  - {item} \n")
         f.write("\n")
 
@@ -705,7 +710,7 @@ class train_SALT2(Program):
 
         survey_yaml  = self.config_prep['survey_yaml']
         survey_train = info_list[ICOL_INFO_SURVEY]
-        band_train   =  info_list[ICOL_INFO_BAND]
+        band_train   = info_list[ICOL_INFO_BAND]
 
         survey_snana = None 
         band_snana   = None         
@@ -898,7 +903,6 @@ class train_SALT2(Program):
         par_list     = " ".join(color_law_dict['par_list'])
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
-        SNANA_SALT2_INFO = submit_info_yaml['SNANA_SALT2_INFO']
 
         logging.info(f"    Create {SALT2_INFO_FILE}")
         with open(info_file,"wt") as f:
@@ -914,13 +918,14 @@ class train_SALT2(Program):
 
             f.write(f"{SALT2_INFO_INCLUDE}\n")
 
-            f.write(f"# {trainopt} \n")
-            for item in SNANA_SALT2_INFO :
-                if trainopt == item[0] :
-                    key   = item[1]
-                    arg   = item[2]
-                    f.write(f"{key}: {arg} \n")
-            #.xyz
+            if 'SNANA_SALT2_INFO' in submit_info_yaml :
+                SNANA_SALT2_INFO = submit_info_yaml['SNANA_SALT2_INFO']
+                f.write(f"# {trainopt} \n")
+                for item in SNANA_SALT2_INFO :
+                    if trainopt == item[0] :
+                        key   = item[1]
+                        arg   = item[2]
+                        f.write(f"{key}: {arg} \n")
 
         # #end merge_create_SALT2_INFO_file
         

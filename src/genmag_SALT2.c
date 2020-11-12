@@ -205,9 +205,8 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 		      int OPTMASK ) {
 
   double Trange[2], Lrange[2]     ;
-  int  ised, LEGACY_colorXTMW ;
+  int  ised;
   int  retval = 0   ;
-  int  REQUIRE_DOCANA = 0 ;
   int  ABORT_on_LAMRANGE_ERROR = 0;
   int  ABORT_on_BADVALUE_ERROR = 1;
   char BANNER[120], tmpFile[200], sedcomment[40], version[60]  ;
@@ -217,9 +216,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   // extrac OPTMASK options
 
-  REQUIRE_DOCANA          = ( OPTMASK & OPENMASK_REQUIRE_DOCANA );
   ABORT_on_LAMRANGE_ERROR = ( OPTMASK &  64 ) ; // Sep 9 2019
-  LEGACY_colorXTMW        = ( OPTMASK & 128 ) ;
 
   sprintf(BANNER, "%s : Initialize %s", fnam, MODEL_VERSION );
   print_banner(BANNER);
@@ -300,7 +297,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     sprintf(c2err,"Check SALT2.INFO/SALT3.INFO") ;
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
   }
-  read_SALT2_INFO_FILE(REQUIRE_DOCANA);  
+  read_SALT2_INFO_FILE(OPTMASK);  
 
   // check option to override late-time extrap model from sim-input file
   if ( strlen(MODEL_EXTRAP_LATETIME) > 0 ) { 
@@ -1057,7 +1054,7 @@ void read_SALT2colorDisp(void) {
 
 
 // =================================
-void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
+void read_SALT2_INFO_FILE(int OPTMASK) {
 
   // March 18, 2010 R.Kessler
   // read SALT2.INFO file, and fill SALT2_INFO structure
@@ -1069,6 +1066,7 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
   // Sep 03, 2020: pass REQUIRE_DOCANA arg
   // Sep 17, 2020: read and use NPAR_POLY from COLORLAW line
   // Nov 10, 2020: read MAGSHIFT and WAVESHIFT keys
+  // Nov 12, 2020: pass OPTMASK instead of REQUIRE_DOCANA
 
   char
      infoFile[MXPATHLEN]
@@ -1080,6 +1078,7 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
     ,ctmp[100]
        ;
 
+  bool   REQUIRE_DOCANA, DISABLE_MAGSHIFT, DISABLE_WAVESHIFT;
   double *errtmp, *ptrpar;
   double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX ;
   int     OPT, ipar, NPAR_READ, NPAR_POLY, IVER, i, WHICH, NSHIFT ;
@@ -1087,8 +1086,18 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
 
   // ------- BEGIN ---------
 
+  REQUIRE_DOCANA     = ( OPTMASK & OPENMASK_REQUIRE_DOCANA );
+  DISABLE_MAGSHIFT   = ( OPTMASK & OPTMASK_SALT2_DISABLE_MAGSHIFT );
+  DISABLE_WAVESHIFT  = ( OPTMASK & OPTMASK_SALT2_DISABLE_WAVESHIFT );
+
   printf("  Read SALT2 model parameters from  \n\t  %s\n",
 	 SALT2_MODELPATH );
+  printf("\t OPTMASK = %d \n", OPTMASK);
+  if ( DISABLE_MAGSHIFT ) 
+    { printf("\t WARNING: MAGSHIFT keys DISABLED !\n"); }
+  if ( DISABLE_WAVESHIFT ) 
+    { printf("\t WARNING: WAVESHIFT keys DISABLED !\n"); }
+  fflush(stdout);
 
   sprintf(infoFile, "%s/%s", SALT2_MODELPATH, SALT2_INFO_FILE );
 
@@ -1218,8 +1227,10 @@ void read_SALT2_INFO_FILE(int REQUIRE_DOCANA) {
 
     // Nov 10 2020: read optional calib shifts done in training
     WHICH = 0;
-    if ( strcmp(c_get,"MAGSHIFT:" )==0) { WHICH = CALIB_SALT2_MAGSHIFT  ; }
-    if ( strcmp(c_get,"WAVESHIFT:")==0) { WHICH = CALIB_SALT2_WAVESHIFT ; }
+    if ( !DISABLE_MAGSHIFT && strcmp(c_get,"MAGSHIFT:" )==0) 
+      { WHICH = CALIB_SALT2_MAGSHIFT  ; }
+    if ( !DISABLE_WAVESHIFT && strcmp(c_get,"WAVESHIFT:")==0) 
+      { WHICH = CALIB_SALT2_WAVESHIFT ; }
     if ( WHICH > 0 ) {
       NSHIFT = INPUT_SALT2_INFO.NSHIFT_CALIB;
       INPUT_SALT2_INFO.SHIFT_CALIB[NSHIFT].WHICH = WHICH ;

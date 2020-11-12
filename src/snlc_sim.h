@@ -607,8 +607,6 @@ struct INPUTS {
   float  GENALPHA_SALT2 ; // legacy variable: same as GENMEAN_SALT2ALPHA
   float  GENBETA_SALT2 ;  // legacy variable: same as GENMEAN_SALT2BETA
 
-  int   LEGACY_colorXTMW_SALT2; // pull color*XTMW outside integrals
-
   GENGAUSS_ASYM_DEF GENGAUSS_RISETIME_SHIFT ;
   GENGAUSS_ASYM_DEF GENGAUSS_FALLTIME_SHIFT ;
 

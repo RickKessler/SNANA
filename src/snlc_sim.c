@@ -795,7 +795,6 @@ void set_user_defaults(void) {
 
   INPUTS.GENALPHA_SALT2     =  0.0 ; // legacy variable
   INPUTS.GENBETA_SALT2      =  0.0 ; // legacy variable
-  INPUTS.LEGACY_colorXTMW_SALT2 = 0 ;
 
   // init SIMSED stuff
   INPUTS.NPAR_SIMSED = 0;
@@ -20157,15 +20156,6 @@ void snlc_to_SNDATA(int FLAG) {
       { SNDATA.PHOTFLAG[epoch] += PHOTFLAG_TRIGGER ; } 
 
 
-    /* xxxxxxx mark delete xxxxxxxxx
-    // check epoch rejected by PHOTPROB cut (Feb 2020)
-    if ( (MSKTMP & 128) > 0 ) {
-      GENLC.NOBS-- ;
-      GENLC.OBSFLAG_WRITE[epoch] = false ;
-    }
-    xxxxxxx */
-
-
     // Jan 17 2018: check appended observations
     int APP = SIMLIB_OBS_GEN.APPEND_PHOTFLAG[epoch] ;
     if ( APP > 0 ) 
@@ -20909,9 +20899,9 @@ void init_genmodel(void) {
     init_genSEDMODEL();
 
     // model-specific init
-    OPTMASK = 0; 
-    if ( INPUTS.LEGACY_colorXTMW_SALT2 ) { OPTMASK += 128 ; }
-    if ( INPUTS.REQUIRE_DOCANA   ) { OPTMASK += OPENMASK_REQUIRE_DOCANA; }
+    // xxxx    OPTMASK = 0;
+    OPTMASK = INPUTS.GENMODEL_MSKOPT; 
+    if ( INPUTS.REQUIRE_DOCANA  ) { OPTMASK |= OPENMASK_REQUIRE_DOCANA; }
  
     istat = init_genmag_SALT2(GENMODEL, GENMODEL_EXTRAP, OPTMASK) ;
 

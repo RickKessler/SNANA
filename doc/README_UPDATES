@@ -19251,10 +19251,17 @@
   snlc_sim.c
     + refactor RANSYSTPAR_SIGSHIFT_[ZP,LAMFILT] to allow groups of bands.
     + new RANSYSTPAR_SIGSHIFT_REDSHIFT
-    + start RANSYSTPAR_GENMODEL_WILDCARD
+    + new RANSYSTPAR_GENMODEL_WILDCARD
 
   genmag_SALT2.c
     + read optional MAGSHIFT & WAVESHIFT keys from SALT2.INFO file and
       implement calibration shifts from training.
+
+  sntools.c[h]
+    + new utility glob_file_list to return list of files from wildcard.
+
+  doc/snana_manual.tex[pdf]
+    + add section about submit_batch_jobs.sh, and remove obsolete
+      sections for sim_SNmix and split_and_fit.
 
 END: 

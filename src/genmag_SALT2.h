@@ -28,6 +28,13 @@
 #define SALT2_INTERP_LINEAR 1
 #define SALT2_INTERP_SPLINE 2
 
+// user OPTMASK passed via sim-input 
+//  GENMODEL_MSKOPT: <MSKOPT>
+#define OPTMASK_SALT2_REQUIRE_DOCANA OPENMASK_REQUIRE_DOCANA  // =2
+#define OPTMASK_SALT2_DISABLE_MAGSHIFT    4  // disable MAGSHIFT keys
+#define OPTMASK_SALT2_DISABLE_WAVESHIFT   8  // disable WAVESHIFT keys
+#define OPTMASK_SALT2_ABORT_LAMRANGE     64  // abort on bad model-LAMRANGE
+
 int  NCALL_DBUG_SALT2 ; 
 int  RELAX_IDIOT_CHECK_SALT2;
 bool ISMODEL_SALT2, ISMODEL_SALT3 ;
@@ -236,7 +243,7 @@ double SALT2magerr(double Trest, double lamRest,  double z,
 double SALT2colorDisp(double lam, char *callFun);
 
 void getFileName_SALT2colorDisp(char *fileName) ;
-void read_SALT2_INFO_FILE(int REQUIRE_DOCANA);
+void read_SALT2_INFO_FILE(int OPTMASK);
 void read_SALT2errmaps(double Trange[2], double Lrange[2] );
 void read_SALT2colorDisp(void);
 

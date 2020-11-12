@@ -1,7 +1,8 @@
 
 // Created July 2016 by R.Kessler
 
-#define MXSPEC                 50   // max Nspec per event   
+// xxx mark delete #define MXSPEC    50   // max Nspec per event   
+#define MXSPEC                 MXSPECTRA  // max Nspec per event   
 #define MXTEXPOSE_SPECTROGRAPH 50   // max size of TEXPOSE grid
 #define MXLAM_SPECTROGRAPH     10000 // ->10k on May 27 2020 (was 2400)
 #define MXLAMSMEAR_SPECTROGRAPH 40  // max number of smeared lambda bins

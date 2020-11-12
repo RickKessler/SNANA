@@ -4036,6 +4036,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     fflush(stdout);
   }
 
+ DONE:
   NPEREVT_TAKE_SPECTRUM++ ;
 
   if ( NPEREVT_TAKE_SPECTRUM >= MXPEREVT_TAKE_SPECTRUM ) {
@@ -16125,12 +16126,13 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   //
   // May 29 2020: check for TAKE_SPECTRUM key(s) in header.
   // May 31 2020: parse SALT2 params only of USE_SIMLIB_SALT2 flag is set
+  // Nov 12 2020: check RDFLAG_SPECTRA before reading TAKE_SPECTRUM keys
 
   bool USE_MODEL_SIMLIB = (INDEX_GENMODEL == MODEL_SIMLIB);
   bool RDFLAG_REDSHIFT  = (INPUTS.USE_SIMLIB_REDSHIFT || USE_MODEL_SIMLIB);
   bool RDFLAG_PEAKMJD   = (INPUTS.USE_SIMLIB_PEAKMJD  || USE_MODEL_SIMLIB);
   bool RDFLAG_DISTANCE  = (INPUTS.USE_SIMLIB_DISTANCE || USE_MODEL_SIMLIB);
-  //  bool RDFLAG_SPECTRA   = (INPUTS.USE_SIMLIB_SPECTRA  || USE_MODEL_SIMLIB);
+  bool RDFLAG_SPECTRA   = (INPUTS.USE_SIMLIB_SPECTRA );
   bool RDFLAG_SALT2     = (INPUTS.USE_SIMLIB_SALT2    || USE_MODEL_SIMLIB);
   int  LTMP ;
   double TMPVAL, TMPRANGE[2], dist, MU ;
@@ -16162,14 +16164,6 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   if ( strcmp(KEY,"DISTANCE:")==0 && RDFLAG_DISTANCE ) {
     readdouble ( fp_SIMLIB, 1, &dist );  // Lumi-distance (D_L), Mpc (Jan 2018)
     MU = 5.0*log10(dist/1.0E-5);  // 10pc = 1.0E-5 Mpc
-
-
-    /* xxxx mark delete xxxxxxxxx
-    double H0 = INPUTS.H0 / ( 1.0E6 * PC_km) ;
-    double OM = INPUTS.OMEGA_MATTER;
-    double OL = INPUTS.OMEGA_LAMBDA;
-    double w0 = INPUTS.W0_LAMBDA ;
-    xxxxxxxxx end mark xxxxxx */
     TMPVAL = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO); // returns zCMB
     TMPRANGE[0] = TMPRANGE[1] = TMPVAL;  LTMP=1;
   }
@@ -16262,7 +16256,7 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
 
   // - - - - - - - - - 
   // May 29 2020 : check for TAKE_SPECTRUM keys
-  if ( strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
+  if ( RDFLAG_SPECTRA && strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
     char **NULLWORDS;
     parse_input_TAKE_SPECTRUM( NULLWORDS, KEYSOURCE_FILE, fp_SIMLIB ); 
   }

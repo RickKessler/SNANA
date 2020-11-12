@@ -19252,6 +19252,8 @@
     + refactor RANSYSTPAR_SIGSHIFT_[ZP,LAMFILT] to allow groups of bands.
     + new RANSYSTPAR_SIGSHIFT_REDSHIFT
     + new RANSYSTPAR_GENMODEL_WILDCARD
+    + fix bug to NOT read TAKE_SPECTRUM keys from simlib if 
+       USE_SIMLIB_SPECTRA=0
 
   genmag_SALT2.c
     + read optional MAGSHIFT & WAVESHIFT keys from SALT2.INFO file and
@@ -19263,5 +19265,8 @@
   doc/snana_manual.tex[pdf]
     + add section about submit_batch_jobs.sh, and remove obsolete
       sections for sim_SNmix and split_and_fit.
+
+  SALT2mu.c
+    + new input ndump_nobiascor
 
 END: 

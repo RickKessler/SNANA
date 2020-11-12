@@ -26,6 +26,23 @@
 **********************************************************
 **********************************************************/
 
+int glob_file_list(char *wildcard, char ***file_list) {
+    int n_file = 0; 
+    char fnam[] = "glob_file_list";
+    // begin
+    glob_t glob_temp;
+    int i = 0;
+    glob(wildcard, 0, NULL, &glob_temp);
+    n_file = glob_temp.gl_pathc;
+    *file_list = (char**) malloc(n_file * sizeof(char*));
+    for (i=0; i<n_file; i++) {
+        (*file_list)[i] = (char*) malloc(MXPATHLEN * sizeof(char));
+    }
+    for (i=0; i<n_file; i++) {
+        sprintf((*file_list)[i], "%s", glob_temp.gl_pathv[i]);
+    }
+    return n_file; 
+} // end glob_file_list
 
 void write_epoch_list_init(char *outFile) {
 

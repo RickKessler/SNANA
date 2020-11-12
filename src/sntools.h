@@ -38,6 +38,9 @@
   Jul 31 2020: 
     + MXCHARWORD_PARSE_WORDS -> MXPATHLEN=300  (was 60) to handle file names
 
+  Nov 12 2020:
+    + Adding glob utility
+
 ********************************************************/
 
 
@@ -49,6 +52,7 @@
 #include <time.h>
 #include <math.h>
 #include <ctype.h>
+#include <glob.h>
 
 #include "sndata.h"
 #include "sntools_genGauss_asym.h"
@@ -910,5 +914,7 @@ void init_obs_atfluxmax__(int *OPTMASK, double *PARLIST, int *VBOSE);
 
 void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR, 
 			 double *MJD, int *IFILTOBS, int *EP_atFLUXMAX);
+
+int glob_file_list(char *wildcard, char ***file_list);
 
 // ============== END OF FILE =============

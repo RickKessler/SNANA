@@ -83,7 +83,9 @@ idsample_select=2+3                ! fit only IDSAMPLE = 2 and 3
 surveylist_nobiascor='HST,LOWZ'    ! no biasCor for these surveys
 interp_biascor_logmass=1           ! allows turning OFF logmass interpolation
 
-dumpflag_nobiascor=1;   ! dump info for data with no valid biasCor (up to 10 events)
+ndump_nobiascor=20       ! dump for first 20 data events with no biasCor
+dumpflag_nobiascor=20;   ! idem; legacy input variable
+
 frac_warn_nobiascor=0.02  ! print warning in output fitres file if nobiascor
                           ! cut-loss exceeds this fraction (applies to each IDSAMPLE)
 
@@ -851,6 +853,10 @@ Default output files (can change names with "prefix" argument)
       PROB* variable for BiasCor sample.
    +  allow "CUTWIN varname_pIa xxx yyy", and make substitution internally
 
+ Nov 12 2020:
+   +  dumpflag_nobiascor is now number of events to dump.
+      Add ndump_nobiascor key to do same thing.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1559,7 +1565,7 @@ struct INPUTS {
 
   char   PREFIX[100] ; // out file names = [PREFIX].extension
   
-  int dumpflag_nobiasCor; // 1 --> dump info for data with no valid biasCor
+  int ndump_nobiasCor; // dump info for data with no valid biasCor
   double frac_warn_nobiasCor; // give warning of nobiasCor frac exceeds this
 
   char SNID_MUCOVDUMP[MXCHAR_VARNAME]; // dump MUERR info for this SNID
@@ -5351,7 +5357,7 @@ void set_defaults(void) {
   sprintf(INPUTS.fieldGroup_biasCor, "NONE" );
   INPUTS.use_fieldGroup_biasCor = 0 ;
 
-  INPUTS.dumpflag_nobiasCor  = 0 ;
+  INPUTS.ndump_nobiasCor  = 0 ;
   INPUTS.frac_warn_nobiasCor = 0.02 ;
 
   INPUTS.surveyGroup_biasCor_abortFlag = 1 ;
@@ -8766,6 +8772,12 @@ void prepare_biasCor(void) {
 
 
   int DUMPFLAG = 0 ;
+
+  // user input ndump_nobiasCor is number of noBiasCor events to dump;
+  // however, dump at least 10 if user uses this input as a logic flag.
+  int ndump_nobiasCor = INPUTS.ndump_nobiasCor;
+  if ( ndump_nobiasCor>0 && ndump_nobiasCor < 10 ) { ndump_nobiasCor=10; }
+
   for (n=0; n < NSN_DATA; ++n) {
 
     CUTMASK  = INFO_DATA.TABLEVAR.CUTMASK[n]; 
@@ -8779,9 +8791,8 @@ void prepare_biasCor(void) {
     if ( istore == 0 )  { 
       NSKIP_TOT++; NSKIP[IDSAMPLE]++ ;  
       setbit_CUTMASK(n, CUTBIT_BIASCOR, &INFO_DATA.TABLEVAR); 
-      if( INPUTS.dumpflag_nobiasCor && NSKIP_TOT<10 ) 
+      if( NSKIP_TOT < ndump_nobiasCor ) 
 	{ storeDataBias(n,1); } 
-      
     }    
   }
 
@@ -15125,7 +15136,9 @@ int ppar(char* item) {
     { sscanf(&item[16],"%d", &INPUTS.iflag_duplicate ); return(1); }
 
   if ( uniqueOverlap(item,"dumpflag_nobiascor=")) 
-    { sscanf(&item[19],"%d", &INPUTS.dumpflag_nobiasCor ); return(1); }
+    { sscanf(&item[19],"%d", &INPUTS.ndump_nobiasCor ); return(1); }
+  if ( uniqueOverlap(item,"ndump_nobiascor=")) 
+    { sscanf(&item[16],"%d", &INPUTS.ndump_nobiasCor ); return(1); }
 
   if ( uniqueOverlap(item,"frac_warn_nobiascor=")) 
     { sscanf(&item[20],"%le", &INPUTS.frac_warn_nobiasCor ); return(1); }
@@ -15189,53 +15202,6 @@ void parse_simfile_CCprior(char *item) {
   return ;
 
 } // parse_simfile_CCprior
-
-
-// **************************************************
-void parse_simfile_CCprior_LEGACY(char *item) {
-
-  // xxxxxxxx OBSOLETE xxxxxxxx
-
-  // Created May 16 2019
-  // parse comma-separate list of CCprior files names.
-
-  int ifile;
-  int MEMC           = MXCHAR_FILENAME*sizeof(char);
-  char fnam[]  = "parse_simfile_CCprior" ;
-
-  // ------------------ BEGIN -----------------
-
-  // 9.28.2020:check "same" option
-  if ( strcmp(item,"same") == 0 ) {
-    sprintf(item, "%s",  INPUTS.simFile_biasCor_arg); 
-    INPUTS.sameFile_flag_CCprior = true; 
-  }
-
-  // first allocate memory for file names
-  INPUTS.simFile_CCprior = (char**)malloc( MXFILE_CCPRIOR*sizeof(char*));
-  for(ifile=0; ifile < MXFILE_CCPRIOR; ifile++ ) 
-    { INPUTS.simFile_CCprior[ifile] = (char*)malloc(MEMC); }
-
-  // split item string
-  splitString(item, COMMA, MXFILE_BIASCOR,    // inputs
-	      &INPUTS.nfile_CCprior,
-	      INPUTS.simFile_CCprior ); // outputs  
-
-  char *f0 = INPUTS.simFile_CCprior[0];
-  if ( IGNOREFILE(f0) ) { 
-    INPUTS.nfile_CCprior          = 0 ;
-    INPUTS.ipar[IPAR_scalePCC]    = 0 ; // make sure scalePCC is not floated
-    return; 
-  }
-
-  // - - - - - - - - - - - 
-  INFO_CCPRIOR.USE =  1;
-  if ( strcmp(f0,"H11") == 0 ) { INFO_CCPRIOR.USEH11 =  1; }
-
-  return ;
-
-} // parse_simfile_CCprior_LEGACY  xxxxxxx OBSOLETE xxxxxx
-
 
 // **************************************************     
 void parse_cidFile_data(int OPT, char *fileName) {

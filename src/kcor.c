@@ -531,12 +531,6 @@ int rd_input(void) {
       readchar ( fp_input,  MAGSYSTEM_TMP );
       parse_MAGSYSTEM(MAGSYSTEM_TMP, &MAGSYSTEM) ;
 
-      /* xxxxx mark delete 
-      printf(" xxx %s: MAGSYSTEM->NAME(%s) = %s -> '%s' (DO_TR=%d)\n",
-	     fnam, MAGSYSTEM_TMP, MAGSYSTEM.NAME_INPUT, MAGSYSTEM.NAME,
-	     MAGSYSTEM.DO_TRANSFORM );
-	     xxxx */
-
       // check for command-line override
       if ( strcmp(MAGSYSTEM.NAME,INPUTS.MAGSYSTEM_REPLACE1) == 0 ) 
 	{ sprintf(MAGSYSTEM.NAME,"%s", INPUTS.MAGSYSTEM_REPLACE2); }

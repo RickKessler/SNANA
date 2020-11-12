@@ -90,8 +90,6 @@ struct INPUTS {
   char MAGSYSTEM_REPLACE2[40] ;
   char MAGSYSTEM_IGNORE[40]   ;
 
-  // xxx  char MAGSYSTEM_INPUT[40]; // e.g., VEGA->AB where VEGA is input magsys
-
   // filter lam shifts ... entered via command-line override only
   int    NFILTER_LAMSHIFT ; // number of non-zero LAMSHIFTs
   double FILTER_LAMSHIFT[MXFILTDEF];

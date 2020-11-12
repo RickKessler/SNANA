@@ -131,8 +131,8 @@ class train_SALT2(Program):
         CONFIG           = self.config_yaml['CONFIG']
         PATH_INPUT_CALIB = CONFIG[KEY_PATH_INPUT_CALIB] # aka SALTPATH
 
-        # survey_map_file = (f"{PATH_INPUT_CALIB}/survey.yaml")
-        survey_map_file = (f"survey.yaml")
+        survey_map_file = os.path.expandvars(f"{PATH_INPUT_CALIB}/survey.yaml")
+        # xxx mark delete survey_map_file = (f"survey.yaml")
         survey_yaml     = util.extract_yaml(survey_map_file)
         
         self.config_prep['survey_yaml'] = survey_yaml

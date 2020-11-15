@@ -27596,8 +27596,17 @@ c read FILTER strings.
            ENDIF
 
 c Nov 15 2020 check for SURVEY in comment .xyz
+
            js0 = INDEX(COMMENT,'=') + 1
            js1 = INDEX(COMMENT,' ', BACK = .TRUE. ) - 1
+
+c xxxxxxxxx mark delete xxxxxx
+c           print*,' xxx ----------------------------- '
+c           print*,' xxx COMMENT = ', COMMENT(1:40)
+c           print*,' xxx STRING_TMP = ', STRING_TMP(1:30)
+c           print*,' xxx js0, js1 = ', js0, js1 
+c xxxxxxxxxxx
+
 	   if ( js0 > 4 ) then
              SURVEY_NAME_RDKCOR(i) = COMMENT(js0:js1)
            else
@@ -27612,8 +27621,6 @@ c Nov 15 2020 check for SURVEY in comment .xyz
          ENDIF
 
 210   CONTINUE
-
-      STOP ! xxx REMOVE
 
 c check for global set of LAM-shifted bands
       IF ( NFLAMSHIFT > 0 ) THEN

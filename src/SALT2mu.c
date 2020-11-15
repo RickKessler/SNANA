@@ -28,7 +28,11 @@ Additional arguments below are optional:
 
 file=<comma-sep list of fitres file names to analyze>
 datafile=<same as file=>
- 
+
+datafile_override=over1.dat,over2.dat,etc... ! comma-sep list of data-overrides
+     ! enabled for VPEC, VPEC_ERR, HOST_LOGMASS
+     ! if VPEC [VPEC_ERR] is changed, so is zhd [zhderr]
+
 minos=1  ! default; minos errors
 minos=0  ! switch to MIGRAD (should be faster)
      
@@ -856,7 +860,8 @@ Default output files (can change names with "prefix" argument)
  Nov 12 2020:
    +  dumpflag_nobiascor is now number of events to dump.
       Add ndump_nobiascor key to do same thing.
-
+   +  begin datafile_override feature.
+ 
  ******************************************************/
 
 #include "sntools.h" 
@@ -897,6 +902,8 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 
 #define FLAG_EXEC_STOP   1
 #define FLAG_EXEC_REPEAT 2
+
+#define MXVAR_OVERRIDE 10
 
 // Maximum number of bins
 // Note that 5D biasCor array would take 30*20*20*5*5 = 300,000
@@ -1257,6 +1264,7 @@ typedef struct {
 
   // WARNING: update copy_IDSAMPLE_biasCor for each new item
 
+  
 } SAMPLE_INFO_DEF ;
 
 
@@ -1277,6 +1285,12 @@ struct {
   double ****MUCOVSCALE_ALPHABETA ; 
 
   float MEMORY;  // Mbytes
+
+  // Nov 2020: add data-override info
+  int  NVAR_OVERRIDE;
+  char **VARNAMES_OVERRIDE ;           // list of override varnames
+  float *PTRVAL_OVERRIDE[MXVAR_OVERRIDE]; // pointers to override values
+
 } INFO_DATA;
 
 
@@ -1417,6 +1431,9 @@ struct INPUTS {
   int  nfile_data;
   char **dataFile;  
 
+  int nfile_data_override ; 
+  char **dataFile_override ; // e.g, change all VPEC, VPEC_ERR
+  
   bool   cat_only;    // cat fitres files and do nothing else
   char   cat_file_out[MXCHAR_FILENAME] ;
 
@@ -1737,7 +1754,7 @@ struct {
 struct {
   int  NVAR_TOT ; 
   int  IVARMAP[MXFILE_DATA][MXVAR_TABLE];  // = original ivar from each file
-  char *LIST[MXVAR_TABLE]; 
+  char *LIST[MXVAR_TABLE];   // output array of varnames
 
   int  NVAR_DROP;
   char DROPLIST[MXCHAR_FILENAME]; // list of dropped colums (for comment)
@@ -1825,6 +1842,11 @@ int   force_probcc0(int itype, int idsurvey);
 void  prep_cosmodl_lookup(void);
 int   ppar(char* string);
 void  read_data(void);
+void  read_data_override(void);
+double zhd_data_override(int isn, double vpec_over ) ;
+double zhderr_data_override(int isn, double vpecerr_over ) ;
+void  write_word_override(int ivar_tot, int indx, char *word) ;
+
 void  store_input_varnames(int ifile, TABLEVAR_DEF *TABLEVAR) ;
 void  store_output_varnames(void);
 bool  exist_varname(int ifile,char *varName, TABLEVAR_DEF *TABLEVAR);
@@ -2283,6 +2305,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   // --------------------------------------
   //Read input data from SALT2 fit
   read_data(); 
+  read_data_override();  // Nov 2020: e..g, replace VPEC, HOST_LOGMASS, etc ...
   compute_more_INFO_DATA();  
 
   if( INPUTS.cat_only ) 
@@ -5345,6 +5368,7 @@ void set_defaults(void) {
 
   INPUTS.minos      = 1 ;
   INPUTS.nfile_data = 0 ;
+  INPUTS.nfile_data_override = 0 ;
   sprintf(INPUTS.PREFIX,     "NONE" );
   INPUTS.KEYNAME_DUMPFLAG      = false ;
 
@@ -5804,6 +5828,277 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
   return ;
 
 } // end malloc_INFO_DATA
+
+
+// ****************************************
+void read_data_override(void) {
+
+  // Created Nov 13 2020
+  // Read optional data_override file, and replace values
+  // in data arrays. For VPEC and VPEC_ERR, also modify
+  // zHD and zHDERR, respectively.
+  //
+
+  // TO-DO:
+  //  + fill out formulas for new zhd and zhderr in override_data_zhd
+  //  + print message the zhd[err] has been over-written
+  //  + fix output fitres to use new values ... this is tricky
+  //    because each input fitres line is copied and appended for output, 
+  //    so it's gonna take special surgery to replace sub strings in 
+  //    the output fitres file.
+  //  + write warning to output files that input columns have been altered.
+
+
+  char VARNAME_VPEC[]    = "VPEC";
+  char VARNAME_VPECERR[] = "VPEC_ERR";
+  char VARNAME_zHD[]     = "zHD";
+  char VARNAME_zHDERR[]  = "zHDERR";
+
+  int IVAR_OVER_VPEC= -9, IVAR_OVER_VPECERR= -9 ;
+  int IVAR_OVER_ZHD = -9, IVAR_OVER_ZHDERR = -9 ;
+  int NSN_CHANGE[MXVAR_OVERRIDE];
+  int nfile_over = INPUTS.nfile_data_override;
+  int ifile_data, ifile_over, NROW;
+  int ivar_data, NVAR_DATA, ivar_over, NVAR_OVER, OPTMASK, ntmp;
+  char *ptrFile, *varName, *VARNAMES_STRING_DATA, *VARNAMES_STRING_OVER ;
+  char fnam[] = "read_data_override" ;
+
+  // ------------- BEGIN --------------
+
+  INFO_DATA.NVAR_OVERRIDE = 0;
+  if ( nfile_over == 0 ) { return; }
+
+  print_banner(fnam);  printf("\n");
+
+  // prepare comma sep list of all varNames in first data files
+  // (later may need to check all data files?)
+  VARNAMES_STRING_DATA = (char*) malloc(MXCHAR_VARLIST*sizeof(char));
+  VARNAMES_STRING_DATA[0] = 0;
+  ifile_data = 0 ; // primary file index
+  NVAR_DATA = INFO_DATA.TABLEVAR.NVAR[ifile_data];
+  for(ivar_data=0; ivar_data < NVAR_DATA; ivar_data++ ) { 
+      varName = INFO_DATA.TABLEVAR.VARNAMES_LIST[ifile_data][ivar_data];
+      catVarList_with_comma(VARNAMES_STRING_DATA,varName);
+  }
+
+
+  // read in all of the override files and store variables
+  // that appear in the data
+  OPTMASK = 4; // append each file
+  for(ifile_over=0; ifile_over < nfile_over; ifile_over++ ) {
+    ptrFile = INPUTS.dataFile_override[ifile_over];
+    NROW = SNTABLE_AUTOSTORE_INIT(ptrFile,"OVERRIDE", 
+				  VARNAMES_STRING_DATA, OPTMASK);
+  }
+
+  // check each data varName and store those which exist in 
+  // an override file
+
+  VARNAMES_STRING_OVER    = (char*) malloc(MXCHAR_VARLIST*sizeof(char));
+  VARNAMES_STRING_OVER[0] = NVAR_OVER = 0 ;
+  for(ivar_data=0; ivar_data < NVAR_DATA; ivar_data++ ) { 
+    varName = INFO_DATA.TABLEVAR.VARNAMES_LIST[0][ivar_data];
+    if ( EXIST_VARNAME_AUTOSTORE(varName) )  { 
+      catVarList_with_comma(VARNAMES_STRING_OVER,varName); 
+      if ( strcmp(varName,VARNAME_VPEC) == 0     ) 
+	{ IVAR_OVER_VPEC = NVAR_OVER ; }
+      if ( strcmp(varName,VARNAME_VPECERR) == 0 ) 
+	{ IVAR_OVER_VPECERR = NVAR_OVER ; }
+
+      NVAR_OVER++ ;
+    }
+  }
+
+  // - - - - - - 
+  // if VPEC is on override list, add recalculated zHD to override list.
+  // if VPEC_ERR is on override list, add recalculated zHDERR
+  if ( IVAR_OVER_VPEC >= 0 ) {     
+    IVAR_OVER_ZHD = NVAR_OVER ;
+    NVAR_OVER++; catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHD); 
+  }
+  if ( IVAR_OVER_VPECERR >= 0 )  {
+    IVAR_OVER_ZHDERR = NVAR_OVER ; 
+    NVAR_OVER++;   catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHDERR); 
+  }
+
+  INFO_DATA.NVAR_OVERRIDE = NVAR_OVER;
+
+  if ( NVAR_OVER >= MXVAR_OVERRIDE )  {
+    sprintf(c1err,"NVAR_OVERRIDE=%d exceeds bound.", NVAR_OVER);
+    sprintf(c2err,"Check MXVAR_OVERRIDE=%d parameter", MXVAR_OVERRIDE);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  /*
+  printf(" xxx %s: IVAR_OVER_VPEC[ERR] = %d, %d \n", 
+	 fnam, IVAR_OVER_VPEC, IVAR_OVER_VPECERR);
+  printf(" xxx %s: IVAR_OVER_ZHD[ERR] = %d, %d \n", 
+	 fnam, IVAR_OVER_ZHD, IVAR_OVER_ZHDERR);
+  */
+
+  // - - - - - -
+  // convert comma sep list to array
+  parse_commaSepList("OVERRIDE", VARNAMES_STRING_OVER, 
+		     MXVAR_OVERRIDE, MXCHAR_VARNAME, &ntmp, 
+		     &INFO_DATA.VARNAMES_OVERRIDE);
+
+  // - - - - - - -
+  // assign pointer to float array for each override variable
+  for(ivar_over=0; ivar_over < NVAR_OVER; ivar_over++ ) {
+    varName   = INFO_DATA.VARNAMES_OVERRIDE[ivar_over] ;
+    NSN_CHANGE[ivar_over] = 0 ;
+    if ( strcmp(varName,"VPEC") == 0 )
+      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.vpec ;  }   
+    else if ( strcmp(varName,"VPEC_ERR") == 0 ) 
+      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.vpecerr ;  }  
+    else if ( strcmp(varName,"HOST_LOGMASS") == 0 ) 
+      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.logmass ;  }
+    else if ( strcmp(varName,"zHD") == 0 ) 
+      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhd ;  }
+    else if ( strcmp(varName,"zHDERR") == 0 ) 
+      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhderr ;  }
+    else {
+      sprintf(c1err,"Unable to implement override for %s", varName);
+      sprintf(c2err,"Might need to update function %s", fnam );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+  }  // end ivar_over loop
+
+  // - - - - - - - - -  
+  // loop over each data event and each varname to override, 
+  // and replace value
+
+  int NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int istat, isn;
+  float *fval ;   double dval;    char *name, *cval ;
+  double zhd_over, zhderr_over;
+
+  for(isn=0; isn < NSN_DATA; isn++ ) { 
+
+    for(ivar_over=0; ivar_over < NVAR_OVER; ivar_over++ ) {
+
+      if ( ivar_over == IVAR_OVER_ZHD    ) { continue ; }
+      if ( ivar_over == IVAR_OVER_ZHDERR ) { continue ; }
+
+      name    = INFO_DATA.TABLEVAR.name[isn];
+      varName = INFO_DATA.VARNAMES_OVERRIDE[ivar_over];
+      SNTABLE_AUTOSTORE_READ(name, varName, &istat, &dval, cval ); 
+      
+      // xxxxxxx
+      if ( istat == -99990 ) {
+	printf(" xxx %s: isn=%4d ivar_over=%d  istat=%d, dval=%f \n",
+	       fnam, isn, ivar_over, istat, dval); fflush(stdout);
+      }// xxxx
+     
+      if ( istat == 0 ) {
+
+	// check computed zhd changes based on changes to vpec[err]
+	if ( ivar_over == IVAR_OVER_VPEC ) {
+	  double vpec_over = dval;
+	  zhd_over = zhd_data_override(isn,vpec_over); 
+	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_ZHD][isn] = zhd_over;
+	  NSN_CHANGE[IVAR_OVER_ZHD]++ ; 
+	}
+	else if ( ivar_over == IVAR_OVER_VPECERR ) {	 
+	  double vpecerr_over = dval;
+	  zhderr_over = zhderr_data_override(isn,vpecerr_over); 
+	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_ZHDERR][isn] = zhderr_over ;
+	  NSN_CHANGE[IVAR_OVER_ZHDERR]++ ; 
+	}
+
+	// apply override AFTER checking zhd[err] overrides
+	INFO_DATA.PTRVAL_OVERRIDE[ivar_over][isn] = dval;
+	NSN_CHANGE[ivar_over]++ ;
+
+      }
+
+    } // end ivar_over
+  } // end isn 
+
+  // - - - - -
+  // print summary of changes
+  for(ivar_over=0; ivar_over < NVAR_OVER; ivar_over++ ) {
+    varName   = INFO_DATA.VARNAMES_OVERRIDE[ivar_over] ;
+    printf("   Override %-20.20s for %d of %d events \n",
+	   varName, NSN_CHANGE[ivar_over], NSN_DATA ); 
+    fflush(stdout);
+  }
+
+  // xxx  debugexit(fnam);
+  return ;
+
+} // end  read_data_override
+
+
+// *********************************
+double zhd_data_override(int isn, double vpec_over ) {
+
+  // Created Nov 13 2020
+  // For input isn index and vpec(override), return new redshift 
+  // zhd_over to override old value.
+  //
+  // zHD_orig + 1  = (1+zCMB)/(1+zpec_orig) where zCMB is computed from zHEL.
+  //  -->
+  // zHD_over + 1 = (zHD_orig+1)*(1+zpec_orig)/(1+zpec_over)
+
+  double zhd_orig  = (double)INFO_DATA.TABLEVAR.zhd[isn];
+  double vpec_orig = (double)INFO_DATA.TABLEVAR.vpec[isn];
+
+  double zpec_orig = vpec_orig / LIGHT_km;
+  double zpec_over = vpec_over / LIGHT_km;
+  double zhd_over;
+  char fnam[] = "zhd_data_override" ;
+
+  // -------- BEGIN ---------
+  
+  // debug with approx formula; later replace with exact formula
+  zhd_over = (zhd_orig+1.0) * ( 1.0+zpec_orig) / (1+zpec_over) - 1.0 ;
+  return zhd_over ;
+
+} // end zhd_data_override
+
+ 
+double zhderr_data_override(int isn, double vpecerr_over ) {
+
+  // Nov 15 2020
+  // Return zhderr with orginal vpecerr_orig replaced with vpecerr_over
+  // From snana.car:
+  //     ZERR1 = SNLC_ZCMB_ERR
+  //	 ZERR2 = ZPECERR * (1.0 + SNLC_ZCMB) ! Eq A1, Davis 2012
+  //     SNLC_ZHD_ERR = sqrt(ZERR1*ZERR1 + ZERR2*ZERR2)
+  //
+ 
+  double zhderr_orig  = (double)INFO_DATA.TABLEVAR.zhderr[isn];
+  double vpecerr_orig = (double)INFO_DATA.TABLEVAR.vpecerr[isn];
+  double zcmb         = (double)INFO_DATA.TABLEVAR.zcmb[isn];
+  double zcmberr      = (double)INFO_DATA.TABLEVAR.zcmberr[isn];
+  double zpecerr_orig = vpecerr_orig / LIGHT_km ;
+  double zpecerr_over = vpecerr_over / LIGHT_km ;
+
+  double ZERR1 = zcmberr;
+  double ZERR2 = zpecerr_over * ( 1.0 + zcmb );
+
+  double zhderr_over, zhderrsq ;
+  char fnam[] = "zhderr_data_override" ;
+
+  //---------- BEGIN ------------
+
+  zhderrsq = ZERR1*ZERR1 + ZERR2*ZERR2 ;
+  
+  /* xxx mark delete 
+  // debug with approx formula; later replace with exact formula
+  zhderrsq = 
+    zhderr_orig  * zhderr_orig  - 
+    zpecerr_orig * zpecerr_orig +
+    zpecerr_over * zpecerr_over ;
+  xxxxxxxx end mark xxxxxx*/
+
+  zhderr_over = sqrt(zhderrsq);
+
+  return zhderr_over ;
+
+} // end zhderr_data_override
+
 
 // ****************************************
 void malloc_INFO_BIASCOR(int opt, int LEN_MALLOC ) {
@@ -7354,7 +7649,7 @@ void store_output_varnames(void) {
       varName = INFO_DATA.TABLEVAR.VARNAMES_LIST[ifile][ivar] ;
       ivar_match = ivar_matchList(varName, NVAR_TOT, 
 				  OUTPUT_VARNAMES.LIST );
-      if ( ivar_match < 0  ){
+      if ( ivar_match < 0  ) {
 	NDROP++ ;
 	strcat(OUTPUT_VARNAMES.DROPLIST,varName);
 	strcat(OUTPUT_VARNAMES.DROPLIST," ");	
@@ -12689,7 +12984,6 @@ void get_muBias(char *NAME,
   double alpha    = BIASCORLIST->alpha ;
   double beta     = BIASCORLIST->beta  ;
   double gammadm  = BIASCORLIST->gammadm  ;
-  //  double logmass  = BIASCORLIST->logmass  ;
   double z        = BIASCORLIST->z  ;
   double mB       = BIASCORLIST->FITPAR[INDEX_mB] ;
   double x1       = BIASCORLIST->FITPAR[INDEX_x1] ;
@@ -14179,7 +14473,6 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   sntype    =  (int)TABLEVAR->SNTYPE[isn] ;
   
   z         =  (double)TABLEVAR->zhd[isn];
-  //  x0        =  (double)TABLEVAR->x0[isn];  
   x1        =  (double)TABLEVAR->fitpar[INDEX_x1][isn] ;
   c         =  (double)TABLEVAR->fitpar[INDEX_c ][isn] ;  
   logmass   =  (double)TABLEVAR->logmass[isn];
@@ -14764,6 +15057,16 @@ int ppar(char* item) {
 			 &INPUTS.nfile_data, &INPUTS.dataFile );
       return(1);
     }
+  }
+
+  if ( uniqueOverlap(item,"datafile_override=") ) {
+    parse_commaSepList("DATAFILE_OVERRIDE", &item[18], 
+		       MXFILE_BIASCOR, MXCHAR_FILENAME, 
+		       &INPUTS.nfile_data_override, &INPUTS.dataFile_override);
+    if ( IGNOREFILE(INPUTS.dataFile_override[0]) ) 
+      { INPUTS.nfile_data_override = 0; }
+
+    return(1);
   }
 
   // - - - - - - - 
@@ -17922,7 +18225,6 @@ void write_fitres_driver(char* fileName) {
 
   // ---------------- now write fitted params ----------------
 
-
   if ( strlen(INPUTS.sigint_fix) == 0 ) {
     // fitted sigint
     fprintf(fout,"#  %s   = %0.4f  (%i iterations)\n",
@@ -18051,7 +18353,6 @@ void write_fitres_driver(char* fileName) {
 	if ( !keep_cutmask(cutmask)  ) { continue; }
       }
 
-
       NWR += write_fitres_line(indx,ifile,line,fout);
 
     }  // end reading line with fgets
@@ -18081,16 +18382,21 @@ int write_fitres_line(int indx, int ifile, char *line, FILE *fout) {
   // Note that store_PARSE_WORDS has already been called,
   // so here use get_PARSE_WORDS to retrieve.
   //
+  // Each *line is split into words in case different files have
+  // different columns.
   //  
+  // Nov 14 2020: check for datafile_overrides.
 
-  int NVAR_TOT = OUTPUT_VARNAMES.NVAR_TOT ;
+  int NVAR_TOT = OUTPUT_VARNAMES.NVAR_TOT ;  
+  char *CID    = INFO_DATA.TABLEVAR.name[indx]; // diagnostic
   int ISTAT = 0 ;
   int  ivar_tot, ivar_file, ivar_word ;
-  char word[MXCHAR_VARNAME], line_out[MXCHAR_LINE];
+  char word[MXCHAR_VARNAME], line_out[MXCHAR_LINE], *varName ;
   char blank[] = " ";
   char fnam[] = "write_fitres_line" ;
   int  LDMP = 0 ;
   // ----------- BEGIN -----------
+
 
   sprintf(line_out,"SN: ");
   for(ivar_tot=0; ivar_tot < NVAR_TOT; ivar_tot++ ) {
@@ -18105,6 +18411,9 @@ int write_fitres_line(int indx, int ifile, char *line, FILE *fout) {
       printf(" xxx %s: ivar[tot,file,word]=%2d,%2d,%2d  word='%s' \n",
 	     fnam, ivar_tot,ivar_file,ivar_word, word); fflush(stdout);
     }
+
+    // Nov 15 2020: check for data override 
+    write_word_override(ivar_tot,indx,word); 
 
     strcat(line_out,word);
     strcat(line_out,blank);
@@ -18123,6 +18432,41 @@ int write_fitres_line(int indx, int ifile, char *line, FILE *fout) {
 
 } // end write_fitres_line
 
+void  write_word_override(int ivar_tot, int indx, char *word) {
+
+  // Nov 15 2020
+  // Check to overwrite word for ivar_tot and SN indx.
+  //
+  int NVAR_OVERRIDE  = INFO_DATA.NVAR_OVERRIDE ;
+  int ivar_over ;
+  bool IS_zHD;
+  char *varName ;
+  char fnam[] = "write_word_override";
+
+  // ---------- BEGIN -------------
+
+  if ( NVAR_OVERRIDE == 0 ) { return; }
+
+  // get name of variable
+  varName   = OUTPUT_VARNAMES.LIST[ivar_tot]; 
+  IS_zHD    = (strstr(varName,"zHD") != NULL ) ;
+
+  // check if this varName is in the OVERRIDE list
+  ivar_over = ivar_matchList(varName, NVAR_OVERRIDE, 
+			     INFO_DATA.VARNAMES_OVERRIDE );
+
+  // if it's an override, replace output word for output fitres file
+  if ( ivar_over >= 0 ) {
+    float fval = INFO_DATA.PTRVAL_OVERRIDE[ivar_over][indx];
+    if ( IS_zHD ) 
+      { sprintf(word,"%.5f", fval); }
+    else
+      { sprintf(word,"%.3f", fval); }
+  }
+
+  return;
+
+} // end write_word_override
 
 // ===============================================
 void define_varnames_append(void) {

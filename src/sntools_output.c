@@ -1894,7 +1894,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   //  *varList   : comma-separated list of variables to read/store
   //               varList = 'ALL' --> read everything.
   //   optMask   : mask of options (was vboseflag)
-  //      1=print, 2=abort if var matches, 4=append next file
+  //      1=print, 2=abort if no varname matches, 4=append next file
   //
   // Output:
   //   Function returns number of table entries/rows.
@@ -1936,7 +1936,8 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
   // do global init if not already done.
   if ( CALLED_TABLEFILE_INIT != 740 ) { TABLEFILE_INIT();  }
-  print_banner(fnam) ;
+  // xxx mark delete   print_banner(fnam) ;
+  printf("   %s\n", fnam); fflush(stdout);
 
   // check option to store multiple files
   ABORT_FLAG  = ( optMask & 2 ) ;

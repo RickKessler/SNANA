@@ -50,6 +50,10 @@
      MAGSYSTEM: AB
      MAGSYSTEM: BD17
      MAGSYSTEM: BD17->AB  # read BD17 mag, but transform internally to AB
+
+     # associate each filter set with survey(s) from SURVEY.DEF
+     SURYEY: SDSS
+     SURVEYS: FOUNDATION,PS1MD
     
      FILTSYSTEM: COUNT    # most moder systems are count
      FILTSYSTEM: ENERGY   # older Bessell system may be energy
@@ -181,6 +185,10 @@
  Jul 8 2020:
    + write input file name and filter paths into output FITS header ...
      can be used later to chase down DOCANA notes.
+
+ Nov 15 2020
+   + read optional list of surveys for each MAGSYSTEM, and write
+     SURVEY=%s as part of each filter comment in kcor header.
 
 ****************************************************/
 
@@ -540,15 +548,14 @@ int rd_input(void) {
       else
 	{ FILTER_IGNORE = 0 ; }
 
-
-      INDX_INPUT = index_primary(MAGSYSTEM.NAME_INPUT); 
-      INDX       = index_primary(MAGSYSTEM.NAME);
+      INDX_INPUT   = index_primary(MAGSYSTEM.NAME_INPUT); 
+      INDX         = index_primary(MAGSYSTEM.NAME);
       MAGSYSTEM.INDX_INPUT = INDX_INPUT ;
       MAGSYSTEM.INDX       = INDX ;
       PRIMARYSED[INDX_INPUT].USE = 1; 
       PRIMARYSED[INDX].USE       = 1; 
-      MAGSYSTEM.OFFSET_INPUT = 2.5 * log10 ( FNU_AB );
-      MAGSYSTEM.OFFSET       = 2.5 * log10 ( FNU_AB );
+      MAGSYSTEM.OFFSET_INPUT     = 2.5 * log10 ( FNU_AB );
+      MAGSYSTEM.OFFSET           = 2.5 * log10 ( FNU_AB );
 
       PRIMARYSED[INDX].IS_AB       = (strcmp(MAGSYSTEM.NAME,"AB")==0) ;
       PRIMARYSED[INDX_INPUT].IS_AB = (strcmp(MAGSYSTEM.NAME_INPUT,"AB")==0) ;
@@ -556,8 +563,12 @@ int rd_input(void) {
       printf("\n\t Found MAGSYSTEM '%s' with offset = %8.3f (INDX=%d->%d)\n",
 	     MAGSYSTEM_TMP, MAGSYSTEM.OFFSET,
 	     MAGSYSTEM.INDX_INPUT, MAGSYSTEM.INDX );
+      sprintf(MAGSYSTEM.SURVEY_NAMES,"NONE");
     }  
 
+    if ( strcmp(c_get,"SURVEY:") == 0 || strcmp(c_get,"SURVEYS:") == 0 ) {
+      readchar(fp_input, MAGSYSTEM.SURVEY_NAMES);  // Nov 2020
+    }
 
     if ( strcmp(c_get,"FILTPATH:")==0 && (FILTER_IGNORE == 0) )  {
 
@@ -1017,6 +1028,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   int  INDX_INPUT  = MAGSYSTEM->INDX_INPUT ;
   char *NAME       = MAGSYSTEM->NAME;
   char *NAME_INPUT = MAGSYSTEM->NAME_INPUT ;
+  char *SURVEY     = MAGSYSTEM->SURVEY_NAMES ; // Nov 2020
   double OFFSET       = MAGSYSTEM->OFFSET;
   double OFFSET_INPUT = MAGSYSTEM->OFFSET_INPUT;
 
@@ -1026,7 +1038,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
 
   // strip inputs into local variables
   char *filtName = INPUT_FILTER->FILTNAME ;
-  char *fileName = INPUT_FILTER->FILENAME ;
+  char *fileName = INPUT_FILTER->FILENAME ;  
   double magRef  = INPUT_FILTER->MAGREF ;
   
   // ------------- BEGIN -----------------
@@ -1106,6 +1118,9 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_NAME,"%s", NAME_INPUT ) ;
   sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_SEDFILE,"%s", 
 	  INPUTS.inFile_PRIMARY[INDX_INPUT] ) ;
+
+
+  sprintf(FILTER[NF].SURVEY_NAMES, "%s", SURVEY); // Nov 2020
 
   if ( IFLAG_SYN ) {
     double L0 = INPUT_FILTER->LAMRANGE_SYN[0] ;
@@ -4356,15 +4371,12 @@ void wr_fits(char *ptrFile) {
   long  NAXIS = 1, NAXES = 0    ;
   fitsfile *fp ;
 
-  char 
-    clobberFile[200]
-    ,fnam[] = "wr_fits" 
-    ;
+  char  clobberFile[200];
+  char fnam[] = "wr_fits"  ;
 
   // ------------- BEGIN --------------
 
-  printf("\n %s: WRITE CALIB/KCOR TO '%s' \n", 
-         fnam, ptrFile);
+  printf("\n %s: WRITE CALIB/KCOR TO '%s' \n",  fnam, ptrFile);
   fflush(stdout);
   
   sprintf(clobberFile, "!%s", ptrFile);
@@ -4409,8 +4421,10 @@ void wr_fits(char *ptrFile) {
 // =====================================
 void wr_fits_HEAD(fitsfile *fp) {
 
+  // Nov 15 2020: write SURVEY=%s in comment field for each filter.
+
   int istat, iprim, ifilt, ikcor, N, jbinsize, IVER ;
-  char  KEYNAME[40], KEYVAL[80] ;
+  char  KEYNAME[40], KEYVAL[80], MSG[200] ;
   char  fnam[] = "wr_fits_HEAD" ;
 
   // ------------ BEGIN -----------
@@ -4479,8 +4493,9 @@ void wr_fits_HEAD(fitsfile *fp) {
     sprintf(KEYNAME,"FILT%3.3d", ifilt);
   
     istat = 0 ;
+    sprintf(MSG,"Filter name; SURVEY=%s", FILTER[ifilt].SURVEY_NAMES);
     fits_update_key(fp, TSTRING, KEYNAME, FILTER[ifilt].name,
-		    "Filter name", &istat );    
+		    MSG, &istat );    
    }
 
   if ( NKCOR > 0 ) {

@@ -144,6 +144,7 @@ typedef struct {
   int    INDX_INPUT, INDX ;
   double OFFSET_INPUT, OFFSET ;
   int    DO_TRANSFORM ;  // T -> NAME_INPUT != NAME
+  char   SURVEY_NAMES[200]; // optional assoication with survey names
 } MAGSYSTEM_DEF ;
 
 typedef struct {
@@ -314,6 +315,7 @@ struct  FILTER
   char   PATH_ORIG[200];          // idem, before ENVreplace
   char   FILTSYSTEM_NAME[20] ;    // (I) energy or count
   int    FILTSYSTEM_INDX ;        // energy or count
+  char   SURVEY_NAMES[200];       // comma-sep list of surveys (Nov 2020)
 
   double SNMAG0_CHECK_VALUE ;     // external reference for check 
   char   SNMAG0_CHECK_NAME[40] ;  // comment on origin of refernece

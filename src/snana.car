@@ -25679,12 +25679,13 @@ c Mar 2018: add info about PHOTPROB
      &                   LENBLOCK, 20 )
 
 c Sep 2018: add optonal info about detections
+c Nov 2020: write to TEXT file 
       IF ( PHOTFLAG_DETECT > 0 ) THEN
          VARLIST = 'NEPOCH_DETECT:I' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_NEPOCH_DETECT,VARLIST,0,
+         CALL SNTABLE_ADDCOL(ID, CBLOCK, ISNLC_NEPOCH_DETECT,VARLIST,1,
      &        LENBLOCK, 20 )
          VARLIST = 'TLIVE_DETECT:F' // char(0)
-         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_TLIVE_DETECT, VARLIST,0,
+         CALL SNTABLE_ADDCOL(ID, CBLOCK, SNLC_TLIVE_DETECT, VARLIST,1,
      &        LENBLOCK, 20 )
       ENDIF
 c - - - - -  redshift - - - - - 

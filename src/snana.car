@@ -1294,6 +1294,7 @@ c for reading and parsing.
       CHARACTER 
      &   PRIMARY_NAME_RDKCOR(10)*40          ! e.g, AB, BD17 ..
      &  ,FILTER_NAME_RDKCOR(MXFILT_ALL)*40   ! e.g, SDSS-g, Bessell90-V
+     &  ,SURVEY_NAME_RDKCOR(MXFILT_ALL)*40   ! e.g., SDSS, PS1MD
      &  ,KCORINFO_STRING_RDKCOR(MXKCOR)*60   ! Kcor K_xy obsfilt restfilt
      
       INTEGER
@@ -1331,7 +1332,7 @@ c for reading and parsing.
      &   IVER_RDKCOR, ISFITS_RDKCOR,LVERBOSE_RDKCOR,ISLAMSHIFT_RDKCOR
      &  ,NKCOR_RDKCOR
      &  ,NPRIM_RDKCOR, INDX_PRIMARY_RDKCOR, PRIMARY_NAME_RDKCOR
-     &  ,FILTER_NAME_RDKCOR, KCORINFO_STRING_RDKCOR
+     &  ,FILTER_NAME_RDKCOR, SURVEY_NAME_RDKCOR, KCORINFO_STRING_RDKCOR
      &  ,IFILTDEF_RDKCOR,  NFILTDEF_RDKCOR
      &  ,IFILTOBS_RDKCOR,  NFILTOBS_RDKCOR
      &  ,IFILT2_RDKCOR
@@ -27493,13 +27494,12 @@ C =======================================
       SUBROUTINE RDKCOR_FITS_HEAD(LUN)
       IMPLICIT NONE
 
-
 c Dec 5 2013: set ZRANGE_KCOR only if ZMAX > 0
 c July  2016: read optional spectrograph info
+c Nov   15 2020: read/store SURVEY from filter comment string
 
 c subroutine args.
       INTEGER LUN  ! (I) read from this LUN
-
 
 c local args
 
@@ -27508,6 +27508,7 @@ c local args
 +CDE,CTRLCOM.
 
       INTEGER  i, ISTAT, LL, IFILTDEF, ISTAT1, ISTAT2, NFLAMSHIFT
+      INTEGER js0, js1
 
       CHARACTER  
      &   FNAM*20, KEYWORD*40
@@ -27594,6 +27595,15 @@ c read FILTER strings.
               ISLAMSHIFT_RDKCOR(i) = .FALSE.
            ENDIF
 
+c Nov 15 2020 check for SURVEY in comment .xyz
+           js0 = INDEX(COMMENT,'=') + 1
+           js1 = INDEX(COMMENT,' ', BACK = .TRUE. ) - 1
+	   if ( js0 > 4 ) then
+             SURVEY_NAME_RDKCOR(i) = COMMENT(js0:js1)
+           else
+             SURVEY_NAME_RDKCOR(i) = "NONE"
+           endif
+
            IF ( LVERBOSE_RDKCOR ) then
               write(6,608) IFILTDEF, STRING_TMP(1:20)
            ENDIF
@@ -27602,6 +27612,8 @@ c read FILTER strings.
          ENDIF
 
 210   CONTINUE
+
+      STOP ! xxx REMOVE
 
 c check for global set of LAM-shifted bands
       IF ( NFLAMSHIFT > 0 ) THEN

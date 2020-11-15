@@ -1119,6 +1119,11 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_SEDFILE,"%s", 
 	  INPUTS.inFile_PRIMARY[INDX_INPUT] ) ;
 
+  if ( REQUIRE_SURVEY_KCOR && IGNOREFILE(SURVEY) ) {
+    sprintf(c1err,"Must associate SURVEY with filter %s", filtName);
+    sprintf(c2err,"Add  'SURVEY: <surveyList>' in kcor-input file");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
 
   sprintf(FILTER[NF].SURVEY_NAMES, "%s", SURVEY); // Nov 2020
 

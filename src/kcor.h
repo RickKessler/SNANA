@@ -16,9 +16,14 @@
 
   Apr 10 2020: MXKCOR -> 200 (was 100)
 
+  Nov 15 2020: IVERSION_KCOR -> 4 (was 3) for reading SURVEY key
+
 ********************************************************/
 
-#define VERSION_KCOR 3    // internal version
+bool REQUIRE_SURVEY_KCOR = false ; // flip to require SURVEY in kcor-input 
+
+//#define VERSION_KCOR 3    // internal version
+#define VERSION_KCOR 4    // internal version
 #define MXFILTDEF   100    // max number of defined filters 
 #define MXLAM_SN    4000  // max number of lambda bins 
 #define MXLAM_PRIMARY  5000  // max number of lambda bins 
@@ -38,7 +43,6 @@
 #define OPT_INTERP_VEGAFLUX 1    // for Vega flux
 #define OPT_INTERP_SNFLUX   1    // for SN flux
 #define NLAMBIN_INTERP      3    // number of lambda bins to interpolate
-
 
 #define FILTSYSTEM_COUNT        1
 #define FILTSYSTEM_ENERGY       2

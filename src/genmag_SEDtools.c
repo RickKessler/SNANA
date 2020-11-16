@@ -770,6 +770,7 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
   // Mar 22 2017: F->0 if any part of filter trans is not contained by model.
   //
   // Apr 30 2018: store MINDAY_ALL and MAXDAY_ALL
+  // Nov 15 2020: protect ifilt for ifilt_obs==0
 
   int  ilampow, iep, ifilt, ilamfilt, iz ;
   int  NLAMFILT, NLAMSED, EPMIN, EPMAX, N, NZBIN, index ;
@@ -810,7 +811,12 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
     return ;
   }
 
-  ifilt     = IFILTMAP_SEDMODEL[ifilt_obs] ;
+
+  if ( ifilt_obs > 0 )
+    { ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ; }
+  else
+    { ifilt = 0; }
+
   cfilt     = FILTER_SEDMODEL[ifilt].name ;
   
   if ( SEDMODEL.NSURFACE <= 2 ) {

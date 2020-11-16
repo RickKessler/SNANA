@@ -1,8 +1,7 @@
 # Created Oct 31 2020
 #
 # Remaining issues:
-#   * how to specify and implement TRAINOPT in CONFIG block
-#   * how are MAG_OFFSET and SIGMA_INT determined ??
+#   * how are MAG_OFFSET and SIGMA_INT determined for SNANA ??
 #   * can train_SALT2_37_mw.py  produce YAML output for submit_batch ?
 #       NEVT:           348
 #       ABORT_IF_ZERO:  348
@@ -37,8 +36,9 @@ KEY_PATH_INPUT_TRAIN = "PATH_INPUT_TRAIN"  # required (data,conf files)
 KEY_PATH_INPUT_CALIB = "PATH_INPUT_CALIB"  # required (a.k.a, SALTPATH)
 KEY_MODEL_SUFFIX     = "MODEL_SUFFIX"      # optional: change MODEL suffix
 
-KEY_MAGSHIFT  = "MAGSHIFT"
-KEY_WAVESHIFT = "WAVESHIFT"
+KEY_MAGSHIFT       = "MAGSHIFT"
+KEY_WAVESHIFT      = "WAVESHIFT"
+KEY_SHIFTLIST_FILE = "SHIFTLIST_FILE"
 
 # Define suffix for output model used by LC fitters.
 # Default output dirs are SALT2.MODEL000, SALT2.MODEL001, ...
@@ -131,13 +131,19 @@ class train_SALT2(Program):
 
         CONFIG           = self.config_yaml['CONFIG']
         PATH_INPUT_CALIB = CONFIG[KEY_PATH_INPUT_CALIB] # aka SALTPATH
+        PATH_EXPAND      = os.path.expandvars(PATH_INPUT_CALIB)
+        msgerr = []
 
-        survey_map_file = os.path.expandvars(f"{PATH_INPUT_CALIB}/survey.yaml")
-        # xxx mark delete survey_map_file = (f"survey.yaml")
+        if not os.path.exists(PATH_EXPAND):
+            msgerr.append(f"Cannot find path for")
+            msgerr.append(f"  {PATH_INPUT_CALIB}")
+            msgerr.append(f"Check arg of {KEY_PATH_INPUT_CALIB}.")
+            self.log_assert(False,msgerr)
+
+        survey_map_file = (f"{PATH_EXPAND}/survey.yaml")
         survey_yaml     = util.extract_yaml(survey_map_file)
         
         self.config_prep['survey_yaml'] = survey_yaml
-        #sys.exit(f"\n xxx survey_yaml = {survey_yaml}")
 
         # end train_prep_survey_map
 
@@ -145,7 +151,8 @@ class train_SALT2(Program):
         CONFIG           = self.config_yaml['CONFIG']
         input_file       = self.config_yaml['args'].input_file 
         n_trainopt          = 1
-        trainopt_arg_list   = [ '' ] 
+        trainopt_ARG_list   = [ '' ] # original user arg
+        trainopt_arg_list   = [ '' ] # expanded args used by script
         trainopt_num_list   = [ f"{TRAINOPT_STRING}000" ] 
         trainopt_label_list = [ None ]
                 
@@ -153,8 +160,10 @@ class train_SALT2(Program):
         if key in CONFIG  :
             for trainopt_raw in CONFIG[key] : # might include label
                 num = (f"{TRAINOPT_STRING}{n_trainopt:03d}")
-                label, trainopt = util.separate_label_from_arg(trainopt_raw)
-                trainopt_arg_list.append(trainopt)
+                label, ARG = util.separate_label_from_arg(trainopt_raw)
+                arg        = self.train_prep_expand_arg(ARG)
+                trainopt_arg_list.append(arg)
+                trainopt_ARG_list.append(ARG)
                 trainopt_num_list.append(num)
                 trainopt_label_list.append(label)
                 n_trainopt += 1
@@ -162,13 +171,53 @@ class train_SALT2(Program):
         logging.info(f" Store {n_trainopt-1} TRAIN-SALT2 options " \
                      f"from {TRAINOPT_STRING} keys")
 
+        #sys.exit(f"\n xxx DEBUG DIE xxxx")
+
         self.config_prep['n_trainopt']          = n_trainopt
         self.config_prep['trainopt_arg_list']   = trainopt_arg_list
+        self.config_prep['trainopt_ARG_list']   = trainopt_ARG_list
         self.config_prep['trainopt_num_list']   = trainopt_num_list
         self.config_prep['trainopt_label_list'] = trainopt_label_list
 
         # end train_prep_trainopt_list
         
+    def train_prep_expand_arg(self,ARG):
+        # if ARG starts with KEY_SHIFTLIST_FILE, the return arg
+        # equal to contents of file; otherwise return arg = ARG.
+        # Motivation is that user can build long list of random
+        # calib variations and store each set of variations in 
+        # a separate file.
+        # BEWARE that SHIFTLIST_FILE is NOT a yaml file ... the contents
+        # must be valid TRAINOPT arguments. Abort on any colons in case
+        # user accidentally goes yaml.
+
+        arg = ARG
+        KEY = KEY_SHIFTLIST_FILE
+        word_list = ""
+        arg_list = ARG.split()
+        if arg_list[0] == KEY :
+            shift_file = arg_list[1]
+            with open(shift_file,"rt") as f:
+                for line in f:
+                    word_list += line.replace("\n"," ")
+            arg = word_list
+
+        # - - - - -
+        #print(f" xxx ---------------------------------------- ")
+        #print(f" xxx ARG = {ARG}")
+        #print(f" xxx arg = {arg}")
+        # - - - -
+        if ':' in arg :
+            msgerr = []
+            msgerr.append(f"Found invalid colon(s) in {KEY}")
+            msgerr.append(f"   {shift_file} .")
+            msgerr.append(f"Beware that {KEY} is NOT a yaml file; ")
+            msgerr.append(f"{KEY} contents must be valid TRAINOPT args. ")
+            util.log_assert(False,msgerr)
+
+        return arg
+        # end train_prep_expand_arg
+
     def get_path_trainopt(self,which,trainopt):
         output_dir    = self.config_prep['output_dir']
         path          = ""
@@ -616,12 +665,19 @@ class train_SALT2(Program):
         CONFIG            = self.config_yaml['CONFIG']
         script_dir        = self.config_prep['script_dir']
         output_dir        = self.config_prep['output_dir']
+        msgerr = []
 
         #outdir_saltpath_list = self.config_prep['outdir_saltpath_list'] 
         outdir_train_list    = self.config_prep['outdir_train_list']
         outdir_model_list    = self.config_prep['outdir_model_list']
 
         PATH_INPUT_TRAIN  = os.path.expandvars(CONFIG[KEY_PATH_INPUT_TRAIN])
+        if not os.path.exists(PATH_INPUT_TRAIN):
+            msgerr.append(f"Cannot find path for")
+            msgerr.append(f"  {PATH_INPUT_TRAIN}")
+            msgerr.append(f"Check arg of {KEY_PATH_INPUT_TRAIN}.")
+            self.log_assert(False,msgerr)
+
         outdir_train      = outdir_train_list[itrain]
         outdir_model      = outdir_model_list[itrain]
 
@@ -667,6 +723,7 @@ class train_SALT2(Program):
         n_trainopt   = self.config_prep['n_trainopt'] 
         num_list     = self.config_prep['trainopt_num_list']
         arg_list     = self.config_prep['trainopt_arg_list'] 
+        ARG_list     = self.config_prep['trainopt_ARG_list'] 
         label_list   = self.config_prep['trainopt_label_list']
         model_suffix = self.config_prep['model_suffix']
 
@@ -678,7 +735,9 @@ class train_SALT2(Program):
         f.write(f"\n")
         f.write(f"TRAINOPT_OUT_LIST:  " \
                 f"# 'TRAINOPTNUM'  'user_label'  'user_args'\n")
-        for num,arg,label in zip(num_list,arg_list,label_list):
+        # use original ARG_list instead of arg_list; the latter may
+        # include contents of shiftlist_file.
+        for num, arg, label in zip(num_list, ARG_list, label_list):
             row   = [ num, label, arg ]
             f.write(f"  - {row} \n")
         f.write("\n")

@@ -449,18 +449,38 @@ HELP_CONFIG_TRAIN_SALT2 = f"""
   # Must specify name of training script (because it's outside SNANA)
   JOBNAME: [train_script_name]
 
-  PATH_INPUT_TRAIN: [path]  # input data files and config for snpca
+  # input data files and config for snpca. Includes survey.yaml, which
+  # maps snpca surveys/instruments into SNANA survey/bandpasses.
+  PATH_INPUT_TRAIN: [path]  
 
-  PATH_INPUT_CALIB: [path] # input Instrument and MagSys (aka SALTPATH)
+  # input Instrument and MagSys (aka SALTPATH)
+  PATH_INPUT_CALIB: [path] 
 
-  # calibration systematics per band or for groups of bands.
+  # TRAINOPT args specify calibration systematics per band or group of bands.
   # An independent training is done for each TRAINOPT argument.
+  # SHIFTLIST_FILE is a file containing a list of MAGSHIFT and WAVESHIFT
+  # keys; <CR> are stripped so that contents can be distributed among 
+  # multiple lines for human readability. The explicit MAGSHIFT and
+  # WAVESHIFT keys are intended for linear perturbations to measure
+  # derivatives for systematics; the SHIFTLIST_FILE feature is intended
+  # for a random calibration offset in every band.
+
   TRAINOPT:
-  - MAGSHIFT  SDSS g 0.01
-  - MAGSHIFT  SDSS g,z 0.01,-0.01    MAGSHIFT CfA2 B 0.01
-  - WAVESHIFT CfA3 r,i 10,10         MAGSHIFT CfA3 U .01
+  - MAGSHIFT  SDSS  g 0.01
+  - MAGSHIFT  SDSS  g,z 0.01,-0.01    MAGSHIFT CfA2 B 0.01
+  - WAVESHIFT CfA3  r,i 10,10         MAGSHIFT CfA3 U .01
+  - SHIFTLIST_FILE  shifts_01.dat
+  - SHIFTLIST_FILE  shifts_02.dat
+  - SHIFTLIST_FILE  shifts_03.dat
 
   OUTDIR:   [outdir]   # all output goes here
+
+ # The TRAINOPT-calibration shifts in the training are propagated to 
+ # SNANA's light curve fitting via MAGSHIFT and WAVESHIFT keys written
+ # to the SALT2.INFO file for each SALT2.MODELnnn directory. The mapping
+ # "snpca survey/instrument -> SNANA survey/passbands" is contained in 
+ # [PATH_INPUT_TRAIN]/survey.yaml.
+
 """
 
 

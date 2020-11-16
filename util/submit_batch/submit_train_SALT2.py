@@ -54,9 +54,10 @@ ICOL_INFO_TRAINOPT    = 0
 ICOL_INFO_FILE        = 1
 ICOL_INFO_KEY         = 2
 ICOL_INFO_SURVEY      = 3
-ICOL_INFO_BAND        = 4
-ICOL_INFO_SHIFT       = 5
-ICOL_INFO_COMMENT     = 6
+ICOL_INFO_INSTR       = 4
+ICOL_INFO_BAND        = 5
+ICOL_INFO_SHIFT       = 6
+ICOL_INFO_COMMENT     = 7
 
 
 # define content for SALT2_INFO file
@@ -286,10 +287,11 @@ class train_SALT2(Program):
                         shift = float(shift)
                         filter_file_list,Instr_list = \
                             self.get_filter_file(outdir_calib, survey, band)
-                        for filter_file in filter_file_list:
+                        for filt_file,Instr in zip(filter_file_list,Instr_list):
                             filter_dict = {
-                                'filter_file' :  filter_file,
+                                'filter_file' :  filt_file,
                                 'survey'      :  survey,
+                                'Instr'       :  Instr,
                                 'band'        :  band,
                                 'shift'       :  shift
                             }
@@ -409,7 +411,7 @@ class train_SALT2(Program):
                 comment  = (f"{Instr}-{band} = {value} -> {new_value:.6f}")
                 logging.info(f"\t Update {magsys_base}: {comment}" )
                 info.append( [magsys_base, KEY_MAGSHIFT, 
-                              survey, band, str(shift), comment] )
+                              survey, Instr, band, str(shift), comment] )
 
         # modify file with line_list_out
         if nchange > 0 :
@@ -446,6 +448,10 @@ class train_SALT2(Program):
                 filter_dir  = (f"{outdir_calib}/{SUBDIR_INSTR}/{subdir}")
                 FilterWheel = (f"{filter_dir}/{FILTERWHEEL_FILE}")
                 filter_file = self.parse_FilterWheel(FilterWheel,band)
+
+                #print(f" xxx - - - - - - - -")
+                #print(f" xxx FilterWheel = {FilterWheel}")
+                #print(f" xxx check {subdir} filter_file = {filter_file}")
                 if filter_file is not None:
                     filter_file_list.append(f"{filter_dir}/{filter_file}")
         else:
@@ -486,6 +492,7 @@ class train_SALT2(Program):
 
         filter_file = filter_dict['filter_file']
         survey      = filter_dict['survey']
+        Instr       = filter_dict['Instr']
         band        = filter_dict['band']
         shift       = filter_dict['shift']  # wave shift, A
 
@@ -501,7 +508,7 @@ class train_SALT2(Program):
         logging.info(f"\t Update {filter_base} with {comment}.")
 
         info = [ [ filter_base, KEY_WAVESHIFT, 
-                   survey, band, str(shift), comment ] ]
+                   survey, Instr, band, str(shift), comment ] ]
 
         msgerr     = []
         line_list_out = []
@@ -689,14 +696,14 @@ class train_SALT2(Program):
         # write info for SNANA's SALT2.INFO file
         n_item = 0
         for item_full in update_calib_info:
+            #print(f" xxx item_full = {item_full} ")
             survey_snana, band_snana = self.get_SNANA_INFO(item_full)
             if survey_snana is None : continue 
 
-            item_full[ICOL_INFO_SURVEY] = survey_snana
-            item_full[ICOL_INFO_BAND]   = band_snana
             trainopt  = item_full[ICOL_INFO_TRAINOPT]
             key_snana = item_full[ICOL_INFO_KEY]
-            arg_snana = " ".join(item_full[3:6])
+            shift     = item_full[ICOL_INFO_SHIFT]
+            arg_snana = (f"{survey_snana} {band_snana} {shift}")
             item      = [ trainopt, key_snana, arg_snana ]
 
             n_item += 1
@@ -710,7 +717,9 @@ class train_SALT2(Program):
 
         survey_yaml  = self.config_prep['survey_yaml']
         survey_train = info_list[ICOL_INFO_SURVEY]
+        instr_train  = info_list[ICOL_INFO_INSTR]
         band_train   = info_list[ICOL_INFO_BAND]
+        Instr_list   = survey_yaml[survey_train]['Instrument']
 
         survey_snana = None 
         band_snana   = None         
@@ -718,7 +727,9 @@ class train_SALT2(Program):
         key_snana = 'SNANA_INSTR'
         if key_snana in survey_yaml[survey_train]:
             temp_list    = survey_yaml[survey_train][key_snana]
-            survey_snana = ",".join(temp_list)
+            j            = Instr_list.index(instr_train)
+            survey_snana = temp_list[j]
+            #survey_snana = ",".join(temp_list)
 
         key_snana = 'SNANA_BANDS'
         if key_snana in survey_yaml[survey_train]:

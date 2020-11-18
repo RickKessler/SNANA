@@ -598,20 +598,23 @@ class LightCurveFit(Program):
         # and that it has a full path.
         key = KEY_APPEND_TABLE_TEXTFILE
         if key in CONFIG :
-            text_file = os.path.expandvars(CONFIG[key])
-            msg = (f"  Every output FITRES file will be appended with: \n"\
-                   f"    {text_file} ")
-            logging.info(msg)
+            delim = None
+            if ',' in CONFIG[key]: delim=','
+            for text_file in CONFIG[key].split(delim):
+                text_file = os.path.expandvars(text_file)
+                msg = (f"  Every output FITRES file will be appended with: \n"\
+                       f"    {text_file} ")
+                logging.info(msg)
 
-            if not os.path.isfile(text_file):
-                msgerr.append(f"{text_file} does not exist.")
-                msgerr.append(f"Check {key} argument under CONFIG block.")
-                self.log_assert(False,msgerr)
+                if not os.path.isfile(text_file):
+                    msgerr.append(f"{text_file} does not exist.")
+                    msgerr.append(f"Check {key} argument under CONFIG block.")
+                    self.log_assert(False,msgerr)
 
-            if '/' not in text_file :
-                shutil.copy(text_file,script_dir)
+                if '/' not in text_file :
+                    shutil.copy(text_file,script_dir)
 
-        logging.info("")
+            logging.info("")
 
         # end fit_prep_table_options
 
@@ -1298,7 +1301,7 @@ class LightCurveFit(Program):
         
         key  = KEY_APPEND_TABLE_TEXTFILE
         if key in submit_info_yaml :
-            external_file = submit_info_yaml[key]
+            external_file_list = submit_info_yaml[key]
         else:
             return
 
@@ -1307,7 +1310,7 @@ class LightCurveFit(Program):
         log_file  = "TEMP_COMBINE.LOG"
 
         cddir = (f"cd {script_dir}")
-        cmd1  = (f"{PROGRAM_COMBINE_FITRES} {orig_file} {external_file} " \
+        cmd1  = (f"{PROGRAM_COMBINE_FITRES} {orig_file} {external_file_list} " \
                  f"-outfile_text {out_file} " \
                  f"-nullval_float {NULLVAL_COMBINE_FITRES} " \
                  f">& {log_file} " )

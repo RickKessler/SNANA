@@ -1290,6 +1290,7 @@ struct {
   int  NVAR_OVERRIDE;
   char **VARNAMES_OVERRIDE ;           // list of override varnames
   float *PTRVAL_OVERRIDE[MXVAR_OVERRIDE]; // pointers to override values
+  int  *IVAR_OUTPUT_INVMAP;  // map ivar_out to ivar_over
 
 } INFO_DATA;
 
@@ -6014,6 +6015,19 @@ void read_data_override(void) {
 
     } // end ivar_over
   } // end isn 
+
+
+  // - - - - - - 
+  // Finally, map ivar_out to ivar_over so that output function can
+  // quickly identify which output variables get replaced.
+  int ivar_out, NVAR_TOT = OUTPUT_VARNAMES.NVAR_TOT ;  
+  INFO_DATA.IVAR_OUTPUT_INVMAP = (int*) malloc(NVAR_TOT*sizeof(int));
+  for(ivar_out=0; ivar_out < NVAR_TOT; ivar_out++ ) {
+    varName   = OUTPUT_VARNAMES.LIST[ivar_out] ; 
+    ivar_over = ivar_matchList(varName, NVAR_OVER, 
+			       INFO_DATA.VARNAMES_OVERRIDE );   
+    INFO_DATA.IVAR_OUTPUT_INVMAP[ivar_out] = ivar_over ;
+  }
 
   // - - - - -
   // print summary of changes
@@ -18432,6 +18446,7 @@ int write_fitres_line(int indx, int ifile, char *line, FILE *fout) {
 
 } // end write_fitres_line
 
+// ===================
 void  write_word_override(int ivar_tot, int indx, char *word) {
 
   // Nov 15 2020
@@ -18447,22 +18462,21 @@ void  write_word_override(int ivar_tot, int indx, char *word) {
 
   if ( NVAR_OVERRIDE == 0 ) { return; }
 
-  // get name of variable
+  ivar_over = INFO_DATA.IVAR_OUTPUT_INVMAP[ivar_tot];
+  if ( ivar_over < 0 ) { return; }
+
+  // this variable gets an override value fval:
+  float fval = INFO_DATA.PTRVAL_OVERRIDE[ivar_over][indx];
+
+  // for formatting, check of variable contains zHD
   varName   = OUTPUT_VARNAMES.LIST[ivar_tot]; 
   IS_zHD    = (strstr(varName,"zHD") != NULL ) ;
 
-  // check if this varName is in the OVERRIDE list
-  ivar_over = ivar_matchList(varName, NVAR_OVERRIDE, 
-			     INFO_DATA.VARNAMES_OVERRIDE );
-
-  // if it's an override, replace output word for output fitres file
-  if ( ivar_over >= 0 ) {
-    float fval = INFO_DATA.PTRVAL_OVERRIDE[ivar_over][indx];
-    if ( IS_zHD ) 
-      { sprintf(word,"%.5f", fval); }
-    else
-      { sprintf(word,"%.3f", fval); }
-  }
+  // replace word string
+  if ( IS_zHD ) 
+    { sprintf(word,"%.5f", fval); }
+  else
+    { sprintf(word,"%.3f", fval); }
 
   return;
 

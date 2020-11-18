@@ -19233,7 +19233,13 @@
 
          ***** IMPORTANT(v11_02b) ***** 
 
+   SALT2mu.c: new vpec-flip test to catch vpec sign error
+
          ***** USEFUL(v11_02b) ***** 
+
+   SALT2mu.c: new input datafile_override for vpec,vpecerr,logmass,...
+   snlc_sim.c: add a few more RANSYSTPAR_XXX keys
+   submit_batch : works with snpca training and TRAINOPT for calib shifts.
 
          ***** MISCELLANEOUS(v11_02b) ***** 
 
@@ -19270,5 +19276,10 @@
     + new input ndump_nobiascor
     + add MUERR_VPEC to output ; MUERR contributioN from VPEC_ERR
     + for vpec-flip test, require at least 70 events (was 10)
+    + new input datafile_override
+
+  kcor.c[h]: 
+    + read optional SURVEY(s) from kcor-input and include SURVEY=%s
+      in each filter comment in kcor header.
 
 END: 

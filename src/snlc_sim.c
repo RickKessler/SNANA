@@ -3703,8 +3703,8 @@ int parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource ) {
   //  GENMAG_SMEAR_SCALE(SALT2c) 0.9,0.3 ! scale = 0.9 + 0.3*c    
   //                                                                            
   // This function loads INPUTS.GENMAG_SMEAR_SCALE with              
-  //     'NOVAR  1.3'                                                           
-  //     'SALT2c 0.9,0.3'                                                       
+  //     'NOVAR  1.3'
+  //     'SALT2c 0.9,0.3'
   //
   
   int N=0;

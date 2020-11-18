@@ -119,6 +119,9 @@
 
  Oct 27 2020: fix a few warnings from -Wall flag 
 
+ Nov 18 2020: allow comma-sep list of space-sep list of fitres files.
+              See new function parse_FFILE(arg).
+
 ******************************/
 
 #include <stdio.h>
@@ -141,6 +144,8 @@
 
 
 void  PARSE_ARGV(int argc, char **argv);
+void  parse_FFILE(char *arg);
+
 void  INIT_TABLEVAR(void);
 void  ADD_FITRES(int ifile);
 int   match_CID_orig(int ifile, int isn2);
@@ -415,10 +420,16 @@ void  PARSE_ARGV(int argc, char **argv) {
       continue ;
     }
 
+    // parse FITRES file(s) and add to INPUTS.FFILE list
+    parse_FFILE(argv[i]);
+
+    /* xxxxxxxx mark delete  xxxxxxxxx
     sprintf( INPUTS.FFILE[NFFILE], "%s", argv[i] );
     printf("  Will combine fitres file: %s \n", 
 	   INPUTS.FFILE[NFFILE] );
     NFFILE++ ;
+    xxxxxxxxx */
+
 
   } // end loop over arg list
   
@@ -430,8 +441,8 @@ void  PARSE_ARGV(int argc, char **argv) {
     printf("   CID-match method: hash table.\n");
   }
 
-  INPUTS.NFFILE = NFFILE ;
-  if ( NFFILE <= 0 ) {
+  // xxx mark delete  INPUTS.NFFILE = NFFILE ;
+  if ( INPUTS.NFFILE <= 0 ) {
     sprintf(c1err, "Bad args. Must give fitres file(s)");
     sprintf(c2err, "  combine_fitres.exe <fitresFile List> ");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -456,10 +467,40 @@ void  PARSE_ARGV(int argc, char **argv) {
   }
 #endif
 
+  return;
 
 } // end of PARSE_ARGV
 
+// ====================================
+void parse_FFILE(char *arg) {
 
+  // Created Nov 18 2020
+  // add arg to INPUTS.FFILE list ... if arg is comma-sep list,
+  // split each item and add each item to list. This allows
+  // both space-separated and comma-separated file list.
+
+  int ifile, nfile_add=0, NFFILE = INPUTS.NFFILE;
+  char **file_list;
+  char fnam[] = "parse_FFILE" ;
+  
+  // ----------- BEGIN -------------
+  // .xyz
+
+  parse_commaSepList("FITRES_FILE_LIST", arg, 10, MXPATHLEN,
+		     &nfile_add, &file_list );
+
+  for(ifile=0; ifile < nfile_add; ifile++ ) {
+    sprintf( INPUTS.FFILE[NFFILE], "%s", file_list[ifile] );
+    printf("  Will combine fitres file: %s \n", 
+	   INPUTS.FFILE[NFFILE] );
+    NFFILE++ ;
+    free(file_list[ifile]);
+  }
+
+  INPUTS.NFFILE = NFFILE ;
+  free(file_list);
+
+} // end parse_FFILE
 
 // ==========================
 void INIT_TABLEVAR(void) {

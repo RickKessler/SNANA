@@ -19,6 +19,12 @@
 # MAYBE, TO-DO ...
 #    - if SIMLOGS exists with no done file, give warning 
 #
+# ////////////////////////
+#
+#      HISTORY
+#  ~~~~~~~~~~~~~~~
+# Nov 16 2020: protect GENOPT args with () -> \(\)
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -243,7 +249,6 @@ class Simulation(Program):
                 print(f" sim_prep_GENOPT({GENVERSION}) ")
 
             # catenate the GENOPTs into one long GENOPT_FINAL string
-            GENOPT_FINAL = ""
             genopt_list = []  # list for this GENVERSION
             genarg_list = []
             genopt_list2d.append([''] * n_file)     # init ifile index
@@ -253,10 +258,12 @@ class Simulation(Program):
                     genarg = util.extract_arg(key) # optional arg from ()
                     #print(f"\t xxx {key} -> arg = {genarg}")
                     for key2,value2 in value.items():
-                        genopt = (f"{key2} {value2}     ")
+                        # if key includes (), replace with \( \)
+                        key2_protect = key2.replace('(','\(').replace(')','\)')
+                        genopt = (f"{key2_protect} {value2}     ")
+                        #print(f" xxx genopt = {genopt}")
                         genopt_list.append(genopt)
                         genarg_list.append(genarg)
-                        GENOPT_FINAL += genopt    # obsolsete
 
             # set file-specific GENOPT 
             n_arg = len(genopt_list)

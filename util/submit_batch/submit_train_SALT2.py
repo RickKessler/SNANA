@@ -1,6 +1,7 @@
 # Created Oct 31 2020
 #
 # Remaining issues:
+#   * protect against multiple changes to same filter or MagSys
 #   * how are MAG_OFFSET and SIGMA_INT determined for SNANA ??
 #   * can train_SALT2_37_mw.py  produce YAML output for submit_batch ?
 #       NEVT:           348
@@ -140,10 +141,11 @@ class train_SALT2(Program):
             msgerr.append(f"Check arg of {KEY_PATH_INPUT_CALIB}.")
             self.log_assert(False,msgerr)
 
-        survey_map_file = (f"{PATH_EXPAND}/survey.yaml")
-        survey_yaml     = util.extract_yaml(survey_map_file)
+        survey_map_file  = (f"{PATH_EXPAND}/survey.yaml")
+        survey_yaml      = util.extract_yaml(survey_map_file)
         
-        self.config_prep['survey_yaml'] = survey_yaml
+        self.config_prep['survey_yaml']      = survey_yaml
+        self.config_prep['survey_map_file']  = survey_map_file
 
         # end train_prep_survey_map
 
@@ -684,10 +686,11 @@ class train_SALT2(Program):
         # config file passed to pythin training shell
         TRAINDIR_FILE     = (f"{script_dir}/{trainDir_file}")
 
+        # Nov 18 2020: add colons for yaml compatibility
         with open(TRAINDIR_FILE, "wt") as f :
-            f.write(f"initDir      {PATH_INPUT_TRAIN} \n")
-            f.write(f"trainingDir  {outdir_train} \n")
-            f.write(f"outputDir    {outdir_model} \n")
+            f.write(f"initDir:      {PATH_INPUT_TRAIN} \n")
+            f.write(f"trainingDir:  {outdir_train} \n")
+            f.write(f"outputDir:    {outdir_model} \n")
 
         # end create_trainDir_file
 
@@ -726,11 +729,14 @@ class train_SALT2(Program):
         ARG_list     = self.config_prep['trainopt_ARG_list'] 
         label_list   = self.config_prep['trainopt_label_list']
         model_suffix = self.config_prep['model_suffix']
+        survey_map_file = self.config_prep['survey_map_file'] 
 
         f.write(f"# train_SALT2 info \n")
         f.write(f"JOBFILE_WILDCARD: {TRAINOPT_STRING}* \n")
         f.write(f"MODEL_SUFFIX: {model_suffix}   " \
                 f"# -> create SALT2.{model_suffix}nnn/ \n")
+
+        f.write(f"SURVEY_MAP_FILE:  {survey_map_file} \n")
 
         f.write(f"\n")
         f.write(f"TRAINOPT_OUT_LIST:  " \

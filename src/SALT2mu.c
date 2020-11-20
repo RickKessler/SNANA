@@ -862,6 +862,8 @@ Default output files (can change names with "prefix" argument)
       Add ndump_nobiascor key to do same thing.
    +  begin datafile_override feature.
  
+ Nov 20 2020: few fixes to avoid conflicts with cat_only option.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -7354,9 +7356,6 @@ void compute_more_INFO_DATA(void) {
   // can be fixed on first iteration
 
   int NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
-  double alpha      = INPUTS.parval[IPAR_ALPHA0] ;
-  double beta       = INPUTS.parval[IPAR_BETA0] ;
-  double gamma      = INPUTS.parval[IPAR_GAMMA0] ;
   double *ptr_sigCC = &INPUTS.parval[IPAR_H11+3];
   double muerrsq, sigCC, zhd, zmuerr, cov, covmat_tot[NLCPAR][NLCPAR] ;
   int    isn, CUTMASK, i, i2 ;
@@ -7383,6 +7382,11 @@ void compute_more_INFO_DATA(void) {
 	  covmat_tot[i][i2] = cov;
 	}
       }
+
+      // strip INPUTS.parval here to avoid crash with cat_only option
+      double alpha      = INPUTS.parval[IPAR_ALPHA0] ;
+      double beta       = INPUTS.parval[IPAR_BETA0] ;
+      double gamma      = INPUTS.parval[IPAR_GAMMA0] ;
       muerrsq = fcn_muerrsq(name,alpha,beta,gamma, covmat_tot,zhd,zmuerr, 0);
       sigCC   = ptr_sigCC[0] + zhd*ptr_sigCC[1] + zhd*zhd*ptr_sigCC[2];
     }
@@ -18402,7 +18406,6 @@ int write_fitres_line(int indx, int ifile, char *line, FILE *fout) {
   // Nov 14 2020: check for datafile_overrides.
 
   int NVAR_TOT = OUTPUT_VARNAMES.NVAR_TOT ;  
-  char *CID    = INFO_DATA.TABLEVAR.name[indx]; // diagnostic
   int ISTAT = 0 ;
   int  ivar_tot, ivar_file, ivar_word ;
   char word[MXCHAR_VARNAME], line_out[MXCHAR_LINE], *varName ;

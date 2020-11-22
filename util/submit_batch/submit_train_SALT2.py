@@ -1,15 +1,15 @@
 # Created Oct 31 2020
 #
 # Remaining issues:
-#   * protect against multiple changes to same filter or MagSys
-#   * how are MAG_OFFSET and SIGMA_INT determined for SNANA ??
-#   * can train_SALT2_37_mw.py  produce YAML output for submit_batch ?
+#   + protect against multiple changes to same filter or MagSys
+#   - how are MAG_OFFSET and SIGMA_INT determined for SNANA ??
+#   - can train_SALT2_37_mw.py  produce YAML output for submit_batch ?
 #       NEVT:           348
 #       ABORT_IF_ZERO:  348
 #       CPU_MINUTES:    137.3
 #       ANYTHING_ELSE:  ??
-#   * how is SUCCESS determined ? Existence of salt2_template_[01].dat ?
-#   * fast option ?
+#   - how is SUCCESS determined ? Existence of salt2_template_[01].dat ?
+#   - fast option ?
 # 
 
 import  os, sys, shutil, yaml, glob
@@ -59,7 +59,6 @@ ICOL_INFO_INSTR       = 4
 ICOL_INFO_BAND        = 5
 ICOL_INFO_SHIFT       = 6
 ICOL_INFO_COMMENT     = 7
-
 
 # define content for SALT2_INFO file
 SALT2_INFO_FILE    = "SALT2.INFO"    # created for SNANA programs
@@ -121,6 +120,9 @@ class train_SALT2(Program):
         # foreach training, prepare output paths
         self.train_prep_paths()
 
+        # check for duplicate shifts and flag erorrs/warnings
+        self.train_prep_error_checks()
+
         # end submit_prepare_driver
 
     def train_prep_survey_map(self):
@@ -150,24 +152,28 @@ class train_SALT2(Program):
         # end train_prep_survey_map
 
     def train_prep_trainopt_list(self):
-        CONFIG           = self.config_yaml['CONFIG']
-        input_file       = self.config_yaml['args'].input_file 
+        CONFIG              = self.config_yaml['CONFIG']
+        input_file          = self.config_yaml['args'].input_file 
         n_trainopt          = 1
         trainopt_ARG_list   = [ '' ] # original user arg
         trainopt_arg_list   = [ '' ] # expanded args used by script
         trainopt_num_list   = [ f"{TRAINOPT_STRING}000" ] 
         trainopt_label_list = [ None ]
-                
+        trainopt_shift_file = [ None ]   
+        use_shift_file      = False
+
         key = TRAINOPT_STRING
         if key in CONFIG  :
             for trainopt_raw in CONFIG[key] : # might include label
                 num = (f"{TRAINOPT_STRING}{n_trainopt:03d}")
                 label, ARG = util.separate_label_from_arg(trainopt_raw)
-                arg        = self.train_prep_expand_arg(ARG)
+                arg, shift_file  = self.train_prep_expand_arg(ARG)
+                if shift_file is not None: use_shift_file = True
                 trainopt_arg_list.append(arg)
                 trainopt_ARG_list.append(ARG)
                 trainopt_num_list.append(num)
                 trainopt_label_list.append(label)
+                trainopt_shift_file.append(shift_file)
                 n_trainopt += 1
             
         logging.info(f" Store {n_trainopt-1} TRAIN-SALT2 options " \
@@ -180,6 +186,8 @@ class train_SALT2(Program):
         self.config_prep['trainopt_ARG_list']   = trainopt_ARG_list
         self.config_prep['trainopt_num_list']   = trainopt_num_list
         self.config_prep['trainopt_label_list'] = trainopt_label_list
+        self.config_prep['trainopt_shift_file'] = trainopt_shift_file
+        self.config_prep['use_shift_file']      = use_shift_file
 
         # end train_prep_trainopt_list
         
@@ -195,12 +203,14 @@ class train_SALT2(Program):
 
         arg = ARG
         KEY = KEY_SHIFTLIST_FILE
+        shift_file = None 
         word_list = ""
         arg_list = ARG.split()
         if arg_list[0] == KEY :
             shift_file = arg_list[1]
             with open(shift_file,"rt") as f:
                 for line in f:
+                    if line[0] == '#' : continue 
                     word_list += line.replace("\n"," ")
             arg = word_list
 
@@ -217,7 +227,7 @@ class train_SALT2(Program):
             msgerr.append(f"{KEY} contents must be valid TRAINOPT args. ")
             util.log_assert(False,msgerr)
 
-        return arg
+        return arg, shift_file
         # end train_prep_expand_arg
 
     def get_path_trainopt(self,which,trainopt):
@@ -593,6 +603,60 @@ class train_SALT2(Program):
         return info
         # end update_filter_file
 
+    def train_prep_error_checks(self):
+
+        update_calib_info = self.config_prep['update_calib_info']
+        use_shift_file    = self.config_prep['use_shift_file']
+        n_update = len(update_calib_info)
+        nerr = 0 ; nwarn = 0; msgerr=[] 
+        txt_error = (f"ERROR: DUPLICATE CALIB-SHIFT in same TRAINOPT:")
+        txt_warn  = (f"WARNING: DUPLICATE CALIB-SHIFT in different TRAINOPTs:")
+
+        for i in range(0,n_update):
+            for j in range(i+1,n_update):
+                if i == j : continue
+                update_i = update_calib_info[i]
+                update_j = update_calib_info[j]
+
+                TRAINOPT_i = update_i[ICOL_INFO_TRAINOPT]
+                TRAINOPT_j = update_j[ICOL_INFO_TRAINOPT]
+
+                FILE_i = update_i[ICOL_INFO_FILE]
+                FILE_j = update_j[ICOL_INFO_FILE]
+
+                KEY_i = update_i[ICOL_INFO_KEY]  # MAGSHIFT or WAVESHIFT
+                KEY_j = update_j[ICOL_INFO_KEY]
+
+                INSTR_i = update_i[ICOL_INFO_INSTR]
+                INSTR_j = update_j[ICOL_INFO_INSTR]
+
+                BAND_i = update_i[ICOL_INFO_BAND]
+                BAND_j = update_j[ICOL_INFO_BAND]
+
+                match_file  = (FILE_i     == FILE_j)
+                match_instr = (INSTR_i    == INSTR_j) 
+                match_band  = (BAND_i     == BAND_j)         
+                match_opt   = (TRAINOPT_i == TRAINOPT_j)
+                
+                if match_file and match_instr and match_band :
+                    txt_update = (f"   {update_i[0:7]}\n   {update_j[0:7]}")
+                    if match_opt: 
+                        logging.info(f"{txt_error}\n" \
+                                     f"{txt_update}" )
+                        nerr += 1
+                    elif not use_shift_file :
+                        logging.info(f"{txt_warn}\n" \
+                                     f"{txt_update}")
+                        nwarn += 1
+
+        if nerr > 0 :
+            msgerr.append(f"{nerr} duplicate calib shifts for same TRAINOPT")
+            msgerr.append(f"Check ERROR messages above.")
+            self.log_assert(False,msgerr)
+
+        ###sys.exit("\n xxx DEBUG EXIST xxx ")
+        # end train_prep_error_checks
+
     def write_command_file(self, icpu, COMMAND_FILE):
 
         n_core          = self.config_prep['n_core']
@@ -753,7 +817,8 @@ class train_SALT2(Program):
         update_calib_info = self.config_prep['update_calib_info' ]
         f.write(f"CALIB_UPDATES: # TRAINOPT    file          comment\n")
         for item_full in update_calib_info:
-            item = [ item_full[ICOL_INFO_TRAINOPT], item_full[ICOL_INFO_FILE],
+            item = [ item_full[ICOL_INFO_TRAINOPT], 
+                     item_full[ICOL_INFO_FILE],
                      item_full[ICOL_INFO_COMMENT] ]
             f.write(f"  - {item}\n")
         f.write("\n")

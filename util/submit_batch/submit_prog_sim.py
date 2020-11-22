@@ -1205,6 +1205,11 @@ class Simulation(Program):
         key       = 'PATH_SNDATA_SIM'
         if key in CONFIG:
             path_sndata_sim = os.path.expandvars(CONFIG[key])
+            if os.path.exists(path_sndata_sim) == False :
+                msgerr = []
+                msgerr.append(f"PATH_SNDATA_SIM does not exist:")
+                msgerr.append(f"  {path_sndata_sim} ")
+                self.log_assert(False,msgerr)
             flag = True
         else:
             path_sndata_sim = (f"{SNDATA_ROOT}/SIM")

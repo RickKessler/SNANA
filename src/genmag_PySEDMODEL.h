@@ -1,4 +1,5 @@
 // Created Sep 2018
+// Nov 20 2020: MXPAR_PySEDMODEL -> 20 (was 10) for SNEMO
 
 // define pre-processor command to use python interface
 #define USE_PYTHONxxx
@@ -8,7 +9,7 @@
 // global variables
 
 #define MXLAM_PySEDMODEL  10000  // max wave bins to define SED
-#define MXPAR_PySEDMODEL     10  // max number of params to describe SED
+#define MXPAR_PySEDMODEL     20  // max number of params to describe SED
 #define MXHOSTPAR_PySEDMODEL 20  // max number of items in NAMES_HOSTPAR
 
 #define MODEL_NAME_BYOSED   "BYOSED"

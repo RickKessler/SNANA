@@ -16381,7 +16381,8 @@ c Created May 30 2019
 c Parse command LINE argument and load SNCCID_LIST array
 c LINE = '2004hq,2006ab' -> SNCCID_LIST = '2004hq', '2006ab'
 c 
-c
+c Nov 23 2020: bug fix to use proper string length in STORE_PARSE_WORDS
+
       IMPLICIT NONE
 
       CHARACTER LINE*(*)
@@ -16395,15 +16396,16 @@ c
 
 C --------------- BEGIN ------------
 
+      LL = INDEX(LINE,' ') - 1  ! Nov 23 2020
       MSKOPT = MSKOPT_PARSE_WORDS_STRING
-      NWD    = STORE_PARSE_WORDS(MSKOPT,LINE//char(0),100)
-       
+      NWD    = STORE_PARSE_WORDS(MSKOPT,LINE(1:LL)//char(0),LL)
+
       DO iwd = 1, NWD
          CALL get_PARSE_WORD_fortran(iwd,SNCCID_LIST(iwd),LL)
 c        LL = INDEX(SNCCID_LIST(iwd),' ') - 1
 c        print*,' xxx SNCCID = |', SNCCID_LIST(iwd)(1:LL), '|'
       ENDDO
-      
+ 
       RETURN
       END    ! PARSE_SNCCID_LIST
 
@@ -24089,7 +24091,6 @@ c of individual CIDs to process
          endif
          i = i + 1
 130   CONTINUE
-
 
       DO 140 i = 1, NCCID_LIST
         CCIDTMP = SNCCID_LIST_ALL(i)

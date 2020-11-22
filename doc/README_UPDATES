@@ -19229,7 +19229,7 @@
 
 
 # ======================================================================= 
-         v11_02b (  ) 
+         v11_02b (Nov 22 2020) 
 
          ***** IMPORTANT(v11_02b) ***** 
 
@@ -19277,9 +19277,16 @@
     + add MUERR_VPEC to output ; MUERR contributioN from VPEC_ERR
     + for vpec-flip test, require at least 70 events (was 10)
     + new input datafile_override
+    + few fixes to avoid 'cat_only' conflicts
 
   kcor.c[h]: 
     + read optional SURVEY(s) from kcor-input and include SURVEY=%s
       in each filter comment in kcor header.
+
+  combine_fitres.c
+    + allow comma-sep or space sep list of fitres files.
+
+  snana.car
+    + fix bug parsing comma-sep list of CIDs; needed for plot_snana.
 
 END: 

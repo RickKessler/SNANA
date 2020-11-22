@@ -335,10 +335,13 @@ HELP_CONFIG_FIT = f"""
   #     stable_dump.pl <hbook_or_root_file> FITRES
    APPEND_TABLE_VARLIST: SNRMAX_g SNRMAX_r SNRMAX_i SNRMAX_z
 
-  # optional append variables from external file into FITRES-TEXT table.
+  # optional append variables from external file(s) into FITRES-TEXT table.
   #  (in old split_and_fit script, this key was FITRES_COMBINE_FILE)
   # E.g., supplement list of host properties, v_pec, etc ...
   APPEND_TABLE_TEXTFILE:  APPEND_THIS_FILE.FITRES
+  APPEND_TABLE_TEXTFILE:  APPEND1.FITRES,APPEND2.FITRES,APPEND3.FITRES
+  APPEND_TABLE_TEXTFILE:  APPEND1.FITRES APPEND2.FITRES APPEND3.FITRES
+  #  (accepts comma-sep or space sep list of files)
 
   # debug options to force failure in table-merge:
   FORCE_MERGE_TABLE_MISSING(HBOOK):  force missing HBOOK merge

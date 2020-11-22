@@ -3488,7 +3488,7 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
     else if ( strstr(KEYNAME,"LAMFILT") != NULL ) 
       { ptrShift = INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT ; }
     else 
-      { return ; }
+      { return 0 ; }
 
 
     // if no filter argument, then assume all filters are specified.

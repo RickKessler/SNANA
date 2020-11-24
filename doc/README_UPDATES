@@ -19289,4 +19289,29 @@
   snana.car
     + fix bug parsing comma-sep list of CIDs; needed for plot_snana.
 
+
+# ======================================================================= 
+         v11_02c (  ) 
+
+         ***** IMPORTANT(v11_02c) ***** 
+
+    kcor-input files require SURVEY keys for each MAGSYSTEM
+       (needed only for calib shifts passed from SALT2 training)
+
+         ***** USEFUL(v11_02c) ***** 
+
+         ***** MISCELLANEOUS(v11_02c) ***** 
+
+   kcor.c
+     + require SURVEY keys for each MAGSYSTEM.
+
+   submit_train_SALT2.py
+     + skip comments lines starting with #, @, !, %.
+       Some snpca transmission files have @ symbols.
+
+   snana.car
+     + read & store SURVEY from kcor-fits files
+   snlc_fit.car, snlc_sim.c:
+     + pass band-dependent survey to init_filter_SEDMODEL
+
 END: 

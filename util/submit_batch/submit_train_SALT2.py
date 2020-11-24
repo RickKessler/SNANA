@@ -210,7 +210,8 @@ class train_SALT2(Program):
             shift_file = arg_list[1]
             with open(shift_file,"rt") as f:
                 for line in f:
-                    if line[0] == '#' : continue 
+                    if util.is_comment_line(line) : continue
+                    # xxx mark if line[0] == '#' : continue 
                     word_list += line.replace("\n"," ")
             arg = word_list
 
@@ -446,7 +447,9 @@ class train_SALT2(Program):
         # look for line(s) to modify
         for line in line_list_inp:
             line_list_out.append(line) # default new line = old line
-            if line[0] == '#' : continue
+
+            # xxx mark if line[0] == '#' : continue
+            if util.is_comment_line(line) : continue
 
             word_list = (line.rstrip("\n")).split()
             if len(word_list) < 3 : continue
@@ -588,7 +591,9 @@ class train_SALT2(Program):
             word_list = line.split()
             line_list_out.append(line) # default new line = old line
 
-            if line[0] == '#' : continue
+            if util.is_comment_line(line) : continue
+            # xxxx mark if line[0] == '#' : continue
+
             word_list = (line.rstrip("\n")).split()
             if len(word_list) < 2 : continue
             wave_orig = float(word_list[0])

@@ -1397,8 +1397,10 @@ class Program:
             CMD_FILE = (f"{script_dir}/{cmd_file}")
             with open(CMD_FILE,"r") as f_cmd :
                 for line in f_cmd :
-                    if len(line) > 0 and line[0] != '#' :
-                        command_lines.append(line.rstrip("\n"))
+                    if util.is_comment_line(line) : continue
+                    if len(line) == 0 : continue
+                    #if len(line) > 0 and line[0] != '#' :
+                    command_lines.append(line.rstrip("\n"))
 
         nlines = len(command_lines)
         msg = (f"  Stored {nlines} command lines from " \

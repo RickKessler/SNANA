@@ -10697,20 +10697,9 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
   // Dec 20 2013: write trans as %.6f instead of %.4f
   // Aug 19 2014: pass output arg PATH_FILTERS
 
-  char 
-     cmd[MXPATHLEN]
-    ,cfilt[4]
-    ,filtFile[MXPATHLEN]
-    ,filtName[40]   // full name returned from get_filttrans
-    ;
-
-  double 
-    magprim8
-    ,lam8[MXLAMSIM]
-    ,TransSN8[MXLAMSIM]
-    ,TransREF8[MXLAMSIM] 
-    ;
-  
+  char cmd[MXPATHLEN], cfilt[4] ;
+  char filtFile[MXPATHLEN], filtName[40], surveyName[80]  ;
+  double  magprim8, lam8[MXLAMSIM], TransSN8[MXLAMSIM], TransREF8[MXLAMSIM];  
   int  ifilt, ifilt_obs, NLAM, ilam, MASKFRAME, isys ;
   FILE *fp_filt ;
 
@@ -10738,14 +10727,15 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt] ;
 
     sprintf(filtName,"NULL");
+    sprintf(surveyName,"NULL");
     magprim8 = lam8[0] = TransSN8[0] = TransREF8[0] = 0.0 ; 
     NLAM = 0 ;
 
     // note that both the SN and REF trans are returned,
     // but for simulations they are always the same.
 
-    get_filttrans__(&MASKFRAME, &ifilt_obs, filtName, &magprim8, &NLAM, 
-		    lam8, TransSN8, TransREF8, strlen(filtName) );
+    get_filttrans__(&MASKFRAME, &ifilt_obs, surveyName, filtName,
+		    &magprim8, &NLAM, lam8, TransSN8, TransREF8, 80, 40 );
 
     sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
     sprintf(filtFile,"%s/%s.dat", PATH_FILTERS, cfilt );
@@ -20817,6 +20807,8 @@ void init_genmodel(void) {
  Jul 20 2018: for LCLIB model, set GENRANGE_PEAKMJD= start of season,
               and GENRANGE_TREST = 0 to MJDLAST
 
+ Nov 23 2020: pass SURVEY arg to init_genmag_SALT2.
+
   ************/
 
   char *GENMODEL        = INPUTS.GENMODEL;
@@ -20856,7 +20848,6 @@ void init_genmodel(void) {
     GENLC.SIMTYPE  = MODEL_FIXMAG ;
   }
   else if ( INDEX_GENMODEL == MODEL_SIMLIB ) {
-
     printf("\n Read SIM_MAGOBS from SIMLIB file. \n");
   }
   else if ( INDEX_GENMODEL == MODEL_MLCS2k2 ) {
@@ -21062,8 +21053,8 @@ void init_genSEDMODEL(void) {
   //
   // --------------------
   char  fnam[] = "init_genSEDMODEL" ;
-  char   filtName[40], cfilt[2]    ;
-  char  *survey = GENLC.SURVEY_NAME ;
+  char   filtName[40], surveyName[80], cfilt[2]    ;
+  //  char  *survey = GENLC.SURVEY_NAME ;
 
   int 
     ifilt, ifilt_obs
@@ -21158,16 +21149,18 @@ void init_genSEDMODEL(void) {
     // but these are always the same for sims.
 
     sprintf(filtName,"NULL") ;
+    sprintf(surveyName,"NULL") ;
 
     get_filttrans__(&MASKFRAME[ifilt],     // (I) obs/rest-frame mask
 		    &ifilt_obs,            // (I) absolute filter index
+		    surveyName,            // (I) name(s) of survey (11.2020)
 		    filtName,              // (O) full name of filter
 		    &magprim,              // (O) mag of primary ref 
 		    &NLAM,                 // (O) Number of lambda bins
 		    genSEDMODEL.lam,       // (O) lambda array 
 		    genSEDMODEL.TransSN,   // (O) filter trans 
 		    genSEDMODEL.TransREF,  // (O) idem
-		    LEN ); 
+		    80,40 ); 
 
     if ( NLAM > MXLAMSIM ) {
       sprintf(cfilt,  "%c", FILTERSTRING[ifilt_obs] );
@@ -21178,7 +21171,7 @@ void init_genSEDMODEL(void) {
     }
 
     lamshift = 0.0 ;
-    init_filter_SEDMODEL(ifilt_obs, filtName, survey, magprim, NLAM, 
+    init_filter_SEDMODEL(ifilt_obs, filtName, surveyName, magprim, NLAM, 
 			 genSEDMODEL.lam, 
 			 genSEDMODEL.TransSN, 
 			 genSEDMODEL.TransREF, 

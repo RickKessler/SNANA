@@ -3077,6 +3077,7 @@ c
 c Jul 09 2019: call set_UVLAM_EXTRAPFLUX_SEDMODEL
 c 
 c Apr 20 2020: fix dimenstion of TMP_FITMODEL to allow paths
+c
 c ---------------------------------------------------------
 
       IMPLICIT NONE
@@ -3096,7 +3097,7 @@ c local var
 
       INTEGER 
      &   IFILT_OBS, IFILT, ILAM, LEN_SURVEY
-     &  ,LEN1, LEN_NAME, ISTAT, NLAM, OPTMASK
+     &  ,LEN1, LEN2, LEN_NAME, ISTAT, NLAM, OPTMASK
      &  ,NZBIN, OPT_FILTER_UPDATE_SAVE
 
       REAL*8  
@@ -3107,7 +3108,9 @@ c local var
      &  ,ZMIN, ZMAX, LOGZDIF, RVMW
 
       CHARACTER 
-     &   tmpname*20, SURVEY_NAME_LOCAL*(MXCHAR_SURVEY)
+     &   tmpname*20
+     &  ,SURVEY_NAME_FILTER*(2*MXCHAR_SURVEY)
+c     &  ,SURVEY_NAME_LOCAL*(MXCHAR_SURVEY)
      &  ,TMP_FITMODEL*(MXCHAR_FILENAME)
      &  ,BLANK*8, CFILT1*2, cfilt*(MXFILT_ALL)
 
@@ -3137,14 +3140,16 @@ C ------------------- BEGIN ---------------
       IERR = 0
       LEN_NAME   = INDEX(FITMODEL_NAME,' ') - 1
 
+c xxxxxxxx mark delete xxxxxxx
 c Nov 11 2020: get SURVEY name, or SUBSURVEY name
-      IF ( SUBSURVEY_NAME .EQ. '' ) THEN
-        SURVEY_NAME_LOCAL = SURVEY_NAME
-      ELSE
-        SURVEY_NAME_LOCAL = SUBSURVEY_NAME
-      ENDIF
-      LEN_SURVEY = INDEX(SURVEY_NAME_LOCAL,  ' ') - 1
- 
+c      IF ( SUBSURVEY_NAME .EQ. '' ) THEN
+c        SURVEY_NAME_LOCAL = SURVEY_NAME
+c      ELSE
+c        SURVEY_NAME_LOCAL = SUBSURVEY_NAME
+c      ENDIF
+c      LEN_SURVEY = INDEX(SURVEY_NAME_LOCAL,  ' ') - 1
+c xxxxxxxxx end mark xxxxxxxxxxxx
+
 c reset SEDMODEL to init and/or erase previous instance
       ISTAT = RESET_SEDMODEL()
 
@@ -3198,14 +3203,15 @@ c now init each filter.
 c pass ifilt_obs; everything else is returned.
 c VALa = transSN, VALb = transREF8
 
-         CALL GET_FILTTRANS(OPT_FILTOBS, ifilt_obs, CFILT, MAGPRIM, 
-     &                      NLAM, lam, VALa, VALb)
+         CALL GET_FILTTRANS(OPT_FILTOBS, ifilt_obs, SURVEY_NAME_FILTER,
+     &            CFILT, MAGPRIM, NLAM, lam, VALa, VALb)
 
          LEN1  = INDEX(cfilt,' ' ) - 1
-         ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, cfilt, 
-     &              SURVEY_NAME_LOCAL(1:LEN_SURVEY)//char(0),
+         LEN2  = INDEX(SURVEY_NAME_FILTER,' ') - 1
+         ISTAT = INIT_FILTER_SEDMODEL(IFILT_OBS, cfilt,
+     &              SURVEY_NAME_FILTER,
      &              MAGPRIM, NLAM, LAM, VALa, VALb, LAMSHIFT,
-     &              LEN1, LEN_SURVEY )
+     &              LEN1, LEN2 )
 
       CALL FLUSH(6)
 
@@ -3233,7 +3239,7 @@ c TMP_FITMODEL has the special end-string char(0) need for C functions.
         IF ( .NOT. ENABLE_SALT2_WAVESHIFT ) OPTMASK = OPTMASK + 8
 
         ISTAT = INIT_GENMAG_SALT2( TMP_FITMODEL, BLANK, OPTMASK, 
-     &            LEN_NAME, 0 )
+     &            LEN_NAME, 40 )
 
 c turn on covariance model by default, 
 c unless user specifically sets OPT_COVAR=0
@@ -13106,7 +13112,7 @@ c Motivation is for photoz fit, fix zz = z(previous iteration),
 c and use zz for SALT2 error calculation. 
 c
 c Mar 24 2020: fix logic using local DOFIT_zFIX; needed for FITRESTMAG.
-c   .xyz
+c  
 c ---------------------
       IMPLICIT NONE
 

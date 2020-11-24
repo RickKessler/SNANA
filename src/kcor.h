@@ -21,6 +21,7 @@
 ********************************************************/
 
 bool REQUIRE_SURVEY_KCOR = false ; // flip to require SURVEY in kcor-input 
+//bool REQUIRE_SURVEY_KCOR = true ; // flip to require SURVEY in kcor-input 
 
 //#define VERSION_KCOR 3    // internal version
 #define VERSION_KCOR 4    // internal version
@@ -377,6 +378,7 @@ struct STRFITS {
 // =====================================================
 
 int   rd_input(void) ;
+void  check_valid_survey_names(char *SURVEYS);
 void  get_NZBIN(void);
 void  get_NAVBIN(void);
 void  kcor_input_override(int OPT);

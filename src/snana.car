@@ -2326,6 +2326,7 @@ c
       CHARACTER
      &   FILTOBS_NAME(MXFILT_ALL)*40   ! full filternames
      &  ,FILTREST_NAME(MXFILT_ALL)*40  ! full filternames
+     &  ,SURVEY_FILT_NAME(MXFILT_ALL)*60    ! survey(s) for this band
      &  ,PRIMARY_NAME*40               ! name of primary
      &  ,NONSURVEY_FILTERS_ADD*80      ! NONSURVEY_FILTERS that were added
 
@@ -2412,7 +2413,7 @@ c
 c for remap
       INTEGER NFILT_REPLACE, IFILTOBS_REPLACE(MXFILT_ALL) 
       
-      COMMON / FILTCOM / FILTOBS_NAME, FILTREST_NAME
+      COMMON / FILTCOM / FILTOBS_NAME, FILTREST_NAME, SURVEY_FILT_NAME
      &   ,IFILT_SDSS_u, IFILT_SDSS_g, IFILT_SDSS_r
      &   ,IFILT_SDSS_i, IFILT_SDSS_z
      &   ,IFILT_BESS_U, IFILT_BESS_B, IFILT_BESS_V
@@ -8789,6 +8790,7 @@ c define filter indices for Legacy filters
           FILTREST_LAMRANGE(2,ifilt)       = -9.0
 
           FILTOBS_NAME(ifilt)       = ''
+          SURVEY_FILT_NAME(ifilt)   = 'NONE'
           LFILTDEF_OBS(ifilt)       = .FALSE.
           LFILTDEF_REST(ifilt)      = .FALSE.
           LFILTDEF_NONSURVEY(ifilt) = .FALSE.
@@ -27596,17 +27598,10 @@ c read FILTER strings.
               ISLAMSHIFT_RDKCOR(i) = .FALSE.
            ENDIF
 
-c Nov 15 2020 check for SURVEY in comment .xyz
+c Nov 15 2020 check for SURVEY in comment 
 
            js0 = INDEX(COMMENT,'=') + 1
            js1 = INDEX(COMMENT,' ', BACK = .TRUE. ) - 1
-
-c xxxxxxxxx mark delete xxxxxx
-c           print*,' xxx ----------------------------- '
-c           print*,' xxx COMMENT = ', COMMENT(1:40)
-c           print*,' xxx STRING_TMP = ', STRING_TMP(1:30)
-c           print*,' xxx js0, js1 = ', js0, js1 
-c xxxxxxxxxxx
 
 	   if ( js0 > 4 ) then
              SURVEY_NAME_RDKCOR(i) = COMMENT(js0:js1)
@@ -28033,7 +28028,6 @@ c convert filter strings to absolute filter indices
          ifilt_rest = FILTINDX(cfilt_rest)
          ifilt_obs  = FILTINDX(cfilt_obs )
 
-
 c if this IFILT_OBS is not a SURVEY filter, then bail.
 c i.e., ignore K_xy that include extra unused filters.
          ifilto = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
@@ -28041,17 +28035,17 @@ c i.e., ignore K_xy that include extra unused filters.
 
          FILTREST_NAME(ifilt_rest)    = cfilt_rest
          FILTOBS_NAME(ifilt_obs)      = cfilt_obs
-         
+
          EXIST_KCOR(ifilt_rest,ifilt_obs) = .TRUE.
 
-c find rdkcor filter index and sent mask for REST or OBS
+c find rdkcor filter index and set mask for REST or OBS
 
          LENo = INDEX(cfilt_obs, ' ')-1
          LENr = INDEX(cfilt_rest,' ')-1
          DO 102 i = 1, NFILTDEF_RDKCOR
            CFILT  = FILTER_NAME_RDKCOR(i)
            LEN    = INDEX(CFILT,' ') - 1
-
+	   
            LTMP = cfilt_rest(1:LENr) .EQ. cfilt(1:LEN)
            if ( LEN .EQ. LENr .and. LTMP ) then
              MASKFILT_RDKCOR(i) = IBSET(MASKFILT_RDKCOR(i),0)
@@ -28146,7 +28140,6 @@ c if user has specified any MAGOBS_SHIFT_PRIMARY, MAGOBS_SHIFT_ZP,
 c (and same for REST) for a non-existant filter, then ABORT ...
 c 
       CALL  RDKCOR_CHECK_MAGSHIFTS
-
 
 c Loop again over Kcors that have been flagged for reading/storage.
 c i.e,, ignore those for which the obs-frame filter is not defined.
@@ -28414,7 +28407,8 @@ C
      &  ,ARRAY_TRANS(MXLAMBIN_PRIM)
      &  ,LAMSHIFT
 
-      CHARACTER FNAM*20, ERRMSG*60, CFILT*40, FILTLIST_RDKCOR*80
+      CHARACTER FNAM*20, ERRMSG*60, FILTLIST_RDKCOR*80
+      CHARACTER CFILT*40, CSURVEY*60
 
       LOGICAL  LBX  
 
@@ -28458,7 +28452,8 @@ c read lambda array.
 
       DO 100 IFILT = 1, NFILTDEF_RDKCOR
 
-         CALL ICOL_FILTER_RDKCOR(IFILT, ICOL,CFILT) ! return ICOL,CFILT
+c return ICOL,CFILT,CSURVEY
+         CALL ICOL_FILTER_RDKCOR(IFILT, ICOL,CFILT,CSURVEY) 
 
          MASK      = MASKFILT_RDKCOR(ifilt)
          IFILTDEF  = IFILTDEF_RDKCOR(ifilt)
@@ -28529,7 +28524,14 @@ C set BX logical for obs-frame
             NFILTOBS_RDKCOR = NFILTOBS_RDKCOR + 1
             IFILTOBS_RDKCOR(NFILTOBS_RDKCOR) = IFILT_OBS
             MASKFILT_RDKCOR(ifilt) = IBSET(MASK,1)
-            FILTOBS_NAME(ifilt_obs)  = cfilt
+            FILTOBS_NAME(ifilt_obs)      = cfilt
+            SURVEY_FILT_NAME(ifilt_obs)  = csurvey ! Nov 23 2020
+
+c xxxxxxxxxxx mark delete xxxx .xyz
+c            write(6,661) ifilt_obs, cfilt(1:14), csurvey(1:20)
+c 661        format(' xxx RDKCOR_FF: ifiltobs=',I2, 2x, 'cfilt=',A,
+c     &           2x,'SURVEY=',A)
+c xxxxxxx
 
             LAMSHIFT = FILTER_LAMSHIFT_FILT(IFILTDEF) 
             CALL SHIFT_FILTTRANS(IFILT_OBS, LAMSHIFT, NLBIN_SNSED, 
@@ -28586,13 +28588,14 @@ c Mar 13 2013: abort if there are no observer-frame matches
 
 C ============================================
 +DECK,ICOL_FILTER_RDKCOR.
-      SUBROUTINE ICOL_FILTER_RDKCOR(IFILT, ICOL,FILTNAME)
+      SUBROUTINE ICOL_FILTER_RDKCOR(IFILT, ICOL,FILTNAME,SRVYNAME)
 
 c Created May 2017 by R.Kessler
 c For input filter index IFILT, default column is ICOL = 1+IFILT.
 c But if lam-shifted band is requested, then ICOL += NFILTDEF
 c
 c Nov 30 2017: abort if FILTLIST_LAMSHIFT is used.
+c Nov 23 2020: return survey name
 
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -28602,6 +28605,7 @@ c Nov 30 2017: abort if FILTLIST_LAMSHIFT is used.
       INTEGER IFILT           ! (I) sparse filter index
       INTEGER ICOL            ! (O) table column to read
       CHARACTER FILTNAME*40   ! (O) filter name 
+      CHARACTER SRVYNAME*60   ! (O) comma-sep list of survey names
 
 c local args
       LOGICAL LAMSHIFT_DEFINED, LAMSHIFT_USER
@@ -28612,7 +28616,7 @@ C ------------- BEGIN -------------
  
       ICOL      = 1 + IFILT  ! default column in kcor-fits file
       FILTNAME  = FILTER_NAME_RDKCOR(ifilt)
-
+      SRVYNAME  = SURVEY_NAME_RDKCOR(ifilt)
 c check for lam-shifted band
       LAMSHIFT_DEFINED = ISLAMSHIFT_RDKCOR(0) 
       LAMSHIFT_USER    = FILTLIST_LAMSHIFT .NE. ''
@@ -34496,7 +34500,8 @@ c loop over each bin and transfer lam-shifted trans
 
 C ======================================================
 +DECK,GET_FILTTRANS.
-      SUBROUTINE GET_FILTTRANS ( MASKFRAME, ifilt, cfiltname, magPrim, 
+      SUBROUTINE GET_FILTTRANS ( MASKFRAME, ifilt, srvy_name,
+     &                           filter_name, magPrim, 
      &                           NLAM, lam, transSN, transREF  )
 c
 c Created Dec 4, 2007 by R.Kessler
@@ -34512,21 +34517,13 @@ c    -> check OBS and REST filters; if both OBS and REST exist,
 c       return OBS transmission.
 c
 c
-c May 4, 2009: also return primary mag.
-c
-c Nov 9, 2010: return updated filterTrans (FILTOBS_TRANS_UPD)
-c              if OPT_FILTER_UPDATE > 0
-c
-c Mar 09, 2011: retutn 2 sets of transmissions: SN and REF.
-c
-c Jul 20, 2011: ABORT if filter is not recognized.
-c
-c Feb 12, 2012: use LFILTDEF_OBS to check if filter exists.
 c
 c Jan 23, 2014: add new MASKFRAME arg to select OBS and/or REST frame
 c
 c Apr 2, 2014: new &SNLCINP variable SNRMAX_FILTERS = 'gri' -->
 c              use these filters for SNRMAX cuts.
+c
+c Nov 23 2020: return survey_filt_name associated with filter.
 c
 c ---------------------------------------------------------
 
@@ -34543,9 +34540,12 @@ c subroutine args.
       INTEGER MASKFRAME         ! (I) (MASK&1)=>obs, (MASK&2)=>rest
       INTEGER IFILT             ! (I) absolute filter index
 
-      CHARACTER cfiltname*(*)    ! (O) full name of filter
+      CHARACTER 
+     &    filter_name*(*)    ! (O) full name of filter
+     &   ,srvy_name*(*)      ! (O) survey name(s) for this filter
+
       INTEGER NLAM               ! (O) Number of lambda bins
-      REAL*8  
+      REAL*8
      &   MAGPRIM                  ! (O) primary mag of reference
      &  ,LAM(MXLAMBIN_FILT)       ! (O) array of lambdas
      &  ,TRANSSN(MXLAMBIN_FILT)   ! (O) array of transmissions
@@ -34601,9 +34601,14 @@ c  Make sure that a FOUND OBS filter has priority.
       ENDIF
 
 c prepare C-string return argument.
-      LL = INDEX ( CFILTNAME_TMP, ' ') - 1
-      cfiltname = CFILTNAME_TMP(1:LL) // char(0)
+      LL          = INDEX ( CFILTNAME_TMP, ' ') - 1
+      filter_name = CFILTNAME_TMP(1:LL) // char(0)
 
+c Nov 23 2020: fetch name of survey(s) for this filter
+      LL        = INDEX(SURVEY_FILT_NAME(ifilt),' ') - 1
+      SRVY_NAME = SURVEY_FILT_NAME(ifilt)(1:LL) // char(0)
+
+c - - - - - - - - - - - 
       DO 200 i = 1, NLAM
 
         IF ( LOBS_FOUND ) THEN

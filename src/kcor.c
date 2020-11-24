@@ -237,6 +237,9 @@ int main(int argc, char **argv) {
   
   // -----------------------------------------
 
+  // read survey name <-> integer map (Nov 2020)
+  read_SURVEYDEF();
+
   // read user input file for directions
   if ( rd_input() != SUCCESS ) { madend(1) ; }
 
@@ -568,6 +571,7 @@ int rd_input(void) {
 
     if ( strcmp(c_get,"SURVEY:") == 0 || strcmp(c_get,"SURVEYS:") == 0 ) {
       readchar(fp_input, MAGSYSTEM.SURVEY_NAMES);  // Nov 2020
+      check_valid_survey_names(MAGSYSTEM.SURVEY_NAMES);
     }
 
     if ( strcmp(c_get,"FILTPATH:")==0 && (FILTER_IGNORE == 0) )  {
@@ -875,8 +879,38 @@ int rd_input(void) {
 }  // end of rd_input
 
 
+// *********************************************************
+void  check_valid_survey_names(char *SURVEYS) {
 
-// ****************************
+  // Created Nov 23 2020
+  // Check each survey in comma-sep list of *SURVEYS;
+  // abort if any survey name is invalid.
+
+  int  n_survey, i, ID ;
+  char **survey_list, *survey ;
+  char fnam[] = "check_valid_survey_names" ;
+
+  // ------------- BEGIN ---------------
+
+  parse_commaSepList("SURVEYS", SURVEYS, 10, MXCHAR_FILENAME,
+		     &n_survey, &survey_list );
+
+  for(i=0; i < n_survey; i++ ) {
+    survey = survey_list[i];
+    ID = get_IDSURVEY(survey);
+    if ( ID < 0 ) {
+      sprintf(c1err, "Invalid survey = '%s'  "
+	      "(check SURVEY keys in kcor-input).", survey);
+      sprintf(c2err, "SURVEY name must exist in $SNDATA_ROOT/SURVEY.DEF");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+  }
+
+  return ;
+
+} // end check_valid_survey_names
+
+// *********************************************************
 void parse_OOB(char *bandList, double *LAMRANGE, double RATIO) {
 
   // Parse OOB info and store it in structure.

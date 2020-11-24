@@ -84,9 +84,10 @@
 // =======================================================
 // define mangled functions with underscore (for fortran)
 
-int init_genmag_salt2__(char *model_version, char *model_extrap, int *OPTMASK ) {
+int init_genmag_salt2__(char *model_version, char *model_extrap, 
+			int *OPTMASK) {
   int istat;
-  istat = init_genmag_SALT2 ( model_version, model_extrap,  *OPTMASK ) ;
+  istat = init_genmag_SALT2 ( model_version, model_extrap,  *OPTMASK);
   return istat ;
 } 
 
@@ -146,7 +147,7 @@ extern void in2dex_(int *ispline, int *N2D,
 extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
 
 /****************************************************************
-  init_genmag_SALT:
+  init_genmag_SALT2:
     o reads in the filters from FilterFiles
     o calculates filter mean and AB zeropoint
     o reads the templates from TemplateFiles
@@ -199,12 +200,15 @@ extern double ge2dex_ ( int *IND, double *Trest, double *Lrest, int *IERR ) ;
  Sep 03 2020: check REQUIRE_DOCANA
  Oct 16 2020: refactor SALT2magerr to handle SALT3 vs. SALT2 vartot
 
+ Nov 23 2020: pass and store *SURVEY; used to match
+              MAGSHIFT and WAVESHIFT keys in SALT2.INFO file.
+
 ****************************************************************/
 
 int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
-		      int OPTMASK ) {
+		      int OPTMASK) {
 
-  double Trange[2], Lrange[2]     ;
+  double Trange[2], Lrange[2];
   int  ised;
   int  retval = 0   ;
   int  ABORT_on_LAMRANGE_ERROR = 0;
@@ -1092,7 +1096,7 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
 
   printf("  Read SALT2 model parameters from  \n\t  %s\n",
 	 SALT2_MODELPATH );
-  printf("\t OPTMASK = %d \n", OPTMASK);
+  printf("\t OPTMASK = %d  \n", OPTMASK );
   if ( DISABLE_MAGSHIFT ) 
     { printf("\t WARNING: MAGSHIFT keys DISABLED !\n"); }
   if ( DISABLE_WAVESHIFT ) 
@@ -1954,20 +1958,25 @@ int copy_filter_trans_SALT2(int ifilt, double **lam, double **trans,
 } // end copy_filter_trans_SALT2
 
 // ========================================
-  bool match_SALT2train(char *survey_calib, char *band_calib, int ifilt) {
+bool match_SALT2train(char *survey_calib, char *band_calib, int ifilt) {
 
   // Created Nov 10 2020
   // return true if input "icalib" calibration shift matches ifilt.
   
   char *survey_filt  = FILTER_SEDMODEL[ifilt].survey ;
   char *filter_name  = FILTER_SEDMODEL[ifilt].name ;
-  char  band_filt[2];
+  char  band_filt[2] ;
   int   j_band, j_slash ;
   bool  MATCH_SURVEY, MATCH_BAND ;
   int   LDMP = 0 ;
   char fnam[] = "match_SALT2train";
 
   // ---------- BEGIN ----------
+
+  /*
+  printf(" xxx %s: survey[calib,filt] = [ %s, %s ] \n",
+	 fnam, survey_calib, survey_filt); fflush(stdout);
+  */
 
   MATCH_SURVEY = ( strcmp(survey_calib,survey_filt) == 0 ) ;
   if ( !MATCH_SURVEY ) { return MATCH_SURVEY; }

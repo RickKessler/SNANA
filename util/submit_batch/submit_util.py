@@ -10,6 +10,13 @@ from   submit_params import *
 
 # =================================================
 
+def is_comment_line(line):
+    if line[0] == '#' : return True
+    if line[0] == '@' : return True
+    if line[0] == '%' : return True
+    if line[0] == '!' : return True
+    return False
+
 def fix_partial_path(file_list):
 
     # if any file in file_list has a partial path, tack on CWD

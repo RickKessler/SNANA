@@ -1971,9 +1971,11 @@ extern int filtindx_(char *cfilt, int len);
 extern int get_filtmap__ ( char *copt, float *filtmap, int len );
 
 
-extern void get_filttrans__(int *maskFrame, int *ifilt, char *filtname, 
+extern void get_filttrans__(int *maskFrame, int *ifilt, 
+			    char *survey_name, char *filter_name, 
 			    double *magPrim, int *NLAM, double *lam, 
-			    double *TransSN, double *TransREF, int len);
+			    double *TransSN, double *TransREF, 
+			    int len1, int len2);
 
 extern void set_survey__ ( char *name, int *NFILTDEF, int *IFILTDEF,
 			   float *LAMSHIFT, int len  );
@@ -2024,7 +2026,7 @@ int init_genmag_stretch (
 
 
 int init_genmag_SALT2(char *model_version, char *model_extrap_latetime, 
-		      int OPTMASK );
+		      int OPTMASK);
 
 void genmag_SALT2(int OPTMASK, int ifilt, double x0, 
 		  double x1, double x1_forErr, 

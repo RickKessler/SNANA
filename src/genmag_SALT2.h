@@ -47,6 +47,7 @@ char SALT2_MODELPATH[MXPATHLEN] ;
 char SALT2_INFO_FILE[20]     ;
 char SALT2_VERSION[100];  // store version passed to init_genmag_SALT2
 char SALT2_PREFIX_FILENAME[20]; // e.g., "salt2", "salt3", etc ...
+// xxx char SALT2_SURVEY[60];          // store name of survey (Nov 2020)
 
 double RVMW_SALT2 ;
 

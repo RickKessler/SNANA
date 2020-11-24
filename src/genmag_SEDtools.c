@@ -214,15 +214,15 @@ double interp_primaryMag_SEDMODEL(double lam) {
 
 // ***********************************************
 int init_filter_SEDMODEL(
-			 int ifilt_obs    // (I) obs filter index
-			 ,char *filter_name   // (I) filter name
+			 int ifilt_obs        // (I) obs filter index
+			 ,char   *filter_name // (I) filter name
 			 ,char   *survey_name // (I) name of survey
 			 ,double  magprimary  // (I) primary mag
 			 ,int     NLAM        // (I) Number of lambda bins
 			 ,double *LAMLIST     // (I) array of lambda
 			 ,double *TRANSSNLIST // (I) array of SN filt-trans
 			 ,double *TRANSREFLIST // (I) idem for ref
-			 ,double  LAMSHIFT    // (I) global shift filter curve
+			 ,double  LAMSHIFT     // (I) shift filter curve
 			 )  {
 
   // Utility to pass filter-response information to SEDMODEL.

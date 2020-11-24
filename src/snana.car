@@ -4738,6 +4738,8 @@ c
 c Oct 22 2020: 
 c   + double string length for LINE_ARGS and ARGLIST to allow for
 c     long comma-sep strings.
+c
+c Nov 23 2020: read OPT_YAML
 c 
 c ----------
 
@@ -4784,6 +4786,10 @@ cc        print*,' xxx MATCH_NMLKEY iArg = ', iArg
          else if(MATCH_NMLKEY('VERSION_REFORMAT_FITS',
      &                1, iArg, ARGLIST) ) then
             VERSION_REFORMAT_FITS = ARGLIST(1)(1:MXCHAR_VERSION)
+
+         else if ( MATCH_NMLKEY('OPT_YAML',
+     &             1, iArg, ARGLIST) ) then
+             READ(ARGLIST(1),*) OPT_YAML
 
          else if ( MATCH_NMLKEY('OPT_REFORMAT_FITS',
      &             1, iArg, ARGLIST) ) then

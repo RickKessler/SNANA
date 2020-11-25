@@ -19304,6 +19304,8 @@
 
    kcor.c
      + require SURVEY keys for each MAGSYSTEM.
+     + if MAGSHIFT or WAVESHIFT keys are in SALT2.INFO, abort
+       if no SURVEY name for filters.
 
    submit_train_SALT2.py
      + skip comments lines starting with #, @, !, %.
@@ -19313,5 +19315,8 @@
      + read & store SURVEY from kcor-fits files
    snlc_fit.car, snlc_sim.c:
      + pass band-dependent survey to init_filter_SEDMODEL
+
+   combine_dataVersions.py:
+     + revived for pythin 3 and other misc updates.
 
 END: 

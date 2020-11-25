@@ -1244,7 +1244,6 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
       INPUT_SALT2_INFO.NSHIFT_CALIB++ ;
     }
 
-
   } // end while
 
 
@@ -1352,6 +1351,7 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
 	   INPUT_SALT2_INFO.SHIFT_CALIB[i].SURVEY_STRING,
 	   INPUT_SALT2_INFO.SHIFT_CALIB[i].BAND );
   }
+  if ( NSHIFT > 0 ) { check_surveyDefined_SEDMODEL(); }
 
   printf("\n");    fflush(stdout);
 
@@ -1855,7 +1855,8 @@ void init_calib_shift_SALT2train(void) {
   // apply training-calibration shifts from SALT2.INFO file
   // Works for MAGSHIFT and WAVESHIFT keys in SALT2.INFO file.
   
-  int  NSHIFT = INPUT_SALT2_INFO.NSHIFT_CALIB ;
+  int  NSHIFT_TOT   = INPUT_SALT2_INFO.NSHIFT_CALIB ;
+  int  NSHIFT_APPLY = 0 ;
   int  i, which, n_survey, isurvey, ifilt, ifilt_obs, NLAM, ilam, MEMD ;
   char **survey_list, *survey_string, *survey, *band, *filter_name ;
   double shift, magprimary, mag_shift, lam_shift;
@@ -1866,15 +1867,14 @@ void init_calib_shift_SALT2train(void) {
 
   // ----------- BEGIN -------------
 
-  if ( NSHIFT == 0 ) { return; }
+  if ( NSHIFT_TOT == 0 ) { return; }
 
-  sprintf(BANNER,"Propagate %d calibration shifts from SALT2 training",
-	  NSHIFT );
+  sprintf(BANNER,"Propagate calibration shifts from SALT2 training");
   print_banner(BANNER);
 
   set_FILTERSTRING(FILTERSTRING);
 
-  for(i=0; i < NSHIFT; i++ ) {
+  for(i=0; i < NSHIFT_TOT; i++ ) {
     which         = INPUT_SALT2_INFO.SHIFT_CALIB[i].WHICH ;
     survey_string = INPUT_SALT2_INFO.SHIFT_CALIB[i].SURVEY_STRING ;
     band          = INPUT_SALT2_INFO.SHIFT_CALIB[i].BAND ;
@@ -1910,6 +1910,7 @@ void init_calib_shift_SALT2train(void) {
 	
 	printf("\t Update %s(%d) with %s = %.3f \n",
 	       filter_name, ifilt_obs, string_shift[which], shift); 
+	NSHIFT_APPLY++ ;
 	fflush(stdout);
 	
 	init_filter_SEDMODEL(ifilt_obs, filter_name, survey, 
@@ -1923,8 +1924,15 @@ void init_calib_shift_SALT2train(void) {
     
   } // end i loop over NSHIFT
 
-  filtdump_SEDMODEL();
+
+  printf("\t --> Apply %d of %d calibration shifts.\n",
+	 NSHIFT_APPLY, NSHIFT_TOT );  fflush(stdout);
+
+  if ( NSHIFT_APPLY > 0 ) {  filtdump_SEDMODEL(); }
+
   //debugexit(fnam); // xxx REMOVE
+
+
 
   return ;
 

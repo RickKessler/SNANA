@@ -75,6 +75,8 @@ int reset_SEDMODEL(void) {
   SEDMODEL.DAYMAX_ALL = -9999999.0 ;
 
   for(ifilt=0; ifilt < MXFILT_SEDMODEL; ifilt++ ) {
+    FILTER_SEDMODEL[ifilt].name[0]    = 0;  // Nov 2020
+    FILTER_SEDMODEL[ifilt].survey[0]  = 0;  // Nov 2020
     IFILTMAP_SEDMODEL[ifilt]          = -9 ;
     FILTER_SEDMODEL[ifilt].ifilt_obs  = -9 ;
     FILTER_SEDMODEL[ifilt].magprimary = 0.0 ;
@@ -2243,6 +2245,38 @@ void check_sedflux_bins(int ised        // (I) sed index
 
 } // end of check_sedflux_bins
 
+
+void check_surveyDefined_SEDMODEL(void) {
+
+  // Nov 24 2020
+  // Abort if survey is not defined for any filter.
+
+  int ifilt, NERR=0;
+  char *survey, *name ;
+  char fnam[] = "check_surveyDefined_SEDMODEL";
+
+  // ---------- BEGIN ---------
+
+  for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++) {
+    name   = FILTER_SEDMODEL[ifilt].name  ;
+    survey = FILTER_SEDMODEL[ifilt].survey ;
+    if (  IGNOREFILE(survey) ) { 
+      printf(" ERROR: missing SURVEY name for filter = %s\n", name);
+      fflush(stdout);
+      NERR++; 
+    }
+  }
+
+  if ( NERR > 0 ) {
+    sprintf(c1err,"Missing survey name for %d of %d filters (see above).",
+	    NERR, NFILT_SEDMODEL);
+    sprintf(c2err,"Add SURVEY key(s) to kcor/calib input file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  return;
+
+} // end check_surveyDefined_SEDMODEL
 
 
 

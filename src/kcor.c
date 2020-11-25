@@ -246,8 +246,6 @@ int main(int argc, char **argv) {
   // read SN spectra and filter responses
   if ( kcor_ini() != SUCCESS ) { madend(1) ;  }
 
-  //  debugexit("main"); // xxx REMOVE
-
   // allocate memory for multi-dimensional arrays.
   if ( malloc_ini() != SUCCESS ) { madend(1) ; }
 
@@ -4533,6 +4531,7 @@ void wr_fits_HEAD(fitsfile *fp) {
   
     istat = 0 ;
     sprintf(MSG,"Filter name; SURVEY=%s", FILTER[ifilt].SURVEY_NAMES);
+    // xxx    sprintf(MSG,"Filter name"); // xxx REMOVE
     fits_update_key(fp, TSTRING, KEYNAME, FILTER[ifilt].name,
 		    MSG, &istat );    
    }

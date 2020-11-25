@@ -344,6 +344,7 @@ int get_SEDMODEL_INDICES( int IPAR, double LUMIPAR,
 
 void check_sedflux_bins(int ised, char *VARNAME, 
 			int NBIN, double VAL0, double BINSIZE);
+void check_surveyDefined_SEDMODEL(void);
 
 double gridval_SIMSED(int ipar, int ibin);
 double nearest_gridval_SIMSED (int ipar, double lumipar );

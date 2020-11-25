@@ -648,7 +648,8 @@ class Program:
     def fetch_slurm_pid_list(self):
 
         # for sbatch, fetch process id for each CPU; otherwise do nothing.
-        # 
+        # Nov 25 2020: list all pid failures before aborting.
+
         batch_command    = self.config_prep['batch_command']
         output_dir       = self.config_prep['output_dir']
         script_dir       = self.config_prep['script_dir']
@@ -666,19 +667,25 @@ class Program:
         f = open(INFO_PATHFILE, 'a') 
         f.write(f"\nSBATCH_LIST:  # [CPU,PID,JOB_NAME] \n")
 
+        npid_fail = 0 ; njob_tot = len(job_name_list)
         for job_name in job_name_list :
             j_job    = pid_all.index(job_name)
             if j_job <= 0 :
-                msgerr.append(f"Could not find pid for job = {job_name}")
-                msgerr.append(f"Check for sbatch problem")
-                self.log_assert(False, msgerr)
-
-            pid      = pid_all[j_job-1]
-            cpunum   = int(job_name[-4:])
-            logging.info(f"\t pid = {pid} for {job_name}")
-            f.write(f"  - [ {cpunum:3d}, {pid}, {job_name} ] \n")
+                npid_fail += 1
+                logging.info(f"Could not find pid for job = {job_name}")
+                continue
+            else :
+                pid      = pid_all[j_job-1]
+                cpunum   = int(job_name[-4:])
+                logging.info(f"\t pid = {pid} for {job_name}")
+                f.write(f"  - [ {cpunum:3d}, {pid}, {job_name} ] \n")
         f.close()
         
+        if nerr > 0 :
+            msgerr.append(f"{npid_fail} of {njob_tot} jobs NOT in queue.")
+            msgerr.append(f"Check for sbatch problem; e.g., njob limit.")
+            self.log_assert(False, msgerr)
+
         # end fetch_slurm_pid_list
 
     def merge_driver(self):

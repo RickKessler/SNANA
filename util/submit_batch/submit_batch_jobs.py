@@ -17,7 +17,7 @@
 #  BBC
 #
 # Oct 29 2020: add SALT2train framework
-#
+# Nov 24 2020: add --ncore arg
 # - - - - - - - - - -
 
 #import os
@@ -45,10 +45,15 @@ def get_args():
     parser.add_argument("input_file", help=msg, nargs="?", default=None)
 
     # misc user args
+
     msg = "Create & init outdir, but do NOT submit jobs"
     parser.add_argument("-n", "--nosubmit", help=msg, action="store_true")
     
     # - - - - - 
+    # change number of cores
+    msg = "number of cores"
+    parser.add_argument('--ncore', nargs='+', help=msg, type=int )
+
     # reduce processing
     msg = "process x10 fewer events for sim,fit,bbc (applies only to sim data)"
     parser.add_argument("--fast", help=msg, action="store_true")
@@ -108,7 +113,7 @@ def get_args():
            " merge process examines correct output_dir"
     parser.add_argument('-t', nargs='+', help=msg, type=int )
 
-    msg = "INTERNAL: cpu number to for BUSY-merge file-name"
+    msg = "INTERNAL: cpu number for BUSY-merge file-name"
     parser.add_argument('--cpunum', nargs='+', help=msg, type=int )
 
     args = parser.parse_args()
@@ -140,13 +145,6 @@ def which_program_class(config):
         program_class = train_SALT2
     else :
         sys.exit("\nERROR: Could not determine program_class")
-
-    # xxxx mark delete Oct 29 2020 xxxxxxxxx
-    #else:
-    #    with open(input_file, 'r') as f :    
-    #        if 'u1=' in f.read():
-    #            program_class = BBC
-    # xxxxxxxxxxxxxxxx
 
     # keep quiet for merge process
     if not merge_flag :

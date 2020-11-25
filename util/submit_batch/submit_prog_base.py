@@ -111,6 +111,7 @@ class Program:
         node_list     = []
         memory        = BATCH_MEM_DEFAULT
         kill_flag     = config_yaml['args'].kill
+        n_core_arg    = config_yaml['args'].ncore
         msgerr        = []
         config_prep['nodelist']       = ''
         config_prep['batch_command']  = ''
@@ -133,7 +134,12 @@ class Program:
             BATCH_INFO  = CONFIG['BATCH_INFO'].split()
             command     = BATCH_INFO[0]
             template    = os.path.expandvars(BATCH_INFO[1])
-            n_core      = int(BATCH_INFO[2])
+
+            if n_core_arg is None :
+                n_core = int(BATCH_INFO[2]) # from CONFIG input
+            else:
+                n_core = n_core_arg[0]  # command-line override
+
             node_list   = [HOSTNAME] * n_core  # used for script file name
             submit_mode = SUBMIT_MODE_BATCH
             config_prep['batch_command']  = command
@@ -608,8 +614,9 @@ class Program:
             self.fetch_slurm_pid_list()
 
         else:
-            n_core         = self.config_prep['n_core']
-            node_list      = self.config_prep['node_list']
+            # SSH
+            n_core            = self.config_prep['n_core']
+            node_list         = self.config_prep['node_list']
             command_file_list = self.config_prep['command_file_list']
             cmdlog_file_list  = self.config_prep['cmdlog_file_list'] 
             CONFIG            = self.config_yaml['CONFIG']

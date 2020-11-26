@@ -669,19 +669,20 @@ class Program:
 
         npid_fail = 0 ; njob_tot = len(job_name_list)
         for job_name in job_name_list :
-            j_job    = pid_all.index(job_name)
-            if j_job <= 0 :
-                npid_fail += 1
-                logging.info(f"Could not find pid for job = {job_name}")
-                continue
-            else :
+            if job_name in pid_all:
+                j_job    = pid_all.index(job_name)
                 pid      = pid_all[j_job-1]
                 cpunum   = int(job_name[-4:])
                 logging.info(f"\t pid = {pid} for {job_name}")
                 f.write(f"  - [ {cpunum:3d}, {pid}, {job_name} ] \n")
+            else:
+                npid_fail += 1
+                logging.info(f" ERROR: cannot find pid for job = {job_name}")
+                continue
+
         f.close()
         
-        if nerr > 0 :
+        if npid_fail > 0 :
             msgerr.append(f"{npid_fail} of {njob_tot} jobs NOT in queue.")
             msgerr.append(f"Check for sbatch problem; e.g., njob limit.")
             self.log_assert(False, msgerr)

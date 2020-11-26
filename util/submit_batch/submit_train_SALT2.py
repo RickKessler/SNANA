@@ -295,7 +295,7 @@ class train_SALT2(Program):
 
         # end train_prep_paths
 
-    def train_prep_SALTPATH(self,outdir_calib,trainopt,arg):
+    def train_prep_SALTPATH(self, outdir_calib, trainopt, arg):
 
         # prepare calibration file(s) pointed to by ENV $SALTPATH.
         # First copy base calibration files, then examine input arg
@@ -311,14 +311,24 @@ class train_SALT2(Program):
         PATH_INPUT_CALIB = CONFIG[KEY_PATH_INPUT_CALIB] # aka SALTPATH
         msgerr           = []
         calib_updates    = []
+        replace_path_calib = False
 
         logging.info(f"   Prepare {SUBDIR_CALIB}/{trainopt}")
+
+        # check for alternative calib directory (Nov 25 2020)
+        arg_list = arg.split()
+        if len(arg_list) > 1 :
+            if arg_list[0] == KEY_PATH_INPUT_CALIB :
+                PATH_INPUT_CALIB = os.path.expandvars(arg_list[1])
+                logging.info(f"\t Replace {KEY_PATH_INPUT_CALIB}")
+                replace_path_calib = True
+                
+        # - - - - - 
         for item in SALTPATH_FILES :
             cmd_rsync = (f"rsync -r {PATH_INPUT_CALIB}/{item} {outdir_calib}")
             os.system(cmd_rsync)
 
-        if arg == '' : return
-        arg_list = arg.split()
+        if arg == '' or replace_path_calib : return []
 
         # search each item in arg_list to allow for multiple sets
         # of MAGSHIFT or WAVESHIFT in a given TRAINOPT

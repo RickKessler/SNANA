@@ -11,6 +11,8 @@
 #   - how is SUCCESS determined ? Existence of salt2_template_[01].dat ?
 #   - fast option ?
 # 
+# Nov 28 2020: 
+#   + check for multiple filter-trans files; e.g., SNLS radial dependence.
 
 import  os, sys, shutil, yaml, glob
 import  logging, coloredlogs
@@ -511,23 +513,26 @@ class train_SALT2(Program):
         FILTER_FILE = "NULL"
         filter_file = "null"
         Instr       = "Null"
-        filter_file_list = []
-        Instr_list       = []
+        Instr_list          = []
+        Instr_outlist       = []
+        filter_file_outlist = []
 
+        # .xyz
         if survey in survey_yaml :
             subdir_list = survey_yaml[survey]['Instrument_subdir']
             Instr_list  = survey_yaml[survey]['Instrument']
 
-            for subdir in subdir_list:
+            for subdir,Instr in zip(subdir_list, Instr_list):
                 filter_dir  = (f"{outdir_calib}/{SUBDIR_INSTR}/{subdir}")
                 FilterWheel = (f"{filter_dir}/{FILTERWHEEL_FILE}")
-                filter_file = self.parse_FilterWheel(FilterWheel,band)
+                flist       = self.parse_FilterWheel(FilterWheel,band)
 
                 #print(f" xxx - - - - - - - -")
                 #print(f" xxx FilterWheel = {FilterWheel}")
-                #print(f" xxx check {subdir} filter_file = {filter_file}")
-                if filter_file is not None:
-                    filter_file_list.append(f"{filter_dir}/{filter_file}")
+                #print(f" xxx flist = {flist} ")
+                for filter_file in flist :
+                    filter_file_outlist.append(f"{filter_dir}/{filter_file}")
+                    Instr_outlist.append(Instr)
         else:
             msgerr      = []
             input_file  = self.config_yaml['args'].input_file 
@@ -535,28 +540,30 @@ class train_SALT2(Program):
             msgerr.append(f"Check TRAINOPT in {input_file}")
             self.log_assert(False,msgerr)
     
-        return filter_file_list, Instr_list
+        return filter_file_outlist, Instr_outlist
 
         # end get_filter_file
 
     def parse_FilterWheel(self,FilterWheel,band):
 
-        # parse FilterWheel file and for band return name of
-        # filter transmission file. File format is
+        # parse FilterWheel file and for band return name(s) of
+        # filter transmission file. FilterWheel file format is
         #   band filter_name fileName  
         # Note that filter_name is ignore here.
+        # Note that SNLS has radial dependence, hence a list of
+        # filter file names can be returned.
         #
         # Beware that FilterWheel can have 2 or 3 columns,
         # so filter_file is last column.
 
-        filter_file = None
+        filter_file_list = [ ]
         with open(FilterWheel,"rt") as f:
             for line in f:
                 word_list = line.split()
                 if word_list[0] == band:
-                    filter_file = word_list[-1]
+                    filter_file_list.append(word_list[-1])
     
-        return filter_file
+        return filter_file_list
         # end parse_FilterWheel
 
     def update_filter_file(self, filter_dict):
@@ -569,7 +576,6 @@ class train_SALT2(Program):
         Instr       = filter_dict['Instr']
         band        = filter_dict['band']
         shift       = filter_dict['shift']  # wave shift, A
-
 
         if not os.path.exists(filter_file): 
             msgerr = []

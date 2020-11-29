@@ -357,11 +357,12 @@ class train_SALT2(Program):
                     calib_updates += info 
                     
                 elif key == KEY_WAVESHIFT :
+                    n_update = 0
                     for band,shift in zip(band_list,shift_list):
                         shift = float(shift)
                         filter_file_list,Instr_list = \
                             self.get_filter_file(outdir_calib, survey, band)
-                        for filt_file,Instr in zip(filter_file_list,Instr_list):
+                        for filt_file, Instr in zip(filter_file_list,Instr_list):
                             filter_dict = {
                                 'filter_file' :  filt_file,
                                 'survey'      :  survey,
@@ -370,7 +371,14 @@ class train_SALT2(Program):
                                 'shift'       :  shift
                             }
                             info = self.update_filter_file(filter_dict)
-                            calib_updates += info
+
+                            # for SNLS, only append once to represent
+                            # the radial dependence
+                            n_update += 1
+                            add_info = True
+                            if survey == 'SNLS' and n_update>1 : add_info=False
+
+                            if add_info : calib_updates += info
                 else:
                     pass # probably should abort 
 

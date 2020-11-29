@@ -467,6 +467,7 @@ HELP_CONFIG_TRAIN_SALT2 = f"""
   # WAVESHIFT keys are intended for linear perturbations to measure
   # derivatives for systematics; the SHIFTLIST_FILE feature is intended
   # for a random calibration offset in every band.
+  # PATH_INPUT_CALIB key specifies a different calibration directory.
 
   TRAINOPT:
   - MAGSHIFT  SDSS  g 0.01
@@ -475,6 +476,7 @@ HELP_CONFIG_TRAIN_SALT2 = f"""
   - SHIFTLIST_FILE  shifts_01.dat
   - SHIFTLIST_FILE  shifts_02.dat
   - SHIFTLIST_FILE  shifts_03.dat
+  - PATH_INPUT_CALIB  $PATH/calib_different
 
   OUTDIR:   [outdir]   # all output goes here
 

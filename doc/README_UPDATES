@@ -19313,10 +19313,18 @@
 
    snana.car
      + read & store SURVEY from kcor-fits files
+     + sync SNANA+EPOCHS table names to match those in FITRES table.
+
    snlc_fit.car, snlc_sim.c:
      + pass band-dependent survey to init_filter_SEDMODEL
 
    combine_dataVersions.py:
      + revived for pythin 3 and other misc updates.
+
+   merge_root.c:
+     + MXFILE_MERGE -> 200 (was 130)
+
+   sntable_dump.c
+     + fix to work with SNANA table.
 
 END: 

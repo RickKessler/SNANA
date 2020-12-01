@@ -18689,9 +18689,11 @@ c      CALL SNTABLE_ADDCOL(ID,CBLK, BANDEP_FIT(1),
 c     &      VARNAME, 0, LENB, LENV)
 c xxxxxxxxxxxxxxxxxxxxxx
 
-      VARNAME = 'IDTEL(NPTFIT):I' // char(0)   ! telescope/survey ID
-      CALL SNTABLE_ADDCOL(ID,CBLK, I4EP_FIT(1,IEP_IDTEL), 
-     &       VARNAME, 0, LENB,LENV)
+c xxxx remove IDTEL Nov 30 2020 xxxxxxx
+c      VARNAME = 'IDTEL(NPTFIT):I' // char(0)   ! telescope/survey ID
+c      CALL SNTABLE_ADDCOL(ID,CBLK, I4EP_FIT(1,IEP_IDTEL), 
+c     &       VARNAME, 0, LENB,LENV)
+cv xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
       VARNAME = 'FLUXCAL_DATA(NPTFIT):F' // char(0)  ! FLUXCAL, data
       CALL SNTABLE_ADDCOL(ID,CBLK, R4EP_FIT(1,JEP_DATAFLUX), 

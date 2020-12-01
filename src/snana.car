@@ -1042,6 +1042,7 @@ c simulation parameters (if FAKE=2)
      &  ,SIM_EPSNRMON(MXEPOCH)      ! optional SNR at MAGMONITOR
      &  ,SIM_EPMAGREST(MXEPOCH)     ! true rest-frame mag
      &  ,SIM_EPFLUXCAL_HOSTERR(MXEPOCH) ! true error from host noise
+     &  ,SIM_EPCHI2FLUX(MXEPOCH)    ! data-sim chi2 per epoch
      &  ,SIMSED_PARVAL(MXPAR_SIMSED)
      &  ,PySEDMODEL_PARVAL(MXPAR_SIMSED)    ! Dec 10 2018
      &  ,LCLIB_PARVAL(MXPAR_LCLIB)
@@ -1110,7 +1111,7 @@ c
      &  ,SIM_SEARCHEFF_MASK, SIM_LIBID, SIM_NGEN_LIBID
      &  ,SIM_NOBS_UNDEFINED, SIM_NSUBSAMPLE_MARK, SIM_SUBSAMPLE_INDEX
      &  ,SIM_PEAKMAG, SIM_EPMAGOBS, SIM_EPFLUXCAL, NEP_SIM_MAGOBS
-     &  ,SIM_EPSNRMON, SIM_EPFLUXCAL_HOSTERR
+     &  ,SIM_EPSNRMON, SIM_EPCHI2FLUX, SIM_EPFLUXCAL_HOSTERR
      &  ,SIMNAME_SHAPEPAR,  SIMNAME_SHAPELAW
      &  ,SIMNAME_COLORPAR,  SIMNAME_COLORLAW, SIMNAME_SNRMON
      &  ,SIMLIB_FILENAME, SIMLIB_MSKOPT
@@ -17139,6 +17140,7 @@ c PHOT section of TEXT format ... but not read from PHOT-FITS file
       IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
         SIM_EPMAGOBS(EP1)          = SIM_EPMAGOBS(EP2)
         SIM_EPFLUXCAL(EP1)         = SIM_EPFLUXCAL(EP2)
+        SIM_EPCHI2FLUX(EP1)        = SIM_EPCHI2FLUX(EP2)
       ENDIF
 
       IF ( LSIM_SNANA ) THEN
@@ -19500,7 +19502,7 @@ c              SNRMAX variables before EXEC_FUDGE_FLUXCAL()
 c
 c Feb 08 2020: apply PSF, ZPERR, PHOTPROB cuts here so that USEFLAG is set.
 c Feb 12 2020: check MWEBV_FORCE
-c
+c Nov 30 2020: compute SIM_EPCHI2FLUX for SNANA+EPOCHS table
 c -------------------------------------------
 
       IMPLICIT NONE
@@ -19521,7 +19523,7 @@ c local var
 
       REAL
      &   Fluxcal, Fluxcal_err, TRUEFLUX
-     &  ,Xnsig, MAG, SIM_MAG, magoff, ZP, PHOTPROB
+     &  ,Xnsig, MAG, SIM_MAG, magoff, ZP, PHOTPROB, TMP
      &  ,Tobs, z1, z, Trest, scale, arg, PSF, ZPERR
      &  ,Zhost, Zhosterr, LAMOBS, LAMZ1,  SNRMAX, SUM_AREAFRAC
 
@@ -19747,8 +19749,12 @@ c convert sim-mag to SIM_FLUXCA
              endif
              SIM_EPFLUXCAL(ep) = TRUEFLUX
              IF ( USESIM_TRUEFLUX ) SNLC_FLUXCAL(ep)=TRUEFLUX
+
+             TMP  = (TRUEFLUX - FLUXCAL)/ FLUXCAL_ERR
+             SIM_EPCHI2FLUX(ep) = TMP * TMP  ! Nov 30 2020
           ELSE
-             SIM_EPFLUXCAL(ep) = -9.0
+             SIM_EPFLUXCAL(ep)  = -9.0
+             SIM_EPCHI2FLUX(ep) = -9.0
           ENDIF
  
 +SELF,IF=SNANA,SNFIT.
@@ -19778,17 +19784,6 @@ c This correction is done AFTER Xsig = S/N is calculated
              SNLC_FLUXCAL_ERRTOT(ep) =
      &       SNLC_FLUXCAL_ERRTOT(ep) * Scale
            endif
-
-+SELF,IF=XXXDELETE.
-c xxxx mark delete July 11 2020 xxxxxxxx
-c Feb 2018: compute ZP quantity for cut
-           SNLC_ZEROPT_forCUT(ep) = SNLC_ZEROPT(ep) ! default is ADU
-           if ( cutwin_zpNPE(1) > 0. ) then
-             SNLC_ZEROPT_forCUT(ep) = SNLC_ZEROPT(ep)
-     &                              +  2.5*log10(SNLC_GAIN(ep))
-           endif
-c xxxxxxxxxxxxx end mark xxxxxxxx
-+SELF.
 
 c Mar 2018: store time since last obs: all bands, and same band
           IF ( MJD8_LASTALL > 0.0 ) THEN
@@ -26112,6 +26107,14 @@ c Sep 23 2017: reduce MXOBS down to 1000 so that MJD*8 is handled by hbook.
 c Oct 16 2017: include CCDNUM if it is there.
 c Mar 03 2018: include SIM_FLUXCAL_HOSTERR(NOBS):F
 c Mar 18 2018: include DTOBS(NOBS):F and DTOBS_SAMEFILT(NOBS):F
+c
+c Nov 30 2020: 
+c    + change a few VARNAMEs to match names in FITRES+RESIDUALS
+c    + add CHI2FLUX_SIM
+c    + add several variables: GAIN, SKYSIG_T ...
+c    + remove a few obscure variables 
+c       (DTOBSLAST, DTOBSLAST_SAMEFILT, FLUXCAL_HOSTERRCALC)
+c - - - - - - - - - 
 
       IMPLICIT NONE
 
@@ -26168,28 +26171,35 @@ C --------------- BEGIN -------------
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC8_MJD,
      &      VARNAME, 0, LENB,LENV)
 
-      VARNAME = 'DTOBSLAST(NOBS):F' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_DTOBS,
-     &      VARNAME, 0, LENB,LENV)
-      VARNAME = 'DTOBSLAST_SAMEFILT(NOBS):F' // char(0)  
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_DTOBS_SAMEFILT,
-     &      VARNAME, 0, LENB,LENV)
+c xxxxxxx mark delete Nov 30 2020 xxxxxxxxxxxx
+c      VARNAME = 'DTOBSLAST(NOBS):F' // char(0)  
+c      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_DTOBS,
+c     &      VARNAME, 0, LENB,LENV)
+c      VARNAME = 'DTOBSLAST_SAMEFILT(NOBS):F' // char(0)  
+c      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_DTOBS_SAMEFILT,
+c     &      VARNAME, 0, LENB,LENV)
+c xxxxxxxxxxxxxxxxx
 
-      VARNAME = 'FLUXCAL(NOBS):F' // char(0)  
+
+c xxx mark      VARNAME = 'FLUXCAL(NOBS):F' // char(0)  
+      VARNAME = 'FLUXCAL_DATA(NOBS):F' // char(0)  
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL,
      &      VARNAME, 0, LENB,LENV)
 
-      VARNAME = 'FLUXCAL_ERR(NOBS):F' // char(0)  
+c xxx mark      VARNAME = 'FLUXCAL_ERR(NOBS):F' // char(0)  
+      VARNAME = 'FLUXCAL_DATA_ERR(NOBS):F' // char(0)  
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL_ERRTOT,
      &      VARNAME, 0, LENB,LENV)
 
 c -- observing conditions
 
-      VARNAME = 'ZEROPT(NOBS):F' // char(0)  
+cc xxx      VARNAME = 'ZEROPT(NOBS):F' // char(0)  
+      VARNAME = 'ZP(NOBS):F' // char(0)    ! match FITRES+RESID table
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_ZEROPT,
      &      VARNAME, 0, LENB,LENV)
 
-      VARNAME = 'ZEROPT_ERR(NOBS):F' // char(0)  
+c xxxx      VARNAME = 'ZEROPT_ERR(NOBS):F' // char(0)  
+      VARNAME = 'ZP_ERR(NOBS):F' // char(0)    ! match FITRES+RESIDS table
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_ZEROPT_ERR,
      &      VARNAME, 0, LENB,LENV)
 
@@ -26200,6 +26210,13 @@ c -- observing conditions
       VARNAME = 'SKYSIG(NOBS):F' // char(0)  
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_SKYSIG,
      &      VARNAME, 0, LENB,LENV)
+      VARNAME = 'SKYSIG_T(NOBS):F' // char(0)    ! Nov 30 2020
+      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_SKYSIG_T,
+     &      VARNAME, 0, LENB,LENV)
+
+      VARNAME = 'GAIN(NOBS):F' // char(0)    ! Nov 30 2020
+      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_GAIN,
+     &      VARNAME, 0, LENB,LENV)
 
 c --- error calculated from PSF+SKY+ZP, as the simulation would do
 
@@ -26207,18 +26224,27 @@ c --- error calculated from PSF+SKY+ZP, as the simulation would do
       CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL_ERRCALC,
      &      VARNAME, 0, LENB,LENV)
  
-      VARNAME = 'FLUXCAL_HOSTERRCALC(NOBS):F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL_HOSTERRCALC,
-     &      VARNAME, 0, LENB,LENV)
+c xxxxxxx mark delete Nov 30 2020 xxxxxxxxx
+c      VARNAME = 'FLUXCAL_HOSTERRCALC(NOBS):F' // char(0) 
+c      CALL SNTABLE_ADDCOL(ID,CBLK, SNLC_FLUXCAL_HOSTERRCALC,
+c     &      VARNAME, 0, LENB,LENV)
+c xxxxxxxxxxxxxxx
+
 
 c - - - - - - - - - - - - - - - - 
 
       IF ( LSIM_SNANA .or. LSIM_MAGOBS ) THEN
-         VARNAME = 'SIM_FLUXCAL(NOBS):F' // char(0) 
+c xxx mark          VARNAME = 'SIM_FLUXCAL(NOBS):F' // char(0) 
+         VARNAME = 'FLUXCAL_SIM(NOBS):F' // char(0)   ! match FITRES+RESIDS
          CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPFLUXCAL,
      &        VARNAME, 0, LENB,LENV)
 
-         VARNAME = 'SIM_MAGOBS(NOBS):F' // char(0) 
+         VARNAME = 'CHI2FLUX_SIM(NOBS):F' // char(0)  ! match FITRES+RESIDS
+         CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPCHI2FLUX,
+     &        VARNAME, 0, LENB,LENV)
+
+c xxx mark          VARNAME = 'SIM_MAGOBS(NOBS):F' // char(0) 
+         VARNAME = 'MAGOBS_SIM(NOBS):F' // char(0) 
          CALL SNTABLE_ADDCOL(ID,CBLK, SIM_EPMAGOBS,
      &        VARNAME, 0, LENB,LENV)
       ENDIF

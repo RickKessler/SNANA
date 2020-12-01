@@ -720,14 +720,6 @@ int SNTABLE_READ_EXEC_HBOOK(void) {
 
     irow = EVT - 1; // C-like row index
 
-    /* xxxxx long long not allocated on read-back
-    // check to restore real*8 -> long long int
-    for(ll=0; ll < NLL; ll++ ) {
-      *HBOOK_L.DUMMYSTORE_L[NLL] = 
-	(long long int)HBOOK_L.DUMMYSTORE_D[NLL];
-    }
-    xxxxxx */
-
     // fill pointers or write to dump file; pass C-like index
     if ( OUTLIER_INFO.USEFLAG ) 
       { outlier_dump_fromHbook(irow); }
@@ -802,7 +794,7 @@ void malloc_READROW_HBOOK(int OPT) {
   HBOOK_CWNT_READROW.VAL_I = (int**)malloc( NVARCAST * sizeof(int*) );
   MEM = NEP * sizeof(int) ;
   for(ivar=0; ivar < NVARCAST; ivar++ ) 
-    { HBOOK_CWNT_READROW.VAL_I[ivar] = (int*)malloc(MEM); }
+    { HBOOK_CWNT_READROW.VAL_I[ivar] = (int*)malloc(MEM);    }
 
   NVARCAST = HBOOK_CWNT_READROW.NVARCAST[ICAST_C] + 1 ;
   HBOOK_CWNT_READROW.VAL_C = (char***)malloc( NVARCAST * sizeof(char**) );
@@ -827,25 +819,38 @@ void outlier_dump_fromHbook(int irow) {
   // Created Oct 26 2014
   // hgnt has already been called; loop over each epoch
   // and dump to ascii file. 
+  // Nov 30 2020: fix nasty bug setting NPTFIT
 
-  //  char fnam[] = "outlier_dump_fromHbook" ;
   float CHI2, CHI2MIN, CHI2MAX; ;
-  int IVAR_NPTFIT, IVAR_IFILT, IVAR_CHI2, IFILT ;
-  int NPTFIT, ep, ivar, ivarcast ;
+  int IVAR_NPT, IVAR_IFILT, IVAR_CHI2, IFILT ;
+  int NPT, ep, ivar, ivarcast ;
+  int LDMP = (irow == -888 ) ;
+  char fnam[] = "outlier_dump_fromHbook" ;
 
   // ------------- BEGIN ------------
 
   // strip off global OUTLIER info into local variables
   CHI2MIN     = OUTLIER_INFO.CUTWIN_CHI2FLUX[0] ;
   CHI2MAX     = OUTLIER_INFO.CUTWIN_CHI2FLUX[1] ;
-  IVAR_NPTFIT = OUTLIER_INFO.IVAR[INDX_OUTLIER_NPTFIT];
+  IVAR_NPT    = OUTLIER_INFO.IVAR[INDX_OUTLIER_NPTFIT];
   IVAR_IFILT  = OUTLIER_INFO.IVAR[INDX_OUTLIER_IFILT];
   IVAR_CHI2   = OUTLIER_INFO.IVAR[INDX_OUTLIER_CHI2];
 
-  NPTFIT = HBOOK_CWNT_READROW.VAL_I[IVAR_NPTFIT][0]; 
+  if ( LDMP ) {
+    printf(" xxx %s: irow=%d  IVAR_NPT = %d\n", 
+	   fnam, irow, IVAR_NPT); fflush(stdout);
+  }
+
+
+  ivarcast = HBOOK_CWNT_READROW.IVARCAST_MAP[IVAR_NPT][ICAST_I];
+  NPT  = HBOOK_CWNT_READROW.VAL_I[ivarcast][0]; 
+  // xxx mark delete  NPT = HBOOK_CWNT_READROW.VAL_I[IVAR_NPT][0]; 
+
+  if ( LDMP ) 
+    {  printf(" xxx %s: NPT = %d \n", fnam, NPT); fflush(stdout); }
 
   // loop over each fitted epoch and check if it's an outlier
-  for(ep=0; ep < NPTFIT; ep++ ) {
+  for(ep=0; ep < NPT; ep++ ) {
 
     ivarcast = HBOOK_CWNT_READROW.IVARCAST_MAP[IVAR_CHI2][ICAST_F];
     CHI2  = HBOOK_CWNT_READROW.VAL_F[ivarcast][ep];
@@ -859,7 +864,7 @@ void outlier_dump_fromHbook(int irow) {
     if ( CHI2 >= CHI2MIN && CHI2 <= CHI2MAX ) {
 
       // copy scalar quanties into each vector element
-      for( ivar=0; ivar <= IVAR_NPTFIT; ivar++ ) {
+      for( ivar=0; ivar <= IVAR_NPT; ivar++ ) {
 
 	ivarcast = HBOOK_CWNT_READROW.IVARCAST_MAP[ivar][ICAST_D];
 	if ( ivarcast >=0 ) {

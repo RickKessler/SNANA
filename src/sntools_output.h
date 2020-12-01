@@ -293,12 +293,14 @@ struct SPECPAK_OUTPUT {
 
 
 // special struct for outlier option (8.03.2014)
-#define  INDX_OUTLIER_NPTFIT  0   // sparse index for NPTFIT
+#define  INDX_OUTLIER_NPTFIT  0   // sparse index for NPTFIT in FITRES+RESID
+#define  INDX_OUTLIER_NOBS    0   // oidem for SNANA+EPOCHS table
 #define  INDX_OUTLIER_IFILT   1   // sparse index for IFILTOBS
 #define  INDX_OUTLIER_CHI2    2   // sparse index for CHI2FLUX
 #define  NVAR_OUTLIER_DECODE  3
 
 #define  OUTLIER_VARNAME_NPTFIT    "NPTFIT"
+#define  OUTLIER_VARNAME_NOBS      "NOBS"
 #define  OUTLIER_VARNAME_IFILT     "IFILTOBS"  
 #define  OUTLIER_VARNAME_CHI2      "CHI2FLUX" 
 
@@ -405,13 +407,14 @@ extern"C" {
   void SNTABLE_DUMP_VARNAMES(char *FILENAME, char *TABLENAME); 
 
   int  SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME, 
-			   int NVAR, char **VARLIST, FILE *FP_OUTFILE,
+			   int NVAR, char **VARLIST, int IVAR_NPT, 
+			   FILE *FP_OUTFILE,
 			   char *LINEKEY_DUMP, char *SEPKEY_DUMP );
 
 
   int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME, 
-			     int NVAR, char **VARLIST, float *OUTLIER_NSIGMA,
-			     FILE *FP_OUTFILE, 
+			     int NVAR, char **VARLIST, int IVAR_NPT,
+			     float *OUTLIER_NSIGMA, FILE *FP_OUTFILE, 
 			     char *LINEKEY_DUMP, char *SEPKEY_DUMP );
 
   void SNTABLE_SUMMARY_OUTLIERS(void);

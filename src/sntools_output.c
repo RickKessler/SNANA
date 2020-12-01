@@ -1657,7 +1657,7 @@ void SNTABLE_DUMP_VARNAMES(char *FILENAME, char *TABLENAME) {
 
 // ============================================================
 int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME, 
-			int NVAR, char **VARLIST, 
+			int NVAR, char **VARLIST, int IVAR_NPT, 
 			FILE *FP_OUTFILE, 
 			char *LINEKEY_DUMP, char *SEPKEY_DUMP ) {
 
@@ -1692,10 +1692,11 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
   int ivar, ICAST, NVAR_TOT, NC=0, IFILETYPE, MXLEN=0 ;
   int    VBOSE = 3 ; // 1-->print each var; 2--> abort in missing var
   double DDUMMY ;
-  char   CDUMMY[80], *ptrVar;
-  char varName_NPTFIT[] = "NPTFIT";
+  char   CDUMMY[80], *ptrVar, varName_NPT[20];
+  // xxx mark delete   char varName_NPTFIT[] = "NPTFIT";
   char stringOpt[] = "read";
 
+  
   IFILETYPE = TABLEFILE_OPEN(FILENAME, stringOpt); // open file to read
   NVAR_TOT  = SNTABLE_READPREP(IFILETYPE,TABLENAME); // read varList
 
@@ -1706,10 +1707,11 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
   //   message explains what to do and how to set SNTABLE_LIST.
   
   if ( OUTLIER_INFO.USEFLAG ) {
-    ivar = IVAR_READTABLE_POINTER(varName_NPTFIT) ;
+    sprintf(varName_NPT, "%s", VARLIST[IVAR_NPT] ) ; // Nov 30 2020
+    ivar = IVAR_READTABLE_POINTER(varName_NPT) ;
     if ( ivar < 0 ) {
       sprintf(MSGERR1,"Cannot extract obs/outiers "
-	      "because %s is missing.", varName_NPTFIT);
+	      "because %s is missing.", varName_NPT);
       sprintf(MSGERR2,"Try SNTABLE_LIST = 'FITRES+RESIDUALS' ");
       errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
     }
@@ -1750,7 +1752,8 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
 
 // =========================================
 int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME, 
-			   int NVAR, char **VARLIST, float *OUTLIER_NSIGMA, 
+			   int NVAR, char **VARLIST, int IVAR_NPT, 
+			   float *OUTLIER_NSIGMA, 
 			   FILE *FP_OUTFILE, char *LINEKEY, char *SEPKEY ) {
 
   // Created Aug 2014
@@ -1761,8 +1764,10 @@ int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME,
   // Oct 26 2014: use refactored system.
   // Jul 22 2017: add LINEKEY argument.
   // Feb    2018: check opton to dump everything
-
+  // Nov 30 2020: pass IVAR_NPT to get column name NOBS or NPTFIT
+  
   int  NDUMP, ivar, indx_store ;
+  bool match ;
   char msg[80], *varName, simVar[80] ;
   char fnam[] = "SNTABLE_DUMP_OUTLIERS" ;
 
@@ -1780,7 +1785,7 @@ int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME,
   if ( Nsig0 == 0.0 && Nsig1 > 0.99E8 ) 
     { OUTLIER_INFO.USEFLAG = 2; } // flag to dump all OBS
 
-  
+
   OUTLIER_INFO.CUTWIN_NSIGMA[0] = Nsig0 ;
   OUTLIER_INFO.CUTWIN_NSIGMA[1] = Nsig1 ;
 
@@ -1788,7 +1793,8 @@ int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME,
   OUTLIER_INFO.CUTWIN_CHI2FLUX[1] = Nsig1*Nsig1 ;
 
   varName = OUTLIER_INFO.VARNAME[INDX_OUTLIER_NPTFIT] ;
-  sprintf(varName, "%s", OUTLIER_VARNAME_NPTFIT);
+  // xxx mark  sprintf(varName, "%s", OUTLIER_VARNAME_NPTFIT);
+  sprintf(varName, "%s", VARLIST[IVAR_NPT] ); // Nov 30 2020
 
   varName = OUTLIER_INFO.VARNAME[INDX_OUTLIER_IFILT] ;
   sprintf(varName, "%s", OUTLIER_VARNAME_IFILT) ;
@@ -1802,23 +1808,32 @@ int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME,
   for(ivar=0; ivar < NVAR; ivar++ ) {
     for(indx_store=0; indx_store < NVAR_OUTLIER_DECODE; indx_store++ ) {
       varName = OUTLIER_INFO.VARNAME[indx_store] ;
+      match = false;
 
       if ( strcmp(VARLIST[ivar],varName) == 0 ) 
-	{ OUTLIER_INFO.IVAR[indx_store] = ivar; }
+	{  OUTLIER_INFO.IVAR[indx_store] = ivar;  match = true;  }
 
       // try CHI2FLUX_SIM
       sprintf(simVar,"%s_SIM", OUTLIER_INFO.VARNAME[indx_store]);
       if ( strcmp(VARLIST[ivar],simVar) == 0 ) 
-	{ OUTLIER_INFO.IVAR[indx_store] = ivar; }
-    }
+	{ OUTLIER_INFO.IVAR[indx_store] = ivar;  match = true; }
 
+      /* xxx
+      if ( match ) {
+	printf(" xxx %s: varname = %s  indx_store=%d -> ivar=%d\n", 
+	       fnam, varName, indx_store, ivar ); 
+      }
+      xxxx*/
+
+    }
   } // end ivar loop
 
 
   // use refactored system (oct 2014)
+
   NDUMP = 
-    SNTABLE_DUMP_VALUES(FILENAME,TABLENAME, NVAR,VARLIST, FP_OUTFILE,
-			LINEKEY, SEPKEY );
+    SNTABLE_DUMP_VALUES(FILENAME,TABLENAME, NVAR, VARLIST, IVAR_NPT,
+			FP_OUTFILE, LINEKEY, SEPKEY );
 
   // print summary-stats to stdout
   if ( OUTLIER_INFO.USEFLAG == 1 ) { SNTABLE_SUMMARY_OUTLIERS(); }

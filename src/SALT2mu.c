@@ -864,6 +864,10 @@ Default output files (can change names with "prefix" argument)
  
  Nov 20 2020: few fixes to avoid conflicts with cat_only option.
 
+ Dec 01 2020: 
+    + call diagnostic function M0dif_rebin_check
+    + add IZBIN to output FITRES file to enable re-binning for makeCOV
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -2034,6 +2038,7 @@ double rombint(double f(double z, double *cosPar),
 
 double avemag0_calc(int opt_dump);
 void   M0dif_calc(void) ;
+void   M0dif_rebin_check(void);
 double fcn_M0(int n, double *M0LIST );
 
 void   printCOVMAT(FILE *fp, int NPAR, int NPARz_write);
@@ -2500,6 +2505,9 @@ int SALT2mu_DRIVER_SUMMARY(void) {
   // ------------------------------------------------
   // check files to write
   outFile_driver();
+
+  // Dev 2020: idiot check on rebinning to get M0 and M0ERR per z bin
+  M0dif_rebin_check();
 
   // xxxx mark delete  t_end_fit = time(NULL);
 
@@ -18489,6 +18497,7 @@ void  write_word_override(int ivar_tot, int indx, char *word) {
 void define_varnames_append(void) {
 
   // Nov 12 2020: add MUERR_VPEC
+  // Dec 02 2020: add IZBIN
 
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   int   NSN_BIASCOR       =  INFO_BIASCOR.TABLEVAR.NSN_ALL;
@@ -18531,6 +18540,7 @@ void define_varnames_append(void) {
     }
     sprintf(VARNAMES_APPEND[NVAR_APPEND],"biasScale_muCOV");   NVAR_APPEND++ ;  
     sprintf(VARNAMES_APPEND[NVAR_APPEND],"IDSAMPLE");          NVAR_APPEND++ ;  
+    sprintf(VARNAMES_APPEND[NVAR_APPEND],"IZBIN");             NVAR_APPEND++ ;  
   }
 
   return;
@@ -18897,12 +18907,13 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   // Apr 18 2020: write extra digit of precision for bias(mb,c,mu)
   // May 13 2020: write to char line, then single fprintf for entire line.
   // Nov 12 2020: write muerr_vpec for Dan.
+  // Dec 02 2020: write izbin
 
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   double mu, muerr, muerr_raw, muerr_vpec, mumodel, mures, pull, M0DIF ;
   double muBias=0.0, muBiasErr=0.0,  muCOVscale=0.0, chi2=0.0 ;
   double fitParBias[NLCPAR] = { 0.0, 0.0, 0.0 } ;
-  int    n, cutmask, NWR, NSN_BIASCOR, idsample ;
+  int    n, cutmask, NWR, NSN_BIASCOR, idsample, izbin ;
   char line[400], word[40] ;	 
   char fnam[] = "write_fitres_line_append" ;
 
@@ -18924,6 +18935,7 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   chi2       = INFO_DATA.chi2[n] ;
   cutmask    = INFO_DATA.TABLEVAR.CUTMASK[n]  ;
   idsample   = INFO_DATA.TABLEVAR.IDSAMPLE[n]  ;
+  izbin      = INFO_DATA.TABLEVAR.IZBIN[n]  ;
   //  sim_mb   = INFO_DATA.TABLEVAR.SIM_FITPAR[INDEX_mB][n] ;
   //  sim_mu   = INFO_DATA.TABLEVAR.SIM_MU[n] ;
 
@@ -18967,6 +18979,7 @@ void write_fitres_line_append(FILE *fp, int indx ) {
     }
     sprintf(word, "%6.3f ", muCOVscale ) ;    NWR++ ; strcat(line,word);
     sprintf(word, "%d "   , idsample ) ;      NWR++ ; strcat(line,word);
+    sprintf(word, "%2d "  , izbin ) ;         NWR++ ; strcat(line,word);
   }
 
   
@@ -19078,6 +19091,84 @@ void  M0dif_calc(void) {
   }
 
 } // end M0dif_calc
+
+
+// *********************************************
+void M0dif_rebin_check(void) {
+
+  // Created Dec 1 2020
+  // For each z-bin, use unbinned values to compute weighted 
+  // M0DIF-mean and M0DIF-error; print table showing comparison
+  // between fitted and computed (check) values.
+  // This is only a diagnostic and is not used for anything 
+  // in BBC or in downstream Cosmology fitters.
+
+  int NSN_DATA   = INFO_DATA.TABLEVAR.NSN_ALL ;  
+  int iz, isn, cutmask ;
+  double SUM_WGT[MXz], SUM_M0[MXz], M0DIF_check[MXz], M0ERR_check[MXz];
+  double mumodel, mu, muerr, mures, M0DIF, WGT, ratio ;
+  double tol_warn = 0.01;
+  char star_avg[2], star_err[2];
+  char fnam[] = "M0dif_rebin_check" ;
+
+  // --------- BEGIN -----------
+
+  for(iz=0; iz < MXz; iz++ ) 
+    { SUM_WGT[iz] = SUM_M0[iz] = 0.0 ; }
+
+  // .xyz
+  for(isn=0; isn < NSN_DATA; isn++ ) {
+
+    cutmask    = INFO_DATA.TABLEVAR.CUTMASK[isn]  ;
+    if ( cutmask ) { continue; }
+
+    iz         = INFO_DATA.TABLEVAR.IZBIN[isn] ;
+    mumodel    = INFO_DATA.mumodel[isn];
+    mu         = INFO_DATA.mu[isn] - FITRESULT.SNMAG0; 
+    muerr      = INFO_DATA.muerr[isn];
+    mures      = INFO_DATA.mures[isn] ;
+    M0DIF      = INFO_DATA.M0[isn] - FITRESULT.AVEMAG0 ;
+
+    WGT          = 1.0 / (muerr*muerr) ;
+    SUM_WGT[iz] += WGT;
+    SUM_M0[iz]  += (mu-mumodel-mures) * WGT ;
+    
+  } // end isn
+
+  printf("\n  Check rebinning of unbinned results:\n");
+  printf("     izbin  <z>  M0DIF(fit/check)   M0DIFERR(fit/check) \n");
+  printf("  ---------------------------------------------------------- \n");
+
+  for(iz=0; iz < INPUTS.nzbin ; iz++ ) {
+    if ( SUM_WGT[iz] == 0.0 ) { continue ; }
+
+    M0DIF_check[iz] = SUM_M0[iz] / SUM_WGT[iz];
+    M0ERR_check[iz] = 1.0 / sqrt(SUM_WGT[iz]) ;
+
+    sprintf(star_avg," ");
+    sprintf(star_err," ");
+
+    ratio = M0DIF_check[iz]/FITRESULT.M0DIF[iz] ;
+    if ( fabs(ratio-1.0) > tol_warn ) { sprintf(star_avg,"*"); }
+
+    ratio = M0ERR_check[iz]/FITRESULT.M0ERR[iz] ;
+    if ( fabs(ratio-1.0) > tol_warn ) { sprintf(star_err,"*"); }
+
+    printf("     %2d  %6.4f   %7.4f/%7.4f%s   %7.4f/%7.4f%s \n",
+	   iz, INPUTS.BININFO_z.avg[iz],
+	   FITRESULT.M0DIF[iz], M0DIF_check[iz], star_avg,
+	   FITRESULT.M0ERR[iz], M0ERR_check[iz], star_err );
+    fflush(stdout);	   
+  }
+
+  printf("  ---------------------------------------------------------- \n");
+  printf("    * | check/fit - 1 | > %.3f \n", tol_warn);
+
+  fflush(stdout);
+
+  return ;
+
+} // end M0dif_rebin_check
 
 // *********************************************
 void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {

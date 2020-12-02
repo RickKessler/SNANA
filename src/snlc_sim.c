@@ -13415,7 +13415,8 @@ void SIMLIB_prepGlobalHeader(void) {
   // whatever format.
   //
   // Mar 7 2018: replace filtindx_ with INTFILTER
-  //
+  // Dec 1 2020: abort if GENLC.IDSURVEY < 0
+
   int i, NTMP, ifilt, ifilt_obs ;
   char cfilt[4], *FILTERS, *TEL ;
   char fnam[] = "SIMLIB_prepGlobalHeader" ;
@@ -13435,7 +13436,13 @@ void SIMLIB_prepGlobalHeader(void) {
   printf("\t SIMLIB Survey    : %s \n", SURVEY );
 
   // get integer IDSURVEY from SURVEY string
-  read_SURVEYDEF();   GENLC.IDSURVEY = get_IDSURVEY(GENLC.SURVEY_NAME);
+  read_SURVEYDEF();   
+  GENLC.IDSURVEY = get_IDSURVEY(GENLC.SURVEY_NAME);
+  if ( GENLC.IDSURVEY < 0 ) {
+    sprintf(c1err,"Invalid 'SURVEY: %s' in SIMLIB header", GENLC.SURVEY_NAME);
+    sprintf(c2err,"Check valid SURVEY names in $SNDATA_ROOT/SURVEY.DEF" );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
   TEL = SIMLIB_GLOBAL_HEADER.TELESCOPE ;
   sprintf(GENLC.TELESCOPE[0],       "%s", TEL );

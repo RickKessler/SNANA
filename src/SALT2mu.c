@@ -30,7 +30,7 @@ file=<comma-sep list of fitres file names to analyze>
 datafile=<same as file=>
 
 datafile_override=over1.dat,over2.dat,etc... ! comma-sep list of data-overrides
-     ! enabled for VPEC, VPEC_ERR, HOST_LOGMASS
+     ! enabled for VPEC, VPEC_ERR, HOST_LOGMASS, zHD[ERR], zCMB[ERR]
      ! if VPEC [VPEC_ERR] is changed, so is zhd [zhderr]
 
 minos=1  ! default; minos errors
@@ -868,6 +868,7 @@ Default output files (can change names with "prefix" argument)
     + call diagnostic function M0dif_rebin_check
     + add IZBIN & M0ERR to output FITRES file -->
          enable re-binning for makeCOV
+    + write Nz x Nz cov matrix to [prefix].cov
 
  ******************************************************/
 
@@ -1672,6 +1673,8 @@ struct {
   int ISFLOAT[MAXPAR];      // 1-> floated in fit; 0->fixed, vs. ipar index
   
   int IPARMAP_MN[MAXPAR];  // map minuit ipar to user ipar
+  int IPARMAPINV_MN[MAXPAR];
+
 } FITINP ; 
 
 
@@ -1737,7 +1740,7 @@ struct {
   double NSNFIT_CC;    // Sum of PROB(CC)
   int NSNFIT_TRUECC;   // for sim, number of true CC
 
-  double AVEMAG0 ; // average mag among z bins
+  double AVEMAG0 ; // average M0 among z bins
   double SNMAG0 ;  // AVEMAG0, or user-input INPUTS.nommag0 
 
   double M0DIF[MXz]; // M0-M0avg per z-bin
@@ -1747,6 +1750,8 @@ struct {
   char   PARNAME[MAXPAR][MXCHAR_VARNAME];
   double PARVAL[MXSPLITRAN+1][MAXPAR];
   double PARERR[MXSPLITRAN+1][MAXPAR];
+
+  double COVMAT[MAXPAR][MAXPAR];
 
   // keep track of chi2red and sigMB for each iteration
   int    NFIT_ITER ;    // Number of fit iterations (was sig1repeats)
@@ -2002,6 +2007,7 @@ void  print_eventStats(int event_type);
 
 void  outFile_driver(void);
 void  write_M0(char *fileName);
+void  write_covfit(char *fileName) ;
 void  write_MUERR_INCLUDE(FILE *fp) ;
 void  write_NWARN(FILE *fp, int FLAG) ;
 
@@ -2611,11 +2617,13 @@ void exec_mnparm(void) {
       FITINP.NFITPAR_FLOAT++ ;
       iMN_tmp = FITINP.NFITPAR_FLOAT-1;
       FITINP.IPARMAP_MN[iMN_tmp]  = i ; // map minuit ipar to user ipar
-    }
+      FITINP.IPARMAPINV_MN[i]     = iMN_tmp ; // inverse map
+    } 
     else {
       iMN = i + 1;
       sprintf(text,"FIX %i",iMN);  len = strlen(text);
       mncomd_(fcn, text, &icondn, &null, len);
+      FITINP.IPARMAPINV_MN[i]     = -9 ;
     }
   }
 
@@ -2640,6 +2648,7 @@ void exec_mnpout_mnerrs(void) {
   //
   // Jun 27 2017: REFACTOR z bins
   // Jul 29 2020: incluce MINOS/MIGRAD string in a few places
+  // Dec 02 2020: call mnemat_ and fill COVMAT 
 
   int    minos = INPUTS.minos ;
   double PARVAL, PARERR, bnd1, bnd2, eplus,eminus,eparab, globcc;
@@ -2704,6 +2713,10 @@ void exec_mnpout_mnerrs(void) {
   FITRESULT.PARVAL[NJOB_SPLITRAN][IPAR_COVINT_PARAM] = FITINP.COVINT_PARAM_FIX;
   FITRESULT.PARERR[NJOB_SPLITRAN][IPAR_COVINT_PARAM] = 1.0E-8 ;
   
+  // load full cov matrix 
+  int num = MAXPAR;
+  mnemat_(FITRESULT.COVMAT,&num);
+
   return ;
 
 } // end exec_mnpout_mnerrs
@@ -3693,454 +3706,6 @@ void printmsg_repeatFit(char *msg) {
   fflush(FP_STDOUT);
 } 
 
-// ******************************************
-#ifndef USE_THREAD
-void fcn(int *npar, double grad[], double *fval, double xval[],
-	 int *iflag, void *not_used)
-{
-  // !!! ORIGINAL fcn before threads ... slated to be removed !!!
-  //
-  // function to be minimized by MINUIT
-  //  flag=1 read input, flag 2=gradient, flag=3 is final value
-  double M0, alpha, beta, gamma, alpha0, beta0, gamma0;
-  double da_dz, db_dz, dg_dz ;
-  double scalePCC, scalePIa, scalePROB_fitpar, nsnfitIa, nsnfitcc;
-  int    NSN_DATA, n, nsnfit, nsnfit_truecc, idsample, cutmask ;
-  int    NDIM_BIASCOR; 
-  int    DUMPFLAG=0, dumpFlag_muerrsq=0 ;
-  double chi2sum_tot, mures, sqmures ;
-  double muerrsq, muerrsq_last, muerrsq_raw, muerrsq_tmp, sqsigCC=0.001 ;
-  double chi2evt_Ia, chi2sum_Ia, chi2evt, sigCC_chi2penalty=0.0 ;
-  double mu, mb, x1, c, z, zerr, zmuerr, logmass, dl, mumodel, mumodel_store;
-  double muBias, muBiasErr, muBias_zinterp, muCOVscale, gammaDM ;
-  double muerr, muerr_raw, muerr_last;
-  int    ipar,  ipar2, ia, ib, ig, INTERPFLAG_abg ;
-  int    sntype=0, idsurvey=0, SIM_NONIA_INDEX, IS_SIM ;
-  double omega_l, omega_k, wde, wa, cosPar[NCOSPAR] ;
-  double *hostPar, logmass_cen, logmass_tau ;
-  double ProbRatio_Ia, ProbRatio_CC ;
-  double covmat_tot[NLCPAR][NLCPAR], covmat_fit[NLCPAR][NLCPAR] ;
-  char   *name ;
-  MUZMAP_DEF  *CCPRIOR_MUZMAP ;
-  int  USE_CCPRIOR=0, USE_CCPRIOR_H11=0 ;
-  BIASCORLIST_DEF     BIASCORLIST ;
-  INTERPWGT_AlphaBetaGammaDM INTERPWGT ;
-  FITPARBIAS_DEF FITPARBIAS_ALPHABETA[MXa][MXb][MXg]; // bias at each a,b
-  double   MUCOVSCALE_ALPHABETA[MXa][MXb][MXg]; // (I) muCOVscale at each a,b
-  double   *fitParBias;
-
-  double Prob_Ia, Prob_CC, Prob_SUM, dPdmu_Ia, dPdmu_CC ;
-  double PTOTRAW_Ia=0.0, PTOTRAW_CC, PTOT_Ia, PTOT_CC, PSUM ;
-  double muerrsq_update, muerr_update ;
-
-  int  ILCPAR_MIN = INFO_BIASCOR.ILCPAR_MIN ;
-  int  ILCPAR_MAX = INFO_BIASCOR.ILCPAR_MAX ;  
-
-  char fnam[]= "fcn";  // original fcn
-
-  // --------------- BEGIN -------------
-
-  FITRESULT.NCALL_FCN++ ;
-
-  // Nov 2019, bail on inf or nan.
-  for(ipar=1; ipar<=5; ipar++ ) {
-    if ( isnan(xval[ipar]) ) { *fval = 1.0E14; return; }
-    if ( isinf(xval[ipar]) ) { *fval = 1.0E14; return; }
-  }
-
-  //Set input cosmology parameters
-
-  alpha0       = xval[1] ;
-  beta0        = xval[2] ;
-  da_dz        = xval[3] ;
-  db_dz        = xval[4] ;
-  gamma0       = xval[5] ;
-  dg_dz        = xval[6] ;
-  logmass_cen  = xval[7] ; 
-  logmass_tau  = xval[8] ;
-  omega_l      = xval[9] ;
-  omega_k      = xval[10] ;
-  wde          = xval[11] ;
-  wa           = xval[12] ;
-  scalePROB_fitpar  = xval[13] ;
-  hostPar      = &xval[IPAR_GAMMA0];
-  //  da_dm        = xval[15];  // added Apr 2 2018
-  //  db_dm        = xval[16];  // idem
-
-  NDIM_BIASCOR = INFO_BIASCOR.NDIM;
-
-
-  // load cosPar array to pass to functions below (RK Jan 2016)
-  cosPar[0] = omega_l ;
-  cosPar[1] = omega_k ;
-  cosPar[2] = wde ;
-  cosPar[3] = wa ;
-
-  /*
-  // xxxxxxxxx
-  if ( (ncall_fcn > 1000 && ncall_fcn < 1065) || ncall_fcn<10 ) {
-    printf(" xxx ncall=%4d: a=%f b=%f S_CC=%f  sigint=%f\n", 
-	   ncall_fcn, xval[1], xval[2], xval[13], xval[14]); 
-    fflush(stdout);
-  }
-  // xxxxxxxxx
-  */
-
-  // -------------------------------
-
-  NSN_DATA         = INFO_DATA.TABLEVAR.NSN_ALL ;
-  USE_CCPRIOR      = INFO_CCPRIOR.USE; 
-  USE_CCPRIOR_H11  = INFO_CCPRIOR.USEH11; 
-  CCPRIOR_MUZMAP   = &INFO_CCPRIOR.MUZMAP;
-  
-
-  if ( USE_CCPRIOR  ) {   
-    // load CCPRIOR_MUZMAP
-    fcn_ccprior_muzmap(xval, USE_CCPRIOR_H11, CCPRIOR_MUZMAP);   
-    ProbRatio_Ia = ProbRatio_CC = 0.0 ;
-  }
-
-  // -------------------------------
-  // For biasCor, get INTERP weights for alpha and beta grid.
-  // Beware that this is not quite right for z-dependent alpha,beta,
-  // but it's faster to compute ia,ib here outside the data loop.
-  INTERPFLAG_abg = 0;
-  if ( (INPUTS.opt_biasCor & MASK_BIASCOR_5D) ||
-       (INPUTS.opt_biasCor & MASK_BIASCOR_1D5DCUT)  ) {
-    INTERPFLAG_abg = 1; 
-    // check for z-dependent alpha or beta
-    if ( INPUTS.ipar[3] || INPUTS.ipar[4] ) { INTERPFLAG_abg = 2; } 
-    // check for hostmass-dependent alpha or beta (April 2 2018)
-    if ( INPUTS.ipar[15] || INPUTS.ipar[16] ) { INTERPFLAG_abg = 2; } 
-  }
-
-  // -------------------------------
-  chi2sum_tot = chi2sum_Ia = 0.0;
-  nsnfit      = nsnfit_truecc = 0 ;
-  nsnfitIa = nsnfitcc = 0.0 ;
-
-
-  FITRESULT.NSNFIT = 0;
-  FITRESULT.NSNFIT_TRUECC = 0;
-
-  for (n=0; n< NSN_DATA; ++n)  {
-
-    cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n] ; 
-
-    if ( cutmask ) { continue; }
-
-    // - - - - -
-
-    INFO_DATA.mures[n]     = -999. ;
-    INFO_DATA.mupull[n]    = -999. ;
-    INFO_DATA.mu[n]        = -999. ;
-    INFO_DATA.muerr[n]     = -999. ;    
-    INFO_DATA.muerr_raw[n] = -999. ;   // no scale and no sigInt
-    INFO_DATA.muerr_vpec[n]= -999. ;   // muerr from vpec only (Nov 2020)
-    name     = INFO_DATA.TABLEVAR.name[n] ;
-    idsample = (int)INFO_DATA.TABLEVAR.IDSAMPLE[n] ;
-    z        = (double)INFO_DATA.TABLEVAR.zhd[n] ;     
-    logmass  = (double)INFO_DATA.TABLEVAR.logmass[n];
-    zerr     = (double)INFO_DATA.TABLEVAR.zhderr[n] ;
-    zmuerr   = (double)INFO_DATA.TABLEVAR.zmuerr[n] ; // for muerr calc
-    mb       = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_mB][n] ;
-    x1       = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_x1][n] ;
-    c        = (double)INFO_DATA.TABLEVAR.fitpar[INDEX_c][n] ;
-    mumodel_store   = (double)INFO_DATA.TABLEVAR.mumodel[n] ; 
-
-    SIM_NONIA_INDEX = (int)INFO_DATA.TABLEVAR.SIM_NONIA_INDEX[n];
-    IS_SIM          = (INFO_DATA.TABLEVAR.IS_SIM == true);
-    
-    if ( USE_CCPRIOR ) { 
-      PTOTRAW_Ia  = (double)INFO_DATA.TABLEVAR.pIa[n] ; 
-      sntype      = (int)INFO_DATA.TABLEVAR.SNTYPE[n] ; 
-      idsurvey    = (int)INFO_DATA.TABLEVAR.IDSURVEY[n];
-    }
-    muBias_zinterp = INFO_DATA.muBias_zinterp[n] ; 
-    muerrsq_last   = INFO_DATA.muerrsq_last[n] ;
-    muerr_last     = INFO_DATA.muerr_last[n] ;
-
-    for(ipar=0; ipar < NLCPAR; ipar++ ) {
-      for(ipar2=0; ipar2 < NLCPAR; ipar2++ ) 
-	{ covmat_tot[ipar][ipar2] = 
-	    INFO_DATA.TABLEVAR.covmat_tot[n][ipar][ipar2] ; 
-	}
-    }
-            
-    for(ia=0; ia<MXa; ia++ ) {
-      for(ib=0; ib<MXb; ib++ ) {
-	for(ig=0; ig<MXg; ig++ ) {
-	  MUCOVSCALE_ALPHABETA[ia][ib][ig] = 
-	    INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig] ; 
-	  for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ ) {
-	    FITPARBIAS_ALPHABETA[ia][ib][ig].VAL[ipar] = 
-	      INFO_DATA.FITPARBIAS_ALPHABETA[n][ia][ib][ig].VAL[ipar] ; 
-	    FITPARBIAS_ALPHABETA[ia][ib][ig].ERR[ipar] = 
-	      INFO_DATA.FITPARBIAS_ALPHABETA[n][ia][ib][ig].ERR[ipar] ; 
-	  }
-	}
-      }
-    }
-    fitParBias = INFO_DATA.fitParBias[n] ; 
-      
-    if ( z < 1.0E-8) { continue ; } // Jun 3 2013 (obsolete?)
-
-    // fetch alpha,beta,gamma (include z-dependence)
-    fcnFetch_AlphaBetaGamma(xval, z, logmass, &alpha, &beta, &gamma); 
-
-    gammaDM = get_gammadm_host(z, logmass, hostPar );
-
-    DUMPFLAG = 0; // ( strcmp(name,"93018")==0 ) ; // xxx REMOVE 44
-    if ( INTERPFLAG_abg ) {
-      get_INTERPWGT_abg(alpha, beta, gammaDM, DUMPFLAG, &INTERPWGT, name);
-    }
-
-    DUMPFLAG = 0 ;
-
-    // get mag offset for this z-bin
-    M0    = fcn_M0(n, &xval[MXCOSPAR] );
-
-    // compute distance modulus from cosmology params
-    if ( INPUTS.FLOAT_COSPAR ) {
-      dl       = cosmodl_forFit(z, cosPar) ;
-      mumodel  = 5.0*log10(dl) + 25.0 ;
-    }
-    else 
-      { mumodel = mumodel_store ; }
-
-
-    // compute error-squared on distance mod
-    muerrsq  = fcn_muerrsq(name, alpha, beta, gamma, covmat_tot,
-			   z, zmuerr, 0);
-
-    // --------------------------------
-    // Compute bias from biasCor sample
-    BIASCORLIST.z           = z;
-    BIASCORLIST.logmass     = logmass;
-    BIASCORLIST.alpha       = alpha ;
-    BIASCORLIST.beta        = beta ;
-    BIASCORLIST.gammadm     = gammaDM ;
-    BIASCORLIST.idsample    = idsample;
-    BIASCORLIST.FITPAR[INDEX_mB] = mb ;
-    BIASCORLIST.FITPAR[INDEX_x1] = x1 ;
-    BIASCORLIST.FITPAR[INDEX_c]  = c ;
-    muBias = muBiasErr = 0.0 ;  muCOVscale=1.0 ; 
-
-    if ( NDIM_BIASCOR >= 5 ) {
-      get_muBias(name, &BIASCORLIST,      // (I) misc inputs
-		 FITPARBIAS_ALPHABETA,    // (I) bias at each a,b,g
-		 MUCOVSCALE_ALPHABETA,    // (I) muCOVscale at each a,b
-		 &INTERPWGT,              // (I) wgt at each a,b,g grid point
-		 fitParBias,     // (O) interp bias on mB,x1,c
-		 &muBias,        // (O) interp bias on mu
-		 &muBiasErr,     // (O) stat-error on above
-		 &muCOVscale );  // (O) scale bias on muCOV     
-    }
-    else if ( NDIM_BIASCOR == 1 ) {
-      muBias  = muBias_zinterp ; 
-    }
-       
-    if ( n == -1 ) { 
-      fprintf(FP_STDOUT," xxx %s-%3.3d %s  a,b,g=%.4f,%.4f,%.4f  "
-	     "muBias=%7.4f  (fpb0=%.4f,%.4f) \n",
-	     fnam, FITRESULT.NCALL_FCN, name, alpha,beta,gamma, 
-	     muBias,
-	     FITPARBIAS_ALPHABETA[0][0][0].VAL[ILCPAR_MAX],
-	     FITPARBIAS_ALPHABETA[0][1][0].VAL[ILCPAR_MAX]
-	     );
-      fflush(FP_STDOUT);
-    }
-
-    // load muBias info into globals
-
-    INFO_DATA.muBias[n]     = muBias ;
-    INFO_DATA.muBiasErr[n]  = muBiasErr ;
-    INFO_DATA.muCOVscale[n] = muCOVscale ;
-
-    // zero out muBiasErr after storing it, since adding this
-    // would contradict the muCOVscale correction.
-    muBiasErr = 0.0 ; 
-                   
-    // apply bias corrections
-    muerrsq  *= muCOVscale ;  // error scale 
-    muerrsq  += ( muBiasErr*muBiasErr); 
-    muerr     = sqrt(muerrsq);	
-    // ------------------------
-
-    mu       = mb  + alpha*x1 - beta*c - gammaDM ; 
-
-    mu      -= muBias ;      // bias correction 
-    mures    = mu - M0 - mumodel ;
-    sqmures  = mures*mures ;
-
-    // store info
-    INFO_DATA.mu[n]       = mu ;
-    INFO_DATA.mures[n]    = mures ;
-    INFO_DATA.mupull[n]   = mures/muerr ;
-    INFO_DATA.mumodel[n]  = mumodel ;
-    INFO_DATA.muerr[n]    = muerr ;
-    INFO_DATA.M0[n]       = M0 ;
-
-    if ( !USE_CCPRIOR  ) {
-      // original SALT2mu chi2 with only spec-confirmed SNIa 
-      nsnfit++ ;      nsnfitIa  = (double)nsnfit ;
-      chi2evt_Ia    = sqmures/muerrsq ;
-      chi2sum_Ia   += chi2evt_Ia ;
-      chi2evt       = chi2evt_Ia ;
-
-      // check option to add log(sigma) term for 5D biasCor
-      if ( INPUTS.fitflag_sigmb == 2 ) 
-      	{ chi2evt  += log(muerrsq/muerrsq_last); } 
-    } 
-
-
-    if ( USE_CCPRIOR  ) {
-      // BEAMS-like chi2 = -2ln [ PIa + PCC ]
-      DUMPFLAG = 0; // (n == 45 && FITRESULT.NCALL_FCN < 3700);
-      nsnfit++ ;
-
-      if ( INPUTS.ipar[IPAR_scalePCC] <= 1 ) {
-	scalePCC    = scalePROB_fitpar ;
-	PTOTRAW_CC  = 1.0 - PTOTRAW_Ia ;  // CC prob 
-	PSUM        = PTOTRAW_Ia + scalePCC*PTOTRAW_CC ;
-	PTOT_CC     = scalePCC * PTOTRAW_CC/PSUM ;
-	PTOT_Ia     = PTOTRAW_Ia/PSUM ;
-      }
-      else {
-	// u13=2 --> Use H11, Eq4  Bayes factor (Sep 30 2019)
-	scalePIa = scalePROB_fitpar;
-	PTOT_Ia  = (PTOTRAW_Ia * scalePIa)/(1.0 + (scalePIa-1.0)*PTOTRAW_Ia);
-	PTOT_CC  = 1.0 - PTOT_Ia ;
-      }
-
-      if ( INPUTS.fitflag_sigmb == 2 ) 
-	{ muerrsq_update = muerrsq ; }  // current muerr for 5D biasCor
-      else
-	{ muerrsq_update = muerrsq_last ; } //  fixed muerr for 1D biasCor
-      muerr_update   = sqrt(muerrsq_update);
-
-      chi2evt_Ia = sqmures/( muerrsq - muBiasErr*muBiasErr)  ;
-      dPdmu_Ia   = ( exp(-0.5*chi2evt_Ia) ) * (PIFAC/muerr_update) ; 
-      Prob_Ia    = PTOT_Ia * dPdmu_Ia ;
-
-      if ( USE_CCPRIOR_H11 ) {
-	dPdmu_CC = prob_CCprior_H11(n, mures, &xval[IPAR_H11], 
-				    &sqsigCC, &sigCC_chi2penalty );
-      }
-      else { // CC prob from sim
-	dPdmu_CC = prob_CCprior_sim(idsample, CCPRIOR_MUZMAP, 
-				    z, mures, DUMPFLAG );
-      }
-      Prob_CC   = PTOT_CC * dPdmu_CC ;
-
-      Prob_SUM  = Prob_Ia + Prob_CC ; // BEAMS prob in Eq. 6 of BBC paper
-
-      // xxxxxxxxxxxxxxxxxxx
-      if ( DUMPFLAG ) {
-	fprintf(FP_STDOUT, " xxx ---------------------------------- \n");
-	fprintf(FP_STDOUT, " xxx fcn dump for SN = '%s'  (NCALL=%d) \n", 
-		name, FITRESULT.NCALL_FCN );
-	fprintf(FP_STDOUT, " xxx dPdmu_CC=%le \n", dPdmu_CC);
-	fprintf(FP_STDOUT, " xxx PTOT_CC = scale*PTOTRAW/PSUM  = "
-		"%le*%le/%le = %le\n",
-		scalePCC, PTOTRAW_CC, PSUM, PTOT_CC );
-	fprintf(FP_STDOUT, " xxx Prob(Ia,CC) = %le, %le \n", Prob_Ia, Prob_CC);
-	fflush(FP_STDOUT);
-	//	if ( FITRESULT.NCALL_FCN > 3000 )  { debugexit(fnam); }
-      }
-      // xxxxxxxxxxxxxxxxxxx
-
-      
-      // sum total chi2 that includes Ia + CC
-      if ( Prob_SUM > 0.0 ) {
-	ProbRatio_Ia = Prob_Ia / Prob_SUM ;
-	ProbRatio_CC = Prob_CC / Prob_SUM ;
-	nsnfitIa   +=  ProbRatio_Ia ; 
-	nsnfitcc   +=  ProbRatio_CC ; 
-	chi2sum_Ia += (ProbRatio_Ia * chi2evt_Ia) ; 
-	
-	if ( *iflag == 3 ) {
-	  INFO_DATA.probcc_beams[n] = ProbRatio_CC;
-	}
-
-	Prob_SUM    *= (0.15/PIFAC)  ;  
-	chi2evt      = -2.0*log(Prob_SUM);
-	//  chi2evt += sigCC_chi2penalty ; // prevent sigCC<0 (7.17.2018)
-      }
-      else {
-	chi2evt      = 1.0E8 ;
-      }
-
-    } // end CCprios.USE if block
-
-    chi2sum_tot      += chi2evt;
-    INFO_DATA.chi2[n] = chi2evt; // store each chi2 to allow for outlier cut
-
-    // check things on final pass
-    if (  *iflag==3 ) {	
-
-      // Jan 26 2018: store raw muerr without intrinsic cov
-      for(ipar=0; ipar < NLCPAR; ipar++ ) {
-	for(ipar2=0; ipar2 < NLCPAR; ipar2++ ) {	  
-	  covmat_fit[ipar][ipar2] =
-	    (double)INFO_DATA.TABLEVAR.covmat_fit[n][ipar][ipar2];
-	}
-      }
-      muerrsq_raw = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit, z,zmuerr,0);
-      muerr_raw   = sqrt(muerrsq_raw);
-      INFO_DATA.muerr_raw[n]  = muerr_raw;   
-      INFO_DATA.muerr_vpec[n] = fcn_muerrz(1, z, zmuerr); // Nov 2020
-
-      // check user dump with total error (Jun 19 2018)
-      dumpFlag_muerrsq = ( strcmp(name,INPUTS.SNID_MUCOVDUMP) == 0 );
-      if ( dumpFlag_muerrsq ) {
-	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit,z,zmuerr,1);
-	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_tot,z,zmuerr,1);
-      }
-      
-      if ( IS_SIM && SIM_NONIA_INDEX > 0 ) { nsnfit_truecc++ ; } 
-
-      // store reference errors for 1/sigma term
-      if ( DOFIT_FLAG == FITFLAG_CHI2 ) {
-	INFO_DATA.muerr_last[n]   = muerr;
-	INFO_DATA.muerrsq_last[n] = muerrsq;
-	INFO_DATA.sigCC_last[n]   = sqrt(sqsigCC) ;
-	INFO_DATA.sqsigCC_last[n] = sqsigCC ;
-      }
-    }  // end *iflag==3 
-    
-    // ----------------------------------
-
-	  
-  } // end loop over SN
-
-
-  // ===============================================
-  // ============= WRAP UP =========================
-  // ===============================================
-
-  FITRESULT.NSNFIT        = nsnfit ;
-  FITRESULT.NSNFIT_TRUECC = nsnfit_truecc ;
-  FITRESULT.NSNFIT_SPLITRAN[NJOB_SPLITRAN] = nsnfit ;
-  
-  if (*iflag==3)  { // done with fit
-    double xdof = nsnfitIa - (double)FITINP.NFITPAR_FLOAT  ; 
-    FITRESULT.CHI2SUM_1A = chi2sum_Ia ;
-    FITRESULT.CHI2RED_1A = chi2sum_Ia/xdof ;
-    FITRESULT.NSNFIT_1A  = nsnfitIa ; 
-    FITRESULT.NSNFIT_CC  = nsnfitcc ;  // 9.24.2019
-    FITRESULT.ALPHA      = alpha ;
-    FITRESULT.BETA       = beta ;
-    FITRESULT.GAMMA      = gamma ;
-  }
-
-  *fval = chi2sum_tot;
-
-  return;
-
-}    // end of original fcn
-#endif
-
 
 #ifdef USE_THREAD
 void fcn(int *npar, double grad[], double *fval, double xval[],
@@ -4755,13 +4320,12 @@ double fcn_M0(int n, double *M0LIST) {
 
   // ----------- BEGIN ----------
 
-  M0 = M0_DEFAULT ;
+  M0      = M0_DEFAULT ;
   iz0     = INFO_DATA.TABLEVAR.IZBIN[n];
   zdata   = INFO_DATA.TABLEVAR.zhd[n];
   ptr_zM0 = INFO_BIASCOR.zM0 ;
   NSN_BIASCOR = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
   
-
   if ( INPUTS.uM0 == M0FITFLAG_CONSTANT ||
        INPUTS.uM0 == M0FITFLAG_ZBINS_FLAT ) {
     iz    = iz0;
@@ -5851,16 +5415,6 @@ void read_data_override(void) {
   // zHD and zHDERR, respectively.
   //
 
-  // TO-DO:
-  //  + fill out formulas for new zhd and zhderr in override_data_zhd
-  //  + print message the zhd[err] has been over-written
-  //  + fix output fitres to use new values ... this is tricky
-  //    because each input fitres line is copied and appended for output, 
-  //    so it's gonna take special surgery to replace sub strings in 
-  //    the output fitres file.
-  //  + write warning to output files that input columns have been altered.
-
-
   char VARNAME_VPEC[]    = "VPEC";
   char VARNAME_VPECERR[] = "VPEC_ERR";
   char VARNAME_zHD[]     = "zHD";
@@ -5959,16 +5513,32 @@ void read_data_override(void) {
   for(ivar_over=0; ivar_over < NVAR_OVER; ivar_over++ ) {
     varName   = INFO_DATA.VARNAMES_OVERRIDE[ivar_over] ;
     NSN_CHANGE[ivar_over] = 0 ;
+
     if ( strcmp(varName,"VPEC") == 0 )
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.vpec ;  }   
     else if ( strcmp(varName,"VPEC_ERR") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.vpecerr ;  }  
+
     else if ( strcmp(varName,"HOST_LOGMASS") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.logmass ;  }
+
     else if ( strcmp(varName,"zHD") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhd ;  }
     else if ( strcmp(varName,"zHDERR") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhderr ;  }
+
+    else if ( strcmp(varName,"zCMB") == 0 ) 
+      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zcmb ;  }
+    else if ( strcmp(varName,"zCMBERR") == 0 ) 
+      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zcmberr ; }
+
+    /* xxx maybe add zHEL at some point ?
+    else if ( strcmp(varName,"zHEL") == 0 ) 
+      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhel ;  }
+    else if ( strcmp(varName,"zHELERR") == 0 ) 
+      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhelerr ;  }
+    */
+
     else {
       sprintf(c1err,"Unable to implement override for %s", varName);
       sprintf(c2err,"Might need to update function %s", fnam );
@@ -17653,6 +17223,7 @@ void outFile_driver(void) {
 
     sprintf(tmpFile1,"%s.fitres", prefix ); 
     sprintf(tmpFile2,"%s.M0DIF",  prefix ); 
+    sprintf(tmpFile3,"%s.COV",    prefix );  // Dec 2 2020
 
     // Aug 12 2020 temp HACK: 
     // if YAML output is specified, it's from the new
@@ -17664,8 +17235,8 @@ void outFile_driver(void) {
     
     prep_blindVal_strings();
     write_fitres_driver(tmpFile1);  // write result for each SN
-    write_M0(tmpFile2);      // write M0 vs. redshift
-
+    write_M0(tmpFile2);             // write M0 vs. redshift
+    write_covfit(tmpFile3);         // write cov_stat matrix for CosmoMC
 
     // for single JOBID_SPLITRAN, write fitpar file so that they
     // can be scooped up later to make summary.
@@ -17908,6 +17479,63 @@ void  write_M0(char *fileName) {
   return ;
 
 } // end write_M0
+
+
+// ******************************************
+void write_covfit(char *fileName) {
+
+  // Created Dec 2, 2020
+  // write cov_stat (Nz x Nz) from fit to text file.
+  // Write format for CosmoMC to read:
+  //
+
+  int NFITPAR_ALL =  FITINP.NFITPAR_ALL ;
+  int iz, ipar0, ipar1, iMN0, iMN1 ;
+  double COV ;
+  FILE *fp;
+  char fnam[] = "write_covfit" ;
+
+  // ---------- BEGIN -----------
+
+  if ( INPUTS.cutmask_write == -9 ) { return ; } 
+
+  fp = fopen(fileName,"wt");
+
+  if ( !fp )  {
+    sprintf(c1err,"Could not open cov-outFile");
+    sprintf(c2err,"%s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  fprintf(FP_STDOUT, "\n Write COV_stat matrix to %s\n" , fileName); 
+
+  // - - - - 
+  //  write_version_info(fp);
+
+  fprintf(fp,"%d\n", INPUTS.nzbin );
+
+  for ( ipar0=MXCOSPAR ; ipar0 < NFITPAR_ALL ; ipar0++ ) {
+    for ( ipar1=MXCOSPAR ; ipar1 < NFITPAR_ALL ; ipar1++ ) {
+
+      //    iz  = INPUTS.izpar[ipar] ; 
+      iMN0 = FITINP.IPARMAPINV_MN[ipar0];
+      iMN1 = FITINP.IPARMAPINV_MN[ipar1];
+      if ( iMN0 >=0 && iMN1 >= 0 ) 
+	{ COV = FITRESULT.COVMAT[iMN0][iMN1]; }
+      else
+	{ COV = 0.0 ; }
+
+      fprintf(fp, "%le\n", COV);
+      
+    }
+  }
+
+
+  fclose(fp);
+
+  return ;
+
+} // end write_covfit
 
 
 // ******************************************
@@ -19191,9 +18819,10 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
   //
   // Jun 2019: pass fp to allow writing to file or stdout.
   // Dec 9 2019: avoid truncating FITRESULTS.PARNAME to 10 chars.
+  // Dec 2 2020: move mnemat_ call to exec_mnpout_mnerrs.
 
   int num, iMN, jMN, i, j ;
-  double emat[MAXPAR][MAXPAR], terr[MAXPAR], corr ;
+  double cov, cov_diag, terr[MAXPAR], corr ;
   char tmpName[MXCHAR_VARNAME], msg[100];
 
   // --------- BEGIN ----------
@@ -19205,8 +18834,7 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
 	      NPARz_write); }
 
   fprintf(fp, "\n# %s\n", msg); fflush(fp);
-  num = MAXPAR;
-  mnemat_(emat,&num);
+  // xxx mark delete   num = MAXPAR;  mnemat_(emat,&num);
 
   for ( iMN=0 ; iMN < NPAR_FLOAT ; iMN++ )
     {
@@ -19214,7 +18842,9 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
       if ( i - MXCOSPAR >= NPARz_write ) { continue; }
       sprintf(tmpName, "%s", FITRESULT.PARNAME[i] );
       tmpName[10] = 0;    // force truncation of name
-      terr[iMN] = sqrt(emat[iMN][iMN]);
+      cov_diag    = FITRESULT.COVMAT[iMN][iMN];
+      // xxxx mark delete      terr[iMN] = sqrt(emat[iMN][iMN]);
+      terr[iMN] = sqrt(cov_diag);
 
       //      fprintf(fp,"%2i ",iMN+1); 
       fprintf(fp,"# %-10.10s ", tmpName ); 
@@ -19222,7 +18852,8 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
       for (jMN=0; jMN <= iMN; ++jMN)	{
 	j  = FITINP.IPARMAP_MN[jMN]  ;
 	if ( j - MXCOSPAR >= NPARz_write ) { continue; }
-	corr = emat[iMN][jMN]/(terr[iMN]*terr[jMN]);
+	cov  = FITRESULT.COVMAT[iMN][jMN];
+	corr = cov/(terr[iMN]*terr[jMN]);
 	fprintf(fp, "%6.3f ",corr);
       }
       fprintf(fp,"\n");  fflush(fp);

@@ -1886,8 +1886,8 @@ void read_head_HOSTLIB(FILE *fp) {
   FOUND_SNPAR = ( NVAR_STORE_SNPAR>0  ) ;
 
   if ( USE && FOUND_SNPAR == 0 ) {
-    sprintf(c1err, "Found zero SN params for HOSTLIB_MSKOPT&%d option.",
-	    HOSTLIB_MSKOPT_USESNPAR );
+    sprintf(c1err, "Found zero SN params for HOSTLIB_MSKOPT(%d) & %d option.",
+	    INPUTS.HOSTLIB_MSKOPT, HOSTLIB_MSKOPT_USESNPAR );
     sprintf(c2err, "Expected 1 or more of '%s'", 
 	    HOSTLIB.VARSTRING_SNPAR) ;
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 

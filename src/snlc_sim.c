@@ -2933,6 +2933,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   // Created July 2020
   // parse keys starting with HOSTLIB
   // Oct 16 2020: check IGNOREFILE(HOSTLIB_FILE)
+  // Dec 02 2020: fix bug setting MSKOPT to allow command-line override.
 
   int  j, ITMP, N=0, nread ;
   char fnam[] = "parse_input_HOSTLIB" ;
@@ -2957,8 +2958,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_SPECBASIS_FILE ) ; 
   }
   else if ( keyMatchSim(1, "HOSTLIB_MSKOPT", WORDS[0], keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &ITMP );
-    INPUTS.HOSTLIB_MSKOPT |= ITMP; // append bits since USE-bit already set
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_MSKOPT );
+    setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+    // xxx mark delete  INPUTS.HOSTLIB_MSKOPT |= ITMP;
   }
   else if ( keyMatchSim(1,"HOSTLIB_GENZPHOT_FUDGEPAR",WORDS[0],keySource)){
     // read first 4 elements as float

@@ -866,7 +866,8 @@ Default output files (can change names with "prefix" argument)
 
  Dec 01 2020: 
     + call diagnostic function M0dif_rebin_check
-    + add IZBIN to output FITRES file to enable re-binning for makeCOV
+    + add IZBIN & M0ERR to output FITRES file -->
+         enable re-binning for makeCOV
 
  ******************************************************/
 
@@ -2507,7 +2508,7 @@ int SALT2mu_DRIVER_SUMMARY(void) {
   outFile_driver();
 
   // Dev 2020: idiot check on rebinning to get M0 and M0ERR per z bin
-  M0dif_rebin_check();
+  // for diagnostic only  M0dif_rebin_check();
 
   // xxxx mark delete  t_end_fit = time(NULL);
 
@@ -18497,7 +18498,7 @@ void  write_word_override(int ivar_tot, int indx, char *word) {
 void define_varnames_append(void) {
 
   // Nov 12 2020: add MUERR_VPEC
-  // Dec 02 2020: add IZBIN
+  // Dec 02 2020: add IZBIN & M0DIFERR
 
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   int   NSN_BIASCOR       =  INFO_BIASCOR.TABLEVAR.NSN_ALL;
@@ -18518,6 +18519,7 @@ void define_varnames_append(void) {
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MURES");       NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUPULL");      NVAR_APPEND++ ;  
   sprintf(VARNAMES_APPEND[NVAR_APPEND],"M0DIF");       NVAR_APPEND++ ;  
+  sprintf(VARNAMES_APPEND[NVAR_APPEND],"M0DIFERR");    NVAR_APPEND++ ;  
 
   if ( INFO_CCPRIOR.USE ) 
     { sprintf(tmpName,"CHI2_BEAMS"); }
@@ -18910,7 +18912,8 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   // Dec 02 2020: write izbin
 
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
-  double mu, muerr, muerr_raw, muerr_vpec, mumodel, mures, pull, M0DIF ;
+  double mu, muerr, muerr_raw, muerr_vpec, mumodel, mures, pull;
+  double M0DIF, M0ERR ;
   double muBias=0.0, muBiasErr=0.0,  muCOVscale=0.0, chi2=0.0 ;
   double fitParBias[NLCPAR] = { 0.0, 0.0, 0.0 } ;
   int    n, cutmask, NWR, NSN_BIASCOR, idsample, izbin ;
@@ -18922,6 +18925,11 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   n =  indx;
 
   NSN_BIASCOR =  INFO_BIASCOR.TABLEVAR.NSN_ALL;
+
+  cutmask    = INFO_DATA.TABLEVAR.CUTMASK[n]  ;
+  idsample   = INFO_DATA.TABLEVAR.IDSAMPLE[n]  ;
+  izbin      = INFO_DATA.TABLEVAR.IZBIN[n]  ;
+
   //  z        = INFO_DATA.TABLEVAR.zhd[n] ;  
   //  zerr     = INFO_DATA.TABLEVAR.zhderr[n] ;
   mumodel    = INFO_DATA.mumodel[n];
@@ -18932,10 +18940,9 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   mures      = INFO_DATA.mures[n] ;
   pull       = INFO_DATA.mupull[n] ;
   M0DIF      = INFO_DATA.M0[n] - FITRESULT.AVEMAG0 ;
+  M0ERR      = FITRESULT.M0ERR[izbin];
   chi2       = INFO_DATA.chi2[n] ;
-  cutmask    = INFO_DATA.TABLEVAR.CUTMASK[n]  ;
-  idsample   = INFO_DATA.TABLEVAR.IDSAMPLE[n]  ;
-  izbin      = INFO_DATA.TABLEVAR.IZBIN[n]  ;
+
   //  sim_mb   = INFO_DATA.TABLEVAR.SIM_FITPAR[INDEX_mB][n] ;
   //  sim_mu   = INFO_DATA.TABLEVAR.SIM_MU[n] ;
 
@@ -18962,6 +18969,7 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   sprintf(word, "%7.4f ", mures  );   NWR++ ; strcat(line,word);
   sprintf(word, "%6.3f ", pull   );   NWR++ ; strcat(line,word);
   sprintf(word, "%7.4f ", M0DIF  );   NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", M0ERR  );   NWR++ ; strcat(line,word);
   sprintf(word, "%.2f ",  chi2   );   NWR++ ; strcat(line,word);
 
   if ( INFO_CCPRIOR.USE ) { 

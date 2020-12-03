@@ -65,6 +65,7 @@ seconds_since_midnight = int(time.time() - time.mktime(today.timetuple()))
 
 SUFFIX_FITRES = "FITRES"
 SUFFIX_M0DIF  = "M0DIF"
+SUFFIX_COV    = "COV"
 
 # define monitor files
 MERGE_LOG_FILE    = "MERGE.LOG"                                      

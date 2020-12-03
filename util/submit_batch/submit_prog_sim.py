@@ -2079,9 +2079,9 @@ class Simulation(Program):
 
         tar_list  = ""
         tar_list += "TMP_* "
-        tar_list += "SIMnorm* "
         tar_list += "CPU* "
-        #tar_list += (f"{SUBDIR_SCRIPTS_SIM} ")
+        if ngen_unit > 0 : tar_list += "SIMnorm* "
+
         tar_list += (f"{SIMGEN_INPUT_LISTFILE} ")
         tar_list += (f"{SUBMIT_INFO_FILE} ")
 

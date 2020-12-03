@@ -32,6 +32,10 @@
 #   fill in simfile_biascor arg. Same for simfile_ccprior.
 #
 #
+#        HISTORY
+#
+# Dec 02 2020: add SUFFIX_COV to list of files to move
+#
 # - - - - - - - - - -
 
 
@@ -61,7 +65,7 @@ COLNUM_BBC_MERGE_SPLITRAN     = 7
 
 # list used in wrapup, cleanup, and merge_reset
 JOB_SUFFIX_TAR_LIST  = [ 'YAML', 'DONE', 'LOG'  ]
-SUFFIX_MOVE_LIST = [ SUFFIX_FITRES, SUFFIX_M0DIF ]
+SUFFIX_MOVE_LIST = [ SUFFIX_FITRES, SUFFIX_M0DIF, SUFFIX_COV ]
 
 # hard-wire output subDir name if there is 1-and-only-1 version
 SUBDIR_OUTPUT_ONE_VERSION = "OUTPUT_BBCFIT"

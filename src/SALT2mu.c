@@ -192,6 +192,9 @@ cutmask_write=0   -> write only selected SN used in fit (default)
 cutmask_write=64  -> include SNe that fail CUTWIN 
 cutmask_write=-9  -> write comments only with fit results; no SN lines
 
+write_yaml=1 -> write yaml info output for batch script
+write_csv=1  -> write M0DIF vs. z in csv format for CosmoMC input
+
 sigmB= intrinsic magnitude error (mB)
 sigx1= intrinsic stretch error (x1)
 sigc= intrinsic color error (x3 a.k.a. c) 
@@ -1452,6 +1455,7 @@ struct INPUTS {
   char   cat_file_out[MXCHAR_FILENAME] ;
 
   int    write_yaml;  // used by submit_batch_jobs.py
+  int    write_csv ;  // M0DIF formatted for CosmoMC
 
   int    minos;
 
@@ -2011,7 +2015,8 @@ void  printmsg_repeatFit(char *msg) ;
 void  print_eventStats(int event_type);
 
 void  outFile_driver(void);
-void  write_M0(char *fileName);
+void  write_M0_fitres(char *fileName);
+void  write_M0_csv(char *fileName);  
 void  write_covfit(char *fileName) ;
 void  write_MUERR_INCLUDE(FILE *fp) ;
 void  write_NWARN(FILE *fp, int FLAG) ;
@@ -4946,6 +4951,7 @@ void set_defaults(void) {
   INPUTS.cat_only   = false ;
   INPUTS.cat_file_out[0] = 0 ;
   INPUTS.write_yaml = 0 ;
+  INPUTS.write_csv  = 0 ;
 
   INPUTS.minos      = 1 ;
   INPUTS.nfile_data = 0 ;
@@ -14619,6 +14625,10 @@ int ppar(char* item) {
     sscanf(&item[11],"%d", &INPUTS.write_yaml);  return(1);
   }
 
+  if ( uniqueOverlap(item,"write_csv=") ) {
+    sscanf(&item[10],"%d", &INPUTS.write_csv);  return(1);
+  }
+
   // - - - -
 
 #ifdef USE_SUBPROCESS
@@ -17210,12 +17220,13 @@ void outFile_driver(void) {
   // [move code out of main]
   // May 29 2019: call SPLITRAN_write_fitpar_legacy
   // Jun 24 2020: remove SPLIT[nnn] from NSPLITRAN file names.
+  // Dec 04 2020: check option to write_M0_csv().
 
   int  JOBID     = INPUTS.JOBID_SPLITRAN ;
   int  NSPLITRAN = INPUTS.NSPLITRAN ;
   char *prefix   = INPUTS.PREFIX ;
 
-  char tmpFile1[200], tmpFile2[200], tmpFile3[200], yamlFile[200];
+  char tmpFile1[200], tmpFile2[200], tmpFile3[200], tmpFile[200];
   char fnam[] = "outFile_driver" ; 
 
   // --------------- BEGIN -------------
@@ -17253,7 +17264,7 @@ void outFile_driver(void) {
     
     prep_blindVal_strings();
     write_fitres_driver(tmpFile1);  // write result for each SN
-    write_M0(tmpFile2);             // write M0 vs. redshift
+    write_M0_fitres(tmpFile2);      // write M0 vs. redshift
     write_covfit(tmpFile3);         // write cov_stat matrix for CosmoMC
 
     // for single JOBID_SPLITRAN, write fitpar file so that they
@@ -17264,8 +17275,12 @@ void outFile_driver(void) {
     }
 
     if ( INPUTS.write_yaml ) {
-      sprintf(yamlFile,"%s.YAML", prefix );
-      write_yaml_info(yamlFile);
+      sprintf(tmpFile,"%s.YAML", prefix );
+      write_yaml_info(tmpFile);
+    }
+    if ( INPUTS.write_csv ) {
+      sprintf(tmpFile,"%s.CSV", prefix );
+      write_M0_csv(tmpFile);
     }
 
   } 
@@ -17380,7 +17395,7 @@ void write_yaml_info(char *fileName) {
 } // end write_yaml_info
 
 // ******************************************
-void  write_M0(char *fileName) {
+void  write_M0_fitres(char *fileName) {
 
   // write M0 vs. z to fitres-formatted file.
   //
@@ -17400,7 +17415,7 @@ void  write_M0(char *fileName) {
   double z, zMIN, zMAX, VAL, ERR, dl, MUREF;
   char *tmpName, strval_OL[80], strval_w0[80];
   FILE *fp;
-  char fnam[] = "write_M0" ;
+  char fnam[] = "write_M0_fitres" ;
 
   // ---------- BEGIN -----------
 
@@ -17476,9 +17491,9 @@ void  write_M0(char *fileName) {
 
     zMIN   = INPUTS.BININFO_z.lo[iz] ;
     zMAX   = INPUTS.BININFO_z.hi[iz] ;
-	
+
     VAL   = FITRESULT.M0DIF[iz];
-    ERR   = FITRESULT.M0ERR[iz];
+    ERR   = FITRESULT.M0ERR[iz];	
 
     dl    = cosmodl_forFit(z, INPUTS.COSPAR) ;
     MUREF = 5.0*log10(dl) + 25.0 ;
@@ -17496,7 +17511,67 @@ void  write_M0(char *fileName) {
 
   return ;
 
-} // end write_M0
+} // end write_M0_fitres
+
+
+// ******************************************
+void  write_M0_csv(char *fileName) {
+
+  // Created Dec 4 2020
+  // write M0 vs. z to csv file ; formatted for input to CosmoMC
+  //
+
+  int iz ;
+  double z, M0DIF, M0ERR, dl, MUREF, MU, MUERR, zerr=0.0 ;
+  FILE *fp ;
+  char NAME[40];
+  char fnam[] = "write_M0_fitres" ;
+
+  // ---------- BEGIN -----------
+
+  if ( INPUTS.cutmask_write == -9 ) { return ; } // July 2016
+
+  fp = fopen(fileName,"wt");
+
+  if ( !fp )  {
+    sprintf(c1err,"Could not open M0-outFile");
+    sprintf(c2err,"%s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  fprintf(FP_STDOUT, "\n Write input HD for CosmoMC to %s\n" , fileName); 
+
+  // - - - - 
+  // write_version_info(fp);
+
+  
+  fprintf(fp,"# name   zcmb zhel zerr   mu muerr \n");
+
+  for(iz=0; iz < INPUTS.nzbin; iz++ ) {
+
+    sprintf(NAME,"BIN%2.2d", iz);
+
+    z   = INPUTS.BININFO_z.avg[iz] ;
+    if ( INPUTS.opt_biasCor > 0 ) { z = FITRESULT.zM0[iz]; }
+
+    M0DIF   = FITRESULT.M0DIF[iz];
+    M0ERR   = FITRESULT.M0ERR[iz];
+    dl    = cosmodl_forFit(z, INPUTS.COSPAR) ;
+    MUREF = 5.0*log10(dl) + 25.0 ;
+    
+    MU    = MUREF + M0DIF;
+    MUERR = M0ERR ;
+
+    fprintf(fp, "%s   %.5f %.5f %.1f   %.4f %.4f \n",
+	    NAME, z, z, zerr, MU, MUERR);
+    fflush(fp);
+  }
+
+  fclose(fp);
+
+  return ;
+
+} // end write_M0_csv
 
 
 // ******************************************

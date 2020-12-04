@@ -300,6 +300,8 @@ if zpecerr==0 then compute zpecerr from biasCor RMS(SIM_VPEC)
 zwin_vpec_check=0.01,0.05 [default] -> compute RMS(HR) for 0.01<z<0.05 
      using zHD and again with vpec sign-flip; 
      abort if sign-flip RMS(HR) is smaller than no flip.
+zwin_vpec_check=0,0 -> disable check on sign-flip.
+
 
 lensing_zpar --> add  "z*lensing_zpar" to sigma_int
 
@@ -497,8 +499,7 @@ Default output files (can change names with "prefix" argument)
              to avoid crash with WGT=1/ERR^2 = 1/0^2.
 
  Nov 22 2016: change error to MINOS error (avg of err+ and err-),
-              instead of parab errors. With low-stat samples,
-              errors seemed too small.
+              instead of parab errors. With low-stat samples,              errors seemed too small.
 
  Nov 26 2016: 
    Replace maxProbcc cut with weighted chi2_1a and weighted nfitsn1a
@@ -869,6 +870,10 @@ Default output files (can change names with "prefix" argument)
     + add IZBIN & M0ERR to output FITRES file -->
          enable re-binning for makeCOV
     + write Nz x Nz cov matrix to [prefix].cov
+
+ Dec 4 2020; 
+    allow passing output fitres file as input (recycling);
+    the original appended variables are excluded.
 
  ******************************************************/
 
@@ -7111,14 +7116,19 @@ void store_output_varnames(void) {
   //    only with the input VARNAMES.
   // + works on data only since only data are written out.
   // + Computed info stored in OUTPUT_VARNAMES struct.
-  
+  //
+  // Dec 4 2020: allow recylcing output fitres to input by chopping
+  //             out variables from CUTMASK to end of list.
+
   int  NFILE = INPUTS.nfile_data;
   //  int  MEMC  = MXCHAR_VARNAME * sizeof(char);
   int  ifile, ifile2, NVAR, NVAR2, MXVAR, NVAR_TOT; 
-  int  ivar_match, ivar, ivar2, NMATCH, i ;
+  int  ivar_match, ivar, ivar2, NMATCH, i, NVAR_KEEP ;
   char *varName, *varName2 ;
-  bool wildcard, MATCH ;
+  bool wildcard, MATCH, CHOP_VAR ;
   int LDMP = 0 ;
+
+  char FIRST_VARNAME_APPEND[] = "CUTMASK" ;
   char fnam[] = "store_output_varnames" ;
   // ------------- BEGIN ------------
   
@@ -7133,18 +7143,22 @@ void store_output_varnames(void) {
       { OUTPUT_VARNAMES.IVARMAP[ifile][ivar] = -888 ; }
   }
 
-	    
-
+ 
   // check trivial case with just one input file
   if ( NFILE == 1 ) {
     ifile = 0 ;
     NVAR = INFO_DATA.TABLEVAR.NVAR[ifile];
-    OUTPUT_VARNAMES.NVAR_TOT = NVAR;
+    CHOP_VAR = false;
     for(ivar=0; ivar < NVAR; ivar++ ) { 
       varName = INFO_DATA.TABLEVAR.VARNAMES_LIST[ifile][ivar];
+      if (strcmp(varName,FIRST_VARNAME_APPEND) == 0 ) { CHOP_VAR=true;}
+      if ( CHOP_VAR ) { break; }
       sprintf(OUTPUT_VARNAMES.LIST[ivar],"%s", varName);
       OUTPUT_VARNAMES.IVARMAP[ifile][ivar] = ivar ; 
+      NVAR_KEEP++ ;
     }
+
+    OUTPUT_VARNAMES.NVAR_TOT = NVAR_KEEP;
     return ;
   }
 
@@ -7158,6 +7172,8 @@ void store_output_varnames(void) {
   NVAR = INFO_DATA.TABLEVAR.NVAR[0];
   for(ivar=0; ivar < NVAR; ivar++ ) { 
     varName = INFO_DATA.TABLEVAR.VARNAMES_LIST[0][ivar];
+    if (strcmp(varName,FIRST_VARNAME_APPEND) == 0 ) { continue; }
+
     NMATCH  = 0 ; 
     for(ifile=0; ifile < NFILE; ifile++ ) {
       NVAR2 = INFO_DATA.TABLEVAR.NVAR[ifile] ;
@@ -7199,6 +7215,8 @@ void store_output_varnames(void) {
       NVAR = INFO_DATA.TABLEVAR.NVAR[ifile];
       for(ivar2=0; ivar2 < NVAR; ivar2++ ) {
 	varName2 = INFO_DATA.TABLEVAR.VARNAMES_LIST[ifile][ivar2] ;
+	if (strcmp(varName2,FIRST_VARNAME_APPEND) == 0 ) { continue; }
+
 	ivar_match = ivar_matchList(varName2, NVAR_TOT, 
 				    OUTPUT_VARNAMES.LIST );
 	if ( ivar_match >= 0 ) { continue; }

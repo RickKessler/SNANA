@@ -516,9 +516,10 @@ def merge_duplicates(versionInfo):
         d[key].append(val)
     
     duplicates = [k for k in d.keys() if len(d[k]) > 1]
-    logging.warn("Have %d duplicates for %s" % (len(duplicates), duplicates))
-    for sn in duplicates:
-        logging.warn("    %s %s" % (sn, d[sn])) 
+    ndupl      = len(duplicates)
+    print(f"\n Found {ndupl} duplicates:" )
+    for sn in duplicates :
+        print(f"    {sn} {d[sn]} ") 
 
     dup_dir = VOUT_TEXT + "/DUPLICATES"
     logging.info("Merging into %s" % dup_dir)

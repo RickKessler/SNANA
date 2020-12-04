@@ -24,6 +24,7 @@
 #      HISTORY
 #  ~~~~~~~~~~~~~~~
 # Nov 16 2020: protect GENOPT args with () -> \(\)
+# Dec 03 2020: replace legacy n_file_max=6 with global MAX_SIMGEN_INFILE=12
 #
 # ==========================================
 
@@ -52,6 +53,7 @@ SIMGEN_MASTERFILE_KEYLIST_NONIa = [
 
 SIMGEN_INPUT_LISTFILE = "INPUT_FILE.LIST" # contains list of input files
 
+MAX_SIMGEN_INFILE = 12
 
 RANSEED_KEYLIST = [ 'RANSEED_REPEAT', 'RANSEED_CHANGE' ]
 
@@ -674,7 +676,7 @@ class Simulation(Program):
         n_genversion   = self.config_prep['n_genversion']
         n_job_tot      = self.config_prep['n_job_tot']
         n_job_split    = self.config_prep['n_job_split']
-        n_file_max     =  6 # ??? need to evaluate
+        n_file_max     = MAX_SIMGEN_INFILE
         cidoff_list3d  = [[[0 for k in range(0,n_job_split)] for j in range(0,n_file_max)] for i in range(0,n_genversion)]
         cidran_max_list = [0] * n_genversion
         cidran_min      =    0
@@ -795,6 +797,8 @@ class Simulation(Program):
         cidran_max_list   = self.config_prep['cidran_max_list']
         n_job_tot         = self.config_prep['n_job_tot']
         ngentot_sum       = self.config_prep['ngentot_sum']
+        
+        msgerr = []
 
         print(f"")
         #print(f" DUMP CIDOFF vs. GENVERSION and MODEL/INFILE")
@@ -804,10 +808,16 @@ class Simulation(Program):
         for iver in range(0,n_genversion) :
             genv = genversion_list[iver]
             n_file = len(infile_list2d[iver])
+            if n_file > MAX_SIMGEN_INFILE :
+                msgerr.append(f"n_file[iver={iver}] = {n_file}")
+                msgerr.append(f"exceeds bound of MAX_SIMGEN_INFILE " \
+                              f"= {MAX_SIMGEN_INFILE}")
+                self.log_assert(False,msgerr)
+
             for ifile in range(0,n_file):
-                str_genv    = (f"{genv:20.20}")
-                str_model    = str(model_list2d[iver][ifile]) + '-' + str(ifile)
-                str_model    = (f"{str_model:8.8}")
+                str_genv   = (f"{genv:20.20}")
+                str_model  = str(model_list2d[iver][ifile]) + '-' + str(ifile)
+                str_model  = (f"{str_model:8.8}")
                 cidoff_list = cidoff_list3d[iver][ifile]
                 len_list    = len(cidoff_list)
                 if len_list < 6 :

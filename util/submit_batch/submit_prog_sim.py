@@ -595,9 +595,11 @@ class Simulation(Program):
 
         CONFIG          = self.config_yaml['CONFIG']
         input_file      = self.config_yaml['args'].input_file     # for msgerr
-        genopt_global = self.config_prep['genopt_global'].split()
-        key              = 'FORMAT_MASK'
-        format_mask      = -1 # init value
+        genopt_global   = self.config_prep['genopt_global'].split()
+        ngentot_sum     = self.config_prep['ngentot_sum'] 
+        key             = 'FORMAT_MASK'
+        format_mask     = -1 # init value
+        msgerr = []
 
         nkey = 0  
         if key in CONFIG :
@@ -608,8 +610,6 @@ class Simulation(Program):
             jindx       = genopt_global.index(key)
             format_mask = int(genopt_global[jindx+1])
             nkey += 1
-
-        msgerr = []
 
         if nkey != 1 :
             msgerr.append(f"Found {nkey} {key} keys;")
@@ -634,8 +634,20 @@ class Simulation(Program):
 
         print(f"  FORMAT_MASK = {format_mask} ({format}) ")
 
+        # check option for random CIDs
+        do_cidran  = (format_mask & FORMAT_MASK_CIDRAN) > 0
+        if do_cidran and ngentot_sum == 0 :
+            msgerr.append(f"Invalid NGENTOT_LC=0  with CIDRAN option " \
+                          f" (FORMAT_MASK += {FORMAT_MASK_CIDRAN}) ")
+            msgerr.append(f"Try one of the following:")
+            msgerr.append(f"  - FORMAT_MASK -= {FORMAT_MASK_CIDRAN}:")
+            msgerr.append(f"  - specify NGENTOT_LC")
+            msgerr.append(f"  - specify NGEN_UNIT")
+            self.log_assert(False,msgerr)
+
         self.config_prep['format_mask'] = format_mask
         self.config_prep['format']      = format_type        # TEXT or FITS
+        self.config_prep['do_cidran']   = do_cidran
 
         # end sim_prep_FORMAT_MASK
 
@@ -665,7 +677,7 @@ class Simulation(Program):
         INFILE_KEYS    = self.config_prep['INFILE_KEYS']
         genopt_global  = self.config_prep['genopt_global'].split()
         format_mask    = self.config_prep['format_mask']
-        do_cidran      = (format_mask & FORMAT_MASK_CIDRAN) > 0
+        do_cidran      = self.config_prep['do_cidran']
         ngentot_list2d = self.config_prep['ngentot_list2d'] # per split job
         infile_list2d  = self.config_prep['infile_list2d']
 

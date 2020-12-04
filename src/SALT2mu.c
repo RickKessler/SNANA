@@ -17410,7 +17410,8 @@ void  write_M0_fitres(char *fileName) {
   // Mar 26 2018: write MUREF column (NVAR->8)
   //
   // Oct 13 2019: check bad bins to write MUDIFERR_ZERO[EMPTY]
-
+  // Dec 02 2020: write redshift with %.5f instad of %.4f
+  //
   int iz, irow, NFIT ;
   double z, zMIN, zMAX, VAL, ERR, dl, MUREF;
   char *tmpName, strval_OL[80], strval_w0[80];
@@ -17500,7 +17501,7 @@ void  write_M0_fitres(char *fileName) {
     NFIT = FITINP.NZBIN_FIT[iz] ;
 
     fprintf(fp, "ROW:     "
-	    "%2d  %7.4f %7.4f %7.4f  "
+	    "%2d  %7.5f %7.5f %7.5f  "
 	    "%9.4f %9.4f  %.4f %4d\n",
 	    irow, zMIN, zMAX, z, 
 	    VAL, ERR, MUREF, NFIT );

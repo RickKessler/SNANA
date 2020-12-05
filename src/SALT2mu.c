@@ -17617,7 +17617,7 @@ void write_covfit(char *fileName) {
       if ( iMN0 >=0 && iMN1 >= 0 ) 
 	{ COV = FITRESULT.COVMAT[iMN0][iMN1]; }
       else
-	{ COV = 0.0 ; }
+	{ COV = 1.05 ; }
 
       fprintf(fp, "%le\n", COV);
       

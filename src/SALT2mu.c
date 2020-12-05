@@ -2017,7 +2017,7 @@ void  print_eventStats(int event_type);
 void  outFile_driver(void);
 void  write_M0_fitres(char *fileName);
 void  write_M0_csv(char *fileName);  
-void  write_covfit(char *fileName) ;
+void  write_M0_cov(char *fileName) ;
 void  write_MUERR_INCLUDE(FILE *fp) ;
 void  write_NWARN(FILE *fp, int FLAG) ;
 
@@ -7152,9 +7152,8 @@ void store_output_varnames(void) {
  
   // check trivial case with just one input file
   if ( NFILE == 1 ) {
-    ifile = 0 ;
+    ifile = 0 ;    NVAR_KEEP=0;    CHOP_VAR = false;  
     NVAR = INFO_DATA.TABLEVAR.NVAR[ifile];
-    CHOP_VAR = false;
     for(ivar=0; ivar < NVAR; ivar++ ) { 
       varName = INFO_DATA.TABLEVAR.VARNAMES_LIST[ifile][ivar];
       if (strcmp(varName,FIRST_VARNAME_APPEND) == 0 ) { CHOP_VAR=true;}
@@ -17265,7 +17264,7 @@ void outFile_driver(void) {
     prep_blindVal_strings();
     write_fitres_driver(tmpFile1);  // write result for each SN
     write_M0_fitres(tmpFile2);      // write M0 vs. redshift
-    write_covfit(tmpFile3);         // write cov_stat matrix for CosmoMC
+    write_M0_cov(tmpFile3);         // write cov_stat matrix for CosmoMC
 
     // for single JOBID_SPLITRAN, write fitpar file so that they
     // can be scooped up later to make summary.
@@ -17576,10 +17575,10 @@ void  write_M0_csv(char *fileName) {
 
 
 // ******************************************
-void write_covfit(char *fileName) {
+void write_M0_cov(char *fileName) {
 
   // Created Dec 2, 2020
-  // write cov_stat (Nz x Nz) from fit to text file.
+  // write M0 cov_stat (Nz x Nz) from fit to text file.
   // Write format for CosmoMC to read:
   //
 
@@ -17587,7 +17586,7 @@ void write_covfit(char *fileName) {
   int iz, ipar0, ipar1, iMN0, iMN1 ;
   double COV ;
   FILE *fp;
-  char fnam[] = "write_covfit" ;
+  char fnam[] = "write_M0_cov" ;
 
   // ---------- BEGIN -----------
 
@@ -17609,6 +17608,8 @@ void write_covfit(char *fileName) {
   fprintf(fp,"%d\n", INPUTS.nzbin );
 
   for ( ipar0=MXCOSPAR ; ipar0 < NFITPAR_ALL ; ipar0++ ) {
+
+    printf("# ---------- begin row %d ------------ \n", ipar0);
     for ( ipar1=MXCOSPAR ; ipar1 < NFITPAR_ALL ; ipar1++ ) {
 
       //    iz  = INPUTS.izpar[ipar] ; 
@@ -17616,20 +17617,22 @@ void write_covfit(char *fileName) {
       iMN1 = FITINP.IPARMAPINV_MN[ipar1];
       if ( iMN0 >=0 && iMN1 >= 0 ) 
 	{ COV = FITRESULT.COVMAT[iMN0][iMN1]; }
-      else
-	{ COV = 1.05 ; }
+      else  { 
+	COV = 0.0 ;
+	if ( ipar0==ipar1 ) { COV = 1.0E5 ; } // huge for diagonal
+      }
 
-      fprintf(fp, "%le\n", COV);
-      
-    }
-  }
+      fprintf(fp, "%le\n", COV);      
+    } // end ipar1
+    fflush(fp);
+  }  // end ipar0
 
 
   fclose(fp);
 
   return ;
 
-} // end write_covfit
+} // end write_M0_cov
 
 
 // ******************************************

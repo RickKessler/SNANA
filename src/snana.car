@@ -283,7 +283,7 @@ c
      &  ,MXCHAR_PARNAME    = 20   ! max len of parameter name
      &  ,MXCHAR_CUTNAME    = 160  ! to define cut names
      &  ,MXCHAR_FILEWORD   =  60  ! size of FILEWORD_LIST
-     &  ,MXCHAR_ARG        = 600  ! max lenth of command line arg
+     &  ,MXCHAR_ARG        = 800  ! max lenth of command line arg
      &  ,MXFILE_LIST       =  10  ! max number of files in input list
 c
      &  ,FLAG_DOCANA_START  =  1  ! flags DOCUMENTATION key
@@ -3192,14 +3192,17 @@ c Parse command-line arguments and store in LINE_ARGS array.
 c (code moved from main)
 c
 c May 2019: check option to call DUMP_SNANA_VERSION
+c Dec 2020: abort on ARG string length too long.
 
       IMPLICIT NONE
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
-      INTEGER i
-      CHARACTER ARG1*(MXCHAR_FILENAME), ARG2*(MXCHAR_FILENAME)
-
+      INTEGER i, LL
+      CHARACTER ARG1*(MXCHAR_ARG), ARG2*(MXCHAR_ARG)
+      CHARACTER FNAM*20
 C ------------------- BEGIN ---------------
+
+      FNAM = 'PARSE_SNANA_ARGS'
 
       NLINE_ARGS = IARGC()  ! intrinsic fortran function
       IF ( NLINE_ARGS .GT. MXLINE_ARGS ) THEN
@@ -3210,14 +3213,25 @@ C ------------------- BEGIN ---------------
          CALL  MADABORT("PARSE_SNANA_ARGS", C1ERR, C2ERR)
       ENDIF
 
+c abort on bad string length
+      DO i = 1, NLINE_ARGS
+        CALL GETARG(i, ARG1)
+
+	if ( ARG1(MXCHAR_ARG:MXCHAR_ARG) .NE. ' ' ) then
+	   CALL PRINT_PREABORT_BANNER(FNAM//char(0),20)
+           print*,'  ARG = ', ARG1
+           c1err = 'String length too long for command-line ARG ' //
+     &             ' (see above)'
+           write(c2err, '(A,I6)' ) 'MXCHAR_ARG = ', MXCHAR_ARG
+           CALL MADABORT(FNAM, c1err, c2err)
+        endif
+
+        USE_LINE_ARGS(i) = .FALSE.
+      ENDDO
+
       
       CALL GETARG(1, ARG1)
       CALL GETARG(2, ARG2)
-
-      DO i = 1, NLINE_ARGS
-c xxxx        CALL GETARG(i, LINE_ARGS(i) )
-        USE_LINE_ARGS(i) = .FALSE.
-      ENDDO
 
 c check option to dump SNANA version and SNANA_DIR 
 c (for SNANA_CodeTests.py)

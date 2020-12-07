@@ -878,6 +878,9 @@ Default output files (can change names with "prefix" argument)
     allow passing output fitres file as input (recycling);
     the original appended variables are excluded.
 
+ Dec 6, 2020: write muerr_renorm to output such that sum of WGT
+              in each z-bin matches 1/M0DIFERR^2.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1287,7 +1290,7 @@ typedef struct {
 struct {
   TABLEVAR_DEF TABLEVAR;
 
-  double *mumodel, *M0, *mu, *muerr, *muerr_raw, *muerr_vpec;
+  double *mumodel, *M0, *mu, *muerr, *muerr_renorm, *muerr_raw, *muerr_vpec;
   double *mures, *mupull;
   double *muerr_last, *muerrsq_last, *sigCC_last, *sqsigCC_last ;
   double *muCOVscale, *muBias, *muBiasErr, *muBias_zinterp; 
@@ -2055,9 +2058,9 @@ double rombint(double f(double z, double *cosPar),
 
 double avemag0_calc(int opt_dump);
 void   M0dif_calc(void) ;
-void   M0dif_rebin_check(void);
 double fcn_M0(int n, double *M0LIST );
 
+void   muerr_renorm(void);
 void   printCOVMAT(FILE *fp, int NPAR, int NPARz_write);
 double fcn_muerrsq(char *name,double alpha,double beta, double gamma,
 		   double (*COV)[NLCPAR], double z, double zerr, int dumpFlag);
@@ -2518,15 +2521,14 @@ int SALT2mu_DRIVER_SUMMARY(void) {
 
   // print reduced COV matrix
   printCOVMAT(FP_STDOUT, FITINP.NFITPAR_FLOAT, 999);
-  
+
+  // renormalize individual MUERR values so that weighted
+  // variance in each z-bin matches fitted M0DIFERR
+  muerr_renorm();
+
   // ------------------------------------------------
   // check files to write
   outFile_driver();
-
-  // Dev 2020: idiot check on rebinning to get M0 and M0ERR per z bin
-  // for diagnostic only  M0dif_rebin_check();
-
-  // xxxx mark delete  t_end_fit = time(NULL);
 
   //---------
   if ( NJOB_SPLITRAN < INPUTS.NSPLITRAN  &&  INPUTS.JOBID_SPLITRAN<0 ) 
@@ -4107,6 +4109,8 @@ void *MNCHI2FUN(void *thread) {
       // check option to add log(sigma) term for 5D biasCor
       if ( INPUTS.fitflag_sigmb == 2 ) 
       	{ chi2evt  += log(muerrsq/muerrsq_last); } 
+
+      if ( iflag == 3 ) { INFO_DATA.probcc_beams[n] = 0.0 ; } // Dec 2020
     } 
     
     if ( USE_CCPRIOR  ) {
@@ -8616,7 +8620,6 @@ void prepare_biasCor(void) {
 
   // get wgted-average z in each user redshift bin for M0-vs-z output
   calc_zM0_biasCor();
-
 
   // ----------------------------------------------------------------
   // -------- START LOOP OVER SURVEY/FIELDGROUP SUB-SAMPLES ---------
@@ -17583,7 +17586,7 @@ void write_M0_cov(char *fileName) {
   //
 
   int NFITPAR_ALL =  FITINP.NFITPAR_ALL ;
-  int iz, ipar0, ipar1, iMN0, iMN1 ;
+  int iz0, iz1, ipar0, ipar1, iMN0, iMN1 ;
   double COV ;
   FILE *fp;
   char fnam[] = "write_M0_cov" ;
@@ -17609,10 +17612,15 @@ void write_M0_cov(char *fileName) {
 
   for ( ipar0=MXCOSPAR ; ipar0 < NFITPAR_ALL ; ipar0++ ) {
 
-    printf("# ---------- begin row %d ------------ \n", ipar0);
+    iz0  = INPUTS.izpar[ipar0] ; 
+    if ( iz0 >= INPUTS.nzbin ) { continue; }
+
+    fprintf(fp, "# ---------- begin row %d ------------ \n", iz0 );
     for ( ipar1=MXCOSPAR ; ipar1 < NFITPAR_ALL ; ipar1++ ) {
 
-      //    iz  = INPUTS.izpar[ipar] ; 
+      iz1  = INPUTS.izpar[ipar1] ; 
+      if ( iz1 >= INPUTS.nzbin ) { continue; }
+
       iMN0 = FITINP.IPARMAPINV_MN[ipar0];
       iMN1 = FITINP.IPARMAPINV_MN[ipar1];
       if ( iMN0 >=0 && iMN1 >= 0 ) 
@@ -18235,16 +18243,17 @@ void define_varnames_append(void) {
   NVAR_APPEND = 0 ;
   if ( INPUTS.cat_only) { return; }
 
-  sprintf(VARNAMES_APPEND[NVAR_APPEND],"CUTMASK");     NVAR_APPEND++ ;  
-  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MU");          NVAR_APPEND++ ;  
-  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUMODEL");     NVAR_APPEND++ ;  
-  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR");       NVAR_APPEND++ ;  
-  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_RAW");   NVAR_APPEND++ ;  
-  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_VPEC");  NVAR_APPEND++ ;  
-  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MURES");       NVAR_APPEND++ ;  
-  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUPULL");      NVAR_APPEND++ ;  
-  sprintf(VARNAMES_APPEND[NVAR_APPEND],"M0DIF");       NVAR_APPEND++ ;  
-  sprintf(VARNAMES_APPEND[NVAR_APPEND],"M0DIFERR");    NVAR_APPEND++ ;  
+  sprintf(VARNAMES_APPEND[NVAR_APPEND],"CUTMASK");      NVAR_APPEND++ ;  
+  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MU");           NVAR_APPEND++ ;  
+  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUMODEL");      NVAR_APPEND++ ;  
+  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR");        NVAR_APPEND++ ;  
+  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_RENORM"); NVAR_APPEND++ ;  
+  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_RAW");    NVAR_APPEND++ ;  
+  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUERR_VPEC");   NVAR_APPEND++ ;  
+  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MURES");        NVAR_APPEND++ ;  
+  sprintf(VARNAMES_APPEND[NVAR_APPEND],"MUPULL");       NVAR_APPEND++ ;  
+  sprintf(VARNAMES_APPEND[NVAR_APPEND],"M0DIF");        NVAR_APPEND++ ;  
+  sprintf(VARNAMES_APPEND[NVAR_APPEND],"M0DIFERR");     NVAR_APPEND++ ;  
 
   if ( INFO_CCPRIOR.USE ) 
     { sprintf(tmpName,"CHI2_BEAMS"); }
@@ -18637,7 +18646,7 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   // Dec 02 2020: write izbin
 
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
-  double mu, muerr, muerr_raw, muerr_vpec, mumodel, mures, pull;
+  double mu, muerr, muerr_renorm, muerr_raw, muerr_vpec, mumodel, mures, pull;
   double M0DIF, M0ERR ;
   double muBias=0.0, muBiasErr=0.0,  muCOVscale=0.0, chi2=0.0 ;
   double fitParBias[NLCPAR] = { 0.0, 0.0, 0.0 } ;
@@ -18658,15 +18667,16 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   //  z        = INFO_DATA.TABLEVAR.zhd[n] ;  
   //  zerr     = INFO_DATA.TABLEVAR.zhderr[n] ;
   mumodel    = INFO_DATA.mumodel[n];
-  mu         = INFO_DATA.mu[n] - FITRESULT.SNMAG0; 
-  muerr      = INFO_DATA.muerr[n];
-  muerr_raw  = INFO_DATA.muerr_raw[n] ;
-  muerr_vpec = INFO_DATA.muerr_vpec[n] ;
-  mures      = INFO_DATA.mures[n] ;
-  pull       = INFO_DATA.mupull[n] ;
-  M0DIF      = INFO_DATA.M0[n] - FITRESULT.AVEMAG0 ;
-  M0ERR      = FITRESULT.M0ERR[izbin];
-  chi2       = INFO_DATA.chi2[n] ;
+  mu            = INFO_DATA.mu[n] - FITRESULT.SNMAG0; 
+  muerr         = INFO_DATA.muerr[n];
+  muerr_renorm  = INFO_DATA.muerr_renorm[n];
+  muerr_raw     = INFO_DATA.muerr_raw[n] ;
+  muerr_vpec    = INFO_DATA.muerr_vpec[n] ;
+  mures         = INFO_DATA.mures[n] ;
+  pull          = INFO_DATA.mupull[n] ;
+  M0DIF         = INFO_DATA.M0[n] - FITRESULT.AVEMAG0 ;
+  M0ERR         = FITRESULT.M0ERR[izbin];
+  chi2          = INFO_DATA.chi2[n] ;
 
   //  sim_mb   = INFO_DATA.TABLEVAR.SIM_FITPAR[INDEX_mB][n] ;
   //  sim_mu   = INFO_DATA.TABLEVAR.SIM_MU[n] ;
@@ -18685,17 +18695,18 @@ void write_fitres_line_append(FILE *fp, int indx ) {
   if (pull > 99.999) { pull=99.999; }
   
   NWR=0;  line[0] = 0 ;
-  sprintf(word, "%d ",    cutmask);   NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", mu     );   NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", mumodel);   NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", muerr  );   NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", muerr_raw );   NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", muerr_vpec );  NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", mures  );   NWR++ ; strcat(line,word);
-  sprintf(word, "%6.3f ", pull   );   NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", M0DIF  );   NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", M0ERR  );   NWR++ ; strcat(line,word);
-  sprintf(word, "%.2f ",  chi2   );   NWR++ ; strcat(line,word);
+  sprintf(word, "%d ",    cutmask);       NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", mu     );       NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", mumodel);       NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", muerr  );       NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", muerr_renorm ); NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", muerr_raw );    NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", muerr_vpec );   NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", mures  );       NWR++ ; strcat(line,word);
+  sprintf(word, "%6.3f ", pull   );       NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", M0DIF  );       NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", M0ERR  );       NWR++ ; strcat(line,word);
+  sprintf(word, "%.2f ",  chi2   );       NWR++ ; strcat(line,word);
 
   if ( INFO_CCPRIOR.USE ) { 
     sprintf(word,"%.3e ", INFO_DATA.probcc_beams[n]);  NWR++; 
@@ -18827,29 +18838,43 @@ void  M0dif_calc(void) {
 
 
 // *********************************************
-void M0dif_rebin_check(void) {
+void muerr_renorm(void) {
 
-  // Created Dec 1 2020
+
+  // Created Dec  2020
+  //
+  // Compute *muerr_renorm for each event such that
+  // in each BBC redshift bin,
+  //
+  //    sum [1/muerr_renorm^2] = 1/M0DIFERR^2
+  //
+  // Use constant scale within each redshift bin until somebody
+  // figures out a better recipe.
+  // 
+  // As a diagnostic crosscheck:
   // For each z-bin, use unbinned values to compute weighted 
-  // M0DIF-mean and M0DIF-error; print table showing comparison
-  // between fitted and computed (check) values.
-  // This is only a diagnostic and is not used for anything 
-  // in BBC or in downstream Cosmology fitters.
+  // M0DIF-mean and M0DIF-error; flag discrepancies > 0.001 mag.
 
   int NSN_DATA   = INFO_DATA.TABLEVAR.NSN_ALL ;  
+  int MEMD       = NSN_DATA * sizeof(double);
   int iz, isn, cutmask ;
-  double SUM_WGT[MXz], SUM_M0[MXz], M0DIF_check[MXz], M0ERR_check[MXz];
-  double mumodel, mu, muerr, mures, M0DIF, WGT, ratio ;
-  double tol_warn = 0.01;
-  char star_avg[2], star_err[2];
-  char fnam[] = "M0dif_rebin_check" ;
+  double SUM_WGT[MXz], SUM_MURES[MXz], MURES_check[MXz], M0ERR_check[MXz];
+  double RATIO_MUERR[MXz], DIF_MURES[MXz];
+  double mumodel, mu, muerr, mures, WGT, ratio, dif, pcc, pia ;
+  double tol_warn = 0.001;
+  char star_mures[2] ;
+  char fnam[] = "muerr_renorm" ;
 
   // --------- BEGIN -----------
 
-  for(iz=0; iz < MXz; iz++ ) 
-    { SUM_WGT[iz] = SUM_M0[iz] = 0.0 ; }
+  printf("\n  %s: compute MUERR_RENORM to preserve M0DIF wgt per z bin\n",
+	 fnam );
+  fflush(stdout);
 
-  // .xyz
+  INFO_DATA.muerr_renorm = (double*) malloc(MEMD);
+
+  for(iz=0; iz < MXz; iz++ )  { SUM_WGT[iz] = SUM_MURES[iz] = 0.0 ; }
+
   for(isn=0; isn < NSN_DATA; isn++ ) {
 
     cutmask    = INFO_DATA.TABLEVAR.CUTMASK[isn]  ;
@@ -18860,48 +18885,84 @@ void M0dif_rebin_check(void) {
     mu         = INFO_DATA.mu[isn] - FITRESULT.SNMAG0; 
     muerr      = INFO_DATA.muerr[isn];
     mures      = INFO_DATA.mures[isn] ;
-    M0DIF      = INFO_DATA.M0[isn] - FITRESULT.AVEMAG0 ;
+    pia        = 1.0 - INFO_DATA.probcc_beams[isn];
 
-    WGT          = 1.0 / (muerr*muerr) ;
-    SUM_WGT[iz] += WGT;
-    SUM_M0[iz]  += (mu-mumodel-mures) * WGT ;
+    // xxxx    pia = 1.0 ; // xxx REMOVE
+
+    WGT             = pia / (muerr*muerr) ;
+    SUM_WGT[iz]    += WGT;
+    SUM_MURES[iz]  += (mures * WGT) ;
     
   } // end isn
 
-  printf("\n  Check rebinning of unbinned results:\n");
-  printf("     izbin  <z>  M0DIF(fit/check)   M0DIFERR(fit/check) \n");
-  printf("  ---------------------------------------------------------- \n");
 
+  // - - - - -
+  // compute diagnostic for each z bin
+  for(iz=0; iz < INPUTS.nzbin ; iz++ ) {
+    RATIO_MUERR[iz] = 0.0;
+    DIF_MURES[iz]   = 0.0;
+    if ( SUM_WGT[iz] == 0.0 ) { continue ; }
+
+    MURES_check[iz] = SUM_MURES[iz] / SUM_WGT[iz] ;
+    M0ERR_check[iz] = 1.0 / sqrt(SUM_WGT[iz]) ;
+
+    RATIO_MUERR[iz] = M0ERR_check[iz] / FITRESULT.M0ERR[iz] ;
+    DIF_MURES[iz]   = MURES_check[iz] ; 
+  }
+
+  // .xyz
+
+  // - - - - - 
+  // loop over data again and compute muerr_renorm
+  for(isn=0; isn < NSN_DATA; isn++ ) {
+    cutmask    = INFO_DATA.TABLEVAR.CUTMASK[isn]  ;
+    if ( cutmask ) { continue; }
+    muerr      = INFO_DATA.muerr[isn];
+    iz         = INFO_DATA.TABLEVAR.IZBIN[isn] ;
+    ratio      = RATIO_MUERR[iz];
+    INFO_DATA.muerr_renorm[isn] = muerr/ratio ;
+  }
+
+
+  // print stuff
+  int NERR = 0 ;
   for(iz=0; iz < INPUTS.nzbin ; iz++ ) {
     if ( SUM_WGT[iz] == 0.0 ) { continue ; }
 
-    M0DIF_check[iz] = SUM_M0[iz] / SUM_WGT[iz];
-    M0ERR_check[iz] = 1.0 / sqrt(SUM_WGT[iz]) ;
+    ratio = RATIO_MUERR[iz];
+    dif   = DIF_MURES[iz];
 
-    sprintf(star_avg," ");
-    sprintf(star_err," ");
+    sprintf(star_mures," ");
+    if ( fabs(dif) > tol_warn ) { NERR++; sprintf(star_mures,"*"); }
 
-    ratio = M0DIF_check[iz]/FITRESULT.M0DIF[iz] ;
-    if ( fabs(ratio-1.0) > tol_warn ) { sprintf(star_avg,"*"); }
+    printf("\t iz=%2d  <z>=%.3f  muerr *= %.3f  [MURES check = %7.4f%s]\n", 
+	   iz, INPUTS.BININFO_z.avg[iz], 1.0/ratio, dif, star_mures );
+    fflush(stdout);
 
-    ratio = M0ERR_check[iz]/FITRESULT.M0ERR[iz] ;
-    if ( fabs(ratio-1.0) > tol_warn ) { sprintf(star_err,"*"); }
-
-    printf("     %2d  %6.4f   %7.4f/%7.4f%s   %7.4f/%7.4f%s \n",
+    /* xxx
+    printf("     %2d  %6.4f   %7.4f/%7.4f%s  \n",
 	   iz, INPUTS.BININFO_z.avg[iz],
-	   FITRESULT.M0DIF[iz], M0DIF_check[iz], star_avg,
-	   FITRESULT.M0ERR[iz], M0ERR_check[iz], star_err );
+	   FITRESULT.M0DIF[iz], M0DIF_check[iz], star_avg );
+    */
+
     fflush(stdout);	   
   }
 
-  printf("  ---------------------------------------------------------- \n");
-  printf("    * | check/fit - 1 | > %.3f \n", tol_warn);
 
+  if ( NERR > 0 ) {
+    printf(" WARNING: %d of %d z bins fail M0DIF check with tol=%f \n",
+	   NERR, INPUTS.nzbin, tol_warn );
+  }
+
+
+  
   fflush(stdout);
 
   return ;
 
-} // end M0dif_rebin_check
+} // end muerr_renorm
+
+
 
 // *********************************************
 void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {

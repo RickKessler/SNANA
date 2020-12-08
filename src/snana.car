@@ -2012,6 +2012,7 @@ c
      &  ,USESIM_TRUEFLUX     ! SNLC_FLUXCAL -> SIM_FLUXCAL 
      &  ,RESTORE_DES3YR      ! restore code from DES3YR
      &  ,RESTORE_WRONG_VPEC  ! restore incorrect VPEC sign correction
+     &  ,READ_SPECTRA        ! flag to read spectra
 
 c LC plot info
 
@@ -2090,6 +2091,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
      &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, REQUIRE_DOCANA
+     &    , READ_SPECTRA
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -2136,6 +2138,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND
      &    , USESIM_SNIA, USESIM_SNCC, USESIM_TRUEFLUX, USE_SNHOST_ZPHOT
      &    , RESTORE_DES3YR, RESTORE_WRONG_VPEC, REQUIRE_DOCANA
+     &    , READ_SPECTRA
      &    , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD
      &    , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY
      &    , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT
@@ -3576,6 +3579,7 @@ c default is to reject nothing (accept everything)
 cc xxx      RESTORE_WRONG_VPEC = .TRUE.  ! Oct 26 2020
       RESTORE_WRONG_VPEC = .FALSE.  ! Nov 3 2020
       REQUIRE_DOCANA     =  0      ! use integer to match sim usage
+      READ_SPECTRA       = .TRUE.
 
       USE_SNHOST_ZPHOT = .FALSE.
       USE_MWCOR        = .FALSE.  ! apply MWCOR to fit-model
@@ -3981,11 +3985,9 @@ C #################################################
       CALL  MADABORT(FNAM, C1ERR, C2ERR )
       GOTO 990
 
-
 990   IERR = -1
       RETURN
       END  ! end of RDSNNML
-
 
 
 C ======================================
@@ -4755,10 +4757,15 @@ c   + double string length for LINE_ARGS and ARGLIST to allow for
 c     long comma-sep strings.
 c
 c Nov 23 2020: read OPT_YAML
-c 
+c
+c Dec 08 2020: 
+c   + fix bug setting USE_LINE_ARGS(iuse) to trap bad args.
+c     last few months we were vulnerable to bad args that were
+c     ignored instead of causing abort.
+c
 c ----------
 
-      IMPLICIT NONE
+      IMPLICIT  NONE
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
@@ -4768,6 +4775,7 @@ c local var
       CHARACTER STRING_LIST*60
       CHARACTER ARG*(MXCHAR_ARG), ARGLIST(MXKEY_ARGS)*(MXCHAR_ARG)
       LOGICAL LSNIGNORE, DO_STOP, FOUND_MATCH_LEGACY, FOUND_MATCH_REFAC
+      LOGICAL HAS_EQUAL, VALID_ARGLIST, LDMP
 
 c functions
       LOGICAL MATCH_NMLKEY
@@ -4775,18 +4783,23 @@ c functions
 
 c ------------- BEGIN -------------
 
+      LDMP = .FALSE. 
       iArg = 2 ;   ilast = 2 ;      NVERLOC = 0
 
       DO 4444 WHILE ( iArg .LE. NLINE_ARGS )
 
         CALL GETARG(iArg, ARG)
         LL = INDEX (ARG, ' ' ) - 1
+        HAS_EQUAL = ( INDEX(ARG,'=') > 0 )
 
         print*,'     PROCESS COMMAND LINE ARG: ', ARG(1:LL)
 
-        CALL FLUSH(6)
+        if ( LDMP ) then
+          print*,' xxx ===================================== '
+          print*,' xxx iArg,ARG = ', iArg, ARG(1:40)
+        endif
 
-cc        print*,' xxx MATCH_NMLKEY iArg = ', iArg
+        CALL FLUSH(6)
         ARGLIST(1) = ''
 
          if ( MATCH_NMLKEY('VERSION_PHOTOMETRY',1,iArg,ARGLIST) ) then
@@ -5023,6 +5036,10 @@ c - - - - -
          else if ( MATCH_NMLKEY('REQUIRE_DOCANA',
      &             1, iArg, ARGLIST) ) then 
            READ(ARGLIST(1),*) REQUIRE_DOCANA
+
+         else if ( MATCH_NMLKEY('READ_SPECTRA',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) READ_SPECTRA
 
          else if ( MATCH_NMLKEY('USE_MWCOR',
      &             1, iArg, ARGLIST) ) then 
@@ -5544,11 +5561,29 @@ c          is NOT filled.
 c ?????????????
 
 c set logical flag for used LINE_ARGS 
-        FOUND_MATCH_LEGACY = ( iArg .GT. ilast )
-        FOUND_MATCH_REFAC  = ( iArg .EQ. ilast .and. ARGLIST(1) .NE. '')
+c   _LEGACY is for "KEY VAL" (space separated)
+c   _REFAC  is for "KEY=VAL" (single string)
+
+        VALID_ARGLIST = .TRUE.
+        if ( ARGLIST(1) .EQ. ''     ) VALID_ARGLIST = .FALSE.
+        if ( ARGLIST(1) .EQ. 'NULL' ) VALID_ARGLIST = .FALSE.
+
+        FOUND_MATCH_LEGACY = 
+     &    ( iArg .GT. ilast )
+        FOUND_MATCH_REFAC  = 
+     &    ( iArg .EQ. ilast .and. HAS_EQUAL .and. VALID_ARGLIST )
+
+        if ( LDMP ) then
+           print*,' xxx - - - - - - - - '
+           print*,' xxx  LEGACY,REFAC = ', 
+     &          FOUND_MATCH_LEGACY, FOUND_MATCH_REFAC
+           print*,' xxx  ilast, iArg = ', ilast, iArg
+           print*,' xxx  ARGLIST(1)  = ', ARGLIST(1)(1:40)
+        endif
 
          IF ( FOUND_MATCH_LEGACY .or. FOUND_MATCH_REFAC) THEN
            DO iuse = ilast, iArg
+c              print*,' xxx  load USE_ARG for ', iuse
               USE_LINE_ARGS(iuse) = .TRUE.
            ENDDO
          ENDIF
@@ -8625,7 +8660,7 @@ C ------------------ BEGIN --------------
       FNAM = 'CHECK_LINE_ARGS'
 
       DO i = 2, NLINE_ARGS
-
+         
          if ( .NOT. USE_LINE_ARGS(i) ) then
             NBAD = NBAD + 1
 
@@ -12757,6 +12792,7 @@ c check for end of photometry and existence of SPECTRA
          endif
 
          IF ( END_PHOTOMETRY .and. ISKEY_SPEC ) THEN
+	    if ( .not. READ_SPECTRA ) goto 201  ! Dec 2020
             CALL PARSE_SPECTRUM_TEXT ( cwd, istat )
          ENDIF
 

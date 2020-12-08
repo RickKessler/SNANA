@@ -4536,7 +4536,7 @@ void wr_fits_HEAD(fitsfile *fp) {
   
     istat = 0 ;
     // xxxx sprintf(MSG,"Filter name; SURVEY=%s", FILTER[ifilt].SURVEY_NAMES);
-    sprintf(MSG,"Filter; SURVEY=%s", FILTER[ifilt].SURVEY_NAMES);
+    sprintf(MSG,"name; SURVEY=%s", FILTER[ifilt].SURVEY_NAMES);
     fits_update_key(fp, TSTRING, KEYNAME, FILTER[ifilt].name,
 		    MSG, &istat );    
    }

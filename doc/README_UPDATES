@@ -19298,6 +19298,21 @@
     kcor-input files require SURVEY keys for each MAGSYSTEM
        (needed only for calib shifts passed from SALT2 training)
 
+    snana, snlc_fit:
+      Fixed bug trapping invalid command-line args. Last few months were
+      vulnerable to invalid args that were ignored instead of causing abort.
+
+    snlc_sim: 
+      + fix nasty bug overriding HOSTLIB_MSKOPT on command line;
+        it was appending MSKOPT bits instead of overriding MSKOPT.
+      + Fix BYOSED bugs related to smear models G10 and C11
+
+    SALT2mu.c: write Nz x Nz cov_stat matrix to [prefix].cov.
+               Same format used by CosmoMC to read cov_syst.
+
+    combine_dataVersions.py :
+      + avoids duplicate filters if multiple surveys use same FILTPATH
+
          ***** USEFUL(v11_02c) ***** 
 
          ***** MISCELLANEOUS(v11_02c) ***** 
@@ -19326,5 +19341,22 @@
 
    sntable_dump.c
      + fix to work with SNANA table.
+
+   SALT2mu.c:
+     + add IZBIN to output FITRES file.
+     + write [prefix].cov (Nz x Nz bins)
+     + enable recylce of output fitres to input fitres
+     + new write_csv=1 option to write M0DIF for CosmoMC
+     + write MUERR_RENORM to output fitres file.
+
+   submit_prog_sim.py:
+     + protect against ngentot_lc=0 and do_cidran
+
+   snana.car
+     + MXCHAR_ARG -> 800 (was 600)
+     + abort if any command line ARG exceeds MXCHAR_ARG
+
+   remove obsolete util/createCov.py
+   add refactored  util/create_covariance.py (from Sam/pippin)
 
 END: 

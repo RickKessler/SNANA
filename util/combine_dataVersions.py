@@ -50,6 +50,9 @@
 #
 #  Nov 16 2019 RK - bug fix writing AB_SED and BD17_SED
 #
+#  Dec 08 2020 RK - fix to properly handle multiple surveys using
+#                    same filters
+#
 # ====================================
 
 import os, sys
@@ -102,49 +105,106 @@ def parseLines(Lines,key,narg,vbose):
 
 
 def change_filterChar(versionInfo,kcorInfo):
-    nver=0    # version index = kcor index
-    for kcor in kcorInfo :
-        # check of this filter/system has changed since last one
-        new = 1
 
-        if ( nver > 0 ):
-            new=0
-            if kcor.MAGSYSTEM != kcor_last.MAGSYSTEM:
-                new=1
-            if kcor.FILTSYSTEM != kcor_last.FILTSYSTEM:
-                new=1
-            if kcor.FILTPATH != kcor_last.FILTPATH:
-                new=1
+    print(f"\n Change filter characters:")
 
-        kcorInfo[nver].NEW = new   
-        kcor_last = kcor
-        
-        for line in kcor.FILTER :
+    nver = len(kcorInfo)
+    for iver in range(0,nver):
+
+        kcor = kcorInfo[iver]
+
+        # check of this filter/system is new, or a repeat
+        iver_use  = kcor.ikcor_use
+        new       = (iver_use == iver)
+        kcor_use  = kcorInfo[iver_use] 
+
+        #print(f" xxx iver={iver} iver_use={iver_use}  new={new}")
+
+        ifilt = 0
+        for line in kcor_use.FILTER :
             filter_name  = line[0]  # full name of filter
+
             N = versionInfo.NFILTER_TOT
             filter_oldChar = filter_name[-1]     # current filter char
-            filter_newChar = FILTER_CHARLIST[N]  # new new character for filter
-            versionInfo.FILTER_CHARLIST_OLD += filter_oldChar
-            versionInfo.FILTER_CHARLIST_NEW += filter_newChar
-            versionInfo.NFILTER_TOT    += 1
+
+            if new :
+                filter_newChar = FILTER_CHARLIST[N]  # new new char for filter
+                versionInfo.FILTER_CHARLIST_OLD += filter_oldChar
+                versionInfo.FILTER_CHARLIST_NEW += filter_newChar
+                versionInfo.NFILTER_TOT    += 1
+            else:
+                filter_newChar = kcor_use.FILTER_CHARLIST_NEW[ifilt]
 
             # append new char to end of filter name to ensure
             # unique filter-char for each band
             filter_name_new = filter_name + '/' + filter_newChar
-            kcorInfo[nver].FILTER_NEWNAME.append(filter_name_new) # full name
-            kcorInfo[nver].FILTER_CHARLIST_OLD += filter_oldChar # 1-char
-            kcorInfo[nver].FILTER_CHARLIST_NEW += filter_newChar
-
+            kcorInfo[iver].FILTER_NEWNAME.append(filter_name_new) # full name
+            kcorInfo[iver].FILTER_CHARLIST_OLD += filter_oldChar # 1-char
+            kcorInfo[iver].FILTER_CHARLIST_NEW += filter_newChar
+            ifilt += 1
 
         # print band replacement for each version
-        OLD = kcorInfo[nver].FILTER_CHARLIST_OLD
-        NEW = kcorInfo[nver].FILTER_CHARLIST_NEW
+        OLD = kcorInfo[iver].FILTER_CHARLIST_OLD
+        NEW = kcorInfo[iver].FILTER_CHARLIST_NEW
         tmp = OLD + ' --> ' + NEW
-        print(f"\t {versionInfo.NAME[nver]} bands: {tmp}")        
-        nver += 1
+        
+        V = versionInfo.NAME[iver]
+        print(f"    {V:<28.28} bands: {tmp}   (new={new})")        
+
+    #sys.exit("\n xxx DEBUG EXIT xxx \n")
 
     # end change_filterChar
 
+def combine_duplicate_filtpath(versionInfo,kcorInfo):
+
+    # created Dec 2020
+    # Combine multiple SURVEY_INP that have same filters.
+    # First SURVEY_INP -> comma-sep list,
+    # Other SURVEY_INP -> IGNORE (flag to NOT write it out)
+
+    nkcor = len(kcorInfo)
+    KEY_IGNORE = "IGNORE"
+    n_match = 0
+
+    for i0 in range(0,nkcor):  
+        kcorInfo[i0].ikcor_use = i0
+        kcorInfo[i0].new       = True
+
+    for i0 in range(0,nkcor-1):
+        for i1 in range(i0+1,nkcor):
+            match = same_filters(kcorInfo[i0],kcorInfo[i1])            
+            survey0 = versionInfo.SURVEY_INP[i0]
+            survey1 = versionInfo.SURVEY_INP[i1]
+            if match and survey0 != KEY_IGNORE:
+                survey = f"{survey0},{survey1}"
+                versionInfo.SURVEY_INP[i0] = survey
+                versionInfo.SURVEY_INP[i1] = KEY_IGNORE
+                kcorInfo[i1].ikcor_use     = i0       
+                kcorInfo[i0].new           = False
+                n_match += 1
+    # - - - - -
+    print(f"  Found {n_match} filter matches ")
+
+    #sys.exit("\n xxx DEBUG EXIT xxx \n")  
+
+
+def same_filters(kcorInfo_0,kcorInfo_1):
+    # Created Dec 8 2020
+    # Return true if filters are the same for each kcorInfo 
+    
+    if kcorInfo_0.MAGSYSTEM  != kcorInfo_1.MAGSYSTEM :    return False
+    if kcorInfo_0.FILTSYSTEM != kcorInfo_1.FILTSYSTEM :   return False
+    if kcorInfo_0.FILTPATH   != kcorInfo_1.FILTPATH :     return False
+
+    for line_0,line_1 in zip(kcorInfo_0.FILTER,kcorInfo_1.FILTER) :
+        file_0 = line_0[1]
+        file_1 = line_1[1]
+        zpoff_0 = line_0[2]
+        zpoff_1 = line_1[2]
+        if file_0  != file_1  : return False
+        if zpoff_0 != zpoff_1 : return False
+
+    return True
 
 def write_kcor_inputFile(versionInfo,kcorInfo):
 
@@ -182,28 +242,23 @@ def write_kcor_inputFile(versionInfo,kcorInfo):
 
     f.write(f"OUTFILE:      {versionInfo.kcor_outFile} \n")
     
+    # - - - - - - - - - - - - - - -
     # loop over filter sets
-    nkcor=0
+    nkcor = 0
     for kcor in kcorInfo :
-
-        V = versionInfo.NAME[nkcor]
-
-        # Nov 23 2020: get SURVEY name from runnin snana on version 
-        survey_name = get_survey(PRIVATE_DATA_PATH,V)
-        print(f"\t {V} -> SURVEY = {survey_name}")
+        V           = versionInfo.NAME[nkcor]
+        survey_name = versionInfo.SURVEY_INP[nkcor]
         nkcor += 1
+
+        if "IGNORE" in survey_name : continue 
                 
         f.write(f"\n" )
         f.write(f"# Start filters for VERSION = {V}\n" )
-        if kcor.NEW == 1:
-            f.write(f"MAGSYSTEM:   {kcor.MAGSYSTEM} \n")
-            f.write(f"FILTSYSTEM:  {kcor.FILTSYSTEM} \n")
-            f.write(f"FILTPATH:    {kcor.FILTPATH} \n")
-
-        # always write SURVEY key (Nov 2020)
+        f.write(f"MAGSYSTEM:   {kcor.MAGSYSTEM} \n")
+        f.write(f"FILTSYSTEM:  {kcor.FILTSYSTEM} \n")
+        f.write(f"FILTPATH:    {kcor.FILTPATH} \n")
         f.write(f"SURVEY:      {survey_name} \n")
-        kcor_last = kcor
-
+        
         nfilt=0
         for line in kcor.FILTER :
             filter_name  = line[0]
@@ -225,10 +280,12 @@ def get_survey(PRIVATE_DATA_PATH,VERSION):
     cmd += (f"VERSION_PHOTOMETRY={VERSION} ")
     cmd += (f"SNTABLE_LIST '' ")
     cmd += (f"OPT_YAML=1 " )
+    cmd += (f"READ_SPECTRA=F " )
     cmd += (f"TEXTFILE_PREFIX={prefix} " )
     if len(PRIVATE_DATA_PATH) > 2 :
         cmd += (f"PRIVATE_DATA_PATH={PRIVATE_DATA_PATH} ")
     cmd += (f" > {prefix}.LOG")
+    #print(f" xxx cmd = {cmd}\n")
     os.system(cmd)
 
     # read from YAML file
@@ -319,6 +376,16 @@ class VERSION_INFO:
         self.NAME        = reader[:,1]
         self.INFILE_KCOR = reader[:,2]
         
+        # Dec 8 2020 : get survey name with snana job
+        print(f"")
+        self.SURVEY_INP = []
+        for V in self.NAME :
+            survey_name = get_survey(self.PRIVATE_DATA_PATH,V)
+            print(f"    VERSION {V:<28.28} -> {survey_name} ")
+            self.SURVEY_INP.append(survey_name)
+
+        print(f"")
+
         f.close()
 
         
@@ -359,10 +426,12 @@ class KCOR_INFO:
                 
             # define things to change later
             self.FILTER_NEWNAME = []     # to be changed later
-            self.NEW            = 1      # assume new filter/mag system
+            self.new            = True     # assume new filter/mag system
             self.FILTER_CHARLIST_OLD   = ""
             self.FILTER_CHARLIST_NEW   = ""
+            self.ikcor_info            = -9
             f.close()
+
 
 def create_newVersion(versionInfo):
 
@@ -709,12 +778,16 @@ if __name__ == "__main__":
     for kcorFile in versionInfo.INFILE_KCOR:
         nkcor += 1
         kcorInfo.append(KCOR_INFO(kcorFile))
-
+        
     print(f"\n Done parsing {nkcor} kcor-input files ")
+
+    # combine multuple surveys with same FILTPATH (Dec 8 2020)
+    combine_duplicate_filtpath(versionInfo,kcorInfo)
 
     # change filter char
     change_filterChar(versionInfo,kcorInfo)
-            
+    
+
     # write new combined kcor-input file
     write_kcor_inputFile(versionInfo,kcorInfo) 
     run_kcor(versionInfo)
@@ -727,7 +800,6 @@ if __name__ == "__main__":
     
     # check for private data path
     if ( len(versionInfo.PRIVATE_DATA_PATH) > 0 ):
-# xxx       global TOPDIR_DATA
         TOPDIR_DATA = versionInfo.PRIVATE_DATA_PATH
         print(f" Use PRIVATE_DATA_PATH = {TOPDIR_DATA}")
 

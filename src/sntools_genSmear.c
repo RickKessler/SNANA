@@ -1062,6 +1062,10 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   //
   // Nov 4 2020: allow for salt2 or salt3 in file name for 
   //             salt2[3]_color_dispersions
+  //
+  // Dec 7 2020: for SIGCOH>0, call read_genSmear_SALT2sigcoh
+  //             (fix needed for G10 scatter model with BYOSED)
+  //
 
   //  double SED_LAMMIN =  SALT2_TABLE.LAMMIN;
   double SED_LAMMAX =  SALT2_TABLE.LAMMAX;  
@@ -1072,7 +1076,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // ----------------- BEGIN --------------
 
   GENSMEAR_SALT2.USE  = 1 ;    GENSMEAR.NUSE++ ;
-  GENSMEAR_SALT2.SIGCOH          = 0.0 ;
+  GENSMEAR_SALT2.SIGCOH  = 0.0 ;
 
   // note that SIGCOH=-8 is a flag that user passed SIGMA_COH
   // via command-line override, so ignore this key in SALT2.INFO file.
@@ -1092,12 +1096,16 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 
   // --------------------------------------
   // read SIGMA_INT from SALT2.INFO file
+
   if ( SIGCOH < -8.1 )  {  
     //    GENSMEAR_SALT2.SIGCOH = read_genSmear_SALT2sigcoh(versionSALT2); 
     read_genSmear_SALT2sigcoh(versionSALT2, &GENSMEAR_SALT2.SIGCOH_LAM); 
   }
-  else if ( SIGCOH >= 0.0 ) 
-    {  GENSMEAR_SALT2.SIGCOH = SIGCOH ; }
+  else if ( SIGCOH >= 0.0 ) {
+    //xxx  GENSMEAR_SALT2.SIGCOH = SIGCOH ; 
+    sprintf(SALT2_INFO_FILE,"SALT2.INFO"); // in case call fun isn't SALT2
+    read_genSmear_SALT2sigcoh(versionSALT2, &GENSMEAR_SALT2.SIGCOH_LAM);     
+  }
   else {
     // do nothing because user input includes
     //   SIGMA_COH(lamList):   sigcoh-list
@@ -1108,9 +1116,13 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // read dispersion vs. lambda : 
   // Use already-determine filename that allows for salt2 or salt3
 
-  // xxx  sprintf(dispFile, "%s/salt2_color_dispersion.dat", versionSALT2);
+  sprintf(dispFile, "%s/salt2_color_dispersion.dat", versionSALT2);
+
+  /* xxx Dec 7 2020: doesn't work for BYOSED
   sprintf(dispFile, "%s/%s", 
 	  versionSALT2, SALT2_ERRMAP_FILES[INDEX_ERRMAP_COLORDISP]);
+  xxx */
+
   read_genSmear_SALT2disp(dispFile) ;
 
   // ----
@@ -1142,6 +1154,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // print info
   int NBIN = GENSMEAR_SALT2.SIGCOH_LAM.NBIN ;
   char tmpLine[100];
+
   if ( NBIN == 1 ) {
     sprintf(tmpLine, "SIGCOH = %5.3f",  GENSMEAR_SALT2.SIGCOH_LAM.YVAL[0] );
   }
@@ -1255,6 +1268,7 @@ void read_genSmear_SALT2sigcoh(char *versionSALT2,
 
   // xxx  sprintf(INFO_FILE, "%s/SALT2.INFO", versionSALT2);
   sprintf(INFO_FILE, "%s/%s", versionSALT2, SALT2_INFO_FILE ); // 11.04.2020
+
 
   if ( (fp = fopen(INFO_FILE, "rt")) == NULL ) { 
       sprintf(c1err,"Cannot open infoFile " );
@@ -1466,10 +1480,10 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
 
   // ---------- BEGIN ----------
 
-  LDMP = ( fabs(Lam[0]+3000.0)<0.0 && fabs(Trest) < 2.0 ) ;
+  LDMP = ( fabs(Trest) > 2.0E9 ) ;
   if ( LDMP ) {
-    printf(" xxx %s : Trest=%4.1f  NLAM=%d  lam=%7.1f \n",
-	   fnam, Trest, NLam, Lam[0] );
+    printf(" xxx %s : Trest=%4.1f  NLAM=%d  lam=%7.1f  SIGCOH=%.3f\n",
+	   fnam, Trest, NLam, Lam[0], ptrSIGCOH[0] );
   }
 
   NLAM   = GENSMEAR_SALT2.NLAM ;  
@@ -1488,7 +1502,7 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
 
   for ( ilam=0; ilam < NLam; ilam++ ) {
     lam = Lam[ilam];    
-    if ( NBCOH >  1 ) {
+    if ( NBCOH >  1111111 ) {
       SMEAR0 = rCOH * interp_1DFUN(OPT_INTERP, lam, NBCOH,
 				   ptrLAMCOH, ptrSIGCOH, fnam) ; 
     }

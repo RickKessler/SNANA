@@ -190,6 +190,9 @@
    + read optional list of surveys for each MAGSYSTEM, and write
      SURVEY=%s as part of each filter comment in kcor header.
 
+ Dec 07 2020:
+    + alow multiple FILTPATH keys
+
 ****************************************************/
 
 
@@ -587,6 +590,7 @@ int rd_input(void) {
       // store filter path to check for duplicates
       sprintf(FILTPATH_LIST[NFILTPATH], "%s", INPUTS.FILTPATH);
 
+      /* xxxx mark delete Dec 7 2020 xxxx
       // 5/03/2011: abort if FILTPATH is repeated
       for ( itmp=1; itmp < NFILTPATH; itmp++ ) {
 	ptr_tmp = FILTPATH_LIST[itmp] ;
@@ -597,6 +601,7 @@ int rd_input(void) {
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
 	}
       } // itmp
+      xxxxxxxxxxxxx end mark xxxxxxxxxxxxxx*/
 
     }
 

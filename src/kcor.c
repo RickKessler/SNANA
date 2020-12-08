@@ -4535,8 +4535,8 @@ void wr_fits_HEAD(fitsfile *fp) {
     sprintf(KEYNAME,"FILT%3.3d", ifilt);
   
     istat = 0 ;
-    sprintf(MSG,"Filter name; SURVEY=%s", FILTER[ifilt].SURVEY_NAMES);
-    // xxx    sprintf(MSG,"Filter name"); // xxx REMOVE
+    // xxxx sprintf(MSG,"Filter name; SURVEY=%s", FILTER[ifilt].SURVEY_NAMES);
+    sprintf(MSG,"Filter; SURVEY=%s", FILTER[ifilt].SURVEY_NAMES);
     fits_update_key(fp, TSTRING, KEYNAME, FILTER[ifilt].name,
 		    MSG, &istat );    
    }

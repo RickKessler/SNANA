@@ -182,9 +182,16 @@ fieldlist=X1,X2   # X1 and X2
 fieldlist=X3      # X3 only
 fieldlist=X       # any field with X in name
 
-chi2max  = chi2-outlier cut applied before fit. Beware that initial
-           and final chi2 can differ, so allow slop in the cut.
-           = -2log10(ProbIa_BEAMS + ProbCC_BEAMS); see Eq 6 of BBC paper
+chi2max=16             # default cut to all events
+chi2max(DES,PS1)=12    # apply cut only to DES & PS1
+chi2max(CSP)=10        # apply cut to CSP
+     = chi2-outlier cut applied before fit, using initial values. Beware 
+       that initial and final chi2 can differ, so allow slop in the cut.
+  Cut applied to -2log10(ProbIa_BEAMS + ProbCC_BEAMS); see Eq 6 of BBC paper.
+  Note that multiple chi2max inputs are allowed. In the avove example, 
+  chi2max=12 is applied to DES & PS1 events; chi2max=10 is applied to CSP; 
+  chi2max=16 is for all other surveys (e.g., SDSS, other lowz, etc...)
+
 
 cutmask_write=[allowed errcode mask to write output fitres]
 cutmask_write=-1  -> write everything
@@ -1431,7 +1438,7 @@ struct {
   int  ntype, nidsurvey;
   int  type_list[MXPROBCC_ZERO];      // integer types
   int  idsurvey_list[MXPROBCC_ZERO];  // integer IDSURVEYs
-} INPUTS_PROBCC_ZERO;
+} INPUTS_PROBCC_ZERO ;
 
 
 #define MXVARNAME_MISSING 10
@@ -1524,7 +1531,10 @@ struct INPUTS {
   double zmin,  zmax  ;
   double logmass_min, logmass_max ;
   int    nbin_logmass;
-  double chi2max;     // chi2-outlier cut (Jul 2019)
+
+  double chi2max ;         // global HR chi2-outlier cut (uses PROB_BEAMS)
+  double *chi2max_list;    // list vs. IDSURVEY
+  int    iflag_chi2max;    // 1=global cut, 2=> cut vs. IDSURVEY
 
   int    NCUTWIN ;
   char   CUTWIN_NAME[MXCUTWIN][MXCHAR_VARNAME];
@@ -1854,6 +1864,7 @@ void parse_powzbin(char *item) ;
 void parse_IDSAMPLE_SELECT(char *item);
 void parse_sigint_fix(char *item);
 void parse_blindpar(char *item) ;
+void parse_chi2max(char *item);
 
 void  prep_input_driver(void);
 void  prep_input_nmax(char *item);
@@ -3212,9 +3223,10 @@ void applyCut_chi2(void) {
   // Note that this is BEAMS chi2 when there is CC contam,
   // and thus this is NOT the same as cutting on HR resids.
 
-  int NSN_DATA   = INFO_DATA.TABLEVAR.NSN_ALL ;
-  double chi2max = INPUTS.chi2max;
-  int len, icondn, n, cutmask;
+  int NSN_DATA          = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int    iflag_chi2max  = INPUTS.iflag_chi2max ;
+  double chi2max ;
+  int len, icondn, n, cutmask, idsurvey;
   const int null=0;
   double chi2;
   char mcom[60], *name ;
@@ -3222,7 +3234,8 @@ void applyCut_chi2(void) {
 
   // ----------- BEGIN ------------
 
-  if ( chi2max > 0.99E9 ) { return; }
+  if ( iflag_chi2max == 0 ) { return; }
+  // xxxx  if ( chi2max > 0.99E9 ) { return; }
 
   strcpy(mcom,"CALL FCN 1");  len = strlen(mcom);
   mncomd_(fcn,mcom,&icondn,&null,len);   fflush(FP_STDOUT);
@@ -3231,8 +3244,14 @@ void applyCut_chi2(void) {
     cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n] ; 
     if ( cutmask ) { continue; }
 
-    chi2 = INFO_DATA.chi2[n];
-    name = INFO_DATA.TABLEVAR.name[n];
+    chi2     = INFO_DATA.chi2[n];
+    name     = INFO_DATA.TABLEVAR.name[n];
+    idsurvey = INFO_DATA.TABLEVAR.IDSURVEY[n];
+
+    if ( INPUTS.iflag_chi2max == 1 ) 
+      { chi2max = INPUTS.chi2max ; }
+    else 
+      { chi2max = INPUTS.chi2max_list[idsurvey]; }
 
     /*
     if ( chi2 > 8.0 ) {
@@ -3245,7 +3264,8 @@ void applyCut_chi2(void) {
       fprintf(FP_STDOUT, "\t Chi2(%s) = %.2f -> reject \n", name, chi2);
       setbit_CUTMASK(n, CUTBIT_CHI2, &INFO_DATA.TABLEVAR);       
     }
-  }
+
+  } // end n loop over SN
 
   fflush(FP_STDOUT);
  
@@ -5032,7 +5052,8 @@ void set_defaults(void) {
   INPUTS.logmass_max  = +20.0 ;
   INPUTS.nbin_logmass =  1 ; 
 
-  INPUTS.chi2max = 1.0E9 ;
+  INPUTS.chi2max       = 1.0E9 ;
+  INPUTS.iflag_chi2max = 0;       // Dec 2020
 
   // ---------------------
 
@@ -14862,8 +14883,10 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"nbin_logmass="))  
     { sscanf(&item[13],"%d",&INPUTS.nbin_logmass); return(1); }
 
-  if ( uniqueOverlap(item,"chi2max=")) 
-    { sscanf(&item[8],"%le",&INPUTS.chi2max); return(1); }
+  //  if ( uniqueOverlap(item,"chi2max=")) 
+  //  { sscanf(&item[80,"%le",&INPUTS.chi2max); return(1); }
+  if ( !strncmp(item,"chi2max",7) )  // multiple chi2max keys allowed
+    { parse_chi2max(item); return(1); }
 
   if ( uniqueOverlap(item,"maxerr_abort_x0="))  
     { sscanf(&item[16],"%le",&INPUTS.maxerr_abort_x0); return(1); }
@@ -15400,7 +15423,87 @@ void parse_powzbin(char *item) {
 } // end parse_powzbin
 
 
+
 // **************************************************
+void parse_chi2max(char *item) {
+
+  // Created Dec 8 2020
+  // Parse strings of the form
+  //
+  //  chi2max=16             # apply cut to all events
+  //  chi2max(DES,PS1)=12    # apply cut only to DES & PS1
+  //  chi2max(CSP)=10        # apply cut to CSP
+  // 
+  //  Note that multiple chi2max inputs are allowed.
+  //  In the avove example, chi2max=12 is applied to DES & PS1
+  //  events; chi2max=10 is applied to CSP; chi2max=16 is applied 
+  //  to all other events (e.g., SDSS, low-z that are not CSP, etc...).
+  //
+
+  int  lenkey = strlen("chi2max=");
+  int  n_survey, idsurvey, i ;
+  double chi2max;
+  char string[80], stringOpt[80], **survey_list, *survey ;  
+  char fnam[] = "parse_chi2max" ;
+  int  LDMP = 0 ;
+
+  // -------------- BEGIN -------------
+
+  // check for argument in ()
+  sprintf(string,"%s", item);
+  extractStringOpt(string, stringOpt); // return stringOpt
+  sscanf( &string[lenkey], "%le", &chi2max );
+
+  if ( LDMP ) {
+    printf(" xxx %s: item=%s string=%s opt='%s'   chi2max=%.1f \n",
+	   fnam, item, string, stringOpt, chi2max);
+    fflush(stdout);
+  }
+
+  // check trivial case with no argument -> global cut
+  if ( strlen(stringOpt) == 0 ) {
+    INPUTS.iflag_chi2max |= 1; // set flag for global chi2max cut
+    INPUTS.chi2max = chi2max ;
+
+    if ( (INPUTS.iflag_chi2max & 2) > 0 ) { 
+      sprintf(c1err,"Cannot define chi2max after chi2max(SURVEYLIST)");
+      sprintf(c2err,"Remove chi2max or define it BEFORE chi2max(SURVEY)");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+  
+    return ;
+  }
+
+  // - - - - -
+
+
+  if ( (INPUTS.iflag_chi2max & 2 ) == 0 ) {
+    INPUTS.iflag_chi2max |= 2;
+    int MEMD = MXIDSURVEY * sizeof(double) ;
+    //printf(" xxx %s: malloc chi2max_list \n", fnam);
+    INPUTS.chi2max_list = (double*)malloc(MEMD);
+    for(i=0; i < MXIDSURVEY; i++ ) 
+      { INPUTS.chi2max_list[i] = INPUTS.chi2max; }
+  }
+
+  // parse comma-sep list of survey names
+  parse_commaSepList("SURVEYLIST(chi2max)", stringOpt, 
+		     MXIDSURVEY, MXCHAR_SAMPLE, &n_survey, &survey_list);
+
+  for(i=0; i < n_survey; i++ ) {
+    survey   = survey_list[i] ;
+    idsurvey = get_IDSURVEY(survey);
+    INPUTS.chi2max_list[idsurvey] = chi2max ; 
+    printf("\t %s: store cut chi2max=%.1f for SURVEY=%s (%d)\n",
+	   fnam, chi2max, survey, idsurvey ); fflush(stdout);
+  }
+
+  //.xyz
+  return ;
+
+} // end parse_chi2max
+
+// ************************************************
 void parse_blindpar(char *item) {
 
   // Created Aug 2017

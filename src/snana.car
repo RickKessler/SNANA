@@ -10590,6 +10590,7 @@ c               E2+E1 gets written as E1+E2
 c
 c Dec 16 2014: fix string logic checking SURVEY; see L1.
 c
+c Dec 09 2020: fix index bug setting SURVEY_TMP
 c -------------
 
       IMPLICIT NONE
@@ -10733,7 +10734,7 @@ c  IDFIELD
 
          if ( cwd .EQ. 'SURVEY:' ) then
             L1 = index(cwd_next,' ') - 1
-            SURVEY_TMP  = cwd_next(1:LL)
+            SURVEY_TMP  = cwd_next(1:L1)
             read(cwd_next2,*) IDTMP
 
 c    store all survey names in case there are subSurveys

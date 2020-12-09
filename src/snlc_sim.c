@@ -2173,14 +2173,14 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(10, "WARP_SPECTRUM",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", INPUTS.WARP_SPECTRUM_STRING );
   }
-  else if ( keyMatchSim(MXOBS_SPECTROGRAPH,"TAKE_SPECTRUM", WORDS[0],keySource) ) {
+  else if (keyMatchSim(MXOBS_SPECTROGRAPH,"TAKE_SPECTRUM",WORDS[0],keySource)){
     N += parse_input_TAKE_SPECTRUM(WORDS, keySource, fpNull );
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTFRAC",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", INPUTS.TAKE_SPECTRUM_HOSTFRAC );
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.TAKE_SPECTRUM_HOSTFRAC );
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_DUMPCID",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", INPUTS.TAKE_SPECTRUM_DUMPCID );
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.TAKE_SPECTRUM_DUMPCID );
   }
 #ifdef SNGRIDGEN
   else if ( strstr(WORDS[0],"GRID") != NULL ) {
@@ -8295,7 +8295,10 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
   // Compute TEXPOSE from requested SNR.
   // For synthetic filters, update ZPT and SKYSIG.
   // May 27 2020: check option to extrapolate TEXPOSE beyond defined range
+  // Dec 09 2020: tol_converge -> 0.03 (was 0.02) to fix barely-missed
+  //              convergence for SNLS spectrum.
   //
+
   bool LDMP       = (GENLC.CID == INPUTS.TAKE_SPECTRUM_DUMPCID );
   int  OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;  
   bool DO_TEXTRAP = ( (OPTMASK & SPECTROGRAPH_OPTMASK_TEXTRAP)>0 );
@@ -8425,7 +8428,7 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
   double T0=TEXPOSE_MIN, T1=TEXPOSE_MAX, TDIF_LAST=T1-T0;
   double SNR0=SNR_MIN, SNR1=SNR_MAX;
   double argSNR, last_tol, last_TEXPOSE, sgn=0.0 ;
-  double tol=99.0 , tol_converge = 0.02 ;
+  double tol=99.0 , tol_converge = 0.03 ;
   int    NITER=0, MAXITER=40, FLAG_TEXPOSE=0 ;  
 
   TEXPOSE = 0.0;

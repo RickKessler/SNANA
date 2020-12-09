@@ -14919,8 +14919,8 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
       // 2. sanity checks to catch crazy [nan] values. Second arg is NVAL=1
       checkval_D("ZPTAVG", 1, &SIMLIB_OBS_RAW.ZPTADU[ISTORE],  6.0, 50.0) ;
       checkval_D("ZPTERR", 1, &SIMLIB_OBS_RAW.ZPTERR[ISTORE],  0.0,  5.0 ) ;
-      checkval_D("PSF1",   1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 20.0 ) ;
-      checkval_D("PSF2",   1, &SIMLIB_OBS_RAW.PSFSIG2[ISTORE], 0.0, 20.0 ) ;
+      checkval_D("PSF1",   1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 30.0 ) ;
+      checkval_D("PSF2",   1, &SIMLIB_OBS_RAW.PSFSIG2[ISTORE], 0.0, 30.0 ) ;
       checkval_D("PSFrat", 1, &SIMLIB_OBS_RAW.PSFRATIO[ISTORE],0.0,  1.0 ) ;
       checkval_D("SKYSIG", 1, &SIMLIB_OBS_RAW.SKYSIG[ISTORE],  0.0,  1.0E5);
 

@@ -46,6 +46,9 @@
 
   >  combine_fitres.exe <fitres1>  -mxrow 50000
 
+  >  combine_fitres.exe <fitres1>  -varnames zHD,c,x1,SIM_DLMAG
+          [select only these varnames (along with CID)]
+
   >  combine_fitres.exe  <fitres1> -zcut <zmin> <zmax>
          [cut on zHD]
 
@@ -121,6 +124,8 @@
 
  Nov 18 2020: allow comma-sep list of space-sep list of fitres files.
               See new function parse_FFILE(arg).
+
+ Dec 09 2020: new -varnames arg to select subset of variables to write out.
 
 ******************************/
 
@@ -216,6 +221,10 @@ struct INPUTS {
   double CUTWIN_zHD[2];
   int    DOzCUT;
   float  NULLVAL_FLOAT ; // Sep 2020
+
+  int  NVARNAMES_KEEP ;
+  char **VARNAMES_KEEP; // select and save only these varnames
+  char VARLIST_KEEP[MXPATHLEN];
 } INPUTS ;
 
 
@@ -352,7 +361,9 @@ void  PARSE_ARGV(int argc, char **argv) {
   INPUTS.CUTWIN_zHD[1] = +9.0 ; 
   INPUTS.DOzCUT = 0 ;
   sprintf(INPUTS.OUTPREFIX_COMBINE, "combine_fitres" );
-  INPUTS.NULLVAL_FLOAT =  DEFAULT_NULLVAL_FLOAT ;
+  INPUTS.NULLVAL_FLOAT   =  DEFAULT_NULLVAL_FLOAT ;
+  INPUTS.NVARNAMES_KEEP  = 0 ;
+  INPUTS.VARLIST_KEEP[0] = 0 ;
 
   for ( i = 1; i < NARGV_LIST ; i++ ) {
     
@@ -379,6 +390,14 @@ void  PARSE_ARGV(int argc, char **argv) {
     if ( strcmp(argv[i],"-mxrow") == 0 || 
 	 strcmp(argv[i],"--mxrow") == 0  ) {
       i++ ; sscanf(argv[i], "%d", &INPUTS.MXROW_READ);
+      continue ;
+    }
+
+    if ( strcmp(argv[i],"-varnames") == 0 || 
+	 strcmp(argv[i],"--varnames") == 0  ) {
+      i++ ; sscanf(argv[i], "%s", INPUTS.VARLIST_KEEP);
+      parse_commaSepList("VARNAMES_KEEP", INPUTS.VARLIST_KEEP, MXVAR_TOT,
+			 40, &INPUTS.NVARNAMES_KEEP, &INPUTS.VARNAMES_KEEP);
       continue ;
     }
 
@@ -423,14 +442,6 @@ void  PARSE_ARGV(int argc, char **argv) {
     // parse FITRES file(s) and add to INPUTS.FFILE list
     parse_FFILE(argv[i]);
 
-    /* xxxxxxxx mark delete  xxxxxxxxx
-    sprintf( INPUTS.FFILE[NFFILE], "%s", argv[i] );
-    printf("  Will combine fitres file: %s \n", 
-	   INPUTS.FFILE[NFFILE] );
-    NFFILE++ ;
-    xxxxxxxxx */
-
-
   } // end loop over arg list
   
   
@@ -441,7 +452,6 @@ void  PARSE_ARGV(int argc, char **argv) {
     printf("   CID-match method: hash table.\n");
   }
 
-  // xxx mark delete  INPUTS.NFFILE = NFFILE ;
   if ( INPUTS.NFFILE <= 0 ) {
     sprintf(c1err, "Bad args. Must give fitres file(s)");
     sprintf(c2err, "  combine_fitres.exe <fitresFile List> ");
@@ -484,7 +494,6 @@ void parse_FFILE(char *arg) {
   char fnam[] = "parse_FFILE" ;
   
   // ----------- BEGIN -------------
-  // .xyz
 
   parse_commaSepList("FITRES_FILE_LIST", arg, 10, MXPATHLEN,
 		     &nfile_add, &file_list );
@@ -786,8 +795,6 @@ int match_CID_hash(int ifile, int isn2) {
 
   // ----------- BEGIN ------------
 
-  // .xyz
-
   if ( ifile < 0 ) {
     /* free the hash table contents */
     HASH_ITER(hh, users, s, tmp) {
@@ -822,7 +829,6 @@ int match_CID_hash(int ifile, int isn2) {
     return(-9);
   }
   
-  // .xyz
 
   return(-9);
 
@@ -901,17 +907,27 @@ int SKIP_VARNAME(int ifile, int ivar) {
 
   // Dec 8 2014
   // Return 1 if this variable should be ignored.
-  
-  char *VARNAME ;
-  int  j;
+  // Dec 2020: check KEEP_VARNAMES 
 
+  char *VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
+  bool KEEP = false;
+  int  j, k ;
+
+  // -------- BEGIN ------------
+
+  // check option to keep only use-selected list of varnames
+  for ( k=0; k < INPUTS.NVARNAMES_KEEP; k++ ) {
+    if ( strcmp(VARNAME,INPUTS.VARNAMES_KEEP[k]) == 0 ) { KEEP=true;}
+  }
+  if ( ivar>0 && INPUTS.NVARNAMES_KEEP > 0 && !KEEP ) { return(1); }
+
+  // - - - - - -
   // no SNANA file yet
   if ( IFILE_FIRST_SNANA < 0 ) { return(0); } 
 
-  // don't skip 1st SNANA file.
+  // never skip 1st SNANA file.
   if ( ifile == IFILE_FIRST_SNANA ) { return(0) ; }  
 
-  VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
   for(j=0; j < NVARNAME_1ONLY; j++ ) {
     if ( strcmp(VARNAME,VARNAME_1ONLY[j]) == 0 ) { return(1) ; }
   }

@@ -13711,11 +13711,18 @@ void SIMLIB_findStart(void) {
   // Aug 19 2018: use JOBID and NJBOTOT to compute NSKIP so that
   //    entire SIMLIB range is covered with small NGENTOT.
   //
+  // Dec 09 2020: return immediately if QUIT_REWIND option is set to
+  //     read SIMLIB once and stop. See SIMLIB_MSKOPT += 4.
+
   int IDSTART  = INPUTS.SIMLIB_IDSTART ;
   int IDLOCK   = INPUTS.SIMLIB_IDLOCK ;
   int NLIBID   = SIMLIB_GLOBAL_HEADER.NLIBID ;
   int JOBID    = INPUTS.JOBID ; // batch JOBID
   int NJOBTOT  = INPUTS.NJOBTOT ; // totoal number of batch jobs
+
+  int  MSKOPT = INPUTS.SIMLIB_MSKOPT ;
+  bool QUIT_NOREWIND = ( (MSKOPT & SIMLIB_MSKOPT_QUIT_NOREWIND)>0 );
+  if ( QUIT_NOREWIND ) { return; }
 
   int NOPT, IDSEEK, MAXRANSTART, NSKIP_LIBID=-9, NSKIP_EXTRA=0 ;
   int DOSKIP, NREAD, NREPEAT, MXREPEAT, NTMP, NLIBID_EXTRA ;
@@ -13741,7 +13748,6 @@ void SIMLIB_findStart(void) {
 
   // for batch job, autom-compute NSKIP 
   if ( NJOBTOT > 0  &&  NLIBID > 100 ) { 
-
     flatRan     = unix_random(0) ;
     XTMP        = (double)NLIBID / (double)NJOBTOT;    
     NTMP        = (int)XTMP ;
@@ -16719,16 +16725,25 @@ void ENDSIMLIB_check(void) {
   // around in an infinite loop.
   //
   // May 30 2020: abort if SIMLIB_HEADER.NFOUND_GENCUTS == 0
+  // Dec 09 2020: leave message for QUIT_REWIND
 
-  bool QUIT_NOREWIND = ((INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_QUIT_NOREWIND)>0);
+  int  MSKOPT = INPUTS.SIMLIB_MSKOPT ;
+  bool QUIT_NOREWIND = ( (MSKOPT & SIMLIB_MSKOPT_QUIT_NOREWIND)>0 );
   char fnam[] = "ENDSIMLIB_check";
 
   // ------- BEGIN ---------
 
   if ( INPUTS.SIMLIB_DUMP >= 0 ) { return ; }
 
-  // check option to quite generating after reading SIMLIB once
-  if ( QUIT_NOREWIND && SIMLIB_HEADER.NWRAP == 0 ) { GENLC.STOPGEN_FLAG = 1; }
+  // check option to quit generating after reading SIMLIB once
+  if ( QUIT_NOREWIND && SIMLIB_HEADER.NWRAP == 0 ) { 
+    GENLC.STOPGEN_FLAG = 1; 
+    printf("\n\t STOP generation after reading SIMLIB one time.\n");
+    printf("\t    (see option with SIMLIB_MSKOPT += %d) \n",
+	   SIMLIB_MSKOPT_QUIT_NOREWIND);
+    printf("\n");
+    fflush(stdout);
+  }
 
   // don't do error checking until a few wrap-arounds.
   if ( SIMLIB_HEADER.NWRAP < 5 ) { return ; }
@@ -25211,20 +25226,6 @@ void readme_doc(int iflag_readme) {
     sprintf(cptr,"\t Wrote     %5d simulated spectra to SNDATA files \n",
 	    NGENSPEC_WRITE );
   }
-
-  /* xxxxxxx mark delete Aug 10 2020 xxxxxxxx
-  // for batch job process, leave clear keys for submit-monitor taks
-  if ( INPUTS.JOBID > 0 ) {
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr, "NGENLC_TOT:   %d\n",  NGENLC_TOT);
-
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"NGENLC_WRITE: %d\n",  NGENLC_WRITE);
-
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"CPU_MINUTES:  %.2f\n", t_gen/60.0 );
-  }
-  xxxxxxxxxxxxx */
 
   // spectroscopic tags
 

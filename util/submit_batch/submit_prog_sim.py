@@ -25,6 +25,7 @@
 #  ~~~~~~~~~~~~~~~
 # Nov 16 2020: protect GENOPT args with () -> \(\)
 # Dec 03 2020: replace legacy n_file_max=6 with global MAX_SIMGEN_INFILE=12
+# Dec 09 2020: if NGENTOT_LC is in GENOPT, remove it after parsing it.
 #
 # ==========================================
 
@@ -482,13 +483,19 @@ class Simulation(Program):
         key_ngentot      = "NGENTOT_LC"
 
         # default NGENTOT_LC is from the sim-input file
-        ngentot       = INFILE_KEYS[iver][ifile][key_ngentot]
+        ngentot  = INFILE_KEYS[iver][ifile][key_ngentot]
 
-        # check for GENOPT override                                             
+        # check for GENOPT override                                            
         genopt_words = genopt.split()
         if key_ngentot in genopt_words :
             jindx       = genopt_words.index(key_ngentot)
             ngentot     = int(genopt_words[jindx+1])
+
+            # remove NGENTOT_LC <ngen> from genopt (Dec 9 2020)
+            tmp = genopt_words[:jindx] + genopt_words[jindx+2:]
+            genopt_replace = "  ".join(tmp)
+            genopt_list2d[iver][ifile]        = genopt_replace
+            self.config_prep['genopt_list2d'] = genopt_list2d
 
         return ngentot
 
@@ -669,7 +676,7 @@ class Simulation(Program):
         #         Ensures unique CID among all models and GENVERSIONs
         #
         # Note that (FORMAT_MASK & 16)>0 (random CIDs) will automatically
-        # set RESET_CIDOFF=1 of not set by user.
+        # set RESET_CIDOFF=1 if not set by user.
         #
         # ------------
 

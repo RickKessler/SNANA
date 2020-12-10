@@ -262,7 +262,8 @@ class Simulation(Program):
                     #print(f"\t xxx {key} -> arg = {genarg}")
                     for key2,value2 in value.items():
                         # if key includes (), replace with \( \)
-                        key2_protect = key2.replace('(','\(').replace(')','\)')
+                        # xxxkey2_protect = key2.replace('(','\(').replace(')','\)')
+                        key2_protect = util.protect_parentheses(key2)
                         genopt = (f"{key2_protect} {value2}     ")
                         #print(f" xxx genopt = {genopt}")
                         genopt_list.append(genopt)

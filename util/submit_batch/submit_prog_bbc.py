@@ -913,7 +913,6 @@ class BBC(Program):
         muopt_arg_list   = [ '' ]  # always include MUOPT000 with no overrides
         muopt_num_list   = [ 'MUOPT000' ] 
         muopt_label_list = [ None ]
-        # xxxx muopt_label_list = [ 'DEFAULT' ]
         
         key = 'MUOPT'
         if key in CONFIG  :

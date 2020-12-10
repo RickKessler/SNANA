@@ -10,6 +10,15 @@ from   submit_params import *
 
 # =================================================
 
+def protect_parentheses(arg):
+    # Created Dec 10 2020
+    # if arg = abc(option), returns abc\(option\).
+    # If arg = abc, returns abc (no change)
+    # This protection is needed to read GENOPT, FITOPT, MUOPT  args .
+    arg_protect = arg.replace('(','\(').replace(')','\)')
+    return arg_protect
+    # end protect_parentheses
+
 def is_comment_line(line):
     if line[0] == '#' : return True
     if line[0] == '@' : return True
@@ -32,26 +41,27 @@ def fix_partial_path(file_list):
     return out_file_list
     # end fix_partial_path
         
-def separate_label_from_arg(input_arg_list):
+def separate_label_from_arg(input_arg_string):
 
-    # If input_arg_list = /LABEL/ x1min=-2.0 nzbin=20
+    # If input_arg_string = /LABEL/ x1min=-2.0 nzbin=20
     # then return
     #   label = LABEL
-    #   arg_list = x1min=-2.0 nzbin=20
+    #   arg_string = x1min=-2.0 nzbin=20
     #
     #  If there is no label, return label = None
 
     # init output for no label
-    label = None ;   arg_list = input_arg_list
+    label = None ;   arg_string = input_arg_string
     
-    if len(input_arg_list) > 0 :
-        word_list = input_arg_list.split()
+    if len(input_arg_string) > 0 :
+        word_list = input_arg_string.split()
         has_label = word_list[0][0] == '/'
         if has_label :
-            label      = word_list[0].strip('/') 
-            arg_list   = " ".join(word_list[1:])
-            
-    return label,arg_list
+            label        = word_list[0].strip('/') 
+            arg_string   = " ".join(word_list[1:])
+            arg_string   = util.protect_parentheses(arg_string)
+
+    return label, arg_string
     # end separate_label_from_arg
 
 def standardise_path(path,cwd):

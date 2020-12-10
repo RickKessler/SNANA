@@ -59,7 +59,7 @@ def separate_label_from_arg(input_arg_string):
         if has_label :
             label        = word_list[0].strip('/') 
             arg_string   = " ".join(word_list[1:])
-            arg_string   = util.protect_parentheses(arg_string)
+            arg_string   = protect_parentheses(arg_string)
 
     return label, arg_string
     # end separate_label_from_arg

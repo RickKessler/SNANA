@@ -26,6 +26,7 @@
 # Nov 16 2020: protect GENOPT args with () -> \(\)
 # Dec 03 2020: replace legacy n_file_max=6 with global MAX_SIMGEN_INFILE=12
 # Dec 09 2020: if NGENTOT_LC is in GENOPT, remove it after parsing it.
+# Dec 10 2020: extract NGENTOT_LC frmo GENOPT_GLOBAL
 #
 # ==========================================
 
@@ -87,6 +88,8 @@ FORMAT_FITS = "FITS"
 # define max ranseed to avoid exceeding 4-byte limit of snlc_sim storage
 RANSEED_MAX = 1000000000   # 1 billion
 
+KEY_NGENTOT    = "NGENTOT_LC"
+    
 # - - - - - - - - - - - - - - - - - - -     -
 class Simulation(Program):
     def __init__(self, config_yaml) :
@@ -220,8 +223,19 @@ class Simulation(Program):
                 if not SKIP_SIMnorm :
                     GENOPT_GLOBAL_SIMnorm += (f"{key} {value}  ")
 
+        # check for ngentot_lc in GENOPT_GLOBAL (Dec 2020)
+        genopt_replace, strval = \
+                self.extract_value_from_genopt(GENOPT_GLOBAL_STRING,KEY_NGENTOT)
+        if strval is not None : 
+            ngentot_global       = int(strval)
+            GENOPT_GLOBAL_STRING = genopt_replace
+        else:
+            ngentot_global = -9
+
+        # load config_prep
         self.config_prep['genopt_global']          = GENOPT_GLOBAL_STRING
         self.config_prep['genopt_global_SIMnorm']  = GENOPT_GLOBAL_SIMnorm
+        self.config_prep['ngentot_global']         = ngentot_global
 
         # end sim_prep_genopt_global
 
@@ -262,7 +276,6 @@ class Simulation(Program):
                     #print(f"\t xxx {key} -> arg = {genarg}")
                     for key2,value2 in value.items():
                         # if key includes (), replace with \( \)
-                        # xxxkey2_protect = key2.replace('(','\(').replace(')','\)')
                         key2_protect = util.protect_parentheses(key2)
                         genopt = (f"{key2_protect} {value2}     ")
                         #print(f" xxx genopt = {genopt}")
@@ -271,6 +284,7 @@ class Simulation(Program):
 
             # set file-specific GENOPT 
             n_arg = len(genopt_list)
+
             for ifile in range(0,n_file):
                 infile = infile_list2d[iver][ifile]
                 model  = model_list2d[iver][ifile]
@@ -295,15 +309,14 @@ class Simulation(Program):
 
     def genopt_arg_match(self, infile, model, genarg):
         # Returns True if GENOPT is applied to param inputs :
-        #  infile    = name of sim-input file
+        #  infile   = name of sim-input file
         #  model    = SNIa or NONIa
-        #  genarg    = argument in GENOPT(genarg)
+        #  genarg   = argument in GENOPT(genarg)
         #
 
-        
-        match_SNIa      = False
-        match_NONIa      = False
-        match_genarg  = False
+        match_SNIa        = False
+        match_NONIa       = False
+        match_infile      = False
         genarg_SNIa_list  = [ 'Ia', '1a', 'SNIa', 'SN1a' ] 
         genarg_NONIa_list = [ 'NONIa', 'NON1a' ]
 
@@ -325,13 +338,33 @@ class Simulation(Program):
 
         # check for substring of input file name
         if genarg in infile :
-            match_genarg = True
+            match_infile = True
 
         # - - - - - - - - -
-        if match_SNIa or match_NONIa or match_genarg :
+        found_match = (match_SNIa or match_NONIa or match_infile)
+
+        dump_flag = False
+        if dump_flag :
+            print(f" xxx -------------------------------------- ")
+            print(f" xxx infile = {infile} ")
+            print(f" xxx genarg = {genarg} ")
+            print(f" xxx model  = {model}  ")
+            print(f" xxx match[SNIa,NON1a,infile] = " \
+                  f"{match_SNIa},{match_NONIa},{match_infile}")
+            print(f" xxx found_match = {found_match}")
+
+        # - - - - -
+        if found_match :
             return True
         else:
             return False
+            #msgerr = [] 
+            #msgerr.append(f"Invalid GENOPT({genarg}):")
+            #msgerr.append(f"Valid GENOPT args in () are:")
+            #msgerr.append(f"   Any element of {genarg_SNIa_list}")
+            #msgerr.append(f"   Any element of {genarg_NONIa_list}")
+            #msgerr.append(f"   substring of '{infile}'")
+            #self.log_assert(False,msgerr)            
 
         # end genopt_arg_match
 
@@ -479,26 +512,49 @@ class Simulation(Program):
     def get_ngentot_from_input(self,iver,ifile):
 
         INFILE_KEYS      = self.config_prep['INFILE_KEYS']
+        ngentot_global   = self.config_prep['ngentot_global']
         genopt_list2d    = self.config_prep['genopt_list2d']
         genopt           = genopt_list2d[iver][ifile]
-        key_ngentot      = "NGENTOT_LC"
 
-        # default NGENTOT_LC is from the sim-input file
-        ngentot  = INFILE_KEYS[iver][ifile][key_ngentot]
+        # Start with default NGENTOT_LC is from the sim-input file
+        ngentot  = INFILE_KEYS[iver][ifile][KEY_NGENTOT]
 
-        # check for GENOPT override                                            
-        genopt_words = genopt.split()
-        if key_ngentot in genopt_words :
-            jindx       = genopt_words.index(key_ngentot)
-            ngentot     = int(genopt_words[jindx+1])
-
-            # remove NGENTOT_LC <ngen> from genopt (Dec 9 2020)
-            tmp = genopt_words[:jindx] + genopt_words[jindx+2:]
-            genopt_replace = "  ".join(tmp)
+        # check for GENOPT override
+        genopt_replace, strval = \
+                self.extract_value_from_genopt(genopt,KEY_NGENTOT)
+        if strval is not None : 
+            ngentot = int(strval)
             genopt_list2d[iver][ifile]        = genopt_replace
             self.config_prep['genopt_list2d'] = genopt_list2d
 
+        # check for GENOPT_GLOBAL override (Dec 10 2020)
+        if ngentot_global > 0 :
+            ngentot = ngentot_global
+
         return ngentot
+
+    def extract_value_from_genopt(self,genopt,key):
+        # Created Dec 10 2020
+        # Extract value after key from genopt;
+        # return genopt with "key value=" removed, and return value.
+        # Example:
+        #   input genopt = "KEY1 46  KEY2 33  KEY3 1.66" and key= KEY2
+        #   Function returns
+        #     genopt_replace = "KEY1 46  KEY3 1.66
+        #     value          = 33
+        # If key not in genopt, return genopt_replace=genopt and value=None
+
+        genopt_replace = genopt  # default return value
+        value          = None    # default return value
+        genopt_words   = genopt.split()
+        if key in genopt_words :
+            jindx       = genopt_words.index(key)
+            value       = genopt_words[jindx+1]
+            tmp = genopt_words[:jindx] + genopt_words[jindx+2:]
+            genopt_replace = "  ".join(tmp)
+
+        return genopt_replace, value
+        # end extract_value_from_genopt
 
     def get_ngentot_from_rate(self,iver,ifile):
 

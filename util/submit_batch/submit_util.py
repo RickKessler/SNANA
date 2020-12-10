@@ -613,7 +613,7 @@ def write_job_info(f,JOB_INFO,icpu):
                          f"do sleep 5; done" )
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
         f.write(f"{wait_for_code}\n")
-        f.write(f"echo {program} exists. \n\n")
+        f.write(f"echo {program} exists -> execute \n\n")
 
     # check optional ENV to set before running program
     if 'setenv' in JOB_INFO :
@@ -633,6 +633,7 @@ def write_job_info(f,JOB_INFO,icpu):
 
     if len(done_file) > 4 :
         f.write(f"touch {done_file} \n")
+        f.write(f"echo Finished {program} -> create DONE file. \n")
 
     f.write(f"\n")
 
@@ -654,6 +655,7 @@ def write_jobmerge_info(f,JOB_INFO,icpu):
     if match_cpu and do_merge :
         merge_task = (f"{sys.argv[0]} {merge_input_file} {merge_arg_list}")
         f.write(f"cd {CWD} \n")
+        f.write(f"echo Run monitor task. \n")
         f.write(f"{merge_task} \n")
         f.write(f"echo $?")
         f.write(f"\n")

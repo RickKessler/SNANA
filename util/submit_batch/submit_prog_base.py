@@ -729,7 +729,7 @@ class Program:
         Nsec     = seconds_since_midnight  # current Nsec, not from submit info
         time_now = datetime.datetime.now()
         tstr     = time_now.strftime("%Y-%m-%d %H:%M:%S") 
-        fnam = "merge_driver"
+        fnam     = "merge_driver"
         MERGE_LAST  = self.config_yaml['args'].MERGE_LAST
         cpunum      = self.config_yaml['args'].cpunum[0]
 
@@ -958,11 +958,12 @@ class Program:
             # check for other busy files to avoid conflict
             n_busy,busy_list = self.get_busy_list()
             if n_busy > 0 :
-                msg = (f"\n Found existing {busy_list[0]} --> "\
-                       f"exit merge process.")
+                msg = (f"\n# merge_driver: Found existing " \
+                       f"{busy_list[0]} --> exit merge process.")
                 sys.exit(msg)  
             else: 
-                logging.info(f"\t Create {busy_file} for {t_msg}")
+                msg = (f"# merge_driver: \t Create {busy_file} for {t_msg}")
+                logging.info(msg)
                 with open(BUSY_FILE,"w") as f:
                     f.write(f"{Nsec}\n")  # maybe useful for debug situation
 
@@ -973,12 +974,12 @@ class Program:
                 if n_busy > 1 and busy_file != busy_list[0] :
                     cmd_rm = (f"rm {BUSY_FILE}")
                     os.system(cmd_rm)
-                    msg = (f"\n Found simultaneous {busy_list[0]} --> "\
-                           f" exit merge process.")
+                    msg = (f"\n# merge_driver: Found simultaneous " \
+                           f"{busy_list[0]} --> exit merge process.")
                     sys.exit(msg)  
 
         elif len(BUSY_FILE) > 10 :  # avoid disaster with rm
-            logging.info(f"\t Remove {busy_file} for {t_msg}")
+            logging.info(f"# merge_driver: \t Remove {busy_file} for {t_msg}")
             cmd_rm = (f"rm {BUSY_FILE}")
             os.system(cmd_rm)
 

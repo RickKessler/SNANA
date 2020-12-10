@@ -474,7 +474,11 @@ class Program:
         #
         # This function creates file and writes required info.
         # Then it calls append_info_file() to get program-specific info.
+        #
+        # Write FAST if set.
 
+        args            = self.config_yaml['args']
+        fast            = self.config_yaml['args'].fast
         CONFIG          = self.config_yaml['CONFIG']
         n_job_tot       = self.config_prep['n_job_tot']
         n_done_tot      = self.config_prep['n_done_tot']
@@ -498,6 +502,11 @@ class Program:
         # required info for all tasks
         f.write("\n# Required info \n")
 
+        f.write(f"CWD:         {CWD}\n")
+
+        arg_string = " ".join(sys.argv[1:])
+        f.write(f"ARG_LIST:    {arg_string}\n")
+
         comment = "submit time; Nsec since midnight"
         f.write(f"TIME_STAMP_NSEC:   {Nsec}    # {comment}\n")
         f.write(f"TIME_STAMP_SUBMIT: {time_now}    \n")
@@ -517,6 +526,10 @@ class Program:
 
         comment = "number of cores"
         f.write(f"N_CORE:           {n_core}     # {comment} \n")
+
+        if fast :
+            f.write(f"FAST:             {FASTFAC}    " \
+                    f"# process 1/{FASTFAC} of request\n")
 
         force_crash_prep  = self.config_yaml['args'].force_crash_prep
         force_crash_merge = self.config_yaml['args'].force_crash_merge

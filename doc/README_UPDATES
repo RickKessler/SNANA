@@ -19306,6 +19306,8 @@
       + fix nasty bug overriding HOSTLIB_MSKOPT on command line;
         it was appending MSKOPT bits instead of overriding MSKOPT.
       + Fix BYOSED bugs related to smear models G10 and C11
+      + extend PSF abort value from 9.9 to 20.
+      + for QUIT_NOREWIND, always start at beginning of SIMLIB
 
     SALT2mu.c: write Nz x Nz cov_stat matrix to [prefix].cov.
                Same format used by CosmoMC to read cov_syst.
@@ -19348,6 +19350,7 @@
      + enable recylce of output fitres to input fitres
      + new write_csv=1 option to write M0DIF for CosmoMC
      + write MUERR_RENORM to output fitres file.
+     + enable survey-dependent chi2max; see details at top of code.
 
    submit_prog_sim.py:
      + protect against ngentot_lc=0 and do_cidran
@@ -19355,6 +19358,8 @@
    snana.car
      + MXCHAR_ARG -> 800 (was 600)
      + abort if any command line ARG exceeds MXCHAR_ARG
+
+   combine_fitres.c: new -varnames 'varlist' argument.
 
    remove obsolete util/createCov.py
    add refactored  util/create_covariance.py (from Sam/pippin)

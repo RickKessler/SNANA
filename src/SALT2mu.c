@@ -888,6 +888,15 @@ Default output files (can change names with "prefix" argument)
  Dec 6, 2020: write muerr_renorm to output such that sum of WGT
               in each z-bin matches 1/M0DIFERR^2.
 
+ Dec 10 2020: remove legacy SPLITAN-summary functions; no longer
+              needed with submit_batch_jobs script. Interactive
+              NSPLITRAN probably won't work any more.
+
+ Dec 11 2020: 
+   + read zhel and zhelerr
+   + cosmodl: split z arg -> zhel and zcmb.
+   +
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1025,6 +1034,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 // max number of random split jobs (RK - July 10, 2012)
 #define MXSPLITRAN 1000
 
+
 // define indices for fit parameters
 #define NLCPAR    3  // mB,x1,c
 #define INDEX_mB  0
@@ -1137,8 +1147,8 @@ typedef struct {
   char   **name, **field ; 
   float  *fitpar[NLCPAR+1], *fitpar_err[NLCPAR+1], *x0, *x0err ;
   float  *COV_x0x1, *COV_x0c, *COV_x1c ;
-  float  *zhd,    *zcmb,    *vpec ;
-  float  *zhderr, *zcmberr, *zmuerr, *vpecerr  ;
+  float  *zhd,    *zcmb,    *zhel,    *vpec ;
+  float  *zhderr, *zcmberr, *zhelerr, *vpecerr, *zmuerr  ;
   float  *logmass, *pIa, *snrmax ;
   short int  *IDSURVEY, *SNTYPE, *OPT_PHOTOZ ; 
   float  *fitpar_ideal[NLCPAR+1], *x0_ideal;
@@ -1770,6 +1780,8 @@ struct {
   double zM0[MXz];   // wgted-average z (not from fit)
 
   char   PARNAME[MAXPAR][MXCHAR_VARNAME];
+
+
   double PARVAL[MXSPLITRAN+1][MAXPAR];
   double PARERR[MXSPLITRAN+1][MAXPAR];
 
@@ -1830,7 +1842,9 @@ int  SALT2mu_DRIVER_SUMMARY(void);
 
 void apply_blindpar(void);
 void check_duplicate_SNID(void);
+void check_redshifts(void) ;
 void check_vpec_sign(void);
+void check_zhel(void) ;
 void applyCut_nmax(void);
 void applyCut_chi2(void);
 void merge_duplicates(int N, int *isnList);
@@ -2037,10 +2051,14 @@ void  write_NWARN(FILE *fp, int FLAG) ;
 
 int   SPLITRAN_ACCEPT(int isn, int snid);
 void  SPLITRAN_cutmask(void);
+
+
+/* xxxxxxxxxx Mark delete Dec 2020 xxxxxxxxx 
 void  SPLITRAN_SUMMARY(void); 
 void  SPLITRAN_write_fitpar_legacy(char *fileName);
 void  SPLITRAN_read_fitpar(int isplit);
 int   SPLITRAN_read_wfit(int isplit);
+xxxxxxxxxxx */
 
 void  CPU_SUMMARY(void);
 
@@ -2055,11 +2073,10 @@ double  next_covFitPar(double redchi2, double orig_parval, double parstep);
 void    recalc_dataCov(void); 
 
 //Utility function definitions
-double cosmodl_forFit(double z, double *cosPar);
-double cosmodl(double z, double *cosPar);
-double inc    (double z, double *cosPar);
+double cosmodl_forFit(double zhel, double zcmb, double *cosPar);
+double cosmodl(double zhel, double zcmb, double *cosPar);
+double inc    (double zcmb, double *cosPar);
 
-// void gengauss(double r[2]);
 void ludcmp(double* a, const int n, const int ndim, int* indx, 
 	    double* d, int* icon);
 void lubksb(const double* a, const int n, const int ndim, 
@@ -2353,8 +2370,8 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   // abort if there are any duplicate SNIDs
   check_duplicate_SNID();
 
-  // sanity check vpec sign convention (Oct 28 2020)
-  check_vpec_sign();
+  // misc redshift checks
+  check_redshifts();
 
   // setup BBC redshift bins.
   setup_BININFO_redshift();
@@ -2438,9 +2455,13 @@ void SALT2mu_DRIVER_EXEC(void) {
   // execuate minuit mnparm_ commands
   exec_mnparm(); 
 
+
+  /* xxxxxxxxx mark delete Dec 10 2020 xxxxxxx
   // check option to fetch summary of all previous SPLITRAN jobs
   if ( INPUTS.JOBID_SPLITRAN > INPUTS.NSPLITRAN ) 
     {  SPLITRAN_SUMMARY(); exit(0); }
+  xxxxxxxxxx end mark xxxxxxx */
+
 
   // use FCN call and make chi2-outlier cut (Jul 19 2019)
   applyCut_chi2();
@@ -2559,7 +2580,8 @@ int SALT2mu_DRIVER_SUMMARY(void) {
   }
 #endif
 
-  SPLITRAN_SUMMARY();
+  // xxx mark delete Dec 2020  SPLITRAN_SUMMARY();
+
   CPU_SUMMARY();
 
   
@@ -3273,6 +3295,13 @@ void applyCut_chi2(void) {
 
 } // end applyCut_chi2
 
+
+// *******************************
+void check_redshifts(void) {
+  check_vpec_sign();
+  // xxx mark delete  check_zhel();
+}  // check_redshifts
+
 // ******************************************
 void check_vpec_sign(void) {
 
@@ -3280,6 +3309,9 @@ void check_vpec_sign(void) {
   // For z in zwin_vpec_check, measure Hubble rms twice:
   // with current zHD, and with zHD recomputed with vpec sign flip.
   // if the sign flip has smaller RMS, abort with error message.
+  //
+  // Misc task: if zhel < 0 (does not exist), set zhel = zcmb
+  // to allow processing very old FITRES files.
 
   double *zwin           = INPUTS.zwin_vpec_check ;
   double alpha           = INPUTS.parval[IPAR_ALPHA0] ;
@@ -3288,7 +3320,8 @@ void check_vpec_sign(void) {
 
   int isn, i, cutmask, NSN_SUM=0;
   double SUM_MURES[2], SUM_SQMURES[2], mean[2], rms[0], sgn_flip ;
-  double zHD, zCMB, zHD_tmp, mB, x1, c, mumodel, mures, vpec, zpec, dl ;
+  double zHD, zCMB, zHD_tmp, vpec, zpec;
+  double mB, x1, c, mumodel, mures, dl ;
   char fnam[] = "check_vpec_sign" ;
 
   // ------- BEGIN -------
@@ -3327,7 +3360,7 @@ void check_vpec_sign(void) {
       else 
 	{ zHD_tmp += (sgn_flip*2.0*zpec); } // flip vpec sign
 
-      dl = cosmodl_forFit(zHD_tmp,INPUTS.COSPAR);
+      dl = cosmodl_forFit(zHD_tmp, zHD_tmp, INPUTS.COSPAR);
       mumodel        = 5.0*log10(dl) + 25.0 ;
       mures          = mB  + alpha*x1 - beta*c - M0_DEFAULT - mumodel;
       SUM_MURES[i]   += mures ;
@@ -3362,6 +3395,38 @@ void check_vpec_sign(void) {
   return ;
 
 } // end check_vpec_sign
+
+
+// ******************************************
+void check_zhel(void) {
+  
+  // Created Dec 11 2020
+  // If zhel does not exist, compute it from zHD and set zhelerr = zhderr.
+  // This allows process old FITRES files that do not have zhel.
+
+  float z0      = INFO_DATA.TABLEVAR.zhel[0]  ;
+  bool SKIP     = (z0 > 0.0);
+  if (SKIP) { return; }
+
+  int  NSN_ALL  = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int  isn;
+  double zhd, zhderr, zhel, zhelerr;
+  char fnam[] = "check_zhel" ;
+
+  // ------------- BEGIN ------------
+
+  fprint_banner(FP_STDOUT,fnam);
+  fprintf(FP_STDOUT,"\t zhel data column does not exist -> "
+	  "set zhel = zhd" );
+
+  for(isn=0; isn < NSN_ALL; isn++ ) {
+    zhd     = (double)INFO_DATA.TABLEVAR.zhd[isn] ;
+    zhel    = zhd; // WARNING: compute this later
+    INFO_DATA.TABLEVAR.zhel[isn] = (float)zhel;    
+  }
+
+
+} // end check_zhel
 
 // ******************************************
 void check_duplicate_SNID(void) {
@@ -4041,7 +4106,7 @@ void *MNCHI2FUN(void *thread) {
 
     // compute distance modulus from cosmology params
     if ( INPUTS.FLOAT_COSPAR ) {
-      dl       = cosmodl_forFit(z, cosPar) ;
+      dl       = cosmodl_forFit(z, z, cosPar) ;
       mumodel  = 5.0*log10(dl) + 25.0 ;
     }
     else 
@@ -4783,7 +4848,7 @@ double fcn_muerrz(int OPT, double z, double zerr) {
   //
   // Jan 9 2018: remove zpecerr argment.
 
-  double zerrtot, muerr = 0.0 ;
+  double zerrtot, zlo, zhi, muerr = 0.0 ;
   double FAC   = 5.0/LOGTEN ;  
   double *cosPar = &INPUTS.parval[IPAR_OL] ;
   //  char fnam[]  = "fcn_muerrz" ;
@@ -4797,16 +4862,14 @@ double fcn_muerrz(int OPT, double z, double zerr) {
   else if ( OPT == 2 )  {
 
     double dl, mu1, mu2 ;
-    //    dl     = cosmodl(z,cosPar );
-    // mu0    = 5.0*log10(dl) + 25.0 ;
+    zlo    = z-zerr;  zhi = z+zerr;
 
-    dl     = cosmodl(z-zerr,cosPar);
+    dl     = cosmodl(zlo,zlo,cosPar);
     mu1    = 5.0*log10(dl) + 25.0 ;
 
-    dl     = cosmodl(z+zerr,cosPar);
+    dl     = cosmodl(zhi,zhi,cosPar);
     mu2    = 5.0*log10(dl) + 25.0 ;
-
-    muerr = (mu2-mu1)/2.0 ;
+    muerr  = (mu2-mu1)/2.0 ;
   }
 
   return(muerr);
@@ -5448,16 +5511,22 @@ void read_data_override(void) {
   // Created Nov 13 2020
   // Read optional data_override file, and replace values
   // in data arrays. For VPEC and VPEC_ERR, also modify
-  // zHD and zHDERR, respectively.
+  // zHD and zHDERR, respectively. Similarly, for zHEL
+  // override, update zCMB and zHD.
   //
 
-  char VARNAME_VPEC[]    = "VPEC";
-  char VARNAME_VPECERR[] = "VPEC_ERR";
-  char VARNAME_zHD[]     = "zHD";
-  char VARNAME_zHDERR[]  = "zHDERR";
+  char VARNAME_VPEC[]     = "VPEC";
+  char VARNAME_VPECERR[]  = "VPEC_ERR";
+  char VARNAME_zHD[]      = "zHD";
+  char VARNAME_zHDERR[]   = "zHDERR";
+  char VARNAME_zHEL[]     = "zHEL";
+  char VARNAME_zHELERR[]  = "zHELERR";
+  char VARNAME_zCMB[]     = "zCMB";
 
-  int IVAR_OVER_VPEC= -9, IVAR_OVER_VPECERR= -9 ;
-  int IVAR_OVER_ZHD = -9, IVAR_OVER_ZHDERR = -9 ;
+  int IVAR_OVER_VPEC = -9, IVAR_OVER_VPECERR = -9 ;
+  int IVAR_OVER_zHEL = -9, IVAR_OVER_zHELERR = -9 ;
+  int IVAR_OVER_zHD  = -9, IVAR_OVER_zHDERR  = -9 ;
+  int IVAR_OVER_zCMB = -9;
   int NSN_CHANGE[MXVAR_OVERRIDE];
   int nfile_over = INPUTS.nfile_data_override;
   int ifile_data, ifile_over, NROW;
@@ -5502,26 +5571,74 @@ void read_data_override(void) {
     varName = INFO_DATA.TABLEVAR.VARNAMES_LIST[0][ivar_data];
     if ( EXIST_VARNAME_AUTOSTORE(varName) )  { 
       catVarList_with_comma(VARNAMES_STRING_OVER,varName); 
+
       if ( strcmp(varName,VARNAME_VPEC) == 0     ) 
 	{ IVAR_OVER_VPEC = NVAR_OVER ; }
+
       if ( strcmp(varName,VARNAME_VPECERR) == 0 ) 
 	{ IVAR_OVER_VPECERR = NVAR_OVER ; }
 
+      if ( strcmp(varName,VARNAME_zHEL) == 0     ) 
+	{ IVAR_OVER_zHEL = NVAR_OVER ; }
+
+      if ( strcmp(varName,VARNAME_zHELERR) == 0     ) 
+	{ IVAR_OVER_zHELERR = NVAR_OVER ; }
+
+      if ( strcmp(varName,VARNAME_zCMB) == 0     ) 
+	{ IVAR_OVER_zCMB = NVAR_OVER ; }
+
       NVAR_OVER++ ;
     }
+  }
+
+  // - - - - - - - -
+  // check for conflicts
+  if ( IVAR_OVER_zHD >= 0 && IVAR_OVER_zHEL >= 0 ) {
+    sprintf(c1err,"Cannot override both zHD and zHEL; pick one");
+    sprintf(c2err,"and SALT2mu auto-computes override of the other.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  if ( IVAR_OVER_zHD >= 0 && IVAR_OVER_VPEC >= 0 ) {
+    sprintf(c1err,"Cannot override both zHD and VPEC; pick one");
+    sprintf(c2err,"and SALT2mu auto-computes override of the other.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  if ( IVAR_OVER_zCMB >= 0 ) {
+    sprintf(c1err,"Cannot override zCMB.");
+    sprintf(c2err,"Try overrid for zHEL or zHD");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  if ( IVAR_OVER_zHELERR >= 0 ) {
+    sprintf(c1err,"Sorry, zHELERR override not implemented yet.");
+    sprintf(c2err,"Please post Github issue if this is important.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
   // - - - - - - 
   // if VPEC is on override list, add recalculated zHD to override list.
   // if VPEC_ERR is on override list, add recalculated zHDERR
   if ( IVAR_OVER_VPEC >= 0 ) {     
-    IVAR_OVER_ZHD = NVAR_OVER ;
+    IVAR_OVER_zHD = NVAR_OVER ;
     NVAR_OVER++; catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHD); 
   }
   if ( IVAR_OVER_VPECERR >= 0 )  {
-    IVAR_OVER_ZHDERR = NVAR_OVER ; 
+    IVAR_OVER_zHDERR = NVAR_OVER ; 
     NVAR_OVER++;   catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHDERR); 
   }
+
+  // if zHEL is on override list, add shifted zHD
+  if ( IVAR_OVER_zHEL >= 0 ) {     
+    IVAR_OVER_zHD = NVAR_OVER ;
+    NVAR_OVER++; catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHD); 
+  }
+  if ( IVAR_OVER_zHELERR >= 0 )  {
+    IVAR_OVER_zHDERR = NVAR_OVER ; 
+    NVAR_OVER++;   catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHDERR); 
+  }
+
 
   INFO_DATA.NVAR_OVERRIDE = NVAR_OVER;
 
@@ -5568,12 +5685,10 @@ void read_data_override(void) {
     else if ( strcmp(varName,"zCMBERR") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zcmberr ; }
 
-    /* xxx maybe add zHEL at some point ?
     else if ( strcmp(varName,"zHEL") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhel ;  }
     else if ( strcmp(varName,"zHELERR") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhelerr ;  }
-    */
 
     else {
       sprintf(c1err,"Unable to implement override for %s", varName);
@@ -5584,23 +5699,29 @@ void read_data_override(void) {
 
   // - - - - - - - - -  
   // loop over each data event and each varname to override, 
-  // and replace value
+  // and replace value.
 
   int NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
   int istat, isn;
+  bool  override_zhd;
   float *fval ;   double dval;    char *name, *cval ;
-  double zhd_over, zhderr_over;
+  double zhd_over, zhderr_over, dl, zhel_over, zhd_orig, zhel_orig ;
 
   for(isn=0; isn < NSN_DATA; isn++ ) { 
 
+    zhd_orig   = (double)INFO_DATA.TABLEVAR.zhd[isn];
+    zhel_orig  = (double)INFO_DATA.TABLEVAR.zhel[isn];
+
     for(ivar_over=0; ivar_over < NVAR_OVER; ivar_over++ ) {
 
-      if ( ivar_over == IVAR_OVER_ZHD    ) { continue ; }
-      if ( ivar_over == IVAR_OVER_ZHDERR ) { continue ; }
+      if ( ivar_over == IVAR_OVER_zHD    ) { continue ; }
+      if ( ivar_over == IVAR_OVER_zHDERR ) { continue ; }
 
       name    = INFO_DATA.TABLEVAR.name[isn];
       varName = INFO_DATA.VARNAMES_OVERRIDE[ivar_over];
       SNTABLE_AUTOSTORE_READ(name, varName, &istat, &dval, cval ); 
+
+      override_zhd = false;
       
       // xxxxxxx
       if ( istat == -99990 ) {
@@ -5614,21 +5735,36 @@ void read_data_override(void) {
 	if ( ivar_over == IVAR_OVER_VPEC ) {
 	  double vpec_over = dval;
 	  zhd_over = zhd_data_override(isn,vpec_over); 
-	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_ZHD][isn] = zhd_over;
-	  NSN_CHANGE[IVAR_OVER_ZHD]++ ; 
+	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHD][isn] = zhd_over;
+	  NSN_CHANGE[IVAR_OVER_zHD]++ ; 
+	  override_zhd = true ;
 	}
 	else if ( ivar_over == IVAR_OVER_VPECERR ) {	 
 	  double vpecerr_over = dval;
 	  zhderr_over = zhderr_data_override(isn,vpecerr_over); 
-	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_ZHDERR][isn] = zhderr_over ;
-	  NSN_CHANGE[IVAR_OVER_ZHDERR]++ ; 
+	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHDERR][isn] = zhderr_over ;
+	  NSN_CHANGE[IVAR_OVER_zHDERR]++ ; 
+	}
+	else if ( ivar_over == IVAR_OVER_zHEL ) {
+	  zhel_over  = dval ;
+	  zhd_over = zhd_orig + (zhel_over-zhel_orig); 
+	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHD][isn] = zhd_over;
+	  NSN_CHANGE[IVAR_OVER_zHD]++ ; 
+	  override_zhd = true ;
 	}
 
 	// apply override AFTER checking zhd[err] overrides
 	INFO_DATA.PTRVAL_OVERRIDE[ivar_over][isn] = dval;
 	NSN_CHANGE[ivar_over]++ ;
 
-      }
+	// if zhd is modified, update zhel & mumodel.
+	if ( override_zhd ) {
+	  zhel_over = zhel_orig + (zhd_over - zhd_orig);
+	  dl = cosmodl_forFit(zhel_over,zhd_over,INPUTS.COSPAR); 
+	  INFO_DATA.TABLEVAR.mumodel[isn] = (float)(5.0*log10(dl) + 25.0);
+	}
+       
+      } // end istat if-block
 
     } // end ivar_over
   } // end isn 
@@ -5949,11 +6085,13 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
 
     TABLEVAR->zhd           = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->zhderr        = (float *) malloc(MEMF); MEMTOT+=MEMF;
-    TABLEVAR->zmuerr        = (float *) malloc(MEMF); MEMTOT+=MEMF; // 6/2020
     TABLEVAR->zcmb          = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->zcmberr       = (float *) malloc(MEMF); MEMTOT+=MEMF;
+    TABLEVAR->zhel          = (float *) malloc(MEMF); MEMTOT+=MEMF;
+    TABLEVAR->zhelerr       = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->vpec          = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->vpecerr       = (float *) malloc(MEMF); MEMTOT+=MEMF;
+    TABLEVAR->zmuerr        = (float *) malloc(MEMF); MEMTOT+=MEMF; // 6/2020
     TABLEVAR->logmass       = (float *) malloc(MEMF); MEMTOT+=MEMF; 
     TABLEVAR->snrmax        = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->pIa           = (float *) malloc(MEMF); MEMTOT+=MEMF; 
@@ -6015,13 +6153,11 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
 
     free(TABLEVAR->x0);
     free(TABLEVAR->x0err);
-    free(TABLEVAR->zhd);
-    free(TABLEVAR->zhderr);
+    free(TABLEVAR->zhd);      free(TABLEVAR->zhderr);
+    free(TABLEVAR->zcmb);     free(TABLEVAR->zcmberr);
+    free(TABLEVAR->zhel);     free(TABLEVAR->zhelerr);
+    free(TABLEVAR->vpec);     free(TABLEVAR->vpecerr);
     free(TABLEVAR->zmuerr);
-    free(TABLEVAR->zcmb);
-    free(TABLEVAR->zcmberr);
-    free(TABLEVAR->vpec);
-    free(TABLEVAR->vpecerr);
     free(TABLEVAR->snrmax);
 
 
@@ -6320,6 +6456,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   //  May  8 2020: add IFILE argument.
   //  May 20 2020: check NFIELD
   //  Jul 06 2020: check SUBPROCESS GENPDF-variables
+  //  Dec 11 2020: read zhel and zhelerr
 
   int EVENT_TYPE = TABLEVAR->EVENT_TYPE;
   int IS_DATA    = ( EVENT_TYPE == EVENT_TYPE_DATA);
@@ -6384,6 +6521,8 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->zmuerr[irow]     = -9.0 ;
     TABLEVAR->zcmb[irow]       = -9.0 ;
     TABLEVAR->zcmberr[irow]    = -9.0 ;
+    TABLEVAR->zhel[irow]       = -9.0 ;
+    TABLEVAR->zhelerr[irow]    = -9.0 ;
     TABLEVAR->snrmax[irow]     =  0.0 ;
     TABLEVAR->warnCov[irow]    =  false ;
 
@@ -6445,6 +6584,13 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
 			  LEN, VBOSE);
   sprintf(vartmp,"zCMBERR:F"); 
   SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zcmberr[ISTART], 
+			  LEN, VBOSE);
+
+  sprintf(vartmp,"zHEL:F");   // Dec 11 2020
+  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zhel[ISTART], 
+			  LEN, VBOSE);
+  sprintf(vartmp,"zHELERR:F"); 
+  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->zhelerr[ISTART], 
 			  LEN, VBOSE);
 
   sprintf(vartmp,"VPEC:F" );
@@ -6638,7 +6784,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   //
   // Feb 24 2020: load TABLEVAR->fitpar[INDEX_mu][ISN]
   // Jun 27 2020: local float -> double
-  //
+  // Dec 11 2020: if zhel<0, set zhel = zhd. Pass zhel to cosmodl().
 
   int EVENT_TYPE   = TABLEVAR->EVENT_TYPE;
   bool IS_DATA     = (EVENT_TYPE == EVENT_TYPE_DATA);
@@ -6670,6 +6816,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   double zhd       = (double)TABLEVAR->zhd[ISN];
   double zhderr    = (double)TABLEVAR->zhderr[ISN];
   double vpec      = (double)TABLEVAR->vpec[ISN];
+  double zhel      = (double)TABLEVAR->zhel[ISN]; // Dec 11 2020
   double vpecerr   = (double)TABLEVAR->vpecerr[ISN];
   double COV_x0x1  = (double)TABLEVAR->COV_x0x1[ISN];
   double COV_x0c   = (double)TABLEVAR->COV_x0c[ISN];
@@ -6806,11 +6953,16 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     }
     // xxxxxxxxxxxxx
 
+    if ( zhel < 0.0 ) {  // Dec 11 2020
+      zhel = zhd;     // approx fix since we don't have RA,DEC to transform 
+      TABLEVAR->zhel[ISN] = (float)zhel ;
+    }
 
     // if cosmo params are fixed, then store mumodel for each event.
     if ( INPUTS.FLOAT_COSPAR == 0 ) {
-      dl = cosmodl_forFit(zhd,INPUTS.COSPAR);
-      TABLEVAR->mumodel[ISN]    = (float)(5.0*log10(dl) + 25.0);
+      dl = cosmodl_forFit(zhd,zhd,INPUTS.COSPAR);  // legacy
+      // dl = cosmodl_forFit(zhel,zhd,INPUTS.COSPAR); // fixed
+      TABLEVAR->mumodel[ISN] = (float)(5.0*log10(dl) + 25.0);
     }
 
     // check z-cheat option 
@@ -6903,8 +7055,8 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   if ( !IS_DATA ) {
     // beware that INPUTS.COSPAR are not always the same as SIM-COSPAR,
     // so be careful computing SIM_MU at zHD
-    dl_hd    = cosmodl(zhd,INPUTS.COSPAR);
-    dl_sim   = cosmodl(SIM_ZCMB,INPUTS.COSPAR);
+    dl_hd    = cosmodl(zhd,zhd,INPUTS.COSPAR);
+    dl_sim   = cosmodl(SIM_ZCMB,SIM_ZCMB,INPUTS.COSPAR);
     dl_ratio = dl_hd/dl_sim ;
     dmu = 5.0*log10(dl_ratio);
     //    if(INPUTS.debug_flag!=1) {dmu=0.0;} // remove after testing
@@ -10239,10 +10391,10 @@ double muresid_biasCor(int ievt ) {
   // and COSPAR_BBC are the BBC-input cosmology params
 
   // get d_l for measured redshift 
-  dlz      = cosmodl_forFit(z, INPUTS.COSPAR); 
+  dlz      = cosmodl_forFit(z, z, INPUTS.COSPAR); 
 
   // get d_l for true redshift
-  dlzTrue  = cosmodl_forFit(zTrue, INPUTS.COSPAR); 
+  dlzTrue  = cosmodl_forFit(zTrue, zTrue, INPUTS.COSPAR); 
 
   dmu    = 5.0*log10(dlz/dlzTrue) ;
   muz    = muTrue + dmu ;  // mu at measured z and biasCor COSPAR
@@ -11419,7 +11571,7 @@ double zmu_solve(double mu, double *cosPar) {
   DMU = 9999.0 ;
   z   = 0.5 ;
   while ( DMU > DMU_CONVERGE ) {    
-    dl     = cosmodl_forFit(z,cosPar);
+    dl     = cosmodl_forFit(z,z,cosPar);
     mutmp  = 5.0*log10(dl) + 25.0 ;
     dmu    = mutmp - mu ;
     DMU    = fabs(dmu);
@@ -13331,7 +13483,7 @@ void setup_DMUPDF_CCprior(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     
 
     // compute mucos for each SIM CC event
-    dl       = cosmodl_forFit(z, MUZMAP->cosPar) ;
+    dl       = cosmodl_forFit(z, z, MUZMAP->cosPar) ;
     mumodel  = 5.0*log10(dl) + 25.0 ;
     mumodel += muBias ;     // add bias
     dmu      = mu - mumodel ;
@@ -16058,6 +16210,8 @@ int SPLITRAN_ACCEPT(int isn, int snid) {
 } // end of SPLITRAN_ACCEPT
 
 
+/* xxxxxxxxxx mark delete Dec 2020 xxxxxxxxxxxx
+
 // **************************************************
 void SPLITRAN_SUMMARY(void) {
 
@@ -16197,6 +16351,8 @@ void SPLITRAN_SUMMARY(void) {
   fclose(fp);
 
 }  // end of SPLITRAN_SUMMARY
+
+xxxxxxxxxxxxxxx end mark xxxxxxxxxxxxx */
 
 
 // ======================================
@@ -17030,7 +17186,7 @@ void  prep_cosmodl_lookup(void) {
   for(iz=0; iz < NBZ; iz++ ) {
     di = (double)iz + 0.5 ;
     z  = ZMIN + (ZBIN * di) ;
-    dl = cosmodl_forFit(z,INPUTS.COSPAR);
+    dl = cosmodl_forFit(z,z,INPUTS.COSPAR);
     COSMODL_LOOKUP.z[iz]  = z;
     COSMODL_LOOKUP.dl[iz] = dl;
   }
@@ -17372,12 +17528,14 @@ void outFile_driver(void) {
     write_M0_fitres(tmpFile2);      // write M0 vs. redshift
     write_M0_cov(tmpFile3);         // write cov_stat matrix for CosmoMC
 
+    /* xxxxxxx mark delete Dec 10 2020 xxxxxxxxxx
     // for single JOBID_SPLITRAN, write fitpar file so that they
     // can be scooped up later to make summary.
     if ( JOBID >=1 && JOBID <= NSPLITRAN )  { 
       sprintf(tmpFile3,"%s.fitpar", prefix );  
       SPLITRAN_write_fitpar_legacy(tmpFile3); 
     }
+    xxxxxxxxxxxx end mark xxxxxxxxx */
 
     if ( INPUTS.write_yaml ) {
       sprintf(tmpFile,"%s.YAML", prefix );
@@ -17601,7 +17759,7 @@ void  write_M0_fitres(char *fileName) {
     VAL   = FITRESULT.M0DIF[iz];
     ERR   = FITRESULT.M0ERR[iz];	
 
-    dl    = cosmodl_forFit(z, INPUTS.COSPAR) ;
+    dl    = cosmodl_forFit(z, z, INPUTS.COSPAR) ;
     MUREF = 5.0*log10(dl) + 25.0 ;
     NFIT = FITINP.NZBIN_FIT[iz] ;
 
@@ -17662,7 +17820,7 @@ void  write_M0_csv(char *fileName) {
 
     M0DIF   = FITRESULT.M0DIF[iz];
     M0ERR   = FITRESULT.M0ERR[iz];
-    dl    = cosmodl_forFit(z, INPUTS.COSPAR) ;
+    dl    = cosmodl_forFit(z, z, INPUTS.COSPAR) ;
     MUREF = 5.0*log10(dl) + 25.0 ;
     
     MU    = MUREF + M0DIF;
@@ -17744,6 +17902,11 @@ void write_M0_cov(char *fileName) {
   return ;
 
 } // end write_M0_cov
+
+
+
+
+/* xxxxxxxxxxxxxx MARK DELETE DEC 2020 xxxxxxxxxx
 
 
 // ******************************************
@@ -17942,6 +18105,7 @@ int SPLITRAN_read_wfit(int isplit) {
 
 } // end SPLITRAN_read_wfit
 
+
 // ************************************
 int match_fitParName(char *parName) {
   int  ipar = -9;
@@ -17965,6 +18129,9 @@ int match_fitParName(char *parName) {
   return(-9);
 
 } // end match_fitParName
+
+xxxxxxxxxxxx end MARK xxxxxxxxxxxxxx */
+
 
 // ******************************************
 void write_fitres_driver(char* fileName) {
@@ -19161,7 +19328,7 @@ int keep_cutmask(int cutmask) {
 
 
 // ==============================================
-double cosmodl_forFit(double z, double *cosPar) {
+double cosmodl_forFit(double zhel, double zcmb, double *cosPar) {
 
   // Created Jan 2016.
   //
@@ -19185,14 +19352,14 @@ double cosmodl_forFit(double z, double *cosPar) {
 
     for(i=0; i <2; i++ ) {
       cosPar_local[IPAR_OL] = OL_extrap[i] ;
-      DL[i] = cosmodl(z,cosPar_local);
+      DL[i] = cosmodl(zhel,zcmb,cosPar_local);
     }
 
     slp = (DL[1] - DL[0]) / (OL_extrap[1] - OL_extrap[0]) ;
     dl  = DL[0] + ( OL - OL_extrap[0] )*slp ;
   }
   else {
-    dl = cosmodl(z,cosPar);
+    dl = cosmodl(zhel,zcmb,cosPar);
   }
 
   /*
@@ -19208,12 +19375,15 @@ double cosmodl_forFit(double z, double *cosPar) {
 
 } // end cosmodl_forFit
 
-double cosmodl(double z, double *cosPar)
+double cosmodl(double zhel, double zhd, double *cosPar)
 {
+  // Dec 11 2020: 
+  // pass both zhel and zhd, where zhd has both cmb and vpec corrections.
+ 
   const double  cvel = LIGHT_km; // 2.99792458e5;
   const double  tol  = 1.e-6;
   double dflat, distance, H0inv ;
-  double omega_k, OK  ;
+  double omega_k, OK, dl  ;
   //  char fnam[] = "cosmodl" ;
 
   // ------------- BEGIN --------------
@@ -19224,12 +19394,10 @@ double cosmodl(double z, double *cosPar)
   //  wa      = cosPar[3]; // not used
 
   if(fabs(omega_k)<tol) { omega_k = 0.0; }
-  //  omega_m = 1.0 - omega_l - omega_k; // not used
   OK      = fabs(omega_k);
 
   //comoving distance to redshift
-
-  dflat = rombint(inc, 0.0, z, cosPar, tol);
+  dflat = rombint(inc, 0.0, zhd, cosPar, tol);
 
   H0inv = 1.0/INPUTS.H0 ;
 
@@ -19240,7 +19408,8 @@ double cosmodl(double z, double *cosPar)
   else 
     { distance = cvel*H0inv*(1.0/sqrt(OK))*sinh(sqrt(OK)*dflat); }
 
-  return( (1.0+z)*distance );
+  dl = (1.0+zhel)*distance ;
+  return( dl );
 
 } // end cosmodl
 

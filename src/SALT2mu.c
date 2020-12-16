@@ -30,7 +30,7 @@ file=<comma-sep list of fitres file names to analyze>
 datafile=<same as file=>
 
 datafile_override=over1.dat,over2.dat,etc... ! comma-sep list of data-overrides
-     ! enabled for VPEC, VPEC_ERR, HOST_LOGMASS, zHD[ERR], zCMB[ERR]
+     ! enabled for zHEL, VPEC, VPEC_ERR, HOST_LOGMASS
      ! if VPEC [VPEC_ERR] is changed, so is zhd [zhderr]
 
 minos=1  ! default; minos errors

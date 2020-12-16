@@ -1,9 +1,16 @@
 // genmag_SIMSED.h
 
 
-#define OPTMASK_SIMSED_PARAM    1 // continuous interp
-#define OPTMASK_SIMSED_param    2 // baggage parameter
-#define OPTMASK_SIMSED_GRIDONLY 4 // random gen snapped to GRID only
+// define OPTMASK bits for generating params
+#define OPTMASK_GEN_SIMSED_PARAM    1   // continuous interp
+#define OPTMASK_GEN_SIMSED_param    2   // baggage parameter
+#define OPTMASK_GEN_SIMSED_GRIDONLY 4   // random gen snapped to GRID only
+
+// define OPTMASK bits for init_genmag_SIMSED (LSB=0)
+#define OPTMASK_INIT_SIMSED_BINARY    1  // --> make binary file
+#define OPTMASK_INIT_SIMSED_TESTMODE  64 // used by SIMSED_check program
+#define OPTMASK_INIT_SIMSED_BATCH    128 // batch mode -> abort on stale binary
+
 
 #define INFO_SIMSED_FILENAME  "SED.INFO" 
 char INFO_SIMSED_FILENAME_FULL[MXPATHLEN] ;
@@ -18,9 +25,6 @@ char INFO_SIMSED_FILENAME_FULL[MXPATHLEN] ;
 
 #define BINARYFLAG_KCORFILENAME 1  // 1 => read/write/check kcor filename
 
-// define OPTMASK bits for init_genmag_SIMSED (LSB=0)
-#define OPTMASK_SIMSED_BINARY    1  // --> make binary file
-#define OPTMASK_SIMSED_TESTMODE  64 // used by SIMSED_check program
 
 #define WRVERSION_SIMSED_BINARY  2  // July 30 2017:
 int     IVERSION_SIMSED_BINARY ;     // actual version
@@ -31,6 +35,8 @@ double Trange_SIMSED[2] ; // used for rd_sedflux
 double Lrange_SIMSED[2] ;
 
 int ISIMSED_SEQUENTIAL ;
+
+bool ISBATCH_SIMSED;   // T => running in batch mode
 
 /**********************************************
   Init Information

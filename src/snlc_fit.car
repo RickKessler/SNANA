@@ -7987,8 +7987,9 @@ c continue below on 1st iteration only.
 
       if ( USESIM_REDSHIFT ) THEN
          SNLC_REDSHIFT = SIM_REDSHIFT_HELIO
-         SNLC_ZCMB     = SIM_REDSHIFT_HELIO
          SNLC_ZHELIO   = SIM_REDSHIFT_HELIO
+c xxx mark bug         SNLC_ZCMB     = SIM_REDSHIFT_HELIO
+         SNLC_ZCMB     = SIM_REDSHIFT_CMB   ! Dec 15 2020
       endif
 
       ipar            =  IPAR_zPHOT

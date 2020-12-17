@@ -614,8 +614,8 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   Py_DECREF(pFLUX);
   Py_DECREF(arrLAM);
   Py_DECREF(arrFLUX);
-  //Py_DECREF(pargs);
-  //Py_DECREF(pargs2);
+  Py_DECREF(pargs);
+  Py_DECREF(pargs2);
   //Py_DECREF(pylamitem);
   //Py_DECREF(pyfluxitem);
 
@@ -694,6 +694,9 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
   //
   // Jul 12 2019 RK - few fixes to work with spectrograph.
   //
+  // Dec 8 2020: replace local magSmear[] with global GENSMEAR.MAGSMEAR_LIST
+  //               (to work properly with G10 and C11 models)
+  //
 
   int    ifilt          = IFILTMAP_SEDMODEL[ifilt_obs] ;
   int    NLAMFILT       = FILTER_SEDMODEL[ifilt].NLAM ;
@@ -754,7 +757,7 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
     printf(" xxx %s:  Trest=%.3f  ifilt_obs=%d \n", 
 	   fnam,  Trest, ifilt_obs); fflush(stdout);
     */
-    get_genSmear( Trest, cdum, x1dum, NLAMFILT, lam, magSmear) ;
+    get_genSmear( Trest, cdum, x1dum, NLAMFILT, lam, GENSMEAR.MAGSMEAR_LIST) ;
   }
 
   // - - - - - -

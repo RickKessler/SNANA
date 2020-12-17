@@ -1657,7 +1657,7 @@ void SNTABLE_DUMP_VARNAMES(char *FILENAME, char *TABLENAME) {
 
 // ============================================================
 int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME, 
-			int NVAR, char **VARLIST, 
+			int NVAR, char **VARLIST, int IVAR_NPT, 
 			FILE *FP_OUTFILE, 
 			char *LINEKEY_DUMP, char *SEPKEY_DUMP ) {
 
@@ -1692,10 +1692,11 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
   int ivar, ICAST, NVAR_TOT, NC=0, IFILETYPE, MXLEN=0 ;
   int    VBOSE = 3 ; // 1-->print each var; 2--> abort in missing var
   double DDUMMY ;
-  char   CDUMMY[80], *ptrVar;
-  char varName_NPTFIT[] = "NPTFIT";
+  char   CDUMMY[80], *ptrVar, varName_NPT[20];
+  // xxx mark delete   char varName_NPTFIT[] = "NPTFIT";
   char stringOpt[] = "read";
 
+  
   IFILETYPE = TABLEFILE_OPEN(FILENAME, stringOpt); // open file to read
   NVAR_TOT  = SNTABLE_READPREP(IFILETYPE,TABLENAME); // read varList
 
@@ -1706,10 +1707,11 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
   //   message explains what to do and how to set SNTABLE_LIST.
   
   if ( OUTLIER_INFO.USEFLAG ) {
-    ivar = IVAR_READTABLE_POINTER(varName_NPTFIT) ;
+    sprintf(varName_NPT, "%s", VARLIST[IVAR_NPT] ) ; // Nov 30 2020
+    ivar = IVAR_READTABLE_POINTER(varName_NPT) ;
     if ( ivar < 0 ) {
       sprintf(MSGERR1,"Cannot extract obs/outiers "
-	      "because %s is missing.", varName_NPTFIT);
+	      "because %s is missing.", varName_NPT);
       sprintf(MSGERR2,"Try SNTABLE_LIST = 'FITRES+RESIDUALS' ");
       errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
     }
@@ -1750,7 +1752,8 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
 
 // =========================================
 int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME, 
-			   int NVAR, char **VARLIST, float *OUTLIER_NSIGMA, 
+			   int NVAR, char **VARLIST, int IVAR_NPT, 
+			   float *OUTLIER_NSIGMA, 
 			   FILE *FP_OUTFILE, char *LINEKEY, char *SEPKEY ) {
 
   // Created Aug 2014
@@ -1761,8 +1764,10 @@ int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME,
   // Oct 26 2014: use refactored system.
   // Jul 22 2017: add LINEKEY argument.
   // Feb    2018: check opton to dump everything
-
+  // Nov 30 2020: pass IVAR_NPT to get column name NOBS or NPTFIT
+  
   int  NDUMP, ivar, indx_store ;
+  bool match ;
   char msg[80], *varName, simVar[80] ;
   char fnam[] = "SNTABLE_DUMP_OUTLIERS" ;
 
@@ -1780,7 +1785,7 @@ int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME,
   if ( Nsig0 == 0.0 && Nsig1 > 0.99E8 ) 
     { OUTLIER_INFO.USEFLAG = 2; } // flag to dump all OBS
 
-  
+
   OUTLIER_INFO.CUTWIN_NSIGMA[0] = Nsig0 ;
   OUTLIER_INFO.CUTWIN_NSIGMA[1] = Nsig1 ;
 
@@ -1788,7 +1793,8 @@ int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME,
   OUTLIER_INFO.CUTWIN_CHI2FLUX[1] = Nsig1*Nsig1 ;
 
   varName = OUTLIER_INFO.VARNAME[INDX_OUTLIER_NPTFIT] ;
-  sprintf(varName, "%s", OUTLIER_VARNAME_NPTFIT);
+  // xxx mark  sprintf(varName, "%s", OUTLIER_VARNAME_NPTFIT);
+  sprintf(varName, "%s", VARLIST[IVAR_NPT] ); // Nov 30 2020
 
   varName = OUTLIER_INFO.VARNAME[INDX_OUTLIER_IFILT] ;
   sprintf(varName, "%s", OUTLIER_VARNAME_IFILT) ;
@@ -1802,23 +1808,32 @@ int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME,
   for(ivar=0; ivar < NVAR; ivar++ ) {
     for(indx_store=0; indx_store < NVAR_OUTLIER_DECODE; indx_store++ ) {
       varName = OUTLIER_INFO.VARNAME[indx_store] ;
+      match = false;
 
       if ( strcmp(VARLIST[ivar],varName) == 0 ) 
-	{ OUTLIER_INFO.IVAR[indx_store] = ivar; }
+	{  OUTLIER_INFO.IVAR[indx_store] = ivar;  match = true;  }
 
       // try CHI2FLUX_SIM
       sprintf(simVar,"%s_SIM", OUTLIER_INFO.VARNAME[indx_store]);
       if ( strcmp(VARLIST[ivar],simVar) == 0 ) 
-	{ OUTLIER_INFO.IVAR[indx_store] = ivar; }
-    }
+	{ OUTLIER_INFO.IVAR[indx_store] = ivar;  match = true; }
 
+      /* xxx
+      if ( match ) {
+	printf(" xxx %s: varname = %s  indx_store=%d -> ivar=%d\n", 
+	       fnam, varName, indx_store, ivar ); 
+      }
+      xxxx*/
+
+    }
   } // end ivar loop
 
 
   // use refactored system (oct 2014)
+
   NDUMP = 
-    SNTABLE_DUMP_VALUES(FILENAME,TABLENAME, NVAR,VARLIST, FP_OUTFILE,
-			LINEKEY, SEPKEY );
+    SNTABLE_DUMP_VALUES(FILENAME,TABLENAME, NVAR, VARLIST, IVAR_NPT,
+			FP_OUTFILE, LINEKEY, SEPKEY );
 
   // print summary-stats to stdout
   if ( OUTLIER_INFO.USEFLAG == 1 ) { SNTABLE_SUMMARY_OUTLIERS(); }
@@ -1889,13 +1904,12 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   // your own memory, or if you need a fortran interface.
   // 
   // Inputs:
-  //  *OPT       : 0 -> just one file; 1 -> append NVAR 
   //  *fileName  : name of file, any format (root, hbook or ascii)
   //  *tableName : name of table to read
   //  *varList   : comma-separated list of variables to read/store
   //               varList = 'ALL' --> read everything.
   //   optMask   : mask of options (was vboseflag)
-  //      1=print, 2=abort on missing var, 4=append next file
+  //      1=print, 2=abort if no varname matches, 4=append next file
   //
   // Output:
   //   Function returns number of table entries/rows.
@@ -1918,11 +1932,16 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   //               last element (CCID) has priority if both are defined.
   //               Needed to work with ML_APPLY in NN pipeline.
   //
+  // Oct 14 2020: 
+  //   + fix ABORT feature if no variable name matches
+  //   + use catVarList_with_comma util
 
-  int  IFILETYPE, APPEND_FLAG, NF, ICAST, UNIQUE ;
+  bool APPEND_FLAG, ABORT_FLAG;
+  int  IFILETYPE, NF, ICAST, UNIQUE ;
   int  NVAR_USR, ivar, NROW, i, indx ;
   char *ptrtok, *tmpVar, varName_withCast[MXCHAR_VARNAME];
-  char varList_local[MXCHAR_VARLIST], varName[MXCHAR_VARNAME] ;
+  char *varList_table, *varList_table_ptrtok;
+  char varName[MXCHAR_VARNAME] ;
   char readOpt[] = "read";
   char blankFile[] = "" ;
   void *ptrStore;
@@ -1932,12 +1951,18 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
   // do global init if not already done.
   if ( CALLED_TABLEFILE_INIT != 740 ) { TABLEFILE_INIT();  }
-  print_banner(fnam) ;
+  // xxx mark delete   print_banner(fnam) ;
+  printf("   %s\n", fnam); fflush(stdout);
 
   // check option to store multiple files
+  ABORT_FLAG  = ( optMask & 2 ) ;
   APPEND_FLAG = ( optMask & 4 ) ; // append more variables
   if ( APPEND_FLAG || NFILE_AUTOSTORE==0 ) { NFILE_AUTOSTORE++ ; }
 	
+
+  varList_table        = (char*) malloc( MXCHAR_VARLIST * sizeof(char) );
+  varList_table_ptrtok = (char*) malloc( MXCHAR_VARLIST * sizeof(char) );
+  varList_table[0] = 0;
 
   NF = NFILE_AUTOSTORE-1;  // file index
   SNTABLE_AUTOSTORE[NF].NVAR = 0 ;
@@ -1948,22 +1973,22 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   IFILETYPE = TABLEFILE_OPEN(fileName,readOpt) ;
   SNTABLE_READPREP(IFILETYPE,tableName );
 
-  if ( strcmp(varList,"ALL") == 0 ) {
-    // skip CID
-    sprintf(varList_local,"%s", READTABLE_POINTERS.VARNAME[1] );
-    for( ivar = 2 ; ivar < READTABLE_POINTERS.NVAR_TOT; ivar++ ) {    
-      tmpVar = READTABLE_POINTERS.VARNAME[ivar];  
-      sprintf(varList_local,"%s,%s", varList_local, tmpVar);
-    }
+  // make comma-sep list of variables in table header;
+  // skip CID by starting at ivar=1
+  for( ivar = 1 ; ivar < READTABLE_POINTERS.NVAR_TOT; ivar++ ) {    
+    tmpVar = READTABLE_POINTERS.VARNAME[ivar];  
+    catVarList_with_comma(varList_table, tmpVar); 
   }
-  else {
-    sprintf(varList_local, "%s", varList);
-  }
+
+  if ( strcmp(varList,"ALL") == 0 ) 
+    { sprintf(varList_table_ptrtok, "%s", varList_table); }
+  else
+    { sprintf(varList_table_ptrtok, "%s", varList); }
 
   // printf("\n xxx varList = '%s' \n\n", varList_local); fflush(stdout);
 
   // get list of variables
-  ptrtok = strtok(varList_local,",");
+  ptrtok = strtok(varList_table_ptrtok,",");
   NVAR_USR = 0 ;
   while ( ptrtok != NULL ) {
     sprintf(varName, "%s",   ptrtok );
@@ -1984,6 +2009,19 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
     sprintf(SNTABLE_AUTOSTORE[NF].VARNAME[NVAR_USR],"%s", varName);
     NVAR_USR++ ;
+  }
+
+
+  // abort if no variables are found .xyz
+  if ( ABORT_FLAG && NVAR_USR == 0 ) {
+    print_preAbort_banner(fnam);
+
+    printf("\n Requested variables to find:\n\t%s\n", varList);   
+    printf("\n Available VARNAMES in file: \n\t%s\n", varList_table);
+
+    sprintf(MSGERR1,"Found no varName matches in");
+    sprintf(MSGERR2,"%s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
   }
 
   // get number of rows needed to allocate memory
@@ -2079,6 +2117,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   LASTREAD_AUTOSTORE.IROW  = -9;
   sprintf(LASTREAD_AUTOSTORE.CCID,"XXX");
 
+  free(varList_table); free(varList_table_ptrtok);
 
   return NROW ;
 
@@ -2174,14 +2213,22 @@ int EXIST_VARNAME_AUTOSTORE(char *varName) {
   // Returns 1 if varName exists.
   // 
   // Jan 6, 2017: check all files. 
+  // Oct 27 2020: if varName == LIST, list all varNames and return 0
 
   int ivar, ifile, NVAR_USR ;
+  char *varName_autostore;
+  bool PRINT_LIST = ( strcmp(varName,"LIST") == 0 ) ;
 
   ifile = 0;
   for(ifile=0; ifile < NFILE_AUTOSTORE; ifile++ ) {
     NVAR_USR = SNTABLE_AUTOSTORE[ifile].NVAR ;
     for(ivar=0; ivar < NVAR_USR; ivar++ ) {
-      if ( strcmp(SNTABLE_AUTOSTORE[ifile].VARNAME[ivar],varName)==0 ) {
+      varName_autostore = SNTABLE_AUTOSTORE[ifile].VARNAME[ivar];
+      if ( PRINT_LIST ) {
+	printf("\t VARNAME[ifile=%d,ivar=%2.2d] = %s\n", 
+	       ifile, ivar, varName_autostore); fflush(stdout);
+      }
+      if ( strcmp(varName_autostore,varName)==0 ) {
 	if ( SNTABLE_AUTOSTORE[ifile].EXIST[ivar] ) { return(1) ; }
       }
     }
@@ -2257,15 +2304,18 @@ void SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   // If *VARNAME is double, return *DVAL
   // If *VARNAME is char,   return *CVAL
   //
-  // *ISTAT is returned as  0  if CCID is found;
-  // *ISTAT is returned as -1  if CCID is NOT found 
-  //     (and function returns -99999 if CCID is not found)
+  // *ISTAT =  0  if CCID is found;
+  // *ISTAT = -1  if CCID is NOT found 
+  // *ISTAT = -2  if VARNAME is NOT found
+  //
   //
   // Jan 6, 2017: 
   //   + check each autoStore file for varName.
   //   + refactor to return both double (DVAL) and char (CVAL), 
   //     but only one is set according to the cast of VARNAME.
   //
+  // Oct 20 2020:
+  //   + do NOT abort on missing varname; instead, return ISTAT = -2
 
   int IVAR_READ, IFILE_READ, ivar, i ;
   int NVAR_USR, NROW_TOT, ICAST, LENCCID, IROW ;
@@ -2289,12 +2339,16 @@ void SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   }
 
 
+  if ( IVAR_READ < 0  || IFILE_READ < 0 ) { *ISTAT = -2; return ; }
+
+  /* xxx mark delete Oct 20 2020 xxxxxxxx
   if ( IVAR_READ < 0  || IFILE_READ < 0 ) {
     sprintf(MSGERR1, "Could not find varName='%s'", VARNAME);
     sprintf(MSGERR2, "Check VARLIST in table='%s' " , 
 	    READTABLE_POINTERS.TABLENAME);
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );    
   }
+  xxxxxxxx */
 
  FIND_CCID:
 

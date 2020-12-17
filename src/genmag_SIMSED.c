@@ -46,6 +46,10 @@
                --> affects value of T0shiftPeak, bolometric flux,
                    and memory used to read.
 
+ Dec 15 2020:
+   + checkBinary_SIMSED aborts if in batch mode and SED.BINARY needs
+     to be remade. Avoids conflict among multiple batch jobs.
+
 *************************************/
 
 #include  <stdio.h> 
@@ -165,8 +169,9 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   print_banner(BANNER);
 
   // get local logicals for bit-mask  options
-  OPT_BINARY   = ( OPTMASK &  OPTMASK_SIMSED_BINARY   ) ;
-  OPT_TESTMODE = ( OPTMASK &  OPTMASK_SIMSED_TESTMODE ) ;
+  OPT_BINARY      = ( OPTMASK &  OPTMASK_INIT_SIMSED_BINARY   ) ;
+  OPT_TESTMODE    = ( OPTMASK &  OPTMASK_INIT_SIMSED_TESTMODE ) ;
+  ISBATCH_SIMSED  = ( OPTMASK &  OPTMASK_INIT_SIMSED_BATCH    ) ;
 
   if ( NFILT_SEDMODEL == 0  && OPT_TESTMODE==0 ) {
     sprintf(c1err,"No filters defined ?!?!?!? " );
@@ -783,12 +788,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
       for ( ipar=0; ipar < SEDMODEL.NPAR; ipar++ ) {
 	readchar(fp, tmpName);
 	sprintf(SEDMODEL.PARNAMES[ipar],"%s", tmpName);
-
-	if ( strstr(tmpName,"INDEX") != NULL ||
-	     strstr(tmpName,"INDX")  != NULL ||
-	     strstr(tmpName,"index") != NULL ||
-	     strstr(tmpName,"indx")  != NULL  )
-	  { SEDMODEL.IPAR_NON1A_INDEX = ipar; }
+	if ( IS_INDEX_SIMSED(tmpName) ) { SEDMODEL.IPAR_NON1A_INDEX=ipar; }
       }
     }
 
@@ -850,6 +850,17 @@ int read_simsed_info__(char *PATHMODEL ) {
   int NSED = read_SIMSED_INFO(PATHMODEL);
   return(NSED);
 }
+
+// ===============================
+int IS_INDEX_SIMSED(char *parName) {
+
+  int IS_INDEX = 0 ;
+  if ( strstr(parName,"INDEX") != NULL ) { IS_INDEX = 1; }
+  if ( strstr(parName,"INDX" ) != NULL ) { IS_INDEX = 1; }
+  if ( strstr(parName,"index") != NULL ) { IS_INDEX = 1; }
+  if ( strstr(parName,"indx" ) != NULL ) { IS_INDEX = 1; }
+  return(IS_INDEX);
+} // end IS_INDEX_SIMSED
 
 // ===================================
 int count_SIMSED_INFO(char *PATHMODEL ) {
@@ -1021,19 +1032,25 @@ void dump_SIMSED_INFO(void) {
 
 
 // *********************************************
-void  checkBinary_SIMSED(char *binaryFile) {
+void checkBinary_SIMSED(char *binaryFile) {
 
   // Mar 29, 2011
-  // Remove binaryFile if it has a time-stamp that
-  // is earlier than the time-stamp of the SED.INFO file.
-  // This check prevents updating the SIMSED model, but using
+  // Remove binaryFile if it has a time-stamp that is earlier than
+  // the time-stamp of the SED.INFO file.
+  // This check prevents updating the SIMSED model, and then using
   // a stale binary-table file of fluxes.
   //
   // July 2017: replace ABORT with warning and remove
   //            stale binary file. 
+  //
+  // Dec 15 2020: 
+  //  + if ISBATCH_SIMSED and stale binary, then abort.
+  //  + check files in loop.
 
-  int tdif_sec ;
+  int tdif_sec, ifile ;
   double tdif_day ;
+  char file_type[2][20] = { "SED.INFO file", "KCOR_FILE" } ;
+  char *ptrFile, *ptrType ;
   char rm[400];
   char line[] = "#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-";
   char fnam[] = "checkBinary_SIMSED" ;
@@ -1044,26 +1061,50 @@ void  checkBinary_SIMSED(char *binaryFile) {
   // if binaryFile does not exist, return.
   if (( fp = fopen(binaryFile,"r")) == NULL ) { return ; }
   fclose(fp);
-  
-  tdif_sec = file_timeDif(binaryFile, INFO_SIMSED_FILENAME_FULL );
 
-  if ( tdif_sec < 0 ) {
-    tdif_day = -(double)tdif_sec / 86400. ;
+  for ( ifile=0; ifile < 2; ifile++ ) {
 
-    printf("\n%s\n WARNING INFO: \n", line);
-    printf(" SED.INFO file: \n   %s\n",  INFO_SIMSED_FILENAME_FULL );
-    printf(" Stale binary file: \n   %s \n", binaryFile );
+    ptrType = file_type[ifile]; // SED.INFO, KCOR
 
-    sprintf(c1err,"Binary file is %6.3f days older than SED.INFO file",
-	    tdif_day);
-    sprintf(c2err,"Removing stale binary file above.");
-    errmsg(SEV_WARN, 0, fnam, c1err, c2err ); 
-    printf("%s\n\n", line);
+    if ( ifile == 0 ) 
+      { ptrFile = INFO_SIMSED_FILENAME_FULL; }
+    else {
+      ptrFile = SIMSED_KCORFILE ; 
+      if ( BINARYFLAG_KCORFILENAME == 0 ) { continue; }
+    }
 
-    sprintf(rm,"rm %s", binaryFile);
-    system(rm);  return ;
-  }
+    //  tdif_sec = file_timeDif(binaryFile, INFO_SIMSED_FILENAME_FULL );
+    tdif_sec = file_timeDif(binaryFile, ptrFile );
 
+    // xxx    if ( ifile ==1 ) { tdif_sec = -54.0 ; } // xxx REMOVE
+
+    if ( tdif_sec < 0 ) {
+      tdif_day = -(double)tdif_sec / 86400. ;
+
+      printf("\n%s\n WARNING INFO: \n", line);
+      printf(" %s: \n   %s\n",  ptrType, ptrFile);
+      printf(" Stale binary file: \n   %s \n", binaryFile );
+      printf(" is %.3f days older than %s", tdif_day, ptrType );
+
+      if ( ISBATCH_SIMSED ) {
+	sprintf(c1err,"Cannot remake binary file in batch mode.");
+	sprintf(c2err,"Must run sim interactively to re-make binary.");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+      
+      sprintf(c1err,"Removing stale binary file above,");
+      sprintf(c2err,"and re-making new binary file.");
+      errmsg(SEV_WARN, 0, fnam, c1err, c2err ); 
+      printf("%s\n\n", line);
+      
+      sprintf(rm,"rm %s", binaryFile);
+      system(rm);  return ;
+    }
+  } // end ifile loop
+
+
+
+  /* xxxxxxxxxx mark delete Dec 15 2020 xxxxxxxx
 
   // now check that kcor file was made before binary file
 
@@ -1077,16 +1118,18 @@ void  checkBinary_SIMSED(char *binaryFile) {
     printf("\n%s\n WARNING INFO: \n", line);
     printf(" KCOR_FILE: \n   %s\n",  SIMSED_KCORFILE );
     printf(" Stale binary file: \n   %s \n", binaryFile );
+    printf(" is %.3f days older than KCOR file", tdif_day );
 
-    sprintf(c1err,"Binary file is %6.3f days older than KCOR_FILE.",
-	    tdif_day);
-    sprintf(c2err,"Removing stale binary file above.");
+    sprintf(c1err,"Removing stale binary file above,");
+    sprintf(c2err,"and re-making new binary file.");
     errmsg(SEV_WARN, 0, fnam, c1err, c2err ); 
     printf("%s\n\n", line);
 
     sprintf(rm,"rm %s", binaryFile);
     system(rm);
   }
+  xxxxxxxxxxx end mark xxxxxxxxxx */
+
 
   return ;
 
@@ -1449,10 +1492,10 @@ double interp_flux_SIMSED(
     ipar_model = iparmap[i];
     pars_baggage[i] = 0 ;
 		 
-    if ( flag & OPTMASK_SIMSED_GRIDONLY )
+    if ( flag & OPTMASK_GEN_SIMSED_GRIDONLY )
       { NGRIDONLY++ ; } // Aug 17 2015 RK
 
-    if ( (flag & OPTMASK_SIMSED_PARAM ) > 0 )  {
+    if ( (flag & OPTMASK_GEN_SIMSED_PARAM ) > 0 )  {
       pars[num_dims] = i;
 
       if(verbose) {
@@ -1462,7 +1505,7 @@ double interp_flux_SIMSED(
       num_dims++;
 
     }
-    else if ( (flag & OPTMASK_SIMSED_param ) > 0 ) {
+    else if ( (flag & OPTMASK_GEN_SIMSED_param ) > 0 ) {
       pars_baggage[i] = 1 ;
       num_pars_baggage++;
     }

@@ -39,6 +39,9 @@
 
   Jul 2019: add strong lens info.
 
+  Oct 2020: read SNANA_VERSION from header and convert to float
+       (enable analysis options based on snana_version in fits header)
+
 **************************************************/
 
 #include "fitsio.h"
@@ -2443,6 +2446,7 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   // Dec 27, 2015: add SIMLIB_MSKOPT
   // Feb 17, 2017: add SUBSURVEY_FLAG
   // Dec 26, 2018: check for CODE_IVERSION
+  // Oct 26, 2020: check for SNANA_VERSION in FITS header
 
   int ipar, ivar ;
   char key[60], tmpString[60];
@@ -2469,6 +2473,9 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
   }
   else if ( strcmp(parName,"CODE_IVERSION") == 0 ) {
     sprintf(tmpString,"%d", SNFITSIO_CODE_IVERSION ); // Dec 26 2018
+  }
+  else if ( strcmp(parName,"SNANA_VERSION") == 0  ) {
+    sprintf(tmpString,"%s", SNFITSIO_SNANA_VERSION ); // Oct 26 2020
   }
   else if ( strcmp(parName,"SIM_MODEL_NAME") == 0 ) {
     sprintf(tmpString,"%s", SNDATA.SIM_MODEL_NAME );
@@ -2768,11 +2775,12 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // Dec 27, 2015: read SIMLIB_MSKOPT
   // Feb 07, 2018: pass photflag_open arg so that only header can be opened.
   // Apr 15, 2019: check for optional SPEC file
+  // Oct 26, 2020: read SNANA_VERSION in fits header
 
   fitsfile *fp ;
   int istat, itype, istat_spec, hdutype, nrow, nmove = 1  ;
   char keyname[60], comment[200], *ptrFile ;
-  //  char fnam[] = "rd_snfitsio_open" ;
+  char fnam[] = "rd_snfitsio_open" ;
 
   // ------------- BEGIN -------------
 
@@ -2796,15 +2804,17 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   sprintf(keyname, "%s", "CODE_IVERSION" );  
   fits_read_key(fp,TINT,keyname,&SNFITSIO_CODE_IVERSION,comment,&istat);
   if ( istat ) { SNFITSIO_CODE_IVERSION = 1; } // no key -> default 
-
-  /*
-  if( NSNLC_SNFITSIO[ifile] == 0 ) 
-    { printf("\t SNFITSIO_CODE_IVERSION = %d \n", SNFITSIO_CODE_IVERSION); }
-  */
-
-
   istat = 0;  // reset in case CODE_IVERSION key does not exist.
 
+  // - - - - - - - -
+  // Oct 2020: read SNANA_VERSION in header
+  sprintf(keyname, "%s", "SNANA_VERSION" );  
+  fits_read_key(fp, TSTRING, keyname,
+		&SNFITSIO_SNANA_VERSION, comment, &istat);
+  if ( istat ) { sprintf(SNFITSIO_SNANA_VERSION,"v10_30"); } 
+  istat = 0;  // reset in case SNANA_VERSION key does not exist.
+
+  // - - - - - - - - - - -
   // read name of survey from HEADER file
   sprintf(keyname, "%s", "SURVEY" );  
   fits_read_key(fp, TSTRING, keyname, 

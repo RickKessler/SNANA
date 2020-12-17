@@ -16,6 +16,9 @@
 #
 #  BBC
 #
+# Oct 29 2020: add SALT2train framework
+# Nov 24 2020: add --ncore arg
+# Dec 17 2020: purge now works on train_SALT2 outputs
 # - - - - - - - - - -
 
 #import os
@@ -23,10 +26,11 @@ import sys, yaml, argparse, subprocess, logging
 import submit_util      as util
 import submit_translate as tr
 
-from   submit_params   import *
-from   submit_prog_sim import Simulation
-from   submit_prog_fit import LightCurveFit
-from   submit_prog_bbc import BBC
+from   submit_params      import *
+from   submit_prog_sim    import Simulation
+from   submit_prog_fit    import LightCurveFit
+from   submit_prog_bbc    import BBC
+from   submit_train_SALT2 import train_SALT2
 from   argparse import Namespace
 
 # =====================================
@@ -35,17 +39,22 @@ def get_args():
 
     msg = "HELP with input file config(s); then exit"
     parser.add_argument("-H", "--HELP", help=msg, default=None, type=str, \
-                        choices = ["SIM", "FIT", "BBC", "TRANSLATE", 
-                                   "MERGE", "AIZ" ])
+                        choices = ["SIM", "FIT", "BBC", "TRAIN_SALT2", \
+                                   "TRANSLATE", "MERGE", "AIZ" ])
     
     msg = "name of input file"
     parser.add_argument("input_file", help=msg, nargs="?", default=None)
 
     # misc user args
+
     msg = "Create & init outdir, but do NOT submit jobs"
     parser.add_argument("-n", "--nosubmit", help=msg, action="store_true")
     
     # - - - - - 
+    # change number of cores
+    msg = "number of cores"
+    parser.add_argument('--ncore', nargs='+', help=msg, type=int )
+
     # reduce processing
     msg = "process x10 fewer events for sim,fit,bbc (applies only to sim data)"
     parser.add_argument("--fast", help=msg, action="store_true")
@@ -105,7 +114,7 @@ def get_args():
            " merge process examines correct output_dir"
     parser.add_argument('-t', nargs='+', help=msg, type=int )
 
-    msg = "INTERNAL: cpu number to for BUSY-merge file-name"
+    msg = "INTERNAL: cpu number for BUSY-merge file-name"
     parser.add_argument('--cpunum', nargs='+', help=msg, type=int )
 
     args = parser.parse_args()
@@ -126,17 +135,17 @@ def which_program_class(config):
     program_class = None 
     input_file    = config['args'].input_file
     merge_flag    = config_yaml['args'].merge_flag
-
+    CONFIG        = config['CONFIG'] 
     if "GENVERSION_LIST" in config :
         program_class = Simulation
-    elif "VERSION" in config['CONFIG'] :
+    elif "VERSION" in CONFIG :
         program_class = LightCurveFit
-    else:
-        # BBC does not have a unique required batch key,
-        # so instead check for unique input key for code
-        with open(input_file, 'r') as f :    
-            if 'u1=' in f.read():
-                program_class = BBC
+    elif "INPDIR+" in CONFIG :
+        program_class = BBC
+    elif "PATH_INPUT_TRAIN" in CONFIG :
+        program_class = train_SALT2
+    else :
+        sys.exit("\nERROR: Could not determine program_class")
 
     # keep quiet for merge process
     if not merge_flag :
@@ -306,13 +315,21 @@ def print_nosubmit_messages(config_yaml):
 
 def purge_old_submit_output():
     
-    REMOVE_LIST = [ SUBDIR_SCRIPTS_FIT, SUBDIR_SCRIPTS_BBC, "*.LCPLOT" ]
+    #REMOVE_LIST = [ SUBDIR_SCRIPTS_FIT, SUBDIR_SCRIPTS_BBC, "*.LCPLOT" ]
 
+    # LC fitting
     util.find_and_remove(f"{SUBDIR_SCRIPTS_FIT}*")
-    util.find_and_remove(f"{SUBDIR_SCRIPTS_BBC}*")
     util.find_and_remove(f"FITOPT*.LCPLOT*")
     util.find_and_remove(f"FITOPT*.HBOOK*")
     util.find_and_remove(f"FITOPT*.ROOT*")
+
+    # BBC
+    util.find_and_remove(f"{SUBDIR_SCRIPTS_BBC}*")
+
+    # SALT2 training
+    util.find_and_remove(f"{SUBDIR_SCRIPTS_TRAIN}")
+    util.find_and_remove(f"{SUBDIR_CALIB_TRAIN}")
+    util.find_and_remove(f"{SUBDIR_OUTPUT_TRAIN}")
 
     # end purge_old_submit_output
 

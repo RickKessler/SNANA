@@ -36,7 +36,6 @@
 \newcommand{\snfitter}{{\tt snlc\_fit.exe}}
 \newcommand{\simexe}{{\tt snlc\_sim.exe}}
 \newcommand{\psnid}{{\tt psnid.exe}}
-\newcommand{\sndump}{{\tt sntable\_dump.pl}}
 
 \newcommand{\mlcs}{{\tt MLCS2k2}}
 \newcommand{\SALTII}{{\sc salt-ii}}
@@ -134,7 +133,11 @@
 \newcommand{\wwwMINUIT}{http://wwwasdoc.web.cern.ch/wwwasdoc/minuit/minmain.html}
 \newcommand{\minuit}{{\sc minuit}}
 
+\newcommand{\sndump}{{\tt sntable\_dump.pl}}
 \newcommand{\SNmix}{\tt sim\_SNmix.pl}
+\newcommand{\splitFit}{\tt split\_and\_fit.pl}
+\newcommand{\submit}{\tt submit\_batch\_jobs.sh}
+
 % ========================================
 \title{ \snana\ User's Manual: \\ 
          Simulation, Lightcurve Fitters \& Cosmology Fitters}
@@ -197,11 +200,11 @@ overrides (\S\ref{sss:override}).
 The command-line overrides allow making small perturbations
 so that a new input file is not needed for each variation.
 For typical analyses that require many variations in both
-the fitting and simulations, script utilities are provided
+the fitting and simulations, 
+``{\submit}'' is a utility (\S\ref{sss:submit_batch})
 to launch job sequences on multiple cores using batch systems 
-such as ``qsub'' or ``sbatch.''  These utilities are
-{\SNmix} for simulations (\S\ref{sss:sim_SNmix}) and
-{\tt split\_and\_fit.pl} for fitting (\S\ref{sss:split_fit}).
+such as ``qsub'' or ``sbatch.'' 
+
 
 Finally, while the simulation is a stand-alone program
 with no user interface, the analysis programs allow for
@@ -763,18 +766,26 @@ For specific analyses requiring different cosmo parameters,
 use the following sim-input keys:
 %
 \begin{Verbatim}[frame=single]
-  OMEGA_MATTER:  <value>
-  OMEGA_LAMBDA:  <value>
-  W0_LAMBDA:     <value>
-  H0:            <value>
+  OMEGA_MATTER:  <value>  # default = OMEGA_MATTER_LCDM
+  OMEGA_LAMBDA:  <value>  # default = OMEGA_LAMBDA_LCDM
+  w0_LAMBDA:     <value>  # default = -1.0  [legacy W0_LAMBDA accepted too]
+  wa_LAMBDA:     <value>  # default =  0.0
+  H0:            <value>  # default = 70(SALT2), 65(MLCS)
+    or
+  HzFUN_FILE:  <fileName>  # non-wCDM:  2 columns with  z  H(z)
 \end{Verbatim}
 %
-It is recommended to use the defaults so that global updates
-are easily propagated thru Github updates rather than modifying
-numerous sim-input files.
-The curvature is computing internally as $\Ok = 1 - \OM - \OL$,
-and the radiation term is ignored. Time-varying $w$
-is currently not implemented.
+It is recommended to {\it NOT} specify cosmological parameters and thus
+use the defaults; global default updates are easily propagated thru 
+Github rather than modifying numerous sim-input files.
+The curvature is computed internally as $\Ok = 1 - \OM - \OL$,
+and the radiation term is ignored. 
+
+For non-standard $H(z$), {\tt HzFUN\_FILE} specifies an aribtrary
+function with 2-columns: $z$ and $H(z)$. 
+The $z$-bins need not be uniform; i.e., $\log(z)$-binning. 
+Since some of the cosmology functions integrate from $z=0$, 
+the first map bin must have $z=0$ (sim aborts if not satisfied).
 
 % ------------------------------------
    \clearpage
@@ -962,7 +973,7 @@ keys:
   COMMENT:  <comment string>
 \end{verbatim} 
 %
-For batch jobs submitted with {\tt sim\_SNmix.pl} script,
+For batch jobs submitted with {\submit} script,
 {\tt NLIBID} is used to assign a different starting {\tt LIBID}
 (see below) for each batch core, ensuring uniform library sampling.
 
@@ -1212,11 +1223,11 @@ In this situation, one should define the ten fields to be
 
 
 \bigskip
-{\tt SIMLIB\_MAXRANSTART} is useful when using {\tt sim\_SNmix.pl}
-(\S\ref{sss:sim_SNmix}) and each job generates fewer events than
+{\tt SIMLIB\_MAXRANSTART} is useful when using {\submit}
+(\S\ref{sss:submit_batch}) and each job generates fewer events than
 the number of \simlib\ entries. For example, suppose a \simlib\ has 
 1000 entries, and a sim-job generating 2000 events
-is distributed among 50 cores using {\tt sim\_SNmix}. 
+is distributed among 50 cores using {\submit}. 
 The problem is that each of the 50 jobs generates $2000/50=40$ events, 
 and each job samples only the first 40 \simlib\ entries, 
 which does not properly sample the \simlib. Using
@@ -1512,7 +1523,7 @@ the sim-input file as follows:
    SOLID_ANGLE(DEEP1+DEEP2):  0.006  # 20 deg^2 for DEEP only   
 \end{verbatim}
 %
-Used with {\tt sim\_SNmix}, 
+Used with {\submit}, 
 both of the above options result in the same number of output 
 events (within statistical errors), but 2nd efficiency will
 be $\times 5$ larger than the first to compensate the first job
@@ -1528,7 +1539,7 @@ this problem, use single quotes or back-slashes:
       or
    snlc_sim.exe mySim.input  SOLID_ANGLE\(DEEP\) 0.006
 \end{verbatim}
-The {\tt sim\_SNmix} script automatically adds the backslashes,
+The {\submit} script automatically adds the backslashes,
 so there is no need to modify the {\tt GENOPT} argument.
 
 
@@ -1931,7 +1942,7 @@ sim-input file and command-line overrides.
 
 \medskip
 To vary the correlations without modifying {\tt FLUXERRMODEL\_FILE}
-(e.g., systematic studies using {\tt sim\_SNmix}),
+(e.g., systematic studies using {\submit}),
 use the following sim-input keys;
 \begin{Verbatim}
    FLUXERRMODEL_REDCOV:  g:0.3,r:0.5,iz:0.5
@@ -1940,9 +1951,9 @@ use the following sim-input keys;
      or 
    FLUXERRMODEL_REDCOV: NONE  # disable flux covariances.
 \end{Verbatim}
-For command line overrides and {\tt GENOPT} options for {\tt sim\_SNmix},
+For command line overrides and {\tt GENOPT} options for {\submit},
 remove the colon. The parenetheses are properly handled by
-{\tt sim\_SNmix}, but for command-line overrides quotes are needed,
+{\submit}, but for command-line overrides quotes are needed,
 e.g., 
 \begin{Verbatim}
   snlc_sim.exe <inpFile> 'FLUXERRMODEL_REDCOV(DEEP) griz:0.6'
@@ -3524,6 +3535,7 @@ Galactic extinction:
   # for systematic tests:
   GENSIGMA_MWEBV:       0.0      # smear by fixed sig(MWEBV) 
   GENSHIFT_MWEBV:       0.0      # fixed shift relative to dust map
+  GENSCALE_MWEBV:       1.0      # scale MWEBV 
   GENRANGE_MWEBV:  xxx yyy       # genrate flat distrib between xxx and yyy
 \end{Verbatim}
 %
@@ -3957,7 +3969,7 @@ to make the galaxy sizes bigger or smaller.
 
 {\tt HOSTLIB\_SCALE\_LOGMASS\_ERR} scales the {\tt LOGMASS} \unc.
 
-\clearpage
+%\clearpage
 The {\tt HOSTLIB\_MSKOPT} options can be 
 viewed with the grep-command
 \begin{verbatim}
@@ -4345,7 +4357,7 @@ galaxy position and Sersic profile can be selected with
 \end{itemize}
 
 
-%\clearpage
+\clearpage
 \subsubsection{Anomalous Flux-Scatter on Bright Galaxies}
 
 This is a near-obsolete utility, and it is recommended to use
@@ -4579,7 +4591,7 @@ To scale the rates,
       or
     DNDZ_ALLSCALE:  xx       # scale rate for all models
 \end{verbatim}
-This option is also useful for {\tt sim\_SNmix}:
+This option is also useful for {\submit}:
 e.g., to add a large Ia-biasCor sample, 
 ``{\tt GENOPT:  DNDZ\_SCALE 10 1.0E-8}'' scales the
 Ia sample by a factor of 10 while turning off the NON1A.
@@ -5286,7 +5298,7 @@ and corresponds to the true scatter.
 With true peculiar-velocity value {\tt SIM\_VPEC}, 
 the {\tt VPEC} correction ($\vpec$) in the data file is
 \begin{verbatim}
-    VPEC = -SIM_VPEC + VPEC_ERR*GaussRan  # VPEC_ERR <  GENSIGMA_VPEC
+    VPEC =  SIM_VPEC + VPEC_ERR*GaussRan  # VPEC_ERR <  GENSIGMA_VPEC
     VPEC =  0                             # VPEC_ERR >= GENSIGMA_VPEC
 \end{verbatim}
 %
@@ -6372,7 +6384,7 @@ each with a different random set of systematic errors applied.
 In principle, one can define each set of variations in a brute-force manner:
 e.g., picking random zero points offsets for each simulated version,
 and specifying ``{\tt GENOPT: GENMAG\_OFF\_ZP <list>}'' for each
-{\tt GENVERSION} (see \S\ref{sss:sim_SNmix}).
+{\tt GENVERSION} (see \S\ref{sss:submit_batch}).
 
 Instead of the brute-force apporach, it is simpler to use the 
 {\tt RANSYSTPAR\_XXX} input parameters so that the user need 
@@ -6385,15 +6397,23 @@ Here are examples of available options for the sim-input file:
    RANSYSTPAR_SIGSCALE_FLUXERR2: 0.04     # scale measured flux-errors
    RANSYSTPAR_SIGSCALE_MWEBV:    0.05     # scale MWEBV 
    RANSYSTPAR_SIGSHIFT_MWRV:     0.2      # shift RV
+   RANSYSTPAR_SIGSHIFT_REDSHIFT: 1E-4     # shift measured redshift
    RANSYSTPAR_SIGSHIFT_W0:           0.1  # shift w
    RANSYSTPAR_SIGSHIFT_OMEGA_MATTER: 0.1  # shift OM
 
    RANSYSTPAR_RANGESHIFT_W0:           -0.5 0.5   # flat shift range for w
    RANSYSTPAR_RANGESHIFT_OMEGA_MATTER: -0.2 0.4   # flat shift range for OM
 
+   RANSYSTPAR_GENMODEL_WILDCARD: "/path/to/genmodels*" # picks random model out of globbed list
+
   # filter-dependent variants:
-   RANSYSTPAR_SIGSHIFT_LAMFILT:  8 10 7 6           # filter shifts (A)
-   RANSYSTPAR_SIGSHIFT_ZP: 0.014 0.013 0.022 0.012  # random ZP off
+  RANSYSTPAR_SIGSHIFT_ZP:           .01 .02 -0.01 .03      # sigma per band
+  RANSYSTPAR_SIGSHIFT_ZP(g,r,i,z):  .01 .02 -0.01 .03      # idem
+  RANSYSTPAR_SIGSHIFT_ZP(gr,iz):    0.01 0.02     # sig(g&r)=0.01, sig(i&z)=.02
+  RANSYSTPAR_SIGSHIFT_ZP(g,riz):    0.01  .03     # sig(g)=0.01, sig(r&i&z)=.03
+
+  RANSYSTPAR_SIGSHIFT_LAMFILT:          8 7 19 9   # sigma per band
+  RANSYSTPAR_SIGSHIFT_LAMFILT(g,r,i,z): 8 7 10 9   # idem
 
   # after ransyst params are picked, reset randoms with fixed seed
   # to suppress random fluctuations between GENVERSIONS
@@ -6863,7 +6883,7 @@ are determined by the {\tt \&SNLCINP} namelist parameters
       OPT_MWEBV      = 1   ! default: read E(B-V) from data header
 
       MWEBV_SCALE = 1.0   ! default: scale all MWEBV values
-      MWEBV_SHIFT = 0.0   ! default: shift all MWEBV values
+      MWEBV_SHIFT = 0.0   ! default: shift all MWEBV values      
       USE_MWCOR = F  ! default: do NOT correct data, include in fit-model 
 \end{Verbatim}
 %
@@ -8692,13 +8712,17 @@ the variables in each file must be unique. (except for CID)
 
 % ------------
 \clearpage
-\subsubsection{Over-Riding Light Curve Information}
-\label{sss:lc_override}
+\subsubsection{Epoch-Dependent Mag Corrections}
+\label{sss:magcor}
 
-Epoch-dependent mag-corrections can be applied via an external
-text file in order to avoid re-making data files with each
-iteration of calibration offsets. These corrections are
-applied only to the {\tt FLUXCAL}, and not the {\tt FLUXCAL\_ERR},
+Since photometry is typically performed separately for each passband,
+SED-dependent corrections are often missing for internal data
+releases. If SED-based corrections are computed as an after-burner
+task, it may be convenient to avoid re-making data files and instead
+read a supplemental {\tt MAGCOR} file until a final data release is ready.
+
+External epoch-dependent mag-corrections are applied to the {\tt FLUXCAL}, 
+but not to {\tt FLUXCAL\_ERR},
 and thus there is an implicit assumption that changes
 are small ($\sim 1$\%).
 For large changes, the data files should be re-made 
@@ -8746,12 +8770,20 @@ the corrections can be removed with
 where the minus sign in front is a command to subtract.
 This subtract option works only with the {\tt VERSION\_ADD} key.
 
+\medskip
+
+Since these correction typically require an SED, the SALT2-fitted 
+model SED can be extracted for each epoch and stored in a 
+ROOT file with
+\begin{verbatim}
+  SNTABLE_LIST = 'MODELSPEC'
+\end{verbatim}
+and see \S\ref{subsec:anavar} for details.
+% .xyz
 
 % ------------------------------------------------
-%\clearpage
 \subsection{Peculiar Velocity Corrections }
 \label{subsec:vpec}
-
 
 By default, the CMB redshifts are used for the Hubble diagram
 analysis. Although \snana\ has no explicit code to compute
@@ -8770,7 +8802,7 @@ which is written to the output tables and used by the \snana\ program
 
 
 % -----------------------------------
-\clearpage
+
 \subsection{{\tt SIMCHI2\_CHEAT} }
 \label{subsec:simchi2_chear}
 
@@ -8826,7 +8858,7 @@ unphsyical zero-flux observations.
 
 
 % -----------------------------------
-% \clearpage
+\clearpage
 \subsection{IDEAL Fits with True Flux (Sim only) }
 \label{subsec:IDEAL}
 
@@ -8989,8 +9021,8 @@ path with sim-input key
 \end{verbatim}
 %
 This key works in the sim-input file with interactive {\tt snlc\_sim.exe}.
-To submit batch jobs with the {\tt sim\_SNmix.pl} script,
-(\S\ref{sss:sim_SNmix}), this key must be in the sim-master-input file.
+To submit batch jobs with the {\submit} script
+(\S\ref{sss:submit_batch}), this key must be in the sim-master-input file.
 This output re-route feature is {\it not} recommended,
 except for special reasons such as insufficient 
 disk space under {\tt \$\sndataroot}.
@@ -9489,15 +9521,13 @@ In addition to these control keys, there are many variables
 of the classification algorithm.
 
 
-The multi-CPU distribution script 
-({\tt split\_and\_fit.pl} ; see \S\ref{sss:split_fit})
-can be used in the same manner as for {\snfitter} by simply
-specifying an additional key
+The multi-CPU distribution script ({\submit} ; see \S\ref{sss:submit_batch})
+can be used in the same manner as for {\snfitter} by specifying an 
+additional key
 \begin{verbatim}
-  JOBNAME_LCFIT:  psnid.exe
+  JOBNAME:  psnid.exe
 \end{verbatim}
 at the top of the namelist file.
-
 
 
 % ------------------------------------------------
@@ -9813,6 +9843,7 @@ Examples are
    # models based on file; no restriction on PATH or fileName
    GENMODEL:  LCLIB      [PATH]/fileName
    GENMODEL:  NONIAGRID  [PATH]/fileName
+   GENMODEL:  SIMLIB     # use MAG column in SIMLIB_FILE argument
 \end{Verbatim}
 %
 An environement variable can be used as part of the{\tt [PATH]};
@@ -10028,6 +10059,41 @@ BBC fit these mag offsets are associated with $\gamma$ and $\hostmass$,
 where $\gamma$ is the maximum SNIa mag-splitting.
 
 
+\clearpage
+\subsubsection{Propagating Calibration Systematics from SALT2 Training}
+\label{sss:trainopt}
+
+The batch-submit script ({\submit}) includes {\tt TRAINOPT}
+options to apply calibration systematics for the SALT2 training process;
+these calibration shifts (primary mag and filter wavelength) 
+are recorded in the {\tt SALT2.INFO} file as 
+follows:
+\begin{verbatim}
+   MAGSHIFT:  SDSS g  0.01   
+   MAGSHIFT:  SDSS z -0.01 
+   MAGSHIFT:  CFA2 B  0.01 
+   WAVESHIFT: SDSS r  10   # Angstroms
+\end{verbatim}
+%
+Starting with \snana\ version {\tt v11\_02b}, the \snana\ simulation 
+({\tt snlc\_sim.exe}) and light curve fit program ({\tt snlc\_fit.exe})
+read and propagate these shifts.
+This feature captures the coherent effect of calibation errors in
+data samples used in both training and cosmology.
+The {\tt MAGSHIFT} and {\tt WAVESHIFT} keys are enabled by default;
+to disable these keys,
+\begin{verbatim} 
+  # fit-input file
+   &FITINP
+      ENABLE_SALT2_MAGSHIFT  = F  ! disable MAGSHIFT 
+      ENABLE_SALT2_WAVESHIFT = F  ! disable WAVESHIFT
+
+  # sim-input file
+     GENMODEL_OPTMSK:  4  ! disable MAGSHIFT 
+     GENMODEL_OPTMSK:  8  ! disable WAVESHIFT 
+     GENMODEL_OPTMSK: 12  ! disable both
+\end{verbatim}
+
 % ------------------------
 \clearpage
 \subsection{{\snoopy}}
@@ -10166,39 +10232,45 @@ SIMSED_PARAM:  MNI         # mass of Ni56
 GENPEAK_MNI:  0.9          # mean of bifurcated Gaussian
 GENRANGE_MNI: 0.47 1.26    # generation range
 GENSIGMA_MNI: 0.4  0.25    # bifurcated Gaussian
-
+   and/or 
 SIMSED_GRIDONLY:  COSANGLE        # cosine of viewing angle
 GENPEAK_COSANGLE:   0
 GENRANGE_COSANGLE: -0.96  0.96
 GENSIGMA_COSANGLE:  1.E7  1.E7   # large sigmas => flat distribution
 
+# optional covariances among parameters
 SIMSED_REDCOR(MNI,COSANGLE):  -0.26  # optional reduced covar; -1 to +1
     or
 SIMSED_COV(MNI,COSANGLE):  -1.34  # optional covar
+
+# other GRIDONLY options=
+SIMSED_GRIDONLY: SEQUENTIAL  # sequential generation of grid values
+     or
+SIMSED_GRIDONLY: KN_INDEX    # pick random KN_INDEX
+    or
+SIMSED_GRIDONLY: KN_INDEX(3,5,6,9) # pick random among these KN_INDEX values
 
 SIMSED_PATH_BINARY:   <path for flux-table binary file>
 \end{Verbatim}
 %
 Specify only those parameters that are used in the generation.
 For the {\tt SIMSED\_PARAM} keyword ({\tt MNI}), the simulation 
-will interpolate magnitudes as a function of the
-explosion-model parameter, resulting in a continuous
+interpolates synthetic light curve magnitudes as a function of
+the explosion-model parameter {\tt MNI}, resulting in a continuous
 distribution of the specified bifurcated Gaussian.
 For the {\tt SIMSED\_GRIDONLY} keyword ({\tt COSANGLE}), 
 only values at the grid nodes are generated,
 and the specified bi-Gaussian distribution is respected;
 each randomly chosen parameter is 'snapped' to 
-the nearest grid value.
+the nearest grid value. If bi-Gaussian is not specified,
+a flat {\tt COSANGLE} distribution is generated.
 This {\tt GRIDONLY} option may be useful in cases such as a
 flag that specifies a random ignition point, 
 and therefore continuous interpolation makes no sense. 
-To simulate a flat-random distribution, set the {\tt GENSIGMA\_XXX}
-values $\ge 10^7$.
 Un-specified parameters are treated as ``baggage''parameters. 
 These parameters are ignored in the generation, but the 
 interpolated values are computed and stored along
 with the other parameters.
-
 
 A correlation between any pair of parameters can be introduced
 with either a reduced correlation key ({\tt SIMSED\_REDCOR}) or a
@@ -10213,24 +10285,28 @@ For example, correlations between 3 parameters require
 require 6 correlation keys.
 
 \medskip
-To step through each grid-value sequentially,
-\begin{verbatim}
-  SIMSED_GRIDONLY: SEQUENTIAL  # sequential generation of grid values
-\end{verbatim}
-and  there is no need to specify parameter names or their 
-distributions.
+``{\tt SIMSED\_GRIDONLY: SEQUENTIAL}''
+steps through each grid-value sequentially,
+and  there is no need to specify parameter names or their distributions.
 The first generated SN  uses the first SED on the grid, 
 the second SN uses the second value, etc.  
 The number of generated SNe is internally set to be the 
 number of SEDs.
 
+While ``{\tt SIMSED\_GRIDONLY: KN\_INDEX}'' selects a random 
+{\tt KN\_INDEX} among the entire SED set, \\
+``{\tt SIMSED\_GRIDONLY: KN\_INDEX(3,5,6,9)}'' selects a random 
+{\tt KN\_INDEX} among the subset 3,5,6,9. 
+The subset feature works only if the column name includes
+and index sub-string ({\tt INDEX} or {\tt index} or {\tt INDX}),
+and if the values are integers. Attemping the subset feature on
+{\tt MNI}, for example, results in an abort.
 
 All SIMSED parameters (``baggage'' and for generation)
 are automatically included in the output table(s) and
 in the {\tt SIMGEN\_DUMP} list (\S\ref{sss:simgen_dump}).
-If you specify a SIMSED parameter in the {\tt SIMGEN\_DUMP} 
-list the simulation will abort because of a redundant parameter.
-
+An explicitly defined SIMSED parameter in the {\tt SIMGEN\_DUMP} 
+list will cause the simulation to abort because of a redundant parameter.
 
 A binary flux-table (see below) is created in your current
 directory by default. Since these binary files can be quite
@@ -10535,6 +10611,11 @@ An example use of this feature is to simulate mags of
 ``fake'' SN overlaid on images. The redshift, peakMJD, and GALID
 are automatically read from the \simlib\ headers, and the
 original GALID is used to model host noise.
+Sim-input file syntax:
+\begin{verbatim}
+   GENMODEL:  SIMLIB     # use MAG column in SIMLIB_FILE argument
+\end{verbatim}
+
 
 % -----------------------------------------
 \subsection{{\LCLIB}: Galactic Transients}
@@ -11604,6 +11685,50 @@ all tables will have IAUC written into the CID column.
 % --------------------------------------
 
 % --------------------------------------
+  \subsubsection{Batch Submit Script: {\submit}}
+  \label{sss:submit_batch}
+% --------------------------------------
+
+The \snana\ script ``{\submit}'' is a utility to run analysis codes
+in batch queue, and it includes preparation and post-processing.
+The script parses your input file and automatically determines
+which task to prepare and execute: 
+{\tt snlc\_sim.exe}, {\tt snlc\_fit.exe}, 
+{\tt SALT2mu.exe}, {\tt SALT2-training code}.
+Command line options are obtained with
+\begin{verbatim}
+   submit_batch_jobs.sh -h
+\end{verbatim}
+and detailed help on the config file for each task is given with
+\begin{verbatim}
+  # detailed help on analysis programs
+   submit_batch_jobs.sh -H SIM           # simulation
+   submit_batch_jobs.sh -H FIT           # light curve fitting
+   submit_batch_jobs.sh -H BBC           # BBC: Beams with Bias Corrections
+   submit_batch_jobs.sh -H TRAIN_SALT2   # SALT2-traing 
+
+  # misc help
+   submit_batch_jobs.sh -H MERGE      # post-processing merge task
+   submit_batch_jobs.sh -H AIZ        # abort-if-zero logic
+   submit_batch_jobs.sh -H TRANSLATE  # translate input file for perl scripts
+\end{verbatim}
+The misc help options provide explanations that may be useful for debugging
+or further script development.
+The {\tt MERGE} task can include complex operations after all of the
+batch jobs have finished. {\tt AIZ} explains the subtle logic to 
+abort when jobs return zero events, but not abort on low-stat jobs
+(e.g., Kilonova sims) where a subset of jobs are expected to have zero events.
+Finally, {\tt TRANSLATE} is a feature to automatically translate
+legacy input files used by the obsolete perl batch scripts.
+
+\medskip
+Historical note: prior to \snana\ version {\tt v11},
+three separate perl scripts ran batch jobs: 
+{\SNmix}, {\splitFit}, {\tt SALT2mu\_fit.pl}.
+After {\tt v11}, these three scripts are replaced by
+an improved python script invoked with {\submit}.
+
+% --------------------------------------
   \subsubsection{List Valid Input Keys}
   \label{sss:KEY_DUMP}
 % --------------------------------------
@@ -11888,218 +12013,7 @@ can be displayed with
 which will print a file summary and then quit. 
 Higher-level pipelines can use this feature to better summarize the inputs.
 
-% --------------------------------------
-  \subsubsection{Simulate Ia/non-Ia mix: {\SNmix}}
-  \label{sss:sim_SNmix}
-% --------------------------------------
 
-See instructions at top of \${\sndataroot}{\tt /util/}{\SNmix}.
-This script is used to simulate a mix of Type Ia and non-Ia SNe,
-and to easily generate multiple sets of simulations with different 
-sim-options.
-An optional (recommended) list of computing nodes allows 
-for parallel processing. The command syntax is
-\begin{verbatim}
-   sim_SNmix.pl  <name of master control file>
-\end{verbatim}
-and a master-control file is illustrated in 
-Fig.~\ref{fig:sim_SNmix}. This file gives batch instructions,
-and is NOT an input file to the simulation program
-{\tt snlc\_sim.exe}. The keys are as follows.
-\begin{itemize}
-  \item {\tt\bf NODELIST, BATCH\_INFO}: defines CPU cores to 
-        distribute jobs.  {\tt NODELIST} is a simple list of
-	nodes, and you must be able to login without entering
-	a password. {\tt BATCH\_INFO} specifies a submit-command,
-	batch-template file, and number of cores (see ???).
-	Recommended to define as many cores (NCORE) as 
-	jobs (NJOB)\footnote{NJOB = number of {\tt GENVERSION} 
-	  keys $\times$ number or {\tt RANSEED} keys.},
-	although there is
-	no harm in defining too many or too few cores.
-	If NCORE $<$ NJOB, some cores will run multiple jobs
-	and hence take longer.
-	Example 1: NJOB=10 and NCORE=5  $\rightarrow$ each
-	core will simulate 2 jobs. Example 2: NJOB=5 and NCORE=10
-	$\rightarrow$ each job is distributed to one core,
-	and 5 other cores will do nothing.
-%
-  \item {\tt\bf GENVERSION, GENOPT:} 
-       An independent simulation job is done for each {\tt GENVERSION}, 
-       and each {\tt GENVERSION} can be analyzed by the {\tt snana.exe}
-       or {\tt snlc\_fit.exe} program.
-       For each {\tt GENVERSION}, an optional {\tt GENOPT} key applies 
-       command-line overrides. Note that multiple {\tt GENOPT} keys 
-       can be given, and multiple override commands can be given on one line. 
-%
- \item {\tt\bf SNANA\_LOGIN\_SETUP:} if your login script does
-         not automatically setup {\tt snana}\footnote{snana setup
-	 includes defining {\tt\$}\sndataroot\ and adding
-	 {\tt\$SNANA\_DIR/bin} to your path.}, this key is needed.
-	 Everything on the line after this key is executed
-	 (prefably running a setup script), 
-	 so don't append comments on the same line.
-%
-  \item {\tt\bf GENOPT\_GLOBAL:}
-         After the `{\tt ENDLIST\_GENVERSION:}' key this is a final
-         (optional) global override  key whose argument-list
-         is applied to all of the simulations. Beware that
-         that the {\tt GENOPT} and {\tt GENOPT\_GLOBAL} options
-         are applied to both the SNIa and NON-Ia 
-	 simulations.\footnote{There are som exceptions, such as
-	   {\tt GENMAG\_SMEARMODEL\_NAME} that is ignored
-         in the NON-Ia sims and applied only to the Ia sim.}
-	 Everything following this key is passed to the simulation,
-	 so don't append comments at the end of this line.
-%
- \item  {\tt\bf ZRANGE:} optional redshift-range override,
-   and is the same as \\ 
-   `{\tt GENOPT\_GLOBAL: GENRANGE\_REDSHIFT 0.1 1.2}.'
-%
- \item {\tt\bf SIMGEN\_INFILE\_Ia[NONIa]:}
-       A sim-input file is specified for the SNIa and/or SNCC sample;
-       one or both files can be specified.
-%
- \item {\tt\bf NGEN\_UNIT:}
-       specifies the number of ``units'' (e.g., seasons) to generate, 
-       and internally computes the statistics appopriate for the
-       specified redshift-range, peakMJD-range, solid angle,
-       and SN rate (based on {\tt DNDZ} key).
-       If the {\tt NGEN\_UNIT} key is left out, the 
-       simulated statistics is based on the {\tt NGEN\_LC}
-       and {\tt NGENTOT\_LC} keys in the sim-input files.
-%
- \item {\tt\bf GENPREFIX:} file prefix under the {\tt GENVERSION}
-        sub-directory. Note that the analysis points to 
-        {\tt GENVERSION}, not {\tt GENPREFIX}.
-%
- \item {\tt\bf FORMAT\_MASK:} 2-bit for ascii format and 32-bit
-       for FITS format. The 16-bit results in random CIDs so that
-       any random subset contains a random mix of SNIa and SNCC.
-%
-  \item {\tt\bf RANSEED:} With one {\tt RANSEED} key, each {\tt GENVERSION}
-        is generated once; multiple {\tt RANSEED} keys generate each
-	version multiple times, each on a different CPU core.
-	The left set of {\tt RANSEED} keys in 
-	Fig.~\ref{fig:sim_SNmix} behaves in the obvious manner
-	by generating three statistically independent simulations.
-	The generated versions are 
-	\vspace{-.1in}
-    \begin{verbatim}
-      DESY1_SNCC+SNIaSmearCOH-01
-      DESY1_SNCC+SNIaSmearCOH-02
-      DESY1_SNCC+SNIaSmearCOH-03
-    \end{verbatim}  
-    \vspace{-.3in}
-      and similarly the other {\tt GENVERSION}s have an index-suffix.
-      If using the random-CID option (16-bit of {\tt FORMAT\_MASK}),
-      the CIDs are unique within each version, but may be 
-      randomly duplicated among different versions.
-      The duplicate {\tt RANSEED} keys on the right side of 
-      Fig.~\ref{fig:sim_SNmix} 
-      also generate three independent samples, but with two main
-      differences compared to the {\tt RANSEED} list on the left:
-      \begin{enumerate}
-	\item all CIDs are unique; the common {\tt RANSEED} in each
-	  job is used to compute and reject all previous CIDs.
-	\item The three generated samples are combined to make
-	  one sample. This feature thus allows distributing a 
-	  large simulation job over multiple cores.
-      \end{enumerate}
-\end{itemize}
-
-\bigskip
-\centerline{\bf SIMLOGS}
-Before the simulation jobs are launched, a new directory is 
-created under your current working directory,
-\vspace{-.1in}  
-\begin{verbatim}
-      SIMLOGS_[GENPREFIX]/
-\end{verbatim} 
-\vspace{-.1in}
-or `{\tt SIMLOGS\_DES/}' for the control file in Fig.~\ref{fig:sim_SNmix}.
-All log-files are store here, and previous a directory with the
-same name is clobbered without warning.\footnote{More generally,
-{\SNmix} overwrites all previously existing files and {\tt GENVERSIONS}
-without warning.}
-A final one-line per job summary is written to 
-{\tt SIMLOGS\_[GENPREFIX]/SIMJOB\_SUMMARY.LOG}.
-ALWAYS check the SUMMARY log-file to make sure that the
-number of simulated events is reasoble (e.g., not zero)
-and that there are no aborted sim-jobs.
-
-
-\begin{figure} [hb] 
-\begin{center}
-\caption{Example of master-control file for {\SNmix}.}
-\label{fig:sim_SNmix}
-\begin{Verbatim}[frame=single]
-# speficy nodes to run on, or batch system
-NODELIST:  des05 des06 des08 des09 des06 des10
-    or
-#BATCH_INFO:  sbatch  SBATCH.TEMPLATE  5 
-#BATCH_INFO:  qsub    QSUB.TEMPLATE    5 
-
-SNANA_LOGIN_SETUP:  <whatever command(s) to setup snana>
-
-# specify version to generate, along with special options
-GENVERSION: DESY1_SNCC+SNIaSmearCOH
-GENOPT:     GENMAG_SMEAR_MODELNAME COH
-GENOPT:     SMEARFLAG_ZEROPT 0  SMEARFLAG_FLUX 0
-
-GENVERSION: DESY1_SNCC+SNIaSmearG10
-GENOPT:     GENMAG_SMEAR_MODELNAME G10
-
-GENVERSION: DESY1_SNCC+SNIaSmearC11
-GENOPT:     GENMAG_SMEAR_MODELNAME C11
-
-ENDLIST_GENVERSION:
-
-# optional global-overrides
-GENOPT_GLOBAL:  EXPOSURE_TIME 1000   GENRANGE_PEAKMJD 56550 56720
-ZRANGE:  0.1 1.2 
-
-# specify sim-input files for snlc_sim.exe
-SIMGEN_INFILE_Ia:       SIMGEN_DES_SALT2.input
-SIMGEN_INFILE_NONIa:    SIMGEN_DES_NONIA.input
-NGEN_UNIT:  2  SEASON
-
-RATESCALE_Ia:     1.0   # scale SNIa rate
-RATESCALE_NONIa:  1.0   # scale all SNCC rates
-
-# define required global items to ensure uniformity among all jobs
-GENPREFIX:   DES        # prefix of all data filenames
-FORMAT_MASK: 48         # 16=RanCID  32=FITS-FORMAT
-\end{Verbatim} 
-\end{center} \end{figure}
-
-
-\begin{figure} [hb] 
-\begin{center}
-\caption{Example of master-control file for {\SNmix}: Continued}
-\label{fig:sim_SNmix-2}
-\begin{Verbatim}[frame=single]
-# 3 independent samples
-RANSEED:  12349
-RANSEED:  23287
-RANSEED:  34308
-
-   OR
-
-# one large combined sample from 3 independent jobs
-RANSEED: 12345
-RANSEED: 12345
-RANSEED: 12345
-
-
-# The above can be implemented more compactly with
-RANSEED_CHANGE: 3 12349  # equivalent to 3 different RANSEEDS
-    OR
-RANSEED_REPEAT: 3 12345  # equivalent to 3 identical RANSEEDs
-\end{Verbatim}
-\end{center}\end{figure}
-
-\clearpage
 % --------------------------------------
   \subsubsection{Co-Adding {\tt SIMLIB} Observations on Same Night: 
                {\tt simlib\_coadd.exe} }
@@ -12356,46 +12270,6 @@ at the epoch with the maximum $S/N$.
   \subsection{Misc. Fitting Tools}
   \label{subsec:MiscTools_fit}
 % --------------------------------------
-
-% --------------------------------------
-  \subsubsection{Fit Multiple Samples with Multiple Fit-Options: 
-                 {\tt split\_and\_fit.pl}}
-  \label{sss:split_fit}
-% --------------------------------------
-
-See instructions at top of 
-\${\snanadir}{\tt /util/split\_and\_fit.pl}.
-This script allows fitting a matrix of multiple versions
-and multiple fit-options.  
-A list of nodes or batch command allows for parallel processing.
-The outputs of each split job are automatically merged when the
-fitting jobs have finished.
-
-\medskip
-Disk output from {\tt split\_and\_fit.pl} can be reduced with
-the command
-\begin{verbatim}
-   split_and_fit.pl  CLEAN
-   split_and_fit.pl  CLEANMASK <mask>
-   split_and_fit.pl  CLEANMASK <mask>  NOPROMPT
-\end{verbatim}
-%
-which removes unecessary files under every sub-directory
-from where the CLEAN command is launched. It also gzips the
-ascii FITOPT* files.  By default, explicit user-authorization
-is requested for each cleaning stage; the {\tt NOPROMPT} argument
-will clean without asking for authorization.
-Selective cleaning can be done with the following {\tt CLEANMASK} options:
-\begin{verbatim}
-  CLEANMASK += 1  --> remove /SPLIT_JOBS_*  /DEBUG  S2mu*
-  CLEANMASK += 2  --> remove SIMGEN.DAT*
-  CLEANMASK += 4  --> gzip FITOPT*
-  CLEANMASK += 8  --> remove HBOOK and ROOT files
-\end{verbatim}
-% 
-The default {\tt CLEAN} argument sets {\tt CLEANMASK=7}.
-``{\tt CLEANMASK 15}'' will run the default {\tt CLEAN},
-and also remove the {\tt HBOOK} and {\tt ROOT} files.
 
 % ----------
   \subsubsection{Analyzing Residuals from Lightcurve Fits}
@@ -12930,13 +12804,7 @@ can be examined with unix command `echo \$?'~:
     snlc_fit.exe            22
     psnid.exe               23
 \end{Verbatim}
-%
-The batch-submission scripts 
-\begin{verbatim}
-    sim_SNmix.pl   split_and_fit.pl   SALT2mu_fit.pl
-\end{verbatim}
-%
-return an error code of 255.
+
 
 % ##########################################
    \clearpage

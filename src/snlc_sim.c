@@ -29,6 +29,7 @@
 #include "fitsio.h"
 #include "MWgaldust.h"
 #include "sntools.h"
+#include "sntools_cosmology.h"
 #include "snlc_sim.h"
 #include "sntools_devel.h"
 #include "sntools_host.h"
@@ -109,6 +110,9 @@ int main(int argc, char **argv) {
   // check for random CID option (after randoms are inited above)
   init_CIDRAN();
 
+  // prepare random systematic shifts after reading SURVEY from SIMLIB
+  prep_RANSYSTPAR() ; // moved BEFORE init_RateModel (Oct 16 2020)
+
   // init based on GENSOURCE
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
     init_RANDOMsource();
@@ -127,9 +131,10 @@ int main(int argc, char **argv) {
   }
 
   // prepare random systematic shifts after reading SURVEY from SIMLIB
-  prep_RANSYSTPAR() ;
+  // xxx prep_RANSYSTPAR() ; // .xyz move before init_RateModel ??
 
-  // abort on NGEN=0 after printing N per season (init_DNDZ_Rate above)
+
+  // abort on NGEN=0 after printing N per season (init_Rate above)
   if ( INPUTS.NGEN_LC <= 0 && INPUTS.NGENTOT_LC <= 0 ) {
     sprintf(c1err,"NGEN_LC=0 & NGENTOT_LC=0" );
     errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
@@ -480,7 +485,6 @@ void simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   end_simFiles(SIMFILE_AUX);
 
-
   if ( NAVWARP_OVERFLOW[0] > 0 ) 
     { printf("%s", WARNING_AVWARP_OVERFLOW ); }
 
@@ -612,7 +616,8 @@ void set_user_defaults(void) {
 
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
-  INPUTS.OPT_DEVEL_READ_GENPOLY = 1 ;
+  INPUTS.OPT_DEVEL_READ_GENPOLY    = 1 ;
+  INPUTS.OPT_DEVEL_SIMSED_GRIDONLY = 1 ;
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
 
@@ -622,6 +627,8 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_DES3YR       = false; // Mar 2020
   INPUTS.RESTORE_HOSTLIB_BUGS = false; // Nov 2019
   INPUTS.RESTORE_FLUXERR_BUGS = false; // Jan 2020
+  //INPUTS.RESTORE_WRONG_VPEC   = true ; // Oct 26, 2020 (keep wrong VPEC sign)
+  INPUTS.RESTORE_WRONG_VPEC   = false ; // Nov 2, 2020 (fix VPEC sign)
   NLINE_RATE_INFO   = 0;
 
   // don't init zero'th input file since that is the main input file
@@ -675,8 +682,11 @@ void set_user_defaults(void) {
   // Mar 2020: use updated cosmoparameters defined in sntools.h
   INPUTS.OMEGA_MATTER  =  (double)OMEGA_MATTER_DEFAULT ; 
   INPUTS.OMEGA_LAMBDA  =  (double)OMEGA_LAMBDA_DEFAULT ;
-  INPUTS.W0_LAMBDA     =  (double)w0_DEFAULT ;
+  INPUTS.w0_LAMBDA     =  (double)w0_DEFAULT ;
+  INPUTS.wa_LAMBDA     =  (double)wa_DEFAULT ;
   INPUTS.H0            =  (double)H0_SALT2 ;
+  INPUTS.MUSHIFT       =   0.0 ;
+  INPUTS.HzFUN_FILE[0] = 0 ;
 
   INPUTS.GENRANGE_RA[0]   = -360.0  ;
   INPUTS.GENRANGE_RA[1]   = +360.0  ;
@@ -785,7 +795,6 @@ void set_user_defaults(void) {
 
   INPUTS.GENALPHA_SALT2     =  0.0 ; // legacy variable
   INPUTS.GENBETA_SALT2      =  0.0 ; // legacy variable
-  INPUTS.LEGACY_colorXTMW_SALT2 = 0 ;
 
   // init SIMSED stuff
   INPUTS.NPAR_SIMSED = 0;
@@ -1283,6 +1292,9 @@ void set_user_defaults_RANSYSTPAR(void) {
   INPUTS.RANSYSTPAR.SIGSCALE_MWEBV    = 0.0 ;
   INPUTS.RANSYSTPAR.SIGSHIFT_MWRV     = 0.0 ;
 
+  INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT = 0.0 ; // PA 2020
+  INPUTS.RANSYSTPAR.GENMODEL_WILDCARD[0] = 0; // PA 2020
+
   INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER  = 0.0 ;
   INPUTS.RANSYSTPAR.SIGSHIFT_W0            = 0.0 ;
 
@@ -1408,6 +1420,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "OPT_DEVEL_READ_GENPOLY", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_READ_GENPOLY ) ; 
   }
+  else if ( keyMatchSim(1, "OPT_DEVEL_SIMSED_GRIDONLY", WORDS[0],keySource)) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_SIMSED_GRIDONLY ) ; 
+  }
   else if ( keyMatchSim(1, "TRACE_MAIN", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.TRACE_MAIN ) ; 
   }
@@ -1417,6 +1432,10 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "RESTORE_DES3YR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
     if (ITMP) { INPUTS.RESTORE_DES3YR = true; }    
+  }
+  else if ( keyMatchSim(1, "RESTORE_WRONG_VPEC", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &ITMP);  
+    INPUTS.RESTORE_WRONG_VPEC = ( ITMP > 0 );
   }
   else if ( strstr(WORDS[0],"HOSTLIB_") != NULL ) {
     N += parse_input_HOSTLIB(WORDS, keySource);
@@ -2020,11 +2039,20 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "OMEGA_LAMBDA", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.OMEGA_LAMBDA );
   }
-  else if ( keyMatchSim(1, "W0_LAMBDA", WORDS[0],keySource) ) {
-    N++ ; sscanf(WORDS[N], "%le", &INPUTS.W0_LAMBDA );
+  else if ( keyMatchSim(1, "W0_LAMBDA w0_LAMBDA", WORDS[0],keySource) ) {
+    N++ ; sscanf(WORDS[N], "%le", &INPUTS.w0_LAMBDA );
+  }
+  else if ( keyMatchSim(1, "Wa_LAMBDA wa_LAMBDA", WORDS[0],keySource) ) {
+    N++ ; sscanf(WORDS[N], "%le", &INPUTS.wa_LAMBDA );
   }
   else if ( keyMatchSim(1, "H0", WORDS[0],keySource) ) {
     N++ ; sscanf(WORDS[N], "%le", &INPUTS.H0 );
+  }
+  else if ( keyMatchSim(1, "MUSHIFT", WORDS[0],keySource) ) {
+    N++ ; sscanf(WORDS[N], "%le", &INPUTS.MUSHIFT );
+  }
+  else if ( keyMatchSim(1, "HzFUN_FILE", WORDS[0],keySource) ) {
+    N++ ; sscanf(WORDS[N], "%s", INPUTS.HzFUN_FILE );
   }
   // - - - 
   else if ( keyMatchSim(1, "FUDGE_SNRMAX", WORDS[0],keySource) ) {
@@ -2145,14 +2173,14 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(10, "WARP_SPECTRUM",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", INPUTS.WARP_SPECTRUM_STRING );
   }
-  else if ( keyMatchSim(MXOBS_SPECTROGRAPH,"TAKE_SPECTRUM", WORDS[0],keySource) ) {
+  else if (keyMatchSim(MXOBS_SPECTROGRAPH,"TAKE_SPECTRUM",WORDS[0],keySource)){
     N += parse_input_TAKE_SPECTRUM(WORDS, keySource, fpNull );
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_HOSTFRAC",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%f", INPUTS.TAKE_SPECTRUM_HOSTFRAC );
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.TAKE_SPECTRUM_HOSTFRAC );
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_DUMPCID",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", INPUTS.TAKE_SPECTRUM_DUMPCID );
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.TAKE_SPECTRUM_DUMPCID );
   }
 #ifdef SNGRIDGEN
   else if ( strstr(WORDS[0],"GRID") != NULL ) {
@@ -2232,14 +2260,17 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
   // Created July 21 2020 [refactor]
   // read input file for DNDZ or DNDB keys.
   // *WHAT = 'NOMINAL' or 'PEC1A'
+  //
+  // Oct 16 2020: abort on multiple rate models. Note that same model
+  //              key name can appear more than once; e.g., POWERLAW2.
 
   bool  IS_NOMINAL = (strcmp(WHAT,"NOMINAL") == 0 ) ;
   bool  IS_PEC1A   = (strcmp(WHAT,"PEC1A"  ) == 0 ) ;
 
   bool FOUND_PRIMARY_KEY, CONTINUE ;
-  int  N=0, n, j, NLOCAL, nread ;
+  int  N=0, n, j, NLOCAL, nread, NMODEL_LIST ;
   double l=0.0, b=0.0, bmax, R=0.0, TMPVAL ;
-  char KEYNAME[40];
+  char KEYNAME[40], TMPNAME[60];
   char fnam[] = "parse_input_RATEPAR" ;
 
   // ------------ BEGIN ------------
@@ -2300,9 +2331,18 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
 
   if ( FOUND_PRIMARY_KEY ) {
 
-    N++; sscanf(WORDS[N], "%s", RATEPAR->NAME ); 
+    N++; sscanf(WORDS[N], "%s", TMPNAME ); 
 
-    if ( IGNOREFILE(RATEPAR->NAME) ) { return(N) ; }
+    // abort on multiple rate models
+    if ( !IGNOREFILE(RATEPAR->NAME) ) { 
+      if ( strcmp(RATEPAR->NAME,TMPNAME) != 0 ) {
+	sprintf(c1err,"cannot mix multiple rate models with %s", KEYNAME);
+	sprintf(c2err,"%s and %s (pick one)", RATEPAR->NAME, TMPNAME);
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+      }
+    }
+    
+    sprintf(RATEPAR->NAME, "%s", TMPNAME);
 
     // make sure that PEC1A rateModel is defined only for NON1A mode
     if ( IS_PEC1A &&  INPUTS.NON1A_MODELFLAG < 0 ) {
@@ -2892,6 +2932,8 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
 
   // Created July 2020
   // parse keys starting with HOSTLIB
+  // Oct 16 2020: check IGNOREFILE(HOSTLIB_FILE)
+  // Dec 02 2020: fix bug setting MSKOPT to allow command-line override.
 
   int  j, ITMP, N=0, nread ;
   char fnam[] = "parse_input_HOSTLIB" ;
@@ -2900,8 +2942,10 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
 
   if ( keyMatchSim(1, "HOSTLIB_FILE", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_FILE ) ; 
-    setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
-    INPUTS.HOSTLIB_USE = 1;  
+    if ( IGNOREFILE(INPUTS.HOSTLIB_FILE) ) 
+      { INPUTS.HOSTLIB_MSKOPT = INPUTS.HOSTLIB_USE = 0;  }
+    else 
+      { setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE); INPUTS.HOSTLIB_USE = 1; }
   }
   else if ( keyMatchSim(1, "HOSTLIB_WGTMAP_FILE", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_WGTMAP_FILE ) ; 
@@ -2914,8 +2958,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_SPECBASIS_FILE ) ; 
   }
   else if ( keyMatchSim(1, "HOSTLIB_MSKOPT", WORDS[0], keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &ITMP );
-    INPUTS.HOSTLIB_MSKOPT |= ITMP; // append bits since USE-bit already set
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.HOSTLIB_MSKOPT );
+    setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+    // xxx mark delete  INPUTS.HOSTLIB_MSKOPT |= ITMP;
   }
   else if ( keyMatchSim(1,"HOSTLIB_GENZPHOT_FUDGEPAR",WORDS[0],keySource)){
     // read first 4 elements as float
@@ -3359,64 +3404,129 @@ int parse_input_RANSYSTPAR(char **WORDS, int keySource ) {
   // Jul 20 2020 [refactor]
   // Parse RANSYSTPAR_XXX keys.
   // Function returns number of WORDS that are read.
-  
+  // 
+  // Oct 30 2020: 
+  //   + check for filter list in parentheses for SIGZP and SIGLAMFILT.
+  //
+
+  int  NFILTDEF = INPUTS.NFILTDEF_OBS ;  
   int  N = 0 ;
-  int  ifilt, NFILTDEF = INPUTS.NFILTDEF_OBS ;  
+  int  i, igrp, ifilt, ifilt_obs, NFILTGROUP, NFILT_PER_GROUP[MXFILTINDX] ;
+  double tmpVal;
+  float *ptrShift ;
+  char KEYNAME[60], FILTGROUP_STRING[MXFILTINDX+10], **FILTGROUP_LIST ;
+  char cfilt[2] ;
+  char KEYNAMES_FILTER[] = 
+    "RANSYSTPAR_SIGSHIFT_ZP  RANSYSTPAR_SIGSHIFT_LAMFILT" ;
   char fnam[] = "parse_input_RANSYSTPAR" ;
 
   // ---------- BEGIN ----------
 
+  // if WORDS[0] of of the for RANSYSTPAR_XYZ(BLA), then return
+  // KEYNAME = "RANSYSTPAR_XYZ" and SYST_OPT = "BLA"
+  sprintf(KEYNAME, "%s", WORDS[0]);   
+  extractStringOpt(KEYNAME,FILTGROUP_STRING) ;
+
+  // - - - - - - 
+
   if ( keyMatchSim(1, "RANSYSTPAR_RANSEED_GEN", 
-		   WORDS[0], keySource) ) {
+		   KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.RANSYSTPAR.RANSEED_GEN );
   }
   else if ( keyMatchSim(1, "RANSYSTPAR_SIGSCALE_FLUXERR", 
-		   WORDS[0], keySource) ) {
+		   KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR );
   }
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSCALE_FLUXERR2", 
-			WORDS[0], keySource) ) {
+			KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 );
   }
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSCALE_MWEBV", 
-			WORDS[0], keySource) ) {
+			KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSCALE_MWEBV );
   }
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_MWRV", 
-			WORDS[0], keySource) ) {
+			KEYNAME, keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_MWRV );
   }
 
+  else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_REDSHIFT", 
+			KEYNAME, keySource) ) {
+    N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT ); // PA 2020
+  }
+  else if ( keyMatchSim(1,"RANSYSTPAR_GENMODEL_WILDCARD", 
+			KEYNAME, keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.RANSYSTPAR.GENMODEL_WILDCARD ); // PA 2020
+  }
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_OMEGA_MATTER",
-			WORDS[0],keySource) ) {
+			KEYNAME,keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER );
   }
 
   else if ( keyMatchSim(1,"RANSYSTPAR_RANGESHIFT_OMEGA_MATTER",
-			WORDS[0],keySource) ) {
+			KEYNAME,keySource) ) {
     N++;  sscanf(WORDS[N],"%f",&INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER[0]);
     N++;  sscanf(WORDS[N],"%f",&INPUTS.RANSYSTPAR.RANGESHIFT_OMEGA_MATTER[1]);
   }
   else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_W0",
-			WORDS[0],keySource) ) {
+			KEYNAME,keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.SIGSHIFT_W0 );
   }
   else if ( keyMatchSim(1,"RANSYSTPAR_RANGESHIFT_W0",
-			WORDS[0],keySource)){
+			KEYNAME,keySource)){
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.RANGESHIFT_W0[0] );
     N++;  sscanf(WORDS[N], "%f", &INPUTS.RANSYSTPAR.RANGESHIFT_W0[1] );
   }
-  else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_ZP",
-			WORDS[0],keySource) ) {
-    for ( ifilt = 0; ifilt < NFILTDEF; ifilt++ ) {
-      N++; sscanf(WORDS[N],"%f",&INPUTS.RANSYSTPAR.SIGSHIFT_ZP[ifilt] ); 
+  else if ( keyMatchSim(1, KEYNAMES_FILTER, KEYNAME,keySource) ) {
+
+    if ( NFILTDEF == 0 ) {
+      sprintf(c1err,"Must define GENFILTERS before %s", KEYNAME );
+      sprintf(c2err,"Check key order in sim-input file");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
-  }
-  else if ( keyMatchSim(1,"RANSYSTPAR_SIGSHIFT_LAMFILT",
-			WORDS[0],keySource) ) {
-    for ( ifilt = 0; ifilt < NFILTDEF; ifilt++ ) {
-      N++; sscanf(WORDS[N],"%f",&INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT[ifilt]); 
+    
+    if ( strstr(KEYNAME,"ZP") != NULL ) 
+      { ptrShift = INPUTS.RANSYSTPAR.SIGSHIFT_ZP ; }
+    else if ( strstr(KEYNAME,"LAMFILT") != NULL ) 
+      { ptrShift = INPUTS.RANSYSTPAR.SIGSHIFT_LAMFILT ; }
+    else 
+      { return 0 ; }
+
+
+    // if no filter argument, then assume all filters are specified.
+    if ( strlen(FILTGROUP_STRING) == 0 ) { 
+      for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
+	sprintf(cfilt, "%c", INPUTS.GENFILTERS[ifilt] ); 
+	catVarList_with_comma(FILTGROUP_STRING,cfilt); 
+      }
     }
+
+    parse_commaSepList("RANSYSTPAR-OPT", FILTGROUP_STRING, 
+		       MXFILTINDX,MXFILTINDX, &NFILTGROUP, &FILTGROUP_LIST);
+
+    for(ifilt=0; ifilt < NFILTGROUP; ifilt++ ) 
+      { NFILT_PER_GROUP[ifilt] = strlen(FILTGROUP_LIST[ifilt]); }
+ 
+    for(igrp=0; igrp < NFILTGROUP; igrp++ ) {
+      tmpVal = NOFLOAT ;       
+      N++; sscanf(WORDS[N], "%le", &tmpVal ) ;
+      // printf(" xxx %s: igrp=%d/%d   N=%d tmpVal=%f\n",
+      //    fnam, igrp, NFILTGROUP,   N, tmpVal);
+
+      if ( tmpVal == NOFLOAT ) {
+	sprintf(c1err,"Expecting to read float, but read '%s' ", WORDS[N] ) ;
+	sprintf(c2err,"Check igrp=%d after %s", igrp, KEYNAME );
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
+      }
+      
+      for(i=0; i < NFILT_PER_GROUP[igrp]; i++ ) {
+	sprintf(cfilt, "%c", FILTGROUP_LIST[igrp][i] );
+	ifilt = index_charString(cfilt, INPUTS.GENFILTERS);
+	ptrShift[ifilt] = tmpVal ;
+      }
+  
+    }    // end igrp loop 
+    //  debugexit(fnam) ;
   }
 
   if ( N > 0 ) {  INPUTS.RANSYSTPAR.USE = 1; }
@@ -3595,8 +3705,8 @@ int parse_input_GENMAG_SMEAR_SCALE(char **WORDS, int keySource ) {
   //  GENMAG_SMEAR_SCALE(SALT2c) 0.9,0.3 ! scale = 0.9 + 0.3*c    
   //                                                                            
   // This function loads INPUTS.GENMAG_SMEAR_SCALE with              
-  //     'NOVAR  1.3'                                                           
-  //     'SALT2c 0.9,0.3'                                                       
+  //     'NOVAR  1.3'
+  //     'SALT2c 0.9,0.3'
   //
   
   int N=0;
@@ -3928,6 +4038,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     fflush(stdout);
   }
 
+ DONE:
   NPEREVT_TAKE_SPECTRUM++ ;
 
   if ( NPEREVT_TAKE_SPECTRUM >= MXPEREVT_TAKE_SPECTRUM ) {
@@ -3947,10 +4058,11 @@ int parse_input_SIMSED(char **WORDS, int keySource) {
 
   int MXPAR = MXPAR_SIMSED ;
   int NPAR, N=0;
-  char ctmp[60];
+  char PARNAME[60], SIMSED_STRINGOPT[80];
   char fnam[] = "parse_input_SIMSED" ;
 
   // ----------- BEGIN -----------
+
 
   if ( keyMatchSim(1, "SIMSED_USE_BINARY", WORDS[0], keySource) ) {
     N++ ; sscanf(WORDS[N], "%d", &INPUTS.USE_BINARY_SIMSED );
@@ -3975,24 +4087,31 @@ int parse_input_SIMSED(char **WORDS, int keySource) {
   }
 
   else if ( keyMatchSim(MXPAR,"SIMSED_GRIDONLY", WORDS[0],keySource) ) {
-    N++ ; sscanf(WORDS[N],"%s", ctmp);
-    if ( strcmp(ctmp,"SEQUENTIAL") == 0  ) {
+    N++ ; sscanf(WORDS[N],"%s", PARNAME);
+
+    // in case we have VARNAME(STRINGOPT), extract optional STRINGOPT
+    extractStringOpt(PARNAME,SIMSED_STRINGOPT);
+
+    if ( strcmp(PARNAME,"SEQUENTIAL") == 0  ) {
       INPUTS.NPAR_SIMSED = 0 ;  // no interp pars => treat as baggage
-      INPUTS.OPTMASK_SIMSED    = OPTMASK_SIMSED_GRIDONLY ;
+      INPUTS.OPTMASK_SIMSED    = OPTMASK_GEN_SIMSED_GRIDONLY ;
     }
     else {
-      // ctmp is one of the SIMSED params, but GRIDONLY
+      // PARNAME is one of the SIMSED params, but GRIDONLY
       NPAR = INPUTS.NPAR_SIMSED ;
-      sprintf(INPUTS.PARNAME_SIMSED[NPAR], "%s", ctmp );
+      sprintf(INPUTS.PARNAME_SIMSED[NPAR], "%s", PARNAME );
       INPUTS.GENFLAG_SIMSED[NPAR] = 
-	OPTMASK_SIMSED_PARAM + OPTMASK_SIMSED_GRIDONLY ;
+	OPTMASK_GEN_SIMSED_PARAM + OPTMASK_GEN_SIMSED_GRIDONLY ;
       sprintf(INPUTS.KEYWORD_SIMSED[NPAR],"SIMSED_GRIDONLY");
 
       INPUTS.NPAR_SIMSED++ ; 
       INPUTS.NPAR_SIMSED_GRIDONLY++ ; 
+
+      parse_input_SIMSED_SUBSET(PARNAME,SIMSED_STRINGOPT) ;
     }
 
   } // end SIMSED_GRIDONLY 
+
   else if ( keyMatchSim(1,"SIMSED_REDCOR SIMSED_COV", WORDS[0], keySource) ) {
     N += parse_input_SIMSED_COV(WORDS, keySource);
   }
@@ -4019,12 +4138,49 @@ int parse_input_SIMSED_PARAM(char **WORDS) {
   // ------------- BEGIN -----------
   NPAR = INPUTS.NPAR_SIMSED ;
   N++ ; sscanf(WORDS[N], "%s", INPUTS.PARNAME_SIMSED[NPAR] );
-  INPUTS.GENFLAG_SIMSED[NPAR] =  OPTMASK_SIMSED_PARAM ; // continuous interp
+  INPUTS.GENFLAG_SIMSED[NPAR] = OPTMASK_GEN_SIMSED_PARAM; //continuous interp
   sprintf(INPUTS.KEYWORD_SIMSED[NPAR],"SIMSED_PARAM"); 
   INPUTS.NPAR_SIMSED++ ; 
   INPUTS.NPAR_SIMSED_PARAM++ ; 
   return(N) ;
 } // end of parse_input_SIMSED_PARAM
+
+
+// *******************************************      
+void parse_input_SIMSED_SUBSET(char *parName, char *stringOpt) {
+
+  // if stringOpt = 2,4,5,6 then split string and load
+  // each grid index into global array.
+
+  // USE parse_commaSepList(...)
+
+  int NINDEX_SUBSET = 0;  // number of indices for subset
+  int MXINDEX_SUBSET = MXPAR_SIMSED;
+  int i, INDEX_SUBSET ;
+  char **ptrSplit;
+  char fnam[] = "parse_input_SIMSED_SUBSET";
+  // ------ BEGIN ------
+
+  INPUTS.NINDEX_SUBSET_SIMSED_GRIDONLY = 0 ;
+  if ( strlen(stringOpt) == 0 ) { return ; }
+
+  if ( !IS_INDEX_SIMSED(parName) )  {
+    sprintf(c1err,"Cannot specify index subset for parName = %s", parName);
+    sprintf(c2err,"parName string must include INDEX/INDX/index/indx");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  parse_commaSepList("GRINDONLY_SUBSET", stringOpt, MXINDEX_SUBSET, 8,
+		     &NINDEX_SUBSET, &ptrSplit) ;
+
+  for(i=0; i < NINDEX_SUBSET; i++ ) {
+    sscanf(ptrSplit[i], "%d", &INDEX_SUBSET);
+    INPUTS.INDEX_SUBSET_SIMSED_GRIDONLY[i] = INDEX_SUBSET ;
+  }
+
+  INPUTS.NINDEX_SUBSET_SIMSED_GRIDONLY = NINDEX_SUBSET ;
+
+} // end parse_input_SIMSED_SUBSET
 
 // *******************************************      
 bool keyContains_SIMSED_PARAM(char *KEYNAME) {
@@ -4044,7 +4200,7 @@ bool keyContains_SIMSED_PARAM(char *KEYNAME) {
 
   // require continuous distribution
   int GENFLAG = INPUTS.GENFLAG_SIMSED[NPAR-1];
-  if ( (GENFLAG & OPTMASK_SIMSED_PARAM ) == 0 ) { return(false); }
+  if ( (GENFLAG & OPTMASK_GEN_SIMSED_PARAM ) == 0 ) { return(false); }
 
   parName = INPUTS.PARNAME_SIMSED[NPAR-1];
   if ( strstr(KEYNAME,parName) != NULL ) 
@@ -4473,6 +4629,7 @@ void prep_user_input(void) {
   Feb 15 2019: turn off INPUTS.GENMAG_SMEAR_MODELNAME for SIMSED model.
   Dec 01 2019: allow COH scatter gmodel for NON1ASED and SIMSED models.
   Feb 06 2020: set DO_AV for GRIDGEN
+  Oct 16 2020: call prep_user_cosmology()
 
   *******************/
 
@@ -4732,7 +4889,6 @@ void prep_user_input(void) {
     GENFRAME_OPT = GENFRAME_OBS ;
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"NONE");    // no SNIa scatter model
 
-
     LCLIB_INFO.HOSTLIB_MSKOPT = INPUTS.HOSTLIB_MSKOPT ; 
     INPUTS.HOSTLIB_MSKOPT = INPUTS.HOSTLIB_USE = 0;
     INPUTS.GENSIGMA_VPEC = INPUTS.VPEC_ERR = INPUTS.VEL_CMBAPEX = 0.0 ;
@@ -4962,6 +5118,8 @@ void prep_user_input(void) {
   sprintf(PATH_KCOR_LIST, "%s %s/kcor",  PATH_USER_INPUT, PATH_SNDATA_ROOT );
   find_pathfile(kcorFile, PATH_KCOR_LIST, INPUTS.KCOR_FILE, fnam ); 
 
+  prep_user_cosmology(); // Oct 16 2020 
+
   // --------------------------------------
   //----------- PRINT SUMMARY -------------
   // --------------------------------------
@@ -4985,12 +5143,15 @@ void prep_user_input(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  printf("\t OMEGA_(MATTER,LAMBDA)= %5.3f, %5.3f,    W= %5.2f   H0=%5.1f \n"
-	 ,INPUTS.OMEGA_MATTER
-	 ,INPUTS.OMEGA_LAMBDA
-	 ,INPUTS.W0_LAMBDA
-	 ,INPUTS.H0 	 );
-
+  
+  if ( IGNOREFILE(INPUTS.HzFUN_FILE) ) {
+    printf("\t OMEGA_(MATTER,LAMBDA)= %5.3f, %5.3f,    w0= %5.2f   H0=%5.1f \n"
+	   ,INPUTS.OMEGA_MATTER, INPUTS.OMEGA_LAMBDA
+	   ,INPUTS.w0_LAMBDA, INPUTS.H0  );
+  }
+  else {
+    printf("\t HzFUN from file: %s \n", INPUTS.HzFUN_FILE);
+  }
 
   printf("\t KCOR  file : %s \n", INPUTS.KCOR_FILE );
 
@@ -5245,6 +5406,37 @@ void prep_user_input(void) {
   return ;
 
 } // end of prep_user_input().
+
+
+// ===================================
+void prep_user_cosmology(void) {
+
+  // Created Oct 2020
+  // Call init_HzFUN_INFO to either store user-input cosmology params,
+  // or to read z,H(z) from 2-column input file.
+  //
+ 
+  double cosPar[NCOSPAR_HzFUN];
+  char  *HzFUN_FILE = INPUTS.HzFUN_FILE ;
+  int ipar;
+  char fnam[] = "prep_user_cosmology";
+
+  // ------- BEGIN ----------
+
+  cosPar[ICOSPAR_HzFUN_H0] = INPUTS.H0;
+  cosPar[ICOSPAR_HzFUN_OM] = INPUTS.OMEGA_MATTER ;
+  cosPar[ICOSPAR_HzFUN_OL] = INPUTS.OMEGA_LAMBDA ;
+  cosPar[ICOSPAR_HzFUN_w0] = INPUTS.w0_LAMBDA ;
+  cosPar[ICOSPAR_HzFUN_wa] = INPUTS.wa_LAMBDA ;
+  
+  // init structure that gets passed later to cosmology functions
+  int VBOSE = 1;
+  init_HzFUN_INFO(VBOSE, cosPar, HzFUN_FILE, 
+		  &INPUTS.HzFUN_INFO ); // <== returned 
+
+  return;
+
+} // end prep_user_cosmology
 
 // ===================================
 void prep_user_CUTWIN(void) {
@@ -5630,6 +5822,8 @@ void  prep_RANSYSTPAR(void) {
   // results in random set of systematic offsets.
   //
   // Do NOT try to sync randoms here; burn randoms only if required.
+  //
+  // Nov 9 2020: refactor filter-dependent RANSYSTPAR (see manual)
 
   int   ifilt, ifilt_obs, NSET=0 ;
   int   NFILTDEF = INPUTS.NFILTDEF_OBS ;
@@ -5667,6 +5861,39 @@ void  prep_RANSYSTPAR(void) {
     INPUTS.RV_MWCOLORLAW += tmp ;
     printf("\t RV_MWCOLORLAW  = %.3f \n", INPUTS.RV_MWCOLORLAW );
   }
+  
+  // Redshift PA 2020 .xyz
+  tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT;
+  if ( tmpSigma != 0.0 ) { 
+    NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
+    INPUTS.GENBIAS_REDSHIFT = tmp ;
+    printf("\t GENBIAS_REDSHIFT  = %f \n", INPUTS.GENBIAS_REDSHIFT );
+   }
+
+  // GENMODEL Wildcard PA 2020
+  char *wildcard = INPUTS.RANSYSTPAR.GENMODEL_WILDCARD;
+  char **genmodel_list;
+  if ( strlen(wildcard) > 0 ) {
+      // .xyz
+      ENVreplace(wildcard,fnam,1);
+
+      int n_files = glob_file_list(wildcard, &genmodel_list);
+      int i;
+      /* xxx mark delete 12/11/2020
+      for (i=0; i<n_files; i++) {
+        printf("xxx%s: i=%d genmodel=%s\n", fnam, i, genmodel_list[i]);
+      }
+      */
+      double rand_num = FlatRan1(ILIST_RAN);
+      int ifile_ran = (int)(rand_num * (double)n_files); // generate random index between 0 and n_files
+      printf("\t Select GENMODEL %d of %d\n", ifile_ran, n_files);
+      sprintf(INPUTS.GENMODEL, "%s", genmodel_list[ifile_ran]);
+      if ( ifile_ran < 0 || ifile_ran >= n_files ) {
+        sprintf(c1err,"Invalid ifile_ran = %d", ifile_ran);
+        sprintf(c2err,"Expected ifile_ran between 0 and %d", n_files - 1);
+        errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+  }
 
   // cosmology params (Aug 2019)
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_OMEGA_MATTER ;
@@ -5688,16 +5915,16 @@ void  prep_RANSYSTPAR(void) {
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_W0 ;
   if ( tmpSigma != 0.0 ) { 
     NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
-    INPUTS.W0_LAMBDA += tmp ;
-    printf("\t W0_LAMBDA  = %.3f \n", INPUTS.W0_LAMBDA );
+    INPUTS.w0_LAMBDA += tmp ;
+    printf("\t w0_LAMBDA  = %.3f \n", INPUTS.w0_LAMBDA );
   }
 
   tmpRange = INPUTS.RANSYSTPAR.RANGESHIFT_W0 ;
   if ( tmpRange[1] > tmpRange[0] ) { 
     NSET++; Range = tmpRange[1] - tmpRange[0];
     tmp = tmpRange[0] + Range * FlatRan1(ILIST_RAN);
-    INPUTS.W0_LAMBDA += tmp ;
-    printf("\t W0_LAMBDA  = %.3f \n", INPUTS.W0_LAMBDA );
+    INPUTS.w0_LAMBDA += tmp ;
+    printf("\t w0_LAMBDA  = %.3f \n", INPUTS.w0_LAMBDA );
   }
 
 
@@ -5749,7 +5976,8 @@ void  prep_RANSYSTPAR(void) {
       NSET++ ;  tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
       INPUTS.TMPOFF_ZP[ifilt]         = tmp;
       INPUTS.GENMAG_OFF_ZP[ifilt_obs] = tmp ;
-      printf("\t ZPerr(%s) = %7.4f \n", cfilt, tmp );
+      printf("\t ZPerr(%s) = %7.4f  (SIG=%.3f) \n", 
+	     cfilt, tmp, tmpSigma );
     }
   }
 
@@ -5761,7 +5989,8 @@ void  prep_RANSYSTPAR(void) {
     if ( tmpSigma != 0 ) {
       NSET++ ;  tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
       INPUTS.TMPOFF_LAMSHIFT[ifilt] = tmp;
-      printf("\t LAMSHIFT(%s) = %6.2f A \n", cfilt, tmp );
+      printf("\t LAMSHIFT(%s) = %6.2f A  (SIG=%.1f A)\n", 
+	     cfilt, tmp, tmpSigma );
     }
   }
 
@@ -5857,11 +6086,12 @@ void genmag_offsets(void) {
     
     // mag offset is :
     MAGOFF = 
-      + GENLC.GENMAG_OFF_GLOBAL              // user-defined global offset
-      + INPUTS.GENMAG_OFF_MODEL[ifilt_obs]   // user-defined model offs
-      - INPUTS.GENMAG_OFF_ZP[ifilt_obs]      // user-defined ZP offsets
-      + GENLC.LENSDMU                        // lensing correction
-      + GENLC.SALT2gammaDM                   // gamma from SN-host corr
+      + GENLC.GENMAG_OFF_GLOBAL             // user-defined global offset
+      + INPUTS.GENMAG_OFF_MODEL[ifilt_obs]  // user-defined model offs
+      - INPUTS.GENMAG_OFF_ZP[ifilt_obs]     // user-defined ZP offsets
+      + GENLC.LENSDMU                       // lensing correction
+      + INPUTS.MUSHIFT                      // user distance offset (Oct 2020)
+      + GENLC.SALT2gammaDM                  // gamma from SN-host corr
     ;
 
 
@@ -6200,9 +6430,11 @@ void init_RateModel(void) {
 
   // Created Nov 26 2017
   int i;
-  //  char fnam[] = "init_RateModel" ;
+  char fnam[] = "init_RateModel" ;
 
   // -------------- BEGIN ---------------
+
+  if ( INDEX_GENMODEL == MODEL_SIMLIB ) { return; } // Oct 2020
 
   if ( INPUTS.GENRANGE_REDSHIFT[1] > 1.0E-8 )     
     { init_DNDZ_Rate(); } // Rate vs. redshift
@@ -6225,6 +6457,8 @@ void init_RateModel(void) {
     int NGENTOT_CALC = NSN + NPEC1A ;
     printf("NGENTOT_RATECALC: %d\n", NGENTOT_CALC);
   }
+
+  // debugexit(fnam); // xxx REMOVE
 
   return ;
 
@@ -6249,29 +6483,31 @@ void init_DNDZ_Rate(void) {
 
   *****/
 
-  double 
-    H0, OM, OL, W0, Z0, Z1, Z_AVG, ZVtmp[2]
-    ,ZVint[2], ZVOL, VT
-    ,dOmega, dOmega_user, dphi, dth, sin0, sin1
-    ,delMJD, Tyear, Tcomoving, SNsum, PEC1Asum, TOTsum
-    ,ztmp, rtmp, rtmp1, rtmp2, FRAC_PEC1A
-    ;
+  double Z0, Z1, Z_AVG, ZVtmp[2], ZVint[2], ZVOL, VT;
+  double dOmega, dOmega_user, dphi, dth, sin0, sin1;
+  double delMJD, Tyear, Tcomoving, SNsum, PEC1Asum, TOTsum;
+  double ztmp, rtmp, rtmp1, rtmp2, FRAC_PEC1A;
 
-  int i, iz ;
-  char ch[8], cnum[20];
+  int i, iz, OPT_DVDZ ;
+  char cH0[8], cnum[20];
   char fnam[] = "init_DNDZ_Rate" ;
 
   // ----------- BEGIN ------------
 
+  /* xxxx mark delete xxxxxxx
   H0 = INPUTS.H0 ;
   OM = INPUTS.OMEGA_MATTER ;
   OL = INPUTS.OMEGA_LAMBDA ;
   W0 = INPUTS.W0_LAMBDA  ;
+  xxxxx end mark xxxx*/
+
+
   Z0 = INPUTS.GENRANGE_REDSHIFT[0] ;
   Z1 = INPUTS.GENRANGE_REDSHIFT[1] ;
 
-  ZVint[0] = dVdz_integral ( H0, OM, OL, W0, Z0, 0 );
-  ZVint[1] = dVdz_integral ( H0, OM, OL, W0, Z1, 0 );
+  OPT_DVDZ = 0;
+  ZVint[0] = dVdz_integral( OPT_DVDZ, Z0, &INPUTS.HzFUN_INFO );
+  ZVint[1] = dVdz_integral( OPT_DVDZ, Z1, &INPUTS.HzFUN_INFO );
 
   // compute solid angle for stripe 82
   dphi   = INPUTS.GENRANGE_RA[1]   - INPUTS.GENRANGE_RA[0] ;
@@ -6287,18 +6523,23 @@ void init_DNDZ_Rate(void) {
   }
   dOmega  = INPUTS.SOLID_ANGLE ; 
 
-
   // get volume in (MPc/h)^3
   ZVOL = dOmega * ( ZVint[1] - ZVint[0] ) ;
 
-  // compute average <z> wgted by volume (last arge = 1)
-  ZVtmp[0] = dVdz_integral ( H0, OM, OL, W0, Z0, 1 );
-  ZVtmp[1] = dVdz_integral ( H0, OM, OL, W0, Z1, 1 );
+  // compute average <z> wgted by volume
+  OPT_DVDZ = 1;  // z-wgted option
+  ZVtmp[0] = dVdz_integral( OPT_DVDZ, Z0, &INPUTS.HzFUN_INFO);  
+  ZVtmp[1] = dVdz_integral( OPT_DVDZ, Z1, &INPUTS.HzFUN_INFO);
+
+  /*
+  printf(" xxx %s: ZVint = %f, %f \n", fnam, ZVint[0], ZVint[1] );
+  printf(" xxx %s: ZVtmp = %f, %f \n", fnam, ZVtmp[0], ZVtmp[1] );
+  */
 
   if ( Z0 == Z1 ) 
     { Z_AVG = Z1 ; }
   else
-    { Z_AVG    = (ZVtmp[1]-ZVtmp[0]) / (ZVint[1] - ZVint[0]); }
+    { Z_AVG    = (ZVtmp[1] - ZVtmp[0]) / (ZVint[1] - ZVint[0]); }
 
 
   // get time in years
@@ -6307,7 +6548,8 @@ void init_DNDZ_Rate(void) {
   Tcomoving = Tyear / ( 1.0 + Z_AVG ) ;
   VT        = ZVOL * Tcomoving ;
 
-  sprintf(ch, "h%d" , (int)H0 );
+  sprintf(cH0, "h%d" , (int)INPUTS.H0 );
+
 
   // ---------------------------------------------------
   // compute expected number of SN per season (SNsum):
@@ -6359,7 +6601,7 @@ void init_DNDZ_Rate(void) {
 	 "\t <redsfhit>     = %7.4f  (volume-weighted) ", Z_AVG ) ;
 
   i++; sprintf(LINE_RATE_INFO[i],
-	 "\t Survey Volume  = %8.4e  sr*(MPc/%s)^3 ", ZVOL, ch );
+	 "\t Survey Volume  = %8.4e  sr*(MPc/%s)^3 ", ZVOL, cH0 );
 
   i++; sprintf(LINE_RATE_INFO[i],
 	 "\t Survey Time    = %7.4f  years/season ", Tyear );
@@ -6369,7 +6611,7 @@ void init_DNDZ_Rate(void) {
 	       Tcomoving );
 
   i++; sprintf(LINE_RATE_INFO[i],
-	 "\t Co-moving V*T  = %8.4e  sr*(MPc/%s)^3 * yr / season ", VT, ch );
+	 "\t Co-moving V*T  = %8.4e  sr*(MPc/%s)^3 * yr / season ", VT, cH0 );
 
 
   // June 4, 2012 - dNdz and rate info moved from README_doc()
@@ -6581,6 +6823,7 @@ void init_DNDZ_Rate(void) {
   i++; LINE_RATE_INFO[i][0] = 0 ;
 
   NLINE_RATE_INFO = i+1 ;
+
 
   return ;
 
@@ -8052,7 +8295,10 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
   // Compute TEXPOSE from requested SNR.
   // For synthetic filters, update ZPT and SKYSIG.
   // May 27 2020: check option to extrapolate TEXPOSE beyond defined range
+  // Dec 09 2020: tol_converge -> 0.03 (was 0.02) to fix barely-missed
+  //              convergence for SNLS spectrum.
   //
+
   bool LDMP       = (GENLC.CID == INPUTS.TAKE_SPECTRUM_DUMPCID );
   int  OPTMASK    = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;  
   bool DO_TEXTRAP = ( (OPTMASK & SPECTROGRAPH_OPTMASK_TEXTRAP)>0 );
@@ -8182,7 +8428,7 @@ void GENSPEC_TEXPOSE_TAKE_SPECTRUM(int imjd) {
   double T0=TEXPOSE_MIN, T1=TEXPOSE_MAX, TDIF_LAST=T1-T0;
   double SNR0=SNR_MIN, SNR1=SNR_MAX;
   double argSNR, last_tol, last_TEXPOSE, sgn=0.0 ;
-  double tol=99.0 , tol_converge = 0.02 ;
+  double tol=99.0 , tol_converge = 0.03 ;
   int    NITER=0, MAXITER=40, FLAG_TEXPOSE=0 ;  
 
   TEXPOSE = 0.0;
@@ -9770,6 +10016,8 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   Jul 23 2020: DOSHAPE = F for LCLIB model.
   Aug 31 2020: DOSHAPE = F for BYOSED model
+  Oct 20 2020: skip get_random_PDF for SIMLIB model
+
   **********/
 
   bool ISFRAME_REST      = ( OPT_FRAME == OPT_FRAME_REST );
@@ -9783,7 +10031,7 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
   bool ISMODEL_LCLIB     = ( INDEX_GENMODEL == MODEL_LCLIB ) ;
   bool SKIPx1  = SIMLIB_HEADER.GENGAUSS_SALT2x1.USE ;
   bool DOSHAPE = !( SKIPx1 || ISMODEL_SIMSED || ISMODEL_NON1A || 
-		    ISMODEL_LCLIB || IS_PySEDMODEL );
+		    ISMODEL_LCLIB || IS_PySEDMODEL || ISMODEL_SIMLIB );
 
   // xxx  bool DOSHAPE = ( !SKIPx1 && !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0) ;
 
@@ -10034,18 +10282,21 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
   for ( ipar = 0; ipar < NPAR ; ipar++ ) {
     ipar_model   = GENLC.SIMSED_IPARMAP[ipar]  ;
     genflag      = INPUTS.GENFLAG_SIMSED[ipar] ;
-    opt_interp   = ( genflag & OPTMASK_SIMSED_PARAM    ) ;
-    opt_gridonly = ( genflag & OPTMASK_SIMSED_GRIDONLY ) ;
+    opt_interp   = ( genflag & OPTMASK_GEN_SIMSED_PARAM    ) ;
+    opt_gridonly = ( genflag & OPTMASK_GEN_SIMSED_GRIDONLY ) ;
     parName      = INPUTS.PARNAME_SIMSED[ipar] ;
     irow_COV     = INPUTS.IROWLIST_SIMSED_COV[ipar] ;
     GENLC.SIMSED_PARVAL[ipar]  = -9.0 ;
 
     // skip baggage params
-    if ( (genflag & OPTMASK_SIMSED_param)  != 0 ) { continue ; }
+    if ( (genflag & OPTMASK_GEN_SIMSED_param)  != 0 ) { continue ; }
 
     if ( opt_interp ) {
 
-      if ( irow_COV >= 0 ) {
+      if ( opt_gridonly && INPUTS.OPT_DEVEL_SIMSED_GRIDONLY ) {
+	parVal = pick_gridval_SIMSED(ipar_model); 
+      }
+      else if ( irow_COV >= 0 ) {
 	// correlated random, Gaussian only
 	parVal = CORRVAL[irow_COV] ; 
       }
@@ -10057,26 +10308,79 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 	parVal = exec_GENGAUSS_ASYM( &GENGAUSS_ZVAR );
       }
 
-      if ( opt_gridonly  ) {
+      // check LEGACY option to snap to nearest GRID value
+      if ( opt_gridonly && !INPUTS.OPT_DEVEL_SIMSED_GRIDONLY ) {
 	parVal_old = parVal ;
 	parVal = nearest_gridval_SIMSED(ipar_model,parVal_old);
       }
+
     } // opt_interp
     
-    //    printf(" xxx %s: PARVAL[%d] = %f \n", fnam, ipar, parVal);
+    //  printf(" xxx %s: PARVAL[%d] = %f \n", fnam, ipar, parVal);
     GENLC.SIMSED_PARVAL[ipar]  = parVal ;
 
   }  // end ipar
 
   // ------------------
   // set PARVAL[0] to the SED index ... the IGEN index.
-  if ( INPUTS.OPTMASK_SIMSED == OPTMASK_SIMSED_GRIDONLY ) 
+  if ( INPUTS.OPTMASK_SIMSED == OPTMASK_GEN_SIMSED_GRIDONLY ) 
   { ISIMSED_SEQUENTIAL  = (double)NGENLC_TOT ; } // IGEN = ISED
 
   
   return;
 
 } // end gen_modelPar_SIMSED
+
+// ***********************************
+double pick_gridval_SIMSED(int ipar_model) {
+
+  // Created Oct 23 2020
+  // pick SIMSED value from grid using 1 of 2 options:
+  //  1) default option is pick random SED within GENRANGE_XXX
+  //  2) select from user-specified indices
+
+  bool PICK_SUBSET  = (INPUTS.NINDEX_SUBSET_SIMSED_GRIDONLY > 0) ;
+  int  nsed=0, ised_ran=-9, itmp=-9 ;
+  double flatRan  = FlatRan1(2); // random between 0-1
+  double PARVAL, PARVAL_TMP ;
+  int    LDMP = 0 ;
+  char fnam[]  = "pick_gridval_SIMSED" ;
+
+  // ---------- BEGIN ----------
+
+  if ( PICK_SUBSET )  {
+    // pick random index from user-defined subset;
+    // SIMSED_GRIDONLY:  INDEX_NAME(a,b,c,...)
+    nsed = INPUTS.NINDEX_SUBSET_SIMSED_GRIDONLY ; 
+    if ( ipar_model != SEDMODEL.IPAR_NON1A_INDEX ) {
+      char *parName = SEDMODEL.PARNAMES[ipar_model];
+      sprintf(c1err,"Cannot select GRIDONLY subset for %s", parName) ;
+      sprintf(c2err,"Check SIMSED_XXX keys in sim-input file.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+    itmp    = (int) ( flatRan * (double)nsed ) ;
+    PARVAL  = (double)INPUTS.INDEX_SUBSET_SIMSED_GRIDONLY[itmp] ;
+  }
+  else { 
+    // pick random sed. Use GENGAUSS struct to enable 
+    // selecting parameter range.
+    PARVAL_TMP = exec_GENGAUSS_ASYM(&INPUTS.GENGAUSS_SIMSED[ipar_model]);
+    PARVAL     = nearest_gridval_SIMSED(ipar_model,PARVAL_TMP);
+  }
+
+  // - - - - -
+  if ( LDMP ) {
+    printf(" xxx %s DUMP ---------------------- \n", fnam );
+    printf(" xxx %s: ipar_model = %d\n", fnam, ipar_model);
+    printf(" xxx %s: PICK_SUBSET=%d  nsed=%d itmp=%d ised_ran=%d\n",	   
+	   fnam, PICK_SUBSET, nsed, itmp, ised_ran);
+    printf(" xxx %s: PARVAL = %f \n", fnam, PARVAL );
+    fflush(stdout);
+  }
+
+  return(PARVAL);
+
+} // end pick_gridval_SIMSED
 
 // ***********************************
 void gen_modelPar_dust(int OPT_FRAME) {
@@ -10398,20 +10702,9 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
   // Dec 20 2013: write trans as %.6f instead of %.4f
   // Aug 19 2014: pass output arg PATH_FILTERS
 
-  char 
-     cmd[MXPATHLEN]
-    ,cfilt[4]
-    ,filtFile[MXPATHLEN]
-    ,filtName[40]   // full name returned from get_filttrans
-    ;
-
-  double 
-    magprim8
-    ,lam8[MXLAMSIM]
-    ,TransSN8[MXLAMSIM]
-    ,TransREF8[MXLAMSIM] 
-    ;
-  
+  char cmd[MXPATHLEN], cfilt[4] ;
+  char filtFile[MXPATHLEN], filtName[40], surveyName[80]  ;
+  double  magprim8, lam8[MXLAMSIM], TransSN8[MXLAMSIM], TransREF8[MXLAMSIM];  
   int  ifilt, ifilt_obs, NLAM, ilam, MASKFRAME, isys ;
   FILE *fp_filt ;
 
@@ -10439,14 +10732,15 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt] ;
 
     sprintf(filtName,"NULL");
+    sprintf(surveyName,"NULL");
     magprim8 = lam8[0] = TransSN8[0] = TransREF8[0] = 0.0 ; 
     NLAM = 0 ;
 
     // note that both the SN and REF trans are returned,
     // but for simulations they are always the same.
 
-    get_filttrans__(&MASKFRAME, &ifilt_obs, filtName, &magprim8, &NLAM, 
-		    lam8, TransSN8, TransREF8, strlen(filtName) );
+    get_filttrans__(&MASKFRAME, &ifilt_obs, surveyName, filtName,
+		    &magprim8, &NLAM, lam8, TransSN8, TransREF8, 80, 40 );
 
     sprintf(cfilt, "%c", FILTERSTRING[ifilt_obs] );
     sprintf(filtFile,"%s/%s.dat", PATH_FILTERS, cfilt );
@@ -10479,6 +10773,9 @@ void wr_SIMGEN_YAML(SIMFILE_AUX_DEF *SIMFILE_AUX) {
       sprintf ( c2err," '%s' ", ptrFile );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
+
+    fprintf(fp, "SURVEY:          %s\n",    GENLC.SURVEY_NAME   );
+    fprintf(fp, "IDSURVEY:        %d\n",    GENLC.IDSURVEY );
     fprintf(fp, "NGENLC_TOT:      %d\n",    NGENLC_TOT     );
     fprintf(fp, "NGENLC_WRITE:    %d\n",    NGENLC_WRITE   );
     fprintf(fp, "NGENSPEC_WRITE:  %d\n",    NGENSPEC_WRITE );
@@ -12021,6 +12318,7 @@ void gen_zsmear(double zerr) {
   // Oct 18 2017:  add INPUTS.GENBIAS_REDSHIFT to zsmear
   // Jan 05 2018:  compute GENLC.VPEC_SMEAR
   // Apr 20 2018:  bail for FIXMAG model where z=zerr=0
+  // Oct 26 2020:  implement RESTORE_WRONG_VPEC logic
 
   int    i, NZRAN ;
   double zsmear, zerr_loc;
@@ -12113,8 +12411,8 @@ void gen_zsmear(double zerr) {
   bool   APPLY_VPEC_SMEAR = 
     ( USE_HOSTLIB_VPEC || INPUTS.VPEC_ERR < INPUTS.GENSIGMA_VPEC );
   double GAURAN_VPEC = GENLC.REDSHIFT_RAN[MXZRAN-1];
-  double VPEC_ERR ;
-  GENLC.VPEC_SMEAR   = 0.0; // default is no vpec correction
+  double VPEC_ERR, SGN_VPEC ;
+  GENLC.VPEC_SMEAR   = 0.0; // default is no vpec estimate
 
   if ( APPLY_VPEC_SMEAR ) {
     if ( USE_HOSTLIB_VPEC )
@@ -12122,7 +12420,12 @@ void gen_zsmear(double zerr) {
     else
       { VPEC_ERR = INPUTS.VPEC_ERR; }     // from sim-input file
 	  
-    GENLC.VPEC_SMEAR = -GENLC.VPEC + (VPEC_ERR * GAURAN_VPEC) ; 
+    if ( INPUTS.RESTORE_WRONG_VPEC ) 
+      { SGN_VPEC = -1.0; }  // Jan 2018: incorrect sign convention
+    else
+      { SGN_VPEC = +1.0; }  // Oct 2020: correct sign convention
+
+    GENLC.VPEC_SMEAR =  (SGN_VPEC*GENLC.VPEC) + (VPEC_ERR * GAURAN_VPEC) ; 
   }
 
   return ;
@@ -12183,13 +12486,8 @@ double gen_dLmag(double zCMB, double zHEL ) {
   // Note that INPUTS.H0 ~ 70 km/s/Mpc, and H0 -> ~2E-18
 
   double mu ;
-  double H0 = INPUTS.H0 / ( 1.0E6 * PC_km) ;
-  double OM = INPUTS.OMEGA_MATTER ;
-  double OL = INPUTS.OMEGA_LAMBDA ;
-  double w0 = INPUTS.W0_LAMBDA ;
-
   if ( zCMB <= 1.0E-10 ) { return 0.0 ; }  // avoid inf, May 2013
-  mu = dLmag (H0,OM,OL,w0, zCMB, zHEL);
+  mu = dLmag (zCMB, zHEL, &INPUTS.HzFUN_INFO);
 
   return(mu) ;
 
@@ -12252,7 +12550,7 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
 
   *****************/
 
-  double z, zran, z_atmax, dz, H0, OM, OL, W0, w, wgt, wran1 ;
+  double z, zran, z_atmax, dz, w, wgt, wran1 ; // xxx H0, OM, OL, W0, 
   double zrange[2] = { zmin, zmax } ;
   int iz, NZ, ISFLAT, ISPOLY, ilist, NEWZRANGE, FIRST ;
   char fnam[] = "genz_hubble" ;
@@ -12268,10 +12566,12 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
 
   if ( zmin == zmax ) { return(zmin); }
 
+  /* xxxx mark delete xxxx
   H0   = INPUTS.H0 / ( 1.0E6 * PC_km) ;
   OM   = INPUTS.OMEGA_MATTER ;
   OL   = INPUTS.OMEGA_LAMBDA ;
   W0   = INPUTS.W0_LAMBDA ;   
+  xxxxxx end mark xxxx*/
 
   ISFLAT = ( strcmp(RATEPAR->NAME,"FLAT" ) == 0 ) ;
   ISPOLY = ( strcmp(RATEPAR->NAME,"ZPOLY") == 0 ) ;
@@ -12310,7 +12610,8 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
 	  { w = polyEval(4, RATEPAR->MODEL_PARLIST[1], z); }
       }
       else {
-	w = dVdz ( H0, OM, OL, W0, z );
+	// xxx mark delete	w = dVdz ( H0, OM, OL, W0, z );
+	w = dVdz (z, &INPUTS.HzFUN_INFO);
 	w /= (1.0+z);          // Dec 2006: time dilation factor
 	w *= genz_wgt(z,RATEPAR) ;
       }
@@ -12369,7 +12670,7 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
   }
   else {
     // physical distribution
-    w    = dVdz ( H0, OM, OL, W0, zran );
+    w    = dVdz (zran, &INPUTS.HzFUN_INFO);
     w   /= (1.0+zran);  
     w   *= genz_wgt(zran,RATEPAR);
     if ( w > RATEPAR->ZGENWGT_MAX )  { RATEPAR->ZGENWGT_MAX = w ; }
@@ -12454,7 +12755,6 @@ void  init_RATEPAR ( RATEPAR_DEF *RATEPAR ) {
 
   int i;
   char fnam[] = "init_RATEPAR" ;
-
   // ------------- BEGIN -------------
 
   RATEPAR->DNDZ_ZEXP_REWGT     = 0.0 ;
@@ -12472,9 +12772,8 @@ void  init_RATEPAR ( RATEPAR_DEF *RATEPAR ) {
   // xxx mark delete when OPT_DEVEL_READ_GENPOLY=1 by default
   RATEPAR->DNDZ_ZPOLY_REWGT_LEGACY[0] = 1.0 ;
   for(i=1; i<4; i++ ) { RATEPAR->DNDZ_ZPOLY_REWGT_LEGACY[i] = 0.0 ;  }
-  // xxxx mark delete
 
-  sprintf(RATEPAR->NAME, "HUBBLE"); 
+  sprintf(RATEPAR->NAME, "NONE"); 
   RATEPAR->NMODEL_ZRANGE  = 0 ;
   RATEPAR->INDEX_MODEL    = 0 ;
 
@@ -12503,7 +12802,7 @@ double SNcount_model(double zMIN, double zMAX, RATEPAR_DEF *RATEPAR ) {
   // Sep 4 2016: add missing return(SNsum)
 
   double SNsum, dz, ztmp, vtmp, rtmp, tmp ;
-  double H0, OM, OL, W0 ;
+  // xxx mark delete  double H0, OM, OL, W0 ;
   int NBZ, iz;
   //  char fnam[] = "SNcount_model" ;
 
@@ -12511,18 +12810,13 @@ double SNcount_model(double zMIN, double zMAX, RATEPAR_DEF *RATEPAR ) {
 
   SNsum = 0.0 ;
 
-  H0   = INPUTS.H0 ; 
-  OM   = INPUTS.OMEGA_MATTER ;
-  OL   = INPUTS.OMEGA_LAMBDA ;
-  W0   = INPUTS.W0_LAMBDA ;   
-
   NBZ = (int)( (zMAX - zMIN ) * 1000. ) ;
   if ( NBZ < 10 ) { NBZ = 10; }
   dz  = ( zMAX - zMIN ) / (double)NBZ ;
 
   for ( iz=1; iz <= NBZ; iz++ ) {
     ztmp   = zMIN + dz * ((double)iz - 0.5 ) ;
-    vtmp   = dVdz ( H0, OM, OL, W0, ztmp );
+    vtmp   = dVdz (ztmp, &INPUTS.HzFUN_INFO);
     rtmp   = genz_wgt(ztmp,RATEPAR) ;   // rate * user-rewegt fudge
     tmp    = rtmp * vtmp / ( 1.0 + ztmp );
     SNsum += tmp ;
@@ -12557,7 +12851,7 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
     Dec     2016: add Strolger 2015 CC rate
   ***/
 
-  double sfr, sfrint, h, H0, OM, OL, W, z1, rate ;
+  double sfr, sfrint, h, H0, OM, OL, w0, wa, z1, rate ;
   double A, B, k, zmin, zmax, z2,z3,z4,z5, arg ;
   double MD14parList[8], R0;
   double zero=0.0 ;
@@ -12645,14 +12939,17 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
       sprintf(c2err,"A=%e  B=%e", A, B );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
-    H0=INPUTS.H0 ;
-    OM=INPUTS.OMEGA_MATTER; OL=INPUTS.OMEGA_LAMBDA ;  W=INPUTS.W0_LAMBDA;
 
-    // get star formation rate    
-    sfr    = SFRfun(H0,z);
+    /* xxxxxx  mark delete 
+    H0=INPUTS.H0 ;
+    OM=INPUTS.OMEGA_MATTER; OL=INPUTS.OMEGA_LAMBDA ;  w0=INPUTS.w0_LAMBDA;
+    xxxxxxxx */
+
+    // get star formation rate 
+    sfr    = SFRfun_BG03(INPUTS.H0,z);
 
     // determine integrated stellar mass 
-    sfrint = SFR_integral ( H0, OM, OL, W, z ) ;
+    sfrint = SFR_integral( z, &INPUTS.HzFUN_INFO);
 
     // compute rate from 2-component model
     rate = A * sfrint  +  B * sfr ;
@@ -13123,7 +13420,8 @@ void SIMLIB_prepGlobalHeader(void) {
   // whatever format.
   //
   // Mar 7 2018: replace filtindx_ with INTFILTER
-  //
+  // Dec 1 2020: abort if GENLC.IDSURVEY < 0
+
   int i, NTMP, ifilt, ifilt_obs ;
   char cfilt[4], *FILTERS, *TEL ;
   char fnam[] = "SIMLIB_prepGlobalHeader" ;
@@ -13143,7 +13441,13 @@ void SIMLIB_prepGlobalHeader(void) {
   printf("\t SIMLIB Survey    : %s \n", SURVEY );
 
   // get integer IDSURVEY from SURVEY string
-  read_SURVEYDEF();   GENLC.IDSURVEY = get_IDSURVEY(GENLC.SURVEY_NAME);
+  read_SURVEYDEF();   
+  GENLC.IDSURVEY = get_IDSURVEY(GENLC.SURVEY_NAME);
+  if ( GENLC.IDSURVEY < 0 ) {
+    sprintf(c1err,"Invalid 'SURVEY: %s' in SIMLIB header", GENLC.SURVEY_NAME);
+    sprintf(c2err,"Check valid SURVEY names in $SNDATA_ROOT/SURVEY.DEF" );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
 
   TEL = SIMLIB_GLOBAL_HEADER.TELESCOPE ;
   sprintf(GENLC.TELESCOPE[0],       "%s", TEL );
@@ -13407,11 +13711,18 @@ void SIMLIB_findStart(void) {
   // Aug 19 2018: use JOBID and NJBOTOT to compute NSKIP so that
   //    entire SIMLIB range is covered with small NGENTOT.
   //
+  // Dec 09 2020: return immediately if QUIT_REWIND option is set to
+  //     read SIMLIB once and stop. See SIMLIB_MSKOPT += 4.
+
   int IDSTART  = INPUTS.SIMLIB_IDSTART ;
   int IDLOCK   = INPUTS.SIMLIB_IDLOCK ;
   int NLIBID   = SIMLIB_GLOBAL_HEADER.NLIBID ;
   int JOBID    = INPUTS.JOBID ; // batch JOBID
   int NJOBTOT  = INPUTS.NJOBTOT ; // totoal number of batch jobs
+
+  int  MSKOPT = INPUTS.SIMLIB_MSKOPT ;
+  bool QUIT_NOREWIND = ( (MSKOPT & SIMLIB_MSKOPT_QUIT_NOREWIND)>0 );
+  if ( QUIT_NOREWIND ) { return; }
 
   int NOPT, IDSEEK, MAXRANSTART, NSKIP_LIBID=-9, NSKIP_EXTRA=0 ;
   int DOSKIP, NREAD, NREPEAT, MXREPEAT, NTMP, NLIBID_EXTRA ;
@@ -13437,7 +13748,6 @@ void SIMLIB_findStart(void) {
 
   // for batch job, autom-compute NSKIP 
   if ( NJOBTOT > 0  &&  NLIBID > 100 ) { 
-
     flatRan     = unix_random(0) ;
     XTMP        = (double)NLIBID / (double)NJOBTOT;    
     NTMP        = (int)XTMP ;
@@ -14570,6 +14880,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // Dec 16 2019: if MAG = MAG_ZEROFLUX, then skip undefined mag-check.
   // Jan 23 2020: check for FUDGE_ZPTERR
   // Feb 22 2020: fetch SCALE_SKYSIG_T for template noise scale.
+  // Dec 08 2020: increase max PSF limit fro 9.9 to 20 (for LSST)
 
   int NOBS_RAW    = SIMLIB_HEADER.NOBS ;
   int NEW_CADENCE = (REPEAT_CADENCE == 0 ) ;
@@ -14616,11 +14927,11 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
       // 2. sanity checks to catch crazy [nan] values. Second arg is NVAL=1
       checkval_D("ZPTAVG", 1, &SIMLIB_OBS_RAW.ZPTADU[ISTORE],  6.0, 50.0) ;
-      checkval_D("ZPTERR", 1, &SIMLIB_OBS_RAW.ZPTERR[ISTORE],  0.0, 5.0 ) ;
-      checkval_D("PSF1",   1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 9.9 );
-      checkval_D("PSF2",   1, &SIMLIB_OBS_RAW.PSFSIG2[ISTORE], 0.0, 9.9 );
-      checkval_D("PSFrat", 1, &SIMLIB_OBS_RAW.PSFRATIO[ISTORE],0.0, 1.0 );
-      checkval_D("SKYSIG", 1, &SIMLIB_OBS_RAW.SKYSIG[ISTORE],  0.0, 1.0E5 );
+      checkval_D("ZPTERR", 1, &SIMLIB_OBS_RAW.ZPTERR[ISTORE],  0.0,  5.0 ) ;
+      checkval_D("PSF1",   1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 30.0 ) ;
+      checkval_D("PSF2",   1, &SIMLIB_OBS_RAW.PSFSIG2[ISTORE], 0.0, 30.0 ) ;
+      checkval_D("PSFrat", 1, &SIMLIB_OBS_RAW.PSFRATIO[ISTORE],0.0,  1.0 ) ;
+      checkval_D("SKYSIG", 1, &SIMLIB_OBS_RAW.SKYSIG[ISTORE],  0.0,  1.0E5);
 
       PIXSIZE = SIMLIB_OBS_RAW.PIXSIZE[ISTORE] ; 
 
@@ -15824,12 +16135,13 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   //
   // May 29 2020: check for TAKE_SPECTRUM key(s) in header.
   // May 31 2020: parse SALT2 params only of USE_SIMLIB_SALT2 flag is set
+  // Nov 12 2020: check RDFLAG_SPECTRA before reading TAKE_SPECTRUM keys
 
   bool USE_MODEL_SIMLIB = (INDEX_GENMODEL == MODEL_SIMLIB);
   bool RDFLAG_REDSHIFT  = (INPUTS.USE_SIMLIB_REDSHIFT || USE_MODEL_SIMLIB);
   bool RDFLAG_PEAKMJD   = (INPUTS.USE_SIMLIB_PEAKMJD  || USE_MODEL_SIMLIB);
   bool RDFLAG_DISTANCE  = (INPUTS.USE_SIMLIB_DISTANCE || USE_MODEL_SIMLIB);
-  //  bool RDFLAG_SPECTRA   = (INPUTS.USE_SIMLIB_SPECTRA  || USE_MODEL_SIMLIB);
+  bool RDFLAG_SPECTRA   = (INPUTS.USE_SIMLIB_SPECTRA );
   bool RDFLAG_SALT2     = (INPUTS.USE_SIMLIB_SALT2    || USE_MODEL_SIMLIB);
   int  LTMP ;
   double TMPVAL, TMPRANGE[2], dist, MU ;
@@ -15861,11 +16173,7 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   if ( strcmp(KEY,"DISTANCE:")==0 && RDFLAG_DISTANCE ) {
     readdouble ( fp_SIMLIB, 1, &dist );  // Lumi-distance (D_L), Mpc (Jan 2018)
     MU = 5.0*log10(dist/1.0E-5);  // 10pc = 1.0E-5 Mpc
-    double H0 = INPUTS.H0 / ( 1.0E6 * PC_km) ;
-    double OM = INPUTS.OMEGA_MATTER;
-    double OL = INPUTS.OMEGA_LAMBDA;
-    double w0 = INPUTS.W0_LAMBDA ;
-    TMPVAL = zcmb_dLmag_invert(H0, OM, OL, w0, MU); // returns zCMB
+    TMPVAL = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO); // returns zCMB
     TMPRANGE[0] = TMPRANGE[1] = TMPVAL;  LTMP=1;
   }
 
@@ -15957,7 +16265,7 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
 
   // - - - - - - - - - 
   // May 29 2020 : check for TAKE_SPECTRUM keys
-  if ( strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
+  if ( RDFLAG_SPECTRA && strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
     char **NULLWORDS;
     parse_input_TAKE_SPECTRUM( NULLWORDS, KEYSOURCE_FILE, fp_SIMLIB ); 
   }
@@ -16417,16 +16725,25 @@ void ENDSIMLIB_check(void) {
   // around in an infinite loop.
   //
   // May 30 2020: abort if SIMLIB_HEADER.NFOUND_GENCUTS == 0
+  // Dec 09 2020: leave message for QUIT_REWIND
 
-  bool QUIT_NOREWIND = ((INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_QUIT_NOREWIND)>0);
+  int  MSKOPT = INPUTS.SIMLIB_MSKOPT ;
+  bool QUIT_NOREWIND = ( (MSKOPT & SIMLIB_MSKOPT_QUIT_NOREWIND)>0 );
   char fnam[] = "ENDSIMLIB_check";
 
   // ------- BEGIN ---------
 
   if ( INPUTS.SIMLIB_DUMP >= 0 ) { return ; }
 
-  // check option to quite generating after reading SIMLIB once
-  if ( QUIT_NOREWIND && SIMLIB_HEADER.NWRAP == 0 ) { GENLC.STOPGEN_FLAG = 1; }
+  // check option to quit generating after reading SIMLIB once
+  if ( QUIT_NOREWIND && SIMLIB_HEADER.NWRAP == 0 ) { 
+    GENLC.STOPGEN_FLAG = 1; 
+    printf("\n\t STOP generation after reading SIMLIB one time.\n");
+    printf("\t    (see option with SIMLIB_MSKOPT += %d) \n",
+	   SIMLIB_MSKOPT_QUIT_NOREWIND);
+    printf("\n");
+    fflush(stdout);
+  }
 
   // don't do error checking until a few wrap-arounds.
   if ( SIMLIB_HEADER.NWRAP < 5 ) { return ; }
@@ -17349,7 +17666,7 @@ void checkpar_SIMSED(void) {
     // if GRIDONLY option and flat distribution, set range to
     // min-0.5*bin to max+0.5*bin so that each bin is sample
     // with equal prob
-    ISGRIDONLY = (GENFLAG & OPTMASK_SIMSED_GRIDONLY);
+    ISGRIDONLY = (GENFLAG & OPTMASK_GEN_SIMSED_GRIDONLY);
     ISFLAT     = (SIGMA[0] > 1.0E7 );
     if ( ISGRIDONLY && ISFLAT ) {
 
@@ -17366,7 +17683,7 @@ void checkpar_SIMSED(void) {
     }
 
     // skip the tests below for baggage or GRIDONLY parameters
-    if ( GENFLAG != OPTMASK_SIMSED_PARAM    ) { continue ; }
+    if ( GENFLAG != OPTMASK_GEN_SIMSED_PARAM    ) { continue ; }
 
     // continue here only for continuous distribution
     range_user[0] = INPUTS.GENGAUSS_SIMSED[ipar_user].RANGE[0] ;
@@ -17437,7 +17754,7 @@ void checkpar_SIMSED(void) {
       if ( IPAR_MODEL_USED[ipar_model] == 0 ) {     
 
 	N = INPUTS.NPAR_SIMSED ;
-	INPUTS.GENFLAG_SIMSED[N] = OPTMASK_SIMSED_param ;
+	INPUTS.GENFLAG_SIMSED[N] = OPTMASK_GEN_SIMSED_param ;
 	sprintf(INPUTS.KEYWORD_SIMSED[N],"SIMSED_param");
 	fetch_parInfo_SEDMODEL(ipar_model, INPUTS.PARNAME_SIMSED[N],
 			  &NBPAR, range_model );
@@ -17499,7 +17816,7 @@ void checkpar_SIMSED(void) {
   // For the "SIMSED_GRIDONLY: SEQUENTIAL" option, 
   // set NGEN_LC equal to the number of SEDs so that 
   // each SED is processed once.
-  if ( INPUTS.OPTMASK_SIMSED == OPTMASK_SIMSED_GRIDONLY ) {
+  if ( INPUTS.OPTMASK_SIMSED == OPTMASK_GEN_SIMSED_GRIDONLY ) {
     N = NSED_SEDMODEL();
     INPUTS.NGEN = N ;
     INPUTS.NGENTOT_LC = N;
@@ -19851,15 +20168,6 @@ void snlc_to_SNDATA(int FLAG) {
       { SNDATA.PHOTFLAG[epoch] += PHOTFLAG_TRIGGER ; } 
 
 
-    /* xxxxxxx mark delete xxxxxxxxx
-    // check epoch rejected by PHOTPROB cut (Feb 2020)
-    if ( (MSKTMP & 128) > 0 ) {
-      GENLC.NOBS-- ;
-      GENLC.OBSFLAG_WRITE[epoch] = false ;
-    }
-    xxxxxxx */
-
-
     // Jan 17 2018: check appended observations
     int APP = SIMLIB_OBS_GEN.APPEND_PHOTFLAG[epoch] ;
     if ( APP > 0 ) 
@@ -20316,7 +20624,7 @@ void genmag_boost(void) {
 
     }
 
-      // store Kcor info to include in SNDATA files
+    // store Kcor info to include in SNDATA files
 
     sprintf(GENLC.kcornam[epoch], "K_%c%c"
 	    ,FILTERSTRING[ifilt_rest1]
@@ -20342,10 +20650,10 @@ void genmag_boost(void) {
 
     GENLC.generr_obs[epoch] = GENLC.generr_rest[epoch] ;
 
-
   } // end of epoch loop
 
- 
+  return ;
+
 }  // end of genmag_boost
 
 
@@ -20527,6 +20835,8 @@ void init_genmodel(void) {
  Jul 20 2018: for LCLIB model, set GENRANGE_PEAKMJD= start of season,
               and GENRANGE_TREST = 0 to MJDLAST
 
+ Nov 23 2020: pass SURVEY arg to init_genmag_SALT2.
+
   ************/
 
   char *GENMODEL        = INPUTS.GENMODEL;
@@ -20566,7 +20876,6 @@ void init_genmodel(void) {
     GENLC.SIMTYPE  = MODEL_FIXMAG ;
   }
   else if ( INDEX_GENMODEL == MODEL_SIMLIB ) {
-
     printf("\n Read SIM_MAGOBS from SIMLIB file. \n");
   }
   else if ( INDEX_GENMODEL == MODEL_MLCS2k2 ) {
@@ -20603,10 +20912,9 @@ void init_genmodel(void) {
     init_genSEDMODEL();
 
     // model-specific init
-    OPTMASK = 0; 
-    if ( INPUTS.LEGACY_colorXTMW_SALT2 ) { OPTMASK += 128 ; }
-    if ( INPUTS.REQUIRE_DOCANA   ) { OPTMASK += OPENMASK_REQUIRE_DOCANA;}
-    //xxx mark delete:  if ( INPUTS.DEBUG_FLAG == 64 )       { OPTMASK +=  64 ; } // ABORT on bad lamRange
+    // xxxx    OPTMASK = 0;
+    OPTMASK = INPUTS.GENMODEL_MSKOPT; 
+    if ( INPUTS.REQUIRE_DOCANA  ) { OPTMASK |= OPENMASK_REQUIRE_DOCANA; }
  
     istat = init_genmag_SALT2(GENMODEL, GENMODEL_EXTRAP, OPTMASK) ;
 
@@ -20631,7 +20939,10 @@ void init_genmodel(void) {
     // model-specific init
 
     OPTMASK = INPUTS.GENMODEL_MSKOPT ;
-    if( INPUTS.USE_BINARY_SIMSED > 0 ) { OPTMASK += 1; }
+    if( INPUTS.USE_BINARY_SIMSED > 0 ) 
+      { OPTMASK += OPTMASK_INIT_SIMSED_BINARY; }
+    if( INPUTS.JOBID             > 0 ) 
+      { OPTMASK += OPTMASK_INIT_SIMSED_BATCH; }
 
     istat = init_genmag_SIMSED (INPUTS.GENMODEL
 			       ,INPUTS.PATH_BINARY_SIMSED
@@ -20663,7 +20974,8 @@ void init_genmodel(void) {
     init_genSEDMODEL();
 
     // init_genmag_BYOSED( INPUTS.MODELPATH, OPTMASK, ARGLIST, NAMES_HOSTPAR );
-    init_genmag_PySEDMODEL(INPUTS.MODELPATH, OPTMASK, ARGLIST, NAMES_HOSTPAR);
+    init_genmag_PySEDMODEL(INPUTS.GENMODEL, INPUTS.MODELPATH, 
+			   OPTMASK, ARGLIST, NAMES_HOSTPAR);
   }
 
   else if ( INDEX_GENMODEL == MODEL_NON1ASED ) {
@@ -20733,7 +21045,7 @@ void init_genmodel(void) {
       GENLC.IFILTINVMAP_REST[ifilt_rest] = ifilt;
     }
 
-    if ( INDEX_GENMODEL == MODEL_MLCS2k2 )   init_covar_mlcs2k2(); 
+    if ( INDEX_GENMODEL == MODEL_MLCS2k2 ) { init_covar_mlcs2k2(); }
 
   }
 
@@ -20772,7 +21084,8 @@ void init_genSEDMODEL(void) {
   //
   // --------------------
   char  fnam[] = "init_genSEDMODEL" ;
-  char  filtName[40], cfilt[2]    ;
+  char   filtName[40], surveyName[80], cfilt[2]    ;
+  //  char  *survey = GENLC.SURVEY_NAME ;
 
   int 
     ifilt, ifilt_obs
@@ -20795,7 +21108,6 @@ void init_genSEDMODEL(void) {
   genSEDMODEL.primaryFlux = (double*) malloc( MEMD );
   genSEDMODEL.TransSN     = (double*) malloc( MEMD );
   genSEDMODEL.TransREF    = (double*) malloc( MEMD );
-
 
   // -----------
   sprintf(GENLC.primary,"%s", "NULL");
@@ -20868,16 +21180,18 @@ void init_genSEDMODEL(void) {
     // but these are always the same for sims.
 
     sprintf(filtName,"NULL") ;
+    sprintf(surveyName,"NULL") ;
 
     get_filttrans__(&MASKFRAME[ifilt],     // (I) obs/rest-frame mask
 		    &ifilt_obs,            // (I) absolute filter index
+		    surveyName,            // (I) name(s) of survey (11.2020)
 		    filtName,              // (O) full name of filter
 		    &magprim,              // (O) mag of primary ref 
 		    &NLAM,                 // (O) Number of lambda bins
 		    genSEDMODEL.lam,       // (O) lambda array 
 		    genSEDMODEL.TransSN,   // (O) filter trans 
 		    genSEDMODEL.TransREF,  // (O) idem
-		    LEN ); 
+		    80,40 ); 
 
     if ( NLAM > MXLAMSIM ) {
       sprintf(cfilt,  "%c", FILTERSTRING[ifilt_obs] );
@@ -20888,7 +21202,7 @@ void init_genSEDMODEL(void) {
     }
 
     lamshift = 0.0 ;
-    init_filter_SEDMODEL(ifilt_obs, filtName, magprim, NLAM, 
+    init_filter_SEDMODEL(ifilt_obs, filtName, surveyName, magprim, NLAM, 
 			 genSEDMODEL.lam, 
 			 genSEDMODEL.TransSN, 
 			 genSEDMODEL.TransREF, 
@@ -23072,7 +23386,7 @@ void genmodel(
 		  ,&GENLC.TEMPLATE_INDEX // (O) SED index
 		  ) ;
 
-    if ( INPUTS.OPTMASK_SIMSED == OPTMASK_SIMSED_GRIDONLY ) 
+    if ( INPUTS.OPTMASK_SIMSED == OPTMASK_GEN_SIMSED_GRIDONLY ) 
       { GENLC.CID = GENLC.TEMPLATE_INDEX ; }
 
   }
@@ -24347,8 +24661,10 @@ void readme_doc(int iflag_readme) {
   sprintf(cptr,"%s \n", KEYNAME_DOCANA_REQUIRED ); 
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"  BRIEF_DESCRIPTION: simulate %s SURVEY with GENMODEL = %s \n", 
-	  GENLC.SURVEY_NAME, INPUTS.MODELNAME );
+  sprintf(cptr,"  SURVEY:       %s\n",  GENLC.SURVEY_NAME);
+
+  i++; cptr = VERSION_INFO.README_DOC[i] ;
+  sprintf(cptr,"  GENMODEL:     %s \n", INPUTS.MODELNAME);
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"  HOST_MACHINE: %s \n", getenv("HOST") );
@@ -24516,15 +24832,20 @@ void readme_doc(int iflag_readme) {
   }
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  bool   USE_HOSTLIB_VPEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC );
+  bool  USE_HOSTLIB_VPEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC );
   if ( USE_HOSTLIB_VPEC  ) {
-    sprintf(cptr,"\t Peculiar Velocity HOSTLIB RMS : %.1f km/sec\n", 
+    sprintf(cptr,"\t Peculiar Velocity (VPEC) HOSTLIB RMS : %.1f km/sec\n", 
 	    HOSTLIB.VPEC_RMS );
   }
   else {
-    sprintf(cptr,"\t Peculiar Velocity Gauss sigma: %.1f km/sec\n", 
+    sprintf(cptr,"\t Peculiar Velocity (VPEC) Gauss sigma: %.1f km/sec\n", 
 	    INPUTS.GENSIGMA_VPEC );
   }
+  if ( INPUTS.RESTORE_WRONG_VPEC ) {
+    i++ ; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"\t\t (RESTORE wrong VPEC sign convention)\n") ;
+  }
+
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
   sprintf(cptr,"\t %s   ZP   offsets : ", INPUTS.GENFILTERS);
@@ -24745,8 +25066,9 @@ void readme_doc(int iflag_readme) {
   sprintf(cptr,"\t H0 = %6.2f km/s per MPc \n", INPUTS.H0 );
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\t Omega_{M,L} = %5.2f, %5.2f   w = %5.2f  \n",
-	  INPUTS.OMEGA_MATTER, INPUTS.OMEGA_LAMBDA, INPUTS.W0_LAMBDA );
+  sprintf(cptr,"\t Omega_{M,L} = %5.2f, %5.2f   w0,wa = %5.2f,%5.3f  \n",
+	  INPUTS.OMEGA_MATTER, INPUTS.OMEGA_LAMBDA, 
+	  INPUTS.w0_LAMBDA, INPUTS.wa_LAMBDA );
 
 
 
@@ -24908,20 +25230,6 @@ void readme_doc(int iflag_readme) {
 	    NGENSPEC_WRITE );
   }
 
-  /* xxxxxxx mark delete Aug 10 2020 xxxxxxxx
-  // for batch job process, leave clear keys for submit-monitor taks
-  if ( INPUTS.JOBID > 0 ) {
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr, "NGENLC_TOT:   %d\n",  NGENLC_TOT);
-
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"NGENLC_WRITE: %d\n",  NGENLC_WRITE);
-
-    i++; cptr = VERSION_INFO.README_DOC[i] ;
-    sprintf(cptr,"CPU_MINUTES:  %.2f\n", t_gen/60.0 );
-  }
-  xxxxxxxxxxxxx */
-
   // spectroscopic tags
 
   i++; cptr = VERSION_INFO.README_DOC[i] ;
@@ -25006,16 +25314,18 @@ void readme_doc(int iflag_readme) {
 
 
   // give SN-stats with cuts
-  XN   = (INPUTS.RATEPAR.SEASON_COUNT  + INPUTS.RATEPAR_PEC1A.SEASON_COUNT) ;
-  XN  *= GENLC.GENEFF ; // multiply by cut-efficiency
-  if ( NGENLC_WRITE > 0 ) 
-    { XNERR = XN/sqrt((double)NGENLC_WRITE); }
-  else
-    { XNERR = 0.0 ; }
-
-  i++; cptr = VERSION_INFO.README_DOC[i] ;
-  sprintf(cptr,"\n  Number of SNe per season AFTER CUTS : %6.0f +- %5.0f \n", 
-	  XN, XNERR );
+  if ( NLINE_RATE_INFO > 0 ) {
+    XN   = (INPUTS.RATEPAR.SEASON_COUNT  + INPUTS.RATEPAR_PEC1A.SEASON_COUNT) ;
+    XN  *= GENLC.GENEFF ; // multiply by cut-efficiency
+    if ( NGENLC_WRITE > 0 ) 
+      { XNERR = XN/sqrt((double)NGENLC_WRITE); }
+    else
+      { XNERR = 0.0 ; }
+    
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr,"\n  Number of SNe per season AFTER CUTS : "
+	    "%6.0f +- %5.0f \n", XN, XNERR );
+  }
 
 
   // NON1ASED
@@ -25795,7 +26105,7 @@ void  readme_doc_SIMSED(int *iline) {
 
   i = *iline ;
 
-  if ( INPUTS.OPTMASK_SIMSED == OPTMASK_SIMSED_GRIDONLY ) {
+  if ( INPUTS.OPTMASK_SIMSED == OPTMASK_GEN_SIMSED_GRIDONLY ) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;  
     sprintf(cptr,"\n   %s model option is GRIDONLY & SEQUENTIAL \n", 
 	    INPUTS.MODELNAME );
@@ -26325,9 +26635,10 @@ void end_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // ------------ BEGIN -------------
 
+  iter_summary_genPDF();
+
   // fill post-sim part of readme
   readme_doc(2); 
-
 
   // always dump entire readme contents to screen
   print_banner("DUMP README CONTENTS TO SCREEN\n");
@@ -26485,6 +26796,7 @@ void append_SNPHOT_TEXT(void) {
   //   + use strcat in instead of sprintf(tmpLine,"%sxx", tmpLine ...)
   //
   // Jan 23 2020: include AVwarp and Kcor for rest-frame models
+  // Nov 03 2020: increment NVAR_TEXT for WRFLAG_BLINDTEST == 0
 
   FILE *fp;
   int ISMODEL_FIXMAG    = ( INDEX_GENMODEL == MODEL_FIXMAG );
@@ -26513,6 +26825,8 @@ void append_SNPHOT_TEXT(void) {
 
   if ( WRFLAG_BLINDTEST  ) 
     { NVAR_TEXT -= 4 ; } // exclude sim info
+  else 
+    { NVAR_TEXT += 1 ; } // bug fix, Nov 3 2020
 
   if ( APPEND_MAGREST    ) 
     { NVAR_TEXT += 4 ; } // rest-filter, rest-mag, AVwarp, kcor
@@ -27076,7 +27390,7 @@ void SIMLIB_DUMP_DRIVER(void) {
 
     NVAR = 10 + 4*GENLC.NFILTDEF_OBS ; 
 
-    fprintf(fpdmp0,"NVAR: %d \n", NVAR );
+    // xxxx    fprintf(fpdmp0,"NVAR: %d \n", NVAR );
     fprintf(fpdmp0,"VARNAMES: ROW LIBID RA DEC FIELD MWEBV GAPMAX GAPAVG "
 	    "NOBS MJDMIN MJDMAX ");
 
@@ -27105,7 +27419,7 @@ void SIMLIB_DUMP_DRIVER(void) {
     fpdmp1 = fopen(SIMLIB_DUMPFILE_OBS, "wt") ; 
 
     NVAR = 11 ;
-    fprintf(fpdmp1,"NVAR: %d \n", NVAR );
+    // xxxx mark    fprintf(fpdmp1,"NVAR: %d \n", NVAR );
     fprintf(fpdmp1,"VARNAMES: ROW "
 	    "LIBID RA DEC MJD BAND ZP_pe SKYMAG PSF M5SIG MJD_DIF\n");
     fprintf(fpdmp1,"\n");
@@ -28228,15 +28542,18 @@ void test_fortran(void) {
 // ******************************
 void test_zcmb_dLmag_invert(void) {
 
+  /* xxxx mark delete 
   double H0 = INPUTS.H0 / ( 1.0E6 * PC_km) ;
   double OM = INPUTS.OMEGA_MATTER;
   double OL = INPUTS.OMEGA_LAMBDA;
   double w0 = INPUTS.W0_LAMBDA ;
+  xxxxxx end mark xxxx*/
+
   char fnam[] = "test_zcmb_dLmag_invert" ;
   double MU, zCMB;
   // ----------- RETURN ------------
   for(MU=32.0; MU < 49.0; MU+=1.0 ) {
-    zCMB = zcmb_dLmag_invert(H0, OM, OL, w0, MU); 
+    zCMB = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO);
   }
   debugexit(fnam);
   return ;

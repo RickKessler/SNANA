@@ -19008,11 +19008,25 @@
         
 
 # ======================================================================= 
-         v10_78e (  ) 
+         v10_78e (Oct 16 2020) 
 
          ***** IMPORTANT(v10_78e) ***** 
 
+   Fix bug in placement of init_RANSYSTPAR; now it is before init_RateModel
+   instead of after. Previously, random cosmology variations were used to
+   generate SN mags, but NOT used in rate models.
+
+   sim cosmology functions moved to sntools_cosmology.c[h] and refactored
+   to prepare struct HzFUN_INFO. Next SNANA version will use this typedef
+   in all cosmology function so that it can use either wCDM model (default), 
+   or use arbitrary model read from 2-column text file. 
+
          ***** USEFUL(v10_78e) ***** 
+
+  SALT2mu allows comma-sep list for cid_reject_file and cid_select_file
+
+  Several space-separated polynominal inputs can now be input as either
+  space-sep or comma-sep; latter allows arbitrary poly-order.
 
          ***** MISCELLANEOUS(v10_78e) ***** 
 
@@ -19020,6 +19034,8 @@
      + In parse_input_HOSTLIB, replace a few sscanf with
         nread = sscanf and abort if nread != 1. Apply to keys
         with mutliple arguments in case user makes mistake.
+     + write SURVEY and IDSURVEY to YAML file.
+     + new input MUSHIFT (distance offset)
      + use new read_genpoly() util to refactor reading polynomial 
        coefficients as either comma-sep (new default) or
        space-sep (legacy). The following sim-inputs are now 
@@ -19037,5 +19053,315 @@
    sntools.c
      + new utility read_genpoly(...) to read comma-sep poly with arbitrary
        order, or to read legacy space-sep poly coeffs with fixed order. 
+
+   sntools_output.c
+     + restore ABORT option in optMask.
+
+   ../util:  rm backup_INTERNAL.pl backup_SNDATA_ROOT.pl
+
+   snana.car
+     + fix bug implementing SNCID_IGNORE_FILE (see function LCIDSELECT)
+     + for HEADER_OVERRIDE_FILE, abort if NFILE > MXFILE_ABORT
+       Also, pass abort flag to AUTOSTORE_INIT so that it aborts if
+       no variables are matched.
+     + new &SNLCINP input OPT_YAML to force output YAML file when
+        it's not a batch job
+
+   submit_batch:
+     + write SURVEY and IDSURVEY to MERGE.LOG for sim, and to
+       YAML file for snana.exe.
+
+   SALT2mu.c:
+     + allow comma-sep list for cid_reject_file and cid_select_file
+     + start using parse_commaSepList utility
+
+   sntools_trigger.c :
+     + fix error message when interpolation fails for zHOST map
+
+   sntools.c[h]:
+      move cosmology functions to sntools_cosmology.c[h]
+
+
+# ======================================================================= 
+         v10_79 (Oct 23 2020) 
+
+         ***** IMPORTANT(v10_79) ***** 
+
+         ***** USEFUL(v10_79) ***** 
+
+   + sim-input cosmology allows wa_LAMBDA, or map file with H(z).
+   + analysis command-line args: max string length -> 600 (was 200)
+      (e.g., useful for comma-sep list of HEADER_OVERRIDE_FILES)
+   + sync SALT3 error treatment with new training code
+
+
+         ***** MISCELLANEOUS(v10_79) ***** 
+
+   sntools_cosmology.c[h]: 
+     + refactor to use HzINFO_INFO typedef.
+
+   sntools.c
+     + skip/ignore DOCUMENTATION keys in rd2column(...)
+
+   sntools_output.c
+     + EXEC_AUTOSTORE_READ no longer aborts on missing var;
+        instead it returns *ISTAT = -2
+
+   genmag_SALT2.c
+     + refactor SALT2magerr to treat SALT3 vartot as flux,
+       but SALT2 vartot as relative flux. 
+
+   snlc_sim.c
+     + check NONE argument for HOSTLIB_FILE 
+     + fix confusing error message for multiple DNDZ args
+     + refactor to pass HzINFO to cosmology functions.
+     + new arg wa_LAMBDA (see manual)
+
+   snana.car, submit_prog_fit.py:
+     + allow user mistake setting PRIVATE_DATA_PATH = '$SNDATA_ROOT/lcmerge'
+       (but still aborts if PRIVATE_DATA_PATH='$SNDATA_ROOT/SIM')
+     + bug fix in TABLE_STRING_TERMINATION
+     + DLMAG8_REF uses dlmag_fortC  in sntools_cosmology.c
+         (fortran DLZ8 function now obsolete)
+
+   SALT2mu.c:
+     + clarify error message for undefined pIa (store_input_varnames)
+
+   snlc_fit.car, snana.car, psnid.car, kcordump.cra
+     + refactor reading command-line overrides with MATCH_NMLKEY.
+     + define MXCHAR_ARG=600 as max string length for any one
+       command line arg (previous string-length limit was 200)
+     + remove global array LINE_ARGS(100)*200
+
+  psnid*
+    + refactor to use new cosmology functions
+
+  NOTE: SNANA_codetest results in 10 very small differences 
+         because the old DLMAG function had c=3E5, while the
+         new function has exact value. This slightly affects
+         initial fit-par estaimates, particularly for photo-z fits.
+
+
+# ======================================================================= 
+         v11_01 (Oct 26 2020) 
+
+         ***** IMPORTANT(v11_01) ***** 
+
+   DISABLED perl batch scripts :
+       sim_SNmix.pl / split_and_fit.pl / SALT2mu_fit.pl
+
+   SALT2mu automatically aborts on vpec sign error.
+     (preparing to fix vpec sign convention)
+
+         ***** USEFUL(v11_01) ***** 
+
+   For SIMSED model with XYZ_INDEX column, can select subset of indices.
+
+         ***** MISCELLANEOUS(v11_01) ***** 
+
+   sntools_fitsio.c[h]:
+     + read back SNANA_VERSION in fits header, and convert to float.
+     
+   snana.car:
+      + read SNANA_VERSION_FLOAT 
+          (might need later to switch VPEC sign convention)
+      + MXFILE_LIST -> 10 (was 4) for number of HEADER_OVERRIDE files.
+
+   sntools_genPDF.c[h]:
+     + improve random selection efficiency by ignoring ranges
+       where PROB=0. End of sim job writes N_ITER[MEAN,MAX] summary.
+
+   snlc_sim.c[h]
+    + new SIMSED_GRIDONLY option to select list of indices; See manual.
+
+   SALT2mu: new inputs zmax_vpec_check=xxx to check vpec sign.
+ 
+   sim_SNmix.pl, split_and_fit.pl, SALT2mu_fit.pl
+     + write message to use submit_batch_jobs.sh, then abort.
+     - When these obsolete batch-scripts are removed, should also remove
+         - wait_for_files.pl
+         - NEARNBR_pipeline.pl
+         - split_version.pl
+
+   Removed the following obsolete scripts:
+      - get_fitresValue.pl ; use newer get_fitres_values.py
+      - convertsnana2salt2.pl (convert SNANA format to snpca format)
+      - convertcsv2snana.pl  ; use new convertcsv2snana.py
+      - sednon1a_prep.pl
+      - HOSTLIB_randomizer.pl 
+      
+   Scripts that should be re-written in python (future SNANA versions):
+     - convertcsv2snana.pl   -> convert_text_format.py (csv <-> SNANA)
+     - ypatchy.pl            -> ypatchy.py
+     - startSNANAversion.pl  -> startSNANAversion.py
+
+
+# ======================================================================= 
+         v11_01b (Nov 2 2020) 
+
+         ***** IMPORTANT(v11_01b) ***** 
+
+         ***** USEFUL(v11_01b) ***** 
+
+         ***** MISCELLANEOUS(v11_01b) ***** 
+
+   SALT2mu.c
+     + "CUTWIN varname_pIa xx yy" will substitute with arg of varname_pIa.
+       Enables easy command-line override of which varname_pIa to use.
+
+   submit_train_SALT2.py:  new method for submit_batch.
+   
+
+# ======================================================================= 
+         v11_02 (Nov 3 2020) 
+
+         ***** IMPORTANT(v11_02) ***** 
+
+   + change VPEC sign convention codes, and in public data versions.
+
+         ***** USEFUL(v11_02) ***** 
+
+         ***** MISCELLANEOUS(v11_02) ***** 
+
+    + snana.car:   RESTORE_WRONG_VPEC = .FALSE.
+    + snlc_sim.c:  INPUTS.RESTORE_WRONG_VPEC = false ;
+    + get_vpec.py: change sign of returned vpec 
+
+
+# ======================================================================= 
+         v11_02b (Nov 22 2020) 
+
+         ***** IMPORTANT(v11_02b) ***** 
+
+   SALT2mu.c: new vpec-flip test to catch vpec sign error
+
+         ***** USEFUL(v11_02b) ***** 
+
+   SALT2mu.c: new input datafile_override for vpec,vpecerr,logmass,...
+   snlc_sim.c: add a few more RANSYSTPAR_XXX keys
+   submit_batch : works with snpca training and TRAINOPT for calib shifts.
+
+         ***** MISCELLANEOUS(v11_02b) ***** 
+
+  backup_SNDATA_ROOT.py
+    + add SURVEY.DEF to subdir list for tar file.
+      Previous SNDATA_ROOT backups on Zenodo won't work without SURVEY.DEF
+
+  sntools_genSmear.c:
+    + fix to work with salt2 or salt3 files.
+
+  sntools_host.c
+     + in GEN_SNHOST_DDLR(), protect numerical round-off causing
+       cosTH = 1 + tiny, resulting in abort.
+ 
+  snlc_sim.c
+    + refactor RANSYSTPAR_SIGSHIFT_[ZP,LAMFILT] to allow groups of bands.
+    + new RANSYSTPAR_SIGSHIFT_REDSHIFT
+    + new RANSYSTPAR_GENMODEL_WILDCARD
+    + fix bug to NOT read TAKE_SPECTRUM keys from simlib if 
+       USE_SIMLIB_SPECTRA=0
+
+  genmag_SALT2.c
+    + read optional MAGSHIFT & WAVESHIFT keys from SALT2.INFO file and
+      implement calibration shifts from training.
+
+  sntools.c[h]
+    + new utility glob_file_list to return list of files from wildcard.
+
+  doc/snana_manual.tex[pdf]
+    + add section about submit_batch_jobs.sh, and remove obsolete
+      sections for sim_SNmix and split_and_fit.
+
+  SALT2mu.c
+    + new input ndump_nobiascor
+    + add MUERR_VPEC to output ; MUERR contributioN from VPEC_ERR
+    + for vpec-flip test, require at least 70 events (was 10)
+    + new input datafile_override
+    + few fixes to avoid 'cat_only' conflicts
+
+  kcor.c[h]: 
+    + read optional SURVEY(s) from kcor-input and include SURVEY=%s
+      in each filter comment in kcor header.
+
+  combine_fitres.c
+    + allow comma-sep or space sep list of fitres files.
+
+  snana.car
+    + fix bug parsing comma-sep list of CIDs; needed for plot_snana.
+
+
+# ======================================================================= 
+         v11_02c (Dec 10 2020) 
+
+         ***** IMPORTANT(v11_02c) ***** 
+
+    kcor-input files require SURVEY keys for each MAGSYSTEM
+       (needed only for calib shifts passed from SALT2 training)
+
+    snana, snlc_fit:
+      Fixed bug trapping invalid command-line args. Last few months were
+      vulnerable to invalid args that were ignored instead of causing abort.
+
+    snlc_sim: 
+      + fix nasty bug overriding HOSTLIB_MSKOPT on command line;
+        it was appending MSKOPT bits instead of overriding MSKOPT.
+      + Fix BYOSED bugs related to smear models G10 and C11
+      + extend PSF abort value from 9.9 to 20.
+      + for QUIT_NOREWIND, always start at beginning of SIMLIB
+
+    SALT2mu.c: write Nz x Nz cov_stat matrix to [prefix].cov.
+               Same format used by CosmoMC to read cov_syst.
+
+    combine_dataVersions.py :
+      + avoids duplicate filters if multiple surveys use same FILTPATH
+
+         ***** USEFUL(v11_02c) ***** 
+
+         ***** MISCELLANEOUS(v11_02c) ***** 
+
+   kcor.c
+     + require SURVEY keys for each MAGSYSTEM.
+     + if MAGSHIFT or WAVESHIFT keys are in SALT2.INFO, abort
+       if no SURVEY name for filters.
+
+   submit_train_SALT2.py
+     + skip comments lines starting with #, @, !, %.
+       Some snpca transmission files have @ symbols.
+
+   snana.car
+     + read & store SURVEY from kcor-fits files
+     + sync SNANA+EPOCHS table names to match those in FITRES table.
+
+   snlc_fit.car, snlc_sim.c:
+     + pass band-dependent survey to init_filter_SEDMODEL
+
+   combine_dataVersions.py:
+     + revived for pythin 3 and other misc updates.
+
+   merge_root.c:
+     + MXFILE_MERGE -> 200 (was 130)
+
+   sntable_dump.c
+     + fix to work with SNANA table.
+
+   SALT2mu.c:
+     + add IZBIN to output FITRES file.
+     + write [prefix].cov (Nz x Nz bins)
+     + enable recylce of output fitres to input fitres
+     + new write_csv=1 option to write M0DIF for CosmoMC
+     + write MUERR_RENORM to output fitres file.
+     + enable survey-dependent chi2max; see details at top of code.
+
+   submit_prog_sim.py:
+     + protect against ngentot_lc=0 and do_cidran
+
+   snana.car
+     + MXCHAR_ARG -> 800 (was 600)
+     + abort if any command line ARG exceeds MXCHAR_ARG
+
+   combine_fitres.c: new -varnames 'varlist' argument.
+
+   remove obsolete util/createCov.py
+   add refactored  util/create_covariance.py (from Sam/pippin)
 
 END: 

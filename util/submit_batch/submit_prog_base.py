@@ -36,7 +36,17 @@ class Program:
         if config_yaml['args'].merge_flag :  # bail for merge process
             return
 
-        logging.info(f" Program name: {config_prep['program']}")
+        # - - - - -
+        program = config_prep['program']
+        logging.info(f" Program name: {program}")
+
+        if program == PROGRAM_NAME_UNKNOWN :
+            input_file  = self.config_yaml['args'].input_file 
+            msgerr      = []
+            msgerr.append(f"Unknown program name.")
+            msgerr.append(f"Must define program with JOBNAME key")
+            msgerr.append(f"in {input_file}")
+            util.log_assert(False,msgerr)
 
         # unpack BATCH_INFO or NODELIST keys; update config_prep
         self.parse_batch_info(config_yaml,config_prep)
@@ -72,6 +82,10 @@ class Program:
         raise NotImplementedError()
 
     @abstractmethod       
+    def merge_config_prep(self,output_dir):
+        raise NotImplementedError()
+
+    @abstractmethod       
     def merge_cleanup_final(self):
         raise NotImplementedError()
 
@@ -83,6 +97,10 @@ class Program:
     def get_merge_COLNUM_CPU(self):
         raise NotImplementedError()
 
+    @abstractmethod
+    def get_misc_merge_info(self):
+        raise NotImplementedError()
+
     def parse_batch_info(self,config_yaml,config_prep):
     
         # check of SSH or BATCH, and parse relevant strings
@@ -91,9 +109,10 @@ class Program:
         n_core        = 0
         submit_mode   = "NULL"
         node_list     = []
-        memory        = MEMORY_DEFAULT
+        memory        = BATCH_MEM_DEFAULT
         kill_flag     = config_yaml['args'].kill
-
+        n_core_arg    = config_yaml['args'].ncore
+        msgerr        = []
         config_prep['nodelist']       = ''
         config_prep['batch_command']  = ''
 
@@ -115,7 +134,12 @@ class Program:
             BATCH_INFO  = CONFIG['BATCH_INFO'].split()
             command     = BATCH_INFO[0]
             template    = os.path.expandvars(BATCH_INFO[1])
-            n_core      = int(BATCH_INFO[2])
+
+            if n_core_arg is None :
+                n_core = int(BATCH_INFO[2]) # from CONFIG input
+            else:
+                n_core = n_core_arg[0]  # command-line override
+
             node_list   = [HOSTNAME] * n_core  # used for script file name
             submit_mode = SUBMIT_MODE_BATCH
             config_prep['batch_command']  = command
@@ -124,12 +148,19 @@ class Program:
             logging.info(f"\t Batch template: {template}" )
             logging.info(f"\t Batch n_core:   {n_core}" )
         else :
-            log_assert(False, f"Could not find BATCH_INFO or NODELIST")
+            msgerr.append(f"Could not find BATCH_INFO or NODELIST.")
+            msgerr.append(f"Check CONFIG block in the input file.")
+            util.log_assert(False, msgerr)
 
         # check optional memory spec
         if 'BATCH_MEM' in CONFIG :
-            memory = CONFIG['BATCH_MEM']
-        
+            memory = str(CONFIG['BATCH_MEM'])
+
+            #if isinstance(memory,int) :
+            #    msgerr.append(f"Missing memory units")
+            #    msgerr.append(f"Try  BATCH_MEM: {memory}Mb")
+            #    self.log_assert(False, msgerr)
+
         sys.stdout.flush()
 
         config_prep['n_core']      = n_core 
@@ -179,7 +210,7 @@ class Program:
     def kill_ssh_jobs(self):
         node_list   = self.config_prep['node_list']
         for node in node_list :
-            print(f" Kill jobs on {node}")
+            logging.info(f" Kill jobs on {node}")
             cmd_kill  = "kill -KILL -1"                
             ret       = subprocess.call(["ssh", node, cmd_kill] )
 
@@ -259,6 +290,9 @@ class Program:
         # loop over each core and create CPU[nnn]_JOBS.CMD that
         # are used for either batch or ssh. For batch, also 
         # create batch_file using BATCH_TEMPLATE
+        
+        logging.info(f"  Create command files:")
+
         for icpu in range(0,n_core) :
             node          = node_list[icpu]
             cpu_name      = (f"CPU{icpu:04d}")
@@ -267,7 +301,7 @@ class Program:
             command_file  = (f"{prefix}.CMD")
             log_file      = (f"{prefix}.LOG")
             COMMAND_FILE  = (f"{script_dir}/{command_file}")
-            print(f"\t Create {command_file}")
+            logging.info(f"\t Create {command_file}")
 
             command_file_list.append(command_file)
             cmdlog_file_list.append(log_file)
@@ -310,16 +344,16 @@ class Program:
         self.config_prep['batch_file_list']   = batch_file_list
         self.config_prep['BATCH_FILE_LIST']   = BATCH_FILE_LIST
 
-        # make all CMD files group-executable with g+x.
+        # make all CMD files group-executable with +x.
         # Python os.chmod is tricky because it may only apply 
         # permission to user, or wipe out group privs. 
         # To make things easier here, we just use os.system().
-        cmd_chmod = (f"chmod g+x {script_dir}/CPU*.CMD")
+        cmd_chmod = (f"chmod +x {script_dir}/CPU*.CMD")
         os.system(cmd_chmod);
 
         n_job_tot   = self.config_prep['n_job_tot']
-        print(f" BATCH DRIVER JOB COUNT SUMMARY:",
-              f"{n_job_tot} {program} jobs on {n_core} cores")
+        logging.info(f" BATCH DRIVER JOB COUNT SUMMARY: " \
+                     f"{n_job_tot} jobs on {n_core} cores")
 
         
         # check option to force crash (to test higher level pipelines)
@@ -440,7 +474,11 @@ class Program:
         #
         # This function creates file and writes required info.
         # Then it calls append_info_file() to get program-specific info.
+        #
+        # Write FAST if set.
 
+        args            = self.config_yaml['args']
+        fast            = self.config_yaml['args'].fast
         CONFIG          = self.config_yaml['CONFIG']
         n_job_tot       = self.config_prep['n_job_tot']
         n_done_tot      = self.config_prep['n_done_tot']
@@ -457,12 +495,17 @@ class Program:
         if 'CLEANUP_FLAG' in CONFIG :
             cleanup_flag = CONFIG['CLEANUP_FLAG']  # override deault
 
-        print(f"  Create {SUBMIT_INFO_FILE}")
+        logging.info(f"  Create {SUBMIT_INFO_FILE}")
         INFO_PATHFILE  = (f"{output_dir}/{SUBMIT_INFO_FILE}")
         f = open(INFO_PATHFILE, 'w') 
 
         # required info for all tasks
         f.write("\n# Required info \n")
+
+        f.write(f"CWD:         {CWD}\n")
+
+        arg_string = " ".join(sys.argv[1:])
+        f.write(f"ARG_LIST:    {arg_string}\n")
 
         comment = "submit time; Nsec since midnight"
         f.write(f"TIME_STAMP_NSEC:   {Nsec}    # {comment}\n")
@@ -483,6 +526,10 @@ class Program:
 
         comment = "number of cores"
         f.write(f"N_CORE:           {n_core}     # {comment} \n")
+
+        if fast :
+            f.write(f"FAST:             {FASTFAC}    " \
+                    f"# process 1/{FASTFAC} of request\n")
 
         force_crash_prep  = self.config_yaml['args'].force_crash_prep
         force_crash_merge = self.config_yaml['args'].force_crash_merge
@@ -576,13 +623,13 @@ class Program:
                 ret = subprocess.run( [ batch_command, batch_file], 
                                       cwd=script_dir,
                                       capture_output=True, text=True )
-                #print(f" xxx launch {batch_file} -> '{ret.stdout}' ")
 
             self.fetch_slurm_pid_list()
 
         else:
-            n_core         = self.config_prep['n_core']
-            node_list      = self.config_prep['node_list']
+            # SSH
+            n_core            = self.config_prep['n_core']
+            node_list         = self.config_prep['node_list']
             command_file_list = self.config_prep['command_file_list']
             cmdlog_file_list  = self.config_prep['cmdlog_file_list'] 
             CONFIG            = self.config_yaml['CONFIG']
@@ -614,7 +661,8 @@ class Program:
     def fetch_slurm_pid_list(self):
 
         # for sbatch, fetch process id for each CPU; otherwise do nothing.
-        # 
+        # Nov 25 2020: list all pid failures before aborting.
+
         batch_command    = self.config_prep['batch_command']
         output_dir       = self.config_prep['output_dir']
         script_dir       = self.config_prep['script_dir']
@@ -632,19 +680,26 @@ class Program:
         f = open(INFO_PATHFILE, 'a') 
         f.write(f"\nSBATCH_LIST:  # [CPU,PID,JOB_NAME] \n")
 
+        npid_fail = 0 ; njob_tot = len(job_name_list)
         for job_name in job_name_list :
-            j_job    = pid_all.index(job_name)
-            if j_job <= 0 :
-                msgerr.append(f"Could not find pid for job = {job_name}")
-                msgerr.append(f"Check for sbatch problem")
-                self.log_assert(False, msgerr)
+            if job_name in pid_all:
+                j_job    = pid_all.index(job_name)
+                pid      = pid_all[j_job-1]
+                cpunum   = int(job_name[-4:])
+                logging.info(f"\t pid = {pid} for {job_name}")
+                f.write(f"  - [ {cpunum:3d}, {pid}, {job_name} ] \n")
+            else:
+                npid_fail += 1
+                logging.info(f" ERROR: cannot find pid for job = {job_name}")
+                continue
 
-            pid      = pid_all[j_job-1]
-            cpunum   = int(job_name[-4:])
-            print(f"\t pid = {pid} for {job_name}")
-            f.write(f"  - [ {cpunum:3d}, {pid}, {job_name} ] \n")
         f.close()
         
+        if npid_fail > 0 :
+            msgerr.append(f"{npid_fail} of {njob_tot} jobs NOT in queue.")
+            msgerr.append(f"Check for sbatch problem; e.g., njob limit.")
+            self.log_assert(False, msgerr)
+
         # end fetch_slurm_pid_list
 
     def merge_driver(self):
@@ -674,7 +729,7 @@ class Program:
         Nsec     = seconds_since_midnight  # current Nsec, not from submit info
         time_now = datetime.datetime.now()
         tstr     = time_now.strftime("%Y-%m-%d %H:%M:%S") 
-        fnam = "merge_driver"
+        fnam     = "merge_driver"
         MERGE_LAST  = self.config_yaml['args'].MERGE_LAST
         cpunum      = self.config_yaml['args'].cpunum[0]
 
@@ -807,7 +862,10 @@ class Program:
         if MERGE_LAST and n_done == n_job_merge :
             nfail_tot = self.failure_summary()
 
-            self.write_proctime_info() # write proc time info to MERGE.LOG
+            #self.merge_write_misc_info()     # write task-specific info
+            misc_info     = self.get_misc_merge_info()
+            proctime_info = self.get_proctime_info() 
+            self.append_merge_file(misc_info+proctime_info)
 
             if nfail_tot == 0 :
                 logging.info(f"\n# {fnam}: ALL JOBS DONE -> " \
@@ -900,11 +958,12 @@ class Program:
             # check for other busy files to avoid conflict
             n_busy,busy_list = self.get_busy_list()
             if n_busy > 0 :
-                msg = (f"\n Found existing {busy_list[0]} --> "\
-                       f"exit merge process.")
+                msg = (f"\n# merge_driver: Found existing " \
+                       f"{busy_list[0]} --> exit merge process.")
                 sys.exit(msg)  
             else: 
-                logging.info(f"\t Create {busy_file} for {t_msg}")
+                msg = (f"# merge_driver: \t Create {busy_file} for {t_msg}")
+                logging.info(msg)
                 with open(BUSY_FILE,"w") as f:
                     f.write(f"{Nsec}\n")  # maybe useful for debug situation
 
@@ -915,12 +974,12 @@ class Program:
                 if n_busy > 1 and busy_file != busy_list[0] :
                     cmd_rm = (f"rm {BUSY_FILE}")
                     os.system(cmd_rm)
-                    msg = (f"\n Found simultaneous {busy_list[0]} --> "\
-                           f" exit merge process.")
+                    msg = (f"\n# merge_driver: Found simultaneous " \
+                           f"{busy_list[0]} --> exit merge process.")
                     sys.exit(msg)  
 
         elif len(BUSY_FILE) > 10 :  # avoid disaster with rm
-            logging.info(f"\t Remove {busy_file} for {t_msg}")
+            logging.info(f"# merge_driver: \t Remove {busy_file} for {t_msg}")
             cmd_rm = (f"rm {BUSY_FILE}")
             os.system(cmd_rm)
 
@@ -1024,21 +1083,38 @@ class Program:
             
         # end merge_check_time_stamp    
     
-    def write_proctime_info(self):
-        # write proc time info to MERGE.LOG file including
+    def append_merge_file(self,info_list):
+        # append extra keys to merge log file
+        # Each info line is of the form
+        #   "KEY: VALUE"
+
+        output_dir          = self.config_prep['output_dir']
+        MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")   
+        
+        #print(f" xxx MERGE_LOG_PATHFILE = {MERGE_LOG_PATHFILE} ")
+
+        #  append to bottom of MERGE.LOG
+        with open(MERGE_LOG_PATHFILE,"a") as f:
+            for line in info_list:  f.write(f"{line} \n")
+
+        # end append_merge_file
+
+    def get_proctime_info(self):
+        # return proc time info for MERGE.LOG file including
         #  + wall time
         #  + EFF(CPU) = average CPU/core divided by wall-time 
         #
         # Note that time_xxx are datetime objects;
         # t_xxx is a computed time (float)
 
-        output_dir        = self.config_prep['output_dir']
         submit_info_yaml  = self.config_prep['submit_info_yaml']
         script_dir        = submit_info_yaml['SCRIPT_DIR'] 
         n_core            = submit_info_yaml['N_CORE']
         time_submit       = submit_info_yaml['TIME_STAMP_SUBMIT']
         time_now          = datetime.datetime.now()
         time_dif          = time_now - time_submit
+
+        output_dir          = self.config_prep['output_dir']
         MERGE_LOG_PATHFILE  = (f"{output_dir}/{MERGE_LOG_FILE}")   
         
         t_seconds = time_dif.total_seconds()
@@ -1048,7 +1124,7 @@ class Program:
             t_unit = 3600.0 ;    unit = "hours"
 
         t_wall   = t_seconds/t_unit
-        msg_time = [ ' ' ]
+        msg_time = [ ]
         msg_time.append(f"UNIT_TIME:      {unit} ")
         msg_time.append(f"WALL_TIME:      {t_wall:.2f}  ")
 
@@ -1109,13 +1185,10 @@ class Program:
             msg_time.append(f"CPU_SUM:        {cpu_sum:.3f} ")
             msg_time.append(f"EFFIC_CPU:      {eff_cpu:.3f}   # CPU/core/T_wall")
 
-        # - - - -
-        # write everything at bottom of MERGE.LOG
-        with open(MERGE_LOG_PATHFILE,"a") as f:
-            for msg in msg_time :
-                f.write(f"{msg} \n")
 
-        # end write_proctime_info
+        return msg_time
+
+        # end get_proctime_info
 
     def check_file_exists(self,file_name,msg_user):
         # abort if file does not exist and use self.log_assert
@@ -1138,7 +1211,7 @@ class Program:
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         cleanup_flag     = submit_info_yaml['CLEANUP_FLAG']
-        MXSPLIT_FAIL_REPEAT = 2       # max isplit to make FAIL_REPEAT script
+        MXSPLIT_FAIL_REPEAT = 4       # max isplit to make FAIL_REPEAT script
         
         fail_no_output   = (nevt <  0)  # no output
         fail_zero_evt    = (nevt == 0)  # zero events 
@@ -1353,8 +1426,10 @@ class Program:
             CMD_FILE = (f"{script_dir}/{cmd_file}")
             with open(CMD_FILE,"r") as f_cmd :
                 for line in f_cmd :
-                    if len(line) > 0 and line[0] != '#' :
-                        command_lines.append(line.rstrip("\n"))
+                    if util.is_comment_line(line) : continue
+                    if len(line) == 0 : continue
+                    #if len(line) > 0 and line[0] != '#' :
+                    command_lines.append(line.rstrip("\n"))
 
         nlines = len(command_lines)
         msg = (f"  Stored {nlines} command lines from " \

@@ -53,12 +53,6 @@
 
 ********************************************/
 
-/*
-#include <stdio.h> 
-#include <math.h>     // log10, pow, ceil, floor
-#include <stdlib.h>   // includes exit(),atof()
-*/
-
 #include "sntools.h"           // community tools
 #include "sntools_spectrograph.h"
 #include "genmag_SEDtools.h"   // SED tools
@@ -68,6 +62,7 @@
 int reset_SEDMODEL(void) {
 
   // Nov 10, 2010: do one-time inits
+  int ifilt;
 
   SEDMODEL.NSURFACE        =  0 ;
   SEDMODEL.FLUXSCALE       = -9.0 ; // require user to set this later
@@ -78,6 +73,15 @@ int reset_SEDMODEL(void) {
 
   SEDMODEL.DAYMIN_ALL = +9999999.0 ;
   SEDMODEL.DAYMAX_ALL = -9999999.0 ;
+
+  for(ifilt=0; ifilt < MXFILT_SEDMODEL; ifilt++ ) {
+    FILTER_SEDMODEL[ifilt].name[0]    = 0;  // Nov 2020
+    FILTER_SEDMODEL[ifilt].survey[0]  = 0;  // Nov 2020
+    IFILTMAP_SEDMODEL[ifilt]          = -9 ;
+    FILTER_SEDMODEL[ifilt].ifilt_obs  = -9 ;
+    FILTER_SEDMODEL[ifilt].magprimary = 0.0 ;
+    FILTER_SEDMODEL[ifilt].lamshift   = 0.0 ;
+  }
 
   // set default redshift range and NZBIN
   init_redshift_SEDMODEL(NZBIN_SEDMODEL_DEFAULT, 
@@ -212,14 +216,15 @@ double interp_primaryMag_SEDMODEL(double lam) {
 
 // ***********************************************
 int init_filter_SEDMODEL(
-			 int ifilt_obs    // (I) obs filter index
-			 ,char *filtname  // (I) filter name
+			 int ifilt_obs        // (I) obs filter index
+			 ,char   *filter_name // (I) filter name
+			 ,char   *survey_name // (I) name of survey
 			 ,double  magprimary  // (I) primary mag
 			 ,int     NLAM        // (I) Number of lambda bins
 			 ,double *LAMLIST     // (I) array of lambda
 			 ,double *TRANSSNLIST // (I) array of SN filt-trans
 			 ,double *TRANSREFLIST // (I) idem for ref
-			 ,double  LAMSHIFT    // (I) global shift filter curve
+			 ,double  LAMSHIFT     // (I) shift filter curve
 			 )  {
 
   // Utility to pass filter-response information to SEDMODEL.
@@ -227,6 +232,8 @@ int init_filter_SEDMODEL(
   // for each filter before calling init_genmag_SEDMODEL
   // Don't print anything here since the filter-summary
   // is printed from init_genmag_SEDMODEL().
+  //
+  // Nov 10 2020: allow modifying already existing filter.
 
   int ilam, ifilt ;
   char fnam[] = "init_filter_SEDMODEL" ;
@@ -247,11 +254,17 @@ int init_filter_SEDMODEL(
 
   /*  
   printf(" init_filter_SEDMODEL: ifilt_obs=%d  filtname = %s  NLAM=%d \n", 
-	 ifilt_obs, filtname, NLAM );  
+	 ifilt_obs, filter_name, NLAM );  
   */
 
-  NFILT_SEDMODEL++ ;
-  ifilt = NFILT_SEDMODEL; // sparse filter index
+  if ( IFILTMAP_SEDMODEL[ifilt_obs] < 0 ) {
+    NFILT_SEDMODEL++ ;
+    ifilt = NFILT_SEDMODEL; // sparse filter index
+  }
+  else {
+    // Nov 10 2020: update already defined filter
+    ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ;
+  }
 
   if ( ifilt >= MXFILT_SEDMODEL ) {
     filtdump_SEDMODEL();
@@ -262,7 +275,7 @@ int init_filter_SEDMODEL(
 
   if ( NLAM >= MXBIN_LAMFILT_SEDMODEL ) {    
     sprintf(c1err,"NLAM(%s) = %d  exceeds array bound of %d", 
-	    filtname, NLAM, MXBIN_LAMFILT_SEDMODEL );
+	    filter_name, NLAM, MXBIN_LAMFILT_SEDMODEL );
     errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
   }
 
@@ -295,7 +308,7 @@ int init_filter_SEDMODEL(
 
   if ( transSN_sum < 0.  ) {
     sprintf(c1err,"transSN_sum = %f for ifilt_obs=%d (%s) \n",
-	    transSN_sum, ifilt_obs, filtname );
+	    transSN_sum, ifilt_obs, filter_name );
     errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
   }
 
@@ -316,13 +329,15 @@ int init_filter_SEDMODEL(
   FILTER_SEDMODEL[ifilt].NLAM      =   NLAM ;
   FILTER_SEDMODEL[ifilt].lammin    =   FILTER_SEDMODEL[ifilt].lam[0];
   FILTER_SEDMODEL[ifilt].lammax    =   FILTER_SEDMODEL[ifilt].lam[NLAM-1];
-  sprintf(FILTER_SEDMODEL[ifilt].name, "%s", filtname);
+  sprintf(FILTER_SEDMODEL[ifilt].name,   "%s", filter_name);
+  sprintf(FILTER_SEDMODEL[ifilt].survey, "%s", survey_name);
 
   FILTER_SEDMODEL[ifilt].transSN_MAX   = transSN_MAX ;
   FILTER_SEDMODEL[ifilt].transREF_MAX  = transREF_MAX ;
 
   // strip off last char of filtername to make filter-string list
-  sprintf(cfilt1, "%c", filtname[strlen(filtname)-1] ) ;
+  int len = strlen(filter_name);
+  sprintf(cfilt1, "%c", filter_name[len-1] ) ;
 
   strcat(FILTLIST_SEDMODEL,cfilt1);
 
@@ -757,6 +772,7 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
   // Mar 22 2017: F->0 if any part of filter trans is not contained by model.
   //
   // Apr 30 2018: store MINDAY_ALL and MAXDAY_ALL
+  // Nov 15 2020: protect ifilt for ifilt_obs==0
 
   int  ilampow, iep, ifilt, ilamfilt, iz ;
   int  NLAMFILT, NLAMSED, EPMIN, EPMAX, N, NZBIN, index ;
@@ -797,7 +813,12 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
     return ;
   }
 
-  ifilt     = IFILTMAP_SEDMODEL[ifilt_obs] ;
+
+  if ( ifilt_obs > 0 )
+    { ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ; }
+  else
+    { ifilt = 0; }
+
   cfilt     = FILTER_SEDMODEL[ifilt].name ;
   
   if ( SEDMODEL.NSURFACE <= 2 ) {
@@ -1853,14 +1874,15 @@ int init_primary_sedmodel__(char *refname, int *NLAM,
 
 
 // =======================================================
-int init_filter_sedmodel__(int *ifilt_obs, char *filtname, 
-			   double *magprimary,
+int init_filter_sedmodel__(int *ifilt_obs, char *filter_name, 
+			   char *survey_name, double *magprimary,
 			   int *NLAM,  double *LAMLIST, 
 			   double *TRANSSNLIST, 
 			   double *TRANSREFLIST, 
 			   double *LAMSHIFT) {
   int istat;
-  istat = init_filter_SEDMODEL(*ifilt_obs, filtname, *magprimary, *NLAM, 
+  istat = init_filter_SEDMODEL(*ifilt_obs, filter_name, survey_name,
+			       *magprimary, *NLAM, 
 			       LAMLIST, TRANSSNLIST,TRANSREFLIST, *LAMSHIFT );
   return istat;
 }
@@ -2007,8 +2029,6 @@ int get_SEDMODEL_INDICES( int IPAR, double LUMIPAR,
   // return SED indices (I0SED and I1SED) that 
   // bracket this LUMIPAR value.
   //
-  // Apr 2011: fix dumb bug: ILOSED and IHISED were switched !!!
-  //
 
   int ised;
   double     parval ,dif1, mindif1, dif0, mindif0  ;
@@ -2026,13 +2046,11 @@ int get_SEDMODEL_INDICES( int IPAR, double LUMIPAR,
     if ( dif1 >= 0.0  &&  dif1 < mindif1 ) {
       mindif1 = dif1 ;
       *IHISED = ised ;
-      //      *ILOSED = ised ;
     }
     dif0 = LUMIPAR - parval ;
     if ( dif0 >= 0.0  &&  dif0 < mindif0 ) {
       mindif0 = dif0 ;
       *ILOSED = ised ;
-      //      *IHISED = ised ;
     }
   }
 
@@ -2050,7 +2068,7 @@ int get_SEDMODEL_INDICES( int IPAR, double LUMIPAR,
 double gridval_SIMSED(int ipar, int ibin) {
   
   // Return PARVAL for ipar and bin 'ibin'.
-  // ibin = 1, 2 ...
+  // ibin = 0, 1, 2 ...
   // If ibin exceeds NBIN for this ipar, then take fmod
   // so that the parameter bin wraps around.
 
@@ -2064,7 +2082,8 @@ double gridval_SIMSED(int ipar, int ibin) {
   BIN    = SEDMODEL.PARVAL_BIN[ipar] ; 
   XN     = (double)SEDMODEL.NBIN_PARVAL[ipar]  ;
 
-  xbin   = (double)(ibin-1) ; 
+  // xxx mark delete   xbin   = (double)(ibin-1) ; 
+  xbin   = (double)ibin ; 
   x      = fmod(xbin,XN) ;
   PARVAL = PMIN + x*BIN;
 
@@ -2093,7 +2112,6 @@ double nearest_gridval_SIMSED (int ipar, double lumipar ) {
   double  parval0, parval1, frac, lumigrid ;
 
   // -------------- BEGIN --------------
-
 
   // get SED indices that bound the input lumipar
   istat = get_SEDMODEL_INDICES( ipar, lumipar, &I0SED, &I1SED ); 
@@ -2227,6 +2245,38 @@ void check_sedflux_bins(int ised        // (I) sed index
 
 } // end of check_sedflux_bins
 
+
+void check_surveyDefined_SEDMODEL(void) {
+
+  // Nov 24 2020
+  // Abort if survey is not defined for any filter.
+
+  int ifilt, NERR=0;
+  char *survey, *name ;
+  char fnam[] = "check_surveyDefined_SEDMODEL";
+
+  // ---------- BEGIN ---------
+
+  for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++) {
+    name   = FILTER_SEDMODEL[ifilt].name  ;
+    survey = FILTER_SEDMODEL[ifilt].survey ;
+    if (  IGNOREFILE(survey) ) { 
+      printf(" ERROR: missing SURVEY name for filter = %s\n", name);
+      fflush(stdout);
+      NERR++; 
+    }
+  }
+
+  if ( NERR > 0 ) {
+    sprintf(c1err,"Missing survey name for %d of %d filters (see above).",
+	    NERR, NFILT_SEDMODEL);
+    sprintf(c2err,"Add SURVEY key(s) to kcor/calib input file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  return;
+
+} // end check_surveyDefined_SEDMODEL
 
 
 

@@ -76,8 +76,8 @@ void load_PySEDMODEL_CHOICE_LIST(void) {
 
 
 // =========================================================
-void init_genmag_PySEDMODEL(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
-			    char *NAMES_HOSTPAR  ) {
+void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
+			    char *ARGLIST, char *NAMES_HOSTPAR  ) {
 
   // Read input directory file(s) for parameters characterizing 
   // how to build your SED.
@@ -102,8 +102,9 @@ void init_genmag_PySEDMODEL(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   PyObject *genmod, *genclass, *pargs;
 #endif
 
-  char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
-  char *PyFUN_NAME = INPUTS_PySEDMODEL.PyFUN_NAME ;
+  //xxx mark delete  char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
+  char *PyMODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
+  char *PyFUN_NAME   = INPUTS_PySEDMODEL.PyFUN_NAME ;
   int  L, ipar, NPAR ;
   int  MEMD   = sizeof(double);
   int  MEMC   = sizeof(char);
@@ -115,14 +116,18 @@ void init_genmag_PySEDMODEL(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   sprintf(BANNER, "%s", fnam);
   print_banner(BANNER);
 
+  /* xxxxxx mark delete Nov 5 2020 xxxxxxxxxxxx
   // check which model from PATH_VERSION
   get_MODEL_NAME_PySEDMODEL(PATH_VERSION, MODEL_NAME);
-  sprintf(PyFUN_NAME, "gensed_%s", MODEL_NAME) ;
+  xxxxx */
 
-  printf("   %s PATH    = '%s' \n",  MODEL_NAME, PATH_VERSION); 
-  printf("   %s OPTMASK = %d \n",    MODEL_NAME, OPTMASK );	
-  printf("   %s ARGLIST = '%s' \n",  MODEL_NAME, ARGLIST );	
-  printf("   %s HOSTPAR = '%s' \n",  MODEL_NAME, NAMES_HOSTPAR );
+  sprintf(PyMODEL_NAME, "%s",      MODEL_NAME);
+  sprintf(PyFUN_NAME, "gensed_%s", PyMODEL_NAME) ;
+
+  printf("   %s PATH    = '%s' \n",  PyMODEL_NAME, PATH_VERSION); 
+  printf("   %s OPTMASK = %d \n",    PyMODEL_NAME, OPTMASK );	
+  printf("   %s ARGLIST = '%s' \n",  PyMODEL_NAME, ARGLIST );	
+  printf("   %s HOSTPAR = '%s' \n",  PyMODEL_NAME, NAMES_HOSTPAR );
   fflush(stdout);
 
   // - - - - - - - - - - -
@@ -173,7 +178,7 @@ void init_genmag_PySEDMODEL(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
 
   
 #ifdef USE_PYTHON
-  printf("\t Begin %s python-init from C code ... \n", MODEL_NAME );
+  printf("\t Begin %s python-init from C code ... \n", PyMODEL_NAME );
   Py_Initialize();
   int nResult1 = PyRun_SimpleStringFlags("import numpy", NULL);
   int nResult2 = PyRun_SimpleStringFlags("import os", NULL);
@@ -209,7 +214,7 @@ void init_genmag_PySEDMODEL(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
   Py_DECREF(genclass);
   Py_DECREF(pargs);
 
-  printf("\t Finished %s python-init from C code \n", MODEL_NAME );
+  printf("\t Finished %s python-init from C code \n", PyMODEL_NAME );
 #endif  
 
   // -----------------------------------------------------
@@ -229,7 +234,7 @@ void init_genmag_PySEDMODEL(char *PATH_VERSION, int OPTMASK, char *ARGLIST,
 #endif
 
   Event_PySEDMODEL.NPAR = NPAR;
-  printf("\t %s parameters to store in data files:\n", MODEL_NAME); 
+  printf("\t %s parameters to store in data files:\n", PyMODEL_NAME); 
   for(ipar=0; ipar < NPAR; ipar++ ) 
     { printf("\t\t %s \n", Event_PySEDMODEL.PARNAME[ipar] ); }
 
@@ -259,7 +264,11 @@ void get_MODEL_NAME_PySEDMODEL(char *PATH,char *MODEL_NAME) {
     if ( strstr(PATH,ptrModel) ) { sprintf(MODEL_NAME, "%s", ptrModel); }
   }
 
-  if ( strlen(MODEL_NAME) == 0 ) {   }
+  if ( strlen(MODEL_NAME) == 0 ) {  
+    sprintf(c1err,"Could not determine MODEL_NAME from") ;
+    sprintf(c2err,"PATH='%s' ", PATH );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
 
   return;
 } // end get_MODEL_NAME
@@ -684,6 +693,9 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
   //
   // Jul 12 2019 RK - few fixes to work with spectrograph.
   //
+  // Dec 8 2020: replace local magSmear[] with global GENSMEAR.MAGSMEAR_LIST
+  //               (to work properly with G10 and C11 models)
+  //
 
   int    ifilt          = IFILTMAP_SEDMODEL[ifilt_obs] ;
   int    NLAMFILT       = FILTER_SEDMODEL[ifilt].NLAM ;
@@ -737,14 +749,13 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
       LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
       LAMSED       = LAMOBS/z1;   // rest-frame wavelength 
       lam[ilamobs] = LAMSED ;
-      //  xxxx removed Oct 31 2019 by RK magSmear[ilamobs] = 0.0 ;
     }
 
     /*
     printf(" xxx %s:  Trest=%.3f  ifilt_obs=%d \n", 
 	   fnam,  Trest, ifilt_obs); fflush(stdout);
     */
-    get_genSmear( Trest, cdum, x1dum, NLAMFILT, lam, magSmear) ;
+    get_genSmear( Trest, cdum, x1dum, NLAMFILT, lam, GENSMEAR.MAGSMEAR_LIST);
   }
 
   // - - - - - -

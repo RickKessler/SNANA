@@ -19,6 +19,15 @@
 # MAYBE, TO-DO ...
 #    - if SIMLOGS exists with no done file, give warning 
 #
+# ////////////////////////
+#
+#      HISTORY
+#  ~~~~~~~~~~~~~~~
+# Nov 16 2020: protect GENOPT args with () -> \(\)
+# Dec 03 2020: replace legacy n_file_max=6 with global MAX_SIMGEN_INFILE=12
+# Dec 09 2020: if NGENTOT_LC is in GENOPT, remove it after parsing it.
+# Dec 10 2020: extract NGENTOT_LC frmo GENOPT_GLOBAL
+#
 # ==========================================
 
 import os,sys,glob,yaml,shutil
@@ -46,11 +55,12 @@ SIMGEN_MASTERFILE_KEYLIST_NONIa = [
 
 SIMGEN_INPUT_LISTFILE = "INPUT_FILE.LIST" # contains list of input files
 
+MAX_SIMGEN_INFILE = 12
 
 RANSEED_KEYLIST = [ 'RANSEED_REPEAT', 'RANSEED_CHANGE' ]
 
 # Define keys to read from each underlying sim-input file
-SIMGEN_INFILE_KEYCHECK = { # Narg  Required     Verify
+SIMGEN_INFILE_KEYCHECK = { # Narg  Required     sync-Verify
     "GENMODEL"          :     [ 1,    True,      False   ],
     "NGENTOT_LC"        :     [ 1,    False,     False   ],
     "TAKE_SPECTRUM"     :     [ 1,    False,     False   ],
@@ -78,6 +88,8 @@ FORMAT_FITS = "FITS"
 # define max ranseed to avoid exceeding 4-byte limit of snlc_sim storage
 RANSEED_MAX = 1000000000   # 1 billion
 
+KEY_NGENTOT    = "NGENTOT_LC"
+    
 # - - - - - - - - - - - - - - - - - - -     -
 class Simulation(Program):
     def __init__(self, config_yaml) :
@@ -211,8 +223,19 @@ class Simulation(Program):
                 if not SKIP_SIMnorm :
                     GENOPT_GLOBAL_SIMnorm += (f"{key} {value}  ")
 
+        # check for ngentot_lc in GENOPT_GLOBAL (Dec 2020)
+        genopt_replace, strval = \
+                self.extract_value_from_genopt(GENOPT_GLOBAL_STRING,KEY_NGENTOT)
+        if strval is not None : 
+            ngentot_global       = int(strval)
+            GENOPT_GLOBAL_STRING = genopt_replace
+        else:
+            ngentot_global = -9
+
+        # load config_prep
         self.config_prep['genopt_global']          = GENOPT_GLOBAL_STRING
         self.config_prep['genopt_global_SIMnorm']  = GENOPT_GLOBAL_SIMnorm
+        self.config_prep['ngentot_global']         = ngentot_global
 
         # end sim_prep_genopt_global
 
@@ -243,7 +266,6 @@ class Simulation(Program):
                 print(f" sim_prep_GENOPT({GENVERSION}) ")
 
             # catenate the GENOPTs into one long GENOPT_FINAL string
-            GENOPT_FINAL = ""
             genopt_list = []  # list for this GENVERSION
             genarg_list = []
             genopt_list2d.append([''] * n_file)     # init ifile index
@@ -253,13 +275,16 @@ class Simulation(Program):
                     genarg = util.extract_arg(key) # optional arg from ()
                     #print(f"\t xxx {key} -> arg = {genarg}")
                     for key2,value2 in value.items():
-                        genopt = (f"{key2} {value2}     ")
+                        # if key includes (), replace with \( \)
+                        key2_protect = util.protect_parentheses(key2)
+                        genopt = (f"{key2_protect} {value2}     ")
+                        #print(f" xxx genopt = {genopt}")
                         genopt_list.append(genopt)
                         genarg_list.append(genarg)
-                        GENOPT_FINAL += genopt    # obsolsete
 
             # set file-specific GENOPT 
             n_arg = len(genopt_list)
+
             for ifile in range(0,n_file):
                 infile = infile_list2d[iver][ifile]
                 model  = model_list2d[iver][ifile]
@@ -284,15 +309,14 @@ class Simulation(Program):
 
     def genopt_arg_match(self, infile, model, genarg):
         # Returns True if GENOPT is applied to param inputs :
-        #  infile    = name of sim-input file
+        #  infile   = name of sim-input file
         #  model    = SNIa or NONIa
-        #  genarg    = argument in GENOPT(genarg)
+        #  genarg   = argument in GENOPT(genarg)
         #
 
-        
-        match_SNIa      = False
-        match_NONIa      = False
-        match_genarg  = False
+        match_SNIa        = False
+        match_NONIa       = False
+        match_infile      = False
         genarg_SNIa_list  = [ 'Ia', '1a', 'SNIa', 'SN1a' ] 
         genarg_NONIa_list = [ 'NONIa', 'NON1a' ]
 
@@ -314,13 +338,33 @@ class Simulation(Program):
 
         # check for substring of input file name
         if genarg in infile :
-            match_genarg = True
+            match_infile = True
 
         # - - - - - - - - -
-        if match_SNIa or match_NONIa or match_genarg :
+        found_match = (match_SNIa or match_NONIa or match_infile)
+
+        dump_flag = False
+        if dump_flag :
+            print(f" xxx -------------------------------------- ")
+            print(f" xxx infile = {infile} ")
+            print(f" xxx genarg = {genarg} ")
+            print(f" xxx model  = {model}  ")
+            print(f" xxx match[SNIa,NON1a,infile] = " \
+                  f"{match_SNIa},{match_NONIa},{match_infile}")
+            print(f" xxx found_match = {found_match}")
+
+        # - - - - -
+        if found_match :
             return True
         else:
             return False
+            #msgerr = [] 
+            #msgerr.append(f"Invalid GENOPT({genarg}):")
+            #msgerr.append(f"Valid GENOPT args in () are:")
+            #msgerr.append(f"   Any element of {genarg_SNIa_list}")
+            #msgerr.append(f"   Any element of {genarg_NONIa_list}")
+            #msgerr.append(f"   substring of '{infile}'")
+            #self.log_assert(False,msgerr)            
 
         # end genopt_arg_match
 
@@ -468,20 +512,49 @@ class Simulation(Program):
     def get_ngentot_from_input(self,iver,ifile):
 
         INFILE_KEYS      = self.config_prep['INFILE_KEYS']
+        ngentot_global   = self.config_prep['ngentot_global']
         genopt_list2d    = self.config_prep['genopt_list2d']
         genopt           = genopt_list2d[iver][ifile]
-        key_ngentot      = "NGENTOT_LC"
 
-        # default NGENTOT_LC is from the sim-input file
-        ngentot       = INFILE_KEYS[iver][ifile][key_ngentot]
+        # Start with default NGENTOT_LC is from the sim-input file
+        ngentot  = INFILE_KEYS[iver][ifile][KEY_NGENTOT]
 
-        # check for GENOPT override                                             
-        genopt_words = genopt.split()
-        if key_ngentot in genopt_words :
-            jindx       = genopt_words.index(key_ngentot)
-            ngentot     = int(genopt_words[jindx+1])
+        # check for GENOPT override
+        genopt_replace, strval = \
+                self.extract_value_from_genopt(genopt,KEY_NGENTOT)
+        if strval is not None : 
+            ngentot = int(strval)
+            genopt_list2d[iver][ifile]        = genopt_replace
+            self.config_prep['genopt_list2d'] = genopt_list2d
+
+        # check for GENOPT_GLOBAL override (Dec 10 2020)
+        if ngentot_global > 0 :
+            ngentot = ngentot_global
 
         return ngentot
+
+    def extract_value_from_genopt(self,genopt,key):
+        # Created Dec 10 2020
+        # Extract value after key from genopt;
+        # return genopt with "key value=" removed, and return value.
+        # Example:
+        #   input genopt = "KEY1 46  KEY2 33  KEY3 1.66" and key= KEY2
+        #   Function returns
+        #     genopt_replace = "KEY1 46  KEY3 1.66
+        #     value          = 33
+        # If key not in genopt, return genopt_replace=genopt and value=None
+
+        genopt_replace = genopt  # default return value
+        value          = None    # default return value
+        genopt_words   = genopt.split()
+        if key in genopt_words :
+            jindx       = genopt_words.index(key)
+            value       = genopt_words[jindx+1]
+            tmp = genopt_words[:jindx] + genopt_words[jindx+2:]
+            genopt_replace = "  ".join(tmp)
+
+        return genopt_replace, value
+        # end extract_value_from_genopt
 
     def get_ngentot_from_rate(self,iver,ifile):
 
@@ -586,9 +659,11 @@ class Simulation(Program):
 
         CONFIG          = self.config_yaml['CONFIG']
         input_file      = self.config_yaml['args'].input_file     # for msgerr
-        genopt_global = self.config_prep['genopt_global'].split()
-        key              = 'FORMAT_MASK'
-        format_mask      = -1 # init value
+        genopt_global   = self.config_prep['genopt_global'].split()
+        ngentot_sum     = self.config_prep['ngentot_sum'] 
+        key             = 'FORMAT_MASK'
+        format_mask     = -1 # init value
+        msgerr = []
 
         nkey = 0  
         if key in CONFIG :
@@ -599,8 +674,6 @@ class Simulation(Program):
             jindx       = genopt_global.index(key)
             format_mask = int(genopt_global[jindx+1])
             nkey += 1
-
-        msgerr = []
 
         if nkey != 1 :
             msgerr.append(f"Found {nkey} {key} keys;")
@@ -625,8 +698,20 @@ class Simulation(Program):
 
         print(f"  FORMAT_MASK = {format_mask} ({format}) ")
 
+        # check option for random CIDs
+        do_cidran  = (format_mask & FORMAT_MASK_CIDRAN) > 0
+        if do_cidran and ngentot_sum == 0 :
+            msgerr.append(f"Invalid NGENTOT_LC=0  with CIDRAN option " \
+                          f" (FORMAT_MASK += {FORMAT_MASK_CIDRAN}) ")
+            msgerr.append(f"Try one of the following:")
+            msgerr.append(f"  - FORMAT_MASK -= {FORMAT_MASK_CIDRAN}:")
+            msgerr.append(f"  - specify NGENTOT_LC")
+            msgerr.append(f"  - specify NGEN_UNIT")
+            self.log_assert(False,msgerr)
+
         self.config_prep['format_mask'] = format_mask
         self.config_prep['format']      = format_type        # TEXT or FITS
+        self.config_prep['do_cidran']   = do_cidran
 
         # end sim_prep_FORMAT_MASK
 
@@ -648,7 +733,7 @@ class Simulation(Program):
         #         Ensures unique CID among all models and GENVERSIONs
         #
         # Note that (FORMAT_MASK & 16)>0 (random CIDs) will automatically
-        # set RESET_CIDOFF=1 of not set by user.
+        # set RESET_CIDOFF=1 if not set by user.
         #
         # ------------
 
@@ -656,7 +741,7 @@ class Simulation(Program):
         INFILE_KEYS    = self.config_prep['INFILE_KEYS']
         genopt_global  = self.config_prep['genopt_global'].split()
         format_mask    = self.config_prep['format_mask']
-        do_cidran      = (format_mask & FORMAT_MASK_CIDRAN) > 0
+        do_cidran      = self.config_prep['do_cidran']
         ngentot_list2d = self.config_prep['ngentot_list2d'] # per split job
         infile_list2d  = self.config_prep['infile_list2d']
 
@@ -667,7 +752,7 @@ class Simulation(Program):
         n_genversion   = self.config_prep['n_genversion']
         n_job_tot      = self.config_prep['n_job_tot']
         n_job_split    = self.config_prep['n_job_split']
-        n_file_max     =  6 # ??? need to evaluate
+        n_file_max     = MAX_SIMGEN_INFILE
         cidoff_list3d  = [[[0 for k in range(0,n_job_split)] for j in range(0,n_file_max)] for i in range(0,n_genversion)]
         cidran_max_list = [0] * n_genversion
         cidran_min      =    0
@@ -788,6 +873,8 @@ class Simulation(Program):
         cidran_max_list   = self.config_prep['cidran_max_list']
         n_job_tot         = self.config_prep['n_job_tot']
         ngentot_sum       = self.config_prep['ngentot_sum']
+        
+        msgerr = []
 
         print(f"")
         #print(f" DUMP CIDOFF vs. GENVERSION and MODEL/INFILE")
@@ -797,10 +884,16 @@ class Simulation(Program):
         for iver in range(0,n_genversion) :
             genv = genversion_list[iver]
             n_file = len(infile_list2d[iver])
+            if n_file > MAX_SIMGEN_INFILE :
+                msgerr.append(f"n_file[iver={iver}] = {n_file}")
+                msgerr.append(f"exceeds bound of MAX_SIMGEN_INFILE " \
+                              f"= {MAX_SIMGEN_INFILE}")
+                self.log_assert(False,msgerr)
+
             for ifile in range(0,n_file):
-                str_genv    = (f"{genv:20.20}")
-                str_model    = str(model_list2d[iver][ifile]) + '-' + str(ifile)
-                str_model    = (f"{str_model:8.8}")
+                str_genv   = (f"{genv:20.20}")
+                str_model  = str(model_list2d[iver][ifile]) + '-' + str(ifile)
+                str_model  = (f"{str_model:8.8}")
                 cidoff_list = cidoff_list3d[iver][ifile]
                 len_list    = len(cidoff_list)
                 if len_list < 6 :
@@ -1198,6 +1291,11 @@ class Simulation(Program):
         key       = 'PATH_SNDATA_SIM'
         if key in CONFIG:
             path_sndata_sim = os.path.expandvars(CONFIG[key])
+            if os.path.exists(path_sndata_sim) == False :
+                msgerr = []
+                msgerr.append(f"PATH_SNDATA_SIM does not exist:")
+                msgerr.append(f"  {path_sndata_sim} ")
+                self.log_assert(False,msgerr)
             flag = True
         else:
             path_sndata_sim = (f"{SNDATA_ROOT}/SIM")
@@ -1584,8 +1682,8 @@ class Simulation(Program):
         #    MERGE_INFO_CONTENTS : contents of MERGE log file
         #
 
-        row_list_split     = MERGE_INFO_CONTENTS[TABLE_SPLIT]
-        row_list_merge     = MERGE_INFO_CONTENTS[TABLE_MERGE]
+        row_list_split   = MERGE_INFO_CONTENTS[TABLE_SPLIT]
+        row_list_merge   = MERGE_INFO_CONTENTS[TABLE_MERGE]
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         simlog_dir       = submit_info_yaml['SIMLOG_DIR']
@@ -1610,9 +1708,10 @@ class Simulation(Program):
         key_cpu, key_cpu_sum, key_cpu_list = \
                     self.keynames_for_job_stats('CPU_MINUTES')
         KEY_YAML_LIST   = [ key_ngen, key_nwrite, key_cpu ]
+        # xxxx 'SURVEY', 'IDSURVEY' ]
 
         # init outputs of function
-        n_state_change     = 0
+        n_state_change    = 0
         row_split_new     = []
         row_merge_new     = []
 
@@ -1655,7 +1754,6 @@ class Simulation(Program):
                     job_stats = self.get_job_stats(simlog_dir, 
                                                    TMP_LOG_LIST, TMP_YAML_LIST,
                                                    KEY_YAML_LIST)
-
                     # check for failures
                     nfail = job_stats['nfail']
                     if nfail > 0 : NEW_STATE = SUBMIT_STATE_FAIL
@@ -1816,7 +1914,7 @@ class Simulation(Program):
         tmp_FITS  = (f"*{MODEL_NONIa}MODEL*HEAD.FITS*")
         ls_NONIa  = (f"ls {tmp_FITS} >> {list_file} 2>/dev/null")
 
-        ls_LIST      = (f"{ls_SNIa} {ls_NONIa}")
+        ls_LIST      = (f"{ls_SNIa};  {ls_NONIa}")
 
         # gzip FITS files, and remove .gz extensions in LIST file
         gzip_FITS = (f"gzip *.FITS")
@@ -2058,8 +2156,8 @@ class Simulation(Program):
         # Everything that gets tarred is also removed; therefore
         # specify each item in tar_list and be careful wild cards.
 
-        submit_info_yaml = self.config_prep['submit_info_yaml']
-        ngen_unit         = submit_info_yaml['NGEN_UNIT']
+        submit_info_yaml   = self.config_prep['submit_info_yaml']
+        ngen_unit          = submit_info_yaml['NGEN_UNIT']
         simlog_dir         = submit_info_yaml['SIMLOG_DIR']
         
         msg = "\n SIM Clean up SIMLOGS (tar+gzip)"
@@ -2067,9 +2165,9 @@ class Simulation(Program):
 
         tar_list  = ""
         tar_list += "TMP_* "
-        tar_list += "SIMnorm* "
         tar_list += "CPU* "
-        #tar_list += (f"{SUBDIR_SCRIPTS_SIM} ")
+        if ngen_unit > 0 : tar_list += "SIMnorm* "
+
         tar_list += (f"{SIMGEN_INPUT_LISTFILE} ")
         tar_list += (f"{SUBMIT_INFO_FILE} ")
 
@@ -2083,16 +2181,31 @@ class Simulation(Program):
                 infile.strip("\n")
                 tar_list += (f"{infile} ")
                                 
-        tar_file  = "SIMLOGS.tar"
-        cd_log      = (f"cd {simlog_dir}")
-        cmd_tar   = (f"tar -cf {tar_file} {tar_list}")
-        cmd_gzip  = (f"gzip {tar_file}")
-        cmd_rm      = (f"rm -rf {tar_list} {tar_file}")
-        CMD      = (f"{cd_log}; {cmd_tar}; {cmd_gzip}; {cmd_rm} ")
+        tar_file   = "SIMLOGS.tar"
+        cd_log     = (f"cd {simlog_dir}")
+        cmd_tar    = (f"tar -cf {tar_file} {tar_list}")
+        cmd_gzip   = (f"gzip {tar_file}")
+        cmd_rm     = (f"rm -rf {tar_list} {tar_file}")
+        CMD        = (f"{cd_log}; {cmd_tar}; {cmd_gzip}; {cmd_rm} ")
         os.system(CMD)
 
 
     # end merge_cleanup_final
+
+    def get_misc_merge_info(self):
+        # return misc info lines to write into MERGE.LOG file.
+        # Each info line must be of the form
+        #  KEYNAME:  VALUE
+
+        output_dir      = self.config_prep['output_dir']
+        survey,idsurvey = util.get_survey_info(output_dir)
+
+        info_lines   = []
+        info_lines.append(f"SURVEY:         {survey}")
+        info_lines.append(f"IDSURVEY:       {idsurvey}")
+
+        return info_lines
+        # end get_misc_merge_info
 
     def get_merge_COLNUM_CPU(self):
         return COLNUM_SIM_MERGE_CPU

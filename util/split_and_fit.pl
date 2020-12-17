@@ -604,6 +604,8 @@ my $MLFLAG_APPLY = 2 ;
 
 # ================= BEGIN MAIN ===============
 
+sntools::request_submit_batch_jobs($0,"2020-10-26");
+
 $TIME_START = time ;  # in seconds
 
 my ($iver, $ifitopt, $ifitopt_start, $isplit ) ;

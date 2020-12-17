@@ -46,6 +46,9 @@
 
   >  combine_fitres.exe <fitres1>  -mxrow 50000
 
+  >  combine_fitres.exe <fitres1>  -varnames zHD,c,x1,SIM_DLMAG
+          [select only these varnames (along with CID)]
+
   >  combine_fitres.exe  <fitres1> -zcut <zmin> <zmax>
          [cut on zHD]
 
@@ -117,6 +120,13 @@
      no value.
    + allow 1 or 2 dashes in front of input args to allow pythonic structure.
 
+ Oct 27 2020: fix a few warnings from -Wall flag 
+
+ Nov 18 2020: allow comma-sep list of space-sep list of fitres files.
+              See new function parse_FFILE(arg).
+
+ Dec 09 2020: new -varnames arg to select subset of variables to write out.
+
 ******************************/
 
 #include <stdio.h>
@@ -139,6 +149,8 @@
 
 
 void  PARSE_ARGV(int argc, char **argv);
+void  parse_FFILE(char *arg);
+
 void  INIT_TABLEVAR(void);
 void  ADD_FITRES(int ifile);
 int   match_CID_orig(int ifile, int isn2);
@@ -167,11 +179,6 @@ void  freeVar_TMP(int ifile, int NVARTOT, int NVARSTR, int MAXLEN);
 #define MXSN     5000000   // max SN to read per fitres file
 #define MXVAR_PERFILE  50  // max number of NTUP variables per file
 #define MXVAR_TOT  MXVAR_TABLE     // max number of combined NTUP variables
-
-/* xxx mark delete Sep 2020 
-#define INIVAL_COMBINE_FLT  -888.0 // default float value
-#define INIVAL_COMBINE_STR  "NULL" // default string value
-xxxxxxx  end mark xxxx */
 
 #define DEFAULT_NULLVAL_FLOAT  -888.0 // default float value
 #define DEFAULT_NULLVAL_STRING  "NULL" // default string value
@@ -214,6 +221,10 @@ struct INPUTS {
   double CUTWIN_zHD[2];
   int    DOzCUT;
   float  NULLVAL_FLOAT ; // Sep 2020
+
+  int  NVARNAMES_KEEP ;
+  char **VARNAMES_KEEP; // select and save only these varnames
+  char VARLIST_KEEP[MXPATHLEN];
 } INPUTS ;
 
 
@@ -350,7 +361,9 @@ void  PARSE_ARGV(int argc, char **argv) {
   INPUTS.CUTWIN_zHD[1] = +9.0 ; 
   INPUTS.DOzCUT = 0 ;
   sprintf(INPUTS.OUTPREFIX_COMBINE, "combine_fitres" );
-  INPUTS.NULLVAL_FLOAT =  DEFAULT_NULLVAL_FLOAT ;
+  INPUTS.NULLVAL_FLOAT   =  DEFAULT_NULLVAL_FLOAT ;
+  INPUTS.NVARNAMES_KEEP  = 0 ;
+  INPUTS.VARLIST_KEEP[0] = 0 ;
 
   for ( i = 1; i < NARGV_LIST ; i++ ) {
     
@@ -377,6 +390,14 @@ void  PARSE_ARGV(int argc, char **argv) {
     if ( strcmp(argv[i],"-mxrow") == 0 || 
 	 strcmp(argv[i],"--mxrow") == 0  ) {
       i++ ; sscanf(argv[i], "%d", &INPUTS.MXROW_READ);
+      continue ;
+    }
+
+    if ( strcmp(argv[i],"-varnames") == 0 || 
+	 strcmp(argv[i],"--varnames") == 0  ) {
+      i++ ; sscanf(argv[i], "%s", INPUTS.VARLIST_KEEP);
+      parse_commaSepList("VARNAMES_KEEP", INPUTS.VARLIST_KEEP, MXVAR_TOT,
+			 40, &INPUTS.NVARNAMES_KEEP, &INPUTS.VARNAMES_KEEP);
       continue ;
     }
 
@@ -418,10 +439,8 @@ void  PARSE_ARGV(int argc, char **argv) {
       continue ;
     }
 
-    sprintf( INPUTS.FFILE[NFFILE], "%s", argv[i] );
-    printf("  Will combine fitres file: %s \n", 
-	   INPUTS.FFILE[NFFILE] );
-    NFFILE++ ;
+    // parse FITRES file(s) and add to INPUTS.FFILE list
+    parse_FFILE(argv[i]);
 
   } // end loop over arg list
   
@@ -433,8 +452,7 @@ void  PARSE_ARGV(int argc, char **argv) {
     printf("   CID-match method: hash table.\n");
   }
 
-  INPUTS.NFFILE = NFFILE ;
-  if ( NFFILE <= 0 ) {
+  if ( INPUTS.NFFILE <= 0 ) {
     sprintf(c1err, "Bad args. Must give fitres file(s)");
     sprintf(c2err, "  combine_fitres.exe <fitresFile List> ");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -459,10 +477,39 @@ void  PARSE_ARGV(int argc, char **argv) {
   }
 #endif
 
+  return;
 
 } // end of PARSE_ARGV
 
+// ====================================
+void parse_FFILE(char *arg) {
 
+  // Created Nov 18 2020
+  // add arg to INPUTS.FFILE list ... if arg is comma-sep list,
+  // split each item and add each item to list. This allows
+  // both space-separated and comma-separated file list.
+
+  int ifile, nfile_add=0, NFFILE = INPUTS.NFFILE;
+  char **file_list;
+  char fnam[] = "parse_FFILE" ;
+  
+  // ----------- BEGIN -------------
+
+  parse_commaSepList("FITRES_FILE_LIST", arg, 10, MXPATHLEN,
+		     &nfile_add, &file_list );
+
+  for(ifile=0; ifile < nfile_add; ifile++ ) {
+    sprintf( INPUTS.FFILE[NFFILE], "%s", file_list[ifile] );
+    printf("  Will combine fitres file: %s \n", 
+	   INPUTS.FFILE[NFFILE] );
+    NFFILE++ ;
+    free(file_list[ifile]);
+  }
+
+  INPUTS.NFFILE = NFFILE ;
+  free(file_list);
+
+} // end parse_FFILE
 
 // ==========================
 void INIT_TABLEVAR(void) {
@@ -503,7 +550,7 @@ void ADD_FITRES(int ifile) {
   int 
     ivar, ivarstr, j, isn, isn2
     ,NVARALL, NVARSTR, NVAR, NTAG_DEJA, NLIST, ICAST
-    ,index, REPEATCID, NEVT_APPROX, IFILETYPE, iappend
+    ,index=-9, REPEATCID, NEVT_APPROX, IFILETYPE, iappend
     ;
 
   char 
@@ -748,8 +795,6 @@ int match_CID_hash(int ifile, int isn2) {
 
   // ----------- BEGIN ------------
 
-  // .xyz
-
   if ( ifile < 0 ) {
     /* free the hash table contents */
     HASH_ITER(hh, users, s, tmp) {
@@ -784,7 +829,6 @@ int match_CID_hash(int ifile, int isn2) {
     return(-9);
   }
   
-  // .xyz
 
   return(-9);
 
@@ -798,7 +842,7 @@ void ADD_FITRES_VARLIST(int ifile, int isn, int isn2) {
   int  LTMP = 0 ;
   int  MXUPDATE = 50;
   int  ivarstr, IVARSTR, IVARTOT, ivar, ICAST, TMPMOD ;
-  char ccid2[MXSTRLEN_CID], *VARNAME ;
+  char ccid2[MXSTRLEN_CID];
   char fnam[] = "ADD_FITRES_VARLIST" ;
 
   // --------- BEGIN ------------
@@ -826,7 +870,7 @@ void ADD_FITRES_VARLIST(int ifile, int isn, int isn2) {
 
     if ( SKIP_VARNAME(ifile, ivar) ) { continue ; }
 
-    VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
+    // VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
     ICAST   = READTABLE_POINTERS.ICAST_STORE[ivar] ;
 
     if ( ICAST != ICAST_C )  {   // not a string
@@ -863,17 +907,27 @@ int SKIP_VARNAME(int ifile, int ivar) {
 
   // Dec 8 2014
   // Return 1 if this variable should be ignored.
-  
-  char *VARNAME ;
-  int  j;
+  // Dec 2020: check KEEP_VARNAMES 
 
+  char *VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
+  bool KEEP = false;
+  int  j, k ;
+
+  // -------- BEGIN ------------
+
+  // check option to keep only use-selected list of varnames
+  for ( k=0; k < INPUTS.NVARNAMES_KEEP; k++ ) {
+    if ( strcmp(VARNAME,INPUTS.VARNAMES_KEEP[k]) == 0 ) { KEEP=true;}
+  }
+  if ( ivar>0 && INPUTS.NVARNAMES_KEEP > 0 && !KEEP ) { return(1); }
+
+  // - - - - - -
   // no SNANA file yet
   if ( IFILE_FIRST_SNANA < 0 ) { return(0); } 
 
-  // don't skip 1st SNANA file.
+  // never skip 1st SNANA file.
   if ( ifile == IFILE_FIRST_SNANA ) { return(0) ; }  
 
-  VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
   for(j=0; j < NVARNAME_1ONLY; j++ ) {
     if ( strcmp(VARNAME,VARNAME_1ONLY[j]) == 0 ) { return(1) ; }
   }
@@ -920,7 +974,7 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
   // NVAR is the number of variables to read from this fitres file.
   // MAXLEN is an estimate of the max array length to allocate.
 
-  int ivar, isn, IVAR_ALL, NTOT, MEMF, MEMD ;
+  int ivar, isn, IVAR_ALL, NTOT, MEMF ;
   //  char fnam[] = "fitres_malloc_flt" ;
 
   // ---------- BEGIN ------------
@@ -930,7 +984,6 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
 
   // redo malloc on TMP arrays for each fitres file
   MEMF      = (NVAR+1) * sizeof(float*) ;
-  MEMD      = (NVAR+1) * sizeof(double*) ;
   FITRES_VALUES.FLT_TMP = (float **)malloc(MEMF) ;
 
   // -----------------------------------
@@ -946,7 +999,6 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
   for ( ivar=0; ivar < NVAR; ivar++ ) {
 
     MEMF = sizeof(float  ) * MAXLEN ;
-    MEMD = sizeof(double ) * MAXLEN ;
     IVAR_ALL = NVARALL_FITRES + ivar ;
 
     FITRES_VALUES.FLT_TMP[ivar]     = (float  *)malloc(MEMF);
@@ -1067,13 +1119,12 @@ void WRITE_SNTABLE(void) {
 
   double zHD;
   int GZIPFLAG = 0 ;
-  int ivar, ivarstr, isn, IERR, ICAST, CIDint ;
+  int ivar, ivarstr, isn, ICAST, CIDint ;
   int IFILETYPE, NOUT, out, SKIP ;
 
   // char  fnam[] = "WRITE_SNTABLE" ;
   // --------------- BEGIN ------------
 
-  IERR = -9 ;
   NOUT = 0 ;
   OUTFILE[NOUT][0] = 0 ;
   NWRITE_SNTABLE = 0 ;
@@ -1241,7 +1292,7 @@ void WRITE_SNTABLE(void) {
 
   // check gzip option
   if ( GZIPFLAG )  { 
-    char cmd[200];
+    char cmd[400];
     sprintf(cmd,"gzip %s", INPUTS.OUTFILE_TEXT);
     system(cmd); 
   }

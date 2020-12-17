@@ -856,6 +856,8 @@ c
 
 c local var
       INTEGER  i, LL, ilast, iuse, iter
+      CHARACTER ARG*(MXCHAR_ARG), ARGLIST(MXKEY_ARGS)*(MXCHAR_ARG)
+      LOGICAL   MATCH_NMLKEY
 
 C ----------------- BEGIN -------------
 
@@ -864,189 +866,184 @@ C ----------------- BEGIN -------------
 
       DO WHILE ( i .LT. NLINE_ARGS )
 
-         LL = INDEX ( LINE_ARGS(i), ' ' ) - 1
+         CALL GETARG(i,ARG)
+         LL = INDEX ( ARG, ' ' ) - 1
 
-         if ( LINE_ARGS(i) .EQ. 'METHOD_NAME' ) then
-            i = i + 1 ; METHOD_NAME = LINE_ARGS(i) 
+       if ( MATCH_NMLKEY('METHOD_NAME', 1,i,ARGLIST) ) then
+            METHOD_NAME = ARGLIST(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'FILTLIST_FIT' ) then
-            i = i + 1 ; FILTLIST_FIT = LINE_ARGS(i) 
+        else if ( MATCH_NMLKEY('FILTLIST_FIT', 1,i,ARGLIST) ) then
+            FILTLIST_FIT = ARGLIST(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'FILTLIST_PEAKMAG_STORE' ) then
-            i = i + 1 ; FILTLIST_PEAKMAG_STORE = LINE_ARGS(i) 
-c ----------
-         else if ( LINE_ARGS(i) .EQ. 'TEMPLATES_SNIa' ) then
-            i = i + 1 ;  TEMPLATES_SNIa = LINE_ARGS(i) 
-         else if ( LINE_ARGS(i) .EQ. 'TEMPLATES_SNIA' ) then
-            i = i + 1 ;  TEMPLATES_SNIA = LINE_ARGS(i) 
+        else if ( MATCH_NMLKEY('FILTLIST_PEAKMAG_STORE', 
+     &             1, i, ARGLIST) ) then
+            FILTLIST_PEAKMAG_STORE = ARGLIST(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'TEMPLATES_NONIa' ) then
-            i = i + 1 ;  TEMPLATES_NONIa = LINE_ARGS(i) 
-         else if ( LINE_ARGS(i) .EQ. 'TEMPLATES_NONIA' ) then
-            i = i + 1 ;  TEMPLATES_NONIA = LINE_ARGS(i)
+        else if ( MATCH_NMLKEY('TEMPLATES_SNIa TEMPLATES_SNIA', 
+     &             1, i, ARGLIST) ) then
+            TEMPLATES_SNIa = ARGLIST(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'PRIVATE_TEMPLATES_PATH' ) then
-            i = i + 1 ;  PRIVATE_TEMPLATES_PATH = LINE_ARGS(i)  
+        else if ( MATCH_NMLKEY('TEMPLATES_NONIa TEMPLATES_NONIA', 
+     &             1, i, ARGLIST) ) then
+            TEMPLATES_NONIa = ARGLIST(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'MODELNAME_MAGERR' ) then
-            i = i + 1 ;  MODELNAME_MAGERR = LINE_ARGS(i)  
+        else if(MATCH_NMLKEY('PRIVATE_TEMPLATES_PATH',1,i,ARGLIST))then
+            PRIVATE_TEMPLATES_PATH = ARGLIST(1)
 
-c ------
-         else if ( LINE_ARGS(i) .EQ. 'TEMPLATES_NONIA_LIST' ) then
-            i = i + 1 ;  TEMPLATES_NONIA_LIST = LINE_ARGS(i)
+        else if(MATCH_NMLKEY('MODELNAME_MAGERR', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) MODELNAME_MAGERR
 
-         else if ( LINE_ARGS(i) .EQ. 'TEMPLATES_NONIA_IGNORE' ) then
-            i = i + 1 ;  TEMPLATES_NONIA_IGNORE = LINE_ARGS(i)
+        else if(MATCH_NMLKEY('TEMPLATES_NONIA_LIST', 1,i,ARGLIST))then
+            TEMPLATES_NONIA_LIST = ARGLIST(1)
 
-c -------------
-         else if ( LINE_ARGS(i) .EQ. 'AV_TAU' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) AV_TAU
+        else if(MATCH_NMLKEY('TEMPLATES_NONIA_IGNORE', 1,i,ARGLIST))then
+            TEMPLATES_NONIA_IGNORE = ARGLIST(1)
 
-         else if ( LINE_ARGS(i) .EQ. 'AV_SMEAR' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) AV_SMEAR
+        else if(MATCH_NMLKEY('AV_TAU', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) AV_TAU
 
-         else if ( LINE_ARGS(i) .EQ. 'AV_PRIOR_STR' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) AV_PRIOR_STR
+        else if(MATCH_NMLKEY('AV_SMEAR', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) AV_SMEAR
 
-         else if ( LINE_ARGS(i) .EQ. 'WGT_ZPRIOR' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) WGT_ZPRIOR
+        else if(MATCH_NMLKEY('AV_SMEAR', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) AV_SMEAR
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_ZPRIOR' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) OPT_ZPRIOR
+        else if(MATCH_NMLKEY('AV_PRIOR_STR', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) AV_PRIOR_STR
 
-         else if ( LINE_ARGS(i) .EQ. 'CUTWIN_ZERR' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) CUTWIN_ZERR(1)
-            i = i + 1 ; read(LINE_ARGS(i),*) CUTWIN_ZERR(2)
+        else if(MATCH_NMLKEY('WGT_ZPRIOR', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) WGT_ZPRIOR
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_RATEPRIOR' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) OPT_RATEPRIOR
-         else if ( LINE_ARGS(i) .EQ. 'ZRATEPRIOR_SNIA' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) ZRATEPRIOR_SNIA(1)
-            i = i + 1 ; read(LINE_ARGS(i),*) ZRATEPRIOR_SNIA(2)
-            i = i + 1 ; read(LINE_ARGS(i),*) ZRATEPRIOR_SNIA(3)
-         else if ( LINE_ARGS(i) .EQ. 'ZRATEPRIOR_NONIA' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) ZRATEPRIOR_NONIA(1)
-            i = i + 1 ; read(LINE_ARGS(i),*) ZRATEPRIOR_NONIA(2)
-            i = i + 1 ; read(LINE_ARGS(i),*) ZRATEPRIOR_NONIA(3)
+        else if(MATCH_NMLKEY('OPT_ZPRIOR', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) OPT_ZPRIOR
 
-         else if ( LINE_ARGS(i) .EQ. 'OPT_SIMCHEAT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) OPT_SIMCHEAT
+        else if(MATCH_NMLKEY('CUTWIN_ZERR', 2,i,ARGLIST))then
+            READ(ARGLIST(1),*) CUTWIN_ZERR(1)
+            READ(ARGLIST(2),*) CUTWIN_ZERR(2)
 
-         else if ( LINE_ARGS(i) .EQ. 'MCMC_NSTEP' ) then
-            i = i + 1 ;  read(LINE_ARGS(i),*) MCMC_NSTEP
+        else if(MATCH_NMLKEY('OPT_RATEPRIOR', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) OPT_RATEPRIOR
 
-         else if ( LINE_ARGS(i) .EQ. 'COLOR_MIN' ) then
-            i = i + 1 ;  read(LINE_ARGS(i),*) COLOR_MIN
+        else if(MATCH_NMLKEY('ZRATEPRIOR_SNIA', 3,i,ARGLIST))then
+            READ(ARGLIST(1),*) ZRATEPRIOR_SNIA(1)
+            READ(ARGLIST(2),*) ZRATEPRIOR_SNIA(2)
+            READ(ARGLIST(3),*) ZRATEPRIOR_SNIA(3)
 
-         else if ( LINE_ARGS(i) .EQ. 'COLOR_MAX' ) then
-            i = i + 1 ;  read(LINE_ARGS(i),*) COLOR_MAX
+        else if(MATCH_NMLKEY('ZRATEPRIOR_NONIA', 3,i,ARGLIST))then
+            READ(ARGLIST(1),*) ZRATEPRIOR_NONIA(1)
+            READ(ARGLIST(2),*) ZRATEPRIOR_NONIA(2)
+            READ(ARGLIST(3),*) ZRATEPRIOR_NONIA(3)
 
-         else if ( LINE_ARGS(i) .EQ. 'NCOLOR' ) then
-            i = i + 1 ;  read(LINE_ARGS(i),*) NCOLOR
+        else if(MATCH_NMLKEY('OPT_SIMCHEAT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) OPT_SIMCHEAT
 
-         else if ( LINE_ARGS(i) .EQ. 'DMU_MIN' ) then
-            i = i + 1 ;            read(LINE_ARGS(i),*) DMU_MIN
+        else if(MATCH_NMLKEY('MCMC_NSTEP', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) MCMC_NSTEP
 
-         else if ( LINE_ARGS(i) .EQ. 'DMU_MAX' ) then
-            i = i + 1 ;            read(LINE_ARGS(i),*) DMU_MAX
+        else if(MATCH_NMLKEY('COLOR_MIN', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) COLOR_MIN
 
-         else if ( LINE_ARGS(i) .EQ. 'DMU_NON1A_MIN' ) then
-            i = i + 1 ;            read(LINE_ARGS(i),*) DMU_NON1A_MIN
+        else if(MATCH_NMLKEY('COLOR_MAX', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) COLOR_MAX
 
-         else if ( LINE_ARGS(i) .EQ. 'DMU_NON1A_MAX' ) then
-            i = i + 1 ;            read(LINE_ARGS(i),*) DMU_NON1A_MAX
+        else if(MATCH_NMLKEY('NCOLOR', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) NCOLOR
 
-         else if ( LINE_ARGS(i) .EQ. 'NDMU' ) then
-            i = i + 1 ;            read(LINE_ARGS(i),*) NDMU
+        else if(MATCH_NMLKEY('DMU_MIN', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) DMU_MIN
 
-         else if ( LINE_ARGS(i) .EQ. 'TEMPLERR_SCALE_SNIA' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) TEMPLERR_SCALE_SNIA
+        else if(MATCH_NMLKEY('DMU_MAX', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) DMU_MAX
 
-         else if ( LINE_ARGS(i) .EQ. 'TEMPLERR_SCALE_NONIA' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) TEMPLERR_SCALE_NONIA
+        else if(MATCH_NMLKEY('DMU_NON1A_MIN', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) DMU_NON1A_MIN
 
-c ---
+        else if(MATCH_NMLKEY('DMU_NON1A_MAX', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) DMU_NON1A_MAX
 
-         else if ( LINE_ARGS(i) .EQ. 'TMAX_START' ) then
-            do iter=1, MXITER_PSNID
-              i = i + 1 ; read(LINE_ARGS(i),*) TMAX_START(iter)
+        else if(MATCH_NMLKEY('NDMU', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) NDMU
+
+        else if(MATCH_NMLKEY('TEMPLERR_SCALE_SNIA TEMPLERR_SCALE_SNIa', 
+     &           1, i, ARGLIST) )then
+            READ(ARGLIST(1),*) TEMPLERR_SCALE_SNIA
+
+        else if(MATCH_NMLKEY(
+     &    'TEMPLERR_SCALE_NONIA TEMPLERR_SCALE_NONIa',1,i,ARGLIST))then
+             READ(ARGLIST(1),*) TEMPLERR_SCALE_NONIA
+
+        else if(MATCH_NMLKEY('TMAX_START',MXITER_PSNID,i,ARGLIST))then
+            do iter = 1, MXITER_PSNID
+               READ(ARGLIST(iter),*) TMAX_START(iter)
             enddo
 
-         else if ( LINE_ARGS(i) .EQ. 'TMAX_STOP' ) then
-            do iter=1, MXITER_PSNID
-              i = i + 1 ; read(LINE_ARGS(i),*) TMAX_STOP(iter)
+        else if(MATCH_NMLKEY('TMAX_STOP', MXITER_PSNID,i,ARGLIST) )then
+            do iter = 1, MXITER_PSNID
+               READ(ARGLIST(iter),*) TMAX_STOP(iter)
             enddo
 
-         else if ( LINE_ARGS(i) .EQ. 'TMAX_STEP' ) then
-            do iter=1, MXITER_PSNID
-              i = i + 1 ; read(LINE_ARGS(i),*) TMAX_STEP(iter)
+        else if(MATCH_NMLKEY('TMAX_STEP', MXITER_PSNID,i,ARGLIST) )then
+            do iter = 1, MXITER_PSNID
+               READ(ARGLIST(iter),*) TMAX_STEP(iter)
             enddo
 
-c ----
-         else if ( LINE_ARGS(I) .EQ. 'PBAYES_IA_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) PBAYES_IA_CUT
+c - - - - - -
 
-         else if ( LINE_ARGS(I) .EQ. 'PBAYES_IBC_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) PBAYES_IBC_CUT
+        else if(MATCH_NMLKEY('PBAYES_IA_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) PBAYES_IA_CUT
 
-         else if ( LINE_ARGS(I) .EQ. 'PBAYES_II_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) PBAYES_II_CUT
+        else if(MATCH_NMLKEY('PBAYES_IBC_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) PBAYES_IBC_CUT
 
-         else if ( LINE_ARGS(I) .EQ. 'PBAYES_PEC1A_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) PBAYES_PEC1A_CUT
+        else if(MATCH_NMLKEY('PBAYES_II_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) PBAYES_II_CUT
 
-         else if ( LINE_ARGS(I) .EQ. 'PBAYES_MODEL1_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) PBAYES_MODEL1_CUT
+        else if(MATCH_NMLKEY('PBAYES_PEC1A_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) PBAYES_PEC1A_CUT
 
-         else if ( LINE_ARGS(I) .EQ. 'PBAYES_MODEL2_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) PBAYES_MODEL2_CUT
+        else if(MATCH_NMLKEY('PBAYES_MODEL1_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) PBAYES_MODEL1_CUT
+        else if(MATCH_NMLKEY('PBAYES_MODEL2_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) PBAYES_MODEL2_CUT
+        else if(MATCH_NMLKEY('PBAYES_MODEL3_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) PBAYES_MODEL3_CUT
+        else if(MATCH_NMLKEY('PBAYES_MODEL4_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) PBAYES_MODEL4_CUT
 
-         else if ( LINE_ARGS(I) .EQ. 'PBAYES_MODEL3_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) PBAYES_MODEL3_CUT
+        else if(MATCH_NMLKEY('FITPROB_IA_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) FITPROB_IA_CUT
+        else if(MATCH_NMLKEY('FITPROB_IBC_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) FITPROB_IBC_CUT
+        else if(MATCH_NMLKEY('FITPROB_II_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) FITPROB_II_CUT
 
-         else if ( LINE_ARGS(I) .EQ. 'PBAYES_MODEL4_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) PBAYES_MODEL4_CUT
-c ----
+        else if(MATCH_NMLKEY('FITPROB_PEC1A_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) FITPROB_PEC1A_CUT
 
-         else if ( LINE_ARGS(I) .EQ. 'FITPROB_IA_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) FITPROB_IA_CUT
+        else if(MATCH_NMLKEY('FITPROB_MODEL1_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) FITPROB_MODEL1_CUT
+        else if(MATCH_NMLKEY('FITPROB_MODEL2_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) FITPROB_MODEL2_CUT
+        else if(MATCH_NMLKEY('FITPROB_MODEL3_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) FITPROB_MODEL3_CUT
+        else if(MATCH_NMLKEY('FITPROB_MODEL4_CUT', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) FITPROB_MODEL4_CUT
 
-         else if ( LINE_ARGS(I) .EQ. 'FITPROB_IBC_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) FITPROB_IBC_CUT
+        else if(MATCH_NMLKEY('CHISQMIN_OUTLIER', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) CHISQMIN_OUTLIER
 
-         else if ( LINE_ARGS(I) .EQ. 'FITPROB_II_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) FITPROB_II_CUT
+        else if(MATCH_NMLKEY('MJDFIT_RANGE', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) MJDFIT_RANGE(1)
+            READ(ARGLIST(2),*) MJDFIT_RANGE(2)
 
-         else if ( LINE_ARGS(I) .EQ. 'FITPROB_PEC1A_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) FITPROB_PEC1A_CUT
-
-         else if ( LINE_ARGS(I) .EQ. 'FITPROB_MODEL1_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) FITPROB_MODEL1_CUT
-
-         else if ( LINE_ARGS(I) .EQ. 'FITPROB_MODEL2_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) FITPROB_MODEL2_CUT
-
-         else if ( LINE_ARGS(I) .EQ. 'FITPROB_MODEL3_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) FITPROB_MODEL3_CUT
-
-         else if ( LINE_ARGS(I) .EQ. 'FITPROB_MODEL4_CUT' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) FITPROB_MODEL4_CUT
-c - - - -
-         else if ( LINE_ARGS(I) .EQ. 'CHISQMIN_OUTLIER' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) CHISQMIN_OUTLIER
-
-         else if ( LINE_ARGS(I) .EQ. 'MJDFIT_RANGE' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) MJDFIT_RANGE(1)
-            i = i + 1 ; read(LINE_ARGS(i),*) MJDFIT_RANGE(2)
-
-         else if ( LINE_ARGS(i) .EQ. 'NREJECT_OUTLIER' ) then
-            i = i + 1 ; read(LINE_ARGS(i),*) NREJECT_OUTLIER
+        else if(MATCH_NMLKEY('NREJECT_OUTLIER', 1,i,ARGLIST))then
+            READ(ARGLIST(1),*) NREJECT_OUTLIER
 
 c xxx add more here ....
 
          endif
 
-c set logical flag for used LINE_ARGS
+c set logical flag for used LINE ARGS
  
          IF ( i .GT. ilast ) THEN
            DO iuse = ilast, i
@@ -1100,7 +1097,6 @@ c start with &SNLCINP values
 
       NVAR = NVAR + 1
       INPUT_ARRAY(NVAR) = DBLE(OPT_DEBUG)
-
   
 c next the  INPUT ARRAY from &PSNIDINP
 

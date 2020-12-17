@@ -714,7 +714,7 @@ void check_SEARCHEFF_DETECT(int imap) {
 
   char 
     *ptr_effname 
-    ,cline[100]
+    ,cline[MXPATHLEN]
     ,fnam[] = "check_SEARCHEFF_DETECT" 
     ;
 
@@ -842,7 +842,7 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
   FILE *fp ;
 
   char 
-     cline[100]
+     cline[MXPATHLEN]
     ,logic[60]
     ,c_get[60]
     ,surveykey[60]
@@ -2627,6 +2627,7 @@ double interp_SEARCHEFF_zHOST(void) {
   // Interpolate multi-D map to get EFF(HOSTLIB properties)
   //
   // July 2020: check PEAKMJD too
+  // Oct 15 2020: clarify error message on interp failure.
 
   int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
   int IMAP=0, istat, imap, NVAR, ivar, ivar_HOSTLIB, IGAL, NMATCH=0;
@@ -2675,16 +2676,24 @@ double interp_SEARCHEFF_zHOST(void) {
 
 
   if ( LDMP || istat != SUCCESS ) {
+    long long GALID = SNHOSTGAL.GALID ;
+    double VALMIN, VALMAX, VAL ;
+    char tmpStr[20];
     printf(" \n");
-    printf(" xxx ------------------------------------- \n");
+    printf(" xxx --------------------------------------------------- \n");
     printf(" xxx DUMP %s : \n", fnam);
-    printf(" xxx   IMAP=%d  FIELD=%s  NVAR=%d  IGAL=%d\n", 
-	   IMAP, field_data, NVAR, IGAL);
-    for(ivar=0; ivar < NVAR-1; ivar++ ) {
+    printf(" xxx   IMAP=%d  FIELD=%s  NVAR=%d  IGAL=%d  GALID=%lld\n", 
+	   IMAP, field_data, NVAR, IGAL, GALID ) ;
+    for(ivar=0; ivar < NVAR; ivar++ ) {
       varName      = SEARCHEFF_zHOST[IMAP].VARNAMES_HOSTLIB[ivar];
       ivar_HOSTLIB = SEARCHEFF_zHOST[IMAP].IVAR_HOSTLIB[ivar] ;
-      printf(" xxx   %s = %f  (IVAR_HOSTLIB=%d) \n", 
-	     varName, VARDATA[ivar], ivar_HOSTLIB ) ;
+      VALMIN       = SEARCHEFF_zHOST[IMAP].GRIDMAP.VALMIN[ivar] ;
+      VALMAX       = SEARCHEFF_zHOST[IMAP].GRIDMAP.VALMAX[ivar] ;
+      VAL          = VARDATA[ivar];
+      sprintf(tmpStr,"satisfies");
+      if ( VAL < VALMIN || VAL > VALMAX ) { sprintf(tmpStr,"FAILS"); }
+      printf(" xxx   %s = %f  (%s map bound: %f to %f) \n", 
+	     varName, VAL, tmpStr, VALMIN, VALMAX );
     }
     printf(" xxx   EFF=%f  istat(interp_GRIDMAP)=%d \n", EFF, istat);
     fflush(stdout);

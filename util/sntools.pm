@@ -3,7 +3,6 @@
 # Created Jun 20, 2011 by R.Kessler
 # Useful perl utilities.
 #
-#
 # Aug 04, 2011: use strict
 # Sep 10, 2011: add sed_strReplace
 # Feb 01, 2012: add get_namelistValue
@@ -59,6 +58,8 @@ sub lininterp(@) ;
 sub arith_avg(@) ;
 sub extractStringOpt(@) ;
 sub clean_fileList(@) ;
+
+sub request_submit_batch_jobs(@);
 
 # ===============================================
 sub parse_line(@) {
@@ -1313,4 +1314,18 @@ sub clean_fileList(@) {
 
 
 # ===============================================
+
+sub request_submit_batch_jobs(@) {
+    my ($perl_codeName, $date_disable ) = @_ ;
+
+    my $new_codeName = "submit_batch_jobs.sh";
+    my(@msgerr);
+    $msgerr[0] = "$perl_codeName" ;
+    $msgerr[1] = "has been disabled since $date_disable ;" ;
+    $msgerr[2] = "--> Use $new_codeName instead." ;
+    $msgerr[3] = "For help on translating master input file," ;
+    $msgerr[4] = "   $new_codeName -H TRANSLATE" ;
+    sntools::FATAL_ERROR(@msgerr);
+} 
+
 1;

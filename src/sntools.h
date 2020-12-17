@@ -38,6 +38,9 @@
   Jul 31 2020: 
     + MXCHARWORD_PARSE_WORDS -> MXPATHLEN=300  (was 60) to handle file names
 
+  Nov 12 2020:
+    + Adding glob utility
+
 ********************************************************/
 
 
@@ -49,12 +52,13 @@
 #include <time.h>
 #include <math.h>
 #include <ctype.h>
+#include <glob.h>
 
 #include "sndata.h"
 #include "sntools_genGauss_asym.h"
 #include "sntools_genExpHalfGauss.h"
 
-#define  SNANA_VERSION_CURRENT  "v10_78e"                                      
+#define  SNANA_VERSION_CURRENT  "v11_02d"      
 //#define  ONE_RANDOM_STREAM  // enable this for Mac (D.Jones, July 2020)
 //#define  MACOS              // another MAC OS option, D.Jones, Sep 2020
 
@@ -478,6 +482,11 @@ int intrac_() ;  // needed by fortran minuit
 void get_SNANA_VERSION(char *snana_version); // Dec 2017
 void get_snana_version__(char *snana_version);
 
+float get_SNANA_VERSION_FLOAT(char *snana_version); // Oct 2020
+float get_snana_version_float__(char *snana_version);
+
+bool correct_sign_vpec_data(char *snana_version_data);
+bool correct_sign_vpec_data__(char *snana_version_data);
 
 void print_KEYwarning(int ISEV, char *key_old, char *key_new);
 void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) ;
@@ -736,6 +745,10 @@ void extractstringopt_( char *string, char *stringOpt) ;
 void extract_MODELNAME(char *STRING, char *MODELPATH, char *MODELNAME);
 void extract_modelname__(char *STRING, char *MODELPATH, char *MODELNAME);
 
+void parse_commaSepList(char *item_name, char *item, int MAX_ITEM, int MXCHAR,
+			int *n_item, char ***arrayList );
+int  index_charString(char *c, char *s);
+
 double PROB_Chi2Ndof(double chi2, int Ndof); // replace CERNLIB's PROB function
 double prob_chi2ndof__(double *chi2, int *Ndof);
 
@@ -766,12 +779,14 @@ void ENVrestore(char *fileName_noENV, char *fileName_orig);
 
 // cosmology functions
 
+/* xxx mark delete Oct 2020 xxxxx
 double SFR_integral( double H0, double OM, double OL, double W, double Z );
 double SFRfun(double H0, double z) ;
 double SFRfun_MD14(double z, double *params);
 
 double dVdz_integral ( double H0, double OM, double OL, double W, 
 		       double Zmax, int wgtopt ) ;
+
 double dvdz_integral__ ( double *H0, double *OM, double *OL, double *W, 
 			 double *Zmax, int *wgtopt ) ;
 
@@ -785,14 +800,28 @@ double Hainv_integral ( double H0, double OM, double OL, double W,
 double Hzfun ( double H0, double OM, double OL, double W, double Z ) ;
 double dLmag ( double H0, double OM, double OL, double W, 
 	       double zCMB, double zHEL ) ;
-double dlmag_ (double *H0, double *OM, double *OL, double *W, 
-	       double *zCMB, double *zHEL ) ;
 
 double zcmb_dLmag_invert(double H0, double OM, double OL, double W, double MU);
 
+double zhelio_zcmb_translator (double z_input, double RA, double DECL, 
+			       char *coordSys, int OPT ) ;
+double zhelio_zcmb_translator__ (double *z_input, double *RA, double *DECL, 
+				 char *coordSys, int *OPT ) ;
+
+xxxxx end mark xxxxxxxxxx*/
+
+// SLALIB functions translated by D. Cinabro
+void slaEqgal ( double dr, double dd, double *dl, double *db );
+void slaDcs2c ( double a, double b, double v[3] );
+void slaDmxv ( double dm[3][3], double va[3], double vb[3] );
+void slaDcc2s ( double v[3], double *a, double *b );
+double slaDrange ( double angle );
+double slaDranrm ( double angle );
+
+// - - - - - 
+
 double angSep( double RA1,double DEC1,
 	       double RA2,double DEC2, double  scale);
-
 
 // random-number generators.
 // May 2014: snran1 -> Flatran1,  float rangen -> double FlatRan
@@ -824,7 +853,6 @@ double skewGauss(double x, double siglo,double sighi,
 
 void   init_GaussIntegral(void);
 double GaussIntegral(double nsig1, double nsig2);
-
 
 // ------ index mapping
 void clear_1DINDEX(int ID);
@@ -862,20 +890,6 @@ void sortint_(int *NSORT, int *ARRAY, int *ORDER,
 void invertMatrix (int  N, int  n, double *Matrix ) ;
 void invertmatrix_(int *N, int *n, double *Matrix ) ;
 
-double zhelio_zcmb_translator (double z_input, double RA, double DECL, 
-			       char *coordSys, int OPT ) ;
-double zhelio_zcmb_translator__ (double *z_input, double *RA, double *DECL, 
-				 char *coordSys, int *OPT ) ;
-double Z2CMB (double z_helio, double RA, double DECL, char *coordSys ) ;
-double z2cmb_(double *z_helio, double *RA, double *DECL, char *coordSys );
-
-// SLALIB functions translated by D. Cinabro
-void slaEqgal ( double dr, double dd, double *dl, double *db );
-void slaDcs2c ( double a, double b, double v[3] );
-void slaDmxv ( double dm[3][3], double va[3], double vb[3] );
-void slaDcc2s ( double v[3], double *a, double *b );
-double slaDrange ( double angle );
-double slaDranrm ( double angle );
 
 // functions for user-define PATH_SNDATA_SIM
 #define MXPATH_SNDATA_SIM 20
@@ -900,5 +914,7 @@ void init_obs_atfluxmax__(int *OPTMASK, double *PARLIST, int *VBOSE);
 
 void get_obs_atfluxmax__(char *CCID, int *NOBS, float *FLUX, float *FLUXERR, 
 			 double *MJD, int *IFILTOBS, int *EP_atFLUXMAX);
+
+int glob_file_list(char *wildcard, char ***file_list);
 
 // ============== END OF FILE =============

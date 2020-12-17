@@ -16,9 +16,15 @@
 
   Apr 10 2020: MXKCOR -> 200 (was 100)
 
+  Nov 15 2020: IVERSION_KCOR -> 4 (was 3) for reading SURVEY key
+
 ********************************************************/
 
-#define VERSION_KCOR 3    // internal version
+//bool REQUIRE_SURVEY_KCOR = false ; // flip to require SURVEY in kcor-input 
+bool REQUIRE_SURVEY_KCOR = true ; // flip to require SURVEY in kcor-input 
+
+//#define VERSION_KCOR 3    // internal version
+#define VERSION_KCOR 4    // internal version
 #define MXFILTDEF   100    // max number of defined filters 
 #define MXLAM_SN    4000  // max number of lambda bins 
 #define MXLAM_PRIMARY  5000  // max number of lambda bins 
@@ -38,7 +44,6 @@
 #define OPT_INTERP_VEGAFLUX 1    // for Vega flux
 #define OPT_INTERP_SNFLUX   1    // for SN flux
 #define NLAMBIN_INTERP      3    // number of lambda bins to interpolate
-
 
 #define FILTSYSTEM_COUNT        1
 #define FILTSYSTEM_ENERGY       2
@@ -89,8 +94,6 @@ struct INPUTS {
   char MAGSYSTEM_REPLACE1[40] ;
   char MAGSYSTEM_REPLACE2[40] ;
   char MAGSYSTEM_IGNORE[40]   ;
-
-  // xxx  char MAGSYSTEM_INPUT[40]; // e.g., VEGA->AB where VEGA is input magsys
 
   // filter lam shifts ... entered via command-line override only
   int    NFILTER_LAMSHIFT ; // number of non-zero LAMSHIFTs
@@ -146,6 +149,7 @@ typedef struct {
   int    INDX_INPUT, INDX ;
   double OFFSET_INPUT, OFFSET ;
   int    DO_TRANSFORM ;  // T -> NAME_INPUT != NAME
+  char   SURVEY_NAMES[200]; // optional assoication with survey names
 } MAGSYSTEM_DEF ;
 
 typedef struct {
@@ -316,6 +320,7 @@ struct  FILTER
   char   PATH_ORIG[200];          // idem, before ENVreplace
   char   FILTSYSTEM_NAME[20] ;    // (I) energy or count
   int    FILTSYSTEM_INDX ;        // energy or count
+  char   SURVEY_NAMES[200];       // comma-sep list of surveys (Nov 2020)
 
   double SNMAG0_CHECK_VALUE ;     // external reference for check 
   char   SNMAG0_CHECK_NAME[40] ;  // comment on origin of refernece
@@ -373,6 +378,7 @@ struct STRFITS {
 // =====================================================
 
 int   rd_input(void) ;
+void  check_valid_survey_names(char *SURVEYS);
 void  get_NZBIN(void);
 void  get_NAVBIN(void);
 void  kcor_input_override(int OPT);

@@ -15,6 +15,10 @@
   If <mergeFile> already exists then abort.
   File Extensions .root/.ROOT are assumed to be ROOT.
 
+  Nov 27 2020:
+    + abort if number of input files exceeds MXFILE_MERGE
+    + MXFILE_MERGE -> 200 (was 130)
+
 **************************************/
 
 #include <stdio.h>
@@ -32,7 +36,7 @@ void MERGE_ROOT(int NFILE, char **INFILES, char *OUTFILE);
 #endif
 
 
-#define MXFILE_MERGE 130
+#define MXFILE_MERGE 200 
 
 char msgerr1[80], msgerr2[80];
 
@@ -92,7 +96,7 @@ int main(int argc, char **argv) {
 void parse_args(int NARG, char **argv) {
 
   int NIN, i ;
-  //  char fnam[] = "parse_args" ;
+  char fnam[] = "parse_args" ;
 
   // --------- BEGIN -----------
 
@@ -101,10 +105,22 @@ void parse_args(int NARG, char **argv) {
 
   for(i=1; i < NARG; i++ ) {
 
-    if ( i < NARG-1 ) 
-      { sprintf(INPUTS.INFILES[NIN],"%s", argv[i]) ;   NIN++ ; }
+
+    if ( i < NARG-1 )  { 
+      if ( NIN < MXFILE_MERGE ) 
+	{ sprintf(INPUTS.INFILES[NIN],"%s", argv[i]) ; }
+      NIN++ ; 
+    }
     else
       { sprintf(INPUTS.OUTFILE,"%s", argv[i]) ; }
+  }
+
+  // abort if too many files (Nov 2020)
+  if ( NIN >= MXFILE_MERGE ) {
+    sprintf(msgerr1,"%d input files exceeds bound of MXFILE_MERGE=%d",
+	    NIN, MXFILE_MERGE);
+    sprintf(msgerr2,"Reduce number of files, or increase MXFILE_MERGE");
+    errmsg(SEV_FATAL, 0, fnam, msgerr1, msgerr2 );
   }
 
   INPUTS.NFILE_IN = NIN ;

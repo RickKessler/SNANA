@@ -10,6 +10,22 @@ from   submit_params import *
 
 # =================================================
 
+def protect_parentheses(arg):
+    # Created Dec 10 2020
+    # if arg = abc(option), returns abc\(option\).
+    # If arg = abc, returns abc (no change)
+    # This protection is needed to read GENOPT, FITOPT, MUOPT  args .
+    arg_protect = arg.replace('(','\(').replace(')','\)')
+    return arg_protect
+    # end protect_parentheses
+
+def is_comment_line(line):
+    if line[0] == '#' : return True
+    if line[0] == '@' : return True
+    if line[0] == '%' : return True
+    if line[0] == '!' : return True
+    return False
+
 def fix_partial_path(file_list):
 
     # if any file in file_list has a partial path, tack on CWD
@@ -18,33 +34,34 @@ def fix_partial_path(file_list):
     
     out_file_list = [] 
     for f0 in file_list :
-        f1 = f0  # default out file name is same as input file name.
-        if '/' in f0 and f0[0] != '/' :  f1 = (f"{CWD}/{f0}")
+        f1 = os.path.expandvars(f0)
+        if '/' in f1 and f1[0] != '/' :  f1 = (f"{CWD}/{f0}")
         out_file_list.append(f1)
 
     return out_file_list
     # end fix_partial_path
         
-def separate_label_from_arg(input_arg_list):
+def separate_label_from_arg(input_arg_string):
 
-    # If input_arg_list = /LABEL/ x1min=-2.0 nzbin=20
+    # If input_arg_string = /LABEL/ x1min=-2.0 nzbin=20
     # then return
     #   label = LABEL
-    #   arg_list = x1min=-2.0 nzbin=20
+    #   arg_string = x1min=-2.0 nzbin=20
     #
     #  If there is no label, return label = None
 
     # init output for no label
-    label = None ;   arg_list = input_arg_list
+    label = None ;   arg_string = input_arg_string
     
-    if len(input_arg_list) > 0 :
-        word_list = input_arg_list.split()
+    if len(input_arg_string) > 0 :
+        word_list = input_arg_string.split()
         has_label = word_list[0][0] == '/'
         if has_label :
-            label      = word_list[0].strip('/') 
-            arg_list   = " ".join(word_list[1:])
-            
-    return label,arg_list
+            label        = word_list[0].strip('/') 
+            arg_string   = " ".join(word_list[1:])
+            arg_string   = protect_parentheses(arg_string)
+
+    return label, arg_string
     # end separate_label_from_arg
 
 def standardise_path(path,cwd):
@@ -513,13 +530,9 @@ def write_merge_file(f, MERGE_INFO, comment_lines ):
 
     f.write(f"#{header_line} \n")
     f.write(f"{primary_key}: \n")
-    for row in row_list :
-        f.write(f"  - {row}\n")
+    for row in row_list :  f.write(f"  - {row}\n")
     f.write("\n")
-
-    for comment in comment_lines :
-        f.write(f"#{comment}\n")
-
+    for comment in comment_lines :  f.write(f"#{comment}\n")
     # end write_merge_file
 
 def backup_merge_file(merge_file):
@@ -569,7 +582,7 @@ def write_job_info(f,JOB_INFO,icpu):
         f.write(f"# ---------------------------------------------------- \n")
         f.write(f"cd {job_dir} \n\n")
 
-    CHECK_CODE_EXISTS = True
+    CHECK_CODE_EXISTS = '.exe' in program
     CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO and 'kill_on_fail' in JOB_INFO
 
     if CHECK_ALL_DONE :
@@ -600,8 +613,15 @@ def write_job_info(f,JOB_INFO,icpu):
                          f"do sleep 5; done" )
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
         f.write(f"{wait_for_code}\n")
-        f.write(f"echo {program} exists. \n\n")
+        f.write(f"echo '{program} exists -> execute' \n\n")
 
+    # check optional ENV to set before running program
+    if 'setenv' in JOB_INFO :
+        f.write(f"{JOB_INFO['setenv']} \n")
+
+    # check optional start-file stamp (alternate way to get CPU time)
+    if 'start_file' in JOB_INFO :
+        f.write(f"touch {JOB_INFO['start_file']} \n")
     # - - - - - - - - - 
     f.write(f"{program} {input_file} \\\n")
     # write each arg on separte line for easier viewing
@@ -613,6 +633,7 @@ def write_job_info(f,JOB_INFO,icpu):
 
     if len(done_file) > 4 :
         f.write(f"touch {done_file} \n")
+        f.write(f"echo 'Finished {program} -> create DONE file.' \n")
 
     f.write(f"\n")
 
@@ -634,6 +655,7 @@ def write_jobmerge_info(f,JOB_INFO,icpu):
     if match_cpu and do_merge :
         merge_task = (f"{sys.argv[0]} {merge_input_file} {merge_arg_list}")
         f.write(f"cd {CWD} \n")
+        f.write(f"echo Run merge_driver monitor task. \n")
         f.write(f"{merge_task} \n")
         f.write(f"echo $?")
         f.write(f"\n")
@@ -665,6 +687,22 @@ def get_YAML_key_values(YAML_BLOCK, KEYLIST):
     return value_list
     # end get_YAML_key_values
 
+def get_survey_info(yaml_path):
+    # Read SURVEY (string) and IDSURVEY (int) from YAML file,
+    # and return these quantities.
+    # If yaml_path is a directory, read first file in glob list;
+    # if yaml_path is a file, read this particular file.
+
+    if  os.path.isfile(yaml_path) :
+        yaml_file = yaml_path
+    else :
+        # it's a directory
+        yaml_list = glob.glob(f"{yaml_path}/*.YAML")
+        yaml_file = yaml_list[0]
+
+    yaml_info = extract_yaml(yaml_file)    
+    return yaml_info['SURVEY'], yaml_info['IDSURVEY']
+    # end get_survey_info
 
 def kill_jobs(config_prep):
 

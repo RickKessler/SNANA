@@ -23,6 +23,7 @@
 #include <math.h>
 
 #include "sntools.h"
+//#include "sntools_cosmology.h"
 #include "MWgaldust.h"
 
 #include "genmag_SIMSED.h"
@@ -88,7 +89,7 @@ void  SIMSED_warning_summary(void);
 // ====================================
 int main(int argc, char **argv) {
 
-  int OPTMASK = OPTMASK_SIMSED_TESTMODE;
+  int OPTMASK = OPTMASK_INIT_SIMSED_TESTMODE;
   char fnam[] = "main" ;
   
   // ------------ BEGIN ------------

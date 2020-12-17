@@ -149,10 +149,10 @@ c read command line args.
 
       NLINE_ARGS = IARGC()
       DO i = 1, NLINE_ARGS
-        CALL GETARG(i, LINE_ARGS(i) )  ! read command-line args
-        LL = INDEX ( LINE_ARGS(i), ' ' )  - 1
+cc xxx        CALL GETARG(i, LINE_ARGS(i) )  ! read command-line args
+cc xxx        LL = INDEX ( LINE_ARGS(i), ' ' )  - 1
         USE_LINE_ARGS(i) = .FALSE.
-        print*,'  COMMAND LINE ARG = ', LINE_ARGS(i)(1:LL)
+cc xxx        print*,'  COMMAND LINE ARG = ', LINE_ARGS(i)(1:LL)
       ENDDO
 
       CALL INIT_SNVAR(IERR)
@@ -241,6 +241,7 @@ c Apr 28 2016: read K_xy and REST_COLOR
 
       INTEGER i, LL, ilast, iuse
       CHARACTER ctemp*40, cfilt*2, FNAM*20
+      CHARACTER ARG*(MXCHAR_ARG), ARG_NEXT*(MXCHAR_ARG)
       
       INTEGER FILTINDX
       
@@ -255,28 +256,30 @@ C --------------- BEGIN ---------------
 
       DO WHILE ( i .LE. NLINE_ARGS )
 
-        LL = INDEX ( LINE_ARGS(i), ' ' ) - 1
-        print*,'     PROCESS COMMAND LINE ARG: ', LINE_ARGS(i)(1:LL)
+        CALL GETARG(i,   ARG)
+        CALL GETARG(i+1, ARG_NEXT)
+        LL = INDEX(ARG, ' ' ) - 1
+        print*,'     PROCESS COMMAND LINE ARG: ', ARG(1:LL)
 
-         if ( LINE_ARGS(i) .EQ. 'FILT_REST' ) then
+         if ( ARG .EQ. 'FILT_REST' ) then
             i = i + 1   
-            READ(LINE_ARGS(i),*) CFILT
+            READ(ARG_NEXT,*) CFILT
             IFILT_REST_DMP = FILTINDX(CFILT)
 
-         else if ( LINE_ARGS(i) .EQ. 'FILT_OBS' ) then
+         else if ( ARG .EQ. 'FILT_OBS' ) then
             i = i + 1   
-            READ(LINE_ARGS(i),*) CFILT
+            READ(ARG_NEXT,*) CFILT
             IFILT_OBS_DMP = FILTINDX(CFILT)
 
-         else if ( LINE_ARGS(i)(1:2) .EQ. 'K_' ) then ! Apr 28 2016
-            STRING_Kxy = LINE_ARGS(i)
+         else if ( ARG(1:2) .EQ. 'K_' ) then ! Apr 28 2016
+            STRING_Kxy = ARG
             CFILT = STRING_Kxy(3:3) ; IFILT_REST_DMP = FILTINDX(CFILT)
             CFILT = STRING_Kxy(4:4) ; IFILT_OBS_DMP  = FILTINDX(CFILT)
             USE_LINE_ARGS(i) = .TRUE.
 
-         else if ( LINE_ARGS(i) .EQ. 'REST_COLOR' ) then ! Apr 28 2016
+         else if ( ARG .EQ. 'REST_COLOR' ) then ! Apr 28 2016
             i = i + 1   
-            READ(LINE_ARGS(i),*) STRING_REST_COLOR  ! e.g., 'B-V'
+            READ(ARG_NEXT,*) STRING_REST_COLOR  ! e.g., 'B-V'
             if ( STRING_REST_COLOR(2:2) .NE. '-' ) then
               c1err = 'Invalid REST_COLOR argument: '
      &                // STRING_REST_COLOR
@@ -289,38 +292,37 @@ C --------------- BEGIN ---------------
             IFILT_RESTCOLOR_DMP(2) = FILTINDX(CFILT)
         
             i = i + 1   
-            READ(LINE_ARGS(i),*) MAGREST_COLOR 
+            READ(ARG_NEXT,*) MAGREST_COLOR 
             MAGREST(1) = MAGREST_COLOR
             MAGREST(2) = 0.0
 
-         else if ( LINE_ARGS(i) .EQ. 'TREST' ) then
+         else if ( ARG .EQ. 'TREST' ) then
             i = i + 1   
-
-            if ( LINE_ARGS(i) .EQ. 'ALL' ) then
+            if ( ARG_NEXT .EQ. 'ALL' ) then
                CALL SET_TREST_ALL
             else
-               READ(LINE_ARGS(i),*) TREST_DMP
+               READ(ARG_NEXT,*) TREST_DMP
                TREST_DMP_RANGE(1) = TREST_DMP
                TREST_DMP_RANGE(2) = TREST_DMP
             endif
 
-         else if ( LINE_ARGS(i) .EQ. 'REDSHIFT' .or. 
-     &             LINE_ARGS(i) .EQ. 'Z'        .or.
-     &             LINE_ARGS(i) .EQ. 'z' ) then
+         else if ( ARG .EQ. 'REDSHIFT' .or. 
+     &             ARG .EQ. 'Z'        .or.
+     &             ARG .EQ. 'z' ) then
 
             i = i + 1   
-            if ( LINE_ARGS(i) .EQ. 'ALL' ) then
+            if ( ARG_NEXT .EQ. 'ALL' ) then
                REDSHIFT_DMP = 0.0
                NZBIN_DMP    = 100  ! flag to use REDSFHIT range in KCOR file
             else
-               READ(LINE_ARGS(i),*) REDSHIFT_DMP
+               READ(ARG_NEXT,*) REDSHIFT_DMP
                REDSHIFT_DMP_RANGE(1) = REDSHIFT_DMP
                REDSHIFT_DMP_RANGE(2) = REDSHIFT_DMP
             endif
 
-         else if ( LINE_ARGS(i) .EQ. 'KCOR_FILE' ) then
+         else if ( ARG .EQ. 'KCOR_FILE' ) then
             i = i + 1
-            KCOR_FILE = LINE_ARGS(i)
+            KCOR_FILE = ARG_NEXT
          endif
 
 c set logical flag for used LINE_ARGS

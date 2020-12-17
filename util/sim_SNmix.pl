@@ -392,6 +392,7 @@ my $TABLE_INSERT_MARK           = "TABLE_INSERT_MARK" ;
 
 # =========== BEGIN MAIN ==============
 
+sntools::request_submit_batch_jobs($0,"2020-10-26");
 
 print "\n";
 print " ###################################### \n" ;

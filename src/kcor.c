@@ -50,6 +50,10 @@
      MAGSYSTEM: AB
      MAGSYSTEM: BD17
      MAGSYSTEM: BD17->AB  # read BD17 mag, but transform internally to AB
+
+     # associate each filter set with survey(s) from SURVEY.DEF
+     SURYEY: SDSS
+     SURVEYS: FOUNDATION,PS1MD
     
      FILTSYSTEM: COUNT    # most moder systems are count
      FILTSYSTEM: ENERGY   # older Bessell system may be energy
@@ -182,23 +186,21 @@
    + write input file name and filter paths into output FITS header ...
      can be used later to chase down DOCANA notes.
 
+ Nov 15 2020
+   + read optional list of surveys for each MAGSYSTEM, and write
+     SURVEY=%s as part of each filter comment in kcor header.
+
+ Dec 07 2020:
+    + alow multiple FILTPATH keys
+
 ****************************************************/
 
-/*
-#include <stdio.h>   
-#include <stdlib.h>
-#include <string.h>  
-#include <unistd.h>  
-#include <fcntl.h>   
-#include <errno.h>   
-#include <math.h>       // need this for log10 function 
-#include <ctype.h>
-*/
 
+#include "sntools.h"    // defines some general tools
 #include "fitsio.h"
 #include "kcor.h"       // kcor-specific definitions 
-#include "sntools.h"    // defines some general tools
 #include "MWgaldust.h"
+//#include "sntools_cosmology.h"
 #include "sntools_spectrograph.h" 
 
 // =================================================
@@ -238,13 +240,14 @@ int main(int argc, char **argv) {
   
   // -----------------------------------------
 
+  // read survey name <-> integer map (Nov 2020)
+  read_SURVEYDEF();
+
   // read user input file for directions
   if ( rd_input() != SUCCESS ) { madend(1) ; }
 
   // read SN spectra and filter responses
   if ( kcor_ini() != SUCCESS ) { madend(1) ;  }
-
-  //  debugexit("main"); // xxx REMOVE
 
   // allocate memory for multi-dimensional arrays.
   if ( malloc_ini() != SUCCESS ) { madend(1) ; }
@@ -540,12 +543,6 @@ int rd_input(void) {
       readchar ( fp_input,  MAGSYSTEM_TMP );
       parse_MAGSYSTEM(MAGSYSTEM_TMP, &MAGSYSTEM) ;
 
-      /* xxxxx mark delete 
-      printf(" xxx %s: MAGSYSTEM->NAME(%s) = %s -> '%s' (DO_TR=%d)\n",
-	     fnam, MAGSYSTEM_TMP, MAGSYSTEM.NAME_INPUT, MAGSYSTEM.NAME,
-	     MAGSYSTEM.DO_TRANSFORM );
-	     xxxx */
-
       // check for command-line override
       if ( strcmp(MAGSYSTEM.NAME,INPUTS.MAGSYSTEM_REPLACE1) == 0 ) 
 	{ sprintf(MAGSYSTEM.NAME,"%s", INPUTS.MAGSYSTEM_REPLACE2); }
@@ -555,15 +552,14 @@ int rd_input(void) {
       else
 	{ FILTER_IGNORE = 0 ; }
 
-
-      INDX_INPUT = index_primary(MAGSYSTEM.NAME_INPUT); 
-      INDX       = index_primary(MAGSYSTEM.NAME);
+      INDX_INPUT   = index_primary(MAGSYSTEM.NAME_INPUT); 
+      INDX         = index_primary(MAGSYSTEM.NAME);
       MAGSYSTEM.INDX_INPUT = INDX_INPUT ;
       MAGSYSTEM.INDX       = INDX ;
       PRIMARYSED[INDX_INPUT].USE = 1; 
       PRIMARYSED[INDX].USE       = 1; 
-      MAGSYSTEM.OFFSET_INPUT = 2.5 * log10 ( FNU_AB );
-      MAGSYSTEM.OFFSET       = 2.5 * log10 ( FNU_AB );
+      MAGSYSTEM.OFFSET_INPUT     = 2.5 * log10 ( FNU_AB );
+      MAGSYSTEM.OFFSET           = 2.5 * log10 ( FNU_AB );
 
       PRIMARYSED[INDX].IS_AB       = (strcmp(MAGSYSTEM.NAME,"AB")==0) ;
       PRIMARYSED[INDX_INPUT].IS_AB = (strcmp(MAGSYSTEM.NAME_INPUT,"AB")==0) ;
@@ -571,8 +567,13 @@ int rd_input(void) {
       printf("\n\t Found MAGSYSTEM '%s' with offset = %8.3f (INDX=%d->%d)\n",
 	     MAGSYSTEM_TMP, MAGSYSTEM.OFFSET,
 	     MAGSYSTEM.INDX_INPUT, MAGSYSTEM.INDX );
+      sprintf(MAGSYSTEM.SURVEY_NAMES,"NONE");
     }  
 
+    if ( strcmp(c_get,"SURVEY:") == 0 || strcmp(c_get,"SURVEYS:") == 0 ) {
+      readchar(fp_input, MAGSYSTEM.SURVEY_NAMES);  // Nov 2020
+      check_valid_survey_names(MAGSYSTEM.SURVEY_NAMES);
+    }
 
     if ( strcmp(c_get,"FILTPATH:")==0 && (FILTER_IGNORE == 0) )  {
 
@@ -589,6 +590,7 @@ int rd_input(void) {
       // store filter path to check for duplicates
       sprintf(FILTPATH_LIST[NFILTPATH], "%s", INPUTS.FILTPATH);
 
+      /* xxxx mark delete Dec 7 2020 xxxx
       // 5/03/2011: abort if FILTPATH is repeated
       for ( itmp=1; itmp < NFILTPATH; itmp++ ) {
 	ptr_tmp = FILTPATH_LIST[itmp] ;
@@ -599,6 +601,7 @@ int rd_input(void) {
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
 	}
       } // itmp
+      xxxxxxxxxxxxx end mark xxxxxxxxxxxxxx*/
 
     }
 
@@ -879,8 +882,38 @@ int rd_input(void) {
 }  // end of rd_input
 
 
+// *********************************************************
+void  check_valid_survey_names(char *SURVEYS) {
 
-// ****************************
+  // Created Nov 23 2020
+  // Check each survey in comma-sep list of *SURVEYS;
+  // abort if any survey name is invalid.
+
+  int  n_survey, i, ID ;
+  char **survey_list, *survey ;
+  char fnam[] = "check_valid_survey_names" ;
+
+  // ------------- BEGIN ---------------
+
+  parse_commaSepList("SURVEYS", SURVEYS, 10, MXCHAR_FILENAME,
+		     &n_survey, &survey_list );
+
+  for(i=0; i < n_survey; i++ ) {
+    survey = survey_list[i];
+    ID = get_IDSURVEY(survey);
+    if ( ID < 0 ) {
+      sprintf(c1err, "Invalid survey = '%s'  "
+	      "(check SURVEY keys in kcor-input).", survey);
+      sprintf(c2err, "SURVEY name must exist in $SNDATA_ROOT/SURVEY.DEF");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+  }
+
+  return ;
+
+} // end check_valid_survey_names
+
+// *********************************************************
 void parse_OOB(char *bandList, double *LAMRANGE, double RATIO) {
 
   // Parse OOB info and store it in structure.
@@ -1032,6 +1065,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   int  INDX_INPUT  = MAGSYSTEM->INDX_INPUT ;
   char *NAME       = MAGSYSTEM->NAME;
   char *NAME_INPUT = MAGSYSTEM->NAME_INPUT ;
+  char *SURVEY     = MAGSYSTEM->SURVEY_NAMES ; // Nov 2020
   double OFFSET       = MAGSYSTEM->OFFSET;
   double OFFSET_INPUT = MAGSYSTEM->OFFSET_INPUT;
 
@@ -1041,7 +1075,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
 
   // strip inputs into local variables
   char *filtName = INPUT_FILTER->FILTNAME ;
-  char *fileName = INPUT_FILTER->FILENAME ;
+  char *fileName = INPUT_FILTER->FILENAME ;  
   double magRef  = INPUT_FILTER->MAGREF ;
   
   // ------------- BEGIN -----------------
@@ -1121,6 +1155,14 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_NAME,"%s", NAME_INPUT ) ;
   sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_SEDFILE,"%s", 
 	  INPUTS.inFile_PRIMARY[INDX_INPUT] ) ;
+
+  if ( REQUIRE_SURVEY_KCOR && IGNOREFILE(SURVEY) ) {
+    sprintf(c1err,"Must associate SURVEY with filter %s", filtName);
+    sprintf(c2err,"Add  'SURVEY: <surveyList>' in kcor-input file");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  sprintf(FILTER[NF].SURVEY_NAMES, "%s", SURVEY); // Nov 2020
 
   if ( IFLAG_SYN ) {
     double L0 = INPUT_FILTER->LAMRANGE_SYN[0] ;
@@ -4371,15 +4413,12 @@ void wr_fits(char *ptrFile) {
   long  NAXIS = 1, NAXES = 0    ;
   fitsfile *fp ;
 
-  char 
-    clobberFile[200]
-    ,fnam[] = "wr_fits" 
-    ;
+  char  clobberFile[200];
+  char fnam[] = "wr_fits"  ;
 
   // ------------- BEGIN --------------
 
-  printf("\n %s: WRITE CALIB/KCOR TO '%s' \n", 
-         fnam, ptrFile);
+  printf("\n %s: WRITE CALIB/KCOR TO '%s' \n",  fnam, ptrFile);
   fflush(stdout);
   
   sprintf(clobberFile, "!%s", ptrFile);
@@ -4424,8 +4463,10 @@ void wr_fits(char *ptrFile) {
 // =====================================
 void wr_fits_HEAD(fitsfile *fp) {
 
+  // Nov 15 2020: write SURVEY=%s in comment field for each filter.
+
   int istat, iprim, ifilt, ikcor, N, jbinsize, IVER ;
-  char  KEYNAME[40], KEYVAL[80] ;
+  char  KEYNAME[40], KEYVAL[80], MSG[200] ;
   char  fnam[] = "wr_fits_HEAD" ;
 
   // ------------ BEGIN -----------
@@ -4494,8 +4535,10 @@ void wr_fits_HEAD(fitsfile *fp) {
     sprintf(KEYNAME,"FILT%3.3d", ifilt);
   
     istat = 0 ;
+    // xxxx sprintf(MSG,"Filter name; SURVEY=%s", FILTER[ifilt].SURVEY_NAMES);
+    sprintf(MSG,"name; SURVEY=%s", FILTER[ifilt].SURVEY_NAMES);
     fits_update_key(fp, TSTRING, KEYNAME, FILTER[ifilt].name,
-		    "Filter name", &istat );    
+		    MSG, &istat );    
    }
 
   if ( NKCOR > 0 ) {

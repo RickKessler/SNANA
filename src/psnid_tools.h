@@ -85,6 +85,8 @@ struct  PSNID_INPUTS  {
 
   // &SNLCINP variables
   double H0, OMAT, OLAM, W0 ;
+  HzFUN_INFO_DEF HzFUN_INFO; // RK - Oct 2020
+
   int OPT_DEBUG ;    // RK - Feb 25 2020
 
   // &PSNIDINP variables
@@ -152,7 +154,6 @@ struct  PSNID_INPUTS  {
   int  LSIM ;                   // =1 for simulation, 0 for data
 
   char SNANA_VERSION[20] ; // snana version
-  // xxx mark delete Dec 10 2017  char VERSION_PHOTOMETRY[200];
 
   double XTMW_at_AV1[MXFILTINDX] ;  // Galactic extinctoin at AV=1
 

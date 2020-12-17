@@ -112,6 +112,7 @@
 #include <math.h>
 
 #include "sntools.h"
+#include "sntools_cosmology.h"
 #include "sntools_trigger.h"
 #include "snlc_sim.h" 
 #include "sntools_host.h"
@@ -1885,8 +1886,8 @@ void read_head_HOSTLIB(FILE *fp) {
   FOUND_SNPAR = ( NVAR_STORE_SNPAR>0  ) ;
 
   if ( USE && FOUND_SNPAR == 0 ) {
-    sprintf(c1err, "Found zero SN params for HOSTLIB_MSKOPT&%d option.",
-	    HOSTLIB_MSKOPT_USESNPAR );
+    sprintf(c1err, "Found zero SN params for HOSTLIB_MSKOPT(%d) & %d option.",
+	    INPUTS.HOSTLIB_MSKOPT, HOSTLIB_MSKOPT_USESNPAR );
     sprintf(c2err, "Expected 1 or more of '%s'", 
 	    HOSTLIB.VARSTRING_SNPAR) ;
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
@@ -6198,6 +6199,8 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   //
   // If there are multiple Sersic terms, a & b are wgted average
   // among Sersic terms (Jan 2020)
+  //
+  // Nov 7 2020: Protect cosTH = 1 + tiny
 
   int IVAR_RA     = HOSTLIB.IVAR_RA ;
   int IVAR_DEC    = HOSTLIB.IVAR_DEC ;
@@ -6252,12 +6255,6 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   }
   a_half /= WTOT;  b_half /= WTOT;
 
-  /* xxxxxxx mark delete Jan 14 2020 xxxxxxxxx
-  j    = 0;     // what about multi-component profile ??
-  a_half   = SERSIC.a[j]; // half-light radius, major axis
-  b_half   = SERSIC.b[j]; // half-light radius, minor axis
-  xxxxxxxxx end mark xxxxxxxxxxx */
-
   a_rot    = SERSIC.a_rot ;   // rot angle (deg) w.r.t. RA
 
   // for DLR calc, move to frame where RA=DEC=0 for galaxy center
@@ -6275,12 +6272,17 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   DOTPROD = VEC_aHALF[0]*VEC_SN[0] + VEC_aHALF[1]*VEC_SN[1];
   cosTH   = DOTPROD/(LEN_SN*a_half);
 
-  if ( fabs(cosTH) > 1.0000 ) {
-    sprintf(c1err,"Invalid cosTH = %f", cosTH);
-    sprintf(c1err,"LEN_SN = %f, a_half=%f, DOT=%f \n",
+  if ( fabs(cosTH) > 1.000001 ) {
+    sprintf(c1err,"Invalid cosTH = %le for GALID=%lld", 
+	    cosTH, SNHOSTGAL.GALID);
+    sprintf(c2err,"LEN_SN = %f, a_half=%f, DOT=%f ",
 	    LEN_SN, a_half, DOTPROD);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+
+  
+  if (cosTH >  1.00) { cosTH = +1.0 - 1.0E-9 ; }
+  if (cosTH < -1.00) { cosTH = -1.0 + 1.0E-9 ; }
 
   sqcos  = cosTH*cosTH;   sqsin = 1.0 - sqcos;
   top    = ( a_half * b_half ) ;
@@ -6565,12 +6567,6 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
     GENLC.REDSHIFT_CMB   = zCMB ;   // store adjusted zCMB
     gen_distanceMag(zCMB, zHEL,
 		    &GENLC.DLMU, &GENLC.LENSDMU ); // <== returned
-
-    /* xxxxxx mark delete May 25 2020 xxxx
-    GENLC.REDSHIFT_HELIO = ZTRUE ;  // preserve this
-    SNHOSTGAL.ZSPEC      = ZTRUE ; 
-    xxxxxxxxxx */
-
   }
 
   // - - - - - - - - - - - - - - - - - - - - - 
@@ -7401,6 +7397,8 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
   //
   // Function returns number of HOSTPAR params
   // Initial use was for the sim to pass host par to BYOSED.
+  //
+  // Nov 5 2020: add REDSHIFT to list.
 
   int  NPAR=0, ivar ;
   int  NVAR_WGTMAP = HOSTLIB_WGTMAP.GRIDMAP.NDIM ;
@@ -7411,15 +7409,12 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
 
   if ( OPT == 1 ) {
     // always start with RV and AV    
-    sprintf(NAMES_HOSTPAR,"RV,AV"); NPAR=2;
+    // xxx more delete    sprintf(NAMES_HOSTPAR,"RV,AV"); NPAR=2;
+    sprintf(NAMES_HOSTPAR,"RV,AV,REDSHIFT");  NPAR=3;
 
     for ( ivar=0; ivar < NVAR_WGTMAP; ivar++ ) {  
       catVarList_with_comma(NAMES_HOSTPAR,HOSTLIB_WGTMAP.VARNAME[ivar]);
       NPAR++ ;
-      /* xxx mark delete Jul 14 2020 xxxxxx
-      strcat(NAMES_HOSTPAR,COMMA);
-      strcat(NAMES_HOSTPAR,HOSTLIB_WGTMAP.VARNAME[ivar]); 
-      xxxxx */
     }
 
     // tack on user-defined variables from sim-input HOSTLIB_STOREPAR key
@@ -7427,17 +7422,14 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
       if ( HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[ivar] ) { continue; }
       catVarList_with_comma(NAMES_HOSTPAR,HOSTLIB_OUTVAR_EXTRA.NAME[ivar]);
       NPAR++ ;
-      /* xxxxxx mark delete Jul 14 2020 xxxxxx
-      strcat(NAMES_HOSTPAR,comma);
-      strcat(NAMES_HOSTPAR,HOSTLIB_OUTVAR_EXTRA.NAME[ivar]);
-      */
     }
     // add anything used in WGTMAP or HOSTLIB_STOREPAR
   }
   else if ( OPT ==  2 ) {
-    VAL_HOSTPAR[0] = GENLC.RV;
-    VAL_HOSTPAR[1] = GENLC.AV;
-    NPAR=2;
+    VAL_HOSTPAR[0] = GENLC.RV ;
+    VAL_HOSTPAR[1] = GENLC.AV ;
+    VAL_HOSTPAR[2] = GENLC.REDSHIFT_CMB ;
+    NPAR = 3 ; 
 
     for ( ivar=0; ivar < NVAR_WGTMAP; ivar++ ) {  
       VAL_HOSTPAR[NPAR] = SNHOSTGAL.WGTMAP_VALUES[ivar] ;

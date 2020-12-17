@@ -2,6 +2,10 @@
 #
 # Created Feb 2017 by R.Kessler
 #
+# Revived Nov 2020 with python 3
+#    + fetch survey name and write SURVEY key to kcor-input
+#
+#
 # @!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!@!
 #
 #  WARNING: Bug in SUBSURVEY_LIST key in output SIMLIB  file 
@@ -46,15 +50,17 @@
 #
 #  Nov 16 2019 RK - bug fix writing AB_SED and BD17_SED
 #
+#  Dec 08 2020 RK - fix to properly handle multiple surveys using
+#                    same filters
+#
 # ====================================
 
-import os
-import sys 
+import os, sys
 import numpy as np
-import getpass
-import time
-import shutil
-import string
+import time, string, getpass
+import subprocess, shutil, logging
+
+
 # globals
 
 SNDATA_ROOT = os.environ['SNDATA_ROOT']
@@ -93,105 +99,166 @@ def parseLines(Lines,key,narg,vbose):
         for row in rowList:
             arg.append(row.split()[1:narg+1])
 
-    if ( vbose > 0 ):
-        print '\t ', key, arg
+#    if ( vbose > 0 ):   print '\t ', key, arg
         
     return(arg)
 
 
 def change_filterChar(versionInfo,kcorInfo):
-    nver=0    # version index = kcor index
-    for kcor in kcorInfo :
-        # check of this filter/system has changed since last one
-        new = 1
-        if ( nver > 0 ):
-            new=0
-            if kcor.MAGSYSTEM != kcor_last.MAGSYSTEM:
-                new=1
-            if kcor.FILTSYSTEM != kcor_last.FILTSYSTEM:
-                new=1
-            if kcor.FILTPATH != kcor_last.FILTPATH:
-                new=1
 
-        kcorInfo[nver].NEW = new   
-        kcor_last = kcor
-        
-        for line in kcor.FILTER :
+    print(f"\n Change filter characters:")
+
+    nver = len(kcorInfo)
+    for iver in range(0,nver):
+
+        kcor = kcorInfo[iver]
+
+        # check of this filter/system is new, or a repeat
+        iver_use  = kcor.ikcor_use
+        new       = (iver_use == iver)
+        kcor_use  = kcorInfo[iver_use] 
+
+        #print(f" xxx iver={iver} iver_use={iver_use}  new={new}")
+
+        ifilt = 0
+        for line in kcor_use.FILTER :
             filter_name  = line[0]  # full name of filter
+
             N = versionInfo.NFILTER_TOT
             filter_oldChar = filter_name[-1]     # current filter char
-            filter_newChar = FILTER_CHARLIST[N]  # new new character for filter
-            versionInfo.FILTER_CHARLIST_OLD += filter_oldChar
-            versionInfo.FILTER_CHARLIST_NEW += filter_newChar
-            versionInfo.NFILTER_TOT    += 1
+
+            if new :
+                filter_newChar = FILTER_CHARLIST[N]  # new new char for filter
+                versionInfo.FILTER_CHARLIST_OLD += filter_oldChar
+                versionInfo.FILTER_CHARLIST_NEW += filter_newChar
+                versionInfo.NFILTER_TOT    += 1
+            else:
+                filter_newChar = kcor_use.FILTER_CHARLIST_NEW[ifilt]
 
             # append new char to end of filter name to ensure
             # unique filter-char for each band
             filter_name_new = filter_name + '/' + filter_newChar
-            kcorInfo[nver].FILTER_NEWNAME.append(filter_name_new) # full name
-            kcorInfo[nver].FILTER_CHARLIST_OLD += filter_oldChar # 1-char
-            kcorInfo[nver].FILTER_CHARLIST_NEW += filter_newChar
-
+            kcorInfo[iver].FILTER_NEWNAME.append(filter_name_new) # full name
+            kcorInfo[iver].FILTER_CHARLIST_OLD += filter_oldChar # 1-char
+            kcorInfo[iver].FILTER_CHARLIST_NEW += filter_newChar
+            ifilt += 1
 
         # print band replacement for each version
-        OLD = kcorInfo[nver].FILTER_CHARLIST_OLD
-        NEW = kcorInfo[nver].FILTER_CHARLIST_NEW
+        OLD = kcorInfo[iver].FILTER_CHARLIST_OLD
+        NEW = kcorInfo[iver].FILTER_CHARLIST_NEW
         tmp = OLD + ' --> ' + NEW
-        print '\t', versionInfo.NAME[nver], ' bands: ', tmp
         
-        nver += 1
+        V = versionInfo.NAME[iver]
+        print(f"    {V:<28.28} bands: {tmp}   (new={new})")        
 
-        
+    #sys.exit("\n xxx DEBUG EXIT xxx \n")
 
+    # end change_filterChar
+
+def combine_duplicate_filtpath(versionInfo,kcorInfo):
+
+    # created Dec 2020
+    # Combine multiple SURVEY_INP that have same filters.
+    # First SURVEY_INP -> comma-sep list,
+    # Other SURVEY_INP -> IGNORE (flag to NOT write it out)
+
+    nkcor = len(kcorInfo)
+    KEY_IGNORE = "IGNORE"
+    n_match = 0
+
+    for i0 in range(0,nkcor):  
+        kcorInfo[i0].ikcor_use = i0
+        kcorInfo[i0].new       = True
+
+    for i0 in range(0,nkcor-1):
+        for i1 in range(i0+1,nkcor):
+            match = same_filters(kcorInfo[i0],kcorInfo[i1])            
+            survey0 = versionInfo.SURVEY_INP[i0]
+            survey1 = versionInfo.SURVEY_INP[i1]
+            if match and survey0 != KEY_IGNORE:
+                survey = f"{survey0},{survey1}"
+                versionInfo.SURVEY_INP[i0] = survey
+                versionInfo.SURVEY_INP[i1] = KEY_IGNORE
+                kcorInfo[i1].ikcor_use     = i0       
+                kcorInfo[i0].new           = False
+                n_match += 1
+    # - - - - -
+    print(f"  Found {n_match} filter matches ")
+
+    #sys.exit("\n xxx DEBUG EXIT xxx \n")  
+
+
+def same_filters(kcorInfo_0,kcorInfo_1):
+    # Created Dec 8 2020
+    # Return true if filters are the same for each kcorInfo 
+    
+    if kcorInfo_0.MAGSYSTEM  != kcorInfo_1.MAGSYSTEM :    return False
+    if kcorInfo_0.FILTSYSTEM != kcorInfo_1.FILTSYSTEM :   return False
+    if kcorInfo_0.FILTPATH   != kcorInfo_1.FILTPATH :     return False
+
+    for line_0,line_1 in zip(kcorInfo_0.FILTER,kcorInfo_1.FILTER) :
+        file_0 = line_0[1]
+        file_1 = line_1[1]
+        zpoff_0 = line_0[2]
+        zpoff_1 = line_1[2]
+        if file_0  != file_1  : return False
+        if zpoff_0 != zpoff_1 : return False
+
+    return True
 
 def write_kcor_inputFile(versionInfo,kcorInfo):
 
-    fname = versionInfo.kcor_inFile
-    print '\n Create ', fname
+    fname             = versionInfo.kcor_inFile
+    PRIVATE_DATA_PATH = versionInfo.PRIVATE_DATA_PATH
+
+    print(f"\n Create {fname}")
     f = open(fname,"wt")
 
-    f.write("# Combined kcor file create by\n#   %s\n" % sys.argv )
-    f.write("# User = %s\n" % ( getpass.getuser())  )
-    f.write("# Host = %s\n" % ( HOSTNAME) )
-    f.write("# %s\n" % NOW )
-    f.write("\n")
+    f.write(f"# Combined kcor file create by\n#   {sys.argv}\n" )
+    f.write(f"# User = {getpass.getuser()} \n")
+    f.write(f"# Host = {HOSTNAME}\n"  )
+    f.write(f"# {NOW}\n"  )
+    f.write(f"\n")
         
-    f.write( "SN_SED:       %s\n" % ( kcorInfo[0].SN_SED ) )    
+    f.write(f"SN_SED:       {kcorInfo[0].SN_SED} \n")
 
     # check all kcor files for primary(s)
     nkcor=0
     USE_BD17 = 0 ; USE_AB = 0
     for kcor in kcorInfo :
         if ( len(kcorInfo[nkcor].BD17_SED) > 0 and USE_BD17==0 ) :
-            f.write("BD17_SED:     %s\n" % (kcorInfo[nkcor].BD17_SED ) )
+            f.write(f"BD17_SED:     {kcorInfo[nkcor].BD17_SED}\n")
             USE_BD17 = 1
 
         if ( len(kcorInfo[nkcor].AB_SED) > 0  and  USE_AB==0) :
-            f.write("AB_SED:       %s\n" % (kcorInfo[nkcor].AB_SED ) )
+            f.write(f"AB_SED:       {kcorInfo[nkcor].AB_SED} \n")
             USE_AB = 1
         nkcor += 1
 
 
-    f.write( "LAMBDA_RANGE: %s %s \n" %
-             ( kcorInfo[0].LAMRANGE[0], kcorInfo[0].LAMRANGE[1] ) )
+    L0 = kcorInfo[0].LAMRANGE[0]
+    L1 = kcorInfo[0].LAMRANGE[1] 
+    f.write(f"LAMBDA_RANGE: {L0} {L1} \n" )
 
-    f.write("OUTFILE:      %s\n" % ( versionInfo.kcor_outFile ) )
+    f.write(f"OUTFILE:      {versionInfo.kcor_outFile} \n")
     
+    # - - - - - - - - - - - - - - -
     # loop over filter sets
-    nkcor=0
+    nkcor = 0
     for kcor in kcorInfo :
-
-        V = versionInfo.NAME[nkcor]
+        V           = versionInfo.NAME[nkcor]
+        survey_name = versionInfo.SURVEY_INP[nkcor]
         nkcor += 1
-                
-        f.write("\n" )
-        f.write("# Start filters for VERSION = %s\n" % V)
-        if kcor.NEW == 1:
-            f.write("MAGSYSTEM:   %s\n" %  ( kcor.MAGSYSTEM  ) )
-            f.write("FILTSYSTEM:  %s\n" %  ( kcor.FILTSYSTEM ) )
-            f.write("FILTPATH:    %s\n" %  ( kcor.FILTPATH   ) )
-        kcor_last = kcor
 
+        if "IGNORE" in survey_name : continue 
+                
+        f.write(f"\n" )
+        f.write(f"# Start filters for VERSION = {V}\n" )
+        f.write(f"MAGSYSTEM:   {kcor.MAGSYSTEM} \n")
+        f.write(f"FILTSYSTEM:  {kcor.FILTSYSTEM} \n")
+        f.write(f"FILTPATH:    {kcor.FILTPATH} \n")
+        f.write(f"SURVEY:      {survey_name} \n")
+        
         nfilt=0
         for line in kcor.FILTER :
             filter_name  = line[0]
@@ -203,11 +270,47 @@ def write_kcor_inputFile(versionInfo,kcorInfo):
             nfilt += 1
     f.close
 
+def get_survey(PRIVATE_DATA_PATH,VERSION):
+
+    # run snana.exe on version, then read yaml file to get SURVEY name.
+
+    survey = None
+    prefix = (f"OUT_{VERSION}")
+    cmd = "snana.exe NOFILE "
+    cmd += (f"VERSION_PHOTOMETRY={VERSION} ")
+    cmd += (f"SNTABLE_LIST '' ")
+    cmd += (f"OPT_YAML=1 " )
+    cmd += (f"READ_SPECTRA=F " )
+    cmd += (f"TEXTFILE_PREFIX={prefix} " )
+    if len(PRIVATE_DATA_PATH) > 2 :
+        cmd += (f"PRIVATE_DATA_PATH={PRIVATE_DATA_PATH} ")
+    cmd += (f" > {prefix}.LOG")
+    #print(f" xxx cmd = {cmd}\n")
+    os.system(cmd)
+
+    # read from YAML file
+    yaml_file = (f"{prefix}.YAML")
+    with open(yaml_file,"rt") as y :
+        for line in y:
+            word_list = line.split()
+            if word_list[0] == "SURVEY:" : survey = word_list[1]
+
+    # remove junk files, and be careful not to   rm .* by accident
+    if len(prefix) > 2 :
+        cmd_rm = (f"rm {prefix}.*")
+        os.system(cmd_rm)
+
+    #sys.exit(f"\n xxx {cmd_rm}\n")
+
+    return survey 
+
+    # end get_survey
+
 def run_kcor(versionInfo):
     inFile  = versionInfo.kcor_inFile
     logFile = versionInfo.kcor_logFile
     cmd = 'kcor.exe ' + inFile + ' > ' + logFile
-    print ' Run kcor program ... '
+    print(f" Run kcor program ... ")
     os.system(cmd)
 
     # check for fatal error in log file
@@ -273,12 +376,22 @@ class VERSION_INFO:
         self.NAME        = reader[:,1]
         self.INFILE_KCOR = reader[:,2]
         
+        # Dec 8 2020 : get survey name with snana job
+        print(f"")
+        self.SURVEY_INP = []
+        for V in self.NAME :
+            survey_name = get_survey(self.PRIVATE_DATA_PATH,V)
+            print(f"    VERSION {V:<28.28} -> {survey_name} ")
+            self.SURVEY_INP.append(survey_name)
+
+        print(f"")
+
         f.close()
 
         
 class KCOR_INFO:
         def __init__(self,filename):
-            print '   Parse kcor input file: ', filename
+            print(f"   Parse kcor input file: {filename}")
 
             filename_expandvars = os.path.expandvars(filename)
             # check local dir first; then check $SNDATA_ROOT/kcor
@@ -307,15 +420,18 @@ class KCOR_INFO:
             self.NFILTER    = len(self.FILTER)
 
             if ( self.NFILTER > MXFILTERS ):
-                errMsg = "%d filters exceeds bound of %d" % ( self.NFILTERS,MXFILTERS)
+                errMsg = (f"{self.NFILTERS} filters exceeds bound of " \
+                          f"{MXFILTERS}" )
                 sys.exit(errMsg)
                 
             # define things to change later
             self.FILTER_NEWNAME = []     # to be changed later
-            self.NEW            = 1      # assume new filter/mag system
+            self.new            = True     # assume new filter/mag system
             self.FILTER_CHARLIST_OLD   = ""
             self.FILTER_CHARLIST_NEW   = ""
+            self.ikcor_info            = -9
             f.close()
+
 
 def create_newVersion(versionInfo):
 
@@ -385,7 +501,8 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     FILTERLIST_NEW = kcorInfo.FILTER_CHARLIST_NEW     # only this version
     FILTERLIST_ALL = versionInfo.FILTER_CHARLIST_NEW  # all filters
     NFILTER        = kcorInfo.NFILTER
-    print '\t ', FILTERLIST_OLD, ' -> ', FILTERLIST_NEW
+    print(f"\t {FILTERLIST_OLD} -> {FILTERLIST_NEW} " )
+    # xxxprint '\t ', FILTERLIST_OLD, ' -> ', FILTERLIST_NEW
 
     # read name of survey from first file
     SURVEY = parseLines(fileContents, 'SURVEY:', 1, 0)
@@ -450,13 +567,14 @@ def merge_duplicates(versionInfo):
     VOUT_TEXT  = versionInfo.VERSION_OUT_TEXT 
 
     # get list of SNID using grep :  file  SNID
-    cmd = 'cd %s ; grep SNID: *.*' % VOUT_TEXT
-    import subprocess
-    import shutil
+    cmd    = (f"cd {VOUT_TEXT} ; grep SNID: *.* ")
     output = subprocess.check_output(cmd, shell=True)
-    import logging
-    logging.basicConfig(level=logging.DEBUG, format="[%(funcName)20s()] %(message)s")
+    logging.basicConfig(level=logging.DEBUG, 
+                        format="[%(funcName)20s()] %(message)s")
+
+    output = output.decode('utf-8')
     output = output.split('\n')[:-1]
+
     d = {}
     for line in output:
         s = line.split()
@@ -467,9 +585,10 @@ def merge_duplicates(versionInfo):
         d[key].append(val)
     
     duplicates = [k for k in d.keys() if len(d[k]) > 1]
-    logging.warn("Have %d duplicates for %s" % (len(duplicates), duplicates))
-    for sn in duplicates:
-        logging.warn("    %s %s" % (sn, d[sn])) 
+    ndupl      = len(duplicates)
+    print(f"\n Found {ndupl} duplicates:" )
+    for sn in duplicates :
+        print(f"    {sn} {d[sn]} ") 
 
     dup_dir = VOUT_TEXT + "/DUPLICATES"
     logging.info("Merging into %s" % dup_dir)
@@ -540,18 +659,17 @@ def add_vpec(versionInfo):
     VPEC_FILE  = versionInfo.VPEC_FILE
 
     if ( len(VPEC_FILE) > 1 ):
-        print "\n Add VPEC and VPEC_ERR from %s\n" % VPEC_FILE
+        print(f"\n Add VPEC and VPEC_ERR from {VPEC_FILE}")
         VOUT_TEXT  = versionInfo.VERSION_OUT_TEXT
         LOGFILE    = "ADD_VPEC.LOG"
         cmd  = "update_data_files.pl ./%s %s 'VPEC VPEC_ERR' CLOBBER > %s " % (VOUT_TEXT,VPEC_FILE,LOGFILE)
         os.system(cmd)
-
-
+    # end add_vpec
 
 
 def make_simlib(versionInfo):
 
-    print "\n Create SIMLIB "
+    print(f"\n Create SIMLIB ")
     
     SOUT       = versionInfo.SURVEY_OUT
     VOUT_TEXT  = versionInfo.VERSION_OUT_TEXT
@@ -563,19 +681,19 @@ def make_simlib(versionInfo):
     # open with 1 line buffer so that it is ready to run snana.exe
     PTR_NML = open(nmlFile,"wt",1)
 
-    PTR_NML.write(" &SNLCINP\n")
-    PTR_NML.write("   VERSION_PHOTOMETRY = '%s' \n" % VOUT_TEXT )
-    PTR_NML.write("   PRIVATE_DATA_PATH  = './' \n")
-    PTR_NML.write("   KCOR_FILE    = '%s' \n" % versionInfo.kcor_outFile)
+    PTR_NML.write(f" &SNLCINP\n")
+    PTR_NML.write(f"   VERSION_PHOTOMETRY = '{VOUT_TEXT}' \n" )
+    PTR_NML.write(f"   PRIVATE_DATA_PATH  = './' \n")
+    PTR_NML.write(f"   KCOR_FILE    = '{versionInfo.kcor_outFile}' \n")
 
 #    PTR_NML.write("   SIMLIB_ZPERR_LIST    = '%s' \n" % ZP_TEXT)
         
     
-    PTR_NML.write("   SNTABLE_LIST = '' \n")
-    PTR_NML.write("   SIMLIB_OUT   = '%s' \n" % simlibFile)
+    PTR_NML.write(f"   SNTABLE_LIST = '' \n")
+    PTR_NML.write(f"   SIMLIB_OUT   = '{simlibFile}' \n" )
     
-    PTR_NML.write(" \n")
-    PTR_NML.write(" &END\n\n")
+    PTR_NML.write(f" \n")
+    PTR_NML.write(f" &END\n\n")
     PTR_NML.flush
     PTR_NML.close
 
@@ -590,8 +708,8 @@ def convert2FITS(versionInfo):
     V_TEXT = versionInfo.VERSION_OUT_TEXT
     V_FITS = versionInfo.VERSION_OUT_FITS
 
-    print "\n Convert TEXT formatted data files into FITS: "
-    print "\t %s -> %s\n" % (V_TEXT,V_FITS)
+    print(f"\n Convert TEXT formatted data files into FITS: ")
+    print(f"\t {V_TEXT} -> {V_FITS}\n")
     
     # create new version directory
     if ( os.path.exists(V_FITS) ):
@@ -615,28 +733,29 @@ def convert2FITS(versionInfo):
     cmd = "cd %s ; snana.exe %s > %s " % (V_FITS,nmlFile, logFile)
     os.system(cmd)
 
+    # end convert2FITS
     
 def printSummary(versionInfo):
-    print '\n# =============================================== '
-    print ' Summary of outputs: '
+    print(f"\n# =============================================== ")
+    print(f"  Summary of outputs: ")
 
     V = versionInfo.VERSION_OUT_TEXT
-    print "\t %s/    (combined Data version)" % V
+    print(f"\t {V}/    (combined Data version)" )
 
     V = versionInfo.VERSION_OUT_FITS
-    print "\t %s/    (combined Data version)" % V
+    print(f"\t {V}/    (combined Data version)" )
 
-    file = versionInfo.kcor_outFile
-    print "\t %s    (combined kcor file)" % file
+    out_file = versionInfo.kcor_outFile
+    print(f"\t {out_file}    (combined kcor file)" )
 
-    file = versionInfo.simlibFile
-    print "\t %s    (combined SIMLIB file)" % file
+    simlib_file = versionInfo.simlibFile
+    print(f"\t {simlib_file}    (combined SIMLIB file)" )
     
-    
+    # end printSummary
+
 # =========================
 # ======= MAIN ============
 # =========================
-
 
 if __name__ == "__main__":
 
@@ -645,9 +764,9 @@ if __name__ == "__main__":
         sys.exit("Must give INFILE arguent\n-->ABORT")
     else:
         INFILE = sys.argv[1]
-        print 'Input file: ', INFILE
+        print(f"Input file: {INFILE}")
 
-    print 'SNDATA_ROOT = ', SNDATA_ROOT 
+    print(f" SNDATA_ROOT = {SNDATA_ROOT}")
 
     versionInfo = VERSION_INFO(INFILE)
 
@@ -657,15 +776,18 @@ if __name__ == "__main__":
     kcorInfo = []
     nkcor=0
     for kcorFile in versionInfo.INFILE_KCOR:
-        print ' '
         nkcor += 1
         kcorInfo.append(KCOR_INFO(kcorFile))
+        
+    print(f"\n Done parsing {nkcor} kcor-input files ")
 
-    print "\n Done parsing ", nkcor, " kcor-input files "
+    # combine multuple surveys with same FILTPATH (Dec 8 2020)
+    combine_duplicate_filtpath(versionInfo,kcorInfo)
 
     # change filter char
     change_filterChar(versionInfo,kcorInfo)
-            
+    
+
     # write new combined kcor-input file
     write_kcor_inputFile(versionInfo,kcorInfo) 
     run_kcor(versionInfo)
@@ -674,18 +796,17 @@ if __name__ == "__main__":
     # now re-write data files with different filter strings
     # ---------------------------------------------------------
 
-    print "\n# - - - - - - - - - - - - - - - - - - - - - - "
+    print(f"\n# - - - - - - - - - - - - - - - - - - - - - - ")
     
     # check for private data path
     if ( len(versionInfo.PRIVATE_DATA_PATH) > 0 ):
-        global TOPDIR_DATA
         TOPDIR_DATA = versionInfo.PRIVATE_DATA_PATH
-        print " Use PRIVATE_DATA_PATH = ", TOPDIR_DATA
+        print(f" Use PRIVATE_DATA_PATH = {TOPDIR_DATA}")
 
     create_newVersion(versionInfo)  
     nver=0
     for vname in versionInfo.NAME :
-        print ' Swap filter strings in DATA-VERSION: ', vname
+        print(f" Swap filter strings in DATA-VERSION:  {vname}")
         add_newVersion(vname,versionInfo,kcorInfo[nver])
         nver += 1
 

@@ -32,6 +32,10 @@ https://ui.adsabs.harvard.edu/abs/2018ApJ...857...51J
 https://ui.adsabs.harvard.edu/abs/2019ApJ...881...19J
    (SNIa-cosmologuy from single telescope, Jones 2019)
 
+  History:
+
+  Nov 3 2020: RK - flip vpec sign convention
+
 """
 
 
@@ -206,10 +210,15 @@ def main(ra,dec,z,vpec_mapfile=None):
 	z_plus = ini.correct_redshift(z_hel, ini.r_plus*vpec,gsc.l.degree,gsc.b.degree)
 	z_minus = ini.correct_redshift(z_hel, ini.r_minus*vpec,gsc.l.degree,gsc.b.degree)
 
-	vpec0 = (pec_corr-z)*_c
-	vpec1 = (z_plus-z)*_c  # includes error
+# xxxxxxx mark delete Nov 3 2020 xxxxxxxxx
+# xxx	vpec0 = +(pec_corr-z)*_c
+# xxx	vpec1 = (z_plus-z)*_c  # includes error
+# xxxxxxxx end mark xxxxxxxxxxxxx
+
+	vpec0 = -(pec_corr-z)*_c  # RK: fix sign convention, Nov 3 2020
+	vpec1 = -(z_plus-z)*_c    # RK: idem
+
 	vsys  = abs(vpec0 - vpec1)
-# xxx mark delete RK	return (pec_corr-z)*_c,(z_plus-z)*_c
 	return vpec0,vsys
 
 if __name__ == "__main__":

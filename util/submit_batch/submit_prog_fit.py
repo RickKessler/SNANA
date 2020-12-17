@@ -69,6 +69,7 @@ SCRIPT_SNTABLE_DUMP    = "sntable_dump.pl"  # ?? convert to python ??
 
 # define program to merge text-fitres files
 PROGRAM_COMBINE_FITRES = "combine_fitres.exe"
+NULLVAL_COMBINE_FITRES = -9191   # value for missing CID in extern file
 
 # flags for debug utility to force table-merge failure
 FLAG_FORCE_MERGE_TABLE_MISSING = 1
@@ -214,7 +215,9 @@ class LightCurveFit(Program):
         key = 'private_data_path'
         if key in snlcinp :
             path = os.path.expandvars(snlcinp[key])
-            path_check_list.append(path) 
+            skip_path = False 
+            if path == path_data_default: skip_path=True # allow user mistake
+            if not skip_path : path_check_list.append(path) 
 
         with open(path_sim_list_file,"r") as f :
             for line in f:
@@ -430,7 +433,6 @@ class LightCurveFit(Program):
         fitopt_label_list = [ 'DEFAULT' ] + ['']*(n_fitopt-1)
         link_FITOPT000_list = []
 
-        print(f" xxx ")
         # prepare fitnum FITOPT[nnn]
         for i in range(0,n_fitopt):
             fitopt_num_list[i] = (f"FITOPT{i:03d}")
@@ -441,19 +443,6 @@ class LightCurveFit(Program):
                     util.separate_label_from_arg(fitopt_arg_list[i])
                 fitopt_label_list[i] = label
                 fitopt_arg_list[i]   = arg_list
-
-            # xxxxxxxxxxx mark delete xxxxxxxxx
-            #word_list          = fitopt_arg_list[i].split()
-            #if len(word_list) > 0 :
-            #    has_label =  word_list[0][0] == '/'
-            #    if has_label :
-            #        label = word_list[0].strip('/')                    
-            #        fitopt_label_list[i] = label
-            #        fitopt_arg_list[i]   = " ".join(word_list[1:])
-            #    else :
-            #        fitopt_label_list[i] = 'None' 
-            #        fitopt_arg_list[i]   = " ".join(word_list)
-            # xxxxxxxxxx end mark xxxxxxxx
 
             # update list for symbolic links to FITOPT000 [DEFAULT]
             if self.is_sym_link(fitopt_arg_list[i]) :
@@ -595,20 +584,23 @@ class LightCurveFit(Program):
         # and that it has a full path.
         key = KEY_APPEND_TABLE_TEXTFILE
         if key in CONFIG :
-            text_file = os.path.expandvars(CONFIG[key])
-            msg = (f"  Every output FITRES file will be appended with: \n"\
-                   f"    {text_file} ")
-            logging.info(msg)
+            delim = None
+            if ',' in CONFIG[key]: delim=','
+            for text_file in CONFIG[key].split(delim):
+                text_file = os.path.expandvars(text_file)
+                msg = (f"  Every output FITRES file will be appended with: \n"\
+                       f"    {text_file} ")
+                logging.info(msg)
 
-            if not os.path.isfile(text_file):
-                msgerr.append(f"{text_file} does not exist.")
-                msgerr.append(f"Check {key} argument under CONFIG block.")
-                self.log_assert(False,msgerr)
+                if not os.path.isfile(text_file):
+                    msgerr.append(f"{text_file} does not exist.")
+                    msgerr.append(f"Check {key} argument under CONFIG block.")
+                    self.log_assert(False,msgerr)
 
-            if '/' not in text_file :
-                shutil.copy(text_file,script_dir)
+                if '/' not in text_file :
+                    shutil.copy(text_file,script_dir)
 
-        logging.info("")
+            logging.info("")
 
         # end fit_prep_table_options
 
@@ -1016,61 +1008,6 @@ class LightCurveFit(Program):
 
         # end merge_update_state
 
-    def split_sum_stats(self, search_failure_flag, log_list, yaml_list):
-
-        # xxxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxx
-
-        # Return statistics sums for yaml_list files.
-        # If search_failure_flag = Flase, then examine only the yaml_list
-        # and do not check for failures.
-        # When all DONE files exist, this function is called with
-        # search_failure_flag=True so that failures are examined too.
-
-        submit_info_yaml = self.config_prep['submit_info_yaml']
-        script_dir       = submit_info_yaml['SCRIPT_DIR']
-        n_log_file       = len(log_list)
-        split_stats = {
-            'nevt_sum_tot'        : 0, 
-            'nevt_sum_cut_snana'  : 0,
-            'nevt_sum_cut_lcfit'  : 0,
-            'cpu_sum'             : 0.0,
-            'nfail_sum'           : 0
-        }
-
-        # xxxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxx
-
-        for isplit in range(0,n_log_file):            
-            yaml_file = yaml_list[isplit]            
-            nevt_test = -9  # used to search for failures
-            if yaml_file :
-                YAML_FILE = (f"{script_dir}/{yaml_file}")
-                yaml_data = util.extract_yaml(YAML_FILE)
-                split_stats['nevt_sum_tot']       += yaml_data['NEVT_TOT']
-                split_stats['nevt_sum_cut_snana'] += yaml_data['NEVT_SNANA_CUTS']
-                split_stats['nevt_sum_cut_lcfit'] += yaml_data['NEVT_LCFIT_CUTS']
-                split_stats['cpu_sum']            += yaml_data['CPU_TIME']
-
-                # fix cpu format
-                cpu = (f"{split_stats['cpu_sum']:.1f}")
-                split_stats['cpu_sum']  = float(cpu)
-
-                # test value for failure testing below
-                nevt_test = yaml_data['ABORT_IF_ZERO'] 
-
-        # xxxxxxxxxx OBSOLETE MARK DELETE xxxxxxxxxxx
-
-            # check flag to check for failure.        
-            if search_failure_flag and nevt_test <= 0 :
-                log_file   = log_list[isplit]
-                found_fail = self.check_for_failure(log_file,nevt_test,isplit+1)
-                if found_fail :
-                    split_stats['nfail_sum'] += 1
-
-        return split_stats
-
-        # end split_sum_stats
-        # xxxxxxxxxx END OBSOLETE MARK DELETE xxxxxxxxxxx
-
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
         # irow is the row to wrapup in MERGE_INFO_CONTENTS
         # One row corresonds to one VERSION and one FITOPT;
@@ -1350,7 +1287,7 @@ class LightCurveFit(Program):
         
         key  = KEY_APPEND_TABLE_TEXTFILE
         if key in submit_info_yaml :
-            external_file = submit_info_yaml[key]
+            external_file_list = submit_info_yaml[key]
         else:
             return
 
@@ -1359,8 +1296,10 @@ class LightCurveFit(Program):
         log_file  = "TEMP_COMBINE.LOG"
 
         cddir = (f"cd {script_dir}")
-        cmd1  = (f"{PROGRAM_COMBINE_FITRES} {orig_file} {external_file} " \
-                 f"-outfile_text {out_file} >& {log_file}" )
+        cmd1  = (f"{PROGRAM_COMBINE_FITRES} {orig_file} {external_file_list} " \
+                 f"-outfile_text {out_file} " \
+                 f"-nullval_float {NULLVAL_COMBINE_FITRES} " \
+                 f">& {log_file} " )
         cmd2  = (f"mv {out_file} {orig_file}")
         cmd3  = (f"rm {log_file}")
         cmd   = (f"{cddir} ; {cmd1} ; {cmd2} ; {cmd3}")
@@ -1681,5 +1620,21 @@ class LightCurveFit(Program):
         return flag
         # end force_merge_table_fail
 
+    def get_misc_merge_info(self):
+        # return misc info lines to write into MERGE.LOG file .
+        # Each line is of the form
+        #   KEYNAM:  VALUE
+
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        survey,idsurvey  = util.get_survey_info(script_dir)
+
+        info_lines  = []
+        info_lines.append(f"SURVEY:         {survey}")
+        info_lines.append(f"IDSURVEY:       {idsurvey}")
+        return info_lines
+        # end get_misc_merge_info    
+
     def get_merge_COLNUM_CPU(self):
         return COLNUM_FIT_MERGE_CPU
+

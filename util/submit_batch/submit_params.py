@@ -33,24 +33,28 @@ PROGRAM_TYPE_FIT  = "FIT"  # light curve fit (e.g., SALT2, PSNID, ...)
 PROGRAM_TYPE_BBC  = "BBC"  # BEAMS with bias corrections
 
 # default program names ... can be changed by user
-PROGRAM_NAME_SIM  =  "snlc_sim.exe"
-PROGRAM_NAME_FIT  =  "snlc_fit.exe"
-PROGRAM_NAME_BBC  =  "SALT2mu.exe"
+PROGRAM_NAME_SIM   =  "snlc_sim.exe"
+PROGRAM_NAME_FIT   =  "snlc_fit.exe"
+PROGRAM_NAME_BBC   =  "SALT2mu.exe"
+PROGRAM_NAME_UNKNOWN =  "UNKNOWN"     # must be specified by JOBNAME key
 
 SUBMIT_MODE_BATCH = "BATCH"
 SUBMIT_MODE_SSH   = "SSH"
 
 # define subDir for batch scripts
-SUBDIR_SCRIPTS_SIM = "" 
-SUBDIR_SCRIPTS_FIT = "SPLIT_JOBS_LCFIT"
-SUBDIR_SCRIPTS_BBC = "SCRIPTS_BBCFIT"
+SUBDIR_SCRIPTS_SIM   = "" 
+SUBDIR_SCRIPTS_FIT   = "SPLIT_JOBS_LCFIT"
+SUBDIR_SCRIPTS_BBC   = "SCRIPTS_BBCFIT"
+SUBDIR_SCRIPTS_TRAIN = "SCRIPTS_TRAIN"
+SUBDIR_OUTPUT_TRAIN  = "OUTPUT_TRAIN"
+SUBDIR_CALIB_TRAIN   = "CALIB_TRAIN"
 
 MODEL_SNIa  = "SNIa"
 MODEL_NONIa = "NONIa"
 
 HOSTNAME = os.uname()[1].split('.')[0]
 
-MEMORY_DEFAULT = "2000"  # default memory request for batch jobs
+BATCH_MEM_DEFAULT = "2000"   # default memory request for batch jobs
 
 USERNAME = getpass.getuser()
 USER4    = USERNAME[0:4]
@@ -63,6 +67,7 @@ seconds_since_midnight = int(time.time() - time.mktime(today.timetuple()))
 
 SUFFIX_FITRES = "FITRES"
 SUFFIX_M0DIF  = "M0DIF"
+SUFFIX_COV    = "COV"
 
 # define monitor files
 MERGE_LOG_FILE    = "MERGE.LOG"                                      
@@ -157,15 +162,9 @@ CONFIG:
   BATCH_INFO: sbatch [batch_template_file]  [n_core] 
      or 
   NODELIST: [node1] [node2] ...  # for ssh 
-  
-  # optional switch from using default $SNANA_DIR/bin/snlc_sim.exe
-  JOBNAME: $MY_PATH/snlc_sim.exe 
 
   # optional memory request (default is 2 GB)
-  BATCH_MEM: 4000     # 4GB (e..g, extra mem for big SIMSED models)
-
-  # optional switch from using default $SNANA_DIR/bin/snlc_fit.exe
-  JOBNAME: $MY_PATH/snlc_fit.exe 
+  BATCH_MEM: 4000Mb     # 4GB (e..g, extra mem for big SIMSED models)
 
   # default ALL.DONE is created under OUTDIR; here can specify
   # an optional/additionl done file anywhere
@@ -224,6 +223,9 @@ HELP_CONFIG_SIM =  f"""
 
   """ +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
+  # optional switch from using default $SNANA_DIR/bin/snlc_sim.exe
+  JOBNAME: $MY_PATH/snlc_sim.exe 
+
   # option to re-route data files (default is $SNDATA_ROOT/SIM)
   PATH_SNDATA_SIM:  $SCRATCH_SIMDIR 
 
@@ -298,6 +300,9 @@ HELP_CONFIG_FIT = f"""
 
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
+  # optional switch from using default $SNANA_DIR/bin/snlc_fit.exe
+  JOBNAME: $MY_PATH/snlc_fit.exe 
+
   OUTDIR:  [outdir]              # all output goes here
   VERSION:
   - MY_DATA    # in $SNDATA_ROOT/lcmerge, or PRIVATE_DATA_PATH 
@@ -312,7 +317,8 @@ HELP_CONFIG_FIT = f"""
   - /RETRAIN/  FITMODEL_NAME  SALT2.retrain1 
   - /RETRAIN/  FITMODEL_NAME  SALT2.retrain2 
   - /RETRAIN/  FITMODEL_NAME  SALT2.retrain3 
-  - CUTWIN_SNRMAX 6 999  \t\t\t# no label needed
+  - /NOREJECT_misc/  CUTWIN_MJD 56550 57040    # not in 2nd-iter BBC reject
+  - CUTWIN_SNRMAX 6 999                        # no label needed
   - CUTWIN_SNRMAX 6 999  CUTWIN_SNRMAX2 4 999  # multiple options allowed   
   - USE_MINOS
   - FITOPT000     # no fit; ln -s FITOPT000.[SUFFIX] FITOPT011.[SUFFIX]
@@ -323,6 +329,8 @@ HELP_CONFIG_FIT = f"""
 # with multiple surveys. For example above, FITOPT011 and FITOP012 could 
 # be calibration variatios for a different survey, so here the sym link
 # uses the default LCFIT (FITOPT000) without wasting CPU.
+# Labels with NOREJECT are used by BBC to exlcude these tests in 
+# determining reject list in 2nd BBC fit iteration.
 
   # optional append variables from root/hbook into FITRES-TEXT table.
   #  (in old split_and_fit script, this key was APPEND_TABLE_TEXT)
@@ -330,10 +338,13 @@ HELP_CONFIG_FIT = f"""
   #     stable_dump.pl <hbook_or_root_file> FITRES
    APPEND_TABLE_VARLIST: SNRMAX_g SNRMAX_r SNRMAX_i SNRMAX_z
 
-  # optional append variables from external file into FITRES-TEXT table.
+  # optional append variables from external file(s) into FITRES-TEXT table.
   #  (in old split_and_fit script, this key was FITRES_COMBINE_FILE)
   # E.g., supplement list of host properties, v_pec, etc ...
   APPEND_TABLE_TEXTFILE:  APPEND_THIS_FILE.FITRES
+  APPEND_TABLE_TEXTFILE:  APPEND1.FITRES,APPEND2.FITRES,APPEND3.FITRES
+  APPEND_TABLE_TEXTFILE:  APPEND1.FITRES APPEND2.FITRES APPEND3.FITRES
+  #  (accepts comma-sep or space sep list of files)
 
   # debug options to force failure in table-merge:
   FORCE_MERGE_TABLE_MISSING(HBOOK):  force missing HBOOK merge
@@ -364,6 +375,9 @@ HELP_CONFIG_BBC = f"""
     ***** HELP/MENU for BBC YAML Input *****
   """  +  (f"{HELP_CONFIG_GENERIC}") +  \
   f"""
+  # optional switch from using default $SNANA_DIR/bin/SALT2mu.exe
+  JOBNAME: $MY_PATH/SALT2mu.exe 
+
   INPDIR+: 
   - dirSurvey1  # LCFIT OUTDIR for Survey1
   - dirSurvey2  # LCFIT OUTDIR for Survey2
@@ -379,13 +393,14 @@ HELP_CONFIG_BBC = f"""
   # there is no need for this string-match key.
   STRINGMATCH_IGNORE:   _DES  _LOWZ 
     
-  # BBC variations (for each VERSION and each FITOPT)
+  # BBC variations (for each VERSION and each FITOPT). Note that the
+  # NOREJECT label excludes this MUOPT from defining reject.list.
   MUOPT: 
-  - p1=0.2 p2=3.3 
-  - redchi2_tol=.02
-  - sig1=0.14
-  - simfile_biascor=[something_else]
-
+  - /SYST_ab/   p1=0.2 p2=3.3 
+  - /SYST_tol/  redchi2_tol=.02
+  - /SYST_sig1/ sig1=0.14
+  - /NOREJECT/  simfile_biascor=[something_else]
+  
   # Option to run wfit (fast, but ancient) as merge process. Useful
   # for quick cosmology cross-checks. To get help on argList, 
   # run "wfit.exe" with no args. Output cosmology fit params are 
@@ -406,9 +421,76 @@ HELP_CONFIG_BBC = f"""
   # process M independent random sum-samples; useful to compare RMS vs. errors.
   # Be careful that every VERSION+FITOPT+MUOPT is divided into NSPLITRAN jobs.
   NSPLITRAN: <nsplitran>
+
+  # Optional FITOPT map of SURVEY x FITOPT(LCFIT) for each output FITOPT(BBC).
+  # For each FITOPT(BBC), this map gives instructions for which FITRES file 
+  # (from LCFIT task) to catenate from each INPDIR. This map is designed to
+  # be created automatically by Pippin, but there may be cases where users 
+  # create this map manually, or with a different script. The order of
+  # LCFIT-FITOPTs follows the INPDIR order. With this map feature, links to 
+  # FITOPT000 are NOT needed in LCFIT task. Batch init process for BBC writes
+  # FITOPT_OUT_LIST (yaml block) to SUBMIT.INFO file with summary of labels 
+  # and args for each FITOPT(BBC). Beware that LCFIT FITOPT numbers do not 
+  # align with BBC's FITOPT_OUT_LIST numbers.
+  FITOPT_MAP:
+    SURVEY_LIST:  LOWZ  DES  PS1              # human-readable table header
+    FITOPT000: FITOPT000 FITOPT000 FITOPT000  # global default
+    FITOPT001: FITOPT001 FITOPT001 FITOPT001  # global (e.g., MWEBV_SCALE)
+    FITOPT002: FITOPT002 FITOPT000 FITOPT000  # change only LOWZ (e.g., calib)
+    FITOPT003: FITOPT003 FITOPT000 FITOPT000  # change only LOWZ
+    FITOPT004: FITOPT000 FITOPT002 FITOPT000  # change only DES
+    FITOPT005: FITOPT000 FITOPT003 FITOPT000  # change only DES
+    FITOPT006: FITOPT000 FITOPT000 FITOPT002  # change only PS1
+    FITOPT007: FITOPT000 FITOPT000 FITOPT003  # change only PS1
+
 #END_YAML
 
 """
+
+
+HELP_CONFIG_TRAIN_SALT2 = f"""
+    ***** HELP/MENU for TRAIN_SALT2 YAML Input *****
+  """  +  (f"{HELP_CONFIG_GENERIC}") +  \
+  f"""
+  # Must specify name of training script (because it's outside SNANA)
+  JOBNAME: [train_script_name]
+
+  # input data files and config for snpca. Includes survey.yaml, which
+  # maps snpca surveys/instruments into SNANA survey/bandpasses.
+  PATH_INPUT_TRAIN: [path]  
+
+  # input Instrument and MagSys (aka SALTPATH)
+  PATH_INPUT_CALIB: [path] 
+
+  # TRAINOPT args specify calibration systematics per band or group of bands.
+  # An independent training is done for each TRAINOPT argument.
+  # SHIFTLIST_FILE is a file containing a list of MAGSHIFT and WAVESHIFT
+  # keys; <CR> are stripped so that contents can be distributed among 
+  # multiple lines for human readability. The explicit MAGSHIFT and
+  # WAVESHIFT keys are intended for linear perturbations to measure
+  # derivatives for systematics; the SHIFTLIST_FILE feature is intended
+  # for a random calibration offset in every band.
+  # PATH_INPUT_CALIB key specifies a different calibration directory.
+
+  TRAINOPT:
+  - MAGSHIFT  SDSS  g 0.01
+  - MAGSHIFT  SDSS  g,z 0.01,-0.01    MAGSHIFT CfA2 B 0.01
+  - WAVESHIFT CfA3  r,i 10,10         MAGSHIFT CfA3 U .01
+  - SHIFTLIST_FILE  shifts_01.dat
+  - SHIFTLIST_FILE  shifts_02.dat
+  - SHIFTLIST_FILE  shifts_03.dat
+  - PATH_INPUT_CALIB  $PATH/calib_different
+
+  OUTDIR:   [outdir]   # all output goes here
+
+ # The TRAINOPT-calibration shifts in the training are propagated to 
+ # SNANA's light curve fitting via MAGSHIFT and WAVESHIFT keys written
+ # to the SALT2.INFO file for each SALT2.MODELnnn directory. The mapping
+ # "snpca survey/instrument -> SNANA survey/passbands" is contained in 
+ # [PATH_INPUT_TRAIN]/survey.yaml.
+
+"""
+
 
 HELP_MERGE = f"""
           MERGE LOGIC
@@ -557,12 +639,13 @@ A reasonable choice is aiz_thresh=30 so that P_FF ~ E-6
 
 # - - - - - - - 
 HELP_MENU = { 
-    'SIM' : HELP_CONFIG_SIM,
-    'FIT' : HELP_CONFIG_FIT,
-    'BBC' : HELP_CONFIG_BBC,
-    'TRANSLATE' : HELP_TRANSLATE,
-    'MERGE'     : HELP_MERGE,
-    'AIZ'       : HELP_AIZ     # ABORT_IF_ZERO
+    'SIM'         : HELP_CONFIG_SIM,
+    'FIT'         : HELP_CONFIG_FIT,
+    'BBC'         : HELP_CONFIG_BBC,
+    'TRAIN_SALT2' : HELP_CONFIG_TRAIN_SALT2,
+    'TRANSLATE'   : HELP_TRANSLATE,
+    'MERGE'       : HELP_MERGE,
+    'AIZ'         : HELP_AIZ     # ABORT_IF_ZERO
 }
 
 # === END ===

@@ -18,6 +18,7 @@
 #
 # Oct 29 2020: add SALT2train framework
 # Nov 24 2020: add --ncore arg
+# Dec 17 2020: purge now works on train_SALT2 outputs
 # - - - - - - - - - -
 
 #import os
@@ -314,13 +315,21 @@ def print_nosubmit_messages(config_yaml):
 
 def purge_old_submit_output():
     
-    REMOVE_LIST = [ SUBDIR_SCRIPTS_FIT, SUBDIR_SCRIPTS_BBC, "*.LCPLOT" ]
+    #REMOVE_LIST = [ SUBDIR_SCRIPTS_FIT, SUBDIR_SCRIPTS_BBC, "*.LCPLOT" ]
 
+    # LC fitting
     util.find_and_remove(f"{SUBDIR_SCRIPTS_FIT}*")
-    util.find_and_remove(f"{SUBDIR_SCRIPTS_BBC}*")
     util.find_and_remove(f"FITOPT*.LCPLOT*")
     util.find_and_remove(f"FITOPT*.HBOOK*")
     util.find_and_remove(f"FITOPT*.ROOT*")
+
+    # BBC
+    util.find_and_remove(f"{SUBDIR_SCRIPTS_BBC}*")
+
+    # SALT2 training
+    util.find_and_remove(f"{SUBDIR_SCRIPTS_TRAIN}")
+    util.find_and_remove(f"{SUBDIR_CALIB_TRAIN}")
+    util.find_and_remove(f"{SUBDIR_OUTPUT_TRAIN}")
 
     # end purge_old_submit_output
 

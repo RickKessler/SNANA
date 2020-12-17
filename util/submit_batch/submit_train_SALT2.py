@@ -27,8 +27,8 @@ SALTPATH_FILES   = [ 'fitmodel.card',  'Instruments',  'MagSys' ]
 FILTERWHEEL_FILE = "FilterWheel"
 
 # define subdirs to contain outputs of snpca that are not used by LC fitters
-SUBDIR_CALIB    = "CALIB_TRAIN"    # a.k.a SALTPATH
-SUBDIR_TRAIN    = "OUTPUT_TRAIN"
+# xxx SUBDIR_CALIB    = "CALIB_TRAIN"    # a.k.a SALTPATH
+# xxx SUBDIR_TRAIN    = "OUTPUT_TRAIN"
 
 # define subdirs under SUBDIR_CALIB ($SALTPATH)
 SUBDIR_MAGSYS   = "MagSys"
@@ -236,10 +236,10 @@ class train_SALT2(Program):
     def get_path_trainopt(self,which,trainopt):
         output_dir    = self.config_prep['output_dir']
         path          = ""
-        if which == SUBDIR_CALIB :
-            path = (f"{output_dir}/{SUBDIR_CALIB}/{trainopt}")
-        elif which == SUBDIR_TRAIN :
-            path = (f"{output_dir}/{SUBDIR_TRAIN}/{trainopt}")
+        if which == SUBDIR_CALIB_TRAIN :
+            path = (f"{output_dir}/{SUBDIR_CALIB_TRAIN}/{trainopt}")
+        elif which == SUBDIR_OUTPUT_TRAIN :
+            path = (f"{output_dir}/{SUBDIR_OUTPUT_TRAIN}/{trainopt}")
         elif which == "MODEL" :
             model_suffix  = self.config_prep['model_suffix']
             nnn           = trainopt[-3:]
@@ -268,15 +268,15 @@ class train_SALT2(Program):
         outdir_model_list  = []
         update_calib_info  = []
 
-        topdir_calib    = (f"{output_dir}/{SUBDIR_CALIB}")
-        topdir_train    = (f"{output_dir}/{SUBDIR_TRAIN}")
+        topdir_calib    = (f"{output_dir}/{SUBDIR_CALIB_TRAIN}")
+        topdir_train    = (f"{output_dir}/{SUBDIR_OUTPUT_TRAIN}")
         os.mkdir(topdir_calib)
         os.mkdir(topdir_train)
 
         for trainopt,arg in zip(trainopt_num_list,trainopt_arg_list) :
-            outdir_calib   = self.get_path_trainopt(SUBDIR_CALIB,trainopt)
-            outdir_train   = self.get_path_trainopt(SUBDIR_TRAIN,trainopt)
-            outdir_model   = self.get_path_trainopt("MODEL",trainopt)
+            outdir_calib = self.get_path_trainopt(SUBDIR_CALIB_TRAIN,trainopt)
+            outdir_train = self.get_path_trainopt(SUBDIR_OUTPUT_TRAIN,trainopt)
+            outdir_model = self.get_path_trainopt("MODEL",trainopt)
             outdir_calib_list.append(outdir_calib)
             outdir_train_list.append(outdir_train)
             outdir_model_list.append(outdir_model)
@@ -315,7 +315,7 @@ class train_SALT2(Program):
         calib_updates    = []
         replace_path_calib = False
 
-        logging.info(f"   Prepare {SUBDIR_CALIB}/{trainopt}")
+        logging.info(f"   Prepare {SUBDIR_CALIB_TRAIN}/{trainopt}")
 
         # check for alternative calib directory (Nov 25 2020)
         arg_list = arg.split()
@@ -996,7 +996,7 @@ class train_SALT2(Program):
         output_dir   = self.config_prep['output_dir']
         script_dir   = self.config_prep['script_dir']
         model_dir    = self.get_path_trainopt("MODEL",trainopt)
-        train_dir    = self.get_path_trainopt(SUBDIR_TRAIN,trainopt)
+        train_dir    = self.get_path_trainopt(SUBDIR_OUTPUT_TRAIN,trainopt)
 
         # get process time between START and DONE files
         done_file  = (f"{script_dir}/{trainopt}.DONE")
@@ -1036,17 +1036,17 @@ class train_SALT2(Program):
         self.merge_create_SALT2_INFO_file(trainopt)
 
         model_dir  = self.get_path_trainopt("MODEL",trainopt)
-        train_dir  = self.get_path_trainopt(SUBDIR_TRAIN,trainopt)
-        calib_dir  = self.get_path_trainopt(SUBDIR_CALIB,trainopt)
+        train_dir  = self.get_path_trainopt(SUBDIR_OUTPUT_TRAIN,trainopt)
+        calib_dir  = self.get_path_trainopt(SUBDIR_CALIB_TRAIN,trainopt)
 
         logging.info(f"    Compress output for {trainopt} :")
 
         # make tar file from CALIB/TRAINOPTnnn  (aka SALTPATH)
-        logging.info(f"\t Compress {SUBDIR_CALIB}/{trainopt}")
+        logging.info(f"\t Compress {SUBDIR_CALIB_TRAIN}/{trainopt}")
         util.compress_subdir(+1,calib_dir)
 
         # Gzip contents of TRAINOPT, then  TRAINOPTnnn -> TRAINOPTnnn.tar.gz
-        logging.info(f"\t Compress {SUBDIR_TRAIN}/{trainopt}")
+        logging.info(f"\t Compress {SUBDIR_OUTPUT_TRAIN}/{trainopt}")
         cmd_clean = (f"cd {train_dir}; rm *.fits; gzip *.dat *.list")
         os.system(cmd_clean)
         util.compress_subdir(+1,train_dir)

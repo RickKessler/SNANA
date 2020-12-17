@@ -1076,7 +1076,7 @@ void checkBinary_SIMSED(char *binaryFile) {
     //  tdif_sec = file_timeDif(binaryFile, INFO_SIMSED_FILENAME_FULL );
     tdif_sec = file_timeDif(binaryFile, ptrFile );
 
-    if ( ifile ==1 ) { tdif_sec = -54.0 ; } // xxx REMOVE
+    // xxx    if ( ifile ==1 ) { tdif_sec = -54.0 ; } // xxx REMOVE
 
     if ( tdif_sec < 0 ) {
       tdif_day = -(double)tdif_sec / 86400. ;

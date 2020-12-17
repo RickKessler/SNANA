@@ -11730,6 +11730,9 @@ c              so that ignored epochs are not even stored.
 c
 c Jul 11 2020: read ZP and PSF, and call SET_EPVAR_MISC
 c
+c Dec 16 2020: set NOBS=NRD after reading MJD and use NOBS for ep loop
+c              -> works for compact FITS format where GAIN is missing.
+c
 c -------------------------
       IMPLICIT NONE
 
@@ -11745,7 +11748,7 @@ c local variables
 +CDE,FILTCOM.
 
       INTEGER 
-     &   NRD, JPAR, LRET, ep
+     &   NRD, NOBS, JPAR, LRET, ep
      &  ,IFILT_OBS, IFILT, IDFIELD, NEPCUT
   
       CHARACTER  KEYNAME*80
@@ -11769,6 +11772,7 @@ c CALL CHECK_FITSABORT, and with optional keys needed to select epochs.
       NRD = RD_SNFITSIO_DBL(IROW, KEYNAME, SNLC8_MJD(1), 
      &         INDXFITS_EPCUTS(JPAR), 3 )
       CALL CHECK_FITSABORT(IVERS,NRD,KEYNAME)
+      NOBS = NRD   ! gaurantee that NOBS is always valid
 
       KEYNAME  = "FIELD" // char(0)
       JPAR = JPAR + 1
@@ -11839,7 +11843,6 @@ c July 2020: read ZP and PSF too
       NRD = RD_SNFITSIO_FLT(IROW, KEYNAME, SNLC_GAIN,
      &     INDXFITS_EPCUTS(JPAR), 8, LRET)
 
-
 c -----------------------------------------------------
 c use above info to determine which epochs to keep/reject
 
@@ -11847,7 +11850,8 @@ c use above info to determine which epochs to keep/reject
       Z      = SNLC_REDSHIFT
       NEPCUT = 0
 
-      DO 99 ep = 1, NRD
+c xxx mark delete      DO 99 ep = 1, NRD
+      DO 99 ep = 1, NOBS
         MJD         = SNGL( SNLC8_MJD(ep) )
         IDFIELD     = ISNLC_IDFIELD(ep)
         IFILT_OBS   = ISNLC_IFILT_OBS(ep)        
@@ -11857,10 +11861,6 @@ c use above info to determine which epochs to keep/reject
         IGNORE  = CHECK_EPOCH_IGNORE(1,ep) .and.
      &            (.not. REFORMAT_SAVE_BADEPOCHS)
 
-c xxxxxxx mark delete xxxxxxxxx
-c        LCUT    = LCUTEPOCH_LEGACY(Z, PKMJD, MJD, IFILT, IDFIELD ) 
-c     &            .and. (.not. IGNORE )
-c xxxxxxxxxx
         LCUT  = LCUTEPOCH(0, Z, PKMJD, EP) .and. (.not. IGNORE )
 
         IF ( LCUT ) then
@@ -28609,12 +28609,6 @@ C set BX logical for obs-frame
             MASKFILT_RDKCOR(ifilt) = IBSET(MASK,1)
             FILTOBS_NAME(ifilt_obs)      = cfilt
             SURVEY_FILT_NAME(ifilt_obs)  = csurvey ! Nov 23 2020
-
-c xxxxxxxxxxx mark delete xxxx .xyz
-c            write(6,661) ifilt_obs, cfilt(1:14), csurvey(1:20)
-c 661        format(' xxx RDKCOR_FF: ifiltobs=',I2, 2x, 'cfilt=',A,
-c     &           2x,'SURVEY=',A)
-c xxxxxxx
 
             LAMSHIFT = FILTER_LAMSHIFT_FILT(IFILTDEF) 
             CALL SHIFT_FILTTRANS(IFILT_OBS, LAMSHIFT, NLBIN_SNSED, 

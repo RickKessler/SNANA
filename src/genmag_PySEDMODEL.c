@@ -750,14 +750,13 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
       LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
       LAMSED       = LAMOBS/z1;   // rest-frame wavelength 
       lam[ilamobs] = LAMSED ;
-      //  xxxx removed Oct 31 2019 by RK magSmear[ilamobs] = 0.0 ;
     }
 
     /*
     printf(" xxx %s:  Trest=%.3f  ifilt_obs=%d \n", 
 	   fnam,  Trest, ifilt_obs); fflush(stdout);
     */
-    get_genSmear( Trest, cdum, x1dum, NLAMFILT, lam, GENSMEAR.MAGSMEAR_LIST) ;
+    get_genSmear( Trest, cdum, x1dum, NLAMFILT, lam, GENSMEAR.MAGSMEAR_LIST);
   }
 
   // - - - - - -

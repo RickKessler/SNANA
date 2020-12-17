@@ -35,6 +35,7 @@
 #        HISTORY
 #
 # Dec 02 2020: add SUFFIX_COV to list of files to move
+# Dec 17 2020: update get_matrix_FITOPTxMUOPT to process multiple FITOPTxMUOPT
 #
 # - - - - - - - - - -
 
@@ -262,17 +263,6 @@ class BBC(Program):
             #print(f" xxx ------------------------------------------")
             #print(f" xxx version_list = {version_list} \n xxx in {path} ") 
             #print(f" xxx fitopt_list({n_fitopt}) = {fitopt_table}")
-
-
-
-        # xxxxxxxx mark obsolete 10-13-2020 xxxx
-        # strip off fitopt_num_list from fitopt_table
-        #for ifit in range(0,n_fitopt) :
-        #    fitopt_table   = fitopt_table_list2d[0][ifit]
-        #    fitopt_num     = fitopt_table[COLNUM_FITOPT_NUM]
-        #    fitopt_num_list.append(fitopt_num)
-        # xxxxxxxxxx
-
 
         # - - - - -
         # abort if n_fitopt is different for any INPDIR
@@ -664,6 +654,8 @@ class BBC(Program):
         self.config_prep['use_fitopt']      = use_fitopt
         self.config_prep['n_use_matrix2d']  = n_use2d
 
+        sys.exit(f"\n xxx DEBUG STOP xxx \n")
+
         # end bbc_prep_index_lists
 
     def get_matrix_FITOPTxMUOPT(self):
@@ -673,6 +665,7 @@ class BBC(Program):
         # use_matrix1d is a 1D array of which ifit are used.
         #
         # See more info with submit_batch_jobs.sh -H BBC
+        # Dec 17 2020: update to process list of FITOPTxMUOPT 
 
         n_fitopt        = self.config_prep['n_fitopt']
         n_muopt         = self.config_prep['n_muopt']
@@ -683,10 +676,30 @@ class BBC(Program):
         ALL_FLAG      = False
         or_char       = '+'
         and_char      = '&'
-
+        bool_logic_list = []
+        ifit_logic_list = []
+        imu_logic_list  = []
+        dump_flag_matrix = False
         ifit_logic = -9;  imu_logic = -9
 
+        # check if FITOPTxMUOPT is specified, and whether it's 
+        # one value (str) or a list. If one value, convert to list.
+        FITOPTxMUOPT_LIST = []
         if KEY_FITOPTxMUOPT in CONFIG :
+            FITOPTxMUOPT_LIST = CONFIG[KEY_FITOPTxMUOPT]
+            if isinstance(FITOPTxMUOPT_LIST,str): 
+                FITOPTxMUOPT_LIST =  [ FITOPTxMUOPT_LIST ]
+        else:
+            ALL_FLAG     = True
+            CONFIG[KEY_FITOPTxMUOPT] = 'ALL'
+
+        # - - - - - - 
+
+        for FITOPTxMUOPT in FITOPTxMUOPT_LIST :
+
+            if FITOPTxMUOPT == 'DUMP' :
+                dump_flag_matrix = True
+                continue 
 
             if ignore_fitopt:
                 msgerr.append(f"Cannot mix {KEY_FITOPTxMUOPT} key with " \
@@ -698,9 +711,8 @@ class BBC(Program):
                               f"command line arg --ignore_muopt")
                 self.log_assert(False,msgerr)
 
-            FITOPTxMUOPT = CONFIG[KEY_FITOPTxMUOPT]
             if or_char in FITOPTxMUOPT: 
-                bool_logic = or_char ; bool_string = "or"
+                bool_logic = or_char ;  bool_string = "or"
             elif and_char in FITOPTxMUOPT:
                 bool_logic = and_char ; bool_string = "and"
             else:
@@ -712,12 +724,14 @@ class BBC(Program):
             ifit_logic   = int(FITOPTxMUOPT[0:j_bool])   # fitopt number
             imu_logic    = int(FITOPTxMUOPT[j_bool+1:])  # muopt number
 
-            msg = (f"  {KEY_FITOPTxMUOPT} logic: process only " \
+            msg = (f"  {KEY_FITOPTxMUOPT} logic: process " \
                    f"FITOPT={ifit_logic} {bool_string} MUOPT={imu_logic} ")
             logging.info(msg)
-        else:
-            ALL_FLAG     = True
-            CONFIG[KEY_FITOPTxMUOPT] = 'ALL'
+
+            bool_logic_list.append(bool_logic)
+            ifit_logic_list.append(ifit_logic)
+            imu_logic_list.append(imu_logic)
+
 
         # - - - - - - - - - - 
         n_use2d = 0
@@ -727,18 +741,26 @@ class BBC(Program):
         
         for ifit in range(0,n_fitopt):
             for imu in range(0,n_muopt):
-                use_ifit = (ifit == ifit_logic )
-                use_imu  = (imu  == imu_logic  )
-                use2d = False ; 
-                if ALL_FLAG:
-                    use2d = True
-                elif bool_logic == or_char :
-                    use2d = use_ifit or use_imu
-                elif bool_logic == and_char :
-                    use2d = use_ifit and use_imu
+                use2d    = False ; 
+
+                for bool_logic, ifit_logic, imu_logic in \
+                    zip(bool_logic_list, ifit_logic_list, imu_logic_list):
+
+                    use_ifit = (ifit == ifit_logic )
+                    use_imu  = (imu  == imu_logic  )
+                    if ALL_FLAG:
+                        use2d = True
+                    elif bool_logic == or_char :
+                        if use_ifit or use_imu: use2d = True
+                    elif bool_logic == and_char :
+                        if use_ifit and use_imu : use2d = True
 
                 if ignore_fitopt : use2d = (ifit == 0)
                 if ignore_muopt  : use2d = (use2d and imu==0)
+
+                #print(f" xxx check ifit,imu = {ifit}({ifit_logic}, "
+                #      f"{imu}({imu_logic})  " \
+                #      f" use[fit,mu,2d]={use_ifit}, {use_imu}, {use2d}")
 
                 if use2d :
                     use_matrix2d[ifit][imu] = True
@@ -748,10 +770,29 @@ class BBC(Program):
         #print(f"  xxx use_matrix2d = \n\t {use_matrix2d} ")
         #print(f"  xxx use_matrix1d = \n\t {use_matrix1d} ")
         #sys.exit(f"\n xxx DEBUG DIE xxx\n")
+        
+        if dump_flag_matrix :    
+            self.dump_matrix_FITOPTxMUOPT(use_matrix2d)
 
         return n_use2d, use_matrix2d, use_matrix1d
 
         # end get_matrix_FITOPTxMUOPT
+
+    def dump_matrix_FITOPTxMUOPT(self,matrix):
+        
+        n_fitopt        = self.config_prep['n_fitopt']
+        n_muopt         = self.config_prep['n_muopt']
+
+        logging.info(f"\n Dump FITOPTxMUOPT matrix: ")
+        for ifit in range(0,n_fitopt):
+            line = (f"   FITOPT{ifit:03d}:  ")
+            for imu in range(0,n_muopt):
+                USE = "F"
+                if matrix[ifit][imu] : USE = "T"
+                line += f"{USE} "
+            logging.info(f"{line}")
+
+        # end dump_matrix_FITOPTxMUOPT
 
     def bbc_prep_mkdir(self):
 

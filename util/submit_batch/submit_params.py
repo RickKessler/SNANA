@@ -412,13 +412,20 @@ HELP_CONFIG_BBC = f"""
   FITOPTxMUOPT: 2+3   # process only FITOPT=002 or  MUOPT=003
   FITOPTxMUOPT: 0&0   # process only FITOPT=000 and MUOPT=000
   FITOPTxMUOPT: 2&3   # process only FITOPT=002 and MUOPT=003
+
+  # and to specify multiple options,
+  FITOPTxMUOPT: 
+  - 0+0   # process FITOPT=000 or MUOPT=000 ...
+  - 2&4   # and include FITOPT002 x MUOPT004
+  - DUMP  # optional flag to dump explicit matrix for FITOPTxMUOPT
+
   # For first two examples, the number of BBC jobs per version is
   # NFITOPT + NMUOPT + 1. For next 2 examples, just 1 BBC job per version.
   # This key cannot be configured to mimic command line args 
   # --ignore_fitopt or --ignore_muopt.  However, "FITOPTxMUOPT: 0&0" is 
   # equivalent to setting both with "--ignore_fitopt --ignore_muopt"
 
-  # process M independent random sum-samples; useful to compare RMS vs. errors.
+  # process independent random sum-samples; useful to compare RMS vs. errors.
   # Be careful that every VERSION+FITOPT+MUOPT is divided into NSPLITRAN jobs.
   NSPLITRAN: <nsplitran>
 

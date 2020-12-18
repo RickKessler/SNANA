@@ -654,8 +654,6 @@ class BBC(Program):
         self.config_prep['use_fitopt']      = use_fitopt
         self.config_prep['n_use_matrix2d']  = n_use2d
 
-        sys.exit(f"\n xxx DEBUG STOP xxx \n")
-
         # end bbc_prep_index_lists
 
     def get_matrix_FITOPTxMUOPT(self):

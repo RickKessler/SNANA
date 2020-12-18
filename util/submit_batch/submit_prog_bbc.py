@@ -694,6 +694,7 @@ class BBC(Program):
 
         if len(FITOPTxMUOPT_LIST) == 0 :
             ALL_FLAG     = True
+            CONFIG[KEY_FITOPTxMUOPT] = "ALL"
 
         #print(f" xxx FITOPTxMUOPT_LIST = {FITOPTxMUOPT_LIST}")
         #print(f" xxx ALL_FLAG = {ALL_FLAG} ")

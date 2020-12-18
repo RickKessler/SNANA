@@ -224,7 +224,6 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   Event_PySEDMODEL.NPAR    = 0 ;
   for(ipar=0; ipar < MXPAR_PySEDMODEL; ipar++ ) 
     { Event_PySEDMODEL.PARNAME[ipar] = (char*) malloc(40*MEMC);  }
-
 #ifdef USE_PYTHON
   NPAR = fetchParNames_PySEDMODEL(Event_PySEDMODEL.PARNAME);
 #else
@@ -374,7 +373,8 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   for(o=0; o < NOBS; o++ ) {
     Tobs  = TOBS_list[o];
     Trest = Tobs/z1;
-
+    if (o > 0)
+      { NEWEVT_FLAG=0; }
     fetchSED_PySEDMODEL(EXTERNAL_ID, NEWEVT_FLAG, Trest, 
 			MXLAM_PySEDMODEL, HOSTPAR_LIST, &NLAM, LAM, SED, 
 			pyFORMAT_STRING_HOSTPAR);  
@@ -441,13 +441,14 @@ int fetchParNames_PySEDMODEL(char **parNameList) {
   printf("fetching parameter names from Python\n");
   // David: need your python magic to return these string names.
 
-
   sprintf(pyfun_tmp, "fetchParNames_%s", MODEL_NAME); 
+
   parnamesmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
   //xx  parnamesmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, 
   //xx					 "fetchParNames_BYOSED"); 
 
   sprintf(pyfun_tmp, "fetchNParNames_%s", MODEL_NAME ); 
+
   pNPARmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, pyfun_tmp);
   // xxx  pNPARmeth  = PyObject_GetAttrString(geninit_PySEDMODEL, 
   // xxx			      "fetchNParNames_BYOSED"); 
@@ -457,7 +458,6 @@ int fetchParNames_PySEDMODEL(char **parNameList) {
 
   NPAR = PyLong_AsLong(pNPAR);
   arrNames = (PyListObject *)(pNames);
-
   for(ipar=0; ipar < NPAR; ipar++ ) {
     pnamesitem = PyList_GetItem(arrNames,ipar);
     sprintf(parNameList[ipar],PyUnicode_AsUTF8(pnamesitem));  
@@ -580,19 +580,20 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   PyTuple_SetItem(pargs,1,PyFloat_FromDouble(MXLAM));
   PyTuple_SetItem(pargs,2,PyFloat_FromDouble(EXTERNAL_ID));
   PyTuple_SetItem(pargs,3,PyFloat_FromDouble(NEWEVT_FLAG));
+
   for(ihost=0; ihost < sizeof(HOSTPAR_LIST); ihost++ ){
     PyTuple_SetItem(pargs2,ihost,PyFloat_FromDouble(HOSTPAR_LIST[ihost]));
   }
-  PyTuple_SetItem(pargs,4,pargs2);
 
+  PyTuple_SetItem(pargs,4,pargs2);
   pNLAM  = PyEval_CallObject(pnlammeth, NULL);
   pLAM  = PyEval_CallObject(plammeth, NULL);
   pFLUX   = PyEval_CallObject(pmeth, pargs);
-
+  
   Py_DECREF(pmeth);
   Py_DECREF(plammeth);
   Py_DECREF(pnlammeth);
-  
+
   NLAM = PyFloat_AsDouble(pNLAM);
   Py_DECREF(pNLAM);
   

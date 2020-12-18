@@ -674,9 +674,9 @@ class BBC(Program):
         ALL_FLAG      = False
         or_char       = '+'
         and_char      = '&'
-        bool_logic_list = []
-        ifit_logic_list = []
-        imu_logic_list  = []
+        bool_logic_list  = []
+        ifit_logic_list  = []
+        imu_logic_list   = []
         dump_flag_matrix = False
         ifit_logic = -9;  imu_logic = -9
 
@@ -687,17 +687,20 @@ class BBC(Program):
             FITOPTxMUOPT_LIST = CONFIG[KEY_FITOPTxMUOPT]
             if isinstance(FITOPTxMUOPT_LIST,str): 
                 FITOPTxMUOPT_LIST =  [ FITOPTxMUOPT_LIST ]
-        else:
-            ALL_FLAG     = True
-            CONFIG[KEY_FITOPTxMUOPT] = 'ALL'
 
+        if 'DUMP' in FITOPTxMUOPT_LIST :
+            dump_flag_matrix  = True
+            FITOPTxMUOPT_LIST.remove('DUMP')
+
+        if len(FITOPTxMUOPT_LIST) == 0 :
+            ALL_FLAG     = True
+
+        #print(f" xxx FITOPTxMUOPT_LIST = {FITOPTxMUOPT_LIST}")
+        #print(f" xxx ALL_FLAG = {ALL_FLAG} ")
+        #print(f" xxx dump_flag_matrix = {dump_flag_matrix} ")
         # - - - - - - 
 
         for FITOPTxMUOPT in FITOPTxMUOPT_LIST :
-
-            if FITOPTxMUOPT == 'DUMP' :
-                dump_flag_matrix = True
-                continue 
 
             if ignore_fitopt:
                 msgerr.append(f"Cannot mix {KEY_FITOPTxMUOPT} key with " \
@@ -739,16 +742,18 @@ class BBC(Program):
         
         for ifit in range(0,n_fitopt):
             for imu in range(0,n_muopt):
-                use2d    = False ; 
+
+                if ALL_FLAG:
+                    use2d = True
+                else:
+                    use2d = False
 
                 for bool_logic, ifit_logic, imu_logic in \
                     zip(bool_logic_list, ifit_logic_list, imu_logic_list):
 
                     use_ifit = (ifit == ifit_logic )
                     use_imu  = (imu  == imu_logic  )
-                    if ALL_FLAG:
-                        use2d = True
-                    elif bool_logic == or_char :
+                    if bool_logic == or_char :
                         if use_ifit or use_imu: use2d = True
                     elif bool_logic == and_char :
                         if use_ifit and use_imu : use2d = True

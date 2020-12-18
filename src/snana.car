@@ -14242,7 +14242,6 @@ c now check list of variable names
           ITERSE_FILTER = IVAR
         else if ( CTMP(1:4) .EQ. 'FILT' ) then  ! 9/13/2017
           ITERSE_FILTER = IVAR
-
         else if ( CTMP(1:4) .EQ. 'BAND' ) then   ! Mar 29 2017
           ITERSE_FILTER = IVAR   
 
@@ -14264,11 +14263,6 @@ c now check list of variable names
           ITERSE_ZPFLUX = IVAR
         else if ( CTMP(1:3) .EQ. 'Zpt' ) then
           ITERSE_ZPFLUX = IVAR
-
-c xxxxxxxxx Jan 27 2020: mark delete to void conflict with ZPERR xxxxx
-c        else if ( CTMP(1:2) .EQ. 'ZP' ) then
-c          ITERSE_ZPFLUX = IVAR
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
         else if ( CTMP(1:6) .EQ. 'ZPFLUX' ) then
           ITERSE_ZPFLUX = IVAR
@@ -14327,7 +14321,7 @@ c Aug 15 2015: check required fields
      &                 ITERSE_FLUXCALERR, ONE, NVAR_TERSE)
 
       RETURN
-      END    ! end of PARSE_TERSE
+      END    ! end of PARSE_TERSE_VARLIST
 
 
 C ====================================
@@ -15231,11 +15225,6 @@ c apply epoch cut.
         IGNORE  = CHECK_EPOCH_IGNORE(1,EPMIN) .and. 
      &            (.not. REFORMAT_SAVE_BADEPOCHS)
 
-c xxxxxxxxxxx mark delete xxxxxxx
-c        LTMP    = LCUTEPOCH_LEGACY(Z,PKMJD,SNGL(MJD8),IFILT,IDFIELD)
-c     &            .and. (.not. IGNORE )
-c xxxxxxxxxxxxxx
-
         LTMP  = LCUTEPOCH(0,Z,PKMJD,EPMIN) .and. (.not. IGNORE )
 
         if ( .NOT. LTMP ) ISTAT = ISTAT_SKIP
@@ -15364,7 +15353,7 @@ c local var
      &  ,ccid*(MXCHAR_CCID)
 
       INTEGER LL, iwd, ifilt, ifilt_obs, NEWMJD, ep, EPMIN
-
+      INTEGER LWORD
       LOGICAL LKEY
 
 c function
@@ -15392,7 +15381,14 @@ c ---------- BEGIN --------
       EPMIN   = ISNLC_NEPOCH_STORE + 1
       LL      = 1
 
-      cfilt = cwords(iwd)(1:2)
+
+c Dec 17 2020:
+c take last character of filter word to allow full filter names
+c in text format: e.g., Bessell-U is read here as U
+
+      LWORD = INDEX(cwords(iwd),' ') - 1
+      cfilt = cwords(iwd)(LWORD:LWORD)
+c xxx mark delete      cfilt = cwords(iwd)(1:2)
       ep    = EPMIN - 1
 
       DO 100 WHILE ( LL .EQ. 1 )

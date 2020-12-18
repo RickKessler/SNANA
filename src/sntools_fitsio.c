@@ -574,10 +574,6 @@ void wr_snfitsio_init_phot(void) {
 
   wr_snfitsio_addCol( "1E" , "FLUXCAL"     , itype ) ;  
   wr_snfitsio_addCol( "1E" , "FLUXCALERR"  , itype ) ;
-  //  wr_snfitsio_addCol( "1E" , "MAG"         , itype ) ;
-  //  wr_snfitsio_addCol( "1E" , "MAGERR"      , itype ) ;
-
-
   
   wr_snfitsio_addCol( "1E" , "PSF_SIG1"   , itype ) ;  // REQUIRED
   if( WRFULL ) {

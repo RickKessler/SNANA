@@ -19364,4 +19364,27 @@
    remove obsolete util/createCov.py
    add refactored  util/create_covariance.py (from Sam/pippin)
 
+
+# ======================================================================= 
+         v11_02d (  ) 
+
+         ***** IMPORTANT(v11_02d) ***** 
+
+         ***** USEFUL(v11_02d) ***** 
+
+         ***** MISCELLANEOUS(v11_02d) ***** 
+
+    genmag_SIMSED.c[h]
+      + if in batch mode and binary is stale, abort with 
+        message to remake binary interactively.
+
+    SALT2mu.c: 
+     + remove obsolete SPLITRAN-summary functions.
+     + more updates for datafile_override option.
+
+    snana.car
+     + for reading TEXT format, allow full filter name and
+       just strip off last character. This allows better
+       visual inspection of text data files.
+
 END: 

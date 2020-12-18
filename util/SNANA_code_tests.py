@@ -1016,7 +1016,7 @@ def make_tarfiles(LOGDIR):
     tarfile_list  = []
 
     filespec_list.append('TASK*')
-    filespec_list.append('*.LOG *.fitres *.FITRES *.M0DIF *.SPEC *.out *.OUT *.ROOT *.HBOOK *.fits *.FITS *.LIST')
+    filespec_list.append('*.LOG *.fitres *.FITRES *.M0DIF *.COV *.SPEC *.out *.OUT *.ROOT *.HBOOK *.fits *.FITS *.LIST')
 
     tarfile_list.append('BACKUP_TASKFILES.tar')
     tarfile_list.append('BACKUP_MISC.tar')

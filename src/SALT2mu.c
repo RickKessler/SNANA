@@ -65,6 +65,9 @@ opt_biascor=368    ! idem, but use SigmaInt(m0,x1,c)=S3x3 from biasCor
 
 opt_biascor=240   ! +=128 to correct mu instead of correcting mB,x1,c
 
+opt_biascor=1136  ! +1024 -> if no valid biasCor, keep event with bias=0
+                  !   (default is to discard events with no biasCor)
+
 sigint_biascor=<sigmb_bias>   ! instead of auto-computed sigint_biascor
 snrmin_sigint_biascor         ! SNRMIN to compute siginit_biascor 
 prescale_biascor=<sample>,<preScale>
@@ -895,7 +898,9 @@ Default output files (can change names with "prefix" argument)
  Dec 11 2020: 
    + read zhel and zhelerr
    + cosmodl: split z arg -> zhel and zcmb.
-   +
+
+ Dec 21 2020:   
+   + opt_biaskcor += 1024 -> keep event if no valid biasCor; set biasCor=0.
 
  ******************************************************/
 
@@ -971,11 +976,10 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 #define MASK_BIASCOR_5D      16     // bit4: 5D map of biasCor
 #define MASK_BIASCOR_MUCOV   32     // bit5: apply MUCOVSCALE vs. z
 #define MASK_BIASCOR_SAMPLE  64     // bit6: biasCor vs. IDSAMPLE
-//#define MASK_BIASCOR_2x2ab  128     // bit7: force 2x2 ab grid (min,max ab)
 #define MASK_BIASCOR_MU     128     // bit7: bias on MU instead of mB,x1,c
 #define MASK_BIASCOR_COVINT 256     // bit8: biasCor-covint(3x3) x SCALE
 #define MASK_BIASCOR_SIGINT_SAMPLE 512  // bit9: sigint(biasCor) vs. IDSAMPLE
-
+#define MASK_BIASCOR_noCUT  1024    // do NOT reject event if no biasCor
 #define MASK_BIASCOR_DEFAULT  MASK_BIASCOR_5D + MASK_BIASCOR_MUCOV + MASK_BIASCOR_SAMPLE
 
 #define USEMASK_BIASCOR_COVFIT 1
@@ -8627,11 +8631,13 @@ void prepare_biasCor(void) {
   //
   // Feb 5 2020: if > 5 SIM_gammaDM bins, do NOT add another dimension
   // Jun 25 2020: if INPUTS.fitflag_sigmb=0, leave it at zero
+  // Dec 21 2020: check option to NOT require valid biasCor 
 
   int INDX, IDSAMPLE, SKIP, NSN_DATA, CUTMASK, ievt ;
   int  NBINm = INPUTS.nbin_logmass;
   int  NBINg = 0; // is set below 
   int  OPTMASK        = INPUTS.opt_biasCor ;
+
   int  EVENT_TYPE     = EVENT_TYPE_BIASCOR;
   int  nfile_biasCor  = INPUTS.nfile_biasCor ;
   bool  DOCOR_1DZAVG  = ( OPTMASK & MASK_BIASCOR_1DZAVG  );
@@ -8642,6 +8648,8 @@ void prepare_biasCor(void) {
   bool  DOCOR_1D      = ( DOCOR_1DZAVG || DOCOR_1DZWGT || DOCOR_1D5DCUT);
   bool  IDEAL         = ( OPTMASK & MASK_BIASCOR_COVINT ) ;
   bool  DOCOR_MU      = ( OPTMASK & MASK_BIASCOR_MU ) ;
+  bool  REQUIRE_VALID_BIASCOR = (OPTMASK & MASK_BIASCOR_noCUT) == 0 ;
+
   char txt_biasCor[40]  ;
   
   bool USEDIM_GAMMADM, USEDIM_LOGMASS;
@@ -8737,6 +8745,11 @@ void prepare_biasCor(void) {
 	 txt_biasCor);
   fprintf(FP_STDOUT, "\t\t (opt_biascor=%d, sigma_cell=%.2f)\n", 
 	 OPTMASK, INPUTS.sigma_cell_biasCor);
+
+  if ( !REQUIRE_VALID_BIASCOR ) {
+    fprintf(FP_STDOUT,"\t Keep events without valid biasCor. \n");
+  }
+
   fflush(FP_STDOUT);
 
   // -------------------------------------------
@@ -8882,7 +8895,7 @@ void prepare_biasCor(void) {
     istore = storeDataBias(n,DUMPFLAG);
     
     NUSE[IDSAMPLE]++ ; NUSE_TOT++ ;
-    if ( istore == 0 )  { 
+    if ( istore == 0 && REQUIRE_VALID_BIASCOR )  { 
       NSKIP_TOT++; NSKIP[IDSAMPLE]++ ;  
       setbit_CUTMASK(n, CUTBIT_BIASCOR, &INFO_DATA.TABLEVAR); 
       if( NSKIP_TOT < ndump_nobiasCor ) 
@@ -10143,7 +10156,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     BIASCORLIST.gammadm     = gDM ;
     BIASCORLIST.idsample    = IDSAMPLE ;
     
-    //    DUMPFLAG = ( isp < 5 ); // xxxx REMOVE
+
     istat_bias = 
       get_fitParBias(name, &BIASCORLIST, DUMPFLAG, fnam, 
 		     &FITPARBIAS[ia][ib][ig] ); // <== returned
@@ -10151,7 +10164,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     //  DUMPFLAG = 0 ; // xxx REMOVE
 
     // skip if bias cannot be computed, just like for data
-    if ( istat_bias == 0 ) { continue ; }
+    if ( istat_bias < 0 ) { continue ; }
 
     get_INTERPWGT_abg(a,b,gDM, DUMPFLAG, &INTERPWGT, fnam );
     get_muBias(name, &BIASCORLIST, FITPARBIAS, MUCOVSCALE, &INTERPWGT,
@@ -11616,6 +11629,7 @@ int  storeDataBias(int n, int DUMPFLAG) {
   BIASCORLIST_DEF BIASCORLIST ;
   BININFO_DEF *BININFO_SIM_ALPHA, *BININFO_SIM_BETA, *BININFO_SIM_GAMMADM;
   int    NBINa, NBINb, NBINg, ia, ib, ig, ipar, istat_bias, idsample ;
+  int    ISTAT = 1;
   double z, m ;
   char   *name ;
   char   fnam[] = "storeDataBias" ;
@@ -11672,7 +11686,8 @@ int  storeDataBias(int n, int DUMPFLAG) {
 	  fflush(stdout);
 	}
 	
-	if ( istat_bias == 0 ) { return 0 ; }
+	// xxx mark	if ( istat_bias < 0 ) { return 0 ; }
+	if ( istat_bias < 0 ) { ISTAT = 0 ; }
 
 	istat_bias = 
 	  get_muCOVscale(name, &BIASCORLIST, DUMPFLAG,             // in
@@ -11686,13 +11701,14 @@ int  storeDataBias(int n, int DUMPFLAG) {
 	  fflush(stdout);
       }
 	
-      if ( istat_bias == 0 ) { return 0 ; }
+	// xxx mark  if ( istat_bias == 0 ) { return 0 ; }
+	if ( istat_bias == 0 ) { ISTAT = 0 ; }
 
       } // end ig
     } // end ib
   }  // end ia
 
-  return(1);
+  return(ISTAT);
 
 } // end storeDataBias
 
@@ -11774,7 +11790,7 @@ int  storeBias_CCprior(int n) {
       }
       */
 
-      if ( istat_bias == 0 ) { return 0 ; }
+      if ( istat_bias < 0 ) { return 0 ; }
 
       } // end ig
     } // end ib
@@ -11795,7 +11811,8 @@ int get_fitParBias(char *cid,
   // return FITPARBIAS[VAL,ERR,RMS] for  mB, x1, c.
   // CID is the SN name used only for error message.
   //
-  // Function returns 1 if bias is found; returns 0 if no bias found.
+  // Function returns 1 if bias is found; 
+  // returns negative error code if no bias found.
   //
   // Apr 18 2017: enhance dump output.
   //
@@ -11805,6 +11822,8 @@ int get_fitParBias(char *cid,
   //   + pass callFun for error message
   //   + requier central cell is used; see USE_CENTER_CELL
   //
+  // Dec 21 2020: return negative number on error to flag error type
+  //              Still return 1 for success.
   // -----------------------------------------
   // strip BIASCORLIST inputs into local variables
   double z   = BIASCORLIST->z ;
@@ -11819,6 +11838,8 @@ int get_fitParBias(char *cid,
   int ID = IDSAMPLE;
 
   bool DO_BIASCOR_MU  = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
+  bool REQUIRE_VALID_BIASCOR = (INPUTS.opt_biasCor & MASK_BIASCOR_noCUT)==0;
+
   int  ILCPAR_MIN = INFO_BIASCOR.ILCPAR_MIN ;
   int  ILCPAR_MAX = INFO_BIASCOR.ILCPAR_MAX ;
 
@@ -11845,7 +11866,7 @@ int get_fitParBias(char *cid,
   double AVG_z, AVG_m, AVG_x1, AVG_c, avg_z, avg_m, avg_x1, avg_c ;
   double SUM_VAL[NLCPAR+1], SUM_ERR[NLCPAR+1];
   double SUM_SQERRINV[NLCPAR], SUM_SQRMS[NLCPAR+1] ;
-  double VAL, ERR, RMS, dif, Dc, Dz, Dm, Dx1 ;
+  double VAL, ERR, RMS, dif, Dc, Dz, Dm, Dx1, VAL_DEFAULT ;
 
   double DEBUG_LIST_DIF[4][50];
   int    DEBUG_LIST_INDX[4][50], DEBUG_LIST_NPERCELL[50];
@@ -11862,6 +11883,7 @@ int get_fitParBias(char *cid,
   BININFO_SIM_BETA    = &INFO_BIASCOR.BININFO_SIM_BETA ;
   BININFO_SIM_GAMMADM = &INFO_BIASCOR.BININFO_SIM_GAMMADM ;
 
+
  START:
 
   // init output structure
@@ -11870,9 +11892,10 @@ int get_fitParBias(char *cid,
   // check "noBiasCor" option for this sample 
   if  ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { return(1); }
 
-  // init output to crazy values.
+  // init output
+  if (REQUIRE_VALID_BIASCOR) {VAL_DEFAULT=666.0;}  else{VAL_DEFAULT=0.0;}
   for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ )
-    { FITPARBIAS->VAL[ipar]  = 666.0 ; } 
+    { FITPARBIAS->VAL[ipar]  = VAL_DEFAULT ; }
 
   // strip off local indices
   ia  = IBINFUN(a,   BININFO_SIM_ALPHA,    0, fnam );
@@ -11885,10 +11908,10 @@ int get_fitParBias(char *cid,
   J1D = CELLINFO_BIASCOR[IDSAMPLE].MAPCELL[ia][ib][ig][IZ][IM][IX1][IC] ;
 
 
-  if ( IZ  < 0 ) { return 0 ; }
-  if ( IM  < 0 ) { return 0 ; }
-  if ( IX1 < 0 ) { return 0 ; }
-  if ( IC  < 0 ) { return 0 ; }
+  if ( IZ  < 0 ) { return -1 ; }
+  if ( IM  < 0 ) { return -2 ; }
+  if ( IX1 < 0 ) { return -3 ; }
+  if ( IC  < 0 ) { return -4 ; }
 
   // reset counters and weight for this a,b cell
   SUM_WGT = 0.0 ;
@@ -12003,10 +12026,10 @@ int get_fitParBias(char *cid,
   }
 
   // return if any binSize is not defined
-  if ( BINSIZE_z  == 0.0 || BINSIZE_z  > 9000. ) { return 0; }
-  if ( BINSIZE_m  == 0.0 || BINSIZE_m  > 9000. ) { return 0; }
-  if ( BINSIZE_x1 == 0.0 || BINSIZE_x1 > 9000. ) { return 0; }
-  if ( BINSIZE_c  == 0.0 || BINSIZE_c  > 9000. ) { return 0; }
+  if ( BINSIZE_z  == 0.0 || BINSIZE_z  > 9000. ) { return -5; }
+  if ( BINSIZE_m  == 0.0 || BINSIZE_m  > 9000. ) { return -6; }
+  if ( BINSIZE_x1 == 0.0 || BINSIZE_x1 > 9000. ) { return -7; }
+  if ( BINSIZE_c  == 0.0 || BINSIZE_c  > 9000. ) { return -8; }
 
   
   // ----------------------------------------------
@@ -12117,8 +12140,8 @@ int get_fitParBias(char *cid,
   }
 
    // require enough cells for interpolation (July 2016)
-   if ( NCELL_INTERP_USE < 3 ) { return(0); } 
-   if ( !USE_CENTER_CELL     ) { return(0); } // 9.29.2020
+   if ( NCELL_INTERP_USE < 3 ) { return(-9); } 
+   if ( !USE_CENTER_CELL     ) { return(-10); } // 9.29.2020
 
    // require both z-bins to be used.
    int ISKIP = 0 ;
@@ -12130,7 +12153,7 @@ int get_fitParBias(char *cid,
 	    IZMIN, IZMAX, USEZ[IZMIN], USEZ[IZMAX], ISKIP );
      fflush(stdout);
    }
-   if ( ISKIP ) { return(0); }
+   if ( ISKIP ) { return(-11); }
 
    
    OK = 0 ;
@@ -12143,7 +12166,7 @@ int get_fitParBias(char *cid,
 	    NSUM_Cell, BIASCOR_MINSUM, OK); fflush(stdout);
    }
 
-   if ( OK == 0 ) { return(0); }   
+   if ( OK == 0 ) { return(-12); }   
 
   // - - - - - - - - - - 
   // make sure that SUMWGT > 0 
@@ -12945,7 +12968,6 @@ double get_gammadm_host(double z, double logmass, double *hostPar) {
   gamma      = gamma0 + z*gamma1 ;
   arg        = -( logmass - logmass_cen ) / logmass_tau ;
   FermiFun   = 1.0/(1.0 + exp(arg)) ; 
-  // xxx REMOVE BUG  magoff     = gamma * (  FermiFun - 0.5 ) ;
   magoff     = gamma * ( 0.5 - FermiFun ) ;
   magoff -= INFO_BIASCOR.GAMMADM_OFFSET ;
 
@@ -13012,9 +13034,6 @@ void prepare_CCprior(void) {
     setup_MUZMAP_CCprior(idsample, &INFO_CCPRIOR.TABLEVAR_CUTS,
 			 &INFO_CCPRIOR.MUZMAP );
   }
-
-
-  //  debugexit(fnam); // xxx REMOVE
 
   // ----------------------------------------------
   fprintf(FP_STDOUT, "\n Finished preparing CC prior. \n");
@@ -14888,12 +14907,11 @@ int ppar(char* item) {
   }
 
   // - - - - - - 
-
   if ( uniqueOverlap(item,"prescale_biascor=") ) 
     { parse_prescale_biascor(&item[17]); return(1); }
  
   if ( uniqueOverlap(item,"opt_biascor=")  )
-    { sscanf(&item[12],"%d", &INPUTS.opt_biasCor);  return(1); }
+    { sscanf(&item[12],"%d", &INPUTS.opt_biasCor);   return(1); }
 
   if ( uniqueOverlap(item,"sigmb_biascor=") )  // legacy name (9/2016)
     { sscanf(&item[14],"%le", &INPUTS.sigint_biasCor); return(1); }
@@ -19156,8 +19174,6 @@ void muerr_renorm(void) {
     muerr      = INFO_DATA.muerr[isn];
     mures      = INFO_DATA.mures[isn] ;
     pia        = 1.0 - INFO_DATA.probcc_beams[isn];
-
-    // xxxx    pia = 1.0 ; // xxx REMOVE
 
     WGT             = pia / (muerr*muerr) ;
     SUM_WGT[iz]    += WGT;

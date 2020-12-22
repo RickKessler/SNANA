@@ -5269,13 +5269,6 @@ void GEN_SNHOST_ZPHOT(int IGAL) {
   SNHOSTGAL.ZPHOT     = SNHOSTGAL_DDLR_SORT[0].ZPHOT;
   SNHOSTGAL.ZPHOT_ERR = SNHOSTGAL_DDLR_SORT[0].ZPHOT_ERR ;
 
-  /* xxxx mark delete xxxxx
-  ZPHOT += ZBIAS;
-  SNHOSTGAL.ZPHOT       = ZPHOT ;
-  SNHOSTGAL.ZPHOT_ERR   = ZPHOT_ERR ;
-  xxxxx */
-
-
   // -------------------------------
   // Aug 18 2015
   // check ZPHOTEFF option for host-zphot efficiency --> 

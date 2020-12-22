@@ -2972,8 +2972,10 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     N++; parse_input_GENZPHOT_OUTLIER(WORDS[N]);
   }
   else if ( keyMatchSim(1, "HOSTLIB_GENZPHOT_BIAS",WORDS[0],keySource) ) {
-    for(j=0; j < 4; j++ ) 
-      { N++; sscanf(WORDS[N],"%le",&INPUTS.HOSTLIB_GENZPHOT_BIAS[j]) ; }
+    for(j=0; j < 4; j++ )  { 
+      N++; nread = sscanf(WORDS[N],"%f",&INPUTS.HOSTLIB_GENZPHOT_BIAS[j]) ; 
+      if ( nread != 1 ) { abort_bad_input(WORDS[0], WORDS[N], j, fnam); }
+    }
   }
   else if ( keyMatchSim(1, "HOSTLIB_DZTOL",WORDS[0],keySource) ) {
 

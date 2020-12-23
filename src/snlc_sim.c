@@ -10135,7 +10135,14 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
 
   bool ISFRAME_REST  = ( OPT_FRAME == OPT_FRAME_REST );
   bool ISFRAME_OBS   = ( OPT_FRAME == OPT_FRAME_OBS  );
-  bool SKIPc    = SIMLIB_HEADER.GENGAUSS_SALT2c.USE;
+
+  bool GETc_ASYMGAUSS   = (INPUTS.GENGAUSS_SALT2c.USE);
+  bool GETc_HOSTLIB     = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
+  bool GETc_SIMLIB      = (SIMLIB_HEADER.GENGAUSS_SALT2x1.USE) ;
+  bool SKIPc            = GETc_SIMLIB || (GETc_HOSTLIB && !GETc_ASYMGAUSS );
+
+  // xxx mark delete  bool SKIPc    = SIMLIB_HEADER.GENGAUSS_SALT2c.USE;
+
   double   ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   GENGAUSS_ASYM_DEF  GENGAUSS_ZVAR ;
   char fnam[] = "gen_modelPar_SALT2";

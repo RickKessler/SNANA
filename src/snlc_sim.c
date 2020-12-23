@@ -10044,11 +10044,16 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
   bool ISMODEL_NON1ASED  = ( INDEX_GENMODEL == MODEL_NON1ASED );
   bool ISMODEL_NON1A     = ( INPUTS.NON1A_MODELFLAG > 0 );
   bool ISMODEL_LCLIB     = ( INDEX_GENMODEL == MODEL_LCLIB ) ;
-  bool ISx1_HOSTLIB      = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
-  bool ISx1_SIMLIB       = (SIMLIB_HEADER.GENGAUSS_SALT2x1.USE) ;
 
-  bool SKIPx1  = ISx1_SIMLIB || ISx1_HOSTLIB ;
-  bool DOSHAPE = !( SKIPx1 || ISMODEL_SIMSED || ISMODEL_NON1A || 
+  // Check if x1/shape is extracted elsewhere (e.g., SIMLIB header or HOSTLIB).
+  // If x1 is from HOSTLIB, SKIP only if SALT2x1 asymGauss is NOT defined
+  // in order to preserve random sync.
+  bool SHAPE_ASYMGAUSS   = (INPUTS.GENGAUSS_SHAPEPAR.USE);
+  bool SHAPE_HOSTLIB     = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
+  bool SHAPE_SIMLIB      = (SIMLIB_HEADER.GENGAUSS_SALT2x1.USE) ;
+  bool SKIP_SHAPE        = SHAPE_SIMLIB || (SHAPE_HOSTLIB && !SHAPE_ASYMGAUSS );
+
+  bool DOSHAPE = !( SKIP_SHAPE || ISMODEL_SIMSED || ISMODEL_NON1A || 
 		    ISMODEL_LCLIB || IS_PySEDMODEL || ISMODEL_SIMLIB );
 
   double ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations

@@ -424,8 +424,9 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   VAL_RANGE[1] = VAL_RANGE_PROB[1] ;
 
   if ( VAL_RANGE[0] > 8.0E12 || VAL_RANGE[1] < -8.0E12 ) {
-    sprintf(c1err,"Unable to get VAL_RANGE for IDMAP=%d", IDMAP);
-    sprintf(c2err,"Something is really messed up.");
+    sprintf(c1err,"Unable to get VAL_RANGE for IDMAP=%d, val_input=%.3f", 
+	    IDMAP, val_inputs[0] );
+    sprintf(c2err,"Consider GENPDF_OPTMASK to extrapolate.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 

@@ -4333,6 +4333,8 @@ void parse_input_OBSOLETE(char **WORDS, int keySource ) {
   // Note that abort call is via
   //    legacyKey_abort(fnam, key_obsolete, key_new)
   // to print name of valid key.
+  //
+  // Dec 23 2020: abort if CONFIG file key is found.
 
   char fnam[] = "parse_input_OBSOLETE";
 
@@ -4359,6 +4361,17 @@ void parse_input_OBSOLETE(char **WORDS, int keySource ) {
 
   else if ( keyMatchSim(1, "SMEARFLAG_HOSTGAL", WORDS[0], keySource) )
     { legacyKey_abort(fnam, "SMEARFLAG_HOSTGAL:", ""); }
+
+ 
+  bool IS_CONFIG_FILE = 
+    ( keyMatchSim(1, "BATCH_INFO", WORDS[0], keySource)  ||
+      keyMatchSim(1, "CONFIG",     WORDS[0], keySource) ) ;
+  if ( IS_CONFIG_FILE ) {
+    sprintf(c1err,"'%s' key is for config/master file -->", WORDS[0]);
+    sprintf(c2err,"This file is for submit_batch_jobs, not snlc_sim.exe");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  
 
   return;
 
@@ -10018,8 +10031,8 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   Jul 23 2020: DOSHAPE = F for LCLIB model.
   Aug 31 2020: DOSHAPE = F for BYOSED model
-  Oct 20 2020: skip get_random_PDF for SIMLIB model
-
+  Oct 20 2020: skip get_random_genPDF for SIMLIB model
+  Dec 23 2020: skip get_random_genPDF if x1 is from HOSTLIB (ISx1_HOSTLIB)
   **********/
 
   bool ISFRAME_REST      = ( OPT_FRAME == OPT_FRAME_REST );
@@ -10031,11 +10044,12 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
   bool ISMODEL_NON1ASED  = ( INDEX_GENMODEL == MODEL_NON1ASED );
   bool ISMODEL_NON1A     = ( INPUTS.NON1A_MODELFLAG > 0 );
   bool ISMODEL_LCLIB     = ( INDEX_GENMODEL == MODEL_LCLIB ) ;
-  bool SKIPx1  = SIMLIB_HEADER.GENGAUSS_SALT2x1.USE ;
+  bool ISx1_HOSTLIB      = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
+  bool ISx1_SIMLIB       = (SIMLIB_HEADER.GENGAUSS_SALT2x1.USE) ;
+
+  bool SKIPx1  = ISx1_SIMLIB || ISx1_HOSTLIB ;
   bool DOSHAPE = !( SKIPx1 || ISMODEL_SIMSED || ISMODEL_NON1A || 
 		    ISMODEL_LCLIB || IS_PySEDMODEL || ISMODEL_SIMLIB );
-
-  // xxx  bool DOSHAPE = ( !SKIPx1 && !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0) ;
 
   double ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   double shape;
@@ -10051,7 +10065,6 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   // ---------------------------------------
   // evaluate shape with z-dependence on population, 
-
 
   if ( DOSHAPE && ISFRAME_REST ) {
 

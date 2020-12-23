@@ -11037,15 +11037,11 @@ void check_argv(void) {
 
 // *******************************************************
 void parse_err ( char *inFile, int NEWMJD, char *keyword ) {
-
   // print standard error message for parsing.
   // errmsg called with ABORT flag !
-
   char fnam[] = "parse_err" ;
-
   sprintf(c1err,"Problem parsing %s", inFile );
   sprintf(c2err,"Check NEWMJD-Epoch %d, keyword '%s' ", NEWMJD, keyword);
-
   errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
 }
 

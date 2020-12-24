@@ -420,15 +420,25 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
       VAL_RANGE_PROB[1] = VAL_TMP ; 
     }      
   } // end itmp
-  VAL_RANGE[0] = VAL_RANGE_PROB[0] ;
-  VAL_RANGE[1] = VAL_RANGE_PROB[1] ;
 
-  if ( VAL_RANGE[0] > 8.0E12 || VAL_RANGE[1] < -8.0E12 ) {
-    sprintf(c1err,"Unable to get VAL_RANGE for IDMAP=%d, val_input=%.3f", 
-	    IDMAP, val_inputs[0] );
+  // - - - - -
+  if ( VAL_RANGE_PROB[0] > 8.0E12 || VAL_RANGE_PROB[1] < -8.0E12 ) {
+    sprintf(c1err,"Unable to get VAL_RANGE for IDMAP=%d, val_input=%.3f",
+            IDMAP, val_inputs[0] );
     sprintf(c2err,"Consider GENPDF_OPTMASK to extrapolate.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
+
+  // Dec 23 2020: add and subtract one binsize  
+  VAL_RANGE[0] = VAL_RANGE_PROB[0] - VAL_BINSIZE ;
+  VAL_RANGE[1] = VAL_RANGE_PROB[1] + VAL_BINSIZE ;
+
+  // avoid going past boundaries            
+  if ( VAL_RANGE[0] < GENPDF[IDMAP].GRIDMAP.VALMIN[0] )
+    { VAL_RANGE[0] = GENPDF[IDMAP].GRIDMAP.VALMIN[0]; }
+
+  if ( VAL_RANGE[1] > GENPDF[IDMAP].GRIDMAP.VALMAX[0] )
+    { VAL_RANGE[1] = GENPDF[IDMAP].GRIDMAP.VALMAX[0]; }
 
   return;
 } // end get_VAL_RANGE_genPDF

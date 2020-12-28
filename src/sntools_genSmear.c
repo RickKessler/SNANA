@@ -1066,6 +1066,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // Dec 7 2020: for SIGCOH>0, call read_genSmear_SALT2sigcoh
   //             (fix needed for G10 scatter model with BYOSED)
   //
+  // Dec 28 2020: check for SALT3
 
   //  double SED_LAMMIN =  SALT2_TABLE.LAMMIN;
   double SED_LAMMAX =  SALT2_TABLE.LAMMAX;  
@@ -1094,16 +1095,27 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
     GENSMEAR_SALT2.FUDGE_dSmear_dLAM[1] = +1.08E-4 ; // lam > LAMSWITCH
   }
 
+  // Dec 28 2020 : check if SALT2 or SALT3
+  if ( strstr(versionSALT2,"SALT3") != NULL ) {
+    // SALT3 model
+    sprintf(SALT2_INFO_FILE,"SALT3.INFO"); 
+    sprintf(dispFile, "%s/salt3_color_dispersion.dat", versionSALT2);
+  }
+  else {
+    // it's SALT2 model
+    sprintf(SALT2_INFO_FILE,"SALT2.INFO");
+    sprintf(dispFile, "%s/salt2_color_dispersion.dat", versionSALT2);
+  }
+
   // --------------------------------------
   // read SIGMA_INT from SALT2.INFO file
-
+  
   if ( SIGCOH < -8.1 )  {  
     //    GENSMEAR_SALT2.SIGCOH = read_genSmear_SALT2sigcoh(versionSALT2); 
     read_genSmear_SALT2sigcoh(versionSALT2, &GENSMEAR_SALT2.SIGCOH_LAM); 
   }
   else if ( SIGCOH >= 0.0 ) {
     //xxx  GENSMEAR_SALT2.SIGCOH = SIGCOH ; 
-    sprintf(SALT2_INFO_FILE,"SALT2.INFO"); // in case call fun isn't SALT2
     read_genSmear_SALT2sigcoh(versionSALT2, &GENSMEAR_SALT2.SIGCOH_LAM);     
   }
   else {
@@ -1116,7 +1128,6 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // read dispersion vs. lambda : 
   // Use already-determine filename that allows for salt2 or salt3
 
-  sprintf(dispFile, "%s/salt2_color_dispersion.dat", versionSALT2);
 
   /* xxx Dec 7 2020: doesn't work for BYOSED
   sprintf(dispFile, "%s/%s", 

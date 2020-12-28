@@ -16,6 +16,7 @@
   below is used for the simulation.
 
   Oct 23 2020: use get_VAL_RANGE_genPDF() 
+  Dec 23 2020: improve algorithmn in get_VAL_RANGE_genPDF
 
  ****************************************************/
 
@@ -82,6 +83,8 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 
   // ------------- BEGIN -------------
 
+  OPTMASK_GENPDF = OPTMASK ; // Dec 23 2020
+
   NMAP_GENPDF = NCALL_GENPDF = 0;
   if ( IGNOREFILE(fileName) ) { return; }
 
@@ -102,6 +105,14 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     OPT_EXTRAP_GENPDF = 1; 
   }
 
+  if ( (OPTMASK & OPTMASK_GENPDF_SLOW) > 0 ) { 
+    printf("\t skip speed-trick: select regardless of PROB \n");
+  }
+  else {
+    printf("\t use speed-trick: select from range bounded by PROB ~ 0 \n");
+  }
+
+  
   if ( strlen(ignoreList) > 0 ) 
     { printf("\t Ignore PDF map(s): %s \n", ignoreList); }
   
@@ -386,7 +397,11 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   // The full VALUE range is divided int NBIN_CHECKPROB0 bins,
   // and min,max VALUE is stored for which PROB > 0.
   //
-  bool   CHECK_PROB0 = true;
+  // Dec 23 2020: 
+  //   + add and subtract 1*BINSIZE to range.
+  //   + check OPTMASK for SLOW option using full range.
+  //
+  // xxx mark delete  bool   CHECK_PROB0 = true;
   int    NBIN_CHECKPROB0 = 10 ;
   double XNBIN = (double)NBIN_CHECKPROB0;
   
@@ -398,7 +413,8 @@ void get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs,
   VAL_RANGE[0]  = GENPDF[IDMAP].GRIDMAP.VALMIN[0] ;
   VAL_RANGE[1]  = GENPDF[IDMAP].GRIDMAP.VALMAX[0] ;
 
-  if ( !CHECK_PROB0 ) { return; }
+  if ( OPTMASK_GENPDF & OPTMASK_GENPDF_SLOW ) { return; }
+  // xxx mark delete  if ( !CHECK_PROB0 ) { return; }
 
   VAL_RANGE_PROB[0] = 9.0E12;  VAL_RANGE_PROB[1] = -9.0E12 ;
   VAL_BINSIZE = (VAL_RANGE[1] - VAL_RANGE[0]) / XNBIN; 

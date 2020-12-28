@@ -1096,16 +1096,23 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   }
 
   // Dec 28 2020 : check if SALT2 or SALT3
-  if ( strstr(versionSALT2,"SALT3") != NULL ) {
-    // SALT3 model
+  // setFlags sets global logicals ISMODEL_SALT2 & ISMODEL_SALT3
+  setFlags_ISMODEL_SALT2(versionSALT2); //
+
+  if ( ISMODEL_SALT2 ) {
+    sprintf(SALT2_INFO_FILE,"SALT2.INFO"); 
+    sprintf(dispFile, "%s/salt2_color_dispersion.dat", versionSALT2);
+  }
+  else if ( ISMODEL_SALT3 ) {
     sprintf(SALT2_INFO_FILE,"SALT3.INFO"); 
     sprintf(dispFile, "%s/salt3_color_dispersion.dat", versionSALT2);
   }
   else {
-    // it's SALT2 model
-    sprintf(SALT2_INFO_FILE,"SALT2.INFO");
-    sprintf(dispFile, "%s/salt2_color_dispersion.dat", versionSALT2);
+    sprintf(c1err,"Unknown ISMODEL for version = ");
+    sprintf(c2err,"%s", versionSALT2);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
+
 
   // --------------------------------------
   // read SIGMA_INT from SALT2.INFO file

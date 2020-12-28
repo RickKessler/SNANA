@@ -243,6 +243,8 @@ double SALT2magerr(double Trest, double lamRest,  double z,
 
 double SALT2colorDisp(double lam, char *callFun);
 
+void   setFlags_ISMODEL_SALT2(char *version);
+
 void getFileName_SALT2colorDisp(char *fileName) ;
 void read_SALT2_INFO_FILE(int OPTMASK);
 void read_SALT2errmaps(double Trange[2], double Lrange[2] );

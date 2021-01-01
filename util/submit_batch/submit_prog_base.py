@@ -2,6 +2,11 @@
 # Created July 2020 by R.Kessler & S. Hinton
 #
 # Base class Program
+#
+#     HISTORY
+# Jan 2 2021: add small delay in each CPU* file to avoid jobs finishing
+#             before all are submitted, resulting in pid-check failure.
+#
 # ============================================
 
 #import argparse
@@ -110,6 +115,7 @@ class Program:
         submit_mode   = "NULL"
         node_list     = []
         memory        = BATCH_MEM_DEFAULT
+        maxjob        = BATCH_MAXJOB_DEFAULT
         kill_flag     = config_yaml['args'].kill
         n_core_arg    = config_yaml['args'].ncore
         msgerr        = []
@@ -152,9 +158,13 @@ class Program:
             msgerr.append(f"Check CONFIG block in the input file.")
             util.log_assert(False, msgerr)
 
-        # check optional memory spec
+        # check optional memory input
         if 'BATCH_MEM' in CONFIG :
             memory = str(CONFIG['BATCH_MEM'])
+
+        # check optional maxjob
+        if 'BATCH_MAXJOB' in CONFIG :
+            maxjob = int(CONFIG['BATCH_MAXJOB'])
 
             #if isinstance(memory,int) :
             #    msgerr.append(f"Missing memory units")
@@ -167,6 +177,7 @@ class Program:
         config_prep['submit_mode'] = submit_mode
         config_prep['node_list']   = node_list
         config_prep['memory']      = memory
+        config_prep['maxjob']      = maxjob
     
     # end parse_batch_info
 
@@ -303,6 +314,13 @@ class Program:
             COMMAND_FILE  = (f"{script_dir}/{command_file}")
             logging.info(f"\t Create {command_file}")
 
+            # compute small (0.1s) delay per core to avoid first jobs
+            # finishing before all are submitted, then failing
+            # the pid-submit check. Delay is largest for core 0, 
+            # then is reduced by 0.1 sec per core. For 100 cores,
+            # first delay is 10sec.
+            delay = float(n_core - icpu)/10.0
+
             command_file_list.append(command_file)
             cmdlog_file_list.append(log_file)
             COMMAND_FILE_LIST.append(COMMAND_FILE)
@@ -317,6 +335,13 @@ class Program:
                 f.write(f"#!/usr/bin/env bash \n")
                 f.write(f"echo TIME_START: " \
                         f"`date +%Y-%m-%d` `date +%H:%M:%S` \n")
+
+                f.write(f"echo 'Sleep {delay} sec " \
+                        f"(wait for remaining batch-submits)' \n")
+                f.write(f"sleep {delay} \n")
+
+                f.write(f"echo ' ' \n")
+
                 f.write(f"echo 'Begin {command_file}' \n\n")
 
                 if STOP_ALL_ON_MERGE_ERROR :

@@ -55,6 +55,7 @@ MODEL_NONIa = "NONIa"
 HOSTNAME = os.uname()[1].split('.')[0]
 
 BATCH_MEM_DEFAULT = "2000"   # default memory request for batch jobs
+BATCH_MAXJOB_DEFAULT = 500   # max number of jobs allowed in queue
 
 USERNAME = getpass.getuser()
 USER4    = USERNAME[0:4]

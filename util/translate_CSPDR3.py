@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # =========================================================
 # Created April 2020 by R.Kessler (and help from D.Jones)
 # Translate CSPDR3 data files into SNANA format.

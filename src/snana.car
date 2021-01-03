@@ -1946,7 +1946,6 @@ c
      &  ,FILTER_UPDATE_PATH*(MXCHAR_PATH)   ! SN-dependent filter response
 
       CHARACTER  ! misc
-c xxx    &   LINE_ARGS(MXLINE_ARGS)*(2*MXCHAR_FILENAME)    ! command line args
      &   REFORMAT_KEYS*(MXCHAR_FILENAME)  ! global reformat info
      &  ,NONSURVEY_FILTERS*(MXFILT_ALL)   ! non-survey filters to add
      &  ,SNRMAX_FILTERS*(MXFILT_ALL)      ! list of filters for SNRMAX cuts
@@ -1979,6 +1978,7 @@ c xxx    &   LINE_ARGS(MXLINE_ARGS)*(2*MXCHAR_FILENAME)    ! command line args
      &  ,OPT_SIMLIB_OUT          ! bit mask of SIMLIB_OUT options
      &  ,SIMLIB_OUT_TMINFIX  ! choose PEAKMJD so that min(MJD-PEAKMJD)=TMINFIX
      &  ,REQUIRE_DOCANA
+     &  ,OPT_SNCID_LIST      ! 1=force all and ignore cuts; 2=use PKMJDINI
 
       LOGICAL 
      &   LSIM_SEARCH_SPEC   ! (I) T => require simulated SPEC-tag
@@ -2074,7 +2074,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE
-     &    , SNCID_LIST_FILE, NONLINEARITY_FILE
+     &    , SNCID_LIST_FILE, OPT_SNCID_LIST, NONLINEARITY_FILE
      &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , hfile_out, rootfile_out, textfile_prefix
@@ -2127,7 +2127,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE
-     &    , SNCID_LIST_FILE, NONLINEARITY_FILE
+     &    , SNCID_LIST_FILE, OPT_SNCID_LIST, NONLINEARITY_FILE
      &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
@@ -3462,6 +3462,8 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       MARZFILE_OUT      = ' '  ! May 2020
 
       SNCID_LIST_FILE   = ' '
+      OPT_SNCID_LIST    = 0  ! default 0 => AND with other cuts
+
       MXEVT_PROCESS      = 999888777
       SIMLIB_OUT     = ''
       SIMLIB_OUTFILE = ''
@@ -5084,6 +5086,10 @@ c - - - -
          else if ( MATCH_NMLKEY('SNCID_LIST_FILE',
      &             1, iArg, ARGLIST) ) then 
            SNCID_LIST_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
+
+         else if ( MATCH_NMLKEY('OPT_SNCID_LIST',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) OPT_SNCID_LIST
 
 
          else if ( MATCH_NMLKEY('MXEVT_PROCESS',
@@ -17523,6 +17529,9 @@ c
 c Creatd Jan 31, 2006 by R.Kessler
 c Initialize CUTMASK_ALL and CUTWIN_XXX
 c
+c Jan 4 2021:
+c  + remove obsolete logic with !LSIM_SNANA && ibit==CUTBIT_SEARCH 
+c  + check OPT_SNCID_LIST
 c
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -17531,7 +17540,6 @@ c
 
       INTEGER IERR ! (O)  0=> OK
       INTEGER ibit
-      LOGICAL DOCUT
 
 C -------------- BEGIN -------------------
  
@@ -17547,11 +17555,8 @@ C -------------- BEGIN -------------------
       CUTMASK8_MJD_ALL   = 0  ! init common block var
 
       DO 100 ibit = 1, NCUTBIT
-          DOCUT = .TRUE.
 
-         if ( .NOT. LSIM_SNANA .and. ibit .EQ. CUTBIT_SEARCH ) goto 100
-
-         if ( .NOT. DOCUT ) GOTO 100
+c xxx ??  if ( .NOT. LSIM_SNANA .and. ibit .EQ. CUTBIT_SEARCH ) goto 100
 
          if ( ibit .LE. CUTBIT_MJD_MARKER ) then
            CUTMASK8_SN_ALL = IBSET ( CUTMASK8_SN_ALL, ibit-1 )
@@ -17559,6 +17564,18 @@ C -------------- BEGIN -------------------
            CUTMASK8_MJD_ALL = IBSET ( CUTMASK8_MJD_ALL, ibit-1 )
          endif
 100   CONTINUE
+
+
+c Jan 2021: check option to require ONLY CID-select.
+
+      if ( BTEST(OPT_SNCID_LIST,0) ) THEN
+          CUTMASK8_SN_ALL = 0
+          CUTMASK8_SN_ALL = IBSET(CUTMASK8_SN_ALL,CUTBIT_CID-1)
+	  print*,' '
+	  print*,'      **** APPLY ONLY CID-SELECT CUT **** '
+	  print*,' '
+	  CALL FLUSH(6)
+      endif
 
       print*,' '
       print*,' INIT_CUTMASK: NCUTBIT          = ', NCUTBIT
@@ -26494,6 +26511,7 @@ c Feb 01, 2019: add SIM_LCWIDTH
 c Feb 27, 2020: add SIM_HOSTLIB_GALID
 c Mar 19, 2020: add SIM_RV  to table
 c Sep 11, 2020: add PySEDMODEL = BYOSED or SNEMO
+c Dec 28, 2020: write SIM_gammaDM to TEXT file if non-zero
 
       IMPLICIT  NONE
       INTEGER   ID          ! (I) table id
@@ -26618,10 +26636,12 @@ cc      ENDIF
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_COLORLAW,  VARLIST, 1,
      &                   LENBLOCK, LENLIST)
 
-c Jun 25 2019: add SIM_SALT2gammaDM, but not in TEXT file until later.
+c add SIM_gammaDM if not zero.
+      ITEXT = 0
+      if ( SIM_SALT2gammaDM .NE. 0.0 ) ITEXT = 1
       VARLIST = 'SIM_gammaDM:F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2gammaDM, VARLIST,0,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2gammaDM,VARLIST,ITEXT,
+     &                   LENBLOCK, LENLIST )
 
       VARLIST = 'SIM_x0:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2x0,  VARLIST, 1,

@@ -2459,14 +2459,6 @@ void SALT2mu_DRIVER_EXEC(void) {
   // execuate minuit mnparm_ commands
   exec_mnparm(); 
 
-
-  /* xxxxxxxxx mark delete Dec 10 2020 xxxxxxx
-  // check option to fetch summary of all previous SPLITRAN jobs
-  if ( INPUTS.JOBID_SPLITRAN > INPUTS.NSPLITRAN ) 
-    {  SPLITRAN_SUMMARY(); exit(0); }
-  xxxxxxxxxx end mark xxxxxxx */
-
-
   // use FCN call and make chi2-outlier cut (Jul 19 2019)
   applyCut_chi2();
 
@@ -3264,7 +3256,8 @@ void applyCut_chi2(void) {
   // xxxx  if ( chi2max > 0.99E9 ) { return; }
 
   strcpy(mcom,"CALL FCN 1");  len = strlen(mcom);
-  mncomd_(fcn,mcom,&icondn,&null,len);   fflush(FP_STDOUT);
+  mncomd_(fcn, mcom, &icondn, &null, len); 
+  fflush(FP_STDOUT);
 
   for (n=0; n< NSN_DATA; ++n)  {
     cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n] ; 

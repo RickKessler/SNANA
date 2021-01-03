@@ -19372,6 +19372,11 @@
 
          ***** USEFUL(v11_02d) ***** 
 
+    combine_dataVersions.py :
+      + write full filter names to TEXT data files.
+        FITS format still uses single-char filter names.
+        Note change in snana.car to read last char of filter name.
+
          ***** MISCELLANEOUS(v11_02d) ***** 
 
     genmag_SIMSED.c[h]
@@ -19381,10 +19386,26 @@
     SALT2mu.c: 
      + remove obsolete SPLITRAN-summary functions.
      + more updates for datafile_override option.
+     + opt_biascor += 1024 -> keep events with no biasCor.
 
     snana.car
      + for reading TEXT format, allow full filter name and
        just strip off last character. This allows better
        visual inspection of text data files.
+     + write SIM_gammaDM to TEXT output if first value is non-zero.
+
+    snlc_sim.c :
+     + fix bug reading HOSTLIB_GENZPHOT_BIAS
+     + abort if CONFIG key is found
+
+    sntools_genPDF.c:
+     + fix bug setting min/max range
+
+    genmag_SALT2.c
+     + new function setFlags_ISMODEL_SALT2 to set ISMODEL_SALT2
+       and ISMODEL_SALT3
+
+    submit_prog_base.py :
+      + add small delay in each CPU*CMD file.
 
 END: 

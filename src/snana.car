@@ -1671,6 +1671,8 @@ c define namelist cuts
      &   ,SNCID_IGNORE_FILE*(MXCHAR_FILENAME) ! (I) file with CIDs to ignore
      &   ,SNCCID_IGNORE_ALL(MXIGNORE_LIST)*(MXCHAR_CCID)
 
+      REAL PKMJDINI_LIST_ALL(MXCCID_LIST) ! used if BTEST(OPT_SNCID_LIST,0)
+
       REAL
      &   snlc_cutvar(NCUTBIT_SNLC)
      &  ,snep_cutvar(CUTBIT_MJD_MARKER:NCUTBIT,MXEPOCH)
@@ -1817,6 +1819,7 @@ c
      &   ,CUTFLAG_SNANA , ERRFLAG_FIT 
      &   ,NCCID_LIST, NCCID_IGNORE, NCID_LIST, NCID_IGNORE
      &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST, SNCCID_LIST_ALL
+     &   ,PKMJDINI_LIST_ALL
      &   ,SNCCID_IGNORE,SNCID_IGNORE_FILE,SNCID_IGNORE,SNCCID_IGNORE_ALL
      &   ,MXEVT_PROCESS
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
@@ -2974,13 +2977,13 @@ c ------------------------------------------------
 c            Misc. inits for options
 
 c check option to read list of CIDs from text file (Nov 2013)
-      CALL RD_SNCIDLIST()
+      CALL RDFILE_SNCID()
      
 c check for SN,MJD list from file ... used for interpolation
-      CALL RD_SNMJDLIST()
+      CALL RDFILE_SNMJDLIST()
 
 c read optional tags
-      CALL RD_USERTAGS()
+      CALL RDFILE_USERTAGS()
 
 c read optional header-override (can include vpec) 
       CALL INIT_HEADER_OVERRIDE()     ! Nov 29 2016
@@ -9628,10 +9631,11 @@ C -------------- BEGIN -------------
       END     ! SNANA_NEARNBR_APPLY_END
 
 C =======================================
-+DECK,RDCIDLIST.
-      SUBROUTINE RD_SNCIDLIST
++DECK,RDFILE_SNCID.
+      SUBROUTINE RDFILE_SNCID
 
-c Created Nov 12, 2013
+
+c Refactored Jan 2021
 c Read optional list of CIDs from text file given by
 c &SNLCINP namelist variable SNCID_LIST_FILE.
 c
@@ -9659,15 +9663,13 @@ c ---------------------
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER   IWD, NWD, LEN, LEN2, j, N_BADNAME, N_BADCHAR
+      INTEGER   IWD, NWD, LEN
       CHARACTER 
-     &   CCID*(MXCHAR_CCID)
-     &  ,CCID_TMP*(MXCHAR_CCID+2)
+     &   FNAM*14
      &  ,CTMP*60
-     &  ,BADCHARS*12, C1
      &  ,NAME_forC*200
 
-      LOGICAL  ISBAD, ISFMT, FOUND_VARNAMES
+      LOGICAL  FOUND_VARNAMES
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
@@ -9679,7 +9681,8 @@ C -------------------- BEGIN ----------------------
 
       CALL ENVreplace(SNCID_LIST_FILE)  ! May 2018
 
-      CALL PRBANNER("RD_SNCIDLIST:")
+      FNAM = 'RDFILE_SNCID'
+      CALL PRBANNER(FNAM)
 
       CUTWIN_CID(1) = 0 
       CUTWIN_CID(2) = 0
@@ -9689,11 +9692,6 @@ C -------------------- BEGIN ----------------------
       print*,'   ', SNCID_LIST_FILE(1:LEN)
       CALL FLUSH(6)
 
-c define list of forbidden characters in CID name.
-      BADCHARS  = '%!#:$.  '
-      N_BADCHAR = INDEX(BADCHARS,' ') - 1
-      N_BADNAME = 0
- 
 c start loop over words in file.
       NAME_forC = SNCID_LIST_FILE(1:LEN) // char(0)
       NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LEN) 
@@ -9707,26 +9705,143 @@ c check if this is a fitres-formatted file with VARNAMES key
          CALL get_PARSE_WORD_fortran(iwd,CTMP,LEN)
          if ( CTMP .EQ. 'VARNAMES:' ) FOUND_VARNAMES = .TRUE.
  10   CONTINUE
-      ISFMT = ( FOUND_VARNAMES )
-      if ( ISFMT ) THEN
+      if ( FOUND_VARNAMES ) THEN
          print*,'   Detected VARNAMES key --> KEY format'
+         CALL RDFILE_SNCID_TABLE  ! read FITRES-formatted table
+      else 
+         CALL RDFILE_SNCID_NOFMT  ! unformatted file with only CID names
       endif
 
+c --------------------------
+      write(6,30) NCCID_LIST
+ 30   format(T8,'Stored ',I5,' CIDs to process' )
+      CALL FLUSH(6)
+
+      RETURN
+      END    ! end RDFILE_SNCID
+
+C =======================================
++DECK,RDFILE_SNCID_TABLE.
+      SUBROUTINE RDFILE_SNCID_TABLE
+
+c Read CID list from table-formatted file.
+c Check OPT_SNCID_LIST for option to read and store PKMJDINI
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER   isn, LEN, OPTMASK, EXIST_PKMJDINI, ISTAT
+      REAL*8    DVAL
+      CHARACTER cFILE*(MXCHAR_FILENAME), cTABLE*20
+      CHARACTER cVARNAME*40, cVARLIST*40
+      CHARACTER CCID*(MXCHAR_CCID), FNAM*20, cDUM*20
+      LOGICAL   REQUIRE_PKMJDINI
+
+c functions
+      INTEGER  
+     &    SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
+
+      EXTERNAL 
+     &    SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
+     &   ,FETCH_AUTOSTORE_CCID
+
+c ----------- BEGIN ----------
+
+      FNAM     = 'RDFILE_SNCID_TABLE'
+
+      LEN      = INDEX(SNCID_LIST_FILE,' ') - 1
+      cFILE    = SNCID_LIST_FILE(1:LEN) // char(0)
+      cTABLE   = 'SNCID_LIST' // char(0)
+      cVARLIST = 'PKMJDINI' // char(0)
+      OPTMASK  = 0
+      NCCID_LIST = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST, 
+     &     OPTMASK,  LEN, 20, 40 )
+
+      if ( NCCID_LIST > MXCCID_LIST ) then
+         write(c1err,661) NCCID_LIST, MXCCID_LIST
+ 661     format(I6,' table rows exceeds bound of MXCCID_LIST=',I6)
+         c2err = 'Reduce table size, or increase MXCCID_LIST'
+         CALL MADABORT(FNAM, c1err, c2err)
+      endif
+
+      cVARNAME = 'PKMJDINI' // char(0)
+      EXIST_PKMJDINI   = EXIST_VARNAME_AUTOSTORE(cVARNAME,20)
+      REQUIRE_PKMJDINI = BTEST(OPT_SNCID_LIST,1) 
+
+c      print*,' xxx PKMJDINI(REQ,EXIST) = ',
+c     &       REQUIRE_PKMJDINI, EXIST_PKMJDINI, ' for ', cVARNAME
+
+      IF ( REQUIRE_PKMJDINI .and. EXIST_PKMJDINI==0 ) THEN
+         c1err = 'Required PKMJDINI does not exist.'
+         c2err = 'Check ' // SNCID_LIST_FILE
+         CALL MADABORT(FNAM, c1err, c2err)
+      ENDIF
+
+
+c store each CCID and PKMJD
+
+      DO 100 isn = 1, NCCID_LIST
+         CALL FETCH_AUTOSTORE_CCID(0,isn-1,CCID)
+         LEN = INDEX(CCID,char(0)) - 1
+cc         print*,' xxx load ', isn, CCID(1:LEN)
+         SNCCID_LIST_ALL(isn) = CCID(1:LEN)
+         if ( REQUIRE_PKMJDINI ) then
+            CALL SNTABLE_AUTOSTORE_READ(CCID, cVARNAME, ISTAT,
+     &          DVAL, cDUM, MXCHAR_CCID, 20, 20)
+            PKMJDINI_LIST_ALL(isn) = DVAL
+         endif
+
+ 100  CONTINUE
+
+cc      STOP ! xxx REMOVE
+c .xyz
+
+      RETURN
+      END
+
+C =======================================
++DECK,RDFILE_SNCID_NOFMT.
+      SUBROUTINE RDFILE_SNCID_NOFMT
+
+c Jan 2021
+c Read optional list of CIDs from unformatted text file.
+c &SNLCINP namelist variable SNCID_LIST_FILE.
+c
+c ---------------------
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER   IWD, NWD, LEN, LEN2, j, N_BADNAME, N_BADCHAR
+      CHARACTER 
+     &   FNAM*20
+     &  ,CCID*(MXCHAR_CCID)
+     &  ,CCID_TMP*(MXCHAR_CCID+2)
+     &  ,CTMP*60
+     &  ,BADCHARS*12, C1
+     &  ,NAME_forC*200
+
+      LOGICAL  ISBAD, ISFMT, FOUND_VARNAMES
+
+      INTEGER  STORE_PARSE_WORDS
+      EXTERNAL STORE_PARSE_WORDS
+C -------------------- BEGIN ----------------------
+ 
+
+      FNAM = 'RDFILE_SNCID_NOFMT'
+      CALL PRBANNER(FNAM)
+
+c define list of forbidden characters in CID name.
+      BADCHARS  = '%!#:$.  '
+      N_BADCHAR = INDEX(BADCHARS,' ') - 1
+      N_BADNAME = 0
+ 
 c -----------------------------
       DO 100 iwd = 1, NWD
 
          CALL get_PARSE_WORD_fortran(iwd,CTMP,LEN)
-
-c check for formatted file
-         if ( ISFMT ) THEN
-            if ( CTMP .EQ. 'SN:' .or. CTMP .EQ. 'ROW:' ) THEN
-               ! CID myst be string after SN/ROW key
-               CALL get_PARSE_WORD_fortran(iwd+1,CCID,LEN2) 
-               GOTO 99   ! load CID into array
-            else
-               GOTO 100  ! skip anything that is not a valid key
-            endif
-         endif
         
 c below is for unformatted (or free-formatted) list of CIDs
 
@@ -9760,8 +9875,7 @@ c - - - - - - - - - - -  - -
 
          NCCID_LIST = NCCID_LIST + 1
          CALL CHKARRBOUND(NCCID_LIST, ONE, MXCCID_LIST, "NCCID_LIST",
-     &          "Check above CID-list file", "RD_SNCIDLIST")
-
+     &          "Check above CID-list file", FNAM)
          SNCCID_LIST_ALL(NCCID_LIST) = CCID
 
  100  CONTINUE  ! iwd
@@ -9773,20 +9887,15 @@ c abort if any CID names have invalid characters
          write(c1err,661) N_BADNAME
  661     format(I4,' CIDs have invalid name.' )
          c2err = 'Check above WARNINGS and SNCID_LIST_FILE'
-         CALL  MADABORT("RD_SNCIDLIST", C1ERR, C2ERR)
+         CALL  MADABORT(FNAM, C1ERR, C2ERR)
       ENDIF
 
-c --------------------------
-      write(6,30) NCCID_LIST
- 30   format(T8,'Stored ',I5,' CIDs to process' )
-      CALL FLUSH(6)
-
       RETURN
-      END
+      END    ! end RDFILE_SNCID_NOFMT
 
 C =======================================
-+DECK,RDMJDLIST.
-      SUBROUTINE RD_SNMJDLIST
++DECK,RD_SNMJDLIST.
+      SUBROUTINE RDFILE_SNMJDLIST
 c
 c Created May 2008 by R.Kessler
 c
@@ -9815,7 +9924,7 @@ c ---------
 
       INTEGER   iwd, NWD, LEN, N, j, LL0, LL1
       CHARACTER CCID*(MXCHAR_CCID), NAME_forC*(MXCHAR_FILENAME)
-      CHARACTER CTMP0*40, CTMP1*40
+      CHARACTER CTMP0*40, CTMP1*40, FNAM*18
       REAL*8  MJD8
       LOGICAL LOK
 
@@ -9829,6 +9938,7 @@ c ---------- BEGIN ----------
       
       IF ( SNMJD_LIST_FILE .EQ. ' ' ) RETURN
 
+      FNAM = 'RDFILE_SNMJDLIST'
       N_INTERP_MJDLIST_DONE = 0
 c init arrays
       N_INTERP_MJDLIST       = 0
@@ -9838,7 +9948,7 @@ c init arrays
          INTERP_MJDLIST_DONE(j) = .FALSE.
       ENDDO
 
-      CALL PRBANNER("RD_SNMJDLIST:")
+      CALL PRBANNER(FNAM)
 
       LEN = INDEX(SNMJD_LIST_FILE,' ') - 1
       print*,' '
@@ -9876,12 +9986,12 @@ c --- error checking
             write(c1err,61) MJD8
 61          format('Read Invalid MJD = ', F12.3,' from ' ) 
             c2err = SNMJD_LIST_FILE(1:80)
-            CALL  MADABORT("RD_SNMJDLIST", C1ERR, C2ERR)
+            CALL  MADABORT(FNAM, C1ERR, C2ERR)
          endif
 
 c abort if we exceed array bound
          IF ( N_INTERP_MJDLIST .GT. MXINTERP ) THEN
-            CALL PRINT_PREABORT_BANNER("RD_SNMJDLIST"//char(0), 40)
+            CALL PRINT_PREABORT_BANNER("RDFILE_SNMJDLIST"//char(0),40)
             print*,'   SNMJD_LIST_FILE = ', SNMJD_LIST_FILE
             write(c1err,161) CCID, MJD8
 161         format('N_INTERP_MJDLIST exceeds bound at CID=',A8, 2x,
@@ -9889,13 +9999,13 @@ c abort if we exceed array bound
             write(c2err,162) MXINTERP
 162         format('Check MXINTERP=',I5,' and SNMJD_LIST_FILE above.')
 
-           CALL  MADABORT("RD_SNMJDLIST", C1ERR, C2ERR)
+           CALL  MADABORT(FNAM, C1ERR, C2ERR)
       ENDIF
 
 100   CONTINUE  ! iwd
 
       RETURN
-      END   ! end of RD_SNMJDLIST
+      END   ! end of RDFILE_SNMJDLIST
 
 C =============================
 +DECK,GTINTLIST.
@@ -17887,8 +17997,8 @@ c correct data fluxes if USE_MWCOR=T
       END   ! end MWEBV_FLUXCOR
 
 C ===========================================
-+DECK,RDUSRTAGS.
-      SUBROUTINE RD_USERTAGS()
++DECK,RDFILE_USRTAGS.
+      SUBROUTINE RDFILE_USERTAGS()
 c
 c Created Aug 2011 by R.Kessler
 c If namelist USERTAGS_FILE is set, then read integer tag
@@ -17942,7 +18052,7 @@ c init all tags to zero
         USERTAG_USED(itag)      = 0
       ENDDO
 
-      CALL PRBANNER("RD_USERTAGS")
+      CALL PRBANNER("RDFILE_USERTAGS")
       print*,'  Read user tags to identify subsets. '
 
       NAME_ForC = USERTAGS_FILE(1:LEN)//char(0)
@@ -17962,7 +18072,7 @@ c init all tags to zero
              write(c1err,61) MXUSERTAG
 61           format('Number of USER TAGS exceeds bound of ',I5)
              c2err = 'Check ' // USERTAGS_FILE(1:60)
-             CALL MADABORT("RD_USERTAGS", c1err, c2err )
+             CALL MADABORT("RDFILE_USERTAGS", c1err, c2err )
            endif
 
            CALL get_PARSE_WORD_fortran(iwd+1,CWD,LEN)
@@ -24097,6 +24207,7 @@ c to avoid declaring such a large array.
 c
 c
 c Oct 10 2020: fix bug checking SNCCID_IGNORE_ALL
+c Jan 04 2021: check OPT_SNCID_LIST for option to use alternate PKMJDINI
 C ---------------------------
 
       IMPLICIT NONE
@@ -24109,7 +24220,7 @@ c input function args
 +CDE,SNCUTS.
 +CDE,SNLCINP.
 +CDE,INTERPCM.
-cc +CDE,SNLCCOM.
++CDE,SNLCCOM.
    
       INTEGER i, LEN, LENCCID
       REAL XCID     
@@ -24163,6 +24274,11 @@ c of individual CIDs to process
         CCIDTMP = SNCCID_LIST_ALL(i)
         IF ( STRINGMATCH(CCIDTMP,CCID) ) THEN
           LCIDSELECT = .TRUE.
+	  ! Jan 4 2021: check option to use PKMJD from CCID file
+	  if ( BTEST(OPT_SNCID_LIST,1) ) then
+              SNLC_SNANAFIT_PEAKMJD = PKMJDINI_LIST_ALL(i)
+              SNLC_SEARCH_PEAKMJD   = PKMJDINI_LIST_ALL(i)
+          endif
           GOTO 800
         ENDIF
 
@@ -37211,6 +37327,10 @@ c function
 C ---------------- BEGIN ----------------
 
       if ( OPT_SETPKMJD <= 0 ) RETURN
+
+c Jan 4 2021: bail if option is set to use PKMJDINI from SNCID_LIST_FILE
+      if ( BTEST(OPT_SNCID_LIST,1) ) RETURN
+
       FNAM = 'SET_PEAKMJD'
       CCID = SNLC_CCID
 

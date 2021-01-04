@@ -317,9 +317,9 @@ class Program:
             # compute small (0.1s) delay per core to avoid first jobs
             # finishing before all are submitted, then failing
             # the pid-submit check. Delay is largest for core 0, 
-            # then is reduced by 0.1 sec per core. For 100 cores,
-            # first delay is 10sec.
-            delay = float(n_core - icpu)/10.0
+            # then is reduced by 0.2 sec per core. For 100 cores,
+            # first delay is 20 sec.
+            delay = float(n_core - icpu)/5.0
 
             command_file_list.append(command_file)
             cmdlog_file_list.append(log_file)

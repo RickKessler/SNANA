@@ -525,7 +525,7 @@ void SNTABLE_FILL_TEXT(int IDTABLE) {
   int ITAB, NFILL, NVAR, IVAR, ICAST, OPT_FORMAT ;
 
   FILE *FP ;
-  char ROW[2000], CVAL[80], *FORMAT, *VARNAME, sep[4], comment[200] ;
+  char ROW[MXCHAR_LINE], CVAL[80], *FORMAT, *VARNAME, sep[4], comment[200] ;
   char fnam[] = "SNTABLE_FILL_TEXT" ;
 
   // ------------- BEGIN ------------

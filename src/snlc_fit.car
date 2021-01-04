@@ -12006,7 +12006,7 @@ cc         print*,'  Will use exact CCM89 law with AV = XTMAG(5495 A)'
       END
 
 C ===================================================
-+DECK,FANA_CUTS.
++DECK,FITANA_CUTS.
       SUBROUTINE FITANA_CUTS(isn, LCUTS )
 c
 c Apply quality cuts to fit results AFTER all fit-iterations
@@ -12028,16 +12028,12 @@ c  * SNRMAX & SNRMAX2
 c  * SIGMACHI2
 c  * FitPar and covariances
 c
-c Feb 8 2014: fix VBOSE bug.
-c   When  LVBOSE-> F (after 500 fits), LCUTS was always true 
-c   resulting in failed fits getting into the ntuple and fitres files. 
-c   Applying cuts in the ntuple gives the right results.
-c
-c Feb 10, 2014:  suppress FITWIN_TREST check for photo-z fits
 c
 c Sep 17 2016: cut on fitted covariances; see CUTWIN_FITCOV
 c
 c Mar 10 2017: cut on CUTWIN_FITERRz1
+c
+c Jan 4 2021: check OPT_SNCID_LIST option to accept everything.
 c
 c ------------------------------------------------
 
@@ -12091,6 +12087,8 @@ C ----------------- BEGIN ----------------
       CALL PRBANNER(BANNER)
 
       LCUTS = .TRUE.  ! init output argument
+
+      if ( BTEST(OPT_SNCID_LIST,0) ) RETURN  ! Jan 4 2021
 
       DOFIT_SPECZ = .NOT. DOFIT_PHOTOZ
 

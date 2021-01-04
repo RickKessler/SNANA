@@ -326,8 +326,6 @@ int main(int argc, char **argv) {
     ADD_FITRES(ifile);
   }
 
-  print_stats();
-
   if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH ) 
     { match_CID_hash(-1,0); } // remove hash table
 
@@ -335,9 +333,10 @@ int main(int argc, char **argv) {
 
   WRITE_SNTABLE() ;
 
-
   printf("   Done writing %d events. \n", NWRITE_SNTABLE );
   fflush(stdout);
+
+  print_stats();
 
   return(0);
 
@@ -1172,7 +1171,7 @@ void  print_stats(void) {
     for(isn=0; isn < NLIST_FIRST_FITRES; isn++ ) {
       if ( NMATCH_PER_EVT[isn] == NFFILE ) { NEVT_COMMON++; }
     }
-    printf("%s NEVT_COMMON: %d  (%d missing in at least one file)\n", 
+    printf("%s NEVT_COMMON: %d  (%d missing in at least one file)\n\n", 
 	   key_grep, NEVT_COMMON, NEVT_READ[0]-NEVT_COMMON );
     fflush(stdout);
   }

@@ -1431,7 +1431,7 @@ void  ADD_SNTABLE_COMMENTS(void) {
   STORE_TABLEFILE_COMMENT(comment) ;
 
   for(ifile=0; ifile < INPUTS.NFFILE; ifile++ ) {
-    sprintf(comment,"\t + %s", INPUTS.FFILE[ifile] );
+    sprintf(comment,"   + %s", INPUTS.FFILE[ifile] );
     STORE_TABLEFILE_COMMENT(comment) ;
   }
 

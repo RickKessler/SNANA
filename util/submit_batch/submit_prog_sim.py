@@ -27,13 +27,14 @@
 # Dec 03 2020: replace legacy n_file_max=6 with global MAX_SIMGEN_INFILE=12
 # Dec 09 2020: if NGENTOT_LC is in GENOPT, remove it after parsing it.
 # Dec 10 2020: extract NGENTOT_LC frmo GENOPT_GLOBAL
+# Jan 04 2021: fix setting ranseed_list when FORMAT_MASK=32
 #
 # ==========================================
 
 import os,sys,glob,yaml,shutil
 import logging, coloredlogs
 
-import submit_util as util
+import submit_util  as  util
 from   submit_params    import *
 from   submit_prog_base import Program
 
@@ -152,6 +153,9 @@ class Simulation(Program):
 
         self.sim_prep_GENOPT() 
 
+        # fetch format and do_cidran 
+        self.sim_prep_FORMAT_MASK()
+
         # parse random seed options (REPEAT or CHANGE)
         self.sim_prep_RANSEED()
 
@@ -162,7 +166,7 @@ class Simulation(Program):
         self.sim_prep_NGENTOT_LC()
 
         # determine CIDRAN parameters to ensure unique randoms
-        self.sim_prep_FORMAT_MASK()
+        # xxx self.sim_prep_FORMAT_MASK()
         self.sim_prep_CIDRAN()
 
         # abort on conflicts
@@ -409,6 +413,7 @@ class Simulation(Program):
 
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file     # for msgerr
+        do_cidran    = self.config_prep['do_cidran']
         nkey_found   = 0  # local: number of valid RANSEED_XXX keys
         ranseed_list = [] # array vs. split index
         msgerr       = []
@@ -433,9 +438,12 @@ class Simulation(Program):
                     msgerr.append(f"Check {key} in {input_file}")
                     self.log_assert(False,msgerr)                    
 
-                if key == 'RANSEED_REPEAT' :
+                if key == 'RANSEED_REPEAT' and do_cidran :
+                    # same seed per core since snlc_sim.exe will change
+                    # each seed internally as it finds new CID list
                     ranseed_list = [ranseed] * n_job_split
                 else:
+                    # change seed each core 
                     for job in range(0,n_job_split):
                         ranseed_tmp = ranseed + 10000*job + job*job + 13
                         ranseed_list.append(ranseed_tmp)
@@ -474,6 +482,7 @@ class Simulation(Program):
         INFILE_KEYS   = self.config_prep['INFILE_KEYS']
         n_core        = self.config_prep['n_core']
         n_job_split   = self.config_prep['n_job_split']
+        do_cidran     = self.config_prep['do_cidran']
         key_ngen_unit = "NGEN_UNIT"
         ngentot_sum   = 0 
 
@@ -506,6 +515,16 @@ class Simulation(Program):
         self.config_prep['ngentot_list2d'] = ngentot_list2d
         self.config_prep['ngen_unit']      = ngen_unit
         self.config_prep['ngentot_sum']    = ngentot_sum
+
+        # Jan 4 2021: move this test here from sim_prep_FORMAT_MASK
+        if do_cidran and ngentot_sum == 0 :
+            msgerr.append(f"Invalid NGENTOT_LC=0  with CIDRAN option " \
+                          f" (FORMAT_MASK += {FORMAT_MASK_CIDRAN}) ")
+            msgerr.append(f"Try one of the following:")
+            msgerr.append(f"  - FORMAT_MASK -= {FORMAT_MASK_CIDRAN}:")
+            msgerr.append(f"  - specify NGENTOT_LC")
+            msgerr.append(f"  - specify NGEN_UNIT")
+            self.log_assert(False,msgerr)
 
         # end sim_prep_NGENTOT_LC
 
@@ -654,13 +673,12 @@ class Simulation(Program):
         # Determine format_mask from input.
         # format_mask can be either in GENOPT_GLOBAL, or as CONFIG key;
         # require 1 and only 1; abort on 0 or 2 keys
-        # Also parse format_mask to determin if TEXT or FITS,
+        # Also parse format_mask to determine if TEXT or FITS,
         # and option for random CIDs 
 
         CONFIG          = self.config_yaml['CONFIG']
         input_file      = self.config_yaml['args'].input_file     # for msgerr
         genopt_global   = self.config_prep['genopt_global'].split()
-        ngentot_sum     = self.config_prep['ngentot_sum'] 
         key             = 'FORMAT_MASK'
         format_mask     = -1 # init value
         msgerr = []
@@ -700,14 +718,17 @@ class Simulation(Program):
 
         # check option for random CIDs
         do_cidran  = (format_mask & FORMAT_MASK_CIDRAN) > 0
-        if do_cidran and ngentot_sum == 0 :
-            msgerr.append(f"Invalid NGENTOT_LC=0  with CIDRAN option " \
-                          f" (FORMAT_MASK += {FORMAT_MASK_CIDRAN}) ")
-            msgerr.append(f"Try one of the following:")
-            msgerr.append(f"  - FORMAT_MASK -= {FORMAT_MASK_CIDRAN}:")
-            msgerr.append(f"  - specify NGENTOT_LC")
-            msgerr.append(f"  - specify NGEN_UNIT")
-            self.log_assert(False,msgerr)
+
+        # xxxxxxxx mark delete Jan 4 2021 xxxxxxxxxx
+        #if do_cidran and ngentot_sum == 0 :
+        #    msgerr.append(f"Invalid NGENTOT_LC=0  with CIDRAN option " \
+        #                  f" (FORMAT_MASK += {FORMAT_MASK_CIDRAN}) ")
+        #    msgerr.append(f"Try one of the following:")
+        #    msgerr.append(f"  - FORMAT_MASK -= {FORMAT_MASK_CIDRAN}:")
+        #    msgerr.append(f"  - specify NGENTOT_LC")
+        #    msgerr.append(f"  - specify NGEN_UNIT")
+        #    self.log_assert(False,msgerr)
+        # xxxxxxxxx end mark xxxxxxxxxxxx
 
         self.config_prep['format_mask'] = format_mask
         self.config_prep['format']      = format_type        # TEXT or FITS
@@ -784,13 +805,6 @@ class Simulation(Program):
         cidoff        = cidran_min
         for iver,ifile,isplit in zip(iver_list,ifile_list,isplit_list):
 
-        # xxx mark delete 
-        #for job in range(0,n_job_tot) :
-            #iver   = iver_list[job]
-            #ifile  = ifile_list[job]
-            #isplit = isplit_list[job]
-            # xxx end mark xxxxxx
-
             new_version = (ifile == 0 and isplit==0)
             if reset_cidoff < 2 and new_version :
                 cidoff = 0      # reset CIDOFF for new version
@@ -823,7 +837,6 @@ class Simulation(Program):
         self.config_prep['cidran_max_list']   = cidran_max_list
         self.config_prep['cidoff_list3d']     = cidoff_list3d
         self.config_prep['n_job_tot']         = n_job_tot
-        # xxxself.config_prep['ngentot_sum']         = ngentot_sum
 
         self.sim_prep_dump_cidoff()
 
@@ -1388,10 +1401,10 @@ class Simulation(Program):
         icpu   = job_index_dict['icpu']
 
         # pick off a few globals
-        CONFIG       = self.config_yaml['CONFIG']
-        GENPREFIX    = CONFIG['GENPREFIX']
-        no_merge     = self.config_yaml['args'].nomerge
-        kill_on_fail = self.config_yaml['args'].kill_on_fail
+        CONFIG            = self.config_yaml['CONFIG']
+        GENPREFIX         = CONFIG['GENPREFIX']
+        no_merge          = self.config_yaml['args'].nomerge
+        kill_on_fail      = self.config_yaml['args'].kill_on_fail
         program           = self.config_prep['program'] 
         n_job_split       = self.config_prep['n_job_split']
         output_dir        = self.config_prep['output_dir']

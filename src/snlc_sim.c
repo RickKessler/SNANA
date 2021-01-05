@@ -17381,11 +17381,10 @@ void init_CIDRAN(void) {
   // Jul 22 2018: check minimum CID from user input (see MNCID)
   //
   // Jan 04 2021; 
-  //   + if not random CID, jump down to NEW_RANSEED. Fixes batch-mode
-  //     bug using FORMAT_MASK=32.
+  //   + remove useless calc of NEWSEED
   //
 
-  int NJOBTOT  = INPUTS.NJOBTOT ; // totoal number of batch jobs
+  // xxx  int NJOBTOT  = INPUTS.NJOBTOT ; // totoal number of batch jobs
   int NPICKRAN_ABORT ; // abort after this many tries
   int i, i2, j, NPICKRAN, NSTORE_ALL, NSTORE, CIDRAN, CIDTMP, CIDADD;
   int CIDMAX, CIDMIN, USED, NTRY, NCALL_random=0, LDMP=0 ;
@@ -17398,10 +17397,8 @@ void init_CIDRAN(void) {
   // ------------ BEGIN ------------
 
   fflush(stdout);
-  if ( WRFLAG_CIDRAN  <= 0 ) { 
-    if ( NJOBTOT > 0 ) { goto NEW_RANSEED; } // Jan 4 2021
-    return ; 
-  }
+  if ( WRFLAG_CIDRAN  <= 0 ) { return ; }
+
 
   CIDMAX     = INPUTS.CIDRAN_MAX ; // -> local var      
   CIDMIN     = INPUTS.CIDRAN_MIN ; 
@@ -17552,11 +17549,13 @@ void init_CIDRAN(void) {
 	 NSTORE_ALL, NSTORE); fflush(stdout);
   printf("\t Called random() function %d times.\n", NCALL_random );
 
+  /* xxxxxxxxxx mark delete Jan 4 2021 xxxxxxxxxxx
   // re-init randoms with new SEED that is different for each batch job
   // (WARNING: this code snippet is not really in the right place)
  NEW_RANSEED:
   NEWSEED = INPUTS.ISEED + INPUTS.CIDOFF ;
   srandom(NEWSEED);
+  xxxxxxxxxxx end mark xxxxxxx */
 
   return ;
 

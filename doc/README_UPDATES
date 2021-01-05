@@ -19370,6 +19370,10 @@
 
          ***** IMPORTANT(v11_02d) ***** 
 
+   sim: Using FORMAT_MASK=32 in batch mode, random seed was always the
+        same for each core -> fixed. Worked fine with FORMAT_MASK=48
+        to get random CIDs. Fix is mainly in submit_prog_sim.py.
+  
          ***** USEFUL(v11_02d) ***** 
 
     combine_dataVersions.py :
@@ -19387,6 +19391,7 @@
      + remove obsolete SPLITRAN-summary functions.
      + more updates for datafile_override option.
      + opt_biascor += 1024 -> keep events with no biasCor.
+     + new input OPT_SNCID_LIST; see manual
 
     snana.car
      + for reading TEXT format, allow full filter name and
@@ -19397,6 +19402,8 @@
     snlc_sim.c :
      + fix bug reading HOSTLIB_GENZPHOT_BIAS
      + abort if CONFIG key is found
+     + fix awful init_CIDRAN bug. Using FORMAT_MASK=32 in batch mode,
+       random seed was always the same for each core !
 
     sntools_genPDF.c:
      + fix bug setting min/max range
@@ -19407,5 +19414,8 @@
 
     submit_prog_base.py :
       + add small delay in each CPU*CMD file.
+
+    combine_fitres.c
+      + fix to allow longer lines up to 3200 chars.
 
 END: 

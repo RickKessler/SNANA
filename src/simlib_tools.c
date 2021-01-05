@@ -431,12 +431,11 @@ void simlib_add_mjd(
     istat = CHECK_LIBVAL("CCDGAIN",     CCDGAIN, 0.0, 100. );
     istat = CHECK_LIBVAL("CCDNOISE",    CCDNOISE,0.0, 100. );
     istat = CHECK_LIBVAL("SKYSIG",      SKYSIG,  0.0,2000. );
-    istat = CHECK_LIBVAL("PSF(inner)",  PSF[0], 0.0, 10. );
-    istat = CHECK_LIBVAL("PSF(outer)",  PSF[1], 0.0, 10. );
+    istat = CHECK_LIBVAL("PSF(inner)",  PSF[0], 0.0, 50. );
+    istat = CHECK_LIBVAL("PSF(outer)",  PSF[1], 0.0, 50. );
     istat = CHECK_LIBVAL("PSF-ratio",   PSF[2], 0.0, 10. );
     
-    // xxx    istat = CHECK_LIBVAL("ZeroPoint",       ZPT[0], 10.0, 40. );
-    istat = CHECK_LIBVAL("ZeroPoint",       ZPT[0], 50.0, 40. );
+    istat = CHECK_LIBVAL("ZeroPoint",       ZPT[0], 10.0, 40. );
     istat = CHECK_LIBVAL("ZeroPoint-sigma", ZPT[1],  0.0, 4.0 );
   }
 

@@ -12088,7 +12088,15 @@ C ----------------- BEGIN ----------------
 
       LCUTS = .TRUE.  ! init output argument
 
-      if ( BTEST(OPT_SNCID_LIST,0) ) RETURN  ! Jan 4 2021
+c Jan 4 2021
+c check option to use SNCID list and skip cuts ... but always
+c reject events that are pegged to the edge of the shape prior range
+      if ( BTEST(OPT_SNCID_LIST,0) ) THEN
+         xval = LCVAL_STORE(ipar_shape)
+         if ( xval < PRIOR_SHAPE_RANGE(1) + 0.05 ) LCUTS = .FALSE.
+         if ( xval > PRIOR_SHAPE_RANGE(2) - 0.05 ) LCUTS = .FALSE.
+         RETURN
+      endif
 
       DOFIT_SPECZ = .NOT. DOFIT_PHOTOZ
 

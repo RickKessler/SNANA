@@ -54,6 +54,8 @@
    + long int IDEXPT -> char STRINGID[20] to allow ID*NEXPOSE
      e.g., 123438*2
 
+ Jan 5 2021: allow PSF max to 50 (was 10) [for LSST]
+
 ********************************************/
 
 
@@ -433,7 +435,8 @@ void simlib_add_mjd(
     istat = CHECK_LIBVAL("PSF(outer)",  PSF[1], 0.0, 10. );
     istat = CHECK_LIBVAL("PSF-ratio",   PSF[2], 0.0, 10. );
     
-    istat = CHECK_LIBVAL("ZeroPoint",       ZPT[0], 10.0, 40. );
+    // xxx    istat = CHECK_LIBVAL("ZeroPoint",       ZPT[0], 10.0, 40. );
+    istat = CHECK_LIBVAL("ZeroPoint",       ZPT[0], 50.0, 40. );
     istat = CHECK_LIBVAL("ZeroPoint-sigma", ZPT[1],  0.0, 4.0 );
   }
 

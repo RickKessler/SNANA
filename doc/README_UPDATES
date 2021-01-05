@@ -19366,7 +19366,7 @@
 
 
 # ======================================================================= 
-         v11_02d (  ) 
+         v11_02d (Jan 4 2021) 
 
          ***** IMPORTANT(v11_02d) ***** 
 
@@ -19415,7 +19415,10 @@
     submit_prog_base.py :
       + add small delay in each CPU*CMD file.
 
+    submit_prog_sim.py :  
+      + fix RANSEED logic for FORMAT_MASK=32
+
     combine_fitres.c
-      + fix to allow longer lines up to 3200 chars.
+      + fix to allow longer VARNAME lines up to 3200 chars.
 
 END: 

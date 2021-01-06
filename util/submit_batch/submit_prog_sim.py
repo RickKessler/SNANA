@@ -28,6 +28,8 @@
 # Dec 09 2020: if NGENTOT_LC is in GENOPT, remove it after parsing it.
 # Dec 10 2020: extract NGENTOT_LC frmo GENOPT_GLOBAL
 # Jan 04 2021: fix setting ranseed_list when FORMAT_MASK=32
+# Jan 06 2021: cidadd safety margin -> 1000 (was 10) to reduce chance
+#               of running out of random CIDs
 #
 # ==========================================
 
@@ -817,7 +819,7 @@ class Simulation(Program):
             ngentot      = ngentot_list2d[iver][ifile] # per split job
             # xxx ngentot_sum += ngentot    # increment total number generated
             if reset_cidoff > 0 :
-                cidadd       = int(ngentot*1.1)+10   # leave safety margin
+                cidadd       = int(ngentot*1.1)+1000   # leave safety margin
                 cidoff      += cidadd        # for random CIDs in snlc_sim
                 cidran_max   = cidoff
             else:

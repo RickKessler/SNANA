@@ -17497,9 +17497,10 @@ void init_CIDRAN(void) {
 	}
       }
 
-      if ( NTRY == 0 ) {
+      if ( NTRY == 0 ) {  // check for error
 	
 	for(j=1; j <= CIDMAX; j++ ) {
+
 	  if ( j < 100 || (CIDMAX-j)<100 ) {
 	    printf("  xxx CID= %3d --> cidmask=%d \n",
 		   j, exec_cidmask(2,j) );
@@ -17510,8 +17511,8 @@ void init_CIDRAN(void) {
 	printf(" xxx global CIDMASK_LIST = %d, %d, %d \n",
 	       CIDMASK_LIST[0], CIDMASK_LIST[1], CIDMASK_LIST[2] ) ;
 
-	sprintf(c1err,"Unable to try CIDTMP = %d or %d  (CIDRAN=%d)",
-		CIDRAN-i2, CIDRAN+i2, CIDRAN );
+	sprintf(c1err,"Unable to try CIDTMP = %d or %d  (CIDRAN=%d,i2=%d)",
+		CIDRAN-i2, CIDRAN+i2, CIDRAN, i2 );
 	sprintf(c2err,"CIDMAX=%d  NPICKRAN=%d  i=%d of %d  CID=%d", 
 		CIDMAX, NPICKRAN, i, NSTORE_ALL, GENLC.CID );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -19397,7 +19398,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   arg        = 0.4 * ( zpt - 31.0 );  
   zptfac     = pow(10.0,arg);  
   if ( zsn > 1.0E-9 ) 
-    { crazyflux  = 2.*(1.E4 * zptfac * xt) / (zsn*zsn) ; }
+    { crazyflux  = 4.*(1.E4 * zptfac * xt) / (zsn*zsn) ; }
   else
     { crazyflux = 1.0E14 ; } // for LCLIB (July 2018)
 

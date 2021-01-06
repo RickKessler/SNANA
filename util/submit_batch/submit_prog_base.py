@@ -7,6 +7,11 @@
 # Jan 2 2021: add small delay in each CPU* file to avoid jobs finishing
 #             before all are submitted, resulting in pid-check failure.
 #
+# Jan 6 2021: 
+#   in write_batch_file, add REPLACE_[WALLTIME,NTASK,CPU_PER_TASK].
+#   These keys are hard-coded for submit_batch, but can be altered
+#   by Pippin for non-SNANA jobs.
+#
 # ============================================
 
 #import argparse
@@ -116,6 +121,7 @@ class Program:
         node_list     = []
         memory        = BATCH_MEM_DEFAULT
         maxjob        = BATCH_MAXJOB_DEFAULT
+        walltime      = BATCH_WALLTIME_DEFAULT
         kill_flag     = config_yaml['args'].kill
         n_core_arg    = config_yaml['args'].ncore
         msgerr        = []
@@ -162,9 +168,13 @@ class Program:
         if 'BATCH_MEM' in CONFIG :
             memory = str(CONFIG['BATCH_MEM'])
 
+        # check optional walltime (Jan 6 2021)
+        if 'BATCH_WALLTIME' in CONFIG :
+            walltime = CONFIG['BATCH_WALLTIME']
+
         # check optional maxjob
-        if 'BATCH_MAXJOB' in CONFIG :
-            maxjob = int(CONFIG['BATCH_MAXJOB'])
+        # ?? if 'BATCH_MAXJOB' in CONFIG :
+        # ??   maxjob = int(CONFIG['BATCH_MAXJOB'])
 
             #if isinstance(memory,int) :
             #    msgerr.append(f"Missing memory units")
@@ -177,6 +187,7 @@ class Program:
         config_prep['submit_mode'] = submit_mode
         config_prep['node_list']   = node_list
         config_prep['memory']      = memory
+        config_prep['walltime']    = walltime
         config_prep['maxjob']      = maxjob
     
     # end parse_batch_info
@@ -397,10 +408,11 @@ class Program:
         # Note that lower-case xxx_file has no path; 
         # upper case XXX_FILE includes full path
 
-        BATCH_TEMPLATE  = self.config_prep['BATCH_TEMPLATE'] 
-        script_dir      = self.config_prep['script_dir']
-        replace_memory  = self.config_prep['memory']
-        debug_batch     = self.config_yaml['args'].debug_batch
+        BATCH_TEMPLATE   = self.config_prep['BATCH_TEMPLATE'] 
+        script_dir       = self.config_prep['script_dir']
+        replace_memory   = self.config_prep['memory']
+        replace_walltime = self.config_prep['walltime']
+        debug_batch      = self.config_yaml['args'].debug_batch
 
         BATCH_FILE      = (f"{script_dir}/{batch_file}")
 
@@ -418,12 +430,23 @@ class Program:
         #replace_job_cmd = (f"cd {script_dir} \nsource {command_file}")
         replace_job_cmd = (f"cd {script_dir} \nsh {command_file}")
 
+        # Jan 6 2021: add few more replace keys that can be modified
+        # by non-SNANA tasks (e.g., classifiers, CosmoMC ...)
+        replace_ntask        = '1'
+        replace_cpu_per_task = '1'
+
         # - - - define list of strings to replace - - - - 
         batch_lines = []            
-        REPLACE_KEY_LIST = [ 'REPLACE_NAME', 'REPLACE_MEM',
-                             'REPLACE_LOGFILE', 'REPLACE_JOB' ]
+        REPLACE_KEY_LIST = [ 'REPLACE_NAME',    'REPLACE_MEM',
+                             'REPLACE_LOGFILE', 'REPLACE_JOB',
+                             'REPLACE_WALLTIME', 
+                             'REPLACE_NTASK',   'REPLACE_CPU_PER_TASK' ]
+
         replace_string_list = [ replace_job_name, replace_memory,
-                                replace_log_file, replace_job_cmd ]
+                                replace_log_file, replace_job_cmd,
+                                replace_walltime,
+                                replace_ntask, replace_cpu_per_task ]
+
         NKEY = len(REPLACE_KEY_LIST)
 
         # replace strings in batch_lines

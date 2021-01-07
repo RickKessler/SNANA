@@ -17402,7 +17402,11 @@ void init_CIDRAN(void) {
 
   CIDMAX     = INPUTS.CIDRAN_MAX ; // -> local var      
   CIDMIN     = INPUTS.CIDRAN_MIN ; 
-  NSTORE_ALL = INPUTS.CIDOFF  + INPUTS.NGEN_LC + INPUTS.NGENTOT_LC ;
+
+  NSTORE_ALL = 
+    (INPUTS.CIDOFF - INPUTS.CIDRAN_MIN)  + 
+    (INPUTS.NGEN_LC + INPUTS.NGENTOT_LC) ;
+
   NSTORE     = INPUTS.NGEN_LC + INPUTS.NGENTOT_LC ; // for this sim-job
 
   sprintf(BANNER,"init_CIDRAN: initialize %d RANDOM CIDs (CIDOFF=%d)",

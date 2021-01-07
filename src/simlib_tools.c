@@ -15,7 +15,7 @@
   Make sure to read comments at the top of each function
   so that you know what arguments to pass.
 
-  1. call simlib_open() to open file and write global info.
+  1. call simlib_open_write() to open file and write global info.
 
   2. for each RA,DECL position where a supernova could have been
      observed, call function
@@ -34,7 +34,7 @@
       HISTORY
      ~~~~~~~~~~
 
-  May 20,. 2008: add char *telescope argument to simlib_open
+  May 20,. 2008: add char *telescope argument to simlib_open_write
 
   May 27, 2009: define new global CFILT_LAST so that both MHJ & filter
                 are compared to determine new MJD.  Handles case where
@@ -54,13 +54,15 @@
    + long int IDEXPT -> char STRINGID[20] to allow ID*NEXPOSE
      e.g., 123438*2
 
- Jan 5 2021: allow PSF max to 50 (was 10) [for LSST]
+ Jan 5 2021: 
+   + allow PSF max to 50 (was 10) [for LSST]
+   + rename DECL -> DEC
 
 ********************************************/
 
 
-void simlib_open(char *filename, char *surveyname, char *filters, 
-		 char *telescope, char *comment, char *headFile );
+void simlib_open_write(char *filename, char *surveyname, char *filters, 
+		       char *telescope, char *comment, char *headFile );
 
 void simlib_add_header(int optflag, int IDLIB, int NOBS, 
 		       char *FIELD, float *INFO );
@@ -68,12 +70,14 @@ void simlib_add_header(int optflag, int IDLIB, int NOBS,
 void simlib_add_mjd(int opt, double MJD, char * STRINGID, char *FILTNAME, float *INFO);
 
 
-void simlib_close(void);
+void simlib_close_write(void);
 
 
-int  CHECK_LIBVAL(char *varname, float value, float varmin, float varmax);
-void MADABORT(void);
-void PRINT_ERROR(char *msgerr );
+int  CHECK_SIMLIB_VAL(char *varname, float value, float varmin, float varmax);
+
+void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) ;
+
+void PRINT_SIMLIB_ERROR(char *msgerr );
 
 FILE *FPLIB;      // global pointer to library file.
 
@@ -81,7 +85,6 @@ int   NSIMLIB        ;  // number of simlib entries
 int   NMJD_FOUND     ;  // number of add_mjd  calls; should equal NOBS
 int   NMJD_EXPECT = 0;  // = NOBS
 double    MJD_LAST;
-// xxx mark delete long int IDEXPT_LAST;
 char     STRINGID_LAST[20];
 char     CFILT_LAST[2];
 
@@ -89,7 +92,7 @@ int OPT_CHECKVAL ;
 
 
 // *************************************
-void simlib_open(
+void simlib_open_write(
 		 char *filename     // full name of file to open
 		 ,char *surveyname  // name of survey; i.e, "SDSS"
 		 ,char *filters     // filter list; i.e, "ugriz"
@@ -107,7 +110,7 @@ void simlib_open(
 
   FILE *fp_head ;
   char cline[200];
-  char fnam[20] = "simlib_open";
+  char fnam[20] = "simlib_open_write";
   
   // -------------- BEGIN --------------
 
@@ -115,10 +118,11 @@ void simlib_open(
   NSIMLIB = 0;
 
   if ( (FPLIB = fopen(filename, "wt"))==NULL ) {       
-    printf( "FATAL ERROR(%s): \n", fnam );
-    printf( "Cannot open libfile :\n" );
-    printf( " '%s' \n", filename);
-    MADABORT();
+    // xxxx mark delete    sprintf(c1err, "FATAL ERROR(%s): \n", fnam );
+    sprintf(c1err, "Cannot open simlib file :" );
+    sprintf(c2err, " '%s' \n", filename);
+    // xxx    MADABORT();
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
   printf("\n Opened sim-library output file : \n\t %s \n", filename);
@@ -135,10 +139,11 @@ void simlib_open(
 
   if ( strlen(headFile) > 0 ) {
     if ( (fp_head = fopen(headFile, "rt"))==NULL ) {       
-      printf( "FATAL ERROR(%s): \n", fnam );
-      printf( "Cannot open headFile: headFile :\n" );
-      printf( " '%s' \n", headFile);
-      MADABORT();
+      // xxxx mark printf( "FATAL ERROR(%s): \n", fnam );
+      sprintf(c1err, "Cannot open headFile: headFile :\n" );
+      sprintf(c2err, " '%s' \n", headFile);
+      // xxxx MADABORT();
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
     printf("\t Extract header contents from : %s \n", headFile);
@@ -159,8 +164,9 @@ void simlib_open(
 
   fflush(FPLIB);
 
+  return ;
 
-}  // end of function simlib_open
+}  // end of function simlib_open_write
  
 
 // *****************************************
@@ -202,7 +208,7 @@ void simlib_add_header(
   char msgerr[100];
   int istat, NOPT;
 
-  float RA, DECL, MWEBV, PIXSIZE, Z, PEAKMJD ;
+  float RA, DEC, MWEBV, PIXSIZE, Z, PEAKMJD ;
 
   // ------------ BEGIN ------------
 
@@ -222,19 +228,20 @@ void simlib_add_header(
 
     if ( NMJD_FOUND != NMJD_EXPECT ) {
 
-      PRINT_ERROR("\n");
+      PRINT_SIMLIB_ERROR("\n");
 
       sprintf(msgerr,"  FATAL ERROR in %s \n", fnam);
-      PRINT_ERROR(msgerr);
+      PRINT_SIMLIB_ERROR(msgerr);
 
-      sprintf(msgerr,"\t Found %d MJDs, but expect %d from user NOBS arg. \n", 
+      sprintf(c1err,"Found %d MJDs, but expect %d from user NOBS arg. \n", 
 	      NMJD_FOUND, NMJD_EXPECT);
-      PRINT_ERROR(msgerr);
+      PRINT_SIMLIB_ERROR(c1err);
 
-      sprintf(msgerr,"\t Check last entry in your library file. \n");
-      PRINT_ERROR(msgerr);
+      sprintf(c2err,"\t Check last entry in your library file. \n");
+      PRINT_SIMLIB_ERROR(c2err);
       
-      MADABORT();
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      // xxx      MADABORT();
     }
     return;
   }
@@ -250,7 +257,7 @@ void simlib_add_header(
   // unpack header info
 
   RA      = *(INFO+0) ;  // required: right-ascension, degrees
-  DECL    = *(INFO+1) ;  // required: declination, degrees
+  DEC     = *(INFO+1) ;  // required: declination, degrees
   MWEBV   = *(INFO+2) ;  // required: MilkyWay extinction = AV/RV
   PIXSIZE = *(INFO+3) ;  // required: pixel size, arcseconds
   Z       = *(INFO+4) ;  // optional: redshift
@@ -261,8 +268,9 @@ void simlib_add_header(
   fprintf(FPLIB, "# -------------------------------------------- \n");
   fprintf(FPLIB, "LIBID: %d \n", IDLIB);
 
-  fprintf(FPLIB, "RA: %f   DECL: %f   NOBS: %d    MWEBV: %.4f   PIXSIZE: %5.3f \n", 
-	  RA, DECL,  NOBS, MWEBV, PIXSIZE );
+  fprintf(FPLIB, "RA: %f   DEC: %f   NOBS: %d    "
+	  "MWEBV: %.4f   PIXSIZE: %5.3f \n", 
+	  RA, DEC, NOBS,   MWEBV, PIXSIZE );
 
   if ( strlen(FIELD) > 0 ) 
     fprintf(FPLIB,"FIELD: %s \n", FIELD );
@@ -294,13 +302,15 @@ void simlib_add_header(
   // make sanity checks on input values.
 
   if ( OPT_CHECKVAL == 1 ) {
-    istat = CHECK_LIBVAL("IDLIB",   (float)IDLIB,  0.0, 100000. );
-    istat = CHECK_LIBVAL("NOBS",    (float)NOBS,   1.0, 3000.   );
-    istat = CHECK_LIBVAL("RA",      RA,           -200., 400.0  );
-    istat = CHECK_LIBVAL("DECL",    DECL,         -200., 400.0  );
-    istat = CHECK_LIBVAL("MWEBV",   MWEBV,         0.0, 2.0     );
-    istat = CHECK_LIBVAL("PIXSIZE", PIXSIZE,       0.0, 2.0     );
+    istat = CHECK_SIMLIB_VAL("IDLIB",   (float)IDLIB,  0.0, 100000. );
+    istat = CHECK_SIMLIB_VAL("NOBS",    (float)NOBS,   1.0, 3000.   );
+    istat = CHECK_SIMLIB_VAL("RA",      RA,           -200., 400.0  );
+    istat = CHECK_SIMLIB_VAL("DEC",     DEC,          -200., 400.0  );
+    istat = CHECK_SIMLIB_VAL("MWEBV",   MWEBV,         0.0, 2.0     );
+    istat = CHECK_SIMLIB_VAL("PIXSIZE", PIXSIZE,       0.0, 2.0     );
   }
+
+  return ;
 
 } // end of simlib_add_header
 
@@ -400,8 +410,10 @@ void simlib_add_mjd(
   else if ( opt == 2 ) 
     sprintf(key, "T") ;
   else {
-    printf("ERROR: opt=%d is invalid for function %s \n", opt, fnam);
-    MADABORT();
+    sprintf(c1err, "opt=%d is invalid for function %s \n", opt, fnam);
+    sprintf(c2err, "Something is messed up.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    // xxxx    MADABORT();
   }
 
 
@@ -427,39 +439,78 @@ void simlib_add_mjd(
   // make sanity checks after adding entry to file
 
   if ( OPT_CHECKVAL == 1 ) {
-    istat = CHECK_LIBVAL("MJD",         MJD,     20000., 80000. );
-    istat = CHECK_LIBVAL("CCDGAIN",     CCDGAIN, 0.0, 100. );
-    istat = CHECK_LIBVAL("CCDNOISE",    CCDNOISE,0.0, 100. );
-    istat = CHECK_LIBVAL("SKYSIG",      SKYSIG,  0.0,2000. );
-    istat = CHECK_LIBVAL("PSF(inner)",  PSF[0], 0.0, 50. );
-    istat = CHECK_LIBVAL("PSF(outer)",  PSF[1], 0.0, 50. );
-    istat = CHECK_LIBVAL("PSF-ratio",   PSF[2], 0.0, 10. );
     
-    istat = CHECK_LIBVAL("ZeroPoint",       ZPT[0], 10.0, 40. );
-    istat = CHECK_LIBVAL("ZeroPoint-sigma", ZPT[1],  0.0, 4.0 );
+    istat = CHECK_SIMLIB_VAL("MJD",         MJD,     20000., 80000. );
+    istat = CHECK_SIMLIB_VAL("CCDGAIN",     CCDGAIN, 0.0, 100. );
+    istat = CHECK_SIMLIB_VAL("CCDNOISE",    CCDNOISE,0.0, 100. );
+    istat = CHECK_SIMLIB_VAL("SKYSIG",      SKYSIG,  0.0,2000. );
+    istat = CHECK_SIMLIB_VAL("PSF(inner)",  PSF[0], 0.0, 50. );
+    istat = CHECK_SIMLIB_VAL("PSF(outer)",  PSF[1], 0.0, 50. );
+    istat = CHECK_SIMLIB_VAL("PSF-ratio",   PSF[2], 0.0, 10. );
+    
+    istat = CHECK_SIMLIB_VAL("ZeroPoint",       ZPT[0], 10.0, 40. );
+    istat = CHECK_SIMLIB_VAL("ZeroPoint-sigma", ZPT[1],  0.0, 4.0 );
   }
 
+  return ;
 }  // end of simlib_add_mjd
 
 
 // ************************************************
-void simlib_close(void) {
+void simlib_close_write(void) {
 
   fprintf(FPLIB, "\n");
   fprintf(FPLIB, "END_OF_SIMLIB: %d ENTRIES \n", NSIMLIB );
-
   fclose(FPLIB) ;
+  return;
 }  
 
+
+// ================================================   
+void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE) {
+
+  // Copied from snlc_sim.c [Jan 2021]                          
+  // If inString has no *   -->  IDEXPT = inString and NEXPOSE=1
+  // If inString = ID*NEXP  -->  IDEXPT = ID and NEXPOSE=NEXP
+
+  int  IDTMP, NTMP, NRD;
+  char star[] = "*" ;
+  char WDLIST[2][20], *ptrWDLIST[2];
+  //  char fnam[] = "parse_SIMLIB_IDplusNEXPOSE" ;     
+  // ----------- BEGIN ------------ 
+
+  NTMP = 1;  // default                                                        
+  if ( strchr(inString,'*') == NULL ) {
+    // no star, just read IDEXPT   
+    sscanf(inString , "%d", &IDTMP );
+  }
+  else {
+    // found star, read both ID and NEXPOSE  
+    ptrWDLIST[0] = WDLIST[0] ;
+    ptrWDLIST[1] = WDLIST[1] ;
+    splitString(inString, star, 3,  &NRD, ptrWDLIST );
+    sscanf( WDLIST[0] , "%d", &IDTMP );
+    sscanf( WDLIST[1] , "%d", &NTMP );
+  }
+
+  // load output arguments    
+  *IDEXPT  = IDTMP ;
+  *NEXPOSE = NTMP ;
+
+  return ;
+
+} // end parse_SIMLIB_IDplusNEXPOSE                                             
+
 // ************************************************
-int CHECK_LIBVAL(char *varname, 
-		 float value, float varmin, float varmax) {
+int CHECK_SIMLIB_VAL(char *varname, 
+		     float value, float varmin, float varmax) {
 
   // check that 'value' is between varmin and varmax;
   // if not, then print message and MADABORT
 
   char msgerr[10][80];
   int i;
+  char fnam[] = "CHECK_SIMLIB_VAL" ;
 
   // ---------------- BEGIN --------------
 
@@ -471,27 +522,27 @@ int CHECK_LIBVAL(char *varname,
     sprintf(msgerr[3],"\t Check last entry in your library file. \n");
 
     for ( i=0; i<=3; i++ ) {
-      PRINT_ERROR ( msgerr[i] );
+      PRINT_SIMLIB_ERROR ( msgerr[i] );
     }
 
-    MADABORT();
+    errmsg(SEV_FATAL, 0, fnam, msgerr[1], msgerr[2] ); 
+    //xxxx    MADABORT();
   }
 
   return 0 ;
 
+} // end of CHECK_SIMLIB_VAL
 
-} // end of CHECK_LIBVAL
 
-
-// ***************************************
-void PRINT_ERROR(char *msgerr ) {
-
+// ************************************
+void PRINT_SIMLIB_ERROR(char *msgerr ) {
+  // print message to both stdout and to FPLIB
   printf("%s", msgerr );
   fprintf(FPLIB, "%s", msgerr );
+  return ;
+}  // end of PRINT_SIMLIB_ERROR
 
-}  // end of PRINT_ERROR
-
-// ************************************************
+/* xxxxxxxxxxx mark delete Jan 7 2021 xxxxxxxxxxx
 void MADABORT(void) {
    char cmsg[40] = { "ABORT program on Fatal Error." };
 
@@ -506,5 +557,8 @@ void MADABORT(void) {
    printf("\n");
 
    printf("\n");   exit(1);
+   return ;
 
 }    //  end of "MADABORT"  
+xxxxxxxxxx end mark xxxxxxxxx */
+

@@ -81,6 +81,7 @@ ROW_KEY               = "ROW:"
 KEY_FITOPTxMUOPT      = 'FITOPTxMUOPT'
 BLOCKNAME_FITOPT_MAP  = 'FITOPT_MAP'
 
+FITOPT_STRING_NOREJECT = "NOREJECT" # optional part of FITOPT label
 
 # - - - - - - - - - - - - - - - - - - -  -
 class BBC(Program):
@@ -1660,17 +1661,16 @@ class BBC(Program):
         fitres_list_all   = sorted(glob.glob1(VOUT,wildcard))
         fitres_list       = []
         NOREJECT_list     = []
-        NOREJECT_string   = "NOREJECT"
 
         for row in FITOPT_OUT_LIST:
             fitnum = row[0]
             label  = row[2]
-            if NOREJECT_string in label : NOREJECT_list.append(fitnum)
+            if FITOPT_STRING_NOREJECT in label : NOREJECT_list.append(fitnum)
 
         for row in MUOPT_OUT_LIST:
             munum = row[0]
             label = row[1]
-            if NOREJECT_string in label : NOREJECT_list.append(munum)
+            if FITOPT_STRING_NOREJECT in label : NOREJECT_list.append(munum)
 
         # loop thru fitres_list and remove anything on NOREJECT_list
         for ff in fitres_list_all :

@@ -570,6 +570,7 @@ def write_job_info(f,JOB_INFO,icpu):
 
     # write job program plus arguemnts to file pointer f.
     # All job-info are passed via JOB_INFO.
+    # Jan 8 2021: check optional wait_file
 
     job_dir      = JOB_INFO['job_dir']    # cd here; where job runs
     program      = JOB_INFO['program']    # name of program; e.g, snlc_sim.exe
@@ -578,12 +579,15 @@ def write_job_info(f,JOB_INFO,icpu):
     done_file    = JOB_INFO['done_file']  # DONE stamp for monitor tasks
     arg_list     = JOB_INFO['arg_list']   # argumets of program
 
+
     if len(job_dir) > 1 :
         f.write(f"# ---------------------------------------------------- \n")
         f.write(f"cd {job_dir} \n\n")
 
     CHECK_CODE_EXISTS = '.exe' in program
-    CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO and 'kill_on_fail' in JOB_INFO
+    CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO  and \
+                        'kill_on_fail' in JOB_INFO
+    CHECK_WAIT_FILE   = 'wait_file' in JOB_INFO
 
     if CHECK_ALL_DONE :
         # if ALL.DONE file exists, something else failed ... 
@@ -613,7 +617,16 @@ def write_job_info(f,JOB_INFO,icpu):
                          f"do sleep 5; done" )
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
         f.write(f"{wait_for_code}\n")
-        f.write(f"echo '{program} exists -> execute' \n\n")
+        f.write(f"echo '{program} exists -> continue' \n\n")
+
+    if CHECK_WAIT_FILE:
+        wait_file     = JOB_INFO['wait_file']  # wait for this file to exist
+        wait_for_file = (f"while [ ! -f {wait_file} ]; " \
+                         f"do sleep 10; done" )
+        f.write(f"echo 'Wait for {wait_file}'\n")
+        f.write(f"{wait_for_file}\n")
+        f.write(f"echo '{wait_file} exists -> continue' \n\n")
+
 
     # check optional ENV to set before running program
     if 'setenv' in JOB_INFO :

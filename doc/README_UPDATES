@@ -19421,4 +19421,23 @@
     combine_fitres.c
       + fix to allow longer VARNAME lines up to 3200 chars.
 
+
+# ======================================================================= 
+         v11_02e (  ) 
+
+         ***** IMPORTANT(v11_02e) ***** 
+
+         ***** USEFUL(v11_02e) ***** 
+
+         ***** MISCELLANEOUS(v11_02e) ***** 
+
+    submit_prog_sim.py : increase safety margin for cidadd.
+   
+    submit_prog_base.py: add more REPLACE_XXX keys
+
+    submit_prog_fit.py: new OPT_SNCID_LIST feature
+
+    simlib_coadd[tools].c:
+      several updates as described at top of source code.
+     
 END: 

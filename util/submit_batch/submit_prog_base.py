@@ -416,11 +416,6 @@ class Program:
 
         BATCH_FILE      = (f"{script_dir}/{batch_file}")
 
-        with open(BATCH_TEMPLATE,"r") as f:
-            template_batch_lines = f.readlines()
-
-        #print(f" xxx template_batch_lines = {template_batch_lines} ")
-
         # get strings to replace 
         replace_job_name   = job_name
 
@@ -432,31 +427,25 @@ class Program:
 
         # Jan 6 2021: add few more replace keys that can be modified
         # by non-SNANA tasks (e.g., classifiers, CosmoMC ...)
-        replace_ntask        = '1'
-        replace_cpu_per_task = '1'
+        replace_ntask        = 1
+        replace_cpu_per_task = 1
 
         # - - - define list of strings to replace - - - - 
-        batch_lines = []            
-        REPLACE_KEY_LIST = [ 'REPLACE_NAME',    'REPLACE_MEM',
-                             'REPLACE_LOGFILE', 'REPLACE_JOB',
-                             'REPLACE_WALLTIME', 
-                             'REPLACE_NTASK',   'REPLACE_CPU_PER_TASK' ]
 
-        replace_string_list = [ replace_job_name, replace_memory,
-                                replace_log_file, replace_job_cmd,
-                                replace_walltime,
-                                replace_ntask, replace_cpu_per_task ]
+        REPLACE_KEY_DICT = { 
+            'REPLACE_NAME'          : replace_job_name,
+            'REPLACE_MEM'           : replace_memory,
+            'REPLACE_LOGFILE'       : replace_log_file,
+            'REPLACE_JOB'           : replace_job_cmd,
+            'REPLACE_WALLTIME'      : replace_walltime,
+            'REPLACE_NTASK'         : replace_ntask,
+            'REPLACE_CPU_PER_TASK'  : replace_cpu_per_task
+        }
+        batch_lines = open(BATCH_TEMPLATE,'r').read()
+        for KEY,VALUE in REPLACE_KEY_DICT.items():
+            batch_lines = batch_lines.replace(KEY,str(VALUE))
 
-        NKEY = len(REPLACE_KEY_LIST)
-
-        # replace strings in batch_lines
-        for line in template_batch_lines:
-            for ikey in range(0,NKEY):
-                REPLACE_KEY    = REPLACE_KEY_LIST[ikey]
-                replace_string = replace_string_list[ikey] 
-                line           = line.replace(REPLACE_KEY,replace_string)
-            batch_lines.append(line)
-
+        # write batch lines with REPLACE_XXX replaced
         with open(BATCH_FILE,"w") as f:
             f.write("".join(batch_lines))
 

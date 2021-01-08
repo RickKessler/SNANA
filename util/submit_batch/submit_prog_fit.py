@@ -8,6 +8,12 @@
 #  + error results in killing all other jobs
 #  + options to force failure ... to check how Pippin reacts
 #  + CPU diagnostics added to MERGE.LOG
+#
+# Jan 8 2021:  
+#  add OPT_SNCID_LIST option to use events from FITOPT000. To ensure
+#  that all of the FITOPT000 are processed first, the iver,fitopt loop
+#  was switched to fitopt,iver.
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -75,6 +81,10 @@ NULLVAL_COMBINE_FITRES = -9191   # value for missing CID in extern file
 FLAG_FORCE_MERGE_TABLE_MISSING = 1
 FLAG_FORCE_MERGE_TABLE_CORRUPT = 2
 
+# optional part of FITOPT label to exclude from BBC reject list
+# and to exclude from using CID list from FITOPT000
+FITOPT_STRING_NOREJECT = "NOREJECT" 
+
 # ====================================================
 #    BEGIN FUNCTIONS
 # ====================================================
@@ -130,9 +140,55 @@ class LightCurveFit(Program):
         # copy supplemental input files that don't have a path
         self.fit_prep_copy_files()
 
+        # check OPT_SNCID_LIST option to use same SNe as in FITOPT000
+        self.fit_prep_same_sncid()
+
         # end submit_prepare_driver
 
     # - - - - - - - - - 
+
+    def fit_prep_same_sncid(self):
+
+        # Created Jan 8 2021
+        # if user sets OPT_SNCID_LIST in CONFIG, then use FITOPT000.FITRES
+        # as event mask for all successive FITOPTs so that all 
+        # re-analyses use the same events. However, if NOREJECT
+        # is part of FITOPT label, ignore OPT_SNCID_LIST.
+
+        CONFIG   = self.config_yaml['CONFIG']
+        KEY_OPT  = 'OPT_SNCID_LIST'   # key for CONFIG and snlc_fit
+        KEY_FILE = 'SNCID_LIST_FILE'  # key for snlc_fit
+        opt_sncid_list = 0
+        argdict_same_sncid = {}
+
+        if KEY_OPT in CONFIG :  opt_sncid_list = CONFIG[KEY_OPT]
+
+        if opt_sncid_list > 0 :         
+            # make list of reference FITOPT000.FITRES file for each 
+            # data version
+            print(f"\n  PREPARE {KEY_OPT} to USE SAME EVENTS " \
+                  f"FOR ALL FITOPTs\n")
+            arg_opt       = f"{KEY_OPT} {opt_sncid_list}"
+            arg_file_list = []
+            output_dir    = self.config_prep['output_dir']
+            version_list  = self.config_prep['version_list']   
+            for version in version_list :
+                #sncid_file = f"{output_dir}/{version}/FITOPT000.FITRES"
+                sncid_file = f"../{version}/FITOPT000.FITRES"
+                arg_file_list.append(f"{KEY_FILE} {sncid_file}")
+
+            argdict_same_sncid['arg_opt']        = arg_opt
+            argdict_same_sncid['arg_file_list']  = arg_file_list
+
+        #print(f" xxx opt_sncid_list = {opt_sncid_list} ")
+        #print(f" xxx argdict_same_sncid = {argdict_same_sncid} ")
+
+        # load the goodies
+        self.config_prep['opt_sncid_list']     = opt_sncid_list
+        self.config_prep['argdict_same_sncid'] = argdict_same_sncid
+
+        # end fit_prep_same_scnid
+
 
     def fit_prep_copy_files(self):
 
@@ -507,8 +563,16 @@ class LightCurveFit(Program):
         # create sparse index lists that include sym links
         iver_list=[] ;  iopt_list=[];   isplit_list=[]
         size_sparse_list = 0
-        for iver in range(0,n_version):
-            for iopt in range(0,n_fitopt_tot):
+
+        # xxx mark delete Jan 8 2021 xxxxxxxxx
+        # xxx for iver in range(0,n_version):
+        # xxx   for iopt in range(0,n_fitopt_tot):
+        # xxxxxxxxxxxxxxxxxxx
+
+        # Loop over iopt (fitopt) first to ensure that all FITOPT000
+        # are processed first ... matters when using OPT_SNCID_LIST.
+        for iopt in range(0,n_fitopt_tot):
+            for iver in range(0,n_version):
                 for isplit in range(0,n_job_split):
                     iver_list.append(iver)
                     iopt_list.append(iopt)
@@ -516,7 +580,7 @@ class LightCurveFit(Program):
                     size_sparse_list += 1  # n_job(proc+links)
 
         self.config_prep['size_sparse_list'] = size_sparse_list
-        self.config_prep['n_job_tot']     = n_job_tot  # does NOT include symLinks
+        self.config_prep['n_job_tot']     = n_job_tot  # excluded symLinks
         self.config_prep['n_done_tot']    = size_sparse_list # proc+links
         self.config_prep['n_job_split']   = n_job_split
         self.config_prep['iver_list']     = iver_list
@@ -628,13 +692,6 @@ class LightCurveFit(Program):
 
         for iver,iopt,isplit in zip(iver_list,iopt_list,isplit_list):
 
-        # xxxx mark delete xxxxxx
-        #for job in range(0,size_sparse_list):  # n_job(proc+links)
-            #iver   = iver_list[job]
-            #iopt   = iopt_list[job]
-            #isplit = isplit_list[job]
-            # xxxxx end mark xxxxxxxx
-
             index_dict = {
                 'iver':iver, 'iopt':iopt, 'isplit':isplit, 'icpu':icpu
             }  
@@ -678,10 +735,10 @@ class LightCurveFit(Program):
         #
 
         # strip off indices from input dictionary
-        iver   = index_dict['iver']
-        iopt   = index_dict['iopt']
+        iver   = index_dict['iver']  # version index for data or sim
+        iopt   = index_dict['iopt']  # FITOPT index
         isplit = index_dict['isplit']+1  # fortran like index for file names
-        icpu   = index_dict['icpu']
+        icpu   = index_dict['icpu']      # cpu index
 
         input_file    = self.config_yaml['args'].input_file 
         kill_on_fail  = self.config_yaml['args'].kill_on_fail
@@ -691,8 +748,8 @@ class LightCurveFit(Program):
         version       = self.config_prep['version_list'][iver]
         fitopt_arg    = self.config_prep['fitopt_arg_list'][iopt]
         fitopt_num    = self.config_prep['fitopt_num_list'][iopt]
+        fitopt_label  = self.config_prep['fitopt_label_list'][iopt]
         use_table_format = self.config_prep['use_table_format']
-        #n_job_tot     = self.config_prep['n_job_tot']
         n_job_split   = self.config_prep['n_job_split']
         split_num     = (f"SPLIT{isplit:03d}")
         prefix        = (f"{version}_{fitopt_num}_{split_num}")
@@ -732,9 +789,23 @@ class LightCurveFit(Program):
                     arg += (f".{suffix}")
                 arg_list.append(f"  {arg}")
 
-        # finally, the user-define FITOPT options. 
+        
+        # user-define FITOPT options. 
         arg_list.append(f"{fitopt_arg}")
 
+        # Jan 8, 2021: option to use CID list from FITOPT000
+        opt_sncid_list = self.config_prep['opt_sncid_list']
+        NOREJECT       = FITOPT_STRING_NOREJECT in fitopt_label
+        if iopt > 0 and opt_sncid_list > 0  and NOREJECT is False :
+            argdict_same_sncid = self.config_prep['argdict_same_sncid']
+            arg_opt   = argdict_same_sncid['arg_opt']             # KEY OPT
+            arg_file  = argdict_same_sncid['arg_file_list'][iver] # KEY FILE
+            wait_file = arg_file.split()[1]  # just the FILE name
+            arg_list.append(f"{arg_file}")
+            arg_list.append(f"{arg_opt}")
+            JOB_INFO['wait_file']  = wait_file
+
+        # - - - 
         JOB_INFO['arg_list']   = arg_list
 
         # - - - - - - - - 
@@ -818,8 +889,6 @@ class LightCurveFit(Program):
         # downstream scripts.
 
         CONFIG            = self.config_yaml['CONFIG']
-        #n_job_tot         = self.config_prep['n_job_tot']
-        #n_job_split       = self.config_prep['n_job_split']
         n_job_link        = self.config_prep['n_job_link']
         output_dir        = self.config_prep['output_dir']
         n_fitopt          = self.config_prep['n_fitopt']

@@ -667,7 +667,7 @@ def execute_task(itask,CPU_TASKLIST,INPUTS) :
 
 
     # run full job, include 'cd' and pipe to LOGFILE
-    CMD_JOB     = ('cd %s; %s > %s' % 
+    CMD_JOB     = ('cd %s; %s >& %s' % 
                    (LOGDIR, job_plus_args, LOGFILE))
     os.system(CMD_JOB)
 

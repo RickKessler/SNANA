@@ -19,14 +19,11 @@
 # Mar 21 2020: in submitTasks_BATCH(), fix slashes in SNANA_SETUP
 #              to work with sed.
 #
+# Jan 8 2021: print python version to SNANA.INFO
 
-import os
-import sys 
-import datetime
-import shutil
+import os, sys, datetime, shutil, time, glob
 import subprocess
-import time
-import glob
+
 
 # ===============================================
 # define hard-wired globals up here so that they are
@@ -799,9 +796,6 @@ def submitTasks_SSH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
     LOGDIR         = SUBMIT_INFO["LOGDIR"]
 
     # loop over CPUs and launch each SSH job
-
-    cmd_job0 = ("snana.exe --snana_version > %s" % SNANA_INFO_FILE)
-
     for cpunum in range(0,NCPU) :
 
         node        =  SSH_NODES[cpunum]
@@ -814,7 +808,12 @@ def submitTasks_SSH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
  
         # on first job, run snana.exe to leave version info
         if cpunum == 0 :
-            cmd_job = cmd_job0 + ' ; ' + cmd_job
+            cmd_snana_version  = ("snana.exe --snana_version > %s" \
+                                  % SNANA_INFO_FILE)
+            cmd_python_version = ("python    --version       >> %s" \
+                                  % SNANA_INFO_FILE)
+            cmd_job = f"{cmd_snana_version} ; {cmd_python_version} ; " \
+                      f"{cmd_job}"
 
         cmd = ('%s  "%s; %s ; %s" & ' % 
                (cmd_ssh, SNANA_SETUP, cmd_cd, cmd_job) )
@@ -839,7 +838,6 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
 
     SNANA_SETUP_forSed = SNANA_SETUP.replace('/','\/')
     
-    cmd_job0 = ("snana.exe --snana_version > %s" % SNANA_INFO_FILE)
     for cpunum in range(0,NCPU) :
         batch_runfile = ('RUNJOBS_CPU%3.3d.BATCH'     % (cpunum) )
         batch_logfile = ('RUNJOBS_CPU%3.3d.BATCH-LOG' % (cpunum) )
@@ -851,7 +849,12 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
 
         # on first job, run snana.exe to leave version info
         if cpunum == 0 :
-            cmd_job = cmd_job0 + ' ; ' + cmd_job
+            cmd_snana_version  = ("snana.exe --snana_version > %s" \
+                                  % SNANA_INFO_FILE)
+            cmd_python_version = ("python --version          >> %s" \
+                                  % SNANA_INFO_FILE)
+            cmd_job = f"{cmd_snana_version} ; {cmd_python_version} ; " \
+                      f"{cmd_job}"
 
 #        print(' 0. xxx -------------------- ')
 #        print(' 1. xxx prep sed ... ' )

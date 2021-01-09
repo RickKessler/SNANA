@@ -19423,7 +19423,7 @@
 
 
 # ======================================================================= 
-         v11_02e (  ) 
+         v11_02e (Jan 8 2021) 
 
          ***** IMPORTANT(v11_02e) ***** 
 
@@ -19439,5 +19439,19 @@
 
     simlib_coadd[tools].c:
       several updates as described at top of source code.
-     
+    
+    create_covariance.py :
+      refactored to include legacy JLA and new BBC methods.
+
+
+# ======================================================================= 
+         v11_02f (  ) 
+
+         ***** IMPORTANT(v11_02f) ***** 
+
+         ***** USEFUL(v11_02f) ***** 
+
+         ***** MISCELLANEOUS(v11_02f) ***** 
+
+   
 END: 

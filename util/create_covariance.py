@@ -581,23 +581,46 @@ def write_data_bbc(path, base):
             f.write(f"{i:5d} {z:6.5f} {z:6.5f} 0  {mu:8.5f} {muerr:8.5f} \n")
 
 def write_covariance(path, cov):
-    logging.info(f"Writing covariance to {path}")
 
-    # Write out the slopes
-    nrow = cov.shape[0]
+    cosmomc_method = config["COSMOMC_METHOD"]
+    file_base      = os.path.basename(path)
+    covdet         = np.linalg.det(cov)
+    nrow           = cov.shape[0]
+
+    logging.info(f"Write cov to {path}")
+
+    # RK - write diagnostic to check if anything changes
+    logging.info(f"    {file_base}: size={nrow}  |cov| = {covdet:.5e}")
+
+    # - - - - -
+    # Write out the matrix
+    nwr = 0 ; rownum = 0; colnum=0
 
     with open(path, "w") as f:
         f.write(f"{nrow}\n")
+
         for c in cov.flatten():
-            f.write(f"{c:0.8f}\n")
 
+            if cosmomc_method == COSMOMC_METHOD_JLA :
+                f.write(f"{c:.8f}\n")
+            else:
+                # for bbc method write human-readable cov:
+                # comment line for each new row, and off-diag elements
+                # are indented with pad_space
+                nwr += 1
+                is_new_row = False
+                pad_space  = "   "   # few spaces for off-diag
+                if (nwr-1) % nrow == 0 : 
+                    is_new_row = True ; rownum += 1 ; colnum = 0
+                colnum += 1
+                if rownum == colnum : 
+                    pad_space = ""  # no pad space for diagonal
 
-    # write 1 line to stdout that can be grepped for quick validation
-    file_base = os.path.basename(path)
-    cov_first = cov[0][0]
-    cov_last  = cov[nrow-1][nrow-1]
-    logging.info(f" {file_base}: size={nrow}  " \
-                 f"first/last cov={cov_first:.6f}/{cov_last:.6f} ")
+                if is_new_row:
+                    f.write(f"# -------- Begin Row {rownum} of {nrow} " \
+                            f"-----------\n")
+                f.write(f"{pad_space}{c:11.8f}\n")
+
 
 def write_cosmomc_output(config, covs, base):
     # Copy INI files. Create covariance matrices. Create .dataset. Modifying INI files to point to resources

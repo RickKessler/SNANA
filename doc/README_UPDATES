@@ -19453,5 +19453,12 @@
 
          ***** MISCELLANEOUS(v11_02f) ***** 
 
-   
+   snlc_sim.c : 
+     + abort if obsolete  $SNANA_MODELPATH is set.
+     + double crazyflux limit again
+
+   sntools.c
+      + if SNANA_VERSION key is not in FITS header, assume VPEC
+        sign is correct.
+
 END: 

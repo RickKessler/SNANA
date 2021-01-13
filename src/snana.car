@@ -455,7 +455,8 @@ c
      &  ,DOFUDGE_HOSTNOISE     ! T => FUDGE_HOSTNOISE_FILE is set
      &  ,DOFUDGE_NONLIN        ! T => NONLINEARITY_FILE is set
      &  ,DOFUDGE_FLUXERRMODEL  ! T => FLUXERRMODEL_FILE
-     &  ,CORRECT_SIGN_VPEC     ! T => data has correct VPEC sign (10/2020)
+     &  ,ISCORRECT_SIGN_VPEC   ! T => data has correct VPEC sign (10/2020)
+     &  ,DOFIX_WRONG_SIGN_VPEC ! T => flip VPEC sign
 
       CHARACTER
      &    SNANA_VERSION*12
@@ -554,7 +555,8 @@ c global survey info
      &    ,N_DUPLICATE_MJD, NSTORE_DUPLICATE_MJD
      &    ,NEPOCH_TOT, NEPOCH_USE, NEPOCH_CUT
      &    ,NEPOCH_BADPHOT, NEPOCH_BADPHOT_SUM
-     &    ,REFORMAT_SAVE_BADEPOCHS, STDOUT_UPDATE, CORRECT_SIGN_VPEC
+     &    ,REFORMAT_SAVE_BADEPOCHS, STDOUT_UPDATE
+     &    ,ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
      &    ,NVAR_TERSE, VARLIST_TERSE
      &    ,ITERSE_MJD, ITERSE_FILTER, ITERSE_FIELD   
@@ -3581,7 +3583,6 @@ c default is to reject nothing (accept everything)
       USESIM_TRUEFLUX = .FALSE.
 
       RESTORE_DES3YR     = .FALSE.
-cc xxx      RESTORE_WRONG_VPEC = .TRUE.  ! Oct 26 2020
       RESTORE_WRONG_VPEC = .FALSE.  ! Nov 3 2020
       REQUIRE_DOCANA     =  0      ! use integer to match sim usage
       READ_SPECTRA       = .TRUE.
@@ -6064,6 +6065,15 @@ c Dec 2018: check for cuts on SIMVAR (e.g., SIM_c, SIM_ZCMB)
 
       CALL PARSE_SIMVAR_CUTS()
 
+c Jan 12 2021: check option to fix sign VPEC for older data
+      DOFIX_WRONG_SIGN_VPEC = (.not. RESTORE_WRONG_VPEC ) .and. 
+     &                        (.not. ISCORRECT_SIGN_VPEC) 
+      if ( DOFIX_WRONG_SIGN_VPEC ) then
+         print*,' '
+         print*,'    *** ALERT: VPEC sign will be flipped *** '
+         print*,' '
+         CALL FLUSH(6)
+      endif
       RETURN
       END  ! end PROCSNNML
 
@@ -8615,7 +8625,7 @@ C ============================
       EXTERNAL ERRMSG
       INTEGER  LENSTR
 c ----------------- BEGIN --------------
-      LENF = LENSTR(funname)
+      LENF = LENSTR(funname//' ')
       LEN1 = LENSTR(c1err)
       LEN2 = LENSTR(c2err)
       call errmsg(ISEV_FATAL, IPROMPT, 
@@ -10502,7 +10512,7 @@ c  text format does NOT include SNANA version in header, so set
 c  SNANA_VERSION_DATA using current SNANA_VERSION.
 c  Also assume that VPEC sign is correct since there is no way to trace it.
       SNANA_VERSION_DATA = SNANA_VERSION
-      CORRECT_SIGN_VPEC  = .TRUE.
+      ISCORRECT_SIGN_VPEC  = .TRUE.
 
       NPAR_SIMSED       = 0
       NPAR_PySEDMODEL   = 0
@@ -11636,7 +11646,8 @@ c Oct 26 2020: check for SNANA_VERSION in fits header
       LRET  = INDEX(KEYVAL,char(0)) - 1
       IF(LRET > 0) THEN
          READ( KEYVAL(1:LRET), * ) SNANA_VERSION_DATA
-         CORRECT_SIGN_VPEC = correct_sign_vpec_data(SNANA_VERSION_DATA)
+cc	 print*,' xxx SNANA_VERSION_DATA = ', SNANA_VERSION_DATA
+         ISCORRECT_SIGN_VPEC = correct_sign_vpec_data(KEYVAL)
       ENDIF
 
 c --------------------------------------------------------
@@ -14924,7 +14935,7 @@ c subroutine args.
 c local var
       character CWD_ZERR*60, ZKEY*24, RETSTR*80
       REAL     Z, ZERR, ZMAX
-      LOGICAL  LZTMP, FIX_WRONG_SIGN_VPEC, WRONG_SIGN_VPEC
+      LOGICAL  LZTMP
       REAL*8   RET8(MXFILT_OBS)
 
 c functions
@@ -15013,9 +15024,7 @@ c Jan 2018: read optional VPEC & its error
          endif
 
 c Oct 26 2020: check option to fix VPEC sign convention in older FITS data
-        FIX_WRONG_SIGN_VPEC = (.not. RESTORE_WRONG_VPEC) ! user intent
-        WRONG_SIGN_VPEC     = (.not. CORRECT_SIGN_VPEC)  ! has wrog sing
-        if ( WRONG_SIGN_VPEC .and. FIX_WRONG_SIGN_VPEC ) then
+        if ( DOFIX_WRONG_SIGN_VPEC ) then
            SNLC_VPEC = -1.0 * SNLC_VPEC
         endif
 
@@ -16474,11 +16483,12 @@ c - - - - - - - - -
 c require valid observer-filter if OPT=1
               LERR = IFILTDEF_INVMAP_SURVEY(IFILT_TMP) .LE. 0
               if ( LERR .and. OPT==1 ) then
+                print*,'  SURVEY_FILTERS = ', SURVEY_FILTERS
                 LEN = index(cwd,' ') - 1
                 c1err = 'Invalid obs-frame filter = '''
      &             // BAND // ''' from nml string'
                 c2err = '= ''' // string(1:60) // '''  '
-                CALL MADABORT("PARSE_FILTSTRING", c1err, c2err )
+                CALL MADABORT('PARSE_FILTSTRING', c1err, c2err )
               endif
            enddo
          else

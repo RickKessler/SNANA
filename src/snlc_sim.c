@@ -4743,9 +4743,15 @@ void prep_user_input(void) {
   // check for optional over-ride of model path;
   // getenv(PRIVATE_MODELPATH_NAME is equivalent of 
   // $SNDATA_ROOT/models/[SALT2,mlcs2k2...]
+  // Jan 12 2021: abort if SNANA_MODELPATH is set.
   if ( getenv(PRIVATE_MODELPATH_NAME) != NULL ) {
-    sprintf(INPUTS.MODELPATH,"%s/%s", 
-	    getenv(PRIVATE_MODELPATH_NAME), INPUTS.MODELNAME );
+
+    sprintf(c1err,"ENV %s is no longer valid", PRIVATE_MODELPATH_NAME);
+    sprintf(c2err,"Include full model path in GENMODEL arg.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+
+    //sprintf(INPUTS.MODELPATH,"%s/%s", 
+    //	    getenv(PRIVATE_MODELPATH_NAME), INPUTS.MODELNAME );
   }
 
 
@@ -19402,7 +19408,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   arg        = 0.4 * ( zpt - 31.0 );  
   zptfac     = pow(10.0,arg);  
   if ( zsn > 1.0E-9 ) 
-    { crazyflux  = 4.*(1.E4 * zptfac * xt) / (zsn*zsn) ; }
+    { crazyflux  = 10.*(1.E4 * zptfac * xt) / (zsn*zsn) ; }
   else
     { crazyflux = 1.0E14 ; } // for LCLIB (July 2018)
 

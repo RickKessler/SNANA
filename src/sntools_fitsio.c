@@ -2804,10 +2804,11 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
   // - - - - - - - -
   // Oct 2020: read SNANA_VERSION in header
+  // Jan 12 2021: if no SNANA_VERSION key, replace v10_30 with UNKNOWN
   sprintf(keyname, "%s", "SNANA_VERSION" );  
   fits_read_key(fp, TSTRING, keyname,
 		&SNFITSIO_SNANA_VERSION, comment, &istat);
-  if ( istat ) { sprintf(SNFITSIO_SNANA_VERSION,"v10_30"); } 
+  if ( istat ) { sprintf(SNFITSIO_SNANA_VERSION,"UNKNOWN"); } 
   istat = 0;  // reset in case SNANA_VERSION key does not exist.
 
   // - - - - - - - - - - -

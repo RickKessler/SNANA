@@ -36,6 +36,7 @@
 #
 # Dec 02 2020: add SUFFIX_COV to list of files to move
 # Dec 17 2020: update get_matrix_FITOPTxMUOPT to process multiple FITOPTxMUOPT
+# Jan 12 2021: write BBC_ACCEPT_SUMMARY for CIDs in all FITOPT*.FITRES files.
 #
 # - - - - - - - - - -
 
@@ -1598,6 +1599,8 @@ class BBC(Program):
         # CID was rejected.
         # Goal is to use this file in 2nd round of BBC and include
         # only events that pass in all FITOPT and MUOPTs.
+        #
+        # Jan 12 2021: write ACCEPT file as well.
 
         output_dir    = self.config_prep['output_dir']
         VOUT          = (f"{output_dir}/{vout}")
@@ -1606,40 +1609,74 @@ class BBC(Program):
         reject_file   = "BBC_REJECT_SUMMARY.LIST"
         REJECT_FILE   = (f"{VOUT}/{reject_file}")
 
+        accept_file   = "BBC_ACCEPT_SUMMARY.LIST"
+        ACCEPT_FILE   = (f"{VOUT}/{accept_file}")
 
         logging.info(f"  BBC cleanup: create {vout}/{reject_file}")
+        logging.info(f"  BBC cleanup: create {vout}/{accept_file}")
 
         n_ff     = len(fitres_list) # number of FITRES files
         cid_list = []
+        n_file   = 0
+
+        # get cid_list of all CIDs in all files. If same events are in each file,
+        # each CID appears n_ff times. If a CID appears less then n_ff times,
+        # it goes into reject list.
         for ff in fitres_list:
+            n_file += 1
             FF       = (f"{VOUT}/{ff}")
             df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
             cid_list = np.concatenate((cid_list, df.CID.astype(str)))
-            #zhd_list = np.concatenate((cid_list, df.zhd.astype(float)))
-            cid_unique, n_count = np.unique(cid_list, return_counts=True)
-            n_reject        = n_ff - n_count
 
-            #cid_all_pass    = cid_unique[n_count == n_ff]
-            cid_some_fail   = cid_unique[n_count <  n_ff]
-            n_all           = len(cid_unique)
-            n_some_fail     = len(cid_some_fail)
-            f_some_fail     = float(n_some_fail)/float(n_all)
-            str_some_fail   = (f"{f_some_fail:.4f}")
+        # - - - - - - - - - - - - -
+        # get list of unique CIDs, and how many times each CID appears
+        cid_unique, n_count = np.unique(cid_list, return_counts=True)
 
-            with open(REJECT_FILE,"wt") as f:
-                f.write(f"# BBC-FF = BBC FITRES file.\n")
-                f.write(f"# Total number of BBC-FF: " \
-                        f"{n_ff} (FITOPT x MUOPT). \n")
-                f.write(f"# {n_some_fail} of {n_all} CIDs ({str_some_fail}) "\
-                        f"fail cuts in 1 or more BBC-FF\n")
-                f.write(f"#  and also pass cuts in 1 or more BBC-FF.\n#\n")
-                f.write(f"# These CIDs can be rejected in SALT2mu.exe with\n")
-                f.write(f"#    reject_list_file={reject_file} \n")
-                f.write(f"\n")
-                f.write(f"VARNAMES: CID NJOB_REJECT \n")
-                for cid,nrej in zip(cid_unique,n_reject) :
-                    if nrej>0: f.write(f"SN:  {cid:<12}   {nrej:3d} \n")
-                f.write(f"\n")
+        # number of times each CID does not appear in a fitres file
+        n_reject        = n_ff - n_count
+
+        if n_file == -9 :
+            sys.exit(f" xxx cid_unique={cid_unique}\n xxx n_count = {n_count}\n xxx n_rej={n_reject}\n xxx n_ff= {n_ff}\n")
+
+        cid_all_pass    = cid_unique[n_count == n_ff]
+        cid_some_fail   = cid_unique[n_count <  n_ff]
+        n_all           = len(cid_unique)
+        n_some_fail     = len(cid_some_fail)
+        n_all_pass      = len(cid_all_pass)
+        f_some_fail     = float(n_some_fail)/float(n_all)
+        str_some_fail   = (f"{f_some_fail:.4f}")
+
+        # - - - - - - - -
+        with open(REJECT_FILE,"wt") as f:
+            f.write(f"# BBC-FF = BBC FITRES file.\n")
+            f.write(f"# Total number of BBC-FF: " \
+                    f"{n_ff} (FITOPT x MUOPT). \n")
+            f.write(f"# {n_some_fail} of {n_all} CIDs ({str_some_fail}) "\
+                    f"fail cuts in 1 or more BBC-FF\n")
+            f.write(f"#  and also pass cuts in 1 or more BBC-FF.\n#\n")
+            f.write(f"# These CIDs can be rejected in SALT2mu.exe with\n")
+            f.write(f"#    reject_list_file={reject_file} \n")
+            f.write(f"\n")
+            f.write(f"VARNAMES: CID NJOB_REJECT \n")
+        
+            for cid,nrej in zip(cid_unique,n_reject) :
+                if nrej>0: f.write(f"SN:  {cid:<12}   {nrej:3d} \n")
+            f.write(f"\n")
+
+        with open(ACCEPT_FILE,"wt") as f:
+            f.write(f"# BBC-FF = BBC FITRES file.\n")
+            f.write(f"# Total number of BBC-FF: " \
+                    f"{n_ff} (FITOPT x MUOPT). \n")
+            f.write(f"# {n_all_pass} CIDs " \
+                    f"pass cuts in all BBC-FF\n")
+            f.write(f"# These CIDs can be selected in SALT2mu.exe with\n")
+            f.write(f"#    acceptt_list_file={accept_file} \n")
+            f.write(f"\n")
+            f.write(f"VARNAMES: CID  \n")
+        
+            for cid,nrej in zip(cid_unique,n_reject) :
+                if nrej==0: f.write(f"SN:  {cid:<12}  \n")
+            f.write(f"\n")
 
         # end make_reject_summary
 

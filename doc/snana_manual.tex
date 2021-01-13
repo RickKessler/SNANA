@@ -8807,7 +8807,7 @@ can also be read from an external file as described in
 ({\tt snlc\_fit.exe}) reads $\vpec$ and computes a corrected
 CMB redshift,
 \begin{verbatim}
-   zHD = ZCMB + VPEC
+   zHD = (1.0+ZCMB) / (1.0+VPEC/c) - 1.0 
 \end{verbatim}
 which is written to the output tables and used by the \snana\ program
 {\tt SALT2mu.exe}.

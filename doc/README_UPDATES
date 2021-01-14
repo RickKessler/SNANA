@@ -19456,6 +19456,9 @@
    snlc_sim.c : 
      + abort if obsolete  $SNANA_MODELPATH is set.
      + double crazyflux limit again
+     + move prep_RANSYST call after SURVEY is defined
+     + abort if spectra are requested but there is no 
+        SPECTROGRAPH instrument (see GENSPEC_DRIVER)
 
    sntools.c
       + if SNANA_VERSION key is not in FITS header, assume VPEC

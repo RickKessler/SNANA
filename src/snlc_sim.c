@@ -3848,7 +3848,8 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     sprintf(c2err,"Remove one of these TAKE_SPECTRUM sources.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
- 
+
+
   // init TAKE_SPECTRUM structure 
   for(i=0; i < 2; i++)  { 
     INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[i]  = -99.0;
@@ -7002,7 +7003,10 @@ void init_simvar(void) {
   GENSL.IMGNUM = -1;
   GENSL.PEAKMJD_noSL = -9.0 ;
 
+  SPECTROGRAPH_USEFLAG = 0; // Jan 2021
+
   return ;
+
 } // end of init_simvar
 
 
@@ -7824,16 +7828,30 @@ void GENSPEC_DRIVER(void) {
   //
   // Sep  1 2016: add flat spectra for FIXRAN model.
   // Oct 16 2016: apply Gaussian LAMRES smearing
+  // Jan 14 2021: abort if NMJD>0 but there is no SPECTROGRAPH instrument.
 
+  int    NMJD = GENSPEC.NMJD_TOT  ;
   double MJD_LAST, MJD_DIF ;
-  int    i, imjd, NMJD ;
+  int    i, imjd ;
   char fnam[] = "GENSPEC_DRIVER" ;
 
   // ------------ BEGIN ------------
 
   GENSPEC.NMJD_PROC = 0;
 
+  // bail if no  spectra are requested
+  if ( NMJD == 0 ) { return; }
+
+  // if there is no SPECTROGRPAH instrument, abort
+  if ( !SPECTROGRAPH_USEFLAG ) {
+    sprintf(c1err,"Cannot generate %d spectra for CID=%d", 
+	    NMJD, GENLC.CID );
+    sprintf(c2err,"because SPECTROGRAPH is not defined in kcor file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+  /* xxx mark delete
   if ( INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC == 0 ) { return ; }
+  xxxx */
 
   // Jan 2018: allow some LIBIDs to NOT have a spectrograph key
   if ( NPEREVT_TAKE_SPECTRUM == 0 && SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH == 0 ) 
@@ -7843,10 +7861,7 @@ void GENSPEC_DRIVER(void) {
   GENSPEC.NBLAM_TOT = INPUTS_SPECTRO.NBIN_LAM ;
 
   MJD_LAST = MJD_DIF = -9.0 ;
-  NMJD = 0 ;
 
-
-  NMJD = GENSPEC.NMJD_TOT  ;
   if ( NPEREVT_TAKE_SPECTRUM > 0 && NPEREVT_TAKE_SPECTRUM != NMJD ) {
     print_preAbort_banner(fnam);
     printf("  NPEREVT_TAKE_SPECTRUM = %d \n", NPEREVT_TAKE_SPECTRUM );
@@ -16295,6 +16310,15 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   // May 29 2020 : check for TAKE_SPECTRUM keys
   if ( RDFLAG_SPECTRA && strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
     char **NULLWORDS;
+
+    /* xxx abort trap is in GENSPEC_DRIVER xxx
+    if ( !SPECTROGRAPH_USEFLAG ) {
+      sprintf(c1err,"Cannot process TAKE_SPECTRUM keys in SIMLIB");
+      sprintf(c2err,"because SPECTROGRAPH is not defined in kcor file.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    }
+    xxx */
+
     parse_input_TAKE_SPECTRUM( NULLWORDS, KEYSOURCE_FILE, fp_SIMLIB ); 
   }
 
@@ -21483,7 +21507,6 @@ void init_kcor_legacy(char *kcorFile) {
   }
 
   // check for optional SPECTROGRPH info
-  
   read_spectrograph_fits(kcorFile) ;   
   if ( SPECTROGRAPH_USEFLAG ) {
     printf("   Found %d synthetic spectrograph filters (%s) \n",

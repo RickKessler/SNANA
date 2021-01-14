@@ -110,12 +110,18 @@ int main(int argc, char **argv) {
   // check for random CID option (after randoms are inited above)
   init_CIDRAN();
 
-  // prepare random systematic shifts after reading SURVEY from SIMLIB
+  /* xxxxxxxx mark delete Jan 14 2021 xxxxxxxx
   prep_RANSYSTPAR() ; // moved BEFORE init_RateModel (Oct 16 2020)
+  xxxxxxxxxxxxx */
 
   // init based on GENSOURCE
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
     init_RANDOMsource();
+
+    // prepare randome systematic shifts after reading SURVEY from SIMLIB,
+    // but before init_RateModel
+    prep_RANSYSTPAR() ;
+
     init_RateModel();
 
     if ( INPUTS.INIT_ONLY == 1 ) { debugexit("main: QUIT AFTER RATE-INIT"); }
@@ -129,9 +135,6 @@ int main(int argc, char **argv) {
     sprintf(c1err,"%s is invalid GENSOURCE", INPUTS.GENSOURCE );
     errmsg(SEV_FATAL, 0, fnam, c1err, "" ); 
   }
-
-  // prepare random systematic shifts after reading SURVEY from SIMLIB
-  // xxx prep_RANSYSTPAR() ; // .xyz move before init_RateModel ??
 
 
   // abort on NGEN=0 after printing N per season (init_Rate above)
@@ -5883,7 +5886,7 @@ void  prep_RANSYSTPAR(void) {
     printf("\t RV_MWCOLORLAW  = %.3f \n", INPUTS.RV_MWCOLORLAW );
   }
   
-  // Redshift PA 2020 .xyz
+  // Redshift P.Armstrong 2020
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT;
   if ( tmpSigma != 0.0 ) { 
     NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
@@ -5895,16 +5898,9 @@ void  prep_RANSYSTPAR(void) {
   char *wildcard = INPUTS.RANSYSTPAR.GENMODEL_WILDCARD;
   char **genmodel_list;
   if ( strlen(wildcard) > 0 ) {
-      // .xyz
       ENVreplace(wildcard,fnam,1);
-
       int n_files = glob_file_list(wildcard, &genmodel_list);
       int i;
-      /* xxx mark delete 12/11/2020
-      for (i=0; i<n_files; i++) {
-        printf("xxx%s: i=%d genmodel=%s\n", fnam, i, genmodel_list[i]);
-      }
-      */
       double rand_num = FlatRan1(ILIST_RAN);
       int ifile_ran = (int)(rand_num * (double)n_files); // generate random index between 0 and n_files
       printf("\t Select GENMODEL %d of %d\n", ifile_ran, n_files);
@@ -5947,7 +5943,6 @@ void  prep_RANSYSTPAR(void) {
     INPUTS.w0_LAMBDA += tmp ;
     printf("\t w0_LAMBDA  = %.3f \n", INPUTS.w0_LAMBDA );
   }
-
 
   printf("\t* Last  Sync-Syst Random : %f "
 	 "(should be same each survey)\n", FlatRan1(ILIST_RAN) );

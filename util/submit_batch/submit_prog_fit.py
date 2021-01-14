@@ -795,7 +795,7 @@ class LightCurveFit(Program):
 
         # Jan 8, 2021: option to use CID list from FITOPT000
         opt_sncid_list = self.config_prep['opt_sncid_list']
-        NOREJECT       = FITOPT_STRING_NOREJECT in fitopt_label
+        NOREJECT       = FITOPT_STRING_NOREJECT
         if iopt > 0 and opt_sncid_list > 0  and NOREJECT is False :
             argdict_same_sncid = self.config_prep['argdict_same_sncid']
             arg_opt   = argdict_same_sncid['arg_opt']             # KEY OPT

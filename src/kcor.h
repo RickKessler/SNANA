@@ -20,7 +20,6 @@
 
 ********************************************************/
 
-//bool REQUIRE_SURVEY_KCOR = false ; // flip to require SURVEY in kcor-input 
 bool REQUIRE_SURVEY_KCOR = true ; // flip to require SURVEY in kcor-input 
 
 //#define VERSION_KCOR 3    // internal version
@@ -38,6 +37,8 @@ bool REQUIRE_SURVEY_KCOR = true ; // flip to require SURVEY in kcor-input
 #define MXCHAR_FILENAME 200
 
 #define MXSED  MXLAM_SN*MXEP
+
+#define ZPOFF_FILE_DEFAULT "ZPOFF.DAT"
 
 // define interpolation options: 1=linear, 2=quadratic 
 #define OPT_INTERP_FILTER   1    // for filter transmission
@@ -150,6 +151,7 @@ typedef struct {
   double OFFSET_INPUT, OFFSET ;
   int    DO_TRANSFORM ;  // T -> NAME_INPUT != NAME
   char   SURVEY_NAMES[200]; // optional assoication with survey names
+  char   ZPOFF_FILE[MXPATHLEN];
 } MAGSYSTEM_DEF ;
 
 typedef struct {
@@ -317,11 +319,12 @@ struct  FILTER
 
   int    IPATH ;                   // integer index to PATH
   char   PATH[200] ;              // subdir in $SNDATA_ROOT/filters/
-  char   PATH_ORIG[200];          // idem, before ENVreplace
+  char   PATH_ORIG[MXPATHLEN];    // idem, before ENVreplace
   char   FILTSYSTEM_NAME[20] ;    // (I) energy or count
   int    FILTSYSTEM_INDX ;        // energy or count
   char   SURVEY_NAMES[200];       // comma-sep list of surveys (Nov 2020)
-
+  char   ZPOFF_FILE[MXPATHLEN];   // optional ZPOFF file name (Jan 2021)
+ 
   double SNMAG0_CHECK_VALUE ;     // external reference for check 
   char   SNMAG0_CHECK_NAME[40] ;  // comment on origin of refernece
 
@@ -402,7 +405,7 @@ void  parse_MAGSYSTEM(char *MAGSYSTEM_TMP, MAGSYSTEM_DEF *MAGSYSTEM) ;
 void  parse_OOB(char *bandList, double *LAMRANGE, double RATIO);
 void  addOOBTrans_filter(int ifilt);
 
-void  rd_ZPOFF(char *sdir);     // read optional ZPOFF.DAT file
+void  rd_ZPOFF(char *sdir, char *zpoff_file_override);  
 int   rd_snsed(void);           // read SN template spectra from file 
 void  hardWire_snsed_bins(void) ; // in case SN SED is not defined.
 void check_snsed_bins(void) ;

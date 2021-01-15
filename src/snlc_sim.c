@@ -21968,7 +21968,7 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   NERR=0;
   if ( zpt     < 10.0   ) { NERR++ ; }
   if ( psfsig1 < 0.0001 ) { NERR++ ; }
-  if ( skysig  < 0.0001 ) { NERR++ ; } //.xyz
+  if ( skysig  < 0.0001 ) { NERR++ ; } 
   if ( NERR > 0 ) {
     sprintf(c1err,"%d invalid observing conditions for ep=%d, band=%s",
 	    NERR, epoch, band);
@@ -26459,7 +26459,7 @@ void update_accept_counters(void) {
 
   // increment number of generated SN that are written
   NGENLC_WRITE++ ;
- 
+  NGENSPEC_WRITE += GENSPEC.NMJD_TOT ; // Jan 14 2021
   
   // increment stats based on typing method
   if ( GENLC.METHOD_TYPE == METHOD_TYPE_SPEC )    
@@ -27109,7 +27109,6 @@ void append_SNSPEC_TEXT(void) {
 
     if ( NBLAM_VALID == 0 ) { return; } // suppress legacy bug (Aug 23 2017)
 
-    NGENSPEC_WRITE++ ;
     fprintf(fp,"SPECTRUM_ID:       %d  \n", IDSPEC ) ; 
 
     fprintf(fp,"SPECTRUM_MJD:      %9.3f            ", GENSPEC.MJD_LIST[imjd]);

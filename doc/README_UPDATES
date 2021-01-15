@@ -19464,4 +19464,8 @@
       + if SNANA_VERSION key is not in FITS header, assume VPEC
         sign is correct.
 
+   submit_batch_jobs.sh:
+      + for sims, add column for NSPEC_WRITE in MERGE.LOG
+
+
 END: 

@@ -30,6 +30,7 @@
 # Jan 04 2021: fix setting ranseed_list when FORMAT_MASK=32
 # Jan 06 2021: cidadd safety margin -> 1000 (was 10) to reduce chance
 #               of running out of random CIDs
+# Jan 14 2021: add MERGE.LOG column for NSPEC_WRITE
 #
 # ==========================================
 
@@ -44,10 +45,11 @@ from   submit_prog_base import Program
 COLNUM_SIM_MERGE_STATE        = 0     # current state; e.g., WAIT, RUN, DONE
 COLNUM_SIM_MERGE_IVER         = 1     # GENVERSION index
 COLNUM_SIM_MERGE_GENVERSION   = 2
-COLNUM_SIM_MERGE_NGEN         = 3
-COLNUM_SIM_MERGE_NWRITE       = 4
-COLNUM_SIM_MERGE_CPU          = 5     # for CPU minutes
-COLNUM_SIM_MERGE_NSPLIT       = 6     
+COLNUM_SIM_MERGE_NLC_GEN      = 3
+COLNUM_SIM_MERGE_NLC_WRITE    = 4
+COLNUM_SIM_MERGE_NSPEC_WRITE  = 5     # added Jan 14 2021
+COLNUM_SIM_MERGE_CPU          = 6     # CPU minutes
+COLNUM_SIM_MERGE_NSPLIT       = 7     
 
 # define keys for sim master-input ...
 SIMGEN_MASTERFILE_KEYLIST_SNIa = [ 
@@ -1588,8 +1590,8 @@ class Simulation(Program):
 
         # create SPLIT table
         # write TMP_ genversions per SNIa/NONIa model
-        header_line = " STATE  IVER     GENVERSION              " \
-                      "NGEN NWRITE    CPU        NSPLIT"
+        header_line = " STATE  IVER     GENVERSION     " \
+                      "NLC_GEN NLC_WRITE NSPEC_WRITE  CPU  NSPLIT"
         MERGE_INFO = { 
             'primary_key' : TABLE_SPLIT,
             'header_line' : header_line,
@@ -1602,13 +1604,14 @@ class Simulation(Program):
             for ifile in range(0,n_file):
                 TMP_genv = TMP_genversion_list2d[iver][ifile]
                 # define ROW here is fragile in case columns are changed
-                ROW = [ STATE, iver, TMP_genv, 0, 0, 0, n_job_split ]
+                ROW = [ STATE, iver, TMP_genv, 0, 0, 0, 0, n_job_split ]
                 MERGE_INFO['row_list'].append(ROW)    
         util.write_merge_file(f, MERGE_INFO, [] ) 
 
         # - - - - - - 
         # finally, the combined versions (remove NSPLIT column)
-        header_line = " STATE     IVER  GENVERSION      NGEN NWRITE  CPU"
+        header_line = " STATE     IVER  GENVERSION    " \
+                      " NLC_GEN NLC_WRITE NSPEC_WRITE CPU"
         MERGE_INFO = { 
             'primary_key' : TABLE_MERGE, 
             'header_line' : header_line,
@@ -1620,7 +1623,7 @@ class Simulation(Program):
         for iver_all in range(0,n_all):
             genversion = genversion_list_all[iver_all]
             iver       = igenver_list_all[iver_all]
-            ROW = [ STATE, iver, genversion, 0, 0, 0 ]
+            ROW = [ STATE, iver, genversion, 0, 0, 0, 0 ]
             MERGE_INFO['row_list'].append(ROW)    
         util.write_merge_file(f, MERGE_INFO, [] )
 
@@ -1711,21 +1714,26 @@ class Simulation(Program):
         COLNUM_IVER      = COLNUM_SIM_MERGE_IVER
         COLNUM_GENV      = COLNUM_SIM_MERGE_GENVERSION
         COLNUM_NSPLIT    = COLNUM_SIM_MERGE_NSPLIT
-        COLNUM_NGEN      = COLNUM_SIM_MERGE_NGEN
-        COLNUM_NWRITE    = COLNUM_SIM_MERGE_NWRITE
+        COLNUM_NGEN      = COLNUM_SIM_MERGE_NLC_GEN
+        COLNUM_NLC       = COLNUM_SIM_MERGE_NLC_WRITE
+        COLNUM_NSPEC     = COLNUM_SIM_MERGE_NSPEC_WRITE
         COLNUM_CPU       = COLNUM_SIM_MERGE_CPU
 
         # define keys to read and sum from YAML file produced by science job
-        key_ngen, key_ngen_sum, key_ngen_list = \
+        key_nlc_gen, key_nlc_gen_sum, key_nlc_gen_list = \
                     self.keynames_for_job_stats('NGENLC_TOT')
 
-        key_nwrite, key_nwrite_sum, key_nwrite_list = \
+        key_nlc_write, key_nlc_write_sum, key_nlc_write_list = \
                     self.keynames_for_job_stats('NGENLC_WRITE')
+
+        key_nspec_write, key_nspec_write_sum, key_nspec_write_list = \
+                    self.keynames_for_job_stats('NGENSPEC_WRITE')
 
         key_cpu, key_cpu_sum, key_cpu_list = \
                     self.keynames_for_job_stats('CPU_MINUTES')
 
-        KEY_YAML_LIST   = [ key_ngen, key_nwrite, key_cpu ]
+        KEY_YAML_LIST   = [ key_nlc_gen, key_nlc_write, key_nspec_write, 
+                            key_cpu ]
         # xxxx 'SURVEY', 'IDSURVEY' ]
 
         # init outputs of function
@@ -1772,13 +1780,18 @@ class Simulation(Program):
                     job_stats = self.get_job_stats(simlog_dir, 
                                                    TMP_LOG_LIST, TMP_YAML_LIST,
                                                    KEY_YAML_LIST)
+
+                    print(f"\n xxx KEY_YAML_LIST = {KEY_YAML_LIST} ")
+                    print(f" xxx job_stats = \n {job_stats} \n")
+
                     # check for failures
                     nfail = job_stats['nfail']
                     if nfail > 0 : NEW_STATE = SUBMIT_STATE_FAIL
 
                     # update stats for SPLIT table; same for REPEAT or CHANGE
-                    row[COLNUM_NGEN]   = job_stats[key_ngen_sum]
-                    row[COLNUM_NWRITE] = job_stats[key_nwrite_sum]
+                    row[COLNUM_NGEN]   = job_stats[key_nlc_gen_sum]
+                    row[COLNUM_NLC]    = job_stats[key_nlc_write_sum]
+                    row[COLNUM_NSPEC]  = job_stats[key_nspec_write_sum]
                     row[COLNUM_CPU]    = job_stats[key_cpu_sum]
                     row_split_new[irow_split] = row     # update split stats
 
@@ -1788,9 +1801,10 @@ class Simulation(Program):
                         row_merge  = row_list_merge[IVER]
                         GENV_MERGE = row_merge[COLNUM_GENV]
                         self.move_sim_data_files(TMP_GENV,GENV_MERGE, nfail)
-                        row_merge[COLNUM_NGEN]   += job_stats[key_ngen_sum]
-                        row_merge[COLNUM_NWRITE] += job_stats[key_nwrite_sum]
-                        row_merge[COLNUM_CPU]    += job_stats[key_cpu_sum]
+                        row_merge[COLNUM_NGEN] += job_stats[key_nlc_gen_sum]
+                        row_merge[COLNUM_NLC]  += job_stats[key_nlc_write_sum]
+                        row_merge[COLNUM_NSPEC]+= job_stats[key_nspec_write_sum]
+                        row_merge[COLNUM_CPU]  += job_stats[key_cpu_sum]
                         row_merge_new[IVER] = row_merge
                     else:
                         for isplit in range(0,n_job_split):
@@ -1804,9 +1818,11 @@ class Simulation(Program):
                             self.move_sim_data_files(tmp_genv,genv_merge,nfail)
 
                             row_merge[COLNUM_NGEN] += \
-                                    job_stats[key_ngen_list][isplit]
-                            row_merge[COLNUM_NWRITE] += \
-                                    job_stats[key_nwrite_list][isplit]
+                                    job_stats[key_nlc_gen_list][isplit]
+                            row_merge[COLNUM_NLC] += \
+                                    job_stats[key_nlc_write_list][isplit]
+                            row_merge[COLNUM_NSPEC] += \
+                                    job_stats[key_nspec_write_list][isplit]
                             row_merge[COLNUM_CPU] += \
                                     job_stats[key_cpu_list][isplit]
                             row_merge_new[iver_all] = row_merge
@@ -1820,7 +1836,7 @@ class Simulation(Program):
         # - - - - - - - - - - - - - - - - - - - - - - - -
         # Update DONE states for MERGE    table.
         # This is tricky because all split-job MODELS must be done
-        # befoe declaring MERGE job to be done.
+        # before declaring MERGE job to be done.
 
         # Check which split jobs are done for all models,
         # and also which jobs are running for any model
@@ -2121,8 +2137,9 @@ class Simulation(Program):
         genversion      = row_list_merge[iver_all][COLNUM_SIM_MERGE_GENVERSION]
         iver            = row_list_merge[iver_all][COLNUM_SIM_MERGE_IVER]
 
-        ngen   = row_list_merge[iver_all][COLNUM_SIM_MERGE_NGEN]
-        nwrite = row_list_merge[iver_all][COLNUM_SIM_MERGE_NWRITE]
+        nlc_gen   = row_list_merge[iver_all][COLNUM_SIM_MERGE_NLC_GEN]
+        nlc_write = row_list_merge[iver_all][COLNUM_SIM_MERGE_NLC_WRITE]
+        nspec_write = row_list_merge[iver_all][COLNUM_SIM_MERGE_NSPEC_WRITE]
         cpu    = row_list_merge[iver_all][COLNUM_SIM_MERGE_CPU]
 
         IS_REPEAT =  'REPEAT' in ranseed_key
@@ -2131,9 +2148,11 @@ class Simulation(Program):
         # - - - - - -
         f.write(f"DOCUMENTATION:\n")
         f.write(f"  GENVERSION: {genversion} \n")  
-        f.write(f"\n#                      NGEN     NWRITE  CPU(minutes)\n")
+        f.write(f"\n#                   NLC_GEN   NLC_WRITE " \
+                f" NSPEC_WRITE  CPU(minutes)\n")
         f.write(f"  STAT_SUMMARY: \n")  
-        f.write(f"  - {'TOTAL':<12}    {ngen:8}   {nwrite:6}   {cpu}\n")
+        f.write(f"  - {'TOTAL':<12}    {nlc_gen:8}   {nlc_write:6}  " \
+                " {nspec_write}  {cpu}\n")
 
         # write out same info for each model ... only for RANSEED_REPEAT
         if IS_REPEAT :
@@ -2143,11 +2162,12 @@ class Simulation(Program):
                     TMP_GENV    = row[COLNUM_SIM_MERGE_GENVERSION]
                     g1          = len(TMP_GENV)
                     genv   = (f"{TMP_GENV[g0:g1]}") # e.g. SNIaMODEL0
-                    ngen   = row[COLNUM_SIM_MERGE_NGEN]
-                    nwrite = row[COLNUM_SIM_MERGE_NWRITE]
-                    cpu    = row[COLNUM_SIM_MERGE_CPU]
+                    nlc_gen   = row[COLNUM_SIM_MERGE_NLC_GEN]
+                    nlc_write = row[COLNUM_SIM_MERGE_NLC_WRITE]
+                    nspec_write = row[COLNUM_SIM_MERGE_NSPEC_WRITE]
+                    cpu       = row[COLNUM_SIM_MERGE_CPU]
                     f.write(f"  - {genv:<12}    " \
-                            f"{ngen:8}   {nwrite:6}   {cpu}\n")
+                            f"{nlc_gen:8}   {nlc_write:6}  {nspec_write:6} {cpu}\n")
         # - - - -
         f.write(f"\n")
         f.write(f"  INPUT_FILES:\n")

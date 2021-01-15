@@ -1600,7 +1600,10 @@ class BBC(Program):
         # Goal is to use this file in 2nd round of BBC and include
         # only events that pass in all FITOPT and MUOPTs.
         #
-        # Jan 12 2021: write ACCEPT file as well.
+        # Jan 12 2021: write ACCEPT file as well. Return if n_splitran>1
+
+        n_splitran    = self.config_prep['n_splitran']
+        if n_splitran > 1 : return
 
         output_dir    = self.config_prep['output_dir']
         VOUT          = (f"{output_dir}/{vout}")

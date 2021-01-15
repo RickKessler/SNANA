@@ -2151,8 +2151,8 @@ class Simulation(Program):
         f.write(f"\n#                   NLC_GEN   NLC_WRITE " \
                 f" NSPEC_WRITE  CPU(minutes)\n")
         f.write(f"  STAT_SUMMARY: \n")  
-        f.write(f"  - {'TOTAL':<12}    {nlc_gen:8}   {nlc_write:6}  " \
-                " {nspec_write}  {cpu}\n")
+        f.write(f"  - {'TOTAL':<12}   {nlc_gen:8}   {nlc_write:8} " \
+                f" {nspec_write:8}        {cpu}\n")
 
         # write out same info for each model ... only for RANSEED_REPEAT
         if IS_REPEAT :
@@ -2166,8 +2166,9 @@ class Simulation(Program):
                     nlc_write = row[COLNUM_SIM_MERGE_NLC_WRITE]
                     nspec_write = row[COLNUM_SIM_MERGE_NSPEC_WRITE]
                     cpu       = row[COLNUM_SIM_MERGE_CPU]
-                    f.write(f"  - {genv:<12}    " \
-                            f"{nlc_gen:8}   {nlc_write:6}  {nspec_write:6} {cpu}\n")
+                    f.write(f"  - {genv:<12}   " \
+                            f"{nlc_gen:8}   {nlc_write:8}  {nspec_write:8} " \
+                            f"       {cpu}\n")
         # - - - -
         f.write(f"\n")
         f.write(f"  INPUT_FILES:\n")

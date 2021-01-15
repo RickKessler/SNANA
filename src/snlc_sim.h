@@ -1227,6 +1227,8 @@ struct GENFILT {
 
 int NGENLC_TOT ;             // actual number of generated LC
 int NGENLC_WRITE ;           // number written
+
+int NGENSPEC_TOT;            // total number of generated spectra
 int NGENSPEC_WRITE ;         // number of spectra written
 int NGENFLUX_DRIVER;         // number of calls to GENFLUX_DRIVER
 

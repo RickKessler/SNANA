@@ -1718,10 +1718,13 @@ class Simulation(Program):
         # define keys to read and sum from YAML file produced by science job
         key_ngen, key_ngen_sum, key_ngen_list = \
                     self.keynames_for_job_stats('NGENLC_TOT')
+
         key_nwrite, key_nwrite_sum, key_nwrite_list = \
                     self.keynames_for_job_stats('NGENLC_WRITE')
+
         key_cpu, key_cpu_sum, key_cpu_list = \
                     self.keynames_for_job_stats('CPU_MINUTES')
+
         KEY_YAML_LIST   = [ key_ngen, key_nwrite, key_cpu ]
         # xxxx 'SURVEY', 'IDSURVEY' ]
 

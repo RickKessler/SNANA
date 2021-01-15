@@ -4674,6 +4674,7 @@ void prep_user_input(void) {
   ENVreplace(INPUTS.HOSTLIB_FILE,fnam,1);
   ENVreplace(INPUTS.HOSTLIB_WGTMAP_FILE,fnam,1);
   ENVreplace(INPUTS.HOSTLIB_ZPHOTEFF_FILE,fnam,1);
+  ENVreplace(INPUTS.HOSTLIB_SPECBASIS_FILE,fnam,1);
   ENVreplace(INPUTS.FLUXERRMODEL_FILE,fnam,1 );
   ENVreplace(INPUTS.HOSTNOISE_FILE,fnam,1 );
   ENVreplace(INPUTS.WRONGHOST_FILE,fnam,1 );
@@ -6942,7 +6943,7 @@ void init_simvar(void) {
 
   //  sprintf(FILTERSTRING,"%s", FILTERSTRING_DEFAULT );
 
-  NGENLC_TOT = NGENLC_WRITE = NGENSPEC_WRITE = 0;
+  NGENLC_TOT = NGENLC_WRITE = NGENSPEC_TOT = NGENSPEC_WRITE = 0;
   NGENFLUX_DRIVER = 0 ;
 
   NGEN_REJECT.GENRANGE  = 0;
@@ -7910,7 +7911,7 @@ void GENSPEC_DRIVER(void) {
     GENSPEC_FLAM(imjd) ;
 
     GENSPEC.NMJD_PROC++ ; // total Nspec for this event.
-    NGENSPEC_WRITE++ ;    // total NSpec over all Light curve
+    NGENSPEC_TOT++ ;      // total NSpec over all Light curve
 
   } // end imjd
   
@@ -26447,7 +26448,7 @@ void sprintf_GENGAUSS(char *string, char *name,
 void update_accept_counters(void) {
 
   // Created June 2017
-  // Called from main for accppted event, so here we
+  // Called from main for accepted event, so here we
   // increment various counters.
   // Most code moved from main for cleanup.
 
@@ -27108,9 +27109,10 @@ void append_SNSPEC_TEXT(void) {
 
     if ( NBLAM_VALID == 0 ) { return; } // suppress legacy bug (Aug 23 2017)
 
+    NGENSPEC_WRITE++ ;
     fprintf(fp,"SPECTRUM_ID:       %d  \n", IDSPEC ) ; 
 
-    fprintf(fp,"SPECTRUM_MJD:      %9.3f            ", GENSPEC.MJD_LIST[imjd] );
+    fprintf(fp,"SPECTRUM_MJD:      %9.3f            ", GENSPEC.MJD_LIST[imjd]);
     if ( IS_HOST ) 
       { fprintf(fp, "# HOST \n"); }
     else

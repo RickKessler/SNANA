@@ -1010,6 +1010,8 @@ int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
   // Check external WGTMAP file first; if no external WGTMAP file,
   // then check if WGTMAP is embedded in HOSTLIB.
   // Function returns number of WGTMAP variables found.
+  //
+  // Jan 15 2021: abort if EOF is reached.
 
   int NVAR   = 0 ;
   int MXCHAR = MXPATHLEN;
@@ -1051,7 +1053,14 @@ int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
 
   bool STOP_READ = false;
   while( !STOP_READ ) { 
-    fscanf(fp, "%s", c_get); 
+
+    // xxx mark delete fscanf(fp, "%s", c_get); 
+
+    if ( fscanf(fp, "%s", c_get) == EOF ) {
+      sprintf(c1err,"Reached EOF before finding WGTMAP or GAL key.");
+      sprintf(c2err,"Check format for HOSTLIB_FILE.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
 
     // avoid reading the entire HOSTLIB file if there is no WGTMAP
     if ( strcmp(c_get,KEY_STOP) == 0 ) { STOP_READ = true; }

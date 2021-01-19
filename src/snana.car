@@ -21915,6 +21915,7 @@ c
 c Oct 15, 2019: fix format for SKYSIG : 6.2f -> 7.2f
 c Nov 22, 2019: adapt to work on fakes and sims, and write MAG column.
 c Oct 05, 2020: add ZP requirement to compute metadata; see FOUND_METADATA
+c Jan 19, 2021: add pad space between MJD and IDEXPT
 c
 c --------------------------
 
@@ -22153,8 +22154,8 @@ c May 29 2020: write TAKE_SPECTRUM keys if there are spectra
 
 c write column header
       WRITE(LUNOUT,110) 
-110   FORMAT(/,'#  MJD     IDUM  BAND  GAIN RDNOISE  SKYSIG    ', 
-     &         'PSF1 PSF2 PSFRAT    ZP  ZPERR   MAG' )
+110   FORMAT(/,'#   MJD    IDEXPT  BAND  GAIN RDNOISE  SKYSIG  ', 
+     &         'PSF1 PSF2 PSFRAT    ZP  ZPERR  MAG' )
 
       DO IFILT_OBS = 1, MXFILT_OBS
          LASTEP(IFILT_OBS) = -9
@@ -22201,7 +22202,6 @@ c Mainly for low-z sample which has no meta data.
            FOUND_METADATA = 
      &       ( PSF1 > 1.0E-5 .and. SKYSIG > 1.0E-5 .and. ZP > 1.0)
 
-cc xxxx remove   IF ( PSF1 < 1.0E-5 .and.  SKYSIG < 1.0E-5 ) THEN
            IF ( .not. FOUND_METADATA ) THEN
               GAIN    = 1.0 ;  RDNOISE = 1.0 
               ZPERR   = DBLE( SIMLIB_ZPERR(ifilt_obs) )
@@ -22227,7 +22227,7 @@ cc xxxx remove   IF ( PSF1 < 1.0E-5 .and.  SKYSIG < 1.0E-5 ) THEN
      &        ZP, ZPERR, cMAG(1:LENcMAG)
 
 120        format('S: ', 
-     &            F9.3, I4, 2x, A2, 2x,      ! MJD, ID, BAND
+     &            F9.3, 1x, I4, 2x, A2, 2x,  ! MJD, ID, BAND
      &            F5.2, 2x, F5.2, 2x,        ! GAIN, RDNOISE
      &            F7.2, 1x, 3(F6.2),2x,      ! SKYSIG, PSF info
      &            F6.3, 1x, F5.3, 1x, A      ! ZP, ZPERR, MAG

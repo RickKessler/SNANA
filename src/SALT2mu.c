@@ -180,6 +180,9 @@ CUTWIN(BIASCORONLY) BLA_LOGMASS  5 12 ! cut on biasCor (not on data)
 CUTWIN varname_pIa  0.9 1.0   ! substitute argument of varname_pIa, and 
                               ! easy to change varname_pIa on command line
 
+CUTWIN(WGT0) varname_pIa  0.9 1.0   ! MUERR->888 instead of cut
+
+
 #select field(s) for data and biasCor with
 fieldlist=X1,X2   # X1 and X2
 fieldlist=X3      # X3 only
@@ -911,7 +914,7 @@ Default output files (can change names with "prefix" argument)
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#define USE_THREAD   // Sep 2020
+#define USE_THREAD   // Sep 2020 : used in SUBPROCESS mode
 
 #ifdef USE_THREAD
 #include <pthread.h>
@@ -990,6 +993,8 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 #define IFLAG_DUPLICATE_ABORT  1
 #define IFLAG_DUPLICATE_AVG    2  // use weighted avg of SALT2 fit par.
 #define MXSTORE_DUPLICATE     20  // always abort if more than this many
+
+#define MUERR_WGT0  888.8  // MUERR-> this value in fit for WGT0 option
 
 #define MUDIFERR_EMPTY 999.0   // if no events in bin, set error to 999
 #define MUDIFERR_ZERO  666.0   // if MUDIFFERR=0, set to 666
@@ -1557,10 +1562,11 @@ struct INPUTS {
   int    NFIELD ;
   char   *FIELDLIST[MXFIELD_OVERLAP] ;
 
-  bool   LCUTWIN_RDFLAG[MXCUTWIN] ; // 1=> read, 0=> use existing var
-  bool   LCUTWIN_ABORTFLAG[MXCUTWIN] ;  // 1=> abort if var does not exist
-  bool   LCUTWIN_DATAONLY[MXCUTWIN] ;   // 1=> cut on real or sim data 
-  bool   LCUTWIN_BIASCORONLY[MXCUTWIN]; // 1=> cut on biasCor
+  bool   LCUTWIN_RDFLAG[MXCUTWIN] ; // T=> read, 0=> use existing var
+  bool   LCUTWIN_ABORTFLAG[MXCUTWIN] ;  // T=> abort if var does not exist
+  bool   LCUTWIN_DATAONLY[MXCUTWIN] ;   // T=> cut on real or sim data 
+  bool   LCUTWIN_BIASCORONLY[MXCUTWIN]; // T=> cut on biasCor
+  bool   LCUTWIN_WGT0[MXCUTWIN];        // T=> MUERR->888 instead of cut
 
   int  Nsntype ;
   int  sntype[MXSNTYPE]; // list of sntype(s) to select
@@ -15661,7 +15667,6 @@ void parse_chi2max(char *item) {
 	   fnam, chi2max, survey, idsurvey ); fflush(stdout);
   }
 
-  //.xyz
   return ;
 
 } // end parse_chi2max
@@ -15878,85 +15883,129 @@ void parse_sigint_fix(char *item) {
 } // end parse_sigint_fix
 
 // **************************************************
-void parse_CUTWIN(char *item) {
+void parse_CUTWIN(char *line_CUTWIN) {
 
   // Created 4/24/2012 by R.Kessler
-  // parse line beginning with 
+  // parse *line_CUTWIN with four space-separated items:
   //   CUTWIN <VARNAME>  <MIN> <MAX>
+  //
   // and fill
   //   INPUTS.NCUTWIN
   //   INPUTS.CUTWIN_NAME
   //   INPUTS.CUTWIN_RANGE
-  //   INPUTS.CUTWIN_ABORTFLAG   ! 9.29.2016
+  //   INPUTS.CUTWIN_ABORTFLAG   ! Sep 2016
+  //
+  // Also note that CUTWIN can be of the format
+  //  CUTWIN(OPT1,OPT2,..ETC)
   //
   // Oct 8 2020: check for bad input
+  // Jan 19 2021: check for WGT0 option, and enable comma-sep list of options
   //
 
-  char  *ptrtok, local_item[200], stringOpt[60], KEY[60] ;
-  int   ICUT, i, nread ;
+  int   NITEM = 4;
+  char  item_list[4][60], line_local[200], string[60], KEY[60] ;
+  char  *item, *ptrtok, *cutwinOpt, **cutwinOpt_list ;
+
+  int   ICUT, i, opt, nread, NOPT ;
   char  fnam[] = "parse_CUTWIN" ;
 
   // ---------- BEGIN ------------
 
-  INPUTS.NCUTWIN++ ;
-  ICUT = INPUTS.NCUTWIN-1 ;
+  ICUT = INPUTS.NCUTWIN ;
   INPUTS.LCUTWIN_ABORTFLAG[ICUT]   = true ;   //  abort on missing var
   INPUTS.LCUTWIN_DATAONLY[ICUT]    = false ;  //  cut on data 
   INPUTS.LCUTWIN_BIASCORONLY[ICUT] = false ;  //  cut on sim data and biasCor
+  INPUTS.LCUTWIN_WGT0[ICUT]        = false ;  //  MUERR->888 instead of cut
 
-  sprintf(local_item,"%s", item);
-  ptrtok = strtok(local_item," ");
+  INPUTS.NCUTWIN++ ;
 
+  // - - - - - -  -
+  // strip each line_CUTWIN item into item_list, and check for missing items
+  sprintf(line_local,"%s", line_CUTWIN);
+  ptrtok = strtok(line_local," ");
   for ( i=0; i < 4 ; i++ ) {
+    sprintf(item_list[i], "%s", ptrtok);
+    ptrtok = strtok(NULL, " ");
+    // Oct 8 2020: check for missing CUTWIN element
+    if ( i < 3 && ptrtok == NULL ) {
+      sprintf(c1err,"Problem reading CUTWIN element i=%d", i+1 );
+      sprintf(c2err,"for line_CUTWIN = '%s' ", line_CUTWIN);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+  }
+
+  // - - - - - 
+  for ( i=0; i < NITEM ; i++ ) {
+
+    item = item_list[i];
 
     if ( i == 0 ) {
-      // check for option in CUTWIN(option)
-      sscanf ( ptrtok, "%s", KEY ); 
-      extractStringOpt(KEY, stringOpt); // return stringOpt
+      // check for option in CUTWIN(string)
+      sscanf ( item, "%s", KEY ); 
+      extractStringOpt(KEY, string); // return string
 
-      if ( strcmp(stringOpt,"NOABORT") == 0 ) 
-	{ INPUTS.LCUTWIN_ABORTFLAG[ICUT] = false; } // allow missing variable 
+      // return list of args separated by commas.
+      // E.g., if string = 'DATAONLY,WGT0' then
+      // stringOpt_list = 'DATAONLY', 'WGT0'
+      parse_commaSepList("CUTWIN_OPTION", string,
+			 NITEM, 40,   // Max number of options and strlen 
+			 &NOPT, &cutwinOpt_list); // <== returned
+      
+      //      printf(" xxx %s: string='%s' -> NOPT=%d \n",
+      //	     fnam, string, NOPT); fflush(stdout);
 
-      if ( strcmp(stringOpt,"DATAONLY") == 0 ) 
-	{ INPUTS.LCUTWIN_DATAONLY[ICUT] = true ; } // cut on data only
+      for ( opt=0; opt < NOPT; opt++ ) {
+	cutwinOpt = cutwinOpt_list[opt];
 
-      if ( strcmp(stringOpt,"BIASCORONLY") == 0 ) 
-	{ INPUTS.LCUTWIN_BIASCORONLY[ICUT] = true ; } // cut on sim & biascor
-    }
+	if ( strcmp(cutwinOpt,"NOABORT") == 0 ) 
+	  { INPUTS.LCUTWIN_ABORTFLAG[ICUT] = false; } // allow missing var 
+
+	if ( strcmp(cutwinOpt,"DATAONLY") == 0 ) 
+	  { INPUTS.LCUTWIN_DATAONLY[ICUT] = true ; } // cut on data only
+	
+	if ( strcmp(cutwinOpt,"BIASCORONLY") == 0 ) 
+	  { INPUTS.LCUTWIN_BIASCORONLY[ICUT] = true ; } // cut on sim & biascor
+
+	if ( strcmp(cutwinOpt,"WGT0") == 0 ) 
+	  { INPUTS.LCUTWIN_WGT0[ICUT] = true ; } 
+      
+      } // end opt loop
+
+    } // end i= loop over CUTWIN(option) item
 
     if ( i == 1 ) { 
-      nread = sscanf ( ptrtok, "%s", INPUTS.CUTWIN_NAME[ICUT] ); 
+      nread = sscanf ( item, "%s", INPUTS.CUTWIN_NAME[ICUT] ); 
       if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
     } 
         
     if ( i == 2 ) {
-      nread = sscanf ( ptrtok, "%le", &INPUTS.CUTWIN_RANGE[ICUT][0] ); 
+      nread = sscanf (item, "%le", &INPUTS.CUTWIN_RANGE[ICUT][0] ); 
       if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
     } 
 
     if ( i == 3 ) {
-      nread = sscanf ( ptrtok, "%le", &INPUTS.CUTWIN_RANGE[ICUT][1] ); 
+      nread = sscanf (item, "%le", &INPUTS.CUTWIN_RANGE[ICUT][1] ); 
       if ( nread != 1 ) { abort_bad_input(KEY, ptrtok, i, fnam); }
     } 
 
-    ptrtok = strtok(NULL, " ");
-
-    // Oct 8 2020: check for missing CUTWIN element
-    if ( i < 3 && ptrtok == NULL ) {
-      sprintf(c1err,"Problem reading CUTWIN element i=%d", i+1 );
-      sprintf(c2err,"for item = '%s' ", item);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-    }
-
   } // end i loop
 
+
+  // - - - - - -
+  char cMUERR[20] = "" ;
+
+  if ( INPUTS.LCUTWIN_WGT0[ICUT] )
+    { sprintf(cMUERR,"MUERR->%.1f", MUERR_WGT0); }
+
   fprintf(FP_STDOUT, 
-	 "\t Will apply CUTWIN on %12s from %10.4f to %10.4f  (ABORTFLAG=%d)\n"
+	 "\t Apply CUTWIN on %12s from %10.4f to %10.4f "
+	  " (ABORTFLAG=%d,%s)\n"
 	 ,INPUTS.CUTWIN_NAME[ICUT]
 	 ,INPUTS.CUTWIN_RANGE[ICUT][0]
 	 ,INPUTS.CUTWIN_RANGE[ICUT][1]
 	 ,INPUTS.LCUTWIN_ABORTFLAG[ICUT]
-	 ) ;
+	 ,cMUERR
+	  ) ;
 
 } // end of parse_CUTWIN
 
@@ -16040,6 +16089,7 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   bool  ABORTFLAG   = INPUTS.LCUTWIN_ABORTFLAG[icut];
   bool  DATAONLY    = INPUTS.LCUTWIN_DATAONLY[icut];
   bool  BIASCORONLY = INPUTS.LCUTWIN_BIASCORONLY[icut];
+  bool  WGT0        = INPUTS.LCUTWIN_WGT0[icut];
   char *VARNAME     = INPUTS.CUTWIN_NAME[icut];
   bool  ISVAR_PROB  = (strstr(VARNAME,"PROB_") != NULL ); // Oct 2020
   int   ISTAT ;
@@ -16050,11 +16100,11 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   if ( DATAONLY    && !isData ) { return(0) ; } // Oct 23 2018
   if ( BIASCORONLY &&  isData ) { return(0) ; } // May 18 2020
 
-  // Oct 28 2020: Apply cut for biasCor if varname doesn't exist
+  // Oct 28 2020: Apply cut to biasCor sample if varname doesn't exist
   //    and starts with PROB. This assumes that idsurvey_list_probcc0
-  //    is will set pIa=1 ... if not, all these events will be
-  //    rejected. This logic is not needed for data because the
-  //    data-catenate process ensures existing PROB columns.
+  //    sets pIa=1 ... if not, all these events will be rejected. 
+  //    This logic is not needed for data because the data-catenate 
+  //    process ensures existing PROB columns.
   if ( !isData && ivar < 0 && ISVAR_PROB ) { return(1); }
 
 

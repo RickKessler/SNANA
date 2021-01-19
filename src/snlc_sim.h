@@ -1294,7 +1294,7 @@ struct SIMLIB_GLOBAL_HEADER {
   char PSF_UNIT[40] ;
   char SKYSIG_UNIT[40];
   char USERNAME[40];
-  int  NLIBID ;
+  int  NLIBID, NLIBID_VALID ;
   double PIXSIZE, SOLID_ANGLE ;
   int  NPE_PIXEL_SATURATE;    // Jan 3, 2018
   int  PHOTFLAG_SATURATE ;

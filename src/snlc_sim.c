@@ -13376,6 +13376,7 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
     }
     else if ( strcmp(c_get,"NLIBID:") == 0 ) { 
       readint(fp_SIMLIB, 1, &SIMLIB_GLOBAL_HEADER.NLIBID );
+      SIMLIB_GLOBAL_HEADER.NLIBID_VALID = SIMLIB_GLOBAL_HEADER.NLIBID;
     }
     else if ( strcmp(c_get,"PSF_UNIT:") == 0 ) {
       readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.PSF_UNIT );
@@ -14940,7 +14941,10 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
   // Apr 13, 2016: 
   // check if anything needs to be re-generated based on header info
-  if ( regen_SIMLIB_GENRANGES() < 0 ) { return ; }
+  if ( regen_SIMLIB_GENRANGES() < 0 ) { 
+    if ( SIMLIB_HEADER.NWRAP==0 ) { SIMLIB_GLOBAL_HEADER.NLIBID_VALID-- ; }
+    return ; 
+  }
 
   // transfer some SIMLIB_HEADER info to GENLC struct
   GENLC.RA         = SIMLIB_HEADER.RA ;
@@ -16362,8 +16366,8 @@ int regen_SIMLIB_GENRANGES(void) {
   // called after reading each LIBID header,
   // to check if anything needs to be re-generated.
   //
-  // Functions returns +1 to keep event, -1 to reject.
-  //n
+  // Functions returns +1 to keep LIBID, -1 to reject.
+  //
   // Initial motivation is to re-select PEAKMJD, redshift, 
   // color and stretch for ABC method. 
   //
@@ -26787,7 +26791,9 @@ void set_screen_update(int NGEN) {
 // ===========================
 void screen_update(void) {
 
-  int CID;
+  int CID, NGEN;
+  bool QUIT_NOREWIND = (INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_QUIT_NOREWIND) >0;
+  int  NLIBID        = SIMLIB_GLOBAL_HEADER.NLIBID_VALID ;
 
   if ( WRFLAG_CIDRAN == 0 ) 
     { CID = GENLC.CID ; }
@@ -26805,8 +26811,12 @@ void screen_update(void) {
   } else {
 
     if ( LUPDGEN(NGENLC_TOT) ) {
+
+      NGEN = INPUTS.NGENTOT_LC ; // expected number to generate at end
+      if ( QUIT_NOREWIND && NLIBID > 0 ) { NGEN = NLIBID; }
+
       printf("\t Finished generating %8d of %d (CID=%6d) \n", 
-	     NGENLC_TOT, INPUTS.NGENTOT_LC, CID );
+	     NGENLC_TOT, NGEN, CID );
       fflush(stdout);
     }
 

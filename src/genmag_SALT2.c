@@ -2587,6 +2587,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   //   so that it works properly with repeat function.
   //
   // Oct 2020: replace Fratio with general Finteg_errPar
+  // Jan 19 2021: fix bug in placement of NLAMTMP++
 
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
@@ -2680,8 +2681,9 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
       lam[ilamobs] = LAMSED ; 
 
       // protect undefined red end for low-z (July 2016)
-      if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }       
       NLAMTMP++ ;
+      if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }       
+      // xxx bug !!!  NLAMTMP++ ;
     }
     get_genSmear( Trest, c, x1, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
   }

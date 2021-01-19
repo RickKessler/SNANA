@@ -57,6 +57,7 @@
 
      # optional ZPOFF file to override default ZPOFF.DAT (Jan 2021)
      ZPOFF_FILE: ZPOFF_UPDATED.DAT
+       (if no slash in file name, check FILTPATH)
 
      FILTSYSTEM: COUNT    # most moder systems are count
      FILTSYSTEM: ENERGY   # older Bessell system may be energy

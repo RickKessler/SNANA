@@ -14465,6 +14465,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
     if ( NOBS_FOUND_ALL == 1 ) { 
       SIMLIB_randomize_skyCoords();
       USEFLAG_LIBID = keep_SIMLIB_HEADER(); 
+
+      if ( USEFLAG_LIBID!=ACCEPT_FLAG && SIMLIB_HEADER.NWRAP==0 )
+        { SIMLIB_GLOBAL_HEADER.NLIBID_VALID-- ; }
+
     }
 
     // stop reading when we reach the end of this LIBID
@@ -14941,10 +14945,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
   // Apr 13, 2016: 
   // check if anything needs to be re-generated based on header info
-  if ( regen_SIMLIB_GENRANGES() < 0 ) { 
-    if ( SIMLIB_HEADER.NWRAP==0 ) { SIMLIB_GLOBAL_HEADER.NLIBID_VALID-- ; }
-    return ; 
-  }
+  if ( regen_SIMLIB_GENRANGES() < 0 ) { return ; }
 
   // transfer some SIMLIB_HEADER info to GENLC struct
   GENLC.RA         = SIMLIB_HEADER.RA ;
@@ -16383,8 +16384,8 @@ int regen_SIMLIB_GENRANGES(void) {
   // ------------ BEGIN -------------
 
   if(LTRACE) {
-    printf(" xxx -----------CID=%d LIBID=%d -------------- \n",
-	   GENLC.CID, GENLC.SIMLIB_ID ) ;
+    printf(" xxx -----------CID=%d  LIBID=%d -------------- \n",
+	   GENLC.CID, SIMLIB_HEADER.LIBID ) ;
     printf(" xxx %s: 0 \n", fnam); 
   }
 
@@ -26813,10 +26814,16 @@ void screen_update(void) {
     if ( LUPDGEN(NGENLC_TOT) ) {
 
       NGEN = INPUTS.NGENTOT_LC ; // expected number to generate at end
-      if ( QUIT_NOREWIND && NLIBID > 0 ) { NGEN = NLIBID; }
 
-      printf("\t Finished generating %8d of %d (CID=%6d) \n", 
-	     NGENLC_TOT, NGEN, CID );
+      if ( QUIT_NOREWIND && NLIBID > 0 ) {
+	printf("\t Finished generating %8d of %d valid LIBIDs \n", 
+	       NGENLC_TOT, NLIBID );
+      }
+      else {
+	printf("\t Finished generating %8d of %d (CID=%6d) \n", 
+	       NGENLC_TOT, INPUTS.NGENTOT_LC, CID );
+      }
+
       fflush(stdout);
     }
 

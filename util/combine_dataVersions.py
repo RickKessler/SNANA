@@ -244,6 +244,17 @@ def write_kcor_inputFile(versionInfo,kcorInfo):
     L1 = kcorInfo[0].LAMRANGE[1] 
     f.write(f"LAMBDA_RANGE: {L0} {L1} \n" )
 
+    # - - - - -
+    # check for spectrograph (Jan 2021)
+    # (warning: need to abort of spectcro_file names are different)
+    n_spectro = 0
+    for kcor in kcorInfo :
+        spectro_file = kcor.SPECTROGRAPH
+        if spectro_file is not None and n_spectro == 0 :
+            f.write(f"SPECTROGRAPH: {spectro_file} \n")
+            n_spectro += 1
+
+    # - - - - 
     f.write(f"OUTFILE:      {versionInfo.kcor_outFile} \n")
     
     # - - - - - - - - - - - - - - -
@@ -321,7 +332,7 @@ def run_kcor(versionInfo):
     f      = open(logFile,"rt")
     Lines  = f.readlines()
     f.close
-    if any("ABORT" in s for s in Lines):
+    if any(" ABORT " in s for s in Lines):
         msg = "\nFATAL error running kcor program:\n   Check %s\n" % inFile
         sys.exit(msg)
     
@@ -423,6 +434,11 @@ class KCOR_INFO:
             self.FILTER     = parseLines(Lines,'FILTER:',    3, 1)
             self.NFILTER    = len(self.FILTER)
 
+            # optional spectrograph (Jan 2021)
+            self.SPECTROGRAPH = parseLines(Lines,'SPECTROGRAPH:',1, 1)
+            if len(self.SPECTROGRAPH) == 0 :  self.SPECTROGRAPH = None
+            #print(f"\t xxx SPECTROGRAPH = {self.SPECTROGRAPH} ")
+
             if ( self.NFILTER > MXFILTERS ):
                 errMsg = (f"{self.NFILTERS} filters exceeds bound of " \
                           f"{MXFILTERS}" )
@@ -446,6 +462,7 @@ def create_newVersion(versionInfo):
         sys.exit("Output directory not defined\n Check SURVEY_OUT key")
 
     if ( os.path.exists(VOUT) ):
+        print(f" Remove pre-existing {VOUT}")
         shutil.rmtree(VOUT)
         
     os.mkdir(VOUT)

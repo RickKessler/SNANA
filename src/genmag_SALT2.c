@@ -2587,7 +2587,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   //   so that it works properly with repeat function.
   //
   // Oct 2020: replace Fratio with general Finteg_errPar
-  // Jan 19 2021: fix bug in placement of NLAMTMP++
 
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
@@ -2678,13 +2677,14 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
       LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
       LAMSED       = LAMOBS/z1;   // rest-frame wavelength
-      lam[ilamobs] = LAMSED ; 
 
       // protect undefined red end for low-z (July 2016)
+      if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }  
+
+      lam[ilamobs] = LAMSED ; 
       NLAMTMP++ ;
-      if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }       
-      // xxx bug !!!  NLAMTMP++ ;
     }
+
     get_genSmear( Trest, c, x1, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
   }
 
@@ -2710,6 +2710,10 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
     LAMSED     = LAMOBS / z1 ;  // rest-frame lambda
     LAMSED_MIN = LAMSED_MAX = LAMSED ;  // default is no sub-bins 
+
+    // Jan 2021: bail if outside model range 
+    if ( LAMSED <= SALT2_TABLE.LAMMIN ) { continue ; }
+    if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; } 
 
     LDMP = 0; // (OPT_SPEC>0 && ifilt_obs==2 );
 

@@ -8375,6 +8375,13 @@ c set initial value and step size.
         LZDONE       = .TRUE.
         CZTMP        = 'REDSHIFT_FINAL'
 
+c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
+        if ( PRIOR_ZERRSCALE == 1000.0 )  PRIOR_ZERRSCALE = 1.0
+        PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR
+        PHOTOZ_ITER1_LAMRANGE(1) =  2000. 
+
+        goto 777        ! Jan 2021
+
       ELSE IF ( BTEST(OPT_PHOTOZ,0) ) THEN  ! Zhost prior (1)
 
         if ( DOFIT_PHOTOZ_HOST ) THEN
@@ -8453,6 +8460,7 @@ c update x0-bound for SALT2
 
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
 
+777   CONTINUE
       if(LPRINT) CALL PRINT_INIPAR_ZPHOT('eval', INIVAL, chi2)
 
       CALL FLUSH(6)

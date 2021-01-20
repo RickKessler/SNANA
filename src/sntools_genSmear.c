@@ -1531,6 +1531,10 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
 
     INODE = INODE_LAMBDA(lam, GENSMEAR_SALT2.NNODE, GENSMEAR_SALT2.LAM_NODE);
     if ( INODE < 0 || INODE >= GENSMEAR_SALT2.NNODE ) {      
+      // .xyz
+      print_preAbort_banner(fnam);
+      printf("  MINLAM / MAXLAM = %.2f / %.2f \n", MINLAM, MAXLAM);
+      printf("  ilam = %d of %d \n", ilam, NLam);
       sprintf(c1err,"Could not find INODE for lam=%7.1f", lam);
       sprintf(c2err,"NNODE=%d  INODE=%d", GENSMEAR_SALT2.NNODE, INODE) ;
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 

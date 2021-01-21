@@ -686,32 +686,38 @@ class train_SALT2(Program):
         ###sys.exit("\n xxx DEBUG EXIST xxx ")
         # end train_prep_error_checks
 
-    def write_command_file(self, icpu, COMMAND_FILE):
+    def write_command_file(self, icpu, f):
+        # For this icpu, write full set of sim commands to
+        # already-opened command file with pointer f. 
+        # Function returns number of jobs for this cpu
 
         n_core          = self.config_prep['n_core']
         n_trainopt      = self.config_prep['n_trainopt']            
         n_job_tot   = n_trainopt
         n_job_split = 1     # cannot break up train job
         n_job_local = 0
+        n_job_cpu   = 0
 
         self.config_prep['n_job_split'] = n_job_split
         self.config_prep['n_job_tot']   = n_job_tot
         self.config_prep['n_done_tot']  = n_job_tot
 
         # open CMD file for this icpu  
-        f = open(COMMAND_FILE, 'a')
+        # xxxx mark delete f = open(COMMAND_FILE, 'a')
 
         for itrain in range(0,n_trainopt):
             n_job_local += 1
             if ( (n_job_local-1) % n_core ) == icpu :
 
+                n_job_cpu += 1
                 job_info_train   = self.prep_JOB_INFO_train(itrain)
                 util.write_job_info(f, job_info_train, icpu)
     
                 job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
-        f.close()            
+        # xxx mark delete f.close()            
+        return n_job_cpu
 
         # end write_command_file
 

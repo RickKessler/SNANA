@@ -1011,7 +1011,10 @@ class BBC(Program):
 
         # end bbc_prep_copy_files
 
-    def write_command_file(self, icpu, COMMAND_FILE):
+    def write_command_file(self, icpu, f):
+        # For this icpu, write full set of sim commands to  
+        # already-opened command file with pointer f.
+        # Function returns number of jobs for this cpu 
 
         input_file      = self.config_yaml['args'].input_file 
         n_version       = self.config_prep['n_version_out']  
@@ -1035,6 +1038,7 @@ class BBC(Program):
         #n_job_tot   = n_version * n_fitopt * n_muopt * n_splitran
         n_job_tot   = n_version * n_use_matrix2d * n_splitran
         n_job_split = 1     # cannot break up BBC job as with sim or fit
+        n_job_cpu   = 0
 
         self.config_prep['n_job_split'] = n_job_split
         self.config_prep['n_job_tot']   = n_job_tot
@@ -1042,7 +1046,7 @@ class BBC(Program):
         self.config_prep['use_wfit']    = use_wfit
 
         # open CMD file for this icpu  
-        f = open(COMMAND_FILE, 'a')
+        # xxx mark delete f = open(COMMAND_FILE, 'a')
 
         n_job_local = 0
 
@@ -1056,6 +1060,7 @@ class BBC(Program):
 
             if ( (n_job_local-1) % n_core ) == icpu :
 
+                n_job_cpu += 1
                 job_info_bbc   = self.prep_JOB_INFO_bbc(index_dict)
                 util.write_job_info(f, job_info_bbc, icpu)
 
@@ -1067,7 +1072,9 @@ class BBC(Program):
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
         # - - - - 
-        f.close()
+        # xxx mark delete f.close()
+
+        return n_job_cpu
 
         # end write_command_file
 

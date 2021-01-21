@@ -12,6 +12,10 @@
 #   These keys are hard-coded for submit_batch, but can be altered
 #   by Pippin for non-SNANA jobs.
 #
+# Jan 21 2021: 
+#   write_command_file return n_job_cpu; if n_job_cpu==0, sleep 10 sec
+#   so that npid check doesn't fail.
+#
 # ============================================
 
 #import argparse
@@ -283,15 +287,17 @@ class Program:
 
     def write_script_driver(self):
 
-        # For each CPU, create batch script (CPU*.BATCH) which sources
-        # command file (CPU*.CMD) that has list of native SNANA commands.
+        # For each CPU, create batch script (CPU[nnn]*.BATCH and also
+        # command script (CPU[nnn].CMD) that has list of native commands.
         # For ssh mode, these .CMD files are sourced upon login, and
         # thus .BATCH files are not needed for ssh mode.
         # BATCH files are written here and do not depend on task.
         # CMD files are program-dependent via call to
         #       self.write_command_file(icpu,COMMAND_FILE)
         #
-        
+        # Jan 21 2201: write_command_file returns n_job_cpu;
+        #     if n_job_cpu==0, add extra delay to avoid npid error
+
         CONFIG      = self.config_yaml['CONFIG']
         input_file  = self.config_yaml['args'].input_file 
         output_dir  = self.config_prep['output_dir']
@@ -360,9 +366,17 @@ class Program:
                 #if 'SNANA_LOGIN_SETUP' in CONFIG:
                 #    f.write(f"{CONFIG['SNANA_LOGIN_SETUP']} \n")
 
-            # write program-specific content
-            self.write_command_file(icpu,COMMAND_FILE)
+                # write program-specific content
+                n_job_cpu = self.write_command_file(icpu,f)
 
+                # if there are no jobs, sleep another 5 seconds so that
+                # batch job does not immediately exit and fail npid check.
+                if n_job_cpu == 0 :
+                    f.write(f"echo 'No jobs -> sleep 10s to " \
+                            f"ensure npid check is ok' \n")
+                    f.write(f"sleep 10 \n")
+
+            # - - - - - 
             # write extra batch file for batch mode
             if ( submit_mode == SUBMIT_MODE_BATCH ):
                 batch_file = (f"{prefix}.BATCH")

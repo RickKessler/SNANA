@@ -723,17 +723,6 @@ class Simulation(Program):
         # check option for random CIDs
         do_cidran  = (format_mask & FORMAT_MASK_CIDRAN) > 0
 
-        # xxxxxxxx mark delete Jan 4 2021 xxxxxxxxxx
-        #if do_cidran and ngentot_sum == 0 :
-        #    msgerr.append(f"Invalid NGENTOT_LC=0  with CIDRAN option " \
-        #                  f" (FORMAT_MASK += {FORMAT_MASK_CIDRAN}) ")
-        #    msgerr.append(f"Try one of the following:")
-        #    msgerr.append(f"  - FORMAT_MASK -= {FORMAT_MASK_CIDRAN}:")
-        #    msgerr.append(f"  - specify NGENTOT_LC")
-        #    msgerr.append(f"  - specify NGEN_UNIT")
-        #    self.log_assert(False,msgerr)
-        # xxxxxxxxx end mark xxxxxxxxxxxx
-
         self.config_prep['format_mask'] = format_mask
         self.config_prep['format']      = format_type        # TEXT or FITS
         self.config_prep['do_cidran']   = do_cidran
@@ -889,6 +878,7 @@ class Simulation(Program):
         cidran_min        = self.config_prep['cidran_min']
         cidran_max_list   = self.config_prep['cidran_max_list']
         n_job_tot         = self.config_prep['n_job_tot']
+        n_job_split       = self.config_prep['n_job_split']
         ngentot_sum       = self.config_prep['ngentot_sum']
         
         msgerr = []
@@ -924,7 +914,8 @@ class Simulation(Program):
         print(f"  RESET_CIDOFF        = {reset_cidoff} ")
         print(f"  CIDRAN_MIN        = {cidran_min}")
         print(f"  CIDRAN_MAX(genver)= {cidran_max_list}")
-        print(f"  Sum of NGENTOT_LC = {ngentot_sum} (all {n_job_tot} jobs)")
+        print(f"  Sum of NGENTOT_LC = {ngentot_sum} x {n_job_split} " \
+              f"(distribute among {n_job_tot} jobs)")
         print(f"")
 
         # end sim_prep_dump_cidoff
@@ -1323,16 +1314,17 @@ class Simulation(Program):
 
         # end sim_prep_PATH_SNDATA_SIM
 
-    def write_command_file(self, icpu, COMMAND_FILE):
-        # write full set of sim commands to COMMAND_FILE
-        # Note that file has already been opened, so open here
-        # in append mode.
+    def write_command_file(self, icpu, f):
+        # For this icpu, write full set of sim commands to 
+        # already-opened command file with pointer f.
+        # Function returns number of jobs for this cpu
+
         n_job_tot      = self.config_prep['n_job_tot']
         n_job_split    = self.config_prep['n_job_split']
         n_core         = self.config_prep['n_core']
 
         # open CMD file for this icpu
-        f = open(COMMAND_FILE, 'a') 
+        # xxx mark delete  f = open(COMMAND_FILE, 'a') 
 
         n_job_cpu    = 0     # number of jobs for this CPU
         iver_list    = self.config_prep['iver_list']
@@ -1350,13 +1342,6 @@ class Simulation(Program):
         # loop over ALL jobs, and pick out the ones for this ICPU
         n_job_local = 0
         for iver,ifile,isplit in zip(iver_list,ifile_list,isplit_list):
-
-        # xxxx mark delete xxxxxxx
-        #for jobid in range(0,n_job_tot):
-            #iver       = iver_list[jobid]
-            #ifile      = ifile_list[jobid]
-            #isplit     = isplit_list[jobid]  # internal indices
-            # xxx mark delete xxxxxx
 
             index_dict = {
                 'iver':iver, 'ifile':ifile, 'isplit':isplit, 'icpu':icpu
@@ -1378,12 +1363,15 @@ class Simulation(Program):
         # store TMP version strings needed later in MERGE.LOG file
         self.config_prep['TMP_genversion_list2d'] = TMP_list2d
 
+        # xxx mark delete xxx  f.close()
+
         if n_job_local != n_job_tot :
             msgerr = []
             msgerr.append(f"Expected {n_job_tot} total jobs;")
             msgerr.append(f"but found {n_job_local} jobs.")
             self.log_assert(False,msgerr)
 
+        return n_job_cpu
         # end write_command_file for sim
         
 

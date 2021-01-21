@@ -669,8 +669,11 @@ class LightCurveFit(Program):
         # end fit_prep_table_options
 
 
-    def write_command_file(self,icpu,COMMAND_FILE):
-        
+    def write_command_file(self,icpu,f):
+        # For this icpu, write full set of sim commands to
+        # already-opened command file with pointer f. 
+        # Function returns number of jobs for this cpu 
+
         # loop over version, fitopt
         size_sparse_list = self.config_prep['size_sparse_list'] 
         n_job_tot        = self.config_prep['n_job_tot']  # does NOT include symlinks
@@ -684,9 +687,10 @@ class LightCurveFit(Program):
         fitopt_arg_list  = self.config_prep['fitopt_arg_list']
         fitopt_num_list  = self.config_prep['fitopt_num_list']
         n_core           = self.config_prep['n_core']
+        n_job_cpu        = 0
 
         # open CMD file for this icpu
-        f = open(COMMAND_FILE, 'a') 
+        # xxx mark delete f = open(COMMAND_FILE, 'a') 
 
         n_job_local = 0 ;   n_job_real=0 
 
@@ -702,6 +706,8 @@ class LightCurveFit(Program):
             #if ( (n_job_local-1) % n_core ) == icpu :
             if ( (n_job_real-1) % n_core ) == icpu :
 
+                n_job_cpu += 1
+
                 job_info_fit   = self.prep_JOB_INFO_fit(index_dict)
                 util.write_job_info(f, job_info_fit, icpu)
 
@@ -709,11 +715,15 @@ class LightCurveFit(Program):
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
         # - - - - 
+        # xxx mark delete f.close()
+
         if n_job_real != n_job_tot :
             msgerr = []
             msgerr.append(f"Expected {n_job_tot} total jobs;")
             msgerr.append(f"but found {n_job_local} jobs.")
             self.log_assert(False,msgerr)
+
+        return n_job_cpu
 
         # end write_command_file
 

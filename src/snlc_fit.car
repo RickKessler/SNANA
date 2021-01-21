@@ -14472,7 +14472,6 @@ c translate user string MAGLIM_VMAX
       RETURN
       END      ! end of VMAX_INI
 
-
 C ==================================================
 +DECK,DMPVMAX.
       SUBROUTINE DMPVMAX(CCID,CFILT,NITER,ZMAX,MAGDIF,MAG)

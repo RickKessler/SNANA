@@ -1085,6 +1085,10 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 #define CUTBIT_FIELD     23    //  see fieldlist= input
 #define MXCUTBIT         25  
 
+#define DOFLAG_CUTWIN_IGNORE  0 // do not apply CUTWIN
+#define DOFLAG_CUTWIN_APPLY   1 // apply CUTWIN
+#define DOFLAG_CUTWIN_WGT0    2 // do not apply CUTWIN; deweight instead 
+
 #define dotDashLine "-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-" 
 #define dashLine    "- - - - - - - - - - - - - - - - - - - - - - - - - - - - "
 
@@ -5103,9 +5107,8 @@ void set_defaults(void) {
   INPUTS_PROBCC_ZERO.str_type_list[0]     = 0;
   INPUTS_PROBCC_ZERO.str_idsurvey_list[0] = 0;
 
-  INPUTS.zmin = 0.02 ;
-  INPUTS.zmax = 1.02 ;
-  
+  INPUTS.zmin = -0.01 ;
+  INPUTS.zmax =  9.99 ;
 
   // ---------------------
   // keep obsolete input parameters (4/24/2012 RK)
@@ -14303,7 +14306,9 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
 
   // =======================================
-  // check CUTWIN options
+  // check CUTWIN options; apply_CUTWIN returns 
+  // 0->rejected by cut, 1->passes cuts, -1->dweight with large MUERR
+
   LCUTWIN = apply_CUTWIN(event_type, DOFLAG_CUTWIN, cutvar_local);
   if ( LCUTWIN == 0 ) { setbit_CUTMASK(isn, CUTBIT_CUTWIN, TABLEVAR); }
 
@@ -16014,16 +16019,23 @@ void parse_CUTWIN(char *line_CUTWIN) {
 int apply_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {
 
   // Created Jan 2016
-  // Returns TRUE if all CUTVAL_LIST values pass CUTWIN cuts.
+  // Returns +1 if all CUTVAL_LIST values pass CUTWIN cuts.
+  // Returns  0 if any cut fails
+  // Returns  ??
+  //
   // Input EVENT_TYPE specifies DATA or BIASCOR
   //
+  // Input array *DOFLAG_CUTWIN are instructions :
+  // DOFLAG_CUTINW[icut] = 0 -> do not apply cut (ignore)
+  // DOFLAG_CUTINW[icut] = 1 -> apply explicit cut
+  // DOFLAG_CUTINW[icut] = 2 -> no cut, but deweight with MUERR->large val
 
   //  int IS_DATA    = ( EVENT_TYPE == EVENT_TYPE_DATA );
   int IS_BIASCOR = ( EVENT_TYPE == EVENT_TYPE_BIASCOR );
   int IS_CCPRIOR = ( EVENT_TYPE == EVENT_TYPE_CCPRIOR );
 
   int LDMP = 0 ; // (OPT==666);
-  int icut, LCUT ;
+  int icut, LCUT, DOFLAG ;
   char *cnam;
   char fnam[] = "apply_CUTWIN" ;
 
@@ -16031,10 +16043,12 @@ int apply_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {
 
   if ( LDMP ) { printf(" xxx --------------------------- \n"); }
 
-  LCUT = 1 ;    
+  LCUT = 1 ;    // init to pass cuts
+
   for(icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
    
-    if ( DOFLAG_CUTWIN[icut] == 0 ) { continue; }
+    DOFLAG = DOFLAG_CUTWIN[icut] ;
+    if ( DOFLAG == 0 ) { continue; }
 
     if ( LDMP ) {
       printf(" xxx cut on %s = %f  (cutwin=%.3f to %.3f, EVENT_TYPE=%d)\n",
@@ -16069,7 +16083,8 @@ int apply_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {
 // **************************************************
 int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
 
-  // Return 1 if ivar>=0 -> apply this cut.
+  // Return 1 if ivar >= 0 -> apply explicit cut.
+  // Return 2 to set MUERR = large (implicit cut by deweight) [Jan 2021]
   // Return 0 to ignore this cut.
   //
   // If ivar<0 and abortflag is set for icut, then abort.
@@ -16084,43 +16099,47 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   //   + check BIASCORONLY flag.
   //
   // Oct 28 2020: new ISVAR_PROB logic
-
-  bool  NOVAR       = ( ivar < 0 );
-  bool  ABORTFLAG   = INPUTS.LCUTWIN_ABORTFLAG[icut];
-  bool  DATAONLY    = INPUTS.LCUTWIN_DATAONLY[icut];
-  bool  BIASCORONLY = INPUTS.LCUTWIN_BIASCORONLY[icut];
-  bool  WGT0        = INPUTS.LCUTWIN_WGT0[icut];
+  // Jan 21 2021: minor refac using DOFLAG_CUTWIN_XXX params
+  
+  bool  L_VALID_VAR   = ( ivar >= 0 );
+  bool  L_NOVAR       = !L_VALID_VAR ;
+  bool  L_ABORTFLAG   = INPUTS.LCUTWIN_ABORTFLAG[icut];
+  bool  L_DATAONLY    = INPUTS.LCUTWIN_DATAONLY[icut];
+  bool  L_BIASCORONLY = INPUTS.LCUTWIN_BIASCORONLY[icut];
+  bool  L_WGT0        = INPUTS.LCUTWIN_WGT0[icut];
   char *VARNAME     = INPUTS.CUTWIN_NAME[icut];
   bool  ISVAR_PROB  = (strstr(VARNAME,"PROB_") != NULL ); // Oct 2020
-  int   ISTAT ;
+  int   DOFLAG ;
   char  fnam[] = "set_DOFLAG_CUTWIN" ;
 
   // ------------- BEGIN -------------
   
-  if ( DATAONLY    && !isData ) { return(0) ; } // Oct 23 2018
-  if ( BIASCORONLY &&  isData ) { return(0) ; } // May 18 2020
+  if ( L_DATAONLY    && !isData ) { return(DOFLAG_CUTWIN_IGNORE); }
+  if ( L_BIASCORONLY &&  isData ) { return(DOFLAG_CUTWIN_IGNORE); }
 
   // Oct 28 2020: Apply cut to biasCor sample if varname doesn't exist
   //    and starts with PROB. This assumes that idsurvey_list_probcc0
   //    sets pIa=1 ... if not, all these events will be rejected. 
   //    This logic is not needed for data because the data-catenate 
   //    process ensures existing PROB columns.
-  if ( !isData && ivar < 0 && ISVAR_PROB ) { return(1); }
+  if ( !isData && ivar < 0 && ISVAR_PROB ) { return(DOFLAG_CUTWIN_APPLY); }
 
 
-  if ( NOVAR && ABORTFLAG ) {
+  if ( L_NOVAR && L_ABORTFLAG ) {
     sprintf(c1err,"Invalid CUTWIN on '%s' (ivar=%d, icut=%d, isData=%d)", 
 	    VARNAME, ivar, icut, isData );
     sprintf(c2err,"Check CUTWIN keys in input file" ); 
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  if ( NOVAR )
-    { ISTAT = 0 ; }
+  if ( L_VALID_VAR ) { 
+    DOFLAG = DOFLAG_CUTWIN_APPLY ;    
+    if (L_WGT0)  {DOFLAG = 2; }
+  }
   else
-    { ISTAT = 1 ; }
+    { DOFLAG = DOFLAG_CUTWIN_IGNORE ; }
 
-  return(ISTAT);
+  return(DOFLAG);
 
 } // end set_DOFLAG_CUTWIN
 
@@ -17529,6 +17548,16 @@ void conflict_check() {
     sprintf(c1err,"Found %d input conflicts (see above).", NERR );
     sprintf(c2err,"Check inputs.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  if ( !INPUTS.cat_only ) {
+    double zmin = INPUTS.zmin;
+    double zmax = INPUTS.zmax;
+    if ( zmin < 0.0 || zmax > 9.0 ) {
+      sprintf(c1err,"Input file must specify zmin and zmax");
+      sprintf(c2err," ");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
   }
 
   return ;

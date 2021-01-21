@@ -19459,6 +19459,10 @@
      + move prep_RANSYST call after SURVEY is defined
      + abort if spectra are requested but there is no 
         SPECTROGRAPH instrument (see GENSPEC_DRIVER)
+     + abort if no valid HOSTLIB keys are found (was hanging)
+
+   genmag_SALT2.c
+     + fix LAMSED logic bug inside INTEG_zSED function (affects spectrograph)
 
    sntools.c
       + if SNANA_VERSION key is not in FITS header, assume VPEC
@@ -19466,6 +19470,11 @@
 
    submit_batch_jobs.sh:
       + for sims, add column for NSPEC_WRITE in MERGE.LOG
+      + for CPU with no jobs, sleep 10sec to avoid failing npid check.
 
+   snlc_fit.car
+     + fix few bugs for OPT_PHOTOZ=2 (use REDSHIFT_FINAL as prior)
 
+   snana.car
+     + increase MXSNLS from 4 million to 5 million (for Anais)
 END: 

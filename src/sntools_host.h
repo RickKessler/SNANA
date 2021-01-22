@@ -206,7 +206,6 @@ struct HOSTLIB_DEF {
 
   // redshift information
   double ZMIN,ZMAX ;         // helio
-  double ZMIN_CMB, ZMAX_CMB; // used to compare with GENRANGE_REDSHIFT
   double ZGAPMAX ;           // max z-gap in library
   double ZGAPAVG ;           // avg z-gap in library
   double Z_ATGAPMAX[2];  // redshift at max ZGAP (to find big holes)

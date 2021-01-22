@@ -139,7 +139,7 @@ append_varname_missing = 'PROB_*,PIA_*'   ! wildcard for PROB_* or PIA_*
 # if not specified in this key. 
 
 - - - - - -  binning - - - - - -
-nzbin    = number of uniform z bins to use (beware: some bins may be empty)
+nzbin    = number of z bins to use (beware: some bins may be empty)
 nlogzbin = number of log-spaced z bins (Jun 21 2018)
 zmin  = lower limit on redshift (e.g., 0.02)
 zmax  = upper limit on redshift (e.g., 1.00)
@@ -180,7 +180,7 @@ CUTWIN(BIASCORONLY) BLA_LOGMASS  5 12 ! cut on biasCor (not on data)
 CUTWIN varname_pIa  0.9 1.0   ! substitute argument of varname_pIa, and 
                               ! easy to change varname_pIa on command line
 
-CUTWIN(WGT0) varname_pIa  0.9 1.0   ! MUERR->888 instead of cut
+CUTWIN(FITWGT0) varname_pIa  0.9 1.0   ! MUERR->888 instead of cut
 
 
 #select field(s) for data and biasCor with
@@ -189,6 +189,7 @@ fieldlist=X3      # X3 only
 fieldlist=X       # any field with X in name
 
 chi2max=16             # default cut to all events
+chi2max(FITWGT0)=16    # no cut; instead set fit wgt=0 with large MUERR
 chi2max(DES,PS1)=12    # apply cut only to DES & PS1
 chi2max(CSP)=10        # apply cut to CSP
      = chi2-outlier cut applied before fit, using initial values. Beware 
@@ -994,7 +995,8 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 #define IFLAG_DUPLICATE_AVG    2  // use weighted avg of SALT2 fit par.
 #define MXSTORE_DUPLICATE     20  // always abort if more than this many
 
-#define MUERR_WGT0  888.8  // MUERR-> this value in fit for WGT0 option
+#define MUERR_FITWGT0  8888.8  // MUERR-> this value in fit for FITWGT0 option
+#define STRING_FITWGT0 "FITWGT0"
 
 #define MUDIFERR_EMPTY 999.0   // if no events in bin, set error to 999
 #define MUDIFERR_ZERO  666.0   // if MUDIFFERR=0, set to 666
@@ -1087,7 +1089,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 
 #define DOFLAG_CUTWIN_IGNORE  0 // do not apply CUTWIN
 #define DOFLAG_CUTWIN_APPLY   1 // apply CUTWIN
-#define DOFLAG_CUTWIN_WGT0    2 // do not apply CUTWIN; deweight instead 
+#define DOFLAG_CUTWIN_FITWGT0 2 // do not apply CUTWIN; deweight instead 
 
 #define dotDashLine "-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-" 
 #define dashLine    "- - - - - - - - - - - - - - - - - - - - - - - - - - - - "
@@ -1327,6 +1329,8 @@ struct {
   double *chi2, *probcc_beams;
   double **fitParBias;
 
+  bool *set_fitwgt0; // flag to set fit wgt=0 with MUERR -> large value
+
   // before fit, store bias[isn][ialpha][ibeta][igammadm]
   FITPARBIAS_DEF ****FITPARBIAS_ALPHABETA ; 
   
@@ -1557,7 +1561,7 @@ struct INPUTS {
 
   double chi2max ;         // global HR chi2-outlier cut (uses PROB_BEAMS)
   double *chi2max_list;    // list vs. IDSURVEY
-  int    iflag_chi2max;    // 1=global cut, 2=> cut vs. IDSURVEY
+  int    iflag_chi2max;    // 1->cut, 2->fitwgt0; 4->global, 8-> vs. IDSURVEY
 
   int    NCUTWIN ;
   char   CUTWIN_NAME[MXCUTWIN][MXCHAR_VARNAME];
@@ -1570,7 +1574,7 @@ struct INPUTS {
   bool   LCUTWIN_ABORTFLAG[MXCUTWIN] ;  // T=> abort if var does not exist
   bool   LCUTWIN_DATAONLY[MXCUTWIN] ;   // T=> cut on real or sim data 
   bool   LCUTWIN_BIASCORONLY[MXCUTWIN]; // T=> cut on biasCor
-  bool   LCUTWIN_WGT0[MXCUTWIN];        // T=> MUERR->888 instead of cut
+  bool   LCUTWIN_FITWGT0[MXCUTWIN];     // T=> MUERR->888 instead of cut
 
   int  Nsntype ;
   int  sntype[MXSNTYPE]; // list of sntype(s) to select
@@ -1860,7 +1864,7 @@ void check_redshifts(void) ;
 void check_vpec_sign(void);
 void check_zhel(void) ;
 void applyCut_nmax(void);
-void applyCut_chi2(void);
+void applyCut_chi2max(void);
 void merge_duplicates(int N, int *isnList);
 void setup_zbins_fit(void);
 void setup_BININFO_redshift(void); // setup BBC redshift bins
@@ -1881,7 +1885,7 @@ double sum_ZPOLY_COVMAT(double Z, double *polyPar) ;
 
 void parse_CUTWIN(char *item);
 void parse_FIELDLIST(char *item);
-int  apply_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST);
+int  reject_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST);
 int  usesim_CUTWIN(char *varName) ;
 int  set_DOFLAG_CUTWIN(int ivar, int icut, int isData );
 
@@ -2105,7 +2109,7 @@ double fcn_M0(int n, double *M0LIST );
 void   muerr_renorm(void);
 void   printCOVMAT(FILE *fp, int NPAR, int NPARz_write);
 double fcn_muerrsq(char *name,double alpha,double beta, double gamma,
-		   double (*COV)[NLCPAR], double z, double zerr, int dumpFlag);
+		   double (*COV)[NLCPAR], double z, double zerr, int optmask);
 double fcn_muerrz(int OPT, double z, double zerr ) ;
 void   fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11, 
 			  MUZMAP_DEF *MUZMAP);
@@ -2470,13 +2474,12 @@ void SALT2mu_DRIVER_EXEC(void) {
   exec_mnparm(); 
 
   // use FCN call and make chi2-outlier cut (Jul 19 2019)
-  applyCut_chi2();
+  applyCut_chi2max();
 
   FITRESULT.NFIT_ITER = 0 ;
 
   // print stats for data after ALL cuts are applied
   print_eventStats(EVENT_TYPE_DATA);
-  
   
   // Beginning of DOFIT loop
   while ( DOFIT_FLAG != FITFLAG_DONE  ) {
@@ -3243,22 +3246,35 @@ void applyCut_nmax(void) {
 
 
 // ******************************************
-void applyCut_chi2(void) {
+void applyCut_chi2max(void) {
 
   // Created Jul 19 2019
   // Call FCN (fit function) to evaluate chi2 with
   // initial params, then applhy chi2-outlier cut to data.
   // Note that this is BEAMS chi2 when there is CC contam,
   // and thus this is NOT the same as cutting on HR resids.
+  //
+  // Jan 22 2021: refactor to check for FITWGT0 option
 
-  int NSN_DATA          = INFO_DATA.TABLEVAR.NSN_ALL ;
-  int    iflag_chi2max  = INPUTS.iflag_chi2max ;
+  int  NSN_DATA       = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int  iflag_chi2max  = INPUTS.iflag_chi2max ;
+
+  int  IFLAG_APPLY    = DOFLAG_CUTWIN_APPLY ;
+  int  IFLAG_FITWGT0  = DOFLAG_CUTWIN_FITWGT0 ;
+  int  IFLAG_GLOBAL   = 4 ;
+  int  IFLAG_SURVEY   = 8 ;
+
+  bool DOCUT_APPLY   = (iflag_chi2max & IFLAG_APPLY)   > 0 ;
+  bool DOCUT_FITWGT0 = (iflag_chi2max & IFLAG_FITWGT0) > 0 ;
+  bool DOCUT_GLOBAL  = (iflag_chi2max & IFLAG_GLOBAL ) > 0 ;
+
   double chi2max ;
   int len, icondn, n, cutmask, idsurvey;
-  const int null=0;
+  const int null=0 ;
   double chi2;
+  bool FAILCUT;
   char mcom[60], *name ;
-  //  char fnam[] = "applyCut_chi2" ;
+  //  char fnam[] = "applyCut_chi2max" ;
 
   // ----------- BEGIN ------------
 
@@ -3277,7 +3293,7 @@ void applyCut_chi2(void) {
     name     = INFO_DATA.TABLEVAR.name[n];
     idsurvey = INFO_DATA.TABLEVAR.IDSURVEY[n];
 
-    if ( INPUTS.iflag_chi2max == 1 ) 
+    if ( DOCUT_GLOBAL ) 
       { chi2max = INPUTS.chi2max ; }
     else 
       { chi2max = INPUTS.chi2max_list[idsurvey]; }
@@ -3289,18 +3305,29 @@ void applyCut_chi2(void) {
     }
     */
 
-    if ( chi2 > chi2max )  { 
-      fprintf(FP_STDOUT, "\t Chi2(%s) = %.2f -> reject \n", name, chi2);
-      setbit_CUTMASK(n, CUTBIT_CHI2, &INFO_DATA.TABLEVAR);       
-    }
+    FAILCUT = ( chi2 > chi2max );
+    if ( FAILCUT ) {
+      char str_chi2[40];
+      sprintf(str_chi2, "Chi2(%s) = %.2f", name, chi2);
 
+      if ( DOCUT_APPLY )  { 
+	fprintf(FP_STDOUT, "\t %s -> reject \n", str_chi2);
+	setbit_CUTMASK(n, CUTBIT_CHI2, &INFO_DATA.TABLEVAR);       
+      }
+      else {
+	// do NOT cut; instead, set fit wgt = 0 via MUERR -> huge number
+	fprintf(FP_STDOUT, "\t %s -> fit wgt = 0 \n", str_chi2);
+	INFO_DATA.set_fitwgt0[n] = true;
+      }
+    } // end FAILCUT
+    
   } // end n loop over SN
 
   fflush(FP_STDOUT);
  
   return ;
 
-} // end applyCut_chi2
+} // end applyCut_chi2max
 
 
 // *******************************
@@ -3967,9 +3994,10 @@ void *MNCHI2FUN(void *thread) {
   double chi2evt, chi2evt_Ia, scalePIa, scalePCC, nsnfitIa=0.0, nsnfitcc=0.0;
   int    n, nsnfit, nsnfit_truecc, ipar, ipar2 ;
   int    cutmask, idsample, SIM_NONIA_INDEX, IS_SIM ; 
-  int    ia, ib, ig ;
+  int    ia, ib, ig, optmask_muerrsq ;
   int    dumpFlag_muerrsq=0, DUMPFLAG=0 ;
   int    USE_CCPRIOR=0, USE_CCPRIOR_H11=0 ;
+  bool   set_fitwgt0;
   MUZMAP_DEF  *CCPRIOR_MUZMAP ;
 
   int  ILCPAR_MIN = INFO_BIASCOR.ILCPAR_MIN ;
@@ -4042,6 +4070,9 @@ void *MNCHI2FUN(void *thread) {
 
     cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n] ; 
     if ( cutmask ) { continue; }
+
+    set_fitwgt0 = INFO_DATA.set_fitwgt0[n];
+
     // - - - - -
 
     INFO_DATA.mures[n]     = -999. ;
@@ -4081,8 +4112,11 @@ void *MNCHI2FUN(void *thread) {
     for(ia=0; ia<MXa; ia++ ) {
       for(ib=0; ib<MXb; ib++ ) {
 	for(ig=0; ig<MXg; ig++ ) {
+
 	  MUCOVSCALE_ALPHABETA[ia][ib][ig] = 
 	    INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig] ; 
+	  if (set_fitwgt0) { MUCOVSCALE_ALPHABETA[ia][ib][ig]=1.0; }
+
 	  for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ ) {
 	    FITPARBIAS_ALPHABETA[ia][ib][ig].VAL[ipar] = 
 	      INFO_DATA.FITPARBIAS_ALPHABETA[n][ia][ib][ig].VAL[ipar] ; 
@@ -4120,9 +4154,12 @@ void *MNCHI2FUN(void *thread) {
       { mumodel = mumodel_store ; }
 
 
+    optmask_muerrsq = 0;
+    if ( set_fitwgt0 ) { optmask_muerrsq += DOFLAG_CUTWIN_FITWGT0; }
+
     // compute error-squared on distance mod
     muerrsq  = fcn_muerrsq(name, alpha, beta, gamma, covmat_tot,
-			   z, zmuerr, 0);
+			   z, zmuerr, optmask_muerrsq );
 
     // --------------------------------
     // Compute bias from biasCor sample
@@ -4296,7 +4333,8 @@ void *MNCHI2FUN(void *thread) {
 	}
       }
 
-      muerrsq_raw = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit, z,zmuerr,0);
+      muerrsq_raw = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit, z,zmuerr,
+				optmask_muerrsq );
       muerr_raw   = sqrt(muerrsq_raw);
       INFO_DATA.muerr_raw[n] = muerr_raw;   
       INFO_DATA.muerr_vpec[n] = fcn_muerrz(1, z, zmuerr); // Nov 2020
@@ -4304,8 +4342,11 @@ void *MNCHI2FUN(void *thread) {
       // check user dump with total error (Jun 19 2018)
       dumpFlag_muerrsq = ( strcmp(name,INPUTS.SNID_MUCOVDUMP) == 0 );
       if ( dumpFlag_muerrsq ) {
-	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit,z,zmuerr,1);
-	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_tot,z,zmuerr,1);
+	int optmask_dump = optmask_muerrsq + 1 ;
+	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_fit,z,zmuerr,
+				  optmask_dump );
+	muerrsq_tmp = fcn_muerrsq(name,alpha,beta,gamma,covmat_tot,z,zmuerr,
+				  optmask_dump );
       }
       
       if ( IS_SIM && SIM_NONIA_INDEX > 0 ) { nsnfit_truecc++ ; } 
@@ -4734,7 +4775,7 @@ void get_INTERPWGT_abg(double alpha, double beta, double gammadm, int DUMPFLAG,
 // ===========================================================
 double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
 		   double (*COV)[NLCPAR], 
-		   double z, double zerr, int dumpFlag) {
+		   double z, double zerr, int optmask ) {
 
   // Created Feb 29 2016 by R.Kessler
   //
@@ -4745,13 +4786,20 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
   // gamma      : SALT2 standard param for logmass (NOT USED)
   // COV        : fit cov matrix + intrinsic cov matrix
   // z,zerr     : redshift & its error (zpecerr or zerrtot)
+  // 
+  // optmask += 1 -> dump flag
+  // optmask += 2 -> return MUERR_FITWGT0^2
   //
   // Jun 27 2017: REFACTOR z bins
   // Sep 04 2017: use matrix-vector summing:
   //    MUERRSQ = (1,a,b) x COV x (1,a,b)
   //
   // Jun 19 2018: pass dumpFlag argument.
-  
+  // Jan 22 2021: change dumpFlag arg to optmask arg; check MUERR_WGT option
+
+  bool   flag_dump    = (optmask & 1) > 0 ;
+  bool   flag_fitwgt0 = (optmask & 2) > 0 ;
+
   double muerrsq, sqtmp, dmuz, dmuLens, VEC[NLCPAR], COVMU[NLCPAR][NLCPAR];
   int    i,j ;
   char VECNAME[3][8] = { "ONE  ", "ALPHA", "-BETA" } ;
@@ -4760,7 +4808,7 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
 
   // ---------------- BEGIN ------------
 
-  if ( dumpFlag ) {
+  if ( flag_dump ) {
     printf(" xxx \n");
     printf(" xxx --- %s dump for SNID=%s ----- \n", fnam, name);
     printf(" xxx alpha=%le  beta=%le  z=%le   zerr=%le \n",
@@ -4768,6 +4816,8 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
     fflush(stdout);
   }
   
+  
+  if ( flag_fitwgt0 ) { return(MUERR_FITWGT0*MUERR_FITWGT0) ; }
 
   VEC[0] = +1.0;
   VEC[1] = +alpha ;
@@ -4780,7 +4830,7 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
       COVMU[i][j] = sqtmp;  // for diagnostic only
       muerrsq    += sqtmp ;
 
-      if(dumpFlag) {
+      if( flag_dump ) {
 	printf(" xxx mucov += %13.6le (= %s * %s * %13.6le) \n",
 	       sqtmp, VECNAME[j], VECNAME[i], COV[i][j] );
 	fflush(stdout);
@@ -4788,13 +4838,13 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
     }
   }
 
-  if(dumpFlag) { printf(" xxx mucov  = %le from COV \n", muerrsq);  }
+  if( flag_dump ) { printf(" xxx mucov  = %le from COV \n", muerrsq);  }
   
   // add peculiar velocity error
   dmuz     = fcn_muerrz(1, z, zerr );
   muerrsq += (dmuz*dmuz) ;
 
-  if(dumpFlag) {
+  if( flag_dump ) {
     printf(" xxx mucov  = %le with dmu(z,vpec)=%le \n",
 			muerrsq, dmuz);   fflush(stdout);
   }
@@ -4803,7 +4853,7 @@ double fcn_muerrsq(char *name, double alpha, double beta, double gamma,
   dmuLens  = INPUTS.lensing_zpar * z;
   muerrsq += (dmuLens * dmuLens);
 
-  if(dumpFlag) {
+  if( flag_dump ) {
     printf(" xxx mucov  = %le with dmuLens=%le \n",
 	   muerrsq, dmuLens) ;
     printf(" xxx mucov(FINAL) = %le (does not include biasScale_muCOV)\n",
@@ -5421,9 +5471,11 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
   // Malloc or free INFO_DATA strucure.
   // opt > 0 --> malloc
   // opt < 0 --> free
+  //
+  // Jan 22 2021: malloc set_fitwgt0
 
   int EVENT_TYPE = EVENT_TYPE_DATA;
-  int MEMD, MEMI, MEMTOT=0 ;
+  int MEMD, MEMI, MEMB, MEMTOT=0 ;
   float f_MEMORY = 0.0 ;
   char fnam[] = "malloc_INFO_DATA";
 
@@ -5442,6 +5494,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
     // DATA-specific mallocs ...
     MEMD  = LEN_MALLOC * sizeof(double);
     MEMI  = LEN_MALLOC * sizeof(int);
+    MEMB  = LEN_MALLOC * sizeof(bool);
 
     INFO_DATA.mumodel        = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.M0             = (double*) malloc(MEMD); MEMTOT+=MEMD;
@@ -5461,6 +5514,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
     INFO_DATA.muBias_zinterp = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.chi2           = (double*) malloc(MEMD); MEMTOT+=MEMD;
     INFO_DATA.probcc_beams   = (double*) malloc(MEMD); MEMTOT+=MEMD;
+    INFO_DATA.set_fitwgt0    = (bool  *) malloc(MEMB); MEMTOT+=MEMB;
     f_MEMORY += (float)(MEMTOT/1.0E6) ;
 
     // fitParBias[isn][ipar] to allow passing mB,x1,c via array
@@ -5496,6 +5550,9 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
     free(INFO_DATA.muBias);
     free(INFO_DATA.muBiasErr);
     free(INFO_DATA.muBias_zinterp);
+    free(INFO_DATA.chi2);
+    free(INFO_DATA.probcc_beams);
+    free(INFO_DATA.set_fitwgt0);
 
     malloc_double2D(opt, LEN_MALLOC, NLCPAR+1, &INFO_DATA.fitParBias ); 
     malloc_FITPARBIAS_ALPHABETA(opt, LEN_MALLOC,
@@ -7127,6 +7184,8 @@ void compute_more_INFO_DATA(void) {
   // Created Jun 2019
   // set initial muerr so that optional log(1/sigma) term in fcn-chi2
   // can be fixed on first iteration
+  // 
+  // Jan 2021: init set_fitwgt0[isn] = false
 
   int NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
   double *ptr_sigCC = &INPUTS.parval[IPAR_H11+3];
@@ -7168,6 +7227,8 @@ void compute_more_INFO_DATA(void) {
     INFO_DATA.muerr_last[isn]    = sqrt(muerrsq);
     INFO_DATA.sigCC_last[isn]    = sigCC ;
     INFO_DATA.sqsigCC_last[isn]  = sigCC * sigCC ;
+
+    INFO_DATA.set_fitwgt0[isn]   = false; // Jan 2021
   }
 
   return;
@@ -11632,7 +11693,7 @@ int  storeDataBias(int n, int DUMPFLAG) {
   BININFO_DEF *BININFO_SIM_ALPHA, *BININFO_SIM_BETA, *BININFO_SIM_GAMMADM;
   int    NBINa, NBINb, NBINg, ia, ib, ig, ipar, istat_bias, idsample ;
   int    ISTAT = 1;
-  double z, m ;
+  double z, m, muCOVscale ;
   char   *name ;
   char   fnam[] = "storeDataBias" ;
 
@@ -11644,11 +11705,11 @@ int  storeDataBias(int n, int DUMPFLAG) {
   NBINa    = (*BININFO_SIM_ALPHA).nbin ;
   NBINb    = (*BININFO_SIM_BETA).nbin ;
   NBINg    = (*BININFO_SIM_GAMMADM).nbin ;
-  name     = INFO_DATA.TABLEVAR.name[n];
-  idsample = (int)INFO_DATA.TABLEVAR.IDSAMPLE[n];
-  z        = (double)INFO_DATA.TABLEVAR.zhd[n];
-  m        = (double)INFO_DATA.TABLEVAR.logmass[n];
 
+  name        = INFO_DATA.TABLEVAR.name[n];
+  idsample    = (int)INFO_DATA.TABLEVAR.IDSAMPLE[n];
+  z           = (double)INFO_DATA.TABLEVAR.zhd[n];
+  m           = (double)INFO_DATA.TABLEVAR.logmass[n];
 
   if ( DUMPFLAG ) {
     printf("\n");
@@ -11692,8 +11753,10 @@ int  storeDataBias(int n, int DUMPFLAG) {
 	if ( istat_bias < 0 ) { ISTAT = 0 ; }
 
 	istat_bias = 
-	  get_muCOVscale(name, &BIASCORLIST, DUMPFLAG,             // in
-			 &INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig]); //out
+	  get_muCOVscale(name, &BIASCORLIST, DUMPFLAG,    // in
+			 &muCOVscale );      // out
+	
+	INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig] = muCOVscale ;
 
 	if ( DUMPFLAG ) {
 	  printf(" xxx %s: a=%.2f b=%.2f gDM=%.2f (ia,ib,ig=%d,%d,%d) "
@@ -14265,7 +14328,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   int NFIELD = INPUTS.NFIELD ;
 
   //  int  LDMP = 0;
-  int  LCUTWIN, DOFLAG_CUTWIN[MXCUTWIN], icut, outside ;
+  int  DOFLAG_CUTWIN[MXCUTWIN], icut, outside ;
   int  CUTMASK, REJECT, ACCEPT ;
   int  sntype, FOUND, SIM_NONIA_INDEX, idsample ;
   bool BADERR=false, BADCOV=false ;
@@ -14306,11 +14369,17 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
 
   // =======================================
-  // check CUTWIN options; apply_CUTWIN returns 
-  // 0->rejected by cut, 1->passes cuts, -1->dweight with large MUERR
+  // check CUTWIN options; reject_CUTWIN returns 
+  // 0->accepted, 1->rejected, 2->dweight with large MUERR
 
-  LCUTWIN = apply_CUTWIN(event_type, DOFLAG_CUTWIN, cutvar_local);
-  if ( LCUTWIN == 0 ) { setbit_CUTMASK(isn, CUTBIT_CUTWIN, TABLEVAR); }
+  REJECT = reject_CUTWIN(event_type, DOFLAG_CUTWIN, cutvar_local);
+  if ( REJECT == DOFLAG_CUTWIN_APPLY ) 
+    { setbit_CUTMASK(isn, CUTBIT_CUTWIN, TABLEVAR); }
+
+  else if ( REJECT == DOFLAG_CUTWIN_FITWGT0 )  {
+    // Jan 2021: set flag to set fit wgt ~ 0 by setting MUERR -> large
+    INFO_DATA.set_fitwgt0[isn]   = true; 
+  }
 
   // -----------------
   // check CUTFIELD (May 2020)
@@ -15607,18 +15676,26 @@ void parse_chi2max(char *item) {
   //  chi2max=16             # apply cut to all events
   //  chi2max(DES,PS1)=12    # apply cut only to DES & PS1
   //  chi2max(CSP)=10        # apply cut to CSP
-  // 
+  //
+  //  chi2max(CSP,FITWGT0)=10   # set fit wgt = 0 for CSP, but do NOT cut
+  //
   //  Note that multiple chi2max inputs are allowed.
-  //  In the avove example, chi2max=12 is applied to DES & PS1
+  //  In the above example, chi2max=12 is applied to DES & PS1
   //  events; chi2max=10 is applied to CSP; chi2max=16 is applied 
   //  to all other events (e.g., SDSS, low-z that are not CSP, etc...).
   //
+  // Jan 2021: check for FITWGT0 option (not a survey name)
+  //
+
+  int  IFLAG_GLOBAL = 4;
+  int  IFLAG_SURVEY = 8;
 
   int  lenkey = strlen("chi2max=");
   int  n_survey, idsurvey, i ;
   double chi2max;
   char string[80], stringOpt[80], **survey_list, *survey ;  
   char fnam[] = "parse_chi2max" ;
+  bool SET_FITWGT0, NO_STRINGOPT;
   int  LDMP = 0 ;
 
   // -------------- BEGIN -------------
@@ -15634,12 +15711,20 @@ void parse_chi2max(char *item) {
     fflush(stdout);
   }
 
+  NO_STRINGOPT = ( strlen(stringOpt) == 0 ) ;
+  SET_FITWGT0  = ( strcmp(stringOpt,STRING_FITWGT0) == 0 );
+
   // check trivial case with no argument -> global cut
-  if ( strlen(stringOpt) == 0 ) {
-    INPUTS.iflag_chi2max |= 1; // set flag for global chi2max cut
+  if ( NO_STRINGOPT || SET_FITWGT0 ) {
+    INPUTS.iflag_chi2max |= IFLAG_GLOBAL ; 
+    if ( SET_FITWGT0 ) 
+      { INPUTS.iflag_chi2max |= DOFLAG_CUTWIN_FITWGT0 ; }
+    else
+      { INPUTS.iflag_chi2max |= DOFLAG_CUTWIN_APPLY ; }
+
     INPUTS.chi2max = chi2max ;
 
-    if ( (INPUTS.iflag_chi2max & 2) > 0 ) { 
+    if ( (INPUTS.iflag_chi2max & IFLAG_SURVEY) > 0 ) { 
       sprintf(c1err,"Cannot define chi2max after chi2max(SURVEYLIST)");
       sprintf(c2err,"Remove chi2max or define it BEFORE chi2max(SURVEY)");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -15651,10 +15736,9 @@ void parse_chi2max(char *item) {
   // - - - - -
 
 
-  if ( (INPUTS.iflag_chi2max & 2 ) == 0 ) {
-    INPUTS.iflag_chi2max |= 2;
+  if ( (INPUTS.iflag_chi2max & IFLAG_SURVEY ) == 0 ) {
+    INPUTS.iflag_chi2max |= IFLAG_SURVEY ;
     int MEMD = MXIDSURVEY * sizeof(double) ;
-    //printf(" xxx %s: malloc chi2max_list \n", fnam);
     INPUTS.chi2max_list = (double*)malloc(MEMD);
     for(i=0; i < MXIDSURVEY; i++ ) 
       { INPUTS.chi2max_list[i] = INPUTS.chi2max; }
@@ -15666,10 +15750,17 @@ void parse_chi2max(char *item) {
 
   for(i=0; i < n_survey; i++ ) {
     survey   = survey_list[i] ;
+    if ( strcmp(survey,STRING_FITWGT0) == 0 ) {
+      sprintf(c1err,"Cannot mix %s option with SURVEY", STRING_FITWGT0);
+      sprintf(c2err,"Either remove %s or remove survey names", 
+	      STRING_FITWGT0 );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
     idsurvey = get_IDSURVEY(survey);
     INPUTS.chi2max_list[idsurvey] = chi2max ; 
     printf("\t %s: store cut chi2max=%.1f for SURVEY=%s (%d)\n",
 	   fnam, chi2max, survey, idsurvey ); fflush(stdout);
+   
   }
 
   return ;
@@ -15893,18 +15984,30 @@ void parse_CUTWIN(char *line_CUTWIN) {
   // Created 4/24/2012 by R.Kessler
   // parse *line_CUTWIN with four space-separated items:
   //   CUTWIN <VARNAME>  <MIN> <MAX>
+  //     or
+  //   CUTWIN([stringOpt]) <VARNAME>  <MIN> <MAX>
   //
-  // and fill
+  // where stringOpt can be: NOABORT DATAONLY BIASCORONLY FITWGT0
+  //
+  // Note that CUTWIN can inlcude multiple options, e.g., 
+  //    CUTWIN(OPT1,OPT2,..ETC)
+  //
+  // Fill following globals:
   //   INPUTS.NCUTWIN
   //   INPUTS.CUTWIN_NAME
   //   INPUTS.CUTWIN_RANGE
-  //   INPUTS.CUTWIN_ABORTFLAG   ! Sep 2016
   //
-  // Also note that CUTWIN can be of the format
-  //  CUTWIN(OPT1,OPT2,..ETC)
+  //   INPUTS.LCUTWIN_DATAONLY
+  //   INPUTS.LCUTWIN_BIASCORONLY
+  //   INPUTS.LCUTWIN_ABORTFLAG   ! Sep 2016
+  //   INPUTS.LCUTWIN_FITWGT0     ! Jan 2021
+  //
   //
   // Oct 8 2020: check for bad input
-  // Jan 19 2021: check for WGT0 option, and enable comma-sep list of options
+  // Jan 19 2021: 
+  //   + check FITWGT0 option
+  //   + enable comma-sep list of options
+  //   + abort on invalid option
   //
 
   int   NITEM = 4;
@@ -15917,10 +16020,15 @@ void parse_CUTWIN(char *line_CUTWIN) {
   // ---------- BEGIN ------------
 
   ICUT = INPUTS.NCUTWIN ;
+
+  INPUTS.CUTWIN_NAME[ICUT][0]      = 0 ;
+  INPUTS.CUTWIN_RANGE[ICUT][0]     = -99999.0 ;
+  INPUTS.CUTWIN_RANGE[ICUT][1]     = -99999.0 ;
+
   INPUTS.LCUTWIN_ABORTFLAG[ICUT]   = true ;   //  abort on missing var
   INPUTS.LCUTWIN_DATAONLY[ICUT]    = false ;  //  cut on data 
   INPUTS.LCUTWIN_BIASCORONLY[ICUT] = false ;  //  cut on sim data and biasCor
-  INPUTS.LCUTWIN_WGT0[ICUT]        = false ;  //  MUERR->888 instead of cut
+  INPUTS.LCUTWIN_FITWGT0[ICUT]     = false ;  //  MUERR->888 instead of cut
 
   INPUTS.NCUTWIN++ ;
 
@@ -15950,8 +16058,8 @@ void parse_CUTWIN(char *line_CUTWIN) {
       extractStringOpt(KEY, string); // return string
 
       // return list of args separated by commas.
-      // E.g., if string = 'DATAONLY,WGT0' then
-      // stringOpt_list = 'DATAONLY', 'WGT0'
+      // E.g., if string = 'DATAONLY,FITWGT0' then
+      // stringOpt_list = 'DATAONLY', 'FITWGT0'
       parse_commaSepList("CUTWIN_OPTION", string,
 			 NITEM, 40,   // Max number of options and strlen 
 			 &NOPT, &cutwinOpt_list); // <== returned
@@ -15965,15 +16073,21 @@ void parse_CUTWIN(char *line_CUTWIN) {
 	if ( strcmp(cutwinOpt,"NOABORT") == 0 ) 
 	  { INPUTS.LCUTWIN_ABORTFLAG[ICUT] = false; } // allow missing var 
 
-	if ( strcmp(cutwinOpt,"DATAONLY") == 0 ) 
+	else if ( strcmp(cutwinOpt,"DATAONLY") == 0 ) 
 	  { INPUTS.LCUTWIN_DATAONLY[ICUT] = true ; } // cut on data only
 	
-	if ( strcmp(cutwinOpt,"BIASCORONLY") == 0 ) 
+	else if ( strcmp(cutwinOpt,"BIASCORONLY") == 0 ) 
 	  { INPUTS.LCUTWIN_BIASCORONLY[ICUT] = true ; } // cut on sim & biascor
 
-	if ( strcmp(cutwinOpt,"WGT0") == 0 ) 
-	  { INPUTS.LCUTWIN_WGT0[ICUT] = true ; } 
+	else if ( strcmp(cutwinOpt,STRING_FITWGT0) == 0 ) 
+	  { INPUTS.LCUTWIN_FITWGT0[ICUT] = true ; } 
       
+	else {
+	  sprintf(c1err,"Invalid CUTWIN option: '%s'", cutwinOpt);
+	  sprintf(c2err,"Valid options: NOABORT DATAONLY BIASCORONLY FITWGT0");
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+	}
+
       } // end opt loop
 
     } // end i= loop over CUTWIN(option) item
@@ -15999,8 +16113,8 @@ void parse_CUTWIN(char *line_CUTWIN) {
   // - - - - - -
   char cMUERR[20] = "" ;
 
-  if ( INPUTS.LCUTWIN_WGT0[ICUT] )
-    { sprintf(cMUERR,"MUERR->%.1f", MUERR_WGT0); }
+  if ( INPUTS.LCUTWIN_FITWGT0[ICUT] )
+    { sprintf(cMUERR,"MUERR->%.1f", MUERR_FITWGT0); }
 
   fprintf(FP_STDOUT, 
 	 "\t Apply CUTWIN on %12s from %10.4f to %10.4f "
@@ -16016,69 +16130,83 @@ void parse_CUTWIN(char *line_CUTWIN) {
 
 
 // **************************************************
-int apply_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {
+int reject_CUTWIN(int EVENT_TYPE, int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {
 
-  // Created Jan 2016
-  // Returns +1 if all CUTVAL_LIST values pass CUTWIN cuts.
-  // Returns  0 if any cut fails
-  // Returns  ??
+  // Created Jan 2016 [major refactor Jan 2021]
+  //
+  // Returns  0 if all CUTVAL_LIST values pass CUTWIN cuts.
+  // Returns  1 if any CUTVAL cut fail CUTWIN
+  // Returns  2 if CUTVAL that fails has FITWGT0 option (data only)
   //
   // Input EVENT_TYPE specifies DATA or BIASCOR
   //
   // Input array *DOFLAG_CUTWIN are instructions :
-  // DOFLAG_CUTINW[icut] = 0 -> do not apply cut (ignore)
-  // DOFLAG_CUTINW[icut] = 1 -> apply explicit cut
-  // DOFLAG_CUTINW[icut] = 2 -> no cut, but deweight with MUERR->large val
-
-  //  int IS_DATA    = ( EVENT_TYPE == EVENT_TYPE_DATA );
+  //  DOFLAG_CUTINW[icut] = 0 -> do not apply cut (ignore)
+  //  DOFLAG_CUTINW[icut] = 1 -> apply explicit cut
+  //  DOFLAG_CUTINW[icut] = 2 -> no cut, but deweight with MUERR->large val
+  //
+  // CUTVAL_LIST is array of values to apply CUTWIN
+  //
+  // Jan 22 2021: 
+  //   rename apply_CUTWIN -> reject_CUTWIN, and return reject flag
+  //   with similar meaning as DOFLAG_CUTWIN.
+  
+  int IS_DATA    = ( EVENT_TYPE == EVENT_TYPE_DATA );
   int IS_BIASCOR = ( EVENT_TYPE == EVENT_TYPE_BIASCOR );
   int IS_CCPRIOR = ( EVENT_TYPE == EVENT_TYPE_CCPRIOR );
 
   int LDMP = 0 ; // (OPT==666);
-  int icut, LCUT, DOFLAG ;
-  char *cnam;
-  char fnam[] = "apply_CUTWIN" ;
+  int icut, reject, DOFLAG ;
+  double CUTVAL, *CUTWIN ;
+  char *NAME;
+  char fnam[] = "reject_CUTWIN" ;
 
+  
   // ------------- BEGIN -----------
 
   if ( LDMP ) { printf(" xxx --------------------------- \n"); }
 
-  LCUT = 1 ;    // init to pass cuts
+  reject = 0 ;    // init to pass cuts
 
   for(icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
    
     DOFLAG = DOFLAG_CUTWIN[icut] ;
-    if ( DOFLAG == 0 ) { continue; }
+    if ( DOFLAG == DOFLAG_CUTWIN_IGNORE ) { continue; }
+
+    // if not data (i.e.,  biasCor & CCprior), DOFLAG must be
+    // "APPLY". The FITWGT0 feature works only for data.
+    if ( !IS_DATA ) { DOFLAG = DOFLAG_CUTWIN_APPLY; }
+
+    CUTVAL = CUTVAL_LIST[icut];
+    CUTWIN = &INPUTS.CUTWIN_RANGE[icut][0];
+    NAME   = INPUTS.CUTWIN_NAME[icut] ;
 
     if ( LDMP ) {
       printf(" xxx cut on %s = %f  (cutwin=%.3f to %.3f, EVENT_TYPE=%d)\n",
-	     INPUTS.CUTWIN_NAME[icut], CUTVAL_LIST[icut],
-	     INPUTS.CUTWIN_RANGE[icut][0], 
-	     INPUTS.CUTWIN_RANGE[icut][1], EVENT_TYPE ); 
+	     NAME, CUTVAL, CUTWIN[0], CUTWIN[1], EVENT_TYPE ); 
     }
 
     // check SIM-option to skip SIM_TYPE_INDEX
-    cnam   = INPUTS.CUTWIN_NAME[icut] ;
-    if( (IS_BIASCOR || IS_CCPRIOR) && usesim_CUTWIN(cnam)==0 ) 
+    if( (IS_BIASCOR || IS_CCPRIOR) && !usesim_CUTWIN(NAME)  ) 
       { continue ; }
 
-    if ( CUTVAL_LIST[icut] < INPUTS.CUTWIN_RANGE[icut][0] ) 
-      { LCUT = 0 ; goto DONE ; }
-
-    if ( CUTVAL_LIST[icut] > INPUTS.CUTWIN_RANGE[icut][1] ) 
-      { LCUT = 0 ; goto DONE ; }
+    if ( CUTVAL < CUTWIN[0] || CUTVAL > CUTWIN[1] ) { 
+      // be careful here; once reject is set to DOFLAG_CUTWIN_APPLY,
+      // the reject flag cannot be changed (e.g, to DOFLAG_CUTWIN_FITWGT0)
+      if ( reject != DOFLAG_CUTWIN_APPLY )  {  reject = DOFLAG ; }
+    }
   }
 
+  // - - - - 
+  if (LDMP ) { 
+    printf(" xxx ---> reject = %d\n", reject ); 
+    fflush(stdout); debugexit(fnam);
+  } 
 
- DONE:
-
-  if (LDMP ) 
-    { printf(" xxx ---> LCUT=%d\n", LCUT); fflush(stdout); debugexit(fnam); } 
-
-  return(LCUT);
+  return(reject);
 
 
-} // end apply_CUTWIN
+} // end reject_CUTWIN
 
 // **************************************************
 int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
@@ -16106,7 +16234,7 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
   bool  L_ABORTFLAG   = INPUTS.LCUTWIN_ABORTFLAG[icut];
   bool  L_DATAONLY    = INPUTS.LCUTWIN_DATAONLY[icut];
   bool  L_BIASCORONLY = INPUTS.LCUTWIN_BIASCORONLY[icut];
-  bool  L_WGT0        = INPUTS.LCUTWIN_WGT0[icut];
+  bool  L_FITWGT0     = INPUTS.LCUTWIN_FITWGT0[icut];
   char *VARNAME     = INPUTS.CUTWIN_NAME[icut];
   bool  ISVAR_PROB  = (strstr(VARNAME,"PROB_") != NULL ); // Oct 2020
   int   DOFLAG ;
@@ -16134,7 +16262,7 @@ int set_DOFLAG_CUTWIN(int ivar, int icut, int isData) {
 
   if ( L_VALID_VAR ) { 
     DOFLAG = DOFLAG_CUTWIN_APPLY ;    
-    if (L_WGT0)  {DOFLAG = 2; }
+    if (L_FITWGT0)  { DOFLAG = DOFLAG_CUTWIN_FITWGT0; }
   }
   else
     { DOFLAG = DOFLAG_CUTWIN_IGNORE ; }
@@ -19267,8 +19395,6 @@ void muerr_renorm(void) {
     RATIO_MUERR[iz] = M0ERR_check[iz] / FITRESULT.M0ERR[iz] ;
     DIF_MURES[iz]   = MURES_check[iz] ; 
   }
-
-  // .xyz
 
   // - - - - - 
   // loop over data again and compute muerr_renorm

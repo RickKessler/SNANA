@@ -102,7 +102,7 @@
  Sep 04 2020 : implement REQUIRE_DOCANA 
 
  Jan 22 2021 : 
-   + compute apprx HOSTLIB.ZMIN_CMB/ZMAX_CMB to compare with GENRANGE_REDSHIFT
+   + convert GENRANGE_REDSHIFT to zHEL min/max, then compare to HOSTLIB range.
    + count NSTAR for z < ZMAX_STAR; give warning if NSTAR>0
 
 =========================================================== */
@@ -2303,11 +2303,6 @@ void read_gal_HOSTLIB(FILE *fp) {
   HOSTLIB.ZMIN = HOSTLIB.VALMIN[ivar_STORE]; // min zHELIO
   HOSTLIB.ZMAX = HOSTLIB.VALMAX[ivar_STORE]; // max zHELIO
 
-  // rough guess at extreme zCMB  (Jan 22, 2021)
-  HOSTLIB.ZMIN_CMB = HOSTLIB.ZMIN + 0.002 ;
-  HOSTLIB.ZMAX_CMB = HOSTLIB.ZMAX - 0.002 ;
-
-
   printf("\t Stored %d galaxies from HOSTLIB (from %d total). \n",
 	 HOSTLIB.NGAL_STORE, HOSTLIB.NGAL_READ );
 
@@ -2333,25 +2328,27 @@ void read_gal_HOSTLIB(FILE *fp) {
     fflush(stdout);
   }
 
-  // abort if requested z-range exceed range of HOSTLIB
-  // Note that GENRANGE_REDSHIFT is for zCMB, so make sure to
-  // compare apples-to-apples here
-  if ( HOSTLIB.ZMIN_CMB > INPUTS.GENRANGE_REDSHIFT[0] ||
-       HOSTLIB.ZMAX_CMB < INPUTS.GENRANGE_REDSHIFT[1] ) {
+  // abort if requested z-range exceeds range of HOSTLIB.
+  // Note that GENRANGE_REDSHIFT is for zCMB, so subtract/add "dz_safe"
+  // to convert GENRANGE_REDSHIFT(CMB) to helio frame.
+  double dz_safe  = 0.002 ;
+  double ZMIN_GEN = INPUTS.GENRANGE_REDSHIFT[0] - dz_safe; // convert to helio
+  double ZMAX_GEN = INPUTS.GENRANGE_REDSHIFT[1] + dz_safe;
+
+  if ( HOSTLIB.ZMIN > ZMIN_GEN || HOSTLIB.ZMAX < ZMAX_GEN ) {
 
     print_preAbort_banner(fnam);
-    printf("  HOSTLIB z-HEL range: %f - %f \n", 
+    printf("  HOSTLIB z-HEL range: %.5f - %.5f \n", 
 	    HOSTLIB.ZMIN, HOSTLIB.ZMAX );
-    printf("  HOSTLIB z-CMB range: %f - %f (approx) \n", 
-	    HOSTLIB.ZMIN_CMB, HOSTLIB.ZMAX_CMB );
-    printf("  User    z-CMB range: %f - %f (GENRANGE_REDSHIFT)\n",
+    printf("  Gen     z-HEL range: %.5f - %.5f (GENRANGE_REDSHIFT +- %.4f)\n",
+	   ZMIN_GEN, ZMAX_GEN, dz_safe );
+    printf("  Gen     z-CMB range: %.5f - %.5f (GENRANGE_REDSHIFT)\n",
 	   INPUTS.GENRANGE_REDSHIFT[0], INPUTS.GENRANGE_REDSHIFT[1] );
 
-    sprintf(c1err,"HOSTLIB zCMB range does not contain user "
-	    "GENRANGE_REDSHIFT" );
+    sprintf(c1err,"HOSTLIB z-HEL range does not contain user "
+	    "GENRANGE_REDSHIFT;" );
     sprintf(c2err,"See redshift ranges above.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-
   }
   
   return ;

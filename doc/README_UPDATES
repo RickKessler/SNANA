@@ -19445,7 +19445,7 @@
 
 
 # ======================================================================= 
-         v11_02f (  ) 
+         v11_02f (Jan 22 2021) 
 
          ***** IMPORTANT(v11_02f) ***** 
 
@@ -19454,12 +19454,16 @@
          ***** MISCELLANEOUS(v11_02f) ***** 
 
    snlc_sim.c : 
-     + abort if obsolete  $SNANA_MODELPATH is set.
+     + abort if obsolete $SNANA_MODELPATH is set.
      + double crazyflux limit again
      + move prep_RANSYST call after SURVEY is defined
      + abort if spectra are requested but there is no 
         SPECTROGRAPH instrument (see GENSPEC_DRIVER)
      + abort if no valid HOSTLIB keys are found (was hanging)
+     + abort if any RANSYSTPAR_SIGSCALE_XXX param > 0.2
+
+   sntools_host.c
+     + add more redshift diagnostics
 
    genmag_SALT2.c
      + fix LAMSED logic bug inside INTEG_zSED function (affects spectrograph)
@@ -19471,10 +19475,17 @@
    submit_batch_jobs.sh:
       + for sims, add column for NSPEC_WRITE in MERGE.LOG
       + for CPU with no jobs, sleep 10sec to avoid failing npid check.
+      + ignore gargabe above CONFIG block so that saltshaker can
+        put [yaml] above CONFIG
 
    snlc_fit.car
      + fix few bugs for OPT_PHOTOZ=2 (use REDSHIFT_FINAL as prior)
 
    snana.car
      + increase MXSNLS from 4 million to 5 million (for Anais)
+
+   SALT2mu.c
+     + FITWGT0 option to replace cut with MUERR -> 8888  in fit.
+       Almost works, but subtle bug still there.
+
 END: 

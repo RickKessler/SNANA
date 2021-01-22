@@ -146,7 +146,7 @@ class train_SALT2(Program):
             self.log_assert(False,msgerr)
 
         survey_map_file  = (f"{PATH_EXPAND}/survey.yaml")
-        survey_yaml      = util.extract_yaml(survey_map_file)
+        survey_yaml      = util.extract_yaml(survey_map_file, None, None )
         
         self.config_prep['survey_yaml']      = survey_yaml
         self.config_prep['survey_map_file']  = survey_map_file

@@ -19,6 +19,8 @@
 # Oct 29 2020: add SALT2train framework
 # Nov 24 2020: add --ncore arg
 # Dec 17 2020: purge now works on train_SALT2 outputs
+# Jan 22 2021: garbage above CONFIG is ignored.
+#
 # - - - - - - - - - -
 
 #import os
@@ -356,7 +358,7 @@ if __name__ == "__main__":
     check_input_file_name(args)
 
     # Here we know there's a CONFIG block, so read the YAML input
-    config_yaml = util.extract_yaml(args.input_file)
+    config_yaml = util.extract_yaml(args.input_file, "CONFIG:", KEY_END_YAML)
     config_yaml['args'] = args  # store args here for convenience
 
     # set logical merge flag before running program_class

@@ -253,7 +253,7 @@ class Program:
 
         output_dir       = self.config_prep['output_dir']
         INFO_PATHFILE    = (f"{output_dir}/{SUBMIT_INFO_FILE}")
-        submit_info_yaml = util.extract_yaml(INFO_PATHFILE)
+        submit_info_yaml = util.extract_yaml(INFO_PATHFILE,None,None)
 
         # if cpunum is an argument, this cpu is kill last.
         cpunum_last = -9;  job_name_last = ''
@@ -796,7 +796,7 @@ class Program:
         # this info never changes
         logging.info(f"# {fnam}: read {SUBMIT_INFO_FILE}")
         INFO_PATHFILE    = (f"{output_dir}/{SUBMIT_INFO_FILE}")
-        submit_info_yaml = util.extract_yaml(INFO_PATHFILE)
+        submit_info_yaml = util.extract_yaml(INFO_PATHFILE, None, None )
         self.config_prep['submit_info_yaml'] = submit_info_yaml
 
         # check option to reset merge process 
@@ -1586,7 +1586,7 @@ class Program:
             YAML_FILE = (f"{script_dir}/{yaml_file}")
 
             if os.path.isfile(YAML_FILE) :
-                stats_yaml       = util.extract_yaml(YAML_FILE)
+                stats_yaml       = util.extract_yaml(YAML_FILE, None, None )
             
                 aiz              = stats_yaml[key_AIZ]
                 aiz_list[isplit] = aiz

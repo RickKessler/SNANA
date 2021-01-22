@@ -455,7 +455,7 @@ class LightCurveFit(Program):
         string_status = "Validate SUCCESS"  # default status
 
         if os.path.isfile(YAML_FILE) :
-            snana_yaml = util.extract_yaml(YAML_FILE)
+            snana_yaml = util.extract_yaml(YAML_FILE, None, None )
             nevt       = snana_yaml[key_nevt]
             if nevt == 0 :
                 validate      = False

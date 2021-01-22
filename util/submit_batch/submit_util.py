@@ -713,7 +713,7 @@ def get_survey_info(yaml_path):
         yaml_list = glob.glob(f"{yaml_path}/*.YAML")
         yaml_file = yaml_list[0]
 
-    yaml_info = extract_yaml(yaml_file)    
+    yaml_info = extract_yaml(yaml_file, None, None )    
     return yaml_info['SURVEY'], yaml_info['IDSURVEY']
     # end get_survey_info
 
@@ -827,23 +827,41 @@ def log_assert(condition, message):
 
         logging.exception(message)
         assert condition, msg_abort_face
-#        assert condition, message
+        # end log_assert
 
+def extract_yaml(input_file, key_start, key_end):
 
-def extract_yaml(input_file):
+    # Jan 2021: ignore everything before key_start and after key_end.
+    #           if either key is None, ignore the key
+
     msgerr = [(f"Cannot find the input yaml file:\n   {input_file}")]
     exist  = os.path.isfile(input_file)
-    # xxx mark delete log_assert(os.path.exists(input_file), 
     log_assert(exist,msgerr)
                
-    lines = []
+    line_list = []
+    FLAG_START = key_start is None
+    FLAG_END   = False
+
     with open(input_file, "r") as f:
         for line in f:
-            if line.startswith("#END_YAML"):
-                break
-            lines.append(line)
-    config = yaml.safe_load("\n".join(lines))
+            if key_start is not None:
+                if line.startswith(key_start) : FLAG_START = True
+
+            if key_end is not None:
+                if line.startswith(key_end) : FLAG_END = True
+
+            #print(f"\t xxx FLAG(START,END) = {FLAG_START} {FLAG_END} " \
+            #      f" for line={line}")
+
+            if not FLAG_START : continue
+            if FLAG_END: break
+
+            # xxx mark delete if line.startswith("#END_YAML"): break
+            line_list.append(line)
+
+    config = yaml.safe_load("\n".join(line_list))
 
     #logging.info(f" YAML config loaded successfully from {input_file}")
     return config
+    # end extract_yaml
 

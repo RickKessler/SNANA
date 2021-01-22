@@ -249,7 +249,7 @@ class BBC(Program):
             survey_list.append(survey)
 
             # read FITOPT table from FIT job's submit info file
-            fit_info_yaml = util.extract_yaml(INFO_PATHFILE)
+            fit_info_yaml = util.extract_yaml(INFO_PATHFILE, None, None)
             fitopt_table  = fit_info_yaml['FITOPT_LIST']            
             n_fitopt      = len(fitopt_table)
 
@@ -1767,7 +1767,7 @@ class BBC(Program):
             # figure out name of wfit-YAML file and read it
             prefix_orig,prefix_final = self.bbc_prefix("wfit", row)
             YAML_FILE  = (f"{output_dir}/{version}/{prefix_final}.YAML")
-            wfit_yaml  = util.extract_yaml(YAML_FILE)
+            wfit_yaml  = util.extract_yaml(YAML_FILE, None, None )
 
             # extract wfit values into local variables
             w   = wfit_yaml['w']   ; w_sig   = wfit_yaml['w_sig']
@@ -1893,7 +1893,7 @@ class BBC(Program):
         bbc_results_yaml   = []
         for yaml_file in yaml_list :
             YAML_FILE = (f"{script_dir}/{yaml_file}")
-            tmp_yaml  = util.extract_yaml(YAML_FILE)
+            tmp_yaml  = util.extract_yaml(YAML_FILE, None, None )
             n_var     = len(tmp_yaml['BBCFIT_RESULTS'])
             bbc_results_yaml.append(tmp_yaml)
 
@@ -1949,7 +1949,7 @@ class BBC(Program):
             #print(f" xxx yaml_list = {yaml_list} ") 
 
             for yaml_file in yaml_list :
-                tmp_yaml  = util.extract_yaml(yaml_file)
+                tmp_yaml  = util.extract_yaml(yaml_file, None, None )
                 w         = tmp_yaml['w']
                 w_sig     = tmp_yaml['w_sig']
                 w_list.append(w)

@@ -5855,6 +5855,7 @@ void  prep_RANSYSTPAR(void) {
   int   NFILTDEF = INPUTS.NFILTDEF_OBS ;
   int   ILIST_RAN=1;
   float tmp, tmpSigma, *tmpRange, Range ;
+  float SIGSCALE_MIN = 0.0, SIGSCALE_MAX = 0.2 ;
   double gmin = -3.0, gmax=+3.0; // Gaussian clip params
   char cfilt[2];
   char fnam[] = "prep_RANSYSTPAR" ;
@@ -5875,6 +5876,7 @@ void  prep_RANSYSTPAR(void) {
 
   // Galactic extinction
   tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_MWEBV ;
+  checkval_F("SIGSCALE_MWEBV", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
   if ( tmpSigma != 0.0 ) {   
     NSET++; tmp = 1.0 + tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
     INPUTS.MWEBV_SCALE = tmp;
@@ -5890,7 +5892,7 @@ void  prep_RANSYSTPAR(void) {
   
   // Redshift P.Armstrong 2020
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT;
-  if ( tmpSigma != 0.0 ) { 
+  if ( tmpSigma != 0.0 ) {
     NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
     INPUTS.GENBIAS_REDSHIFT = tmp ;
     printf("\t GENBIAS_REDSHIFT  = %f \n", INPUTS.GENBIAS_REDSHIFT );
@@ -5968,6 +5970,7 @@ void  prep_RANSYSTPAR(void) {
 
   // start with fluxerr fudging; SIGSCALE is sigma on fractional change
   tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR  ;
+  checkval_F("SIGSCALE_FLUXERR", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
   if ( tmpSigma != 0.0 ) {   
     NSET++; tmp = 1.0 + tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
     INPUTS.FUDGESCALE_FLUXERR = tmp;
@@ -5977,6 +5980,7 @@ void  prep_RANSYSTPAR(void) {
   }
 
   tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 ;
+  checkval_F("SIGSCALE_FLUXERR2", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
   if ( tmpSigma != 0.0 ) {   
     NSET=1; tmp = 1.0 + tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
     INPUTS.FUDGESCALE_FLUXERR2 = tmp;

@@ -5855,7 +5855,7 @@ void  prep_RANSYSTPAR(void) {
   int   NFILTDEF = INPUTS.NFILTDEF_OBS ;
   int   ILIST_RAN=1;
   float tmp, tmpSigma, *tmpRange, Range ;
-  float SIGSCALE_MIN = 0.0, SIGSCALE_MAX = 0.2 ;
+  float SIGSCALE_MIN = -1.0E-6, SIGSCALE_MAX = 0.2 ;
   double gmin = -3.0, gmax=+3.0; // Gaussian clip params
   char cfilt[2];
   char fnam[] = "prep_RANSYSTPAR" ;

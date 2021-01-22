@@ -3405,17 +3405,19 @@ int ISFILE_TEXT(char *fileName) {
   // The header-key method works only for reading.
   //
   // May 04 2020: return false for fits or FITS file extension.
+  // Jan 22 2021: check HOSTLIB extension
 
-#define NSUFFIX_TEXT 12
+#define NSUFFIX_TEXT 14
   int   isuf ;
-  char  SUFFIX_TEXT_LIST[NSUFFIX_TEXT][8] = 
+  char  SUFFIX_TEXT_LIST[NSUFFIX_TEXT][10] = 
     { 
       ".text" ,   ".TEXT",
       ".txt" ,    ".TXT",
       ".fitres",  ".FITRES",
       ".dat",     ".DAT",
-      ".out",     ".OUT",    // added Feb 7 2017
-      ".table",   ".TABLE"   // idem
+      ".out",     ".OUT",     // added Feb 7 2017
+      ".table",   ".TABLE",   // idem
+      ".hostlib", ".HOSTLIB"  // added Jan 22 2021
     } ;
 
   char fnam[] = "ISFILE_TEXT" ;

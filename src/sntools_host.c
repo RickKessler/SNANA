@@ -101,6 +101,10 @@
 
  Sep 04 2020 : implement REQUIRE_DOCANA 
 
+ Jan 22 2021 : 
+   + compute apprx HOSTLIB.ZMIN_CMB/ZMAX_CMB to compare with GENRANGE_REDSHIFT
+   + count NSTAR for z < ZMAX_STAR; give warning if NSTAR>0
+
 =========================================================== */
 
 #include <stdio.h>
@@ -246,6 +250,8 @@ void initvar_HOSTLIB(void) {
 
   HOSTLIB.NVAR_SNPAR   = 0 ;
   HOSTLIB.VARSTRING_SNPAR[0] = 0 ;
+
+  HOSTLIB.NSTAR = 0;
 
   for ( ivar=0; ivar < MXVAR_HOSTLIB; ivar++ )  { 
     HOSTLIB.IVAR_WGTMAP[ivar] = -9 ; 
@@ -2170,6 +2176,7 @@ void read_gal_HOSTLIB(FILE *fp) {
   // Dec 29 2017: time to read 416,000 galaxies 5 sec ->
   // Nov 11 2019: check NBR_LIST
   // Feb 25 2020: set VALMIN & VALMAX for float; skip for ISCHAR.
+  // Jan 22 2021: print WARNING if HOSTLIB.NSTAR > 0
 
   bool DO_SWAPZPHOT = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT) ;
   int  IVAR_ZPHOT    = HOSTLIB.IVAR_ZPHOT ; // ivar_STORE
@@ -2181,10 +2188,9 @@ void read_gal_HOSTLIB(FILE *fp) {
   
   long long GALID, GALID_MIN, GALID_MAX ;
   int  ivar_ALL, ivar_STORE, NVAR_STORE, NGAL, NGAL_READ, MEMC ;
-  int  NPRIORITY;
+  int  NPRIORITY ;
   bool ISCHAR ;
   double xval[MXVAR_HOSTLIB], val, ZTMP, LOGZCUT[2], DLOGZ_SAFETY ;
-
   // ----------------- BEGIN -----------
 
   NVAR_STORE = HOSTLIB.NVAR_STORE;
@@ -2294,8 +2300,13 @@ void read_gal_HOSTLIB(FILE *fp) {
 
   // load min/max ZTRUE into separate variables
   ivar_STORE   = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZTRUE,1) ;
-  HOSTLIB.ZMIN = HOSTLIB.VALMIN[ivar_STORE];
-  HOSTLIB.ZMAX = HOSTLIB.VALMAX[ivar_STORE];
+  HOSTLIB.ZMIN = HOSTLIB.VALMIN[ivar_STORE]; // min zHELIO
+  HOSTLIB.ZMAX = HOSTLIB.VALMAX[ivar_STORE]; // max zHELIO
+
+  // rough guess at extreme zCMB  (Jan 22, 2021)
+  HOSTLIB.ZMIN_CMB = HOSTLIB.ZMIN + 0.002 ;
+  HOSTLIB.ZMAX_CMB = HOSTLIB.ZMAX - 0.002 ;
+
 
   printf("\t Stored %d galaxies from HOSTLIB (from %d total). \n",
 	 HOSTLIB.NGAL_STORE, HOSTLIB.NGAL_READ );
@@ -2315,15 +2326,30 @@ void read_gal_HOSTLIB(FILE *fp) {
   
   fflush(stdout);
 
-  // abort if requested z-range exceed range of HOSTLIB
-  if ( HOSTLIB.ZMIN > INPUTS.GENRANGE_REDSHIFT[0] ||
-       HOSTLIB.ZMAX < INPUTS.GENRANGE_REDSHIFT[1] ) {
+  // check warning for stars
+  if ( HOSTLIB.NSTAR > 0 ) {
+    printf("\n\t *** WARNING: %d entries might be stars (z<%.4f) **** \n\n",
+	   HOSTLIB.NSTAR, ZMAX_STAR);
+    fflush(stdout);
+  }
 
-    sprintf(c1err,"HOSTLIB z-range (%f - %f) does not contain",
+  // abort if requested z-range exceed range of HOSTLIB
+  // Note that GENRANGE_REDSHIFT is for zCMB, so make sure to
+  // compare apples-to-apples here
+  if ( HOSTLIB.ZMIN_CMB > INPUTS.GENRANGE_REDSHIFT[0] ||
+       HOSTLIB.ZMAX_CMB < INPUTS.GENRANGE_REDSHIFT[1] ) {
+
+    print_preAbort_banner(fnam);
+    printf("  HOSTLIB z-HEL range: %f - %f \n", 
 	    HOSTLIB.ZMIN, HOSTLIB.ZMAX );
-    sprintf(c2err,"GENRANGE_REDSHIFT (%f - %f)"
-	    ,INPUTS.GENRANGE_REDSHIFT[0]
-	    ,INPUTS.GENRANGE_REDSHIFT[1] );
+    printf("  HOSTLIB z-CMB range: %f - %f (approx) \n", 
+	    HOSTLIB.ZMIN_CMB, HOSTLIB.ZMAX_CMB );
+    printf("  User    z-CMB range: %f - %f (GENRANGE_REDSHIFT)\n",
+	   INPUTS.GENRANGE_REDSHIFT[0], INPUTS.GENRANGE_REDSHIFT[1] );
+
+    sprintf(c1err,"HOSTLIB zCMB range does not contain user "
+	    "GENRANGE_REDSHIFT" );
+    sprintf(c2err,"See redshift ranges above.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
 
   }
@@ -2352,6 +2378,7 @@ int passCuts_HOSTLIB(double *xval ) {
   // REDSHIFT
   ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_ZTRUE] ; 
   ZTRUE       = xval[ivar_ALL];
+  if ( ZTRUE < ZMAX_STAR ) { HOSTLIB.NSTAR++; }      // diagnostic
   if ( ZTRUE < HOSTLIB_CUTS.ZWIN[0] ) { return(0); }
   if ( ZTRUE > HOSTLIB_CUTS.ZWIN[1] ) { return(0); }
 

@@ -5621,6 +5621,7 @@ void read_data_override(void) {
   OPTMASK = 4; // append each file
   for(ifile_over=0; ifile_over < nfile_over; ifile_over++ ) {
     ptrFile = INPUTS.dataFile_override[ifile_over];
+    ENVreplace(ptrFile,fnam,1);
     NROW = SNTABLE_AUTOSTORE_INIT(ptrFile,"OVERRIDE", 
 				  VARNAMES_STRING_DATA, OPTMASK);
   }
@@ -18122,235 +18123,6 @@ void write_M0_cov(char *fileName) {
 } // end write_M0_cov
 
 
-
-
-/* xxxxxxxxxxxxxx MARK DELETE DEC 2020 xxxxxxxxxx
-
-
-// ******************************************
-void SPLITRAN_write_fitpar_legacy(char *fileName) {
-
-  // May 29 2019
-  // Write fit params to machine-parsable file so that they 
-  // can be read back later for summary file.
-  //
-  // Aug 17 2020: mark as legacy; should use yaml file.
-
-  FILE *fout;
-  int n, ISFLOAT, ISM0, iz ;
-  double VAL, ERR ;
-  char tmpName[60] ;
-  char KEY[]  = "FITPAR:" ;
-  char fnam[] = "SPLITRAN_write_fitpar_legacy";
-
-  // ------------- BEGIN -------------
-
-  if ( INPUTS.write_yaml ) { return; } // Aug 17 2020
-
-  fprintf(FP_STDOUT, " %s: open %s \n", fnam, fileName);
-  fout = fopen(fileName,"wt");
-
-  // write NSNFIT
-  sprintf(tmpName,"NSNFIT" );
-  VAL = (double)FITRESULT.NSNFIT;  ERR=0.0;
-  fprintf(fout,"%s  %-20s  %8.2f %8.2f \n",  KEY, tmpName, VAL, ERR );
-
-  // write sigint
-  sprintf(tmpName,"%s", FITRESULT.PARNAME[IPAR_COVINT_PARAM] );
-  VAL = FITINP.COVINT_PARAM_FIX ;    ERR = 0.0 ;
-  fprintf(fout,"%s  %-20s  %8.5f %8.5f \n",  KEY, tmpName, VAL, ERR );
-
-  for ( n=0; n < FITINP.NFITPAR_ALL ; n++ ) {
-
-    ISFLOAT = FITINP.ISFLOAT[n] ;
-    ISM0    = n >= MXCOSPAR ; // it's z-binned M0
-
-    // skip fixed cosmo params; keep fixed M0 params to 
-    // print clear message about unused z-bins
-    if ( ISM0 == 0  && ISFLOAT==0 ) { continue ; } 
-      
-    VAL = FITRESULT.PARVAL[NJOB_SPLITRAN][n] ;
-    ERR = FITRESULT.PARERR[NJOB_SPLITRAN][n] ;
-    sprintf(tmpName, "%s", FITRESULT.PARNAME[n]);
-    if ( ERR < 0.0 ) { continue ; }
-
-    if ( n >= MXCOSPAR ) { 
-      iz  = INPUTS.izpar[n] ;
-      VAL = FITRESULT.M0DIF[iz]; 
-      sprintf(tmpName,"%s-<M0avg>", FITRESULT.PARNAME[n] );
-    }
-    else {
-      VAL += BLIND_OFFSET(n); // offset cosmo params besides M0
-    }
-
-    if ( !ISFLOAT ) { VAL = -9.0 ; ERR = -9.0; }
-
-    fprintf(fout,"%s  %-20s  %8.5f %8.5f \n",
-	    KEY, tmpName, VAL, ERR );
-    
-
-  } // end loop over fit params
-  
-  fclose(fout);
-  return ;
-
-} // end SPLITRAN_write_fitpar_legacy
-
-// ******************************************
-void SPLITRAN_read_fitpar(int isplit) {
-
-  // May 29 2019
-  // Read all of the fitpar files as if this were all in one job.
-
-  FILE *fp;
-  int  iwd, NWD, ipar ;
-  int  NTRY_OPEN=0;
-  double VAL, ERR;
-  char tmpFile[200], LINE[100], WORD[6][MXCHAR_VARNAME], *PARNAME;
-  char *prefix = INPUTS.PREFIX ;
-  char fnam[] = "SPLITRAN_read_fitpar";
-
-  // --------------- BEGIN --------------
-  
-  // xxx mark delete  sprintf(tmpFile,"%s-SPLIT%3.3d.fitpar", prefix, isplit);
-  sprintf(tmpFile,"SPLITRAN-%4.4d/%s.fitpar", isplit, prefix );
-  fprintf(FP_STDOUT, " Read %s \n", tmpFile); fflush(FP_STDOUT);
-
- TRY_OPEN:
-  fp = fopen(tmpFile,"rt");
-  if( !fp ) {
-    fprintf(FP_STDOUT,
-	   "\t fitpar file not created yet ... try again in 10 sec.\n"); 
-    fflush(FP_STDOUT);
-    sleep(10);
-    NTRY_OPEN++;
-    if ( NTRY_OPEN < 10 ) {
-      goto TRY_OPEN ;
-    }      
-    else {
-      sprintf(c1err,"Could NOT open SPLITRAN file for reading:");
-      sprintf(c2err,"%s", tmpFile);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);           
-    }
-  }
-
-  
-  while(fgets(LINE,100,fp) != NULL ) {
-    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);    
-    if ( NWD < 4 ) { continue; }
-    iwd=0; get_PARSE_WORD(0,iwd,WORD[iwd]);
-    if ( strcmp(WORD[iwd],"FITPAR:") != 0 ) { continue; }
-
-    iwd=1; get_PARSE_WORD(0,iwd,WORD[1]);  // parName
-    iwd=2; get_PARSE_WORD(0,iwd,WORD[2]);  // VAL
-    iwd=3; get_PARSE_WORD(0,iwd,WORD[3]);  // ERR     
-    PARNAME = WORD[1];
-    sscanf(WORD[2],"%le", &VAL);
-    sscanf(WORD[3],"%le", &ERR);   
-    
-    if ( strcmp(PARNAME,"NSNFIT") == 0 ) {
-      FITRESULT.NSNFIT_SPLITRAN[isplit] = (int)VAL;
-    }
-    else if ( strcmp(PARNAME,"sigint") == 0 ) {
-      FITRESULT.PARVAL[isplit][IPAR_COVINT_PARAM] = VAL ;
-      FITRESULT.PARERR[isplit][IPAR_COVINT_PARAM] = 1.0E-8 ;
-    }
-    else {
-      ipar = match_fitParName(PARNAME);
-      FITRESULT.PARVAL[isplit][ipar] = VAL ;
-      FITRESULT.PARERR[isplit][ipar] = ERR ;      
-    }
-
-    
-  } // end while over lines in file
-
-  fclose(fp);
-
-  return;
-
-} // end SPLITRAN_read_fitpar
-
-
-// ******************************************
-int SPLITRAN_read_wfit(int isplit) {
-
-  // Created Jun 11 2020
-  // Read optional wfit output (with .COSPAR extension).
-  // Note that wfit is run by SALT2mu_fit.pl batch script,
-  // and NOT run here by SALT2mu. This utility compiles
-  // the wFit stats along with the SALT2mu stats.
-
-  int  NWD, iwd, NLINE=0, EXIST = 0 ;
-  FILE *fp;
-  double w, werr;
-  char *prefix = INPUTS.PREFIX ;
-  char tmpFile[200], LINE[100], WORD[20] ;
-  //  char fnam[] = "SPLITRAN_read_wfit" ;
-
-  // ------------ BEGIN ---------------
-
-  // xxx mark  sprintf(tmpFile,"wfit_%s-SPLIT%3.3d.COSPAR", prefix, isplit);
-  sprintf(tmpFile,"SPLITRAN-%4.4d/wfit_%s.COSPAR", isplit, prefix);
-  fprintf(FP_STDOUT, " Read %s \n", tmpFile); fflush(FP_STDOUT);
-
-  fp = fopen(tmpFile,"rt");
-  if( !fp ) {
-    fprintf(FP_STDOUT, "\t no wfit output files. \n");
-    return(EXIST);
-  }
-  
-  // set w parameter as floated so that it gets printed;
-  // also modify parName to indicate wfit origin.
-  FITINP.ISFLOAT[IPAR_w0] = 1 ;  
-  sprintf(FITRESULT.PARNAME[IPAR_w0],"w(wfit)" );
-
-  EXIST = 1;
-
-  while(fgets(LINE,100,fp) != NULL ) {
-    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE);    
-    if ( NLINE == 1 ) {
-      iwd=0; get_PARSE_WORD(0,iwd,WORD);  sscanf(WORD, "%le", &w);
-      iwd=1; get_PARSE_WORD(0,iwd,WORD);  sscanf(WORD, "%le", &werr);
-      FITRESULT.PARVAL[isplit][IPAR_w0] = w ;
-      FITRESULT.PARERR[isplit][IPAR_w0] = werr ; 
-    }
-    NLINE++ ;
-  }
-  
-  fclose(fp);
-
-  return(EXIST);
-
-} // end SPLITRAN_read_wfit
-
-
-// ************************************
-int match_fitParName(char *parName) {
-  int  ipar = -9;
-  char *PARNAME;
-  char fnam[] = "match_fitParName";
-
-  // ------------- BEGIN -------------
-
-  if ( strstr(parName,"m0_") != NULL ) { parName[5] = 0 ; }
-
-  for(ipar=1; ipar < FITINP.NFITPAR_ALL; ipar++ ) {
-    PARNAME = FITRESULT.PARNAME[ipar] ;
-    trim_blank_spaces(PARNAME);
-    if( strcmp(parName,PARNAME)==0 ) { return(ipar); }
-  }
-
-  sprintf(c1err,"Cannot find ipar index for parName='%s'", parName);
-  sprintf(c2err,"Check valid parameter names.");
-  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-
-  return(-9);
-
-} // end match_fitParName
-
-xxxxxxxxxxxx end MARK xxxxxxxxxxxxxx */
-
-
 // ******************************************
 void write_fitres_driver(char* fileName) {
 
@@ -18685,9 +18457,11 @@ void  write_word_override(int ivar_tot, int indx, char *word) {
   // Nov 15 2020
   // Check to overwrite word for ivar_tot and SN indx.
   //
+  // Jan 27 2021: write any zXXX variable with %.5f format.
+
   int NVAR_OVERRIDE  = INFO_DATA.NVAR_OVERRIDE ;
   int ivar_over ;
-  bool IS_zHD;
+  bool IS_z;
   char *varName ;
   char fnam[] = "write_word_override";
 
@@ -18703,10 +18477,11 @@ void  write_word_override(int ivar_tot, int indx, char *word) {
 
   // for formatting, check of variable contains zHD
   varName   = OUTPUT_VARNAMES.LIST[ivar_tot]; 
-  IS_zHD    = (strstr(varName,"zHD") != NULL ) ;
+  // xxx mark delete  IS_zHD    = (strstr(varName,"zHD") != NULL ) ;
+  IS_z      = ( varName[0] == 'z' );
 
   // replace word string
-  if ( IS_zHD ) 
+  if ( IS_z ) 
     { sprintf(word,"%.5f", fval); }
   else
     { sprintf(word,"%.3f", fval); }

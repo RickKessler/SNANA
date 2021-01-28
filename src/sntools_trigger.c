@@ -198,9 +198,12 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
 	   APPLYMASK_SEARCHEFF_SPEC );
     printf("\t APPLY_SEARCHEFF_OPT += %d --> zHOST.\n",
 	   APPLYMASK_SEARCHEFF_zHOST );
+    printf("\t NONZERO_SEARCHEFF_SPEC=%d   LSPEC=%d \n", 
+	   NONZERO_SEARCHEFF_SPEC, LSPEC);
+    printf("\t NONZERO_SEARCHEFF_zHOST=%d \n", NONZERO_SEARCHEFF_zHOST);
 
-    sprintf(c1err,"Invalid user-input 'APPLY_SEARCHEFF_OPT: %d' ",
-	    APPLYMASK_SEARCHEFF_USER) ;
+    sprintf(c1err,"Invalid user-input 'APPLY_SEARCHEFF_OPT: %d' (OVP=%d) ",
+	    APPLYMASK_SEARCHEFF_USER, OVP) ;
     sprintf(c2err,"Simulation can produce SEARCHEFF mask %d \n",
 	    APPLYMASK_ALLOWED);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
@@ -1095,6 +1098,7 @@ void  init_SEARCHEFF_SPEC(char *survey) {
   else if ( strcmp(ptrFile_user,"ZERO") == 0  ) {
     INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO = 1 ;
     sprintf(cptr,"\t SEARCHEFF_SPEC_FILE = ZERO -> Force EFF_SPEC=0. \n");
+    printf("\n %s\n", cptr);
     fflush(stdout);
     return ;
   }
@@ -1114,7 +1118,8 @@ void  init_SEARCHEFF_SPEC(char *survey) {
 			 PATH_SEARCHEFF, effspec_file_local, fnam );
     }
     else  { 
-      printf("\n  Optional SEARCHEFF_SPEC_FILE not specified -> skip. \n");
+      //      printf("\n  Optional SEARCHEFF_SPEC_FILE not specified -> skip. \n");
+      printf("\n  Optional SEARCHEFF_SPEC_FILE not specified -> EFF_SPEC=1 \n");
       fflush(stdout);
       NONZERO_SEARCHEFF_SPEC++; // default EFFspec = 100%
       return ; 

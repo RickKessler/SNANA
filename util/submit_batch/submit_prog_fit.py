@@ -81,6 +81,8 @@ NULLVAL_COMBINE_FITRES = -9191   # value for missing CID in extern file
 FLAG_FORCE_MERGE_TABLE_MISSING = 1
 FLAG_FORCE_MERGE_TABLE_CORRUPT = 2
 
+FITOPT_STRING = "FITOPT"
+
 # optional part of FITOPT label to exclude from BBC reject list
 # and to exclude from using CID list from FITOPT000
 FITOPT_STRING_NOREJECT = "NOREJECT" 
@@ -475,6 +477,60 @@ class LightCurveFit(Program):
         # to create file names.
         # If there is a lable in /LABEL/, strip it out and store it
         # in SUBMIT_INFO, FITOPT.README along with fitopt and fitnum,
+        #
+        # Jan 24 2021: refactor using prep_jobopt_list utility
+
+        output_dir        = self.config_prep['output_dir']
+        CONFIG            = self.config_yaml['CONFIG']
+        ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
+
+        if ignore_fitopt: 
+            # user option to ignore FITOPTs
+            fitopt_rows = []
+        else:
+            # default: read FITOPT info
+            KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG
+            fitopt_rows   = (util.get_YAML_key_values(CONFIG,KEYLIST))
+        
+        # - - - - - -
+        fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,None)
+
+        fitopt_arg_list   = fitopt_dict['jobopt_arg_list']
+        fitopt_num_list   = fitopt_dict['jobopt_num_list']
+        fitopt_label_list = fitopt_dict['jobopt_label_list']
+        n_fitopt          = fitopt_dict['n_jobopt']
+
+        # - - - - - - - - - 
+        # update list for symbolic links to FITOPT000 [DEFAULT]
+        link_FITOPT000_list = []
+        for arg,num in zip(fitopt_arg_list,fitopt_num_list) :
+            if self.is_sym_link(arg) :
+                link_FITOPT000_list.append(num)
+
+        # - - - - - - - -
+        logging.info(f"  Found {n_fitopt-1} FITOPT variations.")
+        logging.info(f"  link_FITOPT000_list: {link_FITOPT000_list}")
+
+        self.config_prep['n_fitopt']            = n_fitopt
+        self.config_prep['fitopt_num_list']     = fitopt_num_list
+        self.config_prep['fitopt_arg_list']     = fitopt_arg_list
+        self.config_prep['fitopt_label_list']   = fitopt_label_list
+        self.config_prep['link_FITOPT000_list'] = link_FITOPT000_list
+        self.config_prep['n_fitopt_link']       = len(link_FITOPT000_list)
+
+        # sys.exit(f"\n\t xxxxx DEBUG DIE  ... xxxx ")
+        # xxx mark delete Jan 2021 self.write_legacy_FITOPT_README()
+
+        # end fit_prep_FITOPT
+
+
+    def fit_prep_FITOPT_OBSOLETE(self) :
+
+        # read/store list of FITOPT options, along with 'fitnums'
+        # FITOPT000, FITOPT001, etc ... These fitnums are used 
+        # to create file names.
+        # If there is a lable in /LABEL/, strip it out and store it
+        # in SUBMIT_INFO, FITOPT.README along with fitopt and fitnum,
 
         output_dir        = self.config_prep['output_dir']
         CONFIG            = self.config_yaml['CONFIG']
@@ -482,6 +538,7 @@ class LightCurveFit(Program):
         KEYLIST           = [ 'FITOPT' ]    # key under CONFIG
         fitopt_arg_list   = [ '' ]  # FITOPT000 is always blank
 
+        #    **** OBSOLETE ****
         if not ignore_fitopt: 
             fitopt_arg_list  += (util.get_YAML_key_values(CONFIG,KEYLIST))
         n_fitopt          = len(fitopt_arg_list)
@@ -489,9 +546,11 @@ class LightCurveFit(Program):
         fitopt_label_list = [ 'DEFAULT' ] + ['']*(n_fitopt-1)
         link_FITOPT000_list = []
 
+        #    **** OBSOLETE ****
+
         # prepare fitnum FITOPT[nnn]
         for i in range(0,n_fitopt):
-            fitopt_num_list[i] = (f"FITOPT{i:03d}")
+            fitopt_num_list[i] = (f"{FITOPT_STRING}{i:03d}")
 
             # extract optional label
             if i > 0 :
@@ -504,7 +563,8 @@ class LightCurveFit(Program):
             if self.is_sym_link(fitopt_arg_list[i]) :
                 link_FITOPT000_list.append(fitopt_num_list[i])
 
-        # - - - 
+
+        #    **** OBSOLETE ****
 
         logging.info(f"  Found {n_fitopt-1} FITOPT variations.")
         logging.info(f"  link_FITOPT000_list: {link_FITOPT000_list}")
@@ -518,7 +578,7 @@ class LightCurveFit(Program):
 
         self.write_legacy_FITOPT_README()
 
-        # end fit_prep_FITOPT
+        # end fit_prep_FITOPT_OBSOLETE
 
 
     def fit_prep_index_lists(self):
@@ -715,7 +775,6 @@ class LightCurveFit(Program):
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
         # - - - - 
-        # xxx mark delete f.close()
 
         if n_job_real != n_job_tot :
             msgerr = []
@@ -730,8 +789,8 @@ class LightCurveFit(Program):
     def is_sym_link(self,fitopt_arg):
         # for input fitopt argument, return True if it means
         # symbolic link to FITOPT000.
-        if fitopt_arg == 'FITOPT000'    : return True
-        if fitopt_arg == 'DEFAULT'      : return True
+        if fitopt_arg == f"{FITOPT_STRING}000"    : return True
+        if fitopt_arg == 'DEFAULT'                : return True
         return False
 
     def prep_JOB_INFO_fit(self,index_dict):
@@ -888,7 +947,7 @@ class LightCurveFit(Program):
                 else:
                     legacy_label = (f"[{label}]")
                 arg   = fitopt_arg_list[i]
-                f.write(f"FITOPT: {num[6:]} {legacy_label} {arg} \n")
+                f.write(f"{FITOPT_STRING}: {num[6:]} {legacy_label} {arg} \n")
 
         # end write_legacy_FITOPT_README
 
@@ -1188,7 +1247,7 @@ class LightCurveFit(Program):
         create_links        = False  # init return function arg
 
         if fitopt_num in link_FITOPT000_list :
-            fitopt_ref = 'FITOPT000'
+            fitopt_ref = f"{FITOPT_STRING}000"
             cmd_link_all = ''
 
             for itab in range(0,NTABLE_FORMAT):

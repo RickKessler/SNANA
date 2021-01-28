@@ -20,6 +20,7 @@
 # Nov 24 2020: add --ncore arg
 # Dec 17 2020: purge now works on train_SALT2 outputs
 # Jan 22 2021: garbage above CONFIG is ignored.
+# Jan 23 2021: begin adding train_SALT3
 #
 # - - - - - - - - - -
 
@@ -33,6 +34,7 @@ from   submit_prog_sim    import Simulation
 from   submit_prog_fit    import LightCurveFit
 from   submit_prog_bbc    import BBC
 from   submit_train_SALT2 import train_SALT2
+from   submit_train_SALT3 import train_SALT3
 from   argparse import Namespace
 
 # =====================================
@@ -40,8 +42,9 @@ def get_args():
     parser = argparse.ArgumentParser()
 
     msg = "HELP with input file config(s); then exit"
-    parser.add_argument("-H", "--HELP", help=msg, default=None, type=str, \
-                        choices = ["SIM", "FIT", "BBC", "TRAIN_SALT2", \
+    parser.add_argument("-H", "--HELP", help=msg, default=None, type=str,
+                        choices = ["SIM", "FIT", "BBC", 
+                                   "TRAIN_SALT2", "TRAIN_SALT3", 
                                    "TRANSLATE", "MERGE", "AIZ" ])
     
     msg = "name of input file"
@@ -141,11 +144,13 @@ def which_program_class(config):
     if "GENVERSION_LIST" in config :
         program_class = Simulation
     elif "VERSION" in CONFIG :
-        program_class = LightCurveFit
+        program_class = LightCurveFit # SALT2 LC fits
     elif "INPDIR+" in CONFIG :
-        program_class = BBC
+        program_class = BBC          # Beams with Bias Corr (KS17)
     elif "PATH_INPUT_TRAIN" in CONFIG :
-        program_class = train_SALT2
+        program_class = train_SALT2  # original snpca from J.Guy
+    elif "SALT3_SETUP" in CONFIG :
+        program_class = train_SALT3  # saltshaker from D'Arcy & David
     else :
         sys.exit("\nERROR: Could not determine program_class")
 

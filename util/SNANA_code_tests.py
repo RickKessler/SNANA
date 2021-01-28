@@ -20,6 +20,11 @@
 #              to work with sed.
 #
 # Jan 8 2021: print python version to SNANA.INFO
+# Jan 27 2021: 
+#   + replace WALLTIME key in SBATCH file
+#   + fix bug to allow blank setup arg
+#   + include RUNJOBS* in BACKUP_MISC.tar.gz
+#
 
 import os, sys, datetime, shutil, time, glob
 import subprocess
@@ -43,6 +48,7 @@ RESULT_DIFF_FILE        = 'RESULTS_DIFF.DAT'
 SNANA_INFO_FILE         = 'SNANA.INFO'
 STOP_FILE               = ('%s/STOP' % (LOG_TOPDIR) )
 MEMORY                  = 2000   # Mb
+WALLTIME_MAX            = "00:20:00"    # 20 minutes (Jan 27 2021)
 
 # ========================================================
 def parse_args():
@@ -812,9 +818,10 @@ def submitTasks_SSH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
                                   % SNANA_INFO_FILE)
             cmd_python_version = ("python    --version       >> %s" \
                                   % SNANA_INFO_FILE)
-            cmd_job = f"{cmd_snana_version} ; {cmd_python_version} ; " \
-                      f"{cmd_job}"
 
+            cmd_job = f"{cmd_snana_version} ; {cmd_python_version} ; {cmd_job}"
+
+        # - - - - 
         cmd = ('%s  "%s; %s ; %s" & ' % 
                (cmd_ssh, SNANA_SETUP, cmd_cd, cmd_job) )
 
@@ -837,7 +844,9 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
     BATCH_TEMPLATE_FILE  = BATCH_INFO[1]
 
     SNANA_SETUP_forSed = SNANA_SETUP.replace('/','\/')
-    
+    if len(SNANA_SETUP_forSed) == 0:
+        SNANA_SETUP_forSed = 'echo "No setup"'
+
     for cpunum in range(0,NCPU) :
         batch_runfile = ('RUNJOBS_CPU%3.3d.BATCH'     % (cpunum) )
         batch_logfile = ('RUNJOBS_CPU%3.3d.BATCH-LOG' % (cpunum) )
@@ -863,6 +872,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
         cmd_sed += ("-e 's/REPLACE_NAME/CodeTest_CPU%3.3d/g' " % cpunum )
         cmd_sed += ("-e 's/REPLACE_LOGFILE/%s/g' " % batch_logfile)
         cmd_sed += ("-e 's/REPLACE_MEM/%d/g' " % MEMORY )
+        cmd_sed += ("-e 's/REPLACE_WALLTIME/%s/g' " % WALLTIME_MAX )
         cmd_sed += ("-e 's/REPLACE_JOB/%s ; %s/g' " 
                     % (SNANA_SETUP_forSed,cmd_job) )
         cmd_sed += (" %s > %s" % (BATCH_TEMPLATE_FILE,BATCH_RUNFILE) )
@@ -871,7 +881,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
         os.system(cmd_sed)
 
 
-        # make sure batch file was created .xyz
+        # make sure batch file was created 
         if ( os.path.isfile(BATCH_RUNFILE) == False ) :
             msg = (' ABORT: could not create BATCH_RUNFILE = \n %s' % 
                    BATCH_RUNFILE )
@@ -1019,7 +1029,7 @@ def make_tarfiles(LOGDIR):
     tarfile_list  = []
 
     filespec_list.append('TASK*')
-    filespec_list.append('*.LOG *.fitres *.FITRES *.M0DIF *.COV *.SPEC *.out *.OUT *.ROOT *.HBOOK *.fits *.FITS *.LIST')
+    filespec_list.append('*.LOG *.fitres *.FITRES *.M0DIF *.COV *.SPEC *.out *.OUT *.ROOT *.HBOOK *.fits *.FITS *.LIST RUNJOBS* ')
 
     tarfile_list.append('BACKUP_TASKFILES.tar')
     tarfile_list.append('BACKUP_MISC.tar')

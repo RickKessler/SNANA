@@ -12247,7 +12247,9 @@ double gen_redshift_helio(void) {
   // Created Jan 2018 by R.Kessler
   // Convert zcmb to zhelio and apply peculiar velocity (vpec in km/s)
   // Function returns z_helio, and also stores GENLC.VPEC
-  
+  //
+  // Jan 27 2021: fix to use exact zpec formula instead of approximation.
+
   double zCMB = GENLC.REDSHIFT_CMB ;
   double RA   = GENLC.RA;
   double DEC  = GENLC.DEC ;
@@ -12272,10 +12274,12 @@ double gen_redshift_helio(void) {
     vpec = ((double)INPUTS.GENSIGMA_VPEC) * GaussRan(2) ;    
   }
 
+
   GENLC.VPEC = vpec; 
   if ( vpec != 0.0 ) {
     dzpec = vpec/LIGHT_km ;
-    zhelio += dzpec ;
+    // xxx mark delete     zhelio += dzpec ;
+    zhelio = (1.0+zhelio)*(1.0+dzpec) - 1.0 ;    // Jan 27 2021 .xyz
   }
 
   return zhelio ;

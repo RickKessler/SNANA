@@ -314,6 +314,7 @@ class Program:
         BATCH_FILE_LIST   = []   # idem
         cmdlog_file_list  = []
         job_name_list     = []
+        n_core_with_jobs  = 0
 
         # loop over each core and create CPU[nnn]_JOBS.CMD that
         # are used for either batch or ssh. For batch, also 
@@ -375,6 +376,8 @@ class Program:
                     f.write(f"echo 'No jobs -> sleep 10s to " \
                             f"ensure npid check is ok' \n")
                     f.write(f"sleep 10 \n")
+                else:
+                    n_core_with_jobs += 1
 
             # - - - - - 
             # write extra batch file for batch mode
@@ -393,6 +396,7 @@ class Program:
         self.config_prep['job_name_list']     = job_name_list
         self.config_prep['batch_file_list']   = batch_file_list
         self.config_prep['BATCH_FILE_LIST']   = BATCH_FILE_LIST
+        self.config_prep['n_core_with_jobs']  = n_core_with_jobs
 
         # make all CMD files group-executable with +x.
         # Python os.chmod is tricky because it may only apply 
@@ -528,19 +532,19 @@ class Program:
         #
         # Write FAST if set.
 
-        args            = self.config_yaml['args']
-        fast            = self.config_yaml['args'].fast
-        CONFIG          = self.config_yaml['CONFIG']
-        n_job_tot       = self.config_prep['n_job_tot']
-        n_done_tot      = self.config_prep['n_done_tot']
-        n_job_split     = self.config_prep['n_job_split']
-        n_core          = self.config_prep['n_core']
-        output_dir      = self.config_prep['output_dir']
-        script_dir      = self.config_prep['script_dir']
-        done_stamp_list = self.config_prep['done_stamp_list']
-        Nsec            = seconds_since_midnight
-        time_now        = datetime.datetime.now()
-
+        args             = self.config_yaml['args']
+        fast             = self.config_yaml['args'].fast
+        CONFIG           = self.config_yaml['CONFIG']
+        n_job_tot        = self.config_prep['n_job_tot']
+        n_done_tot       = self.config_prep['n_done_tot']
+        n_job_split      = self.config_prep['n_job_split']
+        n_core           = self.config_prep['n_core']
+        n_core_with_jobs = self.config_prep['n_core_with_jobs']
+        output_dir       = self.config_prep['output_dir']
+        script_dir       = self.config_prep['script_dir']
+        done_stamp_list  = self.config_prep['done_stamp_list']
+        Nsec             = seconds_since_midnight
+        time_now         = datetime.datetime.now()
 
         cleanup_flag = 1     # default
         if 'CLEANUP_FLAG' in CONFIG :
@@ -577,6 +581,9 @@ class Program:
 
         comment = "number of cores"
         f.write(f"N_CORE:           {n_core}     # {comment} \n")
+
+        comment = "n_core with jobs"
+        f.write(f"N_CORE_WITH_JOBS: {n_core_with_jobs}   # {comment} \n")
 
         if fast :
             f.write(f"FAST:             {FASTFAC}    " \
@@ -1161,6 +1168,7 @@ class Program:
         submit_info_yaml  = self.config_prep['submit_info_yaml']
         script_dir        = submit_info_yaml['SCRIPT_DIR'] 
         n_core            = submit_info_yaml['N_CORE']
+        n_core_with_jobs  = submit_info_yaml['N_CORE_WITH_JOBS']
         time_submit       = submit_info_yaml['TIME_STAMP_SUBMIT']
         time_now          = datetime.datetime.now()
         time_dif          = time_now - time_submit
@@ -1230,12 +1238,12 @@ class Program:
                 cpu_sum += cpu  # units are minutes, not seconds
 
             cpu_sum *= 60.0/t_unit
-            cpu_avg  = cpu_sum / n_core
+            # xxx mark delete  cpu_avg  = cpu_sum / n_core
+            cpu_avg  = cpu_sum / n_core_with_jobs
             eff_cpu  = cpu_avg / t_wall
 
             msg_time.append(f"CPU_SUM:        {cpu_sum:.3f} ")
             msg_time.append(f"EFFIC_CPU:      {eff_cpu:.3f}   # CPU/core/T_wall")
-
 
         return msg_time
 

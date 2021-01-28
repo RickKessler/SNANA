@@ -82,6 +82,7 @@ ROW_KEY               = "ROW:"
 KEY_FITOPTxMUOPT      = 'FITOPTxMUOPT'
 BLOCKNAME_FITOPT_MAP  = 'FITOPT_MAP'
 
+MUOPT_STRING           = "MUOPT"
 FITOPT_STRING_NOREJECT = "NOREJECT" # optional part of FITOPT label
 
 # - - - - - - - - - - - - - - - - - - -  -
@@ -953,6 +954,34 @@ class BBC(Program):
         # end make_cat_fitres_list
 
     def bbc_prep_muopt_list(self):
+    
+        # Jan 24 2021: refactor using prep_jobopt_list util
+
+        CONFIG   = self.config_yaml['CONFIG']
+        key      = MUOPT_STRING
+        if key in CONFIG  :
+            muopt_rows = CONFIG[key]
+        else:
+            muopt_rows = []
+
+        # - - - - - -
+        muopt_dict = util.prep_jobopt_list(muopt_rows, MUOPT_STRING, None)
+
+        n_muopt          = muopt_dict['n_jobopt']
+        muopt_arg_list   = muopt_dict['jobopt_arg_list']
+        muopt_num_list   = muopt_dict['jobopt_num_list']
+        muopt_label_list = muopt_dict['jobopt_label_list']
+                
+        logging.info(f" Store {n_muopt-1} BBC options from MUOPT keys")
+
+        self.config_prep['n_muopt']          = n_muopt
+        self.config_prep['muopt_arg_list']   = muopt_arg_list
+        self.config_prep['muopt_num_list']   = muopt_num_list
+        self.config_prep['muopt_label_list'] = muopt_label_list
+
+        # end bbc_prep_muopt_list
+
+    def bbc_prep_muopt_OBSOLETE(self):
         
         CONFIG           = self.config_yaml['CONFIG']
         input_file       = self.config_yaml['args'].input_file 
@@ -960,7 +989,8 @@ class BBC(Program):
         muopt_arg_list   = [ '' ]  # always include MUOPT000 with no overrides
         muopt_num_list   = [ 'MUOPT000' ] 
         muopt_label_list = [ None ]
-        
+
+        # **** OBSOLETE *****
         key = 'MUOPT'
         if key in CONFIG  :
             for muopt_raw in CONFIG[key] : # might include label
@@ -971,6 +1001,7 @@ class BBC(Program):
                 muopt_label_list.append(label)
                 n_muopt += 1
                 
+        # **** OBSOLETE *****
         logging.info(f" Store {n_muopt-1} BBC options from MUOPT keys")
 
         self.config_prep['n_muopt']          = n_muopt
@@ -978,7 +1009,7 @@ class BBC(Program):
         self.config_prep['muopt_num_list']   = muopt_num_list
         self.config_prep['muopt_label_list'] = muopt_label_list
 
-        # end bbc_prep_muopt_list
+        # end bbc_prep_muopt_OBSOLETE
 
     def bbc_prep_splitran(self) :
 
@@ -1072,7 +1103,6 @@ class BBC(Program):
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
         # - - - - 
-        # xxx mark delete f.close()
 
         return n_job_cpu
 
@@ -1375,7 +1405,7 @@ class BBC(Program):
             version    = self.config_prep['version_out_list'][iver]
             version   += self.suffix_splitran(n_splitran,isplitran)
             fitopt_num = (f"FITOPT{ifit:03d}")
-            muopt_num  = (f"MUOPT{imu:03d}")
+            muopt_num  = (f"{MUOPT_STRING}{imu:03d}")
 
             # ROW here is fragile in case columns are changed
             ROW_MERGE = []

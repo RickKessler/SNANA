@@ -10,6 +10,93 @@ from   submit_params import *
 
 # =================================================
 
+def prep_jobopt_list(config_rows, string_jobopt, key_arg_file):
+
+    # Created Jan 23 2021
+    # Generic utility to strip args from config_rows and return
+    # dictionary of arg_list, num_list, label_list.
+    # The args are from FITOPT key for FIT, MUOPT key for BBC,
+    # TRAINOPT key for training ... Each jobopt can include
+    # a label surrounding by slashes; e.g., /LABEL_THIS/
+    #
+    # Inputs:
+    #   config_rows = CONFIG[string_jobopt] passed from user input file
+    #   string_jobopt = 'FITOPT' or'MUOPT'or 'TRAINOPT' ...
+    #   key_arg_file = optional key for file name containing args
+
+    jobopt_dict = {} # init output dictionary
+    n_jobopt          = 1
+    jobopt_ARG_list   = [ '' ] # original user arg
+    jobopt_arg_list   = [ '' ] # expanded args used by script
+    jobopt_num_list   = [ f"{string_jobopt}000" ] 
+    jobopt_label_list = [ None ]
+    jobopt_file_list  = [ None ]   
+    use_arg_file      = False
+
+    for jobopt_raw in config_rows :    # might include label
+        num = (f"{string_jobopt}{n_jobopt:03d}")
+
+        # separate  label and ARG in
+        #    jobopt_string: /label/ ARG
+        label, ARG = separate_label_from_arg(jobopt_raw)
+
+        # if arg points to an arg_file, read and return args from file
+        arg, arg_file  = read_arg_file(ARG,key_arg_file)
+        if arg_file is not None:  use_arg_file = True
+
+        # uopdate jobopt lists
+        jobopt_arg_list.append(arg)
+        jobopt_ARG_list.append(ARG)
+        jobopt_num_list.append(num)
+        jobopt_label_list.append(label)
+        jobopt_file_list.append(arg_file)
+        n_jobopt += 1
+     
+    # - - - -
+    jobopt_dict = {
+        'jobopt_arg_list'   : jobopt_arg_list ,
+        'jobopt_ARG_list'   : jobopt_ARG_list ,
+        'jobopt_num_list'   : jobopt_num_list ,
+        'jobopt_label_list' : jobopt_label_list ,
+        'jobopt_file_list'  : jobopt_file_list ,
+        'n_jobopt'          : n_jobopt,
+        'use_arg_file'      : use_arg_file
+    }
+
+    return jobopt_dict
+
+    # end prep_jobopt_list
+
+def read_arg_file(ARG, KEY_ARG_FILE):
+
+    # if ARG starts with KEY_ARG_FILE, the return arg is equal
+    # to the contents of arg_file; otherwise return arg = ARG.
+    # Motivation is that user can build long list of arguments
+    # (e.g., random calib variations for training)
+    # and store each set of args in a separate file.
+
+    arg      = ARG   # init return arg to input ARG
+    arg_file = None  # init return arg_file
+
+    if KEY_ARG_FILE is None :
+        return arg, arg_file
+    
+    # - - - - -
+    word_list = ""
+    arg_list = ARG.split()
+
+    if arg_list[0] == KEY_ARG_FILE :
+        arg_file = arg_list[1]
+        with open(arg_file,"rt") as f:
+            for line in f:
+                if is_comment_line(line) : continue
+                word_list += line.replace("\n"," ")
+            arg = word_list
+    # - - - -
+    return arg, arg_file
+    # end read_arg_file
+
+
 def protect_parentheses(arg):
     # Created Dec 10 2020
     # if arg = abc(option), returns abc\(option\).

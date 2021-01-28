@@ -19488,4 +19488,16 @@
      + FITWGT0 option to replace cut with MUERR -> 8888  in fit.
        Almost works, but subtle bug still there.
 
+# ======================================================================= 
+         v11_02g (Jan 25 2021) 
+
+         ***** IMPORTANT(v11_02g) ***** 
+
+         ***** USEFUL(v11_02g) ***** 
+
+         ***** MISCELLANEOUS(v11_02g) ***** 
+
+   sntools_host.c
+    + for VPEC, use exact formula instead of approximation.
+
 END: 

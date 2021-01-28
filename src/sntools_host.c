@@ -5669,7 +5669,7 @@ void  GEN_SNHOST_VPEC(int IGAL) {
   // Created May 24 2020
   // Check for VPEC column in HOSTLIB table.
 
-  bool DO_VPEC       = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ) ;
+  bool DO_VPEC       = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC) ;
   int  IVAR_VPEC     = HOSTLIB.IVAR_VPEC ;
   int  IVAR_VPEC_ERR = HOSTLIB.IVAR_VPEC_ERR ;
   double VPEC        = 0.0, ERR = -999.9 ;
@@ -6555,7 +6555,6 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   double zPEC_GAUSIG   = GENLC.VPEC/LIGHT_km ; // from GENSIGMA_VPEC key
   double zPEC_HOSTLIB  = SNHOSTGAL.VPEC/LIGHT_km; // from hostlib
 
-  //  double ZTRUE_noVPEC  = ZTRUE - zPEC ;
   double RA            = GENLC.RA ;
   double DEC           = GENLC.DEC ;
  
@@ -6574,15 +6573,17 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   // if wrong host (based on mag), bail
   if ( !GENLC.CORRECT_HOSTMATCH) { return ; }
 
-  // subtract helio redshift here ... will be added at end of function
-  zHEL = GENLC.REDSHIFT_HELIO - zPEC_GAUSIG ;
+  // un-do zPEC to get zHEL without vPEC
+  // xxx mark delete zHEL = GENLC.REDSHIFT_HELIO - zPEC_GAUSIG ;  //.xyz
+
+  zHEL = (1.0+GENLC.REDSHIFT_HELIO)/(1.0+zPEC_GAUSIG) - 1.0 ;
 
   // - - - - - - - - - - - - - - - - - - - - - 
   // check for transferring redshift to host redshift.
   // Here zHEL & zCMB both change
   if ( DO_SN2GAL_Z ) {
-    // xxx mark delete    zHEL = ZTRUE_noVPEC ;
-    zHEL = ZTRUE - zPEC_GAUSIG;
+    // mark delete : bug   zHEL = ZTRUE - zPEC_GAUSIG;
+    zHEL = ZTRUE ;
     if ( INPUTS.VEL_CMBAPEX > 0.0 ) {
       zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,eq,+1);
     }
@@ -6609,11 +6610,6 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
     gen_distanceMag(zCMB, zHEL, 
 		    &GENLC.DLMU, &GENLC.LENSDMU ); // <== returned
 
-    /* xxxxxxx mark delete May 25 2020 xxxxxxx
-    zHEL                 += zPEC;  // add zPEC after computing MU
-    GENLC.REDSHIFT_HELIO  = zHEL ;     
-    SNHOSTGAL.ZSPEC       = zHEL ;
-    xxxxxxxxxxx */
   }
 
   // - - - - - - - - - 
@@ -6621,11 +6617,13 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   if ( DO_VPEC ) 
     { zPEC = zPEC_HOSTLIB; }  // from VPEC key in HOSTLIB
   else
-    { zPEC = zPEC_GAUSIG ; }  // from sim-input GENSIGNA_VPEC key
+    { zPEC = zPEC_GAUSIG ; }  // from sim-input GENSIGMA_VPEC key
 
   double zHEL_ORIG = GENLC.REDSHIFT_HELIO ;
   GENLC.VPEC = zPEC * LIGHT_km;
-  zHEL += zPEC;                    // add vPEC  
+  // xxx mark delete  zHEL += zPEC;                    // add vPEC  
+  zHEL = (1.0+zHEL)*(1.0+zPEC) - 1.0 ;    // Jan 27 2021 
+
   GENLC.REDSHIFT_HELIO  = zHEL ;     
   SNHOSTGAL.ZSPEC       = zHEL ;  
 

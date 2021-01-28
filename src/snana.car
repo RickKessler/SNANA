@@ -4309,7 +4309,7 @@ c Sep 08 2014: lots of updates
 c Jul 12 2016: turn off tables if any reformat option is set.
 c Jul 17 2016: 
 c   + check for NOSIMVAR option (e..g, for blind tests)
-c   + fix but to ensure WRTABLEFILE_IAUC is initialized to F
+c   + fix bug to ensure WRTABLEFILE_IAUC is initialized to F
 c
 c Feb 19 2017: check SNTABLE_FILTER_REMAP
 c
@@ -9803,9 +9803,6 @@ cc         print*,' xxx load ', isn, CCID(1:LEN)
          endif
 
  100  CONTINUE
-
-cc      STOP ! xxx REMOVE
-c .xyz
 
       RETURN
       END

@@ -906,6 +906,10 @@ Default output files (can change names with "prefix" argument)
  Dec 21 2020:   
    + opt_biaskcor += 1024 -> keep event if no valid biasCor; set biasCor=0.
 
+ Jan 27 2021
+   + fix few issues related to header_override
+   + MXSTORE_DUPLICATE -> 200 (was 20)
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -993,7 +997,7 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 #define IFLAG_DUPLICATE_IGNORE 0
 #define IFLAG_DUPLICATE_ABORT  1
 #define IFLAG_DUPLICATE_AVG    2  // use weighted avg of SALT2 fit par.
-#define MXSTORE_DUPLICATE     20  // always abort if more than this many
+#define MXSTORE_DUPLICATE    200  // always abort if more than this many
 
 #define MUERR_FITWGT0  8888.8  // MUERR-> this value in fit for FITWGT0 option
 #define STRING_FITWGT0 "FITWGT0"
@@ -2385,7 +2389,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   if( INPUTS.cat_only ) 
     { write_fitres_driver(INPUTS.cat_file_out);  exit(0); }
 
-  // abort if there are any duplicate SNIDs
+  // check for duplicate SNIDs and take action based on iflag_duplicate
   check_duplicate_SNID();
 
   // misc redshift checks
@@ -3503,18 +3507,20 @@ void check_duplicate_SNID(void) {
   ORDER_SORT = + 1 ; // increasing order
   sortDouble( nsn, zList, ORDER_SORT, unsortList ) ;
 
-  int SAME_z, SAME_SNID, NTMP, idup, unsort_last, LAST_DUPL=0 ;
+  bool SAME, SAME_z, SAME_SNID, LAST_DUPL=false ;
+  int   NTMP, idup, unsort_last ;
   double z, zerr, z_last, zerr_last ;
   char *snid, *snid_last ;
   int  UNSORT_DUPL[MXSTORE_DUPLICATE][MXSTORE_DUPLICATE];
   int  NDUPL_LIST[MXSTORE_DUPLICATE]; // how many duplicates per set
   int  NDUPL_SET ; // number of duplicate sets
+  int  NDUPL_TOT ; // includes those beyone storage capacity
 
   unsort_last = -9 ;
   z_last = zerr_last = -9.0 ;
   snid_last = fnam; // anything to avoid compile warning
 
-  NDUPL_SET = 0 ;
+  NDUPL_SET = NDUPL_TOT = 0 ;
   for(idup=0; idup < MXSTORE; idup++ ) 
     {  NDUPL_LIST[idup] = 0 ; }
 
@@ -3528,21 +3534,25 @@ void check_duplicate_SNID(void) {
 
     SAME_z    = ( z==z_last && zerr==zerr_last );
     SAME_SNID = ( strcmp(snid,snid_last) == 0 );
+    SAME      = ( SAME_z && SAME_SNID );
 
-    if ( SAME_z && SAME_SNID &&  NDUPL_SET < MXSTORE-1 ) {
-      if ( LAST_DUPL == 0 ) { 
+    if ( SAME && !LAST_DUPL ) { NDUPL_TOT++ ; }
+
+    if ( SAME && NDUPL_SET < MXSTORE ) {
+      if ( !LAST_DUPL ) { 
 	NDUPL_SET++ ; 
 	NTMP = NDUPL_LIST[NDUPL_SET-1] ;
 	UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort_last ;
 	NDUPL_LIST[NDUPL_SET-1]++ ;
       }
       NTMP = NDUPL_LIST[NDUPL_SET-1] ;
-      if( NTMP < MXSTORE )  { UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort ; }
+      if( NTMP < MXSTORE ) { UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort ; }
+     
       NDUPL_LIST[NDUPL_SET-1]++ ;
-      LAST_DUPL = 1 ;
+      LAST_DUPL = true ;
     }
     else {
-      LAST_DUPL = 0 ;
+      LAST_DUPL = false ;
     }
 
   SET_LAST:
@@ -3552,7 +3562,7 @@ void check_duplicate_SNID(void) {
   } // end loop over isn
 
 
-  if ( NDUPL_SET==0 ) 
+  if ( NDUPL_SET == 0 ) 
     { fprintf(FP_STDOUT, "\t No duplicates found. \n"); goto DONE; }
   
   fprintf(FP_STDOUT, "   Found %d sets of duplicates: \n", NDUPL_SET);
@@ -3563,15 +3573,15 @@ void check_duplicate_SNID(void) {
     NTMP   = NDUPL_LIST[idup] ;
     snid   = INFO_DATA.TABLEVAR.name[unsort]; 
     z      = INFO_DATA.TABLEVAR.zhd[unsort];      
-    fprintf(FP_STDOUT, "\t -> %2d with SNID=%8.8s at z=%.5f \n", 
-	    NTMP, snid, z );	   
+    fprintf(FP_STDOUT, "\t -> DUPL-%3.3d: %2d with SNID=%8.8s at z=%.5f \n", 
+	    idup, NTMP, snid, z );	   
   }
 
   fflush(FP_STDOUT);
 
   if ( NDUPL_SET >= MXSTORE ) {
-    sprintf(c1err,"NDUPL_SET=%d exceeds bound, MXSTORE_DUPLICATE=%d",
-	    NDUPL_SET, MXSTORE );
+    sprintf(c1err,"NDUPL=%d exceeds bound, MXSTORE_DUPLICATE=%d",
+	    NDUPL_TOT, MXSTORE );
     sprintf(c2err,"Check duplicates");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }

@@ -127,7 +127,7 @@ c
      &  ,MXSURVEY      = 100        ! max number of SURVEY_NAMEs to store
      &  ,MXITER        = 12         ! max # fit iterations
      &  ,NFIT_VERBOSE  = 500        ! Number of fits for verbose printouts
-     &  ,MXSNLC        = 4000000    ! max number of SNe (fits format)
+     &  ,MXSNLC        = 5000000    ! max number of SNe (fits format)
      &  ,MXCCID_LIST   = 20000      ! max size of SNCCID_LIST_ALL 
      &  ,MXIGNORE_LIST = 500        ! max size of IGNORE_LIST
      &  ,MXCID       = 299 999 999  ! max CID = 300 million -1 (9 digits)
@@ -455,7 +455,8 @@ c
      &  ,DOFUDGE_HOSTNOISE     ! T => FUDGE_HOSTNOISE_FILE is set
      &  ,DOFUDGE_NONLIN        ! T => NONLINEARITY_FILE is set
      &  ,DOFUDGE_FLUXERRMODEL  ! T => FLUXERRMODEL_FILE
-     &  ,CORRECT_SIGN_VPEC     ! T => data has correct VPEC sign (10/2020)
+     &  ,ISCORRECT_SIGN_VPEC   ! T => data has correct VPEC sign (10/2020)
+     &  ,DOFIX_WRONG_SIGN_VPEC ! T => flip VPEC sign
 
       CHARACTER
      &    SNANA_VERSION*12
@@ -554,7 +555,8 @@ c global survey info
      &    ,N_DUPLICATE_MJD, NSTORE_DUPLICATE_MJD
      &    ,NEPOCH_TOT, NEPOCH_USE, NEPOCH_CUT
      &    ,NEPOCH_BADPHOT, NEPOCH_BADPHOT_SUM
-     &    ,REFORMAT_SAVE_BADEPOCHS, STDOUT_UPDATE, CORRECT_SIGN_VPEC
+     &    ,REFORMAT_SAVE_BADEPOCHS, STDOUT_UPDATE
+     &    ,ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
      &    ,NVAR_TERSE, VARLIST_TERSE
      &    ,ITERSE_MJD, ITERSE_FILTER, ITERSE_FIELD   
@@ -1671,6 +1673,8 @@ c define namelist cuts
      &   ,SNCID_IGNORE_FILE*(MXCHAR_FILENAME) ! (I) file with CIDs to ignore
      &   ,SNCCID_IGNORE_ALL(MXIGNORE_LIST)*(MXCHAR_CCID)
 
+      REAL PKMJDINI_LIST_ALL(MXCCID_LIST) ! used if BTEST(OPT_SNCID_LIST,0)
+
       REAL
      &   snlc_cutvar(NCUTBIT_SNLC)
      &  ,snep_cutvar(CUTBIT_MJD_MARKER:NCUTBIT,MXEPOCH)
@@ -1817,6 +1821,7 @@ c
      &   ,CUTFLAG_SNANA , ERRFLAG_FIT 
      &   ,NCCID_LIST, NCCID_IGNORE, NCID_LIST, NCID_IGNORE
      &   ,SNTYPE_LIST, SNCID_LIST, SNCCID_LIST, SNCCID_LIST_ALL
+     &   ,PKMJDINI_LIST_ALL
      &   ,SNCCID_IGNORE,SNCID_IGNORE_FILE,SNCID_IGNORE,SNCCID_IGNORE_ALL
      &   ,MXEVT_PROCESS
      &   ,SNTYPE_IGNORE, CCDNUM_LIST, SIM_TEMPLATE_INDEX_LIST
@@ -1946,7 +1951,6 @@ c
      &  ,FILTER_UPDATE_PATH*(MXCHAR_PATH)   ! SN-dependent filter response
 
       CHARACTER  ! misc
-c xxx    &   LINE_ARGS(MXLINE_ARGS)*(2*MXCHAR_FILENAME)    ! command line args
      &   REFORMAT_KEYS*(MXCHAR_FILENAME)  ! global reformat info
      &  ,NONSURVEY_FILTERS*(MXFILT_ALL)   ! non-survey filters to add
      &  ,SNRMAX_FILTERS*(MXFILT_ALL)      ! list of filters for SNRMAX cuts
@@ -1979,6 +1983,7 @@ c xxx    &   LINE_ARGS(MXLINE_ARGS)*(2*MXCHAR_FILENAME)    ! command line args
      &  ,OPT_SIMLIB_OUT          ! bit mask of SIMLIB_OUT options
      &  ,SIMLIB_OUT_TMINFIX  ! choose PEAKMJD so that min(MJD-PEAKMJD)=TMINFIX
      &  ,REQUIRE_DOCANA
+     &  ,OPT_SNCID_LIST      ! 1=force all and ignore cuts; 2=use PKMJDINI
 
       LOGICAL 
      &   LSIM_SEARCH_SPEC   ! (I) T => require simulated SPEC-tag
@@ -2074,7 +2079,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE
-     &    , SNCID_LIST_FILE, NONLINEARITY_FILE
+     &    , SNCID_LIST_FILE, OPT_SNCID_LIST, NONLINEARITY_FILE
      &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , hfile_out, rootfile_out, textfile_prefix
@@ -2127,7 +2132,7 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    , KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY, USERTAGS_FILE
      &    , VPEC_FILE, HEADER_OVERRIDE_FILE
      &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE
-     &    , SNCID_LIST_FILE, NONLINEARITY_FILE
+     &    , SNCID_LIST_FILE, OPT_SNCID_LIST, NONLINEARITY_FILE
      &    , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST
      &    , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX
      &    , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS
@@ -2974,13 +2979,13 @@ c ------------------------------------------------
 c            Misc. inits for options
 
 c check option to read list of CIDs from text file (Nov 2013)
-      CALL RD_SNCIDLIST()
+      CALL RDFILE_SNCID()
      
 c check for SN,MJD list from file ... used for interpolation
-      CALL RD_SNMJDLIST()
+      CALL RDFILE_SNMJDLIST()
 
 c read optional tags
-      CALL RD_USERTAGS()
+      CALL RDFILE_USERTAGS()
 
 c read optional header-override (can include vpec) 
       CALL INIT_HEADER_OVERRIDE()     ! Nov 29 2016
@@ -3462,6 +3467,8 @@ c epochs-to-ignore from $SNDATA_ROOT/lcmerge/[version].IGNORE
       MARZFILE_OUT      = ' '  ! May 2020
 
       SNCID_LIST_FILE   = ' '
+      OPT_SNCID_LIST    = 0  ! default 0 => AND with other cuts
+
       MXEVT_PROCESS      = 999888777
       SIMLIB_OUT     = ''
       SIMLIB_OUTFILE = ''
@@ -3576,7 +3583,6 @@ c default is to reject nothing (accept everything)
       USESIM_TRUEFLUX = .FALSE.
 
       RESTORE_DES3YR     = .FALSE.
-cc xxx      RESTORE_WRONG_VPEC = .TRUE.  ! Oct 26 2020
       RESTORE_WRONG_VPEC = .FALSE.  ! Nov 3 2020
       REQUIRE_DOCANA     =  0      ! use integer to match sim usage
       READ_SPECTRA       = .TRUE.
@@ -4303,7 +4309,7 @@ c Sep 08 2014: lots of updates
 c Jul 12 2016: turn off tables if any reformat option is set.
 c Jul 17 2016: 
 c   + check for NOSIMVAR option (e..g, for blind tests)
-c   + fix but to ensure WRTABLEFILE_IAUC is initialized to F
+c   + fix bug to ensure WRTABLEFILE_IAUC is initialized to F
 c
 c Feb 19 2017: check SNTABLE_FILTER_REMAP
 c
@@ -5084,6 +5090,10 @@ c - - - -
          else if ( MATCH_NMLKEY('SNCID_LIST_FILE',
      &             1, iArg, ARGLIST) ) then 
            SNCID_LIST_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
+
+         else if ( MATCH_NMLKEY('OPT_SNCID_LIST',
+     &             1, iArg, ARGLIST) ) then 
+           READ(ARGLIST(1),*) OPT_SNCID_LIST
 
 
          else if ( MATCH_NMLKEY('MXEVT_PROCESS',
@@ -6055,6 +6065,15 @@ c Dec 2018: check for cuts on SIMVAR (e.g., SIM_c, SIM_ZCMB)
 
       CALL PARSE_SIMVAR_CUTS()
 
+c Jan 12 2021: check option to fix sign VPEC for older data
+      DOFIX_WRONG_SIGN_VPEC = (.not. RESTORE_WRONG_VPEC ) .and. 
+     &                        (.not. ISCORRECT_SIGN_VPEC) 
+      if ( DOFIX_WRONG_SIGN_VPEC ) then
+         print*,' '
+         print*,'    *** ALERT: VPEC sign will be flipped *** '
+         print*,' '
+         CALL FLUSH(6)
+      endif
       RETURN
       END  ! end PROCSNNML
 
@@ -8606,7 +8625,7 @@ C ============================
       EXTERNAL ERRMSG
       INTEGER  LENSTR
 c ----------------- BEGIN --------------
-      LENF = LENSTR(funname)
+      LENF = LENSTR(funname//' ')
       LEN1 = LENSTR(c1err)
       LEN2 = LENSTR(c2err)
       call errmsg(ISEV_FATAL, IPROMPT, 
@@ -9622,10 +9641,11 @@ C -------------- BEGIN -------------
       END     ! SNANA_NEARNBR_APPLY_END
 
 C =======================================
-+DECK,RDCIDLIST.
-      SUBROUTINE RD_SNCIDLIST
++DECK,RDFILE_SNCID.
+      SUBROUTINE RDFILE_SNCID
 
-c Created Nov 12, 2013
+
+c Refactored Jan 2021
 c Read optional list of CIDs from text file given by
 c &SNLCINP namelist variable SNCID_LIST_FILE.
 c
@@ -9653,15 +9673,13 @@ c ---------------------
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
 
-      INTEGER   IWD, NWD, LEN, LEN2, j, N_BADNAME, N_BADCHAR
+      INTEGER   IWD, NWD, LEN
       CHARACTER 
-     &   CCID*(MXCHAR_CCID)
-     &  ,CCID_TMP*(MXCHAR_CCID+2)
+     &   FNAM*14
      &  ,CTMP*60
-     &  ,BADCHARS*12, C1
      &  ,NAME_forC*200
 
-      LOGICAL  ISBAD, ISFMT, FOUND_VARNAMES
+      LOGICAL  FOUND_VARNAMES
 
       INTEGER  STORE_PARSE_WORDS
       EXTERNAL STORE_PARSE_WORDS
@@ -9673,7 +9691,8 @@ C -------------------- BEGIN ----------------------
 
       CALL ENVreplace(SNCID_LIST_FILE)  ! May 2018
 
-      CALL PRBANNER("RD_SNCIDLIST:")
+      FNAM = 'RDFILE_SNCID'
+      CALL PRBANNER(FNAM)
 
       CUTWIN_CID(1) = 0 
       CUTWIN_CID(2) = 0
@@ -9683,11 +9702,6 @@ C -------------------- BEGIN ----------------------
       print*,'   ', SNCID_LIST_FILE(1:LEN)
       CALL FLUSH(6)
 
-c define list of forbidden characters in CID name.
-      BADCHARS  = '%!#:$.  '
-      N_BADCHAR = INDEX(BADCHARS,' ') - 1
-      N_BADNAME = 0
- 
 c start loop over words in file.
       NAME_forC = SNCID_LIST_FILE(1:LEN) // char(0)
       NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LEN) 
@@ -9701,26 +9715,140 @@ c check if this is a fitres-formatted file with VARNAMES key
          CALL get_PARSE_WORD_fortran(iwd,CTMP,LEN)
          if ( CTMP .EQ. 'VARNAMES:' ) FOUND_VARNAMES = .TRUE.
  10   CONTINUE
-      ISFMT = ( FOUND_VARNAMES )
-      if ( ISFMT ) THEN
+      if ( FOUND_VARNAMES ) THEN
          print*,'   Detected VARNAMES key --> KEY format'
+         CALL RDFILE_SNCID_TABLE  ! read FITRES-formatted table
+      else 
+         CALL RDFILE_SNCID_NOFMT  ! unformatted file with only CID names
       endif
 
+c --------------------------
+      write(6,30) NCCID_LIST
+ 30   format(T8,'Stored ',I5,' CIDs to process' )
+      CALL FLUSH(6)
+
+      RETURN
+      END    ! end RDFILE_SNCID
+
+C =======================================
++DECK,RDFILE_SNCID_TABLE.
+      SUBROUTINE RDFILE_SNCID_TABLE
+
+c Read CID list from table-formatted file.
+c Check OPT_SNCID_LIST for option to read and store PKMJDINI
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER   isn, LEN, OPTMASK, EXIST_PKMJDINI, ISTAT
+      REAL*8    DVAL
+      CHARACTER cFILE*(MXCHAR_FILENAME), cTABLE*20
+      CHARACTER cVARNAME*40, cVARLIST*40
+      CHARACTER CCID*(MXCHAR_CCID), FNAM*20, cDUM*20
+      LOGICAL   REQUIRE_PKMJDINI
+
+c functions
+      INTEGER  
+     &    SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
+
+      EXTERNAL 
+     &    SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
+     &   ,FETCH_AUTOSTORE_CCID
+
+c ----------- BEGIN ----------
+
+      FNAM     = 'RDFILE_SNCID_TABLE'
+
+      LEN      = INDEX(SNCID_LIST_FILE,' ') - 1
+      cFILE    = SNCID_LIST_FILE(1:LEN) // char(0)
+      cTABLE   = 'SNCID_LIST' // char(0)
+      cVARLIST = 'PKMJDINI' // char(0)
+      OPTMASK  = 0
+      NCCID_LIST = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST, 
+     &     OPTMASK,  LEN, 20, 40 )
+
+      if ( NCCID_LIST > MXCCID_LIST ) then
+         write(c1err,661) NCCID_LIST, MXCCID_LIST
+ 661     format(I6,' table rows exceeds bound of MXCCID_LIST=',I6)
+         c2err = 'Reduce table size, or increase MXCCID_LIST'
+         CALL MADABORT(FNAM, c1err, c2err)
+      endif
+
+      cVARNAME = 'PKMJDINI' // char(0)
+      EXIST_PKMJDINI   = EXIST_VARNAME_AUTOSTORE(cVARNAME,20)
+      REQUIRE_PKMJDINI = BTEST(OPT_SNCID_LIST,1) 
+
+c      print*,' xxx PKMJDINI(REQ,EXIST) = ',
+c     &       REQUIRE_PKMJDINI, EXIST_PKMJDINI, ' for ', cVARNAME
+
+      IF ( REQUIRE_PKMJDINI .and. EXIST_PKMJDINI==0 ) THEN
+         c1err = 'Required PKMJDINI does not exist.'
+         c2err = 'Check ' // SNCID_LIST_FILE
+         CALL MADABORT(FNAM, c1err, c2err)
+      ENDIF
+
+
+c store each CCID and PKMJD
+
+      DO 100 isn = 1, NCCID_LIST
+         CALL FETCH_AUTOSTORE_CCID(0,isn-1,CCID)
+         LEN = INDEX(CCID,char(0)) - 1
+cc         print*,' xxx load ', isn, CCID(1:LEN)
+         SNCCID_LIST_ALL(isn) = CCID(1:LEN)
+         if ( REQUIRE_PKMJDINI ) then
+            CALL SNTABLE_AUTOSTORE_READ(CCID, cVARNAME, ISTAT,
+     &          DVAL, cDUM, MXCHAR_CCID, 20, 20)
+            PKMJDINI_LIST_ALL(isn) = DVAL
+         endif
+
+ 100  CONTINUE
+
+      RETURN
+      END
+
+C =======================================
++DECK,RDFILE_SNCID_NOFMT.
+      SUBROUTINE RDFILE_SNCID_NOFMT
+
+c Jan 2021
+c Read optional list of CIDs from unformatted text file.
+c &SNLCINP namelist variable SNCID_LIST_FILE.
+c
+c ---------------------
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER   IWD, NWD, LEN, LEN2, j, N_BADNAME, N_BADCHAR
+      CHARACTER 
+     &   FNAM*20
+     &  ,CCID*(MXCHAR_CCID)
+     &  ,CCID_TMP*(MXCHAR_CCID+2)
+     &  ,CTMP*60
+     &  ,BADCHARS*12, C1
+     &  ,NAME_forC*200
+
+      LOGICAL  ISBAD, ISFMT, FOUND_VARNAMES
+
+      INTEGER  STORE_PARSE_WORDS
+      EXTERNAL STORE_PARSE_WORDS
+C -------------------- BEGIN ----------------------
+ 
+
+      FNAM = 'RDFILE_SNCID_NOFMT'
+      CALL PRBANNER(FNAM)
+
+c define list of forbidden characters in CID name.
+      BADCHARS  = '%!#:$.  '
+      N_BADCHAR = INDEX(BADCHARS,' ') - 1
+      N_BADNAME = 0
+ 
 c -----------------------------
       DO 100 iwd = 1, NWD
 
          CALL get_PARSE_WORD_fortran(iwd,CTMP,LEN)
-
-c check for formatted file
-         if ( ISFMT ) THEN
-            if ( CTMP .EQ. 'SN:' .or. CTMP .EQ. 'ROW:' ) THEN
-               ! CID myst be string after SN/ROW key
-               CALL get_PARSE_WORD_fortran(iwd+1,CCID,LEN2) 
-               GOTO 99   ! load CID into array
-            else
-               GOTO 100  ! skip anything that is not a valid key
-            endif
-         endif
         
 c below is for unformatted (or free-formatted) list of CIDs
 
@@ -9754,8 +9882,7 @@ c - - - - - - - - - - -  - -
 
          NCCID_LIST = NCCID_LIST + 1
          CALL CHKARRBOUND(NCCID_LIST, ONE, MXCCID_LIST, "NCCID_LIST",
-     &          "Check above CID-list file", "RD_SNCIDLIST")
-
+     &          "Check above CID-list file", FNAM)
          SNCCID_LIST_ALL(NCCID_LIST) = CCID
 
  100  CONTINUE  ! iwd
@@ -9767,20 +9894,15 @@ c abort if any CID names have invalid characters
          write(c1err,661) N_BADNAME
  661     format(I4,' CIDs have invalid name.' )
          c2err = 'Check above WARNINGS and SNCID_LIST_FILE'
-         CALL  MADABORT("RD_SNCIDLIST", C1ERR, C2ERR)
+         CALL  MADABORT(FNAM, C1ERR, C2ERR)
       ENDIF
 
-c --------------------------
-      write(6,30) NCCID_LIST
- 30   format(T8,'Stored ',I5,' CIDs to process' )
-      CALL FLUSH(6)
-
       RETURN
-      END
+      END    ! end RDFILE_SNCID_NOFMT
 
 C =======================================
-+DECK,RDMJDLIST.
-      SUBROUTINE RD_SNMJDLIST
++DECK,RD_SNMJDLIST.
+      SUBROUTINE RDFILE_SNMJDLIST
 c
 c Created May 2008 by R.Kessler
 c
@@ -9809,7 +9931,7 @@ c ---------
 
       INTEGER   iwd, NWD, LEN, N, j, LL0, LL1
       CHARACTER CCID*(MXCHAR_CCID), NAME_forC*(MXCHAR_FILENAME)
-      CHARACTER CTMP0*40, CTMP1*40
+      CHARACTER CTMP0*40, CTMP1*40, FNAM*18
       REAL*8  MJD8
       LOGICAL LOK
 
@@ -9823,6 +9945,7 @@ c ---------- BEGIN ----------
       
       IF ( SNMJD_LIST_FILE .EQ. ' ' ) RETURN
 
+      FNAM = 'RDFILE_SNMJDLIST'
       N_INTERP_MJDLIST_DONE = 0
 c init arrays
       N_INTERP_MJDLIST       = 0
@@ -9832,7 +9955,7 @@ c init arrays
          INTERP_MJDLIST_DONE(j) = .FALSE.
       ENDDO
 
-      CALL PRBANNER("RD_SNMJDLIST:")
+      CALL PRBANNER(FNAM)
 
       LEN = INDEX(SNMJD_LIST_FILE,' ') - 1
       print*,' '
@@ -9870,12 +9993,12 @@ c --- error checking
             write(c1err,61) MJD8
 61          format('Read Invalid MJD = ', F12.3,' from ' ) 
             c2err = SNMJD_LIST_FILE(1:80)
-            CALL  MADABORT("RD_SNMJDLIST", C1ERR, C2ERR)
+            CALL  MADABORT(FNAM, C1ERR, C2ERR)
          endif
 
 c abort if we exceed array bound
          IF ( N_INTERP_MJDLIST .GT. MXINTERP ) THEN
-            CALL PRINT_PREABORT_BANNER("RD_SNMJDLIST"//char(0), 40)
+            CALL PRINT_PREABORT_BANNER("RDFILE_SNMJDLIST"//char(0),40)
             print*,'   SNMJD_LIST_FILE = ', SNMJD_LIST_FILE
             write(c1err,161) CCID, MJD8
 161         format('N_INTERP_MJDLIST exceeds bound at CID=',A8, 2x,
@@ -9883,13 +10006,13 @@ c abort if we exceed array bound
             write(c2err,162) MXINTERP
 162         format('Check MXINTERP=',I5,' and SNMJD_LIST_FILE above.')
 
-           CALL  MADABORT("RD_SNMJDLIST", C1ERR, C2ERR)
+           CALL  MADABORT(FNAM, C1ERR, C2ERR)
       ENDIF
 
 100   CONTINUE  ! iwd
 
       RETURN
-      END   ! end of RD_SNMJDLIST
+      END   ! end of RDFILE_SNMJDLIST
 
 C =============================
 +DECK,GTINTLIST.
@@ -10386,7 +10509,7 @@ c  text format does NOT include SNANA version in header, so set
 c  SNANA_VERSION_DATA using current SNANA_VERSION.
 c  Also assume that VPEC sign is correct since there is no way to trace it.
       SNANA_VERSION_DATA = SNANA_VERSION
-      CORRECT_SIGN_VPEC  = .TRUE.
+      ISCORRECT_SIGN_VPEC  = .TRUE.
 
       NPAR_SIMSED       = 0
       NPAR_PySEDMODEL   = 0
@@ -11520,7 +11643,8 @@ c Oct 26 2020: check for SNANA_VERSION in fits header
       LRET  = INDEX(KEYVAL,char(0)) - 1
       IF(LRET > 0) THEN
          READ( KEYVAL(1:LRET), * ) SNANA_VERSION_DATA
-         CORRECT_SIGN_VPEC = correct_sign_vpec_data(SNANA_VERSION_DATA)
+cc	 print*,' xxx SNANA_VERSION_DATA = ', SNANA_VERSION_DATA
+         ISCORRECT_SIGN_VPEC = correct_sign_vpec_data(KEYVAL)
       ENDIF
 
 c --------------------------------------------------------
@@ -14242,7 +14366,6 @@ c now check list of variable names
           ITERSE_FILTER = IVAR
         else if ( CTMP(1:4) .EQ. 'FILT' ) then  ! 9/13/2017
           ITERSE_FILTER = IVAR
-
         else if ( CTMP(1:4) .EQ. 'BAND' ) then   ! Mar 29 2017
           ITERSE_FILTER = IVAR   
 
@@ -14264,11 +14387,6 @@ c now check list of variable names
           ITERSE_ZPFLUX = IVAR
         else if ( CTMP(1:3) .EQ. 'Zpt' ) then
           ITERSE_ZPFLUX = IVAR
-
-c xxxxxxxxx Jan 27 2020: mark delete to void conflict with ZPERR xxxxx
-c        else if ( CTMP(1:2) .EQ. 'ZP' ) then
-c          ITERSE_ZPFLUX = IVAR
-c xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
         else if ( CTMP(1:6) .EQ. 'ZPFLUX' ) then
           ITERSE_ZPFLUX = IVAR
@@ -14327,7 +14445,7 @@ c Aug 15 2015: check required fields
      &                 ITERSE_FLUXCALERR, ONE, NVAR_TERSE)
 
       RETURN
-      END    ! end of PARSE_TERSE
+      END    ! end of PARSE_TERSE_VARLIST
 
 
 C ====================================
@@ -14814,7 +14932,7 @@ c subroutine args.
 c local var
       character CWD_ZERR*60, ZKEY*24, RETSTR*80
       REAL     Z, ZERR, ZMAX
-      LOGICAL  LZTMP, FIX_WRONG_SIGN_VPEC, WRONG_SIGN_VPEC
+      LOGICAL  LZTMP
       REAL*8   RET8(MXFILT_OBS)
 
 c functions
@@ -14903,9 +15021,7 @@ c Jan 2018: read optional VPEC & its error
          endif
 
 c Oct 26 2020: check option to fix VPEC sign convention in older FITS data
-        FIX_WRONG_SIGN_VPEC = (.not. RESTORE_WRONG_VPEC) ! user intent
-        WRONG_SIGN_VPEC     = (.not. CORRECT_SIGN_VPEC)  ! has wrog sing
-        if ( WRONG_SIGN_VPEC .and. FIX_WRONG_SIGN_VPEC ) then
+        if ( DOFIX_WRONG_SIGN_VPEC ) then
            SNLC_VPEC = -1.0 * SNLC_VPEC
         endif
 
@@ -15231,11 +15347,6 @@ c apply epoch cut.
         IGNORE  = CHECK_EPOCH_IGNORE(1,EPMIN) .and. 
      &            (.not. REFORMAT_SAVE_BADEPOCHS)
 
-c xxxxxxxxxxx mark delete xxxxxxx
-c        LTMP    = LCUTEPOCH_LEGACY(Z,PKMJD,SNGL(MJD8),IFILT,IDFIELD)
-c     &            .and. (.not. IGNORE )
-c xxxxxxxxxxxxxx
-
         LTMP  = LCUTEPOCH(0,Z,PKMJD,EPMIN) .and. (.not. IGNORE )
 
         if ( .NOT. LTMP ) ISTAT = ISTAT_SKIP
@@ -15364,7 +15475,7 @@ c local var
      &  ,ccid*(MXCHAR_CCID)
 
       INTEGER LL, iwd, ifilt, ifilt_obs, NEWMJD, ep, EPMIN
-
+      INTEGER LWORD
       LOGICAL LKEY
 
 c function
@@ -15392,7 +15503,14 @@ c ---------- BEGIN --------
       EPMIN   = ISNLC_NEPOCH_STORE + 1
       LL      = 1
 
-      cfilt = cwords(iwd)(1:2)
+
+c Dec 17 2020:
+c take last character of filter word to allow full filter names
+c in text format: e.g., Bessell-U is read here as U
+
+      LWORD = INDEX(cwords(iwd),' ') - 1
+      cfilt = cwords(iwd)(LWORD:LWORD)
+c xxx mark delete      cfilt = cwords(iwd)(1:2)
       ep    = EPMIN - 1
 
       DO 100 WHILE ( LL .EQ. 1 )
@@ -16362,11 +16480,12 @@ c - - - - - - - - -
 c require valid observer-filter if OPT=1
               LERR = IFILTDEF_INVMAP_SURVEY(IFILT_TMP) .LE. 0
               if ( LERR .and. OPT==1 ) then
+                print*,'  SURVEY_FILTERS = ', SURVEY_FILTERS
                 LEN = index(cwd,' ') - 1
                 c1err = 'Invalid obs-frame filter = '''
      &             // BAND // ''' from nml string'
                 c2err = '= ''' // string(1:60) // '''  '
-                CALL MADABORT("PARSE_FILTSTRING", c1err, c2err )
+                CALL MADABORT('PARSE_FILTSTRING', c1err, c2err )
               endif
            enddo
          else
@@ -17527,6 +17646,9 @@ c
 c Creatd Jan 31, 2006 by R.Kessler
 c Initialize CUTMASK_ALL and CUTWIN_XXX
 c
+c Jan 4 2021:
+c  + remove obsolete logic with !LSIM_SNANA && ibit==CUTBIT_SEARCH 
+c  + check OPT_SNCID_LIST
 c
       IMPLICIT NONE
 +CDE,SNDATCOM.
@@ -17535,7 +17657,6 @@ c
 
       INTEGER IERR ! (O)  0=> OK
       INTEGER ibit
-      LOGICAL DOCUT
 
 C -------------- BEGIN -------------------
  
@@ -17551,11 +17672,8 @@ C -------------- BEGIN -------------------
       CUTMASK8_MJD_ALL   = 0  ! init common block var
 
       DO 100 ibit = 1, NCUTBIT
-          DOCUT = .TRUE.
 
-         if ( .NOT. LSIM_SNANA .and. ibit .EQ. CUTBIT_SEARCH ) goto 100
-
-         if ( .NOT. DOCUT ) GOTO 100
+c xxx ??  if ( .NOT. LSIM_SNANA .and. ibit .EQ. CUTBIT_SEARCH ) goto 100
 
          if ( ibit .LE. CUTBIT_MJD_MARKER ) then
            CUTMASK8_SN_ALL = IBSET ( CUTMASK8_SN_ALL, ibit-1 )
@@ -17563,6 +17681,18 @@ C -------------- BEGIN -------------------
            CUTMASK8_MJD_ALL = IBSET ( CUTMASK8_MJD_ALL, ibit-1 )
          endif
 100   CONTINUE
+
+
+c Jan 2021: check option to require ONLY CID-select.
+
+      if ( BTEST(OPT_SNCID_LIST,0) ) THEN
+          CUTMASK8_SN_ALL = 0
+          CUTMASK8_SN_ALL = IBSET(CUTMASK8_SN_ALL,CUTBIT_CID-1)
+	  print*,' '
+	  print*,'      **** APPLY ONLY CID-SELECT CUT **** '
+	  print*,' '
+	  CALL FLUSH(6)
+      endif
 
       print*,' '
       print*,' INIT_CUTMASK: NCUTBIT          = ', NCUTBIT
@@ -17874,8 +18004,8 @@ c correct data fluxes if USE_MWCOR=T
       END   ! end MWEBV_FLUXCOR
 
 C ===========================================
-+DECK,RDUSRTAGS.
-      SUBROUTINE RD_USERTAGS()
++DECK,RDFILE_USRTAGS.
+      SUBROUTINE RDFILE_USERTAGS()
 c
 c Created Aug 2011 by R.Kessler
 c If namelist USERTAGS_FILE is set, then read integer tag
@@ -17929,7 +18059,7 @@ c init all tags to zero
         USERTAG_USED(itag)      = 0
       ENDDO
 
-      CALL PRBANNER("RD_USERTAGS")
+      CALL PRBANNER("RDFILE_USERTAGS")
       print*,'  Read user tags to identify subsets. '
 
       NAME_ForC = USERTAGS_FILE(1:LEN)//char(0)
@@ -17949,7 +18079,7 @@ c init all tags to zero
              write(c1err,61) MXUSERTAG
 61           format('Number of USER TAGS exceeds bound of ',I5)
              c2err = 'Check ' // USERTAGS_FILE(1:60)
-             CALL MADABORT("RD_USERTAGS", c1err, c2err )
+             CALL MADABORT("RDFILE_USERTAGS", c1err, c2err )
            endif
 
            CALL get_PARSE_WORD_fortran(iwd+1,CWD,LEN)
@@ -21782,6 +21912,7 @@ c
 c Oct 15, 2019: fix format for SKYSIG : 6.2f -> 7.2f
 c Nov 22, 2019: adapt to work on fakes and sims, and write MAG column.
 c Oct 05, 2020: add ZP requirement to compute metadata; see FOUND_METADATA
+c Jan 19, 2021: add pad space between MJD and IDEXPT
 c
 c --------------------------
 
@@ -22020,8 +22151,8 @@ c May 29 2020: write TAKE_SPECTRUM keys if there are spectra
 
 c write column header
       WRITE(LUNOUT,110) 
-110   FORMAT(/,'#  MJD     IDUM  BAND  GAIN RDNOISE  SKYSIG    ', 
-     &         'PSF1 PSF2 PSFRAT    ZP  ZPERR   MAG' )
+110   FORMAT(/,'#   MJD    IDEXPT  BAND  GAIN RDNOISE  SKYSIG  ', 
+     &         'PSF1 PSF2 PSFRAT    ZP  ZPERR  MAG' )
 
       DO IFILT_OBS = 1, MXFILT_OBS
          LASTEP(IFILT_OBS) = -9
@@ -22068,7 +22199,6 @@ c Mainly for low-z sample which has no meta data.
            FOUND_METADATA = 
      &       ( PSF1 > 1.0E-5 .and. SKYSIG > 1.0E-5 .and. ZP > 1.0)
 
-cc xxxx remove   IF ( PSF1 < 1.0E-5 .and.  SKYSIG < 1.0E-5 ) THEN
            IF ( .not. FOUND_METADATA ) THEN
               GAIN    = 1.0 ;  RDNOISE = 1.0 
               ZPERR   = DBLE( SIMLIB_ZPERR(ifilt_obs) )
@@ -22094,7 +22224,7 @@ cc xxxx remove   IF ( PSF1 < 1.0E-5 .and.  SKYSIG < 1.0E-5 ) THEN
      &        ZP, ZPERR, cMAG(1:LENcMAG)
 
 120        format('S: ', 
-     &            F9.3, I4, 2x, A2, 2x,      ! MJD, ID, BAND
+     &            F9.3, 1x, I4, 2x, A2, 2x,  ! MJD, ID, BAND
      &            F5.2, 2x, F5.2, 2x,        ! GAIN, RDNOISE
      &            F7.2, 1x, 3(F6.2),2x,      ! SKYSIG, PSF info
      &            F6.3, 1x, F5.3, 1x, A      ! ZP, ZPERR, MAG
@@ -24084,6 +24214,7 @@ c to avoid declaring such a large array.
 c
 c
 c Oct 10 2020: fix bug checking SNCCID_IGNORE_ALL
+c Jan 04 2021: check OPT_SNCID_LIST for option to use alternate PKMJDINI
 C ---------------------------
 
       IMPLICIT NONE
@@ -24096,7 +24227,7 @@ c input function args
 +CDE,SNCUTS.
 +CDE,SNLCINP.
 +CDE,INTERPCM.
-cc +CDE,SNLCCOM.
++CDE,SNLCCOM.
    
       INTEGER i, LEN, LENCCID
       REAL XCID     
@@ -24150,6 +24281,11 @@ c of individual CIDs to process
         CCIDTMP = SNCCID_LIST_ALL(i)
         IF ( STRINGMATCH(CCIDTMP,CCID) ) THEN
           LCIDSELECT = .TRUE.
+	  ! Jan 4 2021: check option to use PKMJD from CCID file
+	  if ( BTEST(OPT_SNCID_LIST,1) ) then
+              SNLC_SNANAFIT_PEAKMJD = PKMJDINI_LIST_ALL(i)
+              SNLC_SEARCH_PEAKMJD   = PKMJDINI_LIST_ALL(i)
+          endif
           GOTO 800
         ENDIF
 
@@ -26498,6 +26634,7 @@ c Feb 01, 2019: add SIM_LCWIDTH
 c Feb 27, 2020: add SIM_HOSTLIB_GALID
 c Mar 19, 2020: add SIM_RV  to table
 c Sep 11, 2020: add PySEDMODEL = BYOSED or SNEMO
+c Dec 28, 2020: write SIM_gammaDM to TEXT file if non-zero
 
       IMPLICIT  NONE
       INTEGER   ID          ! (I) table id
@@ -26622,10 +26759,12 @@ cc      ENDIF
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_COLORLAW,  VARLIST, 1,
      &                   LENBLOCK, LENLIST)
 
-c Jun 25 2019: add SIM_SALT2gammaDM, but not in TEXT file until later.
+c add SIM_gammaDM if not zero.
+      ITEXT = 0
+      if ( SIM_SALT2gammaDM .NE. 0.0 ) ITEXT = 1
       VARLIST = 'SIM_gammaDM:F' // char(0) 
-      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2gammaDM, VARLIST,0,
-     &                   LENBLOCK, LENLIST)
+      CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2gammaDM,VARLIST,ITEXT,
+     &                   LENBLOCK, LENLIST )
 
       VARLIST = 'SIM_x0:F' // char(0)
       CALL SNTABLE_ADDCOL(ID, CBLOCK, SIM_SALT2x0,  VARLIST, 1,
@@ -37195,6 +37334,10 @@ c function
 C ---------------- BEGIN ----------------
 
       if ( OPT_SETPKMJD <= 0 ) RETURN
+
+c Jan 4 2021: bail if option is set to use PKMJDINI from SNCID_LIST_FILE
+      if ( BTEST(OPT_SNCID_LIST,1) ) RETURN
+
       FNAM = 'SET_PEAKMJD'
       CCID = SNLC_CCID
 

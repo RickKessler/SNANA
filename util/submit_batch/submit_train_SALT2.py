@@ -146,7 +146,7 @@ class train_SALT2(Program):
             self.log_assert(False,msgerr)
 
         survey_map_file  = (f"{PATH_EXPAND}/survey.yaml")
-        survey_yaml      = util.extract_yaml(survey_map_file)
+        survey_yaml      = util.extract_yaml(survey_map_file, None, None )
         
         self.config_prep['survey_yaml']      = survey_yaml
         self.config_prep['survey_map_file']  = survey_map_file
@@ -154,6 +154,40 @@ class train_SALT2(Program):
         # end train_prep_survey_map
 
     def train_prep_trainopt_list(self):
+        CONFIG   = self.config_yaml['CONFIG']
+        key      = TRAINOPT_STRING
+        if key in CONFIG :
+            trainopt_rows = CONFIG[key]
+        else:
+            trainopt_rows = []
+
+        # - - - - - 
+        trainopt_dict = util.prep_jobopt_list(trainopt_rows, 
+                                              TRAINOPT_STRING, 
+                                              KEY_SHIFTLIST_FILE )
+
+        n_trainopt          = trainopt_dict['n_jobopt']
+        trainopt_arg_list   = trainopt_dict['jobopt_arg_list']
+        trainopt_ARG_list   = trainopt_dict['jobopt_ARG_list']
+        trainopt_num_list   = trainopt_dict['jobopt_num_list']  
+        trainopt_label_list = trainopt_dict['jobopt_label_list']
+        trainopt_shift_file = trainopt_dict['jobopt_file_list']
+        use_shift_file      = trainopt_dict['use_arg_file']
+
+        logging.info(f" Store {n_trainopt-1} TRAIN-SALT2 options " \
+                     f"from {TRAINOPT_STRING} keys")
+
+        self.config_prep['n_trainopt']          = n_trainopt
+        self.config_prep['trainopt_arg_list']   = trainopt_arg_list
+        self.config_prep['trainopt_ARG_list']   = trainopt_ARG_list
+        self.config_prep['trainopt_num_list']   = trainopt_num_list
+        self.config_prep['trainopt_label_list'] = trainopt_label_list
+        self.config_prep['trainopt_shift_file'] = trainopt_shift_file
+        self.config_prep['use_shift_file']      = use_shift_file
+
+        # end train_prep_trainopt_list
+
+    def train_prep_trainopt_OBSOLETE(self):
         CONFIG              = self.config_yaml['CONFIG']
         input_file          = self.config_yaml['args'].input_file 
         n_trainopt          = 1
@@ -164,6 +198,7 @@ class train_SALT2(Program):
         trainopt_shift_file = [ None ]   
         use_shift_file      = False
 
+        # **** OBSOLETE *****
         key = TRAINOPT_STRING
         if key in CONFIG  :
             for trainopt_raw in CONFIG[key] : # might include label
@@ -178,11 +213,13 @@ class train_SALT2(Program):
                 trainopt_shift_file.append(shift_file)
                 n_trainopt += 1
             
+        # **** OBSOLETE *****
         logging.info(f" Store {n_trainopt-1} TRAIN-SALT2 options " \
                      f"from {TRAINOPT_STRING} keys")
 
         #sys.exit(f"\n xxx DEBUG DIE xxxx")
 
+        # **** OBSOLETE *****
         self.config_prep['n_trainopt']          = n_trainopt
         self.config_prep['trainopt_arg_list']   = trainopt_arg_list
         self.config_prep['trainopt_ARG_list']   = trainopt_ARG_list
@@ -191,9 +228,13 @@ class train_SALT2(Program):
         self.config_prep['trainopt_shift_file'] = trainopt_shift_file
         self.config_prep['use_shift_file']      = use_shift_file
 
-        # end train_prep_trainopt_list
-        
+        # end train_prep_trainopt_OBSOLETE
+    
+    # xxxxxxxxxx mark delete Jan 24 2021
     def train_prep_expand_arg(self,ARG):
+
+        # ******* OBSOLETE mark delete Jan 24 2021 *******
+
         # if ARG starts with KEY_SHIFTLIST_FILE, the return arg
         # equal to contents of file; otherwise return arg = ARG.
         # Motivation is that user can build long list of random
@@ -202,6 +243,8 @@ class train_SALT2(Program):
         # BEWARE that SHIFTLIST_FILE is NOT a yaml file ... the contents
         # must be valid TRAINOPT arguments. Abort on any colons in case
         # user accidentally goes yaml.
+
+        # ******* OBSOLETE mark delete Jan 24 2021 *******
 
         arg = ARG
         KEY = KEY_SHIFTLIST_FILE
@@ -217,6 +260,8 @@ class train_SALT2(Program):
                     word_list += line.replace("\n"," ")
             arg = word_list
 
+        # ******* OBSOLETE mark delete Jan 24 2021 *******
+
         # - - - - -
         #print(f" xxx ---------------------------------------- ")
         #print(f" xxx ARG = {ARG}")
@@ -230,8 +275,11 @@ class train_SALT2(Program):
             msgerr.append(f"{KEY} contents must be valid TRAINOPT args. ")
             util.log_assert(False,msgerr)
 
+        # ******* OBSOLETE mark delete Jan 24 2021 *******
         return arg, shift_file
         # end train_prep_expand_arg
+        # xxxxxxxxxxx
+
 
     def get_path_trainopt(self,which,trainopt):
         output_dir    = self.config_prep['output_dir']
@@ -686,32 +734,37 @@ class train_SALT2(Program):
         ###sys.exit("\n xxx DEBUG EXIST xxx ")
         # end train_prep_error_checks
 
-    def write_command_file(self, icpu, COMMAND_FILE):
+    def write_command_file(self, icpu, f):
+        # For this icpu, write full set of sim commands to
+        # already-opened command file with pointer f. 
+        # Function returns number of jobs for this cpu
 
         n_core          = self.config_prep['n_core']
         n_trainopt      = self.config_prep['n_trainopt']            
         n_job_tot   = n_trainopt
         n_job_split = 1     # cannot break up train job
         n_job_local = 0
+        n_job_cpu   = 0
 
         self.config_prep['n_job_split'] = n_job_split
         self.config_prep['n_job_tot']   = n_job_tot
         self.config_prep['n_done_tot']  = n_job_tot
 
         # open CMD file for this icpu  
-        f = open(COMMAND_FILE, 'a')
+        # xxxx mark delete f = open(COMMAND_FILE, 'a')
 
         for itrain in range(0,n_trainopt):
             n_job_local += 1
             if ( (n_job_local-1) % n_core ) == icpu :
 
+                n_job_cpu += 1
                 job_info_train   = self.prep_JOB_INFO_train(itrain)
                 util.write_job_info(f, job_info_train, icpu)
     
                 job_info_merge = self.prep_JOB_INFO_merge(icpu,n_job_local) 
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
-        f.close()            
+        return n_job_cpu
 
         # end write_command_file
 

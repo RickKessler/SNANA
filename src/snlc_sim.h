@@ -1227,6 +1227,8 @@ struct GENFILT {
 
 int NGENLC_TOT ;             // actual number of generated LC
 int NGENLC_WRITE ;           // number written
+
+int NGENSPEC_TOT;            // total number of generated spectra
 int NGENSPEC_WRITE ;         // number of spectra written
 int NGENFLUX_DRIVER;         // number of calls to GENFLUX_DRIVER
 
@@ -1292,7 +1294,7 @@ struct SIMLIB_GLOBAL_HEADER {
   char PSF_UNIT[40] ;
   char SKYSIG_UNIT[40];
   char USERNAME[40];
-  int  NLIBID ;
+  int  NLIBID, NLIBID_VALID ;
   double PIXSIZE, SOLID_ANGLE ;
   int  NPE_PIXEL_SATURATE;    // Jan 3, 2018
   int  PHOTFLAG_SATURATE ;

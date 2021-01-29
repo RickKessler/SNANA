@@ -110,12 +110,18 @@ int main(int argc, char **argv) {
   // check for random CID option (after randoms are inited above)
   init_CIDRAN();
 
-  // prepare random systematic shifts after reading SURVEY from SIMLIB
+  /* xxxxxxxx mark delete Jan 14 2021 xxxxxxxx
   prep_RANSYSTPAR() ; // moved BEFORE init_RateModel (Oct 16 2020)
+  xxxxxxxxxxxxx */
 
   // init based on GENSOURCE
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
     init_RANDOMsource();
+
+    // prepare randome systematic shifts after reading SURVEY from SIMLIB,
+    // but before init_RateModel
+    prep_RANSYSTPAR() ;
+
     init_RateModel();
 
     if ( INPUTS.INIT_ONLY == 1 ) { debugexit("main: QUIT AFTER RATE-INIT"); }
@@ -129,9 +135,6 @@ int main(int argc, char **argv) {
     sprintf(c1err,"%s is invalid GENSOURCE", INPUTS.GENSOURCE );
     errmsg(SEV_FATAL, 0, fnam, c1err, "" ); 
   }
-
-  // prepare random systematic shifts after reading SURVEY from SIMLIB
-  // xxx prep_RANSYSTPAR() ; // .xyz move before init_RateModel ??
 
 
   // abort on NGEN=0 after printing N per season (init_Rate above)
@@ -2972,8 +2975,10 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     N++; parse_input_GENZPHOT_OUTLIER(WORDS[N]);
   }
   else if ( keyMatchSim(1, "HOSTLIB_GENZPHOT_BIAS",WORDS[0],keySource) ) {
-    for(j=0; j < 4; j++ ) 
-      { N++; sscanf(WORDS[N],"%le",&INPUTS.HOSTLIB_GENZPHOT_BIAS[j]) ; }
+    for(j=0; j < 4; j++ )  { 
+      N++; nread = sscanf(WORDS[N],"%f",&INPUTS.HOSTLIB_GENZPHOT_BIAS[j]) ; 
+      if ( nread != 1 ) { abort_bad_input(WORDS[0], WORDS[N], j, fnam); }
+    }
   }
   else if ( keyMatchSim(1, "HOSTLIB_DZTOL",WORDS[0],keySource) ) {
 
@@ -3843,7 +3848,8 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
     sprintf(c2err,"Remove one of these TAKE_SPECTRUM sources.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
- 
+
+
   // init TAKE_SPECTRUM structure 
   for(i=0; i < 2; i++)  { 
     INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[i]  = -99.0;
@@ -4331,6 +4337,8 @@ void parse_input_OBSOLETE(char **WORDS, int keySource ) {
   // Note that abort call is via
   //    legacyKey_abort(fnam, key_obsolete, key_new)
   // to print name of valid key.
+  //
+  // Dec 23 2020: abort if CONFIG file key is found.
 
   char fnam[] = "parse_input_OBSOLETE";
 
@@ -4357,6 +4365,17 @@ void parse_input_OBSOLETE(char **WORDS, int keySource ) {
 
   else if ( keyMatchSim(1, "SMEARFLAG_HOSTGAL", WORDS[0], keySource) )
     { legacyKey_abort(fnam, "SMEARFLAG_HOSTGAL:", ""); }
+
+ 
+  bool IS_CONFIG_FILE = 
+    ( keyMatchSim(1, "BATCH_INFO", WORDS[0], keySource)  ||
+      keyMatchSim(1, "CONFIG",     WORDS[0], keySource) ) ;
+  if ( IS_CONFIG_FILE ) {
+    sprintf(c1err,"'%s' key is for config/master file -->", WORDS[0]);
+    sprintf(c2err,"This file is for submit_batch_jobs, not snlc_sim.exe");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  
 
   return;
 
@@ -4655,6 +4674,7 @@ void prep_user_input(void) {
   ENVreplace(INPUTS.HOSTLIB_FILE,fnam,1);
   ENVreplace(INPUTS.HOSTLIB_WGTMAP_FILE,fnam,1);
   ENVreplace(INPUTS.HOSTLIB_ZPHOTEFF_FILE,fnam,1);
+  ENVreplace(INPUTS.HOSTLIB_SPECBASIS_FILE,fnam,1);
   ENVreplace(INPUTS.FLUXERRMODEL_FILE,fnam,1 );
   ENVreplace(INPUTS.HOSTNOISE_FILE,fnam,1 );
   ENVreplace(INPUTS.WRONGHOST_FILE,fnam,1 );
@@ -4728,9 +4748,15 @@ void prep_user_input(void) {
   // check for optional over-ride of model path;
   // getenv(PRIVATE_MODELPATH_NAME is equivalent of 
   // $SNDATA_ROOT/models/[SALT2,mlcs2k2...]
+  // Jan 12 2021: abort if SNANA_MODELPATH is set.
   if ( getenv(PRIVATE_MODELPATH_NAME) != NULL ) {
-    sprintf(INPUTS.MODELPATH,"%s/%s", 
-	    getenv(PRIVATE_MODELPATH_NAME), INPUTS.MODELNAME );
+
+    sprintf(c1err,"ENV %s is no longer valid", PRIVATE_MODELPATH_NAME);
+    sprintf(c2err,"Include full model path in GENMODEL arg.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+
+    //sprintf(INPUTS.MODELPATH,"%s/%s", 
+    //	    getenv(PRIVATE_MODELPATH_NAME), INPUTS.MODELNAME );
   }
 
 
@@ -5829,6 +5855,7 @@ void  prep_RANSYSTPAR(void) {
   int   NFILTDEF = INPUTS.NFILTDEF_OBS ;
   int   ILIST_RAN=1;
   float tmp, tmpSigma, *tmpRange, Range ;
+  float SIGSCALE_MIN = -1.0E-6, SIGSCALE_MAX = 0.2 ;
   double gmin = -3.0, gmax=+3.0; // Gaussian clip params
   char cfilt[2];
   char fnam[] = "prep_RANSYSTPAR" ;
@@ -5849,6 +5876,7 @@ void  prep_RANSYSTPAR(void) {
 
   // Galactic extinction
   tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_MWEBV ;
+  checkval_F("SIGSCALE_MWEBV", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
   if ( tmpSigma != 0.0 ) {   
     NSET++; tmp = 1.0 + tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
     INPUTS.MWEBV_SCALE = tmp;
@@ -5862,9 +5890,9 @@ void  prep_RANSYSTPAR(void) {
     printf("\t RV_MWCOLORLAW  = %.3f \n", INPUTS.RV_MWCOLORLAW );
   }
   
-  // Redshift PA 2020 .xyz
+  // Redshift P.Armstrong 2020
   tmpSigma = INPUTS.RANSYSTPAR.SIGSHIFT_REDSHIFT;
-  if ( tmpSigma != 0.0 ) { 
+  if ( tmpSigma != 0.0 ) {
     NSET++; tmp = tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
     INPUTS.GENBIAS_REDSHIFT = tmp ;
     printf("\t GENBIAS_REDSHIFT  = %f \n", INPUTS.GENBIAS_REDSHIFT );
@@ -5874,16 +5902,9 @@ void  prep_RANSYSTPAR(void) {
   char *wildcard = INPUTS.RANSYSTPAR.GENMODEL_WILDCARD;
   char **genmodel_list;
   if ( strlen(wildcard) > 0 ) {
-      // .xyz
       ENVreplace(wildcard,fnam,1);
-
       int n_files = glob_file_list(wildcard, &genmodel_list);
       int i;
-      /* xxx mark delete 12/11/2020
-      for (i=0; i<n_files; i++) {
-        printf("xxx%s: i=%d genmodel=%s\n", fnam, i, genmodel_list[i]);
-      }
-      */
       double rand_num = FlatRan1(ILIST_RAN);
       int ifile_ran = (int)(rand_num * (double)n_files); // generate random index between 0 and n_files
       printf("\t Select GENMODEL %d of %d\n", ifile_ran, n_files);
@@ -5927,7 +5948,6 @@ void  prep_RANSYSTPAR(void) {
     printf("\t w0_LAMBDA  = %.3f \n", INPUTS.w0_LAMBDA );
   }
 
-
   printf("\t* Last  Sync-Syst Random : %f "
 	 "(should be same each survey)\n", FlatRan1(ILIST_RAN) );
 
@@ -5950,6 +5970,7 @@ void  prep_RANSYSTPAR(void) {
 
   // start with fluxerr fudging; SIGSCALE is sigma on fractional change
   tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR  ;
+  checkval_F("SIGSCALE_FLUXERR", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
   if ( tmpSigma != 0.0 ) {   
     NSET++; tmp = 1.0 + tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
     INPUTS.FUDGESCALE_FLUXERR = tmp;
@@ -5959,6 +5980,7 @@ void  prep_RANSYSTPAR(void) {
   }
 
   tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 ;
+  checkval_F("SIGSCALE_FLUXERR2", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
   if ( tmpSigma != 0.0 ) {   
     NSET=1; tmp = 1.0 + tmpSigma * GaussRanClip(ILIST_RAN,gmin,gmax);
     INPUTS.FUDGESCALE_FLUXERR2 = tmp;
@@ -6925,7 +6947,7 @@ void init_simvar(void) {
 
   //  sprintf(FILTERSTRING,"%s", FILTERSTRING_DEFAULT );
 
-  NGENLC_TOT = NGENLC_WRITE = NGENSPEC_WRITE = 0;
+  NGENLC_TOT = NGENLC_WRITE = NGENSPEC_TOT = NGENSPEC_WRITE = 0;
   NGENFLUX_DRIVER = 0 ;
 
   NGEN_REJECT.GENRANGE  = 0;
@@ -6986,7 +7008,10 @@ void init_simvar(void) {
   GENSL.IMGNUM = -1;
   GENSL.PEAKMJD_noSL = -9.0 ;
 
+  SPECTROGRAPH_USEFLAG = 0; // Jan 2021
+
   return ;
+
 } // end of init_simvar
 
 
@@ -7808,16 +7833,30 @@ void GENSPEC_DRIVER(void) {
   //
   // Sep  1 2016: add flat spectra for FIXRAN model.
   // Oct 16 2016: apply Gaussian LAMRES smearing
+  // Jan 14 2021: abort if NMJD>0 but there is no SPECTROGRAPH instrument.
 
+  int    NMJD = GENSPEC.NMJD_TOT  ;
   double MJD_LAST, MJD_DIF ;
-  int    i, imjd, NMJD ;
+  int    i, imjd ;
   char fnam[] = "GENSPEC_DRIVER" ;
 
   // ------------ BEGIN ------------
 
   GENSPEC.NMJD_PROC = 0;
 
+  // bail if no  spectra are requested
+  if ( NMJD == 0 ) { return; }
+
+  // if there is no SPECTROGRPAH instrument, abort
+  if ( !SPECTROGRAPH_USEFLAG ) {
+    sprintf(c1err,"Cannot generate %d spectra for CID=%d", 
+	    NMJD, GENLC.CID );
+    sprintf(c2err,"because SPECTROGRAPH is not defined in kcor file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+  /* xxx mark delete
   if ( INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC == 0 ) { return ; }
+  xxxx */
 
   // Jan 2018: allow some LIBIDs to NOT have a spectrograph key
   if ( NPEREVT_TAKE_SPECTRUM == 0 && SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH == 0 ) 
@@ -7827,10 +7866,7 @@ void GENSPEC_DRIVER(void) {
   GENSPEC.NBLAM_TOT = INPUTS_SPECTRO.NBIN_LAM ;
 
   MJD_LAST = MJD_DIF = -9.0 ;
-  NMJD = 0 ;
 
-
-  NMJD = GENSPEC.NMJD_TOT  ;
   if ( NPEREVT_TAKE_SPECTRUM > 0 && NPEREVT_TAKE_SPECTRUM != NMJD ) {
     print_preAbort_banner(fnam);
     printf("  NPEREVT_TAKE_SPECTRUM = %d \n", NPEREVT_TAKE_SPECTRUM );
@@ -7879,7 +7915,7 @@ void GENSPEC_DRIVER(void) {
     GENSPEC_FLAM(imjd) ;
 
     GENSPEC.NMJD_PROC++ ; // total Nspec for this event.
-    NGENSPEC_WRITE++ ;    // total NSpec over all Light curve
+    NGENSPEC_TOT++ ;      // total NSpec over all Light curve
 
   } // end imjd
   
@@ -10016,8 +10052,8 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   Jul 23 2020: DOSHAPE = F for LCLIB model.
   Aug 31 2020: DOSHAPE = F for BYOSED model
-  Oct 20 2020: skip get_random_PDF for SIMLIB model
-
+  Oct 20 2020: skip get_random_genPDF for SIMLIB model
+  Dec 23 2020: skip get_random_genPDF if x1 is from HOSTLIB (ISx1_HOSTLIB)
   **********/
 
   bool ISFRAME_REST      = ( OPT_FRAME == OPT_FRAME_REST );
@@ -10029,11 +10065,17 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
   bool ISMODEL_NON1ASED  = ( INDEX_GENMODEL == MODEL_NON1ASED );
   bool ISMODEL_NON1A     = ( INPUTS.NON1A_MODELFLAG > 0 );
   bool ISMODEL_LCLIB     = ( INDEX_GENMODEL == MODEL_LCLIB ) ;
-  bool SKIPx1  = SIMLIB_HEADER.GENGAUSS_SALT2x1.USE ;
-  bool DOSHAPE = !( SKIPx1 || ISMODEL_SIMSED || ISMODEL_NON1A || 
-		    ISMODEL_LCLIB || IS_PySEDMODEL || ISMODEL_SIMLIB );
 
-  // xxx  bool DOSHAPE = ( !SKIPx1 && !ISMODEL_SIMSED && INPUTS.NON1A_MODELFLAG<0) ;
+  // Check if x1/shape is extracted elsewhere (e.g., SIMLIB header or HOSTLIB).
+  // If x1 is from HOSTLIB, SKIP only if SALT2x1 asymGauss is NOT defined
+  // in order to preserve random sync.
+  bool SHAPE_ASYMGAUSS   = (INPUTS.GENGAUSS_SHAPEPAR.USE);
+  bool SHAPE_HOSTLIB     = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
+  bool SHAPE_SIMLIB      = (SIMLIB_HEADER.GENGAUSS_SALT2x1.USE) ;
+  bool SKIP_SHAPE        = SHAPE_SIMLIB || (SHAPE_HOSTLIB && !SHAPE_ASYMGAUSS );
+
+  bool DOSHAPE = !( SKIP_SHAPE || ISMODEL_SIMSED || ISMODEL_NON1A || 
+		    ISMODEL_LCLIB || IS_PySEDMODEL || ISMODEL_SIMLIB );
 
   double ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   double shape;
@@ -10049,7 +10091,6 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
 
   // ---------------------------------------
   // evaluate shape with z-dependence on population, 
-
 
   if ( DOSHAPE && ISFRAME_REST ) {
 
@@ -10115,7 +10156,14 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
 
   bool ISFRAME_REST  = ( OPT_FRAME == OPT_FRAME_REST );
   bool ISFRAME_OBS   = ( OPT_FRAME == OPT_FRAME_OBS  );
-  bool SKIPc    = SIMLIB_HEADER.GENGAUSS_SALT2c.USE;
+
+  bool GETc_ASYMGAUSS   = (INPUTS.GENGAUSS_SALT2c.USE);
+  bool GETc_HOSTLIB     = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
+  bool GETc_SIMLIB      = (SIMLIB_HEADER.GENGAUSS_SALT2x1.USE) ;
+  bool SKIPc            = GETc_SIMLIB || (GETc_HOSTLIB && !GETc_ASYMGAUSS );
+
+  // xxx mark delete  bool SKIPc    = SIMLIB_HEADER.GENGAUSS_SALT2c.USE;
+
   double   ZCMB = GENLC.REDSHIFT_CMB ; // for z-dependent populations
   GENGAUSS_ASYM_DEF  GENGAUSS_ZVAR ;
   char fnam[] = "gen_modelPar_SALT2";
@@ -12199,7 +12247,9 @@ double gen_redshift_helio(void) {
   // Created Jan 2018 by R.Kessler
   // Convert zcmb to zhelio and apply peculiar velocity (vpec in km/s)
   // Function returns z_helio, and also stores GENLC.VPEC
-  
+  //
+  // Jan 27 2021: fix to use exact zpec formula instead of approximation.
+
   double zCMB = GENLC.REDSHIFT_CMB ;
   double RA   = GENLC.RA;
   double DEC  = GENLC.DEC ;
@@ -12224,10 +12274,12 @@ double gen_redshift_helio(void) {
     vpec = ((double)INPUTS.GENSIGMA_VPEC) * GaussRan(2) ;    
   }
 
+
   GENLC.VPEC = vpec; 
   if ( vpec != 0.0 ) {
     dzpec = vpec/LIGHT_km ;
-    zhelio += dzpec ;
+    // xxx mark delete     zhelio += dzpec ;
+    zhelio = (1.0+zhelio)*(1.0+dzpec) - 1.0 ;    // Jan 27 2021 .xyz
   }
 
   return zhelio ;
@@ -13332,6 +13384,7 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
     }
     else if ( strcmp(c_get,"NLIBID:") == 0 ) { 
       readint(fp_SIMLIB, 1, &SIMLIB_GLOBAL_HEADER.NLIBID );
+      SIMLIB_GLOBAL_HEADER.NLIBID_VALID = SIMLIB_GLOBAL_HEADER.NLIBID;
     }
     else if ( strcmp(c_get,"PSF_UNIT:") == 0 ) {
       readchar(fp_SIMLIB, SIMLIB_GLOBAL_HEADER.PSF_UNIT );
@@ -14420,6 +14473,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
     if ( NOBS_FOUND_ALL == 1 ) { 
       SIMLIB_randomize_skyCoords();
       USEFLAG_LIBID = keep_SIMLIB_HEADER(); 
+
+      if ( USEFLAG_LIBID!=ACCEPT_FLAG && SIMLIB_HEADER.NWRAP==0 )
+        { SIMLIB_GLOBAL_HEADER.NLIBID_VALID-- ; }
+
     }
 
     // stop reading when we reach the end of this LIBID
@@ -16267,6 +16324,15 @@ void parse_SIMLIB_GENRANGES(FILE *fp_SIMLIB, char *KEY) {
   // May 29 2020 : check for TAKE_SPECTRUM keys
   if ( RDFLAG_SPECTRA && strcmp(KEY,"TAKE_SPECTRUM:") == 0 ) {
     char **NULLWORDS;
+
+    /* xxx abort trap is in GENSPEC_DRIVER xxx
+    if ( !SPECTROGRAPH_USEFLAG ) {
+      sprintf(c1err,"Cannot process TAKE_SPECTRUM keys in SIMLIB");
+      sprintf(c2err,"because SPECTROGRAPH is not defined in kcor file.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    }
+    xxx */
+
     parse_input_TAKE_SPECTRUM( NULLWORDS, KEYSOURCE_FILE, fp_SIMLIB ); 
   }
 
@@ -16309,8 +16375,8 @@ int regen_SIMLIB_GENRANGES(void) {
   // called after reading each LIBID header,
   // to check if anything needs to be re-generated.
   //
-  // Functions returns +1 to keep event, -1 to reject.
-  //n
+  // Functions returns +1 to keep LIBID, -1 to reject.
+  //
   // Initial motivation is to re-select PEAKMJD, redshift, 
   // color and stretch for ABC method. 
   //
@@ -16326,8 +16392,8 @@ int regen_SIMLIB_GENRANGES(void) {
   // ------------ BEGIN -------------
 
   if(LTRACE) {
-    printf(" xxx -----------CID=%d LIBID=%d -------------- \n",
-	   GENLC.CID, GENLC.SIMLIB_ID ) ;
+    printf(" xxx -----------CID=%d  LIBID=%d -------------- \n",
+	   GENLC.CID, SIMLIB_HEADER.LIBID ) ;
     printf(" xxx %s: 0 \n", fnam); 
   }
 
@@ -17352,11 +17418,16 @@ void init_CIDRAN(void) {
   // Aug 11 2017: after generating CID list, re-init randoms with NEWSEED
   //
   // Jul 22 2018: check minimum CID from user input (see MNCID)
+  //
+  // Jan 04 2021; 
+  //   + remove useless calc of NEWSEED
+  //
 
+  // xxx  int NJOBTOT  = INPUTS.NJOBTOT ; // totoal number of batch jobs
   int NPICKRAN_ABORT ; // abort after this many tries
   int i, i2, j, NPICKRAN, NSTORE_ALL, NSTORE, CIDRAN, CIDTMP, CIDADD;
   int CIDMAX, CIDMIN, USED, NTRY, NCALL_random=0, LDMP=0 ;
-  int L_STDOUT;
+  int L_STDOUT, NEWSEED ;
 
   double r8, XN8, XNUPD8;
 
@@ -17367,9 +17438,14 @@ void init_CIDRAN(void) {
   fflush(stdout);
   if ( WRFLAG_CIDRAN  <= 0 ) { return ; }
 
+
   CIDMAX     = INPUTS.CIDRAN_MAX ; // -> local var      
   CIDMIN     = INPUTS.CIDRAN_MIN ; 
-  NSTORE_ALL = INPUTS.CIDOFF + INPUTS.NGEN_LC + INPUTS.NGENTOT_LC ;
+
+  NSTORE_ALL = 
+    (INPUTS.CIDOFF - INPUTS.CIDRAN_MIN)  + 
+    (INPUTS.NGEN_LC + INPUTS.NGENTOT_LC) ;
+
   NSTORE     = INPUTS.NGEN_LC + INPUTS.NGENTOT_LC ; // for this sim-job
 
   sprintf(BANNER,"init_CIDRAN: initialize %d RANDOM CIDs (CIDOFF=%d)",
@@ -17464,9 +17540,10 @@ void init_CIDRAN(void) {
 	}
       }
 
-      if ( NTRY == 0 ) {
+      if ( NTRY == 0 ) {  // check for error
 	
 	for(j=1; j <= CIDMAX; j++ ) {
+
 	  if ( j < 100 || (CIDMAX-j)<100 ) {
 	    printf("  xxx CID= %3d --> cidmask=%d \n",
 		   j, exec_cidmask(2,j) );
@@ -17477,8 +17554,8 @@ void init_CIDRAN(void) {
 	printf(" xxx global CIDMASK_LIST = %d, %d, %d \n",
 	       CIDMASK_LIST[0], CIDMASK_LIST[1], CIDMASK_LIST[2] ) ;
 
-	sprintf(c1err,"Unable to try CIDTMP = %d or %d  (CIDRAN=%d)",
-		CIDRAN-i2, CIDRAN+i2, CIDRAN );
+	sprintf(c1err,"Unable to try CIDTMP = %d or %d  (CIDRAN=%d,i2=%d)",
+		CIDRAN-i2, CIDRAN+i2, CIDRAN, i2 );
 	sprintf(c2err,"CIDMAX=%d  NPICKRAN=%d  i=%d of %d  CID=%d", 
 		CIDMAX, NPICKRAN, i, NSTORE_ALL, GENLC.CID );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
@@ -17516,10 +17593,13 @@ void init_CIDRAN(void) {
 	 NSTORE_ALL, NSTORE); fflush(stdout);
   printf("\t Called random() function %d times.\n", NCALL_random );
 
-  // Aug 2017: re-init randoms with new SEED that is different
-  //           for each sim_SNmix job
-  int NEWSEED = INPUTS.ISEED + INPUTS.CIDOFF ;
+  /* xxxxxxxxxx mark delete Jan 4 2021 xxxxxxxxxxx
+  // re-init randoms with new SEED that is different for each batch job
+  // (WARNING: this code snippet is not really in the right place)
+ NEW_RANSEED:
+  NEWSEED = INPUTS.ISEED + INPUTS.CIDOFF ;
   srandom(NEWSEED);
+  xxxxxxxxxxx end mark xxxxxxx */
 
   return ;
 
@@ -19361,7 +19441,7 @@ int gen_smearFlux ( int epoch, int VBOSE ) {
   arg        = 0.4 * ( zpt - 31.0 );  
   zptfac     = pow(10.0,arg);  
   if ( zsn > 1.0E-9 ) 
-    { crazyflux  = 2.*(1.E4 * zptfac * xt) / (zsn*zsn) ; }
+    { crazyflux  = 10.*(1.E4 * zptfac * xt) / (zsn*zsn) ; }
   else
     { crazyflux = 1.0E14 ; } // for LCLIB (July 2018)
 
@@ -21441,7 +21521,6 @@ void init_kcor_legacy(char *kcorFile) {
   }
 
   // check for optional SPECTROGRPH info
-  
   read_spectrograph_fits(kcorFile) ;   
   if ( SPECTROGRAPH_USEFLAG ) {
     printf("   Found %d synthetic spectrograph filters (%s) \n",
@@ -21902,7 +21981,7 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   NERR=0;
   if ( zpt     < 10.0   ) { NERR++ ; }
   if ( psfsig1 < 0.0001 ) { NERR++ ; }
-  if ( skysig  < 0.0001 ) { NERR++ ; } //.xyz
+  if ( skysig  < 0.0001 ) { NERR++ ; } 
   if ( NERR > 0 ) {
     sprintf(c1err,"%d invalid observing conditions for ep=%d, band=%s",
 	    NERR, epoch, band);
@@ -26382,7 +26461,7 @@ void sprintf_GENGAUSS(char *string, char *name,
 void update_accept_counters(void) {
 
   // Created June 2017
-  // Called from main for accppted event, so here we
+  // Called from main for accepted event, so here we
   // increment various counters.
   // Most code moved from main for cleanup.
 
@@ -26393,7 +26472,7 @@ void update_accept_counters(void) {
 
   // increment number of generated SN that are written
   NGENLC_WRITE++ ;
- 
+  NGENSPEC_WRITE += GENSPEC.NMJD_TOT ; // Jan 14 2021
   
   // increment stats based on typing method
   if ( GENLC.METHOD_TYPE == METHOD_TYPE_SPEC )    
@@ -26721,7 +26800,9 @@ void set_screen_update(int NGEN) {
 // ===========================
 void screen_update(void) {
 
-  int CID;
+  int CID, NGEN;
+  bool QUIT_NOREWIND = (INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_QUIT_NOREWIND) >0;
+  int  NLIBID        = SIMLIB_GLOBAL_HEADER.NLIBID_VALID ;
 
   if ( WRFLAG_CIDRAN == 0 ) 
     { CID = GENLC.CID ; }
@@ -26739,8 +26820,18 @@ void screen_update(void) {
   } else {
 
     if ( LUPDGEN(NGENLC_TOT) ) {
-      printf("\t Finished generating %8d of %d (CID=%6d) \n", 
-	     NGENLC_TOT, INPUTS.NGENTOT_LC, CID );
+
+      NGEN = INPUTS.NGENTOT_LC ; // expected number to generate at end
+
+      if ( QUIT_NOREWIND && NLIBID > 0 ) {
+	printf("\t Finished generating %8d of %d valid LIBIDs \n", 
+	       NGENLC_TOT, NLIBID );
+      }
+      else {
+	printf("\t Finished generating %8d of %d (CID=%6d) \n", 
+	       NGENLC_TOT, INPUTS.NGENTOT_LC, CID );
+      }
+
       fflush(stdout);
     }
 
@@ -27045,7 +27136,7 @@ void append_SNSPEC_TEXT(void) {
 
     fprintf(fp,"SPECTRUM_ID:       %d  \n", IDSPEC ) ; 
 
-    fprintf(fp,"SPECTRUM_MJD:      %9.3f            ", GENSPEC.MJD_LIST[imjd] );
+    fprintf(fp,"SPECTRUM_MJD:      %9.3f            ", GENSPEC.MJD_LIST[imjd]);
     if ( IS_HOST ) 
       { fprintf(fp, "# HOST \n"); }
     else

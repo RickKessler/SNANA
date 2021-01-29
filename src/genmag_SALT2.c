@@ -72,6 +72,8 @@
  Oct 2020: minor refactor for INTGEG_zSED_SALT2 and SALT2magerr;  
            needed to handle SALT3 or SALT2.
 
+ Dec 28 2020: use function setFlags_ISMODEL_SALT2 to set ISMODEL_SALT2[3]
+
 *************************************/
 
 #include "sntools.h"           // community tools
@@ -256,14 +258,16 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   }
   
 
+  // parse version string to check if SALT2 or SALT3
+  setFlags_ISMODEL_SALT2(version); // set ISMODEL_SALT3 and ISMODEL_SALT3
+
   // Aug 02 2019: set prefix for filenames to allow salt2 or salt3 prefix
-  ISMODEL_SALT2 = true ;
-  ISMODEL_SALT3 = false ; 
-  sprintf(SALT2_PREFIX_FILENAME,"salt2"); // default
-  if ( strstr(version,"SALT3") != NULL ) {
-    sprintf(SALT2_PREFIX_FILENAME,"salt3");  
-    ISMODEL_SALT2 = false; ISMODEL_SALT3 = true ; 
-  } 
+
+  if ( ISMODEL_SALT2 ) 
+    { sprintf(SALT2_PREFIX_FILENAME,"salt2"); } // default
+  else
+    { sprintf(SALT2_PREFIX_FILENAME,"salt3"); }
+
 
   RELAX_IDIOT_CHECK_SALT2 = ( strstr(version,"P18") != NULL );
 
@@ -402,6 +406,50 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
 } // end of function init_genmag_SALT2
 
+// ***********************************************
+void setFlags_ISMODEL_SALT2(char *version) {
+
+  // Created Dec 28 2020
+  // Based on input *version, set global flags
+  // ISMODEL_SALT2 and ISMODEL_SALT3
+  //
+  // Models are of the form
+  //   [path]/SALT2.XYZ  or
+  //   [path]/SALT3.XYZ
+  //
+  // So check 5 characters before the dot. 
+  //
+
+  int  index_dot, set=0 ;
+  char *dot, version_near_dot[60];
+  char fnam[] = "setFlags_ISMODEL_SALT2" ;
+
+  // ------------- BEGIN ------------
+
+  ISMODEL_SALT2 = false;
+  ISMODEL_SALT3 = false;
+  
+  dot       = strchr(version, '.');
+  index_dot = (int)(dot - version);
+  sprintf(version_near_dot, "%s", &version[index_dot-5] );
+
+  if ( strstr(version_near_dot,"SALT2") != NULL ) 
+    { set=1; ISMODEL_SALT2 = true;  printf("\t ISMODEL = SALT2\n"); } 
+  if ( strstr(version_near_dot,"SALT3") != NULL ) 
+    { set=1; ISMODEL_SALT3 = true; printf("\t ISMODEL = SALT3\n"); }
+
+  if ( !set ) {
+    printf("\n\t index_dot = %d \n", index_dot);
+    sprintf(c1err,"Unable to set ISMODEL_SALT2 or ISMODEL_SALT3");
+    sprintf(c2err,"Check GENNODEL: %s (%s)", version, version_near_dot);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  fflush(stdout);
+
+  return;
+
+} // end setFlags_ISMODEL_SALT2
 
 // ***********************************************
 void fill_SALT2_TABLE_SED(int ISED) {
@@ -792,7 +840,7 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
 
   sprintf(SALT2_ERRMAP_FILES[0], "%s_%s_variance_0.dat", prefix, lc_string );
   sprintf(SALT2_ERRMAP_FILES[1], "%s_%s_variance_1.dat", prefix, lc_string );
-  sprintf(SALT2_ERRMAP_FILES[2], "%s_%s_covariance_01.dat", prefix, lc_string );
+  sprintf(SALT2_ERRMAP_FILES[2], "%s_%s_covariance_01.dat", prefix,lc_string);
   sprintf(SALT2_ERRMAP_FILES[3], "%s_lc_dispersion_scaling.dat", prefix );
   sprintf(SALT2_ERRMAP_FILES[4], "%s_color_dispersion.dat",      prefix );
 
@@ -2629,12 +2677,14 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
       LAMOBS       = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
       LAMSED       = LAMOBS/z1;   // rest-frame wavelength
-      lam[ilamobs] = LAMSED ; 
 
       // protect undefined red end for low-z (July 2016)
-      if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }       
+      if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }  
+
+      lam[ilamobs] = LAMSED ; 
       NLAMTMP++ ;
     }
+
     get_genSmear( Trest, c, x1, NLAMTMP, lam, GENSMEAR.MAGSMEAR_LIST) ;
   }
 
@@ -2660,6 +2710,10 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilamobs] ;
     LAMSED     = LAMOBS / z1 ;  // rest-frame lambda
     LAMSED_MIN = LAMSED_MAX = LAMSED ;  // default is no sub-bins 
+
+    // Jan 2021: bail if outside model range 
+    if ( LAMSED <= SALT2_TABLE.LAMMIN ) { continue ; }
+    if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; } 
 
     LDMP = 0; // (OPT_SPEC>0 && ifilt_obs==2 );
 

@@ -471,6 +471,9 @@ extern"C" {
   void sntable_autostore_read__(char *CCID, char *varName, int *ISTAT,
 				double *DVAL, char *CVAL);  // output value
   
+  void fetch_autostore_ccid(int ifile, int isn, char *ccid);
+  void fetch_autostore_ccid__(int *ifile, int *isn, char *ccid);
+
   void   SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR);
 
 

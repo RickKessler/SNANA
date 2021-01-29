@@ -19364,4 +19364,149 @@
    remove obsolete util/createCov.py
    add refactored  util/create_covariance.py (from Sam/pippin)
 
+
+# ======================================================================= 
+         v11_02d (Jan 4 2021) 
+
+         ***** IMPORTANT(v11_02d) ***** 
+
+   sim: Using FORMAT_MASK=32 in batch mode, random seed was always the
+        same for each core -> fixed. Worked fine with FORMAT_MASK=48
+        to get random CIDs. Fix is mainly in submit_prog_sim.py.
+  
+         ***** USEFUL(v11_02d) ***** 
+
+    combine_dataVersions.py :
+      + write full filter names to TEXT data files.
+        FITS format still uses single-char filter names.
+        Note change in snana.car to read last char of filter name.
+
+         ***** MISCELLANEOUS(v11_02d) ***** 
+
+    genmag_SIMSED.c[h]
+      + if in batch mode and binary is stale, abort with 
+        message to remake binary interactively.
+
+    SALT2mu.c: 
+     + remove obsolete SPLITRAN-summary functions.
+     + more updates for datafile_override option.
+     + opt_biascor += 1024 -> keep events with no biasCor.
+     + new input OPT_SNCID_LIST; see manual
+
+    snana.car
+     + for reading TEXT format, allow full filter name and
+       just strip off last character. This allows better
+       visual inspection of text data files.
+     + write SIM_gammaDM to TEXT output if first value is non-zero.
+
+    snlc_sim.c :
+     + fix bug reading HOSTLIB_GENZPHOT_BIAS
+     + abort if CONFIG key is found
+     + fix awful init_CIDRAN bug. Using FORMAT_MASK=32 in batch mode,
+       random seed was always the same for each core !
+
+    sntools_genPDF.c:
+     + fix bug setting min/max range
+
+    genmag_SALT2.c
+     + new function setFlags_ISMODEL_SALT2 to set ISMODEL_SALT2
+       and ISMODEL_SALT3
+
+    submit_prog_base.py :
+      + add small delay in each CPU*CMD file.
+
+    submit_prog_sim.py :  
+      + fix RANSEED logic for FORMAT_MASK=32
+
+    combine_fitres.c
+      + fix to allow longer VARNAME lines up to 3200 chars.
+
+
+# ======================================================================= 
+         v11_02e (Jan 8 2021) 
+
+         ***** IMPORTANT(v11_02e) ***** 
+
+         ***** USEFUL(v11_02e) ***** 
+
+         ***** MISCELLANEOUS(v11_02e) ***** 
+
+    submit_prog_sim.py : increase safety margin for cidadd.
+   
+    submit_prog_base.py: add more REPLACE_XXX keys
+
+    submit_prog_fit.py: new OPT_SNCID_LIST feature
+
+    simlib_coadd[tools].c:
+      several updates as described at top of source code.
+    
+    create_covariance.py :
+      refactored to include legacy JLA and new BBC methods.
+
+
+# ======================================================================= 
+         v11_02f (Jan 22 2021) 
+
+         ***** IMPORTANT(v11_02f) ***** 
+
+         ***** USEFUL(v11_02f) ***** 
+
+         ***** MISCELLANEOUS(v11_02f) ***** 
+
+   snlc_sim.c : 
+     + abort if obsolete $SNANA_MODELPATH is set.
+     + double crazyflux limit again
+     + move prep_RANSYST call after SURVEY is defined
+     + abort if spectra are requested but there is no 
+        SPECTROGRAPH instrument (see GENSPEC_DRIVER)
+     + abort if no valid HOSTLIB keys are found (was hanging)
+     + abort if any RANSYSTPAR_SIGSCALE_XXX param > 0.2
+
+   sntools_host.c
+     + add more redshift diagnostics
+
+   genmag_SALT2.c
+     + fix LAMSED logic bug inside INTEG_zSED function (affects spectrograph)
+
+   sntools.c
+      + if SNANA_VERSION key is not in FITS header, assume VPEC
+        sign is correct.
+
+   submit_batch_jobs.sh:
+      + for sims, add column for NSPEC_WRITE in MERGE.LOG
+      + for CPU with no jobs, sleep 10sec to avoid failing npid check.
+      + ignore gargabe above CONFIG block so that saltshaker can
+        put [yaml] above CONFIG
+
+   snlc_fit.car
+     + fix few bugs for OPT_PHOTOZ=2 (use REDSHIFT_FINAL as prior)
+
+   snana.car
+     + increase MXSNLS from 4 million to 5 million (for Anais)
+
+   SALT2mu.c
+     + FITWGT0 option to replace cut with MUERR -> 8888  in fit.
+       Almost works, but subtle bug still there.
+
+# ======================================================================= 
+         v11_02g (Jan 25 2021) 
+
+         ***** IMPORTANT(v11_02g) ***** 
+
+         ***** USEFUL(v11_02g) ***** 
+
+         ***** MISCELLANEOUS(v11_02g) ***** 
+
+   kcor.c
+    + fix index bugs related to FILTER_LAMSHIFT
+
+   sntools_host.c
+    + for VPEC, use exact formula instead of approximation.
+
+   SALT2mu.c
+     + fix to allow ENV for datafile_header_override
+     + write override z-variables with %.5f format (instead of %.3f)
+     + improve duplicate flagging with explicit test in SNID;
+        now handles different events in the same galaxy.
+
 END: 

@@ -78,9 +78,10 @@
  
 // hard wire logarithmic z-bins
 #define DZPTR_HOSTLIB      0.01    // logz-binning for Z-pointers
-#define MINLOGZ_HOSTLIB   -3.00   // zmin = 0.001
+#define MINLOGZ_HOSTLIB   -3.00    // zmin = 0.001
 #define MAXLOGZ_HOSTLIB    0.61    // zmax = 4.07
 #define LOGZRANGE_HOSTLIB  MAXLOGZ_HOSTLIB-MINLOGZ_HOSTLIB
+#define ZMAX_STAR          0.001   // give warnings for ZTRUE < ZMAX_STAR
 
 #define NMAGPSF_HOSTLIB    9    // number of aperture mags vs. PSF to compute
 #define DEG_ARCSEC    1./3600.  // 1 arcsec in deg.
@@ -204,10 +205,11 @@ struct HOSTLIB_DEF {
   char filterList[MXFILTINDX]; // filter list for gal-mag
 
   // redshift information
-  double ZMIN,ZMAX ;
-  double ZGAPMAX ; // max z-gap in library
-  double ZGAPAVG ; // avg z-gap in library
+  double ZMIN,ZMAX ;         // helio
+  double ZGAPMAX ;           // max z-gap in library
+  double ZGAPAVG ;           // avg z-gap in library
   double Z_ATGAPMAX[2];  // redshift at max ZGAP (to find big holes)
+  int    NSTAR;          // number of entries with ZTRUE < ZMAX_STAR
 
   // vpec info (to print)
   double FIX_VPEC_ERR; // optional read from header

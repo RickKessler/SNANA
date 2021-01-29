@@ -8246,6 +8246,10 @@ a list of CIDs:
    SNCID_IGNORE_FILE = 'reject.list'        ! list of CIDs to ignore; 
                                             ! separate CIDs by space or <CR>
 
+   OPT_SNCID_LIST = 1    ! ignore SN cuts & process all CIDs in list 
+   OPT_SNCID_LIST = 2    ! use PKMJDINI from FITRES-list file
+   OPT_SNCID_LIST = 3    ! both of the above
+
    MXEVT_PROCESS = 20    ! stop processing after 20 events
 \end{Verbatim}
 %
@@ -8272,6 +8276,14 @@ However, for a survey using integer CIDs that start at 1000,
 Using any of the ``{\tt \_LIST}'' options (e.g., {\tt SNCID\_LIST}),
 the analysis codes internally set {\tt CUTWIN\_CID=0,0}
 so that only the list CIDs are processed.
+Setting the 1 bit of {\tt OPT\_SNCID\_LIST} ignores cuts and
+forces all CIDs to be processed; example use is for systematics
+tests with small calibration shifts that could migrate events
+in and out of SNR cuts. Beware that while SN-select cuts are ignored,
+epoch-select cuts are still applied.
+The 2 bit of {\tt OPT\_SNCID\_LIST} reads and uses {\tt PKMJDINI} 
+from list-file, and does not re-compute it; code aborts if
+requested {\tt PKMJDINI} column does not exist.
 
 Finally, {\tt MXEVT\_PROCESS} stops processing after this many
 events, regardless of of how the other ``{\tt CID}'' inputs are set.
@@ -8795,7 +8807,7 @@ can also be read from an external file as described in
 ({\tt snlc\_fit.exe}) reads $\vpec$ and computes a corrected
 CMB redshift,
 \begin{verbatim}
-   zHD = ZCMB + VPEC
+   zHD = (1.0+ZCMB) / (1.0+VPEC/c) - 1.0 
 \end{verbatim}
 which is written to the output tables and used by the \snana\ program
 {\tt SALT2mu.exe}.

@@ -2,6 +2,20 @@
 # Created July 2020 by R.Kessler & S. Hinton
 #
 # Base class Program
+#
+#     HISTORY
+# Jan 2 2021: add small delay in each CPU* file to avoid jobs finishing
+#             before all are submitted, resulting in pid-check failure.
+#
+# Jan 6 2021: 
+#   in write_batch_file, add REPLACE_[WALLTIME,NTASK,CPU_PER_TASK].
+#   These keys are hard-coded for submit_batch, but can be altered
+#   by Pippin for non-SNANA jobs.
+#
+# Jan 21 2021: 
+#   write_command_file return n_job_cpu; if n_job_cpu==0, sleep 10 sec
+#   so that npid check doesn't fail.
+#
 # ============================================
 
 #import argparse
@@ -110,6 +124,8 @@ class Program:
         submit_mode   = "NULL"
         node_list     = []
         memory        = BATCH_MEM_DEFAULT
+        maxjob        = BATCH_MAXJOB_DEFAULT
+        walltime      = BATCH_WALLTIME_DEFAULT
         kill_flag     = config_yaml['args'].kill
         n_core_arg    = config_yaml['args'].ncore
         msgerr        = []
@@ -152,9 +168,17 @@ class Program:
             msgerr.append(f"Check CONFIG block in the input file.")
             util.log_assert(False, msgerr)
 
-        # check optional memory spec
+        # check optional memory input
         if 'BATCH_MEM' in CONFIG :
             memory = str(CONFIG['BATCH_MEM'])
+
+        # check optional walltime (Jan 6 2021)
+        if 'BATCH_WALLTIME' in CONFIG :
+            walltime = CONFIG['BATCH_WALLTIME']
+
+        # check optional maxjob
+        # ?? if 'BATCH_MAXJOB' in CONFIG :
+        # ??   maxjob = int(CONFIG['BATCH_MAXJOB'])
 
             #if isinstance(memory,int) :
             #    msgerr.append(f"Missing memory units")
@@ -167,6 +191,8 @@ class Program:
         config_prep['submit_mode'] = submit_mode
         config_prep['node_list']   = node_list
         config_prep['memory']      = memory
+        config_prep['walltime']    = walltime
+        config_prep['maxjob']      = maxjob
     
     # end parse_batch_info
 
@@ -227,7 +253,7 @@ class Program:
 
         output_dir       = self.config_prep['output_dir']
         INFO_PATHFILE    = (f"{output_dir}/{SUBMIT_INFO_FILE}")
-        submit_info_yaml = util.extract_yaml(INFO_PATHFILE)
+        submit_info_yaml = util.extract_yaml(INFO_PATHFILE,None,None)
 
         # if cpunum is an argument, this cpu is kill last.
         cpunum_last = -9;  job_name_last = ''
@@ -261,15 +287,17 @@ class Program:
 
     def write_script_driver(self):
 
-        # For each CPU, create batch script (CPU*.BATCH) which sources
-        # command file (CPU*.CMD) that has list of native SNANA commands.
+        # For each CPU, create batch script (CPU[nnn]*.BATCH and also
+        # command script (CPU[nnn].CMD) that has list of native commands.
         # For ssh mode, these .CMD files are sourced upon login, and
         # thus .BATCH files are not needed for ssh mode.
         # BATCH files are written here and do not depend on task.
         # CMD files are program-dependent via call to
         #       self.write_command_file(icpu,COMMAND_FILE)
         #
-        
+        # Jan 21 2201: write_command_file returns n_job_cpu;
+        #     if n_job_cpu==0, add extra delay to avoid npid error
+
         CONFIG      = self.config_yaml['CONFIG']
         input_file  = self.config_yaml['args'].input_file 
         output_dir  = self.config_prep['output_dir']
@@ -286,6 +314,7 @@ class Program:
         BATCH_FILE_LIST   = []   # idem
         cmdlog_file_list  = []
         job_name_list     = []
+        n_core_with_jobs  = 0
 
         # loop over each core and create CPU[nnn]_JOBS.CMD that
         # are used for either batch or ssh. For batch, also 
@@ -303,6 +332,13 @@ class Program:
             COMMAND_FILE  = (f"{script_dir}/{command_file}")
             logging.info(f"\t Create {command_file}")
 
+            # compute small (0.1s) delay per core to avoid first jobs
+            # finishing before all are submitted, then failing
+            # the pid-submit check. Delay is largest for core 0, 
+            # then is reduced by 0.2 sec per core. For 100 cores,
+            # first delay is 20 sec.
+            delay = float(n_core - icpu)/5.0
+
             command_file_list.append(command_file)
             cmdlog_file_list.append(log_file)
             COMMAND_FILE_LIST.append(COMMAND_FILE)
@@ -317,6 +353,13 @@ class Program:
                 f.write(f"#!/usr/bin/env bash \n")
                 f.write(f"echo TIME_START: " \
                         f"`date +%Y-%m-%d` `date +%H:%M:%S` \n")
+
+                f.write(f"echo 'Sleep {delay} sec " \
+                        f"(wait for remaining batch-submits)' \n")
+                f.write(f"sleep {delay} \n")
+
+                f.write(f"echo ' ' \n")
+
                 f.write(f"echo 'Begin {command_file}' \n\n")
 
                 if STOP_ALL_ON_MERGE_ERROR :
@@ -324,9 +367,19 @@ class Program:
                 #if 'SNANA_LOGIN_SETUP' in CONFIG:
                 #    f.write(f"{CONFIG['SNANA_LOGIN_SETUP']} \n")
 
-            # write program-specific content
-            self.write_command_file(icpu,COMMAND_FILE)
+                # write program-specific content
+                n_job_cpu = self.write_command_file(icpu,f)
 
+                # if there are no jobs, sleep another 5 seconds so that
+                # batch job does not immediately exit and fail npid check.
+                if n_job_cpu == 0 :
+                    f.write(f"echo 'No jobs -> sleep 10s to " \
+                            f"ensure npid check is ok' \n")
+                    f.write(f"sleep 10 \n")
+                else:
+                    n_core_with_jobs += 1
+
+            # - - - - - 
             # write extra batch file for batch mode
             if ( submit_mode == SUBMIT_MODE_BATCH ):
                 batch_file = (f"{prefix}.BATCH")
@@ -343,6 +396,7 @@ class Program:
         self.config_prep['job_name_list']     = job_name_list
         self.config_prep['batch_file_list']   = batch_file_list
         self.config_prep['BATCH_FILE_LIST']   = BATCH_FILE_LIST
+        self.config_prep['n_core_with_jobs']  = n_core_with_jobs
 
         # make all CMD files group-executable with +x.
         # Python os.chmod is tricky because it may only apply 
@@ -372,17 +426,13 @@ class Program:
         # Note that lower-case xxx_file has no path; 
         # upper case XXX_FILE includes full path
 
-        BATCH_TEMPLATE  = self.config_prep['BATCH_TEMPLATE'] 
-        script_dir      = self.config_prep['script_dir']
-        replace_memory  = self.config_prep['memory']
-        debug_batch     = self.config_yaml['args'].debug_batch
+        BATCH_TEMPLATE   = self.config_prep['BATCH_TEMPLATE'] 
+        script_dir       = self.config_prep['script_dir']
+        replace_memory   = self.config_prep['memory']
+        replace_walltime = self.config_prep['walltime']
+        debug_batch      = self.config_yaml['args'].debug_batch
 
         BATCH_FILE      = (f"{script_dir}/{batch_file}")
-
-        with open(BATCH_TEMPLATE,"r") as f:
-            template_batch_lines = f.readlines()
-
-        #print(f" xxx template_batch_lines = {template_batch_lines} ")
 
         # get strings to replace 
         replace_job_name   = job_name
@@ -393,22 +443,27 @@ class Program:
         #replace_job_cmd = (f"cd {script_dir} \nsource {command_file}")
         replace_job_cmd = (f"cd {script_dir} \nsh {command_file}")
 
+        # Jan 6 2021: add few more replace keys that can be modified
+        # by non-SNANA tasks (e.g., classifiers, CosmoMC ...)
+        replace_ntask        = 1
+        replace_cpu_per_task = 1
+
         # - - - define list of strings to replace - - - - 
-        batch_lines = []            
-        REPLACE_KEY_LIST = [ 'REPLACE_NAME', 'REPLACE_MEM',
-                             'REPLACE_LOGFILE', 'REPLACE_JOB' ]
-        replace_string_list = [ replace_job_name, replace_memory,
-                                replace_log_file, replace_job_cmd ]
-        NKEY = len(REPLACE_KEY_LIST)
 
-        # replace strings in batch_lines
-        for line in template_batch_lines:
-            for ikey in range(0,NKEY):
-                REPLACE_KEY    = REPLACE_KEY_LIST[ikey]
-                replace_string = replace_string_list[ikey] 
-                line           = line.replace(REPLACE_KEY,replace_string)
-            batch_lines.append(line)
+        REPLACE_KEY_DICT = { 
+            'REPLACE_NAME'          : replace_job_name,
+            'REPLACE_MEM'           : replace_memory,
+            'REPLACE_LOGFILE'       : replace_log_file,
+            'REPLACE_JOB'           : replace_job_cmd,
+            'REPLACE_WALLTIME'      : replace_walltime,
+            'REPLACE_NTASK'         : replace_ntask,
+            'REPLACE_CPU_PER_TASK'  : replace_cpu_per_task
+        }
+        batch_lines = open(BATCH_TEMPLATE,'r').read()
+        for KEY,VALUE in REPLACE_KEY_DICT.items():
+            batch_lines = batch_lines.replace(KEY,str(VALUE))
 
+        # write batch lines with REPLACE_XXX replaced
         with open(BATCH_FILE,"w") as f:
             f.write("".join(batch_lines))
 
@@ -477,19 +532,19 @@ class Program:
         #
         # Write FAST if set.
 
-        args            = self.config_yaml['args']
-        fast            = self.config_yaml['args'].fast
-        CONFIG          = self.config_yaml['CONFIG']
-        n_job_tot       = self.config_prep['n_job_tot']
-        n_done_tot      = self.config_prep['n_done_tot']
-        n_job_split     = self.config_prep['n_job_split']
-        n_core          = self.config_prep['n_core']
-        output_dir      = self.config_prep['output_dir']
-        script_dir      = self.config_prep['script_dir']
-        done_stamp_list = self.config_prep['done_stamp_list']
-        Nsec            = seconds_since_midnight
-        time_now        = datetime.datetime.now()
-
+        args             = self.config_yaml['args']
+        fast             = self.config_yaml['args'].fast
+        CONFIG           = self.config_yaml['CONFIG']
+        n_job_tot        = self.config_prep['n_job_tot']
+        n_done_tot       = self.config_prep['n_done_tot']
+        n_job_split      = self.config_prep['n_job_split']
+        n_core           = self.config_prep['n_core']
+        n_core_with_jobs = self.config_prep['n_core_with_jobs']
+        output_dir       = self.config_prep['output_dir']
+        script_dir       = self.config_prep['script_dir']
+        done_stamp_list  = self.config_prep['done_stamp_list']
+        Nsec             = seconds_since_midnight
+        time_now         = datetime.datetime.now()
 
         cleanup_flag = 1     # default
         if 'CLEANUP_FLAG' in CONFIG :
@@ -526,6 +581,9 @@ class Program:
 
         comment = "number of cores"
         f.write(f"N_CORE:           {n_core}     # {comment} \n")
+
+        comment = "n_core with jobs"
+        f.write(f"N_CORE_WITH_JOBS: {n_core_with_jobs}   # {comment} \n")
 
         if fast :
             f.write(f"FAST:             {FASTFAC}    " \
@@ -745,7 +803,7 @@ class Program:
         # this info never changes
         logging.info(f"# {fnam}: read {SUBMIT_INFO_FILE}")
         INFO_PATHFILE    = (f"{output_dir}/{SUBMIT_INFO_FILE}")
-        submit_info_yaml = util.extract_yaml(INFO_PATHFILE)
+        submit_info_yaml = util.extract_yaml(INFO_PATHFILE, None, None )
         self.config_prep['submit_info_yaml'] = submit_info_yaml
 
         # check option to reset merge process 
@@ -1110,6 +1168,7 @@ class Program:
         submit_info_yaml  = self.config_prep['submit_info_yaml']
         script_dir        = submit_info_yaml['SCRIPT_DIR'] 
         n_core            = submit_info_yaml['N_CORE']
+        n_core_with_jobs  = submit_info_yaml['N_CORE_WITH_JOBS']
         time_submit       = submit_info_yaml['TIME_STAMP_SUBMIT']
         time_now          = datetime.datetime.now()
         time_dif          = time_now - time_submit
@@ -1179,12 +1238,12 @@ class Program:
                 cpu_sum += cpu  # units are minutes, not seconds
 
             cpu_sum *= 60.0/t_unit
-            cpu_avg  = cpu_sum / n_core
+            # xxx mark delete  cpu_avg  = cpu_sum / n_core
+            cpu_avg  = cpu_sum / n_core_with_jobs
             eff_cpu  = cpu_avg / t_wall
 
             msg_time.append(f"CPU_SUM:        {cpu_sum:.3f} ")
             msg_time.append(f"EFFIC_CPU:      {eff_cpu:.3f}   # CPU/core/T_wall")
-
 
         return msg_time
 
@@ -1535,7 +1594,7 @@ class Program:
             YAML_FILE = (f"{script_dir}/{yaml_file}")
 
             if os.path.isfile(YAML_FILE) :
-                stats_yaml       = util.extract_yaml(YAML_FILE)
+                stats_yaml       = util.extract_yaml(YAML_FILE, None, None )
             
                 aiz              = stats_yaml[key_AIZ]
                 aiz_list[isplit] = aiz

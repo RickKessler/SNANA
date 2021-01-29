@@ -53,6 +53,10 @@
 #  Dec 08 2020 RK - fix to properly handle multiple surveys using
 #                    same filters
 #
+#  Dec 17 2020 RK - write full filter names to text files (e.g., CFA3K/l)
+#      for visual convenience. snana.car was modified to strip last
+#      char of filter column. FITS format still single char.
+#
 # ====================================
 
 import os, sys
@@ -240,6 +244,17 @@ def write_kcor_inputFile(versionInfo,kcorInfo):
     L1 = kcorInfo[0].LAMRANGE[1] 
     f.write(f"LAMBDA_RANGE: {L0} {L1} \n" )
 
+    # - - - - -
+    # check for spectrograph (Jan 2021)
+    # (warning: need to abort of spectcro_file names are different)
+    n_spectro = 0
+    for kcor in kcorInfo :
+        spectro_file = kcor.SPECTROGRAPH
+        if spectro_file is not None and n_spectro == 0 :
+            f.write(f"SPECTROGRAPH: {spectro_file} \n")
+            n_spectro += 1
+
+    # - - - - 
     f.write(f"OUTFILE:      {versionInfo.kcor_outFile} \n")
     
     # - - - - - - - - - - - - - - -
@@ -317,7 +332,7 @@ def run_kcor(versionInfo):
     f      = open(logFile,"rt")
     Lines  = f.readlines()
     f.close
-    if any("ABORT" in s for s in Lines):
+    if any(" ABORT " in s for s in Lines):
         msg = "\nFATAL error running kcor program:\n   Check %s\n" % inFile
         sys.exit(msg)
     
@@ -419,6 +434,11 @@ class KCOR_INFO:
             self.FILTER     = parseLines(Lines,'FILTER:',    3, 1)
             self.NFILTER    = len(self.FILTER)
 
+            # optional spectrograph (Jan 2021)
+            self.SPECTROGRAPH = parseLines(Lines,'SPECTROGRAPH:',1, 1)
+            if len(self.SPECTROGRAPH) == 0 :  self.SPECTROGRAPH = None
+            #print(f"\t xxx SPECTROGRAPH = {self.SPECTROGRAPH} ")
+
             if ( self.NFILTER > MXFILTERS ):
                 errMsg = (f"{self.NFILTERS} filters exceeds bound of " \
                           f"{MXFILTERS}" )
@@ -442,6 +462,7 @@ def create_newVersion(versionInfo):
         sys.exit("Output directory not defined\n Check SURVEY_OUT key")
 
     if ( os.path.exists(VOUT) ):
+        print(f" Remove pre-existing {VOUT}")
         shutil.rmtree(VOUT)
         
     os.mkdir(VOUT)
@@ -501,8 +522,9 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     FILTERLIST_NEW = kcorInfo.FILTER_CHARLIST_NEW     # only this version
     FILTERLIST_ALL = versionInfo.FILTER_CHARLIST_NEW  # all filters
     NFILTER        = kcorInfo.NFILTER
+    FILTER_NEWNAME = kcorInfo.FILTER_NEWNAME
+
     print(f"\t {FILTERLIST_OLD} -> {FILTERLIST_NEW} " )
-    # xxxprint '\t ', FILTERLIST_OLD, ' -> ', FILTERLIST_NEW
 
     # read name of survey from first file
     SURVEY = parseLines(fileContents, 'SURVEY:', 1, 0)
@@ -515,8 +537,8 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     sedcmd = "sed "
     
     # replace SURVEY ... only first occurance !
-    sedAdd  = "-e '0,/SURVEY:/s/%s/ %s(%s)/' " % (SURVEY,SOUT,SURVEY)
-# xxx mark delete    sedAdd  = "-e 's/%s/ %s(%s)/g' " % (SURVEY,SOUT,SURVEY) 
+    # xxx mark sedAdd = "-e '0,/SURVEY:/s/%s/ %s(%s)/' " %(SURVEY,SOUT,SURVEY)
+    sedAdd  = f"-e '0,/SURVEY:/s/{SURVEY}/ {SOUT}({SURVEY})/' "
     sedcmd += sedAdd
     
     # Replace global filter string.
@@ -524,19 +546,23 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     OLD2 = FILTERLIST_OLD    # from kcor file
     NEW  = FILTERLIST_NEW    # new kcor list
     ALL  = FILTERLIST_ALL    # all filters from all files
-    sedAdd  = "-e 's/%s/%s  # %s -> %s/g' " % ( OLD, ALL, OLD2, NEW ) 
+    # xxx mark sedAdd = "-e 's/%s/%s  # %s -> %s/g' " % (OLD,ALL,OLD2,NEW) 
+    sedAdd  = f"-e 's/{OLD}/{ALL}  # {OLD2} -> {NEW}/g' " 
     sedcmd += sedAdd
 
-    # Replace each single-char band.
+    # Replace each single-char band with new full filter name
     # Add '??' before each band to avoid removing new band
     # that matches an old band. Then remove ?? separately.
 
     for i in range(NFILTER):
         old = FILTERLIST_OLD[i]
-        new = FILTERLIST_NEW[i]
-        sedAdd = "-e 's/ %c / ??%c /g' " % ( old, new )
+        new = FILTERLIST_NEW[i]  # new char name
+        filter_newname = FILTER_NEWNAME[i].replace("/","\/") # new full name
+        sedAdd = f"-e 's/ {old} /  ??{filter_newname}  /g' "
         sedcmd += sedAdd
         
+    #sys.exit("\n xxx DEBUG STOP xxx \n")
+
     # remove the temporary '?s?'
     sedcmd += "-e 's/??//g' "
     
@@ -556,9 +582,14 @@ def add_newVersion(VIN,versoinInfo,kcorInfo):
     # update README file
     README_OUTFILE = VOUT_TEXT + '/' + versionInfo.AUXFILE_README
     PTR_README = open(README_OUTFILE,"at")
-    txt1 = "%3d data files from %-28.28s" % (nfile,VIN)
-    txt2 = "%s -> %s" % (FILTERLIST_OLD,FILTERLIST_NEW)
-    PTR_README.write( " %s %s \n" % (txt1,txt2) )
+
+    # xxx mark delete txt1 = "%3d data files from %-28.28s" % (nfile,VIN)
+    # xxx mark delete txt2 = "%s -> %s" % (FILTERLIST_OLD,FILTERLIST_NEW)
+
+    txt1 = f"{nfile:3d} data files from {VIN:>28}"
+    txt2 = f"{FILTERLIST_OLD} -> {FILTERLIST_NEW}"
+
+    PTR_README.write(f"{txt1} {txt2} \n")
     PTR_README.close
 
 

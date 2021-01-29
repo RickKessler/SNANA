@@ -1723,7 +1723,8 @@ void parse_multiplier(char *inString, char *key, double *multiplier) {
   }
   else {
     // do the parsing; start by splitting string around *
-    splitValues[0] = (char*)malloc(MEMC);  splitValues[1] = (char*)malloc(MEMC);
+    splitValues[0] = (char*)malloc(MEMC);  
+    splitValues[1] = (char*)malloc(MEMC);
     splitString(inString, star, 3,      // inputs
 		&NSPLIT, splitValues );      // outputs         
     
@@ -1965,6 +1966,11 @@ float get_snana_version_float__(char *snana_version)
 
 
 bool correct_sign_vpec_data(char *snana_version_data) {
+
+  // Jan 2021: if SNANA_VERSION key is not known, assume vpec sign is correct
+  if ( strcmp(snana_version_data,"UNKNOWN") == 0 ) { return true; }
+
+
   float version_f = get_SNANA_VERSION_FLOAT(snana_version_data);
   if ( version_f < 11.02 )
     { return false; } // VPEC in FITS data has wrong sign convention
@@ -2411,6 +2417,9 @@ void parse_commaSepList(char *item_name, char *item, int MAX_ITEM, int MXCHAR,
   *arrayList = (char**)malloc( MAX_ITEM*sizeof(char*));
   for(i=0; i < MAX_ITEM; i++ ) 
     { (*arrayList)[i] = (char*)malloc(MEMC); }
+
+  // bail on blank string
+  if ( strlen(item) == 0 ) { *n_item=0; return; }
 
   // split item string
   splitString(item, COMMA, MAX_ITEM,    // inputs
@@ -11037,15 +11046,11 @@ void check_argv(void) {
 
 // *******************************************************
 void parse_err ( char *inFile, int NEWMJD, char *keyword ) {
-
   // print standard error message for parsing.
   // errmsg called with ABORT flag !
-
   char fnam[] = "parse_err" ;
-
   sprintf(c1err,"Problem parsing %s", inFile );
   sprintf(c2err,"Check NEWMJD-Epoch %d, keyword '%s' ", NEWMJD, keyword);
-
   errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
 }
 

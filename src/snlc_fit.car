@@ -8375,6 +8375,13 @@ c set initial value and step size.
         LZDONE       = .TRUE.
         CZTMP        = 'REDSHIFT_FINAL'
 
+c Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
+        if ( PRIOR_ZERRSCALE == 1000.0 )  PRIOR_ZERRSCALE = 1.0
+        PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR
+        PHOTOZ_ITER1_LAMRANGE(1) =  2000. 
+
+        goto 777        ! Jan 2021
+
       ELSE IF ( BTEST(OPT_PHOTOZ,0) ) THEN  ! Zhost prior (1)
 
         if ( DOFIT_PHOTOZ_HOST ) THEN
@@ -8453,6 +8460,7 @@ c update x0-bound for SALT2
 
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
 
+777   CONTINUE
       if(LPRINT) CALL PRINT_INIPAR_ZPHOT('eval', INIVAL, chi2)
 
       CALL FLUSH(6)
@@ -12006,7 +12014,7 @@ cc         print*,'  Will use exact CCM89 law with AV = XTMAG(5495 A)'
       END
 
 C ===================================================
-+DECK,FANA_CUTS.
++DECK,FITANA_CUTS.
       SUBROUTINE FITANA_CUTS(isn, LCUTS )
 c
 c Apply quality cuts to fit results AFTER all fit-iterations
@@ -12028,16 +12036,12 @@ c  * SNRMAX & SNRMAX2
 c  * SIGMACHI2
 c  * FitPar and covariances
 c
-c Feb 8 2014: fix VBOSE bug.
-c   When  LVBOSE-> F (after 500 fits), LCUTS was always true 
-c   resulting in failed fits getting into the ntuple and fitres files. 
-c   Applying cuts in the ntuple gives the right results.
-c
-c Feb 10, 2014:  suppress FITWIN_TREST check for photo-z fits
 c
 c Sep 17 2016: cut on fitted covariances; see CUTWIN_FITCOV
 c
 c Mar 10 2017: cut on CUTWIN_FITERRz1
+c
+c Jan 4 2021: check OPT_SNCID_LIST option to accept everything.
 c
 c ------------------------------------------------
 
@@ -12091,6 +12095,16 @@ C ----------------- BEGIN ----------------
       CALL PRBANNER(BANNER)
 
       LCUTS = .TRUE.  ! init output argument
+
+c Jan 4 2021
+c check option to use SNCID list and skip cuts ... but always
+c reject events that are pegged to the edge of the shape prior range
+      if ( BTEST(OPT_SNCID_LIST,0) ) THEN
+         xval = LCVAL_STORE(ipar_shape)
+         if ( xval < PRIOR_SHAPE_RANGE(1) + 0.05 ) LCUTS = .FALSE.
+         if ( xval > PRIOR_SHAPE_RANGE(2) - 0.05 ) LCUTS = .FALSE.
+         RETURN
+      endif
 
       DOFIT_SPECZ = .NOT. DOFIT_PHOTOZ
 
@@ -14457,7 +14471,6 @@ c translate user string MAGLIM_VMAX
 
       RETURN
       END      ! end of VMAX_INI
-
 
 C ==================================================
 +DECK,DMPVMAX.

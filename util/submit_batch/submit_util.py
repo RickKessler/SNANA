@@ -10,6 +10,93 @@ from   submit_params import *
 
 # =================================================
 
+def prep_jobopt_list(config_rows, string_jobopt, key_arg_file):
+
+    # Created Jan 23 2021
+    # Generic utility to strip args from config_rows and return
+    # dictionary of arg_list, num_list, label_list.
+    # The args are from FITOPT key for FIT, MUOPT key for BBC,
+    # TRAINOPT key for training ... Each jobopt can include
+    # a label surrounding by slashes; e.g., /LABEL_THIS/
+    #
+    # Inputs:
+    #   config_rows = CONFIG[string_jobopt] passed from user input file
+    #   string_jobopt = 'FITOPT' or'MUOPT'or 'TRAINOPT' ...
+    #   key_arg_file = optional key for file name containing args
+
+    jobopt_dict = {} # init output dictionary
+    n_jobopt          = 1
+    jobopt_ARG_list   = [ '' ] # original user arg
+    jobopt_arg_list   = [ '' ] # expanded args used by script
+    jobopt_num_list   = [ f"{string_jobopt}000" ] 
+    jobopt_label_list = [ None ]
+    jobopt_file_list  = [ None ]   
+    use_arg_file      = False
+
+    for jobopt_raw in config_rows :    # might include label
+        num = (f"{string_jobopt}{n_jobopt:03d}")
+
+        # separate  label and ARG in
+        #    jobopt_string: /label/ ARG
+        label, ARG = separate_label_from_arg(jobopt_raw)
+
+        # if arg points to an arg_file, read and return args from file
+        arg, arg_file  = read_arg_file(ARG,key_arg_file)
+        if arg_file is not None:  use_arg_file = True
+
+        # uopdate jobopt lists
+        jobopt_arg_list.append(arg)
+        jobopt_ARG_list.append(ARG)
+        jobopt_num_list.append(num)
+        jobopt_label_list.append(label)
+        jobopt_file_list.append(arg_file)
+        n_jobopt += 1
+     
+    # - - - -
+    jobopt_dict = {
+        'jobopt_arg_list'   : jobopt_arg_list ,
+        'jobopt_ARG_list'   : jobopt_ARG_list ,
+        'jobopt_num_list'   : jobopt_num_list ,
+        'jobopt_label_list' : jobopt_label_list ,
+        'jobopt_file_list'  : jobopt_file_list ,
+        'n_jobopt'          : n_jobopt,
+        'use_arg_file'      : use_arg_file
+    }
+
+    return jobopt_dict
+
+    # end prep_jobopt_list
+
+def read_arg_file(ARG, KEY_ARG_FILE):
+
+    # if ARG starts with KEY_ARG_FILE, the return arg is equal
+    # to the contents of arg_file; otherwise return arg = ARG.
+    # Motivation is that user can build long list of arguments
+    # (e.g., random calib variations for training)
+    # and store each set of args in a separate file.
+
+    arg      = ARG   # init return arg to input ARG
+    arg_file = None  # init return arg_file
+
+    if KEY_ARG_FILE is None :
+        return arg, arg_file
+    
+    # - - - - -
+    word_list = ""
+    arg_list = ARG.split()
+
+    if arg_list[0] == KEY_ARG_FILE :
+        arg_file = arg_list[1]
+        with open(arg_file,"rt") as f:
+            for line in f:
+                if is_comment_line(line) : continue
+                word_list += line.replace("\n"," ")
+            arg = word_list
+    # - - - -
+    return arg, arg_file
+    # end read_arg_file
+
+
 def protect_parentheses(arg):
     # Created Dec 10 2020
     # if arg = abc(option), returns abc\(option\).
@@ -570,6 +657,7 @@ def write_job_info(f,JOB_INFO,icpu):
 
     # write job program plus arguemnts to file pointer f.
     # All job-info are passed via JOB_INFO.
+    # Jan 8 2021: check optional wait_file
 
     job_dir      = JOB_INFO['job_dir']    # cd here; where job runs
     program      = JOB_INFO['program']    # name of program; e.g, snlc_sim.exe
@@ -578,12 +666,15 @@ def write_job_info(f,JOB_INFO,icpu):
     done_file    = JOB_INFO['done_file']  # DONE stamp for monitor tasks
     arg_list     = JOB_INFO['arg_list']   # argumets of program
 
+
     if len(job_dir) > 1 :
         f.write(f"# ---------------------------------------------------- \n")
         f.write(f"cd {job_dir} \n\n")
 
     CHECK_CODE_EXISTS = '.exe' in program
-    CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO and 'kill_on_fail' in JOB_INFO
+    CHECK_ALL_DONE    = 'all_done_file' in JOB_INFO  and \
+                        'kill_on_fail' in JOB_INFO
+    CHECK_WAIT_FILE   = 'wait_file' in JOB_INFO
 
     if CHECK_ALL_DONE :
         # if ALL.DONE file exists, something else failed ... 
@@ -613,7 +704,16 @@ def write_job_info(f,JOB_INFO,icpu):
                          f"do sleep 5; done" )
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
         f.write(f"{wait_for_code}\n")
-        f.write(f"echo '{program} exists -> execute' \n\n")
+        f.write(f"echo '{program} exists -> continue' \n\n")
+
+    if CHECK_WAIT_FILE:
+        wait_file     = JOB_INFO['wait_file']  # wait for this file to exist
+        wait_for_file = (f"while [ ! -f {wait_file} ]; " \
+                         f"do sleep 10; done" )
+        f.write(f"echo 'Wait for {wait_file}'\n")
+        f.write(f"{wait_for_file}\n")
+        f.write(f"echo '{wait_file} exists -> continue' \n\n")
+
 
     # check optional ENV to set before running program
     if 'setenv' in JOB_INFO :
@@ -700,7 +800,7 @@ def get_survey_info(yaml_path):
         yaml_list = glob.glob(f"{yaml_path}/*.YAML")
         yaml_file = yaml_list[0]
 
-    yaml_info = extract_yaml(yaml_file)    
+    yaml_info = extract_yaml(yaml_file, None, None )    
     return yaml_info['SURVEY'], yaml_info['IDSURVEY']
     # end get_survey_info
 
@@ -814,23 +914,41 @@ def log_assert(condition, message):
 
         logging.exception(message)
         assert condition, msg_abort_face
-#        assert condition, message
+        # end log_assert
 
+def extract_yaml(input_file, key_start, key_end):
 
-def extract_yaml(input_file):
+    # Jan 2021: ignore everything before key_start and after key_end.
+    #           if either key is None, ignore the key
+
     msgerr = [(f"Cannot find the input yaml file:\n   {input_file}")]
     exist  = os.path.isfile(input_file)
-    # xxx mark delete log_assert(os.path.exists(input_file), 
     log_assert(exist,msgerr)
                
-    lines = []
+    line_list = []
+    FLAG_START = key_start is None
+    FLAG_END   = False
+
     with open(input_file, "r") as f:
         for line in f:
-            if line.startswith("#END_YAML"):
-                break
-            lines.append(line)
-    config = yaml.safe_load("\n".join(lines))
+            if key_start is not None:
+                if line.startswith(key_start) : FLAG_START = True
+
+            if key_end is not None:
+                if line.startswith(key_end) : FLAG_END = True
+
+            #print(f"\t xxx FLAG(START,END) = {FLAG_START} {FLAG_END} " \
+            #      f" for line={line}")
+
+            if not FLAG_START : continue
+            if FLAG_END: break
+
+            # xxx mark delete if line.startswith("#END_YAML"): break
+            line_list.append(line)
+
+    config = yaml.safe_load("\n".join(line_list))
 
     #logging.info(f" YAML config loaded successfully from {input_file}")
     return config
+    # end extract_yaml
 

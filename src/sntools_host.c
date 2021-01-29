@@ -101,6 +101,10 @@
 
  Sep 04 2020 : implement REQUIRE_DOCANA 
 
+ Jan 22 2021 : 
+   + convert GENRANGE_REDSHIFT to zHEL min/max, then compare to HOSTLIB range.
+   + count NSTAR for z < ZMAX_STAR; give warning if NSTAR>0
+
 =========================================================== */
 
 #include <stdio.h>
@@ -246,6 +250,8 @@ void initvar_HOSTLIB(void) {
 
   HOSTLIB.NVAR_SNPAR   = 0 ;
   HOSTLIB.VARSTRING_SNPAR[0] = 0 ;
+
+  HOSTLIB.NSTAR = 0;
 
   for ( ivar=0; ivar < MXVAR_HOSTLIB; ivar++ )  { 
     HOSTLIB.IVAR_WGTMAP[ivar] = -9 ; 
@@ -1010,6 +1016,8 @@ int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
   // Check external WGTMAP file first; if no external WGTMAP file,
   // then check if WGTMAP is embedded in HOSTLIB.
   // Function returns number of WGTMAP variables found.
+  //
+  // Jan 15 2021: abort if EOF is reached.
 
   int NVAR   = 0 ;
   int MXCHAR = MXPATHLEN;
@@ -1051,7 +1059,14 @@ int read_VARNAMES_WGTMAP(char *VARLIST_WGTMAP) {
 
   bool STOP_READ = false;
   while( !STOP_READ ) { 
-    fscanf(fp, "%s", c_get); 
+
+    // xxx mark delete fscanf(fp, "%s", c_get); 
+
+    if ( fscanf(fp, "%s", c_get) == EOF ) {
+      sprintf(c1err,"Reached EOF before finding WGTMAP or GAL key.");
+      sprintf(c2err,"Check format for HOSTLIB_FILE.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
 
     // avoid reading the entire HOSTLIB file if there is no WGTMAP
     if ( strcmp(c_get,KEY_STOP) == 0 ) { STOP_READ = true; }
@@ -2161,6 +2176,7 @@ void read_gal_HOSTLIB(FILE *fp) {
   // Dec 29 2017: time to read 416,000 galaxies 5 sec ->
   // Nov 11 2019: check NBR_LIST
   // Feb 25 2020: set VALMIN & VALMAX for float; skip for ISCHAR.
+  // Jan 22 2021: print WARNING if HOSTLIB.NSTAR > 0
 
   bool DO_SWAPZPHOT = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT) ;
   int  IVAR_ZPHOT    = HOSTLIB.IVAR_ZPHOT ; // ivar_STORE
@@ -2172,10 +2188,9 @@ void read_gal_HOSTLIB(FILE *fp) {
   
   long long GALID, GALID_MIN, GALID_MAX ;
   int  ivar_ALL, ivar_STORE, NVAR_STORE, NGAL, NGAL_READ, MEMC ;
-  int  NPRIORITY;
+  int  NPRIORITY ;
   bool ISCHAR ;
   double xval[MXVAR_HOSTLIB], val, ZTMP, LOGZCUT[2], DLOGZ_SAFETY ;
-
   // ----------------- BEGIN -----------
 
   NVAR_STORE = HOSTLIB.NVAR_STORE;
@@ -2285,8 +2300,8 @@ void read_gal_HOSTLIB(FILE *fp) {
 
   // load min/max ZTRUE into separate variables
   ivar_STORE   = IVAR_HOSTLIB(HOSTLIB_VARNAME_ZTRUE,1) ;
-  HOSTLIB.ZMIN = HOSTLIB.VALMIN[ivar_STORE];
-  HOSTLIB.ZMAX = HOSTLIB.VALMAX[ivar_STORE];
+  HOSTLIB.ZMIN = HOSTLIB.VALMIN[ivar_STORE]; // min zHELIO
+  HOSTLIB.ZMAX = HOSTLIB.VALMAX[ivar_STORE]; // max zHELIO
 
   printf("\t Stored %d galaxies from HOSTLIB (from %d total). \n",
 	 HOSTLIB.NGAL_STORE, HOSTLIB.NGAL_READ );
@@ -2306,17 +2321,34 @@ void read_gal_HOSTLIB(FILE *fp) {
   
   fflush(stdout);
 
-  // abort if requested z-range exceed range of HOSTLIB
-  if ( HOSTLIB.ZMIN > INPUTS.GENRANGE_REDSHIFT[0] ||
-       HOSTLIB.ZMAX < INPUTS.GENRANGE_REDSHIFT[1] ) {
+  // check warning for stars
+  if ( HOSTLIB.NSTAR > 0 ) {
+    printf("\n\t *** WARNING: %d entries might be stars (z<%.4f) **** \n\n",
+	   HOSTLIB.NSTAR, ZMAX_STAR);
+    fflush(stdout);
+  }
 
-    sprintf(c1err,"HOSTLIB z-range (%f - %f) does not contain",
+  // abort if requested z-range exceeds range of HOSTLIB.
+  // Note that GENRANGE_REDSHIFT is for zCMB, so subtract/add "dz_safe"
+  // to convert GENRANGE_REDSHIFT(CMB) to helio frame.
+  double dz_safe  = 0.002 ;
+  double ZMIN_GEN = INPUTS.GENRANGE_REDSHIFT[0] - dz_safe; // convert to helio
+  double ZMAX_GEN = INPUTS.GENRANGE_REDSHIFT[1] + dz_safe;
+
+  if ( HOSTLIB.ZMIN > ZMIN_GEN || HOSTLIB.ZMAX < ZMAX_GEN ) {
+
+    print_preAbort_banner(fnam);
+    printf("  HOSTLIB z-HEL range: %.5f - %.5f \n", 
 	    HOSTLIB.ZMIN, HOSTLIB.ZMAX );
-    sprintf(c2err,"GENRANGE_REDSHIFT (%f - %f)"
-	    ,INPUTS.GENRANGE_REDSHIFT[0]
-	    ,INPUTS.GENRANGE_REDSHIFT[1] );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    printf("  Gen     z-HEL range: %.5f - %.5f (GENRANGE_REDSHIFT +- %.4f)\n",
+	   ZMIN_GEN, ZMAX_GEN, dz_safe );
+    printf("  Gen     z-CMB range: %.5f - %.5f (GENRANGE_REDSHIFT)\n",
+	   INPUTS.GENRANGE_REDSHIFT[0], INPUTS.GENRANGE_REDSHIFT[1] );
 
+    sprintf(c1err,"HOSTLIB z-HEL range does not contain user "
+	    "GENRANGE_REDSHIFT;" );
+    sprintf(c2err,"See redshift ranges above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   
   return ;
@@ -2343,6 +2375,7 @@ int passCuts_HOSTLIB(double *xval ) {
   // REDSHIFT
   ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_ZTRUE] ; 
   ZTRUE       = xval[ivar_ALL];
+  if ( ZTRUE < ZMAX_STAR ) { HOSTLIB.NSTAR++; }      // diagnostic
   if ( ZTRUE < HOSTLIB_CUTS.ZWIN[0] ) { return(0); }
   if ( ZTRUE > HOSTLIB_CUTS.ZWIN[1] ) { return(0); }
 
@@ -5269,13 +5302,6 @@ void GEN_SNHOST_ZPHOT(int IGAL) {
   SNHOSTGAL.ZPHOT     = SNHOSTGAL_DDLR_SORT[0].ZPHOT;
   SNHOSTGAL.ZPHOT_ERR = SNHOSTGAL_DDLR_SORT[0].ZPHOT_ERR ;
 
-  /* xxxx mark delete xxxxx
-  ZPHOT += ZBIAS;
-  SNHOSTGAL.ZPHOT       = ZPHOT ;
-  SNHOSTGAL.ZPHOT_ERR   = ZPHOT_ERR ;
-  xxxxx */
-
-
   // -------------------------------
   // Aug 18 2015
   // check ZPHOTEFF option for host-zphot efficiency --> 
@@ -5643,7 +5669,7 @@ void  GEN_SNHOST_VPEC(int IGAL) {
   // Created May 24 2020
   // Check for VPEC column in HOSTLIB table.
 
-  bool DO_VPEC       = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ) ;
+  bool DO_VPEC       = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC) ;
   int  IVAR_VPEC     = HOSTLIB.IVAR_VPEC ;
   int  IVAR_VPEC_ERR = HOSTLIB.IVAR_VPEC_ERR ;
   double VPEC        = 0.0, ERR = -999.9 ;
@@ -6529,7 +6555,6 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   double zPEC_GAUSIG   = GENLC.VPEC/LIGHT_km ; // from GENSIGMA_VPEC key
   double zPEC_HOSTLIB  = SNHOSTGAL.VPEC/LIGHT_km; // from hostlib
 
-  //  double ZTRUE_noVPEC  = ZTRUE - zPEC ;
   double RA            = GENLC.RA ;
   double DEC           = GENLC.DEC ;
  
@@ -6548,15 +6573,17 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   // if wrong host (based on mag), bail
   if ( !GENLC.CORRECT_HOSTMATCH) { return ; }
 
-  // subtract helio redshift here ... will be added at end of function
-  zHEL = GENLC.REDSHIFT_HELIO - zPEC_GAUSIG ;
+  // un-do zPEC to get zHEL without vPEC
+  // xxx mark delete zHEL = GENLC.REDSHIFT_HELIO - zPEC_GAUSIG ;  //.xyz
+
+  zHEL = (1.0+GENLC.REDSHIFT_HELIO)/(1.0+zPEC_GAUSIG) - 1.0 ;
 
   // - - - - - - - - - - - - - - - - - - - - - 
   // check for transferring redshift to host redshift.
   // Here zHEL & zCMB both change
   if ( DO_SN2GAL_Z ) {
-    // xxx mark delete    zHEL = ZTRUE_noVPEC ;
-    zHEL = ZTRUE - zPEC_GAUSIG;
+    // mark delete : bug   zHEL = ZTRUE - zPEC_GAUSIG;
+    zHEL = ZTRUE ;
     if ( INPUTS.VEL_CMBAPEX > 0.0 ) {
       zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,eq,+1);
     }
@@ -6583,11 +6610,6 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
     gen_distanceMag(zCMB, zHEL, 
 		    &GENLC.DLMU, &GENLC.LENSDMU ); // <== returned
 
-    /* xxxxxxx mark delete May 25 2020 xxxxxxx
-    zHEL                 += zPEC;  // add zPEC after computing MU
-    GENLC.REDSHIFT_HELIO  = zHEL ;     
-    SNHOSTGAL.ZSPEC       = zHEL ;
-    xxxxxxxxxxx */
   }
 
   // - - - - - - - - - 
@@ -6595,11 +6617,13 @@ void TRANSFER_SNHOST_REDSHIFT(int IGAL) {
   if ( DO_VPEC ) 
     { zPEC = zPEC_HOSTLIB; }  // from VPEC key in HOSTLIB
   else
-    { zPEC = zPEC_GAUSIG ; }  // from sim-input GENSIGNA_VPEC key
+    { zPEC = zPEC_GAUSIG ; }  // from sim-input GENSIGMA_VPEC key
 
   double zHEL_ORIG = GENLC.REDSHIFT_HELIO ;
   GENLC.VPEC = zPEC * LIGHT_km;
-  zHEL += zPEC;                    // add vPEC  
+  // xxx mark delete  zHEL += zPEC;                    // add vPEC  
+  zHEL = (1.0+zHEL)*(1.0+zPEC) - 1.0 ;    // Jan 27 2021 
+
   GENLC.REDSHIFT_HELIO  = zHEL ;     
   SNHOSTGAL.ZSPEC       = zHEL ;  
 

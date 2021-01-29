@@ -54,7 +54,9 @@ MODEL_NONIa = "NONIa"
 
 HOSTNAME = os.uname()[1].split('.')[0]
 
-BATCH_MEM_DEFAULT = "2000"   # default memory request for batch jobs
+BATCH_MEM_DEFAULT      = "2000"      # default memory request is 2GB
+BATCH_WALLTIME_DEFAULT = '24:00:00'  # default wall time is 24hr
+BATCH_MAXJOB_DEFAULT   = 500         # max number of jobs allowed in queue
 
 USERNAME = getpass.getuser()
 USER4    = USERNAME[0:4]
@@ -100,6 +102,8 @@ STRING_SUCCESS = "SUCCESS"
 STRING_FAIL    = "FAIL"
 STRING_STOP    = "STOP"
 
+KEY_END_YAML = "#END_YAML"
+
 # either of these keys allowed in CONFIG
 CONFIG_KEYLIST_DONE_FILE = [ 'DONE_STAMP', 'DONE_STAMP_FILE' ] 
 DEFAULT_DONE_FILE = "ALL.DONE"  # default if DONE_STAMP not in CONFIG
@@ -114,7 +118,7 @@ SUBMIT_STATE_WAIT = "WAIT"
 SUBMIT_STATE_RUN  = "RUN "
 SUBMIT_STATE_DONE = "DONE"
 SUBMIT_STATE_FAIL = "FAIL"
-SUBMIT_STATE_BUSY = "BUSY"  # ?? 
+SUBMIT_STATE_BUSY = "BUSY"
 
 # column ids for FITOPT_LIST written by fit job and read by BBC
 COLNUM_FITOPT_NUM   = 0   # e.g., FITOPT001
@@ -164,7 +168,10 @@ CONFIG:
   NODELIST: [node1] [node2] ...  # for ssh 
 
   # optional memory request (default is 2 GB)
-  BATCH_MEM: 4000Mb     # 4GB (e..g, extra mem for big SIMSED models)
+  BATCH_MEM: 4000     # 4GB (e.g., extra mem for big SIMSED models)
+
+  # optional max walltime request (default is 24hr)
+  BATCH_WALLTIME: '1:00:00'  # 1hr max wall time
 
   # default ALL.DONE is created under OUTDIR; here can specify
   # an optional/additionl done file anywhere
@@ -325,13 +332,19 @@ HELP_CONFIG_FIT = f"""
   - FITOPT000     # another synLink for FITOPT012
   - etc ... 
 
-# Sym Link Notes for FITOPT000: this feature is useful for systematics
-# with multiple surveys. For example above, FITOPT011 and FITOP012 could 
-# be calibration variatios for a different survey, so here the sym link
-# uses the default LCFIT (FITOPT000) without wasting CPU.
-# Labels with NOREJECT are used by BBC to exlcude these tests in 
-# determining reject list in 2nd BBC fit iteration.
+  # Sym Link Notes for FITOPT000: this feature is useful for systematics
+  # with multiple surveys. For example above, FITOPT011 and FITOP012 could 
+  # be calibration variatios for a different survey, so here the sym link
+  # uses the default LCFIT (FITOPT000) without wasting CPU.
+  # Labels with NOREJECT are used by BBC to exlcude these tests in 
+  # determining reject list in 2nd BBC fit iteration.
 
+  # Option to use events from FITOPT000 in all FITOPTs ...
+  # except those with NOREJECT in label.
+  OPT_SNCID_LIST: 1
+     or
+  OPT_SNCID_LIST: 3  # same, but also use PKMJDINI from FITOPT000
+  
   # optional append variables from root/hbook into FITRES-TEXT table.
   #  (in old split_and_fit script, this key was APPEND_TABLE_TEXT)
   # To see full list of varables to append,
@@ -412,13 +425,20 @@ HELP_CONFIG_BBC = f"""
   FITOPTxMUOPT: 2+3   # process only FITOPT=002 or  MUOPT=003
   FITOPTxMUOPT: 0&0   # process only FITOPT=000 and MUOPT=000
   FITOPTxMUOPT: 2&3   # process only FITOPT=002 and MUOPT=003
+
+  # and to specify multiple options,
+  FITOPTxMUOPT: 
+  - 0+0   # process FITOPT=000 or MUOPT=000 ...
+  - 2&4   # and include FITOPT002 x MUOPT004
+  - DUMP  # optional flag to dump explicit matrix for FITOPTxMUOPT
+
   # For first two examples, the number of BBC jobs per version is
   # NFITOPT + NMUOPT + 1. For next 2 examples, just 1 BBC job per version.
   # This key cannot be configured to mimic command line args 
   # --ignore_fitopt or --ignore_muopt.  However, "FITOPTxMUOPT: 0&0" is 
   # equivalent to setting both with "--ignore_fitopt --ignore_muopt"
 
-  # process M independent random sum-samples; useful to compare RMS vs. errors.
+  # process independent random sum-samples; useful to compare RMS vs. errors.
   # Be careful that every VERSION+FITOPT+MUOPT is divided into NSPLITRAN jobs.
   NSPLITRAN: <nsplitran>
 

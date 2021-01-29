@@ -54,7 +54,11 @@
      # associate each filter set with survey(s) from SURVEY.DEF
      SURYEY: SDSS
      SURVEYS: FOUNDATION,PS1MD
-    
+
+     # optional ZPOFF file to override default ZPOFF.DAT (Jan 2021)
+     ZPOFF_FILE: ZPOFF_UPDATED.DAT
+       (if no slash in file name, check FILTPATH)
+
      FILTSYSTEM: COUNT    # most moder systems are count
      FILTSYSTEM: ENERGY   # older Bessell system may be energy
 
@@ -192,6 +196,9 @@
 
  Dec 07 2020:
     + alow multiple FILTPATH keys
+
+ Jan 15 2021: new ZPOFF_FILE input key (for each FILTPATH) to override
+              default ZPOFF.DAT
 
 ****************************************************/
 
@@ -567,12 +574,17 @@ int rd_input(void) {
       printf("\n\t Found MAGSYSTEM '%s' with offset = %8.3f (INDX=%d->%d)\n",
 	     MAGSYSTEM_TMP, MAGSYSTEM.OFFSET,
 	     MAGSYSTEM.INDX_INPUT, MAGSYSTEM.INDX );
-      sprintf(MAGSYSTEM.SURVEY_NAMES,"NONE");
+      sprintf(MAGSYSTEM.SURVEY_NAMES, "NONE" );
+      sprintf(MAGSYSTEM.ZPOFF_FILE,   "NONE" );
     }  
 
     if ( strcmp(c_get,"SURVEY:") == 0 || strcmp(c_get,"SURVEYS:") == 0 ) {
       readchar(fp_input, MAGSYSTEM.SURVEY_NAMES);  // Nov 2020
       check_valid_survey_names(MAGSYSTEM.SURVEY_NAMES);
+    }
+
+    if ( strcmp(c_get,"ZPOFF_FILE:") == 0 ) {
+      readchar(fp_input, MAGSYSTEM.ZPOFF_FILE);  // Jan 2021
     }
 
     if ( strcmp(c_get,"FILTPATH:")==0 && (FILTER_IGNORE == 0) )  {
@@ -585,23 +597,10 @@ int rd_input(void) {
       if ( strcmp(INPUTS.FILTPATH,INPUTS.FILTPATH_replace1) == 0 ) 
 	{  sprintf(INPUTS.FILTPATH,"%s", INPUTS.FILTPATH_replace2 ); }
 
-      rd_ZPOFF(INPUTS.FILTPATH);
+      rd_ZPOFF(INPUTS.FILTPATH, MAGSYSTEM.ZPOFF_FILE);  
 
       // store filter path to check for duplicates
       sprintf(FILTPATH_LIST[NFILTPATH], "%s", INPUTS.FILTPATH);
-
-      /* xxxx mark delete Dec 7 2020 xxxx
-      // 5/03/2011: abort if FILTPATH is repeated
-      for ( itmp=1; itmp < NFILTPATH; itmp++ ) {
-	ptr_tmp = FILTPATH_LIST[itmp] ;
-	if ( strcmp(INPUTS.FILTPATH,ptr_tmp) == 0 ) {
-	  sprintf(c1err,"Found duplicate  FILTPATH: %s", ptr_tmp);
-	  sprintf(c2err,"Remove extra '%s' or use MAGSYSTEM_IGNORE option.",
-		  ptr_tmp );
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-	}
-      } // itmp
-      xxxxxxxxxxxxx end mark xxxxxxxxxxxxxx*/
 
     }
 
@@ -1066,6 +1065,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   char *NAME       = MAGSYSTEM->NAME;
   char *NAME_INPUT = MAGSYSTEM->NAME_INPUT ;
   char *SURVEY     = MAGSYSTEM->SURVEY_NAMES ; // Nov 2020
+  char *ZPOFF_FILE = MAGSYSTEM->ZPOFF_FILE;    // Jan 2021
   double OFFSET       = MAGSYSTEM->OFFSET;
   double OFFSET_INPUT = MAGSYSTEM->OFFSET_INPUT;
 
@@ -1139,7 +1139,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   sprintf(FILTER[NF].FILTSYSTEM_NAME,"%s", FILTSYSTEM->NAME ) ;
   sprintf(FILTER[NF].PATH,     "%s", INPUTS.FILTPATH ) ;
   sprintf(FILTER[NFILTPATH].PATH_ORIG,"%s", INPUTS.FILTPATH_ORIG ) ;  
-  FILTER[NF].IPATH = NFILTPATH ;  // Dec 2012
+  FILTER[NF].IPATH = NFILTPATH ;  
   
   FILTER[NF].MAGFILTER_ZPOFF  = get_ZPOFF(filtName,NFILTPATH) ;
 
@@ -1162,7 +1162,8 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  sprintf(FILTER[NF].SURVEY_NAMES, "%s", SURVEY); // Nov 2020
+  sprintf(FILTER[NF].SURVEY_NAMES, "%s", SURVEY);     // Nov 2020
+  sprintf(FILTER[NF].ZPOFF_FILE,   "%s", ZPOFF_FILE); // Jan 2021
 
   if ( IFLAG_SYN ) {
     double L0 = INPUT_FILTER->LAMRANGE_SYN[0] ;
@@ -1271,9 +1272,10 @@ void kcor_input_override(int OPT) {
   //
   //
   // Feb 2019: read FILTER_OOB
+  // Jan 15 2021: check ZPOFF_FILE
 
   int i, ilast, iuse ;
-  char tmpName[60], tmpFile[200] ;
+  char tmpName[60], tmpFile[MXPATHLEN] ;
 
   // ------------ BEGIN -----------
 
@@ -1455,7 +1457,7 @@ void  primary_override(char *primName, char *fileName) {
   // Overwrite array PRIMARY array with command-line override.
 
   int  iprim, IPRIM  ;
-  char oldFile[200], *ptrFile ;
+  char oldFile[MXPATHLEN], *ptrFile ;
 
   IPRIM = -9 ;
 
@@ -1500,11 +1502,14 @@ void  parse_FILTER_LAMSHIFT(int *indx_ARGV) {
   // *indx_ARGV is the index of the FILTER_LAMSHIFT key.
   // Note that *indx_ARGV is incremented here so that the
   // main parsing function can continue.
+  //
+  // Jan 28 2021: fix index bugs
 
   int i, ifilt, NBAND ;
+  int LDMP = 0 ;
   double lamshift ;
   char *cfilt ;
-  //  char fnam[] = "parse_FILTER_LAMSHIFT" ;
+  char fnam[] = "parse_FILTER_LAMSHIFT" ;
 
   // ------------ BEGIN --------------
 
@@ -1512,19 +1517,31 @@ void  parse_FILTER_LAMSHIFT(int *indx_ARGV) {
 
   NBAND = 0 ;
 
-  while ( i > 0 ) {
+  while ( i > 0  && i < NARGV_LIST-1) {
+
+    if ( LDMP ) {
+      printf(" xxx ------------------------------ \n");
+      printf(" 1. xxx %s: ARG[%d of %d] = %s  \n", 
+	     fnam, i, NARGV_LIST, ARGV_LIST[i] );    fflush(stdout);
+    }
 
     i++ ; 
     cfilt = ARGV_LIST[i];   
     ifilt = INTFILTER_kcor(cfilt);
 
-    if ( ifilt > 0 ) {
+    if ( LDMP ) {
+      printf(" 2. xxx %s: ARG[%d of %d] = %s  \n", 
+	     fnam, i, NARGV_LIST, ARGV_LIST[i] );    fflush(stdout);
+    }
+
+    if ( ifilt > 0  ) {
       NBAND++ ;
       i++ ; sscanf( ARGV_LIST[i] , "%le", &lamshift ); 
       INPUTS.FILTER_LAMSHIFT[ifilt] = lamshift ;
       INPUTS.NFILTER_LAMSHIFT++ ;
     }
     else   {
+      i-- ; 
       // bail when we get a string that is clearly not a filter name
       goto DONE ; 
     }
@@ -1535,8 +1552,10 @@ void  parse_FILTER_LAMSHIFT(int *indx_ARGV) {
     fflush(stdout);
   }
 
+
  DONE:
-  *indx_ARGV = i-1 ;
+  // xxx mark delete   *indx_ARGV = i -1 ;
+  *indx_ARGV = i ;
 
 } // end of parse_FILTER_LAMSHIFT
 
@@ -1556,6 +1575,7 @@ int INTFILTER_kcor(char *filterName) {
   char fnam[] = "INTFILTER_kcor" ;
   // ------------- BEGIN -------------
   
+
   NMATCH = 0;  IFILT = -9 ;
   for(ifilt=1; ifilt <= NFILTDEF; ifilt++ ) {
     if ( strcmp(filterName,FILTER[ifilt].name) == 0  )
@@ -1589,34 +1609,55 @@ int INTFILTER_kcor(char *filterName) {
 } // end of INTFILTER_kcor
 
 // ********************************
-void rd_ZPOFF(char *sdir) {
+void rd_ZPOFF(char *sdir, char *zpoff_file_override) {
 
   // Created Mar 25,  2010 by R.Kessler
   // Read ZPOFF.DAT file from *sdir and store AB offsets.
-  // If file does not exist, just return since this
-  // file is optional.
+  // If zpoff_file_override is set, read this instead of ZPOFF.DAT
+  // If ZPOFF.DAT does not exist, just return since this file is optional.
   //
+  // Jan 2021; pass option zpoff_file_override
 
   double zpoff;
   FILE *fp;
-  int gzipFlag;
-  char 
-    cfilt[40]
-    ,zpoff_File[100]
-    ,ZPOFF_FILE[200]
-    //    ,fnam[] = "rd_ZPOFF" 
-    ;
+  int gzipFlag, REQUIRE_ZPOFF_FILE ;
+  char  cfilt[40], zpoff_File[MXPATHLEN], ZPOFF_FILE[MXPATHLEN] ;
+  char  fnam[] = "rd_ZPOFF"     ;
 
   // ------------- BEGIN ------------
 
-  sprintf(zpoff_File,"%s/ZPOFF.DAT",  sdir);
-  fp = snana_openTextFile(0,PATH_SNDATA_FILTER, zpoff_File, 
+  if ( IGNOREFILE(zpoff_file_override) ) {
+    REQUIRE_ZPOFF_FILE = 0;
+    sprintf(zpoff_File,"%s/%s",  sdir, ZPOFF_FILE_DEFAULT);
+  }
+  else {
+    // check user-define ZPOFF file (Jan 2021)
+    REQUIRE_ZPOFF_FILE = 1 ; 
+    // if there is a slash in the file name, assume it has full path.
+    // Otherwise, glue on sdir to name.
+    if ( strchr(zpoff_file_override,'/') == NULL ) 
+      { sprintf(zpoff_File,"%s/%s",  sdir, zpoff_file_override); }
+    else
+      { sprintf(zpoff_File,"%s",  zpoff_file_override); }
+  }
+
+
+  fp = snana_openTextFile(0, PATH_SNDATA_FILTER, zpoff_File, 
 			  ZPOFF_FILE, &gzipFlag );
 
-
+  // if file does not exist ...
   if ( fp == NULL ) {
-    printf("\t Could not find %s => no ZP offsets. \n", zpoff_File);
-    return ;
+    if ( REQUIRE_ZPOFF_FILE ) {
+      print_preAbort_banner(fnam);
+      printf("\t Tried to open ZPOFF_FILE = \n %s\n", ZPOFF_FILE);
+      sprintf(c1err,"User-requested ZPOFF file does not exist.");
+      sprintf(c2err,"Check ZPOFF_FILE key");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    else {
+      printf("\t Could not find default %s => no ZP offsets. \n", zpoff_File);
+      return ;
+    }
   }
 
   // file exists, so read it. 
@@ -2413,7 +2454,7 @@ void addOOBTrans_filter(int ifilt) {
   FILTER[ifilt].NBIN_LAMBDA = NBIN_LAM_NEW ;
 
   // write out filter trans file for crosschecks
-  char filterFile[200];
+  char filterFile[MXPATHLEN];
   FILE *fp ;
   sprintf(filterFile, "%s+OOB.dat", NAME);  
   fp = fopen(filterFile, "wt") ;
@@ -2458,7 +2499,7 @@ int rd_snsed ( void ) {
 
    int NDAY, NLAM,ilam0, iep0, jflux0, ilam1, iep1, ifilt, ilam, iep  ;
    int FOUND_SNSEDFILE ;
-   char sedFile[200], sedcomment[40], SNPATH[200] ;
+   char sedFile[MXPATHLEN], sedcomment[40], SNPATH[MXPATHLEN] ;
    char fnam[] = "rd_snsed" ;
 
    //   --------------------- BEGIN --------------------------
@@ -4413,7 +4454,7 @@ void wr_fits(char *ptrFile) {
   long  NAXIS = 1, NAXES = 0    ;
   fitsfile *fp ;
 
-  char  clobberFile[200];
+  char  clobberFile[MXPATHLEN];
   char fnam[] = "wr_fits"  ;
 
   // ------------- BEGIN --------------

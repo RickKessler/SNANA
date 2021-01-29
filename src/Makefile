@@ -167,7 +167,7 @@ CC   = gcc
   PROFILEFLAG = 
 
 # EXTRA_FLAGS = -O2 -Wall
-#  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
+  EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full 
 
 # check if gcc version is 10 or higher (9.2020)
 GCCVERSION10 := $(shell expr `gcc -dumpversion | cut -f1 -d.` \>= 10)
@@ -267,8 +267,8 @@ ifndef SNANA_PYTHON_DIR
   IPY = 
   LPY = 
 else
-  IPY = -I/$(SNANA_PYTHON_DIR)/include/python3.8
-  LPY = -L$(SNANA_PYTHON_DIR)/lib -ldl  -lutil -Wl,-rpath,$(SNANA_PYTHON_DIR)/lib -lpython3.8
+  IPY = -I/$(SNANA_PYTHON_DIR)/include/python3.7m
+  LPY = -L$(SNANA_PYTHON_DIR)/lib -ldl  -lutil -Wl,-rpath,$(SNANA_PYTHON_DIR)/lib -lpython3.7m
 endif
 
 

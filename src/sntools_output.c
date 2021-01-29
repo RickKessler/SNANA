@@ -2341,15 +2341,6 @@ void SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
 
   if ( IVAR_READ < 0  || IFILE_READ < 0 ) { *ISTAT = -2; return ; }
 
-  /* xxx mark delete Oct 20 2020 xxxxxxxx
-  if ( IVAR_READ < 0  || IFILE_READ < 0 ) {
-    sprintf(MSGERR1, "Could not find varName='%s'", VARNAME);
-    sprintf(MSGERR2, "Check VARLIST in table='%s' " , 
-	    READTABLE_POINTERS.TABLENAME);
-    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );    
-  }
-  xxxxxxxx */
-
  FIND_CCID:
 
   ICAST    = SNTABLE_AUTOSTORE[IFILE_READ].ICAST_READ[IVAR_READ] ;    
@@ -2397,6 +2388,19 @@ void sntable_autostore_read__(char *CCID, char *varName, int *ISTAT,
 			      double *DVAL, char *CVAL ) {
   SNTABLE_AUTOSTORE_READ(CCID,varName,ISTAT,DVAL,CVAL);
 }
+
+
+void fetch_autostore_ccid(int ifile, int isn, char *ccid) {
+  // Created Jan 4 2021
+  // If autostore CID names are not known, pass indices here to
+  // get ccid.
+  sprintf(ccid, "%s", SNTABLE_AUTOSTORE[ifile].CCID[isn] ) ;
+
+} // end fetch_autostore_ccid
+
+void fetch_autostore_ccid__(int *ifile, int *isn, char *ccid) 
+{ fetch_autostore_ccid(*ifile, *isn, ccid); }
+
 
 
 // ========================================
@@ -3401,17 +3405,19 @@ int ISFILE_TEXT(char *fileName) {
   // The header-key method works only for reading.
   //
   // May 04 2020: return false for fits or FITS file extension.
+  // Jan 22 2021: check HOSTLIB extension
 
-#define NSUFFIX_TEXT 12
+#define NSUFFIX_TEXT 14
   int   isuf ;
-  char  SUFFIX_TEXT_LIST[NSUFFIX_TEXT][8] = 
+  char  SUFFIX_TEXT_LIST[NSUFFIX_TEXT][10] = 
     { 
       ".text" ,   ".TEXT",
       ".txt" ,    ".TXT",
       ".fitres",  ".FITRES",
       ".dat",     ".DAT",
-      ".out",     ".OUT",    // added Feb 7 2017
-      ".table",   ".TABLE"   // idem
+      ".out",     ".OUT",     // added Feb 7 2017
+      ".table",   ".TABLE",   // idem
+      ".hostlib", ".HOSTLIB"  // added Jan 22 2021
     } ;
 
   char fnam[] = "ISFILE_TEXT" ;

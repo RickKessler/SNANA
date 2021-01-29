@@ -1066,6 +1066,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // Dec 7 2020: for SIGCOH>0, call read_genSmear_SALT2sigcoh
   //             (fix needed for G10 scatter model with BYOSED)
   //
+  // Dec 28 2020: check for SALT3
 
   //  double SED_LAMMIN =  SALT2_TABLE.LAMMIN;
   double SED_LAMMAX =  SALT2_TABLE.LAMMAX;  
@@ -1094,16 +1095,34 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
     GENSMEAR_SALT2.FUDGE_dSmear_dLAM[1] = +1.08E-4 ; // lam > LAMSWITCH
   }
 
+  // Dec 28 2020 : check if SALT2 or SALT3
+  // setFlags sets global logicals ISMODEL_SALT2 & ISMODEL_SALT3
+  setFlags_ISMODEL_SALT2(versionSALT2); //
+
+  if ( ISMODEL_SALT2 ) {
+    sprintf(SALT2_INFO_FILE,"SALT2.INFO"); 
+    sprintf(dispFile, "%s/salt2_color_dispersion.dat", versionSALT2);
+  }
+  else if ( ISMODEL_SALT3 ) {
+    sprintf(SALT2_INFO_FILE,"SALT3.INFO"); 
+    sprintf(dispFile, "%s/salt3_color_dispersion.dat", versionSALT2);
+  }
+  else {
+    sprintf(c1err,"Unknown ISMODEL for version = ");
+    sprintf(c2err,"%s", versionSALT2);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+
   // --------------------------------------
   // read SIGMA_INT from SALT2.INFO file
-
+  
   if ( SIGCOH < -8.1 )  {  
     //    GENSMEAR_SALT2.SIGCOH = read_genSmear_SALT2sigcoh(versionSALT2); 
     read_genSmear_SALT2sigcoh(versionSALT2, &GENSMEAR_SALT2.SIGCOH_LAM); 
   }
   else if ( SIGCOH >= 0.0 ) {
     //xxx  GENSMEAR_SALT2.SIGCOH = SIGCOH ; 
-    sprintf(SALT2_INFO_FILE,"SALT2.INFO"); // in case call fun isn't SALT2
     read_genSmear_SALT2sigcoh(versionSALT2, &GENSMEAR_SALT2.SIGCOH_LAM);     
   }
   else {
@@ -1116,7 +1135,6 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // read dispersion vs. lambda : 
   // Use already-determine filename that allows for salt2 or salt3
 
-  sprintf(dispFile, "%s/salt2_color_dispersion.dat", versionSALT2);
 
   /* xxx Dec 7 2020: doesn't work for BYOSED
   sprintf(dispFile, "%s/%s", 
@@ -1513,6 +1531,10 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
 
     INODE = INODE_LAMBDA(lam, GENSMEAR_SALT2.NNODE, GENSMEAR_SALT2.LAM_NODE);
     if ( INODE < 0 || INODE >= GENSMEAR_SALT2.NNODE ) {      
+      // .xyz
+      print_preAbort_banner(fnam);
+      printf("  MINLAM / MAXLAM = %.2f / %.2f \n", MINLAM, MAXLAM);
+      printf("  ilam = %d of %d \n", ilam, NLam);
       sprintf(c1err,"Could not find INODE for lam=%7.1f", lam);
       sprintf(c2err,"NNODE=%d  INODE=%d", GENSMEAR_SALT2.NNODE, INODE) ;
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 

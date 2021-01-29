@@ -126,8 +126,14 @@
    + final call to insert_NLIBID to add "NLIBID: <NLIBID>" key
      in global header.
 
-***************************************/
+ Jan 07 2021
+   + sum NEXPOSE for IDEXPT*NEXPOSE column (for LSST DDF)
+   + enable reading gzipped SIMLIB file (no need to speficy .gz)
+   + replace local MADABORT with errmsg function in sntools.c  
+   + print summary info including min/max NOBS and min/max MJD
+   + misc code cleanup.
 
+***************************************/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -136,8 +142,8 @@
 #include <time.h>
 #include <math.h>
 
-#include "simlib_tools.c"
 #include "sntools.h" 
+#include "simlib_tools.c"
 
 #define MXMJD     100000    // max MJDs per LIBID
 #define MXLIBID   6000
@@ -179,7 +185,6 @@ int  NLINE_HEADER_ADD ;    // number of comment-header lines to add
 char HEADER[MXLINE_HEADER][MXCHAR_LINE];
 char HEADER_ADD[MXLINE_HEADER][MXCHAR_LINE];
 
-
 // define user-input options
 
 struct INPUTS {
@@ -199,7 +204,6 @@ struct INPUTS {
 } INPUTS ;
 
 // -----------------------
-// xxx mark delete 6.29.2018 int  LIBID_USE[MXLIBID];
 int  NLIBID_FOUND;
 int  NLIBID_COADD;
 
@@ -217,7 +221,10 @@ struct SIMLIB_INPUT {
   float INFO_HEAD[NPAR_HEAD];  // RA,DECL, MWEBV, PIXSIZE, Z, PEAKMJD
 
   double   MJD[MXMJD];   // June 2018
-  char STRINGID[MXMJD][20]; // Apr 2018
+  char STRING_IDEXPT[MXMJD][20]; // Apr 2018
+  int  NEXPOSE_IDEXPT[MXMJD];    // Jan 2021
+  int  IDEXPT[MXMJD];
+
   char FILTNAME[MXMJD][2];
   int  IFILT[MXMJD];
 
@@ -225,7 +232,6 @@ struct SIMLIB_INPUT {
   float INFO_MJD[MXMJD][NPAR_MJD];
 
 } SIMLIB_INPUT ;
-
 
 
 struct SIMLIB_OUTPUT {
@@ -236,8 +242,10 @@ struct SIMLIB_OUTPUT {
   float INFO_HEAD[NPAR_HEAD];  // RA,DECL, MWEBV, PIXSIZE, Z, PEAKMJD
 
   double   MJD[MXMJD];  //  June 2017
-  // xxx mark delete   long int IDEXPT[MXMJD];
-  char STRINGID[MXMJD][20]; // April 2018
+  char STRING_IDEXPT[MXMJD][20]; // April 2018
+  int  NEXPOSE_IDEXPT[MXMJD];    // Jan 2021
+  int  IDEXPT[MXMJD] ;
+
   char FILTNAME[MXMJD][2];
  
   // info is: MJD, CCDGAIN, CCDNOISE, SKYSIG, PSF[0-2], ZPTAVG, ZPTSIG, MAG
@@ -245,15 +253,23 @@ struct SIMLIB_OUTPUT {
 
 } SIMLIB_OUTPUT ;
 
-
+// Jan 2021: store info for summary
+struct {
+  double MJD_MAX, MJD_MIN;
+  int    NOBS_MIN, NOBS_MAX;
+} SUMMARY_INFO;
 
 // declare functions
 
 void  parse_args(int argc, char **argv);
-void  SIMLIB_open();
+void  SIMLIB_open_read();
 void  SIMLIB_read(int *RDSTAT);
 void  SIMLIB_coadd(void);
 void  insert_NLIBID(void);
+
+void  init_summary_info(void);
+void  update_summary_info(void);
+void  print_summary_info(void);
 
 void dmp_trace_main(char *string);
 
@@ -261,8 +277,8 @@ void dmp_trace_main(char *string);
 double ZPTOFF_SNLS(char *cfilt);
 
 // define Galactic extiction
-
 void MWgaldust(double RA, double DECL, double *XMW, double *MWEBV ); 
+
 
 // ****************************************
 int main(int argc, char **argv) {
@@ -279,14 +295,13 @@ int main(int argc, char **argv) {
   if ( LTRACE > 0 ) dmp_trace_main("01");
 
   // open and read header info
-  SIMLIB_open(); 
+  SIMLIB_open_read(); 
 
   if ( LTRACE > 0 ) dmp_trace_main("02");
 
-  SIMLIB_INPUT.LIBID = 0 ;
-  NLIBID_FOUND = NLIBID_COADD = 0 ;
-  RDSTAT  = 2 ;
+  init_summary_info();
 
+  RDSTAT  = 2 ;
 
   while ( RDSTAT != EOF ) {
 
@@ -335,11 +350,13 @@ int main(int argc, char **argv) {
     sprintf(BANNER,"Loop 05: LIBID=%d", LIBID);
     if ( LTRACE > 0 ) dmp_trace_main(BANNER);
 
+    update_summary_info();
+    
     for ( obs=1; obs <= SIMLIB_OUTPUT.NOBS; obs++ ) 
       simlib_add_mjd(
 		     1            // 1=>search info;  2=> template info
 		     ,SIMLIB_OUTPUT.MJD[obs]
-		     ,SIMLIB_OUTPUT.STRINGID[obs]
+		     ,SIMLIB_OUTPUT.STRING_IDEXPT[obs]
 		     ,SIMLIB_OUTPUT.FILTNAME[obs]
 		     ,SIMLIB_OUTPUT.INFO_MJD[obs]
 		     );
@@ -368,12 +385,11 @@ int main(int argc, char **argv) {
   if ( LTRACE > 0 ) dmp_trace_main("after fclose");
 
   FPLIB = fp_simlib_output ;
-  simlib_close();
+  simlib_close_write();
 
   insert_NLIBID();
 
-  printf("\n Done compacting %d LIBIDs (%d read) \n", 
-	 NLIBID_COADD, NLIBID_FOUND );
+  print_summary_info();
 
 }  // end of main
 
@@ -383,6 +399,7 @@ void  parse_args(int argc, char **argv) {
 
   int i, i1, N;
   char *ptrhead, BUFFER[20], copt[20];
+  char fnam[] = "parse_args" ;
 
   // --------------- BEGIN --------------
 
@@ -411,8 +428,10 @@ void  parse_args(int argc, char **argv) {
     sprintf(SIMLIB_OUTPUT.FILE, "%s.COADD", SIMLIB_INPUT.FILE );
   }
   else {
-    printf("\n ERROR: Must give SIMLIB file year as argument. \n" );
-    MADABORT();
+    sprintf(c1err, "Must give SIMLIB file year as argument." ); 
+    c2err[0] = 0;
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    // xxxx MADABORT();
   } 
 
 
@@ -520,16 +539,19 @@ void  parse_args(int argc, char **argv) {
 
   if ( INPUTS.OPT_MWEBV > 0 ) {
     N++;  ptrhead = HEADER_ADD[N];
-    sprintf(ptrhead,"%s   + Get MWEBV from Schlagel dust maps (reject MWEBV > %3.1f). \n", BUFFER, MWEBV_MAX );
+    sprintf(ptrhead,"%s   + Get MWEBV from Schlagel dust maps "
+	    "(reject MWEBV > %3.1f). \n", BUFFER, MWEBV_MAX );
   }
 
   N++;  ptrhead = HEADER_ADD[N];
   sprintf(ptrhead,"%s   + Multiple exposures are '%s' \n", BUFFER, copt);
 
   if ( N >= MXLINE_HEADER ) {
-    printf("\n ERROR: %d HEADER_ADD lines exceeds array bound of %d.\n", 
+    sprintf(c1err,"%d HEADER_ADD lines exceeds array bound of %d.", 
 	   N, MXLINE_HEADER );
-    MADABORT();
+    sprintf(c2err,"See MXLINE_HEADER in *.h files");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    //  xxxx    MADABORT();
   }
 
   NLINE_HEADER_ADD = N;
@@ -538,34 +560,44 @@ void  parse_args(int argc, char **argv) {
   for ( i=1; i <=N ; i++ ) 
     { printf("%s", HEADER_ADD[i] ); }
 
+  return ;
+
 } // end of function parse_args
 
 
 
 // *************************************
-void SIMLIB_open(void) {
+void SIMLIB_open_read(void) {
 
   // Copied/modified from snlc_sim.c
   // Open input SIMLIB file and read header.
+  // Jan 7 2021: use snana_open to allow reading gzipped SIMLIB.
 
-  char fnam[20] = "SIMLIB_open" ;
-  char cline[80], c_get[80], c_tmp[80], clast[80] ;
+  char fnam[20] = "SIMLIB_open_read" ;
+  char cline[80], c_get[80], c_tmp[80], clast[80], fullName[MXPATHLEN] ;
   char *ptrtok;
 
-  int READHEAD, i;
+  int READHEAD, i, gzipFlag;
 
   // ---------------- BEGIN --------------
 
-  printf("\n SIMLIB_open(): \n ");
+  printf("\n SIMLIB_open_read(): \n ");
 
-  if ( (fp_simlib_input = fopen(SIMLIB_INPUT.FILE, "rt")) == NULL ) {   
-    printf("\n ERROR: cannot open input simlib file: \n");
-    printf("\t '%s' \n", SIMLIB_INPUT.FILE );
-    MADABORT();
+  int OPTMASK=1; // 1=verbose
+  fp_simlib_input = snana_openTextFile (OPTMASK, "", SIMLIB_INPUT.FILE,
+					fullName,  &gzipFlag ); 
+ 
+  // xxx if((fp_simlib_input = fopen(SIMLIB_INPUT.FILE, "rt")) == NULL ) { 
+    if ( !fp_simlib_input ) {
+    sprintf(c1err,"cannot open input simlib file: ");
+    sprintf(c2err," '%s' ", SIMLIB_INPUT.FILE );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    // xxxx    MADABORT();
   }
 
 
   printf("\t Opened %s \n", SIMLIB_INPUT.FILE );
+  fflush(stdout);
 
   // read header keywords. Stop when we reach "BEGIN"
 
@@ -576,6 +608,7 @@ void SIMLIB_open(void) {
 
     fgets(cline, 80, fp_simlib_input) ;
     printf(" Found header line: %s", cline );
+    fflush(stdout);
 
     NLINE_HEADER++ ;
     sprintf( HEADER[NLINE_HEADER], "%s", cline );
@@ -604,16 +637,6 @@ void SIMLIB_open(void) {
 
     if ( strcmp( ptrtok,"LIBID:")  == 0 ) READHEAD = 0;
 
-    /* xxxxxxxx mark delete Jun 29 2018 xxxxxxxx
-    // look for place to insert extra header stuff
-    if ( strcmp( ptrtok,"COMMENT:")  == 0 ) {
-      for ( i=1; i <= NLINE_HEADER_ADD; i++ ) {
-	NLINE_HEADER++ ;
-	sprintf( HEADER[NLINE_HEADER], "%s", HEADER_ADD[i] );
-      }
-    }
-    xxxxxxxxxxx end delete xxxxxxxxxx */
-
 
     // look for FILTERS keyword
 
@@ -623,25 +646,25 @@ void SIMLIB_open(void) {
       if ( strcmp(clast,"FILTERS:") == 0 ) {
 	sprintf(SIMLIB_FILTERS, "%s", ptrtok );
 	printf(" Found SIMLIB_FILTERS: %s \n",SIMLIB_FILTERS );
+	fflush(stdout);
       }
       sprintf(clast,"%s", ptrtok);
       ptrtok = strtok(NULL, " ");	
     }
-    
 
   } // end of while 
 
 
 
   // open output file manually instead of using
-  // simlib_open() since we just have 80-char lines
+  // simlib_open_write() since we just have 80-char lines
   // instead of the detailed info needed by the open function
   // Dump header info to output file.
 
   if ( (fp_simlib_output = fopen(SIMLIB_OUTPUT.FILE, "wt")) == NULL ) {   
-    printf("\n ERROR: cannot open output simlib file: \n");
-    printf("\t '%s' \n", SIMLIB_OUTPUT.FILE );
-    MADABORT();
+    sprintf(c1err,"Cannot open output simlib file:");
+    sprintf(c2err," '%s'", SIMLIB_OUTPUT.FILE );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
 
@@ -652,10 +675,12 @@ void SIMLIB_open(void) {
   }
 
   // add a few  blank spaces
-    fprintf(fp_simlib_output, "\n\n\n" );
+  fprintf(fp_simlib_output, "\n\n\n" );
+  fflush(fp_simlib_output);
 
+  return ;
 
-}  // end of SIMLIB_open
+}  // end of SIMLIB_open_read
 
 
 // ************************************
@@ -663,10 +688,10 @@ void SIMLIB_read(int *RDSTAT) {
 
   /* Copied/modified from snlc_sim.c    
     Read next LIBID in simlib. Fill SIMLIB structure.
-
   */
 
-  char  c_get[80], c_tmp[80],cfilt[4], STRINGID[20] ;
+  char  c_get[80], c_tmp[80],cfilt[4], STRING_IDEXPT[20] ;
+  int   IDEXPT, NEXPOSE;
 
   int i, NMJD, NMJD_READ, NMJD_ACCEPT, LIBID ;
   int OPTLINE, NOBS, ENDLIB, OKLIBID    ;
@@ -750,7 +775,9 @@ void SIMLIB_read(int *RDSTAT) {
 
       // read line into temporary variables.
       readdouble ( fp_simlib_input, 1, &MJD );
-      readchar(fp_simlib_input, STRINGID );
+      readchar(fp_simlib_input, STRING_IDEXPT );
+      parse_SIMLIB_IDplusNEXPOSE(STRING_IDEXPT, &IDEXPT, &NEXPOSE);
+
       fscanf(fp_simlib_input, "%s", cfilt );
       readdouble ( fp_simlib_input, 1, &CCDGAIN  );
       readdouble ( fp_simlib_input, 1, &CCDNOISE );
@@ -771,13 +798,19 @@ void SIMLIB_read(int *RDSTAT) {
       NMJD  = NMJD_ACCEPT ;
 
       if ( NMJD >= MXMJD ) {
-	printf("  ERROR: NMJD=%d exceeds array bound at LIBID=%d. \n", 
+	sprintf(c1err,"NMJD=%d exceeds array bound at LIBID=%d. ", 
 	       NMJD, LIBID);
-	MADABORT();
+	sprintf(c2err,"MXMJD = %d", MXMJD);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+	// xxxx	MADABORT();
       }
 
       SIMLIB_INPUT.MJD[NMJD]      = MJD ;  // June 2017, use double
-      sprintf(SIMLIB_INPUT.STRINGID[NMJD], "%s", STRINGID) ;
+
+      sprintf(SIMLIB_INPUT.STRING_IDEXPT[NMJD], "%s", STRING_IDEXPT) ;
+      SIMLIB_INPUT.IDEXPT[NMJD]         = IDEXPT ;
+      SIMLIB_INPUT.NEXPOSE_IDEXPT[NMJD] = NEXPOSE ;
+
       sprintf(SIMLIB_INPUT.FILTNAME[NMJD], "%s", cfilt);
 
       SIMLIB_INPUT.INFO_MJD[NMJD][1]    = CCDGAIN ;
@@ -805,9 +838,10 @@ void SIMLIB_read(int *RDSTAT) {
     if ( ENDLIB == 1 ) {
 
       if ( NMJD_READ != NOBS && INPUTS.OPT_MJD_DMP == 0 ) {
-	printf("  ERROR: NMJD_READ = %d, but expected NOBS=%d (LIBID=%d) \n",
+	sprintf(c1err,"NMJD_READ = %d, but expected NOBS=%d (LIBID=%d)",
 	       NMJD, NOBS, LIBID);
-	//	MADABORT();
+	c2err[0] = 0 ;
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
 
       OKLIBID = -9 ;
@@ -823,6 +857,7 @@ void SIMLIB_read(int *RDSTAT) {
       if ( NMJD_ACCEPT < INPUTS.MINOBS_ACCEPT ) {
 	printf("\t Skipping LIBID %d : only %d exposures. \n", 
 	       LIBID, NMJD_ACCEPT);
+	fflush(stdout);
 	SIMLIB_INPUT.LIBID = -9;
       }
 
@@ -838,6 +873,7 @@ void SIMLIB_read(int *RDSTAT) {
       MWEBV = SIMLIB_INPUT.INFO_HEAD[IPAR_MWEBV];
       if ( MWEBV > MWEBV_MAX ) {
 	printf("\t Skipping LIBID %d : MWEBV=%6.1f \n", LIBID, MWEBV );
+	fflush(stdout);
 	SIMLIB_INPUT.LIBID = -9;
       }
       return ;
@@ -846,7 +882,8 @@ void SIMLIB_read(int *RDSTAT) {
   }  // end of while fscanf loop
 
 
-
+  return ;
+  
 } // end of function SIMLIB_read
 
 
@@ -859,8 +896,9 @@ void SIMLIB_coadd(void) {
 
   // May 20, 2009: special fix for taking MJD average without roundoff error
   // Jun 20, 2017: MJD -> double instead of float
+  // Jan 07, 2021: sum NEXPOSE and write proper IDEXPT string
 
-  int  i, obs, ipar, NOBS_IN, NMEASURE, OVPFILT ;
+  int  i, obs, ipar, NOBS_IN, NMEASURE, OVPFILT, IDEXPT, NEXPOSE ;
   int  OBSMIN[MXMJD], OBSMAX[MXMJD]    ;
 
   char *cfilt, *cfilt_last ;
@@ -868,6 +906,8 @@ void SIMLIB_coadd(void) {
   double MJD, MJD_LAST, MJD_DIF, XIN, XSUM, XN, XNOPT, ARG, ZPTOFF ;
  
   float *PTR_INFO_OFFSET, *PTR_INFO_INPUT, *PTR_INFO_OUTPUT  ;
+
+  char fnam[] = "SIMLIB_coadd";
 
   // ------------- BEGIN ----------
 
@@ -922,14 +962,19 @@ void SIMLIB_coadd(void) {
 
     SIMLIB_OUTPUT.NOBS  = NMEASURE ;
 
-    // for IDEXPT and filter, copy element from 1st exposure
-    // to OUTPUT measurement,
-
+    // for filter, copy element from 1st exposure to OUTPUT measurement,
     obs = OBSMIN[i] ;
-    sprintf(SIMLIB_OUTPUT.STRINGID[i], "%s", SIMLIB_INPUT.STRINGID[obs]);
+
+    /* xxx mark delete Jan 7 2021 xxxxxxx
+    sprintf(SIMLIB_OUTPUT.STRING_IDEXPT[i], "%s",
+    SIMLIB_INPUT.STRING_IDEXPT[obs]);
+    xxxxxxxx */
 
     cfilt = SIMLIB_INPUT.FILTNAME[obs] ;
     sprintf(SIMLIB_OUTPUT.FILTNAME[i], "%s", cfilt);
+
+    NEXPOSE = 0;
+    IDEXPT  = SIMLIB_INPUT.IDEXPT[obs] ;
 
     // setup pointer to output INFO array
     PTR_INFO_OUTPUT = &SIMLIB_OUTPUT.INFO_MJD[i][0] ;
@@ -946,6 +991,8 @@ void SIMLIB_coadd(void) {
 
     for ( obs = OBSMIN[i]; obs <= OBSMAX[i]; obs++ ) {
 
+      NEXPOSE += SIMLIB_INPUT.NEXPOSE_IDEXPT[obs];
+
       XN += 1.0 ;  // number of exposures for this measurement.
 
       PTR_INFO_INPUT   = &SIMLIB_INPUT.INFO_MJD[obs][0] ;
@@ -953,7 +1000,7 @@ void SIMLIB_coadd(void) {
       // special case for MJD; subtract offset to avoid float-roundoff
       // when taking average. Add offset back after taking average
       // of residuals.
-
+      
 
       XIN = SIMLIB_INPUT.MJD[obs] - SIMLIB_INPUT.MJD[1];
       SIMLIB_OUTPUT.MJD[i] += XIN ;
@@ -989,11 +1036,14 @@ void SIMLIB_coadd(void) {
     // now divide by NMEASURE, take sqrt, etc ... to get
     // appropriate result for single measure
     if ( XN == 0.0 ) {
-      printf("\n ERROR: Nexposure=0 for Meaure=%d OBS=%d-%d, filt=%s \n",
+      sprintf(c1err,"Nexposure=0 for Meaure=%d OBS=%d-%d, filt=%s ",
 	     i, OBSMIN[i], OBSMAX[i], cfilt );
-      printf(" MJD = %f\n", SIMLIB_INPUT.INFO_MJD[OBSMIN[i]][0] ) ;
-      MADABORT();
+      sprintf(c2err," MJD = %f", SIMLIB_INPUT.INFO_MJD[OBSMIN[i]][0] ) ;
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      // xxxx      MADABORT();
     }
+
+    sprintf(SIMLIB_OUTPUT.STRING_IDEXPT[i], "%d*%d", IDEXPT, NEXPOSE);
 
     if ( INPUTS.OPT_SUM > 0 ) 
       XNOPT = 1 ;
@@ -1025,7 +1075,6 @@ void SIMLIB_coadd(void) {
     if ( INPUTS.OPT_SNLS == 1 ) {
       ZPTOFF = ZPTOFF_SNLS(cfilt);
       *(PTR_INFO_OUTPUT + IPAR_ZPT0+0) += ZPTOFF;
-
       *(PTR_INFO_OUTPUT + IPAR_SKYSIG) *=1.5 ;
     }
 
@@ -1034,7 +1083,7 @@ void SIMLIB_coadd(void) {
 
     if ( INPUTS.OPT_MJD_DMP == 1 ) {
       MJD = SIMLIB_OUTPUT.MJD[i];
-      printf(" %f \n", MJD );
+      printf(" %f \n", MJD );      fflush(stdout);
     }
 
 
@@ -1044,10 +1093,63 @@ void SIMLIB_coadd(void) {
 
 } // end of SIMLIB_coadd
 
+// ******************************************
+void init_summary_info(void) {
 
-// *************************
+  SIMLIB_INPUT.LIBID = 0 ;
+  NLIBID_FOUND = NLIBID_COADD = 0 ;
+
+  SUMMARY_INFO.MJD_MIN = +1.0E9;
+  SUMMARY_INFO.MJD_MAX = 0.0;
+
+  SUMMARY_INFO.NOBS_MIN = 9999999;
+  SUMMARY_INFO.NOBS_MAX = 0;
+
+  return ;
+  
+} // end init_var
+
+// ***********************************
+void update_summary_info(void) {
+
+  int NOBS = SIMLIB_OUTPUT.NOBS;
+  double MJD ;
+  
+  if ( NOBS < SUMMARY_INFO.NOBS_MIN ) { SUMMARY_INFO.NOBS_MIN=NOBS; }
+  if ( NOBS > SUMMARY_INFO.NOBS_MAX ) { SUMMARY_INFO.NOBS_MAX=NOBS; }
+
+  MJD = SIMLIB_OUTPUT.MJD[1];
+  if ( MJD < SUMMARY_INFO.MJD_MIN ) { SUMMARY_INFO.MJD_MIN = MJD; }
+
+  MJD = SIMLIB_OUTPUT.MJD[NOBS];
+  if ( MJD > SUMMARY_INFO.MJD_MAX ) { SUMMARY_INFO.MJD_MAX = MJD; }
+    
+  return;
+  
+} // end UPDATE_SUMMARY_INFO
+
+// ***********************************
+void print_summary_info(void) {
+
+  printf("  Coadd NOBS Range: %d to %d \n",
+	 SUMMARY_INFO.NOBS_MIN, SUMMARY_INFO.NOBS_MAX );
+  printf("  Coadd MJD Range: %.1f to %.1f \n",
+	 SUMMARY_INFO.MJD_MIN, SUMMARY_INFO.MJD_MAX );
+
+  printf("\n Done coadding %d LIBIDs (%d read) \n", 
+	 NLIBID_COADD, NLIBID_FOUND );
+    
+  fflush(stdout);
+  
+  return ;
+  
+} // end
+
+
+// ***********************************
 double ZPTOFF_SNLS(char *cfilt) {
 
+  // for Astier 2006
   double zptoff;
 
   zptoff = 0.0 ;
@@ -1090,9 +1192,10 @@ void  insert_NLIBID(void) {
 
   sprintf(INSERT_LINE,"NLIBID: %d", NLIBID_COADD);
 
-  printf("\n Insert '%s' after SURVEY line\n", INSERT_LINE);
+  printf("\n Insert '%s' after SURVEY line in header.\n", INSERT_LINE);
+  fflush(stdout);
 
-  sprintf(sedCmd,"sed -i '/SURVEY/a\\ %s' %s", 
+  sprintf(sedCmd,"sed -i '/SURVEY/a\\%s' %s", 
 	  INSERT_LINE, SIMLIB_OUTPUT.FILE );
 
   system(sedCmd);

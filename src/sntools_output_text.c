@@ -57,6 +57,7 @@
 // Jun 03 2020: if MARZ option is set, remove [z=xxx] from CCID
 //              in TEXT SPECPLOT table.
 //
+// Jan 4 2021: MXCHAR_LINE -> 3200 (was 2500)
 // **********************************************
 
 char FILEPREFIX_TEXT[100];
@@ -64,7 +65,7 @@ char FILEPREFIX_TEXT[100];
 #define MXTABLE_TEXT 10 
 #define MXVAR_TEXT   MXVAR_TABLE
 #define MXEPVAR_TEXT 50   // for light curve epoch
-#define MXCHAR_LINE  2500
+#define MXCHAR_LINE  3200 
 
 #define OPT_FORMAT_KEY   1
 #define OPT_FORMAT_CSV   2
@@ -524,7 +525,7 @@ void SNTABLE_FILL_TEXT(int IDTABLE) {
   int ITAB, NFILL, NVAR, IVAR, ICAST, OPT_FORMAT ;
 
   FILE *FP ;
-  char ROW[2000], CVAL[80], *FORMAT, *VARNAME, sep[4], comment[200] ;
+  char ROW[MXCHAR_LINE], CVAL[80], *FORMAT, *VARNAME, sep[4], comment[200] ;
   char fnam[] = "SNTABLE_FILL_TEXT" ;
 
   // ------------- BEGIN ------------

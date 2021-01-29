@@ -1723,7 +1723,8 @@ void parse_multiplier(char *inString, char *key, double *multiplier) {
   }
   else {
     // do the parsing; start by splitting string around *
-    splitValues[0] = (char*)malloc(MEMC);  splitValues[1] = (char*)malloc(MEMC);
+    splitValues[0] = (char*)malloc(MEMC);  
+    splitValues[1] = (char*)malloc(MEMC);
     splitString(inString, star, 3,      // inputs
 		&NSPLIT, splitValues );      // outputs         
     
@@ -2416,6 +2417,9 @@ void parse_commaSepList(char *item_name, char *item, int MAX_ITEM, int MXCHAR,
   *arrayList = (char**)malloc( MAX_ITEM*sizeof(char*));
   for(i=0; i < MAX_ITEM; i++ ) 
     { (*arrayList)[i] = (char*)malloc(MEMC); }
+
+  // bail on blank string
+  if ( strlen(item) == 0 ) { *n_item=0; return; }
 
   // split item string
   splitString(item, COMMA, MAX_ITEM,    // inputs

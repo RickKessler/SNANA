@@ -1170,7 +1170,7 @@ typedef struct {
   float  *zhderr, *zcmberr, *zhelerr, *vpecerr, *zmuerr  ;
   float  *logmass, *pIa, *snrmax ;
   short int  *IDSURVEY, *SNTYPE, *OPT_PHOTOZ ; 
-  float  *fitpar_ideal[NLCPAR+1], *x0_ideal;
+  float  *fitpar_ideal[NLCPAR+1], *x0_ideal, *peakmjd ;
 
   // SIM_xxx read from table file
   short int *SIM_NONIA_INDEX ;
@@ -1200,10 +1200,10 @@ typedef struct {
 
   // covariance matrix(mB,x1,c)
   bool   *warnCov;
-  float  ***covmat_tot; // fit + intrinsic scatter matrix
-  float  ***covmat_fit; // covmat from LCfit (no intrinsic scatter)
+  float  ***covmat_fit ; // covmat from LCfit (no intrinsic scatter)
+  float  ***covmat_tot ; // fit + intrinsic scatter matrix
   int     NCOVFIX;
-
+  
 } TABLEVAR_DEF ;
 
 
@@ -1864,6 +1864,7 @@ int  SALT2mu_DRIVER_SUMMARY(void);
 
 void apply_blindpar(void);
 void check_duplicate_SNID(void);
+void check_duplicate_SNID_legacy(void);
 void check_redshifts(void) ;
 void check_vpec_sign(void);
 void check_zhel(void) ;
@@ -2192,6 +2193,9 @@ float malloc_double3D(int opt, int LEN1, int LEN2, int LEN3,
 float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
 		      double *****array4D );
 
+float malloc_float3D(int opt, int LEN1, int LEN2, int LEN3, 
+		     float ****array3D );
+
 
 // ======================================================================
 // ==== GLOBALS AND FUNCTIONS TO USE SALT2mu as SUBPROCESS ==============
@@ -2391,6 +2395,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
 
   // check for duplicate SNIDs and take action based on iflag_duplicate
   check_duplicate_SNID();
+  // mark delete xxx check_duplicate_SNID_legacy();
 
   // misc redshift checks
   check_redshifts();
@@ -3479,9 +3484,11 @@ void check_duplicate_SNID(void) {
 
   int  iflag   = INPUTS.iflag_duplicate;
   int  MXSTORE = MXSTORE_DUPLICATE ;
-  int  isn, nsn, MEMD, MEMI, unsort, *unsortList, ORDER_SORT   ;
-  bool IS_SIM;
+  int  isn, isn2, nsn, MEMD, MEMI, MEMB;
+  int  unsort, unsort2, *unsortList, ORDER_SORT   ;
+  bool IS_SIM, LDMP ;
   double *zList ;
+  bool   *IS_DUPL;
   char fnam[] = "check_duplicate_SNID" ;
 
   // ----------- BEGIN -----------
@@ -3493,79 +3500,95 @@ void check_duplicate_SNID(void) {
   nsn     = INFO_DATA.TABLEVAR.NSN_ALL ;
 
   // Jun 11 2020: for sims, don't bother tracking duplicates
-  if ( IS_SIM &&  iflag == IFLAG_DUPLICATE_IGNORE ) { return; }
+  if ( IS_SIM ) { return; }
+  // xxx mark delete  if ( IS_SIM && iflag == IFLAG_DUPLICATE_IGNORE) { return; }
 
-  MEMD = nsn * sizeof(double) + 4 ;
-  MEMI = nsn * sizeof(int)    + 4 ;
-  zList      = (double *)malloc(MEMD); // allocate integer ID list
+  MEMD = (nsn+1) * sizeof(double)  ;
+  MEMI = (nsn+1) * sizeof(int)     ;
+  MEMB = (nsn+1) * sizeof(bool)    ;
+  zList      = (double *)malloc(MEMD); // allocate redshift list
   unsortList = (int    *)malloc(MEMI); // allocate sorted list
+  IS_DUPL    = (bool   *)malloc(MEMB);
 
-  for(isn=0; isn<nsn; isn++)  
-    { zList[isn] = (double)INFO_DATA.TABLEVAR.zhd[isn]; }
+  for(isn=0; isn<nsn; isn++)  {
+    zList[isn] = (double)INFO_DATA.TABLEVAR.zhd[isn]; 
+    IS_DUPL[isn] = false;
+  }
   
 
   ORDER_SORT = + 1 ; // increasing order
   sortDouble( nsn, zList, ORDER_SORT, unsortList ) ;
 
-  bool SAME, SAME_z, SAME_SNID, LAST_DUPL=false ;
-  int   NTMP, idup, unsort_last ;
-  double z, zerr, z_last, zerr_last ;
-  char *snid, *snid_last ;
+  bool SAME, SAME_z, SAME_SNID, FOUND_DUPL ;
+  int   NTMP, idup ;
+  double z, z2 ;
+  char *snid, *snid2 ;
   int  UNSORT_DUPL[MXSTORE_DUPLICATE][MXSTORE_DUPLICATE];
   int  NDUPL_LIST[MXSTORE_DUPLICATE]; // how many duplicates per set
   int  NDUPL_SET ; // number of duplicate sets
   int  NDUPL_TOT ; // includes those beyone storage capacity
+  int  NDUPL_SN  ; // total number of SN controbuting to duplicates
 
-  unsort_last = -9 ;
-  z_last = zerr_last = -9.0 ;
-  snid_last = fnam; // anything to avoid compile warning
-
-  NDUPL_SET = NDUPL_TOT = 0 ;
-  for(idup=0; idup < MXSTORE; idup++ ) 
-    {  NDUPL_LIST[idup] = 0 ; }
+  NDUPL_SET = NDUPL_TOT = NDUPL_SN = 0 ;
+  for(idup=0; idup < MXSTORE; idup++ )  {  NDUPL_LIST[idup] = 0 ; }
 
   for ( isn=0; isn < nsn; isn++ ) {
     unsort  = unsortList[isn];
     z      = INFO_DATA.TABLEVAR.zhd[unsort];
-    zerr   = INFO_DATA.TABLEVAR.zhderr[unsort];
-    snid   = INFO_DATA.TABLEVAR.name[unsort];
+    snid   = INFO_DATA.TABLEVAR.name[unsort];    
 
-    if ( isn==0 ) { goto SET_LAST; }
+    if ( IS_DUPL[isn] ) { continue; }
+    isn2 = isn+1 ;      z2 = z;   FOUND_DUPL=false;
 
-    SAME_z    = ( z==z_last && zerr==zerr_last );
-    SAME_SNID = ( strcmp(snid,snid_last) == 0 );
-    SAME      = ( SAME_z && SAME_SNID );
+    while ( z == z2 ) {
+      unsort2    = unsortList[isn2];
+      z2         = INFO_DATA.TABLEVAR.zhd[unsort2];
+      snid2      = INFO_DATA.TABLEVAR.name[unsort2];
+      SAME_SNID  = ( strcmp(snid,snid2) == 0 );
+      isn2++ ;
 
-    if ( SAME && !LAST_DUPL ) { NDUPL_TOT++ ; }
+      if ( IS_DUPL[isn2] ) { continue; }
+      if ( !SAME_SNID    ) { continue; }
 
-    if ( SAME && NDUPL_SET < MXSTORE ) {
-      if ( !LAST_DUPL ) { 
-	NDUPL_SET++ ; 
+      // we have a duplicate
+      NDUPL_TOT++ ; 
+      IS_DUPL[isn] = IS_DUPL[isn2] = true; 
+
+      /* xxx
+      if ( isn < 10 ) {
+	printf(" xxx %s: compare %s/%s  %d/%d  FOUND=%d\n", 
+	       fnam, snid, snid2, isn,isn2, FOUND_DUPL ); fflush(stdout);
+      }
+      xxxxxx*/
+
+      if ( NDUPL_SET >= MXSTORE ) { continue; }
+
+      // store this duplicate
+      if ( !FOUND_DUPL ) {
+	// first duplicate for isn; store isn info
+	FOUND_DUPL = true;
+	NDUPL_SET++ ;  // increment number of duplicate sets
+	NDUPL_SN++ ;
 	NTMP = NDUPL_LIST[NDUPL_SET-1] ;
-	UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort_last ;
+	UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort ;
 	NDUPL_LIST[NDUPL_SET-1]++ ;
       }
+
+      // always store isn2 info
       NTMP = NDUPL_LIST[NDUPL_SET-1] ;
-      if( NTMP < MXSTORE ) { UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort ; }
-     
+      if( NTMP < MXSTORE ) { UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort2 ; }
       NDUPL_LIST[NDUPL_SET-1]++ ;
-      LAST_DUPL = true ;
-    }
-    else {
-      LAST_DUPL = false ;
-    }
-
-  SET_LAST:
-    z_last    = z;   zerr_last=zerr;   unsort_last=unsort ;
-    snid_last = INFO_DATA.TABLEVAR.name[unsort]; 
-
+      NDUPL_SN++ ;
+      
+    }  // end z==z2 (isn2 loop)
   } // end loop over isn
 
-
+  // - - - - -
   if ( NDUPL_SET == 0 ) 
     { fprintf(FP_STDOUT, "\t No duplicates found. \n"); goto DONE; }
   
-  fprintf(FP_STDOUT, "   Found %d sets of duplicates: \n", NDUPL_SET);
+  fprintf(FP_STDOUT, "   Found %d sets of duplicates from %d input SN: \n", 
+	  NDUPL_SET, NDUPL_SN );
 
   for(idup=0; idup < NDUPL_SET ; idup++ ) {
 
@@ -3573,10 +3596,14 @@ void check_duplicate_SNID(void) {
     NTMP   = NDUPL_LIST[idup] ;
     snid   = INFO_DATA.TABLEVAR.name[unsort]; 
     z      = INFO_DATA.TABLEVAR.zhd[unsort];      
-    fprintf(FP_STDOUT, "\t -> DUPL-%3.3d: %2d with SNID=%8.8s at z=%.5f \n", 
-	    idup, NTMP, snid, z );	   
+    fprintf(FP_STDOUT, "\t -> DUPL-%3.3d: %2d with SNID=%8.8s at z=%.5f \n",
+	    idup, NTMP, snid, z );	
   }
 
+  fflush(stdout);
+  //  debugexit(fnam); // xxx REMOVE
+
+  // - - - - - - -
   fflush(FP_STDOUT);
 
   if ( NDUPL_SET >= MXSTORE ) {
@@ -3616,6 +3643,174 @@ void check_duplicate_SNID(void) {
 } // end of check_duplicate_SNID
 
 
+// ******************************************
+void check_duplicate_SNID_legacy(void) {
+
+  // Sep 2016:
+  // Use sorted redshift and its error to flag duplicates.
+  // CHeck iflag_duplictes for what to do:
+  // 0 -> nothing
+  // 1 -> abort
+  // 2 -> merge fitparams and cov into one LC
+  //
+
+  int  iflag   = INPUTS.iflag_duplicate;
+  int  MXSTORE = MXSTORE_DUPLICATE ;
+  int  isn, nsn, MEMD, MEMI, unsort, *unsortList, ORDER_SORT   ;
+  bool IS_SIM, LDMP ;
+  double *zList ;
+  char fnam[] = "check_duplicate_SNID" ;
+
+  // ----------- BEGIN -----------
+
+  sprintf(BANNER,"Begin %s", fnam);
+  fprint_banner(FP_STDOUT,BANNER);
+
+  IS_SIM  = INFO_DATA.TABLEVAR.IS_SIM ;
+  nsn     = INFO_DATA.TABLEVAR.NSN_ALL ;
+
+  // Jun 11 2020: for sims, don't bother tracking duplicates
+  if ( IS_SIM ) { return; }
+  // xxx mark delete  if ( IS_SIM && iflag == IFLAG_DUPLICATE_IGNORE) { return; }
+
+  MEMD = (nsn+1) * sizeof(double)  ;
+  MEMI = (nsn+1) * sizeof(int)     ;
+  zList      = (double *)malloc(MEMD); // allocate redshift list
+  unsortList = (int    *)malloc(MEMI); // allocate sorted list
+
+  for(isn=0; isn<nsn; isn++)  
+    { zList[isn] = (double)INFO_DATA.TABLEVAR.zhd[isn]; }
+  
+
+  ORDER_SORT = + 1 ; // increasing order
+  sortDouble( nsn, zList, ORDER_SORT, unsortList ) ;
+
+  bool SAME, SAME_z, SAME_T0, SAME_SNID, LAST_DUPL=false ;
+  int   NTMP, idup, unsort_last ;
+  double z, zerr, z_last, zerr_last, t0, t0_last, dt0 ;
+  double T0DIF_LIST[MXSTORE_DUPLICATE];
+  char *snid, *snid_last ;
+  int  UNSORT_DUPL[MXSTORE_DUPLICATE][MXSTORE_DUPLICATE];
+  int  NDUPL_LIST[MXSTORE_DUPLICATE]; // how many duplicates per set
+  int  NDUPL_SET ; // number of duplicate sets
+  int  NDUPL_TOT ; // includes those beyone storage capacity
+
+  unsort_last = -9 ;
+  z_last = zerr_last = t0_last = -9.0 ;
+  snid_last = fnam;       // anything to avoid compile warning
+
+  NDUPL_SET = NDUPL_TOT = 0 ;
+  for(idup=0; idup < MXSTORE; idup++ ) 
+    {  NDUPL_LIST[idup] = 0 ; T0DIF_LIST[idup] = 9999.0; }
+
+  for ( isn=0; isn < nsn; isn++ ) {
+    unsort  = unsortList[isn];
+    z      = INFO_DATA.TABLEVAR.zhd[unsort];
+    zerr   = INFO_DATA.TABLEVAR.zhderr[unsort];
+    t0     = INFO_DATA.TABLEVAR.peakmjd[unsort];
+    snid   = INFO_DATA.TABLEVAR.name[unsort];    
+
+    if ( isn==0 ) { goto SET_LAST; }
+
+    SAME_z     = ( z == z_last && zerr == zerr_last );
+    SAME_T0    = ( fabs(t0-t0_last) < 10.0 ) ;
+    SAME_SNID  = ( strcmp(snid,snid_last) == 0 );
+    SAME       = ( SAME_z && SAME_SNID ) ; //  && SAME_T0 );
+
+    if ( SAME && !LAST_DUPL ) { NDUPL_TOT++ ; }
+
+    /* xxx
+    LDMP = ( fabs(z-0.00714)<2.0E-5 && fabs(zerr-0.00084)<2.E-5 ); // xxxx
+    if ( LDMP ) {
+      printf(" xxx %s: %8s z=%.6f PKMJD=%.3f \n",
+	     fnam, snid, z, t0 ); fflush(stdout);
+    }
+    xxxx */
+
+    if ( SAME && NDUPL_SET < MXSTORE ) {
+      if ( !LAST_DUPL ) { 
+	NDUPL_SET++ ; 
+	NTMP = NDUPL_LIST[NDUPL_SET-1] ;
+	UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort_last ;
+	NDUPL_LIST[NDUPL_SET-1]++ ;
+	T0DIF_LIST[NDUPL_SET-1] = t0 - t0_last ;
+      }
+      NTMP = NDUPL_LIST[NDUPL_SET-1] ;
+      if( NTMP < MXSTORE ) { UNSORT_DUPL[NDUPL_SET-1][NTMP] = unsort ; }
+     
+      NDUPL_LIST[NDUPL_SET-1]++ ;
+      LAST_DUPL = true ;
+    }
+    else {
+      LAST_DUPL = false ;
+    }
+
+  SET_LAST:
+    unsort_last = unsort ;
+    z_last      = z;   
+    zerr_last   = zerr;   
+    t0_last     = t0 ;
+    snid_last   = INFO_DATA.TABLEVAR.name[unsort]; 
+
+  } // end loop over isn
+
+  // - - - - -
+  if ( NDUPL_SET == 0 ) 
+    { fprintf(FP_STDOUT, "\t No duplicates found. \n"); goto DONE; }
+  
+  fprintf(FP_STDOUT, "   Found %d sets of duplicates: \n", NDUPL_SET);
+
+  for(idup=0; idup < NDUPL_SET ; idup++ ) {
+
+    unsort = UNSORT_DUPL[idup][0] ; // first duplicate has SNID and z
+    NTMP   = NDUPL_LIST[idup] ;
+    dt0    = T0DIF_LIST[idup];
+    snid   = INFO_DATA.TABLEVAR.name[unsort]; 
+    z      = INFO_DATA.TABLEVAR.zhd[unsort];      
+    fprintf(FP_STDOUT, "\t -> DUPL-%3.3d: %2d with SNID=%8.8s at z=%.5f "
+	    "  dt0=%5.1f\n", 
+	    idup, NTMP, snid, z, dt0 );	   
+  }
+
+  fflush(FP_STDOUT);
+
+  if ( NDUPL_SET >= MXSTORE ) {
+    sprintf(c1err,"NDUPL=%d exceeds bound, MXSTORE_DUPLICATE=%d",
+	    NDUPL_TOT, MXSTORE );
+    sprintf(c2err,"Check duplicates");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+ 
+  fprintf(FP_STDOUT, "  iflag_duplicate = %d --> ", iflag);
+  if ( iflag == IFLAG_DUPLICATE_IGNORE ) {
+    fprintf(FP_STDOUT, " do nothing.\n");
+  }
+  else if ( iflag == IFLAG_DUPLICATE_ABORT ) {
+    sprintf(c1err,"Duplicates not allowed.");
+    sprintf(c2err,"Check input FITRES file.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  else if ( iflag == IFLAG_DUPLICATE_AVG ) {
+    fprintf(FP_STDOUT, " merge duplicates.\n");
+    for(idup=0; idup < NDUPL_SET ; idup++ ) 
+      { merge_duplicates(NDUPL_LIST[idup], UNSORT_DUPL[idup] ); }
+  }
+  else {
+    sprintf(c1err,"Invalid iflag_duplicate=%d", INPUTS.iflag_duplicate );
+    sprintf(c2err,"grep IFLAG_DUPLICATE  SALT2mu.c");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+
+ DONE:
+  free(zList);  free(unsortList);
+
+  return;
+
+} // end of check_duplicate_SNID_legacy
+
+
 void merge_duplicates(int NDUPL, int *isnList) {
 
   // First entry in duplicate list has its SALT2 parameters
@@ -3643,11 +3838,11 @@ void merge_duplicates(int NDUPL, int *isnList) {
   double COVFIT_SUM[NLCPAR][NLCPAR] ;
   double wgt, sqerr, wgtsum[NLCPAR], covfit, covfit0, covtot, fitpar_tmp  ;
   bool   SIGN_CHANGE[NLCPAR][NLCPAR], sign_change ;
-  char stringList_fitparOrig[NLCPAR][100], *name ;
+  char stringList_fitparOrig[NLCPAR][MXSTORE_DUPLICATE], *name ;
   //  char fnam[] = "merge_duplicates" ;
 
   // ----------- BEGIN ----------------
-  
+
   ISN_SAVE = isnList[0] ;
   name = INFO_DATA.TABLEVAR.name[ISN_SAVE] ;
 
@@ -5438,6 +5633,7 @@ void read_data(void) {
     IFILETYPE   = TABLEFILE_OPEN(dataFile,"read");
     NVAR_ORIG   = SNTABLE_READPREP(IFILETYPE,"FITRES");
     ISTART      = INFO_DATA.TABLEVAR.NSN_ALL ;
+
     SNTABLE_READPREP_TABLEVAR(ifile, ISTART, NEVT[ifile], &INFO_DATA.TABLEVAR);
 
     if ( INPUTS.cat_only ) 
@@ -5451,6 +5647,7 @@ void read_data(void) {
     sprintf(INFO_DATA.TABLEVAR.INPUT_FILE[ifile],"%s", dataFile);
     store_input_varnames(ifile, &INFO_DATA.TABLEVAR) ;
   }
+
 
   // apply parameter blinding (after we know if DATA are real or sim)
   apply_blindpar();
@@ -6078,6 +6275,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
   // opt < 0 --> free TABLEVAR
   //
   // Functions returns memory allocated in Mega-bytes
+  //
 
   int EVENT_TYPE = TABLEVAR->EVENT_TYPE;
   int IS_DATA    = (EVENT_TYPE == EVENT_TYPE_DATA);
@@ -6086,7 +6284,6 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
 
 
   int MEMF    = LEN_MALLOC  * sizeof(float);
-  int MEMF2   = LEN_MALLOC  * sizeof(float**);
   int MEMI    = LEN_MALLOC  * sizeof(int);
   int MEMS    = LEN_MALLOC  * sizeof(short int);
   int MEMB    = LEN_MALLOC  * sizeof(bool);
@@ -6095,6 +6292,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
 
   bool DOBIAS_MU = ( INPUTS.opt_biasCor & MASK_BIASCOR_MU     ) ;
   bool IDEAL     = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
+  bool CHECK_DUPLICATE = ( INPUTS.iflag_duplicate > 0 );
 
   int  NLCPAR_LOCAL = NLCPAR ; // beware that ILCPAR_MIN/MAX isn't set yet
   if ( DOBIAS_MU ) { NLCPAR_LOCAL++ ; }
@@ -6102,16 +6300,19 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
   bool USE_FIELD = (INPUTS.use_fieldGroup_biasCor || INPUTS.NFIELD>0);
   int long long MEMTOT=0;
   float f_MEMTOT;
-  int  i, isn, MEMF_TMP1, MEMF_TMP ;
-  //  char fnam[] = "malloc_TABLEVAR" ;
+  int  i, isn, MEMF_TMP2, MEMF_TMP1, MEMF_TMP ;
+  char fnam[] = "malloc_TABLEVAR" ;
 
   // ------------- BEGIN --------------
 
   if ( opt > 0 ) {   
     
     TABLEVAR->name =  (char**)malloc(MEMC);
-    for(i=0; i<LEN_MALLOC; i++ ) 
-      { TABLEVAR->name[i] = (char*)malloc(MEMC2); MEMTOT+=MEMC2; }
+    for(i=0; i<LEN_MALLOC; i++ )  { 
+      TABLEVAR->name[i] = (char*)malloc(MEMC2); 
+      MEMTOT += MEMC2; 
+      TABLEVAR->name[i][0] = 0 ;
+    }
 
     if ( USE_FIELD ) {
       TABLEVAR->field =  (char**)malloc(MEMC);
@@ -6127,28 +6328,22 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     // allocate 3D array: covmat[isn][ipar0][ipar1]
     // Note that this array cannot be read or passed as ISN-array,
     // but it can be passed as 2D array to functions.
-    TABLEVAR->covmat_fit = (float ***) malloc(MEMF2); MEMTOT+=MEMF2;
-    TABLEVAR->covmat_tot = (float ***) malloc(MEMF2); MEMTOT+=MEMF2;    
-    MEMF_TMP1 = NLCPAR * sizeof(float*);
-    MEMF_TMP  = NLCPAR * sizeof(float);
-    for (isn=0; isn < LEN_MALLOC; isn++ ) {
-      TABLEVAR->covmat_fit[isn] = 
-	(float **) malloc(MEMF_TMP1); MEMTOT += MEMF_TMP1 ;
-      TABLEVAR->covmat_tot[isn] = 
-	(float **) malloc(MEMF_TMP1); MEMTOT += MEMF_TMP1 ;
-      for (i=0; i < NLCPAR; i++ ) {
-	TABLEVAR->covmat_fit[isn][i] = 
-	  (float *) malloc(MEMF_TMP); MEMTOT+=MEMF_TMP ;
-	TABLEVAR->covmat_tot[isn][i] = 
-	  (float *) malloc(MEMF_TMP); MEMTOT+=MEMF_TMP ;
-      }
-    }
+
+    printf(" xxx %s: malloc cov \n",  fnam); fflush(stdout);
+
+    MEMTOT += malloc_float3D(+1, LEN_MALLOC, NLCPAR, NLCPAR,
+			     &TABLEVAR->covmat_fit );
+    MEMTOT += malloc_float3D(+1, LEN_MALLOC, NLCPAR, NLCPAR,
+			     &TABLEVAR->covmat_tot );
 
     if ( IDEAL ) { 
       TABLEVAR->x0_ideal = (float *) malloc(MEMF); MEMTOT+=MEMF;
       for (i=0; i < NLCPAR_LOCAL ; i++ ) 
 	{ TABLEVAR->fitpar_ideal[i] = (float *) malloc(MEMF); MEMTOT+=MEMF; }
     }
+
+    if ( IS_DATA ) 
+      { TABLEVAR->peakmjd = (float *) malloc(MEMF); MEMTOT += MEMF;  }
 
     TABLEVAR->warnCov       = (bool  *) malloc(MEMB); MEMTOT+=MEMB;
     TABLEVAR->x0            = (float *) malloc(MEMF); MEMTOT+=MEMF;
@@ -6463,6 +6658,45 @@ float malloc_double3D(int opt, int LEN1, int LEN2, int LEN3,
 } // end malloc_double3D
 
 
+float malloc_float3D(int opt, int LEN1, int LEN2, int LEN3, 
+		      float ****array3D ) {
+  // Created Jan 2021
+  // Malloc array3D[LEN1][LEN2][LEN3] 
+
+  float f_MEMTOT = 0.0 ;
+  int MEMTOT=0, i1, i2 ;
+  int MEM1 = LEN1 * sizeof(float**); 
+  int MEM2 = LEN2 * sizeof(float*);
+  int MEM3 = LEN3 * sizeof(float);
+  // ----------- BEGIN -------------
+
+  if ( opt > 0 ) {
+
+    *array3D = (float***) malloc(MEM1) ; MEMTOT+=MEM1;
+    for(i1=0; i1<LEN1; i1++ ) {
+      (*array3D)[i1] = (float**) malloc(MEM2) ; MEMTOT+=MEM2;
+      for(i2=0; i2<LEN2; i2++ ) {
+	(*array3D)[i1][i2] = (float*) malloc(MEM3); MEMTOT+=MEM3;
+      }
+    }
+
+    f_MEMTOT = (float)(MEMTOT)/1.0E6;
+    return(f_MEMTOT);
+  } 
+  else {  
+    for(i1=0; i1<MEM1; i1++ ) {
+      for(i2=0; i2<LEN2; i2++ ) {  free( (*array3D)[i1][i2]); }
+      free( (*array3D)[i1]) ;
+    }
+    free(array3D);
+  }
+
+
+  return(f_MEMTOT);
+
+} // end malloc_float3D
+
+
 float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
 		      double *****array4D ) {
   // Created July 2019
@@ -6531,6 +6765,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   //  May 20 2020: check NFIELD
   //  Jul 06 2020: check SUBPROCESS GENPDF-variables
   //  Dec 11 2020: read zhel and zhelerr
+  //  Jan 28 2021: read peakmjd for duplicate check (data only)
 
   int EVENT_TYPE = TABLEVAR->EVENT_TYPE;
   int IS_DATA    = ( EVENT_TYPE == EVENT_TYPE_DATA);
@@ -6538,10 +6773,10 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   //  int IS_CCPRIOR = ( EVENT_TYPE == EVENT_TYPE_CCPRIOR);
 
   int VBOSE = 1 ;  // verbose, but no abort on missing variable
-  int FIRSTFILE = ( ISTART == 0 ) ;
-  int USE_FIELD = ( INPUTS.use_fieldGroup_biasCor>0 || INPUTS.NFIELD>0);
-  int IDEAL           = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
-
+  bool FIRSTFILE = ( ISTART == 0 ) ;
+  bool USE_FIELD = ( INPUTS.use_fieldGroup_biasCor>0 || INPUTS.NFIELD>0);
+  bool IDEAL          = ( INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
+  bool CHECK_DUPL     = ( INPUTS.iflag_duplicate > 0 ) ;
   int  icut, ivar, ivar2, irow, id ;
   bool RDFLAG ;
   char vartmp[MXCHAR_VARNAME], *cutname, str_z[MXCHAR_VARNAME]; 
@@ -6724,6 +6959,12 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->IVAR_pIa[IFILE] = ivar; // map valid ivar with each file
   }
 
+  if ( IS_DATA ) { // Jan 28 2021
+      sprintf(vartmp,"PKMJD:F" ) ;
+      ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->peakmjd[ISTART], 
+				     LEN, VBOSE);
+  }
+
   // - - - - - - -
   //read CUTWIN variables 
   for(icut=0; icut < INPUTS.NCUTWIN; icut++ ) {
@@ -6810,17 +7051,17 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   if ( ivar > 0 ) { TABLEVAR->IVAR_SIM_VPEC = ivar ; }
 
   if ( IS_BIASCOR && IDEAL ) {
-  sprintf(vartmp,"x0_ideal:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->x0_ideal[ISTART], 
-			  LEN, VBOSE);
-  sprintf(vartmp,"x1_ideal:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_ideal[INDEX_x1][ISTART], 
-			  LEN, VBOSE);
-  sprintf(vartmp,"c_ideal:F" );
-  SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_ideal[INDEX_c][ISTART], 
-			  LEN, VBOSE);
-    
+    sprintf(vartmp,"x0_ideal:F" );
+    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->x0_ideal[ISTART], 
+			    LEN, VBOSE);
+    sprintf(vartmp,"x1_ideal:F" );
+    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_ideal[INDEX_x1][ISTART], 
+			    LEN, VBOSE);
+    sprintf(vartmp,"c_ideal:F" );
+    SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->fitpar_ideal[INDEX_c][ISTART], 
+			    LEN, VBOSE);
   }
+
 
 #ifdef USE_SUBPROCESS  
   if ( SUBPROCESS.USE ) { 
@@ -6863,6 +7104,8 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   int EVENT_TYPE   = TABLEVAR->EVENT_TYPE;
   bool IS_DATA     = (EVENT_TYPE == EVENT_TYPE_DATA);
   bool IS_BIASCOR  = (EVENT_TYPE == EVENT_TYPE_BIASCOR);
+  bool IS_SIM      = TABLEVAR->IS_SIM ; // data are sim
+
   //  int IS_CCPRIOR  = (EVENT_TYPE == EVENT_TYPE_CCPRIOR);
   bool IDEAL       = (INPUTS.opt_biasCor & MASK_BIASCOR_COVINT ) ;
   bool FIRST_EVENT = (ISN == 0) ;
@@ -6895,12 +7138,10 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   double COV_x0x1  = (double)TABLEVAR->COV_x0x1[ISN];
   double COV_x0c   = (double)TABLEVAR->COV_x0c[ISN];
   double COV_x1c   = (double)TABLEVAR->COV_x1c[ISN];
-  double SIM_X0    = (double)TABLEVAR->SIM_X0[ISN];
-  double SIM_ZCMB  = (double)TABLEVAR->SIM_ZCMB[ISN];
-  double SIM_MU    = (double)TABLEVAR->SIM_MU[ISN] ; 
-  double SIM_MUz   = -9.0 ;   // SIM_MU at zHD, computed below
-  int   SIM_NONIA_INDEX = TABLEVAR->SIM_NONIA_INDEX[ISN];
-  
+
+  double SIM_X0, SIM_ZCMB, SIM_MU, SIM_MUz;
+  int    SIM_NONIA_INDEX;
+
   double mB, mBerr, mB_orig, x1, c, sf, x0_ideal, mB_ideal ;
   double zpec, zpecerr, zcmb, zMIN, zMAX, zhderr_tmp, logmass;
   double dl_hd, dl_sim, dl, dl_ratio, dmu ;
@@ -6918,6 +7159,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   if ( FIRST_EVENT ) {
     TABLEVAR->NCOVFIX  =  0 ;
   }
+
 
   // convert x0 and error to mB[err]
   x0 = TABLEVAR->x0[ISN];  x0err=TABLEVAR->x0err[ISN]; 
@@ -6937,6 +7179,14 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+
+  if ( !IS_DATA) {  // biascor or CC prior
+    SIM_X0    = (double)TABLEVAR->SIM_X0[ISN];
+    SIM_ZCMB  = (double)TABLEVAR->SIM_ZCMB[ISN];
+    SIM_MU    = (double)TABLEVAR->SIM_MU[ISN] ; 
+    SIM_MUz   = -9.0 ;   // SIM_MU at zHD, computed below
+    SIM_NONIA_INDEX = TABLEVAR->SIM_NONIA_INDEX[ISN];
+  }
 
   // - - - - - - - - - - - - - - - - - -   
   // 6.29.2020: load zmuerr used for muerr += dmu/dz x zerr
@@ -6974,9 +7224,11 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   if ( ISTAT_COV != 0 ) { TABLEVAR->warnCov[ISN]=true;  TABLEVAR->NCOVFIX++; }
 
   // transfer local covmat8 to TABLEVAR float-storage
-  for(i=0; i<NLCPAR; i++ ) {
-    for(i2=0; i2<NLCPAR; i2++ )
-      {  TABLEVAR->covmat_fit[ISN][i][i2] = (float)covmat8_fit[i][i2]; }
+
+  for(i=0; i < NLCPAR; i++ ) {
+    for(i2=0; i2 < NLCPAR; i2++ ) {
+      TABLEVAR->covmat_fit[ISN][i][i2] = (float)covmat8_fit[i][i2];
+    }
   }
 
   // estimate covmat_tot = covmat_fit + covmat_intrinsic
@@ -7040,7 +7292,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
     }
 
     // check z-cheat option 
-    if ( INPUTS.uzsim && TABLEVAR->IS_SIM == true ) { 
+    if ( INPUTS.uzsim && IS_SIM == true ) { 
       TABLEVAR->zhd[ISN]     = TABLEVAR->SIM_ZCMB[ISN];
       TABLEVAR->zhderr[ISN]  = 1.0E-7;
     }
@@ -7050,7 +7302,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
       { TABLEVAR->pIa[ISN] = INPUTS.force_pIa; } 
 
     if ( INPUTS.perfect_pIa )  {
-      if ( !TABLEVAR->IS_SIM ) {
+      if ( !IS_SIM ) {
 	sprintf(c1err,"Cannot force_pIa=perfect for real data.");
 	sprintf(c2err,"This option works only for sim data.") ;
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 

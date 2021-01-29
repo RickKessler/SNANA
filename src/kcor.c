@@ -1502,11 +1502,14 @@ void  parse_FILTER_LAMSHIFT(int *indx_ARGV) {
   // *indx_ARGV is the index of the FILTER_LAMSHIFT key.
   // Note that *indx_ARGV is incremented here so that the
   // main parsing function can continue.
+  //
+  // Jan 28 2021: fix index bugs
 
   int i, ifilt, NBAND ;
+  int LDMP = 0 ;
   double lamshift ;
   char *cfilt ;
-  //  char fnam[] = "parse_FILTER_LAMSHIFT" ;
+  char fnam[] = "parse_FILTER_LAMSHIFT" ;
 
   // ------------ BEGIN --------------
 
@@ -1514,13 +1517,24 @@ void  parse_FILTER_LAMSHIFT(int *indx_ARGV) {
 
   NBAND = 0 ;
 
-  while ( i > 0 ) {
+  while ( i > 0  && i < NARGV_LIST-1) {
+
+    if ( LDMP ) {
+      printf(" xxx ------------------------------ \n");
+      printf(" 1. xxx %s: ARG[%d of %d] = %s  \n", 
+	     fnam, i, NARGV_LIST, ARGV_LIST[i] );    fflush(stdout);
+    }
 
     i++ ; 
     cfilt = ARGV_LIST[i];   
     ifilt = INTFILTER_kcor(cfilt);
 
-    if ( ifilt > 0 ) {
+    if ( LDMP ) {
+      printf(" 2. xxx %s: ARG[%d of %d] = %s  \n", 
+	     fnam, i, NARGV_LIST, ARGV_LIST[i] );    fflush(stdout);
+    }
+
+    if ( ifilt > 0  ) {
       NBAND++ ;
       i++ ; sscanf( ARGV_LIST[i] , "%le", &lamshift ); 
       INPUTS.FILTER_LAMSHIFT[ifilt] = lamshift ;
@@ -1537,8 +1551,10 @@ void  parse_FILTER_LAMSHIFT(int *indx_ARGV) {
     fflush(stdout);
   }
 
+
  DONE:
-  *indx_ARGV = i-1 ;
+  // xxx mark delete   *indx_ARGV = i -1 ;
+  *indx_ARGV = i ;
 
 } // end of parse_FILTER_LAMSHIFT
 
@@ -1558,6 +1574,7 @@ int INTFILTER_kcor(char *filterName) {
   char fnam[] = "INTFILTER_kcor" ;
   // ------------- BEGIN -------------
   
+
   NMATCH = 0;  IFILT = -9 ;
   for(ifilt=1; ifilt <= NFILTDEF; ifilt++ ) {
     if ( strcmp(filterName,FILTER[ifilt].name) == 0  )

@@ -12,7 +12,7 @@ from    submit_prog_base import Program
 CONFIG_KEYLIST_INPUT_FILE = [ 'INPUT_TRAIN_FILE', 'INPUT_MODEL_FILE' ]
 
 # define input file keys passed to trainsalt code
-CODE_KEYLIST_INPUT_FILE   = [ '-c', '--trainingconfig' ]
+CODE_KEYLIST_INPUT_FILE   = [ '--configfile', '--trainingconfig' ]
 
 TRAINOPT_STRING = "TRAINOPT"
 

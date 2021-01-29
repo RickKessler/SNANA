@@ -19497,7 +19497,16 @@
 
          ***** MISCELLANEOUS(v11_02g) ***** 
 
+   kcor.c
+    + fix index bugs related to FILTER_LAMSHIFT
+
    sntools_host.c
     + for VPEC, use exact formula instead of approximation.
+
+   SALT2mu.c
+     + fix to allow ENV for datafile_header_override
+     + write override z-variables with %.5f format (instead of %.3f)
+     + improve duplicate flagging with explicit test in SNID;
+        now handles different events in the same galaxy.
 
 END: 

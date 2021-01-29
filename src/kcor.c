@@ -1541,6 +1541,7 @@ void  parse_FILTER_LAMSHIFT(int *indx_ARGV) {
       INPUTS.NFILTER_LAMSHIFT++ ;
     }
     else   {
+      i-- ; 
       // bail when we get a string that is clearly not a filter name
       goto DONE ; 
     }

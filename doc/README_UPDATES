@@ -19509,4 +19509,14 @@
      + improve duplicate flagging with explicit test in SNID;
         now handles different events in the same galaxy.
 
+  snlc_sim.c
+    + fix use of INIT_ONLY flag so that global SIMLIB header is read
+      before quitting; enables SOLID_ANGLE in simlib to be used for
+      rate calc in submit_batch
+
+  submit_prog_sim.py: 
+    + add PATH_USER_INPUT arg for rate calc. Allows using input files
+      in submit-dir without specifying full path.
+   
+      
 END: 

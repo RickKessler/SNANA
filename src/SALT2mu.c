@@ -15581,6 +15581,9 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"prescale_simdata="))  
     { sscanf(&item[17],"%lf",&INPUTS.prescale_simData); return(1); }
+  if ( uniqueOverlap(item,"simdata_prescale="))  // allow mental flip, Jan 2021
+    { sscanf(&item[17],"%lf",&INPUTS.prescale_simData); return(1); }
+
   if ( uniqueOverlap(item,"prescale_simcc="))  // new key from RK (Dec 2015)
     { sscanf(&item[15],"%lf",&INPUTS.prescale_simCC); return(1); }
 

@@ -13268,17 +13268,23 @@ void init_RANDOMsource(void) {
 // *************************************************
 void SIMLIB_INIT_DRIVER(void) {
 
+  // Jan 31 2021: 
+  //   for INIT_ONLY flag, return after initGlobalHeader in case
+  //   the global header has rate info such as SOLID_ANGLE.
+  
   //  char fnam[] = "SIMLIB_INIT_DRIVER" ;
 
   // --------------- BEGIN --------------
 
-  if ( INPUTS.INIT_ONLY == 1 ) { return; } // July 30 2020
+  // xxx  if ( INPUTS.INIT_ONLY == 1 ) { return; } // July 30 2020
 
   SIMLIB_initGlobalHeader();        // generic init of SIMLIB_GLOBAL_HEADER
 
   SIMLIB_readGlobalHeader_TEXT();   // open and read global header
 
-  SIMLIB_prepGlobalHeader();        
+  SIMLIB_prepGlobalHeader();   
+
+  if ( INPUTS.INIT_ONLY == 1 ) { return; } 
 
   SIMLIB_findStart();    // find first LIBID to start reading
 
@@ -13546,7 +13552,7 @@ void SIMLIB_prepGlobalHeader(void) {
 
   // Use SOLID_ANGLE from simlib header only if
   // INPUTS.SOLID_ANGLE is still zero ... 
-  // allower user-input to over-ride 
+  // allow user-input to over-ride SIMLIB global header
   double OMEGA = SIMLIB_GLOBAL_HEADER.SOLID_ANGLE ;
   if ( OMEGA > 1.0E-12 &&  INPUTS.SOLID_ANGLE == 0.0 ) {
     INPUTS.SOLID_ANGLE = (float)OMEGA ;

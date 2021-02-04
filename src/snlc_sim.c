@@ -619,7 +619,6 @@ void set_user_defaults(void) {
 
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
-  INPUTS.OPT_DEVEL_SIMSED_GRIDONLY = 1 ;
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
 
@@ -1424,10 +1423,11 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "OPT_DEVEL_READ_GENPOLY", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_READ_GENPOLY ) ; 
   }
-  xxxxxxxxx */
   else if ( keyMatchSim(1, "OPT_DEVEL_SIMSED_GRIDONLY", WORDS[0],keySource)) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_SIMSED_GRIDONLY ) ; 
   }
+  xxxxxxxxx */
+
   else if ( keyMatchSim(1, "TRACE_MAIN", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.TRACE_MAIN ) ; 
   }
@@ -1566,7 +1566,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "GENSOURCE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENSOURCE );
   }
-  else if ( keyMatchSim(1, "GENMODEL_MSKOPT",  WORDS[0],keySource) ) {
+
+  else if ( keyMatchSim(1, "GENMODEL_MSKOPT GENMODEL_OPTMASK",  
+			WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.GENMODEL_MSKOPT );
   }
   else if ( keyMatchSim(1, "GENMODEL_ARGLIST",  WORDS[0],keySource) ) {
@@ -10241,7 +10243,7 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 
     if ( opt_interp ) {
 
-      if ( opt_gridonly && INPUTS.OPT_DEVEL_SIMSED_GRIDONLY ) {
+      if (  opt_gridonly ) {
 	parVal = pick_gridval_SIMSED(ipar_model); 
       }
       else if ( irow_COV >= 0 ) {
@@ -10254,12 +10256,6 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
 	  get_zvariation_GENGAUSS(ZCMB,parName,
 				  &INPUTS.GENGAUSS_SIMSED[ipar]);	
 	parVal = exec_GENGAUSS_ASYM( &GENGAUSS_ZVAR );
-      }
-
-      // check LEGACY option to snap to nearest GRID value
-      if ( opt_gridonly && !INPUTS.OPT_DEVEL_SIMSED_GRIDONLY ) {
-	parVal_old = parVal ;
-	parVal = nearest_gridval_SIMSED(ipar_model,parVal_old);
       }
 
     } // opt_interp

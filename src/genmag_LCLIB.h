@@ -17,6 +17,7 @@
 #define IFLAG_RECUR_NONRECUR   3  // non-recurring (e.g., SN)
 
 #define OPTMASK_LCLIB_IGNORE_ANGLEMATCH 1 // option to ignore ANGLEMATCH cut
+#define OPTMASK_LCLIB_useRADEC          8 // use RA,DEC from LCLIB
 
 #define DAYBACK_TEMPLATE_LCLIB 30.0 // used in forceTemplateRows
 #define MODEL_RANMAG_LCLIB  "RANMAG" 
@@ -39,6 +40,7 @@ struct {
   int  NREPEAT ;      // Nrepeat each LCLIB event (for faster sim)
   int  OPTMASK ;      // user options
 
+  bool   DO_ANGLEMATCH ;
   double TOBS_RANGE_MAX ; // max TOBS_MAX-TOBS_MIN (passed from main)
 
   int    IFLAG_RECUR_CLASS ;
@@ -104,6 +106,7 @@ struct {
 
   long long  ID ;      // ID after START_EVENT: key
   double RA, DEC, GLAT, GLON;  // RA, DEC, l, b
+  double MWEBV;  // Feb 2021
   double PARVAL_MODEL[MXPAR_LCLIB] ;    // list of model par values
 
   double REDSHIFT;  // only if one of the parval names is 'REDSHIFT'
@@ -186,11 +189,11 @@ void set_NREPEAT_LCLIB(void);
 void  set_REDSHIFT_LCLIB(void);
 
 void genmag_LCLIB (int EXTERNAL_ID, int ifilt_obs, 
-		   double RA, double DEC, double mwebv, double lamFiltAvg,
+		   double *RA, double *DEC, double *mwebv, double lamFiltAvg,
 		   int Nobs,  double *Tobs_list, double *magList_S,
 		   double *mag_T, double *TobsPeak );
 
-void readNext_LCLIB(double RA, double DEC);
+void readNext_LCLIB(double *RA, double *DEC);
 void read_ROW_LCLIB(int IROW, char *KEY, char **ptrWDLIST); // read one row from LCLIB
 void malloc_LCLIB_EVENT(int OPT);
 
@@ -203,4 +206,7 @@ double magTemplate_LCLIB(int EXTERNAL_ID, int ifilt);
 void   store_magTemplate_LCLIB(int EXTERNAL_ID, int ifilt, double XT_MW) ;
 
 double magInterp_LCLIB(double T, int NROW, double *DAYLIST, short int *I2MAG);
+
+// from snlc_sim:
+double gen_MWEBV(double RA, double DEC);
 

@@ -619,7 +619,6 @@ void set_user_defaults(void) {
 
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
-  INPUTS.OPT_DEVEL_READ_GENPOLY    = 1 ;
   INPUTS.OPT_DEVEL_SIMSED_GRIDONLY = 1 ;
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
@@ -1028,16 +1027,17 @@ void set_user_defaults(void) {
   //  HOSTLIB_NBR.MXCHAR_NBR_LIST = 80;   // max string-length of list
 
   // define polynom function of ztrue for zSN-zGAL tolerance.
-  if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
-    char CPOLY_DZTOL[] = "0.002,0.04" ;
-    init_GENPOLY(&INPUTS.HOSTLIB_GENPOLY_DZTOL);
-    parse_GENPOLY(CPOLY_DZTOL, "DZTOL", &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam);
-  }
+  char CPOLY_DZTOL[] = "0.002,0.04" ;
+  init_GENPOLY(&INPUTS.HOSTLIB_GENPOLY_DZTOL);
+  parse_GENPOLY(CPOLY_DZTOL, "DZTOL", &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam);
+  
+  /* xxx mark delete 
   else {
     INPUTS.HOSTLIB_DZTOL[0] = 0.002 ; 
     INPUTS.HOSTLIB_DZTOL[1] = 0.040 ; 
     INPUTS.HOSTLIB_DZTOL[2] = 0.0   ; 
   }
+  xxxx */
 
   // debug options
   INPUTS.HOSTLIB_GALID_FORCE   = -9;
@@ -1420,9 +1420,11 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "USE_KCOR_REFACTOR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_KCOR_REFACTOR ) ; 
   }
+  /* xxx mark delete  Feb 2021 xxxxxxxxxxx
   else if ( keyMatchSim(1, "OPT_DEVEL_READ_GENPOLY", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_READ_GENPOLY ) ; 
   }
+  xxxxxxxxx */
   else if ( keyMatchSim(1, "OPT_DEVEL_SIMSED_GRIDONLY", WORDS[0],keySource)) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_SIMSED_GRIDONLY ) ; 
   }
@@ -1458,10 +1460,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTNOISE_FILE );
   }
   else if ( strstr(WORDS[0],"ZVARIATION_") != NULL ) {
-    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) 
-      { N += parse_input_ZVARIATION(WORDS,keySource); }
-    else
-      { N += parse_input_ZVARIATION_LEGACY(WORDS,keySource); }
+    N += parse_input_ZVARIATION(WORDS,keySource);
   }
   // - - - - -
   else if ( keyMatchSim(1, "SNTYPE_Ia",  WORDS[0],keySource) ) {
@@ -1568,7 +1567,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.GENSOURCE );
   }
   else if ( keyMatchSim(1, "GENMODEL_MSKOPT",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", INPUTS.GENMODEL_MSKOPT );
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.GENMODEL_MSKOPT );
   }
   else if ( keyMatchSim(1, "GENMODEL_ARGLIST",  WORDS[0],keySource) ) {
     N += parse_input_GENMODEL_ARGLIST(WORDS,keySource);
@@ -2291,19 +2290,7 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
       N++; sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_ZEXP_REWGT ); 
     }
     else if ( keyMatchSim(1, "DNDZ_ZPOLY_REWGT", KEYNAME, keySource) ) {
-
-      if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
-	N += read_genpoly(KEYNAME, &WORDS[N+1], 3, &RATEPAR->DNDZ_ZPOLY_REWGT);
-      }
-      else {
-	// legacy
-	for(j=0; j < 4; j++ ) { 
-	  N++; nread=sscanf(WORDS[N], "%le", 
-			    &RATEPAR->DNDZ_ZPOLY_REWGT_LEGACY[j] ); 
-	  if(nread!=1) { abort_bad_input(KEYNAME, WORDS[N], j, fnam); }
-	}
-      }
-
+      N += read_genpoly(KEYNAME, &WORDS[N+1], 3, &RATEPAR->DNDZ_ZPOLY_REWGT);
     }
     else if ( keyMatchSim(1, "DNDZ_SCALE", KEYNAME, keySource) ) {
       N++ ; sscanf(WORDS[N], "%le", &RATEPAR->DNDZ_SCALE[0] ); 
@@ -2404,17 +2391,8 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
     else if ( strcmp(RATEPAR->NAME,"ZPOLY") == 0 ) {
       RATEPAR->INDEX_MODEL = INDEX_RATEMODEL_ZPOLY ;
       RATEPAR->NMODEL_ZRANGE = 1 ;
-
-      if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
-	N += read_genpoly(RATEPAR->NAME, &WORDS[N+1], 3, 
-			  &RATEPAR->MODEL_ZPOLY);
-      }
-      else {
-	for(j=0; j < 4; j++ ) {
-	  N++; nread = sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][j] ); 
-	  if(nread!=1) { abort_bad_input("ZPOLY", WORDS[N], j, fnam); }
-	}
-      }
+      N += read_genpoly(RATEPAR->NAME, &WORDS[N+1], 3, 
+			&RATEPAR->MODEL_ZPOLY);
     }
     else if ( strcmp(RATEPAR->NAME,"HUBBLE") == 0 ) {
       // Jun 20 2016: set powerlaw model with alpha=0 to avoid abort later
@@ -2432,20 +2410,8 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
     else if ( strcmp(RATEPAR->NAME,"COSBPOLY") == 0 ) {
       RATEPAR->INDEX_MODEL   = INDEX_RATEMODEL_COSBPOLY ;
       RATEPAR->NMODEL_ZRANGE = 0 ;
-
-      if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
-	N += read_genpoly(RATEPAR->NAME, &WORDS[N+1], 5,
-			  &RATEPAR->MODEL_BPOLY );
-      }
-      else {
-	// legacy
-	for(j=0; j <= MXPOLY_GALRATE; j++ ) {
-	  N++; nread = sscanf(WORDS[N], "%le", 
-			      &RATEPAR->MODEL_PARLIST[1][j] );
-	  if(nread!=1) { abort_bad_input("COSBPOLY", WORDS[N], j, fnam); } 
-	}
-      }
-
+      N += read_genpoly(RATEPAR->NAME, &WORDS[N+1], 5,
+			&RATEPAR->MODEL_BPOLY );     
       // get max rate (vs. b) for weighting
       for(b=0.0; b < 90.0; b+=1.0 ) {
 	R = GALrate_model(l,b, RATEPAR);
@@ -2455,16 +2421,8 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
     else if ( strcmp(RATEPAR->NAME,"BPOLY") == 0 ) {
       RATEPAR->INDEX_MODEL   = INDEX_RATEMODEL_BPOLY ;
       RATEPAR->NMODEL_ZRANGE = 0 ;
-      if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
-	N += read_genpoly(RATEPAR->NAME, &WORDS[N+1], 5,
-			  &RATEPAR->MODEL_BPOLY );
-      }
-      else {
-	for(j=0; j <= MXPOLY_GALRATE; j++ ) {
-	  N++; nread = sscanf(WORDS[N], "%le", &RATEPAR->MODEL_PARLIST[1][j] ); 
-	  if(nread!=1) { abort_bad_input("BPOLY", WORDS[N], j, fnam); } 
-	}
-      }
+      N += read_genpoly(RATEPAR->NAME, &WORDS[N+1], 5,
+			&RATEPAR->MODEL_BPOLY );
 
       // get max rate (vs. b) for weighting
       for(b=0.0; b < 90.0; b+=1.0 ) {
@@ -2981,16 +2939,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     }
   }
   else if ( keyMatchSim(1, "HOSTLIB_DZTOL",WORDS[0],keySource) ) {
-
-    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
-      N += read_genpoly(WORDS[0], &WORDS[1], 2, &INPUTS.HOSTLIB_GENPOLY_DZTOL);
-    }
-    else {
-      for(j=0; j < 3; j++ ) { 
-	N++; nread = sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_DZTOL[j] ) ; 
-	if ( nread != 1 ) { abort_bad_input(WORDS[0], WORDS[N], j, fnam); }
-      }
-    } // end legacy check
+    N += read_genpoly(WORDS[0], &WORDS[1], 2, &INPUTS.HOSTLIB_GENPOLY_DZTOL);
   }
   else if ( keyMatchSim(1, "HOSTLIB_SCALE_SERSIC_SIZE  HOSTLIB_SCALE_SERSIC",
 			WORDS[0],keySource) ) {
@@ -4997,15 +4946,8 @@ void prep_user_input(void) {
     // Nov 2019
     GENFRAME_OPT    = GENFRAME_OBS ; 
 
-    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
-      char CPOLY_DZTOL[] = "0.05" ;
-      parse_GENPOLY(CPOLY_DZTOL, "DZTOL", &INPUTS.HOSTLIB_GENPOLY_DZTOL,fnam);
-    }
-    else {
-      INPUTS.HOSTLIB_DZTOL[0] = 0.05;
-      INPUTS.HOSTLIB_DZTOL[1] = 0.0;
-      INPUTS.HOSTLIB_DZTOL[2] = 0.0;
-    }
+    char CPOLY_DZTOL[] = "0.05" ;
+    parse_GENPOLY(CPOLY_DZTOL, "DZTOL", &INPUTS.HOSTLIB_GENPOLY_DZTOL,fnam);
 
     GENLC.ptr_SHAPEPAR = &GENLC.SALT2x1 ; 
     sprintf(INPUTS_SEARCHEFF.USER_zHOST_FILE, "NONE" );
@@ -6663,16 +6605,7 @@ void init_DNDZ_Rate(void) {
 
   // re-wgt flags
   IFLAG_REWGT_ZEXP  = ( INPUTS.RATEPAR.DNDZ_ZEXP_REWGT != 0.0 ) ;
-
-  if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
-    IFLAG_REWGT_ZPOLY = (INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.ORDER >= 0 );
-  }
-  else {
-    // legacy
-    IFLAG_REWGT_ZPOLY = 
-      ( INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT_LEGACY[1] != 0.0  ||
-	INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT_LEGACY[2] != 0.0  );
-  }
+  IFLAG_REWGT_ZPOLY = (INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.ORDER >= 0 );
 
   // ----------------------------
 
@@ -6699,20 +6632,8 @@ void init_DNDZ_Rate(void) {
   }
   else if ( IMODEL_ZPOLY ) {
     i++; 
-    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
-      sprintf(LINE_RATE_INFO[i],"\t dN/dz = ZPOLY(%s)", 
-	      INPUTS.RATEPAR.MODEL_ZPOLY.STRING) ;
-    }
-    else {
-      iz=1;  double rscale=1.0E-5;
-      sprintf(LINE_RATE_INFO[i],  // legacy
-	      "\t dN/dz = %6.1e x (%.2f + %.2f*z + %.2f*z^2 + %.2f*z^3)"
-	      ,rscale
-	      ,INPUTS.RATEPAR.MODEL_PARLIST[iz][0]/rscale
-	      ,INPUTS.RATEPAR.MODEL_PARLIST[iz][1]/rscale
-	      ,INPUTS.RATEPAR.MODEL_PARLIST[iz][2]/rscale
-	      ,INPUTS.RATEPAR.MODEL_PARLIST[iz][3]/rscale );
-    }
+    sprintf(LINE_RATE_INFO[i],"\t dN/dz = ZPOLY(%s)", 
+	    INPUTS.RATEPAR.MODEL_ZPOLY.STRING) ;    
   }
   else if ( IMODEL_FLAT ) {
     i++; 
@@ -6767,20 +6688,8 @@ void init_DNDZ_Rate(void) {
   }
   else if ( IFLAG_REWGT_ZPOLY ) {
     i++; 
-
-    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
-      sprintf(LINE_RATE_INFO[i],"\t Reweight dN/dz by ZPOLY(%s)",
-	      INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.STRING);
-    }
-    else {
-      // legacy
-      sprintf(LINE_RATE_INFO[i],
-	      "\t Reweight dN/dz by %.2f + %.2f*z + %.2f*z^2 + %.2f*z^3 "
-	      ,INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT_LEGACY[0]
-	      ,INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT_LEGACY[1]
-	      ,INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT_LEGACY[2]
-	      ,INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT_LEGACY[3]   );
-    }
+    sprintf(LINE_RATE_INFO[i],"\t Reweight dN/dz by ZPOLY(%s)",
+	    INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.STRING);
   }
 
 
@@ -6888,27 +6797,14 @@ void init_DNDB_Rate(void) {
     }
     
 
-    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
-      i++ ;
-      sprintf(LINE_RATE_INFO[i],"\t dN/d%s = POLY(%s)",
-	      varName, INPUTS.RATEPAR.MODEL_BPOLY.STRING);
-    }
-    else {
-      // legacy
-      i++ ; sprintf(LINE_RATE_INFO[i], 
-		    "\t dN/d%s = %.2f ", varName, PARLIST[0] );
-      for(j=1; j <= MXPOLY_GALRATE; j++ ) {
-	  i++ ; sprintf(LINE_RATE_INFO[i],
-			"\t    + %14.6le * %s^%d ", PARLIST[j], varName, j );
-      }
-
-    } // end OPT_DEVEL
-
+    i++ ;
+    sprintf(LINE_RATE_INFO[i],"\t dN/d%s = POLY(%s)",
+	    varName, INPUTS.RATEPAR.MODEL_BPOLY.STRING);
+    
   } // end MODEL_LCLIB
 
   // - - - - - - - 
 
-  // this line is needed by sim_SNmix.pl
   i++; sprintf(LINE_RATE_INFO[i],
 	       "\t Number of EVENTS per season = %d  (NGENTOT_LC)", 
 	       INPUTS.NGENTOT_LC );
@@ -9185,7 +9081,7 @@ void gen_event_driver(int ilc) {
   *********************************************************/
 
   int    NEPMIN = (int)INPUTS.CUTWIN_NEPOCH[0];
-  double z, z1, Tobs, Trest,  zHOST, Tobs_min, Tobs_max  ;
+  double z, z1, Tobs, Trest,  zHOST, Tobs_min, Tobs_max, MWEBV  ;
   int    ifilt, ifilt_obs, NEP, iep, USE_HOSTCOORD ;
   char   fnam[] = "gen_event_driver" ;
 
@@ -9232,7 +9128,7 @@ void gen_event_driver(int ilc) {
     // Don't call gen_MWEBV after SNHOST_DRIVER because it needs
     // MWEBV for the galaxy mags.
     USE_HOSTCOORD = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
-    if ( USE_HOSTCOORD == 0 )  { gen_MWEBV(); }
+    if ( !USE_HOSTCOORD  )  { MWEBV = gen_MWEBV(GENLC.RA,GENLC.DEC); }
 
 
     // Get redshift of host: equals SN helio redshift, or that of wrongHost.
@@ -9726,12 +9622,14 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
 
 
 // *********************************
-void gen_MWEBV(void) {
+double gen_MWEBV(double RA, double DEC) {
 
   // compute the following globals:
   // GENLC.MWEBV        --> 'measured' value (SFD map) passed to analysis
   // GENLC.MWEBV_ERR    --> uncertainty passed to analysis.
   // GENLC.MWEBV_SMEAR  --> true value to simulate
+  //
+  // and function returns GENLC.MWEBV_SMEAR
   //
   // Note that the logic here is different than usual;
   // the SMEAR value is the true value rather than the
@@ -9750,9 +9648,10 @@ void gen_MWEBV(void) {
   // Jul 21 2018:
   //  + if APPLYFLAG_MWEBV is true, compute FLUXCOR_MWEBV[ifilt]
   //
-  
+  // Feb 03 2021: pass RA,DEC as args so it can be called fron LCLIB
+
   int    RANFLAG, OPT, NEWCOORD ;
-  double EBV, RA, DEC, MWXT_GaussRan ;
+  double EBV, MWXT_GaussRan ;
   double SigmaClip[2] = { -3.0, 3.0 } ; // 3 sigma clip
   int    LDMP = 0 ;
   //  char fnam[] = "gen_MWEBV";
@@ -9763,10 +9662,11 @@ void gen_MWEBV(void) {
   // MWXT_GaussRan = GaussRan(1);  
   MWXT_GaussRan = GaussRanClip(1,SigmaClip[0],SigmaClip[1]);
 
-  if ( INPUTS.MWEBV_FLAG  == 0 ) { return ; }  
+  if ( INPUTS.MWEBV_FLAG  == 0 ) { return(0.0) ; }  
 
-  RA   = GENLC.RA ;
-  DEC  = GENLC.DEC  ;
+  // xxx mark delete  RA   = GENLC.RA ;
+  // xxx mark delete  DEC  = GENLC.DEC  ;
+
   RANFLAG = ( INPUTS.GENRANGE_MWEBV[0] >= 0.0 ) ; // random MWEBV
 
   if ( RANFLAG ) {
@@ -9862,7 +9762,7 @@ void gen_MWEBV(void) {
     }
   }
 
-  return ;
+  return(GENLC.MWEBV_SMEAR) ;
 
 } // end of gen_MWEBV
 
@@ -12656,13 +12556,9 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
       z = zmin + dz * (double)(iz-1) ;
 
       if ( ISPOLY ) {
-	if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) 
-	  { wgt = eval_GENPOLY(z, &RATEPAR->MODEL_ZPOLY, fnam) ; }
-	else
-	  { w = polyEval(4, RATEPAR->MODEL_PARLIST[1], z); }
+	wgt = eval_GENPOLY(z, &RATEPAR->MODEL_ZPOLY, fnam) ; 
       }
       else {
-	// xxx mark delete	w = dVdz ( H0, OM, OL, W0, z );
 	w = dVdz (z, &INPUTS.HzFUN_INFO);
 	w /= (1.0+z);          // Dec 2006: time dilation factor
 	w *= genz_wgt(z,RATEPAR) ;
@@ -12710,11 +12606,7 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
   }
   else if ( ISPOLY ) {
     // user-specified polynomial function of redshift
-    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) 
-      { wgt = eval_GENPOLY(zran, &RATEPAR->MODEL_ZPOLY, fnam) ; }
-    else
-      { wgt = polyEval(4, RATEPAR->MODEL_PARLIST[1], zran) ; }
-
+    wgt = eval_GENPOLY(zran, &RATEPAR->MODEL_ZPOLY, fnam) ; 
     wgt /= RATEPAR->ZGENWGT_MAX ;
   }
   else if ( INPUTS.USE_SIMLIB_DISTANCE ) {
@@ -12781,11 +12673,7 @@ double genz_wgt(double z, RATEPAR_DEF *RATEPAR ) {
   if ( zexp != 0.0 ) w *= pow(z,zexp);
 
   //check polynominal re-weight
-  if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) 
-    { wpoly = eval_GENPOLY(z, &RATEPAR->DNDZ_ZPOLY_REWGT, fnam) ; }
-  else 
-    { wpoly = polyEval(4, RATEPAR->DNDZ_ZPOLY_REWGT_LEGACY, z) ; }
-
+  wpoly = eval_GENPOLY(z, &RATEPAR->DNDZ_ZPOLY_REWGT, fnam) ; 
   w *= wpoly ;
 
   // global rate scale for all models.
@@ -12821,9 +12709,11 @@ void  init_RATEPAR ( RATEPAR_DEF *RATEPAR ) {
   // init REWGT to 1.000
   parse_GENPOLY("1", "DNDZ_ZPOLY_REWGT", &RATEPAR->DNDZ_ZPOLY_REWGT, fnam);
 
+  /* xxx
   // xxx mark delete when OPT_DEVEL_READ_GENPOLY=1 by default
   RATEPAR->DNDZ_ZPOLY_REWGT_LEGACY[0] = 1.0 ;
   for(i=1; i<4; i++ ) { RATEPAR->DNDZ_ZPOLY_REWGT_LEGACY[i] = 0.0 ;  }
+  xxx */
 
   sprintf(RATEPAR->NAME, "NONE"); 
   RATEPAR->NMODEL_ZRANGE  = 0 ;
@@ -13080,11 +12970,7 @@ double GALrate_model(double l, double b, RATEPAR_DEF *RATEPAR ) {
 
   // - - - - - - - - - - 
   // evaluate polynomial functon
-  if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) 
-    { Rate = eval_GENPOLY(b_val, &RATEPAR->MODEL_BPOLY, fnam) ; }
-  else 
-    { Rate = polyEval(6, RATEPAR->MODEL_PARLIST[1], b_val) ;  } // legacy
-
+  Rate = eval_GENPOLY(b_val, &RATEPAR->MODEL_BPOLY, fnam) ;
 
   return(Rate);
 
@@ -23580,8 +23466,8 @@ void genmodel(
     double LAMAVG        = INPUTS.LAMAVG_OBS[ifilt_obs];
     double TobsPeak ;
 
-    genmag_LCLIB(GENLC.CID, ifilt_obs, GENLC.RA, GENLC.DEC, 
-		 mwebv, LAMAVG,
+    genmag_LCLIB(GENLC.CID, ifilt_obs, &GENLC.RA, &GENLC.DEC, 
+		 &mwebv, LAMAVG,
 		 NEPFILT, ptr_epoch, 
 		 ptr_genmag, ptr_template,    // return args
 		 &TobsPeak                    // Tobs with peak brightness
@@ -23590,7 +23476,6 @@ void genmodel(
     // for non-recurring events, set PKMJD like any other transient
     if ( LCLIB_INFO.IFLAG_RECUR_CLASS == IFLAG_RECUR_NONRECUR ) {
       GENLC.PEAKMJD  = INPUTS.GENRANGE_PEAKMJD[0] + TobsPeak ;
-      // xxx mark delete  GENLC.PEAKMJD_SMEAR         = GENLC.PEAKMJD ;
     }
 
     /*

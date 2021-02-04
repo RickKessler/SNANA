@@ -393,7 +393,6 @@ struct INPUTS {
   bool RESTORE_FLUXERR_BUGS ;   // set if DEBUG_FLAG==3 .or. idem
   bool RESTORE_WRONG_VPEC   ;   // restore incorrect VPEC sign convention
 
-  int OPT_DEVEL_READ_GENPOLY;  // use read_genpoly
   int OPT_DEVEL_SIMSED_GRIDONLY ;
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
@@ -1728,7 +1727,7 @@ void   gen_modelPar_SALT2(int OPT_FRAME);
 void   gen_modelPar_SIMSED(int OPT_FRAME); 
 double pick_gridval_SIMSED(int ipar);
 void   gen_modelPar_dust(int OPT_FRAME); 
-void   gen_MWEBV(void);       // generate MWEBV
+double gen_MWEBV(double RA, double DEC);       // generate MWEBV
 void   override_modelPar_from_SNHOST(void) ;
 
 void pick_NON1ASED(int ilc,

@@ -2774,17 +2774,10 @@ void sortz_HOSTLIB(void) {
   if ( VBOSE )  { 
     printf("\t Sort HOSTLIB by redshift (%.4f to %.4f) \n",
 	   HOSTLIB.ZMIN , HOSTLIB.ZMAX );   
-
-    if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
-      printf("\t |zSN-zGAL| tolerance zpoly: %s \n",
-	     INPUTS.HOSTLIB_GENPOLY_DZTOL.STRING );
-    }
-    else {
-      printf("\t |zSN-zGAL| tolerance: %.3f + %.3f*z + %.4f*z^2 \n"
-	     ,INPUTS.HOSTLIB_DZTOL[0]
-	     ,INPUTS.HOSTLIB_DZTOL[1]
-	     ,INPUTS.HOSTLIB_DZTOL[2] );
-    }
+    
+    printf("\t |zSN-zGAL| tolerance zpoly: %s \n",
+	   INPUTS.HOSTLIB_GENPOLY_DZTOL.STRING );
+    
     fflush(stdout); 
   }
 
@@ -4859,14 +4852,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
   IGAL_SELECT = -9 ; 
 
   // compute zSN-zGAL tolerance for this ZGEN = zSN
-  if ( INPUTS.OPT_DEVEL_READ_GENPOLY ) {
-    dztol = eval_GENPOLY(ZGEN, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam);
-  }
-  else {
-    dztol = INPUTS.HOSTLIB_DZTOL[0]
-      +     INPUTS.HOSTLIB_DZTOL[1]*(ZGEN)
-      +     INPUTS.HOSTLIB_DZTOL[2]*(ZGEN*ZGEN) ;
-  }
+  dztol = eval_GENPOLY(ZGEN, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam);
+  
   
   // find start zbin 
   LOGZGEN = log10(ZGEN);
@@ -6006,7 +5993,10 @@ void GEN_SNHOST_POS(int IGAL) {
   if ( LSN2GAL ) {
     GENLC.RA   = SNHOSTGAL.RA_SN_DEG ;
     GENLC.DEC  = SNHOSTGAL.DEC_SN_DEG ;
-    gen_MWEBV(); // compute MWEBV with SN coords (was skipped in snlc_sim)
+
+    // compute MWEBV with SN coords (was skipped in snlc_sim)
+    // Note that return MWEBV is not used here.
+    double MWEBV = gen_MWEBV(GENLC.RA, GENLC.DEC); 
   }
 
   // debug mode for SIMLIB model. Use forward-modeled RA,DEC as if

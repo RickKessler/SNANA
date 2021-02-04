@@ -10650,10 +10650,12 @@ template epochs specified in the sim-input file as
 %
 \begin{verbatim}
    GENMODEL:   LCLIB   MYMODEL.TEXT   1+2+3+4
+   GENMODEL_OPTMASK:   <mask>
 \end{verbatim}
 {\tt LCLIB} (Light Curve LIBrary) is the generic model type in \snana,
 {\tt MYMODEL.TEXT} is the text-file library (Fig \ref{fig:LCLIB_format})
 and {\tt 1+2+3+4} is a list of relative epochs to average for the template magnitude.
+{\tt GENMODEL\_OPTMASK} enable options described in \S\ref{sss:LCLIB_options}.
 
 \subsubsection{Defining the Library}
 \label{sss:LCLIB_define}
@@ -10876,6 +10878,20 @@ etc É
 \label{fig:LCLIB_format}
 \end{figure}
 
+% ----------------------------------------------
+\subsubsection{{\tt GENMODEL\_MSKOPT} Options}
+\label{sss:LCLIB_options}
+
+\begin{itemize}
+  \item {\tt GENMODEL\_MSKOPT += 1}: ignore ANGLEMATCH.   
+  \item {\tt GENMODEL\_MSKOPT += 8}: 
+     After selecting RA,DEC from {\tt DNDB} distribution, replace 
+     with RA,DEC in LCLIB, and also update MWEBV.
+     {\it Beware} that incorrect cadences are used with this option!
+     If {\tt DNDB} inputs are not sufficient, the correct strategy
+     is to create a SIMLIB cadence library with the
+     correct RA,DEC distribution.
+\end{itemize}
 
 % ##########################################
    \clearpage

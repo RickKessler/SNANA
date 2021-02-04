@@ -19513,10 +19513,16 @@
     + fix use of INIT_ONLY flag so that global SIMLIB header is read
       before quitting; enables SOLID_ANGLE in simlib to be used for
       rate calc in submit_batch
+    + remove OPT_DEVEL_READ_GENPOLY everywhere since it has been
+      default for a long time
+    + refactor gen_MWEBV() -> MWEBV = gen_MWEBV(RA,DEC) so that
+      it can be called by genmag_LCLIB.
+
+  genmag_LCLIB.c
+    + new OPTMASK += 8 to use RA,DEC from LCLIB.
 
   submit_prog_sim.py: 
     + add PATH_USER_INPUT arg for rate calc. Allows using input files
       in submit-dir without specifying full path.
-   
-      
+     
 END: 

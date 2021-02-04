@@ -3532,20 +3532,20 @@ void check_duplicate_SNID(void) {
   NDUPL_SET = NDUPL_TOT = NDUPL_SN = 0 ;
   for(idup=0; idup < MXSTORE; idup++ )  {  NDUPL_LIST[idup] = 0 ; }
 
-  for ( isn=0; isn < nsn; isn++ ) {
+  for ( isn=0; isn < nsn-1; isn++ ) {
     unsort  = unsortList[isn];
     z      = INFO_DATA.TABLEVAR.zhd[unsort];
     snid   = INFO_DATA.TABLEVAR.name[unsort];    
 
     if ( IS_DUPL[isn] ) { continue; }
-    isn2 = isn+1 ;      z2 = z;   FOUND_DUPL=false;
+    isn2 = isn  ;      z2 = z;   FOUND_DUPL=false;
 
-    while ( z == z2 ) {
+    while ( z == z2 && isn2 < nsn-1 ) {
+      isn2++ ;
       unsort2    = unsortList[isn2];
       z2         = INFO_DATA.TABLEVAR.zhd[unsort2];
       snid2      = INFO_DATA.TABLEVAR.name[unsort2];
       SAME_SNID  = ( strcmp(snid,snid2) == 0 );
-      isn2++ ;
 
       if ( IS_DUPL[isn2] ) { continue; }
       if ( !SAME_SNID    ) { continue; }
@@ -3838,7 +3838,8 @@ void merge_duplicates(int NDUPL, int *isnList) {
   double COVFIT_SUM[NLCPAR][NLCPAR] ;
   double wgt, sqerr, wgtsum[NLCPAR], covfit, covfit0, covtot, fitpar_tmp  ;
   bool   SIGN_CHANGE[NLCPAR][NLCPAR], sign_change ;
-  char stringList_fitparOrig[NLCPAR][MXSTORE_DUPLICATE], *name ;
+  char stringList_fitparOrig[NLCPAR][100], *name ;
+  char string_tmp[100];
   //  char fnam[] = "merge_duplicates" ;
 
   // ----------- BEGIN ----------------
@@ -3874,8 +3875,9 @@ void merge_duplicates(int NDUPL, int *isnList) {
       wgtsum[ipar] += wgt ;
       fitpar[ipar] += wgt * fitpar_tmp ;
 
+      sprintf(string_tmp, "%s", stringList_fitparOrig[ipar]);
       sprintf(stringList_fitparOrig[ipar],"%s %6.3f",
-	      stringList_fitparOrig[ipar], fitpar_tmp );
+	      string_tmp, fitpar_tmp );
 
       for(ipar2=0; ipar2 < NLCPAR; ipar2++ ) {
 	covfit  = INFO_DATA.TABLEVAR.covmat_fit[isn][ipar][ipar2];
@@ -6328,8 +6330,6 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     // allocate 3D array: covmat[isn][ipar0][ipar1]
     // Note that this array cannot be read or passed as ISN-array,
     // but it can be passed as 2D array to functions.
-
-    printf(" xxx %s: malloc cov \n",  fnam); fflush(stdout);
 
     MEMTOT += malloc_float3D(+1, LEN_MALLOC, NLCPAR, NLCPAR,
 			     &TABLEVAR->covmat_fit );
@@ -15581,6 +15581,9 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"prescale_simdata="))  
     { sscanf(&item[17],"%lf",&INPUTS.prescale_simData); return(1); }
+  if ( uniqueOverlap(item,"simdata_prescale="))  // allow mental flip, Jan 2021
+    { sscanf(&item[17],"%lf",&INPUTS.prescale_simData); return(1); }
+
   if ( uniqueOverlap(item,"prescale_simcc="))  // new key from RK (Dec 2015)
     { sscanf(&item[15],"%lf",&INPUTS.prescale_simCC); return(1); }
 

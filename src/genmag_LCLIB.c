@@ -1,5 +1,5 @@
 /************************************************
-  Created July 2017
+  Created July 2017 
   Pre-computed Light Curve library, mainly intended
   for stellar-related variables that are not associated
   with redshift.  The LC library contains pre-computed
@@ -36,13 +36,9 @@
 
  Dec 27 2018: if LCLIB_DEBUG.ZERO_TEMPLATE_FLUX>0, then zero template flux
 
-*************************************************/
+ Feb 03 2021: if OPTMASK & 8, switch RA,DEC coords to those of LCLIB.
 
-/*
-#include <stdio.h> 
-#include <math.h>     // log10, pow, ceil, floor
-#include <stdlib.h>   // includes exit(),atof()
-*/
+*************************************************/
 
 #include "sntools.h"           // community tools
 #include "genmag_LCLIB.h" 
@@ -73,7 +69,8 @@ void init_genmag_LCLIB(char *lcLibFile, char *STRING_TEMPLATE_EPOCHS,
   //
   //  OPTMASK: user bit-mask options passed from sim-input 
   //           GENMODEL_MSKOPT: <OPTMASK>
-  //           1 --> ignore ANGLEMATCH cut 
+  //     += 1 --> ignore ANGLEMATCH cut 
+  //     += 8 --> use LCLIB coordinates (Feb 2021)
   //
   //  If LCLIBFILE's SURVEY and FILTERLIST does not match input,
   //  abort on error.
@@ -81,7 +78,7 @@ void init_genmag_LCLIB(char *lcLibFile, char *STRING_TEMPLATE_EPOCHS,
   //
   // HISTORY
   // Mar 26 2019: pass OPTMASK arg.
-  //
+  // Feb    2021: option to use LCLIB coordinates
 
   char fnam[] = "init_genmag_LCLIB" ;
 
@@ -94,6 +91,13 @@ void init_genmag_LCLIB(char *lcLibFile, char *STRING_TEMPLATE_EPOCHS,
   LCLIB_INFO.TOBS_RANGE_MAX = TOBS_RANGE_MAX;
   LCLIB_INFO.NGENTOT = NGENTOT ;
   LCLIB_INFO.OPTMASK = OPTMASK ;
+
+
+  LCLIB_INFO.DO_ANGLEMATCH = true;
+  if ( OPTMASK & OPTMASK_LCLIB_IGNORE_ANGLEMATCH ) 
+    { LCLIB_INFO.DO_ANGLEMATCH = false; }
+  if ( OPTMASK & OPTMASK_LCLIB_useRADEC ) 
+    { LCLIB_INFO.DO_ANGLEMATCH = false; }
 
   // -------------------------------
   open_LCLIB(lcLibFile);
@@ -133,8 +137,20 @@ void init_genmag_LCLIB(char *lcLibFile, char *STRING_TEMPLATE_EPOCHS,
 	   LCLIB_DEBUG.TOBS_OFFSET_RANGE[1] );
   }
 
-  if ( (OPTMASK & 1)>0 ) {
+  if ( (OPTMASK & OPTMASK_LCLIB_IGNORE_ANGLEMATCH)>0 ) {
     printf("\t Ignore ANGLEMATCH \n" );
+  }
+
+  if ( (OPTMASK & OPTMASK_LCLIB_useRADEC)>0 ) {
+    char line[] = 
+      "!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=" ;
+    printf("# %s\n", line);
+    printf("   WARNING: GENMODEL_MSKOPT = %d includes %d-bit --> \n",
+	   OPTMASK, OPTMASK_LCLIB_useRADEC ); 
+    printf("\t risky option to overwrite RA,DEC from LCLIB. \n" );
+    printf("\t RA,DEC distribution belongs with SIMLIB, not LCLIB. \n" );
+    printf("# %s\n", line);
+    fflush(stdout);
   }
 
   //  debugexit(fnam); // xxxx REMOVE
@@ -605,9 +621,9 @@ void set_TobsRange_LCLIB(double *TobsRange) {
 // ===================================================
 void genmag_LCLIB ( int EXTERNAL_ID     // (I) external ID 
 		    ,int ifilt_obs       // (I) absolute filter index
-		    ,double RA          // (I) RA, deg
-		    ,double DEC         // (I) DEC, deg
-		    ,double mwebv       // (I) MW E(B-V)
+		    ,double *RA          // (I,O) RA, deg
+		    ,double *DEC         // (I,O) DEC, deg
+		    ,double *mwebv       // (I,0) MW E(B-V)
 		    ,double lamFilt     // (I) mean filt wave for MWEBV
                     ,int     Nobs       // (I) Number of observations
 		    ,double *TobsList   // (I) obs-frame MJD-MJDMIN
@@ -625,11 +641,13 @@ void genmag_LCLIB ( int EXTERNAL_ID     // (I) external ID
   // July 30 2018: new output arg, TobsPeak
   // Aug  23 2018: remove obsolete output args ztrue, zphot, zphoterr
   // Aug  29 2018: finally implmenent MWEBV 
- 
-  int  IFLAG_NONRECUR = (LCLIB_INFO.IFLAG_RECUR_CLASS==IFLAG_RECUR_NONRECUR);
-  double AV_MW   = RV_MWDUST * mwebv ;
-  double XT_MW   = GALextinct ( RV_MWDUST, AV_MW, lamFilt, 94 );
+  // Feb  03 2021: if OPTMASK & 8, return RA & DEC from LCLIB
 
+  int  IFLAG_NONRECUR = (LCLIB_INFO.IFLAG_RECUR_CLASS==IFLAG_RECUR_NONRECUR);
+  bool switch_RADEC   = (LCLIB_INFO.OPTMASK & OPTMASK_LCLIB_useRADEC) > 0 ;
+  LCLIB_EVENT.MWEBV   = *mwebv ;
+
+  double AV_MW, XT_MW;
   int obs, ifilt, NEXT_SIMEVENT, NEXT_LCLIBEVENT ;
   double Tobs, Tobs_shifted, mag_S ;
   //  char fnam[] = "genmag_LCLIB" ;
@@ -690,6 +708,11 @@ void genmag_LCLIB ( int EXTERNAL_ID     // (I) external ID
   // get sparse filter index for LCLIB
   ifilt = ifiltmap_LCLIB[ifilt_obs] ;
 
+  // compute galactic extinction
+  *mwebv  = LCLIB_EVENT.MWEBV ; // return func arg
+  AV_MW   = RV_MWDUST * LCLIB_EVENT.MWEBV ;
+  XT_MW   = GALextinct ( RV_MWDUST, AV_MW, lamFilt, 94 );
+
   // get template mag
   store_magTemplate_LCLIB(EXTERNAL_ID,ifilt,XT_MW);  
   *mag_T  =  LCLIB_EVENT.magTemplate[ifilt] ; // return arg.
@@ -725,7 +748,7 @@ void genmag_LCLIB ( int EXTERNAL_ID     // (I) external ID
 
 
 // ============================================
-void readNext_LCLIB(double RA, double DEC) {
+void readNext_LCLIB(double *RA, double *DEC) {
 
   // read next LCLIB event.
   // If sky-dependence is part of model then find event 
@@ -734,8 +757,12 @@ void readNext_LCLIB(double RA, double DEC) {
   // 
   // Jul 13 2018: MXWD -> += 2 in case NPAR=0
   // Aug 26 2018: call ranPhase_PERIODIC_LCLIB().
+  // Feb 03 2021: check OPTMASK&8 option to pass RA,DEC back from HOSTLIB
 
+  double RA_LOCAL  = *RA  ;
+  double DEC_LOCAL = *DEC ;
 
+  bool switch_RADEC = (LCLIB_INFO.OPTMASK & OPTMASK_LCLIB_useRADEC) > 0 ;
   FILE *fp   = LCLIB_INFO.FP ;
   int NPAR   = LCLIB_INFO.NPAR_MODEL ;
   int NFILT  = LCLIB_INFO.NFILTERS;
@@ -745,6 +772,7 @@ void readNext_LCLIB(double RA, double DEC) {
   int START_EVENT, END_EVENT, ISROW_T, ISROW_S ;
   int ipar, ifilt, NROW_FOUND, NROW_EXPECT, KEEP, REJECT ;
   int NWD, iwd, NLINE_SKIP, Nfread ;
+  bool  VALID_RADEC ;
   char  WDLIST[MXFILTINDX+MXPAR_LCLIB][100], WD0[100], WD1[100];
   char *ptrWDLIST[MXFILTINDX+MXPAR_LCLIB];
   double GalLat, GalLong ;
@@ -759,8 +787,10 @@ void readNext_LCLIB(double RA, double DEC) {
 
   if ( LCLIB_INFO.DEBUGFLAG_RANMAG ) { return; } // nothing to read for debug
 
-  if ( RA < 900.0 && DEC < 900.0 ) 
-    { slaEqgal ( RA, DEC, &GalLong,  &GalLat ); }   // return GalLat/Long
+  VALID_RADEC = (RA_LOCAL < 900.0 && DEC_LOCAL < 900.0 );
+  if ( VALID_RADEC && !switch_RADEC ) 
+    { slaEqgal ( RA_LOCAL, DEC_LOCAL, 
+		 &GalLong,  &GalLat ); } // return GalLat/Long
   else
     { GalLat = GalLong = 999.0 ; }
 
@@ -916,6 +946,13 @@ void readNext_LCLIB(double RA, double DEC) {
     // convert J2000 into Galactic coords
     slaEqgal ( LCLIB_EVENT.RA, LCLIB_EVENT.DEC, 
 	       &LCLIB_EVENT.GLON,  &LCLIB_EVENT.GLAT );  // returned
+
+    if ( switch_RADEC ) {
+      // update Galactic extinction for LCLIB coords
+      *RA = LCLIB_EVENT.RA;   *DEC=LCLIB_EVENT.DEC;
+      double MWEBV = gen_MWEBV(*RA,*DEC);
+      LCLIB_EVENT.MWEBV = MWEBV;
+    }
   }
   else if ( LCLIB_EVENT.GLAT < 900 && LCLIB_EVENT.GLON < 900 ) {
     // Convert Galactic coords into J2000
@@ -1156,7 +1193,6 @@ int keep_ANGLEMATCH_LCLIB(double b, double l) {
   // Galactic coords of LCLIB event are stored in 
   // LCLIB_EVENT.GLAT[GLON].
   
-  int OVP ;
   int KEEP=1 ;
   double b_SIM    = fabs(b);
   double b_LCLIB  = fabs(LCLIB_EVENT.GLAT);
@@ -1165,8 +1201,12 @@ int keep_ANGLEMATCH_LCLIB(double b, double l) {
   // ------------- BEGIN ------------
 
   // check option to skip ANGLEMATCH cut
+  if ( !LCLIB_INFO.DO_ANGLEMATCH ) { return(KEEP); }
+
+  /* xxx mark delete Feb 3 2021 xxxx
   OVP = ( LCLIB_INFO.OPTMASK &OPTMASK_LCLIB_IGNORE_ANGLEMATCH );
   if ( OVP > 0 ) { return(KEEP); }
+  xxxxxxxxx */
 
   // bail if not cut is defined.
   if ( LCLIB_EVENT.ANGLEMATCH_b > 500.0 ) { return(KEEP); }

@@ -216,7 +216,7 @@ class train_SALT3(Program):
         arg_list.append(f"{trainopt_arg}")
 
         JOB_INFO = {}
-        JOB_INFO['setenv']        = (f"{SALT3_SETUP}")
+        #JOB_INFO['setenv']        = (f"{SALT3_SETUP}")
         JOB_INFO['program']       = (f"{program}")
         JOB_INFO['input_file']    = ""  
         JOB_INFO['job_dir']       = script_dir

@@ -213,7 +213,7 @@ class Simulation(Program):
 
     def sim_prep_GENOPT_GLOBAL(self):
 
-        # there is a separate GENOPT_GLOBLA for SIMnorm jobs
+        # there is a separate GENOPT_GLOBAL for SIMnorm jobs
         # to simplify debugging if needed.
 
         IGNORE_SIMnorm = GENOPT_GLOBAL_IGNORE_SIMnorm
@@ -617,6 +617,12 @@ class Simulation(Program):
         arg_list += (f"INIT_ONLY 1 ")
         arg_list += (f"{genopt} ")
         arg_list += (f"{genopt_global} ") 
+
+        # 1.31.2021: check for PATH_USER_INPU
+        INFILE_KEYS  = self.config_prep['INFILE_KEYS']
+        key = 'PATH_USER_INPUT'
+        if key not in INFILE_KEYS[iver][ifile] :
+            arg_list += (f"{key} {CWD} ")
 
         # contruct two sets of strings.
         # cmd_string is passed to os.system

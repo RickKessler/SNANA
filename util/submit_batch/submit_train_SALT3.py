@@ -2,8 +2,8 @@
 # SALT3 training using saltshaker code from arxiv:xxxx
 # 
 # TODO:
-#   check that $CONDA_DEFAULT_ENV = salt3 before launching
-#   tack on --yamloutputfile YAMLOUTPUTFILE
+#  + check that $CONDA_DEFAULT_ENV = salt3 before launching
+#  + tack on --yamloutputfile YAMLOUTPUTFILE
 
 import  os, sys, shutil, yaml, glob
 import  logging, coloredlogs
@@ -205,29 +205,26 @@ class train_SALT3(Program):
         arg_list          = [ ]
         msgerr            = [ ]
 
-        KEY_SALT3_SETUP = 'SALT3_SETUP'
-        if KEY_SALT3_SETUP not in CONFIG :
-            msgerr.append(f"Missing {KEY_SALT3_SETUP} key in CONFIG")
-            msgerr.append(f"{KEY_SALT3_SETUP} key is required, even if blank.")
-            self.log_assert(False,msgerr)
-
-        SALT3_SETUP = CONFIG['SALT3_SETUP']
+        log_file   = f"{prefix}.LOG"
+        done_file  = f"{prefix}.DONE"
+        start_file = f"{prefix}.START"
+        yaml_file  = f"{prefix}.YAML"
 
         for key,input_file in zip(CODE_KEYLIST_INPUT_FILE,input_file_list):
             arg_list.append(f"{key} {input_file}")
 
         arg_list.append(f"--outputdir {outdir_model}")
+        arg_list.append(f"--yamloutputfile {yaml_file}")
         arg_list.append(f"{trainopt_arg}")
 
         JOB_INFO = {}
-        #JOB_INFO['setenv']        = (f"{SALT3_SETUP}")
-        JOB_INFO['program']       = (f"{program}")
+        JOB_INFO['program']       = f"{program}"
         JOB_INFO['input_file']    = ""  
         JOB_INFO['job_dir']       = script_dir
-        JOB_INFO['log_file']      = (f"{prefix}.LOG")
-        JOB_INFO['done_file']     = (f"{prefix}.DONE")
-        JOB_INFO['start_file']    = (f"{prefix}.START")
-        JOB_INFO['all_done_file'] = (f"{output_dir}/{DEFAULT_DONE_FILE}")
+        JOB_INFO['log_file']      = log_file
+        JOB_INFO['done_file']     = done_file
+        JOB_INFO['start_file']    = start_file
+        JOB_INFO['all_done_file'] = f"{output_dir}/{DEFAULT_DONE_FILE}"
         JOB_INFO['kill_on_fail']  = kill_on_fail
         JOB_INFO['arg_list']      = arg_list
 

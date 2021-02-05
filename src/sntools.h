@@ -41,6 +41,8 @@
   Nov 12 2020:
     + Adding glob utility
 
+  Feb 4 2021: add python-like dictionary utility (e.g., for FIELD-dependence)
+
 ********************************************************/
 
 
@@ -248,6 +250,16 @@ double LANDOLT_COLOR_ERROR[6];   // errors on above
 
 int OFFSET_1DINDEX[MXMAP_1DINDEX][MXDIM_1DINDEX] ;
 int NPT_PERDIM_1DINDEX[MXMAP_1DINDEX][MXDIM_1DINDEX] ;
+
+
+// Feb 2021; define structure to enable python-like dictionary
+typedef struct STRING_DICT_DEF {
+  char NAME[60] ;  // name of dictionary
+  int N_ITEM;   // number of items to store
+  int MAX_ITEM; // max number of items 
+  char **STRING_LIST;  // list of string-item names
+  double *VALUE_LIST ; // double value for each string
+} STRING_DICT_DEF ;
 
 
 typedef struct GRIDMAP {
@@ -777,38 +789,9 @@ void check_file_docana__(char *fileName);
 int  ENVreplace(char *fileName, char *callFun, int ABORTFLAG);
 void ENVrestore(char *fileName_noENV, char *fileName_orig);
 
-// cosmology functions
-
-/* xxx mark delete Oct 2020 xxxxx
-double SFR_integral( double H0, double OM, double OL, double W, double Z );
-double SFRfun(double H0, double z) ;
-double SFRfun_MD14(double z, double *params);
-
-double dVdz_integral ( double H0, double OM, double OL, double W, 
-		       double Zmax, int wgtopt ) ;
-
-double dvdz_integral__ ( double *H0, double *OM, double *OL, double *W, 
-			 double *Zmax, int *wgtopt ) ;
-
-double dVdz ( double H0, double OM, double OL, double W, double Z ) ;
-double Hzinv_integral ( double H0, double OM, double OL, double W, 
-			double Zmin, double Zmax ) ;
-
-double Hainv_integral ( double H0, double OM, double OL, double W, 
-			double amin, double amax ) ;
-
-double Hzfun ( double H0, double OM, double OL, double W, double Z ) ;
-double dLmag ( double H0, double OM, double OL, double W, 
-	       double zCMB, double zHEL ) ;
-
-double zcmb_dLmag_invert(double H0, double OM, double OL, double W, double MU);
-
-double zhelio_zcmb_translator (double z_input, double RA, double DECL, 
-			       char *coordSys, int OPT ) ;
-double zhelio_zcmb_translator__ (double *z_input, double *RA, double *DECL, 
-				 char *coordSys, int *OPT ) ;
-
-xxxxx end mark xxxxxxxxxx*/
+void  init_string_dict(STRING_DICT_DEF *DICT, char *NAME, int MAXITEM);
+void  load_string_dict(STRING_DICT_DEF *DICT, char *string, double val);
+double get_string_dict(int OPT, char *string, STRING_DICT_DEF *DICT);
 
 // SLALIB functions translated by D. Cinabro
 void slaEqgal ( double dr, double dd, double *dl, double *db );

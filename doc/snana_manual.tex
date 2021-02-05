@@ -913,16 +913,17 @@ user must check.
 
 % ----------------------------------------------------------
   \clearpage
-  \subsection{The `{\simlib}' Observing Conditions File }
+  \subsection{The `{\simlib}' Cadence Library File }
   \label{subsec:simlib}
 % ----------------------------------------------------------
 
 A user-generated `{\simlib}' 
 file\footnote{``{\simlib}'' is an abbreviation for 
-   {\tt SIM}ulation {\tt LIB}rary.}
-is needed to define the cadence, 
+   {\tt SIM}ulation {\tt LIB}rary, although ``cadence library'' 
+   is a more appropriate name.}
+is needed to define the cadence (MJD, ZP, PSF, SKY), 
 translate magnitudes into CCD counts, 
-and to compute the \unc\ as described in Eq.~\ref{eq:noiseModel}.
+and compute the \unc\ as described in Eq.~\ref{eq:noiseModel}.
 %
 As an example, the start of the \simlib\ file for the 
 SDSS-II 2005 survey is shown in  Fig.~\ref{fig:simlib}.
@@ -960,16 +961,17 @@ keys:
   FILTERS: <filtList>   # must find match in kcor/calib file 
 
 # Optional keys:
-  USER:    <NAME>               # user who created SIMLIB file
-  HOST:    <NAME>               # host computer where SIMLIB was created
   SKYSIG_UNIT: ADU_PER_SQARCSEC # change SKYSIG unit from default per-pixel
   PSF_UNIT:    ARCSEC_FWHM      # change PSF unit from default pixels
   NPE_PIXEL_SATURATE: <VAL>     # pixel-flux Saturation, photo-electrons
   PHOTFLAG_SATURATE:  <MASK>    # saturation mask in output PHOTFLAG column
   NLIBID:             <VAL>     # Number of obs-sequence (LIBIDs) in file
   PIXSIZE:            <VAL>     # size of pixel, arcSec
+  SOLID_ANGLE:        <VAL>     # sr, used of SOLID_ANGLE=0 in input file
 
-  COMMENT:  <comment string>  
+  USER:    <NAME>               # user who created SIMLIB file
+  HOST:    <NAME>               # host computer where SIMLIB was created
+  COMMENT:  <comment string>
   COMMENT:  <comment string>
 \end{verbatim} 
 %
@@ -977,7 +979,7 @@ For batch jobs submitted with {\submit} script,
 {\tt NLIBID} is used to assign a different starting {\tt LIBID}
 (see below) for each batch core, ensuring uniform library sampling.
 
-\bigskip
+\clearpage
 Following the global header is a list of \obs\ sequences.
 Each sequence starts with a header as follows:
 \begin{verbatim}
@@ -1200,26 +1202,8 @@ sampling of the SIMLIB, and it can be corrected with {\tt NGEN\_LIBID}
 in the output table. However, if you are not sure how to correct 
 with {\tt NGEN\_LIBID} then you should not be using this option.
 
-\clearpage
-Be careful with {\tt SIMLIB\_FIELDLIST} because it checks for substring matches, 
-not an exact match. For example, suppose we have 6 {\tt SIMLIB} fields named
-{\tt MED1,MED2,MED3,DEEP1,DEEP2,DEEP3}. The following will select all
-three of the {\tt MED} fields:
-\begin{verbatim}
-   SIMLIB_FIELDLIST:  MED1+MED2+MED3
-       or
-   SIMLIB_FIELDLIST:  MED    # select all fields with MED in name
-\end{verbatim}
-%
-This sub-string select feature is convenient when there are many
-fields, but it can also lead to undesirable behavior as illustrated
-in the following example. 
-Consider ten {\tt SIMLIB} fields {\tt F1,F2,...F10}. 
-Setting ``{\tt SIMLIB\_FIELDLIST: F1}''  will select both
-{\tt F1} and {\tt F10} since {\tt F1} is a sub-string of both.
-In this situation, one should define the ten fields to be
-{\tt F01,F02, ... F10}, and then selecting 
-``{\tt SIMLIB\_FIELDLIST: F01}'' will select the correct field.
+\medskip
+For {\tt SIMLIB\_FIELDLIST}, see  \S\ref{sss:field_subset}.
 
 
 \bigskip
@@ -1491,14 +1475,14 @@ SN that overlap more than 1 field.
 
 % - -- - - - - - - - - - - - - - - -  -
 % \clearpage
- \subsubsection{Field Subset}
+ \subsubsection{Field Subset and Field Prescales}
  \label{sss:field_subset}
 % - -- - - - - - - - - - - - - - - -  -
 
-There are two distinct ways to simulate a subset of fields,
-and the difference is crucial for getting the right normalization
+There are two distinct methods to simulate a subset of fields,
+and the difference is important for getting the right normalization
 of generated events.
-The FIELD-subset options are illustrated with a hypothetical survey 
+The FIELD-subset options are illustrated here with a hypothetical survey 
 with 10 fields: 8 of them are called SHALLOW and 2 of them are called DEEP.
 Assume that each field has the same area of 10~\degsq, or 100~\degsq\ total.
 Finally, consider a {\tt SIMLIB} file with 200 DEEP-field entries and 800
@@ -1517,30 +1501,74 @@ number of events as in the first option.
 These two {\tt SIMLIB}-counting options are implemented in 
 the sim-input file as follows:
 \begin{verbatim}
-   SOLID_ANGLE:      0.03    # 100 deg^2
+   SOLID_ANGLE:       0.03    # 100 deg^2
    SIMLIB_FIELDLIST:  DEEP1+DEEP2    # NGENTOT counts both SHALLOW and DEEP
        or
    SOLID_ANGLE(DEEP1+DEEP2):  0.006  # 20 deg^2 for DEEP only   
 \end{verbatim}
 %
-Used with {\submit}, 
-both of the above options result in the same number of output 
+Used with {\submit}, both options result in the same number of output 
 events (within statistical errors), but 2nd efficiency will
 be $\times 5$ larger than the first to compensate the first job
 generating $\times 5$ more events.
 
+Be careful with {\tt SIMLIB\_FIELDLIST} because it checks for 
+substring matches rather than an exact match. 
+For the example above,
+\begin{verbatim}
+   SIMLIB_FIELDLIST:  DEEP    # select all fields with DEEP in name
+\end{verbatim}
+%
+is equivalent to explicitly selecting {\tt DEEP1+DEEP2}.
+This sub-string select feature is convenient when there are many
+fields, but it can also lead to undesirable behavior as illustrated
+in the following example. 
+Consider ten {\tt SIMLIB} fields: {\tt F1,F2,...F10}. 
+Naively, the first field is selected with 
+``{\tt SIMLIB\_FIELDLIST: F1},''  but it actually selects both
+{\tt F1} and {\tt F10} since {\tt F1} is a sub-string of both.
+To avoid such mistakes, define ten fields as {\tt F01,F02, ... F10}, 
+and select ``{\tt SIMLIB\_FIELDLIST: F01}.''
 
+To simulate large bias-correction (biasCor) samples for 
+BBC,\footnote{BBC = ``Beams with Bias Corrections; 
+     see \S\ref{sec:SALT2mu} and \S\ref{sss:simgrid_forSALT2mu}}
+it may be useful to {\it prescale} some fields to reduce processing 
+time for simulation and light curve fitting.
+In the above {\tt DEEP+SHALLOW} example, suppose that BBC needs
+few$\times 10^5$ events in SHALLOW and DEEP separately, 
+but the physical distribution results in $\times 4$ more 
+SHALLLOW events. To generate enough DEEP-field events requires
+over-generating SHALLOW field by a factor of 4. To balance
+the biasCor load, a prescale can be used as follows,
+\begin{verbatim}
+   SIMLIB_FIELDLIST:  SHALLOW/4+DEEP 
+      or
+   SIMLIB_FIELDLIST:  DEEP+SHALLOW/4
+\end{verbatim}
+A few warnings:
+1) DEEP fields have a larger redshift range and thus it may be 
+prudent to generate a larger DEEP sample by prescaling shallow by 5 or 6.
+2) data/sim overlays using the biasCor will give good agreement only
+   if a FIELD-select cut is applied:
+   will have very poor agreement if all fields are combined.
+3) Rather than matching biasCor statistics in BBC, another approach
+   is to match BBC loss per FIELD 
+    (see IDSAMPLE losses printed at top of BBC output FITRES files).
+
+\medskip
 Finally, there is a subtle issue using ``{\tt SOLID\_ANGLE(DEEP)}''
 as a command line argument. Unix tries to parse the parentheses,
 resulting in bad arguments passed to the simulation. To avoid
 this problem, use single quotes or back-slashes:
 \begin{verbatim}
-   snlc_sim.exe mySim.input  'SOLID_ANGLE(DEEP)' 0.006
+   snlc_sim.exe mySim.input  `SOLID_ANGLE(DEEP)' 0.006
       or
    snlc_sim.exe mySim.input  SOLID_ANGLE\(DEEP\) 0.006
 \end{verbatim}
 The {\submit} script automatically adds the backslashes,
 so there is no need to modify the {\tt GENOPT} argument.
+
 
 
 % ----------------------------------------------------------
@@ -10650,12 +10678,12 @@ template epochs specified in the sim-input file as
 %
 \begin{verbatim}
    GENMODEL:   LCLIB   MYMODEL.TEXT   1+2+3+4
-   GENMODEL_OPTMASK:   <mask>
+   GENMODEL_MSKOPT:   <mask>
 \end{verbatim}
 {\tt LCLIB} (Light Curve LIBrary) is the generic model type in \snana,
 {\tt MYMODEL.TEXT} is the text-file library (Fig \ref{fig:LCLIB_format})
 and {\tt 1+2+3+4} is a list of relative epochs to average for the template magnitude.
-{\tt GENMODEL\_OPTMASK} enable options described in \S\ref{sss:LCLIB_options}.
+{\tt GENMODEL\_MSKOPT} enable options described in \S\ref{sss:LCLIB_options}.
 
 \subsubsection{Defining the Library}
 \label{sss:LCLIB_define}
@@ -10886,11 +10914,14 @@ etc É
   \item {\tt GENMODEL\_MSKOPT += 1}: ignore ANGLEMATCH.   
   \item {\tt GENMODEL\_MSKOPT += 8}: 
      After selecting RA,DEC from {\tt DNDB} distribution, replace 
-     with RA,DEC in LCLIB, and also update MWEBV.
-     {\it Beware} that incorrect cadences are used with this option!
-     If {\tt DNDB} inputs are not sufficient, the correct strategy
-     is to create a SIMLIB cadence library with the
-     correct RA,DEC distribution.
+     with RA,DEC in LCLIB, and also update MWEBV. This option is
+     useful if {\tt DNDB} rate model is inadequate,
+     but {\it beware} that incorrect cadences are used with this option;
+     i.e, the cadence from SIMLIB-\{RA,DEC\} is used even
+     though the LCLIB coordinates are different.
+     Note that a more accurate strategy is to create a 
+     SIMLIB cadence library with the correct RA,DEC distribution
+     (and {\tt GENMODEL\_MSKOPT=0}).
 \end{itemize}
 
 % ##########################################
@@ -10898,7 +10929,6 @@ etc É
    \section{Computing Distance Moduli from BBC Method: {\tt SALT2mu.exe} }
    \label{sec:SALT2mu}
 % ###########################################
-
 
 
 The \snana\ program {\tt SALT2mu.exe} reads \SALTII\ fitted parameters,

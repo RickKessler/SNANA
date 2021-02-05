@@ -729,7 +729,8 @@ def write_job_info(f,JOB_INFO,icpu):
         if arg != '' :
             f.write(f"   {arg} \\\n")
 
-    f.write(f"   >  {log_file} \n" )
+    #f.write(f"   >  {log_file} \n" )  # write to stdout only
+    f.write(f"  &>  {log_file} \n" )   # write to stdout and stderr
 
     if len(done_file) > 4 :
         f.write(f"touch {done_file} \n")

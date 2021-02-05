@@ -393,14 +393,13 @@ struct INPUTS {
   bool RESTORE_FLUXERR_BUGS ;   // set if DEBUG_FLAG==3 .or. idem
   bool RESTORE_WRONG_VPEC   ;   // restore incorrect VPEC sign convention
 
-  int OPT_DEVEL_SIMSED_GRIDONLY ;
-
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file 
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files
   int  SIMLIB_GZIPFLAG ;            // gzip flag (needed to rewind)
 
   char SIMLIB_FIELDLIST[200]; // default=ALL, or, e.g., C1+C2+C3
   int  SIMLIB_FIELDSKIP_FLAG ; // INTERNAL: 1->count skipped fields for NGENTOT
+  STRING_DICT_DEF DICT_FIELDLIST_PRESCALE; // optional prescale per FIELD
 
   int  SIMLIB_IDSTART;      // start at this LIBID (default=1)
   int  SIMLIB_MAXRANSTART;  // start at random LIBID among this many
@@ -857,10 +856,7 @@ struct INPUTS {
 } INPUTS ;
 
 
-
-
 // define GENLC structure
-
 struct GENLC {
 
   char SURVEY_NAME[40];    // name of survey in SIMLIB
@@ -1673,9 +1669,11 @@ int    parse_input_GENMODEL_ARGLIST(char **WORDS, int keySource );
 int    parse_input_GENMODEL(char **WORDS, int keySource );
 int    parse_input_NON1ASED(char **WORDS, int keySource );
 void   parse_GENMAG_SMEAR_MODELNAME(void);
-int    parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK, 
-				   float *VALUE_GLOBAL,float *VALUE_FILTERLIST);
+int  parse_input_KEY_PLUS_FILTER(char **WORDS, int keySource, char *KEYCHECK, 
+				 float *VALUE_GLOBAL,float *VALUE_FILTERLIST);
 int    parse_input_SOLID_ANGLE(char **WORDS, int keySource);
+void   parse_input_FIELDLIST(void);
+
 int    parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT, 
 			   RATEPAR_DEF *RATEPAR );
 int    parse_input_ZVARIATION(char **WORDS, int keySource);

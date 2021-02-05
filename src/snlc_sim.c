@@ -2828,6 +2828,7 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "SIMLIB_FIELDLIST",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.SIMLIB_FIELDLIST );
+    parse_input_FIELDLIST();           // check for preScales; Feb 2021
     INPUTS.SIMLIB_FIELDSKIP_FLAG = 1 ; // count skipped fields in NGENTOT
   }
   else if ( keyMatchSim(1, "SIMLIB_IDSTART",  WORDS[0],keySource) ) {
@@ -3200,6 +3201,70 @@ int parse_input_GRIDGEN(char **WORDS, int keySource) {
 
 }  // end parse_input_GRIDGEN
 #endif
+
+// ==============================================================
+void parse_input_FIELDLIST(void) {
+
+  // Created Feb 5 2021
+  // Check pre-scale options for INPUTS.SIMLIB_FIELDLIST,
+  // and load INPUTS.DICT_FIELDLIST_PRESCALE
+  //
+  // Parse SIMLIB_FIELDLIST of the form; e.g,
+  //   SHALLOW/3+DEEP 
+  //       -> process 1/3 of SHALLOW and all DEEP
+  //   SHALLOW+MEDIUM/5+DEEP/5
+  //      -> process all SHALLOW, and 1/5 of MEDIUM and DEEP
+  //
+  int  MAXLIST = 20;
+  char sepKey[] = "+" ; // default FIELD separator
+  char *FIELDLIST = INPUTS.SIMLIB_FIELDLIST ;
+
+  int  ifield, NLIST, MEMC = 40*sizeof(char);
+  char **ptr_FIELDLIST;
+  char NAME[]  = "SIMLIB_FIELDLIST_PRESCALES" ;
+  char fnam[] = "parse_input_FIELDLIST" ;
+
+  // ---------- BEGIN ------------
+
+  init_string_dict(&INPUTS.DICT_FIELDLIST_PRESCALE, NAME, MAXLIST);
+
+  // although '+' is default separator, allow commas.
+  if ( strstr(FIELDLIST,COMMA) != NULL ) 
+    { sprintf(sepKey, "%s", COMMA); }
+
+  // allocate memory for each item in FIELDLIST
+  ptr_FIELDLIST = (char**)malloc( MAXLIST*sizeof(char*));
+  for(ifield=0; ifield < MAXLIST; ifield++ )
+    { ptr_FIELDLIST[ifield] = (char*)malloc(MEMC); }
+
+  splitString(FIELDLIST, sepKey, MAXLIST,      // inputs               
+	      &NLIST, ptr_FIELDLIST );         // outputs             
+  
+  // load dictionary
+  int jslash, iPS;
+  char *tmp, *tmpFIELD, FIELD[40];
+  double dval ;
+  for(ifield=0; ifield < NLIST; ifield++ ) {
+    tmpFIELD = ptr_FIELDLIST[ifield] ; // may include slash
+    iPS = 1;  // default preScale
+    sprintf(FIELD, "%s", tmpFIELD); // default FIELD
+    if ( strchr(tmpFIELD,'/') != NULL ) {
+      tmp    = strchr(tmpFIELD, '/');
+      jslash = (int)(tmp - tmpFIELD);
+      sscanf( &tmpFIELD[jslash+1] , "%d", &iPS );
+      strncmp(FIELD, tmpFIELD, jslash-1);
+      FIELD[jslash] = '\0' ;
+    }
+
+    dval = (double)iPS ;
+    load_string_dict(&INPUTS.DICT_FIELDLIST_PRESCALE,
+		     FIELD, dval );
+  }
+  //   debugexit(fnam); // xxx REMOVE
+
+  return ;
+
+} // end parse_input_FIELDLIST
 
 // ==============================================================
 int parse_input_SOLID_ANGLE(char **WORDS, int keySource) {
@@ -4740,7 +4805,6 @@ void prep_user_input(void) {
     if ( INPUTS.HOSTLIB_GENZPHOT_BIAS[i]     != 0.0 ) { USE=1; }
   }
   INPUTS.USE_HOSTLIB_GENZPHOT = USE ;
-
 
   // -----------------------------------------------
   // load generic "LUMIPAR" variables based on model
@@ -12175,7 +12239,7 @@ double gen_redshift_helio(void) {
   if ( vpec != 0.0 ) {
     dzpec = vpec/LIGHT_km ;
     // xxx mark delete     zhelio += dzpec ;
-    zhelio = (1.0+zhelio)*(1.0+dzpec) - 1.0 ;    // Jan 27 2021 .xyz
+    zhelio = (1.0+zhelio)*(1.0+dzpec) - 1.0 ;    // Jan 27 2021 
   }
 
   return zhelio ;
@@ -16534,17 +16598,50 @@ void set_SIMLIB_NREPEAT(void) {
 int SKIP_SIMLIB_FIELD(char *field) {
 
   // Created Mar 2015.
+  // Refactored Feb 2021 to enable optional preScale per FIELD
+  //
   // Returns 1 if this field should be skipped.
   // Returns 0 if this field should be kept.
   //
 
-  if ( strcmp(INPUTS.SIMLIB_FIELDLIST,"ALL") == 0 ) 
-    { return 0 ; }
+  double preScale;
+  int iPS, iTEST ;
+  char *FIELDLIST = INPUTS.SIMLIB_FIELDLIST ;
+  int   OPT_DICT  = 1 ; // --> do partial match
+  char fnam[] = "SKIP_SIMLIB_FIELD" ;
+  
+  if ( strcmp(FIELDLIST,"ALL") == 0 )  { return 0 ; }
 
-  if ( strstr(INPUTS.SIMLIB_FIELDLIST,field) == NULL ) 
+  // fetch prescale for this field
+  preScale = get_string_dict(OPT_DICT, field, 
+			     &INPUTS.DICT_FIELDLIST_PRESCALE);
+  iPS = (int)preScale ;
+
+  //  printf(" xxx %s: field=%s -> PS = %d \n", fnam, field, iPS);
+  // fflush(stdout);
+
+  // .xyz
+  if ( iPS < 0 ) {
+    return 1 ;    // field not specified -> skip
+  }
+
+  // if we get here, check prescale.
+  // Make sure to pick iTEST that is the same for all epochs.
+  // Here we pick sum of NGENTOT and NGEN_WRITE to hopefully
+  // avoid artifacts from harmonic effects from iPS being
+  // a divisor of NGENTOT_LC and/or NLIBID.
+  iTEST = (NGENLC_TOT + NGENLC_WRITE);
+  if ( ( iTEST % iPS ) == 0 )  // beware of harmonic effects XXX
+    { return 0; }  // keep field
+  else
+    { return 1 ; }  // reject due to prescale
+
+  /* xxx mark delete Feb 5 2021
+  if ( strstr(FIELDLIST,field) == NULL ) 
     { return 1; }
   else 
     { return 0; }
+  xxxxxx */
 
 } // end of SKIP_SIMLIB_FIELD
 

@@ -1,5 +1,9 @@
 # Jan 23 2021
 # SALT3 training using saltshaker code from arxiv:xxxx
+# 
+# TODO:
+#   check that $CONDA_DEFAULT_ENV = salt3 before launching
+#   tack on --yamloutputfile YAMLOUTPUTFILE
 
 import  os, sys, shutil, yaml, glob
 import  logging, coloredlogs

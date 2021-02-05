@@ -19517,6 +19517,7 @@
       default for a long time
     + refactor gen_MWEBV() -> MWEBV = gen_MWEBV(RA,DEC) so that
       it can be called by genmag_LCLIB.
+    + add preScale options for SIMLIB_FIELDLIST; see manual.
 
   genmag_LCLIB.c
     + new OPTMASK += 8 to use RA,DEC from LCLIB.

@@ -26,6 +26,120 @@
 **********************************************************
 **********************************************************/
 
+
+// =================================================
+// Feb 2021: functions to mimic python dictionary; func(string) = val
+
+void init_string_dict(STRING_DICT_DEF *DICT, char *NAME, int MAXITEM) {
+
+  int i;
+
+  sprintf(DICT->NAME, "%s", NAME);
+  DICT->N_ITEM     = 0;
+  DICT->MAX_ITEM   = MAXITEM ;
+  DICT->VALUE_LIST = (double*) malloc( MAXITEM * sizeof(double) );
+
+  DICT->STRING_LIST = (char**) malloc( MAXITEM * sizeof(char*) );
+  for(i=0; i < MAXITEM; i++ ) {
+    DICT->STRING_LIST[i] = (char*) malloc( 60 * sizeof(char) ); 
+    DICT->STRING_LIST[i][0] = 0 ;
+  }
+  return ;
+} // end init_string_dict
+
+void  load_string_dict(STRING_DICT_DEF *DICT, char *string, double val) {
+
+  char *NAME    = DICT->NAME ;
+  int  MAX_ITEM = DICT->MAX_ITEM;
+  int  N_ITEM   = DICT->N_ITEM ;
+  int  i;
+  bool LDMP = false ;
+  char fnam[]   = "load_string_dict" ;
+
+  //-------- BEGIN ---------
+  
+  sprintf(DICT->STRING_LIST[N_ITEM], "%s", string );
+  DICT->VALUE_LIST[N_ITEM] = val ;
+
+  if ( LDMP ) {
+    printf(" xxx %s %s[%s] = %f \n", fnam, NAME, string, val);
+    fflush(stdout);
+  }
+
+  N_ITEM++ ;
+  DICT->N_ITEM = N_ITEM ;
+
+  if ( N_ITEM >= MAX_ITEM ) {
+    print_preAbort_banner(fnam);
+    for(i=0; i < N_ITEM-1; i++ ) {
+      printf("\t DICT[%s] = %f \n", 
+	     DICT->STRING_LIST[i], DICT->VALUE_LIST[i] );
+    }
+    sprintf(c1err,"N_ITEM=%d exceeds MAX_ITEM for DICT=%s",
+	    N_ITEM, NAME );
+    sprintf(c2err,"Increase MAX_ITEM or reduce number of load calls");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  return;
+} // end load_string_dict
+
+double get_string_dict(int OPT, char *string, STRING_DICT_DEF *DICT) {
+
+  // Inputs
+  //   OPT  = 0  -> return -999 if no string element
+  //   OPT += 1  -> partial match with strstr instead of full match wit strcmp
+  //   OPT += 16 -> abort if no string element
+  //
+  //  *string = item to return DICT[string] value
+  
+  double VAL  = -999.0 ;
+  int i;
+  int N_ITEM  = DICT->N_ITEM;
+
+  bool DO_PARTIAL_MATCH = (OPT & 1);
+  bool MATCH ;
+  char *NAME  = DICT->NAME ;
+  char *STR ;
+  char fnam[] = "get_string_dict" ;
+
+  // ---------- BEGIN ------------
+
+  for(i=0; i < N_ITEM; i++ ) {
+    STR = DICT->STRING_LIST[i] ;
+    if ( DO_PARTIAL_MATCH ) 
+      { MATCH = ( strstr(string,STR) != NULL ) ; }
+    else
+      { MATCH = ( strcmp(string,STR) == 0 ) ; }
+
+    if ( MATCH ) {
+      VAL = DICT->VALUE_LIST[i];
+      return(VAL);
+    }
+  }
+
+  // if we get here, no string match was found.
+  // Check OPT for instructions to abort or return -999
+
+  if ( OPT & 16 ) {
+    print_preAbort_banner(fnam);
+    for(i=0; i < N_ITEM; i++ ) {
+      STR = DICT->STRING_LIST[i] ;
+      VAL = DICT->VALUE_LIST[i];
+      printf("\t DICT %s[%s] = %f \n", NAME, STR, VAL);
+    }
+
+    sprintf(c1err,"Invalid string = %s for DICTIONARY=%s",
+	    string, DICT);
+    sprintf(c2err,"Check valid string items above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+  }
+
+  return(VAL);
+
+} // end get_string_dict
+
+// =================================================
 int glob_file_list(char *wildcard, char ***file_list) {
 
   // TO DO:

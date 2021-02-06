@@ -39,7 +39,8 @@
 
 #define MXEPOCH  2000     // max number of epochs per SN
 #define MXEPCOV  112     // max epochs to store in covariance matrix
-#define MXFIELD   900    // max number of fields
+// xxx mark delete #define MXFIELD   900    // max number of fields
+#define MXFIELD_OVP  10  // max number of overlap fields (Feb 2021)
 #define MXFILT_COVAR  9  // max number of filters per obs.
 #define MXFILTINDX 100   // max filter index
 #define MXIDSURVEY 200   // max number of SURVEYS in SURVEY.DEF file

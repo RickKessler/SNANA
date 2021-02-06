@@ -11208,8 +11208,13 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
 
   // ---------
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"FIELD");  // warning; does not properly treat field-overlap
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRCHAR = GENLC.FIELDNAME[1] ;
+  sprintf(cptr,"FIELD");  
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRCHAR = SIMLIB_HEADER.FIELD ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"NFIELD_OVP");  
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &SIMLIB_HEADER.NFIELD_OVP ;
   NVAR_SIMGEN_DUMP++ ;
 
   // Galactic  extinction
@@ -13441,7 +13446,7 @@ void SIMLIB_prepGlobalHeader(void) {
   
   sprintf(GENLC.SURVEY_NAME,    "%s", SURVEY);
   sprintf(GENLC.SUBSURVEY_NAME, "%s", SUBSURVEY);
-  if ( IGNOREFILE(SUBSURVEY) == 0 ) 
+  if ( !IGNOREFILE(SUBSURVEY) ) 
     { sprintf(GENLC.SUBSURVEY_NAME,"%s",SURVEY); }
   printf("\t SIMLIB Survey    : %s \n", SURVEY );
 
@@ -13933,10 +13938,10 @@ void SIMLIB_read_templateNoise(char *FIELD, char *whatNoise) {
   }
   
   
-  if ( IFIELD < 0 || IFIELD >= MXFIELD_OVP_SIMLIB ) {
+  if ( IFIELD < 0 || IFIELD >= MXFIELD_OVP ) {
     sprintf(c1err,"Invalid IFIELD=%d for FIELD=%s, LIBID=%d", 
 	    IFIELD, FIELD, SIMLIB_HEADER.LIBID );
-    sprintf(c2err,"IFIELD must be 0 to %d", MXFIELD_OVP_SIMLIB-1);
+    sprintf(c2err,"IFIELD must be 0 to %d", MXFIELD_OVP-1);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -14170,11 +14175,13 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   // Sep 17 2019: rewind on EOF so that END_OF_SIMLIB: key is optional.
   // May 15 2020: don't read SPECTROGRPAH key unless
   //     SPECTROGRAPH_USEFLAG is set.
-
+  //
+  // Feb 05 2021: fix to handle mutliple FIELDs
+  //
   int ISMODEL_SIMLIB =  (INDEX_GENMODEL == MODEL_SIMLIB);
   int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0, scanStat;
   int APPEND_PHOTFLAG, ifilt_obs, DONE_READING, DO_REWIND ;
-  int NTRY, USEFLAG_LIBID, USEFLAG_MJD, OPTLINE, NWD, NTMP ;
+  int NTRY, USEFLAG_LIBID, USEFLAG_MJD, OPTLINE, NWD, NTMP, NFIELD ;
   int   NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT, NMAG_notZeroFlux;
   bool  FOUND_SPECTROGRAPH ;
   double PIXSIZE, TEXPOSE_S, MJD, MAG ;
@@ -14221,7 +14228,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
     if ( DO_REWIND ) {
       // check SIMLIB after 5 passes to avoid infinite loop
-      // xxx mark delete  if ( SIMLIB_HEADER.NWRAP >= 5 )  { ENDSIMLIB_check(); }
       ENDSIMLIB_check();
       if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM ) {
 	snana_rewind(fp_SIMLIB, INPUTS.SIMLIB_OPENFILE,
@@ -14237,6 +14243,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       SIMLIB_HEADER.LIBID = ID ; 
       sprintf(SIMLIB_HEADER.LIBNAME, "LIB%5.5d", ID );
       USEFLAG_LIBID = ACCEPT_FLAG ;
+      NFIELD = 0 ;
     }
 
     if ( strcmp(c_get,"RA:") == 0 ) 
@@ -14250,9 +14257,19 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       { readchar( fp_SIMLIB, SIMLIB_HEADER.SUBSURVEY_NAME); }
 
     if ( strcmp(c_get,"FIELD:") == 0 )  { 
-      readchar ( fp_SIMLIB, FIELD ); 
+
+      char tmp_field[40];
+      readchar ( fp_SIMLIB, tmp_field ); 
+      sprintf(SIMLIB_HEADER.FIELDLIST_OVP[NFIELD], "%s", tmp_field);
+
+      NFIELD++ ;   SIMLIB_HEADER.NFIELD_OVP = NFIELD;
+      if ( NFIELD == 1 ) 
+	{ sprintf(FIELD, "%s", tmp_field) ; }
+      else
+	{ strcat(FIELD,"+"); strcat(FIELD,tmp_field); }
+
       SKIP_FIELD = ( SKIP_SIMLIB_FIELD(FIELD) &&
-		     (INPUTS.SIMLIB_FIELDSKIP_FLAG==0) ) ;
+		     (INPUTS.SIMLIB_FIELDSKIP_FLAG ==0 ) ) ;
     }
 
     if ( strcmp(c_get,"PIXSIZE:") == 0 )  
@@ -15127,7 +15144,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     if ( (IFLAG_TEMPLATE & 1)>0 && IFLAG_SYNFILT == 0 ) {
 
       IFIELD = IFIELD_OVP_SIMLIB(1,FIELD);
-      if ( IFIELD < 0 || IFIELD >= MXFIELD_OVP_SIMLIB ) {
+      if ( IFIELD < 0 || IFIELD >= MXFIELD_OVP ) {
 	sprintf(c1err,"Invalid IFIELD=%d for template FIELD=%s",IFIELD,FIELD);
 	sprintf(c2err, "Check LIBID=%d  %s-band", GENLC.SIMLIB_ID,cfilt );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;
@@ -16070,6 +16087,7 @@ void init_SIMLIB_HEADER(void) {
   init_GENGAUSS_ASYM( &SIMLIB_HEADER.GENGAUSS_SALT2c,  (double)999. ) ;  
 
   sprintf(SIMLIB_HEADER.FIELD,"NULL");
+  SIMLIB_HEADER.NFIELD_OVP = 0 ;
   SIMLIB_HEADER.SUBSURVEY_NAME[0] = 0 ;
   // doesn't work  sprintf(SIMLIB_HEADER.SUBSURVEY_NAME, "NULL" );
 
@@ -16620,17 +16638,19 @@ int SKIP_SIMLIB_FIELD(char *field) {
   //  printf(" xxx %s: field=%s -> PS = %d \n", fnam, field, iPS);
   // fflush(stdout);
 
-  // .xyz
   if ( iPS < 0 ) {
     return 1 ;    // field not specified -> skip
   }
 
+  //        .xyz
   // if we get here, check prescale.
   // Make sure to pick iTEST that is the same for all epochs.
-  // Here we pick sum of NGENTOT and NGEN_WRITE to hopefully
-  // avoid artifacts from harmonic effects from iPS being
-  // a divisor of NGENTOT_LC and/or NLIBID.
-  iTEST = (NGENLC_TOT + NGENLC_WRITE);
+  // Here we pick LIBID and add NWRAP so that each wrap-around
+  // of the SIMLIB picks a different set of LIBIDs.
+  // To avoid artifacts from harmonics, do NOT use NGENLC_TOT
+  // or NGENLC_WRITE because these are corrleated with iTEST.
+
+  iTEST = (SIMLIB_HEADER.LIBID + SIMLIB_HEADER.NWRAP) ;
   if ( ( iTEST % iPS ) == 0 )  // beware of harmonic effects XXX
     { return 0; }  // keep field
   else
@@ -18608,7 +18628,7 @@ int gen_cutwin_PEAKMAG(int OPT, int ifilt_obs) {
   int  i, N;
   char *field, *fieldList;
   N      = INPUTS.NCUTWIN_PEAKMAG_BYFIELD;
-  field  = GENLC.FIELDNAME[0]; // get field from header/1st epoch
+  field  = GENLC.FIELDNAME[1]; // get field from header/1st epoch
 
   for(i=1; i<=N; i++ ) {
     fieldList = INPUTS.CUTWIN_BYFIELDLIST[i];
@@ -18656,11 +18676,12 @@ void  LOAD_SEARCHEFF_DATA(void) {
   //  + loop over GENLC.NEPOCH intead of GENLC.NEWMJD -->
   //    more efficiency, and beware change of random sync.
   //
+  // Feb 05 2021: load each overlap field and NFIELD_OVP
 
   bool ISCORR_PHOTRPBOB = (INPUTS_SEARCHEFF.NREDUCED_CORR_PHOTPROB > 0);
   int  NMAP_PHOTPROB    = INPUTS_SEARCHEFF.NMAP_PHOTPROB;
 
-  int ep, NOBS, NRANTMP=0;
+  int ep, NOBS,  NRANTMP=0;
   double flux, flux_err, SNR_CALC, SNR_MEAS, SNR, oldRan ;
   //  char fnam[] = "LOAD_SEARCHEFF_DATA";
 
@@ -18674,8 +18695,17 @@ void  LOAD_SEARCHEFF_DATA(void) {
   SEARCHEFF_DATA.SNRMAX     = GENLC.SNRMAX_GLOBAL ;
 
 
-  sprintf(SEARCHEFF_DATA.FIELDNAME, "%s", GENLC.FIELDNAME[0] );
+  // load field(s) and be careful about overlaps (e.g., X1+X3)
 
+  // xxx  sprintf(SEARCHEFF_DATA.FIELDNAME, "%s", GENLC.FIELDNAME[0] );
+  int ifield, NFIELD_OVP = SIMLIB_HEADER.NFIELD_OVP ;
+  sprintf(SEARCHEFF_DATA.FIELDNAME, "%s", SIMLIB_HEADER.FIELD );
+  SEARCHEFF_DATA.NFIELD_OVP = NFIELD_OVP ;
+  for(ifield=0; ifield < NFIELD_OVP; ifield++ ) {
+    sprintf(SEARCHEFF_DATA.FIELDLIST_OVP[ifield], "%s",
+	    SIMLIB_HEADER.FIELDLIST_OVP[ifield] );
+  }
+  // - - - - - - - -
   NOBS = 0 ;
 
   for(ep=1; ep <= GENLC.NEPOCH; ep++ ) {
@@ -21898,13 +21928,13 @@ void gen_fluxNoise_randoms(void) {
     ifilt_obs =  GENLC.IFILTMAP_SIMLIB[ifilt] ;
 
     // init to crazy values
-    for(ifield=0; ifield < MXFIELD_OVP_SIMLIB; ifield++ ) {      
+    for(ifield=0; ifield < MXFIELD_OVP; ifield++ ) {      
       GENLC.RANGauss_NOISE_TEMPLATE[ifield][ifilt_obs] = -99999. ; 
     }
 
     if ( GENLC.DOFILT[ifilt_obs] == 0 ) { continue ; }
    
-    for(ifield=0; ifield < MXFIELD_OVP_SIMLIB; ifield++ ) {      
+    for(ifield=0; ifield < MXFIELD_OVP; ifield++ ) {      
       GENLC.RANGauss_NOISE_TEMPLATE[ifield][ifilt_obs] = GaussRan(1) ; 
     } 
     
@@ -25952,6 +25982,13 @@ void readme_doc_SIMLIB(int *iline) {
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"\t SIMLIB MSKOPT   : %d \n", INPUTS.SIMLIB_MSKOPT );
   }
+
+  if ( strcmp(INPUTS.SIMLIB_FIELDLIST,"ALL") != 0 ) {
+    i++; cptr = VERSION_INFO.README_DOC[i] ;
+    sprintf(cptr, "\t SIMLIB FIELDLIST : %s\n", INPUTS.SIMLIB_FIELDLIST); 
+  }
+  
+
 
   double MINSEASON = INPUTS.SIMLIB_MINSEASON;
   if ( MINSEASON > 0.01 ) {

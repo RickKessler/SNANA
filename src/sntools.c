@@ -44,6 +44,11 @@ void init_string_dict(STRING_DICT_DEF *DICT, char *NAME, int MAXITEM) {
     DICT->STRING_LIST[i] = (char*) malloc( 60 * sizeof(char) ); 
     DICT->STRING_LIST[i][0] = 0 ;
   }
+
+  // init "last" values so that get_string_dict is a little faster
+  DICT->LAST_STRING[0] = 0;
+  DICT->LAST_VALUE     = -999.0 ;
+
   return ;
 } // end init_string_dict
 
@@ -93,11 +98,14 @@ double get_string_dict(int OPT, char *string, STRING_DICT_DEF *DICT) {
   //
   //  *string = item to return DICT[string] value
   
+  int OPTMASK_PARTIAL_MATCH = 1;
+  int OPTMASK_ABORT         = 16;
+
   double VAL  = -999.0 ;
   int i;
-  int N_ITEM  = DICT->N_ITEM;
+  int N_ITEM  = DICT->N_ITEM ;
 
-  bool DO_PARTIAL_MATCH = (OPT & 1);
+  bool DO_PARTIAL_MATCH = (OPT & OPTMASK_PARTIAL_MATCH);
   bool MATCH ;
   char *NAME  = DICT->NAME ;
   char *STR ;
@@ -105,6 +113,11 @@ double get_string_dict(int OPT, char *string, STRING_DICT_DEF *DICT) {
 
   // ---------- BEGIN ------------
 
+  // quick check if string is same as last call
+  if ( strcmp(string,DICT->LAST_STRING) == 0 ) 
+    { VAL = DICT->LAST_VALUE; return(VAL); }
+
+  // brute force check over all strings
   for(i=0; i < N_ITEM; i++ ) {
     STR = DICT->STRING_LIST[i] ;
     if ( DO_PARTIAL_MATCH ) 
@@ -114,6 +127,9 @@ double get_string_dict(int OPT, char *string, STRING_DICT_DEF *DICT) {
 
     if ( MATCH ) {
       VAL = DICT->VALUE_LIST[i];
+      sprintf(DICT->LAST_STRING, "%s", string);
+      DICT->LAST_VALUE = VAL ;
+
       return(VAL);
     }
   }
@@ -121,7 +137,7 @@ double get_string_dict(int OPT, char *string, STRING_DICT_DEF *DICT) {
   // if we get here, no string match was found.
   // Check OPT for instructions to abort or return -999
 
-  if ( OPT & 16 ) {
+  if ( OPT & OPTMASK_ABORT ) {
     print_preAbort_banner(fnam);
     for(i=0; i < N_ITEM; i++ ) {
       STR = DICT->STRING_LIST[i] ;

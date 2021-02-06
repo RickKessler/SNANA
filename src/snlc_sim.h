@@ -22,6 +22,10 @@
  Mar 20 2020: Dillon: MXPAR_ZVAR -> 150 (was 100) 
 
  Nov 05 2020: MXEPSIM_PERFILT -> 1000 (was 500) for ZTF sims.
+ Feb 05 2021: 
+   + remove definition of MXFIELD_OVP_SIMLIB
+   + replace MXFIELD_OVP_SIMLIB with MXFIELD_OVP from sndata.h
+
 
 ********************************************/
 
@@ -49,7 +53,7 @@ time_t t_start, t_end, t_end_init ;
 #define  MXOBS_SIMLIB  5000    // max number of observ. per simlib
 #define  MXOBS_SPECTROGRAPH 50 // max number of spectra per event
 
-#define  MXFIELD_OVP_SIMLIB  10        // max number of overlapping fields
+// xxx mark delete #define  MXFIELD_OVP_SIMLIB  10 // max num of overla fields
 #define  MXGENSKIP_PEAKMJD_SIMLIB  10 
 #define  MXSEASON_SIMLIB  20      // max number of seasons
 #define  MXFLUXERR_COR_SIMLIB 100  // max number of FLUXERR_COR keys in header
@@ -1078,7 +1082,7 @@ struct GENLC {
   double RANGauss_NOISE_SEARCH[MXEPSIM];   // search noise, per epoch
   double RANGauss_NOISE_FUDGE[MXEPSIM];   //  fudged search noise, per epoch
   double RANGauss_NOISE_ZP[MXEPSIM];       // ZP noise, per epoch (Feb 2018)
-  double RANGauss_NOISE_TEMPLATE[MXFIELD_OVP_SIMLIB][MXFILTINDX];  // template noise per filter and field-overlap
+  double RANGauss_NOISE_TEMPLATE[MXFIELD_OVP][MXFILTINDX];  // template noise per filter and field-overlap
 
   // GENSMEAR refers to intrinsic scatter models
   double  MAGSMEAR_COH[2];              // coherent part of scatter
@@ -1328,7 +1332,9 @@ struct SIMLIB_HEADER {
   long long GALID; 
 
   // these header keys can be changed anywhere in the simlib entry
-  char FIELD[60], TELESCOPE[60] ; // July 2016
+  char TELESCOPE[60] ; // July 2016
+  char FIELD[60], FIELDLIST_OVP[MXFIELD_OVP][MXCHAR_FIELDNAME];
+  int  NFIELD_OVP ;
 
   // optional GENRANGES to re-generate
   int    REGEN_FLAG ;
@@ -1430,11 +1436,11 @@ struct SIMLIB_TEMPLATE {
 
   int    USEFLAG ;      // logical to use correlated template noise
   int    NFIELD_OVP ;   // number of overlapping fields; resets each SIMLIB
-  char   FIELDNAME[MXFIELD_OVP_SIMLIB][MXCHAR_FIELDNAME];
+  char   FIELDNAME[MXFIELD_OVP][MXCHAR_FIELDNAME];
 
-  double SKYSIG[MXFIELD_OVP_SIMLIB][MXFILTINDX] ;
-  double READNOISE[MXFIELD_OVP_SIMLIB][MXFILTINDX] ;
-  double ZPT[MXFIELD_OVP_SIMLIB][MXFILTINDX] ;
+  double SKYSIG[MXFIELD_OVP][MXFILTINDX] ;
+  double READNOISE[MXFIELD_OVP][MXFILTINDX] ;
+  double ZPT[MXFIELD_OVP][MXFILTINDX] ;
 
   double TEXPOSE_SPECTROGRAPH ;    // for SPECTROGRAPH
 

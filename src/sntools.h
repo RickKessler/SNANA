@@ -254,11 +254,17 @@ int NPT_PERDIM_1DINDEX[MXMAP_1DINDEX][MXDIM_1DINDEX] ;
 
 // Feb 2021; define structure to enable python-like dictionary
 typedef struct STRING_DICT_DEF {
-  char NAME[60] ;  // name of dictionary
-  int N_ITEM;   // number of items to store
-  int MAX_ITEM; // max number of items 
-  char **STRING_LIST;  // list of string-item names
-  double *VALUE_LIST ; // double value for each string
+  char NAME[60] ;       // name of dictionary
+  int  N_ITEM;          // number of items to store
+  int  MAX_ITEM;        // max number of items 
+  char **STRING_LIST ;  // list of string-item names
+  double *VALUE_LIST ;  // double value for each string
+  
+  // if string is same as LAST_STRING, return LAST_VALUE;
+  // this avoids looping thru lists of string-matching.
+  char   LAST_STRING[60] ;
+  double LAST_VALUE ;
+
 } STRING_DICT_DEF ;
 
 

@@ -58,6 +58,10 @@
       sim-input "REQUIRE_DOCANA: 1" is set, then code aborts if first
       key is NOT a DOCUMENTATION key.
 
+  Feb 05 2021:
+    + use new MATCH_SEARCHEFF_FIELD(field_map) function to handle
+      overlaps.
+
 ************************************/
 
 #include "sntools.h"
@@ -2149,7 +2153,8 @@ void setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
   char  *FIELD     = SEARCHEFF_DATA.FIELDNAME ; 
 
   int  NSTORE = OBS_PHOTPROB.NSTORE;
-  int  imap, IMAP, NMATCH, MATCH_FIELD, MATCH_FILT ;
+  int  imap, IMAP, NMATCH;
+  bool MATCH_FIELD, MATCH_FILT ;
   char FILT[2], *FIELD_TMP, *FILT_TMP;
   char fnam[]      = "setObs_for_PHOTPROB" ;
 
@@ -2163,11 +2168,17 @@ void setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
   // find map for this filter and field.
   NMATCH = 0 ;  IMAP=-9;
   for(imap=0; imap < NMAP; imap++ ) {
-    MATCH_FIELD = MATCH_FILT = 0;
+    MATCH_FIELD = MATCH_FILT = false ;
     FIELD_TMP  = SEARCHEFF_PHOTPROB[imap].FIELDLIST;
     FILT_TMP   = SEARCHEFF_PHOTPROB[imap].FILTERLIST ;
+
+    MATCH_FIELD = MATCH_SEARCHEFF_FIELD(FIELD_TMP); // Feb 2021
+
+    /* xxxxx mark delete Feb 2021 xxxxxxx
     if ( strcmp(FIELD_TMP,"ALL")==0 )      { MATCH_FIELD=1; }
     if ( strstr(FIELD_TMP,FIELD) != NULL ) { MATCH_FIELD=1; }
+    xxxxxxxxxxxxxxx */
+
     if ( strcmp(FILT_TMP,"ALL")==0 )       { MATCH_FILT=1; }
     if ( strstr(FILT_TMP,FILT ) != NULL  ) { MATCH_FILT=1; }
 
@@ -2472,7 +2483,8 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
   int  BOOLEAN_AND = SEARCHEFF_SPEC_INFO.BOOLEAN_AND ;
 
   int  imap, ivar, NVAR, LFIND, istat ;
-  int  ALL_FIELDS, MATCH ;
+  bool MATCH ;
+  // xxx mark delete  int  ALL_FIELDS, MATCH ;
   double PnoSpec_OR, Pspec_AND, EFF, RAN, VARDATA[MXVAR_SEARCHEFF_SPEC];
   char *fld_gen, *fld_map ;
   char fnam[] = "gen_SEARCHEFF_SPEC" ;
@@ -2510,12 +2522,14 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
 
     // check if current field goes with this map
     fld_map = SEARCHEFF_SPEC[imap].FIELDLIST ;
+
+    MATCH = MATCH_SEARCHEFF_FIELD(fld_map); // Feb 2021
+
+    /* xxxxxxxxx mark delete Feb 2021 xxxxxxxx
     ALL_FIELDS = ( strcmp(fld_map,"ALL")   == 0 ) ;
     MATCH = ( strstr(fld_map,fld_gen) == 0 ) ; // e.g., allow X1+X2
-
-    if ( !ALL_FIELDS  ) {
-      if ( !MATCH ) { continue ;  }
-    }
+    if ( !ALL_FIELDS  ) {      if ( !MATCH ) { continue ;  }    }
+    xxxxxxxxxxxx */
 
     // determine list of variables
     NVAR = SEARCHEFF_SPEC[imap].GRIDMAP.NDIM ;
@@ -2649,14 +2663,18 @@ double interp_SEARCHEFF_zHOST(void) {
   // determine which map based on FIELD
   for(imap=0; imap < NMAP;  imap++ ) {
     MATCH_FIELD = MATCH_PEAKMJD = false ;
+
     field_map  = SEARCHEFF_zHOST[imap].FIELDLIST ;
     field_data = SEARCHEFF_DATA.FIELDNAME ;
+    MATCH_FIELD = MATCH_SEARCHEFF_FIELD(field_map);
+
+    /* xxx mark delete Feb 2021 xxxxxxx
+    if ( strcmp(field_map,"ALL")      == 0    ) { MATCH_FIELD = true ; }
+    if ( strstr(field_map,field_data) != NULL ) { MATCH_FIELD = true ; }
+    xxxxxxxxxx */
 
     PEAKMJD_RANGE = SEARCHEFF_zHOST[imap].PEAKMJD_RANGE ;
     PEAKMJD       = SEARCHEFF_DATA.PEAKMJD ;
-    
-    if ( strcmp(field_map,"ALL")      == 0    ) { MATCH_FIELD = true ; }
-    if ( strstr(field_map,field_data) != NULL ) { MATCH_FIELD = true ; }
     if ( PEAKMJD >= PEAKMJD_RANGE[0] && PEAKMJD <= PEAKMJD_RANGE[1] ) 
       { MATCH_PEAKMJD = true; }
 
@@ -2715,6 +2733,43 @@ double interp_SEARCHEFF_zHOST(void) {
 
 } // end of interp_SEARCHEFF_zHOST
 
+
+bool MATCH_SEARCHEFF_FIELD(char *field_map) {
+
+  // Created Feb 5 2021
+  // Return true of SEARCHEFF_DATA.FIELDLIST_OVP matches field_map.
+  // 
+  // Ideally all overlap fields are checked, but this causes
+  // downstream abort if an event overlaps two FIELDS.
+  // Here we only check first field loaded in FIELDLIST_OVP;
+  // maybe somebody we'll have an algorithm for choosing
+  // among multiple FIELD-dependent maps.
+  //
+  // Previous logic had checked last overlap field (since each
+  // subsequent field had clobbered previous field), and here we
+  // check first field ... so new logic (Feb 5 2021) can result
+  // in using a different map for field overlaps.
+
+  int  NFIELD_OVP = SEARCHEFF_DATA.NFIELD_OVP;
+  int  i;
+  char *field_data;
+  // ---------- BEGIN ----------
+
+  if ( strcmp(field_map,"ALL")      == 0    ) { return true ; }
+
+  // xxx  for(i=0; i < NFIELD_OVP; i++ ) { // maybe someday ??
+
+  for(i=0; i < 1; i++ ) { // only check first FIELD among overlaps
+    field_data = SEARCHEFF_DATA.FIELDLIST_OVP[i];
+    if ( strstr(field_map,field_data) != NULL ) { return true ; }
+  }
+
+  // if we get here, there is no match -> return false
+  return false ;
+
+} // end MATCH_SEARCHEFF_FIELD
+
+
 // *******************************************
 double interp_SEARCHEFF_zHOST_LEGACY(void) {
 
@@ -2727,16 +2782,30 @@ double interp_SEARCHEFF_zHOST_LEGACY(void) {
 
   double z, EFF;
   int NMATCH=0, IMAP=-9, imap;   char *field_map, *field_data ;
+  bool MATCH_FIELD ;
   char fnam[] = "interp_SEARCHEFF_zHOST_LEGACY" ;
 
   z          = SEARCHEFF_DATA.REDSHIFT ; 
-  field_data = SEARCHEFF_DATA.FIELDNAME ;
+  field_data = SEARCHEFF_DATA.FIELDNAME ; 
+
   for(imap=0; imap < NMAP;  imap++ ) {
-    field_map = SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST ;
+
+    field_map   = SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST ;
+    MATCH_FIELD = MATCH_SEARCHEFF_FIELD(field_map);
+    if ( MATCH_FIELD ) { IMAP = imap ; NMATCH++ ; }
+
+    /* xxx mark delete Feb 2021 xxxx
     if ( strcmp(field_map,"ALL")      == 0    ) { IMAP=imap; NMATCH++ ; }
     if ( strstr(field_map,field_data) != NULL ) { IMAP=imap; NMATCH++ ; }
+    xxxx */
   }
+
   if ( NMATCH != 1 ) {
+    print_preAbort_banner(fnam);
+    for(imap=0; imap < NMAP;  imap++ ) {
+      field_map = SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST ;
+      printf("\t FIELD_MAP[%2d] = %s", imap, field_map );
+    }    
     sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
     sprintf(c2err, "field = '%s'", field_data );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 

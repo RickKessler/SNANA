@@ -10,6 +10,8 @@
 
   Jul 13 2020: MXMAP_SEARCHEFF_zHOST -> 20 (was 10)
 
+  Feb 05 2021: define FIELDLIST_OVP and NFIELD_OVP
+
  **************************************************/
 
 
@@ -242,7 +244,10 @@ struct {
   // scalars
   int    CID ;
   double REDSHIFT, PEAKMJD, DTPEAK_MIN, SALT2mB, SNRMAX ;
-  char   FIELDNAME[20];
+
+  char FIELDNAME[60]; // e.g., X3 or X1+X3 for overlap
+  char FIELDLIST_OVP[MXFIELD_OVP][20]; //specify each ovp field 
+  int  NFIELD_OVP;   // number of overlap fields
 
   // filter-dependent peak-mags
   double PEAKMAG[MXFILTINDX] ;
@@ -317,5 +322,7 @@ void   assign_SPECEFF(int imap, int ivar, char *VARNAME) ;
 void   parse_search_eff_logic(char *survey, int NMJD, char *logic);
 int    IFILTOBS_SPECEFF_VAR(char *VARNAME, char *PREFIX) ;
 int    IVARABS_SEARCHEFF_PHOTPROB(char *VARNAME);
+
+bool   MATCH_SEARCHEFF_FIELD(char *field_map);
 
 // ============= END ===============

@@ -19518,6 +19518,8 @@
     + refactor gen_MWEBV() -> MWEBV = gen_MWEBV(RA,DEC) so that
       it can be called by genmag_LCLIB.
     + add preScale options for SIMLIB_FIELDLIST; see manual.
+    + fix FIELD entry for overlaps ; e.g., X1+X3
+    + fix searcheff_zHOST functions to work with overlap fields.
 
   genmag_LCLIB.c
     + new OPTMASK += 8 to use RA,DEC from LCLIB.

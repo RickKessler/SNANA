@@ -19489,11 +19489,16 @@
        Almost works, but subtle bug still there.
 
 # ======================================================================= 
-         v11_02g (Jan 25 2021) 
+         v11_02g (Feb 5, 2021) 
 
          ***** IMPORTANT(v11_02g) ***** 
 
+   sim: finally fix to use exact VPEC formula instead of additive approx.
+   bbc: fix duplicate flagging bugs in SALT2mu.exe
+
          ***** USEFUL(v11_02g) ***** 
+
+   sim: add option to prescale by FIELD (useful for BIASCOR sim)
 
          ***** MISCELLANEOUS(v11_02g) ***** 
 
@@ -19527,5 +19532,8 @@
   submit_prog_sim.py: 
     + add PATH_USER_INPUT arg for rate calc. Allows using input files
       in submit-dir without specifying full path.
-     
+
+  submit_train_SALT3.py
+    + more development
+
 END: 

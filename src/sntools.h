@@ -571,22 +571,18 @@ double asinhinv(double mag, int ifilt);
 
 float effective_aperture ( float PSF_sigma, int VBOSE ) ;
 
+// xxxxxxxx legacy write function to hopefull delete soon (Feb 2021)
 int   wr_SNDATA(int IFLAG_WR, int IFLAG_DBUG);
-
 void  wr_HOSTGAL(FILE *fp);
-
 void  wr_SIMKCOR(FILE *fp, int EPMIN, int EPMAX ) ; 
-
 int  wr_filtband_int   ( FILE *fp, char *keyword, 
 			 int NINT, int *iptr, char *comment, int opt );
 int  wr_filtband_float ( FILE *fp, char *keyword, 
 			 int NFLOAT, float *fptr, char *comment, int idec );
-
 int  header_merge(FILE *fp, char *auxheader_file);
-
-int sort_epochs_bymjd(void);
-
+int  sort_epochs_bymjd(void);
 int   WRSTAT ( int wrflag, float value ) ;
+// xxxxxxxxxxxxxxxxxxxxx
 
 int   Landolt_ini(int opt, float *mag, float *kshift);
 int   landolt_ini__(int *opt, float *mag, float *kshift);

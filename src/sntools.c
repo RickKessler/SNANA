@@ -8060,1083 +8060,6 @@ int init_SNDATA ( void ) {
 
 
 
-// ********************************************
-int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
-
-  /*******
-    Created Mar 8, 2006  R.Kessler
-    write out all info to file for this "isn".
-    This output file is used for analysis.
-
-    cid_debug => dump into to screen for this cid
-
-    wrflag = 
-           = WRITE_MASK_LCMERGE    => write everything
-           = WRITE_MASK_SIM_SNANA  => write to /SIM area instead
-
-    The _PHOTOMETRY flag is used to write input photometry files;
-    the _LCMERGE flag is used by sndata_build to build merged
-    files for analysis.
-
-    vbose = 1 => print one-line statement to screen 
-    vbose = 0 => no screen dump
-
-   ================
-  Mar 22, 2011: write  SIM_GALFRAC(ifilt_obs)
-
-  Mar 28, 2011: for list of filter-dependent quanities,
-                put <CR> after 10 variables to prevent char-overflow
-                for parsing routines. Fixes problem with 56 filters.
-                See NTMP usage.
-
-  Apr 27, 2011: fprintf SNDATA.ORIGIN_SEARCH_PEAKMJD  right after
-                SEARCH_PEAKMJD
-
-  Jul 27, 2011: write SIM_COVMAT_SCATTER info (if used)
-
-  Mar 08, 2012: if SNDATA.HOSTGAL_SBFLAG is set then write
-                surface brightness for data or MC.
-
-  Jun 13, 2012: write optional AUXHEADER_LINES instead of BOSS-specific info
-
-  Dec 17, 2012: use filtlist = SNDATA_FILTER.LIST instead of computing 
-                filtlist from integer list.
-
-  Feb 3 2014: for sim, always write redshift info, even if -9.
-
-  Feb 7, 2014: replace legacy SEARCH_PEAKMJD key with PEAKMJD.
-  Feb 12, 2014: write new SIM_HOSTLIB keys 
-
-  Sep 08 2017:  for LCLIB model, write SNDATA.SIM_TEMPLATEMAG
-
-  May 23 2019: write SIM_MAGSHIFT_HOSTCOR
-
-  **************/
-
-  int 
-    cid, NEWMJD, inext, imjd
-    ,EPMIN, EPMAX, iep
-    ,wstat, istat, fake
-    ,ifilt,ifilt_obs, ifilt_start
-    ,NFILT_TOT, NFILT_EP
-    ,LWRITE_FINAL, LWRITE_SIMFLAG
-    ,JTMP, ipar, NTMP, iscat
-    ;
-
-
-  char 
-    outfile[MXPATHLEN]
-    ,filtlist[MXFILTINDX]
-    ,ctmp[100]
-    ;
-
-  FILE *fp;
-
-  int   *iptr;
-  float *fptr;
-  char  *cptr;
-  float Zspec, Zspec_err, FTMP ;
-
-  double mjd ;
-  char fnam[] = "wr_SNDATA";
-  char blank[2] = " " ;
-
-  // ------------- BEGIN -----------------
-
-  LWRITE_FINAL = 0 ;
-  if ( (IFLAG_WR & WRITE_MASK_LCMERGE)>0 || 
-       (IFLAG_WR & WRITE_MASK_SIM_SNANA)>0 )  {
-    sprintf(outfile , "%s", SNDATA.SNFILE_OUTPUT );
-    LWRITE_FINAL = 1 ;
-  }
-
-
-    
-  else {
-    sprintf(c1err,"IFLAG_WR=%d is invalid",  IFLAG_WR );
-    errmsg(SEV_FATAL, 0, fnam, c1err, BLANK_STRING );
-  }
-
-  if ( SNDATA.FAKE > 0 && SNDATA.WRFLAG_BLINDTEST == 0 ) 
-    {  LWRITE_SIMFLAG = 1 ; }
-  else
-    {  LWRITE_SIMFLAG = 0 ; }
-
-
-  cid    = SNDATA.CID ;
-  NEWMJD = SNDATA.NEWMJD;
-
-
-  if ( (fp = fopen(outfile, "wt"))==NULL ) {
-    sprintf(c1err,"Cannot open output file: " );
-    sprintf(c2err,"%s", outfile );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-    fclose(fp);  return ERROR;
-  }
-
-  if ( IFLAG_DBUG > 0 )  
-    { printf( " WRITE %s\n", outfile); fflush(stdout); }
-
-  // sort epochs in order of MJD
-  sort_epochs_bymjd();
-
-  // construct filterlist string.
-  sprintf(filtlist, "%s", SNDATA_FILTER.LIST);
-
-
-
-  NFILT_TOT   = SNDATA_FILTER.NDEF; 
-  ifilt_start = SNDATA_FILTER.MAP[0] ;  // start filter index for data
-
-  // first spit back the input
-
-  if ( cid == IFLAG_DBUG ) 
-    { printf(" xxxx %s : write HEADER info for  CID=%d \n", fnam, cid ); }
-
-  if ( strlen(SNDATA.SUBSURVEY_NAME) == 0 ) {
-    fprintf(fp, "SURVEY: %s   \n", SNDATA.SURVEY_NAME  ); 
-  }
-  else  { 
-    fprintf(fp, "SURVEY: %s(%s)   \n", 
-	    SNDATA.SURVEY_NAME, SNDATA.SUBSURVEY_NAME  ); 
-  }
-
-  fprintf(fp, "SNID:   %d   \n", cid  );
-
-
-  if ( LWRITE_FINAL == 1  )
-    { fprintf(fp, "IAUC:    %s \n", SNDATA.IAUC_NAME ); }
-
-  if( SNDATA.WRFLAG_BLINDTEST == 0 ) {
-    fprintf(fp, "PHOTOMETRY_VERSION: %s \n", VERSION_INFO.NAME );    
-  }
-
-
-  fprintf(fp, "SNTYPE:  %d \n", SNDATA.SNTYPE ) ;
-  fprintf(fp, "FILTERS: %s \n", filtlist );
-  fprintf(fp, "RA:      %f  deg \n", SNDATA.RA );
-  fprintf(fp, "DEC:     %f  deg \n", SNDATA.DEC );
-  fprintf(fp, "PIXSIZE: %7.4f  arcsec \n", SNDATA.PIXSIZE );
-
-  if ( SNDATA.CCDNUM[0] >=0 ) 
-    { fprintf(fp, "CCDNUM: %d  \n", SNDATA.CCDNUM[0] ); }
-
-  if ( NEWMJD > 0 ) { fprintf(fp, "NEPOCH:  %d \n", NEWMJD ); }
-
-
-  // now write extra info detrermined from this program
-
-  fake = SNDATA.FAKE ;
-  fprintf(fp, "FAKE:    %d   ", fake );
-  if ( fake == FAKEFLAG_DATA ) 
-    { fprintf(fp,"(=> data) \n" ); }
-  else if ( fake == FAKEFLAG_LCSIM ) 
-    { fprintf(fp,"(=> simulated LC with snlc_sim.exe) \n" ); }
-  else if ( fake == FAKEFLAG_LCSIM_BLINDTEST ) 
-    { fprintf(fp,"(=> BLIND-TEST simulation) \n" ); }
-  else
-    { fprintf(fp,"(=> unknown data source) \n" ); }
-
-
-  fptr = &SNDATA.MWEBV ;
-  fprintf(fp, "MWEBV:      %7.4f    MW E(B-V) \n", *fptr );
-
-  fptr = &SNDATA.MWEBV_ERR ;
-  fprintf(fp, "MWEBV_ERR:  %7.4f    error on MWEBV \n", *fptr );
-
-  if ( SNDATA.APPLYFLAG_MWEBV ) {
-    fprintf(fp, "MWEBV_APPLYFLAG: %d    # FLUXCAL corrected for MWEBV \n",
-	   SNDATA.APPLYFLAG_MWEBV ) ;
-  }
-
-  // write things for real data only, and only if values are set
-
-  if ( SNDATA.FAKE == 0 ) {
-    iptr = &SNDATA.NPRESN[ifilt_start] ;
-    if ( *iptr != NULLINT ) 
-      istat = wr_filtband_int ( fp, "NEPOCH_PRESN:",  
-				NFILT_TOT, iptr, filtlist, 0 );
-  }
-
-
-  // ----------------
-  // write redshift info for all surveys
-
-  wstat = WRSTAT ( IFLAG_WR, SNDATA.REDSHIFT_FINAL );
-
-  // fill REDSHIFT_SPEC if SN is typed
-  if ( SNDATA.SNTYPE > 0 ) {
-    Zspec     = SNDATA.REDSHIFT_FINAL; 
-    Zspec_err = SNDATA.REDSHIFT_FINAL_ERR;
-  }
-  else {
-    Zspec     = -9.0 ; 
-    Zspec_err =  9.0;
-  }
-
-  if( SNDATA.WRFLAG_BLINDTEST ) {
-    wstat = 0;
-    fprintf(fp,"REDSHIFT_SPEC:    %.6f +- %.6f  \n", Zspec, Zspec_err );
-  }
-
-
-  if ( wstat == 1 || LWRITE_SIMFLAG ) {
-
-    fprintf(fp,"REDSHIFT_HELIO:   %.6f +- %.6f  (Helio, z_best) \n"
-	    ,SNDATA.REDSHIFT_HELIO, SNDATA.REDSHIFT_HELIO_ERR );
-
-    fprintf(fp,"REDSHIFT_FINAL:   %.6f +- %.6f  (CMB) \n"
-	    ,SNDATA.REDSHIFT_FINAL, SNDATA.REDSHIFT_FINAL_ERR );
-  
-    fprintf(fp,"\n");
-  }
-
-  fprintf(fp,"VPEC:      %7.2f  # v_pec correction\n", SNDATA.VPEC );
-  fprintf(fp,"VPEC_ERR:  %7.2f  # error on above  \n", SNDATA.VPEC_ERR );
-
-  // ---------------------------------------
-  FTMP = SNDATA.SEARCH_PEAKMJD ; 
-  if ( FTMP != NULLFLOAT ) { fprintf(fp, "PEAKMJD:  %10.3f \n", FTMP );  }
-
-  
-  fprintf(fp, "\n" ); 
-
-
-  // ---------------------------------------
-  // write host-gal info
-  wr_HOSTGAL(fp) ;
-
-  // ---------------------------------------
-  
-  // merge additional header info ... likely from host-galaxy file
-  if ( LWRITE_FINAL == 1 ) {
-    fprintf(fp, " \n" );
-    header_merge( fp, SNDATA.AUXHEADER_FILE );
-  } 
-
- 
-
-  // --------------------------------------------------
-  // write optional AUXHEADER_LINES (June 2012)
-  // at end of header, but before the SIM_XXX keys
-  int j ;
-  for(j=0; j < SNDATA.NLINES_AUXHEADER; j++ ) 
-    {  fprintf(fp,"%s \n", SNDATA.AUXHEADER_LINES[j]); }
-
-
-  // --------------------------------------------------
-  fflush(fp);
-
-  if ( SNDATA.WRFLAG_BLINDTEST ) { goto START_EPOCHS ; }
-  
-  // write SIM_XXX variables if FAKE > 0
-  if ( LWRITE_SIMFLAG > 0  ) {
-    fprintf(fp, "\n" );
-
-    fprintf(fp, "SIM_MODEL_NAME:  %s \n", 
-	    SNDATA.SIM_MODEL_NAME  ) ;
-
-    fprintf(fp, "SIM_MODEL_INDEX:  %d \n", 
-	    SNDATA.SIM_MODEL_INDEX  ) ;
-
-    fprintf(fp, "SIM_TYPE_INDEX:   %d \n",
-	    SNDATA.SIM_TYPE_INDEX );
-
-    fprintf(fp, "SIM_TYPE_NAME:    %s \n",
-	    SNDATA.SIM_TYPE_NAME );
-
-    iptr = &SNDATA.SIM_TEMPLATE_INDEX ;
-    //      fprintf(fp, "SIM_NON1a:      %d   (NONIA index) \n", *iptr ) ;
-    fprintf(fp, "SIM_TEMPLATE_INDEX: %d   \n", *iptr ) ;
-
-    fprintf(fp, "SIM_COMMENT:  %s  \n", SNDATA.SIM_COMMENT  ) ;
-
-    iptr = &SNDATA.SIM_LIBID ; 
-    fprintf(fp, "SIM_LIBID:  %d  \n", *iptr ) ;
-
-    iptr = &SNDATA.SIM_NGEN_LIBID ;   // added Dec 2015
-    fprintf(fp, "SIM_NGEN_LIBID:  %d  \n", *iptr ) ;
-
-    if ( SNDATA.SIMLIB_MSKOPT != 0 ) {
-      iptr = &SNDATA.SIMLIB_MSKOPT ;
-      fprintf(fp, "SIMLIB_MSKOPT:  %d  \n", *iptr ) ;
-    }
-
-    iptr = &SNDATA.SIM_NOBS_UNDEFINED ;   // March 2017
-    fprintf(fp, "SIM_NOBS_UNDEFINED:  %d  \n", *iptr ) ;
-
-    fptr = &SNDATA.SIM_REDSHIFT_HELIO ; 
-    fprintf(fp, "SIM_REDSHIFT_HELIO:  %.5f  \n", *fptr ) ;
-
-    fptr = &SNDATA.SIM_REDSHIFT_CMB ; 
-    fprintf(fp, "SIM_REDSHIFT_CMB:    %.5f  \n", *fptr ) ;
-
-    fptr = &SNDATA.SIM_REDSHIFT_HOST ; 
-    fprintf(fp, "SIM_REDSHIFT_HOST:   %.5f  \n", *fptr ) ;
-
-    iptr = &SNDATA.SIM_REDSHIFT_FLAG ;
-    cptr = SNDATA.SIM_REDSHIFT_COMMENT;
-    fprintf(fp,"SIM_REDSHIFT_FLAG:   %d  # %s\n", *iptr, cptr);
-
-    fptr = &SNDATA.SIM_VPEC ; 
-    fprintf(fp, "SIM_VPEC:  %.1f (km/sec) \n", *fptr ) ;
-
-    // - - - -  SIM_HOSTLIB_XXX  (Feb 2014)
-
-    fprintf(fp,"SIM_HOSTLIB_GALID:  %lld \n", SNDATA.SIM_HOSTLIB_GALID);
-    char key[60];
-    int NPAR = SNDATA.NPAR_SIM_HOSTLIB; 
-    fprintf(fp, "SIM_HOSTLIB_NPAR: %d \n", NPAR);
-    for(ipar=0; ipar < NPAR; ipar++ ) {
-      sprintf(key,"%s:", SNDATA.SIM_HOSTLIB_KEYWORD[ipar] );
-      fprintf(fp, "%-28.28s  %.3f \n", key, SNDATA.SIM_HOSTLIB_PARVAL[ipar] );
-    }
-    
-    // - - - - 
-
-    fptr = &SNDATA.SIM_DLMU ;
-    fprintf(fp, "SIM_DLMU:      %.4f  mag   [ -5*log10(10pc/dL) ]\n", *fptr);
-
-    fptr = &SNDATA.SIM_LENSDMU ;
-    fprintf(fp, "SIM_LENSDMU:   %.4f  mag \n", *fptr ) ;
-
-    fptr = &SNDATA.SIM_RA ; 
-    fprintf(fp, "SIM_RA:        %f deg  \n", *fptr ) ;
-    fptr = &SNDATA.SIM_DEC ; 
-    fprintf(fp, "SIM_DEC:       %f deg  \n", *fptr ) ;
-
-    fptr = &SNDATA.SIM_MWRV ; 
-    fprintf(fp, "SIM_MWRV:   %6.3f   (MilkyWay RV) \n", *fptr ) ;
-    fptr = &SNDATA.SIM_MWEBV ; 
-    fprintf(fp, "SIM_MWEBV:  %7.4f   (MilkyWay E(B-V)) \n", *fptr ) ;
-
-    iptr = &SNDATA.SIMOPT_MWCOLORLAW ; 
-    fprintf(fp, "SIMOPT_MWCOLORLAW:  %d   (MW color-law option) \n",  *iptr);
-
-    iptr = &SNDATA.SIMOPT_MWEBV ; 
-    fprintf(fp, "SIMOPT_MWEBV:       %d   (modify MWEBV_SFD)\n",*iptr);
-
-
-    if ( SNDATA.SIM_AV != NULLFLOAT ) {
-
-      fptr = &SNDATA.SIM_AVTAU ; 
-      fprintf(fp, "SIM_AVTAU:     %8.3f   (dN/dAV = exp(-AV/AVTAU)) \n", 
-	      *fptr ) ;
-
-      fptr = &SNDATA.SIM_AV ; 
-      fprintf(fp, "SIM_AV:        %6.3f  mag  (host extinction at 5510 A)\n", 
-	      *fptr ) ;
-      fptr = &SNDATA.SIM_RV ; 
-      fprintf(fp, "SIM_RV:        %6.3f   (CCM89 extinction parameter) \n", 
-	      *fptr ) ;      
-    }
-    
-    fptr = &SNDATA.SIM_MAGSMEAR_COH ; 
-    fprintf(fp, "SIM_MAGSMEAR_COH:     %6.3f  \n", *fptr ) ;      
-
-
-    // gal/SN flux-fraction
-    fprintf(fp, "SIM_GALFRAC: "); NTMP = 0;
-    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-      fprintf(fp," %6.3f",SNDATA.SIM_GALFRAC[ifilt_obs] ) ; 
-      NTMP++ ;
-      if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
-    }
-    fprintf(fp,"  (%s F_gal/F_SNpeak for PSF=1'')\n", filtlist);
-    
-
-
-    fprintf(fp, "SIM_PEAKMAG: "); NTMP=0;
-    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-      fprintf(fp," %6.2f",SNDATA.SIM_PEAKMAG[ifilt_obs] ) ;
-      NTMP++ ;
-      if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; } 
-    }
-    fprintf(fp,"  (%s obs)\n", filtlist);
-
-
-    if ( SNDATA.SIM_MODEL_INDEX == MODEL_LCLIB ) {
-      fprintf(fp, "SIM_TEMPLATEMAG: "); NTMP=0;
-      for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-	ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-	fprintf(fp," %6.2f",SNDATA.SIM_TEMPLATEMAG[ifilt_obs] ) ;
-	NTMP++ ;
-	if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; } 
-      }
-      fprintf(fp,"  (%s)\n", filtlist);      
-    }
-
-    fprintf(fp, "SIM_EXPOSURE: ");  NTMP=0;
-    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-      fprintf(fp," %6.1f",SNDATA.SIM_EXPOSURE_TIME[ifilt_obs] ) ; 
-      NTMP++ ;
-      if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
-    }
-    fprintf(fp,"  (%s obs)\n", filtlist);
-
-
-    fptr = &SNDATA.SIM_PEAKMJD ; 
-    fprintf(fp, "SIM_PEAKMJD:   %f  days \n", *fptr ) ;
-
-    // write luminosity parameter for valid par only
-
-    sprintf(ctmp,"STRETCH lumi-par"); // init comment about stretch
-
-    if ( SNDATA.SIM_DELTA != NULLFLOAT ) {
-      fptr = &SNDATA.SIM_DELTA ;
-      fprintf(fp, "SIM_DELTA:     %6.3f  mag  (MLCS lumi-par) \n", *fptr ) ;
-      sprintf(ctmp,"approx STRETCH for KCOR loopup");
-    }
-    if ( SNDATA.SIM_DM15 != NULLFLOAT ) {
-      fptr = &SNDATA.SIM_DM15 ;
-      fprintf(fp, "SIM_DM15:      %6.3f  mag  (DM15 lumi-par) \n", *fptr ) ;
-      sprintf(ctmp,"approx STRETCH for KCOR lookup");
-    }
-
-    if ( SNDATA.SIM_SALT2alpha != NULLFLOAT ) {
-      fptr = &SNDATA.SIM_SALT2alpha ;
-      fprintf(fp, "SIM_SALT2alpha:  %7.3f   \n", *fptr ) ;
-
-      fptr = &SNDATA.SIM_SALT2beta ;
-      fprintf(fp, "SIM_SALT2beta:   %7.3f   \n", *fptr ) ;
-
-      fptr = &SNDATA.SIM_SALT2gammaDM ; 
-      fprintf(fp, "SIM_SALT2gammaDM: %6.3f  \n", *fptr ) ; 
-    }
-
-    if ( SNDATA.SIM_SALT2x0 != NULLFLOAT ) {
-      fptr = &SNDATA.SIM_SALT2x0 ;
-      fprintf(fp, "SIM_SALT2x0:   %8.4e   \n", *fptr ) ;
-    }
-    if ( SNDATA.SIM_SALT2x1 != NULLFLOAT ) {
-      fptr = &SNDATA.SIM_SALT2x1 ;
-      fprintf(fp, "SIM_SALT2x1:   %7.4f   \n", *fptr ) ;
-    }
-    if ( SNDATA.SIM_SALT2c != NULLFLOAT ) {
-      fptr = &SNDATA.SIM_SALT2c ;
-      fprintf(fp, "SIM_SALT2c:    %7.4f   \n", *fptr ) ;
-    }
-
-    if ( SNDATA.SIM_SALT2mB != NULLFLOAT ) {
-      fptr = &SNDATA.SIM_SALT2mB ;
-      fprintf(fp, "SIM_SALT2mB:   %7.4f   \n", *fptr ) ;
-    }
-
-    if ( SNDATA.SIM_STRETCH > 0 ) {
-      fptr = &SNDATA.SIM_STRETCH ;
-      fprintf(fp, "SIM_STRETCH:   %6.3f  \n", *fptr ) ;
-    }
-
-    // covmat-scatter info
-    if ( SNDATA.SIMFLAG_COVMAT_SCATTER ) {
-      for ( iscat=0; iscat < 3; iscat++ ) {
-	fprintf(fp, "SIM_SCATTER[%s]:  %8.4f \n"
-		, SNDATA.SIM_COVMAT_SCATTER_NAME[iscat]
-		, SNDATA.SIM_COVMAT_SCATTER[iscat] ) ;
-      }
-    }
-
-
-    iptr = &SNDATA.SIM_SEARCHEFF_MASK ;
-    sprintf(ctmp,"bits 1,2=> found by software,spec" );
-    fprintf(fp, "SIM_SEARCHEFF_MASK:  %d  (%s) \n", *iptr, ctmp );
-    fptr = &SNDATA.SIM_SEARCHEFF_SPEC ;
-    sprintf(ctmp,"spectro-search efficiency (ignores pipelines)");
-    fprintf(fp, "SIM_SEARCHEFF_SPEC:  %6.4f  (%s) \n", *fptr, ctmp );
-
-    if ( SNDATA.SIM_TRESTMIN != NULLFLOAT ) {
-      fptr = &SNDATA.SIM_TRESTMIN ; 
-      fprintf(fp, "SIM_TRESTMIN:  %7.2f   days \n", *fptr ) ;
-      fptr = &SNDATA.SIM_TRESTMAX ; 
-      fprintf(fp, "SIM_TRESTMAX:  %7.2f   days \n", *fptr ) ;
-    }
-
-    fptr = &SNDATA.SIM_RISETIME_SHIFT ;
-    fprintf(fp, "SIM_RISETIME_SHIFT:   %3.1f days \n", *fptr ) ;
-    fptr = &SNDATA.SIM_FALLTIME_SHIFT ;
-    fprintf(fp, "SIM_FALLTIME_SHIFT:   %3.1f days \n", *fptr ) ;
-
-
-    // SIMSED info
-    if ( SNDATA.NPAR_SIMSED > 0 ) {
-      fprintf(fp,"\n");
-      fprintf(fp,"SIMSED_NPAR: %d \n", SNDATA.NPAR_SIMSED );
-      for ( ipar = 0; ipar < SNDATA.NPAR_SIMSED; ipar++ ) {
-	fprintf(fp,"%s:  %f\n"
-		,SNDATA.SIMSED_KEYWORD[ipar]
-		,SNDATA.SIMSED_PARVAL[ipar] );
-      }
-    }
-
-    // PySEDMODEL info for BYOSED, SNEMO
-    if ( SNDATA.NPAR_PySEDMODEL > 0 ) {
-      fprintf(fp,"\n");
-      fprintf(fp,"%s_NPAR: %d \n",  
-	      SNDATA.SIM_MODEL_NAME, SNDATA.NPAR_PySEDMODEL ); 
-      for ( ipar = 0; ipar < SNDATA.NPAR_PySEDMODEL; ipar++ ) {
-	fprintf(fp,"%s:  %f \n"
-		,SNDATA.PySEDMODEL_KEYWORD[ipar]
-		,SNDATA.PySEDMODEL_PARVAL[ipar] );
-      }
-    }
-
-
-    // LCLIB info (Sep 8 2017)
-    if ( SNDATA.NPAR_LCLIB > 0 ) {
-      fprintf(fp,"\n");
-      fprintf(fp,"LCLIB_NPAR: %d \n", SNDATA.NPAR_LCLIB );
-      for ( ipar = 0; ipar < SNDATA.NPAR_LCLIB; ipar++ ) {
-	fprintf(fp,"%s:  %f \n"
-		,SNDATA.LCLIB_KEYWORD[ipar]
-		,SNDATA.LCLIB_PARVAL[ipar] );
-      }
-    }
-
-    
-    // strong lens info (July 20 2019)
-    if ( SNDATA.SIM_SL_FLAG ) {
-      fprintf(fp,"\n");
-      fprintf(fp,"SIM_STRONGLENS_ID:        %d   \n", SNDATA.SIM_SL_IDLENS );
-      fprintf(fp,"SIM_STRONGLENS_z:         %.3f \n", SNDATA.SIM_SL_zLENS  );
-      fprintf(fp,"SIM_STRONGLENS_DELAY:     %.3f  # days \n", 
-	      SNDATA.SIM_SL_TDELAY );
-      fprintf(fp,"SIM_STRONGLENS_XIMG:      %.3f  # arcsec\n",
-	      SNDATA.SIM_SL_XIMG );
-      fprintf(fp,"SIM_STRONGLENS_YIMG:      %.3f  # arcsec\n",
-	      SNDATA.SIM_SL_YIMG );
-      fprintf(fp,"SIM_STRONGLENS_MAGSHIFT:  %.3f \n", SNDATA.SIM_SL_MAGSHIFT );
-      fprintf(fp,"SIM_STRONGLENS_NIMG:      %d   \n", SNDATA.SIM_SL_NIMG    );
-      fprintf(fp,"SIM_STRONGLENS_IMGNUM:    %d   \n", SNDATA.SIM_SL_IMGNUM  );
-    }
-    
-    fprintf(fp,"\n");
-
-    // Jun 2017: SUBSAMPLE_INDEX
-    if ( SNDATA.SUBSAMPLE_INDEX >= 0 ) {
-      fprintf(fp,"SIM_SUBSAMPLE_INDEX: %d \n", SNDATA.SUBSAMPLE_INDEX);
-    }
-
-    
-  } // end of FAKE > 0 if-block
-
-  
-  fflush(fp);
-
- START_EPOCHS:
-
-  // check option to skip epoch info (i.e, for TERSE output)
-  if ( NEWMJD <= 0 ) {
-    fclose ( fp );
-    return SUCCESS ;
-  }
-
-    
-  // epoch info. Note that "epoch" is the sorted epoch index
-
-  for ( inext = 1; inext <= SNDATA.NEWMJD; inext++ ) {
-
-    imjd = SNDATA.UNSORTED_EPOCH[inext];  // unsorted index
-
-    EPMIN = SNDATA.EPOCH_RANGE_NEWMJD[imjd][0] ;  
-    EPMAX = SNDATA.EPOCH_RANGE_NEWMJD[imjd][1] ;  
-
-    // make sure that the number of epochs here corresponds
-    // to the number of filters per epoch
-
-    if ( NFILT_TOT < EPMAX - EPMIN + 1 ) {
-
-      printf("\n");
-      // prepare list of filters for screen dump
-      for ( iep   = EPMIN; iep <= EPMAX; iep++ ) {
-	ifilt_obs = SNDATA.FILTINDX[iep];
-	mjd       = SNDATA.MJD[iep];
-	printf("  ifilt_obs(iep=%d) = %d (%c)   MJD=%9.3f\n", 
-	       iep, ifilt_obs, FILTERSTRING[ifilt_obs], mjd );
-      }
-
-      if ( SNDATA.FAKE > 0 ) 
-	printf("  (SIMLIB ID=%d) \n", SNDATA.SIM_LIBID );
-
-      sprintf(c1err,"Epoch range %d to %d  (CID=%d NEWMJD=%d)",
-	      EPMIN, EPMAX, cid, imjd );
-      sprintf(c2err,"But only %d filters defined (%s)", 
-	      NFILT_TOT, filtlist);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-    
-    }
-
-    VERSION_INFO.NEPOCH_TOT++ ;
-
-
-    fprintf(fp,"\n# ----------------------------------------------- \n");
-    fprintf(fp, "  EPOCH: %d  \n", inext );  // write sorted epoch !!!
-
-    fprintf(fp, "  MJD: %f  \n" , SNDATA.MJD[EPMIN] );
-
-    fprintf(fp, "  TELESCOPE: %s    ", SNDATA.TELESCOPE[EPMIN] );
-
-    // check for optional things
-
-    JTMP = SNDATA.SEARCH_RUN[EPMIN] ;
-    if ( JTMP != NULLINT ) fprintf(fp, "SEARCH_RUN: %d  ", JTMP);
-
-    JTMP = SNDATA.TEMPLATE_RUN[EPMIN] ;
-    if ( JTMP != NULLINT ) fprintf(fp, "  TEMPLATE_RUN: %d  ", JTMP ) ;
-
-    JTMP = SNDATA.QMASK[EPMIN];
-    if ( JTMP  != NULLINT ) fprintf(fp, "QMASK: %d   ", JTMP );
-
-    fprintf(fp,"\n  ");
-
-    /* xxxxxxxx mark delete xxxxxxxxxxxxx
-    JTMP = SNDATA.IDCCD[EPMIN];
-    if ( JTMP  != NULLINT ) fprintf(fp, "IDCCD: %d   ", JTMP );
-    xxxxxxxxx */
-
-    cptr = SNDATA.FIELDNAME[EPMIN] ;
-    if ( strcmp(cptr,"NULL") != 0 )  fprintf(fp, "FIELD: %s   ", cptr );
-
-    fprintf(fp,"\n");
-
-    if ( SNDATA.IDATE[EPMIN] > 20040000 ) 
-      fprintf(fp,"  PROCESS_DATE: %s \n", SNDATA.DATE[EPMIN] );
-
-
-    /* xxxxxxxx mark delete Jun 23 2019 xxxxxxx
-    FTMP = SNDATA.CLOUDCAM_AVG[EPMIN];
-    if ( FTMP != NULLFLOAT ) {
-      fprintf(fp, "  CLOUDCAM_AVG: %7.2f   ", SNDATA.CLOUDCAM_AVG[EPMIN] );
-      fprintf(fp, "  CLOUDCAM_SIG: %5.2f \n", SNDATA.CLOUDCAM_SIG[EPMIN] );
-    }
-    FTMP = SNDATA.MOONDIST[EPMIN] ;
-    if ( FTMP != NULLFLOAT ) {
-      fprintf(fp, "  MOONDIST:    %7.2f deg   ", SNDATA.MOONDIST[EPMIN] );
-      fprintf(fp, "  MOONPHASE:  %5.2f \n",    SNDATA.MOONPHASE[EPMIN] );
-    }
-    FTMP = SNDATA.AIRMASS[EPMIN] ;
-    if ( FTMP != NULLFLOAT ) fprintf(fp, "  AIRMASS:  %6.3f \n", FTMP );
-    xxxxxxxxx */
-
-    // now write info vs. fitler-band
-
-    NFILT_EP = 0;
-    fprintf( fp, "\n  %16s ", "PASSBAND:" );
-    for ( iep=EPMIN; iep <= EPMAX; iep++ ) {
-      ifilt_obs = SNDATA.FILTINDX[iep]; 
-      fprintf(fp,"     %c   ", FILTERSTRING[ifilt_obs] );
-      NFILT_EP++;
-    }
-    fprintf( fp, "\n" );
-
-
-    iptr = &SNDATA.SEARCH_FIELD[EPMIN] ;
-    if ( *iptr != NULLINT ) 
-      istat = wr_filtband_int(fp, "SEARCH_FIELD:", NFILT_EP, iptr, blank,1 );
-
-    iptr = &SNDATA.TEMPLATE_FIELD[EPMIN] ;
-    if ( *iptr != NULLINT ) 
-      istat = wr_filtband_int(fp, "TEMPLATE_FIELD:", NFILT_EP, iptr, blank,1);
-
-    iptr = &SNDATA.PHOTFLAG[EPMIN] ;
-    if ( *iptr != NULLINT  && fake == 0 ) 
-      istat = wr_filtband_int ( fp, "PHOTFLAG:", NFILT_EP, iptr, blank,1) ;
-
-    // xxx mark delete     istat = wr_filtband_int ( fp, "PHOTOMETRYFLAG:", NFILT_EP, iptr, blank,1) ;
-
-
-    if ( SNDATA.WRFLAG_BLINDTEST ) goto FLUXCAL ;
-
-    wstat = WRSTAT ( IFLAG_WR, SNDATA.GAIN[EPMIN]  );
-    if ( wstat == 1 ) {
-      fptr = &SNDATA.GAIN[EPMIN] ;
-      istat = wr_filtband_float ( fp, "GAIN:", NFILT_EP, fptr, "e/ADU", 3 ) ;
-
-      fptr = &SNDATA.READNOISE[EPMIN] ;
-      istat = wr_filtband_float ( fp, "RDNOISE:", NFILT_EP, fptr, "e-", 3 ) ;
-    }
-
-
-    FTMP = SNDATA.XPIX[EPMIN] ;    
-    if ( SNDATA.FAKE == 0  &&  FTMP != NULLFLOAT ) {
-
-      fptr = &SNDATA.XPIX[EPMIN] ;
-      istat = wr_filtband_float ( fp, "XPIXEL:", NFILT_EP, fptr, "(pixels)", 3 ) ;
-      fptr = &SNDATA.YPIX[EPMIN] ;
-      istat = wr_filtband_float ( fp, "YPIXEL:", NFILT_EP, fptr, "(pixels)", 3 ) ;
-      fptr = &SNDATA.EDGEDIST[EPMIN] ;
-      istat = wr_filtband_float ( fp, "EDGEDIST:", NFILT_EP, fptr, "(pixels)", 3 ) ;
-    }
-
-
-    FTMP = SNDATA.SKY_SIG[EPMIN];
-    if ( FTMP != NULLFLOAT ) {
-      fptr = &SNDATA.SKY_SIG[EPMIN] ;
-      istat = wr_filtband_float ( fp, "SKY_SIG:", 
-				  NFILT_EP, fptr, "ADU/pix", 2 ) ;
-    }
-
-
-    fptr = &SNDATA.PSF_SIG1[EPMIN] ;
-    if ( *fptr != NULLFLOAT )
-      istat = wr_filtband_float ( fp, "PSF_SIG1:", NFILT_EP, fptr, "pixels", 3 ) ;
-
-    FTMP = SNDATA.PSF_SIG2[EPMIN] ;
-    if ( FTMP > 0.0 ) {
-
-      fptr = &SNDATA.PSF_SIG2[EPMIN] ;
-      istat = wr_filtband_float ( fp, "PSF_SIG2:", NFILT_EP, fptr, "pixels", 3 ) ;
-
-      fptr = &SNDATA.PSF_RATIO[EPMIN] ;      
-      istat = wr_filtband_float ( fp, "PSF_RATIO:", NFILT_EP, fptr, "(at origin)", 3 ) ;
-    }
-
-    /* xxxxxxxxxxxx mark delete Jun 24 2019 xxxxxxxx
-    // write FLUX in ADU (or uJy)
-    fprintf(fp," \n" );
-    fptr = &SNDATA.FLUX[EPMIN] ;
-    istat = wr_filtband_float ( fp, "FLUX:", NFILT_EP, fptr, FLUXUNIT, 2 ) ;
-    fptr = &SNDATA.FLUX_ERRTOT[EPMIN] ;
-    istat = wr_filtband_float (fp,"FLUX_ERRTOT:",NFILT_EP,fptr,FLUXUNIT,3);
-    xxxxxxxxxxxxxx */
-
-    // write calibrate fluxes: 
-
-  FLUXCAL:
-
-    fprintf(fp," \n" );
-    fptr = &SNDATA.FLUXCAL[EPMIN] ;
-    istat = wr_filtband_float ( fp, "FLUXCAL:", NFILT_EP, fptr, 
-				"10^(11-.4*m)",2) ;
-    fptr = &SNDATA.FLUXCAL_ERRTOT[EPMIN] ;
-    istat = wr_filtband_float ( fp, "FLUXCAL_ERRTOT:", NFILT_EP, fptr, 
-				blank, 3 ) ;
-
-    // write magnitudes
-
-    if ( SNDATA.WRFLAG_BLINDTEST ) goto END_OF_EPOCH ;
-
-    fprintf(fp," \n" );
-    fptr = &SNDATA.MAG[EPMIN] ;
-    istat = wr_filtband_float ( fp, "MAG:", NFILT_EP, fptr, " ", 4 ) ;
-    fptr = &SNDATA.MAG_ERRPLUS[EPMIN] ;
-    istat = wr_filtband_float ( fp, "MAG_ERRPLUS:", NFILT_EP, fptr, blank, 4 ) ;
-    fptr = &SNDATA.MAG_ERRMINUS[EPMIN] ;
-    istat = wr_filtband_float ( fp, "MAG_ERRMINUS:", NFILT_EP, fptr, blank, 4 ) ;
-
-    ctmp[0]=0;
-    // write zero points
-    fptr = &SNDATA.ZEROPT[EPMIN] ;
-    istat = wr_filtband_float ( fp, "ZEROPT:", NFILT_EP, fptr, ctmp, 4 ) ;
-    fptr = &SNDATA.ZEROPT_ERR[EPMIN] ;
-    istat = wr_filtband_float ( fp, "ZEROPT_ERR:", NFILT_EP, fptr, ctmp, 4 ) ;
-
-    // write subtraction error for sky & galaxy (SDSS data only)
-
-    FTMP = SNDATA.SKYSUB_ERR[EPMIN] ;
-    if ( FTMP != NULLFLOAT ) {
-      fptr = &SNDATA.SKYSUB_ERR[EPMIN] ;
-      istat = wr_filtband_float ( fp, "SKYSUB_ERR:", NFILT_EP, fptr,  
-				  "(fluxcal)", 3 ) ;
-    }
-
-    FTMP = SNDATA.SKYSUB_ERR[EPMIN] ;
-    if ( FTMP != NULLFLOAT ) {
-      fptr = &SNDATA.GALSUB_ERR[EPMIN] ;
-      istat = wr_filtband_float ( fp, "GALSUB_ERR:", NFILT_EP, fptr,  
-				  "(fluxcal)", 3 ) ;
-    }
-
-
-  // write SIMEPOCH_XXX variables if FAKE > 0
-    if ( LWRITE_SIMFLAG > 0  ) {
-      wr_SIMKCOR(fp,EPMIN,EPMAX);
-    }
-
-  END_OF_EPOCH:
-
-    fprintf(fp, "\n  END_OF_EPOCH: %d \n", inext );
-
-  } // end of  epoch" loop
-
-
-  fprintf(fp," \n  END_OF_SN: %d \n", cid );
-  
-  fclose ( fp );
- 
-  return SUCCESS;
-
-} // end of wr_SNDATA
-
-
-
-
-// ***************************
-void wr_HOSTGAL(FILE *fp) {
-
-
-  // Dec 17 2012 - write HOSTGAL info to current ASCII data file (*fp)
-  // May 16,2013 - write no more than 10 per line to avoid lines that
-  //               are too long.
-  // Dec 18 2015 - write specz
-  // Nov 13 2019 - fix to work with NGAL>1
-
-  int ifilt, ifilt_obs, NTMP, igal, NGAL ;
-  char PREFIX[20] = "HOSTGAL";
-  char filtlist[MXFILTINDX], ctmp[100] ;
-  
-  // --------------- BEGIN --------------
-
-  
-  sprintf(filtlist,"%s", SNDATA_FILTER.LIST );
-
-  NGAL = SNDATA.HOSTGAL_NMATCH[0];
-  if ( NGAL > MXHOSTGAL ) { NGAL = MXHOSTGAL ; }
-
-  fprintf(fp, "%s_NMATCH:    %d  \n",  
-	  PREFIX, SNDATA.HOSTGAL_NMATCH[0] );
-  fprintf(fp, "%s_NMATCH2:   %d  \n",  
-	  PREFIX, SNDATA.HOSTGAL_NMATCH[1] );
-
-  for(igal=0; igal < NGAL; igal++ ) {
-
-    if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d", igal+1); }
-
-    fprintf(fp, "%s_OBJID:    %lld  \n",  
-	    PREFIX, SNDATA.HOSTGAL_OBJID[igal] );
-
-    fprintf(fp, "%s_PHOTOZ:   %6.4f  +- %6.4f \n", PREFIX,
-	    SNDATA.HOSTGAL_PHOTOZ[igal], 
-	    SNDATA.HOSTGAL_PHOTOZ_ERR[igal]);
-
-    fprintf(fp, "%s_SPECZ:    %6.4f  +- %6.4f \n", PREFIX,
-	  SNDATA.HOSTGAL_SPECZ[igal], SNDATA.HOSTGAL_SPECZ_ERR[igal] ); 
-  
-    fprintf(fp, "%s_RA:       %.6f    # deg \n", 
-	    PREFIX, SNDATA.HOSTGAL_RA[igal] );
-    fprintf(fp, "%s_DEC:      %.6f    # deg \n", 
-	    PREFIX, SNDATA.HOSTGAL_DEC[igal] );
-
-    fprintf(fp, "%s_SNSEP:    %6.3f    # arcsec \n", 
-	    PREFIX, SNDATA.HOSTGAL_SNSEP[igal] );
-    fprintf(fp, "%s_DDLR:     %6.3f    # SNSEP/DLR  \n", 
-	    PREFIX, SNDATA.HOSTGAL_DDLR[igal] );
-    
-    if ( igal==0 ) {
-      fprintf(fp, "HOSTGAL_CONFUSION:  %6.3f  \n", 
-	      SNDATA.HOSTGAL_CONFUSION );
-    }
-
-    if ( SNDATA.HOSTGAL_LOGMASS_OBS[igal] > 0.0 ) {
-      fprintf(fp, "%s_LOGMASS:  %6.3f +- %6.3f   # log10(Mgal/Msolar)\n", 
-	      PREFIX, 
-	      SNDATA.HOSTGAL_LOGMASS_OBS[igal], 
-	      SNDATA.HOSTGAL_LOGMASS_ERR[igal] );
-
-      fprintf(fp, "%s_sSFR:  %6.3e +- %6.3e  \n",
-	      PREFIX, 
-	      SNDATA.HOSTGAL_sSFR[igal], 
-	      SNDATA.HOSTGAL_sSFR_ERR[igal] );
-    }
-
-    // if MAGOBS has been read for any filter, then write MAGOBS
-    // for all filters.
-
-    if ( SNDATA.HOSTLIB_NFILT_MAGOBS > 0 ) {
-      fprintf(fp, "%s_MAG:    ", PREFIX ); NTMP=0;    
-      for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
-	fprintf(fp,"%6.2f ", SNDATA.HOSTGAL_MAG[igal][ifilt] );
-	NTMP++ ;
-	if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
-      }
-      fprintf(fp,"# %s\n", filtlist) ;
-    }
-
-    if ( SNDATA.HOSTLIB_NFILT_MAGOBS > 0 ) {
-      fprintf(fp, "%s_MAGERR: ", PREFIX ); NTMP=0;    
-      for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
-	fprintf(fp,"%6.2f ", SNDATA.HOSTGAL_MAGERR[igal][ifilt] );
-	NTMP++ ;
-	if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
-      }
-      fprintf(fp,"# %s\n", filtlist) ;
-    }
-    
-    fprintf(fp,"\n");
-
-  } // end igal loop
-
-  // ---------- surface brightness -----------
-
-  sprintf(ctmp,"%s/asec^2",filtlist );
-  if ( (SNDATA.HOSTGAL_USEMASK & 4) > 0 ) {
-    fprintf(fp,"HOSTGAL_SB_FLUXCAL:    " ); NTMP=0 ;
-    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-      fprintf(fp," %6.2f",SNDATA.HOSTGAL_SB_FLUX[ifilt] ) ;
-      NTMP++ ;
-      if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
-    }
-    fprintf(fp,"  # %s\n", ctmp );
-  }
-
-
-  if ( (SNDATA.HOSTGAL_USEMASK & 8) > 0 ) {
-    fprintf(fp,"HOSTGAL_SB_FLUXCAL_ERR:    " ); NTMP=0 ;
-    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
-      fprintf(fp," %6.2f",SNDATA.HOSTGAL_SB_FLUXERR[ifilt_obs] ) ;
-      NTMP++ ;
-      if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
-    }
-    fprintf(fp," # %s \n", ctmp );
-  }
-
-
-} // end of wr_HOSTGAL
-
-
-// ********************************
-void wr_SIMKCOR(FILE *fp, int EPMIN, int EPMAX) {
-
-  // Mar 2019: remove tabs
-  float *fptr ;
-  int i;
-  char tmpstring[80];
-  //  char fnam[] = "wr_SIMKCOR" ;
-
-  // -------------------- BEGIN ------------
-
-    fprintf(fp, "\n" );
-
-    fptr = &SNDATA.SIMEPOCH_TREST[EPMIN] ;
-    fprintf(fp,"   SIM_TREST:   %7.3f  rest-frame days \n", *fptr ) ;
-    fptr = &SNDATA.SIMEPOCH_TOBS[EPMAX] ;
-    fprintf(fp,"   SIM_TOBS:    %7.3f  obs-frame days \n",  *fptr ) ;
-
-    sprintf(tmpstring,"SIM_MAG:            ") ;
-    for ( i=EPMIN; i <= EPMAX; i++ ) {
-      sprintf(tmpstring,"%s %7.3f", 
-	      tmpstring, SNDATA.SIMEPOCH_MAG[i]);
-    }
-    fprintf(fp,"   %s \n", tmpstring);
-
-    // Jun 21, 2009: write model-mag error
-    sprintf(tmpstring,"SIM_MODELMAGERR:    ") ;
-    for ( i=EPMIN; i <= EPMAX; i++ ) {
-      sprintf(tmpstring,"%s %7.3f", 
-	      tmpstring, SNDATA.SIMEPOCH_MODELMAGERR[i]);
-    }
-    fprintf(fp,"   %s \n", tmpstring);
-
-    // Feb 2, 2009: write intrinsic mag-smearing 
-    sprintf(tmpstring,"SIM_MAGSMEAR:      ") ;
-    for ( i=EPMIN; i <= EPMAX; i++ ) {
-      sprintf(tmpstring,"%s %7.3f", tmpstring, 
-	      SNDATA.SIMEPOCH_MAGSMEAR[i]);
-    }
-    fprintf(fp,"   %s \n", tmpstring);
-
-
-    // skip K-cor stuff for observer-frame model
-    if ( VERSION_INFO.GENFRAME_SIM == 2 ) return ;
-
-    sprintf(tmpstring,"SIM_WARPCOL_SYMBOL: ") ;
-    for ( i=EPMIN; i <= EPMAX; i++ ) {
-      sprintf(tmpstring,"%s %7s", 
-	      tmpstring, SNDATA.SIMEPOCH_WARPCOLNAM[i]);
-    }
-    fprintf(fp,"   %s \n", tmpstring);
-
-
-    sprintf(tmpstring,"SIM_WARPCOL_VALUE:  ") ;
-    for ( i=EPMIN; i <= EPMAX; i++ ) {
-      sprintf(tmpstring,"%s %7.3f", 
-	      tmpstring, SNDATA.SIMEPOCH_WARPCOLVAL[i]);
-    }
-    fprintf(fp,"   %s \n", tmpstring);
-
-    sprintf(tmpstring,"SIM_AVWARP:         ") ;
-    for ( i=EPMIN; i <= EPMAX; i++ ) {
-      sprintf(tmpstring,"%s %7.3f", 
-	      tmpstring, SNDATA.SIMEPOCH_AVWARP[i]);
-    }
-    fprintf(fp,"   %s \n", tmpstring);
-
-
-    sprintf(tmpstring,"SIM_KCOR_SYMBOL:    ") ;
-    for ( i=EPMIN; i <= EPMAX; i++ ) {
-      sprintf(tmpstring,"%s %7s", 
-	      tmpstring, SNDATA.SIMEPOCH_KCORNAM[i]);
-    }
-    fprintf(fp,"   %s \n", tmpstring);
-
-
-    sprintf(tmpstring,"SIM_KCOR_VALUE:     ") ;
-    for ( i=EPMIN; i <= EPMAX; i++ ) {
-      sprintf(tmpstring,"%s %7.3f", tmpstring, 
-	      SNDATA.SIMEPOCH_KCORVAL[i]);
-    }
-    fprintf(fp,"   %s \n", tmpstring);
-
-
-}  // end of wr_SNDATA
-
-
-// ****************************************************
-int WRSTAT ( int wrflag, float value ) {
-
-  // return 1 to write; 0 to suppress write
-
-  int istat, OVP ;
-
-  // ---------- BEGIN ----------
-
-  istat = 0 ;
-
-  OVP = (wrflag & WRITE_MASK_LCMERGE) ;
-  if ( OVP > 0 ) { istat = 1; }
-
-  OVP = (wrflag & WRITE_MASK_SIM_SNANA) ;
-  if ( OVP > 0 &&  value != NULLFLOAT ) { istat = 1; }
-
-  /* xxxxxxxx mark delete Jan 23 2018 xxxxxxxxxxxxxxx
-  xxx if ( wrflag == WRITE_MASK_PHOTOMETRY &&  value != NULLFLOAT ) 
-    { istat = 1; }
-  xxxxxxxxxxxxxxxxxxxxxxxxxx */
-
-  return istat ;
-
-}
-
-
-// **********************************
-int header_merge(FILE *fp, char *auxheader_file) {
-
-  // Jun 19, 2009
-  // Merge contents of auxheader_file into existing file with
-  // pointer fp
-
-  FILE *fp_aux;
-  char cline[MXPATHLEN];
-
-  // -------- BEGIN -----------
-
-  if ( (fp_aux = fopen(auxheader_file, "rt"))==NULL ) return SUCCESS ;
-
-  while( (fgets(cline, 100, fp_aux)) != NULL) 
-    { fprintf(fp,"%s", cline ); }
-  
-  fprintf(fp,"\n");
-
-  fclose(fp_aux);
-  return SUCCESS ;
-
-} // end of header_merge
 
 // ******************************************************
 int  fluxcal_SNDATA ( int iepoch, char *magfun, int opt ) {
@@ -11540,768 +10463,1075 @@ void debugexit(char *string) {
 
 
 
-#ifdef OLD_COSMOLOGY
-// ********************
-//    COSMOLOGY FUNCTIONS TO MOVE  .xyz
-// ********************
+// ==========================================================
+//   LEGACY WRITE FUNCTIONS (Feb 2021); HOPE TO DELETE SOON
+// ===========================================================
+//.xyz
 
 
+// ********************************************
+int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
 
-// ****************************
-double SFR_integral( double H0, double OM, double OL, double W, double Z ) {
+  /*******
+    Created Mar 8, 2006  R.Kessler
+    write out all info to file for this "isn".
+    This output file is used for analysis.
 
-  //***
-  // Integrate SFR(t) from 0 to current time.
-  //  For convenience, integrate  over 'a' instead of redshift
-  //  [since z goes to infinity]
-  // 
-  //        /a
-  //   |   SFR(a') 
-  //   c |  ----------- da'
-  //     |  a' * H(a')
-  //     /0
-  //
-  //
-  // ***
+    cid_debug => dump into to screen for this cid
 
-  int    ia, NABIN = 100 ;
-  double AMIN, AMAX, ABIN, atmp, ztmp, xa, tmp  ;
-  double sum, sfr, aH ;
+    wrflag = 
+           = WRITE_MASK_LCMERGE    => write everything
+           = WRITE_MASK_SIM_SNANA  => write to /SIM area instead
 
-  double SECONDS_PER_YEAR = 3600. * 24. * 365. ;
+    The _PHOTOMETRY flag is used to write input photometry files;
+    the _LCMERGE flag is used by sndata_build to build merged
+    files for analysis.
 
-  // ---------- BEGIN ------------
+    vbose = 1 => print one-line statement to screen 
+    vbose = 0 => no screen dump
 
-  AMIN = 0.0 ;
-  AMAX = 1. / (1. + Z) ;
-  ABIN = (AMAX - AMIN) / (double)NABIN ;
+   ================
+  Mar 22, 2011: write  SIM_GALFRAC(ifilt_obs)
 
-  sum = 0.0 ;
+  Mar 28, 2011: for list of filter-dependent quanities,
+                put <CR> after 10 variables to prevent char-overflow
+                for parsing routines. Fixes problem with 56 filters.
+                See NTMP usage.
 
-  for ( ia=1; ia <= NABIN; ia++ ) {
-    xa   = (double)ia ;
-    atmp = AMIN + ABIN * ( xa - 0.5 ) ;
-    ztmp = (1. / atmp) - 1.0 ;
+  Apr 27, 2011: fprintf SNDATA.ORIGIN_SEARCH_PEAKMJD  right after
+                SEARCH_PEAKMJD
 
-    sfr = SFRfun(H0,ztmp);
-    aH  = atmp * Hzfun(H0,OM,OL,W,ztmp) ;
-    sum += sfr / aH ;
+  Jul 27, 2011: write SIM_COVMAT_SCATTER info (if used)
+
+  Mar 08, 2012: if SNDATA.HOSTGAL_SBFLAG is set then write
+                surface brightness for data or MC.
+
+  Jun 13, 2012: write optional AUXHEADER_LINES instead of BOSS-specific info
+
+  Dec 17, 2012: use filtlist = SNDATA_FILTER.LIST instead of computing 
+                filtlist from integer list.
+
+  Feb 3 2014: for sim, always write redshift info, even if -9.
+
+  Feb 7, 2014: replace legacy SEARCH_PEAKMJD key with PEAKMJD.
+  Feb 12, 2014: write new SIM_HOSTLIB keys 
+
+  Sep 08 2017:  for LCLIB model, write SNDATA.SIM_TEMPLATEMAG
+
+  May 23 2019: write SIM_MAGSHIFT_HOSTCOR
+
+  **************/
+
+  int 
+    cid, NEWMJD, inext, imjd
+    ,EPMIN, EPMAX, iep
+    ,wstat, istat, fake
+    ,ifilt,ifilt_obs, ifilt_start
+    ,NFILT_TOT, NFILT_EP
+    ,LWRITE_FINAL, LWRITE_SIMFLAG
+    ,JTMP, ipar, NTMP, iscat
+    ;
+
+
+  char 
+    outfile[MXPATHLEN]
+    ,filtlist[MXFILTINDX]
+    ,ctmp[100]
+    ;
+
+  FILE *fp;
+
+  int   *iptr;
+  float *fptr;
+  char  *cptr;
+  float Zspec, Zspec_err, FTMP ;
+
+  double mjd ;
+  char fnam[] = "wr_SNDATA";
+  char blank[2] = " " ;
+
+  // ------------- BEGIN -----------------
+
+  LWRITE_FINAL = 0 ;
+  if ( (IFLAG_WR & WRITE_MASK_LCMERGE)>0 || 
+       (IFLAG_WR & WRITE_MASK_SIM_SNANA)>0 )  {
+    sprintf(outfile , "%s", SNDATA.SNFILE_OUTPUT );
+    LWRITE_FINAL = 1 ;
   }
 
-  // convert H (km/s/Mpc) to H(/year)
 
-  tmp = (1.0E6 * PC_km) / SECONDS_PER_YEAR ;
-  sum *= (ABIN * tmp) ;
-  return sum ;
-
-}  // end of function SFR_integral
-
-
-
-// ****************************
-double SFRfun(double H0, double z) {
-
-  //      Compute sfr(z) = (a+b*z)/(1+(z/c)^d)*h solar_mass/yr/Mpc^3
-  //    where presumably h = H0/(100 km/s/Mpc)
-
-  // -- Baldry and Glazebrook IMF --
-  double a = 0.0118 ;
-  double b = 0.08 ;
-  double c = 3.3 ;
-  double d = 5.2 ;
-
-  double tmp1, tmp2, zc, h, SFRLOC;
-
-  // ------------ BEGIN --------------
-
-  zc   = z/c ;
-  tmp1 = a + b*z ;
-  tmp2 = 1.0 + pow(zc,d) ;
-  h    = H0 / 100. ;
-
-  SFRLOC = h * tmp1 / tmp2 ;
-
-  return(SFRLOC) ;
-
-}
-
-// *******************************************
-double SFRfun_MD14(double z, double *params) {
-
-  // Created Dec 2016 by R.Kessler
-  // use function from  Madau & Dickoson 2014,
-  // that was also used in Strolger 2015 for CC rate.
-  // This function intended for CC rate, so beware
-  // using for other purposes (e.g., no H0 factor here).
-
-  double A = params[0];
-  double B = params[1];
-  double C = params[2];
-  double D = params[3];
-  double z1     = 1.0 + z;
-  double top    = A*pow(z1,C);
-  double bottom = 1.0 + pow( (z1/B), D );
-
-  return( top / bottom );  // also see Eq 8+9 of Strolger 2015          
-
-} // end SFRfun_MD14
-
-// *******************************************
-double dVdz_integral
-( 
-  double H0    // (I) km/s per MPc
-  ,double OM    // (I) Omega_matter
-  ,double OL    // (I) Omega_lamba
-  ,double W     //  (I) w = rho/p
-  ,double Zmax  //  (I) integrate up to this redshift
-  ,int wgtopt   //  (I) weight integral by z^wgtopt
- ) {
-
-  //
-  // return integral of dV/dz = r(z)^2/H(z) dz
-  // wgtopt = 0:  returns standard volume integral
-  // wgtopt = 1:  returns  z-wgted integral
-
-  double sum, tmp, dz, Ztmp, wz, xz ;
-  int NZbin, iz;
-
-  // ---- BEGIN ----------
-
-  // compute exact integral
-
-  NZbin = (int)( Zmax * 1000.0 ) ;
-  if ( NZbin < 10 ) { NZbin = 10 ; }
-  dz   = Zmax / (float)NZbin ;   // integration binsize
-  sum = 0.0;
-
-  for ( iz=1; iz <= NZbin; iz++ ) {
-    xz   = (double)iz ;
-    Ztmp = dz * (xz - 0.5) ;
-    tmp  = dVdz ( H0, OM, OL, W, Ztmp );
-
-    wz = pow(Ztmp,(double)wgtopt);
-    sum += wz * tmp;
-
+    
+  else {
+    sprintf(c1err,"IFLAG_WR=%d is invalid",  IFLAG_WR );
+    errmsg(SEV_FATAL, 0, fnam, c1err, BLANK_STRING );
   }
 
-  sum *= dz ;
-
-  //  printf(" xxxx dVdz_integral = %e (approx=%e) \n", sum, sumtmp  );
-
-  return sum ;
-
-}  // end of dVdz_integral
+  if ( SNDATA.FAKE > 0 && SNDATA.WRFLAG_BLINDTEST == 0 ) 
+    {  LWRITE_SIMFLAG = 1 ; }
+  else
+    {  LWRITE_SIMFLAG = 0 ; }
 
 
-double dvdz_integral__(double *H0, double *OM, double *OL, double *W,
-		       double *Zmax, int *wgtopt) {
-  return dVdz_integral(*H0,*OM,*OL,*W,*Zmax,*wgtopt);
+  cid    = SNDATA.CID ;
+  NEWMJD = SNDATA.NEWMJD;
+
+
+  if ( (fp = fopen(outfile, "wt"))==NULL ) {
+    sprintf(c1err,"Cannot open output file: " );
+    sprintf(c2err,"%s", outfile );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    fclose(fp);  return ERROR;
+  }
+
+  if ( IFLAG_DBUG > 0 )  
+    { printf( " WRITE %s\n", outfile); fflush(stdout); }
+
+  // sort epochs in order of MJD
+  sort_epochs_bymjd();
+
+  // construct filterlist string.
+  sprintf(filtlist, "%s", SNDATA_FILTER.LIST);
+
+
+
+  NFILT_TOT   = SNDATA_FILTER.NDEF; 
+  ifilt_start = SNDATA_FILTER.MAP[0] ;  // start filter index for data
+
+  // first spit back the input
+
+  if ( cid == IFLAG_DBUG ) 
+    { printf(" xxxx %s : write HEADER info for  CID=%d \n", fnam, cid ); }
+
+  if ( strlen(SNDATA.SUBSURVEY_NAME) == 0 ) {
+    fprintf(fp, "SURVEY: %s   \n", SNDATA.SURVEY_NAME  ); 
+  }
+  else  { 
+    fprintf(fp, "SURVEY: %s(%s)   \n", 
+	    SNDATA.SURVEY_NAME, SNDATA.SUBSURVEY_NAME  ); 
+  }
+
+  fprintf(fp, "SNID:   %d   \n", cid  );
+
+
+  if ( LWRITE_FINAL == 1  )
+    { fprintf(fp, "IAUC:    %s \n", SNDATA.IAUC_NAME ); }
+
+  if( SNDATA.WRFLAG_BLINDTEST == 0 ) {
+    fprintf(fp, "PHOTOMETRY_VERSION: %s \n", VERSION_INFO.NAME );    
+  }
+
+
+  fprintf(fp, "SNTYPE:  %d \n", SNDATA.SNTYPE ) ;
+  fprintf(fp, "FILTERS: %s \n", filtlist );
+  fprintf(fp, "RA:      %f  deg \n", SNDATA.RA );
+  fprintf(fp, "DEC:     %f  deg \n", SNDATA.DEC );
+  fprintf(fp, "PIXSIZE: %7.4f  arcsec \n", SNDATA.PIXSIZE );
+
+  if ( SNDATA.CCDNUM[0] >=0 ) 
+    { fprintf(fp, "CCDNUM: %d  \n", SNDATA.CCDNUM[0] ); }
+
+  if ( NEWMJD > 0 ) { fprintf(fp, "NEPOCH:  %d \n", NEWMJD ); }
+
+
+  // now write extra info detrermined from this program
+
+  fake = SNDATA.FAKE ;
+  fprintf(fp, "FAKE:    %d   ", fake );
+  if ( fake == FAKEFLAG_DATA ) 
+    { fprintf(fp,"(=> data) \n" ); }
+  else if ( fake == FAKEFLAG_LCSIM ) 
+    { fprintf(fp,"(=> simulated LC with snlc_sim.exe) \n" ); }
+  else if ( fake == FAKEFLAG_LCSIM_BLINDTEST ) 
+    { fprintf(fp,"(=> BLIND-TEST simulation) \n" ); }
+  else
+    { fprintf(fp,"(=> unknown data source) \n" ); }
+
+
+  fptr = &SNDATA.MWEBV ;
+  fprintf(fp, "MWEBV:      %7.4f    MW E(B-V) \n", *fptr );
+
+  fptr = &SNDATA.MWEBV_ERR ;
+  fprintf(fp, "MWEBV_ERR:  %7.4f    error on MWEBV \n", *fptr );
+
+  if ( SNDATA.APPLYFLAG_MWEBV ) {
+    fprintf(fp, "MWEBV_APPLYFLAG: %d    # FLUXCAL corrected for MWEBV \n",
+	   SNDATA.APPLYFLAG_MWEBV ) ;
+  }
+
+  // write things for real data only, and only if values are set
+
+  if ( SNDATA.FAKE == 0 ) {
+    iptr = &SNDATA.NPRESN[ifilt_start] ;
+    if ( *iptr != NULLINT ) 
+      istat = wr_filtband_int ( fp, "NEPOCH_PRESN:",  
+				NFILT_TOT, iptr, filtlist, 0 );
+  }
+
+
+  // ----------------
+  // write redshift info for all surveys
+
+  wstat = WRSTAT ( IFLAG_WR, SNDATA.REDSHIFT_FINAL );
+
+  // fill REDSHIFT_SPEC if SN is typed
+  if ( SNDATA.SNTYPE > 0 ) {
+    Zspec     = SNDATA.REDSHIFT_FINAL; 
+    Zspec_err = SNDATA.REDSHIFT_FINAL_ERR;
+  }
+  else {
+    Zspec     = -9.0 ; 
+    Zspec_err =  9.0;
+  }
+
+  if( SNDATA.WRFLAG_BLINDTEST ) {
+    wstat = 0;
+    fprintf(fp,"REDSHIFT_SPEC:    %.6f +- %.6f  \n", Zspec, Zspec_err );
+  }
+
+
+  if ( wstat == 1 || LWRITE_SIMFLAG ) {
+
+    fprintf(fp,"REDSHIFT_HELIO:   %.6f +- %.6f  (Helio, z_best) \n"
+	    ,SNDATA.REDSHIFT_HELIO, SNDATA.REDSHIFT_HELIO_ERR );
+
+    fprintf(fp,"REDSHIFT_FINAL:   %.6f +- %.6f  (CMB) \n"
+	    ,SNDATA.REDSHIFT_FINAL, SNDATA.REDSHIFT_FINAL_ERR );
+  
+    fprintf(fp,"\n");
+  }
+
+  fprintf(fp,"VPEC:      %7.2f  # v_pec correction\n", SNDATA.VPEC );
+  fprintf(fp,"VPEC_ERR:  %7.2f  # error on above  \n", SNDATA.VPEC_ERR );
+
+  // ---------------------------------------
+  FTMP = SNDATA.SEARCH_PEAKMJD ; 
+  if ( FTMP != NULLFLOAT ) { fprintf(fp, "PEAKMJD:  %10.3f \n", FTMP );  }
+
+  
+  fprintf(fp, "\n" ); 
+
+
+  // ---------------------------------------
+  // write host-gal info
+  wr_HOSTGAL(fp) ;
+
+  // ---------------------------------------
+  
+  // merge additional header info ... likely from host-galaxy file
+  if ( LWRITE_FINAL == 1 ) {
+    fprintf(fp, " \n" );
+    header_merge( fp, SNDATA.AUXHEADER_FILE );
+  } 
+
+ 
+
+  // --------------------------------------------------
+  // write optional AUXHEADER_LINES (June 2012)
+  // at end of header, but before the SIM_XXX keys
+  int j ;
+  for(j=0; j < SNDATA.NLINES_AUXHEADER; j++ ) 
+    {  fprintf(fp,"%s \n", SNDATA.AUXHEADER_LINES[j]); }
+
+
+  // --------------------------------------------------
+  fflush(fp);
+
+  if ( SNDATA.WRFLAG_BLINDTEST ) { goto START_EPOCHS ; }
+  
+  // write SIM_XXX variables if FAKE > 0
+  if ( LWRITE_SIMFLAG > 0  ) {
+    fprintf(fp, "\n" );
+
+    fprintf(fp, "SIM_MODEL_NAME:  %s \n", 
+	    SNDATA.SIM_MODEL_NAME  ) ;
+
+    fprintf(fp, "SIM_MODEL_INDEX:  %d \n", 
+	    SNDATA.SIM_MODEL_INDEX  ) ;
+
+    fprintf(fp, "SIM_TYPE_INDEX:   %d \n",
+	    SNDATA.SIM_TYPE_INDEX );
+
+    fprintf(fp, "SIM_TYPE_NAME:    %s \n",
+	    SNDATA.SIM_TYPE_NAME );
+
+    iptr = &SNDATA.SIM_TEMPLATE_INDEX ;
+    //      fprintf(fp, "SIM_NON1a:      %d   (NONIA index) \n", *iptr ) ;
+    fprintf(fp, "SIM_TEMPLATE_INDEX: %d   \n", *iptr ) ;
+
+    fprintf(fp, "SIM_COMMENT:  %s  \n", SNDATA.SIM_COMMENT  ) ;
+
+    iptr = &SNDATA.SIM_LIBID ; 
+    fprintf(fp, "SIM_LIBID:  %d  \n", *iptr ) ;
+
+    iptr = &SNDATA.SIM_NGEN_LIBID ;   // added Dec 2015
+    fprintf(fp, "SIM_NGEN_LIBID:  %d  \n", *iptr ) ;
+
+    if ( SNDATA.SIMLIB_MSKOPT != 0 ) {
+      iptr = &SNDATA.SIMLIB_MSKOPT ;
+      fprintf(fp, "SIMLIB_MSKOPT:  %d  \n", *iptr ) ;
+    }
+
+    iptr = &SNDATA.SIM_NOBS_UNDEFINED ;   // March 2017
+    fprintf(fp, "SIM_NOBS_UNDEFINED:  %d  \n", *iptr ) ;
+
+    fptr = &SNDATA.SIM_REDSHIFT_HELIO ; 
+    fprintf(fp, "SIM_REDSHIFT_HELIO:  %.5f  \n", *fptr ) ;
+
+    fptr = &SNDATA.SIM_REDSHIFT_CMB ; 
+    fprintf(fp, "SIM_REDSHIFT_CMB:    %.5f  \n", *fptr ) ;
+
+    fptr = &SNDATA.SIM_REDSHIFT_HOST ; 
+    fprintf(fp, "SIM_REDSHIFT_HOST:   %.5f  \n", *fptr ) ;
+
+    iptr = &SNDATA.SIM_REDSHIFT_FLAG ;
+    cptr = SNDATA.SIM_REDSHIFT_COMMENT;
+    fprintf(fp,"SIM_REDSHIFT_FLAG:   %d  # %s\n", *iptr, cptr);
+
+    fptr = &SNDATA.SIM_VPEC ; 
+    fprintf(fp, "SIM_VPEC:  %.1f (km/sec) \n", *fptr ) ;
+
+    // - - - -  SIM_HOSTLIB_XXX  (Feb 2014)
+
+    fprintf(fp,"SIM_HOSTLIB_GALID:  %lld \n", SNDATA.SIM_HOSTLIB_GALID);
+    char key[60];
+    int NPAR = SNDATA.NPAR_SIM_HOSTLIB; 
+    fprintf(fp, "SIM_HOSTLIB_NPAR: %d \n", NPAR);
+    for(ipar=0; ipar < NPAR; ipar++ ) {
+      sprintf(key,"%s:", SNDATA.SIM_HOSTLIB_KEYWORD[ipar] );
+      fprintf(fp, "%-28.28s  %.3f \n", key, SNDATA.SIM_HOSTLIB_PARVAL[ipar] );
+    }
+    
+    // - - - - 
+
+    fptr = &SNDATA.SIM_DLMU ;
+    fprintf(fp, "SIM_DLMU:      %.4f  mag   [ -5*log10(10pc/dL) ]\n", *fptr);
+
+    fptr = &SNDATA.SIM_LENSDMU ;
+    fprintf(fp, "SIM_LENSDMU:   %.4f  mag \n", *fptr ) ;
+
+    fptr = &SNDATA.SIM_RA ; 
+    fprintf(fp, "SIM_RA:        %f deg  \n", *fptr ) ;
+    fptr = &SNDATA.SIM_DEC ; 
+    fprintf(fp, "SIM_DEC:       %f deg  \n", *fptr ) ;
+
+    fptr = &SNDATA.SIM_MWRV ; 
+    fprintf(fp, "SIM_MWRV:   %6.3f   (MilkyWay RV) \n", *fptr ) ;
+    fptr = &SNDATA.SIM_MWEBV ; 
+    fprintf(fp, "SIM_MWEBV:  %7.4f   (MilkyWay E(B-V)) \n", *fptr ) ;
+
+    iptr = &SNDATA.SIMOPT_MWCOLORLAW ; 
+    fprintf(fp, "SIMOPT_MWCOLORLAW:  %d   (MW color-law option) \n",  *iptr);
+
+    iptr = &SNDATA.SIMOPT_MWEBV ; 
+    fprintf(fp, "SIMOPT_MWEBV:       %d   (modify MWEBV_SFD)\n",*iptr);
+
+
+    if ( SNDATA.SIM_AV != NULLFLOAT ) {
+
+      fptr = &SNDATA.SIM_AVTAU ; 
+      fprintf(fp, "SIM_AVTAU:     %8.3f   (dN/dAV = exp(-AV/AVTAU)) \n", 
+	      *fptr ) ;
+
+      fptr = &SNDATA.SIM_AV ; 
+      fprintf(fp, "SIM_AV:        %6.3f  mag  (host extinction at 5510 A)\n", 
+	      *fptr ) ;
+      fptr = &SNDATA.SIM_RV ; 
+      fprintf(fp, "SIM_RV:        %6.3f   (CCM89 extinction parameter) \n", 
+	      *fptr ) ;      
+    }
+    
+    fptr = &SNDATA.SIM_MAGSMEAR_COH ; 
+    fprintf(fp, "SIM_MAGSMEAR_COH:     %6.3f  \n", *fptr ) ;      
+
+
+    // gal/SN flux-fraction
+    fprintf(fp, "SIM_GALFRAC: "); NTMP = 0;
+    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+      fprintf(fp," %6.3f",SNDATA.SIM_GALFRAC[ifilt_obs] ) ; 
+      NTMP++ ;
+      if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
+    }
+    fprintf(fp,"  (%s F_gal/F_SNpeak for PSF=1'')\n", filtlist);
+    
+
+
+    fprintf(fp, "SIM_PEAKMAG: "); NTMP=0;
+    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+      fprintf(fp," %6.2f",SNDATA.SIM_PEAKMAG[ifilt_obs] ) ;
+      NTMP++ ;
+      if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; } 
+    }
+    fprintf(fp,"  (%s obs)\n", filtlist);
+
+
+    if ( SNDATA.SIM_MODEL_INDEX == MODEL_LCLIB ) {
+      fprintf(fp, "SIM_TEMPLATEMAG: "); NTMP=0;
+      for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+	ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+	fprintf(fp," %6.2f",SNDATA.SIM_TEMPLATEMAG[ifilt_obs] ) ;
+	NTMP++ ;
+	if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; } 
+      }
+      fprintf(fp,"  (%s)\n", filtlist);      
+    }
+
+    fprintf(fp, "SIM_EXPOSURE: ");  NTMP=0;
+    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+      fprintf(fp," %6.1f",SNDATA.SIM_EXPOSURE_TIME[ifilt_obs] ) ; 
+      NTMP++ ;
+      if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
+    }
+    fprintf(fp,"  (%s obs)\n", filtlist);
+
+
+    fptr = &SNDATA.SIM_PEAKMJD ; 
+    fprintf(fp, "SIM_PEAKMJD:   %f  days \n", *fptr ) ;
+
+    // write luminosity parameter for valid par only
+
+    sprintf(ctmp,"STRETCH lumi-par"); // init comment about stretch
+
+    if ( SNDATA.SIM_DELTA != NULLFLOAT ) {
+      fptr = &SNDATA.SIM_DELTA ;
+      fprintf(fp, "SIM_DELTA:     %6.3f  mag  (MLCS lumi-par) \n", *fptr ) ;
+      sprintf(ctmp,"approx STRETCH for KCOR loopup");
+    }
+    if ( SNDATA.SIM_DM15 != NULLFLOAT ) {
+      fptr = &SNDATA.SIM_DM15 ;
+      fprintf(fp, "SIM_DM15:      %6.3f  mag  (DM15 lumi-par) \n", *fptr ) ;
+      sprintf(ctmp,"approx STRETCH for KCOR lookup");
+    }
+
+    if ( SNDATA.SIM_SALT2alpha != NULLFLOAT ) {
+      fptr = &SNDATA.SIM_SALT2alpha ;
+      fprintf(fp, "SIM_SALT2alpha:  %7.3f   \n", *fptr ) ;
+
+      fptr = &SNDATA.SIM_SALT2beta ;
+      fprintf(fp, "SIM_SALT2beta:   %7.3f   \n", *fptr ) ;
+
+      fptr = &SNDATA.SIM_SALT2gammaDM ; 
+      fprintf(fp, "SIM_SALT2gammaDM: %6.3f  \n", *fptr ) ; 
+    }
+
+    if ( SNDATA.SIM_SALT2x0 != NULLFLOAT ) {
+      fptr = &SNDATA.SIM_SALT2x0 ;
+      fprintf(fp, "SIM_SALT2x0:   %8.4e   \n", *fptr ) ;
+    }
+    if ( SNDATA.SIM_SALT2x1 != NULLFLOAT ) {
+      fptr = &SNDATA.SIM_SALT2x1 ;
+      fprintf(fp, "SIM_SALT2x1:   %7.4f   \n", *fptr ) ;
+    }
+    if ( SNDATA.SIM_SALT2c != NULLFLOAT ) {
+      fptr = &SNDATA.SIM_SALT2c ;
+      fprintf(fp, "SIM_SALT2c:    %7.4f   \n", *fptr ) ;
+    }
+
+    if ( SNDATA.SIM_SALT2mB != NULLFLOAT ) {
+      fptr = &SNDATA.SIM_SALT2mB ;
+      fprintf(fp, "SIM_SALT2mB:   %7.4f   \n", *fptr ) ;
+    }
+
+    if ( SNDATA.SIM_STRETCH > 0 ) {
+      fptr = &SNDATA.SIM_STRETCH ;
+      fprintf(fp, "SIM_STRETCH:   %6.3f  \n", *fptr ) ;
+    }
+
+    // covmat-scatter info
+    if ( SNDATA.SIMFLAG_COVMAT_SCATTER ) {
+      for ( iscat=0; iscat < 3; iscat++ ) {
+	fprintf(fp, "SIM_SCATTER[%s]:  %8.4f \n"
+		, SNDATA.SIM_COVMAT_SCATTER_NAME[iscat]
+		, SNDATA.SIM_COVMAT_SCATTER[iscat] ) ;
+      }
+    }
+
+
+    iptr = &SNDATA.SIM_SEARCHEFF_MASK ;
+    sprintf(ctmp,"bits 1,2=> found by software,spec" );
+    fprintf(fp, "SIM_SEARCHEFF_MASK:  %d  (%s) \n", *iptr, ctmp );
+    fptr = &SNDATA.SIM_SEARCHEFF_SPEC ;
+    sprintf(ctmp,"spectro-search efficiency (ignores pipelines)");
+    fprintf(fp, "SIM_SEARCHEFF_SPEC:  %6.4f  (%s) \n", *fptr, ctmp );
+
+    if ( SNDATA.SIM_TRESTMIN != NULLFLOAT ) {
+      fptr = &SNDATA.SIM_TRESTMIN ; 
+      fprintf(fp, "SIM_TRESTMIN:  %7.2f   days \n", *fptr ) ;
+      fptr = &SNDATA.SIM_TRESTMAX ; 
+      fprintf(fp, "SIM_TRESTMAX:  %7.2f   days \n", *fptr ) ;
+    }
+
+    fptr = &SNDATA.SIM_RISETIME_SHIFT ;
+    fprintf(fp, "SIM_RISETIME_SHIFT:   %3.1f days \n", *fptr ) ;
+    fptr = &SNDATA.SIM_FALLTIME_SHIFT ;
+    fprintf(fp, "SIM_FALLTIME_SHIFT:   %3.1f days \n", *fptr ) ;
+
+
+    // SIMSED info
+    if ( SNDATA.NPAR_SIMSED > 0 ) {
+      fprintf(fp,"\n");
+      fprintf(fp,"SIMSED_NPAR: %d \n", SNDATA.NPAR_SIMSED );
+      for ( ipar = 0; ipar < SNDATA.NPAR_SIMSED; ipar++ ) {
+	fprintf(fp,"%s:  %f\n"
+		,SNDATA.SIMSED_KEYWORD[ipar]
+		,SNDATA.SIMSED_PARVAL[ipar] );
+      }
+    }
+
+    // PySEDMODEL info for BYOSED, SNEMO
+    if ( SNDATA.NPAR_PySEDMODEL > 0 ) {
+      fprintf(fp,"\n");
+      fprintf(fp,"%s_NPAR: %d \n",  
+	      SNDATA.SIM_MODEL_NAME, SNDATA.NPAR_PySEDMODEL ); 
+      for ( ipar = 0; ipar < SNDATA.NPAR_PySEDMODEL; ipar++ ) {
+	fprintf(fp,"%s:  %f \n"
+		,SNDATA.PySEDMODEL_KEYWORD[ipar]
+		,SNDATA.PySEDMODEL_PARVAL[ipar] );
+      }
+    }
+
+
+    // LCLIB info (Sep 8 2017)
+    if ( SNDATA.NPAR_LCLIB > 0 ) {
+      fprintf(fp,"\n");
+      fprintf(fp,"LCLIB_NPAR: %d \n", SNDATA.NPAR_LCLIB );
+      for ( ipar = 0; ipar < SNDATA.NPAR_LCLIB; ipar++ ) {
+	fprintf(fp,"%s:  %f \n"
+		,SNDATA.LCLIB_KEYWORD[ipar]
+		,SNDATA.LCLIB_PARVAL[ipar] );
+      }
+    }
+
+    
+    // strong lens info (July 20 2019)
+    if ( SNDATA.SIM_SL_FLAG ) {
+      fprintf(fp,"\n");
+      fprintf(fp,"SIM_STRONGLENS_ID:        %d   \n", SNDATA.SIM_SL_IDLENS );
+      fprintf(fp,"SIM_STRONGLENS_z:         %.3f \n", SNDATA.SIM_SL_zLENS  );
+      fprintf(fp,"SIM_STRONGLENS_DELAY:     %.3f  # days \n", 
+	      SNDATA.SIM_SL_TDELAY );
+      fprintf(fp,"SIM_STRONGLENS_XIMG:      %.3f  # arcsec\n",
+	      SNDATA.SIM_SL_XIMG );
+      fprintf(fp,"SIM_STRONGLENS_YIMG:      %.3f  # arcsec\n",
+	      SNDATA.SIM_SL_YIMG );
+      fprintf(fp,"SIM_STRONGLENS_MAGSHIFT:  %.3f \n", SNDATA.SIM_SL_MAGSHIFT );
+      fprintf(fp,"SIM_STRONGLENS_NIMG:      %d   \n", SNDATA.SIM_SL_NIMG    );
+      fprintf(fp,"SIM_STRONGLENS_IMGNUM:    %d   \n", SNDATA.SIM_SL_IMGNUM  );
+    }
+    
+    fprintf(fp,"\n");
+
+    // Jun 2017: SUBSAMPLE_INDEX
+    if ( SNDATA.SUBSAMPLE_INDEX >= 0 ) {
+      fprintf(fp,"SIM_SUBSAMPLE_INDEX: %d \n", SNDATA.SUBSAMPLE_INDEX);
+    }
+
+    
+  } // end of FAKE > 0 if-block
+
+  
+  fflush(fp);
+
+ START_EPOCHS:
+
+  // check option to skip epoch info (i.e, for TERSE output)
+  if ( NEWMJD <= 0 ) {
+    fclose ( fp );
+    return SUCCESS ;
+  }
+
+    
+  // epoch info. Note that "epoch" is the sorted epoch index
+
+  for ( inext = 1; inext <= SNDATA.NEWMJD; inext++ ) {
+
+    imjd = SNDATA.UNSORTED_EPOCH[inext];  // unsorted index
+
+    EPMIN = SNDATA.EPOCH_RANGE_NEWMJD[imjd][0] ;  
+    EPMAX = SNDATA.EPOCH_RANGE_NEWMJD[imjd][1] ;  
+
+    // make sure that the number of epochs here corresponds
+    // to the number of filters per epoch
+
+    if ( NFILT_TOT < EPMAX - EPMIN + 1 ) {
+
+      printf("\n");
+      // prepare list of filters for screen dump
+      for ( iep   = EPMIN; iep <= EPMAX; iep++ ) {
+	ifilt_obs = SNDATA.FILTINDX[iep];
+	mjd       = SNDATA.MJD[iep];
+	printf("  ifilt_obs(iep=%d) = %d (%c)   MJD=%9.3f\n", 
+	       iep, ifilt_obs, FILTERSTRING[ifilt_obs], mjd );
+      }
+
+      if ( SNDATA.FAKE > 0 ) 
+	printf("  (SIMLIB ID=%d) \n", SNDATA.SIM_LIBID );
+
+      sprintf(c1err,"Epoch range %d to %d  (CID=%d NEWMJD=%d)",
+	      EPMIN, EPMAX, cid, imjd );
+      sprintf(c2err,"But only %d filters defined (%s)", 
+	      NFILT_TOT, filtlist);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    
+    }
+
+    VERSION_INFO.NEPOCH_TOT++ ;
+
+
+    fprintf(fp,"\n# ----------------------------------------------- \n");
+    fprintf(fp, "  EPOCH: %d  \n", inext );  // write sorted epoch !!!
+
+    fprintf(fp, "  MJD: %f  \n" , SNDATA.MJD[EPMIN] );
+
+    fprintf(fp, "  TELESCOPE: %s    ", SNDATA.TELESCOPE[EPMIN] );
+
+    // check for optional things
+
+    JTMP = SNDATA.SEARCH_RUN[EPMIN] ;
+    if ( JTMP != NULLINT ) fprintf(fp, "SEARCH_RUN: %d  ", JTMP);
+
+    JTMP = SNDATA.TEMPLATE_RUN[EPMIN] ;
+    if ( JTMP != NULLINT ) fprintf(fp, "  TEMPLATE_RUN: %d  ", JTMP ) ;
+
+    JTMP = SNDATA.QMASK[EPMIN];
+    if ( JTMP  != NULLINT ) fprintf(fp, "QMASK: %d   ", JTMP );
+
+    fprintf(fp,"\n  ");
+
+    /* xxxxxxxx mark delete xxxxxxxxxxxxx
+    JTMP = SNDATA.IDCCD[EPMIN];
+    if ( JTMP  != NULLINT ) fprintf(fp, "IDCCD: %d   ", JTMP );
+    xxxxxxxxx */
+
+    cptr = SNDATA.FIELDNAME[EPMIN] ;
+    if ( strcmp(cptr,"NULL") != 0 )  fprintf(fp, "FIELD: %s   ", cptr );
+
+    fprintf(fp,"\n");
+
+    if ( SNDATA.IDATE[EPMIN] > 20040000 ) 
+      fprintf(fp,"  PROCESS_DATE: %s \n", SNDATA.DATE[EPMIN] );
+
+
+    /* xxxxxxxx mark delete Jun 23 2019 xxxxxxx
+    FTMP = SNDATA.CLOUDCAM_AVG[EPMIN];
+    if ( FTMP != NULLFLOAT ) {
+      fprintf(fp, "  CLOUDCAM_AVG: %7.2f   ", SNDATA.CLOUDCAM_AVG[EPMIN] );
+      fprintf(fp, "  CLOUDCAM_SIG: %5.2f \n", SNDATA.CLOUDCAM_SIG[EPMIN] );
+    }
+    FTMP = SNDATA.MOONDIST[EPMIN] ;
+    if ( FTMP != NULLFLOAT ) {
+      fprintf(fp, "  MOONDIST:    %7.2f deg   ", SNDATA.MOONDIST[EPMIN] );
+      fprintf(fp, "  MOONPHASE:  %5.2f \n",    SNDATA.MOONPHASE[EPMIN] );
+    }
+    FTMP = SNDATA.AIRMASS[EPMIN] ;
+    if ( FTMP != NULLFLOAT ) fprintf(fp, "  AIRMASS:  %6.3f \n", FTMP );
+    xxxxxxxxx */
+
+    // now write info vs. fitler-band
+
+    NFILT_EP = 0;
+    fprintf( fp, "\n  %16s ", "PASSBAND:" );
+    for ( iep=EPMIN; iep <= EPMAX; iep++ ) {
+      ifilt_obs = SNDATA.FILTINDX[iep]; 
+      fprintf(fp,"     %c   ", FILTERSTRING[ifilt_obs] );
+      NFILT_EP++;
+    }
+    fprintf( fp, "\n" );
+
+
+    iptr = &SNDATA.SEARCH_FIELD[EPMIN] ;
+    if ( *iptr != NULLINT ) 
+      istat = wr_filtband_int(fp, "SEARCH_FIELD:", NFILT_EP, iptr, blank,1 );
+
+    iptr = &SNDATA.TEMPLATE_FIELD[EPMIN] ;
+    if ( *iptr != NULLINT ) 
+      istat = wr_filtband_int(fp, "TEMPLATE_FIELD:", NFILT_EP, iptr, blank,1);
+
+    iptr = &SNDATA.PHOTFLAG[EPMIN] ;
+    if ( *iptr != NULLINT  && fake == 0 ) 
+      istat = wr_filtband_int ( fp, "PHOTFLAG:", NFILT_EP, iptr, blank,1) ;
+
+    // xxx mark delete     istat = wr_filtband_int ( fp, "PHOTOMETRYFLAG:", NFILT_EP, iptr, blank,1) ;
+
+
+    if ( SNDATA.WRFLAG_BLINDTEST ) goto FLUXCAL ;
+
+    wstat = WRSTAT ( IFLAG_WR, SNDATA.GAIN[EPMIN]  );
+    if ( wstat == 1 ) {
+      fptr = &SNDATA.GAIN[EPMIN] ;
+      istat = wr_filtband_float ( fp, "GAIN:", NFILT_EP, fptr, "e/ADU", 3 ) ;
+
+      fptr = &SNDATA.READNOISE[EPMIN] ;
+      istat = wr_filtband_float ( fp, "RDNOISE:", NFILT_EP, fptr, "e-", 3 ) ;
+    }
+
+
+    FTMP = SNDATA.XPIX[EPMIN] ;    
+    if ( SNDATA.FAKE == 0  &&  FTMP != NULLFLOAT ) {
+
+      fptr = &SNDATA.XPIX[EPMIN] ;
+      istat = wr_filtband_float ( fp, "XPIXEL:", NFILT_EP, fptr, "(pixels)", 3 ) ;
+      fptr = &SNDATA.YPIX[EPMIN] ;
+      istat = wr_filtband_float ( fp, "YPIXEL:", NFILT_EP, fptr, "(pixels)", 3 ) ;
+      fptr = &SNDATA.EDGEDIST[EPMIN] ;
+      istat = wr_filtband_float ( fp, "EDGEDIST:", NFILT_EP, fptr, "(pixels)", 3 ) ;
+    }
+
+
+    FTMP = SNDATA.SKY_SIG[EPMIN];
+    if ( FTMP != NULLFLOAT ) {
+      fptr = &SNDATA.SKY_SIG[EPMIN] ;
+      istat = wr_filtband_float ( fp, "SKY_SIG:", 
+				  NFILT_EP, fptr, "ADU/pix", 2 ) ;
+    }
+
+
+    fptr = &SNDATA.PSF_SIG1[EPMIN] ;
+    if ( *fptr != NULLFLOAT )
+      istat = wr_filtband_float ( fp, "PSF_SIG1:", NFILT_EP, fptr, "pixels", 3 ) ;
+
+    FTMP = SNDATA.PSF_SIG2[EPMIN] ;
+    if ( FTMP > 0.0 ) {
+
+      fptr = &SNDATA.PSF_SIG2[EPMIN] ;
+      istat = wr_filtband_float ( fp, "PSF_SIG2:", NFILT_EP, fptr, "pixels", 3 ) ;
+
+      fptr = &SNDATA.PSF_RATIO[EPMIN] ;      
+      istat = wr_filtband_float ( fp, "PSF_RATIO:", NFILT_EP, fptr, "(at origin)", 3 ) ;
+    }
+
+    /* xxxxxxxxxxxx mark delete Jun 24 2019 xxxxxxxx
+    // write FLUX in ADU (or uJy)
+    fprintf(fp," \n" );
+    fptr = &SNDATA.FLUX[EPMIN] ;
+    istat = wr_filtband_float ( fp, "FLUX:", NFILT_EP, fptr, FLUXUNIT, 2 ) ;
+    fptr = &SNDATA.FLUX_ERRTOT[EPMIN] ;
+    istat = wr_filtband_float (fp,"FLUX_ERRTOT:",NFILT_EP,fptr,FLUXUNIT,3);
+    xxxxxxxxxxxxxx */
+
+    // write calibrate fluxes: 
+
+  FLUXCAL:
+
+    fprintf(fp," \n" );
+    fptr = &SNDATA.FLUXCAL[EPMIN] ;
+    istat = wr_filtband_float ( fp, "FLUXCAL:", NFILT_EP, fptr, 
+				"10^(11-.4*m)",2) ;
+    fptr = &SNDATA.FLUXCAL_ERRTOT[EPMIN] ;
+    istat = wr_filtband_float ( fp, "FLUXCAL_ERRTOT:", NFILT_EP, fptr, 
+				blank, 3 ) ;
+
+    // write magnitudes
+
+    if ( SNDATA.WRFLAG_BLINDTEST ) goto END_OF_EPOCH ;
+
+    fprintf(fp," \n" );
+    fptr = &SNDATA.MAG[EPMIN] ;
+    istat = wr_filtband_float ( fp, "MAG:", NFILT_EP, fptr, " ", 4 ) ;
+    fptr = &SNDATA.MAG_ERRPLUS[EPMIN] ;
+    istat = wr_filtband_float ( fp, "MAG_ERRPLUS:", NFILT_EP, fptr, blank, 4 ) ;
+    fptr = &SNDATA.MAG_ERRMINUS[EPMIN] ;
+    istat = wr_filtband_float ( fp, "MAG_ERRMINUS:", NFILT_EP, fptr, blank, 4 ) ;
+
+    ctmp[0]=0;
+    // write zero points
+    fptr = &SNDATA.ZEROPT[EPMIN] ;
+    istat = wr_filtband_float ( fp, "ZEROPT:", NFILT_EP, fptr, ctmp, 4 ) ;
+    fptr = &SNDATA.ZEROPT_ERR[EPMIN] ;
+    istat = wr_filtband_float ( fp, "ZEROPT_ERR:", NFILT_EP, fptr, ctmp, 4 ) ;
+
+    // write subtraction error for sky & galaxy (SDSS data only)
+
+    FTMP = SNDATA.SKYSUB_ERR[EPMIN] ;
+    if ( FTMP != NULLFLOAT ) {
+      fptr = &SNDATA.SKYSUB_ERR[EPMIN] ;
+      istat = wr_filtband_float ( fp, "SKYSUB_ERR:", NFILT_EP, fptr,  
+				  "(fluxcal)", 3 ) ;
+    }
+
+    FTMP = SNDATA.SKYSUB_ERR[EPMIN] ;
+    if ( FTMP != NULLFLOAT ) {
+      fptr = &SNDATA.GALSUB_ERR[EPMIN] ;
+      istat = wr_filtband_float ( fp, "GALSUB_ERR:", NFILT_EP, fptr,  
+				  "(fluxcal)", 3 ) ;
+    }
+
+
+  // write SIMEPOCH_XXX variables if FAKE > 0
+    if ( LWRITE_SIMFLAG > 0  ) {
+      wr_SIMKCOR(fp,EPMIN,EPMAX);
+    }
+
+  END_OF_EPOCH:
+
+    fprintf(fp, "\n  END_OF_EPOCH: %d \n", inext );
+
+  } // end of  epoch" loop
+
+
+  fprintf(fp," \n  END_OF_SN: %d \n", cid );
+  
+  fclose ( fp );
+ 
+  return SUCCESS;
+
+} // end of wr_SNDATA
+
+
+
+
+// ***************************
+void wr_HOSTGAL(FILE *fp) {
+
+
+  // Dec 17 2012 - write HOSTGAL info to current ASCII data file (*fp)
+  // May 16,2013 - write no more than 10 per line to avoid lines that
+  //               are too long.
+  // Dec 18 2015 - write specz
+  // Nov 13 2019 - fix to work with NGAL>1
+
+  int ifilt, ifilt_obs, NTMP, igal, NGAL ;
+  char PREFIX[20] = "HOSTGAL";
+  char filtlist[MXFILTINDX], ctmp[100] ;
+  
+  // --------------- BEGIN --------------
+
+  
+  sprintf(filtlist,"%s", SNDATA_FILTER.LIST );
+
+  NGAL = SNDATA.HOSTGAL_NMATCH[0];
+  if ( NGAL > MXHOSTGAL ) { NGAL = MXHOSTGAL ; }
+
+  fprintf(fp, "%s_NMATCH:    %d  \n",  
+	  PREFIX, SNDATA.HOSTGAL_NMATCH[0] );
+  fprintf(fp, "%s_NMATCH2:   %d  \n",  
+	  PREFIX, SNDATA.HOSTGAL_NMATCH[1] );
+
+  for(igal=0; igal < NGAL; igal++ ) {
+
+    if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d", igal+1); }
+
+    fprintf(fp, "%s_OBJID:    %lld  \n",  
+	    PREFIX, SNDATA.HOSTGAL_OBJID[igal] );
+
+    fprintf(fp, "%s_PHOTOZ:   %6.4f  +- %6.4f \n", PREFIX,
+	    SNDATA.HOSTGAL_PHOTOZ[igal], 
+	    SNDATA.HOSTGAL_PHOTOZ_ERR[igal]);
+
+    fprintf(fp, "%s_SPECZ:    %6.4f  +- %6.4f \n", PREFIX,
+	  SNDATA.HOSTGAL_SPECZ[igal], SNDATA.HOSTGAL_SPECZ_ERR[igal] ); 
+  
+    fprintf(fp, "%s_RA:       %.6f    # deg \n", 
+	    PREFIX, SNDATA.HOSTGAL_RA[igal] );
+    fprintf(fp, "%s_DEC:      %.6f    # deg \n", 
+	    PREFIX, SNDATA.HOSTGAL_DEC[igal] );
+
+    fprintf(fp, "%s_SNSEP:    %6.3f    # arcsec \n", 
+	    PREFIX, SNDATA.HOSTGAL_SNSEP[igal] );
+    fprintf(fp, "%s_DDLR:     %6.3f    # SNSEP/DLR  \n", 
+	    PREFIX, SNDATA.HOSTGAL_DDLR[igal] );
+    
+    if ( igal==0 ) {
+      fprintf(fp, "HOSTGAL_CONFUSION:  %6.3f  \n", 
+	      SNDATA.HOSTGAL_CONFUSION );
+    }
+
+    if ( SNDATA.HOSTGAL_LOGMASS_OBS[igal] > 0.0 ) {
+      fprintf(fp, "%s_LOGMASS:  %6.3f +- %6.3f   # log10(Mgal/Msolar)\n", 
+	      PREFIX, 
+	      SNDATA.HOSTGAL_LOGMASS_OBS[igal], 
+	      SNDATA.HOSTGAL_LOGMASS_ERR[igal] );
+
+      fprintf(fp, "%s_sSFR:  %6.3e +- %6.3e  \n",
+	      PREFIX, 
+	      SNDATA.HOSTGAL_sSFR[igal], 
+	      SNDATA.HOSTGAL_sSFR_ERR[igal] );
+    }
+
+    // if MAGOBS has been read for any filter, then write MAGOBS
+    // for all filters.
+
+    if ( SNDATA.HOSTLIB_NFILT_MAGOBS > 0 ) {
+      fprintf(fp, "%s_MAG:    ", PREFIX ); NTMP=0;    
+      for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
+	fprintf(fp,"%6.2f ", SNDATA.HOSTGAL_MAG[igal][ifilt] );
+	NTMP++ ;
+	if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
+      }
+      fprintf(fp,"# %s\n", filtlist) ;
+    }
+
+    if ( SNDATA.HOSTLIB_NFILT_MAGOBS > 0 ) {
+      fprintf(fp, "%s_MAGERR: ", PREFIX ); NTMP=0;    
+      for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
+	fprintf(fp,"%6.2f ", SNDATA.HOSTGAL_MAGERR[igal][ifilt] );
+	NTMP++ ;
+	if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
+      }
+      fprintf(fp,"# %s\n", filtlist) ;
+    }
+    
+    fprintf(fp,"\n");
+
+  } // end igal loop
+
+  // ---------- surface brightness -----------
+
+  sprintf(ctmp,"%s/asec^2",filtlist );
+  if ( (SNDATA.HOSTGAL_USEMASK & 4) > 0 ) {
+    fprintf(fp,"HOSTGAL_SB_FLUXCAL:    " ); NTMP=0 ;
+    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+      fprintf(fp," %6.2f",SNDATA.HOSTGAL_SB_FLUX[ifilt] ) ;
+      NTMP++ ;
+      if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
+    }
+    fprintf(fp,"  # %s\n", ctmp );
+  }
+
+
+  if ( (SNDATA.HOSTGAL_USEMASK & 8) > 0 ) {
+    fprintf(fp,"HOSTGAL_SB_FLUXCAL_ERR:    " ); NTMP=0 ;
+    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+      ifilt_obs = SNDATA_FILTER.MAP[ifilt];
+      fprintf(fp," %6.2f",SNDATA.HOSTGAL_SB_FLUXERR[ifilt_obs] ) ;
+      NTMP++ ;
+      if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
+    }
+    fprintf(fp," # %s \n", ctmp );
+  }
+
+
+} // end of wr_HOSTGAL
+
+
+// ********************************
+void wr_SIMKCOR(FILE *fp, int EPMIN, int EPMAX) {
+
+  // Mar 2019: remove tabs
+  float *fptr ;
+  int i;
+  char tmpstring[80];
+  //  char fnam[] = "wr_SIMKCOR" ;
+
+  // -------------------- BEGIN ------------
+
+    fprintf(fp, "\n" );
+
+    fptr = &SNDATA.SIMEPOCH_TREST[EPMIN] ;
+    fprintf(fp,"   SIM_TREST:   %7.3f  rest-frame days \n", *fptr ) ;
+    fptr = &SNDATA.SIMEPOCH_TOBS[EPMAX] ;
+    fprintf(fp,"   SIM_TOBS:    %7.3f  obs-frame days \n",  *fptr ) ;
+
+    sprintf(tmpstring,"SIM_MAG:            ") ;
+    for ( i=EPMIN; i <= EPMAX; i++ ) {
+      sprintf(tmpstring,"%s %7.3f", 
+	      tmpstring, SNDATA.SIMEPOCH_MAG[i]);
+    }
+    fprintf(fp,"   %s \n", tmpstring);
+
+    // Jun 21, 2009: write model-mag error
+    sprintf(tmpstring,"SIM_MODELMAGERR:    ") ;
+    for ( i=EPMIN; i <= EPMAX; i++ ) {
+      sprintf(tmpstring,"%s %7.3f", 
+	      tmpstring, SNDATA.SIMEPOCH_MODELMAGERR[i]);
+    }
+    fprintf(fp,"   %s \n", tmpstring);
+
+    // Feb 2, 2009: write intrinsic mag-smearing 
+    sprintf(tmpstring,"SIM_MAGSMEAR:      ") ;
+    for ( i=EPMIN; i <= EPMAX; i++ ) {
+      sprintf(tmpstring,"%s %7.3f", tmpstring, 
+	      SNDATA.SIMEPOCH_MAGSMEAR[i]);
+    }
+    fprintf(fp,"   %s \n", tmpstring);
+
+
+    // skip K-cor stuff for observer-frame model
+    if ( VERSION_INFO.GENFRAME_SIM == 2 ) return ;
+
+    sprintf(tmpstring,"SIM_WARPCOL_SYMBOL: ") ;
+    for ( i=EPMIN; i <= EPMAX; i++ ) {
+      sprintf(tmpstring,"%s %7s", 
+	      tmpstring, SNDATA.SIMEPOCH_WARPCOLNAM[i]);
+    }
+    fprintf(fp,"   %s \n", tmpstring);
+
+
+    sprintf(tmpstring,"SIM_WARPCOL_VALUE:  ") ;
+    for ( i=EPMIN; i <= EPMAX; i++ ) {
+      sprintf(tmpstring,"%s %7.3f", 
+	      tmpstring, SNDATA.SIMEPOCH_WARPCOLVAL[i]);
+    }
+    fprintf(fp,"   %s \n", tmpstring);
+
+    sprintf(tmpstring,"SIM_AVWARP:         ") ;
+    for ( i=EPMIN; i <= EPMAX; i++ ) {
+      sprintf(tmpstring,"%s %7.3f", 
+	      tmpstring, SNDATA.SIMEPOCH_AVWARP[i]);
+    }
+    fprintf(fp,"   %s \n", tmpstring);
+
+
+    sprintf(tmpstring,"SIM_KCOR_SYMBOL:    ") ;
+    for ( i=EPMIN; i <= EPMAX; i++ ) {
+      sprintf(tmpstring,"%s %7s", 
+	      tmpstring, SNDATA.SIMEPOCH_KCORNAM[i]);
+    }
+    fprintf(fp,"   %s \n", tmpstring);
+
+
+    sprintf(tmpstring,"SIM_KCOR_VALUE:     ") ;
+    for ( i=EPMIN; i <= EPMAX; i++ ) {
+      sprintf(tmpstring,"%s %7.3f", tmpstring, 
+	      SNDATA.SIMEPOCH_KCORVAL[i]);
+    }
+    fprintf(fp,"   %s \n", tmpstring);
+
+
+}  // end of wr_SNDATA
+
+
+// ****************************************************
+int WRSTAT ( int wrflag, float value ) {
+  // return 1 to write; 0 to suppress write
+  int istat, OVP ;
+  // ---------- BEGIN ----------
+  istat = 0 ;
+
+  OVP = (wrflag & WRITE_MASK_LCMERGE) ;
+  if ( OVP > 0 ) { istat = 1; }
+
+  OVP = (wrflag & WRITE_MASK_SIM_SNANA) ;
+  if ( OVP > 0 &&  value != NULLFLOAT ) { istat = 1; }
+  return istat ;
 }
-
 
 
 // **********************************
-double dVdz 
-( 
-  double H0    // (I) km/s per MPc
- ,double OM    // (I) Omega_matter
- ,double OL    // (I) Omega_lamba
- ,double W    //  (I) w = rho/p
- ,double Z    //  (I) redshift
- ) {
+int header_merge(FILE *fp, char *auxheader_file) {
 
-  // returns dV/dz = r(z)^2 / H(z)
+  // Jun 19, 2009
+  // Merge contents of auxheader_file into existing file with
+  // pointer fp
 
-  double r, H, tmp ;
-  double zero = 0.0;
+  FILE *fp_aux;
+  char cline[MXPATHLEN];
 
-  r = Hzinv_integral ( H0, OM, OL, W, zero, Z );
-  H = Hzfun ( H0, OM, OL, W, Z );
+  // -------- BEGIN -----------
 
-  tmp = LIGHT_km * r * r / H ;
+  if ( (fp_aux = fopen(auxheader_file, "rt"))==NULL ) return SUCCESS ;
 
-  return tmp;
+  while( (fgets(cline, 100, fp_aux)) != NULL) 
+    { fprintf(fp,"%s", cline ); }
+  
+  fprintf(fp,"\n");
 
-}  // end of dVdz
+  fclose(fp_aux);
+  return SUCCESS ;
 
-
-// ******************************************
-double Hzinv_integral 
-( 
- double H0     // (I) km/s per MPc
- ,double OM     // (I) Omega_matter
- ,double OL     // (I) Omega_lamba
- ,double W      //  (I) w = rho/p
- ,double Zmin   //  (I) min integ bin
- ,double Zmax   //  (I) integrate up to this redshift
- ) {
-
-  // 
-  // Jun 2016: bug fix, (float)NZbin -> (double)NZbin
-
-  int iz, NZbin ;
-  double dz, Hz, xz, Ztmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
-
-  // ------ return integral c*r(z) = int c*dz/H(z) -------------
-  // Note that D_L = (1+z)*Hzinv_integral
-
-  sum = 0.0;
-
-  NZbin = (int)( (Zmax-Zmin) * 1000.0 ) ;
-  if ( NZbin < 10 ) { NZbin = 10 ; }
-  dz  = (Zmax-Zmin) / (double)NZbin ;      // integration binsize
-
-  for ( iz=1; iz <= NZbin; iz++ ) {
-    xz   = (double)iz ;
-    Ztmp = Zmin + dz * (xz - 0.5) ;
-    Hz   = Hzfun ( H0, OM, OL, W, Ztmp );
-    sum += (1.0/Hz) ;
-  }
-
-  // remove H0 factor from inetgral before checking curvature.
-
-  sum *= (dz * H0) ;
-
-  // check for curvature
-  KAPPA      = 1.0 - OM - OL ; 
-  SQRT_KAPPA = sqrt(fabs(KAPPA));
-
-  if ( KAPPA < -0.00001 ) 
-    { Hzinv = sin( SQRT_KAPPA * sum ) / SQRT_KAPPA ; }
-  else if ( KAPPA > 0.00001 ) 
-    { Hzinv = sinh( SQRT_KAPPA * sum ) / SQRT_KAPPA ; }
-  else
-    { Hzinv = sum ; }
-
-
-  // return Hzinv with c/H0 factor
-  return (Hzinv * LIGHT_km / H0 ) ;
-
-} // end of Hzinv_integral
-
-
-// ******************************************
-double Hainv_integral 
-( 
- double H0     // (I) km/s per MPc
- ,double OM     // (I) Omega_matter
- ,double OL     // (I) Omega_lamba
- ,double W      //  (I) w = rho/p
- ,double amin   //  (I) min integ bin
- ,double amax   //  (I) integrate up to this redshift
- ) {
-
-  // May 29, 2008: same as Hzinv_integral, but integrate over a
-  // instead of over z.
-  // dz/E(z) :  z=1/a-1   dz = -da/a^2
-
-  int ia, Nabin ;
-  double da, Hz, xa, atmp, Ztmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
-
-  // ------ return integral c*r(z) = int c*dz/H(z) -------------
-  // Note that D_L = (1+z)*Hzinv_integral
-
-  sum = 0.0;
-
-  Nabin = (int)( (amax-amin) * 1000.0 ) ;
-  if ( Nabin < 10 ) { Nabin = 10 ; }
-  da   = (amax-amin) / (double)Nabin ;   // integration binsize
-
-  for ( ia=1; ia <= Nabin; ia++ ) {
-    xa   = (double)ia ;
-    atmp = amin + da * (xa - 0.5) ;
-    Ztmp = 1./atmp - 1.0 ;
-    Hz   = Hzfun ( H0, OM, OL, W, Ztmp );
-    sum += 1.0/( Hz * atmp * atmp) ;
-  }
-
-  // remove H0 factor from inetgral before checking curvature.
-
-  sum *= (da * H0) ;
-
-  // check for curvature
-  KAPPA      = 1.0 - OM - OL ; 
-  SQRT_KAPPA = sqrt(fabs(KAPPA));
-
-  if ( KAPPA < -0.00001 ) 
-    { Hzinv = sin( SQRT_KAPPA * sum ) / SQRT_KAPPA ; }
-  else if ( KAPPA > 0.00001 ) 
-    { Hzinv = sinh( SQRT_KAPPA * sum ) / SQRT_KAPPA ; }
-  else
-    { Hzinv = sum ; }
-
-
-  // return Hzinv with c/H0 factor
-  return (Hzinv * LIGHT_km / H0 ) ;
-
-} // end of Hainv_integral
-
-
-// ******************************************
-double Hzfun ( double H0, double OM, double OL, double W, double Z ) {
-
-  //  int iz, NZbin ;
-  double sqHz, Hz, ZZ, Z2, Z3, ZL, WW, KAPPA ;
-
-  // ------ returns H(z) -------------
-
-  KAPPA = 1.0 - OM - OL ;  // curvature
-
-  ZZ  = 1.0 + Z ;
-  Z2  = ZZ * ZZ ;  // avoid pow fun
-  Z3  = Z2 * ZZ ; 
-
-  WW  = 3.0 * (1.0 + W) ;
-  ZL  = pow(ZZ,WW) ;
-
-  sqHz = OM*Z3  +  OL*ZL  + KAPPA*Z2 ;
-
-  Hz = H0 * sqrt ( sqHz ) ;
-
-  return Hz ;
-
-} // end of Hzfun
-
-
-// ******************************************
-double dLmag ( double H0, double OM, double OL, double W, 
-	       double zCMB, double zHEL ) {
-
-  // returns luminosity distance in mags:
-  //   dLmag = 5 * log10(DL/10pc)
-  //
-  // BEWARE that input H0 is 1/seconds (not km/s/Mpc!)
-  // Jan 5 2015: pass zCMB and zHEL
-  //
-  double rz, dl, arg, mu ;
-  double zero = 0.0 ;
-  // ----------- BEGIN -----------
-  rz     = Hzinv_integral ( H0, OM, OL, W, zero, zCMB );
-  dl     = ( 1.0 + zHEL ) * rz ;
-  arg    = (double)10.0 * PC_km / dl ;
-  mu     = -5.0 * log10( arg );
-  return mu ;
-}  // end of dLmag
-
-double zcmb_dLmag_invert( double H0, double OM, double OL, double W, double MU ) {
-
-  // Created Jan 4 2018
-  // for input distance modulus (MU), solve for zCMB.
-  // Beware that H0 unit is km/s/pc (not per Mpc)
-
-  double zCMB, zCMB_start, dmu, DMU, mutmp, DL ;
-  double DMU_CONVERGE = 1.0E-4 ;
-  int    NITER=0;
-  char fnam[] = "zcmb_dLmag_invert" ;
-
-  // ---------- BEGIN ----------
-
-  // use naive Hubble law to estimate zCMB_start
-  DL    = pow( 10.0,(MU/5.0) ) * 1.0E-5 ; // Mpc
-  zCMB_start = (70.0*DL)/LIGHT_km ;
-  zCMB_start *= exp(-zCMB_start/6.0); // very ad-hoc estimate
-
-  zCMB = zCMB_start ;
-  DMU = 9999.0 ;
-  while ( DMU > DMU_CONVERGE ) {
-    mutmp  = dLmag(H0,OM,OL,W, zCMB, zCMB); // MU for trial zCMB
-    dmu    = mutmp - MU ;             // error on mu
-    DMU    = fabs(dmu);
-    zCMB  *= exp(-dmu/2.0); 
-
-    NITER++ ;
-    if ( NITER > 500 ) {
-      sprintf(c1err,"Could not solve for zCMB after NITER=%d", NITER);
-      sprintf(c2err,"MU=%f  dmu=%f  ztmp=%f", MU, dmu, zCMB);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-    }
-  } // end dz                                                                   
-
-  int LDMP=0 ;
-  if ( LDMP ) {
-    printf(" xxx --------------------------------------------- \n");
-    printf(" xxx MU=%.4f -> DL = %.2f Mpc  zCMB(start) = %.5f \n",
-	   MU, DL, zCMB_start );
-    printf(" xxx zCMB -> %.5f  DMU=%f after %d iterations \n",
-	   zCMB, DMU, NITER);
-  }
-
-  return(zCMB);
-
-} // end zcmb_dLmag_invert
-
-
-// ************************************************
-double zhelio_zcmb_translator (double z_input, double RA, double DEC, 
-			       char *coordSys, int OPT ) {
-
-  /**********************
-   Created Dec 2013 by R.Kessler
-   General redshift-translator function to between helio and cmb frame.
-   [replaces Z2CMB that translated only in 1 direction]
-
-   OPT > 0  -> z_input = z_helio, return z_out = zcmb
-   OPT < 0  -> z_input = z_cmb,   return z_out = zhelio
-   RA,DEC   = sky coordinates
-   coordSys = coordinate system; e.g., 'eq' or 'gal' or 'J2000'
-
-
-   l = longitude = RA (deg)
-   b = lattitue  = DEC  (deg)
-
-   Use exact formuala,
-   
-    1 + z_cmb = ( 1 + z_helio ) / ( 1 - V0 . nhat/c )
-
-   where V0 is the CMB velocity vector, 
-   nhat is the unit vector between us and the SN,
-   and c = 3E5 km/s.
-
-   Note that the NED-calculator used in JRK07 is 
-   an approximation, z_cmb = z_helio + V0.nhat/c,
-   that is OK when z_helio << 1.
-
- ****************/
-
-  double 
-     ra_gal, dec_gal
-    ,ss, ccc, c1, c2, c3, vdotn, z_out
-    ;
-
-  char fnam[] = "zhelio_zcmb_translator" ;
-
-  // --------------- BEGIN ------------
-
-  // on negative redshift, just return input redshift with
-  // no calculation. Allows flags such as -9 to be unperturbed.
-  if ( z_input < 1.0E-10 ) { return z_input ; }
-
-  if ( strcmp(coordSys,"eq"   ) == 0 || 
-       strcmp(coordSys,"J2000") == 0 ) {
-
-    // input and output in degrees
-    slaEqgal( RA, DEC, &ra_gal, &dec_gal ) ;
-  }
-  else if ( strcmp(coordSys,"gal") == 0 ) {
-    ra_gal  = RA ;
-    dec_gal = DEC ;
-  }
-  else {
-    sprintf(c1err,"Invalid coordSys = '%s' ", coordSys );
-    sprintf(c2err,"OPT=%d z_in=%f RA=%f DEC=%f", OPT, z_input, RA, DEC);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-  }
-
-  // get projection
-
-  ss  = sin(RADIAN*dec_gal) * sin(RADIAN*CMBapex_b);
-  c1  = cos(RADIAN*dec_gal) ;
-  c2  = cos(RADIAN*CMBapex_b) ;
-  c3  = cos(RADIAN*(ra_gal-CMBapex_l));
-  ccc = c1 * c2 * c3 ;
-  vdotn = CMBapex_v * ( ss + ccc ) / LIGHT_km ;
-
-  z_out = -9.0 ;
-
-  if ( OPT > 0 ) {
-    z_out  = ( 1. + z_input ) / ( 1. - vdotn ) - 1. ; 
-  }
-  else if ( OPT < 0 )  {
-    z_out  = ( 1. + z_input) * ( 1. - vdotn ) - 1.0 ;  
-  }
-  else if ( OPT == 0 ) {
-    sprintf(c1err,"Invalid OPT=0" );
-    sprintf(c2err,"z_input=%f  RA=%f  DEC=%f", z_input,RA,DEC);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-   
-  return(z_out) ;
-
-
-} // end of zhelio_zcmb_translator 
-
-
-double zhelio_zcmb_translator__ (double *z_input, double *RA, double *DEC,
-                                 char *coordSys, int *OPT ) {
-  return zhelio_zcmb_translator(*z_input, *RA, *DEC, coordSys, *OPT) ;
-}
-
-
-// Altered from the fortran SLALIB by David Cinabro, June 2006.
-// Translates equatorial coordinats (RA,DEC) to galactic
-// longitude and latitude.  All in degrees and double precision.
-// All the subroutines needed are included below.
-// Usage: 
-//    slaEqgal ( double RA, double DEC, double *GalLat, double *GalLong );
-
-void slaEqgal ( double dr, double dd, double *dl, double *db )
-/*
-**  - - - - - - - - -
-**   s l a E q g a l
-**  - - - - - - - - -
-**
-**  Transformation from J2000.0 equatorial coordinates to
-**  IAU 1958 Galactic coordinates.
-**
-**  (double precision)
-**
-**  Given:
-**     dr,dd       double       J2000.0 RA,Dec
-**
-**  Returned:
-**     *dl,*db     double       Galactic longitude and latitude l2,b2
-**
-**  (all arguments were radians, but translation from and to degrees done below)
-**
-**  Called:
-**     slaDcs2c, slaDmxv, slaDcc2s, slaDranrm, slaDrange
-**
-**  Note:
-**     The equatorial coordinates are J2000.0.  Use the routine
-**     slaEg50 if conversion from B1950.0 'FK4' coordinates is
-**     required.
-**
-**  Reference:
-**     Blaauw et al, Mon.Not.R.astron.Soc.,121,123 (1960)
-**
-**  Last revision:   21 September 1998
-**
-**  Copyright P.T.Wallace.  All rights reserved.
-*/
-{
-   double v1[3], v2[3];
-   double drr, ddr;
-   double DPI = 3.1415926535897932384626433832795028841971693993751;
-
-/*
-**  l2,b2 system of Galactic coordinates
-**
-**  p = 192.25       RA of Galactic north pole (mean B1950.0)
-**  q =  62.6        inclination of Galactic to mean B1950.0 equator
-**  r =  33          longitude of ascending node
-**
-**  p,q,r are degrees
-**
-**  Equatorial to Galactic rotation matrix (J2000.0), obtained by
-**  applying the standard FK4 to FK5 transformation, for zero proper
-**  motion in FK5, to the columns of the B1950 equatorial to
-**  Galactic rotation matrix:
-*/
-   static double rmat[3][3];
-
-   rmat[0][0] = -0.054875539726;
-   rmat[0][1] = -0.873437108010;
-   rmat[0][2] = -0.483834985808;
-   rmat[1][0] =  0.494109453312;
-   rmat[1][1] = -0.444829589425;
-   rmat[1][2] =  0.746982251810;
-   rmat[2][0] = -0.867666135858;
-   rmat[2][1] = -0.198076386122;
-   rmat[2][2] =  0.455983795705;
-
-   // Translate to radians
-   drr = dr*DPI/180.0;
-   ddr = dd*DPI/180.0;
-
-/* Spherical to Cartesian */
-   slaDcs2c ( drr, ddr, v1 );
-
-/* Equatorial to Galactic */
-   slaDmxv ( rmat, v1, v2 );
-
-/* Cartesian to spherical */
-   slaDcc2s ( v2, dl, db );
-
-/* Express in conventional ranges */
-   *dl = slaDranrm ( *dl );
-   *db = slaDrange ( *db );
-   // Translate back to degrees
-   *dl = *dl*180.0/DPI;
-   *db = *db*180.0/DPI;
-}
-
-void slaDcs2c ( double a, double b, double v[3] )
-/*
-**  - - - - - - - - -
-**   s l a D c s 2 c
-**  - - - - - - - - -
-**
-**  Spherical coordinates to direction cosines (double precision)
-**
-**  Given:
-**     a,b       double      spherical coordinates in radians
-**                           (RA,Dec), (long,lat) etc
-**
-**  Returned:
-**     v         double[3]   x,y,z unit vector
-**
-**  The spherical coordinates are longitude (+ve anticlockwise looking
-**  from the +ve latitude pole) and latitude.  The Cartesian coordinates
-**  are right handed, with the x axis at zero longitude and latitude,
-**  and the z axis at the +ve latitude pole.
-**
-**  Last revision:   22 July 2004
-**
-**  Copyright P.T.Wallace.  All rights reserved.
-*/
-{
-   double cosb;
-
-   cosb = cos ( b );
-   v[0] = cos ( a ) * cosb;
-   v[1] = sin ( a ) * cosb;
-   v[2] = sin ( b );
-}
-
-void slaDmxv ( double dm[3][3], double va[3], double vb[3] )
-/*
-**  - - - - - - - -
-**   s l a D m x v
-**  - - - - - - - -
-**
-**  Performs the 3-d forward unitary transformation:
-**     vector vb = matrix dm * vector va
-**
-**  (double precision)
-**
-**  Given:
-**     dm       double[3][3]    matrix
-**     va       double[3]       vector
-**
-**  Returned:
-**     vb       double[3]       result vector
-**
-**  Note:  va and vb may be the same array.
-**
-**  Last revision:   22 July 2004
-**
-**  Copyright P.T.Wallace.  All rights reserved.
-*/
-{
-   int i, j;
-   double w, vw[3];
-
-
-/* Matrix dm * vector va -> vector vw. */
-   for ( j = 0; j < 3; j++ ) {
-      w = 0.0;
-      for ( i = 0; i < 3; i++ ) {
-         w += dm[j][i] * va[i];
-      }
-      vw[j] = w;
-   }
-
-/* Vector vw -> vector vb. */
-   for ( j = 0; j < 3; j++ ) {
-      vb[j] = vw[j];
-   }
-}
-
-void slaDcc2s ( double v[3], double *a, double *b )
-/*
-**  - - - - - - - - -
-**   s l a D c c 2 s
-**  - - - - - - - - -
-**
-**  Cartesian to spherical coordinates.
-**
-**  (double precision)
-**
-**  Given:
-**     v       double[3]   x,y,z vector
-**
-**  Returned:
-**     *a,*b   double      spherical coordinates in radians
-**
-**  The spherical coordinates are longitude (+ve anticlockwise looking
-**  from the +ve latitude pole) and latitude.  The Cartesian coordinates
-**  are right handed, with the x axis at zero longitude and latitude,
-**  and the z axis at the +ve latitude pole.
-**
-**  If v is null, zero a and b are returned.  At either pole, zero a is
-**  returned.
-**
-**  Last revision:   22 July 2004
-**
-**  Copyright P.T.Wallace.  All rights reserved.
-*/
-{
-   double x, y, z, r;
-
-   x = v[0];
-   y = v[1];
-   z = v[2];
-   r = sqrt ( x * x + y * y );
-
-   *a = ( r != 0.0 ) ? atan2 ( y, x ) : 0.0;
-   *b = ( z != 0.0 ) ? atan2 ( z, r ) : 0.0;
-}
-
-double slaDranrm ( double angle )
-/*
-**  - - - - - - - - - -
-**   s l a D r a n r m
-**  - - - - - - - - - -
-**
-**  Normalize angle into range 0-2 pi.
-**
-**  (double precision)
-**
-**  Given:
-**     angle     double      the angle in radians
-**
-**  The result is angle expressed in the range 0-2 pi (double).
-**
-**  Defined in slamac.h:  D2PI, dmod
-**
-**  Last revision:   19 March 1996
-**
-**  Copyright P.T.Wallace.  All rights reserved.
-*/
-{
-   double w;
-   double D2PI = 6.2831853071795864769252867665590057683943387987502;
-/* dmod(A,B) - A modulo B (double) */
-#define dmod(A,B) ((B)!=0.0?((A)*(B)>0.0?(A)-(B)*floor((A)/(B))\
-                                        :(A)+(B)*floor(-(A)/(B))):(A))
-
-   w = dmod ( angle, D2PI );
-   return ( w >= 0.0 ) ? w : w + D2PI;
-}
-
-double slaDrange ( double angle )
-/*
-**  - - - - - - - - - -
-**   s l a D r a n g e
-**  - - - - - - - - - -
-**
-**  Normalize angle into range +/- pi.
-**
-**  (double precision)
-**
-**  Given:
-**     angle     double      the angle in radians
-**
-**  The result is angle expressed in the range +/- pi.
-**
-**  Defined in slamac.h:  DPI, D2PI, dmod
-**
-**  Last revision:   22 July 2004
-**
-**  Copyright P.T.Wallace.  All rights reserved.
-*/
-{
-  double w;
-  double DPI = 3.1415926535897932384626433832795028841971693993751;
-  double D2PI = 6.2831853071795864769252867665590057683943387987502;
-/* dmod(A,B) - A modulo B (double) */
-#define dmod(A,B) ((B)!=0.0?((A)*(B)>0.0?(A)-(B)*floor((A)/(B))\
-                                        :(A)+(B)*floor(-(A)/(B))):(A))
-/* dsign(A,B) - magnitude of A with sign of B (double) */
-#define dsign(A,B) ((B)<0.0?-(A):(A))
-
-  w = dmod ( angle, D2PI );
-  return ( fabs ( w ) < DPI ) ? w : w - dsign ( D2PI, angle );
-}
-
-#endif
+} // end of header_merge

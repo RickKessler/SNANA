@@ -152,8 +152,11 @@ struct SNDATA {
   int   FAKE ;            // 1=FAKE, 0=DATA
   int   NEPOCH;           // total NEPOCH including peak and unused filters
   int   NOBS ;            // total Num of observations (<= NEPOCH)
-  int   WRFLAG_BLINDTEST ; 
-  
+
+  bool  WRFLAG_BLINDTEST ;  
+  bool  WRFLAG_PHOTPROB ;
+  bool  WRFLAG_SKYSIG_T ;
+
   int   SUBSAMPLE_INDEX ; // if user-input NSUBSAMPLE_MARK > 0
   int   MASK_FLUXCOR;     // indicates SNANA fudges applied to flux[err]
 
@@ -172,7 +175,6 @@ struct SNDATA {
   int   CCDNUM[MXEPOCH] ;
 
   bool   OBSFLAG_WRITE[MXEPOCH];
-  // xxx mark dele int USE_EPOCH[MXEPOCH];      // SNDATA.NOBS = sum of these
   double MJD[MXEPOCH];            // MJD for each epoch
 
   char  MAGTYPE[20];   // LOG10 or ASINH
@@ -222,7 +224,7 @@ struct SNDATA {
   float GALSUB_ERR[MXEPOCH] ;     // gal-subtraction error
   int   NPRESN[MXFILTINDX] ;      // number of pre-SN epochs
 
-  int   OPT_ZEROPT_SIG;                  // determines trun or srun zptsig
+  int   OPT_ZEROPT_SIG;          // determines trun or srun zptsig
   int    PHOTFLAG[MXEPOCH] ;     // photometry flags (0 => OK)
   float  PHOTPROB[MXEPOCH];      // fit-prob or FoM per epoch
  

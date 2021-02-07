@@ -46,7 +46,7 @@
 
 #include "fitsio.h"
 #include "sntools.h"
-#include "sntools_fitsio.h"
+#include "sntools_dataformat_fits.h"
 #include "sntools_host.h" 
 #include "sntools_trigger.h" 
 #include "sntools_spectrograph.h"
@@ -1111,7 +1111,7 @@ void WR_SNFITSIO_UPDATE(void) {
 
 
   // start by filling end-of-event marker
-  ep                        = SNDATA.NEPOCH+1; // artificial epoch
+  ep                        = SNDATA.NEPOCH+1; // artificial epoch for EOE
   SNDATA.OBSFLAG_WRITE[ep]  = true ;
   SNDATA.MJD[ep]            = SNFITSIO_EOE_MARKER ;
   SNDATA.FLUXCAL[ep]        = SNFITSIO_EOE_MARKER ;
@@ -1121,8 +1121,6 @@ void WR_SNFITSIO_UPDATE(void) {
   sprintf(SNDATA.TELESCOPE[ep], "%s", "XXXX" ) ;
 
   // loop over epochs and fill fits table.
-
-
   NUSE_EPOCH = 0;
   for ( ep = 1; ep <= SNDATA.NEPOCH+1; ep++ ) {
 

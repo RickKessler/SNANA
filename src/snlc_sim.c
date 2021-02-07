@@ -40,7 +40,7 @@
 #include "sntools_fluxErrModels.h"
 #include "sntools_fluxErrModels_legacy.h"
 #include "sntools_genSmear.h"
-#include "sntools_fitsio.h"
+#include "sntools_dataformat_fits.h"
 #include "sntools_kcor.h"
 #include "sntools_trigger.h" 
 #include "sntools_grid.h"
@@ -549,7 +549,6 @@ void get_user_input(void) {
 
   Jul 20 2020: 
      + check a few command-line args before reading any files.
-     + check OPT_DEVEL_READ_INPUT
 
   ***********/
   int i, ifile ;
@@ -619,6 +618,7 @@ void set_user_defaults(void) {
 
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
+  INPUTS.OPT_DEVEL_WRITE_TEXT = 0 ;
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
 
@@ -1419,14 +1419,10 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "USE_KCOR_REFACTOR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_KCOR_REFACTOR ) ; 
   }
-  /* xxx mark delete  Feb 2021 xxxxxxxxxxx
-  else if ( keyMatchSim(1, "OPT_DEVEL_READ_GENPOLY", WORDS[0], keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_READ_GENPOLY ) ; 
+
+  else if ( keyMatchSim(1, "OPT_DEVEL_WRITE_TEXT", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_WRITE_TEXT ) ; 
   }
-  else if ( keyMatchSim(1, "OPT_DEVEL_SIMSED_GRIDONLY", WORDS[0],keySource)) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.OPT_DEVEL_SIMSED_GRIDONLY ) ; 
-  }
-  xxxxxxxxx */
 
   else if ( keyMatchSim(1, "TRACE_MAIN", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.TRACE_MAIN ) ; 
@@ -4665,6 +4661,7 @@ void prep_user_input(void) {
   Dec 01 2019: allow COH scatter gmodel for NON1ASED and SIMSED models.
   Feb 06 2020: set DO_AV for GRIDGEN
   Oct 16 2020: call prep_user_cosmology()
+  Feb 21 2021: abort on FORMAT_MASK +=1, or legacy VERBOSE 
 
   *******************/
 
@@ -5327,11 +5324,18 @@ void prep_user_input(void) {
   // abort if no valid format is given
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENRANDOM  && 
        DOCHECK_FORMAT_MASK  ) {
-    if (WRFLAG_VBOSE==0 && WRFLAG_TEXT==0 && WRFLAG_FITS==0 ) {
-      sprintf(c1err,"Invalid FORMAT_MASK=%d. Must specify ", 
+
+    if ( WRFLAG_VBOSE ) {
+      sprintf(c1err,"No longer support FORMAT_MASK += 1 (legacy VERBOSE)");
+      sprintf(c2err,"Check manual for valid FORMAT_MASK");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
+    if ( !WRFLAG_TEXT  && !WRFLAG_FITS  ) {
+      sprintf(c1err,"Invalid FORMAT_MASK=%d. Check manual. ", 
 	      INPUTS.FORMAT_MASK) ;
-      sprintf(c2err,"TEXT (%d)  or FITS (%d)", 
-	      WRMASK_TEXT, WRMASK_FITS);
+      sprintf(c2err,"Must specify TEXT (%d)  or FITS (%d)", 
+	      WRMASK_TEXT, WRMASK_FITS );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
   }
@@ -7071,7 +7075,6 @@ void  init_GENLC(void) {
   GENLC.CUTBIT_MASK    = 0 ;
 
   GENLC.NOBS           = 0 ;
-  GENLC.NOBS_REMOVE    = 0 ;
   GENLC.NOBS_UNDEFINED = 0 ;
   GENLC.NOBS_SATURATE[0]  = 0 ; // NOBS NOT saturated
   GENLC.NOBS_SATURATE[1]  = 0 ; // NOBS saturated
@@ -12563,8 +12566,6 @@ double genz_hubble ( double zmin, double zmax, RATEPAR_DEF *RATEPAR ) {
 
  Nov 24 2019: if zmin == zmax, return immediately
 
- Sep 30 2020: check OPT_DEVEL_READ_GENPOLY to use eval_GENPOLY().
-
   *****************/
 
   double z, zran, z_atmax, dz, w, wgt, wran1 ; // xxx H0, OM, OL, W0, 
@@ -12773,12 +12774,6 @@ void  init_RATEPAR ( RATEPAR_DEF *RATEPAR ) {
 
   // init REWGT to 1.000
   parse_GENPOLY("1", "DNDZ_ZPOLY_REWGT", &RATEPAR->DNDZ_ZPOLY_REWGT, fnam);
-
-  /* xxx
-  // xxx mark delete when OPT_DEVEL_READ_GENPOLY=1 by default
-  RATEPAR->DNDZ_ZPOLY_REWGT_LEGACY[0] = 1.0 ;
-  for(i=1; i<4; i++ ) { RATEPAR->DNDZ_ZPOLY_REWGT_LEGACY[i] = 0.0 ;  }
-  xxx */
 
   sprintf(RATEPAR->NAME, "NONE"); 
   RATEPAR->NMODEL_ZRANGE  = 0 ;
@@ -16642,7 +16637,6 @@ int SKIP_SIMLIB_FIELD(char *field) {
     return 1 ;    // field not specified -> skip
   }
 
-  //        .xyz
   // if we get here, check prescale.
   // Make sure to pick iTEST that is the same for all epochs.
   // Here we pick LIBID and add NWRAP so that each wrap-around
@@ -20014,7 +20008,9 @@ void snlc_to_SNDATA(int FLAG) {
 
   // do smearing up front to see what's going on.
  
-  SNDATA.WRFLAG_BLINDTEST = WRFLAG_BLINDTEST;
+  SNDATA.WRFLAG_BLINDTEST = (WRFLAG_BLINDTEST>0) ;
+  SNDATA.WRFLAG_PHOTPROB  = INPUTS_SEARCHEFF.NMAP_PHOTPROB > 0 ;
+  SNDATA.WRFLAG_SKYSIG_T  = SIMLIB_TEMPLATE.USEFLAG;
 
   if ( GENLC.NEPOCH >= MXEPOCH ) {
     print_preAbort_banner(fnam);
@@ -26541,6 +26537,8 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // Feb 12, 2014: always call snlc_to_SNDATA(1) instead of only
   //               for FITS format.
   //
+  // Feb 06, 2021: Remove .IGNORE file (no longer required)
+  //
 
   int i, isys ;
   char headFile[MXPATHLEN];
@@ -26576,7 +26574,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // mandatory
   sprintf(SIMFILE_AUX->LIST,       "%s.LIST",        prefix );
   sprintf(SIMFILE_AUX->README,     "%s.README",      prefix );
-  sprintf(SIMFILE_AUX->IGNORE,     "%s.IGNORE",      prefix );
+  // xxx  sprintf(SIMFILE_AUX->IGNORE,     "%s.IGNORE",      prefix );
 
 
   // optional
@@ -26592,9 +26590,11 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // create mandatory files.
   SIMFILE_AUX->FP_LIST   = fopen(SIMFILE_AUX->LIST,   "wt") ;  
   SIMFILE_AUX->FP_README = fopen(SIMFILE_AUX->README, "wt") ;  
+
+  /* xxxxxxxx mark delete Feb 2021 xxxxxxx
   SIMFILE_AUX->FP_IGNORE = fopen(SIMFILE_AUX->IGNORE, "wt") ;   
   fclose(SIMFILE_AUX->FP_IGNORE);
-
+  xxxxxxxxx */
 
   // dump out the README file
   for ( i = 1; i <= VERSION_INFO.NLINE_README_INIT; i++ )
@@ -26618,11 +26618,11 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   if ( WRFLAG_FITS ) { 
 
     // abort of any text-option is defined along with fits format
-    if ( WRFLAG_TEXT || WRFLAG_VBOSE ) {
+    if ( WRFLAG_TEXT  ) {
       sprintf(c1err, "Cannot mix TEXT and FITS format ; FORMAT_MASK=%d",
 	      INPUTS.FORMAT_MASK );
-      sprintf(c2err,"WRFLAG[TEXT,VBOSE,FITS] = %d, %d, %d",
-	      WRFLAG_TEXT, WRFLAG_VBOSE, WRFLAG_FITS );
+      sprintf(c2err,"WRFLAG[TEXT,FITS] = %d, %d",
+	      WRFLAG_TEXT, WRFLAG_FITS );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
@@ -26655,7 +26655,9 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   //  + call wr_SIMGEN_DUMP after snlc_to_SNDATA to allow for
   //    things like PEAKMJD_SMEAR
 
-  int  NEWMJD, CID    ;
+  int  LEGACY_WRITE_TEXT = !INPUTS.OPT_DEVEL_WRITE_TEXT;
+
+  int  CID    ;
   char fnam[] = "update_simFiles";
 
   // ------------ BEGIN -------------
@@ -26695,20 +26697,20 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
     return ;
   }
 
+
+  if ( INPUTS.OPT_DEVEL_WRITE_TEXT ) 
+    {  WR_DATAFILE_TEXT(); }
+
   // below are the text-output options
 
-  NEWMJD = SNDATA.NEWMJD ; // save NEWMJD value
+  if ( LEGACY_WRITE_TEXT ) {
+    int NEWMJD ;
+    NEWMJD = SNDATA.NEWMJD ; // save NEWMJD value
+    SNDATA.NEWMJD = 0; 
+    // alawys write header, and write NEWMJD epochs if verbose format 
+    wr_SNDATA ( INPUTS.WRITE_MASK, 0 );
+    SNDATA.NEWMJD = NEWMJD ;   // restore NEWMJD
 
-  // check option to suppress verbose output
-  if ( WRFLAG_VBOSE == 0 ) { SNDATA.NEWMJD = 0; }
-      
-  // alawys write header, and write NEWMJD epochs if verbose format 
-  wr_SNDATA ( INPUTS.WRITE_MASK, 0 );
-
-  SNDATA.NEWMJD = NEWMJD ;   // restore NEWMJD
-
-  // check option to append TERSE output at end of SNDATA file
-  if ( WRFLAG_TEXT > 0 ) { 
     append_SNPHOT_TEXT() ; 
     append_SNSPEC_TEXT() ;   // July 2016
   }
@@ -26718,7 +26720,7 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   return ;
 
-} // end of upd_simFiles
+} // end of update_simFiles
 
 
 // ***********************************
@@ -26963,7 +26965,7 @@ void append_SNPHOT_TEXT(void) {
     
   fprintf(fp,"\n\n# ============================================ \n");
   fprintf(fp,"# TERSE LIGHT CURVE OUTPUT: \n#\n");
-  fprintf(fp,"NOBS: %d \n", GENLC.NOBS - GENLC.NOBS_REMOVE );
+  fprintf(fp,"NOBS: %d \n", GENLC.NOBS  );
   fprintf(fp,"NVAR: %d \n", NVAR_TEXT );
 
   // write VARLIST strings into tmpLine memory
@@ -26981,7 +26983,6 @@ void append_SNPHOT_TEXT(void) {
   strcat(tmpLine,"  ZPT") ;
   strcat(tmpLine,"  PSF") ;  // added Sep 22 2015
 
-
   if ( WRFLAG_BLINDTEST == 0 ) 
     { strcat(tmpLine,"  SIM_MAGOBS"); }
 
@@ -26996,7 +26997,6 @@ void append_SNPHOT_TEXT(void) {
   // write VARLIST line to file
   fprintf(fp,"%s\n", tmpLine);
 
-      
   for ( ep=1; ep <= GENLC.NEPOCH; ep++ ) {
 
     if ( !GENLC.OBSFLAG_WRITE[ep]  ) { continue ; }
@@ -27148,6 +27148,7 @@ void append_SNSPEC_TEXT(void) {
 	  "FLAM  FLAMERR   SIM_GENFLAM SIM_GENMAG  %s\n\n",
 	  NVAR, varList_lam, varList_warp );
 
+  // .xyz
   for(imjd=0; imjd < NMJD; imjd++ ) {
     IDSPEC = imjd + 1 ;  // start at 1
     NBLAM_VALID = GENSPEC.NBLAM_VALID[imjd] ;

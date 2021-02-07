@@ -7866,7 +7866,8 @@ int init_SNDATA ( void ) {
   SNDATA.DEC    = NULLFLOAT ;
   SNDATA.FAKE   = NULLINT ;
   SNDATA.MWEBV  = NULLFLOAT ;
-  SNDATA.WRFLAG_BLINDTEST = 0 ; 
+  SNDATA.WRFLAG_BLINDTEST = false ; 
+  SNDATA.WRFLAG_PHOTPROB  = false ;
   SNDATA.SNTYPE = -999;
 
   SNDATA.NEPOCH = 0;
@@ -8225,106 +8226,6 @@ double asinhinv(double mag, int ifilt) {
   return fluxCal;
 
 } // end of asinhinv
-
-
-
-// **********************************************
-int sort_epochs_bymjd ( void ) {
-
-  /*******
-   Created  May 18, 2006
-   Fill SNDATA[isn].UNSORTED_EPOCH[epoch]
-   used by wr_SNDATA to write epochs in order of MJD
-   This sorting preserves time-order when combining
-   data from different telescopes.
-
-   Aug 20, 2007: modify for new index notation where
-                 epoch runs over epochs and filters.
-  
-   Jun 19, 2009: remove "isn" arg
-
-  *****/
-
-  int NEPOCH;
-  int epoch, epoch_tmp, rank;
-  int EPMIN, EPMIN_tmp;
-  int ISRANKED[MXEPOCH];
- 
-  float mjd, mjd_tmp;
-
-  // --------------- BEGIN ------------------
- 
-  NEPOCH = SNDATA.NEWMJD;
-
-  // init
-  for ( epoch=1; epoch <= NEPOCH; epoch++ ) {
-    SNDATA.UNSORTED_EPOCH[epoch] = NULLINT;
-    ISRANKED[epoch] = 0;
-  }
-
-  // fill  array
-
-  for ( epoch = 1; epoch <= NEPOCH; epoch++ ) {
-
-    EPMIN = SNDATA.EPOCH_RANGE_NEWMJD[epoch][0] ;  
-
-    mjd = SNDATA.MJD[EPMIN] ;
-
-    // now find sorted "rank" of this unsorted "epoch".
-
-    rank = 1;
-
-    for ( epoch_tmp=1; epoch_tmp<=NEPOCH; epoch_tmp++ ) {
-      EPMIN_tmp = SNDATA.EPOCH_RANGE_NEWMJD[epoch_tmp][0] ;  
-      mjd_tmp  = SNDATA.MJD[EPMIN_tmp] ;
-      if ( mjd >  mjd_tmp ) rank++ ;
-      if ( mjd == mjd_tmp && epoch < epoch_tmp ) rank++ ;
-    }
-
-    SNDATA.UNSORTED_EPOCH[rank] = epoch;
-
-  }  // end of epoch loop
-
-
-  // check that everything was filled.
-  for ( epoch=1; epoch <= NEPOCH; epoch++ ) { 
-
-    sprintf(c1err,"UNSORTED_EPOCH[epoch %d] = %d",
-	      epoch, SNDATA.UNSORTED_EPOCH[epoch] );
-
-    if ( SNDATA.CID == -5 )  printf("%s \n", c1err);
-   
-    if ( SNDATA.UNSORTED_EPOCH[epoch] == NULLINT )
-      errmsg(SEV_FATAL, 0, "sort_epochs", c1err, BLANK_STRING );
-
-  }
-
-
-  return SUCCESS;
-
-} // end of sort_epochs_bymjd
-
-
-
-/*  xxxxxxxxxxxxx mark delete Jan 23 2018 xxxxxxxxxxxxxxx
-int IDTELESCOPE ( char *telescope ) {
-  // returns integer ID of *telescope 
-  int ID;
-  //  char fnam[] = " IDTELESCOPE" ;
-  // ------------- BEGIN ------------
-  ID = IDTEL_SDSS ; 
-  if ( strcmp(telescope,"sdss") == 0 ) ID = IDTEL_SDSS ;
-  if ( strcmp(telescope,"SDSS") == 0 ) ID = IDTEL_SDSS ;
-  if ( strcmp(telescope,"mdm24m") == 0 ) ID = IDTEL_MDM ;
-  if ( strcmp(telescope,"uh88") == 0 ) ID = IDTEL_UH88 ;
-  if ( strcmp(telescope,"UH88") == 0 ) ID = IDTEL_UH88 ;
-  //  if ( ID == NULLINT ) {
-    //    sprintf(c1err,"Telescope '%s' is not recognized", telescope );
-    //    errmsg(SEV_FATAL, 0, fnam, c1err, BLANK_STRING );
-  //  }
-  return ID ;
-} // end of IDTELESCOPE
-xxxxxxxxxxxx end delete xxxxxxxxxxxxxx */
 
 
 // ********************************************
@@ -10566,7 +10467,7 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
     errmsg(SEV_FATAL, 0, fnam, c1err, BLANK_STRING );
   }
 
-  if ( SNDATA.FAKE > 0 && SNDATA.WRFLAG_BLINDTEST == 0 ) 
+  if ( SNDATA.FAKE > 0 && !SNDATA.WRFLAG_BLINDTEST  ) 
     {  LWRITE_SIMFLAG = 1 ; }
   else
     {  LWRITE_SIMFLAG = 0 ; }
@@ -10616,7 +10517,7 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
   if ( LWRITE_FINAL == 1  )
     { fprintf(fp, "IAUC:    %s \n", SNDATA.IAUC_NAME ); }
 
-  if( SNDATA.WRFLAG_BLINDTEST == 0 ) {
+  if( !SNDATA.WRFLAG_BLINDTEST  ) {
     fprintf(fp, "PHOTOMETRY_VERSION: %s \n", VERSION_INFO.NAME );    
   }
 
@@ -11279,6 +11180,82 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
 
 } // end of wr_SNDATA
 
+
+// **********************************************
+int sort_epochs_bymjd ( void ) {
+
+  /*******
+   Created  May 18, 2006
+   Fill SNDATA[isn].UNSORTED_EPOCH[epoch]
+   used by wr_SNDATA to write epochs in order of MJD
+   This sorting preserves time-order when combining
+   data from different telescopes.
+
+   Aug 20, 2007: modify for new index notation where
+                 epoch runs over epochs and filters.
+  
+   Jun 19, 2009: remove "isn" arg
+
+  *****/
+
+  int NEPOCH;
+  int epoch, epoch_tmp, rank;
+  int EPMIN, EPMIN_tmp;
+  int ISRANKED[MXEPOCH];
+ 
+  float mjd, mjd_tmp;
+
+  // --------------- BEGIN ------------------
+ 
+  NEPOCH = SNDATA.NEWMJD;
+
+  // init
+  for ( epoch=1; epoch <= NEPOCH; epoch++ ) {
+    SNDATA.UNSORTED_EPOCH[epoch] = NULLINT;
+    ISRANKED[epoch] = 0;
+  }
+
+  // fill  array
+
+  for ( epoch = 1; epoch <= NEPOCH; epoch++ ) {
+
+    EPMIN = SNDATA.EPOCH_RANGE_NEWMJD[epoch][0] ;  
+
+    mjd = SNDATA.MJD[EPMIN] ;
+
+    // now find sorted "rank" of this unsorted "epoch".
+
+    rank = 1;
+
+    for ( epoch_tmp=1; epoch_tmp<=NEPOCH; epoch_tmp++ ) {
+      EPMIN_tmp = SNDATA.EPOCH_RANGE_NEWMJD[epoch_tmp][0] ;  
+      mjd_tmp  = SNDATA.MJD[EPMIN_tmp] ;
+      if ( mjd >  mjd_tmp ) rank++ ;
+      if ( mjd == mjd_tmp && epoch < epoch_tmp ) rank++ ;
+    }
+
+    SNDATA.UNSORTED_EPOCH[rank] = epoch;
+
+  }  // end of epoch loop
+
+
+  // check that everything was filled.
+  for ( epoch=1; epoch <= NEPOCH; epoch++ ) { 
+
+    sprintf(c1err,"UNSORTED_EPOCH[epoch %d] = %d",
+	      epoch, SNDATA.UNSORTED_EPOCH[epoch] );
+
+    if ( SNDATA.CID == -5 )  printf("%s \n", c1err);
+   
+    if ( SNDATA.UNSORTED_EPOCH[epoch] == NULLINT )
+      errmsg(SEV_FATAL, 0, "sort_epochs", c1err, BLANK_STRING );
+
+  }
+
+
+  return SUCCESS;
+
+} // end of sort_epochs_bymjd
 
 
 

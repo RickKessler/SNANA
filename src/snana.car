@@ -1943,8 +1943,8 @@ c
       CHARACTER  ! versions
      &   VERSION_PHOTOMETRY(MXVERS)*(MXCHAR_VERSION)   ! SN versions to read
      &  ,VERSION_REPLACE*(MXCHAR_VERSION)  ! replace previous cmd-line VERSION
-     &  ,VERSION_REFORMAT_FITS*(MXCHAR_VERSION)   ! output version for
-                                                  ! for translating -> FITS
+     &  ,VERSION_REFORMAT_FITS*(MXCHAR_VERSION)   ! TEXT -> FITS
+     &  ,VERSION_REFORMAT_TEXT*(MXCHAR_VERSION)   ! FITS -> TEXT
 
       CHARACTER ! paths
      &   PRIVATE_DATA_PATH*(MXCHAR_PATH)    ! private data subdir 
@@ -1969,7 +1969,6 @@ c
      &  ,NLINE_ARGS       
      &  ,OPT_YAML                ! T=> write YAML out even if not batch job
      &  ,OPT_REFORMAT_TEXT       ! T=> re-write SNDATA files in text format
-     &  ,OPT_REFORMAT_TERSE      ! T=> legacy key for text format
      &  ,OPT_REFORMAT_FITS       ! T=> re-write  in FITSformat (data only)
      &  ,OPT_REFORMAT_SALT2      ! T=> re-write SNDATA files in SALT2 format
      &  ,OPTSIM_LCWIDTH          ! T=> option to compute LC width
@@ -2069,13 +2068,14 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
 
       COMMON   / SNLCINP /  
      &      NLINE_ARGS, USE_LINE_ARGS, nmlfile  ! xxx LINE_ARGS, 
-     &    , VERSION_PHOTOMETRY, VERSION_REPLACE, VERSION_REFORMAT_FITS
+     &    , VERSION_PHOTOMETRY, VERSION_REPLACE
+     &    , VERSION_REFORMAT_FITS, VERSION_REFORMAT_TEXT
      &    , JOBSPLIT, JOBSPLIT_EXTERNAL, SIM_PRESCALE, MXLC_FIT
      &    , PRIVATE_DATA_PATH, FILTER_UPDATE_PATH
      &    , NONSURVEY_FILTERS, SNRMAX_FILTERS, VPEC_ERR_OVERRIDE
      &    , FILTER_REPLACE, FILTLIST_LAMSHIFT
      &    , OPT_YAML
-     &    , OPTSIM_LCWIDTH, OPT_REFORMAT_TERSE, OPT_REFORMAT_TEXT
+     &    , OPTSIM_LCWIDTH, OPT_REFORMAT_TEXT
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE
@@ -2118,13 +2118,14 @@ c Aug 7, 2009: each parameter has dimension 2 for value & error
      &    H0_REF, OLAM_REF, OMAT_REF, ORAD_REF, W0_REF, DWDA_REF
 
       NAMELIST / SNLCINP / 
-     &      VERSION_PHOTOMETRY, VERSION_REPLACE, VERSION_REFORMAT_FITS
+     &      VERSION_PHOTOMETRY, VERSION_REPLACE
+     &    , VERSION_REFORMAT_FITS, VERSION_REFORMAT_TEXT
      &    , PRIVATE_DATA_PATH, FILTER_UPDATE_PATH
      &    , NONSURVEY_FILTERS, SNRMAX_FILTERS, VPEC_ERR_OVERRIDE
      &    , FILTER_REPLACE, FILTLIST_LAMSHIFT
      &    , JOBSPLIT, JOBSPLIT_EXTERNAL, SIM_PRESCALE, MXLC_FIT
      &    , OPT_YAML
-     &    , OPTSIM_LCWIDTH, OPT_REFORMAT_TERSE, OPT_REFORMAT_TEXT
+     &    , OPTSIM_LCWIDTH, OPT_REFORMAT_TEXT
      &    , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS
      &    , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE
      &    , hfile_out, rootfile_out, textfile_prefix
@@ -3372,12 +3373,12 @@ c set namelist defaults
       ENDDO
       VERSION_REPLACE       = 'NULL'
       VERSION_REFORMAT_FITS = 'NULL'
+      VERSION_REFORMAT_TEXT = 'NULL'
 
       PRIVATE_DATA_PATH  = ' '
       FILTER_UPDATE_PATH = ' '
       OPT_YAML              = 0
       OPT_REFORMAT_SALT2    = 0 
-      OPT_REFORMAT_TERSE    = 0
       OPT_REFORMAT_TEXT     = 0
       OPT_REFORMAT_FITS     = 0 ! +=1 => write fits; +=2 =>save bad epochs
       REFORMAT_SAVE_BADEPOCHS = .FALSE.
@@ -3660,14 +3661,7 @@ c if not given on command line, then ask for it.
 
       IF ( NLINE_ARGS .GE. 1 ) THEN
          CALL GETARG(1, nmlfile )
-
-c xxxxxx mark delete Oct 2020 xxxxxxxxx
-c xxx        CALL GETARG(1, LINE_ARGS(1) )  ! read command-line arg (namelist)
-c xxx        nmlfile = LINE_ARGS(1)
-c xxxxxxxxxxxxxxxxxxxxxxx
-
          if ( nmlFile(1:6) .EQ. 'NOFILE' ) GOTO 400  ! Jan 5 2016
-
          goto 300
       ENDIF
 
@@ -3924,11 +3918,6 @@ c init some INIXXX parameter for fit
 c ---------------------------
       IF ( VERSION_REFORMAT_FITS .NE. 'NULL' ) THEN
         OPT_REFORMAT_FITS = IBSET(OPT_REFORMAT_FITS,0) ! set 1st bit
-      ENDIF
-
-c check for legacy key
-      IF ( OPT_REFORMAT_TERSE > 0 ) THEN  ! allow legacy key
-         OPT_REFORMAT_TEXT = OPT_REFORMAT_TERSE
       ENDIF
 
 c check option to save bad epochs for OPT_REFORMAT
@@ -4385,8 +4374,11 @@ c If using default, replace 'DEFAULT' with actual default value.
       IF ( SNTABLE_LIST .EQ. 'DEFAULT' ) THEN
          SNTABLE_LIST = SNTABLE_LIST_DEFAULT
 
-c July 13, 2020: no default SNTABLEs if writing rejected epochs
+c  No default SNTABLEs if writing rejected epochs
          IF ( OUT_EPOCH_IGNORE_FILE .NE. ''  ) SNTABLE_LIST = ' '
+
+c  No default SNTABLEs if there is no NML file (Feb 2021)
+         IF ( nmlFile(1:6) .EQ. 'NOFILE' ) SNTABLE_LIST = ' '
       ENDIF
 
 c by default the SNID is written out as is
@@ -7135,7 +7127,6 @@ c -------- open and fill LIST file -----------------
 c --------------------------------------------------
 c -------- open IGNORE file and leave it open (Jun 2013)
 
-
       IGNORE_FILE = VERSION_REFORMAT_FITS(1:LEN_VERS) // '.IGNORE'
       OPEN (LUNIGNORE, FILE = IGNORE_FILE, status='UNKNOWN' )
       write(LUNIGNORE,420)  ! write header
@@ -7598,7 +7589,6 @@ c update IGNORE file (Jun 2013)
             NEPOCH_IGNORE_WRFITS = NEPOCH_IGNORE_WRFITS + 1
          ENDIF
  400  CONTINUE
-
 
       RETURN
       END  ! end of UPD_WRFITS
@@ -11265,6 +11255,7 @@ c  where <FILTER> is 'g' or 'r' or 'i' etc ...
 c
 c
 c Aug 27 2020: for externally supplied .IGNORE  file, make DOCANA check.
+c Feb 06 2021: IGNORE file is now optional ! No longer required !
 c
 c ----------------------------------
       IMPLICIT NONE
@@ -11279,7 +11270,7 @@ c local var
 
       INTEGER LL, LL1, LL2, LL3, LV, LF
       INTEGER iwd, NWD, N, LUN, NREAD_IGNORE
-      LOGICAL DOCHECK_DOCANA
+      LOGICAL LEXIST
       REAL*8 MJD8
       CHARACTER 
      &   LOCAL_FILENAME*(MXCHAR_FILENAME)
@@ -11310,10 +11301,16 @@ c check if file is default, or if provided by user.
       IF ( EPOCH_IGNORE_FILE(1:7) .EQ. 'DEFAULT' ) THEN
         LL = INDEX( SNDATA_PREFIX, ' ' ) - 1
         LOCAL_FILENAME = SNDATA_PREFIX(1:LL) // '.IGNORE'
-        DOCHECK_DOCANA = .FALSE. ! not needed because it's in README file
+
+c       bail if default file does not exist (Feb 2021) .xyz
+        inquire (file=LOCAL_FILENAME, exist=LEXIST)
+        if ( .NOT. LEXIST ) THEN
+           print*,'    Default IGNORE file does not exist -> skip read.'
+           call flush(6)
+           RETURN
+        endif 
       ELSE
         LOCAL_FILENAME = EPOCH_IGNORE_FILE
-        DOCHECK_DOCANA = ( REQUIRE_DOCANA > 0 )
       ENDIF
 
 c for multiple versions, don't bother re-reading  the same
@@ -11332,12 +11329,9 @@ c Now start reading file
       LL = INDEX( LOCAL_FILENAME, ' ' ) - 1
       NAME_forC = LOCAL_FILENAME(1:LL)//char(0)
 
-c - - - - Aug 27 2020 - - - - - -
-cc ??   IF ( DOCHECK_DOCANA ) CALL CHECK_FILE_DOCANA(NAME_forC,LL)
-c - - - - - - - - - - - - - - - - -
 
       NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, NAME_forC,LL)
-
+      
       write(6,50) LOCAL_FILENAME(1:LL)
 50    format(T5,'Read epochs to ignore from: ', /, T5, A)
 
@@ -14967,8 +14961,6 @@ c --------
 
 c read CMB redshift ...
       RETSTR  = '+ERR'
-
-
       ZKEY    = 'REDSHIFT_CMB'
       LZTMP   = READ_HEADKEY(isnlc, cwords, ZKEY, RET8, RETSTR )
 

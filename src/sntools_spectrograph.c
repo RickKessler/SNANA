@@ -51,7 +51,7 @@
 #include "fitsio.h"
 #include "sntools.h"
 #include "sntools_spectrograph.h"
-#include "sntools_fitsio.h"
+#include "sntools_dataformat_fits.h"
 
 // =======================================
 void init_spectrograph(char *inFile, char *stringOpt ) {

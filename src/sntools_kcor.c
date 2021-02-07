@@ -19,7 +19,7 @@
 
 #include "fitsio.h"
 #include "sntools.h"
-#include "sntools_fitsio.h"
+#include "sntools_dataformat_fits.h"
 #include "sntools_kcor.h" 
 #include "sntools_spectrograph.h"
 #include "MWgaldust.h"

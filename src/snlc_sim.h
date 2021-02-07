@@ -379,6 +379,8 @@ struct INPUTS {
   int USE_KCOR_REFACTOR; //1-> run both legacy and new; 2-> new only
   int USE_KCOR_LEGACY;   //use legacy fortran code to read & apply 
 
+  int  OPT_DEVEL_WRITE_TEXT;  // refactor to write text format
+
   bool DASHBOARD_DUMPFLAG ;
   bool KEYNAME_DUMPFLAG;          // flag to dump input keys and quit
 
@@ -1017,7 +1019,6 @@ struct GENLC {
   int   NOBS_SNR ;      // NOBS passing SNR cut
   int   NOBS ;          // real obs only
   int   NOBS_FILTER[MXFILTINDX]; // NOBS per band
-  int   NOBS_REMOVE ;     // Nobs removed (for special options)
   int   NOBS_UNDEFINED;   // suppresed NOBS because model is undefined
   int   NOBS_SATURATE[2]; // 0=unsatured, 1=saturated
   int   NOBS_SATURATE_FILTER[2][MXFILTINDX]; // idem, filter-dependent

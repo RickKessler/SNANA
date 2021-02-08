@@ -4,7 +4,7 @@ c Program to read light curves and apply user selection
 c cuts specified in the &SNLCINP namelist.
 c Can also fit function to estimate time of peak brightness.
 c
-c   
+c  
 
                      CHANGES
           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -42,6 +42,7 @@ c parameters used by snana code
      &  ,LUNHIS, LUNNML, LUNDAT, LUNTMP, LUNFIT, LUNPKMJD, LUNDMP
      &  ,LUNCID, LUNOUT
      &  ,LUNRES1, LUNRES2, LUNINTERP, LUNLIST, LUNIGNORE, LUNSALT2
+     &  ,LUNLIST2, LUNIGNORE2
      &  ,ISTAGE_INIT, ISTAGE_RDSN, ISTAGE_CUTS, ISTAGE_USRANA
      &  ,ISTAGE_TEST
      &  ,INTERP_LINEAR, INTERP_SMOOTH, INTERP_ZSMOOTH
@@ -179,6 +180,8 @@ c
      &  ,LUNSALT2  = 34  ! for SALT2 dictFile
      &  ,LUNPKMJD  = 35
      &  ,LUNCID    = 36  ! reserved for reading SNCID_LIST_FILE
+     &  ,LUNLIST2  = 47
+     &  ,LUNIGNORE2= 48
      &  ,ISTAGE_INIT    = 10       ! init has finished
      &  ,ISTAGE_RDSN    = 20       ! SN have been read
      &  ,ISTAGE_CUTS    = 30       ! cuts have been applied
@@ -450,6 +453,8 @@ c
      &  ,ISJOB_SNANA          ! =T for snana.exe only.
      &  ,ISJOB_PSNID
      &  ,ISJOB_BATCH  ! true if JOBSPLIT passed on command line (Aug 2020)
+     &  ,REFORMAT              ! T => a reformat option has been set
+     &  ,REFORMAT_SNANA        ! T => reformat SNANA format
      &  ,REFORMAT_SAVE_BADEPOCHS  ! set if bit2 is set on any OPT_REFORMAT
      &  ,STDOUT_UPDATE         ! T => update event to screen
      &  ,DOFUDGE_HOSTNOISE     ! T => FUDGE_HOSTNOISE_FILE is set
@@ -461,6 +466,7 @@ c
       CHARACTER
      &    SNANA_VERSION*12
      &   ,SNANA_VERSION_DATA*12   ! SNANA version used create FITS data
+     &   ,REFORMAT_VERSION*(MXCHAR_VERSION)
 
 c global survey info
       CHARACTER
@@ -537,7 +543,7 @@ c global survey info
       CHARACTER VARLIST_TERSE(MXLISTNML)*(MXCHAR_CCID) ! TERSE variable names
 
       COMMON / CTRLCOM / 
-     &     SNANA_VERSION, SNANA_VERSION_DATA
+     &     SNANA_VERSION, SNANA_VERSION_DATA, REFORMAT_VERSION
      &    ,SURVEY_NAME, SURVEY_NAME_LIST
      &    ,SUBSURVEY_NAME, SUBSURVEY_NAME_LIST
      &    ,NSURVEY_LIST, IDSURVEY, IDSUBSURVEY, IDSURVEY_LIST
@@ -555,8 +561,8 @@ c global survey info
      &    ,N_DUPLICATE_MJD, NSTORE_DUPLICATE_MJD
      &    ,NEPOCH_TOT, NEPOCH_USE, NEPOCH_CUT
      &    ,NEPOCH_BADPHOT, NEPOCH_BADPHOT_SUM
-     &    ,REFORMAT_SAVE_BADEPOCHS, STDOUT_UPDATE
-     &    ,ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
+     &    ,REFORMAT, REFORMAT_SNANA, REFORMAT_SAVE_BADEPOCHS
+     &    ,STDOUT_UPDATE ,ISCORRECT_SIGN_VPEC, DOFIX_WRONG_SIGN_VPEC
      &    ,DOFUDGE_HOSTNOISE, DOFUDGE_NONLIN, DOFUDGE_FLUXERRMODEL
      &    ,NVAR_TERSE, VARLIST_TERSE
      &    ,ITERSE_MJD, ITERSE_FILTER, ITERSE_FIELD   
@@ -3127,9 +3133,8 @@ c pak global survey info after all initialization (Mar 24 2013)
 cc      IF ( LTEST_INTERP ) CALL TEST_INTERP(INTERP_OPT)
 +SELF.
 
-c initialize format translations
-      IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) CALL INI_WRSALT2_2
-      IF ( OPT_REFORMAT_FITS  >    0 ) CALL INI_WRFITS
+c initialize optional format translations
+      CALL INIT_REFORMAT()
 
 c ######################################################
 c
@@ -3179,7 +3184,6 @@ c abort-end here
       c1err = 'Fatal error in MAIN'
       CALL MADABORT("MAIN", c1err, "Check what gaver abort.")
 
-cc      STOP
       CALL EXIT(0)
 
       END  ! end MAIN program
@@ -3918,6 +3922,10 @@ c init some INIXXX parameter for fit
 c ---------------------------
       IF ( VERSION_REFORMAT_FITS .NE. 'NULL' ) THEN
         OPT_REFORMAT_FITS = IBSET(OPT_REFORMAT_FITS,0) ! set 1st bit
+      ENDIF
+
+      IF ( VERSION_REFORMAT_TEXT .NE. 'NULL' ) THEN    ! Feb 2021
+        OPT_REFORMAT_TEXT = IBSET(OPT_REFORMAT_TEXT,0) ! set 1st bit
       ENDIF
 
 c check option to save bad epochs for OPT_REFORMAT
@@ -4812,6 +4820,9 @@ c ------------- BEGIN -------------
          else if(MATCH_NMLKEY('VERSION_REFORMAT_FITS',
      &                1, iArg, ARGLIST) ) then
             VERSION_REFORMAT_FITS = ARGLIST(1)(1:MXCHAR_VERSION)
+         else if(MATCH_NMLKEY('VERSION_REFORMAT_TEXT',
+     &                1, iArg, ARGLIST) ) then
+            VERSION_REFORMAT_TEXT = ARGLIST(1)(1:MXCHAR_VERSION)
 
          else if ( MATCH_NMLKEY('OPT_YAML',
      &             1, iArg, ARGLIST) ) then
@@ -6698,9 +6709,7 @@ c check dump-option for SN that fail cuts.
      &        , ISNLC_NEWMJD_CUTS
       ENDIF
 
-       IF ( OPT_REFORMAT_TEXT  .GT. 0 ) CALL WRTEXT()
-       IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) CALL WRSALT2_2()
-       IF ( OPT_REFORMAT_FITS  .GT. 0 ) CALL UPD_WRFITS()
+      CALL EXEC_REFORMAT()
 
 +SELF,IF=SNFIT.
 
@@ -6933,8 +6942,8 @@ c -----------------------------
       CALL PRBANNER ( "CALL USREND" )
       CALL USREND ( IERR )
 
-      IF ( OPT_REFORMAT_FITS > 0 )  THEN
-         CALL END_WRFITS()
+      IF ( REFORMAT_SNANA )  THEN
+         CALL END_REFORMAT()
       ENDIF
 
 c close hbook file using wrapper so that we don't need CERNLIB flag here.
@@ -7031,9 +7040,59 @@ C ------------- BEGIN --------------
 
       RETURN
       END
+
+C =============================
++DECK,INIT_REFORMAT.
+      SUBROUTINE INIT_REFORMAT()
+c
+c Create Feb 7 2021;
+c Initialize option to reformat data
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      CHARACTER LIST_FILE*200, IGNORE_FILE*200
+C ------------- BEGIN -------------
+
+      REFORMAT       = .FALSE.  ! any reformat option
+
+c check for reformat option using SNANA format
+      REFORMAT_SNANA = (OPT_REFORMAT_FITS>0 .or. OPT_REFORMAT_TEXT>0)
+
+      IF ( REFORMAT_SNANA ) THEN
+         CALL PREP_REFORMAT_GLOBAL()
+
+c open aux files and leave them open
+         CALL OPEN_REFORMAT_FILE(LUNLIST2,   'LIST',   LIST_FILE)
+
+         CALL OPEN_REFORMAT_FILE(LUNIGNORE2, 'IGNORE', IGNORE_FILE)
+         write(LUNIGNORE2,420)     ! write header
+ 420     format(T10,'CID      MJD     FILTER')
+         NEPOCH_IGNORE_WRFITS = 0
+      ENDIF
+
+      IF ( OPT_REFORMAT_FITS  >  0 ) THEN
+         CALL INIT_REFORMAT_FITS()
+         REFORMAT  = .TRUE.
+      ENDIF
+
+      IF ( OPT_REFORMAT_TEXT  > 0 ) THEN 
+         CALL INIT_REFORMAT_TEXT()
+         REFORMAT  = .TRUE.
+      ENDIF        
+
+      IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) THEN
+         CALL INIT_REFORMAT_SALT2
+         REFORMAT = .TRUE.
+      ENDIF
+
+      RETURN
+      END     ! end INIT_REFORMAT
+
 C ============================================
-+DECK,INIWRFITS.
-      SUBROUTINE INI_WRFITS
++DECK,INIT_WRFITS.
+      SUBROUTINE INIT_REFORMAT_FITS
 
 c Prepare for translating text file format into FITS format.
 c Jun 2013: open IGNORE file and leave it open
@@ -7056,7 +7115,7 @@ c Dec 9, 2017: pass missing NMARK argument to WR_SNFITSIO_INIT
 
       INTEGER 
      &   SIMFLAG, LL, NMARK
-     &  ,LEN_PATH
+     &  ,LEN_DIR
      &  ,LEN_SURVEY
      &  ,LEN_VERS
      &  ,LEN_HEAD
@@ -7066,962 +7125,48 @@ c Dec 9, 2017: pass missing NMARK argument to WR_SNFITSIO_INIT
 C ------------------ BEGIN ----------------
 
       LEN_SURVEY = INDEX(SURVEY_NAME,' ') - 1
-      cPATH      = './' // char(0)
-      LEN_PATH   = 2
-
-      IF ( VERSION_REFORMAT_FITS(1:4) .EQ. 'NULL' ) THEN
-         VERSION_REFORMAT_FITS  = 
-     &        SURVEY_NAME(1:LEN_SURVEY) // '_translated' 
-      ENDIF
 
       LEN_VERS = INDEX(VERSION_REFORMAT_FITS,' ') - 1
       cVERSION = VERSION_REFORMAT_FITS(1:LEN_VERS) // char(0)
       cPREFIX  = cVERSION
- 
+
+      LEN_DIR    = INDEX(REFORMAT_VERSION,' ') - 1 
+      cPATH      = REFORMAT_VERSION(1:LEN_DIR) // char(0)
 
       IF ( LSIM_MAGOBS ) THEN
-cc         SIMFLAG = 4   ! Aug 6 2014
          SIMFLAG = 8   ! Jan 23 2018
       ELSE IF ( LSIM_SNANA ) THEN 
-cc         SIMFLAG = 3
          SIMFLAG = 4   ! Jan 23 2018
       ELSE
          SIMFLAG = 2
       ENDIF
 
-c set global header info
-
-      CALL SET_SNDATA_STRING("SURVEY",    SURVEY_NAME)
-      CALL SET_SNDATA_STRING("FILTERS",   SURVEY_FILTERS)
-      CALL SET_SNDATA_STRING("SNANA_DIR", SNANA_DIR)
-
-      DVAL  = DBLE(SNLC_NXPIX)
-      CALL SET_SNDATA_DBLE("NXPIX", DVAL )
-      DVAL  = DBLE(SNLC_NYPIX)
-      CALL SET_SNDATA_DBLE("NYPIX", DVAL )
-
-      DVAL  = DBLE(ISNLC_CCDNUM(1) )
-      CALL SET_SNDATA_DBLE("CCDNUM", DVAL ) ! Jun 2 2017
-
-c set optional private variables to leave list in header.
-      CALL SET_SNDATA_PRIVATE();
-
 c -----------------------
       CALL WR_SNFITSIO_INIT(cPATH, cVERSION, cPREFIX, SIMFLAG
      &           , NMARK, cHEADFILE  ! output name
-     &           , LEN_PATH, LEN_VERS, LEN_VERS, LEN_HEAD)     
+     &           , LEN_DIR, LEN_VERS, LEN_VERS, LEN_HEAD)     
 
-c recompute LEN_VERS in case it gets corrupted by WR_SNFITSIO_INIT 
-      LEN_VERS = INDEX(VERSION_REFORMAT_FITS,' ') - 1 
+c --- write name of HEAD file to already-opend LIST file 
 
-c --------------------------------------------------
-c -------- open and fill LIST file -----------------
-
-      LIST_FILE = VERSION_REFORMAT_FITS(1:LEN_VERS) // '.LIST'
-      OPEN (LUNTMP, FILE = LIST_FILE, status='UNKNOWN' )
       LL = INDEX(cHEADFILE, char(0) ) - 1
-      WRITE(LUNTMP,50) cHEADFILE(1:LL)
+      WRITE(LUNLIST2,50) cHEADFILE(1:LL)
 50    FORMAT(A)
-      CLOSE(LUNTMP)
-
-c --------------------------------------------------
-c -------- open IGNORE file and leave it open (Jun 2013)
-
-      IGNORE_FILE = VERSION_REFORMAT_FITS(1:LEN_VERS) // '.IGNORE'
-      OPEN (LUNIGNORE, FILE = IGNORE_FILE, status='UNKNOWN' )
-      write(LUNIGNORE,420)  ! write header
- 420  format(T10,'CID      MJD     FILTER')
-      NEPOCH_IGNORE_WRFITS = 0
+      CLOSE(LUNLIST2)
 
       RETURN
-      END  ! end  INI_WRFITS
-
-
-C ==========================================
-+DECK,UPDWRFITS.
-      SUBROUTINE UPD_WRFITS()
-c
-c Created May 2012 by R.Kessler
-c Translate data text files into fits format.
-c Process real data or simulation, although simulation
-c can be written in FITS format with  "FORMAT_MASK: 32".
-c
-c Output version is automatically defined as [SURVEY]_FITS
-c
-c For each call to set_SDNATA_STRING[DBLE], add code in
-c set_SNDATA() inside sntools.c
-c
-c Nov 2012: tack on optional private variables
-c May 2013: include HOSTGAL_OBJID
-c Jun 2013: update IGNORE file (LUNIGNORE)
-c Sep 2015: increase STRINGVAL from 2000 -> 20000 bytes to allow
-c           for 3 DES seasons. See MXLEN_EPSTRING.
-c
-c Feb 19 2017: set SUBSURVEY
-c ----------------------------------------
-
-      IMPLICIT NONE
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-+CDE,PRIVCOM.
-+CDE,FITSCOM.
-
-c local var
-
-      INTEGER 
-     &   LEN_KEY, LEN_STR
-     &  ,NEP, iep, i, LFLD, IFILT_OBS, ifilt, igal
-     &  ,LEN1_CCID, LEN2_CCID, LENPRE, HOSTGAL_USEMASK
-
-      CHARACTER 
-     &    KEY*60
-     &   ,STRINGVAL*(MXLEN_EPSTRING)
-     &   ,CFILT*2
-     &   ,CCID*(MXCHAR_CCID)
-     &   ,PREFIX*20
-
-      REAL*8  DVAL, DARRAY(MXEPOCH)
-
-c --------------- BEGIN -------------------
-
-      STRINGVAL = "NULL" // char(0)
-      LEN_STR   = INDEX(STRINGVAL, ' ') - 1     
-
-      CALL SET_SNDATA_STRING("SUBSURVEY", SUBSURVEY_NAME)
-      CALL SET_SNDATA_STRING("SNID", SNLC_CCID )
-      CALL SET_SNDATA_STRING("IAUC", SNLC_IAUC )
-
-      DVAL      = SNLC8_RA
-      CALL SET_SNDATA_DBLE("RA", DVAL )
-
-      DVAL      = SNLC8_DEC
-      CALL SET_SNDATA_DBLE("DECL", DVAL )
-
-      DVAL      = SNLC_PIXSIZE
-      CALL SET_SNDATA_DBLE("PIXSIZE", DVAL )
-
-      DVAL      = SNLC_NXPIX
-      CALL SET_SNDATA_DBLE("NXPIX", DVAL )
-
-      DVAL      = DBLE(ISNLC_CCDNUM(1) )
-      CALL SET_SNDATA_DBLE("CCDNUM", DVAL )   ! Jun 2 2017 
-
-      DVAL      = DBLE(ISNLC_WRMASK_FLUXCOR_SNANA )
-      CALL SET_SNDATA_DBLE("MASK_FLUXCOR_SNANA", DVAL )   ! Nov 2018
-
-      DVAL      = SNLC_NYPIX
-      CALL SET_SNDATA_DBLE("NYPIX", DVAL )
-
-      DVAL      = DBLE( ISNLC_TYPE  )
-      CALL SET_SNDATA_DBLE("SNTYPE", DVAL )
-
-      IF ( SURVEY_NAME(1:4) .EQ. 'SDSS') THEN
-        DVAL      = DBLE( ISNLC_TYPE  )
-        CALL SET_SNDATA_DBLE("SEARCH_TYPE", DVAL )
-      ENDIF
-
-      DVAL      = SNLC_SEARCH_PEAKMJD 
-      CALL SET_SNDATA_DBLE("PEAKMJD", DVAL )
-
-      DVAL      = DBLE ( ISNLC_NEPOCH_STORE )
-      CALL SET_SNDATA_DBLE("NEPOCH", DVAL )
-
-c ---------- redshift info --------
-      DVAL      = SNLC_ZCMB 
-      CALL SET_SNDATA_DBLE("REDSHIFT_FINAL", DVAL )
-
-      DVAL      = SNLC_ZCMB_ERR
-      CALL SET_SNDATA_DBLE("REDSHIFT_FINAL_ERR", DVAL )
-
-      DVAL      = SNLC_ZHELIO
-      CALL SET_SNDATA_DBLE("REDSHIFT_HELIO", DVAL )
-
-      DVAL      = SNLC_ZHELIO_ERR
-      CALL SET_SNDATA_DBLE("REDSHIFT_HELIO_ERR", DVAL )
-
-      DVAL      = SNLC_VPEC
-      CALL SET_SNDATA_DBLE("VPEC", DVAL )
-
-      DVAL      = SNLC_VPEC_ERR
-      CALL SET_SNDATA_DBLE("VPEC_ERR", DVAL )
-
-      DVAL      = DBLE(ISNLC_zFLAG)
-      CALL SET_SNDATA_DBLE("REDSHIFT_QUALITYFLAG", DVAL )
-
-c ------- host galaxy info  ------------
-      HOSTGAL_USEMASK = 0
-      IF ( EXIST_SNHOST_MAGOBS ) HOSTGAL_USEMASK = HOSTGAL_USEMASK + 1
-      IF ( EXIST_SNHOST_SB     ) HOSTGAL_USEMASK = HOSTGAL_USEMASK + 4
-
-      DVAL      = SNHOST_NMATCH
-      CALL SET_SNDATA_DBLE("HOSTGAL_NMATCH", DVAL )
-      DVAL      = SNHOST_NMATCH2
-      CALL SET_SNDATA_DBLE("HOSTGAL_NMATCH2", DVAL )
-      DVAL      = SNHOST_CONFUSION
-      CALL SET_SNDATA_DBLE("HOSTGAL_CONFUSION", DVAL )
-
-      DO igal = 1, MXSNHOST
-         CALL SET_HOSTGAL_PREFIX(igal,PREFIX,LENPRE)
-      
-         DVAL      = SNHOST_OBJID(igal) 
-         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_OBJID", DVAL )
-
-         DVAL      = SNHOST_ZPHOT(igal)
-         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_PHOTOZ", DVAL )
-
-         DVAL      = SNHOST_ZPHOT_ERR(igal)
-         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_PHOTOZ_ERR", DVAL )
-
-         DVAL      = SNHOST_ZSPEC(igal)
-         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_SPECZ", DVAL )
-
-         DVAL      = SNHOST_ZSPEC_ERR(igal)
-         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_SPECZ_ERR", DVAL )
-
-         DVAL      = SNHOST8_RA(igal)
-         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_RA", DVAL )
-         DVAL      = SNHOST8_DEC(igal)
-         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_DEC", DVAL )
-
-         DVAL      = SNHOST_ANGSEP(igal)
-         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_SNSEP", DVAL )
-
-         DVAL      = SNHOST_DDLR(igal)
-         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_DDLR", DVAL )
-
-         DVAL      = SNHOST_LOGMASS(igal)
-         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_LOGMASS", DVAL )
-         DVAL      = SNHOST_LOGMASS_ERR(igal)
-         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_LOGMASS_ERR", DVAL )
-
-         DVAL      = SNHOST_sSFR(igal)
-         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_sSFR", DVAL )
-         DVAL      = SNHOST_sSFR_ERR(igal)
-         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_sSFR_ERR", DVAL )
-
-         IF ( EXIST_SNHOST_MAGOBS ) THEN
-            DO ifilt = 1, NFILTDEF_READ
-               DARRAY(ifilt) = DBLE( SNHOST_MAGOBS(ifilt,igal) )
-            ENDDO
-            KEY       = PREFIX(1:LENPRE)//'_MAG' // char(0)
-            LEN_KEY   = INDEX(KEY, ' ') - 1
-            CALL set_sndata(KEY, NFILTDEF_READ, STRINGVAL, DARRAY, 
-     &           LEN_KEY, LEN_STR) 
-            
-            DO ifilt = 1, NFILTDEF_READ
-               DARRAY(ifilt) = DBLE( SNHOST_MAGOBS_ERR(ifilt,igal) )
-            ENDDO
-            KEY       = PREFIX(1:LENPRE)//'_MAGERR' // char(0)
-            LEN_KEY   = INDEX(KEY, ' ') - 1
-            CALL set_sndata(KEY, NFILTDEF_READ, STRINGVAL, DARRAY, 
-     &           LEN_KEY, LEN_STR) 
-         ENDIF
-
-      ENDDO ! end IGAL loop
-
-c add host-galaxy SB if defined
-
-      IF ( EXIST_SNHOST_SB ) THEN  ! added Sep 3 2014
-         DO ifilt = 1, NFILTDEF_READ
-            DARRAY(ifilt) = SNHOST_SBFLUXCAL(ifilt)            
-         ENDDO
-         KEY       = 'HOSTGAL_SB_FLUXCAL' // char(0)
-         LEN_KEY   = INDEX(KEY, ' ') - 1
-         CALL set_sndata(KEY, NFILTDEF_READ, STRINGVAL, DARRAY, 
-     &        LEN_KEY, LEN_STR) 
-      ENDIF
- 
-
-c ------- MW Galactic extinction ----------
-
-      DVAL      = SNLC_MWEBV
-      CALL SET_SNDATA_DBLE("MWEBV", DVAL )
-
-      DVAL      = SNLC_MWEBV_ERR
-      CALL SET_SNDATA_DBLE("MWEBV_ERR", DVAL )
-
-
-c ------- PRIVATE variables --------
-
-      IF ( NVAR_PRIVATE > 0 ) THEN
-        KEY      = 'PRIVATE_VALUE' // char(0)
-        LEN_KEY  = INDEX(KEY, ' ') - 1
-        CALL set_sndata(KEY,NVAR_PRIVATE, STRINGVAL, PRIVATE_VALUE, 
-     &           LEN_KEY,LEN_STR ) 
-      ENDIF
-
-c -------------------------------------------
-c -------- Load light curve -----------------
-c -------------------------------------------
-
-      NEP  = ISNLC_NEPOCH_STORE
-
-c --- MJD ---
-      DO iep = 1, NEP
-         DARRAY(iep) = SNLC8_MJD(iep)
-      ENDDO
-      KEY  = 'MJD' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- FLUXCAL ---
-      DO iep = 1, NEP
-         DARRAY(iep) = SNLC_FLUXCAL(iep)
-      ENDDO
-      KEY  = 'FLUXCAL' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- FLUXCAL_ERR ---
-      DO iep = 1, NEP
-         DARRAY(iep) = SNLC_FLUXCAL_ERRTOT(iep)
-      ENDDO
-      KEY  = 'FLUXCAL_ERRTOT' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- MAG ---
-      DO iep = 1, NEP
-         DARRAY(iep) = SNLC_MAG(iep)
-      ENDDO
-      KEY  = 'MAG' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-
-c --- MAGERR ---
-      DO iep = 1, NEP
-         DARRAY(iep) = SNLC_MAG_ERRPLUS(iep)
-      ENDDO
-      KEY  = 'MAGERR' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- PHOTFLAG ---
-      DO iep = 1, NEP
-         DARRAY(iep) = DBLE ( ISNLC_PHOTFLAG(iep) )
-      ENDDO
-      KEY  = 'PHOTFLAG' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- PHOTPROB ---
-      DO iep = 1, NEP
-         DARRAY(iep) = DBLE ( SNLC_PHOTPROB(iep) )
-      ENDDO
-      KEY  = 'PHOTPROB' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- PSF_SIG1 ---
-      DO iep = 1, NEP
-         DARRAY(iep) = SNLC_PSF_SIG1(iep)
-      ENDDO
-      KEY  = 'PSF_SIG1' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- PSF_SIG2 ---
-      DO iep = 1, NEP
-         DARRAY(iep) = SNLC_PSF_SIG2(iep)
-      ENDDO
-      KEY  = 'PSF_SIG2' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- PSF_RATIO ---
-      DO iep = 1, NEP
-         DARRAY(iep) = SNLC_PSF_RATIO(iep)
-      ENDDO
-      KEY  = 'PSF_RATIO' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- SKY_SIG ---
-      DO iep = 1, NEP
-         DARRAY(iep) = SNLC_SKYSIG(iep)
-      ENDDO
-      KEY      = 'SKY_SIG' // char(0)
-      LEN_KEY  = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- SKY_SIG_T (template sky noise) ---
-      DO iep = 1, NEP
-         DARRAY(iep) = SNLC_SKYSIG_T(iep)
-      ENDDO
-      KEY      = 'SKY_SIG_T' // char(0)
-      LEN_KEY  = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- RDNOISE ---
-      DO iep = 1, NEP
-         DARRAY(iep) = SNLC_RDNOISE(iep)
-      ENDDO
-      KEY  = 'RDNOISE' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- GAIN ---
-      DO iep = 1, NEP
-         DARRAY(iep) = SNLC_GAIN(iep)
-      ENDDO
-      KEY  = 'GAIN' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- ZEROPT ---
-      DO iep = 1, NEP
-         DARRAY(iep) = SNLC_ZEROPT(iep)
-      ENDDO
-      KEY  = 'ZEROPT' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- ZEROPT_ERR ---
-      DO iep = 1, NEP
-         DARRAY(iep) = SNLC_ZEROPT_ERR(iep)
-      ENDDO
-      KEY  = 'ZEROPT_ERR' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c --- Pixel location
-
-      IF( SNLC_NXPIX > 0 ) THEN
-         DO iep = 1, NEP
-            DARRAY(iep) = SNLC_XPIX(iep)
-         ENDDO
-         KEY      = 'XPIX' // char(0)
-         LEN_KEY  = INDEX(KEY, ' ') - 1
-         CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-         
-         DO iep = 1, NEP
-            DARRAY(iep) = SNLC_YPIX(iep)
-         ENDDO
-         KEY      = 'YPIX' // char(0)
-         LEN_KEY  = INDEX(KEY, ' ') - 1
-         CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-      ENDIF
-
-c -------------------
-c xxx mark delete       DVAL = -9.0
-      DARRAY(1) = -9.0
-c -------------------
-
-c ---- FILTER ----
-      KEY  = 'FLT' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      LEN_STR   = -1
-      STRINGVAL = ' '
-      DO iep = 1, NEP
-         IFILT_OBS = ISNLC_IFILT_OBS(iep)
-         CFILT     = FILTDEF_STRING(ifilt_obs:ifilt_obs)
-         i = 2*iep-1
-         STRINGVAL(i:i+1) = CFILT(1:1) // ' '
-         LEN_STR   = LEN_STR + 2
-      ENDDO
-      STRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
-      CALL set_sndata(KEY,NEP, STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-
-c ---- FIELD ----
-      KEY       = 'FIELD' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      LEN_STR   = 0
-      STRINGVAL = ' '
-      DO iep = 1, NEP
-         LFLD = INDEX( SNLC_FIELD(iep),' ' ) - 1
-         STRINGVAL(LEN_STR+1:LEN_STR+LFLD+1) = 
-     &        SNLC_FIELD(iep)(1:LFLD) // ' '
-         LEN_STR  = LEN_STR + LFLD + 1
-      ENDDO
-      LEN_STR = LEN_STR - 1
-      STRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
-
-      CALL set_sndata(KEY,NEP, STRINGVAL, DARRAY, LEN_KEY, LEN_STR) 
-
-c ---- TELESCOPE ----
-      KEY       = 'TELESCOPE' // char(0)
-      LEN_KEY   = INDEX(KEY, ' ') - 1
-      LEN_STR   = 0
-      STRINGVAL = ' '
-      DO iep = 1, NEP
-         LFLD = INDEX( SNTEL_LIST(1) // ' ' ,' ' ) - 1
-         STRINGVAL(LEN_STR+1:LEN_STR+LFLD+1) = 
-     &        SNTEL_LIST(1)(1:LFLD) // ' '
-         LEN_STR  = LEN_STR + LFLD + 1
-      ENDDO
-      LEN_STR = LEN_STR - 1
-      STRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
-      CALL set_sndata(KEY,NEP, STRINGVAL, DARRAY, LEN_KEY, LEN_STR) 
-
-c -------------------------------------------------
-c Aug 6 2014: optional SIM_MAGOBS if it's there 
-c   (e.g., for fakes overlaid onto real images)
-
-      IF ( ITERSE_SIM_EPMAGOBS > 0 ) THEN
-         DO iep = 1, NEP
-            DARRAY(iep) = SIM_EPMAGOBS(iep)
-         ENDDO
-         KEY  = 'SIM_MAGOBS' // char(0)
-         LEN_KEY   = INDEX(KEY, ' ') - 1
-         CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
-         
-      ENDIF
-
-c =====================================
-      CALL wr_snfitsio_update()
-c =====================================
-
-c update IGNORE file (Jun 2013)
-
-      LEN1_CCID = INDEX(SNLC_CCID,' ') - 1
-      DO 400 i = 1, NEPOCH_IGNORE
-         CCID = EPOCH_IGNORE_CCID(i)   
-         LEN2_CCID = INDEX(CCID,' ') - 1
-         IF( LEN1_CCID .NE. LEN2_CCID ) GOTO 400
-         IF ( CCID(1:LEN1_CCID) .EQ. SNLC_CCID(1:LEN1_CCID) ) THEN
-            write(LUNIGNORE,410) 
-     &      CCID(1:LEN1_CCID), EPOCH_IGNORE_MJD(i), EPOCH_IGNORE_FILT(i)
- 410        format('IGNORE:  ', A, 3x, F9.3, 3x, A1)
-            call flush(LUNIGNORE)
-            NEPOCH_IGNORE_WRFITS = NEPOCH_IGNORE_WRFITS + 1
-         ENDIF
- 400  CONTINUE
-
-      RETURN
-      END  ! end of UPD_WRFITS
+      END  ! end  INIT_REFORMAT_FITS
 
 C ===============================
-+DECK,ENDWRFITS.
-      SUBROUTINE END_WRFITS
-
-c
-c Close FITS files and create README file.
-c Nov 25, 2012: create blank IGNORE file if 2nd bit if 
-c               OPT_REFORMAT_FITS is set
-c
-c Jun 21 2013: give big warning if IGNORE file is not created.
-c
-c Feb 26 2015: catenate each original README into final README.
-c
-c -------------
++DECK,INIT_WRTEXT.
+      SUBROUTINE INIT_REFORMAT_TEXT()
       IMPLICIT NONE
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-
-      INTEGER LEN_VERS, LEN_SURVEY, i, iver
-      CHARACTER 
-     &   README_FILE*(MXCHAR_FILENAME)
-     &  ,TXT*80, CMD*(MXCHAR_FILENAME)
-
-C ----------------- BEGIN ----------------
-
-c call C function to close out the FITS files.
-      CALL wr_snfitsio_end()
-
-c make README file and write basic info.
-
-      LEN_VERS = INDEX(VERSION_REFORMAT_FITS,' ') - 1
-      README_FILE = VERSION_REFORMAT_FITS(1:LEN_VERS) // '.README'
-      OPEN (LUNTMP, FILE = README_FILE, status='UNKNOWN' )
-
-      LEN_SURVEY = INDEX(SURVEY_NAME,' ') - 1
-      WRITE(TXT,20) SURVEY_NAME(1:LEN_SURVEY)
-20    FORMAT('Convert ', A,' TEXT files into FITS format for ')
-      WRITE(LUNTMP,500) txt
-
-      DO i = 1, N_VERSION
-        TXT = '     ' // VERSION_PHOTOMETRY(i)
-        write(LUNTMP,500) txt
-      ENDDO
-
-      WRITE(LUNTMP,500) ' '
-
-      WRITE(LUNTMP,30) 'Processed', N_SNLC
-      WRITE(LUNTMP,30) 'Wrote    ', N_SNLC_CUTS
-30    format(A, 2x, I7, 2x, ' light curves.' )
-      call FLUSH(LUNTMP)
-
-500   FORMAT(A)
-      CLOSE(LUNTMP)  ! close README file
-
-
-c --- catenate original README contents for each version --------
-
-      DO iver = 1, N_VERSION
-
-c first write formatted DUMP-statement.
-
-         OPEN (LUNTMP, FILE = README_FILE, Access='append',Status='old')
-
-         write(LUNTMP,600)
-         write(LUNTMP,600)
-         write(LUNTMP,700)
-         write(LUNTMP,700)
-         write(LUNTMP,701)  VERSION_PHOTOMETRY(iver)
-
-600      format(' ')
-700      format('# ', 74('=') )
-701      format('# DUMP ORIGINAL README for ', A)
-
-         CLOSE(LUNTMP)  ! close README file
-
-c now just catenate the final readme with the original readme file.
-
-         LEN_VERS  = INDEX(SNREADME_FILE(iver),' ' ) - 1
-         CMD = 'cat ' // SNREADME_FILE(iver)(1:LEN_VERS) 
-     &         // ' >> ' // README_FILE
-         
-         CALL SYSTEM(CMD)
-
-      ENDDO
-
-c ---- update IGNORE file with comment on total number of IGNORE epochs
-      write(LUNIGNORE,430) NEPOCH_IGNORE_WRFITS
- 430  format(/,'Total number of IGNORE epochs: ', I5)
-      close(LUNIGNORE)
-
+cc      print*,'  INI_WRTEXT: placeholder -> do nothing ... yet'
       RETURN
       END
-
-C ===============================
-+DECK,SETSNSTR.
-      SUBROUTINE SET_SNDATA_STRING(KEY,STRINGVAL)
-
-      IMPLICIT NONE
-      CHARACTER KEY*(*)         ! (I) name of key to set SNDATA struct
-      CHARACTER STRINGVAL*(*)   ! (I) string value
-
-c local var
-      CHARACTER cKEY*80, cSTRINGVAL*80
-      INTEGER ONE, LEN_KEY, LEN_STR
-      REAL*8  DVAL(10)
-C -------------- BEGIN -------------
-      ONE = 1
-c add blank space at end in case there isn't one already there
-      LEN_KEY    = INDEX(KEY       // ' ', ' ') - 1
-      LEN_STR    = INDEX(STRINGVAL // ' ', ' ') - 1     
-      cKEY       = KEY(1:LEN_KEY) // char(0)
-      cSTRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
-      DVAL(1)    = -9.0
-      CALL set_sndata(cKEY, ONE, cSTRINGVAL, DVAL, 
-     &                LEN_KEY, LEN_STR ) 
-      RETURN
-      END  ! end of SET_SNDATA_STRING
-
-C ==========================================
-+DECK,SETSNPRIV.
-      SUBROUTINE SET_SNDATA_PRIVATE()
-c
-c if  NVAR_PRIVATE > 0 then set SNDATA.PRIVATE_VAR_NAME in sndata.h
-
-      IMPLICIT NONE
-+CDE,SNPAR.
-+CDE,PRIVCOM.
-
-      INTEGER IVAR, LEN_KEY, LEN_NAME
-      CHARACTER KEY*80, cKEY*80, NAME*80, cNAME*80
-      REAL*8 DVAL(10)
-C --------------- BEGIN ---------------
-
-      IF ( NVAR_PRIVATE .LE. 0 ) RETURN
-
-      KEY       = 'PRIVATE_KEYWORD'
-      LEN_KEY   = INDEX(KEY // ' ', ' ') - 1      
-      cKEY      = KEY(1:LEN_KEY) // char(0)
-
-      DO IVAR = 1, NVAR_PRIVATE
-         NAME = PRIVATE_KEYWORD(IVAR)
-         LEN_NAME = INDEX(NAME  // ' ', ' ') - 1  
-         cNAME    = NAME(1:LEN_NAME) // char(0)
-         DVAL(1)  = -9.0
-
-         CALL set_sndata(cKEY, ONE, cNAME, DVAL, 
-     &                   LEN_KEY, LEN_NAME ) 
-      ENDDO
-
-      RETURN
-      END
-
-C =======================================
-+DECK,SETSNDBL.
-      SUBROUTINE SET_SNDATA_DBLE(KEY,DVAL)
-
-      IMPLICIT NONE
-      CHARACTER KEY*(*)         ! (I) name of key to set SNDATA struct
-      REAL*8    DVAL            ! (I) double precision value to load
-
-c local var
-      CHARACTER cKEY*80, cSTRINGVAL*80
-      INTEGER ONE, LEN_KEY, LEN_STR
-      REAL*8  DARRAY(10)
-
-C -------------- BEGIN -------------
-      ONE = 1
-c add blank space at end in case there isn't one already there
-      LEN_KEY   = INDEX(KEY       // ' ', ' ') - 1
-      cKEY       = KEY(1:LEN_KEY) // char(0)
-
-      cSTRINGVAL = "NULL" // char(0)
-      LEN_STR    = INDEX(cSTRINGVAL // ' ', ' ') - 1     
-      DARRAY(1)  = DVAL  ! avoid warnings with gcc v10
-      CALL set_sndata(cKEY, ONE, cSTRINGVAL, DARRAY, 
-     &                LEN_KEY, LEN_STR ) 
-
-      RETURN
-      END
-
-
-C =========================================
-+DECK,WRTEXT.
-      SUBROUTINE WRTEXT()
-c
-c Created Jun 24, 2010 by R.Kessler
-c Write data to text file.
-c Intended for
-c  + updating obsolete formats
-c  + writing data files with SNANA-generated fudges on flux and fluxerr
-c
-c
-c Data files are created locally with the same name
-c as the original; it is up to the user to move/copy
-c files when done.
-c
-c Nov 12 2018: 
-c   + rename WRTERSE -> WRTEXT
-c   + major overhaul to update the output 
-c
-c ---------------------------
-      IMPLICIT NONE
-
-+CDE,SNDATCOM.
-+CDE,SNLCINP.
-+CDE,FILTCOM.
-+CDE,PRIVCOM.
-
-      INTEGER 
-     &   LL, NOBS, NVAR, NF
-     &  ,EPMIN, EPMAX, EP, NEWMJD, IDFIELD
-     &  ,IFILT, IFILT_OBS, LFLD, i, IVAR, IGAL, LENP
-
-      REAL*8 MJD
-      CHARACTER cfilt1*1, MYFMT*28, TMPKEY*80, VARLIST*100, CLINE*200
-      CHARACTER ENDLINE_MARK*1, PREFIX*20
-
-C ------------- BEGIN ------------
-
-      IF( OPT_REFORMAT_TEXT .EQ. 0 ) RETURN
-
-c abort if sim
-      IF ( LSIM_SNANA ) THEN
-        C1ERR = 'REFORMAT_TERSE for data only. For sim,'
-        C2err = 'just set GEN_SNDATA_SIM: 2 in sim-input file.'
-        CALL  MADABORT("WRTEXT", C1ERR, C2ERR)
-      ENDIF
-
-      NF = NFILTDEF_SURVEY
-      LL = INDEX(SNDATA_FILE_CURRENT,' ' ) - 1
-      print*,'  Create TERSE file: ', SNDATA_FILE_CURRENT(1:LL)
-
-      OPEN(   UNIT   = LUNDAT 
-     &      , FILE   = SNDATA_FILE_CURRENT
-     &      , STATUS = 'UNKNOWN'
-     &           )
-
-
-      WRITE(LUNDAT,10) 'SURVEY:     ', SURVEY_NAME
-      WRITE(LUNDAT,10) 'SNID:       ', SNLC_CCID
-      WRITE(LUNDAT,10) 'IAUC:       ', SNLC_IAUC
-      WRITE(LUNDAT,10) 'FILTERS:    ', SURVEY_FILTERS(1:NF)
-      WRITE(LUNDAT,100)'FAKE:       ', ISNLC_FAKE
-      WRITE(LUNDAT,100)'TYPE:       ', ISNLC_TYPE
-      WRITE(LUNDAT,100)'MASK_FLUXCOR_SNANA:  ', 
-     &            ISNLC_WRMASK_FLUXCOR_SNANA
- 
-      WRITE(LUNDAT,12) 'RA:         ', SNLC8_RA
-      WRITE(LUNDAT,12) 'DEC:        ', SNLC8_DEC
-      WRITE(LUNDAT,13) 'MWEBV:      ', SNLC_MWEBV
-      WRITE(LUNDAT,13) 'MWEBV_ERR:  ', SNLC_MWEBV_ERR
-
-      WRITE(LUNDAT,31) 'PIXSIZE:    ', SNLC_PIXSIZE
-      WRITE(LUNDAT,21) 'PEAKMJD:    ', SNLC_SEARCH_PEAKMJD
-
-      WRITE(LUNDAT,20) 'REDSHIFT_FINAL:  ', 
-     &   SNLC_ZCMB, SNLC_ZCMB_ERR, '(CMB)'
-
-      if ( SNLC_ZHELIO .GT. 0.0 ) then
-         WRITE(LUNDAT,20) 'REDSHIFT_HELIO:  ', 
-     &   SNLC_ZHELIO, SNLC_ZHELIO_ERR, '(HELIO)'
-      endif
-
-10    FORMAT(A,A)
-100   FORMAT(A,I3)
-12    FORMAT(A,F12.6, T40,'# deg')
-13    FORMAT(A,F8.4,  T40, '# MW E(B-V)' )
-20    FORMAT(A,F7.4,' +- ', F7.4, T40, '# ',  A )
-21    FORMAT(A,F10.3)
-31    FORMAT(A,F7.4, T40, '# arcSec' )
-36    FORMAT(A,F11.6,T40, '# deg' )
-
-c host galaxy stuff
-
-      DO 404 IGAL = 1, MXSNHOST 
-         IF ( SNHOST_OBJID(igal) .ne. 0 ) THEN
-            CALL SET_HOSTGAL_PREFIX(igal,PREFIX,LENP)
-            write(LUNDAT,10)  ' ', ' ' ! blank line
-
-            if ( IGAL==1 ) then
-               write(LUNDAT,302) PREFIX(1:LENP)//'_NMATCH:    ', 
-     &              SNHOST_NMATCH
-               write(LUNDAT,302) PREFIX(1:LENP)//'_NMATCH2:    ', 
-     &              SNHOST_NMATCH2
-            endif
-            write(LUNDAT,301) PREFIX(1:LENP)//'_OBJID:     ', 
-     &         SNHOST_OBJID(igal)
-            WRITE(LUNDAT,20)  PREFIX(1:LENP)//'_PHOTOZ:    ', 
-     &           SNHOST_ZPHOT(igal), SNHOST_ZPHOT_ERR(igal),   '(HELIO)' 
-            WRITE(LUNDAT,20)  PREFIX(1:LENP)//'_SPECZ:     ', 
-     &           SNHOST_ZSPEC(igal), SNHOST_ZSPEC_ERR(igal),   '(HELIO)'     
-            WRITE(LUNDAT,36)  PREFIX(1:LENP)//'_RA:     ', 
-     &           SNHOST8_RA(igal)
-            WRITE(LUNDAT,36)  PREFIX(1:LENP)//'_DEC:    ', 
-     &           SNHOST8_DEC(igal)
-            WRITE(LUNDAT,31)  PREFIX(1:LENP)//'_SNSEP:     ', 
-     &           SNHOST_ANGSEP(igal)
-            WRITE(LUNDAT,31)  PREFIX(1:LENP)//'_DDLR:      ', 
-     &           SNHOST_DDLR(igal)
-
-            if ( IGAL==1 ) then
-               WRITE(LUNDAT,31)  'HOSTGAL_CONFUSION: ', SNHOST_CONFUSION
-            endif
-
-            WRITE(LUNDAT,20) PREFIX(1:LENP)//'_LOGMASS:    ', 
-     &           SNHOST_LOGMASS, SNHOST_LOGMASS_ERR, 'log10(M/Msolar)'   
-
-            WRITE(LUNDAT,20) PREFIX(1:LENP)//'_sSFR:    ', 
-     &           SNHOST_sSFR, SNHOST_sSFR_ERR, '  ' 
-
-            write(MYFMT,309) NF
-            WRITE(LUNDAT, MYFMT) PREFIX(1:LENP)//'_MAG:        ',
-     &           (SNHOST_MAGOBS(i,igal),i=1, NF), 
-     &           '# '//SURVEY_FILTERS(1:NF)
-            WRITE(LUNDAT, MYFMT) PREFIX(1:LENP)//'_MAGERR:     ',
-     &           (SNHOST_MAGOBS_ERR(i,igal),i=1, NF), 
-     &           '# '//SURVEY_FILTERS(1:NF)
-            
-            if ( IGAL==1 ) then
-               WRITE(LUNDAT, MYFMT) 'HOSTGAL_SB_FLUXCAL: ',
-     &              (SNHOST_SBFLUXCAL(i),i=1, NF), 
-     &              '# '//SURVEY_FILTERS(1:NF)
-            endif
-         ENDIF  ! end OBJID>0 
- 404  CONTINUE  ! end IGAL 
-
- 301  format(A, I9)
- 302  format(A, I2)
- 309  format('(A,', I1,'(F9.2),4x, A,)' )
-
-c private variables  
-      IF ( NVAR_PRIVATE > 0 ) THEN
-         write(LUNDAT,10) ' ', ' '
-         write(LUNDAT,10) '# ', 'Private variables'
-      ENDIF
-      DO IVAR = 1, NVAR_PRIVATE
-         LL   = INDEX(PRIVATE_KEYWORD(IVAR),' ') -1
-         TMPKEY = PRIVATE_KEYWORD(IVAR)(1:LL)//':'
-         write(LUNDAT,350) TMPKEY, PRIVATE_VALUE(IVAR)
- 350     format(A35, F10.3 )
-      ENDDO
-c - - - - - - - - - 
-c now start the observations
-
-2     FORMAT(A)
-c3     FORMAT(A,$)
-
-      write(LUNDAT,2) ' '
-      write(LUNDAT,2) '# ====================================== '
-      write(LUNDAT,2) '# TERSE LIGHT CURVE OUTPUT '
-      write(LUNDAT,2) '# '
-
-c ------------
-c evaluate NOBS in case there are NEWMJDs with no valid fluxes.
-
-      NOBS = 0
-      DO 150  NEWMJD = 1, ISNLC_NEWMJD_STORE
-        EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
-        EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
-        DO 151 EP = EPMIN, EPMAX
-          if ( SNLC_FLUXCAL_ERRTOT(EP) .GT. 0.0 ) then
-            NOBS = NOBS + 1
-          endif
-151     CONTINUE
-150   CONTINUE
-
-      ENDLINE_MARK = '/'
-
-      NVAR    = 11
-      VARLIST = 
-     &    'MJD BAND FIELD  FLUXCAL FLUXCALERR  ' //
-     &    'ZPFLUX PSF SKYSIG GAIN PHOTFLAG PHOTPROB '// ENDLINE_MARK
-      LL = INDEX(VARLIST,'/')-1
-      if ( LSIM_SNANA) then
-         NVAR = NVAR + 1
-         VARLIST = VARLIST(1:LL) // ' SIM_MAGOBS /'
-         LL = INDEX(VARLIST,ENDLINE_MARK)-1
-      endif
-
-      WRITE(LUNDAT,100) 'NOBS: ', NOBS
-      WRITE(LUNDAT,100) 'NVAR: ', NVAR
-      WRITE(LUNDAT,2)   'VARLIST: ' // VARLIST(1:LL)
-
-      DO 200 NEWMJD = 1, ISNLC_NEWMJD_STORE
- 
-        EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
-        EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
-
-        MJD     = SNLC8_MJD(EPMIN)
-        IDFIELD = ISNLC_IDFIELD(EPMIN)
-        LFLD    = INDEX(SNLC_FIELD(EPMIN),' ') - 1
-        DO 201 EP = EPMIN, EPMAX
-
-          if ( SNLC_FLUXCAL_ERRTOT(EP) .LT. 0.0 ) goto 201
-
-          IFILT_OBS = ISNLC_IFILT_OBS(ep)
-          IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs) 
-          cfilt1    = FILTDEF_STRING(ifilt_obs:ifilt_obs)
-          WRITE(CLINE,300) 
-     &        MJD, cfilt1, SNLC_FIELD(EP)(1:LFLD)
-     &      , SNLC_FLUXCAL(EP), SNLC_FLUXCAL_ERRTOT(EP)
-     &      , SNLC_ZEROPT(EP), SNLC_PSF_SIG1(EP), SNLC_SKYSIG(EP)
-     &      , SNLC_GAIN(EP), ISNLC_PHOTFLAG(EP), SNLC_PHOTPROB(EP)
-     &      , ENDLINE_MARK
-300       FORMAT(F9.3, 2x, A1,2x, A, 2x,     ! MJD, FILTER, FIELD
-     &           2G12.5,                     ! FLUXCAL, FLUXCAL_ERR
-     &           2F6.3, F7.2,                ! ZP, PSF, SKYSIG
-     &           F6.3, I7, F6.3, 1x,         ! GAIN, PHOTFLAG, PHOTPROB
-     &           A )
-          LL = INDEX(CLINE,ENDLINE_MARK) - 1
-          WRITE(LUNDAT,2) 'OBS: ' // CLINE(1:LL)
-
-201     CONTINUE
-
-200   CONTINUE
-
-      write(LUNDAT,2) 'END: '
-
-      CLOSE ( UNIT = LUNDAT )
-      RETURN
-      END     ! end WRTEXT
-
-
 
 C ====================================
-+DECK,INI_WRS2.
-      SUBROUTINE INI_WRSALT2_2
++DECK,INI_WRSALT2.
+      SUBROUTINE INIT_REFORMAT_SALT2
 c -----------------------------------------------
 c Nov 2011 R.Kessler
 c
@@ -8264,7 +7409,857 @@ c write cut-def file, then close it.
       print*,' -----------------------------------------------' 
       print*,' '
       RETURN
+      END    ! end INIT_REFORMAT_SALT2
+
+C ================================================
++DECK,OPEN_REFORMAT_FILE.
+      SUBROUTINE OPEN_REFORMAT_FILE(LUN, SUFFIX, REFORMAT_FILE)
+c Open text file name REFORMAT_VERSION/REFORMAT_VERSION.SUFFIX
+c use imput LUN 
+      IMPLICIT NONE
+      INTEGER   LUN          ! (I) open with this logical unit
+      CHARACTER SUFFIX*(*)   ! (I) open with this suffix
+      CHARACTER REFORMAT_FILE*(*)  ! (O) name of file opened
+
++CDE,SNDATCOM.
+c +CDE,SNLCINP.
+      INTEGER   LEN_VER
+      CHARACTER VERSION*(MXCHAR_VERSION)
+C ------------ BEGIN -----------
+      LEN_VER = INDEX(REFORMAT_VERSION,' ') - 1
+      REFORMAT_FILE = 
+     &   REFORMAT_VERSION(1:LEN_VER) // '/' //
+     &   REFORMAT_VERSION(1:LEN_VER) // '.' // SUFFIX
+      OPEN (LUN, FILE = REFORMAT_FILE, status='UNKNOWN' )
+
+      RETURN
+      END      ! OPEN_REFORMAT_FILE
+
+C =============================
++DECK,EXEC_REFORMAT.
+      SUBROUTINE EXEC_REFORMAT()
+c
+c Create Feb 7 2021;
+c Update reformat output:
+c  + append FITS files for FITS output
+c  + write new TEXT file for TEXT output
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER MXWR_TEXT
+      PARAMETER (MXWR_TEXT = 20)
+
+      CHARACTER  CCID*(MXCHAR_CCID), TEXTFILE*100, TEXTFILE_FULL*100
+      INTEGER    LEN_VER, LEN_TXT
+      EXTERNAL   WR_DATAFILE_TEXT
+
+C ---------- BEGIN ----------
+
+      if ( .NOT. REFORMAT ) RETURN
+
+      IF ( REFORMAT_SNANA ) THEN 
+         CALL PREP_REFORMAT_SNDATA()
+         CALL WRITE_REFORMAT_IGNORE()  ! update ignore file
+      ENDIF
+
+      IF ( OPT_REFORMAT_FITS > 0 )  THEN
+         CALL WR_SNFITSIO_UPDATE() 
+      ENDIF
+
+      IF ( OPT_REFORMAT_TEXT > 0  .and. N_SNLC_CUTS .LE. MXWR_TEXT) THEN
+c        prepare name of text file         
+         CCID    = SNLC_CCID(1:ISNLC_LENCCID) 
+         LEN_VER = INDEX(REFORMAT_VERSION,' ') - 1
+         textFile = 
+     &       REFORMAT_VERSION(1:LEN_VER) // '_' //
+     &       SNLC_CCID(1:ISNLC_LENCCID) // '.DAT'
+         LEN_TXT = INDEX(textfile,' ') - 1
+         TEXTFILE_FULL = REFORMAT_VERSION(1:LEN_VER) // '/'  //
+     &       textfile(1:len_txt) // char(0)
+         CALL WR_DATAFILE_TEXT(TEXTFILE_FULL)
+         write(LUNLIST2, '(A)' ) TEXTFILE(1:len_txt)
+
+         if ( N_SNLC_CUTS == MXWR_TEXT ) then
+            print*,' '
+            print*,'  WARNING: wrote max number of TEXT files: ', 
+     &                N_SNLC_CUTS
+            print*,' '
+         endif
+      ENDIF
+
+
+c check Julien's original SALT2 format (not SNANA format)
+      IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) CALL WRSALT2_2()
+
+      RETURN
+      END     ! end EXEC_REFORMAT
+
+
+C ==========================================
++DECK,PREP_REFORMAT_GLOBAL.
+      SUBROUTINE PREP_REFORMAT_GLOBAL()
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER   LEN_VER
+      CHARACTER CMD*100
+      LOGICAL   LEXIST
+      REAL*8 DVAL
+C ------------- BEGIN -------------
+
+      IF ( OPT_REFORMAT_FITS > 0 ) THEN
+         REFORMAT_VERSION = VERSION_REFORMAT_FITS
+      ELSE IF ( OPT_REFORMAT_TEXT > 0 ) THEN
+         REFORMAT_VERSION = VERSION_REFORMAT_TEXT
+      ELSE
+
+      ENDIF
+
+c check if reformat dir already exists
+      LEN_VER = INDEX(REFORMAT_VERSION,' ')-1
+      INQUIRE(FILE = REFORMAT_VERSION, EXIST = LEXIST)
+      IF ( LEXIST ) THEN
+        c1err = 'REFORMAT DIR already exists: ' 
+     &           // REFORMAT_VERSION(1:LEN_VER)
+        c2err = 'Remove it, or change name'
+        CALL  MADABORT("PREP_FORMAT_GLOBAL", C1ERR, C2ERR)
+      ENDIF
+
+c create reformat dir
+      CMD = 'mkdir ' // REFORMAT_VERSION(1:LEN_VER)
+      CALL SYSTEM(CMD)
+      
+      CALL SET_SNDATA_STRING("SURVEY",    SURVEY_NAME)
+      CALL SET_SNDATA_STRING("FILTERS",   SURVEY_FILTERS)
+      CALL SET_SNDATA_STRING("SNANA_DIR", SNANA_DIR)
+
+      DVAL  = DBLE(SNLC_NXPIX)
+      CALL SET_SNDATA_DBLE("NXPIX", DVAL )
+      DVAL  = DBLE(SNLC_NYPIX)
+      CALL SET_SNDATA_DBLE("NYPIX", DVAL )
+
+      DVAL  = DBLE(ISNLC_CCDNUM(1) )
+      CALL SET_SNDATA_DBLE("CCDNUM", DVAL ) ! Jun 2 2017
+
+c set optional private variables to leave list in header.
+      CALL SET_SNDATA_PRIVATE();
+      
+      RETURN
+      END   ! end PREP_REFORMAT_GLOBAL
+
+C ==========================================
++DECK,PREP_REFORMAT_SNDATA.
+      SUBROUTINE PREP_REFORMAT_SNDATA()
+c
+c Feb 2021
+c Pass local fortran data to C code to load SNDATA struct.
+c Used later by C functons to rewrite data in different format.
+c
+c For each call to set_SDNATA_STRING[DBLE], add code in
+c set_SNDATA() inside sntools.c
+c
+c ----------------------------------------
+
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,PRIVCOM.
++CDE,FITSCOM.
+
+c local var
+
+      INTEGER 
+     &   LEN_KEY, LEN_STR
+     &  ,NEP, iep, i, LFLD, IFILT_OBS, ifilt, igal
+     &  ,LEN1_CCID, LEN2_CCID, LENPRE, HOSTGAL_USEMASK
+
+      CHARACTER 
+     &    KEY*60
+     &   ,STRINGVAL*(MXLEN_EPSTRING)
+     &   ,CFILT*2
+     &   ,CCID*(MXCHAR_CCID)
+     &   ,PREFIX*20
+
+      REAL*8  DVAL, DARRAY(MXEPOCH)
+
+c --------------- BEGIN -------------------
+
+      STRINGVAL = "NULL" // char(0)
+      LEN_STR   = INDEX(STRINGVAL, ' ') - 1     
+
+      CALL SET_SNDATA_STRING("SUBSURVEY", SUBSURVEY_NAME)
+      CALL SET_SNDATA_STRING("SNID", SNLC_CCID )
+      CALL SET_SNDATA_STRING("IAUC", SNLC_IAUC )
+
+      DVAL      = SNLC8_RA
+      CALL SET_SNDATA_DBLE("RA", DVAL )
+
+      DVAL      = SNLC8_DEC
+      CALL SET_SNDATA_DBLE("DECL", DVAL )
+
+      DVAL      = SNLC_PIXSIZE
+      CALL SET_SNDATA_DBLE("PIXSIZE", DVAL )
+
+      DVAL      = SNLC_NXPIX
+      CALL SET_SNDATA_DBLE("NXPIX", DVAL )
+
+      DVAL      = DBLE(ISNLC_CCDNUM(1) )
+      CALL SET_SNDATA_DBLE("CCDNUM", DVAL )   ! Jun 2 2017 
+
+      DVAL  = DBLE(ISNLC_FAKE)
+      CALL SET_SNDATA_DBLE("FAKE", DVAL)  ! Feb 7 2021
+
+      DVAL      = DBLE(ISNLC_WRMASK_FLUXCOR_SNANA )
+      CALL SET_SNDATA_DBLE("MASK_FLUXCOR_SNANA", DVAL )   ! Nov 2018
+
+      DVAL      = SNLC_NYPIX
+      CALL SET_SNDATA_DBLE("NYPIX", DVAL )
+
+      DVAL      = DBLE( ISNLC_TYPE  )
+      CALL SET_SNDATA_DBLE("SNTYPE", DVAL )
+
+      IF ( SURVEY_NAME(1:4) .EQ. 'SDSS') THEN
+        DVAL      = DBLE( ISNLC_TYPE  )
+        CALL SET_SNDATA_DBLE("SEARCH_TYPE", DVAL )
+      ENDIF
+
+      DVAL      = SNLC_SEARCH_PEAKMJD 
+      CALL SET_SNDATA_DBLE("PEAKMJD", DVAL )
+
+      DVAL      = DBLE ( ISNLC_NEPOCH_STORE )
+      CALL SET_SNDATA_DBLE("NEPOCH", DVAL )
+
+c ---------- redshift info --------
+      DVAL      = SNLC_ZCMB 
+      CALL SET_SNDATA_DBLE("REDSHIFT_FINAL", DVAL )
+
+      DVAL      = SNLC_ZCMB_ERR
+      CALL SET_SNDATA_DBLE("REDSHIFT_FINAL_ERR", DVAL )
+
+      DVAL      = SNLC_ZHELIO
+      CALL SET_SNDATA_DBLE("REDSHIFT_HELIO", DVAL )
+
+      DVAL      = SNLC_ZHELIO_ERR
+      CALL SET_SNDATA_DBLE("REDSHIFT_HELIO_ERR", DVAL )
+
+      DVAL      = SNLC_VPEC
+      CALL SET_SNDATA_DBLE("VPEC", DVAL )
+
+      DVAL      = SNLC_VPEC_ERR
+      CALL SET_SNDATA_DBLE("VPEC_ERR", DVAL )
+
+      DVAL      = DBLE(ISNLC_zFLAG)
+      CALL SET_SNDATA_DBLE("REDSHIFT_QUALITYFLAG", DVAL )
+
+c ------- host galaxy info  ------------
+      HOSTGAL_USEMASK = 0
+      IF ( EXIST_SNHOST_MAGOBS ) HOSTGAL_USEMASK = HOSTGAL_USEMASK + 1
+      IF ( EXIST_SNHOST_SB     ) HOSTGAL_USEMASK = HOSTGAL_USEMASK + 4
+
+      DVAL      = SNHOST_NMATCH
+      CALL SET_SNDATA_DBLE("HOSTGAL_NMATCH", DVAL )
+      DVAL      = SNHOST_NMATCH2
+      CALL SET_SNDATA_DBLE("HOSTGAL_NMATCH2", DVAL )
+      DVAL      = SNHOST_CONFUSION
+      CALL SET_SNDATA_DBLE("HOSTGAL_CONFUSION", DVAL )
+
+      DO igal = 1, MXSNHOST
+         CALL SET_HOSTGAL_PREFIX(igal,PREFIX,LENPRE)
+      
+         DVAL      = SNHOST_OBJID(igal) 
+         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_OBJID", DVAL )
+
+         DVAL      = SNHOST_ZPHOT(igal)
+         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_PHOTOZ", DVAL )
+
+         DVAL      = SNHOST_ZPHOT_ERR(igal)
+         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_PHOTOZ_ERR", DVAL )
+
+         DVAL      = SNHOST_ZSPEC(igal)
+         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_SPECZ", DVAL )
+
+         DVAL      = SNHOST_ZSPEC_ERR(igal)
+         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_SPECZ_ERR", DVAL )
+
+         DVAL      = SNHOST8_RA(igal)
+         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_RA", DVAL )
+         DVAL      = SNHOST8_DEC(igal)
+         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_DEC", DVAL )
+
+         DVAL      = SNHOST_ANGSEP(igal)
+         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_SNSEP", DVAL )
+
+         DVAL      = SNHOST_DDLR(igal)
+         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_DDLR", DVAL )
+
+         DVAL      = SNHOST_LOGMASS(igal)
+         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_LOGMASS", DVAL )
+         DVAL      = SNHOST_LOGMASS_ERR(igal)
+         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_LOGMASS_ERR", DVAL )
+
+         DVAL      = SNHOST_sSFR(igal)
+         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_sSFR", DVAL )
+         DVAL      = SNHOST_sSFR_ERR(igal)
+         CALL SET_SNDATA_DBLE(PREFIX(1:LENPRE)//"_sSFR_ERR", DVAL )
+
+         IF ( EXIST_SNHOST_MAGOBS ) THEN
+            DO ifilt = 1, NFILTDEF_READ
+               DARRAY(ifilt) = DBLE( SNHOST_MAGOBS(ifilt,igal) )
+            ENDDO
+            KEY       = PREFIX(1:LENPRE)//'_MAG' // char(0)
+            LEN_KEY   = INDEX(KEY, ' ') - 1
+            CALL set_sndata(KEY, NFILTDEF_READ, STRINGVAL, DARRAY, 
+     &           LEN_KEY, LEN_STR) 
+            
+            DO ifilt = 1, NFILTDEF_READ
+               DARRAY(ifilt) = DBLE( SNHOST_MAGOBS_ERR(ifilt,igal) )
+            ENDDO
+            KEY       = PREFIX(1:LENPRE)//'_MAGERR' // char(0)
+            LEN_KEY   = INDEX(KEY, ' ') - 1
+            CALL set_sndata(KEY, NFILTDEF_READ, STRINGVAL, DARRAY, 
+     &           LEN_KEY, LEN_STR) 
+         ENDIF
+
+      ENDDO ! end IGAL loop
+
+c add host-galaxy SB if defined
+
+      IF ( EXIST_SNHOST_SB ) THEN  ! added Sep 3 2014
+         DO ifilt = 1, NFILTDEF_READ
+            DARRAY(ifilt) = SNHOST_SBFLUXCAL(ifilt) 
+         ENDDO
+         KEY       = 'HOSTGAL_SB_FLUXCAL' // char(0)
+         LEN_KEY   = INDEX(KEY, ' ') - 1
+         CALL set_sndata(KEY, NFILTDEF_READ, STRINGVAL, DARRAY, 
+     &        LEN_KEY, LEN_STR) 
+      ENDIF
+ 
+
+c ------- MW Galactic extinction ----------
+
+      DVAL      = SNLC_MWEBV
+      CALL SET_SNDATA_DBLE("MWEBV", DVAL )
+
+      DVAL      = SNLC_MWEBV_ERR
+      CALL SET_SNDATA_DBLE("MWEBV_ERR", DVAL )
+
+
+c ------- PRIVATE variables --------
+
+      IF ( NVAR_PRIVATE > 0 ) THEN
+        KEY      = 'PRIVATE_VALUE' // char(0)
+        LEN_KEY  = INDEX(KEY, ' ') - 1
+        CALL set_sndata(KEY,NVAR_PRIVATE, STRINGVAL, PRIVATE_VALUE, 
+     &           LEN_KEY,LEN_STR ) 
+      ENDIF
+
+c -------------------------------------------
+c -------- Load light curve -----------------
+c -------------------------------------------
+
+      NEP  = ISNLC_NEPOCH_STORE
+
+c --- MJD ---
+      DO iep = 1, NEP
+         DARRAY(iep) = SNLC8_MJD(iep)
+      ENDDO
+      KEY  = 'MJD' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- FLUXCAL ---
+      DO iep = 1, NEP
+         DARRAY(iep) = SNLC_FLUXCAL(iep)
+      ENDDO
+      KEY  = 'FLUXCAL' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- FLUXCAL_ERR ---
+      DO iep = 1, NEP
+         DARRAY(iep) = SNLC_FLUXCAL_ERRTOT(iep)
+      ENDDO
+      KEY  = 'FLUXCAL_ERRTOT' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- MAG ---
+      DO iep = 1, NEP
+         DARRAY(iep) = SNLC_MAG(iep)
+      ENDDO
+      KEY  = 'MAG' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+
+c --- MAGERR ---
+      DO iep = 1, NEP
+         DARRAY(iep) = SNLC_MAG_ERRPLUS(iep)
+      ENDDO
+      KEY  = 'MAGERR' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- PHOTFLAG ---
+      DO iep = 1, NEP
+         DARRAY(iep) = DBLE ( ISNLC_PHOTFLAG(iep) )
+      ENDDO
+      KEY  = 'PHOTFLAG' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- PHOTPROB ---
+      DO iep = 1, NEP
+         DARRAY(iep) = DBLE ( SNLC_PHOTPROB(iep) )
+      ENDDO
+      KEY  = 'PHOTPROB' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- PSF_SIG1 ---
+      DO iep = 1, NEP
+         DARRAY(iep) = SNLC_PSF_SIG1(iep)
+      ENDDO
+      KEY  = 'PSF_SIG1' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- PSF_SIG2 ---
+      DO iep = 1, NEP
+         DARRAY(iep) = SNLC_PSF_SIG2(iep)
+      ENDDO
+      KEY  = 'PSF_SIG2' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- PSF_RATIO ---
+      DO iep = 1, NEP
+         DARRAY(iep) = SNLC_PSF_RATIO(iep)
+      ENDDO
+      KEY  = 'PSF_RATIO' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- SKY_SIG ---
+      DO iep = 1, NEP
+         DARRAY(iep) = SNLC_SKYSIG(iep)
+      ENDDO
+      KEY      = 'SKY_SIG' // char(0)
+      LEN_KEY  = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- SKY_SIG_T (template sky noise) ---
+      DO iep = 1, NEP
+         DARRAY(iep) = SNLC_SKYSIG_T(iep)
+      ENDDO
+      KEY      = 'SKY_SIG_T' // char(0)
+      LEN_KEY  = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- RDNOISE ---
+      DO iep = 1, NEP
+         DARRAY(iep) = SNLC_RDNOISE(iep)
+      ENDDO
+      KEY  = 'RDNOISE' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- GAIN ---
+      DO iep = 1, NEP
+         DARRAY(iep) = SNLC_GAIN(iep)
+      ENDDO
+      KEY  = 'GAIN' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- ZEROPT ---
+      DO iep = 1, NEP
+         DARRAY(iep) = SNLC_ZEROPT(iep)
+      ENDDO
+      KEY  = 'ZEROPT' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- ZEROPT_ERR ---
+      DO iep = 1, NEP
+         DARRAY(iep) = SNLC_ZEROPT_ERR(iep)
+      ENDDO
+      KEY  = 'ZEROPT_ERR' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c --- Pixel location
+
+      IF( SNLC_NXPIX > 0 ) THEN
+         DO iep = 1, NEP
+            DARRAY(iep) = SNLC_XPIX(iep)
+         ENDDO
+         KEY      = 'XPIX' // char(0)
+         LEN_KEY  = INDEX(KEY, ' ') - 1
+         CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+         
+         DO iep = 1, NEP
+            DARRAY(iep) = SNLC_YPIX(iep)
+         ENDDO
+         KEY      = 'YPIX' // char(0)
+         LEN_KEY  = INDEX(KEY, ' ') - 1
+         CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+      ENDIF
+
+c -------------------
+      DARRAY(1) = -9.0
+c -------------------
+
+c ---- FILTER ----
+      KEY  = 'FLT' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      LEN_STR   = -1
+      STRINGVAL = ' '
+      DO iep = 1, NEP
+         IFILT_OBS = ISNLC_IFILT_OBS(iep)
+         CFILT     = FILTDEF_STRING(ifilt_obs:ifilt_obs)
+         i = 2*iep-1
+         STRINGVAL(i:i+1) = CFILT(1:1) // ','
+         LEN_STR   = LEN_STR + 2
+      ENDDO
+      STRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
+      CALL set_sndata(KEY,NEP, STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+c ---- FIELD ----
+      KEY       = 'FIELD' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      LEN_STR   = 0
+      STRINGVAL = ' '
+      DO iep = 1, NEP
+         LFLD = INDEX( SNLC_FIELD(iep),' ' ) - 1
+         STRINGVAL(LEN_STR+1:LEN_STR+LFLD+1) = 
+     &        SNLC_FIELD(iep)(1:LFLD) // ','
+         LEN_STR  = LEN_STR + LFLD + 1
+      ENDDO
+      LEN_STR = LEN_STR - 1
+      STRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
+
+      CALL set_sndata(KEY,NEP, STRINGVAL, DARRAY, LEN_KEY, LEN_STR) 
+
+
+
+c xxxxxxxxxxxxxxx mark delete Feb 7 2021 xxxxxxxxxxxxxxxx
++SELF,IF=DELETE.
+c ---- TELESCOPE ----
+      KEY       = 'TELESCOPE' // char(0)
+      LEN_KEY   = INDEX(KEY, ' ') - 1
+      LEN_STR   = 0
+      STRINGVAL = ' '
+      DO iep = 1, NEP
+         LFLD = INDEX( SNTEL_LIST(1) // ' ' ,' ' ) - 1
+         STRINGVAL(LEN_STR+1:LEN_STR+LFLD+1) = 
+     &        SNTEL_LIST(1)(1:LFLD) // ' '
+         LEN_STR  = LEN_STR + LFLD + 1
+      ENDDO
+      LEN_STR = LEN_STR - 1
+      STRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
+      CALL set_sndata(KEY,NEP, STRINGVAL, DARRAY, LEN_KEY, LEN_STR) 
++SELF.
+c xxxxxxxxxxxxxxxx end mark xxxxxxxxxxx
+
+
+c -------------------------------------------------
+c Aug 6 2014: optional SIM_MAGOBS if it's there 
+c   (e.g., for fakes overlaid onto real images)
+
+      IF ( ITERSE_SIM_EPMAGOBS > 0 ) THEN
+         DO iep = 1, NEP
+            DARRAY(iep) = SIM_EPMAGOBS(iep)
+         ENDDO
+         KEY  = 'SIM_MAGOBS' // char(0)
+         LEN_KEY   = INDEX(KEY, ' ') - 1
+         CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+         
+      ENDIF
+
+c ----------------------------------------
+c ----- Continue only for simulation -----
+c ----------------------------------------
+
+      IF ( ISNLC_FAKE .NE. 2 ) RETURN
+
+      DVAL   = SIM_REDSHIFT_HELIO
+      CALL SET_SNDATA_DBLE("SIM_REDSHIFT_HELIO", DVAL )
+      DVAL   = SIM_REDSHIFT_CMB
+      CALL SET_SNDATA_DBLE("SIM_REDSHIFT_CMB", DVAL )
+      DVAL   = SIM_REDSHIFT_FLAG
+      CALL SET_SNDATA_DBLE("SIM_REDSHIFT_FLAG", DVAL )
+      DVAL   = SIM_VPEC
+      CALL SET_SNDATA_DBLE("SIM_VPEC", DVAL )
+      DVAL   = SIM_DLMAG
+      CALL SET_SNDATA_DBLE("SIM_DLMAG", DVAL )
+      DVAL   = SIM_LENSDMU
+      CALL SET_SNDATA_DBLE("SIM_LENSDMU", DVAL )
+      DVAL   = SIM_MWEBV
+      CALL SET_SNDATA_DBLE("SIM_MWEBV", DVAL )
+      DVAL   = SIM_MWRV
+      CALL SET_SNDATA_DBLE("SIM_MWRV", DVAL )
+
+      DVAL   = SIM_PEAKMJD
+      CALL SET_SNDATA_DBLE("SIM_PEAKMJD", DVAL )
+
+      DVAL   = INT(SIM_SEARCHEFF_MASK)
+      CALL SET_SNDATA_DBLE("SIM_SEARCHEFF_MASK", DVAL )
+
+      DVAL   = INT(SIMOPT_MWCOLORLAW)
+      CALL SET_SNDATA_DBLE("SIMOPT_MWCOLORLAW", DVAL )
+      DVAL   = INT(SIMOPT_MWEBV)
+      CALL SET_SNDATA_DBLE("SIMOPT_MWEBV", DVAL )
+
+      DVAL   = INT(SIM_TEMPLATE_INDEX)
+      CALL SET_SNDATA_DBLE("SIM_TEMPLATE_INDEX", DVAL )
+
+      DVAL   = INT(SIM_LIBID)
+      CALL SET_SNDATA_DBLE("SIM_LIBID", DVAL )
+      DVAL   = INT(SIM_NGEN_LIBID)
+      CALL SET_SNDATA_DBLE("SIM_NGEN_LIBID", DVAL )
+      DVAL   = INT(SIMLIB_MSKOPT)
+      CALL SET_SNDATA_DBLE("SIMLIB_MSKOPT", DVAL )
+
+
+      DARRAY(1) = -9.0
+      KEY       = 'SIM_MODEL_NAME' // char(0)
+      LEN_STR   = INDEX(SIMNAME_MODEL,' ') - 1
+      STRINGVAL = SIMNAME_MODEL(1:LEN_STR) // char(0)
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+      DARRAY(1) = -9.0
+      KEY       = 'SIM_TYPE_NAME' // char(0)
+      LEN_STR   = INDEX(SIMNAME_TYPE,' ') - 1
+      STRINGVAL = SIMNAME_TYPE(1:LEN_STR) // char(0)
+      CALL set_sndata(KEY,NEP,STRINGVAL, DARRAY, LEN_KEY,LEN_STR) 
+
+      DVAL   = INT(SIM_MODEL_INDEX)
+      CALL SET_SNDATA_DBLE("SIM_MODEL_INDEX", DVAL )
+
+
+c .xyz
+      RETURN
+      END  ! end of PREP_REFORMAT_SNDATA
+
+C =========================================
++DECK,WR_REFORMAT_IGNORE.
+      SUBROUTINE WRITE_REFORMAT_IGNORE()
+
+c Open and write IGNORE file
+
+      IMPLICIT NONE
++CDE,SNDATCOM.
+      INTEGER i, LEN1_CCID, LEN2_CCID
+      CHARACTER CCID*(MXCHAR_CCID)
+C ----------- BEGIN ----------
+
+      LEN1_CCID = INDEX(SNLC_CCID,' ') - 1
+      DO 400 i = 1, NEPOCH_IGNORE
+         CCID = EPOCH_IGNORE_CCID(i)   
+         LEN2_CCID = INDEX(CCID,' ') - 1
+         IF( LEN1_CCID .NE. LEN2_CCID ) GOTO 400
+         IF ( CCID(1:LEN1_CCID) .EQ. SNLC_CCID(1:LEN1_CCID) ) THEN
+            write(LUNIGNORE2,410) 
+     &      CCID(1:LEN1_CCID), EPOCH_IGNORE_MJD(i), EPOCH_IGNORE_FILT(i)
+ 410        format('IGNORE:  ', A, 3x, F9.3, 3x, A1)
+            call flush(LUNIGNORE2)
+            NEPOCH_IGNORE_WRFITS = NEPOCH_IGNORE_WRFITS + 1
+         ENDIF
+ 400  CONTINUE
+
+      RETURN
+      END  ! end of WRITE_REFORMAT_IGNORE
+
+C ===============================
++DECK,END_REFORMAT.
+      SUBROUTINE END_REFORMAT
+
+c
+c Close FITS files and create README file.
+c Nov 25, 2012: create blank IGNORE file if 2nd bit if 
+c               OPT_REFORMAT_FITS is set
+c
+c Jun 21 2013: give big warning if IGNORE file is not created.
+c
+c Feb 26 2015: catenate each original README into final README.
+c
+c -------------
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
+
+      INTEGER LEN_VERS, LEN_SURVEY, i, iver
+      CHARACTER 
+     &   README_FILE*(MXCHAR_FILENAME)
+     &  ,TXT*80, CMD*(MXCHAR_FILENAME)
+
+C ----------------- BEGIN ----------------
+
+c call C function to close out the FITS files.
+      IF ( OPT_REFORMAT_FITS > 0 )  CALL wr_snfitsio_end()
+
+c make README file and write basic info.
+
+      CALL OPEN_REFORMAT_FILE(LUNTMP, 'README', README_FILE)
+
+      LEN_SURVEY = INDEX(SURVEY_NAME,' ') - 1
+      WRITE(TXT,20) SURVEY_NAME(1:LEN_SURVEY)
+20    FORMAT('Convert ', A,' TEXT files into FITS format for ')
+      WRITE(LUNTMP,500) txt
+
+      DO i = 1, N_VERSION
+        TXT = '     ' // VERSION_PHOTOMETRY(i)
+        write(LUNTMP,500) txt
+      ENDDO
+
+      WRITE(LUNTMP,500) ' '
+
+      WRITE(LUNTMP,30) 'Processed', N_SNLC
+      WRITE(LUNTMP,30) 'Wrote    ', N_SNLC_CUTS
+30    format(A, 2x, I7, 2x, ' light curves.' )
+      call FLUSH(LUNTMP)
+
+500   FORMAT(A)
+      CLOSE(LUNTMP)  ! close README file
+
+
+c --- catenate original README contents for each version --------
+
+      DO iver = 1, N_VERSION
+
+c first write formatted DUMP-statement.
+
+         OPEN (LUNTMP, FILE = README_FILE, Access='append',Status='old')
+
+         write(LUNTMP,600)
+         write(LUNTMP,600)
+         write(LUNTMP,700)
+         write(LUNTMP,700)
+         write(LUNTMP,701)  VERSION_PHOTOMETRY(iver)
+
+600      format(' ')
+700      format('# ', 74('=') )
+701      format('# DUMP ORIGINAL README for ', A)
+
+         CLOSE(LUNTMP)  ! close README file
+
+c now just catenate the final readme with the original readme file.
+
+         LEN_VERS  = INDEX(SNREADME_FILE(iver),' ' ) - 1
+         CMD = 'cat ' // SNREADME_FILE(iver)(1:LEN_VERS) 
+     &         // ' >> ' // README_FILE
+         
+         CALL SYSTEM(CMD)
+
+      ENDDO
+
+c ---- update IGNORE file with comment on total number of IGNORE epochs
+      write(LUNIGNORE2,430) NEPOCH_IGNORE_WRFITS
+ 430  format(/,'Total number of IGNORE epochs: ', I5)
+      close(LUNIGNORE2)
+
+      RETURN
+      END    ! END_REFORMAT
+
+C ===============================
++DECK,SETSNSTR.
+      SUBROUTINE SET_SNDATA_STRING(KEY,STRINGVAL)
+
+      IMPLICIT NONE
+      CHARACTER KEY*(*)         ! (I) name of key to set SNDATA struct
+      CHARACTER STRINGVAL*(*)   ! (I) string value
+
+c local var
+      CHARACTER cKEY*80, cSTRINGVAL*80
+      INTEGER ONE, LEN_KEY, LEN_STR
+      REAL*8  DVAL(10)
+C -------------- BEGIN -------------
+      ONE = 1
+c add blank space at end in case there isn't one already there
+      LEN_KEY    = INDEX(KEY       // ' ', ' ') - 1
+      LEN_STR    = INDEX(STRINGVAL // ' ', ' ') - 1     
+      cKEY       = KEY(1:LEN_KEY) // char(0)
+      cSTRINGVAL = STRINGVAL(1:LEN_STR) // char(0)
+      DVAL(1)    = -9.0
+      CALL set_sndata(cKEY, ONE, cSTRINGVAL, DVAL, 
+     &                LEN_KEY, LEN_STR ) 
+      RETURN
+      END  ! end of SET_SNDATA_STRING
+
+C ==========================================
++DECK,SETSNPRIV.
+      SUBROUTINE SET_SNDATA_PRIVATE()
+c
+c if  NVAR_PRIVATE > 0 then set SNDATA.PRIVATE_VAR_NAME in sndata.h
+
+      IMPLICIT NONE
++CDE,SNPAR.
++CDE,PRIVCOM.
+
+      INTEGER IVAR, LEN_KEY, LEN_NAME
+      CHARACTER KEY*80, cKEY*80, NAME*80, cNAME*80
+      REAL*8 DVAL(10)
+C --------------- BEGIN ---------------
+
+      IF ( NVAR_PRIVATE .LE. 0 ) RETURN
+
+      KEY       = 'PRIVATE_KEYWORD'
+      LEN_KEY   = INDEX(KEY // ' ', ' ') - 1      
+      cKEY      = KEY(1:LEN_KEY) // char(0)
+
+      DO IVAR = 1, NVAR_PRIVATE
+         NAME = PRIVATE_KEYWORD(IVAR)
+         LEN_NAME = INDEX(NAME  // ' ', ' ') - 1  
+         cNAME    = NAME(1:LEN_NAME) // char(0)
+         DVAL(1)  = -9.0
+
+         CALL set_sndata(cKEY, ONE, cNAME, DVAL, 
+     &                   LEN_KEY, LEN_NAME ) 
+      ENDDO
+
+      RETURN
       END
+
+C =======================================
++DECK,SETSNDBL.
+      SUBROUTINE SET_SNDATA_DBLE(KEY,DVAL)
+
+      IMPLICIT NONE
+      CHARACTER KEY*(*)         ! (I) name of key to set SNDATA struct
+      REAL*8    DVAL            ! (I) double precision value to load
+
+c local var
+      CHARACTER cKEY*80, cSTRINGVAL*80
+      INTEGER ONE, LEN_KEY, LEN_STR
+      REAL*8  DARRAY(10)
+
+C -------------- BEGIN -------------
+      ONE = 1
+c add blank space at end in case there isn't one already there
+      LEN_KEY   = INDEX(KEY       // ' ', ' ') - 1
+      cKEY       = KEY(1:LEN_KEY) // char(0)
+
+      cSTRINGVAL = "NULL" // char(0)
+      LEN_STR    = INDEX(cSTRINGVAL // ' ', ' ') - 1     
+      DARRAY(1)  = DVAL  ! avoid warnings with gcc v10
+      CALL set_sndata(cKEY, ONE, cSTRINGVAL, DARRAY, 
+     &                LEN_KEY, LEN_STR ) 
+
+      RETURN
+      END
+
+
+
 C =========================================
 +DECK,WRS2_2.
       SUBROUTINE WRSALT2_2()
@@ -8700,7 +8695,7 @@ C ================================================
 c
 c Init some SN variables.
 c Called once at beginning of program.
-c See INIT_SNDATA to initilaize each SN.
+c See INIT_SNLC to initilaize each SN.
 c
 c Nov 6, 2006: define SNANA_DIR and read ZPOFF from default file.
 c
@@ -11302,7 +11297,7 @@ c check if file is default, or if provided by user.
         LL = INDEX( SNDATA_PREFIX, ' ' ) - 1
         LOCAL_FILENAME = SNDATA_PREFIX(1:LL) // '.IGNORE'
 
-c       bail if default file does not exist (Feb 2021) .xyz
+c       bail if default file does not exist (Feb 2021)
         inquire (file=LOCAL_FILENAME, exist=LEXIST)
         if ( .NOT. LEXIST ) THEN
            print*,'    Default IGNORE file does not exist -> skip read.'
@@ -11777,7 +11772,7 @@ c turn off epoch selection-mask
       ABSO_INDEX(isn)      = IROW
       ISNLC_ABSO_INDEX     = IROW
 
-      CALL INIT_SNDATA()
+      CALL INIT_SNLC() 
 
       IPARFITS_HEAD = 0    ! Oct 3, 2011
 
@@ -12764,7 +12759,7 @@ c  ****** PARSELOOP *******
       ABSO_INDEX(isnlc) = IFILE
       ISNLC_ABSO_INDEX  = INDX
 
-      CALL INIT_SNDATA()
+      CALL INIT_SNLC()
 
       LNEWMJD_SAVE = .FALSE.
       LNEWMJD_NEW  = .FALSE.
@@ -12967,6 +12962,7 @@ c add sanity check on simulated redshift (Jan 31, 2014
       ZERO_REDSHIFT_OK = 
      &   (SIM_MODEL_INDEX .EQ. MODEL_LCLIB) .or.
      &   (SIM_MODEL_INDEX .EQ. MODEL_FIXMAG )
+
       IF ( LSIM_SNANA .and. .NOT. ZERO_REDSHIFT_OK ) THEN
          LSIM_BADz = ( SIM_REDSHIFT_HELIO .LE. 0.0 ) 
          IF ( LSIM_BADz ) then 
@@ -13202,7 +13198,6 @@ c read redshift info here to apply CUT ASAP
       if ( istat .LT. 0 )  RETURN
       
 c -----------------------------------------------------
-
 
       KEY  = 'FAKE'
       LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
@@ -13496,7 +13491,7 @@ c i.e., do not depend on host-match.
             EXIST_SNHOST_CONFUSION = .TRUE.
          ENDIF
 
-         KEY  = 'HOSTGAL_SB_FLUXCAL'
+         KEY    = 'HOSTGAL_SB_FLUXCAL'
          RETSTR = 'FILTER'      ! flag to read NFILTDEF_READ filters
          LTMP = READ_HEADKEY(isnlc, cwords, KEY, RET8, RETSTR )
          RETSTR = ' '
@@ -17319,14 +17314,16 @@ c - - -
       END    ! end MOVE_SNLC_ARRAYS
 
 C ===================================
-+DECK,INIT_SNDATA.
-      SUBROUTINE INIT_SNDATA()
++DECK,INIT_SNLC.
+      SUBROUTINE INIT_SNLC()
 c
 c Init SNLC_XXX arrays for this SN
 c Called for each SN.
 c
 c Nov 22 2017: use NEP_RESET to reduce CPU time for init
-
+c Feb 07 2021: rename INIT_SNDATA -> INIT_SNLC to avoid confusion
+c               with INIT_SNDATA in sntools.c
+c
       IMPLICIT NONE
 +CDE,SNDATCOM.
 +CDE,SNLCINP.
@@ -17374,7 +17371,7 @@ c ------------- BEGIN -------------
       SNLC8_MJD_TRIGGER   = -99.0
 
       NEPOCH_BADPHOT      =   0
-      ISNLC_FAKE          =  -9
+      ISNLC_FAKE          =   0  ! Feb 2021: default is real data
       ISNLC_CCDNUM(1)     =  -9
 
       SNLC8_RA            =  -9.0
@@ -17628,7 +17625,7 @@ c zero out the FITVAL_STORE array if fit-option is chosen
       ENDDO
 
       RETURN
-      END   ! end of INIT_SNDATA
+      END   ! end of INIT_SNLC
 
 
 C =======================================

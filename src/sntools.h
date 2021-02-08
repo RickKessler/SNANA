@@ -522,7 +522,7 @@ int strcmp_ignoreCase(char *str1, char *str2) ;
 void clr_VERSION ( char *version, int prompt );  // remove old *version files
 int init_VERSION ( char *version);  // init VERSION_INFO struct 
 int init_SNPATH(void);
-int init_SNDATA ( void ) ;  // init SNDATA struct
+int init_SNDATA(void) ;  // init SNDATA struct
 
 void ld_null(float *ptr, float value);
 

@@ -23,20 +23,17 @@
 #include "sntools_spectrograph.h"
 
 
-void WR_DATAFILE_TEXT(void) {
+void WR_DATAFILE_TEXT(char *OUTFILE) {
 
   // Createed Feb 2021
   // Driver function to write single data file for single event.
   //
-  // simFlag bits defined in 'grep WRITE_MASK sndata.h'
 
-  char OUTFILE[MXPATHLEN];
   FILE *fp ;
   char fnam[] = "WR_DATAFILE_TEXT" ;
 
   // ----------- BEGIN ------------
 
-  sprintf(OUTFILE, "%s", SNDATA.SNFILE_OUTPUT );
 
   fp = fopen(OUTFILE, "wt");
   if ( !fp ) {
@@ -57,6 +54,7 @@ void WR_DATAFILE_TEXT(void) {
 
 } // end WR_DATAFILE_TEXT
 
+void wr_datafile_text__(char *OUTFILE)  { WR_DATAFILE_TEXT(OUTFILE); }
 
 // =====================================================
 void  wr_dataformat_text_HEADER(FILE *fp) {
@@ -85,6 +83,11 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   fprintf(fp,"CCDNUM:   %d   \n", SNDATA.CCDNUM[0] );
 
   int FAKE = SNDATA.FAKE ;
+  if ( FAKE < 0 ) {
+    sprintf(c1err,"Invalid FAKE = %d (check FAKE key in header)", FAKE);
+    sprintf(c2err,"For valid values, grep FAKEFLAG sndata.h");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
   fprintf(fp, "FAKE:     %d  # %s \n", FAKE, COMMENT_FAKEFLAG[FAKE] );
 
   fprintf(fp, "MWEBV:    %6.4f +- %.4f  # MW E(B-V) \n", 
@@ -192,7 +195,7 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
   fprintf(fp,"SIM_REDSHIFT_FLAG:   %d  # %s\n", 
 	  SNDATA.SIM_REDSHIFT_FLAG, SNDATA.SIM_REDSHIFT_COMMENT );
 
-  fprintf(fp, "SIM_VPEC:            %.1f (km/sec) \n", 
+  fprintf(fp, "SIM_VPEC:            %.1f   # km/sec) \n", 
 	  SNDATA.SIM_VPEC ) ;
 
   // - - - -  SIM_HOSTLIB_
@@ -547,7 +550,8 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   bool WRFLAG_PHOTFLAG   = true;
   bool WRFLAG_SKYSIG_T   = SNDATA.WRFLAG_SKYSIG_T ; // template sky sig
   bool WRFLAG_SIM_MAGOBS = ( SNDATA.FAKE > 0 && !SNDATA.WRFLAG_BLINDTEST );
-  bool WRFLAG_TRIGGER    = (SNDATA.MJD_TRIGGER < 0.99E6);
+  bool WRFLAG_TRIGGER    = (SNDATA.MJD_TRIGGER < 0.99E6 && 
+			    SNDATA.MJD_TRIGGER > 1000.0 );
 
   double MJD ;
   int  ep, NVAR, NVAR_EXPECT, NVAR_WRITE;

@@ -2761,11 +2761,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // Note that fitsFile pointers fp_snfitsFile[itype]
   // are both opened for reading.
   //
-  // Dec 31, 2011: read optional  SIMSED info
-  // Jan 05, 2012: init_SNDATA() to clear SNDATA.NPAR_SIMSED and others
-  // Sep 19, 2013: read SIMOPT_MWCOLORLAW and SIMOPT_MWEBV
-  // Feb 11, 2013: read optional SNFITSIO_CODE_IVERSION
-  // Aug 06, 2014: fix determination of  LSIM
   // Dec 27, 2015: read SIMLIB_MSKOPT
   // Feb 07, 2018: pass photflag_open arg so that only header can be opened.
   // Apr 15, 2019: check for optional SPEC file
@@ -2778,7 +2773,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
   // ------------- BEGIN -------------
 
-  init_SNDATA(); // Jan 5, 2011
+  init_SNDATA();
 
   istat = 0;
   itype   = ITYPE_SNFITSIO_HEAD ;
@@ -4028,21 +4023,6 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   // The last return value *iptr allows faster lookup
   // on subsequent calls to avoid the slow string searches
   // to match *parName to one of the stored parameter names.
-  //
-  // Dec 1, 2011: 
-  //   re-determine *iptr if this is the first SN in the file
-  //   so that Ia and NON1a can be mixed in the same version.
-  //   See new global ISNFIRST_SNFITSIO .
-  //
-  //  Oct 31, 2012: 
-  //    fix bug for NPARVAL=1 with strings. Make sure to always add
-  //    a blank space after each string. Previously a single (NPARVAL=1)
-  //    string had no blank space, causing parsing error in snana.
-  //
-  // Nov 23, 2012:
-  //  Found logic problem: if first SNID  in 2nd file is rejected
-  //  then iptr_local logic does not work. Fix is to compute
-  //  'icol' every time and not try to use return pointers.
   //
   // May 5 2014: 
   //   Fix subtle bug; on first SN in each file, reset *iptr = -9

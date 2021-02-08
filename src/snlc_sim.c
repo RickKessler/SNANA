@@ -618,7 +618,7 @@ void set_user_defaults(void) {
 
   INPUTS.USE_KCOR_REFACTOR = 0 ;
   INPUTS.USE_KCOR_LEGACY   = 1 ;
-  INPUTS.OPT_DEVEL_WRITE_TEXT = 0 ;
+  INPUTS.OPT_DEVEL_WRITE_TEXT = 1 ;
 
   INPUTS.DASHBOARD_DUMPFLAG = false ;
 
@@ -26699,7 +26699,7 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
 
   if ( INPUTS.OPT_DEVEL_WRITE_TEXT ) 
-    {  WR_DATAFILE_TEXT(); }
+    {  WR_DATAFILE_TEXT(SNDATA.SNFILE_OUTPUT); }
 
   // below are the text-output options
 

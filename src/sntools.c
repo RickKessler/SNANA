@@ -3736,36 +3736,36 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
   // *parVal is always passed as double.
   // NVAL is the number of values passed.
   //
-  // Jun 15, 2012: add HOSTGAL info
-  // May 26, 2013: add HOSTGLA_OBJID (long long)
-  // Feb     2014: add LOGMASS[_ERR]
-  // Aug  6, 2014: add SIM_MAGOBS
-  // Aug  7, 2014: add NXPIX, NYPIX, XPIX, YPIX
-  // Sep 03, 2014: check HOSTGAL_MAG, and HOSTGAL_SB (filter-dependent)
-  // Jul 11, 2015: add REDSHIFT_SN[_ERR]
   //
   // Oct 02, 2015: localString[2000] -> *localString + malloc to avoid
   //                array bound problems. See new logical USE_stringVal.
   //
   // Feb 17 2017: add SUBSURVEY
   // Mar 29 2017: allow FLT or BAND
+  // Feb 07 2021: load FAKE
 
-  int i, iep, ifilt_obs, NVAR, USE_stringVal, LEN_stringVal ;
-  int LOAD_TEL, LOAD_FLT, LOAD_FIELD;
-  char  *ptrtok, ctmp[20], *localString ;
+  int i, ifilt_obs, NVAR; 
+  bool IS_STRING_LIST, IS_SIM_KEY;
+  bool  LOAD_TEL, LOAD_FLT, LOAD_FIELD;
+  char  ctmp[20] ;
   char  fnam[] =  "set_SNDATA" ;
 
   // ------------ BEGIN ------------
 
-  // check if using stringVal
-  LOAD_TEL   = ( strcmp(key,"TELESCOPE") == 0  );
+  /* xxx
+  printf(" xxx %s: %s=%s/%f   (FAKE=%d   DEC=%f)\n", 
+	 fnam, key, stringVal, parVal[0],
+	 SNDATA.FAKE, SNDATA.DEC ); fflush(stdout); 
+  xxxxx */
 
-  LOAD_FLT   = ( (strcmp(key,"FLT")   == 0)  ||
-		 (strcmp(key,"BAND")  == 0)  ) ;
+  // check if using stringVal as list
+  LOAD_TEL   = (strcmp(key,"TELESCOPE") == 0) ;
+  LOAD_FLT   = (strcmp(key,"FLT") == 0)  || (strcmp(key,"BAND")  == 0)  ;
+  LOAD_FIELD = (strcmp(key,"FIELD")  == 0)  ;
+  IS_STRING_LIST = ( LOAD_FLT || LOAD_FIELD || LOAD_TEL ) ;
 
-  LOAD_FIELD = ( strcmp(key,"FIELD")     == 0  );
-  USE_stringVal = ( LOAD_FLT || LOAD_FIELD || LOAD_TEL ) ;
-		   
+  IS_SIM_KEY = strstr(key,"SIM") != NULL  ;
+  
   // ----------------------------------------
   // global header info
   if ( strcmp(key,"SURVEY") == 0 ) 
@@ -3834,6 +3834,9 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
 
   else if ( strcmp(key,"CCDNUM") == 0 )
     {  SNDATA.CCDNUM[0] = (int)parVal[0] ;  }
+
+  else if ( strcmp(key,"FAKE") == 0 )
+    {  SNDATA.FAKE = (int)parVal[0] ; }
 
   else if ( strcmp(key,"NXPIX") == 0 )
     {  SNDATA.NXPIX = (int)parVal[0] ; }
@@ -4011,7 +4014,10 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
     for(i=1; i <= NVAL ; i++ ) { SNDATA.SKY_SIG[i] = parVal[i-1] ; }
   }
   else if ( strcmp(key,"SKY_SIG_T") == 0 ) {
-    for(i=1; i <= NVAL ; i++ ) { SNDATA.SKY_SIG_T[i] = parVal[i-1] ; }
+    for(i=1; i <= NVAL ; i++ ) { 
+      SNDATA.SKY_SIG_T[i] = parVal[i-1] ; 
+      if ( SNDATA.SKY_SIG_T[i] > 0.0 ) { SNDATA.WRFLAG_SKYSIG_T = true; }
+    }
   }
 
   else if ( strcmp(key,"RDNOISE") == 0 ) {
@@ -4044,40 +4050,84 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
       { SNDATA.SIMEPOCH_FLUXCAL_HOSTERR[i] = parVal[i-1] ; }
   }
 
-  else if ( USE_stringVal ) {
+  else if ( IS_STRING_LIST ) {
 
-    LEN_stringVal = strlen(stringVal);
-    localString   = (char*) malloc ( 10 + LEN_stringVal * sizeof(char) );
+    int NFILT;
+    char **arrayList;
+    parse_commaSepList("STRINGVAL", stringVal, NVAL+10, 40,
+		       &NFILT, &arrayList ); // <== returned
 
-    /*
-    printf(" xxx LEN(%s) = %d \n", stringVal, LEN_stringVal ); 
-    fflush(stdout); */
+    if ( NFILT != NVAL  ) {
+      print_preAbort_banner(fnam);
+      printf(" xxx STRINGVAL = '%s' \n", stringVal);
+      sprintf(c1err,"STRINGVAL has %d elements", NFILT);
+      sprintf(c2err,"but expected NVAL=%d", NVAL);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
 
-    sprintf(localString, "%s", stringVal);
-    ptrtok = strtok(localString," ") ; // split string
-    iep=0;
-    while ( ptrtok != NULL ) {
-      sprintf(ctmp, "%s ", ptrtok );
-      iep++ ;	
+    for (i=1; i <= NVAL; i++ ) {
+
+      int i0 = i-1;
+      sprintf(ctmp, "%s", arrayList[i0] );
+
       if ( LOAD_TEL ) {
-	sprintf(SNDATA.TELESCOPE[iep], "%s", ctmp );
+	sprintf(SNDATA.TELESCOPE[i], "%s", ctmp );	
       }
       else if ( LOAD_FLT ) {
-	ifilt_obs = INTFILTER(ctmp);
-	sprintf(SNDATA.FILTCHAR[iep], "%s", ctmp);
+	// ifilt_obs = INTFILTER(ctmp);
+	sprintf(SNDATA.FILTCHAR[i], "%s", ctmp);
       }
       else if ( LOAD_FIELD ) {
-	sprintf(SNDATA.FIELDNAME[iep], "%s", ctmp );
+	sprintf(SNDATA.FIELDNAME[i], "%s", ctmp );
       }
       else {
 	sprintf(c1err,"USE_stringVal=TRUE for key='%s'", key);
 	sprintf(c2err,"but cannot find array to load");
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
-      ptrtok = strtok(NULL, " ");
-    }
 
-    free(localString) ;
+    } // end i loop over epochs
+    
+  }
+  else if ( IS_SIM_KEY ) {
+
+    if ( strcmp(key,"SIM_MODEL_NAME") == 0 )
+      {  sprintf(SNDATA.SIM_MODEL_NAME,"%s", stringVal); }
+    else if ( strcmp(key,"SIM_MODEL_INDEX") == 0 )
+      {  SNDATA.SIM_MODEL_INDEX = (int)parVal[0] ;  }
+
+    else if ( strcmp(key,"SIM_REDSHIFT_HELIO") == 0 )
+      {  SNDATA.SIM_REDSHIFT_HELIO = parVal[0] ;  }
+    else if ( strcmp(key,"SIM_REDSHIFT_CMB") == 0 )
+      {  SNDATA.SIM_REDSHIFT_CMB = parVal[0] ;  }
+    else if ( strcmp(key,"SIM_REDSHIFT_FLAG") == 0 )
+      {  SNDATA.SIM_REDSHIFT_FLAG = (int)parVal[0] ;  }
+    else if ( strcmp(key,"SIM_VPEC") == 0 )
+      {  SNDATA.SIM_VPEC = parVal[0] ;  }
+    else if ( strcmp(key,"SIM_DLMAG") == 0 )
+      {  SNDATA.SIM_DLMU = parVal[0] ;  }
+    else if ( strcmp(key,"SIM_PEAKMJD") == 0 )
+      {  SNDATA.SIM_PEAKMJD = parVal[0] ;  }
+
+    else if ( strcmp(key,"SIM_MWEBV") == 0 )
+      {  SNDATA.SIM_MWEBV = parVal[0] ;  }
+    else if ( strcmp(key,"SIM_MWRV") == 0 )
+      {  SNDATA.SIM_MWRV = parVal[0] ;  }    
+    else if ( strcmp(key,"SIMOPT_MWCOLORLAW") == 0 )
+      {  SNDATA.SIMOPT_MWCOLORLAW = (int)parVal[0] ;  }
+    else if ( strcmp(key,"SIMOPT_MWEBV") == 0 )
+      {  SNDATA.SIMOPT_MWEBV = (int)parVal[0] ;  }
+    
+    else if ( strcmp(key,"SIM_TEMPLATE_INDEX") == 0 )
+      {  SNDATA.SIM_TEMPLATE_INDEX = (int)parVal[0] ;  }
+    else if ( strcmp(key,"SIM_LIBID") == 0 )
+      {  SNDATA.SIM_LIBID = (int)parVal[0] ;  }
+    else if ( strcmp(key,"SIM_NGEN_LIBID") == 0 )
+      {  SNDATA.SIM_NGEN_LIBID = (int)parVal[0] ;  }
+    else if ( strcmp(key,"SIMLIB_MSKOPT") == 0 )
+      {  SNDATA.SIMLIB_MSKOPT = (int)parVal[0] ;  }
+    else if ( strcmp(key,"SIM_SEARCHEFF_MASK") == 0 )
+      {  SNDATA.SIM_SEARCHEFF_MASK = (int)parVal[0] ;  }
   }
   else {
     sprintf(c1err,"Unknown key = '%s' ", key);
@@ -4091,9 +4141,8 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
 
 
 // mangled function for fortran
-void set_sndata__(char *key, int *NVAL, char *stringVal, double *parVal ) {
-  set_SNDATA(key, *NVAL, stringVal, parVal);
-}
+void set_sndata__(char *key, int *NVAL, char *stringVal, double *parVal ) 
+{  set_SNDATA(key, *NVAL, stringVal, parVal); }
 
 // ************************************************************
 
@@ -7845,13 +7894,21 @@ int  init_SNPATH(void) {
 
 
 // *******************************************
-int init_SNDATA ( void ) {
+int init_SNDATA(void) {
 
   // initialize SNDATA.xxxx elements
   // Note that only one SN index is initialized per call.
   //
   int i_epoch, ifilt, i, igal ;
+  char fnam[] = "init_SNDATA" ;
   // --------- BEGIN -----------------
+
+  
+  printf(" xxx %s: init SNDATA struct  (SIM_RA=%f)\n",  
+	 fnam, SNDATA.SIM_RA ); fflush(stdout);
+ 
+
+  //  SNDATA_FILTER.NDEF = 0;
 
   sprintf(FLUXUNIT, "ADU");
 
@@ -7872,7 +7929,7 @@ int init_SNDATA ( void ) {
 
   SNDATA.NEPOCH = 0;
   SNDATA.NEWMJD = 0;
-
+  SNDATA.MJD_TRIGGER = 1.0E6 ;
 
   // default mag settings (1/25/2007)
   sprintf(SNDATA.MAGTYPE, "LOG10");
@@ -7964,8 +8021,6 @@ int init_SNDATA ( void ) {
 
   SNDATA.NPAR_SIMSED = 0;
   SNDATA.NPAR_LCLIB  = 0;
-
-  SNDATA_FILTER.NDEF = 0;
 
   SNDATA.NVAR_PRIVATE = 0 ;
 
@@ -8227,617 +8282,6 @@ double asinhinv(double mag, int ifilt) {
 
 } // end of asinhinv
 
-
-// ********************************************
-int rd_SNDATA ( void ) {
-
-  /******
-   Read SN data text file into SNDATA[isn] structure
-   for this "isn".
-
-   Store epoch only if search run is in SN.LIST;
-   i.e., purge bad runs.
-
-
-  Dec 29 2017: use open_TEXTgz to read gzipped files.
-
-  ********/
-
-  char fnam[] = "rd_SNDATA" ;
-
-  char 
-    inFile[100], c_get[80], line_passband[100]
-    ,c_filt[2], varname[40], filtlist[MXFILTINDX], *ptrtok
-    ;
-
-  int 
-    cid, ifilt_tmp[20], epoch, EPMIN, EPMAX, eptmp, NEWMJD
-    ,NFILT_DEF, MINFILT_DEF, NFILT_NEWMJD, NTMP
-    ;
-  
-  float fluxmax    = 1.0E7 ; 
-  float fluxerrmax = 1.0E6 ;
-
-  int   *iptr;  // pointer to integer fitler-band data
-  float *fptr;  //            float
-
-  FILE *fp;
-
-
-  //------------ BEGIN ------------
-
-  // store filename in local variables
-
-  sprintf ( inFile, "%s", SNDATA.SNFILE_INPUT );
-
-  fp = fopen(inFile, "rt"); 
-  if ( fp == NULL ) {
-      sprintf(c1err,"Cannot open: %s", inFile );
-      errmsg(SEV_FATAL, 0, fnam, c1err, BLANK_STRING );
-      fclose(fp);  return ERROR;
-    }
-
-  printf(" READ  %s", inFile );
-  fflush(stdout);
-
-  // ---------------------------------------
-  // start parsing
-  
-  epoch   = 0;  // epoch * filters
-  NEWMJD  = 0;  // just new MJDs
-  EPMIN = EPMAX = NFILT_DEF = MINFILT_DEF = NFILT_NEWMJD = 0 ;
-
-  while( fscanf(fp,"%s", c_get ) != EOF ) {
-
-
-    if ( strcmp(c_get,"SDSS-SN:")==0 ) {
-      readint ( fp, 1, &cid );  // read CID
-      SNDATA.CID = cid ;          
-      epoch   = 0;
-      NEWMJD  = 0;
-      printf(" (cid=%6d) " , cid );
-    }
-
-    if ( strcmp(c_get,"RA:")==0 && NEWMJD == 0 )
-      readdouble ( fp, 1, &SNDATA.RA ) ;
-
-    if ( strcmp(c_get,"DEC:")==0 && NEWMJD == 0)
-      readdouble ( fp, 1, &SNDATA.DEC ) ;
-
-    if ( strcmp(c_get,"FAKE:")==0 && NEWMJD == 0)
-      readint ( fp, 1, &SNDATA.FAKE ) ;
-
-    if ( strcmp(c_get,"MAGTYPE:")==0 && NEWMJD == 0)
-      readchar ( fp, SNDATA.MAGTYPE ) ;
-    if ( strcmp(c_get,"MAGREF:")==0 && NEWMJD == 0)
-      readchar ( fp, SNDATA.MAGREF ) ;
-
-    if ( strcmp(c_get,"FILTERS:")==0 && NEWMJD == 0) {
-      readchar ( fp, filtlist ) ;
-      NFILT_DEF = PARSE_FILTLIST(filtlist, SNDATA_FILTER.MAP );
-      MINFILT_DEF = SNDATA_FILTER.MAP[0] ;
-      SNDATA_FILTER.NDEF = NFILT_DEF ;
-    }
-
-    if ( strcmp(c_get,"SEARCH_TYPE:")==0 && NEWMJD == 0)
-      readint ( fp, 1, &SNDATA.SEARCH_TYPE ) ;
-    if ( strcmp(c_get,"SEARCH_PEAKMJD:")==0 && NEWMJD == 0)
-      readfloat ( fp, 1, &SNDATA.SEARCH_PEAKMJD ) ;
-
-    if ( strcmp(c_get,"REDSHIFT_FINAL:")==0 && NEWMJD == 0) {
-      read_redshift ( fp, &SNDATA.REDSHIFT_FINAL, 
-		      &SNDATA.REDSHIFT_FINAL_ERR ) ;
-
-      /* xxxxx mark delete Jan 5 2018 xxxxxxxx
-      fluxmax = snfluxmax(SNDATA.REDSHIFT_FINAL);	 
-      if ( fluxmax < 5000. ) fluxmax = 5000. ;
-
-      fluxerrmax = 0.1*fluxmax ;
-      if ( fluxerrmax < 3000. ) fluxerrmax = 3000. ;
-      xxxxxx */
-    }
-        
-    if ( strcmp(c_get,"MWEBV:") == 0 && NEWMJD == 0 )
-      { readfloat ( fp, 1, &SNDATA.MWEBV ) ; }
-
-    if ( strcmp(c_get,"NEPOCH_PRESN:") == 0  &&  NEWMJD == 0 ) {
-      iptr = &SNDATA.NPRESN[MINFILT_DEF] ;
-      readint ( fp, NFILT_DEF, iptr );
-    }
-
-    // ----
-    if ( strcmp(c_get,"HOSTGAL_SB_FLUX:") == 0  &&  NEWMJD == 0 ) {
-      fptr = &SNDATA.HOSTGAL_SB_FLUX[MINFILT_DEF] ;
-      readfloat ( fp, NFILT_DEF, fptr );
-      SNDATA.HOSTGAL_USEMASK |= 4 ;
-    }
-    if ( strcmp(c_get,"HOSTGAL_SB_FLUXCAL:") == 0  &&  NEWMJD == 0 ) {
-      fptr = &SNDATA.HOSTGAL_SB_FLUX[MINFILT_DEF] ;
-      readfloat ( fp, NFILT_DEF, fptr );
-      SNDATA.HOSTGAL_USEMASK |= 4 ;
-    }
-    if ( strcmp(c_get,"HOSTGAL_SB_FLUXERR:") == 0  &&  NEWMJD == 0 ) {
-      fptr = &SNDATA.HOSTGAL_SB_FLUXERR[MINFILT_DEF] ;
-      readfloat ( fp, NFILT_DEF, fptr );
-      SNDATA.HOSTGAL_USEMASK |= 8 ;
-    }
-    if ( strcmp(c_get,"HOSTGAL_SB_FLUXCAL_ERR:") == 0  &&  NEWMJD == 0 ) {
-      fptr = &SNDATA.HOSTGAL_SB_FLUXERR[MINFILT_DEF] ;
-      readfloat ( fp, NFILT_DEF, fptr );
-      SNDATA.HOSTGAL_USEMASK |= 8 ;
-    }
-
-
-    // check for sim stuff (only if fake > 0 )
-    if ( SNDATA.FAKE > 0 ) {
-
-      if ( strcmp(c_get,"SIM_COMMENT:")==0 ) 
-	{ readchar ( fp, SNDATA.SIM_COMMENT ) ; }
-
-      if ( strcmp(c_get,"SIM_REDSHIFT_HELIO:")==0 ) 
-	{ readfloat ( fp, 1, &SNDATA.SIM_REDSHIFT_HELIO ) ; }
-
-      if ( strcmp(c_get,"SIM_REDSHIFT_CMB:")==0 ) 
-	{ readfloat ( fp, 1, &SNDATA.SIM_REDSHIFT_CMB ) ; }
-
-      if ( strcmp(c_get,"SIM_REDSHIFT_HOST:")==0 ) 
-	{ readfloat ( fp, 1, &SNDATA.SIM_REDSHIFT_HOST ) ; }
-
-      if ( strcmp(c_get,"SIM_REDSHIFT_FLAG:")==0 ) 
-	{ readint ( fp, 1, &SNDATA.SIM_REDSHIFT_FLAG ) ; }
-
-      if ( strcmp(c_get,"SIM_VPEC:")==0 ) 
-	{ readfloat ( fp, 1, &SNDATA.SIM_VPEC ) ; }
-
-      if ( strcmp(c_get,"SIM_DLMU:")==0 ) 
-	{ readfloat ( fp, 1, &SNDATA.SIM_DLMU ) ; }
-
-      if ( strcmp(c_get,"SIM_LENSDMU:")==0 ) 
-	{ readfloat ( fp, 1, &SNDATA.SIM_LENSDMU ) ; }
-
-      if ( strcmp(c_get,"SIM_RA:")==0 ) 
-	readfloat ( fp, 1, &SNDATA.SIM_RA ) ;
-      if ( strcmp(c_get,"SIM_DEC:")==0 ) 
-	readfloat ( fp, 1, &SNDATA.SIM_DEC ) ;
-      if ( strcmp(c_get,"SIM_PEAKMJD:")==0 ) 
-	readfloat ( fp, 1, &SNDATA.SIM_PEAKMJD ) ;
-
-      if ( strcmp(c_get,"SIM_MWEBV:")==0 ) 
-	{ readfloat ( fp, 1, &SNDATA.SIM_MWEBV ) ; }
-
-      if ( strcmp(c_get,"SIMOPT_MWCOLORLAW:")==0 ) 
-	{ readint ( fp, 1, &SNDATA.SIMOPT_MWCOLORLAW ) ; }
-      if ( strcmp(c_get,"SIMOPT_MWEBV:")==0 ) 
-	{ readint ( fp, 1, &SNDATA.SIMOPT_MWEBV ) ; }
-
-      if ( strcmp(c_get,"SIM_AVTAU:")==0 ) 
-	{ readfloat ( fp, 1, &SNDATA.SIM_AVTAU ) ; }
-      if ( strcmp(c_get,"SIM_AV:")==0 ) 
-	{ readfloat ( fp, 1, &SNDATA.SIM_AV ) ; }
-      if ( strcmp(c_get,"SIM_RV:")==0 ) 
-	{ readfloat ( fp, 1, &SNDATA.SIM_RV ) ; }
-
-      if ( strcmp(c_get,"SIM_GALFRAC:") == 0 ) {
-	fptr = &SNDATA.SIM_GALFRAC[MINFILT_DEF] ;
-	readfloat ( fp, NFILT_DEF, fptr );
-      }
-
-      if ( strcmp(c_get,"SIM_PEAKMAG:")==0 ) {
-	fptr = &SNDATA.SIM_PEAKMAG[MINFILT_DEF] ;
-	readfloat ( fp, NFILT_DEF, fptr );
-      }
-
-      if ( strcmp(c_get,"SIM_EXPOSURE:")==0 ) {
-	fptr = &SNDATA.SIM_EXPOSURE_TIME[MINFILT_DEF] ;
-	readfloat ( fp, NFILT_DEF, fptr ); 
-      }
-
-      if ( strcmp(c_get,"SIM_STRETCH:")==0 ) 
-	readfloat ( fp, 1, &SNDATA.SIM_STRETCH ) ;
-      if ( strcmp(c_get,"SIM_DELTA:")==0 ) 
-	readfloat ( fp, 1, &SNDATA.SIM_DELTA ) ;
-      if ( strcmp(c_get,"SIM_DM15:")==0 ) 
-	readfloat ( fp, 1, &SNDATA.SIM_DM15 ) ;
-
-      if ( strcmp(c_get,"SIM_NON1a:")==0 ) 
-	readint ( fp, 1, &SNDATA.SIM_TEMPLATE_INDEX ) ;
-      if ( strcmp(c_get,"SIM_NONIa:")==0 )     // Mar 2013
-	readint ( fp, 1, &SNDATA.SIM_TEMPLATE_INDEX ) ;
-      if ( strcmp(c_get,"SIM_NONIA:")==0 )    // Mar 2013
-	readint ( fp, 1, &SNDATA.SIM_TEMPLATE_INDEX ) ;
-      if ( strcmp(c_get,"SIM_TEMPLATE_INDEX:")==0 )    // 7.31.2018
-	readint ( fp, 1, &SNDATA.SIM_TEMPLATE_INDEX ) ;
-
-    }  // end of fake > 0 if-block
-
-
-	// get global epoch info
-
-    if ( strcmp(c_get,"EPOCH:")==0 ) {
-      //	  readint ( fp, 1, &NEWMJD );  // read EPOCH number
-
-
-	  // increment epoch instead of reading it ...
-	  // we may have to exclude some epochs so use local index
-
-      EPMIN = epoch + 1; 
-      NEWMJD++ ;
-      NFILT_NEWMJD = 0;
-      if ( NEWMJD >= MXEPOCH ) {
-	sprintf(c1err,"MEWMJD %d  exceeds MXEPOCH=%d", NEWMJD, MXEPOCH );
-	sprintf(c2err,"Check file: %s", inFile);
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-      }
-      
-      SNDATA.NEWMJD         = NEWMJD;
-      SNDATA.EPOCH_RANGE_NEWMJD[NEWMJD][0] = EPMIN;
-
-    }
-
-    /* xxxxxxxx mark delete Jan 23 2018 xxxxxxxxxxxxx
-    if ( strcmp(c_get,"TELESCOPE:")==0 ) {
-      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"TELESCOPE:");
-      readchar ( fp, SNDATA.TELESCOPE[EPMIN] ) ;
-      SNDATA.IDTEL[EPMIN] = IDTELESCOPE( SNDATA.TELESCOPE[EPMIN] ) ;
-    }
-    xxxxxxxxxxxxxxxxxxx */
-
-
-    if ( strcmp(c_get,"SEARCH_RUN:")==0 ) {
-      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"SEARCH_RUN:");
-      readint ( fp, 1, &SNDATA.SEARCH_RUN[EPMIN] ) ;
-    }
-
-    if ( strcmp(c_get,"TEMPLATE_RUN:")==0 ) {
-      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"TEMPLATE_RUN:");
-      readint ( fp, 1, &SNDATA.TEMPLATE_RUN[EPMIN] ) ;
-    }
-    if ( strcmp(c_get,"QMASK:")==0 ) {
-      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"QMASK:");
-      readint ( fp, 1, &SNDATA.QMASK[EPMIN] ) ;
-    }
-
-
-    if ( strcmp(c_get,"MJD:")==0 ) {
-      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"MJD:");
-      readdouble ( fp, 1, &SNDATA.MJD[EPMIN] ) ;
-    }
-
-    /* xxxxxxxxxxxxxxxxx mark delete xxxxxxxxxx
-    if ( strcmp(c_get,"COLUMN:")==0 ) {  // obsolete legacy name for SDSS
-      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"COLUMN:");
-      readint ( fp, 1, &SNDATA.IDCCD[EPMIN] ) ;
-    }
-
-    if ( strcmp(c_get,"IDCCD:")==0 ) {
-      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"COLUMN:");
-      readint ( fp, 1, &SNDATA.IDCCD[EPMIN] ) ;
-    }
-    xxxxxxxxxx end delete xxxxxxxxxxxx */
-
-    if ( strcmp(c_get,"STRIPE:")==0 ) {  // obsolete legacy name for SDSS
-      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"STRIPE:");
-      readchar ( fp, SNDATA.FIELDNAME[EPMIN] ) ;
-    }
-    if ( strcmp(c_get,"FIELD:")==0 ) {
-      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"STRIPE:");
-      readchar ( fp, SNDATA.FIELDNAME[EPMIN] ) ;
-    }
-
-
-    /* xxxxxxxxx mark delete June 24 2019 xxxxxxxxxxx
-    if ( strcmp(c_get,"CLOUDCAM_SIG:")==0 ) {
-      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"CLOUDCAM_SIG:");
-      readfloat ( fp, 1, &SNDATA.CLOUDCAM_SIG[EPMIN] ) ;
-    }
-    if ( strcmp(c_get,"CLOUDCAM_AVG:")==0 ) {
-      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"CLOUDCAM_AVG:");
-      readfloat ( fp, 1, &SNDATA.CLOUDCAM_AVG[EPMIN] ) ;
-    }
-
-
-    if ( strcmp(c_get,"MOONPHASE:")==0 ) {
-      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"MOONPHASE:");
-      readfloat ( fp, 1, &SNDATA.MOONPHASE[EPMIN] ) ;
-    }
-    if ( strcmp(c_get,"MOONDIST:")==0 ) {
-      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"MOONDIST:");
-      readfloat ( fp, 1, &SNDATA.MOONDIST[EPMIN] ) ;
-    }
-
-    if ( strcmp(c_get,"AIRMASS:")==0 ) {
-      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"AIRMASS:");
-      readfloat ( fp, 1, &SNDATA.AIRMASS[EPMIN] ) ;
-    }
-    xxxxxxxxxxxxxxxxxxxxx */
-
-    // ------------------------------------
-    // FILTER-DEPENDENT information
-
-
-    if ( strcmp(c_get,"PASSBAND:")==0  || strcmp(c_get,"BAND")==0 ) {
-
-      if ( fgets(line_passband, 60, fp) == NULL ) { continue; }
-
-      //      printf("\n\n  LINE_PASSBAND = '%s' \n", line_passband);
-
-      ptrtok = strtok(line_passband," ") ; // split string
-
-      // skip blank spaces (NULL) and new-line (10)
-
-      while ( ptrtok != NULL && ptrtok[0] != 10 ) {
-	sprintf(c_filt, "%c", ptrtok[0] );
-
-	NTMP = PARSE_FILTLIST(c_filt, ifilt_tmp );
-
-	//   printf("  FOUND filter %s = %d \n", c_filt, ifilt_tmp[0] );
-	epoch++;	EPMAX = epoch ;
-	NFILT_NEWMJD++ ;
-	SNDATA.FILTINDX[epoch] = ifilt_tmp[0];
-	SNDATA.NEPOCH          = epoch ;
-
-	SNDATA.IDTEL[epoch]       =  SNDATA.IDTEL[EPMIN] ;
-	SNDATA.MJD[epoch]         =  SNDATA.MJD[EPMIN] ;
-	// xxx mark delete   SNDATA.IDCCD[epoch]  =  SNDATA.IDCCD[EPMIN] ;
-
-	ptrtok = strtok(NULL, " ");
-      }
-
-      SNDATA.EPOCH_RANGE_NEWMJD[NEWMJD][1] = EPMAX ;
-
-    }
-
-
-    // now read filter-band info using 'rd_filtband' utility.
-
-    if ( strcmp(c_get,"SEARCH_FIELD:")==0 ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"SEARCH_FIELD:");
-      iptr = &SNDATA.SEARCH_FIELD[EPMIN] ;
-      readint ( fp, NFILT_NEWMJD, iptr );
-    }
-
-    if ( strcmp(c_get,"TEMPLATE_FIELD:")==0 ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"TEMPLATE_FIELD:");
-      iptr = &SNDATA.TEMPLATE_FIELD[EPMIN];
-      readint ( fp, NFILT_NEWMJD, iptr );      
-    }
-
-    if ( strcmp(c_get,"PHOTOMETRYFLAG:")==0 ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"PHOTOMETRYFLAG:");
-      iptr = &SNDATA.PHOTFLAG[EPMIN];
-      readint ( fp, NFILT_NEWMJD, iptr );      
-    }
-
-
-    if ( strcmp(c_get,"GAIN:")==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"GAIN:");
-      fptr = &SNDATA.GAIN[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );      
-    }
-
-    if ( strcmp(c_get,"RDNOISE:")==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"RDNOISE:");
-      fptr = &SNDATA.READNOISE[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-    }
-
-    if ( strcmp(c_get,"XPIXEL:")==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"XPIXEL:");
-      fptr = &SNDATA.XPIX[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-    }
-    if ( strcmp(c_get,"YPIXEL:")==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"YPIXEL:");
-      fptr = &SNDATA.YPIX[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-    }
-
-
-	// conditions
-    if ( strcmp(c_get,"SKY_SIG:")==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"SKY_SIG:");
-      fptr = &SNDATA.SKY_SIG[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-    }
-
-
-    if ( strcmp(c_get,"PSF_SIG1:")==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"PSF_SIG1:");
-      fptr = &SNDATA.PSF_SIG1[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-    }
-
-    if ( strcmp(c_get,"PSF_SIG2:")==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"PSF_SIG2:");
-      fptr = &SNDATA.PSF_SIG2[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-    }
-
-    if ( strcmp(c_get,"PSF_RATIO:")==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"PSF_RATIO:");
-      fptr = &SNDATA.PSF_RATIO[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-    }
-
-
-
-
-
-    /* xxxxxxxxxxx mark delete Jun 24 2019 xxxxxxxxxxxx
-    // read fluxes
-    sprintf(varname,"FLUX:");
-    if ( strcmp(c_get,varname)==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
-      fptr = &SNDATA.FLUX[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-      checkval_F(varname, NFILT_NEWMJD, fptr, -1.0E5, fluxmax );
-      readchar(fp, FLUXUNIT );  // Oct 6, 2008
-    }
-    sprintf(varname,"FLUX_ERRTOT:");
-    if ( strcmp(c_get,varname)==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
-      fptr = &SNDATA.FLUX_ERRTOT[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, fluxerrmax );
-    }
-
-    xxxxxxxxxxxxxx */
-
-    // read CALIBRATED fluxes
-
-    sprintf(varname,"FLUXCAL:");
-    if ( strcmp(c_get,varname)==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
-      fptr = &SNDATA.FLUXCAL[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-      checkval_F(varname, NFILT_NEWMJD, fptr, -1.0E4, fluxmax );
-    }
-
-
-
-    sprintf(varname,"%s","FLUXCAL_ERRTOT:");
-    if ( strcmp(c_get,varname)==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
-      fptr = &SNDATA.FLUXCAL_ERRTOT[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, fluxerrmax );
-    }
-
-
-	// read magnitudes
-
-    sprintf(varname,"%s", "MAG:" );
-    if ( strcmp(c_get,varname)==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
-      fptr = &SNDATA.MAG[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-      checkval_F(varname, NFILT_NEWMJD, fptr, -20.0, 1.0E4 );
-    }
-    sprintf(varname,"MAG_ERRPLUS:");
-    if ( strcmp(c_get,varname)==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
-      fptr = &SNDATA.MAG_ERRPLUS[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, 2.0E2 );
-    }
-
-    sprintf(varname,"MAG_ERRMINUS:");
-    if ( strcmp(c_get,varname)==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
-      fptr = &SNDATA.MAG_ERRMINUS[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, 2.0E2 );
-    }
-
-
-	// read zero points
-
-    sprintf(varname,"ZEROPT:");
-    if ( strcmp(c_get,varname)==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
-      fptr = &SNDATA.ZEROPT[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, 50.0 );
-    }
-
-    sprintf(varname,"ZEROPT_ERR:");
-    if ( strcmp(c_get,varname)==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
-      fptr = &SNDATA.ZEROPT_ERR[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, 20.0 );
-    }
-
-    sprintf(varname,"ZEROPT_SIG:");
-    if ( strcmp(c_get,varname)==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
-      fptr = &SNDATA.ZEROPT_SIG[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, 20.0 );
-    }
-
-
-    sprintf(varname,"SKYSUB_ERR:");
-    if ( strcmp(c_get,varname)==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
-      fptr = &SNDATA.SKYSUB_ERR[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, 100000.0 );
-    }
-
-    sprintf(varname,"GALSUB_ERR:");
-    if ( strcmp(c_get,varname)==0  ) {
-      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
-      fptr = &SNDATA.GALSUB_ERR[EPMIN];
-      readfloat ( fp, NFILT_NEWMJD, fptr );
-      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, 50000.0 );
-    }
-
-	// check for sim stuff (only if fake > 0 )
-	if ( SNDATA.FAKE > 0 ) {
-
-	  if ( strcmp(c_get,"SIM_MAG:")==0 ) 
-	    readfloat ( fp, 1, &SNDATA.SIMEPOCH_MAG[EPMIN] ) ;
-
-	  if ( strcmp(c_get,"SIM_MAGSMEAR:")==0 ) 
-	    readfloat ( fp, 1, &SNDATA.SIMEPOCH_MAGSMEAR[EPMIN] ) ;
-
-	  if ( strcmp(c_get,"SIM_TREST:")==0 ) 
-	    readfloat ( fp, 1, &SNDATA.SIMEPOCH_TREST[EPMIN] ) ;
-
-	  if ( strcmp(c_get,"SIM_TOBS:")==0 ) 
-	    readfloat ( fp, 1, &SNDATA.SIMEPOCH_TOBS[EPMIN] ) ;
-
-	  if ( strcmp(c_get,"SIM_WARPCOL_SYMBOL:")==0 ) {
-	    for ( eptmp=EPMIN; eptmp <= EPMAX; eptmp++ )
-	      readchar(fp,SNDATA.SIMEPOCH_WARPCOLNAM[eptmp] );
-	  }
-
-	  if ( strcmp(c_get,"SIM_WARPCOL_VALUE:")==0 ) {
-	    fptr = &SNDATA.SIMEPOCH_WARPCOLVAL[EPMIN];
-	    readfloat ( fp, NFILT_NEWMJD, fptr );
-	  }
-
-	  if ( strcmp(c_get,"SIM_KCOR_SYMBOL:")==0 ) {
-	    for ( eptmp=EPMIN; eptmp <= EPMAX; eptmp++ )
-	      readchar(fp,SNDATA.SIMEPOCH_KCORNAM[eptmp]  );
-	  }
-
-	  if ( strcmp(c_get,"SIM_KCOR_VALUE:")==0 ) {
-	    fptr = &SNDATA.SIMEPOCH_KCORVAL[EPMIN];
-	    readfloat ( fp, NFILT_NEWMJD, fptr );
-	  }
-
-	  if ( strcmp(c_get,"SIM_AVWARP:")==0 ) {
-	    fptr = &SNDATA.SIMEPOCH_AVWARP[EPMIN];
-	    readfloat ( fp, NFILT_NEWMJD, fptr );
-	  }
-
-	}
-
-  }  // end of c_get fscan loop
-
-
-
-  printf("  Done. \n");
-
-  fclose(fp);
-
-  return SUCCESS;
-
-}  // end of rd_SNDATA
-
-
-
-// *************************************************************
-void read_redshift(FILE *fp, float *redshift, float *redshift_err ) {
-  // read redshift and error separated by "+-"
-  char cdum[10];
-  // --------------- BEGIN ----------
-  readfloat(fp, 1, redshift );
-  readchar(fp, cdum);                  // read "+-" symbol
-  readfloat(fp, 1, redshift_err );
-}
 
 
 // *****************************************
@@ -11179,6 +10623,619 @@ int wr_SNDATA ( int IFLAG_WR, int IFLAG_DBUG  ) {
   return SUCCESS;
 
 } // end of wr_SNDATA
+
+
+// ********************************************
+int rd_SNDATA ( void ) {
+
+  /******
+   Read SN data text file into SNDATA[isn] structure
+   for this "isn".
+
+   Store epoch only if search run is in SN.LIST;
+   i.e., purge bad runs.
+
+
+  Dec 29 2017: use open_TEXTgz to read gzipped files.
+
+  ********/
+
+  char fnam[] = "rd_SNDATA" ;
+
+  char 
+    inFile[100], c_get[80], line_passband[100]
+    ,c_filt[2], varname[40], filtlist[MXFILTINDX], *ptrtok
+    ;
+
+  int 
+    cid, ifilt_tmp[20], epoch, EPMIN, EPMAX, eptmp, NEWMJD
+    ,NFILT_DEF, MINFILT_DEF, NFILT_NEWMJD, NTMP
+    ;
+  
+  float fluxmax    = 1.0E7 ; 
+  float fluxerrmax = 1.0E6 ;
+
+  int   *iptr;  // pointer to integer fitler-band data
+  float *fptr;  //            float
+
+  FILE *fp;
+
+
+  //------------ BEGIN ------------
+
+  // store filename in local variables
+
+  sprintf ( inFile, "%s", SNDATA.SNFILE_INPUT );
+
+  fp = fopen(inFile, "rt"); 
+  if ( fp == NULL ) {
+      sprintf(c1err,"Cannot open: %s", inFile );
+      errmsg(SEV_FATAL, 0, fnam, c1err, BLANK_STRING );
+      fclose(fp);  return ERROR;
+    }
+
+  printf(" READ  %s", inFile );
+  fflush(stdout);
+
+  // ---------------------------------------
+  // start parsing
+  
+  epoch   = 0;  // epoch * filters
+  NEWMJD  = 0;  // just new MJDs
+  EPMIN = EPMAX = NFILT_DEF = MINFILT_DEF = NFILT_NEWMJD = 0 ;
+
+  while( fscanf(fp,"%s", c_get ) != EOF ) {
+
+
+    if ( strcmp(c_get,"SDSS-SN:")==0 ) {
+      readint ( fp, 1, &cid );  // read CID
+      SNDATA.CID = cid ;          
+      epoch   = 0;
+      NEWMJD  = 0;
+      printf(" (cid=%6d) " , cid );
+    }
+
+    if ( strcmp(c_get,"RA:")==0 && NEWMJD == 0 )
+      readdouble ( fp, 1, &SNDATA.RA ) ;
+
+    if ( strcmp(c_get,"DEC:")==0 && NEWMJD == 0)
+      readdouble ( fp, 1, &SNDATA.DEC ) ;
+
+    if ( strcmp(c_get,"FAKE:")==0 && NEWMJD == 0)
+      readint ( fp, 1, &SNDATA.FAKE ) ;
+
+    if ( strcmp(c_get,"MAGTYPE:")==0 && NEWMJD == 0)
+      readchar ( fp, SNDATA.MAGTYPE ) ;
+    if ( strcmp(c_get,"MAGREF:")==0 && NEWMJD == 0)
+      readchar ( fp, SNDATA.MAGREF ) ;
+
+    if ( strcmp(c_get,"FILTERS:")==0 && NEWMJD == 0) {
+      readchar ( fp, filtlist ) ;
+      NFILT_DEF = PARSE_FILTLIST(filtlist, SNDATA_FILTER.MAP );
+      MINFILT_DEF = SNDATA_FILTER.MAP[0] ;
+      SNDATA_FILTER.NDEF = NFILT_DEF ;
+    }
+
+    if ( strcmp(c_get,"SEARCH_TYPE:")==0 && NEWMJD == 0)
+      readint ( fp, 1, &SNDATA.SEARCH_TYPE ) ;
+    if ( strcmp(c_get,"SEARCH_PEAKMJD:")==0 && NEWMJD == 0)
+      readfloat ( fp, 1, &SNDATA.SEARCH_PEAKMJD ) ;
+
+    if ( strcmp(c_get,"REDSHIFT_FINAL:")==0 && NEWMJD == 0) {
+      read_redshift ( fp, &SNDATA.REDSHIFT_FINAL, 
+		      &SNDATA.REDSHIFT_FINAL_ERR ) ;
+
+      /* xxxxx mark delete Jan 5 2018 xxxxxxxx
+      fluxmax = snfluxmax(SNDATA.REDSHIFT_FINAL);	 
+      if ( fluxmax < 5000. ) fluxmax = 5000. ;
+
+      fluxerrmax = 0.1*fluxmax ;
+      if ( fluxerrmax < 3000. ) fluxerrmax = 3000. ;
+      xxxxxx */
+    }
+        
+    if ( strcmp(c_get,"MWEBV:") == 0 && NEWMJD == 0 )
+      { readfloat ( fp, 1, &SNDATA.MWEBV ) ; }
+
+    if ( strcmp(c_get,"NEPOCH_PRESN:") == 0  &&  NEWMJD == 0 ) {
+      iptr = &SNDATA.NPRESN[MINFILT_DEF] ;
+      readint ( fp, NFILT_DEF, iptr );
+    }
+
+    // ----
+    if ( strcmp(c_get,"HOSTGAL_SB_FLUX:") == 0  &&  NEWMJD == 0 ) {
+      fptr = &SNDATA.HOSTGAL_SB_FLUX[MINFILT_DEF] ;
+      readfloat ( fp, NFILT_DEF, fptr );
+      SNDATA.HOSTGAL_USEMASK |= 4 ;
+    }
+    if ( strcmp(c_get,"HOSTGAL_SB_FLUXCAL:") == 0  &&  NEWMJD == 0 ) {
+      fptr = &SNDATA.HOSTGAL_SB_FLUX[MINFILT_DEF] ;
+      readfloat ( fp, NFILT_DEF, fptr );
+      SNDATA.HOSTGAL_USEMASK |= 4 ;
+    }
+    if ( strcmp(c_get,"HOSTGAL_SB_FLUXERR:") == 0  &&  NEWMJD == 0 ) {
+      fptr = &SNDATA.HOSTGAL_SB_FLUXERR[MINFILT_DEF] ;
+      readfloat ( fp, NFILT_DEF, fptr );
+      SNDATA.HOSTGAL_USEMASK |= 8 ;
+    }
+    if ( strcmp(c_get,"HOSTGAL_SB_FLUXCAL_ERR:") == 0  &&  NEWMJD == 0 ) {
+      fptr = &SNDATA.HOSTGAL_SB_FLUXERR[MINFILT_DEF] ;
+      readfloat ( fp, NFILT_DEF, fptr );
+      SNDATA.HOSTGAL_USEMASK |= 8 ;
+    }
+
+
+    // check for sim stuff (only if fake > 0 )
+    if ( SNDATA.FAKE > 0 ) {
+
+      if ( strcmp(c_get,"SIM_COMMENT:")==0 ) 
+	{ readchar ( fp, SNDATA.SIM_COMMENT ) ; }
+
+      if ( strcmp(c_get,"SIM_REDSHIFT_HELIO:")==0 ) 
+	{ readfloat ( fp, 1, &SNDATA.SIM_REDSHIFT_HELIO ) ; }
+
+      if ( strcmp(c_get,"SIM_REDSHIFT_CMB:")==0 ) 
+	{ readfloat ( fp, 1, &SNDATA.SIM_REDSHIFT_CMB ) ; }
+
+      if ( strcmp(c_get,"SIM_REDSHIFT_HOST:")==0 ) 
+	{ readfloat ( fp, 1, &SNDATA.SIM_REDSHIFT_HOST ) ; }
+
+      if ( strcmp(c_get,"SIM_REDSHIFT_FLAG:")==0 ) 
+	{ readint ( fp, 1, &SNDATA.SIM_REDSHIFT_FLAG ) ; }
+
+      if ( strcmp(c_get,"SIM_VPEC:")==0 ) 
+	{ readfloat ( fp, 1, &SNDATA.SIM_VPEC ) ; }
+
+      if ( strcmp(c_get,"SIM_DLMU:")==0 ) 
+	{ readfloat ( fp, 1, &SNDATA.SIM_DLMU ) ; }
+
+      if ( strcmp(c_get,"SIM_LENSDMU:")==0 ) 
+	{ readfloat ( fp, 1, &SNDATA.SIM_LENSDMU ) ; }
+
+      if ( strcmp(c_get,"SIM_RA:")==0 ) 
+	readfloat ( fp, 1, &SNDATA.SIM_RA ) ;
+      if ( strcmp(c_get,"SIM_DEC:")==0 ) 
+	readfloat ( fp, 1, &SNDATA.SIM_DEC ) ;
+      if ( strcmp(c_get,"SIM_PEAKMJD:")==0 ) 
+	readfloat ( fp, 1, &SNDATA.SIM_PEAKMJD ) ;
+
+      if ( strcmp(c_get,"SIM_MWEBV:")==0 ) 
+	{ readfloat ( fp, 1, &SNDATA.SIM_MWEBV ) ; }
+
+      if ( strcmp(c_get,"SIMOPT_MWCOLORLAW:")==0 ) 
+	{ readint ( fp, 1, &SNDATA.SIMOPT_MWCOLORLAW ) ; }
+      if ( strcmp(c_get,"SIMOPT_MWEBV:")==0 ) 
+	{ readint ( fp, 1, &SNDATA.SIMOPT_MWEBV ) ; }
+
+      if ( strcmp(c_get,"SIM_AVTAU:")==0 ) 
+	{ readfloat ( fp, 1, &SNDATA.SIM_AVTAU ) ; }
+      if ( strcmp(c_get,"SIM_AV:")==0 ) 
+	{ readfloat ( fp, 1, &SNDATA.SIM_AV ) ; }
+      if ( strcmp(c_get,"SIM_RV:")==0 ) 
+	{ readfloat ( fp, 1, &SNDATA.SIM_RV ) ; }
+
+      if ( strcmp(c_get,"SIM_GALFRAC:") == 0 ) {
+	fptr = &SNDATA.SIM_GALFRAC[MINFILT_DEF] ;
+	readfloat ( fp, NFILT_DEF, fptr );
+      }
+
+      if ( strcmp(c_get,"SIM_PEAKMAG:")==0 ) {
+	fptr = &SNDATA.SIM_PEAKMAG[MINFILT_DEF] ;
+	readfloat ( fp, NFILT_DEF, fptr );
+      }
+
+      if ( strcmp(c_get,"SIM_EXPOSURE:")==0 ) {
+	fptr = &SNDATA.SIM_EXPOSURE_TIME[MINFILT_DEF] ;
+	readfloat ( fp, NFILT_DEF, fptr ); 
+      }
+
+      if ( strcmp(c_get,"SIM_STRETCH:")==0 ) 
+	readfloat ( fp, 1, &SNDATA.SIM_STRETCH ) ;
+      if ( strcmp(c_get,"SIM_DELTA:")==0 ) 
+	readfloat ( fp, 1, &SNDATA.SIM_DELTA ) ;
+      if ( strcmp(c_get,"SIM_DM15:")==0 ) 
+	readfloat ( fp, 1, &SNDATA.SIM_DM15 ) ;
+
+      if ( strcmp(c_get,"SIM_NON1a:")==0 ) 
+	readint ( fp, 1, &SNDATA.SIM_TEMPLATE_INDEX ) ;
+      if ( strcmp(c_get,"SIM_NONIa:")==0 )     // Mar 2013
+	readint ( fp, 1, &SNDATA.SIM_TEMPLATE_INDEX ) ;
+      if ( strcmp(c_get,"SIM_NONIA:")==0 )    // Mar 2013
+	readint ( fp, 1, &SNDATA.SIM_TEMPLATE_INDEX ) ;
+      if ( strcmp(c_get,"SIM_TEMPLATE_INDEX:")==0 )    // 7.31.2018
+	readint ( fp, 1, &SNDATA.SIM_TEMPLATE_INDEX ) ;
+
+    }  // end of fake > 0 if-block
+
+
+	// get global epoch info
+
+    if ( strcmp(c_get,"EPOCH:")==0 ) {
+      //	  readint ( fp, 1, &NEWMJD );  // read EPOCH number
+
+
+	  // increment epoch instead of reading it ...
+	  // we may have to exclude some epochs so use local index
+
+      EPMIN = epoch + 1; 
+      NEWMJD++ ;
+      NFILT_NEWMJD = 0;
+      if ( NEWMJD >= MXEPOCH ) {
+	sprintf(c1err,"MEWMJD %d  exceeds MXEPOCH=%d", NEWMJD, MXEPOCH );
+	sprintf(c2err,"Check file: %s", inFile);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+      }
+      
+      SNDATA.NEWMJD         = NEWMJD;
+      SNDATA.EPOCH_RANGE_NEWMJD[NEWMJD][0] = EPMIN;
+
+    }
+
+    /* xxxxxxxx mark delete Jan 23 2018 xxxxxxxxxxxxx
+    if ( strcmp(c_get,"TELESCOPE:")==0 ) {
+      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"TELESCOPE:");
+      readchar ( fp, SNDATA.TELESCOPE[EPMIN] ) ;
+      SNDATA.IDTEL[EPMIN] = IDTELESCOPE( SNDATA.TELESCOPE[EPMIN] ) ;
+    }
+    xxxxxxxxxxxxxxxxxxx */
+
+
+    if ( strcmp(c_get,"SEARCH_RUN:")==0 ) {
+      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"SEARCH_RUN:");
+      readint ( fp, 1, &SNDATA.SEARCH_RUN[EPMIN] ) ;
+    }
+
+    if ( strcmp(c_get,"TEMPLATE_RUN:")==0 ) {
+      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"TEMPLATE_RUN:");
+      readint ( fp, 1, &SNDATA.TEMPLATE_RUN[EPMIN] ) ;
+    }
+    if ( strcmp(c_get,"QMASK:")==0 ) {
+      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"QMASK:");
+      readint ( fp, 1, &SNDATA.QMASK[EPMIN] ) ;
+    }
+
+
+    if ( strcmp(c_get,"MJD:")==0 ) {
+      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"MJD:");
+      readdouble ( fp, 1, &SNDATA.MJD[EPMIN] ) ;
+    }
+
+    /* xxxxxxxxxxxxxxxxx mark delete xxxxxxxxxx
+    if ( strcmp(c_get,"COLUMN:")==0 ) {  // obsolete legacy name for SDSS
+      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"COLUMN:");
+      readint ( fp, 1, &SNDATA.IDCCD[EPMIN] ) ;
+    }
+
+    if ( strcmp(c_get,"IDCCD:")==0 ) {
+      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"COLUMN:");
+      readint ( fp, 1, &SNDATA.IDCCD[EPMIN] ) ;
+    }
+    xxxxxxxxxx end delete xxxxxxxxxxxx */
+
+    if ( strcmp(c_get,"STRIPE:")==0 ) {  // obsolete legacy name for SDSS
+      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"STRIPE:");
+      readchar ( fp, SNDATA.FIELDNAME[EPMIN] ) ;
+    }
+    if ( strcmp(c_get,"FIELD:")==0 ) {
+      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"STRIPE:");
+      readchar ( fp, SNDATA.FIELDNAME[EPMIN] ) ;
+    }
+
+
+    /* xxxxxxxxx mark delete June 24 2019 xxxxxxxxxxx
+    if ( strcmp(c_get,"CLOUDCAM_SIG:")==0 ) {
+      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"CLOUDCAM_SIG:");
+      readfloat ( fp, 1, &SNDATA.CLOUDCAM_SIG[EPMIN] ) ;
+    }
+    if ( strcmp(c_get,"CLOUDCAM_AVG:")==0 ) {
+      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"CLOUDCAM_AVG:");
+      readfloat ( fp, 1, &SNDATA.CLOUDCAM_AVG[EPMIN] ) ;
+    }
+
+
+    if ( strcmp(c_get,"MOONPHASE:")==0 ) {
+      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"MOONPHASE:");
+      readfloat ( fp, 1, &SNDATA.MOONPHASE[EPMIN] ) ;
+    }
+    if ( strcmp(c_get,"MOONDIST:")==0 ) {
+      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"MOONDIST:");
+      readfloat ( fp, 1, &SNDATA.MOONDIST[EPMIN] ) ;
+    }
+
+    if ( strcmp(c_get,"AIRMASS:")==0 ) {
+      if ( NEWMJD == 0 ) parse_err(inFile,NEWMJD,"AIRMASS:");
+      readfloat ( fp, 1, &SNDATA.AIRMASS[EPMIN] ) ;
+    }
+    xxxxxxxxxxxxxxxxxxxxx */
+
+    // ------------------------------------
+    // FILTER-DEPENDENT information
+
+
+    if ( strcmp(c_get,"PASSBAND:")==0  || strcmp(c_get,"BAND")==0 ) {
+
+      if ( fgets(line_passband, 60, fp) == NULL ) { continue; }
+
+      //      printf("\n\n  LINE_PASSBAND = '%s' \n", line_passband);
+
+      ptrtok = strtok(line_passband," ") ; // split string
+
+      // skip blank spaces (NULL) and new-line (10)
+
+      while ( ptrtok != NULL && ptrtok[0] != 10 ) {
+	sprintf(c_filt, "%c", ptrtok[0] );
+
+	NTMP = PARSE_FILTLIST(c_filt, ifilt_tmp );
+
+	//   printf("  FOUND filter %s = %d \n", c_filt, ifilt_tmp[0] );
+	epoch++;	EPMAX = epoch ;
+	NFILT_NEWMJD++ ;
+	SNDATA.FILTINDX[epoch] = ifilt_tmp[0];
+	SNDATA.NEPOCH          = epoch ;
+
+	SNDATA.IDTEL[epoch]       =  SNDATA.IDTEL[EPMIN] ;
+	SNDATA.MJD[epoch]         =  SNDATA.MJD[EPMIN] ;
+	// xxx mark delete   SNDATA.IDCCD[epoch]  =  SNDATA.IDCCD[EPMIN] ;
+
+	ptrtok = strtok(NULL, " ");
+      }
+
+      SNDATA.EPOCH_RANGE_NEWMJD[NEWMJD][1] = EPMAX ;
+
+    }
+
+
+    // now read filter-band info using 'rd_filtband' utility.
+
+    if ( strcmp(c_get,"SEARCH_FIELD:")==0 ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"SEARCH_FIELD:");
+      iptr = &SNDATA.SEARCH_FIELD[EPMIN] ;
+      readint ( fp, NFILT_NEWMJD, iptr );
+    }
+
+    if ( strcmp(c_get,"TEMPLATE_FIELD:")==0 ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"TEMPLATE_FIELD:");
+      iptr = &SNDATA.TEMPLATE_FIELD[EPMIN];
+      readint ( fp, NFILT_NEWMJD, iptr );      
+    }
+
+    if ( strcmp(c_get,"PHOTOMETRYFLAG:")==0 ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"PHOTOMETRYFLAG:");
+      iptr = &SNDATA.PHOTFLAG[EPMIN];
+      readint ( fp, NFILT_NEWMJD, iptr );      
+    }
+
+
+    if ( strcmp(c_get,"GAIN:")==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"GAIN:");
+      fptr = &SNDATA.GAIN[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );      
+    }
+
+    if ( strcmp(c_get,"RDNOISE:")==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"RDNOISE:");
+      fptr = &SNDATA.READNOISE[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+    }
+
+    if ( strcmp(c_get,"XPIXEL:")==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"XPIXEL:");
+      fptr = &SNDATA.XPIX[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+    }
+    if ( strcmp(c_get,"YPIXEL:")==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"YPIXEL:");
+      fptr = &SNDATA.YPIX[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+    }
+
+
+	// conditions
+    if ( strcmp(c_get,"SKY_SIG:")==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"SKY_SIG:");
+      fptr = &SNDATA.SKY_SIG[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+    }
+
+
+    if ( strcmp(c_get,"PSF_SIG1:")==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"PSF_SIG1:");
+      fptr = &SNDATA.PSF_SIG1[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+    }
+
+    if ( strcmp(c_get,"PSF_SIG2:")==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"PSF_SIG2:");
+      fptr = &SNDATA.PSF_SIG2[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+    }
+
+    if ( strcmp(c_get,"PSF_RATIO:")==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,"PSF_RATIO:");
+      fptr = &SNDATA.PSF_RATIO[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+    }
+
+
+
+
+
+    /* xxxxxxxxxxx mark delete Jun 24 2019 xxxxxxxxxxxx
+    // read fluxes
+    sprintf(varname,"FLUX:");
+    if ( strcmp(c_get,varname)==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
+      fptr = &SNDATA.FLUX[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+      checkval_F(varname, NFILT_NEWMJD, fptr, -1.0E5, fluxmax );
+      readchar(fp, FLUXUNIT );  // Oct 6, 2008
+    }
+    sprintf(varname,"FLUX_ERRTOT:");
+    if ( strcmp(c_get,varname)==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
+      fptr = &SNDATA.FLUX_ERRTOT[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, fluxerrmax );
+    }
+
+    xxxxxxxxxxxxxx */
+
+    // read CALIBRATED fluxes
+
+    sprintf(varname,"FLUXCAL:");
+    if ( strcmp(c_get,varname)==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
+      fptr = &SNDATA.FLUXCAL[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+      checkval_F(varname, NFILT_NEWMJD, fptr, -1.0E4, fluxmax );
+    }
+
+
+
+    sprintf(varname,"%s","FLUXCAL_ERRTOT:");
+    if ( strcmp(c_get,varname)==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
+      fptr = &SNDATA.FLUXCAL_ERRTOT[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, fluxerrmax );
+    }
+
+
+	// read magnitudes
+
+    sprintf(varname,"%s", "MAG:" );
+    if ( strcmp(c_get,varname)==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
+      fptr = &SNDATA.MAG[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+      checkval_F(varname, NFILT_NEWMJD, fptr, -20.0, 1.0E4 );
+    }
+    sprintf(varname,"MAG_ERRPLUS:");
+    if ( strcmp(c_get,varname)==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
+      fptr = &SNDATA.MAG_ERRPLUS[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, 2.0E2 );
+    }
+
+    sprintf(varname,"MAG_ERRMINUS:");
+    if ( strcmp(c_get,varname)==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
+      fptr = &SNDATA.MAG_ERRMINUS[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, 2.0E2 );
+    }
+
+
+	// read zero points
+
+    sprintf(varname,"ZEROPT:");
+    if ( strcmp(c_get,varname)==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
+      fptr = &SNDATA.ZEROPT[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, 50.0 );
+    }
+
+    sprintf(varname,"ZEROPT_ERR:");
+    if ( strcmp(c_get,varname)==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
+      fptr = &SNDATA.ZEROPT_ERR[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, 20.0 );
+    }
+
+    sprintf(varname,"ZEROPT_SIG:");
+    if ( strcmp(c_get,varname)==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
+      fptr = &SNDATA.ZEROPT_SIG[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, 20.0 );
+    }
+
+
+    sprintf(varname,"SKYSUB_ERR:");
+    if ( strcmp(c_get,varname)==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
+      fptr = &SNDATA.SKYSUB_ERR[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, 100000.0 );
+    }
+
+    sprintf(varname,"GALSUB_ERR:");
+    if ( strcmp(c_get,varname)==0  ) {
+      if ( NFILT_NEWMJD == 0 ) parse_err(inFile,NEWMJD,varname);
+      fptr = &SNDATA.GALSUB_ERR[EPMIN];
+      readfloat ( fp, NFILT_NEWMJD, fptr );
+      checkval_F(varname, NFILT_NEWMJD, fptr, -10.0, 50000.0 );
+    }
+
+	// check for sim stuff (only if fake > 0 )
+	if ( SNDATA.FAKE > 0 ) {
+
+	  if ( strcmp(c_get,"SIM_MAG:")==0 ) 
+	    readfloat ( fp, 1, &SNDATA.SIMEPOCH_MAG[EPMIN] ) ;
+
+	  if ( strcmp(c_get,"SIM_MAGSMEAR:")==0 ) 
+	    readfloat ( fp, 1, &SNDATA.SIMEPOCH_MAGSMEAR[EPMIN] ) ;
+
+	  if ( strcmp(c_get,"SIM_TREST:")==0 ) 
+	    readfloat ( fp, 1, &SNDATA.SIMEPOCH_TREST[EPMIN] ) ;
+
+	  if ( strcmp(c_get,"SIM_TOBS:")==0 ) 
+	    readfloat ( fp, 1, &SNDATA.SIMEPOCH_TOBS[EPMIN] ) ;
+
+	  if ( strcmp(c_get,"SIM_WARPCOL_SYMBOL:")==0 ) {
+	    for ( eptmp=EPMIN; eptmp <= EPMAX; eptmp++ )
+	      readchar(fp,SNDATA.SIMEPOCH_WARPCOLNAM[eptmp] );
+	  }
+
+	  if ( strcmp(c_get,"SIM_WARPCOL_VALUE:")==0 ) {
+	    fptr = &SNDATA.SIMEPOCH_WARPCOLVAL[EPMIN];
+	    readfloat ( fp, NFILT_NEWMJD, fptr );
+	  }
+
+	  if ( strcmp(c_get,"SIM_KCOR_SYMBOL:")==0 ) {
+	    for ( eptmp=EPMIN; eptmp <= EPMAX; eptmp++ )
+	      readchar(fp,SNDATA.SIMEPOCH_KCORNAM[eptmp]  );
+	  }
+
+	  if ( strcmp(c_get,"SIM_KCOR_VALUE:")==0 ) {
+	    fptr = &SNDATA.SIMEPOCH_KCORVAL[EPMIN];
+	    readfloat ( fp, NFILT_NEWMJD, fptr );
+	  }
+
+	  if ( strcmp(c_get,"SIM_AVWARP:")==0 ) {
+	    fptr = &SNDATA.SIMEPOCH_AVWARP[EPMIN];
+	    readfloat ( fp, NFILT_NEWMJD, fptr );
+	  }
+
+	}
+
+  }  // end of c_get fscan loop
+
+
+
+  printf("  Done. \n");
+
+  fclose(fp);
+
+  return SUCCESS;
+
+}  // end of rd_SNDATA
+
+
+
+// *************************************************************
+void read_redshift(FILE *fp, float *redshift, float *redshift_err ) {
+  // read redshift and error separated by "+-"
+  char cdum[10];
+  // --------------- BEGIN ----------
+  readfloat(fp, 1, redshift );
+  readchar(fp, cdum);                  // read "+-" symbol
+  readfloat(fp, 1, redshift_err );
+}
+
 
 
 // **********************************************

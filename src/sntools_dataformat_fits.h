@@ -43,6 +43,10 @@
 #define ITYPE_SNFITSIO_SPECTMP   3  // temp flux table
 #define MXTYPE_SNFITSIO          4
 
+#define OPTMASK_SNFITSIO_HEAD    2  // matches snana.car
+#define OPTMASK_SNFITSIO_PHOT    4
+#define OPTMASK_SNFITSIO_SPEC    8
+
 #define MXFILE_SNFITSIO     300  // max number of fits-files to read
 #define MXPAR_SNFITSIO      400  // max number of header variables
 
@@ -57,7 +61,7 @@ char  snfitsFile[MXFILE_SNFITSIO][MXTYPE_SNFITSIO][MXPATHLEN];
 char  snfitsFile_plusPath[MXFILE_SNFITSIO][MXTYPE_SNFITSIO][MXPATHLEN]; 
 
 int   SNFITSIO_CODE_IVERSION  ; // internal: for back-compatibility
-char  SNFITSIO_SNANA_VERSION[12]   ; // e.g, v10_79b (Oct 2020)
+// xxx char  SNFITSIO_SNANA_VERSION[12]   ; // e.g, v10_79b (Oct 2020)
 
 char  SNFITSIO_DATA_PATH[MXPATHLEN];
 char  SNFITSIO_PHOT_VERSION[MXPATHLEN];
@@ -87,12 +91,11 @@ bool  SNFITSIO_SIMFLAG_MODELPAR    ;   // model params for SIMSED, LCLIB
 bool  SNFITSIO_SIMFLAG_NBR_LIST    ;   // HOSTLIB has NBR_LIST (Feb 2020)
 bool  SNFITSIO_COMPACT_FLAG ;    // Jan 2018
 
-char SNFITSIO_VARNAME_SNRMON[40] ;    // includes int mag value in name
-
 int  SNFITSIO_SUBSURVEY_FLAG ;  // indicates subSurvey column
 int  SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
-char SNFITSIO_DATATYPE[20] ;
 
+// xxx char SNFITSIO_VARNAME_SNRMON[40] ;    // includes int mag value in name
+// xxx mark delete char SNFITSIO_DATATYPE[20] ;
 
 struct TABLEDEF {
   // name of each header paramater (SNID, REDSHIFT, etc ...)
@@ -178,6 +181,12 @@ int NEP_RDMASK_SNFITSIO_PARVAL ;
 int RDMASK_SNFITSIO_PARVAL[MXEPOCH] ;
 
 
+// define indices to speed up param lookup
+int SNFITSIO_READINDX_HEAD[MXPAR_SNFITSIO];
+int SNFITSIO_READINDX_PHOT[MXPAR_SNFITSIO];
+int SNFITSIO_READINDX_SPEC[MXPAR_SNFITSIO];
+
+
 // define RDSPEC structures to read back SPEC info (April 2019) 
 struct {
   int     NLAMBIN;
@@ -227,6 +236,8 @@ int  IPARFORM_SNFITSIO(int OPT, int iform, char *parName, int itype);
 // Now the readback routines
 int   RD_SNFITSIO_INIT(int MSKOPT, char *PATH, char *version);
 int   RD_SNFITSIO_GLOBAL(char *parName, char *parString);
+int   RD_SNFITSIO_EVENT(int OPT, int isn); // read/store event (Feb 2021)
+
 void  RD_SNFITSIO_CLOSE(char *version);
 void  GET_SNFITSIO_INFO(char *VERSION, char *FILENAME_HEAD, 
 			char *FILENAME_PHOT, int *IFILE );
@@ -267,6 +278,7 @@ void SET_RDMASK_SNFITSIO(int N, int *mask) ;
 
 int  rd_snfitsio_init__(int *MSKOPT, char *PATH,  char *version) ;
 int  rd_snfitsio_global__(char *parName, char *parString) ;
+int  rd_snfitsio_event__(int *OPT, int *isn);
 void rd_snfitsio_close__(char *version) ;
 
 void get_snfitsio_info__(char *VERSION, char *FILENAME_HEAD, 

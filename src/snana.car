@@ -54,6 +54,8 @@ c parameters used by snana code
      &  ,OPT_SNXT_CCM89, OPT_SNXT_SJPAR
      &  ,OPT_MWCOLORLAW_DEFAULT, OPT_MWEBV_DEFAULT
      &  ,OPT_KCORERR_SJ, OPT_KCORERR_SJ5, OPT_KCORERR_SMOOTH
+     &  ,OPTMASK_SNDATA_GLOBAL, OPTMASK_SNDATA_HEAD, OPTMASK_SNDATA_PHOT
+     &  ,OPTMASK_SNDATA_SPEC, OPTMASK_SNDATA_DUMP
      &  ,MXLINE_ARGS, MXKEY_ARGS, MXEPOCH_IGNORE
      &  ,NPAR_ANYLC, MXPAR_SIMSED, MXPAR_LCLIB
      &  ,MXLAMBIN_SNSED, MXCUTBIT
@@ -221,6 +223,12 @@ c
      &  ,OPT_KCORERR_SMOOTH = 1 ! use smooth half-Gaussian 
      &  ,OPT_KCORERR_SJ     = 2   ! use Saurabh's Kcor error 
      &  ,OPT_KCORERR_SJ5    = 5  ! x5 Saurabh's Kcor error 
+c
+     &  ,OPTMASK_SNDATA_GLOBAL =  1
+     &  ,OPTMASK_SNDATA_HEAD   =  2
+     &  ,OPTMASK_SNDATA_PHOT   =  4
+     &  ,OPTMASK_SNDATA_SPEC   =  8
+     &  ,OPTMASK_SNDATA_DUMP   = 32
 c
      &  ,RV_MWCOLORLAW_DEFAULT  = 3.1   ! A_V/E(B-V)
      &  ,OPT_MWCOLORLAW_DEFAULT = 94    ! ODonnel 94
@@ -462,6 +470,7 @@ c
      &  ,DOFUDGE_FLUXERRMODEL  ! T => FLUXERRMODEL_FILE
      &  ,ISCORRECT_SIGN_VPEC   ! T => data has correct VPEC sign (10/2020)
      &  ,DOFIX_WRONG_SIGN_VPEC ! T => flip VPEC sign
+     &  ,REFAC_READ_DATA       ! temp: true of OPT_DEBUG=21
 
       CHARACTER
      &    SNANA_VERSION*12
@@ -576,7 +585,7 @@ c global survey info
      &    ,JTIME_START, JTIME_LOOPSTART, JTIME_LOOPEND
      &    ,NCALL_SNANA_DRIVER, NPASSCUT_INCREMENT, NPASSCUT_FIT
      &    ,N_SNLC_PLOT, MADE_LCPLOT
-     &    ,EXIT_ERRCODE
+     &    ,EXIT_ERRCODE, REFAC_READ_DATA
 
 c logical *1 stuff
 
@@ -2437,7 +2446,7 @@ c for remap
      &   ,IFILT_Y, IFILT_J, IFILT_H, IFILT_K
 c
      &   ,NFILTDEF_SURVEY,        NFILTDEF_REST, NFILTDEF_READ
-     &   ,FREEZE_SURVEY_FILTERS
+     &   ,FREEZE_SURVEY_FILTERS 
      &   ,EXIST_BXFILT_OBS,       EXIST_BXFILT_REST
      &   ,IFILTDEF_MAP_SURVEY,    IFILTDEF_MAP_REST
      &   ,IFILTDEF_INVMAP_SURVEY, IFILTDEF_INVMAP_REST
@@ -3937,7 +3946,9 @@ c check option to save bad epochs for OPT_REFORMAT
 c - - - - -
       IF ( SIMLIB_OUT .NE. '' ) SIMLIB_OUTFILE = SIMLIB_OUT
 
-     
+c Feb 2021: temp refactor flag for reading FITS formatted data
+      REFAC_READ_DATA = ( OPT_DEBUG == 21 )
+
 c ---------------------------
 c if ENV is in path, make substitution
       CALL ENVreplace(PRIVATE_DATA_PATH) 
@@ -6075,8 +6086,16 @@ c Jan 12 2021: check option to fix sign VPEC for older data
          print*,' '
          print*,'    *** ALERT: VPEC sign will be flipped *** '
          print*,' '
-         CALL FLUSH(6)
       endif
+
+      if ( RESTORE_WRONG_VPEC ) then
+         print*,' '
+         print*,'    *** ALERT: use wrong VPEC formula *** '
+         print*,' '
+      endif
+
+         CALL FLUSH(6)
+
       RETURN
       END  ! end PROCSNNML
 
@@ -11456,7 +11475,8 @@ c relies on a random distribution of SNIDs that end with
 c 1-NJOBTOT.
 c
 c
-c July 13 2017: check MXLC_FIT
+c Jul 13 2017: check MXLC_FIT
+c Feb 07 2021: begin refactor to use SNDATA structure
 c ----------------------------------------
 
       IMPLICIT NONE
@@ -11475,6 +11495,7 @@ c local args
      &   OPT, LEN_VERS, LEN_PATH, JPAR, ISTAT
      &  ,IROW, NROW, NJOBTOT, IJOB
 
+      LOGICAL   LEGACY_RDFITS
       CHARACTER VERSION*(MXCHAR_VERSION), PATH*(MXCHAR_PATH)
 
 c functions
@@ -11513,7 +11534,11 @@ c  any selection on type, redshift, etc ...
 c get global survey info
 
       IF ( LFLAG_RDHEAD_ONLY .or. IVERS .GT. 1 ) THEN
-         CALL RDSURVEY_FITS(IERR)
+         IF ( REFAC_READ_DATA  ) THEN 
+            CALL RDGLOBAL_DRIVER(IERR)
+         ELSE
+            CALL RDGLOBAL_FITS_LEGACY(IERR)
+         ENDIF
          CALL INIT_SURVEY(IERR)
       ENDIF
 
@@ -11561,8 +11586,552 @@ c stop reading if/when all CIDs are processed
       END   ! end of RDVERSION_FITS
 
 C ===========================================
-+DECK,RDSURVEY_FITS.
-      SUBROUTINE RDSURVEY_FITS(IERR)
++DECK,RDGLOBAL.
+      SUBROUTINE RDGLOBAL_DRIVER(IERR)
+
+c Created Feb 2021
+c Refactor to use SNDATA struct; same for FITS and TEXT format.
+c Read global variables: SURVEY, FILTERS, etc ...
+
+      IMPLICIT NONE
+      INTEGER   IERR    ! (O) 0=> OK,  else error
+
+c local var
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FILTCOM.
++CDE,FITSCOM.
++CDE,SPECCOM.
+
+      REAL*8    DARRAY(MXEPOCH)
+      INTEGER   OPT
+      CHARACTER KEY*60, STRING*40, DATATYPE*12
+
+      LOGICAL   correct_sign_vpec_data
+      EXTERNAL  correct_sign_vpec_data
+C ------------------ BEGIN -------------
+      
+      IERR = 0
+      OPT  = OPTMASK_SNDATA_GLOBAL
+     &     + OPTMASK_SNDATA_DUMP
+
+      global_banner =
+     &   "RDGLOBAL: FETCH GLOBAL SURVEY INFO from HEADER"
+      CALL PRBANNER(global_banner(1:60) )
+
+      CALL FETCH_SNDATA_WRAPPER("SNANA_VERSION", 
+     &     ONE, SNANA_VERSION_DATA, DARRAY, OPT)
+      ISCORRECT_SIGN_VPEC = 
+     &      correct_sign_vpec_data(SNANA_VERSION//char(0))
+      print*,'      xxx ISCORRECT_SIGN_VPEC = ', ISCORRECT_SIGN_VPEC
+
+
+      CALL FETCH_SNDATA_WRAPPER("SURVEY", 
+     &     ONE, SURVEY_NAME, DARRAY, OPT)
+
+c  SUBSURVEY_FLAG ?? .xyz
+c      CALL FETCH_SNDATA_WRAPPER("SUBSURVEY", 
+c     &     ONE, SUBSURVEY_NAME, DARRAY, OPT)
+
+      
+      IF ( .NOT. FREEZE_SURVEY_FILTERS ) THEN
+         CALL FETCH_SNDATA_WRAPPER("FILTERS", 
+     &        ONE, SURVEY_FILTERS, DARRAY, OPT)
+      ENDIF
+
+      CALL FETCH_SNDATA_WRAPPER("DATATYPE", 
+     &     ONE, DATATYPE, DARRAY, OPT)
+
+      ! set global logical based on DATATYPE
+      IF ( DATATYPE(1:4) .EQ. 'DATA' ) THEN
+         ! do nothing
+      ELSE IF ( DATATYPE(1:9)  .EQ. 'SIM_SNANA' ) THEN
+         LSIM_SNANA = .TRUE.
+      ELSE IF ( DATATYPE(1:10) .EQ. 'SIM_MAGOBS' ) THEN
+         LSIM_MAGOBS = .TRUE.
+      ELSE
+        C1err = 'Unrecognized DATATYPE = ' // DATATYPE
+        C2err = 'Check DATATYPE key in FITS header.'
+        CALL MADABORT("RDGLOBAL", c1err, c2err )
+      ENDIF
+
+      CALL RDGLOBAL_PRIVATE(OPT)
+
+      IF ( LSIM_SNANA ) THEN
+         CALL FETCH_SNDATA_WRAPPER("SIMLIB_FILE", 
+     &        ONE, SIMLIB_FILENAME, DARRAY, OPT)
+
+         CALL FETCH_SNDATA_WRAPPER("SIMLIB_MSKOPT", 
+     &        ONE, STRING, DARRAY, OPT)
+         SIMLIB_MSKOPT = int(DARRAY(1))
+
+         CALL FETCH_SNDATA_WRAPPER("SIMOPT_MWCOLORLAW", 
+     &        ONE, STRING, DARRAY, OPT)
+         SIMOPT_MWCOLORLAW = int(DARRAY(1))
+
+         CALL FETCH_SNDATA_WRAPPER("SIMOPT_MWEBV", 
+     &        ONE, STRING, DARRAY, OPT)
+         SIMOPT_MWEBV = int(DARRAY(1))
+
+         CALL FETCH_SNDATA_WRAPPER("SIM_MWRV", 
+     &        ONE, STRING, DARRAY, OPT)
+         SIM_MWRV = DARRAY(1)
+
+         CALL FETCH_SNDATA_WRAPPER("SIM_VARNAME_SNRMON",
+     &        ONE, SIMNAME_SNRMON, DARRAY, OPT)
+
+         CALL RDGLOBAL_SIMSED(OPT)
+
+         CALL FETCH_SNDATA_WRAPPER("PySEDMODEL", 
+     &       ONE, STRING, DARRAY, OPT)
+         CALL RDGLOBAL_PySEDMODEL(OPT,STRING)
+
+         CALL RDGLOBAL_LCLIB(OPT)
+
+         CALL RDGLOBAL_SIM_HOSTLIB(OPT)
+
+      ENDIF  ! end LSIM_SNANA block
+
+
+      RETURN
+      END  ! end RDGLOBAL_DRIVER
+
+
+C =======================================
++DECK,FETCH_SNDATA_WRAPPER.
+      SUBROUTINE FETCH_SNDATA_WRAPPER(KEY, NARG, STRINGVAL, DVAL, OPT)
+
+c Created Feb 7 2021
+c Fortran wrapper to call C function fetch_SNDATA
+c Note that NARG must  be 1 for string; NARG can be >1 for DVALs
+
+      IMPLICIT NONE
+
++CDE,SNPAR.
+
+c function args
+      CHARACTER KEY*(*)       ! (I) key name 
+      INTEGER   NARG          ! (I) number of args to return 
+      CHARACTER STRINGVAL*(*) ! (O) string value for key
+      REAL*8    DVAL(*)       ! (O) double value(s) for key
+      INTEGER   OPT           ! (I) options: 1-> dump
+c local args
+      INTEGER   LEN_KEY, LEN_STR
+      LOGICAL   L_GLOBAL, L_HEAD, L_PHOT, L_DUMP
+      CHARACTER cKEY*60, cSTRING*400, c1err*80, c2err*80
+      EXTERNAL  FETCH_SNDATA_GLOBAL, FETCH_SNDATA_HEAD
+      EXTERNAL  FETCH_SNDATA_PHOT
+
+c ------------ BEGIN ----------
+
+      L_GLOBAL = ( IAND(OPT,OPTMASK_SNDATA_GLOBAL) > 0 ) 
+
+      L_HEAD   = ( IAND(OPT,OPTMASK_SNDATA_HEAD) > 0 ) 
+      L_PHOT   = ( IAND(OPT,OPTMASK_SNDATA_PHOT) > 0 ) 
+      L_DUMP   = ( IAND(OPT,OPTMASK_SNDATA_DUMP) > 0 ) 
+
+      LEN_KEY = INDEX(KEY//' ',' ') - 1
+      cKEY    = KEY(1:LEN_KEY) // char(0)
+
+      IF ( L_GLOBAL ) THEN
+         CALL fetch_SNDATA_GLOBAL(cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+      ELSE IF ( L_HEAD ) THEN
+         CALL fetch_SNDATA_HEAD(cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+      ELSE IF ( L_PHOT ) THEN
+         CALL fetch_SNDATA_PHOT(cKEY, NARG, 
+     &        cSTRING, DVAL, LEN_KEY, LEN_STR)
+      ELSE
+         write(C1ERR, '("Invalid OPT=",I6)' ) OPT
+         C2ERR = 'KEY = ' // KEY
+         CALL MADABORT("FETCH_SNDATA_WRAPPER", C1ERR, C2ERR)         
+      ENDIF   
+cc      print*,' xxx FETCH_WRAP: ',cKEY, cSTRING
+
+
+      LEN_STR = INDEX(cSTRING,char(0)) - 1
+      STRINGVAL = cSTRING(1:LEN_STR)
+
+      if ( L_DUMP ) then
+         write(6,66) KEY(1:LEN_KEY), STRINGVAL(1:LEN_STR), DVAL(1)
+ 66      format(' xxx FETCH_SNDATA: ', A,' = |', A, '|', 5x, G10.4 )
+      endif
+
+
+      RETURN
+      END     ! end FETCH_SNDATA_WRAPPER.
+
+
+C =================================
++DECK,RDGLOB_PRIVATE.
+      SUBROUTINE RDGLOBAL_PRIVATE(OPT)
+
+c Refactored Feb 2021 to use SNDATA struct in sndata.h.
+c  (previous name was RDPRIVATE_FITS)
+c Read/parse names of PRIVATE keys from header if NVAR_PRIVATE > 0
+c
+      IMPLICIT NONE
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,PRIVCOM.
+
+      INTEGER   OPT  ! (I)  1 -> dump fetch
+      INTEGER   IVAR
+      REAL*8    DARRAY(MXVAR_PRIVATE)
+      CHARACTER DUMSTRING*10, cnum*2, KEYNAME*20, KEYWORD*80
+
+C -------------- BEGIN ---------------
+
+      CALL FETCH_SNDATA_WRAPPER("NVAR_PRIVATE", 
+     &     ONE, DUMSTRING, DARRAY, OPT)
+      NVAR_PRIVATE = int(DARRAY(1))
+
+      IF ( NVAR_PRIVATE .LE. 0 ) RETURN
+
+      IF( NVAR_PRIVATE > MXVAR_PRIVATE ) THEN
+         write(C1ERR,61) NVAR_PRIVATE, MXVAR_PRIVATE 
+ 61      format('NVAR_PRIVATE=',I4,' exceeds MXVAR_PRIVATE=',I4 )
+         C2ERR = 'Check XXX_HEAD.FITS file'
+         CALL MADABORT("RDPRIVATE_FITS_LEGACY", C1ERR, C2ERR)
+      ENDIF
+c ----------------------------------------------
+
+      DO 100 ivar = 1, NVAR_PRIVATE
+
+        if ( ivar < 10 ) then
+           write(cnum, '(I1)') ivar
+        else
+           write(cnum, '(I2)') ivar
+        endif
+
+        KEYNAME = "PRIVATE" // CNUM
+        CALL FETCH_SNDATA_WRAPPER(KEYNAME, 
+     &     ONE, KEYWORD, DARRAY, OPTMASK_SNDATA_GLOBAL )    
+        
+        PRIVATE_KEYWORD(ivar) = KEYWORD    ! load common block
+        CALL PARSE_PRIVATE_KEYWORD(KEYWORD,ivar)
+
+100   CONTINUE
+
+      CALL FLUSH(6)
+
+      RETURN
+      END  ! end of RDGLOBAL_PRIVATE
+
+C =======================================
++DECK,RDGLOB_SIMSED.
+      SUBROUTINE RDGLOBAL_SIMSED(OPT)
+
+c Refactored Feb 2021 (previous name: RDFITSHEAD_SIMSED_LEGACY)
+c Read/parse SIMSED keys from header if NPAR_SIMSED exists.
+c
+
+      IMPLICIT NONE
+      INTEGER OPT   ! (I) 1 -> dump 
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
++CDE,FITSCOM. 
+      INTEGER   ipar, ipar_read, LENWD, IPAR_OFF
+      REAL*8    DARRAY(MXPAR_SIMSED)
+      CHARACTER DUM*20, KEYNAME*40, KEYWORD*80, c2*2, PARNAME*60
+
+C -------------- BEGIN ---------------
+
+      CALL FETCH_SNDATA_WRAPPER("SIMSED_NPAR", ONE, DUM, DARRAY, OPT)
+      NPAR_SIMSED = int(DARRAY(1))
+
+      IF ( NPAR_SIMSED .LE. 0 ) RETURN
+
+c ----------------------------------------------
+c SIMSED before Dec 2018 had SIMSED_PAR01  to SIMSED_PAR[NN].
+c After refactor, it is SIMSED_PAR00 to N-1.
+c For back compatibility, check for SIMSED_PAR00/
+
+      CALL FETCH_SNDATA_WRAPPER("SIMSED_PAR00", 
+     &     ONE, KEYNAME, DARRAY, OPT)
+
+      IF ( INDEX(KEYNAME,' ') > 2 ) THEN
+         IPAR_OFF = 0  ! 0 to N-1 for SIMSED index after Dec 2018
+      ELSE
+         IPAR_OFF = 1  ! 1-N before Dec 2018 (e.g., PLASTICC)
+      ENDIF     
+
+      DO 100 ipar = 1, NPAR_SIMSED
+        ipar_read = ipar + IPAR_OFF - 1   ! C-like index
+        write(c2, '(I2.2)' ) ipar_read
+        KEYNAME = "SIMSED_PAR" // C2 // char(0)
+        CALL FETCH_SNDATA_WRAPPER(KEYNAME, ONE, KEYWORD, DARRAY, OPT)
+       
+        LENWD = INDEX(KEYWORD,' ') - 1
+        CALL PARSE_PARENTHESES(KEYWORD(1:LENWD), PARNAME)
+        SIMSED_KEYWORD(IPAR) = KEYWORD(1:LENWD) ! key(varname)
+        SIMSED_PARNAME(IPAR) = PARNAME(1:20)    ! extracted varname
+
+100   CONTINUE
+
+
+      CALL FLUSH(6)
+
+      RETURN
+      END  ! end of RDGLOBAL_SIMSED
+
+C =======================================
++DECK,RDGLOB_PySEDMODEL.
+      SUBROUTINE RDGLOBAL_PySEDMODEL(OPT,MODEL_NAME)
+
+c Created Dec 10 2018
+c Refactored Feb 2021 to use SNDATA struct.
+c
+c Read/parse PySEDMODEL keys from header if NPAR_[BYOSED,SNEMO] exists.
+
+      IMPLICIT NONE
+
+      INTEGER   OPT            ! (I) 1 -> dump
+      CHARACTER MODEL_NAME*(*) ! (I) e.g., 'BYOSED', 'SNEMO'
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER   ipar, LENM, LENVAL, NPAR_LOCAL
+      CHARACTER KEYNAME*80, KEYVAL*80, c2*2, PARNAME*60
+      LOGICAL   LDMP, LVALID
+      REAL*8    DARRAY(4)
+
+C -------------- BEGIN ---------------
+
+      LENM   = INDEX(MODEL_NAME,' ') - 1
+      LVALID = .FALSE.
+      IF ( MODEL_NAME(1:6) .EQ. 'BYOSED' ) LVALID = .TRUE.
+      IF ( MODEL_NAME(1:5) .EQ. 'SNEMO'  ) LVALID = .TRUE.
+
+c      print*,'    xxx MODEL_NAME, LVALID = ', 
+c     &      MODEL_NAME(1:LENM), LVALID
+
+      if ( .not. LVALID ) RETURN
+
+      KEYNAME   = MODEL_NAME(1:LENM) // "_NPAR" 
+      CALL FETCH_SNDATA_WRAPPER(KEYNAME, ONE, KEYVAL, DARRAY, OPT)
+
+      LDMP = .FALSE.
+      IF ( LDMP ) THEN
+         print*,' xxx -------------------------------------- '
+         print*,' xxx **** DUMP RDFITSHEAD_PySEDMODEL ***** '
+         print*,' xxx MODEL_NAME = ', MODEL_NAME
+         print*,' xxx KEYNAME    = ', KEYNAME(1:40)
+         print*,' xxx KEYVAL     = ', KEYVAL(1:40)
+      ENDIF
+
+      NPAR_LOCAL = int(DARRAY(1))
+      IF ( NPAR_LOCAL .LE. 0 ) RETURN
+
+c ----------------------------------------------
+c load global NPAR and MODEL_NAME
+      NPAR_PySEDMODEL = NPAR_LOCAL
+      PySEDMODEL_NAME = MODEL_NAME(1:LENM)
+
+      DO 100 ipar = 1, NPAR_PySEDMODEL
+        write(c2, '(I2.2)') ipar-1
+        KEYNAME = MODEL_NAME(1:LENM) // "_PAR" // C2
+
+        CALL FETCH_SNDATA_WRAPPER(KEYNAME, ONE, KEYVAL, DARRAY, OPT)
+
+        LENVAL  = INDEX(KEYVAL,' ') - 1
+
+        CALL PARSE_PARENTHESES(KEYVAL(1:LENVAL), PARNAME)
+        PySEDMODEL_KEYWORD(IPAR) = KEYVAL(1:LENVAL) ! key(varname)
+        PySEDMODEL_PARNAME(IPAR) = PARNAME(1:20)  ! extracted varname
+
+100   CONTINUE
+
+      CALL FLUSH(6)
+
+      RETURN
+      END  ! end of RDGLOBAL_PySEDMODEL
+
+C =======================================
++DECK,RDGLOB_LCLIB.
+      SUBROUTINE RDGLOBAL_LCLIB(OPT)
+
+c Feb 2018
+c Read/parse LCLIB keys from header if NPAR_LCLIB exists.
+c
+
+      IMPLICIT NONE
+
+      INTEGER  OPT  ! (I) 
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER   ipar, LENVAL
+      REAL*8    DARRAY(4)
+      CHARACTER KEYNAME*80, KEYVAL*80, c2*2, PARNAME*60
+
+C -------------- BEGIN ---------------
+
+      CALL FETCH_SNDATA_WRAPPER("LCLIB_NPAR",
+     &       ONE, KEYVAL, DARRAY, OPT)
+
+      NPAR_LCLIB = INT(DARRAY(1))
+      IF ( NPAR_LCLIB .LE. 0 ) RETURN
+
+c ----------------------------------------------
+
+      DO 100 ipar = 1, NPAR_LCLIB
+        write(c2, '(I2.2)') ipar-1
+        KEYNAME = "LCLIB_PAR" // C2 
+        CALL FETCH_SNDATA_WRAPPER(KEYNAME,
+     &       ONE, KEYVAL, DARRAY, OPT)
+
+        LENVAL  = INDEX(KEYVAL,' ') - 1
+        CALL PARSE_PARENTHESES(KEYVAL(1:LENVAL), PARNAME)
+        LCLIB_KEYWORD(IPAR) = KEYVAL(1:LENVAL) ! key(varname)
+        LCLIB_PARNAME(IPAR) = PARNAME(1:20)  ! extracted varname
+
+100   CONTINUE
+      CALL FLUSH(6)
+      RETURN
+      END  ! end of RDGLOBAL_LCLIB
+
+C =======================================
++DECK,RDGLOBAL_HOSTLIB.
+      SUBROUTINE RDGLOBAL_SIM_HOSTLIB(OPT)
+
+c Created Feb 2021 [refactored from RDFITSHEAD_SIM_HOSTLIB]
+c Read/parse SIM_HOSTLIB keys from header if NPAR_SIM_HOSTLIB exists.
+c These are extra HOSTLIB params used in wgtmaps, etc ...
+
+      IMPLICIT NONE
+      
+      INTEGER OPT  ! (I)
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER   ipar, LENVAL
+      REAL*8    DARRAY(4)
+      CHARACTER KEYNAME*80, KEYVAL*80, c2*2, PARNAME*60
+
+C -------------- BEGIN ---------------
+
+      CALL FETCH_SNDATA_WRAPPER("SIM_HOSTLIB_NPAR",
+     &       ONE, KEYVAL, DARRAY, OPT)
+
+      NPAR_SIM_HOSTLIB = INT(DARRAY(1))
+      IF ( NPAR_SIM_HOSTLIB .LE. 0 ) RETURN
+c ----------------------------------------------
+
+      DO 100 ipar = 1, NPAR_SIM_HOSTLIB
+        write(c2, '(I2.2)' ) ipar-1  ! C like index
+        KEYNAME = "SIM_HOSTLIB_PAR" // C2 
+
+        CALL FETCH_SNDATA_WRAPPER(KEYNAME,
+     &       ONE, KEYVAL, DARRAY, OPT)
+
+        LENVAL = INDEX(KEYVAL,' ') - 1
+        CALL PARSE_PARENTHESES(KEYVAL(1:LENVAL), PARNAME)
+        SIM_HOSTLIB_KEYWORD(IPAR) = KEYVAL(1:LENVAL) ! key(varname)
+        SIM_HOSTLIB_PARNAME(IPAR) = PARNAME ! extracted varname
+
+100   CONTINUE
+      CALL FLUSH(6)
+      RETURN
+      END  ! end of RDGLOBAL_SIM_HOSTLIB
+
+
+C ===========================================
++DECK,RDHEAD_DRIVER.
+      SUBROUTINE RDHEAD_DRIVER(ISN,ISTAT)
+
+c Created Feb 2021 [refactored from PARSE_HEAD]
+c Read header info and apply some quick selection cuts.
+
+      IMPLICIT NONE
+
+      INTEGER ISN    ! (I) sparse SN index
+      INTEGER ISTAT  ! (O) < 0 -> reject event
+
++CDE,SNDATCOM.
++CDE,SNLCINP.
+
+      INTEGER OPT
+      REAL*8  DARRAY(10)
+      CHARACTER STRING*100
+
+c functions
+      INTEGER  GET_IDSURVEY
+      EXTERNAL RD_SNFITSIO_EVENT
+
+C -------------- BEGIN ------------
+
+      ISTAT = 0
+
+c read header for event and load SNDATA struct.
+      IF ( FORMAT_FITS ) THEN
+         CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_HEAD,ISN)
+      ELSE IF ( FORMAT_TEXT ) THEN
+         ! read text header??
+      ENDIF
+
+c - - - - -
+c fetch SNDATA values and load fortran globals
+
+      OPT = OPTMASK_SNDATA_HEAD 
+     &    + OPTMASK_SNDATA_DUMP
+
+      DARRAY(1) = -999.0
+      STRING    = ''
+
+      CALL FETCH_SNDATA_WRAPPER("SUBSURVEY", 
+     &     ONE, STRING, DARRAY, OPT)
+      IF ( INDEX(STRING,' ') > 2 ) THEN
+         SUBSURVEY_NAME = STRING
+         IDSUBSURVEY    = GET_IDSURVEY(SUBSURVEY_NAME)
+      ENDIF
+
+      CALL FETCH_SNDATA_WRAPPER("SNID", 
+     &     ONE, SNLC_CCID, DARRAY, OPT)
+      ISNLC_LENCCID = INDEX(SNLC_CCID,' ') - 1
+      call checkString_CCID(SNLC_CCID)   ! abort if illegal char in name
+
+      CALL FETCH_SNDATA_WRAPPER("IAUC", 
+     &     ONE, SNLC_IAUC, DARRAY, OPT)
+      ISNLC_LENCCID = INDEX(SNLC_CCID,' ') - 1
+      call checkString_CCID(SNLC_CCID)   ! abort if illegal char in name
+      ISNLC_LENIAUC = INDEX(SNLC_IAUC,' ') - 1
+      IF ( WRTABLEFILE_IAUC .and. ISNLC_LENIAUC > 0 ) THEN
+         SNLC_CCID      = SNLC_IAUC
+         ISNLC_LENCCID  = ISNLC_LENIAUC
+         call checkString_CCID(SNLC_CCID) ! abort if illegal char in name
+      ENDIF
+      
+cc       RDHEAD_REDSHIFT(OPT)     
+
+      CALL FETCH_SNDATA_WRAPPER("FAKE", 
+     &     ONE, STRING, DARRAY, OPT)
+      ISNLC_FAKE = INT(DARRAY(1))
+      if ( ISNLC_FAKE .EQ. 1 ) LSIM_MAGOBS = .TRUE. 
+      if ( ISNLC_FAKE .EQ. 2 ) LSIM_SNANA  = .TRUE.
+
+
+      CALL FETCH_SNDATA_WRAPPER("CCDNUM", 
+     &     ONE, STRING, DARRAY, OPT)
+      ISNLC_CCDNUM(1) = INT(DARRAY(1))
+
+c .xyz - - - - - 
+      
+      print*,' '
+      print*,' xxx DEBUG STOP xxx '
+      STOP   ! xxx REMOVE
+
+      RETURN
+      END
+
+C ===========================================
++DECK,RDGLOB_FITS_LEGACY.
+      SUBROUTINE RDGLOBAL_FITS_LEGACY(IERR)
 
 c Jun 2011
 c 
@@ -11601,7 +12170,7 @@ C ------------- BEGIN ------------
       IERR = 0
 
       global_banner =
-     &   "RDSURVEY_FITS: FETCH GLOBAL SURVEY INFO from HEADER"
+     &   "RDGLOBAL_FITS_LEGACY: FETCH GLOBAL SURVEY INFO from HEADER"
       CALL PRBANNER(global_banner(1:60) )
 
       KEYNAME   = "SURVEY" // char(0)
@@ -11672,11 +12241,11 @@ c -----------------------------------------
       ELSE
         C1err = 'Unrecognized DATATYPE = ' // DATATYPE
         C2err = 'Check DATATYPE key in FITS header.'
-        CALL MADABORT("RDSURVEY_FITS", c1err, c2err )
+        CALL MADABORT("RDGLOBAL_FITS_LEGACY", c1err, c2err )
       ENDIF
 
 c check optional private variables
-      CALL RDPRIVATE_FITS()
+      CALL RDPRIVATE_FITS_LEGACY()
 
       IF ( LSIM_SNANA ) THEN
 
@@ -11713,11 +12282,11 @@ c   be back-compatible with older snana versions (Dec 27 2015)
          LRET      = INDEX(KEYVAL,char(0)) - 1
          READ( KEYVAL(1:LRET), * ) SIM_NSUBSAMPLE_MARK
 
-         CALL RDFITSHEAD_SIMSED()      ! check for SIMSED model params
-         CALL RDFITSHEAD_PySEDMODEL('BYOSED') 
-         CALL RDFITSHEAD_PySEDMODEL('SNEMO') 
-         CALL RDFITSHEAD_LCLIB()       ! check for LCLIB model Feb 28 2018
-         CALL RDFITSHEAD_SIM_HOSTLIB()
+         CALL RDFITSHEAD_SIMSED_LEGACY()    ! check for SIMSED model params
+         CALL RDFITSHEAD_PySEDMODEL_LEGACY('BYOSED') 
+         CALL RDFITSHEAD_PySEDMODEL_LEGACY('SNEMO') 
+         CALL RDFITSHEAD_LCLIB_LEGACY()     ! check for LCLIB model Feb 28 2018
+         CALL RDFITSHEAD_SIM_HOSTLIB_LEGACY()
 
          KEYNAME   = "SIM_VARNAME_SNRMON" // char(0)
          ISTAT     = RD_SNFITSIO_GLOBAL ( KEYNAME, KEYVAL, 18, LRET )
@@ -11727,7 +12296,7 @@ c   be back-compatible with older snana versions (Dec 27 2015)
       ENDIF
 
       RETURN  
-      END    ! end RDSURVEY_FITS
+      END    ! end RDGLOBAL_FITS_LEGACY
 
 C ==========================================
 +DECK,RDSNFITS.
@@ -11776,7 +12345,12 @@ c turn off epoch selection-mask
 
       IPARFITS_HEAD = 0    ! Oct 3, 2011
 
-      CALL PARSE_HEAD(ISN, "", ISTAT)
+      IF ( REFAC_READ_DATA  ) THEN 
+         CALL RDHEAD_DRIVER(ISN,ISTAT)   ! refactored, Feb 2021
+      ELSE
+         CALL PARSE_HEAD(ISN, "", ISTAT)  ! legacy call
+      ENDIF
+
       if ( ISTAT .LT. 0 ) RETURN
 
       IF ( LSIM_SNANA ) THEN
@@ -11963,7 +12537,6 @@ c use above info to determine which epochs to keep/reject
       Z      = SNLC_REDSHIFT
       NEPCUT = 0
 
-c xxx mark delete      DO 99 ep = 1, NRD
       DO 99 ep = 1, NOBS
         MJD         = SNGL( SNLC8_MJD(ep) )
         IDFIELD     = ISNLC_IDFIELD(ep)
@@ -12072,13 +12645,6 @@ C --------------- BEGIN --------------
       JPAR = JPAR + 1
       NRD = RD_SNFITSIO_STR(IROW, KEYNAME, STRFITS, 
      &         INDXFITS_PHOT(JPAR), 3, LRET )
-+SELF,IF=XXXBAND.
-      IF ( NRD <= 0 ) THEN
-         KEYNAME  = "BAND" // char(0)
-         NRD = RD_SNFITSIO_STR(IROW, KEYNAME, STRFITS, 
-     &             INDXFITS_PHOT(JPAR), 3, LRET )
-      ENDIF
-+SELF.
       CALL CHECK_FITSABORT(IVERS,NRD,KEYNAME)
       LRET = INDEX( STRFITS, char(0) ) -1
       CALL UNPACK_SNFITSIO_STR(NRD, KEYNAME, STRFITS(1:LRET) )
@@ -13751,7 +14317,7 @@ c Apr 2013: better error messaging.
 
 C =======================================
 +DECK,RDFITSHEAD_SIMSED.
-      SUBROUTINE RDFITSHEAD_SIMSED
+      SUBROUTINE RDFITSHEAD_SIMSED_LEGACY
 
 c Dec 2011
 c Read/parse SIMSED keys from header if NPAR_SIMSED exists.
@@ -13815,11 +14381,11 @@ c xxxxxxxxxxxxx
       CALL FLUSH(6)
 
       RETURN
-      END  ! end of RDFITSHEAD_SIMSED
+      END  ! end of RDFITSHEAD_SIMSED_LEGACY
 
 C =======================================
 +DECK,RDFHEAD_PySEDMODEL.
-      SUBROUTINE RDFITSHEAD_PySEDMODEL(MODEL_NAME)
+      SUBROUTINE RDFITSHEAD_PySEDMODEL_LEGACY(MODEL_NAME)
 
 c Created Dec 10 2018
 c Read/parse PySEDMODEL keys from header if NPAR_[BYOSED,SNEMO] exists.
@@ -13882,12 +14448,12 @@ c load global NPAR and MODEL_NAME
       CALL FLUSH(6)
 
       RETURN
-      END  ! end of RDFITSHEAD_PySEDMODEL
+      END  ! end of RDFITSHEAD_PySEDMODEL_LEGACY
 
 
 C =======================================
 +DECK,RDFHEAD_LCLIB.
-      SUBROUTINE RDFITSHEAD_LCLIB
+      SUBROUTINE RDFITSHEAD_LCLIB_LEGACY
 
 c Feb 2018
 c Read/parse LCLIB keys from header if NPAR_LCLIB exists.
@@ -13932,12 +14498,12 @@ c ----------------------------------------------
       CALL FLUSH(6)
 
       RETURN
-      END  ! end of RDFITSHEAD_LCLIB
+      END  ! end of RDFITSHEAD_LCLIB_LEGACY
 
 
 C =======================================
 +DECK,RDFHEAD_SIM_HOSTLIB.
-      SUBROUTINE RDFITSHEAD_SIM_HOSTLIB
+      SUBROUTINE RDFITSHEAD_SIM_HOSTLIB_LEGACY
 
 c Feb 2014
 c Read/parse SIM_HOSTLIB keys from header if NPAR_SIM_HOSTLIB exists.
@@ -13983,7 +14549,7 @@ c ----------------------------------------------
       CALL FLUSH(6)
 
       RETURN
-      END  ! end of RDFITSHEAD_SIM_HOSTLIB
+      END  ! end of RDFITSHEAD_SIM_HOSTLIB_LEGACY
 
 
 C ==================================
@@ -14239,7 +14805,7 @@ c -------------- BEGIN ---------------
 
 C =================================
 +DECK,RDPRIVFITS.
-      SUBROUTINE RDPRIVATE_FITS
+      SUBROUTINE RDPRIVATE_FITS_LEGACY
 
 c Created Nov 2012
 c Read/parse names of PRIVATE keys from header if NVAR_PRIVATE > 0
@@ -14273,7 +14839,7 @@ C -------------- BEGIN ---------------
          write(C1ERR,61) NVAR_PRIVATE, MXVAR_PRIVATE 
  61      format('NVAR_PRIATE=',I4,' exceeds MXVAR_PRIVATE=',I4 )
          C2ERR = 'Check XXX_HEAD.FITS file'
-         CALL MADABORT("RDPRIVATE_FITS", C1ERR, C2ERR)
+         CALL MADABORT("RDPRIVATE_FITS_LEGACY", C1ERR, C2ERR)
       ENDIF
 c ----------------------------------------------
 
@@ -14304,7 +14870,7 @@ c ----------------------------------------------
       CALL FLUSH(6)
 
       RETURN
-      END  ! end of RDPRIVATE_FITS
+      END  ! end of RDPRIVATE_FITS_LEGACY
 
 C ====================================
 +DECK,PRS_TERSE.

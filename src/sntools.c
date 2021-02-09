@@ -3724,6 +3724,200 @@ double MAGLIMIT_calculator(double ZPT, double PSF, double SKYMAG, double SNR){
 } // end of SIMLIB_maglimit
 
 
+void fetch_SNDATA_GLOBAL(char *key, int NVAL, 
+			 char *stringVal, double *parVal ) {
+
+  // Created Feb 2021
+  // Based on input key, return global value in SNDATA struct.
+  // GLOBAL refers to params that do not depend on event.
+  //  (part of data-read refactor)
+  //
+  // Inputs:
+  //   *key  : name of variable to read from SNDATA struct
+  //   NVAL  : number of values to read
+  // 
+  // Output:
+  //    *stringVal  : string value if *key points to string
+  //    *parVal     : double value if *key points to double,float,int
+  //
+
+  bool ISKEY_PRIVATE = ( strstr(key,"PRIVATE")    != NULL ) ;
+  bool ISKEY_BYOSED  = ( strncmp(key,"BYOSED",6)  == 0 ) ;
+  bool ISKEY_SNEMO   = ( strncmp(key,"SNEMO",5)   == 0 ) ;
+  bool ISKEY_SIMSED  = ( strncmp(key,"SIMSED",6)  == 0 ) ;
+  bool ISKEY_LCLIB   = ( strncmp(key,"LCLIB",5)   == 0 ) ;
+  bool ISKEY_SIM     = ( strncmp(key,"SIM",3)     == 0 && !ISKEY_SIMSED) ;
+
+  int ivar, NVAR;
+  char fnam[] = "fetch_SNDATA_GLOBAL" ;
+
+  // --------------- BEGIN --------------
+
+  sprintf(stringVal,"NOTSET");
+  parVal[0] = -999.0;
+
+  if ( strcmp(key,"SNANA_VERSION") == 0 ) 
+    { sprintf(stringVal, "%s", SNDATA.SNANA_VERSION );  }
+
+  else if ( strcmp(key,"SURVEY") == 0 ) 
+    {  sprintf(stringVal, "%s", SNDATA.SURVEY_NAME );  }
+
+  else if ( strcmp(key,"SUBSURVEY") == 0 ) 
+    {  sprintf(stringVal, "%s", SNDATA.SUBSURVEY_NAME ) ;  }
+
+  else if ( strcmp(key,"FILTERS") == 0 ) 
+    { sprintf(stringVal, "%s", SNDATA_FILTER.LIST );  }
+
+  else if ( strcmp(key,"DATATYPE") == 0 ) 
+    { sprintf(stringVal, "%s", SNDATA.DATATYPE );  }
+
+  else if ( strcmp(key,"PySEDMODEL") == 0 ) 
+    { sprintf(stringVal, "%s", SNDATA.PySEDMODEL_NAME ) ; }
+
+  else if ( ISKEY_PRIVATE  ) {
+    if ( strcmp(key,"NVAR_PRIVATE") == 0 ) 
+      { parVal[0] = (double)SNDATA.NVAR_PRIVATE ; }
+    else {
+      sscanf(&key[7], "%d", &ivar);  // PRIVATEnn
+      sprintf(stringVal, "%s", SNDATA.PRIVATE_KEYWORD[ivar] );
+    }
+  }
+  else if ( ISKEY_SIMSED  ) {
+
+    if ( strcmp(key,"SIMSED_NPAR") == 0 ) 
+      { parVal[0] = (double)SNDATA.NPAR_SIMSED ; }
+    else {
+      sscanf(&key[10], "%d", &ivar);  // 'SIMSED_PARnn'
+      sprintf(stringVal, "%s", SNDATA.SIMSED_KEYWORD[ivar] );
+    }
+  }
+
+  else if ( ISKEY_LCLIB  ) {
+    if ( strcmp(key,"LCLIB_NPAR") == 0 ) 
+      { parVal[0] = (double)SNDATA.NPAR_LCLIB ; }
+    else {
+      sscanf(&key[9], "%d", &ivar); // LCLIB_PARnn
+      sprintf(stringVal, "%s", SNDATA.LCLIB_KEYWORD[ivar] );
+    }
+  }
+
+  else if ( ISKEY_BYOSED  ) {
+    if ( strcmp(key,"BYOSED_NPAR") == 0 ) 
+      { parVal[0] = (double)SNDATA.NPAR_PySEDMODEL ; }
+    else {
+      sscanf(&key[10], "%d", &ivar); // BYOSED_PARnn
+      sprintf(stringVal, "%s", SNDATA.PySEDMODEL_KEYWORD[ivar] );
+    }
+  }
+
+  else if ( ISKEY_SNEMO  ) {
+    if ( strcmp(key,"SNEMO_NPAR") == 0 ) 
+      { parVal[0] = (double)SNDATA.NPAR_PySEDMODEL ; }
+    else {
+      sscanf(&key[9], "%d", &ivar); // SNEMO_PARnn
+      sprintf(stringVal, "%s", SNDATA.PySEDMODEL_KEYWORD[ivar] );
+    }
+  }
+
+  else if ( ISKEY_SIM ) {
+    
+    if ( strcmp(key,"SIMLIB_FILE") == 0 ) 
+      { sprintf(stringVal, "%s", SNDATA.SIMLIB_FILE );  }
+
+    else if ( strcmp(key,"SIMLIB_MSKOPT") == 0 ) 
+      { parVal[0] = (double)SNDATA.SIMLIB_MSKOPT ; }
+
+    else if ( strcmp(key,"SIMOPT_MWCOLORLAW") == 0 ) 
+      { parVal[0] = (double)SNDATA.SIMOPT_MWCOLORLAW ; }
+
+    else if ( strcmp(key,"SIMOPT_MWEBV") == 0 ) 
+      { parVal[0] = (double)SNDATA.SIMOPT_MWEBV ; }
+
+    else if ( strcmp(key,"SIM_MWRV") == 0 ) 
+      { parVal[0] = (double)SNDATA.SIM_MWRV ; }
+
+    else if ( strcmp(key,"SIM_VARNAME_SNRMON") == 0 ) 
+      { sprintf(stringVal, "%s", SNDATA.VARNAME_SNRMON) ; }
+
+    else {
+      // error message
+      sprintf(c1err,"Unknown SIM key = %s", key);
+      sprintf(c2err,"stringVal='%s'  parVal=%f", stringVal, parVal[0] );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+  }
+  else {
+    // error message
+    sprintf(c1err,"Unknown key = %s", key);
+    sprintf(c2err,"stringVal='%s'  parVal=%f", stringVal, parVal[0] );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  return;
+
+} // end fetch_SNDATA_GLOBAL
+
+
+// = = = = = = = = = = = = = = = = = = = = = = = =
+
+void fetch_SNDATA_HEAD(char *key, int NVAL, 
+			 char *stringVal, double *parVal ) {
+
+  // Created Feb 2021:
+  // For input *key, search event header info in SNDATA struct
+  // and return stringVal or parVal.
+
+  char fnam[] = "fetch_SNDATA_HEAD" ;
+
+  // ------------- BEGIN ------------
+
+  sprintf(stringVal,"NOTSET");  parVal[0] = -999.0;
+
+  if ( strcmp(key,"SNID") == 0 ) 
+    { sprintf(stringVal, "%s", SNDATA.CCID );  }
+
+  else if ( strcmp(key,"IAUC") == 0 ) 
+    { sprintf(stringVal, "%s", SNDATA.IAUC_NAME );  }
+
+  else if ( strcmp(key,"SUBSURVEY") == 0 ) 
+    { sprintf(stringVal, "%s", SNDATA.SUBSURVEY_NAME );  }
+
+  else if ( strcmp(key,"FAKE") == 0 ) 
+    { parVal[0] = SNDATA.FAKE ;  }
+
+  else if ( strcmp(key,"CCDNUM") == 0 ) 
+    { parVal[0] = (double)SNDATA.CCDNUM[1] ;  }
+
+  else {
+    // error message
+    sprintf(c1err,"Unknown key = %s", key);
+    sprintf(c2err,"stringVal='%s'  parVal=%f", stringVal, parVal[0] );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+  }
+
+  //.xyz
+  return ;
+}  // end fetch_SNDATA_HEAD
+
+// = = = = = = = = = = = = = = = = = = = = = = = =
+void fetch_SNDATA_PHOT(char *key, int NVAL, 
+		       char *stringVal, double *parVal ) {
+
+  // Created Feb 2021:
+  // For input *key, search epoch/phot info in SNDATA struct
+  // and return stringVal or parVal.
+
+  char fnam[] = "fetch_SNDATA_PHOT" ;
+  // ------------- BEGIN ------------
+
+  sprintf(stringVal,"NOTSET");  parVal[0] = -999.0;
+
+  return ;
+
+} // end fetch_SNDATA_PHOT
+
+// ==========================================
 void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
 
   // Created May 2012
@@ -3776,7 +3970,6 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
 
   else if ( strcmp(key,"FILTERS") == 0 ) {  
     sprintf(SNDATA_FILTER.LIST, "%s", stringVal);  
-
     set_FILTERSTRING(FILTERSTRING);
     SNDATA_FILTER.NDEF = 
       PARSE_FILTLIST(SNDATA_FILTER.LIST, SNDATA_FILTER.MAP );
@@ -4144,8 +4337,20 @@ void set_SNDATA(char *key, int NVAL, char *stringVal, double *parVal ) {
 void set_sndata__(char *key, int *NVAL, char *stringVal, double *parVal ) 
 {  set_SNDATA(key, *NVAL, stringVal, parVal); }
 
-// ************************************************************
+void fetch_sndata_global__(char *key, int *NVAL, 
+			   char *stringVal, double *parVal ) 
+{  fetch_SNDATA_GLOBAL(key, *NVAL, stringVal, parVal); }
 
+void fetch_sndata_head__(char *key, int *NVAL, 
+			   char *stringVal, double *parVal ) 
+{  fetch_SNDATA_HEAD(key, *NVAL, stringVal, parVal); }
+
+void fetch_sndata_phot__(char *key, int *NVAL, 
+			   char *stringVal, double *parVal ) 
+{  fetch_SNDATA_PHOT(key, *NVAL, stringVal, parVal); }
+
+
+// ************************************************************
 double NoiseEquivAperture(double PSFSIG1, double PSFSIG2, 
 			  double PSFratio) {
 
@@ -7903,10 +8108,10 @@ int init_SNDATA(void) {
   char fnam[] = "init_SNDATA" ;
   // --------- BEGIN -----------------
 
-  
+  /*
   printf(" xxx %s: init SNDATA struct  (SIM_RA=%f)\n",  
 	 fnam, SNDATA.SIM_RA ); fflush(stdout);
- 
+  */
 
   //  SNDATA_FILTER.NDEF = 0;
 

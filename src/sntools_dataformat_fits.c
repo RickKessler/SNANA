@@ -92,7 +92,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
   SNFITSIO_SIMFLAG_MODELPAR     = false ;
   SNFITSIO_SIMFLAG_NBR_LIST     = false ; 
   SNFITSIO_COMPACT_FLAG         = false ; 
-  sprintf(SNFITSIO_VARNAME_SNRMON,"NONE");
+  // xxx mark delete  sprintf(SNFITSIO_VARNAME_SNRMON,"NONE");
 
   OVP = ( simFlag & WRITE_MASK_SIM_SNANA) ;
   if ( OVP > 0 )  {// full SNANA sim
@@ -109,7 +109,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int simFlag,
   OVP = ( simFlag & WRITE_MASK_SIM_SNRMON ) ;
   if ( OVP > 0 ) { 
     SNFITSIO_SIMFLAG_SNRMON = true ; 
-    sprintf(SNFITSIO_VARNAME_SNRMON, "SIM_SNRMAG%2.2d", 
+    sprintf(SNDATA.VARNAME_SNRMON, "SIM_SNRMAG%2.2d", 
 	    SNDATA.MAGMONITOR_SNR);
   }
 
@@ -277,7 +277,7 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E", parName, itype );
   }
   
-  // add HOSTGAL mag-errors (FEB 2019)
+  // add HOSTGAL mag-errors (Feb 2019)
   for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
     ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
     sprintf(parName,"HOSTGAL_MAGERR_%c", FILTERSTRING[ifilt_obs] );
@@ -606,7 +606,7 @@ void wr_snfitsio_init_phot(void) {
   }
 
   if ( SNFITSIO_SIMFLAG_SNRMON ) {
-    wr_snfitsio_addCol( "1E" ,SNFITSIO_VARNAME_SNRMON, itype ) ; // Mar 18 2018
+    wr_snfitsio_addCol( "1E" ,SNDATA.VARNAME_SNRMON, itype ) ; 
   }
 
   // create header table. 
@@ -1077,7 +1077,7 @@ void wr_snfitsio_create(int itype ) {
 
 
   // Mar 18 2018: write VARNAME_SNRMON
-  fits_update_key(fp, TSTRING, "SIM_VARNAME_SNRMON", SNFITSIO_VARNAME_SNRMON,
+  fits_update_key(fp, TSTRING, "SIM_VARNAME_SNRMON", SNDATA.VARNAME_SNRMON,
 		  "PHOT varName for SNR(MAGMONITOR)", &istat );  
 
   return ;
@@ -1301,8 +1301,7 @@ void wr_snfitsio_update_head(void) {
   wr_snfitsio_fillTable ( ptrColnum, "VPEC_ERR", itype );
 
   // ---------- HOST --------------
-  int igal, NHOSTGAL=1;  char PREFIX[20]="HOSTGAL";
-  // xxx mark delete  if( !SNFITSIO_SIMFLAG_SNANA ) { NHOSTGAL=MXHOSTGAL; }
+  int igal, NHOSTGAL=1;  char PREFIX[20]="HOSTGAL" ;
   if ( SNFITSIO_SIMFLAG_NBR_LIST ) { NHOSTGAL = MXHOSTGAL; }
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -2008,7 +2007,7 @@ void wr_snfitsio_update_phot(int ep) {
     LOC++ ; 
     ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMEPOCH_SNRMON[ep];
-    wr_snfitsio_fillTable ( ptrColnum,SNFITSIO_VARNAME_SNRMON, itype );
+    wr_snfitsio_fillTable ( ptrColnum, SNDATA.VARNAME_SNRMON, itype );
   }
 
   return ;
@@ -2412,6 +2411,14 @@ int RD_SNFITSIO_INIT(int MSKOPT, char *PATH, char *version) {
   }
 
 
+  // Feb 2021: init lookup indices for faster read
+  int i;
+  for(i=0; i < MXPAR_SNFITSIO; i++ ) { 
+    SNFITSIO_READINDX_HEAD[i] = -9 ;
+    SNFITSIO_READINDX_PHOT[i] = -9 ;
+    SNFITSIO_READINDX_SPEC[i] = -9 ;
+  }
+
   return(NSNLC_SNFITSIO_TOT) ;
 
 } // end of RD_SNFITSIO_INIT
@@ -2463,13 +2470,14 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
     sprintf(tmpString,"%s", snfitsFile[1][ITYPE_SNFITSIO_SPEC]);
   }
   else if ( strcmp(parName,"DATATYPE") == 0 ) {
-    sprintf(tmpString,"%s", SNFITSIO_DATATYPE );
+    sprintf(tmpString,"%s", SNDATA.DATATYPE );
   }
   else if ( strcmp(parName,"CODE_IVERSION") == 0 ) {
     sprintf(tmpString,"%d", SNFITSIO_CODE_IVERSION ); // Dec 26 2018
   }
   else if ( strcmp(parName,"SNANA_VERSION") == 0  ) {
-    sprintf(tmpString,"%s", SNFITSIO_SNANA_VERSION ); // Oct 26 2020
+    sprintf(tmpString,"%s", SNDATA.SNANA_VERSION ); // Feb 2021
+    // xxxx  mark delet  sprintf(tmpString,"%s", SNFITSIO_SNANA_VERSION );
   }
   else if ( strcmp(parName,"SIM_MODEL_NAME") == 0 ) {
     sprintf(tmpString,"%s", SNDATA.SIM_MODEL_NAME );
@@ -2523,7 +2531,7 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
     sprintf(tmpString,"%d", SNFITSIO_NSUBSAMPLE_MARK ); 
   }
   else if ( strcmp(parName,"SIM_VARNAME_SNRMON") == 0 ) {
-    sprintf(tmpString,"%s", SNFITSIO_VARNAME_SNRMON ); 
+    sprintf(tmpString,"%s", SNDATA.VARNAME_SNRMON ); 
   }
   else if ( strcmp(parName,"NPRIVATE") == 0 ) {
     sprintf(tmpString,"%d", SNDATA.NVAR_PRIVATE );
@@ -2603,9 +2611,240 @@ int RD_SNFITSIO_GLOBAL(char *parName, char *parString) {
 
 } // end of RD_SNFITSIO_GLOBAL
 
-int rd_snfitsio_global__(char *parName, char *parString) {
-  return RD_SNFITSIO_GLOBAL(parName,parString);
-}
+int rd_snfitsio_global__(char *parName, char *parString) 
+{ return RD_SNFITSIO_GLOBAL(parName,parString); }
+
+
+// ==================================================
+int RD_SNFITSIO_EVENT(int OPT, int isn) {
+
+  // Created Feb 7 2021
+  // Read/store entire event and store in SNDATA struct (sndata.h)
+  // OPT &  2 -> read header
+  // OPT &  4 -> read photometry/epochs
+  // OPT &  8 -> read spec
+  // OPT = 14 -> read all
+
+  
+
+  bool LRD_HEAD = ( OPT & OPTMASK_SNFITSIO_HEAD );
+  bool LRD_PHOT = ( OPT & OPTMASK_SNFITSIO_PHOT );
+  bool LRD_SPEC = ( OPT & OPTMASK_SNFITSIO_SPEC );
+  int  NFILT    = SNDATA_FILTER.NDEF;
+
+  int  j, NRD, igal, NGAL, ifilt, ifilt_obs ;
+  char PREFIX[20], KEY[40]; 
+  double D_OBJID;
+
+  char fnam[] = "RD_SNFITSIO_EVENT";
+
+  // ------------- BEGIN ------------
+
+  if ( LRD_HEAD ) {
+    j=0;
+
+    j++ ;  NRD = RD_SNFITSIO_STR(isn, "SUBSURVEY", SNDATA.SUBSURVEY_NAME, 
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_STR(isn, "SNID", SNDATA.CCID, 
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+    
+    j++ ;  NRD = RD_SNFITSIO_STR(isn, "IAUC", SNDATA.IAUC_NAME, 
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_INT(isn, "FAKE", &SNDATA.FAKE, 
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    if ( !SNFITSIO_SIMFLAG_SNANA ) {
+      j++ ;  NRD = RD_SNFITSIO_INT(isn, "MASK_FLUXCOR_SNANA", 
+				   &SNDATA.MASK_FLUXCOR, 
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+    }
+
+  
+    j++ ;  NRD = RD_SNFITSIO_DBL(isn, "RA", &SNDATA.RA, 
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_DBL(isn, "DEC", &SNDATA.DEC, 
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "PIXSIZE", &SNDATA.PIXSIZE,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_INT(isn, "NXPIX", &SNDATA.NXPIX,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_INT(isn, "NYPIX", &SNDATA.NYPIX,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_INT(isn, "CCDNUM", &SNDATA.CCDNUM[1], 
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_INT(isn, "SNTYPE", &SNDATA.SNTYPE,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_INT(isn, "NOBS", &SNDATA.NOBS,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "MWEBV", &SNDATA.MWEBV,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "MWEBV_ERR", &SNDATA.MWEBV_ERR,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    // ------- redshifts --------
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "REDSHIFT_HELIO", 
+				 &SNDATA.REDSHIFT_HELIO, 
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "REDSHIFT_HELIO_ERR", 
+				 &SNDATA.REDSHIFT_HELIO_ERR, 
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "REDSHIFT_FINAL",  // CMB 
+				 &SNDATA.REDSHIFT_FINAL, 
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "REDSHIFT_FINAL_ERR", 
+				 &SNDATA.REDSHIFT_FINAL_ERR, 
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    if ( SNFITSIO_DATAFLAG ) {
+      j++ ;  NRD = RD_SNFITSIO_INT(isn, "REDSHIFT_QUALITYFLAG", 
+				   &SNDATA.REDSHIFT_QUALITYFLAG, 
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+    }
+
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "VPEC", &SNDATA.VPEC,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "VPEC_ERR", &SNDATA.VPEC_ERR,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    // -------- HOST ---------
+
+    j++ ;  NRD = RD_SNFITSIO_INT(isn, "HOSTGAL_NMATCH", 
+				 &SNDATA.HOSTGAL_NMATCH[0],
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+    j++ ;  NRD = RD_SNFITSIO_INT(isn, "HOSTGAL_NMATCH2", 
+				 &SNDATA.HOSTGAL_NMATCH[1],
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+    
+    NGAL = MXHOSTGAL;
+    for ( igal=0; igal < NGAL; igal++ ) {
+      sprintf(PREFIX,"HOSTGAL");
+      if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d", igal+1); }
+
+      sprintf(KEY,"%s_OBJID", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_DBL(isn, KEY, &D_OBJID,
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+      SNDATA.HOSTGAL_OBJID[igal] = (long long)D_OBJID;
+
+       
+      sprintf(KEY,"%s_PHOTOZ", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_PHOTOZ[igal],
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY,"%s_PHOTOZ_ERR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_PHOTOZ_ERR[igal],
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      
+      sprintf(KEY,"%s_SPECZ", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_SPECZ[igal],
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+      sprintf(KEY,"%s_SPECZ_ERR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_SPECZ_ERR[igal],
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY,"%s_RA", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_DBL(isn, KEY, &SNDATA.HOSTGAL_RA[igal],
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY,"%s_DEC", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_DBL(isn, KEY, &SNDATA.HOSTGAL_DEC[igal],
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY,"%s_SNSEP", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_SNSEP[igal],
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY,"%s_DDLR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_DDLR[igal],
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY,"%s_LOGMASS", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGMASS_OBS[igal],
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY,"%s_LOGMASS_ERR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_LOGMASS_ERR[igal],
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY,"%s_sSFR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_sSFR[igal],
+				   &SNFITSIO_READINDX_HEAD[j] ) ;
+
+      sprintf(KEY,"%s_sSFR_ERR", PREFIX);
+      j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_sSFR_ERR[igal],
+				   &SNFITSIO_READINDX_HEAD[j] ) ;      
+
+      for(ifilt=0; ifilt < NFILT; ifilt++ ) {
+	ifilt_obs = 1; // xxx FIX THIS
+	sprintf(KEY,"%s_MAG_%c", PREFIX, FILTERSTRING[ifilt_obs] );
+	j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_MAG[igal][ifilt],
+				     &SNFITSIO_READINDX_HEAD[j] ) ;
+      }
+
+    } // end igal 
+
+    sprintf(KEY,"%s_CONFUSION", PREFIX);
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, KEY, &SNDATA.HOSTGAL_CONFUSION,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    //.xyz
+
+  } // end LRD_HEAD
+
+  // - - - - - - - -
+
+  if ( LRD_PHOT ) {
+    int ep0 = 1;
+    j=0;
+
+    j++ ;  NRD = RD_SNFITSIO_DBL(isn, "MJD", &SNDATA.MJD[ep0], 
+				 &SNFITSIO_READINDX_PHOT[j] ) ;
+
+    // band and field xxx ???
+
+    j++ ;  NRD = RD_SNFITSIO_INT(isn, "PHOTFLAG", &SNDATA.PHOTFLAG[ep0], 
+				 &SNFITSIO_READINDX_PHOT[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "PHOTPROB", &SNDATA.PHOTPROB[ep0], 
+				 &SNFITSIO_READINDX_PHOT[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn, "FLUXCAL", &SNDATA.FLUXCAL[ep0], 
+				 &SNFITSIO_READINDX_PHOT[j] ) ;
+
+    j++ ;  NRD = RD_SNFITSIO_FLT(isn,"FLUXCALERR",&SNDATA.FLUXCAL_ERRTOT[ep0], 
+				 &SNFITSIO_READINDX_PHOT[j] ) ;
+
+  } // end LRD_PHOT
+
+  // - - - - - - - - - - -
+
+  if ( LRD_SPEC ) {
+    j = 0;
+
+
+  } // end LRD_SPEC
+
+  return(SUCCESS);
+
+} // end RD_SNFITSIO_EVENT
+
+int rd_snfitsio_event__(int *OPT, int *isn )
+{ return RD_SNFITSIO_EVENT(*OPT,*isn); }
+
 
 // ===============================================
 void RD_SNFITSIO_CLOSE(char *version) {
@@ -2800,8 +3039,8 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // Jan 12 2021: if no SNANA_VERSION key, replace v10_30 with UNKNOWN
   sprintf(keyname, "%s", "SNANA_VERSION" );  
   fits_read_key(fp, TSTRING, keyname,
-		&SNFITSIO_SNANA_VERSION, comment, &istat);
-  if ( istat ) { sprintf(SNFITSIO_SNANA_VERSION,"UNKNOWN"); } 
+		&SNDATA.SNANA_VERSION, comment, &istat);
+  if ( istat ) { sprintf(SNDATA.SNANA_VERSION,"UNKNOWN"); } 
   istat = 0;  // reset in case SNANA_VERSION key does not exist.
 
   // - - - - - - - - - - -
@@ -2827,15 +3066,30 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   sprintf(c1err, "read %s key", keyname);
   snfitsio_errorCheck(c1err, istat); 
 
+  // restore SNDATA_FILTER struct
+  SNDATA_FILTER.NDEF = strlen(SNDATA_FILTER.LIST);
+  char cfilt[2];  int ifilt, ifilt_obs;
+  for(ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+    sprintf(cfilt, "%c", SNDATA_FILTER.LIST[ifilt] );
+    ifilt_obs = INTFILTER(cfilt);
+    SNDATA_FILTER.MAP[ifilt] = ifilt_obs ;
+    printf(" xxx %s: restore FILTER.MAP[%s,%d] = %d \n",
+	   fnam, cfilt, ifilt, ifilt_obs ); fflush(stdout);
+	   
+  }
 
   // read data type
   sprintf(keyname, "%s", "DATATYPE" );
   fits_read_key(fp, TSTRING, keyname, 
-		&SNFITSIO_DATATYPE, comment, &istat );
+		&SNDATA.DATATYPE, comment, &istat );
   sprintf(c1err, "read %s key", keyname);
   snfitsio_errorCheck(c1err, istat); 
 
-  
+  char *DTYPE = SNDATA.DATATYPE ;
+  SNFITSIO_DATAFLAG       = (strcmp(DTYPE, DATATYPE_DATA      ) == 0 );
+  SNFITSIO_SIMFLAG_SNANA  = (strcmp(DTYPE, DATATYPE_SIM_SNANA ) == 0 );
+  SNFITSIO_SIMFLAG_MAGOBS = (strcmp(DTYPE, DATATYPE_SIM_MAGOBS) == 0 );
+
   // read name of PHOTOMETRY file from HEADER file
   itype = ITYPE_SNFITSIO_PHOT ;  
   sprintf(keyname, "%s", "PHOTFILE" );
@@ -2867,12 +3121,9 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // check optional PRIVATE header keys.
   rd_snfitsio_private();
 
-  int LSIM = 0 ;
-  if ( strcmp(SNFITSIO_DATATYPE,"SIM_SNANA")  == 0 ) { LSIM = 1; }
-  if ( strcmp(SNFITSIO_DATATYPE,"SIMULATION") == 0 ) { LSIM = 1; }
 
 
-  if ( LSIM ) {
+  if ( SNFITSIO_SIMFLAG_SNANA ) {
 
     // read name of SIMLIB_FILE file
     // Legacy sims use "SIMLIB", so don't check for error.
@@ -3083,7 +3334,7 @@ void rd_snfitsio_simkeys(void) {
   // check  SIM_VARNAME_SNRMON
   istat = 0 ;
   sprintf(keyname,"SIM_VARNAME_SNRMON");
-  cptr = SNFITSIO_VARNAME_SNRMON ;
+  cptr = SNDATA.VARNAME_SNRMON ;
   fits_read_key(fp, TSTRING, keyname, cptr, comment, &istat );
 
   return ;
@@ -3975,7 +4226,7 @@ void SET_RDMASK_SNFITSIO(int NEP, int *mask) {
   if ( NEP == 0 ) { return ; }
 
   for ( ep=0; ep < NEP; ep++ ) {
-    JVAL = *(mask+ep);
+    JVAL = mask[ep];
 
     // make sure that each  mask value is 0 or 1
     if ( JVAL != 0 && JVAL != 1 ) {

@@ -41,6 +41,7 @@
 #include "sntools_fluxErrModels_legacy.h"
 #include "sntools_genSmear.h"
 #include "sntools_dataformat_fits.h"
+#include "sntools_dataformat_text.h"
 #include "sntools_kcor.h"
 #include "sntools_trigger.h" 
 #include "sntools_grid.h"
@@ -5316,6 +5317,7 @@ void prep_user_input(void) {
   if ( WRFLAG_COMPACT   ) { INPUTS.WRITE_MASK += WRITE_MASK_COMPACT ; }
   if ( INPUTS.MAGMONITOR_SNR) { 
     SNDATA.MAGMONITOR_SNR = INPUTS.MAGMONITOR_SNR ;
+    sprintf(SNDATA.VARNAME_SNRMON, "SIM_SNRMAG%2.2d", SNDATA.MAGMONITOR_SNR);
     INPUTS.WRITE_MASK    += WRITE_MASK_SIM_SNRMON;
   }
 
@@ -6882,6 +6884,9 @@ void init_DNDB_Rate(void) {
   i++; LINE_RATE_INFO[i][0] = 0 ;
 
   NLINE_RATE_INFO = i+1 ;
+
+  // load season count for INIT_ONLY=1 (Feb 2021)
+  INPUTS.RATEPAR.SEASON_COUNT = (double)INPUTS.NGENTOT_LC ;
 
   return;
 
@@ -19890,12 +19895,15 @@ void snlc_to_SNDATA(int FLAG) {
   // --------------- BEGIN -------------
 
   // always start with header info
-  SNDATA.SIMLIB_MSKOPT  = INPUTS.SIMLIB_MSKOPT ;
-  sprintf(SNDATA.SIMLIB_FILE,    "%s", INPUTS.SIMLIB_FILE );
 
-
+  
+  sprintf(SNDATA.SNANA_VERSION, "%s", SNANA_VERSION_CURRENT);
   sprintf(SNDATA.SURVEY_NAME,   "%s", SIMLIB_GLOBAL_HEADER.SURVEY_NAME );
   sprintf(SNDATA.SUBSURVEY_NAME,"%s", SIMLIB_HEADER.SUBSURVEY_NAME );  
+  sprintf(SNDATA.DATATYPE,      "%s", DATATYPE_SIM_SNANA);
+
+  SNDATA.SIMLIB_MSKOPT  = INPUTS.SIMLIB_MSKOPT ;
+  sprintf(SNDATA.SIMLIB_FILE,    "%s", INPUTS.SIMLIB_FILE );
 
   sprintf(SNDATA.HOSTLIB_FILE,   "%s", INPUTS.HOSTLIB_FILE );
   sprintf(SNDATA.SIM_MODEL_NAME, "%s", INPUTS.MODELNAME );

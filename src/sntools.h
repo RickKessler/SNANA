@@ -512,6 +512,10 @@ void set_FILTERSTRING(char *FILTERSTRING) ;
 void set_EXIT_ERRCODE(int ERRCODE); 
 void set_exit_errcode__(int *ERRCODE);
 
+void fetch_SNDATA_GLOBAL(char *key,int NVAL,char *stringVal, double *parVal);
+void fetch_SNDATA_HEAD(char *key,int NVAL,char *stringVal, double *parVal);
+void fetch_SNDATA_PHOT(char *key,int NVAL,char *stringVal, double *parVal);
+
 int  IGNOREFILE(char *fileName);
 int  ignorefile_(char *fileName);
 
@@ -849,6 +853,10 @@ void clear_1dindex__(int *ID);
 void init_1dindex__(int *ID, int *NDIM, int *NPT_PERDIM );
 int  get_1dindex__ (int *ID, int *NDIM, int *indx );
 void set_sndata__(char *key, int *NVAL, char *stringVal, double *parVal ) ;
+
+void fetch_sndata_global__(char *key,int *NVAL,char *stringVal,double *parVal);
+void fetch_sndata_head__(char *key,int *NVAL,char *stringVal,double *parVal);
+void fetch_sndata_phot__(char *key,int *NVAL,char *stringVal,double *parVal);
 
 // ------ sorting --------
 

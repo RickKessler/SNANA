@@ -3355,6 +3355,8 @@ void check_vpec_sign(void) {
   //
   // Misc task: if zhel < 0 (does not exist), set zhel = zcmb
   // to allow processing very old FITRES files.
+  //
+  // Feb 10 2021: fix nasty delcaration bug: rms[0] -> rms[2]
 
   double *zwin           = INPUTS.zwin_vpec_check ;
   double alpha           = INPUTS.parval[IPAR_ALPHA0] ;
@@ -3362,7 +3364,7 @@ void check_vpec_sign(void) {
   int    NSN_ALL         = INFO_DATA.TABLEVAR.NSN_ALL ;
 
   int isn, i, cutmask, NSN_SUM=0;
-  double SUM_MURES[2], SUM_SQMURES[2], mean[2], rms[0], sgn_flip ;
+  double SUM_MURES[2], SUM_SQMURES[2], mean[2], rms[2], sgn_flip ;
   double zHD, zCMB, zHD_tmp, vpec, zpec;
   double mB, x1, c, mumodel, mures, dl ;
   char fnam[] = "check_vpec_sign" ;
